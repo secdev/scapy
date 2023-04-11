@@ -47,8 +47,8 @@ changelog = "https://github.com/secdev/scapy/releases"
 scapy = "scapy.main:interact"
 
 [project.optional-dependencies]
-basic = [ "ipython" ]
-complete = [
+cli = [ "ipython" ]
+all = [
     "ipython",
     "pyx",
     "cryptography>=2.0",

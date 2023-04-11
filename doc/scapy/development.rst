@@ -300,10 +300,35 @@ publish the release::
 Release Candidates (RC) could also be done. For example, the first RC will be
 tagged v2.4.3rc1 and the message ``2.4.3 Release Candidate #1``.
 
-Prior to uploading the release to PyPi, the ``author_email`` in ``setup.py``
-must be changed to the address of the maintainer performing the release. The
-following commands can then be used::
+Prior to uploading the release to PyPi, the mail address of the maintainer
+performing the release must be added next to his name in ``pyproject.toml``.
+See `this <https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#authors-maintainers>`_ for details.
 
- python3 setup.py sdist
- twine check dist/scapy-2.4.3.tar.gz
- twine upload dist/scapy-2.4.3.tar.gz
+The following commands can then be used::
+
+ pip install --upgrade build
+ python -m build
+ twine check dist/*
+ twine upload dist/*
+
+.. warning::
+   Make sure that you don't have left-overs in your ``dist/`` folder ! There should only be the source and the wheel for the package.
+   Also check that the wheel ends in ``*-py3-none-any.whl`` !
+
+
+Packaging Scapy
+===============
+
+When packaging Scapy, you should build the source while setting the ``SCAPY_VERSION`` variable, in order to make sure that the version remains consistent.
+
+.. code:: bash
+
+   $ SCAPY_VERSION=2.5.0 python3 -m build
+   ...
+   Successfully built scapy-2.5.0.tar.gz and scapy-2.5.0-py3-none-any.whl
+
+If you want to test Scapy while packaging it, you are encouraged to use the ``./run_tests`` script with no arguments. It will run a subset of the tests that don't use any external dependency, and will be easier to test. The only dependency is ``tox``
+
+.. code:: bash
+
+   $ ./test/run_tests

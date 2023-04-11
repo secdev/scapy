@@ -7,7 +7,7 @@ Download and Installation
 Overview
 ========
 
- 0. Install `Python 2.7.X or 3.4+ <https://www.python.org/downloads/>`_.
+ 0. Install `Python 3.7+ <https://www.python.org/downloads/>`_.
  1. `Download and install Scapy. <#installing-scapy-v2-x>`_
  2. `Follow the platform-specific instructions (dependencies) <#platform-specific-instructions>`_.
  3. (Optional): `Install additional software for special features <#optional-software-for-special-features>`_.
@@ -18,26 +18,19 @@ Each of these steps can be done in a different way depending on your platform an
 Scapy versions
 ==============
 
-+---------------+----------------+------------+----------------+------------+------------+------------+------------------+
-| Scapy version | Python 2.2-2.6 | Python 2.7 | Python 3.4-3.6 | Python 3.7 | Python 3.8 | Python 3.9 | Python 3.10-3.11 |
-+===============+================+============+================+============+============+============+==================+
-| 2.3.3         |       ✅       |     ✅     |       ❌       |     ❌     |     ❌     |     ❌     |        ❌        |
-+---------------+----------------+------------+----------------+------------+------------+------------+------------------+
-| 2.4.0         |       ❌       |     ✅     |       ✅       |     ❌     |     ❌     |     ❌     |        ❌        |
-+---------------+----------------+------------+----------------+------------+------------+------------+------------------+
-| 2.4.2         |       ❌       |     ✅     |       ✅       |     ✅     |     ❌     |     ❌     |        ❌        |
-+---------------+----------------+------------+----------------+------------+------------+------------+------------------+
-| 2.4.3-2.4.4   |       ❌       |     ✅     |       ✅       |     ✅     |     ✅     |     ❌     |        ❌        |
-+---------------+----------------+------------+----------------+------------+------------+------------+------------------+
-| 2.4.5         |       ❌       |     ✅     |       ✅       |     ✅     |     ✅     |     ✅     |        ❌        |
-+---------------+----------------+------------+----------------+------------+------------+------------+------------------+
-| 2.5.0         |       ❌       |     ✅     |       ✅       |     ✅     |     ✅     |     ✅     |        ✅        |
-+---------------+----------------+------------+----------------+------------+------------+------------+------------------+
+.. note:: Scapy 2.5.0 was the last version to support Python 2.7 !
 
-.. note::
-
-   In Scapy v2 use ``from scapy.all import *`` instead of ``from scapy import *``.
-
++------------------+-------+-------+--------+
+| Scapy version    | 2.3.3 | 2.5.0 | >2.5.0 |
++==================+=======+=======+========+
+| Python 2.2-2.6   | ✅    | ❌    | ❌     |
++------------------+-------+-------+--------+
+| Python 2.7       | ✅    | ✅    | ❌     |
++------------------+-------+-------+--------+
+| Python 3.4-3.6   | ❌    | ✅    | ❌     |
++------------------+-------+-------+--------+
+| Python 3.7-3.11  | ❌    | ✅    | ✅     |
++------------------+-------+-------+--------+
 
 Installing Scapy v2.x
 =====================
@@ -61,19 +54,21 @@ Latest release
 
 Use pip::
 
-$ pip install --pre scapy[basic]
+$ pip install scapy
 
-In fact, since 2.4.3, Scapy comes in 3 bundles:
+..
+    !! COMMENTED UNTIL NEXT RELEASE !!
+    Scapy specifies ``optional-dependencies`` so that you can install its optional dependencies directly through pip:
 
-+----------+------------------------------------------+---------------------------------------+
-| Bundle   | Contains                                 | Pip command                           |
-+==========+==========================================+=======================================+
-| Default  | Only Scapy                               | ``pip install scapy``                 |
-+----------+------------------------------------------+---------------------------------------+
-| Basic    | Scapy & IPython. **Highly recommended**  | ``pip install --pre scapy[basic]``    |
-+----------+------------------------------------------+---------------------------------------+
-| Complete | Scapy & all its main dependencies        | ``pip install --pre scapy[complete]`` |
-+----------+------------------------------------------+---------------------------------------+
+    +----------+------------------------------------------+-----------------------------+
+    | Bundle   | Contains                                 | Pip command                 |
+    +==========+==========================================+=============================+
+    | Default  | Only Scapy                               | ``pip install scapy``       |
+    +----------+------------------------------------------+-----------------------------+
+    | CLI      | Scapy & IPython. **Highly recommended**  | ``pip install scapy[cli]``  |
+    +----------+------------------------------------------+-----------------------------+
+    | All      | Scapy & all its optional dependencies    | ``pip install scapy[all]``  |
+    +----------+------------------------------------------+-----------------------------+
 
  
 Current development version
@@ -82,34 +77,29 @@ Current development version
 .. index::
    single: Git, repository
 
-If you always want the latest version with all new features and bugfixes, use Scapy's Git repository:
+If you always want the latest version of Scapy with all new the features and bugfixes (but slightly less stable), you can install Scapy from its Git repository.
 
-1. `Install the Git version control system <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`_.
+.. note:: If you don't want to clone Scapy, you can install the development version in one line using::
 
-2. Check out a clone of Scapy's repository::
+    $ pip install https://github.com/secdev/scapy/archive/refs/heads/master.zip
+
+1. Check out a clone of Scapy's repository with `git <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`_::
 
    $ git clone https://github.com/secdev/scapy.git
-
-.. note::
-	You can also download Scapy's `latest version <https://github.com/secdev/scapy/archive/master.zip>`_ in a zip file::
-
-	$ wget --trust-server-names https://github.com/secdev/scapy/archive/master.zip   # or wget -O master.zip https://github.com/secdev/scapy/archive/master.zip
-	$ unzip master.zip
-	$ cd master
-
-3. Install Scapy in the standard `distutils <https://docs.python.org/3/distutils/setupscript.html>`_ way:: 
-
    $ cd scapy
-   $ sudo python setup.py install
 
-If you used Git, you can always update to the latest version afterwards::
+2. Install Scapy using `pip <https://docs.python.org/dev/installing/index.html>`_:: 
+
+   $ pip install .
+
+3. If you used Git, you can always update to the latest version afterwards::
 
    $ git pull
-   $ sudo python setup.py install
+   $ pip install .
 
 .. note::
 
-   You can run scapy without installing it using the ``run_scapy`` (unix) or ``run_scapy.bat`` (Windows) script or running it directly from the executable zip file (see the previous section).
+   You can run scapy without installing it using the ``run_scapy`` (unix) or ``run_scapy.bat`` (Windows) script.
 
 Optional Dependencies
 =====================
@@ -132,7 +122,7 @@ Here are the topics involved and some examples that you can use to try if your i
  
 * 2D graphics. ``psdump()`` and ``pdfdump()`` need `PyX <http://pyx.sourceforge.net/>`_ which in turn needs a LaTeX distribution: `texlive (Unix) <http://www.tug.org/texlive/>`_ or `MikTex (Windows) <https://miktex.org/>`_.
   
-  Note: PyX requires version <=0.12.1 on Python 2.7. This means that on Python 2.7, it needs to be installed via ``pip install pyx==0.12.1``. Otherwise ``pip install pyx``
+  You can install pyx using ``pip install pyx``
   
   .. code-block:: python
    
@@ -203,29 +193,29 @@ Linux native
 
 Scapy can run natively on Linux, without libpcap.
 
-* Install `Python 2.7 or 3.4+ <http://www.python.org>`_.
-* Install `tcpdump <http://www.tcpdump.org>`_ and make sure it is in the $PATH. (It's only used to compile BPF filters (``-ddd option``))
+* Install `Python 3.7+ <http://www.python.org>`__.
+* Install `libpcap <http://www.tcpdump.org>`_. (By default it will only be used to compile BPF filters)
 * Make sure your kernel has Packet sockets selected (``CONFIG_PACKET``)
 * If your kernel is < 2.6, make sure that Socket filtering is selected ``CONFIG_FILTER``) 
 
 Debian/Ubuntu/Fedora
 --------------------
 
-Make sure tcpdump is installed:
+Make sure libpcap is installed:
 
 - Debian/Ubuntu:
 
 .. code-block:: text
 
-    $ sudo apt-get install tcpdump
+    $ sudo apt-get install libpcap-dev
 
 - Fedora:
 
 .. code-block:: text
 
-	$ yum install tcpdump
+	$ yum install libpcap-devel
 
-Then install Scapy via ``pip`` or ``apt`` (bundled under ``python-scapy``)
+Then install Scapy via ``pip`` or ``apt`` (bundled under ``python3-scapy``)
 All dependencies may be installed either via the platform-specific installer, or via PyPI. See `Optional Dependencies <#optional-dependencies>`_ for more information.
 
 
@@ -278,7 +268,7 @@ In a similar manner, to install Scapy on OpenBSD 5.9+, you **may** want to insta
 
 .. code-block:: text
 
-	$ doas pkg_add libpcap tcpdump
+	$ doas pkg_add libpcap
 
 Then install Scapy via ``pip`` or ``pkg_add`` (bundled under ``python-scapy``)
 All dependencies may be installed either via the platform-specific installer, or via PyPI. See `Optional Dependencies <#optional-dependencies>`_ for more information.
@@ -297,28 +287,23 @@ Solaris / SunOS requires ``libpcap`` (installed by default) to work.
 Windows
 -------
 
-.. sectionauthor:: Dirk Loss <mail at dirk-loss.de>
+You need to install Npcap in order to install Scapy on Windows (should also work with Winpcap, but unsupported nowadays):
 
-Scapy is primarily being developed for Unix-like systems and works best on those platforms. But the latest version of Scapy supports Windows out-of-the-box. So you can use nearly all of Scapy's features on your Windows machine as well.
+  * Download link: `Npcap <https://nmap.org/npcap/>`_: `the latest version <https://nmap.org/npcap/#download>`_
+  * During installation:
+      * we advise to turn **off** the ``Winpcap compatibility mode``
+      * if you want to use your wifi card in monitor mode (if supported), make sure you enable the ``802.11`` option
+
+Once that is done, you can `continue with Scapy's installation <#latest-release>`_.
+
+You should then be able to open a ``cmd.exe`` and just call ``scapy``. If not, you probably haven't enabled the "Add Python to PATH" option when installing Python. You can follow the instructions `over here <https://docs.python.org/3/using/windows.html#finding-the-python-executable>`_ to change that (or add it manually).
+
+Screenshots
+^^^^^^^^^^^
 
 .. image:: graphics/scapy-win-screenshot1.png
    :scale: 80
    :align: center
-
-You need the following software in order to install Scapy on Windows:
-
-  * `Python <http://www.python.org>`_: `Python 2.7.X or 3.4+ <https://www.python.org/downloads/>`_. After installation, add the Python installation directory and its \Scripts subdirectory to your PATH. Depending on your Python version, the defaults would be ``C:\Python27`` and ``C:\Python27\Scripts`` respectively.
-  * `Npcap <https://nmap.org/npcap/>`_: `the latest version <https://nmap.org/npcap/#download>`_. Default values are recommended. Scapy will also work with Winpcap.
-  * `Scapy <http://www.secdev.org/projects/scapy/>`_: `latest development version <https://github.com/secdev/scapy/archive/master.zip>`_ from the `Git repository <https://github.com/secdev/scapy>`_. Unzip the archive, open a command prompt in that directory and run ``python setup.py install``. 
-
-Just download the files and run the setup program. Choosing the default installation options should be safe. (In the case of ``Npcap``, Scapy **will work** with ``802.11`` option enabled. You might want to make sure that this is ticked when installing).
-
-After all packages are installed, open a command prompt (cmd.exe) and run Scapy by typing ``scapy``. If you have set the PATH correctly, this will find a little batch file in your ``C:\Python27\Scripts`` directory and instruct the Python interpreter to load Scapy.
-
-If really nothing seems to work, consider skipping the Windows version and using Scapy from a Linux Live CD -- either in a virtual machine on your Windows host or by booting from CDROM: An older version of Scapy is already included in grml and BackTrack for example. While using the Live CD you can easily upgrade to the latest Scapy version by using the `above installation methods <#installing-scapy-v2-x>`_.
-
-Screenshot
-^^^^^^^^^^
 
 .. image:: graphics/scapy-win-screenshot2.png
    :scale: 80
