@@ -142,7 +142,7 @@ class NBNSQueryRequest(Packet):
 
     def mysummary(self):
         return "NBNSQueryRequest who has '\\\\%s'" % (
-            self.QUESTION_NAME.strip().decode()
+            self.QUESTION_NAME.strip().decode(errors="backslashreplace")
         )
 
 
@@ -181,7 +181,7 @@ class NBNSQueryResponse(Packet):
         if not self.ADDR_ENTRY:
             return "NBNSQueryResponse"
         return "NBNSQueryResponse '\\\\%s' is at %s" % (
-            self.RR_NAME.strip().decode(),
+            self.RR_NAME.strip().decode(errors="backslashreplace"),
             self.ADDR_ENTRY[0].NB_ADDRESS
         )
 
@@ -199,7 +199,7 @@ class NBNSNodeStatusRequest(NBNSQueryRequest):
 
     def mysummary(self):
         return "NBNSNodeStatusRequest who has '\\\\%s'" % (
-            self.QUESTION_NAME.strip().decode()
+            self.QUESTION_NAME.strip().decode(errors="backslashreplace")
         )
 
 
