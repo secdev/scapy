@@ -2070,7 +2070,12 @@ class FieldListField(Field[List[Any], List[Any]]):
                 c -= 1
             s, v = self.field.getfield(pkt, s)
             val.append(v)
-        return s + ret, val
+
+        if isinstance(s, tuple):
+            s, bn = s
+            return (s + ret, bn), val
+        else:
+            return s + ret, val
 
 
 class FieldLenField(Field[int, int]):
