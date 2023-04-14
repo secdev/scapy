@@ -15,8 +15,12 @@ assert raw(z) == b'\x00\x00\x01\x10\x00\x01\x00\x00\x00\x00\x00\x00 FEEFFDFEDBCA
 pkt = IP(dst='192.168.0.255')/UDP(sport=137, dport='netbios_ns')/z
 pkt = IP(raw(pkt))
 assert pkt.QUESTION_NAME == b'TEST1          '
+assert pkt[NBNSQueryRequest].mysummary() == r"NBNSQueryRequest who has '\\TEST1'"
 
 assert NBNSQueryRequest in NBNSHeader(raw(z))
+
+z = NBNSQueryRequest(b' PPCACACACACACACACACACACACACACAAA\x00\x00 \x00\x01')
+assert z.mysummary() == r"NBNSQueryRequest who has '\\\xff'"
 
 = NBNSQueryResponse - build & dissect
 
@@ -26,6 +30,11 @@ assert raw(z) == b'\x00\x00\x85\x00\x00\x00\x00\x01\x00\x00\x00\x00 EGFCEFEECACA
 pkt = NBNSHeader(raw(z))
 assert NBNSQueryResponse in pkt
 assert pkt.ADDR_ENTRY[0].NB_ADDRESS == "192.168.0.13"
+assert pkt[NBNSQueryResponse].mysummary() == r"NBNSQueryResponse '\\FRED' is at 192.168.0.13"
+
+z = NBNSQueryResponse(b' PPFCEFEECACACACACACACACACACACAAA\x00\x00 \x00\x01\x00\x04\x93\xe0\x00\x06\x00\x00\xc0\xa8\x00\r')
+assert z.mysummary() == r"NBNSQueryResponse '\\\xffRED' is at 192.168.0.13"
+
 
 = NBNSNodeStatusResponse - build & dissect
 
@@ -39,10 +48,14 @@ assert NBNSNodeStatusResponse in pkt
 
 pkt = UDP()/NBNSHeader()/NBNSNodeStatusRequest()
 assert raw(pkt.payload) == b'\x00\x00\x00\x10\x00\x01\x00\x00\x00\x00\x00\x00 CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x00\x00!\x00\x01'
+assert pkt[NBNSNodeStatusRequest].mysummary() == "NBNSNodeStatusRequest who has '\\\\*\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'"
 
 resp = UDP(b'\x00\x89\x00\x89\x00\xc9v>\x00\x00\x84\x00\x00\x00\x00\x01\x00\x00\x00\x00 CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x00\x00!\x00\x01\x00\x00\x00\x00\x00\x89\x05DOMAIN         \x00\x84\x00SRV1           \x00\x04\x00DOMAIN         \x1c\x84\x00SRV1            \x04\x00DOMAIN         \x1b\x04\x00RT\x00iX\x13\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 assert [x.NETBIOS_NAME.strip() for x in resp.NODE_NAME] == [b'DOMAIN', b'SRV1', b'DOMAIN', b'SRV1', b'DOMAIN']
 assert resp.answers(pkt)
+
+z = NBNSNodeStatusRequest(b' PPCACACACACACACACACACACACACACAAA\x00\x00!\x00\x01')
+assert z.mysummary() == r"NBNSNodeStatusRequest who has '\\\xff'"
 
 = NBNSWackResponse - build & dissect
 
