@@ -202,7 +202,7 @@ _rt_presentvht = ['STBC', 'TXOP_PS_NOT_ALLOWED', 'GuardInterval',
                   'SGINsysmDis', 'LDPCextraOFDM', 'Beamformed',
                   'res1', 'res2']
 
-_rt_hemuother_per_user_known = {
+_rt_hemuother_per_user_known = [
     'user field position',
     'STA-ID',
     'NSTS',
@@ -211,7 +211,7 @@ _rt_hemuother_per_user_known = {
     'MCS',
     'DCM',
     'Coding',
-}
+]
 
 
 # Radiotap utils
