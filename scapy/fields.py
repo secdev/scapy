@@ -1768,7 +1768,12 @@ class PacketListField(_PacketField[List[BasePacket]]):
                 else:
                     remain = b""
             lst.append(p)
-        return remain + ret, lst
+
+        if isinstance(remain, tuple):
+            remain, nb = remain
+            return (remain + ret, nb), lst
+        else:
+            return remain + ret, lst
 
     def i2m(self,
             pkt,  # type: Optional[Packet]
@@ -2070,7 +2075,12 @@ class FieldListField(Field[List[Any], List[Any]]):
                 c -= 1
             s, v = self.field.getfield(pkt, s)
             val.append(v)
-        return s + ret, val
+
+        if isinstance(s, tuple):
+            s, bn = s
+            return (s + ret, bn), val
+        else:
+            return s + ret, val
 
 
 class FieldLenField(Field[int, int]):

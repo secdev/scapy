@@ -1881,7 +1881,11 @@ class Raw(Packet):
     def __init__(self, _pkt=b"", *args, **kwargs):
         # type: (bytes, *Any, **Any) -> None
         if _pkt and not isinstance(_pkt, bytes):
-            _pkt = bytes_encode(_pkt)
+            if isinstance(_pkt, tuple):
+                _pkt, bn = _pkt
+                _pkt = bytes_encode(_pkt), bn
+            else:
+                _pkt = bytes_encode(_pkt)
         super(Raw, self).__init__(_pkt, *args, **kwargs)
 
     def answers(self, other):
