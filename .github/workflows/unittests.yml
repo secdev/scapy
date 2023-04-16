@@ -81,7 +81,7 @@ jobs:
             mode: root
             flags: " -K scanner"
           # Linux with vcan root tests
-          - os: ubuntu-18.04
+          - os: ubuntu-20.04
             python: "3.10"
             mode: root
             flags: " -K scanner -K automotive_comm -K vcan_socket"
