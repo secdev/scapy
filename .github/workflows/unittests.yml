@@ -84,7 +84,6 @@ jobs:
           - os: ubuntu-20.04
             python: "3.10"
             mode: root
-            flags: " -k scanner -k automotive_comm"
           # PyPy tests: root only
           - os: ubuntu-latest
             python: "pypy3.9"
