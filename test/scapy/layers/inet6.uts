@@ -1198,7 +1198,7 @@ p = ICMPv6NDOptDNSSL(b'\x1f\x02\x00\x00\x00\x00\x00<\x04home\x00\x00\x00')
 p.type == 31 and p.len == 2 and p.res == 0 and p.lifetime == 60 and p.searchlist == ["home."]
 
 = ICMPv6NDOptDNSSL - Summary Output
-ICMPv6NDOptDNSSL(searchlist=["home.", "office."]).mysummary() == "ICMPv6 Neighbor Discovery Option - DNS Search List Option home., office."
+ICMPv6NDOptDNSSL(searchlist=["home.", "office.", "{"]).mysummary() == "ICMPv6 Neighbor Discovery Option - DNS Search List Option home., office., {"
 
 
 ############
