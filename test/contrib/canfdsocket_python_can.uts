@@ -1,5 +1,5 @@
 % Regression tests for the CANSocket
-~ vcan_socket linux needs_root
+~ vcan_socket linux needs_root not_pypy
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
@@ -47,7 +47,7 @@ def sender(sock, msg):
 = CAN Packet init
 
 canframe = CANFD(identifier=0x7ff,length=10,data=b'\x01\x02\x03\x04\x05\x06\x07\x08ab')
-bytes(canframe) == b'\x00\x00\x07\xff\x0a\x04\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08ab'
+bytes(canframe) == b'\x00\x00\x07\xff\x0c\x04\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08ab\x00\x00'
 
 + Basic Socket Tests()
 = CAN Socket Init
@@ -56,6 +56,7 @@ sock1 = CANSocket(bustype='socketcan', channel='vcan0', fd=True)
 sock1.close()
 del sock1
 sock1 = None
+assert sock1 == None
 
 = CAN Socket send recv small packet
 

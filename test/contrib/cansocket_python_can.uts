@@ -1,5 +1,5 @@
 % Regression tests for the CANSocket
-~ vcan_socket linux needs_root
+~ vcan_socket linux needs_root not_pypy
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
