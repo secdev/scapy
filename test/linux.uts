@@ -113,7 +113,7 @@ assert exit_status == 0
 
 = IPv6 link-local address selection
 
-IFACES._add_fake_iface("scapy0")
+conf.ifaces._add_fake_iface("scapy0")
 
 from mock import patch
 conf.route6.routes =  [('fe80::', 64, '::', 'scapy0', ['fe80::e039:91ff:fe79:1910'], 256)]
