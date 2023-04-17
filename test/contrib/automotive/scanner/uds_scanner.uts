@@ -192,7 +192,8 @@ scanner = executeScannerInVirtualEnvironment(
                                                  0x2A, 0x2C, 0x2E, 0x2F, 0x31,
                                                  0x34, 0x35, 0x36, 0x37, 0x38,
                                                  0x3D, 0x3E, 0x83, 0x84, 0x85,
-                                                 0x87]})
+                                                 0x87],
+                                  "request_length": 1})
 
 scanner.show_testcases()
 assert len(scanner.state_paths) == 5
