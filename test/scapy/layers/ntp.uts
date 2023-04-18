@@ -466,6 +466,7 @@ assert p.version == 2
 assert p.mode == 7
 assert p.request_code == 2
 assert isinstance(p.data[0], NTPInfoPeer)
+repr(p.data[0])
 assert p.data[0].dstaddr == "192.168.122.102"
 assert p.data[0].srcaddr == "192.168.122.101"
 assert p.data[0].srcport == 123
