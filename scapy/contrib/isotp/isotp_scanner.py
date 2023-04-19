@@ -236,6 +236,7 @@ def scan_extended(sock,  # type: SuperSocket
     """
     return_values = dict()  # type: Dict[int, Tuple[Packet, int]]
     scan_block_size = scan_block_size or 1
+    r = list(extended_scan_range)
 
     for value in scan_range:
         if noise_ids and value in noise_ids:
@@ -244,7 +245,6 @@ def scan_extended(sock,  # type: SuperSocket
         pkt = get_isotp_packet(
             value, extended=True, extended_can_id=extended_can_id)
         id_list = []  # type: List[int]
-        r = list(extended_scan_range)
         for ext_isotp_id in range(r[0], r[-1], scan_block_size):
             if stop_event is not None and stop_event.is_set():
                 break
