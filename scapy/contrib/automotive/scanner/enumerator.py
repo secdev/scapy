@@ -303,7 +303,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
 
         start_time = time.monotonic()
         log_automotive.debug(
-            "Start execution of enumerator: %s", time.ctime(start_time))
+            "Start execution of enumerator: %s", time.ctime())
 
         for req in it:
             res = self.sr1_with_retry_on_error(req, socket, state, timeout)
