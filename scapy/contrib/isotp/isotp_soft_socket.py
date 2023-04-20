@@ -492,7 +492,7 @@ class ISOTPSocketImplementation:
                  bs=0,  # type: int
                  stmin=0,  # type: int
                  listen_only=False,  # type: bool
-                 fd=False
+                 fd=False  # type: bool
                  ):
         # type: (...) -> None
         self.can_socket = can_socket
@@ -564,6 +564,7 @@ class ISOTPSocketImplementation:
     def can_send(self, load):
         # type: (bytes) -> None
         def _get_padding_size(pl_size):
+            # type: (int) -> int
             if not self.fd:
                 return CAN_MAX_DLEN
             else:

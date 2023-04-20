@@ -16,7 +16,7 @@ from scapy.fields import BitField, FlagsField, StrLenField, \
     BitEnumField, ByteField, XByteField, BitFieldLenField, StrField, \
     FieldLenField, IntField, ShortField
 from scapy.compat import chb, orb
-from scapy.layers.can import CAN, CAN_FD_MAX_DLEN
+from scapy.layers.can import CAN, CAN_FD_MAX_DLEN as CAN_FD_MAX_DLEN
 from scapy.error import Scapy_Exception
 
 # Typing imports
@@ -105,6 +105,7 @@ class ISOTP(Packet):
         fd = kargs.pop("fd", False)
 
         def _get_data_len():
+            # type: () -> int
             return CAN_MAX_DLEN if not fd else CAN_FD_MAX_DLEN
 
         data_bytes_in_frame = _get_data_len() - 1
