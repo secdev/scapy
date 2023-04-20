@@ -11,7 +11,6 @@ import scapy.libs.six as six
 from scapy.layers.can import *
 from scapy.contrib.isotp import *
 from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
-from scapy.contrib.cansocket import CANSocket
 from test.testsocket import TestSocket, cleanup_testsockets
 
 = Shadowing the initialization of ISOTPSoftSocket (to default enable fd option)
