@@ -59,4 +59,5 @@ key, value = data.popitem()
 assert key.endswith(' [Detailed Icon Image]')
 assert value == 'abcdefg'
 
-
+= Summary
+assert LLTDAttributeMachineName(b'\x0f\x04{\x00\n\x00').mysummary()[0] == r"Hostname: '{\n'"
