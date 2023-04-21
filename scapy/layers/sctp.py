@@ -165,6 +165,7 @@ sctpchunktypescls = {
     0x80: "SCTPChunkAddressConfAck",
     192: "SCTPChunkForwardTSN",
     0xc1: "SCTPChunkAddressConf",
+    194: "SCTPChunkIForwardTSN",
 }
 
 sctpchunktypes = {
@@ -188,6 +189,7 @@ sctpchunktypes = {
     0x80: "address-configuration-ack",
     192: "forward-tsn",
     0xc1: "address-configuration",
+    194: "i-forward-tsn",
 }
 
 sctpchunkparamtypescls = {
@@ -683,6 +685,18 @@ class SCTPChunkForwardTSN(_SCTPChunkGuessPayload, Packet):
                    ChunkParamField("skips", None,
                                    length_from=lambda pkt: pkt.len - 8)
                    ]
+
+
+class SCTPIForwardSkip(_SCTPChunkParam, Packet):
+    fields_desc = [ShortField("stream_id", None),
+                   BitField("reserved", None, 15),
+                   BitField("unordered", None, 1),
+                   IntField("message_id", None)
+                   ]
+
+
+class SCTPChunkIForwardTSN(SCTPChunkForwardTSN):
+    type = 194
 
 
 class SCTPChunkInit(_SCTPChunkGuessPayload, Packet):
