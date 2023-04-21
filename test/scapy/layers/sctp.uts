@@ -68,6 +68,20 @@ assert p.ppid_fsn == 2
 assert p.len == (len("data") + 20)
 assert p.data == b"data"
 
+= basic SCTPChunkForwardTSN - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xc0\x00\x00\x10\x00\x00\x1e\x61\x00\x0a\x00\x01\x00\x0b\x00\x02"
+p = SCTP(blob).lastlayer()
+skip1 = SCTPForwardSkip(p.skips[0].load[0:4])
+skip2 = SCTPForwardSkip(p.skips[0].load[4::])
+assert isinstance(p, SCTPChunkForwardTSN)
+assert p.len == 16
+assert p.new_tsn == 7777
+assert skip1.stream_id == 10
+assert skip1.stream_seq == 1
+assert skip2.stream_id == 11
+assert skip2.stream_seq == 2
+
 = basic SCTPChunkInit - Dissection
 ~ sctp
 blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
