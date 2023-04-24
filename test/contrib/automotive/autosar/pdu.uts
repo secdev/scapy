@@ -1,0 +1,71 @@
+% Regression tests for the PDUTransport / PDU layer
+
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
+
++ PDUTransport contrib tests
+
+= Load Contrib Layer
+
+load_contrib("automotive.autosar.pdu", globals_dict=globals())
+
+= Defaults test
+
+p = PDUTransport()
+assert p.pdus == [PDU()]
+
+p = PDU()
+assert p.pdu_id == 0
+assert p.pdu_payload_len == 0
+
+= Build test pdu_id
+p = PDU(bytes(PDU(pdu_id=0x11)))
+assert len(bytes(p)) == 8
+assert p.pdu_id == 0x11
+assert p.pdu_payload_len == 0
+
+= Build test pdu_payload_len
+p = PDU(bytes(PDU(pdu_payload_len=12)))
+assert len(p) == 8
+assert p.pdu_id == 0
+assert p.pdu_payload_len == 12
+
+= Build test id and payload len with data
+p = PDU(bytes(PDU(pdu_id=0x12, pdu_payload_len=2) / Raw(b'\x22\x33')))
+assert len(p) == 10
+assert p.pdu_id == 0x12
+assert p.pdu_payload_len == 2
+assert len(p['Raw']) == 2
+assert bytes(p['Raw']) == b'\x22\x33'
+
+= Build PDUTransport with multiple PDU packets
+p1 = PDUTransport(b'\x00\x00\x00\x01\x00\x00\x00\x01\x11'
+b'\x00\x00\x00\x02\x00\x00\x00\x02\x11\x44'
+b'\x00\x00\x00\x03\x00\x00\x00\x03\x11\x33\x91')
+p2 = PDUTransport(bytes(PDUTransport(pdus=[PDU(pdu_id=0x1,pdu_payload_len=1)/Raw(b'\x11'), # noqa: E501
+PDU(pdu_id=0x2, pdu_payload_len=2) / Raw(b'\x11\x44'),
+PDU(pdu_id=0x3, pdu_payload_len=3) / Raw(b'\x11\x33\x91')])))
+# Check if packets are the same
+assert p1 == p2 
+# Check if fields are set correctly within PDU list
+assert p1.pdus[0].pdu_id == 0x1
+assert p1.pdus[0].pdu_payload_len == 1
+assert p1.pdus[1].pdu_id == 0x2
+assert p1.pdus[1].pdu_payload_len == 2
+assert p1.pdus[2].pdu_id == 0x3
+assert p1.pdus[2].pdu_payload_len == 3
+
+= Build PDUTransport with one PDU packet
+p1 = PDUTransport(b'\x00\x00\x00\x01\x00\x00\x00\x03\x11\x22\x33')
+p2 = PDUTransport(bytes(PDUTransport(pdus=[
+PDU(pdu_id=0x1, pdu_payload_len=0x3) / Raw(b'\x11\x22\x33')])))
+
+# Check if packets are the same
+assert p1 == p2 
+# Check if fields are set correctly within PDU list
+assert p1.pdus[0].pdu_id == 0x1
+assert p1.pdus[0].pdu_payload_len == 3
