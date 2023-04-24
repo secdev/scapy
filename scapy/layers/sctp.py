@@ -163,7 +163,9 @@ sctpchunktypescls = {
     130: "SCTPChunkReConfig",
     132: "SCTPChunkPad",
     0x80: "SCTPChunkAddressConfAck",
+    192: "SCTPChunkForwardTSN",
     0xc1: "SCTPChunkAddressConf",
+    194: "SCTPChunkIForwardTSN",
 }
 
 sctpchunktypes = {
@@ -185,7 +187,9 @@ sctpchunktypes = {
     130: "re-config",
     132: "pad",
     0x80: "address-configuration-ack",
+    192: "forward-tsn",
     0xc1: "address-configuration",
+    194: "i-forward-tsn",
 }
 
 sctpchunkparamtypescls = {
@@ -664,6 +668,35 @@ class SCTPChunkIData(_SCTPChunkGuessPayload, Packet):
                                         length_from=lambda pkt: pkt.len - 20),
                             4, padwith=b"\x00"),
                    ]
+
+
+class SCTPForwardSkip(_SCTPChunkParam, Packet):
+    fields_desc = [ShortField("stream_id", None),
+                   ShortField("stream_seq", None)
+                   ]
+
+
+class SCTPChunkForwardTSN(_SCTPChunkGuessPayload, Packet):
+    fields_desc = [ByteEnumField("type", 192, sctpchunktypes),
+                   XByteField("flags", None),
+                   FieldLenField("len", None, length_of="skips",
+                                 adjust=lambda pkt, x:x + 8),
+                   IntField("new_tsn", None),
+                   ChunkParamField("skips", None,
+                                   length_from=lambda pkt: pkt.len - 8)
+                   ]
+
+
+class SCTPIForwardSkip(_SCTPChunkParam, Packet):
+    fields_desc = [ShortField("stream_id", None),
+                   BitField("reserved", None, 15),
+                   BitField("unordered", None, 1),
+                   IntField("message_id", None)
+                   ]
+
+
+class SCTPChunkIForwardTSN(SCTPChunkForwardTSN):
+    type = 194
 
 
 class SCTPChunkInit(_SCTPChunkGuessPayload, Packet):
