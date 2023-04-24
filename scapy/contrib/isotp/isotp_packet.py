@@ -9,7 +9,6 @@
 import struct
 import logging
 
-from scapy.compat import Optional, List, Tuple, Any, Type, cast
 from scapy.packet import Packet
 from scapy.fields import BitField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ConditionalField, \
@@ -17,6 +16,16 @@ from scapy.fields import BitField, FlagsField, StrLenField, \
 from scapy.compat import chb, orb
 from scapy.layers.can import CAN, CAN_FD_MAX_DLEN as CAN_FD_MAX_DLEN
 from scapy.error import Scapy_Exception
+
+# Typing imports
+from typing import (
+    Optional,
+    List,
+    Tuple,
+    Any,
+    Type,
+    cast,
+)
 
 log_isotp = logging.getLogger("scapy.contrib.isotp")
 

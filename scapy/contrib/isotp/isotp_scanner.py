@@ -11,7 +11,6 @@ import time
 
 from threading import Event
 
-from scapy.compat import Iterable, Optional, Union, List, Tuple, Dict, Any
 from scapy.packet import Packet
 from scapy.compat import orb
 from scapy.layers.can import CAN
@@ -19,6 +18,17 @@ from scapy.supersocket import SuperSocket
 from scapy.contrib.cansocket import PYTHON_CAN
 from scapy.contrib.isotp.isotp_packet import ISOTPHeader, ISOTPHeaderEA, \
     ISOTP_FF, ISOTP
+
+# Typing imports
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 log_isotp = logging.getLogger("scapy.contrib.isotp")
 

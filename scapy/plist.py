@@ -12,7 +12,6 @@ import os
 from collections import defaultdict
 from typing import NamedTuple
 
-from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
 from scapy.base_classes import (
     BasePacket,
@@ -26,7 +25,7 @@ from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
 from functools import reduce
 
 # typings
-from scapy.compat import (
+from typing import (
     Any,
     Callable,
     DefaultDict,
@@ -203,12 +202,6 @@ class _PacketList(Generic[_Inner], metaclass=PacketList_metaclass):
         :param lfilter: truth function to apply to each packet to decide
                         whether it will be displayed
         """
-        # Python 2 backward compatibility
-        if prn is not None:
-            prn = lambda_tuple_converter(prn)
-        if lfilter is not None:
-            lfilter = lambda_tuple_converter(lfilter)
-
         for r in self.res:
             if lfilter is not None:
                 if not lfilter(*r):
@@ -230,12 +223,6 @@ class _PacketList(Generic[_Inner], metaclass=PacketList_metaclass):
         :param lfilter: truth function to apply to each packet to decide
                         whether it will be displayed
         """
-        # Python 2 backward compatibility
-        if prn is not None:
-            prn = lambda_tuple_converter(prn)
-        if lfilter is not None:
-            lfilter = lambda_tuple_converter(lfilter)
-
         for i, res in enumerate(self.res):
             if lfilter is not None:
                 if not lfilter(*res):
@@ -257,9 +244,6 @@ class _PacketList(Generic[_Inner], metaclass=PacketList_metaclass):
         function has to take a packet as the only argument and return
         a boolean value.
         """
-        # Python 2 backward compatibility
-        func = lambda_tuple_converter(func)
-
         return self.__class__([x for x in self.res if func(*x)],
                               name="filtered %s" % self.listname)
 
@@ -298,11 +282,6 @@ class _PacketList(Generic[_Inner], metaclass=PacketList_metaclass):
             MATPLOTLIB_INLINED,
             MATPLOTLIB_DEFAULT_PLOT_KARGS
         )
-
-        # Python 2 backward compatibility
-        f = lambda_tuple_converter(f)
-        if lfilter is not None:
-            lfilter = lambda_tuple_converter(lfilter)
 
         # Get the list of packets
         if lfilter is None:
@@ -383,11 +362,6 @@ class _PacketList(Generic[_Inner], metaclass=PacketList_metaclass):
             MATPLOTLIB_INLINED,
             MATPLOTLIB_DEFAULT_PLOT_KARGS
         )
-
-        # Python 2 backward compatibility
-        f = lambda_tuple_converter(f)
-        if lfilter is not None:
-            lfilter = lambda_tuple_converter(lfilter)
 
         # Get the list of packets
         if lfilter is None:

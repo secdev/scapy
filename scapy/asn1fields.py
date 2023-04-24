@@ -42,7 +42,7 @@ from scapy.volatile import (
 
 from scapy import packet
 
-from scapy.compat import (
+from typing import (
     Any,
     AnyStr,
     Callable,
@@ -52,12 +52,10 @@ from scapy.compat import (
     Optional,
     Tuple,
     Type,
+    TypeVar,
     Union,
     cast,
     TYPE_CHECKING,
-)
-from typing import (
-    TypeVar,
 )
 
 if TYPE_CHECKING:

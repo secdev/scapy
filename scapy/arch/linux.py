@@ -48,7 +48,7 @@ from scapy.pton_ntop import inet_ntop
 from scapy.supersocket import SuperSocket
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     Any,
     Callable,
     Dict,

@@ -26,7 +26,7 @@ from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 from scapy.layers.tls.crypto.prf import PRF
 
 # Typing imports
-from scapy.compat import Dict
+from typing import Dict
 
 
 def load_nss_keys(filename):

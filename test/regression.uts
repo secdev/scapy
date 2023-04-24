@@ -4560,7 +4560,7 @@ def test_multiplot(mock_plt):
     mock_plt.plot = fake_plot
     tmp = [IP(id=i)/TCP() for i in range(10)]
     plist = PacketList([tuple(tmp[i-2:i]) for i in range(2, 10, 2)])
-    lines = plist.multiplot(lambda x: (x[1][IP].src, (x[1].time, x[1][IP].id)))
+    lines = plist.multiplot(lambda x, y: (y[IP].src, (y.time, y[IP].id)))
     assert len(lines) == 1
     assert len(lines[0]) == 4
 

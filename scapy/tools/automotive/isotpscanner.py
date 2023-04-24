@@ -15,7 +15,13 @@ from ast import literal_eval
 
 from scapy.config import conf
 from scapy.consts import LINUX
-from scapy.compat import Tuple, Optional, Any
+
+# Typing imports
+from typing import (
+    Tuple,
+    Optional,
+    Any,
+)
 
 if not LINUX or conf.use_pypy:
     conf.contribs['CANSocket'] = {'use-python-can': True}

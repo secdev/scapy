@@ -23,7 +23,7 @@ from scapy.utils6 import in6_getscope, construct_source_candidate_set
 from scapy.utils6 import in6_isvalid, in6_ismlladdr, in6_ismnladdr
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     List,
     Optional,
     Tuple,

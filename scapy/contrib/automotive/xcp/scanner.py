@@ -7,7 +7,6 @@
 # scapy.contrib.status = loads
 import logging
 from collections import namedtuple
-from scapy.compat import Optional, List, Type, Iterator
 
 from scapy.config import conf
 from scapy.contrib.automotive import log_automotive
@@ -17,6 +16,14 @@ from scapy.contrib.automotive.xcp.cto_commands_slave import \
     ConnectPositiveResponse, TransportLayerCmdGetSlaveIdResponse
 from scapy.contrib.automotive.xcp.xcp import CTORequest, XCPOnCAN
 from scapy.contrib.cansocket_native import CANSocket
+
+# Typing imports
+from typing import (
+    Optional,
+    List,
+    Type,
+    Iterator,
+)
 
 XCPScannerResult = namedtuple('XCPScannerResult', 'request_id response_id')
 

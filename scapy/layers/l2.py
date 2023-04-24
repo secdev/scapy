@@ -61,7 +61,9 @@ from scapy.plist import (
 from scapy.sendrecv import sendp, srp, srp1, srploop
 from scapy.utils import checksum, hexdump, hexstr, inet_ntoa, inet_aton, \
     mac2str, valid_mac, valid_net, valid_net6
-from scapy.compat import (
+
+# Typing imports
+from typing import (
     Any,
     Callable,
     Dict,
@@ -74,6 +76,8 @@ from scapy.compat import (
     cast,
 )
 from scapy.interfaces import NetworkInterface
+
+
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route  # noqa: F401

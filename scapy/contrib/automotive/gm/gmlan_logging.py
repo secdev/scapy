@@ -13,8 +13,13 @@ from scapy.contrib.automotive.gm.gmlan import GMLAN_SA, GMLAN_IDO, GMLAN_DC, \
     GMLAN_RDBI, GMLAN_RDBIPR, GMLAN_RDBPI, GMLAN_RDBPIPR, GMLAN_RDBPKTI, \
     GMLAN_RFRD, GMLAN_RFRDPR, GMLAN_RMBA, GMLAN_RMBAPR, GMLAN_DDM, GMLAN_DDMPR
 from scapy.packet import Packet
-from scapy.compat import Tuple, Any
 from scapy.contrib.automotive.ecu import Ecu
+
+# Typing imports
+from typing import (
+    Any,
+    Tuple,
+)
 
 
 @Ecu.extend_pkt_with_logging(GMLAN_IDO)

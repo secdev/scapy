@@ -17,7 +17,11 @@ from scapy.error import log_loading
 from scapy.utils import PeriodicSenderThread
 from scapy.plist import _PacketIterable
 from scapy.contrib.isotp import ISOTP
-from scapy.compat import Dict, Any
+
+from typing import (
+    Dict,
+    Any,
+)
 
 
 try:

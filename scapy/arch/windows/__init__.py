@@ -39,17 +39,17 @@ from scapy.compat import plain_str
 from scapy.supersocket import SuperSocket
 
 # Typing imports
-from scapy.compat import (
-    cast,
-    overload,
+from typing import (
     Any,
     Dict,
     List,
-    Literal,
     Optional,
     Tuple,
     Union,
+    cast,
+    overload,
 )
+from scapy.compat import Literal
 
 conf.use_pcap = True
 

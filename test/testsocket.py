@@ -17,7 +17,16 @@ from scapy.automaton import ObjectPipe, select_objects
 from scapy.data import MTU
 from scapy.packet import Packet
 from scapy.error import Scapy_Exception
-from scapy.compat import Optional, Type, Tuple, Any, List, cast
+
+# Typing imports
+from typing import (
+    Optional,
+    Type,
+    Tuple,
+    Any,
+    List,
+    cast,
+)
 from scapy.supersocket import SuperSocket
 
 

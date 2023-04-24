@@ -15,14 +15,27 @@ from collections import defaultdict
 from types import GeneratorType
 from threading import Lock
 
-from scapy.compat import Any, Union, Iterable, Callable, List, Optional, \
-    Tuple, Type, cast, Dict, orb
+from scapy.compat import orb
 from scapy.packet import Raw, Packet
 from scapy.plist import PacketList
 from scapy.sessions import DefaultSession
 from scapy.ansmachine import AnsweringMachine
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception
+
+# Typing imports
+from typing import (
+    Any,
+    Union,
+    Iterable,
+    Callable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    cast,
+    Dict,
+)
 
 
 __all__ = ["EcuState", "Ecu", "EcuResponse", "EcuSession",

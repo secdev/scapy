@@ -24,7 +24,7 @@ from scapy.volatile import RandMAC, RandBin
 from scapy.error import warning, Scapy_Exception
 from functools import reduce, cmp_to_key
 
-from scapy.compat import (
+from typing import (
     Iterator,
     List,
     Optional,

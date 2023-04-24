@@ -20,7 +20,17 @@ from scapy.error import Scapy_Exception, warning
 from scapy.packet import Packet
 from scapy.layers.can import CAN, CAN_MTU, CAN_FD_MTU
 from scapy.arch.linux import get_last_packet_timestamp
-from scapy.compat import List, Dict, Type, Any, Optional, Tuple, raw, cast
+from scapy.compat import raw
+
+from typing import (
+    List,
+    Dict,
+    Type,
+    Any,
+    Optional,
+    Tuple,
+    cast,
+)
 
 conf.contribs['NativeCANSocket'] = {'channel': "can0"}
 

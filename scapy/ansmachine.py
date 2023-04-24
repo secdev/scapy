@@ -22,7 +22,7 @@ from scapy.sendrecv import send, sniff, AsyncSniffer
 from scapy.packet import Packet
 from scapy.plist import PacketList
 
-from scapy.compat import (
+from typing import (
     Any,
     Callable,
     Dict,

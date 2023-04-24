@@ -22,7 +22,7 @@ from scapy.base_classes import Net
 from scapy.compat import bytes_encode, chb, plain_str
 from scapy.utils import corrupt_bits, corrupt_bytes
 
-from scapy.compat import (
+from typing import (
     List,
     TypeVar,
     Generic,
