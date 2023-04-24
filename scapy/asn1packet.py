@@ -12,7 +12,7 @@ Packet holding data in Abstract Syntax Notation (ASN.1).
 from scapy.base_classes import Packet_metaclass
 from scapy.packet import Packet
 
-from scapy.compat import (
+from typing import (
     Any,
     Dict,
     Tuple,

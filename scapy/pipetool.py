@@ -19,7 +19,7 @@ from scapy.error import log_runtime, warning
 from scapy.config import conf
 from scapy.utils import get_temp_file, do_graph
 
-from scapy.compat import (
+from typing import (
     Any,
     Callable,
     Dict,

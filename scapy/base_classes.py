@@ -28,7 +28,7 @@ import scapy
 from scapy.error import Scapy_Exception
 from scapy.consts import WINDOWS
 
-from scapy.compat import (
+from typing import (
     Any,
     Dict,
     Generic,

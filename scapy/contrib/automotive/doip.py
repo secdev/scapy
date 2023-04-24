@@ -21,7 +21,12 @@ from scapy.supersocket import StreamSocket
 from scapy.layers.inet import TCP, UDP
 from scapy.contrib.automotive.uds import UDS
 from scapy.data import MTU
-from scapy.compat import Union, Tuple, Optional
+
+from typing import (
+    Union,
+    Tuple,
+    Optional,
+)
 
 
 class DoIP(Packet):

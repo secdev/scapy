@@ -7,14 +7,23 @@
 # scapy.contrib.status = library
 
 
-from scapy.compat import Any, List, Optional, Dict, Callable, cast, \
-    TYPE_CHECKING, Tuple
 from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.scanner.graph import _Edge
 from scapy.contrib.automotive.ecu import EcuState, EcuResponse, Ecu
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
     TestCaseGenerator, StateGenerator, _SocketUnion
 
+# Typing imports
+from typing import (
+    Any,
+    List,
+    Optional,
+    Dict,
+    Callable,
+    cast,
+    Tuple,
+    TYPE_CHECKING,
+)
 if TYPE_CHECKING:
     from scapy.contrib.automotive.scanner.test_case import _TransitionTuple
     from scapy.contrib.automotive.scanner.configuration import \

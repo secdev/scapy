@@ -6,6 +6,10 @@
 # scapy.contrib.description = Unified Diagnostic Service (UDS)
 # scapy.contrib.status = loads
 
+"""
+UDS
+"""
+
 import struct
 
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
@@ -18,11 +22,12 @@ from scapy.config import conf
 from scapy.error import log_loading
 from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
-from scapy.compat import Dict, Union
 
-"""
-UDS
-"""
+# Typing imports
+from typing import (
+    Dict,
+    Union,
+)
 
 try:
     if conf.contribs['UDS']['treat-response-pending-as-answer']:

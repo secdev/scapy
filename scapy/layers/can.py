@@ -13,10 +13,8 @@ import os
 import gzip
 import struct
 
-from scapy.compat import Tuple, Optional, Type, List, Union, Callable, IO, \
-    Any, cast, hex_bytes, chb
-
 from scapy.config import conf
+from scapy.compat import chb, hex_bytes
 from scapy.data import DLT_CAN_SOCKETCAN
 from scapy.fields import FieldLenField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ScalingField, ConditionalField, LenField, ShortField
@@ -27,6 +25,19 @@ from scapy.error import Scapy_Exception
 from scapy.plist import PacketList
 from scapy.supersocket import SuperSocket
 from scapy.utils import _ByteStream
+
+# Typing imports
+from typing import (
+    Tuple,
+    Optional,
+    Type,
+    List,
+    Union,
+    Callable,
+    IO,
+    Any,
+    cast,
+)
 
 __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",

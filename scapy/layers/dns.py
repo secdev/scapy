@@ -31,7 +31,7 @@ from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
 from scapy.layers.inet6 import IPv6, DestIP6Field, IP6Field
 
 
-from scapy.compat import (
+from typing import (
     Any,
     Optional,
     Tuple,

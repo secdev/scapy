@@ -60,7 +60,8 @@ from scapy.layers.ntlm import (
     _NTLMPayloadField,
 )
 
-from scapy.compat import (
+# Typing imports
+from typing import (
     Dict,
     Tuple,
 )

@@ -16,7 +16,7 @@ from scapy.pipetool import Source, Drain, Sink
 from scapy.utils import ContextManagerSubprocess, PcapReader, PcapWriter
 
 from scapy.supersocket import SuperSocket
-from scapy.compat import (
+from typing import (
     Any,
     Callable,
     List,

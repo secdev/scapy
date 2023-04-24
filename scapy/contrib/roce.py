@@ -19,7 +19,10 @@ from scapy.compat import raw
 from scapy.error import warning
 from zlib import crc32
 import struct
-from scapy.compat import Tuple
+
+from typing import (
+    Tuple
+)
 
 _transports = {
     'RC': 0x00,

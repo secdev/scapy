@@ -26,9 +26,18 @@ from scapy.error import warning
 from scapy.layers.inet import IP, TCP, UDP, ICMP, UDPerror, IPerror
 from scapy.packet import NoPayload, Packet
 from scapy.sendrecv import sr
-from scapy.compat import plain_str, raw, Dict, List, Tuple, Optional, cast, Union
+from scapy.compat import plain_str, raw
 from scapy.plist import SndRcvList, PacketList
 
+# Typing imports
+from typing import (
+    Dict,
+    List,
+    Tuple,
+    Optional,
+    cast,
+    Union,
+)
 
 if WINDOWS:
     conf.nmap_base = os.environ["ProgramFiles"] + "\\nmap\\nmap-os-fingerprints"  # noqa: E501

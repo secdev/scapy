@@ -47,7 +47,7 @@ from scapy.error import Scapy_Exception, log_runtime, warning
 from scapy.libs.test_pyx import PYX
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     Any,
     Callable,
     Dict,
@@ -60,10 +60,10 @@ from scapy.compat import (
     Type,
     TypeVar,
     Union,
-    Self,
     Sequence,
     cast,
 )
+from scapy.compat import Self
 
 try:
     import pyx

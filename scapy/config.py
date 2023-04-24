@@ -25,11 +25,11 @@ from scapy.consts import DARWIN, WINDOWS, LINUX, BSD, SOLARIS
 from scapy.error import log_scapy, warning, ScapyInvalidPlatformException
 from scapy.themes import NoTheme, apply_ipython_style
 
-from scapy.compat import (
+# Typing imports
+from typing import (
     cast,
     Any,
     Callable,
-    DecoratorCallable,
     Dict,
     Iterator,
     List,
@@ -43,11 +43,12 @@ from scapy.compat import (
     TYPE_CHECKING,
 )
 from types import ModuleType
+from scapy.compat import DecoratorCallable
 
 if TYPE_CHECKING:
     # Do not import at runtime
     import scapy.as_resolvers
-    from scapy.nmap import NmapKnowledgeBase
+    from scapy.modules.nmap import NmapKnowledgeBase
     from scapy.packet import Packet
     from scapy.supersocket import SuperSocket  # noqa: F401
     import scapy.asn1.asn1
