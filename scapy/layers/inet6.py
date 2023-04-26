@@ -57,6 +57,7 @@ from scapy.fields import (
     StrLenField,
     X3BytesField,
     XBitField,
+    XByteField,
     XIntField,
     XShortField,
 )
@@ -783,6 +784,27 @@ class RouterAlert(Packet):  # RFC 2711 - IPv6 Hop-By-Hop Option
         return b"", p
 
 
+class RplOption(Packet):    # RFC 6553 - RPL Option
+    name = "RPL Option"
+    fields_desc = [_OTypeField("otype", 0x63, _hbhopts),
+                   ByteField("optlen", 4),
+                   BitField("Down", 0, 1),
+                   BitField("RankError", 0, 1),
+                   BitField("ForwardError", 0, 1),
+                   BitField("unused", 0, 5),
+                   XByteField("RplInstanceId", 0),
+                   XShortField("SenderRank", 0)]
+
+    def alignment_delta(self, curpos):  # alignment requirement : 2n+0
+        x = 2
+        y = 0
+        delta = x * ((curpos - y + x - 1) // x) + y - curpos
+        return delta
+
+    def extract_padding(self, p):
+        return b"", p
+
+
 class Jumbo(Packet):  # IPv6 Hop-By-Hop Option
     name = "Jumbo Payload"
     fields_desc = [_OTypeField("otype", 0xC2, _hbhopts),
@@ -818,6 +840,7 @@ class HAO(Packet):  # IPv6 Destination Options Header Option
 _hbhoptcls = {0x00: Pad1,
               0x01: PadN,
               0x05: RouterAlert,
+              0x63: RplOption,
               0xC2: Jumbo,
               0xC9: HAO}
 
