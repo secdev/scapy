@@ -572,6 +572,25 @@ raw(RouterAlert(optlen=3, value=0xffff)) == b'\x05\x03\xff\xff'
 a=RouterAlert(b'\x05\x03\xff\xff')
 a.otype == 0x05 and a.optlen == 3 and a.value == 0xffff
 
+############
+############
++ Test RPL Option (RFC 6553)
+
+= RplOption - Basic Instantiation
+raw(RplOption()) == b'c\x04\x00\x00\x00\x00'
+
+= RplOption - Basic Dissection
+a=RplOption(b'c\x04\x00\x00\x00\x00')
+a.otype == 0x63 and a.optlen == 4 and a.Down == False and a.RankError == 0 and a.ForwardError == 0 and a.RplInstanceId == 0 and a.SenderRank == 0
+
+= RplOption - Instantiation with specific values
+a=RplOption(RplInstanceId=0x1e, SenderRank=0x800)
+a.otype == 0x63 and a.optlen == 4 and a.Down == False and a.RankError == 0 and a.ForwardError == 0 and a.RplInstanceId == 0x1e and a.SenderRank == 0x800
+
+= RplOption - Instantiation with specific values
+a=RplOption(Down=True, RplInstanceId=0x1e, SenderRank=0x800)
+a.otype == 0x63 and a.optlen == 4 and a.Down == True and a.RankError == 0 and a.ForwardError == 0 and a.RplInstanceId == 0x1e and a.SenderRank == 0x800
+raw(a) == b'c\x04\x80\x1e\x08\x00'
 
 ############
 ############
@@ -628,6 +647,9 @@ raw(IPv6ExtHdrHopByHop(options=[HAO()])) == b';\x02\x01\x02\x00\x00\xc9\x10\x00\
 
 = IPv6ExtHdrHopByHop - Instantiation with RouterAlert option
 raw(IPv6ExtHdrHopByHop(options=[RouterAlert()])) == b';\x00\x05\x02\x00\x00\x01\x00'
+
+= IPv6ExtHdrHopByHop - Instantiation with RPL option
+raw(IPv6ExtHdrHopByHop(options=[RplOption()])) == b';\x00c\x04\x00\x00\x00\x00'
  
 = IPv6ExtHdrHopByHop - Instantiation with Jumbo option
 raw(IPv6ExtHdrHopByHop(options=[Jumbo()])) == b';\x00\xc2\x04\x00\x00\x00\x00'
