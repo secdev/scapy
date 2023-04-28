@@ -41,7 +41,7 @@ from can.interface import Bus as can_Bus
 __all__ = ["CANSocket", "PythonCANSocket"]
 
 
-class SocketMapper:
+class SocketMapper(object):
     """Internal Helper class to map a python-can bus object to
     a list of SocketWrapper instances
     """
@@ -250,6 +250,7 @@ class SocketWrapper(can_BusABC):
         python-can.
         """
         SocketsPool.unregister(self)
+        super().shutdown()
 
 
 class PythonCANSocket(SuperSocket):
