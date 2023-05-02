@@ -3204,8 +3204,10 @@ class FixedPointField(BitField):
         return (ival << self.frac_bits) | fract
 
     def i2h(self, pkt, val):
-        # type: (Optional[Packet], int) -> EDecimal
+        # type: (Optional[Packet], Optional[int]) -> Optional[EDecimal]
         # A bit of trickery to get precise floats
+        if val is None:
+            return val
         int_part = val >> self.frac_bits
         pw = 2.0**self.frac_bits
         frac_part = EDecimal(val & (1 << self.frac_bits) - 1)
