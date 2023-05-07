@@ -29,6 +29,7 @@ from scapy.fields import (
     EnumField,
     Field,
     FlagsField,
+    FlagValue,
     MultiEnumField,
     MultipleTypeField,
     PacketListField,
@@ -1679,7 +1680,7 @@ values.
                     getattr(x, 'command', lambda: repr(x))()
                     for x in fv
                 )
-            elif isinstance(fld, FlagsField):
+            elif isinstance(fv, FlagValue):
                 fv = int(fv)
             elif callable(getattr(fv, 'command', None)):
                 fv = fv.command()
