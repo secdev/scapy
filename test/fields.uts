@@ -1696,6 +1696,17 @@ assert a.sprintf("%flags%") == "A+B"
 b = FlagsTest2(flags="B+C")
 assert b.flags == 0x1000 | 0x0008
 
+= Conditional FlagsField command
+
+class CondFlagsTest(Packet):
+    fields_desc = [
+        ByteField("b", 0),
+        ConditionalField(FlagsField("f", 0, 8, ""), lambda p: p.b == 0)
+    ]
+
+p = CondFlagsTest(b"\x00\x0f")
+assert p == eval(p.command())
+
 ########
 ########
 + ScalingField
