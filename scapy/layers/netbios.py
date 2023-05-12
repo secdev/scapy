@@ -13,6 +13,7 @@ import struct
 from scapy.arch import get_if_addr
 from scapy.base_classes import Net
 from scapy.ansmachine import AnsweringMachine
+from scapy.compat import bytes_encode
 from scapy.config import conf
 
 from scapy.packet import Packet, bind_bottom_up, bind_layers, bind_top_down
@@ -366,7 +367,7 @@ class NBNS_am(AnsweringMachine):
         :param from_ip: an IP (can have a netmask) to filter on
         :param ip: the IP to answer with
         """
-        self.ServerName = server_name
+        self.ServerName = bytes_encode(server_name or "")
         self.ip = ip
         if isinstance(from_ip, str):
             self.from_ip = Net(from_ip)
@@ -378,8 +379,7 @@ class NBNS_am(AnsweringMachine):
             return False
         return NBNSQueryRequest in req and (
             not self.ServerName or
-            req[NBNSQueryRequest].QUESTION_NAME.decode().strip() ==
-            self.ServerName
+            req[NBNSQueryRequest].QUESTION_NAME.strip() == self.ServerName
         )
 
     def make_reply(self, req):
