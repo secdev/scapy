@@ -371,9 +371,12 @@ class Dot1Q(Packet):
     name = "802.1Q"
     aliastypes = [Ether]
     fields_desc = [BitField("prio", 0, 3),
-                   BitField("id", 0, 1),
+                   BitField("dei", 0, 1),
                    BitField("vlan", 1, 12),
                    XShortEnumField("type", 0x0000, ETHER_TYPES)]
+    deprecated_fields = {
+        "id": ("dei", "2.5.0"),
+    }
 
     def answers(self, other):
         # type: (Packet) -> int
