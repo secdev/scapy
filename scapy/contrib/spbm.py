@@ -34,25 +34,8 @@ Note the outer Dot1Q Ethertype marking (0x88e7)
     spb_example = backboneEther/backboneDot1Q/backboneServiceID/customerEther/customerDot1Q/customerIP/customerUDP/"Payload"  # noqa: E501
 """
 
-from scapy.packet import Packet, bind_layers
-from scapy.fields import BitField, ThreeBytesField
-from scapy.layers.l2 import Ether, Dot1Q, Dot1AD
+from scapy.layers.l2 import Dot1AH
 
 
-class SPBM(Packet):
-    name = "SPBM"
-    fields_desc = [BitField("prio", 0, 3),
-                   BitField("dei", 0, 1),
-                   BitField("nca", 0, 1),
-                   BitField("res1", 0, 1),
-                   BitField("res2", 0, 2),
-                   ThreeBytesField("isid", 0)]
-
-    def mysummary(self):
-        return self.sprintf("SPBM (isid=%SPBM.isid%")
-
-
-bind_layers(Ether, SPBM, type=0x88e7)
-bind_layers(Dot1Q, SPBM, type=0x88e7)
-bind_layers(Dot1AD, SPBM, type=0x88e7)
-bind_layers(SPBM, Ether)
+# alias to Dot1AH for backwards comaptibility
+SPBM = Dot1AH

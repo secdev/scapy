@@ -45,6 +45,7 @@ from scapy.fields import (
     SourceIPField,
     StrFixedLenField,
     StrLenField,
+    ThreeBytesField,
     XByteField,
     XIntField,
     XShortEnumField,
@@ -238,6 +239,7 @@ HARDWARE_TYPES = {
 }
 
 ETHER_TYPES[0x88a8] = '802_AD'
+ETHER_TYPES[0x88e7] = '802_AH'
 ETHER_TYPES[ETH_P_MACSEC] = '802_1AE'
 
 
@@ -683,25 +685,48 @@ class Dot1AD(Dot1Q):
     name = '802_1AD'
 
 
+class Dot1AH(Packet):
+    name = "802_1AH"
+    fields_desc = [BitField("prio", 0, 3),
+                   BitField("dei", 0, 1),
+                   BitField("nca", 0, 1),
+                   BitField("res1", 0, 1),
+                   BitField("res2", 0, 2),
+                   ThreeBytesField("isid", 0)]
+
+    def mysummary(self):
+        # type: () -> str
+        return self.sprintf("802.1ah (isid=%Dot1AH.isid%")
+
+
+conf.neighbor.register_l3(Ether, Dot1AH, l2_register_l3)
+
+
 bind_layers(Dot3, LLC)
 bind_layers(Ether, LLC, type=122)
 bind_layers(Ether, LLC, type=34928)
 bind_layers(Ether, Dot1Q, type=33024)
 bind_layers(Ether, Dot1AD, type=0x88a8)
+bind_layers(Ether, Dot1AH, type=0x88e7)
 bind_layers(Dot1AD, Dot1AD, type=0x88a8)
 bind_layers(Dot1AD, Dot1Q, type=0x8100)
+bind_layers(Dot1AD, Dot1AH, type=0x88e7)
 bind_layers(Dot1Q, Dot1AD, type=0x88a8)
+bind_layers(Dot1Q, Dot1AH, type=0x88e7)
+bind_layers(Dot1AH, Ether)
 bind_layers(Ether, Ether, type=1)
 bind_layers(Ether, ARP, type=2054)
 bind_layers(CookedLinux, LLC, proto=122)
 bind_layers(CookedLinux, Dot1Q, proto=33024)
 bind_layers(CookedLinux, Dot1AD, type=0x88a8)
+bind_layers(CookedLinux, Dot1AH, type=0x88e7)
 bind_layers(CookedLinux, Ether, proto=1)
 bind_layers(CookedLinux, ARP, proto=2054)
 bind_layers(MPacketPreamble, Ether)
 bind_layers(GRE, LLC, proto=122)
 bind_layers(GRE, Dot1Q, proto=33024)
 bind_layers(GRE, Dot1AD, type=0x88a8)
+bind_layers(GRE, Dot1AH, type=0x88e7)
 bind_layers(GRE, Ether, proto=0x6558)
 bind_layers(GRE, ARP, proto=2054)
 bind_layers(GRE, GRErouting, {"routing_present": 1})
@@ -711,6 +736,7 @@ bind_layers(LLC, STP, dsap=66, ssap=66, ctrl=3)
 bind_layers(LLC, SNAP, dsap=170, ssap=170, ctrl=3)
 bind_layers(SNAP, Dot1Q, code=33024)
 bind_layers(SNAP, Dot1AD, type=0x88a8)
+bind_layers(SNAP, Dot1AH, type=0x88e7)
 bind_layers(SNAP, Ether, code=1)
 bind_layers(SNAP, ARP, code=2054)
 bind_layers(SNAP, STP, code=267)
