@@ -1361,21 +1361,21 @@ DNS Requests
 This will perform a DNS request looking for IPv4 addresses
 
     >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="secdev.org",qtype="A")))
-    >>> ans.an.rdata
+    >>> ans.an[0].rdata
     '217.25.178.5'
 
 **SOA request:**
 
     >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="secdev.org",qtype="SOA")))
-    >>> ans.ns.mname
+    >>> ans.an[0].mname
     b'dns.ovh.net.'
-    >>> ans.ns.rname
+    >>> ans.an[0].rname
     b'tech.ovh.net.'
 
 **MX request:**
 
     >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="google.com",qtype="MX")))
-    >>> results = [x.exchange for x in ans.an.iterpayloads()]
+    >>> results = [x.exchange for x in ans.an]
     >>> results
     [b'alt1.aspmx.l.google.com.',
      b'alt4.aspmx.l.google.com.',
@@ -1477,7 +1477,7 @@ LLMNR spoof
 See :class:`~scapy.layers.llmnr.LLMNR_am`::
 
     >>> conf.iface = "tap0"
-    >>> llmnr_spoof(iface="tap0", filter_ips=Net("10.0.0.1/24"))
+    >>> llmnr_spoof(iface="tap0", from_ip=Net("10.0.0.1/24"))
 
 Netbios spoof
 -------------
