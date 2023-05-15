@@ -694,6 +694,13 @@ class Dot1AH(Packet):
                    BitField("res2", 0, 2),
                    ThreeBytesField("isid", 0)]
 
+    def answers(self, other):
+        # type: (Packet) -> int
+        if isinstance(other, Dot1AH):
+            if self.isid == other.isid:
+                return self.payload.answers(other.payload)
+        return 0
+
     def mysummary(self):
         # type: () -> str
         return self.sprintf("802.1ah (isid=%Dot1AH.isid%")
