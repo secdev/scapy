@@ -541,7 +541,7 @@ class DNS(Packet):
 # RFC 2671 - Extension Mechanisms for DNS (EDNS0)
 
 edns0types = {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Reserved",
-              5: "PING", 8: "edns-client-subnet"}
+              5: "PING", 8: "edns-client-subnet", 10: "COOKIE"}
 
 
 class EDNS0TLV(Packet):
