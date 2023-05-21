@@ -253,6 +253,7 @@ class _AEADCipher_TLS13(metaclass=_AEADCipherMetaclass):
     eventually be removed, with cryptography v2.0. XXX
     """
     type = "aead"
+    nonce_explicit_len = 0
 
     def __init__(self, key=None, fixed_iv=None, nonce_explicit=None):
         """
@@ -380,7 +381,6 @@ if conf.crypto_valid_advanced:
         key_len = 32
         tag_len = 16
         fixed_iv_len = 12
-        nonce_explicit_len = 0
 
     class Cipher_CHACHA20_POLY1305(Cipher_CHACHA20_POLY1305_TLS13):
         """
