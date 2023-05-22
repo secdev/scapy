@@ -133,3 +133,21 @@ def check_WiFi_am_reply(packet):
 test_WiFi_am(Dot11(FCfield="to-DS")/IP()/TCP()/"Scapy",
              check_WiFi_am_reply,
              iffrom="scapy0", ifto="scapy1", replace="5c4pY", pattern="Scapy")
+
+
+= NBNS_am
+def check_NBNS_am_reply(name):
+    def check(packet):
+        assert NBNSQueryResponse in packet and packet[NBNSQueryResponse].RR_NAME == bytes_encode(name)
+    return check
+
+for server_name in (None, "", b"test", "test"):
+    test_am(NBNS_am,
+            Ether()/IP()/UDP()/NBNSHeader()/NBNSQueryRequest(QUESTION_NAME="test"),
+            check_NBNS_am_reply("test"),
+            server_name=server_name)
+
+test_am(NBNS_am,
+        Ether()/IP()/UDP()/NBNSHeader()/NBNSQueryRequest(QUESTION_NAME=b"\x85"),
+        check_NBNS_am_reply(b"\x85"),
+        server_name=b"\x85")
