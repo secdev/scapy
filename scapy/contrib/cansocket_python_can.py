@@ -151,8 +151,12 @@ class _SocketsPool(object):
         :param args: Arguments for the python-can Bus object
         :param kwargs: Keyword arguments for the python-can Bus object
         """
-        k = str(kwargs.get("bustype", "unknown_bustype")) + "_" + \
-            str(kwargs.get("channel", "unknown_channel"))
+        if "interface" in kwargs.keys():
+            k = str(kwargs.get("interface", "unknown_interface")) + "_" + \
+                str(kwargs.get("channel", "unknown_channel"))
+        else:
+            k = str(kwargs.get("bustype", "unknown_bustype")) + "_" + \
+                str(kwargs.get("channel", "unknown_channel"))
         with self.pool_mutex:
             if k in self.pool:
                 t = self.pool[k]
