@@ -1961,7 +1961,7 @@ p = Ether() / IPv6() / TCP()
 p.comment = b"Hello Scapy!"
 wrpcapng(tmpfile, p)
 l = rdpcap(tmpfile)
-assert l[0].comment.strip() == p.comment
+assert l[0].comment == p.comment
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)

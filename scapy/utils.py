@@ -1553,12 +1553,7 @@ class RawPcapNgReader(RawPcapReader):
                     tsresol & 127
                 )
             if code == 1 and length >= 1 and 4 + length < len(options):
-                comment = options[4:4 + length]
-                newline_index = comment.find(b"\n")
-                if newline_index == -1:
-                    warning("PcapNg: invalid comment option")
-                    break
-                opts["comment"] = comment[:newline_index]
+                opts["comment"] = options[4:4 + length]
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option length %d for end-of-option" % length)  # noqa: E501
@@ -2210,8 +2205,6 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         comment_opt = None
         if comment:
             comment = bytes_encode(comment)
-            if not comment.endswith(b"\n"):
-                comment += b"\n"
             comment_opt = struct.pack(self.endian + "HH", 1, len(comment))
 
             # Pad Option Value to 32 bits
