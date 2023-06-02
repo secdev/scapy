@@ -13,7 +13,8 @@ from scapy.config import conf
 from scapy.packet import Packet
 from scapy.fields import BitField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ConditionalField, \
-    BitEnumField, ByteField, XByteField, BitFieldLenField, StrField, FieldLenField, IntField, ShortField
+    BitEnumField, ByteField, XByteField, BitFieldLenField, StrField, \
+    FieldLenField, IntField, ShortField
 from scapy.compat import chb, orb
 from scapy.layers.can import CAN
 from scapy.error import Scapy_Exception
