@@ -195,25 +195,19 @@ assert p.type == 1
 assert p.identifier == 0
 
 = Build FF frame EA, extended size, with constructor, check for correct length assignments
-p = ISOTPHeaderEA(bytes(ISOTPHeaderEA()/ISOTP_FF(message_size=0,
-                                                 extended_message_size=2000,
-                                                 data=b'\xad')))
+p = ISOTPHeaderEA(bytes(ISOTPHeaderEA()/ISOTP_FF_FD(message_size=2000, data=b'\xad')))
 assert p.extended_address == 0
 assert p.length == 8
-assert p.message_size == 0
-assert p.extended_message_size == 2000
+assert p.message_size == 2000
 assert len(p.data) == 1
 assert p.data == b'\xad'
 assert p.type == 1
 assert p.identifier == 0
 
 = Build FF frame, extended size, with constructor, check for correct length assignments
-p = ISOTPHeader(bytes(ISOTPHeader()/ISOTP_FF(message_size=0,
-                                             extended_message_size=2000,
-                                             data=b'\xad')))
+p = ISOTPHeader(bytes(ISOTPHeader()/ISOTP_FF_FD(message_size=2000, data=b'\xad')))
 assert p.length == 7
-assert p.message_size == 0
-assert p.extended_message_size == 2000
+assert p.message_size == 2000
 assert len(p.data) == 1
 assert p.data == b'\xad'
 assert p.type == 1
@@ -451,3 +445,70 @@ isotpex.show()
 assert isotpex.data == dhex("AA")
 assert isotpex.rx_ext_address == 0x02
 
+= Build ISOTP_FF_FD
+
+pkt = ISOTP_FF_FD(message_size=0xffff0000)
+assert bytes(pkt) == bytes.fromhex("1000ffff0000")
+
+= Build ISOTP_SF_FD
+
+pkt = ISOTP_SF_FD(message_size=0xff)
+assert bytes(pkt) == bytes.fromhex("00ff")
+
+= Build ISOTP_FF_FD 2
+
+pkt = ISOTPHeaderEA_FD(identifier=0x7ff, extended_address=0xaf)/ISOTP_FF_FD(message_size=0xffff0000)
+assert bytes(pkt) == bytes.fromhex("000007ff 07 04 00 00 af 1000ffff0000")
+
+= Build ISOTP_SF_FD 2
+
+pkt = ISOTPHeaderEA_FD(identifier=0x7ff, extended_address=0xaf)/ISOTP_SF_FD(message_size=0xff)
+assert bytes(pkt) == bytes.fromhex("000007ff 03 04 00 00 af 00ff")
+
+= Build ISOTP_FF_FD 3
+
+pkt = ISOTPHeader_FD(identifier=0x7ff)/ISOTP_FF_FD(message_size=0xffff0000)
+assert bytes(pkt) == bytes.fromhex("000007ff 06 04 00 00 1000ffff0000")
+
+= Build ISOTP_SF_FD 3
+
+pkt = ISOTPHeader_FD(identifier=0x7ff)/ISOTP_SF_FD(message_size=0xff)
+assert bytes(pkt) == bytes.fromhex("000007ff 02 04 00 00 00ff")
+
+= Dissect ISOTPFD 1
+pkt = ISOTPHeaderEA_FD(bytes.fromhex("000007ff 07 04 00 00 af 1000ffff0000"))
+pkt.show()
+sub_pkt = pkt[ISOTP_FF_FD]
+assert pkt.identifier == 0x7ff
+assert pkt.length == 0x7
+assert pkt.fd_flags == 0x4
+assert pkt.extended_address == 0xaf
+assert sub_pkt.message_size == 0xffff0000
+
+= Dissect ISOTPFD 2
+pkt = ISOTPHeaderEA_FD(bytes.fromhex("000007ff 07 04 00 00 af 00ff00000000"))
+pkt.show()
+sub_pkt = pkt[ISOTP_SF_FD]
+assert pkt.identifier == 0x7ff
+assert pkt.length == 0x7
+assert pkt.fd_flags == 0x4
+assert pkt.extended_address == 0xaf
+assert sub_pkt.message_size == 0xff
+
+= Dissect ISOTPFD 3
+pkt = ISOTPHeader_FD(bytes.fromhex("000007ff 06 04 00 00 1000ffff0000"))
+pkt.show()
+sub_pkt = pkt[ISOTP_FF_FD]
+assert pkt.identifier == 0x7ff
+assert pkt.length == 0x6
+assert pkt.fd_flags == 0x4
+assert sub_pkt.message_size == 0xffff0000
+
+= Dissect ISOTPFD 4
+pkt = ISOTPHeader_FD(bytes.fromhex("000007ff 06 04 00 00 00ff00000000"))
+pkt.show()
+sub_pkt = pkt[ISOTP_SF_FD]
+assert pkt.identifier == 0x7ff
+assert pkt.length == 0x6
+assert pkt.fd_flags == 0x4
+assert sub_pkt.message_size == 0xff

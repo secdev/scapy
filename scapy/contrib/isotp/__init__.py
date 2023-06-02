@@ -13,14 +13,17 @@ from scapy.config import conf
 from scapy.error import log_loading
 
 from scapy.contrib.isotp.isotp_packet import ISOTP, ISOTPHeader, \
-    ISOTPHeaderEA, ISOTP_SF, ISOTP_FF, ISOTP_CF, ISOTP_FC
+    ISOTPHeaderEA, ISOTP_SF, ISOTP_FF, ISOTP_CF, ISOTP_FC, \
+    ISOTP_FF_FD, ISOTP_SF_FD, ISOTPHeaderEA_FD, ISOTPHeader_FD
 from scapy.contrib.isotp.isotp_utils import ISOTPSession, \
     ISOTPMessageBuilder
 from scapy.contrib.isotp.isotp_soft_socket import ISOTPSoftSocket
 from scapy.contrib.isotp.isotp_scanner import isotp_scan
 
 __all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
-           "ISOTP_CF", "ISOTP_FC", "ISOTPSoftSocket", "ISOTPSession",
+           "ISOTP_CF", "ISOTP_FC", "ISOTP_FF_FD", "ISOTP_SF_FD",
+           "ISOTPSoftSocket", "ISOTPSession", "ISOTPHeader_FD",
+           "ISOTPHeaderEA_FD",
            "ISOTPSocket", "ISOTPMessageBuilder", "isotp_scan",
            "USE_CAN_ISOTP_KERNEL_MODULE", "log_isotp"]
 
