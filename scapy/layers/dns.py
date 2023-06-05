@@ -34,6 +34,7 @@ from scapy.layers.inet6 import IPv6, DestIP6Field, IP6Field
 
 from typing import (
     Any,
+    List,
     Optional,
     Tuple,
     Type,
@@ -914,6 +915,42 @@ class DNSQR(Packet):
         return conf.padding_layer
 
 
+class _DNSPacketListField(PacketListField):
+    # A normal PacketListField with backward-compatible hacks
+    def any2i(self, pkt, x):
+        # type: (Optional[Packet], List[Any]) -> List[Any]
+        if x is None:
+            warnings.warn(
+                ("The DNS fields 'qd', 'an', 'ns' and 'ar' are now "
+                 "PacketListField(s) ! "
+                 "Setting a null default should be [] instead of None"),
+                DeprecationWarning
+            )
+            x = []
+        return super(_DNSPacketListField, self).any2i(pkt, x)
+
+    def i2h(self, pkt, x):
+        # type: (Optional[Packet], List[Packet]) -> Any
+        class _list(list):
+            """
+            Fake list object to provide compatibility with older DNS fields
+            """
+            def __getattr__(self, attr):
+                try:
+                    ret = getattr(self[0], attr)
+                    warnings.warn(
+                        ("The DNS fields 'qd', 'an', 'ns' and 'ar' are now "
+                         "PacketListField(s) ! "
+                         "To access the first element, use pkt.an[0] instead of "
+                         "pkt.an"),
+                        DeprecationWarning
+                    )
+                    return ret
+                except AttributeError:
+                    raise
+        return _list(x)
+
+
 class DNS(DNSCompressedPacket):
     name = "DNS"
     fields_desc = [
@@ -937,10 +974,10 @@ class DNS(DNSCompressedPacket):
         FieldLenField("ancount", None, count_of="an"),
         FieldLenField("nscount", None, count_of="ns"),
         FieldLenField("arcount", None, count_of="ar"),
-        PacketListField("qd", [DNSQR()], DNSQR, count_from=lambda pkt: pkt.qdcount),
-        PacketListField("an", [], _DNSRR, count_from=lambda pkt: pkt.ancount),
-        PacketListField("ns", [], _DNSRR, count_from=lambda pkt: pkt.nscount),
-        PacketListField("ar", [], _DNSRR, count_from=lambda pkt: pkt.arcount),
+        _DNSPacketListField("qd", [DNSQR()], DNSQR, count_from=lambda pkt: pkt.qdcount),
+        _DNSPacketListField("an", [], _DNSRR, count_from=lambda pkt: pkt.ancount),
+        _DNSPacketListField("ns", [], _DNSRR, count_from=lambda pkt: pkt.nscount),
+        _DNSPacketListField("ar", [], _DNSRR, count_from=lambda pkt: pkt.arcount),
     ]
 
     def get_full(self):
@@ -974,7 +1011,7 @@ class DNS(DNSCompressedPacket):
         return pkt + pay
 
     def compress(self):
-        """Return the compressed DNS packet (using `dns_compress()`"""
+        """Return the compressed DNS packet (using `dns_compress()`)"""
         return dns_compress(self)
 
     def pre_dissect(self, s):

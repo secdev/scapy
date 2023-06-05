@@ -1005,8 +1005,6 @@ class Packet(
         _raw = s
         self.raw_packet_cache_fields = {}
         for f in self.fields_desc:
-            if not s:
-                break
             s, fval = f.getfield(self, s)
             # Skip unused ConditionalField
             if isinstance(f, ConditionalField) and fval is None:
