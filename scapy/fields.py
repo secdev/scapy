@@ -1123,6 +1123,10 @@ class FieldValueRangeException(Scapy_Exception):
     pass
 
 
+class MaximumItemsCount(Scapy_Exception):
+    pass
+
+
 class FieldAttributeException(Scapy_Exception):
     pass
 
@@ -1567,7 +1571,7 @@ class PacketListField(_PacketField[List[BasePacket]]):
     (i.e. a stack of layers). All elements in PacketListField have current
     packet referenced in parent field.
     """
-    __slots__ = ["count_from", "length_from", "next_cls_cb"]
+    __slots__ = ["count_from", "length_from", "next_cls_cb", "max_count"]
     islist = 1
 
     def __init__(
@@ -1578,6 +1582,7 @@ class PacketListField(_PacketField[List[BasePacket]]):
             count_from=None,  # type: Optional[Callable[[Packet], int]]
             length_from=None,  # type: Optional[Callable[[Packet], int]]
             next_cls_cb=None,  # type: Optional[Callable[[Packet, List[BasePacket], Optional[Packet], bytes], Type[Packet]]]  # noqa: E501
+            max_count=None,  # type: Optional[int]
     ):
         # type: (...) -> None
         """
@@ -1677,6 +1682,8 @@ class PacketListField(_PacketField[List[BasePacket]]):
         :param length_from: a callback returning the number of bytes to dissect
         :param next_cls_cb: a callback returning either None or the type of
             the next Packet to dissect.
+        :param max_count: an int containing the max ammount of results. This is
+            a safety mechanism, exceeding this value will raise a Scapy_Exception.
         """
         if default is None:
             default = []  # Create a new list for each instance
@@ -1688,6 +1695,7 @@ class PacketListField(_PacketField[List[BasePacket]]):
         self.count_from = count_from
         self.length_from = length_from
         self.next_cls_cb = next_cls_cb
+        self.max_count = max_count or conf.max_list_count
 
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Any) -> List[BasePacket]
@@ -1768,6 +1776,11 @@ class PacketListField(_PacketField[List[BasePacket]]):
                 else:
                     remain = b""
             lst.append(p)
+            if len(lst) >= self.max_count:
+                raise MaximumItemsCount(
+                    "Maximum amount of items reached in PacketListField: %s "
+                    "(defaults to conf.max_list_count)" % self.max_count
+                )
 
         if isinstance(remain, tuple):
             remain, nb = remain
@@ -1998,7 +2011,7 @@ class BoundStrLenField(StrLenField):
 
 
 class FieldListField(Field[List[Any], List[Any]]):
-    __slots__ = ["field", "count_from", "length_from"]
+    __slots__ = ["field", "count_from", "length_from", "max_count"]
     islist = 1
 
     def __init__(
@@ -2008,6 +2021,7 @@ class FieldListField(Field[List[Any], List[Any]]):
             field,  # type: AnyField
             length_from=None,  # type: Optional[Callable[[Packet], int]]
             count_from=None,  # type: Optional[Callable[[Packet], int]]
+            max_count=None,  # type: Optional[int]
     ):
         # type: (...) -> None
         if default is None:
@@ -2016,6 +2030,7 @@ class FieldListField(Field[List[Any], List[Any]]):
         Field.__init__(self, name, default)
         self.count_from = count_from
         self.length_from = length_from
+        self.max_count = max_count or conf.max_list_count
 
     def i2count(self, pkt, val):
         # type: (Optional[Packet], List[Any]) -> int
@@ -2075,6 +2090,11 @@ class FieldListField(Field[List[Any], List[Any]]):
                 c -= 1
             s, v = self.field.getfield(pkt, s)
             val.append(v)
+            if len(val) >= self.max_count:
+                raise MaximumItemsCount(
+                    "Maximum amount of items reached in FieldListField: %s "
+                    "(defaults to conf.max_list_count)" % self.max_count
+                )
 
         if isinstance(s, tuple):
             s, bn = s

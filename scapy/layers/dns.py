@@ -92,7 +92,7 @@ def dns_get_str(s, full=None, _ignore_compression=False):
                 "DNS RR prematured end (ofs=%i, len=%i)", pointer, len(s)
             )
             break
-        cur = orb(s[pointer])  # get pointer value
+        cur = s[pointer]  # get pointer value
         pointer += 1  # make pointer go forward
         if cur & 0xc0:  # Label pointer
             if after_pointer is None:
@@ -112,9 +112,13 @@ def dns_get_str(s, full=None, _ignore_compression=False):
                 raise Scapy_Exception("DNS message can't be compressed " +
                                       "at this point!")
             # Follow the pointer
-            pointer = ((cur & ~0xc0) << 8) + orb(s[pointer])
+            pointer = ((cur & ~0xc0) << 8) + s[pointer]
             if pointer in processed_pointers:
                 warning("DNS decompression loop detected")
+                break
+            if len(processed_pointers) >= 20:
+                warning("More than 20 jumps in a single DNS decompression ! "
+                        "Dropping (evil packet)")
                 break
             if not _fullpacket:
                 # We switch our s buffer to full, so we need to remember
