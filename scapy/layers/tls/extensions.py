@@ -11,9 +11,22 @@ TLS handshake extensions.
 import os
 import struct
 
-from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
-    FieldListField, IntField, PacketField, PacketListField, ShortEnumField, \
-    ShortField, StrFixedLenField, StrLenField, XStrLenField
+from scapy.fields import (
+    ByteEnumField,
+    ByteField,
+    EnumField,
+    FieldLenField,
+    FieldListField,
+    IntField,
+    MayEnd,
+    PacketField,
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    StrFixedLenField,
+    StrLenField,
+    XStrLenField,
+)
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.x509 import X509_Extensions
 from scapy.layers.tls.basefields import _tls_version
@@ -196,8 +209,8 @@ class ServerLenField(FieldLenField):
 class TLS_Ext_ServerName(TLS_Ext_PrettyPacketList):                 # RFC 4366
     name = "TLS Extension - Server Name"
     fields_desc = [ShortEnumField("type", 0, _tls_ext),
-                   FieldLenField("len", None, length_of="servernames",
-                                 adjust=lambda pkt, x: x + 2),
+                   MayEnd(FieldLenField("len", None, length_of="servernames",
+                                        adjust=lambda pkt, x: x + 2)),
                    ServerLenField("servernameslen", None,
                                   length_of="servernames"),
                    ServerListField("servernames", [], ServerName,
@@ -207,7 +220,7 @@ class TLS_Ext_ServerName(TLS_Ext_PrettyPacketList):                 # RFC 4366
 class TLS_Ext_EncryptedServerName(TLS_Ext_PrettyPacketList):
     name = "TLS Extension - Encrypted Server Name"
     fields_desc = [ShortEnumField("type", 0xffce, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    EnumField("cipher", None, _tls_cipher_suites),
                    ShortEnumField("key_exchange_group", None,
                                   _tls_named_groups),
@@ -228,7 +241,7 @@ class TLS_Ext_EncryptedServerName(TLS_Ext_PrettyPacketList):
 class TLS_Ext_MaxFragLen(TLS_Ext_Unknown):                          # RFC 4366
     name = "TLS Extension - Max Fragment Length"
     fields_desc = [ShortEnumField("type", 1, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    ByteEnumField("maxfraglen", 4, {1: "2^9",
                                                    2: "2^10",
                                                    3: "2^11",
@@ -238,7 +251,7 @@ class TLS_Ext_MaxFragLen(TLS_Ext_Unknown):                          # RFC 4366
 class TLS_Ext_ClientCertURL(TLS_Ext_Unknown):                       # RFC 4366
     name = "TLS Extension - Client Certificate URL"
     fields_desc = [ShortEnumField("type", 2, _tls_ext),
-                   ShortField("len", None)]
+                   MayEnd(ShortField("len", None))]
 
 
 _tls_trusted_authority_types = {0: "pre_agreed",
@@ -310,7 +323,7 @@ class _TAListField(PacketListField):
 class TLS_Ext_TrustedCAInd(TLS_Ext_Unknown):                        # RFC 4366
     name = "TLS Extension - Trusted CA Indication"
     fields_desc = [ShortEnumField("type", 3, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    FieldLenField("talen", None, length_of="ta"),
                    _TAListField("ta", [], Raw,
                                 length_from=lambda pkt: pkt.talen)]
@@ -319,7 +332,7 @@ class TLS_Ext_TrustedCAInd(TLS_Ext_Unknown):                        # RFC 4366
 class TLS_Ext_TruncatedHMAC(TLS_Ext_Unknown):                       # RFC 4366
     name = "TLS Extension - Truncated HMAC"
     fields_desc = [ShortEnumField("type", 4, _tls_ext),
-                   ShortField("len", None)]
+                   MayEnd(ShortField("len", None))]
 
 
 class ResponderID(Packet):
@@ -363,7 +376,7 @@ class _StatusReqField(PacketListField):
 class TLS_Ext_CSR(TLS_Ext_Unknown):                                 # RFC 4366
     name = "TLS Extension - Certificate Status Request"
     fields_desc = [ShortEnumField("type", 5, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    ByteEnumField("stype", None, _cert_status_type),
                    _StatusReqField("req", [], Raw,
                                    length_from=lambda pkt: pkt.len - 1)]
@@ -372,7 +385,7 @@ class TLS_Ext_CSR(TLS_Ext_Unknown):                                 # RFC 4366
 class TLS_Ext_UserMapping(TLS_Ext_Unknown):                         # RFC 4681
     name = "TLS Extension - User Mapping"
     fields_desc = [ShortEnumField("type", 6, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    FieldLenField("umlen", None, fmt="B", length_of="um"),
                    FieldListField("um", [],
                                   ByteField("umtype", 0),
@@ -383,7 +396,7 @@ class TLS_Ext_ClientAuthz(TLS_Ext_Unknown):                         # RFC 5878
     """ XXX Unsupported """
     name = "TLS Extension - Client Authz"
     fields_desc = [ShortEnumField("type", 7, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    ]
 
 
@@ -391,7 +404,7 @@ class TLS_Ext_ServerAuthz(TLS_Ext_Unknown):                         # RFC 5878
     """ XXX Unsupported """
     name = "TLS Extension - Server Authz"
     fields_desc = [ShortEnumField("type", 8, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    ]
 
 
@@ -401,7 +414,7 @@ _tls_cert_types = {0: "X.509", 1: "OpenPGP"}
 class TLS_Ext_ClientCertType(TLS_Ext_Unknown):                      # RFC 5081
     name = "TLS Extension - Certificate Type (client version)"
     fields_desc = [ShortEnumField("type", 9, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    FieldLenField("ctypeslen", None, length_of="ctypes"),
                    FieldListField("ctypes", [0, 1],
                                   ByteEnumField("certtypes", None,
@@ -412,7 +425,7 @@ class TLS_Ext_ClientCertType(TLS_Ext_Unknown):                      # RFC 5081
 class TLS_Ext_ServerCertType(TLS_Ext_Unknown):                      # RFC 5081
     name = "TLS Extension - Certificate Type (server version)"
     fields_desc = [ShortEnumField("type", 9, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    ByteEnumField("ctype", None, _tls_cert_types)]
 
 
@@ -436,7 +449,7 @@ class TLS_Ext_SupportedGroups(TLS_Ext_Unknown):
     """
     name = "TLS Extension - Supported Groups"
     fields_desc = [ShortEnumField("type", 10, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    FieldLenField("groupslen", None, length_of="groups"),
                    FieldListField("groups", [],
                                   ShortEnumField("ng", None,
@@ -456,7 +469,7 @@ _tls_ecpoint_format = {0: "uncompressed",
 class TLS_Ext_SupportedPointFormat(TLS_Ext_Unknown):                # RFC 4492
     name = "TLS Extension - Supported Point Format"
     fields_desc = [ShortEnumField("type", 11, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    FieldLenField("ecpllen", None, fmt="B", length_of="ecpl"),
                    FieldListField("ecpl", [0],
                                   ByteEnumField("nc", None,
@@ -467,7 +480,7 @@ class TLS_Ext_SupportedPointFormat(TLS_Ext_Unknown):                # RFC 4492
 class TLS_Ext_SignatureAlgorithms(TLS_Ext_Unknown):                 # RFC 5246
     name = "TLS Extension - Signature Algorithms"
     fields_desc = [ShortEnumField("type", 13, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    SigAndHashAlgsLenField("sig_algs_len", None,
                                           length_of="sig_algs"),
                    SigAndHashAlgsField("sig_algs", [],
@@ -479,7 +492,7 @@ class TLS_Ext_SignatureAlgorithms(TLS_Ext_Unknown):                 # RFC 5246
 class TLS_Ext_Heartbeat(TLS_Ext_Unknown):                           # RFC 6520
     name = "TLS Extension - Heartbeat"
     fields_desc = [ShortEnumField("type", 0x0f, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    ByteEnumField("heartbeat_mode", 2,
                                  {1: "peer_allowed_to_send",
                                   2: "peer_not_allowed_to_send"})]
@@ -504,7 +517,7 @@ class ProtocolListField(PacketListField):
 class TLS_Ext_ALPN(TLS_Ext_PrettyPacketList):                       # RFC 7301
     name = "TLS Extension - Application Layer Protocol Negotiation"
     fields_desc = [ShortEnumField("type", 0x10, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    FieldLenField("protocolslen", None, length_of="protocols"),
                    ProtocolListField("protocols", [], ProtocolName,
                                      length_from=lambda pkt:pkt.protocolslen)]
@@ -521,13 +534,13 @@ class TLS_Ext_Padding(TLS_Ext_Unknown):                             # RFC 7685
 class TLS_Ext_EncryptThenMAC(TLS_Ext_Unknown):                      # RFC 7366
     name = "TLS Extension - Encrypt-then-MAC"
     fields_desc = [ShortEnumField("type", 0x16, _tls_ext),
-                   ShortField("len", None)]
+                   MayEnd(ShortField("len", None))]
 
 
 class TLS_Ext_ExtendedMasterSecret(TLS_Ext_Unknown):                # RFC 7627
     name = "TLS Extension - Extended Master Secret"
     fields_desc = [ShortEnumField("type", 0x17, _tls_ext),
-                   ShortField("len", None)]
+                   MayEnd(ShortField("len", None))]
 
 
 class TLS_Ext_SessionTicket(TLS_Ext_Unknown):                       # RFC 5077
@@ -545,25 +558,25 @@ class TLS_Ext_SessionTicket(TLS_Ext_Unknown):                       # RFC 5077
 class TLS_Ext_KeyShare(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (dummy class)"
     fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
-                   ShortField("len", None)]
+                   MayEnd(ShortField("len", None))]
 
 
 class TLS_Ext_PreSharedKey(TLS_Ext_Unknown):
     name = "TLS Extension - Pre Shared Key (dummy class)"
     fields_desc = [ShortEnumField("type", 0x29, _tls_ext),
-                   ShortField("len", None)]
+                   MayEnd(ShortField("len", None))]
 
 
 class TLS_Ext_EarlyDataIndication(TLS_Ext_Unknown):
     name = "TLS Extension - Early Data"
     fields_desc = [ShortEnumField("type", 0x2a, _tls_ext),
-                   ShortField("len", None)]
+                   MayEnd(ShortField("len", None))]
 
 
 class TLS_Ext_EarlyDataIndicationTicket(TLS_Ext_Unknown):
     name = "TLS Extension - Ticket Early Data Info"
     fields_desc = [ShortEnumField("type", 0x2a, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    IntField("max_early_data_size", 0)]
 
 
@@ -575,13 +588,13 @@ _tls_ext_early_data_cls = {1: TLS_Ext_EarlyDataIndication,
 class TLS_Ext_SupportedVersions(TLS_Ext_Unknown):
     name = "TLS Extension - Supported Versions (dummy class)"
     fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
-                   ShortField("len", None)]
+                   MayEnd(ShortField("len", None))]
 
 
 class TLS_Ext_SupportedVersion_CH(TLS_Ext_Unknown):
     name = "TLS Extension - Supported Versions (for ClientHello)"
     fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    FieldLenField("versionslen", None, fmt='B',
                                  length_of="versions"),
                    FieldListField("versions", [],
@@ -593,7 +606,7 @@ class TLS_Ext_SupportedVersion_CH(TLS_Ext_Unknown):
 class TLS_Ext_SupportedVersion_SH(TLS_Ext_Unknown):
     name = "TLS Extension - Supported Versions (for ServerHello)"
     fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    ShortEnumField("version", None, _tls_version)]
 
 
@@ -604,7 +617,7 @@ _tls_ext_supported_version_cls = {1: TLS_Ext_SupportedVersion_CH,
 class TLS_Ext_Cookie(TLS_Ext_Unknown):
     name = "TLS Extension - Cookie"
     fields_desc = [ShortEnumField("type", 0x2c, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    FieldLenField("cookielen", None, length_of="cookie"),
                    XStrLenField("cookie", "",
                                 length_from=lambda pkt: pkt.cookielen)]
@@ -622,7 +635,7 @@ _tls_psk_kx_modes = {0: "psk_ke", 1: "psk_dhe_ke"}
 class TLS_Ext_PSKKeyExchangeModes(TLS_Ext_Unknown):
     name = "TLS Extension - PSK Key Exchange Modes"
     fields_desc = [ShortEnumField("type", 0x2d, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    FieldLenField("kxmodeslen", None, fmt='B',
                                  length_of="kxmodes"),
                    FieldListField("kxmodes", [],
@@ -634,7 +647,7 @@ class TLS_Ext_PSKKeyExchangeModes(TLS_Ext_Unknown):
 class TLS_Ext_TicketEarlyDataInfo(TLS_Ext_Unknown):
     name = "TLS Extension - Ticket Early Data Info"
     fields_desc = [ShortEnumField("type", 0x2e, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    IntField("max_early_data_size", 0)]
 
 
@@ -652,13 +665,13 @@ class TLS_Ext_NPN(TLS_Ext_PrettyPacketList):
 class TLS_Ext_PostHandshakeAuth(TLS_Ext_Unknown):                   # RFC 8446
     name = "TLS Extension - Post Handshake Auth"
     fields_desc = [ShortEnumField("type", 0x31, _tls_ext),
-                   ShortField("len", None)]
+                   MayEnd(ShortField("len", None))]
 
 
 class TLS_Ext_SignatureAlgorithmsCert(TLS_Ext_Unknown):    # RFC 8446
     name = "TLS Extension - Signature Algorithms Cert"
     fields_desc = [ShortEnumField("type", 0x32, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    SigAndHashAlgsLenField("sig_algs_len", None,
                                           length_of="sig_algs"),
                    SigAndHashAlgsField("sig_algs", [],
@@ -670,7 +683,7 @@ class TLS_Ext_SignatureAlgorithmsCert(TLS_Ext_Unknown):    # RFC 8446
 class TLS_Ext_RenegotiationInfo(TLS_Ext_Unknown):                   # RFC 5746
     name = "TLS Extension - Renegotiation Indication"
     fields_desc = [ShortEnumField("type", 0xff01, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    FieldLenField("reneg_conn_len", None, fmt='B',
                                  length_of="renegotiated_connection"),
                    StrLenField("renegotiated_connection", "",
@@ -680,7 +693,7 @@ class TLS_Ext_RenegotiationInfo(TLS_Ext_Unknown):                   # RFC 5746
 class TLS_Ext_RecordSizeLimit(TLS_Ext_Unknown):  # RFC 8449
     name = "TLS Extension - Record Size Limit"
     fields_desc = [ShortEnumField("type", 0x1c, _tls_ext),
-                   ShortField("len", None),
+                   MayEnd(ShortField("len", None)),
                    ShortField("record_size_limit", None)]
 
 

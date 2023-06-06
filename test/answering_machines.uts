@@ -140,7 +140,7 @@ test_WiFi_am(Dot11(FCfield="to-DS")/IP()/TCP()/"Scapy",
 = NBNS_am
 def check_NBNS_am_reply(name):
     def check(packet):
-        assert NBNSQueryResponse in packet and packet[NBNSQueryResponse].RR_NAME == bytes_encode(name)
+        assert NBNSQueryResponse in packet and packet[NBNSQueryResponse].RR_NAME.strip() == bytes_encode(name)
     return check
 
 for server_name in (None, "", b"test", "test"):

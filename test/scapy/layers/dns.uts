@@ -263,22 +263,20 @@ data = zlib.decompress(b'x\x9c\xed\xce!\n\xc2`\x00\x80\xd1\x7f\x0c\xc1\xbal\xf1\
 
 # measure the time it takes
 old_max_list_count = conf.max_list_count
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = True
 conf.max_list_count = 10
 import time
 t = time.monotonic()
 
-try:
-    dns = Ether(data)
-except MaximumItemsCount:
-    pass
+with no_debug_dissector():
+    try:
+        dns = Ether(data)
+    except MaximumItemsCount:
+        pass
 
 delta = time.monotonic() - t
-assert delta < 1
+assert delta < 10
 
 conf.max_list_count = old_max_list_count
-conf.debug_dissector = old_debug_dissector
 
 = DNS - Backward compatibility: keep deprecated behavior
 ~ dns

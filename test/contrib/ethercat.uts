@@ -183,6 +183,9 @@ assert frm[EtherCat].length == 60
 nums_11_bits = [random.randint(0, 65535) & 0b11111111111 for dummy in range(0, 23)]
 nums_4_bits = [random.randint(0, 16) & 0b1111 for dummy in range(0, 23)]
 
+old_max_list_count = conf.max_list_count
+conf.max_list_count = 3000
+
 frm = Ether()/EtherCat()/EtherCatAPRD(adp=0x1234, ado=0x5678, irq=0xbad0, wkc=0xbeef, data=[1]*2035, c=1)
 frm = Ether(frm.do_build())
 assert frm[EtherCat].length == 2047
@@ -214,6 +217,8 @@ assert frm[EtherCatAPRD].c == 0
 
 
 assert frm[EtherCat]._reserved == 0
+
+conf.max_list_count = old_max_list_count
 
 = EtherCat and Type12 DLPDU layers
 

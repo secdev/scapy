@@ -16,12 +16,29 @@ Spec: lorawantm_specification v1.1
 """
 
 from scapy.packet import Packet
-from scapy.fields import BitField, ByteEnumField, ByteField, \
-    ConditionalField, IntField, LEShortField, PacketListField, \
-    StrFixedLenField, X3BytesField, XByteField, XIntField, \
-    XShortField, BitFieldLenField, LEX3BytesField, XBitField, \
-    BitEnumField, XLEIntField, StrField, PacketField, \
-    MultipleTypeField
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    BitFieldLenField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    IntField,
+    LEShortField,
+    LEX3BytesField,
+    MayEnd,
+    MultipleTypeField,
+    PacketField,
+    PacketListField,
+    StrField,
+    StrFixedLenField,
+    X3BytesField,
+    XBitField,
+    XByteField,
+    XIntField,
+    XLEIntField,
+    XShortField,
+)
 
 
 class FCtrl_DownLink(Packet):
@@ -692,9 +709,9 @@ class PHYPayload(Packet):
     name = "PHYPayload"
     fields_desc = [MHDR,
                    MACPayload,
-                   ConditionalField(XIntField("MIC", 0),
-                                    lambda pkt:(pkt.MType != 0b001 or
-                                                LoRa.encrypted is False))]
+                   MayEnd(ConditionalField(XIntField("MIC", 0),
+                                           lambda pkt: (pkt.MType != 0b001 or
+                                                        LoRa.encrypted is False)))]
 
 
 class LoRa(Packet):  # default frame (unclear specs => taken from https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5677147/)  # noqa: E501

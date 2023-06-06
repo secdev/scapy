@@ -120,9 +120,9 @@ def _get_opt_val_size(pkt):
 class _CoAPOpt(Packet):
     fields_desc = [BitField("delta", 0, 4),
                    BitField("len", 0, 4),
-                   StrLenField("delta_ext", None, length_from=_get_delta_ext_size),  # noqa: E501
-                   StrLenField("len_ext", None, length_from=_get_len_ext_size),
-                   StrLenField("opt_val", None, length_from=_get_opt_val_size)]
+                   StrLenField("delta_ext", "", length_from=_get_delta_ext_size),  # noqa: E501
+                   StrLenField("len_ext", "", length_from=_get_len_ext_size),
+                   StrLenField("opt_val", "", length_from=_get_opt_val_size)]
 
     @staticmethod
     def _populate_extended(val):

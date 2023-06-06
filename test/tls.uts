@@ -1522,7 +1522,7 @@ assert r2.tls_session.tls_version == 0x303
 
 pkt = TLSServerHello(b"\x02\x00\x00\x28\x03\x03ABCDEFGHIJKLMNOPQRSTUVWXYZ012345\x00\x00\x39\x00\x00\x00")
 assert pkt.extlen == 0
-assert pkt.ext is None
+assert pkt.ext == []
 
 = Issue 3324 - FFDH support
 
