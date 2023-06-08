@@ -693,7 +693,7 @@ def in4_chksum(proto, u, p):
     # type: (int, IP, bytes) -> int
     """IPv4 Pseudo Header checksum as defined in RFC793
 
-    :param nh: value of upper layer protocol
+    :param proto: value of upper layer protocol
     :param u: upper layer instance
     :param p: the payload of the upper layer provided as a string
     """
