@@ -8,9 +8,19 @@
 
 import struct
 
-from scapy.fields import ByteEnumField, StrField, ConditionalField, \
-    BitField, XByteField, X3BytesField, ByteField, \
-    ObservableDict, XShortEnumField, XByteEnumField
+from scapy.fields import (
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    MayEnd,
+    ObservableDict,
+    StrField,
+    X3BytesField,
+    XByteEnumField,
+    XByteField,
+    XShortEnumField,
+)
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import log_loading
@@ -391,7 +401,8 @@ class KWP_ROE(Packet):
     fields_desc = [
         ByteEnumField('responseRequired', 1, responseTypes),
         ByteEnumField('eventWindowTime', 0, eventWindowTimes),
-        ByteEnumField('eventType', 0, eventTypes),
+        MayEnd(ByteEnumField('eventType', 0, eventTypes)),
+        # XXX Is this MayEnd correct?
         ByteField('eventParameter', 0),
         ByteEnumField('serviceToRespond', 0, KWP.services),
         ByteField('serviceParameter', 0)
@@ -405,7 +416,8 @@ class KWP_ROEPR(Packet):
     name = 'ResponseOnEventPositiveResponse'
     fields_desc = [
         ByteField("numberOfActivatedEvents", 0),
-        ByteEnumField('eventWindowTime', 0, KWP_ROE.eventWindowTimes),
+        MayEnd(ByteEnumField('eventWindowTime', 0, KWP_ROE.eventWindowTimes)),
+        # XXX Is this MayEnd correct?
         ByteEnumField('eventType', 0, KWP_ROE.eventTypes),
     ]
 
@@ -958,7 +970,8 @@ class KWP_NR(Packet):
     }
     name = 'NegativeResponse'
     fields_desc = [
-        XByteEnumField('requestServiceId', 0, KWP.services),
+        MayEnd(XByteEnumField('requestServiceId', 0, KWP.services)),
+        # XXX Is this MayEnd correct?
         ByteEnumField('negativeResponseCode', 0, negativeResponseCodes)
     ]
 

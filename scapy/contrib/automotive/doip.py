@@ -13,9 +13,19 @@ import socket
 import time
 
 from scapy.contrib.automotive import log_automotive
-from scapy.fields import ByteEnumField, ConditionalField, \
-    XByteField, XShortField, XIntField, XShortEnumField, XByteEnumField, \
-    IntField, StrFixedLenField, XStrField
+from scapy.fields import (
+    ByteEnumField,
+    ConditionalField,
+    IntField,
+    MayEnd,
+    StrFixedLenField,
+    XByteEnumField,
+    XByteField,
+    XIntField,
+    XShortEnumField,
+    XShortField,
+    XStrField,
+)
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.supersocket import StreamSocket
 from scapy.layers.inet import TCP, UDP
@@ -27,6 +37,8 @@ from typing import (
     Tuple,
     Optional,
 )
+
+# ISO 13400-2 sect 9.2
 
 
 class DoIP(Packet):
@@ -121,7 +133,7 @@ class DoIP(Packet):
                          lambda p: p.payload_type in [2, 4]),
         ConditionalField(StrFixedLenField("gid", b"", 6),
                          lambda p: p.payload_type in [4]),
-        ConditionalField(XByteEnumField("further_action", 0, {
+        ConditionalField(MayEnd(XByteEnumField("further_action", 0, {
             0x00: "No further action required",
             0x01: "Reserved by ISO 13400", 0x02: "Reserved by ISO 13400",
             0x03: "Reserved by ISO 13400", 0x04: "Reserved by ISO 13400",
@@ -132,7 +144,9 @@ class DoIP(Packet):
             0x0d: "Reserved by ISO 13400", 0x0e: "Reserved by ISO 13400",
             0x0f: "Reserved by ISO 13400",
             0x10: "Routing activation required to initiate central security",
-        }), lambda p: p.payload_type in [4]),
+        })), lambda p: p.payload_type in [4]),
+        # VIN/GID sync. status is marked as optional, so the packet MayEnd
+        # on further_action
         ConditionalField(XByteEnumField("vin_gid_status", 0, {
             0x00: "VIN and/or GID are synchronized",
             0x01: "Reserved by ISO 13400", 0x02: "Reserved by ISO 13400",

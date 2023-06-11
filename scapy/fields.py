@@ -376,7 +376,7 @@ class ConditionalField(_FieldContainer):
     __slots__ = ["fld", "cond"]
 
     def __init__(self,
-                 fld,  # type: Field[Any, Any]
+                 fld,  # type: AnyField
                  cond  # type: Callable[[Packet], bool]
                  ):
         # type: (...) -> None
