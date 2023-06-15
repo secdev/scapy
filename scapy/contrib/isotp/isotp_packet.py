@@ -9,14 +9,25 @@
 import struct
 import logging
 
-from scapy.compat import Optional, List, Tuple, Any, Type, cast
+from scapy.config import conf
 from scapy.packet import Packet
 from scapy.fields import BitField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ConditionalField, \
-    BitEnumField, ByteField, XByteField, BitFieldLenField, StrField
+    BitEnumField, ByteField, XByteField, BitFieldLenField, StrField, \
+    FieldLenField, IntField, ShortField
 from scapy.compat import chb, orb
 from scapy.layers.can import CAN
 from scapy.error import Scapy_Exception
+
+# Typing imports
+from typing import (
+    Optional,
+    List,
+    Tuple,
+    Any,
+    Type,
+    cast,
+)
 
 log_isotp = logging.getLogger("scapy.contrib.isotp")
 
@@ -208,6 +219,10 @@ class ISOTPHeader(CAN):
         """
         if self.length is None:
             pkt = pkt[:4] + chb(len(pay)) + pkt[5:]
+
+        if conf.contribs['CAN']['swap-bytes']:
+            data = CAN.inv_endianness(pkt)  # type: bytes
+            return data + pay
         return pkt + pay
 
     def guess_payload_class(self, payload):
@@ -218,15 +233,63 @@ class ISOTPHeader(CAN):
         :param payload: payload bytes string
         :return: Type of payload class
         """
+        if len(payload) < 1:
+            return self.default_payload_class(payload)
+
         t = (orb(payload[0]) & 0xf0) >> 4
         if t == 0:
-            return ISOTP_SF
+            length = (orb(payload[0]) & 0x0f)
+            if length == 0:
+                return ISOTP_SF_FD
+            else:
+                return ISOTP_SF
         elif t == 1:
-            return ISOTP_FF
+            if len(payload) < 2:
+                return self.default_payload_class(payload)
+            length = ((orb(payload[0]) & 0x0f) << 12) + orb(payload[1])
+            if length == 0:
+                return ISOTP_FF_FD
+            else:
+                return ISOTP_FF
         elif t == 2:
             return ISOTP_CF
         else:
             return ISOTP_FC
+
+
+class ISOTPHeader_FD(ISOTPHeader):
+    name = 'ISOTPHeaderFD'
+    fields_desc = [
+        FlagsField('flags', 0, 3, ['error',
+                                   'remote_transmission_request',
+                                   'extended']),
+        XBitField('identifier', 0, 29),
+        ByteField('length', None),
+        FlagsField('fd_flags', 4, 8, ['bit_rate_switch',
+                                      'error_state_indicator',
+                                      'fd_frame']),
+        ShortField('reserved', 0),
+    ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+
+        data = super().post_build(pkt, pay)
+
+        length = data[4]
+
+        if 8 < length <= 24:
+            wire_length = length + (-length) % 4
+        elif 24 < length <= 64:
+            wire_length = length + (-length) % 8
+        elif length > 64:
+            raise NotImplementedError
+        else:
+            wire_length = length
+
+        pad = b"\x00" * (wire_length - length)
+
+        return data[0:4] + chb(wire_length) + data[5:] + pad
 
 
 class ISOTPHeaderEA(ISOTPHeader):
@@ -241,7 +304,7 @@ class ISOTPHeaderEA(ISOTPHeader):
         XByteField('extended_address', 0)
     ]
 
-    def post_build(self, p, pay):
+    def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
         """
         This will set the ByteField 'length' to the correct value.
@@ -249,8 +312,48 @@ class ISOTPHeaderEA(ISOTPHeader):
         is counted as payload on the CAN layer
         """
         if self.length is None:
-            p = p[:4] + chb(len(pay) + 1) + p[5:]
-        return p + pay
+            pkt = pkt[:4] + chb(len(pay) + 1) + pkt[5:]
+
+        if conf.contribs['CAN']['swap-bytes']:
+            data = CAN.inv_endianness(pkt)  # type: bytes
+            return data + pay
+        return pkt + pay
+
+
+class ISOTPHeaderEA_FD(ISOTPHeaderEA):
+    name = 'ISOTPHeaderExtendedAddressFD'
+    fields_desc = [
+        FlagsField('flags', 0, 3, ['error',
+                                   'remote_transmission_request',
+                                   'extended']),
+        XBitField('identifier', 0, 29),
+        ByteField('length', None),
+        FlagsField('fd_flags', 4, 8, ['bit_rate_switch',
+                                      'error_state_indicator',
+                                      'fd_frame']),
+        ShortField('reserved', 0),
+        XByteField('extended_address', 0)
+    ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+
+        data = super().post_build(pkt, pay)
+
+        length = data[4]
+
+        if 8 < length <= 24:
+            wire_length = length + (-length) % 4
+        elif 24 < length <= 64:
+            wire_length = length + (-length) % 8
+        elif length > 64:
+            raise NotImplementedError
+        else:
+            wire_length = length
+
+        pad = b"\x00" * (wire_length - length)
+
+        return data[0:4] + chb(wire_length) + data[5:] + pad
 
 
 ISOTP_TYPE = {0: 'single',
@@ -268,13 +371,33 @@ class ISOTP_SF(Packet):
     ]
 
 
+class ISOTP_SF_FD(Packet):
+    name = 'ISOTPSingleFrameFD'
+    fields_desc = [
+        BitEnumField('type', 0, 4, ISOTP_TYPE),
+        BitField('zero_field', 0, 4),
+        FieldLenField('message_size', None, length_of='data', fmt="B"),
+        StrLenField('data', b'', length_from=lambda pkt: pkt.message_size)
+    ]
+
+
 class ISOTP_FF(Packet):
     name = 'ISOTPFirstFrame'
     fields_desc = [
         BitEnumField('type', 1, 4, ISOTP_TYPE),
         BitField('message_size', 0, 12),
-        ConditionalField(BitField('extended_message_size', 0, 32),
+        ConditionalField(IntField('extended_message_size', 0),
                          lambda pkt: pkt.message_size == 0),
+        StrField('data', b'', fmt="B")
+    ]
+
+
+class ISOTP_FF_FD(Packet):
+    name = 'ISOTPFirstFrame'
+    fields_desc = [
+        BitEnumField('type', 1, 4, ISOTP_TYPE),
+        BitField('zero_field', 0, 12),
+        IntField('message_size', 0),
         StrField('data', b'', fmt="B")
     ]
 

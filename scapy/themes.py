@@ -14,7 +14,7 @@ Color themes for the interactive console.
 import html
 import sys
 
-from scapy.compat import (
+from typing import (
     Any,
     Callable,
     List,

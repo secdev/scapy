@@ -25,18 +25,23 @@ assert not NTPControl in p
 assert not NTPPrivate in p
 assert NTP in p
 assert p.mysummary() == "NTP v4, client"
+ls(p)
+
 p = NTPControl()
 assert not NTPHeader in p
 assert NTPControl in p
 assert not NTPPrivate in p
 assert NTP in p
 assert p.mysummary() == "NTP v2, NTP control message"
+ls(p)
+
 p = NTPPrivate()
 assert not NTPHeader in p
 assert not NTPControl in p
 assert NTPPrivate in p
 assert NTP in p
 assert p.mysummary() == "NTP v2, reserved for private use"
+ls(p)
 
 = NTP - Layers (2)
 p = NTPHeader()
@@ -466,6 +471,7 @@ assert p.version == 2
 assert p.mode == 7
 assert p.request_code == 2
 assert isinstance(p.data[0], NTPInfoPeer)
+repr(p.data[0])
 assert p.data[0].dstaddr == "192.168.122.102"
 assert p.data[0].srcaddr == "192.168.122.101"
 assert p.data[0].srcport == 123

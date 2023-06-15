@@ -1320,6 +1320,121 @@ frames = [
             type='MOBIKE_SUPPORTED'
         )
     ),
+    # CREATE_CHILD_SA request, decrypted
+    (
+        # i: frame number
+        -4,
+        # title:
+        "CREATE_CHILD_SA request, decrypted",
+        binascii.unhexlify(''.join("""
+        00 50 56 99 bf d5 00 50  56 99 69 93 08 00 45 00
+        01 38 60 32 40 00 40 11  c1 0f 0a 05 02 36 0a 05
+        02 34 b8 99 11 94 01 24  19 a9 00 00 00 00 46 b3
+        f6 88 4d 37 5f 9a f5 38  82 35 ea 87 5e 8a 29 20
+        24 00 00 00 00 00 00 00  01 18
+
+        21 00 00 0c 03 04 40 09  5f c7 ff 5a 28 00 00 2c
+        00 00 00 28 01 03 04 03  6b 21 88 20 03 00 00 0c
+        01 00 00 14 80 0e 00 80  03 00 00 08 04 00 00 1c
+        00 00 00 08 05 00 00 00  22 00 00 2c ea 7e 88 57
+        4a 36 64 cd 67 e3 3c 42  46 66 59 4d df 70 25 03
+        b2 00 a3 3f 87 82 f2 3c  94 c0 60 0e ae 7e d9 50
+        d7 67 e9 6e 2c 00 00 48  00 1c 00 00 8e 15 b1 f4
+        9a cc 04 ff 12 e3 2f bc  3a f0 57 14 81 f3 b9 6c
+        21 1a f7 36 97 6d c2 23  80 74 ef 75 59 d1 99 65
+        5a a5 80 00 87 4a bf 1f  13 f7 e1 6f de 34 80 94
+        28 1c 93 cb 5a ee 30 24  d9 3e b9 55 2d 00 00 18
+        01 00 00 00 07 00 00 10  00 00 ff ff c0 a8 e1 0b
+        c0 a8 e1 0b 00 00 00 18  01 00 00 00 07 00 00 10
+        00 00 ff ff c0 a8 e1 00  c0 a8 e1 ff
+        """.split())),
+        Ether(dst='00:50:56:99:bf:d5', src='00:50:56:99:69:93', type=2048) /\
+        IP(version=4, ihl=5, tos=0, len=312, id=24626, flags=2, frag=0, ttl=64, proto=17, chksum=49423, src='10.5.2.54', dst='10.5.2.52') /\
+        UDP(sport=47257, dport=4500, len=292, chksum=6569) /\
+        NON_ESP(non_esp=0) /\
+        IKEv2(
+            init_SPI=b'F\xb3\xf6\x88M7_\x9a',
+            resp_SPI=b'\xf58\x825\xea\x87^\x8a',
+            next_payload=41,
+            version=32,
+            exch_type=36,
+            flags=0,
+            id=0,
+            length=280
+        ) /\
+        IKEv2_Notify(
+            next_payload=33,
+            flags=0,
+            length=12,
+            proto=3,
+            SPIsize=4,
+            type=16393,
+            SPI=b'_\xc7\xffZ',
+            notify=b''
+        ) /\
+        IKEv2_SA(
+            prop=IKEv2_Proposal(
+                trans=(
+                    IKEv2_Transform(next_payload=3, flags=0, length=12, transform_type=1, res2=0, transform_id=20, key_length=128) /\
+                    IKEv2_Transform(next_payload=3, flags=0, length=8, transform_type=4, res2=0, transform_id=28) /\
+                    IKEv2_Transform(next_payload=0, flags=0, length=8, transform_type=5, res2=0, transform_id=0)
+                ),
+                next_payload=0, flags=0, length=40, proposal=1, proto=3, SPIsize=4, trans_nb=3, SPI=b'k!\x88 '),
+            next_payload=40,
+            flags=0,
+            length=44
+        ) /\
+        IKEv2_Nonce(
+            next_payload=34,
+            flags=0,
+            length=44,
+            nonce=b'\xea~\x88WJ6d\xcdg\xe3<BFfYM\xdfp%\x03\xb2\x00\xa3?\x87\x82\xf2<\x94\xc0`\x0e\xae~\xd9P\xd7g\xe9n'
+        ) /\
+        IKEv2_KE(
+            next_payload=44,
+            flags=0,
+            length=72,
+            group=28,
+            res2=0,
+            ke=b'\x8e\x15\xb1\xf4\x9a\xcc\x04\xff\x12\xe3/\xbc:\xf0W\x14\x81\xf3\xb9l!\x1a\xf76\x97m\xc2#\x80t\xefuY\xd1\x99eZ\xa5\x80\x00\x87J\xbf\x1f\x13\xf7\xe1o\xde4\x80\x94(\x1c\x93\xcbZ\xee0$\xd9>\xb9U'
+        ) /\
+        IKEv2_TSi(
+            traffic_selector=[
+                IPv4TrafficSelector(
+                    TS_type=7,
+                    IP_protocol_ID=0,
+                    length=16,
+                    start_port=0,
+                    end_port=65535,
+                    starting_address_v4='192.168.225.11',
+                    ending_address_v4='192.168.225.11'
+                )
+            ],
+            next_payload=45,
+            flags=0,
+            length=24,
+            number_of_TSs=1,
+            res2=0
+        ) /\
+        IKEv2_TSr(
+            traffic_selector=[
+                IPv4TrafficSelector(
+                    TS_type=7,
+                    IP_protocol_ID=0,
+                    length=16,
+                    start_port=0,
+                    end_port=65535,
+                    starting_address_v4='192.168.225.0',
+                    ending_address_v4='192.168.225.255'
+                )
+            ],
+            next_payload=0,
+            flags=0,
+            length=24,
+            number_of_TSs=1,
+            res2=0
+        )
+    ),
 ]
 
 

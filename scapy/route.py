@@ -14,7 +14,7 @@ from scapy.error import Scapy_Exception, warning
 from scapy.interfaces import resolve_iface
 from scapy.utils import atol, ltoa, itom, pretty_list
 
-from scapy.compat import (
+from typing import (
     Any,
     Dict,
     List,

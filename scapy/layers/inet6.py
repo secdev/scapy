@@ -79,7 +79,9 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
     This function sends an ICMPv6 Neighbor Solicitation message
     to get the MAC address of the neighbor with specified IPv6 address address.
 
-    'src' address is used as source of the message. Message is sent on iface.
+    'src' address is used as the source IPv6 address of the message. Message
+    is sent on 'iface'. The source MAC address is retrieved accordingly.
+
     By default, timeout waiting for an answer is 1 second.
 
     If no answer is gathered, None is returned. Else, the answer is
@@ -89,9 +91,10 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
     nsma = in6_getnsma(inet_pton(socket.AF_INET6, addr))
     d = inet_ntop(socket.AF_INET6, nsma)
     dm = in6_getnsmac(nsma)
-    p = Ether(dst=dm) / IPv6(dst=d, src=src, hlim=255)
+    sm = get_if_hwaddr(iface)
+    p = Ether(dst=dm, src=sm) / IPv6(dst=d, src=src, hlim=255)
     p /= ICMPv6ND_NS(tgt=addr)
-    p /= ICMPv6NDOptSrcLLAddr(lladdr=get_if_hwaddr(iface))
+    p /= ICMPv6NDOptSrcLLAddr(lladdr=sm)
     res = srp1(p, type=ETH_P_IPV6, iface=iface, timeout=1, verbose=0,
                chainCC=chainCC)
 
@@ -1972,7 +1975,7 @@ class ICMPv6NDOptRDNSS(_ICMPv6NDGuessPayload, Packet):  # RFC 5006
                                 length_from=lambda pkt: 8 * (pkt.len - 1))]
 
     def mysummary(self):
-        return self.sprintf("%name% " + ", ".join(self.dns))
+        return self.sprintf("%name% ") + ", ".join(self.dns)
 
 
 class ICMPv6NDOptEFA(_ICMPv6NDGuessPayload, Packet):  # RFC 5175 (prev. 5075)
@@ -2049,7 +2052,7 @@ class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet):  # RFC 6106
                    ]
 
     def mysummary(self):
-        return self.sprintf("%name% " + ", ".join(self.searchlist))
+        return self.sprintf("%name% ") + ", ".join(self.searchlist)
 
 # End of ICMPv6 Neighbor Discovery Options.
 

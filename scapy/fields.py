@@ -40,7 +40,7 @@ from scapy.base_classes import Gen, Net, BasePacket, Field_metaclass
 from scapy.error import warning
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     Any,
     AnyStr,
     Callable,
@@ -1768,7 +1768,12 @@ class PacketListField(_PacketField[List[BasePacket]]):
                 else:
                     remain = b""
             lst.append(p)
-        return remain + ret, lst
+
+        if isinstance(remain, tuple):
+            remain, nb = remain
+            return (remain + ret, nb), lst
+        else:
+            return remain + ret, lst
 
     def i2m(self,
             pkt,  # type: Optional[Packet]
@@ -2070,7 +2075,12 @@ class FieldListField(Field[List[Any], List[Any]]):
                 c -= 1
             s, v = self.field.getfield(pkt, s)
             val.append(v)
-        return s + ret, val
+
+        if isinstance(s, tuple):
+            s, bn = s
+            return (s + ret, bn), val
+        else:
+            return s + ret, val
 
 
 class FieldLenField(Field[int, int]):
@@ -3194,8 +3204,10 @@ class FixedPointField(BitField):
         return (ival << self.frac_bits) | fract
 
     def i2h(self, pkt, val):
-        # type: (Optional[Packet], int) -> EDecimal
+        # type: (Optional[Packet], Optional[int]) -> Optional[EDecimal]
         # A bit of trickery to get precise floats
+        if val is None:
+            return val
         int_part = val >> self.frac_bits
         pw = 2.0**self.frac_bits
         frac_part = EDecimal(val & (1 << self.frac_bits) - 1)

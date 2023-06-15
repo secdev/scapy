@@ -10,7 +10,7 @@ Direct Access dictionary.
 from scapy.error import Scapy_Exception
 from scapy.compat import plain_str
 
-from scapy.compat import (
+from typing import (
     Any,
     Dict,
     Generic,

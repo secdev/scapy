@@ -37,7 +37,7 @@ from scapy.sessions import DefaultSession
 from scapy.supersocket import SuperSocket, IterSocket
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     Any,
     Callable,
     Dict,
@@ -741,7 +741,7 @@ def __sr_loop(srfunc,  # type: Callable[..., Tuple[SndRcvList, PacketList]]
                 if count == 0:
                     break
                 count -= 1
-            start = time.time()
+            start = time.monotonic()
             if verbose > 1:
                 print("\rsend...\r", end=' ')
             res = srfunc(pkts, timeout=timeout, verbose=0, chainCC=True, *args, **kargs)  # noqa: E501
@@ -771,7 +771,7 @@ def __sr_loop(srfunc,  # type: Callable[..., Tuple[SndRcvList, PacketList]]
             if store:
                 ans += res[0]
                 unans += res[1]
-            end = time.time()
+            end = time.monotonic()
             if end - start < inter:
                 time.sleep(inter + start - end)
     except KeyboardInterrupt:
@@ -1208,12 +1208,12 @@ class AsyncSniffer(object):
 
             # Start timeout
             if timeout is not None:
-                stoptime = time.time() + timeout
+                stoptime = time.monotonic() + timeout
             remain = None
 
             while sniff_sockets and self.continue_sniff:
                 if timeout is not None:
-                    remain = stoptime - time.time()
+                    remain = stoptime - time.monotonic()
                     if remain <= 0:
                         break
                 sockets = select_func(list(sniff_sockets.keys()), remain)

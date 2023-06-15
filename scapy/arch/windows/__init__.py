@@ -39,17 +39,17 @@ from scapy.compat import plain_str
 from scapy.supersocket import SuperSocket
 
 # Typing imports
-from scapy.compat import (
-    cast,
-    overload,
+from typing import (
     Any,
     Dict,
     List,
-    Literal,
     Optional,
     Tuple,
     Union,
+    cast,
+    overload,
 )
+from scapy.compat import Literal
 
 conf.use_pcap = True
 
@@ -643,7 +643,7 @@ class WindowsInterfacesProvider(InterfaceProvider):
                     'flags': flags
                 }
             # No KeyError will happen here, as we get it from cache
-            results[guid] = NetworkInterface_Win(self, data)
+            results[netw] = NetworkInterface_Win(self, data)
         return results
 
     def reload(self):
@@ -969,7 +969,7 @@ def _route_add_loopback(routes=None,  # type: Optional[List[Any]]
         if ifname == conf.loopback_name:
             conf.ifaces.pop(devname)
     # Inject interface
-    conf.ifaces["{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"] = adapter
+    conf.ifaces[r"\Device\NPF_{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"] = adapter
     conf.loopback_name = adapter.network_name
     if isinstance(conf.iface, NetworkInterface):
         if conf.iface.network_name == conf.loopback_name:

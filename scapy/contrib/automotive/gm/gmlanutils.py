@@ -9,7 +9,6 @@
 
 import time
 
-from scapy.compat import Optional, cast, Callable
 from scapy.contrib.automotive import log_automotive
 
 from scapy.contrib.automotive.gm.gmlan import GMLAN, GMLAN_SA, GMLAN_RD, \
@@ -19,6 +18,12 @@ from scapy.packet import Packet
 from scapy.supersocket import SuperSocket
 from scapy.contrib.isotp import ISOTPSocket
 from scapy.utils import PeriodicSenderThread
+
+from typing import (
+    Optional,
+    cast,
+    Callable,
+)
 
 __all__ = ["GMLAN_TesterPresentSender", "GMLAN_InitDiagnostics",
            "GMLAN_GetSecurityAccess", "GMLAN_RequestDownload",

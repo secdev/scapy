@@ -273,7 +273,7 @@ bytes_hex(get_if_raw_addr(conf.iface))
 
 def get_dummy_interface():
     """Returns a dummy network interface"""
-    IFACES._add_fake_iface("dummy0")
+    conf.ifaces._add_fake_iface("dummy0")
     return "dummy0"
 
 get_if_raw_addr(get_dummy_interface())
@@ -3298,10 +3298,9 @@ test_netbsd_7_0()
 
 import scapy
 
-IFACES._add_fake_iface("enp3s0")
-IFACES._add_fake_iface("lo")
+conf.ifaces._add_fake_iface("enp3s0")
+conf.ifaces._add_fake_iface("lo")
 
-old_routes = conf.route.routes
 old_iface = conf.iface
 old_loopback = conf.loopback_name
 try:
@@ -3328,17 +3327,15 @@ try:
 finally:
     conf.loopback_name = old_loopback
     conf.iface = old_iface
-    conf.route.routes = old_routes
-    conf.route.invalidate_cache()
-    IFACES.reload()
+    conf.route.resync()
+    conf.ifaces.reload()
 
 
 = Mocked IPv6 routes calls
 
-IFACES._add_fake_iface("enp3s0")
-IFACES._add_fake_iface("lo")
+conf.ifaces._add_fake_iface("enp3s0")
+conf.ifaces._add_fake_iface("lo")
 
-old_routes = conf.route6.routes
 old_iface = conf.iface
 old_loopback = conf.loopback_name
 try:
@@ -3367,6 +3364,7 @@ finally:
     conf.loopback_name = old_loopback
     conf.iface = old_iface
     conf.route6.resync()
+    conf.ifaces.reload()
 
 = Find a link-local address when conf.iface does not support IPv6
 
@@ -3892,6 +3890,9 @@ conf.route.routes = [
 assert sorted(conf.route.get_if_bcast(dummy_interface)) == sorted(['169.254.255.255', '172.21.230.255', '239.255.255.255'])
 conf.route.routes = bck_conf_route_routes
 
+= Remove dummy interface
+
+conf.ifaces.reload()
 
 ############
 ############
@@ -4559,7 +4560,7 @@ def test_multiplot(mock_plt):
     mock_plt.plot = fake_plot
     tmp = [IP(id=i)/TCP() for i in range(10)]
     plist = PacketList([tuple(tmp[i-2:i]) for i in range(2, 10, 2)])
-    lines = plist.multiplot(lambda x: (x[1][IP].src, (x[1].time, x[1][IP].id)))
+    lines = plist.multiplot(lambda x, y: (y[IP].src, (y.time, y[IP].id)))
     assert len(lines) == 1
     assert len(lines[0]) == 4
 

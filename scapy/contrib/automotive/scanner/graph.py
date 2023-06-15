@@ -8,9 +8,19 @@
 
 from collections import defaultdict
 
-from scapy.compat import Union, List, Optional, Dict, Tuple, Set, TYPE_CHECKING
 from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.ecu import EcuState
+
+# Typing imports
+from typing import (
+    Union,
+    List,
+    Optional,
+    Dict,
+    Tuple,
+    Set,
+    TYPE_CHECKING,
+)
 
 _Edge = Tuple[EcuState, EcuState]
 

@@ -27,8 +27,16 @@ from scapy.compat import raw, plain_str, hex_bytes, orb, chb, bytes_encode
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".
 # Sized must be one of the superclasses of a class implementing __len__
-from scapy.compat import Optional, List, Union, Callable, Any, \
-    Tuple, Sized, Pattern  # noqa: F401
+from typing import (
+    Optional,
+    List,
+    Union,
+    Callable,
+    Any,
+    Tuple,
+    Sized,
+    Pattern,
+)
 from scapy.base_classes import Packet_metaclass  # noqa: F401
 
 import scapy.fields as fields

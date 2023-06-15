@@ -20,7 +20,7 @@ from scapy.consts import WINDOWS
 
 # Typing imports
 from logging import LogRecord
-from scapy.compat import (
+from typing import (
     Any,
     Dict,
     Tuple,

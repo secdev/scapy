@@ -362,6 +362,20 @@ p = TestFLF(struct.pack("!BIII",3,1234,2345,12345678))
 p
 assert p.len == 3 and p.lst == [1234,2345,12345678]
 
+= Disassemble unaligned
+~ field
+import struct
+class TestFLFUnaligned(Packet):
+    name="test"
+    fields_desc = [ BitFieldLenField("len", None, 3, count_of="lst"),
+                    FieldListField("lst", None, XBitField("elt",0,8), count_from=lambda pkt:pkt.len),
+                    BitField("ignore", None, 5),
+                   ]
+
+p = TestFLFUnaligned(b"\x68\x28\x48\x6a")
+p
+assert p.len == 3 and p.lst == [0x41,0x42,0x43] and p.ignore == 0xa
+
 = Manipulate
 ~ field
 a = TestFLF(lst=[4])
@@ -1682,6 +1696,17 @@ assert a.sprintf("%flags%") == "A+B"
 b = FlagsTest2(flags="B+C")
 assert b.flags == 0x1000 | 0x0008
 
+= Conditional FlagsField command
+
+class CondFlagsTest(Packet):
+    fields_desc = [
+        ByteField("b", 0),
+        ConditionalField(FlagsField("f", 0, 8, ""), lambda p: p.b == 0)
+    ]
+
+p = CondFlagsTest(b"\x00\x0f")
+assert p == eval(p.command())
+
 ########
 ########
 + ScalingField
@@ -2244,3 +2269,47 @@ mp = MockPacket(0)
 f = XStrField('test', None)
 x = f.i2repr(mp, RandBin())
 assert x == '<RandBin>'
+
+############
+############
++ Raw() tests
+
+= unaligned data
+
+p = Raw(b"abc")
+p
+
+offsetdata = bytes.fromhex("0" + p.load.hex() + "0")
+
+p = Raw((offsetdata, 4))
+p
+
+############
+############
++ PacketListField() tests
+
+= unaligned data
+
+class PInner(Packet):
+    name = "PInner"
+    fields_desc = [
+        BitField("x", 0, 8),
+    ]
+    def extract_padding(self, s):
+        return '', s
+
+class POuter(Packet):
+    name = "POuter"
+    fields_desc = [
+        BitField("indent", 0, 4),
+        BitFieldLenField("pcount", None, 8, count_of="plist"),
+        PacketListField("plist", None, PInner,
+                             count_from=lambda pkt: pkt.pcount),
+    ]
+
+p = POuter(b"\xf0\x44\x14\x24\x34\x40")
+p
+
+assert p.indent == 0xf
+assert p.pcount == 4
+assert [p.x for p in p.plist] == [0x41, 0x42, 0x43, 0x44]

@@ -28,7 +28,7 @@ from scapy.asn1.asn1 import (
     _ASN1_ERROR,
 )
 
-from scapy.compat import (
+from typing import (
     Any,
     AnyStr,
     Dict,

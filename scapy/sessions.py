@@ -17,7 +17,7 @@ from scapy.plist import PacketList
 from scapy.pton_ntop import inet_pton
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     Any,
     Callable,
     DefaultDict,

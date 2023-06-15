@@ -13,6 +13,7 @@ import struct
 from scapy.arch import get_if_addr
 from scapy.base_classes import Net
 from scapy.ansmachine import AnsweringMachine
+from scapy.compat import bytes_encode
 from scapy.config import conf
 
 from scapy.packet import Packet, bind_bottom_up, bind_layers, bind_top_down
@@ -142,7 +143,7 @@ class NBNSQueryRequest(Packet):
 
     def mysummary(self):
         return "NBNSQueryRequest who has '\\\\%s'" % (
-            self.QUESTION_NAME.strip().decode()
+            self.QUESTION_NAME.strip().decode(errors="backslashreplace")
         )
 
 
@@ -181,7 +182,7 @@ class NBNSQueryResponse(Packet):
         if not self.ADDR_ENTRY:
             return "NBNSQueryResponse"
         return "NBNSQueryResponse '\\\\%s' is at %s" % (
-            self.RR_NAME.strip().decode(),
+            self.RR_NAME.strip().decode(errors="backslashreplace"),
             self.ADDR_ENTRY[0].NB_ADDRESS
         )
 
@@ -199,7 +200,7 @@ class NBNSNodeStatusRequest(NBNSQueryRequest):
 
     def mysummary(self):
         return "NBNSNodeStatusRequest who has '\\\\%s'" % (
-            self.QUESTION_NAME.strip().decode()
+            self.QUESTION_NAME.strip().decode(errors="backslashreplace")
         )
 
 
@@ -366,7 +367,7 @@ class NBNS_am(AnsweringMachine):
         :param from_ip: an IP (can have a netmask) to filter on
         :param ip: the IP to answer with
         """
-        self.ServerName = server_name
+        self.ServerName = bytes_encode(server_name or "")
         self.ip = ip
         if isinstance(from_ip, str):
             self.from_ip = Net(from_ip)
@@ -378,8 +379,7 @@ class NBNS_am(AnsweringMachine):
             return False
         return NBNSQueryRequest in req and (
             not self.ServerName or
-            req[NBNSQueryRequest].QUESTION_NAME.decode().strip() ==
-            self.ServerName
+            req[NBNSQueryRequest].QUESTION_NAME.strip() == self.ServerName
         )
 
     def make_reply(self, req):

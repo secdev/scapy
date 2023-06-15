@@ -17,7 +17,7 @@ from scapy.utils import decode_locale_str
 
 # Type imports
 import scapy
-from scapy.compat import (
+from typing import (
     Optional,
     Union,
 )

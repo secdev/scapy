@@ -25,7 +25,7 @@ from scapy.interfaces import NetworkInterface, network_name
 from scapy.pton_ntop import inet_pton, inet_ntop
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     Optional,
     Union,
 )

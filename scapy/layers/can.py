@@ -13,11 +13,8 @@ import os
 import gzip
 import struct
 
-from scapy.compat import Tuple, Optional, Type, List, Union, Callable, IO, \
-    Any, cast, hex_bytes
-
 from scapy.config import conf
-from scapy.compat import orb
+from scapy.compat import chb, hex_bytes
 from scapy.data import DLT_CAN_SOCKETCAN
 from scapy.fields import FieldLenField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ScalingField, ConditionalField, LenField, ShortField
@@ -28,6 +25,19 @@ from scapy.error import Scapy_Exception
 from scapy.plist import PacketList
 from scapy.supersocket import SuperSocket
 from scapy.utils import _ByteStream
+
+# Typing imports
+from typing import (
+    Tuple,
+    Optional,
+    Type,
+    List,
+    Union,
+    Callable,
+    IO,
+    Any,
+    cast,
+)
 
 __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
@@ -101,11 +111,11 @@ class CAN(Packet):
                       **kargs  # type: Any
                       ):  # type: (...) -> Type[Packet]
         if _pkt:
-            fdf_set = len(_pkt) > 5 and orb(_pkt[5]) & 0x04 and \
-                not orb(_pkt[5]) & 0xf8
+            fdf_set = len(_pkt) > 5 and _pkt[5] & 0x04 and \
+                not _pkt[5] & 0xf8
             if fdf_set:
                 return CANFD
-            elif len(_pkt) > 16:
+            elif len(_pkt) > 4 and _pkt[4] > 8:
                 return CANFD
         return CAN
 
@@ -178,6 +188,26 @@ class CANFD(CAN):
         ShortField('reserved', 0),
         StrLenField('data', b'', length_from=lambda pkt: int(pkt.length)),
     ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+
+        data = super(CANFD, self).post_build(pkt, pay)
+
+        length = data[4]
+
+        if 8 < length <= 24:
+            wire_length = length + (-length) % 4
+        elif 24 < length <= 64:
+            wire_length = length + (-length) % 8
+        elif length > 64:
+            raise NotImplementedError
+        else:
+            wire_length = length
+
+        pad = b"\x00" * (wire_length - length)
+
+        return data[0:4] + chb(wire_length) + data[5:] + pad
 
 
 bind_layers(CookedLinux, CANFD, proto=13)
@@ -588,13 +618,13 @@ class CandumpReader:
         if len(line) < 16:
             raise EOFError
 
-        is_log_file_format = orb(line[0]) == orb(b"(")
+        is_log_file_format = line[0] == ord(b"(")
         fd_flags = None
         if is_log_file_format:
             t_b, intf, f = line.split()
             if b'##' in f:
                 idn, data = f.split(b'##')
-                fd_flags = orb(data[0])
+                fd_flags = data[0]
                 data = data[1:]
             else:
                 idn, data = f.split(b'#')

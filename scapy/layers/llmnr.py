@@ -55,12 +55,12 @@ class LLMNRQuery(Packet):
     def mysummary(self):
         if self.an:
             return "LLMNRResponse '%s' is at '%s'" % (
-                self.an.rrname.decode(),
+                self.an.rrname.decode(errors="backslashreplace"),
                 self.an.rdata,
             ), [UDP]
         if self.qd:
             return "LLMNRQuery who has '%s'" % (
-                self.qd.qname.decode(),
+                self.qd.qname.decode(errors="backslashreplace"),
             ), [UDP]
 
 

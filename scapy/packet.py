@@ -29,6 +29,7 @@ from scapy.fields import (
     EnumField,
     Field,
     FlagsField,
+    FlagValue,
     MultiEnumField,
     MultipleTypeField,
     PacketListField,
@@ -47,7 +48,7 @@ from scapy.error import Scapy_Exception, log_runtime, warning
 from scapy.libs.test_pyx import PYX
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     Any,
     Callable,
     Dict,
@@ -60,10 +61,10 @@ from scapy.compat import (
     Type,
     TypeVar,
     Union,
-    Self,
     Sequence,
     cast,
 )
+from scapy.compat import Self
 
 try:
     import pyx
@@ -1925,7 +1926,7 @@ values.
                     getattr(x, 'command', lambda: repr(x))()
                     for x in fv
                 )
-            elif isinstance(fld, FlagsField):
+            elif isinstance(fv, FlagValue):
                 fv = int(fv)
             elif callable(getattr(fv, 'command', None)):
                 fv = fv.command()
@@ -2127,7 +2128,11 @@ class Raw(Packet):
     def __init__(self, _pkt=b"", *args, **kwargs):
         # type: (bytes, *Any, **Any) -> None
         if _pkt and not isinstance(_pkt, bytes):
-            _pkt = bytes_encode(_pkt)
+            if isinstance(_pkt, tuple):
+                _pkt, bn = _pkt
+                _pkt = bytes_encode(_pkt), bn
+            else:
+                _pkt = bytes_encode(_pkt)
         super(Raw, self).__init__(_pkt, *args, **kwargs)
 
     def answers(self, other):

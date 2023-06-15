@@ -37,7 +37,7 @@ from scapy.utils import str2mac, decode_locale_str
 
 import scapy.consts
 
-from scapy.compat import (
+from typing import (
     cast,
     Dict,
     List,

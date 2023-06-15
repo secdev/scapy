@@ -214,6 +214,34 @@ s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, " \
 assert s1 in result
 assert s2 in result
 
+= scan with json output
+
+sock_sender = TestSocket(CAN)
+sock_recv1 = TestSocket(CAN)
+sock_sender.pair(sock_recv1)
+sock_recv2 = TestSocket(CAN)
+sock_sender.pair(sock_recv2)
+sock_noise = TestSocket(CAN)
+sock_sender.pair(sock_noise)
+
+with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602), ISOTPSoftSocket(sock_recv2, tx_id=0x703, rx_id=0x603):
+    pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+    make_noise(pkt, 0.01)
+    result = isotp_scan(sock_sender, range(0x5ff, 0x604 + 1),
+                        output_format="json",
+                        noise_listen_time=0.1,
+                        sniff_time=0.02,
+                        can_interface="can0",
+                        verbose=False)
+
+s1 = "\"iface\": \"can0\", \"tx_id\": 1538, \"rx_id\": 1794, " \
+     "\"padding\": false, \"basecls\": \"ISOTP\""
+s2 = "\"iface\": \"can0\", \"tx_id\": 1539, \"rx_id\": 1795, " \
+     "\"padding\": false, \"basecls\": \"ISOTP\""
+print(result)
+assert s1 in result
+assert s2 in result
+
 = scan with code output noise
 
 sock_sender = TestSocket(CAN)

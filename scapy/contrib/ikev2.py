@@ -748,7 +748,8 @@ class IKEv2_Notify(IKEv2_Payload):
         ShortEnumField("type", 0, IKEv2NotifyMessageTypes),
         XStrLenField("SPI", "", length_from=lambda pkt: pkt.SPIsize),
         ConditionalField(
-            XStrLenField("notify", "", length_from=lambda pkt: pkt.length - 8),
+            XStrLenField("notify", "",
+                         length_from=lambda pkt: pkt.length - 8 - pkt.SPIsize),
             lambda pkt: pkt.type not in (16407, 16408)
         ),
         ConditionalField(

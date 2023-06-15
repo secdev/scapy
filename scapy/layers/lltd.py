@@ -715,7 +715,7 @@ class LLTDAttributeMachineName(LLTDAttribute):
     ]
 
     def mysummary(self):
-        return (self.sprintf("Hostname: %r" % self.hostname),
+        return (f"Hostname: {self.hostname!r}",
                 [LLTD, LLTDAttributeHostID])
 
 
