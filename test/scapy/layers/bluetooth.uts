@@ -60,6 +60,46 @@ assert L2CAP_InfoReq in pkt
 
 + HCI Commands
 
+= Create Connection
+
+cmd = HCI_Hdr(hex_bytes("0105040d76d56f95010018cc0200000001"))
+assert HCI_Cmd_Create_Connection in cmd
+assert cmd[HCI_Cmd_Create_Connection].bd_addr == "00:01:95:6f:d5:76"
+assert cmd[HCI_Cmd_Create_Connection].packet_type == 52248
+assert cmd[HCI_Cmd_Create_Connection].page_scan_repetition_mode == 2
+assert cmd[HCI_Cmd_Create_Connection].reserved == 0
+assert cmd[HCI_Cmd_Create_Connection].clock_offset == 0
+assert cmd[HCI_Cmd_Create_Connection].allow_role_switch == 1
+
+= Authentication Requested
+
+cmd = HCI_Hdr(hex_bytes("011104020001"))
+assert HCI_Cmd_Authentication_Requested in cmd
+assert cmd[HCI_Cmd_Authentication_Requested].handle == 256
+
+= Link Key Request Reply
+
+cmd = HCI_Hdr(hex_bytes("010b041676d56f9501006c9016a48a009180086a39200f03d3dd"))
+assert HCI_Cmd_Link_Key_Request_Reply in cmd
+assert cmd[HCI_Cmd_Link_Key_Request_Reply].bd_addr == "00:01:95:6f:d5:76"
+assert cmd[HCI_Cmd_Link_Key_Request_Reply].link_key == 294855023751241435024024030130491265132
+
+= Set Connection Encryption
+
+cmd = HCI_Hdr(hex_bytes("01130403000101"))
+assert HCI_Cmd_Set_Connection_Encryption in cmd
+assert cmd[HCI_Cmd_Set_Connection_Encryption].handle == 256
+assert cmd[HCI_Cmd_Set_Connection_Encryption].encryption_enable == 1
+
+= Remote Name Request
+
+cmd = HCI_Hdr(hex_bytes("0119040a76d56f95010002000000"))
+assert HCI_Cmd_Remote_Name_Request in cmd
+assert cmd[HCI_Cmd_Remote_Name_Request].bd_addr == "00:01:95:6f:d5:76"
+assert cmd[HCI_Cmd_Remote_Name_Request].page_scan_repetition_mode == 2
+assert cmd[HCI_Cmd_Remote_Name_Request].reserved == 0
+assert cmd[HCI_Cmd_Remote_Name_Request].clock_offset == 0
+
 = LE Create Connection
 
 # Request data
@@ -127,6 +167,25 @@ assert expected_cmd_raw_data == cmd_raw_data
 
 
 + HCI Events
+
+= Connect Complete
+
+evt_raw_data = hex_bytes("04030b00000176d56f9501000100")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Connect_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Connect_Complete].status == 0
+assert evt_pkt[HCI_Event_Connect_Complete].handle == 256
+assert evt_pkt[HCI_Event_Connect_Complete].bd_addr == "00:01:95:6f:d5:76"
+
+= Remote Name Request Complete
+
+evt_raw_data = hex_bytes("0407ff0076d56f950100746573742d6c6170746f70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Remote_Name_Request_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Remote_Name_Request_Complete].status == 0
+assert evt_pkt[HCI_Event_Remote_Name_Request_Complete].bd_addr == "00:01:95:6f:d5:76"
+assert evt_pkt[HCI_Event_Remote_Name_Request_Complete].remote_name == b"test-laptop".ljust(248, b"\x00")
+
 = LE Connection Update Event
 evt_raw_data = hex_bytes("043e0a03004800140001003c00")
 evt_pkt =  HCI_Hdr(evt_raw_data)
