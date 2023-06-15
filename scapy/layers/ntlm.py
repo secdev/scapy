@@ -57,7 +57,8 @@ from scapy.supersocket import SSLStreamSocket, StreamSocket
 
 from scapy.layers.tls.crypto.hash import Hash_MD5
 
-from scapy.compat import (
+# Typing imports
+from typing import (
     Any,
     Callable,
     Dict,

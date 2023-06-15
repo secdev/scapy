@@ -34,10 +34,10 @@ from scapy.supersocket import SuperSocket
 from scapy.packet import Packet
 from scapy.consts import WINDOWS
 
-from scapy.compat import (
+# Typing imports
+from typing import (
     Any,
     Callable,
-    DecoratorCallable,
     Deque,
     Dict,
     Generic,
@@ -52,6 +52,7 @@ from scapy.compat import (
     Union,
     cast,
 )
+from scapy.compat import DecoratorCallable
 
 
 def select_objects(inputs, remain):
@@ -173,7 +174,7 @@ class ObjectPipe(Generic[_T]):
         return self.__rd
 
     def send(self, obj):
-        # type: (Union[_T]) -> int
+        # type: (_T) -> int
         self.__queue.append(obj)
         if WINDOWS:
             self._winset()

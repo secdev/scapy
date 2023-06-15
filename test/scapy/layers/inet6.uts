@@ -1198,7 +1198,7 @@ p = ICMPv6NDOptDNSSL(b'\x1f\x02\x00\x00\x00\x00\x00<\x04home\x00\x00\x00')
 p.type == 31 and p.len == 2 and p.res == 0 and p.lifetime == 60 and p.searchlist == ["home."]
 
 = ICMPv6NDOptDNSSL - Summary Output
-ICMPv6NDOptDNSSL(searchlist=["home.", "office."]).mysummary() == "ICMPv6 Neighbor Discovery Option - DNS Search List Option home., office."
+ICMPv6NDOptDNSSL(searchlist=["home.", "office.", "{"]).mysummary() == "ICMPv6 Neighbor Discovery Option - DNS Search List Option home., office., {"
 
 
 ############
@@ -1793,9 +1793,9 @@ assert defragment6(pkts).plen == 1508
 + Test Route6 class
 
 = Fake interfaces
-IFACES._add_fake_iface("eth0")
-IFACES._add_fake_iface("lo")
-IFACES._add_fake_iface("scapy0")
+conf.ifaces._add_fake_iface("eth0")
+conf.ifaces._add_fake_iface("lo")
+conf.ifaces._add_fake_iface("scapy0")
 
 = Route6 - Route6 flushing
 conf_iface = conf.iface

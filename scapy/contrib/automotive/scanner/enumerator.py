@@ -15,8 +15,7 @@ from collections import defaultdict, OrderedDict
 from itertools import chain
 from typing import NamedTuple
 
-from scapy.compat import Any, Union, List, Optional, Iterable, \
-    Dict, Tuple, Set, Callable, cast, orb
+from scapy.compat import orb
 from scapy.contrib.automotive import log_automotive
 from scapy.error import Scapy_Exception
 from scapy.utils import make_lined_table, EDecimal
@@ -27,6 +26,20 @@ from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCase, \
 from scapy.contrib.automotive.scanner.configuration import \
     AutomotiveTestCaseExecutorConfiguration
 from scapy.contrib.automotive.scanner.graph import _Edge
+
+# Typing imports
+from typing import (
+    Any,
+    Union,
+    List,
+    Optional,
+    Iterable,
+    Dict,
+    Tuple,
+    Set,
+    Callable,
+    cast,
+)
 
 # Definition outside the class ServiceEnumerator to allow pickling
 _AutomotiveTestCaseScanResult = NamedTuple(
@@ -290,7 +303,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
 
         start_time = time.monotonic()
         log_automotive.debug(
-            "Start execution of enumerator: %s", time.ctime(start_time))
+            "Start execution of enumerator: %s", time.ctime())
 
         for req in it:
             res = self.sr1_with_retry_on_error(req, socket, state, timeout)
@@ -526,7 +539,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
              len(self.results_without_response)) + "\n"
 
         s += "Statistics per state\n"
-        s += make_lined_table(stats, lambda x: x, dump=True, sortx=str,
+        s += make_lined_table(stats, lambda *x: x, dump=True, sortx=str,
                               sorty=str) or ""
 
         return s + "\n"
@@ -649,8 +662,9 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
     def _show_results_information(self, **kwargs):
         # type: (Any) -> str
         def _get_table_entry(
-                tup  # type: _AutomotiveTestCaseScanResult
+            *args: Any
         ):  # type: (...) -> Tuple[str, str, str]
+            tup = cast(_AutomotiveTestCaseScanResult, args)
             return self._get_table_entry_x(tup), \
                 self._get_table_entry_y(tup), \
                 self._get_table_entry_z(tup)

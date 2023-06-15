@@ -76,7 +76,7 @@ class TimeStampField(FixedPointField):
             return "--"
         val = self.i2h(pkt, val)
         if val < _NTP_BASETIME:
-            return val
+            return str(val)
         return time.strftime(
             "%a, %d %b %Y %H:%M:%S +0000",
             time.gmtime(int(val - _NTP_BASETIME))

@@ -192,7 +192,8 @@ scanner = executeScannerInVirtualEnvironment(
                                                  0x2A, 0x2C, 0x2E, 0x2F, 0x31,
                                                  0x34, 0x35, 0x36, 0x37, 0x38,
                                                  0x3D, 0x3E, 0x83, 0x84, 0x85,
-                                                 0x87]})
+                                                 0x87],
+                                  "request_length": 1})
 
 scanner.show_testcases()
 assert len(scanner.state_paths) == 5
@@ -1069,6 +1070,26 @@ assert 0xff00 in ids
 assert 0xff02 in ids
 assert 0xff03 in ids
 assert 0xffff in ids
+
+= UDS_ServiceEnumerator weird issue
+
+resps = [EcuResponse(None, [UDS()/UDS_NR(negativeResponseCode=0x13, requestServiceId=0x40)]),
+         EcuResponse(None, [UDS()/UDS_NR(negativeResponseCode="subFunctionNotSupported", requestServiceId=0x41)]),
+         EcuResponse(None, [UDS()/UDS_NR(negativeResponseCode="subFunctionNotSupported", requestServiceId=0x11)]),
+         EcuResponse(None, [UDS()/UDS_NR(negativeResponseCode="subFunctionNotSupported", requestServiceId=0x42)]),
+         EcuResponse(None, [UDS()/UDS_NR(negativeResponseCode="subFunctionNotSupported", requestServiceId=0x43)])]
+
+es = [UDS_ServiceEnumerator]
+
+scanner = executeScannerInVirtualEnvironment(
+    resps, es, UDS_ServiceEnumerator_kwargs={"scan_range": [0x11, 0x40, 0x41, 0x42]})
+
+assert scanner.scan_completed
+assert scanner.progress() > 0.95
+tc = scanner.configuration.test_cases[0]
+tc.show()
+
+assert len(tc.results_with_negative_response) == 4
 
 + Cleanup
 

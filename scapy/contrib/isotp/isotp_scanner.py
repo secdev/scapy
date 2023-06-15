@@ -3,7 +3,7 @@
 # See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
 # Copyright (C) Alexander Schroeder <alexander1.schroeder@st.othr.de>
-
+import json
 # scapy.contrib.description = ISO-TP (ISO 15765-2) Scanner Utility
 # scapy.contrib.status = library
 import logging
@@ -11,7 +11,6 @@ import time
 
 from threading import Event
 
-from scapy.compat import Iterable, Optional, Union, List, Tuple, Dict
 from scapy.packet import Packet
 from scapy.compat import orb
 from scapy.layers.can import CAN
@@ -20,6 +19,16 @@ from scapy.contrib.cansocket import PYTHON_CAN
 from scapy.contrib.isotp.isotp_packet import ISOTPHeader, ISOTPHeaderEA, \
     ISOTP_FF, ISOTP
 
+# Typing imports
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 log_isotp = logging.getLogger("scapy.contrib.isotp")
 
@@ -237,6 +246,7 @@ def scan_extended(sock,  # type: SuperSocket
     """
     return_values = dict()  # type: Dict[int, Tuple[Packet, int]]
     scan_block_size = scan_block_size or 1
+    r = list(extended_scan_range)
 
     for value in scan_range:
         if noise_ids and value in noise_ids:
@@ -245,7 +255,6 @@ def scan_extended(sock,  # type: SuperSocket
         pkt = get_isotp_packet(
             value, extended=True, extended_can_id=extended_can_id)
         id_list = []  # type: List[int]
-        r = list(extended_scan_range)
         for ext_isotp_id in range(r[0], r[-1], scan_block_size):
             if stop_event is not None and stop_event.is_set():
                 break
@@ -298,6 +307,7 @@ def isotp_scan(sock,  # type: SuperSocket
 
     - text: human readable output
     - code: python code for copy&paste
+    - json: json string
     - sockets: if output format is not specified, ISOTPSockets will be
       created and returned in a list
 
@@ -358,6 +368,10 @@ def isotp_scan(sock,  # type: SuperSocket
 
     if output_format == "code":
         return generate_code_output(found_packets, can_interface,
+                                    extended_addressing)
+
+    if output_format == "json":
+        return generate_json_output(found_packets, can_interface,
                                     extended_addressing)
 
     return generate_isotp_list(found_packets, can_interface or sock,
@@ -452,6 +466,49 @@ def generate_code_output(found_packets, can_interface="iface",
                        int(found_packets[pack][0].identifier),
                        found_packets[pack][0].length == 8)
     return header + result
+
+
+def generate_json_output(found_packets,  # type: Dict[int, Tuple[Packet, int]]
+                         can_interface="iface",  # type: Optional[str]
+                         extended_addressing=False  # type: bool
+                         ):
+    # type: (...) -> str
+    """Generate a list of ISOTPSocket objects from the result of the `scan` or
+    the `scan_extended` function.
+
+    :param found_packets: result of the `scan` or `scan_extended` function
+    :param can_interface: description string for a CAN interface to be
+                          used for the creation of the output.
+    :param extended_addressing: print results from a scan with ISOTP
+                                extended addressing
+    :return: A list of all found ISOTPSockets
+    """
+    socket_list = []  # type: List[Dict[str, Any]]
+    for pack in found_packets:
+        pkt = found_packets[pack][0]
+
+        dest_id = pkt.identifier
+        pad = True if pkt.length == 8 else False
+
+        if extended_addressing:
+            source_id = pack >> 8
+            source_ext = int(pack - (source_id * 256))
+            dest_ext = orb(pkt.data[0])
+            socket_list.append({"iface": can_interface,
+                                "tx_id": source_id,
+                                "ext_address": source_ext,
+                                "rx_id": dest_id,
+                                "rx_ext_address": dest_ext,
+                                "padding": pad,
+                                "basecls": ISOTP.__name__})
+        else:
+            source_id = pack
+            socket_list.append({"iface": can_interface,
+                                "tx_id": source_id,
+                                "rx_id": dest_id,
+                                "padding": pad,
+                                "basecls": ISOTP.__name__})
+    return json.dumps(socket_list)
 
 
 def generate_isotp_list(found_packets,  # type: Dict[int, Tuple[Packet, int]]

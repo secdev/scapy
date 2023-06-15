@@ -40,12 +40,17 @@ def _version_from_git_archive():
     """
     Rely on git archive "export-subst" git attribute.
     See 'man gitattributes' for more details.
-    Note: describe is only supported with git >= 2.32.0
-    but we use it to workaround GH#3121
+    Note: describe is only supported with git >= 2.32.0,
+    and the `tags=true` option with git >= 2.35.0 but we
+    use it to workaround GH#3121.
     """
-    git_archive_id = '$Format:%ct %(describe)$'.strip().split()
+    git_archive_id = '$Format:%ct %(describe:tags=true)$'.split()
     tstamp = git_archive_id[0]
-    tag = git_archive_id[1]
+    if len(git_archive_id) > 1:
+        tag = git_archive_id[1]
+    else:
+        # project is run in CI and has another %(describe)
+        tag = ""
 
     if "Format" in tstamp:
         raise ValueError('not a git archive')
@@ -106,7 +111,7 @@ def _version_from_git_describe():
         else:
             raise subprocess.CalledProcessError(process.returncode, err)
 
-    tag = _git("git describe --always")
+    tag = _git("git describe --tags --always --long")
     if not tag.startswith("v"):
         # Upstream was not fetched
         commit = _git("git rev-list --tags --max-count=1")
@@ -120,12 +125,14 @@ def _version():
 
     :return: the Scapy version
     """
+    # Method 0: from external packaging
     try:
         # possibly forced by external packaging
         return os.environ['SCAPY_VERSION']
     except KeyError:
         pass
 
+    # Method 1: from the VERSION file, included in sdist and wheels
     version_file = os.path.join(_SCAPY_PKG_DIR, 'VERSION')
     try:
         # file generated when running sdist
@@ -135,16 +142,19 @@ def _version():
     except FileNotFoundError:
         pass
 
+    # Method 2: from the archive tag, exported when using git archives
     try:
         return _version_from_git_archive()
     except ValueError:
         pass
 
+    # Method 3: from git itself, used when Scapy was cloned
     try:
         return _version_from_git_describe()
     except Exception:
         pass
 
+    # Fallback
     try:
         # last resort, use the modification date of __init__.py
         d = datetime.datetime.utcfromtimestamp(os.path.getmtime(__file__))

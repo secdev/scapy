@@ -10,7 +10,6 @@
 
 import copy
 
-from scapy.compat import List, Type, Any, Iterable
 from scapy.contrib.automotive.obd.obd import OBD, OBD_S03, OBD_S07, OBD_S0A, \
     OBD_S01, OBD_S06, OBD_S08, OBD_S09, OBD_NR, OBD_S02, OBD_S02_Record
 from scapy.config import conf
@@ -24,6 +23,14 @@ from scapy.contrib.automotive.scanner.executor import \
 from scapy.contrib.automotive.ecu import EcuState
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
     _SocketUnion
+
+# Typing imports
+from typing import (
+    List,
+    Type,
+    Any,
+    Iterable,
+)
 
 
 class OBD_Enumerator(ServiceEnumerator):

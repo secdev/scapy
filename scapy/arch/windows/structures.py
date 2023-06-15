@@ -25,7 +25,7 @@ from scapy.config import conf
 from scapy.consts import WINDOWS_XP
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     Any,
     Dict,
     List,

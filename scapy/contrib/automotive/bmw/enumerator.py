@@ -8,11 +8,15 @@
 
 
 from scapy.packet import Packet
-from scapy.compat import Any, Iterable
 from scapy.contrib.automotive.scanner.enumerator import _AutomotiveTestCaseScanResult  # noqa: E501
 from scapy.contrib.automotive.uds import UDS
 from scapy.contrib.automotive.bmw.definitions import DEV_JOB
 from scapy.contrib.automotive.uds_scan import UDS_Enumerator
+
+from typing import (
+    Any,
+    Iterable,
+)
 
 
 class BMW_DevJobEnumerator(UDS_Enumerator):

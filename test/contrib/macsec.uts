@@ -14,13 +14,14 @@ m = sa.encap(p)
 assert m.type == ETH_P_MACSEC
 assert m[MACsec].type == ETH_P_IP
 assert len(m) == len(p) + 16
-assert m[MACsec].an == 0
-assert m[MACsec].pn == 100
-assert m[MACsec].shortlen == 0
+assert m[MACsec].AN == 0
+assert m[MACsec].PN == 100
+assert m[MACsec].SL == 0
 assert m[MACsec].SC
 assert m[MACsec].E
 assert m[MACsec].C
-assert m[MACsec].sci == b'\x52\x54\x00\x13\x01\x56\x00\x01'
+assert m[MACsec].SCI == b'\x52\x54\x00\x13\x01\x56\x00\x01'
+assert m[MACsec].mysummary() == r"AN=0, PN=100, SCI='RT\x00\x13\x01V\x00\x01', IPv4"
 
 = MACsec - basic encryption - encrypted
 sa = MACsecSA(sci=b'\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=100, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=1, send_sci=1)
@@ -30,13 +31,13 @@ e = sa.encrypt(m)
 assert e.type == ETH_P_MACSEC
 assert e[MACsec].type == None
 assert len(e) == len(p) + 16 + 16
-assert e[MACsec].an == 0
-assert e[MACsec].pn == 100
-assert e[MACsec].shortlen == 0
+assert e[MACsec].AN == 0
+assert e[MACsec].PN == 100
+assert e[MACsec].SL == 0
 assert e[MACsec].SC
 assert e[MACsec].E
 assert e[MACsec].C
-assert e[MACsec].sci == b'\x52\x54\x00\x13\x01\x56\x00\x01'
+assert e[MACsec].SCI == b'\x52\x54\x00\x13\x01\x56\x00\x01'
 
 = MACsec - basic decryption - encrypted
 sa = MACsecSA(sci=b'\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=100, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=1, send_sci=1)
@@ -47,13 +48,13 @@ d = sa.decrypt(e)
 assert d.type == ETH_P_MACSEC
 assert d[MACsec].type == ETH_P_IP
 assert len(d) == len(m)
-assert d[MACsec].an == 0
-assert d[MACsec].pn == 100
-assert d[MACsec].shortlen == 0
+assert d[MACsec].AN == 0
+assert d[MACsec].PN == 100
+assert d[MACsec].SL == 0
 assert d[MACsec].SC
 assert d[MACsec].E
 assert d[MACsec].C
-assert d[MACsec].sci == b'\x52\x54\x00\x13\x01\x56\x00\x01'
+assert d[MACsec].SCI == b'\x52\x54\x00\x13\x01\x56\x00\x01'
 assert raw(d) == raw(m)
 
 = MACsec - basic decap - decrypted
@@ -74,13 +75,13 @@ m = sa.encap(p)
 assert m.type == ETH_P_MACSEC
 assert m[MACsec].type == ETH_P_IP
 assert len(m) == len(p) + 16
-assert m[MACsec].an == 0
-assert m[MACsec].pn == 200
-assert m[MACsec].shortlen == 0
+assert m[MACsec].AN == 0
+assert m[MACsec].PN == 200
+assert m[MACsec].SL == 0
 assert m[MACsec].SC
 assert not m[MACsec].E
 assert not m[MACsec].C
-assert m[MACsec].sci == b'\x52\x54\x00\x13\x01\x56\x00\x01'
+assert m[MACsec].SCI == b'\x52\x54\x00\x13\x01\x56\x00\x01'
 
 = MACsec - basic encryption - integrity only
 sa = MACsecSA(sci=b'\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
@@ -90,13 +91,13 @@ e = sa.encrypt(m)
 assert m.type == ETH_P_MACSEC
 assert e[MACsec].type == None
 assert len(e) == len(p) + 16 + 16
-assert e[MACsec].an == 0
-assert e[MACsec].pn == 200
-assert e[MACsec].shortlen == 0
+assert e[MACsec].AN == 0
+assert e[MACsec].PN == 200
+assert e[MACsec].SL == 0
 assert e[MACsec].SC
 assert not e[MACsec].E
 assert not e[MACsec].C
-assert e[MACsec].sci == b'\x52\x54\x00\x13\x01\x56\x00\x01'
+assert e[MACsec].SCI == b'\x52\x54\x00\x13\x01\x56\x00\x01'
 assert raw(e)[:-16] == raw(m)
 
 = MACsec - basic decryption - integrity only
@@ -108,13 +109,13 @@ d = sa.decrypt(e)
 assert d.type == ETH_P_MACSEC
 assert d[MACsec].type == ETH_P_IP
 assert len(d) == len(m)
-assert d[MACsec].an == 0
-assert d[MACsec].pn == 200
-assert d[MACsec].shortlen == 0
+assert d[MACsec].AN == 0
+assert d[MACsec].PN == 200
+assert d[MACsec].SL == 0
 assert d[MACsec].SC
 assert not d[MACsec].E
 assert not d[MACsec].C
-assert d[MACsec].sci == b'\x52\x54\x00\x13\x01\x56\x00\x01'
+assert d[MACsec].SCI == b'\x52\x54\x00\x13\x01\x56\x00\x01'
 assert raw(d) == raw(m)
 
 = MACsec - basic decap - integrity only
@@ -130,71 +131,71 @@ assert raw(r) == raw(p)
 sa = MACsecSA(sci=0x5254001301560001, an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')
 m = sa.encap(p)
-assert m[MACsec].shortlen == 2
-assert len(m) == m[MACsec].shortlen + 20 + (8 if sa.send_sci else 0)
+assert m[MACsec].SL == 2
+assert len(m) == m[MACsec].SL + 20 + (8 if sa.send_sci else 0)
 
 = MACsec - encap - shortlen 10
 sa = MACsecSA(sci=0x5254001301560001, an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/Raw("x" * 8)
 m = sa.encap(p)
-assert m[MACsec].shortlen == 10
-assert len(m) == m[MACsec].shortlen + 20 + (8 if sa.send_sci else 0)
+assert m[MACsec].SL == 10
+assert len(m) == m[MACsec].SL + 20 + (8 if sa.send_sci else 0)
 
 = MACsec - encap - shortlen 18
 sa = MACsecSA(sci=0x5254001301560001, an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/Raw("x" * 16)
 m = sa.encap(p)
-assert m[MACsec].shortlen == 18
-assert len(m) == m[MACsec].shortlen + 20 + (8 if sa.send_sci else 0)
+assert m[MACsec].SL == 18
+assert len(m) == m[MACsec].SL + 20 + (8 if sa.send_sci else 0)
 
 = MACsec - encap - shortlen 32
 sa = MACsecSA(sci=0x5254001301560001, an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/Raw("x" * 30)
 m = sa.encap(p)
-assert m[MACsec].shortlen == 32
-assert len(m) == m[MACsec].shortlen + 20 + (8 if sa.send_sci else 0)
+assert m[MACsec].SL == 32
+assert len(m) == m[MACsec].SL + 20 + (8 if sa.send_sci else 0)
 
 = MACsec - encap - shortlen 40
 sa = MACsecSA(sci=0x5254001301560001, an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/Raw("x" * 38)
 m = sa.encap(p)
-assert m[MACsec].shortlen == 40
-assert len(m) == m[MACsec].shortlen + 20 + (8 if sa.send_sci else 0)
+assert m[MACsec].SL == 40
+assert len(m) == m[MACsec].SL + 20 + (8 if sa.send_sci else 0)
 
 = MACsec - encap - shortlen 47
 sa = MACsecSA(sci=0x5254001301560001, an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/Raw("x" * 45)
 m = sa.encap(p)
-assert m[MACsec].shortlen == 47
-assert len(m) == m[MACsec].shortlen + 20 + (8 if sa.send_sci else 0)
+assert m[MACsec].SL == 47
+assert len(m) == m[MACsec].SL + 20 + (8 if sa.send_sci else 0)
 
 = MACsec - encap - shortlen 0 (48)
 sa = MACsecSA(sci=0x5254001301560001, an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/Raw("x" * 45 + "y")
 m = sa.encap(p)
-assert m[MACsec].shortlen == 0
+assert m[MACsec].SL == 0
 
 
 = MACsec - encap - shortlen 2/nosci
 sa = MACsecSA(sci=0x5254001301560001, an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=0)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')
 m = sa.encap(p)
-assert m[MACsec].shortlen == 2
-assert len(m) == m[MACsec].shortlen + 20 + (8 if sa.send_sci else 0)
+assert m[MACsec].SL == 2
+assert len(m) == m[MACsec].SL + 20 + (8 if sa.send_sci else 0)
 
 = MACsec - encap - shortlen 32/nosci
 sa = MACsecSA(sci=0x5254001301560001, an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=0)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/Raw("x" * 30)
 m = sa.encap(p)
-assert m[MACsec].shortlen == 32
-assert len(m) == m[MACsec].shortlen + 20 + (8 if sa.send_sci else 0)
+assert m[MACsec].SL == 32
+assert len(m) == m[MACsec].SL + 20 + (8 if sa.send_sci else 0)
 
 = MACsec - encap - shortlen 47/nosci
 sa = MACsecSA(sci=0x5254001301560001, an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=0)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/Raw("x" * 45)
 m = sa.encap(p)
-assert m[MACsec].shortlen == 47
-assert len(m) == m[MACsec].shortlen + 20 + (8 if sa.send_sci else 0)
+assert m[MACsec].SL == 47
+assert len(m) == m[MACsec].SL + 20 + (8 if sa.send_sci else 0)
 
 
 = MACsec - authenticate

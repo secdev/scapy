@@ -58,7 +58,7 @@ from scapy.interfaces import resolve_iface, _GlobInterfaceType
 from scapy.supersocket import SuperSocket
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     Any,
     List,
     Optional,

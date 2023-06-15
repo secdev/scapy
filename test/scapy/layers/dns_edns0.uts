@@ -54,6 +54,13 @@ raw(tlv) == b'\x00\x05\x00\x04\x00\x11"3'
 #conf.debug_dissector = old_debug_dissector
 #len(r.ar) and r.ar.rdata[0].optcode == 4  # XXX: should be 5
 
++ Test EDNS-COOKIE
+
+= EDNS-COOKIE - basic instantiation
+tlv = EDNS0TLV(optcode="COOKIE", optdata=b"\x01" * 8)
+assert tlv.optcode == 10
+assert raw(tlv) == b"\x00\x0A\x00\x08\x01\x01\x01\x01\x01\x01\x01\x01"
+
 + Test DNS Name Server Identifier (NSID) Option
 
 = NSID- basic instantiation

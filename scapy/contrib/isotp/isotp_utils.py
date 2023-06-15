@@ -10,13 +10,23 @@
 
 import struct
 
-from scapy.compat import Iterable, Optional, Union, List, Tuple, Dict, Any, \
-    Type
 from scapy.utils import EDecimal
 from scapy.packet import Packet
 from scapy.sessions import DefaultSession
 from scapy.contrib.isotp.isotp_packet import ISOTP, N_PCI_CF, N_PCI_SF, \
     N_PCI_FF, N_PCI_FC
+
+# Typing imports
+from typing import (
+    Iterable,
+    Optional,
+    Union,
+    List,
+    Tuple,
+    Dict,
+    Any,
+    Type,
+)
 
 
 class ISOTPMessageBuilderIter(object):

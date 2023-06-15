@@ -46,6 +46,13 @@ from scapy.arch.windows import pcap_service_status
 status = pcap_service_status()
 assert status
 
+= test get_if_list
+
+from scapy.interfaces import get_if_list
+
+print(get_if_list())
+assert all(x.startswith(r"\Device\NPF_") for x in get_if_list())
+
 = test pcap_service_stop
 ~ appveyor_only require_gui
 
@@ -63,14 +70,14 @@ assert pcap_service_status()[2] == True
 @mock.patch("scapy.arch.windows.get_windows_if_list")
 def _test_autostart_ui(mocked_getiflist):
     mocked_getiflist.side_effect = lambda: []
-    IFACES.reload()
-    assert all(x.index < 0 for x in IFACES.data.values())
+    conf.ifaces.reload()
+    assert all(x.index < 0 for x in conf.ifaces.data.values())
 
 try:
-    old_ifaces = IFACES.data.copy()
+    old_ifaces = conf.ifaces.data.copy()
     _test_autostart_ui()
 finally:
-     IFACES.data = old_ifaces
+     conf.ifaces.data = old_ifaces
 
 ######### Native mode ###########
 

@@ -112,7 +112,7 @@ class GMLAN(ISOTP):
 
     def hashret(self):
         if self.service == 0x7f:
-            return struct.pack('B', self.requestServiceId)
+            return struct.pack('B', self.requestServiceId & ~0x40)
         return struct.pack('B', self.service & ~0x40)
 
 
