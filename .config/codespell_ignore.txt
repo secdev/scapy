@@ -1,4 +1,3 @@
-Ether
 aci
 ans
 archtypes
@@ -11,6 +10,7 @@ delt
 doas
 doubleclick
 ether
+ether
 eventtypes
 fo
 gost
@@ -20,9 +20,11 @@ microsof
 mitre
 nd
 negociate
+optiona
 ot
 potatoe
 referer
+requestor
 ro
 ser
 singl
