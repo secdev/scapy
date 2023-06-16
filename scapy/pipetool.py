@@ -606,7 +606,7 @@ class CLIHighFeeder(CLIFeeder):
 
 
 class PeriodicSource(ThreadGenSource):
-    """Generage messages periodically on low exit:
+    """Generate messages periodically on low exit:
 
     .. code::
 
