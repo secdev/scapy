@@ -52,6 +52,20 @@ from scapy.consts import WINDOWS
 from scapy.error import warning
 
 
+############
+#  Consts  #
+############
+
+# From hci.h
+HCI_CHANNEL_RAW = 0
+HCI_CHANNEL_USER = 1
+HCI_CHANNEL_MONITOR = 2
+HCI_CHANNEL_CONTROL = 3
+HCI_CHANNEL_LOGGING = 4
+
+HCI_DEV_NONE = 0xffff
+
+
 ##########
 # Layers #
 ##########
@@ -171,6 +185,18 @@ _att_error_codes = {
     0x10: "unsupported gpr type",
     0x11: "insufficient resources",
 }
+
+
+class BT_Mon_Hdr(Packet):
+    '''
+    Bluetooth Linux Monitor Transport Header
+    '''
+    name = 'Bluetooth Linux Monitor Transport Header'
+    fields_desc = [
+        LEShortField('opcode', None),
+        LEShortField('adapter_id', None),
+        LEShortField('len', None)
+    ]
 
 
 class HCI_Hdr(Packet):
@@ -1493,20 +1519,15 @@ class sockaddr_hci(ctypes.Structure):
     ]
 
 
-class BluetoothUserSocket(SuperSocket):
-    desc = "read/write H4 over a Bluetooth user channel"
-
-    def __init__(self, adapter_index=0):
+class _BluetoothLibcSocket(SuperSocket):
+    def __init__(self, socket_domain, socket_type, socket_protocol, sock_address):
+        # type: (int, int, int, sockaddr_hci) -> None
         if WINDOWS:
             warning("Not available on Windows")
             return
-        # s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)  # noqa: E501
-        # s.bind((0,1))
-
-        # yeah, if only
-        # thanks to Python's weak ass socket and bind implementations, we have
-        # to call down into libc with ctypes
-
+        # Python socket and bind implementations do not allow us to pass down
+        # the correct parameters. We must call libc functions directly via
+        # ctypes.
         sockaddr_hcip = ctypes.POINTER(sockaddr_hci)
         ctypes.cdll.LoadLibrary("libc.so.6")
         libc = ctypes.CDLL("libc.so.6")
@@ -1521,40 +1542,24 @@ class BluetoothUserSocket(SuperSocket):
                          ctypes.c_int)
         bind.restype = ctypes.c_int
 
-        ########
-        # actual code
-
-        s = socket_c(31, 3, 1)  # (AF_BLUETOOTH, SOCK_RAW, HCI_CHANNEL_USER)
+        # Socket
+        s = socket_c(socket_domain, socket_type, socket_protocol)
         if s < 0:
-            raise BluetoothSocketError("Unable to open PF_BLUETOOTH socket")
+            raise BluetoothSocketError(
+                f"Unable to open socket({socket_domain}, {socket_type}, "
+                f"{socket_protocol})")
 
-        sa = sockaddr_hci()
-        sa.sin_family = 31  # AF_BLUETOOTH
-        sa.hci_dev = adapter_index  # adapter index
-        sa.hci_channel = 1   # HCI_USER_CHANNEL
-
-        r = bind(s, sockaddr_hcip(sa), sizeof(sa))
+        # Bind
+        r = bind(s, sockaddr_hcip(sock_address), sizeof(sock_address))
         if r != 0:
             raise BluetoothSocketError("Unable to bind")
 
         self.hci_fd = s
-        self.ins = self.outs = socket.fromfd(s, 31, 3, 1)
-
-    def send_command(self, cmd):
-        opcode = cmd.opcode
-        self.send(cmd)
-        while True:
-            r = self.recv()
-            if r.type == 0x04 and r.code == 0xe and r.opcode == opcode:
-                if r.status != 0:
-                    raise BluetoothCommandError("Command %x failed with %x" % (opcode, r.status))  # noqa: E501
-                return r
-
-    def recv(self, x=MTU):
-        return HCI_Hdr(self.ins.recv(x))
+        self.ins = self.outs = socket.fromfd(
+            s, socket_domain, socket_type, socket_protocol)
 
     def readable(self, timeout=0):
-        (ins, outs, foo) = select.select([self.ins], [], [], timeout)
+        (ins, _, _) = select.select([self.ins], [], [], timeout)
         return len(ins) > 0
 
     def flush(self):
@@ -1580,6 +1585,52 @@ class BluetoothUserSocket(SuperSocket):
             if self.ins and (WINDOWS or self.ins.fileno() != -1):
                 close(self.ins.fileno())
         close(self.hci_fd)
+
+
+class BluetoothUserSocket(_BluetoothLibcSocket):
+    desc = "read/write H4 over a Bluetooth user channel"
+
+    def __init__(self, adapter_index=0):
+        sa = sockaddr_hci()
+        sa.sin_family = socket.AF_BLUETOOTH
+        sa.hci_dev = adapter_index
+        sa.hci_channel = HCI_CHANNEL_USER
+        super().__init__(
+            socket_domain=socket.AF_BLUETOOTH,
+            socket_type=socket.SOCK_RAW,
+            socket_protocol=socket.BTPROTO_HCI,
+            sock_address=sa)
+
+    def send_command(self, cmd):
+        opcode = cmd.opcode
+        self.send(cmd)
+        while True:
+            r = self.recv()
+            if r.type == 0x04 and r.code == 0xe and r.opcode == opcode:
+                if r.status != 0:
+                    raise BluetoothCommandError("Command %x failed with %x" % (opcode, r.status))  # noqa: E501
+                return r
+
+    def recv(self, x=MTU):
+        return HCI_Hdr(self.ins.recv(x))
+
+
+class BluetoothMonitorSocket(SuperSocket):
+    desc = "read/write over a Bluetooth monitor channel"
+
+    def __init__(self):
+        sa = sockaddr_hci()
+        sa.sin_family = socket.AF_BLUETOOTH
+        sa.hci_dev = HCI_DEV_NONE
+        sa.hci_channel = HCI_CHANNEL_MONITOR
+        super().__init__(
+            socket_domain=socket.AF_BLUETOOTH,
+            socket_type=socket.SOCK_RAW,
+            socket_protocol=socket.BTPROTO_HCI,
+            sock_address=sa)
+
+    def recv(self, x=MTU):
+        return BT_Mon_Hdr(self.ins.recv(x))
 
 
 conf.BTsocket = BluetoothRFCommSocket
