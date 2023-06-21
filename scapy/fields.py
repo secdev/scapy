@@ -2728,6 +2728,39 @@ class XShortEnumField(ShortEnumField):
         return lhex(x)
 
 
+class LE3BytesEnumField(LEThreeBytesField, _EnumField[int]):
+    __slots__ = EnumField.__slots__
+
+    def __init__(self, name, default, enum):
+        # type: (str, Optional[int], Dict[int, str]) -> None
+        _EnumField.__init__(self, name, default, enum)
+        LEThreeBytesField.__init__(self, name, default)
+
+    def any2i(self, pkt, x):
+        # type: (Optional[Packet], Any) -> int
+        return _EnumField.any2i(self, pkt, x)  # type: ignore
+
+    def i2repr(self, pkt, x):  # type: ignore
+        # type: (Optional[Packet], Any) -> Union[List[str], str]
+        return _EnumField.i2repr(self, pkt, x)
+
+
+class LEX3BytesEnumField(LE3BytesEnumField):
+    def i2repr_one(self, pkt, x):
+        # type: (Optional[Packet], int) -> str
+        if self not in conf.noenum and not isinstance(x, VolatileValue):
+            if self.i2s is not None:
+                try:
+                    return self.i2s[x]
+                except KeyError:
+                    pass
+            elif self.i2s_cb:
+                ret = self.i2s_cb(x)
+                if ret is not None:
+                    return ret
+        return lhex(x)
+
+
 class _MultiEnumField(_EnumField[I]):
     def __init__(self,
                  name,  # type: str
