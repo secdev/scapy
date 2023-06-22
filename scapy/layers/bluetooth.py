@@ -43,23 +43,20 @@ from scapy.fields import (
     XByteField,
     XLELongField,
     XStrLenField,
+    XLEShortField,
 )
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
 from scapy.data import MTU
 from scapy.consts import WINDOWS
 from scapy.error import warning
-from scapy.utils import lhex, mac2str, str2mac
+from scapy.utils import mac2str, str2mac
 from scapy.volatile import RandMAC
 
 
 ##########
 # Fields #
 ##########
-
-class XLEShortField(LEShortField):
-    def i2repr(self, pkt, x):
-        return lhex(self.i2h(pkt, x))
 
 
 class LEMACField(Field):
