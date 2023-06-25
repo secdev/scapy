@@ -32,6 +32,7 @@ from scapy.fields import (
     LEShortField,
     LenField,
     MultipleTypeField,
+    NBytesField,
     PacketListField,
     PadField,
     SignedByteField,
@@ -42,23 +43,20 @@ from scapy.fields import (
     XByteField,
     XLELongField,
     XStrLenField,
+    XLEShortField,
 )
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
 from scapy.data import MTU
 from scapy.consts import WINDOWS
 from scapy.error import warning
-from scapy.utils import lhex, mac2str, str2mac
+from scapy.utils import mac2str, str2mac
 from scapy.volatile import RandMAC
 
 
 ##########
 # Fields #
 ##########
-
-class XLEShortField(LEShortField):
-    def i2repr(self, pkt, x):
-        return lhex(self.i2h(pkt, x))
 
 
 class LEMACField(Field):
@@ -966,10 +964,44 @@ class HCI_Cmd_LE_Set_Scan_Enable(Packet):
                    ByteField("filter_dups", 1), ]
 
 
+class HCI_Cmd_Create_Connection(Packet):
+    name = "Create Connection"
+    fields_desc = [LEMACField("bd_addr", None),
+                   LEShortField("packet_type", 0xcc18),
+                   ByteField("page_scan_repetition_mode", 0x02),
+                   ByteField("reserved", 0x0),
+                   LEShortField("clock_offset", 0x0),
+                   ByteField("allow_role_switch", 0x1), ]
+
+
 class HCI_Cmd_Disconnect(Packet):
     name = "Disconnect"
     fields_desc = [XLEShortField("handle", 0),
                    ByteField("reason", 0x13), ]
+
+
+class HCI_Cmd_Link_Key_Request_Reply(Packet):
+    name = "Link Key Request Reply"
+    fields_desc = [LEMACField("bd_addr", None),
+                   NBytesField("link_key", None, 16), ]
+
+
+class HCI_Cmd_Authentication_Requested(Packet):
+    name = "Authentication Requested"
+    fields_desc = [LEShortField("handle", 0)]
+
+
+class HCI_Cmd_Set_Connection_Encryption(Packet):
+    name = "Set Connection Encryption"
+    fields_desc = [LEShortField("handle", 0), ByteField("encryption_enable", 0)]
+
+
+class HCI_Cmd_Remote_Name_Request(Packet):
+    name = "Remote Name Request"
+    fields_desc = [LEMACField("bd_addr", None),
+                   ByteField("page_scan_repetition_mode", 0x02),
+                   ByteField("reserved", 0x0),
+                   LEShortField("clock_offset", 0x0), ]
 
 
 class HCI_Cmd_LE_Create_Connection(Packet):
@@ -1099,11 +1131,25 @@ class HCI_Event_Hdr(Packet):
         return self.payload.answers(other)
 
 
+class HCI_Event_Connect_Complete(Packet):
+    name = "Connect Complete"
+    fields_desc = [ByteField("status", 0),
+                   LEShortField("handle", 0x0100),
+                   LEMACField("bd_addr", None), ]
+
+
 class HCI_Event_Disconnection_Complete(Packet):
     name = "Disconnection Complete"
     fields_desc = [ByteEnumField("status", 0, {0: "success"}),
                    LEShortField("handle", 0),
                    XByteField("reason", 0), ]
+
+
+class HCI_Event_Remote_Name_Request_Complete(Packet):
+    name = "Remote Name Request Complete"
+    fields_desc = [ByteField("status", 0),
+                   LEMACField("bd_addr", None),
+                   StrFixedLenField("remote_name", b"\x00", 248), ]
 
 
 class HCI_Event_Encryption_Change(Packet):
@@ -1240,14 +1286,20 @@ bind_layers(HCI_Hdr, conf.raw_layer,)
 conf.l2types.register(DLT_BLUETOOTH_HCI_H4, HCI_Hdr)
 conf.l2types.register(DLT_BLUETOOTH_HCI_H4_WITH_PHDR, HCI_PHDR_Hdr)
 
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Reset, opcode=0x0c03)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Create_Connection, opcode=0x0405)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Disconnect, opcode=0x0406)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Link_Key_Request_Reply, opcode=0x040b)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Authentication_Requested, opcode=0x0411)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Connection_Encryption, opcode=0x0413)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Remote_Name_Request, opcode=0x0419)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Mask, opcode=0x0c01)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Reset, opcode=0x0c03)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Filter, opcode=0x0c05)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Connect_Accept_Timeout, opcode=0x0c16)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Host_Supported, opcode=0x0c6d)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Extended_Inquiry_Response, opcode=0x0c52)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_BD_Addr, opcode=0x1009)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Local_Name, opcode=0x0c13)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Connect_Accept_Timeout, opcode=0x0c16)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Extended_Inquiry_Response, opcode=0x0c52)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Host_Supported, opcode=0x0c6d)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_BD_Addr, opcode=0x1009)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Buffer_Size, opcode=0x2002)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Random_Address, opcode=0x2005)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Parameters, opcode=0x2006)  # noqa: E501
@@ -1256,7 +1308,6 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Response_Data, opcode=0x2009)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertise_Enable, opcode=0x200a)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Parameters, opcode=0x200b)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, opcode=0x200c)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Disconnect, opcode=0x406)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection, opcode=0x200d)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, opcode=0x200e)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_White_List_Size, opcode=0x200f)
@@ -1265,19 +1316,16 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Add_Device_To_White_List, opcode=0x2011)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Remove_Device_From_White_List, opcode=0x2012)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Connection_Update, opcode=0x2013)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Remote_Used_Features, opcode=0x2016)  # noqa: E501
-
-
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)  # noqa: E501
-
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)  # noqa: E501
-
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, opcode=0x201a)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, opcode=0x201b)  # noqa: E501
 
-bind_layers(HCI_Event_Hdr, HCI_Event_Disconnection_Complete, code=0x5)
-bind_layers(HCI_Event_Hdr, HCI_Event_Encryption_Change, code=0x8)
-bind_layers(HCI_Event_Hdr, HCI_Event_Command_Complete, code=0xe)
-bind_layers(HCI_Event_Hdr, HCI_Event_Command_Status, code=0xf)
+bind_layers(HCI_Event_Hdr, HCI_Event_Connect_Complete, code=0x03)
+bind_layers(HCI_Event_Hdr, HCI_Event_Disconnection_Complete, code=0x05)
+bind_layers(HCI_Event_Hdr, HCI_Event_Remote_Name_Request_Complete, code=0x07)
+bind_layers(HCI_Event_Hdr, HCI_Event_Encryption_Change, code=0x08)
+bind_layers(HCI_Event_Hdr, HCI_Event_Command_Complete, code=0x0e)
+bind_layers(HCI_Event_Hdr, HCI_Event_Command_Status, code=0x0f)
 bind_layers(HCI_Event_Hdr, HCI_Event_Number_Of_Completed_Packets, code=0x13)
 bind_layers(HCI_Event_Hdr, HCI_Event_LE_Meta, code=0x3e)
 
