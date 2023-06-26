@@ -95,6 +95,19 @@ r = m.addfield(None, b"FOO", "c0:01:be:ef:ba:be")
 r
 assert r == b"FOO\xc0\x01\xbe\xef\xba\xbe" 
 
+= LEMACField class
+~ core field
+m = LEMACField("foo", None)
+r = m.i2m(None, None)
+r
+assert r == b"\x00\x00\x00\x00\x00\x00"
+r = m.getfield(None, b"\xbe\xba\xef\xbe\x01\xc0ABCD")
+r
+assert r == (b"ABCD","c0:01:be:ef:ba:be")
+r = m.addfield(None, b"FOO", "be:ba:ef:be:01:c0")
+r
+assert r == b"FOO\xc0\x01\xbe\xef\xba\xbe"
+
 = SourceMACField
 conf.route.add(net="1.2.3.4/32", dev=conf.iface)
 p = Ether() / ARP(pdst="1.2.3.4")
