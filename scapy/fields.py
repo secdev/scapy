@@ -793,6 +793,16 @@ class MACField(Field[Optional[str], bytes]):
         return RandMAC()
 
 
+class LEMACField(MACField):
+    def i2m(self, pkt, x):
+        # type: (Optional[Packet], Optional[str]) -> bytes
+        return MACField.i2m(self, pkt, x)[::-1]
+
+    def m2i(self, pkt, x):
+        # type: (Optional[Packet], bytes) -> str
+        return MACField.m2i(self, pkt, x[::-1])
+
+
 class IPField(Field[Union[str, Net], bytes]):
     def __init__(self, name, default):
         # type: (str, Optional[str]) -> None

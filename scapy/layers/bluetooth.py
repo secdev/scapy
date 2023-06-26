@@ -23,7 +23,6 @@ from scapy.fields import (
     BitField,
     ByteEnumField,
     ByteField,
-    Field,
     FieldLenField,
     FieldListField,
     FlagsField,
@@ -44,46 +43,13 @@ from scapy.fields import (
     XLELongField,
     XStrLenField,
     XLEShortField,
+    LEMACField,
 )
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
 from scapy.data import MTU
 from scapy.consts import WINDOWS
 from scapy.error import warning
-from scapy.utils import mac2str, str2mac
-from scapy.volatile import RandMAC
-
-
-##########
-# Fields #
-##########
-
-
-class LEMACField(Field):
-    def __init__(self, name, default):
-        Field.__init__(self, name, default, "6s")
-
-    def i2m(self, pkt, x):
-        if x is None:
-            return b"\0\0\0\0\0\0"
-        return mac2str(x)[::-1]
-
-    def m2i(self, pkt, x):
-        return str2mac(x[::-1])
-
-    def any2i(self, pkt, x):
-        if isinstance(x, (bytes, str)) and len(x) == 6:
-            x = self.m2i(pkt, x)
-        return x
-
-    def i2repr(self, pkt, x):
-        x = self.i2h(pkt, x)
-        if self in conf.resolve:
-            x = conf.manufdb._resolve_MAC(x)
-        return x
-
-    def randval(self):
-        return RandMAC()
 
 
 ##########
