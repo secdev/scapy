@@ -297,7 +297,7 @@ assert p.previous_msg == b'\x10\x03'
 + pcap based tests
 
 = read diag_ack pcap file
-pkt = rdpcap("test/pcaps/doip_ack.pcap").res[0]
+pkt = rdpcap(scapy_path("test/pcaps/doip_ack.pcap")).res[0]
 
 assert len(pkt) == 70
 
@@ -313,7 +313,7 @@ assert pkt.previous_msg == b'\x22\xFD\x31'
 
 = read main pcap file
 
-pkts = rdpcap("test/pcaps/doip.pcap.gz")
+pkts = rdpcap(scapy_path("test/pcaps/doip.pcap.gz"))
 ips = [p for p in pkts if p.proto == 6]
 
 assert len(ips) > 1

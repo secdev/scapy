@@ -10,6 +10,7 @@
 
 import struct
 
+from scapy.config import conf
 from scapy.utils import EDecimal
 from scapy.packet import Packet
 from scapy.sessions import DefaultSession
@@ -201,7 +202,13 @@ class ISOTPMessageBuilder(object):
         # type: (...) -> ISOTP
         bucket = t[2]
         data = bucket.ready or b""
-        p = basecls(data)
+        try:
+            p = basecls(data)
+        except Exception:
+            if conf.debug_dissector:
+                from scapy.sendrecv import debug
+                debug.crashed_on = (basecls, data)
+            raise
         if hasattr(p, "rx_id"):
             p.rx_id = t[0]
         if hasattr(p, "rx_ext_address"):

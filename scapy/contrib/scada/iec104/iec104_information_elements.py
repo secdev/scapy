@@ -29,9 +29,16 @@
 from scapy.contrib.scada.iec104.iec104_fields import \
     IEC60870_5_4_NormalizedFixPoint, IEC104SignedSevenBitValue, \
     LESignedShortField, LEIEEEFloatField
-from scapy.fields import BitEnumField, ByteEnumField, ByteField, \
-    ThreeBytesField, \
-    BitField, LEShortField, LESignedIntField
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    LEShortField,
+    LESignedIntField,
+    MayEnd,
+    ThreeBytesField,
+)
 
 
 def _generate_attributes_and_dicts(cls):
@@ -613,7 +620,7 @@ class IEC104_IE_CP56TIME2A(IEC104_IE_CommonQualityFlags):
         BitField('reserved_2', 0, 2),
         BitField('hours', 0, 5),
         BitEnumField('weekday', 0, 3, WEEK_DAY_FLAGS),
-        BitField('day_of_month', 0, 5),
+        MayEnd(BitField('day_of_month', 0, 5)),
         BitField('reserved_3', 0, 4),
         BitField('month', 0, 4),
         BitField('reserved_4', 0, 1),
@@ -630,7 +637,7 @@ class IEC104_IE_CP56TIME2A_START_TIME(IEC104_IE_CP56TIME2A):
     informantion_element_fields = [
         LEShortField('start_sec_milli', 0),
         BitEnumField('start_iv', 0, 1, IEC104_IE_CommonQualityFlags.IV_FLAGS),
-        BitEnumField('start_gen', 0, 1, IEC104_IE_CP56TIME2A.GEN_FLAGS),
+        MayEnd(BitEnumField('start_gen', 0, 1, IEC104_IE_CP56TIME2A.GEN_FLAGS)),
         # only valid in monitor direction ToDo: special treatment needed?
         BitField('start_minutes', 0, 6),
         BitEnumField('start_su', 0, 1, IEC104_IE_CP56TIME2A.SU_FLAGS),
@@ -655,7 +662,7 @@ class IEC104_IE_CP56TIME2A_STOP_TIME(IEC104_IE_CP56TIME2A):
     informantion_element_fields = [
         LEShortField('stop_sec_milli', 0),
         BitEnumField('stop_iv', 0, 1, IEC104_IE_CommonQualityFlags.IV_FLAGS),
-        BitEnumField('stop_gen', 0, 1, IEC104_IE_CP56TIME2A.GEN_FLAGS),
+        MayEnd(BitEnumField('stop_gen', 0, 1, IEC104_IE_CP56TIME2A.GEN_FLAGS)),
         # only valid in monitor direction ToDo: special treatment needed?
         BitField('stop_minutes', 0, 6),
         BitEnumField('stop_su', 0, 1, IEC104_IE_CP56TIME2A.SU_FLAGS),

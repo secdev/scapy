@@ -421,6 +421,9 @@ pkt = IP(len=28, ihl=5) / UDP()
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x7cce and bpkt.payload.chksum == 0x0172
 
+* Invalid territory
+conf.debug_dissector = False
+
 pkt = IP() / UDP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x7cc4 and bpkt.payload.chksum == 0xbb17
@@ -444,6 +447,8 @@ assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
 pkt = IP(len=42, ihl=6, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
+
+conf.debug_dissector = True
 
 = IP with forced-length 0
 p = IP()/TCP()
@@ -495,7 +500,9 @@ value == 26908070
 test.i2repr("", value) == '7:28:28.70'
 
 = IPv4 - UDP null checksum
+conf.debug_dissector = False
 IP(raw(IP()/UDP()/Raw(b"\xff\xff\x01\x6a")))[UDP].chksum == 0xFFFF
+conf.debug_dissector = True
 
 = IPv4 - (IP|UDP|TCP|ICMP)Error
 query = IP(dst="192.168.0.1", src="192.168.0.254", ttl=1)/UDP()/DNS()

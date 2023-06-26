@@ -34,11 +34,32 @@ from scapy.data import (
     MTU,
 )
 from scapy.error import log_runtime, warning
-from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    DestIP6Field, FieldLenField, FlagsField, IntField, IP6Field, \
-    LongField, MACField, PacketLenField, PacketListField, ShortEnumField, \
-    ShortField, SourceIP6Field, StrField, StrFixedLenField, StrLenField, \
-    X3BytesField, XBitField, XIntField, XShortField
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    DestIP6Field,
+    FieldLenField,
+    FlagsField,
+    IntField,
+    IP6Field,
+    LongField,
+    MACField,
+    MayEnd,
+    PacketLenField,
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    SourceIP6Field,
+    StrField,
+    StrFixedLenField,
+    StrLenField,
+    X3BytesField,
+    XBitField,
+    XIntField,
+    XShortField,
+)
 from scapy.layers.inet import IP, IPTools, TCP, TCPerror, TracerouteResult, \
     UDP, UDPerror
 from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
@@ -1767,44 +1788,22 @@ class ICMPv6NDOptPrefixInfo(_ICMPv6NDGuessPayload, Packet):
 
 
 class TruncPktLenField(PacketLenField):
-    __slots__ = ["cur_shift"]
-
-    def __init__(self, name, default, cls, cur_shift, length_from=None, shift=0):  # noqa: E501
-        PacketLenField.__init__(self, name, default, cls, length_from=length_from)  # noqa: E501
-        self.cur_shift = cur_shift
-
-    def getfield(self, pkt, s):
-        tmp_len = self.length_from(pkt)
-        i = self.m2i(pkt, s[:tmp_len])
-        return s[tmp_len:], i
-
-    def m2i(self, pkt, m):
-        s = None
-        try:  # It can happen we have sth shorter than 40 bytes
-            s = self.cls(m)
-        except Exception:
-            return conf.raw_layer(m)
-        return s
-
     def i2m(self, pkt, x):
-        s = raw(x)
+        s = bytes(x)
         tmp_len = len(s)
-        r = (tmp_len + self.cur_shift) % 8
-        tmp_len = tmp_len - r
-        return s[:tmp_len]
+        return s[:tmp_len - (tmp_len % 8)]
 
     def i2len(self, pkt, i):
         return len(self.i2m(pkt, i))
 
 
-# Faire un post_build pour le recalcul de la taille (en multiple de 8 octets)
 class ICMPv6NDOptRedirectedHdr(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Redirected Header"
     fields_desc = [ByteField("type", 4),
                    FieldLenField("len", None, length_of="pkt", fmt="B",
-                                 adjust=lambda pkt, x:(x + 8) // 8),
-                   StrFixedLenField("res", b"\x00" * 6, 6),
-                   TruncPktLenField("pkt", b"", IPv6, 8,
+                                 adjust=lambda pkt, x: (x + 8) // 8),
+                   MayEnd(StrFixedLenField("res", b"\x00" * 6, 6)),
+                   TruncPktLenField("pkt", b"", IPv6,
                                     length_from=lambda pkt: 8 * pkt.len - 8)]
 
 # See which value should be used for default MTU instead of 1280

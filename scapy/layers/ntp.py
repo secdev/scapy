@@ -13,12 +13,32 @@ import time
 import datetime
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import BitField, BitEnumField, ByteField, ByteEnumField, \
-    XByteField, SignedByteField, FlagsField, ShortField, LEShortField, \
-    IntField, LEIntField, FixedPointField, IPField, StrField, \
-    StrFixedLenField, StrFixedLenEnumField, XStrFixedLenField, PacketField, \
-    PacketLenField, PacketListField, FieldListField, ConditionalField, \
-    PadField
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    FieldListField,
+    FixedPointField,
+    FlagsField,
+    IPField,
+    IntField,
+    LEIntField,
+    LEShortField,
+    MayEnd,
+    PacketField,
+    PacketLenField,
+    PacketListField,
+    PadField,
+    ShortField,
+    SignedByteField,
+    StrField,
+    StrFixedLenEnumField,
+    StrFixedLenField,
+    XByteField,
+    XStrFixedLenField,
+)
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
 from scapy.utils import lhex
@@ -741,6 +761,8 @@ class NTPControlDataPacketLenField(PacketLenField):
 
     def m2i(self, pkt, m):
         ret = None
+        if not m:
+            return ret
 
         # op_code == CTL_OP_READSTAT
         if pkt.op_code == 1:
@@ -808,8 +830,8 @@ class NTPControl(NTP):
         ShortField("association_id", 0),
         ShortField("offset", 0),
         ShortField("count", None),
-        NTPControlDataPacketLenField(
-            "data", "", Packet, length_from=lambda p: p.count),
+        MayEnd(NTPControlDataPacketLenField(
+               "data", "", Packet, length_from=lambda p: p.count)),
         PacketField("authenticator", "", NTPAuthenticator),
     ]
 
@@ -1156,7 +1178,8 @@ class NTPInfoMemStats(Packet):
             "hashcount",
             [0.0 for i in range(0, _NTP_HASH_SIZE)],
             ByteField("", 0),
-            count_from=lambda p: _NTP_HASH_SIZE
+            count_from=lambda p: _NTP_HASH_SIZE,
+            max_count=_NTP_HASH_SIZE
         )
     ]
 

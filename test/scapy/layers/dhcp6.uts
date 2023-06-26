@@ -298,7 +298,7 @@ raw(DHCP6OptOptReq(reqopts=[])) == b'\x00\x06\x00\x00'
 
 = DHCP6OptOptReq - Basic dissection
 a=DHCP6OptOptReq(b'\x00\x06\x00\x00')
-a.optcode == 6 and a.optlen == 0 and a.reqopts == [23,24]
+a.optcode == 6 and a.optlen == 0 and a.reqopts == []
 
 = DHCP6OptOptReq - Dissection with specific value
 a=DHCP6OptOptReq(b'\x00\x06\x00\x08\x00\x01\x00\x02\x00\x03\x00\x04')
@@ -1022,7 +1022,7 @@ raw(DHCP6OptRelayAgentERO(reqopts=[])) == b'\x00+\x00\x00'
 
 = DHCP6OptRelayAgentERO - Basic dissection
 a=DHCP6OptRelayAgentERO(b'\x00+\x00\x00')
-a.optcode == 43 and a.optlen == 0 and a.reqopts == [23,24]
+a.optcode == 43 and a.optlen == 0 and a.reqopts == []
 
 = DHCP6OptRelayAgentERO - Dissection with specific value
 a=DHCP6OptRelayAgentERO(b'\x00+\x00\x08\x00\x01\x00\x02\x00\x03\x00\x04')
@@ -1451,7 +1451,7 @@ raw(DHCP6OptRelayMsg(optcode=37)) == b'\x00%\x00\x04\x00\x00\x00\x00'
 
 = DHCP6OptRelayMsg - Basic Dissection
 a = DHCP6OptRelayMsg(b'\x00\r\x00\x00')
-a.optcode == 13 and a.optlen == 0 and isinstance(a.message, DHCP6)
+a.optcode == 13 and a.optlen == 0 and a.message is None
 
 = DHCP6OptRelayMsg - Embedded DHCP6 packet Instantiation
 raw(DHCP6OptRelayMsg(message=DHCP6_Solicit())) == b'\x00\t\x00\x04\x01\x00\x00\x00'

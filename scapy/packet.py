@@ -30,6 +30,7 @@ from scapy.fields import (
     Field,
     FlagsField,
     FlagValue,
+    MayEnd,
     MultiEnumField,
     MultipleTypeField,
     PacketListField,
@@ -1005,8 +1006,6 @@ class Packet(
         _raw = s
         self.raw_packet_cache_fields = {}
         for f in self.fields_desc:
-            if not s:
-                break
             s, fval = f.getfield(self, s)
             # Skip unused ConditionalField
             if isinstance(f, ConditionalField) and fval is None:
@@ -1017,6 +1016,11 @@ class Packet(
                 self.raw_packet_cache_fields[f.name] = \
                     self._raw_packet_cache_field_value(f, fval, copy=True)
             self.fields[f.name] = fval
+            # Nothing left to dissect
+            if not s and (isinstance(f, MayEnd) or
+                          (fval is not None and isinstance(f, ConditionalField) and
+                           isinstance(f.fld, MayEnd))):
+                break
         self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
         return s

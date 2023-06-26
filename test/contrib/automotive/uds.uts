@@ -26,7 +26,7 @@ dsc.hashret() == dscpr.hashret()
 = Check if negative response answers
 
 dsc = UDS(b'\x10')
-neg = UDS(b'\x7f\x10')
+neg = UDS(b'\x7f\x10\x00')
 assert neg.answers(dsc)
 
 = CHECK hashret NEG
@@ -35,7 +35,7 @@ dsc.hashret() == neg.hashret()
 = Check if negative response answers not
 
 dsc = UDS(b'\x10')
-neg = UDS(b'\x7f\x11')
+neg = UDS(b'\x7f\x11\x00')
 assert not neg.answers(dsc)
 
 = Check if positive response answers not
