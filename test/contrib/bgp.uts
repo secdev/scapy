@@ -315,7 +315,7 @@ raw(BGPAuthenticationInformation()) == b'\x00'
 
 = BGPAuthenticationInformation - Basic dissection
 c = BGPAuthenticationInformation(b'\x00')
-c.authentication_code == 0 and c.authentication_data == None
+c.authentication_code == 0 and not c.authentication_data
 
 
 ################################# BGPOptParam #################################

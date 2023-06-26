@@ -11,8 +11,13 @@ scapy.contrib.altbeacon - AltBeacon Bluetooth LE proximity beacons.
 The AltBeacon specification can be found at: https://github.com/AltBeacon/spec
 """
 
-from scapy.fields import ByteField, ShortField, SignedByteField, \
-    StrFixedLenField
+from scapy.fields import (
+    ByteField,
+    MayEnd,
+    ShortField,
+    SignedByteField,
+    StrFixedLenField,
+)
 from scapy.layers.bluetooth import EIR_Hdr, EIR_Manufacturer_Specific_Data, \
     UUIDField, LowEnergyBeaconHelper
 from scapy.packet import Packet
@@ -54,7 +59,7 @@ class AltBeacon(Packet, LowEnergyBeaconHelper):
         ShortField("id2", None),
         ShortField("id3", None),
 
-        SignedByteField("tx_power", None),
+        MayEnd(SignedByteField("tx_power", None)),
         ByteField("mfg_reserved", None),
     ]
 

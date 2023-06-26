@@ -105,7 +105,7 @@ assert isinstance(p.payload, ModbusPDU0BGetCommEventCounterError)
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x02\xff\x0c')
 assert isinstance(p.payload, ModbusPDU0CGetCommEventLogRequest)
 = MBAP Guess Payload ModbusPDU0CGetCommEventLogResponse
-p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff\x0c')
+p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff\x0c\x00\x00\x00\x00\x00\x00\x00')
 assert isinstance(p.payload, ModbusPDU0CGetCommEventLogResponse)
 = MBAP Guess Payload ModbusPDU0CGetCommEventLogError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x8c\x01')

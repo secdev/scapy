@@ -11,11 +11,12 @@
 import mock
 @mock.patch("scapy.ansmachine.sniff")
 def test_am(cls_name, packet_query, check_reply, mock_sniff, **kargs):
+    packet_query = packet_query.__class__(bytes(packet_query))
     def sniff(*args,**kargs):
         kargs["prn"](packet_query)
     mock_sniff.side_effect = sniff
     am = cls_name(**kargs)
-    am.send_reply = check_reply
+    am.send_reply = lambda x: check_reply(x.__class__(bytes(x)))
     am()
 
 
@@ -32,10 +33,10 @@ test_am(BOOTP_am,
 = DHCP_am
 def check_DHCP_am_reply(packet):
     assert DHCP in packet and len(packet[DHCP].options)
-    assert ("domain", "localnet") in packet[DHCP].options
+    assert ("domain", b"localnet") in packet[DHCP].options
 
 test_am(DHCP_am,
-        Ether()/IP()/UDP()/BOOTP(op=1)/DHCP(),
+        Ether()/IP()/UDP()/BOOTP(op=1)/DHCP(options=[('message-type', 'request')]),
         check_DHCP_am_reply)
 
 
@@ -64,7 +65,8 @@ test_am(ICMPEcho_am,
 = DNS_am
 def check_DNS_am_reply(packet):
     assert DNS in packet and packet[DNS].ancount == 1
-    assert packet[DNS].an.rdata == "192.168.1.1"
+    assert packet[DNS].an[0].rdata == "192.168.1.1"
+    assert packet[DNS].qd[0].qname == b"www.secdev.org."
 
 test_am(DNS_am,
         IP()/UDP()/DNS(qd=DNSQR(qname="www.secdev.org")),
@@ -138,7 +140,7 @@ test_WiFi_am(Dot11(FCfield="to-DS")/IP()/TCP()/"Scapy",
 = NBNS_am
 def check_NBNS_am_reply(name):
     def check(packet):
-        assert NBNSQueryResponse in packet and packet[NBNSQueryResponse].RR_NAME == bytes_encode(name)
+        assert NBNSQueryResponse in packet and packet[NBNSQueryResponse].RR_NAME.strip() == bytes_encode(name)
     return check
 
 for server_name in (None, "", b"test", "test"):

@@ -19,10 +19,9 @@ from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.compat import orb
 from scapy.layers.inet import UDP
 from scapy.layers.dns import (
-    DNSQRField,
-    DNSRRField,
-    DNSRRCountField,
+    DNSCompressedPacket,
     DNS_am,
+    DNS,
 )
 
 
@@ -30,24 +29,22 @@ _LLMNR_IPv6_mcast_Addr = "FF02:0:0:0:0:0:1:3"
 _LLMNR_IPv4_mcast_addr = "224.0.0.252"
 
 
-class LLMNRQuery(Packet):
+class LLMNRQuery(DNSCompressedPacket):
     name = "Link Local Multicast Node Resolution - Query"
-    fields_desc = [ShortField("id", 0),
-                   BitField("qr", 0, 1),
-                   BitEnumField("opcode", 0, 4, {0: "QUERY"}),
-                   BitField("c", 0, 1),
-                   BitField("tc", 0, 2),
-                   BitField("z", 0, 4),
-                   BitEnumField("rcode", 0, 4, {0: "ok"}),
-                   DNSRRCountField("qdcount", None, "qd"),
-                   DNSRRCountField("ancount", None, "an"),
-                   DNSRRCountField("nscount", None, "ns"),
-                   DNSRRCountField("arcount", None, "ar"),
-                   DNSQRField("qd", "qdcount", None),
-                   DNSRRField("an", "ancount", None),
-                   DNSRRField("ns", "nscount", None),
-                   DNSRRField("ar", "arcount", None, 0)]
+    qd = []
+    fields_desc = [
+        ShortField("id", 0),
+        BitField("qr", 0, 1),
+        BitEnumField("opcode", 0, 4, {0: "QUERY"}),
+        BitField("c", 0, 1),
+        BitField("tc", 0, 2),
+        BitField("z", 0, 4)
+    ] + DNS.fields_desc[-9:]
     overload_fields = {UDP: {"sport": 5355, "dport": 5355}}
+
+    def get_full(self):
+        # Required for DNSCompressedPacket
+        return self.original
 
     def hashret(self):
         return struct.pack("!H", self.id)
@@ -55,12 +52,12 @@ class LLMNRQuery(Packet):
     def mysummary(self):
         if self.an:
             return "LLMNRResponse '%s' is at '%s'" % (
-                self.an.rrname.decode(errors="backslashreplace"),
-                self.an.rdata,
+                self.an[0].rrname.decode(errors="backslashreplace"),
+                self.an[0].rdata,
             ), [UDP]
         if self.qd:
             return "LLMNRQuery who has '%s'" % (
-                self.qd.qname.decode(errors="backslashreplace"),
+                self.qd[0].qname.decode(errors="backslashreplace"),
             ), [UDP]
 
 

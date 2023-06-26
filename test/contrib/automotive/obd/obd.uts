@@ -445,7 +445,7 @@ assert p.data_records[0].turbocharger_a_turbine_inlet_temperature == \
        round((0x2233 * 0.1) - 40, 3)
 assert p.data_records[0].turbocharger_a_turbine_outlet_temperature == \
        round((0x4455 * 0.1) - 40, 3)
-r = OBD(b'\x02\x75')
+r = OBD(b'\x02\x75\x00')
 assert p.answers(r)
 
 
@@ -465,7 +465,7 @@ assert p.data_records[0].sensor2 == 1707.7
 assert p.data_records[0].sensor3 == 1759.1
 assert p.data_records[0].sensor4 == 1810.5
 
-r = OBD(b'\x02\x78')
+r = OBD(b'\x02\x78\x00')
 assert p.answers(r)
 
 = Check dissecting a response for Service 02 PID 7F
@@ -485,7 +485,7 @@ assert p.data_records[0].total == 0xFFFFFFFFFFFFFFFF
 assert p.data_records[0].total_idle == 0x0102030405060708
 assert p.data_records[0].total_with_pto_active == 0x0011223344556677
 
-r = OBD(b'\x02\x7F')
+r = OBD(b'\x02\x7F\x00')
 assert p.answers(r)
 
 
@@ -497,7 +497,7 @@ assert p.data_records[0].pid == 0x89
 assert p.data_records[0].frame_no == 0x01
 assert p.data_records[0].data == b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP'
 
-r = OBD(b'\x02\x89')
+r = OBD(b'\x02\x89\x00')
 assert p.answers(r)
 
 = Check dissecting a response for Service 02 PID 0C, 05, 04

@@ -911,6 +911,9 @@ class Conf(ConfClass):
     loopback_name = "lo" if LINUX else "lo0"
     nmap_base = ""  # type: str
     nmap_kdb = None  # type: Optional[NmapKnowledgeBase]
+    #: a safety mechanism: the maximum amount of items included in a PacketListField
+    #: or a FieldListField
+    max_list_count = 100
 
     def __getattribute__(self, attr):
         # type: (str) -> Any

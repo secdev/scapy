@@ -2248,7 +2248,7 @@ class OFPFlowStats(_ofp_header_item):
                    LongField("byte_count", 0),
                    MatchField("match"),
                    PacketListField("instructions", [], OFPIT,
-                                   length_from=lambda pkt:pkt.len - 56 - pkt.match.len)]  # noqa: E501
+                                   length_from=lambda pkt:pkt.len - 52 - pkt.match.len)]  # noqa: E501
 
     def extract_padding(self, s):
         return b"", s

@@ -17,8 +17,15 @@ import struct
 
 from scapy.compat import orb
 from scapy.packet import Packet, bind_layers, bind_bottom_up
-from scapy.fields import BitField, IPField, IntField, ShortField, StrField, \
-    XBitField
+from scapy.fields import (
+    BitField,
+    MayEnd,
+    IPField,
+    IntField,
+    ShortField,
+    StrField,
+    XBitField,
+)
 from scapy.layers.inet import UDP
 from scapy.layers.inet import TCP
 from scapy.config import conf
@@ -168,6 +175,8 @@ class AddressTLVField(StrField):
         return tmp_len
 
     def getfield(self, pkt, s):
+        if not s:
+            return s, []
         tmp_len = self.size(s)
         return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
@@ -358,7 +367,7 @@ class LDPLabelMM(_LDP_Packet):
                    XBitField("type", 0x0400, 15),
                    ShortField("len", None),
                    IntField("id", 0),
-                   FecTLVField("fec", None),
+                   MayEnd(FecTLVField("fec", None)),
                    LabelTLVField("label", 0)]
 
 # 3.5.8. Label Request Message
@@ -393,7 +402,7 @@ class LDPLabelWM(_LDP_Packet):
                    XBitField("type", 0x0402, 15),
                    ShortField("len", None),
                    IntField("id", 0),
-                   FecTLVField("fec", None),
+                   MayEnd(FecTLVField("fec", None)),
                    LabelTLVField("label", 0)]
 
 # 3.5.11. Label Release Message

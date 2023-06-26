@@ -38,6 +38,7 @@ from scapy.fields import (
     LEShortEnumField,
     LEShortField,
     LESignedIntField,
+    MayEnd,
     MultipleTypeField,
     OUIField,
     PacketField,
@@ -1270,14 +1271,15 @@ class Dot11EltCountry(Dot11Elt):
         ByteEnumField("ID", 7, _dot11_id_enum),
         ByteField("len", None),
         StrFixedLenField("country_string", b"\0\0\0", length=3),
-        PacketListField(
+        MayEnd(PacketListField(
             "descriptors",
             [],
             Dot11EltCountryConstraintTriplet,
             length_from=lambda pkt: (
                 pkt.len - 3 - (pkt.len % 3)
             )
-        ),
+        )),
+        # When this extension is last, padding appears to be omitted
         ConditionalField(
             ByteField("pad", 0),
             lambda pkt: (len(pkt.descriptors) + 1) % 2
