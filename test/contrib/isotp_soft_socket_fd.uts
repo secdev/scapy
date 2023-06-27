@@ -7,7 +7,6 @@
 = Imports
 import time
 from io import BytesIO
-import scapy.libs.six as six
 from scapy.layers.can import *
 from scapy.contrib.isotp import *
 from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
@@ -52,10 +51,7 @@ log_isotp.addHandler(handler)
 = Definition of utility functions
 
 # hexadecimal to bytes convenience function
-if six.PY2:
-    dhex = lambda s: "".join(s.split()).decode('hex')
-else:
-    dhex = bytes.fromhex
+dhex = bytes.fromhex
 
 
 + Test sniffer
