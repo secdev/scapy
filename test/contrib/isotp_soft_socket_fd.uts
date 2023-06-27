@@ -173,7 +173,7 @@ test()
 def test():
     with TestSocket(CANFD) as cans, TestSocket(CANFD) as stim, ISOTPSoftSocket(cans, tx_id=0x641, rx_id=0x241) as s:
         cans.pair(stim)
-        data = dhex("01 02 03 04 05")*4000
+        data = dhex("01 02 03 04 05")*4001
         msg = ISOTP(data, rx_id=0x641)
         fragments = msg.fragment(fd=True)
         ack = CANFD(identifier=0x241, data=dhex("30 00 00"))
