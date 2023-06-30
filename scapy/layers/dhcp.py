@@ -320,7 +320,7 @@ DHCPOptions = {
     101: StrField("tcode", ""),
     112: IPField("netinfo-server-address", "0.0.0.0"),
     113: StrField("netinfo-server-tag", ""),
-    114: StrField("default-url", ""),
+    114: StrField("captive-portal", ""),
     116: ByteField("auto-config", 0),
     117: ShortField("name-service-search", 0,),
     118: IPField("subnet-selection", "0.0.0.0"),
