@@ -287,11 +287,32 @@ class DoIPSocket(StreamSocket):
         self.ip = ip
         self.port = port
         self.source_address = source_address
+        self.buffer = b""
         self._init_socket()
 
         if activate_routing:
             self._activate_routing(
                 source_address, target_address, activation_type, reserved_oem)
+
+    def recv(self, x=MTU):
+        # type: (int) -> Optional[Packet]
+        if self.buffer:
+            len_data = self.buffer[:8]
+        else:
+            len_data = self.ins.recv(8, socket.MSG_PEEK)
+            if len(len_data) != 8:
+                return None
+
+        len_int = struct.unpack(">I", len_data[4:8])[0]
+        len_int += 8
+        self.buffer += self.ins.recv(len_int - len(self.buffer))
+
+        if len(self.buffer) != len_int:
+            return None
+
+        pkt = self.basecls(self.buffer)  # type: Packet
+        self.buffer = b""
+        return pkt
 
     def _init_socket(self, sock_family=socket.AF_INET):
         # type: (int) -> None
