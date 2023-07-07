@@ -164,7 +164,7 @@ class TestThreeBytesField(Packet):
     fields_desc = [ 
         X3BytesField('test1', None),
         ThreeBytesField('test2', None),
-        LEX3BytesField('test3', None),
+        XLE3BytesField('test3', None),
         LEThreeBytesField('test4', None),
     ]
 
@@ -1199,22 +1199,7 @@ class Breakfast(Packet):
 
 assert raw(Breakfast(juice="ORANGE")) == b"\x00\x01"
 
-############
-############
-+ LE3BytesEnumField tests
-
-= Building expect_exception handler
-~ field le3bytesenumfield
-
-def expect_exception(e, c):
-    try:
-        eval(c)
-        assert False
-    except e:
-        assert True
-
-
-= LE3BytesEnumField tests initialization
+= LE3BytesEnumField
 ~ field le3bytesenumfield
 
 f = LE3BytesEnumField('test', 0, {0: 'Foo', 1: 'Bar'})
@@ -1226,24 +1211,10 @@ assert f.i2repr_one(None, 0) == 'Foo'
 assert f.i2repr_one(None, 1) == 'Bar'
 assert f.i2repr_one(None, 2) == '2'
 
-True
+= XLE3BytesEnumField
 
-= LE3BytesEnumField with Enum
-from enum import Enum
-
-class JUICE(Enum):
-    APPLE = 0
-    ORANGE = 1
-    PINEAPPLE = 2
-
-
-class Breakfast(Packet):
-    fields_desc = [LE3BytesEnumField("juice", 1, JUICE)]
-
-
-assert raw(Breakfast(juice="ORANGE")) == b"\x01\x00\x00"
-
-True
+assert XLE3BytesEnumField("a", 0, {0: "test"}).i2repr_one(None, 0) == "test"
+assert XLE3BytesEnumField("a", 0, {0: "test"}).i2repr_one(None, 1) == "0x1"
 
 ############
 ############
