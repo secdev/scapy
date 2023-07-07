@@ -196,6 +196,7 @@ scanner = executeScannerInVirtualEnvironment(
                                   "request_length": 1})
 
 scanner.show_testcases()
+scanner.show_testcases_status()
 assert len(scanner.state_paths) == 5
 assert scanner.scan_completed
 assert scanner.progress() > 0.95

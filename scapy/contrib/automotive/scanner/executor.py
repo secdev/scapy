@@ -413,7 +413,7 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         for t in self.configuration.test_cases:
             for s in self.state_graph.nodes:
                 data += [(repr(s), t.__class__.__name__, t.has_completed(s))]
-        make_lined_table(data, lambda tup: (tup[0], tup[1], tup[2]))
+        make_lined_table(data, lambda *tup: (tup[0], tup[1], tup[2]))
 
     @property
     def supported_responses(self):
