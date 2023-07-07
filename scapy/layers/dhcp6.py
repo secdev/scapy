@@ -124,6 +124,7 @@ dhcp6opts = {1: "CLIENTID",
              66: "OPTION_RELAY_SUPPLIED_OPTIONS",  # RFC6422
              68: "OPTION_VSS",  # RFC6607
              79: "OPTION_CLIENT_LINKLAYER_ADDR",  # RFC6939
+             103: "OPTION_CAPTIVE_PORTAL",  # RFC8910
              112: "OPTION_MUD_URL",  # RFC8520
              }
 
@@ -181,6 +182,7 @@ dhcp6opts_by_code = {1: "DHCP6OptClientId",
                      66: "DHCP6OptRelaySuppliedOpt",  # RFC6422
                      68: "DHCP6OptVSS",  # RFC6607
                      79: "DHCP6OptClientLinkLayerAddr",  # RFC6939
+                     103: "DHCP6OptCaptivePortal",  # RFC8910
                      112: "DHCP6OptMudUrl",  # RFC8520
                      }
 
@@ -1024,6 +1026,14 @@ class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
                                  adjust=lambda pkt, x: x + 2),
                    ShortField("lltype", 1),  # ethernet
                    _LLAddrField("clladdr", ETHER_ANY)]
+
+
+class DHCP6OptCaptivePortal(_DHCP6OptGuessPayload):  # RFC8910
+    name = "DHCP6 Option - Captive-Portal"
+    fields_desc = [ShortEnumField("optcode", 103, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="URI"),
+                   StrLenField("URI", "",
+                               length_from=lambda pkt: pkt.optlen)]
 
 
 class DHCP6OptMudUrl(_DHCP6OptGuessPayload):  # RFC8520

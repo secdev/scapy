@@ -1188,6 +1188,23 @@ r = b"\x00O\x00\x08\x00\x01\x00\x01\x02\x03\x04\x05"
 p = DHCP6OptClientLinkLayerAddr(r)
 assert p.clladdr == "00:01:02:03:04:05"
 
+############
+############
++ Test DHCP6 Option Captive-Portal
+
+= Basic build & dissect
+s = raw(DHCP6OptCaptivePortal())
+assert s == b"\x00\x67\x00\x00"
+
+p = DHCP6OptCaptivePortal(s)
+assert p.optcode == 103
+assert p.optlen == 0
+assert p.URI == b""
+
+p = DHCP6OptCaptivePortal(b"\x00\x67\x00\x13https://example.org")
+assert p.optcode == 103
+assert p.optlen == 19
+assert p.URI == b"https://example.org"
 
 ############
 ############
