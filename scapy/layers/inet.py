@@ -1089,6 +1089,7 @@ bind_layers(IP, ICMP, frag=0, proto=1)
 bind_layers(IP, TCP, frag=0, proto=6)
 bind_layers(IP, UDP, frag=0, proto=17)
 bind_layers(IP, GRE, frag=0, proto=47)
+bind_layers(UDP, GRE, dport=4754)
 
 conf.l2types.register(DLT_RAW, IP)
 conf.l2types.register_num2layer(DLT_RAW_ALT, IP)
