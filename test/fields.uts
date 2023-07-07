@@ -164,7 +164,7 @@ class TestThreeBytesField(Packet):
     fields_desc = [ 
         X3BytesField('test1', None),
         ThreeBytesField('test2', None),
-        LEX3BytesField('test3', None),
+        XLE3BytesField('test3', None),
         LEThreeBytesField('test4', None),
     ]
 
@@ -1199,6 +1199,22 @@ class Breakfast(Packet):
 
 assert raw(Breakfast(juice="ORANGE")) == b"\x00\x01"
 
+= LE3BytesEnumField
+~ field le3bytesenumfield
+
+f = LE3BytesEnumField('test', 0, {0: 'Foo', 1: 'Bar'})
+
+= LE3BytesEnumField.i2repr_one
+~ field le3bytesenumfield
+
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == 'Bar'
+assert f.i2repr_one(None, 2) == '2'
+
+= XLE3BytesEnumField
+
+assert XLE3BytesEnumField("a", 0, {0: "test"}).i2repr_one(None, 0) == "test"
+assert XLE3BytesEnumField("a", 0, {0: "test"}).i2repr_one(None, 1) == "0x1"
 
 ############
 ############

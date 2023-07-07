@@ -1085,10 +1085,19 @@ class LEThreeBytesField(ByteField):
         return s[3:], self.m2i(pkt, struct.unpack(self.fmt, s[:3] + b"\x00")[0])  # noqa: E501
 
 
-class LEX3BytesField(LEThreeBytesField, XByteField):
+class XLE3BytesField(LEThreeBytesField, XByteField):
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], int) -> str
         return XByteField.i2repr(self, pkt, x)
+
+
+def LEX3BytesField(*args, **kwargs):
+    # type: (*Any, **Any) -> Any
+    warnings.warn(
+        "LEX3BytesField is deprecated. Use XLE3BytesField",
+        DeprecationWarning
+    )
+    return XLE3BytesField(*args, **kwargs)
 
 
 class NBytesField(Field[int, List[int]]):
@@ -2552,6 +2561,10 @@ class _EnumField(Field[Union[List[I], I], I]):
                 x = self.s2i_cb(x)
         return cast(I, x)
 
+    def _i2repr(self, pkt, x):
+        # type: (Optional[Packet], I) -> str
+        return repr(x)
+
     def i2repr_one(self, pkt, x):
         # type: (Optional[Packet], I) -> str
         if self not in conf.noenum and not isinstance(x, VolatileValue):
@@ -2564,7 +2577,7 @@ class _EnumField(Field[Union[List[I], I], I]):
                 ret = self.i2s_cb(x)
                 if ret is not None:
                     return ret
-        return repr(x)
+        return self._i2repr(pkt, x)
 
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Any) -> Union[I, List[I]]
@@ -2713,18 +2726,31 @@ class LEIntEnumField(EnumField[int]):
 
 
 class XShortEnumField(ShortEnumField):
-    def i2repr_one(self, pkt, x):
-        # type: (Optional[Packet], int) -> str
-        if self not in conf.noenum and not isinstance(x, VolatileValue):
-            if self.i2s is not None:
-                try:
-                    return self.i2s[x]
-                except KeyError:
-                    pass
-            elif self.i2s_cb:
-                ret = self.i2s_cb(x)
-                if ret is not None:
-                    return ret
+    def _i2repr(self, pkt, x):
+        # type: (Optional[Packet], Any) -> str
+        return lhex(x)
+
+
+class LE3BytesEnumField(LEThreeBytesField, _EnumField[int]):
+    __slots__ = EnumField.__slots__
+
+    def __init__(self, name, default, enum):
+        # type: (str, Optional[int], Dict[int, str]) -> None
+        _EnumField.__init__(self, name, default, enum)
+        LEThreeBytesField.__init__(self, name, default)
+
+    def any2i(self, pkt, x):
+        # type: (Optional[Packet], Any) -> int
+        return _EnumField.any2i(self, pkt, x)  # type: ignore
+
+    def i2repr(self, pkt, x):  # type: ignore
+        # type: (Optional[Packet], Any) -> Union[List[str], str]
+        return _EnumField.i2repr(self, pkt, x)
+
+
+class XLE3BytesEnumField(LE3BytesEnumField):
+    def _i2repr(self, pkt, x):
+        # type: (Optional[Packet], Any) -> str
         return lhex(x)
 
 

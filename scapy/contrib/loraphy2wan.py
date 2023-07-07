@@ -25,7 +25,6 @@ from scapy.fields import (
     ConditionalField,
     IntField,
     LEShortField,
-    LEX3BytesField,
     MayEnd,
     MultipleTypeField,
     PacketField,
@@ -36,6 +35,7 @@ from scapy.fields import (
     XBitField,
     XByteField,
     XIntField,
+    XLE3BytesField,
     XLEIntField,
     XShortField,
 )
@@ -80,7 +80,7 @@ class FCtrl_UpLink(Packet):
 class DevAddrElem(Packet):
     name = "DevAddrElem"
     fields_desc = [XByteField("NwkID", 0x0),
-                   LEX3BytesField("NwkAddr", b"\x00" * 3)]
+                   XLE3BytesField("NwkAddr", b"\x00" * 3)]
 
 
 CIDs_up = {0x01: "ResetInd",
@@ -609,8 +609,8 @@ class Join_Request(Packet):
 class Join_Accept(Packet):
     name = "Join_Accept"
     dcflist = False
-    fields_desc = [LEX3BytesField("JoinAppNonce", 0),
-                   LEX3BytesField("NetID", 0),
+    fields_desc = [XLE3BytesField("JoinAppNonce", 0),
+                   XLE3BytesField("NetID", 0),
                    XLEIntField("DevAddr", 0),
                    DLsettings,
                    XByteField("RxDelay", 0),
