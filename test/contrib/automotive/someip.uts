@@ -208,9 +208,16 @@ assert p.flags == 0x40
 p.set_flag("UNICAST", 0)
 assert p.flags == 0x00
 
+p.set_flag("EXPLICIT_INITIAL_DATA_CONTROL", 1)
+assert p.flags == 0x20
+
+p.set_flag("EXPLICIT_INITIAL_DATA_CONTROL", 0)
+assert p.flags == 0x00
+
 p.set_flag("REBOOT", 1)
 p.set_flag("UNICAST", 1)
-assert p.flags == 0xc0
+p.set_flag("EXPLICIT_INITIAL_DATA_CONTROL", 1)
+assert p.flags == 0xe0
 
 + SD Get SOME/IP Packet
 
