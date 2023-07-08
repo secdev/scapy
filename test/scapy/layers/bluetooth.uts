@@ -527,11 +527,3 @@ assert r == b'\rscapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 p = SM_Hdr(r)
 assert SM_DHKey_Check in p and p.dhkey_check[:5] == b"scapy"
-
-
-= Bluetooth Monitor Pcap Header
-
-p = BT_Mon_Pcap_Hdr(hex_bytes("00000008"))
-assert BT_Mon_Pcap_Hdr in p
-assert p[BT_Mon_Pcap_Hdr].adapter_id == 0
-assert p[BT_Mon_Pcap_Hdr].opcode == 8

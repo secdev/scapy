@@ -21,7 +21,6 @@ from scapy.config import conf
 from scapy.data import (
     DLT_BLUETOOTH_HCI_H4,
     DLT_BLUETOOTH_HCI_H4_WITH_PHDR,
-    DLT_BLUETOOTH_LINUX_MONITOR
 )
 from scapy.packet import bind_layers, Packet
 from scapy.fields import (
@@ -41,7 +40,6 @@ from scapy.fields import (
     NBytesField,
     PacketListField,
     PadField,
-    ShortField,
     SignedByteField,
     StrField,
     StrFixedLenField,
@@ -194,24 +192,6 @@ _att_error_codes = {
     0x10: "unsupported gpr type",
     0x11: "insufficient resources",
 }
-
-
-class BT_Mon_Hdr(Packet):
-    name = 'Bluetooth Linux Monitor Transport Header'
-    fields_desc = [
-        LEShortField('opcode', None),
-        LEShortField('adapter_id', None),
-        LEShortField('len', None)
-    ]
-
-
-# https://www.tcpdump.org/linktypes/LINKTYPE_BLUETOOTH_LINUX_MONITOR.html
-class BT_Mon_Pcap_Hdr(BT_Mon_Hdr):
-    name = 'Bluetooth Linux Monitor Transport Pcap Header'
-    fields_desc = [
-        ShortField('adapter_id', None),
-        ShortField('opcode', None)
-    ]
 
 
 class HCI_Hdr(Packet):
@@ -1889,7 +1869,6 @@ bind_layers(HCI_Hdr, conf.raw_layer,)
 
 conf.l2types.register(DLT_BLUETOOTH_HCI_H4, HCI_Hdr)
 conf.l2types.register(DLT_BLUETOOTH_HCI_H4_WITH_PHDR, HCI_PHDR_Hdr)
-conf.l2types.register(DLT_BLUETOOTH_LINUX_MONITOR, BT_Mon_Pcap_Hdr)
 
 
 # 7.1 LINK CONTROL COMMANDS, the OGF is defined as 0x01
@@ -2299,24 +2278,6 @@ class BluetoothUserSocket(_BluetoothLibcSocket):
 
     def recv(self, x=MTU):
         return HCI_Hdr(self.ins.recv(x))
-
-
-class BluetoothMonitorSocket(_BluetoothLibcSocket):
-    desc = "read/write over a Bluetooth monitor channel"
-
-    def __init__(self):
-        sa = sockaddr_hci()
-        sa.sin_family = socket.AF_BLUETOOTH
-        sa.hci_dev = HCI_DEV_NONE
-        sa.hci_channel = HCI_CHANNEL_MONITOR
-        super().__init__(
-            socket_domain=socket.AF_BLUETOOTH,
-            socket_type=socket.SOCK_RAW,
-            socket_protocol=socket.BTPROTO_HCI,
-            sock_address=sa)
-
-    def recv(self, x=MTU):
-        return BT_Mon_Hdr(self.ins.recv(x))
 
 
 conf.BTsocket = BluetoothRFCommSocket
