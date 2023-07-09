@@ -540,8 +540,19 @@ scapy_delete_temp_files()
 assert len(conf.temp_files) == 0
 
 = Emulate interact()
+~ interact
+
 import mock, sys
 from scapy.main import interact
+
+from scapy.main import DEFAULT_PRESTART_FILE
+# By now .config/scapy/startup.py should have been created
+with open(DEFAULT_PRESTART_FILE, "r") as fd:
+    OLD_DEFAULT_PRESTART = fd.read()
+
+with open(DEFAULT_PRESTART_FILE, "w+") as fd:
+    fd.write("conf.interactive_shell = 'ipython'")
+
 # Detect IPython
 try:
     import IPython
@@ -567,6 +578,50 @@ except:
     pass
 
 interact_emulator(extra_args=["-d"])  # Extended
+
+= Emulate interact() and test startup.py with ptpython
+~ interact
+
+import sys
+import mock
+
+from scapy.main import DEFAULT_PRESTART_FILE
+# By now .config/scapy/startup.py should have been created
+with open(DEFAULT_PRESTART_FILE, "w+") as fd:
+    fd.write("conf.interactive_shell = 'ptpython'")
+
+called = []
+def checker(*args, **kwargs):
+    locals = kwargs.pop("locals")
+    assert locals["IP"]
+    history_filename = kwargs.pop("history_filename")
+    assert history_filename == conf.histfile
+    called.append(True)
+
+ptpython_mocked_module = Bunch(
+    repl=Bunch(
+        embed=checker
+    )
+)
+
+modules_patched = {
+    "ptpython": ptpython_mocked_module,
+    "ptpython.repl": ptpython_mocked_module.repl,
+    "ptpython.repl.embed": ptpython_mocked_module.repl.embed,
+}
+
+with mock.patch.dict("sys.modules", modules_patched):
+    try:
+        interact()
+    finally:
+        sys.ps1 = ">>> "
+
+# Restore
+with open(DEFAULT_PRESTART_FILE, "w") as fd:
+    print(OLD_DEFAULT_PRESTART)
+    r = fd.write(OLD_DEFAULT_PRESTART)
+
+assert called
 
 = Test explore() with GUI mode
 ~ command

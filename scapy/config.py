@@ -726,8 +726,9 @@ class Conf(ConfClass):
     version = ReadOnlyAttribute("version", VERSION)
     session = ""  #: filename where the session will be saved
     interactive = False
-    #: can be "ipython", "python" or "auto". Default: Auto
-    interactive_shell = ""
+    #: can be "ipython", "bpython", "ptpython", "ptipython", "python" or "auto".
+    #: Default: Auto
+    interactive_shell = "auto"
     #: if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
     stealth = "not implemented"
     #: selects the default output interface for srp() and sendp().
