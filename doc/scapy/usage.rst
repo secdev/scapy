@@ -784,7 +784,7 @@ Advanced Sniffing - Sniffing Sessions
 Scapy includes some basic Sessions, but it is possible to implement your own.
 Available by default:
 
-- :py:class:`~scapy.sessions.IPSession` -> *defragment IP packets* on-the-flow, to make a stream usable by ``prn``.
+- :py:class:`~scapy.sessions.IPSession` -> *defragment IP packets* on-the-fly, to make a stream usable by ``prn``.
 - :py:class:`~scapy.sessions.TCPSession` -> *defragment certain TCP protocols*. Currently supports:
    - HTTP 1.0
    - TLS
@@ -1798,7 +1798,7 @@ Scapy dissects slowly and/or misses packets under heavy loads.
 
 .. note::
 
-    Please bare in mind that Scapy is not designed to be blazing fast, but rather easily hackable & extensible. The packet model makes it VERY easy to create new layers, compared to pretty much all other alternatives, but comes with a performance cost. Of course, we still do our best to make Scapy as fast as possible, but it's not the absolute main goal.
+    Please bear in mind that Scapy is not designed to be blazing fast, but rather easily hackable & extensible. The packet model makes it VERY easy to create new layers, compared to pretty much all other alternatives, but comes with a performance cost. Of course, we still do our best to make Scapy as fast as possible, but it's not the absolute main goal.
 
 Solution
 ^^^^^^^^
