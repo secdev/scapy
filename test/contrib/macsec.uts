@@ -21,7 +21,7 @@ assert m[MACsec].SC
 assert m[MACsec].E
 assert m[MACsec].C
 assert m[MACsec].SCI == b'\x52\x54\x00\x13\x01\x56\x00\x01'
-assert m[MACsec].mysummary() == r"AN=0, PN=100, SCI='RT\x00\x13\x01V\x00\x01', IPv4"
+assert m[MACsec].mysummary() == r"AN=0, PN=100, SCI=b'RT\x00\x13\x01V\x00\x01', IPv4"
 
 = MACsec - basic encryption - encrypted
 sa = MACsecSA(sci=b'\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=100, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=1, send_sci=1)
