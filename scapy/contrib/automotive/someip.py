@@ -125,11 +125,21 @@ class SOMEIP(Packet):
         if isinstance(other, type(self)):
             if self.msg_type in [SOMEIP.TYPE_REQUEST_NO_RET,
                                  SOMEIP.TYPE_REQUEST_NORET_ACK,
-                                 SOMEIP.TYPE_NOTIFICATION,
                                  SOMEIP.TYPE_TP_REQUEST_NO_RET,
                                  SOMEIP.TYPE_TP_NOTIFICATION]:
                 return 0
+
+            # if Notification but not SD
+            if (self.msg_type == SOMEIP.TYPE_NOTIFICATION and (self.srv_id != SD.SOMEIP_MSGID_SRVID
+                                                               or self.sub_id != SD.SOMEIP_MSGID_SUBID
+                                                               or self.event_id != SD.SOMEIP_MSGID_EVENTID
+                                                               or self.proto_ver != SD.SOMEIP_PROTO_VER
+                                                               or self.iface_ver != SD.SOMEIP_IFACE_VER
+                                                               or self.retcode != SD.SOMEIP_RETCODE)):
+                return 0
+
             return self.payload.answers(other.payload)
+
         return 0
 
     @staticmethod
