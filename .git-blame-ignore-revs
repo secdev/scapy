@@ -1,0 +1,51 @@
+# This file contains the list of commits that should be excluded from
+# git blame. Read more informations on:
+# https://docs.github.com/en/repositories/working-with-files/using-files/viewing-a-file#ignore-commits-in-the-blame-view
+
+# PEPin - https://github.com/secdev/scapy/issues/1277
+# E231 - missing whitespace after ','
+e7365b2baeded1a0e1e3b59bc0ad14a78d6e3086
+# E30* - Incorrect number of blank lines
+b770bbc58c26437b354c0bd21dc4e2fcfa3abfdf
+# E20* - Incorrect number of whitespace
+6861a35d8ed4466df7b2ff82341e60caf9ff869a
+# E12* - visual indent
+275ad3246b5231bb046a66bcfdf3654d67fdea20
+# W29* - useless whitespaces
+453f2592f7b6f2b8677619769f8427932894dc1c
+# E251 - unexpected spaces around keyword / parameter equals
+203254afd771b42ccf0fcca96ba92dc4075cfe4a
+# E26 - comments
+b7a3db73dfd17ec1e7bbace8d52464982bf8ea8d
+# E1 - incorrect indentation
+f2f1de742aa36167e2c86247a26ed5e7393366ea
+#  F821 - undefined name 'name' 
+f8525ea9f17cedf148febcab8d1dab51ddca9afe
+# E2* - whitespaces errors
+1c2fe99c131bb05e009896410766371a2f870175
+# E71* - tests syntax 
+927c157b58918d5fdce9714a3c35627339cc8657
+# F841 - local variable 'name' is assigned to but never used 
+dbe409531a22d1245cf4669f72a425b42c83b0db
+# PEPin several fixes
+93232490193ca2b59e3b1425131913d28f408f7a
+# E501 - line too long (> 79 characters)
+e89d8965748439adc253714316de7a9a35b8bd73
+# F601 - dictionary key repeated with different values
+0fd7d76550e56831f887664202d743846d3619dd
+# F811 - redefinition of unused variable/class/...
+10454d1ca243d0fd8d2ab4a148d688e3ea916e49
+# E402 - module level import not at top of file
+0f4a904d2801e8bbbc82880345ad453ceb6ee34f
+# E722 - do not use bare except
+a35575ff22da176a8b515405faea9a689462da0c
+# E741 - ambiguous variable name 'l'
+7c61676aef950ca268eac480902dd91cb0abe3a4
+# F405 -  variable/function/... may be undefined, or defined from star
+8773983edb0336db7aa84777dee2aa9892508418
+# F401 - 'module' imported but unused
+a58e1b90a704c394216a0b5a864a50931754bdf7
+# W502 - line break before binary operator
+9687222c3f0af6ef89ecfe15e5b983e1f7b5b31e
+# E275 - Missing whitespace after keyword
+08b1f9d67c8e716fd44036a027bdc90dcb9fcfdf
