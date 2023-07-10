@@ -1210,6 +1210,36 @@ ICMPv6NDOptDNSSL(searchlist=["home.", "office.", "{"]).mysummary() == "ICMPv6 Ne
 
 ############
 ############
++ ICMPv6NDOptCaptivePortal Class Test
+
+= ICMPv6NDOptCaptivePortal - Basic Instantiation
+raw(ICMPv6NDOptCaptivePortal()) == b"\x25\x01\x00\x00\x00\x00\x00\x00"
+
+= ICMPv6NDOptCaptivePortal - Instantiation with captive portal URI
+raw(ICMPv6NDOptCaptivePortal(URI="https://example.com")) == b"\x25\x03https://example.com\x00\x00\x00"
+
+= ICMPv6NDOptCaptivePortal - Instantiation where total length is already a multiple of 8 bytes
+p = ICMPv6NDOptCaptivePortal(URI="abcdef")
+len(p) == 8 and raw(p) == b"\x25\x01abcdef" and ICMPv6NDOptCaptivePortal(raw(p)).URI == b"abcdef"
+
+= ICMPv6NDOptCaptivePortal - Basic Dissection
+p = ICMPv6NDOptCaptivePortal(b"\x25\x01\x00\x00\x00\x00\x00\x00")
+p.type == 37 and p.len == 1 and p.URI == b""
+
+= ICMPv6NDOptCaptivePortal - Basic Dissection with captive portal URI
+p = ICMPv6NDOptCaptivePortal(b"\x25\x03https://example.com\x00\x00\x00")
+p.type == 37 and p.len == 3 and p.URI == b"https://example.com"
+
+= ICMPv6NDOptCaptivePortal - Dissection with zero length
+p = ICMPv6NDOptCaptivePortal(b"\x25\x00abcdefgh")
+p.type == 37 and p.len == 0 and p.URI == b"abcdef" and Raw in p and len(p[Raw]) == 2
+
+= ICMPv6NDOptCaptivePortal - Summary Output
+ICMPv6NDOptCaptivePortal(URI="https://example.com").mysummary() == "ICMPv6 Neighbor Discovery Option - Captive-Portal Option 'https://example.com'"
+
+
+############
+############
 + ICMPv6NDOptEFA Class Test
 
 = ICMPv6NDOptEFA - Basic Instantiation
