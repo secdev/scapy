@@ -790,7 +790,7 @@ def srloop(pkts,  # type: _PacketIterable
     # type: (...) -> Tuple[SndRcvList, PacketList]
     """
     Send a packet at layer 3 in loop and print the answer each time
-    srloop(pkts, [prn], [inter], [count], ...) --> None
+    srloop(pkts, [prn], [inter], [count], ...) -> Tuple[SndRcvList, PacketList]
     """
     return __sr_loop(sr, pkts, *args, **kargs)
 
@@ -803,7 +803,7 @@ def srploop(pkts,  # type: _PacketIterable
     # type: (...) -> Tuple[SndRcvList, PacketList]
     """
     Send a packet at layer 2 in loop and print the answer each time
-    srloop(pkts, [prn], [inter], [count], ...) --> None
+    srloop(pkts, [prn], [inter], [count], ...) --> Tuple[SndRcvList, PacketList]
     """
     return __sr_loop(srp, pkts, *args, **kargs)
 
