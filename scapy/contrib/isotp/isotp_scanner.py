@@ -205,8 +205,8 @@ def scan(sock,  # type: SuperSocket
 
     cleaned_ret_val = dict()  # type: Dict[int, Tuple[Packet, int]]
     retest_ids = list(set(
-        itertools.chain.from_iterable(range(max(0, i-2), i+2)
-                                      for i in return_values.keys())))
+        itertools.chain.from_iterable(
+            range(max(0, i - 2), i + 2) for i in return_values.keys())))
     for value in retest_ids:
         if stop_event is not None and stop_event.is_set():
             break
