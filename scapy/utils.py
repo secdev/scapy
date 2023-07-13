@@ -1939,6 +1939,7 @@ class RawPcapWriter(GenericRawPcapWriter):
                  sync=False,  # type: bool
                  nano=False,  # type: bool
                  snaplen=MTU,  # type: int
+                 bufsz=4096,  # type: int
                  ):
         # type: (...) -> None
         """
@@ -1963,7 +1964,6 @@ class RawPcapWriter(GenericRawPcapWriter):
         self.endian = endianness
         self.sync = sync
         self.nano = nano
-        bufsz = 4096
         if sync:
             bufsz = 0
 
