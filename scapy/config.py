@@ -785,8 +785,10 @@ class Conf(ConfClass):
     ifaces = None  # type: 'scapy.interfaces.NetworkInterfaceDict'
     #: holds the cache of interfaces loaded from Libpcap
     cache_pcapiflist = {}  # type: Dict[str, Tuple[str, List[str], Any, str]]
-    neighbor = None  # type: 'scapy.layers.l2.Neighbor'
     # `neighbor` will be filed by scapy.layers.l2
+    neighbor = None  # type: 'scapy.layers.l2.Neighbor'
+    #: holds the name servers IP/hosts used for custom DNS resolution
+    nameservers = None  # type: str
     #: holds the Scapy IPv4 routing table and provides methods to
     #: manipulate it
     route = None  # type: 'scapy.route.Route'
@@ -828,6 +830,7 @@ class Conf(ConfClass):
     stats_classic_protocols = []  # type: List[Type[Packet]]
     stats_dot11_protocols = []  # type: List[Type[Packet]]
     temp_files = []  # type: List[str]
+    #: netcache holds time-based caches for net operations
     netcache = NetCache()
     geoip_city = None
     # can, tls, http and a few others are not loaded by default
