@@ -8,7 +8,7 @@
 = Layer binding 1
 pkt = IP() / UDP() / SebekHead() / SebekV1(cmd="diepotato")
 assert pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 1
-assert pkt.summary() == "IP / UDP / SebekHead / Sebek v1 read ('diepotato')"
+assert pkt.summary() == "IP / UDP / SebekHead / Sebek v1 read (b'diepotato')"
 
 = Packet dissection 1
 pkt = IP(raw(pkt))
@@ -17,7 +17,7 @@ pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 1
 = Layer binding 2
 pkt = IP() / UDP() / SebekHead() / SebekV2Sock(cmd="diepotato")
 assert pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 2 and pkt[SebekHead].type ==2
-assert pkt.summary() == "IP / UDP / SebekHead / Sebek v2 socket ('diepotato')"
+assert pkt.summary() == "IP / UDP / SebekHead / Sebek v2 socket (b'diepotato')"
 
 = Packet dissection 2
 pkt = IP(raw(pkt))
@@ -26,7 +26,7 @@ pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 2 and pkt[SebekHead
 = Layer binding 3
 pkt = IPv6()/UDP()/SebekHead()/SebekV3()
 assert pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 3
-assert pkt.summary() == "IPv6 / UDP / SebekHead / Sebek v3 read ('')"
+assert pkt.summary() == "IPv6 / UDP / SebekHead / Sebek v3 read (b'')"
 
 = Packet dissection 3
 pkt = IPv6(raw(pkt))
@@ -35,12 +35,12 @@ pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 3
 = Nonsense summaries
 
 assert SebekHead(version=2).summary() == "Sebek Header v2 read"
-assert SebekV1(cmd="diepotato").summary() == "Sebek v1 ('diepotato')"
-assert SebekV2(cmd="diepotato").summary() == "Sebek v2 ('diepotato')"
-assert (SebekHead()/SebekV2(cmd="nottoday")).summary() == "SebekHead / Sebek v2 read ('nottoday')"
-assert SebekV3(cmd="diepotato").summary() == "Sebek v3 ('diepotato')"
-assert (SebekHead()/SebekV3(cmd="nottoday")).summary() == "SebekHead / Sebek v3 read ('nottoday')"
-assert SebekV3Sock(cmd="diepotato").summary() == "Sebek v3 socket ('diepotato')"
-assert (SebekHead()/SebekV3Sock(cmd="nottoday")).summary() == "SebekHead / Sebek v3 socket ('nottoday')"
-assert SebekV2Sock(cmd="diepotato").summary() == "Sebek v2 socket ('diepotato')"
-assert (SebekHead()/SebekV2Sock(cmd="nottoday")).summary() == "SebekHead / Sebek v2 socket ('nottoday')"
+assert SebekV1(cmd="diepotato").summary() == "Sebek v1 (b'diepotato')"
+assert SebekV2(cmd="diepotato").summary() == "Sebek v2 (b'diepotato')"
+assert (SebekHead()/SebekV2(cmd="nottoday")).summary() == "SebekHead / Sebek v2 read (b'nottoday')"
+assert SebekV3(cmd="diepotato").summary() == "Sebek v3 (b'diepotato')"
+assert (SebekHead()/SebekV3(cmd="nottoday")).summary() == "SebekHead / Sebek v3 read (b'nottoday')"
+assert SebekV3Sock(cmd="diepotato").summary() == "Sebek v3 socket (b'diepotato')"
+assert (SebekHead()/SebekV3Sock(cmd="nottoday")).summary() == "SebekHead / Sebek v3 socket (b'nottoday')"
+assert SebekV2Sock(cmd="diepotato").summary() == "Sebek v2 socket (b'diepotato')"
+assert (SebekHead()/SebekV2Sock(cmd="nottoday")).summary() == "SebekHead / Sebek v2 socket (b'nottoday')"

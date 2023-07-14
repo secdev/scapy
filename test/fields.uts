@@ -218,7 +218,7 @@ class TestStrField(Packet):
 p = TestStrField(s1="cafe", s2="deadbeef")
 assert raw(p) == b'\x04\x00cafedeadbeef'
 print(p.sprintf("%s1% %s2%"))
-assert p.sprintf("%s1% %s2%") == "'cafe' 'deadbeef'"
+assert p.sprintf("%s1% %s2%") == "b'cafe' b'deadbeef'"
 
 
 = StrFieldUtf16

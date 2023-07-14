@@ -1430,7 +1430,7 @@ class _StrField(Field[I, bytes]):
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], I) -> str
         if isinstance(x, bytes):
-            return repr(plain_str(x))
+            return repr(x)
         return super(_StrField, self).i2repr(pkt, x)
 
     def i2m(self, pkt, x):
