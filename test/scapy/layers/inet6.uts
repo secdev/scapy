@@ -1235,7 +1235,7 @@ p = ICMPv6NDOptCaptivePortal(b"\x25\x00abcdefgh")
 p.type == 37 and p.len == 0 and p.URI == b"abcdef" and Raw in p and len(p[Raw]) == 2
 
 = ICMPv6NDOptCaptivePortal - Summary Output
-ICMPv6NDOptCaptivePortal(URI="https://example.com").mysummary() == "ICMPv6 Neighbor Discovery Option - Captive-Portal Option 'https://example.com'"
+ICMPv6NDOptCaptivePortal(URI="https://example.com").mysummary() == "ICMPv6 Neighbor Discovery Option - Captive-Portal Option b'https://example.com'"
 
 
 ############
