@@ -344,8 +344,8 @@ def lsc():
     print(repr(conf.commands))
 
 
-class CacheInstance(Dict[str, Any], object):
-    __slots__ = ["timeout", "name", "_timetable", "__dict__"]
+class CacheInstance(Dict[str, Any]):
+    __slots__ = ["timeout", "name", "_timetable"]
 
     def __init__(self, name="noname", timeout=None):
         # type: (str, Optional[int]) -> None
@@ -355,11 +355,8 @@ class CacheInstance(Dict[str, Any], object):
 
     def flush(self):
         # type: () -> None
-        CacheInstance.__init__(
-            self,
-            name=self.name,
-            timeout=self.timeout
-        )
+        self._timetable.clear()
+        self.clear()
 
     def __getitem__(self, item):
         # type: (str) -> Any
@@ -403,20 +400,23 @@ class CacheInstance(Dict[str, Any], object):
     def iteritems(self):
         # type: () -> Iterator[Tuple[str, Any]]
         if self.timeout is None:
-            return self.__dict__.items()  # type: ignore
+            return super(CacheInstance, self).items()  # type: ignore
         t0 = time.time()
         return (
-            (k, v) for (k, v) in self.__dict__.items()
+            (k, v)
+            for (k, v) in super(CacheInstance, self).items()
             if t0 - self._timetable[k] < self.timeout
         )
 
     def iterkeys(self):
         # type: () -> Iterator[str]
         if self.timeout is None:
-            return self.__dict__.keys()  # type: ignore
+            return super(CacheInstance, self).keys()  # type: ignore
         t0 = time.time()
         return (
-            k for k in self.__dict__ if t0 - self._timetable[k] < self.timeout
+            k
+            for k in super(CacheInstance, self).keys()
+            if t0 - self._timetable[k] < self.timeout
         )
 
     def __iter__(self):
@@ -426,39 +426,25 @@ class CacheInstance(Dict[str, Any], object):
     def itervalues(self):
         # type: () -> Iterator[Tuple[str, Any]]
         if self.timeout is None:
-            return self.__dict__.values()  # type: ignore
+            return super(CacheInstance, self).values()  # type: ignore
         t0 = time.time()
         return (
-            v for (k, v) in self.__dict__.items()
+            v
+            for (k, v) in super(CacheInstance, self).items()
             if t0 - self._timetable[k] < self.timeout
         )
 
     def items(self):
         # type: () -> Any
-        if self.timeout is None:
-            return super(CacheInstance, self).items()
-        t0 = time.time()
-        return [
-            (k, v) for (k, v) in self.__dict__.items()
-            if t0 - self._timetable[k] < self.timeout
-        ]
+        return list(self.iteritems())
 
     def keys(self):
         # type: () -> Any
-        if self.timeout is None:
-            return super(CacheInstance, self).keys()
-        t0 = time.time()
-        return [k for k in self.__dict__ if t0 - self._timetable[k] < self.timeout]
+        return list(self.iterkeys())
 
     def values(self):
         # type: () -> Any
-        if self.timeout is None:
-            return list(self.values())
-        t0 = time.time()
-        return [
-            v for (k, v) in self.__dict__.items()
-            if t0 - self._timetable[k] < self.timeout
-        ]
+        return list(self.itervalues())
 
     def __len__(self):
         # type: () -> int
@@ -474,9 +460,9 @@ class CacheInstance(Dict[str, Any], object):
         # type: () -> str
         s = []
         if self:
-            mk = max(len(k) for k in self.__dict__)
+            mk = max(len(k) for k in self)
             fmt = "%%-%is %%s" % (mk + 1)
-            for item in self.__dict__.items():
+            for item in self.items():
                 s.append(fmt % item)
         return "\n".join(s)
 
