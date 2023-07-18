@@ -729,6 +729,8 @@ class Conf(ConfClass):
     #: can be "ipython", "bpython", "ptpython", "ptipython", "python" or "auto".
     #: Default: Auto
     interactive_shell = "auto"
+    #: Configuration for "ipython" to use jedi (disabled by default)
+    ipython_use_jedi = False
     #: if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
     stealth = "not implemented"
     #: selects the default output interface for srp() and sendp().

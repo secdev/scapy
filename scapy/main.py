@@ -838,7 +838,9 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                                                                   conf.version)
                 # As of IPython 6-7, the jedi completion module is a dumpster
                 # of fire that should be scrapped never to be seen again.
-                cfg.Completer.use_jedi = False
+                # This is why the following defaults to False. Feel free to hurt
+                # yourself (#GH4056) :P
+                cfg.Completer.use_jedi = conf.ipython_use_jedi
             else:
                 cfg.TerminalInteractiveShell.term_title = False
             cfg.HistoryAccessor.hist_file = conf.histfile
