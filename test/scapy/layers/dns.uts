@@ -23,13 +23,13 @@ dns_ans = retry_test(_test)
 
 val = dns_resolve(qname="google.com", qtype="A")
 assert val
-assert inet_pton(socket.AF_INET, val)
-assert val == conf.netcache.dns_cache["google.com_A"]
+assert inet_pton(socket.AF_INET, val.rdata)
+assert val == conf.netcache.dns_cache[b'google.com.;\x01']
 
 val = dns_resolve(qname="google.com", qtype="AAAA")
 assert val
-assert inet_pton(socket.AF_INET6, val)
-assert val == conf.netcache.dns_cache["google.com_AAAA"]
+assert inet_pton(socket.AF_INET6, val.rdata)
+assert val == conf.netcache.dns_cache[b'google.com.;\x1c']
 
 = DNS labels
 ~ DNS

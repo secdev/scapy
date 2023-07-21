@@ -9,6 +9,7 @@ DNS: Domain Name System.
 
 import abc
 import operator
+import itertools
 import socket
 import struct
 import time
@@ -1059,15 +1060,27 @@ _dns_cache = conf.netcache.new_cache("dns_cache", 300)
 
 
 @conf.commands.register
-def dns_resolve(qname, qtype="A", verbose=1, **kwargs):
+def dns_resolve(qname, qtype="A", raw=False, verbose=1, **kwargs):
     """
     Perform a simple DNS resolution using conf.nameservers with caching
+
+    :param qname: the name to query
+    :param qtype: the type to query (default A)
+    :param raw: return the whole DNS packet (default False)
     """
-    answer = _dns_cache.get("_".join([qname, qtype]))
+    # Unify types
+    qtype = DNSQR.qtype.any2i_one(None, qtype)
+    qname = DNSQR.qname.any2i(None, qname)
+    # Check cache
+    cache_ident = b";".join(
+        [qname, struct.pack("!B", qtype)] +
+        ([b"raw"] if raw else [])
+    )
+    answer = _dns_cache.get(cache_ident)
     if answer:
         return answer
 
-    kwargs.setdefault("timeout", 5)
+    kwargs.setdefault("timeout", 3)
     kwargs.setdefault("verbose", 0)
     for nameserver in conf.nameservers:
         # Try all nameservers
@@ -1103,22 +1116,23 @@ def dns_resolve(qname, qtype="A", verbose=1, **kwargs):
             else:
                 break
     if res is not None:
-        # Calc expected qname and qtype
-        eqname = DNSQR.qname.h2i(None, qname)
-        eqtype = DNSQR.qtype.any2i_one(None, qtype)
-        try:
-            # Find answer
-            answer = next(
-                x.rdata
-                for x in res.an
-                if x.type == eqtype and x.rrname == eqname
-            )
-            # Cache it
-            _dns_cache["_".join([qname, qtype])] = answer
-            return answer
-        except StopIteration:
-            # No answer
-            pass
+        if raw:
+            # Raw
+            answer = res
+        else:
+            try:
+                # Find answer
+                answer = next(
+                    x
+                    for x in itertools.chain(res.an, res.ns, res.ar)
+                    if x.type == qtype
+                )
+            except StopIteration:
+                # No answer
+                return None
+        # Cache it
+        _dns_cache[cache_ident] = answer
+        return answer
     return None
 
 
