@@ -287,6 +287,7 @@ class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
             'guid': "{%s}" % uuid.uuid1(),
             'ipv4_metric': 0,
             'ipv6_metric': 0,
+            'nameservers': [],
         }
         if WINDOWS:
             from scapy.arch.windows import NetworkInterface_Win, \

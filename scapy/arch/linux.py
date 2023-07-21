@@ -47,6 +47,9 @@ from scapy.packet import Packet, Padding
 from scapy.pton_ntop import inet_ntop
 from scapy.supersocket import SuperSocket
 
+# re-export
+from scapy.arch.unix import read_nameservers  # noqa: F401
+
 # Typing imports
 from typing import (
     Any,

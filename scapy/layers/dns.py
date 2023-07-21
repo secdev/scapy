@@ -14,7 +14,11 @@ import struct
 import time
 import warnings
 
-from scapy.arch import get_if_addr, get_if_addr6
+from scapy.arch import (
+    get_if_addr,
+    get_if_addr6,
+    read_nameservers,
+)
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net
 from scapy.config import conf
@@ -26,7 +30,9 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     PacketListField, ShortEnumField, ShortField, StrField, \
     StrLenField, MultipleTypeField, UTCTimeField, I
 from scapy.sendrecv import sr1
+from scapy.supersocket import StreamSocket
 from scapy.pton_ntop import inet_ntop, inet_pton
+from scapy.volatile import RandShort
 
 from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
 from scapy.layers.inet6 import IPv6, DestIP6Field, IP6Field
@@ -284,6 +290,7 @@ class DNSStrField(StrLenField):
     def h2i(self, pkt, x):
         if not x:
             return b"."
+        x = bytes_encode(x)
         if x[-1:] != b"." and not _is_ptr(x):
             return x + b"."
         return x
@@ -1045,6 +1052,74 @@ DestIPField.bind_addr(UDP, "224.0.0.251", dport=5353)
 DestIP6Field.bind_addr(UDP, "ff02::fb", dport=5353)
 bind_layers(TCP, DNS, dport=53)
 bind_layers(TCP, DNS, sport=53)
+
+# Nameserver config
+conf.nameservers = read_nameservers()
+_dns_cache = conf.netcache.new_cache("dns_cache", 300)
+
+
+@conf.commands.register
+def dns_resolve(qname, qtype="A", verbose=1, **kwargs):
+    """
+    Perform a simple DNS resolution using conf.nameservers with caching
+    """
+    answer = _dns_cache.get("_".join([qname, qtype]))
+    if answer:
+        return answer
+
+    kwargs.setdefault("timeout", 5)
+    kwargs.setdefault("verbose", 0)
+    for nameserver in conf.nameservers:
+        # Try all nameservers
+        try:
+            # Spawn a UDP socket, connect to the nameserver on port 53
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(kwargs["timeout"])
+            sock.connect((nameserver, 53))
+            # Connected. Wrap it with DNS
+            sock = StreamSocket(sock, DNS)
+            # I/O
+            res = sock.sr1(
+                DNS(qd=[DNSQR(qname=qname, qtype=qtype)], id=RandShort()),
+                **kwargs,
+            )
+        except IOError as ex:
+            if verbose:
+                log_runtime.warning(str(ex))
+            continue
+        finally:
+            sock.close()
+        if res:
+            # We have a response ! Check for failure
+            if res[DNS].rcode == 2:  # server failure
+                res = None
+                if verbose:
+                    log_runtime.info(
+                        "DNS: %s answered with failure for %s" % (
+                            nameserver,
+                            qname,
+                        )
+                    )
+            else:
+                break
+    if res is not None:
+        # Calc expected qname and qtype
+        eqname = DNSQR.qname.h2i(None, qname)
+        eqtype = DNSQR.qtype.any2i_one(None, qtype)
+        try:
+            # Find answer
+            answer = next(
+                x.rdata
+                for x in res.an
+                if x.type == eqtype and x.rrname == eqname
+            )
+            # Cache it
+            _dns_cache["_".join([qname, qtype])] = answer
+            return answer
+        except StopIteration:
+            # No answer
+            pass
+    return None
 
 
 @conf.commands.register

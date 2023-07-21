@@ -17,6 +17,20 @@ def _test():
 
 dns_ans = retry_test(_test)
 
+= DNS request using dns_resolve
+~ netaccess DNS
+* this is not using a raw socket so should also work without root
+
+val = dns_resolve(qname="google.com", qtype="A")
+assert val
+assert inet_pton(socket.AF_INET, val)
+assert val == conf.netcache.dns_cache["google.com_A"]
+
+val = dns_resolve(qname="google.com", qtype="AAAA")
+assert val
+assert inet_pton(socket.AF_INET6, val)
+assert val == conf.netcache.dns_cache["google.com_AAAA"]
+
 = DNS labels
 ~ DNS
 query = DNSQR(qname=b"www.secdev.org")

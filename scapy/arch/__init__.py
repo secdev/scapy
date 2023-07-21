@@ -44,6 +44,7 @@ __all__ = [  # noqa: F405
     "get_if_raw_hwaddr",
     "get_working_if",
     "in6_getifaddr",
+    "read_nameservers",
     "read_routes",
     "read_routes6",
     "SIOCGIFHWADDR",
@@ -119,6 +120,7 @@ def get_if_raw_addr6(iff):
 # def get_if_raw_addr(iff)
 # def get_if_raw_hwaddr(iff)
 # def in6_getifaddr()
+# def read_nameservers()
 # def read_routes()
 # def read_routes6()
 # def set_promisc(s,iff,val=1)
@@ -126,7 +128,12 @@ def get_if_raw_addr6(iff):
 if LINUX:
     from scapy.arch.linux import *  # noqa F403
 elif BSD:
-    from scapy.arch.unix import read_routes, read_routes6, in6_getifaddr  # noqa: E501
+    from scapy.arch.unix import (  # noqa F403
+        read_nameservers,
+        read_routes,
+        read_routes6,
+        in6_getifaddr,
+    )
     from scapy.arch.bpf.core import *  # noqa F403
     if not conf.use_pcap:
         # Native
