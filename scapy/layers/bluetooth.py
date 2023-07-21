@@ -17,7 +17,11 @@ import select
 from ctypes import sizeof
 
 from scapy.config import conf
-from scapy.data import DLT_BLUETOOTH_HCI_H4, DLT_BLUETOOTH_HCI_H4_WITH_PHDR
+from scapy.data import (
+    DLT_BLUETOOTH_HCI_H4,
+    DLT_BLUETOOTH_HCI_H4_WITH_PHDR,
+    DLT_BLUETOOTH_LINUX_MONITOR
+)
 from scapy.packet import bind_layers, Packet
 from scapy.fields import (
     BitField,
@@ -34,6 +38,7 @@ from scapy.fields import (
     NBytesField,
     PacketListField,
     PadField,
+    ShortField,
     SignedByteField,
     StrField,
     StrFixedLenField,
@@ -188,14 +193,20 @@ _att_error_codes = {
 
 
 class BT_Mon_Hdr(Packet):
-    '''
-    Bluetooth Linux Monitor Transport Header
-    '''
     name = 'Bluetooth Linux Monitor Transport Header'
     fields_desc = [
         LEShortField('opcode', None),
         LEShortField('adapter_id', None),
         LEShortField('len', None)
+    ]
+
+
+# https://www.tcpdump.org/linktypes/LINKTYPE_BLUETOOTH_LINUX_MONITOR.html
+class BT_Mon_Pcap_Hdr(BT_Mon_Hdr):
+    name = 'Bluetooth Linux Monitor Transport Pcap Header'
+    fields_desc = [
+        ShortField('adapter_id', None),
+        ShortField('opcode', None)
     ]
 
 
@@ -1277,6 +1288,7 @@ bind_layers(HCI_Hdr, conf.raw_layer,)
 
 conf.l2types.register(DLT_BLUETOOTH_HCI_H4, HCI_Hdr)
 conf.l2types.register(DLT_BLUETOOTH_HCI_H4_WITH_PHDR, HCI_PHDR_Hdr)
+conf.l2types.register(DLT_BLUETOOTH_LINUX_MONITOR, BT_Mon_Pcap_Hdr)
 
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Create_Connection, opcode=0x0405)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Disconnect, opcode=0x0406)
