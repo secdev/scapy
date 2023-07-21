@@ -785,7 +785,8 @@ class Conf(ConfClass):
     #: history file
     histfile = os.getenv('SCAPY_HISTFILE',
                          os.path.join(os.path.expanduser("~"),
-                                      ".scapy_history"))
+                                      ".config", "scapy",
+                                      "history"))
     #: includes padding in disassembled packets
     padding = 1
     #: BPF filter for packets to ignore

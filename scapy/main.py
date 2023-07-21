@@ -719,66 +719,37 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
     # 2. bpython
     # 3. ptpython
 
+    _IMPORTS = {
+        "ipython": ["IPython"],
+        "bpython": ["bpython"],
+        "ptpython": ["ptpython"],
+        "ptipython": ["IPython", "ptpython"],
+    }
+
     if conf.interactive_shell == "auto":
-        try:
-            import IPython
-            conf.interactive_shell = "ipython"
-        except ImportError:
+        # Auto detect
+        for imp in ["IPython", "bpython", "ptpython"]:
             try:
-                import bpython
-                conf.interactive_shell = "bpython"
+                importlib.import_module(imp)
+                conf.interactive_shell = imp.lower()
+                break
             except ImportError:
-                try:
-                    import ptpython
-                    conf.interactive_shell = "ptpython"
-                except ImportError:
-                    log_loading.warning(
-                        "No alternative Python interpreters found ! "
-                        "Using standard Python shell instead."
-                    )
-                    conf.interactive_shell = "python"
-
-    # Check IPython import
-    if conf.interactive_shell in ["ipython", "ptipython"]:
-        try:
-            import IPython  # noqa: F811
-        except ImportError:
-            log_loading.warning("IPython requested but not found !")
+                continue
+        else:
+            log_loading.warning(
+                "No alternative Python interpreters found ! "
+                "Using standard Python shell instead."
+            )
             conf.interactive_shell = "python"
 
-    # Check bpython import
-    if conf.interactive_shell == "bpython":
-        try:
-            import bpython  # noqa: F811
-        except ImportError:
-            log_loading.warning("bpython requested but not found !")
-            conf.interactive_shell = "python"
-
-    # Check ptpython import
-    ptpython_configure = lambda repl: None
-    if conf.interactive_shell in ["ptpython", "ptipython"]:
-        try:
-            import ptpython  # noqa: F811,F401
-        except ImportError:
-            log_loading.warning("ptpython requested but not found !")
-            conf.interactive_shell = "python"
-
-        def ptpython_configure(repl):
-            # type: (Any) -> None
-            # Hide status bar
-            repl.show_status_bar = False
-            # Complete while typing (versus only when pressing tab)
-            repl.complete_while_typing = False
-            # Enable auto-suggestions
-            repl.enable_auto_suggest = True
-            # Disable exit confirmation
-            repl.confirm_exit = False
-            # Show signature
-            repl.show_signature = True
-            # Apply Scapy color theme: TODO
-            # repl.install_ui_colorscheme("scapy",
-            #                             Style.from_dict(_custom_ui_colorscheme))
-            # repl.use_ui_colorscheme("scapy")
+    if conf.interactive_shell in _IMPORTS:
+        # Check import
+        for imp in _IMPORTS[conf.interactive_shell]:
+            try:
+                importlib.import_module(imp)
+            except ImportError:
+                log_loading.warning("%s requested but not found !" % imp)
+                conf.interactive_shell = "python"
 
     # Display warning when using the default REPL
     if conf.interactive_shell == "python":
@@ -791,8 +762,27 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
             )
             conf.color_theme = BlackAndWhite()
 
+    # ptpython configure function
+    def ptpython_configure(repl):
+        # type: (Any) -> None
+        # Hide status bar
+        repl.show_status_bar = False
+        # Complete while typing (versus only when pressing tab)
+        repl.complete_while_typing = False
+        # Enable auto-suggestions
+        repl.enable_auto_suggest = True
+        # Disable exit confirmation
+        repl.confirm_exit = False
+        # Show signature
+        repl.show_signature = True
+        # Apply Scapy color theme: TODO
+        # repl.install_ui_colorscheme("scapy",
+        #                             Style.from_dict(_custom_ui_colorscheme))
+        # repl.use_ui_colorscheme("scapy")
+
     # Start IPython or ptipython
     if conf.interactive_shell in ["ipython", "ptipython"]:
+        import IPython
         if conf.interactive_shell == "ptipython":
             from ptpython.ipython import embed
             banner = banner_text + " using IPython %s" % IPython.__version__
@@ -855,6 +845,8 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                 code.interact(banner=banner_text, local=SESSION)
     # Start ptpython
     elif conf.interactive_shell == "ptpython":
+        # ptpython has special, non-default handling of __repr__ which breaks Scapy.
+        # For instance: >>> IP()
         log_loading.warning("ptpython support is currently partially broken")
         try:
             from importlib.metadata import version
@@ -873,8 +865,9 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         )
     # Start bpython
     elif conf.interactive_shell == "bpython":
-        banner = banner_text + " using bpython %s\n" % bpython.__version__
+        import bpython
         from bpython.curtsies import main as embed
+        banner = banner_text + " using bpython %s\n" % bpython.__version__
         embed(
             args=["-q", "-i"],
             locals_=SESSION,
