@@ -904,7 +904,10 @@ class Conf(ConfClass):
     contribs = dict()  # type: Dict[str, Any]
     crypto_valid = isCryptographyValid()
     crypto_valid_advanced = isCryptographyAdvanced()
-    fancy_prompt = True
+    #: controls whether or not to display the fancy banner
+    fancy_banner = True
+    #: controls whether tables (conf.iface, conf.route...) should be cropped
+    #: to fit the terminal
     auto_crop_tables = True
     #: how often to check for new packets.
     #: Defaults to 0.05s.

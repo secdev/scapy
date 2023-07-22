@@ -143,6 +143,9 @@ conf.interactive_shell = "auto"
 
 # color theme
 conf.color_theme = DefaultTheme()
+
+# force-use libpcap
+# conf.use_pcap = True
 """.strip()
 
 DEFAULT_PRESTART_FILE = _probe_config_file(".config", "scapy", "prestart.py",
@@ -531,7 +534,7 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
 def _prepare_quote(quote, author, max_len=78):
     # type: (str, str, int) -> List[str]
     """This function processes a quote and returns a string that is ready
-to be used in the fancy prompt.
+to be used in the fancy banner.
 
     """
     _quote = quote.split(' ')
@@ -584,7 +587,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
             if opt == "-h":
                 _usage()
             elif opt == "-H":
-                conf.fancy_prompt = False
+                conf.fancy_banner = False
                 conf.verb = 1
                 conf.logLevel = logging.WARNING
             elif opt == "-s":
@@ -628,7 +631,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
             _locals=SESSION
         )
 
-    if conf.fancy_prompt:
+    if conf.fancy_banner:
         from scapy.utils import get_terminal_width
         mini_banner = (get_terminal_width() or 84) <= 75
 
@@ -853,7 +856,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
             ptpython_version = " " + version('ptpython')
         except ImportError:
             ptpython_version = ""
-        banner = banner_text + " using ptpython%s\n" % ptpython_version
+        banner = banner_text + " using ptpython%s" % ptpython_version
         from ptpython.repl import embed
         # ptpython has no banner option
         print(banner)
@@ -867,7 +870,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
     elif conf.interactive_shell == "bpython":
         import bpython
         from bpython.curtsies import main as embed
-        banner = banner_text + " using bpython %s\n" % bpython.__version__
+        banner = banner_text + " using bpython %s" % bpython.__version__
         embed(
             args=["-q", "-i"],
             locals_=SESSION,
