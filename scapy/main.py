@@ -141,7 +141,7 @@ DEFAULT_PRESTART = """
 # default interpreter
 conf.interactive_shell = "auto"
 
-# color theme
+# color theme (DefaultTheme, BrightTheme, ColorOnBlackTheme, BlackAndWhite, ...)
 conf.color_theme = DefaultTheme()
 
 # force-use libpcap
