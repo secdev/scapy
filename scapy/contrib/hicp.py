@@ -38,7 +38,7 @@ CMD_WINK = b"Wink"
 CMD_START = b"Start"
 CMD_STOP = b"Stop"
 
-# Most of the fiels have the format "KEY = value" for each field
+# Most of the fields have the format "KEY = value" for each field
 KEYS = {
     "protocol_version": "Protocol version",
     "fieldbus_type": "FB type",
