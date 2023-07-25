@@ -430,7 +430,7 @@ def server():
 server_thread = threading.Thread(target=server)
 server_thread.start()
 server_up.wait(timeout=1)
-sock = DoIPSocket(activate_routing=False)
+sock = DoIPSocket6(activate_routing=False)
 
 pkts = sock.sniff(timeout=1, count=2)
 assert len(pkts) == 2
