@@ -3171,7 +3171,8 @@ class FlagsField(_BitField[Optional[Union[int, FlagValue]]]):
                  name,  # type: str
                  default,  # type: Optional[Union[int, FlagValue]]
                  size,  # type: int
-                 names  # type: Union[List[str], str, Dict[int, str]]
+                 names,     # type: Union[List[str], str, Dict[int, str]]
+                 **kwargs   # type: Any
                  ):
         # type: (...) -> None
         # Convert the dict to a list
@@ -3182,7 +3183,7 @@ class FlagsField(_BitField[Optional[Union[int, FlagValue]]]):
             names = tmp
         # Store the names as str or list
         self.names = names
-        super(FlagsField, self).__init__(name, default, size)
+        super(FlagsField, self).__init__(name, default, size, **kwargs)
 
     def _fixup_val(self, x):
         # type: (Any) -> Optional[FlagValue]
