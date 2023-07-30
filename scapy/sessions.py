@@ -96,10 +96,16 @@ class DefaultSession(object):
         else:
             return PacketList(self.lst, "Sniffed")
 
+    def recv(self, sock):
+        # type: (SuperSocket) -> Optional[Packet]
+        """
+        Will be called by sniff() to ask for a packet
+        """
+        return sock.recv()
+
     def on_packet_received(self, pkt):
         # type: (Optional[Packet]) -> None
-        """DEV: entry point. Will be called by sniff() for each
-        received packet (that passes the filters).
+        """DEV: entry point. Actions to do on a packet
         """
         if not pkt:
             return
@@ -129,7 +135,7 @@ class IPSession(DefaultSession):
     def _ip_process_packet(self, packet):
         # type: (Packet) -> Optional[Packet]
         from scapy.layers.inet import _defrag_ip_pkt
-        return _defrag_ip_pkt(packet, self.fragments)[1]
+        return _defrag_ip_pkt(packet, self.fragments)[1]  # type: ignore
 
     def on_packet_received(self, pkt):
         # type: (Optional[Packet]) -> None
@@ -154,13 +160,22 @@ class StringBuffer(object):
         # type: () -> None
         self.content = bytearray(b"")
         self.content_len = 0
+        self.noff = 0  # negative offset
         self.incomplete = []  # type: List[Tuple[int, int]]
 
     def append(self, data, seq):
         # type: (bytes, int) -> None
         data_len = len(data)
-        seq = seq - 1
+        seq = seq - 1 - self.noff
+        if seq < 0:
+            # Data is located before the start of the current buffer
+            # (e.g. the first fragment was missing)
+            self.content = bytearray(b"\x00" * (-seq)) + self.content
+            self.content_len += (-seq)
+            self.noff += seq
+            seq = 0
         if seq + data_len > self.content_len:
+            # Data is located after the end of the current buffer
             self.content += b"\x00" * (seq - self.content_len + data_len)
             # If data was missing, mark it.
             self.incomplete.append((self.content_len, seq))
@@ -246,6 +261,11 @@ class TCPSession(IPSession):
             self.tcp_sessions = defaultdict(
                 dict
             )  # type: DefaultDict[bytes, Dict[str, Any]]
+        # Setup stopping dissection condition
+        from scapy.layers.inet import TCP
+        self.stop_payload_dissection = (
+            lambda x, cls: isinstance(x, TCP) and hasattr(cls, "tcp_reassemble")
+        )
 
     def _get_ident(self, pkt, session=False):
         # type: (Packet, bool) -> bytes
@@ -301,7 +321,7 @@ class TCPSession(IPSession):
         tcp_session = self.tcp_sessions[self._get_ident(pkt, True)]
         # Let's guess which class is going to be used
         if "pay_class" not in metadata:
-            pay_class = pay.__class__
+            pay_class = pkt[TCP].guess_payload_class(new_data)
             if hasattr(pay_class, "tcp_reassemble"):
                 tcp_reassemble = pay_class.tcp_reassemble
             else:
@@ -374,3 +394,10 @@ class TCPSession(IPSession):
         # Now handle TCP reassembly
         pkt = self._process_packet(pkt)
         DefaultSession.on_packet_received(self, pkt)
+
+    def recv(self, sock):
+        # type: (SuperSocket) -> Optional[Packet]
+        """
+        Will be called by sniff() to ask for a packet
+        """
+        return sock.recv(stop_payload_dissection=self.stop_payload_dissection)

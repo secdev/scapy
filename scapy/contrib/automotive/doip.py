@@ -33,6 +33,7 @@ from scapy.contrib.automotive.uds import UDS
 from scapy.data import MTU
 
 from typing import (
+    Any,
     Union,
     Tuple,
     Optional,
@@ -294,8 +295,8 @@ class DoIPSocket(StreamSocket):
             self._activate_routing(
                 source_address, target_address, activation_type, reserved_oem)
 
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
+    def recv(self, x=MTU, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
         if self.buffer:
             len_data = self.buffer[:8]
         else:
@@ -310,7 +311,7 @@ class DoIPSocket(StreamSocket):
         if len(self.buffer) != len_int:
             return None
 
-        pkt = self.basecls(self.buffer)  # type: Packet
+        pkt = self.basecls(self.buffer, **kwargs)  # type: Packet
         self.buffer = b""
         return pkt
 
@@ -407,9 +408,9 @@ class UDS_DoIPSocket(DoIPSocket):
 
         return super(UDS_DoIPSocket, self).send(pkt)
 
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
-        pkt = super(UDS_DoIPSocket, self).recv(x)
+    def recv(self, x=MTU, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
+        pkt = super(UDS_DoIPSocket, self).recv(x, **kwargs)
         if pkt and pkt.payload_type == 0x8001:
             return pkt.payload
         else:

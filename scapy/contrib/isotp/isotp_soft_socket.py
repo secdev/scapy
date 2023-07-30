@@ -186,9 +186,9 @@ class ISOTPSoftSocket(SuperSocket):
                 return self.basecls, tup[0], float(tup[1])
         return self.basecls, None, None
 
-    def recv(self, x=0xffff):
-        # type: (int) -> Optional[Packet]
-        msg = super(ISOTPSoftSocket, self).recv(x)
+    def recv(self, x=0xffff, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
+        msg = super(ISOTPSoftSocket, self).recv(x, **kwargs)
         if msg is None:
             return None
 

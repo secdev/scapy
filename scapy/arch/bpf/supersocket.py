@@ -425,9 +425,9 @@ class L2bpfSocket(L2bpfListenSocket):
 
 class L3bpfSocket(L2bpfSocket):
 
-    def recv(self, x=BPF_BUFFER_LENGTH):
+    def recv(self, x=BPF_BUFFER_LENGTH, **kwargs):
         """Receive on layer 3"""
-        r = SuperSocket.recv(self, x)
+        r = SuperSocket.recv(self, x, **kwargs)
         if r:
             r.payload.time = r.time
             return r.payload

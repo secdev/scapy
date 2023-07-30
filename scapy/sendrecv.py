@@ -1239,7 +1239,7 @@ class AsyncSniffer(object):
                     if s is close_pipe:  # type: ignore
                         break
                     try:
-                        p = s.recv()
+                        p = session.recv(s)
                     except EOFError:
                         # End of stream
                         try:

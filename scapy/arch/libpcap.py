@@ -38,13 +38,14 @@ from scapy.utils import str2mac, decode_locale_str
 import scapy.consts
 
 from typing import (
-    cast,
+    Any,
     Dict,
     List,
     NoReturn,
     Optional,
     Tuple,
     Type,
+    cast,
 )
 
 if not scapy.consts.WINDOWS:
@@ -571,9 +572,9 @@ if conf.use_pcap:
     class L3pcapSocket(L2pcapSocket):
         desc = "read/write packets at layer 3 using only libpcap"
 
-        def recv(self, x=MTU):
-            # type: (int) -> Optional[Packet]
-            r = L2pcapSocket.recv(self, x)
+        def recv(self, x=MTU, **kwargs):
+            # type: (int, **Any) -> Optional[Packet]
+            r = L2pcapSocket.recv(self, x, **kwargs)
             if r:
                 r.payload.time = r.time
                 return r.payload

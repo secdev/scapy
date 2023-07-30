@@ -89,9 +89,12 @@ def scapy_path(fname):
 
 class no_debug_dissector:
     """Context object used to disable conf.debug_dissector"""
+    def __init__(self, reverse=False):
+        self.new_value = reverse
+
     def __enter__(self):
         self.old_dbg = conf.debug_dissector
-        conf.debug_dissector = False
+        conf.debug_dissector = self.new_value
 
     def __exit__(self, exc_type, exc_value, traceback):
         conf.debug_dissector = self.old_dbg

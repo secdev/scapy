@@ -1411,15 +1411,15 @@ class PcapReader(RawPcapReader):
         # type: () -> PcapReader
         return self
 
-    def read_packet(self, size=MTU):
-        # type: (int) -> Packet
+    def read_packet(self, size=MTU, **kwargs):
+        # type: (int, **Any) -> Packet
         rp = super(PcapReader, self)._read_packet(size=size)
         if rp is None:
             raise EOFError
         s, pkt_info = rp
 
         try:
-            p = self.LLcls(s)  # type: Packet
+            p = self.LLcls(s, **kwargs)  # type: Packet
         except KeyboardInterrupt:
             raise
         except Exception:
@@ -1436,9 +1436,9 @@ class PcapReader(RawPcapReader):
         p.wirelen = pkt_info.wirelen
         return p
 
-    def recv(self, size=MTU):  # type: ignore
-        # type: (int) -> Packet
-        return self.read_packet(size=size)
+    def recv(self, size=MTU, **kwargs):  # type: ignore
+        # type: (int, **Any) -> Packet
+        return self.read_packet(size=size, **kwargs)
 
     def __next__(self):  # type: ignore
         # type: () -> Packet
@@ -1757,15 +1757,15 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         # type: () -> PcapNgReader
         return self
 
-    def read_packet(self, size=MTU):
-        # type: (int) -> Packet
+    def read_packet(self, size=MTU, **kwargs):
+        # type: (int, **Any) -> Packet
         rp = super(PcapNgReader, self)._read_packet(size=size)
         if rp is None:
             raise EOFError
         s, (linktype, tsresol, tshigh, tslow, wirelen, comment) = rp
         try:
             cls = conf.l2types.num2layer[linktype]  # type: Type[Packet]
-            p = cls(s)  # type: Packet
+            p = cls(s, **kwargs)  # type: Packet
         except KeyboardInterrupt:
             raise
         except Exception:
@@ -2383,8 +2383,8 @@ class ERFEthernetReader(PcapReader,
 
     # The details of ERF Packet format can be see here:
     # https://www.endace.com/erf-extensible-record-format-types.pdf
-    def read_packet(self, size=MTU):
-        # type: (int) -> Packet
+    def read_packet(self, size=MTU, **kwargs):
+        # type: (int, **Any) -> Packet
 
         # General ERF Header have exactly 16 bytes
         hdr = self.f.read(16)
@@ -2414,7 +2414,7 @@ class ERFEthernetReader(PcapReader,
         pb = s[2:size]
         from scapy.layers.l2 import Ether
         try:
-            p = Ether(pb)  # type: Packet
+            p = Ether(pb, **kwargs)  # type: Packet
         except KeyboardInterrupt:
             raise
         except Exception:
