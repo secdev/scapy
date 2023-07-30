@@ -624,24 +624,7 @@ class IP(Packet, IPTools):
 
     def fragment(self, fragsize=1480):
         """Fragment IP datagrams"""
-        fragsize = (fragsize + 7) // 8 * 8
-        lst = []
-        for p in self:
-            s = raw(p[IP].payload)
-            nb = (len(s) + fragsize - 1) // fragsize
-            for i in range(nb):
-                q = p.copy()
-                del q.payload
-                del q.chksum
-                del q.len
-                if i != nb - 1:
-                    q.flags |= 1
-                q.frag += i * fragsize // 8
-                r = conf.raw_layer(load=s[i * fragsize:(i + 1) * fragsize])
-                r.overload_fields = p.payload.overload_fields.copy()
-                q.add_payload(r)
-                lst.append(q)
-        return lst
+        return fragment(self, fragsize=fragsize)
 
 
 def in4_pseudoheader(proto, u, plen):
@@ -1130,6 +1113,9 @@ conf.neighbor.register_l3(Dot3, IP, inet_register_l3)
 @conf.commands.register
 def fragment(pkt, fragsize=1480):
     """Fragment a big IP datagram"""
+    if fragsize < 8:
+        warning("fragsize cannot be lower than 8")
+        fragsize = max(fragsize, 8)
     lastfragsz = fragsize
     fragsize -= fragsize % 8
     lst = []
