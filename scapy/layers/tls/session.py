@@ -18,7 +18,7 @@ from scapy.compat import raw
 from scapy.error import log_runtime, warning
 from scapy.packet import Packet
 from scapy.pton_ntop import inet_pton
-from scapy.sessions import DefaultSession
+from scapy.sessions import TCPSession
 from scapy.utils import repr_hex, strxor
 from scapy.layers.inet import TCP
 from scapy.layers.tls.crypto.compression import Comp_NULL
@@ -903,12 +903,19 @@ class tlsSession(object):
 
         return False
 
-    def __repr__(self):
+    def repr(self, _underlayer=None):
         sid = repr(self.sid)
         if len(sid) > 12:
             sid = sid[:11] + "..."
+        if _underlayer and _underlayer.dport != self.dport:
+                return "%s:%s > %s:%s" % (self.ipdst, str(self.dport),
+                                          self.ipsrc, str(self.sport))
         return "%s:%s > %s:%s" % (self.ipsrc, str(self.sport),
                                   self.ipdst, str(self.dport))
+
+    def __repr__(self):
+        return self.repr()
+
 
 ###############################################################################
 #   Session singleton                                                         #
@@ -1079,25 +1086,41 @@ class _GenericTLSSessionInheritance(Packet):
         s.rcs = rcs_snap
         s.wcs = wcs_snap
 
-    def mysummary(self):
-        return "TLS %s / %s" % (repr(self.tls_session),
-                                getattr(self, "_name", self.name))
+    def mysummary(self, first=True):
+        from scapy.layers.tls.record import TLS
+        from scapy.layers.tls.record_tls13 import TLS13
+        if (
+            self.underlayer and
+            isinstance(self.underlayer, _GenericTLSSessionInheritance)
+        ):
+            summary = getattr(self, "_name", self.name)
+        else:
+            _underlayer = None
+            if self.underlayer and isinstance(self.underlayer, TCP):
+                _underlayer = self.underlayer
+            summary = "TLS %s / %s" % (
+                self.tls_session.repr(_underlayer=_underlayer),
+                getattr(self, "_name", self.name)
+            )
+        return summary, [TLS, TLS13]
 
     @classmethod
     def tcp_reassemble(cls, data, metadata, session):
-        # Used with TLSSession
+        # Used with TCPSession
         from scapy.layers.tls.record import TLS
         from scapy.layers.tls.record_tls13 import TLS13
         if cls in (TLS, TLS13):
-            length = struct.unpack("!H", data[3:5])[0] + 5
+            length = 0
+            curdata = data
+            while len(curdata) > 5:
+                clength = struct.unpack("!H", curdata[3:5])[0] + 5
+                curdata = curdata[clength:]
+                length += clength
             if len(data) == length:
-                return cls(data)
-            elif len(data) > length:
-                pkt = cls(data)
-                if hasattr(pkt.payload, "tcp_reassemble"):
-                    return pkt.payload.tcp_reassemble(data[length:], metadata, session)
-                else:
-                    return pkt
+                # get the underlayer as it is used to populate tls_session
+                underlayer = metadata["original"][TCP].copy()
+                underlayer.remove_payload()
+                return cls(data, _underlayer=underlayer)
         else:
             return cls(data)
 
@@ -1162,8 +1185,13 @@ class _tls_sessions(object):
         return "\n".join(map(lambda x: fmt % x, res))
 
 
-class TLSSession(DefaultSession):
+class TLSSession(TCPSession):
     def __init__(self, *args, **kwargs):
+        # XXX this doesn't bring any value.
+        warning(
+            "TLSSession is deprecated and will be removed in a future version. "
+            "Please use TCPSession instead with conf.tls_session_enable=True"
+        )
         server_rsa_key = kwargs.pop("server_rsa_key", None)
         super(TLSSession, self).__init__(*args, **kwargs)
         self._old_conf_status = conf.tls_session_enable

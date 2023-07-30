@@ -355,6 +355,7 @@ class TCPSession(IPSession):
         packet = None  # type: Optional[Packet]
         if data.full():
             # Reassemble using all previous packets
+            metadata["original"] = pkt
             packet = tcp_reassemble(
                 bytes(data),
                 metadata,

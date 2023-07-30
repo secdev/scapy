@@ -1590,3 +1590,28 @@ if shutil.which("editcap"):
     assert b"GET /secret.txt HTTP/1.0\n" in packets[11].msg[0].data
     assert b"z2|gxarIKOxt,G1d>.Q2MzGY[k@" in packets[13].msg[0].data
     conf = bck_conf
+
+= pcap file & external TLS Key Log file with TCPSession
+* GH3722
+
+load_layer("tls")
+from scapy.tools.UTscapy import scapy_path
+
+# Write SSLKEYLOGFILE
+temp_sslkeylog = get_temp_file()
+with open(temp_sslkeylog, "w") as fd:
+    fd.write("CLIENT_RANDOM 09F91DA01B1FEB50B691C932959111E5E1D676437F7A42DE47EA881F6295D4E7 EE119869B732F0F9561FFDD95E50A2ACBF268EE0C7C33B409E68C1972E0B280944F7345E845E82F909CCFEB61C456E1F\n")
+
+bck_conf = conf
+conf.tls_session_enable = True
+conf.tls_nss_filename = temp_sslkeylog
+
+packets = sniff(offline=scapy_path("test/pcaps/tls_tcp_frag_withnss.pcap.gz"), session=TCPSession)
+
+# XXXXXXXXXXXXXXXXXX
+# WIP WIP WIP
+# DO NOT MERGE
+# WIP WIP WIP
+# XXXXXXXXXXXXXXXXXX
+
+conf = bck_conf

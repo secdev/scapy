@@ -223,3 +223,10 @@ class TLS13(_GenericTLSSessionInheritance):
             self.tls_session.triggered_pwcs_commit = False
 
         return hdr + frag + pay
+
+    def mysummary(self):
+        s, n = super(TLS13, self).mysummary()
+        if self.inner and self.inner.msg:
+            s += " / "
+            s += " / ".join(getattr(x, "_name", x.name) for x in self.inner.msg)
+        return s, n

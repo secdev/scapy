@@ -40,14 +40,6 @@ from scapy.layers.tls.crypto.h_mac import HMACError
 if conf.crypto_valid_advanced:
     from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 
-# Util
-
-
-def _tls_version_check(version, min):
-    """Returns if version >= min, or False if version == None"""
-    if version is None:
-        return False
-    return version >= min
 
 ###############################################################################
 #   TLS Record Protocol                                                       #
@@ -216,7 +208,7 @@ class _TLSMsgListField(PacketListField):
         # Add TLS13ClientHello in case of HelloRetryRequest
         # Add ChangeCipherSpec for middlebox compatibility
         if (isinstance(pkt, _GenericTLSSessionInheritance) and
-                _tls_version_check(pkt.tls_session.tls_version, 0x0304) and
+                pkt.tls_session.tls_version == 0x0304 and
                 not isinstance(pkt.msg[0], TLS13ServerHello) and
                 not isinstance(pkt.msg[0], TLS13ClientHello) and
                 not isinstance(pkt.msg[0], TLSChangeCipherSpec)):
@@ -337,7 +329,7 @@ class TLS(_GenericTLSSessionInheritance):
                     # Not SSLv2: continuation
                     return _TLSEncryptedContent
                 # Check TLS 1.3
-                if s and _tls_version_check(s.tls_version, 0x0304):
+                if s and s.tls_version == 0x0304:
                     _has_cipher = lambda x: (
                         x and not isinstance(x.cipher, Cipher_NULL)
                     )
@@ -734,11 +726,11 @@ class TLS(_GenericTLSSessionInheritance):
         return hdr + efrag + pay
 
     def mysummary(self):
-        s = super(TLS, self).mysummary()
+        s, n = super(TLS, self).mysummary()
         if self.msg:
             s += " / "
             s += " / ".join(getattr(x, "_name", x.name) for x in self.msg)
-        return s
+        return s, n
 
 ###############################################################################
 #   TLS ChangeCipherSpec                                                      #
