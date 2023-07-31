@@ -27,30 +27,13 @@ some features will not be available::
 
 The basic features of sending and receiving packets should still work, though. 
 
-
-Customizing the Terminal
-------------------------
-
-Before you actually start using Scapy, you may want to configure Scapy to properly render colors on your terminal. To do so, set ``conf.color_theme`` to one of of the following themes::
-
-    DefaultTheme, BrightTheme, RastaTheme, ColorOnBlackTheme, BlackAndWhite, HTMLTheme, LatexTheme
-
-For instance::
-
-    conf.color_theme = BrightTheme()
-
-.. image:: graphics/animations/animation-scapy-themes-demo.gif
-   :align: center
-
-Other parameters such as ``conf.prompt`` can also provide some customization. Note Scapy will update the shell automatically as soon as the ``conf`` values are changed.
-
-
 Interactive tutorial
 ====================
 
 This section will show you several of Scapy's features with Python 2.
 Just open a Scapy session as shown above and try the examples yourself.
 
+.. note:: You can configure the Scapy terminal by modifying the ``~/.config/scapy/prestart.py`` file.
 
 First steps
 -----------

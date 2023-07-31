@@ -712,8 +712,11 @@ class Conf(ConfClass):
     version = ReadOnlyAttribute("version", VERSION)
     session = ""  #: filename where the session will be saved
     interactive = False
-    #: can be "ipython", "python" or "auto". Default: Auto
-    interactive_shell = ""
+    #: can be "ipython", "bpython", "ptpython", "ptipython", "python" or "auto".
+    #: Default: Auto
+    interactive_shell = "auto"
+    #: Configuration for "ipython" to use jedi (disabled by default)
+    ipython_use_jedi = False
     #: if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
     stealth = "not implemented"
     #: selects the default output interface for srp() and sendp().
@@ -768,7 +771,8 @@ class Conf(ConfClass):
     #: history file
     histfile = os.getenv('SCAPY_HISTFILE',
                          os.path.join(os.path.expanduser("~"),
-                                      ".scapy_history"))
+                                      ".config", "scapy",
+                                      "history"))
     #: includes padding in disassembled packets
     padding = 1
     #: BPF filter for packets to ignore
@@ -889,7 +893,10 @@ class Conf(ConfClass):
     contribs = dict()  # type: Dict[str, Any]
     crypto_valid = isCryptographyValid()
     crypto_valid_advanced = isCryptographyAdvanced()
-    fancy_prompt = True
+    #: controls whether or not to display the fancy banner
+    fancy_banner = True
+    #: controls whether tables (conf.iface, conf.route...) should be cropped
+    #: to fit the terminal
     auto_crop_tables = True
     #: how often to check for new packets.
     #: Defaults to 0.05s.
