@@ -10,6 +10,7 @@ TLS session handler.
 """
 
 import binascii
+import collections
 import socket
 import struct
 
@@ -34,7 +35,8 @@ def load_nss_keys(filename):
     """
     Parses a NSS Keys log and returns unpacked keys in a dictionary.
     """
-    keys = {}
+    # http://udn.realityripple.com/docs/Mozilla/Projects/NSS/Key_Log_Format
+    keys = collections.defaultdict(dict)
     try:
         fd = open(filename)
         fd.close()
@@ -65,11 +67,10 @@ def load_nss_keys(filename):
 
                 # Warn that a duplicated entry was detected. The latest one
                 # will be kept in the resulting dictionary.
-                if data[0] in keys:
+                if client_random in keys[data[0]]:
                     warning("Duplicated entry for %s !", data[0])
 
-                keys[data[0]] = {"ClientRandom": client_random,
-                                 "Secret": secret}
+                keys[data[0]][client_random] = secret
         return keys
 
 
@@ -598,12 +599,16 @@ class tlsSession(object):
         if conf.debug_tls:
             log_runtime.debug("TLS: master secret: %s", repr_hex(ms))
 
-    def compute_ms_and_derive_keys(self):
+    def use_nss_master_secret_if_present(self) -> bool:
         # Load the master secret from an NSS Key dictionary
-        if self.nss_keys and self.nss_keys.get("CLIENT_RANDOM", False) and \
-           self.nss_keys["CLIENT_RANDOM"].get("Secret", False):
-            self.master_secret = self.nss_keys["CLIENT_RANDOM"]["Secret"]
+        if not self.nss_keys or "CLIENT_RANDOM" not in self.nss_keys:
+            return False
+        if self.client_random in self.nss_keys["CLIENT_RANDOM"]:
+            self.master_secret = self.nss_keys["CLIENT_RANDOM"][self.client_random]
+            return True
+        return False
 
+    def compute_ms_and_derive_keys(self):
         if not self.master_secret:
             self.compute_master_secret()
 
@@ -908,8 +913,8 @@ class tlsSession(object):
         if len(sid) > 12:
             sid = sid[:11] + "..."
         if _underlayer and _underlayer.dport != self.dport:
-                return "%s:%s > %s:%s" % (self.ipdst, str(self.dport),
-                                          self.ipsrc, str(self.sport))
+            return "%s:%s > %s:%s" % (self.ipdst, str(self.dport),
+                                      self.ipsrc, str(self.sport))
         return "%s:%s > %s:%s" % (self.ipsrc, str(self.sport),
                                   self.ipdst, str(self.dport))
 
@@ -1163,10 +1168,10 @@ class _tls_sessions(object):
         if h in self.sessions:
             for k in self.sessions[h]:
                 if k.eq(session):
-                    if conf.tls_verbose:
+                    if conf.debug_tls:
                         log_runtime.info("TLS: found session matching %s", k)
                     return k
-        if conf.tls_verbose:
+        if conf.debug_tls:
             log_runtime.info("TLS: did not find session matching %s", session)
         return None
 
@@ -1204,10 +1209,5 @@ class TLSSession(TCPSession):
         return super(TLSSession, self).toPacketList()
 
 
+# Instantiate the TLS sessions holder
 conf.tls_sessions = _tls_sessions()
-conf.tls_session_enable = False
-conf.tls_verbose = False
-# Filename containing NSS Keys Log
-conf.tls_nss_filename = None
-# Dictionary containing parsed NSS Keys
-conf.tls_nss_keys = None

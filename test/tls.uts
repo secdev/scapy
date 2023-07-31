@@ -1591,11 +1591,8 @@ if shutil.which("editcap"):
     assert b"z2|gxarIKOxt,G1d>.Q2MzGY[k@" in packets[13].msg[0].data
     conf = bck_conf
 
-= pcap file & external TLS Key Log file with TCPSession
+= pcap file & external TLS Key Log file with TCPSession (without extms)
 * GH3722
-
-load_layer("tls")
-from scapy.tools.UTscapy import scapy_path
 
 # Write SSLKEYLOGFILE
 temp_sslkeylog = get_temp_file()
@@ -1607,11 +1604,17 @@ conf.tls_session_enable = True
 conf.tls_nss_filename = temp_sslkeylog
 
 packets = sniff(offline=scapy_path("test/pcaps/tls_tcp_frag_withnss.pcap.gz"), session=TCPSession)
+packets.show()
 
-# XXXXXXXXXXXXXXXXXX
-# WIP WIP WIP
-# DO NOT MERGE
-# WIP WIP WIP
-# XXXXXXXXXXXXXXXXXX
+assert packets[7].getlayer(TLS, 3).msg[0].msgtype == 20
+assert packets[7].getlayer(TLS, 3).msg[0].vdata == b'\n\xd4`\xf0\xd9X\x02\x10Z\x81\xf4l'
+assert packets[9].getlayer(TLS, 3).msg[0].msgtype == 20
+assert packets[9].getlayer(TLS, 3).msg[0].vdata == b'\xa6>f\xd8\xacf\x99| \xbd<\xa1'
+assert packets[10].msg[0].data == b'GET /uuid HTTP/1.1\r\nUser-Agent: Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.22000.832\r\nHost: httpbin.org\r\nConnection: Keep-Alive\r\n\r\n'
+assert packets[12].msg[0].data == b'HTTP/1.1 200 OK\r\nDate: Sat, 20 Aug 2022 22:32:24 GMT\r\nContent-Type: application/json\r\nContent-Length: 53\r\nConnection: keep-alive\r\nServer: gunicorn/19.9.0\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Credentials: true\r\n\r\n{\n  "uuid": "5bad226d-504a-4416-a11a-8a5f8edbdbbd"\n}\n'
+
+# Test summary()
+assert packets[5].summary() == 'Ether / IP / TCP / TLS 52.87.105.151:443 > 10.211.55.3:51933 / TLS / TLS 1.3 Handshake - Server Hello / TLS / TLS Handshake - Certificate / TLS / TLS Handshake - Server Key Exchange / TLS / TLS Handshake - Server Hello Done'
+assert packets[7].summary() == 'Ether / IP / TCP / TLS 10.211.55.3:51933 > 52.87.105.151:443 / TLS / TLS Handshake - Client Key Exchange / TLS / TLS ChangeCipherSpec / TLS / TLS Handshake - Finished'
 
 conf = bck_conf

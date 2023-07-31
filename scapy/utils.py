@@ -1720,7 +1720,7 @@ class RawPcapNgReader(RawPcapReader):
 
         # TLS Key Log
         if secrets_type == 0x544c534b:
-            if getattr(conf, "tls_nss_keys", False) is False:
+            if getattr(conf, "tls_sessions", False) is False:
                 warning("PcapNg: TLS Key Log available, but "
                         "the TLS layer is not loaded! Scapy won't be able "
                         "to decrypt the packets.")
@@ -1739,8 +1739,8 @@ class RawPcapNgReader(RawPcapReader):
                 else:
                     # Note: these attributes are only available when the TLS
                     #       layer is loaded.
-                    conf.tls_nss_keys = keys  # type: ignore
-                    conf.tls_session_enable = True  # type: ignore
+                    conf.tls_nss_keys = keys
+                    conf.tls_session_enable = True
         else:
             warning("PcapNg: Unknown DSB secrets type (0x%x)!", secrets_type)
 

@@ -1329,7 +1329,14 @@ class TLSClientKeyExchange(_TLSHandshake):
                 self.tls_session.session_hash = (
                     Hash_MD5().digest(to_hash) + Hash_SHA().digest(to_hash)
                 )
-            self.tls_session.compute_ms_and_derive_keys()
+            if self.tls_session.pre_master_secret:
+                self.tls_session.compute_ms_and_derive_keys()
+
+        if not self.tls_session.master_secret:
+            # There are still no master secret (we're just passive)
+            if self.tls_session.use_nss_master_secret_if_present():
+                # we have a NSS file
+                self.tls_session.compute_ms_and_derive_keys()
 
 
 ###############################################################################
