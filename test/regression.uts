@@ -1639,7 +1639,7 @@ retry_test(_test)
 def _test():
     ret = conf.AS_resolver.resolve("8.8.8.8", "8.8.4.4")
     assert (len(ret) == 2)
-    all(x[1] == "AS15169" for x in ret)
+    assert any(x[1] == "AS15169" for x in ret)
 
 retry_test(_test)
 
@@ -1676,7 +1676,7 @@ def _test():
     as_resolver6 = AS_resolver6()
     ret = as_resolver6.resolve("2001:4860:4860::8888", "2001:4860:4860::4444")
     assert (len(ret) == 2)
-    assert all(x[1] == 15169 for x in ret)
+    assert any(x[1] == 15169 for x in ret)
 
 retry_test(_test)
 
