@@ -82,6 +82,12 @@ sniff(offline=tmp_file, session=IPSession, prn=callback)
 assert len(dissected_packets) == 1
 assert raw(dissected_packets[0]) == raw(packet)
 
+= IPSession - contains non-IP packets
+
+pkts = fragment(IP(dst="10.0.0.5")/ICMP()/("X"*1500))
+pkts.insert(1, ARP())
+assert len(sniff(offline=pkts, session=IPSession)) == 2
+
 = StringBuffer
 
 buffer = StringBuffer()

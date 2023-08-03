@@ -134,7 +134,9 @@ class IPSession(DefaultSession):
 
     def _ip_process_packet(self, packet):
         # type: (Packet) -> Optional[Packet]
-        from scapy.layers.inet import _defrag_ip_pkt
+        from scapy.layers.inet import IP, _defrag_ip_pkt
+        if IP not in packet:
+            return packet
         return _defrag_ip_pkt(packet, self.fragments)[1]  # type: ignore
 
     def on_packet_received(self, pkt):
