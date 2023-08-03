@@ -5,6 +5,7 @@ ba
 byteorder
 cace
 cas
+componet
 cros
 delt
 doas
@@ -14,6 +15,7 @@ ether
 eventtypes
 fo
 gost
+hart
 iff
 inout
 microsof
