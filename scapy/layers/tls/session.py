@@ -369,6 +369,9 @@ class tlsSession(object):
         self.dport = dport
         self.sid = sid
 
+        # Identify duplicate sessions
+        self.firsttcp = None
+
         # Our TCP socket. None until we send (or receive) a packet.
         self.sock = None
 
@@ -542,6 +545,8 @@ class tlsSession(object):
                 self.ipdst = tcp.underlayer.dst
             except AttributeError:
                 pass
+            if self.firsttcp is None:
+                self.firsttcp = tcp.seq
 
     # Mirroring
 
@@ -971,7 +976,7 @@ class _GenericTLSSessionInheritance(Packet):
         self.wcs_snap_init = self.tls_session.wcs.snapshot()
 
         if isinstance(_underlayer, TCP):
-            # Get informations from _underlayer
+            # Get information from _underlayer
             self.tls_session.set_underlayer(_underlayer)
 
             # Load a NSS Key Log file
@@ -1138,8 +1143,16 @@ class _GenericTLSSessionInheritance(Packet):
                     s = tlsSession()
                     s.set_underlayer(underlayer)
                     tls_session = conf.tls_sessions.find(s)
-                    if tls_session and tls_session.dport != underlayer.dport:
-                        tls_session = tls_session.mirror()
+                    if tls_session:
+                        if tls_session.dport != underlayer.dport:
+                            tls_session = tls_session.mirror()
+                        if tls_session.firsttcp == underlayer.seq:
+                            log_runtime.info(
+                                "TLS: session %s is a duplicate of a previous "
+                                "dissection. Discard it" % repr(tls_session)
+                            )
+                            conf.tls_sessions.rem(tls_session, force=True)
+                            tls_session = None
                 return cls(data, _underlayer=underlayer, tls_session=tls_session)
         else:
             return cls(data)
@@ -1166,11 +1179,12 @@ class _tls_sessions(object):
         else:
             self.sessions[h] = [session]
 
-    def rem(self, session):
-        s = self.find(session)
-        if s:
-            log_runtime.info("TLS: previous session shall not be overwritten")
-            return
+    def rem(self, session, force=False):
+        if not force:
+            s = self.find(session)
+            if s:
+                log_runtime.info("TLS: previous session shall not be overwritten")
+                return
 
         h = session.hash()
         self.sessions[h].remove(session)

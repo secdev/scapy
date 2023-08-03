@@ -1206,13 +1206,18 @@ assert isinstance(t.msg[0], TLSApplicationData)
 assert t.msg[0].data == b""
 t.getlayer(TLS, 2).msg[0].data == b"To boldly go where no man has gone before...\n"
 
-= Auto provide the session
+= Auto-provide the session: use TCPSession with conf.tls_session_enable
 
 conf.debug_dissector = 2
+
+conf.tls_session_enable = True
+conf.tls_sessions.server_rsa_key = key
+
 client = "192.168.0.1"
 server = "1.2.3.4"
-bc = Ether()/IP(src=client, dst=server)/TCP(sport=51478, dport=443, seq=1)
-bs = Ether()/IP(src=server, dst=client)/TCP(sport=443, dport=51478, seq=1)
+bc = Ether()/IP(src=client, dst=server)/TCP(sport=51478, dport=443, seq=RandShort())
+bs = Ether()/IP(src=server, dst=client)/TCP(sport=443, dport=51478, seq=RandShort())
+
 pcap = [
     bc/ch,
     bs/sh,
@@ -1220,11 +1225,12 @@ pcap = [
     bs/fin,
     bc/data
 ]
-res = sniff(offline=pcap, session=TLSSession(server_rsa_key=key))
+res = sniff(offline=pcap, session=TCPSession)
 
 res[4].show()
 assert res[4].getlayer(TLS, 2).msg[0].data == b"To boldly go where no man has gone before...\n"
 
+conf.tls_session_enable = False
 
 ###############################################################################
 ############################## Building packets ###############################
