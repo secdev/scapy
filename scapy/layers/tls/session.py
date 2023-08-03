@@ -530,6 +530,19 @@ class tlsSession(object):
                 self.pwcs.connection_end = val
         super(tlsSession, self).__setattr__(name, val)
 
+    # Get infos from underlayer
+
+    def set_underlayer(self, _underlayer):
+        if isinstance(_underlayer, TCP):
+            tcp = _underlayer
+            self.sport = tcp.sport
+            self.dport = tcp.dport
+            try:
+                self.ipsrc = tcp.underlayer.src
+                self.ipdst = tcp.underlayer.dst
+            except AttributeError:
+                pass
+
     # Mirroring
 
     def mirror(self):
@@ -958,14 +971,8 @@ class _GenericTLSSessionInheritance(Packet):
         self.wcs_snap_init = self.tls_session.wcs.snapshot()
 
         if isinstance(_underlayer, TCP):
-            tcp = _underlayer
-            self.tls_session.sport = tcp.sport
-            self.tls_session.dport = tcp.dport
-            try:
-                self.tls_session.ipsrc = tcp.underlayer.src
-                self.tls_session.ipdst = tcp.underlayer.dst
-            except AttributeError:
-                pass
+            # Get informations from _underlayer
+            self.tls_session.set_underlayer(_underlayer)
 
             # Load a NSS Key Log file
             if conf.tls_nss_filename is not None:
@@ -1125,7 +1132,15 @@ class _GenericTLSSessionInheritance(Packet):
                 # get the underlayer as it is used to populate tls_session
                 underlayer = metadata["original"][TCP].copy()
                 underlayer.remove_payload()
-                return cls(data, _underlayer=underlayer)
+                # eventually get the tls_session now for TLS.dispatch_hook
+                tls_session = None
+                if conf.tls_session_enable:
+                    s = tlsSession()
+                    s.set_underlayer(underlayer)
+                    tls_session = conf.tls_sessions.find(s)
+                    if tls_session and tls_session.dport != underlayer.dport:
+                        tls_session = tls_session.mirror()
+                return cls(data, _underlayer=underlayer, tls_session=tls_session)
         else:
             return cls(data)
 
