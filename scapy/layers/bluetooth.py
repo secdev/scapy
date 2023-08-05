@@ -25,6 +25,7 @@ from scapy.data import (
 from scapy.packet import bind_layers, Packet
 from scapy.fields import (
     BitField,
+    XBitField,
     ByteEnumField,
     ByteField,
     FieldLenField,
@@ -898,11 +899,16 @@ class EIR_ServiceData16BitUUID(EIR_Element):
 
 class HCI_Command_Hdr(Packet):
     name = "HCI Command header"
-    fields_desc = [XLEShortField("opcode", 0),
+    fields_desc = [XBitField("ogf", 0, 6, tot_size=-2),
+                   XBitField("ocf", 0, 10, end_tot_size=-2),
                    LenField("len", None, fmt="B"), ]
 
     def answers(self, other):
         return False
+
+    @property
+    def opcode(self):
+        return (self.ogf << 10) + self.ocf
 
     def post_build(self, p, pay):
         p += pay
@@ -1290,39 +1296,43 @@ conf.l2types.register(DLT_BLUETOOTH_HCI_H4, HCI_Hdr)
 conf.l2types.register(DLT_BLUETOOTH_HCI_H4_WITH_PHDR, HCI_PHDR_Hdr)
 conf.l2types.register(DLT_BLUETOOTH_LINUX_MONITOR, BT_Mon_Pcap_Hdr)
 
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Create_Connection, opcode=0x0405)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Disconnect, opcode=0x0406)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Link_Key_Request_Reply, opcode=0x040b)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Authentication_Requested, opcode=0x0411)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Connection_Encryption, opcode=0x0413)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Remote_Name_Request, opcode=0x0419)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Mask, opcode=0x0c01)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Reset, opcode=0x0c03)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Filter, opcode=0x0c05)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Local_Name, opcode=0x0c13)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Connect_Accept_Timeout, opcode=0x0c16)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Extended_Inquiry_Response, opcode=0x0c52)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Host_Supported, opcode=0x0c6d)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_BD_Addr, opcode=0x1009)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Buffer_Size, opcode=0x2002)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Random_Address, opcode=0x2005)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Parameters, opcode=0x2006)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Data, opcode=0x2008)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Response_Data, opcode=0x2009)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertise_Enable, opcode=0x200a)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Parameters, opcode=0x200b)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, opcode=0x200c)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection, opcode=0x200d)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, opcode=0x200e)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_White_List_Size, opcode=0x200f)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Clear_White_List, opcode=0x2010)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Add_Device_To_White_List, opcode=0x2011)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Remove_Device_From_White_List, opcode=0x2012)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Connection_Update, opcode=0x2013)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Remote_Used_Features, opcode=0x2016)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, opcode=0x201a)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, opcode=0x201b)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Create_Connection, ogf=0x01, ocf=0x0005)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Disconnect, ogf=0x01, ocf=0x0006)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Link_Key_Request_Reply, ogf=0x01, ocf=0x000b)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Authentication_Requested, ogf=0x01, ocf=0x0011)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Connection_Encryption, ogf=0x01, ocf=0x0013)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Remote_Name_Request, ogf=0x01, ocf=0x0019)
+
+
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Mask, ogf=0x03, ocf=0x0001)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Reset, ogf=0x03, ocf=0x0003)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Filter, ogf=0x03, ocf=0x0005)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Local_Name, ogf=0x03, ocf=0x0013)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Connect_Accept_Timeout, ogf=0x03, ocf=0x0016)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Extended_Inquiry_Response, ogf=0x03, ocf=0x0052)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Host_Supported, ogf=0x03, ocf=0x006d)
+
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_BD_Addr, ogf=0x04, ocf=0x0009)
+
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Buffer_Size, ogf=0x08, ocf=0x0002)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Random_Address, ogf=0x08, ocf=0x0005)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Parameters, ogf=0x08, ocf=0x0006)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Data, ogf=0x08, ocf=0x0008)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Response_Data, ogf=0x08, ocf=0x0009)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertise_Enable, ogf=0x08, ocf=0x000a)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Parameters, ogf=0x08, ocf=0x000b)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, ogf=0x08, ocf=0x000c)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection, ogf=0x08, ocf=0x000d)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, ogf=0x08, ocf=0x000e)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_White_List_Size, ogf=0x08, ocf=0x000f)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Clear_White_List, ogf=0x08, ocf=0x0010)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Add_Device_To_White_List, ogf=0x08, ocf=0x0011)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Remove_Device_From_White_List, ogf=0x08, ocf=0x0012)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Connection_Update, ogf=0x08, ocf=0x0013)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Remote_Used_Features, ogf=0x08, ocf=0x0016)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, ogf=0x08, ocf=0x0019)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, ogf=0x08, ocf=0x001a)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, ogf=0x08, ocf=0x001b)  # noqa: E501
 
 bind_layers(HCI_Event_Hdr, HCI_Event_Connect_Complete, code=0x03)
 bind_layers(HCI_Event_Hdr, HCI_Event_Disconnection_Complete, code=0x05)
