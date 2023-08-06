@@ -3,50 +3,146 @@
 + Bluetooth tests
 
 = HCI layers
-# a huge packet with all classes in it!
-pkt = HCI_ACL_Hdr()/HCI_Cmd_Create_Connection()/HCI_Cmd_Complete_Read_BD_Addr()/HCI_Cmd_Connect_Accept_Timeout()/HCI_Cmd_Disconnect()/HCI_Cmd_LE_Connection_Update()/HCI_Cmd_LE_Create_Connection()/HCI_Cmd_LE_Create_Connection_Cancel()/HCI_Cmd_LE_Host_Supported()/HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply()/HCI_Cmd_LE_Long_Term_Key_Request_Reply()/HCI_Cmd_LE_Read_Buffer_Size()/HCI_Cmd_LE_Set_Advertise_Enable()/HCI_Cmd_LE_Set_Advertising_Data()/HCI_Cmd_LE_Set_Advertising_Parameters()/HCI_Cmd_LE_Set_Random_Address()/HCI_Cmd_LE_Set_Scan_Enable()/HCI_Cmd_LE_Set_Scan_Parameters()/HCI_Cmd_LE_Start_Encryption_Request()/HCI_Cmd_Authentication_Requested()/HCI_Cmd_Link_Key_Request_Reply()/HCI_Cmd_Read_BD_Addr()/HCI_Cmd_Remote_Name_Request()/HCI_Cmd_Reset()/HCI_Cmd_Set_Connection_Encryption()/HCI_Cmd_Set_Event_Filter()/HCI_Cmd_Set_Event_Mask()/HCI_Command_Hdr()/HCI_Event_Command_Complete()/HCI_Event_Command_Status()/HCI_Event_Connect_Complete()/HCI_Event_Disconnection_Complete()/HCI_Event_Encryption_Change()/HCI_Event_Remote_Name_Request_Complete()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_Event_Number_Of_Completed_Packets()/HCI_Hdr()/HCI_LE_Meta_Advertising_Reports()/HCI_LE_Meta_Connection_Complete()/HCI_LE_Meta_Connection_Update_Complete()/HCI_LE_Meta_Long_Term_Key_Request()
-assert HCI_ACL_Hdr in pkt.layers()
-assert HCI_Cmd_Create_Connection in pkt.layers()
-assert HCI_Cmd_Complete_Read_BD_Addr in pkt.layers()
-assert HCI_Cmd_Connect_Accept_Timeout in pkt.layers()
-assert HCI_Cmd_Disconnect in pkt.layers()
-assert HCI_Cmd_LE_Connection_Update in pkt.layers()
-assert HCI_Cmd_LE_Create_Connection in pkt.layers()
-assert HCI_Cmd_LE_Create_Connection_Cancel in pkt.layers()
-assert HCI_Cmd_LE_Host_Supported in pkt.layers()
-assert HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply in pkt.layers()
-assert HCI_Cmd_LE_Long_Term_Key_Request_Reply in pkt.layers()
-assert HCI_Cmd_LE_Read_Buffer_Size in pkt.layers()
-assert HCI_Cmd_LE_Set_Advertise_Enable in pkt.layers()
-assert HCI_Cmd_LE_Set_Advertising_Data in pkt.layers()
-assert HCI_Cmd_LE_Set_Advertising_Parameters in pkt.layers()
-assert HCI_Cmd_LE_Set_Random_Address in pkt.layers()
-assert HCI_Cmd_LE_Set_Scan_Enable in pkt.layers()
-assert HCI_Cmd_LE_Set_Scan_Parameters in pkt.layers()
-assert HCI_Cmd_LE_Start_Encryption_Request in pkt.layers()
-assert HCI_Cmd_Authentication_Requested in pkt.layers()
-assert HCI_Cmd_Link_Key_Request_Reply in pkt.layers()
-assert HCI_Cmd_Read_BD_Addr in pkt.layers()
-assert HCI_Cmd_Remote_Name_Request in pkt.layers()
-assert HCI_Cmd_Reset in pkt.layers()
-assert HCI_Cmd_Set_Connection_Encryption in pkt.layers()
-assert HCI_Cmd_Set_Event_Filter in pkt.layers()
-assert HCI_Cmd_Set_Event_Mask in pkt.layers()
-assert HCI_Command_Hdr in pkt.layers()
-assert HCI_Event_Command_Complete in pkt.layers()
-assert HCI_Event_Command_Status in pkt.layers()
-assert HCI_Event_Connect_Complete in pkt.layers()
-assert HCI_Event_Disconnection_Complete in pkt.layers()
-assert HCI_Event_Encryption_Change in pkt.layers()
-assert HCI_Event_Remote_Name_Request_Complete in pkt.layers()
-assert HCI_Event_Hdr in pkt.layers()
-assert HCI_Event_LE_Meta in pkt.layers()
-assert HCI_Event_Number_Of_Completed_Packets in pkt.layers()
-assert HCI_Hdr in pkt.layers()
-assert HCI_LE_Meta_Advertising_Reports in pkt.layers()
-assert HCI_LE_Meta_Connection_Complete in pkt.layers()
-assert HCI_LE_Meta_Connection_Update_Complete in pkt.layers()
-assert HCI_LE_Meta_Long_Term_Key_Request in pkt.layers()
+
+#  HCI_Command_Hdr
+# default construction
+hci_cmd_hdr = HCI_Command_Hdr()
+assert hci_cmd_hdr.ogf == 0
+assert hci_cmd_hdr.ocf == 0
+assert hci_cmd_hdr.len == None
+assert raw(hci_cmd_hdr) == b'\x00\x00\x00'
+
+# parsing
+hci_cmd_hdr = HCI_Command_Hdr(raw(hci_cmd_hdr))
+assert hci_cmd_hdr.ogf == 0
+assert hci_cmd_hdr.ocf == 0
+assert hci_cmd_hdr.len == 0
+
+# HCI_Cmd_Inquiry default construction
+hci_cmd_inquiry = HCI_Command_Hdr() / HCI_Cmd_Inquiry()
+assert hci_cmd_inquiry.ogf == 0x01
+assert hci_cmd_inquiry.ocf == 0x01
+assert hci_cmd_inquiry.len == None
+assert hci_cmd_inquiry.lap == 0x9e8b33
+assert hci_cmd_inquiry.inquiry_length == 0
+assert hci_cmd_inquiry.num_responses == 0
+
+# parsing
+hci_cmd_inquiry = HCI_Command_Hdr(raw(hci_cmd_inquiry))
+assert hci_cmd_inquiry.ogf == 0x01
+assert hci_cmd_inquiry.ocf == 0x01
+assert hci_cmd_inquiry.len == 5
+assert hci_cmd_inquiry.lap == 0x9e8b33
+assert hci_cmd_inquiry.inquiry_length == 0
+assert hci_cmd_inquiry.num_responses == 0
+
+# HCI_Cmd_Inquiry constructing an invalid packet
+hci_cmd_inquiry = HCI_Command_Hdr(len = 10) / HCI_Cmd_Inquiry()
+assert hci_cmd_inquiry.ogf == 0x01
+assert hci_cmd_inquiry.ocf == 0x01
+assert hci_cmd_inquiry.len == 10
+assert hci_cmd_inquiry.lap == 0x9e8b33
+assert hci_cmd_inquiry.inquiry_length == 0
+assert hci_cmd_inquiry.num_responses == 0
+
+assert raw(hci_cmd_inquiry)[2] == 10
+
+# parse the invalid packet
+hci_cmd_inquiry = HCI_Command_Hdr(raw(hci_cmd_inquiry))
+assert hci_cmd_inquiry.ogf == 0x01
+assert hci_cmd_inquiry.ocf == 0x01
+assert hci_cmd_inquiry.len == 10
+assert hci_cmd_inquiry.lap == 0x9e8b33
+assert hci_cmd_inquiry.inquiry_length == 0
+assert hci_cmd_inquiry.num_responses == 0
+
+# HCI_Cmd_Inquiry_Cancel default construction
+hci_cmd_inquiry_cancel = HCI_Command_Hdr() / HCI_Cmd_Inquiry_Cancel()
+assert hci_cmd_inquiry_cancel.ogf == 0x01
+assert hci_cmd_inquiry_cancel.ocf == 0x02
+assert hci_cmd_inquiry_cancel.len == None
+
+# hci_cmd_inquiry_cancel parsing
+hci_cmd_inquiry_cancel = HCI_Command_Hdr(raw(hci_cmd_inquiry_cancel))
+assert hci_cmd_inquiry_cancel.ogf == 0x01
+assert hci_cmd_inquiry_cancel.ocf == 0x02
+assert hci_cmd_inquiry_cancel.len == 0
+
+
+# Hci_Cmd_Hold_Mode
+hci_cmd_hold_mode = HCI_Command_Hdr() / HCI_Cmd_Hold_Mode()
+assert hci_cmd_hold_mode.ogf == 0x02
+assert hci_cmd_hold_mode.ocf == 0x01
+assert hci_cmd_hold_mode.len == None
+
+# parsing
+hci_cmd_hold_mode = HCI_Command_Hdr(raw(hci_cmd_hold_mode))
+assert hci_cmd_hold_mode.ogf == 0x02
+assert hci_cmd_hold_mode.ocf == 0x01
+assert hci_cmd_hold_mode.len == 6
+
+# HCI_Cmd_Set_Event_Mask
+hci_cmd_set_event_mask = HCI_Command_Hdr() / HCI_Cmd_Set_Event_Mask()
+assert hci_cmd_set_event_mask.ogf == 0x03
+assert hci_cmd_set_event_mask.ocf == 0x01
+assert hci_cmd_set_event_mask.len == None
+
+# parsing
+hci_cmd_set_event_mask = HCI_Command_Hdr(raw(hci_cmd_set_event_mask))
+assert hci_cmd_set_event_mask.ogf == 0x03
+assert hci_cmd_set_event_mask.ocf == 0x01
+assert hci_cmd_set_event_mask.len == 8
+
+# HCI_Cmd_Read_BD_Addr
+hci_cmd_read_bd_addr = HCI_Command_Hdr() / HCI_Cmd_Read_BD_Addr()
+assert hci_cmd_read_bd_addr.ogf == 0x04
+assert hci_cmd_read_bd_addr.ocf == 0x09
+assert hci_cmd_read_bd_addr.len == None
+
+# parsing
+hci_cmd_read_bd_addr = HCI_Command_Hdr(raw(hci_cmd_read_bd_addr))
+assert hci_cmd_read_bd_addr.ogf == 0x04
+assert hci_cmd_read_bd_addr.ocf == 0x09
+assert hci_cmd_read_bd_addr.len == 0
+
+
+# HCI_Cmd_Read_Link_Quality
+hci_cmd_read_link_quality = HCI_Command_Hdr() / HCI_Cmd_Read_Link_Quality()
+assert hci_cmd_read_link_quality.ogf == 0x05
+assert hci_cmd_read_link_quality.ocf == 0x03
+assert hci_cmd_read_link_quality.len == None
+
+# parsing
+hci_cmd_read_link_quality = HCI_Command_Hdr(raw(hci_cmd_read_link_quality))
+assert hci_cmd_read_link_quality.ogf == 0x05
+assert hci_cmd_read_link_quality.ocf == 0x03
+assert hci_cmd_read_link_quality.len == 2
+
+
+# HCI_Cmd_Read_Loopback_Mode
+hci_cmd_read_loopback_mode = HCI_Command_Hdr() / HCI_Cmd_Read_Loopback_Mode()
+assert hci_cmd_read_loopback_mode.ogf == 0x06
+assert hci_cmd_read_loopback_mode.ocf == 0x01
+assert hci_cmd_read_loopback_mode.len == None
+
+# parsing
+hci_cmd_read_loopback_mode = HCI_Command_Hdr(raw(hci_cmd_read_loopback_mode))
+assert hci_cmd_read_loopback_mode.ogf == 0x06
+assert hci_cmd_read_loopback_mode.ocf == 0x01
+assert hci_cmd_read_loopback_mode.len == 0
+
+
+# HCI_Cmd_LE_Read_Buffer_Size_V1
+hci_cmd_le_read_buffer_size_v1 = HCI_Command_Hdr() / HCI_Cmd_LE_Read_Buffer_Size_V1()
+assert hci_cmd_le_read_buffer_size_v1.ogf == 0x08
+assert hci_cmd_le_read_buffer_size_v1.ocf == 0x02
+assert hci_cmd_le_read_buffer_size_v1.len == None
+
+# parsing
+hci_cmd_le_read_buffer_size_v1 = HCI_Command_Hdr(raw(hci_cmd_le_read_buffer_size_v1))
+assert hci_cmd_le_read_buffer_size_v1.ogf == 0x08
+assert hci_cmd_le_read_buffer_size_v1.ocf == 0x02
+assert hci_cmd_le_read_buffer_size_v1.len == 0
 
 + Bluetooth Transport Layers
 = Test HCI_PHDR_Hdr
