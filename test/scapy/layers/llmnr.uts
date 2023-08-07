@@ -10,12 +10,17 @@ assert pkt.sport == 5355
 assert pkt.dport == 5355
 assert pkt[LLMNRQuery].opcode == 0
 
+= Dissection with the "T"entative bit set and the "TrunCation" bit unset
+r = LLMNRResponse(b'\x87\xdf\x81\x00\x00\x01\x00\x01\x00\x00\x00\x00\x01C\x00\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x1e\x00\x04\xc0\xa8-\x15')
+assert r.tc == 0 and r.t == 1
+
 = Packet build / dissection
 pkt = UDP(raw(UDP()/LLMNRResponse()))
 assert LLMNRResponse in pkt
 assert pkt.qr == 1
 assert pkt.c == 0
 assert pkt.tc == 0
+assert pkt.t == 0
 assert pkt.z == 0
 assert pkt.rcode == 0
 assert pkt.qdcount == 0

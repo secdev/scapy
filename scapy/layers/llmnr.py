@@ -37,7 +37,8 @@ class LLMNRQuery(DNSCompressedPacket):
         BitField("qr", 0, 1),
         BitEnumField("opcode", 0, 4, {0: "QUERY"}),
         BitField("c", 0, 1),
-        BitField("tc", 0, 2),
+        BitField("tc", 0, 1),
+        BitField("t", 0, 1),
         BitField("z", 0, 4)
     ] + DNS.fields_desc[-9:]
     overload_fields = {UDP: {"sport": 5355, "dport": 5355}}
