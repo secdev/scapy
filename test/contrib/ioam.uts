@@ -1,0 +1,139 @@
+% IOAM unit test
+
+#
+# execute test:
+# > test/run_tests -P "load_contrib('ioam')" -t test/contrib/ioam.uts
+#
+
++ IOAM testsuit
+
+
+= Build & Dissect, IOAM Over IPv4
+
+def check_ioam(pkt:Packet):
+    protocols = [0, socket.IPPROTO_UDP, socket.IPPROTO_TCP]
+    assert pkt[IOAM].flow_id == 100
+    assert pkt[IOAM].color_val == 1
+    assert pkt[IOAM].delay_en == 0
+    assert pkt[IOAM].color_en == 1
+    assert (((not (pkt.haslayer(UDP) or pkt.haslayer(UDP))) and (pkt[IOAM].next_protocol == 0)) or
+            (pkt.haslayer(HBHOptIOAM) and (pkt[IOAM].next_protocol == 0)) or
+            (pkt.haslayer(UDP) and (pkt[IOAM].next_protocol == socket.IPPROTO_UDP)) or
+            (pkt.haslayer(TCP) and (pkt[IOAM].next_protocol == socket.IPPROTO_TCP)))
+
+ioam    = IOAM(flow_id=100, color_val=1, delay_en=0, color_en=1)
+o_eth   = Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")
+o_ip4   = IP(src="198.1.1.17", dst="198.1.2.18", ttl=63)
+o_ip6   = IPv6(src="2000::1", dst="5000::2", hlim=63)
+o_udp   = UDP(sport=4196, dport=9028)
+o_tcp   = TCP(sport=4196, dport=9028)
+o_vxlan = VXLAN(vni=5000)
+i_eth   = Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')
+i_ip4   = IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)
+i_tcp   = TCP(sport=6677, dport=8899)
+payload = Raw('a'*64)
+
+pkt=o_eth/o_ip4/ioam/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IP].proto == IPPROTO_IOAM
+assert pkt[IP].chksum == 0xebc5
+check_ioam(pkt)
+
+
+= Build & Dissect, IOAM Over IPv4 UDP
+
+pkt=o_eth/o_ip4/ioam/o_udp/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IP].proto == IPPROTO_IOAM
+assert pkt[IP].chksum == 0xebbd
+check_ioam(pkt)
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 9028
+assert pkt[UDP].chksum == 0x1064
+
+
+= Build & Dissect, IOAM Over IPv4 TCP
+
+pkt=o_eth/o_ip4/ioam/o_tcp/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IP].proto == IPPROTO_IOAM
+assert pkt[IP].chksum == 0xebb1
+check_ioam(pkt)
+assert pkt[TCP].sport == 4196
+assert pkt[TCP].dport == 9028
+assert pkt[TCP].chksum == 0xa0a8
+
+
+= Build & Dissect, IOAM Over IPv4 VXLAN
+
+pkt=o_eth/o_ip4/ioam/UDP(sport=4196, dport=4789)/o_vxlan/i_eth/i_ip4/i_tcp/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IP].proto == IPPROTO_IOAM
+assert pkt[IP].chksum == 0xeb7f
+check_ioam(pkt)
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 4789
+assert pkt[UDP].chksum == 0xaaf2
+assert pkt[VXLAN].vni == 5000
+
+
+= Build & Dissect, IOAM Over IPv6
+
+pkt=o_eth/o_ip6/IPv6ExtHdrHopByHop(nh=59, options=[HBHOptIOAM(ioam=ioam)])/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IPv6].nh == 0
+assert pkt[IPv6ExtHdrHopByHop].nh == 59
+assert pkt[HBHOptIOAM].otype == 0x11
+assert pkt[HBHOptIOAM].optlen == 4
+check_ioam(pkt)
+
+
+= Build & Dissect, IOAM Over IPv6 UDP
+
+pkt=o_eth/o_ip6/IPv6ExtHdrHopByHop(nh=socket.IPPROTO_UDP, options=[HBHOptIOAM(ioam=ioam)])/o_udp/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IPv6].nh == 0
+assert pkt[IPv6ExtHdrHopByHop].nh == socket.IPPROTO_UDP
+assert pkt[HBHOptIOAM].otype == 0x11
+assert pkt[HBHOptIOAM].optlen == 4
+check_ioam(pkt)
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 9028
+assert pkt[UDP].chksum == 0x2f87
+
+
+= Build & Dissect, IOAM Over IPv6 TCP
+
+pkt=o_eth/o_ip6/IPv6ExtHdrHopByHop(nh=socket.IPPROTO_TCP, options=[HBHOptIOAM(ioam=ioam)])/o_tcp/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IPv6].nh == 0
+assert pkt[IPv6ExtHdrHopByHop].nh == socket.IPPROTO_TCP
+assert pkt[HBHOptIOAM].otype == 0x11
+assert pkt[HBHOptIOAM].optlen == 4
+check_ioam(pkt)
+assert pkt[TCP].sport == 4196
+assert pkt[TCP].dport == 9028
+assert pkt[TCP].chksum == 0xbfcb
+
+
+= Build & Dissect, IOAM Over IPv6 VXLAN
+
+pkt=o_eth/o_ip6/IPv6ExtHdrHopByHop(nh=socket.IPPROTO_UDP, options=[HBHOptIOAM(ioam=ioam)])/UDP(sport=4196, dport=4789)/o_vxlan/i_eth/i_ip4/i_tcp/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IPv6].nh == 0
+assert pkt[IPv6ExtHdrHopByHop].nh == socket.IPPROTO_UDP
+assert pkt[HBHOptIOAM].otype == 0x11
+assert pkt[HBHOptIOAM].optlen == 4
+check_ioam(pkt)
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 4789
+assert pkt[UDP].chksum == 0xca15
+assert pkt[VXLAN].vni == 5000

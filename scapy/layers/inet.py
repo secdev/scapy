@@ -749,11 +749,16 @@ class TCP(Packet):
             dataofs = (dataofs << 4) | orb(p[12]) & 0x0f
             p = p[:12] + chb(dataofs & 0xff) + p[13:]
         if self.chksum is None:
-            if isinstance(self.underlayer, IP):
-                ck = in4_chksum(socket.IPPROTO_TCP, self.underlayer, p)
+            selfdown = self.underlayer
+            from scapy.contrib.ioam import IOAM
+            if isinstance(self.underlayer, IOAM):
+                selfdown = self.underlayer.underlayer
+
+            if isinstance(selfdown, IP):
+                ck = in4_chksum(socket.IPPROTO_TCP, selfdown, p)
                 p = p[:16] + struct.pack("!H", ck) + p[18:]
-            elif conf.ipv6_enabled and isinstance(self.underlayer, scapy.layers.inet6.IPv6) or isinstance(self.underlayer, scapy.layers.inet6._IPv6ExtHdr):  # noqa: E501
-                ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_TCP, self.underlayer, p)  # noqa: E501
+            elif conf.ipv6_enabled and isinstance(selfdown, scapy.layers.inet6.IPv6) or isinstance(selfdown, scapy.layers.inet6._IPv6ExtHdr):  # noqa: E501
+                ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_TCP, selfdown, p)  # noqa: E501
                 p = p[:16] + struct.pack("!H", ck) + p[18:]
             else:
                 log_runtime.info(
@@ -821,14 +826,19 @@ class UDP(Packet):
             tmp_len = len(p)
             p = p[:4] + struct.pack("!H", tmp_len) + p[6:]
         if self.chksum is None:
-            if isinstance(self.underlayer, IP):
-                ck = in4_chksum(socket.IPPROTO_UDP, self.underlayer, p)
+            selfdown = self.underlayer
+            from scapy.contrib.ioam import IOAM
+            if isinstance(self.underlayer, IOAM):
+                selfdown = self.underlayer.underlayer
+
+            if isinstance(selfdown, IP):
+                ck = in4_chksum(socket.IPPROTO_UDP, selfdown, p)
                 # According to RFC768 if the result checksum is 0, it should be set to 0xFFFF  # noqa: E501
                 if ck == 0:
                     ck = 0xFFFF
                 p = p[:6] + struct.pack("!H", ck) + p[8:]
-            elif isinstance(self.underlayer, scapy.layers.inet6.IPv6) or isinstance(self.underlayer, scapy.layers.inet6._IPv6ExtHdr):  # noqa: E501
-                ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_UDP, self.underlayer, p)  # noqa: E501
+            elif isinstance(selfdown, scapy.layers.inet6.IPv6) or isinstance(selfdown, scapy.layers.inet6._IPv6ExtHdr):  # noqa: E501
+                ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_UDP, selfdown, p)  # noqa: E501
                 # According to RFC2460 if the result checksum is 0, it should be set to 0xFFFF  # noqa: E501
                 if ck == 0:
                     ck = 0xFFFF

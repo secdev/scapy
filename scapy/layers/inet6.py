@@ -47,6 +47,7 @@ from scapy.fields import (
     LongField,
     MACField,
     MayEnd,
+    PacketField,
     PacketLenField,
     PacketListField,
     ShortEnumField,
@@ -674,6 +675,7 @@ _hbhopts = {0x00: "Pad1",
             0x04: "Tunnel Encapsulation Limit",
             0x05: "Router Alert",
             0x06: "Quick-Start",
+            0x11: "IOAM",
             0xc2: "Jumbo Payload",
             0xc9: "Home Address Option"}
 
@@ -783,6 +785,23 @@ class RouterAlert(Packet):  # RFC 2711 - IPv6 Hop-By-Hop Option
         return b"", p
 
 
+class HBHOptIOAM(Packet):  # IPv6 Hop-By-Hop Option
+    from scapy.contrib.ioam import IOAM
+    name = "HBHOptIOAM"
+    fields_desc = [_OTypeField("otype", 0x11, _hbhopts),
+                   ByteField("optlen", 4),
+                   PacketField("ioam", None, IOAM)]
+
+    def alignment_delta(self, curpos):  # alignment requirement : 4n+2
+        x = 4
+        y = 0
+        delta = x * ((curpos - y + x - 1) // x) + y - curpos
+        return delta
+
+    def extract_padding(self, p):
+        return b"", p
+
+
 class Jumbo(Packet):  # IPv6 Hop-By-Hop Option
     name = "Jumbo Payload"
     fields_desc = [_OTypeField("otype", 0xC2, _hbhopts),
@@ -818,6 +837,7 @@ class HAO(Packet):  # IPv6 Destination Options Header Option
 _hbhoptcls = {0x00: Pad1,
               0x01: PadN,
               0x05: RouterAlert,
+              0x11: HBHOptIOAM,
               0xC2: Jumbo,
               0xC9: HAO}
 
