@@ -1520,13 +1520,37 @@ class DNS_am(AnsweringMachine):
         if IPv6 in req:
             resp[IPv6].underlayer.remove_payload()
             resp /= IPv6(dst=req[IPv6].src, src=self.src_ip6 or req[IPv6].dst)
-        else:
+        elif IP in req:
             resp[IP].underlayer.remove_payload()
             resp /= IP(dst=req[IP].src, src=self.src_ip or req[IP].dst)
-        resp /= UDP(sport=req.dport, dport=req.sport)
+        else:
+            warning("No IP or IPv6 layer in %s", req.command())
+            return
+        try:
+            resp /= UDP(sport=req[UDP].dport, dport=req[UDP].sport)
+        except IndexError:
+            warning("No UDP layer in %s", req.command(), exc_info=True)
+            return
         ans = []
-        req = req.getlayer(self.cls)
-        for rq in req.qd:
+        try:
+            req = req[self.cls]
+        except IndexError:
+            warning(
+                "No %s layer in %s",
+                self.cls.__name__,
+                req.command(),
+                exc_info=True,
+            )
+            return
+        try:
+            queries = req.qd
+        except AttributeError:
+            warning("No qd attribute in %s", req.command(), exc_info=True)
+            return
+        for rq in queries:
+            if isinstance(rq, Raw):
+                warning("Cannot parse qd element %s", rq.command(), exc_info=True)
+                continue
             if rq.qtype in [1, 28]:
                 # A or AAAA
                 if rq.qtype == 28:
@@ -1598,6 +1622,9 @@ class DNS_am(AnsweringMachine):
             # Error
             break
         else:
+            if not ans:
+                # No rq was actually answered, as none was valid. Discard.
+                return
             # All rq were answered
             resp /= self.cls(id=req.id, qr=1, qd=req.qd, an=ans)
             return resp
