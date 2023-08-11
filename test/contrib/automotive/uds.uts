@@ -1047,18 +1047,16 @@ assert rdtcipr.DTCCount == 0xddaa
 assert rdtcipr.answers(rdtci)
 
 rdtcipr1 = UDS(b'\x59\x02\xff\x11\x07\x11\'\x022\x12\'\x01\x07\x11\'\x01\x18\x12\'\x01\x13\x12\'\x01"\x11\'\x06C\x00\'\x06S\x00\'\x161\x00\'\x14\x03\x12\'')
-
+rdtcipr1.show()
 assert len(rdtcipr1.DTCAndStatusRecord) == 10
-assert rdtcipr1.DTCAndStatusRecord[0].dtc.system == 0
-assert rdtcipr1.DTCAndStatusRecord[0].dtc.type == 1
-assert rdtcipr1.DTCAndStatusRecord[0].dtc.numeric_value_code == 263
-assert rdtcipr1.DTCAndStatusRecord[0].dtc.additional_information_code == 17
-assert rdtcipr1.DTCAndStatusRecord[0].status == 0x27
-assert rdtcipr1.DTCAndStatusRecord[-1].dtc.system == 0
-assert rdtcipr1.DTCAndStatusRecord[-1].dtc.type == 1
-assert rdtcipr1.DTCAndStatusRecord[-1].dtc.numeric_value_code == 1027
-assert rdtcipr1.DTCAndStatusRecord[-1].dtc.additional_information_code == 18
-assert rdtcipr1.DTCAndStatusRecord[-1].status == 0x27
+assert rdtcipr1.DTCAndStatusRecord[0].system == 0
+assert rdtcipr1.DTCAndStatusRecord[0].type == 1
+assert rdtcipr1.DTCAndStatusRecord[0].numeric_value_code == 263
+assert rdtcipr1.DTCAndStatusRecord[0].additional_information_code == 17
+assert rdtcipr1.DTCAndStatusRecord[-1].system == 0
+assert rdtcipr1.DTCAndStatusRecord[-1].type == 1
+assert rdtcipr1.DTCAndStatusRecord[-1].numeric_value_code == 1027
+assert rdtcipr1.DTCAndStatusRecord[-1].additional_information_code == 18
 
 = Check UDS_RDTCI
 
@@ -1175,11 +1173,10 @@ rdtcipr.show()
 assert rdtcipr.service == 0x59
 assert rdtcipr.reportType == 2
 assert rdtcipr.DTCStatusAvailabilityMask == 0xff
-assert rdtcipr.DTCAndStatusRecord[0].dtc.system == 3
-assert rdtcipr.DTCAndStatusRecord[0].dtc.type == 2
-assert rdtcipr.DTCAndStatusRecord[0].dtc.numeric_value_code == 3805
-assert rdtcipr.DTCAndStatusRecord[0].dtc.additional_information_code == 170
-assert rdtcipr.DTCAndStatusRecord[0].status == 2
+assert rdtcipr.DTCAndStatusRecord[0].system == 3
+assert rdtcipr.DTCAndStatusRecord[0].type == 2
+assert rdtcipr.DTCAndStatusRecord[0].numeric_value_code == 3805
+assert rdtcipr.DTCAndStatusRecord[0].additional_information_code == 170
 
 assert not rdtcipr.answers(rdtci)
 

@@ -16,8 +16,7 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
     ShortField, ObservableDict, XShortEnumField, XByteEnumField, StrLenField, \
-    FieldLenField, XStrFixedLenField, XStrLenField, FlagsField, PacketListField, \
-    PacketField
+    FieldLenField, XStrFixedLenField, XStrLenField, FlagsField, PacketListField
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import log_loading
@@ -153,7 +152,7 @@ class UDS_DSCPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_DSC) and \
-            other.diagnosticSessionType == self.diagnosticSessionType
+               other.diagnosticSessionType == self.diagnosticSessionType
 
 
 bind_layers(UDS, UDS_DSCPR, service=0x50)
@@ -219,7 +218,7 @@ class UDS_SAPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_SA) \
-            and other.securityAccessType == self.securityAccessType
+               and other.securityAccessType == self.securityAccessType
 
 
 bind_layers(UDS, UDS_SAPR, service=0x67)
@@ -274,7 +273,7 @@ class UDS_CCPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_CC) \
-            and other.controlType == self.controlType
+               and other.controlType == self.controlType
 
 
 bind_layers(UDS, UDS_CCPR, service=0x68)
@@ -430,7 +429,7 @@ class UDS_AUTHPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_AUTH) \
-            and other.subFunction == self.subFunction
+               and other.subFunction == self.subFunction
 
 
 bind_layers(UDS, UDS_AUTHPR, service=0x69)
@@ -492,8 +491,8 @@ class UDS_ATPPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_ATP) \
-            and other.timingParameterAccessType == \
-            self.timingParameterAccessType
+               and other.timingParameterAccessType == \
+               self.timingParameterAccessType
 
 
 bind_layers(UDS, UDS_ATPPR, service=0xC3)
@@ -606,7 +605,7 @@ class UDS_ROEPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_ROE) \
-            and other.eventType == self.eventType
+               and other.eventType == self.eventType
 
 
 bind_layers(UDS, UDS_ROEPR, service=0xC6)
@@ -645,7 +644,7 @@ class UDS_LCPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_LC) \
-            and other.linkControlType == self.linkControlType
+               and other.linkControlType == self.linkControlType
 
 
 bind_layers(UDS, UDS_LCPR, service=0xC7)
@@ -674,7 +673,7 @@ class UDS_RDBIPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_RDBI) \
-            and self.dataIdentifier in other.identifiers
+               and self.dataIdentifier in other.identifiers
 
 
 bind_layers(UDS, UDS_RDBIPR, service=0x62)
@@ -744,7 +743,7 @@ class UDS_RSDBIPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_RSDBI) \
-            and other.dataIdentifier == self.dataIdentifier
+               and other.dataIdentifier == self.dataIdentifier
 
 
 bind_layers(UDS, UDS_RSDBIPR, service=0x64)
@@ -781,7 +780,7 @@ class UDS_RDBPIPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_RDBPI) \
-            and other.periodicDataIdentifier == self.periodicDataIdentifier
+               and other.periodicDataIdentifier == self.periodicDataIdentifier
 
 
 bind_layers(UDS, UDS_RDBPIPR, service=0x6A)
@@ -813,7 +812,7 @@ class UDS_DDDIPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_DDDI) \
-            and other.subFunction == self.subFunction
+               and other.subFunction == self.subFunction
 
 
 bind_layers(UDS, UDS_DDDIPR, service=0x6C)
@@ -840,7 +839,7 @@ class UDS_WDBIPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_WDBI) \
-            and other.dataIdentifier == self.dataIdentifier
+               and other.dataIdentifier == self.dataIdentifier
 
 
 bind_layers(UDS, UDS_WDBIPR, service=0x6E)
@@ -901,8 +900,8 @@ class UDS_WMBAPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_WMBA) \
-            and other.memorySizeLen == self.memorySizeLen \
-            and other.memoryAddressLen == self.memoryAddressLen
+               and other.memorySizeLen == self.memorySizeLen \
+               and other.memoryAddressLen == self.memoryAddressLen
 
 
 bind_layers(UDS, UDS_WMBAPR, service=0x7D)
@@ -1012,32 +1011,12 @@ bind_layers(UDS, UDS_RDTCI, service=0x19)
 
 
 class DTC(Packet):
-    name = 'Diagnostic Trouble Code'
-    dtc_descriptions = {}  # Customize this dictionary for each individual ECU / OEM
-
-    fields_desc = [
-        BitEnumField("system", 0, 2, {
-            0: "Powertrain",
-            1: "Chassis",
-            2: "Body",
-            3: "Network"}),
-        BitEnumField("type", 0, 2, {
-            0: "Generic",
-            1: "ManufacturerSpecific",
-            2: "Generic",
-            3: "Generic"}),
-        BitField("numeric_value_code", 0, 12),
-        ByteField("additional_information_code", 0),
-    ]
-
-    def extract_padding(self, s):
-        return '', s
-
-
-class DTCAndStatusRecord(Packet):
     name = 'DTC and status record'
     fields_desc = [
-        PacketField("dtc", None, pkt_cls=DTC),
+        BitEnumField("system", 0, 2, {0: "Powertrain", 1: "Chassis", 2: "Body", 3: "Network"}),
+        BitEnumField("type", 0, 2, {0: "Generic", 1: "ManufacturerSpecific", 2: "Generic", 3: "Generic"}),
+        BitField("numeric_value_code", 0, 12),
+        ByteField("additional_information_code", 0),
         FlagsField("status", 0, 8, UDS_RDTCI.dtcStatus)
     ]
 
@@ -1069,11 +1048,12 @@ class UDS_RDTCIPR(Packet):
     name = 'ReadDTCInformationPositiveResponse'
     fields_desc = [
         ByteEnumField('reportType', 0, UDS_RDTCI.reportTypes),
-        ConditionalField(
-            FlagsField('DTCStatusAvailabilityMask', 0, 8, UDS_RDTCI.dtcStatus),
-            lambda pkt: pkt.reportType in [0x01, 0x07, 0x11, 0x12, 0x02, 0x0A,
-                                           0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x13,
-                                           0x15]),
+        ConditionalField(FlagsField('DTCStatusAvailabilityMask', 0, 8, UDS_RDTCI.dtcStatus),
+                         lambda pkt: pkt.reportType in [0x01, 0x07, 0x11,
+                                                        0x12, 0x02, 0x0A,
+                                                        0x0B, 0x0C, 0x0D,
+                                                        0x0E, 0x0F, 0x13,
+                                                        0x15]),
         ConditionalField(ByteEnumField('DTCFormatIdentifier', 0,
                                        {0: 'ISO15031-6DTCFormat',
                                         1: 'UDS-1DTCFormat',
@@ -1084,8 +1064,7 @@ class UDS_RDTCIPR(Packet):
         ConditionalField(ShortField('DTCCount', 0),
                          lambda pkt: pkt.reportType in [0x01, 0x07,
                                                         0x11, 0x12]),
-        ConditionalField(PacketListField('DTCAndStatusRecord', None,
-                                         pkt_cls=DTCAndStatusRecord),
+        ConditionalField(PacketListField('DTCAndStatusRecord', None, pkt_cls=DTC),
                          lambda pkt: pkt.reportType in [0x02, 0x0A, 0x0B,
                                                         0x0C, 0x0D, 0x0E,
                                                         0x0F, 0x13, 0x15]),
@@ -1099,7 +1078,7 @@ class UDS_RDTCIPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_RDTCI) \
-            and other.reportType == self.reportType
+               and other.reportType == self.reportType
 
 
 bind_layers(UDS, UDS_RDTCIPR, service=0x59)
@@ -1134,8 +1113,8 @@ class UDS_RCPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_RC) \
-            and other.routineControlType == self.routineControlType \
-            and other.routineIdentifier == self.routineIdentifier
+               and other.routineControlType == self.routineControlType \
+               and other.routineIdentifier == self.routineIdentifier
 
 
 bind_layers(UDS, UDS_RCPR, service=0x71)
@@ -1254,7 +1233,7 @@ class UDS_TDPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_TD) \
-            and other.blockSequenceCounter == self.blockSequenceCounter
+               and other.blockSequenceCounter == self.blockSequenceCounter
 
 
 bind_layers(UDS, UDS_TDPR, service=0x76)
@@ -1394,7 +1373,7 @@ class UDS_IOCBIPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_IOCBI) \
-            and other.dataIdentifier == self.dataIdentifier
+               and other.dataIdentifier == self.dataIdentifier
 
 
 bind_layers(UDS, UDS_IOCBIPR, service=0x6F)
@@ -1459,8 +1438,8 @@ class UDS_NR(Packet):
 
     def answers(self, other):
         return self.requestServiceId == other.service and \
-            (self.negativeResponseCode != 0x78 or
-             conf.contribs['UDS']['treat-response-pending-as-answer'])
+               (self.negativeResponseCode != 0x78 or
+                conf.contribs['UDS']['treat-response-pending-as-answer'])
 
 
 bind_layers(UDS, UDS_NR, service=0x7f)
