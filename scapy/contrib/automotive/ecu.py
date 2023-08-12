@@ -469,17 +469,16 @@ class EcuSession(DefaultSession):
     """
     def __init__(self, *args, **kwargs):
         # type: (Any, Any) -> None
-        DefaultSession.__init__(self, *args, **kwargs)
         self.ecu = Ecu(logging=kwargs.pop("logging", True),
                        verbose=kwargs.pop("verbose", True),
                        store_supported_responses=kwargs.pop("store_supported_responses", True))  # noqa: E501
+        super(EcuSession, self).__init__(*args, **kwargs)
 
-    def on_packet_received(self, pkt):
-        # type: (Optional[Packet]) -> None
+    def process(self, pkt: Packet) -> Optional[Packet]:
         if not pkt:
-            return
+            return None
         self.ecu.update(pkt)
-        DefaultSession.on_packet_received(self, pkt)
+        return pkt
 
 
 class EcuResponse:

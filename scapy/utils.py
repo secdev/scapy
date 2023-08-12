@@ -1781,9 +1781,8 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         p.comment = comment
         return p
 
-    def recv(self, size=MTU):  # type: ignore
-        # type: (int) -> Packet
-        return self.read_packet()
+    def recv(self, size: int = MTU, **kwargs: Any) -> 'Packet':  # type: ignore
+        return self.read_packet(size=size, **kwargs)
 
 
 class GenericPcapWriter(object):

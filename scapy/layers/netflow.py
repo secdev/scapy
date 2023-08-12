@@ -64,10 +64,15 @@ from scapy.fields import (
 )
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.plist import PacketList
-from scapy.sessions import IPSession, DefaultSession
+from scapy.sessions import IPSession
 
 from scapy.layers.inet import UDP
 from scapy.layers.inet6 import IP6Field
+
+# Typing imports
+from typing import (
+    Optional,
+)
 
 
 class NetflowHeader(Packet):
@@ -1596,24 +1601,20 @@ class NetflowSession(IPSession):
     See help(scapy.layers.netflow) for more infos.
     """
     def __init__(self, *args, **kwargs):
-        IPSession.__init__(self, *args, **kwargs)
         self.definitions = {}
         self.definitions_opts = {}
         self.ignored = set()
+        super(NetflowSession, self).__init__(*args, **kwargs)
 
-    def _process_packet(self, pkt):
+    def process(self, pkt: Packet) -> Optional[Packet]:
+        pkt = super(NetflowSession, self).process(pkt)
+        if not pkt:
+            return
         _netflowv9_defragment_packet(pkt,
                                      self.definitions,
                                      self.definitions_opts,
                                      self.ignored)
         return pkt
-
-    def on_packet_received(self, pkt):
-        # First, defragment IP if necessary
-        pkt = self._ip_process_packet(pkt)
-        # Now handle NetflowV9 defragmentation
-        pkt = self._process_packet(pkt)
-        DefaultSession.on_packet_received(self, pkt)
 
 
 class NetflowOptionsRecordScopeV9(NetflowRecordV9):

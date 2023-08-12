@@ -88,7 +88,7 @@ class Packet(
         "packetfields",
         "original", "explicit", "raw_packet_cache",
         "raw_packet_cache_fields", "_pkt", "post_transforms",
-        "stop_payload_dissection",
+        "stop_dissection_after",
         # then payload, underlayer and parent
         "payload", "underlayer", "parent",
         "name",
@@ -147,7 +147,7 @@ class Packet(
                  _internal=0,  # type: int
                  _underlayer=None,  # type: Optional[Packet]
                  _parent=None,  # type: Optional[Packet]
-                 stop_payload_dissection=None,  # type: Optional[Callable[[Packet, Type[Packet]], bool]]  # noqa: E501
+                 stop_dissection_after=None,  # type: Optional[Type[Packet]]
                  **fields  # type: Any
                  ):
         # type: (...) -> None
@@ -176,9 +176,7 @@ class Packet(
         self.direction = None  # type: Optional[int]
         self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
         self.comment = None  # type: Optional[bytes]
-        self.stop_payload_dissection = (
-            stop_payload_dissection or (lambda *args: False)
-        )
+        self.stop_dissection_after = stop_dissection_after
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -1038,18 +1036,22 @@ class Packet(
         :param str s: the raw layer
         """
         if s:
+            if (
+                self.stop_dissection_after and
+                isinstance(self, self.stop_dissection_after)
+            ):
+                # stop dissection here
+                p = conf.raw_layer(s, _internal=1, _underlayer=self)
+                self.add_payload(p)
+                return
             cls = self.guess_payload_class(s)
             try:
-                if self.stop_payload_dissection(self, cls):
-                    # stop dissection here
-                    p = conf.raw_layer(s, _internal=1, _underlayer=self)
-                else:
-                    p = cls(
-                        s,
-                        stop_payload_dissection=self.stop_payload_dissection,
-                        _internal=1,
-                        _underlayer=self,
-                    )
+                p = cls(
+                    s,
+                    stop_dissection_after=self.stop_dissection_after,
+                    _internal=1,
+                    _underlayer=self,
+                )
             except KeyboardInterrupt:
                 raise
             except Exception:

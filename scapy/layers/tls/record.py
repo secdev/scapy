@@ -328,6 +328,12 @@ class TLS(_GenericTLSSessionInheritance):
                         return SSLv2
                     # Not SSLv2: continuation
                     return _TLSEncryptedContent
+                if plen >= 5:
+                    # Check minimum length
+                    msglen = struct.unpack('!H', _pkt[3:5])[0] + 5
+                    if plen < msglen:
+                        # This is a fragment
+                        return conf.padding_layer
                 # Check TLS 1.3
                 if s and s.tls_version == 0x0304:
                     _has_cipher = lambda x: (
@@ -567,12 +573,24 @@ class TLS(_GenericTLSSessionInheritance):
         as the TLS session to be used would get lost.
         """
         if s:
+            # Check minimum length
+            if len(s) < 5:
+                p = conf.raw_layer(s, _internal=1, _underlayer=self)
+                self.add_payload(p)
+                return
+            msglen = struct.unpack('!H', s[3:5])[0] + 5
+            if len(s) < msglen:
+                # This is a fragment
+                self.add_payload(conf.padding_layer(s))
+                return
             try:
                 p = TLS(s, _internal=1, _underlayer=self,
                         tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
             except Exception:
+                if conf.debug_dissector:
+                    raise
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 

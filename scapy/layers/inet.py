@@ -1908,7 +1908,7 @@ class TCP_client(Automaton):
         self.src = self.l4.src
         self.sack = self.l4[TCP].ack
         self.rel_seq = None
-        self.rcvbuf = TCPSession(prn=self._transmit_packet, store=False)
+        self.rcvbuf = TCPSession()
         bpf = "host %s  and host %s and port %i and port %i" % (self.src,
                                                                 self.dst,
                                                                 self.sport,
@@ -1993,7 +1993,7 @@ class TCP_client(Automaton):
             # Answer with an Ack
             self.send(self.l4)
             # Process data - will be sent to the SuperSocket through this
-            self.rcvbuf.on_packet_received(pkt)
+            self._transmit_packet(self.rcvbuf.process(pkt))
 
     @ATMT.ioevent(ESTABLISHED, name="tcp", as_supersocket="tcplink")
     def outgoing_data_received(self, fd):

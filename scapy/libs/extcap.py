@@ -158,8 +158,8 @@ class _ExtcapSocket(SuperSocket):
         self.reader = PcapReader(self.fd)  # type: ignore
         self.ins = self.reader  # type: ignore
 
-    def recv(self, x: int = MTU) -> Packet:
-        return self.reader.recv(x)
+    def recv(self, x: int = MTU, **kwargs: Any) -> Packet:
+        return self.reader.recv(x, **kwargs)
 
     def close(self) -> None:
         self.proc.kill()

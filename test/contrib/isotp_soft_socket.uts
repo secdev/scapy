@@ -726,7 +726,7 @@ candump_fd = BytesIO(b'''  vcan0  541   [8]  10 0A DE AD BE EF AA AA
   vcan0  241   [3]  30 00 00
   vcan0  541   [5]  21 AA AA AA AA''')
 
-pkts = sniff(opened_socket=CandumpReader(candump_fd), session=ISOTPSession, timeout=1, session_kwargs={"use_ext_address": False})
+pkts = sniff(opened_socket=CandumpReader(candump_fd), session=ISOTPSession(use_ext_address=False), timeout=1)
 assert len(pkts) == 6
 
 if not len(pkts):
@@ -808,13 +808,6 @@ assert (isotp.rx_id == 0x541)
 isotp = pkts[0]
 assert isotp.data == dhex("")
 assert (isotp.rx_id == 0x241)
-
-= ISOTPSession tests
-
-ses = ISOTPSession()
-ses.on_packet_received(None)
-ses.on_packet_received([None, None])
-assert True
 
 = Receive a two-frame ISOTP message
 
