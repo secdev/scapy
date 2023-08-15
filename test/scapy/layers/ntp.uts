@@ -582,7 +582,7 @@ assert p.data[0].peer == "127.127.1.0"
 assert p.data[0].peer_mode == 3
 assert p.data[0].leap == 0
 assert p.data[0].stratum == 11
-assert p.data[0].precision == 240
+assert p.data[0].precision == -16
 assert p.data[0].refid == "127.127.1.0"
 
 
@@ -1113,7 +1113,7 @@ assert p.data[0].ifname.startswith(b"lo")
 
 from decimal import Decimal
 
-precision = b"\xec"  # 236
+precision = b"\xec"  # -20
 dispersion = b"\x00\x00\xf2\xce"  # 0.948455810546875
 time_stamp = b"\xe6}gt\x00\x00\x00\x00" # Sat, 16 Jul 2022 16:36:04 +0000
 
@@ -1142,7 +1142,7 @@ assert pkt_1.recv.val == time_stamp, pkt_1.recv.val
 
 time_stamp_hex = 0x00000000e67d6774
 pkt_2 = NTP(
-    precision=236,
+    precision=-20,
     dispersion=Decimal('0.948455810546875'),
     orig=time_stamp_hex,
     sent=time_stamp_hex,
