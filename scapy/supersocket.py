@@ -373,6 +373,7 @@ if not WINDOWS:
 
 class SimpleSocket(SuperSocket):
     desc = "wrapper around a classic socket"
+    __selectable_force_select__ = True
 
     def __init__(self, sock):
         # type: (socket.socket) -> None
