@@ -11,12 +11,9 @@
 = L3RawSocket
 ~ netaccess IP TCP linux needs_root
 
-old_l3socket = conf.L3socket
-conf.L3socket = L3RawSocket
 with no_debug_dissector():
     x = sr1(IP(dst="www.google.com")/TCP(sport=RandShort(), dport=80, flags="S"),timeout=3)
 
-conf.L3socket = old_l3socket
 x
 assert x[IP].ottl() in [32, 64, 128, 255]
 assert 0 <= x[IP].hops() <= 126
@@ -309,16 +306,20 @@ assert test_L3PacketSocket_sendto_python3()
 
 import os
 from scapy.sendrecv import _interface_selection
-assert _interface_selection(None, IP(dst="8.8.8.8")/UDP()) == conf.iface
+assert _interface_selection(None, IP(dst="8.8.8.8")/UDP()) == (conf.iface, False)
 exit_status = os.system("ip link add name scapy0 type dummy")
 exit_status = os.system("ip addr add 192.0.2.1/24 dev scapy0")
+exit_status = os.system("ip addr add fc00::/24 dev scapy0")
 exit_status = os.system("ip link set scapy0 up")
 conf.ifaces.reload()
 conf.route.resync()
-assert _interface_selection(None, IP(dst="192.0.2.42")/UDP()) == "scapy0"
+conf.route6.resync()
+assert _interface_selection(None, IP(dst="192.0.2.42")/UDP()) == ("scapy0", False)
+assert _interface_selection(None, IPv6(dst="fc00::ae0d")/UDP()) == ("scapy0", True)
 exit_status = os.system("ip link del name dev scapy0")
 conf.ifaces.reload()
 conf.route.resync()
+conf.route6.resync()
 
 = Test 802.Q sniffing
 ~ linux needs_root veth
