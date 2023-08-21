@@ -24,6 +24,8 @@ from scapy.error import log_loading, Scapy_Exception
 from scapy.interfaces import NetworkInterface, network_name
 from scapy.pton_ntop import inet_pton, inet_ntop
 
+from scapy.libs.extcap import load_extcap
+
 # Typing imports
 from typing import (
     Optional,
@@ -47,6 +49,7 @@ __all__ = [  # noqa: F405
     "read_nameservers",
     "read_routes",
     "read_routes6",
+    "load_extcap",
     "SIOCGIFHWADDR",
 ]
 

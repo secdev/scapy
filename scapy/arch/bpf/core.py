@@ -27,8 +27,11 @@ from scapy.config import conf
 from scapy.consts import LINUX
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
 from scapy.error import Scapy_Exception, warning
-from scapy.interfaces import InterfaceProvider, IFACES, NetworkInterface, \
-    network_name
+from scapy.interfaces import (
+    InterfaceProvider,
+    NetworkInterface,
+    network_name,
+)
 from scapy.pton_ntop import inet_ntop
 
 if LINUX:
@@ -250,4 +253,4 @@ class BPFInterfaceProvider(InterfaceProvider):
         return data
 
 
-IFACES.register_provider(BPFInterfaceProvider)
+conf.ifaces.register_provider(BPFInterfaceProvider)

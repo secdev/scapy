@@ -86,6 +86,9 @@ scapy/contrib/isotp/isotp_utils.py
 scapy/contrib/roce.py
 scapy/contrib/tcpao.py
 
+# LIBS
+scapy/libs/extcap.py
+
 # TEST
 test/testsocket.py
 

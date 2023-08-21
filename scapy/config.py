@@ -148,6 +148,10 @@ class ProgPath(ConfClass):
     tshark = "tshark"
     wireshark = "wireshark"
     ifconfig = "ifconfig"
+    extcap_folders = [
+        os.path.join(os.path.expanduser("~"), ".config", "wireshark", "extcap"),
+        "/usr/lib/x86_64-linux-gnu/wireshark/extcap",
+    ]
 
 
 class ConfigFieldList:
@@ -616,9 +620,7 @@ def _set_conf_sockets():
                 L3pcapSocket, filter="ip6")
             conf.L2socket = L2pcapSocket
             conf.L2listen = L2pcapListenSocket
-            conf.ifaces.reload()
-            return
-    if conf.use_bpf:
+    elif conf.use_bpf:
         from scapy.arch.bpf.supersocket import L2bpfListenSocket, \
             L2bpfSocket, L3bpfSocket
         conf.L3socket = L3bpfSocket
@@ -626,9 +628,7 @@ def _set_conf_sockets():
             L3bpfSocket, filter="ip6")
         conf.L2socket = L2bpfSocket
         conf.L2listen = L2bpfListenSocket
-        conf.ifaces.reload()
-        return
-    if LINUX:
+    elif LINUX:
         from scapy.arch.linux import L3PacketSocket, L2Socket, L2ListenSocket
         conf.L3socket = L3PacketSocket
         conf.L3socket6 = cast(
@@ -640,23 +640,20 @@ def _set_conf_sockets():
         )
         conf.L2socket = L2Socket
         conf.L2listen = L2ListenSocket
-        conf.ifaces.reload()
-        return
-    if WINDOWS:
+    elif WINDOWS:
         from scapy.arch.windows import _NotAvailableSocket
         from scapy.arch.windows.native import L3WinSocket, L3WinSocket6
         conf.L3socket = L3WinSocket
         conf.L3socket6 = L3WinSocket6
         conf.L2socket = _NotAvailableSocket
         conf.L2listen = _NotAvailableSocket
-        conf.ifaces.reload()
-        # No need to update globals on Windows
-        return
     else:
         from scapy.supersocket import L3RawSocket
         from scapy.layers.inet6 import L3RawSocket6
         conf.L3socket = L3RawSocket
         conf.L3socket6 = L3RawSocket6
+    # Reload the interfaces
+    conf.ifaces.reload()
 
 
 def _socket_changer(attr, val, old):
@@ -761,7 +758,6 @@ class Conf(ConfClass):
     L2socket = None  # type: Type[scapy.supersocket.SuperSocket]
     L2listen = None  # type: Type[scapy.supersocket.SuperSocket]
     BTsocket = None  # type: Type[scapy.supersocket.SuperSocket]
-    USBsocket = None  # type: Type[scapy.supersocket.SuperSocket]
     min_pkt_size = 60
     #: holds MIB direct access dictionary
     mib = None  # type: 'scapy.asn1.mib.MIBDict'
@@ -827,8 +823,6 @@ class Conf(ConfClass):
     use_bpf = Interceptor("use_bpf", False, _socket_changer)
     use_npcap = False
     ipv6_enabled = socket.has_ipv6
-    #: path or list of paths where extensions are to be looked for
-    extensions_paths = "."
     stats_classic_protocols = []  # type: List[Type[Packet]]
     stats_dot11_protocols = []  # type: List[Type[Packet]]
     temp_files = []  # type: List[str]
