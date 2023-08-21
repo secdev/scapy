@@ -144,30 +144,3 @@ bind_top_down(USBpcap, USBpcapTransferInterrupt, transfer=1)
 bind_top_down(USBpcap, USBpcapTransferControl, transfer=2)
 
 conf.l2types.register(DLT_USBPCAP, USBpcap)
-
-
-if WINDOWS:
-    def _usbpcap_check():
-        if not conf.prog.usbpcapcmd:
-            raise OSError("USBpcap is not installed ! (USBpcapCMD not found)")
-
-    def get_usbpcap_interfaces():
-        """Return a list of available USBpcap interfaces"""
-        return 
-
-    def get_usbpcap_devices(iface, enabled=True):
-        """Return a list of devices on an USBpcap interface"""
-        devices = _extcap_call(
-            conf.prog.usbpcapcmd,
-            ["--extcap-interface",
-                iface,
-                "--extcap-config"],
-            "value",
-            ["value", "display", "enabled"]
-        )
-        devices = [(dev[0],
-                    dev[1],
-                    dev[2] == "true") for dev in devices]
-        if enabled:
-            return [dev for dev in devices if dev[2]]
-        return devices

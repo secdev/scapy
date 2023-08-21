@@ -198,8 +198,6 @@ class WinProgPath(ProgPath):
             installsubdir="System32\\WindowsPowerShell\\v1.0",
             env="SystemRoot"
         )
-        self.cscript = win_find_exe("cscript", installsubdir="System32",
-                                    env="SystemRoot")
         self.cmd = win_find_exe("cmd", installsubdir="System32",
                                 env="SystemRoot")
         if self.wireshark:
