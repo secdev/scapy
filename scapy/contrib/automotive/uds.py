@@ -1334,6 +1334,7 @@ class UDS_NR(Packet):
         0x26: 'failurePreventsExecutionOfRequestedAction',
         0x31: 'requestOutOfRange',
         0x33: 'securityAccessDenied',
+        0x34: 'authenticationRequired',
         0x35: 'invalidKey',
         0x36: 'exceedNumberOfAttempts',
         0x37: 'requiredTimeDelayNotExpired',
