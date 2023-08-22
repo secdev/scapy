@@ -773,7 +773,9 @@ def arpcachepoison(
     target,  # type: Union[str, List[str]]
     addresses,  # type: Union[str, Tuple[str, str], List[Tuple[str, str]]]
     broadcast=False,  # type: bool
+    count=None,  # type: Optional[int]
     interval=15,  # type: int
+    **kwargs,  # type: Any
 ):
     # type: (...) -> None
     """Poison targets' ARP cache
@@ -815,9 +817,12 @@ def arpcachepoison(
             hwsrc=y, hwdst="00:00:00:00:00:00")
         for x, y in couple_list
     ]
+    if count is not None:
+        sendp(p, iface_hint=str_target, count=count, inter=interval, **kwargs)
+        return
     try:
         while True:
-            sendp(p, iface_hint=str_target)
+            sendp(p, iface_hint=str_target, **kwargs)
             time.sleep(interval)
     except KeyboardInterrupt:
         pass

@@ -16,6 +16,7 @@ import itertools
 import logging
 import os
 import random
+import socket
 import sys
 import threading
 import time
@@ -77,7 +78,7 @@ def select_objects(inputs, remain):
         [b]
 
     :param inputs: objects to process
-    :param remain: timeout. If 0, return [].
+    :param remain: timeout. If 0, poll.
     """
     if not WINDOWS:
         return select.select(inputs, [], [], remain)[0]
@@ -901,35 +902,33 @@ class Automaton(metaclass=Automaton_metaclass):
                      wr  # type: Union[int, ObjectPipe[bytes], None]
                      ):
             # type: (...) -> None
-            if rd is not None and not isinstance(rd, (int, ObjectPipe)):
-                rd = rd.fileno()
-            if wr is not None and not isinstance(wr, (int, ObjectPipe)):
-                wr = wr.fileno()
             self.rd = rd
             self.wr = wr
+            if isinstance(self.rd, socket.socket):
+                self.__selectable_force_select__ = True
 
         def fileno(self):
             # type: () -> int
-            if isinstance(self.rd, ObjectPipe):
-                return self.rd.fileno()
-            elif isinstance(self.rd, int):
+            if isinstance(self.rd, int):
                 return self.rd
+            elif self.rd:
+                return self.rd.fileno()
             return 0
 
         def read(self, n=65535):
             # type: (int) -> Optional[bytes]
-            if isinstance(self.rd, ObjectPipe):
-                return self.rd.recv(n)
-            elif isinstance(self.rd, int):
+            if isinstance(self.rd, int):
                 return os.read(self.rd, n)
+            elif self.rd:
+                return self.rd.recv(n)
             return None
 
         def write(self, msg):
             # type: (bytes) -> int
-            if isinstance(self.wr, ObjectPipe):
-                return self.wr.send(msg)
-            elif isinstance(self.wr, int):
+            if isinstance(self.wr, int):
                 return os.write(self.wr, msg)
+            elif self.wr:
+                return self.wr.send(msg)
             return 0
 
         def recv(self, n=65535):

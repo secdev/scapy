@@ -21,8 +21,16 @@ from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Gen, Net
 from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
     IP_PROTOS, TCP_SERVICES, UDP_SERVICES
-from scapy.layers.l2 import Ether, Dot3, getmacbyip, CookedLinux, GRE, SNAP, \
-    Loopback
+from scapy.layers.l2 import (
+    CookedLinux,
+    Dot3,
+    Ether,
+    GRE,
+    Loopback,
+    SNAP,
+    arpcachepoison,
+    getmacbyip,
+)
 from scapy.compat import raw, chb, orb, bytes_encode, Optional
 from scapy.config import conf
 from scapy.fields import (
@@ -1888,15 +1896,18 @@ class TCP_client(Automaton):
 
     :param ip: the ip to connect to
     :param port:
+    :param src: (optional) use another source IP
     """
 
-    def parse_args(self, ip, port, *args, **kargs):
+    def parse_args(self, ip, port, srcip=None, **kargs):
         from scapy.sessions import TCPSession
         self.dst = str(Net(ip))
         self.dport = port
         self.sport = random.randrange(0, 2**16)
-        self.l4 = IP(dst=ip) / TCP(sport=self.sport, dport=self.dport, flags=0,
-                                   seq=random.randrange(0, 2**32))
+        self.l4 = IP(dst=ip, src=srcip) / TCP(
+            sport=self.sport, dport=self.dport,
+            flags=0, seq=random.randrange(0, 2**32)
+        )
         self.src = self.l4.src
         self.sack = self.l4[TCP].ack
         self.rel_seq = None
@@ -2158,6 +2169,66 @@ def fragleak2(target, timeout=0.4, onlyasc=0, count=None):
                     linehexdump(leak, onlyasc=onlyasc)
     except Exception:
         pass
+
+
+@conf.commands.register
+class connect_from_ip:
+    """
+    Open a TCP socket to a host:port while spoofing another IP.
+
+    :param host: the host to connect to
+    :param port: the port to connect to
+    :param srcip: the IP to spoof. the cache of the gateway will
+                  be poisonned with this IP.
+    :param poison: (optional, default True) ARP poison the gateway (or next hop),
+                   so that it answers us.
+    :param timeout: (optional) the socket timeout.
+
+    Example - Connect to 192.168.0.1:80 spoofing 192.168.0.2::
+
+        from scapy.layers.http import HTTP, HTTPRequest
+        client = connect_from_ip("192.168.0.1", 80, "192.168.0.2")
+        sock = SSLStreamSocket(client.sock, HTTP)
+        resp = sock.sr1(HTTP() / HTTPRequest(Path="/"))
+
+    Example - Connect to 192.168.0.1:443 with TLS wrapping spoofing 192.168.0.2::
+
+        import ssl
+        from scapy.layers.http import HTTP, HTTPRequest
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        client = connect_from_ip("192.168.0.1", 443, "192.168.0.2")
+        sock = context.wrap_socket(client.sock)
+        sock = SSLStreamSocket(client.sock, HTTP)
+        resp = sock.sr1(HTTP() / HTTPRequest(Path="/"))
+    """
+
+    def __init__(self, host, port, srcip, poison=True, timeout=1):
+        host = str(Net(host))
+        # poison the next hop
+        if poison:
+            gateway = conf.route.route(host)[2]
+            if gateway == "0.0.0.0":
+                # on lan
+                gateway = host
+            arpcachepoison(gateway, srcip, count=1, interval=0, verbose=0)
+        # create a socket pair
+        self._sock, self.sock = socket.socketpair()
+        self.sock.settimeout(timeout)
+        self.client = TCP_client(
+            host, port,
+            srcip=srcip,
+            external_fd={"tcp": self._sock},
+        )
+        # start the TCP_client
+        self.client.runbg()
+
+    def close(self):
+        self.client.stop()
+        self.client.destroy()
+        self.sock.close()
+        self._sock.close()
 
 
 class ICMPEcho_am(AnsweringMachine):
