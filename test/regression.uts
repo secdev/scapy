@@ -1518,6 +1518,7 @@ retry_test(_test)
 = Latency check: localhost ICMP
 ~ netaccess needs_root linux latency
 
+# Note: still needs to enforce L3RawSocket as this won't work otherwise with libpcap
 sock = conf.L3socket
 conf.L3socket = L3RawSocket
 

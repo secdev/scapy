@@ -12,7 +12,7 @@ import uuid
 from collections import defaultdict
 
 from scapy.config import conf
-from scapy.consts import WINDOWS
+from scapy.consts import WINDOWS, LINUX
 from scapy.utils import pretty_list
 from scapy.utils6 import in6_isvalid
 
@@ -20,6 +20,7 @@ from scapy.utils6 import in6_isvalid
 import scapy
 from scapy.compat import UserDict
 from typing import (
+    cast,
     Any,
     DefaultDict,
     Dict,
@@ -49,19 +50,27 @@ class InterfaceProvider(object):
         """Same than load() but for reloads. By default calls load"""
         return self.load()
 
-    def l2socket(self):
-        # type: () -> Type[scapy.supersocket.SuperSocket]
+    def _l2socket(self, dev):
+        # type: (NetworkInterface) -> Type[scapy.supersocket.SuperSocket]
         """Return L2 socket used by interfaces of this provider"""
         return conf.L2socket
 
-    def l2listen(self):
-        # type: () -> Type[scapy.supersocket.SuperSocket]
+    def _l2listen(self, dev):
+        # type: (NetworkInterface) -> Type[scapy.supersocket.SuperSocket]
         """Return L2listen socket used by interfaces of this provider"""
         return conf.L2listen
 
-    def l3socket(self):
-        # type: () -> Type[scapy.supersocket.SuperSocket]
+    def _l3socket(self, dev, ipv6):
+        # type: (NetworkInterface, bool) -> Type[scapy.supersocket.SuperSocket]
         """Return L3 socket used by interfaces of this provider"""
+        if LINUX and not self.libpcap and dev.name == conf.loopback_name:
+            # handle the loopback case. see troubleshooting.rst
+            if ipv6:
+                from scapy.layers.inet6 import L3RawSocket6
+                return cast(Type['scapy.supersocket.SuperSocket'], L3RawSocket6)
+            else:
+                from scapy.supersocket import L3RawSocket
+                return L3RawSocket
         return conf.L3socket
 
     def _is_valid(self, dev):
@@ -156,15 +165,15 @@ class NetworkInterface(object):
 
     def l2socket(self):
         # type: () -> Type[scapy.supersocket.SuperSocket]
-        return self.provider.l2socket()
+        return self.provider._l2socket(self)
 
     def l2listen(self):
         # type: () -> Type[scapy.supersocket.SuperSocket]
-        return self.provider.l2listen()
+        return self.provider._l2listen(self)
 
-    def l3socket(self):
-        # type: () -> Type[scapy.supersocket.SuperSocket]
-        return self.provider.l3socket()
+    def l3socket(self, ipv6):
+        # type: (bool) -> Type[scapy.supersocket.SuperSocket]
+        return self.provider._l3socket(self, ipv6)
 
     def __repr__(self):
         # type: () -> str

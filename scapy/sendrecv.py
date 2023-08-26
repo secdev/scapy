@@ -11,6 +11,7 @@ import itertools
 from threading import Thread, Event
 import os
 import re
+import socket
 import subprocess
 import time
 
@@ -24,6 +25,7 @@ from scapy.interfaces import (
     NetworkInterface,
 )
 from scapy.packet import Packet
+from scapy.pton_ntop import inet_pton
 from scapy.utils import get_temp_file, tcpdump, wrpcap, \
     ContextManagerSubprocess, PcapReader, EDecimal
 from scapy.plist import (
@@ -439,10 +441,10 @@ def send(x,  # type: _PacketIterable
     :param monitor: (not on linux) send in monitor mode
     :returns: None
     """
-    iface = _interface_selection(iface, x)
+    iface, ipv6 = _interface_selection(iface, x)
     return _send(
         x,
-        lambda iface: iface.l3socket(),
+        lambda iface: iface.l3socket(ipv6),
         iface=iface,
         **kargs
     )
@@ -616,19 +618,26 @@ def _parse_tcpreplay_result(stdout_b, stderr_b, argv):
 def _interface_selection(iface,  # type: Optional[_GlobInterfaceType]
                          packet  # type: _PacketIterable
                          ):
-    # type: (...) -> _GlobInterfaceType
+    # type: (...) -> Tuple[NetworkInterface, bool]
     """
     Select the network interface according to the layer 3 destination
     """
-
+    _iff, src, _ = next(packet.__iter__()).route()
+    ipv6 = False
+    if src:
+        try:
+            inet_pton(socket.AF_INET6, src)
+            ipv6 = True
+        except OSError:
+            pass
     if iface is None:
         try:
-            iff = next(packet.__iter__()).route()[0]
+            iff = resolve_iface(_iff or conf.iface)
         except AttributeError:
             iff = None
-        return iff or conf.iface
+        return iff or conf.iface, ipv6
 
-    return iface
+    return resolve_iface(iface), ipv6
 
 
 @conf.commands.register
@@ -644,9 +653,11 @@ def sr(x,  # type: _PacketIterable
     """
     Send and receive packets at layer 3
     """
-    iface = _interface_selection(iface, x)
-    s = conf.L3socket(promisc=promisc, filter=filter,
-                      iface=iface, nofilter=nofilter)
+    iface, ipv6 = _interface_selection(iface, x)
+    s = iface.l3socket(ipv6)(
+        promisc=promisc, filter=filter,
+        iface=iface, nofilter=nofilter,
+    )
     result = sndrcv(s, x, *args, **kargs)
     s.close()
     return result
@@ -887,8 +898,11 @@ def srflood(x,  # type: _PacketIterable
     :param filter:   provide a BPF filter
     :param iface:    listen answers only on the given interface
     """
-    iface = resolve_iface(iface or conf.iface)
-    s = iface.l3socket()(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
+    iface, ipv6 = _interface_selection(iface, x)
+    s = iface.l3socket(ipv6)(
+        promisc=promisc, filter=filter,
+        iface=iface, nofilter=nofilter,
+    )
     r = sndrcvflood(s, x, *args, **kargs)
     s.close()
     return r
@@ -912,8 +926,11 @@ def sr1flood(x,  # type: _PacketIterable
     :param filter:   provide a BPF filter
     :param iface:    listen answers only on the given interface
     """
-    iface = resolve_iface(iface or conf.iface)
-    s = iface.l3socket()(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
+    iface, ipv6 = _interface_selection(iface, x)
+    s = iface.l3socket(ipv6)(
+        promisc=promisc, filter=filter,
+        nofilter=nofilter, iface=iface,
+    )
     ans, _ = sndrcvflood(s, x, *args, **kargs)
     s.close()
     if len(ans) > 0:

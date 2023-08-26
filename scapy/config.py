@@ -747,10 +747,8 @@ class Conf(ConfClass):
     check_TCPerror_seqack = False
     verb = 2  #: level of verbosity, from 0 (almost mute) to 3 (verbose)
     prompt = Interceptor("prompt", ">>> ", _prompt_changer)
-    #: default mode for listening socket (to get answers if you
+    #: default mode for the promiscuous mode of a socket (to get answers if you
     #: spoof on a lan)
-    promisc = True
-    #: default mode for sniff()
     sniff_promisc = True  # type: bool
     raw_layer = None  # type: Type[Packet]
     raw_summary = False  # type: Union[bool, Callable[[bytes], Any]]
