@@ -998,6 +998,40 @@ class HCI_Cmd_Disconnect(Packet):
                    ByteField("reason", 0x13), ]
 
 
+class HCI_Cmd_Create_Connection_Cancel(Packet):
+    """
+
+    7.1.7 Create Connection Cancel command
+
+    """
+
+    name = "HCI_Create_Connection_Cancel"
+    fields_desc = [LEMACField("bd_addr", None), ]
+
+
+class HCI_Cmd_Accept_Connection_Request(Packet):
+    """
+
+    7.1.8 Accept Connection Request command
+
+    """
+
+    name = "HCI_Accept_Connection_Request"
+    fields_desc = [LEMACField("bd_addr", None),
+                   ByteField("role", 0x1), ]
+
+
+class HCI_Cmd_Reject_Connection_Response(Packet):
+    """
+
+    7.1.9 Reject Connection Request command
+
+    """
+    name = "HCI_Reject_Connection_Response"
+    fields_desc = [LEMACField("bd_addr", None),
+                   ByteField("reason", 0x1), ]
+
+
 class HCI_Cmd_Link_Key_Request_Reply(Packet):
     """
 
@@ -1008,6 +1042,53 @@ class HCI_Cmd_Link_Key_Request_Reply(Packet):
     name = "HCI_Link_Key_Request_Reply"
     fields_desc = [LEMACField("bd_addr", None),
                    NBytesField("link_key", None, 16), ]
+
+
+class HCI_Cmd_Link_Key_Request_Negative_Reply(Packet):
+    """
+
+    7.1.11 Link Key Request Negative Reply command
+
+    """
+
+    name = "HCI_Link_Key_Request_Negative_Reply"
+    fields_desc = [LEMACField("bd_addr", None), ]
+
+
+class HCI_Cmd_PIN_Code_Request_Reply(Packet):
+    """
+
+    7.1.12 PIN Code Request Reply command
+
+    """
+
+    name = "HCI_PIN_Code_Request_Reply"
+    fields_desc = [LEMACField("bd_addr", None),
+                   ByteField("pin_code_length", 7),
+                   NBytesField("pin_code", b"\x00" * 16, sz=16), ]
+
+
+class HCI_Cmd_PIN_Code_Request_Negative_Reply(Packet):
+    """
+
+    7.1.13 PIN Code Request Negative Reply command
+
+    """
+
+    name = "HCI_PIN_Code_Request_Negative_Reply"
+    fields_desc = [LEMACField("bd_addr", None), ]
+
+
+class HCI_Cmd_Change_Connection_Packet_Type(Packet):
+    """
+
+    7.1.14 Change Connection Packet Type command
+
+    """
+
+    name = "HCI_Cmd_Change_Connection_Packet_Type"
+    fields_desc = [XLEShortField("connection_handle", None),
+                   LEShortField("packet_type", 0), ]
 
 
 class HCI_Cmd_Authentication_Requested(Packet):
@@ -1032,6 +1113,29 @@ class HCI_Cmd_Set_Connection_Encryption(Packet):
     fields_desc = [LEShortField("handle", 0), ByteField("encryption_enable", 0)]
 
 
+class HCI_Cmd_Change_Connection_Link_Key(Packet):
+    """
+
+    7.1.17 Change Connection Link Key command
+
+    """
+
+    name = "HCI_Change_Connection_Link_Key"
+    fields_desc = [LEShortField("handle", 0), ]
+
+
+class HCI_Cmd_Link_Key_Selection(Packet):
+    """
+
+    7.1.18 Change Connection Link Key command
+
+    """
+
+    name = "HCI_Cmd_Link_Key_Selection"
+    fields_desc = [ByteEnumField("handle", 0, {0: "Use semi-permanent Link Keys",
+                                               1: "Use Temporary Link Key", }), ]
+
+
 class HCI_Cmd_Remote_Name_Request(Packet):
     """
 
@@ -1046,7 +1150,68 @@ class HCI_Cmd_Remote_Name_Request(Packet):
                    LEShortField("clock_offset", 0x0), ]
 
 
+class HCI_Cmd_Remote_Name_Request_Cancel(Packet):
+    """
+
+    7.1.20 Remote Name Request Cancel command
+
+    """
+
+    name = "HCI_Remote_Name_Request_Cancel"
+    fields_desc = [LEMACField("bd_addr", None), ]
+
+
+class HCI_Cmd_Read_Remote_Supported_Features(Packet):
+    """
+
+    7.1.21 Read Remote Supported Features command
+
+    """
+
+    name = "HCI_Read_Remote_Supported_Features"
+    fields_desc = [LEShortField("connection_handle", None), ]
+
+
+class HCI_Cmd_Read_Remote_Extended_Features(Packet):
+    """
+
+    7.1.22 Read Remote Extended Features command
+
+    """
+
+    name = "HCI_Read_Remote_Supported_Features"
+    fields_desc = [LEShortField("connection_handle", None),
+                   ByteField("page_number", None), ]
+
+
+class HCI_Cmd_IO_Capability_Request_Reply(Packet):
+    """
+
+    7.1.29 IO Capability Request Reply command
+
+    """
+
+    name = "HCI_Read_Remote_Supported_Features"
+    fields_desc = [LEMACField("bd_addr", None),
+                   ByteEnumField("io_capability", None, {0x00: "DisplayOnly",
+                                                         0x01: "DisplayYesNo",
+                                                         0x02: "KeyboardOnly",
+                                                         0x03: "NoInputNoOutput", }),
+                   ByteEnumField("oob_data_present", None, {0x00: "Not Present",
+                                                            0x01: "P-192",
+                                                            0x02: "P-256",
+                                                            0x03: "P-192 + P-256", }),
+                   ByteEnumField("authentication_requirement", None,
+                                 {0x00: "MITM Not Required",
+                                  0x01: "MITM Required, No Bonding",
+                                  0x02: "MITM Not Required + Dedicated Pairing",
+                                  0x03: "MITM Required + Dedicated Pairing",
+                                  0x04: "MITM Not Required, General Bonding",
+                                  0x05: "MITM Required + General Bonding"}), ]
+
 # 7.2 Link Policy commands, the OGF is defined as 0x02
+
+
 class HCI_Cmd_Hold_Mode(Packet):
     name = "HCI_Hold_Mode"
     fields_desc = [LEShortField("connection_handle", 0),
@@ -1447,10 +1612,27 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Periodic_Inquiry_Mode, ogf=0x01, ocf=0x0003
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Exit_Peiodic_Inquiry_Mode, ogf=0x01, ocf=0x0004)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Create_Connection, ogf=0x01, ocf=0x0005)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Disconnect, ogf=0x01, ocf=0x0006)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Create_Connection_Cancel, ogf=0x01, ocf=0x0008)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Accept_Connection_Request, ogf=0x01, ocf=0x0009)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Reject_Connection_Response, ogf=0x01, ocf=0x000a)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Link_Key_Request_Reply, ogf=0x01, ocf=0x000b)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Link_Key_Request_Negative_Reply,
+            ogf=0x01, ocf=0x000c)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_PIN_Code_Request_Reply, ogf=0x01, ocf=0x000d)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Change_Connection_Packet_Type,
+            ogf=0x01, ocf=0x000f)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Authentication_Requested, ogf=0x01, ocf=0x0011)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Connection_Encryption, ogf=0x01, ocf=0x0013)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Change_Connection_Link_Key, ogf=0x01, ocf=0x0017)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Remote_Name_Request, ogf=0x01, ocf=0x0019)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Remote_Name_Request_Cancel, ogf=0x01, ocf=0x001a)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Remote_Supported_Features,
+            ogf=0x01, ocf=0x001b)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Remote_Supported_Features,
+            ogf=0x01, ocf=0x001c)
+
+bind_layers(HCI_Command_Hdr, HCI_Cmd_IO_Capability_Request_Reply, ogf=0x01, ocf=0x002b)
+
 
 # 7.2 Link Policy commands, the OGF is defined as 0x02
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Hold_Mode, ogf=0x02, ocf=0x0001)
