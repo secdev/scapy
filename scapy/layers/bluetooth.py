@@ -923,6 +923,12 @@ class HCI_Command_Hdr(Packet):
 
 
 class HCI_Cmd_Inquiry(Packet):
+    """
+
+    7.1.1 Inquiry command
+
+    """
+
     name = "HCI_Inquiry"
     fields_desc = [XLE3BytesField("lap", 0x9E8B33),
                    ByteField("inquiry_length", 0),
@@ -930,10 +936,22 @@ class HCI_Cmd_Inquiry(Packet):
 
 
 class HCI_Cmd_Inquiry_Cancel(Packet):
+    """
+
+    7.1.2 Inquiry Cancel command
+
+    """
+
     name = "HCI_Inquiry_Cancel"
 
 
 class HCI_Cmd_Periodic_Inquiry_Mode(Packet):
+    """
+
+    7.1.3 Periodic Inquiry Mode command
+
+    """
+
     name = "HCI_Periodic_Inquiry_Mode"
     fields_desc = [LEShortField("max_period_length", 0x0003),
                    LEShortField("min_period_length", 0x0002),
@@ -943,10 +961,22 @@ class HCI_Cmd_Periodic_Inquiry_Mode(Packet):
 
 
 class HCI_Cmd_Exit_Peiodic_Inquiry_Mode(Packet):
+    """
+
+    7.1.4 Exit Periodic Inquiry Mode command
+
+    """
+
     name = "HCI_Exit_Periodic_Inquiry_Mode"
 
 
 class HCI_Cmd_Create_Connection(Packet):
+    """
+
+    7.1.5 Create Connection command
+
+    """
+
     name = "HCI_Create_Connection"
     fields_desc = [LEMACField("bd_addr", None),
                    LEShortField("packet_type", 0xcc18),
@@ -957,28 +987,58 @@ class HCI_Cmd_Create_Connection(Packet):
 
 
 class HCI_Cmd_Disconnect(Packet):
+    """
+
+    7.1.6 Disconnect command
+
+    """
+
     name = "HCI_Disconnect"
     fields_desc = [XLEShortField("handle", 0),
                    ByteField("reason", 0x13), ]
 
 
 class HCI_Cmd_Link_Key_Request_Reply(Packet):
+    """
+
+    7.1.10 Link Key Request Reply command
+
+    """
+
     name = "HCI_Link_Key_Request_Reply"
     fields_desc = [LEMACField("bd_addr", None),
                    NBytesField("link_key", None, 16), ]
 
 
 class HCI_Cmd_Authentication_Requested(Packet):
+    """
+
+    7.1.15 Authentication Requested command
+
+    """
+
     name = "HCI_Authentication_Requested"
     fields_desc = [LEShortField("handle", 0)]
 
 
 class HCI_Cmd_Set_Connection_Encryption(Packet):
+    """
+
+    7.1.16 Set Connection Encryption command
+
+    """
+
     name = "HCI_Set_Connection_Encryption"
     fields_desc = [LEShortField("handle", 0), ByteField("encryption_enable", 0)]
 
 
 class HCI_Cmd_Remote_Name_Request(Packet):
+    """
+
+    7.1.19 Remote Name Request command
+
+    """
+
     name = "HCI_Remote_Name_Request"
     fields_desc = [LEMACField("bd_addr", None),
                    ByteField("page_scan_repetition_mode", 0x02),
