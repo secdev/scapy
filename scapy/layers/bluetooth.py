@@ -34,6 +34,7 @@ from scapy.fields import (
     IntField,
     LEShortEnumField,
     LEShortField,
+    LEIntField,
     LenField,
     MultipleTypeField,
     NBytesField,
@@ -1209,6 +1210,75 @@ class HCI_Cmd_IO_Capability_Request_Reply(Packet):
                                   0x04: "MITM Not Required, General Bonding",
                                   0x05: "MITM Required + General Bonding"}), ]
 
+
+class HCI_Cmd_User_Confirmation_Request_Reply(Packet):
+    """
+
+    7.1.30 User Confirmation Request Reply command
+
+    """
+
+    name = "HCI_User_Confirmation_Request_Reply"
+    fields_desc = [LEMACField("bd_addr", None), ]
+
+
+class HCI_Cmd_User_Confirmation_Request_Negative_Reply(Packet):
+    """
+
+    7.1.31 User Confirmation Request Negative Reply command
+
+    """
+
+    name = "HCI_User_Confirmation_Request_Negative_Reply"
+    fields_desc = [LEMACField("bd_addr", None), ]
+
+
+class HCI_Cmd_User_Passkey_Request_Reply(Packet):
+    """
+
+    7.1.32 User Passkey Request Reply command
+
+    """
+
+    name = "HCI_User_Passkey_Request_Reply"
+    fields_desc = [LEMACField("bd_addr", None),
+                   LEIntField("numeric_value", None), ]
+
+
+class HCI_Cmd_User_Passkey_Request_Negative_Reply(Packet):
+    """
+
+    7.1.33 User Passkey Request Negative Reply command
+
+    """
+
+    name = "HCI_User_Passkey_Request_Negative_Reply"
+    fields_desc = [LEMACField("bd_addr", None), ]
+
+
+class HCI_Cmd_Remote_OOB_Data_Request_Reply(Packet):
+    """
+
+    7.1.34 Remote OOB Data Request Reply command
+
+    """
+
+    name = "HCI_Remote_OOB_Data_Request_Reply"
+    fields_desc = [LEMACField("bd_addr", None),
+                   NBytesField("C", b"\x00" * 16, sz=16),
+                   NBytesField("R", b"\x00" * 16, sz=16), ]
+
+
+class HCI_Cmd_Remote_OOB_Data_Request_Negative_Reply(Packet):
+    """
+
+    7.1.35 Remote OOB Data Request Negative Reply command
+
+    """
+
+    name = "HCI_Remote_OOB_Data_Request_Negative_Reply"
+    fields_desc = [LEMACField("bd_addr", None), ]
+
 # 7.2 Link Policy commands, the OGF is defined as 0x02
 
 
@@ -1630,9 +1700,18 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Remote_Supported_Features,
             ogf=0x01, ocf=0x001b)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Remote_Supported_Features,
             ogf=0x01, ocf=0x001c)
-
 bind_layers(HCI_Command_Hdr, HCI_Cmd_IO_Capability_Request_Reply, ogf=0x01, ocf=0x002b)
-
+bind_layers(HCI_Command_Hdr, HCI_Cmd_User_Confirmation_Request_Reply,
+            ogf=0x01, ocf=0x002c)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_User_Confirmation_Request_Negative_Reply,
+            ogf=0x01, ocf=0x002d)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_User_Passkey_Request_Reply, ogf=0x01, ocf=0x002e)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_User_Passkey_Request_Negative_Reply,
+            ogf=0x01, ocf=0x002f)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Remote_OOB_Data_Request_Reply,
+            ogf=0x01, ocf=0x0030)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Remote_OOB_Data_Request_Negative_Reply,
+            ogf=0x01, ocf=0x0033)
 
 # 7.2 Link Policy commands, the OGF is defined as 0x02
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Hold_Mode, ogf=0x02, ocf=0x0001)
