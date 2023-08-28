@@ -2086,7 +2086,7 @@ class BluetoothUserSocket(_BluetoothLibcSocket):
         return HCI_Hdr(self.ins.recv(x))
 
 
-class BluetoothMonitorSocket(SuperSocket):
+class BluetoothMonitorSocket(_BluetoothLibcSocket):
     desc = "read/write over a Bluetooth monitor channel"
 
     def __init__(self):
