@@ -1252,6 +1252,32 @@ a.type==26 and a.len==1 and a.res == 0
 
 ############
 ############
++ ICMPv6NDOptPREF64 Class Test
+
+= ICMPv6NDOptPREF64 - Basic Instantiation
+raw(ICMPv6NDOptPREF64()) == b'\x26\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptPREF64 - Basic Dissection
+p = ICMPv6NDOptPREF64(b'\x26\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+assert p.type == 38 and p.len == 2 and p.scaledlifetime == 0 and p.plc == 0 and p.prefix == '::'
+
+= ICMPv6NDOptPREF64 - Instantiation/Dissection with specific values
+p = ICMPv6NDOptPREF64(scaledlifetime=225, plc='/64', prefix='2003:da8:1::')
+assert raw(p) == b'\x26\x02\x07\x09\x20\x03\x0d\xa8\x00\x01\x00\x00\x00\x00\x00\x00'
+
+p = ICMPv6NDOptPREF64(raw(p))
+assert p.type == 38 and p.len == 2 and p.scaledlifetime == 225 and p.plc == 1 and p.prefix == '2003:da8:1::'
+
+p = ICMPv6NDOptPREF64(raw(p) + b'\x00\x00\x00\x00')
+assert Raw in p and len(p[Raw]) == 4
+
+= ICMPv6NDOptPREF64 - Summary Output
+ICMPv6NDOptPREF64(prefix='12:34:56::', plc='/32').mysummary() == "ICMPv6 Neighbor Discovery Option - PREF64 Option 12:34:56::/32"
+ICMPv6NDOptPREF64(prefix='12:34:56::', plc=6).mysummary() == "ICMPv6 Neighbor Discovery Option - PREF64 Option 12:34:56::[invalid PLC(6)]"
+
+
+############
+############
 + Test Node Information Query - ICMPv6NIQueryNOOP
 
 = ICMPv6NIQueryNOOP - Basic Instantiation

@@ -1720,6 +1720,7 @@ icmp6ndoptscls = {1: "ICMPv6NDOptSrcLLAddr",
                   26: "ICMPv6NDOptEFA",
                   31: "ICMPv6NDOptDNSSL",
                   37: "ICMPv6NDOptCaptivePortal",
+                  38: "ICMPv6NDOptPREF64",
                   }
 
 icmp6ndraprefs = {0: "Medium (default)",
@@ -2086,6 +2087,28 @@ class ICMPv6NDOptCaptivePortal(_ICMPv6NDGuessPayload, Packet):  # RFC 8910
 
     def mysummary(self):
         return self.sprintf("%name% %URI%")
+
+
+class _PREF64(IP6Field):
+    def addfield(self, pkt, s, val):
+        return s + self.i2m(pkt, val)[:12]
+
+    def getfield(self, pkt, s):
+        return s[12:], self.m2i(pkt, s[:12] + b"\x00" * 4)
+
+
+class ICMPv6NDOptPREF64(_ICMPv6NDGuessPayload, Packet):  # RFC 8781
+    name = "ICMPv6 Neighbor Discovery Option - PREF64 Option"
+    fields_desc = [ByteField("type", 38),
+                   ByteField("len", 2),
+                   BitField("scaledlifetime", 0, 13),
+                   BitEnumField("plc", 0, 3,
+                                ["/96", "/64", "/56", "/48", "/40", "/32"]),
+                   _PREF64("prefix", "::")]
+
+    def mysummary(self):
+        plc = self.sprintf("%plc%") if self.plc < 6 else f"[invalid PLC({self.plc})]"
+        return self.sprintf("%name% %prefix%") + plc
 
 # End of ICMPv6 Neighbor Discovery Options.
 
