@@ -2,12 +2,12 @@
   "testfiles": [
     "*.uts",
     "scapy\\layers\\*.uts",
-    "test\\contrib\\automotive\\obd\\*.uts",
-    "test\\contrib\\automotive\\gm\\*.uts",
-    "test\\contrib\\automotive\\bmw\\*.uts",
-    "test\\contrib\\automotive\\*.uts",
-    "test\\contrib\\automotive\\autosar\\*.uts",
-    "tls\\tests_tls_netaccess.uts",
+    "scapy\\layers\\tls\\*.uts",
+    "contrib\\automotive\\obd\\*.uts",
+    "contrib\\automotive\\gm\\*.uts",
+    "contrib\\automotive\\bmw\\*.uts",
+    "contrib\\automotive\\*.uts",
+    "contrib\\automotive\\autosar\\*.uts",
     "contrib\\*.uts"
   ],
   "remove_testfiles": [
@@ -18,9 +18,7 @@
   "onlyfailed": true,
   "preexec": {
     "contrib\\*.uts": "load_contrib(\"%name%\")",
-    "cert.uts": "load_layer(\"tls\")",
-    "sslv2.uts": "load_layer(\"tls\")",
-    "tls*.uts": "load_layer(\"tls\")"
+    "scapy\\layers\\tls\\*.uts": "load_layer(\"tls\")"
   },
   "format": "html",
   "kw_ko": [
