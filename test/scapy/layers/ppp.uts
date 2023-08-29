@@ -112,12 +112,24 @@ assert  raw(p) == raw(q)
 assert  q[PPP_ECP_Option].data == b"ABCDEFG" 
 
 
-= PPP with only one byte for protocol
+= PPP IP check that default protocol length is 2 bytes
+~ ppp ip
+
+p = PPP()/IP()
+p
+r = raw(p)
+r
+assert r.startswith(b'\x00\x21')
+assert len(r) == 22
+
+
+= PPP check parsing with only one byte for protocol
 ~ ppp
 
-assert len(raw(PPP() / IP())) == 21
+assert len(raw(PPP(proto=b'\x21') / IP())) == 21
 
 p = PPP(b'!E\x00\x00<\x00\x00@\x008\x06\xa5\xce\x85wP)\xc0\xa8Va\x01\xbbd\x8a\xe2}r\xb8O\x95\xb5\x84\xa0\x12q \xc8\x08\x00\x00\x02\x04\x02\x18\x04\x02\x08\nQ\xdf\xd6\xb0\x00\x07LH\x01\x03\x03\x07Ao')
 assert IP in p
 assert TCP in p
 
+assert PPP(b"\x00\x21" + raw(IP())) == PPP(b"\x21" + raw(IP()))
