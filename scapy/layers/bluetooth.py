@@ -1038,8 +1038,51 @@ class HCI_Cmd_Write_LE_Host_Support(Packet):
 
 
 # 7.4 INFORMATIONAL PARAMETERS, the OGF is defined as 0x04
+class HCI_Cmd_Read_Local_Version_Information(Packet):
+    """
+
+    7.4.1 Read Local Version Information command
+
+    """
+    name = "HCI_Read_Local_Version_Information"
+
+
+class HCI_Cmd_Read_Local_Supported_Commands(Packet):
+    """
+
+    7.4.2 Read Local Supported Commands command
+
+    """
+    name = "HCI_Read_Local_Supported_Commands"
+
+
+class HCI_Cmd_Read_Local_Supported_Features(Packet):
+    """
+
+    7.4.3 Read Local Supported Features command
+
+    """
+    name = "HCI_Read_Local_Supported_Features"
+
+
+class HCI_Cmd_Read_Local_Extended_Features(Packet):
+    """
+
+    7.4.4 Read Local Extended Features command
+
+    """
+    name = "HCI_Read_Local_Extended_Features"
+    fields_desc = [ByteField("page_number", 0), ]
+
+
 class HCI_Cmd_Read_BD_Addr(Packet):
+    """
+
+    7.4.6 Read BD_ADDR command
+
+    """
     name = "HCI_Read_BD_ADDR"
+
 
 # 7.5 STATUS PARAMETERS, the OGF is defined as 0x05
 
