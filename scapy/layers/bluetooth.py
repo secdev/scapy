@@ -1518,11 +1518,20 @@ class HCI_Event_Hdr(Packet):
         return self.payload.answers(other)
 
 
-class HCI_Event_Connect_Complete(Packet):
-    name = "Connect Complete"
+class HCI_Event_Connection_Complete(Packet):
+    """
+    7.7.3 Connection Complete event
+    """
+
+    name = "HCI_Connection_Complete"
     fields_desc = [ByteField("status", 0),
                    LEShortField("handle", 0x0100),
-                   LEMACField("bd_addr", None), ]
+                   LEMACField("bd_addr", None),
+                   ByteEnumField("link_type", 0, {0: "SCO connection",
+                                                  1: "ACL connection", }),
+                   ByteEnumField("encryption_enaled", 0,
+                                 {0: "link level encryption disabled",
+                                  1: "link level encryption enabled", }), ]
 
 
 class HCI_Event_Disconnection_Complete(Packet):
@@ -1763,7 +1772,7 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, ogf=0x08, o
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, ogf=0x08, ocf=0x001b)  # noqa: E501
 
 # 7.7 EVENTS
-bind_layers(HCI_Event_Hdr, HCI_Event_Connect_Complete, code=0x03)
+bind_layers(HCI_Event_Hdr, HCI_Event_Connection_Complete, code=0x03)
 bind_layers(HCI_Event_Hdr, HCI_Event_Disconnection_Complete, code=0x05)
 bind_layers(HCI_Event_Hdr, HCI_Event_Remote_Name_Request_Complete, code=0x07)
 bind_layers(HCI_Event_Hdr, HCI_Event_Encryption_Change, code=0x08)
