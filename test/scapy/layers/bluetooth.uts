@@ -268,10 +268,10 @@ assert expected_cmd_raw_data == cmd_raw_data
 
 evt_raw_data = hex_bytes("04030b00000176d56f9501000100")
 evt_pkt = HCI_Hdr(evt_raw_data)
-assert HCI_Event_Connect_Complete in evt_pkt
-assert evt_pkt[HCI_Event_Connect_Complete].status == 0
-assert evt_pkt[HCI_Event_Connect_Complete].handle == 256
-assert evt_pkt[HCI_Event_Connect_Complete].bd_addr == "00:01:95:6f:d5:76"
+assert HCI_Event_Connection_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Connection_Complete].status == 0
+assert evt_pkt[HCI_Event_Connection_Complete].handle == 256
+assert evt_pkt[HCI_Event_Connection_Complete].bd_addr == "00:01:95:6f:d5:76"
 
 = Remote Name Request Complete
 
