@@ -44,6 +44,7 @@ from scapy.layers.tls.basefields import (_tls_version, _TLSVersionField,
                                          _TLSClientVersionField)
 from scapy.layers.tls.extensions import (_ExtensionsLenField, _ExtensionsField,
                                          _cert_status_type,
+                                         TLS_Ext_PostHandshakeAuth,
                                          TLS_Ext_SupportedVersion_CH,
                                          TLS_Ext_SignatureAlgorithms,
                                          TLS_Ext_SupportedVersion_SH,
@@ -113,9 +114,15 @@ class _TLSHandshake(_GenericTLSSessionInheritance):
         """
         Covers both post_build- and post_dissection- context updates.
         """
-
-        self.tls_session.handshake_messages.append(msg_str)
-        self.tls_session.handshake_messages_parsed.append(self)
+        # RFC8446 sect 4.4.1
+        # "Note, however, that subsequent post-handshake authentications do not
+        # include each other, just the messages through the end of the main
+        # handshake."
+        if self.tls_session.post_handshake:
+            self.tls_session.post_handshake_messages.append(msg_str)
+        else:
+            self.tls_session.handshake_messages.append(msg_str)
+            self.tls_session.handshake_messages_parsed.append(self)
 
 
 ###############################################################################
@@ -336,9 +343,10 @@ class TLSClientHello(_TLSHandshake):
                             break
                     if s.sid:
                         s.middlebox_compatibility = True
-
                 if isinstance(e, TLS_Ext_SignatureAlgorithms):
                     s.advertised_sig_algs = e.sig_algs
+                if isinstance(e, TLS_Ext_PostHandshakeAuth):
+                    s.post_handshake_auth = True
 
 
 class TLS13ClientHello(_TLSHandshake):
@@ -467,6 +475,8 @@ class TLS13ClientHello(_TLSHandshake):
                             break
                 if isinstance(e, TLS_Ext_SignatureAlgorithms):
                     s.advertised_sig_algs = e.sig_algs
+                if isinstance(e, TLS_Ext_PostHandshakeAuth):
+                    s.post_handshake_auth = True
 
 
 ###############################################################################
@@ -665,7 +675,6 @@ class TLS13ServerHello(TLSServerHello):
             if not s.middlebox_compatibility:
                 s.triggered_pwcs_commit = True
         elif connection_end == "client":
-
             s.prcs = readConnState(ciphersuite=cs_cls,
                                    connection_end=connection_end,
                                    tls_version=s.tls_version)
@@ -704,6 +713,7 @@ class TLS13HelloRetryRequest(_TLSHandshake):
         s = self.tls_session
         s.tls13_retry = True
         s.tls13_client_pubshares = {}
+        # RFC8446 sect 4.4.1
         # If the server responds to a ClientHello with a HelloRetryRequest
         # The value of the first ClientHello is replaced by a message_hash
         if s.client_session_ticket:
@@ -800,7 +810,8 @@ class TLSEncryptedExtensions(_TLSHandshake):
                     s.wcs = self.tls_session.pwcs
                     s.triggered_pwcs_commit = False
                 else:
-                    s.triggered_prcs_commit = True
+                    s.triggered_pwcs_commit = True
+
 ###############################################################################
 #   Certificate                                                               #
 ###############################################################################
@@ -1179,6 +1190,11 @@ class TLS13CertificateRequest(_TLSHandshake):
                                     length_from=lambda pkt: pkt.msglen -
                                     pkt.cert_req_ctxt_len - 3)]
 
+    def tls_session_update(self, msg_str):
+        super(TLS13CertificateRequest, self).tls_session_update(msg_str)
+        self.tls_session.tls13_cert_req_ctxt = self.cert_req_ctxt
+
+
 ###############################################################################
 #   ServerHelloDone                                                           #
 ###############################################################################
@@ -1201,11 +1217,16 @@ class TLSCertificateVerify(_TLSHandshake):
                    _TLSSignatureField("sig", None,
                                       length_from=lambda pkt: pkt.msglen)]
 
+    # See https://datatracker.ietf.org/doc/html/rfc8446#section-4.4 for how to compute
+    # the signature.
+
     def build(self, *args, **kargs):
         sig = self.getfieldval("sig")
         if sig is None:
             s = self.tls_session
             m = b"".join(s.handshake_messages)
+            if s.post_handshake:
+                m += b"".join(s.post_handshake_messages)
             tls_version = s.tls_version
             if tls_version is None:
                 tls_version = s.advertised_tls_version
@@ -1226,6 +1247,8 @@ class TLSCertificateVerify(_TLSHandshake):
     def post_dissection(self, pkt):
         s = self.tls_session
         m = b"".join(s.handshake_messages)
+        if s.post_handshake:
+            m += b"".join(s.post_handshake_messages)
         tls_version = s.tls_version
         if tls_version is None:
             tls_version = s.advertised_tls_version
@@ -1365,6 +1388,8 @@ class TLSFinished(_TLSHandshake):
         if fval is None:
             s = self.tls_session
             handshake_msg = b"".join(s.handshake_messages)
+            if s.post_handshake:
+                handshake_msg += b"".join(s.post_handshake_messages)
             con_end = s.connection_end
             tls_version = s.tls_version
             if tls_version is None:
@@ -1374,13 +1399,16 @@ class TLSFinished(_TLSHandshake):
                 self.vdata = s.wcs.prf.compute_verify_data(con_end, "write",
                                                            handshake_msg, ms)
             else:
-                self.vdata = s.compute_tls13_verify_data(con_end, "write")
+                self.vdata = s.compute_tls13_verify_data(con_end, "write",
+                                                         handshake_msg)
         return _TLSHandshake.build(self, *args, **kargs)
 
     def post_dissection(self, pkt):
         s = self.tls_session
         if not s.frozen:
             handshake_msg = b"".join(s.handshake_messages)
+            if s.post_handshake:
+                handshake_msg += b"".join(s.post_handshake_messages)
             tls_version = s.tls_version
             if tls_version is None:
                 tls_version = s.advertised_tls_version
@@ -1394,7 +1422,8 @@ class TLSFinished(_TLSHandshake):
                     log_runtime.info("TLS: invalid Finished received [%s]", pkt_info)  # noqa: E501
             elif tls_version >= 0x0304:
                 con_end = s.connection_end
-                verify_data = s.compute_tls13_verify_data(con_end, "read")
+                verify_data = s.compute_tls13_verify_data(con_end, "read",
+                                                          handshake_msg)
                 if self.vdata != verify_data:
                     pkt_info = pkt.firstlayer().summary()
                     log_runtime.info("TLS: invalid Finished received [%s]", pkt_info)  # noqa: E501
@@ -1405,7 +1434,7 @@ class TLSFinished(_TLSHandshake):
         tls_version = s.tls_version
         if tls_version is None:
             tls_version = s.advertised_tls_version
-        if tls_version >= 0x0304:
+        if tls_version >= 0x0304 and not s.post_handshake:
             s.pwcs = writeConnState(ciphersuite=type(s.wcs.ciphersuite),
                                     connection_end=s.connection_end,
                                     tls_version=s.tls_version)
@@ -1415,6 +1444,9 @@ class TLSFinished(_TLSHandshake):
             elif s.connection_end == "client":
                 s.compute_tls13_traffic_secrets_end()
                 s.compute_tls13_resumption_secret()
+        if s.connection_end == "client":
+            s.post_handshake = True
+            s.post_handshake_messages = []
 
     def post_dissection_tls_session_update(self, msg_str):
         self.tls_session_update(msg_str)
@@ -1422,7 +1454,7 @@ class TLSFinished(_TLSHandshake):
         tls_version = s.tls_version
         if tls_version is None:
             tls_version = s.advertised_tls_version
-        if tls_version >= 0x0304:
+        if tls_version >= 0x0304 and not s.post_handshake:
             s.prcs = readConnState(ciphersuite=type(s.rcs.ciphersuite),
                                    connection_end=s.connection_end,
                                    tls_version=s.tls_version)
@@ -1432,6 +1464,9 @@ class TLSFinished(_TLSHandshake):
             elif s.connection_end == "server":
                 s.compute_tls13_traffic_secrets_end()
                 s.compute_tls13_resumption_secret()
+        if s.connection_end == "server":
+            s.post_handshake = True
+            s.post_handshake_messages = []
 
 
 # Additional handshake messages
@@ -1659,7 +1694,6 @@ class TLS13NewSessionTicket(_TLSHandshake):
         return _TLSHandshake.build(self)
 
     def post_dissection_tls_session_update(self, msg_str):
-        self.tls_session_update(msg_str)
         if self.tls_session.connection_end == "client":
             self.tls_session.client_session_ticket = self.ticket
 
