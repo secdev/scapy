@@ -215,6 +215,8 @@ def dns_compress(pkt):
 
     def possible_shortens(dat):
         """Iterates through all possible compression parts in a DNS string"""
+        if dat == b".":  # we'd lose by compressing it
+            return
         yield dat
         for x in range(1, dat.count(b".")):
             yield dat.split(b".", x)[x]
