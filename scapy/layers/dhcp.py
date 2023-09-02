@@ -318,6 +318,7 @@ DHCPOptions = {
     98: StrField("uap-servers", ""),
     100: StrField("pcode", ""),
     101: StrField("tcode", ""),
+    108: IntField("ipv6-only-preferred", 0),
     112: IPField("netinfo-server-address", "0.0.0.0"),
     113: StrField("netinfo-server-tag", ""),
     114: StrField("captive-portal", ""),
