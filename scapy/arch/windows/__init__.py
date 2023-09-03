@@ -189,18 +189,15 @@ class WinProgPath(ProgPath):
         self.hexedit = win_find_exe("hexer")
         self.sox = win_find_exe("sox")
         self.wireshark = win_find_exe("wireshark", "wireshark")
-        self.usbpcapcmd = win_find_exe(
-            "USBPcapCMD",
-            installsubdir="USBPcap",
-            env="programfiles"
-        )
+        self.extcap_folders = [
+            os.path.join(os.environ.get("appdata", ""), "Wireshark", "extcap"),
+            os.path.join(os.environ.get("programfiles", ""), "Wireshark", "extcap"),
+        ]
         self.powershell = win_find_exe(
             "powershell",
             installsubdir="System32\\WindowsPowerShell\\v1.0",
             env="SystemRoot"
         )
-        self.cscript = win_find_exe("cscript", installsubdir="System32",
-                                    env="SystemRoot")
         self.cmd = win_find_exe("cmd", installsubdir="System32",
                                 env="SystemRoot")
         if self.wireshark:

@@ -11,8 +11,11 @@ import struct
 
 from scapy.compat import orb, chb
 from scapy.config import conf
-from scapy.data import DLT_BLUETOOTH_LE_LL, DLT_BLUETOOTH_LE_LL_WITH_PHDR, \
-    PPI_BTLE
+from scapy.data import (
+    DLT_BLUETOOTH_LE_LL,
+    DLT_BLUETOOTH_LE_LL_WITH_PHDR,
+    PPI_BTLE,
+)
 from scapy.packet import Packet, bind_layers
 from scapy.fields import (
     BitEnumField,

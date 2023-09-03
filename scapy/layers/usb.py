@@ -10,22 +10,14 @@ Default USB frames & Basic implementation
 # TODO: support USB headers for Linux and Darwin (usbmon/netmon)
 # https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-usb.c  # noqa: E501
 
-import re
-import subprocess
-
 from scapy.config import conf
-from scapy.consts import WINDOWS
-from scapy.compat import chb, plain_str
-from scapy.data import MTU, DLT_USBPCAP
-from scapy.error import warning
+from scapy.compat import chb
+from scapy.data import DLT_USBPCAP
 from scapy.fields import ByteField, XByteField, ByteEnumField, LEShortField, \
     LEShortEnumField, LEIntField, LEIntEnumField, XLELongField, \
     LenField
-from scapy.interfaces import NetworkInterface, InterfaceProvider, \
-    network_name, IFACES
 from scapy.packet import Packet, bind_top_down
-from scapy.supersocket import SuperSocket
-from scapy.utils import PcapReader
+
 
 # USBpcap
 
@@ -152,134 +144,3 @@ bind_top_down(USBpcap, USBpcapTransferInterrupt, transfer=1)
 bind_top_down(USBpcap, USBpcapTransferControl, transfer=2)
 
 conf.l2types.register(DLT_USBPCAP, USBpcap)
-
-
-def _extcap_call(prog, args, keyword, values):
-    """Function used to call a program using the extcap format,
-    then parse the results"""
-    p = subprocess.Popen(
-        [prog] + args,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    data, err = p.communicate()
-    if p.returncode != 0:
-        raise OSError("%s returned with error code %s: %s" % (prog,
-                                                              p.returncode,
-                                                              err))
-    data = plain_str(data)
-    res = []
-    for ifa in data.split("\n"):
-        ifa = ifa.strip()
-        if not ifa.startswith(keyword):
-            continue
-        res.append(tuple([re.search(r"{%s=([^}]*)}" % val, ifa).group(1)
-                          for val in values]))
-    return res
-
-
-if WINDOWS:
-    def _usbpcap_check():
-        if not conf.prog.usbpcapcmd:
-            raise OSError("USBpcap is not installed ! (USBpcapCMD not found)")
-
-    def get_usbpcap_interfaces():
-        """Return a list of available USBpcap interfaces"""
-        _usbpcap_check()
-        return _extcap_call(
-            conf.prog.usbpcapcmd,
-            ["--extcap-interfaces"],
-            "interface",
-            ["value", "display"]
-        )
-
-    class UsbpcapInterfaceProvider(InterfaceProvider):
-        name = "USBPcap"
-        headers = ("Index", "Name", "Address")
-        header_sort = 1
-
-        def load(self):
-            data = {}
-            try:
-                interfaces = get_usbpcap_interfaces()
-            except OSError:
-                return {}
-            for netw_name, name in interfaces:
-                index = re.search(r".*(\d+)", name)
-                if index:
-                    index = int(index.group(1)) + 100
-                else:
-                    index = 100
-                if_data = {
-                    "name": name,
-                    "network_name": netw_name,
-                    "description": name,
-                    "index": index,
-                }
-                data[netw_name] = NetworkInterface(self, if_data)
-            return data
-
-        def l2socket(self):
-            return conf.USBsocket
-        l2listen = l2socket
-
-        def l3socket(self):
-            raise ValueError("No L3 available for USBpcap !")
-
-        def _format(self, dev, **kwargs):
-            """Returns a tuple of the elements used by show()"""
-            return (str(dev.index), dev.name, dev.network_name)
-
-    IFACES.register_provider(UsbpcapInterfaceProvider)
-
-    def get_usbpcap_devices(iface, enabled=True):
-        """Return a list of devices on an USBpcap interface"""
-        _usbpcap_check()
-        devices = _extcap_call(
-            conf.prog.usbpcapcmd,
-            ["--extcap-interface",
-             iface,
-             "--extcap-config"],
-            "value",
-            ["value", "display", "enabled"]
-        )
-        devices = [(dev[0],
-                    dev[1],
-                    dev[2] == "true") for dev in devices]
-        if enabled:
-            return [dev for dev in devices if dev[2]]
-        return devices
-
-    class USBpcapSocket(SuperSocket):
-        """
-        Read packets at layer 2 using USBPcapCMD
-        """
-        nonblocking_socket = True
-
-        @staticmethod
-        def select(sockets, remain=None):
-            return sockets
-
-        def __init__(self, iface=None, *args, **karg):
-            _usbpcap_check()
-            if iface is None:
-                warning("Available interfaces: [%s]",
-                        " ".join(x[0] for x in get_usbpcap_interfaces()))
-                raise NameError("No interface specified !"
-                                " See get_usbpcap_interfaces()")
-            iface = network_name(iface)
-            self.outs = None
-            args = ['-d', iface, '-b', '134217728', '-A', '-o', '-']
-            self.usbpcap_proc = subprocess.Popen(
-                [conf.prog.usbpcapcmd] + args,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
-            self.ins = PcapReader(self.usbpcap_proc.stdout)
-
-        def recv(self, x=MTU):
-            return self.ins.recv(x)
-
-        def close(self):
-            SuperSocket.close(self)
-            self.usbpcap_proc.kill()
-
-    conf.USBsocket = USBpcapSocket

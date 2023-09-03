@@ -215,5 +215,5 @@ class Route:
 
 conf.route = Route()
 
-# Load everything, update conf.iface
-conf.ifaces.reload()
+# Update conf.iface
+conf.ifaces.load_confiface()

@@ -181,12 +181,12 @@ def get_temp_file(keep, autoext, fd):
 
 
 @overload
-def get_temp_file(keep=False, autoext="", fd=False):  # noqa: F811
+def get_temp_file(keep=False, autoext="", fd=False):
     # type: (bool, str, Literal[False]) -> str
     pass
 
 
-def get_temp_file(keep=False, autoext="", fd=False):  # noqa: F811
+def get_temp_file(keep=False, autoext="", fd=False):
     # type: (bool, str, bool) -> Union[IO[bytes], str]
     """Creates a temporary file.
 
@@ -223,6 +223,34 @@ def get_temp_dir(keep=False):
         conf.temp_files.append(dname)
 
     return dname
+
+
+def _create_fifo() -> Tuple[str, Any]:
+    """Creates a temporary fifo.
+
+    You must then use open_fifo() on the server_fd once
+    the client is connected to use it.
+
+    :returns: (client_file, server_fd)
+    """
+    if WINDOWS:
+        from scapy.arch.windows.structures import _get_win_fifo
+        return _get_win_fifo()
+    else:
+        f = get_temp_file()
+        os.unlink(f)
+        os.mkfifo(f)
+        return f, f
+
+
+def _open_fifo(fd: Any, mode: str = "rb") -> IO[bytes]:
+    """Open the server_fd (see create_fifo)
+    """
+    if WINDOWS:
+        from scapy.arch.windows.structures import _win_fifo_open
+        return _win_fifo_open(fd)
+    else:
+        return open(fd, mode)
 
 
 def sane(x, color=False):

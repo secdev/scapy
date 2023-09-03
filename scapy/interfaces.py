@@ -35,7 +35,7 @@ from typing import (
 
 class InterfaceProvider(object):
     name = "Unknown"
-    headers = ("Index", "Name", "MAC", "IPv4", "IPv6")
+    headers: Tuple[str, ...] = ("Index", "Name", "MAC", "IPv4", "IPv6")
     header_sort = 1
     libpcap = False
 
@@ -82,7 +82,7 @@ class InterfaceProvider(object):
                 dev,  # type: NetworkInterface
                 **kwargs  # type: Any
                 ):
-        # type: (...) -> Tuple[str, str, str, List[str], List[str]]
+        # type: (...) -> Tuple[Union[str, List[str]], ...]
         """Returns the elements used by show()
 
         If a tuple is returned, this consist of the strings that will be
@@ -96,6 +96,12 @@ class InterfaceProvider(object):
             mac = conf.manufdb._resolve_MAC(mac)
         index = str(dev.index)
         return (index, dev.description, mac or "", dev.ips[4], dev.ips[6])
+
+    def __repr__(self) -> str:
+        """
+        repr
+        """
+        return "<InterfaceProvider: %s>" % self.name
 
 
 class NetworkInterface(object):
@@ -171,7 +177,7 @@ class NetworkInterface(object):
         # type: () -> Type[scapy.supersocket.SuperSocket]
         return self.provider._l2listen(self)
 
-    def l3socket(self, ipv6):
+    def l3socket(self, ipv6=False):
         # type: (bool) -> Type[scapy.supersocket.SuperSocket]
         return self.provider._l3socket(self, ipv6)
 
@@ -222,6 +228,9 @@ class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
         # type: (type) -> None
         prov = provider()
         self.providers[provider] = prov
+        if self.data:
+            # late registration
+            self._load(prov.reload(), prov)
 
     def load_confiface(self):
         # type: () -> None
@@ -242,8 +251,10 @@ class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
     def reload(self):
         # type: () -> None
         self._reload_provs()
-        if conf.route:
-            self.load_confiface()
+        if not conf.route:
+            # routes are not loaded yet.
+            return
+        self.load_confiface()
 
     def dev_from_name(self, name):
         # type: (str) -> NetworkInterface
@@ -326,15 +337,16 @@ class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
             if not hidden and not dev.is_valid():
                 continue
             prov = dev.provider
-            res[prov].append(
+            res[(prov.headers, prov.header_sort)].append(
                 (prov.name,) + prov._format(dev, **kwargs)
             )
         output = ""
-        for provider in res:
+        for key in res:
+            hdrs, sortBy = key
             output += pretty_list(
-                res[provider],  # type: ignore
-                [("Source",) + provider.headers],
-                sortBy=provider.header_sort
+                res[key],
+                [("Source",) + hdrs],
+                sortBy=sortBy
             ) + "\n"
         output = output[:-1]
         if print_result:

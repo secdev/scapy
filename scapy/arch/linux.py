@@ -40,8 +40,11 @@ from scapy.error import (
     log_runtime,
     warning,
 )
-from scapy.interfaces import IFACES, InterfaceProvider, NetworkInterface, \
-    network_name
+from scapy.interfaces import (
+    InterfaceProvider,
+    NetworkInterface,
+    network_name,
+)
 from scapy.libs.structures import sock_fprog
 from scapy.packet import Packet, Padding
 from scapy.pton_ntop import inet_ntop
@@ -449,7 +452,7 @@ class LinuxInterfaceProvider(InterfaceProvider):
         return data
 
 
-IFACES.register_provider(LinuxInterfaceProvider)
+conf.ifaces.register_provider(LinuxInterfaceProvider)
 
 if os.uname()[4] in ['x86_64', 'aarch64']:
     def get_last_packet_timestamp(sock):
