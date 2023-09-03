@@ -16,7 +16,13 @@ import time
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
-from scapy.data import MTU, ETH_P_IP, SOL_PACKET, SO_TIMESTAMPNS
+from scapy.data import (
+    MTU,
+    ETH_P_IP,
+    ETH_P_IPV6,
+    SOL_PACKET,
+    SO_TIMESTAMPNS,
+)
 from scapy.compat import raw
 from scapy.error import warning, log_runtime
 from scapy.interfaces import network_name
@@ -369,6 +375,26 @@ if not WINDOWS:
             except socket.error as msg:
                 log_runtime.error(msg)
             return 0
+
+    class L3RawSocket6(L3RawSocket):
+        def __init__(self,
+                     type: int = ETH_P_IPV6,
+                     filter: Optional[str] = None,
+                     iface: Optional[_GlobInterfaceType] = None,
+                     promisc: Optional[bool] = None,
+                     nofilter: bool = False) -> None:
+            # NOTE: if fragmentation is needed, it will be done by the kernel (RFC 2292)  # noqa: E501
+            self.outs = socket.socket(
+                socket.AF_INET6,
+                socket.SOCK_RAW,
+                socket.IPPROTO_RAW
+            )
+            self.ins = socket.socket(
+                socket.AF_PACKET,
+                socket.SOCK_RAW,
+                socket.htons(type)
+            )
+            self.iface = cast(_GlobInterfaceType, iface)
 
 
 class SimpleSocket(SuperSocket):

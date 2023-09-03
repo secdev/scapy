@@ -66,7 +66,7 @@ class InterfaceProvider(object):
         if LINUX and not self.libpcap and dev.name == conf.loopback_name:
             # handle the loopback case. see troubleshooting.rst
             if ipv6:
-                from scapy.layers.inet6 import L3RawSocket6
+                from scapy.supersocket import L3RawSocket6
                 return cast(Type['scapy.supersocket.SuperSocket'], L3RawSocket6)
             else:
                 from scapy.supersocket import L3RawSocket

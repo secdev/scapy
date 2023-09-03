@@ -28,7 +28,9 @@ from scapy.libs.extcap import load_extcap
 
 # Typing imports
 from typing import (
+    List,
     Optional,
+    Tuple,
     Union,
 )
 
@@ -154,6 +156,25 @@ else:
         "Scapy currently does not support %s! I/O will NOT work!" % sys.platform
     )
     SIOCGIFHWADDR = 0  # mypy compat
+
+    # DUMMYS
+    def get_if_raw_addr(iff: Union[NetworkInterface, str]) -> bytes:
+        return b"\0\0\0\0"
+
+    def get_if_raw_hwaddr(iff: Union[NetworkInterface, str]) -> Tuple[int, bytes]:
+        return -1, b""
+
+    def in6_getifaddr() -> List[Tuple[str, int, str]]:
+        return []
+
+    def read_nameservers() -> List[str]:
+        return []
+
+    def read_routes() -> List[str]:
+        return []
+
+    def read_routes6() -> List[str]:
+        return []
 
 if LINUX or BSD:
     conf.load_layers.append("tuntap")
