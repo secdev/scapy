@@ -648,8 +648,7 @@ def _set_conf_sockets():
         conf.L2socket = _NotAvailableSocket
         conf.L2listen = _NotAvailableSocket
     else:
-        from scapy.supersocket import L3RawSocket
-        from scapy.layers.inet6 import L3RawSocket6
+        from scapy.supersocket import L3RawSocket, L3RawSocket6
         conf.L3socket = L3RawSocket
         conf.L3socket6 = L3RawSocket6
     # Reload the interfaces
