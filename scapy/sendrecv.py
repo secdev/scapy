@@ -74,25 +74,72 @@ class debug:
 #  Send / Receive  #
 ####################
 
-_DOC_SNDRCV_PARAMS = """
+_DOC_SNDRCV_PARAMS_HEAD = """
     :param pks: SuperSocket instance to send/receive packets
-    :param pkt: the packet to send
-    :param timeout: how much time to wait after the last packet has been sent
-    :param inter: delay between two packets during sending
-    :param verbose: set verbosity level
-    :param chainCC: if True, KeyboardInterrupts will be forwarded
-    :param retry: if positive, how many times to resend unanswered packets
-        if negative, how many times to retry when no more packets
-        are answered
-    :param multi: whether to accept multiple answers for the same stimulus
-    :param rcv_pks: if set, will be used instead of pks to receive packets.
-        packets will still be sent through pks
-    :param prebuild: pre-build the packets before starting to send them.
-        Automatically enabled when a generator is passed as the packet
-    :param _flood:
-    :param threaded: if True, packets will be sent in an individual thread
-    :param session: a flow decoder used to handle stream of packets
-    :param chainEX: if True, exceptions during send will be forwarded
+    :type pkt: SuperSocket
+    """
+
+_DOC_SNDRCV_PARAMS_BODY = """
+    :param pkt: Packet or iterable of packets to be sent.
+    :type pkt: _PacketIterable
+    :param timeout: How much time to wait after the last packet
+                    has been sent. Defaults to None.
+    :type timeout: Optional[int]
+    :param inter: Delay between two packets during sending. Defaults to 0.
+    :type inter: Optional[int]
+
+    :param verbose: Set verbosity level. Defaults to None.
+    :type verbose: Optional[int]
+
+    :param chainCC: If True, KeyboardInterrupts will be forwarded.
+                    Defaults to False.
+    :type chainCC: Optional[bool]
+
+    :param retry: If positive, how many times to resend unanswered packets.
+                  If negative, how many times to retry when no more packets
+                  are answered. Defaults to 0.
+    :type retry: Optional[int]
+
+    :param multi: Whether to accept multiple answers for the same stimulus.
+                  Defaults to False.
+    :type multi: Optional[bool]
+
+    :param rcv_pks: If set, will be used instead of pks to receive packets.
+                    Packets will still be sent through pks.
+                    Defaults to None.
+    :type rcv_pks: Optional[SuperSocket]
+
+    :param prebuild: Pre-build the packets before starting to send them.
+                     Automatically enabled when a generator is passed as the
+                     packet. Defaults to False.
+    :type prebuild: Optional[bool]
+
+    :param _flood: _FloodGenerator object, internally used by `flood()`
+                   methods. Defaults to None.
+    :type _flood: Optional[_FloodGenerator]
+
+    :param threaded: If True, packets will be sent in an individual thread.
+                     Defaults to False.
+    :type threaded: Optional[bool]
+
+    :param session: A flow decoder used to handle the stream of packets.
+                    Defaults to None.
+    :type session: Optional[_GlobSessionType]
+
+    :param chainEX: If True, exceptions during send will be forwarded.
+                    Defaults to False.
+    :type chainEX: Optional[bool]
+"""
+
+_DOC_SNDRCV_PARAMS_TAIL = """
+    :return: A tuple, consisting of two packet lists, one with
+                 answered packets, the other with unanswered packets
+    :rtype: Tuple[SndRcvList, PacketList]
+    """
+
+_DOC_SNDRCV1_PARAMS_TAIL = """
+    :return: A received Packet answering the sent packet, or None
+    :rtype: Optional[Packet]
     """
 
 
@@ -717,9 +764,26 @@ def srp1(*args, **kargs):
 
 
 # Append doc
-for sr_func in [srp, srp1, sr, sr1]:
+for sr_func in [srp, sr]:
     if sr_func.__doc__ is not None:
-        sr_func.__doc__ += _DOC_SNDRCV_PARAMS
+        sr_func.__doc__ += (_DOC_SNDRCV_PARAMS_HEAD +
+                            _DOC_SNDRCV_PARAMS_BODY +
+                            _DOC_SNDRCV_PARAMS_TAIL)
+
+for sr_func in [srp1, sr1]:
+    if sr_func.__doc__ is not None:
+        sr_func.__doc__ += (_DOC_SNDRCV_PARAMS_HEAD +
+                            _DOC_SNDRCV_PARAMS_BODY +
+                            _DOC_SNDRCV1_PARAMS_TAIL)
+
+# Append doc in SuperSocket
+for sr_func in [SuperSocket.sr]:
+    if sr_func.__doc__ is not None:
+        sr_func.__doc__ += _DOC_SNDRCV_PARAMS_BODY + _DOC_SNDRCV_PARAMS_TAIL
+
+for sr_func in [SuperSocket.sr1]:
+    if sr_func.__doc__ is not None:
+        sr_func.__doc__ += _DOC_SNDRCV_PARAMS_BODY + _DOC_SNDRCV1_PARAMS_TAIL
 
 
 # SEND/RECV LOOP METHODS
@@ -999,40 +1063,49 @@ def srp1flood(x,  # type: _PacketIterable
 # SNIFF METHODS
 
 
-class AsyncSniffer(object):
-    """
-    Sniff packets and return a list of packets.
+_DOC_SNIFF_PARAMS = """
+    :param count: Number of packets to capture. 0 means infinity.
+    :type count: int
+    :param store: Whether to store sniffed packets or discard them.
+    :type store: bool
+    :param offline: PCAP file (or list of PCAP files) to read packets from,
+                    instead of sniffing them.
+    :type offline: Any
+    :param quiet: When set to True, the process stderr is discarded.
+                  (default: False).
+    :type quiet: bool
+    :param prn: Function to apply to each packet. If something is returned,
+                it is displayed.
+                --Ex: prn = lambda x: x.summary()
+    :type prn: Optional[Callable[[Packet], Any]]
+    :param lfilter: Python function applied to each packet to determine if
+                    further action may be done.
+    :type lfilter: Optional[Callable[[Packet], bool]]
+    :param L2socket: Use the provided L2socket (default: use conf.L2listen).
+    :type L2socket: Optional[Type[SuperSocket]]
+    :param timeout: Stop sniffing after a given time (default: None).
+    :type timeout: Optional[int]
+    :param opened_socket: Provide an object (or a list of objects) ready to
+                          use .recv() on.
+    :type opened_socket: Optional[SuperSocket]
+    :param stop_filter: Python function applied to each packet to determine if
+                        we have to stop the capture after this packet.
+    :type stop_filter: Optional[Callable[[Packet], bool]]
+    :param iface: Interface or list of interfaces (default: None for sniffing
+                  on all interfaces).
+    :type iface: Optional[_GlobInterfaceType]
+    :param started_callback: Called as soon as the sniffer starts sniffing
+                            (default: None).
+    :type started_callback: Optional[Callable[[], Any]]
+    :param session: A session, which is a flow decoder used to handle a stream
+                    of packets. See the documentation for more details.
+    :type session: Optional[_GlobSessionType]
+    :param session_kwargs: Additional keyword arguments for session initialization.
+    :type session_kwargs: Dict[str, Any]
 
-    Args:
-        count: number of packets to capture. 0 means infinity.
-        store: whether to store sniffed packets or discard them
-        prn: function to apply to each packet. If something is returned, it
-             is displayed.
-             --Ex: prn = lambda x: x.summary()
-        session: a session = a flow decoder used to handle stream of packets.
-                 --Ex: session=TCPSession
-                 See below for more details.
-        filter: BPF filter to apply.
-        lfilter: Python function applied to each packet to determine if
-                 further action may be done.
-                 --Ex: lfilter = lambda x: x.haslayer(Padding)
-        offline: PCAP file (or list of PCAP files) to read packets from,
-                 instead of sniffing them
-        quiet:   when set to True, the process stderr is discarded
-                 (default: False).
-        timeout: stop sniffing after a given time (default: None).
-        L2socket: use the provided L2socket (default: use conf.L2listen).
-        opened_socket: provide an object (or a list of objects) ready to use
-                      .recv() on.
-        stop_filter: Python function applied to each packet to determine if
-                     we have to stop the capture after this packet.
-                     --Ex: stop_filter = lambda x: x.haslayer(TCP)
-        iface: interface or list of interfaces (default: None for sniffing
-               on all interfaces).
-        monitor: use monitor mode. May not be available on all OS
-        started_callback: called as soon as the sniffer starts sniffing
-                          (default: None).
+"""
 
+_DOC_ASYNC_SNIFF = """
     The iface, offline and opened_socket parameters can be either an
     element, a list of elements, or a dict object mapping an element to a
     label (see examples below).
@@ -1060,6 +1133,11 @@ class AsyncSniffer(object):
       >>> time.sleep(1)
       >>> print("nice weather today")
       >>> t.stop()
+    """
+
+
+class AsyncSniffer(object):
+    """Sniff packets and return a list of packets.
     """
 
     def __init__(self, *args, **kwargs):
@@ -1330,6 +1408,10 @@ class AsyncSniffer(object):
             self.thread.join(*args, **kwargs)
 
 
+AsyncSniffer.__doc__ = ((AsyncSniffer.__doc__ or "") + _DOC_SNIFF_PARAMS +
+                        _DOC_ASYNC_SNIFF)
+
+
 @conf.commands.register
 def sniff(*args, **kwargs):
     # type: (*Any, **Any) -> PacketList
@@ -1338,7 +1420,7 @@ def sniff(*args, **kwargs):
     return cast(PacketList, sniffer.results)
 
 
-sniff.__doc__ = AsyncSniffer.__doc__
+SuperSocket.sniff.__doc__ = sniff.__doc__ = AsyncSniffer.__doc__
 
 
 @conf.commands.register
@@ -1355,18 +1437,21 @@ def bridge_and_sniff(if1,  # type: _GlobInterfaceType
     """Forward traffic between interfaces if1 and if2, sniff and return
     the exchanged packets.
 
-    :param if1: the interfaces to use (interface names or opened sockets).
-    :param if2:
-    :param xfrm12: a function to call when forwarding a packet from if1 to
+    :param if1: The interfaces to use (interface names or opened sockets).
+    :type if1: _GlobInterfaceType
+
+    :param if2: The interfaces to use (interface names or opened sockets).
+    :type if2: _GlobInterfaceType
+
+    :param xfrm12: A function to call when forwarding a packet from if1 to
         if2. If it returns True, the packet is forwarded as it. If it
         returns False or None, the packet is discarded. If it returns a
-        packet, this packet is forwarded instead of the original packet
-        one.
-    :param xfrm21: same as xfrm12 for packets forwarded from if2 to if1.
+        packet, this packet is forwarded instead of the original packet.
+    :type xfrm12: Optional[Callable[[Packet], Union[Packet, bool]]]
 
-    The other arguments are the same than for the function sniff(),
-    except for offline, opened_socket and iface that are ignored.
-    See help(sniff) for more.
+    :param xfrm21: Same as xfrm12 for packets forwarded from if2 to if1.
+    :type xfrm21: Optional[Callable[[Packet], Union[Packet, bool]]]
+
     """
     for arg in ['opened_socket', 'offline', 'iface']:
         if arg in kargs:
@@ -1439,11 +1524,15 @@ def bridge_and_sniff(if1,  # type: _GlobInterfaceType
                  *args, **kargs)
 
 
+bridge_and_sniff.__doc__ = (bridge_and_sniff.__doc__ or "") + _DOC_SNIFF_PARAMS
+
+
 @conf.commands.register
 def tshark(*args, **kargs):
     # type: (Any, Any) -> None
     """Sniff packets and print them calling pkt.summary().
-    This tries to replicate what text-wireshark (tshark) would look like"""
+    This tries to replicate what text-wireshark (tshark) would look like.
+    """
 
     if 'iface' in kargs:
         iface = kargs.get('iface')
@@ -1464,3 +1553,7 @@ def tshark(*args, **kargs):
 
     sniff(prn=_cb, store=False, *args, **kargs)
     print("\n%d packet%s captured" % (i[0], 's' if i[0] > 1 else ''))
+
+
+tshark.__doc__ = (tshark.__doc__ or "") + _DOC_SNIFF_PARAMS
+SuperSocket.tshark.__doc__ = tshark.__doc__

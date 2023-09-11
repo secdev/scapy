@@ -16,7 +16,7 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
     ShortField, ObservableDict, XShortEnumField, XByteEnumField, StrLenField, \
-    FieldLenField, XStrFixedLenField, XStrLenField, FlagsField, PacketListField
+    FieldLenField, XStrFixedLenField, XStrLenField
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import log_loading
@@ -491,7 +491,8 @@ class UDS_ATPPR(Packet):
 
     def answers(self, other):
         return isinstance(other, UDS_ATP) \
-            and other.timingParameterAccessType == self.timingParameterAccessType
+            and other.timingParameterAccessType == \
+            self.timingParameterAccessType
 
 
 bind_layers(UDS, UDS_ATPPR, service=0xC3)
@@ -955,39 +956,12 @@ class UDS_RDTCI(Packet):
         20: 'reportDTCFaultDetectionCounter',
         21: 'reportDTCWithPermanentStatus'
     }
-    dtcStatus = {
-        1: 'TestFailed',
-        2: 'TestFailedThisOperationCycle',
-        4: 'PendingDTC',
-        8: 'ConfirmedDTC',
-        16: 'TestNotCompletedSinceLastClear',
-        32: 'TestFailedSinceLastClear',
-        64: 'TestNotCompletedThisOperationCycle',
-        128: 'WarningIndicatorRequested'
-    }
-    dtcStatusMask = {
-        1: 'ActiveDTCs',
-        4: 'PendingDTCs',
-        8: 'ConfirmedOrStoredDTCs',
-        255: 'AllRecordDTCs'
-    }
-    dtcSeverityMask = {
-        # 0: 'NoSeverityInformation',
-        1: 'NoClassInformation',
-        2: 'WWH-OBDClassA',
-        4: 'WWH-OBDClassB1',
-        8: 'WWH-OBDClassB2',
-        16: 'WWH-OBDClassC',
-        32: 'MaintenanceRequired',
-        64: 'CheckAtNextHalt',
-        128: 'CheckImmediately'
-    }
     name = 'ReadDTCInformation'
     fields_desc = [
         ByteEnumField('reportType', 0, reportTypes),
-        ConditionalField(FlagsField('DTCSeverityMask', 0, 8, dtcSeverityMask),
+        ConditionalField(ByteField('DTCSeverityMask', 0),
                          lambda pkt: pkt.reportType in [0x07, 0x08]),
-        ConditionalField(FlagsField('DTCStatusMask', 0, 8, dtcStatusMask),
+        ConditionalField(XByteField('DTCStatusMask', 0),
                          lambda pkt: pkt.reportType in [
                              0x01, 0x02, 0x07, 0x08, 0x0f, 0x11, 0x12, 0x13]),
         ConditionalField(ByteField('DTCHighByte', 0),
@@ -1009,48 +983,11 @@ class UDS_RDTCI(Packet):
 bind_layers(UDS, UDS_RDTCI, service=0x19)
 
 
-class DTC(Packet):
-    name = 'DTC and status record'
-    fields_desc = [
-        BitEnumField("system", 0, 2, {
-            0: "Powertrain", 1: "Chassis", 2: "Body", 3: "Network"}),
-        BitEnumField("type", 0, 2, {
-            0: "Generic", 1: "ManufacturerSpecific", 2: "Generic", 3: "Generic"}),
-        BitField("numeric_value_code", 0, 12),
-        ByteField("additional_information_code", 0),
-        FlagsField("status", 0, 8, UDS_RDTCI.dtcStatus)
-    ]
-
-    def extract_padding(self, s):
-        return '', s
-
-
-class DTCExtendedData(Packet):
-    name = 'Diagnostic Trouble Code Extended Data'
-    dataTypes = ObservableDict()
-
-    fields_desc = [
-        ByteEnumField("data_type", 0, dataTypes),
-        XByteField("record", 0)
-    ]
-
-    def extract_padding(self, s):
-        return '', s
-
-
-class DTCExtendedDataRecord(Packet):
-    fields_desc = [
-        PacketField("dtcAndStatus", None, pkt_cls=DTCAndStatusRecord),
-        PacketListField("extendedData", None, pkt_cls=DTCExtendedData)
-    ]
-
-
 class UDS_RDTCIPR(Packet):
     name = 'ReadDTCInformationPositiveResponse'
     fields_desc = [
         ByteEnumField('reportType', 0, UDS_RDTCI.reportTypes),
-        ConditionalField(FlagsField('DTCStatusAvailabilityMask', 0, 8,
-                                    UDS_RDTCI.dtcStatus),
+        ConditionalField(XByteField('DTCStatusAvailabilityMask', 0),
                          lambda pkt: pkt.reportType in [0x01, 0x07, 0x11,
                                                         0x12, 0x02, 0x0A,
                                                         0x0B, 0x0C, 0x0D,
@@ -1066,7 +1003,7 @@ class UDS_RDTCIPR(Packet):
         ConditionalField(ShortField('DTCCount', 0),
                          lambda pkt: pkt.reportType in [0x01, 0x07,
                                                         0x11, 0x12]),
-        ConditionalField(PacketListField('DTCAndStatusRecord', None, pkt_cls=DTC),
+        ConditionalField(StrField('DTCAndStatusRecord', b""),
                          lambda pkt: pkt.reportType in [0x02, 0x0A, 0x0B,
                                                         0x0C, 0x0D, 0x0E,
                                                         0x0F, 0x13, 0x15]),
@@ -1324,15 +1261,15 @@ class UDS_RFTPR(Packet):
                                        fmt='B'),
                          lambda p: p.modeOfOperation != 2),
         ConditionalField(StrLenField('maxNumberOfBlockLength', b"",
-                                     length_from=lambda p: p.lengthFormatIdentifier),
+                         length_from=lambda p: p.lengthFormatIdentifier),
                          lambda p: p.modeOfOperation != 2),
         ConditionalField(BitField('compressionMethod', 0, 4),
                          lambda p: p.modeOfOperation != 0x02),
         ConditionalField(BitField('encryptingMethod', 0, 4),
                          lambda p: p.modeOfOperation != 0x02),
         ConditionalField(FieldLenField('fileSizeOrDirInfoParameterLength',
-                                       None,
-                                       length_of='fileSizeUncompressedOrDirInfoLength'),
+                         None,
+                         length_of='fileSizeUncompressedOrDirInfoLength'),
                          lambda p: p.modeOfOperation not in [1, 2, 3]),
         ConditionalField(StrLenField('fileSizeUncompressedOrDirInfoLength',
                                      b"",
@@ -1340,8 +1277,8 @@ class UDS_RFTPR(Packet):
                                      p.fileSizeOrDirInfoParameterLength),
                          lambda p: p.modeOfOperation not in [1, 2, 3]),
         ConditionalField(StrLenField('fileSizeCompressed', b"",
-                                     length_from=lambda p:
-                                     p.fileSizeOrDirInfoParameterLength),
+                         length_from=lambda p:
+                         p.fileSizeOrDirInfoParameterLength),
                          lambda p: p.modeOfOperation not in [1, 2, 3, 5]),
     ]
 

@@ -253,21 +253,6 @@ def recv(self, x=MTU, **kwargs):
     def sr(self, *args, **kargs):
         # type: (Any, Any) -> Tuple[SndRcvList, PacketList]
         """Send and Receive multiple packets
-
-        :param pkt: Packet or list of packets to be sent
-        :type pkt: _PacketIterable
-        :param timeout: Time in seconds for how long packets are received
-        :type timeout: Optional[int]
-        :param inter: Delay, between send of two packets
-        :type inter: int
-        :param verbose: 1, to enable verbose output, 0 to disable.
-        :type verbose: Optional[int]
-        :param chainCC: Forward KeyboardInterrupt, if received.
-        :type chainCC: bool
-
-        :return: A tuple, consisting of two packet lists, one with
-                 answered packets, the other with unanswered packets
-        :rtype: Tuple[SndRcvList, PacketList]
         """
         from scapy import sendrecv
         ans, unans = sendrecv.sndrcv(self, *args, **kargs)
@@ -275,6 +260,8 @@ def recv(self, x=MTU, **kwargs):
 
     def sr1(self, *args, **kargs):
         # type: (Any, Any) -> Optional[Packet]
+        """Send one packet and receive one answer
+        """
         from scapy import sendrecv
         ans = sendrecv.sndrcv(self, *args, **kargs)[0]  # type: SndRcvList
         if len(ans) > 0:
