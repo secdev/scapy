@@ -16,7 +16,7 @@ from scapy.fields import BitField, FlagsField, StrLenField, \
     BitEnumField, ByteField, XByteField, BitFieldLenField, StrField, \
     FieldLenField, IntField, ShortField
 from scapy.compat import chb, orb
-from scapy.layers.can import CAN
+from scapy.layers.can import CAN, CAN_FD_MAX_DLEN as CAN_FD_MAX_DLEN
 from scapy.error import Scapy_Exception
 
 # Typing imports
@@ -96,11 +96,21 @@ class ISOTP(Packet):
         """Helper function to fragment an ISOTP message into multiple
         CAN frames.
 
+        :param fd: type: Optional[bool]: will fragment the can frames
+            with size CAN_FD_MAX_DLEN
+
         :return: A list of CAN frames
         """
-        data_bytes_in_frame = 7
+
+        fd = kargs.pop("fd", False)
+
+        def _get_data_len():
+            # type: () -> int
+            return CAN_MAX_DLEN if not fd else CAN_FD_MAX_DLEN
+
+        data_bytes_in_frame = _get_data_len() - 1
         if self.rx_ext_address is not None:
-            data_bytes_in_frame = 6
+            data_bytes_in_frame = data_bytes_in_frame - 1
 
         if len(self.data) > ISOTP_MAX_DLEN_2015:
             raise Scapy_Exception("Too much data in ISOTP message")
@@ -125,7 +135,7 @@ class ISOTP(Packet):
             frame_header = struct.pack(">HI", 0x1000, len(self.data))
         if self.rx_ext_address:
             frame_header = struct.pack('B', self.rx_ext_address) + frame_header
-        idx = 8 - len(frame_header)
+        idx = _get_data_len() - len(frame_header)
         frame_data = self.data[0:idx]
         if self.rx_id is None or self.rx_id <= 0x7ff:
             frame = CAN(identifier=self.rx_id, data=frame_header + frame_data)
