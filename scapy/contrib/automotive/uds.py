@@ -1032,7 +1032,7 @@ class DTC(Packet):
         return '', s
 
 
-class DTC_Status(Packet):
+class DTCAndStatusRecord(Packet):
     name = 'DTC and status record'
     fields_desc = [
         PacketField("dtc", None, pkt_cls=DTC),
@@ -1041,6 +1041,26 @@ class DTC_Status(Packet):
 
     def extract_padding(self, s):
         return '', s
+
+
+class DTCExtendedData(Packet):
+    name = 'Diagnostic Trouble Code Extended Data'
+    dataTypes = ObservableDict()
+
+    fields_desc = [
+        ByteEnumField("data_type", 0, dataTypes),
+        XByteField("record", 0)
+    ]
+
+    def extract_padding(self, s):
+        return '', s
+
+
+class DTCExtendedDataRecord(Packet):
+    fields_desc = [
+        PacketField("dtcAndStatus", None, pkt_cls=DTCAndStatusRecord),
+        PacketListField("extendedData", None, pkt_cls=DTCExtendedData)
+    ]
 
 
 class UDS_RDTCIPR(Packet):
@@ -1063,14 +1083,16 @@ class UDS_RDTCIPR(Packet):
                          lambda pkt: pkt.reportType in [0x01, 0x07,
                                                         0x11, 0x12]),
         ConditionalField(PacketListField('DTCAndStatusRecord', None,
-                                         pkt_cls=DTC_Status),
+                                         pkt_cls=DTCAndStatusRecord),
                          lambda pkt: pkt.reportType in [0x02, 0x0A, 0x0B,
                                                         0x0C, 0x0D, 0x0E,
                                                         0x0F, 0x13, 0x15]),
         ConditionalField(StrField('dataRecord', b""),
-                         lambda pkt: pkt.reportType in [0x03, 0x04, 0x05,
-                                                        0x06, 0x08, 0x09,
-                                                        0x10, 0x14])
+                         lambda pkt: pkt.reportType in [0x03, 0x08, 0x09,
+                                                        0x10, 0x14]),
+        ConditionalField(PacketField('extendedDataRecord', None,
+                                     pkt_cls=DTCExtendedDataRecord),
+                         lambda pkt: pkt.reportType in [0x06])
     ]
 
     def answers(self, other):
