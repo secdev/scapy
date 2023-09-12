@@ -1524,6 +1524,21 @@ pkt = TLSServerHello(b"\x02\x00\x00\x28\x03\x03ABCDEFGHIJKLMNOPQRSTUVWXYZ012345\
 assert pkt.extlen == 0
 assert pkt.ext == []
 
+= TLS_Ext_ServerName
+
+pkt = TLS_Ext_ServerName(b"\x00\x00\x00\n\x00\x08\x00\x00\x05ab.cd")
+servernames = pkt.servernames
+assert len(servernames) == 1
+assert servernames[0].servername == b"ab.cd"
+repr(pkt)
+
+with no_debug_dissector():
+    pkt = TLS_Ext_ServerName(b"\x00\x00\x00\x04\x00\x02\x00\x00")
+    servernames = pkt.servernames
+    assert len(servernames) == 1
+    assert isinstance(servernames[0], Raw)
+    repr(pkt)
+
 = Issue 3324 - FFDH support
 
 # Dissection

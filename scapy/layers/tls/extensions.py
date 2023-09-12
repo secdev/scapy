@@ -188,12 +188,6 @@ class ServerName(Packet):
         return Padding
 
 
-class ServerListField(PacketListField):
-    def i2repr(self, pkt, x):
-        res = [p.servername for p in x]
-        return "[%s]" % ", ".join(repr(x) for x in res)
-
-
 class ServerLenField(FieldLenField):
     """
     There is no length when there are no servernames (as in a ServerHello).
@@ -213,7 +207,7 @@ class TLS_Ext_ServerName(TLS_Ext_PrettyPacketList):                 # RFC 4366
                                         adjust=lambda pkt, x: x + 2)),
                    ServerLenField("servernameslen", None,
                                   length_of="servernames"),
-                   ServerListField("servernames", [], ServerName,
+                   PacketListField("servernames", [], ServerName,
                                    length_from=lambda pkt: pkt.servernameslen)]
 
 
