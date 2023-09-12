@@ -138,6 +138,8 @@ class _TLSMsgListField(PacketListField):
         If the decryption failed with a CipherError, presumably because we
         missed the session keys, we signal it by returning a
         _TLSEncryptedContent packet which simply contains the ciphered data.
+        If any message fails to parse, the entire message is treated as
+        a _TLSEncryptedContent packet.
         """
         tmp_len = self.length_from(pkt)
         lst = []
@@ -173,6 +175,8 @@ class _TLSMsgListField(PacketListField):
                 if isinstance(p, _GenericTLSSessionInheritance):
                     if not p.tls_session.frozen:
                         p.post_dissection_tls_session_update(raw_msg)
+                if isinstance(p, Raw):
+                    return ret, _TLSEncryptedContent(s)
 
                 lst.append(p)
             return remain + ret, lst
@@ -533,7 +537,11 @@ class TLS(_GenericTLSSessionInheritance):
                 iv = b""
                 cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
             else:
-                iv, cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
+                try:
+                    iv, cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
+                except:
+                    iv = b""
+                    cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
             decryption_success = True       # see XXX above
 
         frag = self._tls_decompress(cfrag)

@@ -1095,9 +1095,13 @@ class _GenericTLSSessionInheritance(Packet):
             elif len(data) > length:
                 pkt = cls(data)
                 if hasattr(pkt.payload, "tcp_reassemble"):
-                    return pkt.payload.tcp_reassemble(data[length:], metadata, session)
-                else:
-                    return pkt
+                    payload = pkt.payload.tcp_reassemble(data[length:], metadata, session)
+                    if payload is None:
+                        return None
+                    pkt.payload = payload
+                return pkt
+            else:
+                return None
         else:
             return cls(data)
 
