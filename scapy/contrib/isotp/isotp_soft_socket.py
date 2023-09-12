@@ -228,6 +228,8 @@ class TimeoutScheduler:
     # use heapq functions on _handles!
     _handles = []  # type: List[TimeoutScheduler.Handle]
 
+    logger = logging.getLogger("scapy.contrib.automotive.timeout_scheduler")
+
     @classmethod
     def schedule(cls, timeout, callback):
         # type: (float, Callable[[], None]) -> TimeoutScheduler.Handle
@@ -316,13 +318,13 @@ class TimeoutScheduler:
         # Wait until the next timeout,
         # or until event.set() gets called in another thread.
         if to_wait > 0:
-            log_isotp.debug("TimeoutScheduler Thread going to sleep @ %f " +
-                            "for %fs", now, to_wait)
+            cls.logger.debug("Thread going to sleep @ %f " +
+                             "for %fs", now, to_wait)
             interrupted = cls._event.wait(to_wait)
             new = cls._time()
-            log_isotp.debug("TimeoutScheduler Thread awake @ %f, slept for" +
-                            " %f, interrupted=%d", new, new - now,
-                            interrupted)
+            cls.logger.debug("Thread awake @ %f, slept for" +
+                             " %f, interrupted=%d", new, new - now,
+                             interrupted)
 
         # Clear the event so that we can wait on it again,
         # Must be done before doing the callbacks to avoid losing a set().
@@ -335,7 +337,7 @@ class TimeoutScheduler:
         start when the first timeout is added and stop when the last timeout
         is removed or executed."""
 
-        log_isotp.debug("TimeoutScheduler Thread spawning @ %f", cls._time())
+        cls.logger.debug("Thread spawning @ %f", cls._time())
 
         time_empty = None
 
@@ -357,7 +359,7 @@ class TimeoutScheduler:
         finally:
             # Worst case scenario: if this thread dies, the next scheduled
             # timeout will start a new one
-            log_isotp.debug("TimeoutScheduler Thread died @ %f", cls._time())
+            cls.logger.debug("Thread died @ %f", cls._time())
             cls._thread = None
 
     @classmethod
@@ -379,7 +381,7 @@ class TimeoutScheduler:
                     callback = handle._cb
                     handle._cb = True
 
-            # Call the callback here, outside of the mutex
+            # Call the callback here, outside the mutex
             if callable(callback):
                 try:
                     callback()

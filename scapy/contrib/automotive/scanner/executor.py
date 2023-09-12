@@ -33,7 +33,10 @@ from typing import (
     Callable,
     Type,
     cast,
+    TypeVar,
 )
+
+T = TypeVar("T")
 
 
 class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
@@ -414,6 +417,10 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
             for s in self.state_graph.nodes:
                 data += [(repr(s), t.__class__.__name__, t.has_completed(s))]
         make_lined_table(data, lambda *tup: (tup[0], tup[1], tup[2]))
+
+    def get_test_cases_by_class(self, cls):
+        # type: (Type[T]) -> List[T]
+        return [x for x in self.configuration.test_cases if isinstance(x, cls)]
 
     @property
     def supported_responses(self):
