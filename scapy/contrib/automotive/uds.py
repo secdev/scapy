@@ -1013,6 +1013,8 @@ bind_layers(UDS, UDS_RDTCI, service=0x19)
 
 class DTC(Packet):
     name = 'Diagnostic Trouble Code'
+    dtc_descriptions = {}  # Customize this dictionary for each individual ECU / OEM
+
     fields_desc = [
         BitEnumField("system", 0, 2, {
             0: "Powertrain",
