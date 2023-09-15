@@ -492,8 +492,8 @@ class CryptAlgo(object):
         nh = orb(data[-1])
 
         # then use padlen to determine data and padding
-        data = data[:len(data) - padlen - 2]
         padding = data[len(data) - padlen - 2: len(data) - 2]
+        data = data[:len(data) - padlen - 2]
 
         return _ESPPlain(spi=esp.spi,
                          seq=esp.seq,
