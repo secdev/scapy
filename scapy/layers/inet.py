@@ -1174,7 +1174,10 @@ def _defrag_iter_and_check_offsets(frags):
     for pkt, o, length in frags:
         if offset != o:
             if offset > o:
-                warning("Fragment overlap (%i > %i) on %r" % (offset, o, pkt))
+                op = ">"
+            else:
+                op = "<"
+            warning("Fragment overlap (%i %s %i) on %r" % (offset, op, o, pkt))
             raise BadFragments
         offset += length
         yield bytes(pkt[IP].payload)

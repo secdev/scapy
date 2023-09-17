@@ -86,7 +86,11 @@ assert raw(dissected_packets[0]) == raw(packet)
 
 pkts = fragment(IP(dst="10.0.0.5")/ICMP()/("X"*1500))
 pkts.insert(1, ARP())
-assert len(sniff(offline=pkts, session=IPSession)) == 2
+assert len(pkts) == 3
+
+pkts = sniff(offline=pkts, session=IPSession)
+assert len(pkts) == 2
+assert pkts[1].load == b"X" * 1500
 
 = StringBuffer
 
