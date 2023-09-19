@@ -701,6 +701,13 @@ def _iface_changer(attr, val, old):
     return val  # type: ignore
 
 
+def _reset_tls_nss_keys(attr, val, old):
+    # type: (str, Any, Any) -> Any
+    """Reset conf.tls_nss_keys when conf.tls_nss_filename changes"""
+    conf.tls_nss_keys = None
+    return val
+
+
 class Conf(ConfClass):
     """
     This object contains the configuration of Scapy.
@@ -775,7 +782,8 @@ class Conf(ConfClass):
     filter = ""
     #: when 1, store received packet that are not matched into `debug.recv`
     debug_match = False
-    #: When 1, print some TLS session secrets when they are computed.
+    #: When 1, print some TLS session secrets when they are computed, and
+    #: warn about the session recognition.
     debug_tls = False
     wepkey = ""
     #: holds the Scapy interface list and manager
@@ -901,6 +909,16 @@ class Conf(ConfClass):
     #: a safety mechanism: the maximum amount of items included in a PacketListField
     #: or a FieldListField
     max_list_count = 100
+    #: When the TLS module is loaded (not by default), the following turns on sessions
+    tls_session_enable = False
+    #: Filename containing NSS Keys Log
+    tls_nss_filename = Interceptor(
+        "tls_nss_filename",
+        None,
+        _reset_tls_nss_keys
+    )
+    #: Dictionary containing parsed NSS Keys
+    tls_nss_keys = None
 
     def __getattribute__(self, attr):
         # type: (str) -> Any

@@ -636,11 +636,13 @@ class _ATMT_supersocket(SuperSocket):
         # type: () -> int
         return self.spb.fileno()
 
-    def recv(self, n=MTU):
-        # type: (Optional[int]) -> Any
+    # note: _ATMT_supersocket may return bytes in certain cases, which
+    # is expected. We cheat on typing.
+    def recv(self, n=MTU, **kwargs):  # type: ignore
+        # type: (int, **Any) -> Any
         r = self.spb.recv(n)
         if self.proto is not None and r is not None:
-            r = self.proto(r)
+            r = self.proto(r, **kwargs)
         return r
 
     def close(self):

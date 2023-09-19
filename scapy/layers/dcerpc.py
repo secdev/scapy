@@ -91,6 +91,11 @@ from scapy.contrib.rtps.common_types import (
     EPacketListField,
 )
 
+# Typing imports
+from typing import (
+    Optional,
+)
+
 
 # DCE/RPC Packet
 DCE_RPC_TYPE = {
@@ -1895,12 +1900,11 @@ class DceRpcSession(DefaultSession):
             pkt = self._parse_with_opnum(pkt, opnum, opts)
         return pkt
 
-    def on_packet_received(self, pkt):
+    def process(self, pkt: Packet) -> Optional[Packet]:
         if DceRpc5 in pkt:
-            return super(DceRpcSession, self).on_packet_received(
-                self._process_dcerpc_packet(pkt)
-            )
-        return super(DceRpcSession, self).on_packet_received(pkt)
+            return self._process_dcerpc_packet(pkt)
+        else:
+            return pkt
 
 
 # --- TODO cleanup below

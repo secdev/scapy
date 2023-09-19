@@ -783,9 +783,8 @@ Those sessions can be used using the ``session=`` parameter of ``sniff()``. Exam
 
 .. note::
    To implement your own Session class, in order to support another flow-based protocol, start by copying a sample from `scapy/sessions.py <https://github.com/secdev/scapy/blob/master/scapy/sessions.py>`_
-   Your custom ``Session`` class only needs to extend the :py:class:`~scapy.sessions.DefaultSession` class, and implement a ``on_packet_received`` function, such as in the example.
+   Your custom ``Session`` class only needs to extend the :py:class:`~scapy.sessions.DefaultSession` class, and implement a ``process`` or a ``recv`` function, such as in the examples.
 
-.. note:: Would you need it, you can use: ``class TLS_over_TCP(TLSSession, TCPSession): pass`` to sniff TLS packets that are defragmented.
 
 How to use TCPSession to defragment TCP packets
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

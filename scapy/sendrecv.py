@@ -1092,20 +1092,17 @@ class AsyncSniffer(object):
              iface=None,  # type: Optional[_GlobInterfaceType]
              started_callback=None,  # type: Optional[Callable[[], Any]]
              session=None,  # type: Optional[_GlobSessionType]
-             session_kwargs={},  # type: Dict[str, Any]
              **karg  # type: Any
              ):
         # type: (...) -> None
         self.running = True
+        self.count = 0
+        lst = []
         # Start main thread
         # instantiate session
         if not isinstance(session, DefaultSession):
             session = session or DefaultSession
-            session = session(prn=prn, store=store,
-                              **session_kwargs)
-        else:
-            session.prn = prn
-            session.store = store
+            session = session()
         # sniff_sockets follows: {socket: label}
         sniff_sockets = {}  # type: Dict[SuperSocket, _GlobInterfaceType]
         if opened_socket is not None:
@@ -1238,8 +1235,28 @@ class AsyncSniffer(object):
                 for s in sockets:
                     if s is close_pipe:  # type: ignore
                         break
+                    # The session object is passed the socket to call recv() on,
+                    # and may perform additional processing (ip defrag, etc.)
                     try:
-                        p = s.recv()
+                        packets = session.recv(s)
+                        # A session can return multiple objects
+                        for p in packets:
+                            if lfilter and not lfilter(p):
+                                continue
+                            p.sniffed_on = sniff_sockets[s]
+                            # post-processing
+                            self.count += 1
+                            if store:
+                                lst.append(p)
+                            if prn:
+                                result = prn(p)
+                                if result is not None:
+                                    print(result)
+                            # check
+                            if (stop_filter and stop_filter(p)) or \
+                                    (0 < count <= self.count):
+                                self.continue_sniff = False
+                                break
                     except EOFError:
                         # End of stream
                         try:
@@ -1262,18 +1279,6 @@ class AsyncSniffer(object):
                         if conf.debug_dissector >= 2:
                             raise
                         continue
-                    if p is None:
-                        continue
-                    if lfilter and not lfilter(p):
-                        continue
-                    p.sniffed_on = sniff_sockets[s]
-                    # on_packet_received handles the prn/storage
-                    session.on_packet_received(p)
-                    # check
-                    if (stop_filter and stop_filter(p)) or \
-                            (0 < count <= session.count):
-                        self.continue_sniff = False
-                        break
                 # Removed dead sockets
                 for s in dead_sockets:
                     del sniff_sockets[s]
@@ -1289,7 +1294,7 @@ class AsyncSniffer(object):
                 s.close()
         elif close_pipe:
             close_pipe.close()
-        self.results = session.toPacketList()
+        self.results = PacketList(lst, "Sniffed")
 
     def start(self):
         # type: () -> None

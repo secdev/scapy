@@ -23,6 +23,7 @@ from scapy.layers.can import CAN_MTU, CAN_FD_MTU, CAN_MAX_DLEN, CAN_FD_MAX_DLEN
 
 # Typing imports
 from typing import (
+    Any,
     Optional,
     Union,
     Tuple,
@@ -387,9 +388,9 @@ class ISOTPNativeSocket(SuperSocket):
             ts = get_last_packet_timestamp(self.ins)
         return self.basecls, pkt, ts
 
-    def recv(self, x=0xffff):
-        # type: (int) -> Optional[Packet]
-        msg = SuperSocket.recv(self, x)
+    def recv(self, x=0xffff, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
+        msg = SuperSocket.recv(self, x, **kwargs)
         if msg is None:
             return msg
 

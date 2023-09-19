@@ -19,6 +19,7 @@ from scapy.contrib.automotive.uds import UDS, UDS_TP
 from scapy.data import MTU
 
 from typing import (
+    Any,
     Optional,
     Tuple,
     Type,
@@ -88,8 +89,8 @@ class HSFZSocket(StreamSocket):
         StreamSocket.__init__(self, s, HSFZ)
         self.buffer = b""
 
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
+    def recv(self, x=MTU, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
         if self.buffer:
             len_data = self.buffer[:4]
         else:
@@ -104,7 +105,7 @@ class HSFZSocket(StreamSocket):
         if len(self.buffer) != len_int:
             return None
 
-        pkt = self.basecls(self.buffer)  # type: Packet
+        pkt = self.basecls(self.buffer, **kwargs)  # type: Packet
         self.buffer = b""
         return pkt
 
@@ -141,11 +142,11 @@ class UDS_HSFZSocket(HSFZSocket):
             self.close()
             return 0
 
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
+    def recv(self, x=MTU, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
         pkt = super(UDS_HSFZSocket, self).recv(x)
         if pkt:
-            return self.outputcls(bytes(pkt.payload))
+            return self.outputcls(bytes(pkt.payload), **kwargs)
         else:
             return pkt
 

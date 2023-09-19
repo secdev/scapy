@@ -593,9 +593,9 @@ class L2ListenSocket(L2Socket):
 class L3PacketSocket(L2Socket):
     desc = "read/write packets at layer 3 using Linux PF_PACKET sockets"
 
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
-        pkt = SuperSocket.recv(self, x)
+    def recv(self, x=MTU, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
+        pkt = SuperSocket.recv(self, x, **kwargs)
         if pkt and self.lvl == 2:
             pkt.payload.time = pkt.time
             return pkt.payload

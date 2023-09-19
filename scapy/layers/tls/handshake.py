@@ -463,7 +463,7 @@ class TLS13ClientHello(_TLSHandshake):
                         # RFC 8701: GREASE of TLS will send unknown versions
                         # here. We have to ignore them
                         if ver in _tls_version:
-                            self.tls_session.advertised_tls_version = ver
+                            s.advertised_tls_version = ver
                             break
                 if isinstance(e, TLS_Ext_SignatureAlgorithms):
                     s.advertised_sig_algs = e.sig_algs
@@ -1329,7 +1329,14 @@ class TLSClientKeyExchange(_TLSHandshake):
                 self.tls_session.session_hash = (
                     Hash_MD5().digest(to_hash) + Hash_SHA().digest(to_hash)
                 )
-            self.tls_session.compute_ms_and_derive_keys()
+            if self.tls_session.pre_master_secret:
+                self.tls_session.compute_ms_and_derive_keys()
+
+        if not self.tls_session.master_secret:
+            # There are still no master secret (we're just passive)
+            if self.tls_session.use_nss_master_secret_if_present():
+                # we have a NSS file
+                self.tls_session.compute_ms_and_derive_keys()
 
 
 ###############################################################################

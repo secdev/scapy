@@ -85,7 +85,7 @@ mk_enc.decryptedkey is None
 
 = Reading SSLv2 session - Importing server compromised key
 import os
-filename = scapy_path("/test/tls/pki/srv_key.pem")
+filename = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
 rsa_key = PrivKeyRSA(filename)
 t.tls_session.server_rsa_key = rsa_key
 
@@ -278,5 +278,5 @@ s.wcs.cipher.iv == b'\x01'*8
 ############################ Automaton behaviour ##############################
 ###############################################################################
 
-# see test/tls/tests_tls_netaccess.uts
+# see scapy/layers/tls/clientserver.uts
 
