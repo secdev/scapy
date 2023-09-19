@@ -775,20 +775,37 @@ class Automaton_metaclass(type):
         s += se
 
         for st in self.states.values():
-            for n in st.atmt_origfunc.__code__.co_names + st.atmt_origfunc.__code__.co_consts:  # noqa: E501
+            names = list(
+                st.atmt_origfunc.__code__.co_names +
+                st.atmt_origfunc.__code__.co_consts
+            )
+            while names:
+                n = names.pop()
                 if n in self.states:
-                    s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state, n)  # noqa: E501
+                    s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state, n)
+                elif n in self.__dict__:
+                    # function indirection
+                    if callable(self.__dict__[n]):
+                        names.extend(self.__dict__[n].__code__.co_names)
+                        names.extend(self.__dict__[n].__code__.co_consts)
 
         for c, k, v in ([("purple", k, v) for k, v in self.conditions.items()] +  # noqa: E501
                         [("red", k, v) for k, v in self.recv_conditions.items()] +  # noqa: E501
                         [("orange", k, v) for k, v in self.ioevents.items()]):
             for f in v:
-                for n in f.__code__.co_names + f.__code__.co_consts:
+                names = list(f.__code__.co_names + f.__code__.co_consts)
+                while names:
+                    n = names.pop()
                     if n in self.states:
                         line = f.atmt_condname
                         for x in self.actions[f.atmt_condname]:
                             line += "\\l>[%s]" % x.__name__
                         s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, line, c)  # noqa: E501
+                    elif n in self.__dict__:
+                        # function indirection
+                        if callable(self.__dict__[n]):
+                            names.extend(self.__dict__[n].__code__.co_names)
+                            names.extend(self.__dict__[n].__code__.co_consts)
         for k, timers in self.timeout.items():
             for timer in timers:
                 for n in (timer._func.__code__.co_names +
