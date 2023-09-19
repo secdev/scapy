@@ -376,6 +376,7 @@ class DoIPSocket6(DoIPSocket):
         self.ip = ip
         self.port = port
         self.source_address = source_address
+        self.buffer = b""
         super(DoIPSocket6, self)._init_socket(socket.AF_INET6)
 
         if activate_routing:
