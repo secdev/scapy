@@ -1,0 +1,39 @@
+# UTS BCMP-Like Model Example
+
+# Define the network topology
+servers = [Server(1), Server(2), Server(3)]
+queues = [Queue(1), Queue(2)]
+customers = [Customer(1), Customer(2)]
+
+# Define arrival rates and service times
+arrival_rates = [0.2, 0.3]  # Arrival rate for each customer class
+service_times = [[0.4, 0.5, 0.2], [0.6, 0.4, 0.3]]  # Service time matrix
+
+# Define routing probabilities
+routing_matrix = [
+    [0.2, 0.5, 0.3],  # Routing probabilities for Customer 1
+    [0.4, 0.3, 0.3],  # Routing probabilities for Customer 2
+]
+
+# Solve the model (not shown in this simplified example)
+
+# Simulation
+simulation_duration = 1000  # Simulation time
+simulator = UTSimulator()
+
+for t in range(simulation_duration):
+    for customer in customers:
+        for server in servers:
+            # Determine the server to which the customer will be routed
+            selected_server = select_server(customer, routing_matrix[customer.id - 1])
+            
+            # Generate arrival events based on arrival rates
+            if random() < arrival_rates[customer.id - 1]:
+                arrival_event = ArrivalEvent(customer, t)
+                simulator.schedule_event(arrival_event, t)
+                
+            # Process customers at the selected server
+            if server.id == selected_server:
+                service_time = service_times[customer.id - 1][server.id - 1]
+                service_event = ServiceEvent(customer, server, t, service_time)
+                simulator.schedule_event(service_event, t)
