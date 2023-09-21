@@ -273,6 +273,11 @@ assert isinstance(s.wcs.ciphersuite, SSL_CK_DES_192_EDE3_CBC_WITH_MD5)
 s.rcs.cipher.iv == b'\x01'*8
 s.wcs.cipher.iv == b'\x01'*8
 
+= Dissect invalid payload
+p = SSLv2()
+with no_debug_dissector():
+    p.do_dissect_payload(b'\x00')
+    assert raw(p.payload) == b'\x00'
 
 ###############################################################################
 ############################ Automaton behaviour ##############################
