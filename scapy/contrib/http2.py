@@ -2618,7 +2618,7 @@ class HPackHdrTable(Sized):
         return plain_str(hdr_name.lower()), plain_str(grp.group(3))
 
     def parse_txt_hdrs(self,
-                       s,  # type: str
+                       s,  # type: Union[bytes, str]
                        stream_id=1,  # type: int
                        body=None,  # type: Optional[str]
                        max_frm_sz=4096,  # type: int
@@ -2664,7 +2664,7 @@ class HPackHdrTable(Sized):
         :raises: Exception
         """
 
-        sio = BytesIO(s)
+        sio = BytesIO(s.encode() if isinstance(s, str) else s)
 
         base_frm_len = len(raw(H2Frame()))
 
