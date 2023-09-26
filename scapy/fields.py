@@ -2175,9 +2175,7 @@ class FieldLenField(Field[int, int]):
                 fld, fval = pkt.getfield_and_val(self.count_of)
                 f = fld.i2count(pkt, fval)
             else:
-                raise ValueError(
-                    "Field should have either length_of or count_of"
-                )
+                f = len(pkt.payload)
             x = self.adjust(pkt, f)
         elif x is None:
             x = 0
