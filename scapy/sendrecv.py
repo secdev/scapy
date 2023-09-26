@@ -515,7 +515,7 @@ def sendpfast(x,  # type: _PacketIterable
         iface = conf.iface
     argv = [conf.prog.tcpreplay, "--intf1=%s" % network_name(iface)]
     if pps is not None:
-        argv.append("--pps=%i" % pps)
+        argv.append("--pps=%f" % pps)
     elif mbps is not None:
         argv.append("--mbps=%f" % mbps)
     elif realtime is not None:
