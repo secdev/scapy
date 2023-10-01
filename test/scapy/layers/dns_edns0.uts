@@ -96,3 +96,26 @@ assert raw(d) == raw_d
 
 d = DNSRROPT(raw_d)
 assert EDNS0ClientSubnet in d.rdata[0] and d.rdata[0].family == 2 and d.rdata[0].address == "2001:db8::"
+
+
++ EDNS0 - Extended DNS Error
+
+= Basic instantiation & dissection
+
+b = b'\x00\x0f\x00\x02\x00\x00'
+
+p = EDNS0ExtendedDNSError()
+assert raw(p) == b
+
+p = EDNS0ExtendedDNSError(b)
+assert p.optcode == 15 and p.optlen == 2 and p.info_code == 0 and p.extra_text == b''
+
+b = raw(EDNS0ExtendedDNSError(info_code="DNSSEC Bogus", extra_text="proof of non-existence of example.com. NSEC"))
+
+p = EDNS0ExtendedDNSError(b)
+assert p.info_code == 6 and p.optlen == 45 and p.extra_text == b'proof of non-existence of example.com. NSEC'
+
+rropt = DNSRROPT(b'\x00\x00)\x04\xd0\x00\x00\x00\x00\x001\x00\x0f\x00-\x00\x06proof of non-existence of example.com. NSEC')
+assert len(rropt.rdata) == 1
+p = rropt.rdata[0]
+assert p.info_code == 6 and p.optlen == 45 and p.extra_text == b'proof of non-existence of example.com. NSEC'
