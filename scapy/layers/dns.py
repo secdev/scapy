@@ -370,7 +370,8 @@ class DNSTextField(StrLenField):
 # RFC 2671 - Extension Mechanisms for DNS (EDNS0)
 
 edns0types = {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Reserved",
-              5: "PING", 8: "edns-client-subnet", 10: "COOKIE"}
+              5: "PING", 8: "edns-client-subnet", 10: "COOKIE",
+              15: "Extended DNS Error"}
 
 
 class EDNS0TLV(Packet):
@@ -394,6 +395,8 @@ class EDNS0TLV(Packet):
         edns0type = struct.unpack("!H", _pkt[:2])[0]
         if edns0type == 8:
             return EDNS0ClientSubnet
+        if edns0type == 15:
+            return EDNS0ExtendedDNSError
         return EDNS0TLV
 
 
@@ -489,6 +492,54 @@ class EDNS0ClientSubnet(Packet):
                          lambda pkt: pkt.family == 2)],
                        ClientSubnetv4("address", "192.168.0.0",
                                       length_from=lambda p: p.source_plen))]
+
+
+# RFC 8914 - Extended DNS Errors
+
+# https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#extended-dns-error-codes
+extended_dns_error_codes = {
+    0: "Other",
+    1: "Unsupported DNSKEY Algorithm",
+    2: "Unsupported DS Digest Type",
+    3: "Stale Answer",
+    4: "Forged Answer",
+    5: "DNSSEC Indeterminate",
+    6: "DNSSEC Bogus",
+    7: "Signature Expired",
+    8: "Signature Not Yet Valid",
+    9: "DNSKEY Missing",
+    10: "RRSIGs Missing",
+    11: "No Zone Key Bit Set",
+    12: "NSEC Missing",
+    13: "Cached Error",
+    14: "Not Ready",
+    15: "Blocked",
+    16: "Censored",
+    17: "Filtered",
+    18: "Prohibited",
+    19: "Stale NXDOMAIN Answer",
+    20: "Not Authoritative",
+    21: "Not Supported",
+    22: "No Reachable Authority",
+    23: "Network Error",
+    24: "Invalid Data",
+    25: "Signature Expired before Valid",
+    26: "Too Early",
+    27: "Unsupported NSEC3 Iterations Value",
+    28: "Unable to conform to policy",
+    29: "Synthesized",
+}
+
+
+# https://www.rfc-editor.org/rfc/rfc8914.html
+class EDNS0ExtendedDNSError(Packet):
+    name = "DNS EDNS0 Extended DNS Error"
+    fields_desc = [ShortEnumField("optcode", 15, edns0types),
+                   FieldLenField("optlen", None, length_of="extra_text", fmt="!H",
+                                 adjust=lambda pkt, x: x + 2),
+                   ShortEnumField("info_code", 0, extended_dns_error_codes),
+                   StrLenField("extra_text", "",
+                               length_from=lambda pkt: pkt.optlen - 2)]
 
 
 # RFC 4034 - Resource Records for the DNS Security Extensions
