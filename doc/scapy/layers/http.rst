@@ -23,7 +23,7 @@ To summarize, the frames can be split in 3 different ways:
 - using ``Content-Length``: the header of the HTTP frame announces the total length of the frame
 - None of the above: the HTTP frame ends when the TCP stream ends / when a TCP push happens.
 
-Moreover, each frame may be aditionnally compressed, depending on the algorithm specified in the HTTP header:
+Moreover, each frame may be additionally compressed, depending on the algorithm specified in the HTTP header:
 
 - ``compress``: compressed using *LZW*
 - ``deflate``: compressed using *ZLIB*

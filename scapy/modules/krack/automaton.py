@@ -722,7 +722,7 @@ class KrackAP(Automaton):
             self.last_iv = iv
         else:
             if iv <= self.last_iv:
-                log_runtime.warning("IV re-use!! Client seems to be "
+                log_runtime.warning("IV reuse!! Client seems to be "
                                     "vulnerable to handshake 3/4 replay "
                                     "(CVE-2017-13077)"
                                     )

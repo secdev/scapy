@@ -22,7 +22,7 @@ passphrase.
 The output logs will indicate if one of the vulnerability have been triggered.
 
 Outputs for vulnerable devices:
-- IV re-use!! Client seems to be vulnerable to handshake 3/4 replay
+- IV reuse!! Client seems to be vulnerable to handshake 3/4 replay
   (CVE-2017-13077)
 - Broadcast packet accepted twice!! (CVE-2017-13080)
 - Client has installed an all zero encryption key (TK)!!
