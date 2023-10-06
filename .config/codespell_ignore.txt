@@ -39,4 +39,4 @@ vas
 wan
 wanna
 webp
-Widgits
+widgits
