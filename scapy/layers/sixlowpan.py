@@ -58,7 +58,7 @@ from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import (
     BitEnumField,
     BitField,
-    BitFixedLenField,
+    BitLenField,
     BitScalingField,
     ByteEnumField,
     ByteField,
@@ -282,7 +282,7 @@ class LoWPAN_HC1(Packet):
             lambda pkt: pkt.nh == 1 and pkt.hc2
         ),
         # Out of spec
-        BitFixedLenField("pad", 0, _get_hc1_pad)
+        BitLenField("pad", 0, _get_hc1_pad)
     ]
 
     def post_dissect(self, data):
