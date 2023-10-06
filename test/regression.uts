@@ -110,6 +110,23 @@ def test_list_contrib():
 
 test_list_contrib()
 
+= Test packet show() on LatexTheme
+% with LatexTheme
+
+class SmallPacket(Packet):
+    fields_desc = [ByteField("a", 0)]
+
+conf_color_theme = conf.color_theme
+conf.color_theme = LatexTheme()
+pkt = SmallPacket()
+with ContextManagerCaptureOutput() as cmco:
+    pkt.show()
+    result = cmco.get_output().strip()
+
+assert result == '\\#\\#\\#[ \\textcolor{red}{\\bf SmallPacket} ]\\#\\#\\# \n  \\textcolor{blue}{a}         = \\textcolor{purple}{0}'
+conf.color_theme = conf_color_theme
+
+
 = Test automatic doc generation
 ~ command
 
