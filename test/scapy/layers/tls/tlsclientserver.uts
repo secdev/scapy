@@ -254,7 +254,7 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
                            name="test_tls_client %s %s" % (suite, version), daemon=True)
     th_.start()
     # Synchronise threads
-    print("Syncrhonising...")
+    print("Synchronising...")
     assert q_.get(timeout=5) is True
     time.sleep(1)
     print("Thread synchronised")

@@ -233,7 +233,7 @@ class NEGOEX_MESSAGE_HEADER(Packet):
                                           0x01: "ACCEPTOR_NEGO",
                                           0x02: "INITIATOR_META_DATA",
                                           0x03: "ACCEPTOR_META_DATA",
-                                          0x04: "CHALENGE",
+                                          0x04: "CHALLENGE",
                                           0x05: "AP_REQUEST",
                                           0x06: "VERIFY",
                                           0x07: "ALERT"}),

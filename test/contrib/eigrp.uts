@@ -160,7 +160,7 @@ p = IP()/EIGRP(tlvlist=[EIGRPv6ExtRoute(prefixlen=99, dst="2000::")])
 struct.unpack("!H", p[EIGRPv6ExtRoute].build()[2:4])[0] == 70
 
 + Stub Flags
-* The receive-only flag is always set, when a router anounces itself as stub router.
+* The receive-only flag is always set, when a router announces itself as stub router.
 
 = Receive-Only
 p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="receive-only")])

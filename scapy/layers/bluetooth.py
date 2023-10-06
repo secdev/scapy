@@ -1878,7 +1878,7 @@ class LowEnergyBeaconHelper:
     """
     Helpers for building packets for Bluetooth Low Energy Beacons.
 
-    Implementors provide a :meth:`build_eir` implementation.
+    Implementers provide a :meth:`build_eir` implementation.
 
     This is designed to be used as a mix-in -- see
     ``scapy.contrib.eddystone`` and ``scapy.contrib.ibeacon`` for examples.
