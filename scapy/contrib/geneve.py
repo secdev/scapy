@@ -66,7 +66,7 @@ class GENEVE(Packet):
     def post_build(self, p, pay):
         if self.optionlen is None:
             tmp_len = (len(p) - 8) // 4
-            p = chb(tmp_len & 0x2f | orb(p[0]) & 0xc0) + p[1:]
+            p = chb(tmp_len & 0x3f | orb(p[0]) & 0xc0) + p[1:]
         return p + pay
 
     def answers(self, other):
