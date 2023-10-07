@@ -3,7 +3,6 @@
     "test\\*.uts",
     "test\\scapy\\layers\\*.uts",
     "test\\scapy\\layers\\tls\\*.uts",
-    "test\\tls\\tests_tls_netaccess.uts",
     "test\\contrib\\automotive\\obd\\*.uts",
     "test\\contrib\\automotive\\scanner\\*.uts",
     "test\\contrib\\automotive\\gm\\*.uts",
