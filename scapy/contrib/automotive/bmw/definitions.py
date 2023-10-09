@@ -15,7 +15,6 @@ from scapy.fields import ByteField, ShortField, ByteEnumField, X3BytesField, \
 from scapy.contrib.automotive.uds import UDS, UDS_RDBI, UDS_DSC, UDS_IOCBI, \
     UDS_RC, UDS_RD, UDS_RSDBI, UDS_RDBIPR
 
-
 BMW_specific_enum = {
     0: "requestIdentifiedBCDDTCAndStatus",
     1: "requestSupportedBCDDTCAndStatus",
@@ -252,10 +251,60 @@ class SVK_DateField(LEThreeBytesField):
 
 
 class SVK_Entry(Packet):
+    process_classes = {
+        "0x01": "HWEL",
+        "0x02": "HWAP",
+        "0x03": "HWFR",
+        "0x05": "CAFD",
+        "0x06": "BTLD",
+        "0x08": "SWFL",
+        "0x09": "SWFF",
+        "0x0A": "SWPF",
+        "0x0B": "ONPS",
+        "0x0F": "FAFP",
+        "0x1A": "TLRT",
+        "0x1B": "TPRG",
+        "0x07": "FLSL",
+        "0x0C": "IBAD",
+        "0x10": "FCFA",
+        "0x1C": "BLUP",
+        "0x1D": "FLUP",
+        "0xC0": "SWUP",
+        "0xC1": "SWIP",
+        "0xA0": "ENTD",
+        "0xA1": "NAVD",
+        "0xA2": "FCFN",
+        "0x04": "GWTB",
+        "0x0D": "SWFK",
+    }
+    """
+        "HWEL", "Hardware (Elektronik)"
+        "HWAP", "Hardwareauspraegung"
+        "HWFR", "Hardwarefarbe"
+        "CAFD", "Codierdaten"
+        "BTLD", "Bootloader"
+        "SWFL", "Software ECU Speicherimage"
+        "SWFF", "Flash File Software"
+        "SWPF", "Pruefsoftware"
+        "ONPS", "Onboard Programmiersystem"
+        "FAFP", "FA2FP"
+        "TLRT", "Temporaere Loeschroutine"
+        "TPRG", "Temporaere Programmierroutine"
+        "FLSL", "Flashloader Slave"
+        "IBAD", "Interaktive Betriebsanleitung Daten"
+        "FCFA", "Freischaltcode Fahrzeug-Auftrag"
+        "BLUP", "Bootloader-Update Applikation"
+        "FLUP", "Flashloader-Update Applikation"
+        "SWUP", "Software-Update Package"
+        "SWIP", "Index Software-Update Package"
+        "ENTD", "Entertainment Daten"
+        "NAVD", "Navigation Daten"
+        "FCFN", "Freischaltcode Funktion"
+        "GWTB", "Gateway-Tabelle"
+        "SWFK", "BEGU: Detaillierung auf SWE-Ebene"
+    """
     fields_desc = [
-        ByteEnumField("processClass", 0, {1: "HWEL", 2: "HWAP", 4: "GWTB",
-                                          5: "CAFD", 6: "BTLD", 7: "FLSL",
-                                          8: "SWFL"}),
+        ByteEnumField("processClass", 0, process_classes),
         XStrFixedLenField("svk_id", b"", length=4),
         ByteField("mainVersion", 0),
         ByteField("subVersion", 0),
@@ -372,7 +421,6 @@ bind_layers(DEV_JOB_PR, WEBSERVER, identifier=0xff66)
 bind_layers(DEV_JOB, READ_MEM, identifier=0xffff)
 bind_layers(DEV_JOB_PR, READ_MEM_PR, identifier=0xffff)
 
-
 bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf101)
 bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf102)
 bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf103)
@@ -437,7 +485,6 @@ bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf13d)
 bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf13e)
 bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf13f)
 bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf140)
-
 
 UDS_RDBI.dataIdentifiers[0x0014] = "RDBCI_IS_LESEN_DETAIL_REQ"
 UDS_RDBI.dataIdentifiers[0x0015] = "RDBCI_HS_LESEN_DETAIL_REQ"
@@ -1505,7 +1552,7 @@ UDS_RDBI.dataIdentifiers[0x22fc] = "afterSalesServiceData_2200_22FF"
 UDS_RDBI.dataIdentifiers[0x22fd] = "afterSalesServiceData_2200_22FF"
 UDS_RDBI.dataIdentifiers[0x22fe] = "afterSalesServiceData_2200_22FF"
 UDS_RDBI.dataIdentifiers[0x22ff] = "afterSalesServiceData_2200_22FF"
-UDS_RDBI.dataIdentifiers[0x2300] = "operatingData"       # or RDBCI_BETRIEBSDATEN_LESEN_REQ  # noqa E501
+UDS_RDBI.dataIdentifiers[0x2300] = "operatingData"  # or RDBCI_BETRIEBSDATEN_LESEN_REQ  # noqa E501
 UDS_RDBI.dataIdentifiers[0x2301] = "additionalOperatingData 2301-23FF"
 UDS_RDBI.dataIdentifiers[0x2302] = "additionalOperatingData 2301-23FF"
 UDS_RDBI.dataIdentifiers[0x2303] = "additionalOperatingData 2301-23FF"
@@ -1831,13 +1878,13 @@ UDS_RDBI.dataIdentifiers[0x2502] = "ProgrammingCounter"
 UDS_RDBI.dataIdentifiers[0x2503] = "ProgrammingCounterMax"
 UDS_RDBI.dataIdentifiers[0x2504] = "FlashTimings"
 UDS_RDBI.dataIdentifiers[0x2505] = "MaxBlocklength"
-UDS_RDBI.dataIdentifiers[0x2506] = "ReadMemoryAddress"       # or maximaleBlockLaenge  # noqa E501
+UDS_RDBI.dataIdentifiers[0x2506] = "ReadMemoryAddress"  # or maximaleBlockLaenge  # noqa E501
 UDS_RDBI.dataIdentifiers[0x2507] = "EcuSupportsDeleteSwe"
 UDS_RDBI.dataIdentifiers[0x2508] = "GWRoutingStatus"
 UDS_RDBI.dataIdentifiers[0x2509] = "RoutingTable"
 UDS_RDBI.dataIdentifiers[0x2530] = "SubnetStatus"
 UDS_RDBI.dataIdentifiers[0x2541] = "STATUS_CALCVN"
-UDS_RDBI.dataIdentifiers[0x3000] = "RDBI_CD_REQ"       # or WDBI_CD_REQ
+UDS_RDBI.dataIdentifiers[0x3000] = "RDBI_CD_REQ"  # or WDBI_CD_REQ
 UDS_RDBI.dataIdentifiers[0x300a] = "Codier-VIN"
 UDS_RDBI.dataIdentifiers[0x37fe] = "Codierpruefstempel"
 UDS_RDBI.dataIdentifiers[0x3f00] = "SVT-Ist"
@@ -4864,7 +4911,7 @@ UDS_RC.routineControlIdentifiers[0x0f08] = "releaseAuthentication"
 UDS_RC.routineControlIdentifiers[0x0f09] = "checkSignature"
 UDS_RC.routineControlIdentifiers[0x0f0a] = "checkProgrammingStatus"
 UDS_RC.routineControlIdentifiers[0x0f0b] = "ExecuteDiagnosticService"
-UDS_RC.routineControlIdentifiers[0x0f0c] = "SetEnergyMode"       # or controlEnergySavingMode  # noqa E501
+UDS_RC.routineControlIdentifiers[0x0f0c] = "SetEnergyMode"  # or controlEnergySavingMode  # noqa E501
 UDS_RC.routineControlIdentifiers[0x0f0d] = "resetSystemFaultMessage"
 UDS_RC.routineControlIdentifiers[0x0f0e] = "timeControlledPowerDown"
 UDS_RC.routineControlIdentifiers[0x0f0f] = "disableCommunicationOverGateway"
