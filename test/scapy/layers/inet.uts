@@ -572,6 +572,28 @@ assert isinstance(pkt, UDP) and pkt.dport == 5353
 pkt = pkt.payload
 assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
 
+= Layer binding with show()
+* getmacbyip must only be called when building
+
+import mock
+
+def _err(*_):
+    raise ValueError
+
+with mock.patch("scapy.layers.l2.getmacbyip", side_effect=_err):
+    with mock.patch("scapy.layers.inet.getmacbyip", side_effect=_err):
+        # ARP who-has should never call getmacbyip
+        pkt1 = Ether() / ARP(pdst="10.0.0.1")
+        pkt1.show()
+        bytes(pkt1)
+        # IP should only call getmacbyip when building
+        pkt2 = Ether() / IP(dst="10.0.0.1")
+        pkt2.show()
+        try:
+            bytes(pkt2)
+            assert False, "Should have called getmacbyip"
+        except ValueError:
+            pass
 
 ############
 ############

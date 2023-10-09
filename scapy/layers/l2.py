@@ -167,6 +167,12 @@ class DestMACField(MACField):
     def i2h(self, pkt, x):
         # type: (Optional[Packet], Optional[str]) -> str
         if x is None and pkt is not None:
+            x = "None (resolved on build)"
+        return super(DestMACField, self).i2h(pkt, x)
+
+    def i2m(self, pkt, x):
+        # type: (Optional[Packet], Optional[str]) -> bytes
+        if x is None and pkt is not None:
             try:
                 x = conf.neighbor.resolve(pkt, pkt.payload)
             except socket.error:
@@ -176,12 +182,10 @@ class DestMACField(MACField):
                     raise ScapyNoDstMacException()
                 else:
                     x = "ff:ff:ff:ff:ff:ff"
-                    warning("Mac address to reach destination not found. Using broadcast.")  # noqa: E501
-        return super(DestMACField, self).i2h(pkt, x)
-
-    def i2m(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> bytes
-        return super(DestMACField, self).i2m(pkt, self.i2h(pkt, x))
+                    warning(
+                        "Mac address to reach destination not found. Using broadcast."
+                    )
+        return super(DestMACField, self).i2m(pkt, x)
 
 
 class SourceMACField(MACField):
@@ -311,8 +315,10 @@ class LLC(Packet):
                    ByteField("ctrl", 0)]
 
 
-def l2_register_l3(l2, l3):
-    # type: (Packet, Packet) -> Optional[str]
+def l2_register_l3(l2: Packet, l3: Packet) -> Optional[str]:
+    """
+    Delegates resolving the default L2 dst address to the payload of L3.
+    """
     neighbor = conf.neighbor  # type: Neighbor
     return neighbor.resolve(l2, l3.payload)
 
@@ -554,15 +560,27 @@ class ARP(Packet):
         return self.sprintf("ARP %op% %psrc% > %pdst%")
 
 
-def l2_register_l3_arp(l2, l3):
-    # type: (Packet, Packet) -> Optional[str]
-    # TODO: support IPv6?
-    plen = l3.plen if l3.plen is not None else l3.get_field("pdst").i2len(l3, l3.pdst)
+def l2_register_l3_arp(l2: Packet, l3: Packet) -> Optional[str]:
+    """
+    Resolves the default L2 dst address when ARP is used.
+    """
+    if l3.op == 1:  # who-has
+        return "ff:ff:ff:ff:ff:ff"
+    elif l3.op == 2:  # is-at
+        log_runtime.warning(
+            "You should be providing the Ethernet dst mac when sending is-at ARP."
+        )
+    # Need ARP request to send ARP request...
+    plen = l3.get_field("pdst").i2len(l3, l3.pdst)
     if plen == 4:
         return getmacbyip(l3.pdst)
+    elif plen == 32:
+        from scapy.layers.inet6 import getmacbyip6
+        return getmacbyip6(l3.pdst)
+    # Can't even do that
     log_runtime.warning(
-        "Unable to guess L2 MAC address from an ARP packet with a "
-        "non-IPv4 pdst. Provide it manually !"
+        "You should be providing the Ethernet dst mac when sending this "
+        "kind of ARP packets."
     )
     return None
 
