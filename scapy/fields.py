@@ -2894,7 +2894,7 @@ class LEFieldLenField(FieldLenField):
     def __init__(
             self,
             name,  # type: str
-            default,  # type: int
+            default,  # type: Optional[Any]
             length_of=None,  # type: Optional[str]
             fmt="<H",  # type: str
             count_of=None,  # type: Optional[str]
