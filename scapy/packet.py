@@ -1442,7 +1442,11 @@ values.
             fvalue = self.getfieldval(f.name)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and isinstance(fvalue, list)):  # noqa: E501
                 pad = max(0, 10 - len(f.name)) * " "
-                s += "%s  \\%s%s\\\n" % (label_lvl + lvl, ncol(f.name), pad)
+                s += "%s  %s%s%s%s\n" % (label_lvl + lvl,
+                                         ct.punct("\\"),
+                                         ncol(f.name),
+                                         pad,
+                                         ct.punct("\\"))
                 fvalue_gen = SetGen(
                     fvalue,
                     _iterpacket=0

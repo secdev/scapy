@@ -271,6 +271,10 @@ class FormatTheme(ColorTheme):
 
 
 class LatexTheme(FormatTheme):
+    r"""
+    You can prepend the output from this theme with
+    \tt\obeyspaces\obeylines\tiny\noindent
+    """
     style_prompt = r"\textcolor{blue}{%s}"
     style_not_printable = r"\textcolor{gray}{%s}"
     style_layer_name = r"\textcolor{red}{\bf %s}"
@@ -288,6 +292,11 @@ class LatexTheme(FormatTheme):
 #    style_even = r"}{\bf "
 #    style_odd = ""
     style_logo = r"\textcolor{green}{\bf %s}"
+
+    def __getattr__(self, attr: str) -> Callable[[Any], str]:
+        from scapy.utils import tex_escape
+        styler = super(LatexTheme, self).__getattr__(attr)
+        return lambda x: styler(tex_escape(x))
 
 
 class LatexTheme2(FormatTheme):
