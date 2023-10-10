@@ -1470,9 +1470,10 @@ assert p.len == 23 and len(p) == 29
 ~ PadField padding
 
 class TestPad(Packet):
-    fields_desc = [ PadField(StrNullField("st", b""),4), StrField("id", b"")]
+    fields_desc = [ PadField(StrNullField("st", b""), 6, padwith=b"\xff"), StrField("id", b"")]
 
-TestPad() == TestPad(raw(TestPad()))
+assert TestPad() == TestPad(raw(TestPad()))
+assert raw(TestPad(st=b"st", id=b"id")) == b'st\x00\xff\xff\xffid'
 
 = ReversePadField
 ~ PadField padding
