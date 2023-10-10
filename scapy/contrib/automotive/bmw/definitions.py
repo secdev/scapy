@@ -278,30 +278,30 @@ class SVK_Entry(Packet):
         "0x0D": "SWFK",
     }
     """
-        "HWEL", "Hardware (Elektronik)"
-        "HWAP", "Hardwareauspraegung"
-        "HWFR", "Hardwarefarbe"
-        "CAFD", "Codierdaten"
-        "BTLD", "Bootloader"
-        "SWFL", "Software ECU Speicherimage"
-        "SWFF", "Flash File Software"
-        "SWPF", "Pruefsoftware"
-        "ONPS", "Onboard Programmiersystem"
-        "FAFP", "FA2FP"
-        "TLRT", "Temporaere Loeschroutine"
-        "TPRG", "Temporaere Programmierroutine"
-        "FLSL", "Flashloader Slave"
-        "IBAD", "Interaktive Betriebsanleitung Daten"
-        "FCFA", "Freischaltcode Fahrzeug-Auftrag"
-        "BLUP", "Bootloader-Update Applikation"
-        "FLUP", "Flashloader-Update Applikation"
-        "SWUP", "Software-Update Package"
-        "SWIP", "Index Software-Update Package"
-        "ENTD", "Entertainment Daten"
-        "NAVD", "Navigation Daten"
-        "FCFN", "Freischaltcode Funktion"
-        "GWTB", "Gateway-Tabelle"
-        "SWFK", "BEGU: Detaillierung auf SWE-Ebene"
+        HWEL - Hardware (Elektronik) - Hardware (Electronics)
+        HWAP - Hardwareauspraegung - Hardware Configuration
+        HWFR - Hardwarefarbe - Hardware Color
+        CAFD - Codierdaten - Coding Data
+        BTLD - Bootloader - Bootloader
+        SWFL - Software ECU Speicherimage - Software ECU Storage Image
+        SWFF - Flash File Software - Flash File Software
+        SWPF - Pruefsoftware - Testing Software
+        ONPS - Onboard Programmiersystem - Onboard Programming System
+        FAFP - FA2FP - FA2FP
+        TLRT - Temporaere Loeschroutine - Temporary Deletion Routine
+        TPRG - Temporaere Programmierroutine - Temporary Programming Routine
+        FLSL - Flashloader Slave - Flashloader Slave
+        IBAD - Interaktive Betriebsanleitung Daten - Interactive Operating Manual Data
+        FCFA - Freischaltcode Fahrzeug-Auftrag - Vehicle Order Unlock Code
+        BLUP - Bootloader-Update Applikation - Bootloader Update Application
+        FLUP - Flashloader-Update Applikation - Flashloader Update Application
+        SWUP - Software-Update Package - Software Update Package
+        SWIP - Index Software-Update Package - Software Update Package Index
+        ENTD - Entertainment Daten - Entertainment Data
+        NAVD - Navigation Daten - Navigation Data
+        FCFN - Freischaltcode Funktion - Function Unlock Code
+        GWTB - Gateway-Tabelle - Gateway Table
+        SWFK - BEGU: Detaillierung auf SWE-Ebene - BEGU: Detailing at SWE Level
     """
     fields_desc = [
         ByteEnumField("processClass", 0, process_classes),
