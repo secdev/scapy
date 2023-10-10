@@ -183,7 +183,7 @@ class DestMACField(MACField):
                 else:
                     x = "ff:ff:ff:ff:ff:ff"
                     warning(
-                        "Mac address to reach destination not found. Using broadcast."
+                        "MAC address to reach destination not found. Using broadcast."
                     )
         return super(DestMACField, self).i2m(pkt, x)
 
@@ -317,7 +317,7 @@ class LLC(Packet):
 
 def l2_register_l3(l2: Packet, l3: Packet) -> Optional[str]:
     """
-    Delegates resolving the default L2 dst address to the payload of L3.
+    Delegates resolving the default L2 destination address to the payload of L3.
     """
     neighbor = conf.neighbor  # type: Neighbor
     return neighbor.resolve(l2, l3.payload)
@@ -562,13 +562,14 @@ class ARP(Packet):
 
 def l2_register_l3_arp(l2: Packet, l3: Packet) -> Optional[str]:
     """
-    Resolves the default L2 dst address when ARP is used.
+    Resolves the default L2 destination address when ARP is used.
     """
     if l3.op == 1:  # who-has
         return "ff:ff:ff:ff:ff:ff"
     elif l3.op == 2:  # is-at
         log_runtime.warning(
-            "You should be providing the Ethernet dst mac when sending is-at ARP."
+            "You should be providing the Ethernet destination MAC address when "
+            "sending an is-at ARP."
         )
     # Need ARP request to send ARP request...
     plen = l3.get_field("pdst").i2len(l3, l3.pdst)
@@ -579,7 +580,7 @@ def l2_register_l3_arp(l2: Packet, l3: Packet) -> Optional[str]:
         return getmacbyip6(l3.pdst)
     # Can't even do that
     log_runtime.warning(
-        "You should be providing the Ethernet dst mac when sending this "
+        "You should be providing the Ethernet destination mac when sending this "
         "kind of ARP packets."
     )
     return None

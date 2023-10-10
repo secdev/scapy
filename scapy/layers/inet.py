@@ -1100,7 +1100,7 @@ conf.l3types.register_num2layer(ETH_P_ALL, IP)
 
 def inet_register_l3(l2, l3):
     """
-    Resolves the default L2 dst address when IP is used.
+    Resolves the default L2 destination address when IP is used.
     """
     return getmacbyip(l3.dst)
 

@@ -476,7 +476,7 @@ class IPv46(IP):
 
 def inet6_register_l3(l2, l3):
     """
-    Resolves the default L2 dst address when IPv6 is used.
+    Resolves the default L2 destination address when IPv6 is used.
     """
     return getmacbyip6(l3.dst)
 
