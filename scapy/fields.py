@@ -632,11 +632,8 @@ class PadField(_FieldContainer):
                  ):
         # type: (...) -> bytes
         sval = self.fld.addfield(pkt, b"", val)
-        return s + sval + struct.pack(
-            "%is" % (
-                self.padlen(len(sval), pkt)
-            ),
-            self._padwith
+        return s + sval + (
+            self.padlen(len(sval), pkt) * self._padwith
         )
 
 
