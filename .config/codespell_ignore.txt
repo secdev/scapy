@@ -1,6 +1,7 @@
 aci
 ans
 archtypes
+applikation
 ba
 byteorder
 cace
@@ -11,12 +12,13 @@ delt
 doas
 doubleclick
 ether
-ether
 eventtypes
 fo
+funktion
 gost
 hart
 iff
+interaktive
 inout
 microsof
 mitre
@@ -32,6 +34,7 @@ ser
 singl
 slac
 te
+temporaere
 tim
 ue
 uint
