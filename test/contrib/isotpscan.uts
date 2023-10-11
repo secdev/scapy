@@ -207,10 +207,8 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602), ISOTPSoftSocket(sock
                         can_interface="can0",
                         verbose=False)
 
-s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, " \
-     "padding=False, basecls=ISOTP)\n"
-s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, " \
-     "padding=False, basecls=ISOTP)\n"
+s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, padding=False, basecls=ISOTP)\n"
+s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, padding=False, basecls=ISOTP)\n"
 assert s1 in result
 assert s2 in result
 
@@ -234,10 +232,8 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602), ISOTPSoftSocket(sock
                         can_interface="can0",
                         verbose=False)
 
-s1 = "\"iface\": \"can0\", \"tx_id\": 1538, \"rx_id\": 1794, " \
-     "\"padding\": false, \"basecls\": \"ISOTP\""
-s2 = "\"iface\": \"can0\", \"tx_id\": 1539, \"rx_id\": 1795, " \
-     "\"padding\": false, \"basecls\": \"ISOTP\""
+s1 = "\"iface\": \"can0\", \"tx_id\": 1538, \"rx_id\": 1794, \"padding\": false, \"basecls\": \"ISOTP\""
+s2 = "\"iface\": \"can0\", \"tx_id\": 1539, \"rx_id\": 1795, \"padding\": false, \"basecls\": \"ISOTP\""
 print(result)
 assert s1 in result
 assert s2 in result
@@ -262,10 +258,8 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602), ISOTPSoftSocket(sock
                         can_interface="can0",
                         verbose=False)
 
-s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, " \
-     "padding=False, basecls=ISOTP)\n"
-s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, " \
-     "padding=False, basecls=ISOTP)\n"
+s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, padding=False, basecls=ISOTP)\n"
+s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, padding=False, basecls=ISOTP)\n"
 assert s1 not in result
 assert s2 in result
 
@@ -291,10 +285,8 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602, ext_address=0x11, rx_
                         can_interface="can0",
                         verbose=False)
 
-s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, padding=False, " \
-         "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
-s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, padding=False, " \
-     "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
+s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, padding=False, ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
+s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, padding=False, ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
 assert s1 in result
 assert s2 in result
 
@@ -320,10 +312,8 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x1ffff702, rx_id=0x1ffff602, ext_address
                         can_interface="can0",
                         verbose=False)
 
-s1 = "ISOTPSocket(can0, tx_id=0x1ffff602, rx_id=0x1ffff702, padding=False, " \
-     "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
-s2 = "ISOTPSocket(can0, tx_id=0x1ffff603, rx_id=0x1ffff703, padding=False, " \
-     "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
+s1 = "ISOTPSocket(can0, tx_id=0x1ffff602, rx_id=0x1ffff702, padding=False, ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
+s2 = "ISOTPSocket(can0, tx_id=0x1ffff603, rx_id=0x1ffff703, padding=False, ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
 print(result)
 assert s1 in result
 assert s2 in result

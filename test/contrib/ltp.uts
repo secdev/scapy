@@ -9,23 +9,23 @@
 = Build packets & dissect
 
 load_contrib("ltp")
-pkt = Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IP(src="192.168.0.1", dst="192.168.0.2")/UDP()/LTP(flags=8,\
-        SessionOriginator=2,
-        SessionNumber=113,
-        ReportCheckpointSerialNo=12,
-        ReportUpperBound=0,
-        ReportLowerBound=5,
-        ReportReceptionClaims=[
-            LTPReceptionClaim(ReceptionClaimOffset=1, ReceptionClaimLength=4),
-            LTPReceptionClaim(ReceptionClaimOffset=2, ReceptionClaimLength=3),
-        ],
-        HeaderExtensions=[
-            LTPex(ExTag=1, ExData=b"\x00"),
-        ],
-        TrailerExtensions=[
-            LTPex(ExTag=0, ExData=b"\x01"),
-            LTPex(ExTag=1, ExData=b"\x02"),
-        ])
+pkt = Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb") / IP(src="192.168.0.1", dst="192.168.0.2") / UDP() / LTP(
+    flags=8, SessionOriginator=2,
+    SessionNumber=113,
+    ReportCheckpointSerialNo=12,
+    ReportUpperBound=0,
+    ReportLowerBound=5,
+    ReportReceptionClaims=[
+        LTPReceptionClaim(ReceptionClaimOffset=1, ReceptionClaimLength=4),
+        LTPReceptionClaim(ReceptionClaimOffset=2, ReceptionClaimLength=3),
+    ],
+    HeaderExtensions=[
+        LTPex(ExTag=1, ExData=b"\x00"),
+    ],
+    TrailerExtensions=[
+        LTPex(ExTag=0, ExData=b"\x01"),
+        LTPex(ExTag=1, ExData=b"\x02"),
+    ])
 
 pkt = Ether(raw(pkt))
 assert LTP in pkt

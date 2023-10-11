@@ -14,9 +14,7 @@ gtp = IP()/UDP(dport=2123) / GTPHeader(seq=12345) / GTPV2EchoRequest()
 gtp.dport == 2123 and gtp.seq == 12345 and gtp.gtp_type == 1 and gtp.T == 0
 
 = GTPV2CreateSessionRequest, basic instantiation
-gtp = IP() / UDP(dport=2123) / \
-    GTPHeader(gtp_type="create_session_req", teid=2807, seq=12345) / \
-    GTPV2CreateSessionRequest()
+gtp = IP() / UDP(dport=2123) / GTPHeader(gtp_type="create_session_req", teid=2807, seq=12345) / GTPV2CreateSessionRequest()
 gtp.dport == 2123 and gtp.teid == 2807 and gtp.seq == 12345
 
 = GTPV2EchoRequest, dissection

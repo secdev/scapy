@@ -71,8 +71,7 @@ assert rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
 
 = CAN Socket send recv small packet test with
 
-with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
-    CANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with CANSocket(bustype='socketcan', channel='vcan0') as sock1, CANSocket(bustype='socketcan', channel='vcan0') as sock2:
     sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
     rx = sock1.recv()
 
@@ -83,8 +82,7 @@ assert rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
 
 from scapy.contrib.isotp import ISOTPHeader, ISOTP_FF
 
-with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
-    CANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with CANSocket(bustype='socketcan', channel='vcan0') as sock1, CANSocket(bustype='socketcan', channel='vcan0') as sock2:
     sock2.send(ISOTPHeader(identifier=0x7ff)/ISOTP_FF(message_size=100, data=b'abcdef'))
     rx = sock1.recv()
     assert rx == CAN(identifier=0x7ff,length=8,data=b'\x10\x64abcdef')
@@ -92,8 +90,7 @@ with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
 
 = CAN Socket basecls test
 
-with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
-    CANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with CANSocket(bustype='socketcan', channel='vcan0') as sock1, CANSocket(bustype='socketcan', channel='vcan0') as sock2:
     sock1.basecls = Raw
     sock2.send(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     rx = sock1.recv()
@@ -101,8 +98,7 @@ with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
 
 = CAN Socket send recv
 
-with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
-    CANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with CANSocket(bustype='socketcan', channel='vcan0') as sock1, CANSocket(bustype='socketcan', channel='vcan0') as sock2:
     sock2.send(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock1.basecls = CAN
     rx = sock1.recv()
@@ -112,8 +108,7 @@ with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
 
 conf.contribs['CAN']['swap-bytes'] = True
 
-with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
-    CANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with CANSocket(bustype='socketcan', channel='vcan0') as sock1, CANSocket(bustype='socketcan', channel='vcan0') as sock2:
     sock2.send(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock1.basecls = CAN
     rx = sock1.recv()
@@ -130,8 +125,7 @@ msgs = [CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
     CAN(identifier=0x100, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'),
     CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')]
 
-with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}]) as sock1, \
-        CANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}]) as sock1, CANSocket(bustype='socketcan', channel='vcan0') as sock2:
     for m in msgs:
         sock2.send(m)
     packets = sock1.sniff(timeout=0.1, count=3)
@@ -147,8 +141,7 @@ msgs = [CAN(identifier=0x212, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
     CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'),
     CAN(identifier=0x2aa, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')]
 
-with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x700}]) as sock1, \
-        CANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x700}]) as sock1, CANSocket(bustype='socketcan', channel='vcan0') as sock2:
     for m in msgs:
         sock2.send(m)
     packets = sock1.sniff(timeout=0.1, count=4)
@@ -163,8 +156,7 @@ msgs = [CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
     CAN(identifier=0x700, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'),
     CAN(identifier=0x100, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')]
 
-with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0xff}]) as sock1, \
-        CANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0xff}]) as sock1, CANSocket(bustype='socketcan', channel='vcan0') as sock2:
     for m in msgs:
         sock2.send(m)
     packets = sock1.sniff(timeout=0.1, count=4)
@@ -180,8 +172,7 @@ msgs = [CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
     CAN(identifier=0x700, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'),
     CAN(identifier=0x7ff, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')]
 
-with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}, {'can_id': 0x400, 'can_mask': 0x7ff}, {'can_id': 0x600, 'can_mask': 0x7ff}, {'can_id': 0x7ff, 'can_mask': 0x7ff}]) as sock1, \
-        CANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}, {'can_id': 0x400, 'can_mask': 0x7ff}, {'can_id': 0x600, 'can_mask': 0x7ff}, {'can_id': 0x7ff, 'can_mask': 0x7ff}]) as sock1, CANSocket(bustype='socketcan', channel='vcan0') as sock2:
     for m in msgs:
         sock2.send(m)
     packets = sock1.sniff(timeout=0.1, count=4)
@@ -197,8 +188,7 @@ msgs = [CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
     CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')]
 
 
-with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}]) as sock1, \
-        CANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}]) as sock1, CANSocket(bustype='socketcan', channel='vcan0') as sock2:
     for m in msgs:
         sock2.send(m)
     packets = sock1.sniff(timeout=0.1, count=4)
@@ -213,8 +203,7 @@ msgs = [CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x
     CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'),
     CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')]
 
-with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x10000000, 'can_mask': 0x1fffffff}]) as sock1, \
-        CANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x10000000, 'can_mask': 0x1fffffff}]) as sock1, CANSocket(bustype='socketcan', channel='vcan0') as sock2:
     for m in msgs:
         sock2.send(m)
     packets = sock1.sniff(timeout=0.1, count=2)

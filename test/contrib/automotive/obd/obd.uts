@@ -319,10 +319,8 @@ assert p.data_records[0].turbo_a_compressor_outlet_temperature_supported == 1
 assert p.data_records[0].turbo_a_compressor_inlet_temperature_supported == 0
 assert p.data_records[0].turbocharger_a_compressor_inlet_temperature == 0x00-40
 assert p.data_records[0].turbocharger_a_compressor_outlet_temperature == 0x11-40
-assert p.data_records[0].turbocharger_a_turbine_inlet_temperature == \
-       round((0x2233 * 0.1) - 40, 3)
-assert p.data_records[0].turbocharger_a_turbine_outlet_temperature == \
-       round((0x4455 * 0.1) - 40, 3)
+assert p.data_records[0].turbocharger_a_turbine_inlet_temperature == round((0x2233 * 0.1) - 40, 3)
+assert p.data_records[0].turbocharger_a_turbine_outlet_temperature == round((0x4455 * 0.1) - 40, 3)
 
 r = OBD(b'\x01\x75')
 assert p.answers(r)
@@ -441,10 +439,8 @@ assert p.data_records[0].turbo_a_compressor_outlet_temperature_supported == 1
 assert p.data_records[0].turbo_a_compressor_inlet_temperature_supported == 0
 assert p.data_records[0].turbocharger_a_compressor_inlet_temperature == 0x00 - 40
 assert p.data_records[0].turbocharger_a_compressor_outlet_temperature == 0x11 - 40
-assert p.data_records[0].turbocharger_a_turbine_inlet_temperature == \
-       round((0x2233 * 0.1) - 40, 3)
-assert p.data_records[0].turbocharger_a_turbine_outlet_temperature == \
-       round((0x4455 * 0.1) - 40, 3)
+assert p.data_records[0].turbocharger_a_turbine_inlet_temperature == round((0x2233 * 0.1) - 40, 3)
+assert p.data_records[0].turbocharger_a_turbine_outlet_temperature == round((0x4455 * 0.1) - 40, 3)
 r = OBD(b'\x02\x75\x00')
 assert p.answers(r)
 

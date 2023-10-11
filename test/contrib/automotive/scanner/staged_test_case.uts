@@ -19,18 +19,21 @@ class MyTestCase1(AutomotiveTestCase):
     _description = "MyTestCase1"
     @property
     def supported_responses(self):
-        return [EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"de")),
-                EcuResponse([EcuState(session=2), EcuState(security_level=6)],            responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"dea2")),
-                EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x13))]
+        return [EcuResponse(EcuState(session=2), responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"de")),
+                EcuResponse([EcuState(session=2), EcuState(security_level=6)],
+                            responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"dea2")),
+                EcuResponse(EcuState(session=range(0, 255)),
+                            responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x13))]
 
 
 class MyTestCase2(AutomotiveTestCase):
     _description = "MyTestCase2"
     @property
     def supported_responses(self):
-        return [EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef1")),
-                EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=6) / Raw(b"deadbeef2")),
-                EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x10, requestServiceId=0x11))]
+        return [EcuResponse(EcuState(session=2), responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef1")),
+                EcuResponse(EcuState(session=2), responses=UDS() / UDS_RDBIPR(dataIdentifier=6) / Raw(b"deadbeef2")),
+                EcuResponse(EcuState(session=range(0, 255)),
+                            responses=UDS() / UDS_NR(negativeResponseCode=0x10, requestServiceId=0x11))]
 
 
 = Create instance of stage test

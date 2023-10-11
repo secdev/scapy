@@ -176,8 +176,7 @@ if LINUX and _root and _socket_can_support:
 # ############################################################################
 # """ Save configuration """
 # ############################################################################
-conf.contribs['ISOTP'] = \
-    {'use-can-isotp-kernel-module': ISOTP_KERNEL_MODULE_AVAILABLE}
+conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': ISOTP_KERNEL_MODULE_AVAILABLE}
 
 # ############################################################################
 # """ reload ISOTP kernel module in case configuration changed """

@@ -294,9 +294,7 @@ assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].timeout == 60
 + Bluetooth LE Advertising / Scan Response Data Parsing
 = Parse EIR_Flags, EIR_CompleteList16BitServiceUUIDs, EIR_CompleteLocalName and EIR_TX_Power_Level
 
-ad_report_raw_data = \
-    hex_bytes("043e2b020100016522c00181781f0201020303d9fe1409" \
-              "506562626c652054696d65204c452037314536020a0cde")
+ad_report_raw_data = hex_bytes("043e2b020100016522c00181781f0201020303d9fe1409506562626c652054696d65204c452037314536020a0cde")
 scapy_packet = HCI_Hdr(ad_report_raw_data)
 
 assert scapy_packet[EIR_Flags].flags == 0x02
@@ -306,9 +304,7 @@ assert scapy_packet[EIR_TX_Power_Level].level == 12
 
 = Parse EIR_Manufacturer_Specific_Data
 
-scan_resp_raw_data = \
-    hex_bytes("043e2302010401be5e0eb9f04f1716ff5401005f423331" \
-              "3134374432343631fc00030c0000de")
+scan_resp_raw_data = hex_bytes("043e2302010401be5e0eb9f04f1716ff5401005f4233313134374432343631fc00030c0000de")
 scapy_packet = HCI_Hdr(scan_resp_raw_data)
 
 assert raw(scapy_packet[EIR_Manufacturer_Specific_Data].payload) == b'\x00_B31147D2461\xfc\x00\x03\x0c\x00\x00'

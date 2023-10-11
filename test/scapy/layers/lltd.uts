@@ -30,10 +30,8 @@ assert all(isinstance(LLTDAttribute(raw(LLTDAttribute(type=i))), LLTDAttribute) 
 
 = Large TLV
 m1, m2, seq = RandMAC()._fix(), RandMAC()._fix(), 123
-preqbase = Ether(src=m1, dst=m2) / LLTD() / \
-           LLTDQueryLargeTlv(type="Detailed Icon Image")
-prespbase = Ether(src=m2, dst=m1) / LLTD() / \
-            LLTDQueryLargeTlvResp()
+preqbase = Ether(src=m1, dst=m2) / LLTD() / LLTDQueryLargeTlv(type="Detailed Icon Image")
+prespbase = Ether(src=m2, dst=m1) / LLTD() / LLTDQueryLargeTlvResp()
 plist = []
 pkt = preqbase.copy()
 pkt.seq = seq

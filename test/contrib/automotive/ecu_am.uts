@@ -25,8 +25,8 @@ ecu.pair(tester)
 
 = Simple check with RDBI and Negative Response
 
-example_responses = \
-    [EcuResponse([EcuState(session=1)], responses=UDS() / UDS_RDBIPR(dataIdentifier=0x1234) / Raw(b"deadbeef"))]
+example_responses = [
+    EcuResponse([EcuState(session=1)], responses=UDS() / UDS_RDBIPR(dataIdentifier=0x1234) / Raw(b"deadbeef"))]
 
 success = False
 answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS, verbose=False)
@@ -54,11 +54,11 @@ assert success
 
 = Simple check with different Sessions
 
-example_responses = \
-    [EcuResponse(EcuState(session=2),         responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"deadbeef1")),
-     EcuResponse(EcuState(session=[3, 4]),    responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"deadbeef2")),
-     EcuResponse(EcuState(session=[5, 6, 7]), responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef3")),
-     EcuResponse(EcuState(session=[8, 9]),    responses=UDS() / UDS_RDBIPR(dataIdentifier=9) / Raw(b"deadbeef4"))]
+example_responses = [
+    EcuResponse(EcuState(session=2), responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"deadbeef1")),
+    EcuResponse(EcuState(session=[3, 4]), responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"deadbeef2")),
+    EcuResponse(EcuState(session=[5, 6, 7]), responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef3")),
+    EcuResponse(EcuState(session=[8, 9]), responses=UDS() / UDS_RDBIPR(dataIdentifier=9) / Raw(b"deadbeef4"))]
 
 success = False
 
@@ -100,22 +100,33 @@ assert success
 
 = Simple check with different Sessions and diagnosticSessionControl
 
-example_responses = \
-    [EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"deadbeef1")),
-     EcuResponse(EcuState(session=range(3,5)),   responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"deadbeef2")),
-     EcuResponse(EcuState(session=[5,6,7]),      responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef3")),
-     EcuResponse(EcuState(session=9),            responses=UDS() / UDS_RDBIPR(dataIdentifier=9) / Raw(b"deadbeef4")),
-     EcuResponse([EcuState(), EcuState(session=range(0,8))],   responses=UDS() / UDS_DSCPR(diagnosticSessionType=1, sessionParameterRecord=b"dead")),
-     EcuResponse([EcuState(), EcuState(session=range(0,8))],   responses=UDS() / UDS_DSCPR(diagnosticSessionType=2, sessionParameterRecord=b"dead")),
-     EcuResponse([EcuState(), EcuState(session=range(0,8))],   responses=UDS() / UDS_DSCPR(diagnosticSessionType=3, sessionParameterRecord=b"dead")),
-     EcuResponse([EcuState(), EcuState(session=range(0,8))],   responses=UDS() / UDS_DSCPR(diagnosticSessionType=4, sessionParameterRecord=b"dead")),
-     EcuResponse([EcuState(), EcuState(session=range(0,8))],   responses=UDS() / UDS_DSCPR(diagnosticSessionType=5, sessionParameterRecord=b"dead")),
-     EcuResponse([EcuState(), EcuState(session=range(0,8))],   responses=UDS() / UDS_DSCPR(diagnosticSessionType=6, sessionParameterRecord=b"dead")),
-     EcuResponse([EcuState(), EcuState(session=range(0,8))],   responses=UDS() / UDS_DSCPR(diagnosticSessionType=7, sessionParameterRecord=b"dead")),
-     EcuResponse([EcuState(), EcuState(session=range(0,8))],   responses=UDS() / UDS_DSCPR(diagnosticSessionType=8, sessionParameterRecord=b"dead")),
-     EcuResponse([EcuState(), EcuState(session=range(8,10))],  responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead1")),
-     EcuResponse([EcuState(), EcuState(session=range(8,10))],  responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead2")),
-     EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
+example_responses = [
+    EcuResponse(EcuState(session=2), responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"deadbeef1")),
+    EcuResponse(EcuState(session=range(3, 5)), responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"deadbeef2")),
+    EcuResponse(EcuState(session=[5, 6, 7]), responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef3")),
+    EcuResponse(EcuState(session=9), responses=UDS() / UDS_RDBIPR(dataIdentifier=9) / Raw(b"deadbeef4")),
+    EcuResponse([EcuState(), EcuState(session=range(0, 8))],
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=1, sessionParameterRecord=b"dead")),
+    EcuResponse([EcuState(), EcuState(session=range(0, 8))],
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=2, sessionParameterRecord=b"dead")),
+    EcuResponse([EcuState(), EcuState(session=range(0, 8))],
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=3, sessionParameterRecord=b"dead")),
+    EcuResponse([EcuState(), EcuState(session=range(0, 8))],
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=4, sessionParameterRecord=b"dead")),
+    EcuResponse([EcuState(), EcuState(session=range(0, 8))],
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=5, sessionParameterRecord=b"dead")),
+    EcuResponse([EcuState(), EcuState(session=range(0, 8))],
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=6, sessionParameterRecord=b"dead")),
+    EcuResponse([EcuState(), EcuState(session=range(0, 8))],
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=7, sessionParameterRecord=b"dead")),
+    EcuResponse([EcuState(), EcuState(session=range(0, 8))],
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=8, sessionParameterRecord=b"dead")),
+    EcuResponse([EcuState(), EcuState(session=range(8, 10))],
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead1")),
+    EcuResponse([EcuState(), EcuState(session=range(8, 10))],
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead2")),
+    EcuResponse(EcuState(session=range(0, 255)),
+                responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
 
 success = False
 
@@ -182,15 +193,21 @@ def custom_answers(resp, req):
             return resp.answers(req)
     return False
 
-example_responses = \
-    [EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"deadbeef1")),
-     EcuResponse(EcuState(session=range(3,5)),   responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"deadbeef2")),
-     EcuResponse(EcuState(session=[5,6,7]),      responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef3")),
-     EcuResponse(EcuState(session=[9, 10]),      responses=UDS() / UDS_RDBIPR(dataIdentifier=9) / Raw(b"deadbeef4")),
-     EcuResponse(EcuState(session=range(0,8)),   responses=UDS() / UDS_DSCPR(diagnosticSessionType=1, sessionParameterRecord=b"dead"), answers=custom_answers),
-     EcuResponse(EcuState(session=range(8,10)),  responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead1")),
-     EcuResponse(EcuState(session=range(8,10)),  responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead2")),
-     EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
+
+example_responses = [
+    EcuResponse(EcuState(session=2), responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"deadbeef1")),
+    EcuResponse(EcuState(session=range(3, 5)), responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"deadbeef2")),
+    EcuResponse(EcuState(session=[5, 6, 7]), responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef3")),
+    EcuResponse(EcuState(session=[9, 10]), responses=UDS() / UDS_RDBIPR(dataIdentifier=9) / Raw(b"deadbeef4")),
+    EcuResponse(EcuState(session=range(0, 8)),
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=1, sessionParameterRecord=b"dead"),
+                answers=custom_answers),
+    EcuResponse(EcuState(session=range(8, 10)),
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead1")),
+    EcuResponse(EcuState(session=range(8, 10)),
+                responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead2")),
+    EcuResponse(EcuState(session=range(0, 255)),
+                responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
 
 success = False
 
@@ -261,11 +278,16 @@ def custom_answers(resp, req):
         return resp.answers(req) and req.securityKey == security_seed + security_seed
     return False
 
-example_responses = \
-    [EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_SAPR(securityAccessType=1, securitySeed=b"1234"), answers=custom_answers),
-     EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_SAPR(securityAccessType=2), answers=custom_answers),
-     EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x35, requestServiceId=0x27)),
-     EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
+
+example_responses = [
+    EcuResponse(EcuState(session=range(0, 255)), responses=UDS() / UDS_SAPR(securityAccessType=1, securitySeed=b"1234"),
+                answers=custom_answers),
+    EcuResponse(EcuState(session=range(0, 255)), responses=UDS() / UDS_SAPR(securityAccessType=2),
+                answers=custom_answers),
+    EcuResponse(EcuState(session=range(0, 255)),
+                responses=UDS() / UDS_NR(negativeResponseCode=0x35, requestServiceId=0x27)),
+    EcuResponse(EcuState(session=range(0, 255)),
+                responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
 
 success = False
 
@@ -308,11 +330,15 @@ def custom_answers(resp, req):
         return resp.answers(req) and req.securityKey == security_seed + security_seed
     return False
 
-example_responses = \
-    [EcuResponse(EcuState(session=range(0,255)), responses=[UDS()/UDS_NR(negativeResponseCode=0x78, requestServiceId=0x27), UDS() / UDS_SAPR(securityAccessType=1, securitySeed=b"1234")], answers=custom_answers),
-     EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_SAPR(securityAccessType=2), answers=custom_answers),
-     EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x35, requestServiceId=0x27)),
-     EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
+example_responses = [EcuResponse(EcuState(session=range(0,255)), responses=[
+    UDS() / UDS_NR(negativeResponseCode=0x78, requestServiceId=0x27),
+    UDS() / UDS_SAPR(securityAccessType=1, securitySeed=b"1234")], answers=custom_answers),
+                     EcuResponse(EcuState(session=range(0, 255)), responses=UDS() / UDS_SAPR(securityAccessType=2),
+                                 answers=custom_answers),
+                     EcuResponse(EcuState(session=range(0, 255)),
+                                 responses=UDS() / UDS_NR(negativeResponseCode=0x35, requestServiceId=0x27)),
+                     EcuResponse(EcuState(session=range(0, 255)),
+                                 responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
 
 success = False
 
@@ -355,11 +381,16 @@ def custom_answers(resp, req):
         return resp.answers(req) and req.securityKey == security_seed + security_seed
     return False
 
-example_responses = \
-    [EcuResponse(EcuState(session=range(0,255)), responses=[UDS()/UDS_NR(negativeResponseCode=0x78, requestServiceId=0x27), UDS() / UDS_SAPR(securityAccessType=1, securitySeed=b"1234")], answers=custom_answers),
-     EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_SAPR(securityAccessType=2), answers=custom_answers),
-     EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x35, requestServiceId=0x27)),
-     EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
+example_responses = [EcuResponse(EcuState(session=range(0, 255)),
+                                 responses=[UDS() / UDS_NR(negativeResponseCode=0x78, requestServiceId=0x27),
+                                            UDS() / UDS_SAPR(securityAccessType=1, securitySeed=b"1234")],
+                                 answers=custom_answers),
+                     EcuResponse(EcuState(session=range(0, 255)), responses=UDS() / UDS_SAPR(securityAccessType=2),
+                                 answers=custom_answers),
+                     EcuResponse(EcuState(session=range(0, 255)),
+                                 responses=UDS() / UDS_NR(negativeResponseCode=0x35, requestServiceId=0x27)),
+                     EcuResponse(EcuState(session=range(0, 255)),
+                                 responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
 
 conf.contribs['UDS']['treat-response-pending-as-answer'] = True
 

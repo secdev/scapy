@@ -77,9 +77,9 @@ def sendp_spoof(x, *args, **kwargs):
     assert x[1].pdst == "192.168.0.2"
 
 import mock
-with mock.patch('scapy.layers.l2.srp', side_effect=srp_spoof), \
-     mock.patch('scapy.layers.l2.srploop', side_effect=srploop_spoof), \
-     mock.patch('scapy.layers.l2.sendp', side_effect=sendp_spoof):
+with (mock.patch('scapy.layers.l2.srp', side_effect=srp_spoof),
+      mock.patch('scapy.layers.l2.srploop', side_effect=srploop_spoof),
+      mock.patch('scapy.layers.l2.sendp', side_effect=sendp_spoof)):
     arp_mitm(
         "192.168.0.1",
         "192.168.0.2",
@@ -124,9 +124,10 @@ def sendp_spoof(x, *args, **kwargs):
     pass
 
 import mock
-with mock.patch('scapy.layers.l2.srp', side_effect=srp_spoof), \
-     mock.patch('scapy.layers.l2.srploop', side_effect=srploop_spoof), \
-     mock.patch('scapy.layers.l2.sendp', side_effect=sendp_spoof):
+
+with (mock.patch('scapy.layers.l2.srp', side_effect=srp_spoof),
+      mock.patch('scapy.layers.l2.srploop', side_effect=srploop_spoof),
+      mock.patch('scapy.layers.l2.sendp', side_effect=sendp_spoof)):
     arp_mitm(
         "192.168.0.1",
         "192.168.0.2/24",

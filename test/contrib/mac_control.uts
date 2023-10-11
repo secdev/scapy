@@ -9,8 +9,7 @@
 
 = pause frame
 
-frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC)/\
-      MACControlPause(pause_time=0x1234)
+frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / MACControlPause(pause_time=0x1234)
 
 frm = Ether(frm.do_build())
 
@@ -20,8 +19,7 @@ assert pause_layer.get_pause_time(ETHER_SPEED_MBIT_10) == 0.238592
 
 = gate frame
 
-frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC)/\
-      MACControlGate(timestamp=0x12345678)
+frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / MACControlGate(timestamp=0x12345678)
 frm = Ether(frm.do_build())
 
 gate_layer  = frm[MACControlGate]
@@ -29,8 +27,8 @@ assert gate_layer.timestamp == 0x12345678
 
 = report frame
 
-frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC)/\
-      MACControlReport(timestamp=0x12345678, pending_grants=0x23)
+frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / MACControlReport(timestamp=0x12345678,
+                                                                                        pending_grants=0x23)
 
 frm = Ether(frm.do_build())
 
@@ -42,19 +40,18 @@ assert report_layer.pending_grants == 0x23
 = report frame flags (generic for all other register frame types)
 
 for flag in MACControl.REGISTER_FLAGS:
-      frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / \
-            MACControlReport(timestamp=0x12345678, flags=flag)
-      frm = Ether(frm.do_build())
-      report_layer = frm[MACControlReport]
-      assert report_layer.flags == flag
+    frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / MACControlReport(timestamp=0x12345678,
+                                                                                            flags=flag)
+    frm = Ether(frm.do_build())
+    report_layer = frm[MACControlReport]
+    assert report_layer.flags == flag
 
 = register_req frame
 
-frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC)/\
-            MACControlRegisterReq(timestamp=0x87654321,
-                                  echoed_pending_grants=0x12,
-                                  sync_time=0x3344,
-                                  assigned_port=0x7766)
+frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / MACControlRegisterReq(timestamp=0x87654321,
+                                                                                             echoed_pending_grants=0x12,
+                                                                                             sync_time=0x3344,
+                                                                                             assigned_port=0x7766)
 
 frm = Ether(frm.do_build())
 register_req_layer = frm[MACControlRegisterReq]
@@ -66,10 +63,9 @@ assert (register_req_layer.assigned_port == 0x7766)
 
 = register frame
 
-frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC)/\
-            MACControlRegister(timestamp=0x11223344,
-                               echoed_assigned_port=0x2277,
-                               echoed_sync_time=0x3399)
+frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / MACControlRegister(timestamp=0x11223344,
+                                                                                          echoed_assigned_port=0x2277,
+                                                                                          echoed_sync_time=0x3399)
 
 frm = Ether(frm.do_build())
 register_layer = frm[MACControlRegister]
@@ -79,10 +75,9 @@ assert register_layer.echoed_sync_time == 0x3399
 
 = register_ack frame
 
-frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC)/\
-            MACControlRegisterAck(timestamp=0x11223344,
-                                  echoed_assigned_port=0x2277,
-                                  echoed_sync_time=0x3399)
+frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / MACControlRegisterAck(timestamp=0x11223344,
+                                                                                             echoed_assigned_port=0x2277,
+                                                                                             echoed_sync_time=0x3399)
 
 frm = Ether(frm.do_build())
 register_ack_layer = frm[MACControlRegisterAck]
@@ -92,9 +87,11 @@ assert register_ack_layer.echoed_sync_time == 0x3399
 
 = class based flow control frame
 
-frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC)/ \
-      MACControlClassBasedFlowControl(c0_enabled=1, c0_pause_time=0x4321,
-                                      c5_enabled=1, c5_pause_time=0x1234)
+
+frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / MACControlClassBasedFlowControl(c0_enabled=1,
+                                                                                                       c0_pause_time=0x4321,
+                                                                                                       c5_enabled=1,
+                                                                                                       c5_pause_time=0x1234)
 
 frm = Ether(frm.do_build())
 cbfc_layer = frm[MACControlClassBasedFlowControl]
@@ -112,36 +109,31 @@ assert cbfc_layer._reserved == 0
 
 = naked frame
 
-frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / \
-            MACControlRegisterAck(timestamp=0x12345678)
+frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / MACControlRegisterAck(timestamp=0x12345678)
 
 frm = frm.do_build()
 assert len(frm) == 60
 
 = single vlan tag
 
-frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / \
-            Dot1Q(vlan=42) / \
-            MACControlRegisterAck(timestamp=0x12345678)
+frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / Dot1Q(vlan=42) / MACControlRegisterAck(
+    timestamp=0x12345678)
 
 frm = frm.do_build()
 assert len(frm) == 60
 
 = QinQ
 
-frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / \
-            Dot1Q(vlan=42) / \
-            Dot1Q(vlan=42) / \
-            MACControlRegisterAck(timestamp=0x12345678)
+frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / Dot1Q(vlan=42) / Dot1Q(
+    vlan=42) / MACControlRegisterAck(timestamp=0x12345678)
 
 frm = frm.do_build()
 assert len(frm) == 60
 
 = hand craftet payload (disabled auto padding)
 
-frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / \
-            MACControlRegisterAck(timestamp=0x12345678) / \
-            Raw(b'may pass devices')
+frm = Ether(src='00:01:01:01:01:01', dst=MACControl.DEFAULT_DST_MAC) / MACControlRegisterAck(
+    timestamp=0x12345678) / Raw(b'may pass devices')
 
 frm = Ether(frm.do_build())
 raw_layer = frm[Raw]

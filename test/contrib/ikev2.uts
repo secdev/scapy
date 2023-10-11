@@ -43,14 +43,15 @@ transform_1 = IKEv2_Transform(next_payload = 'Transform', transform_type = 'Encr
 transform_2 = IKEv2_Transform(next_payload = 'Transform', transform_type = 'PRF', transform_id = 2)
 transform_3 = IKEv2_Transform(next_payload = 'Transform', transform_type = 'Integrity', transform_id = 2)
 transform_4 = IKEv2_Transform(next_payload = 'None', transform_type = 'GroupDesc', transform_id = 2)
-packet = IP(dst = '192.168.1.10', src = '192.168.1.130') /\
-       UDP(dport = 500) /\
-       IKEv2(init_SPI = b'KWdxMhjA', next_payload = 'SA', exch_type = 'IKE_SA_INIT', flags='Initiator') /\
-       IKEv2_SA(next_payload = 'KE', prop = IKEv2_Proposal(trans_nb = 4, trans = transform_1 / transform_2 / transform_3 / transform_4, )) /\
-       IKEv2_KE(next_payload = 'Nonce', group = '1024MODPgr', ke = key_exchange) /\
-       IKEv2_Nonce(next_payload = 'Notify', nonce = nonce) /\
-       IKEv2_Notify(next_payload = 'Notify', type = 16388, notify = nat_detection_source_ip) /\
-       IKEv2_Notify(next_payload = 'None', type = 16389, notify = nat_detection_destination_ip)
+packet = IP(dst='192.168.1.10', src='192.168.1.130') / UDP(dport=500) / IKEv2(init_SPI=b'KWdxMhjA', next_payload='SA',
+                                                                              exch_type='IKE_SA_INIT',
+                                                                              flags='Initiator') / IKEv2_SA(
+    next_payload='KE',
+    prop=IKEv2_Proposal(trans_nb=4, trans=transform_1 / transform_2 / transform_3 / transform_4, )) / IKEv2_KE(
+    next_payload='Nonce', group='1024MODPgr', ke=key_exchange) / IKEv2_Nonce(next_payload='Notify',
+                                                                             nonce=nonce) / IKEv2_Notify(
+    next_payload='Notify', type=16388, notify=nat_detection_source_ip) / IKEv2_Notify(next_payload='None', type=16389,
+                                                                                      notify=nat_detection_destination_ip)
 
 assert raw(packet) == b'E\x00\x01L\x00\x01\x00\x00@\x11\xf5\xc3\xc0\xa8\x01\x82\xc0\xa8\x01\n\x01\xf4\x01\xf4\x018\xa6\xc0KWdxMhjA\x00\x00\x00\x00\x00\x00\x00\x00! "\x08\x00\x00\x00\x00\x00\x00\x010"\x00\x000\x00\x00\x00,\x01\x01\x00\x04\x03\x00\x00\x0c\x01\x00\x00\x0c\x80\x0e\x00\x80\x03\x00\x00\x08\x02\x00\x00\x02\x03\x00\x00\x08\x03\x00\x00\x02\x00\x00\x00\x08\x04\x00\x00\x02(\x00\x00\x88\x00\x02\x00\x00\xbbA\xbbA\xcf\xaf4\xe3\xb3 \x96r\xae\xf1\xc5\x1b\x9dR\x91\x9f\x17\x81\xd0\xb4\xcd\x88\x9dJ\xaf\xe2ah\x87v\x00\x0c=\x901PZ\xef\xc0\x18ig\xea\xf5\xa7f7%\xfb\x10,Y\xc3\x9bzp\xd8\xd9\x16\x1c;\xd0\xebDX\x88\xb5\x02\x8e\xa0c\xba\n\xe0\x1f[?0\x80\x8akg\x10\xdc\x9b\xab`\x1eA\x16\x15}\x7fX\xcf\x83\\\xb63\xc6J\xbc\xb3\xa5\xc6\x1c">\x932S\x8b\xfc\x9f(,\xb6-\x1f\x00\xf4\xee\x88\x02)\x00\x00$\x8d\xfc\xf88L\\2\xf1\xb2\x94\xc6N\xabi\xf9\x8e\x9d\x8c\xf7\xe7\xf3R\x97\x1a\x91\xffgw\xd4}\xff\xed)\x00\x00\x1c\x00\x00@\x04\xe6L\x81\xc4\x15*\xd8;\xd6\xe05\x00\x9f\xbb\x90\x04\x06\xbe7\x1f\x00\x00\x00\x1c\x00\x00@\x05(\xcd\x99\xb9\xfa\x12geKS\xf6\x08\x87\xc9\xc3[\xcfg\xa8\xff'
 
@@ -1348,11 +1349,14 @@ frames = [
         c0 a8 e1 0b 00 00 00 18  01 00 00 00 07 00 00 10
         00 00 ff ff c0 a8 e1 00  c0 a8 e1 ff
         """.split())),
-        Ether(dst='00:50:56:99:bf:d5', src='00:50:56:99:69:93', type=2048) /\
-        IP(version=4, ihl=5, tos=0, len=312, id=24626, flags=2, frag=0, ttl=64, proto=17, chksum=49423, src='10.5.2.54', dst='10.5.2.52') /\
-        UDP(sport=47257, dport=4500, len=292, chksum=6569) /\
-        NON_ESP(non_esp=0) /\
-        IKEv2(
+        Ether(dst='00:50:56:99:bf:d5', src='00:50:56:99:69:93', type=2048) / IP(version=4, ihl=5, tos=0, len=312,
+                                                                                id=24626, flags=2, frag=0, ttl=64,
+                                                                                proto=17, chksum=49423, src='10.5.2.54',
+                                                                                dst='10.5.2.52') / UDP(sport=47257,
+                                                                                                       dport=4500,
+                                                                                                       len=292,
+                                                                                                       chksum=6569) / NON_ESP(
+            non_esp=0) / IKEv2(
             init_SPI=b'F\xb3\xf6\x88M7_\x9a',
             resp_SPI=b'\xf58\x825\xea\x87^\x8a',
             next_payload=41,
@@ -1361,8 +1365,7 @@ frames = [
             flags=0,
             id=0,
             length=280
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=33,
             flags=0,
             length=12,
@@ -1371,34 +1374,32 @@ frames = [
             type=16393,
             SPI=b'_\xc7\xffZ',
             notify=b''
-        ) /\
-        IKEv2_SA(
+        ) / IKEv2_SA(
             prop=IKEv2_Proposal(
                 trans=(
-                    IKEv2_Transform(next_payload=3, flags=0, length=12, transform_type=1, res2=0, transform_id=20, key_length=128) /\
-                    IKEv2_Transform(next_payload=3, flags=0, length=8, transform_type=4, res2=0, transform_id=28) /\
-                    IKEv2_Transform(next_payload=0, flags=0, length=8, transform_type=5, res2=0, transform_id=0)
+                        IKEv2_Transform(next_payload=3, flags=0, length=12, transform_type=1, res2=0, transform_id=20,
+                                        key_length=128) / IKEv2_Transform(next_payload=3, flags=0, length=8,
+                                                                          transform_type=4, res2=0,
+                                                                          transform_id=28) / IKEv2_Transform(
+                    next_payload=0, flags=0, length=8, transform_type=5, res2=0, transform_id=0)
                 ),
                 next_payload=0, flags=0, length=40, proposal=1, proto=3, SPIsize=4, trans_nb=3, SPI=b'k!\x88 '),
             next_payload=40,
             flags=0,
             length=44
-        ) /\
-        IKEv2_Nonce(
+        ) / IKEv2_Nonce(
             next_payload=34,
             flags=0,
             length=44,
             nonce=b'\xea~\x88WJ6d\xcdg\xe3<BFfYM\xdfp%\x03\xb2\x00\xa3?\x87\x82\xf2<\x94\xc0`\x0e\xae~\xd9P\xd7g\xe9n'
-        ) /\
-        IKEv2_KE(
+        ) / IKEv2_KE(
             next_payload=44,
             flags=0,
             length=72,
             group=28,
             res2=0,
             ke=b'\x8e\x15\xb1\xf4\x9a\xcc\x04\xff\x12\xe3/\xbc:\xf0W\x14\x81\xf3\xb9l!\x1a\xf76\x97m\xc2#\x80t\xefuY\xd1\x99eZ\xa5\x80\x00\x87J\xbf\x1f\x13\xf7\xe1o\xde4\x80\x94(\x1c\x93\xcbZ\xee0$\xd9>\xb9U'
-        ) /\
-        IKEv2_TSi(
+        ) / IKEv2_TSi(
             traffic_selector=[
                 IPv4TrafficSelector(
                     TS_type=7,
@@ -1415,8 +1416,7 @@ frames = [
             length=24,
             number_of_TSs=1,
             res2=0
-        ) /\
-        IKEv2_TSr(
+        ) / IKEv2_TSr(
             traffic_selector=[
                 IPv4TrafficSelector(
                     TS_type=7,
@@ -1478,10 +1478,12 @@ frames = [
         402e290000080000 4016000000100000 402f000100020003 0004
         """.split())),
         # packet:  Ether / IP / UDP / IKEv2 / ...
-        Ether(dst='00:50:56:99:bf:d5', src='00:50:56:99:1b:cc', type=2048) /\
-        IP(version=4, ihl=5, tos=0, id=46899, flags=0, frag=0, ttl=127, proto=17, chksum=27308, src='10.5.2.60', dst='10.5.2.52') /\
-        UDP(sport=10952, dport=500, chksum=25272) /\
-        IKEv2(
+        Ether(dst='00:50:56:99:bf:d5', src='00:50:56:99:1b:cc', type=2048) / IP(version=4, ihl=5, tos=0, id=46899,
+                                                                                flags=0, frag=0, ttl=127, proto=17,
+                                                                                chksum=27308, src='10.5.2.60',
+                                                                                dst='10.5.2.52') / UDP(sport=10952,
+                                                                                                       dport=500,
+                                                                                                       chksum=25272) / IKEv2(
             init_SPI=b'\x88iH\x81Iu(\xad',
             resp_SPI=b'\x00\x00\x00\x00\x00\x00\x00\x00',
             next_payload=33,
@@ -1489,62 +1491,56 @@ frames = [
             exch_type=34,
             flags=8,
             id=0
-        ) /\
-        IKEv2_SA(
+        ) / IKEv2_SA(
             prop=IKEv2_Proposal(
                 trans=(
-                    IKEv2_Transform(next_payload=3, flags=0, length=12, transform_type=1, res2=0, transform_id=20, key_length=256) /\
-                    IKEv2_Transform(next_payload=3, flags=0, length=8, transform_type=2, res2=0, transform_id=5) /\
-                    IKEv2_Transform(next_payload=0, flags=0, length=8, transform_type=4, res2=0, transform_id=28)
+                        IKEv2_Transform(next_payload=3, flags=0, length=12, transform_type=1, res2=0, transform_id=20,
+                                        key_length=256) / IKEv2_Transform(next_payload=3, flags=0, length=8,
+                                                                          transform_type=2, res2=0,
+                                                                          transform_id=5) / IKEv2_Transform(
+                    next_payload=0, flags=0, length=8, transform_type=4, res2=0, transform_id=28)
                 ),
                 next_payload=0, flags=0, length=36, proposal=1, proto='IKE', trans_nb=3),
             next_payload=34,
             flags=0,
             length=40
-        ) /\
-        IKEv2_KE(
+        ) / IKEv2_KE(
             next_payload=40,
             flags=0,
             length=72,
             group=28,
             res2=0,
             ke=b'(\x95\xd4\x8eG\r\x8c\xb8\x81\x96b\xf37\x0cW\xb2l\xd3I\xc1o^\xc1\xb3\x19Y\xf9\xefiT\x80\xbcs#R\xf9m\n|JT\xf1\xd5\x96\xbbO\xcc/6\x8e1\x98Zv\xeaZ|w\xd41\r7-\x96'
-        ) /\
-        IKEv2_Nonce(
+        ) / IKEv2_Nonce(
             next_payload=41,
             flags=0,
             length=44,
             nonce=b'K\xf3\xeal\xd0\xc6\xaf\xe7\x02\xc5g\xfe}\xb3\xff\x974$\xbb^\x9d\xe6\xaf\x12:A\x97Zo\xfb&n\x9c[L\x91W\x95\x13+'
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=41,
             flags=0,
             length=28,
             proto='IKE',
             type='NAT_DETECTION_DESTINATION_IP',
             notify=b'P\x9b\x01\xb4=\xc2\x8c\x9d\xf8I\xfdv\\d\x8aQ)Y\xacP'
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=41,
             flags=0,
             length=28,
             proto='IKE',
             type='NAT_DETECTION_SOURCE_IP',
             notify=b'S\x12\t\x859\x9e\x14\xcf+y!\x1f7[C\x9b\xd001\xac'
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=41,
             flags=0,
             length=8,
             type='IKEV2_FRAGMENTATION_SUPPORTED',
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=41,
             flags=0,
             length=8,
             type='REDIRECT_SUPPORTED',
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=0,
             flags=0,
             length=16,
@@ -1567,10 +1563,10 @@ frames = [
         9de6af123a41975a 6ffb266e9c5b4c91 5795132b
         """.split())),
         # packet:  Ether / IP / UDP / IKEv2 / ...
-        Ether(dst='00:50:56:99:1b:cc', src='00:50:56:99:bf:d5', type=2048) /\
-        IP(version=4, ihl=5, tos=0, id=50387, flags=0, frag=0, ttl=64, proto=17, src='10.5.2.52', dst='10.5.2.60') /\
-        UDP(sport=500, dport=10952) /\
-        IKEv2(
+        Ether(dst='00:50:56:99:1b:cc', src='00:50:56:99:bf:d5', type=2048) / IP(version=4, ihl=5, tos=0, id=50387,
+                                                                                flags=0, frag=0, ttl=64, proto=17,
+                                                                                src='10.5.2.52', dst='10.5.2.60') / UDP(
+            sport=500, dport=10952) / IKEv2(
             init_SPI=b'\x88iH\x81Iu(\xad',
             resp_SPI=b'\x00\x00\x00\x00\x00\x00\x00\x00',
             next_payload=41,
@@ -1578,8 +1574,7 @@ frames = [
             exch_type=34,
             flags=32,
             id=0
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=0,
             flags=0,
             length=78,
@@ -1609,23 +1604,24 @@ frames = [
         402e2900000e0000 401801040a050234 000000100000402f 0001000200030004
         """.split())),
         # packet:  Ether / IP / UDP / IKEv2 / ...
-        Ether(dst='00:50:56:99:07:66', src='00:50:56:99:1b:cc', type=2048) /\
-        IP(version=4, ihl=5, tos=0, id=37036, flags=0, frag=0, ttl=127, proto=17, src='10.5.2.60', dst='10.5.2.53') /\
-        UDP(sport=10952, dport=500) /\
-        IKEv2(
+        Ether(dst='00:50:56:99:07:66', src='00:50:56:99:1b:cc', type=2048) / IP(version=4, ihl=5, tos=0, id=37036,
+                                                                                flags=0, frag=0, ttl=127, proto=17,
+                                                                                src='10.5.2.60', dst='10.5.2.53') / UDP(
+            sport=10952, dport=500) / IKEv2(
             init_SPI=b'\x1c\x88\xee\x0bw\x93\xd5.',
             resp_SPI=b'\x00\x00\x00\x00\x00\x00\x00\x00',
             next_payload=33,
             version=32,
             exch_type=34,
             flags=8,
-            id=0) /\
-        IKEv2_SA(
+            id=0) / IKEv2_SA(
             prop=IKEv2_Proposal(
                 trans=(
-                    IKEv2_Transform(next_payload=3, flags=0, length=12, transform_type=1, res2=0, transform_id=20, key_length=256) /\
-                    IKEv2_Transform(next_payload=3, flags=0, length=8, transform_type=2, res2=0, transform_id=5) /\
-                    IKEv2_Transform(next_payload=0, flags=0, length=8, transform_type=4, res2=0, transform_id=28)
+                        IKEv2_Transform(next_payload=3, flags=0, length=12, transform_type=1, res2=0, transform_id=20,
+                                        key_length=256) / IKEv2_Transform(next_payload=3, flags=0, length=8,
+                                                                          transform_type=2, res2=0,
+                                                                          transform_id=5) / IKEv2_Transform(
+                    next_payload=0, flags=0, length=8, transform_type=4, res2=0, transform_id=28)
                 ),
                 next_payload=0,
                 flags=0,
@@ -1637,44 +1633,38 @@ frames = [
             next_payload=34,
             flags=0,
             length=40
-        ) /\
-        IKEv2_KE(
+        ) / IKEv2_KE(
             next_payload=40,
             flags=0,
             length=72,
             group=28,
             res2=0,
             ke=b'F\x16\x84\x82\xfeS#?\xc1\xe2/\x97&\xb7\xad\xfe\r\xfc\xf5=\x15X\xfdf1h$\xce\xec2\xd4\xd3?\x57\x79\x41\xd3\xd5.\x92\x9b;\xed\x0b.\xef\x12\x88a\x17\xcd5\x86U\xf2\xf6\xff\xd6\xfbT\xfdH\xbb\xc5'
-        ) /\
-        IKEv2_Nonce(
+        ) / IKEv2_Nonce(
             next_payload=41,
             flags=0,
             length=44,
             nonce=b'\xa5s\xe3?b\xcf(\x93\xf8\n\xbe\xd1g|\xa3\x03$\x9b\xf9\n\xae\x99\x98\x00R\xcb\xdf\xd9\xccknp`Xi\xef\x14+\xcd\xfd'
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=41,
             flags=0,
             length=28,
             proto='IKE',
             type='NAT_DETECTION_DESTINATION_IP',
             notify=b",\x07\xd7Q\x9a\xd8\xdf#\xa20'\xe9\xe7\xc2eK2\xc4\xe0\xf3"
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=41,
             flags=0,
             length=28,
             proto='IKE',
             type='NAT_DETECTION_SOURCE_IP',
             notify=b'\x1a\x1d\x00\x1c\xd4\xd0oB\xd1\xce\x83o|\xeda\xc6\x83\xb1\x87\xef'
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=41,
             flags=0,
             length=8,
             type='IKEV2_FRAGMENTATION_SUPPORTED'
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=41,
             flags=0,
             length=14,
@@ -1682,8 +1672,7 @@ frames = [
             gw_id_type=1,
             gw_id_len=4,
             gw_id='10.5.2.52'
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=0,
             flags=0,
             length=16,
@@ -1703,10 +1692,10 @@ frames = [
         0000000000240000 00080100000e
         """.split())),
         # packet:  Ether / IP / UDP / IKEv2 / ...
-        Ether(dst='00:50:56:99:1b:cc', src='00:50:56:99:07:66', type=2048) /\
-        IP(version=4, ihl=5, tos=0, id=62028, flags=0, frag=0, ttl=64, proto=17, src='10.5.2.53', dst='10.5.2.60') /\
-        UDP(sport=500, dport=10952) /\
-        IKEv2(
+        Ether(dst='00:50:56:99:1b:cc', src='00:50:56:99:07:66', type=2048) / IP(version=4, ihl=5, tos=0, id=62028,
+                                                                                flags=0, frag=0, ttl=64, proto=17,
+                                                                                src='10.5.2.53', dst='10.5.2.60') / UDP(
+            sport=500, dport=10952) / IKEv2(
             init_SPI=b'\x1c\x88\xee\x0bw\x93\xd5.',
             resp_SPI=b'c\xcc\x9c\x19\x19\xde3\xe7',
             next_payload=41,
@@ -1714,8 +1703,7 @@ frames = [
             exch_type=34,
             flags=32,
             id=0
-        ) /\
-        IKEv2_Notify(
+        ) / IKEv2_Notify(
             next_payload=0,
             flags=0,
             length=8,

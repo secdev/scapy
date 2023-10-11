@@ -10,18 +10,17 @@
 
 from scapy.contrib.ltp import LTPex
 
-pkt = Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IP(src="192.168.0.1", dst="192.168.0.2")/UDP()/LTP(flags=7,\
-        SessionOriginator=2,
-        SessionNumber=113,
-        HeaderExtensions=[
-            LTPex(ExTag=1, ExData=b"\x00"),
-        ],
-        DATA_ClientServiceID=1,
-        DATA_PayloadOffset=0,
-        LTP_Payload=[
-            BP(ProcFlags=415)/\
-            BPBLOCK(ProcFlags=10, load="data")
-        ])
+pkt = Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb") / IP(src="192.168.0.1", dst="192.168.0.2") / UDP() / LTP(
+    flags=7, SessionOriginator=2,
+    SessionNumber=113,
+    HeaderExtensions=[
+        LTPex(ExTag=1, ExData=b"\x00"),
+    ],
+    DATA_ClientServiceID=1,
+    DATA_PayloadOffset=0,
+    LTP_Payload=[
+        BP(ProcFlags=415) / BPBLOCK(ProcFlags=10, load="data")
+    ])
 
 pkt = Ether(raw(pkt))
 assert LTP in pkt

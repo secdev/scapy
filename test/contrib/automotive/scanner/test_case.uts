@@ -35,8 +35,7 @@ try:
     assert False
 except Scapy_Exception as e:
     assert "Keyword-Value" in str(e)
-    assert "is not instance of type <class 'int'>" in str(e) or \
-           "is not instance of type <type 'int'>" in str(e)
+    assert "is not instance of type <class 'int'>" in str(e) or "is not instance of type <type 'int'>" in str(e)
 
 = Create instance of test class
 

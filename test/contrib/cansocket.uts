@@ -55,8 +55,8 @@ assert rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
 
 = NativeCANSocket send recv small packet test with
 
-with NativeCANSocket(bustype='socketcan', channel='vcan0') as sock1, \
-        NativeCANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with (NativeCANSocket(bustype='socketcan', channel='vcan0') as sock1,
+      NativeCANSocket(bustype='socketcan', channel='vcan0') as sock2):
     sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
     rx = sock1.recv()
 
@@ -76,8 +76,8 @@ assert rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
 
 = PythonCANSocket send recv small packet test with
 
-with PythonCANSocket(bustype='socketcan', channel='vcan0') as sock1, \
-        PythonCANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with (PythonCANSocket(bustype='socketcan', channel='vcan0') as sock1,
+      PythonCANSocket(bustype='socketcan', channel='vcan0') as sock2):
     sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
     rx = sock1.recv()
 
@@ -87,8 +87,8 @@ assert rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
 
 conf.contribs['CAN']['swap-bytes'] = True
 
-with NativeCANSocket(bustype='socketcan', channel='vcan0') as sock1, \
-        NativeCANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with (NativeCANSocket(bustype='socketcan', channel='vcan0') as sock1,
+      NativeCANSocket(bustype='socketcan', channel='vcan0') as sock2):
     sock2.send(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     rx = sock1.sniff(count=1, timeout=1)
     assert len(rx) == 1
@@ -100,8 +100,8 @@ conf.contribs['CAN']['swap-bytes'] = False
 
 conf.contribs['CAN']['swap-bytes'] = True
 
-with PythonCANSocket(bustype='socketcan', channel='vcan0') as sock1, \
-        PythonCANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with (PythonCANSocket(bustype='socketcan', channel='vcan0') as sock1,
+      PythonCANSocket(bustype='socketcan', channel='vcan0') as sock2):
     sock2.send(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     rx = sock1.sniff(count=1, timeout=1)
     assert rx[0] == CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
@@ -117,8 +117,8 @@ msgs = [CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
     CAN(identifier=0x100, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'),
     CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')]
 
-with NativeCANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}]) as sock1, \
-        NativeCANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with (NativeCANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}]) as sock1,
+      NativeCANSocket(bustype='socketcan', channel='vcan0') as sock2):
     for m in msgs:
         sock2.send(m)
     packets = sock1.sniff(timeout=0.1, count=3)
@@ -133,8 +133,8 @@ msgs = [CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
     CAN(identifier=0x100, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'),
     CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')]
 
-with PythonCANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}]) as sock1, \
-        PythonCANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with (PythonCANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}]) as sock1,
+      PythonCANSocket(bustype='socketcan', channel='vcan0') as sock2):
     for m in msgs:
         sock2.send(m)
     packets = sock1.sniff(timeout=0.1, count=3)
@@ -150,8 +150,8 @@ msgs = [CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
     CAN(identifier=0x700, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'),
     CAN(identifier=0x7ff, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')]
 
-with NativeCANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}, {'can_id': 0x400, 'can_mask': 0x7ff}, {'can_id': 0x600, 'can_mask': 0x7ff}, {'can_id': 0x7ff, 'can_mask': 0x7ff}]) as sock1, \
-        NativeCANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with (NativeCANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}, {'can_id': 0x400, 'can_mask': 0x7ff}, {'can_id': 0x600, 'can_mask': 0x7ff}, {'can_id': 0x7ff, 'can_mask': 0x7ff}]) as sock1,
+      NativeCANSocket(bustype='socketcan', channel='vcan0') as sock2):
     for m in msgs:
         sock2.send(m)
     packets = sock1.sniff(timeout=0.1, count=4)
@@ -167,8 +167,8 @@ msgs = [CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
     CAN(identifier=0x700, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'),
     CAN(identifier=0x7ff, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')]
 
-with PythonCANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}, {'can_id': 0x400, 'can_mask': 0x7ff}, {'can_id': 0x600, 'can_mask': 0x7ff}, {'can_id': 0x7ff, 'can_mask': 0x7ff}]) as sock1, \
-        PythonCANSocket(bustype='socketcan', channel='vcan0') as sock2:
+with (PythonCANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}, {'can_id': 0x400, 'can_mask': 0x7ff}, {'can_id': 0x600, 'can_mask': 0x7ff}, {'can_id': 0x7ff, 'can_mask': 0x7ff}]) as sock1,
+      ythonCANSocket(bustype='socketcan', channel='vcan0') as sock2):
     for m in msgs:
         sock2.send(m)
     packets = sock1.sniff(timeout=0.1, count=4)
@@ -191,15 +191,16 @@ def bridge():
     global bridgeStarted
     bSock0 = NativeCANSocket(
         bustype='socketcan', channel='vcan0',
-                                bitrate=250000)
+        bitrate=250000)
     bSock1 = NativeCANSocket(
         bustype='socketcan', channel='vcan1',
-                                bitrate=250000)
+        bitrate=250000)
     def pnr(pkt):
         return pkt
     bSock0.timeout = 0.01
     bSock1.timeout = 0.01
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set, count=6)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set,
+                     count=6)
     bSock0.close()
     bSock1.close()
 

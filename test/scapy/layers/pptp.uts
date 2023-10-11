@@ -24,8 +24,7 @@ assert gre.proto == 0x800
 = Test IP/GRE v1 decoding with PPP LCP
 ~ gre ip pptp ppp lcp
 
-data = hex_bytes('4500003c18324000402f0e5a0a0000020a0000063001880b001c9bf500000000ff03'\
-       'c021010100180206000000000304c2270506fbb8831007020802')
+data = hex_bytes('4500003c18324000402f0e5a0a0000020a0000063001880b001c9bf500000000ff03c021010100180206000000000304c2270506fbb8831007020802')
 pkt = IP(data)
 assert GRE_PPTP in pkt
 gre_pptp = pkt[GRE_PPTP]
@@ -50,12 +49,13 @@ assert PPP_LCP_Configure in pkt
 = Test IP/GRE v1 encoding/decoding with PPP LCP Echo
 ~ gre ip pptp ppp hdlc lcp lcp_echo
 
-pkt = IP(src='192.168.0.1', dst='192.168.0.2') /\
-      GRE_PPTP(seqnum_present=1, acknum_present=1, sequence_number=47, ack_number=42) /\
-      HDLC() / PPP() / PPP_LCP_Echo(id=42, magic_number=4242, data='abcdef')
+pkt = IP(src='192.168.0.1', dst='192.168.0.2') / GRE_PPTP(seqnum_present=1, acknum_present=1, sequence_number=47,
+                                                          ack_number=42) / HDLC() / PPP() / PPP_LCP_Echo(id=42,
+                                                                                                         magic_number=4242,
+                                                                                                         data='abcdef')
 pkt_data = raw(pkt)
-pkt_data_ref = hex_bytes('4500003600010000402ff944c0a80001c0a800023081880b001200000000002f000000'\
-                         '2aff03c021092a000e00001092616263646566')
+pkt_data_ref = hex_bytes(
+    '4500003600010000402ff944c0a80001c0a800023081880b001200000000002f0000002aff03c021092a000e00001092616263646566')
 assert (pkt_data == pkt_data_ref)
 pkt_decoded = IP(pkt_data_ref)
 assert IP in pkt
@@ -472,12 +472,12 @@ start_control_connection = PPTPStartControlConnectionRequest(framing_capabilitie
                                                              firmware_revision=47,
                                                              host_name='test host name',
                                                              vendor_string='test vendor string')
-start_control_connection_ref_data = hex_bytes('009c00011a2b3c4d00010000010000000000000100000002002a00'\
-                                    '2f7465737420686f7374206e616d65000000000000000000000000'\
-                                    '000000000000000000000000000000000000000000000000000000'\
-                                    '0000000000000000000000746573742076656e646f722073747269'\
-                                    '6e6700000000000000000000000000000000000000000000000000'\
-                                    '000000000000000000000000000000000000000000')
+start_control_connection_ref_data = hex_bytes('009c00011a2b3c4d00010000010000000000000100000002002a00' \
+                                              '2f7465737420686f7374206e616d65000000000000000000000000' \
+                                              '000000000000000000000000000000000000000000000000000000' \
+                                              '0000000000000000000000746573742076656e646f722073747269' \
+                                              '6e6700000000000000000000000000000000000000000000000000' \
+                                              '000000000000000000000000000000000000000000')
 
 assert raw(start_control_connection) == start_control_connection_ref_data
 
@@ -500,12 +500,12 @@ start_control_connection_reply = PPTPStartControlConnectionReply(result_code='Ge
                                                                  framing_capabilities='Synchronous Framing supported',
                                                                  bearer_capabilities='Analog access supported',
                                                                  vendor_string='vendor')
-start_control_connection_reply_ref_data = hex_bytes('009c00011a2b3c4d00020000010002010000000200000001ffff0'\
-                                          '1006c696e75780000000000000000000000000000000000000000'\
-                                          '00000000000000000000000000000000000000000000000000000'\
-                                          '000000000000000000000000076656e646f720000000000000000'\
-                                          '00000000000000000000000000000000000000000000000000000'\
-                                          '00000000000000000000000000000000000000000000000')
+start_control_connection_reply_ref_data = hex_bytes('009c00011a2b3c4d00020000010002010000000200000001ffff0' \
+                                                    '1006c696e75780000000000000000000000000000000000000000' \
+                                                    '00000000000000000000000000000000000000000000000000000' \
+                                                    '000000000000000000000000076656e646f720000000000000000' \
+                                                    '00000000000000000000000000000000000000000000000000000' \
+                                                    '00000000000000000000000000000000000000000000000')
 
 assert raw(start_control_connection_reply) == start_control_connection_reply_ref_data
 
@@ -604,12 +604,12 @@ outgoing_call = PPTPOutgoingCallRequest(call_id=4242, call_serial_number=47,
                                         pkt_window_size=16, pkt_proc_delay=1,
                                         phone_number_len=9, phone_number='123456789',
                                         subaddress='test')
-outgoing_call_ref_data = hex_bytes('00a800011a2b3c4d000700001092002f000003e8000027100000000200'\
-                         '0000030010000100090000313233343536373839000000000000000000'\
-                         '0000000000000000000000000000000000000000000000000000000000'\
-                         '0000000000000000000000000000000000746573740000000000000000'\
-                         '0000000000000000000000000000000000000000000000000000000000'\
-                         '0000000000000000000000000000000000000000000000')
+outgoing_call_ref_data = hex_bytes('00a800011a2b3c4d000700001092002f000003e8000027100000000200' \
+                                   '0000030010000100090000313233343536373839000000000000000000' \
+                                   '0000000000000000000000000000000000000000000000000000000000' \
+                                   '0000000000000000000000000000000000746573740000000000000000' \
+                                   '0000000000000000000000000000000000000000000000000000000000' \
+                                   '0000000000000000000000000000000000000000000000')
 
 assert raw(outgoing_call) == outgoing_call_ref_data
 
@@ -670,12 +670,12 @@ incoming_call = PPTPIncomingCallRequest(call_id=4242, call_serial_number=47, bea
                                         channel_id=12, dialed_number_len=9, dialing_number_len=10,
                                         dialed_number='123456789', dialing_number='0123456789',
                                         subaddress='test')
-incoming_call_ref_data = hex_bytes('00dc00011a2b3c4d000900001092002f000000020000000c0009000a313233343536373839'\
-                         '00000000000000000000000000000000000000000000000000000000000000000000000000'\
-                         '00000000000000000000000000000000000030313233343536373839000000000000000000'\
-                         '00000000000000000000000000000000000000000000000000000000000000000000000000'\
-                         '00000000000000007465737400000000000000000000000000000000000000000000000000'\
-                         '0000000000000000000000000000000000000000000000000000000000000000000000')
+incoming_call_ref_data = hex_bytes('00dc00011a2b3c4d000900001092002f000000020000000c0009000a313233343536373839' \
+                                   '00000000000000000000000000000000000000000000000000000000000000000000000000' \
+                                   '00000000000000000000000000000000000030313233343536373839000000000000000000' \
+                                   '00000000000000000000000000000000000000000000000000000000000000000000000000' \
+                                   '00000000000000007465737400000000000000000000000000000000000000000000000000' \
+                                   '0000000000000000000000000000000000000000000000000000000000000000000000')
 
 assert raw(incoming_call) == incoming_call_ref_data
 
@@ -765,11 +765,11 @@ assert call_clear_request_pkt.call_id == 4242
 ~ pptp
 call_disconnect_notify = PPTPCallDisconnectNotify(call_id=4242, result_code='Admin Shutdown', error_code='None',
                                                   cause_code=47, call_statistic='some description')
-call_disconnect_notify_ref_data = hex_bytes('009400011a2b3c4d000d000010920300002f0000736f6d65206465736372697074696'\
-                                  'f6e000000000000000000000000000000000000000000000000000000000000000000'\
-                                  '000000000000000000000000000000000000000000000000000000000000000000000'\
-                                  '000000000000000000000000000000000000000000000000000000000000000000000'\
-                                  '00000000000000000000')
+call_disconnect_notify_ref_data = hex_bytes('009400011a2b3c4d000d000010920300002f0000736f6d65206465736372697074696' \
+                                            'f6e000000000000000000000000000000000000000000000000000000000000000000' \
+                                            '000000000000000000000000000000000000000000000000000000000000000000000' \
+                                            '000000000000000000000000000000000000000000000000000000000000000000000' \
+                                            '00000000000000000000')
 
 assert raw(call_disconnect_notify) == call_disconnect_notify_ref_data
 

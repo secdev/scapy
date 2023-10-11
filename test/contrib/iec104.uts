@@ -186,9 +186,8 @@ assert u_msg.stopdt_con == 1
 
 = double IEC104 U Message
 
-frm = Ether()/IP()/TCP()/\
-      IEC104_U_Message(startdt_act = 1, stopdt_con = 1, testfr_act=1)/\
-      IEC104_U_Message(startdt_con = 1, stopdt_act = 1, testfr_con=1)
+frm = Ether() / IP() / TCP() / IEC104_U_Message(startdt_act=1, stopdt_con=1, testfr_act=1) / IEC104_U_Message(
+    startdt_con=1, stopdt_act=1, testfr_con=1)
 
 frm = Ether(frm.do_build())
 u_msg = frm.getlayer(IEC104_U_Message)
@@ -243,9 +242,9 @@ assert (m_sp_ta_1_lyr.sec_milli == 4)
 
 = Single IOA, multiple IOs - information object types dissection
 
-frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/\
-      IEC104_I_Message_SingleIOA(io=[IEC104_IO_C_RC_TA_1_IOA(information_object_address=1111, minutes = 1, sec_milli = 2),
-                                     IEC104_IO_C_RC_TA_1_IOA(information_object_address=2222,minutes = 3, sec_milli = 4)])
+frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780) / IEC104_I_Message_SingleIOA(
+    io=[IEC104_IO_C_RC_TA_1_IOA(information_object_address=1111, minutes=1, sec_milli=2),
+        IEC104_IO_C_RC_TA_1_IOA(information_object_address=2222, minutes=3, sec_milli=4)])
 frm = Ether(frm.do_build())
 
 i_msg_lyr = frm.getlayer(IEC104_I_Message_SingleIOA)
@@ -264,13 +263,13 @@ assert (m_sp_ta_1_lyr.sec_milli == 4)
 
 = Sequence IOA, multiple  APDUs
 
-frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/\
-      IEC104_I_Message_SeqIOA(information_object_address=1234,
-                              io=[IEC104_IO_C_RC_TA_1(minutes = 1, sec_milli = 2),
-                                  IEC104_IO_C_RC_TA_1(minutes = 3, sec_milli = 4)])/ \
-      IEC104_I_Message_SeqIOA(information_object_address=5432,
-                              io=[IEC104_IO_C_RC_TA_1(minutes = 5, sec_milli = 6),
-                                     IEC104_IO_C_RC_TA_1(minutes = 7, sec_milli = 8)])
+frm = Ether() / IP() / TCP(sport=IEC_104_IANA_PORT, dport=56780) / IEC104_I_Message_SeqIOA(
+    information_object_address=1234,
+    io=[IEC104_IO_C_RC_TA_1(minutes=1, sec_milli=2),
+        IEC104_IO_C_RC_TA_1(minutes=3, sec_milli=4)]) / IEC104_I_Message_SeqIOA(
+    information_object_address=5432,
+    io=[IEC104_IO_C_RC_TA_1(minutes=5, sec_milli=6),
+        IEC104_IO_C_RC_TA_1(minutes=7, sec_milli=8)])
 
 frm = Ether(frm.do_build())
 i_msg_lyr = frm.getlayer(IEC104_I_Message_SeqIOA, nb=1)
@@ -293,15 +292,15 @@ assert i_msg_lyr.io[1].sec_milli == 8
 
 = Single IOA, multiple  APDUs
 
-frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/\
-      IEC104_I_Message_SingleIOA(io=[IEC104_IO_C_RC_TA_1_IOA(information_object_address=1111,
-                                                             minutes = 1, sec_milli = 2),
-                                     IEC104_IO_C_RC_TA_1_IOA(information_object_address=2222,
-                                                             minutes = 3, sec_milli = 4)])/ \
-      IEC104_I_Message_SingleIOA(io=[IEC104_IO_C_RC_TA_1_IOA(information_object_address=3333,
-                                                             minutes = 5, sec_milli = 6),
-                                     IEC104_IO_C_RC_TA_1_IOA(information_object_address=4444,
-                                                             minutes = 7, sec_milli = 8)])
+frm = Ether() / IP() / TCP(sport=IEC_104_IANA_PORT, dport=56780) / IEC104_I_Message_SingleIOA(
+    io=[IEC104_IO_C_RC_TA_1_IOA(information_object_address=1111,
+                                minutes=1, sec_milli=2),
+        IEC104_IO_C_RC_TA_1_IOA(information_object_address=2222,
+                                minutes=3, sec_milli=4)]) / IEC104_I_Message_SingleIOA(
+    io=[IEC104_IO_C_RC_TA_1_IOA(information_object_address=3333,
+                                minutes=5, sec_milli=6),
+        IEC104_IO_C_RC_TA_1_IOA(information_object_address=4444,
+                                minutes=7, sec_milli=8)])
 
 frm = Ether(frm.do_build())
 i_msg_lyr = frm.getlayer(IEC104_I_Message_SingleIOA, nb=1)
@@ -326,18 +325,17 @@ assert i_msg_lyr.io[1].sec_milli == 8
 
 = Mixed Single and Sequence IOA, multiple APDU
 
-frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/\
-      IEC104_I_Message_SeqIOA(information_object_address=1111,
-                              io=[IEC104_IO_C_RC_TA_1_IOA(minutes = 1, sec_milli = 2),
-                                  IEC104_IO_C_RC_TA_1_IOA(minutes = 3, sec_milli = 4)])/ \
-      IEC104_I_Message_SingleIOA(io=[IEC104_IO_C_RC_TA_1_IOA(information_object_address=3333,
-                                                             minutes = 5, sec_milli = 6),
-                                     IEC104_IO_C_RC_TA_1_IOA(information_object_address=4444,
-                                                             minutes = 7, sec_milli = 8)])/ \
-      IEC104_I_Message_SeqIOA(information_object_address=5555,
-                              io=[IEC104_IO_C_RC_TA_1_IOA(minutes = 1, sec_milli = 9),
-                                  IEC104_IO_C_RC_TA_1_IOA(minutes = 3, sec_milli = 10)])/ \
-      IEC104_I_Message_SingleIOA(io=IEC104_IO_C_RP_NA_1_IOA(information_object_address=5555))
+frm = Ether() / IP() / TCP(sport=IEC_104_IANA_PORT, dport=56780) / IEC104_I_Message_SeqIOA(
+    information_object_address=1111,
+    io=[IEC104_IO_C_RC_TA_1_IOA(minutes=1, sec_milli=2),
+        IEC104_IO_C_RC_TA_1_IOA(minutes=3, sec_milli=4)]) / IEC104_I_Message_SingleIOA(
+    io=[IEC104_IO_C_RC_TA_1_IOA(information_object_address=3333,
+                                minutes=5, sec_milli=6),
+        IEC104_IO_C_RC_TA_1_IOA(information_object_address=4444,
+                                minutes=7, sec_milli=8)]) / IEC104_I_Message_SeqIOA(information_object_address=5555,
+                                                                                    io=[IEC104_IO_C_RC_TA_1_IOA(
+                                                                                        minutes=1, sec_milli=9),
+                                  IEC104_IO_C_RC_TA_1_IOA(minutes = 3, sec_milli = 10)])/IEC104_I_Message_SingleIOA(io=IEC104_IO_C_RP_NA_1_IOA(information_object_address=5555))
 
 frm = Ether(frm.do_build())
 
@@ -357,14 +355,12 @@ assert (i_msg_lyr.io[0].information_object_address == 3333)
 
 = I/U/S Message sequence (mixed APDUs)
 
-frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/\
-      IEC104_I_Message_SeqIOA(information_object_address=1111,
-                              rx_seq_num=1234,
-                              tx_seq_num=6789,
-                              io=[IEC104_IO_C_RC_TA_1_IOA(minutes = 1, sec_milli = 2),
-                                  IEC104_IO_C_RC_TA_1_IOA(minutes = 3, sec_milli = 4)])/\
-    IEC104_U_Message()/ \
-    IEC104_S_Message(rx_seq_num=666)
+frm = Ether() / IP() / TCP(sport=IEC_104_IANA_PORT, dport=56780) / IEC104_I_Message_SeqIOA(
+    information_object_address=1111,
+    rx_seq_num=1234,
+    tx_seq_num=6789,
+    io=[IEC104_IO_C_RC_TA_1_IOA(minutes=1, sec_milli=2),
+        IEC104_IO_C_RC_TA_1_IOA(minutes=3, sec_milli=4)]) / IEC104_U_Message() / IEC104_S_Message(rx_seq_num=666)
 
 frm = Ether(frm.do_build())
 i_msg = frm.getlayer(IEC104_I_Message_SeqIOA)
@@ -440,11 +436,11 @@ frm = Ether() / IP() / TCP() / IEC104_I_Message_SeqIOA(information_object_addres
                                                        io=[
                                                            IEC104_IO_C_RD_NA_1(),
                                                            IEC104_IO_C_RD_NA_1()
-                                                       ])/ \
-      IEC104_I_Message_SeqIOA(information_object_address=0x445566,
-                              io=[IEC104_IO_M_DP_NA_1(dpi_value=IEC104_IE_DIQ.DPI_FLAG_STATE_UNDEFINED)])/ \
-      IEC104_I_Message_SeqIOA(information_object_address=0x445567,
-                              io=[IEC104_IO_C_RD_NA_1()])
+                                                       ]) / IEC104_I_Message_SeqIOA(information_object_address=0x445566,
+                                                                                    io=[IEC104_IO_M_DP_NA_1(
+                                                                                        dpi_value=IEC104_IE_DIQ.DPI_FLAG_STATE_UNDEFINED)]) / IEC104_I_Message_SeqIOA(
+    information_object_address=0x445567,
+    io=[IEC104_IO_C_RD_NA_1()])
 
 frm = Ether(frm.do_build())
 

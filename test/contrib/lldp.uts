@@ -8,57 +8,46 @@
 + Basic layer handling
 = build basic LLDP frames
 
-frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/ \
-      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01') / \
-      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
-      LLDPDUTimeToLive()/\
-      LLDPDUSystemName(system_name='mate')/\
-      LLDPDUSystemCapabilities(telephone_available=1, router_available=1, telephone_enabled=1)/\
-      LLDPDUManagementAddress(
-            management_address_subtype=LLDPDUManagementAddress.SUBTYPE_MANAGEMENT_ADDRESS_IPV4,
-            management_address='1.2.3.4',
-            interface_numbering_subtype=LLDPDUManagementAddress.SUBTYPE_INTERFACE_NUMBER_IF_INDEX,
-            interface_number=23,
-            object_id='abcd') / \
-      LLDPDUEndOfLLDPDU()
+frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / LLDPDUChassisID(
+    subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01') / LLDPDUPortID(
+    subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06') / LLDPDUTimeToLive() / LLDPDUSystemName(
+    system_name='mate') / LLDPDUSystemCapabilities(telephone_available=1, router_available=1,
+                                                   telephone_enabled=1) / LLDPDUManagementAddress(
+    management_address_subtype=LLDPDUManagementAddress.SUBTYPE_MANAGEMENT_ADDRESS_IPV4,
+    management_address='1.2.3.4',
+    interface_numbering_subtype=LLDPDUManagementAddress.SUBTYPE_INTERFACE_NUMBER_IF_INDEX,
+    interface_number=23,
+    object_id='abcd') / LLDPDUEndOfLLDPDU()
 
 frm = frm.build()
 frm = Ether(frm)
 
 = build: check length calculation (#GH3107)
 
-frame = Ether(src='aa:bb:cc:dd:ee:ff', dst='11:22:33:44:55:66') / \
-        LLDPDUChassisID(subtype=0x04, id='aa:bb:cc:dd:ee:ff') / \
-        LLDPDUPortID(subtype=0x05, id='1') / \
-        LLDPDUTimeToLive(ttl=5) / \
-        LLDPDUManagementAddress(management_address_subtype=0x01, management_address=socket.inet_aton('192.168.0.10'))
+frame = Ether(src='aa:bb:cc:dd:ee:ff', dst='11:22:33:44:55:66') / LLDPDUChassisID(subtype=0x04,
+                                                                                  id='aa:bb:cc:dd:ee:ff') / LLDPDUPortID(
+    subtype=0x05, id='1') / LLDPDUTimeToLive(ttl=5) / LLDPDUManagementAddress(management_address_subtype=0x01,
+                                                                              management_address=socket.inet_aton(
+                                                                                  '192.168.0.10'))
 data = b'\x11"3DUf\xaa\xbb\xcc\xdd\xee\xff\x88\xcc\x02\x07\x04\xaa\xbb\xcc\xdd\xee\xff\x04\x02\x051\x06\x02\x00\x05\x10\x0c\x05\x01\xc0\xa8\x00\n\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 assert bytes(frame) == data
 
 = add padding if required
 
 conf.contribs['LLDP'].strict_mode_disable()
-frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / \
-      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth0') / \
-      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') / \
-      LLDPDUTimeToLive() / \
-      LLDPDUEndOfLLDPDU()
+frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / LLDPDUPortID(
+    subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth0') / LLDPDUChassisID(
+    subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') / LLDPDUTimeToLive() / LLDPDUEndOfLLDPDU()
 assert len(raw(frm)) == 60
 assert len(raw(Ether(raw(frm))[Padding])) == 24
 
-frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / \
-      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth012345678901234567890123') / \
-      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') / \
-      LLDPDUTimeToLive() / \
-      LLDPDUEndOfLLDPDU()
+frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / LLDPDUPortID(
+    subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth012345678901234567890123') / LLDPDUChassisID(
+    subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') / LLDPDUTimeToLive() / LLDPDUEndOfLLDPDU()
 assert (len(raw(frm)) == 60)
 assert (len(raw(Ether(raw(frm))[Padding])) == 1)
 
-frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / \
-      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth0123456789012345678901234') / \
-      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') / \
-      LLDPDUTimeToLive() / \
-      LLDPDUEndOfLLDPDU()
+frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) /   LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth0123456789012345678901234') /   LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') /   LLDPDUTimeToLive() /   LLDPDUEndOfLLDPDU()
 assert (len(raw(frm)) == 60)
 try:
       Ether(raw(frm))[Padding]
@@ -201,12 +190,12 @@ except LLDPInvalidFrameStructure:
 
 # missing LLDPDUEndOfLLDPDU
 try:
-      frm = Ether() / LLDPDUChassisID(id='slartibart') / LLDPDUPortID(id='42') / \
-            LLDPDUPortID(id='23') / LLDPDUTimeToLive() / LLDPDUEndOfLLDPDU()
-      Ether(frm.build())
-      assert False
+    frm = Ether() / LLDPDUChassisID(id='slartibart') / LLDPDUPortID(id='42') / LLDPDUPortID(
+        id='23') / LLDPDUTimeToLive() / LLDPDUEndOfLLDPDU()
+    Ether(frm.build())
+    assert False
 except LLDPInvalidFrameStructure:
-      pass
+    pass
 
 conf.contribs['LLDP'].strict_mode_disable()
 frm = Ether()/LLDPDUChassisID()/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU()
@@ -251,24 +240,19 @@ frm = Ether(frm.build())
 
 conf.contribs['LLDP'].strict_mode_enable()
 
-frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/ \
-      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') / \
-      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id='01:02:03:04:05:06')/\
-      LLDPDUTimeToLive()/\
-      LLDPDUSystemName(system_name='things will')/\
-      LLDPDUSystemCapabilities(telephone_available=1,
-                               router_available=1,
-                               telephone_enabled=1,
-                               router_enabled=1)/\
-      LLDPDUManagementAddress(
-            management_address_subtype=LLDPDUManagementAddress.SUBTYPE_MANAGEMENT_ADDRESS_IPV4,
-            management_address='1.2.3.4',
-            interface_numbering_subtype=LLDPDUManagementAddress.SUBTYPE_INTERFACE_NUMBER_IF_INDEX,
-            interface_number=23,
-            object_id='burn') / \
-      LLDPDUSystemDescription(description='without tests.') / \
-      LLDPDUPortDescription(description='always!') / \
-      LLDPDUEndOfLLDPDU()
+frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / LLDPDUChassisID(
+    subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') / LLDPDUPortID(
+    subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id='01:02:03:04:05:06') / LLDPDUTimeToLive() / LLDPDUSystemName(
+    system_name='things will') / LLDPDUSystemCapabilities(telephone_available=1,
+                                                          router_available=1,
+                                                          telephone_enabled=1,
+                                                          router_enabled=1) / LLDPDUManagementAddress(
+    management_address_subtype=LLDPDUManagementAddress.SUBTYPE_MANAGEMENT_ADDRESS_IPV4,
+    management_address='1.2.3.4',
+    interface_numbering_subtype=LLDPDUManagementAddress.SUBTYPE_INTERFACE_NUMBER_IF_INDEX,
+    interface_number=23,
+    object_id='burn') / LLDPDUSystemDescription(description='without tests.') / LLDPDUPortDescription(
+    description='always!') / LLDPDUEndOfLLDPDU()
 
 frm = Ether(frm.build())
 
@@ -338,15 +322,14 @@ assert three_b_enum_field.i2repr(None, 0x49763) == '300899'
 
 = LLDPDUGenericOrganisationSpecific tests
 
-frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/\
-      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01')/\
-      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
-      LLDPDUTimeToLive()/\
-      LLDPDUGenericOrganisationSpecific(org_code=LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO,
-                                        subtype=0x42,
-                                        data=b'FooBar'*5
-                                        )/\
-      LLDPDUEndOfLLDPDU()
+frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / LLDPDUChassisID(
+    subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01') / LLDPDUPortID(
+    subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS,
+    id=b'\x01\x02\x03\x04\x05\x06') / LLDPDUTimeToLive() / LLDPDUGenericOrganisationSpecific(
+    org_code=LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO,
+    subtype=0x42,
+    data=b'FooBar' * 5
+    ) / LLDPDUEndOfLLDPDU()
 
 frm = frm.build()
 frm = Ether(frm)
@@ -360,11 +343,9 @@ assert org_spec_layer._length == 34
 l="A" * 24
 c=LLDPDUChassisID.SUBTYPE_CHASSIS_COMPONENT
 p=LLDPDUPortID.SUBTYPE_MAC_ADDRESS
-frm = Ether(dst=LLDP_NEAREST_BRIDGE_MAC)/  \
-    LLDPDUChassisID(subtype=c, id=l)/      \
-    LLDPDUPortID(subtype=p, id=l)/         \
-    LLDPDUTimeToLive(ttl=2)/               \
-    LLDPDUEndOfLLDPDU()
+frm = Ether(dst=LLDP_NEAREST_BRIDGE_MAC) / LLDPDUChassisID(subtype=c, id=l) / LLDPDUPortID(subtype=p,
+                                                                                           id=l) / LLDPDUTimeToLive(
+    ttl=2) / LLDPDUEndOfLLDPDU()
 
 try:
     frm = frm.build()

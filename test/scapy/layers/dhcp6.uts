@@ -86,8 +86,7 @@ a=DUID_UUID()
 raw(DUID_UUID()) == b"\0\x04\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
 
 = DUID_UUID build with specific values
-raw(DUID_UUID(uuid="272adcca-138c-4e8d-b3f4-634e953128cf")) == \
-   b"\x00\x04'*\xdc\xca\x13\x8cN\x8d\xb3\xf4cN\x951(\xcf"
+raw(DUID_UUID(uuid="272adcca-138c-4e8d-b3f4-634e953128cf")) == b"\x00\x04'*\xdc\xca\x13\x8cN\x8d\xb3\xf4cN\x951(\xcf"
 
 = DUID_UUID basic dissection
 a=DUID_UUID(raw(DUID_UUID()))

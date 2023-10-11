@@ -8,7 +8,7 @@
 
 = Default build
 
-a = BTLE()/BTLE_ADV()/BTLE_ADV_IND()
+a = BTLE() / BTLE_ADV() / BTLE_ADV_IND()
 assert raw(a) == b'\xd6\xbe\x89\x8e\x00\x06\x00\x00\x00\x00\x00\x00Z9`'
 
 = Basic dissection
@@ -19,14 +19,14 @@ assert b[BTLE_ADV_IND].AdvA == '00:00:00:00:00:00'
 
 = BTLE_DATA build
 
-a = BTLE(access_addr=0)/BTLE_DATA()/"toto"
+a = BTLE(access_addr=0) / BTLE_DATA() / "toto"
 a = BTLE(raw(a))
 assert a[BTLE_DATA].len == 4
 assert a[Raw].load == b"toto"
 
 = Longer BTLE_ADV
 
-a = BTLE()/BTLE_ADV()/BTLE_CONNECT_REQ()/(b"X"*200)
+a = BTLE() / BTLE_ADV() / BTLE_CONNECT_REQ() / (b"X" * 200)
 assert raw(a) == b'\xd6\xbe\x89\x8e\x05\xea\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXI\xfc\xcf'
 pkt = BTLE(raw(a))
 assert pkt.Length == 0xea
@@ -34,14 +34,15 @@ assert pkt.load == b"X" * 200
 
 = BTLE_DATA + EIR_ShortenedLocalName
 
-test1 = BTLE() / BTLE_ADV() / BTLE_ADV_IND() / EIR_Hdr() / EIR_ShortenedLocalName(local_name= 'wussa')
+test1 = BTLE() / BTLE_ADV() / BTLE_ADV_IND() / EIR_Hdr() / EIR_ShortenedLocalName(local_name='wussa')
 test1e = BTLE(raw(test1))
 assert test1e[EIR_ShortenedLocalName].local_name == b"wussa"
 
 = LL_CONNECTION_UPDATE_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-        LL_CONNECTION_UPDATE_IND(win_size=2, win_offset=5, interval=0x400, timeout=500, instant=0xFEFE)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CONNECTION_UPDATE_IND(win_size=2, win_offset=5,
+                                                                                  interval=0x400, timeout=500,
+                                                                                  instant=0xFEFE)
 test = BTLE(raw(test))
 assert test[LL_CONNECTION_UPDATE_IND].win_size == 2
 assert test[LL_CONNECTION_UPDATE_IND].win_offset == 5
@@ -51,24 +52,21 @@ assert test[LL_CONNECTION_UPDATE_IND].instant == 0xFEFE
 
 = LL_CHANNEL_MAP_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-        LL_CHANNEL_MAP_IND(chM=0x1A1B1C1D1E, instant=0xFEFE)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CHANNEL_MAP_IND(chM=0x1A1B1C1D1E, instant=0xFEFE)
 test = BTLE(raw(test))
 assert test[LL_CHANNEL_MAP_IND].chM == 0x1A1B1C1D1E
 assert test[LL_CHANNEL_MAP_IND].instant == 0xFEFE
 
 = LL_TERMINATE_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-        LL_TERMINATE_IND(code=0x16)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_TERMINATE_IND(code=0x16)
 test = BTLE(raw(test))
 assert test[LL_TERMINATE_IND].code == 0x16
 
 = LL_ENC_REQ
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-        LL_ENC_REQ(rand=0x1112131415161718, ediv=0x4321, 
-                   skdm=0x1817161514131211, ivm=0x87654321)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_ENC_REQ(rand=0x1112131415161718, ediv=0x4321,
+                                                                    skdm=0x1817161514131211, ivm=0x87654321)
 test = BTLE(raw(test))
 assert test[LL_ENC_REQ].rand == 0x1112131415161718
 assert test[LL_ENC_REQ].ediv == 0x4321
@@ -77,8 +75,7 @@ assert test[LL_ENC_REQ].ivm == 0x87654321
 
 = LL_ENC_RSP
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-        LL_ENC_RSP(skds=0x1817161514131211, ivs=0x87654321)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_ENC_RSP(skds=0x1817161514131211, ivs=0x87654321)
 test = BTLE(raw(test))
 assert test[LL_ENC_RSP].skds == 0x1817161514131211
 assert test[LL_ENC_RSP].ivs == 0x87654321
@@ -105,16 +102,15 @@ assert test[LL_UNKNOWN_RSP].code == 4
 
 test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_FEATURE_REQ(feature_set=0x011234)
 test = BTLE(raw(test))
-assert test[LL_FEATURE_REQ].feature_set == \
-    "ext_reject_ind+le_ping+le_data_len_ext+tx_mod_idx+le_ext_adv+conn_cte_req"
+assert test[LL_FEATURE_REQ].feature_set == "ext_reject_ind+le_ping+le_data_len_ext+tx_mod_idx+le_ext_adv+conn_cte_req"
 
 = LL_FEATURE_RSP
 
 test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_FEATURE_RSP(feature_set=0x104321)
 test = BTLE(raw(test))
 print(test[LL_FEATURE_RSP].feature_set)
-assert test[LL_FEATURE_RSP].feature_set == \
-    "le_encryption+le_data_len_ext+le_2m_phy+tx_mod_idx+ch_sel_alg+antenna_switching_cte_aod_tx"
+assert test[
+           LL_FEATURE_RSP].feature_set == "le_encryption+le_data_len_ext+le_2m_phy+tx_mod_idx+ch_sel_alg+antenna_switching_cte_aod_tx"
 
 = LL_PAUSE_ENC_REQ
 
@@ -130,8 +126,7 @@ assert test[BTLE_CTRL].opcode == 11
 
 = LL_VERSION_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_VERSION_IND(version=7, company=0x59, subversion=1)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_VERSION_IND(version=7, company=0x59, subversion=1)
 test = BTLE(raw(test))
 assert test[LL_VERSION_IND].version == 7
 assert test[LL_VERSION_IND].company == 0x59
@@ -147,15 +142,16 @@ assert test[LL_REJECT_IND].code == 4
 
 test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_SLAVE_FEATURE_REQ(feature_set=0x1234)
 test = BTLE(raw(test))
-assert test[LL_SLAVE_FEATURE_REQ].feature_set == \
-    "ext_reject_ind+le_ping+le_data_len_ext+tx_mod_idx+le_ext_adv"
+assert test[LL_SLAVE_FEATURE_REQ].feature_set == "ext_reject_ind+le_ping+le_data_len_ext+tx_mod_idx+le_ext_adv"
 
 = LL_CONNECTION_PARAM_REQ
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_CONNECTION_PARAM_REQ(interval_min=10, interval_max=12, latency=1, timeout=2,
-                            preferred_periodicity=3, reference_conn_evt_count=4,
-                            offset0=5, offset1=6, offset2=7, offset3=8, offset4=9, offset5=10)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CONNECTION_PARAM_REQ(interval_min=10, interval_max=12,
+                                                                                 latency=1, timeout=2,
+                                                                                 preferred_periodicity=3,
+                                                                                 reference_conn_evt_count=4, offset0=5,
+                                                                                 offset1=6, offset2=7, offset3=8,
+                                                                                 offset4=9, offset5=10)
 test = BTLE(raw(test))
 assert test[LL_CONNECTION_PARAM_REQ].interval_min == 10
 assert test[LL_CONNECTION_PARAM_REQ].interval_max == 12
@@ -172,10 +168,12 @@ assert test[LL_CONNECTION_PARAM_REQ].offset5 == 10
 
 = LL_CONNECTION_PARAM_RSP
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_CONNECTION_PARAM_RSP(interval_min=10, interval_max=12, latency=1, timeout=2,
-                            preferred_periodicity=3, reference_conn_evt_count=4,
-                            offset0=5, offset1=6, offset2=7, offset3=8, offset4=9, offset5=10)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CONNECTION_PARAM_RSP(interval_min=10, interval_max=12,
+                                                                                 latency=1, timeout=2,
+                                                                                 preferred_periodicity=3,
+                                                                                 reference_conn_evt_count=4, offset0=5,
+                                                                                 offset1=6, offset2=7, offset3=8,
+                                                                                 offset4=9, offset5=10)
 test = BTLE(raw(test))
 assert test[LL_CONNECTION_PARAM_RSP].interval_min == 10
 assert test[LL_CONNECTION_PARAM_RSP].interval_max == 12
@@ -192,8 +190,7 @@ assert test[LL_CONNECTION_PARAM_RSP].offset5 == 10
 
 = LL_REJECT_EXT_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_REJECT_EXT_IND(reject_opcode=2, error_code=4)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_REJECT_EXT_IND(reject_opcode=2, error_code=4)
 test = BTLE(raw(test))
 assert test[LL_REJECT_EXT_IND].reject_opcode == 2
 assert test[LL_REJECT_EXT_IND].error_code == 4
@@ -212,8 +209,8 @@ assert test[BTLE_CTRL].opcode == 19
 
 = LL_LENGTH_REQ
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_LENGTH_REQ(max_rx_bytes=28, max_rx_time=329, max_tx_bytes=29, max_tx_time=330)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_LENGTH_REQ(max_rx_bytes=28, max_rx_time=329,
+                                                                       max_tx_bytes=29, max_tx_time=330)
 test = BTLE(raw(test))
 assert test[LL_LENGTH_REQ].max_rx_bytes == 28
 assert test[LL_LENGTH_REQ].max_rx_time == 329
@@ -222,8 +219,8 @@ assert test[LL_LENGTH_REQ].max_tx_time == 330
 
 = LL_LENGTH_RSP
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_LENGTH_RSP(max_tx_bytes=28, max_tx_time=329, max_rx_bytes=29, max_rx_time=330)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_LENGTH_RSP(max_tx_bytes=28, max_tx_time=329,
+                                                                       max_rx_bytes=29, max_rx_time=330)
 test = BTLE(raw(test))
 assert test[LL_LENGTH_RSP].max_tx_bytes == 28
 assert test[LL_LENGTH_RSP].max_tx_time == 329
@@ -232,24 +229,22 @@ assert test[LL_LENGTH_RSP].max_rx_time == 330
 
 = LL_PHY_REQ
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_PHY_REQ(tx_phys="phy_1m+phy_2m", rx_phys="phy_coded")
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_PHY_REQ(tx_phys="phy_1m+phy_2m", rx_phys="phy_coded")
 test = BTLE(raw(test))
 assert test[LL_PHY_REQ].tx_phys == "phy_1m+phy_2m"
 assert test[LL_PHY_REQ].rx_phys == "phy_coded"
 
 = LL_PHY_RSP
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_PHY_RSP(tx_phys="phy_1m+phy_2m", rx_phys="phy_coded")
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_PHY_RSP(tx_phys="phy_1m+phy_2m", rx_phys="phy_coded")
 test = BTLE(raw(test))
 assert test[LL_PHY_RSP].tx_phys == "phy_1m+phy_2m"
 assert test[LL_PHY_RSP].rx_phys == "phy_coded"
 
 = LL_PHY_UPDATE_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_PHY_UPDATE_IND(tx_phy="phy_2m", rx_phy="phy_coded", instant=1234)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_PHY_UPDATE_IND(tx_phy="phy_2m", rx_phy="phy_coded",
+                                                                           instant=1234)
 test = BTLE(raw(test))
 assert test[LL_PHY_UPDATE_IND].tx_phy == "phy_2m"
 assert test[LL_PHY_UPDATE_IND].rx_phy == "phy_coded"
@@ -257,38 +252,33 @@ assert test[LL_PHY_UPDATE_IND].instant == 1234
 
 # LL_MIN_USED_CHANNELS_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_MIN_USED_CHANNELS_IND(phys="phy_1m+phy_2m", min_used_channels=3)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_MIN_USED_CHANNELS_IND(phys="phy_1m+phy_2m",
+                                                                                  min_used_channels=3)
 test = BTLE(raw(test))
 assert test[LL_MIN_USED_CHANNELS_IND].phys == "phy_1m+phy_2m"
 assert test[LL_MIN_USED_CHANNELS_IND].min_used_channels == 3
 
 # LL_CTE_REQ
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_CTE_REQ(min_cte_len_req=20, rfu=1, cte_type_req=2)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CTE_REQ(min_cte_len_req=20, rfu=1, cte_type_req=2)
 test = BTLE(raw(test))
 assert test[LL_CTE_REQ].min_cte_len_req == 20
 assert test[LL_CTE_REQ].rfu == 1
 assert test[LL_CTE_REQ].cte_type_req == 2
 
-
 # LL_CTE_RSP
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_CTE_RSP()
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CTE_RSP()
 test = BTLE(raw(test))
-
 
 # LL_PERIODIC_SYNC_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_PERIODIC_SYNC_IND(id=2,
-                         sync_info=12345,
-                         conn_event_count=0x4321,
-                         last_pa_event_counter=0xabcd, sid=0xF,
-                         a_type=1, sca=3, phy=2, AdvA="cc:bb:bb:bb:bb:bb",
-                         sync_conn_event_count=32)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_PERIODIC_SYNC_IND(id=2, sync_info=12345,
+                                                                              conn_event_count=0x4321,
+                                                                              last_pa_event_counter=0xabcd, sid=0xF,
+                                                                              a_type=1, sca=3, phy=2,
+                                                                              AdvA="cc:bb:bb:bb:bb:bb",
+                                                                              sync_conn_event_count=32)
 test = BTLE(raw(test))
 assert test[LL_PERIODIC_SYNC_IND].id == 2
 assert test[LL_PERIODIC_SYNC_IND].sync_info == 12345
@@ -301,36 +291,31 @@ assert test[LL_PERIODIC_SYNC_IND].phy == 2
 assert test[LL_PERIODIC_SYNC_IND].AdvA == "cc:bb:bb:bb:bb:bb"
 assert test[LL_PERIODIC_SYNC_IND].sync_conn_event_count == 32
 
-
 # LL_CLOCK_ACCURACY_REQ
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_CLOCK_ACCURACY_REQ(sca=2)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CLOCK_ACCURACY_REQ(sca=2)
 test = BTLE(raw(test))
 assert test[LL_CLOCK_ACCURACY_REQ].sca == 2
 
-
 # LL_CLOCK_ACCURACY_RSP
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_CLOCK_ACCURACY_RSP(sca=3)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CLOCK_ACCURACY_RSP(sca=3)
 test = BTLE(raw(test))
 assert test[LL_CLOCK_ACCURACY_RSP].sca == 3
 
-
 # LL_CIS_REQ
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_CIS_REQ(cig_id=3, cis_id=2, phy_c_to_p=1, phy_p_to_c=2,
-               max_sdu_c_to_p=123, max_sdu_p_to_c=321,
-               sdu_interval_c_to_p=234, framed=1, sdu_interval_p_to_c=432,
-               max_pdu_c_to_p=123, max_pdu_p_to_c=234,
-               nse=10, subinterval=4567,
-               bn_c_to_p=3, bn_p_to_c=2,
-               ft_c_to_p=15, ft_p_to_c=16,
-               iso_interval=12345,
-               cis_offset_min=1, cis_offset_max=999,
-               conn_event_count=2)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CIS_REQ(cig_id=3, cis_id=2, phy_c_to_p=1, phy_p_to_c=2,
+                                                                    max_sdu_c_to_p=123, max_sdu_p_to_c=321,
+                                                                    sdu_interval_c_to_p=234, framed=1,
+                                                                    sdu_interval_p_to_c=432, max_pdu_c_to_p=123,
+                                                                    max_pdu_p_to_c=234,
+                                                                    nse=10, subinterval=4567,
+                                                                    bn_c_to_p=3, bn_p_to_c=2,
+                                                                    ft_c_to_p=15, ft_p_to_c=16,
+                                                                    iso_interval=12345,
+                                                                    cis_offset_min=1, cis_offset_max=999,
+                                                                    conn_event_count=2)
 test = BTLE(raw(test))
 assert test[LL_CIS_REQ].cig_id == 3
 assert test[LL_CIS_REQ].cis_id == 2
@@ -354,22 +339,20 @@ assert test[LL_CIS_REQ].cis_offset_min == 1
 assert test[LL_CIS_REQ].cis_offset_max == 999
 assert test[LL_CIS_REQ].conn_event_count == 2
 
-
 # LL_CIS_RSP
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_CIS_RSP(cis_offset_min=1, cis_offset_max=999, conn_event_count=400)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CIS_RSP(cis_offset_min=1, cis_offset_max=999,
+                                                                    conn_event_count=400)
 test = BTLE(raw(test))
 assert test[LL_CIS_RSP].cis_offset_min == 1
 assert test[LL_CIS_RSP].cis_offset_max == 999
 assert test[LL_CIS_RSP].conn_event_count == 400
 
-
 # LL_CIS_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_CIS_IND(AA=0x12345678, cis_offset=1,
-               cig_sync_delay=999, cis_sync_delay=400, conn_event_count=300)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CIS_IND(AA=0x12345678, cis_offset=1,
+                                                                    cig_sync_delay=999, cis_sync_delay=400,
+                                                                    conn_event_count=300)
 test = BTLE(raw(test))
 assert test[LL_CIS_IND].AA == 0x12345678
 assert test[LL_CIS_IND].cis_offset == 1
@@ -377,31 +360,26 @@ assert test[LL_CIS_IND].cig_sync_delay == 999
 assert test[LL_CIS_IND].cis_sync_delay == 400
 assert test[LL_CIS_IND].conn_event_count == 300
 
-
 # LL_CIS_TERMINATE_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_CIS_TERMINATE_IND(cig_id=33, cis_id=44, error_code=55)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CIS_TERMINATE_IND(cig_id=33, cis_id=44, error_code=55)
 test = BTLE(raw(test))
 assert test[LL_CIS_TERMINATE_IND].cig_id == 33
 assert test[LL_CIS_TERMINATE_IND].cis_id == 44
 assert test[LL_CIS_TERMINATE_IND].error_code == 55
 
-
 # LL_POWER_CONTROL_REQ
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_POWER_CONTROL_REQ(phy=3, delta=-34, tx_power=55)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_POWER_CONTROL_REQ(phy=3, delta=-34, tx_power=55)
 test = BTLE(raw(test))
 assert test[LL_POWER_CONTROL_REQ].phy == 3
 assert test[LL_POWER_CONTROL_REQ].delta == -34
 assert test[LL_POWER_CONTROL_REQ].tx_power == 55
 
-
 # LL_POWER_CONTROL_RSP
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_POWER_CONTROL_RSP(min=0, max=1, delta=-34, tx_power=55, apr=4)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_POWER_CONTROL_RSP(min=0, max=1, delta=-34, tx_power=55,
+                                                                              apr=4)
 test = BTLE(raw(test))
 assert test[LL_POWER_CONTROL_RSP].min == 0
 assert test[LL_POWER_CONTROL_RSP].max == 1
@@ -409,11 +387,10 @@ assert test[LL_POWER_CONTROL_RSP].delta == -34
 assert test[LL_POWER_CONTROL_RSP].tx_power == 55
 assert test[LL_POWER_CONTROL_RSP].apr == 4
 
-
 # LL_POWER_CHANGE_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_POWER_CHANGE_IND(phy=3, min=0, max=1, delta=-34, tx_power=55)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_POWER_CHANGE_IND(phy=3, min=0, max=1, delta=-34,
+                                                                             tx_power=55)
 test = BTLE(raw(test))
 assert test[LL_POWER_CHANGE_IND].phy == 3
 assert test[LL_POWER_CHANGE_IND].min == 0
@@ -421,13 +398,11 @@ assert test[LL_POWER_CHANGE_IND].max == 1
 assert test[LL_POWER_CHANGE_IND].delta == -34
 assert test[LL_POWER_CHANGE_IND].tx_power == 55
 
-
-
 # LL_SUBRATE_REQ
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_SUBRATE_REQ(subrate_factor_min=3, subrate_factor_max=0,
-                   max_latency=1, continuation_number=123, timeout=55)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_SUBRATE_REQ(subrate_factor_min=3, subrate_factor_max=0,
+                                                                        max_latency=1, continuation_number=123,
+                                                                        timeout=55)
 test = BTLE(raw(test))
 assert test[LL_SUBRATE_REQ].subrate_factor_min == 3
 assert test[LL_SUBRATE_REQ].subrate_factor_max == 0
@@ -435,12 +410,10 @@ assert test[LL_SUBRATE_REQ].max_latency == 1
 assert test[LL_SUBRATE_REQ].continuation_number == 123
 assert test[LL_SUBRATE_REQ].timeout == 55
 
-
 # LL_SUBRATE_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_SUBRATE_IND(subrate_factor=3, subrate_base_event=0,
-                   latency=1, continuation_number=123, timeout=55)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_SUBRATE_IND(subrate_factor=3, subrate_base_event=0,
+                                                                        latency=1, continuation_number=123, timeout=55)
 test = BTLE(raw(test))
 assert test[LL_SUBRATE_IND].subrate_factor == 3
 assert test[LL_SUBRATE_IND].subrate_base_event == 0
@@ -448,28 +421,25 @@ assert test[LL_SUBRATE_IND].latency == 1
 assert test[LL_SUBRATE_IND].continuation_number == 123
 assert test[LL_SUBRATE_IND].timeout == 55
 
-
 # LL_CHANNEL_REPORTING_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_CHANNEL_REPORTING_IND(enable=1, min_spacing=123, max_delay=124)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CHANNEL_REPORTING_IND(enable=1, min_spacing=123,
+                                                                                  max_delay=124)
 test = BTLE(raw(test))
 assert test[LL_CHANNEL_REPORTING_IND].enable == 1
 assert test[LL_CHANNEL_REPORTING_IND].min_spacing == 123
 assert test[LL_CHANNEL_REPORTING_IND].max_delay == 124
 
-
 # LL_CHANNEL_STATUS_IND
 
-test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / \
-    LL_CHANNEL_STATUS_IND(channel_classification=123456789012345)
+test = BTLE(access_addr=1) / BTLE_DATA() / BTLE_CTRL() / LL_CHANNEL_STATUS_IND(channel_classification=123456789012345)
 test = BTLE(raw(test))
 assert test[LL_CHANNEL_STATUS_IND].channel_classification == 123456789012345
 
 
 = BTLE_DATA + BTLE_EMPTY_PDU
 
-test = BTLE(access_addr=1)/BTLE_DATA(LLID=1, len=0)/BTLE_EMPTY_PDU()
+test = BTLE(access_addr=1) / BTLE_DATA(LLID=1, len=0) / BTLE_EMPTY_PDU()
 a = BTLE(raw(test))
 print(dir(a))
 print(a.layers)
@@ -478,7 +448,8 @@ assert a[BTLE_DATA].len == 0
 
 = BTLE_DATA + ATT_PrepareWriteReq
 
-test3 = BTLE(access_addr=1) / BTLE_DATA() / L2CAP_Hdr() / ATT_Hdr() / ATT_Prepare_Write_Request(gatt_handle = 0xa, data="test")
+test3 = BTLE(access_addr=1) / BTLE_DATA() / L2CAP_Hdr() / ATT_Hdr() / ATT_Prepare_Write_Request(gatt_handle=0xa,
+                                                                                                data="test")
 test3e = BTLE(raw(test3))
 assert test3e[ATT_Prepare_Write_Request].data == b"test"
 assert test3e[ATT_Prepare_Write_Request].gatt_handle == 0xa
@@ -487,7 +458,7 @@ assert test3e[ATT_Hdr].opcode == 0x16
 
 = BTLE layers
 # a crazy packet with all classes in it!
-pkt = BTLE()/BTLE_ADV()/BTLE_ADV_DIRECT_IND()/BTLE_ADV_IND()/BTLE_ADV_NONCONN_IND()/BTLE_ADV_SCAN_IND()/BTLE_CONNECT_REQ()/BTLE_DATA()/BTLE_PPI()/BTLE_SCAN_REQ()/BTLE_SCAN_RSP()
+pkt = BTLE() / BTLE_ADV() / BTLE_ADV_DIRECT_IND() / BTLE_ADV_IND() / BTLE_ADV_NONCONN_IND() / BTLE_ADV_SCAN_IND() / BTLE_CONNECT_REQ() / BTLE_DATA() / BTLE_PPI() / BTLE_SCAN_REQ() / BTLE_SCAN_RSP()
 assert BTLE in pkt.layers()
 assert BTLE_ADV in pkt.layers()
 assert BTLE_ADV_DIRECT_IND in pkt.layers()
@@ -502,7 +473,7 @@ assert BTLE_SCAN_RSP in pkt.layers()
 
 = BTLE_RF link
 
-a = BTLE_RF()/BTLE()/BTLE_ADV()/BTLE_SCAN_REQ()
+a = BTLE_RF() / BTLE() / BTLE_ADV() / BTLE_SCAN_REQ()
 a.ScanA = "aa:aa:aa:aa:aa:aa"
 a.AdvA = "bb:bb:bb:bb:bb:bb"
 a.reference_access_address_valid = 1
