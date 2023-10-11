@@ -205,7 +205,7 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
         """
         return conf.raw_layer, self.ins.recv(x), None
 
-def recv(self, x=MTU, **kwargs):
+    def recv(self, x=MTU, **kwargs):
         # type: (int, **Any) -> Optional[Packet]
         """Receive a Packet according to the `basecls` of this socket
 
