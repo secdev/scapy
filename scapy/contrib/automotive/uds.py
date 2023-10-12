@@ -1044,7 +1044,6 @@ class DTCAndStatusRecord(Packet):
 class DTCExtendedData(Packet):
     name = 'Diagnostic Trouble Code Extended Data'
     dataTypes = ObservableDict()
-
     fields_desc = [
         ByteEnumField("data_type", 0, dataTypes),
         XByteField("record", 0)
