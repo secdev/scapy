@@ -43,6 +43,9 @@ except KeyError:
     conf.contribs['UDS'] = {'treat-response-pending-as-answer': False}
 
 
+conf.debug_dissector = True
+
+
 class UDS(ISOTP):
     services = ObservableDict(
         {0x10: 'DiagnosticSessionControl',
@@ -1070,7 +1073,10 @@ class DTCSnapshot(Packet):
     fields_desc = [
         ByteField("record_number", 0),
         ByteField("record_number_of_identifiers", 0),
-        PacketListField("snapshotData", None, next_cls_cb=next_identifier_cb)
+        PacketListField(
+            "snapshotData", None,
+            next_cls_cb=lambda pkt, lst, cur, remain: DTCSnapshot.next_identifier_cb(
+                pkt, lst, cur, remain))
     ]
 
     def extract_padding(self, s):
