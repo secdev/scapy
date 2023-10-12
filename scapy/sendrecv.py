@@ -1408,8 +1408,7 @@ class AsyncSniffer(object):
             self.thread.join(*args, **kwargs)
 
 
-AsyncSniffer.__doc__ = ((AsyncSniffer.__doc__ or "") + _DOC_SNIFF_PARAMS +
-                        _DOC_ASYNC_SNIFF)
+AsyncSniffer.__doc__ = AsyncSniffer.__doc__ + _DOC_SNIFF_PARAMS + _DOC_ASYNC_SNIFF  # type: ignore # noqa: E501
 
 
 @conf.commands.register
@@ -1524,7 +1523,7 @@ def bridge_and_sniff(if1,  # type: _GlobInterfaceType
                  *args, **kargs)
 
 
-bridge_and_sniff.__doc__ = (bridge_and_sniff.__doc__ or "") + _DOC_SNIFF_PARAMS
+bridge_and_sniff.__doc__ = bridge_and_sniff.__doc__ + _DOC_SNIFF_PARAMS  # type: ignore # noqa: E501
 
 
 @conf.commands.register
@@ -1555,5 +1554,5 @@ def tshark(*args, **kargs):
     print("\n%d packet%s captured" % (i[0], 's' if i[0] > 1 else ''))
 
 
-tshark.__doc__ = (tshark.__doc__ or "") + _DOC_SNIFF_PARAMS
+tshark.__doc__ = tshark.__doc__ + _DOC_SNIFF_PARAMS  # type: ignore # noqa: E501
 SuperSocket.tshark.__doc__ = tshark.__doc__
