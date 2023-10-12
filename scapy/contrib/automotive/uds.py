@@ -11,6 +11,7 @@ UDS
 """
 
 import struct
+from collections import defaultdict
 
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
@@ -18,7 +19,7 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     ShortField, ObservableDict, XShortEnumField, XByteEnumField, StrLenField, \
     FieldLenField, XStrFixedLenField, XStrLenField, FlagsField, PacketListField, \
     PacketField
-from scapy.packet import Packet, bind_layers, NoPayload
+from scapy.packet import Packet, bind_layers, NoPayload, Raw
 from scapy.config import conf
 from scapy.error import log_loading
 from scapy.utils import PeriodicSenderThread
@@ -908,6 +909,30 @@ class UDS_WMBAPR(Packet):
 bind_layers(UDS, UDS_WMBAPR, service=0x7D)
 
 
+# ##########################DTC#####################################
+class DTC(Packet):
+    name = 'Diagnostic Trouble Code'
+    dtc_descriptions = {}  # Customize this dictionary for each individual ECU / OEM
+
+    fields_desc = [
+        BitEnumField("system", 0, 2, {
+            0: "Powertrain",
+            1: "Chassis",
+            2: "Body",
+            3: "Network"}),
+        BitEnumField("type", 0, 2, {
+            0: "Generic",
+            1: "ManufacturerSpecific",
+            2: "Generic",
+            3: "Generic"}),
+        BitField("numeric_value_code", 0, 12),
+        ByteField("additional_information_code", 0),
+    ]
+
+    def extract_padding(self, s):
+        return '', s
+
+
 # #########################CDTCI###################################
 class UDS_CDTCI(Packet):
     name = 'ClearDiagnosticInformation'
@@ -992,13 +1017,7 @@ class UDS_RDTCI(Packet):
         ConditionalField(FlagsField('DTCStatusMask', 0, 8, dtcStatusMask),
                          lambda pkt: pkt.reportType in [
                              0x01, 0x02, 0x07, 0x08, 0x0f, 0x11, 0x12, 0x13]),
-        ConditionalField(ByteField('DTCHighByte', 0),
-                         lambda pkt: pkt.reportType in [0x3, 0x4, 0x6,
-                                                        0x10, 0x09]),
-        ConditionalField(ByteField('DTCMiddleByte', 0),
-                         lambda pkt: pkt.reportType in [0x3, 0x4, 0x6,
-                                                        0x10, 0x09]),
-        ConditionalField(ByteField('DTCLowByte', 0),
+        ConditionalField(PacketField("dtc", None, pkt_cls=DTC),
                          lambda pkt: pkt.reportType in [0x3, 0x4, 0x6,
                                                         0x10, 0x09]),
         ConditionalField(ByteField('DTCSnapshotRecordNumber', 0),
@@ -1011,28 +1030,7 @@ class UDS_RDTCI(Packet):
 bind_layers(UDS, UDS_RDTCI, service=0x19)
 
 
-class DTC(Packet):
-    name = 'Diagnostic Trouble Code'
-    fields_desc = [
-        BitEnumField("system", 0, 2, {
-            0: "Powertrain",
-            1: "Chassis",
-            2: "Body",
-            3: "Network"}),
-        BitEnumField("type", 0, 2, {
-            0: "Generic",
-            1: "ManufacturerSpecific",
-            2: "Generic",
-            3: "Generic"}),
-        BitField("numeric_value_code", 0, 12),
-        ByteField("additional_information_code", 0),
-    ]
-
-    def extract_padding(self, s):
-        return '', s
-
-
-class DTC_Status(Packet):
+class DTCAndStatusRecord(Packet):
     name = 'DTC and status record'
     fields_desc = [
         PacketField("dtc", None, pkt_cls=DTC),
@@ -1041,6 +1039,50 @@ class DTC_Status(Packet):
 
     def extract_padding(self, s):
         return '', s
+
+
+class DTCExtendedData(Packet):
+    name = 'Diagnostic Trouble Code Extended Data'
+    dataTypes = ObservableDict()
+
+    fields_desc = [
+        ByteEnumField("data_type", 0, dataTypes),
+        XByteField("record", 0)
+    ]
+
+    def extract_padding(self, s):
+        return '', s
+
+
+class DTCExtendedDataRecord(Packet):
+    fields_desc = [
+        PacketField("dtcAndStatus", None, pkt_cls=DTCAndStatusRecord),
+        PacketListField("extendedData", None, pkt_cls=DTCExtendedData)
+    ]
+
+
+class DTCSnapshot(Packet):
+    identifiers = defaultdict(list)  # for later extension
+
+    @staticmethod
+    def next_identifier_cb(pkt, lst, cur, remain):
+        return Raw
+
+    fields_desc = [
+        ByteField("record_number", 0),
+        ByteField("record_number_of_identifiers", 0),
+        PacketListField("snapshotData", None, next_cls_cb=next_identifier_cb)
+    ]
+
+    def extract_padding(self, s):
+        return '', s
+
+
+class DTCSnapshotRecord(Packet):
+    fields_desc = [
+        PacketField("dtcAndStatus", None, pkt_cls=DTCAndStatusRecord),
+        PacketListField("snapshots", None, pkt_cls=DTCSnapshot)
+    ]
 
 
 class UDS_RDTCIPR(Packet):
@@ -1063,19 +1105,31 @@ class UDS_RDTCIPR(Packet):
                          lambda pkt: pkt.reportType in [0x01, 0x07,
                                                         0x11, 0x12]),
         ConditionalField(PacketListField('DTCAndStatusRecord', None,
-                                         pkt_cls=DTC_Status),
+                                         pkt_cls=DTCAndStatusRecord),
                          lambda pkt: pkt.reportType in [0x02, 0x0A, 0x0B,
                                                         0x0C, 0x0D, 0x0E,
                                                         0x0F, 0x13, 0x15]),
         ConditionalField(StrField('dataRecord', b""),
-                         lambda pkt: pkt.reportType in [0x03, 0x04, 0x05,
-                                                        0x06, 0x08, 0x09,
-                                                        0x10, 0x14])
+                         lambda pkt: pkt.reportType in [0x03, 0x08, 0x09,
+                                                        0x10, 0x14]),
+        ConditionalField(PacketField('snapshotRecord', None,
+                                     pkt_cls=DTCSnapshotRecord),
+                         lambda pkt: pkt.reportType in [0x04]),
+        ConditionalField(PacketField('extendedDataRecord', None,
+                                     pkt_cls=DTCExtendedDataRecord),
+                         lambda pkt: pkt.reportType in [0x06])
     ]
 
     def answers(self, other):
-        return isinstance(other, UDS_RDTCI) \
-            and other.reportType == self.reportType
+        if not isinstance(other, UDS_RDTCI):
+            return False
+        if not other.reportType == self.reportType:
+            return False
+        if self.reportType == 0x06:
+            return other.dtc == self.extendedDataRecord.dtcAndStatus.dtc
+        if self.reportType == 0x04:
+            return other.dtc == self.snapshotRecord.dtcAndStatus.dtc
+        return True
 
 
 bind_layers(UDS, UDS_RDTCIPR, service=0x59)
