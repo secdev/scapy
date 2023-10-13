@@ -233,6 +233,11 @@ class _PacketList(Generic[_Inner], metaclass=PacketList_metaclass):
             else:
                 print(prn(*res))
 
+    def display(self):  # Reused to resolve compatibility issues with some functions
+        """deprecated and deleted in version2.5.0, but some functions still use this function.
+        Before all Compatibility issues resolved, remain it"""
+        self.show()
+
     def show(self, *args, **kargs):
         # type: (*Any, **Any) -> None
         """Best way to display the packet list. Defaults to nsummary() method"""  # noqa: E501
