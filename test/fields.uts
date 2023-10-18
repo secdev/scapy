@@ -336,7 +336,26 @@ p = TestBFLenF(b"\xff\x6fabcdeFGH")
 p
 assert p.len == 6 and p.str == b"abcde" and Raw in p and p[Raw].load == b"FGH"
 
+= Test BitLenField
+~ field
 
+SIZES = {0: 6, 1: 6, 2: 14, 3: 22}
+
+class TestBitLenField(Packet):
+    fields_desc = [
+        BitField("mode", 0, 2),
+        BitLenField("value", 0, length_from=lambda pkt: SIZES[pkt.mode])
+    ]
+
+p = TestBitLenField(mode=1, value=50)
+assert bytes(p) == b"r"
+
+p = TestBitLenField(mode=2, value=5000)
+assert bytes(p) == b'\x93\x88'
+
+p = TestBitLenField(b'\xc0\x01\xf4')
+assert p.mode == 3
+assert p.value == 500
 
 ############
 ############

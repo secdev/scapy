@@ -2427,7 +2427,7 @@ class BitField(_BitField[int]):
     __doc__ = _BitField.__doc__
 
 
-class BitFixedLenField(BitField):
+class BitLenField(BitField):
     __slots__ = ["length_from"]
 
     def __init__(self,
@@ -2437,7 +2437,7 @@ class BitFixedLenField(BitField):
                  ):
         # type: (...) -> None
         self.length_from = length_from
-        super(BitFixedLenField, self).__init__(name, default, 0)
+        super(BitLenField, self).__init__(name, default, 0)
 
     def getfield(self,  # type: ignore
                  pkt,  # type: Packet
@@ -2445,7 +2445,7 @@ class BitFixedLenField(BitField):
                  ):
         # type: (...) -> Union[Tuple[Tuple[bytes, int], int], Tuple[bytes, int]]  # noqa: E501
         self.size = self.length_from(pkt)
-        return super(BitFixedLenField, self).getfield(pkt, s)
+        return super(BitLenField, self).getfield(pkt, s)
 
     def addfield(self,  # type: ignore
                  pkt,  # type: Packet
@@ -2454,7 +2454,7 @@ class BitFixedLenField(BitField):
                  ):
         # type: (...) -> Union[Tuple[bytes, int, int], bytes]
         self.size = self.length_from(pkt)
-        return super(BitFixedLenField, self).addfield(pkt, s, val)
+        return super(BitLenField, self).addfield(pkt, s, val)
 
 
 class BitFieldLenField(BitField):
@@ -2652,6 +2652,32 @@ class BitEnumField(_BitField[Union[List[int], int]], _EnumField[int]):
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Any) -> Union[List[int], int]
         return _EnumField.any2i(self, pkt, x)
+
+    def i2repr(self,
+               pkt,  # type: Optional[Packet]
+               x,  # type: Union[List[int], int]
+               ):
+        # type: (...) -> Any
+        return _EnumField.i2repr(self, pkt, x)
+
+
+class BitLenEnumField(BitLenField, _EnumField[int]):
+    __slots__ = EnumField.__slots__
+
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: Optional[int]
+                 length_from,  # type: Callable[[Packet], int]
+                 enum,  # type: Dict[int, str]
+                 **kwargs,  # type: Any
+                 ):
+        # type: (...) -> None
+        _EnumField.__init__(self, name, default, enum)
+        BitLenField.__init__(self, name, default, length_from, **kwargs)
+
+    def any2i(self, pkt, x):
+        # type: (Optional[Packet], Any) -> int
+        return _EnumField.any2i(self, pkt, x)  # type: ignore
 
     def i2repr(self,
                pkt,  # type: Optional[Packet]
