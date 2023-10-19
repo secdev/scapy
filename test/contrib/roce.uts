@@ -141,6 +141,7 @@ pkt = Ether(pkt.build() + b'\x00' * 4)
 assert IPv6 in pkt.layers()
 assert UDP in pkt.layers()
 print(hex(pkt[UDP].chksum))
-assert pkt[UDP].chksum == 0x40a2
+assert pkt[UDP].chksum == 0xe7c5
 assert BTH in pkt.layers()
-assert pkt[BTH].icrc == 0x59a80012
+print(hex(pkt[BTH].icrc))
+assert pkt[BTH].icrc == 0x3e5b743b

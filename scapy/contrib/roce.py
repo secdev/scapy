@@ -182,8 +182,10 @@ class BTH(Packet):
             return self.pack_icrc(icrc)
         elif isinstance(ip, IPv6):
             # pseudo-LRH / IPv6 / UDP / BTH / payload
-            pshdr = Raw(b'\x6fffffff') / ip.copy()
+            pshdr = Raw(b'\xff' * 8) / ip.copy()
             pshdr.hlim = 0xff
+            pshdr.fl = 0xfffff
+            pshdr.tc = 0xff
             pshdr[UDP].chksum = 0xffff
             pshdr[BTH].fecn = 1
             pshdr[BTH].becn = 1
