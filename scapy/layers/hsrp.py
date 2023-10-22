@@ -12,11 +12,11 @@ A proprietary redundancy protocol for Cisco routers.
     http://www.smartnetworks.jp/2006/02/hsrp_8_hsrp_version_2.html
 """
 
+from scapy.config import conf
 from scapy.fields import ByteEnumField, ByteField, IPField, SourceIPField, \
     StrFixedLenField, XIntField, XShortField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.layers.inet import DestIPField, UDP
-from scapy.layers.inet6 import DestIP6Field
 
 
 class HSRP(Packet):
@@ -66,4 +66,6 @@ bind_bottom_up(UDP, HSRP, sport=2029)
 bind_layers(UDP, HSRP, dport=1985, sport=1985)
 bind_layers(UDP, HSRP, dport=2029, sport=2029)
 DestIPField.bind_addr(UDP, "224.0.0.2", dport=1985)
-DestIP6Field.bind_addr(UDP, "ff02::66", dport=2029)
+if conf.ipv6_enabled:
+    from scapy.layers.inet6 import DestIP6Field
+    DestIP6Field.bind_addr(UDP, "ff02::66", dport=2029)

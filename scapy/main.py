@@ -561,6 +561,84 @@ to be used in the fancy banner.
     return lines
 
 
+def get_fancy_banner(mini: Optional[bool] = None) -> str:
+    """
+    Generates the fancy Scapy banner
+
+    :param mini: if set, force a mini banner or not. Otherwise detect
+    """
+    from scapy.config import conf
+    from scapy.utils import get_terminal_width
+    if mini is None:
+        mini_banner = (get_terminal_width() or 84) <= 75
+    else:
+        mini_banner = mini
+
+    the_logo = [
+        "                                      ",
+        "                     aSPY//YASa       ",
+        "             apyyyyCY//////////YCa    ",
+        "            sY//////YSpcs  scpCY//Pp  ",
+        " ayp ayyyyyyySCP//Pp           syY//C ",
+        " AYAsAYYYYYYYY///Ps              cY//S",
+        "         pCCCCY//p          cSSps y//Y",
+        "         SPPPP///a          pP///AC//Y",
+        "              A//A            cyP////C",
+        "              p///Ac            sC///a",
+        "              P////YCpc           A//A",
+        "       scccccp///pSP///p          p//Y",
+        "      sY/////////y  caa           S//P",
+        "       cayCyayP//Ya              pY/Ya",
+        "        sY/PsY////YCc          aC//Yp ",
+        "         sc  sccaCY//PCypaapyCP//YSs  ",
+        "                  spCPY//////YPSps    ",
+        "                       ccaacs         ",
+        "                                      ",
+    ]
+
+    # Used on mini screens
+    the_logo_mini = [
+        "      .SYPACCCSASYY  ",
+        "P /SCS/CCS        ACS",
+        "       /A          AC",
+        "     A/PS       /SPPS",
+        "        YP        (SC",
+        "       SPS/A.      SC",
+        "   Y/PACC          PP",
+        "    PY*AYC        CAA",
+        "         YYCY//SCYP  ",
+    ]
+
+    the_banner = [
+        "",
+        "",
+        "   |",
+        "   | Welcome to Scapy",
+        "   | Version %s" % conf.version,
+        "   |",
+        "   | https://github.com/secdev/scapy",
+        "   |",
+        "   | Have fun!",
+        "   |",
+    ]
+
+    if mini_banner:
+        the_logo = the_logo_mini
+        the_banner = [x[2:] for x in the_banner[3:-1]]
+        the_banner = [""] + the_banner + [""]
+    else:
+        quote, author = choice(QUOTES)
+        the_banner.extend(_prepare_quote(quote, author, max_len=39))
+        the_banner.append("   |")
+    return "\n".join(
+        logo + banner for logo, banner in zip_longest(
+            (conf.color_theme.logo(line) for line in the_logo),
+            (conf.color_theme.success(line) for line in the_banner),
+            fillvalue=""
+        )
+    )
+
+
 def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
     # type: (Optional[Any], Optional[Any], Optional[Any], int) -> None
     """
@@ -635,72 +713,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         )
 
     if conf.fancy_banner:
-        from scapy.utils import get_terminal_width
-        mini_banner = (get_terminal_width() or 84) <= 75
-
-        the_logo = [
-            "                                      ",
-            "                     aSPY//YASa       ",
-            "             apyyyyCY//////////YCa    ",
-            "            sY//////YSpcs  scpCY//Pp  ",
-            " ayp ayyyyyyySCP//Pp           syY//C ",
-            " AYAsAYYYYYYYY///Ps              cY//S",
-            "         pCCCCY//p          cSSps y//Y",
-            "         SPPPP///a          pP///AC//Y",
-            "              A//A            cyP////C",
-            "              p///Ac            sC///a",
-            "              P////YCpc           A//A",
-            "       scccccp///pSP///p          p//Y",
-            "      sY/////////y  caa           S//P",
-            "       cayCyayP//Ya              pY/Ya",
-            "        sY/PsY////YCc          aC//Yp ",
-            "         sc  sccaCY//PCypaapyCP//YSs  ",
-            "                  spCPY//////YPSps    ",
-            "                       ccaacs         ",
-            "                                      ",
-        ]
-
-        # Used on mini screens
-        the_logo_mini = [
-            "      .SYPACCCSASYY  ",
-            "P /SCS/CCS        ACS",
-            "       /A          AC",
-            "     A/PS       /SPPS",
-            "        YP        (SC",
-            "       SPS/A.      SC",
-            "   Y/PACC          PP",
-            "    PY*AYC        CAA",
-            "         YYCY//SCYP  ",
-        ]
-
-        the_banner = [
-            "",
-            "",
-            "   |",
-            "   | Welcome to Scapy",
-            "   | Version %s" % conf.version,
-            "   |",
-            "   | https://github.com/secdev/scapy",
-            "   |",
-            "   | Have fun!",
-            "   |",
-        ]
-
-        if mini_banner:
-            the_logo = the_logo_mini
-            the_banner = [x[2:] for x in the_banner[3:-1]]
-            the_banner = [""] + the_banner + [""]
-        else:
-            quote, author = choice(QUOTES)
-            the_banner.extend(_prepare_quote(quote, author, max_len=39))
-            the_banner.append("   |")
-        banner_text = "\n".join(
-            logo + banner for logo, banner in zip_longest(
-                (conf.color_theme.logo(line) for line in the_logo),
-                (conf.color_theme.success(line) for line in the_banner),
-                fillvalue=""
-            )
-        )
+        banner_text = get_fancy_banner()
     else:
         banner_text = "Welcome to Scapy (%s)" % conf.version
     if mybanner is not None:
