@@ -26,18 +26,32 @@ from scapy.config import conf
 from scapy.compat import orb, raw, chb, bytes_encode, plain_str
 from scapy.error import log_runtime, warning, Scapy_Exception
 from scapy.packet import Packet, bind_layers, Raw
-from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    ConditionalField, Field, FieldLenField, FlagsField, IntField, \
-    PacketListField, ShortEnumField, ShortField, StrField, \
-    StrLenField, MultipleTypeField, UTCTimeField, I
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    Field,
+    FieldLenField,
+    FlagsField,
+    I,
+    IP6Field,
+    IntField,
+    MultipleTypeField,
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    StrField,
+    StrLenField,
+    UTCTimeField,
+)
 from scapy.sendrecv import sr1
 from scapy.supersocket import StreamSocket
 from scapy.pton_ntop import inet_ntop, inet_pton
 from scapy.volatile import RandShort
 
 from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
-from scapy.layers.inet6 import IPv6, DestIP6Field, IP6Field
-
 
 from typing import (
     Any,
@@ -1103,7 +1117,9 @@ bind_layers(UDP, DNS, sport=5353)
 bind_layers(UDP, DNS, dport=53)
 bind_layers(UDP, DNS, sport=53)
 DestIPField.bind_addr(UDP, "224.0.0.251", dport=5353)
-DestIP6Field.bind_addr(UDP, "ff02::fb", dport=5353)
+if conf.ipv6_enabled:
+    from scapy.layers.inet6 import DestIP6Field
+    DestIP6Field.bind_addr(UDP, "ff02::fb", dport=5353)
 bind_layers(TCP, DNS, dport=53)
 bind_layers(TCP, DNS, sport=53)
 
@@ -1135,6 +1151,7 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, **kwargs):
 
     kwargs.setdefault("timeout", 3)
     kwargs.setdefault("verbose", 0)
+    res = None
     for nameserver in conf.nameservers:
         # Try all nameservers
         try:
@@ -1310,6 +1327,7 @@ class DNS_am(AnsweringMachine):
         )
 
     def make_reply(self, req):
+        from scapy.layers.inet6 import IPv6
         if IPv6 in req:
             resp = IPv6(dst=req[IPv6].src, src=self.src_ip6)
         else:

@@ -22,6 +22,7 @@ from scapy.fields import (
     FieldListField,
     FixedPointField,
     FlagsField,
+    IP6Field,
     IPField,
     IntField,
     LEIntField,
@@ -39,7 +40,6 @@ from scapy.fields import (
     XByteField,
     XStrFixedLenField,
 )
-from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
 from scapy.utils import lhex
 from scapy.compat import orb

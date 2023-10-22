@@ -952,7 +952,7 @@ class Conf(ConfClass):
 
 if not Conf.ipv6_enabled:
     log_scapy.warning("IPv6 support disabled in Python. Cannot load Scapy IPv6 layers.")  # noqa: E501
-    for m in ["inet6", "dhcp6"]:
+    for m in ["inet6", "dhcp6", "sixlowpan"]:
         if m in Conf.load_layers:
             Conf.load_layers.remove(m)
 

@@ -2927,8 +2927,9 @@ def get_terminal_width():
         s = struct.pack('HHHH', 0, 0, 0, 0)
         x = fcntl.ioctl(1, termios.TIOCGWINSZ, s)
         sizex = struct.unpack('HHHH', x)[1]
-    except IOError:
-        pass
+    except (IOError, ModuleNotFoundError):
+        # If everything failed, return default terminal size
+        sizex = 79
     return sizex
 
 
