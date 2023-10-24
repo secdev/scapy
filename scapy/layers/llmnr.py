@@ -14,7 +14,13 @@ RFC also envisions LLMNR over TCP. Like vista, we don't support it -- arno
 
 import struct
 
-from scapy.fields import BitEnumField, BitField, ShortField
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    DestField,
+    DestIP6Field,
+    ShortField,
+)
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.compat import orb
 from scapy.layers.inet import UDP
@@ -88,9 +94,14 @@ bind_bottom_up(UDP, _LLMNR, dport=5355)
 bind_bottom_up(UDP, _LLMNR, sport=5355)
 bind_layers(UDP, _LLMNR, sport=5355, dport=5355)
 
+DestField.bind_addr(LLMNRQuery, _LLMNR_IPv4_mcast_addr, dport=5355)
+DestField.bind_addr(LLMNRResponse, _LLMNR_IPv4_mcast_addr, dport=5355)
+DestIP6Field.bind_addr(LLMNRQuery, _LLMNR_IPv6_mcast_Addr, dport=5355)
+DestIP6Field.bind_addr(LLMNRResponse, _LLMNR_IPv6_mcast_Addr, dport=5355)
+
 
 class LLMNR_am(DNS_am):
-    function_name = "llmnr_spoof"
+    function_name = "llmnrd"
     filter = "udp port 5355"
     cls = LLMNRQuery
 

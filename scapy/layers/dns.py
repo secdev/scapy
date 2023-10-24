@@ -1072,13 +1072,13 @@ class DNS(DNSCompressedPacket):
         name = ""
         if self.qr:
             type = "Ans"
-            if self.an and isinstance(self.an, DNSRR):
-                name = ' "%s"' % self.an[0].rdata
+            if self.an and isinstance(self.an[0], DNSRR):
+                name = ' %s' % self.an[0].rdata
         else:
             type = "Qry"
-            if self.qd and isinstance(self.qd, DNSQR):
-                name = ' "%s"' % self.qd[0].qname
-        return 'DNS %s%s ' % (type, name)
+            if self.qd and isinstance(self.qd[0], DNSQR):
+                name = ' %s' % self.qd[0].qname
+        return 'DNS %s%s' % (type, name)
 
     def post_build(self, pkt, pay):
         if isinstance(self.underlayer, TCP) and self.length is None:
@@ -1129,13 +1129,16 @@ _dns_cache = conf.netcache.new_cache("dns_cache", 300)
 
 
 @conf.commands.register
-def dns_resolve(qname, qtype="A", raw=False, verbose=1, **kwargs):
+def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
     """
     Perform a simple DNS resolution using conf.nameservers with caching
 
     :param qname: the name to query
     :param qtype: the type to query (default A)
     :param raw: return the whole DNS packet (default False)
+    :param verbose: show verbose errors
+    :param timeout: seconds until timeout (per server)
+    :raise TimeoutError: if no DNS servers were reached in time.
     """
     # Unify types
     qtype = DNSQR.qtype.any2i_one(None, qtype)
@@ -1149,7 +1152,7 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, **kwargs):
     if answer:
         return answer
 
-    kwargs.setdefault("timeout", 3)
+    kwargs.setdefault("timeout", timeout)
     kwargs.setdefault("verbose", 0)
     res = None
     for nameserver in conf.nameservers:
@@ -1203,7 +1206,8 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, **kwargs):
         # Cache it
         _dns_cache[cache_ident] = answer
         return answer
-    return None
+    else:
+        raise TimeoutError
 
 
 @conf.commands.register
@@ -1247,14 +1251,15 @@ RFC2136
 
 
 class DNS_am(AnsweringMachine):
-    function_name = "dns_spoof"
+    function_name = "dnsd"
     filter = "udp port 53"
-    cls = DNS  # We use this automaton for llmnr_spoof
+    cls = DNS  # We also use this automaton for llmnrd
 
     def parse_options(self, joker=None,
                       match=None,
                       srvmatch=None,
                       joker6=False,
+                      relay=False,
                       from_ip=None,
                       from_ip6=None,
                       src_ip=None,
@@ -1265,40 +1270,50 @@ class DNS_am(AnsweringMachine):
                       Set to False to disable, None to mirror the interface's IP.
         :param joker6: default IPv6 for unresolved domains (Default: False)
                        set to False to disable, None to mirror the interface's IPv6.
+        :param relay: relay unresolved domains to conf.nameservers (Default: False).
         :param match: a dictionary of {name: val} where name is a string representing
                       a domain name (A, AAAA) and val is a tuple of 2 elements, each
-                      representing an IP or a list of IPs
+                      representing an IP or a list of IPs. If val is a single element,
+                      (A, None) is assumed.
         :param srvmatch: a dictionary of {name: (port, target)} used for SRV
         :param from_ip: an source IP to filter. Can contain a netmask
         :param from_ip6: an source IPv6 to filter. Can contain a netmask
         :param ttl: the DNS time to live (in seconds)
-        :param src_ip:
+        :param src_ip: override the source IP
         :param src_ip6:
 
         Example:
 
-            >>> dns_spoof(joker="192.168.0.2", iface="eth0")
-            >>> dns_spoof(match={
+            $ sudo iptables -I OUTPUT -p icmp --icmp-type 3/3 -j DROP
+            >>> dnsd(match={"google.com": "1.1.1.1"}, joker="192.168.0.2", iface="eth0")
+            >>> dnsd(srvmatch={
             ...     "_ldap._tcp.dc._msdcs.DOMAIN.LOCAL.": (389, "srv1.domain.local")
             ... })
         """
+        def normv(v):
+            if isinstance(v, (tuple, list)) and len(v) == 2:
+                return v
+            elif isinstance(v, str):
+                return (v, None)
+            else:
+                raise ValueError("Bad match value: '%s'" % repr(v))
+
+        def normk(k):
+            k = bytes_encode(k).lower()
+            if not k.endswith(b"."):
+                k += b"."
+            return k
         if match is None:
             self.match = {}
         else:
-            assert all(isinstance(x, (tuple, list)) for x in match.values()), (
-                "'match' values must be a tuple of 2 elements: ('<ipv4>', '<ipv6>')"
-                ". They can be None"
-            )
-            self.match = {bytes_encode(k): v for k, v in match.items()}
+            self.match = {normk(k): normv(v) for k, v in match.items()}
         if srvmatch is None:
             self.srvmatch = {}
         else:
-            assert all(isinstance(x, (tuple, list)) for x in srvmatch.values()), (
-                "'srvmatch' values must be a tuple of 2 elements: (port, 'target')"
-            )
-            self.srvmatch = {bytes_encode(k): v for k, v in srvmatch.items()}
+            self.srvmatch = {normk(k): normv(v) for k, v in srvmatch.items()}
         self.joker = joker
         self.joker6 = joker6
+        self.relay = relay
         if isinstance(from_ip, str):
             self.from_ip = Net(from_ip)
         else:
@@ -1341,51 +1356,65 @@ class DNS_am(AnsweringMachine):
                 if rq.qtype == 28:
                     # AAAA
                     try:
-                        rdata = self.match[rq.qname][1]
+                        rdata = self.match[rq.qname.lower()][1]
                     except KeyError:
-                        if self.joker6 is False:
-                            return
-                        rdata = self.joker6 or get_if_addr6(
-                            self.optsniff.get("iface", conf.iface)
-                        )
+                        if self.relay or self.joker6 is False:
+                            rdata = None
+                        else:
+                            rdata = self.joker6 or get_if_addr6(
+                                self.optsniff.get("iface", conf.iface)
+                            )
                 elif rq.qtype == 1:
                     # A
                     try:
-                        rdata = self.match[rq.qname][0]
+                        rdata = self.match[rq.qname.lower()][0]
                     except KeyError:
-                        if self.joker is False:
-                            return
-                        rdata = self.joker or get_if_addr(
-                            self.optsniff.get("iface", conf.iface)
-                        )
-                if rdata is None:
-                    # Ignore None
-                    return
-                # Common A and AAAA
-                if not isinstance(rdata, list):
-                    rdata = [rdata]
-                ans.extend([
-                    DNSRR(rrname=rq.qname, ttl=self.ttl, rdata=x, type=rq.qtype)
-                    for x in rdata
-                ])
+                        if self.relay or self.joker is False:
+                            rdata = None
+                        else:
+                            rdata = self.joker or get_if_addr(
+                                self.optsniff.get("iface", conf.iface)
+                            )
+                if rdata is not None:
+                    # Common A and AAAA
+                    if not isinstance(rdata, list):
+                        rdata = [rdata]
+                    ans.extend([
+                        DNSRR(rrname=rq.qname, ttl=self.ttl, rdata=x, type=rq.qtype)
+                        for x in rdata
+                    ])
+                    continue  # next
             elif rq.qtype == 33:
                 # SRV
                 try:
-                    port, target = self.srvmatch[rq.qname]
+                    port, target = self.srvmatch[rq.qname.lower()]
+                    ans.append(DNSRRSRV(
+                        rrname=rq.qname,
+                        port=port,
+                        target=target,
+                        weight=100,
+                        ttl=self.ttl
+                    ))
+                    continue  # next
                 except KeyError:
-                    return
-                ans.append(DNSRRSRV(
-                    rrname=rq.qname,
-                    port=port,
-                    target=target,
-                    weight=100,
-                    ttl=self.ttl
-                ))
-            else:
-                # Not handled
-                continue
-        # Common: All
-        if not ans:
-            return
-        resp /= self.cls(id=req.id, qr=1, qd=req.qd, an=ans)
+                    # No result
+                    pass
+            # It it arrives here, there is currently no answer
+            if self.relay:
+                # Relay mode ?
+                try:
+                    _rslv = dns_resolve(rq.qname, qtype=rq.qtype)
+                    if _rslv is not None:
+                        ans.append(_rslv)
+                        continue  # next
+                except TimeoutError:
+                    pass
+            # Error
+            break
+        else:
+            # All rq were answered
+            resp /= self.cls(id=req.id, qr=1, qd=req.qd, an=ans)
+            return resp
+        # An error happened
+        resp /= self.cls(id=req.id, qr=1, qd=req.qd, rcode=3)
         return resp
