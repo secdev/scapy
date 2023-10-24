@@ -133,7 +133,7 @@ class ISOTPSoftSocket(SuperSocket):
 
         if LINUX and isinstance(can_socket, str):
             from scapy.contrib.cansocket_native import NativeCANSocket
-            can_socket = NativeCANSocket(can_socket)
+            can_socket = NativeCANSocket(can_socket, fd=fd)
         elif isinstance(can_socket, str):
             raise Scapy_Exception("Provide a CANSocket object instead")
 

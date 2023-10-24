@@ -11,6 +11,8 @@ from scapy.layers.can import *
 from scapy.contrib.isotp import *
 from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
 from test.testsocket import TestSocket, cleanup_testsockets
+with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
+    exec(f.read())
 
 = Redirect logging
 import logging
@@ -57,6 +59,18 @@ assert sniffed[0]['ISOTP'].rx_id == 0x241
 assert sniffed[0]['ISOTP'].rx_ext_address == 0xEA
 
 + ISOTPSoftSocket tests
+
+= CAN socket FD
+~ not_pypy needs_root linux vcan_socket
+
+with ISOTPSoftSocket(iface0, tx_id=0x641, rx_id=0x241, fd=True) as s:
+    assert s.impl.can_socket.fd == True
+
+= CAN socket non-FD
+~ not_pypy needs_root linux vcan_socket
+
+with ISOTPSoftSocket(iface0, tx_id=0x641, rx_id=0x241) as s:
+    assert s.impl.can_socket.fd == False
 
 = Single-frame receive
 
