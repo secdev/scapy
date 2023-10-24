@@ -355,7 +355,7 @@ bind_layers(TCP, NBTSession, dport=139, sport=139)
 
 
 class NBNS_am(AnsweringMachine):
-    function_name = "nbns_spoof"
+    function_name = "nbnsd"
     filter = "udp port 137"
     sniff_options = {"store": 0}
 

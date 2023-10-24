@@ -593,7 +593,7 @@ class BOOTP_am(AnsweringMachine):
                       network="192.168.1.0/24",
                       gw="192.168.1.1",
                       nameserver=None,
-                      domain="localnet",
+                      domain=None,
                       renewal_time=60,
                       lease_time=1800):
         """

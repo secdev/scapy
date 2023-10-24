@@ -37,7 +37,8 @@ def check_DHCP_am_reply(packet):
 
 test_am(DHCP_am,
         Ether()/IP()/UDP()/BOOTP(op=1)/DHCP(options=[('message-type', 'request')]),
-        check_DHCP_am_reply)
+        check_DHCP_am_reply,
+        domain="localnet")
 
 
 = ARP_am
@@ -72,6 +73,17 @@ test_am(DNS_am,
         IP()/UDP()/DNS(qd=DNSQR(qname="www.secdev.org")),
         check_DNS_am_reply,
         joker="192.168.1.1")
+
+def check_DNS_am_reply2(packet):
+    assert DNS in packet and packet[DNS].ancount == 2
+    assert packet[DNS].an[0].rdata == "128.0.0.1"
+    assert packet[DNS].an[1].rdata == "::1"
+
+test_am(DNS_am,
+        IP(b'E\x00\x00H\x00\x01\x00\x00@\x11|\xa2\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x004\xe8\x9a\x00\x00\x01\x00\x00\x02\x00\x00\x00\x00\x00\x00\x06gaagle\x03com\x00\x00\x01\x00\x01\x06google\x03com\x00\x00\x1c\x00\x01'),
+        check_DNS_am_reply2,
+        match={"google.com": ("127.0.0.1", "::1"), "gaagle.com": "128.0.0.1"},
+        joker=False)
 
 = DHCPv6_am - Basic Instantiaion
 ~ osx netaccess
