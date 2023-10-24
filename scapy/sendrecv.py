@@ -524,10 +524,11 @@ def sendpfast(x: _PacketIterable,
     else:
         argv.append("--topspeed")
 
-    if loop:
-        argv.append("--loop=0")
-    elif count:
+    if count:
+        assert not loop, "Can't use loop and count at the same time in sendpfast"
         argv.append("--loop=%i" % count)
+    elif loop:
+        argv.append("--loop=0")
     if file_cache:
         argv.append("--preload-pcap")
 
