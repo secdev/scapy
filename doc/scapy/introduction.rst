@@ -18,7 +18,7 @@ Scapy also performs very well on a lot of other specific tasks that most other t
 
 The idea is simple. Scapy mainly does two things: sending packets and receiving answers. You define a set of packets, it sends them, receives answers, matches requests with answers and returns a list of packet couples (request, answer) and a list of unmatched packets. This has the big advantage over tools like Nmap or hping that an answer is not reduced to open, closed, or filtered, but is the whole packet.
 
-On top of this can be built more high level functions, for example, one that does traceroutes and give as a result only the start TTL of the request and the source IP of the answer. One that pings a whole network and gives the list of machines answering. One that does a portscan and returns a LaTeX report.
+On top of this can be built more high level functions. For example, one that does traceroutes and give as a result only the start TTL of the request and the source IP of the answer. One that pings a whole network and gives the list of machines answering. One that does a portscan and returns a LaTeX report.
 
 What makes Scapy so special
 ===========================
@@ -33,7 +33,7 @@ Scapy tries to overcome those problems. It enables you to build exactly the pack
 
 In fact, it's like building a new tool each time, but instead of dealing with a hundred line C program, you only write 2 lines of Scapy.
 
-After a probe (scan, traceroute, etc.) Scapy always gives you the full decoded packets from the probe, before any interpretation. That means that you can probe once and interpret many times, ask for a traceroute and look at the padding for instance.
+After a probe (scan, traceroute, etc.) Scapy always gives you the full decoded packets from the probe, before any interpretation. That means that you can probe once and interpret many times. Ask for a traceroute and look at the padding for instance.
 
 Fast packet design
 ------------------
@@ -57,7 +57,7 @@ Scapy decodes, it does not interpret
 
 A common problem with network probing tools is they try to interpret the answers received instead of only decoding and giving facts. Reporting something like **Received a TCP Reset on port 80** is not subject to interpretation errors. Reporting **Port 80 is closed** is an interpretation that may be right most of the time but wrong in some specific contexts the tool's author did not imagine. For instance, some scanners tend to report a filtered TCP port when they receive an ICMP destination unreachable packet. This may be right, but in some cases, it means the packet was not filtered by the firewall but rather there was no host to forward the packet to.
 
-Interpreting results can help users that don't know what a port scan is but it can also make more harm than good, as it injects bias into the results. What can tend to happen is that so that they can do the interpretation themselves, knowledgeable users will try to reverse engineer the tool's interpretation to derive the facts that triggered that interpretation. Unfortunately, much information is lost in this operation.
+Interpreting results can help users that don't know what a port scan is, but it can also make more harm than good, as it injects bias into the results. What can tend to happen is that knowledgeable users will try to reverse engineer the tool's interpretation to derive the facts that triggered that interpretation, so that they can do the interpretation themselves. Unfortunately, much information is lost in this operation.
 
 Quick demo
 ==========
