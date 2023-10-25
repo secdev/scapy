@@ -42,7 +42,7 @@ Other tools stick to the **program-that-you-run-from-a-shell** paradigm. The res
 
 Scapy's paradigm is to propose a Domain Specific Language (DSL) that enables a powerful and fast description of any kind of packet. Using the Python syntax and a Python interpreter as the DSL syntax and interpreter has many advantages: there is no need to write a separate interpreter, users don't need to learn yet another language, and they benefit from a complete, concise, and very powerful language.
 
-Scapy enables the user to describe a packet or set of packets as layers that are stacked one upon another. Fields of each layer have useful default values that can be overloaded. Scapy does not oblige the user to use predetermined methods or templates. This alleviates the requirement of writing a new tool each time a different scenario is required. In C, it may take an average of 60 lines to describe a packet. With Scapy, the packets to be sent may be described in only a single line, with another line to print the result. 90\% of the network probing tools can be rewritten in 2 lines of Scapy.
+Scapy enables the user to describe a packet or set of packets as layers that are stacked one upon another. Fields of each layer have useful default values that can be overloaded. Scapy does not oblige the user to use predetermined methods or templates. This alleviates the requirement of writing a new tool each time a different scenario is required. In C, it may take an average of 60 lines to describe a packet. With Scapy, the packets to be sent may be described in only a single line, with another line to print the result. 90\% of network probing tools can be rewritten in 2 lines of Scapy.
 
 Probe once, interpret many
 --------------------------
