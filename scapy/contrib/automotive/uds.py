@@ -1374,11 +1374,8 @@ bind_layers(UDS, UDS_RFTPR, service=0x78)
 # #########################IOCBI###################################
 class UDS_IOCBI(Packet):
     name = 'InputOutputControlByIdentifier'
-    dataIdentifiers = ObservableDict()
     fields_desc = [
-        XShortEnumField('dataIdentifier', 0, dataIdentifiers),
-        ByteField('controlOptionRecord', 0),
-        StrField('controlEnableMaskRecord', b"", fmt="B")
+        XShortEnumField('dataIdentifier', 0, UDS_RDBI.dataIdentifiers),
     ]
 
 
@@ -1388,8 +1385,7 @@ bind_layers(UDS, UDS_IOCBI, service=0x2F)
 class UDS_IOCBIPR(Packet):
     name = 'InputOutputControlByIdentifierPositiveResponse'
     fields_desc = [
-        XShortField('dataIdentifier', 0),
-        StrField('controlStatusRecord', b"", fmt="B")
+        XShortEnumField('dataIdentifier', 0, UDS_RDBI.dataIdentifiers),
     ]
 
     def answers(self, other):

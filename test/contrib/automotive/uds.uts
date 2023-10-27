@@ -1362,8 +1362,7 @@ assert rtepr.answers(rte)
 iocbi = UDS(b'\x2f\x23\x34\xffcoffee')
 assert iocbi.service == 0x2f
 assert iocbi.dataIdentifier == 0x2334
-assert iocbi.controlOptionRecord == 255
-assert iocbi.controlEnableMaskRecord == b'coffee'
+assert iocbi.load == b'\xffcoffee'
 
 = Check UDS_RFT
 
