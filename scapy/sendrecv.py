@@ -485,15 +485,16 @@ def sendp(x,  # type: _PacketIterable
 
 
 @conf.commands.register
-def sendpfast(x,  # type: _PacketIterable
-              pps=None,  # type: Optional[float]
-              mbps=None,  # type: Optional[float]
-              realtime=False,  # type: bool
-              loop=None,  # type: Optional[int]
-              file_cache=False,  # type: bool
-              iface=None,  # type: Optional[_GlobInterfaceType]
-              replay_args=None,  # type: Optional[List[str]]
-              parse_results=False,  # type: bool
+def sendpfast(x: _PacketIterable,
+              pps: Optional[float] = None,
+              mbps: Optional[float] = None,
+              realtime: bool = False,
+              count: Optional[int] = None,
+              loop: int = 0,
+              file_cache: bool = False,
+              iface: Optional[_GlobInterfaceType] = None,
+              replay_args: Optional[List[str]] = None,
+              parse_results: bool = False,
               ):
     # type: (...) -> Optional[Dict[str, Any]]
     """Send packets at layer 2 using tcpreplay for performance
@@ -501,8 +502,8 @@ def sendpfast(x,  # type: _PacketIterable
     :param pps:  packets per second
     :param mbps: MBits per second
     :param realtime: use packet's timestamp, bending time with real-time value
-    :param loop: number of times to process the packet list. 0 implies
-        infinite loop
+    :param loop: send the packet indefinitely (default 0)
+    :param count: number of packets to send (default None=1)
     :param file_cache: cache packets in RAM instead of reading from
         disk at each iteration
     :param iface: output interface
@@ -523,8 +524,11 @@ def sendpfast(x,  # type: _PacketIterable
     else:
         argv.append("--topspeed")
 
-    if loop is not None:
-        argv.append("--loop=%i" % loop)
+    if count:
+        assert not loop, "Can't use loop and count at the same time in sendpfast"
+        argv.append("--loop=%i" % count)
+    elif loop:
+        argv.append("--loop=0")
     if file_cache:
         argv.append("--preload-pcap")
 
