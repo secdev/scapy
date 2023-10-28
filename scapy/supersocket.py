@@ -214,7 +214,7 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
     def sr(self, *args, **kargs):
         # type: (Any, Any) -> Tuple[SndRcvList, PacketList]
         from scapy import sendrecv
-        ans, unans = sendrecv.sndrcv(self, *args, **kargs)  # type: SndRcvList, PacketList  # noqa: E501
+        ans, unans = sendrecv.sndrcv(self, *args, **kargs)
         return ans, unans
 
     def sr1(self, *args, **kargs):

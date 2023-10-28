@@ -3171,8 +3171,8 @@ def whois(ip_address):
 
 
 class PeriodicSenderThread(threading.Thread):
-    def __init__(self, sock, pkt, interval=0.5):
-        # type: (Any, _PacketIterable, float) -> None
+    def __init__(self, sock, pkt, interval=0.5, ignore_exceptions=True):
+        # type: (Any, _PacketIterable, float, bool) -> None
         """ Thread to send packets periodically
 
         Args:
@@ -3187,13 +3187,20 @@ class PeriodicSenderThread(threading.Thread):
         self._socket = sock
         self._stopped = threading.Event()
         self._interval = interval
+        self._ignore_exceptions = ignore_exceptions
         threading.Thread.__init__(self)
 
     def run(self):
         # type: () -> None
         while not self._stopped.is_set() and not self._socket.closed:
             for p in self._pkts:
-                self._socket.send(p)
+                try:
+                    self._socket.send(p)
+                except (OSError, TimeoutError) as e:
+                    if self._ignore_exceptions:
+                        return
+                    else:
+                        raise e
                 self._stopped.wait(timeout=self._interval)
                 if self._stopped.is_set() or self._socket.closed:
                     break
