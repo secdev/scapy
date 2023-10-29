@@ -1426,10 +1426,10 @@ values.
             ct = AnsiColorTheme()  # No color for dump output
         else:
             ct = conf.color_theme
-        s = "%s%s %s %s \n" % (label_lvl,
-                               ct.punct("###["),
-                               ct.layer_name(self.name),
-                               ct.punct("]###"))
+        s = "%s%s %s %s\n" % (label_lvl,
+                              ct.punct("###["),
+                              ct.layer_name(self.name),
+                              ct.punct("]###"))
         for f in self.fields_desc:
             if isinstance(f, ConditionalField) and not f._evalcond(self):
                 continue
