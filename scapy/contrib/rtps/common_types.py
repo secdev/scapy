@@ -297,7 +297,8 @@ _rtps_vendor_ids = {
     0x0110: "Eclipse Foundation - Cyclone DDS",
     0x0111: "Gurum Networks, Inc. - GurumDDS",
     0x0112: "Atostek - RustDDS",
-    0x0113: "Nanjing Zhenrong Software Technology Co. - Zhenrong Data Distribution Service (ZRDDS)",
+    0x0113: "Nanjing Zhenrong Software Technology Co. \
+        - Zhenrong Data Distribution Service (ZRDDS)",
     0x0114: "S2E Software Systems B.V. - Dust DDS",
 }
 
