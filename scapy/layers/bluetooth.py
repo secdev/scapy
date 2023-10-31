@@ -2055,7 +2055,8 @@ class _BluetoothLibcSocket(SuperSocket):
         if hasattr(self, "ins"):
             if self.ins and (WINDOWS or self.ins.fileno() != -1):
                 close(self.ins.fileno())
-        close(self.hci_fd)
+        if hasattr(self, "hci_fd"):
+            close(self.hci_fd)
 
 
 class BluetoothUserSocket(_BluetoothLibcSocket):
