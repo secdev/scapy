@@ -74,73 +74,48 @@ class debug:
 #  Send / Receive  #
 ####################
 
-_DOC_SNDRCV_PARAMS_HEAD = """
-    :param pks: SuperSocket instance to send/receive packets
-    :type pkt: SuperSocket
-    """
-
 _DOC_SNDRCV_PARAMS_BODY = """
     :param pkt: Packet or iterable of packets to be sent.
-    :type pkt: _PacketIterable
     :param timeout: How much time to wait after the last packet
                     has been sent. Defaults to None.
-    :type timeout: Optional[int]
     :param inter: Delay between two packets during sending. Defaults to 0.
-    :type inter: Optional[int]
-
     :param verbose: Set verbosity level. Defaults to None.
-    :type verbose: Optional[int]
-
     :param chainCC: If True, KeyboardInterrupts will be forwarded.
                     Defaults to False.
-    :type chainCC: Optional[bool]
-
     :param retry: If positive, how many times to resend unanswered packets.
                   If negative, how many times to retry when no more packets
                   are answered. Defaults to 0.
-    :type retry: Optional[int]
-
     :param multi: Whether to accept multiple answers for the same stimulus.
                   Defaults to False.
-    :type multi: Optional[bool]
-
     :param rcv_pks: If set, will be used instead of pks to receive packets.
                     Packets will still be sent through pks.
                     Defaults to None.
-    :type rcv_pks: Optional[SuperSocket]
-
     :param prebuild: Pre-build the packets before starting to send them.
                      Automatically enabled when a generator is passed as the
                      packet. Defaults to False.
-    :type prebuild: Optional[bool]
-
     :param _flood: _FloodGenerator object, internally used by `flood()`
                    methods. Defaults to None.
-    :type _flood: Optional[_FloodGenerator]
-
     :param threaded: If True, packets will be sent in an individual thread.
                      Defaults to False.
-    :type threaded: Optional[bool]
-
     :param session: A flow decoder used to handle the stream of packets.
                     Defaults to None.
-    :type session: Optional[_GlobSessionType]
-
     :param chainEX: If True, exceptions during send will be forwarded.
                     Defaults to False.
-    :type chainEX: Optional[bool]
 """
 
 _DOC_SNDRCV_PARAMS_TAIL = """
     :return: A tuple, consisting of two packet lists, one with
-                 answered packets, the other with unanswered packets
-    :rtype: Tuple[SndRcvList, PacketList]
+             answered packets, the other with unanswered packets
     """
 
 _DOC_SNDRCV1_PARAMS_TAIL = """
     :return: A received Packet answering the sent packet, or None
-    :rtype: Optional[Packet]
     """
+
+
+# Append doc in SuperSocket
+SuperSocket.sr.__doc__ += _DOC_SNDRCV_PARAMS_BODY + _DOC_SNDRCV_PARAMS_TAIL  # type: ignore
+SuperSocket.sr1.__doc__ += _DOC_SNDRCV_PARAMS_BODY + _DOC_SNDRCV1_PARAMS_TAIL  # type: ignore
 
 
 _GlobSessionType = Union[Type[DefaultSession], DefaultSession]
@@ -159,6 +134,34 @@ class SndRcvHandler(object):
         when sending a big amount of packets. Disabled by default
       - DEVS: store the outgoing timestamp right BEFORE sending the packet
         to avoid races that could result in negative latency. We aren't Stadia
+
+    :param pks: SuperSocket instance to send/receive packets
+    :param pkt: Packet or iterable of packets to be sent.
+    :param timeout: How much time to wait after the last packet
+                    has been sent. Defaults to None.
+    :param inter: Delay between two packets during sending. Defaults to 0.
+    :param verbose: Set verbosity level. Defaults to None.
+    :param chainCC: If True, KeyboardInterrupts will be forwarded.
+                    Defaults to False.
+    :param retry: If positive, how many times to resend unanswered packets.
+                  If negative, how many times to retry when no more packets
+                  are answered. Defaults to 0.
+    :param multi: Whether to accept multiple answers for the same stimulus.
+                  Defaults to False.
+    :param rcv_pks: If set, will be used instead of pks to receive packets.
+                    Packets will still be sent through pks.
+                    Defaults to None.
+    :param prebuild: Pre-build the packets before starting to send them.
+                     Automatically enabled when a generator is passed as the
+                     packet. Defaults to False.
+    :param _flood: _FloodGenerator object, internally used by `flood()`
+                   methods. Defaults to None.
+    :param threaded: If True, packets will be sent in an individual thread.
+                     Defaults to False.
+    :param session: A flow decoder used to handle the stream of packets.
+                    Defaults to None.
+    :param chainEX: If True, exceptions during send will be forwarded.
+                    Defaults to False.
     """
     def __init__(self,
                  pks,  # type: SuperSocket
@@ -692,7 +695,7 @@ def _interface_selection(iface,  # type: Optional[_GlobInterfaceType]
 
 
 @conf.commands.register
-def sr(x,  # type: _PacketIterable
+def sr(pkt,  # type: _PacketIterable
        promisc=None,  # type: Optional[bool]
        filter=None,  # type: Optional[str]
        iface=None,  # type: Optional[_GlobInterfaceType]
@@ -703,13 +706,46 @@ def sr(x,  # type: _PacketIterable
     # type: (...) -> Tuple[SndRcvList, PacketList]
     """
     Send and receive packets at layer 3
+
+    :param pkt: Packet or iterable of packets to be sent.
+    :param promisc: Sets the socket in promisc mode, if True.
+    :param iface: Use a specific network interface, if provided.
+    :param filter: Filter string applied to the underlying socket.
+    :param nofilter:
+    :param timeout: How much time to wait after the last packet
+                    has been sent. Defaults to None.
+    :param inter: Delay between two packets during sending. Defaults to 0.
+    :param verbose: Set verbosity level. Defaults to None.
+    :param chainCC: If True, KeyboardInterrupts will be forwarded.
+                    Defaults to False.
+    :param retry: If positive, how many times to resend unanswered packets.
+                  If negative, how many times to retry when no more packets
+                  are answered. Defaults to 0.
+    :param multi: Whether to accept multiple answers for the same stimulus.
+                  Defaults to False.
+    :param rcv_pks: If set, will be used instead of pks to receive packets.
+                    Packets will still be sent through pks.
+                    Defaults to None.
+    :param prebuild: Pre-build the packets before starting to send them.
+                     Automatically enabled when a generator is passed as the
+                     packet. Defaults to False.
+    :param _flood: _FloodGenerator object, internally used by `flood()`
+                   methods. Defaults to None.
+    :param threaded: If True, packets will be sent in an individual thread.
+                     Defaults to False.
+    :param session: A flow decoder used to handle the stream of packets.
+                    Defaults to None.
+    :param chainEX: If True, exceptions during send will be forwarded.
+                    Defaults to False.
+    :return: A tuple, consisting of two packet lists, one with
+             answered packets, the other with unanswered packets
     """
-    iface, ipv6 = _interface_selection(iface, x)
+    iface, ipv6 = _interface_selection(iface, pkt)
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         iface=iface, nofilter=nofilter,
     )
-    result = sndrcv(s, x, *args, **kargs)
+    result = sndrcv(s, pkt, *args, **kargs)
     s.close()
     return result
 
@@ -719,6 +755,38 @@ def sr1(*args, **kargs):
     # type: (*Any, **Any) -> Optional[Packet]
     """
     Send packets at layer 3 and return only the first answer
+
+        :param pkt: Packet or iterable of packets to be sent.
+    :param promisc: Sets the socket in promisc mode, if True.
+    :param iface: Use a specific network interface, if provided.
+    :param filter: Filter string applied to the underlying socket.
+    :param nofilter:
+    :param timeout: How much time to wait after the last packet
+                    has been sent. Defaults to None.
+    :param inter: Delay between two packets during sending. Defaults to 0.
+    :param verbose: Set verbosity level. Defaults to None.
+    :param chainCC: If True, KeyboardInterrupts will be forwarded.
+                    Defaults to False.
+    :param retry: If positive, how many times to resend unanswered packets.
+                  If negative, how many times to retry when no more packets
+                  are answered. Defaults to 0.
+    :param multi: Whether to accept multiple answers for the same stimulus.
+                  Defaults to False.
+    :param rcv_pks: If set, will be used instead of pks to receive packets.
+                    Packets will still be sent through pks.
+                    Defaults to None.
+    :param prebuild: Pre-build the packets before starting to send them.
+                     Automatically enabled when a generator is passed as the
+                     packet. Defaults to False.
+    :param _flood: _FloodGenerator object, internally used by `flood()`
+                   methods. Defaults to None.
+    :param threaded: If True, packets will be sent in an individual thread.
+                     Defaults to False.
+    :param session: A flow decoder used to handle the stream of packets.
+                    Defaults to None.
+    :param chainEX: If True, exceptions during send will be forwarded.
+                    Defaults to False.
+    :return: A received Packet answering the sent packet, or None
     """
     ans, _ = sr(*args, **kargs)
     if ans:
@@ -727,7 +795,7 @@ def sr1(*args, **kargs):
 
 
 @conf.commands.register
-def srp(x,  # type: _PacketIterable
+def srp(pkt,  # type: _PacketIterable
         promisc=None,  # type: Optional[bool]
         iface=None,  # type: Optional[_GlobInterfaceType]
         iface_hint=None,  # type: Optional[str]
@@ -740,13 +808,50 @@ def srp(x,  # type: _PacketIterable
     # type: (...) -> Tuple[SndRcvList, PacketList]
     """
     Send and receive packets at layer 2
+
+    :param pkt: Packet or iterable of packets to be sent.
+    :param promisc: Sets the socket in promisc mode, if True.
+    :param iface: Use a specific network interface, if provided.
+    :param iface_hint: The interface used to connect to the host based on
+                       the route information, if provided.
+    :param filter: Filter string applied to the underlying socket.
+    :param nofilter:
+    :param type: Type of the underlying socket
+    :param timeout: How much time to wait after the last packet
+                    has been sent. Defaults to None.
+    :param inter: Delay between two packets during sending. Defaults to 0.
+    :param verbose: Set verbosity level. Defaults to None.
+    :param chainCC: If True, KeyboardInterrupts will be forwarded.
+                    Defaults to False.
+    :param retry: If positive, how many times to resend unanswered packets.
+                  If negative, how many times to retry when no more packets
+                  are answered. Defaults to 0.
+    :param multi: Whether to accept multiple answers for the same stimulus.
+                  Defaults to False.
+    :param rcv_pks: If set, will be used instead of pks to receive packets.
+                    Packets will still be sent through pks.
+                    Defaults to None.
+    :param prebuild: Pre-build the packets before starting to send them.
+                     Automatically enabled when a generator is passed as the
+                     packet. Defaults to False.
+    :param _flood: _FloodGenerator object, internally used by `flood()`
+                   methods. Defaults to None.
+    :param threaded: If True, packets will be sent in an individual thread.
+                     Defaults to False.
+    :param session: A flow decoder used to handle the stream of packets.
+                    Defaults to None.
+    :param chainEX: If True, exceptions during send will be forwarded.
+                    Defaults to False.
+
+    :return: A tuple, consisting of two packet lists, one with
+             answered packets, the other with unanswered packets
     """
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
     iface = resolve_iface(iface or conf.iface)
     s = iface.l2socket()(promisc=promisc, iface=iface,
                          filter=filter, nofilter=nofilter, type=type)
-    result = sndrcv(s, x, *args, **kargs)
+    result = sndrcv(s, pkt, *args, **kargs)
     s.close()
     return result
 
@@ -756,6 +861,41 @@ def srp1(*args, **kargs):
     # type: (*Any, **Any) -> Optional[Packet]
     """
     Send and receive packets at layer 2 and return only the first answer
+
+    :param pkt: Packet or iterable of packets to be sent.
+    :param promisc: Sets the socket in promisc mode, if True.
+    :param iface: Use a specific network interface, if provided.
+    :param iface_hint: The interface used to connect to the host based on
+                       the route information, if provided.
+    :param filter: Filter string applied to the underlying socket.
+    :param nofilter:
+    :param type: Type of the underlying socket
+    :param timeout: How much time to wait after the last packet
+                    has been sent. Defaults to None.
+    :param inter: Delay between two packets during sending. Defaults to 0.
+    :param verbose: Set verbosity level. Defaults to None.
+    :param chainCC: If True, KeyboardInterrupts will be forwarded.
+                    Defaults to False.
+    :param retry: If positive, how many times to resend unanswered packets.
+                  If negative, how many times to retry when no more packets
+                  are answered. Defaults to 0.
+    :param multi: Whether to accept multiple answers for the same stimulus.
+                  Defaults to False.
+    :param rcv_pks: If set, will be used instead of pks to receive packets.
+                    Packets will still be sent through pks.
+                    Defaults to None.
+    :param prebuild: Pre-build the packets before starting to send them.
+                     Automatically enabled when a generator is passed as the
+                     packet. Defaults to False.
+    :param _flood: _FloodGenerator object, internally used by `flood()`
+                   methods. Defaults to None.
+    :param threaded: If True, packets will be sent in an individual thread.
+                     Defaults to False.
+    :param session: A flow decoder used to handle the stream of packets.
+                    Defaults to None.
+    :param chainEX: If True, exceptions during send will be forwarded.
+                    Defaults to False.
+    :return: A received Packet answering the sent packet, or None
     """
     ans, _ = srp(*args, **kargs)
     if len(ans) > 0:
@@ -763,31 +903,7 @@ def srp1(*args, **kargs):
     return None
 
 
-# Append doc
-for sr_func in [srp, sr]:
-    if sr_func.__doc__ is not None:
-        sr_func.__doc__ += (_DOC_SNDRCV_PARAMS_HEAD +
-                            _DOC_SNDRCV_PARAMS_BODY +
-                            _DOC_SNDRCV_PARAMS_TAIL)
-
-for sr_func in [srp1, sr1]:
-    if sr_func.__doc__ is not None:
-        sr_func.__doc__ += (_DOC_SNDRCV_PARAMS_HEAD +
-                            _DOC_SNDRCV_PARAMS_BODY +
-                            _DOC_SNDRCV1_PARAMS_TAIL)
-
-# Append doc in SuperSocket
-for sr_func in [SuperSocket.sr]:
-    if sr_func.__doc__ is not None:
-        sr_func.__doc__ += _DOC_SNDRCV_PARAMS_BODY + _DOC_SNDRCV_PARAMS_TAIL
-
-for sr_func in [SuperSocket.sr1]:
-    if sr_func.__doc__ is not None:
-        sr_func.__doc__ += _DOC_SNDRCV_PARAMS_BODY + _DOC_SNDRCV1_PARAMS_TAIL
-
-
 # SEND/RECV LOOP METHODS
-
 
 def __sr_loop(srfunc,  # type: Callable[..., Tuple[SndRcvList, PacketList]]
               pkts,  # type: _PacketIterable
