@@ -114,8 +114,8 @@ _DOC_SNDRCV1_PARAMS_TAIL = """
 
 
 # Append doc in SuperSocket
-SuperSocket.sr.__doc__ += _DOC_SNDRCV_PARAMS_BODY + _DOC_SNDRCV_PARAMS_TAIL  # type: ignore
-SuperSocket.sr1.__doc__ += _DOC_SNDRCV_PARAMS_BODY + _DOC_SNDRCV1_PARAMS_TAIL  # type: ignore
+SuperSocket.sr.__doc__ += _DOC_SNDRCV_PARAMS_BODY + _DOC_SNDRCV_PARAMS_TAIL  # type: ignore  # noqa: E501
+SuperSocket.sr1.__doc__ += _DOC_SNDRCV_PARAMS_BODY + _DOC_SNDRCV1_PARAMS_TAIL  # type: ignore  # noqa: E501
 
 
 _GlobSessionType = Union[Type[DefaultSession], DefaultSession]
@@ -756,7 +756,7 @@ def sr1(*args, **kargs):
     """
     Send packets at layer 3 and return only the first answer
 
-        :param pkt: Packet or iterable of packets to be sent.
+    :param pkt: Packet or iterable of packets to be sent.
     :param promisc: Sets the socket in promisc mode, if True.
     :param iface: Use a specific network interface, if provided.
     :param filter: Filter string applied to the underlying socket.
