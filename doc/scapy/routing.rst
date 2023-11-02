@@ -6,6 +6,7 @@ Scapy maintains its own network stack, which is independent from the one of your
 It possesses its own *interfaces list*, *routing table*, *ARP cache*, *IPv6 neighbour* cache, *nameservers* config... and so on, all of which is configurable.
 
 Here are a few examples of where this is used::
+
 - When you use ``sr()/send()``, Scapy will use internally its own routing table (``conf.route``) in order to find which interface to use, and eventually send an ARP request.
 - When using ``dns_resolve()``, Scapy uses its own nameservers list (``conf.nameservers``) to perform the request
 - etc.

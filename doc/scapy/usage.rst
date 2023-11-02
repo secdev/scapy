@@ -1434,28 +1434,32 @@ Visualizing the results in a list::
     >>> res.nsummary(prn=lambda s,r: r.src, lfilter=lambda s,r: r.haslayer(ISAKMP) ) 
 
 
-DNS spoof
----------
+DNS server
+----------
 
-See :class:`~scapy.layers.dns.DNS_am`::
+By default, ``dnsd`` uses a joker (IPv4 only): it answers to all unknown servers with the joker. See :class:`~scapy.layers.dns.DNS_am`::
 
-    >>> dns_spoof(iface="tap0", joker="192.168.1.1")
+    >>> dnsd(iface="tap0", match={"google.com": "1.1.1.1"}, joker="192.168.1.1")
 
-LLMNR spoof
------------
+You can also use ``relay=True`` to replace the joker behavior with a forward to a server included in ``conf.nameservers``.
+
+LLMNR server
+------------
 
 See :class:`~scapy.layers.llmnr.LLMNR_am`::
 
     >>> conf.iface = "tap0"
-    >>> llmnr_spoof(iface="tap0", from_ip=Net("10.0.0.1/24"))
+    >>> llmnrd(iface="tap0", from_ip=Net("10.0.0.1/24"))
 
-Netbios spoof
--------------
+Note that ``llmnrd`` extends the ``dnsd`` API.
+
+Netbios server
+--------------
 
 See :class:`~scapy.layers.netbios.NBNS_am`::
 
-    >>> nbns_spoof(iface="eth0")  # With local IP
-    >>> nbns_spoof(iface="eth0", ip="192.168.122.17")  # With some other IP
+    >>> nbnsd(iface="eth0")  # With local IP
+    >>> nbnsd(iface="eth0", ip="192.168.122.17")  # With some other IP
 
 Node status request (get NetbiosName from IP)
 ---------------------------------------------
