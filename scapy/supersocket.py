@@ -484,6 +484,7 @@ class L2ListenTcpdump(SuperSocket):
                  filter=None,  # type: Optional[str]
                  nofilter=False,  # type: bool
                  prog=None,  # type: Optional[str]
+                 quiet=False,  # type: bool
                  *arg,  # type: Any
                  **karg  # type: Any
                  ):
@@ -507,7 +508,8 @@ class L2ListenTcpdump(SuperSocket):
                     filter = "not (%s)" % conf.except_filter
         if filter is not None:
             args.append(filter)
-        self.tcpdump_proc = tcpdump(None, prog=prog, args=args, getproc=True)
+        self.tcpdump_proc = tcpdump(
+            None, prog=prog, args=args, getproc=True, quiet=quiet)
         self.reader = PcapReader(self.tcpdump_proc.stdout)
         self.ins = self.reader  # type: ignore
 
