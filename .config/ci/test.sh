@@ -84,13 +84,13 @@ if [ -z $TOXENV ]
 then
   case ${SCAPY_TOX_CHOSEN} in
     both)
-      export TOXENV="${TESTVER}_non_root,${TESTVER}_root"
+      export TOXENV="${TESTVER}-non_root,${TESTVER}-root"
       ;;
     root)
-      export TOXENV="${TESTVER}_root"
+      export TOXENV="${TESTVER}-root"
       ;;
     *)
-      export TOXENV="${TESTVER}_non_root"
+      export TOXENV="${TESTVER}-non_root"
       ;;
   esac
 fi

@@ -440,9 +440,11 @@ def hexdiff(a, b, autojunk=False):
     # Print the diff
 
     x = y = i = 0
-    colorize = {0: lambda x: x,
-                -1: conf.color_theme.left,
-                1: conf.color_theme.right}
+    colorize: Dict[int, Callable[[str], str]] = {
+        0: lambda x: x,
+        -1: conf.color_theme.left,
+        1: conf.color_theme.right
+    }
 
     dox = 1
     doy = 0
@@ -1476,12 +1478,17 @@ class RawPcapNgReader(RawPcapReader):
         self.default_options = {
             "tsresol": 1000000
         }
-        self.blocktypes = {
-            1: self._read_block_idb,
-            2: self._read_block_pkt,
-            3: self._read_block_spb,
-            6: self._read_block_epb,
-            10: self._read_block_dsb,
+        self.blocktypes: Dict[
+            int,
+            Callable[
+                [bytes, int],
+                Optional[Tuple[bytes, RawPcapNgReader.PacketMetadata]]
+            ]] = {
+                1: self._read_block_idb,
+                2: self._read_block_pkt,
+                3: self._read_block_spb,
+                6: self._read_block_epb,
+                10: self._read_block_dsb,
         }
         self.endian = "!"  # Will be overwritten by first SHB
 
@@ -1516,10 +1523,9 @@ class RawPcapNgReader(RawPcapReader):
             raise EOFError
         block = self.f.read(blocklen - 12)
         self._read_block_tail(blocklen)
-        return self.blocktypes.get(
-            blocktype,
-            lambda block, size: None
-        )(block, size)
+        if blocktype in self.blocktypes:
+            return self.blocktypes[blocktype](block, size)
+        return None
 
     def _read_block_tail(self, blocklen):
         # type: (int) -> None
@@ -1598,10 +1604,10 @@ class RawPcapNgReader(RawPcapReader):
         # 4 bytes Snaplen
         options = self._read_options(block[8:-4])
         try:
-            interface = struct.unpack(  # type: ignore
+            interface: Tuple[int, int, int] = struct.unpack(
                 self.endian + "HxxI",
                 block[:8]
-            ) + (options["tsresol"],)  # type: Tuple[int, int, int]
+            ) + (options["tsresol"],)
         except struct.error:
             warning("PcapNg: IDB is too small %d/8 !" % len(block))
             raise EOFError

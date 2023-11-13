@@ -16,11 +16,12 @@ import sys
 
 from typing import (
     Any,
-    Callable,
     List,
     Optional,
     Tuple,
+    cast,
 )
+from scapy.compat import Protocol
 
 
 class ColorTable:
@@ -75,14 +76,27 @@ class ColorTable:
 Color = ColorTable()
 
 
+class _ColorFormatterType(Protocol):
+    def __call__(self,
+                 val: Any,
+                 fmt: Optional[str] = None,
+                 fmt2: str = "",
+                 before: str = "",
+                 after: str = "") -> str:
+        pass
+
+
 def create_styler(fmt=None,  # type: Optional[str]
                   before="",  # type: str
                   after="",  # type: str
                   fmt2="%s"  # type: str
                   ):
-    # type: (...) -> Callable[[Any], str]
-    def do_style(val, fmt=fmt, fmt2=fmt2, before=before, after=after):
-        # type: (Any, Optional[str], str, str, str) -> str
+    # type: (...) -> _ColorFormatterType
+    def do_style(val: Any,
+                 fmt: Optional[str] = fmt,
+                 fmt2: str = fmt2,
+                 before: str = before,
+                 after: str = after) -> str:
         if fmt is None:
             sval = str(val)
         else:
@@ -92,49 +106,6 @@ def create_styler(fmt=None,  # type: Optional[str]
 
 
 class ColorTheme:
-    def __repr__(self):
-        # type: () -> str
-        return "<%s>" % self.__class__.__name__
-
-    def __reduce__(self):
-        # type: () -> Tuple[type, Any, Any]
-        return (self.__class__, (), ())
-
-    def __getattr__(self, attr):
-        # type: (str) -> Callable[[Any], str]
-        if attr in ["__getstate__", "__setstate__", "__getinitargs__",
-                    "__reduce_ex__"]:
-            raise AttributeError()
-        return create_styler()
-
-    def format(self, string, fmt):
-        # type: (str, str) -> str
-        for style in fmt.split("+"):
-            string = getattr(self, style)(string)
-        return string
-
-
-class NoTheme(ColorTheme):
-    pass
-
-
-class AnsiColorTheme(ColorTheme):
-    def __getattr__(self, attr):
-        # type: (str) -> Callable[[Any], str]
-        if attr.startswith("__"):
-            raise AttributeError(attr)
-        s = "style_%s" % attr
-        if s in self.__class__.__dict__:
-            before = getattr(self, s)
-            after = self.style_normal
-        elif not isinstance(self, BlackAndWhite) and attr in Color.colors:
-            before = Color.colors[attr][0]
-            after = Color.colors["normal"][0]
-        else:
-            before = after = ""
-
-        return create_styler(before=before, after=after)
-
     style_normal = ""
     style_prompt = ""
     style_punct = ""
@@ -158,6 +129,49 @@ class AnsiColorTheme(ColorTheme):
     style_left = ""
     style_right = ""
     style_logo = ""
+
+    def __repr__(self):
+        # type: () -> str
+        return "<%s>" % self.__class__.__name__
+
+    def __reduce__(self):
+        # type: () -> Tuple[type, Any, Any]
+        return (self.__class__, (), ())
+
+    def __getattr__(self, attr):
+        # type: (str) -> _ColorFormatterType
+        if attr in ["__getstate__", "__setstate__", "__getinitargs__",
+                    "__reduce_ex__"]:
+            raise AttributeError()
+        return create_styler()
+
+    def format(self, string, fmt):
+        # type: (str, str) -> str
+        for style in fmt.split("+"):
+            string = getattr(self, style)(string)
+        return string
+
+
+class NoTheme(ColorTheme):
+    pass
+
+
+class AnsiColorTheme(ColorTheme):
+    def __getattr__(self, attr):
+        # type: (str) -> _ColorFormatterType
+        if attr.startswith("__"):
+            raise AttributeError(attr)
+        s = "style_%s" % attr
+        if s in self.__class__.__dict__:
+            before = getattr(self, s)
+            after = self.style_normal
+        elif not isinstance(self, BlackAndWhite) and attr in Color.colors:
+            before = Color.colors[attr][0]
+            after = Color.colors["normal"][0]
+        else:
+            before = after = ""
+
+        return create_styler(before=before, after=after)
 
 
 class BlackAndWhite(AnsiColorTheme, NoTheme):
@@ -262,8 +276,7 @@ class ColorOnBlackTheme(AnsiColorTheme):
 
 
 class FormatTheme(ColorTheme):
-    def __getattr__(self, attr):
-        # type: (str) -> Callable[[Any], str]
+    def __getattr__(self, attr: str) -> _ColorFormatterType:
         if attr.startswith("__"):
             raise AttributeError(attr)
         colfmt = self.__class__.__dict__.get("style_%s" % attr, "%s")
@@ -293,10 +306,13 @@ class LatexTheme(FormatTheme):
 #    style_odd = ""
     style_logo = r"\textcolor{green}{\bf %s}"
 
-    def __getattr__(self, attr: str) -> Callable[[Any], str]:
+    def __getattr__(self, attr: str) -> _ColorFormatterType:
         from scapy.utils import tex_escape
         styler = super(LatexTheme, self).__getattr__(attr)
-        return lambda x: styler(tex_escape(x))
+        return cast(
+            _ColorFormatterType,
+            lambda x, *args, **kwargs: styler(tex_escape(x), *args, **kwargs),
+        )
 
 
 class LatexTheme2(FormatTheme):

@@ -1267,7 +1267,7 @@ class Packet(
         if _subclass:
             match = issubtype
         else:
-            match = lambda cls1, cls2: bool(cls1 == cls2)
+            match = lambda x, t: bool(x == t)
         if cls is None or match(self.__class__, cls) \
            or cls in [self.__class__.__name__, self._name]:
             return True
@@ -1300,7 +1300,7 @@ values.
         if _subclass:
             match = issubtype
         else:
-            match = lambda cls1, cls2: bool(cls1 == cls2)
+            match = lambda x, t: bool(x == t)
         # Note:
         # cls can be int, packet, str
         # string_class_name can be packet, str (packet or packet+field)
@@ -1422,8 +1422,8 @@ values.
         """
 
         if dump:
-            from scapy.themes import AnsiColorTheme
-            ct = AnsiColorTheme()  # No color for dump output
+            from scapy.themes import ColorTheme, AnsiColorTheme
+            ct: ColorTheme = AnsiColorTheme()  # No color for dump output
         else:
             ct = conf.color_theme
         s = "%s%s %s %s \n" % (label_lvl,
@@ -2121,7 +2121,7 @@ def explore(layer=None):
         # Check for prompt_toolkit >= 3.0.0
         call_ptk = lambda x: cast(str, x)  # type: Callable[[Any], str]
         if _version_checker(prompt_toolkit, (3, 0)):
-            call_ptk = lambda x: x.run()  # type: ignore
+            call_ptk = lambda x: x.run()
         # 1 - Ask for layer or contrib
         btn_diag = button_dialog(
             title="Scapy v%s" % conf.version,

@@ -26,6 +26,7 @@ __all__ = [
     # typing
     'DecoratorCallable',
     'Literal',
+    'Protocol',
     'Self',
     'UserDict',
     # compat
@@ -45,7 +46,7 @@ __all__ = [
 # Note:
 # supporting typing on multiple python versions is a nightmare.
 # we provide a FakeType class to be able to use types added on
-# later Python versions (since we run mypy on 3.11), on older
+# later Python versions (since we run mypy on 3.12), on older
 # ones.
 
 
@@ -77,8 +78,12 @@ def _FakeType(name, cls=object):
 # Python 3.8 Only
 if sys.version_info >= (3, 8):
     from typing import Literal
+    from typing import Protocol
 else:
     Literal = _FakeType("Literal")
+
+    class Protocol:
+        pass
 
 
 # Python 3.9 Only

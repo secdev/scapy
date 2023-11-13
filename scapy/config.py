@@ -23,7 +23,7 @@ from scapy import VERSION
 from scapy.base_classes import BasePacket
 from scapy.consts import DARWIN, WINDOWS, LINUX, BSD, SOLARIS
 from scapy.error import log_scapy, warning, ScapyInvalidPlatformException
-from scapy.themes import NoTheme, apply_ipython_style
+from scapy.themes import ColorTheme, NoTheme, apply_ipython_style
 
 # Typing imports
 from typing import (
@@ -135,20 +135,20 @@ ReadOnlyAttribute.__doc__ = "Read-only class attribute"
 
 
 class ProgPath(ConfClass):
-    _default = "<System default>"
-    universal_open = "open" if DARWIN else "xdg-open"
-    pdfreader = universal_open
-    psreader = universal_open
-    svgreader = universal_open
-    dot = "dot"
-    display = "display"
-    tcpdump = "tcpdump"
-    tcpreplay = "tcpreplay"
-    hexedit = "hexer"
-    tshark = "tshark"
-    wireshark = "wireshark"
-    ifconfig = "ifconfig"
-    extcap_folders = [
+    _default: str = "<System default>"
+    universal_open: str = "open" if DARWIN else "xdg-open"
+    pdfreader: str = universal_open
+    psreader: str = universal_open
+    svgreader: str = universal_open
+    dot: str = "dot"
+    display: str = "display"
+    tcpdump: str = "tcpdump"
+    tcpreplay: str = "tcpreplay"
+    hexedit: str = "hexer"
+    tshark: str = "tshark"
+    wireshark: str = "wireshark"
+    ifconfig: str = "ifconfig"
+    extcap_folders: List[str] = [
         os.path.join(os.path.expanduser("~"), ".config", "wireshark", "extcap"),
         "/usr/lib/x86_64-linux-gnu/wireshark/extcap",
     ]
@@ -389,7 +389,7 @@ class CacheInstance(Dict[str, Any]):
         self._timetable[item] = time.time()
         super(CacheInstance, self).__setitem__(item, v)
 
-    def update(self,  # type: ignore
+    def update(self,
                other,  # type: Any
                **kwargs  # type: Any
                ):
@@ -404,7 +404,7 @@ class CacheInstance(Dict[str, Any]):
     def iteritems(self):
         # type: () -> Iterator[Tuple[str, Any]]
         if self.timeout is None:
-            return super(CacheInstance, self).items()  # type: ignore
+            return super(CacheInstance, self).items()
         t0 = time.time()
         return (
             (k, v)
@@ -415,7 +415,7 @@ class CacheInstance(Dict[str, Any]):
     def iterkeys(self):
         # type: () -> Iterator[str]
         if self.timeout is None:
-            return super(CacheInstance, self).keys()  # type: ignore
+            return super(CacheInstance, self).keys()
         t0 = time.time()
         return (
             k
@@ -430,7 +430,7 @@ class CacheInstance(Dict[str, Any]):
     def itervalues(self):
         # type: () -> Iterator[Tuple[str, Any]]
         if self.timeout is None:
-            return super(CacheInstance, self).values()  # type: ignore
+            return super(CacheInstance, self).values()
         t0 = time.time()
         return (
             v
@@ -616,7 +616,7 @@ def _set_conf_sockets():
             Interceptor.set_from_hook(conf, "use_pcap", False)
         else:
             conf.L3socket = L3pcapSocket
-            conf.L3socket6 = functools.partial(  # type: ignore
+            conf.L3socket6 = functools.partial(
                 L3pcapSocket, filter="ip6")
             conf.L2socket = L2pcapSocket
             conf.L2listen = L2pcapListenSocket
@@ -624,7 +624,7 @@ def _set_conf_sockets():
         from scapy.arch.bpf.supersocket import L2bpfListenSocket, \
             L2bpfSocket, L3bpfSocket
         conf.L3socket = L3bpfSocket
-        conf.L3socket6 = functools.partial(  # type: ignore
+        conf.L3socket6 = functools.partial(
             L3bpfSocket, filter="ip6")
         conf.L2socket = L2bpfSocket
         conf.L2listen = L2bpfListenSocket
@@ -698,7 +698,7 @@ def _iface_changer(attr, val, old):
                 "See conf.ifaces output"
             )
         return iface
-    return val  # type: ignore
+    return val
 
 
 def _reset_tls_nss_keys(attr, val, old):
@@ -712,8 +712,8 @@ class Conf(ConfClass):
     """
     This object contains the configuration of Scapy.
     """
-    version = ReadOnlyAttribute("version", VERSION)
-    session = ""  #: filename where the session will be saved
+    version: str = ReadOnlyAttribute("version", VERSION)
+    session: str = ""  #: filename where the session will be saved
     interactive = False
     #: can be "ipython", "bpython", "ptpython", "ptipython", "python" or "auto".
     #: Default: Auto
@@ -723,15 +723,15 @@ class Conf(ConfClass):
     #: if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
     stealth = "not implemented"
     #: selects the default output interface for srp() and sendp().
-    iface = Interceptor("iface", None, _iface_changer)  # type: 'scapy.interfaces.NetworkInterface'  # type: ignore  # noqa: E501
-    layers = LayersList()
+    iface = Interceptor("iface", None, _iface_changer)  # type: 'scapy.interfaces.NetworkInterface'  # noqa: E501
+    layers: LayersList = LayersList()
     commands = CommandsList()  # type: CommandsList
     #: Codec used by default for ASN1 objects
     ASN1_default_codec = None  # type: 'scapy.asn1.asn1.ASN1Codec'
     #: choose the AS resolver class to use
     AS_resolver = None  # type: scapy.as_resolvers.AS_resolver
     dot15d4_protocol = None  # Used in dot15d4.py
-    logLevel = Interceptor("logLevel", log_scapy.level, _loglevel_changer)
+    logLevel: int = Interceptor("logLevel", log_scapy.level, _loglevel_changer)
     #: if 0, doesn't check that IPID matches between IP sent and
     #: ICMP IP citation received
     #: if 1, checks that they either are equal or byte swapped
@@ -749,7 +749,7 @@ class Conf(ConfClass):
     #: ones in ICMP citation
     check_TCPerror_seqack = False
     verb = 2  #: level of verbosity, from 0 (almost mute) to 3 (verbose)
-    prompt = Interceptor("prompt", ">>> ", _prompt_changer)
+    prompt: str = Interceptor("prompt", ">>> ", _prompt_changer)
     #: default mode for the promiscuous mode of a socket (to get answers if you
     #: spoof on a lan)
     sniff_promisc = True  # type: bool
@@ -757,8 +757,8 @@ class Conf(ConfClass):
     raw_summary = False  # type: Union[bool, Callable[[bytes], Any]]
     padding_layer = None  # type: Type[Packet]
     default_l2 = None  # type: Type[Packet]
-    l2types = Num2Layer()
-    l3types = Num2Layer()
+    l2types: Num2Layer = Num2Layer()
+    l3types: Num2Layer = Num2Layer()
     L3socket = None  # type: Type[scapy.supersocket.SuperSocket]
     L3socket6 = None  # type: Type[scapy.supersocket.SuperSocket]
     L2socket = None  # type: Type[scapy.supersocket.SuperSocket]
@@ -769,10 +769,13 @@ class Conf(ConfClass):
     mib = None  # type: 'scapy.asn1.mib.MIBDict'
     bufsize = 2**16
     #: history file
-    histfile = os.getenv('SCAPY_HISTFILE',
-                         os.path.join(os.path.expanduser("~"),
-                                      ".config", "scapy",
-                                      "history"))
+    histfile: str = os.getenv(
+        'SCAPY_HISTFILE',
+        os.path.join(
+            os.path.expanduser("~"),
+            ".config", "scapy", "history"
+        )
+    )
     #: includes padding in disassembled packets
     padding = 1
     #: BPF filter for packets to ignore
@@ -808,36 +811,36 @@ class Conf(ConfClass):
     auto_fragment = True
     #: raise exception when a packet dissector raises an exception
     debug_dissector = False
-    color_theme = Interceptor("color_theme", NoTheme(), _prompt_changer)
+    color_theme: ColorTheme = Interceptor("color_theme", NoTheme(), _prompt_changer)
     #: how much time between warnings from the same place
     warning_threshold = 5
-    prog = ProgPath()
+    prog: ProgPath = ProgPath()
     #: holds list of fields for which resolution should be done
-    resolve = Resolve()
+    resolve: Resolve = Resolve()
     #: holds list of enum fields for which conversion to string
     #: should NOT be done
-    noenum = Resolve()
-    emph = Emphasize()
+    noenum: Resolve = Resolve()
+    emph: Emphasize = Emphasize()
     #: read only attribute to show if PyPy is in use
-    use_pypy = ReadOnlyAttribute("use_pypy", isPyPy())
+    use_pypy: bool = ReadOnlyAttribute("use_pypy", isPyPy())
     #: use libpcap integration or not. Changing this value will update
     #: the conf.L[2/3] sockets
-    use_pcap = Interceptor(
+    use_pcap: bool = Interceptor(
         "use_pcap",
         os.getenv("SCAPY_USE_LIBPCAP", "").lower().startswith("y"),
         _socket_changer
     )
-    use_bpf = Interceptor("use_bpf", False, _socket_changer)
+    use_bpf: bool = Interceptor("use_bpf", False, _socket_changer)
     use_npcap = False
-    ipv6_enabled = socket.has_ipv6
+    ipv6_enabled: bool = socket.has_ipv6
     stats_classic_protocols = []  # type: List[Type[Packet]]
     stats_dot11_protocols = []  # type: List[Type[Packet]]
     temp_files = []  # type: List[str]
     #: netcache holds time-based caches for net operations
-    netcache = NetCache()
+    netcache: NetCache = NetCache()
     geoip_city = None
     # can, tls, http and a few others are not loaded by default
-    load_layers = [
+    load_layers: List[str] = [
         'bluetooth',
         'bluetooth4LE',
         'dcerpc',
@@ -903,7 +906,7 @@ class Conf(ConfClass):
     #: When True, raise exception if no dst MAC found otherwise broadcast.
     #: Default is False.
     raise_no_dst_mac = False
-    loopback_name = "lo" if LINUX else "lo0"
+    loopback_name: str = "lo" if LINUX else "lo0"
     nmap_base = ""  # type: str
     nmap_kdb = None  # type: Optional[NmapKnowledgeBase]
     #: a safety mechanism: the maximum amount of items included in a PacketListField
@@ -918,7 +921,7 @@ class Conf(ConfClass):
         _reset_tls_nss_keys
     )
     #: Dictionary containing parsed NSS Keys
-    tls_nss_keys = None
+    tls_nss_keys: Dict[str, bytes] = None
 
     def __getattribute__(self, attr):
         # type: (str) -> Any
@@ -971,7 +974,7 @@ def crypto_validator(func):
             raise ImportError("Cannot execute crypto-related method! "
                               "Please install python-cryptography v1.7 or later.")  # noqa: E501
         return func(*args, **kwargs)
-    return func_in  # type: ignore
+    return func_in
 
 
 def scapy_delete_temp_files():
