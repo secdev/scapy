@@ -20,7 +20,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - name: Install tox
         run: pip install tox
       - name: Run flake8 tests
@@ -55,7 +55,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - name: Install tox
         run: pip install tox
       - name: Run mypy
@@ -78,7 +78,7 @@ jobs:
         include:
           # Linux root tests
           - os: ubuntu-latest
-            python: "3.11"
+            python: "3.12"
             mode: root
             flags: " -K scanner"
           # PyPy tests: root only
@@ -88,18 +88,18 @@ jobs:
             flags: " -K scanner"
           # Libpcap test
           - os: ubuntu-latest
-            python: "3.11"
+            python: "3.12"
             mode: root
             installmode: 'libpcap'
             flags: " -K scanner"
           # macOS tests
           - os: macos-12
-            python: "3.11"
+            python: "3.12"
             mode: both
             flags: " -K scanner"
           # Scanner tests
           - os: ubuntu-latest
-            python: "3.11"
+            python: "3.12"
             mode: root
             allow-failure: 'true'
             flags: " -k scanner"
@@ -109,7 +109,7 @@ jobs:
             allow-failure: 'true'
             flags: " -k scanner"
           - os: macos-12
-            python: "3.11"
+            python: "3.12"
             mode: both
             allow-failure: 'true'
             flags: " -k scanner"
@@ -139,7 +139,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: "3.11"
+        python-version: "3.12"
     - name: Install tox
       run: pip install tox
     # pyca/cryptography's CI installs cryptography
