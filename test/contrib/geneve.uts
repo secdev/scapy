@@ -69,6 +69,8 @@ assert a.mysummary() in ['GENEVE (vni=0x0,optionlen=0,proto=0x800)', 'GENEVE (vn
 
 = GENEVE - Optionlen
 
-data = raw(RandString(size=random.randint(0, pow(2, 6)) * 4))
-p = GENEVE(raw(GENEVE(options=GeneveOptions(data=data))))
-assert p[GENEVE].optionlen == (len(data) // 4 + 1)
+for size in range(0, 0x1f, 4):
+    p = GENEVE(bytes(GENEVE(options=GeneveOptions(data=RandString(size)))))
+    assert p[GENEVE].optionlen == (size // 4 + 1)
+    assert len(p[GENEVE].options[0].data) == size
+
