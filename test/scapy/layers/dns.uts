@@ -213,6 +213,31 @@ p = DNS(raw(DNS(id=1,ra=1,qd=[],an=DNSRR(rrname='secdev', type='TXT', rdata=["sw
 assert p[DNS].an[0].rdata == [b"sweet", b"celestia"]
 assert raw(p) == b'\x00\x01\x01\x80\x00\x00\x00\x01\x00\x00\x00\x00\x06secdev\x00\x00\x10\x00\x01\x00\x00\x00\x01\x00\x0f\x05sweet\x08celestia'
 
+# TXT RR with one empty string
+b = b'\x05scapy\x00\x00\x10\x00\x01\x00\x00\x00\x00\x00\x01\x00'
+rr = DNSRR(b)
+assert rr.rdata == [b""]
+assert rr.rdlen == 1
+rr.clear_cache()
+assert DNSRR(raw(rr)).rdata == [b""]
+
+rr = DNSRR(rrname='scapy', type='TXT', rdata=[""])
+assert raw(rr) == b
+
+rr = DNSRR(rrname='scapy', type='TXT')
+assert raw(rr) == b
+
+# TXT RR with zero-length RDATA
+b = b'\x05scapy\x00\x00\x10\x00\x01\x00\x00\x00\x00\x00\x00'
+rr = DNSRR(b)
+assert rr.rdata == []
+assert rr.rdlen == 0
+rr.clear_cache()
+assert DNSRR(raw(rr)).rdata == []
+
+rr = DNSRR(rrname='scapy', type='TXT', rdata=[])
+assert raw(rr) == b
+
 = DNS - Malformed DNS over TCP message
 
 _old_dbg = conf.debug_dissector
