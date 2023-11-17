@@ -291,8 +291,8 @@ class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
                 return self.dev_from_networkname(conf.loopback_name)
             raise ValueError("Unknown network interface index %r" % if_index)
 
-    def _add_fake_iface(self, ifname):
-        # type: (str) -> None
+    def _add_fake_iface(self, ifname, mac="00:00:00:00:00:00"):
+        # type: (str, str) -> None
         """Internal function used for a testing purpose"""
         data = {
             'name': ifname,
@@ -300,7 +300,7 @@ class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
             'network_name': ifname,
             'index': -1000,
             'dummy': True,
-            'mac': '00:00:00:00:00:00',
+            'mac': mac,
             'flags': 0,
             'ips': ["127.0.0.1", "::"],
             # Windows only

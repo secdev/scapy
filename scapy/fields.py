@@ -784,7 +784,7 @@ class MACField(Field[Optional[str], bytes]):
 
     def i2m(self, pkt, x):
         # type: (Optional[Packet], Optional[str]) -> bytes
-        if x is None:
+        if not x:
             return b"\0\0\0\0\0\0"
         try:
             y = mac2str(x)

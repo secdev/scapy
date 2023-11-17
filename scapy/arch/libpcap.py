@@ -432,15 +432,18 @@ if conf.use_pcap:
                     from scapy.arch import get_if_hwaddr
                     try:
                         mac = get_if_hwaddr(ifname)
-                    except Exception:
+                    except Exception as ex:
                         # There are at least 3 different possible exceptions
+                        log_loading.warning(
+                            "Could not get mac of interface '%s': %s." % (ifname, ex)
+                        )
                         continue
                 if_data = {
                     'name': ifname,
                     'description': description or ifname,
                     'network_name': ifname,
                     'index': i,
-                    'mac': mac or '00:00:00:00:00:00',
+                    'mac': mac,
                     'ips': ips,
                     'flags': flags
                 }
