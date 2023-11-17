@@ -369,6 +369,9 @@ class DNSTextField(StrLenField):
     def i2m(self, pkt, s):
         ret_s = b""
         for text in s:
+            if not text:
+                ret_s += b"\x00"
+                continue
             text = bytes_encode(text)
             # The initial string must be split into a list of strings
             # prepended with theirs sizes.
@@ -943,7 +946,7 @@ class DNSRR(Packet):
                                         length_from=lambda pkt: pkt.rdlen),
                                lambda pkt: pkt.type in [2, 3, 4, 5, 12]),
                            # TEXT
-                           (DNSTextField("rdata", [],
+                           (DNSTextField("rdata", [""],
                                          length_from=lambda pkt: pkt.rdlen),
                                lambda pkt: pkt.type == 16),
                        ],
