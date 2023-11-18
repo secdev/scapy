@@ -435,7 +435,10 @@ if conf.use_pcap:
                     except Exception as ex:
                         # There are at least 3 different possible exceptions
                         log_loading.warning(
-                            "Could not get MAC address of interface '%s': %s." % (ifname, ex)
+                            "Could not get MAC address of interface '%s': %s." % (
+                                ifname,
+                                ex,
+                            )
                         )
                         continue
                 if_data = {
