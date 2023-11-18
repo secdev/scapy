@@ -18,11 +18,19 @@ import sys
 import time
 import warnings
 
+from dataclasses import dataclass
+from enum import Enum
+
 import scapy
 from scapy import VERSION
 from scapy.base_classes import BasePacket
 from scapy.consts import DARWIN, WINDOWS, LINUX, BSD, SOLARIS
-from scapy.error import log_scapy, warning, ScapyInvalidPlatformException
+from scapy.error import (
+    log_loading,
+    log_scapy,
+    ScapyInvalidPlatformException,
+    warning,
+)
 from scapy.themes import ColorTheme, NoTheme, apply_ipython_style
 
 # Typing imports
@@ -513,6 +521,132 @@ class NetCache:
         return "\n".join(c.summary() for c in self._caches_list)
 
 
+class ScapyExt:
+    __slots__ = ["modules", "name", "version"]
+
+    class MODE(Enum):
+        LAYERS = "layers"
+        CONTRIB = "contrib"
+        MODULES = "modules"
+
+    @dataclass
+    class ScapyExtModule:
+        name: str
+        mode: 'ScapyExt.MODE'
+        module: Optional[ModuleType]
+
+    def __init__(self):
+        self.modules: Dict[str, 'ScapyExt.ScapyExtModule'] = {}
+
+    def config(self, name, version):
+        self.name = name
+        self.version = version
+
+    def register(self, name, mode, module=None):
+        assert mode in self.MODE, "mode must be one of ScapyExt.MODE !"
+        self.modules[name] = self.ScapyExtModule(name, mode, module)
+
+    def __repr__(self):
+        return "<ScapyExt %s %s (%s modules)>" % (
+            self.name,
+            self.version,
+            len(self.modules),
+        )
+
+
+class ExtsManager:
+    __slots__ = ["exts", "_loaded"]
+
+    SCAPY_PLUGIN_CLASSIFIER = 'Framework :: Scapy'
+    GPLV2_CLASSIFIERS = [
+        'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
+        'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
+    ]
+
+    def __init__(self):
+        self.exts: List[ScapyExt] = []
+        self._loaded = []
+
+    def _register_module(self, name, mode, module):
+        sys.modules[f"scapy.{mode.value}.{name}"] = module
+
+    def load(self):
+        """
+        Find and loads Extensions. This is executed when Scapy loads.
+        An ext must include the Scapy Framework classifier, a scapy_ext func and be
+        under GPLv2.
+        """
+        import importlib
+        import importlib.metadata
+        for distr in importlib.metadata.distributions():
+            if any(
+                v == self.SCAPY_PLUGIN_CLASSIFIER
+                for k, v in distr.metadata.items() if k == 'Classifier'
+            ):
+                try:
+                    pkg = next(
+                        k
+                        for k, v in importlib.metadata.packages_distributions().items()
+                        if distr.name in v
+                    )
+                except KeyError:
+                    pkg = distr.name
+                if pkg in self._loaded:
+                    continue
+                if not any(
+                    v in self.GPLV2_CLASSIFIERS
+                    for k, v in distr.metadata.items() if k == 'Classifier'
+                ):
+                    log_loading.warning(
+                        "'%s' has no GPLv2 classifier therefore cannot be loaded." % pkg  # noqa: E501
+                    )
+                    continue
+                self._loaded.append(pkg)
+                ext = ScapyExt()
+                try:
+                    scapy_ext = importlib.import_module(pkg)
+                except Exception as ex:
+                    log_loading.warning(
+                        "'%s' failed during import with %s" % (
+                            pkg,
+                            ex
+                        )
+                    )
+                    continue
+                try:
+                    scapy_ext_func = scapy_ext.scapy_ext
+                except AttributeError:
+                    log_loading.info(
+                        "Module '%s' included the Scapy Framework specifier "
+                        "but did not include a scapy_ext" % pkg
+                    )
+                    continue
+                try:
+                    scapy_ext_func(ext)
+                except Exception as ex:
+                    log_loading.warning(
+                        "'%s' failed during initialization with %s" % (
+                            pkg,
+                            ex
+                        )
+                    )
+                    continue
+                for mod in ext.modules.values():
+                    self._register_module(mod.name, mod.mode, mod.module)
+                self.exts.append(ext)
+
+    def __repr__(self):
+        from scapy.utils import pretty_list
+        return pretty_list(
+            [
+                (x.name, x.version, [y.name for y in x.modules.values()])
+                for x in self.exts
+            ],
+            [("Name", "Version", "Modules")],
+            sortBy=0,
+        )
+
+
 def _version_checker(module, minver):
     # type: (ModuleType, Tuple[int, ...]) -> bool
     """Checks that module has a higher version that minver.
@@ -893,6 +1027,7 @@ class Conf(ConfClass):
     #: a dict which can be used by contrib layers to store local
     #: configuration
     contribs = dict()  # type: Dict[str, Any]
+    exts: ExtsManager = ExtsManager()
     crypto_valid = isCryptographyValid()
     crypto_valid_advanced = isCryptographyAdvanced()
     #: controls whether or not to display the fancy banner
@@ -960,6 +1095,10 @@ if not Conf.ipv6_enabled:
             Conf.load_layers.remove(m)
 
 conf = Conf()  # type: Conf
+
+# Python 3.8 Only
+if sys.version_info >= (3, 8):
+    conf.exts.load()
 
 
 def crypto_validator(func):
