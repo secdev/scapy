@@ -352,6 +352,21 @@ def _scapy_builtins():
     }
 
 
+def _scapy_exts():
+    # type: () -> Dict[str, Any]
+    """Load Scapy exts and return their builtins"""
+    from scapy.config import conf
+    res = {}
+    for ext in conf.exts.exts:
+        for mod in ext.modules.values():
+            res.update({
+                k: v
+                for k, v in mod.module.__dict__.copy().items()
+                if _validate_local(k)
+            })
+    return res
+
+
 def save_session(fname="", session=None, pickleProto=-1):
     # type: (str, Optional[Dict[str, Any]], int) -> None
     """Save current Scapy session to the file specified in the fname arg.
@@ -517,6 +532,9 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
 
     # Load Scapy
     scapy_builtins = _scapy_builtins()
+
+    # Load exts
+    scapy_builtins.update(_scapy_exts())
 
     SESSION.update(scapy_builtins)
     SESSION["_scpybuiltins"] = scapy_builtins.keys()
@@ -799,20 +817,36 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         #                             Style.from_dict(_custom_ui_colorscheme))
         # repl.use_ui_colorscheme("scapy")
 
-    # Start IPython or ptipython
+    # Extend banner text
     if conf.interactive_shell in ["ipython", "ptipython"]:
         import IPython
         if conf.interactive_shell == "ptipython":
-            from ptpython.ipython import embed
             banner = banner_text + " using IPython %s" % IPython.__version__
             try:
                 from importlib.metadata import version
                 ptpython_version = " " + version('ptpython')
             except ImportError:
                 ptpython_version = ""
-            banner += " and ptpython%s\n" % ptpython_version
+            banner += " and ptpython%s" % ptpython_version
         else:
-            banner = banner_text + " using IPython %s\n" % IPython.__version__
+            banner = banner_text + " using IPython %s" % IPython.__version__
+    elif conf.interactive_shell == "ptpython":
+        try:
+            from importlib.metadata import version
+            ptpython_version = " " + version('ptpython')
+        except ImportError:
+            ptpython_version = ""
+        banner = banner_text + " using ptpython%s" % ptpython_version
+    elif conf.interactive_shell == "bpython":
+        import bpython
+        banner = banner_text + " using bpython %s" % bpython.__version__
+
+    # Start IPython or ptipython
+    if conf.interactive_shell in ["ipython", "ptipython"]:
+        if conf.interactive_shell == "ptipython":
+            from ptpython.ipython import embed
+            banner += "\n"
+        else:
             from IPython import start_ipython as embed
         try:
             from traitlets.config.loader import Config
@@ -867,14 +901,9 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         # ptpython has special, non-default handling of __repr__ which breaks Scapy.
         # For instance: >>> IP()
         log_loading.warning("ptpython support is currently partially broken")
-        try:
-            from importlib.metadata import version
-            ptpython_version = " " + version('ptpython')
-        except ImportError:
-            ptpython_version = ""
-        banner = banner_text + " using ptpython%s" % ptpython_version
         from ptpython.repl import embed
         # ptpython has no banner option
+        banner += "\n"
         print(banner)
         embed(
             locals=SESSION,
@@ -884,9 +913,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         )
     # Start bpython
     elif conf.interactive_shell == "bpython":
-        import bpython
         from bpython.curtsies import main as embed
-        banner = banner_text + " using bpython %s" % bpython.__version__
         embed(
             args=["-q", "-i"],
             locals_=SESSION,

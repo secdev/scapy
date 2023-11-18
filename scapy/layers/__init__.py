@@ -6,3 +6,6 @@
 """
 Layer package.
 """
+
+# Make sure config is loaded
+import scapy.config  # noqa: F401
