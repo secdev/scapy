@@ -110,23 +110,22 @@ assert exit_status == 0
 
 = IPv6 link-local address selection
 
-conf.ifaces._add_fake_iface("scapy0")
+conf.ifaces._add_fake_iface("scapy0", 'e2:39:91:79:19:10')
 
 from mock import patch
 conf.route6.routes =  [('fe80::', 64, '::', 'scapy0', ['fe80::e039:91ff:fe79:1910'], 256)]
 conf.route6.ipv6_ifaces = set(['scapy0'])
 bck_conf_iface = conf.iface
 conf.iface = "scapy0"
-with patch("scapy.layers.l2.get_if_hwaddr") as mgih:
-    mgih.return_value = 'e2:39:91:79:19:10'
-    p = Ether()/IPv6(dst="ff02::1")/ICMPv6NIQueryName(data="ff02::1")
-    print(p.sprintf("%Ether.src% > %Ether.dst%\n%IPv6.src% > %IPv6.dst%"))
-    ip6_ll_address = 'fe80::e039:91ff:fe79:1910'
-    print(p[IPv6].src, ip6_ll_address)
-    assert p[IPv6].src == ip6_ll_address
-    mac_address = 'e2:39:91:79:19:10'
-    print(p[Ether].src, mac_address)
-    assert p[Ether].src == mac_address
+
+p = Ether()/IPv6(dst="ff02::1")/ICMPv6NIQueryName(data="ff02::1")
+print(p.sprintf("%Ether.src% > %Ether.dst%\n%IPv6.src% > %IPv6.dst%"))
+ip6_ll_address = 'fe80::e039:91ff:fe79:1910'
+print(p[IPv6].src, ip6_ll_address)
+assert p[IPv6].src == ip6_ll_address
+mac_address = 'e2:39:91:79:19:10'
+print(p[Ether].src, mac_address)
+assert p[Ether].src == mac_address
 
 conf.iface = bck_conf_iface
 conf.route6.resync()

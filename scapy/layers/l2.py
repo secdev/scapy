@@ -51,7 +51,7 @@ from scapy.fields import (
     XShortEnumField,
     XShortField,
 )
-from scapy.interfaces import _GlobInterfaceType
+from scapy.interfaces import _GlobInterfaceType, resolve_iface
 from scapy.packet import bind_layers, Packet
 from scapy.plist import (
     PacketList,
@@ -203,10 +203,7 @@ class SourceMACField(MACField):
             if iff is None:
                 iff = conf.iface
             if iff:
-                try:
-                    x = get_if_hwaddr(iff)
-                except Exception as e:
-                    warning("Could not get the source MAC: %s" % e)
+                x = resolve_iface(iff).mac
             if x is None:
                 x = "00:00:00:00:00:00"
         return super(SourceMACField, self).i2h(pkt, x)

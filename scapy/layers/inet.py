@@ -1999,7 +1999,9 @@ class TCP_client(Automaton):
             # Answer with an Ack
             self.send(self.l4)
             # Process data - will be sent to the SuperSocket through this
-            self._transmit_packet(self.rcvbuf.process(pkt))
+            pkt = self.rcvbuf.process(pkt)
+            if pkt:
+                self._transmit_packet(pkt)
 
     @ATMT.ioevent(ESTABLISHED, name="tcp", as_supersocket="tcplink")
     def outgoing_data_received(self, fd):
@@ -2184,7 +2186,7 @@ class connect_from_ip:
     :param srcip: the IP to spoof. the cache of the gateway will
                   be poisonned with this IP.
     :param poison: (optional, default True) ARP poison the gateway (or next hop),
-                   so that it answers us.
+                   so that it answers us (only one packet).
     :param timeout: (optional) the socket timeout.
 
     Example - Connect to 192.168.0.1:80 spoofing 192.168.0.2::
@@ -2207,14 +2209,15 @@ class connect_from_ip:
         resp = sock.sr1(HTTP() / HTTPRequest(Path="/"))
     """
 
-    def __init__(self, host, port, srcip, poison=True, timeout=1):
+    def __init__(self, host, port, srcip, poison=True, timeout=1, debug=0):
         host = str(Net(host))
-        # poison the next hop
         if poison:
+            # poison the next hop
             gateway = conf.route.route(host)[2]
             if gateway == "0.0.0.0":
                 # on lan
                 gateway = host
+            getmacbyip(gateway)  # cache real gateway before poisoning
             arpcachepoison(gateway, srcip, count=1, interval=0, verbose=0)
         # create a socket pair
         self._sock, self.sock = socket.socketpair()
@@ -2223,6 +2226,7 @@ class connect_from_ip:
             host, port,
             srcip=srcip,
             external_fd={"tcp": self._sock},
+            debug=debug,
         )
         # start the TCP_client
         self.client.runbg()
