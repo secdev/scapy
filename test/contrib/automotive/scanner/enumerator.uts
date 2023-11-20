@@ -1,5 +1,5 @@
 % Regression tests for enumerators
-~ disabled
+~ linux
 
 + Load general modules
 
