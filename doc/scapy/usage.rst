@@ -391,7 +391,7 @@ The above will send a single SYN packet to Google's port 80 and will quit after 
 
 From the above output, we can see Google returned “SA” or SYN-ACK flags indicating an open port.
 
-Use either notations to scan ports 400 through 443 on the system:
+Use either notations to scan ports 440 through 443 on the system:
 
     >>> sr(IP(dst="192.168.1.1")/TCP(sport=666,dport=(440,443),flags="S"))
 
