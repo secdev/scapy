@@ -18,6 +18,10 @@ from scapy.error import warning
 
 
 class CARP(Packet):
+    """ CARP - Common Address Redundancy Protocol
+        Class provides post_build(checksum calculation) and
+        build_hmac_sha1(HMAC SHA1 calculation) methods.
+    """
     name = "CARP"
     fields_desc = [BitField("version", 4, 4),
                    BitField("type", 4, 4),
@@ -37,12 +41,38 @@ class CARP(Packet):
                    ]
 
     def post_build(self, pkt, pay):
+        
+        """
+            If chksum field is None, it calculates the chksum and adds chksum to packet.
+
+            input:
+            pkt - bytes
+            pay - bytes
+
+            return:
+            pkt - bytes
+        """
+
         if self.chksum is None:
             pkt = pkt[:6] + struct.pack("!H", checksum(pkt)) + pkt[8:]
 
         return pkt
 
     def build_hmac_sha1(self, pw=b'\x00' * 20, ip4l=[], ip6l=[]):
+        
+
+        """
+            Used for confidentiality.
+
+            input:
+            pw : bytes
+            ip4l : list
+            ip6l : list
+
+            output:
+            hash value of h : bytes
+        """
+
         h = hmac.new(pw, digestmod=hashlib.sha1)
         # XXX: this is a dirty hack. it needs to pack version and type into a single 8bit field  # noqa: E501
         h.update(b'\x21')
