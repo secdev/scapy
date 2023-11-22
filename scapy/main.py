@@ -843,9 +843,9 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
 
     # Start IPython or ptipython
     if conf.interactive_shell in ["ipython", "ptipython"]:
+        banner += "\n"
         if conf.interactive_shell == "ptipython":
             from ptpython.ipython import embed
-            banner += "\n"
         else:
             from IPython import start_ipython as embed
         try:
