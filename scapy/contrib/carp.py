@@ -41,9 +41,7 @@ class CARP(Packet):
                    ]
 
     def post_build(self, pkt, pay):
-        
-        """
-            If chksum field is None, it calculates the chksum and adds chksum to packet.
+        """If chksum field is None, it calculates the chksum and adds chksum to packet.
 
             input:
             pkt - bytes
@@ -59,10 +57,7 @@ class CARP(Packet):
         return pkt
 
     def build_hmac_sha1(self, pw=b'\x00' * 20, ip4l=[], ip6l=[]):
-        
-
-        """
-            Used for confidentiality.
+        """Used for confidentiality.
 
             input:
             pw : bytes
