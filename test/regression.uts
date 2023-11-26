@@ -867,11 +867,11 @@ assert fletcher16_checkbytes(b"\x28\x07", 1) == b"\xaf("
 
 = Test hexdiff function
 ~ not_pypy
-def test_hexdiff(a, b, autojunk=False):
+def test_hexdiff(a, b, algo=None, autojunk=False):
     conf_color_theme = conf.color_theme
     conf.color_theme = BlackAndWhite()
     with ContextManagerCaptureOutput() as cmco:
-        hexdiff(a, b, autojunk=autojunk)
+        hexdiff(a, b, algo=algo, autojunk=autojunk)
         result_hexdiff = cmco.get_output()
     conf.interactive = True
     conf.color_theme = conf_color_theme
@@ -901,12 +901,12 @@ expected += "0010        7F 00 00 01                                        ....
 expected += "     0010   7F 00 00 02                                        ....\n"
 assert result_hexdiff == expected
 
-# Compare using autojunk
+# Compare using difflib
 
 a = "A" * 1000 + "findme" + "B" * 1000
 b = "A" * 1000 + "B" * 1000
-ret1 = test_hexdiff(a, b)
-ret2 = test_hexdiff(a, b, autojunk=True)
+ret1 = test_hexdiff(a, b, algo="difflib")
+ret2 = test_hexdiff(a, b, algo="difflib", autojunk=True)
 
 expected_ret1 = """
 03d0 03d0   41 41 41 41 41 41 41 41  41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA
