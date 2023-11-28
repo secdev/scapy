@@ -160,12 +160,12 @@ def attach_filter(sock, bpf_filter, iface):
     if conf.use_pypy and sys.pypy_version_info <= (7, 3, 2):  # type: ignore
         # PyPy < 7.3.2 has a broken behavior
         # https://foss.heptapod.net/pypy/pypy/-/issues/3298
-        bp = struct.pack(
+        bp = struct.pack(  # type: ignore
             'HL',
             bp.bf_len, ctypes.addressof(bp.bf_insns.contents)
         )
     else:
-        bp = sock_fprog(bp.bf_len, bp.bf_insns)
+        bp = sock_fprog(bp.bf_len, bp.bf_insns)  # type: ignore
     sock.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, bp)
 
 

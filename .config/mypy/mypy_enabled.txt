@@ -91,7 +91,12 @@ scapy/contrib/roce.py
 scapy/contrib/tcpao.py
 
 # LIBS
+scapy/libs/__init__.py
+scapy/libs/ethertypes.py
 scapy/libs/extcap.py
+scapy/libs/matplot.py
+scapy/libs/structures.py
+scapy/libs/test_pyx.py
 
 # TEST
 test/testsocket.py
