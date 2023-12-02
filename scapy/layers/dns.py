@@ -510,6 +510,9 @@ class EDNS0ClientSubnet(Packet):
                        ClientSubnetv4("address", "192.168.0.0",
                                       length_from=lambda p: p.source_plen))]
 
+    def extract_padding(self, p):
+        return "", p
+
 
 # RFC 8914 - Extended DNS Errors
 
@@ -557,6 +560,9 @@ class EDNS0ExtendedDNSError(Packet):
                    ShortEnumField("info_code", 0, extended_dns_error_codes),
                    StrLenField("extra_text", "",
                                length_from=lambda pkt: pkt.optlen - 2)]
+
+    def extract_padding(self, p):
+        return "", p
 
 
 # RFC 4034 - Resource Records for the DNS Security Extensions

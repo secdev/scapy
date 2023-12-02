@@ -119,3 +119,7 @@ rropt = DNSRROPT(b'\x00\x00)\x04\xd0\x00\x00\x00\x00\x001\x00\x0f\x00-\x00\x06pr
 assert len(rropt.rdata) == 1
 p = rropt.rdata[0]
 assert p.info_code == 6 and p.optlen == 45 and p.extra_text == b'proof of non-existence of example.com. NSEC'
+
+p = DNSRROPT(raw(DNSRROPT(rdata=[EDNS0ExtendedDNSError(), EDNS0ClientSubnet(), EDNS0TLV()])))
+assert len(p.rdata) == 3
+assert all(Raw not in opt for opt in p.rdata)
