@@ -706,7 +706,7 @@ class _DNSRRdummy(Packet):
 class DNSRRMX(_DNSRRdummy):
     name = "DNS MX Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                   ShortEnumField("type", 6, dnstypes),
+                   ShortEnumField("type", 15, dnstypes),
                    ShortEnumField("rclass", 1, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),

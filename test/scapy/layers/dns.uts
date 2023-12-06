@@ -204,6 +204,11 @@ full = b"\x04data\xc0\x0f"
 assert dns_get_str(full, full=full)[0] == b"data."
 
 
+= DNS record type 15 (MX)
+
+p = DNS(raw(DNS(qd=[],an=DNSRRMX(exchange='example.com'))))
+assert p.an[0].exchange == b'example.com.'
+
 = DNS record type 16 (TXT)
 
 p = DNS(raw(DNS(id=1,ra=1,qd=[],an=DNSRR(rrname='scapy', type='TXT', rdata="niceday", ttl=1))))
