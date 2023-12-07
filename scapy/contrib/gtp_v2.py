@@ -1364,7 +1364,7 @@ class IE_ChargingCharacteristics(gtp.IE_Base):
                    ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   XShortField("ChargingCharacteristric", 0)]
+                   XShortField("ChargingCharacteristic", 0)]
 
 
 class IE_PDN_type(gtp.IE_Base):
