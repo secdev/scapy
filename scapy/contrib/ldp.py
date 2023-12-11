@@ -11,6 +11,10 @@ Label Distribution Protocol (LDP)
 
 http://git.savannah.gnu.org/cgit/ldpscapy.git/snapshot/ldpscapy-5285b81d6e628043df2a83301b292f24a95f0ba1.tar.gz
 
+
+Reference for docstrings:
+https://datatracker.ietf.org/doc/html/rfc5036
+
 """
 
 import struct
@@ -69,6 +73,11 @@ class _LDP_Packet(Packet):
 
 
 class FecTLVField(StrField):
+    """FECTLV - Forwarding Equivalence Classes Type-Length-Value.
+       A FEC is a list of FEC elements. The FECTLV TLV encodes FEC items.
+       Each FEC element identifies a set of packets that may
+       be mapped to the corresponding LSP.
+    """
     islist = 1
 
     def m2i(self, pkt, x):
@@ -123,6 +132,9 @@ class FecTLVField(StrField):
 # 3.4.2.1. Generic Label TLV
 
 class LabelTLVField(StrField):
+    """LSR uses Generic Label TLVs to encode labels for use on links for
+       which label values are independent of the underlying link technology.
+    """
     def m2i(self, pkt, x):
         return struct.unpack("!I", x[4:8])[0]
 
@@ -146,6 +158,9 @@ class LabelTLVField(StrField):
 # 3.4.3. Address List TLV
 
 class AddressTLVField(StrField):
+    """Address List TLV appears in Address and Address Withdraw
+       messages.
+    """
     islist = 1
 
     def m2i(self, pkt, x):
@@ -184,6 +199,9 @@ class AddressTLVField(StrField):
 # 3.4.6. Status TLV
 
 class StatusTLVField(StrField):
+    """Notification messages carry Status TLVs to specify events being
+       signaled.
+    """
     islist = 1
 
     def m2i(self, pkt, x):
@@ -224,6 +242,8 @@ class StatusTLVField(StrField):
 
 # 3.5.2 Common Hello Parameters TLV
 class CommonHelloTLVField(StrField):
+    """Specifies parameters common to all Hello messages.
+    """
     islist = 1
 
     def m2i(self, pkt, x):
@@ -258,6 +278,9 @@ class CommonHelloTLVField(StrField):
 
 # 3.5.3 Common Session Parameters TLV
 class CommonSessionTLVField(StrField):
+    """Specifies values proposed by the sending LSR for parameters that
+       must be negotiated for every LDP session.
+    """
     islist = 1
 
     def m2i(self, pkt, x):
@@ -297,6 +320,10 @@ class CommonSessionTLVField(StrField):
 
 # 3.5.1. Notification Message
 class LDPNotification(_LDP_Packet):
+    """A Notification message signals a fatal error or
+       provides advisory information such as the outcome of processing an
+       LDP message or the state of the LDP session.
+    """
     name = "LDPNotification"
     fields_desc = [BitField("u", 0, 1),
                    BitField("type", 0x0001, 15),
@@ -308,6 +335,12 @@ class LDPNotification(_LDP_Packet):
 
 
 class LDPHello(_LDP_Packet):
+    """LDP Hello messages are exchanged as part of the LDP Discovery
+       Mechanism.LDP discovery is a mechanism that enables an
+       LSR(Label Switching Router) to discover potential LDP peers.
+       Discovery makes it unnecessary to explicitly
+       configure an LSR's label switching peers.
+    """
     name = "LDPHello"
     fields_desc = [BitField("u", 0, 1),
                    BitField("type", 0x0100, 15),
@@ -319,6 +352,10 @@ class LDPHello(_LDP_Packet):
 
 
 class LDPInit(_LDP_Packet):
+    """LDP Initialization message is exchanged as part of the LDP
+       session establishment procedure.The exchange of LDP Discovery Hellos
+       between two LSRs triggers LDP session establishment.
+    """
     name = "LDPInit"
     fields_desc = [BitField("u", 0, 1),
                    XBitField("type", 0x0200, 15),
@@ -330,6 +367,9 @@ class LDPInit(_LDP_Packet):
 
 
 class LDPKeepAlive(_LDP_Packet):
+    """An LSR sends KeepAlive messages as part of a mechanism that monitors
+       the integrity of the LDP session transport connection.
+    """
     name = "LDPKeepAlive"
     fields_desc = [BitField("u", 0, 1),
                    XBitField("type", 0x0201, 15),
@@ -340,6 +380,10 @@ class LDPKeepAlive(_LDP_Packet):
 
 
 class LDPAddress(_LDP_Packet):
+    """An LSR sends the Address message to an LDP peer to advertise its
+       interface addresses.An LSR sends the Address Withdraw message to
+       an LDP peer to withdraw previously advertised interface addresses.
+    """
     name = "LDPAddress"
     fields_desc = [BitField("u", 0, 1),
                    XBitField("type", 0x0300, 15),
@@ -351,6 +395,9 @@ class LDPAddress(_LDP_Packet):
 
 
 class LDPAddressWM(_LDP_Packet):
+    """LSR sends the Address Withdraw message to an LDP peer to withdraw
+       previously advertised interface addresses.
+    """
     name = "LDPAddressWM"
     fields_desc = [BitField("u", 0, 1),
                    XBitField("type", 0x0301, 15),
@@ -362,6 +409,9 @@ class LDPAddressWM(_LDP_Packet):
 
 
 class LDPLabelMM(_LDP_Packet):
+    """An LSR sends a Label Mapping message to an LDP peer to advertise
+       FEC-label bindings to the peer.
+    """
     name = "LDPLabelMM"
     fields_desc = [BitField("u", 0, 1),
                    XBitField("type", 0x0400, 15),
@@ -374,6 +424,9 @@ class LDPLabelMM(_LDP_Packet):
 
 
 class LDPLabelReqM(_LDP_Packet):
+    """An LSR sends the Label Request message to an LDP peer to request a
+       binding (mapping) for a FEC.
+    """
     name = "LDPLabelReqM"
     fields_desc = [BitField("u", 0, 1),
                    XBitField("type", 0x0401, 15),
@@ -385,6 +438,9 @@ class LDPLabelReqM(_LDP_Packet):
 
 
 class LDPLabelARM(_LDP_Packet):
+    """Label Abort Request message may be used to abort an outstanding
+       Label Request message.
+    """
     name = "LDPLabelARM"
     fields_desc = [BitField("u", 0, 1),
                    XBitField("type", 0x0404, 15),
@@ -397,6 +453,11 @@ class LDPLabelARM(_LDP_Packet):
 
 
 class LDPLabelWM(_LDP_Packet):
+    """An LSR sends a Label Withdraw Message to an LDP peer to signal the
+       peer that the peer may not continue to use specific FEC-label
+       mappings the LSR had previously advertised.  This breaks the mapping
+       between the FECs and the labels.
+    """
     name = "LDPLabelWM"
     fields_desc = [BitField("u", 0, 1),
                    XBitField("type", 0x0402, 15),
@@ -409,6 +470,10 @@ class LDPLabelWM(_LDP_Packet):
 
 
 class LDPLabelRelM(_LDP_Packet):
+    """An LSR sends a Label Release message to an LDP peer to signal the
+       peer that the LSR no longer needs specific FEC-label mappings
+       previously requested of and/or advertised by the peer.
+    """
     name = "LDPLabelRelM"
     fields_desc = [BitField("u", 0, 1),
                    XBitField("type", 0x0403, 15),
@@ -421,6 +486,8 @@ class LDPLabelRelM(_LDP_Packet):
 
 
 class LDP(_LDP_Packet):
+    """LDP PDU is an LDP header followed by one or more LDP messages.
+    """
     name = "LDP"
     fields_desc = [ShortField("version", 1),
                    ShortField("len", None),
