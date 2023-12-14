@@ -15,50 +15,26 @@ import re
 import struct
 from zlib import crc32
 
-from scapy.config import conf, crypto_validator
-from scapy.data import ETHER_ANY, DLT_IEEE802_11, DLT_PRISM_HEADER, \
-    DLT_IEEE802_11_RADIO
-from scapy.compat import raw, plain_str, orb, chb
-from scapy.packet import Packet, bind_layers, bind_top_down, NoPayload
-from scapy.fields import (
-    BitEnumField,
-    BitField,
-    BitMultiEnumField,
-    ByteEnumField,
-    ByteField,
-    ConditionalField,
-    FCSField,
-    FieldLenField,
-    FieldListField,
-    FlagsField,
-    IntField,
-    LEFieldLenField,
-    LEIntField,
-    LELongField,
-    LEShortEnumField,
-    LEShortField,
-    LESignedIntField,
-    MayEnd,
-    MultipleTypeField,
-    OUIField,
-    PacketField,
-    PacketListField,
-    ReversePadField,
-    ScalingField,
-    ShortField,
-    StrField,
-    StrFixedLenField,
-    StrLenField,
-    XByteField,
-    XStrFixedLenField,
-)
 from scapy.ansmachine import AnsweringMachine
-from scapy.plist import PacketList
-from scapy.layers.l2 import Ether, LLC, MACField
+from scapy.compat import chb, orb, plain_str, raw
+from scapy.config import conf, crypto_validator
+from scapy.data import (DLT_IEEE802_11, DLT_IEEE802_11_RADIO, DLT_PRISM_HEADER,
+                        ETHER_ANY)
+from scapy.error import log_loading, warning
+from scapy.fields import (BitEnumField, BitField, BitMultiEnumField,
+                          ByteEnumField, ByteField, ConditionalField, FCSField,
+                          FieldLenField, FieldListField, FlagsField, IntField,
+                          LEFieldLenField, LEIntField, LELongField,
+                          LEShortEnumField, LEShortField, LESignedIntField,
+                          MayEnd, MultipleTypeField, OUIField, PacketField,
+                          PacketListField, ReversePadField, ScalingField,
+                          ShortField, StrField, StrFixedLenField, StrLenField,
+                          XByteField, XStrFixedLenField)
 from scapy.layers.inet import IP, TCP
-from scapy.error import warning, log_loading
-from scapy.sendrecv import sniff, sendp
-
+from scapy.layers.l2 import LLC, Ether, MACField
+from scapy.packet import NoPayload, Packet, bind_layers, bind_top_down
+from scapy.plist import PacketList
+from scapy.sendrecv import sendp, sniff
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
@@ -970,7 +946,7 @@ _dot11_info_elts_ids = {
     61: "HT Operation",
     74: "Overlapping BSS Scan Parameters",
     107: "Interworking",
-    127: "Extendend Capabilities",
+    127: "Extended Capabilities",
     191: "VHT Capabilities",
     192: "VHT Operation",
     221: "Vendor Specific"
