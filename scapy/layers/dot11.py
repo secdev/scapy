@@ -21,20 +21,44 @@ from scapy.config import conf, crypto_validator
 from scapy.data import (DLT_IEEE802_11, DLT_IEEE802_11_RADIO, DLT_PRISM_HEADER,
                         ETHER_ANY)
 from scapy.error import log_loading, warning
-from scapy.fields import (BitEnumField, BitField, BitMultiEnumField,
-                          ByteEnumField, ByteField, ConditionalField, FCSField,
-                          FieldLenField, FieldListField, FlagsField, IntField,
-                          LEFieldLenField, LEIntField, LELongField,
-                          LEShortEnumField, LEShortField, LESignedIntField,
-                          MayEnd, MultipleTypeField, OUIField, PacketField,
-                          PacketListField, ReversePadField, ScalingField,
-                          ShortField, StrField, StrFixedLenField, StrLenField,
-                          XByteField, XStrFixedLenField)
-from scapy.layers.inet import IP, TCP
-from scapy.layers.l2 import LLC, Ether, MACField
-from scapy.packet import NoPayload, Packet, bind_layers, bind_top_down
+from scapy.fields import (BitEnumField,
+    BitField,
+    BitMultiEnumField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    FCSField,
+    FieldLenField,
+    FieldListField,
+    FlagsField,
+    IntField,
+    LEFieldLenField,
+    LEIntField,
+    LELongField,
+    LEShortEnumField,
+    LEShortField,
+    LESignedIntField,
+    MayEnd,
+    MultipleTypeField,
+    OUIField,
+    PacketField,
+    PacketListField,
+    ReversePadField,
+    ScalingField,
+    ShortField,
+    StrField,
+    StrFixedLenField,
+    StrLenField,
+    XByteField,
+    XStrFixedLenField
+)
+from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList
-from scapy.sendrecv import sendp, sniff
+from scapy.layers.l2 import Ether, LLC, MACField
+from scapy.layers.inet import IP, TCP
+from scapy.error import warning, log_loading
+from scapy.sendrecv import sniff, sendp
+
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
