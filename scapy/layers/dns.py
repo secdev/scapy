@@ -90,16 +90,17 @@ dnsqtypes.update(dnstypes)
 dnsclasses = {1: 'IN', 2: 'CS', 3: 'CH', 4: 'HS', 255: 'ANY'}
 
 
-# 09/2013 from http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml  # noqa: E501
+# 12/2023 from https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml  # noqa: E501
 dnssecalgotypes = {0: "Reserved", 1: "RSA/MD5", 2: "Diffie-Hellman", 3: "DSA/SHA-1",  # noqa: E501
                    4: "Reserved", 5: "RSA/SHA-1", 6: "DSA-NSEC3-SHA1",
                    7: "RSASHA1-NSEC3-SHA1", 8: "RSA/SHA-256", 9: "Reserved",
                    10: "RSA/SHA-512", 11: "Reserved", 12: "GOST R 34.10-2001",
                    13: "ECDSA Curve P-256 with SHA-256", 14: "ECDSA Curve P-384 with SHA-384",  # noqa: E501
+                   15: "Ed25519", 16: "Ed448",
                    252: "Reserved for Indirect Keys", 253: "Private algorithms - domain name",  # noqa: E501
                    254: "Private algorithms - OID", 255: "Reserved"}
 
-# 09/2013 from http://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml
+# 12/2023 from https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml
 dnssecdigesttypes = {0: "Reserved", 1: "SHA-1", 2: "SHA-256", 3: "GOST R 34.11-94", 4: "SHA-384"}  # noqa: E501
 
 # 12/2023 from https://www.iana.org/assignments/dnssec-nsec3-parameters/dnssec-nsec3-parameters.xhtml  # noqa: E501
