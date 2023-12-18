@@ -15,13 +15,13 @@ import re
 import struct
 from zlib import crc32
 
-from scapy.ansmachine import AnsweringMachine
-from scapy.compat import chb, orb, plain_str, raw
 from scapy.config import conf, crypto_validator
-from scapy.data import (DLT_IEEE802_11, DLT_IEEE802_11_RADIO, DLT_PRISM_HEADER,
-                        ETHER_ANY)
-from scapy.error import log_loading, warning
-from scapy.fields import (BitEnumField,
+from scapy.data import ETHER_ANY, DLT_IEEE802_11, DLT_PRISM_HEADER, \
+    DLT_IEEE802_11_RADIO
+from scapy.compat import raw, plain_str, orb, chb
+from scapy.packet import Packet, bind_layers, bind_top_down, NoPayload
+from scapy.fields import (
+    BitEnumField,
     BitField,
     BitMultiEnumField,
     ByteEnumField,
@@ -50,7 +50,7 @@ from scapy.fields import (BitEnumField,
     StrFixedLenField,
     StrLenField,
     XByteField,
-    XStrFixedLenField
+    XStrFixedLenField,
 )
 from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList
