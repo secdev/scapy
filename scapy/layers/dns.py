@@ -46,6 +46,8 @@ from scapy.fields import (
     StrField,
     StrLenField,
     UTCTimeField,
+    XStrFixedLenField,
+    XStrLenField,
 )
 from scapy.sendrecv import sr1
 from scapy.supersocket import StreamSocket
@@ -559,6 +561,16 @@ class EDNS0ClientSubnet(_EDNS0Dummy):
                                       length_from=lambda p: p.source_plen))]
 
 
+class EDNS0COOKIE(_EDNS0Dummy):
+    name = "DNS EDNS0 COOKIE"
+    fields_desc = [ShortEnumField("optcode", 10, edns0types),
+                   FieldLenField("optlen", None, length_of="server_cookie", fmt="!H",
+                                 adjust=lambda pkt, x: x + 8),
+                   XStrFixedLenField("client_cookie", b"\x00" * 8, length=8),
+                   XStrLenField("server_cookie", "",
+                                length_from=lambda pkt: max(0, pkt.optlen - 8))]
+
+
 # RFC 8914 - Extended DNS Errors
 
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#extended-dns-error-codes
@@ -612,6 +624,7 @@ EDNS0OPT_DISPATCHER = {
     6: EDNS0DHU,
     7: EDNS0N3U,
     8: EDNS0ClientSubnet,
+    10: EDNS0COOKIE,
     15: EDNS0ExtendedDNSError,
 }
 
