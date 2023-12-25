@@ -1071,7 +1071,8 @@ scapy_delete_temp_files()
 = Test utility functions - network related
 ~ netaccess
 
-atol("www.secdev.org") == 3642339845
+assert atol("1.1.1.1") == 0x1010101
+assert atol("192.168.0.1") == 0xc0a80001
 
 = Test autorun functions
 ~ autorun
@@ -1668,7 +1669,7 @@ finally:
 # simulate sniffing on multiple interfaces.
 
 def _test():
-	iface = conf.route.route("www.google.com")[0]
+	iface = conf.route.route(str(Net("www.google.com")))[0]
 	port = int(RandShort())
 	pkt = IP(dst="www.google.com")/TCP(sport=port, dport=80, flags="S")
 	def cb():
@@ -3584,8 +3585,7 @@ class DNSTCP(Packet):
     fields_desc = [ FieldLenField("len", None, fmt="!H", length_of="dns"),
                     PacketLenField("dns", 0, DNS, length_from=lambda p: p.len)]
 
-ssck = StreamSocket(sck)
-ssck.basecls = DNSTCP
+ssck = StreamSocket(sck, DNSTCP)
 
 r = ssck.sr1(DNSTCP(dns=DNS(rd=1, qd=DNSQR(qname="www.example.com"))), timeout=3)
 sck.close()

@@ -20,10 +20,14 @@ from scapy.fields import (
     ByteField,
     FieldLenField,
     FlagsField,
+    FieldListField,
+    IPField,
     LEFieldLenField,
     LEIntEnumField,
     LEIntField,
+    LELongField,
     LEShortField,
+    LEShortEnumField,
     MultipleTypeField,
     PacketLenField,
     PacketListField,
@@ -38,7 +42,17 @@ from scapy.fields import (
     XStrLenField,
 )
 
-from scapy.layers.netbios import NBTSession
+from scapy.layers.dns import (
+    DNSStrField,
+    DNSCompressedPacket,
+)
+from scapy.layers.ntlm import (
+    _NTLMPayloadPacket,
+    _NTLMPayloadField,
+    _NTLM_ENUM,
+    _NTLM_post_build,
+)
+from scapy.layers.netbios import NBTSession, NBTDatagram
 from scapy.layers.gssapi import (
     GSSAPI_BLOB,
 )
@@ -129,42 +143,56 @@ SMB_COM = {
 
 class SMB_Header(Packet):
     name = "SMB 1 Protocol Request Header"
-    fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
-                   ByteEnumField("Command", 0x72, SMB_COM),
-                   LEIntEnumField("Status", 0, STATUS_ERREF),
-                   FlagsField("Flags", 0x18, 8,
-                              ["LOCK_AND_READ_OK",
-                               "BUF_AVAIL",
-                               "res",
-                               "CASE_INSENSITIVE",
-                               "CANONICALIZED_PATHS",
-                               "OPLOCK",
-                               "OPBATCH",
-                               "REPLY"]),
-                   FlagsField("Flags2", 0x0000, -16,
-                              ["LONG_NAMES",
-                               "EAS",
-                               "SMB_SECURITY_SIGNATURE",
-                               "COMPRESSED",
-                               "SMB_SECURITY_SIGNATURE_REQUIRED",
-                               "res",
-                               "IS_LONG_NAME",
-                               "res",
-                               "res",
-                               "res",
-                               "REPARSE_PATH",
-                               "EXTENDED_SECURITY",
-                               "DFS",
-                               "PAGING_IO",
-                               "NT_STATUS",
-                               "UNICODE"]),
-                   LEShortField("PIDHigh", 0x0000),
-                   StrFixedLenField("SecuritySignature", b"", length=8),
-                   LEShortField("Reserved", 0x0),
-                   LEShortField("TID", 0),
-                   LEShortField("PIDLow", 1),
-                   LEShortField("UID", 0),
-                   LEShortField("MID", 0)]
+    fields_desc = [
+        StrFixedLenField("Start", b"\xffSMB", 4),
+        ByteEnumField("Command", 0x72, SMB_COM),
+        LEIntEnumField("Status", 0, STATUS_ERREF),
+        FlagsField(
+            "Flags",
+            0x18,
+            8,
+            [
+                "LOCK_AND_READ_OK",
+                "BUF_AVAIL",
+                "res",
+                "CASE_INSENSITIVE",
+                "CANONICALIZED_PATHS",
+                "OPLOCK",
+                "OPBATCH",
+                "REPLY",
+            ],
+        ),
+        FlagsField(
+            "Flags2",
+            0x0000,
+            -16,
+            [
+                "LONG_NAMES",
+                "EAS",
+                "SMB_SECURITY_SIGNATURE",
+                "COMPRESSED",
+                "SMB_SECURITY_SIGNATURE_REQUIRED",
+                "res",
+                "IS_LONG_NAME",
+                "res",
+                "res",
+                "res",
+                "REPARSE_PATH",
+                "EXTENDED_SECURITY",
+                "DFS",
+                "PAGING_IO",
+                "NT_STATUS",
+                "UNICODE",
+            ],
+        ),
+        LEShortField("PIDHigh", 0x0000),
+        StrFixedLenField("SecuritySignature", b"", length=8),
+        LEShortField("Reserved", 0x0),
+        LEShortField("TID", 0),
+        LEShortField("PIDLow", 0),
+        LEShortField("UID", 0),
+        LEShortField("MID", 0),
+    ]
 
     def guess_payload_class(self, payload):
         # type: (bytes) -> Packet
@@ -201,7 +229,16 @@ class SMB_Header(Packet):
                 else:
                     return SMBSession_Setup_AndX_Request
         elif self.Command == 0x25:
-            return SMBNetlogon_Protocol_Response_Header
+            if self.Flags.REPLY:
+                if WordCount == 0x11:
+                    return SMBMailslot_Write
+                else:
+                    return SMBTransaction_Response
+            else:
+                if WordCount == 0x11:
+                    return SMBMailslot_Write
+                else:
+                    return SMBTransaction_Request
         return super(SMB_Header, self).guess_payload_class(payload)
 
     def answers(self, pkt):
@@ -213,8 +250,10 @@ class SMB_Header(Packet):
 
 class SMB_Dialect(Packet):
     name = "SMB Dialect"
-    fields_desc = [ByteField("BufferFormat", 0x02),
-                   StrNullField("DialectString", "NT LM 0.12")]
+    fields_desc = [
+        ByteField("BufferFormat", 0x02),
+        StrNullField("DialectString", "NT LM 0.12"),
+    ]
 
     def default_payload_class(self, payload):
         return conf.padding_layer
@@ -222,12 +261,16 @@ class SMB_Dialect(Packet):
 
 class SMBNegotiate_Request(Packet):
     name = "SMB Negotiate Request"
-    fields_desc = [ByteField("WordCount", 0),
-                   LEFieldLenField("ByteCount", None, length_of="Dialects"),
-                   PacketListField(
-                       "Dialects", [SMB_Dialect()], SMB_Dialect,
-                       length_from=lambda pkt: pkt.ByteCount)
-                   ]
+    fields_desc = [
+        ByteField("WordCount", 0),
+        LEFieldLenField("ByteCount", None, length_of="Dialects"),
+        PacketListField(
+            "Dialects",
+            [SMB_Dialect()],
+            SMB_Dialect,
+            length_from=lambda pkt: pkt.ByteCount,
+        ),
+    ]
 
 
 bind_layers(SMB_Header, SMBNegotiate_Request, Command=0x72)
@@ -240,15 +283,14 @@ def _SMBStrNullField(name, default):
     Returns a StrNullField that is either normal or UTF-16 depending
     on the SMB headers.
     """
+
     def _isUTF16(pkt):
         while not hasattr(pkt, "Flags2") and pkt.underlayer:
             pkt = pkt.underlayer
         return hasattr(pkt, "Flags2") and pkt.Flags2.UNICODE
+
     return MultipleTypeField(
-        [
-            (StrNullFieldUtf16(name, default),
-             _isUTF16)
-        ],
+        [(StrNullFieldUtf16(name, default), _isUTF16)],
         StrNullField(name, default),
     )
 
@@ -293,59 +335,87 @@ _SMB_ServerCapabilities = [
     "LEVEL_II_OPLOCKS",
     "LOCK_AND_READ",
     "NT_FIND",
-    "res", "res",
+    "res",
+    "res",
     "DFS",
     "INFOLEVEL_PASSTHRU",
     "LARGE_READX",
     "LARGE_WRITEX",
     "LWIO",
-    "res", "res", "res", "res", "res", "res",
+    "res",
+    "res",
+    "res",
+    "res",
+    "res",
+    "res",
     "UNIX",
     "res",
     "COMPRESSED_DATA",
-    "res", "res", "res",
+    "res",
+    "res",
+    "res",
     "DYNAMIC_REAUTH",
     "PERSISTENT_HANDLES",
-    "EXTENDED_SECURITY"
+    "EXTENDED_SECURITY",
 ]
 
 
 # CIFS sect 2.2.4.52.2
 
+
 class SMBNegotiate_Response_NoSecurity(_SMBNegotiate_Response):
     name = "SMB Negotiate No-Security Response (CIFS)"
-    fields_desc = [ByteField("WordCount", 0x1),
-                   LEShortField("DialectIndex", 7),
-                   FlagsField("SecurityMode", 0x03, 8,
-                              ["USER_SECURITY",
-                               "ENCRYPT_PASSWORDS",
-                               "SECURITY_SIGNATURES_ENABLED",
-                               "SECURITY_SIGNATURES_REQUIRED"]),
-                   LEShortField("MaxMpxCount", 50),
-                   LEShortField("MaxNumberVC", 1),
-                   LEIntField("MaxBufferSize", 16144),  # Windows: 4356
-                   LEIntField("MaxRawSize", 65536),
-                   LEIntField("SessionKey", 0x0000),
-                   FlagsField("ServerCapabilities", 0xf3f9, -32,
-                              _SMB_ServerCapabilities),
-                   UTCTimeField("ServerTime", None, fmt="<Q",
-                                epoch=[1601, 1, 1, 0, 0, 0],
-                                custom_scaling=1e7),
-                   ScalingField("ServerTimeZone", 0x3c, fmt="<h",
-                                unit="min-UTC"),
-                   FieldLenField("ChallengeLength", None,
-                                 # aka EncryptionKeyLength
-                                 length_of="Challenge", fmt="<B"),
-                   LEFieldLenField("ByteCount", None, length_of="DomainName",
-                                   adjust=lambda pkt, x: x +
-                                   len(pkt.Challenge)),
-                   XStrLenField("Challenge", b"",  # aka EncryptionKey
-                                length_from=lambda pkt: pkt.ChallengeLength),
-                   StrNullField("DomainName", "WORKGROUP")]
+    fields_desc = [
+        ByteField("WordCount", 0x1),
+        LEShortField("DialectIndex", 7),
+        FlagsField(
+            "SecurityMode",
+            0x03,
+            8,
+            [
+                "USER_SECURITY",
+                "ENCRYPT_PASSWORDS",
+                "SECURITY_SIGNATURES_ENABLED",
+                "SECURITY_SIGNATURES_REQUIRED",
+            ],
+        ),
+        LEShortField("MaxMpxCount", 50),
+        LEShortField("MaxNumberVC", 1),
+        LEIntField("MaxBufferSize", 16144),  # Windows: 4356
+        LEIntField("MaxRawSize", 65536),
+        LEIntField("SessionKey", 0x0000),
+        FlagsField("ServerCapabilities", 0xF3F9, -32, _SMB_ServerCapabilities),
+        UTCTimeField(
+            "ServerTime",
+            None,
+            fmt="<Q",
+            epoch=[1601, 1, 1, 0, 0, 0],
+            custom_scaling=1e7,
+        ),
+        ScalingField("ServerTimeZone", 0x3C, fmt="<h", unit="min-UTC"),
+        FieldLenField(
+            "ChallengeLength",
+            None,
+            # aka EncryptionKeyLength
+            length_of="Challenge",
+            fmt="<B",
+        ),
+        LEFieldLenField(
+            "ByteCount",
+            None,
+            length_of="DomainName",
+            adjust=lambda pkt, x: x + len(pkt.Challenge),
+        ),
+        XStrLenField(
+            "Challenge",
+            b"",  # aka EncryptionKey
+            length_from=lambda pkt: pkt.ChallengeLength,
+        ),
+        StrNullField("DomainName", "WORKGROUP"),
+    ]
 
 
-bind_top_down(SMB_Header, SMBNegotiate_Response_NoSecurity,
-              Command=0x72, Flags=0x80)
+bind_top_down(SMB_Header, SMBNegotiate_Response_NoSecurity, Command=0x72, Flags=0x80)
 
 # SMB sect 2.2.4.5.2.1
 
@@ -354,17 +424,24 @@ class SMBNegotiate_Response_Extended_Security(_SMBNegotiate_Response):
     name = "SMB Negotiate Extended Security Response (SMB)"
     WordCount = 0x11
     fields_desc = SMBNegotiate_Response_NoSecurity.fields_desc[:12] + [
-        LEFieldLenField("ByteCount", None, length_of="SecurityBlob",
-                        adjust=lambda _, x: x + 16),
+        LEFieldLenField(
+            "ByteCount", None, length_of="SecurityBlob", adjust=lambda _, x: x + 16
+        ),
         SMBNegotiate_Response_NoSecurity.fields_desc[13],
         UUIDField("GUID", None, uuid_fmt=UUIDField.FORMAT_LE),
-        PacketLenField("SecurityBlob", None, GSSAPI_BLOB,
-                       length_from=lambda x: x.ByteCount - 16)
+        PacketLenField(
+            "SecurityBlob", None, GSSAPI_BLOB, length_from=lambda x: x.ByteCount - 16
+        ),
     ]
 
 
-bind_top_down(SMB_Header, SMBNegotiate_Response_Extended_Security,
-              Command=0x72, Flags=0x80, Flags2=0x800)
+bind_top_down(
+    SMB_Header,
+    SMBNegotiate_Response_Extended_Security,
+    Command=0x72,
+    Flags=0x80,
+    Flags2=0x800,
+)
 
 # SMB sect 2.2.4.5.2.2
 
@@ -373,18 +450,26 @@ class SMBNegotiate_Response_Security(_SMBNegotiate_Response):
     name = "SMB Negotiate Non-Extended Security Response (SMB)"
     WordCount = 0x11
     fields_desc = SMBNegotiate_Response_NoSecurity.fields_desc[:12] + [
-        LEFieldLenField("ByteCount", None, length_of="DomainName",
-                        adjust=lambda pkt, x: x + 2 + _len(pkt, "Challenge") +
-                        _len(pkt, "ServerName")),
-        XStrLenField("Challenge", b"",  # aka EncryptionKey
-                     length_from=lambda pkt: pkt.ChallengeLength),
+        LEFieldLenField(
+            "ByteCount",
+            None,
+            length_of="DomainName",
+            adjust=lambda pkt, x: x
+            + 2
+            + _len(pkt, "Challenge")
+            + _len(pkt, "ServerName"),
+        ),
+        XStrLenField(
+            "Challenge",
+            b"",  # aka EncryptionKey
+            length_from=lambda pkt: pkt.ChallengeLength,
+        ),
         _SMBStrNullField("DomainName", "WORKGROUP"),
-        _SMBStrNullField("ServerName", "RMFF1")
+        _SMBStrNullField("ServerName", "RMFF1"),
     ]
 
 
-bind_top_down(SMB_Header, SMBNegotiate_Response_Security,
-              Command=0x72, Flags=0x80)
+bind_top_down(SMB_Header, SMBNegotiate_Response_Security, Command=0x72, Flags=0x80)
 
 # Session Setup AndX Request
 
@@ -395,46 +480,39 @@ class SMBSession_Setup_AndX_Request(Packet):
     name = "Session Setup AndX Request (CIFS)"
     fields_desc = [
         ByteField("WordCount", 0x0D),
-        ByteEnumField("AndXCommand", 0xff,
-                      SMB_COM),
+        ByteEnumField("AndXCommand", 0xFF, SMB_COM),
         ByteField("AndXReserved", 0),
         LEShortField("AndXOffset", None),
         LEShortField("MaxBufferSize", 16144),  # Windows: 4356
         LEShortField("MaxMPXCount", 50),
         LEShortField("VCNumber", 0),
         LEIntField("SessionKey", 0),
-        LEFieldLenField("OEMPasswordLength", None,
-                        length_of="OEMPassword"),
-        LEFieldLenField("UnicodePasswordLength", None,
-                        length_of="UnicodePassword"),
+        LEFieldLenField("OEMPasswordLength", None, length_of="OEMPassword"),
+        LEFieldLenField("UnicodePasswordLength", None, length_of="UnicodePassword"),
         LEIntField("Reserved", 0),
-        FlagsField("ServerCapabilities", 0x05, -32,
-                   _SMB_ServerCapabilities),
+        FlagsField("ServerCapabilities", 0x05, -32, _SMB_ServerCapabilities),
         LEShortField("ByteCount", None),
-        XStrLenField("OEMPassword", "Pass",
-                     length_from=lambda x: x.OEMPasswordLength),
-        XStrLenField("UnicodePassword", "Pass",
-                     length_from=lambda x: x.UnicodePasswordLength),
-        ReversePadField(
-            _SMBStrNullField("AccountName", "GUEST"), 2, b"\0"
+        XStrLenField("OEMPassword", "Pass", length_from=lambda x: x.OEMPasswordLength),
+        XStrLenField(
+            "UnicodePassword", "Pass", length_from=lambda x: x.UnicodePasswordLength
         ),
+        ReversePadField(_SMBStrNullField("AccountName", "GUEST"), 2, b"\0"),
         _SMBStrNullField("PrimaryDomain", ""),
         _SMBStrNullField("NativeOS", "Windows 4.0"),
-        _SMBStrNullField("NativeLanMan", "Windows 4.0")]
+        _SMBStrNullField("NativeLanMan", "Windows 4.0"),
+    ]
 
     def post_build(self, pkt, pay):
-        if self.AndXOffset is None and self.AndXCommand != 0xff:
+        if self.AndXOffset is None and self.AndXCommand != 0xFF:
             pkt = pkt[:3] + struct.pack("<H", len(pkt) + 32) + pkt[5:]
         if self.ByteCount is None:
             pkt = pkt[:27] + struct.pack("<H", len(pkt) - 29) + pkt[29:]
         if self.payload and hasattr(self.payload, "AndXOffset") and pay:
-            pay = pay[:3] + \
-                struct.pack("<H", len(pkt) + len(pay) + 32) + pay[5:]
+            pay = pay[:3] + struct.pack("<H", len(pkt) + len(pay) + 32) + pay[5:]
         return pkt + pay
 
 
-bind_top_down(SMB_Header, SMBSession_Setup_AndX_Request,
-              Command=0x73)
+bind_top_down(SMB_Header, SMBSession_Setup_AndX_Request, Command=0x73)
 
 # SMB sect 2.2.4.7
 
@@ -443,20 +521,17 @@ class SMBTree_Connect_AndX(Packet):
     name = "Session Tree Connect AndX"
     WordCount = 0x04
     fields_desc = SMBSession_Setup_AndX_Request.fields_desc[:4] + [
-        FlagsField("Flags", "", -16, ["DISCONNECT_TID",
-                                      "r2",
-                                      "EXTENDED_SIGNATURES",
-                                      "EXTENDED_RESPONSE"]),
-        FieldLenField("PasswordLength", None,
-                      length_of="Password", fmt="<H"),
-        LEShortField("ByteCount", None),
-        XStrLenField("Password", b"",
-                     length_from=lambda pkt: pkt.PasswordLength),
-        ReversePadField(
-            _SMBStrNullField("Path", "\\\\WIN2K\\IPC$"),
-            2
+        FlagsField(
+            "Flags",
+            "",
+            -16,
+            ["DISCONNECT_TID", "r2", "EXTENDED_SIGNATURES", "EXTENDED_RESPONSE"],
         ),
-        StrNullField("Service", "?????")
+        FieldLenField("PasswordLength", None, length_of="Password", fmt="<H"),
+        LEShortField("ByteCount", None),
+        XStrLenField("Password", b"", length_from=lambda pkt: pkt.PasswordLength),
+        ReversePadField(_SMBStrNullField("Path", "\\\\WIN2K\\IPC$"), 2),
+        StrNullField("Service", "?????"),
     ]
 
     def post_build(self, pkt, pay):
@@ -466,10 +541,8 @@ class SMBTree_Connect_AndX(Packet):
         return pkt
 
 
-bind_layers(SMB_Header, SMBTree_Connect_AndX,
-            Command=0x75)
-bind_layers(SMBSession_Setup_AndX_Request,
-            SMBTree_Connect_AndX, AndXCommand=0x75)
+bind_layers(SMB_Header, SMBTree_Connect_AndX, Command=0x75)
+bind_layers(SMBSession_Setup_AndX_Request, SMBTree_Connect_AndX, AndXCommand=0x75)
 
 # SMB sect 2.2.4.6.1
 
@@ -477,19 +550,28 @@ bind_layers(SMBSession_Setup_AndX_Request,
 class SMBSession_Setup_AndX_Request_Extended_Security(Packet):
     name = "Session Setup AndX Extended Security Request (SMB)"
     WordCount = 0x0C
-    fields_desc = SMBSession_Setup_AndX_Request.fields_desc[:8] + [
-        LEFieldLenField("SecurityBlobLength", None,
-                        length_of="SecurityBlob"),
-    ] + SMBSession_Setup_AndX_Request.fields_desc[10:12] + [
-        LEShortField("ByteCount", None),
-        PacketLenField("SecurityBlob", None, GSSAPI_BLOB,
-                       length_from=lambda x: x.SecurityBlobLength),
-        ReversePadField(
-            _SMBStrNullField("NativeOS", "Windows 4.0"),
-            2, b"\0",
-        ),
-        _SMBStrNullField("NativeLanMan", "Windows 4.0"),
-    ]
+    fields_desc = (
+        SMBSession_Setup_AndX_Request.fields_desc[:8]
+        + [
+            LEFieldLenField("SecurityBlobLength", None, length_of="SecurityBlob"),
+        ]
+        + SMBSession_Setup_AndX_Request.fields_desc[10:12]
+        + [
+            LEShortField("ByteCount", None),
+            PacketLenField(
+                "SecurityBlob",
+                None,
+                GSSAPI_BLOB,
+                length_from=lambda x: x.SecurityBlobLength,
+            ),
+            ReversePadField(
+                _SMBStrNullField("NativeOS", "Windows 4.0"),
+                2,
+                b"\0",
+            ),
+            _SMBStrNullField("NativeLanMan", "Windows 4.0"),
+        ]
+    )
 
     def post_build(self, pkt, pay):
         if self.ByteCount is None:
@@ -497,26 +579,35 @@ class SMBSession_Setup_AndX_Request_Extended_Security(Packet):
         return pkt + pay
 
 
-bind_top_down(SMB_Header, SMBSession_Setup_AndX_Request_Extended_Security,
-              Command=0x73, Flags2=0x800)
+bind_top_down(
+    SMB_Header,
+    SMBSession_Setup_AndX_Request_Extended_Security,
+    Command=0x73,
+    Flags2=0x800,
+)
 
 # Session Setup AndX Response
 
 
 # CIFS sect 2.2.4.53.2
 
+
 class SMBSession_Setup_AndX_Response(Packet):
     name = "Session Setup AndX Response (CIFS)"
     fields_desc = [
         ByteField("WordCount", 0x3),
-        ByteEnumField("AndXCommand", 0xff,
-                      SMB_COM),
+        ByteEnumField("AndXCommand", 0xFF, SMB_COM),
         ByteField("AndXReserved", 0),
         LEShortField("AndXOffset", None),
-        FlagsField("Action", 0, -16, {
-            0x0001: "SMB_SETUP_GUEST",
-            0x0002: "SMB_SETUP_USE_LANMAN_KEY",
-        }),
+        FlagsField(
+            "Action",
+            0,
+            -16,
+            {
+                0x0001: "SMB_SETUP_GUEST",
+                0x0002: "SMB_SETUP_USE_LANMAN_KEY",
+            },
+        ),
         LEShortField("ByteCount", 25),
         _SMBStrNullField("NativeOS", "Windows 4.0"),
         _SMBStrNullField("NativeLanMan", "Windows 4.0"),
@@ -529,7 +620,8 @@ class SMBSession_Setup_AndX_Response(Packet):
         LEShortField("OptionalSupport", 0x01),
         LEShortField("ByteCount2", 5),
         StrNullField("Service", "IPC"),
-        StrNullField("NativeFileSystem", "")]
+        StrNullField("NativeFileSystem", ""),
+    ]
 
     def post_build(self, pkt, pay):
         if self.AndXOffset is None:
@@ -537,164 +629,404 @@ class SMBSession_Setup_AndX_Response(Packet):
         return pkt + pay
 
 
-bind_top_down(SMB_Header, SMBSession_Setup_AndX_Response,
-              Command=0x73, Flags=0x80)
+bind_top_down(SMB_Header, SMBSession_Setup_AndX_Response, Command=0x73, Flags=0x80)
 
 # SMB sect 2.2.4.6.2
-# uWu
 
 
-class SMBSession_Setup_AndX_Response_Extended_Security(SMBSession_Setup_AndX_Response):  # noqa: E501
+class SMBSession_Setup_AndX_Response_Extended_Security(
+    SMBSession_Setup_AndX_Response
+):  # noqa: E501
     name = "Session Setup AndX Extended Security Response (SMB)"
     WordCount = 0x4
     fields_desc = (
-        SMBSession_Setup_AndX_Response.fields_desc[:5] +
-        [SMBSession_Setup_AndX_Request_Extended_Security.fields_desc[8]] +
-        SMBSession_Setup_AndX_Request_Extended_Security.fields_desc[11:]
+        SMBSession_Setup_AndX_Response.fields_desc[:5]
+        + [SMBSession_Setup_AndX_Request_Extended_Security.fields_desc[8]]
+        + SMBSession_Setup_AndX_Request_Extended_Security.fields_desc[11:]
     )
 
     def post_build(self, pkt, pay):
         if self.ByteCount is None:
             pkt = pkt[:9] + struct.pack("<H", len(pkt) - 11) + pkt[11:]
-        return super(
-            SMBSession_Setup_AndX_Response_Extended_Security,
-            self
-        ).post_build(pkt, pay)
+        return super(SMBSession_Setup_AndX_Response_Extended_Security, self).post_build(
+            pkt, pay
+        )
 
 
-bind_top_down(SMB_Header, SMBSession_Setup_AndX_Response_Extended_Security,
-              Command=0x73, Flags=0x80, Flags2=0x800)
+bind_top_down(
+    SMB_Header,
+    SMBSession_Setup_AndX_Response_Extended_Security,
+    Command=0x73,
+    Flags=0x80,
+    Flags2=0x800,
+)
 
 # SMB null (no wordcount)
 
 
 class SMBSession_Null(Packet):
-    fields_desc = [ByteField("WordCount", 0),
-                   LEShortField("ByteCount", 0)]
+    fields_desc = [ByteField("WordCount", 0), LEShortField("ByteCount", 0)]
 
 
-bind_top_down(SMB_Header, SMBSession_Null,
-              Command=0x73)
+bind_top_down(SMB_Header, SMBSession_Null, Command=0x73)
 
-# SMB NetLogon Response Header
+# [MS-CIFS] sect 2.2.4.33.1
 
-
-class SMBNetlogon_Protocol_Response_Header(Packet):
-    name = "SMBNetlogon Protocol Response Header"
-    fields_desc = [ByteField("WordCount", 17),
-                   LEShortField("TotalParamCount", 0),
-                   LEShortField("TotalDataCount", 112),
-                   LEShortField("MaxParamCount", 0),
-                   LEShortField("MaxDataCount", 0),
-                   ByteField("MaxSetupCount", 0),
-                   ByteField("unused2", 0),
-                   LEShortField("Flags3", 0),
-                   ByteField("TimeOut1", 0xe8),
-                   ByteField("TimeOut2", 0x03),
-                   LEShortField("unused3", 0),
-                   LEShortField("unused4", 0),
-                   LEShortField("ParamCount2", 0),
-                   LEShortField("ParamOffset", 0),
-                   LEShortField("DataCount", 112),
-                   LEShortField("DataOffset", 92),
-                   ByteField("SetupCount", 3),
-                   ByteField("unused5", 0)]
+_SMB_CONFIG = [
+    ("Len", _NTLM_ENUM.LEN),
+    ("BufferOffset", _NTLM_ENUM.OFFSET),
+]
 
 
-bind_top_down(SMB_Header, SMBNetlogon_Protocol_Response_Header,
-              Command=0x25)
-
-# SMB MailSlot Protocol
-
-
-class SMBMailSlot(Packet):
-    name = "SMB Mail Slot Protocol"
-    fields_desc = [LEShortField("opcode", 1),
-                   LEShortField("priority", 1),
-                   LEShortField("class_", 2),
-                   LEShortField("size", 135),
-                   StrNullField("name", "\\MAILSLOT\\NET\\GETDC660")]
-
-# SMB NetLogon Protocol Response Tail SAM
+class _SMB_TransactionRequest_Data(PacketLenField):
+    def m2i(self, pkt, m):
+        if pkt.WordCount == 0x11:
+            if m[0] == 0x07:  # LOGON_PRIMARY_QUERY
+                return NETLOGON_LOGON_QUERY(m)
+            elif m[0] == 0x12:  # LOGON_SAM_LOGON_REQUEST
+                return NETLOGON_SAM_LOGON_REQUEST(m)
+            elif m[0] == 0x19:  # LOGON_SAM_LOGON_RESPONSE_EX
+                return NETLOGON_SAM_LOGON_RESPONSE_EX(m)
+            elif m[0] == 0x17:  # LOGON_SAM_USER_UNKNOWN
+                return NETLOGON_SAM_LOGON_RESPONSE_EX(m)
+        return conf.raw_layer(m)
 
 
-class SMBNetlogon_Protocol_Response_Tail_SAM(Packet):
-    name = "SMB Netlogon Protocol Response Tail SAM"
-    fields_desc = [ByteEnumField("Command", 0x17,
-                                 {0x12: "SAM logon request",
-                                  0x17: "SAM Active directory Response"}),
-                   ByteField("unused", 0),
-                   ShortField("Data1", 0),
-                   ShortField("Data2", 0xfd01),
-                   ShortField("Data3", 0),
-                   ShortField("Data4", 0xacde),
-                   ShortField("Data5", 0x0fe5),
-                   ShortField("Data6", 0xd10a),
-                   ShortField("Data7", 0x374c),
-                   ShortField("Data8", 0x83e2),
-                   ShortField("Data9", 0x7dd9),
-                   ShortField("Data10", 0x3a16),
-                   ShortField("Data11", 0x73ff),
-                   ByteField("Data12", 0x04),
-                   StrFixedLenField("Data13", "rmff", 4),
-                   ByteField("Data14", 0x0),
-                   ShortField("Data16", 0xc018),
-                   ByteField("Data18", 0x0a),
-                   StrFixedLenField("Data20", "rmff-win2k", 10),
-                   ByteField("Data21", 0xc0),
-                   ShortField("Data22", 0x18c0),
-                   ShortField("Data23", 0x180a),
-                   StrFixedLenField("Data24", "RMFF-WIN2K", 10),
-                   ShortField("Data25", 0),
-                   ByteField("Data26", 0x17),
-                   StrFixedLenField("Data27", "Default-First-Site-Name", 23),
-                   ShortField("Data28", 0x00c0),
-                   ShortField("Data29", 0x3c10),
-                   ShortField("Data30", 0x00c0),
-                   ShortField("Data31", 0x0200),
-                   ShortField("Data32", 0x0),
-                   ShortField("Data33", 0xac14),
-                   ShortField("Data34", 0x0064),
-                   ShortField("Data35", 0x0),
-                   ShortField("Data36", 0x0),
-                   ShortField("Data37", 0x0),
-                   ShortField("Data38", 0x0),
-                   ShortField("Data39", 0x0d00),
-                   ShortField("Data40", 0x0),
-                   ShortField("Data41", 0xffff)]
-
-# SMB NetLogon Protocol Response Tail LM2.0
-# coucou bg
+def _optlen(pkt, x):
+    try:
+        return len(getattr(pkt, x))
+    except AttributeError:
+        return 0
 
 
-class SMBNetlogon_Protocol_Response_Tail_LM20(Packet):
-    name = "SMB Netlogon Protocol Response Tail LM20"
-    fields_desc = [ByteEnumField("Command", 0x06, {0x06: "LM 2.0 Response to logon request"}),  # noqa: E501
-                   ByteField("unused", 0),
-                   StrFixedLenField("DblSlash", "\\\\", 2),
-                   StrNullField("ServerName", "WIN"),
-                   LEShortField("LM20Token", 0xffff)]
+class SMBTransaction_Request(_NTLMPayloadPacket):
+    name = "SMB COM Transaction Request"
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
 
-# Generic version of SMBNegociate Protocol Request Header
+    fields_desc = [
+        FieldLenField(
+            "WordCount",
+            None,
+            length_of="SetupCount",
+            adjust=lambda pkt, x: x + 0x0E,
+            fmt="B",
+        ),
+        FieldLenField(
+            "TotalParamCount",
+            None,
+            length_of="Buffer",
+            fmt="<H",
+            adjust=lambda pkt, _: _optlen(pkt, "Parameter"),
+        ),
+        FieldLenField(
+            "TotalDataCount",
+            None,
+            length_of="Buffer",
+            fmt="<H",
+            adjust=lambda pkt, _: _optlen(pkt, "Data"),
+        ),
+        LEShortField("MaxParamCount", 0),
+        LEShortField("MaxDataCount", 0),
+        ByteField("MaxSetupCount", 0),
+        ByteField("Reserved1", 0),
+        FlagsField("Flags", 0, -16, {0x1: "DISCONNECT_TID", 0x2: "NO_RESPONSE"}),
+        LEIntField("Timeout", 1000),
+        ShortField("Reserved2", 0),
+        LEShortField("ParameterLen", None),
+        LEShortField("ParameterBufferOffset", None),
+        LEShortField("DataLen", None),
+        LEShortField("DataBufferOffset", None),
+        FieldLenField("SetupCount", 3, count_of="Setup", fmt="B"),
+        ByteField("Reserved3", 0),
+        FieldListField(
+            "Setup",
+            [1, 1, 2],
+            LEShortField("", 0),
+            count_from=lambda pkt: pkt.SetupCount,
+        ),
+        # SMB Data
+        FieldLenField(
+            "ByteCount",
+            None,
+            length_of="Name",
+            fmt="<H",
+            adjust=lambda pkt, x: x + _optlen(pkt, "Parameter") + _optlen(pkt, "Data"),
+        ),
+        StrNullField("Name", "\\MAILSLOT\\NET\\NETLOGON"),
+        _NTLMPayloadField(
+            "Buffer",
+            lambda pkt: 32 + 31 + len(pkt.Setup) * 2 + len(pkt.Name) + 1,
+            [
+                XStrLenField(
+                    "Parameter", b"", length_from=lambda pkt: pkt.ParameterLen
+                ),
+                _SMB_TransactionRequest_Data(
+                    "Data", None, conf.raw_layer, length_from=lambda pkt: pkt.DataLen
+                ),
+            ],
+        ),
+    ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        return (
+            _NTLM_post_build(
+                self,
+                pkt,
+                32 + 31 + len(self.Setup) * 2 + len(self.Name) + 1,
+                {
+                    "Parameter": 19,
+                    "Data": 23,
+                },
+                config=_SMB_CONFIG,
+            )
+            + pay
+        )
 
 
-class SMBNegociate_Protocol_Request_Header_Generic(Packet):
-    name = "SMBNegociate Protocol Request Header Generic"
+bind_top_down(SMB_Header, SMBTransaction_Request, Command=0x25)
+
+
+class SMBMailslot_Write(SMBTransaction_Request):
+    WordCount = 0x11
+
+
+# [MS-CIFS] sect 2.2.4.33.2
+
+
+class SMBTransaction_Response(_NTLMPayloadPacket):
+    name = "SMB COM Transaction Response"
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
+    fields_desc = [
+        FieldLenField(
+            "WordCount",
+            None,
+            length_of="SetupCount",
+            adjust=lambda pkt, x: x + 0x0A,
+            fmt="B",
+        ),
+        FieldLenField(
+            "TotalParamCount",
+            None,
+            length_of="Buffer",
+            fmt="<H",
+            adjust=lambda pkt, _: _optlen(pkt, "Parameter"),
+        ),
+        FieldLenField(
+            "TotalDataCount",
+            None,
+            length_of="Buffer",
+            fmt="<H",
+            adjust=lambda pkt, _: _optlen(pkt, "Data"),
+        ),
+        LEShortField("Reserved1", None),
+        LEShortField("ParameterLen", None),
+        LEShortField("ParameterBufferOffset", None),
+        LEShortField("ParameterDisplacement", 0),
+        LEShortField("DataLen", None),
+        LEShortField("DataBufferOffset", None),
+        LEShortField("DataDisplacement", 0),
+        FieldLenField("SetupCount", 3, count_of="Setup", fmt="B"),
+        ByteField("Reserved2", 0),
+        FieldListField(
+            "Setup",
+            [1, 1, 2],
+            LEShortField("", 0),
+            count_from=lambda pkt: pkt.SetupCount,
+        ),
+        # SMB Data
+        FieldLenField(
+            "ByteCount",
+            None,
+            length_of="Buffer",
+            fmt="<H",
+            adjust=lambda pkt, x: _optlen(pkt, "Parameter") + _optlen(pkt, "Data"),
+        ),
+        _NTLMPayloadField(
+            "Buffer",
+            lambda pkt: 32 + 22 + len(pkt.Setup) * 2,
+            [
+                XStrLenField(
+                    "Parameter", b"", length_from=lambda pkt: pkt.ParameterLen
+                ),
+                XStrLenField("Data", b"", length_from=lambda pkt: pkt.DataLen),
+            ],
+        ),
+    ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        return (
+            _NTLM_post_build(
+                self,
+                pkt,
+                32 + 22 + len(self.Setup) * 2,
+                {
+                    "Parameter": 7,
+                    "Data": 13,
+                },
+                config=_SMB_CONFIG,
+            )
+            + pay
+        )
+
+
+bind_top_down(SMB_Header, SMBTransaction_Response, Command=0x25, Flags=0x80)
+
+
+# [MS-ADTS] sect 6.3.1.4
+
+_NETLOGON_opcodes = {
+    0x7: "LOGON_PRIMARY_QUERY",
+    0x12: "LOGON_SAM_LOGON_REQUEST",
+    0x17: "LOGON_SAM_USER_UNKNOWN",
+    0x19: "LOGON_SAM_LOGON_RESPONSE_EX",
+}
+
+_NV_VERSION = {
+    0x00000001: "1",
+    0x00000002: "5",
+    0x00000004: "5EX",
+    0x00000008: "5EX_WITH_IP",
+    0x00000010: "5EX_WITH_CLOSEST_SITE",
+    0x01000000: "AVOID_NT4EMUL",
+    0x10000000: "PDC",
+    0x40000000: "LOCAL",
+    0x80000000: "GC",
+}
+
+
+class NETLOGON_LOGON_QUERY(Packet):
+    fields_desc = [
+        LEShortEnumField("OpCode", 0x7, _NETLOGON_opcodes),
+        StrNullField("ComputerName", ""),
+        StrNullField("MailslotName", ""),
+        StrNullFieldUtf16("UnicodeComputerName", ""),
+        FlagsField("NtVersion", 0xB, -32, _NV_VERSION),
+        LEShortField("LmNtToken", 0xFFFF),
+        LEShortField("Lm20Token", 0xFFFF),
+    ]
+
+
+# [MS-ADTS] sect 6.3.1.6
+
+
+class NETLOGON_SAM_LOGON_REQUEST(Packet):
+    fields_desc = [
+        LEShortEnumField("OpCode", 0x12, _NETLOGON_opcodes),
+        LEShortField("RequestCount", 0),
+        StrNullFieldUtf16("UnicodeComputerName", ""),
+        StrNullFieldUtf16("UnicodeUserName", ""),
+        StrNullField("MailslotName", "\\MAILSLOT\\NET\\GETDC701253F9"),
+        LEIntField("AllowableAccountControlBits", 0),
+        FieldLenField("DomainSidSize", None, fmt="<I", length_of="DomainSid"),
+        XStrLenField("DomainSid", b"", length_from=lambda pkt: pkt.DomainSidSize),
+        FlagsField("NtVersion", 0xB, -32, _NV_VERSION),
+        LEShortField("LmNtToken", 0xFFFF),
+        LEShortField("Lm20Token", 0xFFFF),
+    ]
+
+
+# [MS-ADTS] sect 6.3.1.7
+
+
+class NETLOGON_SAM_LOGON_RESPONSE_NT40(Packet):
+    fields_desc = [
+        LEShortEnumField("OpCode", 0x13, _NETLOGON_opcodes),
+        StrNullFieldUtf16("UnicodeLogonServer", ""),
+        StrNullFieldUtf16("UnicodeUserName", ""),
+        StrNullFieldUtf16("UnicodeDomainName", ""),
+        FlagsField("NtVersion", 0x1, -32, _NV_VERSION),
+        LEShortField("LmNtToken", 0xFFFF),
+        LEShortField("Lm20Token", 0xFFFF),
+    ]
+
+
+# [MS-ADTS] sect 6.3.1.9
+
+
+class NETLOGON_SAM_LOGON_RESPONSE_EX(DNSCompressedPacket):
+    fields_desc = [
+        LEShortEnumField("OpCode", 0x17, _NETLOGON_opcodes),
+        LEShortField("Sbz", 0),
+        FlagsField(
+            "Flags",
+            0,
+            -32,
+            {
+                0x00000001: "PDC",
+                0x00000004: "GC",
+                0x00000008: "LDAP",
+                0x00000010: "DC",
+                0x00000020: "KDC",
+                0x00000040: "TIMESERV",
+                0x00000080: "CLOSEST",
+                0x00000100: "RODC",
+                0x00000200: "GOOD_TIMESERV",
+                0x00000400: "NC",
+                0x00000800: "DS_SELECT_SECRET_DOMAIN_6_FLAG",
+                0x00001000: "DS_FULL_SECRET_DOMAIN_6_FLAG",
+                0x00002000: "DS_WS_FLAG",
+                0x00004000: "DS_DS_8_FLAG",
+                0x00008000: "DS_DS_9_FLAG",
+                0x20000000: "DS_DNS_CONTROLLER_FLAG",
+                0x40000000: "DS_DNS_DOMAIN_FLAG",
+                0x80000000: "DS_DNS_FOREST_FLAG",
+            },
+        ),
+        UUIDField("DomainGuid", None, uuid_fmt=UUIDField.FORMAT_LE),
+        DNSStrField("DnsForestName", ""),
+        DNSStrField("DnsDomainName", ""),
+        DNSStrField("DnsHostName", ""),
+        DNSStrField("NetbiosDomainName", ""),
+        DNSStrField("NetbiosComputerName", ""),
+        DNSStrField("UserName", ""),
+        DNSStrField("DcSiteName", "Default-First-Site-Name"),
+        DNSStrField("ClientSiteName", "Default-First-Site-Name"),
+        FlagsField("NtVersion", 0xB, -32, _NV_VERSION),
+        LEShortField("LmNtToken", 0xFFFF),
+        LEShortField("Lm20Token", 0xFFFF),
+    ]
+
+    def get_full(self):
+        return self.original
+
+
+class NETLOGON_SAM_LOGON_RESPONSE_EX_WITH_IP(NETLOGON_SAM_LOGON_RESPONSE_EX):
+    fields_desc = (
+        NETLOGON_SAM_LOGON_RESPONSE_EX.fields_desc[:12]
+        + [
+            ByteField("DcSockAddrSize", 0x10),
+            LEShortField("sin_family", 2),
+            LEShortField("sin_port", 0),
+            IPField("sin_addr", None),
+            LELongField("sin_zero", 0),
+        ]
+        + NETLOGON_SAM_LOGON_RESPONSE_EX.fields_desc[17:]
+    )
+
+
+# SMB dispatcher
+
+
+class _SMBGeneric(Packet):
+    name = "SMB Generic dispatcher"
     fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         """
-            Depending on the first 4 bytes of the packet,
-            dispatch to the correct version of Header
-            (either SMB or SMB2)
+        Depending on the first 4 bytes of the packet,
+        dispatch to the correct version of Header
+        (either SMB or SMB2)
         """
         if _pkt and len(_pkt) >= 4:
-            if _pkt[:4] == b'\xffSMB':
+            if _pkt[:4] == b"\xffSMB":
                 return SMB_Header
-            if _pkt[:4] == b'\xfeSMB':
+            if _pkt[:4] == b"\xfeSMB":
                 return SMB2_Header
         return cls
 
 
-bind_layers(NBTSession, SMBNegociate_Protocol_Request_Header_Generic)
+bind_layers(NBTSession, _SMBGeneric)
+bind_layers(NBTDatagram, _SMBGeneric)

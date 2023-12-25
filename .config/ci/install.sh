@@ -23,13 +23,14 @@ then
   fi
 fi
 
-# Install wireshark data, ifconfig & vcan
+# Install wireshark data, ifconfig, vcan, samba
 if [ "$OSTYPE" = "linux-gnu" ] || [ "$TRAVIS_OS_NAME" = "linux" ]
 then
   sudo apt-get update
   sudo apt-get -qy install tshark net-tools || exit 1
   sudo apt-get -qy install can-utils || exit 1
   sudo apt-get -qy install linux-modules-extra-$(uname -r) || exit 1
+  sudo apt-get -qy install samba smbclient
   # Make sure libpcap is installed
   if [ ! -z $SCAPY_USE_LIBPCAP ]
   then

@@ -486,6 +486,15 @@ class ASN1_BIT_STRING(ASN1_Object[str]):
         else:
             object.__setattr__(self, name, value)
 
+    def set(self, i, val):
+        # type: (int, str) -> None
+        """
+        Sets bit 'i' to value 'val' (starting from 0)
+        """
+        val = str(val)
+        assert val in ['0', '1']
+        self.val = self.val[:i] + val + self.val[i + 1:]
+
     def __repr__(self):
         # type: () -> str
         s = self.val_readable

@@ -90,7 +90,7 @@ class HSFZSocket(StreamSocket):
         self.buffer = b""
 
     def recv(self, x=MTU, **kwargs):
-        # type: (int, **Any) -> Optional[Packet]
+        # type: (Optional[int], **Any) -> Optional[Packet]
         if self.buffer:
             len_data = self.buffer[:4]
         else:
@@ -143,7 +143,7 @@ class UDS_HSFZSocket(HSFZSocket):
             return 0
 
     def recv(self, x=MTU, **kwargs):
-        # type: (int, **Any) -> Optional[Packet]
+        # type: (Optional[int], **Any) -> Optional[Packet]
         pkt = super(UDS_HSFZSocket, self).recv(x)
         if pkt:
             return self.outputcls(bytes(pkt.payload), **kwargs)

@@ -2006,6 +2006,11 @@ class DomainNameListField(StrLenField):
     def i2len(self, pkt, x):
         return len(self.i2m(pkt, x))
 
+    def i2h(self, pkt, x):
+        if not x:
+            return []
+        return x
+
     def m2i(self, pkt, x):
         x = plain_str(x)  # Decode bytes to string
         res = []

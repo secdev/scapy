@@ -95,6 +95,7 @@ scapy/libs/__init__.py
 scapy/libs/ethertypes.py
 scapy/libs/extcap.py
 scapy/libs/matplot.py
+scapy/libs/rfc3961.py
 scapy/libs/structures.py
 scapy/libs/test_pyx.py
 

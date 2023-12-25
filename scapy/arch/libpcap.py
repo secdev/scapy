@@ -136,6 +136,8 @@ class _L2libpcapSocket(SuperSocket):
 #  PCAP  #
 ##########
 
+if WINDOWS:
+    NPCAP_PATH = ""
 
 if conf.use_pcap:
     if WINDOWS:
@@ -265,8 +267,6 @@ if conf.use_pcap:
                 conf.use_npcap = True
                 conf.loopback_name = conf.loopback_name = "Npcap Loopback Adapter"  # noqa: E501
 
-if WINDOWS:
-    NPCAP_PATH = ""
 if conf.use_pcap:
     class _PcapWrapper_libpcap:  # noqa: F811
         """Wrapper for the libpcap calls"""

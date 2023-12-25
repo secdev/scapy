@@ -9,15 +9,17 @@ General utility functions.
 
 
 from decimal import Decimal
+from io import StringIO
+from itertools import zip_longest
 
 import array
 import collections
 import decimal
 import difflib
 import gzip
-from io import StringIO
-from itertools import zip_longest
+import inspect
 import locale
+import math
 import os
 import pickle
 import random
@@ -30,6 +32,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 import warnings
 
 from scapy.config import conf
@@ -69,12 +72,16 @@ from typing import (
     Union,
     overload,
 )
-from scapy.compat import Literal
+from scapy.compat import (
+    DecoratorCallable,
+    Literal,
+)
 
 if TYPE_CHECKING:
     from scapy.packet import Packet
     from scapy.plist import _PacketIterable, PacketList
     from scapy.supersocket import SuperSocket
+    import prompt_toolkit
 
 _ByteStream = Union[IO[bytes], gzip.GzipFile]
 
@@ -735,7 +742,7 @@ def atol(x):
     try:
         ip = inet_aton(x)
     except socket.error:
-        ip = inet_aton(socket.gethostbyname(x))
+        raise ValueError("Bad IP format: %s" % x)
     return cast(int, struct.unpack("!I", ip)[0])
 
 
@@ -773,10 +780,7 @@ def valid_ip6(addr):
     try:
         inet_pton(socket.AF_INET6, addr)
     except socket.error:
-        try:
-            socket.getaddrinfo(addr, None, socket.AF_INET6)[0][4][0]
-        except socket.error:
-            return False
+        return False
     return True
 
 
@@ -3086,6 +3090,20 @@ def pretty_list(rtlst,  # type: List[Tuple[Union[str, List[str]], ...]]
     return "\n".join(fmt % x for x in rtslst)
 
 
+def human_size(x, fmt=".1f"):
+    # type: (int, str) -> str
+    """
+    Convert a size in octets to a human string representation
+    """
+    units = ['K', 'M', 'G', 'T', 'P', 'E']
+    if not x:
+        return "0B"
+    i = int(math.log(x, 2**10))
+    if i and i < len(units):
+        return format(x / 2**(10 * i), fmt) + units[i - 1]
+    return str(x) + "B"
+
+
 def __make_table(
     yfmtfunc,  # type: Callable[[int], str]
     fmtfunc,  # type: Callable[[int], str]
@@ -3236,6 +3254,189 @@ def whois(ip_address):
         else:
             break
     return b"\n".join(lines[3:])
+
+####################
+#     CLI utils    #
+####################
+
+
+class CLIUtil:
+    """
+    Provides a Util class to easily create simple CLI tools in Scapy,
+    that can still be used as an API.
+
+    Doc:
+        - override the ps1() function
+        - register commands with the @CLIUtil.addcomment decorator
+        - call the loop() function when ready
+    """
+
+    def _depcheck(self) -> None:
+        """
+        Check that all dependencies are installed
+        """
+        try:
+            import prompt_toolkit  # noqa: F401
+        except ImportError:
+            # okay we lie but prompt_toolkit is a dependency...
+            raise ImportError("You need to have IPython installed to use the CLI")
+
+    # Okay let's do nice code
+    commands: Dict[str, Callable[..., Any]] = {}
+    # print output of command
+    commands_output: Dict[str, Callable[..., str]] = {}
+    # provides completion to command
+    commands_complete: Dict[str, Callable[..., List[str]]] = {}
+
+    @classmethod
+    def addcommand(cls, spaces: bool = False) -> Callable[[DecoratorCallable], DecoratorCallable]:  # noqa: E501
+        """
+        Decorator to register a command
+        """
+        def func(cmd: DecoratorCallable) -> DecoratorCallable:
+            cls.commands[cmd.__name__] = cmd
+            cmd._spaces = spaces  # type: ignore
+            return cmd
+        return func
+
+    @classmethod
+    def addoutput(cls, cmd: DecoratorCallable) -> Callable[[DecoratorCallable], DecoratorCallable]:  # noqa: E501
+        """
+        Decorator to register a command output processor
+        """
+        def func(processor: DecoratorCallable) -> DecoratorCallable:
+            cls.commands_output[cmd.__name__] = processor
+            return processor
+        return func
+
+    @classmethod
+    def addcomplete(cls, cmd: DecoratorCallable) -> Callable[[DecoratorCallable], DecoratorCallable]:  # noqa: E501
+        """
+        Decorator to register a command completor
+        """
+        def func(processor: DecoratorCallable) -> DecoratorCallable:
+            cls.commands_complete[cmd.__name__] = processor
+            return processor
+        return func
+
+    def ps1(self) -> str:
+        """
+        Return the PS1 of the shell
+        """
+        return "> "
+
+    def close(self) -> None:
+        """
+        Function called on exiting
+        """
+        print("Exited")
+
+    def help(self, cmd: Optional[str] = None) -> None:
+        """
+        Return the help related to this CLI util
+        """
+        def _args(func: Any) -> str:
+            return " %s" % " ".join(
+                "<%s>" % x
+                for x in list(inspect.signature(func).parameters.values())[1:]
+            )
+
+        if cmd is not None:
+            # help for one command
+            func = self.commands[cmd]
+            print("%s%s: %s" % (
+                cmd,
+                _args(func),
+                func.__doc__ and func.__doc__.strip()
+            ))
+        else:
+            header = "# %s - Help #" % self.__class__.__name__
+            print("#" * (len(header)))
+            print(header)
+            print("#" * (len(header)))
+            for cmd, func in self.commands.items():
+                print("%s%s: %s" % (
+                    cmd,
+                    _args(func),
+                    func.__doc__ and func.__doc__.strip().split("\n")[0]
+                ))
+
+    def _completer(self) -> 'prompt_toolkit.completion.Completer':
+        """
+        Returns a prompt_toolkit custom completer
+        """
+        from prompt_toolkit.completion import Completer, Completion
+
+        class CLICompleter(Completer):
+            def get_completions(cmpl, document, complete_event):  # type: ignore
+                if not complete_event.completion_requested:
+                    # Only activate when the user does <TAB>
+                    return
+                parts = document.text.split(" ", 1)
+                cmd = parts[0].lower()
+                if cmd not in self.commands:
+                    # We are trying to complete the command
+                    for possible_cmd in (x for x in self.commands if x.startswith(cmd)):
+                        yield Completion(possible_cmd, start_position=-len(cmd))
+                else:
+                    # We are trying to complete the command content
+                    if len(parts) == 1:
+                        return
+                    arg = parts[1]
+                    if cmd in self.commands_complete:
+                        for possible_arg in self.commands_complete[cmd](self, arg):
+                            yield Completion(possible_arg, start_position=-len(arg))
+                return
+        return CLICompleter()
+
+    def loop(self, debug: int = 0) -> None:
+        """
+        Main command handling loop
+        """
+        from prompt_toolkit import PromptSession
+        session = PromptSession(completer=self._completer())
+
+        while True:
+            try:
+                cmd = session.prompt(self.ps1()).strip()
+            except KeyboardInterrupt:
+                continue
+            except EOFError:
+                self.close()
+                break
+            args = cmd.split(" ")[1:]
+            cmd = cmd.split(" ")[0].strip().lower()
+            if not cmd:
+                continue
+            if cmd in ["help", "h", "?"]:
+                self.help()
+                continue
+            if cmd in "exit":
+                break
+            if cmd not in self.commands:
+                print("Unknown command. Type help or ?")
+            else:
+                # check the number of arguments
+                func = self.commands[cmd]
+                if func._spaces:  # type: ignore
+                    args = [" ".join(args)]
+                res = None
+                try:
+                    res = func(self, *args)
+                except TypeError:
+                    print("Bad number of arguments !")
+                    self.help(cmd=cmd)
+                    continue
+                except Exception as ex:
+                    print("Command failed with error: %s" % ex)
+                    if debug > 1:
+                        traceback.print_exception(ex)
+                try:
+                    if res and cmd in self.commands_output:
+                        self.commands_output[cmd](self, res)
+                except Exception as ex:
+                    print("Output processor failed with error: %s" % ex)
+
 
 #######################
 #   PERIODIC SENDER   #

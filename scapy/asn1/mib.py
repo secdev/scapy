@@ -612,11 +612,13 @@ evPolicy_oids = {
     '2.16.840.1.114414.1.7.24.3': 'EV Starfield Service Certificate Authority'
 }
 
-#
+#       gssapi       #
 
 gssapi_oids = {
     '1.2.840.48018.1.2.2': 'MS KRB5 - Microsoft Kerberos 5',
     '1.2.840.113554.1.2.2': 'Kerberos 5',
+    '1.2.840.113554.1.2.2.3': 'Kerberos 5 - User to User',
+    '1.3.6.1.5.2.5': 'Kerberos 5 - IAKERB',
     '1.3.6.1.5.5.2': 'SPNEGO - Simple Protected Negotiation',
     '1.3.6.1.4.1.311.2.2.10': 'NTLMSSP - Microsoft NTLM Security Support Provider',
     '1.3.6.1.4.1.311.2.2.30': 'NEGOEX - SPNEGO Extended Negotiation Security Mechanism',

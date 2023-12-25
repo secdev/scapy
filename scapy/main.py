@@ -48,7 +48,8 @@ from scapy.compat import (
 )
 
 LAYER_ALIASES = {
-    "tls": "tls.all"
+    "tls": "tls.all",
+    "msrpce": "msrpce.all",
 }
 
 QUOTES = [
@@ -359,11 +360,12 @@ def _scapy_exts():
     """Load Scapy exts and return their builtins"""
     from scapy.config import conf
     res = {}
-    for ext in conf.exts.exts:
-        for mod in ext.modules.values():
+    for modname, spec in conf.exts.all_specs.items():
+        if spec.default:
+            mod = sys.modules[modname]
             res.update({
                 k: v
-                for k, v in mod.module.__dict__.copy().items()
+                for k, v in mod.__dict__.copy().items()
                 if _validate_local(k)
             })
     return res
@@ -791,16 +793,30 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                 log_loading.warning("%s requested but not found !" % imp)
                 conf.interactive_shell = "python"
 
-    # Display warning when using the default REPL
+    # Default shell
     if conf.interactive_shell == "python":
-        log_loading.info(
-            "When using the default Python shell, AutoCompletion, History are disabled."
-        )
+        disabled = ["History"]
         if WINDOWS:
-            log_loading.info(
-                "On Windows, colors are also disabled"
-            )
+            disabled.append("Colors")
             conf.color_theme = BlackAndWhite()
+        else:
+            try:
+                # Bad completer.. but better than nothing
+                import rlcompleter
+                import readline
+                readline.set_completer(
+                    rlcompleter.Completer(namespace=SESSION).complete
+                )
+                readline.parse_and_bind('tab: complete')
+            except ImportError:
+                disabled.insert(0, "AutoCompletion")
+        # Display warning when using the default REPL
+        log_loading.info(
+            "Using the default Python shell: %s %s disabled." % (
+                ",".join(disabled),
+                "is" if len(disabled) == 1 else "are"
+            )
+        )
 
     # ptpython configure function
     def ptpython_configure(repl):
