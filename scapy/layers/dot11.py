@@ -970,7 +970,7 @@ _dot11_info_elts_ids = {
     61: "HT Operation",
     74: "Overlapping BSS Scan Parameters",
     107: "Interworking",
-    127: "Extendend Capabilities",
+    127: "Extended Capabilities",
     191: "VHT Capabilities",
     192: "VHT Operation",
     221: "Vendor Specific"
