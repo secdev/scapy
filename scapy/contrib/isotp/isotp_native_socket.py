@@ -390,7 +390,7 @@ class ISOTPNativeSocket(SuperSocket):
                 self.close()
             return None, None, None
 
-        if ts is None:
+        if pkt and ts is None:
             ts = get_last_packet_timestamp(self.ins)
         return self.basecls, pkt, ts
 
