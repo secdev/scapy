@@ -887,6 +887,80 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
                    StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)  # noqa: E501
                    ]
 
+
+# RFC 9460 Service Binding and Parameter Specification via the DNS
+# https://www.rfc-editor.org/rfc/rfc9460.html
+
+
+# https://www.iana.org/assignments/dns-svcb/dns-svcb.xhtml
+svc_param_keys = {
+    0: "mandatory",
+    1: "alpn",
+    2: "no-default-alpn",
+    3: "port",
+    4: "ipv4hint",
+    5: "ech",
+    6: "ipv6hint",
+    7: "dohpath",
+    8: "ohttp",
+}
+
+
+class SvcParam(Packet):
+    name = "SvcParam"
+    fields_desc = [ShortEnumField("key", 0, svc_param_keys),
+                   FieldLenField("len", None, length_of="value", fmt="H"),
+                   MultipleTypeField(
+                       [
+                           # mandatory
+                           (FieldListField("value", [],
+                                           ShortEnumField("", 0, svc_param_keys),
+                                           length_from=lambda pkt: pkt.len),
+                               lambda pkt: pkt.key == 0),
+                           # alpn, no-default-alpn
+                           (DNSTextField("value", [],
+                                         length_from=lambda pkt: pkt.len),
+                               lambda pkt: pkt.key in (1, 2)),
+                           # port
+                           (ShortField("value", 0),
+                               lambda pkt: pkt.key == 3),
+                           # ipv4hint
+                           (FieldListField("value", [],
+                                           IPField("", "0.0.0.0"),
+                                           length_from=lambda pkt: pkt.len),
+                               lambda pkt: pkt.key == 4),
+                           # ipv6hint
+                           (FieldListField("value", [],
+                                           IP6Field("", "::"),
+                                           length_from=lambda pkt: pkt.len),
+                               lambda pkt: pkt.key == 6),
+                       ],
+                       StrLenField("value", "",
+                                   length_from=lambda pkt:pkt.len))]
+
+    def extract_padding(self, p):
+        return "", p
+
+
+class DNSRRSVCB(_DNSRRdummy):
+    name = "DNS SVCB Resource Record"
+    fields_desc = [DNSStrField("rrname", ""),
+                   ShortEnumField("type", 64, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   ShortField("svc_priority", 0),
+                   DNSStrField("target_name", ""),
+                   PacketListField("svc_params", [], SvcParam)]
+
+
+class DNSRRHTTPS(_DNSRRdummy):
+    name = "DNS HTTPS Resource Record"
+    fields_desc = [DNSStrField("rrname", ""),
+                   ShortEnumField("type", 65, dnstypes)
+                   ] + DNSRRSVCB.fields_desc[2:]
+
+
 # RFC 2782 - A DNS RR for specifying the location of services (DNS SRV)
 
 
@@ -976,6 +1050,8 @@ DNSRR_DISPATCHER = {
     48: DNSRRDNSKEY,     # RFC 4034
     50: DNSRRNSEC3,      # RFC 5155
     51: DNSRRNSEC3PARAM,  # RFC 5155
+    64: DNSRRSVCB,       # RFC 9460
+    65: DNSRRHTTPS,      # RFC 9460
     250: DNSRRTSIG,      # RFC 2845
     32769: DNSRRDLV,     # RFC 4431
 }
