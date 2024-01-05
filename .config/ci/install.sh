@@ -14,7 +14,7 @@ then
 fi
 
 # Install on osx
-if [ "${OSTYPE:0:6}" = "darwin" ] || [ "$TRAVIS_OS_NAME" = "osx" ]
+if [ "${OSTYPE:0:6}" = "darwin" ]
 then
   if [ ! -z $SCAPY_USE_LIBPCAP ]
   then
@@ -24,7 +24,7 @@ then
 fi
 
 # Install wireshark data, ifconfig, vcan, samba
-if [ "$OSTYPE" = "linux-gnu" ] || [ "$TRAVIS_OS_NAME" = "linux" ]
+if [ "$OSTYPE" = "linux-gnu" ]
 then
   sudo apt-get update
   sudo apt-get -qy install tshark net-tools || exit 1
@@ -38,16 +38,16 @@ then
   fi
 fi
 
-# On Travis, "osx" dependencies are installed in .travis.yml
-if [ "$TRAVIS_OS_NAME" != "osx" ]
-then
-  # Update pip & setuptools (tox uses those)
-  python -m pip install --upgrade pip setuptools --ignore-installed
+# Update pip & setuptools (tox uses those)
+python -m pip install --upgrade pip setuptools wheel --ignore-installed
 
-  # Make sure tox is installed and up to date
-  python -m pip install -U tox --ignore-installed
-fi
+# Make sure tox is installed and up to date
+python -m pip install -U tox --ignore-installed
 
 # Dump Environment (so that we can check PATH, UT_FLAGS, etc.)
 openssl version
+if [ "$OSTYPE" = "linux-gnu" ]
+then
+  smbclient -V
+fi
 set
