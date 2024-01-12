@@ -15,7 +15,6 @@ import struct
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.fields import (
-    ByteField,
     ConditionalField,
     FieldLenField,
     FieldListField,
@@ -68,6 +67,7 @@ from scapy.layers.ntlm import (
     _NTLMPayloadField,
     _NTLMPayloadPacket,
 )
+from scapy.layers.smb2 import WINNT_SID
 
 # sect 2.4
 
@@ -170,7 +170,7 @@ class SID(NDRPacket):
     ]
 
     def summary(self):
-        return MSDN_SID.summary(self)
+        return WINNT_SID.summary(self)
 
 
 class KERB_SID_AND_ATTRIBUTES(NDRPacket):
@@ -336,43 +336,6 @@ class S4U_DELEGATION_INFO(NDRPacket):
 # sect 2.10
 
 
-class MSDN_SID_IDENTIFIER_AUTHORITY(Packet):
-    fields_desc = [
-        StrFixedLenField("Value", b"", length=6),
-    ]
-
-    def default_payload_class(self, payload):
-        return conf.padding_layer
-
-
-class MSDN_SID(Packet):
-    # https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-sid
-    fields_desc = [
-        ByteField("Revision", 1),
-        FieldLenField("SubAuthorityCount", None, count_of="SubAuthority", fmt="B"),
-        PacketField(
-            "IdentifierAuthority",
-            MSDN_SID_IDENTIFIER_AUTHORITY(),
-            MSDN_SID_IDENTIFIER_AUTHORITY,
-        ),
-        FieldListField(
-            "SubAuthority",
-            [],
-            LEIntField("", 0),
-            count_from=lambda pkt: pkt.SubAuthorityCount,
-        ),
-    ]
-
-    def summary(self):
-        return "S-%s-%s%s" % (
-            self.Revision,
-            struct.unpack(">Q", b"\x00\x00" + self.IdentifierAuthority.Value)[0],
-            ("-%s" % "-".join(str(x) for x in self.SubAuthority))
-            if self.SubAuthority
-            else "",
-        )
-
-
 def _pac_post_build(self, p, pay_offset, fields):
     """Util function to build the offset and populate the lengths"""
     for field_name, value in self.fields["Payload"]:
@@ -434,7 +397,7 @@ class UPN_DNS_INFO(_NTLMPayloadPacket):
                             StrFieldUtf16("Upn", b""),
                             StrFieldUtf16("DnsDomainName", b""),
                             StrFieldUtf16("SamName", b""),
-                            PacketField("Sid", MSDN_SID(), MSDN_SID),
+                            PacketField("Sid", WINNT_SID(), WINNT_SID),
                         ],
                     ),
                     lambda pkt: pkt.Flags.S,
@@ -816,7 +779,7 @@ _PACTYPES[0x11] = PAC_ATTRIBUTES_INFO
 
 class PAC_REQUESTOR(Packet):
     fields_desc = [
-        PacketField("Sid", MSDN_SID(), MSDN_SID),
+        PacketField("Sid", WINNT_SID(), WINNT_SID),
     ]
 
 

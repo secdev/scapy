@@ -112,7 +112,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         self.fields = fields
         self.fields_map = {field.name: field for field in fields}
         self.length_from = length_from
-        self.force_order = force_order
+        self.force_order = force_order  # whether the order of fields is fixed
         self.offset_name = offset_name
         super(_NTLMPayloadField, self).__init__(
             name,
@@ -195,12 +195,20 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         results = []
         max_offset = 0
         o_pkt = self._o_pkt(pkt)
-        for field in self.fields:
-            offset = pkt.getfieldval(field.name + self.offset_name) - o_pkt
+        offsets = [
+            pkt.getfieldval(x.name + self.offset_name) - o_pkt for x in self.fields
+        ]
+        for i, field in enumerate(self.fields):
+            offset = offsets[i]
             try:
                 length = pkt.getfieldval(field.name + "Len")
             except AttributeError:
                 length = len(remain) - offset
+                # length can't be greater than the difference with the next offset
+                try:
+                    length = min(length, min(x - offset for x in offsets if x > offset))
+                except ValueError:
+                    pass
             if offset < 0:
                 continue
             max_offset = max(offset + length, max_offset)

@@ -77,8 +77,6 @@ from scapy.layers.msrpce.mspac import (
     GROUP_MEMBERSHIP,
     KERB_SID_AND_ATTRIBUTES,
     KERB_VALIDATION_INFO,
-    MSDN_SID,
-    MSDN_SID_IDENTIFIER_AUTHORITY,
     PAC_ATTRIBUTES_INFO,
     PAC_CLIENT_CLAIMS_INFO,
     PAC_CLIENT_INFO,
@@ -93,6 +91,10 @@ from scapy.layers.msrpce.mspac import (
     UPN_DNS_INFO,
     USER_SESSION_KEY,
     CLAIM_ENTRY_sub2,
+)
+from scapy.layers.smb2 import (
+    WINNT_SID,
+    WINNT_SID_IDENTIFIER_AUTHORITY,
 )
 
 from scapy.libs.rfc3961 import EncryptionType, Key, _checksums
@@ -737,9 +739,9 @@ class Ticketer:
         if m.group(3):
             subauthors = [int(x) for x in m.group(3).split("-")]
         if msdn:
-            return MSDN_SID(
+            return WINNT_SID(
                 Revision=int(m.group(1)),
-                IdentifierAuthority=MSDN_SID_IDENTIFIER_AUTHORITY(
+                IdentifierAuthority=WINNT_SID_IDENTIFIER_AUTHORITY(
                     Value=struct.pack(">Q", int(m.group(2)))[2:],
                 ),
                 SubAuthority=subauthors,

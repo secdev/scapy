@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
 # See https://scapy.net/ for more information
-# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) Gabriel Potter
 
 """
 SMB (Server Message Block), also known as CIFS - version 2
@@ -109,7 +109,7 @@ STATUS_ERREF = {
     0xC0000225: "STATUS_NOT_FOUND",
     0xC0000257: "STATUS_PATH_NOT_COVERED",
     0xC000035C: "STATUS_NETWORK_SESSION_EXPIRED",
-    0xc000020C: "STATUS_CONNECTION_DISCONNECTED",
+    0xC000020C: "STATUS_CONNECTION_DISCONNECTED",
 }
 
 # SMB2 sect 2.1.2.1
@@ -495,6 +495,7 @@ class FileNetworkOpenInformation(Packet):
 
 # [MS-FSCC] 2.4.8 FileBothDirectoryInformation
 
+
 class FILE_BOTH_DIR_INFORMATION(Packet):
     fields_desc = (
         [
@@ -512,10 +513,12 @@ class FILE_BOTH_DIR_INFORMATION(Packet):
                 # "If FILE_ATTRIBUTE_REPARSE_POINT is set in the FileAttributes field,
                 # this field MUST contain a reparse tag as specified in section
                 # 2.1.2.1."
-                [(
-                    LEIntEnumField("EaSize", 0, REPARSE_TAGS),
-                    lambda pkt: pkt.FileAttributes.FILE_ATTRIBUTE_REPARSE_POINT,
-                )],
+                [
+                    (
+                        LEIntEnumField("EaSize", 0, REPARSE_TAGS),
+                        lambda pkt: pkt.FileAttributes.FILE_ATTRIBUTE_REPARSE_POINT,
+                    )
+                ],
                 LEIntField("EaSize", 0),
             ),
             ByteField("ShortNameLength", 0),
@@ -559,6 +562,7 @@ class FileBothDirectoryInformation(Packet):
 
 # [MS-FSCC] 2.4.14 FileFullDirectoryInformation
 
+
 class FILE_FULL_DIR_INFORMATION(Packet):
     fields_desc = FILE_BOTH_DIR_INFORMATION.fields_desc[:11] + [
         FILE_BOTH_DIR_INFORMATION.fields_desc[-1]
@@ -580,13 +584,11 @@ class FileFullDirectoryInformation(Packet):
 
 
 class FILE_ID_BOTH_DIR_INFORMATION(Packet):
-    fields_desc = (
-        FILE_BOTH_DIR_INFORMATION.fields_desc[:14] + [
-            LEShortField("Reserved2", 0),
-            LELongField("FileId", 0),
-            FILE_BOTH_DIR_INFORMATION.fields_desc[-1]
-        ]
-    )
+    fields_desc = FILE_BOTH_DIR_INFORMATION.fields_desc[:14] + [
+        LEShortField("Reserved2", 0),
+        LELongField("FileId", 0),
+        FILE_BOTH_DIR_INFORMATION.fields_desc[-1],
+    ]
 
     def default_payload_class(self, s):
         return conf.padding_layer
@@ -683,10 +685,177 @@ class FileStreamInformation(Packet):
     ]
 
 
+# [MS-DTYP] sect 2.4.1
+
+
+class WINNT_SID_IDENTIFIER_AUTHORITY(Packet):
+    fields_desc = [
+        StrFixedLenField("Value", b"", length=6),
+    ]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
+
+# [MS-DTYP] sect 2.4.2
+
+
+class WINNT_SID(Packet):
+    fields_desc = [
+        ByteField("Revision", 1),
+        FieldLenField("SubAuthorityCount", None, count_of="SubAuthority", fmt="B"),
+        PacketField(
+            "IdentifierAuthority",
+            WINNT_SID_IDENTIFIER_AUTHORITY(),
+            WINNT_SID_IDENTIFIER_AUTHORITY,
+        ),
+        FieldListField(
+            "SubAuthority",
+            [],
+            LEIntField("", 0),
+            count_from=lambda pkt: pkt.SubAuthorityCount,
+        ),
+    ]
+
+    def summary(self):
+        return "S-%s-%s%s" % (
+            self.Revision,
+            struct.unpack(">Q", b"\x00\x00" + self.IdentifierAuthority.Value)[0],
+            ("-%s" % "-".join(str(x) for x in self.SubAuthority))
+            if self.SubAuthority
+            else "",
+        )
+
+
+# [MS-DTYP] sect 2.4.3
+
+_WINNT_ACCESS_MASK = {
+    0x80000000: "GENERIC_READ",
+    0x40000000: "GENERIC_WRITE",
+    0x20000000: "GENERIC_EXECUTE",
+    0x10000000: "GENERIC_ALL",
+    0x02000000: "MAXIMUM_ALLOWED",
+    0x01000000: "ACCESS_SYSTEM_SECURITY",
+    0x00100000: "SYNCHRONIZE",
+    0x00080000: "WRITE_OWNER",
+    0x00040000: "WRITE_DACL",
+    0x00020000: "READ_CONTROL",
+    0x00010000: "DELETE",
+}
+
+
+# [MS-DTYP] sect 2.4.4.1
+
+
+class WINNT_ACE_HEADER(Packet):
+    fields_desc = [
+        ByteEnumField(
+            "AceType",
+            0,
+            {
+                0x00: "ACCESS_ALLOWED",
+                0x01: "ACCESS_DENIED",
+                0x02: "SYSTEM_AUDIT",
+                0x03: "SYSTEM_ALARM",
+                0x04: "ACCESS_ALLOWED_COMPOUND",
+                0x05: "ACCESS_ALLOWED_OBJECT",
+                0x06: "ACCESS_DENIED_OBJECT",
+                0x07: "SYSTEM_AUDIT_OBJECT",
+                0x08: "SYSTEM_ALARM_OBJECT",
+                0x09: "ACCESS_ALLOWED_CALLBACK",
+                0x0A: "ACCESS_DENIED_CALLBACK",
+                0x0B: "ACCESS_ALLOWED_CALLBACK_OBJECT",
+                0x0C: "ACCESS_DENIED_CALLBACK_OBJECT",
+                0x0D: "SYSTEM_AUDIT_CALLBACK",
+                0x0E: "SYSTEM_ALARM_CALLBACK",
+                0x0F: "SYSTEM_AUDIT_CALLBACK_OBJECT",
+                0x10: "SYSTEM_ALARM_CALLBACK_OBJECT",
+                0x11: "SYSTEM_MANDATORY_LABEL",
+                0x12: "SYSTEM_RESOURCE_ATTRIBUTE",
+                0x13: "SYSTEM_SCOPED_POLICY_ID",
+            },
+        ),
+        FlagsField(
+            "AceFlags",
+            0,
+            8,
+            {
+                0x01: "OBJECT_INHERIT",
+                0x02: "CONTAINER_INHERIT",
+                0x04: "NO_PROPAGATE_INHERIT",
+                0x08: "INHERIT_ONLY",
+                0x10: "INHERITED_ACE",
+                0x40: "SUCCESSFUL_ACCESS",
+                0x80: "FAILED_ACCESS",
+            },
+        ),
+        LenField("AceSize", None, fmt="<H", adjust=lambda x: x + 4),
+    ]
+
+    def extract_padding(self, p):
+        return p[: self.AceSize - 4], p[self.AceSize - 4 :]
+
+
+# [MS-DTYP] sect 2.4.4.2
+
+
+class WINNT_ACCESS_ALLOWED_ACE(Packet):
+    fields_desc = [
+        FlagsField("Mask", 0, -32, _WINNT_ACCESS_MASK),
+        PacketField("Sid", WINNT_SID(), WINNT_SID),
+    ]
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_ALLOWED_ACE, AceType=0x00)
+
+
+# [MS-DTYP] sect 2.4.4.4
+
+
+class WINNT_ACCESS_DENIED_ACE(Packet):
+    fields_desc = WINNT_ACCESS_ALLOWED_ACE.fields_desc
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_DENIED_ACE, AceType=0x01)
+
+
+# [MS-DTYP] sect 2.4.4.10
+
+
+class WINNT_AUDIT_ACE(Packet):
+    fields_desc = WINNT_ACCESS_ALLOWED_ACE.fields_desc
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_AUDIT_ACE, AceType=0x02)
+
+
+# [MS-DTYP] sect 2.4.5
+
+
+class WINNT_ACL(Packet):
+    fields_desc = [
+        ByteField("AclRevision", 2),
+        ByteField("Sbz1", 0x00),
+        FieldLenField(
+            "AclSize", None, length_of="Aces", adjust=lambda _, x: x + 14, fmt="<H"
+        ),
+        FieldLenField("AceCount", None, count_of="Aces", fmt="<H"),
+        ShortField("Sbz2", 0),
+        PacketListField(
+            "Aces",
+            [],
+            WINNT_ACE_HEADER,
+            count_from=lambda pkt: pkt.AceCount,
+        ),
+    ]
+
+
 # [MS-DTYP] 2.4.6 SECURITY_DESCRIPTOR
 
 
-class SECURITY_DESCRIPTOR(Packet):
+class SECURITY_DESCRIPTOR(_NTLMPayloadPacket):
+    OFFSET = 20
+    _NTLM_PAYLOAD_FIELD_NAME = "Data"
     fields_desc = [
         ByteField("Revision", 0x01),
         ByteField("Sbz1", 0x00),
@@ -695,37 +864,50 @@ class SECURITY_DESCRIPTOR(Packet):
             0x00,
             -16,
             [
-                "SelfRelative",
-                "RMControlValid",
-                "SACLProtected",
-                "DACLProtected",
-                "SACLAutoInherited",
-                "DACLAutoInheriter",
-                "SACLComputer",
-                "DACLComputer",
-                "ServerSecurity",
-                "DACLTrusted",
-                "SACLDefaulted",
-                "SACLPresent",
-                "DACLDefaulted",
-                "DACLPresent",
-                "GroupDefaulted",
                 "OwnerDefaulted",
+                "GroupDefaulted",
+                "DACLPresent",
+                "DACLDefaulted",
+                "SACLPresent",
+                "SACLDefaulted",
+                "DACLTrusted",
+                "ServerSecurity",
+                "DACLComputer",
+                "SACLComputer",
+                "DACLAutoInheriter",
+                "SACLAutoInherited",
+                "DACLProtected",
+                "SACLProtected",
+                "RMControlValid",
+                "SelfRelative",
             ],
         ),
-        LEIntField("OffsetOwner", 0),
-        LEIntField("OffsetGroup", 0),
-        LEIntField("OffsetSacl", 0),
-        LEIntField("OffsetDacl", 0),
-        ConditionalField(XStrLenField("OwnerSid", b""), lambda pkt: pkt.OffsetOwner),
-        ConditionalField(XStrLenField("GroupSid", b""), lambda pkt: pkt.OffsetGroup),
-        ConditionalField(
-            XStrLenField("Sacl", b""),
-            lambda pkt: pkt.Control.SACLPresent,
-        ),
-        ConditionalField(
-            XStrLenField("Dacl", b""),
-            lambda pkt: pkt.Control.DACLPresent,
+        LEIntField("OwnerSidOffset", 0),
+        LEIntField("GroupSidOffset", 0),
+        LEIntField("SaclOffset", 0),
+        LEIntField("DaclOffset", 0),
+        _NTLMPayloadField(
+            "Data",
+            OFFSET,
+            [
+                ConditionalField(
+                    PacketField("OwnerSid", WINNT_SID(), WINNT_SID),
+                    lambda pkt: pkt.OwnerSidOffset,
+                ),
+                ConditionalField(
+                    PacketField("GroupSid", WINNT_SID(), WINNT_SID),
+                    lambda pkt: pkt.GroupSidOffset,
+                ),
+                ConditionalField(
+                    PacketField("Sacl", WINNT_ACL(), WINNT_ACL),
+                    lambda pkt: pkt.Control.SACLPresent,
+                ),
+                ConditionalField(
+                    PacketField("Dacl", WINNT_ACL(), WINNT_ACL),
+                    lambda pkt: pkt.Control.DACLPresent,
+                ),
+            ],
+            offset_name="Offset",
         ),
     ]
 
@@ -890,11 +1072,11 @@ def _SMB2_post_build(self, p, pay_offset, fields):
 
 # SMB2 sect 2.1
 
+
 class DirectTCP(NBTSession):
     name = "Direct TCP"
     MAXLENGTH = 0xFFFFFF
-    fields_desc = [ByteField("zero", 0),
-                   ThreeBytesField("LENGTH", None)]
+    fields_desc = [ByteField("zero", 0), ThreeBytesField("LENGTH", None)]
 
 
 # SMB2 sect 2.2.1.1
@@ -2851,6 +3033,7 @@ class SMB2_IOCTL_Validate_Negotiate_Info_Response(Packet):
 
 # [MS-FSCC] sect 2.3.42
 
+
 class SMB2_IOCTL_OFFLOAD_READ_Request(Packet):
     name = "SMB2 IOCTL OFFLOAD_READ Request"
     fields_desc = [
@@ -2865,29 +3048,39 @@ class SMB2_IOCTL_OFFLOAD_READ_Request(Packet):
 
 # [MS-FSCC] sect 2.1.11
 
+
 class STORAGE_OFFLOAD_TOKEN(Packet):
     fields_desc = [
-        LEIntEnumField("TokenType", 0xFFFF0001, {
-            0xFFFF0001: "STORAGE_OFFLOAD_TOKEN_TYPE_ZERO_DATA",
-        }),
+        LEIntEnumField(
+            "TokenType",
+            0xFFFF0001,
+            {
+                0xFFFF0001: "STORAGE_OFFLOAD_TOKEN_TYPE_ZERO_DATA",
+            },
+        ),
         LEShortField("Reserved", 0),
-        FieldLenField("TokenIdLength", None, fmt="<H",
-                      length_of="TokenId"),
+        FieldLenField("TokenIdLength", None, fmt="<H", length_of="TokenId"),
         StrFixedLenField("TokenId", b"", length=504),
     ]
 
 
 # [MS-FSCC] sect 2.3.42
 
+
 class SMB2_IOCTL_OFFLOAD_READ_Response(Packet):
     name = "SMB2 IOCTL OFFLOAD_READ Response"
     fields_desc = [
         LEIntField("StructureSize", 0x210),
-        FlagsField("Flags", 0, -32, {
-            0x00000001: "OFFLOAD_READ_FLAG_ALL_ZERO_BEYOND_CURRENT_RANGE",
-        }),
+        FlagsField(
+            "Flags",
+            0,
+            -32,
+            {
+                0x00000001: "OFFLOAD_READ_FLAG_ALL_ZERO_BEYOND_CURRENT_RANGE",
+            },
+        ),
         LELongField("TransferLength", 0),
-        PacketField("Token", STORAGE_OFFLOAD_TOKEN(), STORAGE_OFFLOAD_TOKEN)
+        PacketField("Token", STORAGE_OFFLOAD_TOKEN(), STORAGE_OFFLOAD_TOKEN),
     ]
 
 
