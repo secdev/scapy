@@ -50,8 +50,7 @@ len(iflist) > 0
 = Misc functions
 ~ needs_root
 
-from scapy.arch.bpf.supersocket import isBPFSocket, bpf_select
-isBPFSocket(L2bpfListenSocket()) and isBPFSocket(L2bpfSocket()) and isBPFSocket(L3bpfSocket())
+from scapy.arch.bpf.supersocket import bpf_select
 
 l = bpf_select([L2bpfSocket()])
 l = bpf_select([L2bpfSocket(), sys.stdin.fileno()])

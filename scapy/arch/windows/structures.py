@@ -23,13 +23,16 @@ from socket import AddressFamily
 
 from scapy.config import conf
 from scapy.consts import WINDOWS_XP
+from scapy.data import MTU
 
 # Typing imports
 from typing import (
     Any,
     Dict,
+    IO,
     List,
     Optional,
+    Tuple,
 )
 
 ANY_SIZE = 65500  # FIXME quite inefficient :/
@@ -42,6 +45,7 @@ BOOLEAN = ctypes.wintypes.BOOLEAN
 ULONG = ctypes.wintypes.ULONG
 ULONGLONG = ctypes.c_ulonglong
 HANDLE = ctypes.wintypes.HANDLE
+LPVOID = ctypes.wintypes.LPVOID
 LPWSTR = ctypes.wintypes.LPWSTR
 VOID = ctypes.c_void_p
 INT = ctypes.c_int
@@ -607,3 +611,61 @@ def GetIpForwardTable2(AF=AddressFamily.AF_UNSPEC):
         results.append(_struct_to_dict(table.contents.Table[i]))
     _FreeMibTable(table)
     return results
+
+
+##############
+#### FIFO ####
+##############
+
+class _SECURITY_ATTRIBUTES(Structure):
+    _fields_ = [("nLength", DWORD),
+                ("lpSecurityDescriptor", LPVOID),
+                ("bInheritHandle", BOOL)]
+
+
+LPSECURITY_ATTRIBUTES = POINTER(_SECURITY_ATTRIBUTES)
+
+
+def _get_win_fifo() -> Tuple[str, Any]:
+    """Create a windows fifo and returns the (client file, server fd)
+    """
+    from scapy.volatile import RandString
+    f = r"\\.\pipe\scapy%s" % str(RandString(6))
+    buffer = create_string_buffer(ctypes.sizeof(_SECURITY_ATTRIBUTES))
+    sec = ctypes.cast(buffer, LPSECURITY_ATTRIBUTES)
+    sec.contents.nLength = ctypes.sizeof(_SECURITY_ATTRIBUTES)
+    res = ctypes.windll.kernel32.CreateNamedPipeA(
+        create_string_buffer(f.encode()),
+        0x00000003 | 0x40000000,
+        0,
+        1, 65536, 65536,
+        300,
+        sec,
+    )
+    if res == -1:
+        raise OSError(ctypes.FormatError())
+    return f, res
+
+
+def _win_fifo_open(fd: Any) -> IO[bytes]:
+    """Connect NamedPipe and return a fake open() file
+    """
+    ctypes.windll.kernel32.ConnectNamedPipe(fd, None)
+
+    class _opened(IO[bytes]):
+        def read(self, x: int = MTU) -> bytes:
+            buf = ctypes.create_string_buffer(x)
+            res = ctypes.windll.kernel32.ReadFile(
+                fd,
+                buf,
+                x,
+                None,
+                None,
+            )
+            if res == 0:
+                raise OSError(ctypes.FormatError())
+            return buf.raw
+        def close(self) -> None:
+            # ignore failures
+            ctypes.windll.kernel32.CloseHandle(fd)
+    return _opened()  # type: ignore

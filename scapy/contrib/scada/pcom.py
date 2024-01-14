@@ -21,7 +21,7 @@ from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import TCP
 from scapy.fields import XShortField, ByteEnumField, XByteField, \
     StrFixedLenField, StrLenField, LEShortField, \
-    LEFieldLenField, LEX3BytesField, XLEShortField
+    LEFieldLenField, XLE3BytesField, XLEShortField
 from scapy.volatile import RandShort
 from scapy.compat import bytes_encode, orb
 
@@ -193,7 +193,7 @@ class PCOMBinaryRequest(PCOMBinary):
         XByteField("id", 0x0),
         XByteField("reserved1", 0xfe),
         XByteField("reserved2", 0x1),
-        LEX3BytesField("reserved3", 0x0),
+        XLE3BytesField("reserved3", 0x0),
         PCOMBinaryCommandField("command", None),
         XByteField("reserved4", 0x0),
         StrFixedLenField("commandSpecific", '', 6),
@@ -212,7 +212,7 @@ class PCOMBinaryResponse(PCOMBinary):
         XByteField("reserved1", 0xfe),
         XByteField("id", 0x0),
         XByteField("reserved2", 0x1),
-        LEX3BytesField("reserved3", 0x0),
+        XLE3BytesField("reserved3", 0x0),
         PCOMBinaryCommandField("command", None),
         XByteField("reserved4", 0x0),
         StrFixedLenField("commandSpecific", '', 6),

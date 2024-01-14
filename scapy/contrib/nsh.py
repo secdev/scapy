@@ -75,7 +75,7 @@ class NSH(Packet):
 
 
 bind_layers(Ether, NSH, {'type': 0x894F}, type=0x894F)
-bind_layers(VXLAN, NSH, {'flags': 0xC, 'nextproto': 4}, nextproto=4)
+bind_layers(VXLAN, NSH, {'flags': 0xC, 'NextProtocol': 4}, NextProtocol=4)
 bind_layers(GRE, NSH, {'proto': 0x894F}, proto=0x894F)
 
 bind_layers(NSH, IP, nextproto=1)

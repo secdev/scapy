@@ -66,3 +66,11 @@ a = GENEVE(proto=0x0800)/b'E\x00\x00\x1c\x00\x01\x00\x00@\x01\xfa$\xc0\xa8\x00w\
 a = GENEVE(raw(a))
 assert a.summary() == 'GENEVE / IP / ICMP 192.168.0.119 > 172.217.18.195 echo-request 0'
 assert a.mysummary() in ['GENEVE (vni=0x0,optionlen=0,proto=0x800)', 'GENEVE (vni=0x0,optionlen=0,proto=IPv4)']
+
+= GENEVE - Optionlen
+
+for size in range(0, 0x1f, 4):
+    p = GENEVE(bytes(GENEVE(options=GeneveOptions(data=RandString(size)))))
+    assert p[GENEVE].optionlen == (size // 4 + 1)
+    assert len(p[GENEVE].options[0].data) == size
+

@@ -877,7 +877,7 @@ assert dto.hashret() == cro.hashret()
 
 + Tests on a virtual CAN-Bus
 
-= CAN Socket sr1 with dto.ansers(cro) == True
+= CAN Socket sr1 with dto.answers(cro) == True
 
 sock1 = TestSocket(CCP)
 sock2 = TestSocket(CAN)
@@ -903,7 +903,7 @@ assert hasattr(dto, "load") == False
 assert dto.MTA0_extension == 2
 assert dto.MTA0_address == 0x34002006
 
-= CAN Socket sr1 with dto.ansers(cro) == False
+= CAN Socket sr1 with dto.answers(cro) == False
 
 sock1 = TestSocket(CCP)
 sock2 = TestSocket(CAN)

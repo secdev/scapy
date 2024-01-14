@@ -16,6 +16,7 @@ from scapy.fields import (
     FieldLenField,
     IntField,
     PacketField,
+    PacketLenField,
     PacketListField,
     ShortEnumField,
     ShortField,
@@ -23,7 +24,7 @@ from scapy.fields import (
     StrLenField,
     XStrLenField,
 )
-from scapy.packet import Packet, Padding
+from scapy.packet import Packet
 from scapy.layers.tls.extensions import TLS_Ext_Unknown, _tls_ext
 from scapy.layers.tls.crypto.groups import (
     _tls_named_curves,
@@ -228,26 +229,24 @@ class Ticket(Packet):
                    StrFixedLenField("mac", None, 32)]
 
 
-class TicketField(PacketField):
-    __slots__ = ["length_from"]
-
-    def __init__(self, name, default, length_from=None, **kargs):
-        self.length_from = length_from
-        PacketField.__init__(self, name, default, Ticket, **kargs)
-
+class TicketField(PacketLenField):
     def m2i(self, pkt, m):
-        tmp_len = self.length_from(pkt)
-        tbd, rem = m[:tmp_len], m[tmp_len:]
-        return self.cls(tbd) / Padding(rem)
+        if len(m) < 64:
+            # Minimum ticket size is 64 bytes
+            return conf.raw_layer(m)
+        return self.cls(m)
 
 
 class PSKIdentity(Packet):
     name = "PSK Identity"
     fields_desc = [FieldLenField("identity_len", None,
                                  length_of="identity"),
-                   TicketField("identity", "",
+                   TicketField("identity", "", Ticket,
                                length_from=lambda pkt: pkt.identity_len),
                    IntField("obfuscated_ticket_age", 0)]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
 
 
 class PSKBinderEntry(Packet):
@@ -256,6 +255,9 @@ class PSKBinderEntry(Packet):
                                  length_of="binder"),
                    StrLenField("binder", "",
                                length_from=lambda pkt: pkt.binder_len)]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
 
 
 class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):

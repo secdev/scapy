@@ -82,6 +82,16 @@ sniff(offline=tmp_file, session=IPSession, prn=callback)
 assert len(dissected_packets) == 1
 assert raw(dissected_packets[0]) == raw(packet)
 
+= IPSession - contains non-IP packets
+
+pkts = fragment(IP(dst="10.0.0.5")/ICMP()/("X"*1500))
+pkts.insert(1, ARP())
+assert len(pkts) == 3
+
+pkts = sniff(offline=pkts, session=IPSession)
+assert len(pkts) == 2
+assert pkts[1].load == b"X" * 1500
+
 = StringBuffer
 
 buffer = StringBuffer()
@@ -150,6 +160,25 @@ assert len(frags2) == 2
 assert len(frags2[0]) == 20 + paylen - paylen % 8
 assert len(frags2[1]) == 20 + 1 + paylen % 8
 
+= fragment() with fragsize lower than 8
+paylen = 5
+fragsize = paylen
+frags1 = fragment(IP() / ("X" * paylen), paylen)
+assert len(frags1) == 1
+assert bytes(frags1[0].payload) == b"X" * paylen
+
+fragsize = paylen + 1
+frags2 = fragment(IP() / ("X" * paylen), fragsize)
+assert len(frags2) == 1
+assert bytes(frags2[0].payload) == b"X" * paylen
+
+paylen = 16
+fragsize = 5
+frags3 = fragment(IP() / ("X" * paylen), fragsize)
+assert len(frags3) == 2
+assert bytes(frags3[0].payload) == b"X" * 8
+assert bytes(frags3[1].payload) == b"X" * 8
+
 = defrag()
 nonfrag, unfrag, badfrag = defrag(frags)
 assert not nonfrag
@@ -161,7 +190,7 @@ defrags = defragment(frags)
 * we should have one single packet
 assert len(defrags) == 1
 * which should be the same as pkt reconstructed
-assert defrags[0] == IP(raw(pkt))
+assert bytes(defrags[0]) == bytes(pkt)
 
 = defragment() uses timestamp of last fragment
 payloadlen, fragsize = 100, 8
@@ -191,10 +220,8 @@ b = base64.b64decode('bnmYJ63mREVTUwEACABFAAV0U8UgrDIR+kEEAgIECv0DxApz1F5olFRytj
 c = base64.b64decode('bnmYJ63mREVTUwEACABFAAFHU8UBWDIRHcMEAgIECv0DxDtlufeCT1zQktat4aEVA8MF0FO1sNbpEQtqfu5Al//OJISaRvtaArR/tLUj2CoZjS7uEnl7QpP/Ui/gR0YtyLurk9yTw7Vei0lSz4cnaOJqDiTGAKYwzVxjnoR1F3n8lplgQaOalVsHx9UAAQABAAADLAAEobkBA8epAAEAAQAAAywABKG5AQzHvwABAAEAAAMsAASnmYIMx5MAAQABAAADLAAEp5mCDcn9AAEAAQAAAqUABKeZhAvKFAABAAEAAAOEAAShuQIfyisAAQABAAADhAAEobkCKcpCAAEAAQAAA4QABKG5AjPKWQABAAEAAAOEAAShuQI9ynAAAQABAAADhAAEobkCC8nPAAEAAQAAA4QABKG5AgzJ5gABAAEAAAOEAASnmYQMAAApIAAAAAAAAAA=')
 d = base64.b64decode('////////REVTUwEACABFAABOawsAAIARtGoK/QExCv0D/wCJAIkAOry/3wsBEAABAAAAAAAAIEVKRkRFQkZFRUJGQUNBQ0FDQUNBQ0FDQUNBQ0FDQUFBAAAgAAEAABYP/WUAAB6N4XIAAB6E4XsAAACR/24AADyEw3sAABfu6BEAAAkx9s4AABXB6j4AAANe/KEAAAAT/+wAAB7z4QwAAEuXtGgAAB304gsAABTB6z4AAAdv+JAAACCu31EAADm+xkEAABR064sAABl85oMAACTw2w8AADrKxTUAABVk6psAABnF5joAABpA5b8AABjP5zAAAAqV9WoAAAUW+ukAACGS3m0AAAEP/vAAABoa5eUAABYP6fAAABX/6gAAABUq6tUAADXIyjcAABpy5Y0AABzb4yQAABqi5V0AAFXaqiUAAEmRtm4AACrL1TQAAESzu0wAAAzs8xMAAI7LcTQAABxN47IAAAbo+RcAABLr7RQAAB3Q4i8AAAck+NsAABbi6R0AAEdruJQAAJl+ZoEAABDH7zgAACOA3H8AAAB5/4YAABQk69sAAEo6tcUAABJU7asAADO/zEAAABGA7n8AAQ9L8LMAAD1DwrwAAB8F4PoAABbG6TkAACmC1n0AAlHErjkAABG97kIAAELBvT4AAEo0tcsAABtC5L0AAA9u8JEAACBU36sAAAAl/9oAABBO77EAAA9M8LMAAA8r8NQAAAp39YgAABB874MAAEDxvw4AAEgyt80AAGwsk9MAAB1O4rEAAAxL87QAADtmxJkAAATo+xcAAAM8/MMAABl55oYAACKh3V4AACGj3lwAAE5ssZMAAC1x0o4AAAO+/EEAABNy7I0AACYp2dYAACb+2QEAABB974IAABc36MgAAA1c8qMAAAf++AEAABDo7xcAACLq3RUAAA8L8PQAAAAV/+oAACNU3KsAABBv75AAABFI7rcAABuH5HgAABAe7+EAAB++4EEAACBl35oAAB7c4SMAADgJx/YAADeVyGoAACKN3XIAAA/C8D0AAASq+1UAAOHPHjAAABRI67cAAABw/48=')
 
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = 0
-plist = PacketList([Ether(x) for x in [a, b, c, d]])
-conf.debug_dissector = old_debug_dissector
+with no_debug_dissector():
+    plist = PacketList([Ether(x) for x in [a, b, c, d]])
 
 left, defragmented, errored = defrag(plist)
 assert len(left) == 1
@@ -421,6 +448,9 @@ pkt = IP(len=28, ihl=5) / UDP()
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x7cce and bpkt.payload.chksum == 0x0172
 
+* Invalid territory
+conf.debug_dissector = False
+
 pkt = IP() / UDP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x7cc4 and bpkt.payload.chksum == 0xbb17
@@ -445,6 +475,8 @@ pkt = IP(len=42, ihl=6, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
 
+conf.debug_dissector = True
+
 = IP with forced-length 0
 p = IP()/TCP()
 p[IP].len = 0
@@ -459,6 +491,63 @@ pkt2 = IP(raw(pkt))
 pkt2.len = 0
 pkt3 = IP(raw(pkt2))
 assert pkt3.load == data
+
+= TCPSession: test tcp_reassemble with variable orders
+
+class CustomPacket(Packet):
+    fields_desc = [
+        ByteField("len", 0),
+        StrLenField("a", 0, length_from=lambda pkt: pkt.len - 1),
+    ]
+    @classmethod
+    def tcp_reassemble(cls, data, metadata, session):
+        length = struct.unpack("!B", data[:1])[0]
+        if len(data) < length:
+            return None
+        return CustomPacket(data)
+
+
+# above we have a CustomPacket that is X bytes long.
+bind_layers(TCP, CustomPacket, sport=12345)
+
+with no_debug_dissector(reverse=True):
+    # incremental order
+    pkts = sniff(offline=[
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x05a",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=3)/"b",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=4)/"c",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
+    ], session=TCPSession)
+    assert pkts[0][CustomPacket].a == b"abcd"
+    # same with a pcapng
+    tmp_file = get_temp_file()
+    wrpcap(tmp_file, [
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x05a",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=3)/"b",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=4)/"c",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
+    ])
+    pkts = sniff(offline=tmp_file, session=TCPSession)
+    assert pkts[0][CustomPacket].a == b"abcd"
+    # messed up order: fragments 2 and 3 arrive in the wrong order
+    pkts = sniff(offline=[
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x05a",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=4)/"c",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=3)/"b",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
+    ], session=TCPSession)
+    assert pkts[0][CustomPacket].a == b"abcd"
+    # messed up order: fragment 1 arrives not in first position
+    pkts = sniff(offline=[
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=6)/"e",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=4)/"c",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=3)/"b",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x06a",
+    ], session=TCPSession)
+    assert pkts[0][CustomPacket].a == b"abcde"
+
+split_layers(TCP, CustomPacket, sport=12345)
 
 
 = Layer binding
@@ -483,6 +572,28 @@ assert isinstance(pkt, UDP) and pkt.dport == 5353
 pkt = pkt.payload
 assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
 
+= Layer binding with show()
+* getmacbyip must only be called when building
+
+import mock
+
+def _err(*_):
+    raise ValueError
+
+with mock.patch("scapy.layers.l2.getmacbyip", side_effect=_err):
+    with mock.patch("scapy.layers.inet.getmacbyip", side_effect=_err):
+        # ARP who-has should never call getmacbyip
+        pkt1 = Ether() / ARP(pdst="10.0.0.1")
+        pkt1.show()
+        bytes(pkt1)
+        # IP should only call getmacbyip when building
+        pkt2 = Ether() / IP(dst="10.0.0.1")
+        pkt2.show()
+        try:
+            bytes(pkt2)
+            assert False, "Should have called getmacbyip"
+        except ValueError:
+            pass
 
 ############
 ############
@@ -495,7 +606,8 @@ value == 26908070
 test.i2repr("", value) == '7:28:28.70'
 
 = IPv4 - UDP null checksum
-IP(raw(IP()/UDP()/Raw(b"\xff\xff\x01\x6a")))[UDP].chksum == 0xFFFF
+with no_debug_dissector():
+    IP(raw(IP()/UDP()/Raw(b"\xff\xff\x01\x6a")))[UDP].chksum == 0xFFFF
 
 = IPv4 - (IP|UDP|TCP|ICMP)Error
 query = IP(dst="192.168.0.1", src="192.168.0.254", ttl=1)/UDP()/DNS()

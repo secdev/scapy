@@ -27,9 +27,21 @@ from scapy.config import conf
 from scapy.consts import LINUX
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
 from scapy.error import Scapy_Exception, warning
-from scapy.interfaces import InterfaceProvider, IFACES, NetworkInterface, \
-    network_name
+from scapy.interfaces import (
+    InterfaceProvider,
+    NetworkInterface,
+    network_name,
+    _GlobInterfaceType,
+)
 from scapy.pton_ntop import inet_ntop
+
+# Typing
+from typing import (
+    Dict,
+    List,
+    Optional,
+    Tuple,
+)
 
 if LINUX:
     raise OSError("BPF conflicts with Linux")
@@ -64,7 +76,10 @@ LIBC.if_freenameindex.restype = None
 
 
 def get_if_raw_addr(ifname):
-    """Returns the IPv4 address configured on 'ifname', packed with inet_pton."""  # noqa: E501
+    # type: (_GlobInterfaceType) -> bytes
+    """
+    Returns the IPv4 address configured on 'ifname', packed with inet_pton.
+    """
 
     ifname = network_name(ifname)
 
@@ -96,6 +111,7 @@ def get_if_raw_addr(ifname):
 
 
 def get_if_raw_hwaddr(ifname):
+    # type: (_GlobInterfaceType) -> Tuple[int, bytes]
     """Returns the packed MAC address configured on 'ifname'."""
 
     NULL_MAC_ADDRESS = b'\x00' * 6
@@ -125,19 +141,19 @@ def get_if_raw_hwaddr(ifname):
         raise Scapy_Exception("No MAC address found on %s !" % ifname)
 
     # Pack and return the MAC address
-    mac = addresses[0].split(' ')[1]
-    mac = [chr(int(b, 16)) for b in mac.split(':')]
+    mac = [int(b, 16) for b in addresses[0].split(' ')[1].split(':')]
 
     # Check that the address length is correct
     if len(mac) != 6:
         raise Scapy_Exception("No MAC address found on %s !" % ifname)
 
-    return (ARPHDR_ETHER, ''.join(mac))
+    return (ARPHDR_ETHER, struct.pack("!BBBBBB", *mac))
 
 
 # BPF specific functions
 
 def get_dev_bpf():
+    # type: () -> Tuple[int, int]
     """Returns an opened BPF file object"""
 
     # Get the first available BPF handle
@@ -157,6 +173,7 @@ def get_dev_bpf():
 
 
 def attach_filter(fd, bpf_filter, iface):
+    # type: (int, str, _GlobInterfaceType) -> None
     """Attach a BPF filter to the BPF file descriptor"""
     bp = compile_filter(bpf_filter, iface)
     # Assign the BPF program to the interface
@@ -168,6 +185,7 @@ def attach_filter(fd, bpf_filter, iface):
 # Interface manipulation functions
 
 def _get_ifindex_list():
+    # type: () -> List[Tuple[str, int]]
     """
     Returns a list containing (iface, index)
     """
@@ -186,6 +204,7 @@ _IFNUM = re.compile(r"([0-9]*)([ab]?)$")
 
 
 def _get_if_flags(ifname):
+    # type: (_GlobInterfaceType) -> Optional[int]
     """Internal function to get interface flags"""
     # Get interface flags
     try:
@@ -203,6 +222,7 @@ class BPFInterfaceProvider(InterfaceProvider):
     name = "BPF"
 
     def _is_valid(self, dev):
+        # type: (NetworkInterface) -> bool
         if not dev.flags & 0x1:  # not IFF_UP
             return False
         # Get a BPF handle
@@ -225,17 +245,20 @@ class BPFInterfaceProvider(InterfaceProvider):
             os.close(fd)
 
     def load(self):
+        # type: () -> Dict[str, NetworkInterface]
         from scapy.fields import FlagValue
         data = {}
         ips = in6_getifaddr()
         for ifname, index in _get_ifindex_list():
             try:
-                ifflags = _get_if_flags(ifname)
+                ifflags_int = _get_if_flags(ifname)
+                if ifflags_int is None:
+                    continue
                 mac = scapy.utils.str2mac(get_if_raw_hwaddr(ifname)[1])
                 ip = inet_ntop(socket.AF_INET, get_if_raw_addr(ifname))
             except Scapy_Exception:
                 continue
-            ifflags = FlagValue(ifflags, _iff_flags)
+            ifflags = FlagValue(ifflags_int, _iff_flags)
             if_data = {
                 "name": ifname,
                 "network_name": ifname,
@@ -250,4 +273,4 @@ class BPFInterfaceProvider(InterfaceProvider):
         return data
 
 
-IFACES.register_provider(BPFInterfaceProvider)
+conf.ifaces.register_provider(BPFInterfaceProvider)

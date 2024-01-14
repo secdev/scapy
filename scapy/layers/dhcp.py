@@ -303,6 +303,7 @@ DHCPOptions = {
     77: "user_class",
     78: "slp_service_agent",
     79: "slp_service_scope",
+    80: "rapid_commit",
     81: "client_FQDN",
     82: "relay_agent_information",
     85: IPField("nds-server", "0.0.0.0"),
@@ -318,9 +319,10 @@ DHCPOptions = {
     98: StrField("uap-servers", ""),
     100: StrField("pcode", ""),
     101: StrField("tcode", ""),
+    108: IntField("ipv6-only-preferred", 0),
     112: IPField("netinfo-server-address", "0.0.0.0"),
     113: StrField("netinfo-server-tag", ""),
-    114: StrField("default-url", ""),
+    114: StrField("captive-portal", ""),
     116: ByteField("auto-config", 0),
     117: ShortField("name-service-search", 0,),
     118: IPField("subnet-selection", "0.0.0.0"),
@@ -592,7 +594,7 @@ class BOOTP_am(AnsweringMachine):
                       network="192.168.1.0/24",
                       gw="192.168.1.1",
                       nameserver=None,
-                      domain="localnet",
+                      domain=None,
                       renewal_time=60,
                       lease_time=1800):
         """

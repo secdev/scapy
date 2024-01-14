@@ -129,7 +129,7 @@ assert p.status == 0
 assert p.association_id == 0
 assert p.offset == 0
 assert p.count == 0
-assert p.data == b''
+assert p.data is None
 
 
 = NTP Control (mode 6) - CTL_OP_READSTAT (2) - response
@@ -175,7 +175,7 @@ assert p.op_code == 2
 assert p.sequence == 18
 assert p.status == 0
 assert p.association_id == 64655
-assert p.data == b''
+assert p.data is None
 
 
 = NTP Control (mode 6) - CTL_OP_READVAR (2) - response (1st packet)
@@ -246,7 +246,7 @@ assert p.response == 1
 assert p.err == 1
 assert p.more == 0
 assert p.op_code == 2
-assert len(p.data.load) == 0
+assert not p.data
 assert p.authenticator.key_id == 1
 assert bytes_hex(p.authenticator.dgst) == b'97280249dba07338ed722860db4a580a'
 
@@ -279,7 +279,7 @@ assert p.op_code == 3
 assert hasattr(p, 'status_word')
 assert isinstance(p.status_word, NTPErrorStatusPacket)
 assert p.status_word.error_code == 5
-assert len(p.data.load) == 0
+assert not p.data
 assert p.authenticator.key_id == 1
 assert bytes_hex(p.authenticator.dgst) == b'807a80fbafc470679853a8e57865811c'
 
@@ -358,8 +358,8 @@ assert p.response == 0
 assert p.err == 0
 assert p.more == 0
 assert p.op_code == 12
-assert p.data == b''
-assert p.authenticator == b''
+assert p.data is None
+assert not p.authenticator
 
 
 = NTP Control (mode 6) - CTL_OP_REQ_NONCE (2) - response
@@ -373,7 +373,7 @@ assert p.err == 0
 assert p.more == 0
 assert p.op_code == 12
 assert p.data.load == b'nonce=db4186a2e1d9022472e24bc9\r\n'
-assert p.authenticator == b''
+assert not p.authenticator
 
 
 = NTP Control (mode 6) - CTL_OP_READ_MRU (1) - request
@@ -387,7 +387,7 @@ assert p.err == 0
 assert p.op_code == 10
 assert p.count == 40
 assert p.data.load == b'nonce=db4186a2e1d9022472e24bc9, frags=32'
-assert p.authenticator == b''
+assert not p.authenticator
 
 = NTP Control (mode 6) - CTL_OP_READ_MRU (2) - response
 s = b'\xd6\x8a\x00\x08\x00\x00\x00\x00\x00\x00\x00\xe9nonce=db4186a2e2073198b93c6419, addr.0=192.168.122.100:123,\r\nfirst.0=0xdb418673.323e1a89, last.0=0xdb418673.323e1a89, ct.0=1,\r\nmv.0=36, rs.0=0x0, WWQ.0=18446744073709509383, now=0xdb4186a2.e20ff8f4,\r\nlast.newest=0xdb418673.323e1a89\r\n\x00\x00\x00'
@@ -400,7 +400,7 @@ assert p.err == 0
 assert p.op_code == 10
 assert p.count == 233
 assert p.data.load == b'nonce=db4186a2e2073198b93c6419, addr.0=192.168.122.100:123,\r\nfirst.0=0xdb418673.323e1a89, last.0=0xdb418673.323e1a89, ct.0=1,\r\nmv.0=36, rs.0=0x0, WWQ.0=18446744073709509383, now=0xdb4186a2.e20ff8f4,\r\nlast.newest=0xdb418673.323e1a89\r\n\x00\x00\x00'
-assert p.authenticator == b''
+assert not p.authenticator
 
 
 ############
@@ -582,7 +582,7 @@ assert p.data[0].peer == "127.127.1.0"
 assert p.data[0].peer_mode == 3
 assert p.data[0].leap == 0
 assert p.data[0].stratum == 11
-assert p.data[0].precision == 240
+assert p.data[0].precision == -16
 assert p.data[0].refid == "127.127.1.0"
 
 
@@ -1113,7 +1113,7 @@ assert p.data[0].ifname.startswith(b"lo")
 
 from decimal import Decimal
 
-precision = b"\xec"  # 236
+precision = b"\xec"  # -20
 dispersion = b"\x00\x00\xf2\xce"  # 0.948455810546875
 time_stamp = b"\xe6}gt\x00\x00\x00\x00" # Sat, 16 Jul 2022 16:36:04 +0000
 
@@ -1142,7 +1142,7 @@ assert pkt_1.recv.val == time_stamp, pkt_1.recv.val
 
 time_stamp_hex = 0x00000000e67d6774
 pkt_2 = NTP(
-    precision=236,
+    precision=-20,
     dispersion=Decimal('0.948455810546875'),
     orig=time_stamp_hex,
     sent=time_stamp_hex,

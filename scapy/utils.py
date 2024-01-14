@@ -44,7 +44,12 @@ from scapy.compat import (
     hex_bytes,
     bytes_encode,
 )
-from scapy.error import log_runtime, Scapy_Exception, warning
+from scapy.error import (
+    log_interactive,
+    log_runtime,
+    Scapy_Exception,
+    warning,
+)
 from scapy.pton_ntop import inet_pton
 
 # Typing imports
@@ -181,12 +186,12 @@ def get_temp_file(keep, autoext, fd):
 
 
 @overload
-def get_temp_file(keep=False, autoext="", fd=False):  # noqa: F811
+def get_temp_file(keep=False, autoext="", fd=False):
     # type: (bool, str, Literal[False]) -> str
     pass
 
 
-def get_temp_file(keep=False, autoext="", fd=False):  # noqa: F811
+def get_temp_file(keep=False, autoext="", fd=False):
     # type: (bool, str, bool) -> Union[IO[bytes], str]
     """Creates a temporary file.
 
@@ -223,6 +228,34 @@ def get_temp_dir(keep=False):
         conf.temp_files.append(dname)
 
     return dname
+
+
+def _create_fifo() -> Tuple[str, Any]:
+    """Creates a temporary fifo.
+
+    You must then use open_fifo() on the server_fd once
+    the client is connected to use it.
+
+    :returns: (client_file, server_fd)
+    """
+    if WINDOWS:
+        from scapy.arch.windows.structures import _get_win_fifo
+        return _get_win_fifo()
+    else:
+        f = get_temp_file()
+        os.unlink(f)
+        os.mkfifo(f)
+        return f, f
+
+
+def _open_fifo(fd: Any, mode: str = "rb") -> IO[bytes]:
+    """Open the server_fd (see create_fifo)
+    """
+    if WINDOWS:
+        from scapy.arch.windows.structures import _win_fifo_open
+        return _win_fifo_open(fd)
+    else:
+        return open(fd, mode)
 
 
 def sane(x, color=False):
@@ -364,57 +397,120 @@ def repr_hex(s):
 
 
 @conf.commands.register
-def hexdiff(a, b, autojunk=False):
-    # type: (Union[Packet, AnyStr], Union[Packet, AnyStr], bool) -> None
+def hexdiff(
+    a: Union['Packet', AnyStr],
+    b: Union['Packet', AnyStr],
+    algo: Optional[str] = None,
+    autojunk: bool = False,
+) -> None:
     """
     Show differences between 2 binary strings, Packets...
 
-    For the autojunk parameter, see
-    https://docs.python.org/3.8/library/difflib.html#difflib.SequenceMatcher
+    Available algorithms:
+        - wagnerfischer: Use the Wagner and Fischer algorithm to compute the
+          Levenstein distance between the strings then backtrack.
+        - difflib: Use the difflib.SequenceMatcher implementation. This based on a
+          modified version of the Ratcliff and Obershelp algorithm.
+          This is much faster, but far less accurate.
+          https://docs.python.org/3.8/library/difflib.html#difflib.SequenceMatcher
 
     :param a:
     :param b: The binary strings, packets... to compare
-    :param autojunk: Setting it to True will likely increase the comparison
-        speed a lot on big byte strings, but will reduce accuracy (will tend
-        to miss insertion and see replacements instead for instance).
+    :param algo: Force the algo to be 'wagnerfischer' or 'difflib'.
+                 By default, this is chosen depending on the complexity, optimistically
+                 preferring wagnerfischer unless really necessary.
+    :param autojunk: (difflib only) See difflib documentation.
     """
-
-    # Compare the strings using difflib
-
     xb = bytes_encode(a)
     yb = bytes_encode(b)
 
-    sm = difflib.SequenceMatcher(a=xb, b=yb, autojunk=autojunk)
-    xarr = [xb[i:i + 1] for i in range(len(xb))]
-    yarr = [yb[i:i + 1] for i in range(len(yb))]
+    if algo is None:
+        # Choose the best algorithm
+        complexity = len(xb) * len(yb)
+        if complexity < 1e7:
+            # Comparing two (non-jumbos) Ethernet packets is ~2e6 which is manageable.
+            # Anything much larger than this shouldn't be attempted by default.
+            algo = "wagnerfischer"
+            if complexity > 1e6:
+                log_interactive.info(
+                    "Complexity is a bit high. hexdiff will take a few seconds."
+                )
+        else:
+            algo = "difflib"
 
     backtrackx = []
     backtracky = []
-    for opcode in sm.get_opcodes():
-        typ, x0, x1, y0, y1 = opcode
-        if typ == 'delete':
-            backtrackx += xarr[x0:x1]
-            backtracky += [b''] * (x1 - x0)
-        elif typ == 'insert':
-            backtrackx += [b''] * (y1 - y0)
-            backtracky += yarr[y0:y1]
-        elif typ in ['equal', 'replace']:
-            backtrackx += xarr[x0:x1]
-            backtracky += yarr[y0:y1]
 
-    if autojunk:
+    if algo == "wagnerfischer":
+        xb = xb[::-1]
+        yb = yb[::-1]
+
+        # costs for the 3 operations
+        INSERT = 1
+        DELETE = 1
+        SUBST = 1
+
+        # Typically, d[i,j] will hold the distance between
+        # the first i characters of xb and the first j characters of yb.
+        # We change the Wagner Fischer to also store pointers to all
+        # the intermediate steps taken while calculating the Levenstein distance.
+        d = {(-1, -1): (0, (-1, -1))}
+        for j in range(len(yb)):
+            d[-1, j] = (j + 1) * INSERT, (-1, j - 1)
+        for i in range(len(xb)):
+            d[i, -1] = (i + 1) * INSERT + 1, (i - 1, -1)
+
+        # Compute the Levenstein distance between the two strings, but
+        # store all the steps to be able to backtrack at the end.
+        for j in range(len(yb)):
+            for i in range(len(xb)):
+                d[i, j] = min(
+                    (d[i - 1, j - 1][0] + SUBST * (xb[i] != yb[j]), (i - 1, j - 1)),
+                    (d[i - 1, j][0] + DELETE, (i - 1, j)),
+                    (d[i, j - 1][0] + INSERT, (i, j - 1)),
+                )
+
+        # Iterate through the steps backwards to create the diff
+        i = len(xb) - 1
+        j = len(yb) - 1
+        while not (i == j == -1):
+            i2, j2 = d[i, j][1]
+            backtrackx.append(xb[i2 + 1:i + 1])
+            backtracky.append(yb[j2 + 1:j + 1])
+            i, j = i2, j2
+    elif algo == "difflib":
+        sm = difflib.SequenceMatcher(a=xb, b=yb, autojunk=autojunk)
+        xarr = [xb[i:i + 1] for i in range(len(xb))]
+        yarr = [yb[i:i + 1] for i in range(len(yb))]
+        # Iterate through opcodes to build the backtrack
+        for opcode in sm.get_opcodes():
+            typ, x0, x1, y0, y1 = opcode
+            if typ == 'delete':
+                backtrackx += xarr[x0:x1]
+                backtracky += [b''] * (x1 - x0)
+            elif typ == 'insert':
+                backtrackx += [b''] * (y1 - y0)
+                backtracky += yarr[y0:y1]
+            elif typ in ['equal', 'replace']:
+                backtrackx += xarr[x0:x1]
+                backtracky += yarr[y0:y1]
         # Some lines may have been considered as junk. Check the sizes
-        lbx = len(backtrackx)
-        lby = len(backtracky)
-        backtrackx += [b''] * (max(lbx, lby) - lbx)
-        backtracky += [b''] * (max(lbx, lby) - lby)
+        if autojunk:
+            lbx = len(backtrackx)
+            lby = len(backtracky)
+            backtrackx += [b''] * (max(lbx, lby) - lbx)
+            backtracky += [b''] * (max(lbx, lby) - lby)
+    else:
+        raise ValueError("Unknown algorithm '%s'" % algo)
 
     # Print the diff
 
     x = y = i = 0
-    colorize = {0: lambda x: x,
-                -1: conf.color_theme.left,
-                1: conf.color_theme.right}
+    colorize: Dict[int, Callable[[str], str]] = {
+        0: lambda x: x,
+        -1: conf.color_theme.left,
+        1: conf.color_theme.right
+    }
 
     dox = 1
     doy = 0
@@ -1383,15 +1479,15 @@ class PcapReader(RawPcapReader):
         # type: () -> PcapReader
         return self
 
-    def read_packet(self, size=MTU):
-        # type: (int) -> Packet
+    def read_packet(self, size=MTU, **kwargs):
+        # type: (int, **Any) -> Packet
         rp = super(PcapReader, self)._read_packet(size=size)
         if rp is None:
             raise EOFError
         s, pkt_info = rp
 
         try:
-            p = self.LLcls(s)  # type: Packet
+            p = self.LLcls(s, **kwargs)  # type: Packet
         except KeyboardInterrupt:
             raise
         except Exception:
@@ -1408,9 +1504,9 @@ class PcapReader(RawPcapReader):
         p.wirelen = pkt_info.wirelen
         return p
 
-    def recv(self, size=MTU):  # type: ignore
-        # type: (int) -> Packet
-        return self.read_packet(size=size)
+    def recv(self, size=MTU, **kwargs):  # type: ignore
+        # type: (int, **Any) -> Packet
+        return self.read_packet(size=size, **kwargs)
 
     def __next__(self):  # type: ignore
         # type: () -> Packet
@@ -1448,12 +1544,17 @@ class RawPcapNgReader(RawPcapReader):
         self.default_options = {
             "tsresol": 1000000
         }
-        self.blocktypes = {
-            1: self._read_block_idb,
-            2: self._read_block_pkt,
-            3: self._read_block_spb,
-            6: self._read_block_epb,
-            10: self._read_block_dsb,
+        self.blocktypes: Dict[
+            int,
+            Callable[
+                [bytes, int],
+                Optional[Tuple[bytes, RawPcapNgReader.PacketMetadata]]
+            ]] = {
+                1: self._read_block_idb,
+                2: self._read_block_pkt,
+                3: self._read_block_spb,
+                6: self._read_block_epb,
+                10: self._read_block_dsb,
         }
         self.endian = "!"  # Will be overwritten by first SHB
 
@@ -1488,10 +1589,9 @@ class RawPcapNgReader(RawPcapReader):
             raise EOFError
         block = self.f.read(blocklen - 12)
         self._read_block_tail(blocklen)
-        return self.blocktypes.get(
-            blocktype,
-            lambda block, size: None
-        )(block, size)
+        if blocktype in self.blocktypes:
+            return self.blocktypes[blocktype](block, size)
+        return None
 
     def _read_block_tail(self, blocklen):
         # type: (int) -> None
@@ -1553,12 +1653,7 @@ class RawPcapNgReader(RawPcapReader):
                     tsresol & 127
                 )
             if code == 1 and length >= 1 and 4 + length < len(options):
-                comment = options[4:4 + length]
-                newline_index = comment.find(b"\n")
-                if newline_index == -1:
-                    warning("PcapNg: invalid comment option")
-                    break
-                opts["comment"] = comment[:newline_index]
+                opts["comment"] = options[4:4 + length]
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option length %d for end-of-option" % length)  # noqa: E501
@@ -1575,10 +1670,10 @@ class RawPcapNgReader(RawPcapReader):
         # 4 bytes Snaplen
         options = self._read_options(block[8:-4])
         try:
-            interface = struct.unpack(  # type: ignore
+            interface: Tuple[int, int, int] = struct.unpack(
                 self.endian + "HxxI",
                 block[:8]
-            ) + (options["tsresol"],)  # type: Tuple[int, int, int]
+            ) + (options["tsresol"],)
         except struct.error:
             warning("PcapNg: IDB is too small %d/8 !" % len(block))
             raise EOFError
@@ -1697,7 +1792,7 @@ class RawPcapNgReader(RawPcapReader):
 
         # TLS Key Log
         if secrets_type == 0x544c534b:
-            if getattr(conf, "tls_nss_keys", False) is False:
+            if getattr(conf, "tls_sessions", False) is False:
                 warning("PcapNg: TLS Key Log available, but "
                         "the TLS layer is not loaded! Scapy won't be able "
                         "to decrypt the packets.")
@@ -1716,8 +1811,8 @@ class RawPcapNgReader(RawPcapReader):
                 else:
                     # Note: these attributes are only available when the TLS
                     #       layer is loaded.
-                    conf.tls_nss_keys = keys  # type: ignore
-                    conf.tls_session_enable = True  # type: ignore
+                    conf.tls_nss_keys = keys
+                    conf.tls_session_enable = True
         else:
             warning("PcapNg: Unknown DSB secrets type (0x%x)!", secrets_type)
 
@@ -1734,15 +1829,15 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         # type: () -> PcapNgReader
         return self
 
-    def read_packet(self, size=MTU):
-        # type: (int) -> Packet
+    def read_packet(self, size=MTU, **kwargs):
+        # type: (int, **Any) -> Packet
         rp = super(PcapNgReader, self)._read_packet(size=size)
         if rp is None:
             raise EOFError
         s, (linktype, tsresol, tshigh, tslow, wirelen, comment) = rp
         try:
             cls = conf.l2types.num2layer[linktype]  # type: Type[Packet]
-            p = cls(s)  # type: Packet
+            p = cls(s, **kwargs)  # type: Packet
         except KeyboardInterrupt:
             raise
         except Exception:
@@ -1758,9 +1853,8 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         p.comment = comment
         return p
 
-    def recv(self, size=MTU):  # type: ignore
-        # type: (int) -> Packet
-        return self.read_packet()
+    def recv(self, size: int = MTU, **kwargs: Any) -> 'Packet':  # type: ignore
+        return self.read_packet(size=size, **kwargs)
 
 
 class GenericPcapWriter(object):
@@ -2031,6 +2125,7 @@ class RawPcapWriter(GenericRawPcapWriter):
                  sync=False,  # type: bool
                  nano=False,  # type: bool
                  snaplen=MTU,  # type: int
+                 bufsz=4096,  # type: int
                  ):
         # type: (...) -> None
         """
@@ -2055,7 +2150,6 @@ class RawPcapWriter(GenericRawPcapWriter):
         self.endian = endianness
         self.sync = sync
         self.nano = nano
-        bufsz = 4096
         if sync:
             bufsz = 0
 
@@ -2302,8 +2396,6 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         comment_opt = None
         if comment:
             comment = bytes_encode(comment)
-            if not comment.endswith(b"\n"):
-                comment += b"\n"
             comment_opt = struct.pack(self.endian + "HH", 1, len(comment))
 
             # Pad Option Value to 32 bits
@@ -2454,8 +2546,8 @@ class ERFEthernetReader(PcapReader,
 
     # The details of ERF Packet format can be see here:
     # https://www.endace.com/erf-extensible-record-format-types.pdf
-    def read_packet(self, size=MTU):
-        # type: (int) -> Packet
+    def read_packet(self, size=MTU, **kwargs):
+        # type: (int, **Any) -> Packet
 
         # General ERF Header have exactly 16 bytes
         hdr = self.f.read(16)
@@ -2485,7 +2577,7 @@ class ERFEthernetReader(PcapReader,
         pb = s[2:size]
         from scapy.layers.l2 import Ether
         try:
-            p = Ether(pb)  # type: Packet
+            p = Ether(pb, **kwargs)  # type: Packet
         except KeyboardInterrupt:
             raise
         except Exception:
@@ -2999,8 +3091,9 @@ def get_terminal_width():
         s = struct.pack('HHHH', 0, 0, 0, 0)
         x = fcntl.ioctl(1, termios.TIOCGWINSZ, s)
         sizex = struct.unpack('HHHH', x)[1]
-    except IOError:
-        pass
+    except (IOError, ModuleNotFoundError):
+        # If everything failed, return default terminal size
+        sizex = 79
     return sizex
 
 
@@ -3242,8 +3335,8 @@ def whois(ip_address):
 
 
 class PeriodicSenderThread(threading.Thread):
-    def __init__(self, sock, pkt, interval=0.5):
-        # type: (Any, _PacketIterable, float) -> None
+    def __init__(self, sock, pkt, interval=0.5, ignore_exceptions=True):
+        # type: (Any, _PacketIterable, float, bool) -> None
         """ Thread to send packets periodically
 
         Args:
@@ -3258,13 +3351,20 @@ class PeriodicSenderThread(threading.Thread):
         self._socket = sock
         self._stopped = threading.Event()
         self._interval = interval
+        self._ignore_exceptions = ignore_exceptions
         threading.Thread.__init__(self)
 
     def run(self):
         # type: () -> None
         while not self._stopped.is_set() and not self._socket.closed:
             for p in self._pkts:
-                self._socket.send(p)
+                try:
+                    self._socket.send(p)
+                except (OSError, TimeoutError) as e:
+                    if self._ignore_exceptions:
+                        return
+                    else:
+                        raise e
                 self._stopped.wait(timeout=self._interval)
                 if self._stopped.is_set() or self._socket.closed:
                     break

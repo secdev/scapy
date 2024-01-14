@@ -40,12 +40,19 @@ from scapy.error import (
     log_runtime,
     warning,
 )
-from scapy.interfaces import IFACES, InterfaceProvider, NetworkInterface, \
-    network_name
+from scapy.interfaces import (
+    InterfaceProvider,
+    NetworkInterface,
+    network_name,
+    _GlobInterfaceType,
+)
 from scapy.libs.structures import sock_fprog
 from scapy.packet import Packet, Padding
 from scapy.pton_ntop import inet_ntop
 from scapy.supersocket import SuperSocket
+
+# re-export
+from scapy.arch.unix import read_nameservers  # noqa: F401
 
 # Typing imports
 from typing import (
@@ -115,7 +122,7 @@ PACKET_FASTROUTE = 6  # Fastrouted frame
 
 
 def get_if_raw_addr(iff):
-    # type: (Union[NetworkInterface, str]) -> bytes
+    # type: (_GlobInterfaceType) -> bytes
     r"""
     Return the raw IPv4 address of an interface.
     If unavailable, returns b"\0\0\0\0"
@@ -141,7 +148,7 @@ def _get_if_list():
 
 
 def attach_filter(sock, bpf_filter, iface):
-    # type: (socket.socket, str, Union[NetworkInterface, str]) -> None
+    # type: (socket.socket, str, _GlobInterfaceType) -> None
     """
     Compile bpf filter and attach it to a socket
 
@@ -153,17 +160,17 @@ def attach_filter(sock, bpf_filter, iface):
     if conf.use_pypy and sys.pypy_version_info <= (7, 3, 2):  # type: ignore
         # PyPy < 7.3.2 has a broken behavior
         # https://foss.heptapod.net/pypy/pypy/-/issues/3298
-        bp = struct.pack(
+        bp = struct.pack(  # type: ignore
             'HL',
             bp.bf_len, ctypes.addressof(bp.bf_insns.contents)
         )
     else:
-        bp = sock_fprog(bp.bf_len, bp.bf_insns)
+        bp = sock_fprog(bp.bf_len, bp.bf_insns)  # type: ignore
     sock.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, bp)
 
 
 def set_promisc(s, iff, val=1):
-    # type: (socket.socket, Union[NetworkInterface, str], int) -> None
+    # type: (socket.socket, _GlobInterfaceType, int) -> None
     mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, b"")
     if val:
         cmd = PACKET_ADD_MEMBERSHIP
@@ -401,7 +408,7 @@ def read_routes6():
 
 
 def get_if_index(iff):
-    # type: (Union[NetworkInterface, str]) -> int
+    # type: (_GlobInterfaceType) -> int
     return int(struct.unpack("I", get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
 
@@ -446,7 +453,7 @@ class LinuxInterfaceProvider(InterfaceProvider):
         return data
 
 
-IFACES.register_provider(LinuxInterfaceProvider)
+conf.ifaces.register_provider(LinuxInterfaceProvider)
 
 if os.uname()[4] in ['x86_64', 'aarch64']:
     def get_last_packet_timestamp(sock):
@@ -587,9 +594,9 @@ class L2ListenSocket(L2Socket):
 class L3PacketSocket(L2Socket):
     desc = "read/write packets at layer 3 using Linux PF_PACKET sockets"
 
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
-        pkt = SuperSocket.recv(self, x)
+    def recv(self, x=MTU, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
+        pkt = SuperSocket.recv(self, x, **kwargs)
         if pkt and self.lvl == 2:
             pkt.payload.time = pkt.time
             return pkt.payload

@@ -16,6 +16,7 @@ import itertools
 import logging
 import os
 import random
+import socket
 import sys
 import threading
 import time
@@ -77,7 +78,7 @@ def select_objects(inputs, remain):
         [b]
 
     :param inputs: objects to process
-    :param remain: timeout. If 0, return [].
+    :param remain: timeout. If 0, poll.
     """
     if not WINDOWS:
         return select.select(inputs, [], [], remain)[0]
@@ -635,11 +636,13 @@ class _ATMT_supersocket(SuperSocket):
         # type: () -> int
         return self.spb.fileno()
 
-    def recv(self, n=MTU):
-        # type: (Optional[int]) -> Any
+    # note: _ATMT_supersocket may return bytes in certain cases, which
+    # is expected. We cheat on typing.
+    def recv(self, n=MTU, **kwargs):  # type: ignore
+        # type: (int, **Any) -> Any
         r = self.spb.recv(n)
         if self.proto is not None and r is not None:
-            r = self.proto(r)
+            r = self.proto(r, **kwargs)
         return r
 
     def close(self):
@@ -774,20 +777,37 @@ class Automaton_metaclass(type):
         s += se
 
         for st in self.states.values():
-            for n in st.atmt_origfunc.__code__.co_names + st.atmt_origfunc.__code__.co_consts:  # noqa: E501
+            names = list(
+                st.atmt_origfunc.__code__.co_names +
+                st.atmt_origfunc.__code__.co_consts
+            )
+            while names:
+                n = names.pop()
                 if n in self.states:
-                    s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state, n)  # noqa: E501
+                    s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state, n)
+                elif n in self.__dict__:
+                    # function indirection
+                    if callable(self.__dict__[n]):
+                        names.extend(self.__dict__[n].__code__.co_names)
+                        names.extend(self.__dict__[n].__code__.co_consts)
 
         for c, k, v in ([("purple", k, v) for k, v in self.conditions.items()] +  # noqa: E501
                         [("red", k, v) for k, v in self.recv_conditions.items()] +  # noqa: E501
                         [("orange", k, v) for k, v in self.ioevents.items()]):
             for f in v:
-                for n in f.__code__.co_names + f.__code__.co_consts:
+                names = list(f.__code__.co_names + f.__code__.co_consts)
+                while names:
+                    n = names.pop()
                     if n in self.states:
                         line = f.atmt_condname
                         for x in self.actions[f.atmt_condname]:
                             line += "\\l>[%s]" % x.__name__
                         s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, line, c)  # noqa: E501
+                    elif n in self.__dict__:
+                        # function indirection
+                        if callable(self.__dict__[n]):
+                            names.extend(self.__dict__[n].__code__.co_names)
+                            names.extend(self.__dict__[n].__code__.co_consts)
         for k, timers in self.timeout.items():
             for timer in timers:
                 for n in (timer._func.__code__.co_names +
@@ -901,35 +921,33 @@ class Automaton(metaclass=Automaton_metaclass):
                      wr  # type: Union[int, ObjectPipe[bytes], None]
                      ):
             # type: (...) -> None
-            if rd is not None and not isinstance(rd, (int, ObjectPipe)):
-                rd = rd.fileno()
-            if wr is not None and not isinstance(wr, (int, ObjectPipe)):
-                wr = wr.fileno()
             self.rd = rd
             self.wr = wr
+            if isinstance(self.rd, socket.socket):
+                self.__selectable_force_select__ = True
 
         def fileno(self):
             # type: () -> int
-            if isinstance(self.rd, ObjectPipe):
-                return self.rd.fileno()
-            elif isinstance(self.rd, int):
+            if isinstance(self.rd, int):
                 return self.rd
+            elif self.rd:
+                return self.rd.fileno()
             return 0
 
         def read(self, n=65535):
             # type: (int) -> Optional[bytes]
-            if isinstance(self.rd, ObjectPipe):
-                return self.rd.recv(n)
-            elif isinstance(self.rd, int):
+            if isinstance(self.rd, int):
                 return os.read(self.rd, n)
+            elif self.rd:
+                return self.rd.recv(n)
             return None
 
         def write(self, msg):
             # type: (bytes) -> int
-            if isinstance(self.wr, ObjectPipe):
-                return self.wr.send(msg)
-            elif isinstance(self.wr, int):
+            if isinstance(self.wr, int):
                 return os.write(self.wr, msg)
+            elif self.wr:
+                return self.wr.send(msg)
             return 0
 
         def recv(self, n=65535):

@@ -87,6 +87,8 @@ def inet_pton(af, addr):
     addr = plain_str(addr)
     # Use inet_pton if available
     try:
+        if not socket.has_ipv6:
+            raise AttributeError
         return socket.inet_pton(af, addr)
     except AttributeError:
         try:
@@ -134,6 +136,8 @@ def inet_ntop(af, addr):
     # Use inet_ntop if available
     addr = bytes_encode(addr)
     try:
+        if not socket.has_ipv6:
+            raise AttributeError
         return socket.inet_ntop(af, addr)
     except AttributeError:
         try:

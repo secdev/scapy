@@ -78,6 +78,63 @@ def _test():
 retry_test(_test)
 
 
++ EDNS0 - DAU
+
+= Basic instantiation & dissection
+
+b = b'\x00\x05\x00\x00'
+
+p = EDNS0DAU()
+assert raw(p) == b
+
+p = EDNS0DAU(b)
+assert p.optcode == 5 and p.optlen == 0 and p.alg_code == []
+
+b = raw(EDNS0DAU(alg_code=['RSA/SHA-256', 'RSA/SHA-512']))
+
+p = EDNS0DAU(b)
+repr(p)
+assert p.optcode == 5 and p.optlen == 2 and p.alg_code == [8, 10]
+
+
++ EDNS0 - DHU
+
+= Basic instantiation & dissection
+
+b = b'\x00\x06\x00\x00'
+
+p = EDNS0DHU()
+assert raw(p) == b
+
+p = EDNS0DHU(b)
+assert p.optcode == 6 and p.optlen == 0 and p.alg_code == []
+
+b = raw(EDNS0DHU(alg_code=['SHA-1', 'SHA-256', 'SHA-384']))
+
+p = EDNS0DHU(b)
+repr(p)
+assert p.optcode == 6 and p.optlen == 3 and p.alg_code == [1, 2, 4]
+
+
++ EDNS0 - N3U
+
+= Basic instantiation & dissection
+
+b = b'\x00\x07\x00\x00'
+
+p = EDNS0N3U()
+assert raw(p) == b
+
+p = EDNS0N3U(b)
+assert p.optcode == 7 and p.optlen == 0 and p.alg_code == []
+
+b = raw(EDNS0N3U(alg_code=['SHA-1']))
+
+p = EDNS0N3U(b)
+repr(p)
+assert p.optcode == 7 and p.optlen == 1 and p.alg_code == [1]
+
+
 + EDNS0 - Client Subnet
 
 = Basic instantiation & dissection
@@ -96,3 +153,62 @@ assert raw(d) == raw_d
 
 d = DNSRROPT(raw_d)
 assert EDNS0ClientSubnet in d.rdata[0] and d.rdata[0].family == 2 and d.rdata[0].address == "2001:db8::"
+
+
++ EDNS0 - Cookie
+
+= Basic instantiation & dissection
+
+b = b'\x00\n\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00'
+
+p = EDNS0COOKIE()
+assert raw(p) == b
+
+p = EDNS0COOKIE(b)
+assert p.optcode == 10
+assert p.optlen == 8
+assert p.client_cookie == b'\x00' * 8
+assert p.server_cookie == b''
+
+b = b'\x00\n\x00\x18\x01\x01\x01\x01\x01\x01\x01\x01\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02'
+
+p = EDNS0COOKIE(client_cookie=b'\x01' * 8, server_cookie=b'\x02' * 16)
+assert raw(p) == b
+
+p = EDNS0COOKIE(b)
+assert p.optcode == 10
+assert p.optlen == 24
+assert p.client_cookie == b'\x01' * 8
+assert p.server_cookie == b'\x02' * 16
+
+
++ EDNS0 - Extended DNS Error
+
+= Basic instantiation & dissection
+
+b = b'\x00\x0f\x00\x02\x00\x00'
+
+p = EDNS0ExtendedDNSError()
+assert raw(p) == b
+
+p = EDNS0ExtendedDNSError(b)
+assert p.optcode == 15 and p.optlen == 2 and p.info_code == 0 and p.extra_text == b''
+
+b = raw(EDNS0ExtendedDNSError(info_code="DNSSEC Bogus", extra_text="proof of non-existence of example.com. NSEC"))
+
+p = EDNS0ExtendedDNSError(b)
+assert p.info_code == 6 and p.optlen == 45 and p.extra_text == b'proof of non-existence of example.com. NSEC'
+
+rropt = DNSRROPT(b'\x00\x00)\x04\xd0\x00\x00\x00\x00\x001\x00\x0f\x00-\x00\x06proof of non-existence of example.com. NSEC')
+assert len(rropt.rdata) == 1
+p = rropt.rdata[0]
+assert p.info_code == 6 and p.optlen == 45 and p.extra_text == b'proof of non-existence of example.com. NSEC'
+
+p = DNSRROPT(raw(DNSRROPT(rdata=[EDNS0ExtendedDNSError(), EDNS0ClientSubnet(), EDNS0TLV()])))
+assert len(p.rdata) == 3
+assert all(Raw not in opt for opt in p.rdata)
+
+for opt_class in EDNS0OPT_DISPATCHER.values():
+    p = DNSRROPT(raw(DNSRROPT(rdata=[EDNS0TLV(), opt_class(), opt_class()])))
+    assert len(p.rdata) == 3
+    assert all(Raw not in opt for opt in p.rdata)

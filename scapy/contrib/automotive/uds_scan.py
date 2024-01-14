@@ -873,7 +873,7 @@ class UDS_IOCBIEnumerator(UDS_Enumerator):
         if resp is not None:
             return "0x%04x: %s" % \
                    (tup[1].dataIdentifier,
-                    resp.controlStatusRecord)
+                    repr(resp.payload))
         else:
             return "0x%04x: No response" % tup[1].dataIdentifier
 

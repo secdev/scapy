@@ -6,3 +6,6 @@
 """
 Package of extension modules that have to be loaded explicitly.
 """
+
+# Make sure config is loaded
+import scapy.config  # noqa: F401

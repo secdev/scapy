@@ -61,6 +61,6 @@ Use external projects
 -  `muXTCP`_ - Writing your own flexible Userland TCP/IP Stack - Ninja Style!!!
 -  Integrating `pynids`_
 
-.. _Automata's documentation: ../advanced_usage#automata
+.. _Automata's documentation: ../advanced_usage.html#automata
 .. _muXTCP: http://events.ccc.de/congress/2005/fahrplan/events/529.en.html
 .. _pynids: http://jon.oberheide.org/pynids/

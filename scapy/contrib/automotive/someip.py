@@ -432,7 +432,8 @@ class SD(_SDPacketBase):
     _sdFlag = collections.namedtuple('Flag', 'mask offset')
     FLAGSDEF = {
         "REBOOT": _sdFlag(mask=0x80, offset=7),
-        "UNICAST": _sdFlag(mask=0x40, offset=6)
+        "UNICAST": _sdFlag(mask=0x40, offset=6),
+        "EXPLICIT_INITIAL_DATA_CONTROL": _sdFlag(mask=0x20, offset=5),
     }
 
     name = "SD"

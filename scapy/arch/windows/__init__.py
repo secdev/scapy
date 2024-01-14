@@ -17,9 +17,13 @@ import warnings
 
 import winreg
 
-from scapy.arch.windows.structures import _windows_title, \
-    GetAdaptersAddresses, GetIpForwardTable, GetIpForwardTable2, \
-    get_service_status
+from scapy.arch.windows.structures import (
+    _windows_title,
+    GetAdaptersAddresses,
+    GetIpForwardTable,
+    GetIpForwardTable2,
+    get_service_status,
+)
 from scapy.consts import WINDOWS, WINDOWS_XP
 from scapy.config import conf, ProgPath
 from scapy.error import (
@@ -185,18 +189,15 @@ class WinProgPath(ProgPath):
         self.hexedit = win_find_exe("hexer")
         self.sox = win_find_exe("sox")
         self.wireshark = win_find_exe("wireshark", "wireshark")
-        self.usbpcapcmd = win_find_exe(
-            "USBPcapCMD",
-            installsubdir="USBPcap",
-            env="programfiles"
-        )
+        self.extcap_folders = [
+            os.path.join(os.environ.get("appdata", ""), "Wireshark", "extcap"),
+            os.path.join(os.environ.get("programfiles", ""), "Wireshark", "extcap"),
+        ]
         self.powershell = win_find_exe(
             "powershell",
             installsubdir="System32\\WindowsPowerShell\\v1.0",
             env="SystemRoot"
         )
-        self.cscript = win_find_exe("cscript", installsubdir="System32",
-                                    env="SystemRoot")
         self.cmd = win_find_exe("cmd", installsubdir="System32",
                                 env="SystemRoot")
         if self.wireshark:
@@ -263,32 +264,32 @@ def get_windows_if_list(extended=False):
         data = bytearray(x["physical_address"])
         return str2mac(bytes(data)[:size])
 
+    def _resolve_ips(y):
+        # type: (List[Dict[str, Any]]) -> List[str]
+        if not isinstance(y, list):
+            return []
+        ips = []
+        for ip in y:
+            addr = ip['address']['address'].contents
+            if addr.si_family == socket.AF_INET6:
+                ip_key = "Ipv6"
+                si_key = "sin6_addr"
+            else:
+                ip_key = "Ipv4"
+                si_key = "sin_addr"
+            data = getattr(addr, ip_key)
+            data = getattr(data, si_key)
+            data = bytes(bytearray(data.byte))
+            # Build IP
+            if data:
+                ips.append(inet_ntop(addr.si_family, data))
+        return ips
+
     def _get_ips(x):
         # type: (Dict[str, Any]) -> List[str]
         unicast = x['first_unicast_address']
         anycast = x['first_anycast_address']
         multicast = x['first_multicast_address']
-
-        def _resolve_ips(y):
-            # type: (List[Dict[str, Any]]) -> List[str]
-            if not isinstance(y, list):
-                return []
-            ips = []
-            for ip in y:
-                addr = ip['address']['address'].contents
-                if addr.si_family == socket.AF_INET6:
-                    ip_key = "Ipv6"
-                    si_key = "sin6_addr"
-                else:
-                    ip_key = "Ipv4"
-                    si_key = "sin_addr"
-                data = getattr(addr, ip_key)
-                data = getattr(data, si_key)
-                data = bytes(bytearray(data.byte))
-                # Build IP
-                if data:
-                    ips.append(inet_ntop(addr.si_family, data))
-            return ips
 
         ips = []
         ips.extend(_resolve_ips(unicast))
@@ -306,7 +307,8 @@ def get_windows_if_list(extended=False):
             "mac": _get_mac(x),
             "ipv4_metric": 0 if WINDOWS_XP else x["ipv4_metric"],
             "ipv6_metric": 0 if WINDOWS_XP else x["ipv6_metric"],
-            "ips": _get_ips(x)
+            "ips": _get_ips(x),
+            "nameservers": _resolve_ips(x["first_dns_server_address"])
         } for x in GetAdaptersAddresses()
     ]
 
@@ -329,6 +331,7 @@ class NetworkInterface_Win(NetworkInterface):
         self.cache_mode = None  # type: Optional[bool]
         self.ipv4_metric = None  # type: Optional[int]
         self.ipv6_metric = None  # type: Optional[int]
+        self.nameservers = []  # type: List[str]
         self.guid = None  # type: Optional[str]
         self.raw80211 = None  # type: Optional[bool]
         super(NetworkInterface_Win, self).__init__(provider, data)
@@ -344,6 +347,7 @@ class NetworkInterface_Win(NetworkInterface):
         self.guid = data['guid']
         self.ipv4_metric = data['ipv4_metric']
         self.ipv6_metric = data['ipv6_metric']
+        self.nameservers = data['nameservers']
 
         try:
             # Npcap loopback interface
@@ -640,7 +644,8 @@ class WindowsInterfacesProvider(InterfaceProvider):
                     'ipv4_metric': 0,
                     'ipv6_metric': 0,
                     'ips': ips,
-                    'flags': flags
+                    'flags': flags,
+                    'nameservers': [],
                 }
             # No KeyError will happen here, as we get it from cache
             results[netw] = NetworkInterface_Win(self, data)
@@ -1016,3 +1021,15 @@ class _NotAvailableSocket(SuperSocket):
             "winpcap is not installed. You may use conf.L3socket or"
             "conf.L3socket6 to access layer 3"
         )
+
+
+#######
+# DNS #
+#######
+
+def read_nameservers() -> List[str]:
+    """Return the nameservers configured by the OS (on the default interface)
+    """
+    # Windows has support for different DNS servers on each network interface,
+    # but to be cross-platform we only return the servers for the default one.
+    return cast(NetworkInterface_Win, conf.iface).nameservers

@@ -606,8 +606,9 @@ assert unanswered_packets[0].diagnosticSessionType == 4
 
 = Analyze multiple UDS messages
 
-with PcapReader(scapy_path("test/pcaps/ecu_trace.pcap.gz")) as sock:
-     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"use_ext_address":False, "basecls":UDS}, count=50, opened_socket=sock, timeout=3)
+udsmsgs = sniff(offline=scapy_path("test/pcaps/ecu_trace.pcap.gz"),
+                session=ISOTPSession(use_ext_address=False, basecls=UDS),
+                count=50, timeout=3)
 
 assert len(udsmsgs) == 50
 
@@ -637,7 +638,7 @@ assert len(ecu.log["TransferData"]) == 2
 session = EcuSession()
 
 with PcapReader(scapy_path("test/pcaps/ecu_trace.pcap.gz")) as sock:
-     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_address":False, "basecls":UDS}, count=50, opened_socket=sock, timeout=3)
+     udsmsgs = sniff(session=ISOTPSession(supersession=session, use_ext_address=False, basecls=UDS), count=50, opened_socket=sock, timeout=3)
 
 assert len(udsmsgs) == 50
 
@@ -667,12 +668,12 @@ session = EcuSession()
 conf.contribs['CAN']['swap-bytes'] = True
 
 with PcapReader(scapy_path("test/pcaps/gmlan_trace.pcap.gz")) as sock:
-    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "rx_id":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=2, opened_socket=sock, timeout=3)
+    gmlanmsgs = sniff(session=ISOTPSession(supersession=session, rx_id=[0x241, 0x641, 0x101], basecls=GMLAN), count=2, opened_socket=sock, timeout=3)
     ecu = session.ecu
     print("Check 1 after change to diagnostic mode")
     assert len(ecu.supported_responses) == 1
     assert ecu.state == EcuState(session=3)
-    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "rx_id":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=8, opened_socket=sock)
+    gmlanmsgs = sniff(session=ISOTPSession(supersession=session, rx_id=[0x241, 0x641, 0x101], basecls=GMLAN), count=6, opened_socket=sock)
     ecu = session.ecu
     print("Check 2 after some more messages were read1")
     assert len(ecu.supported_responses) == 3
@@ -680,13 +681,13 @@ with PcapReader(scapy_path("test/pcaps/gmlan_trace.pcap.gz")) as sock:
     assert ecu.state.session == 3
     print("assert 1")
     assert ecu.state.communication_control == 1
-    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "rx_id":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=10, opened_socket=sock)
+    gmlanmsgs = sniff(session=ISOTPSession(supersession=session, rx_id=[0x241, 0x641, 0x101], basecls=GMLAN), count=2, opened_socket=sock)
     ecu = session.ecu
     print("Check 3 after change to programming mode (bootloader)")
     assert len(ecu.supported_responses) == 4
     assert ecu.state.session == 2
     assert ecu.state.communication_control == 1
-    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "rx_id":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=16, opened_socket=sock)
+    gmlanmsgs = sniff(session=ISOTPSession(supersession=session, rx_id=[0x241, 0x641, 0x101], basecls=GMLAN), count=6, opened_socket=sock)
     ecu = session.ecu
     print("Check 4 after gaining security access")
     assert len(ecu.supported_responses) == 6
@@ -701,8 +702,10 @@ session = EcuSession(verbose=False, store_supported_responses=False)
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
 conf.contribs['CAN']['swap-bytes'] = True
 
-with PcapReader(scapy_path("test/pcaps/gmlan_trace.pcap.gz")) as sock:
-    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "rx_id":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=200, opened_socket=sock, timeout=6)
+conf.debug_dissector = True
+gmlanmsgs = sniff(offline=scapy_path("test/pcaps/gmlan_trace.pcap.gz"),
+                  session=ISOTPSession(supersession=session, rx_id=[0x241, 0x641, 0x101], basecls=GMLAN),
+                  count=200, timeout=6)
 
 ecu = session.ecu
 assert len(ecu.supported_responses) == 0

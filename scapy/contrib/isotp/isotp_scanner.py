@@ -3,6 +3,7 @@
 # See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
 # Copyright (C) Alexander Schroeder <alexander1.schroeder@st.othr.de>
+import itertools
 import json
 # scapy.contrib.description = ISO-TP (ISO 15765-2) Scanner Utility
 # scapy.contrib.status = library
@@ -203,16 +204,16 @@ def scan(sock,  # type: SuperSocket
         return return_values
 
     cleaned_ret_val = dict()  # type: Dict[int, Tuple[Packet, int]]
-    for tested_id in return_values.keys():
+    retest_ids = list(set(
+        itertools.chain.from_iterable(
+            range(max(0, i - 2), i + 2) for i in return_values.keys())))
+    for value in retest_ids:
         if stop_event is not None and stop_event.is_set():
             break
-        for value in range(max(0, tested_id - 2), tested_id + 2, 1):
-            if stop_event is not None and stop_event.is_set():
-                break
-            sock.send(get_isotp_packet(value, False, extended_can_id))
-            sock.sniff(prn=lambda pkt: get_isotp_fc(value, cleaned_ret_val,
-                                                    noise_ids, False, pkt),
-                       timeout=sniff_time * 10, store=False)
+        sock.send(get_isotp_packet(value, False, extended_can_id))
+        sock.sniff(prn=lambda pkt: get_isotp_fc(value, cleaned_ret_val,
+                                                noise_ids, False, pkt),
+                   timeout=sniff_time * 10, store=False)
 
     return cleaned_ret_val
 

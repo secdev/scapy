@@ -196,6 +196,7 @@ scanner = executeScannerInVirtualEnvironment(
                                   "request_length": 1})
 
 scanner.show_testcases()
+scanner.show_testcases_status()
 assert len(scanner.state_paths) == 5
 assert scanner.scan_completed
 assert scanner.progress() > 0.95
@@ -275,8 +276,13 @@ resps = [EcuResponse(None, [UDS()/UDS_NR(negativeResponseCode="subFunctionNotSup
 
 es = [UDS_ServiceEnumerator]
 
+debug_dissector_backup = conf.debug_dissector
+
+# This Enumerator is sending corrupted Packets, therefore we need to disable the debug_dissector
+conf.debug_dissector = False
 scanner = executeScannerInVirtualEnvironment(
     resps, es, UDS_ServiceEnumerator_kwargs={"request_length": 3}, unstable_socket=False)
+conf.debug_dissector = debug_dissector_backup
 
 assert scanner.scan_completed
 assert scanner.progress() > 0.95

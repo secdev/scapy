@@ -452,7 +452,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def get_fields_list(self):
         # type: () -> List[ASN1F_field[Any, Any]]
-        return reduce(lambda x, y: x + y.get_fields_list(),  # type: ignore
+        return reduce(lambda x, y: x + y.get_fields_list(),
                       self.seq, [])
 
     def m2i(self, pkt, s):
@@ -497,7 +497,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
-        s = reduce(lambda x, y: x + y.build(pkt),  # type: ignore
+        s = reduce(lambda x, y: x + y.build(pkt),
                    self.seq, b"")
         return super(ASN1F_SEQUENCE, self).i2m(pkt, s)
 
@@ -506,7 +506,7 @@ class ASN1F_SET(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_UNIVERSAL.SET
 
 
-_SEQ_T = Union['ASN1_Packet', Type[ASN1F_field], 'ASN1F_PACKET']
+_SEQ_T = Union['ASN1_Packet', Type[ASN1F_field[Any, Any]], 'ASN1F_PACKET']
 
 
 class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
@@ -656,7 +656,7 @@ class ASN1F_optional(ASN1F_element):
         return self._field.i2repr(pkt, x)
 
 
-_CHOICE_T = Union['ASN1_Packet', Type[ASN1F_field], 'ASN1F_PACKET']
+_CHOICE_T = Union['ASN1_Packet', Type[ASN1F_field[Any, Any]], 'ASN1F_PACKET']
 
 
 class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):

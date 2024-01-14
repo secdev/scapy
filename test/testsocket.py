@@ -136,8 +136,8 @@ class UnstableSocket(TestSocket):
             self.no_error_for_x_tx_pkts -= 1
         return super(UnstableSocket, self).send(x)
 
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
+    def recv(self, x=MTU, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
         if self.no_error_for_x_tx_pkts == 0:
             if random.randint(0, 1000) == 42:
                 self.no_error_for_x_tx_pkts = 10
@@ -153,7 +153,7 @@ class UnstableSocket(TestSocket):
                 return None
         if self.no_error_for_x_tx_pkts > 0:
             self.no_error_for_x_tx_pkts -= 1
-        return super(UnstableSocket, self).recv(x)
+        return super(UnstableSocket, self).recv(x, **kwargs)
 
 
 def cleanup_testsockets():

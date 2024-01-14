@@ -67,8 +67,8 @@ def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=
     print("Server started !")
     with captured_output() as (out, err):
         # Prepare automaton
-        mycert = scapy_path("/test/tls/pki/srv_cert.pem")
-        mykey = scapy_path("/test/tls/pki/srv_key.pem")
+        mycert = scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem")
+        mykey = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
         print(mykey)
         print(mycert)
         assert os.path.exists(mycert)
@@ -97,9 +97,9 @@ def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=
 def run_openssl_client(msg, suite="", version="", tls13=False, client_auth=False,
                        psk=None, sess_out=None):
     # Run client
-    CA_f = scapy_path("/test/tls/pki/ca_cert.pem")
-    mycert = scapy_path("/test/tls/pki/cli_cert.pem")
-    mykey = scapy_path("/test/tls/pki/cli_key.pem")
+    CA_f = scapy_path("/test/scapy/layers/tls/pki/ca_cert.pem")
+    mycert = scapy_path("/test/scapy/layers/tls/pki/cli_cert.pem")
+    mykey = scapy_path("/test/scapy/layers/tls/pki/cli_key.pem")
     args = [
         "openssl", "s_client",
         "-connect", "127.0.0.1:4433", "-debug",
@@ -215,8 +215,8 @@ def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None,
                         client_auth=False, key_update=False, stop_server=True,
                         session_ticket_file_out=None, session_ticket_file_in=None):
     print("Loading client...")
-    mycert = scapy_path("/test/tls/pki/cli_cert.pem") if client_auth else None
-    mykey = scapy_path("/test/tls/pki/cli_key.pem") if client_auth else None
+    mycert = scapy_path("/test/scapy/layers/tls/pki/cli_cert.pem") if client_auth else None
+    mykey = scapy_path("/test/scapy/layers/tls/pki/cli_key.pem") if client_auth else None
     commands = [send_data]
     if key_update:
         commands.append(b"key_update")
@@ -254,7 +254,7 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
                            name="test_tls_client %s %s" % (suite, version), daemon=True)
     th_.start()
     # Synchronise threads
-    print("Syncrhonising...")
+    print("Synchronising...")
     assert q_.get(timeout=5) is True
     time.sleep(1)
     print("Thread synchronised")

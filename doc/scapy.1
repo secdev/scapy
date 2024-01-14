@@ -51,13 +51,13 @@ increase log verbosity. Can be used many times.
 use FILE to save/load session values (variables, functions, instances, ...) 
 .TP
 \fB\-p\fR PRESTART_FILE 
-use PRESTART_FILE instead of $HOME/.scapy_prestart.py as pre-startup file
+use PRESTART_FILE instead of $HOME/.config/scapy/prestart.py as pre-startup file
 .TP
 \fB\-P\fR
 do not run prestart file
 .TP
 \fB\-c\fR STARTUP_FILE 
-use STARTUP_FILE instead of $HOME/.scapy_startup.py as startup file
+use STARTUP_FILE instead of $HOME/.config/scapy/startup.py as startup file
 .TP
 \fB\-C\fR
 do not run startup file
@@ -82,7 +82,7 @@ lists scapy's main user commands.
 this object contains the configuration. 
 
 .SH FILES
-\fB$HOME/.scapy_prestart.py\fR
+\fB$HOME/.config/scapy/prestart.py\fR
 This file is run before Scapy core is loaded. Only the \fBconf\fP object
 is available. This file can be used to manipulate \fBconf.load_layers\fP 
 list to choose which layers will be loaded:
@@ -92,7 +92,7 @@ conf.load_layers.remove("bluetooth")
 conf.load_layers.append("new_layer")
 .fi
 
-\fB$HOME/.scapy_startup.py\fR
+\fB$HOME/.config/scapy/startup.py\fR
 This file is run after Scapy is loaded. It can be used to configure
 some of the Scapy behaviors:
 

@@ -297,7 +297,7 @@ assert p.previous_msg == b'\x10\x03'
 + pcap based tests
 
 = read diag_ack pcap file
-pkt = rdpcap("test/pcaps/doip_ack.pcap").res[0]
+pkt = rdpcap(scapy_path("test/pcaps/doip_ack.pcap")).res[0]
 
 assert len(pkt) == 70
 
@@ -313,7 +313,7 @@ assert pkt.previous_msg == b'\x22\xFD\x31'
 
 = read main pcap file
 
-pkts = rdpcap("test/pcaps/doip.pcap.gz")
+pkts = rdpcap(scapy_path("test/pcaps/doip.pcap.gz"))
 ips = [p for p in pkts if p.proto == 6]
 
 assert len(ips) > 1
@@ -380,3 +380,57 @@ assert req.hashret() == resp.hashret()
 # exclude TCP layer from answers check
 assert resp[3].answers(req[3])
 assert not req[3].answers(resp[3])
+
+= Test DoIPSocket
+
+server_up = threading.Event()
+def server():
+    buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', 13400))
+        sock.listen(1)
+        server_up.set()
+        connection, address = sock.accept()
+        connection.send(buffer)
+        connection.close()
+    finally:
+        sock.close()
+
+
+server_thread = threading.Thread(target=server)
+server_thread.start()
+server_up.wait(timeout=1)
+sock = DoIPSocket(activate_routing=False)
+
+pkts = sock.sniff(timeout=1, count=2)
+assert len(pkts) == 2
+
+= Test DoIPSocket6
+
+server_up = threading.Event()
+def server():
+    buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('::1', 13400))
+        sock.listen(1)
+        server_up.set()
+        connection, address = sock.accept()
+        connection.send(buffer)
+        connection.close()
+    finally:
+        sock.close()
+
+
+server_thread = threading.Thread(target=server)
+server_thread.start()
+server_up.wait(timeout=1)
+sock = DoIPSocket6(activate_routing=False)
+
+pkts = sock.sniff(timeout=1, count=2)
+assert len(pkts) == 2

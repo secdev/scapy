@@ -23,6 +23,7 @@ from scapy.layers.can import CAN_MTU, CAN_FD_MTU, CAN_MAX_DLEN, CAN_FD_MAX_DLEN
 
 # Typing imports
 from typing import (
+    Any,
     Optional,
     Union,
     Tuple,
@@ -379,17 +380,23 @@ class ISOTPNativeSocket(SuperSocket):
                                   "Increasing `stmin` could solve this problem.")
             elif e.errno == 110:
                 log_isotp.warning('Captured no data, socket read timed out.')
+            elif e.errno == 70:
+                log_isotp.warning(
+                    'Communication error on send. '
+                    'TX path flowcontrol reception timeout.')
             else:
+                log_isotp.error(
+                    'Unknown error code received %d. Closing socket!', e.errno)
                 self.close()
             return None, None, None
 
-        if ts is None:
+        if pkt and ts is None:
             ts = get_last_packet_timestamp(self.ins)
         return self.basecls, pkt, ts
 
-    def recv(self, x=0xffff):
-        # type: (int) -> Optional[Packet]
-        msg = SuperSocket.recv(self, x)
+    def recv(self, x=0xffff, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
+        msg = SuperSocket.recv(self, x, **kwargs)
         if msg is None:
             return msg
 

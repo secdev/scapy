@@ -38,13 +38,14 @@ from scapy.utils import str2mac, decode_locale_str
 import scapy.consts
 
 from typing import (
-    cast,
+    Any,
     Dict,
     List,
     NoReturn,
     Optional,
     Tuple,
     Type,
+    cast,
 )
 
 if not scapy.consts.WINDOWS:
@@ -431,15 +432,21 @@ if conf.use_pcap:
                     from scapy.arch import get_if_hwaddr
                     try:
                         mac = get_if_hwaddr(ifname)
-                    except Exception:
+                    except Exception as ex:
                         # There are at least 3 different possible exceptions
+                        log_loading.warning(
+                            "Could not get MAC address of interface '%s': %s." % (
+                                ifname,
+                                ex,
+                            )
+                        )
                         continue
                 if_data = {
                     'name': ifname,
                     'description': description or ifname,
                     'network_name': ifname,
                     'index': i,
-                    'mac': mac or '00:00:00:00:00:00',
+                    'mac': mac,
                     'ips': ips,
                     'flags': flags
                 }
@@ -571,9 +578,9 @@ if conf.use_pcap:
     class L3pcapSocket(L2pcapSocket):
         desc = "read/write packets at layer 3 using only libpcap"
 
-        def recv(self, x=MTU):
-            # type: (int) -> Optional[Packet]
-            r = L2pcapSocket.recv(self, x)
+        def recv(self, x=MTU, **kwargs):
+            # type: (int, **Any) -> Optional[Packet]
+            r = L2pcapSocket.recv(self, x, **kwargs)
             if r:
                 r.payload.time = r.time
                 return r.payload

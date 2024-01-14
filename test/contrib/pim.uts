@@ -7,7 +7,7 @@
 
 = PIMv2 Hello - instantiation
 
-hello_data = b'\x01\x00^\x00\x00\r\x00\xd0\xcb\x00\xba\xe4\x08\x00E\xc0\x00BY\xf9\x00\x00\x01gTe\x15\x15\x15\x15\xe0\x00\x00\r \x00\xa55\x00\x01\x00\x02\x00i\x00\x13\x00\x04\x00\x00\x00\x00\x00\x02\x00\x04\x01\xf4\t\xc4\x00\x14\x00\x04'
+hello_data = b'\x01\x00^\x00\x00\r\x00\xd0\xcb\x00\xba\xe4\x08\x00E\xc0\x00BY\xf9\x00\x00\x01gTe\x15\x15\x15\x15\xe0\x00\x00\r \x00\xa55\x00\x01\x00\x02\x00i\x00\x13\x00\x04\x00\x00\x00\x00\x00\x02\x00\x04\x01\xf4\t\xc4\x00\x14\x00\x04\x00\x00\x00\x00'
 
 hello_pkt = Ether(hello_data)
 
@@ -23,6 +23,8 @@ assert (hello_pkt[PIMv2Hello].option[2][PIMv2HelloLANPruneDelay].value[0][PIMv2H
 assert (hello_pkt[PIMv2Hello].option[2][PIMv2HelloLANPruneDelay].value[0][PIMv2HelloLANPruneDelayValue].propagation_delay == 500)
 assert (hello_pkt[PIMv2Hello].option[2][PIMv2HelloLANPruneDelay].value[0][PIMv2HelloLANPruneDelayValue].override_interval == 2500)
 assert (hello_pkt[PIMv2Hello].option[3][PIMv2HelloGenerationID].type == 20)
+
+repr(PIMv2HelloLANPruneDelayValue(t=1))
 
 = PIMv2 Join/Prune - instantiation
 

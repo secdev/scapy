@@ -13,7 +13,7 @@ import struct
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitFieldLenField, BitField, BitEnumField, ByteField, \
     ShortField, XShortField, IPField, PacketListField, \
-    IntField, FieldLenField, BoundStrLenField, FlagsField
+    IntField, FieldLenField, BoundStrLenField
 from scapy.layers.inet import IP
 from scapy.utils import checksum
 from scapy.compat import orb
@@ -114,7 +114,7 @@ class PIMv2HelloHoldtime(_PIMv2GenericHello):
 class PIMv2HelloLANPruneDelayValue(_PIMv2GenericHello):
     name = "PIMv2 Hello Options : LAN Prune Delay Value"
     fields_desc = [
-        FlagsField("t", 0, 1, [0, 1]),
+        BitField("t", 0, 1),
         BitField("propagation_delay", 500, 15),
         ShortField("override_interval", 2500),
     ]

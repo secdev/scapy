@@ -10,15 +10,19 @@
 
 import struct
 
+from scapy.config import conf
 from scapy.utils import EDecimal
 from scapy.packet import Packet
 from scapy.sessions import DefaultSession
+from scapy.supersocket import SuperSocket
 from scapy.contrib.isotp.isotp_packet import ISOTP, N_PCI_CF, N_PCI_SF, \
     N_PCI_FF, N_PCI_FC
 
 # Typing imports
 from typing import (
+    cast,
     Iterable,
+    Iterator,
     Optional,
     Union,
     List,
@@ -201,7 +205,13 @@ class ISOTPMessageBuilder(object):
         # type: (...) -> ISOTP
         bucket = t[2]
         data = bucket.ready or b""
-        p = basecls(data)
+        try:
+            p = basecls(data)
+        except Exception:
+            if conf.debug_dissector:
+                from scapy.sendrecv import debug
+                debug.crashed_on = (basecls, data)
+            raise
         if hasattr(p, "rx_id"):
             p.rx_id = t[0]
         if hasattr(p, "rx_ext_address"):
@@ -329,20 +339,23 @@ class ISOTPSession(DefaultSession):
 
     def __init__(self, *args, **kwargs):
         # type: (Any, Any) -> None
-        super(ISOTPSession, self).__init__(*args, **kwargs)
         self.m = ISOTPMessageBuilder(
             use_ext_address=kwargs.pop("use_ext_address", None),
             rx_id=kwargs.pop("rx_id", None),
             basecls=kwargs.pop("basecls", ISOTP))
+        super(ISOTPSession, self).__init__(*args, **kwargs)
 
-    def on_packet_received(self, pkt):
-        # type: (Optional[Packet]) -> None
+    def recv(self, sock: SuperSocket) -> Iterator[Packet]:
+        """
+        Will be called by sniff() to ask for a packet
+        """
+        pkt = sock.recv()
         if not pkt:
             return
         self.m.feed(pkt)
         while len(self.m) > 0:
-            rcvd = self.m.pop()
-            if self._supersession:
-                self._supersession.on_packet_received(rcvd)
-            else:
-                super(ISOTPSession, self).on_packet_received(rcvd)
+            rcvd = cast(Optional[Packet], self.m.pop())
+            if rcvd:
+                rcvd = self.process(rcvd)
+            if rcvd:
+                yield rcvd

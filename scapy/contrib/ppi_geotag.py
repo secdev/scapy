@@ -278,7 +278,7 @@ _hcsi_vector_char_flags = _FlagsList({
     8: "GPS Derived",
     9: "INS Derived",
     10: "Compass Derived",
-    11: "Acclerometer Derived",
+    11: "Accelerometer Derived",
     12: "Human Derived",
 })
 

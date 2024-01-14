@@ -3278,6 +3278,89 @@ except IPSecIntegrityError as err:
     err
 
 ###############################################################################
++ IPv4 / UDP / ESP - NAT-Traversal
+
+#######################################
+= IPv4 / UDP / ESP - NAT-Traversal - Tunnel
+~ -crypto
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='NULL', auth_key=None,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'),
+                         nat_t_header=UDP(dport=5000))
+
+e = sa.encrypt(p)
+e
+
+assert isinstance(e, IP)
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+* the encrypted packet should have an UDP layer
+assert e.proto == socket.IPPROTO_UDP
+assert e.haslayer(UDP)
+assert e[UDP].sport == 4500
+assert e[UDP].dport == 5000
+assert e[UDP].chksum == 0
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
+
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet payload should be unaltered
+assert d[TCP] == p[TCP]
+
+#######################################
+= IPv4 / UDP / ESP - NAT-Traversal - Transport
+~ -crypto
+
+import socket
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='NULL', auth_key=None,
+                         nat_t_header=UDP(dport=5000))
+
+e = sa.encrypt(p)
+e
+
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+* the encrypted packet should have an UDP layer
+assert e.proto == socket.IPPROTO_UDP
+assert e.haslayer(UDP)
+assert e[UDP].sport == 4500
+assert e[UDP].dport == 5000
+assert e[UDP].chksum == 0
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
+
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet payload should be unaltered
+assert d[TCP] == p[TCP]
+
+###############################################################################
 + IPv6 / ESP
 
 #######################################

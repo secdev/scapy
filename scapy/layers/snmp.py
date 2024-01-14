@@ -11,7 +11,7 @@ from scapy.packet import bind_layers, bind_bottom_up
 from scapy.asn1packet import ASN1_Packet
 from scapy.asn1fields import ASN1F_INTEGER, ASN1F_IPADDRESS, ASN1F_OID, \
     ASN1F_SEQUENCE, ASN1F_SEQUENCE_OF, ASN1F_STRING, ASN1F_TIME_TICKS, \
-    ASN1F_enum_INTEGER, ASN1F_field, ASN1F_CHOICE
+    ASN1F_enum_INTEGER, ASN1F_field, ASN1F_CHOICE, ASN1F_optional, ASN1F_NULL
 from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_Codecs, ASN1_NULL, \
     ASN1_SEQUENCE
 from scapy.asn1.ber import BERcodec_SEQUENCE
@@ -177,9 +177,17 @@ SNMP_trap_types = {0: "cold_start",
 
 class SNMPvarbind(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(ASN1F_OID("oid", "1.3"),
-                               ASN1F_field("value", ASN1_NULL(0))
-                               )
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_OID("oid", "1.3"),
+        ASN1F_optional(
+            ASN1F_field("value", ASN1_NULL(0))
+        ),
+
+        # exceptions in responses
+        ASN1F_optional(ASN1F_NULL("noSuchObject", None, implicit_tag=0x80)),
+        ASN1F_optional(ASN1F_NULL("noSuchInstance", None, implicit_tag=0x81)),
+        ASN1F_optional(ASN1F_NULL("endOfMibView", None, implicit_tag=0x82)),
+    )
 
 
 class SNMPget(ASN1_Packet):

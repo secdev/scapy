@@ -94,7 +94,12 @@ class SDESChunk(Packet):
     name = "SDES chunk"
     fields_desc = [
         IntField('sourcesync', None),
-        PacketListField('items', None, pkt_cls=SDESItem)
+        PacketListField(
+            'items', None,
+            next_cls_cb=(
+                lambda x, y, p, z: None if (p and p.chunk_type == 0) else SDESItem
+            )
+        )
     ]
 
 

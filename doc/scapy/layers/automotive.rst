@@ -1158,7 +1158,7 @@ then casted to ``UDS`` objects through the ``basecls`` parameter
 Usage example::
 
     with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
-        udsmsgs = sniff(session=ISOTPSession, session_kwargs={"use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
+        udsmsgs = sniff(session=ISOTPSession(use_ext_addr=False, basecls=UDS), count=50, opened_socket=sock)
 
 
     ecu = Ecu()
@@ -1183,7 +1183,7 @@ Usage example::
     session = EcuSession()
 
     with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
-        udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
+        udsmsgs = sniff(session=ISOTPSession(use_ext_addr=False, basecls=UDS, supersession=session)), count=50, opened_socket=sock)
 
     ecu = session.ecu
     print(ecu.log)

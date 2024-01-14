@@ -1,36 +1,80 @@
-*************
-Scapy routing
-*************
+*******************
+Scapy network stack
+*******************
 
-Scapy needs to know many things related to the network configuration of your machine, to be able to route packets properly. For instance, the interface list, the IPv4 and IPv6 routes...
+Scapy maintains its own network stack, which is independent from the one of your operating system.
+It possesses its own *interfaces list*, *routing table*, *ARP cache*, *IPv6 neighbour* cache, *nameservers* config... and so on, all of which is configurable.
 
-This means that Scapy has implemented bindings to get this information. Those bindings are OS specific. This will show you how to use it for a different usage.
+Here are a few examples of where this is used::
+
+- When you use ``sr()/send()``, Scapy will use internally its own routing table (``conf.route``) in order to find which interface to use, and eventually send an ARP request.
+- When using ``dns_resolve()``, Scapy uses its own nameservers list (``conf.nameservers``) to perform the request
+- etc.
 
 .. note::
-    Scapy will have OS-specific functions underlying some high level functions. This page ONLY presents the cross platform ones
+    What's important to note is that Scapy initializes its own tables by querying the OS-specific ones.
+    It has therefore implemented bindings for Linux/Windows/BSD.. in order to retrieve such data, which may also be used as a high-level API, documented below.
 
 
-List interfaces
+Interfaces list
 ---------------
 
-Use ``get_if_list()`` to get the interface list
+Scapy stores its interfaces list in the :py:attr:`conf.ifaces <scapy.interfaces.NetworkInterfaceDict>` object.
+It provides a few utility functions such as :py:attr:`dev_from_networkname() <scapy.interfaces.NetworkInterfaceDict.dev_from_networkname>`, :py:attr:`dev_from_name() <scapy.interfaces.NetworkInterfaceDict.dev_from_name>` or :py:attr:`dev_from_index() <scapy.interfaces.NetworkInterfaceDict.dev_from_index>` in order to access those.
+
+.. code-block:: pycon
+
+    >>> conf.ifaces
+    Source  Index  Name  MAC                IPv4          IPv6
+    sys     1      lo    00:00:00:00:00:00  127.0.0.1     ::1
+    sys     2      eth0  Microsof:12:cb:ef  10.0.0.5  fe80::10a:2bef:dc12:afae
+    >>> conf.ifaces.dev_from_index(2)
+    <NetworkInterface eth0 [UP+BROADCAST+RUNNING+SLAVE]>
+
+You can also use the older ``get_if_list()`` function in order to only get the interface names.
 
 .. code-block:: pycon
 
     >>> get_if_list()
     ['lo', 'eth0']
 
-You can also use the :py:attr:`conf.ifaces <scapy.interfaces.NetworkInterfaceDict>` object to get interfaces.
-In this example, the object is first displayed as as column. Then, the :py:attr:`dev_from_index() <scapy.interfaces.NetworkInterfaceDict.dev_from_index>` is used to access the interface at index 2.
+Extcap interfaces
+~~~~~~~~~~~~~~~~~
+
+Scapy supports sniffing on `Wireshark's extcap <https://www.wireshark.org/docs/man-pages/extcap.html>`_ interfaces. You can simply enable it using ``load_extcap()`` (from ``scapy.libs.extcap``).
 
 .. code-block:: pycon
 
+    >>> load_extcap()
     >>> conf.ifaces
-    SRC  INDEX  IFACE  IPv4       IPv6                      MAC
-    sys  2      eth0   10.0.0.5   fe80::10a:2bef:dc12:afae  Microsof:12:cb:ef
-    sys  1      lo     127.0.0.1  ::1                       00:00:00:00:00:00
-    >>> conf.ifaces.dev_from_index(2)
-    <NetworkInterface eth0 [UP+BROADCAST+RUNNING+SLAVE]>
+    Source       Index  Name                                     Address
+    ciscodump    100    Cisco remote capture                     ciscodump
+    dpauxmon     100    DisplayPort AUX channel monitor capture  dpauxmon
+    randpktdump  100    Random packet generator                  randpkt
+    sdjournal    100    systemd Journal Export                   sdjournal
+    sshdump      100    SSH remote capture                       sshdump
+    udpdump      100    UDP Listener remote capture              udpdump
+    wifidump     100    Wi-Fi remote capture                     wifidump
+    Source  Index  Name  MAC                IPv4          IPv6
+    sys     1      lo    00:00:00:00:00:00  127.0.0.1     ::1
+    sys     2      eth0  Microsof:12:cb:ef  10.0.0.5  fe80::10a:2bef:dc12:afae
+
+
+Here's an example of how to use `sshdump <https://www.wireshark.org/docs/man-pages/sshdump.html>`_. As you can see you can pass arguments that are properly converted:
+
+.. code-block:: pycon
+
+    >>> load_extcap()
+    >>> sniff(
+    ...     iface="sshdump",
+    ...     prn=lambda x: x.summary(),
+    ...     remote_host="192.168.0.1",
+    ...     remote_username="root",
+    ...     remote_password="SCAPY",
+    ... )
+
+
+.. todo:: The sections below can be greatly improved.
 
 IPv4 routes
 -----------
@@ -61,10 +105,10 @@ Get the route for a specific IP:  :py:func:`conf.route.route() <scapy.route.Rout
 IPv6 routes
 -----------
 
-Same than IPv4 but with :py:attr:`conf.route6 <scapy.route6.Route6>`
+Same as IPv4 but with :py:attr:`conf.route6 <scapy.route6.Route6>`
 
-Get router IP address
----------------------
+Get default gateway IP address
+------------------------------
 
 .. code-block:: pycon
 
@@ -72,8 +116,8 @@ Get router IP address
     >>> gw
     '10.0.0.1'
 
-Get local IP / IP of an interface
----------------------------------
+Get the IP of an interface
+--------------------------
 
 Use ``conf.iface``
 
@@ -84,8 +128,8 @@ Use ``conf.iface``
     >>> ip
     '10.0.0.5'
 
-Get local MAC / MAC of an interface
------------------------------------
+Get the MAC of an interface
+---------------------------
 
 .. code-block:: pycon
 
@@ -96,6 +140,8 @@ Get local MAC / MAC of an interface
 
 Get MAC by IP
 -------------
+
+This basically performs a cached ARP who-has.
 
 .. code-block:: pycon
 

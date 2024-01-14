@@ -1046,17 +1046,16 @@ class SecurityAssociation(object):
             ip_header /= nat_t_header
 
         if ip_header.version == 4:
-            ip_header.len = len(ip_header) + len(esp)
+            del ip_header.len
             del ip_header.chksum
-            ip_header = ip_header.__class__(raw(ip_header))
         else:
-            ip_header.plen = len(ip_header.payload) + len(esp)
+            del ip_header.plen
 
         # sequence number must always change, unless specified by the user
         if seq_num is None:
             self.seq_num += 1
 
-        return ip_header / esp
+        return ip_header.__class__(raw(ip_header / esp))
 
     def _encrypt_ah(self, pkt, seq_num=None, esn_en=False, esn=0):
 

@@ -11,11 +11,12 @@
 import mock
 @mock.patch("scapy.ansmachine.sniff")
 def test_am(cls_name, packet_query, check_reply, mock_sniff, **kargs):
+    packet_query = packet_query.__class__(bytes(packet_query))
     def sniff(*args,**kargs):
         kargs["prn"](packet_query)
     mock_sniff.side_effect = sniff
     am = cls_name(**kargs)
-    am.send_reply = check_reply
+    am.send_reply = lambda x: check_reply(x.__class__(bytes(x)))
     am()
 
 
@@ -32,11 +33,12 @@ test_am(BOOTP_am,
 = DHCP_am
 def check_DHCP_am_reply(packet):
     assert DHCP in packet and len(packet[DHCP].options)
-    assert ("domain", "localnet") in packet[DHCP].options
+    assert ("domain", b"localnet") in packet[DHCP].options
 
 test_am(DHCP_am,
-        Ether()/IP()/UDP()/BOOTP(op=1)/DHCP(),
-        check_DHCP_am_reply)
+        Ether()/IP()/UDP()/BOOTP(op=1)/DHCP(options=[('message-type', 'request')]),
+        check_DHCP_am_reply,
+        domain="localnet")
 
 
 = ARP_am
@@ -64,12 +66,24 @@ test_am(ICMPEcho_am,
 = DNS_am
 def check_DNS_am_reply(packet):
     assert DNS in packet and packet[DNS].ancount == 1
-    assert packet[DNS].an.rdata == "192.168.1.1"
+    assert packet[DNS].an[0].rdata == "192.168.1.1"
+    assert packet[DNS].qd[0].qname == b"www.secdev.org."
 
 test_am(DNS_am,
         IP()/UDP()/DNS(qd=DNSQR(qname="www.secdev.org")),
         check_DNS_am_reply,
         joker="192.168.1.1")
+
+def check_DNS_am_reply2(packet):
+    assert DNS in packet and packet[DNS].ancount == 2
+    assert packet[DNS].an[0].rdata == "128.0.0.1"
+    assert packet[DNS].an[1].rdata == "::1"
+
+test_am(DNS_am,
+        IP(b'E\x00\x00H\x00\x01\x00\x00@\x11|\xa2\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x004\xe8\x9a\x00\x00\x01\x00\x00\x02\x00\x00\x00\x00\x00\x00\x06gaagle\x03com\x00\x00\x01\x00\x01\x06google\x03com\x00\x00\x1c\x00\x01'),
+        check_DNS_am_reply2,
+        match={"google.com": ("127.0.0.1", "::1"), "gaagle.com": "128.0.0.1"},
+        joker=False)
 
 = DHCPv6_am - Basic Instantiaion
 ~ osx netaccess
@@ -138,7 +152,7 @@ test_WiFi_am(Dot11(FCfield="to-DS")/IP()/TCP()/"Scapy",
 = NBNS_am
 def check_NBNS_am_reply(name):
     def check(packet):
-        assert NBNSQueryResponse in packet and packet[NBNSQueryResponse].RR_NAME == bytes_encode(name)
+        assert NBNSQueryResponse in packet and packet[NBNSQueryResponse].RR_NAME.strip() == bytes_encode(name)
     return check
 
 for server_name in (None, "", b"test", "test"):

@@ -22,8 +22,16 @@ from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Gen, Net
 from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
     IP_PROTOS, TCP_SERVICES, UDP_SERVICES
-from scapy.layers.l2 import Ether, Dot3, getmacbyip, CookedLinux, GRE, SNAP, \
-    Loopback
+from scapy.layers.l2 import (
+    CookedLinux,
+    Dot3,
+    Ether,
+    GRE,
+    Loopback,
+    SNAP,
+    arpcachepoison,
+    getmacbyip,
+)
 from scapy.compat import raw, chb, orb, bytes_encode, Optional
 from scapy.config import conf
 from scapy.fields import (
@@ -559,7 +567,6 @@ class DestIPField(IPField, DestField):
 
 
 class IP(Packet, IPTools):
-    __slots__ = ["_defrag_pos"]
     name = "IP"
     fields_desc = [BitField("version", 4, 4),
                    BitField("ihl", None, 4),
@@ -657,38 +664,7 @@ class IP(Packet, IPTools):
 
     def fragment(self, fragsize=1480):
         """Fragment IP datagrams"""
-        lastfragsz = fragsize
-        fragsize -= fragsize % 8
-        lst = []
-        fnb = 0
-        fl = self
-        while fl.underlayer is not None:
-            fnb += 1
-            fl = fl.underlayer
-
-        for p in fl:
-            s = raw(p[fnb].payload)
-            if len(s) <= lastfragsz:
-                lst.append(p)
-                continue
-
-            nb = (len(s) - lastfragsz + fragsize - 1) // fragsize + 1
-            for i in range(nb):
-                q = p.copy()
-                del q[fnb].payload
-                del q[fnb].chksum
-                del q[fnb].len
-                if i != nb - 1:
-                    q[fnb].flags |= 1
-                    fragend = (i + 1) * fragsize
-                else:
-                    fragend = i * fragsize + lastfragsz
-                q[fnb].frag += i * fragsize // 8
-                r = conf.raw_layer(load=s[i * fragsize:fragend])
-                r.overload_fields = p[fnb].payload.overload_fields.copy()
-                q.add_payload(r)
-                lst.append(q)
-        return lst
+        return fragment(self, fragsize=fragsize)
 
 
 def in4_pseudoheader(proto, u, plen):
@@ -733,7 +709,7 @@ def in4_chksum(proto, u, p):
     # type: (int, IP, bytes) -> int
     """IPv4 Pseudo Header checksum as defined in RFC793
 
-    :param nh: value of upper layer protocol
+    :param proto: value of upper layer protocol
     :param u: upper layer instance
     :param p: the payload of the upper layer provided as a string
     """
@@ -1163,6 +1139,9 @@ conf.l3types.register_num2layer(ETH_P_ALL, IP)
 
 
 def inet_register_l3(l2, l3):
+    """
+    Resolves the default L2 destination address when IP is used.
+    """
     return getmacbyip(l3.dst)
 
 
@@ -1177,6 +1156,9 @@ conf.neighbor.register_l3(Dot3, IP, inet_register_l3)
 @conf.commands.register
 def fragment(pkt, fragsize=1480):
     """Fragment a big IP datagram"""
+    if fragsize < 8:
+        warning("fragsize cannot be lower than 8")
+        fragsize = max(fragsize, 8)
     lastfragsz = fragsize
     fragsize -= fragsize % 8
     lst = []
@@ -1221,86 +1203,115 @@ overlap_fragsize: the fragment size of the overlapping packet"""
     return qfrag + fragment(p, fragsize)
 
 
-def _defrag_list(lst, defrag, missfrag):
-    """Internal usage only. Part of the _defrag_logic"""
-    p = lst[0]
-    lastp = lst[-1]
-    if p.frag > 0 or lastp.flags.MF:  # first or last fragment missing
-        missfrag.extend(lst)
-        return
-    p = p.copy()
-    if conf.padding_layer in p:
-        del p[conf.padding_layer].underlayer.payload
-    ip = p[IP]
-    if ip.len is None or ip.ihl is None:
-        c_len = len(ip.payload)
-    else:
-        c_len = ip.len - (ip.ihl << 2)
-    txt = conf.raw_layer()
-    for q in lst[1:]:
-        if c_len != q.frag << 3:  # Wrong fragmentation offset
-            if c_len > q.frag << 3:
-                warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (c_len, q.frag << 3, p, txt, q))  # noqa: E501
-            missfrag.extend(lst)
-            break
-        if q[IP].len is None or q[IP].ihl is None:
-            c_len += len(q[IP].payload)
+class BadFragments(ValueError):
+    def __init__(self, *args, **kwargs):
+        self.frags = kwargs.pop("frags", None)
+        super(BadFragments, self).__init__(*args, **kwargs)
+
+
+def _defrag_iter_and_check_offsets(frags):
+    """
+    Internal generator used in _defrag_ip_pkt
+    """
+    offset = 0
+    for pkt, o, length in frags:
+        if offset != o:
+            if offset > o:
+                op = ">"
+            else:
+                op = "<"
+            warning("Fragment overlap (%i %s %i) on %r" % (offset, op, o, pkt))
+            raise BadFragments
+        offset += length
+        yield bytes(pkt[IP].payload)
+
+
+def _defrag_ip_pkt(pkt, frags):
+    """
+    Defragment a single IP packet.
+
+    :param pkt: the new pkt
+    :param frags: a defaultdict(list) used for storage
+    :return: a tuple (fragmented, defragmented_value)
+    """
+    ip = pkt[IP]
+    if pkt.frag != 0 or ip.flags.MF:
+        # fragmented !
+        uid = (ip.id, ip.src, ip.dst, ip.proto)
+        if ip.len is None or ip.ihl is None:
+            fraglen = len(ip.payload)
         else:
-            c_len += q[IP].len - (q[IP].ihl << 2)
-        if conf.padding_layer in q:
-            del q[conf.padding_layer].underlayer.payload
-        txt.add_payload(q[IP].payload.copy())
-        if q.time > p.time:
-            p.time = q.time
-    else:
-        ip.flags.MF = False
-        del ip.chksum
-        del ip.len
-        p = p / txt
-        p._defrag_pos = max(x._defrag_pos for x in lst)
-        defrag.append(p)
+            fraglen = ip.len - (ip.ihl << 2)
+        # (pkt, frag offset, frag len)
+        frags[uid].append((pkt, ip.frag << 3, fraglen))
+        if not ip.flags.MF:  # no more fragments = last fragment
+            curfrags = sorted(frags[uid], key=lambda x: x[1])  # sort by offset
+            try:
+                data = b"".join(_defrag_iter_and_check_offsets(curfrags))
+            except ValueError:
+                # bad fragment
+                badfrags = frags[uid]
+                del frags[uid]
+                raise BadFragments(frags=badfrags)
+            # re-build initial packet without fragmentation
+            p = curfrags[0][0].copy()
+            pay_class = p[IP].payload.__class__
+            p[IP].flags.MF = False
+            p[IP].remove_payload()
+            p[IP].len = None
+            p[IP].chksum = None
+            # append defragmented payload
+            p /= pay_class(data)
+            # cleanup
+            del frags[uid]
+            return True, p
+        return True, None
+    return False, pkt
 
 
 def _defrag_logic(plist, complete=False):
-    """Internal function used to defragment a list of packets.
+    """
+    Internal function used to defragment a list of packets.
     It contains the logic behind the defrag() and defragment() functions
     """
-    frags = defaultdict(lambda: [])
+    frags = defaultdict(list)
     final = []
-    pos = 0
-    for p in plist:
-        p._defrag_pos = pos
-        pos += 1
-        if IP in p:
-            ip = p[IP]
-            if ip.frag != 0 or ip.flags.MF:
-                uniq = (ip.id, ip.src, ip.dst, ip.proto)
-                frags[uniq].append(p)
-                continue
-        final.append(p)
-
-    defrag = []
-    missfrag = []
-    for lst in frags.values():
-        lst.sort(key=lambda x: x.frag)
-        _defrag_list(lst, defrag, missfrag)
-    defrag2 = []
-    for p in defrag:
-        q = p.__class__(raw(p))
-        q._defrag_pos = p._defrag_pos
-        q.time = p.time
-        defrag2.append(q)
+    notfrag = []
+    badfrag = []
+    # Defrag
+    for i, pkt in enumerate(plist):
+        if IP not in pkt:
+            # no IP layer
+            if complete:
+                final.append(pkt)
+            continue
+        try:
+            fragmented, defragmented_value = _defrag_ip_pkt(
+                pkt,
+                frags,
+            )
+        except BadFragments as ex:
+            if complete:
+                final.extend(ex.frags)
+            else:
+                badfrag.extend(ex.frags)
+            continue
+        if complete and defragmented_value:
+            final.append(defragmented_value)
+        elif defragmented_value:
+            if fragmented:
+                final.append(defragmented_value)
+            else:
+                notfrag.append(defragmented_value)
+    # Return
     if complete:
-        final.extend(defrag2)
-        final.extend(missfrag)
-        final.sort(key=lambda x: x._defrag_pos)
         if hasattr(plist, "listname"):
             name = "Defragmented %s" % plist.listname
         else:
             name = "Defragmented"
         return PacketList(final, name=name)
     else:
-        return PacketList(final), PacketList(defrag2), PacketList(missfrag)
+        return PacketList(notfrag), PacketList(final), PacketList(badfrag)
 
 
 @conf.commands.register
@@ -1928,19 +1939,22 @@ class TCP_client(Automaton):
 
     :param ip: the ip to connect to
     :param port:
+    :param src: (optional) use another source IP
     """
 
-    def parse_args(self, ip, port, *args, **kargs):
+    def parse_args(self, ip, port, srcip=None, **kargs):
         from scapy.sessions import TCPSession
         self.dst = str(Net(ip))
         self.dport = port
         self.sport = random.randrange(0, 2**16)
-        self.l4 = IP(dst=ip) / TCP(sport=self.sport, dport=self.dport, flags=0,
-                                   seq=random.randrange(0, 2**32))
+        self.l4 = IP(dst=ip, src=srcip) / TCP(
+            sport=self.sport, dport=self.dport,
+            flags=0, seq=random.randrange(0, 2**32)
+        )
         self.src = self.l4.src
         self.sack = self.l4[TCP].ack
         self.rel_seq = None
-        self.rcvbuf = TCPSession(prn=self._transmit_packet, store=False)
+        self.rcvbuf = TCPSession()
         bpf = "host %s  and host %s and port %i and port %i" % (self.src,
                                                                 self.dst,
                                                                 self.sport,
@@ -2025,7 +2039,9 @@ class TCP_client(Automaton):
             # Answer with an Ack
             self.send(self.l4)
             # Process data - will be sent to the SuperSocket through this
-            self.rcvbuf.on_packet_received(pkt)
+            pkt = self.rcvbuf.process(pkt)
+            if pkt:
+                self._transmit_packet(pkt)
 
     @ATMT.ioevent(ESTABLISHED, name="tcp", as_supersocket="tcplink")
     def outgoing_data_received(self, fd):
@@ -2198,6 +2214,68 @@ def fragleak2(target, timeout=0.4, onlyasc=0, count=None):
                     linehexdump(leak, onlyasc=onlyasc)
     except Exception:
         pass
+
+
+@conf.commands.register
+class connect_from_ip:
+    """
+    Open a TCP socket to a host:port while spoofing another IP.
+
+    :param host: the host to connect to
+    :param port: the port to connect to
+    :param srcip: the IP to spoof. the cache of the gateway will
+                  be poisonned with this IP.
+    :param poison: (optional, default True) ARP poison the gateway (or next hop),
+                   so that it answers us (only one packet).
+    :param timeout: (optional) the socket timeout.
+
+    Example - Connect to 192.168.0.1:80 spoofing 192.168.0.2::
+
+        from scapy.layers.http import HTTP, HTTPRequest
+        client = connect_from_ip("192.168.0.1", 80, "192.168.0.2")
+        sock = SSLStreamSocket(client.sock, HTTP)
+        resp = sock.sr1(HTTP() / HTTPRequest(Path="/"))
+
+    Example - Connect to 192.168.0.1:443 with TLS wrapping spoofing 192.168.0.2::
+
+        import ssl
+        from scapy.layers.http import HTTP, HTTPRequest
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        client = connect_from_ip("192.168.0.1", 443, "192.168.0.2")
+        sock = context.wrap_socket(client.sock)
+        sock = SSLStreamSocket(client.sock, HTTP)
+        resp = sock.sr1(HTTP() / HTTPRequest(Path="/"))
+    """
+
+    def __init__(self, host, port, srcip, poison=True, timeout=1, debug=0):
+        host = str(Net(host))
+        if poison:
+            # poison the next hop
+            gateway = conf.route.route(host)[2]
+            if gateway == "0.0.0.0":
+                # on lan
+                gateway = host
+            getmacbyip(gateway)  # cache real gateway before poisoning
+            arpcachepoison(gateway, srcip, count=1, interval=0, verbose=0)
+        # create a socket pair
+        self._sock, self.sock = socket.socketpair()
+        self.sock.settimeout(timeout)
+        self.client = TCP_client(
+            host, port,
+            srcip=srcip,
+            external_fd={"tcp": self._sock},
+            debug=debug,
+        )
+        # start the TCP_client
+        self.client.runbg()
+
+    def close(self):
+        self.client.stop()
+        self.client.destroy()
+        self.sock.close()
+        self._sock.close()
 
 
 class ICMPEcho_am(AnsweringMachine):
