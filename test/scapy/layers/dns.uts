@@ -243,6 +243,78 @@ assert DNSRR(raw(rr)).rdata == []
 rr = DNSRR(rrname='scapy', type='TXT', rdata=[])
 assert raw(rr) == b
 
+= DNS record type 64, 65 (SVCB, HTTPS)
+
+b = b'\x00\x00\x00\x04\x00\x01\x00\x06'
+p = SvcParam(b)
+assert p.key == 0 and p.value == [1, 6]
+assert b == raw(SvcParam(key='mandatory', value=['alpn', 'ipv6hint']))
+
+b = b'\x00\x01\x00\x06\x02h3\x02h2'
+p = SvcParam(b)
+assert p.key == 1 and p.value == [b'h3', b'h2']
+assert b == raw(SvcParam(key='alpn', value=['h3', 'h2']))
+
+b = b'\x00\x02\x00\x00'
+p = SvcParam(b)
+assert p.key == 2 and p.value == []
+assert b == raw(SvcParam(key='no-default-alpn'))
+
+b = b'\x00\x03\x00\x02\x04\xd2'
+p = SvcParam(b)
+assert p.key == 3 and p.value == 1234
+assert b == raw(SvcParam(key='port', value=1234))
+
+b = b'\x00\x04\x00\x08\xc0\xa8\x00\x01\xc0\xa8\x00\x02'
+p = SvcParam(b)
+assert p.key == 4 and p.value == ['192.168.0.1', '192.168.0.2']
+assert b == raw(SvcParam(key='ipv4hint', value=['192.168.0.1', '192.168.0.2']))
+
+b = b'\x00\x06\x00\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+p = SvcParam(b)
+assert p.key == 6 and p.value == ['2001:db8::1']
+assert b == raw(SvcParam(key='ipv6hint', value=['2001:db8::1']))
+
+b = b'\x00\x07\x00\x10/dns-query{?dns}'
+p = SvcParam(b)
+assert p.key == 7 and p.value == b'/dns-query{?dns}'
+assert b == raw(SvcParam(key='dohpath', value=b'/dns-query{?dns}'))
+
+p = DNSRRSVCB()
+assert p.rrname == b'.' and p.type == 64 and p.svc_priority == 0 and p.svc_params == []
+
+p = DNSRRHTTPS()
+assert p.rrname == b'.' and p.type == 65 and p.svc_priority == 0 and p.svc_params == []
+
+# Real-world SVCB RR
+b = b'\x04_dns\x03one\x03one\x03one\x03one\x00\x00@\x00\x01\x00\x00\x01,\x001\x00\x01\x03one\x03one\x03one\x03one\x00\x00\x01\x00\x06\x02h3\x02h2\x00\x07\x00\x10/dns-query{?dns}'
+p = DNSRRSVCB(b)
+assert p.type == 64 and p.ttl == 300 and p.svc_priority == 1 and p.target_name == b'one.one.one.one.'
+
+alpn = SvcParam(key='alpn', value=['h3', 'h2'])
+dohpath = SvcParam(key='dohpath', value=b'/dns-query{?dns}')
+
+assert raw(p.svc_params[0]) == raw(alpn)
+assert raw(p.svc_params[1]) == raw(dohpath)
+
+assert b == raw(DNSRRSVCB(rrname='_dns.one.one.one.one', ttl=300, svc_priority=1, target_name='one.one.one.one', svc_params=[alpn, dohpath]))
+
+# Real-world HTTPS RR
+b = b'\ncloudflare\x03com\x00\x00A\x00\x01\x00\x00\x00>\x00=\x00\x01\x00\x00\x01\x00\x06\x02h3\x02h2\x00\x04\x00\x08h\x10\x84\xe5h\x10\x85\xe5\x00\x06\x00 &\x06G\x00\x00\x00\x00\x00\x00\x00\x00\x00h\x10\x84\xe5&\x06G\x00\x00\x00\x00\x00\x00\x00\x00\x00h\x10\x85\xe5'
+
+p = DNSRRHTTPS(b)
+assert p.type == 65 and p.ttl == 62 and p.svc_priority == 1 and p.target_name == b'.'
+
+alpn = SvcParam(key='alpn', value=['h3', 'h2'])
+ipv4hint = SvcParam(key='ipv4hint', value=['104.16.132.229', '104.16.133.229'])
+ipv6hint = SvcParam(key='ipv6hint', value=['2606:4700::6810:84e5', '2606:4700::6810:85e5'])
+
+assert raw(p.svc_params[0]) == raw(alpn)
+assert raw(p.svc_params[1]) == raw(ipv4hint)
+assert raw(p.svc_params[2]) == raw(ipv6hint)
+
+assert b == raw(DNSRRHTTPS(rrname='cloudflare.com', ttl=62, svc_priority=1, target_name='.', svc_params=[alpn, ipv4hint, ipv6hint]))
+
 = DNS - Malformed DNS over TCP message
 
 _old_dbg = conf.debug_dissector
