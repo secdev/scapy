@@ -1119,7 +1119,7 @@ class SMB_Server(Automaton):
         self.vprint("Query directory: " + str(path))
         self.current_handles[handle][1]["LastAccessTime"] = self.current_smb_time()
         if not path.is_dir():
-            return NotADirectoryError
+            raise NotADirectoryError
         return sorted(
             [
                 cls(FileName=x.name, **self.current_handles[self.lookup_file(x)][1])
@@ -1302,6 +1302,9 @@ class SMB_Server(Automaton):
         query = pkt.FileName
         fid = self.get_file_id(pkt)
         # Check for handled FileInformationClass
+        # 0x02: FileFullDirectoryInformation
+        # 0x03: FileBothDirectoryInformation
+        # 0x25: FileIdBothDirectoryInformation
         if pkt.FileInformationClass not in [0x02, 0x03, 0x25]:
             # Unknown FileInformationClass
             resp = self.smb_header.copy() / SMB2_Error_Response()
@@ -1313,16 +1316,23 @@ class SMB_Server(Automaton):
         if pkt[SMB2_Query_Directory_Request].Flags.SMB2_RESTART_SCANS:
             self.enumerate_index[fid] = 0
         # Lookup the files
-        files = self.lookup_folder(
-            fid,
-            query,
-            self.enumerate_index[fid],
-            {
-                0x02: FILE_FULL_DIR_INFORMATION,  # FileFullDirectoryInformation,
-                0x03: FILE_BOTH_DIR_INFORMATION,  # FileBothDirectoryInformation
-                0x25: FILE_ID_BOTH_DIR_INFORMATION,  # FileIdBothDirectoryInformation
-            }[pkt.FileInformationClass],
-        )
+        try:
+            files = self.lookup_folder(
+                fid,
+                query,
+                self.enumerate_index[fid],
+                {
+                    0x02: FILE_FULL_DIR_INFORMATION,
+                    0x03: FILE_BOTH_DIR_INFORMATION,
+                    0x25: FILE_ID_BOTH_DIR_INFORMATION,
+                }[pkt.FileInformationClass],
+            )
+        except NotADirectoryError:
+            resp = self.smb_header.copy() / SMB2_Error_Response()
+            resp.Command = "SMB2_QUERY_DIRECTORY"
+            resp.Status = "STATUS_INVALID_PARAMETER"
+            self.send(resp)
+            return
         if not files:
             # No more files !
             self.enumerate_index[fid] = 0
@@ -1532,8 +1542,13 @@ class SMB_Server(Automaton):
     @ATMT.action(receive_tree_disconnect_request)
     def send_tree_disconnect_response(self, pkt):
         self.update_smbheader(pkt)
-        del self.current_trees[self.smb_header.TID]  # clear tree
-        resp = self.smb_header.copy() / SMB2_Tree_Disconnect_Response()
+        try:
+            del self.current_trees[self.smb_header.TID]  # clear tree
+            resp = self.smb_header.copy() / SMB2_Tree_Disconnect_Response()
+        except KeyError:
+            resp = self.smb_header.copy() / SMB2_Error_Response()
+            resp.Command = "SMB2_TREE_DISCONNECT"
+            resp.Status = "STATUS_NETWORK_NAME_DELETED"
         self.send(resp)
 
     @ATMT.receive_condition(SERVING)
