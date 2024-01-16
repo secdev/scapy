@@ -674,7 +674,7 @@ def run_rpcclient(transport, command, debug=False):
 = Functional: Start the MS-RPC server over NCACN_IP_TCP with NTLMSSP
 
 ssp = NTLMSSP(
-    USERNAME="User",
+    UPN="User",
     HASHNT=MD4le("Password"),
     IDENTITIES={
         "User": MD4le("Password"),
@@ -811,7 +811,7 @@ from scapy.layers.spnego import SPNEGOSSP
 ssp = SPNEGOSSP(
     [
         NTLMSSP(
-            USERNAME="User",
+            UPN="User",
             HASHNT=MD4le("Password"),
             IDENTITIES={
                 "User": MD4le("Password"),

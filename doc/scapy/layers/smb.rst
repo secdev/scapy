@@ -64,13 +64,13 @@ By default, the :class:`~scapy.layers.smbclient.smbclient` class will use a :cla
 
 .. code:: python
 
-    >>> smbclient("server1.domain.local", ssp=NTLMSSP(USERNAME="Administrator", PASSWORD="password"))
+    >>> smbclient("server1.domain.local", ssp=NTLMSSP(UPN="Administrator", PASSWORD="password"))
 
 You might be wondering if you can pass the ``HashNT`` of the password of the user 'Administrator' directly. The answer is yes, you can 'pass the hash' directly:
 
 .. code:: python
 
-    >>> smbclient("server1.domain.local", ssp=NTLMSSP(USERNAME="Administrator", HASHNT=bytes.fromhex("8846f7eaee8fb117ad06bdd830b7586c")))
+    >>> smbclient("server1.domain.local", ssp=NTLMSSP(UPN="Administrator", HASHNT=bytes.fromhex("8846f7eaee8fb117ad06bdd830b7586c")))
 
 **smbclient using a** :class:`~scapy.layers.ntlm.KerberosSSP`
 
@@ -135,7 +135,7 @@ Let's write a script that connects to a share and list the files in the root fol
     # Build SSP first. In SMB_SOCKET you have to do this yourself
     password = "password"
     ssp = SPNEGOSSP([
-        NTLMSSP(USERNAME="Administrator", PASSWORD=password),
+        NTLMSSP(UPN="Administrator", PASSWORD=password),
         KerberosSSP(
             UPN="Administrator@domain.local",
             PASSWORD=password,

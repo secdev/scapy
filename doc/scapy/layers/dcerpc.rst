@@ -203,7 +203,7 @@ Here's a different example, this time connecting over ``NCACN_NP`` to `[MS-SAMR]
     client = DCERPC_Client(
         DCERPC_Transport.NCACN_NP,
         ssp=NTLMSSP(
-            USERNAME="User",
+            UPN="User",
             HASHNT=MD4le("Password"),
         ),
         ndr64=False,

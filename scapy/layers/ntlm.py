@@ -26,6 +26,7 @@ from scapy.asn1fields import (
 )
 from scapy.asn1packet import ASN1_Packet
 from scapy.compat import bytes_base64
+from scapy.error import log_runtime
 from scapy.fields import (
     Field,
     ByteEnumField,
@@ -1089,7 +1090,9 @@ class NTLMSSP(SSP):
 
     Client-only arguments:
 
-        :param USERNAME: the username to use for NTLM auth
+        :param UPN: the UPN to use for NTLM auth. If no domain is specified, will
+                    use the one provided by the server (domain in a domain, local
+                    if without domain)
         :param HASHNT: the password to use for NTLM auth
         :param PASSWORD: the password to use for NTLM auth
 
@@ -1152,7 +1155,7 @@ class NTLMSSP(SSP):
 
     def __init__(
         self,
-        USERNAME=None,
+        UPN=None,
         HASHNT=None,
         PASSWORD=None,
         USE_MIC=True,
@@ -1167,7 +1170,7 @@ class NTLMSSP(SSP):
         DO_NOT_CHECK_LOGIN=False,
         **kwargs,
     ):
-        self.USERNAME = USERNAME
+        self.UPN = UPN
         if HASHNT is None and PASSWORD is not None:
             HASHNT = MD4le(PASSWORD)
         self.HASHNT = HASHNT
@@ -1327,9 +1330,9 @@ class NTLMSSP(SSP):
         elif Context.state == self.STATE.CLI_SENT_NEGO:
             # Client: auth (val=challenge)
             chall_tok = val
-            if self.USERNAME is None or self.HASHNT is None:
+            if self.UPN is None or self.HASHNT is None:
                 raise ValueError(
-                    "Must provide a 'USERNAME' and a 'HASHNT' or 'PASSWORD' when "
+                    "Must provide a 'UPN' and a 'HASHNT' or 'PASSWORD' when "
                     "running in standalone !"
                 )
             if not chall_tok or NTLM_CHALLENGE not in chall_tok:
@@ -1343,11 +1346,21 @@ class NTLMSSP(SSP):
                 ProductBuild=19041,
             )
             tok.LmChallengeResponse = LMv2_RESPONSE()
-            tok.UserName = self.USERNAME
+            from scapy.layers.kerberos import _parse_upn
             try:
-                tok.DomainName = chall_tok.getAv(0x0002).Value
-            except IndexError:
-                tok.DomainName = self.DOMAIN_NB_NAME.encode()
+                tok.UserName, realm = _parse_upn(self.UPN)
+            except ValueError:
+                tok.UserName, realm = self.UPN, None
+            if realm is None:
+                try:
+                    tok.DomainName = chall_tok.getAv(0x0002).Value
+                except IndexError:
+                    log_runtime.warning(
+                        "No realm specified in UPN, nor provided by server"
+                    )
+                    tok.DomainName = self.DOMAIN_NB_NAME.encode()
+            else:
+                tok.DomainName = realm
             try:
                 tok.Workstation = Context.ServerHostname = chall_tok.getAv(
                     0x0001
@@ -1411,7 +1424,7 @@ class NTLMSSP(SSP):
             # Compute the ResponseKeyNT
             ResponseKeyNT = NTOWFv2(
                 None,
-                self.USERNAME,
+                tok.UserName,
                 tok.DomainName,
                 HashNt=self.HASHNT,
             )

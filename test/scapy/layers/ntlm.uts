@@ -116,7 +116,7 @@ auth_level = 0x06  # privacy
 
 client = SPNEGOSSP([
     NTLMSSP(
-        USERNAME="User1",
+        UPN="User1",
         PASSWORD="Password1",
         auth_level=auth_level,
     ),

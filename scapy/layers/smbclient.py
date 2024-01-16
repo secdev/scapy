@@ -126,7 +126,7 @@ class SMB_Client(Automaton):
             ssp = SPNEGOSSP(
                 [
                     NTLMSSP(
-                        USERNAME="guest",
+                        UPN="guest",
                         HASHNT=b"",
                     )
                 ]
@@ -824,7 +824,13 @@ class smbclient(CLIUtil):
         # Do we need to build a SSP?
         if ssp is None:
             # Check UPN
-            if not any(x in UPN for x in "@/\\"):  # not a UPN: NTLM
+            try:
+                _, realm = _parse_upn(UPN)
+                if realm == ".":
+                    # Local
+                    kerberos = False
+            except ValueError:
+                # not a UPN: NTLM
                 kerberos = False
             # Create the SSP (only if not guest mode)
             if not guest:
@@ -861,12 +867,7 @@ class smbclient(CLIUtil):
                 if not kerberos_required:
                     if HashNt is None and password is not None:
                         HashNt = MD4le(password)
-                    # Extract user from UPN
-                    try:
-                        user = _parse_upn(UPN)[0]
-                    except ValueError:
-                        user = UPN
-                    ssps.append(NTLMSSP(USERNAME=user, HASHNT=HashNt))
+                    ssps.append(NTLMSSP(UPN=UPN, HASHNT=HashNt))
                 # Build the SSP
                 ssp = SPNEGOSSP(ssps)
             else:
