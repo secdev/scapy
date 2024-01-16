@@ -197,7 +197,16 @@ class SMB_Server(Automaton):
                    Note that IPC$ is appended.
     :param ssp: the SSP to use
 
-    All other options (in caps) are optional.
+    All other options (in caps) are optional, and SMB specific:
+
+    :param ANONYMOUS_LOGIN: mark the clients as anonymous
+    :param GUEST_LOGIN: mark the clients as guest
+    :param REQUIRE_SIGNATURE: set 'Require Signature'
+    :param MAX_DIALECT: maximum SMB dialect. Defaults to 0x0311 (3.1.1)
+    :param TREE_SHARE_FLAGS: flags to announce on Tree_Connect_Response
+    :param TREE_CAPABILITIES: capabilities to announce on Tree_Connect_Response
+    :param TREE_MAXIMAL_ACCESS: maximal access to announce on Tree_Connect_Response
+    :param FILE_MAXIMAL_ACCESS: maximal access to announce in MxAc Create Context
     """
 
     pkt_cls = DirectTCP
@@ -438,7 +447,8 @@ class SMB_Server(Automaton):
             DialectRevisions = pkt[SMB2_Negotiate_Protocol_Request].Dialects
             DialectRevisions = [x for x in DialectRevisions if x <= self.MAX_DIALECT]
             DialectRevisions.sort(reverse=True)
-            DialectRevision = DialectRevisions[0]
+            if DialectRevisions:
+                DialectRevision = DialectRevisions[0]
         else:
             # SMB1
             DialectIndexes = [
@@ -490,6 +500,17 @@ class SMB_Server(Automaton):
                 cls = SMBNegotiate_Response_Extended_Security
             else:
                 cls = SMBNegotiate_Response_Security
+        if DialectRevision is None and DialectIndex is None:
+            # No common dialect found.
+            if self.SMB2:
+                resp = self.smb_header.copy() / SMB2_Error_Response()
+                resp.Command = "SMB2_NEGOTIATE"
+            else:
+                resp = self.smb_header.copy() / SMBSession_Null()
+                resp.Command = "SMB_COM_NEGOTIATE"
+            resp.Status = "STATUS_NOT_SUPPORTED"
+            self.send(resp)
+            return
         if self.SMB2:  # SMB2
             # Capabilities: [MS-SMB2] 3.3.5.4
             self.NegotiateCapabilities = "+".join(
@@ -1034,6 +1055,8 @@ class SMB_Server(Automaton):
         # Word of caution: this check ONLY works because root and path have been
         # resolve(). Be careful
         if root not in path.parents and path != root:
+            raise FileNotFoundError
+        if path.is_reserved():
             raise FileNotFoundError
         if not path.exists():
             raise FileNotFoundError
@@ -1642,13 +1665,15 @@ class smbserver:
     r"""
     Spawns a simple smbserver
 
-    SMB parameters:
+    smbserver parameters:
 
         :param shares: the list of shares to announce. Note that IPC$ is appended.
                        By default, a 'Scapy' share on './'
         :param port: the port to bind on, default 445
         :param iface: the interface to bind on, default conf.iface
         :param ssp: the SSP to use. See the examples below. Default NTLM with guest
+
+    Many more SMB-specific parameters are available in help(SMB_Server)
     """
 
     def __init__(
