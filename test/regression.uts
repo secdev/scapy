@@ -651,7 +651,8 @@ assert len(conf.temp_files) == 0
 import mock, sys
 from scapy.main import interact
 
-from scapy.main import DEFAULT_PRESTART_FILE
+from scapy.main import DEFAULT_PRESTART_FILE, DEFAULT_PRESTART, _read_config_file
+_read_config_file(DEFAULT_PRESTART_FILE, _locals=globals(), default=DEFAULT_PRESTART)
 # By now .config/scapy/startup.py should have been created
 with open(DEFAULT_PRESTART_FILE, "r") as fd:
     OLD_DEFAULT_PRESTART = fd.read()
@@ -691,7 +692,8 @@ interact_emulator(extra_args=["-d"])  # Extended
 import sys
 import mock
 
-from scapy.main import DEFAULT_PRESTART_FILE
+from scapy.main import DEFAULT_PRESTART_FILE, DEFAULT_PRESTART, _read_config_file
+_read_config_file(DEFAULT_PRESTART_FILE, _locals=globals(), default=DEFAULT_PRESTART)
 # By now .config/scapy/startup.py should have been created
 with open(DEFAULT_PRESTART_FILE, "w+") as fd:
     fd.write("conf.interactive_shell = 'ptpython'")
@@ -1093,6 +1095,7 @@ assert "NameError" in ret[0]
 
 cmds = """log_runtime.info(hex_bytes("446166742050756e6b"))\n"""
 ret = autorun_get_text_interactive_session(cmds)
+ret
 assert "Daft Punk" in ret[0]
 
 = Test utility TEX functions
@@ -1122,8 +1125,8 @@ conf.verb = saved_conf_verb
 
 = Test config file functions failures
 
-from scapy.main import _probe_config_file
-assert _probe_config_file("filethatdoesnotexistnorwillever.tsppajfsrdrr") is None
+from scapy.main import _read_config_file, _probe_config_file
+assert _read_config_file(_probe_config_file("filethatdoesnotexistnorwillever.tsppajfsrdrr")) is None
 
 = Test CacheInstance repr
 

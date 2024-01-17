@@ -64,27 +64,18 @@ QUOTES = [
 ]
 
 
-def _probe_config_file(*cf, default=None):
-    # type: (str, Optional[str]) -> Union[str, None]
+def _probe_config_file(*cf):
+    # type: (str) -> Union[str, None]
     path = pathlib.Path(os.path.expanduser("~"))
     if not path.exists():
         # ~ folder doesn't exist. Unsalvageable
         return None
-    cf_path = path.joinpath(*cf)
-    if not cf_path.exists():
-        if default is not None:
-            # We have a default ! set it
-            cf_path.parent.mkdir(parents=True, exist_ok=True)
-            with cf_path.open("w") as fd:
-                fd.write(default)
-            return str(cf_path.resolve())
-        return None
-    return str(cf_path.resolve())
+    return str(path.joinpath(*cf).resolve())
 
 
 def _read_config_file(cf, _globals=globals(), _locals=locals(),
-                      interactive=True):
-    # type: (str, Dict[str, Any], Dict[str, Any], bool) -> None
+                      interactive=True, default=None):
+    # type: (str, Dict[str, Any], Dict[str, Any], bool, Optional[str]) -> None
     """Read a config file: execute a python file while loading scapy, that
     may contain some pre-configured values.
 
@@ -93,11 +84,13 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
     function. Otherwise, vars are only available from inside the scapy
     console.
 
-    params:
-    - _globals: the globals() vars
-    - _locals: the locals() vars
-    - interactive: specified whether or not errors should be printed
+    Parameters:
+
+    :param _globals: the globals() vars
+    :param _locals: the locals() vars
+    :param interactive: specified whether or not errors should be printed
     using the scapy console or raised.
+    :param default: if provided, set a default value for the config file
 
     ex, content of a config.py file:
         'conf.verb = 42\n'
@@ -107,6 +100,16 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
         2
 
     """
+    cf_path = pathlib.Path(cf)
+    if not cf_path.exists():
+        log_loading.debug("Config file [%s] does not exist.", cf)
+        if default is None:
+            return
+        # We have a default ! set it
+        cf_path.parent.mkdir(parents=True, exist_ok=True)
+        with cf_path.open("w") as fd:
+            fd.write(default)
+        log_loading.debug("Config file [%s] created with default.", cf)
     log_loading.debug("Loading config file [%s]", cf)
     try:
         with open(cf) as cfgf:
@@ -151,8 +154,7 @@ conf.color_theme = DefaultTheme()
 # conf.use_pcap = True
 """.strip()
 
-DEFAULT_PRESTART_FILE = _probe_config_file(".config", "scapy", "prestart.py",
-                                           default=DEFAULT_PRESTART)
+DEFAULT_PRESTART_FILE = _probe_config_file(".config", "scapy", "prestart.py")
 DEFAULT_STARTUP_FILE = _probe_config_file(".config", "scapy", "startup.py")
 
 
@@ -718,7 +720,8 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         _read_config_file(
             PRESTART_FILE,
             interactive=True,
-            _locals=_scapy_prestart_builtins()
+            _locals=_scapy_prestart_builtins(),
+            default=DEFAULT_PRESTART,
         )
 
     SESSION = init_session(session_name, mydict=mydict, ret=True)
