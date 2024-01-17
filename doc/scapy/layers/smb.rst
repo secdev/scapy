@@ -122,6 +122,7 @@ Mid-Level :class:`~scapy.layers.smbclient.SMB_SOCKET`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you know what you're doing, then the High-Level smbclient might not be enough for you. You can go a level lower using the :class:`~scapy.layers.smbclient.SMB_SOCKET`.
+You can instantiate the object directly or via the :meth:`~scapy.layers.smbclient.SMB_SOCKET.from_tcpsock` helper.
 
 Let's write a script that connects to a share and list the files in the root folder.
 
@@ -173,6 +174,30 @@ Something hybrid that might be easier to use, is to access the underlying :class
     >>> files = smbsock.query_directory(fileid)
     >>> names = [x[0] for x in files]
 
+Low-Level :class:`~scapy.layers.smbclient.SMB_Client`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Finally, it's also possible to call the underlying :attr:`~scapy.layers.smbclient.SMB_Client.smblink` socket directly.
+Again, you can instantiate the object directly or via the :meth:`~scapy.layers.smbclient.SMB_Client.from_tcpsock` helper.
+
+.. code:: python
+
+    >>> import socket
+    >>> from scapy.layers.smbclient import SMB_Client
+    >>> sock = socket.socket()
+    >>> sock.connect(("192.168.0.100", 445))
+    >>> lowsmbsock = SMB_Client.from_tcpsock(sock, ssp=NTLMSSP(UPN="Administrator", PASSWORD="password"))
+    >>> resp = cli.sock.sr1(SMB2_Tree_Connect_Request(Path=r"\\server1\c$"))
+
+It's also accessible as the ``ins`` attribute of a ``SMB_SOCKET``, or the ``sock`` attribute of a ``smbclient``.
+
+.. code:: python
+
+    >>> from scapy.layers.smbclient import smbclient
+    >>> cli = smbclient("server1.domain.local", "Administrator@domain.local", password="password", cli=False)
+    >>> lowsmbsock = cli.sock
+    >>> resp = cli.sock.sr1(SMB2_Tree_Connect_Request(Path=r"\\server1\c$"))
+
 SMB 2/3 server
 --------------
 
@@ -214,7 +239,7 @@ A share is identified by a ``name`` and a ``path`` (+ an optional description ca
         ssp=KerberosSSP(
             KEY=Key(
                 EncryptionType.AES256_CTS_HMAC_SHA1_96,
-                key=hex_bytes("0000000000000000000000000000000000000000000000000000000000000000"),
+                key=bytes.fromhex("0000000000000000000000000000000000000000000000000000000000000000"),
             ),
             SPN="cifs/server.domain.local",
         ),
@@ -232,7 +257,7 @@ A share is identified by a ``name`` and a ``path`` (+ an optional description ca
                 KerberosSSP(
                     KEY=Key(
                         EncryptionType.AES256_CTS_HMAC_SHA1_96,
-                        key=hex_bytes("0000000000000000000000000000000000000000000000000000000000000000"),
+                        key=bytes.fromhex("0000000000000000000000000000000000000000000000000000000000000000"),
                     ),
                     SPN="cifs/server.domain.local",
                 ),

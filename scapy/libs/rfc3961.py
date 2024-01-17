@@ -12,6 +12,7 @@ Implementation of cryptographic functions for Kerberos 5
 - RFC 3962: Advanced Encryption Standard (AES) Encryption for Kerberos 5
 - RFC 4757: The RC4-HMAC Kerberos Encryption Types Used by Microsoft Windows
 - RFC 6113: A Generalized Framework for Kerberos Pre-Authentication
+- RFC 8009: AES Encryption with HMAC-SHA2 for Kerberos 5
 """
 
 # TODO: support cipher states...
@@ -23,7 +24,7 @@ __all__ = [
     "InvalidChecksum",
 ]
 
-# The following is a modified version of
+# The following is a heavily modified version of
 # https://github.com/SecureAuthCorp/impacket/blob/3ec59074ec35c06bbd4312d1042f0e23f4a1b41f/impacket/krb5/crypto.py
 # itself heavily inspired from
 # https://github.com/mhorowitz/pykrb5/blob/master/krb5/crypto.py
@@ -890,7 +891,6 @@ class _SHA1DES3(_SimplifiedChecksum):
 
 
 class _AESEncryptionType_SHA1_96(_SimplifiedEncryptionProfile, abc.ABCMeta):
-    # Base class for aes128-cts-hmac-sha1-96 and aes256-cts-hmac-sha1-96
     blocksize = 16
     padsize = 1
     macsize = 12
@@ -1084,7 +1084,6 @@ class _RC4(_EncryptionAlgorithmProfile):
 
 
 class _AESEncryptionType_SHA256_SHA384(_AESEncryptionType_SHA1_96, abc.ABCMeta):
-    # Base class for aes128-cts-hmac-sha256-128 and aes256-cts-hmac-sha284-256.
     enctypename = None  # type: bytes
     hashmod: _GenericHash = None  # Scapy
     _hashmod: hashes.HashAlgorithm = None  # Cryptography

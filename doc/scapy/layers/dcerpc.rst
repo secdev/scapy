@@ -242,7 +242,6 @@ There's an extension of the ``DCERPC_Client``: the ``NetlogonClient`` which is u
 
 .. code-block:: python
 
-    from scapy.compat import hex_bytes
     from scapy.layers.msrpce.msnrpc import *
     from scapy.layers.msrpce.raw.ms_nrpc import *
 
@@ -252,7 +251,7 @@ There's an extension of the ``DCERPC_Client``: the ``NetlogonClient`` which is u
         domainname="DOMAIN",
     )
     client.connect_and_bind("192.168.0.100")
-    client.negotiate_sessionkey(hex_bytes("77777777777777777777777777777777"))
+    client.negotiate_sessionkey(bytes.fromhex("77777777777777777777777777777777"))
     client.close()
 
 Server
