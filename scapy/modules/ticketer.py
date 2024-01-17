@@ -446,17 +446,18 @@ class Ticketer:
             self.hashes_cache[spn][_KRB_S_TYPES[key.cksumtype]] = hash
         return key
 
-    def dec_ticket(self, i, hash=None):
+    def dec_ticket(self, i, key=None, hash=None):
         """
         Get the decrypted ticket by credentials ID
         """
         cred = self.ccache.credentials[i]
         tkt = KRB_Ticket(cred.ticket.data)
-        key = self._prompt_hash(
-            tkt.getSPN(),
-            etype=tkt.encPart.etype.val,
-            hash=hash,
-        )
+        if key is None:
+            key = self._prompt_hash(
+                tkt.getSPN(),
+                etype=tkt.encPart.etype.val,
+                hash=hash,
+            )
         try:
             return tkt.encPart.decrypt(key)
         except Exception:
@@ -500,20 +501,13 @@ class Ticketer:
             decTkt,
         )
 
-    def import_krb(self, res, _inplace=None):
+    def import_krb(self, res, key=None, hash=None, _inplace=None):
         """
         Import the result of krb_[tgs/as]_req into the CCache.
 
         :param obj: a KRB_Ticket object or a AS_REP/TGS_REP object
         :param sessionkey: the session key that comes along the ticket
         """
-        if isinstance(res, KerberosClient.RES_AS_MODE):
-            rep = res.asrep
-        elif isinstance(res, KerberosClient.RES_TGS_MODE):
-            rep = res.tgsrep
-        else:
-            raise ValueError("Unknown type of obj !")
-
         # Instantiate CCCredential
         if _inplace is not None:
             cred = self.ccache.credentials[_inplace]
@@ -521,12 +515,33 @@ class Ticketer:
             cred = CCCredential()
 
         # Update the cred
-        cred.set_from_krb(
-            rep.ticket,
-            rep,
-            res.sessionkey,
-            res.kdcrep,
-        )
+        if isinstance(res, KRB_Ticket):
+            if key is None:
+                key = self._prompt_hash(
+                    res.getSPN(),
+                    etype=res.encPart.etype.val,
+                    hash=hash,
+                )
+            decTkt = res.encPart.decrypt(key)
+            cred.set_from_krb(
+                res,
+                decTkt,
+                decTkt.key.toKey(),
+                decTkt,
+            )
+        else:
+            if isinstance(res, KerberosClient.RES_AS_MODE):
+                rep = res.asrep
+            elif isinstance(res, KerberosClient.RES_TGS_MODE):
+                rep = res.tgsrep
+            else:
+                raise ValueError("Unknown type of obj !")
+            cred.set_from_krb(
+                rep.ticket,
+                rep,
+                res.sessionkey,
+                res.kdcrep,
+            )
 
         # Append to ccache
         if _inplace is None:
@@ -1624,11 +1639,11 @@ class Ticketer:
             ],
         )
 
-    def edit_ticket(self, i, hash=None):
+    def edit_ticket(self, i, key=None, hash=None):
         """
         Edit a Kerberos ticket using the GUI
         """
-        tkt = self.dec_ticket(i, hash=hash)
+        tkt = self.dec_ticket(i, key=key, hash=hash)
         pac = tkt.authorizationData.seq[0].adData[0].seq[0].adData
 
         # WIDTH, HEIGHT = 1120, 1000
@@ -1977,6 +1992,8 @@ class Ticketer:
             "EXKC.RODCIdentifier": hex_bytes(self._data["EXKDCRODCIdentifier"].get()),
         }
         tkt = self._build_ticket(store)
+        if hash is None and key is not None:  # TODO: add key to update_ticket
+            hash = key.key
         self.update_ticket(i, tkt, hash=hash)
 
     def _resign_ticket(self, tkt, spn, hash=None, kdc_hash=None):

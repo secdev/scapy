@@ -1214,6 +1214,8 @@ class DNS(DNSCompressedPacket):
             type = "Ans"
             if self.an and isinstance(self.an[0], DNSRR):
                 name = ' %s' % self.an[0].rdata
+            elif self.rcode != 0:
+                name = self.sprintf(' %rcode%')
         else:
             type = "Qry"
             if self.qd and isinstance(self.qd[0], DNSQR):

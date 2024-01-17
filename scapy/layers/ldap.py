@@ -666,7 +666,7 @@ def dclocator(realm, qtype="A", mode="ldap", port=None, timeout=1, debug=0):
     This is cached in conf.netcache.dclocator.
     """
     # Check cache
-    cache_ident = ";".join([realm, qtype, mode])
+    cache_ident = ";".join([realm, qtype, mode]).lower()
     if cache_ident in _dclocatorcache:
         return _dclocatorcache[cache_ident]
     # Perform DNS-Based discovery (6.3.6.1)

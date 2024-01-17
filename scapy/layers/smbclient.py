@@ -145,7 +145,7 @@ class SMB_Client(Automaton):
 
     @classmethod
     def from_tcpsock(cls, sock, **kwargs):
-        return SMB_Client.smblink(
+        return cls.smblink(
             None,
             SMBStreamSocket(sock, DirectTCP),
             **kwargs,
