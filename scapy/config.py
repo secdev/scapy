@@ -1019,6 +1019,7 @@ class Conf(ConfClass):
         'smbserver',
         'snmp',
         'tftp',
+        'usb',
         'vrrp',
         'vxlan',
         'x509',
