@@ -306,25 +306,31 @@ class TCPSession(IPSession):
             return pkt
         new_data = pay.original
         # Match packets by a unique TCP identifier
-        seq = pkt[TCP].seq
         ident = self._get_ident(pkt)
         data, metadata = self.tcp_frags[ident]
         tcp_session = self.tcp_sessions[self._get_ident(pkt, True)]
+        # Handle TCP sequence numbers
+        seq = pkt[TCP].seq
+        if "seq" not in metadata:
+            metadata["seq"] = seq
+        if "next_seq" in metadata and seq < metadata["next_seq"]:
+            # Retransmitted data (that we already returned)
+            new_data = new_data[metadata["next_seq"] - seq:]
+            if not new_data:
+                return None
+            seq = metadata["next_seq"]
         # Let's guess which class is going to be used
         if "pay_class" not in metadata:
             metadata["pay_class"] = pay_class = pkt[TCP].guess_payload_class(new_data)
             metadata["tcp_reassemble"] = tcp_reassemble = streamcls(pay_class)
         else:
             tcp_reassemble = metadata["tcp_reassemble"]
-        if "seq" not in metadata:
-            metadata["seq"] = seq
         # Get a relative sequence number for a storage purpose
         relative_seq = metadata.get("relative_seq", None)
         if relative_seq is None:
             relative_seq = metadata["relative_seq"] = seq - 1
         seq = seq - relative_seq
         # Add the data to the buffer
-        # Note that this take care of retransmission packets.
         data.append(new_data, seq)
         # Check TCP FIN or TCP RESET
         if pkt[TCP].flags.F or pkt[TCP].flags.R:
@@ -361,6 +367,8 @@ class TCPSession(IPSession):
                 # No padding (data) left. Clear
                 data.clear()
                 del self.tcp_frags[ident]
+            # Minimum next seq
+            metadata["next_seq"] = pkt[TCP].seq + len(new_data)
             # Rebuild resulting packet
             pay.underlayer.remove_payload()
             if IP in pkt:

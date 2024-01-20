@@ -271,6 +271,8 @@ def _dissect_headers(obj, s):
 
 
 class _HTTPContent(Packet):
+    __slots__ = ["_original_len"]
+
     # https://developer.mozilla.org/fr/docs/Web/HTTP/Headers/Transfer-Encoding
     def _get_encodings(self):
         encodings = []
@@ -287,6 +289,7 @@ class _HTTPContent(Packet):
         return b"HTTP1"
 
     def post_dissect(self, s):
+        self._original_len = len(s)
         if not conf.contribs["http"]["auto_compression"]:
             return s
         encodings = self._get_encodings()
@@ -626,7 +629,7 @@ class HTTP(Packet):
                 length = int(length)
                 # Subtract the length of the "HTTP*" layer
                 if http_packet.payload.payload or length == 0:
-                    http_length = len(data) - len(http_packet.payload.payload)
+                    http_length = len(data) - http_packet.payload._original_len
                     detect_end = lambda dat: len(dat) - http_length >= length
                 else:
                     # The HTTP layer isn't fully received.
