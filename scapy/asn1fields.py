@@ -110,6 +110,11 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         self.explicit_tag = explicit_tag
         # network_tag gets useful for ASN1F_CHOICE
         self.network_tag = int(implicit_tag or explicit_tag or self.ASN1_tag)
+        self.owners = []  # type: List[Type[ASN1_Packet]]
+
+    def register_owner(self, cls):
+        # type: (Type[ASN1_Packet]) -> None
+        self.owners.append(cls)
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -884,12 +889,13 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
         return p, remain
 
     def i2m(self, pkt, x):  # type: ignore
-        # type: (ASN1_Packet, Optional[ASN1_Packet]) -> bytes
-        s = b"" if x is None else raw(x)
-        return super(ASN1F_BIT_STRING_ENCAPS, self).i2m(
-            pkt,
-            ASN1_BIT_STRING(s, readable=True)
-        )
+        # type: (ASN1_Packet, Optional[ASN1_BIT_STRING]) -> bytes
+        if not isinstance(x, ASN1_BIT_STRING):
+            x = ASN1_BIT_STRING(
+                b"" if x is None else bytes(x),  # type: ignore
+                readable=True,
+            )
+        return super(ASN1F_BIT_STRING_ENCAPS, self).i2m(pkt, x)
 
 
 class ASN1F_FLAGS(ASN1F_BIT_STRING):

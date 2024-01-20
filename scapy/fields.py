@@ -595,6 +595,10 @@ the value to set is also known) of ._find_fld_pkt() instead.
             fld.owners.append(cls)
         self.dflt.owners.append(cls)
 
+    def get_fields_list(self):
+        # type: () -> List[Any]
+        return [self]
+
     @property
     def fld(self):
         # type: () -> Field[Any, Any]
