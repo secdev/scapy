@@ -42,8 +42,8 @@ from scapy.fields import (
     ShortField,
     StrFieldUtf16,
     StrFixedLenField,
-    StrLenFieldUtf16,
     StrLenField,
+    StrLenFieldUtf16,
     StrNullFieldUtf16,
     ThreeBytesField,
     UTCTimeField,
@@ -718,6 +718,9 @@ class WINNT_SID(Packet):
         ),
     ]
 
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
     def summary(self):
         return "S-%s-%s%s" % (
             self.Revision,
@@ -796,6 +799,99 @@ class WINNT_ACE_HEADER(Packet):
     def extract_padding(self, p):
         return p[: self.AceSize - 4], p[self.AceSize - 4 :]
 
+    def toSDDL(self):
+        """
+        Return SDDL
+        """
+        sid = self.payload.Sid.summary()
+        ace_flag_string = "?"  # TODO
+        ace_rights = ""  # TODO
+        object_guid = ""  # TODO
+        inherit_object_guid = ""  # TODO
+        # ApplicationData -> conditional expression
+        condexpr = ""
+        if hasattr(self.payload, "ApplicationData"):
+            # Parse tokens
+            res = []
+            for ct in self.payload.ApplicationData.Tokens:
+                if ct.TokenType in [
+                    # binary operators
+                    0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x88, 0x8e, 0x8f,
+                    0xa0, 0xa1
+                ]:
+                    t1 = res.pop(-1)
+                    t0 = res.pop(-1)
+                    tt = ct.sprintf("%TokenType%")
+                    if ct.TokenType in [0xa0, 0xa1]:  # && and ||
+                        res.append(f"({t0}) {tt} ({t1})")
+                    else:
+                        res.append(f"{t0} {tt} {t1}")
+                elif ct.TokenType in [
+                    # unary operators
+                    0x87, 0x8d, 0xa2, 0x89, 0x8a, 0x8b, 0x8c, 0x91, 0x92, 0x93
+                ]:
+                    t0 = res.pop(-1)
+                    tt = ct.sprintf("%TokenType%")
+                    res.append(f"{tt}{t0}")
+                elif ct.TokenType in [
+                    # values
+                    0x01, 0x02, 0x03, 0x04, 0x10, 0x18, 0x50, 0x51, 0xf8, 0xf9,
+                    0xfa, 0xfb
+                ]:
+                    def lit(ct):
+                        if ct.TokenType in [0x10, 0x18]:  # literal strings
+                            return '"%s"' % ct.value
+                        elif ct.TokenType == 0x50:  # composite
+                            return "({%s})" % ",".join(lit(x) for x in ct.value)
+                        else:
+                            return str(ct.value)
+                    res.append(lit(ct))
+                elif ct.TokenType == 0x00:  # padding
+                    pass
+                else:
+                    raise ValueError("Unhandled token type %s" % ct.TokenType)
+            if len(res) != 1:
+                raise ValueError("Incomplete SDDL !")
+            condexpr = ";(%s)" % res[0]
+        if self.AceType in [0x9, 0xA, 0xB, 0xD]:  # Conditional ACE
+            conditional_ace_type = {
+                0x09: "XA",
+                0x0A: "XD",
+                0x0B: "XU",
+                0x0D: "ZA",
+            }[self.AceType]
+            return "D:(%s)" % (
+                ";".join([
+                    conditional_ace_type,
+                    ace_flag_string,
+                    ace_rights,
+                    object_guid,
+                    inherit_object_guid,
+                    sid
+                ]) + condexpr
+            )
+        else:
+            ace_type = {
+                0x00: "A",
+                0x01: "D",
+                0x02: "AU",
+                0x05: "OA",
+                0x06: "OD",
+                0x07: "OU",
+                0x11: "ML",
+                0x13: "SP",
+            }[self.AceType]
+            return "(%s)" % (
+                ";".join([
+                    ace_type,
+                    ace_flag_string,
+                    ace_rights,
+                    object_guid,
+                    inherit_object_guid,
+                    sid
+                ]) + condexpr
+            )
+
 
 # [MS-DTYP] sect 2.4.4.2
 
@@ -818,6 +914,174 @@ class WINNT_ACCESS_DENIED_ACE(Packet):
 
 
 bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_DENIED_ACE, AceType=0x01)
+
+
+# [MS-DTYP] sect 2.4.4.17.4+
+
+
+class WINNT_APPLICATION_DATA_LITERAL_TOKEN(Packet):
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
+
+WINNT_APPLICATION_DATA_LITERAL_TOKEN.fields_desc = [
+    ByteEnumField("TokenType", 0, {
+        # [MS-DTYP] sect 2.4.4.17.5
+        0x00: "Padding token",
+        0x01: "Signed int8",
+        0x02: "Signed int16",
+        0x03: "Signed int32",
+        0x04: "Signed int64",
+        0x10: "Unicode",
+        0x18: "Octet String",
+        0x50: "Composite",
+        0x51: "SID",
+        # [MS-DTYP] sect 2.4.4.17.6
+        0x80: "==",
+        0x81: "!=",
+        0x82: "<",
+        0x83: "<=",
+        0x84: ">",
+        0x85: ">=",
+        0x86: "Contains",
+        0x88: "Any_of",
+        0x8e: "Not_Contains",
+        0x8f: "Not_Any_of",
+        0x89: "Member_of",
+        0x8a: "Device_Member_of",
+        0x8b: "Member_of_Any",
+        0x8c: "Device_Member_of_Any",
+        0x90: "Not_Member_of",
+        0x91: "Not_Device_Member_of",
+        0x92: "Not_Member_of_Any",
+        0x93: "Not_Device_Member_of_Any",
+        # [MS-DTYP] sect 2.4.4.17.7
+        0x87: "Exists",
+        0x8d: "Not_Exists",
+        0xa0: "&&",
+        0xa1: "||",
+        0xa2: "!",
+        # [MS-DTYP] sect 2.4.4.17.8
+        0xf8: "Local attribute",
+        0xf9: "User Attribute",
+        0xfa: "Resource Attribute",
+        0xfb: "Device Attribute",
+    }),
+    ConditionalField(
+        # Strings
+        LEIntField("length", 0),
+        lambda pkt: pkt.TokenType in [
+            0x10,  # Unicode string
+            0x18,  # Octet string
+            0xf8, 0xf8, 0xfa, 0xfb,  # Attribute tokens
+            0x50,  # Composite
+        ]
+    ),
+    ConditionalField(
+        MultipleTypeField(
+            [
+                (
+                    LELongField("value", 0),
+                    lambda pkt: pkt.TokenType in [
+                        0x01,  # signed int8
+                        0x02,  # signed int16
+                        0x03,  # signed int32
+                        0x04,  # signed int64
+                    ]
+                ),
+                (
+                    StrLenFieldUtf16("value", b"", length_from=lambda pkt: pkt.length),
+                    lambda pkt: pkt.TokenType in [
+                        0x10,  # Unicode string
+                        0xf8, 0xf8, 0xfa, 0xfb,  # Attribute tokens
+                    ]
+                ),
+                (
+                    StrLenField("value", b"", length_from=lambda pkt: pkt.length),
+                    lambda pkt: pkt.TokenType == 0x18,  # Octet string
+                ),
+                (
+                    PacketListField("value", [], WINNT_APPLICATION_DATA_LITERAL_TOKEN,
+                                    length_from=lambda pkt: pkt.length),
+                    lambda pkt: pkt.TokenType == 0x50,  # Composite
+                ),
+
+            ],
+            StrFixedLenField("value", b"", length=0),
+        ),
+        lambda pkt: pkt.TokenType in [
+            0x01, 0x02, 0x03, 0x04, 0x10, 0x18, 0xf8, 0xf8, 0xfa, 0xfb, 0x50
+        ]
+    ),
+    ConditionalField(
+        # Literal
+        ByteEnumField("sign", 0, {
+            0x01: "+",
+            0x02: "-",
+            0x03: "None",
+        }),
+        lambda pkt: pkt.TokenType in [
+            0x01,  # signed int8
+            0x02,  # signed int16
+            0x03,  # signed int32
+            0x04,  # signed int64
+        ]
+    ),
+    ConditionalField(
+        # Literal
+        ByteEnumField("base", 0, {
+            0x01: "Octal",
+            0x02: "Decimal",
+            0x03: "Hexadecimal",
+        }),
+        lambda pkt: pkt.TokenType in [
+            0x01,  # signed int8
+            0x02,  # signed int16
+            0x03,  # signed int32
+            0x04,  # signed int64
+        ]
+    ),
+]
+
+
+class WINNT_APPLICATION_DATA(Packet):
+    fields_desc = [
+        StrFixedLenField("Magic", b"\x61\x72\x74\x78", length=4),
+        PacketListField(
+            "Tokens",
+            [],
+            WINNT_APPLICATION_DATA_LITERAL_TOKEN,
+        ),
+    ]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
+
+# [MS-DTYP] sect 2.4.4.6
+
+
+class WINNT_ACCESS_ALLOWED_CALLBACK_ACE(Packet):
+    fields_desc = WINNT_ACCESS_ALLOWED_ACE.fields_desc + [
+        PacketField(
+            "ApplicationData",
+            WINNT_APPLICATION_DATA(),
+            WINNT_APPLICATION_DATA
+        ),
+    ]
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_ALLOWED_CALLBACK_ACE, AceType=0x09)
+
+
+# [MS-DTYP] sect 2.4.4.6
+
+
+class WINNT_ACCESS_DENIED_CALLBACK_ACE(Packet):
+    fields_desc = WINNT_ACCESS_ALLOWED_CALLBACK_ACE.fields_desc
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_DENIED_CALLBACK_ACE, AceType=0x0A)
 
 
 # [MS-DTYP] sect 2.4.4.10
@@ -849,6 +1113,9 @@ class WINNT_ACL(Packet):
             count_from=lambda pkt: pkt.AceCount,
         ),
     ]
+
+    def toSDDL(self):
+        return [x.toSDDL() for x in self.Aces]
 
 
 # [MS-DTYP] 2.4.6 SECURITY_DESCRIPTOR

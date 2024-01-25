@@ -1441,7 +1441,8 @@ values.
                     ct.depreciate_field_name(f.name),
                 )
                 lvl += " " * indent * self.show_indent
-                fields.extend(x for x in f.fields if hasattr(self, x.name))
+                for i, fld in enumerate(x for x in f.fields if hasattr(self, x.name)):
+                    fields.insert(i, fld)
                 continue
             if isinstance(f, Emph) or f in conf.emph:
                 ncol = ct.emph_field_name
