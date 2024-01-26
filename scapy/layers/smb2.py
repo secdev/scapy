@@ -20,11 +20,12 @@ from scapy.fields import (
     ConditionalField,
     FieldLenField,
     FieldListField,
+    FlagValue,
     FlagsField,
+    IP6Field,
+    IPField,
     IntEnumField,
     IntField,
-    IPField,
-    IP6Field,
     LEIntField,
     LEIntEnumField,
     LELongField,
@@ -93,12 +94,14 @@ STATUS_ERREF = {
     0xC000000F: "STATUS_NO_SUCH_FILE",
     0xC0000016: "STATUS_MORE_PROCESSING_REQUIRED",
     0xC0000022: "STATUS_ACCESS_DENIED",
+    0xC0000033: "STATUS_OBJECT_NAME_INVALID",
     0xC0000034: "STATUS_OBJECT_NAME_NOT_FOUND",
     0xC0000043: "STATUS_SHARING_VIOLATION",
     0xC000006D: "STATUS_LOGON_FAILURE",
     0xC0000071: "STATUS_PASSWORD_EXPIRED",
     0xC0000072: "STATUS_ACCOUNT_DISABLED",
     0xC000009A: "STATUS_INSUFFICIENT_RESOURCES",
+    0xC00000BA: "STATUS_FILE_IS_A_DIRECTORY",
     0xC00000BB: "STATUS_NOT_SUPPORTED",
     0xC00000C9: "STATUS_NETWORK_NAME_DELETED",
     0xC00000CC: "STATUS_BAD_NETWORK_NAME",
@@ -804,7 +807,12 @@ class WINNT_ACE_HEADER(Packet):
         Return SDDL
         """
         sid = self.payload.Sid.summary()
-        ace_flag_string = "?"  # TODO
+        ace_flag_string = str(
+            FlagValue(
+                self.AceFlags,
+                ["OI", "CI", "NP", "IO", "ID", "SA", "FA"]
+            )
+        )
         ace_rights = ""  # TODO
         object_guid = ""  # TODO
         inherit_object_guid = ""  # TODO

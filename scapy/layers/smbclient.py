@@ -530,7 +530,8 @@ class SMB_SOCKET(SuperSocket):
         if SMB2_Tree_Disconnect_Response not in resp:
             raise ValueError("Failed TreeDisconnect ! %s" % resp.NTStatus)
 
-    def create_request(self, name, mode="r", type="pipe", extra_create_options=[]):
+    def create_request(self, name, mode="r", type="pipe",
+                       extra_create_options=[], extra_desired_access=[]):
         """
         Open a file/pipe by its name
 
@@ -566,11 +567,13 @@ class SMB_SOCKET(SuperSocket):
                 CreateOptions.append("FILE_DELETE_ON_CLOSE")
             if type == "file":
                 FileAttributes.append("FILE_ATTRIBUTE_NORMAL")
-        else:
-            raise ValueError("Unknown type")
+        elif type:
+            raise ValueError("Unknown type: %s" % type)
         # Extra options
         if extra_create_options:
             CreateOptions.extend(extra_create_options)
+        if extra_desired_access:
+            DesiredAccess.extend(extra_desired_access)
         # Request
         resp = self.ins.sr1(
             SMB2_Create_Request(
@@ -675,23 +678,23 @@ class SMB_SOCKET(SuperSocket):
             )
         return results
 
-    def query_info(self, FileId):
+    def query_info(self, FileId, InfoType, FileInfoClass, AdditionalInformation=0):
         """
         Query the Info
         """
         pkt = SMB2_Query_Info_Request(
-            InfoType="SMB2_0_INFO_FILE",
-            FileInfoClass="FileAllInformation",
+            InfoType=InfoType,
+            FileInfoClass=FileInfoClass,
             OutputBufferLength=65535,
             FileId=FileId,
+            AdditionalInformation=AdditionalInformation,
         )
         resp = self.ins.sr1(pkt, verbose=0, timeout=self.timeout)
         if not resp:
             raise ValueError("QueryInfo timed out !")
         if SMB2_Query_Info_Response not in resp:
             raise ValueError("Failed QueryInfo ! %s" % resp.NTStatus)
-        res = FileAllInformation(resp.Output)
-        return res
+        return resp.Output
 
     def changenotify(self, FileId):
         """
@@ -1224,7 +1227,13 @@ class smbclient(CLIUtil):
             extra_create_options=self.extra_create_options,
         )
         # Get the file size
-        info = self.smbsock.query_info(fileId)
+        info = FileAllInformation(
+            self.smbsock.query_info(
+                FileId=fileId,
+                InfoType="SMB2_0_INFO_FILE",
+                FileInfoClass="FileAllInformation",
+            )
+        )
         length = info.StandardInformation.EndOfFile
         offset = 0
         # Read the file
