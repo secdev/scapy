@@ -1,6 +1,6 @@
 {
   "testfiles": [
-    "test/tls*.uts",
+    "test/scapy/layers/tls/tls*.uts",
     "test/scapy/layers/dot11.uts",
     "test/scapy/layers/ipsec.uts",
     "test/contrib/macsec.uts"

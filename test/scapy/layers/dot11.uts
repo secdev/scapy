@@ -484,7 +484,7 @@ assert isinstance(p, Dot11WEP)
 conf.crypto_valid = bck_conf_crypto_valid
 
 conf.wepkey = "Fobar"
-r = raw(Dot11WEP()/LLC()/SNAP()/IP()/TCP(seq=12345678))
+r = raw(Dot11WEP()/LLC()/SNAP()/IP(src="127.0.0.1", dst="127.0.0.1")/TCP(seq=12345678))
 r
 assert r == b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5\xde\xe7\xb8\x1d,\xa1\xfe\xe83\xca\xe1\xfe\xbd\xfe\xec\x00)T`\xde.\x93Td\x95C\x0f\x07\xdd'
 p = Dot11WEP(r)
