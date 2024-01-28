@@ -255,7 +255,7 @@ class DCERPC_Client(object):
             self.sspcontext, token, negResult = self.ssp.GSS_Init_sec_context(
                 self.sspcontext
             )
-            if negResult != GSS_S_CONTINUE_NEEDED:
+            if negResult not in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
                 print(conf.color_theme.fail(
                     "SSP failed on initial GSS_Init_sec_context !"
                 ))

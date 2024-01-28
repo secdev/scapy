@@ -97,8 +97,8 @@ def InitLMKey(KeyIn):
 def ComputeNetlogonCredentialDES(Input, Sk):
     k3 = InitLMKey(Sk[0:7])
     k4 = InitLMKey(Sk[7:14])
-    output1 = Cipher(DES(k3), modes.ECB).encryptor().update(Input)
-    return Cipher(DES(k4), modes.ECB).encryptor().update(output1)
+    output1 = Cipher(DES(k3), modes.ECB()).encryptor().update(Input)
+    return Cipher(DES(k4), modes.ECB()).encryptor().update(output1)
 
 
 # [MS-NRPC] sect 3.1.4.5

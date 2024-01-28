@@ -772,6 +772,10 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
                 raise ValueError("Failed reading ReadResponse ! %s" % resp.NTStatus)
             super(SMB_RPC_SOCKET, self).send(resp.Data)
 
+    def close(self):
+        SMB_SOCKET.close(self)
+        ObjectPipe.close(self)
+
 
 @conf.commands.register
 class smbclient(CLIUtil):

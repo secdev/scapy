@@ -77,41 +77,12 @@ try:
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-    from cryptography.hazmat.backends.openssl.backend import (
-        backend,
-        GetCipherByName as _GetCipherByName,
-    )
 except ImportError:
     raise ImportError("To use kerberos cryptography, you need to install cryptography.")
 
-# Hack: Register DES adapter into cryptography
 
-# Dear everyone,
-# Sorry about that.. we need DES because DES-CBC is still in Kerberos, and DES-ECB
-# in Netlogon (MS-NRPC). For compatibility sure, but still often seen.
-# Eventually when this is completely removed from Windows, we might end up dropping it.
-# Note: this might break with future cryptography or openssl updates. Please notify us
-# if (when..) it breaks so we can update it. Thanks. -- gpotter2
-
-
-class DES(algorithms.BlockCipherAlgorithm):
-    name = "DES"
-    block_size = 64
-    key_sizes = frozenset([64])
-    key_size = 8
-
-    def __init__(self, key: bytes):
-        self.key = algorithms._verify_key_size(self, key)
-
-
-for mode in [modes.CBC, modes.ECB]:
-    backend.register_cipher_adapter(
-        DES,
-        mode,
-        _GetCipherByName(f"des-{mode.name}"),
-    )
-
-# End of the Hack
+# cryptography's TripleDES allow the usage of a 56bit key, which thus behaves like DES
+DES = algorithms.TripleDES
 
 
 # https://go.microsoft.com/fwlink/?LinkId=186039
