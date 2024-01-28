@@ -1737,18 +1737,41 @@ class _ICMPv6NDGuessPayload:
 
     def guess_payload_class(self, p):
         if len(p) > 1:
-            return icmp6ndoptscls.get(orb(p[0]), Raw)  # s/Raw/ICMPv6NDOptUnknown/g ?  # noqa: E501
+            return icmp6ndoptscls.get(orb(p[0]), ICMPv6NDOptUnknown)
 
 
 # Beginning of ICMPv6 Neighbor Discovery Options.
+
+class ICMPv6NDOptDataField(StrLenField):
+    __slots__ = ["strip_zeros"]
+
+    def __init__(self, name, default, strip_zeros=False, **kwargs):
+        super().__init__(name, default, **kwargs)
+        self.strip_zeros = strip_zeros
+
+    def i2len(self, pkt, x):
+        return len(self.i2m(pkt, x))
+
+    def i2m(self, pkt, x):
+        r = (len(x) + 2) % 8
+        if r:
+            x += b"\x00" * (8 - r)
+        return x
+
+    def m2i(self, pkt, x):
+        if self.strip_zeros:
+            x = x.rstrip(b"\x00")
+        return x
+
 
 class ICMPv6NDOptUnknown(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Scapy Unimplemented"
     fields_desc = [ByteField("type", None),
                    FieldLenField("len", None, length_of="data", fmt="B",
-                                 adjust=lambda pkt, x: x + 2),
-                   StrLenField("data", "",
-                               length_from=lambda pkt: pkt.len - 2)]
+                                 adjust=lambda pkt, x: (2 + x) // 8),
+                   ICMPv6NDOptDataField("data", "", strip_zeros=False,
+                                        length_from=lambda pkt:
+                                        8 * max(pkt.len, 1) - 2)]
 
 # NOTE: len includes type and len field. Expressed in unit of 8 bytes
 # TODO: Revoir le coup du ETHER_ANY
@@ -2059,34 +2082,14 @@ class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet):  # RFC 6106
         return self.sprintf("%name% ") + ", ".join(self.searchlist)
 
 
-# URI MUST be padded with NUL (0x00) to make the total option length
-# (including the Type and Length fields) a multiple of 8 bytes.
-# https://www.rfc-editor.org/rfc/rfc8910.html#name-the-captive-portal-ipv6-ra-
-class CaptivePortalURI(StrLenField):
-    def i2len(self, pkt, x):
-        return len(self.i2m(pkt, x))
-
-    def i2m(self, pkt, x):
-        r = (len(x) + 2) % 8
-        if r:
-            x += b"\x00" * (8 - r)
-        return x
-
-    def m2i(self, pkt, x):
-        return x.rstrip(b"\x00")
-
-
 class ICMPv6NDOptCaptivePortal(_ICMPv6NDGuessPayload, Packet):  # RFC 8910
     name = "ICMPv6 Neighbor Discovery Option - Captive-Portal Option"
     fields_desc = [ByteField("type", 37),
                    FieldLenField("len", None, length_of="URI", fmt="B",
                                  adjust=lambda pkt, x: (2 + x) // 8),
-
-                   # Zero length is nonsensical but it's treated as 1 here to
-                   # let the dissector skip bogus options more or less gracefully
-                   CaptivePortalURI("URI", "",
-                                    length_from=lambda pkt: 8 * max(pkt.len, 1) - 2)
-                   ]
+                   ICMPv6NDOptDataField("URI", "", strip_zeros=True,
+                                        length_from=lambda pkt:
+                                        8 * max(pkt.len, 1) - 2)]
 
     def mysummary(self):
         return self.sprintf("%name% %URI%")
