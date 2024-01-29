@@ -345,7 +345,7 @@ TODO: Add documentation on how to define NDR packets.
 Design choices
 --------------
 
-NDR is a rather complex encoding. For instance, there are multiple types of arrays::
+NDR is a rather complex encoding. For instance, there are multiple types of arrays:
 
 - fixed arrays
 - conformant arrays
