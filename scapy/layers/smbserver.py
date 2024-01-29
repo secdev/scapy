@@ -1054,6 +1054,7 @@ class SMB_Server(Automaton):
         path = path.resolve()
         # Word of caution: this check ONLY works because root and path have been
         # resolve(). Be careful
+        # Note: symbolic links are currently unsupported.
         if root not in path.parents and path != root:
             raise FileNotFoundError
         if path.is_reserved():
@@ -1124,6 +1125,9 @@ class SMB_Server(Automaton):
             [
                 cls(FileName=x.name, **self.current_handles[self.lookup_file(x)][1])
                 for x in path.glob(filter)
+                # Note: symbolic links are unsupported because it's hard to check
+                # for path traversal on them.
+                if not x.is_symlink()
             ]
             + [
                 cls(

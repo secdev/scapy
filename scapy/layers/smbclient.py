@@ -827,20 +827,20 @@ class smbclient(CLIUtil):
             if not valid_ip(target):
                 hostname = target
             target = str(Net(target))
-        assert UPN or ssp, "Either UPN or ssp must be provided !"
+        assert UPN or ssp or guest, "Either UPN, ssp or guest must be provided !"
         # Do we need to build a SSP?
         if ssp is None:
-            # Check UPN
-            try:
-                _, realm = _parse_upn(UPN)
-                if realm == ".":
-                    # Local
-                    kerberos = False
-            except ValueError:
-                # not a UPN: NTLM
-                kerberos = False
             # Create the SSP (only if not guest mode)
             if not guest:
+                # Check UPN
+                try:
+                    _, realm = _parse_upn(UPN)
+                    if realm == ".":
+                        # Local
+                        kerberos = False
+                except ValueError:
+                    # not a UPN: NTLM
+                    kerberos = False
                 # Do we need to ask the password?
                 if HashNt is None and password is None and ST is None:
                     # yes.
