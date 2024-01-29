@@ -530,8 +530,14 @@ class SMB_SOCKET(SuperSocket):
         if SMB2_Tree_Disconnect_Response not in resp:
             raise ValueError("Failed TreeDisconnect ! %s" % resp.NTStatus)
 
-    def create_request(self, name, mode="r", type="pipe",
-                       extra_create_options=[], extra_desired_access=[]):
+    def create_request(
+        self,
+        name,
+        mode="r",
+        type="pipe",
+        extra_create_options=[],
+        extra_desired_access=[],
+    ):
         """
         Open a file/pipe by its name
 
