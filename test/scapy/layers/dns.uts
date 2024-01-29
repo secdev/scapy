@@ -414,3 +414,11 @@ assert pkt.an.rdata == b'140C768FFE28@Freebox Server._raop._tcp.local.'
 pkt = DNS(qr=1, qd=None, aa=1, rd=1)
 pkt = DNS(bytes(pkt))
 assert pkt.qd == []
+
+= DNS - command
+
+p = DNS()
+assert p == eval(p.command())
+
+p = DNS(qd=[])
+assert p == eval(p.command())
