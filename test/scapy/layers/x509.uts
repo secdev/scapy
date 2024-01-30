@@ -273,3 +273,10 @@ singleResponse.singleExtensions is None
 = OCSP class : OCSP Response reconstruction
 raw(response) == s
 
+= OSCP class : OSCP Response with ECDSA
+response = OCSP_ResponseBytes()
+assert bytes(response.signature) == b'\x03!\x00defaultsignaturedefaultsignature'
+response.signatureAlgorithm.algorithm = ASN1_OID('1.2.840.10045.4.3.2')
+assert bytes(response.signature) == b'\x03\t\x000\x06\x02\x01\x00\x02\x01\x00'
+response = OCSP_ResponseBytes(bytes(response))
+assert isinstance(response.signature, ECDSASignature)
