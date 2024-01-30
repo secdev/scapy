@@ -805,7 +805,7 @@ def srloop(pkts,  # type: _PacketIterable
     # type: (...) -> Tuple[SndRcvList, PacketList]
     """
     Send a packet at layer 3 in loop and print the answer each time
-    srloop(pkts, [prn], [inter], [count], ...) --> None
+    srloop(pkts, [prn], [inter], [count], ...) -> Tuple[SndRcvList, PacketList]
     """
     return __sr_loop(sr, pkts, *args, **kargs)
 
@@ -818,7 +818,7 @@ def srploop(pkts,  # type: _PacketIterable
     # type: (...) -> Tuple[SndRcvList, PacketList]
     """
     Send a packet at layer 2 in loop and print the answer each time
-    srloop(pkts, [prn], [inter], [count], ...) --> None
+    srloop(pkts, [prn], [inter], [count], ...) --> Tuple[SndRcvList, PacketList]
     """
     return __sr_loop(srp, pkts, *args, **kargs)
 
@@ -1028,7 +1028,7 @@ class AsyncSniffer(object):
                      we have to stop the capture after this packet.
                      --Ex: stop_filter = lambda x: x.haslayer(TCP)
         iface: interface or list of interfaces (default: None for sniffing
-               on all interfaces).
+               on conf.iface).
         monitor: use monitor mode. May not be available on all OS
         started_callback: called as soon as the sniffer starts sniffing
                           (default: None).
