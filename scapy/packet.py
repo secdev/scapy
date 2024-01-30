@@ -1693,7 +1693,7 @@ values.
         f = []
         for fn, fv in self.fields.items():
             fld = self.get_field(fn)
-            if isinstance(fv, (list, dict, set)) and len(fv) == 0:
+            if isinstance(fv, (list, dict, set)) and not fv and not fld.default:
                 continue
             if isinstance(fv, Packet):
                 fv = fv.command()
