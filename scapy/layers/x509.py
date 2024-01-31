@@ -1102,7 +1102,7 @@ class OCSP_RevokedInfo(ASN1_Packet):
         ASN1F_optional(
             ASN1F_PACKET("revocationReason", None,
                          X509_ExtReasonCode,
-                         explicit_tag=0x80)))
+                         explicit_tag=0xa0)))
 
 
 class OCSP_UnknownInfo(ASN1_Packet):
