@@ -509,7 +509,7 @@ class SPNEGOSSP(SSP):
         "supported_ssps",
         "force_supported_mechtypes",
     ]
-    auth_type = 0x0A
+    auth_type = 0x09
 
     class STATE(SSP.STATE):
         FIRST = 1
