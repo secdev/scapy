@@ -325,6 +325,13 @@ class DNSStrField(StrLenField):
     """
 
     def h2i(self, pkt, x):
+        # Setting a DNSStrField manually (h2i) means any current compression will break
+        if (
+            pkt and
+            isinstance(pkt.parent, DNSCompressedPacket) and
+            pkt.parent.raw_packet_cache
+        ):
+            pkt.parent.clear_cache()
         if not x:
             return b"."
         x = bytes_encode(x)
