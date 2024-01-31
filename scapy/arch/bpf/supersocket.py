@@ -214,8 +214,8 @@ class _L2bpfSocket(SuperSocket):
                 try:
                     attach_filter(self.bpf_fd, filter, self.iface)
                     filter_attached = True
-                except ImportError as ex:
-                    warning("Cannot set filter: %s" % ex)
+                except (ImportError, Scapy_Exception) as ex:
+                    raise Scapy_Exception("Cannot set filter: %s" % ex)
         if NETBSD and filter_attached is False:
             # On NetBSD, a filter must be attached to an interface, otherwise
             # no frame will be received by os.read(). When no filter has been

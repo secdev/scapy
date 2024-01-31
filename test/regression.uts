@@ -2261,6 +2261,15 @@ except Scapy_Exception:
 else:
     assert False
 
+= Check online sniff() with a bad filter
+~ needs_root tcpdump libpcap
+try:
+    sniff(timeout=0, filter="bad filter")
+except Scapy_Exception:
+    pass
+else:
+    assert False
+
 = Check offline sniff with lfilter
 assert len(sniff(offline=[IP()/UDP(), IP()/TCP()], lfilter=lambda x: TCP in x)) == 1
 
