@@ -22,29 +22,26 @@ assert TFTP_OACK().answers(TFTP_WRQ())
 = Utilities
 ~ linux
 
-legacy_select_objects = None
-def patch_select_objects(classname):
-    global legacy_select_objects
-    legacy_select_objects = select_objects
-    def mock_select_objects(inputs, remain):
-        test = [s for s in inputs if isinstance(s, classname)]
-        if test:
-            if len(test[0].packets):
-                return test
-            else:
-                inputs = [s for s in inputs if not isinstance(s, classname)]
-        return legacy_select_objects(inputs, remain)
-    scapy.automaton.select_objects = mock_select_objects
+from scapy.automaton import select_objects
 
 class MockTFTPSocket(object):
     packets = []
-    def recv(self, n):
+    def recv(self, n=None):
         pkt = self.packets.pop(0)
         return pkt
     def send(self, *args, **kargs):
         pass
     def close(self):
         pass
+    @classmethod
+    def select(classname, inputs, remain):
+        test = [s for s in inputs if isinstance(s, classname)]
+        if test:
+            if len(test[0].packets):
+                return test
+            else:
+                inputs = [s for s in inputs if not isinstance(s, classname)]
+        return select_objects(inputs, remain)
 
 
 = TFTP_read() automaton
@@ -54,14 +51,11 @@ class MockReadSocket(MockTFTPSocket):
     packets = [IP(src="1.2.3.4") / UDP(dport=0x2807) / TFTP_DATA(block=1) / ("P" * 512),
                IP(src="1.2.3.4") / UDP(dport=0x2807) / TFTP_DATA(block=2) / "<3"]
 
-patch_select_objects(MockReadSocket)
-
 tftp_read = TFTP_read("file.txt", "1.2.3.4", sport=0x2807,
                       ll=MockReadSocket,
-                      recvsock=MockReadSocket)
+                      recvsock=MockReadSocket, debug=5)
 
 res = tftp_read.run()
-scapy.automaton.select_objects = legacy_select_objects
 assert res == (b"P" * 512 + b"<3")
 
 = TFTP_read() automaton error
@@ -69,8 +63,6 @@ assert res == (b"P" * 512 + b"<3")
 
 class MockReadSocket(MockTFTPSocket):
     packets = [IP(src="1.2.3.4") / UDP(dport=0x2807) / TFTP_ERROR(errorcode=2, errormsg="Fatal error")]
-
-patch_select_objects(MockReadSocket)
 
 tftp_read = TFTP_read("file.txt", "1.2.3.4", sport=0x2807,
                       ll=MockReadSocket,
@@ -83,7 +75,6 @@ except Automaton.ErrorState as e:
     assert "Reached ERROR" in str(e)
     assert "ERROR Access violation" in str(e)
 
-scapy.automaton.select_objects = legacy_select_objects
 
 = TFTP_write() automaton
 ~ linux
@@ -102,9 +93,7 @@ tftp_write = TFTP_write("file.txt", "P" * 767 + "Scapy <3", "1.2.3.4", sport=0x2
                         ll=MockWriteSocket,
                         recvsock=MockWriteSocket)
 
-patch_select_objects(MockWriteSocket)
 tftp_write.run()
-scapy.automaton.select_objects = legacy_select_objects
 assert data_received == (b"P" * 767 + b"Scapy <3")
 
 = TFTP_write() automaton error
@@ -117,7 +106,6 @@ tftp_write = TFTP_write("file.txt", "P" * 767 + "Scapy <3", "1.2.3.4", sport=0x2
                         ll=MockWriteSocket,
                         recvsock=MockWriteSocket)
 
-patch_select_objects(MockWriteSocket)
 try:
     tftp_write.run()
     assert False
@@ -125,7 +113,6 @@ except Automaton.ErrorState as e:
     assert "Reached ERROR" in str(e)
     assert "ERROR Access violation" in str(e)
 
-scapy.automaton.select_objects = legacy_select_objects
 
 = TFTP_WRQ_server() automaton
 ~ linux
@@ -138,9 +125,7 @@ class MockWRQSocket(MockTFTPSocket):
 tftp_wrq = TFTP_WRQ_server(ip="1.2.3.4", sport=0x2807,
                            ll=MockWRQSocket,
                            recvsock=MockWRQSocket)
-patch_select_objects(MockWRQSocket)
 assert tftp_wrq.run() == (b"scapy.txt", (b"P" * 512 + b"<3"))
-scapy.automaton.select_objects = legacy_select_objects
 
 = TFTP_WRQ_server() automaton with options
 ~ linux
@@ -153,9 +138,7 @@ class MockWRQSocket(MockTFTPSocket):
 tftp_wrq = TFTP_WRQ_server(ip="1.2.3.4", sport=0x2807,
                            ll=MockWRQSocket,
                            recvsock=MockWRQSocket)
-patch_select_objects(MockWRQSocket)
 assert tftp_wrq.run() == (b"scapy.txt", (b"P" * 100 + b"<3"))
-scapy.automaton.select_objects = legacy_select_objects
 
 = TFTP_RRQ_server() automaton
 ~ linux
@@ -184,9 +167,7 @@ class MockRRQSocket(MockTFTPSocket):
 tftp_rrq = TFTP_RRQ_server(ip="1.2.3.4", sport=0x2807, dir="/tmp/", serve_one=True,
                            ll=MockRRQSocket,
                            recvsock=MockRRQSocket)
-patch_select_objects(MockRRQSocket)
 tftp_rrq.run()
-scapy.automaton.select_objects = legacy_select_objects
 assert received_data == sent_data
 
 import os

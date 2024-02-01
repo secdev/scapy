@@ -108,6 +108,7 @@ if WINDOWS:
 
 # get Scapy's master logger
 log_scapy = logging.getLogger("scapy")
+log_scapy.propagate = False
 # override the level if not already set
 if log_scapy.level == logging.NOTSET:
     log_scapy.setLevel(logging.WARNING)

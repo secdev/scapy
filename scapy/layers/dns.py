@@ -362,6 +362,11 @@ class DNSTextField(StrLenField):
 
     islist = 1
 
+    def i2h(self, pkt, x):
+        if not x:
+            return []
+        return x
+
     def m2i(self, pkt, s):
         ret_s = list()
         tmp_s = s
@@ -1209,6 +1214,8 @@ class DNS(DNSCompressedPacket):
             type = "Ans"
             if self.an and isinstance(self.an[0], DNSRR):
                 name = ' %s' % self.an[0].rdata
+            elif self.rcode != 0:
+                name = self.sprintf(' %rcode%')
         else:
             type = "Qry"
             if self.qd and isinstance(self.qd[0], DNSQR):
@@ -1283,9 +1290,9 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
         [qname, struct.pack("!B", qtype)] +
         ([b"raw"] if raw else [])
     )
-    answer = _dns_cache.get(cache_ident)
-    if answer:
-        return answer
+    result = _dns_cache.get(cache_ident)
+    if result:
+        return result
 
     kwargs.setdefault("timeout", timeout)
     kwargs.setdefault("verbose", 0)
@@ -1326,21 +1333,18 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
     if res is not None:
         if raw:
             # Raw
-            answer = res
+            result = res
         else:
-            try:
-                # Find answer
-                answer = next(
-                    x
-                    for x in itertools.chain(res.an, res.ns, res.ar)
-                    if x.type == qtype
-                )
-            except StopIteration:
-                # No answer
-                return None
-        # Cache it
-        _dns_cache[cache_ident] = answer
-        return answer
+            # Find answers
+            result = [
+                x
+                for x in itertools.chain(res.an, res.ns, res.ar)
+                if x.type == qtype
+            ]
+        if result:
+            # Cache it
+            _dns_cache[cache_ident] = result
+        return result
     else:
         raise TimeoutError
 
@@ -1539,8 +1543,8 @@ class DNS_am(AnsweringMachine):
                 # Relay mode ?
                 try:
                     _rslv = dns_resolve(rq.qname, qtype=rq.qtype)
-                    if _rslv is not None:
-                        ans.append(_rslv)
+                    if _rslv:
+                        ans.extend(_rslv)
                         continue  # next
                 except TimeoutError:
                     pass

@@ -682,7 +682,6 @@ def http_request(host, path="/", port=80, timeout=3,
 
     :returns: the HTTPResponse packet
     """
-    from scapy.sessions import TCPSession
     http_headers = {
         "Accept_Encoding": b'gzip, deflate',
         "Cache_Control": b'no-cache',
@@ -715,7 +714,6 @@ def http_request(host, path="/", port=80, timeout=3,
     try:
         ans = sock.sr1(
             req,
-            session=TCPSession(app=True),
             timeout=timeout,
             verbose=verbose
         )

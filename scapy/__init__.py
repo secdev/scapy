@@ -15,6 +15,11 @@ import os
 import re
 import subprocess
 
+__all__ = [
+    "VERSION",
+    "__version__",
+]
+
 _SCAPY_PKG_DIR = os.path.dirname(__file__)
 
 

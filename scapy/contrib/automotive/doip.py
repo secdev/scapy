@@ -296,7 +296,7 @@ class DoIPSocket(StreamSocket):
                 source_address, target_address, activation_type, reserved_oem)
 
     def recv(self, x=MTU, **kwargs):
-        # type: (int, **Any) -> Optional[Packet]
+        # type: (Optional[int], **Any) -> Optional[Packet]
         if self.buffer:
             len_data = self.buffer[:8]
         else:
@@ -410,7 +410,7 @@ class UDS_DoIPSocket(DoIPSocket):
         return super(UDS_DoIPSocket, self).send(pkt)
 
     def recv(self, x=MTU, **kwargs):
-        # type: (int, **Any) -> Optional[Packet]
+        # type: (Optional[int], **Any) -> Optional[Packet]
         pkt = super(UDS_DoIPSocket, self).recv(x, **kwargs)
         if pkt and pkt.payload_type == 0x8001:
             return pkt.payload

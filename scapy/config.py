@@ -21,6 +21,10 @@ import warnings
 from dataclasses import dataclass
 from enum import Enum
 
+import importlib
+import importlib.abc
+import importlib.util
+
 import scapy
 from scapy import VERSION
 from scapy.base_classes import BasePacket
@@ -374,12 +378,18 @@ class CacheInstance(Dict[str, Any]):
         # type: (str) -> Any
         if item in self.__slots__:
             return object.__getattribute__(self, item)
-        val = super(CacheInstance, self).__getitem__(item)
+        if not self.__contains__(item):
+            raise KeyError(item)
+        return super(CacheInstance, self).__getitem__(item)
+
+    def __contains__(self, item):
+        if not super(CacheInstance, self).__contains__(item):
+            return False
         if self.timeout is not None:
             t = self._timetable[item]
             if time.time() - t > self.timeout:
-                raise KeyError(item)
-        return val
+                return False
+        return True
 
     def get(self, item, default=None):
         # type: (str, Optional[Any]) -> Any
@@ -522,7 +532,7 @@ class NetCache:
 
 
 class ScapyExt:
-    __slots__ = ["modules", "name", "version"]
+    __slots__ = ["specs", "name", "version"]
 
     class MODE(Enum):
         LAYERS = "layers"
@@ -530,32 +540,46 @@ class ScapyExt:
         MODULES = "modules"
 
     @dataclass
-    class ScapyExtModule:
-        name: str
+    class ScapyExtSpec:
+        fullname: str
         mode: 'ScapyExt.MODE'
-        module: Optional[ModuleType]
+        spec: Any
+        default: bool
 
     def __init__(self):
-        self.modules: Dict[str, 'ScapyExt.ScapyExtModule'] = {}
+        self.specs: Dict[str, 'ScapyExt.ScapyExtSpec'] = {}
 
     def config(self, name, version):
         self.name = name
         self.version = version
 
-    def register(self, name, mode, module=None):
+    def register(self, name, mode, path, default=None):
         assert mode in self.MODE, "mode must be one of ScapyExt.MODE !"
-        self.modules[name] = self.ScapyExtModule(name, mode, module)
+        fullname = f"scapy.{mode.value}.{name}"
+        spec = importlib.util.spec_from_file_location(
+            fullname,
+            str(path),
+        )
+        spec = self.ScapyExtSpec(
+            fullname=fullname,
+            mode=mode,
+            spec=spec,
+            default=default or False,
+        )
+        if default is None:
+            spec.default = bool(importlib.util.find_spec(spec.fullname))
+        self.specs[fullname] = spec
 
     def __repr__(self):
-        return "<ScapyExt %s %s (%s modules)>" % (
+        return "<ScapyExt %s %s (%s specs)>" % (
             self.name,
             self.version,
-            len(self.modules),
+            len(self.specs),
         )
 
 
-class ExtsManager:
-    __slots__ = ["exts", "_loaded"]
+class ExtsManager(importlib.abc.MetaPathFinder):
+    __slots__ = ["exts", "_loaded", "all_specs"]
 
     SCAPY_PLUGIN_CLASSIFIER = 'Framework :: Scapy'
     GPLV2_CLASSIFIERS = [
@@ -565,19 +589,30 @@ class ExtsManager:
 
     def __init__(self):
         self.exts: List[ScapyExt] = []
+        self.all_specs: Dict[str, ScapyExt.ScapyExtSpec] = {}
         self._loaded = []
 
-    def _register_module(self, name, mode, module):
-        sys.modules[f"scapy.{mode.value}.{name}"] = module
+    def find_spec(self, fullname, path, target=None):
+        if fullname in self.all_specs:
+            return self.all_specs[fullname].spec
+
+    def invalidate_caches(self):
+        pass
+
+    def _register_spec(self, spec):
+        self.all_specs[spec.fullname] = spec
+        if spec.default:
+            loader = importlib.util.LazyLoader(spec.spec.loader)
+            spec.spec.loader = loader
+            module = importlib.util.module_from_spec(spec.spec)
+            sys.modules[spec.fullname] = module
+            loader.exec_module(module)
 
     def load(self):
-        """
-        Find and loads Extensions. This is executed when Scapy loads.
-        An ext must include the Scapy Framework classifier, a scapy_ext func and be
-        under GPLv2.
-        """
-        import importlib
-        import importlib.metadata
+        try:
+            import importlib.metadata
+        except ImportError:
+            return
         for distr in importlib.metadata.distributions():
             if any(
                 v == self.SCAPY_PLUGIN_CLASSIFIER
@@ -617,7 +652,7 @@ class ExtsManager:
                     scapy_ext_func = scapy_ext.scapy_ext
                 except AttributeError:
                     log_loading.info(
-                        "Module '%s' included the Scapy Framework specifier "
+                        "'%s' included the Scapy Framework specifier "
                         "but did not include a scapy_ext" % pkg
                     )
                     continue
@@ -631,18 +666,20 @@ class ExtsManager:
                         )
                     )
                     continue
-                for mod in ext.modules.values():
-                    self._register_module(mod.name, mod.mode, mod.module)
+                for spec in ext.specs.values():
+                    self._register_spec(spec)
                 self.exts.append(ext)
+        if self not in sys.meta_path:
+            sys.meta_path.append(self)
 
     def __repr__(self):
         from scapy.utils import pretty_list
         return pretty_list(
             [
-                (x.name, x.version, [y.name for y in x.modules.values()])
+                (x.name, x.version, [y.fullname for y in x.specs.values()])
                 for x in self.exts
             ],
-            [("Name", "Version", "Modules")],
+            [("Name", "Version", "Specs")],
             sortBy=0,
         )
 
@@ -862,6 +899,8 @@ class Conf(ConfClass):
     commands = CommandsList()  # type: CommandsList
     #: Codec used by default for ASN1 objects
     ASN1_default_codec = None  # type: 'scapy.asn1.asn1.ASN1Codec'
+    #: Default size for ASN1 objects
+    ASN1_default_long_size = 0
     #: choose the AS resolver class to use
     AS_resolver = None  # type: scapy.as_resolvers.AS_resolver
     dot15d4_protocol = None  # Used in dot15d4.py
@@ -985,6 +1024,7 @@ class Conf(ConfClass):
         'dot15d4',
         'eap',
         'gprs',
+        'gssapi',
         'hsrp',
         'inet',
         'inet6',
@@ -999,7 +1039,6 @@ class Conf(ConfClass):
         'lltd',
         'mgcp',
         'mobileip',
-        'mspac',
         'netbios',
         'netflow',
         'ntlm',
@@ -1018,6 +1057,7 @@ class Conf(ConfClass):
         'smbclient',
         'smbserver',
         'snmp',
+        'spnego',
         'tftp',
         'vrrp',
         'vxlan',

@@ -101,7 +101,7 @@ class Packet(
         "comment"
     ]
     name = None
-    fields_desc = []  # type: Sequence[AnyField]
+    fields_desc = []  # type: List[AnyField]
     deprecated_fields = {}  # type: Dict[str, Tuple[str, str]]
     overload_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     payload_guess = []  # type: List[Tuple[Dict[str, Any], Type[Packet]]]
@@ -1430,8 +1430,19 @@ values.
                               ct.punct("###["),
                               ct.layer_name(self.name),
                               ct.punct("]###"))
-        for f in self.fields_desc:
+        fields = self.fields_desc.copy()
+        while fields:
+            f = fields.pop(0)
             if isinstance(f, ConditionalField) and not f._evalcond(self):
+                continue
+            if hasattr(f, "fields"):  # Field has subfields
+                s += "%s  %s =\n" % (
+                    label_lvl + lvl,
+                    ct.depreciate_field_name(f.name),
+                )
+                lvl += " " * indent * self.show_indent
+                for i, fld in enumerate(x for x in f.fields if hasattr(self, x.name)):
+                    fields.insert(i, fld)
                 continue
             if isinstance(f, Emph) or f in conf.emph:
                 ncol = ct.emph_field_name
@@ -1439,9 +1450,9 @@ values.
             else:
                 ncol = ct.field_name
                 vcol = ct.field_value
+            pad = max(0, 10 - len(f.name)) * " "
             fvalue = self.getfieldval(f.name)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and isinstance(fvalue, list)):  # noqa: E501
-                pad = max(0, 10 - len(f.name)) * " "
                 s += "%s  %s%s%s%s\n" % (label_lvl + lvl,
                                          ct.punct("\\"),
                                          ncol(f.name),
@@ -1454,7 +1465,6 @@ values.
                 for fvalue in fvalue_gen:
                     s += fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl + lvl + "   |", first_call=False)  # noqa: E501
             else:
-                pad = max(0, 10 - len(f.name)) * " "
                 begn = "%s  %s%s%s " % (label_lvl + lvl,
                                         ncol(f.name),
                                         pad,

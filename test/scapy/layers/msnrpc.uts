@@ -1,0 +1,164 @@
+% MS-NRPC tests
+
++ Dissect and Build full NRPC exchange
+
+# XXX in the DCE/RPC spec + MS-RPCE, padding is only supposed to be zeros
+# but for some reason it's weird 0xaaaa, 0xaabb... stuff in Windows.
+# This is ignored by all implementations, and looks like leftovers from Microsoft debugging
+# but it means parsing + rebuilding properly a packet is *slightly* different.
+# In the tests you will find several instances where we manually replace the padding with 0xAA, or similar
+# to make the output match, but it would be cool to reverse engineer the ndr lib in windows and copy
+# exactly the same debug values
+
+= Load MSRPCE and bind
+
+load_layer("msrpce")
+bind_layers(TCP, DceRpc, sport=40564)  # the DCE/RPC port
+bind_layers(TCP, DceRpc, dport=40564)
+
+= Parse NRPC exchange (pcap)
+
+pkts = sniff(offline=scapy_path('test/pcaps/dcerpc_msnrpc.pcapng.gz'), session=DceRpcSession)
+
+= Check ept_map_Request
+
+from scapy.layers.msrpce.ept import *
+
+epm_req = pkts[2][DceRpc5].payload.payload
+assert isinstance(epm_req, ept_map_Request)
+assert epm_req.max_towers == 4
+assert epm_req.map_tower.value.max_count == 75
+assert epm_req.map_tower.value.tower_length == 75
+
+twr = protocol_tower_t(epm_req.map_tower.value.tower_octet_string)
+assert twr.count == 5
+assert twr.floors[0].sprintf("%uuid%") == 'logon'
+
+= Re-build ept_map_Request from scratch
+
+pkt = ept_map_Request(
+    entry_handle=NDRContextHandle(attributes=0, uuid=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'),
+    obj=NDRPointer(
+        referent_id=1,
+        value=UUID(Data1=0, Data2=0, Data3=0, Data4=b'\x00\x00\x00\x00\x00\x00\x00\x00')
+    ),
+    map_tower=NDRPointer(
+        referent_id=2,
+        value=twr_p_t(tower_octet_string=b'\x05\x00\x13\x00\rxV4\x124\x12\xcd\xab\xef\x00\x01#Eg\xcf\xfb\x01\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0b\x02\x00\x00\x00\x01\x00\x07\x02\x00\x00\x87\x01\x00\t\x04\x00\x00\x00\x00\x00')
+    ),
+    max_towers=4
+)
+
+output = bytearray(bytes(pkt))
+assert bytes(output) == bytes(epm_req)
+
+= Check ept_map_Response
+
+epm_resp = pkts[3][DceRpc5].payload.payload
+
+assert epm_resp.entry_handle.attributes == 0
+assert epm_resp.entry_handle.uuid == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+assert epm_resp.ITowers.max_count == 4
+assert epm_resp.ITowers.value[0].value[0].value.max_count == 75
+assert epm_resp.valueof("ITowers")[0].max_count == 75
+assert epm_resp.ITowers.value[0].value[0].value.tower_length == 75
+assert epm_resp.valueof("ITowers")[0].tower_length == 75
+
+twr = protocol_tower_t(epm_resp.ITowers.value[0].value[0].value.tower_octet_string)
+assert twr.floors[0].sprintf("%uuid%") == 'logon'
+assert twr.floors[1].sprintf("%uuid%") == 'NDR 2.0'
+assert twr.floors[1].rhs == 0
+assert twr.floors[2].protocol_identifier == 11
+assert twr.floors[3].sprintf("%protocol_identifier%") == "NCACN_IP_TCP"
+assert twr.floors[3].rhs == 49676
+assert twr.floors[4].sprintf("%protocol_identifier%") == "IP"
+assert twr.floors[4].rhs == "192.168.122.17"
+
+= Re-build ept_map_Response from scratch
+
+pkt = ept_map_Response(
+    entry_handle=NDRContextHandle(attributes=0),
+    ITowers=[
+        twr_p_t(tower_octet_string=b'\x05\x00\x13\x00\rxV4\x124\x12\xcd\xab\xef\x00\x01#Eg\xcf\xfb\x01\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0b\x02\x00\x00\x00\x01\x00\x07\x02\x00\xc2\x0c\x01\x00\t\x04\x00\xc0\xa8z\x11'),
+        twr_p_t(tower_octet_string=b'\x05\x00\x13\x00\rxV4\x124\x12\xcd\xab\xef\x00\x01#Eg\xcf\xfb\x01\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0b\x02\x00\x00\x00\x01\x00\x07\x02\x00\xc2\x03\x01\x00\t\x04\x00\xc0\xa8z\x11')
+    ],
+)
+
+pkt.ITowers.value[0].value[0].referent_id = 0x3
+pkt.ITowers.value[0].value[1].referent_id = 0x4
+pkt.ITowers.max_count = 4
+assert bytes(pkt) == bytes(epm_resp)
+
+= Check NetrServerReqChallenge_Request
+
+chall_req = pkts[6][NetrServerReqChallenge_Request]
+assert chall_req.valueof("ComputerName") == b"WIN1"
+assert chall_req.PrimaryName is None
+assert chall_req.ClientChallenge.data == b"12345678"
+
+= Re-build NetrServerReqChallenge_Request from scratch
+
+pkt = NetrServerReqChallenge_Request(
+    ComputerName=b'WIN1',
+    ClientChallenge=PNETLOGON_CREDENTIAL(data=b'12345678'),
+    PrimaryName=None,
+)
+
+assert bytes(pkt) == bytes(chall_req)
+
+= Check NetrServerReqChallenge_Response
+
+chall_resp = pkts[7][NetrServerReqChallenge_Response]
+assert chall_resp.ServerChallenge.data == b'Zq/\xc4D\xfeRI'
+assert chall_resp.status == 0
+
+= Re-build NetrServerReqChallenge_Response from scratch
+
+pkt = NetrServerReqChallenge_Response(
+    ServerChallenge=PNETLOGON_CREDENTIAL(data=b'Zq/\xc4D\xfeRI')
+)
+
+assert bytes(pkt) == bytes(chall_resp)
+
+= Check NetrServerAuthenticate3_Request
+
+auth_req = pkts[8][NetrServerAuthenticate3_Request]
+assert auth_req.PrimaryName is None
+assert auth_req.valueof("AccountName") == b"WIN1$"
+assert auth_req.sprintf("%SecureChannelType%") == "WorkstationSecureChannel"
+assert auth_req.valueof("ComputerName") == b"WIN1"
+assert auth_req.ClientCredential.data == b'd:\xb3p\xc6\x9e\xf40'
+assert auth_req.NegotiateFlags == 1611661311
+
+= Re-build NetrServerAuthenticate3_Request from scratch
+
+pkt = NetrServerAuthenticate3_Request(
+    AccountName=b'WIN1$',
+    ComputerName=b'WIN1',
+    ClientCredential=PNETLOGON_CREDENTIAL(data=b'd:\xb3p\xc6\x9e\xf40'),
+    PrimaryName=None,
+    SecureChannelType="WorkstationSecureChannel",
+    NegotiateFlags=1611661311,
+)
+
+output = bytearray(bytes(pkt))
+assert bytes(output) == bytes(auth_req)
+
+= Check NetrServerAuthenticate3_Response
+
+auth_resp = pkts[9][NetrServerAuthenticate3_Response]
+assert auth_resp.ServerCredential.data == b'1h\x8d\xb8\xf4zH\xaf'
+assert auth_resp.NegotiateFlags == 1611661311
+assert auth_resp.AccountRid == 1105
+assert auth_resp.status == 0
+
+= Re-build NetrServerAuthenticate3_Response from scratch
+
+pkt = NetrServerAuthenticate3_Response(
+    ServerCredential=PNETLOGON_CREDENTIAL(data=b'1h\x8d\xb8\xf4zH\xaf'),
+    NegotiateFlags=1611661311,
+    AccountRid=1105,
+    status=0
+)
+
+assert bytes(pkt) == bytes(auth_resp)
