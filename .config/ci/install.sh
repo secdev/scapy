@@ -45,9 +45,4 @@ python -m pip install --upgrade pip setuptools wheel --ignore-installed
 python -m pip install -U tox --ignore-installed
 
 # Dump Environment (so that we can check PATH, UT_FLAGS, etc.)
-openssl version
-if [ "$OSTYPE" = "linux-gnu" ]
-then
-  smbclient -V
-fi
 set
