@@ -243,6 +243,38 @@ assert DNSRR(raw(rr)).rdata == []
 rr = DNSRR(rrname='scapy', type='TXT', rdata=[])
 assert raw(rr) == b
 
+= DNS record type 39 (DNAME)
+
+b = b'\x05local\x00\x00\x27\x00\x01\x00\x00\x00\x00\x00\x07\x05local\x00'
+
+p = DNSRR(b)
+assert p.rrname == b'local.' and p.type == 39 and p.rdata == b'local.'
+
+p = DNSRR(rrname=b'local', type='DNAME', rdata='local')
+assert raw(p) == b
+
+# Even though according to https://datatracker.ietf.org/doc/html/rfc6672#section-2.5
+# The DNAME RDATA target name MUST NOT be sent out in compressed form
+# dns_compress compresses it intentionally to make it easier to test
+# DNS-related software that should be able to handle compressed and
+# uncompressed DNAMEs anyway regardless of what the RFC says.
+
+# Make sure it isn't compressed by default
+p = DNS(qd=[], an=[DNSRR(rrname='local', type='DNAME', rdata='local')])
+assert raw(p).endswith(b'\x07\x05local\x00')
+
+# Make sure it can parse uncompressed DNAMEs
+rr = DNS(raw(p)).an[0]
+assert rr.rrname == b'local.' and rr.type == 39 and rr.rdata == b'local.'
+
+# Make sure dns_compress compresses DNAME RDATA
+cp = dns_compress(p)
+assert raw(cp).endswith(b'\x02\xc0\x0c')
+
+# Make sure it can parse compressed DNAMEs
+rr = DNS(raw(cp)).an[0]
+assert rr.rrname == b'local.' and rr.type == 39 and rr.rdata == b'local.'
+
 = DNS record type 64, 65 (SVCB, HTTPS)
 
 b = b'\x00\x00\x00\x04\x00\x01\x00\x06'

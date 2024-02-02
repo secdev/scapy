@@ -242,7 +242,7 @@ def dns_compress(pkt):
                 for field in current.fields_desc:
                     if isinstance(field, DNSStrField) or \
                         (isinstance(field, MultipleTypeField) and
-                         current.type in [2, 3, 4, 5, 12, 15]):
+                         current.type in [2, 3, 4, 5, 12, 15, 39]):
                         # Get the associated data and store it accordingly  # noqa: E501
                         dat = current.getfieldval(field.name)
                         yield current, field.name, dat
@@ -1078,10 +1078,10 @@ class DNSRR(Packet):
                            # AAAA
                            (IP6Field("rdata", "::"),
                                lambda pkt: pkt.type == 28),
-                           # NS, MD, MF, CNAME, PTR
+                           # NS, MD, MF, CNAME, PTR, DNAME
                            (DNSStrField("rdata", "",
                                         length_from=lambda pkt: pkt.rdlen),
-                               lambda pkt: pkt.type in [2, 3, 4, 5, 12]),
+                               lambda pkt: pkt.type in [2, 3, 4, 5, 12, 39]),
                            # TEXT
                            (DNSTextField("rdata", [""],
                                          length_from=lambda pkt: pkt.rdlen),
