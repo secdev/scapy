@@ -970,6 +970,12 @@ class Conf(ConfClass):
     neighbor = None  # type: 'scapy.layers.l2.Neighbor'
     #: holds the name servers IP/hosts used for custom DNS resolution
     nameservers = None  # type: str
+    #: automatically load IPv4 routes on startup. Disable this if your
+    #: routing table is too big.
+    route_autoload = True
+    #: automatically load IPv6 routes on startup. Disable this if your
+    #: routing table is too big.
+    route6_autoload = True
     #: holds the Scapy IPv4 routing table and provides methods to
     #: manipulate it
     route = None  # type: 'scapy.route.Route'

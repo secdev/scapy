@@ -1794,6 +1794,39 @@ There are quite a few ways of speeding up scapy's dissection. You can use all of
     # Disable filtering: restore everything to normal
     conf.layers.unfilter()
 
+Very slow start because of big routes
+-------------------------------------
+
+Problem
+^^^^^^^
+
+Scapy takes ages to start because you have very big routing tables.
+
+Solution
+^^^^^^^^
+
+Disable the auto-loading of the routing tables:
+
+**CLI:** in ``~/.config/scapy/prestart.py`` add:
+
+.. code:: python
+
+    conf.route_autoload = False
+    conf.route6_autoload = False
+
+**Programmatically:**
+
+.. code:: python
+
+    # Before any other Scapy import
+    from scapy.config import conf
+    conf.route_autoload = False
+    conf.route6_autoload = False
+    # Import Scapy here
+    from scapy.all import *
+
+At anytime, you can trigger the routes loading using ``conf.route.resync()`` or ``conf.route6.resync()``, or add the routes yourself `as shown here <#routing>`_.
+
 
 OS Fingerprinting
 -----------------

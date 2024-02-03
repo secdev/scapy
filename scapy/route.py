@@ -32,7 +32,9 @@ class Route:
     def __init__(self):
         # type: () -> None
         self.routes = []  # type: List[Tuple[int, int, str, str, str, int]]
-        self.resync()
+        self.invalidate_cache()
+        if conf.route_autoload:
+            self.resync()
 
     def invalidate_cache(self):
         # type: () -> None
