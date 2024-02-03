@@ -91,6 +91,11 @@ follow the instructions to install them.
 
 <!-- stop_ppi_description -->
 
+## License
+
+Scapy's code, tests and tools are licensed under GPL v2.
+The documentation (everything unless marked otherwise in `doc/`, and except the logo) is licensed under CC BY-NC-SA 2.5.
+
 ## Contributing
 
 Want to contribute? Great! Please take a few minutes to
