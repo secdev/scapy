@@ -783,7 +783,7 @@ def _set_conf_sockets():
             from scapy.arch.libpcap import L2pcapListenSocket, L2pcapSocket, \
                 L3pcapSocket
         except (OSError, ImportError):
-            warning("No libpcap provider available ! pcap won't be used")
+            log_loading.warning("No libpcap provider available ! pcap won't be used")
             Interceptor.set_from_hook(conf, "use_pcap", False)
         else:
             conf.L3socket = L3pcapSocket
