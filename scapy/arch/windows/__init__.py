@@ -1032,4 +1032,7 @@ def read_nameservers() -> List[str]:
     """
     # Windows has support for different DNS servers on each network interface,
     # but to be cross-platform we only return the servers for the default one.
-    return cast(NetworkInterface_Win, conf.iface).nameservers
+    if isinstance(conf.iface, NetworkInterface_Win):
+        return conf.iface.nameservers
+    else:
+        return []

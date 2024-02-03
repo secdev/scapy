@@ -118,10 +118,10 @@ class L3WinSocket(SuperSocket):
                                       socket.SOCK_RAW,
                                       socket.IPPROTO_RAW)
         except OSError as e:
-            if e.errno == 10013:
+            if e.errno == 13:
                 raise OSError("Windows native L3 Raw sockets are only "
                               "usable as administrator ! "
-                              "Install Winpcap/Npcap to workaround !")
+                              "Please install Npcap to workaround !")
             raise
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
