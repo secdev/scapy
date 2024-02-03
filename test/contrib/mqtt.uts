@@ -112,16 +112,21 @@ assert subscribe.topics[0].QOS == 1
 
 
 = MQTTSuback, packet instantiation
-sk = MQTT()/MQTTSuback(msgid=1, retcode=0)
+sk = MQTT()/MQTTSuback(msgid=1, retcodes=[0])
 assert sk.type == 9
 assert sk.msgid == 1
-assert sk.retcode == 0
+assert sk.retcodes == [0]
 
 = MQTTSuback, packet dissection
 s = b'\x90\x03\x00\x01\x00'
 suback = MQTT(s)
 assert suback.msgid == 1
-assert suback.retcode == 0
+assert suback.retcodes == [0]
+
+s = b'\x90\x03\x00\x01\x00\x01'
+suback = MQTT(s)
+assert suback.msgid == 1
+assert suback.retcodes == [0, 1]
 
 = MQTTUnsubscribe, packet instantiation
 unsb = MQTT()/MQTTUnsubscribe(msgid=1, topics=[MQTTTopic(topic='newtopic',length=0)])
