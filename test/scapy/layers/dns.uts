@@ -431,3 +431,9 @@ assert p == eval(p.command())
 
 p = DNS(qd=[])
 assert p == eval(p.command())
+
+= DNS - iter through DNSStrFields
+
+pkt = DNSQR(qname=["domain1.com", "domain2.com"], qtype="A")
+for i in pkt:
+    assert i.qname in [b"domain1.com.", b"domain2.com."]
