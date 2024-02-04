@@ -26,7 +26,7 @@ handle, like sending invalid frames, injecting your own 802.11 frames, combining
 techniques (VLAN hopping+ARP cache poisoning, VoIP decoding on WEP protected
 channel, ...), etc.
 
-Scapy supports Python 2.7 and Python 3 (3.4 to 3.9). It's intended to
+Scapy supports Python 3.7+. It's intended to
 be cross platform, and runs on many different platforms (Linux, OSX,
 \*BSD, and Windows).
 
