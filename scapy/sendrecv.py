@@ -633,7 +633,7 @@ def _interface_selection(iface,  # type: Optional[_GlobInterfaceType]
         try:
             inet_pton(socket.AF_INET6, src)
             ipv6 = True
-        except OSError:
+        except (ValueError, OSError):
             pass
     if iface is None:
         try:

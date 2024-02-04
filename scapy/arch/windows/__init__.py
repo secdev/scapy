@@ -46,9 +46,11 @@ from scapy.supersocket import SuperSocket
 from typing import (
     Any,
     Dict,
+    Iterator,
     List,
     Optional,
     Tuple,
+    Type,
     Union,
     cast,
     overload,
@@ -621,11 +623,24 @@ class WindowsInterfacesProvider(InterfaceProvider):
                     i['guid'] = NPCAP_LOOPBACK_NAME
                 windows_interfaces[i['guid']] = i
 
+        def iterinterfaces() -> Iterator[
+            Tuple[str, Optional[str], List[str], int, str, Optional[Dict[str, Any]]]
+        ]:
+            if conf.use_pcap:
+                # We have a libpcap provider: enrich pcap interfaces with
+                # Windows data
+                for netw, if_data in conf.cache_pcapiflist.items():
+                    name, ips, flags, _ = if_data
+                    guid = _pcapname_to_guid(netw)
+                    data = windows_interfaces.get(guid, None)
+                    yield netw, name, ips, flags, guid, data
+            else:
+                # We don't have a libpcap provider: only use Windows data
+                for guid, data in windows_interfaces.items():
+                    yield guid, None, [], 0, guid, data
+
         index = 0
-        for netw, if_data in conf.cache_pcapiflist.items():
-            name, ips, flags, _ = if_data
-            guid = _pcapname_to_guid(netw)
-            data = windows_interfaces.get(guid, None)
+        for netw, name, ips, flags, guid, data in iterinterfaces():
             if data:
                 # Exists in Windows registry
                 data['network_name'] = netw
@@ -660,6 +675,14 @@ class WindowsInterfacesProvider(InterfaceProvider):
             from scapy.arch.libpcap import load_winpcapy
             load_winpcapy()
         return self.load()
+
+    def _l3socket(self, dev, ipv6):
+        # type: (NetworkInterface, bool) -> Type[SuperSocket]
+        """Return L3 socket used by interfaces of this provider"""
+        if ipv6:
+            return conf.L3socket6
+        else:
+            return conf.L3socket
 
 
 # Register provider
