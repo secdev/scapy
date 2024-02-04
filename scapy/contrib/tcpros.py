@@ -172,11 +172,11 @@ class TCPROSHeader(Packet):
         |                                                               |
         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-    Generated with:
+    Generated with::
         protocol "header_length:4,len1:4,element1:32,len2:4,
             element2:64,...:4,...:80" --bits 32
 
-    Typical header looks like:
+    Typical header looks like::
 
         7C 00 00 00 12 00 00 00 63 61 6C 6C 65 72 69 64  |.......callerid
         3D 2F 6C 69 73 74 65 6E 65 72 27 00 00 00 6D 64  =/listener'...md
@@ -250,12 +250,12 @@ class TCPROSBody(Packet):
         |                                                               |
         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-    Generated with:
+    Generated with::
         protocol "body_length:4,len1:4,element1:32,len2:4,
             element2:64,...:4,...:80" --bits 32
 
     As per ROS Melodic Morenia v1.14.5. this package is generally
-    seen separated from a TCPROSHeader. A simple such package:
+    seen separated from a TCPROSHeader. A simple such package::
 
         12 00 00 00 0E 00 00 00 68 65 6C 6C 6F 20 77 6F  ........hello wo
         72 6C 64 20 31 36                                rld 16
@@ -320,7 +320,7 @@ class TCPROSBodyVariation(TCPROSBody):
         |                                                               |
         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-    Generated with:
+    Generated with::
         protocol "body_length:4,sequence:4,signature:13,len1:4,
             element1:32,...:4,...:67" --bits 32
 
@@ -353,12 +353,12 @@ class TCPROSBodyVariation(TCPROSBody):
         74 74 65 72 43 61 6C 6C 62 61 63 6B 26 00 00 00  tterCallback&...
         01 00 00 00 07 00 00 00 2F 72 6F 73 6F 75 74     ......../rosout
 
-        NOTE: not all packages are disgested appropriately and some
-        fields need to be better understood (e.g. signature) for
-        appropriate building.
+    NOTE: not all packages are disgested appropriately and some
+    fields need to be better understood (e.g. signature) for
+    appropriate building.
 
-        NOTE 2: Needs further research to convert Padding at the end to
-        something that makes sense.
+    NOTE 2: Needs further research to convert Padding at the end to
+    something that makes sense.
 
     """
 
@@ -426,33 +426,33 @@ class XMLRPC(Packet):
 
     The counterpart (the Master) answers with (HTTP Response)::
 
-    0000  02 42 0C 00 00 04 02 42 0C 00 00 02 08 00 45 00  .B.....B......E.
-    0010  01 A2 8C CD 40 00 40 06 94 83 0C 00 00 02 0C 00  ....@.@.........
-    0020  00 04 2C 2F 8E 62 87 00 82 4C C7 A9 93 F1 80 18  ..,/.b...L......
-    0030  01 F6 19 9A 00 00 01 01 08 0A 39 82 4B 7B BB 36  ..........9.K{.6
-    0040  D2 1A 48 54 54 50 2F 31 2E 31 20 32 30 30 20 4F  ..HTTP/1.1 200 O
-    0050  4B 0D 0A 53 65 72 76 65 72 3A 20 42 61 73 65 48  K..Server: BaseH
-    0060  54 54 50 2F 30 2E 33 20 50 79 74 68 6F 6E 2F 32  TTP/0.3 Python/2
-    0070  2E 37 2E 31 37 0D 0A 44 61 74 65 3A 20 53 75 6E  .7.17..Date: Sun
-    0080  2C 20 30 36 20 44 65 63 20 32 30 32 30 20 31 35  , 06 Dec 2020 15
-    0090  3A 31 37 3A 33 38 20 47 4D 54 0D 0A 43 6F 6E 74  :17:38 GMT..Cont
-    00a0  65 6E 74 2D 74 79 70 65 3A 20 74 65 78 74 2F 78  ent-type: text/x
-    00b0  6D 6C 0D 0A 43 6F 6E 74 65 6E 74 2D 6C 65 6E 67  ml..Content-leng
-    00c0  74 68 3A 20 32 32 39 0D 0A 0D 0A 3C 3F 78 6D 6C  th: 229....<?xml
-    00d0  20 76 65 72 73 69 6F 6E 3D 27 31 2E 30 27 3F 3E   version='1.0'?>
-    00e0  0A 3C 6D 65 74 68 6F 64 52 65 73 70 6F 6E 73 65  .<methodResponse
-    00f0  3E 0A 3C 70 61 72 61 6D 73 3E 0A 3C 70 61 72 61  >.<params>.<para
-    0100  6D 3E 0A 3C 76 61 6C 75 65 3E 3C 61 72 72 61 79  m>.<value><array
-    0110  3E 3C 64 61 74 61 3E 0A 3C 76 61 6C 75 65 3E 3C  ><data>.<value><
-    0120  69 6E 74 3E 31 3C 2F 69 6E 74 3E 3C 2F 76 61 6C  int>1</int></val
-    0130  75 65 3E 0A 3C 76 61 6C 75 65 3E 3C 73 74 72 69  ue>.<value><stri
-    0140  6E 67 3E 3C 2F 73 74 72 69 6E 67 3E 3C 2F 76 61  ng></string></va
-    0150  6C 75 65 3E 0A 3C 76 61 6C 75 65 3E 3C 69 6E 74  lue>.<value><int
-    0160  3E 33 39 38 3C 2F 69 6E 74 3E 3C 2F 76 61 6C 75  >398</int></value
-    0170  65 3E 0A 3C 2F 64 61 74 61 3E 3C 2F 61 72 72 61  e>.</data></arra
-    0180  79 3E 3C 2F 76 61 6C 75 65 3E 0A 3C 2F 70 61 72  y></value>.</par
-    0190  61 6D 3E 0A 3C 2F 70 61 72 61 6D 73 3E 0A 3C 2F  am>.</params>.</
-    01a0  6D 65 74 68 6F 64 52 65 73 70 6F 6E 73 65 3E 0A  methodResponse>.
+        0000  02 42 0C 00 00 04 02 42 0C 00 00 02 08 00 45 00  .B.....B......E.
+        0010  01 A2 8C CD 40 00 40 06 94 83 0C 00 00 02 0C 00  ....@.@.........
+        0020  00 04 2C 2F 8E 62 87 00 82 4C C7 A9 93 F1 80 18  ..,/.b...L......
+        0030  01 F6 19 9A 00 00 01 01 08 0A 39 82 4B 7B BB 36  ..........9.K{.6
+        0040  D2 1A 48 54 54 50 2F 31 2E 31 20 32 30 30 20 4F  ..HTTP/1.1 200 O
+        0050  4B 0D 0A 53 65 72 76 65 72 3A 20 42 61 73 65 48  K..Server: BaseH
+        0060  54 54 50 2F 30 2E 33 20 50 79 74 68 6F 6E 2F 32  TTP/0.3 Python/2
+        0070  2E 37 2E 31 37 0D 0A 44 61 74 65 3A 20 53 75 6E  .7.17..Date: Sun
+        0080  2C 20 30 36 20 44 65 63 20 32 30 32 30 20 31 35  , 06 Dec 2020 15
+        0090  3A 31 37 3A 33 38 20 47 4D 54 0D 0A 43 6F 6E 74  :17:38 GMT..Cont
+        00a0  65 6E 74 2D 74 79 70 65 3A 20 74 65 78 74 2F 78  ent-type: text/x
+        00b0  6D 6C 0D 0A 43 6F 6E 74 65 6E 74 2D 6C 65 6E 67  ml..Content-leng
+        00c0  74 68 3A 20 32 32 39 0D 0A 0D 0A 3C 3F 78 6D 6C  th: 229....<?xml
+        00d0  20 76 65 72 73 69 6F 6E 3D 27 31 2E 30 27 3F 3E   version='1.0'?>
+        00e0  0A 3C 6D 65 74 68 6F 64 52 65 73 70 6F 6E 73 65  .<methodResponse
+        00f0  3E 0A 3C 70 61 72 61 6D 73 3E 0A 3C 70 61 72 61  >.<params>.<para
+        0100  6D 3E 0A 3C 76 61 6C 75 65 3E 3C 61 72 72 61 79  m>.<value><array
+        0110  3E 3C 64 61 74 61 3E 0A 3C 76 61 6C 75 65 3E 3C  ><data>.<value><
+        0120  69 6E 74 3E 31 3C 2F 69 6E 74 3E 3C 2F 76 61 6C  int>1</int></val
+        0130  75 65 3E 0A 3C 76 61 6C 75 65 3E 3C 73 74 72 69  ue>.<value><stri
+        0140  6E 67 3E 3C 2F 73 74 72 69 6E 67 3E 3C 2F 76 61  ng></string></va
+        0150  6C 75 65 3E 0A 3C 76 61 6C 75 65 3E 3C 69 6E 74  lue>.<value><int
+        0160  3E 33 39 38 3C 2F 69 6E 74 3E 3C 2F 76 61 6C 75  >398</int></value
+        0170  65 3E 0A 3C 2F 64 61 74 61 3E 3C 2F 61 72 72 61  e>.</data></arra
+        0180  79 3E 3C 2F 76 61 6C 75 65 3E 0A 3C 2F 70 61 72  y></value>.</par
+        0190  61 6D 3E 0A 3C 2F 70 61 72 61 6D 73 3E 0A 3C 2F  am>.</params>.</
+        01a0  6D 65 74 68 6F 64 52 65 73 70 6F 6E 73 65 3E 0A  methodResponse>.
 
 
     In another communication, and endpoint could request a parameter using the
@@ -488,12 +488,12 @@ class XMLRPC(Packet):
         01b0  61 72 61 6D 3E 0A 3C 2F 70 61 72 61 6D 73 3E 0A  aram>.</params>.
         01c0  3C 2F 6D 65 74 68 6F 64 43 61 6C 6C 3E 0A        </methodCall>.
 
-        Sources:
-            - https://aliasrobotics.com/files/
-                    securing_robot_endpoints_ot_environment.pdf
-            - http://wiki.ros.org/ROS/Master_API
-            - http://wiki.ros.org/ROS/Slave_API
-            - http://wiki.ros.org/ROS/Parameter%20Server%20API
+    Sources:
+        - https://aliasrobotics.com/files/
+                securing_robot_endpoints_ot_environment.pdf
+        - http://wiki.ros.org/ROS/Master_API
+        - http://wiki.ros.org/ROS/Slave_API
+        - http://wiki.ros.org/ROS/Parameter%20Server%20API
 
     """
 
@@ -632,35 +632,35 @@ class XMLRPCCall(Packet):
 class XMLRPCResponse(Packet):
     """
     Response side of the ROS XMLPC elements used by Master and Parameter APIs
-    Exemplary package:
+    Exemplary package::
 
-    0000  02 42 0C 00 00 04 02 42 0C 00 00 02 08 00 45 00  .B.....B......E.
-    0010  01 A2 8C CD 40 00 40 06 94 83 0C 00 00 02 0C 00  ....@.@.........
-    0020  00 04 2C 2F 8E 62 87 00 82 4C C7 A9 93 F1 80 18  ..,/.b...L......
-    0030  01 F6 19 9A 00 00 01 01 08 0A 39 82 4B 7B BB 36  ..........9.K{.6
-    0040  D2 1A 48 54 54 50 2F 31 2E 31 20 32 30 30 20 4F  ..HTTP/1.1 200 O
-    0050  4B 0D 0A 53 65 72 76 65 72 3A 20 42 61 73 65 48  K..Server: BaseH
-    0060  54 54 50 2F 30 2E 33 20 50 79 74 68 6F 6E 2F 32  TTP/0.3 Python/2
-    0070  2E 37 2E 31 37 0D 0A 44 61 74 65 3A 20 53 75 6E  .7.17..Date: Sun
-    0080  2C 20 30 36 20 44 65 63 20 32 30 32 30 20 31 35  , 06 Dec 2020 15
-    0090  3A 31 37 3A 33 38 20 47 4D 54 0D 0A 43 6F 6E 74  :17:38 GMT..Cont
-    00a0  65 6E 74 2D 74 79 70 65 3A 20 74 65 78 74 2F 78  ent-type: text/x
-    00b0  6D 6C 0D 0A 43 6F 6E 74 65 6E 74 2D 6C 65 6E 67  ml..Content-leng
-    00c0  74 68 3A 20 32 32 39 0D 0A 0D 0A 3C 3F 78 6D 6C  th: 229....<?xml
-    00d0  20 76 65 72 73 69 6F 6E 3D 27 31 2E 30 27 3F 3E   version='1.0'?>
-    00e0  0A 3C 6D 65 74 68 6F 64 52 65 73 70 6F 6E 73 65  .<methodResponse
-    00f0  3E 0A 3C 70 61 72 61 6D 73 3E 0A 3C 70 61 72 61  >.<params>.<para
-    0100  6D 3E 0A 3C 76 61 6C 75 65 3E 3C 61 72 72 61 79  m>.<value><array
-    0110  3E 3C 64 61 74 61 3E 0A 3C 76 61 6C 75 65 3E 3C  ><data>.<value><
-    0120  69 6E 74 3E 31 3C 2F 69 6E 74 3E 3C 2F 76 61 6C  int>1</int></val
-    0130  75 65 3E 0A 3C 76 61 6C 75 65 3E 3C 73 74 72 69  ue>.<value><stri
-    0140  6E 67 3E 3C 2F 73 74 72 69 6E 67 3E 3C 2F 76 61  ng></string></va
-    0150  6C 75 65 3E 0A 3C 76 61 6C 75 65 3E 3C 69 6E 74  lue>.<value><int
-    0160  3E 33 39 38 3C 2F 69 6E 74 3E 3C 2F 76 61 6C 75  >398</int></value
-    0170  65 3E 0A 3C 2F 64 61 74 61 3E 3C 2F 61 72 72 61  e>.</data></arra
-    0180  79 3E 3C 2F 76 61 6C 75 65 3E 0A 3C 2F 70 61 72  y></value>.</par
-    0190  61 6D 3E 0A 3C 2F 70 61 72 61 6D 73 3E 0A 3C 2F  am>.</params>.</
-    01a0  6D 65 74 68 6F 64 52 65 73 70 6F 6E 73 65 3E 0A  methodResponse>.
+        0000  02 42 0C 00 00 04 02 42 0C 00 00 02 08 00 45 00  .B.....B......E.
+        0010  01 A2 8C CD 40 00 40 06 94 83 0C 00 00 02 0C 00  ....@.@.........
+        0020  00 04 2C 2F 8E 62 87 00 82 4C C7 A9 93 F1 80 18  ..,/.b...L......
+        0030  01 F6 19 9A 00 00 01 01 08 0A 39 82 4B 7B BB 36  ..........9.K{.6
+        0040  D2 1A 48 54 54 50 2F 31 2E 31 20 32 30 30 20 4F  ..HTTP/1.1 200 O
+        0050  4B 0D 0A 53 65 72 76 65 72 3A 20 42 61 73 65 48  K..Server: BaseH
+        0060  54 54 50 2F 30 2E 33 20 50 79 74 68 6F 6E 2F 32  TTP/0.3 Python/2
+        0070  2E 37 2E 31 37 0D 0A 44 61 74 65 3A 20 53 75 6E  .7.17..Date: Sun
+        0080  2C 20 30 36 20 44 65 63 20 32 30 32 30 20 31 35  , 06 Dec 2020 15
+        0090  3A 31 37 3A 33 38 20 47 4D 54 0D 0A 43 6F 6E 74  :17:38 GMT..Cont
+        00a0  65 6E 74 2D 74 79 70 65 3A 20 74 65 78 74 2F 78  ent-type: text/x
+        00b0  6D 6C 0D 0A 43 6F 6E 74 65 6E 74 2D 6C 65 6E 67  ml..Content-leng
+        00c0  74 68 3A 20 32 32 39 0D 0A 0D 0A 3C 3F 78 6D 6C  th: 229....<?xml
+        00d0  20 76 65 72 73 69 6F 6E 3D 27 31 2E 30 27 3F 3E   version='1.0'?>
+        00e0  0A 3C 6D 65 74 68 6F 64 52 65 73 70 6F 6E 73 65  .<methodResponse
+        00f0  3E 0A 3C 70 61 72 61 6D 73 3E 0A 3C 70 61 72 61  >.<params>.<para
+        0100  6D 3E 0A 3C 76 61 6C 75 65 3E 3C 61 72 72 61 79  m>.<value><array
+        0110  3E 3C 64 61 74 61 3E 0A 3C 76 61 6C 75 65 3E 3C  ><data>.<value><
+        0120  69 6E 74 3E 31 3C 2F 69 6E 74 3E 3C 2F 76 61 6C  int>1</int></val
+        0130  75 65 3E 0A 3C 76 61 6C 75 65 3E 3C 73 74 72 69  ue>.<value><stri
+        0140  6E 67 3E 3C 2F 73 74 72 69 6E 67 3E 3C 2F 76 61  ng></string></va
+        0150  6C 75 65 3E 0A 3C 76 61 6C 75 65 3E 3C 69 6E 74  lue>.<value><int
+        0160  3E 33 39 38 3C 2F 69 6E 74 3E 3C 2F 76 61 6C 75  >398</int></value
+        0170  65 3E 0A 3C 2F 64 61 74 61 3E 3C 2F 61 72 72 61  e>.</data></arra
+        0180  79 3E 3C 2F 76 61 6C 75 65 3E 0A 3C 2F 70 61 72  y></value>.</par
+        0190  61 6D 3E 0A 3C 2F 70 61 72 61 6D 73 3E 0A 3C 2F  am>.</params>.</
+        01a0  6D 65 74 68 6F 64 52 65 73 70 6F 6E 73 65 3E 0A  methodResponse>.
     """
 
     name = "XMLRPCResponse"
