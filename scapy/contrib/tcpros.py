@@ -33,7 +33,7 @@ class TCPROS(Packet):
 
     This class focuses on capturing the ROS Slave API
 
-    An example package is presented below:
+    An example package is presented below::
 
         B0 00 00 00 26 00 00 00 63 61 6C 6C 65 72 69 64  ....&...callerid
         3D 2F 72 6F 73 74 6F 70 69 63 5F 38 38 33 30 35  =/rostopic_88305
@@ -48,21 +48,21 @@ class TCPROS(Packet):
         74 79 70 65 3D 73 74 64 5F 6D 73 67 73 2F 53 74  type=std_msgs/St
         72 69 6E 67                                      ring
 
-        Sources:
-            - http://wiki.ros.org/ROS/TCPROS
-            - http://wiki.ros.org/ROS/Connection%20Header
-            - https://docs.python.org/3/library/struct.html
-            - https://scapy.readthedocs.io/en/latest/build_dissect.html
+    Sources:
+        - http://wiki.ros.org/ROS/TCPROS
+        - http://wiki.ros.org/ROS/Connection%20Header
+        - https://docs.python.org/3/library/struct.html
+        - https://scapy.readthedocs.io/en/latest/build_dissect.html
 
-        TODO:
-            - Extend to support subscriber's interactions
-            - Unify with subscriber's header
+    TODO:
+        - Extend to support subscriber's interactions
+        - Unify with subscriber's header
 
-        NOTES:
-            - 4-byte length + [4-byte field length + field=value ]*
-            - All length fields are little-endian integers. Field names and
-                values are strings.
-            - Cooked as of ROS Melodic Morenia v1.14.5.
+    NOTES:
+        - 4-byte length + [4-byte field length + field=value ]*
+        - All length fields are little-endian integers. Field names and
+            values are strings.
+        - Cooked as of ROS Melodic Morenia v1.14.5.
     """
 
     name = "TCPROS"
@@ -155,7 +155,7 @@ class TCPROSElement(Packet):
 
 class TCPROSHeader(Packet):
     """
-    The Header of the TCPROS package.
+    The Header of the TCPROS package::
 
         0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -233,7 +233,7 @@ class TCPROSHeader(Packet):
 
 class TCPROSBody(Packet):
     """
-    TCPROS body type of package.
+    TCPROS body type of package::
 
         0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -307,7 +307,7 @@ class TCPROSBody(Packet):
 
 class TCPROSBodyVariation(TCPROSBody):
     """
-    TCPROS body variation type of package.
+    TCPROS body variation type of package::
 
         0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -325,7 +325,7 @@ class TCPROSBodyVariation(TCPROSBody):
             element1:32,...:4,...:67" --bits 32
 
     As per ROS Melodic Morenia v1.14.5. this package is generally
-    seen separated from a TCPROSHeader. An exemplary such package:
+    seen separated from a TCPROSHeader. An exemplary such package::
 
         AB 00 00 00 00 00 00 00 7D 81 03 5F 7C A4 3F 0E  ........}.._|.?.
         00 00 00 00 02 09 00 00 00 2F 6C 69 73 74 65 6E  ........./listen
@@ -339,7 +339,7 @@ class TCPROSBodyVariation(TCPROSBody):
         74 74 65 72 43 61 6C 6C 62 61 63 6B 26 00 00 00  tterCallback&...
         01 00 00 00 07 00 00 00 2F 72 6F 73 6F 75 74     ......../rosout
 
-    and the next one referring also to '/listener':
+    and the next one referring also to '/listener'::
 
         AB 00 00 00 01 00 00 00 7D 81 03 5F 00 54 42 14  ........}.._.TB.
         00 00 00 00 02 09 00 00 00 2F 6C 69 73 74 65 6E  ........./listen
@@ -396,7 +396,7 @@ class XMLRPC(Packet):
 
     An example package of a publisher initiating communication is presented
     below wherein this particular package requests the Master's PID
-    (HTTP Request):
+    (HTTP Request)::
 
         0000  02 42 0C 00 00 02 02 42 0C 00 00 04 08 00 45 00  .B.....B......E.
         0010  01 7C 4F F8 40 00 40 06 D1 7E 0C 00 00 04 0C 00  .|O.@.@..~......
@@ -424,7 +424,7 @@ class XMLRPC(Packet):
         0170  3E 0A 3C 2F 70 61 72 61 6D 73 3E 0A 3C 2F 6D 65  >.</params>.</me
         0180  74 68 6F 64 43 61 6C 6C 3E 0A                    thodCall>.
 
-    The counterpart (the Master) answers with (HTTP Response):
+    The counterpart (the Master) answers with (HTTP Response)::
 
     0000  02 42 0C 00 00 04 02 42 0C 00 00 02 08 00 45 00  .B.....B......E.
     0010  01 A2 8C CD 40 00 40 06 94 83 0C 00 00 02 0C 00  ....@.@.........
@@ -456,7 +456,7 @@ class XMLRPC(Packet):
 
 
     In another communication, and endpoint could request a parameter using the
-    Parameter Server API (HTTP Request):
+    Parameter Server API (HTTP Request)::
 
         0000  02 42 0C 00 00 02 02 42 0C 00 00 04 08 00 45 00  .B.....B......E.
         0010  01 C0 8B 72 40 00 40 06 95 C0 0C 00 00 04 0C 00  ...r@.@.........
@@ -531,7 +531,7 @@ class XMLRPCSeparator(ByteField):
 class XMLRPCCall(Packet):
     """
     Request side of the ROS XMLPC elements used by Master and Parameter APIs
-    Exemplary package:
+    Exemplary package::
 
         0000  02 42 0C 00 00 02 02 42 0C 00 00 04 08 00 45 00  .B.....B......E.
         0010  01 C0 8B 72 40 00 40 06 95 C0 0C 00 00 04 0C 00  ...r@.@.........
