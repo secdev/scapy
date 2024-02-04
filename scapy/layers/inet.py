@@ -635,6 +635,7 @@ def in4_pseudoheader(proto, u, plen):
     :param u: IP layer instance
     :param plen: the length of the upper layer and payload
     """
+    u = u.copy()
     if u.len is not None:
         if u.ihl is None:
             olen = sum(len(x) for x in u.options)

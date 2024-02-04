@@ -763,3 +763,12 @@ assert no_sr[UDP].chksum == sr[UDP].chksum
 
 sr = IP(raw(IP(options=[IPOption_LSRR(routers=["1.1.1.1"]), IPOption_SSRR(routers=["8.8.8.8"])])/UDP()/DNS()))
 assert no_sr[UDP].chksum != sr[UDP].chksum
+
+# GH4174
+sr = Ether(src="de:ad:be:ef:aa:55", dst="ca:fe:00:00:00:00")/IP(src="20.0.0.1",dst="100.0.0.1")/ \
+           IP(src="20.0.0.1",dst="100.0.0.1", options=[IPOption_SSRR(copy_flag=1, pointer=4, routers=["1.1.1.1", "8.8.8.8"])])/ \
+           UDP(sport=1111, dport=2222) / VXLAN() / \
+           Ether(src="de:ad:be:ef:aa:55", dst="ca:fe:00:00:00:00")/IP(src="20.0.0.1",dst="100.0.0.1") / \
+           TCP()
+bytes(sr[UDP])
+assert sr[IP:2].dst == "100.0.0.1"
