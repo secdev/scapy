@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
@@ -70,6 +71,7 @@ TRAIL           1000                         # Trailer packet
 DCA             1234                         # DCA - Multicast
 VALID           1600                         # VALID system protocol
 RCL             1995                         # Datapoint Corporation (RCL lan protocol)
+NHRP            2001                         # NBMA Next Hop Resolution Protocol (RFC2332)
 NBPCC           3C04                         # 3Com NBP Connect complete not registered
 NBPDG           3C07                         # 3Com NBP Datagram (like XNS IDP) not registered
 PCS             4242                         # PCS Basic Block Protocol
@@ -124,11 +126,12 @@ PPP             880B                         # PPP (obsolete by PPPOE)
 MPLS            8847                         # MPLS Unicast
 AXIS            8856                         # Axis Communications AB proprietary bootstrap/config
 PPPOE           8864                         # PPP Over Ethernet Session Stage
-PAE             888E                         # 802.1X Port Access Entity
+EAPOL           888E                         # 802.1X EAP over LAN
 AOE             88A2                         # ATA over Ethernet
 QINQ            88A8                         # 802.1ad VLAN stacking
 LLDP            88CC                         # Link Layer Discovery Protocol
 PBB             88E7                         # 802.1Q Provider Backbone Bridging
+NSH             894F                         # Network Service Header (RFC8300)
 XNSSM           9001                         # 3Com (Formerly Bridge Communications), XNS Systems Management
 TCPSM           9002                         # 3Com (Formerly Bridge Communications), TCP/IP Systems Management
 DEBNI           AAAA                         # DECNET? Used by VAX 6220 DEBNI
