@@ -527,3 +527,41 @@ assert r == b'\rscapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 p = SM_Hdr(r)
 assert SM_DHKey_Check in p and p.dhkey_check[:5] == b"scapy"
+
+
++ HCIMon tests
+
+= HCI_Mon - Bluetooth Monitor Pcap Header
+
+p = HCI_Mon_Pcap_Hdr(hex_bytes("00000008"))
+assert HCI_Mon_Pcap_Hdr in p
+assert p[HCI_Mon_Pcap_Hdr].adapter_id == 0
+assert p[HCI_Mon_Pcap_Hdr].opcode == 8
+
+= HCI_Mon - Bluetooth Monitor HCI_Mon_New_Index
+
+p = HCI_Mon_Pcap_Hdr(hex_bytes("0000000000030000109a81206863693000000000"))
+assert HCI_Mon_New_Index in p
+assert p[HCI_Mon_New_Index].bus == 0
+assert p[HCI_Mon_New_Index].type == 3
+assert p[HCI_Mon_New_Index].addr == '20:81:9a:10:00:00'
+assert p[HCI_Mon_New_Index].devname.decode('utf-8').rstrip('\x00') == 'hci0'
+
+= HCI_Mon - Bluetooth Monitor HCI_Mon_Delete_Index
+
+p = HCI_Mon_Pcap_Hdr(hex_bytes("00000001"))
+assert HCI_Mon_Pcap_Hdr in p
+assert p[HCI_Mon_Pcap_Hdr].opcode == 1
+
+= HCI_Mon - Bluetooth Monitor HCI_Mon_Index_Info
+
+p = HCI_Mon_Pcap_Hdr(hex_bytes("0000000a0000109a81203101"))
+assert HCI_Mon_Index_Info in p
+assert p[HCI_Mon_Index_Info].addr == '20:81:9a:10:00:00'
+assert p[HCI_Mon_Index_Info].manufacturer == 0x131
+
+= HCI_Mon - Bluetooth Monitor HCI_Mon_System_Note
+
+p = HCI_Mon_Pcap_Hdr(hex_bytes("ffff000c426c7565746f6f74682073756273797374656d2076657273696f6e20322e323200"))
+assert HCI_Mon_System_Note in p
+assert p[HCI_Mon_System_Note].note == b'Bluetooth subsystem version 2.22'
