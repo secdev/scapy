@@ -684,7 +684,7 @@ class ModbusPDUReservedFunctionCodeRequest(_ModbusPDUNoPayload):
     name = "Reserved Function Code Request"
     fields_desc = [
         ByteEnumField("funcCode", 0x00, _reserved_funccode_request),
-        StrFixedLenField('payload', '', 255), ]
+        StrFixedLenField('mb_payload', '', 255), ]
 
     def mysummary(self):
         return self.sprintf("Modbus Reserved Request %funcCode%")
@@ -694,7 +694,7 @@ class ModbusPDUReservedFunctionCodeResponse(_ModbusPDUNoPayload):
     name = "Reserved Function Code Response"
     fields_desc = [
         ByteEnumField("funcCode", 0x00, _reserved_funccode_response),
-        StrFixedLenField('payload', '', 255), ]
+        StrFixedLenField('mb_payload', '', 255), ]
 
     def mysummary(self):
         return self.sprintf("Modbus Reserved Response %funcCode%")
@@ -704,7 +704,7 @@ class ModbusPDUReservedFunctionCodeError(_ModbusPDUNoPayload):
     name = "Reserved Function Code Error"
     fields_desc = [
         ByteEnumField("funcCode", 0x00, _reserved_funccode_error),
-        StrFixedLenField('payload', '', 255), ]
+        StrFixedLenField('mb_payload', '', 255), ]
 
     def mysummary(self):
         return self.sprintf("Modbus Reserved Error %funcCode%")
@@ -740,7 +740,7 @@ class ModbusPDUUserDefinedFunctionCodeRequest(_ModbusPDUNoPayload):
         ModbusByteEnumField(
             "funcCode", 0x00, _userdefined_funccode_request,
             "Unknown user-defined request function Code"),
-        StrFixedLenField('payload', '', 255), ]
+        StrFixedLenField('mb_payload', '', 255), ]
 
     def mysummary(self):
         return self.sprintf("Modbus User-Defined Request %funcCode%")
@@ -752,7 +752,7 @@ class ModbusPDUUserDefinedFunctionCodeResponse(_ModbusPDUNoPayload):
         ModbusByteEnumField(
             "funcCode", 0x00, _userdefined_funccode_response,
             "Unknown user-defined response function Code"),
-        StrFixedLenField('payload', '', 255), ]
+        StrFixedLenField('mb_payload', '', 255), ]
 
     def mysummary(self):
         return self.sprintf("Modbus User-Defined Response %funcCode%")
@@ -764,7 +764,7 @@ class ModbusPDUUserDefinedFunctionCodeError(_ModbusPDUNoPayload):
         ModbusByteEnumField(
             "funcCode", 0x00, _userdefined_funccode_error,
             "Unknown user-defined error function Code"),
-        StrFixedLenField('payload', '', 255), ]
+        StrFixedLenField('mb_payload', '', 255), ]
 
     def mysummary(self):
         return self.sprintf("Modbus User-Defined Error %funcCode%")
