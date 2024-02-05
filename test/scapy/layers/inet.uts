@@ -595,6 +595,60 @@ with mock.patch("scapy.layers.l2.getmacbyip", side_effect=_err):
         except ValueError:
             pass
 
+= GRE binding tests
+
+* Test GRE-in-IP
+pkt = Ether(raw(Ether()/IP()/GRE()/IP()/UDP()))
+assert isinstance(pkt, Ether)
+pkt = pkt.payload
+assert isinstance(pkt, IP) and pkt.proto == 47
+pkt = pkt.payload
+assert isinstance(pkt, GRE) and pkt.proto == 0x0800
+pkt = pkt.payload
+assert isinstance(pkt, IP)
+pkt = pkt.payload
+assert isinstance(pkt, UDP)
+
+* Test GRE-in-IPv6
+pkt = Ether(raw(Ether()/IPv6()/GRE()/IPv6()/UDP()))
+assert isinstance(pkt, Ether)
+pkt = pkt.payload
+assert isinstance(pkt, IPv6) and pkt.nh == 47
+pkt = pkt.payload
+assert isinstance(pkt, GRE) and pkt.proto == 0x86dd
+pkt = pkt.payload
+assert isinstance(pkt, IPv6)
+pkt = pkt.payload
+assert isinstance(pkt, UDP)
+
+* Test GRE-in-UDP
+pkt = Ether(raw(Ether()/IP()/UDP()/GRE()/IP()/UDP()))
+assert isinstance(pkt, Ether)
+pkt = pkt.payload
+assert isinstance(pkt, IP)
+pkt = pkt.payload
+assert isinstance(pkt, UDP) and pkt.dport == 4754
+pkt = pkt.payload
+assert isinstance(pkt, GRE) and pkt.proto == 0x0800
+pkt = pkt.payload
+assert isinstance(pkt, IP)
+pkt = pkt.payload
+assert isinstance(pkt, UDP)
+
+* Test GRE-in-UDP (IPv6)
+pkt = Ether(raw(Ether()/IPv6()/UDP()/GRE()/IPv6()/UDP()))
+assert isinstance(pkt, Ether)
+pkt = pkt.payload
+assert isinstance(pkt, IPv6)
+pkt = pkt.payload
+assert isinstance(pkt, UDP) and pkt.dport == 4754
+pkt = pkt.payload
+assert isinstance(pkt, GRE) and pkt.proto == 0x86dd
+pkt = pkt.payload
+assert isinstance(pkt, IPv6)
+pkt = pkt.payload
+assert isinstance(pkt, UDP)
+
 ############
 ############
 + inet.py
