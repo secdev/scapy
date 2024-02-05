@@ -1002,6 +1002,12 @@ class EIR_Hdr(Packet):
     def mysummary(self):
         return self.sprintf("EIR %type%")
 
+    def guess_payload_class(self, payload):
+        if self.len == 0:
+            # For Extended_Inquiry_Response, stop when len=0
+            return conf.padding_layer
+        return super(EIR_Hdr, self).guess_payload_class(payload)
+
 
 class EIR_Element(Packet):
     name = "EIR Element"
@@ -1183,6 +1189,24 @@ class HCI_Command_Hdr(Packet):
         if self.len is None:
             p = p[:2] + struct.pack("B", len(pay)) + p[3:]
         return p
+
+
+# BUETOOTH CORE SPECIFICATION 5.4 | Vol 3, Part C
+# 8  EXTENDED INQUIRY RESPONSE
+
+class HCI_Extended_Inquiry_Response(Packet):
+    fields_desc = [
+        PadField(
+            PacketListField(
+                "eir_data", [],
+                next_cls_cb=lambda *args: (
+                    (not args[2] or args[2].len != 0) and EIR_Hdr or conf.raw_layer
+                )
+            ),
+            align=31, padwith=b"\0",
+        ),
+    ]
+
 
 # BLUETOOTH CORE SPECIFICATION Version 5.4 | Vol 4, Part E
 # 7 HCI COMMANDS AND EVENTS
@@ -1584,8 +1608,7 @@ class HCI_Cmd_Write_Connect_Accept_Timeout(Packet):
 class HCI_Cmd_Write_Extended_Inquiry_Response(Packet):
     name = "HCI_Write_Extended_Inquiry_Response"
     fields_desc = [ByteField("fec_required", 0),
-                   PacketListField("eir_data", [], EIR_Hdr,
-                                   length_from=lambda pkt: pkt.len)]
+                   HCI_Extended_Inquiry_Response]
 
 
 class HCI_Cmd_Read_LE_Host_Support(Packet):
@@ -1977,6 +2000,23 @@ class HCI_Event_Read_Remote_Extended_Features_Complete(Packet):
     ]
 
 
+class HCI_Event_Extended_Inquiry_Result(Packet):
+    """
+    7.7.38 Extended Inquiry Result event
+    """
+    name = "HCI_Extended_Inquiry_Result"
+    fields_desc = [
+        ByteField('num_response', 0x01),
+        LEMACField('bd_addr', None),
+        ByteField('page_scan_repetition_mode', 0x00),
+        ByteField('reserved', 0x00),
+        XLE3BytesField('device_class', 0x000000),
+        LEShortField('clock_offset', 0x0000),
+        SignedByteField('rssi', 0x00),
+        HCI_Extended_Inquiry_Response,
+    ]
+
+
 class HCI_Event_IO_Capability_Response(Packet):
     """
     7.7.41 IO Capability Response event
@@ -2193,6 +2233,7 @@ bind_layers(HCI_Event_Hdr, HCI_Event_Number_Of_Completed_Packets, code=0x13)
 bind_layers(HCI_Event_Hdr, HCI_Event_Link_Key_Request, code=0x17)
 bind_layers(HCI_Event_Hdr, HCI_Event_Inquiry_Result_With_Rssi, code=0x22)
 bind_layers(HCI_Event_Hdr, HCI_Event_Read_Remote_Extended_Features_Complete, code=0x23)
+bind_layers(HCI_Event_Hdr, HCI_Event_Extended_Inquiry_Result, code=0x2f)
 bind_layers(HCI_Event_Hdr, HCI_Event_IO_Capability_Response, code=0x32)
 bind_layers(HCI_Event_Hdr, HCI_Event_LE_Meta, code=0x3e)
 

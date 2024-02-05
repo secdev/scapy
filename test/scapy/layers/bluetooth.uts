@@ -369,6 +369,20 @@ assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].page == 1
 assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].max_page == 2
 assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].extended_features == 0x0000000000000003
 
+= Extended Inquiry Result
+evt_raw_data = hex_bytes("042fff01093491e5b75401001404247c37c2091001000a00ffffffff020a040b020d110b110a110e110f110c095354414e4d4f524520494900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Extended_Inquiry_Result in evt_pkt
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].num_response == 1
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].bd_addr == '54:b7:e5:91:34:09'
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].page_scan_repetition_mode == 1
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].device_class == 0x240414
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].clock_offset == 0x377c
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].rssi == -62
+assert EIR_Hdr in evt_pkt[HCI_Event_Extended_Inquiry_Result].eir_data[0]
+assert Raw in evt_pkt[HCI_Event_Extended_Inquiry_Result].eir_data[-1]
+assert len(evt_pkt[HCI_Event_Extended_Inquiry_Result].eir_data[-1].load) == 200
+
 = IO Capability Response
 evt_raw_data = hex_bytes("043209093491e5b754030002")
 evt_pkt = HCI_Hdr(evt_raw_data)
