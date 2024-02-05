@@ -351,7 +351,8 @@ class RTPSSubMessage_ACKNACK(EPacket):
             "readerSNState",
             0, length_from=lambda pkt: pkt.octetsToNextHeader - 8 - 4
         ),
-        XNBytesField("count", 0, 4),
+        EField(IntField("count", 0),
+               endianness_from=e_flags),
     ]
 
 
