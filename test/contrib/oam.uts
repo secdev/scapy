@@ -142,10 +142,10 @@ assert pkt.length == 15
 assert len(raw(pkt)) == 48
 
 + OAM
+~ tshark
 
-= CCM
+= Define check_tshark function
 
-# FIXME: find a way to define this globally and remove duplicates
 def check_tshark(pkt, string):
     import tempfile, os
     fd, pcapfilename = tempfile.mkstemp()
@@ -154,6 +154,8 @@ def check_tshark(pkt, string):
     assert string in rv.decode("utf8")
     os.close(fd)
     os.unlink(pcapfilename)
+
+= CCM
 
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Continuity Check Message (CCM)",
@@ -183,15 +185,6 @@ check_tshark(pkt, "(CCM)")
 
 = LBM
 
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
-
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Loopback Message (LBM)",
                     seq_num=33,
@@ -213,15 +206,6 @@ assert raw(pkt[OAM].tlvs[2].payload) == b'789'
 check_tshark(pkt, "(LBM)")
 
 = LTM
-
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
 
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Linktrace Message (LTM)",
@@ -246,15 +230,6 @@ assert pkt[OAM].tlvs[0].egress_id == 12
 check_tshark(pkt, "(LTM)")
 
 = LTR
-
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
 
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Linktrace Reply (LTR)",
@@ -306,15 +281,6 @@ check_tshark(pkt, "(LTR)")
 
 = AIS
 
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
-
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Alarm Indication Signal (AIS)",
                     period="1 frame per second")))
@@ -327,15 +293,6 @@ check_tshark(pkt, "(AIS)")
 
 = LCK
 
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
-
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Lock Signal (LCK)",
                     period="1 frame per second")))
@@ -347,15 +304,6 @@ assert pkt[OAM].period == 0b100
 check_tshark(pkt, "(LCK)")
 
 = TST
-
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
 
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Test Signal (TST)",
@@ -414,15 +362,6 @@ check_tshark(pkt, "(TST)")
 
 = APS
 
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
-
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Automatic Protection Switching (APS)",
                     aps=APS(req_st="Forced switch (FS)",
@@ -446,15 +385,6 @@ check_tshark(pkt, "(APS)")
 
 = RAPS
 
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
-
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Ring-Automatic Protection Switching (R-APS)",
                     raps=RAPS(req_st="Event",
@@ -475,15 +405,6 @@ check_tshark(pkt, "(R-APS)")
 
 = MCC
 
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
-
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Maintenance Communication Channel (MCC)",
                     oui=12,
@@ -496,15 +417,6 @@ assert pkt[OAM].subopcode == 2
 check_tshark(pkt, "(MCC)")
 
 = LMM
-
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
 
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Loss Measurement Message (LMM)",
@@ -526,15 +438,6 @@ check_tshark(pkt, "(LMM)")
 
 = LMR
 
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
-
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Loss Measurement Reply (LMR)",
                     txfcf=1,
@@ -549,15 +452,6 @@ assert pkt[OAM].txfcb == 3
 check_tshark(pkt, "(LMR)")
 
 = 1DM
-
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
 
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="One Way Delay Measurement (1DM)",
@@ -588,15 +482,6 @@ assert pkt[OAM].tlvs[2].test_id == 5
 check_tshark(pkt, "(1DM)")
 
 = DMM
-
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
 
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Delay Measurement Message (DMM)",
@@ -634,15 +519,6 @@ check_tshark(pkt, "(DMM)")
 
 = EXM
 
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
-
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Experimental OAM Message (EXM)",
                     oui=123,
@@ -655,15 +531,6 @@ assert pkt[OAM].subopcode == 33
 check_tshark(pkt, "(EXM)")
 
 = EXR
-
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
 
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Experimental OAM Reply (EXR)",
@@ -678,15 +545,6 @@ check_tshark(pkt, "(EXR)")
 
 = VSM
 
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
-
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Vendor Specific Message (VSM)",
                     oui=123,
@@ -699,15 +557,6 @@ assert pkt[OAM].subopcode == 33
 check_tshark(pkt, "(VSM)")
 
 = CSF
-
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
 
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Client Signal Fail (CSF)",
@@ -722,15 +571,6 @@ assert pkt[OAM].period == 0b110
 check_tshark(pkt, "(CSF)")
 
 = SLM
-
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
 
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Synthetic Loss Message (SLM)",
@@ -760,15 +600,6 @@ check_tshark(pkt, "(SLM)")
 
 = SLR
 
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
-
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Synthetic Loss Reply (SLR)",
                     test_id=11,
@@ -797,15 +628,6 @@ check_tshark(pkt, "(SLR)")
 
 = 1SL
 
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
-
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="One Way Synthetic Loss Measurement (1SL)",
                     test_id=11,
@@ -829,15 +651,6 @@ assert raw(pkt[OAM].tlvs[1].payload) == b'456789'
 check_tshark(pkt, "(1SL)")
 
 = GNM
-
-def check_tshark(pkt, string):
-    import tempfile, os
-    fd, pcapfilename = tempfile.mkstemp()
-    wrpcap(pcapfilename, pkt)
-    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
-    assert string in rv.decode("utf8")
-    os.close(fd)
-    os.unlink(pcapfilename)
 
 pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
                 OAM(opcode="Generic Notification Message (GNM)",
