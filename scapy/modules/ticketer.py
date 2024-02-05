@@ -368,7 +368,7 @@ class Ticketer:
         with open(self.fname, "wb") as fd:
             return fd.write(bytes(self.ccache))
 
-    def show(self):
+    def show(self, utc=False):
         """
         Show the content of a CCache
         """
@@ -382,7 +382,10 @@ class Ticketer:
             if x is None:
                 return "None"
             else:
-                x = datetime.fromtimestamp(x)
+                x = datetime.fromtimestamp(
+                    x,
+                    tz=timezone.utc if utc else None
+                )
             return x.strftime("%d/%m/%y %H:%M:%S")
 
         for i, cred in enumerate(self.ccache.credentials):

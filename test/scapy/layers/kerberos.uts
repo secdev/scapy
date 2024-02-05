@@ -914,7 +914,7 @@ with mock.patch('scapy.libs.rfc3961.os.urandom', side_effect=fake_random):
 = Ticketer++ - Call show()
 
 with ContextManagerCaptureOutput() as cmco:
-    t.show()
+    t.show(utc=True)
     outp = cmco.get_output().strip()
 
 print(outp)
