@@ -16,8 +16,11 @@ gtp.dport == 2123 and gtp.seq == 12345 and gtp.gtp_type == 1 and gtp.T == 0
 = GTPV2CreateSessionRequest, basic instantiation
 gtp = IP() / UDP(dport=2123) / \
     GTPHeader(gtp_type="create_session_req", teid=2807, seq=12345) / \
-    GTPV2CreateSessionRequest()
-gtp.dport == 2123 and gtp.teid == 2807 and gtp.seq == 12345
+    GTPV2CreateSessionRequest(IE_list=[IE_IMSI(IMSI=b'001030000000356'),IE_APN(APN=b'super')])
+
+assert gtp.dport == 2123 and gtp.teid == 2807 and gtp.seq == 12345
+ie = gtp.IE_list[1]
+assert ie.APN == b"super"
 
 = GTPV2EchoRequest, dissection
 h = "333333333333222222222222810080c808004588002937dd0000fd1115490a2a00010a2a0002084b084b00152d0e4001000900000100030001000daa000000003f1f382f"

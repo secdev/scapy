@@ -451,7 +451,7 @@ class IE_Base(Packet):
                 tmp_len = len(p)
                 if isinstance(self.payload, conf.padding_layer):
                     tmp_len += len(self.payload.load)
-                p = p[:1] + struct.pack("!H", tmp_len - 2) + p[3:]
+                p = p[:1] + struct.pack("!H", tmp_len - 4) + p[3:]
         return p + pay
 
 
