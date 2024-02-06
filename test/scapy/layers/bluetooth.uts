@@ -265,23 +265,138 @@ assert expected_cmd_raw_data == cmd_raw_data
 
 + HCI Events
 
-= Connect Complete
+= Inquiry Complete
+evt_raw_data = hex_bytes("04010100")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Inquiry_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Inquiry_Complete].status == 0
 
-evt_raw_data = hex_bytes("04030b00000176d56f9501000100")
+= Inquiry Result
+# TODO
+
+= Connection Complete
+evt_raw_data = hex_bytes("04030b000b00093491e5b7540100")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Connection_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Connection_Complete].status == 0
-assert evt_pkt[HCI_Event_Connection_Complete].handle == 256
-assert evt_pkt[HCI_Event_Connection_Complete].bd_addr == "00:01:95:6f:d5:76"
+assert evt_pkt[HCI_Event_Connection_Complete].handle == 0x000b
+assert evt_pkt[HCI_Event_Connection_Complete].bd_addr == "54:b7:e5:91:34:09"
+assert evt_pkt[HCI_Event_Connection_Complete].link_type == 1
+assert evt_pkt[HCI_Event_Connection_Complete].encryption_enabled == 0
+
+= Disconnection Complete
+evt_raw_data = hex_bytes("04050400400016")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Disconnection_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Disconnection_Complete].status == 0
+assert evt_pkt[HCI_Event_Disconnection_Complete].handle == 0x0040
+assert evt_pkt[HCI_Event_Disconnection_Complete].reason == 0x16
 
 = Remote Name Request Complete
-
 evt_raw_data = hex_bytes("0407ff0076d56f950100746573742d6c6170746f70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Remote_Name_Request_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Remote_Name_Request_Complete].status == 0
 assert evt_pkt[HCI_Event_Remote_Name_Request_Complete].bd_addr == "00:01:95:6f:d5:76"
 assert evt_pkt[HCI_Event_Remote_Name_Request_Complete].remote_name == b"test-laptop".ljust(248, b"\x00")
+
+= Encryption Change
+evt_raw_data = hex_bytes("040804000b0001")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Encryption_Change in evt_pkt
+assert evt_pkt[HCI_Event_Encryption_Change].status == 0
+assert evt_pkt[HCI_Event_Encryption_Change].handle == 0x000b
+assert evt_pkt[HCI_Event_Encryption_Change].enabled == 1
+
+= Read Remote Supported Features Complete
+evt_raw_data = hex_bytes("040b0b000b00fffe8ffedbff5b87")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Read_Remote_Supported_Features_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].status == 0
+assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].handle == 0x000b
+assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].lmp_features == 0x875bffdbfe8ffeff
+
+= Read Remote Version Information Complete
+evt_raw_data = hex_bytes("040c080002000bb0022c04")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Read_Remote_Version_Information_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].status == 0
+assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].handle == 0x0002
+assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].version == 0x0b
+assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].manufacturer_name == 0x02b0
+assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].subversion == 1068
+
+= Command Complete
+evt_raw_data = hex_bytes("040e0a010b04002587ceedd668")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Command_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Command_Complete].number == 1
+assert evt_pkt[HCI_Event_Command_Complete].opcode == 0x040b
+assert evt_pkt[HCI_Event_Command_Complete].status == 0
+
+= Command Status
+evt_raw_data = hex_bytes("040f0400011904")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Command_Status in evt_pkt
+assert evt_pkt[HCI_Event_Command_Status].status == 0
+assert evt_pkt[HCI_Event_Command_Status].number == 1
+assert evt_pkt[HCI_Event_Command_Status].opcode == 0x0419
+
+= Number Of Completed Packets
+evt_raw_data = hex_bytes("0413050103000300")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Number_Of_Completed_Packets in evt_pkt
+assert evt_pkt[HCI_Event_Number_Of_Completed_Packets].num_handles == 1
+assert evt_pkt[HCI_Event_Number_Of_Completed_Packets].connection_handle_list[0] == 0x0003
+assert evt_pkt[HCI_Event_Number_Of_Completed_Packets].num_completed_packets_list[0] == 3
+
+= Link Key Request
+evt_raw_data = hex_bytes("041706093491e5b754")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Link_Key_Request in evt_pkt
+assert evt_pkt[HCI_Event_Link_Key_Request].bd_addr == '54:b7:e5:91:34:09'
+
+= Inquiry Result with RSSI
+# TODO
+
+= Read Remote Extended Features Complete
+evt_raw_data = hex_bytes("04230d000b0001020300000000000000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Read_Remote_Extended_Features_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].status == 0
+assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].handle == 0x000b
+assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].page == 1
+assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].max_page == 2
+assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].extended_features == 0x0000000000000003
+
+= Extended Inquiry Result
+evt_raw_data = hex_bytes("042fff01093491e5b75401001404247c37c2091001000a00ffffffff020a040b020d110b110a110e110f110c095354414e4d4f524520494900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Extended_Inquiry_Result in evt_pkt
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].num_response == 1
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].bd_addr == '54:b7:e5:91:34:09'
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].page_scan_repetition_mode == 1
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].device_class == 0x240414
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].clock_offset == 0x377c
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].rssi == -62
+assert EIR_Hdr in evt_pkt[HCI_Event_Extended_Inquiry_Result].eir_data[0]
+assert Raw in evt_pkt[HCI_Event_Extended_Inquiry_Result].eir_data[-1]
+assert len(evt_pkt[HCI_Event_Extended_Inquiry_Result].eir_data[-1].load) == 200
+
+= IO Capability Response
+evt_raw_data = hex_bytes("043209093491e5b754030002")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_IO_Capability_Response in evt_pkt
+assert evt_pkt[HCI_Event_IO_Capability_Response].bd_addr == '54:b7:e5:91:34:09'
+assert evt_pkt[HCI_Event_IO_Capability_Response].io_capability == 0x03
+assert evt_pkt[HCI_Event_IO_Capability_Response].oob_data_present == 0
+assert evt_pkt[HCI_Event_IO_Capability_Response].authentication_requirements == 0x02
+
+= LE Meta
+evt_raw_data = hex_bytes("043e0414400000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_LE_Meta in evt_pkt
+assert evt_pkt[HCI_Event_LE_Meta].event == 0x14
 
 = LE Connection Update Event
 evt_raw_data = hex_bytes("043e0a03004800140001003c00")
