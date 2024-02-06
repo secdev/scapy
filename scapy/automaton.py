@@ -226,7 +226,11 @@ class ObjectPipe(Generic[_T]):
             os.close(self.__rd)
             os.close(self.__wr)
             if WINDOWS:
-                self._winclose()
+                try:
+                    self._winclose()
+                except ImportError:
+                    # Python is shutting down
+                    pass
 
     def __repr__(self):
         # type: () -> str
