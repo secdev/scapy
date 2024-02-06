@@ -11,6 +11,7 @@ coverage.xml
 .ipynb_checkpoints
 .mypy_cache
 .vscode
+.DS_Store
 [.]venv/
 __pycache__/
 doc/scapy/_build
