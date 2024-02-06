@@ -46,6 +46,14 @@ jobs:
         run: pip install tox
       - name: Build docs
         run: tox -e docs
+  spdx:
+    name: Check SPDX identifiers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Scapy
+        uses: actions/checkout@v4
+      - name: Launch script
+        run: bash scapy/tools/check_spdx.sh
   mypy:
     name: Type hints check
     runs-on: ubuntu-latest
