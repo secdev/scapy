@@ -696,6 +696,10 @@ class BERcodec_COUNTER32(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.COUNTER32
 
 
+class BERcodec_COUNTER64(BERcodec_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.COUNTER64
+
+
 class BERcodec_GAUGE32(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.GAUGE32
 

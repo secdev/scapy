@@ -275,6 +275,7 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     BMP_STRING = cast(ASN1Tag, 30)
     IPADDRESS = cast(ASN1Tag, 0 | 0x40)     # application-specific encoding
     COUNTER32 = cast(ASN1Tag, 1 | 0x40)     # application-specific encoding
+    COUNTER64 = cast(ASN1Tag, 6 | 0x40)     # application-specific encoding
     GAUGE32 = cast(ASN1Tag, 2 | 0x40)       # application-specific encoding
     TIME_TICKS = cast(ASN1Tag, 3 | 0x40)    # application-specific encoding
 
@@ -724,6 +725,10 @@ class ASN1_IPADDRESS(ASN1_STRING):
 
 class ASN1_COUNTER32(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.COUNTER32
+
+
+class ASN1_COUNTER64(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.COUNTER64
 
 
 class ASN1_GAUGE32(ASN1_INTEGER):
