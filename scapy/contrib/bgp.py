@@ -102,7 +102,7 @@ class BGPFieldIPv4(Field):
         return int(mask), ip
 
     def i2h(self, pkt, i):
-        """"Internal" representation to "human" representation
+        """Internal" representation to "human" representation
         (x.x.x.x/y)."""
         mask, ip = i
         return ip + "/" + str(mask)
@@ -115,7 +115,7 @@ class BGPFieldIPv4(Field):
         return self.mask2iplen(mask) + 1
 
     def i2m(self, pkt, i):
-        """"Internal" (IP as bytes, mask as int) to "machine"
+        """Internal" (IP as bytes, mask as int) to "machine"
         representation."""
         mask, ip = i
         ip = socket.inet_aton(str(ip))
@@ -131,7 +131,7 @@ class BGPFieldIPv4(Field):
         
         example:
             s = b'\x18\x03\x03\x03' 24/3.3.3
-        """"
+        """
         length = self.mask2iplen(orb(s[0])) + 1
         return s[length:], self.m2i(pkt, s[:length])
 
@@ -175,7 +175,7 @@ class BGPFieldIPv6(Field):
         return int(mask), ip
 
     def i2h(self, pkt, i):
-        """"Internal" representation to "human" representation."""
+        """Internal" representation to "human" representation."""
         mask, ip = i
         return ip + "/" + str(mask)
 
@@ -187,7 +187,7 @@ class BGPFieldIPv6(Field):
         return self.mask2iplen(mask) + 1
 
     def i2m(self, pkt, i):
-        """"Internal" (IP as bytes, mask as int) to "machine" representation."""  # noqa: E501
+        """Internal" (IP as bytes, mask as int) to "machine" representation."""  # noqa: E501
         mask, ip = i
         ip = pton_ntop.inet_pton(socket.AF_INET6, ip)
         return struct.pack(">B", mask) + ip[:self.mask2iplen(mask)]
