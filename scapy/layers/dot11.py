@@ -970,7 +970,7 @@ _dot11_info_elts_ids = {
     61: "HT Operation",
     74: "Overlapping BSS Scan Parameters",
     107: "Interworking",
-    127: "Extendend Capabilities",
+    127: "Extended Capabilities",
     191: "VHT Capabilities",
     192: "VHT Operation",
     221: "Vendor Specific"
@@ -1282,7 +1282,14 @@ class Dot11EltCountry(Dot11Elt):
         # When this extension is last, padding appears to be omitted
         ConditionalField(
             ByteField("pad", 0),
-            lambda pkt: (len(pkt.descriptors) + 1) % 2
+            # The length should be 3 bytes per each triplet, and 3 bytes for the
+            # country_string field. The standard dictates that the element length
+            # must be even, so if the result is odd, add a padding byte.
+            # Some transmitters don't comply with the standard, so instead of assuming
+            # the length, we test whether there is a padding byte.
+            # Some edge cases are still not covered, for example, if the tag length
+            # (pkt.len) is an arbitrary number.
+            lambda pkt: ((len(pkt.descriptors) + 1) % 2) if pkt.len is None else (pkt.len % 3)  # noqa: E501
         )
     ]
 
@@ -1566,7 +1573,13 @@ class Dot11Auth(_Dot11EltUtils):
                    LEShortEnumField("status", 0, status_code)]
 
     def answers(self, other):
-        if self.seqnum == other.seqnum + 1:
+        if self.algo != other.algo:
+            return 0
+
+        if (
+            self.seqnum == other.seqnum + 1 or
+            (self.algo == 3 and self.seqnum == other.seqnum)
+        ):
             return 1
         return 0
 

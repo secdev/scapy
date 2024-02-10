@@ -19,7 +19,9 @@ from scapy.fields import (
     ByteEnumField,
     ByteField,
     FieldLenField,
+    FieldListField,
     FlagsField,
+    IntField,
     IP6Field,
     IPField,
     OUIField,
@@ -63,8 +65,8 @@ _cdp_tlv_cls = {0x0001: "CDPMsgDeviceID",
                 #                 0x0015: "CDPMsgSystemOID",
                 0x0016: "CDPMsgMgmtAddr",
                 #                 0x0017: "CDPMsgLocation",
-                0x0019: "CDPMsgUnknown19",
-                #                 0x001a: "CDPPowerAvailable"
+                0x0019: "CDPMsgPowerRequest",
+                0x001a: "CDPMsgPowerAvailable"
                 }
 
 _cdp_tlv_types = {0x0001: "Device ID",
@@ -91,7 +93,7 @@ _cdp_tlv_types = {0x0001: "Device ID",
                   0x0016: "Management Address",
                   0x0017: "Location",
                   0x0018: "CDP Unknown command (send us a pcap file)",
-                  0x0019: "CDP Unknown command (send us a pcap file)",
+                  0x0019: "Power Request",
                   0x001a: "Power Available"}
 
 
@@ -351,9 +353,28 @@ class CDPMsgMgmtAddr(CDPMsgAddr):
     type = 0x0016
 
 
-class CDPMsgUnknown19(CDPMsgGeneric):
-    name = "Unknown CDP Message"
-    type = 0x0019
+class CDPMsgPowerRequest(CDPMsgGeneric):
+    name = "Power Request"
+    fields_desc = [XShortEnumField("type", 0x0019, _cdp_tlv_types),
+                   FieldLenField("len", None, "power_requested_list", fmt="!H",
+                                 adjust=lambda pkt, x: x + 8),
+                   ShortField("req_id", 0),
+                   ShortField("mgmt_id", 0),
+                   FieldListField("power_requested_list", [],
+                                  IntField("power_requested", 0),
+                                  count_from=lambda pkt: (pkt.len - 8) // 4)]
+
+
+class CDPMsgPowerAvailable(CDPMsgGeneric):
+    name = "Power Available"
+    fields_desc = [XShortEnumField("type", 0x001a, _cdp_tlv_types),
+                   FieldLenField("len", None, "power_available_list", fmt="!H",
+                                 adjust=lambda pkt, x: x + 8),
+                   ShortField("req_id", 0),
+                   ShortField("mgmt_id", 0),
+                   FieldListField("power_available_list", [],
+                                  IntField("power_available", 0),
+                                  count_from=lambda pkt: (pkt.len - 8) // 4)]
 
 
 class CDPMsg(CDPMsgGeneric):

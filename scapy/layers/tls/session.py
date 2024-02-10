@@ -43,7 +43,7 @@ def load_nss_keys(filename):
     except FileNotFoundError:
         warning("Cannot open NSS Key Log: %s", filename)
         return {}
-    else:
+    try:
         with open(filename) as fd:
             for line in fd:
                 if line.startswith("#"):
@@ -72,6 +72,9 @@ def load_nss_keys(filename):
 
                 keys[data[0]][client_random] = secret
         return keys
+    except UnicodeDecodeError as ex:
+        warning("Cannot read NSS Key Log: %s %s", filename, str(ex))
+        return {}
 
 
 # Note the following import may happen inside connState.__init__()

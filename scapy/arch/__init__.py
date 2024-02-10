@@ -21,7 +21,7 @@ from scapy.data import (
     IPV6_ADDR_GLOBAL
 )
 from scapy.error import log_loading, Scapy_Exception
-from scapy.interfaces import NetworkInterface, network_name
+from scapy.interfaces import _GlobInterfaceType, network_name
 from scapy.pton_ntop import inet_pton, inet_ntop
 
 from scapy.libs.extcap import load_extcap
@@ -32,7 +32,11 @@ from typing import (
     Optional,
     Tuple,
     Union,
+    TYPE_CHECKING,
 )
+
+if TYPE_CHECKING:
+    from scapy.interfaces import NetworkInterface
 
 # Note: the typing of this file is heavily ignored because MyPy doesn't allow
 # to import the same function from different files.
@@ -72,7 +76,7 @@ def str2mac(s):
 
 
 def get_if_addr(iff):
-    # type: (str) -> str
+    # type: (_GlobInterfaceType) -> str
     """
     Returns the IPv4 of an interface or "0.0.0.0" if not available
     """
@@ -80,7 +84,7 @@ def get_if_addr(iff):
 
 
 def get_if_hwaddr(iff):
-    # type: (Union[NetworkInterface, str]) -> str
+    # type: (_GlobInterfaceType) -> str
     """
     Returns the MAC (hardware) address of an interface
     """
@@ -93,7 +97,7 @@ def get_if_hwaddr(iff):
 
 
 def get_if_addr6(niff):
-    # type: (NetworkInterface) -> Optional[str]
+    # type: (_GlobInterfaceType) -> Optional[str]
     """
     Returns the main global unicast address associated with provided
     interface, in human readable form. If no global address is found,
@@ -105,7 +109,7 @@ def get_if_addr6(niff):
 
 
 def get_if_raw_addr6(iff):
-    # type: (NetworkInterface) -> Optional[bytes]
+    # type: (_GlobInterfaceType) -> Optional[bytes]
     """
     Returns the main global unicast address associated with provided
     interface, in network format. If no global address is found, None
@@ -158,10 +162,10 @@ else:
     SIOCGIFHWADDR = 0  # mypy compat
 
     # DUMMYS
-    def get_if_raw_addr(iff: Union[NetworkInterface, str]) -> bytes:
+    def get_if_raw_addr(iff: Union['NetworkInterface', str]) -> bytes:
         return b"\0\0\0\0"
 
-    def get_if_raw_hwaddr(iff: Union[NetworkInterface, str]) -> Tuple[int, bytes]:
+    def get_if_raw_hwaddr(iff: Union['NetworkInterface', str]) -> Tuple[int, bytes]:
         return -1, b""
 
     def in6_getifaddr() -> List[Tuple[str, int, str]]:

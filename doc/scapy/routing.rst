@@ -105,7 +105,7 @@ Get the route for a specific IP:  :py:func:`conf.route.route() <scapy.route.Rout
 IPv6 routes
 -----------
 
-Same than IPv4 but with :py:attr:`conf.route6 <scapy.route6.Route6>`
+Same as IPv4 but with :py:attr:`conf.route6 <scapy.route6.Route6>`
 
 Get default gateway IP address
 ------------------------------

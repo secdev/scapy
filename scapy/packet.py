@@ -101,7 +101,7 @@ class Packet(
         "comment"
     ]
     name = None
-    fields_desc = []  # type: Sequence[AnyField]
+    fields_desc = []  # type: List[AnyField]
     deprecated_fields = {}  # type: Dict[str, Tuple[str, str]]
     overload_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     payload_guess = []  # type: List[Tuple[Dict[str, Any], Type[Packet]]]
@@ -1267,7 +1267,7 @@ class Packet(
         if _subclass:
             match = issubtype
         else:
-            match = lambda cls1, cls2: bool(cls1 == cls2)
+            match = lambda x, t: bool(x == t)
         if cls is None or match(self.__class__, cls) \
            or cls in [self.__class__.__name__, self._name]:
             return True
@@ -1300,7 +1300,7 @@ values.
         if _subclass:
             match = issubtype
         else:
-            match = lambda cls1, cls2: bool(cls1 == cls2)
+            match = lambda x, t: bool(x == t)
         # Note:
         # cls can be int, packet, str
         # string_class_name can be packet, str (packet or packet+field)
@@ -1422,16 +1422,27 @@ values.
         """
 
         if dump:
-            from scapy.themes import AnsiColorTheme
-            ct = AnsiColorTheme()  # No color for dump output
+            from scapy.themes import ColorTheme, AnsiColorTheme
+            ct: ColorTheme = AnsiColorTheme()  # No color for dump output
         else:
             ct = conf.color_theme
-        s = "%s%s %s %s \n" % (label_lvl,
-                               ct.punct("###["),
-                               ct.layer_name(self.name),
-                               ct.punct("]###"))
-        for f in self.fields_desc:
+        s = "%s%s %s %s\n" % (label_lvl,
+                              ct.punct("###["),
+                              ct.layer_name(self.name),
+                              ct.punct("]###"))
+        fields = self.fields_desc.copy()
+        while fields:
+            f = fields.pop(0)
             if isinstance(f, ConditionalField) and not f._evalcond(self):
+                continue
+            if hasattr(f, "fields"):  # Field has subfields
+                s += "%s  %s =\n" % (
+                    label_lvl + lvl,
+                    ct.depreciate_field_name(f.name),
+                )
+                lvl += " " * indent * self.show_indent
+                for i, fld in enumerate(x for x in f.fields if hasattr(self, x.name)):
+                    fields.insert(i, fld)
                 continue
             if isinstance(f, Emph) or f in conf.emph:
                 ncol = ct.emph_field_name
@@ -1439,9 +1450,9 @@ values.
             else:
                 ncol = ct.field_name
                 vcol = ct.field_value
+            pad = max(0, 10 - len(f.name)) * " "
             fvalue = self.getfieldval(f.name)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and isinstance(fvalue, list)):  # noqa: E501
-                pad = max(0, 10 - len(f.name)) * " "
                 s += "%s  %s%s%s%s\n" % (label_lvl + lvl,
                                          ct.punct("\\"),
                                          ncol(f.name),
@@ -1454,7 +1465,6 @@ values.
                 for fvalue in fvalue_gen:
                     s += fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl + lvl + "   |", first_call=False)  # noqa: E501
             else:
-                pad = max(0, 10 - len(f.name)) * " "
                 begn = "%s  %s%s%s " % (label_lvl + lvl,
                                         ncol(f.name),
                                         pad,
@@ -1693,7 +1703,7 @@ values.
         f = []
         for fn, fv in self.fields.items():
             fld = self.get_field(fn)
-            if isinstance(fv, (list, dict, set)) and len(fv) == 0:
+            if isinstance(fv, (list, dict, set)) and not fv and not fld.default:
                 continue
             if isinstance(fv, Packet):
                 fv = fv.command()
@@ -2121,7 +2131,7 @@ def explore(layer=None):
         # Check for prompt_toolkit >= 3.0.0
         call_ptk = lambda x: cast(str, x)  # type: Callable[[Any], str]
         if _version_checker(prompt_toolkit, (3, 0)):
-            call_ptk = lambda x: x.run()  # type: ignore
+            call_ptk = lambda x: x.run()
         # 1 - Ask for layer or contrib
         btn_diag = button_dialog(
             title="Scapy v%s" % conf.version,
@@ -2567,6 +2577,7 @@ def fuzz(p,  # type: _P
                 for key, val in new_default_fields.items()
             }
             q.default_fields.update(new_default_fields)
+            new_default_fields.clear()
             # add the random values of the MultipleTypeFields
             for name in multiple_type_fields:
                 fld = cast(MultipleTypeField, q.get_field(name))

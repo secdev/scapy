@@ -40,8 +40,11 @@ class Route6:
 
     def __init__(self):
         # type: () -> None
-        self.resync()
+        self.routes = []  # type: List[Tuple[str, int, str, str, List[str], int]]  # noqa: E501
+        self.ipv6_ifaces = set()  # type: Set[Union[str, NetworkInterface]]
         self.invalidate_cache()
+        if conf.route6_autoload:
+            self.resync()
 
     def invalidate_cache(self):
         # type: () -> None
@@ -50,8 +53,8 @@ class Route6:
     def flush(self):
         # type: () -> None
         self.invalidate_cache()
-        self.ipv6_ifaces = set()  # type: Set[Union[str, NetworkInterface]]
-        self.routes = []  # type: List[Tuple[str, int, str, str, List[str], int]]  # noqa: E501
+        self.routes.clear()
+        self.ipv6_ifaces.clear()
 
     def resync(self):
         # type: () -> None

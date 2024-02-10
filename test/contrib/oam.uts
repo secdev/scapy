@@ -1,0 +1,670 @@
+# OAM unit tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('oam')" -t test/contrib/oam.uts
+
++ TLV
+
+= Generic TLV
+
+pkt = OAM_TLV(raw(OAM_TLV()/Raw(b'123')))
+assert pkt.type == 1
+assert pkt.length == 3
+
+= Data TLV
+
+pkt = OAM_DATA_TLV(raw(OAM_DATA_TLV()/Raw(b'123')))
+assert pkt.type == 3
+assert pkt.length == 3
+
+= Test TLV
+
+from binascii import crc32
+
+pkt = OAM_TEST_TLV(raw(OAM_TEST_TLV(pat_type="Null signal without CRC-32")/Raw(b'123')))
+assert pkt.type == 32
+assert pkt.length == 4
+assert raw(pkt.payload) == b'123'
+pkt = OAM_TEST_TLV(raw(OAM_TEST_TLV(pat_type="Null signal with CRC-32")/Raw(b'123')))
+assert pkt.type == 32
+assert pkt.length == 8
+assert pkt.crc == crc32(raw(pkt)[:-4]) % (1 << 32)
+assert pkt.crc == 0xad147086
+assert raw(pkt.payload) == b'123'
+pkt = OAM_TEST_TLV(raw(OAM_TEST_TLV(pat_type="PRBS 2^-31 - 1 without CRC-32")/Raw(b'123')))
+assert pkt.type == 32
+assert pkt.length == 4
+assert raw(pkt.payload) == b'123'
+pkt = OAM_TEST_TLV(raw(OAM_TEST_TLV(pat_type="PRBS 2^-31 - 1 with CRC-32")/Raw(b'123')))
+assert pkt.type == 32
+assert pkt.length == 8
+assert pkt.crc == crc32(raw(pkt)[:-4]) % (1 << 32)
+assert pkt.crc == 0x71db80d
+assert raw(pkt.payload) == b'123'
+
+= LTM TLV
+
+pkt = OAM_LTM_TLV(raw(OAM_LTM_TLV(egress_id=3)/Raw(b'123')))
+assert pkt.type == 7
+assert pkt.length == 8
+assert pkt.egress_id == 3
+
+= LTR TLV
+
+pkt = OAM_LTR_TLV(raw(OAM_LTR_TLV(last_egress_id=2, next_egress_id=4)/Raw(b'123')))
+assert pkt.type == 8
+assert pkt.length == 16
+assert pkt.last_egress_id == 2
+assert pkt.next_egress_id == 4
+
+= LTR IG TLV
+
+pkt = OAM_LTR_IG_TLV(raw(OAM_LTR_IG_TLV(ingress_act=2, ingress_mac="00:11:22:33:44:55")/Raw(b'123')))
+assert pkt.type == 5
+assert pkt.length == 7
+assert pkt.ingress_act == 2
+assert pkt.ingress_mac == "00:11:22:33:44:55"
+
+= LTR EG TLV
+
+pkt = OAM_LTR_EG_TLV(raw(OAM_LTR_EG_TLV(egress_act=2, egress_mac="00:11:22:33:44:55")/Raw(b'123')))
+assert pkt.type == 6
+assert pkt.length == 7
+assert pkt.egress_act == 2
+assert pkt.egress_mac == "00:11:22:33:44:55"
+
+= TEST ID TLV
+
+pkt = OAM_TEST_ID_TLV(raw(OAM_TEST_ID_TLV(test_id=1)/Raw(b'123')))
+assert pkt.type == 36
+assert pkt.length == 32
+assert pkt.test_id == 1
+
+= PTP TIMESTAMP
+
+pkt = PTP_TIMESTAMP(raw(PTP_TIMESTAMP(seconds=5, nanoseconds=10)/Raw(b'123')))
+assert pkt.seconds == 5
+assert pkt.nanoseconds == 10
+
+= APS
+
+pkt = APS(raw(APS(req_st="Wait-to-restore (WTR)",
+                  prot_type="D+A",
+                  req_sig="Normal traffic",
+                  br_sig="Normal traffic",
+                  br_type="T")/Raw(b'123')))
+assert pkt.req_st == 0b0101
+assert pkt.prot_type == 0b1010
+assert pkt.req_sig == 1
+assert pkt.br_sig == 1
+assert pkt.br_type == 0b10000000
+
+= RAPS
+
+pkt = RAPS(raw(RAPS(req_st="Signal fail(SF)",
+                    status="RB+BPR",
+                    node_id="00:11:22:33:44:55")/Raw(b'123')))
+assert pkt.req_st == 0b1011
+assert pkt.sub_code == 0b0000
+assert pkt.status == 0b10100000
+assert pkt.node_id == "00:11:22:33:44:55"
+
++ MEG ID
+
+= MEG ID
+
+pkt = MegId(raw(MegId(format=1,
+                      values=int(0xdeadbeef))))
+assert pkt.format == 1
+# FIXME: make compatible with python2
+# assert pkt.values.to_bytes(45, "little")[-4:] == b"\xde\xad\xbe\xef"
+assert pkt.length == 45
+assert len(raw(pkt)) == 48
+
+= MEG ICC ID
+
+pkt = MegId(raw(MegId(format=32,
+                      values=list(range(13)))))
+
+assert pkt.format == 32
+assert pkt.values == list(range(13))
+assert pkt.length == 13
+assert len(raw(pkt)) == 48
+
+= MEG ICC and CC ID
+
+pkt = MegId(raw(MegId(format=33,
+                      values=list(range(15)))))
+
+assert pkt.format == 33
+assert pkt.values == list(range(15))
+assert pkt.length == 15
+assert len(raw(pkt)) == 48
+
++ OAM
+~ tshark
+
+= Define check_tshark function
+
+def check_tshark(pkt, string):
+    import tempfile, os
+    fd, pcapfilename = tempfile.mkstemp()
+    wrpcap(pcapfilename, pkt)
+    rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'cfm'], dump=True, wait=True)
+    assert string in rv.decode("utf8")
+    os.close(fd)
+    os.unlink(pcapfilename)
+
+= CCM
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Continuity Check Message (CCM)",
+                    flags="RDI",
+                    period="Trans Int 10s",
+                    mep_id=0xffff,
+                    meg_id=MegId(format=32,
+                                 values=list(range(13))),
+                    txfcf=1,
+                    rxfcb=2,
+                    txfcb=3)))
+
+assert pkt[OAM].opcode == 1
+assert pkt[OAM].period == 5
+assert pkt[OAM].tlv_offset == 70
+assert pkt[OAM].flags.RDI == True
+assert pkt[OAM].flags == 1<<4
+assert pkt[OAM].mep_id == 0xffff
+assert pkt[OAM].meg_id.format == 32
+assert pkt[OAM].meg_id.length == 13
+assert pkt[OAM].meg_id.values == list(range(13))
+assert pkt[OAM].txfcf == 1
+assert pkt[OAM].rxfcb == 2
+assert pkt[OAM].txfcb == 3
+
+check_tshark(pkt, "(CCM)")
+
+= LBM
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Loopback Message (LBM)",
+                    seq_num=33,
+                    tlvs=[OAM_DATA_TLV()/Raw(b'123'),
+                          OAM_DATA_TLV()/Raw(b'456'),
+                          OAM_DATA_TLV()/Raw(b'789')])))
+
+assert pkt[OAM].opcode == 3
+assert pkt[OAM].tlv_offset == 4
+assert pkt[OAM].seq_num == 33
+for i in range(3):
+    assert pkt[OAM].tlvs[i].type == 3
+    assert pkt[OAM].tlvs[i].length == 3
+
+assert raw(pkt[OAM].tlvs[0].payload) == b'123'
+assert raw(pkt[OAM].tlvs[1].payload) == b'456'
+assert raw(pkt[OAM].tlvs[2].payload) == b'789'
+
+check_tshark(pkt, "(LBM)")
+
+= LTM
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Linktrace Message (LTM)",
+                    trans_id=12,
+		    ttl=21,
+                    flags="HWonly",
+		    orig_mac="12:34:56:78:90:11",
+		    targ_mac="12:34:56:78:90:22",
+                    tlvs=[OAM_LTM_TLV(egress_id=12)])))
+
+assert pkt[OAM].opcode == 5
+assert pkt[OAM].tlv_offset == 17
+assert pkt[OAM].ttl == 21
+assert pkt[OAM].flags.HWonly == True
+assert pkt[OAM].flags == 1<<7
+assert pkt[OAM].orig_mac == "12:34:56:78:90:11"
+assert pkt[OAM].targ_mac == "12:34:56:78:90:22"
+assert pkt[OAM].tlvs[0].type == 7
+assert pkt[OAM].tlvs[0].length == 8
+assert pkt[OAM].tlvs[0].egress_id == 12
+
+check_tshark(pkt, "(LTM)")
+
+= LTR
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Linktrace Reply (LTR)",
+                    trans_id=21,
+		    ttl=12,
+                    flags="HWonly+TerminalMEP",
+		    relay_act=8,
+                    tlvs=[OAM_LTR_TLV(last_egress_id=1, next_egress_id=2),
+                          OAM_LTR_TLV(last_egress_id=3, next_egress_id=4),
+                          OAM_LTR_IG_TLV(ingress_act=1, ingress_mac="12:34:56:78:90:11"),
+                          OAM_LTR_IG_TLV(ingress_act=6, ingress_mac="12:34:56:78:90:22"),
+                          OAM_LTR_EG_TLV(egress_act=2, egress_mac="12:34:56:78:90:33"),
+                          OAM_LTR_EG_TLV(egress_act=3, egress_mac="12:34:56:78:90:44")])))
+
+assert pkt[OAM].opcode == 4
+assert pkt[OAM].tlv_offset == 6
+assert pkt[OAM].ttl == 12
+assert pkt[OAM].flags.HWonly == True
+assert pkt[OAM].flags.FwdYes == False
+assert pkt[OAM].flags.TerminalMEP == True
+assert pkt[OAM].flags == (1<<7) | (1<<5)
+assert pkt[OAM].relay_act == 8
+assert pkt[OAM].tlvs[0].type == 8
+assert pkt[OAM].tlvs[0].length == 16
+assert pkt[OAM].tlvs[0].last_egress_id == 1
+assert pkt[OAM].tlvs[0].next_egress_id == 2
+assert pkt[OAM].tlvs[1].type == 8
+assert pkt[OAM].tlvs[1].length == 16
+assert pkt[OAM].tlvs[1].last_egress_id == 3
+assert pkt[OAM].tlvs[1].next_egress_id == 4
+assert pkt[OAM].tlvs[2].type == 5
+assert pkt[OAM].tlvs[2].length == 7
+assert pkt[OAM].tlvs[2].ingress_act == 1
+assert pkt[OAM].tlvs[2].ingress_mac == "12:34:56:78:90:11"
+assert pkt[OAM].tlvs[3].type == 5
+assert pkt[OAM].tlvs[3].length == 7
+assert pkt[OAM].tlvs[3].ingress_act == 6
+assert pkt[OAM].tlvs[3].ingress_mac == "12:34:56:78:90:22"
+assert pkt[OAM].tlvs[4].type == 6
+assert pkt[OAM].tlvs[4].length == 7
+assert pkt[OAM].tlvs[4].egress_act == 2
+assert pkt[OAM].tlvs[4].egress_mac == "12:34:56:78:90:33"
+assert pkt[OAM].tlvs[5].type == 6
+assert pkt[OAM].tlvs[5].length == 7
+assert pkt[OAM].tlvs[5].egress_act == 3
+assert pkt[OAM].tlvs[5].egress_mac == "12:34:56:78:90:44"
+
+check_tshark(pkt, "(LTR)")
+
+= AIS
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Alarm Indication Signal (AIS)",
+                    period="1 frame per second")))
+
+assert pkt[OAM].opcode == 33
+assert pkt[OAM].tlv_offset == 0
+assert pkt[OAM].period == 0b100
+
+check_tshark(pkt, "(AIS)")
+
+= LCK
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Lock Signal (LCK)",
+                    period="1 frame per second")))
+
+assert pkt[OAM].opcode == 35
+assert pkt[OAM].tlv_offset == 0
+assert pkt[OAM].period == 0b100
+
+check_tshark(pkt, "(LCK)")
+
+= TST
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Test Signal (TST)",
+                    seq_num=15,
+                    tlvs=[OAM_TEST_TLV(pat_type="Null signal without CRC-32")/Raw(b'123'),
+                          OAM_TEST_TLV(pat_type="Null signal without CRC-32")/Raw(b'23456'),
+                          OAM_TEST_TLV(pat_type="Null signal with CRC-32")/Raw(b'123'),
+                          OAM_TEST_TLV(pat_type="Null signal with CRC-32")/Raw(b'23456'),
+                          OAM_TEST_TLV(pat_type="PRBS 2^-31 - 1 without CRC-32")/Raw(b'123'),
+                          OAM_TEST_TLV(pat_type="PRBS 2^-31 - 1 without CRC-32")/Raw(b'23456'),
+                          OAM_TEST_TLV(pat_type="PRBS 2^-31 - 1 with CRC-32")/Raw(b'123'),
+                          OAM_TEST_TLV(pat_type="PRBS 2^-31 - 1 with CRC-32")/Raw(b'23456')])))
+
+assert pkt[OAM].opcode == 37
+assert pkt[OAM].tlv_offset == 4
+assert pkt[OAM].seq_num == 15
+
+assert pkt[OAM].tlvs[0].type == 32
+assert pkt[OAM].tlvs[0].length == 4
+assert pkt[OAM].tlvs[0].pat_type == 0
+assert raw(pkt[OAM].tlvs[0].payload) == b'123'
+assert pkt[OAM].tlvs[1].type == 32
+assert pkt[OAM].tlvs[1].length == 6
+assert pkt[OAM].tlvs[1].pat_type == 0
+assert raw(pkt[OAM].tlvs[1].payload) == b'23456'
+assert pkt[OAM].tlvs[2].type == 32
+assert pkt[OAM].tlvs[2].length == 8
+assert pkt[OAM].tlvs[2].pat_type == 1
+assert raw(pkt[OAM].tlvs[2].payload) == b'123'
+assert pkt[OAM].tlvs[2].crc == crc32(raw(pkt[OAM].tlvs[2])[:-4]) % (1 << 32)
+assert pkt[OAM].tlvs[3].type == 32
+assert pkt[OAM].tlvs[3].length == 10
+assert pkt[OAM].tlvs[3].pat_type == 1
+assert raw(pkt[OAM].tlvs[3].payload) == b'23456'
+assert pkt[OAM].tlvs[3].crc == crc32(raw(pkt[OAM].tlvs[3])[:-4]) % (1 << 32)
+assert pkt[OAM].tlvs[4].type == 32
+assert pkt[OAM].tlvs[4].length == 4
+assert pkt[OAM].tlvs[4].pat_type == 2
+assert raw(pkt[OAM].tlvs[4].payload) == b'123'
+assert pkt[OAM].tlvs[5].type == 32
+assert pkt[OAM].tlvs[5].length == 6
+assert pkt[OAM].tlvs[5].pat_type == 2
+assert raw(pkt[OAM].tlvs[5].payload) == b'23456'
+assert pkt[OAM].tlvs[6].type == 32
+assert pkt[OAM].tlvs[6].length == 8
+assert pkt[OAM].tlvs[6].pat_type == 3
+assert raw(pkt[OAM].tlvs[6].payload) == b'123'
+assert pkt[OAM].tlvs[6].crc == crc32(raw(pkt[OAM].tlvs[6])[:-4]) % (1 << 32)
+assert pkt[OAM].tlvs[7].type == 32
+assert pkt[OAM].tlvs[7].length == 10
+assert pkt[OAM].tlvs[7].pat_type == 3
+assert raw(pkt[OAM].tlvs[7].payload) == b'23456'
+assert pkt[OAM].tlvs[7].crc == crc32(raw(pkt[OAM].tlvs[7])[:-4]) % (1 << 32)
+
+check_tshark(pkt, "(TST)")
+
+= APS
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Automatic Protection Switching (APS)",
+                    aps=APS(req_st="Forced switch (FS)",
+                            prot_type="A+B+R",
+                            req_sig="Normal traffic",
+                            br_sig="Null signal",
+                            br_type="T"))))
+
+assert pkt[OAM].opcode == 39
+assert pkt[APS].req_st == 0b1101
+assert pkt[APS].prot_type.A == True
+assert pkt[APS].prot_type.B == True
+assert pkt[APS].prot_type.R == True
+assert pkt[APS].prot_type == 0b1101
+assert pkt[APS].req_sig == 1
+assert pkt[APS].br_sig == 0
+assert pkt[APS].br_type.T == True
+assert pkt[APS].br_type == (1 << 7)
+
+check_tshark(pkt, "(APS)")
+
+= RAPS
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Ring-Automatic Protection Switching (R-APS)",
+                    raps=RAPS(req_st="Event",
+                              sub_code="Flush",
+                              status="RB+BPR",
+                              node_id="12:12:12:23:23:23"))))
+
+assert pkt[OAM].opcode == 40
+assert pkt[RAPS].req_st == 0b1110
+assert pkt[RAPS].sub_code == 0b0000
+assert pkt[RAPS].status.RB == True
+assert pkt[RAPS].status.DNF == False
+assert pkt[RAPS].status.BPR == True
+assert pkt[RAPS].status == (1 << 7) | (1 << 5)
+assert pkt[RAPS].node_id == "12:12:12:23:23:23"
+
+check_tshark(pkt, "(R-APS)")
+
+= MCC
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Maintenance Communication Channel (MCC)",
+                    oui=12,
+                    subopcode=2)))
+
+assert pkt[OAM].opcode == 41
+assert pkt[OAM].oui == 12
+assert pkt[OAM].subopcode == 2
+
+check_tshark(pkt, "(MCC)")
+
+= LMM
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Loss Measurement Message (LMM)",
+                    flags="Proactive",
+                    txfcf=1,
+                    rxfcf=2,
+                    txfcb=3)))
+
+assert pkt[OAM].opcode == 43
+assert pkt[OAM].version == 1
+assert pkt[OAM].tlv_offset == 12
+assert pkt[OAM].flags == 1
+assert pkt[OAM].flags.Proactive == True
+assert pkt[OAM].txfcf == 1
+assert pkt[OAM].rxfcf == 2
+assert pkt[OAM].txfcb == 3
+
+check_tshark(pkt, "(LMM)")
+
+= LMR
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Loss Measurement Reply (LMR)",
+                    txfcf=1,
+                    rxfcf=2,
+                    txfcb=3)))
+
+assert pkt[OAM].opcode == 42
+assert pkt[OAM].txfcf == 1
+assert pkt[OAM].rxfcf == 2
+assert pkt[OAM].txfcb == 3
+
+check_tshark(pkt, "(LMR)")
+
+= 1DM
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="One Way Delay Measurement (1DM)",
+                    txtsf=PTP_TIMESTAMP(seconds=1, nanoseconds=2),
+                    rxtsf=PTP_TIMESTAMP(seconds=3, nanoseconds=4),
+                    tlvs=[OAM_DATA_TLV()/Raw(b'123'),
+                          OAM_DATA_TLV()/Raw(b'456789'),
+                          OAM_TEST_ID_TLV(test_id=5)])))
+
+assert pkt[OAM].opcode == 45
+assert pkt[OAM].version == 1
+assert pkt[OAM].tlv_offset == 16
+assert pkt[OAM].txtsf.seconds == 1
+assert pkt[OAM].txtsf.nanoseconds == 2
+assert pkt[OAM].rxtsf.seconds == 3
+assert pkt[OAM].rxtsf.nanoseconds == 4
+assert pkt[OAM].tlvs[0].type == 3
+assert pkt[OAM].tlvs[0].length == 3
+assert raw(pkt[OAM].tlvs[0].payload) == b'123'
+assert pkt[OAM].tlvs[1].type == 3
+assert pkt[OAM].tlvs[1].length == 6
+assert raw(pkt[OAM].tlvs[1].payload) == b'456789'
+assert pkt[OAM].tlvs[2].type == 36
+assert pkt[OAM].tlvs[2].length == 32
+assert pkt[OAM].tlvs[2].test_id == 5
+
+# FIXME: for some reason wireshark does not like OAM_TEST_ID_TLV here
+check_tshark(pkt, "(1DM)")
+
+= DMM
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Delay Measurement Message (DMM)",
+                    txtsf=PTP_TIMESTAMP(seconds=1, nanoseconds=2),
+                    txtsb=PTP_TIMESTAMP(seconds=2, nanoseconds=1),
+                    rxtsf=PTP_TIMESTAMP(seconds=3, nanoseconds=4),
+                    rxtsb=PTP_TIMESTAMP(seconds=6, nanoseconds=5),
+                    tlvs=[OAM_DATA_TLV()/Raw(b'123'),
+                          OAM_DATA_TLV()/Raw(b'456789'),
+                          OAM_TEST_ID_TLV(test_id=5)])))
+
+assert pkt[OAM].opcode == 47
+assert pkt[OAM].version == 1
+assert pkt[OAM].tlv_offset == 32
+assert pkt[OAM].txtsf.seconds == 1
+assert pkt[OAM].txtsf.nanoseconds == 2
+assert pkt[OAM].rxtsf.seconds == 3
+assert pkt[OAM].rxtsf.nanoseconds == 4
+assert pkt[OAM].txtsb.seconds == 2
+assert pkt[OAM].txtsb.nanoseconds == 1
+assert pkt[OAM].rxtsb.seconds == 6
+assert pkt[OAM].rxtsb.nanoseconds == 5
+assert pkt[OAM].tlvs[0].type == 3
+assert pkt[OAM].tlvs[0].length == 3
+assert raw(pkt[OAM].tlvs[0].payload) == b'123'
+assert pkt[OAM].tlvs[1].type == 3
+assert pkt[OAM].tlvs[1].length == 6
+assert raw(pkt[OAM].tlvs[1].payload) == b'456789'
+assert pkt[OAM].tlvs[2].type == 36
+assert pkt[OAM].tlvs[2].length == 32
+assert pkt[OAM].tlvs[2].test_id == 5
+
+# FIXME: for some reason wireshark does not like OAM_TEST_ID_TLV here
+check_tshark(pkt, "(DMM)")
+
+= EXM
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Experimental OAM Message (EXM)",
+                    oui=123,
+                    subopcode=33)))
+
+assert pkt[OAM].opcode == 49
+assert pkt[OAM].oui == 123
+assert pkt[OAM].subopcode == 33
+
+check_tshark(pkt, "(EXM)")
+
+= EXR
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Experimental OAM Reply (EXR)",
+                    oui=123,
+                    subopcode=33)))
+
+assert pkt[OAM].opcode == 48
+assert pkt[OAM].oui == 123
+assert pkt[OAM].subopcode == 33
+
+check_tshark(pkt, "(EXR)")
+
+= VSM
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Vendor Specific Message (VSM)",
+                    oui=123,
+                    subopcode=33)))
+
+assert pkt[OAM].opcode == 51
+assert pkt[OAM].oui == 123
+assert pkt[OAM].subopcode == 33
+
+check_tshark(pkt, "(VSM)")
+
+= CSF
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Client Signal Fail (CSF)",
+                    flags="RDI",
+                    period="1 frame per minute")))
+
+assert pkt[OAM].opcode == 52
+assert pkt[OAM].tlv_offset == 0
+assert pkt[OAM].flags == 0b010
+assert pkt[OAM].period == 0b110
+
+check_tshark(pkt, "(CSF)")
+
+= SLM
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Synthetic Loss Message (SLM)",
+                    test_id=11,
+                    src_mep_id=12,
+                    rcv_mep_id=34,
+                    txfcf=3,
+                    txfcb=9,
+                    tlvs=[OAM_DATA_TLV()/Raw(b'123'),
+                          OAM_DATA_TLV()/Raw(b'456789')])))
+
+assert pkt[OAM].opcode == 55
+assert pkt[OAM].tlv_offset == 16
+assert pkt[OAM].test_id == 11
+assert pkt[OAM].src_mep_id == 12
+assert pkt[OAM].rcv_mep_id == 34
+assert pkt[OAM].txfcf == 3
+assert pkt[OAM].txfcb == 9
+assert pkt[OAM].tlvs[0].type == 3
+assert pkt[OAM].tlvs[0].length == 3
+assert raw(pkt[OAM].tlvs[0].payload) == b'123'
+assert pkt[OAM].tlvs[1].type == 3
+assert pkt[OAM].tlvs[1].length == 6
+assert raw(pkt[OAM].tlvs[1].payload) == b'456789'
+
+check_tshark(pkt, "(SLM)")
+
+= SLR
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Synthetic Loss Reply (SLR)",
+                    test_id=11,
+                    src_mep_id=12,
+                    rcv_mep_id=34,
+                    txfcf=3,
+                    txfcb=9,
+                    tlvs=[OAM_DATA_TLV()/Raw(b'123'),
+                          OAM_DATA_TLV()/Raw(b'456789')])))
+
+assert pkt[OAM].opcode == 54
+assert pkt[OAM].tlv_offset == 16
+assert pkt[OAM].test_id == 11
+assert pkt[OAM].src_mep_id == 12
+assert pkt[OAM].rcv_mep_id == 34
+assert pkt[OAM].txfcf == 3
+assert pkt[OAM].txfcb == 9
+assert pkt[OAM].tlvs[0].type == 3
+assert pkt[OAM].tlvs[0].length == 3
+assert raw(pkt[OAM].tlvs[0].payload) == b'123'
+assert pkt[OAM].tlvs[1].type == 3
+assert pkt[OAM].tlvs[1].length == 6
+assert raw(pkt[OAM].tlvs[1].payload) == b'456789'
+
+check_tshark(pkt, "(SLR)")
+
+= 1SL
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="One Way Synthetic Loss Measurement (1SL)",
+                    test_id=11,
+                    src_mep_id=12,
+                    txfcf=3,
+                    tlvs=[OAM_DATA_TLV()/Raw(b'123'),
+                          OAM_DATA_TLV()/Raw(b'456789')])))
+
+assert pkt[OAM].opcode == 53
+assert pkt[OAM].tlv_offset == 16
+assert pkt[OAM].test_id == 11
+assert pkt[OAM].src_mep_id == 12
+assert pkt[OAM].txfcf == 3
+assert pkt[OAM].tlvs[0].type == 3
+assert pkt[OAM].tlvs[0].length == 3
+assert raw(pkt[OAM].tlvs[0].payload) == b'123'
+assert pkt[OAM].tlvs[1].type == 3
+assert pkt[OAM].tlvs[1].length == 6
+assert raw(pkt[OAM].tlvs[1].payload) == b'456789'
+
+check_tshark(pkt, "(1SL)")
+
+= GNM
+
+pkt = Ether(raw(Ether(dst="00:11:22:33:44:55")/Dot1Q()/
+                OAM(opcode="Generic Notification Message (GNM)",
+                    period="1 frame per minute",
+                    nom_bdw=1,
+                    curr_bdw=2,
+                    port_id=3)))
+
+assert pkt[OAM].opcode == 32
+assert pkt[OAM].tlv_offset == 13
+assert pkt[OAM].period == 0b110
+assert pkt[OAM].subopcode == 1
+assert pkt[OAM].nom_bdw == 1
+assert pkt[OAM].curr_bdw == 2
+assert pkt[OAM].port_id == 3
+
+check_tshark(pkt, "(GNM)")

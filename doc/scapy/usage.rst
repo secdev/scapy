@@ -391,7 +391,7 @@ The above will send a single SYN packet to Google's port 80 and will quit after 
 
 From the above output, we can see Google returned “SA” or SYN-ACK flags indicating an open port.
 
-Use either notations to scan ports 400 through 443 on the system:
+Use either notations to scan ports 440 through 443 on the system:
 
     >>> sr(IP(dst="192.168.1.1")/TCP(sport=666,dport=(440,443),flags="S"))
 
@@ -771,7 +771,8 @@ Available by default:
 - :py:class:`~scapy.sessions.TCPSession` -> *defragment certain TCP protocols*. Currently supports:
    - HTTP 1.0
    - TLS
-   - Kerberos / DCERPC
+   - Kerberos
+   - DCE/RPC
 - :py:class:`~scapy.sessions.TLSSession` -> *matches TLS sessions* on the flow.
 - :py:class:`~scapy.sessions.NetflowSession` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
 
@@ -784,6 +785,10 @@ Those sessions can be used using the ``session=`` parameter of ``sniff()``. Exam
 .. note::
    To implement your own Session class, in order to support another flow-based protocol, start by copying a sample from `scapy/sessions.py <https://github.com/secdev/scapy/blob/master/scapy/sessions.py>`_
    Your custom ``Session`` class only needs to extend the :py:class:`~scapy.sessions.DefaultSession` class, and implement a ``process`` or a ``recv`` function, such as in the examples.
+
+
+.. warning::
+    The inner workings of ``Session`` is currently UNSTABLE: custom Sessions may break in the future.
 
 
 How to use TCPSession to defragment TCP packets
@@ -1788,6 +1793,39 @@ There are quite a few ways of speeding up scapy's dissection. You can use all of
     conf.layers.filter([Ether, IP, ICMP])
     # Disable filtering: restore everything to normal
     conf.layers.unfilter()
+
+Very slow start because of big routes
+-------------------------------------
+
+Problem
+^^^^^^^
+
+Scapy takes ages to start because you have very big routing tables.
+
+Solution
+^^^^^^^^
+
+Disable the auto-loading of the routing tables:
+
+**CLI:** in ``~/.config/scapy/prestart.py`` add:
+
+.. code:: python
+
+    conf.route_autoload = False
+    conf.route6_autoload = False
+
+**Programmatically:**
+
+.. code:: python
+
+    # Before any other Scapy import
+    from scapy.config import conf
+    conf.route_autoload = False
+    conf.route6_autoload = False
+    # Import Scapy here
+    from scapy.all import *
+
+At anytime, you can trigger the routes loading using ``conf.route.resync()`` or ``conf.route6.resync()``, or add the routes yourself `as shown here <#routing>`_.
 
 
 OS Fingerprinting

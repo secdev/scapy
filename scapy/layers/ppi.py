@@ -1,19 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
-# Scapy is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 2 of the License, or
-# any later version.
-#
-# Scapy is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Scapy. If not, see <http://www.gnu.org/licenses/>.
-
+# See https://scapy.net/ for more information
 # Original PPI author: <jellch@harris.com>
+
 # scapy.contrib.description = CACE Per-Packet Information (PPI) header
 # scapy.contrib.status = loads
 

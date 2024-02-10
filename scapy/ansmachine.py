@@ -243,6 +243,10 @@ class AnsweringMachineTCP(AnsweringMachine[Packet]):
         # type: () -> None
         from scapy.supersocket import StreamSocket
         ssock = socket.socket(socket.AF_INET, self.TYPE)
+        try:
+            ssock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        except OSError:
+            pass
         ssock.bind(
             (get_if_addr(self.optsniff.get("iface", conf.iface)), self.port))
         ssock.listen()

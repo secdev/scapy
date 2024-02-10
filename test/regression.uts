@@ -123,7 +123,7 @@ with ContextManagerCaptureOutput() as cmco:
     pkt.show()
     result = cmco.get_output().strip()
 
-assert result == '\\#\\#\\#[ \\textcolor{red}{\\bf SmallPacket} ]\\#\\#\\# \n  \\textcolor{blue}{a}         = \\textcolor{purple}{0}'
+assert result == '\\#\\#\\#[ \\textcolor{red}{\\bf SmallPacket} ]\\#\\#\\#\n  \\textcolor{blue}{a}         = \\textcolor{purple}{0}'
 conf.color_theme = conf_color_theme
 
 
@@ -651,7 +651,8 @@ assert len(conf.temp_files) == 0
 import mock, sys
 from scapy.main import interact
 
-from scapy.main import DEFAULT_PRESTART_FILE
+from scapy.main import DEFAULT_PRESTART_FILE, DEFAULT_PRESTART, _read_config_file
+_read_config_file(DEFAULT_PRESTART_FILE, _locals=globals(), default=DEFAULT_PRESTART)
 # By now .config/scapy/startup.py should have been created
 with open(DEFAULT_PRESTART_FILE, "r") as fd:
     OLD_DEFAULT_PRESTART = fd.read()
@@ -691,7 +692,8 @@ interact_emulator(extra_args=["-d"])  # Extended
 import sys
 import mock
 
-from scapy.main import DEFAULT_PRESTART_FILE
+from scapy.main import DEFAULT_PRESTART_FILE, DEFAULT_PRESTART, _read_config_file
+_read_config_file(DEFAULT_PRESTART_FILE, _locals=globals(), default=DEFAULT_PRESTART)
 # By now .config/scapy/startup.py should have been created
 with open(DEFAULT_PRESTART_FILE, "w+") as fd:
     fd.write("conf.interactive_shell = 'ptpython'")
@@ -867,11 +869,11 @@ assert fletcher16_checkbytes(b"\x28\x07", 1) == b"\xaf("
 
 = Test hexdiff function
 ~ not_pypy
-def test_hexdiff(a, b, autojunk=False):
+def test_hexdiff(a, b, algo=None, autojunk=False):
     conf_color_theme = conf.color_theme
     conf.color_theme = BlackAndWhite()
     with ContextManagerCaptureOutput() as cmco:
-        hexdiff(a, b, autojunk=autojunk)
+        hexdiff(a, b, algo=algo, autojunk=autojunk)
         result_hexdiff = cmco.get_output()
     conf.interactive = True
     conf.color_theme = conf_color_theme
@@ -901,12 +903,12 @@ expected += "0010        7F 00 00 01                                        ....
 expected += "     0010   7F 00 00 02                                        ....\n"
 assert result_hexdiff == expected
 
-# Compare using autojunk
+# Compare using difflib
 
 a = "A" * 1000 + "findme" + "B" * 1000
 b = "A" * 1000 + "B" * 1000
-ret1 = test_hexdiff(a, b)
-ret2 = test_hexdiff(a, b, autojunk=True)
+ret1 = test_hexdiff(a, b, algo="difflib")
+ret2 = test_hexdiff(a, b, algo="difflib", autojunk=True)
 
 expected_ret1 = """
 03d0 03d0   41 41 41 41 41 41 41 41  41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA
@@ -1069,7 +1071,8 @@ scapy_delete_temp_files()
 = Test utility functions - network related
 ~ netaccess
 
-atol("www.secdev.org") == 3642339845
+assert atol("1.1.1.1") == 0x1010101
+assert atol("192.168.0.1") == 0xc0a80001
 
 = Test autorun functions
 ~ autorun
@@ -1093,6 +1096,7 @@ assert "NameError" in ret[0]
 
 cmds = """log_runtime.info(hex_bytes("446166742050756e6b"))\n"""
 ret = autorun_get_text_interactive_session(cmds)
+ret
 assert "Daft Punk" in ret[0]
 
 = Test utility TEX functions
@@ -1122,8 +1126,8 @@ conf.verb = saved_conf_verb
 
 = Test config file functions failures
 
-from scapy.main import _probe_config_file
-assert _probe_config_file("filethatdoesnotexistnorwillever.tsppajfsrdrr") is None
+from scapy.main import _read_config_file, _probe_config_file
+assert _read_config_file(_probe_config_file("filethatdoesnotexistnorwillever.tsppajfsrdrr")) is None
 
 = Test CacheInstance repr
 
@@ -1470,9 +1474,10 @@ assert p.len == 23 and len(p) == 29
 ~ PadField padding
 
 class TestPad(Packet):
-    fields_desc = [ PadField(StrNullField("st", b""),4), StrField("id", b"")]
+    fields_desc = [ PadField(StrNullField("st", b""), 6, padwith=b"\xff"), StrField("id", b"")]
 
-TestPad() == TestPad(raw(TestPad()))
+assert TestPad() == TestPad(raw(TestPad()))
+assert raw(TestPad(st=b"st", id=b"id")) == b'st\x00\xff\xff\xffid'
 
 = ReversePadField
 ~ PadField padding
@@ -1585,6 +1590,24 @@ beacon = frame.getlayer(5)
 ssid = beacon.network_stats()['ssid']
 assert ssid == "ROUTE-821E295"
 
+= SSID is parsed properly even when the Country Information Tag Element has an odd length (not complying with the standard) and a missing pad byte
+~ Missing Pad Byte in Country Info
+# A regression test for https://github.com/secdev/scapy/pull/2685.
+# https://github.com/secdev/scapy/issues/4132 describes a packet with
+# a Country Information element tag that has an odd length, even though it's against the standard.
+# The transmitter should have added a padding byte to make the length even, but it didn't.
+# The effect on scapy used to be improper parsing of the next tag elements, causing the SSID to be overridden.
+# This test checks the SSID is parsed properly.
+from io import BytesIO
+pcapfile = BytesIO(b'\n\r\r\n\x80\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x03\x00\x10\x00Linux 6.1.21-v8+\x04\x00E\x00Dumpcap (Wireshark) 3.4.10 (Git v3.4.10 packaged as 3.4.10-0+deb11u1)\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00\x00\x01\x00\x00\x00@\x00\x00\x00\x7f\x00\x00\x00\x00\x04\x00\x00\x02\x00\x05\x00wifi2\x00\x00\x00\t\x00\x01\x00\t\x00\x00\x00\x0c\x00\x10\x00Linux 6.1.21-v8+\x00\x00\x00\x00@\x00\x00\x00\x06\x00\x00\x00\xb0\x01\x00\x00\x00\x00\x00\x00c\xd3\x87\x17\xe3c5\x82\x90\x01\x00\x00\x90\x01\x00\x00\x00\x00 \x00\xae@\x00\xa0 \x08\x00\xa0 \x08\x00\x00\x10\x0cd\x14@\x01\xa9\x00\x0c\x00\x00\x00\xa6\x00\xa8\x01\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x02\xbf\xaf\x9f\xf8\x07\x02\xbf\xaf\x9f\xf8\x070\x96[p\xdcM\x06\x00\x00\x00d\x00\x11\x00\x00\x00\x01\x08\x8c\x12\x98$\xb0H`l\x03\x01,\x05\x04\x00\x01\x00\x00\x07QUS \x01\r\x80$\x01\x80(\x01\x80,\x01\x800\x01\x804\x01\x808\x01\x80<\x01\x80@\x01\x80d\x01\x80h\x01\x80l\x01\x80p\x01\x80t\x01\x80x\x01\x80|\x01\x80\x80\x01\x80\x84\x01\x80\x88\x01\x80\x8c\x01\x80\x90\x01\x80\x95\x01\x80\x99\x01\x80\x9d\x01\x80\xa1\x01\x80\xa5\x01\x800\x14\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x02\x0c\x00;\x02s\x00-\x1a,\t\x13\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00,\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00=\x16,\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xdd\x18\x00P\xf2\x02\x01\x01\x81\x00\x03\xa4\x00\x00\'\xa4\x00\x00BC]\x00a\x11.\x00\xdd;\x00P\xf2\x04\x10J\x00\x01\x10\x10D\x00\x01\x02\x10I\x00\x06\x007*\x00\x01 \x10\x11\x00\x1358" Hisense Roku TV\x10T\x00\x08\x00\x07\x00P\xf2\x04\x00\x01\xdd\x16\xc8:k\x01\x01\x1048<@dhlptx|\x80\x84\x88\x8c\x90\xdd\x12Po\x9a\t\x02\x02\x00!\x0b\x03\x06\x00\x02\xbf\xaf\x9f\xf8\x07\xdd\rPo\x9a\n\x00\x00\x06\x01\x11\x1cD\x002\xf5N\xfbh\xb0\x01\x00\x00')
+pktpcap = rdpcap(pcapfile)
+frame = pktpcap[0]
+beacon = frame.getlayer(4)
+stats = beacon.network_stats()
+ssid = stats['ssid']
+assert ssid == ""
+country = stats['country']
+assert country == 'US'
 
 ############
 ############
@@ -1646,7 +1669,7 @@ finally:
 # simulate sniffing on multiple interfaces.
 
 def _test():
-	iface = conf.route.route("www.google.com")[0]
+	iface = conf.route.route(str(Net("www.google.com")))[0]
 	port = int(RandShort())
 	pkt = IP(dst="www.google.com")/TCP(sport=port, dport=80, flags="S")
 	def cb():
@@ -2239,6 +2262,15 @@ except Scapy_Exception:
 else:
     assert False
 
+= Check online sniff() with a bad filter
+~ needs_root tcpdump libpcap
+try:
+    sniff(timeout=0, filter="bad filter")
+except Scapy_Exception:
+    pass
+else:
+    assert False
+
 = Check offline sniff with lfilter
 assert len(sniff(offline=[IP()/UDP(), IP()/TCP()], lfilter=lambda x: TCP in x)) == 1
 
@@ -2645,6 +2677,15 @@ with mock.patch("scapy.utils.warning") as warning:
     wrpcap(filename, [IP(), Ether(), IP(), IP()])
     os.remove(filename)
     assert any("Inconsistent" in arg for arg in warning.call_args[0])
+
+= Check wrpcap() with the Loopback layer
+~ tshark
+
+for cls in [Loopback, LoopbackOpenBSD]:
+    filename = tempfile.mktemp(suffix=".pcap")
+    wrpcap(filename, [cls()/IP()/ICMP()])
+    return_value = b"".join(line for line in tcpdump(filename, prog=conf.prog.tshark, getfd=True))
+    assert b"Echo (ping) request" in return_value
 
 ############
 ############
@@ -3562,8 +3603,7 @@ class DNSTCP(Packet):
     fields_desc = [ FieldLenField("len", None, fmt="!H", length_of="dns"),
                     PacketLenField("dns", 0, DNS, length_from=lambda p: p.len)]
 
-ssck = StreamSocket(sck)
-ssck.basecls = DNSTCP
+ssck = StreamSocket(sck, DNSTCP)
 
 r = ssck.sr1(DNSTCP(dns=DNS(rd=1, qd=DNSQR(qname="www.example.com"))), timeout=3)
 sck.close()

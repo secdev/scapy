@@ -1360,11 +1360,14 @@ class IE_ChargingID(gtp.IE_Base):
 
 class IE_ChargingCharacteristics(gtp.IE_Base):
     name = "IE Charging Characteristics"
+    deprecated_fields = {
+        "ChargingCharacteristric": ("ChargingCharacteristic", "2.6.0")
+    }
     fields_desc = [ByteEnumField("ietype", 95, IEType),
                    ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   XShortField("ChargingCharacteristric", 0)]
+                   XShortField("ChargingCharacteristic", 0)]
 
 
 class IE_PDN_type(gtp.IE_Base):

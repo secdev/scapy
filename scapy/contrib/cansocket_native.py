@@ -15,11 +15,11 @@ import socket
 import time
 
 from scapy.config import conf
+from scapy.data import SO_TIMESTAMPNS
 from scapy.supersocket import SuperSocket
-from scapy.error import Scapy_Exception, warning
+from scapy.error import Scapy_Exception, warning, log_runtime
 from scapy.packet import Packet
 from scapy.layers.can import CAN, CAN_MTU, CAN_FD_MTU
-from scapy.arch.linux import get_last_packet_timestamp
 from scapy.compat import raw
 
 from typing import (
@@ -84,6 +84,20 @@ class NativeCANSocket(SuperSocket):
                 "Could not modify receive own messages (%s)", exception
             )
 
+        try:
+            # Receive Auxiliary Data (Timestamps)
+            self.ins.setsockopt(
+                socket.SOL_SOCKET,
+                SO_TIMESTAMPNS,
+                1
+            )
+            self.auxdata_available = True
+        except OSError:
+            # Note: Auxiliary Data is only supported since
+            #       Linux 2.6.21
+            msg = "Your Linux Kernel does not support Auxiliary Data!"
+            log_runtime.info(msg)
+
         if self.fd:
             try:
                 self.ins.setsockopt(socket.SOL_CAN_RAW,
@@ -118,8 +132,9 @@ class NativeCANSocket(SuperSocket):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
         """Returns a tuple containing (cls, pkt_data, time)"""
         pkt = None
+        ts = None
         try:
-            pkt = self.ins.recv(self.MTU)
+            pkt, _, ts = self._recv_raw(self.ins, self.MTU)
         except BlockingIOError:  # noqa: F821
             warning("Captured no data, socket in non-blocking mode.")
         except socket.timeout:
@@ -130,14 +145,22 @@ class NativeCANSocket(SuperSocket):
 
         # need to change the byte order of the first four bytes,
         # required by the underlying Linux SocketCAN frame format
-        if not conf.contribs['CAN']['swap-bytes'] and pkt is not None:
+        if not conf.contribs['CAN']['swap-bytes'] and pkt:
             pack_fmt = "<I%ds" % (len(pkt) - 4)
             unpack_fmt = ">I%ds" % (len(pkt) - 4)
             pkt = struct.pack(pack_fmt, *struct.unpack(unpack_fmt, pkt))
-        return self.basecls, pkt, get_last_packet_timestamp(self.ins)
+
+        if pkt and ts is None:
+            from scapy.arch.linux import get_last_packet_timestamp
+            ts = get_last_packet_timestamp(self.ins)
+
+        return self.basecls, pkt, ts
 
     def send(self, x):
         # type: (Packet) -> int
+        if x is None:
+            return 0
+
         try:
             x.sent_time = time.time()
         except AttributeError:

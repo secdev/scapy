@@ -20,8 +20,7 @@ from scapy.config import conf
 from scapy import consts
 from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
     DLT_ETHERNET_MPACKET, DLT_LINUX_IRDA, DLT_LINUX_SLL, DLT_LINUX_SLL2, \
-    DLT_LOOP, DLT_NULL, ETHER_ANY, ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, \
-    ETH_P_MACSEC
+    DLT_LOOP, DLT_NULL, ETHER_ANY, ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, ETH_P_MACSEC
 from scapy.error import warning, ScapyNoDstMacException, log_runtime
 from scapy.fields import (
     BCDFloatField,
@@ -51,7 +50,7 @@ from scapy.fields import (
     XShortEnumField,
     XShortField,
 )
-from scapy.interfaces import _GlobInterfaceType
+from scapy.interfaces import _GlobInterfaceType, resolve_iface
 from scapy.packet import bind_layers, Packet
 from scapy.plist import (
     PacketList,
@@ -203,10 +202,7 @@ class SourceMACField(MACField):
             if iff is None:
                 iff = conf.iface
             if iff:
-                try:
-                    x = get_if_hwaddr(iff)
-                except Exception as e:
-                    warning("Could not get the source MAC: %s" % e)
+                x = resolve_iface(iff).mac
             if x is None:
                 x = "00:00:00:00:00:00"
         return super(SourceMACField, self).i2h(pkt, x)
@@ -692,15 +688,27 @@ LOOPBACK_TYPES = {0x2: "IPv4",
                   0x18: "IPv6", 0x1c: "IPv6", 0x1e: "IPv6"}
 
 
-class Loopback(Packet):
-    r"""\*BSD loopback layer"""
+# On OpenBSD, Loopback = LoopbackOpenBSD. On other platforms, the 2 are available.
+# This is to be compatible with both tcpdump and tshark
 
+class Loopback(Packet):
+    r"""
+    \*BSD loopback layer
+    """
+    __slots__ = ["_defrag_pos"]
     name = "Loopback"
     if consts.OPENBSD:
         fields_desc = [IntEnumField("type", 0x2, LOOPBACK_TYPES)]
     else:
         fields_desc = [LoIntEnumField("type", 0x2, LOOPBACK_TYPES)]
-    __slots__ = ["_defrag_pos"]
+
+
+if consts.OPENBSD:
+    LoopbackOpenBSD = Loopback
+else:
+    class LoopbackOpenBSD(Loopback):
+        name = "OpenBSD Loopback"
+        fields_desc = [IntEnumField("type", 0x2, LOOPBACK_TYPES)]
 
 
 class Dot1AD(Dot1Q):
@@ -778,8 +786,8 @@ conf.l2types.register(DLT_LINUX_SLL, CookedLinux)
 conf.l2types.register(DLT_LINUX_SLL2, CookedLinuxV2)
 conf.l2types.register(DLT_ETHERNET_MPACKET, MPacketPreamble)
 conf.l2types.register_num2layer(DLT_LINUX_IRDA, CookedLinux)
-conf.l2types.register(DLT_LOOP, Loopback)
-conf.l2types.register_num2layer(DLT_NULL, Loopback)
+conf.l2types.register(DLT_NULL, Loopback)
+conf.l2types.register(DLT_LOOP, LoopbackOpenBSD)
 
 conf.l3types.register(ETH_P_ARP, ARP)
 

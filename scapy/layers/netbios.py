@@ -34,6 +34,7 @@ from scapy.fields import (
     XShortField,
     XStrFixedLenField
 )
+from scapy.volatile import RandUUID
 from scapy.layers.inet import IP, UDP, TCP
 from scapy.layers.l2 import SourceMACField
 
@@ -325,6 +326,7 @@ class NBTDatagram(Packet):
 
 class NBTSession(Packet):
     name = "NBT Session Packet"
+    MAXLENGTH = 0x3ffff
     fields_desc = [ByteEnumField("TYPE", 0, {0x00: "Session Message",
                                              0x81: "Session Request",
                                              0x82: "Positive Session Response",
@@ -336,16 +338,29 @@ class NBTSession(Packet):
 
     def post_build(self, pkt, pay):
         if self.LENGTH is None:
-            length = len(pay) & (2**18 - 1)
+            length = len(pay) & self.MAXLENGTH
             pkt = pkt[:1] + struct.pack("!I", length)[1:]
         return pkt + pay
+
+    def extract_padding(self, s):
+        return s[:self.LENGTH], s[self.LENGTH:]
+
+    @classmethod
+    def tcp_reassemble(cls, data, *args, **kwargs):
+        if len(data) < 4:
+            return None
+        length = struct.unpack("!I", data[:4])[0] & cls.MAXLENGTH
+        if len(data) >= length + 4:
+            return cls(data)
 
 
 bind_bottom_up(UDP, NBNSHeader, dport=137)
 bind_bottom_up(UDP, NBNSHeader, sport=137)
 bind_top_down(UDP, NBNSHeader, sport=137, dport=137)
 
-bind_layers(UDP, NBTDatagram, dport=138)
+bind_bottom_up(UDP, NBTDatagram, dport=138)
+bind_bottom_up(UDP, NBTDatagram, sport=138)
+bind_top_down(UDP, NBTDatagram, sport=138, dport=138)
 
 bind_bottom_up(TCP, NBTSession, dport=445)
 bind_bottom_up(TCP, NBTSession, sport=445)
@@ -356,7 +371,7 @@ bind_layers(TCP, NBTSession, dport=139, sport=139)
 
 class NBNS_am(AnsweringMachine):
     function_name = "nbnsd"
-    filter = "udp port 137"
+    filter = "udp port 137 or 138"
     sniff_options = {"store": 0}
 
     def parse_options(self, server_name=None, from_ip=None, ip=None):
@@ -377,6 +392,16 @@ class NBNS_am(AnsweringMachine):
     def is_request(self, req):
         if self.from_ip and IP in req and req[IP].src not in self.from_ip:
             return False
+        if NBTDatagram in req:
+            # special case: mailslot ping
+            from scapy.layers.smb import SMBMailslot_Write, NETLOGON_SAM_LOGON_REQUEST
+            try:
+                return (
+                    SMBMailslot_Write in req and
+                    NETLOGON_SAM_LOGON_REQUEST in req.Data
+                )
+            except AttributeError:
+                return False
         return NBNSQueryRequest in req and (
             not self.ServerName or
             req[NBNSQueryRequest].QUESTION_NAME.strip() == self.ServerName
@@ -384,13 +409,41 @@ class NBNS_am(AnsweringMachine):
 
     def make_reply(self, req):
         # type: (Packet) -> Packet
+        if NBTDatagram in req:
+            # Special case
+            return self.make_mailslot_ping_reply(req)
         resp = IP(dst=req[IP].src) / UDP(sport=req.dport, dport=req.sport)
-        address = self.ip or get_if_addr(
-            self.optsniff.get("iface", conf.iface))
+        address = self.ip or get_if_addr(self.optsniff.get("iface", conf.iface))
         resp /= NBNSHeader() / NBNSQueryResponse(
             RR_NAME=self.ServerName or req.QUESTION_NAME,
             SUFFIX=req.SUFFIX,
             ADDR_ENTRY=[NBNS_ADD_ENTRY(NB_ADDRESS=address)]
         )
         resp.NAME_TRN_ID = req.NAME_TRN_ID
+        return resp
+
+    def make_mailslot_ping_reply(self, req):
+        # type: (Packet) -> Packet
+        from scapy.layers.smb import (
+            SMBMailslot_Write,
+            SMB_Header,
+            NETLOGON_SAM_LOGON_RESPONSE_EX,
+        )
+        resp = IP(dst=req[IP].src) / UDP(sport=req.dport, dport=req.sport)
+        address = self.ip or get_if_addr(self.optsniff.get("iface", conf.iface))
+        resp /= NBTDatagram(
+            SourceName=req.DestinationName,
+            SUFFIX1=req.SUFFIX2,
+            DestinationName=req.SourceName,
+            SUFFIX2=req.SUFFIX1,
+            SourceIP=address,
+        ) / SMB_Header() / SMBMailslot_Write(
+            Name=req.Data.MailslotName,
+        )
+        resp.Data = NETLOGON_SAM_LOGON_RESPONSE_EX(
+            OpCode=0x17,
+            Flags="LDAP+DC",
+            DomainGuid=RandUUID(),
+            sin_addr=address,
+        )
         return resp

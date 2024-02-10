@@ -9,15 +9,17 @@ General utility functions.
 
 
 from decimal import Decimal
+from io import StringIO
+from itertools import zip_longest
 
 import array
 import collections
 import decimal
 import difflib
 import gzip
-from io import StringIO
-from itertools import zip_longest
+import inspect
 import locale
+import math
 import os
 import pickle
 import random
@@ -30,6 +32,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 import warnings
 
 from scapy.config import conf
@@ -44,7 +47,12 @@ from scapy.compat import (
     hex_bytes,
     bytes_encode,
 )
-from scapy.error import log_runtime, Scapy_Exception, warning
+from scapy.error import (
+    log_interactive,
+    log_runtime,
+    Scapy_Exception,
+    warning,
+)
 from scapy.pton_ntop import inet_pton
 
 # Typing imports
@@ -64,12 +72,16 @@ from typing import (
     Union,
     overload,
 )
-from scapy.compat import Literal
+from scapy.compat import (
+    DecoratorCallable,
+    Literal,
+)
 
 if TYPE_CHECKING:
     from scapy.packet import Packet
     from scapy.plist import _PacketIterable, PacketList
     from scapy.supersocket import SuperSocket
+    import prompt_toolkit
 
 _ByteStream = Union[IO[bytes], gzip.GzipFile]
 
@@ -392,57 +404,120 @@ def repr_hex(s):
 
 
 @conf.commands.register
-def hexdiff(a, b, autojunk=False):
-    # type: (Union[Packet, AnyStr], Union[Packet, AnyStr], bool) -> None
+def hexdiff(
+    a: Union['Packet', AnyStr],
+    b: Union['Packet', AnyStr],
+    algo: Optional[str] = None,
+    autojunk: bool = False,
+) -> None:
     """
     Show differences between 2 binary strings, Packets...
 
-    For the autojunk parameter, see
-    https://docs.python.org/3.8/library/difflib.html#difflib.SequenceMatcher
+    Available algorithms:
+        - wagnerfischer: Use the Wagner and Fischer algorithm to compute the
+          Levenstein distance between the strings then backtrack.
+        - difflib: Use the difflib.SequenceMatcher implementation. This based on a
+          modified version of the Ratcliff and Obershelp algorithm.
+          This is much faster, but far less accurate.
+          https://docs.python.org/3.8/library/difflib.html#difflib.SequenceMatcher
 
     :param a:
     :param b: The binary strings, packets... to compare
-    :param autojunk: Setting it to True will likely increase the comparison
-        speed a lot on big byte strings, but will reduce accuracy (will tend
-        to miss insertion and see replacements instead for instance).
+    :param algo: Force the algo to be 'wagnerfischer' or 'difflib'.
+                 By default, this is chosen depending on the complexity, optimistically
+                 preferring wagnerfischer unless really necessary.
+    :param autojunk: (difflib only) See difflib documentation.
     """
-
-    # Compare the strings using difflib
-
     xb = bytes_encode(a)
     yb = bytes_encode(b)
 
-    sm = difflib.SequenceMatcher(a=xb, b=yb, autojunk=autojunk)
-    xarr = [xb[i:i + 1] for i in range(len(xb))]
-    yarr = [yb[i:i + 1] for i in range(len(yb))]
+    if algo is None:
+        # Choose the best algorithm
+        complexity = len(xb) * len(yb)
+        if complexity < 1e7:
+            # Comparing two (non-jumbos) Ethernet packets is ~2e6 which is manageable.
+            # Anything much larger than this shouldn't be attempted by default.
+            algo = "wagnerfischer"
+            if complexity > 1e6:
+                log_interactive.info(
+                    "Complexity is a bit high. hexdiff will take a few seconds."
+                )
+        else:
+            algo = "difflib"
 
     backtrackx = []
     backtracky = []
-    for opcode in sm.get_opcodes():
-        typ, x0, x1, y0, y1 = opcode
-        if typ == 'delete':
-            backtrackx += xarr[x0:x1]
-            backtracky += [b''] * (x1 - x0)
-        elif typ == 'insert':
-            backtrackx += [b''] * (y1 - y0)
-            backtracky += yarr[y0:y1]
-        elif typ in ['equal', 'replace']:
-            backtrackx += xarr[x0:x1]
-            backtracky += yarr[y0:y1]
 
-    if autojunk:
+    if algo == "wagnerfischer":
+        xb = xb[::-1]
+        yb = yb[::-1]
+
+        # costs for the 3 operations
+        INSERT = 1
+        DELETE = 1
+        SUBST = 1
+
+        # Typically, d[i,j] will hold the distance between
+        # the first i characters of xb and the first j characters of yb.
+        # We change the Wagner Fischer to also store pointers to all
+        # the intermediate steps taken while calculating the Levenstein distance.
+        d = {(-1, -1): (0, (-1, -1))}
+        for j in range(len(yb)):
+            d[-1, j] = (j + 1) * INSERT, (-1, j - 1)
+        for i in range(len(xb)):
+            d[i, -1] = (i + 1) * INSERT + 1, (i - 1, -1)
+
+        # Compute the Levenstein distance between the two strings, but
+        # store all the steps to be able to backtrack at the end.
+        for j in range(len(yb)):
+            for i in range(len(xb)):
+                d[i, j] = min(
+                    (d[i - 1, j - 1][0] + SUBST * (xb[i] != yb[j]), (i - 1, j - 1)),
+                    (d[i - 1, j][0] + DELETE, (i - 1, j)),
+                    (d[i, j - 1][0] + INSERT, (i, j - 1)),
+                )
+
+        # Iterate through the steps backwards to create the diff
+        i = len(xb) - 1
+        j = len(yb) - 1
+        while not (i == j == -1):
+            i2, j2 = d[i, j][1]
+            backtrackx.append(xb[i2 + 1:i + 1])
+            backtracky.append(yb[j2 + 1:j + 1])
+            i, j = i2, j2
+    elif algo == "difflib":
+        sm = difflib.SequenceMatcher(a=xb, b=yb, autojunk=autojunk)
+        xarr = [xb[i:i + 1] for i in range(len(xb))]
+        yarr = [yb[i:i + 1] for i in range(len(yb))]
+        # Iterate through opcodes to build the backtrack
+        for opcode in sm.get_opcodes():
+            typ, x0, x1, y0, y1 = opcode
+            if typ == 'delete':
+                backtrackx += xarr[x0:x1]
+                backtracky += [b''] * (x1 - x0)
+            elif typ == 'insert':
+                backtrackx += [b''] * (y1 - y0)
+                backtracky += yarr[y0:y1]
+            elif typ in ['equal', 'replace']:
+                backtrackx += xarr[x0:x1]
+                backtracky += yarr[y0:y1]
         # Some lines may have been considered as junk. Check the sizes
-        lbx = len(backtrackx)
-        lby = len(backtracky)
-        backtrackx += [b''] * (max(lbx, lby) - lbx)
-        backtracky += [b''] * (max(lbx, lby) - lby)
+        if autojunk:
+            lbx = len(backtrackx)
+            lby = len(backtracky)
+            backtrackx += [b''] * (max(lbx, lby) - lbx)
+            backtracky += [b''] * (max(lbx, lby) - lby)
+    else:
+        raise ValueError("Unknown algorithm '%s'" % algo)
 
     # Print the diff
 
     x = y = i = 0
-    colorize = {0: lambda x: x,
-                -1: conf.color_theme.left,
-                1: conf.color_theme.right}
+    colorize: Dict[int, Callable[[str], str]] = {
+        0: lambda x: x,
+        -1: conf.color_theme.left,
+        1: conf.color_theme.right
+    }
 
     dox = 1
     doy = 0
@@ -667,7 +742,7 @@ def atol(x):
     try:
         ip = inet_aton(x)
     except socket.error:
-        ip = inet_aton(socket.gethostbyname(x))
+        raise ValueError("Bad IP format: %s" % x)
     return cast(int, struct.unpack("!I", ip)[0])
 
 
@@ -705,10 +780,7 @@ def valid_ip6(addr):
     try:
         inet_pton(socket.AF_INET6, addr)
     except socket.error:
-        try:
-            socket.getaddrinfo(addr, None, socket.AF_INET6)[0][4][0]
-        except socket.error:
-            return False
+        return False
     return True
 
 
@@ -1476,12 +1548,17 @@ class RawPcapNgReader(RawPcapReader):
         self.default_options = {
             "tsresol": 1000000
         }
-        self.blocktypes = {
-            1: self._read_block_idb,
-            2: self._read_block_pkt,
-            3: self._read_block_spb,
-            6: self._read_block_epb,
-            10: self._read_block_dsb,
+        self.blocktypes: Dict[
+            int,
+            Callable[
+                [bytes, int],
+                Optional[Tuple[bytes, RawPcapNgReader.PacketMetadata]]
+            ]] = {
+                1: self._read_block_idb,
+                2: self._read_block_pkt,
+                3: self._read_block_spb,
+                6: self._read_block_epb,
+                10: self._read_block_dsb,
         }
         self.endian = "!"  # Will be overwritten by first SHB
 
@@ -1516,10 +1593,9 @@ class RawPcapNgReader(RawPcapReader):
             raise EOFError
         block = self.f.read(blocklen - 12)
         self._read_block_tail(blocklen)
-        return self.blocktypes.get(
-            blocktype,
-            lambda block, size: None
-        )(block, size)
+        if blocktype in self.blocktypes:
+            return self.blocktypes[blocktype](block, size)
+        return None
 
     def _read_block_tail(self, blocklen):
         # type: (int) -> None
@@ -1598,10 +1674,10 @@ class RawPcapNgReader(RawPcapReader):
         # 4 bytes Snaplen
         options = self._read_options(block[8:-4])
         try:
-            interface = struct.unpack(  # type: ignore
+            interface: Tuple[int, int, int] = struct.unpack(
                 self.endian + "HxxI",
                 block[:8]
-            ) + (options["tsresol"],)  # type: Tuple[int, int, int]
+            ) + (options["tsresol"],)
         except struct.error:
             warning("PcapNg: IDB is too small %d/8 !" % len(block))
             raise EOFError
@@ -3014,6 +3090,20 @@ def pretty_list(rtlst,  # type: List[Tuple[Union[str, List[str]], ...]]
     return "\n".join(fmt % x for x in rtslst)
 
 
+def human_size(x, fmt=".1f"):
+    # type: (int, str) -> str
+    """
+    Convert a size in octets to a human string representation
+    """
+    units = ['K', 'M', 'G', 'T', 'P', 'E']
+    if not x:
+        return "0B"
+    i = int(math.log(x, 2**10))
+    if i and i < len(units):
+        return format(x / 2**(10 * i), fmt) + units[i - 1]
+    return str(x) + "B"
+
+
 def __make_table(
     yfmtfunc,  # type: Callable[[int], str]
     fmtfunc,  # type: Callable[[int], str]
@@ -3164,6 +3254,189 @@ def whois(ip_address):
         else:
             break
     return b"\n".join(lines[3:])
+
+####################
+#     CLI utils    #
+####################
+
+
+class CLIUtil:
+    """
+    Provides a Util class to easily create simple CLI tools in Scapy,
+    that can still be used as an API.
+
+    Doc:
+        - override the ps1() function
+        - register commands with the @CLIUtil.addcomment decorator
+        - call the loop() function when ready
+    """
+
+    def _depcheck(self) -> None:
+        """
+        Check that all dependencies are installed
+        """
+        try:
+            import prompt_toolkit  # noqa: F401
+        except ImportError:
+            # okay we lie but prompt_toolkit is a dependency...
+            raise ImportError("You need to have IPython installed to use the CLI")
+
+    # Okay let's do nice code
+    commands: Dict[str, Callable[..., Any]] = {}
+    # print output of command
+    commands_output: Dict[str, Callable[..., str]] = {}
+    # provides completion to command
+    commands_complete: Dict[str, Callable[..., List[str]]] = {}
+
+    @classmethod
+    def addcommand(cls, spaces: bool = False) -> Callable[[DecoratorCallable], DecoratorCallable]:  # noqa: E501
+        """
+        Decorator to register a command
+        """
+        def func(cmd: DecoratorCallable) -> DecoratorCallable:
+            cls.commands[cmd.__name__] = cmd
+            cmd._spaces = spaces  # type: ignore
+            return cmd
+        return func
+
+    @classmethod
+    def addoutput(cls, cmd: DecoratorCallable) -> Callable[[DecoratorCallable], DecoratorCallable]:  # noqa: E501
+        """
+        Decorator to register a command output processor
+        """
+        def func(processor: DecoratorCallable) -> DecoratorCallable:
+            cls.commands_output[cmd.__name__] = processor
+            return processor
+        return func
+
+    @classmethod
+    def addcomplete(cls, cmd: DecoratorCallable) -> Callable[[DecoratorCallable], DecoratorCallable]:  # noqa: E501
+        """
+        Decorator to register a command completor
+        """
+        def func(processor: DecoratorCallable) -> DecoratorCallable:
+            cls.commands_complete[cmd.__name__] = processor
+            return processor
+        return func
+
+    def ps1(self) -> str:
+        """
+        Return the PS1 of the shell
+        """
+        return "> "
+
+    def close(self) -> None:
+        """
+        Function called on exiting
+        """
+        print("Exited")
+
+    def help(self, cmd: Optional[str] = None) -> None:
+        """
+        Return the help related to this CLI util
+        """
+        def _args(func: Any) -> str:
+            return " %s" % " ".join(
+                "<%s>" % x
+                for x in list(inspect.signature(func).parameters.values())[1:]
+            )
+
+        if cmd is not None:
+            # help for one command
+            func = self.commands[cmd]
+            print("%s%s: %s" % (
+                cmd,
+                _args(func),
+                func.__doc__ and func.__doc__.strip()
+            ))
+        else:
+            header = "# %s - Help #" % self.__class__.__name__
+            print("#" * (len(header)))
+            print(header)
+            print("#" * (len(header)))
+            for cmd, func in self.commands.items():
+                print("%s%s: %s" % (
+                    cmd,
+                    _args(func),
+                    func.__doc__ and func.__doc__.strip().split("\n")[0]
+                ))
+
+    def _completer(self) -> 'prompt_toolkit.completion.Completer':
+        """
+        Returns a prompt_toolkit custom completer
+        """
+        from prompt_toolkit.completion import Completer, Completion
+
+        class CLICompleter(Completer):
+            def get_completions(cmpl, document, complete_event):  # type: ignore
+                if not complete_event.completion_requested:
+                    # Only activate when the user does <TAB>
+                    return
+                parts = document.text.split(" ", 1)
+                cmd = parts[0].lower()
+                if cmd not in self.commands:
+                    # We are trying to complete the command
+                    for possible_cmd in (x for x in self.commands if x.startswith(cmd)):
+                        yield Completion(possible_cmd, start_position=-len(cmd))
+                else:
+                    # We are trying to complete the command content
+                    if len(parts) == 1:
+                        return
+                    arg = parts[1]
+                    if cmd in self.commands_complete:
+                        for possible_arg in self.commands_complete[cmd](self, arg):
+                            yield Completion(possible_arg, start_position=-len(arg))
+                return
+        return CLICompleter()
+
+    def loop(self, debug: int = 0) -> None:
+        """
+        Main command handling loop
+        """
+        from prompt_toolkit import PromptSession
+        session = PromptSession(completer=self._completer())
+
+        while True:
+            try:
+                cmd = session.prompt(self.ps1()).strip()
+            except KeyboardInterrupt:
+                continue
+            except EOFError:
+                self.close()
+                break
+            args = cmd.split(" ")[1:]
+            cmd = cmd.split(" ")[0].strip().lower()
+            if not cmd:
+                continue
+            if cmd in ["help", "h", "?"]:
+                self.help()
+                continue
+            if cmd in "exit":
+                break
+            if cmd not in self.commands:
+                print("Unknown command. Type help or ?")
+            else:
+                # check the number of arguments
+                func = self.commands[cmd]
+                if func._spaces:  # type: ignore
+                    args = [" ".join(args)]
+                res = None
+                try:
+                    res = func(self, *args)
+                except TypeError:
+                    print("Bad number of arguments !")
+                    self.help(cmd=cmd)
+                    continue
+                except Exception as ex:
+                    print("Command failed with error: %s" % ex)
+                    if debug > 1:
+                        traceback.print_exception(ex)
+                try:
+                    if res and cmd in self.commands_output:
+                        self.commands_output[cmd](self, res)
+                except Exception as ex:
+                    print("Output processor failed with error: %s" % ex)
+
 
 #######################
 #   PERIODIC SENDER   #

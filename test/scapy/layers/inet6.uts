@@ -572,6 +572,25 @@ raw(RouterAlert(optlen=3, value=0xffff)) == b'\x05\x03\xff\xff'
 a=RouterAlert(b'\x05\x03\xff\xff')
 a.otype == 0x05 and a.optlen == 3 and a.value == 0xffff
 
+############
+############
++ Test RPL Option (RFC 6553)
+
+= RplOption - Basic Instantiation
+raw(RplOption()) == b'c\x04\x00\x00\x00\x00'
+
+= RplOption - Basic Dissection
+a=RplOption(b'c\x04\x00\x00\x00\x00')
+a.otype == 0x63 and a.optlen == 4 and a.Down == False and a.RankError == 0 and a.ForwardError == 0 and a.RplInstanceId == 0 and a.SenderRank == 0
+
+= RplOption - Instantiation with specific values
+a=RplOption(RplInstanceId=0x1e, SenderRank=0x800)
+a.otype == 0x63 and a.optlen == 4 and a.Down == False and a.RankError == 0 and a.ForwardError == 0 and a.RplInstanceId == 0x1e and a.SenderRank == 0x800
+
+= RplOption - Instantiation with specific values
+a=RplOption(Down=True, RplInstanceId=0x1e, SenderRank=0x800)
+a.otype == 0x63 and a.optlen == 4 and a.Down == True and a.RankError == 0 and a.ForwardError == 0 and a.RplInstanceId == 0x1e and a.SenderRank == 0x800
+raw(a) == b'c\x04\x80\x1e\x08\x00'
 
 ############
 ############
@@ -628,6 +647,9 @@ raw(IPv6ExtHdrHopByHop(options=[HAO()])) == b';\x02\x01\x02\x00\x00\xc9\x10\x00\
 
 = IPv6ExtHdrHopByHop - Instantiation with RouterAlert option
 raw(IPv6ExtHdrHopByHop(options=[RouterAlert()])) == b';\x00\x05\x02\x00\x00\x01\x00'
+
+= IPv6ExtHdrHopByHop - Instantiation with RPL option
+raw(IPv6ExtHdrHopByHop(options=[RplOption()])) == b';\x00c\x04\x00\x00\x00\x00'
  
 = IPv6ExtHdrHopByHop - Instantiation with Jumbo option
 raw(IPv6ExtHdrHopByHop(options=[Jumbo()])) == b';\x00\xc2\x04\x00\x00\x00\x00'
@@ -780,18 +802,40 @@ b.answers(a)
 + ICMPv6NDOptUnknown Class Test
 
 = ICMPv6NDOptUnknown - Basic Instantiation
-raw(ICMPv6NDOptUnknown()) == b'\x00\x02'
+b = b'\x00\x01\x00\x00\x00\x00\x00\x00'
+
+raw(ICMPv6NDOptUnknown()) == b
 
 = ICMPv6NDOptUnknown - Instantiation with specific values
-raw(ICMPv6NDOptUnknown(len=4, data="somestring")) == b'\x00\x04somestring'
+raw(ICMPv6NDOptUnknown(data="somestring")) == b'\x00\x02somestring\x00\x00\x00\x00'
 
 = ICMPv6NDOptUnknown - Basic Dissection
-a=ICMPv6NDOptUnknown(b'\x00\x02')
-a.type == 0 and a.len == 2
+b = b'\x00\x01\x00\x00\x00\x00\x00\x00'
+
+p = ICMPv6NDOptUnknown(b)
+p.type == 0 and p.len == 1 and p.data == b'\x00' * 6
+
+p = ICMPv6NDOptUnknown(b + b'\x00')
+assert Raw in p and raw(p[Raw]) == b'\x00'
+
+p = ICMPv6NDOptUnknown(b + b'\x00\x00')
+assert raw(p[ICMPv6NDOptUnknown:2]) == b'\x00\x00'
 
 = ICMPv6NDOptUnknown - Dissection with specific values 
-a=ICMPv6NDOptUnknown(b'\x00\x04somerawing')
-a.type == 0 and a.len==4 and a.data == b"so" and isinstance(a.payload, Raw) and a.payload.load == b"merawing"
+p = ICMPv6NDOptUnknown(b'\x00\x01string')
+assert p.type == 0 and p.len == 1 and p.data == b'string'
+
+p = ICMPv6NDOptUnknown(b'\x00\x04somestring')
+assert p.type == 0 and p.len == 4 and p.data == b'somestring'
+
+= ICMPv6NDOptUnknown - Instantiation/Dissection with unknown option in the middle
+b = b'\x01\x01\x00\x00\x00\x00\x00\x00\x00\x02somestring\x00\x00\x00\x00%\x01\x00\x00\x00\x00\x00\x00'
+
+p = ICMPv6NDOptSrcLLAddr()/ICMPv6NDOptUnknown(data='somestring')/ICMPv6NDOptCaptivePortal()
+assert raw(p) == b
+
+p = ICMPv6NDOptSrcLLAddr(b)[ICMPv6NDOptUnknown]
+assert p.type == 0 and p.len == 2 and p.data == b'somestring\x00\x00\x00\x00'
 
 
 ############
@@ -1231,8 +1275,10 @@ p = ICMPv6NDOptCaptivePortal(b"\x25\x03https://example.com\x00\x00\x00")
 p.type == 37 and p.len == 3 and p.URI == b"https://example.com"
 
 = ICMPv6NDOptCaptivePortal - Dissection with zero length
-p = ICMPv6NDOptCaptivePortal(b"\x25\x00abcdefgh")
-p.type == 37 and p.len == 0 and p.URI == b"abcdef" and Raw in p and len(p[Raw]) == 2
+p = ICMPv6NDOptCaptivePortal(b"\x25\x00abcdef\x00\x01")
+p.type == 37 and p.len == 0 and p.URI == b"abcdef"
+pay = p.payload
+assert pay.type == 0 and pay.len == 1 and pay.data == b""
 
 = ICMPv6NDOptCaptivePortal - Summary Output
 ICMPv6NDOptCaptivePortal(URI="https://example.com").mysummary() == "ICMPv6 Neighbor Discovery Option - Captive-Portal Option b'https://example.com'"
@@ -1269,7 +1315,7 @@ p = ICMPv6NDOptPREF64(raw(p))
 assert p.type == 38 and p.len == 2 and p.scaledlifetime == 225 and p.plc == 1 and p.prefix == '2003:da8:1::'
 
 p = ICMPv6NDOptPREF64(raw(p) + b'\x00\x00\x00\x00')
-assert Raw in p and len(p[Raw]) == 4
+assert ICMPv6NDOptUnknown in p and len(p[ICMPv6NDOptUnknown]) == 4
 
 = ICMPv6NDOptPREF64 - Summary Output
 ICMPv6NDOptPREF64(prefix='12:34:56::', plc='/32').mysummary() == "ICMPv6 Neighbor Discovery Option - PREF64 Option 12:34:56::/32"

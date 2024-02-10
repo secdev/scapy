@@ -48,7 +48,8 @@ from scapy.compat import (
 )
 
 LAYER_ALIASES = {
-    "tls": "tls.all"
+    "tls": "tls.all",
+    "msrpce": "msrpce.all",
 }
 
 QUOTES = [
@@ -64,27 +65,18 @@ QUOTES = [
 ]
 
 
-def _probe_config_file(*cf, default=None):
-    # type: (str, Optional[str]) -> Union[str, None]
+def _probe_config_file(*cf):
+    # type: (str) -> Union[str, None]
     path = pathlib.Path(os.path.expanduser("~"))
     if not path.exists():
         # ~ folder doesn't exist. Unsalvageable
         return None
-    cf_path = path.joinpath(*cf)
-    if not cf_path.exists():
-        if default is not None:
-            # We have a default ! set it
-            cf_path.parent.mkdir(parents=True, exist_ok=True)
-            with cf_path.open("w") as fd:
-                fd.write(default)
-            return str(cf_path.resolve())
-        return None
-    return str(cf_path.resolve())
+    return str(path.joinpath(*cf).resolve())
 
 
 def _read_config_file(cf, _globals=globals(), _locals=locals(),
-                      interactive=True):
-    # type: (str, Dict[str, Any], Dict[str, Any], bool) -> None
+                      interactive=True, default=None):
+    # type: (str, Dict[str, Any], Dict[str, Any], bool, Optional[str]) -> None
     """Read a config file: execute a python file while loading scapy, that
     may contain some pre-configured values.
 
@@ -93,11 +85,13 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
     function. Otherwise, vars are only available from inside the scapy
     console.
 
-    params:
-    - _globals: the globals() vars
-    - _locals: the locals() vars
-    - interactive: specified whether or not errors should be printed
+    Parameters:
+
+    :param _globals: the globals() vars
+    :param _locals: the locals() vars
+    :param interactive: specified whether or not errors should be printed
     using the scapy console or raised.
+    :param default: if provided, set a default value for the config file
 
     ex, content of a config.py file:
         'conf.verb = 42\n'
@@ -107,6 +101,16 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
         2
 
     """
+    cf_path = pathlib.Path(cf)
+    if not cf_path.exists():
+        log_loading.debug("Config file [%s] does not exist.", cf)
+        if default is None:
+            return
+        # We have a default ! set it
+        cf_path.parent.mkdir(parents=True, exist_ok=True)
+        with cf_path.open("w") as fd:
+            fd.write(default)
+        log_loading.debug("Config file [%s] created with default.", cf)
     log_loading.debug("Loading config file [%s]", cf)
     try:
         with open(cf) as cfgf:
@@ -151,8 +155,7 @@ conf.color_theme = DefaultTheme()
 # conf.use_pcap = True
 """.strip()
 
-DEFAULT_PRESTART_FILE = _probe_config_file(".config", "scapy", "prestart.py",
-                                           default=DEFAULT_PRESTART)
+DEFAULT_PRESTART_FILE = _probe_config_file(".config", "scapy", "prestart.py")
 DEFAULT_STARTUP_FILE = _probe_config_file(".config", "scapy", "startup.py")
 
 
@@ -352,6 +355,22 @@ def _scapy_builtins():
     }
 
 
+def _scapy_exts():
+    # type: () -> Dict[str, Any]
+    """Load Scapy exts and return their builtins"""
+    from scapy.config import conf
+    res = {}
+    for modname, spec in conf.exts.all_specs.items():
+        if spec.default:
+            mod = sys.modules[modname]
+            res.update({
+                k: v
+                for k, v in mod.__dict__.copy().items()
+                if _validate_local(k)
+            })
+    return res
+
+
 def save_session(fname="", session=None, pickleProto=-1):
     # type: (str, Optional[Dict[str, Any]], int) -> None
     """Save current Scapy session to the file specified in the fname arg.
@@ -517,6 +536,9 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
 
     # Load Scapy
     scapy_builtins = _scapy_builtins()
+
+    # Load exts
+    scapy_builtins.update(_scapy_exts())
 
     SESSION.update(scapy_builtins)
     SESSION["_scpybuiltins"] = scapy_builtins.keys()
@@ -700,7 +722,8 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         _read_config_file(
             PRESTART_FILE,
             interactive=True,
-            _locals=_scapy_prestart_builtins()
+            _locals=_scapy_prestart_builtins(),
+            default=DEFAULT_PRESTART,
         )
 
     SESSION = init_session(session_name, mydict=mydict, ret=True)
@@ -770,16 +793,30 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                 log_loading.warning("%s requested but not found !" % imp)
                 conf.interactive_shell = "python"
 
-    # Display warning when using the default REPL
+    # Default shell
     if conf.interactive_shell == "python":
-        log_loading.info(
-            "When using the default Python shell, AutoCompletion, History are disabled."
-        )
+        disabled = ["History"]
         if WINDOWS:
-            log_loading.info(
-                "On Windows, colors are also disabled"
-            )
+            disabled.append("Colors")
             conf.color_theme = BlackAndWhite()
+        else:
+            try:
+                # Bad completer.. but better than nothing
+                import rlcompleter
+                import readline
+                readline.set_completer(
+                    rlcompleter.Completer(namespace=SESSION).complete
+                )
+                readline.parse_and_bind('tab: complete')
+            except ImportError:
+                disabled.insert(0, "AutoCompletion")
+        # Display warning when using the default REPL
+        log_loading.info(
+            "Using the default Python shell: %s %s disabled." % (
+                ",".join(disabled),
+                "is" if len(disabled) == 1 else "are"
+            )
+        )
 
     # ptpython configure function
     def ptpython_configure(repl):
@@ -799,20 +836,36 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         #                             Style.from_dict(_custom_ui_colorscheme))
         # repl.use_ui_colorscheme("scapy")
 
-    # Start IPython or ptipython
+    # Extend banner text
     if conf.interactive_shell in ["ipython", "ptipython"]:
         import IPython
         if conf.interactive_shell == "ptipython":
-            from ptpython.ipython import embed
             banner = banner_text + " using IPython %s" % IPython.__version__
             try:
                 from importlib.metadata import version
                 ptpython_version = " " + version('ptpython')
             except ImportError:
                 ptpython_version = ""
-            banner += " and ptpython%s\n" % ptpython_version
+            banner += " and ptpython%s" % ptpython_version
         else:
-            banner = banner_text + " using IPython %s\n" % IPython.__version__
+            banner = banner_text + " using IPython %s" % IPython.__version__
+    elif conf.interactive_shell == "ptpython":
+        try:
+            from importlib.metadata import version
+            ptpython_version = " " + version('ptpython')
+        except ImportError:
+            ptpython_version = ""
+        banner = banner_text + " using ptpython%s" % ptpython_version
+    elif conf.interactive_shell == "bpython":
+        import bpython
+        banner = banner_text + " using bpython %s" % bpython.__version__
+
+    # Start IPython or ptipython
+    if conf.interactive_shell in ["ipython", "ptipython"]:
+        banner += "\n"
+        if conf.interactive_shell == "ptipython":
+            from ptpython.ipython import embed
+        else:
             from IPython import start_ipython as embed
         try:
             from traitlets.config.loader import Config
@@ -867,14 +920,9 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         # ptpython has special, non-default handling of __repr__ which breaks Scapy.
         # For instance: >>> IP()
         log_loading.warning("ptpython support is currently partially broken")
-        try:
-            from importlib.metadata import version
-            ptpython_version = " " + version('ptpython')
-        except ImportError:
-            ptpython_version = ""
-        banner = banner_text + " using ptpython%s" % ptpython_version
         from ptpython.repl import embed
         # ptpython has no banner option
+        banner += "\n"
         print(banner)
         embed(
             locals=SESSION,
@@ -884,9 +932,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         )
     # Start bpython
     elif conf.interactive_shell == "bpython":
-        import bpython
         from bpython.curtsies import main as embed
-        banner = banner_text + " using bpython %s" % bpython.__version__
         embed(
             args=["-q", "-i"],
             locals_=SESSION,

@@ -438,6 +438,10 @@ class LEAP(EAP):
 
 class EAPOL_KEY(Packet):
     name = "EAPOL_KEY"
+    deprecated_fields = {
+        "key": ("key_data", "2.6.0"),
+        "len": ("key_length", "2.6.0"),
+    }
     fields_desc = [
         ByteEnumField("key_descriptor_type", 1, {1: "RC4", 2: "RSN"}),
         # Key Information
@@ -458,20 +462,20 @@ class EAPOL_KEY(Packet):
             3: "AES-128-CMAC+AES-128",
         }),
         #
-        LenField("len", None, "H"),
+        LenField("key_length", None, "H"),
         LongField("key_replay_counter", 0),
         XStrFixedLenField("key_nonce", "", 32),
         XStrFixedLenField("key_iv", "", 16),
         XStrFixedLenField("key_rsc", "", 8),
         XStrFixedLenField("key_id", "", 8),
         XStrFixedLenField("key_mic", "", 16),  # XXX size can be 24
-        LenField("key_length", None, "H"),
-        XStrLenField("key", "",
-                     length_from=lambda pkt: pkt.key_length)
+        FieldLenField("key_data_length", None, length_of="key_data"),
+        XStrLenField("key_data", "",
+                     length_from=lambda pkt: pkt.key_data_length)
     ]
 
     def extract_padding(self, s):
-        return s[:self.len], s[self.len:]
+        return s[:self.key_length], s[self.key_length:]
 
     def hashret(self):
         return struct.pack("!B", self.type) + self.payload.hashret()
@@ -480,6 +484,24 @@ class EAPOL_KEY(Packet):
         if isinstance(other, EAPOL_KEY) and \
                 other.descriptor_type == self.descriptor_type:
             return 1
+        return 0
+
+    def guess_key_number(self):
+        """
+        Determines 4-way handshake key number
+
+        :return: key number (1-4), or 0 if it cannot be determined
+        """
+        if self.key_type == 1:
+            if self.key_ack == 1:
+                if self.key_mic == 0:
+                    return 1
+                if self.install == 1:
+                    return 3
+            else:
+                if self.secure == 0:
+                    return 2
+                return 4
         return 0
 
 

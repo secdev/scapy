@@ -18,12 +18,14 @@ from scapy.pton_ntop import inet_pton
 # Typing imports
 from typing import (
     Any,
+    Callable,
     DefaultDict,
     Dict,
     Iterator,
     List,
     Optional,
     Tuple,
+    Type,
     cast,
     TYPE_CHECKING,
 )
@@ -75,6 +77,8 @@ class IPSession(DefaultSession):
 
     def process(self, packet: Packet) -> Optional[Packet]:
         from scapy.layers.inet import IP, _defrag_ip_pkt
+        if not packet:
+            return None
         if IP not in packet:
             return packet
         return _defrag_ip_pkt(packet, self.fragments)[1]  # type: ignore
@@ -156,9 +160,28 @@ class StringBuffer(object):
         return cast(str, self.__bytes__())
 
 
+def streamcls(cls: Type[Packet]) -> Callable[
+    [bytes, Dict[str, Any], Dict[str, Any]],
+    Optional[Packet],
+]:
+    """
+    Wraps a class for use when dissecting streams.
+    """
+    if hasattr(cls, "tcp_reassemble"):
+        return cls.tcp_reassemble  # type: ignore
+    else:
+        # There is no tcp_reassemble. Just dissect the packet
+        return lambda data, *_: data and cls(data)
+
+
 class TCPSession(IPSession):
-    """A Session that matches seq/ack packets together to dissect
-    special protocols, such as HTTP.
+    """A Session that reconstructs TCP streams.
+
+    NOTE: this has the same effect as wrapping a real socket.socket into StreamSocket,
+    but for all concurrent TCP streams (can be used on pcaps or sniffed sessions).
+
+    NOTE: only protocols that implement a ``tcp_reassemble`` function will be processed
+    by this session. Other protocols will not be reconstructed.
 
     DEV: implement a class-function `tcp_reassemble` in your Packet class::
 
@@ -181,8 +204,8 @@ class TCPSession(IPSession):
     https://scapy.readthedocs.io/en/latest/usage.html#how-to-use-tcpsession-to-defragment-tcp-packets
 
     :param app: Whether the socket is on application layer = has no TCP
-                layer. This is used for instance if you are using a native
-                TCP socket. Default to False
+                layer. This is identical to StreamSocket so only use this if your
+                underlying source of data isn't a socket.socket.
     """
 
     def __init__(self, app=False, *args, **kwargs):
@@ -232,29 +255,28 @@ class TCPSession(IPSession):
             return cast(bytes, pad.load)
         return None
 
-    def process(self, pkt: Packet) -> Optional[Packet]:
+    def process(self,
+                pkt: Packet,
+                cls: Optional[Type[Packet]] = None) -> Optional[Packet]:
         """Process each packet: matches the TCP seq/ack numbers
         to follow the TCP streams, and orders the fragments.
         """
-        _pkt = super(TCPSession, self).process(pkt)
-        if pkt is None:
-            return None
-        else:  # Python 3.8 := would be nice
-            pkt = cast(Packet, _pkt)
         packet = None  # type: Optional[Packet]
         if self.app:
             # Special mode: Application layer. Use on top of TCP
-            pay_class = pkt.__class__
-            if hasattr(pay_class, "tcp_reassemble"):
-                tcp_reassemble = pay_class.tcp_reassemble
-            else:
-                # There is no tcp_reassemble. Just dissect the packet
-                tcp_reassemble = lambda data, *_: pay_class(data)
             self.data.append(bytes(pkt))
+            if cls is None and not isinstance(pkt, bytes):
+                cls = pkt.__class__
+            if "tcp_reassemble" in self.metadata:
+                tcp_reassemble = self.metadata["tcp_reassemble"]
+            elif cls is not None:
+                self.metadata["tcp_reassemble"] = tcp_reassemble = streamcls(cls)
+            else:
+                return None
             packet = tcp_reassemble(
                 bytes(self.data),
                 self.metadata,
-                self.session
+                self.session,
             )
             if packet:
                 padding = self._strip_padding(packet)
@@ -268,8 +290,16 @@ class TCPSession(IPSession):
                 return packet
             return None
 
+        _pkt = super(TCPSession, self).process(pkt)
+        if _pkt is None:
+            return None
+        else:  # Python 3.8 := would be nice
+            pkt = _pkt
+
         from scapy.layers.inet import IP, TCP
-        if not pkt or TCP not in pkt:
+        if not pkt:
+            return None
+        if TCP not in pkt:
             return pkt
         pay = pkt[TCP].payload
         if isinstance(pay, (NoPayload, conf.padding_layer)):
@@ -282,14 +312,8 @@ class TCPSession(IPSession):
         tcp_session = self.tcp_sessions[self._get_ident(pkt, True)]
         # Let's guess which class is going to be used
         if "pay_class" not in metadata:
-            pay_class = pkt[TCP].guess_payload_class(new_data)
-            if hasattr(pay_class, "tcp_reassemble"):
-                tcp_reassemble = pay_class.tcp_reassemble
-            else:
-                # There is no tcp_reassemble. Just dissect the packet
-                tcp_reassemble = lambda data, *_: pay_class(data)
-            metadata["pay_class"] = pay_class
-            metadata["tcp_reassemble"] = tcp_reassemble
+            metadata["pay_class"] = pay_class = pkt[TCP].guess_payload_class(new_data)
+            metadata["tcp_reassemble"] = tcp_reassemble = streamcls(pay_class)
         else:
             tcp_reassemble = metadata["tcp_reassemble"]
         if "seq" not in metadata:
@@ -352,9 +376,11 @@ class TCPSession(IPSession):
         Will be called by sniff() to ask for a packet
         """
         pkt = sock.recv(stop_dissection_after=self.stop_dissection_after)
-        if not pkt:
-            return None
         # Now handle TCP reassembly
-        pkt = self.process(pkt)
-        if pkt:
-            yield pkt
+        while pkt is not None:
+            pkt = self.process(pkt)
+            if pkt:
+                yield pkt
+                # keep calling process as there might be more
+                pkt = b""  # type: ignore
+        return None

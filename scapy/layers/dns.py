@@ -34,6 +34,7 @@ from scapy.fields import (
     ConditionalField,
     Field,
     FieldLenField,
+    FieldListField,
     FlagsField,
     I,
     IP6Field,
@@ -45,6 +46,8 @@ from scapy.fields import (
     StrField,
     StrLenField,
     UTCTimeField,
+    XStrFixedLenField,
+    XStrLenField,
 )
 from scapy.sendrecv import sr1
 from scapy.supersocket import StreamSocket
@@ -87,6 +90,23 @@ dnstypes = {
 dnsqtypes = {251: "IXFR", 252: "AXFR", 253: "MAILB", 254: "MAILA", 255: "ALL"}
 dnsqtypes.update(dnstypes)
 dnsclasses = {1: 'IN', 2: 'CS', 3: 'CH', 4: 'HS', 255: 'ANY'}
+
+
+# 12/2023 from https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml  # noqa: E501
+dnssecalgotypes = {0: "Reserved", 1: "RSA/MD5", 2: "Diffie-Hellman", 3: "DSA/SHA-1",  # noqa: E501
+                   4: "Reserved", 5: "RSA/SHA-1", 6: "DSA-NSEC3-SHA1",
+                   7: "RSASHA1-NSEC3-SHA1", 8: "RSA/SHA-256", 9: "Reserved",
+                   10: "RSA/SHA-512", 11: "Reserved", 12: "GOST R 34.10-2001",
+                   13: "ECDSA Curve P-256 with SHA-256", 14: "ECDSA Curve P-384 with SHA-384",  # noqa: E501
+                   15: "Ed25519", 16: "Ed448",
+                   252: "Reserved for Indirect Keys", 253: "Private algorithms - domain name",  # noqa: E501
+                   254: "Private algorithms - OID", 255: "Reserved"}
+
+# 12/2023 from https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml
+dnssecdigesttypes = {0: "Reserved", 1: "SHA-1", 2: "SHA-256", 3: "GOST R 34.11-94", 4: "SHA-384"}  # noqa: E501
+
+# 12/2023 from https://www.iana.org/assignments/dnssec-nsec3-parameters/dnssec-nsec3-parameters.xhtml  # noqa: E501
+dnssecnsec3algotypes = {0: "Reserved", 1: "SHA-1"}
 
 
 def dns_get_str(s, full=None, _ignore_compression=False):
@@ -342,6 +362,11 @@ class DNSTextField(StrLenField):
 
     islist = 1
 
+    def i2h(self, pkt, x):
+        if not x:
+            return []
+        return x
+
     def m2i(self, pkt, s):
         ret_s = list()
         tmp_s = s
@@ -369,6 +394,9 @@ class DNSTextField(StrLenField):
     def i2m(self, pkt, s):
         ret_s = b""
         for text in s:
+            if not text:
+                ret_s += b"\x00"
+                continue
             text = bytes_encode(text)
             # The initial string must be split into a list of strings
             # prepended with theirs sizes.
@@ -384,20 +412,24 @@ class DNSTextField(StrLenField):
 # RFC 2671 - Extension Mechanisms for DNS (EDNS0)
 
 edns0types = {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Reserved",
-              5: "PING", 8: "edns-client-subnet", 10: "COOKIE",
+              5: "DAU", 6: "DHU", 7: "N3U", 8: "edns-client-subnet", 10: "COOKIE",
               15: "Extended DNS Error"}
 
 
-class EDNS0TLV(Packet):
+class _EDNS0Dummy(Packet):
+    name = "Dummy class that implements extract_padding()"
+
+    def extract_padding(self, p):
+        # type: (bytes) -> Tuple[bytes, Optional[bytes]]
+        return "", p
+
+
+class EDNS0TLV(_EDNS0Dummy):
     name = "DNS EDNS0 TLV"
     fields_desc = [ShortEnumField("optcode", 0, edns0types),
                    FieldLenField("optlen", None, "optdata", fmt="H"),
                    StrLenField("optdata", "",
                                length_from=lambda pkt: pkt.optlen)]
-
-    def extract_padding(self, p):
-        # type: (bytes) -> Tuple[bytes, Optional[bytes]]
-        return "", p
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -407,11 +439,7 @@ class EDNS0TLV(Packet):
         if len(_pkt) < 2:
             return Raw
         edns0type = struct.unpack("!H", _pkt[:2])[0]
-        if edns0type == 8:
-            return EDNS0ClientSubnet
-        if edns0type == 15:
-            return EDNS0ExtendedDNSError
-        return EDNS0TLV
+        return EDNS0OPT_DISPATCHER.get(edns0type, EDNS0TLV)
 
 
 class DNSRROPT(Packet):
@@ -427,6 +455,36 @@ class DNSRROPT(Packet):
                    FieldLenField("rdlen", None, length_of="rdata", fmt="H"),
                    PacketListField("rdata", [], EDNS0TLV,
                                    length_from=lambda pkt: pkt.rdlen)]
+
+
+# RFC 6975 - Signaling Cryptographic Algorithm Understanding in
+# DNS Security Extensions (DNSSEC)
+
+class EDNS0DAU(_EDNS0Dummy):
+    name = "DNSSEC Algorithm Understood (DAU)"
+    fields_desc = [ShortEnumField("optcode", 5, edns0types),
+                   FieldLenField("optlen", None, count_of="alg_code", fmt="H"),
+                   FieldListField("alg_code", None,
+                                  ByteEnumField("", 0, dnssecalgotypes),
+                                  count_from=lambda pkt:pkt.optlen)]
+
+
+class EDNS0DHU(_EDNS0Dummy):
+    name = "DS Hash Understood (DHU)"
+    fields_desc = [ShortEnumField("optcode", 6, edns0types),
+                   FieldLenField("optlen", None, count_of="alg_code", fmt="H"),
+                   FieldListField("alg_code", None,
+                                  ByteEnumField("", 0, dnssecdigesttypes),
+                                  count_from=lambda pkt:pkt.optlen)]
+
+
+class EDNS0N3U(_EDNS0Dummy):
+    name = "NSEC3 Hash Understood (N3U)"
+    fields_desc = [ShortEnumField("optcode", 7, edns0types),
+                   FieldLenField("optlen", None, count_of="alg_code", fmt="H"),
+                   FieldListField("alg_code", None,
+                                  ByteEnumField("", 0, dnssecnsec3algotypes),
+                                  count_from=lambda pkt:pkt.optlen)]
 
 
 # RFC 7871 - Client Subnet in DNS Queries
@@ -486,7 +544,7 @@ class ClientSubnetv6(ClientSubnetv4):
     af_default = b"\x20"  # 2000::
 
 
-class EDNS0ClientSubnet(Packet):
+class EDNS0ClientSubnet(_EDNS0Dummy):
     name = "DNS EDNS0 Client Subnet"
     fields_desc = [ShortEnumField("optcode", 8, edns0types),
                    FieldLenField("optlen", None, "address", fmt="H",
@@ -506,6 +564,16 @@ class EDNS0ClientSubnet(Packet):
                          lambda pkt: pkt.family == 2)],
                        ClientSubnetv4("address", "192.168.0.0",
                                       length_from=lambda p: p.source_plen))]
+
+
+class EDNS0COOKIE(_EDNS0Dummy):
+    name = "DNS EDNS0 COOKIE"
+    fields_desc = [ShortEnumField("optcode", 10, edns0types),
+                   FieldLenField("optlen", None, length_of="server_cookie", fmt="!H",
+                                 adjust=lambda pkt, x: x + 8),
+                   XStrFixedLenField("client_cookie", b"\x00" * 8, length=8),
+                   XStrLenField("server_cookie", "",
+                                length_from=lambda pkt: max(0, pkt.optlen - 8))]
 
 
 # RFC 8914 - Extended DNS Errors
@@ -546,7 +614,7 @@ extended_dns_error_codes = {
 
 
 # https://www.rfc-editor.org/rfc/rfc8914.html
-class EDNS0ExtendedDNSError(Packet):
+class EDNS0ExtendedDNSError(_EDNS0Dummy):
     name = "DNS EDNS0 Extended DNS Error"
     fields_desc = [ShortEnumField("optcode", 15, edns0types),
                    FieldLenField("optlen", None, length_of="extra_text", fmt="!H",
@@ -556,21 +624,17 @@ class EDNS0ExtendedDNSError(Packet):
                                length_from=lambda pkt: pkt.optlen - 2)]
 
 
+EDNS0OPT_DISPATCHER = {
+    5: EDNS0DAU,
+    6: EDNS0DHU,
+    7: EDNS0N3U,
+    8: EDNS0ClientSubnet,
+    10: EDNS0COOKIE,
+    15: EDNS0ExtendedDNSError,
+}
+
+
 # RFC 4034 - Resource Records for the DNS Security Extensions
-
-
-# 09/2013 from http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml  # noqa: E501
-dnssecalgotypes = {0: "Reserved", 1: "RSA/MD5", 2: "Diffie-Hellman", 3: "DSA/SHA-1",  # noqa: E501
-                   4: "Reserved", 5: "RSA/SHA-1", 6: "DSA-NSEC3-SHA1",
-                   7: "RSASHA1-NSEC3-SHA1", 8: "RSA/SHA-256", 9: "Reserved",
-                   10: "RSA/SHA-512", 11: "Reserved", 12: "GOST R 34.10-2001",
-                   13: "ECDSA Curve P-256 with SHA-256", 14: "ECDSA Curve P-384 with SHA-384",  # noqa: E501
-                   252: "Reserved for Indirect Keys", 253: "Private algorithms - domain name",  # noqa: E501
-                   254: "Private algorithms - OID", 255: "Reserved"}
-
-# 09/2013 from http://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml
-dnssecdigesttypes = {0: "Reserved", 1: "SHA-1", 2: "SHA-256", 3: "GOST R 34.11-94", 4: "SHA-384"}  # noqa: E501
-
 
 def bitmap2RRlist(bitmap):
     """
@@ -697,7 +761,7 @@ class _DNSRRdummy(Packet):
 class DNSRRMX(_DNSRRdummy):
     name = "DNS MX Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                   ShortEnumField("type", 6, dnstypes),
+                   ShortEnumField("type", 15, dnstypes),
                    ShortEnumField("rclass", 1, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
@@ -828,6 +892,80 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
                    StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)  # noqa: E501
                    ]
 
+
+# RFC 9460 Service Binding and Parameter Specification via the DNS
+# https://www.rfc-editor.org/rfc/rfc9460.html
+
+
+# https://www.iana.org/assignments/dns-svcb/dns-svcb.xhtml
+svc_param_keys = {
+    0: "mandatory",
+    1: "alpn",
+    2: "no-default-alpn",
+    3: "port",
+    4: "ipv4hint",
+    5: "ech",
+    6: "ipv6hint",
+    7: "dohpath",
+    8: "ohttp",
+}
+
+
+class SvcParam(Packet):
+    name = "SvcParam"
+    fields_desc = [ShortEnumField("key", 0, svc_param_keys),
+                   FieldLenField("len", None, length_of="value", fmt="H"),
+                   MultipleTypeField(
+                       [
+                           # mandatory
+                           (FieldListField("value", [],
+                                           ShortEnumField("", 0, svc_param_keys),
+                                           length_from=lambda pkt: pkt.len),
+                               lambda pkt: pkt.key == 0),
+                           # alpn, no-default-alpn
+                           (DNSTextField("value", [],
+                                         length_from=lambda pkt: pkt.len),
+                               lambda pkt: pkt.key in (1, 2)),
+                           # port
+                           (ShortField("value", 0),
+                               lambda pkt: pkt.key == 3),
+                           # ipv4hint
+                           (FieldListField("value", [],
+                                           IPField("", "0.0.0.0"),
+                                           length_from=lambda pkt: pkt.len),
+                               lambda pkt: pkt.key == 4),
+                           # ipv6hint
+                           (FieldListField("value", [],
+                                           IP6Field("", "::"),
+                                           length_from=lambda pkt: pkt.len),
+                               lambda pkt: pkt.key == 6),
+                       ],
+                       StrLenField("value", "",
+                                   length_from=lambda pkt:pkt.len))]
+
+    def extract_padding(self, p):
+        return "", p
+
+
+class DNSRRSVCB(_DNSRRdummy):
+    name = "DNS SVCB Resource Record"
+    fields_desc = [DNSStrField("rrname", ""),
+                   ShortEnumField("type", 64, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   ShortField("svc_priority", 0),
+                   DNSStrField("target_name", ""),
+                   PacketListField("svc_params", [], SvcParam)]
+
+
+class DNSRRHTTPS(_DNSRRdummy):
+    name = "DNS HTTPS Resource Record"
+    fields_desc = [DNSStrField("rrname", ""),
+                   ShortEnumField("type", 65, dnstypes)
+                   ] + DNSRRSVCB.fields_desc[2:]
+
+
 # RFC 2782 - A DNS RR for specifying the location of services (DNS SRV)
 
 
@@ -917,6 +1055,8 @@ DNSRR_DISPATCHER = {
     48: DNSRRDNSKEY,     # RFC 4034
     50: DNSRRNSEC3,      # RFC 5155
     51: DNSRRNSEC3PARAM,  # RFC 5155
+    64: DNSRRSVCB,       # RFC 9460
+    65: DNSRRHTTPS,      # RFC 9460
     250: DNSRRTSIG,      # RFC 2845
     32769: DNSRRDLV,     # RFC 4431
 }
@@ -943,7 +1083,7 @@ class DNSRR(Packet):
                                         length_from=lambda pkt: pkt.rdlen),
                                lambda pkt: pkt.type in [2, 3, 4, 5, 12]),
                            # TEXT
-                           (DNSTextField("rdata", [],
+                           (DNSTextField("rdata", [""],
                                          length_from=lambda pkt: pkt.rdlen),
                                lambda pkt: pkt.type == 16),
                        ],
@@ -1074,6 +1214,8 @@ class DNS(DNSCompressedPacket):
             type = "Ans"
             if self.an and isinstance(self.an[0], DNSRR):
                 name = ' %s' % self.an[0].rdata
+            elif self.rcode != 0:
+                name = self.sprintf(' %rcode%')
         else:
             type = "Qry"
             if self.qd and isinstance(self.qd[0], DNSQR):
@@ -1148,9 +1290,9 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
         [qname, struct.pack("!B", qtype)] +
         ([b"raw"] if raw else [])
     )
-    answer = _dns_cache.get(cache_ident)
-    if answer:
-        return answer
+    result = _dns_cache.get(cache_ident)
+    if result:
+        return result
 
     kwargs.setdefault("timeout", timeout)
     kwargs.setdefault("verbose", 0)
@@ -1191,21 +1333,18 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
     if res is not None:
         if raw:
             # Raw
-            answer = res
+            result = res
         else:
-            try:
-                # Find answer
-                answer = next(
-                    x
-                    for x in itertools.chain(res.an, res.ns, res.ar)
-                    if x.type == qtype
-                )
-            except StopIteration:
-                # No answer
-                return None
-        # Cache it
-        _dns_cache[cache_ident] = answer
-        return answer
+            # Find answers
+            result = [
+                x
+                for x in itertools.chain(res.an, res.ns, res.ar)
+                if x.type == qtype
+            ]
+        if result:
+            # Cache it
+            _dns_cache[cache_ident] = result
+        return result
     else:
         raise TimeoutError
 
@@ -1404,8 +1543,8 @@ class DNS_am(AnsweringMachine):
                 # Relay mode ?
                 try:
                     _rslv = dns_resolve(rq.qname, qtype=rq.qtype)
-                    if _rslv is not None:
-                        ans.append(_rslv)
+                    if _rslv:
+                        ans.extend(_rslv)
                         continue  # next
                 except TimeoutError:
                     pass

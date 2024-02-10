@@ -32,7 +32,7 @@ assert parsed.attributes == [
       STUNPriority(priority=1847591167),
       STUNIceControlling(tie_breaker=0x1b0ab98b6e8effa6),
       STUNUsername(length=37, username="oNph:Ht11MaRZHc4GOLJUsbu1R3YCs72HYN25"),
-      STUNMessageIntegrity(hmac_sha1=0x77e7f03e7f9e1996be42339159db1f682147bcfc),
+      STUNMessageIntegrity(hmac_sha1=0xfcbc4721681fdb59913342be96199e7f3ef0e777),
       STUNFingerprint(crc_32=0x8718c3a4)
 ]
 
@@ -59,7 +59,7 @@ assert parsed.attributes == [
       STUNIceControlling(tie_breaker=0xa696819e91c937da),
       STUNUseCandidate(),
       STUNPriority(priority=1845501695),
-      STUNMessageIntegrity(hmac_sha1=0x5fbd89b9c76b674db13a433112f3e0b1faaa87c1),
+      STUNMessageIntegrity(hmac_sha1=0xc187aafab1e0f31231433ab14d676bc7b989bd5f),
       STUNFingerprint(crc_32=0xc9566cfc)
 
 ]
@@ -79,7 +79,7 @@ assert parsed.magic_cookie == 0x2112A442
 assert parsed.transaction_id == 0xcfacb2a43aa2de5a9d56d85a, parsed.transaction_id
 assert parsed.attributes == [
       STUNXorMappedAddress(xport=40480, xip="172.20.0.42"),
-      STUNMessageIntegrity(hmac_sha1=0x7d968d4241fa89d8e3f8ffe302c8975823c91fb7),
+      STUNMessageIntegrity(hmac_sha1=0xb71fc9235897c802e3fff8e3d889fa41428d967d),
       STUNFingerprint(crc_32=0xea9b6559)
 ]
 
@@ -103,7 +103,7 @@ assert parsed.attributes[0] == STUNXorMappedAddress(xport=25000, xip="172.20.0.2
 assert parsed.attributes == [
       STUNXorMappedAddress(xport=25000, xip="172.20.0.200"),
       STUNUsername(length=37, username="Ht11MaRZHc4GOLJUsbu1R3YCs72HYN25:oNph"),
-      STUNMessageIntegrity(hmac_sha1=0x317065df81598d6cc8ca3bd684ca65fb6d03674b),
+      STUNMessageIntegrity(hmac_sha1=0x4b67036dfb65ca84d63bcac86c8d5981df657031),
       STUNFingerprint(crc_32=0x4041e9c3)
 ]
 

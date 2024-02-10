@@ -9,7 +9,7 @@
 """
 Geneve: Generic Network Virtualization Encapsulation
 
-draft-ietf-nvo3-geneve-16
+https://datatracker.ietf.org/doc/html/rfc8926
 """
 
 import struct
@@ -19,7 +19,6 @@ from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.l2 import Ether, ETHER_TYPES
-from scapy.compat import chb, orb
 
 CLASS_IDS = {0x0100: "Linux",
              0x0101: "Open vSwitch",
@@ -42,12 +41,15 @@ class GeneveOptions(Packet):
                    XByteField("type", 0x00),
                    BitField("reserved", 0, 3),
                    BitField("length", None, 5),
-                   StrLenField('data', '', length_from=lambda x:x.length * 4)]
+                   StrLenField('data', '', length_from=lambda x: x.length * 4)]
+
+    def extract_padding(self, s):
+        return "", s
 
     def post_build(self, p, pay):
         if self.length is None:
             tmp_len = len(self.data) // 4
-            p = p[:3] + struct.pack("!B", tmp_len) + p[4:]
+            p = p[:3] + struct.pack("!B", (p[3] & 0x3) | (tmp_len & 0x1f)) + p[4:]
         return p + pay
 
 
@@ -61,12 +63,13 @@ class GENEVE(Packet):
                    XShortEnumField("proto", 0x0000, ETHER_TYPES),
                    X3BytesField("vni", 0),
                    XByteField("reserved2", 0x00),
-                   PacketListField("options", [], GeneveOptions, length_from=lambda pkt:pkt.optionlen * 4)]
+                   PacketListField("options", [], GeneveOptions,
+                                   length_from=lambda pkt: pkt.optionlen * 4)]
 
     def post_build(self, p, pay):
         if self.optionlen is None:
             tmp_len = (len(p) - 8) // 4
-            p = chb(tmp_len & 0x2f | orb(p[0]) & 0xc0) + p[1:]
+            p = struct.pack("!B", (p[0] & 0xc0) | (tmp_len & 0x3f)) + p[1:]
         return p + pay
 
     def answers(self, other):

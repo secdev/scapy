@@ -23,12 +23,12 @@ dns_ans = retry_test(_test)
 
 val = dns_resolve(qname="google.com", qtype="A")
 assert val
-assert inet_pton(socket.AF_INET, val.rdata)
+assert inet_pton(socket.AF_INET, val[0].rdata)
 assert val == conf.netcache.dns_cache[b'google.com.;\x01']
 
 val = dns_resolve(qname="google.com", qtype="AAAA")
 assert val
-assert inet_pton(socket.AF_INET6, val.rdata)
+assert inet_pton(socket.AF_INET6, val[0].rdata)
 assert val == conf.netcache.dns_cache[b'google.com.;\x1c']
 
 = DNS labels
@@ -204,6 +204,11 @@ full = b"\x04data\xc0\x0f"
 assert dns_get_str(full, full=full)[0] == b"data."
 
 
+= DNS record type 15 (MX)
+
+p = DNS(raw(DNS(qd=[],an=DNSRRMX(exchange='example.com'))))
+assert p.an[0].exchange == b'example.com.'
+
 = DNS record type 16 (TXT)
 
 p = DNS(raw(DNS(id=1,ra=1,qd=[],an=DNSRR(rrname='scapy', type='TXT', rdata="niceday", ttl=1))))
@@ -212,6 +217,103 @@ assert p[DNS].an[0].rdata == [b"niceday"]
 p = DNS(raw(DNS(id=1,ra=1,qd=[],an=DNSRR(rrname='secdev', type='TXT', rdata=["sweet", "celestia"], ttl=1))))
 assert p[DNS].an[0].rdata == [b"sweet", b"celestia"]
 assert raw(p) == b'\x00\x01\x01\x80\x00\x00\x00\x01\x00\x00\x00\x00\x06secdev\x00\x00\x10\x00\x01\x00\x00\x00\x01\x00\x0f\x05sweet\x08celestia'
+
+# TXT RR with one empty string
+b = b'\x05scapy\x00\x00\x10\x00\x01\x00\x00\x00\x00\x00\x01\x00'
+rr = DNSRR(b)
+assert rr.rdata == [b""]
+assert rr.rdlen == 1
+rr.clear_cache()
+assert DNSRR(raw(rr)).rdata == [b""]
+
+rr = DNSRR(rrname='scapy', type='TXT', rdata=[""])
+assert raw(rr) == b
+
+rr = DNSRR(rrname='scapy', type='TXT')
+assert raw(rr) == b
+
+# TXT RR with zero-length RDATA
+b = b'\x05scapy\x00\x00\x10\x00\x01\x00\x00\x00\x00\x00\x00'
+rr = DNSRR(b)
+assert rr.rdata == []
+assert rr.rdlen == 0
+rr.clear_cache()
+assert DNSRR(raw(rr)).rdata == []
+
+rr = DNSRR(rrname='scapy', type='TXT', rdata=[])
+assert raw(rr) == b
+
+= DNS record type 64, 65 (SVCB, HTTPS)
+
+b = b'\x00\x00\x00\x04\x00\x01\x00\x06'
+p = SvcParam(b)
+assert p.key == 0 and p.value == [1, 6]
+assert b == raw(SvcParam(key='mandatory', value=['alpn', 'ipv6hint']))
+
+b = b'\x00\x01\x00\x06\x02h3\x02h2'
+p = SvcParam(b)
+assert p.key == 1 and p.value == [b'h3', b'h2']
+assert b == raw(SvcParam(key='alpn', value=['h3', 'h2']))
+
+b = b'\x00\x02\x00\x00'
+p = SvcParam(b)
+assert p.key == 2 and p.value == []
+assert b == raw(SvcParam(key='no-default-alpn'))
+
+b = b'\x00\x03\x00\x02\x04\xd2'
+p = SvcParam(b)
+assert p.key == 3 and p.value == 1234
+assert b == raw(SvcParam(key='port', value=1234))
+
+b = b'\x00\x04\x00\x08\xc0\xa8\x00\x01\xc0\xa8\x00\x02'
+p = SvcParam(b)
+assert p.key == 4 and p.value == ['192.168.0.1', '192.168.0.2']
+assert b == raw(SvcParam(key='ipv4hint', value=['192.168.0.1', '192.168.0.2']))
+
+b = b'\x00\x06\x00\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+p = SvcParam(b)
+assert p.key == 6 and p.value == ['2001:db8::1']
+assert b == raw(SvcParam(key='ipv6hint', value=['2001:db8::1']))
+
+b = b'\x00\x07\x00\x10/dns-query{?dns}'
+p = SvcParam(b)
+assert p.key == 7 and p.value == b'/dns-query{?dns}'
+assert b == raw(SvcParam(key='dohpath', value=b'/dns-query{?dns}'))
+
+p = DNSRRSVCB()
+assert p.rrname == b'.' and p.type == 64 and p.svc_priority == 0 and p.svc_params == []
+
+p = DNSRRHTTPS()
+assert p.rrname == b'.' and p.type == 65 and p.svc_priority == 0 and p.svc_params == []
+
+# Real-world SVCB RR
+b = b'\x04_dns\x03one\x03one\x03one\x03one\x00\x00@\x00\x01\x00\x00\x01,\x001\x00\x01\x03one\x03one\x03one\x03one\x00\x00\x01\x00\x06\x02h3\x02h2\x00\x07\x00\x10/dns-query{?dns}'
+p = DNSRRSVCB(b)
+assert p.type == 64 and p.ttl == 300 and p.svc_priority == 1 and p.target_name == b'one.one.one.one.'
+
+alpn = SvcParam(key='alpn', value=['h3', 'h2'])
+dohpath = SvcParam(key='dohpath', value=b'/dns-query{?dns}')
+
+assert raw(p.svc_params[0]) == raw(alpn)
+assert raw(p.svc_params[1]) == raw(dohpath)
+
+assert b == raw(DNSRRSVCB(rrname='_dns.one.one.one.one', ttl=300, svc_priority=1, target_name='one.one.one.one', svc_params=[alpn, dohpath]))
+
+# Real-world HTTPS RR
+b = b'\ncloudflare\x03com\x00\x00A\x00\x01\x00\x00\x00>\x00=\x00\x01\x00\x00\x01\x00\x06\x02h3\x02h2\x00\x04\x00\x08h\x10\x84\xe5h\x10\x85\xe5\x00\x06\x00 &\x06G\x00\x00\x00\x00\x00\x00\x00\x00\x00h\x10\x84\xe5&\x06G\x00\x00\x00\x00\x00\x00\x00\x00\x00h\x10\x85\xe5'
+
+p = DNSRRHTTPS(b)
+assert p.type == 65 and p.ttl == 62 and p.svc_priority == 1 and p.target_name == b'.'
+
+alpn = SvcParam(key='alpn', value=['h3', 'h2'])
+ipv4hint = SvcParam(key='ipv4hint', value=['104.16.132.229', '104.16.133.229'])
+ipv6hint = SvcParam(key='ipv6hint', value=['2606:4700::6810:84e5', '2606:4700::6810:85e5'])
+
+assert raw(p.svc_params[0]) == raw(alpn)
+assert raw(p.svc_params[1]) == raw(ipv4hint)
+assert raw(p.svc_params[2]) == raw(ipv6hint)
+
+assert b == raw(DNSRRHTTPS(rrname='cloudflare.com', ttl=62, svc_priority=1, target_name='.', svc_params=[alpn, ipv4hint, ipv6hint]))
 
 = DNS - Malformed DNS over TCP message
 
@@ -312,3 +414,11 @@ assert pkt.an.rdata == b'140C768FFE28@Freebox Server._raop._tcp.local.'
 pkt = DNS(qr=1, qd=None, aa=1, rd=1)
 pkt = DNS(bytes(pkt))
 assert pkt.qd == []
+
+= DNS - command
+
+p = DNS()
+assert p == eval(p.command())
+
+p = DNS(qd=[])
+assert p == eval(p.command())
