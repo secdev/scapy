@@ -198,6 +198,30 @@ class SSLv2ServerHello(_SSLv2Handshake):
         if self.cert is not None:
             s.server_certs = [self.cert]
 
+class SSLv2ServerHelloCC(_SSLv2Handshake):
+    """
+    SSLv2 ServerHello.
+    """
+    name = "SSLv2 Handshake - Server Hello"
+    fields_desc = [ByteEnumField("msgtype", 4, _sslv2_handshake_type),
+
+                   ByteField("sid_hit", 0),
+                   ByteEnumField("certtype", 1, {1: "x509_cert"}),
+                   _TLSVersionField("version", 0x0002, _tls_version),
+
+                   FieldLenField("certlen", None, fmt="!H",
+                                 length_of="cert"),
+                   FieldLenField("cipherslen", None, fmt="!H",
+                                 length_of="ciphers"),
+                   FieldLenField("connection_idlen", None, fmt="!H",
+                                 length_of="connection_id"),
+
+                   _SSLv2CertDataField("cert", b"",
+                                       length_from=lambda pkt: pkt.certlen),
+                   _SSLv2CipherSuitesField("ciphers", [], _tls_cipher_suites,
+                                           length_from=lambda pkt: pkt.cipherslen),  # noqa: E501
+                   XStrLenField("connection_id", b"",
+                                length_from=lambda pkt: pkt.connection_idlen)]
 
 ###############################################################################
 #   ClientMasterKey                                                           #

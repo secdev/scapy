@@ -24,6 +24,7 @@ from scapy.fields import (
     XStrLenField,
 )
 from scapy.packet import Packet, Padding
+from scapy.utils import repr_hex
 from scapy.layers.tls.extensions import TLS_Ext_Unknown, _tls_ext
 from scapy.layers.tls.crypto.groups import (
     _tls_named_curves,
@@ -33,6 +34,7 @@ from scapy.layers.tls.crypto.groups import (
     _tls_named_groups_import,
     _tls_named_groups_pubbytes,
 )
+import scapy.libs.six as six
 
 if conf.crypto_valid:
     from cryptography.hazmat.primitives.asymmetric import ec
@@ -167,9 +169,9 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             if group_name in self.tls_session.tls13_client_pubshares:
                 privkey = self.server_share.privkey
                 pubkey = self.tls_session.tls13_client_pubshares[group_name]
-                if group_name in _tls_named_ffdh_groups.values():
+                if group_name in six.itervalues(_tls_named_ffdh_groups):
                     pms = privkey.exchange(pubkey)
-                elif group_name in _tls_named_curves.values():
+                elif group_name in six.itervalues(_tls_named_curves):
                     if group_name in ["x25519", "x448"]:
                         pms = privkey.exchange(pubkey)
                     else:
@@ -190,9 +192,9 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             if group_name in self.tls_session.tls13_client_privshares:
                 pubkey = self.server_share.pubkey
                 privkey = self.tls_session.tls13_client_privshares[group_name]
-                if group_name in _tls_named_ffdh_groups.values():
+                if group_name in six.itervalues(_tls_named_ffdh_groups):
                     pms = privkey.exchange(pubkey)
-                elif group_name in _tls_named_curves.values():
+                elif group_name in six.itervalues(_tls_named_curves):
                     if group_name in ["x25519", "x448"]:
                         pms = privkey.exchange(pubkey)
                     else:
@@ -201,9 +203,9 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             elif group_name in self.tls_session.tls13_server_privshare:
                 pubkey = self.tls_session.tls13_client_pubshares[group_name]
                 privkey = self.tls_session.tls13_server_privshare[group_name]
-                if group_name in _tls_named_ffdh_groups.values():
+                if group_name in six.itervalues(_tls_named_ffdh_groups):
                     pms = privkey.exchange(pubkey)
-                elif group_name in _tls_named_curves.values():
+                elif group_name in six.itervalues(_tls_named_curves):
                     if group_name in ["x25519", "x448"]:
                         pms = privkey.exchange(pubkey)
                     else:
@@ -217,6 +219,12 @@ _tls_ext_keyshare_cls = {1: TLS_Ext_KeyShare_CH,
 
 _tls_ext_keyshare_hrr_cls = {2: TLS_Ext_KeyShare_HRR}
 
+
+class TLS_Ext_KeyShare_SHCC(TLS_Ext_Unknown):
+    name = "TLS Extension - Key Share (for ServerHello)"
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
+                   ShortField("len", None),
+                   PacketField("server_share", None, KeyShareEntry)]
 
 class Ticket(Packet):
     name = "Recommended Ticket Construction (from RFC 5077)"

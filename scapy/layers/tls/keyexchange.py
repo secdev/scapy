@@ -17,6 +17,7 @@ from scapy.error import warning
 from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
     FieldListField, PacketField, ShortEnumField, ShortField, \
     StrFixedLenField, StrLenField
+from scapy.utils import randstring, repr_hex
 from scapy.compat import orb
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
@@ -172,13 +173,21 @@ class _TLSSignature(_GenericTLSSessionInheritance):
 
     def __init__(self, *args, **kargs):
         super(_TLSSignature, self).__init__(*args, **kargs)
+        s = self.tls_session
         if (self.tls_session and
                 self.tls_session.tls_version):
             if self.tls_session.tls_version < 0x0303:
                 self.sig_alg = None
-            elif self.tls_session.tls_version == 0x0304:
+                #self.sig_alg = s.specify_sig_alg
+            elif self.tls_session.tls_version == 0x0304 and s.connection_end == "server":
                 # For TLS 1.3 signatures, set the signature
                 # algorithm to RSA-PSS
+                # Modify sig alg here; default for 1.3 is RSA-PSS
+                if s.specify_sig_alg:
+                    self.sig_alg = s.specify_sig_alg
+                else:
+                    self.sig_alg = 0x0804
+            elif self.tls_session.tls_version == 0x0304 and s.connection_end == "client":
                 self.sig_alg = 0x0804
 
     def _update_sig(self, m, key):
@@ -754,6 +763,8 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
                 s.compute_ms_and_derive_keys()
 
     def post_build(self, pkt, pay):
+        super(ClientDiffieHellmanPublic, self)
+        s = self.tls_session
         if not self.dh_Yc:
             try:
                 self.fill_missing()
@@ -761,7 +772,12 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
                 pass
         if self.dh_Yclen is None:
             self.dh_Yclen = len(self.dh_Yc)
-        return pkcs_i2osp(self.dh_Yclen, 2) + self.dh_Yc + pay
+        if s.empty_pubkey == True:
+            self.dh_Yc = 0x00
+            self.dh_Yclen = 0x00
+            return pkcs_i2osp(self.dh_Yc, 2) 
+        else:
+            return pkcs_i2osp(self.dh_Yclen, 2) + self.dh_Yc + pay
 
     def post_dissection(self, m):
         """
@@ -770,7 +786,6 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
         secret. Finally, we derive the session keys and update the context.
         """
         s = self.tls_session
-
         # if there are kx params and keys, we assume the crypto library is ok
         if s.client_kx_ffdh_params:
             y = pkcs_os2ip(self.dh_Yc)
@@ -837,6 +852,16 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
                 self.fill_missing()
             except ImportError:
                 pass
+        s = self.tls_session
+        if s.altered_y_coordinate == True:
+            print("Contents of x y coordinate before altering: [%s]" % repr_hex(self.ecdh_Yc))
+            altered_y_coordinate = self.ecdh_Yc[:-3] + randstring(1) + self.ecdh_Yc[-2:]
+            if altered_y_coordinate == self.ecdh_Yc:
+                warning("y coordinate was not altered.  Run Test Again!")
+            else:
+                self.ecdh_Yc = altered_y_coordinate
+                print("Contents of x y coordinate after altering:  [%s]" % repr_hex(self.ecdh_Yc))
+                print(" ")
         if self.ecdh_Yclen is None:
             self.ecdh_Yclen = len(self.ecdh_Yc)
         return pkcs_i2osp(self.ecdh_Yclen, 1) + self.ecdh_Yc + pay
@@ -950,6 +975,18 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
             tls_version = s.advertised_tls_version
         if tls_version >= 0x0301:
             tmp_len = struct.pack("!H", len(enc))
+        if s.altered_pre_master_secret:
+            print(" ")
+            print("Encrypted Pre Master Secret Before Test Client Alteration: [%s]" % repr_hex(enc))
+            print(" ")
+            t = enc[:3] + randstring(1) + enc[4:]
+            if t == enc:
+                warning("Encrypted Pre Master Secret was not altered.  Run Test Again!")
+            else:
+                enc = t
+                #enc = enc[:3] + randstring(1) + enc[4:]
+                print("Encrypted Pre Master Secret After Test Client Alteration: [%s]" % repr_hex(enc))
+                print(" ")
         return tmp_len + enc + pay
 
     def guess_payload_class(self, p):

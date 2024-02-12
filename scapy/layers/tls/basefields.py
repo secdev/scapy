@@ -11,6 +11,7 @@ upon the TLS version or ciphersuite, the packet has to provide a TLS context.
 import struct
 
 from scapy.fields import ByteField, ShortEnumField, ShortField, StrField
+import scapy.libs.six as six
 from scapy.compat import orb
 
 _tls_type = {20: "change_cipher_spec",
@@ -167,10 +168,8 @@ class _TLSMACField(StrField):
         return s
 
     def getfield(self, pkt, s):
-        if (
-            pkt.tls_session.rcs.cipher.type != "aead" and
-            False in pkt.tls_session.rcs.cipher.ready.values()
-        ):
+        if (pkt.tls_session.rcs.cipher.type != "aead" and
+                False in six.itervalues(pkt.tls_session.rcs.cipher.ready)):
             # XXX Find a more proper way to handle the still-encrypted case
             return s, b""
         tmp_len = pkt.tls_session.rcs.mac_len
