@@ -15,6 +15,7 @@ from scapy.layers.tls.crypto.kx_algs import _tls_kx_algs
 from scapy.layers.tls.crypto.hash import _tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import _tls_hmac_algs
 from scapy.layers.tls.crypto.ciphers import _tls_cipher_algs
+import scapy.libs.six as six
 
 
 def get_algs_from_ciphersuite_name(ciphersuite_name):
@@ -125,7 +126,7 @@ class _GenericCipherSuiteMetaclass(type):
         return the_class
 
 
-class _GenericCipherSuite(metaclass=_GenericCipherSuiteMetaclass):
+class _GenericCipherSuite(six.with_metaclass(_GenericCipherSuiteMetaclass, object)):  # noqa: E501
     def __init__(self, tls_version=0x0303):
         """
         Most of the attributes are fixed and have already been set by the
@@ -709,8 +710,8 @@ class TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA256(_GenericCipherSuite):
 class TLS_DH_anon_WITH_CAMELLIA_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x00C5
 
-# class TLS_EMPTY_RENEGOTIATION_INFO_CSV(_GenericCipherSuite):
-#    val = 0x00FF
+class TLS_EMPTY_RENEGOTIATION_INFO_CSV(_GenericCipherSuite):
+    val = 0x00FF
 
 # class TLS_FALLBACK_SCSV(_GenericCipherSuite):
 #    val = 0x5600
