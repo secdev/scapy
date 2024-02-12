@@ -21,6 +21,7 @@ from scapy.layers.tls.cert import Cert, PrivKey
 from scapy.layers.tls.record import TLS
 from scapy.layers.tls.record_sslv2 import SSLv2
 from scapy.layers.tls.record_tls13 import TLS13
+from scapy.utils import randstring
 
 
 class _TLSAutomaton(Automaton):
@@ -233,6 +234,7 @@ class _TLSAutomaton(Automaton):
             self.buffer_out.append(TLS13(tls_session=self.cur_session))
         # For TLS 1.3 middlebox compatibility, TLS record version must
         # be 0x0303
+       
         elif is_tls12:
             self.buffer_out.append(TLS(version="TLS 1.2",
                                        tls_session=self.cur_session))
@@ -258,6 +260,13 @@ class _TLSAutomaton(Automaton):
         Send all buffered records and update the session accordingly.
         """
         s = b"".join(p.raw_stateful() for p in self.buffer_out)
+        self.socket.send(s)
+        self.buffer_out = []
+
+    def flush_recordsCC(self):
+        t = b"".join(p.raw_stateful() for p in self.buffer_out)
+        t = t[:1] + randstring(1) + t[2:]
+        s = t
         self.socket.send(s)
         self.buffer_out = []
 
