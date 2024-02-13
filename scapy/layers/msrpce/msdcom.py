@@ -9,6 +9,7 @@
 https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dcom/4a893f3d-bd29-48cd-9f43-d9777a4415b0
 """
 
+import collections
 import uuid
 
 from scapy.config import conf
@@ -481,14 +482,18 @@ class DCOM_Client(DCERPC_Client):
         """
         resp = self.sr1_req(ServerAlive2_Request(ndr64=False))
         binds, secs = _parseStringArray(resp.ppdsaOrBindings.value)
-        print("Addresses:")
+        DCOMResults = collections.namedtuple('DCOMResults', ['addresses', 'ssps'])
+        addresses = []
+        ssps = []
         for b in binds:
             if b.wTowerId == 0:
                 continue
-            print("- %s" % b.aNetworkAddr)
-        print("Supported RPC Security Providers:")
+            addresses.append(b.aNetworkAddr)
         for b in secs:
-            print("- %s%s" % (
-                b.sprintf("%wAuthnSvc%"),
-                b.aPrincName and "%s/" % b.aPrincName or "",
-            ))
+            ssps.append(
+                "%s%s" % (
+                    b.sprintf("%wAuthnSvc%"),
+                    b.aPrincName and "%s/" % b.aPrincName or "",
+                )
+            )
+        return DCOMResults(addresses, ssps)

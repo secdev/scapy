@@ -1,0 +1,32 @@
+% RTSP tests
+
++ RTSP - Dissection and Build tests
+
+= RTSP request - dissection
+
+pkt = Ether(b'\xbc\xdf \x00\x02\x00\x00\x00\x02\x00\x00\x00\x08\x00E\x00\x01\xde\x16\xca@\x00\x80\x06\xf9\xb8Q\x83\xe7CR\xd3\\\xfd\x0fU\x02*\xbf\xd4\xcb\xa4~\n\x19DP\x18"8\x86n\x00\x00DESCRIBE rtsp://EMAP1.planetwideradio.com/tfm RTSP/1.0\r\nUser-Agent: WMPlayer/10.0.0.380 guid/7405E143-26AC-4B37-9802-A35EE8C6CFA7\r\nAccept: application/sdp\r\nAccept-Charset: UTF-8, *;q=0.1\r\nX-Accept-Authentication: Negotiate, NTLM, Digest, Basic\r\nAccept-Language: en-GB, *;q=0.1\r\nCSeq: 1\r\nSupported: com.microsoft.wm.srvppair, com.microsoft.wm.sswitch, com.microsoft.wm.eosmsg, com.microsoft.wm.predstrm, com.microsoft.wm.startupprofile\r\n\r\n')
+assert RTSPRequest in pkt
+assert pkt.Method == b"DESCRIBE"
+assert pkt.Request_Uri == b"rtsp://EMAP1.planetwideradio.com/tfm"
+assert pkt.Version == b"RTSP/1.0"
+assert pkt.Accept == b"application/sdp"
+assert pkt.User_Agent == b"WMPlayer/10.0.0.380 guid/7405E143-26AC-4B37-9802-A35EE8C6CFA7"
+
+= RTSP request - build
+
+rebuild = RTSP() / RTSPRequest(Accept=b'application/sdp', Accept_Language=b'en-GB, *;q=0.1', User_Agent=b'WMPlayer/10.0.0.380 guid/7405E143-26AC-4B37-9802-A35EE8C6CFA7', Unknown_Headers={b'Accept-Charset': b'UTF-8, *;q=0.1', b'X-Accept-Authentication': b'Negotiate, NTLM, Digest, Basic', b'CSeq': b'1', b'Supported': b'com.microsoft.wm.srvppair, com.microsoft.wm.sswitch, com.microsoft.wm.eosmsg, com.microsoft.wm.predstrm, com.microsoft.wm.startupprofile'}, Method=b'DESCRIBE', Request_Uri=b'rtsp://EMAP1.planetwideradio.com/tfm', Version=b'RTSP/1.0')
+assert bytes(rebuild) == b'DESCRIBE rtsp://EMAP1.planetwideradio.com/tfm RTSP/1.0\r\nAccept: application/sdp\r\nAccept-Language: en-GB, *;q=0.1\r\nUser-Agent: WMPlayer/10.0.0.380 guid/7405E143-26AC-4B37-9802-A35EE8C6CFA7\r\nAccept-Charset: UTF-8, *;q=0.1\r\nX-Accept-Authentication: Negotiate, NTLM, Digest, Basic\r\nCSeq: 1\r\nSupported: com.microsoft.wm.srvppair, com.microsoft.wm.sswitch, com.microsoft.wm.eosmsg, com.microsoft.wm.predstrm, com.microsoft.wm.startupprofile\r\n\r\n'
+
+= RTSP response - dissection
+
+pkt = Ether(b'\x00\x02\xb3L\xf6\xb2\x00 \x9cR\x93`\x08\x00E\x80\x02cY\x13@\x00p\x06\xa9\x91\xd8@\xbe=\n\xc9d)\x02*\t\x9d\xf7p\xe8O\x10\xfcz\x9fP\x18\xfc\xc0\x91L\x00\x00RTSP/1.0 200 OK\r\nTransport: RTP/AVP/UDP;unicast;server_port=5004-5005;client_port=2462-2463;ssrc=927717de;mode=PLAY\r\nDate: Sun, 06 Nov 2005 12:19:47 GMT\r\nCSeq: 2\r\nSession: 17555940012607716235;timeout=60\r\nServer: WMServer/9.1.1.3814\r\nSupported: com.microsoft.wm.srvppair, com.microsoft.wm.sswitch, com.microsoft.wm.eosmsg, com.microsoft.wm.fastcache, com.microsoft.wm.packetpairssrc, com.microsoft.wm.startupprofile\r\nLast-Modified: Thu, 20 Oct 2005 16:30:11 GMT\r\nCache-Control: x-wms-content-size=84457, max-age=86398, must-revalidate, proxy-revalidate\r\nEtag: "84457"\r\n\r\n')
+assert RTSPResponse in pkt
+assert pkt.Version == b"RTSP/1.0"
+assert pkt.Status_Code == b"200"
+assert pkt.Reason_Phrase == b"OK"
+assert pkt.Server == b"WMServer/9.1.1.3814"
+
+= RTSP response - build
+
+rebuild = RTSP() / RTSPResponse(Server=b'WMServer/9.1.1.3814', Unknown_Headers={b'Transport': b'RTP/AVP/UDP;unicast;server_port=5004-5005;client_port=2462-2463;ssrc=927717de;mode=PLAY', b'Date': b'Sun, 06 Nov 2005 12:19:47 GMT', b'CSeq': b'2', b'Session': b'17555940012607716235;timeout=60', b'Supported': b'com.microsoft.wm.srvppair, com.microsoft.wm.sswitch, com.microsoft.wm.eosmsg, com.microsoft.wm.fastcache, com.microsoft.wm.packetpairssrc, com.microsoft.wm.startupprofile', b'Last-Modified': b'Thu, 20 Oct 2005 16:30:11 GMT', b'Cache-Control': b'x-wms-content-size=84457, max-age=86398, must-revalidate, proxy-revalidate', b'Etag': b'"84457"'}, Version=b'RTSP/1.0', Status_Code=b'200', Reason_Phrase=b'OK')
+assert bytes(rebuild) == b'RTSP/1.0 200 OK\r\nServer: WMServer/9.1.1.3814\r\nTransport: RTP/AVP/UDP;unicast;server_port=5004-5005;client_port=2462-2463;ssrc=927717de;mode=PLAY\r\nDate: Sun, 06 Nov 2005 12:19:47 GMT\r\nCSeq: 2\r\nSession: 17555940012607716235;timeout=60\r\nSupported: com.microsoft.wm.srvppair, com.microsoft.wm.sswitch, com.microsoft.wm.eosmsg, com.microsoft.wm.fastcache, com.microsoft.wm.packetpairssrc, com.microsoft.wm.startupprofile\r\nLast-Modified: Thu, 20 Oct 2005 16:30:11 GMT\r\nCache-Control: x-wms-content-size=84457, max-age=86398, must-revalidate, proxy-revalidate\r\nEtag: "84457"\r\n\r\n'

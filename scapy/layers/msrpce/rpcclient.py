@@ -85,7 +85,7 @@ class DCERPC_Client(object):
         client.sock = DceRpcSocket(sock, DceRpc5, ssp=client.ssp)
         return client
 
-    def connect(self, ip, port=None, smb_kwargs={}):
+    def connect(self, ip, port=None, timeout=5, smb_kwargs={}):
         """
         Initiate a connection
         """
@@ -99,7 +99,7 @@ class DCERPC_Client(object):
                     "Can't guess the port for transport: %s" % self.transport
                 )
         sock = socket.socket()
-        sock.settimeout(5)
+        sock.settimeout(timeout)
         if self.verb:
             print(
                 "\u2503 Connecting to %s on port %s via %s..."
