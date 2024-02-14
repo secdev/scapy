@@ -12,9 +12,10 @@ References:
 import struct
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitFieldLenField, BitField, BitEnumField, ByteField, \
-    ShortField, XShortField, IPField, PacketListField, \
+    ShortField, XShortField, IPField, IP6Field, PacketListField, \
     IntField, FieldLenField, BoundStrLenField
 from scapy.layers.inet import IP
+from scapy.layers.inet6 import IPv6, in6_chksum, _IPv6ExtHdr
 from scapy.utils import checksum
 from scapy.compat import orb
 from scapy.config import conf
@@ -53,9 +54,23 @@ class PIMv2Hdr(Packet):
         """
         p += pay
         if self.chksum is None:
-            ck = checksum(p)
-            p = p[:2] + struct.pack("!H", ck) + p[4:]
+            if isinstance(self.underlayer, IP):
+                ck = checksum(p)
+                #ck = in4_chksum(103, self.underlayer, p)
+                # According to RFC768 if the result checksum is 0, it should be set to 0xFFFF  # noqa: E501
+                if ck == 0:
+                    ck = 0xFFFF
+                p = p[:2] + struct.pack("!H", ck) + p[4:]
+
+            elif isinstance(self.underlayer, IPv6) or isinstance(self.underlayer, _IPv6ExtHdr):  # noqa: E501
+                ck = in6_chksum(103, self.underlayer, p)  # noqa: E501
+                # According to RFC2460 if the result checksum is 0, it should be set to 0xFFFF  # noqa: E501
+                if ck == 0:
+                    ck = 0xFFFF
+                p = p[:2] + struct.pack("!H", ck) + p[4:]
+
         return p
+
 
 
 def _guess_pim_tlv_class(h_classes, default_key, pkt, **kargs):
@@ -169,6 +184,26 @@ class PIMv2HelloStateRefresh(_PIMv2GenericHello):
                         PIMv2HelloStateRefreshValue)
     ]
 
+class PIMv2HelloAddrListValue(_PIMv2GenericHello):
+    name = "PIMv2 Hello Options : Address List Value"
+    fields_desc = [
+            ByteField("addr_family", 1),
+            ByteField("encoding_type", 0),
+            IP6Field("prefix","::")
+    ]
+
+class PIMv2HelloAddrList(_PIMv2GenericHello):
+    name = "PIMv2 Hello Options : Address List"
+    fields_desc = [
+        ShortField("type", 24),
+        FieldLenField(
+            "length", None, length_of="value" , fmt="!H"
+        ),
+        PacketListField("value", PIMv2HelloAddrListValue(),
+            PIMv2HelloAddrListValue
+        )
+    ]
+
 
 PIMv2_HELLO_CLASSES = {
     1: PIMv2HelloHoldtime,
@@ -176,6 +211,7 @@ PIMv2_HELLO_CLASSES = {
     19: PIMv2HelloDRPriority,
     20: PIMv2HelloGenerationID,
     21: PIMv2HelloStateRefresh,
+    24: PIMv2HelloAddrList,
     None: _PIMv2GenericHello,
 }
 
@@ -224,7 +260,7 @@ class PIMv2GroupAddrs(_PIMGenericTlvBase):
     ]
 
 
-class PIMv2JoinPrune(_PIMGenericTlvBase):
+class PIMv2JoinPruneIpv4(_PIMGenericTlvBase):
     name = "PIMv2 Join/Prune Options"
     fields_desc = [
         ByteField("up_addr_family", 1),
@@ -238,6 +274,73 @@ class PIMv2JoinPrune(_PIMGenericTlvBase):
     ]
 
 
+
+#########################################################
+# IPv6 
+class PIMv2JoinPruneAddr6sBase(_PIMGenericTlvBase):
+    name = "PIMv2 Join: IPv6 Address Base"
+    fields_desc = [
+        ByteField("addr_family", 2),
+        ByteField("encoding_type", 0),
+        BitField("rsrvd", 0, 5),
+        BitField("sparse", 0, 1),
+        BitField("wildcard", 0, 1),
+        BitField("rpt", 1, 1),
+        ByteField("mask_len", 128),
+        IP6Field("src_ip", "::0")
+
+    ]
+
+class PIMv2JoinAddr6s(PIMv2JoinPruneAddr6sBase):
+    name = "PIMv2 Join: Source IPv6 Address"
+
+
+class PIMv2PruneAddr6s(PIMv2JoinPruneAddr6sBase):
+    name = "PIMv2 Prune: Source IPv6 Address"
+
+
+class PIMv2GroupAddr6s(_PIMGenericTlvBase):
+    name = "PIMv2 Join/Prune: Multicast Group Address IPv6"
+    fields_desc = [
+        ByteField("addr_family", 2),
+        ByteField("encoding_type", 0),
+        BitField("bidirection", 0, 1),
+        BitField("reserved", 0, 6),
+        BitField("admin_scope_zone", 0, 1),
+        ByteField("mask_len", 128),
+        IP6Field("gaddr", "::0"),
+        BitFieldLenField("num_joins", None, size=16, count_of="join_ips"),
+        BitFieldLenField("num_prunes", None, size=16, count_of="prune_ips"),
+        PacketListField("join_ips", [], PIMv2JoinAddr6s,
+                        count_from=lambda x: x.num_joins),
+        PacketListField("prune_ips", [], PIMv2PruneAddr6s,
+                        count_from=lambda x: x.num_prunes),
+    ]
+
+class PIMv2JoinPruneIpv6(_PIMGenericTlvBase):
+    name = "PIMv2 Join/Prune Options for IPv6"
+    fields_desc = [
+        ByteField("up_addr_family", 2),
+        ByteField("up_encoding_type", 0),
+        IP6Field("up_neighbor_ip", "::0"),
+        ByteField("reserved", 0),
+        FieldLenField("num_group", None, count_of="jp_ips", fmt="B"),
+        ShortField("holdtime", 210),
+        PacketListField("jp_ips", [], PIMv2GroupAddr6s,
+                        count_from=lambda pkt: pkt.num_group)
+    ]
+
+class PIMv2JoinPrune(Packet):
+    def guess_payload_class(self, payload):
+        #if up_addr_family == 2:
+        if payload[0] == 2:
+            return PIMv2JoinPruneIpv6
+        else :
+            return PIMv2JoinPruneIpv4
+
+
+
 bind_layers(IP, PIMv2Hdr, proto=103)
+bind_layers(IPv6, PIMv2Hdr, nh=103)
 bind_layers(PIMv2Hdr, PIMv2Hello, type=0)
 bind_layers(PIMv2Hdr, PIMv2JoinPrune, type=3)
