@@ -1443,6 +1443,48 @@ conf.checkIPsrc = conf_checkIPsrc
 
 ############
 ############
++ command() / json() tests
+~ command
+
+= Test command() with normal packet
+
+pkt = IP(dst="127.0.0.1", src="127.0.0.1") / UDP(dport=12345, sport=654)
+assert pkt.command() == "IP(src='127.0.0.1', dst='127.0.0.1')/UDP(sport=654, dport=12345)"
+
+= Test json() with normal packet
+
+assert pkt.json() == '{"version": 4, "ihl": null, "tos": 0, "len": null, "id": 1, "flags": 0, "frag": 0, "ttl": 64, "proto": 17, "chksum": null, "src": "127.0.0.1", "dst": "127.0.0.1", "payload": {"sport": 654, "dport": 12345, "len": null, "chksum": null}}'
+
+= Test command() with nested packet
+
+pkt = DNS(qd=[DNSQR(qtype="A", qname="google.com")])
+assert pkt.command() == "DNS(qd=[DNSQR(qname=b'google.com.', qtype=1)])"
+
+= Test json() with nested packet
+
+assert pkt.json() == '{"length": null, "id": 0, "qr": 0, "opcode": 0, "aa": 0, "tc": 0, "rd": 1, "ra": 0, "z": 0, "ad": 0, "cd": 0, "rcode": 0, "qdcount": null, "ancount": null, "nscount": null, "arcount": null, "qd": [{"qname": "google.com.", "qtype": 1, "qclass": 1}]}'
+
+= Test command() with ASN.1 packet
+
+pkt = KRB_AP_REP(bytes(KRB_AP_REP(encPart=EncryptedData())))
+assert pkt.command() == "KRB_AP_REP(pvno=ASN1_INTEGER(5), msgType=ASN1_INTEGER(15), encPart=EncryptedData(etype=ASN1_INTEGER(23), kvno=None, cipher=ASN1_STRING(b'')))"
+
+= Test json(à with ASN.1 packet
+
+assert pkt.json() == '{"pvno": {"type": "ASN1_INTEGER", "value": "5"}, "msgType": {"type": "ASN1_INTEGER", "value": "15"}, "encPart": {"etype": {"type": "ASN1_INTEGER", "value": "23"}, "kvno": null, "cipher": {"type": "ASN1_STRING", "value": ""}}}'
+
+= Test command() with meaningless payload
+
+pkt = PPTPStartControlConnectionReply() / IP(dst="127.0.0.1", src="127.0.0.1")
+assert pkt.command() == "PPTPStartControlConnectionReply()/IP(src='127.0.0.1', dst='127.0.0.1')"
+
+= Test json() with meaningless payload
+
+assert pkt.json() == '{"len": 156, "type": 1, "magic_cookie": 439041101, "ctrl_msg_type": 2, "reserved_0": 0, "protocol_version": 256, "result_code": 1, "error_code": 0, "framing_capabilities": 0, "bearer_capabilities": 0, "maximum_channels": 65535, "firmware_revision": 256, "host_name": "linux", "vendor_string": "", "payload": {"version": 4, "ihl": null, "tos": 0, "len": null, "id": 1, "flags": 0, "frag": 0, "ttl": 64, "proto": 0, "chksum": null, "src": "127.0.0.1", "dst": "127.0.0.1"}}'
+
+
+############
+############
 + Tests on padding
 
 = Padding assembly

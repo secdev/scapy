@@ -355,9 +355,16 @@ class ASN1_Object(Generic[_K], metaclass=ASN1_Object_metaclass):
         # type: (Any) -> bool
         return bool(self.val != other)
 
-    def command(self):
-        # type: () -> str
-        return "%s(%s)" % (self.__class__.__name__, repr(self.val))
+    def command(self, json=False):
+        # type: (bool) -> Union[Dict[str, str], str]
+        if json:
+            if isinstance(self.val, bytes):
+                val = self.val.decode("utf-8", errors="backslashreplace")
+            else:
+                val = repr(self.val)
+            return {"type": self.__class__.__name__, "value": val}
+        else:
+            return "%s(%s)" % (self.__class__.__name__, repr(self.val))
 
 
 #######################

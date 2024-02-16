@@ -157,6 +157,7 @@ pkt.decode_payload_as()   changes the way the payload is decoded
 pkt.psdump()              draws a PostScript diagram with explained dissection 
 pkt.pdfdump()             draws a PDF with explained dissection 
 pkt.command()             return a Scapy command that can generate the packet 
+pkt.json()                return a JSON string representing the packet
 =======================   ====================================================
 
 
