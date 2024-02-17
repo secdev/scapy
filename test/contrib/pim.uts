@@ -102,7 +102,7 @@ assert raw(hello_refresh_pkt) == b'\x01\x00^\x00\x00\r\xc2\x01Rr\x00\x00\x08\x00
 
 join_pkt = Ether(dst="01:00:5e:00:00:0d", src="c2:02:3d:80:00:01")/IP(version=4, ihl=5, tos=0xc0, id=139, ttl=1, proto=103, src="10.0.0.14", dst="224.0.0.13")/\
            PIMv2Hdr(version=2, type=3, reserved=0)/\
-           PIMv2JoinPruneIpv4(up_addr_family=1, up_encoding_type=0, up_neighbor_ip="10.0.0.13", reserved=0, num_group=1, holdtime=210,
+           PIMv2JoinPrune(up_addr_family=1, up_encoding_type=0, up_neighbor_ip="10.0.0.13", reserved=0, num_group=1, holdtime=210,
            jp_ips=[PIMv2GroupAddrs(addr_family=1, encoding_type=0, bidirection=0, reserved=0, admin_scope_zone=0,
            mask_len=32, gaddr="239.123.123.123", 
            join_ips=[PIMv2JoinAddrs(addr_family=1, encoding_type=0, rsrvd=0, sparse=1, wildcard=1,
@@ -117,7 +117,7 @@ assert raw(join_pkt) == b'\x01\x00^\x00\x00\r\xc2\x02=\x80\x00\x01\x08\x00E\xc0\
 
 prune_pkt = Ether(dst="01:00:5e:00:00:0d", src="c2:02:3d:80:00:01")/IP(version=4, ihl=5, tos=0xc0, id=139, ttl=1, proto=103, src="10.0.0.2", dst="224.0.0.13")/\
             PIMv2Hdr(version=2, type=3, reserved=0)/\
-            PIMv2JoinPruneIpv4(up_addr_family=1, up_encoding_type=0, up_neighbor_ip="10.0.0.1", reserved=0, num_group=1, holdtime=210,
+            PIMv2JoinPrune(up_addr_family=1, up_encoding_type=0, up_neighbor_ip="10.0.0.1", reserved=0, num_group=1, holdtime=210,
             jp_ips=[PIMv2GroupAddrs(addr_family=1, encoding_type=0, bidirection=0, reserved=0, admin_scope_zone=0,
              mask_len=32, gaddr="239.123.123.123",
              prune_ips=[PIMv2PruneAddrs(addr_family=1, encoding_type=0, rsrvd=0, sparse=0, wildcard=0, rpt=0,
@@ -181,14 +181,14 @@ assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].mask_len == 128)
 assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].gaddr == 'ff3e::8000:1')
 assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].num_joins == 1)
 assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].num_joins == len(jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips))
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddr6s].addr_family == 2)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddr6s].encoding_type == 0)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddr6s].rsrvd == 0)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddr6s].sparse == 1)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddr6s].wildcard == 0)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddr6s].rpt == 0)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddr6s].mask_len == 128)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddr6s].src_ip == '2404:8000:1:f001::1')
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].addr_family == 2)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].encoding_type == 0)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].rsrvd == 0)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].sparse == 1)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].wildcard == 0)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].rpt == 0)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].mask_len == 128)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].src_ip == '2404:8000:1:f001::1')
 assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].num_prunes == 0)
 assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].num_prunes == len(jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips))
 
@@ -209,14 +209,14 @@ assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].num_joins == 0)
 assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].num_joins == len(jp_pkt6[PIMv2JoinPrune].jp_ips[0].join_ips))
 assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].num_prunes == 1)
 assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].num_prunes == len(jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips))
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddr6s].addr_family == 2)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddr6s].encoding_type == 0)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddr6s].rsrvd == 0)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddr6s].sparse == 1)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddr6s].wildcard == 0)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddr6s].rpt == 0)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddr6s].mask_len == 128)
-assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddr6s].src_ip == '2404:8000:1:f001::1')
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddrs].addr_family == 2)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddrs].encoding_type == 0)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddrs].rsrvd == 0)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddrs].sparse == 1)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddrs].wildcard == 0)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddrs].rpt == 0)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddrs].mask_len == 128)
+assert (jp_pkt6[PIMv2JoinPrune].jp_ips[0].prune_ips[0][PIMv2PruneAddrs].src_ip == '2404:8000:1:f001::1')
 
 
 
@@ -247,10 +247,9 @@ assert raw(hello_delay_pkt6) == hello_data6
 join_pkt6 = Ether(dst='33:33:00:00:00:0d', src='02:00:00:00:00:01')/\
            IPv6(tc=184, nh=103, hlim=1, src='fe80::ff:fe00:1', dst='ff02::d')/ \
            PIMv2Hdr(version=2, type=3, reserved=0)/ \
-           PIMv2JoinPrune()/ \
-           PIMv2JoinPruneIpv6(jp_ips=[ \
-             PIMv2GroupAddr6s(join_ips=[
-               PIMv2JoinAddr6s(addr_family=2, sparse=1, wildcard=0, rpt=0, mask_len=128, src_ip='2404:8000:1:f001::1')],
+           PIMv2JoinPrune(jp_ips=[ \
+             PIMv2GroupAddrs(join_ips=[
+               PIMv2JoinAddrs(addr_family=2, sparse=1, wildcard=0, rpt=0, mask_len=128, src_ip='2404:8000:1:f001::1')],
                addr_family=2, admin_scope_zone=0, mask_len=128, gaddr='ff3e::8000:1',
                num_joins=1, num_prunes=0)],
              up_addr_family=2, up_neighbor_ip='fe80::fc87:ffff:fe00:141', num_group=1, holdtime=210)
@@ -263,10 +262,9 @@ assert raw(join_pkt6) == jp_data6join
 prune_pkt6 = Ether(dst='33:33:00:00:00:0d', src='02:00:00:00:00:01')/ \
              IPv6(tc=184, nh=103, hlim=1, src='fe80::ff:fe00:1', dst='ff02::d')/ \
              PIMv2Hdr()/ \
-             PIMv2JoinPrune()/ \
-             PIMv2JoinPruneIpv6(jp_ips=[ \
-               PIMv2GroupAddr6s(prune_ips=[ \
-                 PIMv2PruneAddr6s(addr_family=2, sparse=1, wildcard=0, rpt=0, mask_len=128, src_ip='2404:8000:1:f001::1')],
+             PIMv2JoinPrune(jp_ips=[ \
+               PIMv2GroupAddrs(prune_ips=[ \
+                 PIMv2PruneAddrs(addr_family=2, sparse=1, wildcard=0, rpt=0, mask_len=128, src_ip='2404:8000:1:f001::1')],
                addr_family=2, mask_len=128, gaddr='ff3e::8000:1',
                num_joins=0, num_prunes=1)],
                up_addr_family=2, up_neighbor_ip='fe80::fc87:ffff:fe00:141', num_group=1, holdtime=210)
