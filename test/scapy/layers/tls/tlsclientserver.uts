@@ -1,17 +1,15 @@
 % TLS session establishment tests
 
-~ crypto needs_root
+~ crypto
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
 ############
 ############
-+ TLS server automaton tests
-~ server
+
++ Common util functions
 
 = Load server util functions
-~ client
-
 
 import sys, os, re, time, subprocess
 from queue import Queue
@@ -161,6 +159,8 @@ def test_tls_server(suite="", version="", tls13=False, client_auth=False, psk=No
     print(ret)
     assert ret[0]
 
++ TLS server automaton tests
+~ server needs_root
 
 = Testing TLS server with TLS 1.0 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
 ~ open_ssl_client
@@ -283,6 +283,10 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
 
 test_tls_client("0700c0", "0002")
 
+= Testing TLS server and client with SSLv2 and SSL_CK_RC2_128_CBC_EXPORT40_WITH_MD5
+
+test_tls_client("040080", "0002")
+
 = Testing TLS client with SSLv3 and TLS_RSA_EXPORT_WITH_RC4_40_MD5
 
 test_tls_client("0003", "0300")
@@ -290,6 +294,10 @@ test_tls_client("0003", "0300")
 = Testing TLS client with TLS 1.0 and TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA
 
 test_tls_client("0088", "0301")
+
+= Testing TLS client with TLS 1.0 and TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5
+
+test_tls_client("0006", "0301")
 
 = Testing TLS client with TLS 1.1 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
 

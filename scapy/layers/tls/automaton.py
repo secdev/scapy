@@ -64,6 +64,11 @@ class _TLSAutomaton(Automaton):
     which has not yet been interpreted as a TLS record is kept in 'remain_in'.
     """
 
+    def __init__(self, *args, **kwargs):
+        kwargs["ll"] = lambda *args, **kwargs: None
+        kwargs["recvsock"] = lambda *args, **kwargs: None
+        super(_TLSAutomaton, self).__init__(*args, **kwargs)
+
     def parse_args(self, mycert=None, mykey=None, **kargs):
 
         self.verbose = kargs.pop("verbose", True)

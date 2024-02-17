@@ -14,13 +14,11 @@ will be preferred to any other suite the client might propose.
 
 import os
 import sys
-
-basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
-sys.path=[basedir]+sys.path
+from argparse import ArgumentParser
 
 from scapy.config import conf
 from scapy.layers.tls.automaton_srv import TLSServerAutomaton
-from argparse import ArgumentParser
+from scapy.tools.UTscapy import scapy_path
 
 parser = ArgumentParser(description='Simple TLS Server')
 parser.add_argument("--psk",
@@ -48,8 +46,8 @@ if args.no_pfs and args.psk:
 else:
     psk_mode = "psk_dhe_ke"
 
-t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
-                       mykey=basedir+'/test/tls/pki/srv_key.pem',
+t = TLSServerAutomaton(mycert=scapy_path('/test/scapy/layers/tls/pki/srv_cert.pem'),
+                       mykey=scapy_path('/test/scapy/layers/tls/pki/srv_key.pem'),
                        preferred_ciphersuite=pcs,
                        client_auth=args.client_auth,
                        curve=args.curve,
