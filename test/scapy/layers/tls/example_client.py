@@ -12,17 +12,14 @@ Default protocol version is TLS 1.3.
 import os
 import socket
 import sys
-
-basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
-sys.path=[basedir]+sys.path
+from argparse import ArgumentParser
 
 from scapy.config import conf
 from scapy.utils import inet_aton
 from scapy.layers.tls.automaton_cli import TLSClientAutomaton
 from scapy.layers.tls.basefields import _tls_version_options
 from scapy.layers.tls.handshake import TLSClientHello, TLS13ClientHello
-
-from argparse import ArgumentParser
+from scapy.tools.UTscapy import scapy_path
 
 psk = None
 parser = ArgumentParser(description='Simple TLS Client')
@@ -86,8 +83,8 @@ t = TLSClientAutomaton(server=args.server, dport=args.port,
                        server_name=server_name,
                        client_hello=ch,
                        version=args.version,
-                       mycert=basedir+"/test/tls/pki/cli_cert.pem",
-                       mykey=basedir+"/test/tls/pki/cli_key.pem",
+                       mycert=scapy_path("/test/scapy/layers/tls/pki/cli_cert.pem"),
+                       mykey=scapy_path("/test/scapy/layers/tls/pki/cli_key.pem"),
                        psk=args.psk,
                        psk_mode=psk_mode,
                        resumption_master_secret=args.res_master,
