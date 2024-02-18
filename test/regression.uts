@@ -3848,6 +3848,10 @@ n1 = ip.dst
 assert isinstance(n1, Net)
 ip.show()
 
+= Net using implicit format in IP
+
+assert len(list(IP(dst=("192.168.0.100", "192.168.0.199")))) == 100
+
 = Multiple IP addresses test
 ~ netaccess
 
@@ -3902,6 +3906,10 @@ ip.show()
 
 ip = IPv6(dst="www.yahoo.com")
 assert IPv6(raw(ip)).dst == [p.dst for p in ip][0]
+
+= Net6 using implicit format in IPv6
+
+assert len(list(IPv6(dst=("fe80::1", "fe80::1f")))) == 31
 
 = Multiple IPv6 addresses test
 ~ netaccess ipv6

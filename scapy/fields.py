@@ -853,6 +853,10 @@ class IPField(Field[Union[str, Net], bytes]):
                 inet_aton(x)
             except socket.error:
                 return Net(x)
+        elif isinstance(x, tuple):
+            if len(x) != 2:
+                raise ValueError("Invalid IP format")
+            return Net(*x)
         elif isinstance(x, list):
             return [self.h2i(pkt, n) for n in x]
         return x
@@ -949,6 +953,10 @@ class IP6Field(Field[Optional[Union[str, Net6]], bytes]):
                 x = in6_ptop(x)
             except socket.error:
                 return Net6(x)  # type: ignore
+        elif isinstance(x, tuple):
+            if len(x) != 2:
+                raise ValueError("Invalid IPv6 format")
+            return Net6(*x)
         elif isinstance(x, list):
             x = [self.h2i(pkt, n) for n in x]
         return x  # type: ignore
