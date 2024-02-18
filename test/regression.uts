@@ -1528,7 +1528,7 @@ o
 assert o in [
     b'\x1e\x023V',  # PyPy 2.7
     b'A\x02\x07q',  # Python 2.7
-    b'B\x02\xfe\x92',  # python 3.7-3.9
+    b'F\x02\xfe\x92',   # python 3.7-3.9
 ]
 
 = ASN1 - ASN1_BIT_STRING
