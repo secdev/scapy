@@ -22,6 +22,7 @@ then
     case $arg
     in
       -3) PYTHON=python3;;
+      -W) PYTHONWARNINGS="-W error";;
        *) ARGS="$ARGS $arg";;
     esac
   done
@@ -60,4 +61,4 @@ then
   bash ${DIR}/.config/ci/test.sh $PYVER non_root
   exit $?
 fi
-PYTHONPATH=$DIR exec "$PYTHON" ${DIR}/scapy/tools/UTscapy.py $ARGS
+PYTHONPATH=$DIR exec "$PYTHON" $PYTHONWARNINGS ${DIR}/scapy/tools/UTscapy.py $ARGS

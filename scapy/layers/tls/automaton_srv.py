@@ -211,6 +211,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SOCKET_CLOSED(self):
+        self.socket.close()
         raise self.WAITING_CLIENT()
 
     @ATMT.state()
