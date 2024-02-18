@@ -13,6 +13,7 @@
     "test/tls*.uts": "load_layer(\"tls\")"
   },
   "kw_ko": [
-    "mock"
+    "mock",
+    "needs_root"
   ]
 }

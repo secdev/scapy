@@ -84,13 +84,34 @@ def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=
                                debug=5,
                                **kwargs)
         # Sync threads
-        q.put(True)
+        q.put(t)
         # Run server automaton
         t.run()
         # Return correct answer
         res = check_output_for_data(out, err, expected_data)
     # Return data
     q.put(res)
+
+
+def wait_tls_test_server_online():
+    t = time.time()
+    while True:
+        if time.time() - t > 1:
+            raise RuntimeError("Server socket failed to start in time")
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(1)
+            s.connect(("127.0.0.1", 4433))
+            s.shutdown(socket.SHUT_RDWR)
+            s.close()
+            return
+        except IOError:
+            try:
+                s.close()
+            except:
+                pass
+            continue
+
 
 def run_openssl_client(msg, suite="", version="", tls13=False, client_auth=False,
                        psk=None, sess_out=None):
@@ -144,18 +165,19 @@ def test_tls_server(suite="", version="", tls13=False, client_auth=False, psk=No
                            name="test_tls_server %s %s" % (suite, version), daemon=True)
     th_.start()
     # Synchronise threads
-    q_.get()
-    time.sleep(1)
+    print("Synchronising...")
+    atmtsrv = q_.get(timeout=5)
+    if not atmtsrv:
+        raise RuntimeError("Server hanged on startup")
+    wait_tls_test_server_online()
+    print("Thread synchronised")
     # Run openssl client
     run_openssl_client(msg, suite=suite, version=version, tls13=tls13, client_auth=client_auth, psk=psk)
     # Wait for server
-    th_.join(5)
-    if th_.is_alive():
-        raise RuntimeError("Test timed out")
-    # Analyse values
-    if q_.empty():
-        raise RuntimeError("Missing return values")
     ret = q_.get(timeout=5)
+    if not ret:
+        raise RuntimeError("Test timed out")
+    atmtsrv.stop()
     print(ret)
     assert ret[0]
 
@@ -255,8 +277,10 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
     th_.start()
     # Synchronise threads
     print("Synchronising...")
-    assert q_.get(timeout=5) is True
-    time.sleep(1)
+    atmtsrv = q_.get(timeout=5)
+    if not atmtsrv:
+        raise RuntimeError("Server hanged on startup")
+    wait_tls_test_server_online()
     print("Thread synchronised")
     # Run client
     if sess_in_out:
@@ -269,13 +293,10 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
         run_tls_test_client(msg, suite, version, client_auth, key_update)
     # Wait for server
     print("Client running, waiting...")
-    th_.join(5)
-    if th_.is_alive():
-        raise RuntimeError("Test timed out")
-    # Return values
-    if q_.empty():
-        raise RuntimeError("Missing return value")
     ret = q_.get(timeout=5)
+    if not ret:
+        raise RuntimeError("Test timed out")
+    atmtsrv.stop()
     print(ret)
     assert ret[0]
 
@@ -361,7 +382,7 @@ except:
 # Automaton as Socket tests
 
 + TLSAutomatonClient socket tests
-~ netaccess
+~ netaccess needs_root
 
 = Connect to google.com
 
