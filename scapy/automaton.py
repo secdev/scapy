@@ -99,6 +99,9 @@ def select_objects(inputs, remain):
             events.append(i)
     if natives:
         results = results.union(set(select.select(natives, [], [], remain)[0]))
+        if results:
+            # We have native results, poll.
+            remain = 0
     if events:
         # 0xFFFFFFFF = INFINITE
         remainms = int(remain * 1000 if remain is not None else 0xFFFFFFFF)
