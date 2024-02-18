@@ -412,6 +412,13 @@ class SimpleSocket(SuperSocket):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]
         return self.basecls, self.ins.recv(x), None
 
+    if WINDOWS:
+        @staticmethod
+        def select(sockets, remain=None):
+            # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+            from scapy.automaton import select_objects
+            return select_objects(sockets, remain)
+
 
 class StreamSocket(SimpleSocket):
     """
