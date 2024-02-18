@@ -44,11 +44,26 @@ from scapy.layers.x509 import (X509_SubjectPublicKeyInfo,
 from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, _get_hash, \
     _EncryptAndVerifyRSA, _DecryptAndSignRSA
 from scapy.compat import raw, bytes_encode
+
 if conf.crypto_valid:
     from cryptography.exceptions import InvalidSignature
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa, ec
+
+    # cryptography raised the minimum RSA key length to 1024 in 43.0+
+    # https://github.com/pyca/cryptography/pull/10278
+    # but we need still 512 for EXPORT40 ciphers (yes EXPORT is terrible)
+    # https://datatracker.ietf.org/doc/html/rfc2246#autoid-66
+    # The following detects the change and hacks around it using the backend
+
+    try:
+        rsa.generate_private_key(public_exponent=65537, key_size=512)
+        _RSA_512_SUPPORTED = True
+    except ValueError:
+        # cryptography > 43.0
+        _RSA_512_SUPPORTED = False
+        from cryptography.hazmat.primitives.asymmetric.rsa import rust_openssl
 
 
 # Maximum allowed size in bytes for a certificate file, to avoid
@@ -263,9 +278,18 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
         pubExp = pubExp or 65537
         if not modulus:
             real_modulusLen = modulusLen or 2048
-            private_key = rsa.generate_private_key(public_exponent=pubExp,
-                                                   key_size=real_modulusLen,
-                                                   backend=default_backend())
+            if real_modulusLen < 1024 and not _RSA_512_SUPPORTED:
+                # cryptography > 43.0 compatibility
+                private_key = rust_openssl.rsa.generate_private_key(
+                    public_exponent=pubExp,
+                    key_size=real_modulusLen,
+                )
+            else:
+                private_key = rsa.generate_private_key(
+                    public_exponent=pubExp,
+                    key_size=real_modulusLen,
+                    backend=default_backend(),
+                )
             self.pubkey = private_key.public_key()
         else:
             real_modulusLen = len(binrepr(modulus))
@@ -470,9 +494,18 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
             # in order to call RSAPrivateNumbers(...)
             # if one of these is missing, we generate a whole new key
             real_modulusLen = modulusLen or 2048
-            self.key = rsa.generate_private_key(public_exponent=pubExp,
-                                                key_size=real_modulusLen,
-                                                backend=default_backend())
+            if real_modulusLen < 1024 and not _RSA_512_SUPPORTED:
+                # cryptography > 43.0 compatibility
+                self.key = rust_openssl.rsa.generate_private_key(
+                    public_exponent=pubExp,
+                    key_size=real_modulusLen,
+                )
+            else:
+                self.key = rsa.generate_private_key(
+                    public_exponent=pubExp,
+                    key_size=real_modulusLen,
+                    backend=default_backend(),
+                )
             self.pubkey = self.key.public_key()
         else:
             real_modulusLen = len(binrepr(modulus))
