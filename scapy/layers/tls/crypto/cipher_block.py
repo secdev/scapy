@@ -20,8 +20,7 @@ if conf.crypto_valid:
     from cryptography.hazmat.primitives.ciphers import (Cipher, algorithms, modes,  # noqa: E501
                                                         BlockCipherAlgorithm,
                                                         CipherAlgorithm)
-    from cryptography.hazmat.backends.openssl.backend import (backend,
-                                                              GetCipherByName)
+    from cryptography.hazmat.backends.openssl.backend import backend
 
 
 _tls_block_cipher_algs = {}
@@ -191,24 +190,41 @@ if conf.crypto_valid:
 # silently not declared, and the corresponding suites will have 'usable' False.
 
 if conf.crypto_valid:
-    class _ARC2(BlockCipherAlgorithm, CipherAlgorithm):
-        name = "RC2"
-        block_size = 64
-        key_sizes = frozenset([128])
+    try:
+        from cryptography.hazmat.decrepit.ciphers.algorithms import RC2
+        rc2_available = backend.cipher_supported(
+            RC2(b"0" * 16), modes.CBC(b"0" * 8)
+        )
+    except ImportError:
+        # Legacy path for cryptography < 43.0.0
+        from cryptography.hazmat.backends.openssl.backend import (
+            GetCipherByName
+        )
+        _gcbn_format = "{cipher.name}-{mode.name}"
 
-        def __init__(self, key):
-            self.key = algorithms._verify_key_size(self, key)
+        class RC2(BlockCipherAlgorithm, CipherAlgorithm):
+            name = "RC2"
+            block_size = 64
+            key_sizes = frozenset([128])
 
-        @property
-        def key_size(self):
-            return len(self.key) * 8
+            def __init__(self, key):
+                self.key = algorithms._verify_key_size(self, key)
 
-    _gcbn_format = "{cipher.name}-{mode.name}"
-    if GetCipherByName(_gcbn_format)(backend, _ARC2, modes.CBC) != \
-            backend._ffi.NULL:
+            @property
+            def key_size(self):
+                return len(self.key) * 8
+        if GetCipherByName(_gcbn_format)(backend, RC2, modes.CBC) != \
+                backend._ffi.NULL:
+            rc2_available = True
+            backend.register_cipher_adapter(RC2,
+                                            modes.CBC,
+                                            GetCipherByName(_gcbn_format))
+        else:
+            rc2_available = False
 
+    if rc2_available:
         class Cipher_RC2_CBC(_BlockCipher):
-            pc_cls = _ARC2
+            pc_cls = RC2
             pc_cls_mode = modes.CBC
             block_size = 8
             key_len = 16
@@ -216,10 +232,6 @@ if conf.crypto_valid:
         class Cipher_RC2_CBC_40(Cipher_RC2_CBC):
             expanded_key_len = 16
             key_len = 5
-
-        backend.register_cipher_adapter(Cipher_RC2_CBC.pc_cls,
-                                        Cipher_RC2_CBC.pc_cls_mode,
-                                        GetCipherByName(_gcbn_format))
 
         _sslv2_block_cipher_algs["RC2_128_CBC"] = Cipher_RC2_CBC
 
