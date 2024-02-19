@@ -246,7 +246,8 @@ class SndRcvHandler(object):
                 self.hsent.setdefault(p.hashret(), []).append(p)
                 # Send packet
                 self.pks.send(p)
-                time.sleep(self.inter)
+                if self.inter:
+                    time.sleep(self.inter)
                 i += 1
             if self.verbose:
                 print("Finished sending %i packets." % i)
