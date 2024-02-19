@@ -482,7 +482,9 @@ class _NTLM_Version(Packet):
 class NTLM_NEGOTIATE(_NTLMPayloadPacket):
     name = "NTLM Negotiate"
     MessageType = 1
-    OFFSET = 40
+    OFFSET = lambda pkt: (
+        ((pkt.DomainNameBufferOffset or 40) > 32) and 40 or 32
+    )
     fields_desc = [
         NTLM_Header,
         FlagsField("NegotiateFlags", 0, -32, _negotiateFlags),
@@ -494,8 +496,20 @@ class NTLM_NEGOTIATE(_NTLMPayloadPacket):
         LEShortField("WorkstationNameLen", None),
         LEShortField("WorkstationNameMaxLen", None),
         LEIntField("WorkstationNameBufferOffset", None),
+    ] + [
         # VERSION
-        _NTLM_Version,
+        ConditionalField(
+            # (not present on some old Windows versions. We use a heuristic)
+            x,
+            lambda pkt: (
+                (
+                    40 if pkt.DomainNameBufferOffset is None else
+                    pkt.DomainNameBufferOffset or len(pkt.original or b"")
+                ) > 32
+            )
+            or pkt.fields.get(x.name, b""),
+        ) for x in _NTLM_Version.fields_desc
+    ] + [
         # Payload
         _NTLMPayloadField(
             "Payload",
@@ -510,7 +524,7 @@ class NTLM_NEGOTIATE(_NTLMPayloadPacket):
             _NTLM_post_build(
                 self,
                 pkt,
-                self.OFFSET,
+                self.OFFSET(),
                 {
                     "DomainName": 16,
                     "WorkstationName": 24,
@@ -600,7 +614,9 @@ class AV_PAIR(Packet):
 class NTLM_CHALLENGE(_NTLMPayloadPacket):
     name = "NTLM Challenge"
     MessageType = 2
-    OFFSET = 56
+    OFFSET = lambda pkt: (
+        ((pkt.TargetInfoBufferOffset or 56) > 48) and 56 or 48
+    )
     fields_desc = [
         NTLM_Header,
         # TargetNameFields
@@ -615,8 +631,15 @@ class NTLM_CHALLENGE(_NTLMPayloadPacket):
         LEShortField("TargetInfoLen", None),
         LEShortField("TargetInfoMaxLen", None),
         LEIntField("TargetInfoBufferOffset", None),
+    ] + [
         # VERSION
-        _NTLM_Version,
+        ConditionalField(
+            # (not present on some old Windows versions. We use a heuristic)
+            x,
+            lambda pkt: ((pkt.TargetInfoBufferOffset or 56) > 40)
+            or pkt.fields.get(x.name, b""),
+        ) for x in _NTLM_Version.fields_desc
+    ] + [
         # Payload
         _NTLMPayloadField(
             "Payload",
@@ -640,7 +663,7 @@ class NTLM_CHALLENGE(_NTLMPayloadPacket):
             _NTLM_post_build(
                 self,
                 pkt,
-                self.OFFSET,
+                self.OFFSET(),
                 {
                     "TargetName": 12,
                     "TargetInfo": 40,
@@ -730,8 +753,11 @@ class NTLMv2_RESPONSE(NTLMv2_CLIENT_CHALLENGE):
 class NTLM_AUTHENTICATE(_NTLMPayloadPacket):
     name = "NTLM Authenticate"
     MessageType = 3
-    OFFSET = 88
     NTLM_VERSION = 1
+    OFFSET = lambda pkt: (
+        ((pkt.DomainNameBufferOffset or 88) <= 64) and 64
+        or (((pkt.DomainNameBufferOffset or 88) > 72) and 88 or 72)
+    )
     fields_desc = [
         NTLM_Header,
         # LmChallengeResponseFields
@@ -761,7 +787,14 @@ class NTLM_AUTHENTICATE(_NTLMPayloadPacket):
         # NegotiateFlags
         FlagsField("NegotiateFlags", 0, -32, _negotiateFlags),
         # VERSION
-        _NTLM_Version,
+    ] + [
+        ConditionalField(
+            # (not present on some old Windows versions. We use a heuristic)
+            x,
+            lambda pkt: ((pkt.DomainNameBufferOffset or 88) > 64)
+            or pkt.fields.get(x.name, b""),
+        ) for x in _NTLM_Version.fields_desc
+    ] + [
         # MIC
         ConditionalField(
             # (not present on some old Windows versions. We use a heuristic)
@@ -772,7 +805,7 @@ class NTLM_AUTHENTICATE(_NTLMPayloadPacket):
         # Payload
         _NTLMPayloadField(
             "Payload",
-            lambda pkt: ((pkt.DomainNameBufferOffset or 88) > 72) and 88 or 72,
+            OFFSET,
             [
                 MultipleTypeField(
                     [
@@ -812,7 +845,7 @@ class NTLM_AUTHENTICATE(_NTLMPayloadPacket):
             _NTLM_post_build(
                 self,
                 pkt,
-                ((self.DomainNameBufferOffset or 88) > 72) and 88 or 72,
+                self.OFFSET(),
                 {
                     "LmChallengeResponse": 12,
                     "NtChallengeResponse": 20,
@@ -1168,6 +1201,7 @@ class NTLMSSP(SSP):
         DROP_MIC_v1=False,
         DROP_MIC_v2=False,
         DO_NOT_CHECK_LOGIN=False,
+        SERVER_CHALLENGE=None,
         **kwargs,
     ):
         self.UPN = UPN
@@ -1186,6 +1220,7 @@ class NTLMSSP(SSP):
         self.DO_NOT_CHECK_LOGIN = DO_NOT_CHECK_LOGIN
         self.DROP_MIC_v1 = DROP_MIC_v1
         self.DROP_MIC_v2 = DROP_MIC_v2
+        self.SERVER_CHALLENGE = SERVER_CHALLENGE
         super(NTLMSSP, self).__init__(**kwargs)
 
     def LegsAmount(self, Context: CONTEXT):
@@ -1489,7 +1524,7 @@ class NTLMSSP(SSP):
             # Take a default token
             currentTime = (time.time() + 11644473600) * 1e7
             tok = NTLM_CHALLENGE(
-                ServerChallenge=os.urandom(8),
+                ServerChallenge=self.SERVER_CHALLENGE or os.urandom(8),
                 NegotiateFlags="+".join(
                     [
                         "NEGOTIATE_UNICODE",
