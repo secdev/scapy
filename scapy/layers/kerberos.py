@@ -1723,7 +1723,8 @@ class _KRBERROR_data_Field(_ASN1FString_PacketField):
             # 24: KDC_ERR_PREAUTH_FAILED
             # 25: KDC_ERR_PREAUTH_REQUIRED
             return MethodData(val[0].val, _underlayer=pkt), val[1]
-        elif pkt.errorCode.val in [41, 60]:
+        elif pkt.errorCode.val in [18, 41, 60]:
+            # 18: KDC_ERR_CLIENT_REVOKED
             # 41: KRB_AP_ERR_MODIFIED
             # 60: KRB_ERR_GENERIC
             return KERB_ERROR_DATA(val[0].val, _underlayer=pkt), val[1]
@@ -2716,7 +2717,8 @@ class KerberosClient(Automaton):
                 if padata.padataType == 0x13:  # PA-ETYPE-INFO2
                     elt = padata.padataValue.seq[0]
                     etype = elt.etype.val
-                    salt = elt.salt.val
+                    if etype != EncryptionType.RC4_HMAC:
+                        salt = elt.salt.val
                 elif padata.padataType == 133:  # PA-FX-COOKIE
                     self.fxcookie = padata.padataValue
         # Compute key if not already provided

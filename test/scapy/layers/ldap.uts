@@ -162,3 +162,53 @@ pkt = LDAP(
 assert bytes(pkt) == b'0\x84\x00\x00\x00\x9e\x02\x01\x02c\x84\x00\x00\x00o\x04\x00\n\x01\x00\n\x01\x00\x02\x01\x01\x02\x01d\x01\x01\x00\xa7\x0bobjectClass0\x84\x00\x00\x00K\x04\x17rootDomainNamingContext\x04\x14defaultNamingContext\x04\x1aconfigurationNamingContext\xa0\x84\x00\x00\x00 0\x84\x00\x00\x00\x1a\x04\x161.2.840.113556.1.4.529\x04\x00'
 
 conf.ASN1_default_long_size = 0
+
++ NETLOGON_SAM_LOGON tests
+
+= Dissect NETLOGON_SAM_LOGON_RESPONSE_EX - V1+V5EX+V5EXWITH_IP
+
+pkt = NETLOGON(b'\x17\x00\x00\x00\xfd\xf3\x03\x00\x8c#\xf1G^\xe5\xfeL\x89\xe8x\t7\xb1\xcd;\x06domain\x05local\x00\xc0\x18\x03DC1\xc0\x18\x06DOMAIN\x00\x03DC1\x00\x00\x17Default-First-Site-Name\x00\xc0<\x10\x02\x00\x00\x00\xc0\xa8\x00d\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00\xff\xff\xff\xff')
+
+assert pkt.NtVersion.V5EX_WITH_IP and pkt.NtVersion == 13
+assert pkt.DnsForestName == b"domain.local."
+assert pkt.DnsDomainName == b"domain.local."
+assert pkt.DnsHostName == b"DC1.domain.local."
+assert pkt.DcSiteName == b"Default-First-Site-Name."
+assert pkt.ClientSiteName == b"Default-First-Site-Name."
+assert pkt.DcSockAddrSize == 0x10
+assert pkt.DcSockAddr.sin_addr == "192.168.0.100"
+assert pkt.Flags == 0x3f3fd
+
+= Dissect NETLOGON_SAM_LOGON_RESPONSE_EX - V1+V5EX
+
+pkt = NETLOGON(b'\x17\x00\x00\x00\xfd\xf3\x03\x00\x8c#\xf1G^\xe5\xfeL\x89\xe8x\t7\xb1\xcd;\x06domain\x05local\x00\xc0\x18\x03DC1\xc0\x18\x06DOMAIN\x00\x03DC1\x00\x00\x17Default-First-Site-Name\x00\xc0<\x05\x00\x00\x00\xff\xff\xff\xff')
+
+assert pkt.NtVersion == 5
+assert pkt.DnsForestName == b"domain.local."
+assert pkt.DnsDomainName == b"domain.local."
+assert pkt.DnsHostName == b"DC1.domain.local."
+assert pkt.DcSiteName == b"Default-First-Site-Name."
+assert pkt.ClientSiteName == b"Default-First-Site-Name."
+assert pkt.Flags == 0x3f3fd
+
+= Dissect NETLOGON_SAM_LOGON_RESPONSE - V1+V5
+
+import uuid
+
+pkt = NETLOGON(b'\x13\x00\\\x00\\\x00D\x00C\x001\x00\x00\x00\x00\x00D\x00O\x00M\x00A\x00I\x00N\x00\x00\x00\x8c#\xf1G^\xe5\xfeL\x89\xe8x\t7\xb1\xcd;\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x06domain\x05local\x00\xc0>\x03DC1\xc0>d\x00\xa8\xc0}\xf3\x03\x00\x03\x00\x00\x00\xff\xff\xff\xff')
+
+assert pkt.NtVersion == 3
+assert pkt.NullGuid == uuid.UUID('00000000-0000-0000-0000-000000000000')
+assert pkt.DnsForestName == b"domain.local."
+assert pkt.DnsDomainName == b"domain.local."
+assert pkt.DnsHostName == b"DC1.domain.local."
+assert pkt.Flags == 0x3f37d
+
+= Dissect NETLOGON_SAM_LOGON_RESPONSE_NT40 - V1
+
+pkt = NETLOGON(b'\x13\x00\\\x00\\\x00D\x00C\x001\x00\x00\x00\x00\x00D\x00O\x00M\x00A\x00I\x00N\x00\x00\x00\x01\x00\x00\x00\xff\xff\xff\xff')
+
+assert pkt.NtVersion == 1
+assert pkt.UnicodeLogonServer == r"\\DC1"
+assert pkt.UnicodeDomainName == "DOMAIN"
+
