@@ -16,6 +16,7 @@ Note: to mimic Microsoft Windows LDAP packets, you must set::
 
 import collections
 import socket
+import struct
 import uuid
 
 from scapy.ansmachine import AnsweringMachine
@@ -51,6 +52,7 @@ from scapy.layers.inet6 import IPv6
 from scapy.layers.gssapi import GSSAPI_BLOB
 from scapy.layers.kerberos import _ASN1FString_PacketField
 from scapy.layers.smb import (
+    NETLOGON,
     NETLOGON_SAM_LOGON_RESPONSE_EX,
 )
 
@@ -648,7 +650,9 @@ _dclocatorcache = conf.netcache.new_cache("dclocator", 600)
 
 
 @conf.commands.register
-def dclocator(realm, qtype="A", mode="ldap", port=None, timeout=1, debug=0):
+def dclocator(
+    realm, qtype="A", mode="ldap", port=None, timeout=1, NtVersion=None, debug=0
+):
     """
     Perform a DC Locator as per [MS-ADTS] sect 6.3.6 or RFC4120.
 
@@ -665,8 +669,17 @@ def dclocator(realm, qtype="A", mode="ldap", port=None, timeout=1, debug=0):
 
     This is cached in conf.netcache.dclocator.
     """
+    if NtVersion is None:
+        # Windows' default
+        NtVersion = (
+            0x00000002  # V5
+            | 0x00000004  # V5EX
+            | 0x00000010  # V5EX_WITH_CLOSEST_SITE
+            | 0x01000000  # AVOID_NT4EMUL
+            | 0x20000000  # IP
+        )
     # Check cache
-    cache_ident = ";".join([realm, qtype, mode]).lower()
+    cache_ident = ";".join([realm, qtype, mode, str(NtVersion)]).lower()
     if cache_ident in _dclocatorcache:
         return _dclocatorcache[cache_ident]
     # Perform DNS-Based discovery (6.3.6.1)
@@ -758,7 +771,7 @@ def dclocator(realm, qtype="A", mode="ldap", port=None, timeout=1, debug=0):
                                             filter=LDAP_FilterEqual(
                                                 attributeType=ASN1_STRING(b"NtVer"),
                                                 attributeValue=ASN1_STRING(
-                                                    b"\x16\x00\x00!"
+                                                    struct.pack("<I", NtVersion)
                                                 ),
                                             )
                                         ),
@@ -782,7 +795,7 @@ def dclocator(realm, qtype="A", mode="ldap", port=None, timeout=1, debug=0):
                     if isinstance(pkt.protocolOp, LDAP_SearchResponseEntry):
                         try:
                             response = next(
-                                NETLOGON_SAM_LOGON_RESPONSE_EX(x.values[0].value.val)
+                                NETLOGON(x.values[0].value.val)
                                 for x in pkt.protocolOp.attributes
                                 if x.type.val == b"Netlogon"
                             )

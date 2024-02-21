@@ -19,17 +19,19 @@ from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import (
     ByteEnumField,
     ByteField,
+    ConditionalField,
     FieldLenField,
-    FlagsField,
     FieldListField,
+    FlagsField,
     IPField,
     LEFieldLenField,
     LEIntEnumField,
     LEIntField,
     LELongField,
-    LEShortField,
     LEShortEnumField,
+    LEShortField,
     MultipleTypeField,
+    PacketField,
     PacketLenField,
     PacketListField,
     ReversePadField,
@@ -40,6 +42,7 @@ from scapy.fields import (
     StrNullFieldUtf16,
     UTCTimeField,
     UUIDField,
+    XLEShortField,
     XStrLenField,
 )
 
@@ -682,14 +685,7 @@ _SMB_CONFIG = [
 class _SMB_TransactionRequest_Data(PacketLenField):
     def m2i(self, pkt, m):
         if pkt.WordCount == 0x11:
-            if m[0] == 0x07:  # LOGON_PRIMARY_QUERY
-                return NETLOGON_LOGON_QUERY(m)
-            elif m[0] == 0x12:  # LOGON_SAM_LOGON_REQUEST
-                return NETLOGON_SAM_LOGON_REQUEST(m)
-            elif m[0] == 0x19:  # LOGON_SAM_LOGON_RESPONSE_EX
-                return NETLOGON_SAM_LOGON_RESPONSE_EX(m)
-            elif m[0] == 0x17:  # LOGON_SAM_USER_UNKNOWN
-                return NETLOGON_SAM_LOGON_RESPONSE_EX(m)
+            return NETLOGON(m)
         return conf.raw_layer(m)
 
 
@@ -880,39 +876,72 @@ bind_top_down(SMB_Header, SMBTransaction_Response, Command=0x25, Flags=0x80)
 _NETLOGON_opcodes = {
     0x7: "LOGON_PRIMARY_QUERY",
     0x12: "LOGON_SAM_LOGON_REQUEST",
-    0x17: "LOGON_SAM_USER_UNKNOWN",
-    0x19: "LOGON_SAM_LOGON_RESPONSE_EX",
+    0x13: "LOGON_SAM_LOGON_RESPONSE",
+    0x15: "LOGON_SAM_USER_UNKNOWN",
+    0x17: "LOGON_SAM_LOGON_RESPONSE_EX",
+    0x19: "LOGON_SAM_USER_UNKNOWN_EX",
 }
 
 _NV_VERSION = {
-    0x00000001: "1",
-    0x00000002: "5",
-    0x00000004: "5EX",
-    0x00000008: "5EX_WITH_IP",
-    0x00000010: "5EX_WITH_CLOSEST_SITE",
+    0x00000001: "V1",
+    0x00000002: "V5",
+    0x00000004: "V5EX",
+    0x00000008: "V5EX_WITH_IP",
+    0x00000010: "V5EX_WITH_CLOSEST_SITE",
     0x01000000: "AVOID_NT4EMUL",
     0x10000000: "PDC",
+    0x20000000: "IP",
     0x40000000: "LOCAL",
     0x80000000: "GC",
 }
 
 
-class NETLOGON_LOGON_QUERY(Packet):
+class NETLOGON(Packet):
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            if _pkt[0] == 0x07:  # LOGON_PRIMARY_QUERY
+                return NETLOGON_LOGON_QUERY
+            elif _pkt[0] == 0x12:  # LOGON_SAM_LOGON_REQUEST
+                return NETLOGON_SAM_LOGON_REQUEST
+            elif _pkt[0] == 0x13:  # LOGON_SAM_USER_RESPONSE
+                try:
+                    i = _pkt.index(b"\xff\xff\xff\xff")
+                    NtVersion = (
+                        NETLOGON_SAM_LOGON_RESPONSE_NT40.fields_desc[-3].getfield(
+                            None, _pkt[i - 4:i]
+                        )[1]
+                    )
+                    if NtVersion.V1 and not NtVersion.V5:
+                        return NETLOGON_SAM_LOGON_RESPONSE_NT40
+                except Exception:
+                    pass
+                return NETLOGON_SAM_LOGON_RESPONSE
+            elif _pkt[0] == 0x15:  # LOGON_SAM_USER_UNKNOWN
+                return NETLOGON_SAM_LOGON_RESPONSE
+            elif _pkt[0] == 0x17:  # LOGON_SAM_LOGON_RESPONSE_EX
+                return NETLOGON_SAM_LOGON_RESPONSE_EX
+            elif _pkt[0] == 0x19:  # LOGON_SAM_USER_UNKNOWN_EX
+                return NETLOGON_SAM_LOGON_RESPONSE
+        return cls
+
+
+class NETLOGON_LOGON_QUERY(NETLOGON):
     fields_desc = [
         LEShortEnumField("OpCode", 0x7, _NETLOGON_opcodes),
         StrNullField("ComputerName", ""),
         StrNullField("MailslotName", ""),
         StrNullFieldUtf16("UnicodeComputerName", ""),
         FlagsField("NtVersion", 0xB, -32, _NV_VERSION),
-        LEShortField("LmNtToken", 0xFFFF),
-        LEShortField("Lm20Token", 0xFFFF),
+        XLEShortField("LmNtToken", 0xFFFF),
+        XLEShortField("Lm20Token", 0xFFFF),
     ]
 
 
 # [MS-ADTS] sect 6.3.1.6
 
 
-class NETLOGON_SAM_LOGON_REQUEST(Packet):
+class NETLOGON_SAM_LOGON_REQUEST(NETLOGON):
     fields_desc = [
         LEShortEnumField("OpCode", 0x12, _NETLOGON_opcodes),
         LEShortField("RequestCount", 0),
@@ -923,58 +952,97 @@ class NETLOGON_SAM_LOGON_REQUEST(Packet):
         FieldLenField("DomainSidSize", None, fmt="<I", length_of="DomainSid"),
         XStrLenField("DomainSid", b"", length_from=lambda pkt: pkt.DomainSidSize),
         FlagsField("NtVersion", 0xB, -32, _NV_VERSION),
-        LEShortField("LmNtToken", 0xFFFF),
-        LEShortField("Lm20Token", 0xFFFF),
+        XLEShortField("LmNtToken", 0xFFFF),
+        XLEShortField("Lm20Token", 0xFFFF),
     ]
 
 
 # [MS-ADTS] sect 6.3.1.7
 
 
-class NETLOGON_SAM_LOGON_RESPONSE_NT40(Packet):
+class NETLOGON_SAM_LOGON_RESPONSE_NT40(NETLOGON):
     fields_desc = [
         LEShortEnumField("OpCode", 0x13, _NETLOGON_opcodes),
         StrNullFieldUtf16("UnicodeLogonServer", ""),
         StrNullFieldUtf16("UnicodeUserName", ""),
         StrNullFieldUtf16("UnicodeDomainName", ""),
         FlagsField("NtVersion", 0x1, -32, _NV_VERSION),
-        LEShortField("LmNtToken", 0xFFFF),
-        LEShortField("Lm20Token", 0xFFFF),
+        XLEShortField("LmNtToken", 0xFFFF),
+        XLEShortField("Lm20Token", 0xFFFF),
     ]
+
+
+# [MS-ADTS] sect 6.3.1.2
+
+
+_NETLOGON_FLAGS = {
+    0x00000001: "PDC",
+    0x00000004: "GC",
+    0x00000008: "LDAP",
+    0x00000010: "DC",
+    0x00000020: "KDC",
+    0x00000040: "TIMESERV",
+    0x00000080: "CLOSEST",
+    0x00000100: "RODC",
+    0x00000200: "GOOD_TIMESERV",
+    0x00000400: "NC",
+    0x00000800: "SELECT_SECRET_DOMAIN_6",
+    0x00001000: "FULL_SECRET_DOMAIN_6",
+    0x00002000: "WS",
+    0x00004000: "DS_8",
+    0x00008000: "DS_9",
+    0x00010000: "DS_10",  # guess
+    0x00020000: "DS_11",  # guess
+    0x20000000: "DNS_CONTROLLER",
+    0x40000000: "DNS_DOMAIN",
+    0x80000000: "DNS_FOREST",
+}
+
+
+# [MS-ADTS] sect 6.3.1.8
+
+class NETLOGON_SAM_LOGON_RESPONSE(NETLOGON, DNSCompressedPacket):
+    fields_desc = [
+        LEShortEnumField("OpCode", 0x17, _NETLOGON_opcodes),
+        StrNullFieldUtf16("UnicodeLogonServer", ""),
+        StrNullFieldUtf16("UnicodeUserName", ""),
+        StrNullFieldUtf16("UnicodeDomainName", ""),
+        UUIDField("DomainGuid", None, uuid_fmt=UUIDField.FORMAT_LE),
+        UUIDField("NullGuid", None, uuid_fmt=UUIDField.FORMAT_LE),
+        DNSStrField("DnsForestName", ""),
+        DNSStrField("DnsDomainName", ""),
+        DNSStrField("DnsHostName", ""),
+        IPField("DcIpAddress", "0.0.0.0"),
+        FlagsField("Flags", 0, -32, _NETLOGON_FLAGS),
+        FlagsField("NtVersion", 0x1, -32, _NV_VERSION),
+        XLEShortField("LmNtToken", 0xFFFF),
+        XLEShortField("Lm20Token", 0xFFFF),
+    ]
+
+    def get_full(self):
+        return self.original
 
 
 # [MS-ADTS] sect 6.3.1.9
 
 
-class NETLOGON_SAM_LOGON_RESPONSE_EX(DNSCompressedPacket):
+class DcSockAddr(Packet):
+    fields_desc = [
+        LEShortField("sin_family", 2),
+        LEShortField("sin_port", 0),
+        IPField("sin_addr", None),
+        LELongField("sin_zero", 0),
+    ]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
+
+class NETLOGON_SAM_LOGON_RESPONSE_EX(NETLOGON, DNSCompressedPacket):
     fields_desc = [
         LEShortEnumField("OpCode", 0x17, _NETLOGON_opcodes),
         LEShortField("Sbz", 0),
-        FlagsField(
-            "Flags",
-            0,
-            -32,
-            {
-                0x00000001: "PDC",
-                0x00000004: "GC",
-                0x00000008: "LDAP",
-                0x00000010: "DC",
-                0x00000020: "KDC",
-                0x00000040: "TIMESERV",
-                0x00000080: "CLOSEST",
-                0x00000100: "RODC",
-                0x00000200: "GOOD_TIMESERV",
-                0x00000400: "NC",
-                0x00000800: "DS_SELECT_SECRET_DOMAIN_6_FLAG",
-                0x00001000: "DS_FULL_SECRET_DOMAIN_6_FLAG",
-                0x00002000: "DS_WS_FLAG",
-                0x00004000: "DS_DS_8_FLAG",
-                0x00008000: "DS_DS_9_FLAG",
-                0x20000000: "DS_DNS_CONTROLLER_FLAG",
-                0x40000000: "DS_DNS_DOMAIN_FLAG",
-                0x80000000: "DS_DNS_FOREST_FLAG",
-            },
-        ),
+        FlagsField("Flags", 0, -32, _NETLOGON_FLAGS),
         UUIDField("DomainGuid", None, uuid_fmt=UUIDField.FORMAT_LE),
         DNSStrField("DnsForestName", ""),
         DNSStrField("DnsDomainName", ""),
@@ -984,27 +1052,36 @@ class NETLOGON_SAM_LOGON_RESPONSE_EX(DNSCompressedPacket):
         DNSStrField("UserName", ""),
         DNSStrField("DcSiteName", "Default-First-Site-Name"),
         DNSStrField("ClientSiteName", "Default-First-Site-Name"),
+        ConditionalField(
+            ByteField("DcSockAddrSize", 0x10),
+            lambda pkt: pkt.NtVersion.V5EX_WITH_IP,
+        ),
+        ConditionalField(
+            PacketField("DcSockAddr", DcSockAddr(), DcSockAddr),
+            lambda pkt: pkt.NtVersion.V5EX_WITH_IP,
+        ),
+        ConditionalField(
+            DNSStrField("NextClosestSiteName", ""),
+            lambda pkt: pkt.NtVersion.V5EX_WITH_CLOSEST_SITE,
+        ),
         FlagsField("NtVersion", 0xB, -32, _NV_VERSION),
-        LEShortField("LmNtToken", 0xFFFF),
-        LEShortField("Lm20Token", 0xFFFF),
+        XLEShortField("LmNtToken", 0xFFFF),
+        XLEShortField("Lm20Token", 0xFFFF),
     ]
+
+    def pre_dissect(self, s):
+        try:
+            i = s.index(b"\xff\xff\xff\xff")
+            self.fields["NtVersion"] = self.fields_desc[-3].getfield(
+                self,
+                s[i - 4:i]
+            )[1]
+        except Exception:
+            self.NtVersion = 0xB
+        return s
 
     def get_full(self):
         return self.original
-
-
-class NETLOGON_SAM_LOGON_RESPONSE_EX_WITH_IP(NETLOGON_SAM_LOGON_RESPONSE_EX):
-    fields_desc = (
-        NETLOGON_SAM_LOGON_RESPONSE_EX.fields_desc[:12]
-        + [
-            ByteField("DcSockAddrSize", 0x10),
-            LEShortField("sin_family", 2),
-            LEShortField("sin_port", 0),
-            IPField("sin_addr", None),
-            LELongField("sin_zero", 0),
-        ]
-        + NETLOGON_SAM_LOGON_RESPONSE_EX.fields_desc[17:]
-    )
 
 
 # SMB dispatcher
