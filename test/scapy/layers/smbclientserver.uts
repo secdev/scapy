@@ -196,6 +196,27 @@ with run_smbserver():
    finally:
       cli.close()
 
+
+= smbclient: connect to test share and recursive get
+
+LOCALPATH = pathlib.Path(get_temp_dir())
+
+with run_smbserver():
+   try:
+      cli = run_smbclient()
+      cli.use("test")
+      cli.lcd(str(LOCALPATH))
+      cli.get(".", r=True)
+      # check on disk
+   finally:
+      cli.close()
+
+assert (LOCALPATH / "fileA").exists()
+assert (LOCALPATH / "fileB").exists()
+assert (LOCALPATH / "fileScapy").exists()
+assert (LOCALPATH / "sub").exists()
+assert (LOCALPATH / "sub" / "secret").exists()
+
 + SMB2 Server tests
 ~ linux smbserver samba
 

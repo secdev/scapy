@@ -18,6 +18,7 @@ from scapy.automaton import ATMT, Automaton, ObjectPipe
 from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.error import Scapy_Exception
+from scapy.fields import UTCTimeField
 from scapy.supersocket import SuperSocket
 from scapy.utils import (
     CLIUtil,
@@ -677,7 +678,7 @@ class SMB_SOCKET(SuperSocket):
                         x.FileName,
                         x.FileAttributes,
                         x.EndOfFile,
-                        x.sprintf("%LastWriteTime%"),
+                        x.LastWriteTime,
                     )
                     for x in res.files
                 ]
@@ -1076,6 +1077,8 @@ class smbclient(CLIUtil):
     def ls(self, parent=None):
         """
         List the files in the remote directory
+        -t: sort by timestamp
+        -S: sort by size
         """
         if self._require_share():
             return
@@ -1102,22 +1105,33 @@ class smbclient(CLIUtil):
         return files
 
     @CLIUtil.addoutput(ls)
-    def ls_output(self, results):
+    def ls_output(self, results, *, t=False, S=False):
         """
         Print the output of 'ls'
         """
+        fld = UTCTimeField(
+            "", None, fmt="<Q", epoch=[1601, 1, 1, 0, 0, 0], custom_scaling=1e7
+        )
+        if t:
+            # Sort by time
+            results.sort(key=lambda x: -x[3])
+        if S:
+            # Sort by size
+            results.sort(key=lambda x: -x[2])
         results = [
             (
                 x[0],
                 "+".join(y.lstrip("FILE_ATTRIBUTE_") for y in str(x[1]).split("+")),
                 human_size(x[2]),
-                x[3],
+                fld.i2repr(None, x[3]),
             )
             for x in results
         ]
         print(
             pretty_list(
-                results, [("FileName", "FileAttributes", "EndOfFile", "LastWriteTime")]
+                results,
+                [("FileName", "FileAttributes", "EndOfFile", "LastWriteTime")],
+                sortBy=None,
             )
         )
 
@@ -1288,26 +1302,67 @@ class smbclient(CLIUtil):
         self.smbsock.close_request(fileId)
         return offset
 
-    @CLIUtil.addcommand(spaces=True)
-    def get(self, file):
+    def _getr(self, directory, _root, _verb=True):
+        """
+        Internal recursive function to get a directory
+
+        :param directory: the remote directory to get
+        :param _root: locally, the directory to store any found files
+        """
+        size = 0
+        if not _root.exists():
+            _root.mkdir()
+        # ls the directory
+        for x in self.ls(parent=directory):
+            if x[0] in [".", ".."]:
+                # Discard . and ..
+                continue
+            remote = directory / x[0]
+            local = _root / x[0]
+            try:
+                if x[1].FILE_ATTRIBUTE_DIRECTORY:
+                    # Sub-directory
+                    size += self._getr(remote, local)
+                else:
+                    # Sub-file
+                    size += self.get(remote, local)[1]
+                if _verb:
+                    print(remote)
+            except ValueError as ex:
+                if _verb:
+                    print(conf.color_theme.red(remote), "->", str(ex))
+        return size
+
+    @CLIUtil.addcommand(spaces=True, globsupport=True)
+    def get(self, file, _dest=None, _verb=True, *, r=False):
         """
         Retrieve a file
+        -r: recursively download a directory
         """
         if self._require_share():
             return
-        fname = pathlib.PureWindowsPath(file).name
-        # Write the buffer to current path
-        local_pwd = self.localpwd / fname
-        with local_pwd.open("wb") as fd:
-            size = self._get_file(file, fd)
-        return fname, size
+        if r:
+            dirpar, dirname = self._parsepath(file)
+            return file, self._getr(
+                dirpar / dirname,  # Remotely
+                _root=self.localpwd / dirname,  # Locally
+                _verb=_verb,
+            )
+        else:
+            fname = pathlib.PureWindowsPath(file).name
+            # Write the buffer
+            if _dest is None:
+                _dest = self.localpwd / fname
+            with _dest.open("wb") as fd:
+                size = self._get_file(file, fd)
+            return fname, size
 
     @CLIUtil.addoutput(get)
     def get_output(self, info):
         """
         Print the output of 'get'
         """
-        print("Retrieved file %s of size %s" % (info[0], human_size(info[1])))
+        print("Retrieved '%s' of size %s" % (info[0], human_size(info[1])))
 
     @CLIUtil.addcomplete(get)
     def get_complete(self, file):
@@ -1318,7 +1373,7 @@ class smbclient(CLIUtil):
             return []
         return self._fs_complete(file)
 
-    @CLIUtil.addcommand(spaces=True)
+    @CLIUtil.addcommand(spaces=True, globsupport=True)
     def cat(self, file):
         """
         Print a file
