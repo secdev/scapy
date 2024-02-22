@@ -14,6 +14,8 @@ Provides:
 """
 
 from collections import defaultdict
+
+import json
 import re
 import time
 import itertools
@@ -1694,38 +1696,89 @@ values.
             pp = pp.underlayer
         self.payload.dissection_done(pp)
 
+    def _command(self, json=False):
+        # type: (bool) -> List[Tuple[str, Any]]
+        """
+        Internal method used to generate command() and json()
+        """
+        f = []
+        iterator: Iterator[Tuple[str, Any]]
+        if json:
+            iterator = ((x.name, self.getfieldval(x.name)) for x in self.fields_desc)
+        else:
+            iterator = iter(self.fields.items())
+        for fn, fv in iterator:
+            fld = self.get_field(fn)
+            if isinstance(fv, (list, dict, set)) and not fv and not fld.default:
+                continue
+            if isinstance(fv, Packet):
+                if json:
+                    fv = {k: v for (k, v) in fv._command(json=True)}
+                else:
+                    fv = fv.command()
+            elif fld.islist and fld.holds_packets and isinstance(fv, list):
+                if json:
+                    fv = [
+                        {k: v for (k, v) in x}
+                        for x in map(lambda y: Packet._command(y, json=True), fv)
+                    ]
+                else:
+                    fv = "[%s]" % ",".join(map(Packet.command, fv))
+            elif fld.islist and isinstance(fv, list):
+                if json:
+                    fv = [
+                        getattr(x, 'command', lambda: repr(x))()
+                        for x in fv
+                    ]
+                else:
+                    fv = "[%s]" % ",".join(
+                        getattr(x, 'command', lambda: repr(x))()
+                        for x in fv
+                    )
+            elif isinstance(fv, FlagValue):
+                fv = int(fv)
+            elif callable(getattr(fv, 'command', None)):
+                fv = fv.command(json=json)
+            else:
+                if json:
+                    if isinstance(fv, bytes):
+                        fv = fv.decode("utf-8", errors="backslashreplace")
+                    else:
+                        fv = fld.i2h(self, fv)
+                else:
+                    fv = repr(fld.i2h(self, fv))
+            f.append((fn, fv))
+        return f
+
     def command(self):
         # type: () -> str
         """
         Returns a string representing the command you have to type to
         obtain the same packet
         """
-        f = []
-        for fn, fv in self.fields.items():
-            fld = self.get_field(fn)
-            if isinstance(fv, (list, dict, set)) and not fv and not fld.default:
-                continue
-            if isinstance(fv, Packet):
-                fv = fv.command()
-            elif fld.islist and fld.holds_packets and isinstance(fv, list):
-                fv = "[%s]" % ",".join(map(Packet.command, fv))
-            elif fld.islist and isinstance(fv, list):
-                fv = "[%s]" % ", ".join(
-                    getattr(x, 'command', lambda: repr(x))()
-                    for x in fv
-                )
-            elif isinstance(fv, FlagValue):
-                fv = int(fv)
-            elif callable(getattr(fv, 'command', None)):
-                fv = fv.command()
-            else:
-                fv = repr(fld.i2h(self, fv))
-            f.append("%s=%s" % (fn, fv))
-        c = "%s(%s)" % (self.__class__.__name__, ", ".join(f))
+        c = "%s(%s)" % (
+            self.__class__.__name__,
+            ", ".join("%s=%s" % x for x in self._command())
+        )
         pc = self.payload.command()
         if pc:
             c += "/" + pc
         return c
+
+    def json(self):
+        # type: () -> str
+        """
+        Returns a JSON representing the packet.
+
+        Please note that this cannot be used for bijective usage: data loss WILL occur,
+        so it will not make sense to try to rebuild the packet from the output.
+        This must only be used for a grepping/displaying purpose.
+        """
+        dump = json.dumps({k: v for (k, v) in self._command(json=True)})
+        pc = self.payload.json()
+        if pc:
+            dump = dump[:-1] + ", \"payload\": %s}" % pc
+        return dump
 
 
 class NoPayload(Packet):
@@ -1896,6 +1949,10 @@ class NoPayload(Packet):
         return layer or self
 
     def command(self):
+        # type: () -> str
+        return ""
+
+    def json(self):
         # type: () -> str
         return ""
 
