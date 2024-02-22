@@ -272,7 +272,14 @@ assert HCI_Event_Inquiry_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Inquiry_Complete].status == 0
 
 = Inquiry Result
-# TODO
+evt_pkt = HCI_Event_Inquiry_Result(b'\x01\xcb\x7f\xdbn\x8c\x9c\x01\x00\x00<\x04\x08\x8di')
+assert HCI_Event_Inquiry_Result in evt_pkt
+assert evt_pkt[HCI_Event_Inquiry_Result].num_response == 1
+assert evt_pkt[HCI_Event_Inquiry_Result].addr[0] == '9c:8c:6e:db:7f:cb'
+assert evt_pkt[HCI_Event_Inquiry_Result].page_scan_repetition_mode[0] == 1
+assert evt_pkt[HCI_Event_Inquiry_Result].device_class[0] == 0x8043c
+assert evt_pkt[HCI_Event_Inquiry_Result].clock_offset[0] == 27021
+
 
 = Connection Complete
 evt_raw_data = hex_bytes("04030b000b00093491e5b7540100")
