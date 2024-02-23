@@ -1807,15 +1807,16 @@ class HCI_Event_Inquiry_Result(Packet):
     name = "HCI_Inquiry_Result"
     fields_desc = [
         ByteField("num_response", 0x00),
-        FieldListField("addr", None, LEMACField,
+        FieldListField("addr", None, LEMACField("addr", None),
                        count_from=lambda p: p.num_response),
-        FieldListField("page_scan_repetition_mode", None, ByteField,
+        FieldListField("page_scan_repetition_mode", None,
+                       ByteField("page_scan_repetition_mode", 0),
                        count_from=lambda p: p.num_response),
-        FieldListField("reserved", None, LEShortField,
+        FieldListField("reserved", None, LEShortField("reserved", 0),
                        count_from=lambda p: p.num_response),
-        FieldListField("device_class", None, XLE3BytesField,
+        FieldListField("device_class", None, XLE3BytesField("device_class", 0),
                        count_from=lambda p: p.num_response),
-        FieldListField("clock_offset", None, LEShortField,
+        FieldListField("clock_offset", None, LEShortField("clock_offset", 0),
                        count_from=lambda p: p.num_response)
     ]
 
