@@ -573,7 +573,7 @@ class LdapPing_am(AnsweringMachine):
         req = req.protocolOp
         return (
             req.attributes
-            and req.attributes[0].type.val == b"Netlogon"
+            and req.attributes[0].type.val.lower() == b"netlogon"
             and req.filter
             and isinstance(req.filter.filter, LDAP_FilterAnd)
             and any(

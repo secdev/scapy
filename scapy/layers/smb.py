@@ -684,8 +684,10 @@ _SMB_CONFIG = [
 
 class _SMB_TransactionRequest_Data(PacketLenField):
     def m2i(self, pkt, m):
-        if pkt.WordCount == 0x11:
+        if pkt.Name == b"\\MAILSLOT\\NET\\NETLOGON":
             return NETLOGON(m)
+        elif pkt.Name == b"\\MAILSLOT\\BROWSE" or pkt.name == b"\\MAILSLOT\\LANMAN":
+            return BRWS(m)
         return conf.raw_layer(m)
 
 
@@ -779,6 +781,11 @@ class SMBTransaction_Request(_NTLMPayloadPacket):
             )
             + pay
         )
+
+    def mysummary(self):
+        if self.DataLen:
+            return self.sprintf("Tran %Name% ") + self.Data.mysummary()
+        return self.sprintf("Tran %Name%")
 
 
 bind_top_down(SMB_Header, SMBTransaction_Request, Command=0x25)
@@ -1082,6 +1089,84 @@ class NETLOGON_SAM_LOGON_RESPONSE_EX(NETLOGON, DNSCompressedPacket):
 
     def get_full(self):
         return self.original
+
+
+# [MS-BRWS] sect 2.2
+
+class BRWS(Packet):
+    fields_desc = [
+        ByteEnumField("OpCode", 0x00, {
+            0x01: "HostAnnouncement",
+            0x02: "AnnouncementRequest",
+            0x08: "RequestElection",
+            0x09: "GetBackupListRequest",
+            0x0A: "GetBackupListResponse",
+            0x0B: "BecomeBackup",
+            0x0C: "DomainAnnouncement",
+            0x0D: "MasterAnnouncement",
+            0x0E: "ResetStateRequest",
+            0x0F: "LocalMasterAnnouncement",
+        }),
+    ]
+
+    def mysummary(self):
+        return self.sprintf("%OpCode%")
+
+    registered_opcodes = {}
+
+    @classmethod
+    def register_variant(cls):
+        cls.registered_opcodes[cls.OpCode.default] = cls
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            return cls.registered_opcodes.get(_pkt[0], cls)
+        return cls
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
+
+# [MS-BRWS] sect 2.2.1
+
+class BRWS_HostAnnouncement(BRWS):
+    OpCode = 0x01
+    fields_desc = [
+        BRWS,
+        ByteField("UpdateCount", 0),
+        LEIntField("Periodicity", 128000),
+        StrFixedLenField("ServerName", b"", length=16),
+        ByteField("OSVersionMajor", 6),
+        ByteField("OSVersionMinor", 1),
+        LEIntField("ServerType", 4611),
+        ByteField("BrowserConfigVersionMajor", 21),
+        ByteField("BrowserConfigVersionMinor", 1),
+        XLEShortField("Signature", 0xAA55),
+        StrNullField("Comment", ""),
+    ]
+
+    def mysummary(self):
+        return self.sprintf("%OpCode% for %ServerName%")
+
+
+# [MS-BRWS] sect 2.2.6
+
+class BRWS_BecomeBackup(BRWS):
+    OpCode = 0x0B
+    fields_desc = [
+        BRWS,
+        StrNullField("BrowserToPromote", b""),
+    ]
+
+    def mysummary(self):
+        return self.sprintf("%OpCode% from %BrowserToPromote%")
+
+
+# [MS-BRWS] sect 2.2.10
+
+class BRWS_LocalMasterAnnouncement(BRWS_HostAnnouncement):
+    OpCode = 0x0F
 
 
 # SMB dispatcher
