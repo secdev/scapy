@@ -93,6 +93,10 @@ class Hmac_NULL(_GenericHMAC):
         return b""
 
 
+class Hmac_MD4(_GenericHMAC):
+    pass
+
+
 class Hmac_MD5(_GenericHMAC):
     pass
 
@@ -115,3 +119,10 @@ class Hmac_SHA384(_GenericHMAC):
 
 class Hmac_SHA512(_GenericHMAC):
     pass
+
+
+def Hmac(key, hashtype):
+    """
+    Return Hmac object from Hash object and key
+    """
+    return _tls_hmac_algs[f"HMAC-{hashtype.name}"](key=key)

@@ -971,6 +971,9 @@ def main():
     logger = logging.getLogger("scapy")
     logger.addHandler(logging.StreamHandler())
 
+    # Treat SyntaxWarning as errors
+    warnings.filterwarnings("error", category=SyntaxWarning)
+
     import scapy
     print(dash + " UTScapy - Scapy %s - %s" % (
         scapy.__version__, sys.version.split(" ")[0]

@@ -383,7 +383,7 @@ class _HTTPContent(Packet):
             return self.raw_packet_cache
         p = b""
         # Walk all the fields, in order
-        for f in self.fields_desc:
+        for i, f in enumerate(self.fields_desc):
             if f.name == "Unknown_Headers":
                 continue
             # Get the field value
@@ -391,21 +391,15 @@ class _HTTPContent(Packet):
             if not val:
                 # Not specified. Skip
                 continue
-            if f.name not in ['Method', 'Path', 'Reason_Phrase',
-                              'Http_Version', 'Status_Code']:
+
+            if i >= 3:
                 val = _header_line(f.real_name, val)
             # Fields used in the first line have a space as a separator,
             # whereas headers are terminated by a new line
-            if isinstance(self, HTTPRequest):
-                if f.name in ['Method', 'Path']:
-                    separator = b' '
-                else:
-                    separator = b'\r\n'
-            elif isinstance(self, HTTPResponse):
-                if f.name in ['Http_Version', 'Status_Code']:
-                    separator = b' '
-                else:
-                    separator = b'\r\n'
+            if i <= 1:
+                separator = b' '
+            else:
+                separator = b'\r\n'
             # Add the field into the packet
             p = f.addfield(self, p, val + separator)
         # Handle Unknown_Headers
@@ -425,6 +419,8 @@ class _HTTPContent(Packet):
     def guess_payload_class(self, payload):
         """Detect potential payloads
         """
+        if not hasattr(self, "Connection"):
+            return super(_HTTPContent, self).guess_payload_class(payload)
         if self.Connection and b"Upgrade" in self.Connection:
             from scapy.contrib.http2 import H2Frame
             return H2Frame
@@ -549,6 +545,19 @@ class HTTP(Packet):
     name = "HTTP 1"
     fields_desc = []
     show_indent = 0
+    clsreq = HTTPRequest
+    clsresp = HTTPResponse
+    hdr = b"HTTP"
+    reqmethods = b"|".join([
+        b"OPTIONS",
+        b"GET",
+        b"HEAD",
+        b"POST",
+        b"PUT",
+        b"DELETE",
+        b"TRACE",
+        b"CONNECT",
+    ])
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -582,7 +591,7 @@ class HTTP(Packet):
         is_unknown = metadata.get("detect_unknown", True)
         if not detect_end or is_unknown:
             metadata["detect_unknown"] = False
-            http_packet = HTTP(data)
+            http_packet = cls(data)
             # Detect packing method
             if not isinstance(http_packet.payload, _HTTPContent):
                 return http_packet
@@ -602,14 +611,14 @@ class HTTP(Packet):
                     metadata["detect_unknown"] = True
             else:
                 # It's not Content-Length based. It could be chunked
-                encodings = http_packet[HTTP].payload._get_encodings()
+                encodings = http_packet[cls].payload._get_encodings()
                 chunked = ("chunked" in encodings)
-                is_response = isinstance(http_packet.payload, HTTPResponse)
+                is_response = isinstance(http_packet.payload, cls.clsresp)
                 if chunked:
                     detect_end = lambda dat: dat.endswith(b"0\r\n\r\n")
                 # HTTP Requests that do not have any content,
                 # end with a double CRLF
-                elif isinstance(http_packet.payload, HTTPRequest):
+                elif isinstance(http_packet.payload, cls.clsreq):
                     detect_end = lambda dat: dat.endswith(b"\r\n\r\n")
                     # In case we are handling a HTTP Request,
                     # we want to continue assessing the data,
@@ -631,7 +640,7 @@ class HTTP(Packet):
                 return http_packet
         else:
             if detect_end(data):
-                http_packet = HTTP(data)
+                http_packet = cls(data)
                 return http_packet
 
     def guess_payload_class(self, payload):
@@ -640,20 +649,20 @@ class HTTP(Packet):
         """
         try:
             prog = re.compile(
-                br"^(?:OPTIONS|GET|HEAD|POST|PUT|DELETE|TRACE|CONNECT) "
-                br"(?:.+?) "
-                br"HTTP/\d\.\d$"
+                br"^(?:" + self.reqmethods + br") " +
+                br"(?:.+?) " +
+                self.hdr + br"/\d\.\d$"
             )
             crlfIndex = payload.index(b"\r\n")
             req = payload[:crlfIndex]
             result = prog.match(req)
             if result:
-                return HTTPRequest
+                return self.clsreq
             else:
-                prog = re.compile(br"^HTTP/\d\.\d \d\d\d .*$")
+                prog = re.compile(b"^" + self.hdr + br"/\d\.\d \d\d\d .*$")
                 result = prog.match(req)
                 if result:
-                    return HTTPResponse
+                    return self.clsresp
         except ValueError:
             # Anything that isn't HTTP but on port 80
             pass
@@ -682,7 +691,6 @@ def http_request(host, path="/", port=80, timeout=3,
 
     :returns: the HTTPResponse packet
     """
-    from scapy.sessions import TCPSession
     http_headers = {
         "Accept_Encoding": b'gzip, deflate',
         "Cache_Control": b'no-cache',
@@ -715,7 +723,6 @@ def http_request(host, path="/", port=80, timeout=3,
     try:
         ans = sock.sr1(
             req,
-            session=TCPSession(app=True),
             timeout=timeout,
             verbose=verbose
         )

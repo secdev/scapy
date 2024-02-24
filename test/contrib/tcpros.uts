@@ -1,0 +1,58 @@
+% TCPROS transport layer for ROS Melodic Morenia 1.14.5 dissection
+%
+% Copyright (C) Víctor Mayoral-Vilches <v.mayoralv@gmail.com>
+%
+% This program is free software; you can redistribute it and/or modify it under
+% the terms of the GNU General Public License as published by the Free Software
+% Foundation; either version 2 of the License, or (at your option) any later
+% version.
+%
+% This program is distributed in the hope that it will be useful, but WITHOUT ANY
+% WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+% PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License along with
+% this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
+% Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+% TCPROS layer test campaign
+
++ Syntax check
+= Import the RTPS layer
+from scapy.contrib.tcpros import *
+
+bind_layers(TCP, TCPROS, sport=11311)
+bind_layers(HTTPRequest, XMLRPC)
+bind_layers(HTTPResponse, XMLRPC)
+
+pkt =   b"POST /RPC2 HTTP/1.1\r\nAccept-Encoding: gzip\r\nContent-Length: " \
+        b"227\r\nContent-Type: text/xml\r\nHost: 12.0.0.2:11311\r\nUser-Agent:" \
+        b"xmlrpclib.py/1.0.1 (by www.pythonware.com)\r\n\r\n<?xml version=" \
+        b"'1.0'?>\n<methodCall>\n<methodName>shutdown</methodName>\n<params>" \
+        b"\n<param>\n<value><string>/rosparam-92418</string></value>\n" \
+        b"</param>\n<param>\n<value><string>BOOM</string></value>" \
+        b"\n</param>\n</params>\n</methodCall>\n"
+
+p = TCPROS(pkt)
+
++ Test TCPROS
+= Test basic package composition
+assert(HTTP in p)
+assert(HTTPRequest in p)
+assert(XMLRPC in p)
+assert(XMLRPCCall in p)
+
+= Test HTTPRequest within TCPROS
+assert(p[HTTPRequest].Content_Length ==  b'227')
+assert(p[HTTPRequest].Content_Type ==  b'text/xml')
+assert(p[HTTPRequest].Host ==  b'12.0.0.2:11311')
+assert(p[HTTPRequest].User_Agent ==  b'xmlrpclib.py/1.0.1 (by www.pythonware.com)')
+assert(p[HTTPRequest].Method ==  b'POST')
+assert(p[HTTPRequest].Path ==  b'/RPC2')
+assert(p[HTTPRequest].Http_Version ==  b'HTTP/1.1')
+
+= Test XMLRPCCall within TCPROS
+assert(p[XMLRPCCall].version ==  b"<?xml version='1.0'?>\n")
+assert(p[XMLRPCCall].methodcall_opentag ==  b'<methodCall>\n')
+assert(p[XMLRPCCall].methodname ==  b'shutdown')
+assert(p[XMLRPCCall].params ==  b'<param>\n<value><string>/rosparam-92418</string></value>\n</param>\n<param>\n<value><string>BOOM</string></value>\n</param>\n')

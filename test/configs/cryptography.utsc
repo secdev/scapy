@@ -1,8 +1,9 @@
 {
   "testfiles": [
-    "test/tls*.uts",
+    "test/scapy/layers/tls/tls*.uts",
     "test/scapy/layers/dot11.uts",
     "test/scapy/layers/ipsec.uts",
+    "test/scapy/layers/kerberos.uts",
     "test/contrib/macsec.uts"
   ],
   "breakfailed": true,
@@ -12,6 +13,7 @@
     "test/tls*.uts": "load_layer(\"tls\")"
   },
   "kw_ko": [
-    "mock"
+    "mock",
+    "needs_root"
   ]
 }

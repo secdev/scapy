@@ -34,7 +34,8 @@ class ColorTable:
         "blue": ("\033[34m", "#ansiblue"),
         "purple": ("\033[35m", "#ansipurple"),
         "cyan": ("\033[36m", "#ansicyan"),
-        "grey": ("\033[37m", "#ansiwhite"),
+        "white": ("\033[37m", "#ansiwhite"),
+        "grey": ("\033[38;5;246m", "#ansiwhite"),
         "reset": ("\033[39m", "noinherit"),
         # background
         "bg_black": ("\033[40m", "bg:#ansiblack"),
@@ -44,7 +45,7 @@ class ColorTable:
         "bg_blue": ("\033[44m", "bg:#ansiblue"),
         "bg_purple": ("\033[45m", "bg:#ansipurple"),
         "bg_cyan": ("\033[46m", "bg:#ansicyan"),
-        "bg_grey": ("\033[47m", "bg:#ansiwhite"),
+        "bg_white": ("\033[47m", "bg:#ansiwhite"),
         "bg_reset": ("\033[49m", "noinherit"),
         # specials
         "normal": ("\033[0m", "noinherit"),  # color & brightness
@@ -116,6 +117,7 @@ class ColorTheme:
     style_field_value = ""
     style_emph_field_name = ""
     style_emph_field_value = ""
+    style_depreciate_field_name = ""
     style_packetlist_name = ""
     style_packetlist_proto = ""
     style_packetlist_value = ""
@@ -183,7 +185,8 @@ class DefaultTheme(AnsiColorTheme):
     style_prompt = Color.blue + Color.bold
     style_punct = Color.normal
     style_id = Color.blue + Color.bold
-    style_not_printable = Color.grey
+    style_not_printable = Color.white
+    style_depreciate_field_name = Color.grey
     style_layer_name = Color.red + Color.bold
     style_field_name = Color.blue
     style_field_value = Color.purple
@@ -198,7 +201,7 @@ class DefaultTheme(AnsiColorTheme):
     style_odd = Color.black
     style_opening = Color.yellow
     style_active = Color.black
-    style_closed = Color.grey
+    style_closed = Color.white
     style_left = Color.blue + Color.invert
     style_right = Color.red + Color.invert
     style_logo = Color.green + Color.bold
@@ -266,9 +269,9 @@ class ColorOnBlackTheme(AnsiColorTheme):
     style_fail = Color.red + Color.bold
     style_success = Color.green
     style_even = Color.black + Color.bold
-    style_odd = Color.grey
+    style_odd = Color.white
     style_opening = Color.yellow
-    style_active = Color.grey + Color.bold
+    style_active = Color.white + Color.bold
     style_closed = Color.black + Color.bold
     style_left = Color.cyan + Color.bold
     style_right = Color.red + Color.bold

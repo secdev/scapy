@@ -26,7 +26,7 @@ handle, like sending invalid frames, injecting your own 802.11 frames, combining
 techniques (VLAN hopping+ARP cache poisoning, VoIP decoding on WEP protected
 channel, ...), etc.
 
-Scapy supports Python 2.7 and Python 3 (3.4 to 3.9). It's intended to
+Scapy supports Python 3.7+. It's intended to
 be cross platform, and runs on many different platforms (Linux, OSX,
 \*BSD, and Windows).
 
@@ -90,6 +90,11 @@ Python modules, such as `matplotlib` or `cryptography`. See the
 follow the instructions to install them.
 
 <!-- stop_ppi_description -->
+
+## License
+
+Scapy's code, tests and tools are licensed under GPL v2.
+The documentation (everything unless marked otherwise in `doc/`, and except the logo) is licensed under CC BY-NC-SA 2.5.
 
 ## Contributing
 

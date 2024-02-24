@@ -418,7 +418,7 @@ class _OptReqListField(StrLenField):
     islist = 1
 
     def i2h(self, pkt, x):
-        if x is None:
+        if not x:
             return []
         return x
 

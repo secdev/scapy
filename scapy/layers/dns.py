@@ -242,7 +242,7 @@ def dns_compress(pkt):
                 for field in current.fields_desc:
                     if isinstance(field, DNSStrField) or \
                         (isinstance(field, MultipleTypeField) and
-                         current.type in [2, 3, 4, 5, 12, 15]):
+                         current.type in [2, 3, 4, 5, 12, 15, 39]):
                         # Get the associated data and store it accordingly  # noqa: E501
                         dat = current.getfieldval(field.name)
                         yield current, field.name, dat
@@ -325,6 +325,13 @@ class DNSStrField(StrLenField):
     """
 
     def h2i(self, pkt, x):
+        # Setting a DNSStrField manually (h2i) means any current compression will break
+        if (
+            pkt and
+            isinstance(pkt.parent, DNSCompressedPacket) and
+            pkt.parent.raw_packet_cache
+        ):
+            pkt.parent.clear_cache()
         if not x:
             return b"."
         x = bytes_encode(x)
@@ -361,6 +368,11 @@ class DNSTextField(StrLenField):
     """
 
     islist = 1
+
+    def i2h(self, pkt, x):
+        if not x:
+            return []
+        return x
 
     def m2i(self, pkt, s):
         ret_s = list()
@@ -887,6 +899,80 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
                    StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)  # noqa: E501
                    ]
 
+
+# RFC 9460 Service Binding and Parameter Specification via the DNS
+# https://www.rfc-editor.org/rfc/rfc9460.html
+
+
+# https://www.iana.org/assignments/dns-svcb/dns-svcb.xhtml
+svc_param_keys = {
+    0: "mandatory",
+    1: "alpn",
+    2: "no-default-alpn",
+    3: "port",
+    4: "ipv4hint",
+    5: "ech",
+    6: "ipv6hint",
+    7: "dohpath",
+    8: "ohttp",
+}
+
+
+class SvcParam(Packet):
+    name = "SvcParam"
+    fields_desc = [ShortEnumField("key", 0, svc_param_keys),
+                   FieldLenField("len", None, length_of="value", fmt="H"),
+                   MultipleTypeField(
+                       [
+                           # mandatory
+                           (FieldListField("value", [],
+                                           ShortEnumField("", 0, svc_param_keys),
+                                           length_from=lambda pkt: pkt.len),
+                               lambda pkt: pkt.key == 0),
+                           # alpn, no-default-alpn
+                           (DNSTextField("value", [],
+                                         length_from=lambda pkt: pkt.len),
+                               lambda pkt: pkt.key in (1, 2)),
+                           # port
+                           (ShortField("value", 0),
+                               lambda pkt: pkt.key == 3),
+                           # ipv4hint
+                           (FieldListField("value", [],
+                                           IPField("", "0.0.0.0"),
+                                           length_from=lambda pkt: pkt.len),
+                               lambda pkt: pkt.key == 4),
+                           # ipv6hint
+                           (FieldListField("value", [],
+                                           IP6Field("", "::"),
+                                           length_from=lambda pkt: pkt.len),
+                               lambda pkt: pkt.key == 6),
+                       ],
+                       StrLenField("value", "",
+                                   length_from=lambda pkt:pkt.len))]
+
+    def extract_padding(self, p):
+        return "", p
+
+
+class DNSRRSVCB(_DNSRRdummy):
+    name = "DNS SVCB Resource Record"
+    fields_desc = [DNSStrField("rrname", ""),
+                   ShortEnumField("type", 64, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   ShortField("svc_priority", 0),
+                   DNSStrField("target_name", ""),
+                   PacketListField("svc_params", [], SvcParam)]
+
+
+class DNSRRHTTPS(_DNSRRdummy):
+    name = "DNS HTTPS Resource Record"
+    fields_desc = [DNSStrField("rrname", ""),
+                   ShortEnumField("type", 65, dnstypes)
+                   ] + DNSRRSVCB.fields_desc[2:]
+
+
 # RFC 2782 - A DNS RR for specifying the location of services (DNS SRV)
 
 
@@ -976,6 +1062,8 @@ DNSRR_DISPATCHER = {
     48: DNSRRDNSKEY,     # RFC 4034
     50: DNSRRNSEC3,      # RFC 5155
     51: DNSRRNSEC3PARAM,  # RFC 5155
+    64: DNSRRSVCB,       # RFC 9460
+    65: DNSRRHTTPS,      # RFC 9460
     250: DNSRRTSIG,      # RFC 2845
     32769: DNSRRDLV,     # RFC 4431
 }
@@ -997,10 +1085,10 @@ class DNSRR(Packet):
                            # AAAA
                            (IP6Field("rdata", "::"),
                                lambda pkt: pkt.type == 28),
-                           # NS, MD, MF, CNAME, PTR
+                           # NS, MD, MF, CNAME, PTR, DNAME
                            (DNSStrField("rdata", "",
                                         length_from=lambda pkt: pkt.rdlen),
-                               lambda pkt: pkt.type in [2, 3, 4, 5, 12]),
+                               lambda pkt: pkt.type in [2, 3, 4, 5, 12, 39]),
                            # TEXT
                            (DNSTextField("rdata", [""],
                                          length_from=lambda pkt: pkt.rdlen),
@@ -1133,6 +1221,8 @@ class DNS(DNSCompressedPacket):
             type = "Ans"
             if self.an and isinstance(self.an[0], DNSRR):
                 name = ' %s' % self.an[0].rdata
+            elif self.rcode != 0:
+                name = self.sprintf(' %rcode%')
         else:
             type = "Qry"
             if self.qd and isinstance(self.qd[0], DNSQR):
@@ -1207,9 +1297,9 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
         [qname, struct.pack("!B", qtype)] +
         ([b"raw"] if raw else [])
     )
-    answer = _dns_cache.get(cache_ident)
-    if answer:
-        return answer
+    result = _dns_cache.get(cache_ident)
+    if result:
+        return result
 
     kwargs.setdefault("timeout", timeout)
     kwargs.setdefault("verbose", 0)
@@ -1250,21 +1340,18 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
     if res is not None:
         if raw:
             # Raw
-            answer = res
+            result = res
         else:
-            try:
-                # Find answer
-                answer = next(
-                    x
-                    for x in itertools.chain(res.an, res.ns, res.ar)
-                    if x.type == qtype
-                )
-            except StopIteration:
-                # No answer
-                return None
-        # Cache it
-        _dns_cache[cache_ident] = answer
-        return answer
+            # Find answers
+            result = [
+                x
+                for x in itertools.chain(res.an, res.ns, res.ar)
+                if x.type == qtype
+            ]
+        if result:
+            # Cache it
+            _dns_cache[cache_ident] = result
+        return result
     else:
         raise TimeoutError
 
@@ -1463,8 +1550,8 @@ class DNS_am(AnsweringMachine):
                 # Relay mode ?
                 try:
                     _rslv = dns_resolve(rq.qname, qtype=rq.qtype)
-                    if _rslv is not None:
-                        ans.append(_rslv)
+                    if _rslv:
+                        ans.extend(_rslv)
                         continue  # next
                 except TimeoutError:
                     pass

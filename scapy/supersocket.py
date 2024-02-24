@@ -26,7 +26,7 @@ from scapy.data import (
 from scapy.compat import raw
 from scapy.error import warning, log_runtime
 from scapy.interfaces import network_name
-from scapy.packet import Packet
+from scapy.packet import Packet, NoPayload
 import scapy.packet
 from scapy.plist import (
     PacketList,
@@ -39,6 +39,7 @@ from scapy.utils import PcapReader, tcpdump
 from scapy.interfaces import _GlobInterfaceType
 from typing import (
     Any,
+    Dict,
     Iterator,
     List,
     Optional,
@@ -214,8 +215,7 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
     def sr(self, *args, **kargs):
         # type: (Any, Any) -> Tuple[SndRcvList, PacketList]
         from scapy import sendrecv
-        ans, unans = sendrecv.sndrcv(self, *args, **kargs)
-        return ans, unans
+        return sendrecv.sndrcv(self, *args, **kargs)
 
     def sr1(self, *args, **kargs):
         # type: (Any, Any) -> Optional[Packet]
@@ -230,8 +230,7 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
     def sniff(self, *args, **kargs):
         # type: (Any, Any) -> PacketList
         from scapy import sendrecv
-        pkts = sendrecv.sniff(opened_socket=self, *args, **kargs)  # type: PacketList  # noqa: E501
-        return pkts
+        return sendrecv.sniff(opened_socket=self, *args, **kargs)
 
     def tshark(self, *args, **kargs):
         # type: (Any, Any) -> None
@@ -401,37 +400,70 @@ class SimpleSocket(SuperSocket):
     desc = "wrapper around a classic socket"
     __selectable_force_select__ = True
 
-    def __init__(self, sock):
-        # type: (socket.socket) -> None
+    def __init__(self, sock, basecls=None):
+        # type: (socket.socket, Optional[Type[Packet]]) -> None
         self.ins = sock
         self.outs = sock
+        if basecls is None:
+            basecls = conf.raw_layer
+        self.basecls = basecls
+
+    def recv_raw(self, x=MTU):
+        # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]
+        return self.basecls, self.ins.recv(x), None
+
+    if WINDOWS:
+        @staticmethod
+        def select(sockets, remain=None):
+            # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+            from scapy.automaton import select_objects
+            return select_objects(sockets, remain)
 
 
 class StreamSocket(SimpleSocket):
+    """
+    Wrap a stream socket into a layer 2 SuperSocket
+
+    :param sock: the socket to wrap
+    :param basecls: the base class packet to use to dissect the packet
+    """
     desc = "transforms a stream socket into a layer 2"
-    nonblocking_socket = True
 
-    def __init__(self, sock, basecls=None):
-        # type: (socket.socket, Optional[Type[Packet]]) -> None
-        if basecls is None:
-            basecls = conf.raw_layer
-        SimpleSocket.__init__(self, sock)
-        self.basecls = basecls
+    def __init__(self,
+                 sock,  # type: socket.socket
+                 basecls=None,  # type: Optional[Type[Packet]]
+                 ):
+        # type: (...) -> None
+        from scapy.sessions import streamcls
+        self.rcvcls = streamcls(basecls or conf.raw_layer)
+        self.metadata: Dict[str, Any] = {}
+        self.streamsession: Dict[str, Any] = {}
+        self.MTU = MTU
+        super(StreamSocket, self).__init__(sock, basecls=basecls)
 
-    def recv(self, x=MTU, **kwargs):
-        # type: (int, **Any) -> Optional[Packet]
+    def recv(self, x=None, **kwargs):
+        # type: (Optional[int], Any) -> Optional[Packet]
+        if x is None:
+            x = self.MTU
+        # Block but in PEEK mode
         data = self.ins.recv(x, socket.MSG_PEEK)
+        if data == b"":
+            raise EOFError
         x = len(data)
-        if x == 0:
+        pkt = self.rcvcls(data, self.metadata, self.streamsession)
+        if pkt is None:  # Incomplete packet.
+            if len(data) == self.MTU:  # Bigger than MTU. Increase
+                self.MTU *= 2
             return None
-        pkt = self.basecls(data, **kwargs)  # type: Packet
+        self.metadata.clear()
+        # Strip any madding
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
             del pad.underlayer.payload
-        from scapy.packet import NoPayload
         while pad is not None and not isinstance(pad, NoPayload):
             x -= len(pad.load)
             pad = pad.payload
+        # Only receive the packet length
         self.ins.recv(x)
         return pkt
 
@@ -445,8 +477,10 @@ class SSLStreamSocket(StreamSocket):
         super(SSLStreamSocket, self).__init__(sock, basecls)
 
     # 65535, the default value of x is the maximum length of a TLS record
-    def recv(self, x=65535, **kwargs):
-        # type: (int, **Any) -> Optional[Packet]
+    def recv(self, x=None, **kwargs):
+        # type: (Optional[int], **Any) -> Optional[Packet]
+        if x is None:
+            x = MTU
         pkt = None  # type: Optional[Packet]
         if self._buf != b"":
             try:

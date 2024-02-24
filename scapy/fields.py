@@ -19,6 +19,7 @@ import struct
 import time
 import warnings
 
+from datetime import datetime
 from types import MethodType
 from uuid import UUID
 from enum import Enum
@@ -428,48 +429,56 @@ class ConditionalField(_FieldContainer):
 
 
 class MultipleTypeField(_FieldContainer):
-    """MultipleTypeField are used for fields that can be implemented by
-various Field subclasses, depending on conditions on the packet.
+    """
+    MultipleTypeField are used for fields that can be implemented by
+    various Field subclasses, depending on conditions on the packet.
 
-It is initialized with `flds` and `dflt`.
+    It is initialized with `flds` and `dflt`.
 
-`dflt` is the default field type, to be used when none of the
-conditions matched the current packet.
+    :param dflt: is the default field type, to be used when none of the
+                 conditions matched the current packet.
+    :param flds: is a list of tuples (`fld`, `cond`) or (`fld`, `cond`, `hint`)
+                 where `fld` if a field type, and `cond` a "condition" to
+                 determine if `fld` is the field type that should be used.
 
-`flds` is a list of tuples (`fld`, `cond`), where `fld` if a field
-type, and `cond` a "condition" to determine if `fld` is the field type
-that should be used.
+    ``cond`` is either:
 
-`cond` is either:
+    - a callable `cond_pkt` that accepts one argument (the packet) and
+      returns True if `fld` should be used, False otherwise.
+    - a tuple (`cond_pkt`, `cond_pkt_val`), where `cond_pkt` is the same
+      as in the previous case and `cond_pkt_val` is a callable that
+      accepts two arguments (the packet, and the value to be set) and
+      returns True if `fld` should be used, False otherwise.
 
-  - a callable `cond_pkt` that accepts one argument (the packet) and
-    returns True if `fld` should be used, False otherwise.
-
-  - a tuple (`cond_pkt`, `cond_pkt_val`), where `cond_pkt` is the same
-    as in the previous case and `cond_pkt_val` is a callable that
-    accepts two arguments (the packet, and the value to be set) and
-    returns True if `fld` should be used, False otherwise.
-
-See scapy.layers.l2.ARP (type "help(ARP)" in Scapy) for an example of
-use.
-
+    See scapy.layers.l2.ARP (type "help(ARP)" in Scapy) for an example of
+    use.
     """
 
-    __slots__ = ["flds", "dflt", "name", "default"]
+    __slots__ = ["flds", "dflt", "hints", "name", "default"]
 
-    def __init__(self,
-                 flds,  # type: List[Tuple[Field[Any, Any], Any]]
-                 dflt  # type: Field[Any, Any]
-                 ):
-        # type: (...) -> None
-        self.flds = flds
+    def __init__(
+        self,
+        flds: List[Union[
+            Tuple[Field[Any, Any], Any, str],
+            Tuple[Field[Any, Any], Any]
+        ]],
+        dflt: Field[Any, Any]
+    ) -> None:
+        self.hints = {
+            x[0]: x[2]
+            for x in flds
+            if len(x) == 3
+        }
+        self.flds = [
+            (x[0], x[1]) for x in flds
+        ]
         self.dflt = dflt
         self.default = None  # So that we can detect changes in defaults
         self.name = self.dflt.name
         if any(x[0].name != self.name for x in self.flds):
             warnings.warn(
                 ("All fields should have the same name in a "
-                 "MultipleTypeField (%s)") % self.name,
+                 "MultipleTypeField (%s). Use hints.") % self.name,
                 SyntaxWarning
             )
 
@@ -587,13 +596,20 @@ the value to set is also known) of ._find_fld_pkt() instead.
     def i2repr(self, pkt, val):
         # type: (Optional[Packet], Any) -> str
         fld, val = self._find_fld_pkt_val(pkt, val)
-        return fld.i2repr(pkt, val)
+        hint = ""
+        if fld in self.hints:
+            hint = " (%s)" % self.hints[fld]
+        return fld.i2repr(pkt, val) + hint
 
     def register_owner(self, cls):
         # type: (Type[Packet]) -> None
         for fld, _ in self.flds:
             fld.owners.append(cls)
         self.dflt.owners.append(cls)
+
+    def get_fields_list(self):
+        # type: () -> List[Any]
+        return [self]
 
     @property
     def fld(self):
@@ -1118,7 +1134,7 @@ class NBytesField(Field[int, List[int]]):
             return x
         # x can be a tuple when coming from struct.unpack  (from getfield)
         if isinstance(x, (list, tuple)):
-            return sum(d * (256 ** i) for i, d in enumerate(x))
+            return sum(d * (256 ** i) for i, d in enumerate(reversed(x)))
         return 0
 
     def i2repr(self, pkt, x):
@@ -1426,7 +1442,7 @@ class _StrField(Field[I, bytes]):
 
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], I) -> str
-        if isinstance(x, bytes):
+        if x and isinstance(x, bytes):
             return repr(x)
         return super(_StrField, self).i2repr(pkt, x)
 
@@ -1528,10 +1544,6 @@ class StrFieldWithFuzzingString(StrField):
         return FuzzingString(default=self.default)
 
 class StrFieldUtf16(StrField):
-    def h2i(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> bytes
-        return plain_str(x).encode('utf-16-le')
-
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Optional[str]) -> bytes
         if isinstance(x, str):
@@ -1541,6 +1553,10 @@ class StrFieldUtf16(StrField):
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
         return plain_str(self.i2h(pkt, x))
+
+    def h2i(self, pkt, x):
+        # type: (Optional[Packet], Optional[str]) -> bytes
+        return plain_str(x).encode('utf-16-le', errors="replace")
 
     def i2h(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
@@ -2034,6 +2050,8 @@ class StrLenField(StrField):
         len_pkt = (self.length_from or (lambda x: 0))(pkt)
         if not self.ON_WIRE_SIZE_UTF16:
             len_pkt *= 2
+        if len_pkt == 0:
+            return s, b""
         return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
 
     def randval(self):
@@ -2252,7 +2270,6 @@ class FieldLenField(Field[int, int]):
 
 class StrNullField(StrField):
     DELIMITER = b"\x00"
-    ALIGNMENT = 1
 
     def addfield(self, pkt, s, val):
         # type: (Packet, bytes, Optional[bytes]) -> bytes
@@ -2269,7 +2286,7 @@ class StrNullField(StrField):
             if len_str < 0:
                 # DELIMITER not found: return empty
                 return b"", s
-            if len_str % self.ALIGNMENT:
+            if len_str % len(self.DELIMITER):
                 len_str += 1
             else:
                 break
@@ -2286,7 +2303,6 @@ class StrNullField(StrField):
 
 class StrNullFieldUtf16(StrNullField, StrFieldUtf16):
     DELIMITER = b"\x00\x00"
-    ALIGNMENT = 2
 
 
 class StrStopField(StrField):
@@ -3564,9 +3580,9 @@ class UTCTimeField(Field[float, int]):
             x = x / 1e9
         elif self.custom_scaling:
             x = x / self.custom_scaling
-        x = int(x) + self.delta
-        t = time.strftime(self.strf, time.gmtime(x))
-        return "%s (%d)" % (t, x)
+        x += self.delta
+        t = datetime.fromtimestamp(x).strftime(self.strf)
+        return "%s (%d)" % (t, int(x))
 
     def i2m(self, pkt, x):
         # type: (Optional[Packet], Optional[float]) -> int

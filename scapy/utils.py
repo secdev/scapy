@@ -9,15 +9,17 @@ General utility functions.
 
 
 from decimal import Decimal
+from io import StringIO
+from itertools import zip_longest
 
 import array
 import collections
 import decimal
 import difflib
 import gzip
-from io import StringIO
-from itertools import zip_longest
+import inspect
 import locale
+import math
 import os
 import pickle
 import random
@@ -30,6 +32,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 import warnings
 
 from scapy.config import conf
@@ -69,12 +72,16 @@ from typing import (
     Union,
     overload,
 )
-from scapy.compat import Literal
+from scapy.compat import (
+    DecoratorCallable,
+    Literal,
+)
 
 if TYPE_CHECKING:
     from scapy.packet import Packet
     from scapy.plist import _PacketIterable, PacketList
     from scapy.supersocket import SuperSocket
+    import prompt_toolkit
 
 _ByteStream = Union[IO[bytes], gzip.GzipFile]
 
@@ -735,7 +742,7 @@ def atol(x):
     try:
         ip = inet_aton(x)
     except socket.error:
-        ip = inet_aton(socket.gethostbyname(x))
+        raise ValueError("Bad IP format: %s" % x)
     return cast(int, struct.unpack("!I", ip)[0])
 
 
@@ -773,10 +780,7 @@ def valid_ip6(addr):
     try:
         inet_pton(socket.AF_INET6, addr)
     except socket.error:
-        try:
-            socket.getaddrinfo(addr, None, socket.AF_INET6)[0][4][0]
-        except socket.error:
-            return False
+        return False
     return True
 
 
@@ -3099,7 +3103,7 @@ def get_terminal_width():
 
 def pretty_list(rtlst,  # type: List[Tuple[Union[str, List[str]], ...]]
                 header,  # type: List[Tuple[str, ...]]
-                sortBy=0,  # type: int
+                sortBy=0,  # type: Optional[int]
                 borders=False,  # type: bool
                 ):
     # type: (...) -> str
@@ -3120,8 +3124,9 @@ def pretty_list(rtlst,  # type: List[Tuple[Union[str, List[str]], ...]]
     # Windows has a fat terminal border
     _spacelen = len(_space) * (cols - 1) + int(WINDOWS)
     _croped = False
-    # Sort correctly
-    rtlst.sort(key=lambda x: x[sortBy])
+    if sortBy is not None:
+        # Sort correctly
+        rtlst.sort(key=lambda x: x[sortBy])
     # Resolve multi-values
     for i, line in enumerate(rtlst):
         ids = []  # type: List[int]
@@ -3176,6 +3181,20 @@ def pretty_list(rtlst,  # type: List[Tuple[Union[str, List[str]], ...]]
         rtslst.insert(1, tuple("-" * x for x in colwidth))
     # Compile
     return "\n".join(fmt % x for x in rtslst)
+
+
+def human_size(x, fmt=".1f"):
+    # type: (int, str) -> str
+    """
+    Convert a size in octets to a human string representation
+    """
+    units = ['K', 'M', 'G', 'T', 'P', 'E']
+    if not x:
+        return "0B"
+    i = int(math.log(x, 2**10))
+    if i and i < len(units):
+        return format(x / 2**(10 * i), fmt) + units[i - 1]
+    return str(x) + "B"
 
 
 def __make_table(
@@ -3328,6 +3347,294 @@ def whois(ip_address):
         else:
             break
     return b"\n".join(lines[3:])
+
+####################
+#     CLI utils    #
+####################
+
+
+class CLIUtil:
+    """
+    Provides a Util class to easily create simple CLI tools in Scapy,
+    that can still be used as an API.
+
+    Doc:
+        - override the ps1() function
+        - register commands with the @CLIUtil.addcomment decorator
+        - call the loop() function when ready
+    """
+
+    def _depcheck(self) -> None:
+        """
+        Check that all dependencies are installed
+        """
+        try:
+            import prompt_toolkit  # noqa: F401
+        except ImportError:
+            # okay we lie but prompt_toolkit is a dependency...
+            raise ImportError("You need to have IPython installed to use the CLI")
+
+    # Okay let's do nice code
+    commands: Dict[str, Callable[..., Any]] = {}
+    # print output of command
+    commands_output: Dict[str, Callable[..., str]] = {}
+    # provides completion to command
+    commands_complete: Dict[str, Callable[..., List[str]]] = {}
+
+    @staticmethod
+    def _inspectkwargs(func: DecoratorCallable) -> None:
+        """
+        Internal function to parse arguments from the kwargs of the functions
+        """
+        func._flagnames = [  # type: ignore
+            x.name for x in
+            inspect.signature(func).parameters.values()
+            if x.kind == inspect.Parameter.KEYWORD_ONLY
+        ]
+        func._flags = [  # type: ignore
+            ("-%s" % x) if len(x) == 1 else ("--%s" % x)
+            for x in func._flagnames  # type: ignore
+        ]
+
+    @staticmethod
+    def _parsekwargs(
+        func: DecoratorCallable,
+        args: List[str]
+    ) -> Tuple[List[str], Dict[str, Literal[True]]]:
+        """
+        Internal function to parse CLI arguments of a function.
+        """
+        kwargs: Dict[str, Literal[True]] = {}
+        if func._flags:  # type: ignore
+            i = 0
+            for arg in args:
+                if arg in func._flags:  # type: ignore
+                    i += 1
+                    kwargs[func._flagnames[func._flags.index(arg)]] = True  # type: ignore  # noqa: E501
+                    continue
+                break
+            args = args[i:]
+        return args, kwargs
+
+    @classmethod
+    def _parseallargs(
+        cls,
+        func: DecoratorCallable,
+        cmd: str, args: List[str]
+    ) -> Tuple[List[str], Dict[str, Literal[True]], Dict[str, Literal[True]]]:
+        """
+        Internal function to parse CLI arguments of both the function
+        and its output function.
+        """
+        args, kwargs = cls._parsekwargs(func, args)
+        outkwargs: Dict[str, Literal[True]] = {}
+        if cmd in cls.commands_output:
+            args, outkwargs = cls._parsekwargs(cls.commands_output[cmd], args)
+        return args, kwargs, outkwargs
+
+    @classmethod
+    def addcommand(
+        cls,
+        spaces: bool = False,
+        globsupport: bool = False,
+    ) -> Callable[[DecoratorCallable], DecoratorCallable]:
+        """
+        Decorator to register a command
+        """
+        def func(cmd: DecoratorCallable) -> DecoratorCallable:
+            cls.commands[cmd.__name__] = cmd
+            cmd._spaces = spaces  # type: ignore
+            cmd._globsupport = globsupport  # type: ignore
+            cls._inspectkwargs(cmd)
+            if cmd._globsupport and not cmd._spaces:  # type: ignore
+                raise ValueError("Cannot use globsupport without spaces.")
+            return cmd
+        return func
+
+    @classmethod
+    def addoutput(cls, cmd: DecoratorCallable) -> Callable[[DecoratorCallable], DecoratorCallable]:  # noqa: E501
+        """
+        Decorator to register a command output processor
+        """
+        def func(processor: DecoratorCallable) -> DecoratorCallable:
+            cls.commands_output[cmd.__name__] = processor
+            cls._inspectkwargs(processor)
+            return processor
+        return func
+
+    @classmethod
+    def addcomplete(cls, cmd: DecoratorCallable) -> Callable[[DecoratorCallable], DecoratorCallable]:  # noqa: E501
+        """
+        Decorator to register a command completor
+        """
+        def func(processor: DecoratorCallable) -> DecoratorCallable:
+            cls.commands_complete[cmd.__name__] = processor
+            return processor
+        return func
+
+    def ps1(self) -> str:
+        """
+        Return the PS1 of the shell
+        """
+        return "> "
+
+    def close(self) -> None:
+        """
+        Function called on exiting
+        """
+        print("Exited")
+
+    def help(self, cmd: Optional[str] = None) -> None:
+        """
+        Return the help related to this CLI util
+        """
+        def _args(func: Any) -> str:
+            flags = func._flags.copy()
+            if func.__name__ in self.commands_output:
+                flags += self.commands_output[func.__name__]._flags  # type: ignore
+            return " %s%s" % (
+                (
+                    "%s " % " ".join("[%s]" % x for x in flags)
+                    if flags else ""
+                ),
+                " ".join(
+                    "<%s%s>" % (
+                        x.name,
+                        "?" if
+                        (x.default is None or x.default != inspect.Parameter.empty)
+                        else ""
+                    )
+                    for x in list(inspect.signature(func).parameters.values())[1:]
+                    if x.name not in func._flagnames and x.name[0] != "_"
+                )
+            )
+
+        if cmd:
+            if cmd not in self.commands:
+                print("Unknown command '%s'" % cmd)
+                return
+            # help for one command
+            func = self.commands[cmd]
+            print("%s%s: %s" % (
+                cmd,
+                _args(func),
+                func.__doc__ and func.__doc__.strip()
+            ))
+        else:
+            header = "│ %s - Help │" % self.__class__.__name__
+            print("┌" + "─" * (len(header) - 2) + "┐")
+            print(header)
+            print("└" + "─" * (len(header) - 2) + "┘")
+            print(
+                pretty_list(
+                    [
+                        (
+                            cmd,
+                            _args(func),
+                            func.__doc__ and func.__doc__.strip().split("\n")[0] or ""
+                        )
+                        for cmd, func in self.commands.items()
+                    ],
+                    [("Command", "Arguments", "Description")]
+                )
+            )
+
+    def _completer(self) -> 'prompt_toolkit.completion.Completer':
+        """
+        Returns a prompt_toolkit custom completer
+        """
+        from prompt_toolkit.completion import Completer, Completion
+
+        class CLICompleter(Completer):
+            def get_completions(cmpl, document, complete_event):  # type: ignore
+                if not complete_event.completion_requested:
+                    # Only activate when the user does <TAB>
+                    return
+                parts = document.text.split(" ")
+                cmd = parts[0].lower()
+                if cmd not in self.commands:
+                    # We are trying to complete the command
+                    for possible_cmd in (x for x in self.commands if x.startswith(cmd)):
+                        yield Completion(possible_cmd, start_position=-len(cmd))
+                else:
+                    # We are trying to complete the command content
+                    if len(parts) == 1:
+                        return
+                    args, _, _ = self._parseallargs(self.commands[cmd], cmd, parts[1:])
+                    arg = " ".join(args)
+                    if cmd in self.commands_complete:
+                        for possible_arg in self.commands_complete[cmd](self, arg):
+                            yield Completion(possible_arg, start_position=-len(arg))
+                return
+        return CLICompleter()
+
+    def loop(self, debug: int = 0) -> None:
+        """
+        Main command handling loop
+        """
+        from prompt_toolkit import PromptSession
+        session = PromptSession(completer=self._completer())
+
+        while True:
+            try:
+                cmd = session.prompt(self.ps1()).strip()
+            except KeyboardInterrupt:
+                continue
+            except EOFError:
+                self.close()
+                break
+            args = cmd.split(" ")[1:]
+            cmd = cmd.split(" ")[0].strip().lower()
+            if not cmd:
+                continue
+            if cmd in ["help", "h", "?"]:
+                self.help(" ".join(args))
+                continue
+            if cmd in "exit":
+                break
+            if cmd not in self.commands:
+                print("Unknown command. Type help or ?")
+            else:
+                # check the number of arguments
+                func = self.commands[cmd]
+                args, kwargs, outkwargs = self._parseallargs(func, cmd, args)
+                if func._spaces:  # type: ignore
+                    args = [" ".join(args)]
+                    # if globsupport is set, we might need to do several calls
+                    if func._globsupport and "*" in args[0]:  # type: ignore
+                        if args[0].count("*") > 1:
+                            print("More than 1 glob star (*) is currently unsupported.")
+                            continue
+                        before, after = args[0].split("*", 1)
+                        reg = re.compile(re.escape(before) + r".*" + after)
+                        calls = [
+                            [x] for x in
+                            self.commands_complete[cmd](self, before)
+                            if reg.match(x)
+                        ]
+                    else:
+                        calls = [args]
+                else:
+                    calls = [args]
+                # now iterate if required, call the function and print its output
+                res = None
+                for args in calls:
+                    try:
+                        res = func(self, *args, **kwargs)
+                    except TypeError:
+                        print("Bad number of arguments !")
+                        self.help(cmd=cmd)
+                        continue
+                    except Exception as ex:
+                        print("Command failed with error: %s" % ex)
+                        if debug:
+                            traceback.print_exception(ex)
+                    try:
+                        if res and cmd in self.commands_output:
+                            self.commands_output[cmd](self, res, **outkwargs)
+                    except Exception as ex:
+                        print("Output processor failed with error: %s" % ex)
+
 
 #######################
 #   PERIODIC SENDER   #

@@ -651,7 +651,8 @@ assert len(conf.temp_files) == 0
 import mock, sys
 from scapy.main import interact
 
-from scapy.main import DEFAULT_PRESTART_FILE
+from scapy.main import DEFAULT_PRESTART_FILE, DEFAULT_PRESTART, _read_config_file
+_read_config_file(DEFAULT_PRESTART_FILE, _locals=globals(), default=DEFAULT_PRESTART)
 # By now .config/scapy/startup.py should have been created
 with open(DEFAULT_PRESTART_FILE, "r") as fd:
     OLD_DEFAULT_PRESTART = fd.read()
@@ -691,7 +692,8 @@ interact_emulator(extra_args=["-d"])  # Extended
 import sys
 import mock
 
-from scapy.main import DEFAULT_PRESTART_FILE
+from scapy.main import DEFAULT_PRESTART_FILE, DEFAULT_PRESTART, _read_config_file
+_read_config_file(DEFAULT_PRESTART_FILE, _locals=globals(), default=DEFAULT_PRESTART)
 # By now .config/scapy/startup.py should have been created
 with open(DEFAULT_PRESTART_FILE, "w+") as fd:
     fd.write("conf.interactive_shell = 'ptpython'")
@@ -1069,7 +1071,8 @@ scapy_delete_temp_files()
 = Test utility functions - network related
 ~ netaccess
 
-atol("www.secdev.org") == 3642339845
+assert atol("1.1.1.1") == 0x1010101
+assert atol("192.168.0.1") == 0xc0a80001
 
 = Test autorun functions
 ~ autorun
@@ -1093,6 +1096,7 @@ assert "NameError" in ret[0]
 
 cmds = """log_runtime.info(hex_bytes("446166742050756e6b"))\n"""
 ret = autorun_get_text_interactive_session(cmds)
+ret
 assert "Daft Punk" in ret[0]
 
 = Test utility TEX functions
@@ -1122,8 +1126,8 @@ conf.verb = saved_conf_verb
 
 = Test config file functions failures
 
-from scapy.main import _probe_config_file
-assert _probe_config_file("filethatdoesnotexistnorwillever.tsppajfsrdrr") is None
+from scapy.main import _read_config_file, _probe_config_file
+assert _read_config_file(_probe_config_file("filethatdoesnotexistnorwillever.tsppajfsrdrr")) is None
 
 = Test CacheInstance repr
 
@@ -1439,6 +1443,48 @@ conf.checkIPsrc = conf_checkIPsrc
 
 ############
 ############
++ command() / json() tests
+~ command
+
+= Test command() with normal packet
+
+pkt = IP(dst="127.0.0.1", src="127.0.0.1") / UDP(dport=12345, sport=654)
+assert pkt.command() == "IP(src='127.0.0.1', dst='127.0.0.1')/UDP(sport=654, dport=12345)"
+
+= Test json() with normal packet
+
+assert pkt.json() == '{"version": 4, "ihl": null, "tos": 0, "len": null, "id": 1, "flags": 0, "frag": 0, "ttl": 64, "proto": 17, "chksum": null, "src": "127.0.0.1", "dst": "127.0.0.1", "payload": {"sport": 654, "dport": 12345, "len": null, "chksum": null}}'
+
+= Test command() with nested packet
+
+pkt = DNS(qd=[DNSQR(qtype="A", qname="google.com")])
+assert pkt.command() == "DNS(qd=[DNSQR(qname=b'google.com.', qtype=1)])"
+
+= Test json() with nested packet
+
+assert pkt.json() == '{"length": null, "id": 0, "qr": 0, "opcode": 0, "aa": 0, "tc": 0, "rd": 1, "ra": 0, "z": 0, "ad": 0, "cd": 0, "rcode": 0, "qdcount": null, "ancount": null, "nscount": null, "arcount": null, "qd": [{"qname": "google.com.", "qtype": 1, "qclass": 1}]}'
+
+= Test command() with ASN.1 packet
+
+pkt = KRB_AP_REP(bytes(KRB_AP_REP(encPart=EncryptedData())))
+assert pkt.command() == "KRB_AP_REP(pvno=ASN1_INTEGER(5), msgType=ASN1_INTEGER(15), encPart=EncryptedData(etype=ASN1_INTEGER(23), kvno=None, cipher=ASN1_STRING(b'')))"
+
+= Test json(à with ASN.1 packet
+
+assert pkt.json() == '{"pvno": {"type": "ASN1_INTEGER", "value": "5"}, "msgType": {"type": "ASN1_INTEGER", "value": "15"}, "encPart": {"etype": {"type": "ASN1_INTEGER", "value": "23"}, "kvno": null, "cipher": {"type": "ASN1_STRING", "value": ""}}}'
+
+= Test command() with meaningless payload
+
+pkt = PPTPStartControlConnectionReply() / IP(dst="127.0.0.1", src="127.0.0.1")
+assert pkt.command() == "PPTPStartControlConnectionReply()/IP(src='127.0.0.1', dst='127.0.0.1')"
+
+= Test json() with meaningless payload
+
+assert pkt.json() == '{"len": 156, "type": 1, "magic_cookie": 439041101, "ctrl_msg_type": 2, "reserved_0": 0, "protocol_version": 256, "result_code": 1, "error_code": 0, "framing_capabilities": 0, "bearer_capabilities": 0, "maximum_channels": 65535, "firmware_revision": 256, "host_name": "linux", "vendor_string": "", "payload": {"version": 4, "ihl": null, "tos": 0, "len": null, "id": 1, "flags": 0, "frag": 0, "ttl": 64, "proto": 0, "chksum": null, "src": "127.0.0.1", "dst": "127.0.0.1"}}'
+
+
+############
+############
 + Tests on padding
 
 = Padding assembly
@@ -1524,7 +1570,7 @@ o
 assert o in [
     b'\x1e\x023V',  # PyPy 2.7
     b'A\x02\x07q',  # Python 2.7
-    b'B\x02\xfe\x92',  # python 3.7-3.9
+    b'F\x02\xfe\x92',   # python 3.7-3.9
 ]
 
 = ASN1 - ASN1_BIT_STRING
@@ -1665,7 +1711,7 @@ finally:
 # simulate sniffing on multiple interfaces.
 
 def _test():
-	iface = conf.route.route("www.google.com")[0]
+	iface = conf.route.route(str(Net("www.google.com")))[0]
 	port = int(RandShort())
 	pkt = IP(dst="www.google.com")/TCP(sport=port, dport=80, flags="S")
 	def cb():
@@ -2258,6 +2304,15 @@ except Scapy_Exception:
 else:
     assert False
 
+= Check online sniff() with a bad filter
+~ needs_root tcpdump libpcap
+try:
+    sniff(timeout=0, filter="bad filter")
+except Scapy_Exception:
+    pass
+else:
+    assert False
+
 = Check offline sniff with lfilter
 assert len(sniff(offline=[IP()/UDP(), IP()/TCP()], lfilter=lambda x: TCP in x)) == 1
 
@@ -2664,6 +2719,15 @@ with mock.patch("scapy.utils.warning") as warning:
     wrpcap(filename, [IP(), Ether(), IP(), IP()])
     os.remove(filename)
     assert any("Inconsistent" in arg for arg in warning.call_args[0])
+
+= Check wrpcap() with the Loopback layer
+~ tshark
+
+for cls in [Loopback, LoopbackOpenBSD]:
+    filename = tempfile.mktemp(suffix=".pcap")
+    wrpcap(filename, [cls()/IP()/ICMP()])
+    return_value = b"".join(line for line in tcpdump(filename, prog=conf.prog.tshark, getfd=True))
+    assert b"Echo (ping) request" in return_value
 
 ############
 ############
@@ -3581,8 +3645,7 @@ class DNSTCP(Packet):
     fields_desc = [ FieldLenField("len", None, fmt="!H", length_of="dns"),
                     PacketLenField("dns", 0, DNS, length_from=lambda p: p.len)]
 
-ssck = StreamSocket(sck)
-ssck.basecls = DNSTCP
+ssck = StreamSocket(sck, DNSTCP)
 
 r = ssck.sr1(DNSTCP(dns=DNS(rd=1, qd=DNSQR(qname="www.example.com"))), timeout=3)
 sck.close()

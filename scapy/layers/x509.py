@@ -25,7 +25,7 @@ from scapy.asn1fields import ASN1F_BIT_STRING, ASN1F_BIT_STRING_ENCAPS, \
     ASN1F_UTF8_STRING, ASN1F_badsequence, ASN1F_enum_INTEGER, ASN1F_field, \
     ASN1F_optional
 from scapy.packet import Packet
-from scapy.fields import PacketField
+from scapy.fields import PacketField, MultipleTypeField
 from scapy.volatile import ZuluTime, GeneralizedTime
 from scapy.compat import plain_str
 
@@ -764,62 +764,24 @@ class X509_AlgorithmIdentifier(ASN1_Packet):
                          ASN1F_NULL, ECParameters)))
 
 
-class ASN1F_X509_SubjectPublicKeyInfoRSA(ASN1F_SEQUENCE):
-    def __init__(self, **kargs):
-        seq = [ASN1F_PACKET("signatureAlgorithm",
-                            X509_AlgorithmIdentifier(),
-                            X509_AlgorithmIdentifier),
-               ASN1F_BIT_STRING_ENCAPS("subjectPublicKey",
-                                       RSAPublicKey(),
-                                       RSAPublicKey)]
-        ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
-
-
-class ASN1F_X509_SubjectPublicKeyInfoECDSA(ASN1F_SEQUENCE):
-    def __init__(self, **kargs):
-        seq = [ASN1F_PACKET("signatureAlgorithm",
-                            X509_AlgorithmIdentifier(),
-                            X509_AlgorithmIdentifier),
-               ASN1F_PACKET("subjectPublicKey", ECDSAPublicKey(),
-                            ECDSAPublicKey)]
-        ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
-
-
 class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
     def __init__(self, **kargs):
         seq = [ASN1F_PACKET("signatureAlgorithm",
                             X509_AlgorithmIdentifier(),
                             X509_AlgorithmIdentifier),
-               ASN1F_BIT_STRING("subjectPublicKey", None)]
+               MultipleTypeField(
+                   [
+                       (ASN1F_BIT_STRING_ENCAPS("subjectPublicKey",
+                                                RSAPublicKey(),
+                                                RSAPublicKey),
+                        lambda pkt: "rsa" in pkt.signatureAlgorithm.algorithm.oidname.lower()),  # noqa: E501
+                       (ASN1F_PACKET("subjectPublicKey",
+                                     ECDSAPublicKey(),
+                                     ECDSAPublicKey),
+                        lambda pkt: "ecPublicKey" == pkt.signatureAlgorithm.algorithm.oidname),  # noqa: E501
+                   ],
+                   ASN1F_BIT_STRING("subjectPublicKey", ""))]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
-
-    def m2i(self, pkt, x):
-        c, s = ASN1F_SEQUENCE.m2i(self, pkt, x)
-        keytype = pkt.fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in keytype.lower():
-            return ASN1F_X509_SubjectPublicKeyInfoRSA().m2i(pkt, x)
-        elif keytype == "ecPublicKey":
-            return ASN1F_X509_SubjectPublicKeyInfoECDSA().m2i(pkt, x)
-        else:
-            raise Exception("could not parse subjectPublicKeyInfo")
-
-    def dissect(self, pkt, s):
-        c, x = self.m2i(pkt, s)
-        return x
-
-    def build(self, pkt):
-        if "signatureAlgorithm" in pkt.fields:
-            ktype = pkt.fields['signatureAlgorithm'].algorithm.oidname
-        else:
-            ktype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in ktype.lower():
-            pkt.default_fields["subjectPublicKey"] = RSAPublicKey()
-            return ASN1F_X509_SubjectPublicKeyInfoRSA().build(pkt)
-        elif ktype == "ecPublicKey":
-            pkt.default_fields["subjectPublicKey"] = ECDSAPublicKey()
-            return ASN1F_X509_SubjectPublicKeyInfoECDSA().build(pkt)
-        else:
-            raise Exception("could not build subjectPublicKeyInfo")
 
 
 class X509_SubjectPublicKeyInfo(ASN1_Packet):
@@ -1004,20 +966,6 @@ class X509_TBSCertificate(ASN1_Packet):
         return name_str
 
 
-class ASN1F_X509_CertECDSA(ASN1F_SEQUENCE):
-    def __init__(self, **kargs):
-        seq = [ASN1F_PACKET("tbsCertificate",
-                            X509_TBSCertificate(),
-                            X509_TBSCertificate),
-               ASN1F_PACKET("signatureAlgorithm",
-                            X509_AlgorithmIdentifier(),
-                            X509_AlgorithmIdentifier),
-               ASN1F_BIT_STRING_ENCAPS("signatureValue",
-                                       ECDSASignature(),
-                                       ECDSASignature)]
-        ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
-
-
 class ASN1F_X509_Cert(ASN1F_SEQUENCE):
     def __init__(self, **kargs):
         seq = [ASN1F_PACKET("tbsCertificate",
@@ -1026,36 +974,16 @@ class ASN1F_X509_Cert(ASN1F_SEQUENCE):
                ASN1F_PACKET("signatureAlgorithm",
                             X509_AlgorithmIdentifier(),
                             X509_AlgorithmIdentifier),
-               ASN1F_BIT_STRING("signatureValue",
-                                "defaultsignature" * 2)]
+               MultipleTypeField(
+                   [
+                       (ASN1F_BIT_STRING_ENCAPS("signatureValue",
+                                                ECDSASignature(),
+                                                ECDSASignature),
+                        lambda pkt: "ecdsa" in pkt.signatureAlgorithm.algorithm.oidname.lower()),  # noqa: E501
+                   ],
+                   ASN1F_BIT_STRING("signatureValue",
+                                    "defaultsignature" * 2))]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
-
-    def m2i(self, pkt, x):
-        c, s = ASN1F_SEQUENCE.m2i(self, pkt, x)
-        sigtype = pkt.fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in sigtype.lower():
-            return c, s
-        elif "ecdsa" in sigtype.lower():
-            return ASN1F_X509_CertECDSA().m2i(pkt, x)
-        else:
-            raise Exception("could not parse certificate")
-
-    def dissect(self, pkt, s):
-        c, x = self.m2i(pkt, s)
-        return x
-
-    def build(self, pkt):
-        if "signatureAlgorithm" in pkt.fields:
-            sigtype = pkt.fields['signatureAlgorithm'].algorithm.oidname
-        else:
-            sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname  # noqa: E501
-        if "rsa" in sigtype.lower():
-            return ASN1F_SEQUENCE.build(self, pkt)
-        elif "ecdsa" in sigtype.lower():
-            pkt.default_fields["signatureValue"] = ECDSASignature()
-            return ASN1F_X509_CertECDSA().build(pkt)
-        else:
-            raise Exception("could not build certificate")
 
 
 class X509_Cert(ASN1_Packet):
@@ -1121,20 +1049,6 @@ class X509_TBSCertList(ASN1_Packet):
         return name_str
 
 
-class ASN1F_X509_CRLECDSA(ASN1F_SEQUENCE):
-    def __init__(self, **kargs):
-        seq = [ASN1F_PACKET("tbsCertList",
-                            X509_TBSCertList(),
-                            X509_TBSCertList),
-               ASN1F_PACKET("signatureAlgorithm",
-                            X509_AlgorithmIdentifier(),
-                            X509_AlgorithmIdentifier),
-               ASN1F_BIT_STRING_ENCAPS("signatureValue",
-                                       ECDSASignature(),
-                                       ECDSASignature)]
-        ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
-
-
 class ASN1F_X509_CRL(ASN1F_SEQUENCE):
     def __init__(self, **kargs):
         seq = [ASN1F_PACKET("tbsCertList",
@@ -1143,36 +1057,16 @@ class ASN1F_X509_CRL(ASN1F_SEQUENCE):
                ASN1F_PACKET("signatureAlgorithm",
                             X509_AlgorithmIdentifier(),
                             X509_AlgorithmIdentifier),
-               ASN1F_BIT_STRING("signatureValue",
-                                "defaultsignature" * 2)]
+               MultipleTypeField(
+                   [
+                       (ASN1F_BIT_STRING_ENCAPS("signatureValue",
+                                                ECDSASignature(),
+                                                ECDSASignature),
+                        lambda pkt: "ecdsa" in pkt.signatureAlgorithm.algorithm.oidname.lower()),  # noqa: E501
+                   ],
+                   ASN1F_BIT_STRING("signatureValue",
+                                    "defaultsignature" * 2))]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
-
-    def m2i(self, pkt, x):
-        c, s = ASN1F_SEQUENCE.m2i(self, pkt, x)
-        sigtype = pkt.fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in sigtype.lower():
-            return c, s
-        elif "ecdsa" in sigtype.lower():
-            return ASN1F_X509_CRLECDSA().m2i(pkt, x)
-        else:
-            raise Exception("could not parse certificate")
-
-    def dissect(self, pkt, s):
-        c, x = self.m2i(pkt, s)
-        return x
-
-    def build(self, pkt):
-        if "signatureAlgorithm" in pkt.fields:
-            sigtype = pkt.fields['signatureAlgorithm'].algorithm.oidname
-        else:
-            sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname  # noqa: E501
-        if "rsa" in sigtype.lower():
-            return ASN1F_SEQUENCE.build(self, pkt)
-        elif "ecdsa" in sigtype.lower():
-            pkt.default_fields["signatureValue"] = ECDSASignature()
-            return ASN1F_X509_CRLECDSA().build(pkt)
-        else:
-            raise Exception("could not build certificate")
 
 
 class X509_CRL(ASN1_Packet):
@@ -1208,7 +1102,7 @@ class OCSP_RevokedInfo(ASN1_Packet):
         ASN1F_optional(
             ASN1F_PACKET("revocationReason", None,
                          X509_ExtReasonCode,
-                         explicit_tag=0x80)))
+                         explicit_tag=0xa0)))
 
 
 class OCSP_UnknownInfo(ASN1_Packet):
@@ -1231,7 +1125,7 @@ class OCSP_SingleResponse(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_PACKET("certID", OCSP_CertID(), OCSP_CertID),
-        ASN1F_PACKET("certStatus", OCSP_CertStatus(),
+        ASN1F_PACKET("certStatus", OCSP_CertStatus(certStatus=OCSP_GoodInfo()),
                      OCSP_CertStatus),
         ASN1F_GENERALIZED_TIME("thisUpdate", ""),
         ASN1F_optional(
@@ -1268,7 +1162,7 @@ class OCSP_ResponseData(ASN1_Packet):
         ASN1F_optional(
             ASN1F_enum_INTEGER("version", 0, {0: "v1"},
                                explicit_tag=0x80)),
-        ASN1F_PACKET("responderID", OCSP_ResponderID(),
+        ASN1F_PACKET("responderID", OCSP_ResponderID(responderID=OCSP_ByName()),
                      OCSP_ResponderID),
         ASN1F_GENERALIZED_TIME("producedAt",
                                str(GeneralizedTime())),
@@ -1279,23 +1173,6 @@ class OCSP_ResponseData(ASN1_Packet):
                               explicit_tag=0xa1)))
 
 
-class ASN1F_OCSP_BasicResponseECDSA(ASN1F_SEQUENCE):
-    def __init__(self, **kargs):
-        seq = [ASN1F_PACKET("tbsResponseData",
-                            OCSP_ResponseData(),
-                            OCSP_ResponseData),
-               ASN1F_PACKET("signatureAlgorithm",
-                            X509_AlgorithmIdentifier(),
-                            X509_AlgorithmIdentifier),
-               ASN1F_BIT_STRING_ENCAPS("signature",
-                                       ECDSASignature(),
-                                       ECDSASignature),
-               ASN1F_optional(
-                   ASN1F_SEQUENCE_OF("certs", None, X509_Cert,
-                                     explicit_tag=0xa0))]
-        ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
-
-
 class ASN1F_OCSP_BasicResponse(ASN1F_SEQUENCE):
     def __init__(self, **kargs):
         seq = [ASN1F_PACKET("tbsResponseData",
@@ -1304,39 +1181,19 @@ class ASN1F_OCSP_BasicResponse(ASN1F_SEQUENCE):
                ASN1F_PACKET("signatureAlgorithm",
                             X509_AlgorithmIdentifier(),
                             X509_AlgorithmIdentifier),
-               ASN1F_BIT_STRING("signature",
-                                "defaultsignature" * 2),
+               MultipleTypeField(
+                   [
+                       (ASN1F_BIT_STRING_ENCAPS("signature",
+                                                ECDSASignature(),
+                                                ECDSASignature),
+                        lambda pkt: "ecdsa" in pkt.signatureAlgorithm.algorithm.oidname.lower()),  # noqa: E501
+                   ],
+                   ASN1F_BIT_STRING("signature",
+                                    "defaultsignature" * 2)),
                ASN1F_optional(
                    ASN1F_SEQUENCE_OF("certs", None, X509_Cert,
                                      explicit_tag=0xa0))]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
-
-    def m2i(self, pkt, x):
-        c, s = ASN1F_SEQUENCE.m2i(self, pkt, x)
-        sigtype = pkt.fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in sigtype.lower():
-            return c, s
-        elif "ecdsa" in sigtype.lower():
-            return ASN1F_OCSP_BasicResponseECDSA().m2i(pkt, x)
-        else:
-            raise Exception("could not parse OCSP basic response")
-
-    def dissect(self, pkt, s):
-        c, x = self.m2i(pkt, s)
-        return x
-
-    def build(self, pkt):
-        if "signatureAlgorithm" in pkt.fields:
-            sigtype = pkt.fields['signatureAlgorithm'].algorithm.oidname
-        else:
-            sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname  # noqa: E501
-        if "rsa" in sigtype.lower():
-            return ASN1F_SEQUENCE.build(self, pkt)
-        elif "ecdsa" in sigtype.lower():
-            pkt.default_fields["signatureValue"] = ECDSASignature()
-            return ASN1F_OCSP_BasicResponseECDSA().build(pkt)
-        else:
-            raise Exception("could not build OCSP basic response")
 
 
 class OCSP_ResponseBytes(ASN1_Packet):

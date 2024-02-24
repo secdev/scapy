@@ -6,7 +6,9 @@
 
 from scapy.layers.smb import *
 
-= test SMB Negociate Header - dissect
+= test SMB Generic Header - dissect
+
+from scapy.layers.smb import _SMBGeneric
 
 # OK test
 rawpkt = b'\x45\x00\x00\x5b\x69\x10\x40\x00\x73\x06\xca\x85\x7a\xa0\x9a\xb6\xc0\xa8\xfe\x07\xeb\xec\x01\xbd\xaf\x97\x2e\xb7\x78\x60\x84\x6c\x50\x18\x40\x29\xd5\x36\x00\x00\x00\x00\x00\x2f\xff\x53\x4d\x42\x72\x00\x00\x00\x00\x18\x01\x48\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x20\x18\x00\x00\x00\x00\x00\x0c\x00\x02\x4e\x54\x20\x4c\x4d\x20\x30\x2e\x31\x32\x00'
@@ -29,7 +31,7 @@ pkt = IP(rawpkt)
 assert TCP in pkt
 assert NBTSession in pkt
 assert pkt[NBTSession].LENGTH == 47
-assert SMBNegociate_Protocol_Request_Header_Generic in pkt
+assert _SMBGeneric in pkt
 # Should not have a proper SMBNegociate header as magic is \xf0SMB, not \xffSMB
 assert SMB_Header not in pkt
 
@@ -61,13 +63,13 @@ assert SMBNegotiate_Response_Extended_Security in smb_nego_resp
 assert smb_nego_resp[SMBNegotiate_Response_Extended_Security].ServerTime == 131210789640364829
 assert isinstance(smb_nego_resp.SecurityBlob, GSSAPI_BLOB)
 assert smb_nego_resp.SecurityBlob.MechType.oidname == 'SPNEGO - Simple Protected Negotiation'
-assert smb_nego_resp.SecurityBlob.innerContextToken.token.mechTypes[0].oid.oidname == 'NEGOEX - SPNEGO Extended Negotiation Security Mechanism'
+assert smb_nego_resp.SecurityBlob.innerToken.token.mechTypes[0].oid.oidname == 'NEGOEX - SPNEGO Extended Negotiation Security Mechanism'
 assert smb_nego_resp.ServerCapabilities.EXTENDED_SECURITY
 assert smb_nego_resp.Flags2.EXTENDED_SECURITY
 
 from uuid import UUID
 
-negoex_nego = smb_nego_resp.SecurityBlob.innerContextToken.token.mechToken.value
+negoex_nego = smb_nego_resp.SecurityBlob.innerToken.token.mechToken.value
 assert negoex_nego.MessageType == 1
 assert negoex_nego.SequenceNum == 0
 assert len(negoex_nego.Payload) == 1
@@ -92,8 +94,8 @@ smb_sax_req_1 = Ether(b'\x00PV\xc0\x00\x01\x00\x0c)a\xf5_\x08\x00E\x00\x00\xb6Qf
 assert SMBSession_Setup_AndX_Request_Extended_Security in smb_sax_req_1
 assert smb_sax_req_1.Flags2.EXTENDED_SECURITY
 assert smb_sax_req_1.Flags2.UNICODE
-assert isinstance(smb_sax_req_1.SecurityBlob.innerContextToken.token.mechToken.value, NTLM_NEGOTIATE)
-ntlm_nego = smb_sax_req_1.SecurityBlob.innerContextToken.token.mechToken.value
+assert isinstance(smb_sax_req_1.SecurityBlob.innerToken.token.mechToken.value, NTLM_NEGOTIATE)
+ntlm_nego = smb_sax_req_1.SecurityBlob.innerToken.token.mechToken.value
 assert ntlm_nego.ProductBuild == 10586
 
 = SMB Setup AndX Response (ES)

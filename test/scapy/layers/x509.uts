@@ -257,6 +257,13 @@ assert responseData.producedAt == ASN1_GENERALIZED_TIME("20160914121000Z")
 assert len(responseData.responses) == 1
 responseData.responseExtensions is None
 
+= OCSP class : OCSP ResponseData dissection with RecokedInfo
+from scapy.layers.x509 import OCSP_ResponseData
+pkt = OCSP_ResponseData(b"0\x81\xdf\xa2\x16\x04\x14\x11\x7f\x8eD\xbb\xe9\x7f\xca'\xfeG\x90\x89\\\x18\xea\x0e\xa5#W\x18\x0f20240121133708Z0\x81\x8e0\x81\x8b0M0\t\x06\x05+\x0e\x03\x02\x1a\x05\x00\x04\x14\x0b\xaf\xcc#$\xb8\xb0\xf8\xb02,\x9aPn9VSW\x14\x14\x04\x14\x11\x7f\x8eD\xbb\xe9\x7f\xca'\xfeG\x90\x89\\\x18\xea\x0e\xa5#W\x02\x14\x10&\x99j\t\xaa\xb9>\xde\x06\xb6#b\xa9\xe4GA\x07\x1b2\xa1\x16\x18\x0f20240120133708Z\xa0\x03\n\x01\x01\x18\x0f20240121133708Z\xa0\x11\x18\x0f20240122133708Z\xa1#0!0\x1f\x06\t+\x06\x01\x05\x05\x070\x01\x02\x04\x12\x04\x10\xfc\xb6\x92\xdf^\xf3\x03{\tH}\x12\x9f\xaa\x13^")
+assert pkt.responderID.responderID.byKey == b"\x11\x7f\x8eD\xbb\xe9\x7f\xca'\xfeG\x90\x89\\\x18\xea\x0e\xa5#W"
+assert pkt.responses[0].certID.issuerNameHash == b'\x0b\xaf\xcc#$\xb8\xb0\xf8\xb02,\x9aPn9VSW\x14\x14'
+assert pkt.responses[0].certStatus.certStatus.revocationReason.cRLReason == 0x1
+
 = OCSP class : OCSP SingleResponse checks
 from scapy.layers.x509 import OCSP_GoodInfo
 singleResponse = responseData.responses[0]
@@ -273,3 +280,10 @@ singleResponse.singleExtensions is None
 = OCSP class : OCSP Response reconstruction
 raw(response) == s
 
+= OSCP class : OSCP Response with ECDSA
+response = OCSP_ResponseBytes()
+assert bytes(response.signature) == b'\x03!\x00defaultsignaturedefaultsignature'
+response.signatureAlgorithm.algorithm = ASN1_OID('1.2.840.10045.4.3.2')
+assert bytes(response.signature) == b'\x03\t\x000\x06\x02\x01\x00\x02\x01\x00'
+response = OCSP_ResponseBytes(bytes(response))
+assert isinstance(response.signature, ECDSASignature)

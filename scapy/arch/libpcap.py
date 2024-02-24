@@ -136,6 +136,8 @@ class _L2libpcapSocket(SuperSocket):
 #  PCAP  #
 ##########
 
+if WINDOWS:
+    NPCAP_PATH = ""
 
 if conf.use_pcap:
     if WINDOWS:
@@ -160,6 +162,7 @@ if conf.use_pcap:
             pcap_datalink,
             pcap_findalldevs,
             pcap_freealldevs,
+            pcap_geterr,
             pcap_if_t,
             pcap_lib_version,
             pcap_next_ex,
@@ -265,8 +268,6 @@ if conf.use_pcap:
                 conf.use_npcap = True
                 conf.loopback_name = conf.loopback_name = "Npcap Loopback Adapter"  # noqa: E501
 
-if WINDOWS:
-    NPCAP_PATH = ""
 if conf.use_pcap:
     class _PcapWrapper_libpcap:  # noqa: F811
         """Wrapper for the libpcap calls"""
@@ -386,16 +387,16 @@ if conf.use_pcap:
                 return cast(int, pcap_get_selectable_fd(self.pcap))
 
         def setfilter(self, f):
-            # type: (str) -> bool
+            # type: (str) -> None
             filter_exp = create_string_buffer(f.encode("utf8"))
-            if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 1, -1) == -1:  # noqa: E501
-                log_runtime.error("Could not compile filter expression %s", f)
-                return False
-            else:
-                if pcap_setfilter(self.pcap, byref(self.bpf_program)) == -1:
-                    log_runtime.error("Could not set filter %s", f)
-                    return False
-            return True
+            if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 1, -1) >= 0:  # noqa: E501
+                if pcap_setfilter(self.pcap, byref(self.bpf_program)) >= 0:
+                    # Success
+                    return
+            errstr = decode_locale_str(
+                bytearray(pcap_geterr(self.pcap)).strip(b"\x00")
+            )
+            raise Scapy_Exception("Cannot set filter: %s" % errstr)
 
         def setnonblock(self, i):
             # type: (bool) -> None

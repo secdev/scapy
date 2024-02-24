@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
 # See https://scapy.net/ for more information
-# Copyright (C) Gabriel Potter <gabriel[]potter[]fr>
+# Copyright (C) Gabriel Potter
 
 """
 [MS-PAC]
 
 https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-pac/166d8064-c863-41e1-9c23-edaaa5f36962
+Up to date with version: 23.0
 """
 
 import struct
@@ -23,7 +24,7 @@ from scapy.fields import (
     LEIntField,
     LEShortField,
     MultipleTypeField,
-    PacketLenField,
+    PacketField,
     PacketListField,
     StrField,
     StrFieldUtf16,
@@ -34,17 +35,19 @@ from scapy.fields import (
     XStrLenField,
 )
 from scapy.packet import Packet
-from scapy.layers.kerberos import _AUTHORIZATIONDATA_VALUES
+from scapy.layers.kerberos import (
+    _AUTHORIZATIONDATA_VALUES,
+    _KRB_S_TYPES,
+)
 from scapy.layers.dcerpc import (
-    _NDRConfField,
     NDRByteField,
-    NDRConfStrLenField,
-    NDRConfVarStrLenField,
-    NDRConfVarStrLenFieldUtf16,
-    NDRConfPacketListField,
     NDRConfFieldListField,
+    NDRConfPacketListField,
+    NDRConfStrLenField,
+    NDRConfVarStrLenFieldUtf16,
     NDRConfVarStrNullFieldUtf16,
     NDRConformantString,
+    NDRFieldListField,
     NDRFullPointerField,
     NDRInt3264EnumField,
     NDRIntField,
@@ -52,17 +55,19 @@ from scapy.layers.dcerpc import (
     NDRPacket,
     NDRPacketField,
     NDRSerialization1Header,
+    NDRSerializeType1PacketLenField,
     NDRShortField,
     NDRSignedLongField,
     NDRUnionField,
+    _NDRConfField,
     ndr_deserialize1,
     ndr_serialize1,
 )
 from scapy.layers.ntlm import (
     _NTLMPayloadField,
     _NTLMPayloadPacket,
-    _NTLM_post_build,
 )
+from scapy.layers.smb2 import WINNT_SID
 
 # sect 2.4
 
@@ -75,17 +80,18 @@ class PAC_INFO_BUFFER(Packet):
             {
                 0x00000001: "Logon information",
                 0x00000002: "Credentials information",
-                0x00000006: "Server checksum",
-                0x00000007: "KDC checksum",
+                0x00000006: "Server Signature",
+                0x00000007: "KDC Signature",
                 0x0000000A: "Client name and ticket information",
                 0x0000000B: "Constrained delegation information",
                 0x0000000C: "UPN and DNS information",
                 0x0000000D: "Client claims information",
                 0x0000000E: "Device information",
                 0x0000000F: "Device claims information",
-                0x00000010: "Ticket checksum",
+                0x00000010: "Ticket Signature",
                 0x00000011: "PAC Attributes",
                 0x00000012: "PAC Requestor",
+                0x00000013: "Extended KDC Signature",
             },
         ),
         LEIntField("cbBufferSize", None),
@@ -98,17 +104,23 @@ class PAC_INFO_BUFFER(Packet):
 
 _PACTYPES = {}
 
-# sect 2.5 - NDR PACKETS AUTO-GENERATED
+
+# sect 2.5 - NDR PACKETS
 
 
 class RPC_UNICODE_STRING(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRShortField("Length", 0),
-        NDRShortField("MaximumLength", 0),
+        NDRShortField("Length", None, size_of="Buffer", adjust=lambda _, x: (x * 2)),
+        NDRShortField(
+            "MaximumLength", None, size_of="Buffer", adjust=lambda _, x: (x * 2)
+        ),
         NDRFullPointerField(
             NDRConfVarStrLenFieldUtf16(
-                "Buffer", "", length_from=lambda pkt: (pkt.Length // 2)
+                "Buffer",
+                "",
+                size_is=lambda pkt: (pkt.MaximumLength // 2),
+                length_is=lambda pkt: (pkt.Length // 2),
             ),
             deferred=True,
         ),
@@ -120,7 +132,7 @@ class FILETIME(NDRPacket):
     fields_desc = [NDRIntField("dwLowDateTime", 0), NDRIntField("dwHighDateTime", 0)]
 
 
-class PGROUP_MEMBERSHIP(NDRPacket):
+class GROUP_MEMBERSHIP(NDRPacket):
     ALIGNMENT = (4, 4)
     fields_desc = [NDRIntField("RelativeId", 0), NDRIntField("Attributes", 0)]
 
@@ -137,12 +149,12 @@ class RPC_SID_IDENTIFIER_AUTHORITY(NDRPacket):
     fields_desc = [StrFixedLenField("Value", "", length=6)]
 
 
-class PSID(NDRPacket):
+class SID(NDRPacket):
     ALIGNMENT = (4, 8)
-    CONFORMANT_COUNT = 1
+    DEPORTED_CONFORMANTS = ["SubAuthority"]
     fields_desc = [
         NDRByteField("Revision", 0),
-        NDRByteField("SubAuthorityCount", 0),
+        NDRByteField("SubAuthorityCount", None, size_of="SubAuthority"),
         NDRPacketField(
             "IdentifierAuthority",
             RPC_SID_IDENTIFIER_AUTHORITY(),
@@ -152,16 +164,19 @@ class PSID(NDRPacket):
             "SubAuthority",
             [],
             NDRIntField("", 0),
-            count_from=lambda pkt: pkt.SubAuthorityCount,
+            size_is=lambda pkt: pkt.SubAuthorityCount,
             conformant_in_struct=True,
         ),
     ]
 
+    def summary(self):
+        return WINNT_SID.summary(self)
 
-class PKERB_SID_AND_ATTRIBUTES(NDRPacket):
+
+class KERB_SID_AND_ATTRIBUTES(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRFullPointerField(NDRPacketField("Sid", PSID(), PSID), deferred=True),
+        NDRFullPointerField(NDRPacketField("Sid", SID(), SID), deferred=True),
         NDRIntField("Attributes", 0),
     ]
 
@@ -185,13 +200,13 @@ class KERB_VALIDATION_INFO(NDRPacket):
         NDRShortField("BadPasswordCount", 0),
         NDRIntField("UserId", 0),
         NDRIntField("PrimaryGroupId", 0),
-        NDRIntField("GroupCount", 0),
+        NDRIntField("GroupCount", None, size_of="GroupIds"),
         NDRFullPointerField(
             NDRConfPacketListField(
                 "GroupIds",
-                [PGROUP_MEMBERSHIP()],
-                PGROUP_MEMBERSHIP,
-                count_from=lambda pkt: pkt.GroupCount,
+                [GROUP_MEMBERSHIP()],
+                GROUP_MEMBERSHIP,
+                size_is=lambda pkt: pkt.GroupCount,
             ),
             deferred=True,
         ),
@@ -199,45 +214,37 @@ class KERB_VALIDATION_INFO(NDRPacket):
         NDRPacketField("UserSessionKey", USER_SESSION_KEY(), USER_SESSION_KEY),
         NDRPacketField("LogonServer", RPC_UNICODE_STRING(), RPC_UNICODE_STRING),
         NDRPacketField("LogonDomainName", RPC_UNICODE_STRING(), RPC_UNICODE_STRING),
-        NDRFullPointerField(
-            NDRPacketField("LogonDomainId", PSID(), PSID), deferred=True
-        ),
-        FieldListField("Reserved1", [], NDRIntField("", 0), count_from=lambda _: 2),
+        NDRFullPointerField(NDRPacketField("LogonDomainId", SID(), SID), deferred=True),
+        NDRFieldListField("Reserved1", [], NDRIntField("", 0), length_is=lambda _: 2),
         NDRIntField("UserAccountControl", 0),
-        FieldListField("Reserved3", [], NDRIntField("", 0), count_from=lambda _: 7),
-        NDRIntField("SidCount", 0),
+        NDRFieldListField("Reserved3", [], NDRIntField("", 0), length_is=lambda _: 7),
+        NDRIntField("SidCount", None, size_of="ExtraSids"),
         NDRFullPointerField(
             NDRConfPacketListField(
                 "ExtraSids",
-                [PKERB_SID_AND_ATTRIBUTES()],
-                PKERB_SID_AND_ATTRIBUTES,
-                count_from=lambda pkt: pkt.SidCount,
+                [KERB_SID_AND_ATTRIBUTES()],
+                KERB_SID_AND_ATTRIBUTES,
+                size_is=lambda pkt: pkt.SidCount,
             ),
             deferred=True,
         ),
         NDRFullPointerField(
-            NDRPacketField("ResourceGroupDomainSid", PSID(), PSID), deferred=True
+            NDRPacketField("ResourceGroupDomainSid", SID(), SID), deferred=True
         ),
-        NDRIntField("ResourceGroupCount", 0),
+        NDRIntField("ResourceGroupCount", None, size_of="ResourceGroupIds"),
         NDRFullPointerField(
             NDRConfPacketListField(
                 "ResourceGroupIds",
-                [PGROUP_MEMBERSHIP()],
-                PGROUP_MEMBERSHIP,
-                count_from=lambda pkt: pkt.ResourceGroupCount,
+                [GROUP_MEMBERSHIP()],
+                GROUP_MEMBERSHIP,
+                size_is=lambda pkt: pkt.ResourceGroupCount,
             ),
             deferred=True,
         ),
     ]
 
 
-class KERB_VALIDATION_INFO_WRAP(NDRPacket):
-    # Extra packing class to handle all deferred pointers
-    # (usually, this would be the packing RPC request/response)
-    fields_desc = [NDRPacketField("data", None, KERB_VALIDATION_INFO)]
-
-
-_PACTYPES[1] = KERB_VALIDATION_INFO_WRAP
+_PACTYPES[1] = KERB_VALIDATION_INFO
 
 # sect 2.6
 
@@ -267,7 +274,9 @@ _PACTYPES[2] = PAC_CREDENTIAL_INFO
 
 class PAC_CLIENT_INFO(Packet):
     fields_desc = [
-        UTCTimeField("ClientId", None, fmt="<Q", custom_scaling=1e8),
+        UTCTimeField(
+            "ClientId", None, fmt="<Q", epoch=[1601, 1, 1, 0, 0, 0], custom_scaling=1e7
+        ),
         FieldLenField("NameLength", None, length_of="Name", fmt="<H"),
         StrLenFieldUtf16("Name", b"", length_from=lambda pkt: pkt.NameLength),
     ]
@@ -282,17 +291,14 @@ class PAC_SIGNATURE_DATA(Packet):
     fields_desc = [
         LEIntEnumField(
             "SignatureType",
-            0,
-            {
-                0xFFFFFF76: "KERB_CHECKSUM_HMAC_MD5",
-                0x0000000F: "HMAC_SHA1_96_AES128",
-                0x00000010: "HMAC_SHA1_96_AES256",
-            },
+            None,
+            _KRB_S_TYPES,
         ),
         XStrLenField(
             "Signature",
             b"",
             length_from=lambda pkt: {
+                0x1: 4,
                 0xFFFFFF76: 16,
                 0x0000000F: 12,
                 0x00000010: 12,
@@ -305,8 +311,44 @@ class PAC_SIGNATURE_DATA(Packet):
 _PACTYPES[6] = PAC_SIGNATURE_DATA
 _PACTYPES[7] = PAC_SIGNATURE_DATA
 _PACTYPES[0x10] = PAC_SIGNATURE_DATA
+_PACTYPES[0x13] = PAC_SIGNATURE_DATA
+
+# sect 2.9
+
+
+class S4U_DELEGATION_INFO(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRPacketField("S4U2proxyTarget", RPC_UNICODE_STRING(), RPC_UNICODE_STRING),
+        NDRIntField("TransitedListSize", None, size_of="S4UTransitedServices"),
+        NDRFullPointerField(
+            NDRConfPacketListField(
+                "S4UTransitedServices",
+                [RPC_UNICODE_STRING()],
+                RPC_UNICODE_STRING,
+                size_is=lambda pkt: pkt.TransitedListSize,
+            ),
+            deferred=True,
+        ),
+    ]
+
 
 # sect 2.10
+
+
+def _pac_post_build(self, p, pay_offset, fields):
+    """Util function to build the offset and populate the lengths"""
+    for field_name, value in self.fields["Payload"]:
+        length = self.get_field("Payload").fields_map[field_name].i2len(self, value)
+        offset = fields[field_name]
+        # Length
+        if self.getfieldval(field_name + "Len") is None:
+            p = p[:offset] + struct.pack("<H", length) + p[offset + 2 :]
+        # Offset
+        if self.getfieldval(field_name + "BufferOffset") is None:
+            p = p[: offset + 2] + struct.pack("<H", pay_offset) + p[offset + 4 :]
+        pay_offset += length
+    return p
 
 
 class UPN_DNS_INFO(_NTLMPayloadPacket):
@@ -355,7 +397,7 @@ class UPN_DNS_INFO(_NTLMPayloadPacket):
                             StrFieldUtf16("Upn", b""),
                             StrFieldUtf16("DnsDomainName", b""),
                             StrFieldUtf16("SamName", b""),
-                            XStrField("Sid", b""),
+                            PacketField("Sid", WINNT_SID(), WINNT_SID),
                         ],
                     ),
                     lambda pkt: pkt.Flags.S,
@@ -375,23 +417,29 @@ class UPN_DNS_INFO(_NTLMPayloadPacket):
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
+        offset = 12
+        fields = {
+            "Upn": 0,
+            "DnsDomainName": 4,
+        }
+        if self.Flags.S:
+            offset = 20
+            fields["SamName"] = 12
+            fields["Sid"] = 16
         return (
-            _NTLM_post_build(
+            _pac_post_build(
                 self,
                 pkt,
-                self.OFFSET,
-                {
-                    "Upn": 0,
-                    "DnsDomainName": 4,
-                },
-            ) +
-            pay
+                offset,
+                fields,
+            )
+            + pay
         )
 
 
 _PACTYPES[0xC] = UPN_DNS_INFO
 
-# sect 2.11 - NDR PACKETS AUTO-GENERATED
+# sect 2.11 - NDR PACKETS
 
 try:
     from enum import IntEnum
@@ -418,39 +466,39 @@ class CLAIMS_COMPRESSION_FORMAT(IntEnum):
     COMPRESSION_FORMAT_XPRESS_HUFF = 4
 
 
-class u_sub0(NDRPacket):
+class CLAIM_ENTRY_sub0(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRIntField("ValueCount", 0),
+        NDRIntField("ValueCount", None, size_of="Int64Values"),
         NDRFullPointerField(
             NDRConfFieldListField(
                 "Int64Values",
                 [],
                 NDRSignedLongField,
-                count_from=lambda pkt: pkt.ValueCount,
+                size_is=lambda pkt: pkt.ValueCount,
             ),
             deferred=True,
         ),
     ]
 
 
-class u_sub1(NDRPacket):
+class CLAIM_ENTRY_sub1(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRIntField("ValueCount", 0),
+        NDRIntField("ValueCount", None, size_of="Uint64Values"),
         NDRFullPointerField(
             NDRConfFieldListField(
-                "Uint64Values", [], NDRLongField, count_from=lambda pkt: pkt.ValueCount
+                "Uint64Values", [], NDRLongField, size_is=lambda pkt: pkt.ValueCount
             ),
             deferred=True,
         ),
     ]
 
 
-class u_sub2(NDRPacket):
+class CLAIM_ENTRY_sub2(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRIntField("ValueCount", 0),
+        NDRIntField("ValueCount", None, size_of="StringValues"),
         NDRFullPointerField(
             NDRConfFieldListField(
                 "StringValues",
@@ -459,20 +507,20 @@ class u_sub2(NDRPacket):
                     NDRConfVarStrNullFieldUtf16("StringVal", ""),
                     deferred=True,
                 ),
-                count_from=lambda pkt: pkt.ValueCount,
+                size_is=lambda pkt: pkt.ValueCount,
             ),
             deferred=True,
         ),
     ]
 
 
-class u_sub3(NDRPacket):
+class CLAIM_ENTRY_sub3(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRIntField("ValueCount", 0),
+        NDRIntField("ValueCount", None, size_of="BooleanValues"),
         NDRFullPointerField(
             NDRConfFieldListField(
-                "BooleanValues", [], NDRLongField, count_from=lambda pkt: pkt.ValueCount
+                "BooleanValues", [], NDRLongField, size_is=lambda pkt: pkt.ValueCount
             ),
             deferred=True,
         ),
@@ -487,41 +535,41 @@ class CLAIM_ENTRY(NDRPacket):
         NDRUnionField(
             [
                 (
-                    NDRPacketField("Values", u_sub0(), u_sub0),
+                    NDRPacketField("Values", CLAIM_ENTRY_sub0(), CLAIM_ENTRY_sub0),
                     (
                         (
-                            lambda pkt: getattr(pkt, "Type", None) ==
-                            CLAIM_TYPE.CLAIM_TYPE_INT64
+                            lambda pkt: getattr(pkt, "Type", None)
+                            == CLAIM_TYPE.CLAIM_TYPE_INT64
                         ),
                         (lambda _, val: val.tag == CLAIM_TYPE.CLAIM_TYPE_INT64),
                     ),
                 ),
                 (
-                    NDRPacketField("Values", u_sub1(), u_sub1),
+                    NDRPacketField("Values", CLAIM_ENTRY_sub1(), CLAIM_ENTRY_sub1),
                     (
                         (
-                            lambda pkt: getattr(pkt, "Type", None) ==
-                            CLAIM_TYPE.CLAIM_TYPE_UINT64
+                            lambda pkt: getattr(pkt, "Type", None)
+                            == CLAIM_TYPE.CLAIM_TYPE_UINT64
                         ),
                         (lambda _, val: val.tag == CLAIM_TYPE.CLAIM_TYPE_UINT64),
                     ),
                 ),
                 (
-                    NDRPacketField("Values", u_sub2(), u_sub2),
+                    NDRPacketField("Values", CLAIM_ENTRY_sub2(), CLAIM_ENTRY_sub2),
                     (
                         (
-                            lambda pkt: getattr(pkt, "Type", None) ==
-                            CLAIM_TYPE.CLAIM_TYPE_STRING
+                            lambda pkt: getattr(pkt, "Type", None)
+                            == CLAIM_TYPE.CLAIM_TYPE_STRING
                         ),
                         (lambda _, val: val.tag == CLAIM_TYPE.CLAIM_TYPE_STRING),
                     ),
                 ),
                 (
-                    NDRPacketField("Values", u_sub3(), u_sub3),
+                    NDRPacketField("Values", CLAIM_ENTRY_sub3(), CLAIM_ENTRY_sub3),
                     (
                         (
-                            lambda pkt: getattr(pkt, "Type", None) ==
-                            CLAIM_TYPE.CLAIM_TYPE_BOOLEAN
+                            lambda pkt: getattr(pkt, "Type", None)
+                            == CLAIM_TYPE.CLAIM_TYPE_BOOLEAN
                         ),
                         (lambda _, val: val.tag == CLAIM_TYPE.CLAIM_TYPE_BOOLEAN),
                     ),
@@ -529,7 +577,7 @@ class CLAIM_ENTRY(NDRPacket):
             ],
             StrFixedLenField("Values", "", length=0),
             align=(2, 8),
-            switch_fmt=("<H", "<I"),
+            switch_fmt=("H", "I"),
         ),
     ]
 
@@ -538,13 +586,13 @@ class CLAIMS_ARRAY(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
         NDRInt3264EnumField("usClaimsSourceType", 0, CLAIMS_SOURCE_TYPE),
-        NDRIntField("ulClaimsCount", 0),
+        NDRIntField("ulClaimsCount", None, size_of="ClaimEntries"),
         NDRFullPointerField(
             NDRConfPacketListField(
                 "ClaimEntries",
                 [CLAIM_ENTRY()],
                 CLAIM_ENTRY,
-                count_from=lambda pkt: pkt.ulClaimsCount,
+                size_is=lambda pkt: pkt.ulClaimsCount,
             ),
             deferred=True,
         ),
@@ -554,49 +602,60 @@ class CLAIMS_ARRAY(NDRPacket):
 class CLAIMS_SET(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRIntField("ulClaimsArrayCount", 0),
+        NDRIntField("ulClaimsArrayCount", None, size_of="ClaimsArrays"),
         NDRFullPointerField(
             NDRConfPacketListField(
                 "ClaimsArrays",
                 [CLAIMS_ARRAY()],
                 CLAIMS_ARRAY,
-                count_from=lambda pkt: pkt.ulClaimsArrayCount,
+                size_is=lambda pkt: pkt.ulClaimsArrayCount,
             ),
             deferred=True,
         ),
         NDRShortField("usReservedType", 0),
-        NDRIntField("ulReservedFieldSize", 0),
+        NDRIntField("ulReservedFieldSize", None, size_of="ReservedField"),
         NDRFullPointerField(
             NDRConfStrLenField(
-                "ReservedField", "", length_from=lambda pkt: pkt.ulReservedFieldSize
+                "ReservedField", "", size_is=lambda pkt: pkt.ulReservedFieldSize
             ),
             deferred=True,
         ),
     ]
 
 
-class CLAIMS_SET_WRAP(NDRPacket):
-    # Extra packing class to handle all deferred pointers
-    # (usually, this would be the packing RPC request/response)
-    fields_desc = [NDRPacketField("data", None, CLAIMS_SET)]
+class _CLAIMSClaimSet(_NDRConfField, NDRSerializeType1PacketLenField):
+    CONFORMANT_STRING = True
+    LENGTH_FROM = True
 
-
-class _CLAIMSClaimSet(_NDRConfField, PacketLenField):
     def m2i(self, pkt, s):
         if pkt.usCompressionFormat == CLAIMS_COMPRESSION_FORMAT.COMPRESSION_FORMAT_NONE:
-            return ndr_deserialize1(s, CLAIMS_SET_WRAP)
+            return ndr_deserialize1(s, CLAIMS_SET, ndr64=False)
         else:
             # TODO: There are 3 funky compression formats... see sect 2.2.18.4
             return NDRConformantString(value=s)
+
+    def i2m(self, pkt, val):
+        val = val[0]
+        if pkt.usCompressionFormat == CLAIMS_COMPRESSION_FORMAT.COMPRESSION_FORMAT_NONE:
+            return ndr_serialize1(val)
+        else:
+            # funky
+            return bytes(val)
+
+    def valueof(self, pkt, x):
+        if pkt.usCompressionFormat == CLAIMS_COMPRESSION_FORMAT.COMPRESSION_FORMAT_NONE:
+            return self._subval(x)[0]
+        else:
+            return x
 
 
 class CLAIMS_SET_METADATA(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRIntField("ulClaimsSetSize", 0),
+        NDRIntField("ulClaimsSetSize", None, size_of="ClaimsSet"),
         NDRFullPointerField(
             _CLAIMSClaimSet(
-                "ClaimsSet", None, None, length_from=lambda pkt: pkt.ulClaimsSetSize
+                "ClaimsSet", None, None, size_is=lambda pkt: pkt.ulClaimsSetSize
             ),
             deferred=True,
         ),
@@ -605,12 +664,13 @@ class CLAIMS_SET_METADATA(NDRPacket):
             0,
             CLAIMS_COMPRESSION_FORMAT,
         ),
-        NDRIntField("ulUncompressedClaimsSetSize", 0),
+        # this size_of is technically wrong. we just assume it's uncompressed...
+        NDRIntField("ulUncompressedClaimsSetSize", None, size_of="ClaimsSet"),
         NDRShortField("usReservedType", 0),
-        NDRIntField("ulReservedFieldSize", 0),
+        NDRIntField("ulReservedFieldSize", None, size_of="ReservedField"),
         NDRFullPointerField(
-            NDRConfVarStrLenField(
-                "ReservedField", "", length_from=lambda pkt: pkt.ulReservedFieldSize
+            NDRConfStrLenField(
+                "ReservedField", "", size_is=lambda pkt: pkt.ulReservedFieldSize
             ),
             deferred=True,
         ),
@@ -618,7 +678,7 @@ class CLAIMS_SET_METADATA(NDRPacket):
 
 
 class PAC_CLIENT_CLAIMS_INFO(NDRPacket):
-    fields_desc = [NDRPacketField("Claims", None, CLAIMS_SET_METADATA)]
+    fields_desc = [NDRPacketField("Claims", CLAIMS_SET_METADATA(), CLAIMS_SET_METADATA)]
 
 
 if IntEnum != object:
@@ -626,20 +686,20 @@ if IntEnum != object:
     _PACTYPES[0xD] = PAC_CLIENT_CLAIMS_INFO
 
 
-# sect 2.12 - NDR PACKETS AUTO-GENERATED
+# sect 2.12 - NDR PACKETS
 
 
-class PDOMAIN_GROUP_MEMBERSHIP(NDRPacket):
+class DOMAIN_GROUP_MEMBERSHIP(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRFullPointerField(NDRPacketField("DomainId", PSID(), PSID), deferred=True),
+        NDRFullPointerField(NDRPacketField("DomainId", SID(), SID), deferred=True),
         NDRIntField("GroupCount", 0),
         NDRFullPointerField(
             NDRConfPacketListField(
                 "GroupIds",
-                [PGROUP_MEMBERSHIP()],
-                PGROUP_MEMBERSHIP,
-                count_from=lambda pkt: pkt.GroupCount,
+                [GROUP_MEMBERSHIP()],
+                GROUP_MEMBERSHIP,
+                size_is=lambda pkt: pkt.GroupCount,
             ),
             deferred=True,
         ),
@@ -652,15 +712,15 @@ class PAC_DEVICE_INFO(NDRPacket):
         NDRIntField("UserId", 0),
         NDRIntField("PrimaryGroupId", 0),
         NDRFullPointerField(
-            NDRPacketField("AccountDomainId", PSID(), PSID), deferred=True
+            NDRPacketField("AccountDomainId", SID(), SID), deferred=True
         ),
         NDRIntField("AccountGroupCount", 0),
         NDRFullPointerField(
             NDRConfPacketListField(
                 "AccountGroupIds",
-                [PGROUP_MEMBERSHIP()],
-                PGROUP_MEMBERSHIP,
-                count_from=lambda pkt: pkt.AccountGroupCount,
+                [GROUP_MEMBERSHIP()],
+                GROUP_MEMBERSHIP,
+                size_is=lambda pkt: pkt.AccountGroupCount,
             ),
             deferred=True,
         ),
@@ -668,9 +728,9 @@ class PAC_DEVICE_INFO(NDRPacket):
         NDRFullPointerField(
             NDRConfPacketListField(
                 "ExtraSids",
-                [PKERB_SID_AND_ATTRIBUTES()],
-                PKERB_SID_AND_ATTRIBUTES,
-                count_from=lambda pkt: pkt.SidCount,
+                [KERB_SID_AND_ATTRIBUTES()],
+                KERB_SID_AND_ATTRIBUTES,
+                size_is=lambda pkt: pkt.SidCount,
             ),
             deferred=True,
         ),
@@ -678,32 +738,26 @@ class PAC_DEVICE_INFO(NDRPacket):
         NDRFullPointerField(
             NDRConfPacketListField(
                 "DomainGroup",
-                [PDOMAIN_GROUP_MEMBERSHIP()],
-                PDOMAIN_GROUP_MEMBERSHIP,
-                count_from=lambda pkt: pkt.DomainGroupCount,
+                [DOMAIN_GROUP_MEMBERSHIP()],
+                DOMAIN_GROUP_MEMBERSHIP,
+                size_is=lambda pkt: pkt.DomainGroupCount,
             ),
             deferred=True,
         ),
     ]
 
 
-class PAC_DEVICE_INFO_WRAP(NDRPacket):
-    # Extra packing class to handle all deferred pointers
-    # (usually, this would be the packing RPC request/response)
-    fields_desc = [NDRPacketField("data", None, PAC_DEVICE_INFO)]
-
-
-_PACTYPES[0xE] = PAC_DEVICE_INFO_WRAP
+_PACTYPES[0xE] = PAC_DEVICE_INFO
 
 # sect 2.14 - PAC_ATTRIBUTES_INFO
 
 
 class PAC_ATTRIBUTES_INFO(Packet):
     fields_desc = [
-        LEIntField("FlagsLength", 0),
+        LEIntField("FlagsLength", 2),
         FieldListField(
             "Flags",
-            [],
+            ["PAC_WAS_REQUESTED"],
             FlagsField(
                 "",
                 0,
@@ -724,7 +778,9 @@ _PACTYPES[0x11] = PAC_ATTRIBUTES_INFO
 
 
 class PAC_REQUESTOR(Packet):
-    fields_desc = [XStrField("Sid", b"")]
+    fields_desc = [
+        PacketField("Sid", WINNT_SID(), WINNT_SID),
+    ]
 
 
 _PACTYPES[0x12] = PAC_REQUESTOR
@@ -742,7 +798,11 @@ class _PACTYPEBuffers(PacketListField):
         offset = 16 * len(pkt.Payloads) + 8
         for i, v in enumerate(val):
             x = self.i2m(pkt, v)
-            lgth = len(pkt.Payloads[i])
+            pay = pkt.Payloads[i]
+            if isinstance(pay, NDRPacket) or isinstance(pay, NDRSerialization1Header):
+                lgth = len(ndr_serialize1(pay))
+            else:
+                lgth = len(pay)
             if v.cbBufferSize is None:
                 x = x[:4] + struct.pack("<I", lgth) + x[8:]
             if v.Offset is None:
@@ -770,19 +830,27 @@ class _PACTYPEPayloads(PacketListField):
             offset = buf.Offset - 16 * len(pkt.Buffers) - 8
             try:
                 cls = _PACTYPES[buf.ulType]
+                if buf.cbBufferSize == 0:
+                    # empty size
+                    raise KeyError
                 if issubclass(cls, NDRPacket):
                     val = ndr_deserialize1(
-                        s[offset: offset + buf.cbBufferSize], cls, ndr64=False
+                        s[offset : offset + buf.cbBufferSize],
+                        cls,
+                        ndr64=False,
                     )
                 else:
-                    val = cls(s[offset: offset + buf.cbBufferSize])
+                    val = cls(s[offset : offset + buf.cbBufferSize])
                 if conf.raw_layer in val:
                     pad = conf.padding_layer(load=val[conf.raw_layer].load)
                     lay = val[conf.raw_layer].underlayer
+                    if not lay:
+                        val.show()
+                        raise ValueError("Dissection failed")
                     lay.remove_payload()
                     lay.add_payload(pad)
             except KeyError:
-                val = conf.padding_layer(s[offset: offset + buf.cbBufferSize])
+                val = conf.padding_layer(s[offset : offset + buf.cbBufferSize])
             result.append(val)
         return b"", result
 
