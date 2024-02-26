@@ -77,12 +77,19 @@ try:
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    try:
+        # cryptography > 43.0
+        from cryptography.hazmat.decrepit.ciphers import (
+            algorithms as decrepit_algorithms
+        )
+    except ImportError:
+        decrepit_algorithms = algorithms
 except ImportError:
     raise ImportError("To use kerberos cryptography, you need to install cryptography.")
 
 
 # cryptography's TripleDES allow the usage of a 56bit key, which thus behaves like DES
-DES = algorithms.TripleDES
+DES = decrepit_algorithms.TripleDES
 
 
 # https://go.microsoft.com/fwlink/?LinkId=186039
