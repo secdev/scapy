@@ -48,7 +48,7 @@ parser = ArgumentParser(description='Simple TLS Server')
 #parser.add_argument("--psk",
 #                    help="External PSK for symmetric authentication (for TLS 1.3)")  # noqa: E501
 parser.add_argument("--altered_finish", action="store_true",
-                    help="Send an Altered Finish Message to Client (for TLS 1.3)")
+                    help="Send an Altered Finish Message to Client")
 parser.add_argument("--plaintext_ee", action="store_true",
                     help="Send a plaintext Encrypted Extension message (for TLS 1.3)")
 parser.add_argument("--altered_signature", action="store_true",
