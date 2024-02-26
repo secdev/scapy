@@ -134,11 +134,10 @@ You should see those packets show up in Scapy:
     Replying 192.0.2.1 to 192.0.2.2
     Replying 192.0.2.1 to 192.0.2.2
 
-You might have noticed that didn't configure Scapy with any IP address... and
-there's a trick to this: :py:class:`ICMPEcho_am` swaps the ``source`` and
-``destination`` fields of any :py:class:`Ether` and :py:class:`IP` headers on
-the :py:class:`ICMP` packet that it receives. As a result, it actually responds
-to *any* IP address.
+You might have noticed that we didn't configure Scapy with any IP address... and
+there's a trick to this: :py:class:`ICMPEcho_am` uses the ``source`` field from
+the :py:class:`IP` header of the packet that it receives as the destination for its
+echo reply. As a result, it actually responds to *any* IP address.
 
 You can stop the :py:class:`ICMPEcho_am` AnsweringMachine with :kbd:`^C`.
 
