@@ -504,7 +504,9 @@ class tlsSession(object):
         self.tls13_handshake_secret = None
         self.tls13_master_secret = None
         self.tls13_derived_secrets = {}
-        self.post_handshake_auth = False
+        self.tls13_cert_req_ctxt = False
+        self.post_handshake = False  # whether handshake is done
+        self.post_handshake_auth = False  # whether "Post-Handshake Auth" is used
         self.tls13_ticket_ciphersuite = None
         self.tls13_retry = False
         self.middlebox_compatibility = False
@@ -513,6 +515,9 @@ class tlsSession(object):
         # No record layer headers, no HelloRequests, no ChangeCipherSpecs.
         self.handshake_messages = []
         self.handshake_messages_parsed = []
+
+        # Post-handshake, handshake messages for post-handshake client authentication
+        self.post_handshake_messages = []
 
         # Flag, whether we derive the secret as Extended MS or not
         self.extms = False
@@ -804,27 +809,50 @@ class tlsSession(object):
         elif self.connection_end == "client":
             self.pwcs.tls13_derive_keys(cts0)
 
-    def compute_tls13_verify_data(self, connection_end, read_or_write):
-        shts = "server_handshake_traffic_secret"
-        chts = "client_handshake_traffic_secret"
+    def compute_tls13_verify_data(self, connection_end, read_or_write,
+                                  handshake_context):
+        # RFC8446 - 4.4
+        # +-----------+-------------------------+-----------------------------+
+        # | Mode      | Handshake Context       | Base Key                    |
+        # +-----------+-------------------------+-----------------------------+
+        # | Server    | ClientHello ... later   | server_handshake_traffic_   |
+        # |           | of EncryptedExtensions/ | secret                      |
+        # |           | CertificateRequest      |                             |
+        # |           |                         |                             |
+        # | Client    | ClientHello ... later   | client_handshake_traffic_   |
+        # |           | of server               | secret                      |
+        # |           | Finished/EndOfEarlyData |                             |
+        # |           |                         |                             |
+        # | Post-     | ClientHello ... client  | client_application_traffic_ |
+        # | Handshake | Finished +              | secret_N                    |
+        # |           | CertificateRequest      |                             |
+        # +-----------+-------------------------+-----------------------------+
+        if self.post_handshake:
+            # RFC8446 - 4.6
+            # TLS also allows other messages to be sent after the main handshake.
+            # These messages use a handshake content type and are encrypted under
+            # the appropriate application traffic key.
+            shts = self.tls13_derived_secrets["server_traffic_secrets"][-1]
+            chts = self.tls13_derived_secrets["client_traffic_secrets"][-1]
+        else:
+            shts = self.tls13_derived_secrets["server_handshake_traffic_secret"]
+            chts = self.tls13_derived_secrets["client_handshake_traffic_secret"]
         if read_or_write == "read":
             hkdf = self.rcs.hkdf
             if connection_end == "client":
-                basekey = self.tls13_derived_secrets[shts]
+                basekey = shts
             elif connection_end == "server":
-                basekey = self.tls13_derived_secrets[chts]
+                basekey = chts
         elif read_or_write == "write":
             hkdf = self.wcs.hkdf
             if connection_end == "client":
-                basekey = self.tls13_derived_secrets[chts]
+                basekey = chts
             elif connection_end == "server":
-                basekey = self.tls13_derived_secrets[shts]
+                basekey = shts
 
         if not hkdf or not basekey:
             warning("Missing arguments for verify_data computation!")
             return None
-        # XXX this join() works in standard cases, but does it in all of them?
-        handshake_context = b"".join(self.handshake_messages)
         return hkdf.compute_verify_data(basekey, handshake_context)
 
     def compute_tls13_resumption_secret(self):
