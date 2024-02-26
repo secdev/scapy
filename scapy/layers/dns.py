@@ -323,6 +323,10 @@ class DNSStrField(StrLenField):
     It will also handle DNS decompression.
     (may be StrLenField if a length_from is passed),
     """
+    def any2i(self, pkt, x):
+        if x and isinstance(x, list):
+            return [self.h2i(pkt, y) for y in x]
+        return super(DNSStrField, self).any2i(pkt, x)
 
     def h2i(self, pkt, x):
         # Setting a DNSStrField manually (h2i) means any current compression will break
