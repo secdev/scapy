@@ -279,7 +279,11 @@ class NBNSRegistrationRequest(Packet):
         IPField("NB_ADDRESS", "127.0.0.1")
     ]
 
+    def mysummary(self):
+        return self.sprintf("Register %G% %QUESTION_NAME% at %NB_ADDRESS%")
 
+
+bind_bottom_up(NBNSHeader, NBNSRegistrationRequest, OPCODE=0x5)
 bind_layers(NBNSHeader, NBNSRegistrationRequest,
             OPCODE=0x5, NM_FLAGS=0x11, QDCOUNT=1, ARCOUNT=1)
 
@@ -312,7 +316,7 @@ class NBTDatagram(Packet):
                    ShortField("ID", 0),
                    IPField("SourceIP", "127.0.0.1"),
                    ShortField("SourcePort", 138),
-                   ShortField("Length", 272),
+                   ShortField("Length", None),
                    ShortField("Offset", 0),
                    NetBIOSNameField("SourceName", "windows"),
                    ShortEnumField("SUFFIX1", 0x4141, _NETBIOS_SUFFIXES),
@@ -320,6 +324,13 @@ class NBTDatagram(Packet):
                    NetBIOSNameField("DestinationName", "windows"),
                    ShortEnumField("SUFFIX2", 0x4141, _NETBIOS_SUFFIXES),
                    ByteField("NULL2", 0)]
+
+    def post_build(self, pkt, pay):
+        if self.Length is None:
+            length = len(pay) + 68
+            pkt = pkt[:10] + struct.pack("!H", length) + pkt[12:]
+        return pkt + pay
+
 
 # SESSION SERVICE PACKETS
 
