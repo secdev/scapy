@@ -1580,7 +1580,7 @@ class HCI_Cmd_Set_Event_Filter(Packet):
 
 class HCI_Cmd_Write_Local_Name(Packet):
     name = "HCI_Write_Local_Name"
-    fields_desc = [StrField("name", "")]
+    fields_desc = [StrFixedLenField('name', '', length=248)]
 
 
 class HCI_Cmd_Write_Connect_Accept_Timeout(Packet):
