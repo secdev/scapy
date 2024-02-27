@@ -2137,7 +2137,7 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Remote_Name_Request, ogf=0x01, ocf=0x0019)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Remote_Name_Request_Cancel, ogf=0x01, ocf=0x001a)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Remote_Supported_Features,
             ogf=0x01, ocf=0x001b)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Remote_Supported_Features,
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Remote_Extended_Features,
             ogf=0x01, ocf=0x001c)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_IO_Capability_Request_Reply, ogf=0x01, ocf=0x002b)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_User_Confirmation_Request_Reply,
