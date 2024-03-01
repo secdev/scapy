@@ -837,6 +837,8 @@ assert raw(p) == b
 p = ICMPv6NDOptSrcLLAddr(b)[ICMPv6NDOptUnknown]
 assert p.type == 0 and p.len == 2 and p.data == b'somestring\x00\x00\x00\x00'
 
+= ICMPv6NDOptUnknown - fuzz
+assert isinstance(fuzz(ICMPv6NDOptUnknown()).type, RandByte)
 
 ############
 ############

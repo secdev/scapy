@@ -1789,7 +1789,7 @@ class ICMPv6NDOptDataField(StrLenField):
 
 class ICMPv6NDOptUnknown(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Scapy Unimplemented"
-    fields_desc = [ByteField("type", None),
+    fields_desc = [ByteField("type", 0),
                    FieldLenField("len", None, length_of="data", fmt="B",
                                  adjust=lambda pkt, x: (2 + x) // 8),
                    ICMPv6NDOptDataField("data", "", strip_zeros=False,
