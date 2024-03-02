@@ -60,15 +60,13 @@ from scapy.asn1.ber import BER_id_dec, BER_Decoding_Error
 from scapy.asn1.asn1 import (
     ASN1_BIT_STRING,
     ASN1_BOOLEAN,
+    ASN1_Class,
     ASN1_GENERAL_STRING,
     ASN1_GENERALIZED_TIME,
     ASN1_INTEGER,
-    ASN1_SEQUENCE,
     ASN1_STRING,
-    ASN1_Class_UNIVERSAL,
     ASN1_Codecs,
 )
-from scapy.asn1.ber import BERcodec_SEQUENCE
 from scapy.asn1fields import (
     ASN1F_BOOLEAN,
     ASN1F_CHOICE,
@@ -131,24 +129,30 @@ from scapy.layers.gssapi import (
 )
 from scapy.layers.inet import TCP, UDP
 
+
 # kerberos APPLICATION
 
-
-class ASN1_Class_KRB(ASN1_Class_UNIVERSAL):
-    name = "KERBEROS"
-    APPLICATION = 0x60
-
-
-class ASN1_KRB_APPLICATION(ASN1_SEQUENCE):
-    tag = ASN1_Class_KRB.APPLICATION
-
-
-class BERcodec_KRB_APPLICATION(BERcodec_SEQUENCE):
-    tag = ASN1_Class_KRB.APPLICATION
-
-
-class ASN1F_KRB_APPLICATION(ASN1F_SEQUENCE):
-    ASN1_tag = ASN1_Class_KRB.APPLICATION
+class ASN1_Class_KRB(ASN1_Class):
+    name = "Kerberos"
+    # APPLICATION + CONSTRUCTED = 0x40 | 0x20
+    Token = 0x60 | 0  # GSSAPI
+    Ticket = 0x60 | 1
+    Authenticator = 0x60 | 2
+    EncTicketPart = 0x60 | 3
+    AS_REQ = 0x60 | 10
+    AS_REP = 0x60 | 11
+    TGS_REQ = 0x60 | 12
+    TGS_REP = 0x60 | 13
+    AP_REQ = 0x60 | 14
+    AP_REP = 0x60 | 15
+    PRIV = 0x60 | 21
+    CRED = 0x60 | 22
+    EncASRepPart = 0x60 | 25
+    EncTGSRepPart = 0x60 | 26
+    EncAPRepPart = 0x60 | 27
+    EncKrbPrivPart = 0x60 | 28
+    EncKrbCredPart = 0x60 | 29
+    ERROR = 0x60 | 30
 
 
 # RFC4120 sect 5.2
@@ -1213,14 +1217,14 @@ KRB_MSG_TYPES = {
 
 class KRB_Ticket(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("tktVno", 5, explicit_tag=0xA0),
             Realm("realm", "", explicit_tag=0xA1),
             ASN1F_PACKET("sname", PrincipalName(), PrincipalName, explicit_tag=0xA2),
             ASN1F_PACKET("encPart", EncryptedData(), EncryptedData, explicit_tag=0xA3),
         ),
-        implicit_tag=1,
+        implicit_tag=ASN1_Class_KRB.Ticket,
     )
 
     def getSPN(self):
@@ -1261,7 +1265,7 @@ _TICKET_FLAGS = [
 
 class EncTicketPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             KerberosFlags(
                 "flags",
@@ -1292,7 +1296,7 @@ class EncTicketPart(ASN1_Packet):
                 ),
             ),
         ),
-        implicit_tag=3,
+        implicit_tag=ASN1_Class_KRB.EncTicketPart,
     )
 
 
@@ -1389,17 +1393,17 @@ class KrbFastReq(ASN1_Packet):
 
 class KRB_AS_REQ(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         KRB_KDC_REQ,
-        implicit_tag=10,
+        implicit_tag=ASN1_Class_KRB.AS_REQ,
     )
 
 
 class KRB_TGS_REQ(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         KRB_KDC_REQ,
-        implicit_tag=12,
+        implicit_tag=ASN1_Class_KRB.TGS_REQ,
     )
     msgType = ASN1_INTEGER(12)
 
@@ -1421,17 +1425,17 @@ KRB_KDC_REP = ASN1F_SEQUENCE(
 
 class KRB_AS_REP(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         KRB_KDC_REP,
-        implicit_tag=11,
+        implicit_tag=ASN1_Class_KRB.AS_REP,
     )
 
 
 class KRB_TGS_REP(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         KRB_KDC_REP,
-        implicit_tag=13,
+        implicit_tag=ASN1_Class_KRB.TGS_REP,
     )
 
 
@@ -1478,17 +1482,17 @@ EncKDCRepPart = ASN1F_SEQUENCE(
 
 class EncASRepPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         EncKDCRepPart,
-        implicit_tag=25,
+        implicit_tag=ASN1_Class_KRB.EncASRepPart,
     )
 
 
 class EncTGSRepPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         EncKDCRepPart,
-        implicit_tag=26,
+        implicit_tag=ASN1_Class_KRB.EncTGSRepPart,
     )
 
 
@@ -1497,7 +1501,7 @@ class EncTGSRepPart(ASN1_Packet):
 
 class KRB_AP_REQ(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("pvno", 5, explicit_tag=0xA0),
             ASN1F_enum_INTEGER("msgType", 14, KRB_MSG_TYPES, explicit_tag=0xA1),
@@ -1514,7 +1518,7 @@ class KRB_AP_REQ(ASN1_Packet):
             ASN1F_PACKET("ticket", None, KRB_Ticket, explicit_tag=0xA3),
             ASN1F_PACKET("authenticator", None, EncryptedData, explicit_tag=0xA4),
         ),
-        implicit_tag=14,
+        implicit_tag=ASN1_Class_KRB.AP_REQ,
     )
 
 
@@ -1523,7 +1527,7 @@ _PADATA_CLASSES[1] = KRB_AP_REQ
 
 class KRB_Authenticator(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("authenticatorPvno", 5, explicit_tag=0xA0),
             Realm("crealm", "", explicit_tag=0xA1),
@@ -1545,7 +1549,7 @@ class KRB_Authenticator(ASN1_Packet):
                 ),
             ),
         ),
-        implicit_tag=2,
+        implicit_tag=ASN1_Class_KRB.Authenticator,
     )
 
 
@@ -1554,19 +1558,19 @@ class KRB_Authenticator(ASN1_Packet):
 
 class KRB_AP_REP(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("pvno", 5, explicit_tag=0xA0),
             ASN1F_enum_INTEGER("msgType", 15, KRB_MSG_TYPES, explicit_tag=0xA1),
             ASN1F_PACKET("encPart", None, EncryptedData, explicit_tag=0xA2),
         ),
-        implicit_tag=15,
+        implicit_tag=ASN1_Class_KRB.AP_REP,
     )
 
 
 class EncAPRepPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             KerberosTime("ctime", GeneralizedTime(), explicit_tag=0xA0),
             Microseconds("cusec", 0, explicit_tag=0xA1),
@@ -1577,7 +1581,7 @@ class EncAPRepPart(ASN1_Packet):
                 UInt32("seqNumber", 0, explicit_tag=0xA3),
             ),
         ),
-        implicit_tag=27,
+        implicit_tag=ASN1_Class_KRB.EncAPRepPart,
     )
 
 
@@ -1586,19 +1590,19 @@ class EncAPRepPart(ASN1_Packet):
 
 class KRB_PRIV(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("pvno", 5, explicit_tag=0xA0),
             ASN1F_enum_INTEGER("msgType", 21, KRB_MSG_TYPES, explicit_tag=0xA1),
             ASN1F_PACKET("encPart", None, EncryptedData, explicit_tag=0xA3),
         ),
-        implicit_tag=21,
+        implicit_tag=ASN1_Class_KRB.PRIV,
     )
 
 
 class EncKrbPrivPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_STRING("userData", ASN1_STRING(""), explicit_tag=0xA0),
             ASN1F_optional(
@@ -1615,7 +1619,7 @@ class EncKrbPrivPart(ASN1_Packet):
                 ASN1F_PACKET("cAddress", None, HostAddress, explicit_tag=0xA5),
             ),
         ),
-        implicit_tag=28,
+        implicit_tag=ASN1_Class_KRB.EncKrbPrivPart,
     )
 
 
@@ -1624,14 +1628,14 @@ class EncKrbPrivPart(ASN1_Packet):
 
 class KRB_CRED(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("pvno", 5, explicit_tag=0xA0),
             ASN1F_enum_INTEGER("msgType", 22, KRB_MSG_TYPES, explicit_tag=0xA1),
             ASN1F_SEQUENCE_OF("tickets", [KRB_Ticket()], KRB_Ticket, explicit_tag=0xA2),
             ASN1F_PACKET("encPart", None, EncryptedData, explicit_tag=0xA3),
         ),
-        implicit_tag=22,
+        implicit_tag=ASN1_Class_KRB.CRED,
     )
 
 
@@ -1677,7 +1681,7 @@ class KrbCredInfo(ASN1_Packet):
 
 class EncKrbCredPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_SEQUENCE_OF(
                 "ticketInfo",
@@ -1701,7 +1705,7 @@ class EncKrbCredPart(ASN1_Packet):
                 ASN1F_PACKET("cAddress", None, HostAddress, explicit_tag=0xA5),
             ),
         ),
-        implicit_tag=29,
+        implicit_tag=ASN1_Class_KRB.EncKrbCredPart,
     )
 
 
@@ -1736,7 +1740,7 @@ class _KRBERROR_data_Field(_ASN1FString_PacketField):
 
 class KRB_ERROR(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("pvno", 5, explicit_tag=0xA0),
             ASN1F_enum_INTEGER("msgType", 30, KRB_MSG_TYPES, explicit_tag=0xA1),
@@ -1841,7 +1845,7 @@ class KRB_ERROR(ASN1_Packet):
             ASN1F_optional(KerberosString("eText", "", explicit_tag=0xAB)),
             ASN1F_optional(_KRBERROR_data_Field("eData", "", explicit_tag=0xAC)),
         ),
-        implicit_tag=30,
+        implicit_tag=ASN1_Class_KRB.ERROR,
     )
 
 
@@ -1913,12 +1917,12 @@ class KRB_TGT_REP(ASN1_Packet):
     )
 
 
-# RFC 6542 sect 4
+# draft-ietf-kitten-iakerb-03 sect 4
 
 
 class KRB_FINISHED(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_PACKET("gssMic", Checksum(), Checksum, explicit_tag=0xA1),
     )
 
@@ -2057,7 +2061,7 @@ class KRB_InnerToken(Packet):
 class KRB_GSSAPI_Token(GSSAPI_BLOB):
     name = "Kerberos GSSAPI-Token"
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_OID("MechType", "1.2.840.113554.1.2.2"),
         ASN1F_PACKET(
             "innerToken",
@@ -2065,7 +2069,7 @@ class KRB_GSSAPI_Token(GSSAPI_BLOB):
             KRB_InnerToken,
             implicit_tag=0x0,
         ),
-        implicit_tag=0,
+        implicit_tag=ASN1_Class_KRB.Token,
     )
 
 
@@ -2707,20 +2711,21 @@ class KerberosClient(Automaton):
     def _process_padatas_and_key(self, padatas):
         from scapy.libs.rfc3961 import EncryptionType, Key
 
-        # We default to RC4 because whenever something else is used,
-        # there will be at least a padata containing the salt.
-        etype = EncryptionType.RC4_HMAC
+        etype = None
         salt = b""
         # Process pa-data
         if padatas is not None:
             for padata in padatas:
-                if padata.padataType == 0x13:  # PA-ETYPE-INFO2
+                if padata.padataType == 0x13 and etype is None:  # PA-ETYPE-INFO2
                     elt = padata.padataValue.seq[0]
-                    etype = elt.etype.val
-                    if etype != EncryptionType.RC4_HMAC:
-                        salt = elt.salt.val
+                    if elt.etype.val in self.etypes:
+                        etype = elt.etype.val
+                        if etype != EncryptionType.RC4_HMAC:
+                            salt = elt.salt.val
                 elif padata.padataType == 133:  # PA-FX-COOKIE
                     self.fxcookie = padata.padataValue
+
+        etype = etype or self.etypes[0]
         # Compute key if not already provided
         if self.key is None:
             self.key = Key.string_to_key(

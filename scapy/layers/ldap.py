@@ -22,11 +22,10 @@ import uuid
 from scapy.ansmachine import AnsweringMachine
 from scapy.asn1.asn1 import (
     ASN1_STRING,
-    ASN1_SEQUENCE,
-    ASN1_Class_UNIVERSAL,
+    ASN1_Class,
     ASN1_Codecs,
 )
-from scapy.asn1.ber import BERcodec_SEQUENCE
+from scapy.asn1.ber import BERcodec_STRING
 from scapy.asn1fields import (
     ASN1F_BOOLEAN,
     ASN1F_CHOICE,
@@ -129,43 +128,52 @@ LDAPResult = (
     ASN1F_optional(ASN1F_SEQUENCE_OF("referral", [], LDAPReferral, implicit_tag=0xA3)),
 )
 
+
 # ldap APPLICATION
 
-
-class ASN1_Class_LDAP(ASN1_Class_UNIVERSAL):
+class ASN1_Class_LDAP(ASN1_Class):
     name = "LDAP"
-    APPLICATION = 0x60
-
-
-class ASN1_LDAP_APPLICATION(ASN1_SEQUENCE):
-    tag = ASN1_Class_LDAP.APPLICATION
-
-
-class BERcodec_LDAP_APPLICATION(BERcodec_SEQUENCE):
-    tag = ASN1_Class_LDAP.APPLICATION
-
-
-class ASN1F_LDAP_APPLICATION(ASN1F_SEQUENCE):
-    ASN1_tag = ASN1_Class_LDAP.APPLICATION
+    # APPLICATION + CONSTRUCTED = 0x40 | 0x20
+    BindRequest = 0x60
+    BindResponse = 0x61
+    UnbindRequest = 0x42  # not constructed
+    SearchRequest = 0x63
+    SearchResultEntry = 0x64
+    SearchResultDone = 0x65
+    SearchResultReference = 0x66
+    ModifyRequest = 0x67
+    ModifyResponse = 0x68
+    AddRequest = 0x69
+    AddResponse = 0x6A
+    DelRequest = 0x6B
+    DelResponse = 0x6C
+    ModifyDNRequest = 0x6D
+    ModifyDNResponse = 0x6E
+    CompareRequest = 0x6F
+    CompareResponse = 0x70
+    AbandonRequest = 0x71
+    ExtendedRequest = 0x72
+    ExtendedResponse = 0x73
 
 
 # Bind operation
 # https://datatracker.ietf.org/doc/html/rfc1777#section-4.1
 
 
-class ASN1_Class_LDAP_Authentication(ASN1_Class_UNIVERSAL):
+class ASN1_Class_LDAP_Authentication(ASN1_Class):
     name = "LDAP Authentication"
-    simple = 0xA0
-    krbv42LDAP = 0xA1
-    krbv42DSA = 0xA2
-    sasl = 0xA3
+    # CONTEXT-SPECIFIC = 0x80
+    simple = 0x80
+    krbv42LDAP = 0x81
+    krbv42DSA = 0x82
+    sasl = 0xA3  # CONTEXT-SPECIFIC | CONSTRUCTED
 
 
 class ASN1_LDAP_Authentication_simple(ASN1_STRING):
     tag = ASN1_Class_LDAP_Authentication.simple
 
 
-class BERcodec_LDAP_Authentication_simple(BERcodec_SEQUENCE):
+class BERcodec_LDAP_Authentication_simple(BERcodec_STRING):
     tag = ASN1_Class_LDAP_Authentication.simple
 
 
@@ -177,7 +185,7 @@ class ASN1_LDAP_Authentication_krbv42LDAP(ASN1_STRING):
     tag = ASN1_Class_LDAP_Authentication.krbv42LDAP
 
 
-class BERcodec_LDAP_Authentication_krbv42LDAP(BERcodec_SEQUENCE):
+class BERcodec_LDAP_Authentication_krbv42LDAP(BERcodec_STRING):
     tag = ASN1_Class_LDAP_Authentication.krbv42LDAP
 
 
@@ -189,7 +197,7 @@ class ASN1_LDAP_Authentication_krbv42DSA(ASN1_STRING):
     tag = ASN1_Class_LDAP_Authentication.krbv42DSA
 
 
-class BERcodec_LDAP_Authentication_krbv42DSA(BERcodec_SEQUENCE):
+class BERcodec_LDAP_Authentication_krbv42DSA(BERcodec_STRING):
     tag = ASN1_Class_LDAP_Authentication.krbv42DSA
 
 
@@ -222,7 +230,7 @@ class LDAP_SaslCredentials(ASN1_Packet):
 
 class LDAP_BindRequest(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_LDAP_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("version", 2),
         LDAPDN("bind_name", ""),
         ASN1F_CHOICE(
@@ -232,21 +240,22 @@ class LDAP_BindRequest(ASN1_Packet):
             ASN1F_LDAP_Authentication_krbv42LDAP,
             ASN1F_LDAP_Authentication_krbv42DSA,
             ASN1F_PACKET(
-                "sasl", LDAP_SaslCredentials(), LDAP_SaslCredentials, implicit_tag=0xA3
+                "sasl", LDAP_SaslCredentials(), LDAP_SaslCredentials,
+                implicit_tag=ASN1_Class_LDAP_Authentication.sasl
             ),
         ),
-        implicit_tag=0,
+        implicit_tag=ASN1_Class_LDAP.BindRequest,
     )
 
 
 class LDAP_BindResponse(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_LDAP_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         *(
             LDAPResult
             + (ASN1F_optional(ASN1F_STRING("serverSaslCreds", "", implicit_tag=0x87)),)
         ),
-        implicit_tag=1,
+        implicit_tag=ASN1_Class_LDAP.BindResponse,
     )
 
 
@@ -256,7 +265,10 @@ class LDAP_BindResponse(ASN1_Packet):
 
 class LDAP_UnbindRequest(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_NULL("info", 0)
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_NULL("info", 0),
+        implicit_tag=ASN1_Class_LDAP.UnbindRequest,
+    )
 
 
 # Search operation
@@ -287,16 +299,19 @@ class LDAP_SubstringFilterStr(ASN1_Packet):
             "initial",
             LDAP_SubstringFilterInitial(),
             LDAP_SubstringFilterInitial,
-            implicit_tag=0x0,
+            implicit_tag=0x80,
         ),
         ASN1F_PACKET(
-            "any", LDAP_SubstringFilterAny(), LDAP_SubstringFilterAny, implicit_tag=0x1
+            "any",
+            LDAP_SubstringFilterAny(),
+            LDAP_SubstringFilterAny,
+            implicit_tag=0x81
         ),
         ASN1F_PACKET(
             "final",
             LDAP_SubstringFilterFinal(),
             LDAP_SubstringFilterFinal,
-            implicit_tag=0x2,
+            implicit_tag=0x82,
         ),
     )
 
@@ -352,22 +367,43 @@ class LDAP_FilterApproxMatch(ASN1_Packet):
     ASN1_root = AttributeValueAssertion.ASN1_root
 
 
+class ASN1_Class_LDAP_Filter(ASN1_Class):
+    name = "LDAP Filter"
+    # CONTEXT-SPECIFIC + CONSTRUCTED = 0x80 | 0x20
+    And = 0xA0
+    Or = 0xA1
+    Not = 0xA2
+    EqualityMatch = 0xA3
+    Substrings = 0xA4
+    GreaterOrEqual = 0xA5
+    LessOrEqual = 0xA6
+    Present = 0xA7
+    ApproxMatch = 0xA8
+
+
 class LDAP_Filter(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_CHOICE(
         "filter",
         LDAP_FilterPresent(),
-        ASN1F_PACKET("and_", None, LDAP_FilterAnd, implicit_tag=0xA0),
-        ASN1F_PACKET("or_", None, LDAP_FilterOr, implicit_tag=0xA1),
-        ASN1F_PACKET("not_", None, _LDAP_Filter, implicit_tag=0xA2),
-        ASN1F_PACKET("equalityMatch", None, LDAP_FilterEqual, implicit_tag=0xA3),
-        ASN1F_PACKET("substrings", None, LDAP_SubstringFilter, implicit_tag=0xA4),
-        ASN1F_PACKET(
-            "greaterOrEqual", None, LDAP_FilterGreaterOrEqual, implicit_tag=0xA5
-        ),
-        ASN1F_PACKET("lessOrEqual", None, LDAP_FilterLessOrEqual, implicit_tag=0xA6),
-        ASN1F_PACKET("present", None, LDAP_FilterPresent, implicit_tag=0xA7),
-        ASN1F_PACKET("approxMatch", None, LDAP_FilterApproxMatch, implicit_tag=0xA8),
+        ASN1F_PACKET("and_", None, LDAP_FilterAnd,
+                     implicit_tag=ASN1_Class_LDAP_Filter.And),
+        ASN1F_PACKET("or_", None, LDAP_FilterOr,
+                     implicit_tag=ASN1_Class_LDAP_Filter.Or),
+        ASN1F_PACKET("not_", None, _LDAP_Filter,
+                     implicit_tag=ASN1_Class_LDAP_Filter.Not),
+        ASN1F_PACKET("equalityMatch", None, LDAP_FilterEqual,
+                     implicit_tag=ASN1_Class_LDAP_Filter.EqualityMatch),
+        ASN1F_PACKET("substrings", None, LDAP_SubstringFilter,
+                     implicit_tag=ASN1_Class_LDAP_Filter.Substrings),
+        ASN1F_PACKET("greaterOrEqual", None, LDAP_FilterGreaterOrEqual,
+                     implicit_tag=ASN1_Class_LDAP_Filter.GreaterOrEqual),
+        ASN1F_PACKET("lessOrEqual", None, LDAP_FilterLessOrEqual,
+                     implicit_tag=ASN1_Class_LDAP_Filter.LessOrEqual),
+        ASN1F_PACKET("present", None, LDAP_FilterPresent,
+                     implicit_tag=ASN1_Class_LDAP_Filter.Present),
+        ASN1F_PACKET("approxMatch", None, LDAP_FilterApproxMatch,
+                     implicit_tag=ASN1_Class_LDAP_Filter.ApproxMatch),
     )
 
 
@@ -378,7 +414,7 @@ class LDAP_SearchRequestAttribute(ASN1_Packet):
 
 class LDAP_SearchRequest(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_LDAP_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         LDAPDN("baseObject", ""),
         ASN1F_ENUMERATED(
             "scope", 0, {0: "baseObject", 1: "singleLevel", 2: "wholeSubtree"}
@@ -398,7 +434,7 @@ class LDAP_SearchRequest(ASN1_Packet):
         ASN1F_BOOLEAN("attrsOnly", False),
         ASN1F_PACKET("filter", LDAP_Filter(), LDAP_Filter),
         ASN1F_SEQUENCE_OF("attributes", [], LDAP_SearchRequestAttribute),
-        implicit_tag=3,
+        implicit_tag=ASN1_Class_LDAP.SearchRequest,
     )
 
 
@@ -417,30 +453,30 @@ class LDAP_SearchResponseEntryAttribute(ASN1_Packet):
 
 class LDAP_SearchResponseEntry(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_LDAP_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         LDAPDN("objectName", ""),
         ASN1F_SEQUENCE_OF(
             "attributes",
             LDAP_SearchResponseEntryAttribute(),
             LDAP_SearchResponseEntryAttribute,
         ),
-        implicit_tag=4,
+        implicit_tag=ASN1_Class_LDAP.SearchResultEntry,
     )
 
 
 class LDAP_SearchResponseResultDone(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_LDAP_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         *LDAPResult,
-        implicit_tag=5,
+        implicit_tag=ASN1_Class_LDAP.SearchResultDone,
     )
 
 
 class LDAP_AbandonRequest(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_LDAP_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("messageID", 0),
-        implicit_tag=0x10,
+        implicit_tag=ASN1_Class_LDAP.AbandonRequest,
     )
 
 
@@ -474,13 +510,7 @@ class LDAP(ASN1_Packet):
             LDAP_SearchResponseEntry,
             LDAP_SearchResponseResultDone,
             LDAP_AbandonRequest,
-            # For some reason the unbind request is under the 0x40
-            ASN1F_PACKET(
-                "unbindRequest",
-                LDAP_UnbindRequest(),
-                LDAP_UnbindRequest,
-                implicit_tag=0x42,
-            ),
+            LDAP_UnbindRequest,
         ),
         # LDAP v3 only
         ASN1F_optional(
