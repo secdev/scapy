@@ -434,8 +434,8 @@ class SMB_Client(Automaton):
             if pkt.Status == 0x0000010B:  # STATUS_NOTIFY_CLEANUP
                 # this is a notify cleanup. ignore
                 return
-            # When an error is returned, add the status to it as metadata
-            resp.NTStatus = pkt.sprintf("%SMB2_Header.Status%")
+        # Add the status to the response as metadata
+        resp.NTStatus = pkt.sprintf("%SMB2_Header.Status%")
         self.oi.smbpipe.send(resp)
 
     @ATMT.ioevent(SOCKET_MODE_SMB, name="smbpipe", as_supersocket="smblink")
@@ -757,7 +757,18 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
             resp = self.ins.sr1(pkt, verbose=0)
             if SMB2_IOCTL_Response not in resp:
                 raise ValueError("Failed reading IOCTL_Response ! %s" % resp.NTStatus)
-            super(SMB_RPC_SOCKET, self).send(bytes(resp.Output))
+            data = bytes(resp.Output)
+            # Handle BUFFER_OVERFLOW (big DCE/RPC response)
+            while resp.NTStatus == "STATUS_BUFFER_OVERFLOW":
+                # Retrieve DCE/RPC full size
+                resp = self.ins.sr1(
+                    SMB2_Read_Request(
+                        FileId=self.PipeFileId,
+                    ),
+                    verbose=0
+                )
+                data += resp.Data
+            super(SMB_RPC_SOCKET, self).send(data)
         else:
             # Use WriteRequest/ReadRequest
             pkt = SMB2_Write_Request(
@@ -777,7 +788,18 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
             )
             if SMB2_Read_Response not in resp:
                 raise ValueError("Failed reading ReadResponse ! %s" % resp.NTStatus)
-            super(SMB_RPC_SOCKET, self).send(resp.Data)
+            data = bytes(resp.Data)
+            # Handle BUFFER_OVERFLOW (big DCE/RPC response)
+            while resp.NTStatus == "STATUS_BUFFER_OVERFLOW":
+                # Retrieve DCE/RPC full size
+                resp = self.ins.sr1(
+                    SMB2_Read_Request(
+                        FileId=self.PipeFileId,
+                    ),
+                    verbose=0
+                )
+                data += resp.Data
+            super(SMB_RPC_SOCKET, self).send(data)
 
     def close(self):
         SMB_SOCKET.close(self)

@@ -1406,10 +1406,10 @@ class NTLMSSP(SSP):
                 ChallengeFromClient=os.urandom(8),
             )
             try:
-                # the client SHOULD set the timestamp in the CHALLENGE_MESSAGE
+                # the server SHOULD set the timestamp in the CHALLENGE_MESSAGE
                 cr.TimeStamp = chall_tok.getAv(0x0007).Value
             except IndexError:
-                pass
+                cr.TimeStamp = int((time.time() + 11644473600) * 1e7)
             cr.AvPairs = (
                 chall_tok.TargetInfo[:-1]
                 + (
