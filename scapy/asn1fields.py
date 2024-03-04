@@ -110,8 +110,8 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         if (implicit_tag is not None) and (explicit_tag is not None):
             err_msg = "field cannot be both implicitly and explicitly tagged"
             raise ASN1_Error(err_msg)
-        self.implicit_tag = implicit_tag
-        self.explicit_tag = explicit_tag
+        self.implicit_tag = implicit_tag and int(implicit_tag)
+        self.explicit_tag = explicit_tag and int(explicit_tag)
         # network_tag gets useful for ASN1F_CHOICE
         self.network_tag = int(implicit_tag or explicit_tag or self.ASN1_tag)
         self.owners = []  # type: List[Type[ASN1_Packet]]
@@ -173,7 +173,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                 raise ASN1_Error("Encoding Error: got %r instead of an %r for field [%s]" % (x, self.ASN1_tag, self.name))  # noqa: E501
         else:
             s = self.ASN1_tag.get_codec(pkt.ASN1_codec).enc(x, size_len=self.size_len)
-        return BER_tagging_enc(s, hidden_tag=self.ASN1_tag,
+        return BER_tagging_enc(s,
                                implicit_tag=self.implicit_tag,
                                explicit_tag=self.explicit_tag)
 
@@ -709,8 +709,6 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                 else:
                     # should be ASN1F_field instance
                     self.choices[p.network_tag] = p
-                    if p.implicit_tag is not None:
-                        self.choices[p.implicit_tag & 0x1f] = p
                     self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
@@ -729,9 +727,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         if tag in self.choices:
             choice = self.choices[tag]
         else:
-            if tag & 0x1f in self.choices:  # Try resolve only the tag number
-                choice = self.choices[tag & 0x1f]
-            elif self.flexible_tag:
+            if self.flexible_tag:
                 choice = ASN1F_field
             else:
                 raise ASN1_Error(
@@ -757,7 +753,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
             s = raw(x)
             if hash(type(x)) in self.pktchoices:
                 imp, exp = self.pktchoices[hash(type(x))]
-                s = BER_tagging_enc(s, hidden_tag=self.ASN1_tag,
+                s = BER_tagging_enc(s,
                                     implicit_tag=imp,
                                     explicit_tag=exp)
         return BER_tagging_enc(s, explicit_tag=self.explicit_tag)
@@ -800,7 +796,7 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
         )
         if implicit_tag is None and explicit_tag is None and cls is not None:
             if cls.ASN1_root.ASN1_tag == ASN1_Class_UNIVERSAL.SEQUENCE:
-                self.network_tag = 16 | 0x20
+                self.network_tag = 16 | 0x20  # 16 + CONSTRUCTED
         self.default = default
 
     def m2i(self, pkt, s):
@@ -845,7 +841,7 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
             if not hasattr(x, "ASN1_root"):
                 # A normal Packet (!= ASN1)
                 return s
-        return BER_tagging_enc(s, hidden_tag=self.ASN1_tag,
+        return BER_tagging_enc(s,
                                implicit_tag=self.implicit_tag,
                                explicit_tag=self.explicit_tag)
 
