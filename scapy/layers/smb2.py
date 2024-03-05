@@ -1403,7 +1403,9 @@ class SMB2_Header(Packet):
     _SMB2_OK_RETURNCODES = (
         # sect 3.3.4.4
         (0xC0000016, 0x0001),  # STATUS_MORE_PROCESSING_REQUIRED
-        (0x80000005, 0x0010),  # STATUS_BUFFER_OVERFLOW
+        (0x80000005, 0x0008),  # STATUS_BUFFER_OVERFLOW (Read)
+        (0x80000005, 0x0010),  # STATUS_BUFFER_OVERFLOW (QueryInfo)
+        (0x80000005, 0x000B),  # STATUS_BUFFER_OVERFLOW (IOCTL)
         (0xC000000D, 0x000B),  # STATUS_INVALID_PARAMETER
         (0x0000010C, 0x000F),  # STATUS_NOTIFY_ENUM_DIR
     )
@@ -2873,7 +2875,7 @@ class SMB2_Read_Request(_SMB2_Payload, _NTLMPayloadPacket):
                 0x02: "SMB2_READFLAG_REQUEST_COMPRESSED",
             },
         ),
-        LEIntField("Length", 1024),
+        LEIntField("Length", 4280),
         LELongField("Offset", 0),
         PacketField("FileId", SMB2_FILEID(), SMB2_FILEID),
         LEIntField("MinimumCount", 0),
@@ -3188,7 +3190,7 @@ class SMB2_IOCTL_Request(_SMB2_Payload, _NTLMPayloadPacket):
         LEIntField("MaxInputResponse", 0),
         LEIntField("OutputBufferOffset", None),
         LEIntField("OutputLen", None),  # Called OutputCount.
-        LEIntField("MaxOutputResponse", 4280),
+        LEIntField("MaxOutputResponse", 1024),
         FlagsField("Flags", 0, -32, {0x00000001: "SMB2_0_IOCTL_IS_FSCTL"}),
         LEIntField("Reserved2", 0),
         _NTLMPayloadField(
