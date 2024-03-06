@@ -162,3 +162,141 @@ pkt = NetrServerAuthenticate3_Response(
 )
 
 assert bytes(pkt) == bytes(auth_resp)
+
++ GSS-API NetlogonSSP tests
+~ mock
+
+= Create randomness-mock context manager
+
+# mock the random to get consistency
+import mock
+
+def fake_urandom(x):
+    # wow, impressive entropy
+    return b"0" * x
+
+_patches = [
+    # Patch all the random
+    mock.patch('scapy.layers.msrpce.msnrpc.os.urandom', side_effect=fake_urandom),
+]
+
+class NetlogonRandomPatcher:
+    def __enter__(self):
+        for p in _patches:
+            p.start()
+    def __exit__(self, *args, **kwargs):
+        for p in _patches:
+            p.stop()
+
+= Create client and server NetlogonSSP
+
+from scapy.layers.msrpce.msnrpc import NetlogonSSP, NL_AUTH_MESSAGE
+
+client = NetlogonSSP(SessionKey=b"\x00\x00\x00\x00\x00\x00\x00\x00", computername="DC1", domainname="DOMAIN")
+server = NetlogonSSP(SessionKey=b"\x00\x00\x00\x00\x00\x00\x00\x00", computername="DC1", domainname="DOMAIN")
+
+= GSS_Init_sec_context (NL_AUTH_MESSAGE)
+
+clicontext, tok, negResult = client.GSS_Init_sec_context(None)
+
+assert negResult == 1
+assert isinstance(tok, NL_AUTH_MESSAGE)
+assert tok.MessageType == 0
+assert tok.Flags == 3
+
+bytes(tok)
+assert bytes(tok) == b'\x00\x00\x00\x00\x03\x00\x00\x00DOMAIN\x00DC1\x00'
+
+= GSS_Accept_sec_context (NL_AUTH_MESSAGE->NL_AUTH_MESSAGE)
+
+srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+
+assert negResult == 0
+assert tok.MessageType == 1
+
+bytes(tok)
+assert bytes(tok) == b'\x01\x00\x00\x00\x00\x00\x00\x00'
+
+= GSS_Init_sec_context (NL_AUTH_MESSAGE->OK)
+
+clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+
+assert negResult == 0
+assert tok is None
+
+= GSS_WrapEx/GSS_UnwrapEx: client sends a encrypted payload
+
+data_header = b"header"  # signed but not encrypted
+data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"  # encrypted
+
+with NetlogonRandomPatcher():
+    _msgs, sig = client.GSS_WrapEx(
+        clicontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+        ]
+    )
+
+encrypted = _msgs[1].data
+assert bytes(encrypted) == b'~\x82\xda\x9e>t?QA\xe7\x06B\x87\x01\x03\x97\xea\xd2\xe9\xc4\xbfM$\x95VKxivff\x93\x9a\xe8\rbe#\xe6W\xb4\x82A\xd8\xa7\xf7]\xf3\xb0\x88'
+assert bytes(sig) == b'w\x00z\x00\xff\xff\x00\x00\x9f\xcb\xb6s\x8c\x8c\x0c*\xa9E\xa4\xd1\x85\xee.\xa2:\xd7\x99\xdaO\x05N '
+
+decrypted = server.GSS_UnwrapEx(
+    srvcontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=encrypted),
+    ],
+    sig
+)[1].data
+assert decrypted == data
+
+= GSS_WrapEx/GSS_UnwrapEx: server answers back
+
+with NetlogonRandomPatcher():
+    _msgs, sig = server.GSS_WrapEx(
+        srvcontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+        ]
+    )
+
+re_encrypted = _msgs[1].data
+assert bytes(re_encrypted) == b'\x9b\xc7c\x81\xfbF(\x19\xb6>\x08i\x7f\x18~H\xd6m~\x11K\x83\xb6\x15\x9a\xceP\xa1K\x8d\x83\xbb\xa7\x0fR*J\x89-\xec!\xde\xffs)\xd8F\x9c@^'
+assert bytes(sig) == b'w\x00z\x00\xff\xff\x00\x00\x9f\xcb\xb6r\x0c\x8c\x0c*\xa9E\xa4\xd1\x85\xee.\xa2\xdf\x92 \xc5\x8a7Yh'
+
+decrypted = client.GSS_UnwrapEx(
+    clicontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=re_encrypted),
+    ],
+    sig
+)[1].data
+assert decrypted == data
+
+= GSS_WrapEx/GSS_UnwrapEx: inject fault
+
+_msgs, sig = client.GSS_WrapEx(
+    clicontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+    ]
+)
+encrypted = _msgs[1].data
+assert encrypted != data
+bad_data_header = data_header[:-3] + b"hey"
+try:
+    server.GSS_UnwrapEx(srvcontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=bad_data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=encrypted),
+        ],
+        sig
+    )
+    assert False, "No error was reported, but there should have been one"
+except ValueError:
+    pass

@@ -14,7 +14,7 @@ Implements parts of
 import abc
 
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntEnum, IntFlag
 
 from scapy.asn1.asn1 import (
     ASN1_SEQUENCE,
@@ -41,6 +41,7 @@ from scapy.packet import Packet
 from typing import (
     Any,
     List,
+    Optional,
     Tuple,
 )
 
@@ -121,6 +122,19 @@ class GSSAPI_BLOB_SIGNATURE(ASN1_Packet):
             ),  # noqa: E501
         ),
     )
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 2:
+            # Sometimes the token is raw. Detect that with educated
+            # heuristics.
+            if _pkt[:2] in [b"\x04\x04", b"\x05\x04"]:
+                from scapy.layers.kerberos import KRB_InnerToken
+                return KRB_InnerToken
+            elif len(_pkt) >= 4 and _pkt[:4] == b"\x01\x00\x00\x00":
+                from scapy.layers.ntlm import NTLMSSP_MESSAGE_SIGNATURE
+                return NTLMSSP_MESSAGE_SIGNATURE
+        return cls
 
 
 # RFC2744 sect 3.9 - Status Values
@@ -230,18 +244,32 @@ class GssChannelBindings(Packet):
 # --- The base GSSAPI SSP base class
 
 
+class GSS_C_FLAGS(IntFlag):
+    """
+    Authenticator Flags per RFC2744 req_flags
+    """
+    GSS_C_DELEG_FLAG = 0x01
+    GSS_C_MUTUAL_FLAG = 0x02
+    GSS_C_REPLAY_FLAG = 0x04
+    GSS_C_SEQUENCE_FLAG = 0x08
+    GSS_C_CONF_FLAG = 0x10  # confidentiality
+    GSS_C_INTEG_FLAG = 0x20  # integrity
+    # RFC4757
+    GSS_C_DCE_STYLE = 0x1000
+    GSS_C_IDENTIFY_FLAG = 0x2000
+    GSS_C_EXTENDED_ERROR_FLAG = 0x4000
+
+
 class SSP:
     """
     The general SSP class
     """
 
-    __slots__ = ["auth_level"]
-
     auth_type = 0x00
-    dcerpc_header_signing = True
 
-    def __init__(self, auth_level=None):
-        self.auth_level = auth_level
+    def __init__(self, **kwargs):
+        if kwargs:
+            raise ValueError("Unknown SSP parameters: " + ",".join(list(kwargs)))
 
     def __repr__(self):
         return "<%s>" % self.__class__.__name__
@@ -251,10 +279,16 @@ class SSP:
         A Security context i.e. the 'state' of the secure negotiation
         """
 
-        __slots__ = ["state"]
+        __slots__ = ["state", "flags"]
 
-        def __init__(self):
-            raise NotImplementedError
+        def __init__(self, req_flags: Optional[GSS_C_FLAGS] = None):
+            if req_flags is None:
+                # Default
+                req_flags = (
+                    GSS_C_FLAGS.GSS_C_EXTENDED_ERROR_FLAG |
+                    GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
+                )
+            self.flags = req_flags
 
         def __repr__(self):
             return "[Default SSP]"
@@ -265,7 +299,8 @@ class SSP:
         """
 
     @abc.abstractmethod
-    def GSS_Init_sec_context(self, Context: CONTEXT, val=None):
+    def GSS_Init_sec_context(self, Context: CONTEXT, val=None,
+                             req_flags: Optional[GSS_C_FLAGS] = None):
         """
         GSS_Init_sec_context: client-side call for the SSP
         """
@@ -346,12 +381,22 @@ class SSP:
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def MaximumSignatureLength(self, Context: CONTEXT):
+        """
+        Returns the Maximum Signature length.
+
+        This will be used in auth_len in DceRpc5, and is necessary for
+        PFC_SUPPORT_HEADER_SIGN to work properly.
+        """
+        raise NotImplementedError
+
     # RFC 2743
 
     # sect 2.3.1
 
     def GSS_GetMIC(self, Context: CONTEXT, message: bytes, qop_req: int = 0):
-        return self.GSS_WrapEx(
+        return self.GSS_GetMICEx(
             Context,
             [
                 self.MIC_MSG(
@@ -427,10 +472,22 @@ class SSP:
         """
         return False
 
+    def getMechListMIC(self, Context, input):
+        """
+        Compute mechListMIC
+        """
+        return bytes(self.GSS_GetMIC(Context, input))
+
+    def verifyMechListMIC(self, Context, otherMIC, input):
+        """
+        Verify mechListMIC
+        """
+        return self.GSS_VerifyMIC(Context, input, otherMIC)
+
     def LegsAmount(self, Context: CONTEXT):
         """
         Returns the amount of 'legs' (how MS calls it) of the SSP.
 
-        i.e. 2 for Kerberos, 3 for NTLM
+        i.e. 2 for Kerberos, 3 for NTLM and Netlogon
         """
         return 2

@@ -15,9 +15,12 @@ Note: to mimic Microsoft Windows LDAP packets, you must set::
 """
 
 import collections
+import ssl
 import socket
 import struct
 import uuid
+
+from enum import Enum
 
 from scapy.ansmachine import AnsweringMachine
 from scapy.asn1.asn1 import (
@@ -43,17 +46,32 @@ from scapy.asn1packet import ASN1_Packet
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.packet import bind_bottom_up, bind_layers
-from scapy.supersocket import SimpleSocket
+from scapy.supersocket import (
+    SimpleSocket,
+    StreamSocket,
+)
 
 from scapy.layers.dns import dns_resolve
 from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.inet6 import IPv6
-from scapy.layers.gssapi import GSSAPI_BLOB
-from scapy.layers.kerberos import _ASN1FString_PacketField
+from scapy.layers.gssapi import (
+    GSS_S_COMPLETE,
+    GSS_S_CONTINUE_NEEDED,
+    GSSAPI_BLOB,
+    SSP,
+)
+from scapy.layers.kerberos import (
+    _ASN1FString_PacketField,
+    KRB_GSSAPI_Token,
+    KerberosSSP,
+)
+from scapy.layers.ntlm import NTLMSSP
 from scapy.layers.smb import (
     NETLOGON,
     NETLOGON_SAM_LOGON_RESPONSE_EX,
 )
+from scapy.layers.spnego import SPNEGOSSP
+
 
 # Elements of protocol
 # https://datatracker.ietf.org/doc/html/rfc1777#section-4
@@ -94,6 +112,8 @@ LDAPResult = (
             6: "compareTrue",
             7: "authMethodNotSupported",
             8: "strongAuthRequired",
+            10: "referral",
+            14: "saslBindInProgress",
             16: "noSuchAttribute",
             17: "undefinedAttributeType",
             18: "inappropriateMatching",
@@ -169,7 +189,7 @@ class ASN1_Class_LDAP_Authentication(ASN1_Class):
     sasl = 0xA3  # CONTEXT-SPECIFIC | CONSTRUCTED
 
 
-class ASN1_LDAP_Authentication_simple(ASN1_STRING):
+class LDAP_Authentication_simple(ASN1_STRING):
     tag = ASN1_Class_LDAP_Authentication.simple
 
 
@@ -181,7 +201,7 @@ class ASN1F_LDAP_Authentication_simple(ASN1F_STRING):
     ASN1_tag = ASN1_Class_LDAP_Authentication.simple
 
 
-class ASN1_LDAP_Authentication_krbv42LDAP(ASN1_STRING):
+class LDAP_Authentication_krbv42LDAP(ASN1_STRING):
     tag = ASN1_Class_LDAP_Authentication.krbv42LDAP
 
 
@@ -193,7 +213,7 @@ class ASN1F_LDAP_Authentication_krbv42LDAP(ASN1F_STRING):
     ASN1_tag = ASN1_Class_LDAP_Authentication.krbv42LDAP
 
 
-class ASN1_LDAP_Authentication_krbv42DSA(ASN1_STRING):
+class LDAP_Authentication_krbv42DSA(ASN1_STRING):
     tag = ASN1_Class_LDAP_Authentication.krbv42DSA
 
 
@@ -205,12 +225,12 @@ class ASN1F_LDAP_Authentication_krbv42DSA(ASN1F_STRING):
     ASN1_tag = ASN1_Class_LDAP_Authentication.krbv42DSA
 
 
-_SASL_MECHANISMS = {b"GSS-SPNEGO": GSSAPI_BLOB}
+_SASL_MECHANISMS = {b"GSS-SPNEGO": GSSAPI_BLOB, b"GSSAPI": KRB_GSSAPI_Token}
 
 
-class _SaslCredentialsField(_ASN1FString_PacketField):
+class _ReqSaslCredentialsField(_ASN1FString_PacketField):
     def m2i(self, pkt, s):
-        val = super(_SaslCredentialsField, self).m2i(pkt, s)
+        val = super(_ReqSaslCredentialsField, self).m2i(pkt, s)
         if not val[0].val:
             return val
         if pkt.mechanism.val in _SASL_MECHANISMS:
@@ -221,17 +241,17 @@ class _SaslCredentialsField(_ASN1FString_PacketField):
         return val
 
 
-class LDAP_SaslCredentials(ASN1_Packet):
+class LDAP_Authentication_SaslCredentials(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        LDAPString("mechanism", ""), _SaslCredentialsField("credentials", "")
+        LDAPString("mechanism", ""), _ReqSaslCredentialsField("credentials", "")
     )
 
 
 class LDAP_BindRequest(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("version", 2),
+        ASN1F_INTEGER("version", 3),
         LDAPDN("bind_name", ""),
         ASN1F_CHOICE(
             "authentication",
@@ -240,7 +260,9 @@ class LDAP_BindRequest(ASN1_Packet):
             ASN1F_LDAP_Authentication_krbv42LDAP,
             ASN1F_LDAP_Authentication_krbv42DSA,
             ASN1F_PACKET(
-                "sasl", LDAP_SaslCredentials(), LDAP_SaslCredentials,
+                "sasl",
+                LDAP_Authentication_SaslCredentials(),
+                LDAP_Authentication_SaslCredentials,
                 implicit_tag=ASN1_Class_LDAP_Authentication.sasl
             ),
         ),
@@ -377,7 +399,7 @@ class ASN1_Class_LDAP_Filter(ASN1_Class):
     Substrings = 0xA4
     GreaterOrEqual = 0xA5
     LessOrEqual = 0xA6
-    Present = 0xA7
+    Present = 0x87  # not constructed
     ApproxMatch = 0xA8
 
 
@@ -843,3 +865,161 @@ def dclocator(
             finally:
                 sock.close()
         raise ValueError("No LDAP ping succeeded on any of %s. Try another mode?" % ips)
+
+
+#####################
+# Basic LDAP client #
+#####################
+
+class LDAP_BIND_MECHS(Enum):
+    NONE = "NONE"
+    SIMPLE = "SIMPLE"
+    SASL_GSSAPI = "GSSAPI"
+    SASL_GSS_SPNEGO = "GSS-SPNEGO"
+    SASL_EXTERNAL = "EXTERNAL"
+    SASL_DIGEST_MD5 = "DIGEST-MD5"
+
+
+class LDAP_Client(object):
+    """
+    A basic LDAP client
+
+    :param mech: one of LDAP_BIND_MECHS
+    :param ssl: whether to use LDAPS or not
+    """
+
+    def __init__(self, mech, verb=True, ssl=False, sslcontext=None, **kwargs):
+        self.sock = None
+        self.mech = mech
+        self.verb = verb
+        self.ssl = ssl
+        self.sslcontext = sslcontext
+        self.ssp = kwargs.pop("ssp", None)  # type: SSP
+        assert isinstance(mech, LDAP_BIND_MECHS)
+        if isinstance(self.ssp, NTLMSSP):
+            raise ValueError("Cannot use raw NTLMSSP in LDAP ! Wrap it in SPNEGOSSP.")
+        elif self.ssp is not None and mech in [LDAP_BIND_MECHS.NONE, LDAP_BIND_MECHS.SIMPLE]:
+            raise ValueError("%s cannot be used with a ssp !" % mech.value)
+        self.sspcontext = None
+        self.messageID = 0
+
+    def connect(self, ip, port=389, timeout=5):
+        """
+        Initiate a connection
+        """
+        sock = socket.socket()
+        sock.settimeout(timeout)
+        if self.verb:
+            print(
+                "\u2503 Connecting to %s on port %s%s..." % (
+                    ip,
+                    port,
+                    " with SSL" if self.ssl else "",
+                )
+            )
+        sock.connect((ip, port))
+        if self.verb:
+            print(
+                conf.color_theme.green(
+                    "\u2514 Connected from %s" % repr(sock.getsockname())
+                )
+            )
+        if self.ssl:
+            if self.sslcontext is None:
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+            else:
+                context = self.sslcontext
+            sock = context.wrap_socket(sock)
+        self.sock = StreamSocket(sock, LDAP)
+
+    def sr1(self, protocolOp, controls=None, **kwargs):
+        self.messageID += 1
+        if self.verb:
+            print(
+                conf.color_theme.opening(
+                    ">> %s" % protocolOp.__class__.__name__
+                )
+            )
+        resp = self.sock.sr1(
+            LDAP(
+                messageID=self.messageID,
+                protocolOp=protocolOp,
+                Controls=controls,
+            ),
+            verbose=0,
+            **kwargs,
+        )
+        if self.verb:
+            print(
+                conf.color_theme.success(
+                    "<< %s" % (
+                        resp.protocolOp.__class__.__name__
+                        if LDAP in resp
+                        else resp.__class__.__name__
+                    )
+                )
+            )
+        return resp
+
+    def bind(self, simple_username=None, simple_password=None):
+        """
+        Send Bind request.
+        This acts differently based on the :mech: provided during initialization.
+        """
+        if self.mech == LDAP_BIND_MECHS.SIMPLE:
+            # Simple binding
+            resp = self.sr1(
+                LDAP_BindRequest(
+                    bind_name=ASN1_STRING(simple_username or ""),
+                    authentication=LDAP_Authentication_simple(
+                        simple_password or "",
+                    )
+                )
+            )
+            if (
+                LDAP not in resp or
+                not isinstance(resp.protocolOp, LDAP_BindResponse) or
+                resp.protocolOp.resultCode != 0
+            ):
+                if self.verb:
+                    resp.show()
+                raise RuntimeError("LDAP simple bind failed !")
+        elif self.mech in [LDAP_BIND_MECHS.SASL_GSS_SPNEGO, LDAP_BIND_MECHS.SASL_GSSAPI]:
+            # GSSAPI or SPNEGO
+            self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
+                self.sspcontext, None
+            )
+            while token:
+                resp = self.sr1(
+                    LDAP_BindRequest(
+                        bind_name=ASN1_STRING(b""),
+                        authentication=LDAP_Authentication_SaslCredentials(
+                            mechanism=ASN1_STRING(self.mech.value),
+                            credentials=ASN1_STRING(bytes(token)),
+                        )
+                    )
+                )
+                self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
+                    self.sspcontext, GSSAPI_BLOB(resp.protocolOp.serverSaslCreds.val)
+                )
+            if self.mech == LDAP_BIND_MECHS.SASL_GSSAPI and status == GSS_S_COMPLETE:
+                # https://datatracker.ietf.org/doc/html/rfc2222#section-7.2.1
+                resp = self.sr1(
+                    LDAP_BindRequest(
+                        bind_name=ASN1_STRING(b""),
+                        authentication=LDAP_Authentication_SaslCredentials(
+                            mechanism=ASN1_STRING(self.mech.value),
+                            credentials=ASN1_STRING(token or b""),
+                        )
+                    )
+                )
+                resp.show()
+        if self.verb:
+            print("%s bind succeded !" % self.mech.name)
+
+    def close(self):
+        if self.verb:
+            print("X Connection closed\n")
+        self.sock.close()

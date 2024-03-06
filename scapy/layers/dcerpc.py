@@ -454,7 +454,24 @@ class CommonAuthVerifier(Packet):
                         Kerberos,
                         length_from=lambda pkt: pkt.parent.auth_len,
                     ),
-                    lambda pkt: pkt.auth_type == 0x10,
+                    lambda pkt: pkt.auth_type == 0x10 and pkt.parent and
+                    # Bind/Alter
+                    pkt.parent.ptype in [11, 12, 13, 14, 15, 16],
+                ),
+                (
+                    PacketLenField(
+                        "auth_value",
+                        KRB_InnerToken(),
+                        KRB_InnerToken,
+                        length_from=lambda pkt: pkt.parent.auth_len,
+                    ),
+                    lambda pkt: pkt.auth_type == 0x10
+                    and pkt.parent
+                    and (
+                        # Other
+                        not pkt.parent
+                        or pkt.parent.ptype not in [11, 12, 13, 14, 15, 16]
+                    ),
                 ),
                 # NTLM
                 (
@@ -731,6 +748,19 @@ _DCE_RPC_ERROR_CODES = {
     0x000006D8: "EPT_S_CANT_PERFORM_OP",
 }
 
+_DCE_RPC_REJECTION_REASONS = {
+    0: "REASON_NOT_SPECIFIED",
+    1: "TEMPORARY_CONGESTION",
+    2: "LOCAL_LIMIT_EXCEEDED",
+    3: "CALLED_PADDR_UNKNOWN",
+    4: "PROTOCOL_VERSION_NOT_SUPPORTED",
+    5: "DEFAULT_CONTEXT_NOT_SUPPORTED",
+    6: "USER_DATA_NOT_READABLE",
+    7: "NO_PSAP_AVAILABLE",
+    8: "AUTHENTICATION_TYPE_NOT_RECOGNIZED",
+    9: "INVALID_CHECKSUM",
+}
+
 
 class DceRpc5(DceRpc):
     """
@@ -924,12 +954,7 @@ class DceRpc5Result(EPacket):
             ShortEnumField(
                 "reason",
                 0,
-                [
-                    "reason_not_specified",
-                    "abstract_syntax_not_supported",
-                    "proposed_transfer_syntaxes_not_supported",
-                    "local_limit_exceeded",
-                ],
+                _DCE_RPC_REJECTION_REASONS,
             )
         ),
         EPacketField("transfer_syntax", None, DceRpc5TransferSyntax),
@@ -1012,15 +1037,39 @@ class DceRpc5Version(EPacket):
 class DceRpc5BindNak(_DceRpcPayload):
     name = "DCE/RPC v5 - Bind Nak"
     fields_desc = [
-        _EField(ShortField("provider_reject_reason", 0)),
+        _EField(
+            ShortEnumField("provider_reject_reason", 0, _DCE_RPC_REJECTION_REASONS)
+        ),
         # p_rt_versions_supported_t
-        _EField(FieldLenField("n_protocols", None, length_of="protocols", fmt="B")),
+        _EField(FieldLenField("n_protocols", None, count_of="protocols", fmt="B")),
         EPacketListField(
             "protocols",
             [],
             DceRpc5Version,
             count_from=lambda pkt: pkt.n_protocols,
             endianness_from=_dce_rpc_endianess,
+        ),
+        # [MS-RPCE] sect 2.2.2.9
+        ConditionalField(
+            ReversePadField(
+                _EField(
+                    UUIDEnumField(
+                        "signature",
+                        None,
+                        {
+                            UUID(
+                                "90740320-fad0-11d3-82d7-009027b130ab"
+                            ): "Extended Error",
+                        },
+                    )
+                ),
+                align=8,
+            ),
+            lambda pkt: pkt.fields.get("signature", None)
+            or (
+                pkt.underlayer
+                and pkt.underlayer.frag_len >= 24 + pkt.n_protocols * 2 + 16
+            ),
         ),
     ]
 
@@ -2495,9 +2544,12 @@ class DceRpcSession(DefaultSession):
         self.rpc_bind_interface = None
         self.ndr64 = False
         self.ndrendian = "little"
+        self.support_header_signing = kwargs.pop("support_header_signing", True)
         self.header_sign = False
         self.ssp = kwargs.pop("ssp", None)
         self.sspcontext = kwargs.pop("sspcontext", None)
+        self.auth_level = kwargs.pop("auth_level", None)
+        self.auth_context_id = kwargs.pop("auth_context_id", 0)
         self.map_callid_opnum = {}
         self.frags = collections.defaultdict(lambda: b"")
         super(DceRpcSession, self).__init__(*args, **kwargs)
@@ -2521,9 +2573,9 @@ class DceRpcSession(DefaultSession):
                     log_runtime.warning(
                         "Unknown RPC interface %s. Try loading the IDL" % if_uuid
                     )
-            # If the SSP supports "Header Signing", advertise it
-            if self.ssp is not None and self.ssp.dcerpc_header_signing:
-                pkt.pfc_flags |= 0x4  # PFC_SUPPORT_HEADER_SIGN
+            # Detect if "Header Signing" is in use
+            if pkt.pfc_flags & 0x04:  # PFC_SUPPORT_HEADER_SIGN
+                self.header_sign = True
         elif DceRpc5BindAck in pkt or DceRpc5AlterContextResp in pkt:
             # bind ack => is it NDR64
             for res in pkt.results:
@@ -2532,7 +2584,7 @@ class DceRpcSession(DefaultSession):
                     if res.transfer_syntax.sprintf("%if_uuid%") == "NDR64":
                         self.ndr64 = True
             # Detect if "Header Signing" is in use
-            if pkt.pfc_flags.PFC_SUPPORT_HEADER_SIGN:
+            if pkt.pfc_flags & 0x04:  # PFC_SUPPORT_HEADER_SIGN
                 self.header_sign = True
         elif DceRpc5Request in pkt:
             # request => match opnum with callID
@@ -2606,7 +2658,7 @@ class DceRpcSession(DefaultSession):
         if pkt.auth_verifier and pkt.auth_verifier.is_protected() and body:
             if self.sspcontext is None:
                 return pkt
-            if self.ssp.auth_level in (
+            if self.auth_level in (
                 RPC_C_AUTHN_LEVEL.PKT_INTEGRITY,
                 RPC_C_AUTHN_LEVEL.PKT_PRIVACY,
             ):
@@ -2635,7 +2687,7 @@ class DceRpcSession(DefaultSession):
                 pdu_header.vt_trailer = None
 
                 # [MS-RPCE] sect 2.2.2.12
-                if self.ssp.auth_level == RPC_C_AUTHN_LEVEL.PKT_PRIVACY:
+                if self.auth_level == RPC_C_AUTHN_LEVEL.PKT_PRIVACY:
                     _msgs = self.ssp.GSS_UnwrapEx(
                         self.sspcontext,
                         [
@@ -2661,7 +2713,7 @@ class DceRpcSession(DefaultSession):
                         pkt.auth_verifier.auth_value,
                     )
                     body = _msgs[1].data  # PDU body
-                elif self.ssp.auth_level == RPC_C_AUTHN_LEVEL.PKT_INTEGRITY:
+                elif self.auth_level == RPC_C_AUTHN_LEVEL.PKT_INTEGRITY:
                     self.ssp.GSS_VerifyMICEx(
                         self.sspcontext,
                         [
@@ -2724,7 +2776,7 @@ class DceRpcSession(DefaultSession):
         ):
             body = bytes(pkt.payload.payload)
             signature = None
-            if self.ssp.auth_level in (
+            if self.auth_level in (
                 RPC_C_AUTHN_LEVEL.PKT_INTEGRITY,
                 RPC_C_AUTHN_LEVEL.PKT_PRIVACY,
             ):
@@ -2742,9 +2794,18 @@ class DceRpcSession(DefaultSession):
                 # Add the auth_verifier
                 pkt.auth_verifier = CommonAuthVerifier(
                     auth_type=self.ssp.auth_type,
-                    auth_level=self.ssp.auth_level,
+                    auth_level=self.auth_level,
+                    auth_context_id=self.auth_context_id,
                     auth_pad_length=padlen,
-                    auth_value=NTLMSSP_MESSAGE_SIGNATURE(),
+                    # Note: auth_value should have the correct length because when
+                    # using PFC_SUPPORT_HEADER_SIGN, auth_len (and frag_len) is
+                    # included in the token.. but this creates a dependency loop as
+                    # you'd need to know the token length to compute the token.
+                    # Windows solves this by setting the 'Maximum Signature Length'
+                    # (or something simlar) beforehand, instead of the real length.
+                    # See `gensec_sig_size` in samba.
+                    auth_value=b"\x00"
+                    * self.ssp.MaximumSignatureLength(self.sspcontext),
                 )
                 # Build pdu_header and sec_trailer
                 pdu_header = pkt.copy()
@@ -2761,7 +2822,7 @@ class DceRpcSession(DefaultSession):
                 pdu_header.vt_trailer = None
                 signature = None
                 # [MS-RPCE] sect 2.2.2.12
-                if self.ssp.auth_level == RPC_C_AUTHN_LEVEL.PKT_PRIVACY:
+                if self.auth_level == RPC_C_AUTHN_LEVEL.PKT_PRIVACY:
                     _msgs, signature = self.ssp.GSS_WrapEx(
                         self.sspcontext,
                         [
@@ -2786,7 +2847,7 @@ class DceRpcSession(DefaultSession):
                         ],
                     )
                     s = _msgs[1].data  # PDU body
-                elif self.ssp.auth_level == RPC_C_AUTHN_LEVEL.PKT_INTEGRITY:
+                elif self.auth_level == RPC_C_AUTHN_LEVEL.PKT_INTEGRITY:
                     signature = self.ssp.GSS_GetMICEx(
                         self.sspcontext,
                         [
@@ -2843,7 +2904,12 @@ class DceRpcSocket(StreamSocket):
     """
 
     def __init__(self, *args, **kwargs):
-        self.session = DceRpcSession(ssp=kwargs.pop("ssp", None))
+        self.session = DceRpcSession(
+            ssp=kwargs.pop("ssp", None),
+            auth_level=kwargs.pop("auth_level", None),
+            auth_context_id=kwargs.pop("auth_context_id", None),
+            support_header_signing=kwargs.pop("support_header_signing", True),
+        )
         super(DceRpcSocket, self).__init__(*args, **kwargs)
 
     def send(self, x, **kwargs):

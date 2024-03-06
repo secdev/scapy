@@ -30,14 +30,17 @@ from scapy.layers.dcerpc import (
     DCERPC_Transport,
     find_dcerpc_interface,
     CommonAuthVerifier,
+    DCE_C_AUTHN_LEVEL,
     # NDR
     NDRPointer,
     NDRContextHandle,
 )
 from scapy.layers.gssapi import (
     SSP,
+    GSS_S_FAILURE,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
+    GSS_C_FLAGS,
 )
 from scapy.layers.smbclient import (
     SMB_RPC_SOCKET,
@@ -72,8 +75,11 @@ class DCERPC_Client(object):
         self.ndr64 = ndr64
         self.ndrendian = ndrendian
         self.verb = verb
+        self.auth_level = kwargs.pop("auth_level", DCE_C_AUTHN_LEVEL.NONE)
+        self.auth_context_id = kwargs.pop("auth_context_id", 0)
         self.ssp = kwargs.pop("ssp", None)  # type: SSP
         self.sspcontext = None
+        self.dcesockargs = kwargs
 
     @classmethod
     def from_smblink(cls, smbcli, smb_kwargs={}, **kwargs):
@@ -82,7 +88,14 @@ class DCERPC_Client(object):
         """
         client = DCERPC_Client(DCERPC_Transport.NCACN_NP, **kwargs)
         sock = client.smbrpcsock = SMB_RPC_SOCKET(smbcli, **smb_kwargs)
-        client.sock = DceRpcSocket(sock, DceRpc5, ssp=client.ssp)
+        client.sock = DceRpcSocket(
+            sock,
+            DceRpc5,
+            ssp=client.ssp,
+            auth_level=client.auth_level,
+            auth_context_id=client.auth_context_id,
+            **client.dcesockargs,
+        )
         return client
 
     def connect(self, ip, port=None, timeout=5, smb_kwargs={}):
@@ -117,9 +130,16 @@ class DCERPC_Client(object):
             sock = self.smbrpcsock = SMB_RPC_SOCKET.from_tcpsock(
                 sock, ssp=self.ssp, **smb_kwargs
             )
-            self.sock = DceRpcSocket(sock, DceRpc5)
+            self.sock = DceRpcSocket(sock, DceRpc5, **self.dcesockargs)
         elif self.transport == DCERPC_Transport.NCACN_IP_TCP:
-            self.sock = DceRpcSocket(sock, DceRpc5, ssp=self.ssp)
+            self.sock = DceRpcSocket(
+                sock,
+                DceRpc5,
+                ssp=self.ssp,
+                auth_level=self.auth_level,
+                auth_context_id=self.auth_context_id,
+                **self.dcesockargs,
+            )
 
     def close(self):
         if self.verb:
@@ -128,30 +148,33 @@ class DCERPC_Client(object):
 
     def sr1(self, pkt, **kwargs):
         self.call_id += 1
-        return self.sock.sr1(
+        pkt = (
             DceRpc5(
                 call_id=self.call_id,
                 pfc_flags="PFC_FIRST_FRAG+PFC_LAST_FRAG",
                 endian=self.ndrendian,
                 auth_verifier=kwargs.pop("auth_verifier", None),
             )
-            / pkt,
-            verbose=0,
-            **kwargs,
+            / pkt
         )
+        if "pfc_flags" in kwargs:
+            pkt.pfc_flags = kwargs.pop("pfc_flags")
+        return self.sock.sr1(pkt, verbose=0, **kwargs)
 
     def send(self, pkt, **kwargs):
         self.call_id += 1
-        return self.sock.send(
+        pkt = (
             DceRpc5(
                 call_id=self.call_id,
                 pfc_flags="PFC_FIRST_FRAG+PFC_LAST_FRAG",
                 endian=self.ndrendian,
                 auth_verifier=kwargs.pop("auth_verifier", None),
             )
-            / pkt,
-            **kwargs,
+            / pkt
         )
+        if "pfc_flags" in kwargs:
+            pkt.pfc_flags = kwargs.pop("pfc_flags")
+        return self.sock.send(pkt, **kwargs)
 
     def sr1_req(self, pkt, **kwargs):
         if self.verb:
@@ -170,9 +193,8 @@ class DCERPC_Client(object):
         else:
             if self.verb:
                 if DceRpc5Fault in resp:
-                    if (
-                        resp[DceRpc5Fault].payload and
-                        not isinstance(resp[DceRpc5Fault].payload, conf.raw_layer)
+                    if resp[DceRpc5Fault].payload and not isinstance(
+                        resp[DceRpc5Fault].payload, conf.raw_layer
                     ):
                         resp[DceRpc5Fault].payload.show()
                     if resp.status == 0x00000005:
@@ -249,68 +271,119 @@ class DCERPC_Client(object):
                     + (" (with %s)" % self.ssp.__class__.__name__ if self.ssp else "")
                 )
             )
-        if self.ssp and self.transport == DCERPC_Transport.NCACN_IP_TCP:
+        if not self.ssp or self.transport == DCERPC_Transport.NCACN_NP:
             # NCACN_NP = SMB does not bind the RPC securely, as it has already
             # authenticated during the SMB Session Setup
-            self.sspcontext, token, negResult = self.ssp.GSS_Init_sec_context(
-                self.sspcontext
+            resp = self.sr1(
+                reqcls(context_elem=self.get_bind_context(interface)),
+                auth_verifier=None,
             )
-            if negResult not in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
-                print(conf.color_theme.fail(
-                    "SSP failed on initial GSS_Init_sec_context !"
-                ))
-                if token:
-                    token.show()
-                return False
-        pkt = self.sr1(
-            reqcls(context_elem=self.get_bind_context(interface)),
-            auth_verifier=None
-            if not self.sspcontext
-            else CommonAuthVerifier(
-                auth_type=self.ssp.auth_type,
-                auth_level=self.ssp.auth_level,
-                auth_value=token,
-            ),
-        )
-        # Check context acceptance
-        if respcls in pkt and any(
-            x.result == 0 for x in pkt.results[: int(self.ndr64) + 1]
-        ):
-            self.call_id = 0  # reset call id
-            if self.sspcontext:
-                if self.ssp.LegsAmount(self.sspcontext) >= 3:
+            status = GSS_S_COMPLETE
+        else:
+            # Perform authentication
+            self.sspcontext, token, _ = self.ssp.GSS_Init_sec_context(
+                self.sspcontext,
+                req_flags=(
+                    # SSPs need to be instanciated with some special flags
+                    # for DCE/RPC usages.
+                    GSS_C_FLAGS.GSS_C_DCE_STYLE
+                    | GSS_C_FLAGS.GSS_C_REPLAY_FLAG
+                    | GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG
+                    | GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
+                    | (
+                        GSS_C_FLAGS.GSS_C_INTEG_FLAG
+                        if self.auth_level >= DCE_C_AUTHN_LEVEL.PKT_INTEGRITY
+                        else 0
+                    )
+                    | (
+                        GSS_C_FLAGS.GSS_C_CONF_FLAG
+                        if self.auth_level >= DCE_C_AUTHN_LEVEL.PKT_PRIVACY
+                        else 0
+                    )
+                ),
+            )
+            resp = self.sr1(
+                reqcls(context_elem=self.get_bind_context(interface)),
+                auth_verifier=(
+                    None
+                    if not self.sspcontext
+                    else CommonAuthVerifier(
+                        auth_type=self.ssp.auth_type,
+                        auth_level=self.auth_level,
+                        auth_context_id=self.auth_context_id,
+                        auth_value=token,
+                    )
+                ),
+                pfc_flags=(
+                    "PFC_FIRST_FRAG+PFC_LAST_FRAG"
+                    + (
+                        # If the SSP supports "Header Signing", advertise it
+                        "+PFC_SUPPORT_HEADER_SIGN"
+                        if self.ssp is not None
+                        and self.sock.session.support_header_signing
+                        else ""
+                    )
+                ),
+            )
+            if respcls not in resp:
+                token = None
+                status = GSS_S_FAILURE
+            else:
+                # Call the underlying SSP
+                self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
+                    self.sspcontext, val=resp.auth_verifier.auth_value
+                )
+            if status in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
+                # Authentication should continue
+                if token and self.ssp.LegsAmount(self.sspcontext) % 2 == 1:
                     # AUTH 3 for certain SSPs (e.g. NTLM)
                     # "The server MUST NOT respond to an rpc_auth_3 PDU"
-                    self.sspcontext, token, negResult = self.ssp.GSS_Init_sec_context(
-                        self.sspcontext,
-                        val=pkt.auth_verifier.auth_value,
-                    )
-                    if negResult not in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
-                        print(conf.color_theme.fail(
-                            "SSP failed on subsequent GSS_Init_sec_context !"
-                        ))
-                        if token:
-                            token.show()
-                        return False
                     self.send(
                         DceRpc5Auth3(),
-                        auth_verifier=None
-                        if not self.ssp
-                        else CommonAuthVerifier(
+                        auth_verifier=CommonAuthVerifier(
                             auth_type=self.ssp.auth_type,
-                            auth_level=self.ssp.auth_level,
+                            auth_level=self.auth_level,
+                            auth_context_id=self.auth_context_id,
                             auth_value=token,
                         ),
                     )
-                    if self.verb:
-                        print(
-                            conf.color_theme.opening(
-                                ">> DceRpc5Auth3 on %s" % interface
-                            )
+                    status = GSS_S_COMPLETE
+                else:
+                    # Authentication can continue in two ways:
+                    # - through DceRpc5Auth3 (e.g. NTLM)
+                    # - through DceRpc5AlterContext (e.g. Kerberos)
+                    while token:
+                        respcls = DceRpc5AlterContextResp
+                        resp = self.sr1(
+                            DceRpc5AlterContext(
+                                context_elem=self.get_bind_context(interface)
+                            ),
+                            auth_verifier=CommonAuthVerifier(
+                                auth_type=self.ssp.auth_type,
+                                auth_level=self.auth_level,
+                                auth_context_id=self.auth_context_id,
+                                auth_value=token,
+                            ),
                         )
+                        if respcls not in resp:
+                            status = GSS_S_FAILURE
+                            break
+                        if resp.auth_verifier is None:
+                            status = GSS_S_COMPLETE
+                            break
+                        self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
+                            self.sspcontext, val=resp.auth_verifier.auth_value
+                        )
+        # Check context acceptance
+        if (
+            status == GSS_S_COMPLETE
+            and respcls in resp
+            and any(x.result == 0 for x in resp.results[: int(self.ndr64) + 1])
+        ):
+            self.call_id = 0  # reset call id
+            port = resp.sec_addr.port_spec.decode()
             ndr = self.sock.session.ndr64 and "NDR64" or "NDR32"
             self.cont_id = int(self.sock.session.ndr64)  # ctx 0 for NDR32, 1 for NDR64
-            port = pkt.sec_addr.port_spec.decode()
             if self.verb:
                 print(
                     conf.color_theme.success(
@@ -321,16 +394,20 @@ class DCERPC_Client(object):
             return True
         else:
             if self.verb:
-                if DceRpc5BindNak in pkt:
-                    err_msg = {0: "Reason not specified"}.get(
-                        pkt.provider_reject_reason,
-                        "provider_reject_reason %s" % hex(pkt.provider_reject_reason),
+                if DceRpc5BindNak in resp:
+                    err_msg = resp.sprintf(
+                        "reject_reason: %DceRpc5BindNak.provider_reject_reason%"
                     )
                     print(conf.color_theme.fail("! Bind_nak (%s)" % err_msg))
-                elif DceRpc5Fault in pkt:
-                    if pkt.status == 0x00000005:
+                    if DceRpc5BindNak in resp:
+                        if resp[DceRpc5BindNak].payload and not isinstance(
+                            resp[DceRpc5BindNak].payload, conf.raw_layer
+                        ):
+                            resp[DceRpc5BindNak].payload.show()
+                elif DceRpc5Fault in resp:
+                    if resp.status == 0x00000005:
                         print(conf.color_theme.fail("! nca_s_fault_access_denied"))
-                    elif pkt.status == 0x00000721:
+                    elif resp.status == 0x00000721:
                         print(
                             conf.color_theme.fail(
                                 "! nca_s_fault_sec_pkg_error "
@@ -339,10 +416,15 @@ class DCERPC_Client(object):
                         )
                     else:
                         print(conf.color_theme.fail("! Failure"))
-                        pkt.show()
+                        resp.show()
+                    if DceRpc5Fault in resp:
+                        if resp[DceRpc5Fault].payload and not isinstance(
+                            resp[DceRpc5Fault].payload, conf.raw_layer
+                        ):
+                            resp[DceRpc5Fault].payload.show()
                 else:
                     print(conf.color_theme.fail("! Failure"))
-                    pkt.show()
+                    resp.show()
             return False
 
     def bind(self, interface):
@@ -356,6 +438,17 @@ class DCERPC_Client(object):
         Alter context: post-bind context negotiation
         """
         return self._bind(interface, DceRpc5AlterContext, DceRpc5AlterContextResp)
+
+    def bind_or_alter(self, interface):
+        """
+        Bind the client to an interface or alter the context if already bound
+        """
+        if not self.sock.session.rpc_bind_interface:
+            # No interface is bound
+            self.bind(interface)
+        else:
+            # An interface is already bound
+            self.alter_context(interface)
 
     def open_smbpipe(self, name):
         """

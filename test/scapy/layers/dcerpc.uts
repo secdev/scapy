@@ -660,7 +660,12 @@ def run_rpcclient(transport, command, debug=False):
         "rpcclient",
         "-c",
         command,
-        "%s:127.0.0.1[12345]" % transport,
+        "%s:127.0.0.1[12345%s]" % (
+            transport,
+            ",seal"
+            if transport == "ncacn_ip_tcp"
+            else ""
+        ),
         "-p", "12345",
         "-U", "User", "--password", "Password",
         "--configfile", CONF_FILE,
@@ -679,7 +684,6 @@ ssp = NTLMSSP(
     IDENTITIES={
         "User": MD4le("Password"),
     },
-    auth_level=DCE_C_AUTHN_LEVEL.PKT_INTEGRITY
 )
 
 rpcserver = MyRPCServer.spawn(
@@ -694,6 +698,7 @@ rpcserver = MyRPCServer.spawn(
 
 client = DCERPC_Client(
     DCERPC_Transport.NCACN_IP_TCP,
+    auth_level=DCE_C_AUTHN_LEVEL.PKT_INTEGRITY,
     ssp=ssp,
     ndr64=False,
 )

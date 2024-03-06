@@ -42,6 +42,7 @@ from scapy.layers.dcerpc import (
     NDRSerializeType1PacketField,
     NDRSerializeType1PacketListField,
     ndr_deserialize1,
+    find_dcerpc_interface,
     RPC_C_AUTHN,
 )
 from scapy.layers.msrpce.rpcclient import DCERPC_Client, DCERPC_Transport
@@ -452,7 +453,7 @@ class STRINGBINDING(Packet):
 class SECURITYBINDING(Packet):
     fields_desc = [
         LEShortEnumField("wAuthnSvc", 0, RPC_C_AUTHN),
-        ConditionalField(XShortField("Reserved", 0xffff), lambda pkt: pkt.wAuthnSvc),
+        ConditionalField(XShortField("Reserved", 0xFFFF), lambda pkt: pkt.wAuthnSvc),
         ConditionalField(
             StrNullFieldUtf16("aPrincName", ""), lambda pkt: pkt.wAuthnSvc
         ),
@@ -467,7 +468,13 @@ bind_layers(OBJREF, OBJREF_CUSTOM, flags=4)
 
 class DCOM_Client(DCERPC_Client):
     """
-    A wrapper of DCERPC_Client that adds functions to use DCOM interfaces
+    A wrapper of DCERPC_Client that adds functions to use COM interfaces.
+
+    In this client, the DCE/RPC is abstracted to allow to focus on the upper
+    DCOM one. DCE/RPC interfaces are bound automatically and ORPCTHIS/ORPCTHAT
+    automatically added/extracted.
+
+    It also provides common handlers for the few [MS-DCOM] special interfaces.
     """
 
     def __init__(self, verb=True, **kwargs):
@@ -478,11 +485,12 @@ class DCOM_Client(DCERPC_Client):
 
     def ServerAlive2(self):
         """
-        Call ServerAlive2 and print the results
+        Call IObjectExporter::ServerAlive2
         """
+        self.bind_or_alter(find_dcerpc_interface("IObjectExporter"))
         resp = self.sr1_req(ServerAlive2_Request(ndr64=False))
         binds, secs = _parseStringArray(resp.ppdsaOrBindings.value)
-        DCOMResults = collections.namedtuple('DCOMResults', ['addresses', 'ssps'])
+        DCOMResults = collections.namedtuple("DCOMResults", ["addresses", "ssps"])
         addresses = []
         ssps = []
         for b in binds:
@@ -491,7 +499,8 @@ class DCOM_Client(DCERPC_Client):
             addresses.append(b.aNetworkAddr)
         for b in secs:
             ssps.append(
-                "%s%s" % (
+                "%s%s"
+                % (
                     b.sprintf("%wAuthnSvc%"),
                     b.aPrincName and "%s/" % b.aPrincName or "",
                 )

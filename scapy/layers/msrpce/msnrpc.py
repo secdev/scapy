@@ -20,7 +20,12 @@ from scapy.layers.dcerpc import (
     NL_AUTH_MESSAGE,
     NL_AUTH_SIGNATURE,
 )
-from scapy.layers.gssapi import GSS_S_COMPLETE
+from scapy.layers.gssapi import (
+    GSS_C_FLAGS,
+    GSS_S_COMPLETE,
+    GSS_S_CONTINUE_NEEDED,
+    GSS_S_FAILURE,
+)
 from scapy.layers.ntlm import RC4, RC4K, RC4Init, SSP
 
 from scapy.layers.msrpce.rpcclient import DCERPC_Client, DCERPC_Transport
@@ -41,6 +46,12 @@ if conf.crypto_valid:
     from scapy.libs.rfc3961 import DES
 else:
     hashes = hmac = Cipher = algorithms = modes = DES = None
+
+
+# Typing imports
+from typing import (
+    Optional,
+)
 
 
 # --- RFC
@@ -178,14 +189,25 @@ def ComputeNetlogonSequenceNumberKey(SessionKey, Checksum):
 
 class NetlogonSSP(SSP):
     auth_type = 0x44  # Netlogon
-    dcerpc_header_signing = False
+
+    class STATE(SSP.STATE):
+        INIT = 1
+        CLI_SENT_NL = 2
+        SRV_SENT_NL = 3
 
     class CONTEXT(SSP.CONTEXT):
-        __slots__ = ["ClientSequenceNumber", "IsClient"]
+        __slots__ = [
+            "ClientSequenceNumber",
+            "IsClient",
+            "AES",
+        ]
 
-        def __init__(self, IsClient):
+        def __init__(self, IsClient, req_flags=None):
+            self.state = NetlogonSSP.STATE.INIT
             self.IsClient = IsClient
             self.ClientSequenceNumber = 0
+            self.AES = False
+            super(NetlogonSSP.CONTEXT, self).__init__(req_flags=req_flags)
 
     def __init__(self, SessionKey, computername, domainname, **kwargs):
         self.SessionKey = SessionKey
@@ -293,33 +315,57 @@ class NetlogonSSP(SSP):
     def GSS_VerifyMICEx(self, Context, msgs, signature):
         self._unsecure(Context, msgs, signature, False)
 
-    def GSS_Init_sec_context(self, Context, val=None):
+    def GSS_Init_sec_context(
+        self, Context, val=None, req_flags: Optional[GSS_C_FLAGS] = None
+    ):
         if Context is None:
-            Context = self.CONTEXT(True)
+            Context = self.CONTEXT(True, req_flags=req_flags)
 
-        return (
-            Context,
-            NL_AUTH_MESSAGE(
-                MessageType=0,
-                Flags=3,
-                NetbiosDomainName=self.domainname,
-                NetbiosComputerName=self.computername,
-            ),
-            GSS_S_COMPLETE,
-        )
+        if Context.state == self.STATE.INIT:
+            Context.state = self.STATE.CLI_SENT_NL
+            return (
+                Context,
+                NL_AUTH_MESSAGE(
+                    MessageType=0,
+                    Flags=3,
+                    NetbiosDomainName=self.domainname,
+                    NetbiosComputerName=self.computername,
+                ),
+                GSS_S_CONTINUE_NEEDED,
+            )
+        else:
+            return Context, None, GSS_S_COMPLETE
 
     def GSS_Accept_sec_context(self, Context, val=None):
         if Context is None:
             Context = self.CONTEXT(False)
 
-        return (
-            Context,
-            NL_AUTH_MESSAGE(
-                MessageType=1,
-                Flags=0,
-            ),
-            GSS_S_COMPLETE,
-        )
+        if Context.state == self.STATE.INIT:
+            Context.state = self.STATE.SRV_SENT_NL
+            return (
+                Context,
+                NL_AUTH_MESSAGE(
+                    MessageType=1,
+                    Flags=0,
+                ),
+                GSS_S_COMPLETE,
+            )
+        else:
+            # Invalid state
+            return Context, None, GSS_S_FAILURE
+
+    def MaximumSignatureLength(self, Context: CONTEXT):
+        """
+        Returns the Maximum Signature length.
+
+        This will be used in auth_len in DceRpc5, and is necessary for
+        PFC_SUPPORT_HEADER_SIGN to work properly.
+        """
+        # len(NL_AUTH_SIGNATURE())
+        if Context.AES:
+            return 48
+        else:
+            return 32
 
 
 # --- Utils
@@ -336,12 +382,12 @@ class NetlogonClient(DCERPC_Client):
         self.interface = find_dcerpc_interface("logon")
         self.ndr64 = False  # Netlogon doesn't work with NDR64
         self.SessionKey = None
-        self.auth_level = auth_level
         self.domainname = domainname
         self.computername = computername
         self.ClientStoredCredential = None
         super(NetlogonClient, self).__init__(
             DCERPC_Transport.NCACN_IP_TCP,
+            auth_level=auth_level,
             ndr64=self.ndr64,
             verb=verb,
         )
@@ -373,7 +419,6 @@ class NetlogonClient(DCERPC_Client):
         self.SessionKey = SessionKey
         self.ssp = self.sock.session.ssp = NetlogonSSP(
             SessionKey=self.SessionKey,
-            auth_level=self.auth_level,
             domainname=self.domainname,
             computername=self.computername,
         )
