@@ -117,7 +117,7 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
     p = Ether(dst=dm, src=sm) / IPv6(dst=d, src=src, hlim=255)
     p /= ICMPv6ND_NS(tgt=addr)
     p /= ICMPv6NDOptSrcLLAddr(lladdr=sm)
-    res = srp1(p, type=ETH_P_IPV6, iface=iface, timeout=1, verbose=0,
+    res = srp1(p, type=ETH_P_IPV6, iface=iface, timeout=timeout, verbose=0,
                chainCC=chainCC)
 
     return res
