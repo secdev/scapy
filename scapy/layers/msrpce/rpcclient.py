@@ -284,7 +284,7 @@ class DCERPC_Client(object):
             self.sspcontext, token, _ = self.ssp.GSS_Init_sec_context(
                 self.sspcontext,
                 req_flags=(
-                    # SSPs need to be instanciated with some special flags
+                    # SSPs need to be instantiated with some special flags
                     # for DCE/RPC usages.
                     GSS_C_FLAGS.GSS_C_DCE_STYLE
                     | GSS_C_FLAGS.GSS_C_REPLAY_FLAG

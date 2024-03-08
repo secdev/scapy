@@ -882,7 +882,7 @@ class smbclient(CLIUtil):
                     if ST is None:
                         resp = krb_as_and_tgs(
                             upn=UPN,
-                            spn="host/%s" % hostname,
+                            spn="cifs/%s" % hostname,
                             password=password,
                             debug=debug,
                         )

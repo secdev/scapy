@@ -1017,7 +1017,7 @@ class LDAP_Client(object):
                 )
                 resp.show()
         if self.verb:
-            print("%s bind succeded !" % self.mech.name)
+            print("%s bind succeeded !" % self.mech.name)
 
     def close(self):
         if self.verb:

@@ -87,13 +87,11 @@ from scapy.automaton import Automaton, ATMT
 from scapy.compat import bytes_encode
 from scapy.error import log_runtime
 from scapy.fields import (
-    ByteField,
     ConditionalField,
     FieldLenField,
     FlagsField,
     IntEnumField,
     LEIntEnumField,
-    LEIntField,
     LenField,
     LEShortEnumField,
     LEShortField,
@@ -108,13 +106,16 @@ from scapy.fields import (
     StrField,
     StrFieldUtf16,
     StrFixedLenEnumField,
+    XByteField,
     XLEIntField,
+    XLEShortField,
     XStrFixedLenField,
     XStrLenField,
     XStrField,
 )
 from scapy.packet import Packet, bind_bottom_up, bind_top_down, bind_layers
 from scapy.supersocket import StreamSocket
+from scapy.utils import strrot
 from scapy.volatile import GeneralizedTime, RandNum, RandBin
 
 from scapy.layers.gssapi import (
@@ -2089,7 +2090,7 @@ class KRB_GSS_MIC_RFC1964(Packet):
     name = "Kerberos v5 MIC Token (RFC1964)"
     fields_desc = [
         LEShortEnumField("SGN_ALG", 0, _SGN_ALGS),
-        LEIntField("Filler", 0xFFFFFFFF),
+        XLEIntField("Filler", 0xFFFFFFFF),
         LongField("SND_SEQ", 0),
         PadField(  # sect 1.2.2.3
             XStrFixedLenField("SGN_CKSUM", b"", length=8),
@@ -2109,7 +2110,7 @@ class KRB_GSS_Wrap_RFC1964(Packet):
     fields_desc = [
         LEShortEnumField("SGN_ALG", 0, _SGN_ALGS),
         LEShortEnumField("SEAL_ALG", 0, _SEAL_ALGS),
-        LEShortField("Filler", 0xFFFF),
+        XLEShortField("Filler", 0xFFFF),
         LongField("SND_SEQ", 0),
         PadField(  # sect 1.2.2.3
             XStrFixedLenField("SGN_CKSUM", b"", length=8),
@@ -2165,8 +2166,8 @@ _InitialContextTokens[b"\x04\x04"] = KRB_GSS_MIC
 class KRB_GSS_Wrap(Packet):
     name = "Kerberos v5 Wrap Token"
     fields_desc = [
-        FlagsField("Flags", 8, 0, _KRB5_GSS_Flags),
-        ByteField("Filler", 0xFF),
+        FlagsField("Flags", 0, 8, _KRB5_GSS_Flags),
+        XByteField("Filler", 0xFF),
         ShortField("EC", 0),  # Big endian
         ShortField("RRC", 0),  # Big endian
         LongField("SND_SEQ", 0),  # Big endian
@@ -3193,6 +3194,7 @@ class KerberosSSP(SSP):
             "SeqNum",  # for AP
             "SendSeqNum",  # for MIC
             "RecvSeqNum",  # for MIC
+            "IsAcceptor",
             "SendSealKeyUsage",
             "SendSignKeyUsage",
             "RecvSealKeyUsage",
@@ -3208,6 +3210,7 @@ class KerberosSSP(SSP):
             self.RecvSeqNum = 0
             self.KrbSessionKey = None
             self.STSessionKey = None
+            self.IsAcceptor = IsAcceptor
             # [RFC 4121] sect 2
             if IsAcceptor:
                 self.SendSealKeyUsage = 22
@@ -3254,39 +3257,168 @@ class KerberosSSP(SSP):
 
     def GSS_GetMICEx(self, Context, msgs, qop_req=0):
         """
-        [MS-KILE] sect 3.4.5.4
+        [MS-KILE] sect 3.4.5.6
+
+        - AES: RFC4121 sect 4.2.6.1
         """
-        # Concatenate the ToSign
-        ToSign = b"".join(x.data for x in msgs if x.sign)
-        sig = KRB_InnerToken(
-            TOK_ID=b"\x04\x04",
-            root=KRB_GSS_MIC(
-                Flags="AcceptorSubkey",
-                SND_SEQ=Context.SendSeqNum,
-            ),
-        )
-        ToSign += bytes(sig)[:16]
-        sig.root.SGN_CKSUM = Context.KrbSessionKey.make_checksum(
-            keyusage=Context.SendSignKeyUsage,
-            text=ToSign,
-        )
+        if Context.KrbSessionKey.etype in [17, 18]:  # AES
+            # Concatenate the ToSign
+            ToSign = b"".join(x.data for x in msgs if x.sign)
+            sig = KRB_InnerToken(
+                TOK_ID=b"\x04\x04",
+                root=KRB_GSS_MIC(
+                    Flags="AcceptorSubkey" + (
+                        "+SentByAcceptor" if Context.IsAcceptor else ""
+                    ),
+                    SND_SEQ=Context.SendSeqNum,
+                ),
+            )
+            ToSign += bytes(sig)[:16]
+            sig.root.SGN_CKSUM = Context.KrbSessionKey.make_checksum(
+                keyusage=Context.SendSignKeyUsage,
+                text=ToSign,
+            )
+        else:
+            raise NotImplementedError
         Context.SendSeqNum += +1
         return sig
 
     def GSS_VerifyMICEx(self, Context, msgs, signature):
         """
-        [MS-KILE] sect 3.4.5.4
+        [MS-KILE] sect 3.4.5.7
+
+        - AES: RFC4121 sect 4.2.6.1
         """
         Context.RecvSeqNum = signature.root.SND_SEQ
-        # Concatenate the ToSign
-        ToSign = b"".join(x.data for x in msgs if x.sign)
-        ToSign += bytes(signature)[:16]
-        sig = Context.KrbSessionKey.make_checksum(
-            keyusage=Context.RecvSignKeyUsage,
-            text=ToSign,
-        )
+        if Context.KrbSessionKey.etype in [17, 18]:  # AES
+            # Concatenate the ToSign
+            ToSign = b"".join(x.data for x in msgs if x.sign)
+            ToSign += bytes(signature)[:16]
+            sig = Context.KrbSessionKey.make_checksum(
+                keyusage=Context.RecvSignKeyUsage,
+                text=ToSign,
+            )
+        else:
+            raise NotImplementedError
         if sig != signature.root.SGN_CKSUM:
             raise ValueError("ERROR: Checksums don't match")
+
+    def GSS_WrapEx(self, Context, msgs, qop_req=0):
+        """
+        [MS-KILE] sect 3.4.5.4
+
+        - AES: RFC4121 sect 4.2.6.2 and [MS-KILE] sect 3.4.5.4.1
+        """
+        if Context.KrbSessionKey.etype in [17, 18]:  # AES
+            confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
+            # Concatenate the data
+            Data = b"".join(x.data for x in msgs if x.sign or x.conf_req_flag)
+            DataLen = len(Data)
+            # Build token
+            tok = KRB_InnerToken(
+                TOK_ID=b"\x05\x04",
+                root=KRB_GSS_Wrap(
+                    Flags="AcceptorSubkey" + (
+                        "+SentByAcceptor" if Context.IsAcceptor else ""
+                    ) + (
+                        "+Sealed" if confidentiality else ""
+                    ),
+                    SND_SEQ=Context.SendSeqNum,
+                    RRC=0,
+                )
+            )
+            # Real separation starts now: RFC4121 sect 4.2.4
+            if confidentiality:
+                # Confidentiality is requested (see RFC4121 sect 4.3)
+                # {"header" | encrypt(plaintext-data | filler | "header")}
+                # 1. Add filler
+                tok.root.EC = ((- DataLen) % Context.KrbSessionKey.ep.blocksize)
+                Data += b"\x00" * tok.root.EC
+                # 2. Add first 16 octets of the Wrap token "header"
+                Data += bytes(tok)[:16]
+                # 3. encrypt() is the encryption operation (which provides for
+                # integrity protection)
+                Data = Context.KrbSessionKey.encrypt(
+                    keyusage=Context.SendSealKeyUsage,
+                    plaintext=Data,
+                )
+                # "The RRC field is [...] 28 if encryption is requested."
+                tok.root.RRC = 28
+                # 4. Rotate
+                Data = strrot(Data, tok.root.RRC + tok.root.EC)
+                # 5. Split (token and encrypted messages)
+                toklen = len(Data) - DataLen
+                tok.root.Data = Data[:toklen]
+                offset = toklen
+                for msg in msgs:
+                    msglen = len(msg.data)
+                    if msg.conf_req_flag:
+                        msg.data = Data[offset:offset + msglen]
+                    if msg.sign or msg.conf_req_flag:
+                        offset += msglen
+                return msgs, tok
+            else:
+                # No confidentiality is requested
+                # {"header" | plaintext-data | get_mic(plaintext-data | "header")}
+                raise NotImplementedError
+                # 1. Add first 16 octets of the Wrap token "header"
+                Data += bytes(tok)[:16]
+                # 2. get_mic() is the checksum operation for the required
+                # checksum mechanism
+                # XXX broken, bad 0404 should be 0504 XXX FIXME
+                tok.root.Data = self.GSS_GetMIC(Context, Data, qop_req=qop_req)
+                # "The RRC field is 12 if no encryption is requested"
+                tok.root.RRC = 12
+                # In Wrap tokens without confidentiality, the EC field SHALL be used
+                # to encode the number of octets in the trailing checksum
+                tok.root.EC = 12  # len(tok.root.Data) == 12 for AES
+                return msgs, tok
+        else:
+            raise NotImplementedError
+
+    def GSS_UnwrapEx(self, Context, msgs, signature):
+        """
+        [MS-KILE] sect 3.4.5.5
+
+        - AES: RFC4121 sect 4.2.6.2
+        """
+        if Context.KrbSessionKey.etype in [17, 18]:  # AES
+            confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
+            # Concatenate the data
+            Data = signature.root.Data
+            Data += b"".join(x.data for x in msgs if x.sign or x.conf_req_flag)
+            # Real separation starts now: RFC4121 sect 4.2.4
+            if confidentiality:
+                # 1. Un-Rotate
+                Data = strrot(Data, signature.root.RRC + signature.root.EC, right=False)
+                # 2. Decrypt
+                Data = Context.KrbSessionKey.decrypt(
+                    keyusage=Context.RecvSealKeyUsage,
+                    ciphertext=Data,
+                )
+                # 3. Split
+                Data, f16header = (
+                    Data[:-16],
+                    Data[-16:],
+                )
+                # 4. Check header
+                hdr = signature.copy()
+                hdr.root.RRC = 0
+                if f16header != bytes(hdr)[:16]:
+                    raise ValueError("ERROR: Headers don't match")
+                # 5. Split (and ignore filler)
+                offset = 0
+                for msg in msgs:
+                    msglen = len(msg.data)
+                    if msg.conf_req_flag:
+                        msg.data = Data[offset:offset + msglen]
+                    if msg.sign or msg.conf_req_flag:
+                        offset += msglen
+                return msgs
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
 
     def GSS_Init_sec_context(
         self, Context: CONTEXT, val=None, req_flags: Optional[GSS_C_FLAGS] = None
@@ -3661,7 +3793,12 @@ class KerberosSSP(SSP):
             raise ValueError("KerberosSSP: Unknown state %s" % repr(Context.state))
 
     def MaximumSignatureLength(self, Context: CONTEXT):
-        return 28
+        if Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG:
+            # FIXME, this is broken
+            if Context.KrbSessionKey.etype in [17, 18]:  # AES
+                return 60
+        else:
+            return 28
 
     def canMechListMIC(self, Context: CONTEXT):
         return bool(Context.KrbSessionKey)

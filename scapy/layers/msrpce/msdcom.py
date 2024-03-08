@@ -478,10 +478,13 @@ class DCOM_Client(DCERPC_Client):
     """
 
     def __init__(self, verb=True, **kwargs):
-        kwargs.setdefault("port", 135)
         super(DCOM_Client, self).__init__(
             DCERPC_Transport.NCACN_IP_TCP, ndr64=False, verb=verb, **kwargs
         )
+
+    def connect(self, *args, **kwargs):
+        kwargs.setdefault("port", 135)
+        super(DCOM_Client, self).connect(*args, **kwargs)
 
     def ServerAlive2(self):
         """

@@ -722,6 +722,18 @@ def strand(s1, s2):
     return b"".join(map(lambda x, y: chb(orb(x) & orb(y)), s1, s2))
 
 
+def strrot(s1, count, right=True):
+    # type: (bytes, int, bool) -> bytes
+    """
+    Rotate the binary by 'count' bytes
+    """
+    off = count % len(s1)
+    if right:
+        return s1[-off:] + s1[:-off]
+    else:
+        return s1[off:] + s1[:off]
+
+
 # Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470  # noqa: E501
 try:
     socket.inet_aton("255.255.255.255")

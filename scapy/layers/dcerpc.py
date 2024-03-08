@@ -537,18 +537,11 @@ class CommonAuthVerifier(Packet):
     ]
 
     def is_protected(self):
-        if self.auth_type == 0x09 and isinstance(self.auth_value, GSSAPI_BLOB):
-            return isinstance(
-                self.auth_value.innerToken, KRB_InnerToken
-            ) and isinstance(  # noqa: E501
-                self.auth_value.innerToken.root,
-                (KRB_GSS_Wrap_RFC1964, KRB_GSS_Wrap),
-            )
-        elif self.auth_type == 0x44:
-            return isinstance(self.auth_value, NL_AUTH_SIGNATURE)
-        elif self.auth_type in [0x0A, 0xFF] and self.auth_value:
-            return isinstance(self.auth_value, NTLMSSP_MESSAGE_SIGNATURE)
-        return False
+        if not self.auth_value:
+            return False
+        if self.parent and self.parent.ptype in [11, 12, 13, 14, 15, 16]:
+            return False
+        return True
 
     def default_payload_class(self, pkt):
         return conf.padding_layer
@@ -2802,7 +2795,7 @@ class DceRpcSession(DefaultSession):
                     # included in the token.. but this creates a dependency loop as
                     # you'd need to know the token length to compute the token.
                     # Windows solves this by setting the 'Maximum Signature Length'
-                    # (or something simlar) beforehand, instead of the real length.
+                    # (or something similar) beforehand, instead of the real length.
                     # See `gensec_sig_size` in samba.
                     auth_value=b"\x00"
                     * self.ssp.MaximumSignatureLength(self.sspcontext),

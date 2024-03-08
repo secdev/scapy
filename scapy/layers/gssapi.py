@@ -446,7 +446,7 @@ class SSP:
     # sect 2.3.4
 
     def GSS_Unwrap(self, Context: CONTEXT, input_message: bytes):
-        return self.GSS_WrapEx(
+        return self.GSS_UnwrapEx(
             Context,
             [
                 self.WRAP_MSG(
