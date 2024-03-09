@@ -13,6 +13,7 @@ from io import StringIO
 from itertools import zip_longest
 
 import array
+import argparse
 import collections
 import decimal
 import difflib
@@ -3542,6 +3543,101 @@ class CLIUtil:
                             self.commands_output[cmd](self, res, **outkwargs)
                     except Exception as ex:
                         print("Output processor failed with error: %s" % ex)
+
+
+def AutoArgparse(func: DecoratorCallable) -> None:
+    """
+    Generate an Argparse call from a function, then call this function.
+
+    Notes:
+
+    - for the arguments to have a description, the sphinx docstring format
+      must be used. See
+      https://sphinx-rtd-tutorial.readthedocs.io/en/latest/docstrings.html
+    - the arguments must be typed in Python (we ignore Sphinx-specific types)
+      untyped arguments are ignored.
+    - only types that would be supported by argparse are supported. The others
+      are omitted.
+    """
+    argsdoc = {}
+    if func.__doc__:
+        # Sphinx doc format parser
+        m = re.match(
+            r"((?:.|\n)*?)(\n\s*:(?:param|type|raises|return|rtype)(?:.|\n)*)",
+            func.__doc__.strip(),
+        )
+        if not m:
+            desc = func.__doc__.strip()
+        else:
+            desc = m.group(1)
+            sphinxargs = re.findall(
+                r"\s*:(param|type|raises|return|rtype)\s*([^:]*):(.*)",
+                m.group(2),
+            )
+            for argtype, argparam, argdesc in sphinxargs:
+                argparam = argparam.strip()
+                argdesc = argdesc.strip()
+                if argtype == "param":
+                    if not argparam:
+                        raise ValueError(":param: without a name !")
+                    argsdoc[argparam] = argdesc
+    else:
+        desc = ""
+    # Now build the argparse.ArgumentParser
+    parser = argparse.ArgumentParser(
+        prog=func.__name__,
+        description=desc,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    # Process the parameters
+    positional = []
+    for param in inspect.signature(func).parameters.values():
+        if not param.annotation:
+            continue
+        parname = param.name
+        paramkwargs = {}
+        if param.annotation is bool:
+            if param.default is True:
+                parname = "no-" + parname
+                paramkwargs["action"] = "store_false"
+            else:
+                paramkwargs["action"] = "store_true"
+        elif param.annotation in [str, int, float]:
+            paramkwargs["type"] = param.annotation
+        else:
+            continue
+        if param.default != inspect.Parameter.empty:
+            if param.kind == inspect.Parameter.POSITIONAL_ONLY:
+                positional.append(param.name)
+                paramkwargs["nargs"] = '?'
+            else:
+                parname = "--" + parname
+            paramkwargs["default"] = param.default
+        else:
+            positional.append(param.name)
+        if param.kind == inspect.Parameter.VAR_POSITIONAL:
+            paramkwargs["action"] = "append"
+        if param.name in argsdoc:
+            paramkwargs["help"] = argsdoc[param.name]
+        parser.add_argument(parname, **paramkwargs)  # type: ignore
+    # Now parse the sys.argv parameters
+    params = vars(parser.parse_args())
+    # Act as in interactive mode
+    conf.logLevel = 20
+    from scapy.themes import DefaultTheme
+    conf.color_theme = DefaultTheme()
+    # And call the function
+    try:
+        func(
+            *[params.pop(x) for x in positional],
+            **{
+                (k[3:] if k.startswith("no_") else k): v
+                for k, v in params.items()
+            }
+        )
+    except AssertionError as ex:
+        print("ERROR: " + str(ex))
+        parser.print_help()
 
 
 #######################

@@ -450,7 +450,7 @@ class SMB_Client(Automaton):
 
 class SMB_SOCKET(SuperSocket):
     """
-    High-level wrapper over SMB_Client.smblink that provides some basic SMB
+    Mid-level wrapper over SMB_Client.smblink that provides some basic SMB
     client functions, such as tree connect, directory query, etc.
     """
 
@@ -827,19 +827,19 @@ class smbclient(CLIUtil):
 
     def __init__(
         self,
-        target,
-        UPN=None,
-        password=None,
+        target: str,
+        UPN: str = None,
+        password: str = None,
+        guest: bool = False,
+        kerberos: bool = True,
+        kerberos_required: bool = False,
+        HashNt: str = None,
+        port: int = 445,
+        timeout: int = 2,
+        debug: int = 0,
         ssp=None,
-        guest=False,
-        kerberos=True,
-        kerberos_required=False,
-        HashNt=None,
         ST=None,
         KEY=None,
-        port=445,
-        timeout=2,
-        debug=0,
         cli=True,
     ):
         if cli:
@@ -1196,7 +1196,7 @@ class smbclient(CLIUtil):
         eltpar, eltname = self._parsepath(arg, remote=False)
         eltpar = self.localpwd / eltpar
         return [
-            self.normalize_path(eltpar / x)
+            str(x.relative_to(self.localpwd))
             for x in eltpar.glob("*")
             if (x.name.lower().startswith(eltname.lower()) and cond(x))
         ]
@@ -1471,3 +1471,8 @@ class smbclient(CLIUtil):
         if self._require_share(silent=True):
             return []
         return self._fs_complete(file)
+
+
+if __name__ == "__main__":
+    from scapy.utils import AutoArgparse
+    AutoArgparse(smbclient)
