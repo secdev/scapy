@@ -56,21 +56,18 @@ from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.gssapi import (
     GSS_S_COMPLETE,
-    GSS_S_CONTINUE_NEEDED,
     GSSAPI_BLOB,
     SSP,
 )
 from scapy.layers.kerberos import (
     _ASN1FString_PacketField,
     KRB_GSSAPI_Token,
-    KerberosSSP,
 )
 from scapy.layers.ntlm import NTLMSSP
 from scapy.layers.smb import (
     NETLOGON,
     NETLOGON_SAM_LOGON_RESPONSE_EX,
 )
-from scapy.layers.spnego import SPNEGOSSP
 
 
 # Elements of protocol
@@ -150,6 +147,7 @@ LDAPResult = (
 
 
 # ldap APPLICATION
+
 
 class ASN1_Class_LDAP(ASN1_Class):
     name = "LDAP"
@@ -263,7 +261,7 @@ class LDAP_BindRequest(ASN1_Packet):
                 "sasl",
                 LDAP_Authentication_SaslCredentials(),
                 LDAP_Authentication_SaslCredentials,
-                implicit_tag=ASN1_Class_LDAP_Authentication.sasl
+                implicit_tag=ASN1_Class_LDAP_Authentication.sasl,
             ),
         ),
         implicit_tag=ASN1_Class_LDAP.BindRequest,
@@ -324,10 +322,7 @@ class LDAP_SubstringFilterStr(ASN1_Packet):
             implicit_tag=0x80,
         ),
         ASN1F_PACKET(
-            "any",
-            LDAP_SubstringFilterAny(),
-            LDAP_SubstringFilterAny,
-            implicit_tag=0x81
+            "any", LDAP_SubstringFilterAny(), LDAP_SubstringFilterAny, implicit_tag=0x81
         ),
         ASN1F_PACKET(
             "final",
@@ -408,24 +403,51 @@ class LDAP_Filter(ASN1_Packet):
     ASN1_root = ASN1F_CHOICE(
         "filter",
         LDAP_FilterPresent(),
-        ASN1F_PACKET("and_", None, LDAP_FilterAnd,
-                     implicit_tag=ASN1_Class_LDAP_Filter.And),
-        ASN1F_PACKET("or_", None, LDAP_FilterOr,
-                     implicit_tag=ASN1_Class_LDAP_Filter.Or),
-        ASN1F_PACKET("not_", None, _LDAP_Filter,
-                     implicit_tag=ASN1_Class_LDAP_Filter.Not),
-        ASN1F_PACKET("equalityMatch", None, LDAP_FilterEqual,
-                     implicit_tag=ASN1_Class_LDAP_Filter.EqualityMatch),
-        ASN1F_PACKET("substrings", None, LDAP_SubstringFilter,
-                     implicit_tag=ASN1_Class_LDAP_Filter.Substrings),
-        ASN1F_PACKET("greaterOrEqual", None, LDAP_FilterGreaterOrEqual,
-                     implicit_tag=ASN1_Class_LDAP_Filter.GreaterOrEqual),
-        ASN1F_PACKET("lessOrEqual", None, LDAP_FilterLessOrEqual,
-                     implicit_tag=ASN1_Class_LDAP_Filter.LessOrEqual),
-        ASN1F_PACKET("present", None, LDAP_FilterPresent,
-                     implicit_tag=ASN1_Class_LDAP_Filter.Present),
-        ASN1F_PACKET("approxMatch", None, LDAP_FilterApproxMatch,
-                     implicit_tag=ASN1_Class_LDAP_Filter.ApproxMatch),
+        ASN1F_PACKET(
+            "and_", None, LDAP_FilterAnd, implicit_tag=ASN1_Class_LDAP_Filter.And
+        ),
+        ASN1F_PACKET(
+            "or_", None, LDAP_FilterOr, implicit_tag=ASN1_Class_LDAP_Filter.Or
+        ),
+        ASN1F_PACKET(
+            "not_", None, _LDAP_Filter, implicit_tag=ASN1_Class_LDAP_Filter.Not
+        ),
+        ASN1F_PACKET(
+            "equalityMatch",
+            None,
+            LDAP_FilterEqual,
+            implicit_tag=ASN1_Class_LDAP_Filter.EqualityMatch,
+        ),
+        ASN1F_PACKET(
+            "substrings",
+            None,
+            LDAP_SubstringFilter,
+            implicit_tag=ASN1_Class_LDAP_Filter.Substrings,
+        ),
+        ASN1F_PACKET(
+            "greaterOrEqual",
+            None,
+            LDAP_FilterGreaterOrEqual,
+            implicit_tag=ASN1_Class_LDAP_Filter.GreaterOrEqual,
+        ),
+        ASN1F_PACKET(
+            "lessOrEqual",
+            None,
+            LDAP_FilterLessOrEqual,
+            implicit_tag=ASN1_Class_LDAP_Filter.LessOrEqual,
+        ),
+        ASN1F_PACKET(
+            "present",
+            None,
+            LDAP_FilterPresent,
+            implicit_tag=ASN1_Class_LDAP_Filter.Present,
+        ),
+        ASN1F_PACKET(
+            "approxMatch",
+            None,
+            LDAP_FilterApproxMatch,
+            implicit_tag=ASN1_Class_LDAP_Filter.ApproxMatch,
+        ),
     )
 
 
@@ -871,6 +893,7 @@ def dclocator(
 # Basic LDAP client #
 #####################
 
+
 class LDAP_BIND_MECHS(Enum):
     NONE = "NONE"
     SIMPLE = "SIMPLE"
@@ -898,7 +921,10 @@ class LDAP_Client(object):
         assert isinstance(mech, LDAP_BIND_MECHS)
         if isinstance(self.ssp, NTLMSSP):
             raise ValueError("Cannot use raw NTLMSSP in LDAP ! Wrap it in SPNEGOSSP.")
-        elif self.ssp is not None and mech in [LDAP_BIND_MECHS.NONE, LDAP_BIND_MECHS.SIMPLE]:
+        elif self.ssp is not None and mech in [
+            LDAP_BIND_MECHS.NONE,
+            LDAP_BIND_MECHS.SIMPLE,
+        ]:
             raise ValueError("%s cannot be used with a ssp !" % mech.value)
         self.sspcontext = None
         self.messageID = 0
@@ -911,7 +937,8 @@ class LDAP_Client(object):
         sock.settimeout(timeout)
         if self.verb:
             print(
-                "\u2503 Connecting to %s on port %s%s..." % (
+                "\u2503 Connecting to %s on port %s%s..."
+                % (
                     ip,
                     port,
                     " with SSL" if self.ssl else "",
@@ -937,11 +964,7 @@ class LDAP_Client(object):
     def sr1(self, protocolOp, controls=None, **kwargs):
         self.messageID += 1
         if self.verb:
-            print(
-                conf.color_theme.opening(
-                    ">> %s" % protocolOp.__class__.__name__
-                )
-            )
+            print(conf.color_theme.opening(">> %s" % protocolOp.__class__.__name__))
         resp = self.sock.sr1(
             LDAP(
                 messageID=self.messageID,
@@ -954,7 +977,8 @@ class LDAP_Client(object):
         if self.verb:
             print(
                 conf.color_theme.success(
-                    "<< %s" % (
+                    "<< %s"
+                    % (
                         resp.protocolOp.__class__.__name__
                         if LDAP in resp
                         else resp.__class__.__name__
@@ -975,18 +999,21 @@ class LDAP_Client(object):
                     bind_name=ASN1_STRING(simple_username or ""),
                     authentication=LDAP_Authentication_simple(
                         simple_password or "",
-                    )
+                    ),
                 )
             )
             if (
-                LDAP not in resp or
-                not isinstance(resp.protocolOp, LDAP_BindResponse) or
-                resp.protocolOp.resultCode != 0
+                LDAP not in resp
+                or not isinstance(resp.protocolOp, LDAP_BindResponse)
+                or resp.protocolOp.resultCode != 0
             ):
                 if self.verb:
                     resp.show()
                 raise RuntimeError("LDAP simple bind failed !")
-        elif self.mech in [LDAP_BIND_MECHS.SASL_GSS_SPNEGO, LDAP_BIND_MECHS.SASL_GSSAPI]:
+        elif self.mech in [
+            LDAP_BIND_MECHS.SASL_GSS_SPNEGO,
+            LDAP_BIND_MECHS.SASL_GSSAPI,
+        ]:
             # GSSAPI or SPNEGO
             self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                 self.sspcontext, None
@@ -998,7 +1025,7 @@ class LDAP_Client(object):
                         authentication=LDAP_Authentication_SaslCredentials(
                             mechanism=ASN1_STRING(self.mech.value),
                             credentials=ASN1_STRING(bytes(token)),
-                        )
+                        ),
                     )
                 )
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
@@ -1012,7 +1039,7 @@ class LDAP_Client(object):
                         authentication=LDAP_Authentication_SaslCredentials(
                             mechanism=ASN1_STRING(self.mech.value),
                             credentials=ASN1_STRING(token or b""),
-                        )
+                        ),
                     )
                 )
                 resp.show()

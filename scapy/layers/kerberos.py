@@ -3267,9 +3267,8 @@ class KerberosSSP(SSP):
             sig = KRB_InnerToken(
                 TOK_ID=b"\x04\x04",
                 root=KRB_GSS_MIC(
-                    Flags="AcceptorSubkey" + (
-                        "+SentByAcceptor" if Context.IsAcceptor else ""
-                    ),
+                    Flags="AcceptorSubkey"
+                    + ("+SentByAcceptor" if Context.IsAcceptor else ""),
                     SND_SEQ=Context.SendSeqNum,
                 ),
             )
@@ -3318,21 +3317,19 @@ class KerberosSSP(SSP):
             tok = KRB_InnerToken(
                 TOK_ID=b"\x05\x04",
                 root=KRB_GSS_Wrap(
-                    Flags="AcceptorSubkey" + (
-                        "+SentByAcceptor" if Context.IsAcceptor else ""
-                    ) + (
-                        "+Sealed" if confidentiality else ""
-                    ),
+                    Flags="AcceptorSubkey"
+                    + ("+SentByAcceptor" if Context.IsAcceptor else "")
+                    + ("+Sealed" if confidentiality else ""),
                     SND_SEQ=Context.SendSeqNum,
                     RRC=0,
-                )
+                ),
             )
             # Real separation starts now: RFC4121 sect 4.2.4
             if confidentiality:
                 # Confidentiality is requested (see RFC4121 sect 4.3)
                 # {"header" | encrypt(plaintext-data | filler | "header")}
                 # 1. Add filler
-                tok.root.EC = ((- DataLen) % Context.KrbSessionKey.ep.blocksize)
+                tok.root.EC = (-DataLen) % Context.KrbSessionKey.ep.blocksize
                 Data += b"\x00" * tok.root.EC
                 # 2. Add first 16 octets of the Wrap token "header"
                 Data += bytes(tok)[:16]
@@ -3353,7 +3350,7 @@ class KerberosSSP(SSP):
                 for msg in msgs:
                     msglen = len(msg.data)
                     if msg.conf_req_flag:
-                        msg.data = Data[offset:offset + msglen]
+                        msg.data = Data[offset : offset + msglen]
                     if msg.sign or msg.conf_req_flag:
                         offset += msglen
                 return msgs, tok
@@ -3411,7 +3408,7 @@ class KerberosSSP(SSP):
                 for msg in msgs:
                     msglen = len(msg.data)
                     if msg.conf_req_flag:
-                        msg.data = Data[offset:offset + msglen]
+                        msg.data = Data[offset : offset + msglen]
                     if msg.sign or msg.conf_req_flag:
                         offset += msglen
                 return msgs
@@ -3605,8 +3602,9 @@ class KerberosSSP(SSP):
             Context.state = self.STATE.CLI_RCVD_APREP
             if Context.flags & GSS_C_FLAGS.GSS_C_DCE_STYLE:
                 # [MS-KILE] sect 3.4.5.1
-                # The client MUST generate an additional AP exchange reply message exactly as the server would
-                # as the final message to send to the server.
+                # The client MUST generate an additional AP exchange reply message
+                # exactly as the server would as the final message to send to the
+                # server.
                 now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
                 cli_ap_rep = KRB_AP_REP(encPart=EncryptedData())
                 cli_ap_rep.encPart.encrypt(

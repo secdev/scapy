@@ -93,8 +93,6 @@ from scapy.sessions import DefaultSession
 from scapy.supersocket import StreamSocket
 
 from scapy.layers.kerberos import (
-    KRB_GSS_Wrap_RFC1964,
-    KRB_GSS_Wrap,
     KRB_InnerToken,
     Kerberos,
 )
