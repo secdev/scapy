@@ -3663,7 +3663,7 @@ class MockSocket(object):
         self.l = [ b'\x00\x00\x00\x01', b'\x00\x00\x00\x02', b'\x00\x00\x00\x03' ]
     def recv(self, x):
         if len(self.l) == 0:
-            raise socket.error(100, 'EOF')
+            return b""
         return self.l.pop(0)
     def fileno(self):
         return -1
@@ -3691,7 +3691,7 @@ assert p.data == 3
 try:
     ss.recv()
     ret = False
-except socket.error:
+except EOFError:
     ret = True
 
 assert ret
@@ -3705,7 +3705,7 @@ class MockSocket(object):
         self.l = [ b'\x00\x00\x00\x01\x00\x00\x00\x02', b'\x00\x00\x00\x03\x00\x00\x00\x04' ]
     def recv(self, x):
         if len(self.l) == 0:
-            raise socket.error(100, 'EOF')
+            return b""
         return self.l.pop(0)
     def fileno(self):
         return -1
@@ -3735,7 +3735,7 @@ assert p.data == 4
 try:
     ss.recv()
     ret = False
-except socket.error:
+except EOFError:
     ret = True
 
 assert ret
@@ -3749,7 +3749,7 @@ class MockSocket(object):
         self.l = [ b'\x00\x00', b'\x00\x01', b'\x00\x00\x00', b'\x02', b'\x00\x00', b'\x00', b'\x03' ]
     def recv(self, x):
         if len(self.l) == 0:
-            raise socket.error(100, 'EOF')
+            return b""
         return self.l.pop(0)
     def fileno(self):
         return -1
@@ -3768,40 +3768,22 @@ class TestPacket(Packet):
 s = MockSocket()
 ss = SSLStreamSocket(s, basecls=TestPacket)
 
-try:
-    p = ss.recv()
-    ret = False
-except:
-    ret = True
-
-assert ret
 p = ss.recv()
 assert p.data == 1
-try:
-    p = ss.recv()
-    ret = False
-except:
-    ret = True
 
-assert ret
 p = ss.recv()
 assert p.data == 2
-try:
-    p = ss.recv()
-    ret = False
-except:
-    ret = True
 
-assert ret
-try:
-    p = ss.recv()
-    ret = False
-except:
-    ret = True
-
-assert ret
 p = ss.recv()
 assert p.data == 3
+
+try:
+    ss.recv()
+    ret = False
+except EOFError:
+    ret = True
+
+assert ret
 
 
 ############
