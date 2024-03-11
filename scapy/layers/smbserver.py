@@ -1698,9 +1698,9 @@ class smbserver:
     def __init__(
         self,
         shares=None,
-        iface=None,
-        port=445,
-        verb=2,
+        iface: str = None,
+        port: int = 445,
+        verb: int = 2,
         # SMB arguments
         ssp=None,
         **kwargs,
@@ -1744,3 +1744,8 @@ class smbserver:
         if self.srv:
             self.srv.shutdown(socket.SHUT_RDWR)
             self.srv.close()
+
+
+if __name__ == "__main__":
+    from scapy.utils import AutoArgparse
+    AutoArgparse(smbserver)
