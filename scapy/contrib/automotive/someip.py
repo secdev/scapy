@@ -19,7 +19,7 @@ from scapy.packet import Packet, Raw, bind_top_down, bind_bottom_up
 from scapy.fields import XShortField, BitEnumField, ConditionalField, \
     BitField, XBitField, IntField, XByteField, ByteEnumField, \
     ShortField, X3BytesField, StrLenField, IPField, FieldLenField, \
-    PacketListField, XIntField
+    PacketListField, XIntField, MultipleTypeField
 
 
 class SOMEIP(Packet):
@@ -62,11 +62,17 @@ class SOMEIP(Packet):
 
     fields_desc = [
         XShortField("srv_id", 0),
-        BitEnumField("sub_id", 0, 1, {0: "METHOD_ID", 1: "EVENT_ID"}),
-        ConditionalField(XBitField("method_id", 0, 15),
-                         lambda pkt: pkt.sub_id == 0),
-        ConditionalField(XBitField("event_id", 0, 15),
-                         lambda pkt: pkt.sub_id == 1),
+        MultipleTypeField(
+            [
+                (XShortField("sub_id", 0),
+                 (lambda pkt: False,
+                  lambda pkt, val: val < 0x8000), "method_id"),
+                (XShortField("sub_id", 0),
+                 (lambda pkt: False,
+                  lambda pkt, val: val >= 0x8000), "event_id"),
+            ],
+            XShortField("sub_id", 0),
+        ),
         IntField("len", None),
         XShortField("client_id", 0),
         XShortField("session_id", 0),

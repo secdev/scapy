@@ -58,9 +58,7 @@ assert pstr == binstr
 p = SOMEIP(b"\x11\x11\x81\x11\x00\x00\x00\x04\x33\x33\x44\x44\x02\x03\x04\x05")
 
 assert p.srv_id == 0x1111
-assert p.sub_id == 0x1
-assert p.method_id == None
-assert p.event_id == 0x0111
+assert p.sub_id == 0x8111
 assert p.client_id == 0x3333
 assert p.session_id == 0x4444
 assert p.proto_ver == 0x02
@@ -68,13 +66,12 @@ assert p.iface_ver == 0x03
 assert p.msg_type == 0x04
 assert p.retcode == 0x05
 
+
 = Dissect METHOD_ID packet
 p = SOMEIP(b"\x11\x11\x01\x11\x00\x00\x00\x04\x33\x33\x44\x44\x02\x03\x04\x05")
 
 assert p.srv_id == 0x1111
-assert p.sub_id == 0x0
-assert p.method_id == 0x0111
-assert p.event_id == None
+assert p.sub_id == 0x0111
 assert p.client_id == 0x3333
 assert p.session_id == 0x4444
 assert p.proto_ver == 0x02
@@ -239,7 +236,6 @@ assert SD.SOMEIP_RETCODE == 0x00
 = check that values are bound
 assert p[SOMEIP].srv_id == SD.SOMEIP_MSGID_SRVID
 assert p[SOMEIP].sub_id == SD.SOMEIP_MSGID_SUBID
-assert p[SOMEIP].event_id == SD.SOMEIP_MSGID_EVENTID
 assert p[SOMEIP].client_id == SD.SOMEIP_CLIENT_ID
 assert p[SOMEIP].session_id != 0x0000
 assert p[SOMEIP].session_id >= SD.SOMEIP_MINIMUM_SESSION_ID
