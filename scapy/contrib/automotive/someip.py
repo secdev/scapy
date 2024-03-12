@@ -7,8 +7,6 @@
 # scapy.contrib.description = Scalable service-Oriented MiddlewarE/IP (SOME/IP)
 # scapy.contrib.status = loads
 
-import ctypes
-import collections
 import struct
 
 from scapy.layers.inet import TCP, UDP
@@ -16,10 +14,10 @@ from scapy.layers.inet6 import IP6Field
 from scapy.compat import raw, orb
 from scapy.config import conf
 from scapy.packet import Packet, Raw, bind_top_down, bind_bottom_up
-from scapy.fields import XShortField, BitEnumField, ConditionalField, \
-    BitField, XBitField, IntField, XByteField, ByteEnumField, \
+from scapy.fields import XShortField, ConditionalField, \
+    BitField, XBitField, XByteField, ByteEnumField, \
     ShortField, X3BytesField, StrLenField, IPField, FieldLenField, \
-    PacketListField, XIntField, MultipleTypeField
+    PacketListField, XIntField, MultipleTypeField, FlagsField, IntField
 
 
 class SOMEIP(Packet):
@@ -310,7 +308,7 @@ def _MAKE_COMMON_IP_SDOPTION_FIELDS_DESC():
 class SDOption_Config(_SDPacketBase):
     name = "Config Option"
     fields_desc = _MAKE_COMMON_SDOPTION_FIELDS_DESC(SDOPTION_CFG_TYPE) + [
-        StrLenField("cfg_str", "\x00", length_from=lambda pkt: pkt.len - 1)
+        StrLenField("cfg_str", b"\x00", length_from=lambda pkt: pkt.len - 1)
     ]
 
     def post_build(self, pkt, pay):
@@ -435,16 +433,11 @@ class SD(_SDPacketBase):
     SOMEIP_MSG_TYPE = SOMEIP.TYPE_NOTIFICATION
     SOMEIP_RETCODE = SOMEIP.RET_E_OK
 
-    _sdFlag = collections.namedtuple('Flag', 'mask offset')
-    FLAGSDEF = {
-        "REBOOT": _sdFlag(mask=0x80, offset=7),
-        "UNICAST": _sdFlag(mask=0x40, offset=6),
-        "EXPLICIT_INITIAL_DATA_CONTROL": _sdFlag(mask=0x20, offset=5),
-    }
-
     name = "SD"
     fields_desc = [
-        XByteField("flags", 0),
+        FlagsField("flags", 0, 8, [
+            "res0", "res1", "res2", "res3", "res4",
+            "EXPLICIT_INITIAL_DATA_CONTROL", "UNICAST", "REBOOT"]),
         X3BytesField("res", 0),
         FieldLenField("len_entry_array", None,
                       length_of="entry_array", fmt="!I"),
@@ -455,21 +448,6 @@ class SD(_SDPacketBase):
         PacketListField("option_array", None, _sdoption_class,
                         length_from=lambda pkt: pkt.len_option_array)
     ]
-
-    def get_flag(self, name):
-        name = name.upper()
-        if name in self.FLAGSDEF:
-            return ((self.flags & self.FLAGSDEF[name].mask) >>
-                    self.FLAGSDEF[name].offset)
-        else:
-            return None
-
-    def set_flag(self, name, value):
-        name = name.upper()
-        if name in self.FLAGSDEF:
-            self.flags = (self.flags &
-                          (ctypes.c_ubyte(~self.FLAGSDEF[name].mask).value)) \
-                | ((value & 0x01) << self.FLAGSDEF[name].offset)
 
     def set_entryArray(self, entry_list):
         if isinstance(entry_list, list):

@@ -193,27 +193,25 @@ assert p.eventgroup_id == 0x8888
 
 = Build and check flags
 p = SD()
-p.set_flag("REBOOT", 1)
+p.flags = "REBOOT"
 assert p.flags == 0x80
 
-p.set_flag("REBOOT", 0)
+p.flags = ""
 assert p.flags == 0x00
 
-p.set_flag("UNICAST", 1)
+p.flags = "UNICAST"
 assert p.flags == 0x40
 
-p.set_flag("UNICAST", 0)
+p.flags = ""
 assert p.flags == 0x00
 
-p.set_flag("EXPLICIT_INITIAL_DATA_CONTROL", 1)
+p.flags = "EXPLICIT_INITIAL_DATA_CONTROL"
 assert p.flags == 0x20
 
-p.set_flag("EXPLICIT_INITIAL_DATA_CONTROL", 0)
+p.flags = ""
 assert p.flags == 0x00
 
-p.set_flag("REBOOT", 1)
-p.set_flag("UNICAST", 1)
-p.set_flag("EXPLICIT_INITIAL_DATA_CONTROL", 1)
+p.flags = "REBOOT+UNICAST+EXPLICIT_INITIAL_DATA_CONTROL"
 assert p.flags == 0xe0
 
 + SD Get SOME/IP Packet
