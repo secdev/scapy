@@ -17,7 +17,7 @@ from scapy.packet import Packet, Raw, bind_top_down, bind_bottom_up
 from scapy.fields import XShortField, ConditionalField, \
     BitField, XBitField, XByteField, ByteEnumField, \
     ShortField, X3BytesField, StrLenField, IPField, FieldLenField, \
-    PacketListField, XIntField, MultipleTypeField, FlagsField, IntField
+    PacketListField, XIntField, MultipleTypeField, FlagsField, IntField, XByteEnumField
 
 
 class SOMEIP(Packet):
@@ -209,7 +209,11 @@ SDENTRY_OVERALL_LEN = 16
 
 def _MAKE_SDENTRY_COMMON_FIELDS_DESC(type):
     return [
-        XByteField("type", type),
+        XByteEnumField("type", type,
+                       {0: "FindService",
+                        1: "OfferService",
+                        6: "SubscribeEventgroup",
+                        7: "SubscribeEventgroupACK"}),
         XByteField("index_1", 0),
         XByteField("index_2", 0),
         XBitField("n_opt_1", 0, 4),
