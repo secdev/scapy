@@ -47,7 +47,6 @@ import socket
 import struct
 import subprocess
 
-from scapy.base_classes import Net
 from scapy.compat import plain_str, bytes_encode
 
 from scapy.config import conf
@@ -694,7 +693,7 @@ class HTTP(Packet):
 
 def http_request(host, path="/", port=80, timeout=3,
                  display=False, verbose=0,
-                 raw=False, iptables=False, iface=None,
+                 raw=False, iface=None,
                  **headers):
     """Util to perform an HTTP request, using the TCP_client.
 
@@ -706,9 +705,6 @@ def http_request(host, path="/", port=80, timeout=3,
     :param raw: opens a raw socket instead of going through the OS's TCP
                 socket. Scapy will then use its own TCP client.
                 Careful, the OS might cancel the TCP connection with RST.
-    :param iptables: when raw is enabled, this calls iptables to temporarily
-                     prevent the OS from sending TCP RST to the host IP.
-                     On Linux, you'll almost certainly need this.
     :param iface: interface to use. Changing this turns on "raw"
     :param headers: any additional headers passed to the request
 
@@ -730,11 +726,6 @@ def http_request(host, path="/", port=80, timeout=3,
     if iface is not None:
         raw = True
     if raw:
-        # Use TCP_client on a raw socket
-        iptables_rule = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
-        if iptables:
-            host = str(Net(host))
-            assert os.system(iptables_rule % ('A', host)) == 0
         sock = TCP_client.tcplink(HTTP, host, port, debug=verbose,
                                   iface=iface)
     else:
@@ -751,9 +742,6 @@ def http_request(host, path="/", port=80, timeout=3,
         )
     finally:
         sock.close()
-        if raw and iptables:
-            host = str(Net(host))
-            assert os.system(iptables_rule % ('D', host)) == 0
     if ans:
         if display:
             if Raw not in ans:
