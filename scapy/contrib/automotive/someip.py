@@ -108,18 +108,21 @@ class SOMEIP(Packet):
             RET_E_MALFORMED_MSG: "E_MALFORMED_MESSAGE",
             RET_E_WRONG_MESSAGE_TYPE: "E_WRONG_MESSAGE_TYPE",
         }),
-        ConditionalField(BitScalingField("offset", 0, 28, scaling=16, unit="bytes"),
-                         lambda pkt: SOMEIP._is_tp(pkt) and pkt.len > SOMEIP.LEN_OFFSET),
-        ConditionalField(BitField("res", 0, 3),
-                         lambda pkt: SOMEIP._is_tp(pkt) and pkt.len > SOMEIP.LEN_OFFSET),
-        ConditionalField(BitField("more_seg", 0, 1),
-                         lambda pkt: SOMEIP._is_tp(pkt) and pkt.len > SOMEIP.LEN_OFFSET),
+        ConditionalField(
+            BitScalingField("offset", 0, 28, scaling=16, unit="bytes"),
+            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len > SOMEIP.LEN_OFFSET)),
+        ConditionalField(
+            BitField("res", 0, 3),
+            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len > SOMEIP.LEN_OFFSET)),
+        ConditionalField(
+            BitField("more_seg", 0, 1),
+            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len > SOMEIP.LEN_OFFSET)),
         ConditionalField(PacketListField(
             "data", [Raw()], Raw,
-            length_from=lambda pkt: pkt.len - SOMEIP.LEN_OFFSET_TP,
+            length_from=lambda pkt: pkt.len - (SOMEIP.LEN_OFFSET_TP if SOMEIP._is_tp(pkt) else SOMEIP.LEN_OFFSET),  # noqa: E501
             next_cls_cb=lambda pkt, lst, cur, remain:
                 SOMEIP.get_payload_cls_by_srv_id(pkt, lst, cur, remain)),
-            lambda pkt: SOMEIP._is_tp(pkt) and pkt.len > SOMEIP.LEN_OFFSET)
+            lambda pkt: pkt.len and pkt.len > SOMEIP.LEN_OFFSET)
     ]
 
     payload_cls_by_srv_id = dict()  # To be customized
@@ -159,10 +162,12 @@ class SOMEIP(Packet):
             return pkt[15] & 0x20
 
     def default_payload_class(self, payload):
-        if self._is_tp(self):
-            return SOMEIP
-        else:
-            return Raw
+        return SOMEIP
+
+    def pre_dissect(self, s):
+        # type: (bytes) -> bytes
+        """DEV: is called right before the current layer is dissected"""
+        return s
 
     def fragment(self, fragsize=1392):
         """Fragment SOME/IP-TP"""
