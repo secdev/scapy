@@ -453,8 +453,7 @@ class SD(_SDPacketBase):
             p.option_array = [SDOption_Config(),SDOption_IP6_EndPoint()]
     """
     SOMEIP_MSGID_SRVID = 0xffff
-    SOMEIP_MSGID_SUBID = 0x1
-    SOMEIP_MSGID_EVENTID = 0x100
+    SOMEIP_MSGID_SUBID = 0x8100
     SOMEIP_CLIENT_ID = 0x0000
     SOMEIP_MINIMUM_SESSION_ID = 0x0001
     SOMEIP_PROTO_VER = 0x01
@@ -496,7 +495,6 @@ bind_top_down(SOMEIP, SD,
               sub_id=SD.SOMEIP_MSGID_SUBID,
               client_id=SD.SOMEIP_CLIENT_ID,
               session_id=SD.SOMEIP_MINIMUM_SESSION_ID,
-              event_id=SD.SOMEIP_MSGID_EVENTID,
               proto_ver=SD.SOMEIP_PROTO_VER,
               iface_ver=SD.SOMEIP_IFACE_VER,
               msg_type=SD.SOMEIP_MSG_TYPE,
@@ -505,7 +503,6 @@ bind_top_down(SOMEIP, SD,
 bind_bottom_up(SOMEIP, SD,
                srv_id=SD.SOMEIP_MSGID_SRVID,
                sub_id=SD.SOMEIP_MSGID_SUBID,
-               event_id=SD.SOMEIP_MSGID_EVENTID,
                proto_ver=SD.SOMEIP_PROTO_VER,
                iface_ver=SD.SOMEIP_IFACE_VER,
                msg_type=SD.SOMEIP_MSG_TYPE,
