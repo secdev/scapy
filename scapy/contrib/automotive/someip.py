@@ -192,6 +192,7 @@ _bind_someip_layers()
 
 class _SDPacketBase(Packet):
     """ base class to be used among all SD Packet definitions."""
+
     def extract_padding(self, s):
         return "", s
 
@@ -209,11 +210,11 @@ SDENTRY_OVERALL_LEN = 16
 
 def _MAKE_SDENTRY_COMMON_FIELDS_DESC(type):
     return [
-        XByteEnumField("type", type,
-                       {0: "FindService",
-                        1: "OfferService",
-                        6: "SubscribeEventgroup",
-                        7: "SubscribeEventgroupACK"}),
+        XByteEnumField("type", type, {
+            0: "FindService",
+            1: "OfferService",
+            6: "SubscribeEventgroup",
+            7: "SubscribeEventgroupACK"}),
         XByteField("index_1", 0),
         XByteField("index_2", 0),
         XBitField("n_opt_1", 0, 4),
@@ -296,7 +297,15 @@ SDOPTION_IP6_SDENDPOINT_LEN = 0x0015
 def _MAKE_COMMON_SDOPTION_FIELDS_DESC(type, length=None):
     return [
         ShortField("len", length),
-        XByteField("type", type),
+        XByteEnumField("type", type, {
+            SDOPTION_CFG_TYPE: "Configuration",
+            SDOPTION_LOADBALANCE_TYPE: "LoadBalancing",
+            SDOPTION_IP4_ENDPOINT_TYPE: "IPv4Endpoint",
+            SDOPTION_IP4_MCAST_TYPE: "IPv4MultiCast",
+            SDOPTION_IP4_SDENDPOINT_TYPE: "IPv4SDEndpoint",
+            SDOPTION_IP6_ENDPOINT_TYPE: "IPv6Endpoint",
+            SDOPTION_IP6_MCAST_TYPE: "IPv6MultiCast",
+            SDOPTION_IP6_SDENDPOINT_TYPE: "IPv6SDEndpoint"}),
         XByteField("res_hdr", 0)
     ]
 
