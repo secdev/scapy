@@ -14,10 +14,12 @@ from scapy.layers.inet6 import IP6Field
 from scapy.compat import raw, orb
 from scapy.config import conf
 from scapy.packet import Packet, Raw, bind_top_down, bind_bottom_up
-from scapy.fields import XShortField, ConditionalField, \
-    BitField, XBitField, XByteField, ByteEnumField, \
-    ShortField, X3BytesField, StrLenField, IPField, FieldLenField, \
-    PacketListField, XIntField, MultipleTypeField, FlagsField, IntField, XByteEnumField
+from scapy.fields import (XShortField, ConditionalField,
+                          BitField, XBitField, XByteField, ByteEnumField,
+                          ShortField, X3BytesField, StrLenField, IPField,
+                          FieldLenField, PacketListField, XIntField,
+                          MultipleTypeField, FlagsField, IntField,
+                          XByteEnumField, BitScalingField)
 
 
 class SOMEIP(Packet):
@@ -106,13 +108,25 @@ class SOMEIP(Packet):
             RET_E_MALFORMED_MSG: "E_MALFORMED_MESSAGE",
             RET_E_WRONG_MESSAGE_TYPE: "E_WRONG_MESSAGE_TYPE",
         }),
-        ConditionalField(BitField("offset", 0, 28),
+        ConditionalField(BitScalingField("offset", 0, 28, scaling=16, unit="bytes"),
                          lambda pkt: SOMEIP._is_tp(pkt)),
         ConditionalField(BitField("res", 0, 3),
                          lambda pkt: SOMEIP._is_tp(pkt)),
         ConditionalField(BitField("more_seg", 0, 1),
-                         lambda pkt: SOMEIP._is_tp(pkt))
+                         lambda pkt: SOMEIP._is_tp(pkt)),
+        ConditionalField(PacketListField(
+            "data", [Raw()], Raw,
+            length_from=lambda pkt: pkt.len - SOMEIP.LEN_OFFSET_TP,
+            next_cls_cb=lambda pkt, lst, cur, remain:
+                SOMEIP.get_payload_cls_by_srv_id(pkt, lst, cur, remain)),
+            lambda pkt: SOMEIP._is_tp(pkt))
     ]
+
+    payload_cls_by_srv_id = dict()  # To be customized
+
+    @staticmethod
+    def get_payload_cls_by_srv_id(pkt, lst, cur, remain):
+        return SOMEIP.payload_cls_by_srv_id.get(pkt.srv_id, Raw)
 
     def post_build(self, pkt, pay):
         length = self.len
@@ -139,14 +153,16 @@ class SOMEIP(Packet):
     @staticmethod
     def _is_tp(pkt):
         """Returns true if pkt is using SOMEIP-TP, else returns false."""
-
-        tp = [SOMEIP.TYPE_TP_REQUEST, SOMEIP.TYPE_TP_REQUEST_NO_RET,
-              SOMEIP.TYPE_TP_NOTIFICATION, SOMEIP.TYPE_TP_RESPONSE,
-              SOMEIP.TYPE_TP_ERROR]
         if isinstance(pkt, Packet):
-            return pkt.msg_type in tp
+            return pkt.msg_type & 0x20
         else:
-            return pkt[15] in tp
+            return pkt[15] & 0x20
+
+    def default_payload_class(self, payload):
+        if self._is_tp(self):
+            return SOMEIP
+        else:
+            return Raw
 
     def fragment(self, fragsize=1392):
         """Fragment SOME/IP-TP"""
