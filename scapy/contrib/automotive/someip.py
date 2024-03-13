@@ -109,17 +109,17 @@ class SOMEIP(Packet):
             RET_E_WRONG_MESSAGE_TYPE: "E_WRONG_MESSAGE_TYPE",
         }),
         ConditionalField(BitScalingField("offset", 0, 28, scaling=16, unit="bytes"),
-                         lambda pkt: SOMEIP._is_tp(pkt)),
+                         lambda pkt: SOMEIP._is_tp(pkt) and pkt.len > SOMEIP.LEN_OFFSET),
         ConditionalField(BitField("res", 0, 3),
-                         lambda pkt: SOMEIP._is_tp(pkt)),
+                         lambda pkt: SOMEIP._is_tp(pkt) and pkt.len > SOMEIP.LEN_OFFSET),
         ConditionalField(BitField("more_seg", 0, 1),
-                         lambda pkt: SOMEIP._is_tp(pkt)),
+                         lambda pkt: SOMEIP._is_tp(pkt) and pkt.len > SOMEIP.LEN_OFFSET),
         ConditionalField(PacketListField(
             "data", [Raw()], Raw,
             length_from=lambda pkt: pkt.len - SOMEIP.LEN_OFFSET_TP,
             next_cls_cb=lambda pkt, lst, cur, remain:
                 SOMEIP.get_payload_cls_by_srv_id(pkt, lst, cur, remain)),
-            lambda pkt: SOMEIP._is_tp(pkt))
+            lambda pkt: SOMEIP._is_tp(pkt) and pkt.len > SOMEIP.LEN_OFFSET)
     ]
 
     payload_cls_by_srv_id = dict()  # To be customized
