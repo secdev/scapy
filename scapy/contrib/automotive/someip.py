@@ -110,13 +110,13 @@ class SOMEIP(Packet):
         }),
         ConditionalField(
             BitScalingField("offset", 0, 28, scaling=16, unit="bytes"),
-            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len > SOMEIP.LEN_OFFSET)),
+            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len > SOMEIP.LEN_OFFSET)),  # noqa: E501
         ConditionalField(
             BitField("res", 0, 3),
-            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len > SOMEIP.LEN_OFFSET)),
+            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len > SOMEIP.LEN_OFFSET)),  # noqa: E501
         ConditionalField(
             BitField("more_seg", 0, 1),
-            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len > SOMEIP.LEN_OFFSET)),
+            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len > SOMEIP.LEN_OFFSET)),  # noqa: E501
         ConditionalField(PacketListField(
             "data", [Raw()], Raw,
             length_from=lambda pkt: pkt.len - (SOMEIP.LEN_OFFSET_TP if SOMEIP._is_tp(pkt) else SOMEIP.LEN_OFFSET),  # noqa: E501
