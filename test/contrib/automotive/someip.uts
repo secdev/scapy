@@ -222,8 +222,7 @@ assert len(bytes(p)) == SOMEIP._OVERALL_LEN_NOPAYLOAD + 12
 
 = Verify constants against spec TR_SOMEIP_00250
 assert SD.SOMEIP_MSGID_SRVID == 0xffff
-assert SD.SOMEIP_MSGID_SUBID == 0x1
-assert SD.SOMEIP_MSGID_EVENTID == 0x0100
+assert SD.SOMEIP_MSGID_SUBID == 0x8100
 assert SD.SOMEIP_CLIENT_ID == 0x0000
 assert SD.SOMEIP_MINIMUM_SESSION_ID == 0x0001
 assert SD.SOMEIP_PROTO_VER == 0x01
