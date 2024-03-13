@@ -290,7 +290,7 @@ class SSP:
         A Security context i.e. the 'state' of the secure negotiation
         """
 
-        __slots__ = ["state", "flags"]
+        __slots__ = ["state", "flags", "passive"]
 
         def __init__(self, req_flags: Optional[GSS_C_FLAGS] = None):
             if req_flags is None:
@@ -300,6 +300,7 @@ class SSP:
                     GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
                 )
             self.flags = req_flags
+            self.passive = False
 
         def __repr__(self):
             return "[Default SSP]"
@@ -323,6 +324,21 @@ class SSP:
         GSS_Accept_sec_context: server-side call for the SSP
         """
         raise NotImplementedError
+
+    # Passive
+
+    @abc.abstractmethod
+    def GSS_Passive(self, Context: CONTEXT, val=None):
+        """
+        GSS_Passive: client/server call for the SSP in passive mode
+        """
+        raise NotImplementedError
+
+    def GSS_Passive_set_Direction(self, Context: CONTEXT, IsAcceptor=False):
+        """
+        GSS_Passive_set_Direction: used to swap the direction in passive mode
+        """
+        pass
 
     # MS additions (*Ex functions)
 

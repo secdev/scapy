@@ -3060,11 +3060,13 @@ def kpasswd(
             ST=ticket,
             KEY=key,
             DC_IP=ip,
-            MUTUAL=False,
             debug=debug,
             **kwargs,
         )
-    Context, tok, negResult = ssp.GSS_Init_sec_context(None)
+    Context, tok, negResult = ssp.GSS_Init_sec_context(
+        None,
+        req_flags=0,  # No GSS_C_MUTUAL_FLAG
+    )
     if negResult != GSS_S_CONTINUE_NEEDED:
         warning("SSP failed on initial GSS_Init_sec_context !")
         if tok:
@@ -3496,6 +3498,7 @@ class KerberosSSP(SSP):
                 self.ST, self.KEY = res.tgsrep.ticket, res.sessionkey
             elif not self.KEY:
                 raise ValueError("Must provide KEY with ST")
+            Context.STSessionKey = self.KEY
             # Save ServerHostname
             if len(self.ST.sname.nameString) == 2:
                 Context.ServerHostname = self.ST.sname.nameString[1].val.decode()
@@ -3519,7 +3522,7 @@ class KerberosSSP(SSP):
             )
             Context.SendSeqNum = RandNum(0, 0x7FFFFFFF)._fix()
             ap_req.authenticator.encrypt(
-                self.KEY,
+                Context.STSessionKey,
                 KRB_Authenticator(
                     crealm=self.ST.realm,
                     cname=PrincipalName.fromUPN(self.UPN),
@@ -3594,7 +3597,7 @@ class KerberosSSP(SSP):
             if not isinstance(ap_rep, KRB_AP_REP):
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
             # Retrieve SessionKey
-            repPart = ap_rep.encPart.decrypt(self.KEY)
+            repPart = ap_rep.encPart.decrypt(Context.STSessionKey)
             if repPart.subkey is not None:
                 Context.SessionKey = repPart.subkey.keyvalue.val
                 Context.KrbSessionKey = repPart.subkey.toKey()
@@ -3608,7 +3611,7 @@ class KerberosSSP(SSP):
                 now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
                 cli_ap_rep = KRB_AP_REP(encPart=EncryptedData())
                 cli_ap_rep.encPart.encrypt(
-                    self.KEY,
+                    Context.STSessionKey,
                     EncAPRepPart(
                         ctime=ASN1_GENERALIZED_TIME(now_time),
                         seqNumber=repPart.seqNumber,
@@ -3717,8 +3720,8 @@ class KerberosSSP(SSP):
                 warning("KerberosSSP: %s (bad KEY?)" % ex)
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
             # Get AP-REP session key
-            sessionkey = tkt.key.toKey()
-            authenticator = ap_req.authenticator.decrypt(sessionkey)
+            Context.STSessionKey = tkt.key.toKey()
+            authenticator = ap_req.authenticator.decrypt(Context.STSessionKey)
             # Compute an application session key ([MS-KILE] sect 3.1.1.2)
             subkey = None
             if ap_req.apOptions.val[2] == "1":  # mutual-required
@@ -3736,11 +3739,11 @@ class KerberosSSP(SSP):
             if authenticator.cksum:
                 if authenticator.cksum.cksumtype == 0x8003:
                     # KRB-Authenticator
-                    Context.flags = GSS_C_FLAGS(authenticator.cksum.checksum.Flags)
+                    Context.flags = GSS_C_FLAGS(int(authenticator.cksum.checksum.Flags))
             # Build response (RFC4120 sect 3.2.4)
             ap_rep = KRB_AP_REP(encPart=EncryptedData())
             ap_rep.encPart.encrypt(
-                sessionkey,
+                Context.STSessionKey,
                 EncAPRepPart(
                     ctime=authenticator.ctime,
                     cusec=authenticator.cusec,
@@ -3751,7 +3754,6 @@ class KerberosSSP(SSP):
             Context.state = self.STATE.SRV_SENT_APREP
             if Context.flags & GSS_C_FLAGS.GSS_C_DCE_STYLE:
                 # [MS-KILE] sect 3.4.5.1
-                Context.STSessionKey = sessionkey
                 return Context, ap_rep, GSS_S_CONTINUE_NEEDED
             return Context, ap_rep, GSS_S_COMPLETE  # success
         elif (
@@ -3784,11 +3786,36 @@ class KerberosSSP(SSP):
             except ValueError as ex:
                 warning("KerberosSSP: %s (bad KEY?)" % ex)
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
-            finally:
-                Context.STSessionKey = None
             return Context, None, GSS_S_COMPLETE  # success
         else:
             raise ValueError("KerberosSSP: Unknown state %s" % repr(Context.state))
+
+    def GSS_Passive(self, Context: CONTEXT, val=None):
+        if Context is None:
+            Context = self.CONTEXT(True)
+            Context.passive = True
+
+        if Context.state == self.STATE.INIT:
+            Context, _, status = self.GSS_Accept_sec_context(Context, val)
+            Context.state = self.STATE.CLI_SENT_APREQ
+            return Context, status
+        elif Context.state == self.STATE.CLI_SENT_APREQ:
+            Context, _, status = self.GSS_Init_sec_context(Context, val)
+            return Context, status
+
+    def GSS_Passive_set_Direction(self, Context: CONTEXT, IsAcceptor=False):
+        if Context.IsAcceptor is not IsAcceptor:
+            return
+        # Swap everything
+        self.SendSealKeyUsage, self.RecvSealKeyUsage = (
+            self.RecvSealKeyUsage,
+            self.SendSealKeyUsage,
+        )
+        self.SendSignKeyUsage, self.RecvSignKeyUsage = (
+            self.RecvSignKeyUsage,
+            self.SendSignKeyUsage,
+        )
+        Context.IsAcceptor = not Context.IsAcceptor
 
     def MaximumSignatureLength(self, Context: CONTEXT):
         if Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG:

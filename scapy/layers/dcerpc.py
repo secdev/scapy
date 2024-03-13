@@ -96,7 +96,12 @@ from scapy.layers.kerberos import (
     KRB_InnerToken,
     Kerberos,
 )
-from scapy.layers.gssapi import GSSAPI_BLOB, GSSAPI_BLOB_SIGNATURE, SSP
+from scapy.layers.gssapi import (
+    GSS_S_COMPLETE,
+    GSSAPI_BLOB_SIGNATURE,
+    GSSAPI_BLOB,
+    SSP,
+)
 from scapy.layers.inet import TCP
 
 from scapy.contrib.rtps.common_types import (
@@ -541,6 +546,13 @@ class CommonAuthVerifier(Packet):
             return False
         return True
 
+    def is_ssp(self):
+        if not self.auth_value:
+            return False
+        if self.parent and self.parent.ptype not in [11, 12, 13, 14, 15, 16]:
+            return False
+        return True
+
     def default_payload_class(self, pkt):
         return conf.padding_layer
 
@@ -878,6 +890,13 @@ class DceRpc5(DceRpc):
             return
         length = struct.unpack(("<" if endian else ">") + "H", data[8:10])[0]
         if len(data) >= length:
+            if conf.dcerpc_session_enable:
+                # If DCE/RPC sessions are enabled, use them !
+                if "dcerpcsess" not in session:
+                    session["dcerpcsess"] = dcerpcsess = DceRpcSession()
+                else:
+                    dcerpcsess = session["dcerpcsess"]
+                return dcerpcsess.process(DceRpc5(data))
             return DceRpc5(data)
 
 
@@ -2536,13 +2555,17 @@ class DceRpcSession(DefaultSession):
         self.ndr64 = False
         self.ndrendian = "little"
         self.support_header_signing = kwargs.pop("support_header_signing", True)
-        self.header_sign = False
+        self.header_sign = conf.dcerpc_force_header_signing
         self.ssp = kwargs.pop("ssp", None)
         self.sspcontext = kwargs.pop("sspcontext", None)
         self.auth_level = kwargs.pop("auth_level", None)
         self.auth_context_id = kwargs.pop("auth_context_id", 0)
         self.map_callid_opnum = {}
         self.frags = collections.defaultdict(lambda: b"")
+        self.sniffsspcontexts = {}  # Unfinished contexts for passive
+        if conf.winssps_passive:
+            for ssp in conf.winssps_passive:
+                self.sniffsspcontexts[ssp] = None
         super(DceRpcSession, self).__init__(*args, **kwargs)
 
     def _up_pkt(self, pkt):
@@ -2564,9 +2587,6 @@ class DceRpcSession(DefaultSession):
                     log_runtime.warning(
                         "Unknown RPC interface %s. Try loading the IDL" % if_uuid
                     )
-            # Detect if "Header Signing" is in use
-            if pkt.pfc_flags & 0x04:  # PFC_SUPPORT_HEADER_SIGN
-                self.header_sign = True
         elif DceRpc5BindAck in pkt or DceRpc5AlterContextResp in pkt:
             # bind ack => is it NDR64
             for res in pkt.results:
@@ -2574,9 +2594,6 @@ class DceRpcSession(DefaultSession):
                     self.ndrendian = {0: "big", 1: "little"}[pkt[DceRpc5].endian]
                     if res.transfer_syntax.sprintf("%if_uuid%") == "NDR64":
                         self.ndr64 = True
-            # Detect if "Header Signing" is in use
-            if pkt.pfc_flags & 0x04:  # PFC_SUPPORT_HEADER_SIGN
-                self.header_sign = True
         elif DceRpc5Request in pkt:
             # request => match opnum with callID
             opnum = pkt.opnum
@@ -2588,6 +2605,16 @@ class DceRpcSession(DefaultSession):
                 del self.map_callid_opnum[pkt.call_id]
             except KeyError:
                 log_runtime.info("Unknown call_id %s in DCE/RPC session" % pkt.call_id)
+        # Bind / Alter request/response specific
+        if (
+            DceRpc5Bind in pkt
+            or DceRpc5AlterContext in pkt
+            or DceRpc5BindAck in pkt
+            or DceRpc5AlterContextResp in pkt
+        ):
+            # Detect if "Header Signing" is in use
+            if pkt.pfc_flags & 0x04:  # PFC_SUPPORT_HEADER_SIGN
+                self.header_sign = True
         return opnum, opts
 
     # [C706] sect 12.6.2 - Fragmentation and Reassembly
@@ -2646,6 +2673,34 @@ class DceRpcSession(DefaultSession):
         body = None
         if conf.raw_layer in pkt:
             body = bytes(pkt[conf.raw_layer])
+        # If we are doing passive sniffing
+        if conf.winssps_passive:
+            # We have Windows SSPs, and no current context
+            if pkt.auth_verifier and pkt.auth_verifier.is_ssp():
+                # This is a bind/alter/auth3 req/resp
+                for ssp in self.sniffsspcontexts:
+                    self.sniffsspcontexts[ssp], status = ssp.GSS_Passive(
+                        self.sniffsspcontexts[ssp],
+                        pkt.auth_verifier.auth_value,
+                    )
+                    if status == GSS_S_COMPLETE:
+                        self.auth_level = DCE_C_AUTHN_LEVEL(
+                            int(pkt.auth_verifier.auth_level)
+                        )
+                        self.ssp = ssp
+                        self.sspcontext = self.sniffsspcontexts[ssp]
+                        self.sniffsspcontexts[ssp] = None
+            elif (
+                self.sspcontext
+                and pkt.auth_verifier
+                and pkt.auth_verifier.is_protected()
+                and body
+            ):
+                # This is a request/response
+                self.ssp.GSS_Passive_set_Direction(
+                    self.sspcontext,
+                    IsAcceptor=DceRpc5Response in pkt,
+                )
         if pkt.auth_verifier and pkt.auth_verifier.is_protected() and body:
             if self.sspcontext is None:
                 return pkt
@@ -2745,6 +2800,7 @@ class DceRpcSession(DefaultSession):
                     "Unknown opnum %s for interface %s"
                     % (opnum, self.rpc_bind_interface)
                 )
+                pkt[conf.raw_layer].load = body
                 return pkt
             if body:
                 # Dissect payload using class
@@ -2754,6 +2810,8 @@ class DceRpcSession(DefaultSession):
             elif not cls.fields_desc:
                 # Request class has no payload
                 pkt /= cls(ndr64=self.ndr64, ndrendian=self.ndrendian, **opts)
+        elif body:
+            pkt[conf.raw_layer].load = body
         return pkt
 
     def out_pkt(self, pkt):

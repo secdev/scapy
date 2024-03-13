@@ -396,6 +396,41 @@ To start an endpoint mapper (this should be a separate process from your RPC ser
 .. note:: Currently, a DCERPC_Server will let a client bind on all interfaces that Scapy has registered (imported). Supposedly though, you know which RPCs are going to be queried.
 
 
+Passive sniffing
+----------------
+
+If you're doing passive sniffing of a DCE/RPC session, you can instruct Scapy to still use its DCE/RPC session in order to check the INTEGRITY and decrypt (if PRIVACY is used) the packets.
+
+.. code-block:: python
+
+    from scapy.all import *
+
+    # Bind DCE/RPC port
+    bind_bottom_up(TCP, DceRpc5, dport=12345)
+    bind_bottom_up(TCP, DceRpc5, dport=12345)
+
+    # Enable passive DCE/RPC session
+    conf.dcerpc_session_enable = True
+
+    # Define SSPs that can be used for decryption / verify
+    conf.winssps_passive = [
+        SPNEGOSSP([
+            NTLMSSP(
+                IDENTITIES={
+                    "User1": MD4le("Password1!"),
+                },
+            ),
+        ])
+    ]
+
+    # Sniff
+    pkts = sniff(offline="dcerpc_exchange.pcapng", session=TCPSession)
+    pkts.show()
+
+
+.. warning:: Only NTLM is currently fully supported. KerberosSSP is sadly not supported as of today, nor is NetlogonSSP.
+
+
 Define custom packets
 ---------------------
 

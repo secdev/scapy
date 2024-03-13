@@ -600,6 +600,8 @@ class SPNEGOSSP(SSP):
         if hasattr(x, "mechTypes"):
             Context.requested_mechtypes = x.mechTypes
             Context.negotiated_mechtype = None
+        if hasattr(x, "supportedMech") and x.supportedMech is not None:
+            Context.negotiated_mechtype = x.supportedMech
         if hasattr(x, "mechListMIC") and x.mechListMIC:
             otherMIC = GSSAPI_BLOB_SIGNATURE(x.mechListMIC.value.val)
         if hasattr(x, "_mechListMIC") and x._mechListMIC:
@@ -897,6 +899,47 @@ class SPNEGOSSP(SSP):
 
     def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
         return self._common_spnego_handler(Context, False, val=val)
+
+    def GSS_Passive(self, Context: CONTEXT, val=None):
+        if Context is None:
+            # New Context
+            Context = SPNEGOSSP.CONTEXT(self.supported_ssps)
+            Context.passive = True
+
+        # Extraction
+        val, status, _, rawToken = self._extract_gssapi(Context, val)
+
+        if val is None and status == GSS_S_COMPLETE:
+            return Context, None
+
+        # Just get the negotiated SSP
+        if Context.negotiated_mechtype:
+            mechtype = Context.negotiated_mechtype
+        elif Context.requested_mechtypes:
+            mechtype = Context.requested_mechtypes[0]
+        elif rawToken and Context.supported_mechtypes:
+            mechtype = Context.supported_mechtypes[0]
+        else:
+            return None, GSS_S_BAD_MECH
+        ssp = self.supported_ssps[mechtype.oid.val]
+
+        if Context.ssp is not None:
+            # Detect resets
+            if Context.ssp != ssp:
+                Context.ssp = ssp
+                Context.sub_context = None
+        else:
+            Context.ssp = ssp
+
+        # Passthrough
+        Context.sub_context, status = Context.ssp.GSS_Passive(Context.sub_context, val)
+
+        return Context, status
+
+    def GSS_Passive_set_Direction(self, Context: CONTEXT, IsAcceptor=False):
+        Context.ssp.GSS_Passive_set_Direction(
+            Context.sub_context, IsAcceptor=IsAcceptor
+        )
 
     def MaximumSignatureLength(self, Context: CONTEXT):
         return Context.ssp.MaximumSignatureLength(Context.sub_context)

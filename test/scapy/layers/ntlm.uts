@@ -89,7 +89,7 @@ assert SignKey == b'G\x88\xdc\x86\x1bG\x82\xf3]C\xfd\x98\xfe\x1a-9'
 
 # Build SSP and Context manually
 ssp = NTLMSSP()
-ctx = NTLMSSP.CONTEXT()
+ctx = NTLMSSP.CONTEXT(IsAcceptor=False)
 ctx.SendSeqNum = SeqNum
 ctx.SendSignKey = SignKey
 ctx.SendSealKey = SealKey

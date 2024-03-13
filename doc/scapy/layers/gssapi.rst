@@ -99,6 +99,17 @@ If you want to use :class:`~scapy.layers.spnego.SPEGOSSP`, you could wrap the SS
         ]
     )
 
+You can override the GSS-API ``req_flags`` when calling :func:`~scapy.layers.gssapi.SSP.GSS_Init_sec_context`, using values from :class:`~scapy.layers.gssapi.GSS_C_FLAGS`:
+
+.. code:: python
+
+    sspcontext, token, status = clissp.GSS_Init_sec_context(None, None, req_flags=(
+        GSS_C_FLAGS.GSS_C_EXTENDED_ERROR_FLAG |
+        GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
+        GSS_C_FLAGS.GSS_C_CONF_FLAG  # Asking for CONFIDENTIALITY
+    ))
+
+
 Server
 ~~~~~~
 

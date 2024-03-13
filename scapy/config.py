@@ -1103,6 +1103,15 @@ class Conf(ConfClass):
     )
     #: Dictionary containing parsed NSS Keys
     tls_nss_keys: Dict[str, bytes] = None
+    #: When TCPSession is used, parse DCE/RPC sessions automatically.
+    #: This should be used for passive sniffing.
+    dcerpc_session_enable = False
+    #: Some implementations of DCE/RPC incorrectly use header signing
+    #: without properly negotiating it. This forces it on.
+    dcerpc_force_header_signing = False
+    #: Windows SSPs for sniffing. This is used with
+    #: dcerpc_session_enable
+    winssps_passive = []
 
     def __getattribute__(self, attr):
         # type: (str) -> Any

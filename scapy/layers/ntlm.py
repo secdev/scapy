@@ -60,6 +60,7 @@ from scapy.layers.gssapi import (
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
     GSS_S_DEFECTIVE_CREDENTIAL,
+    GSS_S_DEFECTIVE_TOKEN,
     SSP,
     _GSSAPI_OIDS,
     _GSSAPI_SIGNATURE_OIDS,
@@ -1154,6 +1155,7 @@ class NTLMSSP(SSP):
         __slots__ = [
             "SessionKey",
             "ExportedSessionKey",
+            "IsAcceptor",
             "SendSignKey",
             "SendSealKey",
             "RecvSignKey",
@@ -1167,7 +1169,7 @@ class NTLMSSP(SSP):
             "ServerHostname",
         ]
 
-        def __init__(self, req_flags=None):
+        def __init__(self, IsAcceptor, req_flags=None):
             self.state = NTLMSSP.STATE.INIT
             self.SessionKey = None
             self.ExportedSessionKey = None
@@ -1182,6 +1184,7 @@ class NTLMSSP(SSP):
             self.neg_tok = None
             self.chall_tok = None
             self.ServerHostname = None
+            self.IsAcceptor = IsAcceptor
             super(NTLMSSP.CONTEXT, self).__init__(req_flags=req_flags)
 
         def __repr__(self):
@@ -1324,7 +1327,7 @@ class NTLMSSP(SSP):
     def GSS_Init_sec_context(self, Context: CONTEXT, val=None,
                              req_flags: Optional[GSS_C_FLAGS] = None):
         if Context is None:
-            Context = self.CONTEXT(req_flags=req_flags)
+            Context = self.CONTEXT(False, req_flags=req_flags)
 
         if Context.state == self.STATE.INIT:
             # Client: negotiate
@@ -1516,7 +1519,7 @@ class NTLMSSP(SSP):
 
     def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
         if Context is None:
-            Context = self.CONTEXT()
+            Context = self.CONTEXT(True)
 
         if Context.state == self.STATE.INIT:
             # Server: challenge (val=negotiate)
@@ -1658,6 +1661,59 @@ class NTLMSSP(SSP):
         PFC_SUPPORT_HEADER_SIGN to work properly.
         """
         return 16  # len(NTLMSSP_MESSAGE_SIGNATURE())
+
+    def GSS_Passive(self, Context: CONTEXT, val=None):
+        if Context is None:
+            Context = self.CONTEXT(True)
+            Context.passive = True
+
+        # We capture the Negotiate, Challenge, then call the server's auth handling
+        # and discard the output.
+
+        if Context.state == self.STATE.INIT:
+            if not val or NTLM_NEGOTIATE not in val:
+                log_runtime.warning("NTLMSSP: Expected NTLM Negotiate")
+                return None, GSS_S_DEFECTIVE_TOKEN
+            Context.neg_tok = val
+            Context.state = self.STATE.CLI_SENT_NEGO
+            return Context, GSS_S_CONTINUE_NEEDED
+        elif Context.state == self.STATE.CLI_SENT_NEGO:
+            if not val or NTLM_CHALLENGE not in val:
+                log_runtime.warning("NTLMSSP: Expected NTLM Challenge")
+                return None, GSS_S_DEFECTIVE_TOKEN
+            Context.chall_tok = val
+            Context.state = self.STATE.SRV_SENT_CHAL
+            return Context, GSS_S_CONTINUE_NEEDED
+        elif Context.state == self.STATE.SRV_SENT_CHAL:
+            if not val or NTLM_AUTHENTICATE_V2 not in val:
+                log_runtime.warning("NTLMSSP: Expected NTLM Authenticate")
+                return None, GSS_S_DEFECTIVE_TOKEN
+            Context, _, status = self.GSS_Accept_sec_context(Context, val)
+            if status != GSS_S_COMPLETE:
+                log_runtime.info("NTLMSSP: auth failed.")
+            Context.state = self.STATE.INIT
+            return Context, status
+        else:
+            raise ValueError("NTLMSSP: unexpected state %s" % repr(Context.state))
+
+    def GSS_Passive_set_Direction(self, Context: CONTEXT, IsAcceptor=False):
+        if Context.IsAcceptor is not IsAcceptor:
+            return
+        # Swap everything
+        Context.SendSignKey, Context.RecvSignKey = (
+            Context.RecvSignKey,
+            Context.SendSignKey,
+        )
+        Context.SendSealKey, Context.RecvSealKey = (
+            Context.RecvSealKey,
+            Context.SendSealKey,
+        )
+        Context.SendSealHandle, Context.RecvSealHandle = (
+            Context.RecvSealHandle,
+            Context.SendSealHandle,
+        )
+        Context.SendSeqNum, Context.RecvSeqNum = Context.RecvSeqNum, Context.SendSeqNum
+        Context.IsAcceptor = not Context.IsAcceptor
 
     def _getSessionBaseKey(self, Context, auth_tok):
         """
