@@ -6,7 +6,7 @@
 """
 NTLM
 
-https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-NLMP/%5bMS-NLMP%5d.pdf
+This is documented in [MS-NLMP]
 """
 
 import copy

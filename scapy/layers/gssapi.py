@@ -6,9 +6,20 @@
 """
 Generic Security Services (GSS) API
 
-Implements parts of
-- GSSAPI: RFC4121 / RFC2743
-- GSSAPI C bindings: RFC2744
+Implements parts of:
+
+    - GSSAPI: RFC4121 / RFC2743
+    - GSSAPI C bindings: RFC2744
+
+This is implemented in the following SSPs:
+
+    - :class:`~scapy.layers.ntlm.NTLMSSP`
+    - :class:`~scapy.layers.kerberos.KerberosSSP`
+    - :class:`~scapy.layers.spnego.SPNEGOSSP`
+    - :class:`~scapy.layers.msrpce.msnrpc.NetlogonSSP`
+
+You can find the general GSSAPI documentation at
+https://scapy.readthedocs.io/en/latest/layers/gssapi.html
 """
 
 import abc
