@@ -89,7 +89,7 @@ assert SignKey == b'G\x88\xdc\x86\x1bG\x82\xf3]C\xfd\x98\xfe\x1a-9'
 
 # Build SSP and Context manually
 ssp = NTLMSSP()
-ctx = NTLMSSP.CONTEXT()
+ctx = NTLMSSP.CONTEXT(IsAcceptor=False)
 ctx.SendSeqNum = SeqNum
 ctx.SendSignKey = SignKey
 ctx.SendSealKey = SealKey
@@ -107,18 +107,38 @@ assert bytes(sig) == b'\x01\x00\x00\x00\x7f\xb3\x8e\xc5\xc5]Iv\x00\x00\x00\x00'
 
 + GSS-API SPNEGO: SPNEGOSSP tests
 
+= Create randomness-mock context manager
+
+# mock the random to get consistency
+import mock
+
+def fake_urandom(x):
+    # wow, impressive entropy
+    return b"0" * x
+
+_patches = [
+    # Patch all the random
+    mock.patch('scapy.layers.ntlm.os.urandom', side_effect=fake_urandom),
+]
+
+class NTLMRandomPatcher:
+    def __enter__(self):
+        for p in _patches:
+            p.start()
+    def __exit__(self, *args, **kwargs):
+        for p in _patches:
+            p.stop()
+
+
 = Create client and server SPNEGOSSPs
 
 from scapy.layers.ntlm import NTLM_NEGOTIATE
 from scapy.layers.spnego import SPNEGO_negTokenInit, SPNEGO_negTokenResp, SPNEGO_Token, SPNEGO_negToken, SPNEGO_MechListMIC, SPNEGOSSP
 
-auth_level = 0x06  # privacy
-
 client = SPNEGOSSP([
     NTLMSSP(
         UPN="User1",
         PASSWORD="Password1",
-        auth_level=auth_level,
     ),
 ])
 server = SPNEGOSSP([
@@ -133,13 +153,19 @@ server = SPNEGOSSP([
             "DnsComputerName": "WIN10.domain.local",
             "DnsTreeName": "domain.local",
         },
-        auth_level=auth_level,
     )
 ])
 
 = GSS_Init_sec_context (negTokenInit: NTLM_NEGOTIATE)
 
-clicontext, tok, negResult = client.GSS_Init_sec_context(None)
+clicontext, tok, negResult = client.GSS_Init_sec_context(
+    None,
+    req_flags=(
+        GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
+        GSS_C_FLAGS.GSS_C_INTEG_FLAG |
+        GSS_C_FLAGS.GSS_C_CONF_FLAG
+    )
+)
 assert negResult == 1
 assert isinstance(tok, GSSAPI_BLOB)
 tok = GSSAPI_BLOB(bytes(tok))
@@ -165,7 +191,9 @@ assert bytes(ntlm_nego) == b'NTLMSSP\x00\x01\x00\x00\x005\x82\x89\xe2\x00\x00\x0
 
 = GSS_Accept_sec_context (SPNEGO_negTokenResp: NTLM_NEGOTIATE->NTLM_CHALLENGE)
 
-srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+with NTLMRandomPatcher():
+    srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+
 assert negResult == 1
 assert isinstance(tok, SPNEGO_negToken)
 tok = SPNEGO_negToken(bytes(tok))
@@ -187,7 +215,9 @@ assert ntlm_chall.getAv(0)
 
 = GSS_Init_sec_context (SPNEGO_negToken: NTLM_CHALLENGE->NTLM_AUTHENTICATE)
 
-clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+with NTLMRandomPatcher():
+    clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+
 assert isinstance(tok, SPNEGO_negToken)
 tok = SPNEGO_negToken(bytes(tok))
 assert isinstance(tok.token, SPNEGO_negTokenResp)
@@ -210,7 +240,7 @@ assert ntlm_auth.NtChallengeResponse.TimeStamp == ntlm_chall.getAv(7).Value
 assert ntlm_auth.NtChallengeResponse.getAv(6).Value == 2
 assert ntlm_auth.NtChallengeResponse.getAv(9).Value == "host/WIN10"
 
-= GSS_Accept_sec_context (SPNEGO_negToken: NTLM_AUTHENTICATE->Resp)
+= GSS_Accept_sec_context (SPNEGO_negToken: NTLM_AUTHENTICATE->OK)
 
 srvcontext, tok, negResult = server.GSS_Accept_sec_context(srvcontext, tok)
 assert negResult == 0  # success :p
@@ -224,20 +254,27 @@ sig = NTLMSSP_MESSAGE_SIGNATURE(tok.token.mechListMIC.value.val)
 assert sig.Version == 1
 assert sig.SeqNum == 0
 
+assert srvcontext.SessionKey == clicontext.SessionKey
+assert clicontext.SessionKey == b"0000000000000000"
+
 = GSS_WrapEx/GSS_UnwrapEx: client sends a encrypted payload
 
 data_header = b"header"  # signed but not encrypted
 data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"  # encrypted
 
-_msgs, sig = client.GSS_WrapEx(
-    clicontext,
-    [
-        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
-        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
-    ]
-)
+with NTLMRandomPatcher():
+    _msgs, sig = client.GSS_WrapEx(
+        clicontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+        ]
+    )
+
 encrypted = _msgs[1].data
-assert encrypted != data
+assert bytes(encrypted) == b'\x9c_\xe9\xf2D\xc3\xe9^\xcd\x939\xff\xac\xa8\x16Y7\xcb \x80mS\xee.3\x85\x90\xfe\xb1_l\xcc\xcc\x7fl\x1ae,\x8b\xb3\x1cK\xd7zT\x1b\xd4W9Z'
+assert sig.Checksum == b'\x91\xca\x9d\x0c\x15\x1e\xc5"'
+
 decrypted = server.GSS_UnwrapEx(
     srvcontext,
     [
@@ -250,15 +287,19 @@ assert decrypted == data
 
 = GSS_WrapEx/GSS_UnwrapEx: server answers back
 
-_msgs, sig = server.GSS_WrapEx(
-    srvcontext,
-    [
-        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
-        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
-    ]
-)
+with NTLMRandomPatcher():
+    _msgs, sig = server.GSS_WrapEx(
+        srvcontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+        ]
+    )
+
 re_encrypted = _msgs[1].data
-assert re_encrypted != data and re_encrypted != encrypted
+assert bytes(re_encrypted) == b'\x8f@s\x9c\xa5[\xd4\xee\xb6\x9b,\x96\xe6\x94\x8e\x8d\x1565\x81\xd0E\xe9WI\xd0\\\x80\x9fD\x1f\xee\xfb\xe5\xc6s\x0c+\t\xba,\xf1\xa2Zj\xd6\x0e\xe4C\x02'
+assert sig.Checksum == b'\x11l/\xeaO\xb8\x08z'
+
 decrypted = client.GSS_UnwrapEx(
     clicontext,
     [
@@ -269,18 +310,22 @@ decrypted = client.GSS_UnwrapEx(
 )[1].data
 assert decrypted == data
 
-= GSS_WrapEx/GSS_UnwrapEx: client continues with seqnum 1
+= GSS_WrapEx/GSS_UnwrapEx: client continues with seqnum 2
 
-_msgs, sig = client.GSS_WrapEx(
-    clicontext,
-    [
-        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
-        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
-    ]
-)
+with NTLMRandomPatcher():
+    _msgs, sig = client.GSS_WrapEx(
+        clicontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+        ]
+    )
+
 encrypted = _msgs[1].data
-assert encrypted != data
-assert sig.SeqNum == 1
+assert bytes(encrypted) == b'\x96\xc2\xa8>\xa8\xc0\xb8\xc6\xb6\x8a\xe3\xc2\x84\x8a\xd4e\xeb?"s\xf9\x1drfC\xb9\xbe\xe8\x1e9\xfe\xa1\xa8^\xbe\x0e\x98\xb3]\xa0\x906\xf6`\xdfn\x88d_L'
+assert sig.Checksum == b'\xc5t\xfa\xba\x1c\x9d-\xa1'
+
+assert sig.SeqNum == 2
 decrypted = server.GSS_UnwrapEx(
     srvcontext,
     [
@@ -304,7 +349,7 @@ encrypted = _msgs[1].data
 assert encrypted != data
 bad_data_header = data_header[:-3] + b"hey"
 try:
-    client.GSS_UnwrapEx(clicontext,
+    server.GSS_UnwrapEx(srvcontext,
         [
             SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=bad_data_header),
             SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=encrypted),

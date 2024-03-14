@@ -6,7 +6,7 @@
 """
 NTLM
 
-https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-NLMP/%5bMS-NLMP%5d.pdf
+This is documented in [MS-NLMP]
 """
 
 import copy
@@ -28,56 +28,57 @@ from scapy.asn1packet import ASN1_Packet
 from scapy.compat import bytes_base64
 from scapy.error import log_runtime
 from scapy.fields import (
-    Field,
     ByteEnumField,
     ByteField,
     ConditionalField,
+    Field,
     FieldLenField,
     FlagsField,
+    LEIntEnumField,
     LEIntField,
-    _StrField,
     LEShortEnumField,
+    LEShortField,
+    LEThreeBytesField,
     MultipleTypeField,
     PacketField,
     PacketListField,
-    LEShortField,
     StrField,
     StrFieldUtf16,
     StrFixedLenField,
-    LEIntEnumField,
-    LEThreeBytesField,
     StrLenFieldUtf16,
     UTCTimeField,
     XStrField,
     XStrFixedLenField,
     XStrLenField,
+    _StrField,
 )
 from scapy.packet import Packet
 from scapy.sessions import StringBuffer
 
 from scapy.layers.gssapi import (
+    GSS_C_FLAGS,
+    GSS_S_COMPLETE,
+    GSS_S_CONTINUE_NEEDED,
+    GSS_S_DEFECTIVE_CREDENTIAL,
+    GSS_S_DEFECTIVE_TOKEN,
     SSP,
     _GSSAPI_OIDS,
     _GSSAPI_SIGNATURE_OIDS,
-    GSS_S_CONTINUE_NEEDED,
-    GSS_S_COMPLETE,
-    GSS_S_DEFECTIVE_CREDENTIAL,
 )
-from scapy.layers.tls.crypto.hash import Hash_MD5
 
 # Typing imports
 from typing import (
     Any,
     Callable,
     List,
+    Optional,
     Tuple,
     Union,
-    Optional,
 )
 
 # Crypto imports
 
-from scapy.layers.tls.crypto.hash import Hash_MD4
+from scapy.layers.tls.crypto.hash import Hash_MD4, Hash_MD5
 from scapy.layers.tls.crypto.h_mac import Hmac_MD5
 
 ##########
@@ -1154,6 +1155,7 @@ class NTLMSSP(SSP):
         __slots__ = [
             "SessionKey",
             "ExportedSessionKey",
+            "IsAcceptor",
             "SendSignKey",
             "SendSealKey",
             "RecvSignKey",
@@ -1167,7 +1169,7 @@ class NTLMSSP(SSP):
             "ServerHostname",
         ]
 
-        def __init__(self):
+        def __init__(self, IsAcceptor, req_flags=None):
             self.state = NTLMSSP.STATE.INIT
             self.SessionKey = None
             self.ExportedSessionKey = None
@@ -1182,6 +1184,8 @@ class NTLMSSP(SSP):
             self.neg_tok = None
             self.chall_tok = None
             self.ServerHostname = None
+            self.IsAcceptor = IsAcceptor
+            super(NTLMSSP.CONTEXT, self).__init__(req_flags=req_flags)
 
         def __repr__(self):
             return "NTLMSSP"
@@ -1301,27 +1305,29 @@ class NTLMSSP(SSP):
         # "When NTLM is negotiated, the SPNG server MUST set OriginalHandle to
         # ServerHandle before generating the mechListMIC, then set ServerHandle to
         # OriginalHandle after generating the mechListMIC."
-
-        # i.e. use a new RC4 handle
-
-        return bytes(MAC(RC4Init(Context.SendSealKey), Context.SendSignKey, 0, input))
+        OriginalHandle = Context.SendSealHandle
+        Context.SendSealHandle = RC4Init(Context.SendSealKey)
+        try:
+            return super(NTLMSSP, self).getMechListMIC(Context, input)
+        finally:
+            Context.SendSealHandle = OriginalHandle
 
     def verifyMechListMIC(self, Context, otherMIC, input):
         # [MS-SPNG]
         # "the SPNEGO Extension server MUST set OriginalHandle to ClientHandle before
         # validating the mechListMIC and then set ClientHandle to OriginalHandle after
         # validating the mechListMIC."
+        OriginalHandle = Context.RecvSealHandle
+        Context.RecvSealHandle = RC4Init(Context.RecvSealKey)
+        try:
+            return super(NTLMSSP, self).verifyMechListMIC(Context, otherMIC, input)
+        finally:
+            Context.RecvSealHandle = OriginalHandle
 
-        # i.e. again, use a new RC4 handle
-
-        if otherMIC != bytes(
-            MAC(RC4Init(Context.RecvSealKey), Context.RecvSignKey, 0, input)
-        ):
-            raise ValueError("Bad mechListMIC !")
-
-    def GSS_Init_sec_context(self, Context: CONTEXT, val=None):
+    def GSS_Init_sec_context(self, Context: CONTEXT, val=None,
+                             req_flags: Optional[GSS_C_FLAGS] = None):
         if Context is None:
-            Context = self.CONTEXT()
+            Context = self.CONTEXT(False, req_flags=req_flags)
 
         if Context.state == self.STATE.INIT:
             # Client: negotiate
@@ -1513,7 +1519,7 @@ class NTLMSSP(SSP):
 
     def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
         if Context is None:
-            Context = self.CONTEXT()
+            Context = self.CONTEXT(True)
 
         if Context.state == self.STATE.INIT:
             # Server: challenge (val=negotiate)
@@ -1646,6 +1652,68 @@ class NTLMSSP(SSP):
             return Context, None, GSS_S_DEFECTIVE_CREDENTIAL
         else:
             raise ValueError("NTLMSSP: unexpected state %s" % repr(Context.state))
+
+    def MaximumSignatureLength(self, Context: CONTEXT):
+        """
+        Returns the Maximum Signature length.
+
+        This will be used in auth_len in DceRpc5, and is necessary for
+        PFC_SUPPORT_HEADER_SIGN to work properly.
+        """
+        return 16  # len(NTLMSSP_MESSAGE_SIGNATURE())
+
+    def GSS_Passive(self, Context: CONTEXT, val=None):
+        if Context is None:
+            Context = self.CONTEXT(True)
+            Context.passive = True
+
+        # We capture the Negotiate, Challenge, then call the server's auth handling
+        # and discard the output.
+
+        if Context.state == self.STATE.INIT:
+            if not val or NTLM_NEGOTIATE not in val:
+                log_runtime.warning("NTLMSSP: Expected NTLM Negotiate")
+                return None, GSS_S_DEFECTIVE_TOKEN
+            Context.neg_tok = val
+            Context.state = self.STATE.CLI_SENT_NEGO
+            return Context, GSS_S_CONTINUE_NEEDED
+        elif Context.state == self.STATE.CLI_SENT_NEGO:
+            if not val or NTLM_CHALLENGE not in val:
+                log_runtime.warning("NTLMSSP: Expected NTLM Challenge")
+                return None, GSS_S_DEFECTIVE_TOKEN
+            Context.chall_tok = val
+            Context.state = self.STATE.SRV_SENT_CHAL
+            return Context, GSS_S_CONTINUE_NEEDED
+        elif Context.state == self.STATE.SRV_SENT_CHAL:
+            if not val or NTLM_AUTHENTICATE_V2 not in val:
+                log_runtime.warning("NTLMSSP: Expected NTLM Authenticate")
+                return None, GSS_S_DEFECTIVE_TOKEN
+            Context, _, status = self.GSS_Accept_sec_context(Context, val)
+            if status != GSS_S_COMPLETE:
+                log_runtime.info("NTLMSSP: auth failed.")
+            Context.state = self.STATE.INIT
+            return Context, status
+        else:
+            raise ValueError("NTLMSSP: unexpected state %s" % repr(Context.state))
+
+    def GSS_Passive_set_Direction(self, Context: CONTEXT, IsAcceptor=False):
+        if Context.IsAcceptor is not IsAcceptor:
+            return
+        # Swap everything
+        Context.SendSignKey, Context.RecvSignKey = (
+            Context.RecvSignKey,
+            Context.SendSignKey,
+        )
+        Context.SendSealKey, Context.RecvSealKey = (
+            Context.RecvSealKey,
+            Context.SendSealKey,
+        )
+        Context.SendSealHandle, Context.RecvSealHandle = (
+            Context.RecvSealHandle,
+            Context.SendSealHandle,
+        )
+        Context.SendSeqNum, Context.RecvSeqNum = Context.RecvSeqNum, Context.SendSeqNum
+        Context.IsAcceptor = not Context.IsAcceptor
 
     def _getSessionBaseKey(self, Context, auth_tok):
         """

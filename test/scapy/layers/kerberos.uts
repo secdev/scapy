@@ -902,7 +902,7 @@ t.open_file(TICKETER_TEMPFILE)
 import mock
 
 def fake_random(x):
-    # wow, impressive
+    # wow, impressive entropy
     return b"0" * x
 
 with mock.patch('scapy.libs.rfc3961.os.urandom', side_effect=fake_random):
@@ -1205,3 +1205,297 @@ ts = enc.decrypt(k)
 
 assert ts.patimestamp == "20220715171847Z"
 ts.pausec == 0x9a4db
+
++ GSS-API KerberosSSP tests
+~ mock
+
+= Create randomness-mock context manager
+
+# mock the random to get consistency
+import mock
+from datetime import datetime
+
+def fake_urandom(x):
+    # wow, impressive entropy
+    return b"0" * x
+
+def fake_randrange(a, b):
+    return (a + b) // 2
+
+def fake_choice(x):
+    return x[0]
+
+date_mock = mock.MagicMock()
+date_mock.utcnow.return_value = datetime(2024, 3, 5, 16, 52, 55, 424801)
+
+_patches = [
+    # Patch all the random
+    mock.patch('scapy.layers.kerberos.os.urandom', side_effect=fake_urandom),
+    mock.patch('scapy.libs.rfc3961.os.urandom', side_effect=fake_urandom),
+    mock.patch('scapy.volatile.random.randrange', side_effect=fake_randrange),
+    mock.patch('scapy.volatile.random.choice', side_effect=fake_choice),
+    # Patch date
+    mock.patch('scapy.layers.kerberos.datetime', date_mock),
+]
+
+class KrbRandomPatcher:
+    def __enter__(self):
+        for p in _patches:
+            p.start()
+    def __exit__(self, *args, **kwargs):
+        for p in _patches:
+            p.stop()
+
+= Create client and server SPNEGOSSP[KerberosSSP]
+
+from scapy.libs.rfc3961 import Key, EncryptionType
+from scapy.layers.kerberos import KRB_Ticket, KRB_GSSAPI_Token, KRB_AP_REQ, KRB_AP_REP
+from scapy.layers.spnego import SPNEGOSSP
+
+client = SPNEGOSSP([
+    KerberosSSP(
+        UPN="User1@domain.local",
+        SPN="cifs/dc1",
+        ST=KRB_Ticket(bytes.fromhex("618204a13082049da003020105a10e1b0c444f4d41494e2e4c4f43414ca2163014a003020103a10d300b1b04636966731b03646331a382046c30820468a003020112a10302010da282045a04820456671f6131b38ee6e682d62cb937b8b79c589753182f8dbcb14a91b031052a3c20f7b4c89bf9a41fe9960d112acc73f6bd6527dfe70700a3d3c2e72b4ba6705dfc040fd56f9d7cd60b580ebecec2bfb240baac619690dbd9301ed98cac037cfdff8ff96ac98358969f3532f9c6adc076d136a0ef96ebddef293df879bb42adfbf7670434f340ad673e0303ae186e1a510d7f50dbfee9ebab323c715d6b27a67ffec60dba9f7475e5dbf88eee1fcc95b7d467ab2b4ecef893a92a25c80b8480ac8c12bc10741523a2738a3d7c3d2c438235111188968486cab2934b32cad1b6b4b2cbf343b25d41ad463c0513cf21cf9f77f072f4a49d8042947064e3375a1ae76c355fd48d5fc163cf7f865af91bcb788cffe2e9e1a30a7e3f91be8fb55b0a8b8c0b600ef3e0e88feaad4fbf4fffe76c9302ee2acfa3b64ca28cd006fd4af9c27d2eb45e47e582b87e632aa23475caeb0e3e9d777339f5cb94abc19ebd080ffc78181bf81ff227182de422937675546633bd6ab688258a94d132fb590f8152d3f19bd55a1f336fb7c382140987ac2389134d8033882f923d3d5324a3e9f5437bd70f095e6bb00ee68d8f21912b19b27924c61b4e3bfe68411f9f220de8dace00e767b662313706730d4dc8539b309fc75e6ca4cae470cdf12cc3cfb191486e3e5eb8c80723b2b0473b07e4ea4d385487dd303df2db8d31f8c90d53c4adcf39ad78cf6c85fbb87b4c4ee531a42c2133df2b0362132374df995420e4b2a6d1e19d7879d518652d5101a316962b27b3884cb67d07572f96b9668ca42cca7311a7152ac7c6d492009192fa4a707989e43b2a10f19e535e7cf8afdaf63ce9a2a85ce1bd17d81cfe76d2ce5759a7fdbeff6fb279b8620bc2c5183b24be831c7ee157114f2700da210b36edb7bda7d91a32f7940bef431c76571cd44499f779cc4ebe829fb34eeaa1e442240d5962bdbcbc16c962974b546e9cee380dda49f651acc5c58acae4ad06d57e4b91d8c5557365e8ddda7ee9550963d70d4f56b44fc5a26e29b36cb21d11221825b5a2217cb1f1454d34d94a855cb860f2fe43681e3d302e7e124273dd18b04fddf660b8858e1e78d022cc03f467f3cf1a6e5df53bb831794542b1d08e38d3bfb0bf2e5ba6f75a0f77d56bf2924b144fff3c87ec7a57bff345ee8a4496676d38c9453c38e64521db2de6d6452aa8f3da1675134e8d90cbb0d274ce6189563fd9a56e56a800661e787b083950623035ddeeb2fb84f6fb2507f2c157e74e81a81970e11475ce926e393a55b06b77c444dbd23688e8a77c7f30337874fef787a187fcafd73a5a4837c8e3e60712308597ff72ea2edae69c9402ad7ae81abb3e9100f0c87b99b2564246bd56af8e6d0ecf2928e5151218f7e627c565e15540666f4f7c0e937c2d0e84782fcb1b535e596f6c4e0aed7c1d350e169d045f2eaaa4bb2f94cd149576f835e5eecb4418677d0444e51fafcbed2afac50b1d320bc223d2623601aee6df6a363a24294bfb3b00f2668dfc404e9fa17fe936e6620756a6918f7de2de343f380fab83fde911124be508")),
+        KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("4aad1c4c7b5bf02bfd061cfaebf0188d6c4f4642d569ca4ab536cb68adcb0e68")),
+    ),
+])
+server = SPNEGOSSP([
+    KerberosSSP(
+        SPN="cifs/dc1",
+        PASSWORD="Password1",
+        KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("133614b285c1d76d4ec78d642e9c6f7451d7652cf6c5fe635af6e89050d42517")),
+    ),
+])
+
+= GSS_Init_sec_context (negTokenInit: KRB_AP_REQ)
+
+with KrbRandomPatcher():
+    clicontext, tok, negResult = client.GSS_Init_sec_context(
+        None,
+        req_flags=(
+            GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
+            GSS_C_FLAGS.GSS_C_INTEG_FLAG |
+            GSS_C_FLAGS.GSS_C_CONF_FLAG
+        )
+    )
+
+assert negResult == 1
+assert isinstance(tok, GSSAPI_BLOB)
+tok = GSSAPI_BLOB(bytes(tok))
+assert tok.MechType.val == '1.3.6.1.5.5.2'
+assert isinstance(tok.innerToken.token, SPNEGO_negTokenInit)
+assert len(tok.innerToken.token.mechTypes) == 2
+assert tok.innerToken.token.mechTypes[0].oid == '1.2.840.48018.1.2.2'
+assert tok.innerToken.token.mechTypes[1].oid == '1.2.840.113554.1.2.2'
+assert tok.innerToken.token.reqFlags is None
+assert tok.innerToken.token.negHints is None
+assert tok.innerToken.token.mechListMIC is None
+assert tok.innerToken.token._mechListMIC is None
+
+krb = tok.innerToken.token.mechToken.value.root
+assert isinstance(krb, KRB_GSSAPI_Token)
+ap_req = krb.innerToken.root
+assert isinstance(ap_req, KRB_AP_REQ)
+assert ap_req.apOptions == "001"
+assert ap_req.ticket == clicontext.ssp.ST
+
+# Hardcode (yes this will probably require updating this test)
+bytes(tok)
+assert bytes(tok) == b'`\x82\x06@\x06\x06+\x06\x01\x05\x05\x02\xa0\x82\x0640\x82\x060\xa0\x180\x16\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\xa2\x82\x06\x12\x04\x82\x06\x0e`\x82\x06\n\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\x01\x00n\x82\x05\xf90\x82\x05\xf5\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0e\xa2\x04\x03\x02\x05 \xa3\x82\x04\xa5a\x82\x04\xa10\x82\x04\x9d\xa0\x03\x02\x01\x05\xa1\x0e\x1b\x0cDOMAIN.LOCAL\xa2\x160\x14\xa0\x03\x02\x01\x03\xa1\r0\x0b\x1b\x04cifs\x1b\x03dc1\xa3\x82\x04l0\x82\x04h\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\r\xa2\x82\x04Z\x04\x82\x04Vg\x1fa1\xb3\x8e\xe6\xe6\x82\xd6,\xb97\xb8\xb7\x9cX\x97S\x18/\x8d\xbc\xb1J\x91\xb01\x05*< \xf7\xb4\xc8\x9b\xf9\xa4\x1f\xe9\x96\r\x11*\xccs\xf6\xbde\'\xdf\xe7\x07\x00\xa3\xd3\xc2\xe7+K\xa6p]\xfc\x04\x0f\xd5o\x9d|\xd6\x0bX\x0e\xbe\xce\xc2\xbf\xb2@\xba\xaca\x96\x90\xdb\xd90\x1e\xd9\x8c\xac\x03|\xfd\xff\x8f\xf9j\xc9\x83X\x96\x9f52\xf9\xc6\xad\xc0v\xd16\xa0\xef\x96\xeb\xdd\xef)=\xf8y\xbbB\xad\xfb\xf7g\x044\xf3@\xadg>\x03\x03\xae\x18n\x1aQ\r\x7fP\xdb\xfe\xe9\xeb\xab2<q]k\'\xa6\x7f\xfe\xc6\r\xba\x9ftu\xe5\xdb\xf8\x8e\xee\x1f\xcc\x95\xb7\xd4g\xab+N\xce\xf8\x93\xa9*%\xc8\x0b\x84\x80\xac\x8c\x12\xbc\x10t\x15#\xa2s\x8a=|=,C\x825\x11\x11\x88\x96\x84\x86\xca\xb2\x93K2\xca\xd1\xb6\xb4\xb2\xcb\xf3C\xb2]A\xadF<\x05\x13\xcf!\xcf\x9fw\xf0r\xf4\xa4\x9d\x80B\x94pd\xe37Z\x1a\xe7l5_\xd4\x8d_\xc1c\xcf\x7f\x86Z\xf9\x1b\xcbx\x8c\xff\xe2\xe9\xe1\xa3\n~?\x91\xbe\x8f\xb5[\n\x8b\x8c\x0b`\x0e\xf3\xe0\xe8\x8f\xea\xadO\xbfO\xff\xe7l\x93\x02\xee*\xcf\xa3\xb6L\xa2\x8c\xd0\x06\xfdJ\xf9\xc2}.\xb4^G\xe5\x82\xb8~c*\xa24u\xca\xeb\x0e>\x9dws9\xf5\xcb\x94\xab\xc1\x9e\xbd\x08\x0f\xfcx\x18\x1b\xf8\x1f\xf2\'\x18-\xe4"\x93vuTf3\xbdj\xb6\x88%\x8a\x94\xd12\xfbY\x0f\x81R\xd3\xf1\x9b\xd5Z\x1f3o\xb7\xc3\x82\x14\t\x87\xac#\x89\x13M\x803\x88/\x92==S$\xa3\xe9\xf5C{\xd7\x0f\t^k\xb0\x0e\xe6\x8d\x8f!\x91+\x19\xb2y$\xc6\x1bN;\xfehA\x1f\x9f"\r\xe8\xda\xce\x00\xe7g\xb6b17\x06s\rM\xc8S\x9b0\x9f\xc7^l\xa4\xca\xe4p\xcd\xf1,\xc3\xcf\xb1\x91Hn>^\xb8\xc8\x07#\xb2\xb0G;\x07\xe4\xeaM8T\x87\xdd0=\xf2\xdb\x8d1\xf8\xc9\rS\xc4\xad\xcf9\xadx\xcfl\x85\xfb\xb8{LN\xe51\xa4,!3\xdf+\x03b\x13#t\xdf\x99T \xe4\xb2\xa6\xd1\xe1\x9dxy\xd5\x18e-Q\x01\xa3\x16\x96+\'\xb3\x88L\xb6}\x07W/\x96\xb9f\x8c\xa4,\xcas\x11\xa7\x15*\xc7\xc6\xd4\x92\x00\x91\x92\xfaJpy\x89\xe4;*\x10\xf1\x9eS^|\xf8\xaf\xda\xf6<\xe9\xa2\xa8\\\xe1\xbd\x17\xd8\x1c\xfev\xd2\xceWY\xa7\xfd\xbe\xffo\xb2y\xb8b\x0b\xc2\xc5\x18;$\xbe\x83\x1c~\xe1W\x11O\'\x00\xda!\x0b6\xed\xb7\xbd\xa7\xd9\x1a2\xf7\x94\x0b\xefC\x1cvW\x1c\xd4D\x99\xf7y\xccN\xbe\x82\x9f\xb3N\xea\xa1\xe4B$\rYb\xbd\xbc\xbc\x16\xc9b\x97KTn\x9c\xee8\r\xdaI\xf6Q\xac\xc5\xc5\x8a\xca\xe4\xad\x06\xd5~K\x91\xd8\xc5Use\xe8\xdd\xda~\xe9U\tc\xd7\rOV\xb4O\xc5\xa2n)\xb3l\xb2\x1d\x11"\x18%\xb5\xa2!|\xb1\xf1EM4\xd9J\x85\\\xb8`\xf2\xfeCh\x1e=0.~\x12Bs\xdd\x18\xb0O\xdd\xf6`\xb8\x85\x8e\x1ex\xd0"\xcc\x03\xf4g\xf3\xcf\x1an]\xf5;\xb81yEB\xb1\xd0\x8e8\xd3\xbf\xb0\xbf.[\xa6\xf7Z\x0fw\xd5k\xf2\x92K\x14O\xff<\x87\xeczW\xbf\xf3E\xee\x8aD\x96gm8\xc9E<8\xe6E!\xdb-\xe6\xd6E*\xa8\xf3\xda\x16u\x13N\x8d\x90\xcb\xb0\xd2t\xcea\x89V?\xd9\xa5nV\xa8\x00f\x1ex{\x089Pb05\xdd\xee\xb2\xfb\x84\xf6\xfb%\x07\xf2\xc1W\xe7N\x81\xa8\x19p\xe1\x14u\xce\x92n9:U\xb0kw\xc4D\xdb\xd26\x88\xe8\xa7|\x7f03xt\xfe\xf7\x87\xa1\x87\xfc\xaf\xd7:ZH7\xc8\xe3\xe6\x07\x120\x85\x97\xffr\xea.\xda\xe6\x9c\x94\x02\xadz\xe8\x1a\xbb>\x91\x00\xf0\xc8{\x99\xb2VBF\xbdV\xaf\x8em\x0e\xcf)(\xe5\x15\x12\x18\xf7\xe6\'\xc5e\xe1U@foO|\x0e\x93|-\x0e\x84x/\xcb\x1bS^YolN\n\xed|\x1d5\x0e\x16\x9d\x04_.\xaa\xa4\xbb/\x94\xcd\x14\x95v\xf85\xe5\xee\xcbD\x18g}\x04D\xe5\x1f\xaf\xcb\xed*\xfa\xc5\x0b\x1d2\x0b\xc2#\xd2b6\x01\xae\xe6\xdfj6:$)K\xfb;\x00\xf2f\x8d\xfc@N\x9f\xa1\x7f\xe96\xe6b\x07V\xa6\x91\x8f}\xe2\xde4?8\x0f\xab\x83\xfd\xe9\x11\x12K\xe5\x08\xa4\x82\x0180\x82\x014\xa0\x03\x02\x01\x12\xa2\x82\x01+\x04\x82\x01\'\\>\t\xe4\x1d8,a(\x7f\x1e\xd2\x8dHH\x9c\xef\x8d\x1fqW\xbf(\x97S+\rs_zM\xee\xa7\xc2\x1a\x8eh1\xa4\xcb\x06\xed\x8e\xe6\xc0\x9a\xf7\x93g5\xa5vp\x0e~G\xaf:\xbb<\xaa2\x0e\xf8+l \xc5\xdb\x17,\xa9\x99\xae\x80\r\x0f\xdd4\x92\xf1\xa3h\xc3)^*I\x92\x01\x9f\x06jW\x1a\xac=\xa4\xee\xfdo.\xc8\xd5\x9e\xeaNw\x9eu\xc3\x8b0\xc9_S\x1f\x19u\xbap\x1d\\\x88\x0eu\xbek\xa8}\n\xa0>\x85\xcc3\xed\x84\xadi\x0bB\x9ao\xd2lW\x7f+\x16\x1cxU\x99\x90\x92\xfd\x06\x11ij\xdc\xb5\xc6F\xc0P\xf6\\\xbe\x04I\x9aP\x11\xa5\xff=\xd7\x95\'\xaa\x0e\x1c\xbf\xc4O\xf4D\xc8\xb1Fv\x8f\xff\xde*\'\x17\xe1\xcf\x06\xeb\xd7s\xfc\xa4\x0c6\x87\x9f\xa7\x9b\xe6\xddmMb\xc3\xc8\xcfH\x1a\x1a`\x08\t\x83\x01\x01\x81R\x8d\xda\xd7\xebZ\x83\x8eO\x14\x8e\xf7\x1fc\xb0KcC\xba\xf3\x04+L\xe3\xc1\xf5\xadF\xda\xfa\xe6q\xe0\x90&\x93\xffd\x16<q\x04\x81\xb2d\xa67\x12\xb9_\x99\nq\x02fY\x0e\x89\x83X\xf3\xab`\x1b'
+
+= GSS_Accept_sec_context (SPNEGO_negTokenResp: KRB_AP_REQ->KRB_AP_REP)
+
+with KrbRandomPatcher():
+    srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+
+assert negResult == 0
+assert isinstance(tok, SPNEGO_negToken)
+tok = SPNEGO_negToken(bytes(tok))
+assert isinstance(tok.token, SPNEGO_negTokenResp)
+assert tok.token.negResult == 0
+assert tok.token.supportedMech.oid == '1.2.840.48018.1.2.2'
+assert isinstance(tok.token.responseToken, SPNEGO_Token)
+assert tok.token.mechListMIC is not None
+
+ap_rep = tok.token.responseToken.value.root
+assert isinstance(ap_rep, KRB_AP_REP)
+
+apreppart = ap_rep.encPart.decrypt(clicontext.ssp.KEY)
+assert apreppart.ctime == "20240305165255Z"
+assert apreppart.subkey.keyvalue == b"0000000000000000"
+assert apreppart.subkey.keytype == 17
+
+# Hardcode (yes this will probably require updating this test)
+bytes(tok)
+assert bytes(tok) == b'\xa1\x81\xa90\x81\xa6\xa0\x03\n\x01\x00\xa1\x0b\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\xa2r\x04pon0l\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0f\xa2`0^\xa0\x03\x02\x01\x12\xa2W\x04UaS\xeck\xcc\xad~\xfa^\x8d\xca\xbb\xc5\xd2/\xfd\xd3\xc3\xd9\xadN`\xd2;\xd7{\xb7\xf4p.\xa9\x9a\xb1}D\xc6|_t\n\r"M\xcd\xe2\t\xf0Ri\xc7\xcf\xb5\xefr9\xf0`iS7N\x06qKP\x06\xde\xc4\x18\xd5_\xcb\x0ct\x03k\xbc\xb9\x1adT\x03\xc1\x8bM\xa3\x1e\x04\x1c\x04\x04\x05\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x17F\x8al\x01c\x00\xcf4\x12oI'
+
+= GSS_Init_sec_context (SPNEGO_negToken: KRB_AP_REP->OK)
+
+with KrbRandomPatcher():
+    clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+
+assert tok is None
+assert negResult == 0
+assert clicontext.KrbSessionKey.key == srvcontext.KrbSessionKey.key
+assert srvcontext.KrbSessionKey.key == b'0000000000000000'
+
+= GSS_GetMICEx/GSS_VerifyMICEx: client sends a signed payload
+
+data_header = b"header"  # signed but not encrypted
+data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"  # encrypted
+
+sig = client.GSS_GetMICEx(
+    clicontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+    ]
+)
+assert isinstance(sig, KRB_InnerToken) and sig.TOK_ID == b"\x04\x04"
+assert sig.root.SND_SEQ == 0x7FFFFFFF//2 + 1
+assert bytes(sig) == b'\x04\x04\x04\xff\xff\xff\xff\xff\x00\x00\x00\x00@\x00\x00\x00\xfc\xc6\x86\xab\x85e\x18\xe8\x7f\xa81t'
+server.GSS_VerifyMICEx(
+    srvcontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data),
+    ],
+    sig
+)
+
+= GSS_GetMICEx/GSS_VerifyMICEx: server answers back
+
+sig = server.GSS_GetMICEx(
+    srvcontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+    ]
+)
+assert isinstance(sig, KRB_InnerToken) and sig.TOK_ID == b"\x04\x04"
+assert sig.root.SND_SEQ == 1
+assert bytes(sig) == b'\x04\x04\x05\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x01G\x81\x93\xb9\x92\xd0NvHH\xf6\x9c'
+client.GSS_VerifyMICEx(
+    clicontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data),
+    ],
+    sig
+)
+
+= GSS_GetMICEx/GSS_VerifyMICEx: inject fault
+
+sig = client.GSS_GetMICEx(
+    clicontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+    ]
+)
+bad_data_header = data_header[:-3] + b"hey"
+try:
+    server.GSS_VerifyMICEx(
+        srvcontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=bad_data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data),
+        ],
+        sig
+    )
+    assert False, "No error was reported, but there should have been one"
+except ValueError:
+    pass
+
+= Create client and server KerberosSSP (raw)
+
+client = KerberosSSP(
+    UPN="User1@domain.local",
+    SPN="cifs/dc1",
+    ST=KRB_Ticket(bytes.fromhex("618204a13082049da003020105a10e1b0c444f4d41494e2e4c4f43414ca2163014a003020103a10d300b1b04636966731b03646331a382046c30820468a003020112a10302010da282045a04820456671f6131b38ee6e682d62cb937b8b79c589753182f8dbcb14a91b031052a3c20f7b4c89bf9a41fe9960d112acc73f6bd6527dfe70700a3d3c2e72b4ba6705dfc040fd56f9d7cd60b580ebecec2bfb240baac619690dbd9301ed98cac037cfdff8ff96ac98358969f3532f9c6adc076d136a0ef96ebddef293df879bb42adfbf7670434f340ad673e0303ae186e1a510d7f50dbfee9ebab323c715d6b27a67ffec60dba9f7475e5dbf88eee1fcc95b7d467ab2b4ecef893a92a25c80b8480ac8c12bc10741523a2738a3d7c3d2c438235111188968486cab2934b32cad1b6b4b2cbf343b25d41ad463c0513cf21cf9f77f072f4a49d8042947064e3375a1ae76c355fd48d5fc163cf7f865af91bcb788cffe2e9e1a30a7e3f91be8fb55b0a8b8c0b600ef3e0e88feaad4fbf4fffe76c9302ee2acfa3b64ca28cd006fd4af9c27d2eb45e47e582b87e632aa23475caeb0e3e9d777339f5cb94abc19ebd080ffc78181bf81ff227182de422937675546633bd6ab688258a94d132fb590f8152d3f19bd55a1f336fb7c382140987ac2389134d8033882f923d3d5324a3e9f5437bd70f095e6bb00ee68d8f21912b19b27924c61b4e3bfe68411f9f220de8dace00e767b662313706730d4dc8539b309fc75e6ca4cae470cdf12cc3cfb191486e3e5eb8c80723b2b0473b07e4ea4d385487dd303df2db8d31f8c90d53c4adcf39ad78cf6c85fbb87b4c4ee531a42c2133df2b0362132374df995420e4b2a6d1e19d7879d518652d5101a316962b27b3884cb67d07572f96b9668ca42cca7311a7152ac7c6d492009192fa4a707989e43b2a10f19e535e7cf8afdaf63ce9a2a85ce1bd17d81cfe76d2ce5759a7fdbeff6fb279b8620bc2c5183b24be831c7ee157114f2700da210b36edb7bda7d91a32f7940bef431c76571cd44499f779cc4ebe829fb34eeaa1e442240d5962bdbcbc16c962974b546e9cee380dda49f651acc5c58acae4ad06d57e4b91d8c5557365e8ddda7ee9550963d70d4f56b44fc5a26e29b36cb21d11221825b5a2217cb1f1454d34d94a855cb860f2fe43681e3d302e7e124273dd18b04fddf660b8858e1e78d022cc03f467f3cf1a6e5df53bb831794542b1d08e38d3bfb0bf2e5ba6f75a0f77d56bf2924b144fff3c87ec7a57bff345ee8a4496676d38c9453c38e64521db2de6d6452aa8f3da1675134e8d90cbb0d274ce6189563fd9a56e56a800661e787b083950623035ddeeb2fb84f6fb2507f2c157e74e81a81970e11475ce926e393a55b06b77c444dbd23688e8a77c7f30337874fef787a187fcafd73a5a4837c8e3e60712308597ff72ea2edae69c9402ad7ae81abb3e9100f0c87b99b2564246bd56af8e6d0ecf2928e5151218f7e627c565e15540666f4f7c0e937c2d0e84782fcb1b535e596f6c4e0aed7c1d350e169d045f2eaaa4bb2f94cd149576f835e5eecb4418677d0444e51fafcbed2afac50b1d320bc223d2623601aee6df6a363a24294bfb3b00f2668dfc404e9fa17fe936e6620756a6918f7de2de343f380fab83fde911124be508")),
+    KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("4aad1c4c7b5bf02bfd061cfaebf0188d6c4f4642d569ca4ab536cb68adcb0e68")),
+)
+server = KerberosSSP(
+    SPN="cifs/dc1",
+    PASSWORD="Password1",
+    KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("133614b285c1d76d4ec78d642e9c6f7451d7652cf6c5fe635af6e89050d42517")),
+)
+
+= GSS_Init_sec_context (KRB_AP_REQ) - DCE_STYLE
+
+with KrbRandomPatcher():
+    clicontext, tok, negResult = client.GSS_Init_sec_context(
+        None,
+        req_flags=(
+            GSS_C_FLAGS.GSS_C_DCE_STYLE |
+            GSS_C_FLAGS.GSS_C_REPLAY_FLAG |
+            GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG |
+            GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
+            GSS_C_FLAGS.GSS_C_INTEG_FLAG
+        )
+    )
+
+assert negResult == 1
+assert isinstance(tok, KRB_AP_REQ)
+ap_req = KRB_AP_REQ(bytes(tok))
+assert isinstance(ap_req, KRB_AP_REQ)
+assert ap_req.apOptions == "001"
+assert ap_req.ticket == client.ST
+
+auth = ap_req.authenticator.decrypt(client.KEY)
+assert auth.cksum.cksumtype == 0x8003
+assert auth.cksum.checksum.Flags == (
+    GSS_C_FLAGS.GSS_C_DCE_STYLE |
+    GSS_C_FLAGS.GSS_C_REPLAY_FLAG |
+    GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG |
+    GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
+    GSS_C_FLAGS.GSS_C_INTEG_FLAG
+)
+assert auth.cksum.checksum.Exts[0].sprintf("%type%") == 'GSS_EXTS_CHANNEL_BINDING'
+
+# Hardcode (yes this will probably require updating this test)
+bytes(tok)
+assert bytes(tok) == b'n\x82\x05\xf90\x82\x05\xf5\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0e\xa2\x04\x03\x02\x05 \xa3\x82\x04\xa5a\x82\x04\xa10\x82\x04\x9d\xa0\x03\x02\x01\x05\xa1\x0e\x1b\x0cDOMAIN.LOCAL\xa2\x160\x14\xa0\x03\x02\x01\x03\xa1\r0\x0b\x1b\x04cifs\x1b\x03dc1\xa3\x82\x04l0\x82\x04h\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\r\xa2\x82\x04Z\x04\x82\x04Vg\x1fa1\xb3\x8e\xe6\xe6\x82\xd6,\xb97\xb8\xb7\x9cX\x97S\x18/\x8d\xbc\xb1J\x91\xb01\x05*< \xf7\xb4\xc8\x9b\xf9\xa4\x1f\xe9\x96\r\x11*\xccs\xf6\xbde\'\xdf\xe7\x07\x00\xa3\xd3\xc2\xe7+K\xa6p]\xfc\x04\x0f\xd5o\x9d|\xd6\x0bX\x0e\xbe\xce\xc2\xbf\xb2@\xba\xaca\x96\x90\xdb\xd90\x1e\xd9\x8c\xac\x03|\xfd\xff\x8f\xf9j\xc9\x83X\x96\x9f52\xf9\xc6\xad\xc0v\xd16\xa0\xef\x96\xeb\xdd\xef)=\xf8y\xbbB\xad\xfb\xf7g\x044\xf3@\xadg>\x03\x03\xae\x18n\x1aQ\r\x7fP\xdb\xfe\xe9\xeb\xab2<q]k\'\xa6\x7f\xfe\xc6\r\xba\x9ftu\xe5\xdb\xf8\x8e\xee\x1f\xcc\x95\xb7\xd4g\xab+N\xce\xf8\x93\xa9*%\xc8\x0b\x84\x80\xac\x8c\x12\xbc\x10t\x15#\xa2s\x8a=|=,C\x825\x11\x11\x88\x96\x84\x86\xca\xb2\x93K2\xca\xd1\xb6\xb4\xb2\xcb\xf3C\xb2]A\xadF<\x05\x13\xcf!\xcf\x9fw\xf0r\xf4\xa4\x9d\x80B\x94pd\xe37Z\x1a\xe7l5_\xd4\x8d_\xc1c\xcf\x7f\x86Z\xf9\x1b\xcbx\x8c\xff\xe2\xe9\xe1\xa3\n~?\x91\xbe\x8f\xb5[\n\x8b\x8c\x0b`\x0e\xf3\xe0\xe8\x8f\xea\xadO\xbfO\xff\xe7l\x93\x02\xee*\xcf\xa3\xb6L\xa2\x8c\xd0\x06\xfdJ\xf9\xc2}.\xb4^G\xe5\x82\xb8~c*\xa24u\xca\xeb\x0e>\x9dws9\xf5\xcb\x94\xab\xc1\x9e\xbd\x08\x0f\xfcx\x18\x1b\xf8\x1f\xf2\'\x18-\xe4"\x93vuTf3\xbdj\xb6\x88%\x8a\x94\xd12\xfbY\x0f\x81R\xd3\xf1\x9b\xd5Z\x1f3o\xb7\xc3\x82\x14\t\x87\xac#\x89\x13M\x803\x88/\x92==S$\xa3\xe9\xf5C{\xd7\x0f\t^k\xb0\x0e\xe6\x8d\x8f!\x91+\x19\xb2y$\xc6\x1bN;\xfehA\x1f\x9f"\r\xe8\xda\xce\x00\xe7g\xb6b17\x06s\rM\xc8S\x9b0\x9f\xc7^l\xa4\xca\xe4p\xcd\xf1,\xc3\xcf\xb1\x91Hn>^\xb8\xc8\x07#\xb2\xb0G;\x07\xe4\xeaM8T\x87\xdd0=\xf2\xdb\x8d1\xf8\xc9\rS\xc4\xad\xcf9\xadx\xcfl\x85\xfb\xb8{LN\xe51\xa4,!3\xdf+\x03b\x13#t\xdf\x99T \xe4\xb2\xa6\xd1\xe1\x9dxy\xd5\x18e-Q\x01\xa3\x16\x96+\'\xb3\x88L\xb6}\x07W/\x96\xb9f\x8c\xa4,\xcas\x11\xa7\x15*\xc7\xc6\xd4\x92\x00\x91\x92\xfaJpy\x89\xe4;*\x10\xf1\x9eS^|\xf8\xaf\xda\xf6<\xe9\xa2\xa8\\\xe1\xbd\x17\xd8\x1c\xfev\xd2\xceWY\xa7\xfd\xbe\xffo\xb2y\xb8b\x0b\xc2\xc5\x18;$\xbe\x83\x1c~\xe1W\x11O\'\x00\xda!\x0b6\xed\xb7\xbd\xa7\xd9\x1a2\xf7\x94\x0b\xefC\x1cvW\x1c\xd4D\x99\xf7y\xccN\xbe\x82\x9f\xb3N\xea\xa1\xe4B$\rYb\xbd\xbc\xbc\x16\xc9b\x97KTn\x9c\xee8\r\xdaI\xf6Q\xac\xc5\xc5\x8a\xca\xe4\xad\x06\xd5~K\x91\xd8\xc5Use\xe8\xdd\xda~\xe9U\tc\xd7\rOV\xb4O\xc5\xa2n)\xb3l\xb2\x1d\x11"\x18%\xb5\xa2!|\xb1\xf1EM4\xd9J\x85\\\xb8`\xf2\xfeCh\x1e=0.~\x12Bs\xdd\x18\xb0O\xdd\xf6`\xb8\x85\x8e\x1ex\xd0"\xcc\x03\xf4g\xf3\xcf\x1an]\xf5;\xb81yEB\xb1\xd0\x8e8\xd3\xbf\xb0\xbf.[\xa6\xf7Z\x0fw\xd5k\xf2\x92K\x14O\xff<\x87\xeczW\xbf\xf3E\xee\x8aD\x96gm8\xc9E<8\xe6E!\xdb-\xe6\xd6E*\xa8\xf3\xda\x16u\x13N\x8d\x90\xcb\xb0\xd2t\xcea\x89V?\xd9\xa5nV\xa8\x00f\x1ex{\x089Pb05\xdd\xee\xb2\xfb\x84\xf6\xfb%\x07\xf2\xc1W\xe7N\x81\xa8\x19p\xe1\x14u\xce\x92n9:U\xb0kw\xc4D\xdb\xd26\x88\xe8\xa7|\x7f03xt\xfe\xf7\x87\xa1\x87\xfc\xaf\xd7:ZH7\xc8\xe3\xe6\x07\x120\x85\x97\xffr\xea.\xda\xe6\x9c\x94\x02\xadz\xe8\x1a\xbb>\x91\x00\xf0\xc8{\x99\xb2VBF\xbdV\xaf\x8em\x0e\xcf)(\xe5\x15\x12\x18\xf7\xe6\'\xc5e\xe1U@foO|\x0e\x93|-\x0e\x84x/\xcb\x1bS^YolN\n\xed|\x1d5\x0e\x16\x9d\x04_.\xaa\xa4\xbb/\x94\xcd\x14\x95v\xf85\xe5\xee\xcbD\x18g}\x04D\xe5\x1f\xaf\xcb\xed*\xfa\xc5\x0b\x1d2\x0b\xc2#\xd2b6\x01\xae\xe6\xdfj6:$)K\xfb;\x00\xf2f\x8d\xfc@N\x9f\xa1\x7f\xe96\xe6b\x07V\xa6\x91\x8f}\xe2\xde4?8\x0f\xab\x83\xfd\xe9\x11\x12K\xe5\x08\xa4\x82\x0180\x82\x014\xa0\x03\x02\x01\x12\xa2\x82\x01+\x04\x82\x01\'\\>\t\xe4\x1d8,a(\x7f\x1e\xd2\x8dHH\x9c\xef\x8d\x1fqW\xbf(\x97S+\rs_zM\xee\xa7\xc2\x1a\x8eh1\xa4\xcb\x06\xed\x8e\xe6\xc0\x9a\xf7\x93g5\xa5vp\x0e~G\xaf:\xbb<\xaa2\x0e\xf8+l \xc5\xdb\x17,\xa9\x99\xae\x80\r\x0f\xdd4\x92\xf1\xa3h\xc3)^*I\x92\x01\x9f\x06jW\x1a\xac\x02r\x05\n`d\xd1\xda\xf5i\x9e\x04e\xa9\\,2\xf9\xa55\x16m\x92\x7fI\xe6\x81\x98\xe5V\xa1i\x17\xf0\x10\xf9\x16\x92\x81\x95mJ\xe3\xcc\x0f\x83gW\xca\xc5l\xc2~\x1fFmt~\x81\xd5%{\x87\xe1!\x15\xc4o\x163,\x8eg\xd4\xc5\xdc\xd7\x11at\x87v\x13j\xd0/\x07z/\xee\xd6\xd8b\x0b(\xae*\xd7\x87\xe3\xb7\x1b\xf8d\xd8\xbc\xadL7\x18a0o`\xa7\xd1Q\xe8\xf3\x9a\xf1\x95\xf2\xec\x06\xc0v\xba\x81\xc4\xbc7@8\x08\xd9\xa7{~\x8fz\xeeE\xdc\xc9\x81"\xb6b\x872=.\x19$KP\xcd\xfd\x85\x861@c\x05,\xa9\x98\xe9\x8e\x84A\x9f\n#&\xb2\xf4"\xa5O\x86\xc9\x93\xcb\x97\x0e\x18C\xf5\x00^\xe8De\x94|\xbaf'
+
+= GSS_Accept_sec_context (KRB_AP_REQ->KRB_AP_REP) - DCE_STYLE
+
+with KrbRandomPatcher():
+    srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+
+assert negResult == 1
+assert isinstance(tok, KRB_AP_REP)
+ap_rep = KRB_AP_REP(bytes(tok))
+
+apreppart = ap_rep.encPart.decrypt(client.KEY)
+assert apreppart.ctime == "20240305165255Z"
+assert apreppart.subkey.keyvalue == b"0000000000000000"
+assert apreppart.subkey.keytype == 17
+
+# Hardcode (yes this will probably require updating this test)
+bytes(tok)
+assert bytes(tok) == b'on0l\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0f\xa2`0^\xa0\x03\x02\x01\x12\xa2W\x04UaS\xeck\xcc\xad~\xfa^\x8d\xca\xbb\xc5\xd2/\xfd\xd3\xc3\xd9\xadN`\xd2;\xd7{\xb7\xf4p.\xa9\x9a\xb1}D\xc6|_t\n\r"M\xcd\xe2\t\xf0Ri\xc7\xcf\xb5\xefr9\xf0`iS7N\x06qKP\x06\xde\xc4\x18\xd5_\xcb\x0ct\x03k\xbc\xb9\x1adT\x03\xc1\x8bM'
+
+= GSS_Init_sec_context (SPNEGO_negToken: KRB_AP_REP->KRB_AP_REP) - DCE_STYLE
+
+with KrbRandomPatcher():
+    clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+
+assert negResult == 0
+assert isinstance(tok, KRB_AP_REP)
+ap_rep = KRB_AP_REP(bytes(tok))
+
+apreppart = ap_rep.encPart.decrypt(client.KEY)
+assert apreppart.ctime == "20240305165255Z"
+
+# Hardcode (yes this will probably require updating this test)
+bytes(tok)
+assert bytes(tok) == b'oQ0O\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0f\xa2C0A\xa0\x03\x02\x01\x12\xa2:\x048aS\xeck\xcc\xad~\xfa^\x8d\xca\xbb\xc5\xd2/\xfd.e\xec\xef\xce\x91\x1d\x99\xd8\xcd2\x01\x0fA\xe4\xde\x12\xf4\xbc>\xe1\x98T\xc4\x82\xb5w\x1arZb\xdb\x9b-+\xf3\xfa\x0b\xdeD'
+
+= GSS_Accept_sec_context (KRB_AP_REP->OK) - DCE_STYLE
+
+with KrbRandomPatcher():
+    srvcontext, tok, negResult = server.GSS_Accept_sec_context(srvcontext, tok)
+
+assert negResult == 0
+assert tok is None

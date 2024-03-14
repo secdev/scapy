@@ -1187,8 +1187,9 @@ _checksums = {
 class Key(object):
     def __init__(self,
                  etype: Union[EncryptionType, int, None] = None,
+                 key: bytes = b"",
                  cksumtype: Union[ChecksumType, int, None] = None,
-                 key: bytes = b"") -> None:
+                 ) -> None:
         """
         Kerberos Key object.
 
