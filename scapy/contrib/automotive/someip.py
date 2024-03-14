@@ -164,10 +164,23 @@ class SOMEIP(Packet):
     def default_payload_class(self, payload):
         return SOMEIP
 
-    def pre_dissect(self, s):
+    def do_dissect(self, s):
         # type: (bytes) -> bytes
-        """DEV: is called right before the current layer is dissected"""
-        return s
+        # In real world communication scenarios, some implementations don't
+        # respect the SOME/IP standard and send shorter packets as defined
+        # by the standard. In case we only receive a minimal header
+        # containing the length field, we try to cut the byte stream to be
+        # able to dissect following packets correctly.
+        payl = b""
+        if len(s) >= 8:
+            try:
+                length = struct.unpack('!I', s[4:8])[0] + 8
+                s, payl = s[:length], s[length:]
+            except Exception:
+                pass
+
+        s = super().do_dissect(s)
+        return s + payl
 
     def fragment(self, fragsize=1392):
         """Fragment SOME/IP-TP"""
