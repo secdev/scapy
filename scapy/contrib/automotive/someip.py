@@ -110,16 +110,16 @@ class SOMEIP(Packet):
         }),
         ConditionalField(
             BitScalingField("offset", 0, 28, scaling=16, unit="bytes"),
-            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len > SOMEIP.LEN_OFFSET)),  # noqa: E501
+            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len >= SOMEIP.LEN_OFFSET_TP)),  # noqa: E501
         ConditionalField(
             BitField("res", 0, 3),
-            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len > SOMEIP.LEN_OFFSET)),  # noqa: E501
+            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len >= SOMEIP.LEN_OFFSET_TP)),  # noqa: E501
         ConditionalField(
             BitField("more_seg", 0, 1),
-            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len > SOMEIP.LEN_OFFSET)),  # noqa: E501
+            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len >= SOMEIP.LEN_OFFSET_TP)),  # noqa: E501
         ConditionalField(PacketListField(
             "data", [Raw()], Raw,
-            length_from=lambda pkt: pkt.len - (SOMEIP.LEN_OFFSET_TP if SOMEIP._is_tp(pkt) else SOMEIP.LEN_OFFSET),  # noqa: E501
+            length_from=lambda pkt: pkt.len - (SOMEIP.LEN_OFFSET_TP if (SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len >= SOMEIP.LEN_OFFSET_TP)) else SOMEIP.LEN_OFFSET),  # noqa: E501
             next_cls_cb=lambda pkt, lst, cur, remain:
                 SOMEIP.get_payload_cls_by_srv_id(pkt, lst, cur, remain)),
             lambda pkt: pkt.len and pkt.len > SOMEIP.LEN_OFFSET)
@@ -173,11 +173,13 @@ class SOMEIP(Packet):
         # able to dissect following packets correctly.
         payl = b""
         if len(s) >= 8:
+            length = struct.unpack('!I', s[4:8])[0] + 8
+            s, payl = s[:length], s[length:]
             try:
-                length = struct.unpack('!I', s[4:8])[0] + 8
-                s, payl = s[:length], s[length:]
-            except (Exception, struct.error):
-                pass
+                s = super().do_dissect(s)
+                return s + payl
+            except struct.error:
+                return payl
 
         s = super().do_dissect(s)
         return s + payl
