@@ -176,7 +176,7 @@ class SOMEIP(Packet):
             try:
                 length = struct.unpack('!I', s[4:8])[0] + 8
                 s, payl = s[:length], s[length:]
-            except Exception:
+            except (Exception, struct.error):
                 pass
 
         s = super().do_dissect(s)
