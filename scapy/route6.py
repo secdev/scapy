@@ -360,3 +360,6 @@ class Route6:
 
 
 conf.route6 = Route6()
+
+# Reload interfaces
+conf.ifaces.reload()
