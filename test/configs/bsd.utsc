@@ -17,7 +17,8 @@
     "test/contrib/automotive/ecu_am.uts",
     "test/contrib/automotive/gm/gmlanutils.uts",
     "test/contrib/isotp_packet.uts",
-    "test/contrib/isotpscan.uts"
+    "test/contrib/isotpscan.uts",
+    "test/contrib/isotp_soft_socket.uts"
   ],
   "onlyfailed": true,
   "preexec": {
