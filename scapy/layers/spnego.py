@@ -6,9 +6,14 @@
 """
 SPNEGO
 
-Implements parts of
+Implements parts of:
+
 - GSSAPI SPNEGO: RFC4178 > RFC2478
 - GSSAPI SPNEGO NEGOEX: [MS-NEGOEX]
+
+.. note::
+    You will find more complete documentation for this layer over at
+    `GSSAPI <https://scapy.readthedocs.io/en/latest/layers/gssapi.html#spnego>`_
 """
 
 import struct
@@ -494,8 +499,8 @@ class SPNEGOSSP(SSP):
         ssp = SPNEGOSSP([
             NTLMSSP(
                 IDENTITIES={
-                    "User1": NTOWFv2("Password1", "User1", "DOMAIN"),
-                    "Administrator": NTOWFv2("Password123!", "Administrator", "DOMAIN"),
+                    "User1": MD4le("Password1"),
+                    "Administrator": MD4le("Password123!"),
                 }
             ),
             KerberosSSP(

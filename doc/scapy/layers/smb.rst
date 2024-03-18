@@ -7,6 +7,8 @@ You can use the :class:`~scapy.layers.smb2.SMB2_Header` to dissect or build SMB2
 
 .. warning:: Encryption is currently not supported in neither the client nor server.
 
+.. _client:
+
 SMB 2/3 client
 --------------
 
@@ -206,6 +208,8 @@ It's also accessible as the ``ins`` attribute of a ``SMB_SOCKET``, or the ``sock
     >>> cli = smbclient("server1.domain.local", "Administrator@domain.local", password="password", cli=False)
     >>> lowsmbsock = cli.sock
     >>> resp = cli.sock.sr1(SMB2_Tree_Connect_Request(Path=r"\\server1\c$"))
+
+.. _server:
 
 SMB 2/3 server
 --------------

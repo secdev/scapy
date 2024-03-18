@@ -18,8 +18,9 @@ This is implemented in the following SSPs:
     - :class:`~scapy.layers.spnego.SPNEGOSSP`
     - :class:`~scapy.layers.msrpce.msnrpc.NetlogonSSP`
 
-You can find the general GSSAPI documentation at
-https://scapy.readthedocs.io/en/latest/layers/gssapi.html
+.. note::
+    You will find more complete documentation for this layer over at
+    `GSSAPI <https://scapy.readthedocs.io/en/latest/layers/gssapi.html>`_
 """
 
 import abc

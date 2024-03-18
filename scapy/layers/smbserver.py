@@ -11,6 +11,10 @@ This provides a [MS-SMB2] server that can:
 - host a DCE/RPC server
 
 This is a Scapy Automaton that is supposedly easily extendable.
+
+.. note::
+    You will find more complete documentation for this layer over at
+    `SMB <https://scapy.readthedocs.io/en/latest/layers/smb.html#server>`_
 """
 
 import functools

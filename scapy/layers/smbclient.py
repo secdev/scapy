@@ -5,6 +5,11 @@
 
 """
 SMB 1 / 2 Client Automaton
+
+
+.. note::
+    You will find more complete documentation for this layer over at
+    `SMB <https://scapy.readthedocs.io/en/latest/layers/smb.html#client>`_
 """
 
 import io
