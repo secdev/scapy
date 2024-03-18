@@ -110,19 +110,19 @@ class SOMEIP(Packet):
         }),
         ConditionalField(
             BitScalingField("offset", 0, 28, scaling=16, unit="bytes"),
-            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len >= SOMEIP.LEN_OFFSET_TP)),  # noqa: E501
+            lambda pkt: SOMEIP._is_tp(pkt)),  # noqa: E501
         ConditionalField(
             BitField("res", 0, 3),
-            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len >= SOMEIP.LEN_OFFSET_TP)),  # noqa: E501
+            lambda pkt: SOMEIP._is_tp(pkt)),  # noqa: E501
         ConditionalField(
             BitField("more_seg", 0, 1),
-            lambda pkt: SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len >= SOMEIP.LEN_OFFSET_TP)),  # noqa: E501
+            lambda pkt: SOMEIP._is_tp(pkt)),  # noqa: E501
         ConditionalField(PacketListField(
             "data", [Raw()], Raw,
             length_from=lambda pkt: pkt.len - (SOMEIP.LEN_OFFSET_TP if (SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len >= SOMEIP.LEN_OFFSET_TP)) else SOMEIP.LEN_OFFSET),  # noqa: E501
             next_cls_cb=lambda pkt, lst, cur, remain:
                 SOMEIP.get_payload_cls_by_srv_id(pkt, lst, cur, remain)),
-            lambda pkt: pkt.len and pkt.len > SOMEIP.LEN_OFFSET)
+            lambda pkt: SOMEIP._is_tp(pkt))  # noqa: E501
     ]
 
     payload_cls_by_srv_id = dict()  # To be customized
@@ -161,28 +161,13 @@ class SOMEIP(Packet):
         else:
             return pkt[15] & 0x20
 
-    def default_payload_class(self, payload):
-        return SOMEIP
-
-    def do_dissect(self, s):
-        # type: (bytes) -> bytes
-        # In real world communication scenarios, some implementations don't
-        # respect the SOME/IP standard and send shorter packets as defined
-        # by the standard. In case we only receive a minimal header
-        # containing the length field, we try to cut the byte stream to be
-        # able to dissect following packets correctly.
-        payl = b""
-        if len(s) >= 8:
-            length = struct.unpack('!I', s[4:8])[0] + 8
-            s, payl = s[:length], s[length:]
-            try:
-                s = super().do_dissect(s)
-                return s + payl
-            except struct.error:
-                return payl
-
-        s = super().do_dissect(s)
-        return s + payl
+    @staticmethod
+    def _is_sd(pkt):
+        """Returns true if pkt is using SOMEIP-SD, else returns false."""
+        if isinstance(pkt, Packet):
+            return pkt.srv_id == 0xffff and pkt.sub_id == 0x8100
+        else:
+            return pkt[:4] == b"\xff\xff\x81\x00"
 
     def fragment(self, fragsize=1392):
         """Fragment SOME/IP-TP"""
