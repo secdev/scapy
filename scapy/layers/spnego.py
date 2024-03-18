@@ -61,6 +61,7 @@ from scapy.layers.gssapi import (
     GSS_S_CONTINUE_NEEDED,
     SSP,
     _GSSAPI_OIDS,
+    _GSSAPI_SIGNATURE_OIDS,
 )
 
 # SSP Providers
@@ -237,6 +238,7 @@ class SPNEGO_negToken(ASN1_Packet):
 # Register for the GSS API Blob
 
 _GSSAPI_OIDS["1.3.6.1.5.5.2"] = SPNEGO_negToken
+_GSSAPI_SIGNATURE_OIDS["1.3.6.1.5.5.2"] = SPNEGO_negToken
 
 
 def mechListMIC(oids):
@@ -898,7 +900,7 @@ class SPNEGOSSP(SSP):
         return self._common_spnego_handler(Context, True, val=val, req_flags=req_flags)
 
     def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
-        return self._common_spnego_handler(Context, False, val=val)
+        return self._common_spnego_handler(Context, False, val=val, req_flags=0)
 
     def GSS_Passive(self, Context: CONTEXT, val=None):
         if Context is None:

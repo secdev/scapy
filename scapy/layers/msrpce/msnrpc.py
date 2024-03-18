@@ -338,7 +338,7 @@ class NetlogonSSP(SSP):
 
     def GSS_Accept_sec_context(self, Context, val=None):
         if Context is None:
-            Context = self.CONTEXT(False)
+            Context = self.CONTEXT(False, req_flags=0)
 
         if Context.state == self.STATE.INIT:
             Context.state = self.STATE.SRV_SENT_NL

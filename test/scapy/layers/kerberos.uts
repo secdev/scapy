@@ -1499,3 +1499,50 @@ with KrbRandomPatcher():
 
 assert negResult == 0
 assert tok is None
+
+
+= GSS_Wrap/GSS_Unwrap: client sends wrapped payload without confidentiality
+
+data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"
+
+edata, sig = client.GSS_Wrap(
+    clicontext,
+    data,
+    conf_req_flag=False,
+)
+assert edata == b""
+assert sig.TOK_ID == b"\x05\x04"
+assert sig.root.Flags == 4
+assert sig.root.EC == 12
+assert sig.root.RRC == 12
+assert bytes(sig) == b'\x05\x04\x04\xff\x00\x0c\x00\x0c\x00\x00\x00\x00@\x00\x00\x00\x8f\x0c\xab\x90h\xc8\xdf1\x078\x03\x0ctestAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE'
+
+ddata = server.GSS_Unwrap(
+    srvcontext,
+    edata,
+    sig,
+)
+assert ddata == data
+
+= GSS_Wrap/GSS_Unwrap: server answers back without confidentiality
+
+data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"
+
+edata, sig = server.GSS_Wrap(
+    clicontext,
+    data,
+    conf_req_flag=False,
+)
+assert edata == b""
+assert sig.TOK_ID == b"\x05\x04"
+assert sig.root.Flags == 4
+assert sig.root.EC == 12
+assert sig.root.RRC == 12
+assert bytes(sig) == b'\x05\x04\x04\xff\x00\x0c\x00\x0c\x00\x00\x00\x00@\x00\x00\x00\x8f\x0c\xab\x90h\xc8\xdf1\x078\x03\x0ctestAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE'
+
+ddata = client.GSS_Unwrap(
+    srvcontext,
+    edata,
+    sig,
+)
+assert ddata == data

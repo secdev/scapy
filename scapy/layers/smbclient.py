@@ -33,6 +33,7 @@ from scapy.layers.dcerpc import NDRUnion, find_dcerpc_interface
 from scapy.layers.gssapi import (
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
+    GSS_C_FLAGS,
 )
 from scapy.layers.inet6 import Net6
 from scapy.layers.kerberos import (
@@ -275,7 +276,14 @@ class SMB_Client(Automaton):
 
     @ATMT.state()
     def NEGOTIATED(self, ssp_blob=None):
-        ssp_tuple = self.ssp.GSS_Init_sec_context(self.sspcontext, ssp_blob)
+        ssp_tuple = self.ssp.GSS_Init_sec_context(
+            self.sspcontext,
+            ssp_blob,
+            req_flags=(
+                GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
+                | (GSS_C_FLAGS.GSS_C_INTEG_FLAG if self.SecurityMode != 0 else 0)
+            ),
+        )
         return ssp_tuple
 
     # DEV: add a condition on NEGOTIATED with prio=0

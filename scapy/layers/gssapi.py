@@ -472,7 +472,7 @@ class SSP:
 
     # sect 2.3.4
 
-    def GSS_Unwrap(self, Context: CONTEXT, input_message: bytes):
+    def GSS_Unwrap(self, Context: CONTEXT, input_message: bytes, signature):
         return self.GSS_UnwrapEx(
             Context,
             [
@@ -482,6 +482,7 @@ class SSP:
                     data=input_message,
                 )
             ],
+            signature,
         )[0].data
 
     # MISC
