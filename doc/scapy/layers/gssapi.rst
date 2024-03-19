@@ -13,6 +13,8 @@ Scapy provides access to various `Security Providers <https://learn.microsoft.co
 Usage
 -----
 
+.. _ssplist:
+
 The following SSPs are currently provided:
 
     - :class:`~scapy.layers.ntlm.NTLMSSP`
@@ -36,6 +38,8 @@ Let's implement our own client that uses one of those SSPs.
 
 Client
 ~~~~~~
+
+.. _ntlm:
 
 First let's create the SSP. We'll take :class:`~scapy.layers.ntlm.NTLMSSP` as an example but the others would work just as well.
 
@@ -79,6 +83,8 @@ To give an example, this is what is done in the LDAP client:
             self.sspcontext, GSSAPI_BLOB(resp.protocolOp.serverSaslCreds.val)
         )
 
+.. _spnego:
+
 If you want to use :class:`~scapy.layers.spnego.SPEGOSSP`, you could wrap the SSP as so:
 
 .. code:: python
@@ -115,3 +121,17 @@ Server
 
 Implementing a server is very similar to a client but you'd use :func:`~scapy.layers.gssapi.SSP.GSS_Accept_sec_context` instead.
 The client is properly authenticated when `status` is `GSS_S_COMPLETE`.
+
+Let's use :class:`~scapy.layers.ntlm.NTLMSSP` as an example of server-side SSP.
+
+.. code:: python
+
+    from scapy.layers.ntlm import *
+    clissp = NTLMSSP(
+        IDENTITIES={
+            "User1": MD4le("Password1!"),
+            "User2": MD4le("Password2!"),
+        }
+    )
+
+You'll find other examples of how to instantiate a SSP in the docstrings of each SSP. See `the list <#ssplist>`_

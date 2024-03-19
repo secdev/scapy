@@ -22,7 +22,7 @@ Implements parts of:
 
 
 .. note::
-    You will find more complete documentation for this layer over
+    You will find more complete documentation for this layer over at
     `Kerberos <https://scapy.readthedocs.io/en/latest/layers/kerberos.html>`_
 
 Example decryption::
@@ -1879,7 +1879,6 @@ class _Error_Field(_ASN1FString_PacketField):
         if not val[0].val:
             return val
         if pkt.dataType.val == 3:  # KERB_ERR_TYPE_EXTENDED
-            print(val[0].val)
             return KERB_EXT_ERROR(val[0].val, _underlayer=pkt), val[1]
         return val
 
@@ -3148,8 +3147,6 @@ class KerberosSSP(SSP):
     """
     The KerberosSSP
 
-    :param auth_level: One of DCE_C_AUTHN_LEVEL
-
     Client settings:
 
     :param ST: the service ticket to use for access.
@@ -3359,18 +3356,28 @@ class KerberosSSP(SSP):
             else:
                 # No confidentiality is requested
                 # {"header" | plaintext-data | get_mic(plaintext-data | "header")}
-                raise NotImplementedError
                 # 1. Add first 16 octets of the Wrap token "header"
-                Data += bytes(tok)[:16]
+                ToSign = Data
+                ToSign += bytes(tok)[:16]
                 # 2. get_mic() is the checksum operation for the required
                 # checksum mechanism
-                # XXX broken, bad 0404 should be 0504 XXX FIXME
-                tok.root.Data = self.GSS_GetMIC(Context, Data, qop_req=qop_req)
-                # "The RRC field is 12 if no encryption is requested"
-                tok.root.RRC = 12
+                Mic = Context.KrbSessionKey.make_checksum(
+                    keyusage=Context.SendSealKeyUsage,
+                    text=ToSign,
+                )
                 # In Wrap tokens without confidentiality, the EC field SHALL be used
                 # to encode the number of octets in the trailing checksum
                 tok.root.EC = 12  # len(tok.root.Data) == 12 for AES
+                # "The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption
+                # is requested"
+                tok.root.RRC = 12
+                # 3. Concat and pack
+                for msg in msgs:
+                    if msg.sign:
+                        msg.data = b""
+                Data = Data + Mic
+                # 4. Rotate
+                tok.root.Data = strrot(Data, tok.root.RRC)
                 return msgs, tok
         else:
             raise NotImplementedError
@@ -3383,10 +3390,10 @@ class KerberosSSP(SSP):
         """
         if Context.KrbSessionKey.etype in [17, 18]:  # AES
             confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
+            # Real separation starts now: RFC4121 sect 4.2.4
             # Concatenate the data
             Data = signature.root.Data
             Data += b"".join(x.data for x in msgs if x.sign or x.conf_req_flag)
-            # Real separation starts now: RFC4121 sect 4.2.4
             if confidentiality:
                 # 1. Un-Rotate
                 Data = strrot(Data, signature.root.RRC + signature.root.EC, right=False)
@@ -3415,7 +3422,33 @@ class KerberosSSP(SSP):
                         offset += msglen
                 return msgs
             else:
-                raise NotImplementedError
+                # No confidentiality is requested
+                # 1. Un-Rotate
+                Data = strrot(Data, signature.root.RRC, right=False)
+                # 2. Split
+                Data, Mic = Data[:-signature.root.EC], Data[-signature.root.EC:]
+                # "Both the EC field and the RRC field in
+                # the token header SHALL be filled with zeroes for the purpose of
+                # calculating the checksum."
+                ToSign = Data
+                hdr = signature.copy()
+                hdr.root.RRC = 0
+                hdr.root.EC = 0
+                # Concatenate the data
+                ToSign += bytes(hdr)[:16]
+                # 3. Calculate the signature
+                sig = Context.KrbSessionKey.make_checksum(
+                    keyusage=Context.RecvSealKeyUsage,
+                    text=ToSign,
+                )
+                # 4. Compare
+                if sig != Mic:
+                    raise ValueError("ERROR: Checksums don't match")
+                # 5. Split
+                for msg in msgs:
+                    if msg.sign:
+                        msg.data = Data
+                return msgs
         else:
             raise NotImplementedError
 
@@ -3642,7 +3675,7 @@ class KerberosSSP(SSP):
     def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
         if Context is None:
             # New context
-            Context = self.CONTEXT(IsAcceptor=True)
+            Context = self.CONTEXT(IsAcceptor=True, req_flags=0)
 
         from scapy.libs.rfc3961 import Key, EncryptionType
 

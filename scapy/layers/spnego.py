@@ -6,9 +6,14 @@
 """
 SPNEGO
 
-Implements parts of
+Implements parts of:
+
 - GSSAPI SPNEGO: RFC4178 > RFC2478
 - GSSAPI SPNEGO NEGOEX: [MS-NEGOEX]
+
+.. note::
+    You will find more complete documentation for this layer over at
+    `GSSAPI <https://scapy.readthedocs.io/en/latest/layers/gssapi.html#spnego>`_
 """
 
 import struct
@@ -61,6 +66,7 @@ from scapy.layers.gssapi import (
     GSS_S_CONTINUE_NEEDED,
     SSP,
     _GSSAPI_OIDS,
+    _GSSAPI_SIGNATURE_OIDS,
 )
 
 # SSP Providers
@@ -237,6 +243,7 @@ class SPNEGO_negToken(ASN1_Packet):
 # Register for the GSS API Blob
 
 _GSSAPI_OIDS["1.3.6.1.5.5.2"] = SPNEGO_negToken
+_GSSAPI_SIGNATURE_OIDS["1.3.6.1.5.5.2"] = SPNEGO_negToken
 
 
 def mechListMIC(oids):
@@ -492,8 +499,8 @@ class SPNEGOSSP(SSP):
         ssp = SPNEGOSSP([
             NTLMSSP(
                 IDENTITIES={
-                    "User1": NTOWFv2("Password1", "User1", "DOMAIN"),
-                    "Administrator": NTOWFv2("Password123!", "Administrator", "DOMAIN"),
+                    "User1": MD4le("Password1"),
+                    "Administrator": MD4le("Password123!"),
                 }
             ),
             KerberosSSP(
@@ -898,7 +905,7 @@ class SPNEGOSSP(SSP):
         return self._common_spnego_handler(Context, True, val=val, req_flags=req_flags)
 
     def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
-        return self._common_spnego_handler(Context, False, val=val)
+        return self._common_spnego_handler(Context, False, val=val, req_flags=0)
 
     def GSS_Passive(self, Context: CONTEXT, val=None):
         if Context is None:

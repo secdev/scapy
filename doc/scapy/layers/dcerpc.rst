@@ -359,10 +359,10 @@ Of course that also works over :const:`~scapy.layers.dcerpc.DCERPC_Transport.NCA
 
 .. code-block:: python
 
-    from scapy.layers.ntlm import NTLMSSP
+    from scapy.layers.ntlm import NTLMSSP, MD4le
     ssp = NTLMSSP(
         IDENTITIES={
-            "User1": NTOWFv2("Password", "User1", "DOMAIN"),
+            "User1": MD4le("Password"),
         }
     )
 
