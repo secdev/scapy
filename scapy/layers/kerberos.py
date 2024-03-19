@@ -1737,8 +1737,9 @@ class _KRBERROR_data_Field(_ASN1FString_PacketField):
             # 24: KDC_ERR_PREAUTH_FAILED
             # 25: KDC_ERR_PREAUTH_REQUIRED
             return MethodData(val[0].val, _underlayer=pkt), val[1]
-        elif pkt.errorCode.val in [18, 41, 60]:
+        elif pkt.errorCode.val in [18, 29, 41, 60]:
             # 18: KDC_ERR_CLIENT_REVOKED
+            # 29: KDC_ERR_SVC_UNAVAILABLE
             # 41: KRB_AP_ERR_MODIFIED
             # 60: KRB_ERR_GENERIC
             return KERB_ERROR_DATA(val[0].val, _underlayer=pkt), val[1]
@@ -3309,9 +3310,6 @@ class KerberosSSP(SSP):
         """
         if Context.KrbSessionKey.etype in [17, 18]:  # AES
             confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
-            # Concatenate the data
-            Data = b"".join(x.data for x in msgs if x.sign or x.conf_req_flag)
-            DataLen = len(Data)
             # Build token
             tok = KRB_InnerToken(
                 TOK_ID=b"\x05\x04",
@@ -3327,6 +3325,9 @@ class KerberosSSP(SSP):
             if confidentiality:
                 # Confidentiality is requested (see RFC4121 sect 4.3)
                 # {"header" | encrypt(plaintext-data | filler | "header")}
+                # 0. Concatenate the data
+                Data = b"".join(x.data for x in msgs if x.conf_req_flag)
+                DataLen = len(Data)
                 # 1. Add filler
                 tok.root.EC = (-DataLen) % Context.KrbSessionKey.ep.blocksize
                 Data += b"\x00" * tok.root.EC
@@ -3350,12 +3351,14 @@ class KerberosSSP(SSP):
                     msglen = len(msg.data)
                     if msg.conf_req_flag:
                         msg.data = Data[offset : offset + msglen]
-                    if msg.sign or msg.conf_req_flag:
                         offset += msglen
                 return msgs, tok
             else:
                 # No confidentiality is requested
                 # {"header" | plaintext-data | get_mic(plaintext-data | "header")}
+                # 0. Concatenate the data
+                Data = b"".join(x.data for x in msgs if x.sign)
+                DataLen = len(Data)
                 # 1. Add first 16 octets of the Wrap token "header"
                 ToSign = Data
                 ToSign += bytes(tok)[:16]
@@ -3391,10 +3394,10 @@ class KerberosSSP(SSP):
         if Context.KrbSessionKey.etype in [17, 18]:  # AES
             confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
             # Real separation starts now: RFC4121 sect 4.2.4
-            # Concatenate the data
-            Data = signature.root.Data
-            Data += b"".join(x.data for x in msgs if x.sign or x.conf_req_flag)
             if confidentiality:
+                # 0. Concatenate the data
+                Data = signature.root.Data
+                Data += b"".join(x.data for x in msgs if x.conf_req_flag)
                 # 1. Un-Rotate
                 Data = strrot(Data, signature.root.RRC + signature.root.EC, right=False)
                 # 2. Decrypt
@@ -3418,11 +3421,13 @@ class KerberosSSP(SSP):
                     msglen = len(msg.data)
                     if msg.conf_req_flag:
                         msg.data = Data[offset : offset + msglen]
-                    if msg.sign or msg.conf_req_flag:
                         offset += msglen
                 return msgs
             else:
                 # No confidentiality is requested
+                # 0. Concatenate the data
+                Data = signature.root.Data
+                Data += b"".join(x.data for x in msgs if x.sign)
                 # 1. Un-Rotate
                 Data = strrot(Data, signature.root.RRC, right=False)
                 # 2. Split
