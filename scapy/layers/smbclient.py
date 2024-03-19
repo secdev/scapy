@@ -255,6 +255,7 @@ class SMB_Client(Automaton):
             else:
                 if SMB2_Negotiate_Protocol_Response in pkt:
                     self.Dialect = pkt.DialectRevision
+                self.update_smbheader(pkt)
                 raise self.NEGOTIATED(ssp_blob)
         elif SMBNegotiate_Response_Security in pkt:
             # Non-extended SMB1
@@ -290,6 +291,19 @@ class SMB_Client(Automaton):
             ),
         )
         return ssp_tuple
+
+    def update_smbheader(self, pkt):
+        """
+        Called when receiving a SMB2 packet to update the current smb_header
+        """
+        # Some values should not be updated when ASYNC
+        if not pkt.Flags.SMB2_FLAGS_ASYNC_COMMAND:
+            # [MS-SMB2] sect 3.2.5.1.4 - we charge what we are granted
+            self.smb_header.CreditCharge = pkt.CreditRequest
+            # Update IDs
+            self.smb_header.SessionId = pkt.SessionId
+            self.smb_header.TID = pkt.TID
+            self.smb_header.PID = pkt.PID
 
     # DEV: add a condition on NEGOTIATED with prio=0
 
@@ -435,10 +449,7 @@ class SMB_Client(Automaton):
 
     @ATMT.action(incoming_data_received_smb)
     def receive_data_smb(self, pkt):
-        if not pkt.Flags.SMB2_FLAGS_ASYNC_COMMAND:
-            # PID and TID are not set when ASYNC
-            self.smb_header.TID = pkt.TID
-            self.smb_header.PID = pkt.PID
+        self.update_smbheader(pkt)
         resp = pkt[SMB2_Header].payload
         if isinstance(resp, SMB2_Error_Response):
             if pkt.Status == 0x00000103:  # STATUS_PENDING
