@@ -3845,13 +3845,13 @@ class KerberosSSP(SSP):
         if Context.IsAcceptor is not IsAcceptor:
             return
         # Swap everything
-        self.SendSealKeyUsage, self.RecvSealKeyUsage = (
-            self.RecvSealKeyUsage,
-            self.SendSealKeyUsage,
+        Context.SendSealKeyUsage, Context.RecvSealKeyUsage = (
+            Context.RecvSealKeyUsage,
+            Context.SendSealKeyUsage,
         )
-        self.SendSignKeyUsage, self.RecvSignKeyUsage = (
-            self.RecvSignKeyUsage,
-            self.SendSignKeyUsage,
+        Context.SendSignKeyUsage, Context.RecvSignKeyUsage = (
+            Context.RecvSignKeyUsage,
+            Context.SendSignKeyUsage,
         )
         Context.IsAcceptor = not Context.IsAcceptor
 
