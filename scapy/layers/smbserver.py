@@ -17,7 +17,6 @@ This is a Scapy Automaton that is supposedly easily extendable.
     `SMB <https://scapy.readthedocs.io/en/latest/layers/smb.html#server>`_
 """
 
-import functools
 import hashlib
 import os
 import pathlib
@@ -27,7 +26,7 @@ import time
 
 from scapy.arch import get_if_addr
 from scapy.automaton import ATMT, Automaton
-from scapy.config import conf, crypto_validator
+from scapy.config import conf
 from scapy.error import log_runtime, log_interactive
 from scapy.volatile import RandUUID
 
@@ -57,12 +56,12 @@ from scapy.layers.smb import (
     SMB_Header,
 )
 from scapy.layers.smb2 import (
-    DirectTCP,
     DFS_REFERRAL_ENTRY1,
     DFS_REFERRAL_V3,
+    DirectTCP,
+    FILE_BOTH_DIR_INFORMATION,
     FILE_FULL_DIR_INFORMATION,
     FILE_ID_BOTH_DIR_INFORMATION,
-    FILE_BOTH_DIR_INFORMATION,
     FILE_NAME_INFORMATION,
     FileAllInformation,
     FileAlternateNameInformation,
@@ -78,15 +77,15 @@ from scapy.layers.smb2 import (
     FileStreamInformation,
     NETWORK_INTERFACE_INFO,
     SECURITY_DESCRIPTOR,
-    SMB2_CREATE_DURABLE_HANDLE_RESPONSE_V2,
-    SMB2_CREATE_QUERY_MAXIMAL_ACCESS_RESPONSE,
-    SMB2_CREATE_QUERY_ON_DISK_ID,
     SMB2_Cancel_Request,
     SMB2_Change_Notify_Request,
     SMB2_Change_Notify_Response,
     SMB2_Close_Request,
     SMB2_Close_Response,
     SMB2_Create_Context,
+    SMB2_CREATE_DURABLE_HANDLE_RESPONSE_V2,
+    SMB2_CREATE_QUERY_MAXIMAL_ACCESS_RESPONSE,
+    SMB2_CREATE_QUERY_ON_DISK_ID,
     SMB2_Create_Request,
     SMB2_Create_Response,
     SMB2_Echo_Request,
@@ -96,8 +95,8 @@ from scapy.layers.smb2 import (
     SMB2_FILEID,
     SMB2_Header,
     SMB2_IOCTL_Network_Interface_Info,
-    SMB2_IOCTL_RESP_GET_DFS_Referral,
     SMB2_IOCTL_Request,
+    SMB2_IOCTL_RESP_GET_DFS_Referral,
     SMB2_IOCTL_Response,
     SMB2_IOCTL_Validate_Negotiate_Info_Response,
     SMB2_Negotiate_Context,
@@ -121,15 +120,12 @@ from scapy.layers.smb2 import (
     SMB2_Tree_Disconnect_Response,
     SMB2_Write_Request,
     SMB2_Write_Response,
-    SMB2computePreauthIntegrityHashValue,
+    SMBSession,
     SMBStreamSocket,
     SOCKADDR_STORAGE,
     SRVSVC_SHARE_TYPES,
 )
 from scapy.layers.spnego import SPNEGOSSP
-
-if conf.crypto_valid:
-    from scapy.libs.rfc3961 import SP800108_KDFCTR
 
 # Import DCE/RPC
 from scapy.layers.msrpce.raw.ms_srvs import (
@@ -295,26 +291,13 @@ class SMB_Server(Automaton):
             self.rpc_server.extend(kwargs.pop("DCERPC_SERVER_CLS"))
         # Internal Session information
         self.SMB2 = False
-        self.Dialect = None
         self.NegotiateCapabilities = None
         self.GUID = RandUUID()._fix()
-        self.SMBSessionKey = None
-        self.PreauthIntegrityHashId = "SHA-512"
-        self.CipherId = "AES-128-CCM"
-        self.SigningAlgorithmId = "AES-CMAC"
-        self.Salt = None
-        self.ConnectionPreauthIntegrityHashValue = None
-        self.SessionPreauthIntegrityHashValue = None
         # Compounds are handled on receiving by the StreamSocket,
         # and on aggregated in a CompoundQueue to be sent in one go
         self.NextCompound = False
-        self.CompoundQueue = []
         self.CompoundedHandle = None
         # SSP provider
-        self.SecurityMode = kwargs.pop(
-            "SECURITY_MODE",
-            3 if self.REQUIRE_SIGNATURE else bool(ssp),
-        )
         if ssp is None:
             # No SSP => fallback on NTLM with guest
             ssp = SPNEGOSSP(
@@ -327,10 +310,19 @@ class SMB_Server(Automaton):
             )
             if self.GUEST_LOGIN is None:
                 self.GUEST_LOGIN = True
-        self.ssp = ssp
-        self.sspcontext = None
         # Initialize
         Automaton.__init__(self, *args, **kwargs)
+        # Set session options
+        self.session.ssp = ssp
+        self.session.SecurityMode = kwargs.pop(
+            "SECURITY_MODE",
+            3 if self.REQUIRE_SIGNATURE else bool(ssp),
+        )
+
+    @property
+    def session(self):
+        # session shorthand
+        return self.sock.session
 
     def vprint(self, s=""):
         """
@@ -343,83 +335,7 @@ class SMB_Server(Automaton):
                 print("> %s" % s)
 
     def send(self, pkt):
-        """
-        Handles:
-         - handle compounded requests (if any): [MS-SMB2] 3.3.5.2.7
-         - handles signing (if required)
-        """
-        # Note: impacket and wireshark get crazy on compounded+signature, but
-        # windows+samba tells we're right :D
-        if SMB2_Header in pkt:
-            if self.CompoundQueue:
-                # this is a subsequent compound: only keep the SMB2
-                pkt = pkt[SMB2_Header]
-            if self.NextCompound:
-                # [MS-SMB2] 3.2.4.1.4
-                # "Compounded requests MUST be aligned on 8-byte boundaries; the
-                # last request of the compounded requests does not need to be padded to
-                # an 8-byte boundary."
-                # [MS-SMB2] 3.1.4.1
-                # "If the message is part of a compounded chain, any
-                # padding at the end of the message MUST be used in the hash
-                # computation."
-                length = len(pkt[SMB2_Header])
-                padlen = (-length) % 8
-                if padlen:
-                    pkt.add_payload(b"\x00" * padlen)
-                pkt[SMB2_Header].NextCommand = length + padlen
-            if self.Dialect and self.SMBSessionKey and self.SecurityMode != 0:
-                # Sign SMB2 !
-                smb = pkt[SMB2_Header]
-                smb.Flags += "SMB2_FLAGS_SIGNED"
-                smb.sign(
-                    self.Dialect,
-                    self.SMBSessionKey,
-                    # SMB 3.1.1 parameters:
-                    SigningAlgorithmId=self.SigningAlgorithmId,
-                    IsClient=False,
-                )
-            if self.NextCompound:
-                # There IS a next compound. Store in queue
-                self.CompoundQueue.append(pkt)
-                return
-            else:
-                # If there are any compounded responses in store, sum them
-                if self.CompoundQueue:
-                    pkt = functools.reduce(lambda x, y: x / y, self.CompoundQueue) / pkt
-                    self.CompoundQueue.clear()
-        return super(SMB_Server, self).send(pkt)
-
-    @crypto_validator
-    def computeSMBSessionKey(self):
-        if not self.sspcontext.SessionKey:
-            # no signing key, no session key
-            return
-        # [MS-SMB2] sect 3.3.5.5.3
-        if self.Dialect >= 0x0300:
-            if self.Dialect == 0x0311:
-                label = b"SMBSigningKey\x00"
-                preauth_hash = self.SessionPreauthIntegrityHashValue
-            else:
-                label = b"SMB2AESCMAC\x00"
-                preauth_hash = b"SmbSign\x00"
-            # [MS-SMB2] sect 3.1.4.2
-            if "256" in self.CipherId:
-                L = 256
-            elif "128" in self.CipherId:
-                L = 128
-            else:
-                raise ValueError
-            self.SMBSessionKey = SP800108_KDFCTR(
-                self.sspcontext.SessionKey[:16],
-                label,  # label
-                preauth_hash,  # context
-                L,
-            )
-        elif self.Dialect <= 0x0210:
-            self.SMBSessionKey = self.sspcontext.SessionKey[:16]
-        else:
-            raise ValueError("Hmmm ? >:(")
+        return super(SMB_Server, self).send(pkt, Compounded=self.NextCompound)
 
     @ATMT.state(initial=1)
     def BEGIN(self):
@@ -442,7 +358,7 @@ class SMB_Server(Automaton):
 
     @ATMT.action(received_negotiate)
     def on_negotiate(self, pkt):
-        self.sspcontext, spnego_token = self.ssp.NegTokenInit2()
+        self.session.sspcontext, spnego_token = self.session.ssp.NegTokenInit2()
         # Build negotiate response
         DialectIndex = None
         DialectRevision = None
@@ -475,7 +391,7 @@ class SMB_Server(Automaton):
                     DialectIndex = DialectIndexes.index(b"NT LM 0.12")
         if DialectRevision and DialectRevision & 0xFF != 0xFF:
             # Version isn't SMB X.???
-            self.Dialect = DialectRevision
+            self.session.Dialect = DialectRevision
         cls = None
         if self.SMB2:
             # SMB2
@@ -541,7 +457,7 @@ class SMB_Server(Automaton):
             # Build response
             resp = self.smb_header.copy() / cls(
                 DialectRevision=DialectRevision,
-                SecurityMode=self.SecurityMode,
+                SecurityMode=self.session.SecurityMode,
                 ServerTime=(time.time() + 11644473600) * 1e7,
                 ServerStartTime=0,
                 MaxTransactionSize=65536,
@@ -557,26 +473,25 @@ class SMB_Server(Automaton):
                 resp.MaxWriteSize = 0x800000
             # SMB 3.1.1
             if DialectRevision >= 0x0311:
-                self.Salt = os.urandom(32)
                 resp.NegotiateContexts = [
                     # Preauth capabilities
                     SMB2_Negotiate_Context()
                     / SMB2_Preauth_Integrity_Capabilities(
                         # SHA-512 by default
-                        HashAlgorithms=[self.PreauthIntegrityHashId],
-                        Salt=self.Salt,
+                        HashAlgorithms=[self.session.PreauthIntegrityHashId],
+                        Salt=self.session.Salt,
                     ),
                     # Encryption capabilities
                     SMB2_Negotiate_Context()
                     / SMB2_Encryption_Capabilities(
                         # AES-128-CCM by default
-                        Ciphers=[self.CipherId],
+                        Ciphers=[self.session.CipherId],
                     ),
                     # Signing capabilities
                     SMB2_Negotiate_Context()
                     / SMB2_Signing_Capabilities(
                         # AES-128-CCM by default
-                        SigningAlgorithms=[self.SigningAlgorithmId],
+                        SigningAlgorithms=[self.session.SigningAlgorithmId],
                     ),
                 ]
         else:
@@ -588,7 +503,7 @@ class SMB_Server(Automaton):
                     "LEVEL_II_OPLOCKS+LOCK_AND_READ+NT_FIND+"
                     "LWIO+INFOLEVEL_PASSTHRU+LARGE_READX+LARGE_WRITEX"
                 ),
-                SecurityMode=self.SecurityMode,
+                SecurityMode=self.session.SecurityMode,
                 ServerTime=(time.time() + 11644473600) * 1e7,
                 ServerTimeZone=0x3C,
             )
@@ -610,23 +525,11 @@ class SMB_Server(Automaton):
                 - "SMB_SECURITY_SIGNATURE"
                 + "SMB_SECURITY_SIGNATURE_REQUIRED+IS_LONG_NAME"
             )
-        if self.Dialect and self.Dialect >= 0x0311:  # SMB 3.1.1 only
-            # [MS-SMB2] 3.3.5.4
-            # TODO: handle SMB2_SESSION_FLAG_BINDING
-            # Calculate the *Connection* PreauthIntegrityHashValue
-            self.ConnectionPreauthIntegrityHashValue = (
-                SMB2computePreauthIntegrityHashValue(
-                    b"\x00" * 64,
-                    bytes(pkt[SMB2_Header]),  # nego request
-                    HashId=self.PreauthIntegrityHashId,
-                )
-            )
-            self.ConnectionPreauthIntegrityHashValue = (
-                SMB2computePreauthIntegrityHashValue(
-                    self.ConnectionPreauthIntegrityHashValue,
-                    bytes(resp[SMB2_Header]),  # nego response
-                    HashId=self.PreauthIntegrityHashId,
-                )
+        if SMB2_Header in pkt:
+            # If required, compute sessions
+            self.session.computeSMBConnectionPreauth(
+                bytes(pkt[SMB2_Header]),  # nego request
+                bytes(resp[SMB2_Header]),  # nego response
             )
         self.send(resp)
 
@@ -649,7 +552,7 @@ class SMB_Server(Automaton):
         else:
             self.smb_header.Flags -= "SMB2_FLAGS_RELATED_OPERATIONS"
         # [MS-SMB2] sect 2.2.1.2 - Priority
-        if self.Dialect and self.Dialect >= 0x0311:
+        if (self.session.Dialect or 0) >= 0x0311:
             self.smb_header.Flags &= 0xFF8F
             self.smb_header.Flags |= int(pkt.Flags) & 0x70
         # Update IDs
@@ -692,8 +595,8 @@ class SMB_Server(Automaton):
 
     @ATMT.action(receive_setup_andx_request)
     def on_setup_andx_request(self, pkt, ssp_blob):
-        self.sspcontext, tok, status = self.ssp.GSS_Accept_sec_context(
-            self.sspcontext, ssp_blob
+        self.session.sspcontext, tok, status = self.session.ssp.GSS_Accept_sec_context(
+            self.session.sspcontext, ssp_blob
         )
         self.update_smbheader(pkt)
         if SMB2_Session_Setup_Request in pkt:
@@ -715,7 +618,7 @@ class SMB_Server(Automaton):
             else:
                 resp.Status = "STATUS_LOGON_FAILURE"
             # Reset Session preauth (SMB 3.1.1)
-            self.SessionPreauthIntegrityHashValue = None
+            self.session.SessionPreauthIntegrityHashValue = None
         else:
             # Negotiation
             if (
@@ -751,32 +654,21 @@ class SMB_Server(Automaton):
                 )
             resp.Status = 0x0 if (status == GSS_S_COMPLETE) else 0xC0000016
         # We have a response. If required, compute sessions
-        if self.Dialect and self.Dialect >= 0x0311:  # SMB 3.1.1 only
-            # [MS-SMB2] 3.3.5.5.3
-            if self.SessionPreauthIntegrityHashValue is None:
-                # New auth or failure
-                self.SessionPreauthIntegrityHashValue = (
-                    self.ConnectionPreauthIntegrityHashValue
-                )
-            # Calculate the *Session* PreauthIntegrityHashValue
-            self.SessionPreauthIntegrityHashValue = (
-                SMB2computePreauthIntegrityHashValue(
-                    self.SessionPreauthIntegrityHashValue,
-                    bytes(pkt[SMB2_Header]),  # session setup request
-                    HashId=self.PreauthIntegrityHashId,
-                )
+        if status == GSS_S_CONTINUE_NEEDED:
+            # the setup session response is used in hash
+            self.session.computeSMBSessionPreauth(
+                bytes(pkt[SMB2_Header]),  # session setup request
+                bytes(resp[SMB2_Header]),  # session setup response
             )
-            if status == GSS_S_CONTINUE_NEEDED:  # continue
-                self.SessionPreauthIntegrityHashValue = (
-                    SMB2computePreauthIntegrityHashValue(
-                        self.SessionPreauthIntegrityHashValue,
-                        bytes(resp[SMB2_Header]),  # session setup response
-                        HashId=self.PreauthIntegrityHashId,
-                    )
-                )
+        else:
+            # the setup session response is not used in hash
+            self.session.computeSMBSessionPreauth(
+                bytes(pkt[SMB2_Header]),  # session setup request
+                None,
+            )
         if status == GSS_S_COMPLETE:
             # Authentication was successful
-            self.computeSMBSessionKey()
+            self.session.computeSMBSessionKey()
             self.authenticated = True
         # and send
         self.send(resp)
@@ -921,7 +813,7 @@ class SMB_Server(Automaton):
                     Buffer=[("Output", self.rpc_server.get_response())],
                 )
             )
-        elif pkt.CtlCode == 0x00140204 and self.sspcontext.SessionKey:
+        elif pkt.CtlCode == 0x00140204 and self.session.sspcontext.SessionKey:
             # FSCTL_VALIDATE_NEGOTIATE_INFO
             # This is a security measure asking the server to validate
             # what flags were negotiated during the SMBNegotiate exchange.
@@ -935,7 +827,7 @@ class SMB_Server(Automaton):
             # > The client should accept the
             # > response provided it's properly signed".
 
-            if not self.Dialect or self.Dialect < 0x0300:
+            if (self.session.Dialect or 0) < 0x0300:
                 # SMB < 3 isn't supposed to support FSCTL_VALIDATE_NEGOTIATE_INFO
                 self._ioctl_error(Status="STATUS_FILE_CLOSED")
                 return
@@ -951,8 +843,8 @@ class SMB_Server(Automaton):
                             "Output",
                             SMB2_IOCTL_Validate_Negotiate_Info_Response(
                                 GUID=self.GUID,
-                                DialectRevision=self.Dialect,
-                                SecurityMode=self.SecurityMode,
+                                DialectRevision=self.session.Dialect,
+                                SecurityMode=self.session.SecurityMode,
                                 Capabilities=self.NegotiateCapabilities,
                             ),
                         )
@@ -1752,4 +1644,5 @@ class smbserver:
 
 if __name__ == "__main__":
     from scapy.utils import AutoArgparse
+
     AutoArgparse(smbserver)

@@ -114,18 +114,12 @@ class SMB_Client(Automaton):
         self.EXTENDED_SECURITY = kwargs.pop("EXTENDED_SECURITY", True)
         self.USE_SMB1 = kwargs.pop("USE_SMB1", False)
         self.REQUIRE_SIGNATURE = kwargs.pop("REQUIRE_SIGNATURE", False)
-        self.SecurityMode = kwargs.pop(
-            "SECURITY_MODE",
-            3 if self.REQUIRE_SIGNATURE else int(bool(ssp)),
-        )
         self.RETRY = kwargs.pop("RETRY", 0)  # optionally: retry n times session setup
         self.SMB2 = kwargs.pop("SMB2", False)  # optionally: start directly in SMB2
         self.DIALECTS = [
             0x0202
         ]  # XXX: add support for credit charge so we can upgrade this
         # Internal Session information
-        self.Authenticated = False
-        self.Dialect = None
         self.IsGuest = False
         self.ErrorStatus = None
         if ssp is None:
@@ -138,17 +132,21 @@ class SMB_Client(Automaton):
                     )
                 ]
             )
-        self.ssp = ssp
-        self.sspcontext = None
+        # Initialize
+        kwargs["sock"] = sock
         Automaton.__init__(
             self,
-            recvsock=lambda **kwargs: sock,
-            ll=lambda **kwargs: sock,
             *args,
             **kwargs,
         )
         if self.is_atmt_socket:
             self.smb_sock_ready = threading.Event()
+        # Set session options
+        self.session.ssp = ssp
+        self.session.SecurityMode = kwargs.pop(
+            "SECURITY_MODE",
+            3 if self.REQUIRE_SIGNATURE else int(bool(ssp)),
+        )
 
     @classmethod
     def from_tcpsock(cls, sock, **kwargs):
@@ -158,16 +156,10 @@ class SMB_Client(Automaton):
             **kwargs,
         )
 
-    def send(self, pkt):
-        if self.Authenticated and self.sspcontext.SessionKey:
-            if isinstance(pkt.payload, SMB2_Header):
-                # Sign SMB2 !
-                smb = pkt[SMB2_Header]
-                smb.Flags += "SMB2_FLAGS_SIGNED"
-                smb.sign(self.Dialect, self.sspcontext.SessionKey)
-        # TODO: compute creditscharge
-        # currently the client is stuck on 2.0.2 because of that
-        return super(SMB_Client, self).send(pkt)
+    @property
+    def session(self):
+        # session shorthand
+        return self.sock.session
 
     @ATMT.state(initial=1)
     def BEGIN(self):
@@ -254,7 +246,7 @@ class SMB_Client(Automaton):
                 raise self.SMB2_NEGOTIATE()
             else:
                 if SMB2_Negotiate_Protocol_Response in pkt:
-                    self.Dialect = pkt.DialectRevision
+                    self.session.Dialect = pkt.DialectRevision
                 self.update_smbheader(pkt)
                 raise self.NEGOTIATED(ssp_blob)
         elif SMBNegotiate_Response_Security in pkt:
@@ -275,19 +267,23 @@ class SMB_Client(Automaton):
         pkt = self.smb_header.copy() / SMB2_Negotiate_Protocol_Request(
             Dialects=self.DIALECTS,
             Capabilities="DFS",
-            SecurityMode=self.SecurityMode,
+            SecurityMode=self.session.SecurityMode,
             ClientGUID=RandUUID()._fix(),
         )
         self.send(pkt)
 
     @ATMT.state()
     def NEGOTIATED(self, ssp_blob=None):
-        ssp_tuple = self.ssp.GSS_Init_sec_context(
-            self.sspcontext,
+        ssp_tuple = self.session.ssp.GSS_Init_sec_context(
+            self.session.sspcontext,
             ssp_blob,
             req_flags=(
                 GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
-                | (GSS_C_FLAGS.GSS_C_INTEG_FLAG if self.SecurityMode != 0 else 0)
+                | (
+                    GSS_C_FLAGS.GSS_C_INTEG_FLAG
+                    if self.session.SecurityMode != 0
+                    else 0
+                )
             ),
         )
         return ssp_tuple
@@ -298,8 +294,9 @@ class SMB_Client(Automaton):
         """
         # Some values should not be updated when ASYNC
         if not pkt.Flags.SMB2_FLAGS_ASYNC_COMMAND:
-            # [MS-SMB2] sect 3.2.5.1.4 - we charge what we are granted
-            self.smb_header.CreditCharge = pkt.CreditRequest
+            if self.session.Dialect > 0x0202:
+                # [MS-SMB2] sect 3.2.5.1.4 - we charge what we are granted
+                self.smb_header.CreditCharge = pkt.CreditRequest
             # Update IDs
             self.smb_header.SessionId = pkt.SessionId
             self.smb_header.TID = pkt.TID
@@ -320,7 +317,7 @@ class SMB_Client(Automaton):
 
     @ATMT.action(should_send_setup_andx_request)
     def send_setup_andx_request(self, ssp_tuple):
-        self.sspcontext, token, negResult = ssp_tuple
+        self.session.sspcontext, token, negResult = ssp_tuple
         self.smb_header.MID += 1
         if self.SMB2 and negResult == GSS_S_CONTINUE_NEEDED:
             # New session: force 0
@@ -331,7 +328,7 @@ class SMB_Client(Automaton):
                 # SMB2
                 pkt = self.smb_header.copy() / SMB2_Session_Setup_Request(
                     Capabilities="DFS",
-                    SecurityMode=self.SecurityMode,
+                    SecurityMode=self.session.SecurityMode,
                 )
             else:
                 # SMB1 extended
@@ -388,7 +385,7 @@ class SMB_Client(Automaton):
             self.smb_header.SessionId = pkt.SessionId
             # SMB1 extended / SMB2
             if pkt.Status == 0:  # Authenticated
-                if SMB2_Session_Setup_Response in pkt and (pkt.SessionFlags.IS_GUEST):
+                if SMB2_Session_Setup_Response in pkt and pkt.SessionFlags.IS_GUEST:
                     # We were 'authenticated' in GUEST
                     self.IsGuest = True
                 raise self.AUTHENTICATED(pkt.SecurityBlob)
@@ -400,7 +397,7 @@ class SMB_Client(Automaton):
             pass
         elif SMB2_Error_Response in pkt:
             # Authentication failure
-            self.sspcontext = None
+            self.session.sspcontext = None
             if not self.RETRY:
                 raise self.AUTH_FAILED()
             self.debug(lvl=2, msg="RETRY: %s" % self.RETRY)
@@ -413,15 +410,16 @@ class SMB_Client(Automaton):
 
     @ATMT.state()
     def AUTHENTICATED(self, ssp_blob=None):
-        self.sspcontext, _, status = self.ssp.GSS_Init_sec_context(
-            self.sspcontext, ssp_blob
+        self.session.sspcontext, _, status = self.session.ssp.GSS_Init_sec_context(
+            self.session.sspcontext, ssp_blob
         )
         if status != GSS_S_COMPLETE:
             raise ValueError("Internal error: the SSP completed with an error.")
+        # Authentication was successful
+        self.session.computeSMBSessionKey()
         if self.IsGuest:
             # When authenticated in Guest, the sessionkey the client has is invalid
-            self.sspcontext.SessionKey = None
-        self.Authenticated = True
+            self.session.SMBSessionKey = None
 
     # DEV: add a condition on AUTHENTICATED with prio=0
 
@@ -526,7 +524,7 @@ class SMB_SOCKET(SuperSocket):
                         "Path",
                         "\\\\%s\\%s"
                         % (
-                            self.ins.atmt.sspcontext.ServerHostname,
+                            self.ins.atmt.session.sspcontext.ServerHostname,
                             name,
                         ),
                     )
@@ -789,7 +787,7 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
                     SMB2_Read_Request(
                         FileId=self.PipeFileId,
                     ),
-                    verbose=0
+                    verbose=0,
                 )
                 data += resp.Data
             super(SMB_RPC_SOCKET, self).send(data)
@@ -820,7 +818,7 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
                     SMB2_Read_Request(
                         FileId=self.PipeFileId,
                     ),
-                    verbose=0
+                    verbose=0,
                 )
                 data += resp.Data
             super(SMB_RPC_SOCKET, self).send(data)
@@ -982,7 +980,7 @@ class smbclient(CLIUtil):
         print(
             "SMB authentication successful using %s%s !"
             % (
-                repr(self.sock.atmt.sspcontext),
+                repr(self.sock.atmt.session.sspcontext),
                 " as GUEST" if self.sock.atmt.IsGuest else "",
             )
         )
@@ -1499,4 +1497,5 @@ class smbclient(CLIUtil):
 
 if __name__ == "__main__":
     from scapy.utils import AutoArgparse
+
     AutoArgparse(smbclient)
