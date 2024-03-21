@@ -463,6 +463,7 @@ class StreamSocket(SimpleSocket):
             pad = pad.payload
         # Only receive the packet length
         self.ins.recv(x)
+        self._buf = b""
         return pkt
 
 

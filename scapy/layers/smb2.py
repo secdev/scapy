@@ -242,6 +242,21 @@ SMB2_COMPRESSION_ALGORITHMS = {
     0x0004: "Pattern_V1",
 }
 
+# [MS-SMB2] sect 2.2.3.1.2
+SMB2_ENCRYPTION_CIPHERS = {
+    0x0001: "AES-128-CCM",
+    0x0002: "AES-128-GCM",
+    0x0003: "AES-256-CCM",
+    0x0004: "AES-256-GCM",
+}
+
+# [MS-SMB2] sect 2.2.3.1.7
+SMB2_SIGNING_ALGORITHMS = {
+    0x0000: "HMAC-SHA256",
+    0x0001: "AES-CMAC",
+    0x0002: "AES-GMAC",
+}
+
 # sect [MS-SMB2] 2.2.13.1.1
 SMB2_ACCESS_FLAGS_FILE = {
     0x00000001: "FILE_READ_DATA",
@@ -1805,12 +1820,7 @@ class SMB2_Encryption_Capabilities(Packet):
             LEShortEnumField(
                 "",
                 0x0,
-                {
-                    0x0001: "AES-128-CCM",
-                    0x0002: "AES-128-GCM",
-                    0x0003: "AES-256-CCM",
-                    0x0004: "AES-256-GCM",
-                },
+                SMB2_ENCRYPTION_CIPHERS,
             ),
             count_from=lambda pkt: pkt.CipherCount,
         ),
@@ -1942,11 +1952,7 @@ class SMB2_Signing_Capabilities(Packet):
             LEShortEnumField(
                 "",
                 0x0,
-                {
-                    0x0000: "HMAC-SHA256",
-                    0x0001: "AES-CMAC",
-                    0x0002: "AES-GMAC",
-                },
+                SMB2_SIGNING_ALGORITHMS,
             ),
             count_from=lambda pkt: pkt.SigningAlgorithmCount,
         ),
@@ -4141,27 +4147,24 @@ class SMBSession(DefaultSession):
         else:
             raise ValueError("Hmmm ? >:(")
 
-    def computeSMBConnectionPreauth(self, negotiaterequest, negotiateresponse):
+    def computeSMBConnectionPreauth(self, *negopkts):
         if self.Dialect and self.Dialect >= 0x0311:  # SMB 3.1.1 only
             # [MS-SMB2] 3.3.5.4
             # TODO: handle SMB2_SESSION_FLAG_BINDING
+            if self.ConnectionPreauthIntegrityHashValue is None:
+                # New auth or failure
+                self.ConnectionPreauthIntegrityHashValue = b"\x00" * 64
             # Calculate the *Connection* PreauthIntegrityHashValue
-            self.ConnectionPreauthIntegrityHashValue = (
-                SMB2computePreauthIntegrityHashValue(
-                    b"\x00" * 64,
-                    negotiaterequest,
-                    HashId=self.PreauthIntegrityHashId,
+            for negopkt in negopkts:
+                self.ConnectionPreauthIntegrityHashValue = (
+                    SMB2computePreauthIntegrityHashValue(
+                        self.ConnectionPreauthIntegrityHashValue,
+                        negopkt,
+                        HashId=self.PreauthIntegrityHashId,
+                    )
                 )
-            )
-            self.ConnectionPreauthIntegrityHashValue = (
-                SMB2computePreauthIntegrityHashValue(
-                    self.ConnectionPreauthIntegrityHashValue,
-                    negotiateresponse,
-                    HashId=self.PreauthIntegrityHashId,
-                )
-            )
 
-    def computeSMBSessionPreauth(self, sessionrequest, sessionresponse):
+    def computeSMBSessionPreauth(self, *sesspkts):
         if self.Dialect and self.Dialect >= 0x0311:  # SMB 3.1.1 only
             # [MS-SMB2] 3.3.5.5.3
             if self.SessionPreauthIntegrityHashValue is None:
@@ -4170,18 +4173,11 @@ class SMBSession(DefaultSession):
                     self.ConnectionPreauthIntegrityHashValue
                 )
             # Calculate the *Session* PreauthIntegrityHashValue
-            self.SessionPreauthIntegrityHashValue = (
-                SMB2computePreauthIntegrityHashValue(
-                    self.SessionPreauthIntegrityHashValue,
-                    sessionrequest,
-                    HashId=self.PreauthIntegrityHashId,
-                )
-            )
-            if sessionresponse:  # continue
+            for sesspkt in sesspkts:
                 self.SessionPreauthIntegrityHashValue = (
                     SMB2computePreauthIntegrityHashValue(
                         self.SessionPreauthIntegrityHashValue,
-                        sessionresponse,
+                        sesspkt,
                         HashId=self.PreauthIntegrityHashId,
                     )
                 )

@@ -18,7 +18,6 @@ This is a Scapy Automaton that is supposedly easily extendable.
 """
 
 import hashlib
-import os
 import pathlib
 import socket
 import struct
@@ -120,7 +119,6 @@ from scapy.layers.smb2 import (
     SMB2_Tree_Disconnect_Response,
     SMB2_Write_Request,
     SMB2_Write_Response,
-    SMBSession,
     SMBStreamSocket,
     SOCKADDR_STORAGE,
     SRVSVC_SHARE_TYPES,
@@ -543,6 +541,10 @@ class SMB_Server(Automaton):
         """
         # [MS-SMB2] sect 3.2.5.1.4 - always grant client its credits
         self.smb_header.CreditRequest = pkt.CreditRequest
+        # [MS-SMB2] sect 3.3.4.1
+        # "the server SHOULD set the CreditCharge field in the SMB2 header
+        # of the response to the CreditCharge value in the SMB2 header of the request."
+        self.smb_header.CreditCharge = pkt.CreditCharge
         # If the packet has a NextCommand, set NextCompound to True
         self.NextCompound = bool(pkt.NextCommand)
         # [MS-SMB2] sect 3.3.5.2.7.2
@@ -664,7 +666,6 @@ class SMB_Server(Automaton):
             # the setup session response is not used in hash
             self.session.computeSMBSessionPreauth(
                 bytes(pkt[SMB2_Header]),  # session setup request
-                None,
             )
         if status == GSS_S_COMPLETE:
             # Authentication was successful
