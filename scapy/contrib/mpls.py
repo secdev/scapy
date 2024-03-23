@@ -6,12 +6,24 @@
 # scapy.contrib.status = loads
 
 from scapy.packet import Packet, bind_layers, Padding
-from scapy.fields import BitField, ByteField, ShortField
-from scapy.layers.inet import IP, UDP
-from scapy.contrib.bier import BIER
+from scapy.fields import (
+    BitField,
+    ByteField,
+    ByteEnumField,
+    PacketListField,
+    ShortField,
+)
+
+from scapy.layers.inet import (
+    _ICMP_classnums,
+    ICMPExtension_Object,
+    IP,
+    UDP,
+)
 from scapy.layers.inet6 import IPv6
 from scapy.layers.l2 import Ether, GRE
-from scapy.compat import orb
+
+from scapy.contrib.bier import BIER
 
 
 class EoMCW(Packet):
@@ -37,7 +49,7 @@ class MPLS(Packet):
         if len(payload) >= 1:
             if not self.s:
                 return MPLS
-            ip_version = (orb(payload[0]) >> 4) & 0xF
+            ip_version = (payload[0] >> 4) & 0xF
             if ip_version == 4:
                 return IP
             elif ip_version == 5:
@@ -45,12 +57,27 @@ class MPLS(Packet):
             elif ip_version == 6:
                 return IPv6
             else:
-                if orb(payload[0]) == 0 and orb(payload[1]) == 0:
+                if payload[0] == 0 and payload[1] == 0:
                     return EoMCW
                 else:
                     return Ether
         return Padding
 
+
+# ICMP Extension
+
+class ICMPExtension_MPLS(ICMPExtension_Object):
+    name = "ICMP Extension Object - MPLS (RFC4950)"
+
+    fields_desc = [
+        ShortField("len", None),
+        ByteEnumField("classnum", 1, _ICMP_classnums),
+        ByteField("classtype", 1),
+        PacketListField("stack", [], MPLS, length_from=lambda pkt: pkt.len - 4),
+    ]
+
+
+# Bindings
 
 bind_layers(Ether, MPLS, type=0x8847)
 bind_layers(IP, MPLS, proto=137)
