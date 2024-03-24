@@ -36,7 +36,7 @@ from scapy.packet import Packet
 FORMAT_LE = "<"
 FORMAT_BE = ">"
 STR_MAX_LEN = 8192
-DEFAULT_ENDIANESS = FORMAT_LE
+DEFAULT_ENDIANNESS = FORMAT_LE
 
 
 def is_le(pkt):

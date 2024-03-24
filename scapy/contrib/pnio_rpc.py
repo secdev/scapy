@@ -1449,7 +1449,7 @@ def _guess_block_class(_pkt, *args, **kargs):
     return cls(_pkt, *args, **kargs)
 
 
-def dce_rpc_endianess(pkt):
+def dce_rpc_endianness(pkt):
     """determine the symbol for the endianness of a the DCE/RPC"""
     try:
         endianness = pkt.underlayer.endian
@@ -1471,16 +1471,16 @@ class NDRData(Packet):
     fields_desc = [
         EField(
             FieldLenField("args_length", None, fmt="I", length_of="blocks"),
-            endianness_from=dce_rpc_endianess),
+            endianness_from=dce_rpc_endianness),
         EField(
             FieldLenField("max_count", None, fmt="I", length_of="blocks"),
-            endianness_from=dce_rpc_endianess),
+            endianness_from=dce_rpc_endianness),
         EField(
             IntField("offset", 0),
-            endianness_from=dce_rpc_endianess),
+            endianness_from=dce_rpc_endianness),
         EField(
             FieldLenField("actual_count", None, fmt="I", length_of="blocks"),
-            endianness_from=dce_rpc_endianess),
+            endianness_from=dce_rpc_endianness),
         PacketListField("blocks", [], _guess_block_class,
                         length_from=lambda p: p.args_length)
     ]
@@ -1494,7 +1494,7 @@ class PNIOServiceReqPDU(Packet):
     fields_desc = [
         EField(
             FieldLenField("args_max", None, fmt="I", length_of="blocks"),
-            endianness_from=dce_rpc_endianess),
+            endianness_from=dce_rpc_endianness),
         NDRData,
     ]
     overload_fields = {
@@ -1525,7 +1525,7 @@ class PNIOServiceResPDU(Packet):
     """PNIO PDU for RPC Response"""
     fields_desc = [
         EField(IntEnumField("status", 0, ["OK"]),
-               endianness_from=dce_rpc_endianess),
+               endianness_from=dce_rpc_endianness),
         NDRData,
     ]
     overload_fields = {
