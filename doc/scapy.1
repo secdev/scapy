@@ -80,9 +80,9 @@ this object contains the configuration.
 .SH FILES
 \fB$HOME/.config/scapy/prestart.py\fR
 This file is run before Scapy core is loaded. Only the \fBconf\fP object
-is available. This file can be used to configure the CLI, or configure
+is available. This file can be used to configure the CLI, configure
 parameters such as the \fBconf.load_layers\fP  list to choose which layers
-will be loaded, or changing the logging level:
+will be loaded, or change the logging level (for instance):
 
 .nf
 conf.interactive_shell = "bpython"
