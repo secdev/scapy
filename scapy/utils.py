@@ -613,7 +613,7 @@ def _fletcher16(charbuf):
     # This is based on the GPLed C implementation in Zebra <http://www.zebra.org/>  # noqa: E501
     c0 = c1 = 0
     for char in charbuf:
-        c0 += orb(char)
+        c0 += char
         c1 += c0
 
     c0 %= 255

@@ -45,9 +45,11 @@ from scapy.fields import (
     FieldListField,
     FlagsField,
     IPField,
+    IP6Field,
     IntField,
     MultiEnumField,
     MultipleTypeField,
+    PacketField,
     PacketListField,
     ShortEnumField,
     ShortField,
@@ -55,6 +57,7 @@ from scapy.fields import (
     StrField,
     StrFixedLenField,
     StrLenField,
+    TrailerField,
     XByteField,
     XShortField,
 )
@@ -864,6 +867,185 @@ class UDP(Packet):
             return self.sprintf("UDP %UDP.sport% > %UDP.dport%")
 
 
+# RFC 4884 ICMP extensions
+_ICMP_classnums = {
+    # https://www.iana.org/assignments/icmp-parameters/icmp-parameters.xhtml#icmp-parameters-ext-classes
+    1: "MPLS",
+    2: "Interface Information",
+    3: "Interface Identification",
+    4: "Extended Information",
+}
+
+
+class ICMPExtension_Object(Packet):
+    name = "ICMP Extension Object"
+    show_indent = 0
+    fields_desc = [
+        ShortField("len", None),
+        ByteEnumField("classnum", 0, _ICMP_classnums),
+        ByteField("classtype", 0),
+    ]
+
+    def post_build(self, p, pay):
+        if self.len is None:
+            tmp_len = len(p) + len(pay)
+            p = struct.pack("!H", tmp_len) + p[2:]
+        return p + pay
+
+    registered_icmp_exts = {}
+
+    @classmethod
+    def register_variant(cls):
+        cls.registered_icmp_exts[cls.classnum.default] = cls
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 4:
+            classnum = _pkt[2]
+            if classnum in cls.registered_icmp_exts:
+                return cls.registered_icmp_exts[classnum]
+        return cls
+
+
+class ICMPExtension_InterfaceInformation(ICMPExtension_Object):
+    name = "ICMP Extension Object - Interface Information Object (RFC5837)"
+
+    fields_desc = [
+        ShortField("len", None),
+        ByteEnumField("classnum", 2, _ICMP_classnums),
+        BitField("classtype", 0, 2),
+        BitField("reserved", 0, 2),
+        BitField("has_ifindex", 0, 1),
+        BitField("has_ipaddr", 0, 1),
+        BitField("has_ifname", 0, 1),
+        BitField("has_mtu", 0, 1),
+        ConditionalField(IntField("ifindex", None), lambda pkt: pkt.has_ifindex == 1),
+        ConditionalField(ShortField("afi", None), lambda pkt: pkt.has_ipaddr == 1),
+        ConditionalField(ShortField("reserved2", 0), lambda pkt: pkt.has_ipaddr == 1),
+        ConditionalField(IPField("ip4", None), lambda pkt: pkt.afi == 1),
+        ConditionalField(IP6Field("ip6", None), lambda pkt: pkt.afi == 2),
+        ConditionalField(
+            FieldLenField("ifname_len", None, fmt="B", length_of="ifname"),
+            lambda pkt: pkt.has_ifname == 1,
+        ),
+        ConditionalField(
+            StrLenField("ifname", None, length_from=lambda pkt: pkt.ifname_len),
+            lambda pkt: pkt.has_ifname == 1,
+        ),
+        ConditionalField(IntField("mtu", None), lambda pkt: pkt.has_mtu == 1),
+    ]
+
+    def self_build(self, **kwargs):
+        if self.afi is None:
+            if self.ip4 is not None:
+                self.afi = 1
+            elif self.ip6 is not None:
+                self.afi = 2
+        return ICMPExtension_Object.self_build(self, **kwargs)
+
+
+class ICMPExtension_Header(Packet):
+    r"""
+    ICMP Extension per RFC4884.
+
+    Example::
+
+        pkt = IP(dst="127.0.0.1", src="127.0.0.1") / ICMP(
+            type="time-exceeded",
+            code="ttl-zero-during-transit",
+            ext=ICMPExtension_Header() / ICMPExtension_InterfaceInformation(
+                has_ifindex=1,
+                has_ipaddr=1,
+                has_ifname=1,
+                ip4="10.10.10.10",
+                ifname="hey",
+            )
+        ) / IPerror(src="12.4.4.4", dst="12.1.1.1") / \
+            UDPerror(sport=42315, dport=33440) /  \
+            b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    """
+
+    name = "ICMP Extension Header (RFC4884)"
+    show_indent = 0
+    fields_desc = [
+        BitField("version", 2, 4),
+        BitField("reserved", 0, 12),
+        XShortField("chksum", None),
+    ]
+
+    _min_ieo_len = len(ICMPExtension_Object())
+
+    def post_build(self, p, pay):
+        p += pay
+        if self.chksum is None:
+            ck = checksum(p)
+            p = p[:2] + chb(ck >> 8) + chb(ck & 0xFF) + p[4:]
+        return p
+
+    def guess_payload_class(self, payload):
+        if len(payload) < self._min_ieo_len:
+            return Packet.guess_payload_class(self, payload)
+        return ICMPExtension_Object
+
+
+class _ICMPExtensionField(TrailerField):
+    # We use a TrailerField for building only. Dissection is normal.
+
+    def __init__(self):
+        super(_ICMPExtensionField, self).__init__(
+            PacketField(
+                "ext",
+                None,
+                ICMPExtension_Header,
+            ),
+        )
+
+    def getfield(self, pkt, s):
+        # RFC4884 section 5.2 says if the ICMP packet length
+        # is >144 then ICMP extensions start at byte 137.
+        if len(pkt.original) < 144:
+            return s, None
+        offset = 136 + len(s) - len(pkt.original)
+        data = s[offset:]
+        # Validate checksum
+        if checksum(data) == data[3:5]:
+            return s, None  # failed
+        # Dissect
+        return s[:offset], ICMPExtension_Header(data)
+
+    def addfield(self, pkt, s, val):
+        if val is None:
+            return s
+        data = bytes(val)
+        # Calc how much padding we need, not how much we deserve
+        pad = 136 - len(pkt.payload) - len(s)
+        if pad < 0:
+            warning("ICMPExtension_Header is after the 136th octet of ICMP.")
+            return data
+        return super(_ICMPExtensionField, self).addfield(pkt, s, b"\x00" * pad + data)
+
+
+class _ICMPExtensionPadField(TrailerField):
+    def __init__(self):
+        super(_ICMPExtensionPadField, self).__init__(
+            StrFixedLenField("extpad", "", length=0)
+        )
+
+    def i2repr(self, pkt, s):
+        if s and s == b"\x00" * len(s):
+            return "b'' (%s octets)" % len(s)
+        return self.fld.i2repr(pkt, s)
+
+
+def _ICMP_extpad_post_dissection(self, pkt):
+    # If we have padding, put it in 'extpad' for re-build
+    if pkt.ext:
+        pad = pkt.lastlayer()
+        if isinstance(pad, conf.padding_layer):
+            pad.underlayer.remove_payload()
+            pkt.extpad = pad.load
+
+
 icmptypes = {0: "echo-reply",
              3: "dest-unreach",
              4: "source-quench",
@@ -923,35 +1105,99 @@ icmpcodes = {3: {0: "network-unreachable",
                   5: "need-authorization", }, }
 
 
+_icmp_answers = [
+    (8, 0),
+    (13, 14),
+    (15, 16),
+    (17, 18),
+    (33, 34),
+    (35, 36),
+    (37, 38),
+]
+
 icmp_id_seq_types = [0, 8, 13, 14, 15, 16, 17, 18, 37, 38]
 
 
 class ICMP(Packet):
     name = "ICMP"
-    fields_desc = [ByteEnumField("type", 8, icmptypes),
-                   MultiEnumField("code", 0, icmpcodes, depends_on=lambda pkt:pkt.type, fmt="B"),  # noqa: E501
-                   XShortField("chksum", None),
-                   ConditionalField(XShortField("id", 0), lambda pkt:pkt.type in icmp_id_seq_types),  # noqa: E501
-                   ConditionalField(XShortField("seq", 0), lambda pkt:pkt.type in icmp_id_seq_types),  # noqa: E501
-                   ConditionalField(ICMPTimeStampField("ts_ori", None), lambda pkt:pkt.type in [13, 14]),  # noqa: E501
-                   ConditionalField(ICMPTimeStampField("ts_rx", None), lambda pkt:pkt.type in [13, 14]),  # noqa: E501
-                   ConditionalField(ICMPTimeStampField("ts_tx", None), lambda pkt:pkt.type in [13, 14]),  # noqa: E501
-                   ConditionalField(IPField("gw", "0.0.0.0"), lambda pkt:pkt.type == 5),  # noqa: E501
-                   ConditionalField(ByteField("ptr", 0), lambda pkt:pkt.type == 12),  # noqa: E501
-                   ConditionalField(ByteField("reserved", 0), lambda pkt:pkt.type in [3, 11]),  # noqa: E501
-                   ConditionalField(ByteField("length", 0), lambda pkt:pkt.type in [3, 11, 12]),  # noqa: E501
-                   ConditionalField(IPField("addr_mask", "0.0.0.0"), lambda pkt:pkt.type in [17, 18]),  # noqa: E501
-                   ConditionalField(ShortField("nexthopmtu", 0), lambda pkt:pkt.type == 3),  # noqa: E501
-                   MultipleTypeField(
-                       [
-                           (ShortField("unused", 0),
-                               lambda pkt:pkt.type in [11, 12]),
-                           (IntField("unused", 0),
-                               lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12,
-                                                           13, 14, 15, 16, 17,
-                                                           18])
-                       ], StrFixedLenField("unused", "", length=0)),
-                   ]
+    fields_desc = [
+        ByteEnumField("type", 8, icmptypes),
+        MultiEnumField("code", 0, icmpcodes,
+                       depends_on=lambda pkt:pkt.type, fmt="B"),
+        XShortField("chksum", None),
+        ConditionalField(
+            XShortField("id", 0),
+            lambda pkt: pkt.type in icmp_id_seq_types
+        ),
+        ConditionalField(
+            XShortField("seq", 0),
+            lambda pkt: pkt.type in icmp_id_seq_types
+        ),
+        ConditionalField(
+            # Timestamp only (RFC792)
+            ICMPTimeStampField("ts_ori", None),
+            lambda pkt: pkt.type in [13, 14]
+        ),
+        ConditionalField(
+            # Timestamp only (RFC792)
+            ICMPTimeStampField("ts_rx", None),
+            lambda pkt: pkt.type in [13, 14]
+        ),
+        ConditionalField(
+            # Timestamp only (RFC792)
+            ICMPTimeStampField("ts_tx", None),
+            lambda pkt: pkt.type in [13, 14]
+        ),
+        ConditionalField(
+            # Redirect only (RFC792)
+            IPField("gw", "0.0.0.0"),
+            lambda pkt: pkt.type == 5
+        ),
+        ConditionalField(
+            # Parameter problem only (RFC792)
+            ByteField("ptr", 0),
+            lambda pkt: pkt.type == 12
+        ),
+        ConditionalField(
+            ByteField("reserved", 0),
+            lambda pkt: pkt.type in [3, 11]
+        ),
+        ConditionalField(
+            ByteField("length", 0),
+            lambda pkt: pkt.type in [3, 11, 12]
+        ),
+        ConditionalField(
+            IPField("addr_mask", "0.0.0.0"),
+            lambda pkt: pkt.type in [17, 18]
+        ),
+        ConditionalField(
+            ShortField("nexthopmtu", 0),
+            lambda pkt: pkt.type == 3
+        ),
+        MultipleTypeField(
+            [
+                (ShortField("unused", 0),
+                    lambda pkt:pkt.type in [11, 12]),
+                (IntField("unused", 0),
+                    lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12,
+                                                13, 14, 15, 16, 17,
+                                                18])
+            ],
+            StrFixedLenField("unused", "", length=0),
+        ),
+        # RFC4884 ICMP extension
+        ConditionalField(
+            _ICMPExtensionPadField(),
+            lambda pkt: pkt.type in [3, 11, 12],
+        ),
+        ConditionalField(
+            _ICMPExtensionField(),
+            lambda pkt: pkt.type in [3, 11, 12],
+        ),
+    ]
+
+    # To handle extpad
+    post_dissection = _ICMP_extpad_post_dissection
 
     def post_build(self, p, pay):
         p += pay
@@ -968,7 +1214,7 @@ class ICMP(Packet):
     def answers(self, other):
         if not isinstance(other, ICMP):
             return 0
-        if ((other.type, self.type) in [(8, 0), (13, 14), (15, 16), (17, 18), (33, 34), (35, 36), (37, 38)] and  # noqa: E501
+        if ((other.type, self.type) in _icmp_answers and
             self.id == other.id and
                 self.seq == other.seq):
             return 1
@@ -981,11 +1227,18 @@ class ICMP(Packet):
             return None
 
     def mysummary(self):
+        extra = ""
+        if self.ext:
+            extra = self.ext.payload.sprintf(" ext:%classnum%")
         if isinstance(self.underlayer, IP):
-            return self.underlayer.sprintf("ICMP %IP.src% > %IP.dst% %ICMP.type% %ICMP.code%")  # noqa: E501
+            return self.underlayer.sprintf(
+                "ICMP %IP.src% > %IP.dst% %ICMP.type% %ICMP.code%"
+            ) + extra
         else:
-            return self.sprintf("ICMP %ICMP.type% %ICMP.code%")
+            return self.sprintf("ICMP %ICMP.type% %ICMP.code%") + extra
 
+
+# IP / TCP / UDP error packets
 
 class IPerror(IP):
     name = "IP in ICMP"
