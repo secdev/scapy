@@ -394,8 +394,8 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 if isinstance(o, HAO):
                     foundhao = o
             if foundhao:
-                nh = self.payload.nh  # XXX what if another extension follows ?
                 ss = foundhao.hoa
+            nh = self.payload.nh  # XXX what if another extension follows ?
 
         if conf.checkIPsrc and conf.checkIPaddr and not in6_ismaddr(sd):
             sd = inet_pton(socket.AF_INET6, sd)
@@ -451,7 +451,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         elif other.nh == 43 and isinstance(other.payload, IPv6ExtHdrSegmentRouting):  # noqa: E501
             return self.payload.answers(other.payload.payload)  # Buggy if self.payload is a IPv6ExtHdrRouting  # noqa: E501
         elif other.nh == 60 and isinstance(other.payload, IPv6ExtHdrDestOpt):
-            return self.payload.payload.answers(other.payload.payload)
+            return self.payload.answers(other.payload.payload)
         elif self.nh == 60 and isinstance(self.payload, IPv6ExtHdrDestOpt):  # BU in reply to BRR, for instance  # noqa: E501
             return self.payload.payload.answers(other.payload)
         else:
