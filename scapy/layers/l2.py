@@ -1060,7 +1060,7 @@ def promiscping(net, timeout=2, fake_bcast="ff:ff:ff:ff:ff:fe", **kargs):
                      filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)  # noqa: E501
     ans = ARPingResult(ans.res, name="PROMISCPing")
 
-    ans.display()
+    ans.show()
     return ans, unans
 
 
