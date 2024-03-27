@@ -372,6 +372,8 @@ def get_if_list():
 def get_working_if():
     # type: () -> NetworkInterface
     """Return an interface that works"""
+
+    # IPv4
     # return the interface associated with the route with smallest
     # mask (route by default if it exists)
     routes = conf.route.routes[:]
@@ -383,6 +385,20 @@ def get_working_if():
         iface = resolve_iface(ifname)  # type: ignore
         if iface.is_valid():
             return iface
+
+    # IPv6
+    routes_ipv6 = conf.route6.routes
+    default_routes_ipv6 = [r for r in routes_ipv6 if r[0] == "::"]
+    if default_routes_ipv6:
+        # Sort the default routes using the priority (at index -1)
+        tmp_routes = sorted(default_routes_ipv6, key=lambda r: r[-1])
+
+        # Return the interface (at index 3) of the highest priority default
+        ifname = tmp_routes[-1][3]
+        iface = resolve_iface(ifname)
+        if iface.is_valid():
+            return iface
+
     # There is no hope left
     return resolve_iface(conf.loopback_name)
 
