@@ -1642,13 +1642,15 @@ class RawPcapNgReader(RawPcapReader):
         if blocklen < 28:
             warning(f"Invalid SHB block length ({blocklen})!")
             raise EOFError
-        # major version must be 1
+
+        # Major version must be 1
         _major = self.f.read(2)
         major = struct.unpack(self.endian + "H", _major)[0]
         if major != 1:
             warning(f"SHB Major version {major} unsupported !")
             raise EOFError
-        # skip minor version & section length
+
+        # Skip minor version & section length
         self.f.seek(10, 1)
 
         options = self.f.read(blocklen - 28)
