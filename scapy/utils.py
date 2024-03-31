@@ -1674,10 +1674,6 @@ class RawPcapNgReader(RawPcapReader):
         opts = dict()
         while len(options) >= 4:
             code, length = struct.unpack(self.endian + "HH", options[:4])
-            # PCAP Next Generation (pcapng) Capture File Format
-            # 4.2. - Interface Description Block
-            # http://xml2rfc.tools.ietf.org/cgi-bin/xml2rfc.cgi?url=https://raw.githubusercontent.com/pcapng/pcapng/master/draft-tuexen-opsawg-pcapng.xml&modeAsFormat=html/ascii&type=ascii#rfc.section.4.2
-
             if code != 0 and 4 + length < len(options):
                 opts[code] = options[4:4 + length]
             if code == 0:
