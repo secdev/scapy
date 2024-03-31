@@ -1679,7 +1679,7 @@ class RawPcapNgReader(RawPcapReader):
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option "
-                            "length %d for end-of-option" % length)  # noqa: E501
+                            "length %d for end-of-option" % length)
                 break
             if length % 4:
                 length += (4 - (length % 4))
@@ -1695,10 +1695,15 @@ class RawPcapNgReader(RawPcapReader):
         options = self.default_options.copy()  # type: Dict[str, Any]
         for c, v in options_raw.items():
             if c == 9:
-                tsresol = orb(v)
-                options["tsresol"] = (2 if tsresol & 128 else 10) ** (
-                    tsresol & 127
-                )
+                length = len(v)
+                if length == 1:
+                    tsresol = orb(v)
+                    options["tsresol"] = (2 if tsresol & 128 else 10) ** (
+                        tsresol & 127
+                    )
+                else:
+                    warning("PcapNg: invalid options "
+                            "length %d for IDB tsresol" % length)
             elif c == 2:
                 options["name"] = v
             elif c == 1:
