@@ -1654,8 +1654,8 @@ class RawPcapNgReader(RawPcapReader):
         self.f.seek(10, 1)
 
         options = self.f.read(blocklen - 28)
-        self._read_options(options)
         self._read_block_tail(blocklen)
+        self._read_options(options)
 
     def _read_packet(self, size=MTU):  # type: ignore
         # type: (int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -1680,7 +1680,6 @@ class RawPcapNgReader(RawPcapReader):
 
             if code != 0 and 4 + length < len(options):
                 opts[code] = options[4:4 + length]
-
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option "

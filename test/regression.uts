@@ -2157,6 +2157,7 @@ pktcapng = sniff(offline=scapy_path("/test/pcaps/macos.pcapng.gz"))
 assert len(pktcapng) != 0
 
 = Write a pcapng
+
 tmpfile = get_temp_file(autoext=".pcapng")
 r = RawPcapNgWriter(tmpfile)
 r._write_block_shb()
@@ -2346,7 +2347,7 @@ l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
 assert len(l) == 0
 
 = Check offline sniff() with Packets, tcpdump and a bad filter
-~ pcap tcpdump libpcap 
+~ tcpdump libpcap 
 
 try:
     sniff(offline=IP()/UDP(), filter="bad filter")
@@ -2433,6 +2434,7 @@ pkt = pkt.payload
 assert isinstance(pkt, NoPayload)
 
 = Invalid pcapng files
+
 from io import BytesIO
 
 # Invalid PCAPNG format -> Raise
@@ -2503,6 +2505,7 @@ l = [ p for p in RawPcapReader(f) ]
 assert len(l) == 1
 
 = Check RawPcapReader on pcap
+~ pcap
 
 fd = get_temp_file()
 wrpcap(fd, [Ether()/IP()/ICMP()])
@@ -2512,6 +2515,7 @@ for (x, y) in RawPcapReader(fd):
     pass
 
 = Check RawPcapReader with a Context Manager
+~ pcap
 
 filename = get_temp_file(fd=False)
 wrpcap(filename, [IP()/TCP(), IP()/UDP()])
@@ -2524,6 +2528,7 @@ except TypeError:
     assert False
 
 = Check RawPcapWriter
+~ pcap
 
 # GH3256
 fd = get_temp_file()
@@ -2639,6 +2644,7 @@ lst = sniff(offline=fd, filter="subtype probe-req")
 assert len(lst) == 1
 
 = Check tcpdump() command rejects non-string input for prog
+
 pkt = Ether()/IP()/ICMP()
 
 try:
