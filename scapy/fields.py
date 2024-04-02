@@ -3483,8 +3483,6 @@ class UTCTimeField(Field[float, int]):
     __slots__ = ["epoch", "delta", "strf",
                  "use_msec", "use_micro", "use_nano", "custom_scaling"]
 
-    # Do not change the order of the keywords in here
-    # Netflow heavily rely on this
     def __init__(self,
                  name,  # type: str
                  default,  # type: int
@@ -3542,8 +3540,6 @@ class UTCTimeField(Field[float, int]):
 class SecondsIntField(Field[float, int]):
     __slots__ = ["use_msec", "use_micro", "use_nano"]
 
-    # Do not change the order of the keywords in here
-    # Netflow heavily rely on this
     def __init__(self, name, default,
                  use_msec=False,
                  use_micro=False,
