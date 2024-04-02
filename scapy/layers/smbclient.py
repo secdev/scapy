@@ -1712,6 +1712,18 @@ class smbclient(CLIUtil):
             return []
         return self._fs_complete(file)
 
+    @CLIUtil.addcommand()
+    def backup(self):
+        """
+        Turn on or off backup intent
+        """
+        if "FILE_OPEN_FOR_BACKUP_INTENT" in self.extra_create_options:
+            print("Backup Intent: Off")
+            self.extra_create_options.remove("FILE_OPEN_FOR_BACKUP_INTENT")
+        else:
+            print("Backup Intent: On")
+            self.extra_create_options.append("FILE_OPEN_FOR_BACKUP_INTENT")
+
 
 if __name__ == "__main__":
     from scapy.utils import AutoArgparse
