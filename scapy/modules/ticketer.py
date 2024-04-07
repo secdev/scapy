@@ -280,6 +280,7 @@ class CCache(Packet):
 # https://gist.github.com/mp035/9f2027c3ef9172264532fcd6262f3b01
 
 if tk is not None:
+
     class ScrollFrame(tk.Frame):
         def __init__(self, parent):
             super().__init__(parent)
@@ -382,10 +383,7 @@ class Ticketer:
             if x is None:
                 return "None"
             else:
-                x = datetime.fromtimestamp(
-                    x,
-                    tz=timezone.utc if utc else None
-                )
+                x = datetime.fromtimestamp(x, tz=timezone.utc if utc else None)
             return x.strftime("%d/%m/%y %H:%M:%S")
 
         for i, cred in enumerate(self.ccache.credentials):
@@ -506,7 +504,7 @@ class Ticketer:
 
     def import_krb(self, res, key=None, hash=None, _inplace=None):
         """
-        Import the result of krb_[tgs/as]_req into the CCache.
+        Import the result of krb_[tgs/as]_req or a Ticket into the CCache.
 
         :param obj: a KRB_Ticket object or a AS_REP/TGS_REP object
         :param sessionkey: the session key that comes along the ticket
@@ -580,7 +578,9 @@ class Ticketer:
         """
         cred = CCCredential()
         etype = (
-            self._prompt("What key should we use (AES128-CTS-HMAC-SHA1-96/AES256-CTS-HMAC-SHA1-96/RC4-HMAC) ? [AES256-CTS-HMAC-SHA1-96]: ")
+            self._prompt(
+                "What key should we use (AES128-CTS-HMAC-SHA1-96/AES256-CTS-HMAC-SHA1-96/RC4-HMAC) ? [AES256-CTS-HMAC-SHA1-96]: "
+            )
             or "AES256-CTS-HMAC-SHA1-96"
         )
         if etype not in _KRB_E_TYPES.values():
@@ -647,7 +647,9 @@ class Ticketer:
         )
         now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
         rand = random.SystemRandom()
-        key = Key.random_to_key(EncryptionType.AES256_CTS_HMAC_SHA1_96, rand.randbytes(32))
+        key = Key.random_to_key(
+            EncryptionType.AES256_CTS_HMAC_SHA1_96, rand.randbytes(32)
+        )
         store = {
             # KRB
             "flags": ASN1_BIT_STRING("01000000111000010000000000000000"),
@@ -1298,14 +1300,11 @@ class Ticketer:
 
     def _time_to_int(self, x):
         return self._utc_to_mstime(
-            datetime.strptime(x, self._TIME_FIELD.strf)
-            .timestamp()
+            datetime.strptime(x, self._TIME_FIELD.strf).timestamp()
         )
 
     def _time_to_asn1(self, x):
-        return ASN1_GENERALIZED_TIME(
-            datetime.strptime(x, self._TIME_FIELD.strf)
-        )
+        return ASN1_GENERALIZED_TIME(datetime.strptime(x, self._TIME_FIELD.strf))
 
     def _time_to_filetime(self, x):
         if isinstance(x, str) and x.strip() == "NEVER":
@@ -1647,7 +1646,9 @@ class Ticketer:
         Edit a Kerberos ticket using the GUI
         """
         if tk is None:
-            raise ImportError("tkinter is not installed (`apt install python3-tk` on debian)")
+            raise ImportError(
+                "tkinter is not installed (`apt install python3-tk` on debian)"
+            )
         tkt = self.dec_ticket(i, key=key, hash=hash)
         pac = tkt.authorizationData.seq[0].adData[0].seq[0].adData
 

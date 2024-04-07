@@ -428,7 +428,7 @@ If you're doing passive sniffing of a DCE/RPC session, you can instruct Scapy to
     pkts.show()
 
 
-.. warning:: Only NTLM is currently fully supported. KerberosSSP is sadly not supported as of today, nor is NetlogonSSP.
+.. warning:: NTLM, KerberosSSP and SPNEGOSSP are currently supported. NetlogonSSP is still unsupported.
 
 
 Define custom packets

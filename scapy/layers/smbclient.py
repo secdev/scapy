@@ -147,8 +147,8 @@ class SMB_Client(Automaton):
             self.DIALECTS = kwargs.pop("DIALECTS")
         else:
             MIN_DIALECT = kwargs.pop("MIN_DIALECT", 0x0202)
-            # MAX_DIALECT is currently SMB 2.1.0. 3.1.1 support is unfinished
-            self.MAX_DIALECT = kwargs.pop("MAX_DIALECT", 0x0210)
+            # MAX_DIALECT is currently SMB 2.0.2. 3.1.1 support is unfinished
+            self.MAX_DIALECT = kwargs.pop("MAX_DIALECT", 0x0202)
             self.DIALECTS = sorted(
                 [
                     x
@@ -783,7 +783,7 @@ class SMB_SOCKET(SuperSocket):
                         Name=b"DH2Q",
                         Data=SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2(
                             CreateGuid=RandUUID()._fix()
-                        )
+                        ),
                     ),
                     # [SMB2] sect 3.2.4.3.9
                     SMB2_Create_Context(
@@ -795,8 +795,7 @@ class SMB_SOCKET(SuperSocket):
                     ),
                     # [SMB2] sect 3.2.4.3.8
                     SMB2_Create_Context(
-                        Name=b"RqLs",
-                        Data=SMB2_CREATE_REQUEST_LEASE_V2()
+                        Name=b"RqLs", Data=SMB2_CREATE_REQUEST_LEASE_V2()
                     ),
                 ]
             )
@@ -1503,7 +1502,8 @@ class smbclient(CLIUtil):
             type="file",
             extra_create_options=[
                 "FILE_SEQUENTIAL_ONLY",
-            ] + self.extra_create_options,
+            ]
+            + self.extra_create_options,
         )
         # Get the file size
         info = FileAllInformation(
