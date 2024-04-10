@@ -1106,8 +1106,8 @@ class Conf(ConfClass):
     #: When TCPSession is used, parse DCE/RPC sessions automatically.
     #: This should be used for passive sniffing.
     dcerpc_session_enable = False
-    #: Some implementations of DCE/RPC incorrectly use header signing
-    #: without properly negotiating it. This forces it on.
+    #: If a capture is missing the first DCE/RPC bindin message, we might incorrectly
+    #: assume that header signing isn't used. This forces it on.
     dcerpc_force_header_signing = False
     #: Windows SSPs for sniffing. This is used with
     #: dcerpc_session_enable

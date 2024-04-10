@@ -3,7 +3,7 @@
 # See https://scapy.net/ for more information
 # Copyright (c) 2013, Marc Horowitz
 # Copyright (C) 2013, Massachusetts Institute of Technology
-# Copyright (C) 2022, Gabriel Potter and the secdev/scapy community
+# Copyright (C) 2022-2024, Gabriel Potter and the secdev/scapy community
 
 """
 Implementation of cryptographic functions for Kerberos 5
@@ -22,6 +22,7 @@ __all__ = [
     "ChecksumType",
     "Key",
     "InvalidChecksum",
+    "_rfc1964pad",
 ]
 
 # The following is a heavily modified version of
@@ -47,6 +48,7 @@ from scapy.compat import (
 # Typing
 from typing import (
     Any,
+    Callable,
     List,
     Optional,
     Type,
@@ -77,10 +79,11 @@ try:
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
     try:
         # cryptography > 43.0
         from cryptography.hazmat.decrepit.ciphers import (
-            algorithms as decrepit_algorithms
+            algorithms as decrepit_algorithms,
         )
     except ImportError:
         decrepit_algorithms = algorithms
@@ -136,7 +139,7 @@ class EncryptionType(enum.IntEnum):
     AES128_CTS_HMAC_SHA256_128 = 19
     AES256_CTS_HMAC_SHA384_192 = 20
     RC4_HMAC = 23
-    # RC4_HMAC_EXP = 24
+    RC4_HMAC_EXP = 24
     # CAMELLIA128-CTS-CMAC = 25
     # CAMELLIA256-CTS-CMAC = 26
 
@@ -222,6 +225,15 @@ def _zeropad(s, padsize):
     return s + b"\x00" * (-len(s) % padsize)
 
 
+def _rfc1964pad(s):
+    # type: (bytes) -> bytes
+    """
+    Return s padded as RFC1964 mandates
+    """
+    pad = (-len(s)) % 8
+    return s + pad * struct.pack("!B", pad)
+
+
 def _xorbytes(b1, b2):
     # type: (bytearray, bytearray) -> bytearray
     """
@@ -235,11 +247,7 @@ def _mac_equal(mac1, mac2):
     # type: (bytes, bytes) -> bool
     # Constant-time comparison function.  (We can't use HMAC.verify
     # since we use truncated macs.)
-    assert len(mac1) == len(mac2)
-    res = 0
-    for x, y in zip(mac1, mac2):
-        res |= x ^ y
-    return res == 0
+    return all(x == y for x, y in zip(mac1, mac2))
 
 
 # https://doi.org/10.6028/NBS.FIPS.74 sect 3.6
@@ -500,10 +508,18 @@ class _SimplifiedEncryptionProfile(_EncryptionAlgorithmProfile):
         return cls.random_to_key(rndseed[0 : cls.seedsize]).key
 
     @classmethod
-    def encrypt(cls, key, keyusage, plaintext, confounder):
-        # type: (Key, int, bytes, Optional[bytes]) -> bytes
+    def encrypt(cls, key, keyusage, plaintext, confounder, signtext=None):
+        # type: (Key, int, bytes, Optional[bytes], Optional[bytes]) -> bytes
         """
-        encryption function
+        Encryption function.
+
+        :param key: the key
+        :param keyusage: the keyusage
+        :param plaintext: the text to encrypt
+        :param confounder: (optional) the confounder. If none, will be random
+        :param signtext: (optional) make the checksum include different data than what
+                         is encrypted. Useful for kerberos GSS_WrapEx. If none, same as
+                         plaintext.
         """
         if not cls.rfc8009:
             ki = cls.derive(key, struct.pack(">IB", keyusage, 0x55))
@@ -514,9 +530,11 @@ class _SimplifiedEncryptionProfile(_EncryptionAlgorithmProfile):
         if confounder is None:
             confounder = os.urandom(cls.blocksize)
         basic_plaintext = confounder + _zeropad(plaintext, cls.padsize)
+        if signtext is None:
+            signtext = basic_plaintext
         if not cls.rfc8009:
             # Simplified profile
-            hmac = Hmac(ki, cls.hashmod).digest(basic_plaintext)
+            hmac = Hmac(ki, cls.hashmod).digest(signtext)
             return cls.basic_encrypt(ke, basic_plaintext) + hmac[: cls.macsize]
         else:
             # RFC 8009
@@ -525,8 +543,8 @@ class _SimplifiedEncryptionProfile(_EncryptionAlgorithmProfile):
             return C + hmac[: cls.macsize]
 
     @classmethod
-    def decrypt(cls, key, keyusage, ciphertext):
-        # type: (Key, int, bytes) -> bytes
+    def decrypt(cls, key, keyusage, ciphertext, presignfunc=None):
+        # type: (Key, int, bytes, Optional[Callable[[bytes, bytes], bytes]]) -> bytes
         """
         decryption function
         """
@@ -544,13 +562,29 @@ class _SimplifiedEncryptionProfile(_EncryptionAlgorithmProfile):
         if not cls.rfc8009:
             # Simplified profile
             basic_plaintext = cls.basic_decrypt(ke, basic_ctext)
-            hmac = Hmac(ki, cls.hashmod).digest(basic_plaintext)
+            signtext = basic_plaintext
+            if presignfunc:
+                # Allow to have additional processing of the data that is to be signed.
+                # This is useful for GSS_WrapEx
+                signtext = presignfunc(
+                    basic_plaintext[: cls.blocksize],
+                    basic_plaintext[cls.blocksize :],
+                )
+            hmac = Hmac(ki, cls.hashmod).digest(signtext)
             expmac = hmac[: cls.macsize]
             if not _mac_equal(mac, expmac):
                 raise ValueError("ciphertext integrity failure")
         else:
             # RFC 8009
-            hmac = Hmac(ki, cls.hashmod).digest(b"\0" * 16 + basic_ctext)  # XXX IV
+            signtext = b"\0" * 16 + basic_ctext  # XXX IV
+            if presignfunc:
+                # Allow to have additional processing of the data that is to be signed.
+                # This is useful for GSS_WrapEx
+                signtext = presignfunc(
+                    basic_ctext[16 : 16 + cls.blocksize],
+                    basic_ctext[16 + cls.blocksize :],
+                )
+            hmac = Hmac(ki, cls.hashmod).digest(signtext)
             expmac = hmac[: cls.macsize]
             if not _mac_equal(mac, expmac):
                 raise ValueError("ciphertext integrity failure")
@@ -647,8 +681,8 @@ class _DESCBC(_SimplifiedEncryptionProfile):
     hashmod = Hash_MD5
 
     @classmethod
-    def encrypt(cls, key, keyusage, plaintext, confounder):
-        # type: (Key, int, bytes, Optional[bytes]) -> bytes
+    def encrypt(cls, key, keyusage, plaintext, confounder, signtext=None):
+        # type: (Key, int, bytes, Optional[bytes], Any) -> bytes
         if confounder is None:
             confounder = os.urandom(cls.blocksize)
         basic_plaintext = (
@@ -663,8 +697,8 @@ class _DESCBC(_SimplifiedEncryptionProfile):
         return cls.basic_encrypt(key.key, basic_plaintext)
 
     @classmethod
-    def decrypt(cls, key, keyusage, ciphertext):
-        # type: (Key, int, bytes) -> bytes
+    def decrypt(cls, key, keyusage, ciphertext, presignfunc=None):
+        # type: (Key, int, bytes, Any) -> bytes
         if len(ciphertext) < cls.blocksize + cls.macsize:
             raise ValueError("ciphertext too short")
 
@@ -986,7 +1020,7 @@ class _HMACMD5(_ChecksumProfile):
     @classmethod
     def verify(cls, key, keyusage, text, cksum):
         # type: (Key, int, bytes, bytes) -> None
-        if key.etype != EncryptionType.RC4_HMAC:
+        if key.etype not in [EncryptionType.RC4_HMAC, EncryptionType.RC4_HMAC_EXP]:
             raise ValueError("Wrong key type for checksum")
         super(_HMACMD5, cls).verify(key, keyusage, text, cksum)
 
@@ -999,6 +1033,7 @@ class _RC4(_EncryptionAlgorithmProfile):
     keysize = 16
     seedsize = 16
     reqcksum = ChecksumType.HMAC_MD5
+    export = False
 
     @staticmethod
     def usage_str(keyusage):
@@ -1022,8 +1057,13 @@ class _RC4(_EncryptionAlgorithmProfile):
         # type: (Key, int, bytes, Optional[bytes]) -> bytes
         if confounder is None:
             confounder = os.urandom(8)
-        ki = Hmac_MD5(key.key).digest(cls.usage_str(keyusage))
+        if cls.export:
+            ki = Hmac_MD5(key.key).digest(b"fortybits\x00" + cls.usage_str(keyusage))
+        else:
+            ki = Hmac_MD5(key.key).digest(cls.usage_str(keyusage))
         cksum = Hmac_MD5(ki).digest(confounder + plaintext)
+        if cls.export:
+            ki = ki[:7] + b"\xab" * 9
         ke = Hmac_MD5(ki).digest(cksum)
         rc4 = Cipher(algorithms.ARC4(ke), mode=None).encryptor()
         return cksum + rc4.update(bytes(confounder + plaintext))
@@ -1034,8 +1074,15 @@ class _RC4(_EncryptionAlgorithmProfile):
         if len(ciphertext) < 24:
             raise ValueError("ciphertext too short")
         cksum, basic_ctext = ciphertext[:16], ciphertext[16:]
-        ki = Hmac_MD5(key.key).digest(cls.usage_str(keyusage))
-        ke = Hmac_MD5(ki).digest(cksum)
+        if cls.export:
+            ki = Hmac_MD5(key.key).digest(b"fortybits\x00" + cls.usage_str(keyusage))
+        else:
+            ki = Hmac_MD5(key.key).digest(cls.usage_str(keyusage))
+        if cls.export:
+            kie = ki[:7] + b"\xab" * 9
+        else:
+            kie = ki
+        ke = Hmac_MD5(kie).digest(cksum)
         rc4 = Cipher(algorithms.ARC4(ke), mode=None).decryptor()
         basic_plaintext = rc4.update(bytes(basic_ctext))
         exp_cksum = Hmac_MD5(ki).digest(basic_plaintext)
@@ -1054,6 +1101,11 @@ class _RC4(_EncryptionAlgorithmProfile):
     def prf(cls, key, string):
         # type: (Key, bytes) -> bytes
         return Hmac_SHA(key.key).digest(string)
+
+
+class _RC4_EXPORT(_RC4):
+    etype = EncryptionType.RC4_HMAC_EXP
+    export = True
 
 
 ############
@@ -1161,6 +1213,7 @@ _enctypes = {
     # CAMELLIA128-CTS-CMAC - UNIMPLEMENTED
     # CAMELLIA256-CTS-CMAC - UNIMPLEMENTED
     EncryptionType.RC4_HMAC: _RC4,
+    EncryptionType.RC4_HMAC_EXP: _RC4_EXPORT,
 }
 
 
@@ -1185,11 +1238,12 @@ _checksums = {
 
 
 class Key(object):
-    def __init__(self,
-                 etype: Union[EncryptionType, int, None] = None,
-                 key: bytes = b"",
-                 cksumtype: Union[ChecksumType, int, None] = None,
-                 ) -> None:
+    def __init__(
+        self,
+        etype: Union[EncryptionType, int, None] = None,
+        key: bytes = b"",
+        cksumtype: Union[ChecksumType, int, None] = None,
+    ) -> None:
         """
         Kerberos Key object.
 
@@ -1239,8 +1293,8 @@ class Key(object):
             " (%s octets)" % len(self.key),
         )
 
-    def encrypt(self, keyusage, plaintext, confounder=None):
-        # type: (int, bytes, Optional[bytes]) -> bytes
+    def encrypt(self, keyusage, plaintext, confounder=None, **kwargs):
+        # type: (int, bytes, Optional[bytes], **Any) -> bytes
         """
         Encrypt data using the current Key.
 
@@ -1248,10 +1302,10 @@ class Key(object):
         :param plaintext: the plain text to encrypt
         :param confounder: (optional) choose the confounder. Otherwise random.
         """
-        return self.ep.encrypt(self, keyusage, bytes(plaintext), confounder)
+        return self.ep.encrypt(self, keyusage, bytes(plaintext), confounder, **kwargs)
 
-    def decrypt(self, keyusage, ciphertext):
-        # type: (int, bytes) -> bytes
+    def decrypt(self, keyusage, ciphertext, **kwargs):
+        # type: (int, bytes, **Any) -> bytes
         """
         Decrypt data using the current Key.
 
@@ -1260,14 +1314,14 @@ class Key(object):
         """
         # Throw InvalidChecksum on checksum failure.  Throw ValueError on
         # invalid key enctype or malformed ciphertext.
-        return self.ep.decrypt(self, keyusage, ciphertext)
+        return self.ep.decrypt(self, keyusage, ciphertext, **kwargs)
 
     def prf(self, string):
         # type: (bytes) -> bytes
         return self.ep.prf(self, string)
 
-    def make_checksum(self, keyusage, text, cksumtype=None):
-        # type: (int, bytes, Optional[int]) -> bytes
+    def make_checksum(self, keyusage, text, cksumtype=None, **kwargs):
+        # type: (int, bytes, Optional[int], **Any) -> bytes
         """
         Create a checksum using the current Key.
 
@@ -1280,10 +1334,10 @@ class Key(object):
             return Key(
                 cksumtype=cksumtype,
                 key=self.key,
-            ).make_checksum(keyusage=keyusage, text=text)
+            ).make_checksum(keyusage=keyusage, text=text, **kwargs)
         if self.cksumtype is None:
             raise ValueError("cksumtype not specified !")
-        return self.cp.checksum(self, keyusage, text)
+        return self.cp.checksum(self, keyusage, text, **kwargs)
 
     def verify_checksum(self, keyusage, text, cksum, cksumtype=None):
         # type: (int, bytes, bytes, Optional[int]) -> None

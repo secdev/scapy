@@ -180,7 +180,10 @@ class DCERPC_Client(object):
         if self.verb:
             print(conf.color_theme.opening(">> REQUEST: %s" % pkt.__class__.__name__))
         # Send/receive
-        resp = self.sr1(DceRpc5Request(cont_id=self.cont_id) / pkt, **kwargs)
+        resp = self.sr1(
+            DceRpc5Request(cont_id=self.cont_id, alloc_hint=len(pkt)) / pkt,
+            **kwargs,
+        )
         if DceRpc5Response in resp:
             if self.verb:
                 print(
@@ -271,9 +274,12 @@ class DCERPC_Client(object):
                     + (" (with %s)" % self.ssp.__class__.__name__ if self.ssp else "")
                 )
             )
-        if not self.ssp or self.transport == DCERPC_Transport.NCACN_NP:
-            # NCACN_NP = SMB does not bind the RPC securely, as it has already
-            # authenticated during the SMB Session Setup
+        if not self.ssp or (
+            self.transport == DCERPC_Transport.NCACN_NP
+            and self.auth_level < DCE_C_AUTHN_LEVEL.PKT_INTEGRITY
+        ):
+            # NCACN_NP = SMB without INTEGRITY/PRIVACY does not bind the RPC securely,
+            # again as it has already authenticated during the SMB Session Setup
             resp = self.sr1(
                 reqcls(context_elem=self.get_bind_context(interface)),
                 auth_verifier=None,
@@ -281,7 +287,7 @@ class DCERPC_Client(object):
             status = GSS_S_COMPLETE
         else:
             # Perform authentication
-            self.sspcontext, token, _ = self.ssp.GSS_Init_sec_context(
+            self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                 self.sspcontext,
                 req_flags=(
                     # SSPs need to be instantiated with some special flags
@@ -302,6 +308,9 @@ class DCERPC_Client(object):
                     )
                 ),
             )
+            if status not in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
+                # Authentication failed.
+                return False
             resp = self.sr1(
                 reqcls(context_elem=self.get_bind_context(interface)),
                 auth_verifier=(

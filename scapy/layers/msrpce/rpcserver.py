@@ -279,12 +279,13 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                         return
                     # auth_verifier here contains the SSP nego packets
                     # (whereas it usually contains the verifiers)
-                    hdr.auth_verifier = CommonAuthVerifier(
-                        auth_type=req.auth_verifier.auth_type,
-                        auth_level=req.auth_verifier.auth_level,
-                        auth_context_id=req.auth_verifier.auth_context_id,
-                        auth_value=auth_value,
-                    )
+                    if auth_value is not None:
+                        hdr.auth_verifier = CommonAuthVerifier(
+                            auth_type=req.auth_verifier.auth_type,
+                            auth_level=req.auth_verifier.auth_level,
+                            auth_context_id=req.auth_verifier.auth_context_id,
+                            auth_value=auth_value,
+                        )
 
                 def get_result(ctx):
                     name = ctx.transfer_syntaxes[0].sprintf("%if_uuid%")

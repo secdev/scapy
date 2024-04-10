@@ -1044,7 +1044,7 @@ class LDAP_Client(object):
 
     Example 2 - SASL_GSSAPI - Kerberos::
 
-        ssp = KerberosSSP(UPN="Administrator", PASSWORD="Password1!",
+        ssp = KerberosSSP(UPN="Administrator@domain.local", PASSWORD="Password1!",
                           SPN="ldap/dc1.domain.local")
         client = LDAP_Client(
             LDAP_BIND_MECHS.SASL_GSSAPI,
@@ -1057,7 +1057,7 @@ class LDAP_Client(object):
 
         ssp = SPNEGOSSP([
             NTLMSSP(UPN="Administrator", PASSWORD="Password1!"),
-            KerberosSSP(UPN="Administrator", PASSWORD="Password1!",
+            KerberosSSP(UPN="Administrator@domain.local", PASSWORD="Password1!",
                           SPN="ldap/dc1.domain.local"),
         ])
         client = LDAP_Client(

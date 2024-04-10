@@ -268,7 +268,7 @@ class run_smbserver:
 # define client
 
 class run_smbclient:
-   def __init__(self, user=None, password=None, share=None, list=False, cwd=None, debug=None):
+   def __init__(self, user=None, password=None, share=None, list=False, cwd=None, debug=None, maxversion=None):
       args = [
          "smbclient",
       ] + (["-L"] if list else []) + [
@@ -284,6 +284,8 @@ class run_smbclient:
          ])
       else:
          args.append("-N")
+      if maxversion:
+         args.extend(["-m", maxversion])
       self.args = args
       self.proc = subprocess.Popen(
          args,
@@ -312,7 +314,7 @@ class run_smbclient:
       print("smbclient output:")
       print(self.output)
 
-= smbserver: connect then list shares
+= smbserver: SMB 3.1.1 - connect then list shares
 
 with run_smbserver(guest=True):
    try:
@@ -326,7 +328,7 @@ with run_smbserver(guest=True):
    finally:
       cli.close()
 
-= smbserver: connect then ls
+= smbserver: SMB 3.1.1 - connect then ls
 
 with run_smbserver():
    try:
@@ -342,7 +344,23 @@ with run_smbserver():
    finally:
       cli.close()
 
-= smbserver: connect then get file
+= smbserver: SMB 2.0.2 - connect then ls
+
+with run_smbserver():
+   try:
+      cli = run_smbclient(user="Administrator", password="Password2", share="test", maxversion="SMB2_02")
+      cli.cmd("ls")
+      output = cli.getoutput()[1:]
+      files = [x[0] for x in (y.split(" ") for y in output if "blocks" not in y)]
+      print(files)
+      assert files == ['.', 'fileA', 'fileB', 'fileScapy', 'sub']
+   except Exception:
+      cli.printdebug()
+      raise
+   finally:
+      cli.close()
+
+= smbserver: SMB 3.1.1 - connect then get file
 
 LOCALPATH = pathlib.Path(get_temp_dir())
 

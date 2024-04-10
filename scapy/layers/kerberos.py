@@ -115,7 +115,7 @@ from scapy.fields import (
 )
 from scapy.packet import Packet, bind_bottom_up, bind_top_down, bind_layers
 from scapy.supersocket import StreamSocket
-from scapy.utils import strrot
+from scapy.utils import strrot, strxor
 from scapy.volatile import GeneralizedTime, RandNum, RandBin
 
 from scapy.layers.gssapi import (
@@ -2064,6 +2064,14 @@ class KRB_InnerToken(Packet):
         ),
     ]
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 13:
+            # Older RFC1964 variants of the token have KRB_GSSAPI_Token wrapper
+            if _pkt[2:13] == b"\x06\t*\x86H\x86\xf7\x12\x01\x02\x02":
+                return KRB_GSSAPI_Token
+        return cls
+
 
 # RFC 4121 - sect 4.1
 
@@ -2091,7 +2099,7 @@ class KRB_GSS_MIC_RFC1964(Packet):
     fields_desc = [
         LEShortEnumField("SGN_ALG", 0, _SGN_ALGS),
         XLEIntField("Filler", 0xFFFFFFFF),
-        LongField("SND_SEQ", 0),
+        XStrFixedLenField("SND_SEQ", b"", length=8),
         PadField(  # sect 1.2.2.3
             XStrFixedLenField("SGN_CKSUM", b"", length=8),
             align=8,
@@ -2111,7 +2119,7 @@ class KRB_GSS_Wrap_RFC1964(Packet):
         LEShortEnumField("SGN_ALG", 0, _SGN_ALGS),
         LEShortEnumField("SEAL_ALG", 0, _SEAL_ALGS),
         XLEShortField("Filler", 0xFFFF),
-        LongField("SND_SEQ", 0),
+        XStrFixedLenField("SND_SEQ", b"", length=8),
         PadField(  # sect 1.2.2.3
             XStrFixedLenField("SGN_CKSUM", b"", length=8),
             align=8,
@@ -3124,7 +3132,8 @@ def kpasswd(
     if not resp:
         raise TimeoutError("KPASSWD_REQ timed out !")
     if KPASSWD_REP not in resp:
-        raise ValueError("Invalid response to KPASSWD_RED !")
+        resp.show()
+        raise ValueError("Invalid response to KPASSWD_REQ !")
     Context, tok, negResult = ssp.GSS_Init_sec_context(Context, resp.aprep)
     if negResult != GSS_S_COMPLETE:
         warning("SSP failed on subsequent GSS_Init_sec_context !")
@@ -3240,6 +3249,7 @@ class KerberosSSP(SSP):
         TGT=None,
         DC_IP=None,
         REQUIRE_U2U=False,
+        SKEY_TYPE=None,
         debug=0,
         **kwargs,
     ):
@@ -3253,6 +3263,11 @@ class KerberosSSP(SSP):
         self.DC_IP = DC_IP
         self.REQUIRE_U2U = REQUIRE_U2U
         self.debug = debug
+        if SKEY_TYPE is None:
+            from scapy.libs.rfc3961 import EncryptionType
+
+            SKEY_TYPE = EncryptionType.AES128_CTS_HMAC_SHA1_96
+        self.SKEY_TYPE = SKEY_TYPE
         super(KerberosSSP, self).__init__(**kwargs)
 
     def GSS_GetMICEx(self, Context, msgs, qop_req=0):
@@ -3279,7 +3294,7 @@ class KerberosSSP(SSP):
             )
         else:
             raise NotImplementedError
-        Context.SendSeqNum += +1
+        Context.SendSeqNum += 1
         return sig
 
     def GSS_VerifyMICEx(self, Context, msgs, signature):
@@ -3307,9 +3322,10 @@ class KerberosSSP(SSP):
         [MS-KILE] sect 3.4.5.4
 
         - AES: RFC4121 sect 4.2.6.2 and [MS-KILE] sect 3.4.5.4.1
+        - HMAC-RC4: RFC4757 sect 7.3 and [MS-KILE] sect 3.4.5.4.1
         """
+        confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
         if Context.KrbSessionKey.etype in [17, 18]:  # AES
-            confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
             # Build token
             tok = KRB_InnerToken(
                 TOK_ID=b"\x05\x04",
@@ -3321,29 +3337,42 @@ class KerberosSSP(SSP):
                     RRC=0,
                 ),
             )
+            Context.SendSeqNum += 1
             # Real separation starts now: RFC4121 sect 4.2.4
             if confidentiality:
                 # Confidentiality is requested (see RFC4121 sect 4.3)
                 # {"header" | encrypt(plaintext-data | filler | "header")}
-                # 0. Concatenate the data
+                # 0. Roll confounder
+                Confounder = os.urandom(Context.KrbSessionKey.ep.blocksize)
+                # 1. Concatenate the data to be encrypted
                 Data = b"".join(x.data for x in msgs if x.conf_req_flag)
                 DataLen = len(Data)
-                # 1. Add filler
-                tok.root.EC = (-DataLen) % Context.KrbSessionKey.ep.blocksize
-                Data += b"\x00" * tok.root.EC
-                # 2. Add first 16 octets of the Wrap token "header"
-                Data += bytes(tok)[:16]
-                # 3. encrypt() is the encryption operation (which provides for
+                # 2. Add filler
+                tok.root.EC = ((-DataLen) % Context.KrbSessionKey.ep.blocksize) or 16
+                Filler = b"\x00" * tok.root.EC
+                Data += Filler
+                # 3. Add first 16 octets of the Wrap token "header"
+                PlainHeader = bytes(tok)[:16]
+                Data += PlainHeader
+                # 4. Build 'ToSign', exclusively used for checksum
+                ToSign = Confounder
+                ToSign += b"".join(x.data for x in msgs if x.sign)
+                ToSign += Filler
+                ToSign += PlainHeader
+                # 5. Finalize token for signing
+                # "The RRC field is [...] 28 if encryption is requested."
+                tok.root.RRC = 28
+                # 6. encrypt() is the encryption operation (which provides for
                 # integrity protection)
                 Data = Context.KrbSessionKey.encrypt(
                     keyusage=Context.SendSealKeyUsage,
                     plaintext=Data,
+                    confounder=Confounder,
+                    signtext=ToSign,
                 )
-                # "The RRC field is [...] 28 if encryption is requested."
-                tok.root.RRC = 28
-                # 4. Rotate
+                # 7. Rotate
                 Data = strrot(Data, tok.root.RRC + tok.root.EC)
-                # 5. Split (token and encrypted messages)
+                # 8. Split (token and encrypted messages)
                 toklen = len(Data) - DataLen
                 tok.root.Data = Data[:toklen]
                 offset = toklen
@@ -3382,6 +3411,77 @@ class KerberosSSP(SSP):
                 # 4. Rotate
                 tok.root.Data = strrot(Data, tok.root.RRC)
                 return msgs, tok
+        elif Context.KrbSessionKey.etype in [23, 24]:  # RC4
+            from scapy.libs.rfc3961 import Hmac_MD5, Cipher, algorithms, _rfc1964pad
+
+            # Build token
+            seq = struct.pack(">I", Context.SendSeqNum)
+            tok = KRB_InnerToken(
+                TOK_ID=b"\x02\x01",
+                root=KRB_GSS_Wrap_RFC1964(
+                    SGN_ALG="HMAC",
+                    SEAL_ALG="RC4" if confidentiality else "none",
+                    SND_SEQ=seq
+                    + (
+                        # See errata
+                        b"\xff\xff\xff\xff"
+                        if Context.IsAcceptor
+                        else b"\x00\x00\x00\x00"
+                    ),
+                ),
+            )
+            Context.SendSeqNum += 1
+            # 0. Concatenate data
+            ToSign = _rfc1964pad(b"".join(x.data for x in msgs if x.sign))
+            ToEncrypt = b"".join(x.data for x in msgs if x.conf_req_flag)
+            Kss = Context.KrbSessionKey.key
+            # 1. Roll confounder
+            Confounder = os.urandom(8)
+            # 2. Compute the 'Kseq' key
+            Klocal = strxor(Kss, len(Kss) * b"\xf0")
+            if Context.KrbSessionKey.etype == 24:  # EXP
+                Kcrypt = Hmac_MD5(Klocal).digest(b"fortybits\x00" + b"\x00\x00\x00\x00")
+                Kcrypt = Kcrypt[:7] + b"\xab" * 9
+            else:
+                Kcrypt = Hmac_MD5(Klocal).digest(b"\x00\x00\x00\x00")
+            Kcrypt = Hmac_MD5(Kcrypt).digest(seq)
+            # 3. Build SGN_CKSUM
+            tok.root.SGN_CKSUM = Context.KrbSessionKey.make_checksum(
+                keyusage=13,  # See errata
+                text=bytes(tok)[:8] + Confounder + ToSign,
+            )[:8]
+            # 4. Populate token + encrypt
+            if confidentiality:
+                # 'encrypt' is requested
+                rc4 = Cipher(algorithms.ARC4(Kcrypt), mode=None).encryptor()
+                tok.root.CONFOUNDER = rc4.update(Confounder)
+                Data = rc4.update(ToEncrypt)
+                # Split encrypted data
+                offset = 0
+                for msg in msgs:
+                    msglen = len(msg.data)
+                    if msg.conf_req_flag:
+                        msg.data = Data[offset : offset + msglen]
+                        offset += msglen
+            else:
+                # 'encrypt' is not requested
+                tok.root.CONFOUNDER = Confounder
+            # 5. Compute the 'Kseq' key
+            if Context.KrbSessionKey.etype == 24:  # EXP
+                Kseq = Hmac_MD5(Kss).digest(b"fortybits\x00" + b"\x00\x00\x00\x00")
+                Kseq = Kseq[:7] + b"\xab" * 9
+            else:
+                Kseq = Hmac_MD5(Kss).digest(b"\x00\x00\x00\x00")
+            Kseq = Hmac_MD5(Kseq).digest(tok.root.SGN_CKSUM)
+            # 6. Encrypt 'SND_SEQ'
+            rc4 = Cipher(algorithms.ARC4(Kseq), mode=None).encryptor()
+            tok.root.SND_SEQ = rc4.update(tok.root.SND_SEQ)
+            # 7. Include 'InitialContextToken pseudo ASN.1 header'
+            tok = KRB_GSSAPI_Token(
+                MechType="1.2.840.113554.1.2.2",  # Kerberos 5
+                innerToken=tok,
+            )
+            return msgs, tok
         else:
             raise NotImplementedError
 
@@ -3390,9 +3490,10 @@ class KerberosSSP(SSP):
         [MS-KILE] sect 3.4.5.5
 
         - AES: RFC4121 sect 4.2.6.2
+        - HMAC-RC4: RFC4757 sect 7.3
         """
+        confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
         if Context.KrbSessionKey.etype in [17, 18]:  # AES
-            confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
             # Real separation starts now: RFC4121 sect 4.2.4
             if confidentiality:
                 # 0. Concatenate the data
@@ -3400,22 +3501,41 @@ class KerberosSSP(SSP):
                 Data += b"".join(x.data for x in msgs if x.conf_req_flag)
                 # 1. Un-Rotate
                 Data = strrot(Data, signature.root.RRC + signature.root.EC, right=False)
-                # 2. Decrypt
+
+                # 2. Function to build 'ToSign', exclusively used for checksum
+                def MakeToSign(Confounder, DecText):
+                    offset = 0
+                    # 2.a Confounder
+                    ToSign = Confounder
+                    # 2.b Messages
+                    for msg in msgs:
+                        msglen = len(msg.data)
+                        if msg.conf_req_flag:
+                            ToSign += DecText[offset : offset + msglen]
+                            offset += msglen
+                        elif msg.sign:
+                            ToSign += msg.data
+                    # 2.c Filler & Padding
+                    ToSign += DecText[offset:]
+                    return ToSign
+
+                # 3. Decrypt
                 Data = Context.KrbSessionKey.decrypt(
                     keyusage=Context.RecvSealKeyUsage,
                     ciphertext=Data,
+                    presignfunc=MakeToSign,
                 )
-                # 3. Split
+                # 4. Split
                 Data, f16header = (
                     Data[:-16],
                     Data[-16:],
                 )
-                # 4. Check header
+                # 5. Check header
                 hdr = signature.copy()
                 hdr.root.RRC = 0
                 if f16header != bytes(hdr)[:16]:
                     raise ValueError("ERROR: Headers don't match")
-                # 5. Split (and ignore filler)
+                # 6. Split (and ignore filler)
                 offset = 0
                 for msg in msgs:
                     msglen = len(msg.data)
@@ -3431,7 +3551,7 @@ class KerberosSSP(SSP):
                 # 1. Un-Rotate
                 Data = strrot(Data, signature.root.RRC, right=False)
                 # 2. Split
-                Data, Mic = Data[:-signature.root.EC], Data[-signature.root.EC:]
+                Data, Mic = Data[: -signature.root.EC], Data[-signature.root.EC :]
                 # "Both the EC field and the RRC field in
                 # the token header SHALL be filled with zeroes for the purpose of
                 # calculating the checksum."
@@ -3454,6 +3574,57 @@ class KerberosSSP(SSP):
                     if msg.sign:
                         msg.data = Data
                 return msgs
+        elif Context.KrbSessionKey.etype in [23, 24]:  # RC4
+            from scapy.libs.rfc3961 import Hmac_MD5, Cipher, algorithms, _rfc1964pad
+
+            # Drop wrapping
+            tok = signature.innerToken
+
+            # 0. Concatenate data
+            ToDecrypt = b"".join(x.data for x in msgs if x.conf_req_flag)
+            Kss = Context.KrbSessionKey.key
+            # 1. Compute the 'Kseq' key
+            if Context.KrbSessionKey.etype == 24:  # EXP
+                Kseq = Hmac_MD5(Kss).digest(b"fortybits\x00" + b"\x00\x00\x00\x00")
+                Kseq = Kseq[:7] + b"\xab" * 9
+            else:
+                Kseq = Hmac_MD5(Kss).digest(b"\x00\x00\x00\x00")
+            Kseq = Hmac_MD5(Kseq).digest(tok.root.SGN_CKSUM)
+            # 2. Decrypt 'SND_SEQ'
+            rc4 = Cipher(algorithms.ARC4(Kseq), mode=None).encryptor()
+            seq = rc4.update(tok.root.SND_SEQ)[:4]
+            # 3. Compute the 'Kcrypt' key
+            Klocal = strxor(Kss, len(Kss) * b"\xf0")
+            if Context.KrbSessionKey.etype == 24:  # EXP
+                Kcrypt = Hmac_MD5(Klocal).digest(b"fortybits\x00" + b"\x00\x00\x00\x00")
+                Kcrypt = Kcrypt[:7] + b"\xab" * 9
+            else:
+                Kcrypt = Hmac_MD5(Klocal).digest(b"\x00\x00\x00\x00")
+            Kcrypt = Hmac_MD5(Kcrypt).digest(seq)
+            # 4. Decrypt
+            if confidentiality:
+                # 'encrypt' was requested
+                rc4 = Cipher(algorithms.ARC4(Kcrypt), mode=None).encryptor()
+                Confounder = rc4.update(tok.root.CONFOUNDER)
+                Data = rc4.update(ToDecrypt)
+                # Split encrypted data
+                offset = 0
+                for msg in msgs:
+                    msglen = len(msg.data)
+                    if msg.conf_req_flag:
+                        msg.data = Data[offset : offset + msglen]
+                        offset += msglen
+            else:
+                # 'encrypt' was not requested
+                Confounder = tok.root.CONFOUNDER
+            # 5. Verify SGN_CKSUM
+            ToSign = _rfc1964pad(b"".join(x.data for x in msgs if x.sign))
+            Context.KrbSessionKey.verify_checksum(
+                keyusage=13,  # See errata
+                text=bytes(tok)[:8] + Confounder + ToSign,
+                cksum=tok.root.SGN_CKSUM,
+            )
+            return msgs
         else:
             raise NotImplementedError
 
@@ -3464,7 +3635,7 @@ class KerberosSSP(SSP):
             # New context
             Context = self.CONTEXT(IsAcceptor=False, req_flags=req_flags)
 
-        from scapy.libs.rfc3961 import Key, EncryptionType
+        from scapy.libs.rfc3961 import Key
 
         if Context.state == self.STATE.INIT and self.U2U:
             # U2U - Get TGT
@@ -3555,7 +3726,7 @@ class KerberosSSP(SSP):
             # Build the authenticator
             now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
             Context.KrbSessionKey = Key.random_to_key(
-                EncryptionType.AES128_CTS_HMAC_SHA1_96,
+                self.SKEY_TYPE,
                 os.urandom(16),
             )
             Context.SendSeqNum = RandNum(0, 0x7FFFFFFF)._fix()
@@ -3682,7 +3853,7 @@ class KerberosSSP(SSP):
             # New context
             Context = self.CONTEXT(IsAcceptor=True, req_flags=0)
 
-        from scapy.libs.rfc3961 import Key, EncryptionType
+        from scapy.libs.rfc3961 import Key
 
         if Context.state == self.STATE.INIT:
             if not self.SPN:
@@ -3756,7 +3927,20 @@ class KerberosSSP(SSP):
                 tkt = ap_req.ticket.encPart.decrypt(self.KEY)
             except ValueError as ex:
                 warning("KerberosSSP: %s (bad KEY?)" % ex)
-                return Context, None, GSS_S_DEFECTIVE_TOKEN
+                now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+                err = KRB_GSSAPI_Token(
+                    innerToken=KRB_InnerToken(
+                        TOK_ID=b"\x03\x00",
+                        root=KRB_ERROR(
+                            errorCode="KRB_AP_ERR_MODIFIED",
+                            stime=ASN1_GENERALIZED_TIME(now_time),
+                            realm=ap_req.ticket.realm,
+                            sname=ap_req.ticket.sname,
+                            eData=None,
+                        ),
+                    )
+                )
+                return Context, err, GSS_S_DEFECTIVE_TOKEN
             # Get AP-REP session key
             Context.STSessionKey = tkt.key.toKey()
             authenticator = ap_req.authenticator.decrypt(Context.STSessionKey)
@@ -3764,7 +3948,7 @@ class KerberosSSP(SSP):
             subkey = None
             if ap_req.apOptions.val[2] == "1":  # mutual-required
                 appkey = Key.random_to_key(
-                    EncryptionType.AES128_CTS_HMAC_SHA1_96,
+                    self.SKEY_TYPE,
                     os.urandom(16),
                 )
                 Context.KrbSessionKey = appkey
@@ -3803,7 +3987,6 @@ class KerberosSSP(SSP):
             # verify that the message is constructed correctly.
             if not val:
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
-            val.show()
             # Server receives AP-req, sends AP-rep
             if isinstance(val, KRB_AP_REP):
                 # Raw AP_REP was passed
@@ -3857,9 +4040,13 @@ class KerberosSSP(SSP):
 
     def MaximumSignatureLength(self, Context: CONTEXT):
         if Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG:
-            # FIXME, this is broken
+            # TODO: support DES
             if Context.KrbSessionKey.etype in [17, 18]:  # AES
-                return 60
+                return 76
+            elif Context.KrbSessionKey.etype in [23, 24]:  # RC4_HMAC
+                return 45
+            else:
+                raise NotImplementedError
         else:
             return 28
 

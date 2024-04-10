@@ -2563,7 +2563,7 @@ class DceRpcSession(DefaultSession):
         self.map_callid_opnum = {}
         self.frags = collections.defaultdict(lambda: b"")
         self.sniffsspcontexts = {}  # Unfinished contexts for passive
-        if conf.winssps_passive:
+        if conf.dcerpc_session_enable and conf.winssps_passive:
             for ssp in conf.winssps_passive:
                 self.sniffsspcontexts[ssp] = None
         super(DceRpcSession, self).__init__(*args, **kwargs)
@@ -2674,7 +2674,7 @@ class DceRpcSession(DefaultSession):
         if conf.raw_layer in pkt:
             body = bytes(pkt[conf.raw_layer])
         # If we are doing passive sniffing
-        if conf.winssps_passive:
+        if conf.dcerpc_session_enable and conf.winssps_passive:
             # We have Windows SSPs, and no current context
             if pkt.auth_verifier and pkt.auth_verifier.is_ssp():
                 # This is a bind/alter/auth3 req/resp
