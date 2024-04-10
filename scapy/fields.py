@@ -1893,6 +1893,8 @@ class StrFixedLenField(StrField):
     def getfield(self, pkt, s):
         # type: (Packet, bytes) -> Tuple[bytes, bytes]
         len_pkt = self.length_from(pkt)
+        if len_pkt == 0:
+            return s, b""
         return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
 
     def addfield(self, pkt, s, val):

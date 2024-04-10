@@ -61,8 +61,18 @@ from scapy.fields import (
     XIntField,
     XShortField,
 )
-from scapy.layers.inet import IP, IPTools, TCP, TCPerror, TracerouteResult, \
-    UDP, UDPerror
+from scapy.layers.inet import (
+    _ICMPExtensionField,
+    _ICMPExtensionPadField,
+    _ICMP_extpad_post_dissection,
+    IP,
+    IPTools,
+    TCP,
+    TCPerror,
+    TracerouteResult,
+    UDP,
+    UDPerror,
+)
 from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.sendrecv import sendp, sniff, sr, srp1
@@ -1438,7 +1448,10 @@ class ICMPv6DestUnreach(_ICMPv6Error):
                                              4: "Port unreachable"}),
                    XShortField("cksum", None),
                    ByteField("length", 0),
-                   X3BytesField("unused", 0)]
+                   X3BytesField("unused", 0),
+                   _ICMPExtensionPadField(),
+                   _ICMPExtensionField()]
+    post_dissection = _ICMP_extpad_post_dissection
 
 
 class ICMPv6PacketTooBig(_ICMPv6Error):
@@ -1456,7 +1469,11 @@ class ICMPv6TimeExceeded(_ICMPv6Error):
                                              1: "fragment reassembly time exceeded"}),  # noqa: E501
                    XShortField("cksum", None),
                    ByteField("length", 0),
-                   X3BytesField("unused", 0)]
+                   X3BytesField("unused", 0),
+                   _ICMPExtensionPadField(),
+                   _ICMPExtensionField()]
+    post_dissection = _ICMP_extpad_post_dissection
+
 
 # The default pointer value is set to the next header field of
 # the encapsulated IPv6 packet
