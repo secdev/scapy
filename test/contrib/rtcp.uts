@@ -76,3 +76,23 @@ raw = b"\x81\xc9\x00\x07\xa2\xdf\x02\x72\x49\x6e\x93\xbd\x00\xff\xff\xff" \
       b"\x30\x33\x34\x38\x38\x39\x30\x31\x40\x68\x6f\x73\x74\x2d\x65\x37" \
       b"\x32\x64\x62\x34\x33\x64\x06\x09\x47\x53\x74\x72\x65\x61\x6d\x65" \
       b"\x72\x00\x00\x00"
+
+= format SR + 2xRR and parse back
+
+rtcp = RTCP()
+rtcp.packet_type = 200
+rtcp.sourcesync = 0x01010101
+rtcp.sender_info.rtp_timestamp = 0x03030303
+rtcp.count = 2
+rtcp.report_blocks.append(ReceptionReport(sourcesync=0x04040404))
+rtcp.report_blocks.append(ReceptionReport(sourcesync=0x05050505))
+b = bytes(rtcp)
+rtcp2 = RTCP(b)
+assert rtcp2.count == 2
+assert rtcp2.length == 18
+assert rtcp2.sourcesync == 0x01010101
+assert rtcp2.sender_info.rtp_timestamp == 0x03030303
+assert len(rtcp2.sender_info.payload) == 0
+assert rtcp2.report_blocks[0].sourcesync == 0x04040404
+assert len(rtcp2.report_blocks[0].payload) == 0
+assert rtcp2.report_blocks[1].sourcesync == 0x05050505
