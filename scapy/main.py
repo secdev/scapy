@@ -65,13 +65,34 @@ QUOTES = [
 ]
 
 
-def _probe_config_file(*cf):
-    # type: (str) -> Union[str, None]
-    path = pathlib.Path(os.path.expanduser("~"))
+def _probe_xdg_folder(var, default, *cf):
+    # type: (str, str, *str) -> Optional[pathlib.Path]
+    path = pathlib.Path(os.environ.get(var, default))
     if not path.exists():
-        # ~ folder doesn't exist. Unsalvageable
-        return None
-    return str(path.joinpath(*cf).resolve())
+        # ~ folder doesn't exist. Create according to spec
+        # https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+        # "If, when attempting to write a file, the destination directory is
+        # non-existent an attempt should be made to create it with permission 0700."
+        path.mkdir(mode=0o700)
+    return path.joinpath(*cf).resolve()
+
+
+def _probe_config_folder(*cf):
+    # type: (str) -> Optional[pathlib.Path]
+    return _probe_xdg_folder(
+        "XDG_CONFIG_HOME",
+        os.path.join(os.path.expanduser("~"), ".config"),
+        *cf
+    )
+
+
+def _probe_cache_folder(*cf):
+    # type: (str) -> Optional[pathlib.Path]
+    return _probe_xdg_folder(
+        "XDG_CACHE_HOME",
+        os.path.join(os.path.expanduser("~"), ".cache"),
+        *cf
+    )
 
 
 def _read_config_file(cf, _globals=globals(), _locals=locals(),
@@ -107,10 +128,15 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
         if default is None:
             return
         # We have a default ! set it
-        cf_path.parent.mkdir(parents=True, exist_ok=True)
-        with cf_path.open("w") as fd:
-            fd.write(default)
-        log_loading.debug("Config file [%s] created with default.", cf)
+        try:
+            cf_path.parent.mkdir(parents=True, exist_ok=True)
+            with cf_path.open("w") as fd:
+                fd.write(default)
+            log_loading.debug("Config file [%s] created with default.", cf)
+        except OSError:
+            log_loading.warning("Config file [%s] could not be created.", cf,
+                                exc_info=True)
+            return
     log_loading.debug("Loading config file [%s]", cf)
     try:
         with open(cf) as cfgf:
@@ -135,6 +161,17 @@ def _validate_local(k):
     return k[0] != "_" and k not in ["range", "map"]
 
 
+# This is ~/.config/scapy
+SCAPY_CONFIG_FOLDER = _probe_config_folder("scapy")
+SCAPY_CACHE_FOLDER = _probe_cache_folder("scapy")
+
+if SCAPY_CONFIG_FOLDER:
+    DEFAULT_PRESTART_FILE: Optional[str] = str(SCAPY_CONFIG_FOLDER / "prestart.py")
+    DEFAULT_STARTUP_FILE: Optional[str] = str(SCAPY_CONFIG_FOLDER / "startup.py")
+else:
+    DEFAULT_PRESTART_FILE = None
+    DEFAULT_STARTUP_FILE = None
+
 # Default scapy prestart.py config file
 
 DEFAULT_PRESTART = """
@@ -154,9 +191,6 @@ conf.color_theme = DefaultTheme()
 # force-use libpcap
 # conf.use_pcap = True
 """.strip()
-
-DEFAULT_PRESTART_FILE = _probe_config_file(".config", "scapy", "prestart.py")
-DEFAULT_STARTUP_FILE = _probe_config_file(".config", "scapy", "startup.py")
 
 
 def _usage():

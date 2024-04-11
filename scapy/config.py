@@ -984,6 +984,11 @@ class Conf(ConfClass):
     #: manipulate it
     route6 = None  # type: 'scapy.route6.Route6'
     manufdb = None  # type: 'scapy.data.ManufDA'
+    ethertypes = None  # type: 'scapy.data.EtherDA'
+    protocols = None  # type: 'scapy.dadict.DADict[int, str]'
+    services_udp = None  # type: 'scapy.dadict.DADict[int, str]'
+    services_tcp = None  # type: 'scapy.dadict.DADict[int, str]'
+    services_sctp = None  # type: 'scapy.dadict.DADict[int, str]'
     # 'route6' will be filed by route6.py
     teredoPrefix = ""  # type: str
     teredoServerPort = None  # type: int
