@@ -1029,16 +1029,16 @@ with open(manuf2, "w") as w:
 a = load_manuf(manuf1)
 b = load_manuf(manuf2)
 
-a.lookup("00:00:00") == ('JokyIsland', 'Joky Insland Corp SA'),
-a.lookup("FF:00:11:00:00:00") == ('NoName', 'NoName')
-a.reverse_lookup("Scapy") == {'EE:05:01': ('Scapy', 'Scapy CO LTD & CIE')}
-a.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporation SA LLC')}
+assert a.lookup("00:00:00") == ('JokyIsland', 'Joky Insland Corp SA')
+assert a.lookup("FF:00:11:00:00:00") == ('NoName', 'NoName')
+assert a.reverse_lookup("Scapy") == {'EE:05:01': ('Scapy', 'Scapy CO LTD & CIE')}
+assert a.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporation SA LLC')}
 
 
-b.lookup("00:00:00") == ('JokyIsland', 'Joky Insland Corp SA'),
-b.lookup("FF:00:11:00:00:00") == ('NoName', 'NoName')
-b.reverse_lookup("Scapy") == {'EE:05:01': ('Scapy', 'Scapy CO LTD & CIE')}
-b.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporation SA LLC')}
+assert b.lookup("00:00:00") == ('JokyIsland', 'Joky Insland Corp SA')
+assert b.lookup("FF:00:11:00:00:00") == ('NoName', 'NoName')
+assert b.reverse_lookup("Scapy") == {'EE:05:01': ('Scapy', 'Scapy CO LTD & CIE')}
+assert b.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporation SA LLC')}
 
 scapy_delete_temp_files()
 
@@ -1126,8 +1126,8 @@ conf.verb = saved_conf_verb
 
 = Test config file functions failures
 
-from scapy.main import _read_config_file, _probe_config_file
-assert _read_config_file(_probe_config_file("filethatdoesnotexistnorwillever.tsppajfsrdrr")) is None
+from scapy.main import _read_config_file, _probe_config_folder
+assert _read_config_file(_probe_config_folder("filethatdoesnotexistnorwillever.tsppajfsrdrr")) is None
 
 = Test CacheInstance repr
 
