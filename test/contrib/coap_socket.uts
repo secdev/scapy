@@ -48,7 +48,7 @@ lst_resources = [DummyResource("/dummy"), DelayedResource("delayed")]
 
 with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
     req = CoAPSocket.make_coap_req_packet(uri=".well-known/core", payload=b"")
-    coap_client.send("127.0.0.1", 5683, req)
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
     res = coap_client.recv()
     assert res.payload.load == b'</dummy>;ct=0,</delayed>;ct=0'
     assert res.type == ACK
@@ -60,7 +60,7 @@ with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, 
 
 with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
     req = CoAPSocket.make_coap_req_packet(uri="dummy", payload=b"")
-    coap_client.send("127.0.0.1", 5683, req)
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
     res = coap_client.recv()
     assert res.payload.load == responses[0]
     assert res.type == ACK
@@ -72,7 +72,7 @@ with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, 
 
 with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
     req = CoAPSocket.make_coap_req_packet(uri="/dummy", payload=b"")
-    coap_client.send("127.0.0.1", 5683, req)
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
     res = coap_client.recv()
     assert res.payload.load == responses[0]
     assert res.type == ACK
@@ -84,7 +84,7 @@ with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, 
 
 with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
     req = CoAPSocket.make_coap_req_packet(uri="dummy/", payload=b"")
-    coap_client.send("127.0.0.1", 5683, req)
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
     res = coap_client.recv()
     assert res.type == ACK
     assert res.code == NOT_FOUND_404
@@ -95,7 +95,7 @@ with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, 
 
 with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
     req = CoAPSocket.make_coap_req_packet(method=PUT, uri="dummy", payload=b"a payload")
-    coap_client.send("127.0.0.1", 5683, req)
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
     res = coap_client.recv()
     assert res.type == ACK
     assert res.code == NOT_ALLOWED_405
@@ -107,7 +107,7 @@ with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, 
 with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
     coap_server.impl._enable_debug = True
     req = CoAPSocket.make_coap_req_packet(uri="/dummy", payload=b"")
-    coap_client.send("127.0.0.1", 5683, req)
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
     res = coap_client.recv()
     assert res.payload.load == responses[0]
     assert res.type == ACK
@@ -119,7 +119,7 @@ with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, 
 
 with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
     req = CoAPSocket.make_coap_req_packet(uri="/delayed", payload=b"")
-    coap_client.send("127.0.0.1", 5683, req)
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
     res = coap_client.recv()
     assert res.payload.load == responses[1]
     assert res.type == CON
