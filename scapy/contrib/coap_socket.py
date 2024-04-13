@@ -23,54 +23,15 @@ from typing import (
 
 from scapy.error import Scapy_Exception
 from scapy.packet import Packet
-from scapy.contrib.coap import CoAP, coap_options, coap_codes
+from scapy.contrib.coap import CoAP, coap_options, coap_codes, EMPTY_MESSAGE, GET, \
+    POST, PUT, DELETE, COAP_REQ_CODES, CONTENT_205, NOT_FOUND_404, NOT_ALLOWED_405, \
+    CF_TEXT_PLAIN, CF_APP_LINK_FORMAT, PAYMARK, URI_PATH, CONTENT_FORMAT, CON, NON, ACK
 from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
 from scapy.data import MTU
 from scapy.utils import EDecimal
 from scapy.automaton import ObjectPipe, select_objects
 
 from scapy.supersocket import SuperSocket, SimpleSocket
-
-"""
-CoAP message request codes (RFC 7252 @ section-5.8.1)
-"""
-EMPTY_MESSAGE = 0
-GET = 1
-POST = 2
-PUT = 3
-DELETE = 4
-COAP_REQ_CODES = [GET, POST, PUT, DELETE]
-"""
-CoAP message response codes (RFC 7252 @ section-12.1.2)
-Also, from scapy.contrib.coap.coap_codes
-"""
-EMPTY_ACK = EMPTY_MESSAGE
-CONTENT_205 = 69
-NOT_FOUND_404 = 132
-NOT_ALLOWED_405 = 133
-NOT_IMPLEMENTED_501 = 161
-"""
-CoAP content type (RFC 7252 @ section-12.3)
-"""
-CF_TEXT_PLAIN = b"\x00"
-CF_APP_LINK_FORMAT = b"\x28"
-CF_APP_XML = b"\x29"
-CF_APP_OCTET_STREAM = b"\x2A"
-CF_APP_EXI = b"\x2F"
-CF_APP_JSON = b"\x32"
-"""
-CoAP options (RFC 7252 @ section-5.10)
-"""
-PAYMARK = b"\xff"
-URI_PATH = 11
-CONTENT_FORMAT = 12
-"""
-CoAP message type
-"""
-CON = 0
-NON = 1
-ACK = 2
-RST = 3
 
 log_coap_sock = logging.getLogger("scapy.contrib.coap_socket")
 
@@ -85,7 +46,7 @@ class CoAPSocket(SuperSocket):
     >>> with CoAPSocket("127.0.0.1", 1234) as coap_client:
     >>>     req = CoAPSocket.make_coap_req_packet(
     >>>                 method=GET, uri="endpoint-uri", payload=b"")
-    >>>     coap_client.send("127.0.0.1", 5683, req)
+    >>>     coap_client.send(IP(dst="192.168.1.1") / UDP(dport=1234) / req)
     >>>     # Careful, this will block until the coap_client receives something
     >>>     res = coap_client.recv()
 
@@ -172,12 +133,24 @@ class CoAPSocket(SuperSocket):
     def close(self):
         # type: () -> None
         if not self.closed:
-            self.impl.close()
             self.closed = True
+            self.impl.close()
 
-    def send(self, ip, port, x):
-        # type: (str, int, CoAP) -> None
-        self.impl.send(ip, port, x)
+    def send(self, x):
+        # type: (Packet) -> int
+        """
+        Send the packet using this socket.
+        Should be a CoAP packet with IP and UDP data.
+
+        Example:
+        >>> IP(dst="192.168.1.1") / UDP(dport=1234) / CoAP()
+        >>> IP(dst="192.168.1.1") / UDP(dport=1234) / CoAPSocket.make_coap_req_packet()
+
+        :param x: Concatenated packet with IP / UDP / CoAP
+        :return: The length of x, which is the amount of bytes sent
+        """
+        self.impl.send(x.dst, x.dport, x[CoAP])
+        return len(x)
 
     @staticmethod
     def make_coap_req_packet(method=GET, uri="", options=None, payload=b""):
@@ -630,7 +603,7 @@ class CoAPSocketImpl:
             else:
                 self._handle_rcv_request(pkt, sa_ll)
         else:
-            # Response, check pending requests
+            # Response, check pending requests and process internally
             self._handle_request_response(pkt, sa_ll)
 
     def _post(self):
@@ -805,7 +778,6 @@ class CoAPSocketImpl:
                                 index[0], index[1],
                                 coap_codes[pkt.code])
             del self.pending_requests[index]
-            # Piggybacked message, give it to the user
             self.rx_queue.send((pkt.build(), pkt.time))
         elif pkt.type == ACK and pkt.code == EMPTY_MESSAGE:
             log_coap_sock.debug(
@@ -824,11 +796,9 @@ class CoAPSocketImpl:
             response = CoAPSocketImpl.empty_ack_params()
             response["msg_id"] = pkt.msg_id
             self._sock_send(sa_ll, CoAP(**response))
-
-            # Give the packet to the user
             self.rx_queue.send((pkt.build(), pkt.time))
         else:
-            log_coap_sock.info("Not handled message, giving to user: "
+            log_coap_sock.info("Not handled message: "
                                "type=%s; code=%s;",
                                pkt.type, coap_codes[pkt.code])
             self.rx_queue.send((pkt.build(), pkt.time))
