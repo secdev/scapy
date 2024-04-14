@@ -55,8 +55,10 @@ if exit_status == 0:
     conf.route.resync()
     print(conf.route.routes)
     assert conf.route.route("192.0.2.43") == ("scapy0.42", "203.0.113.42", "203.0.113.41")
-    route_specific = (3221226027, 4294967295, "203.0.113.41", "scapy0.42", "203.0.113.42", 0)
+    route_specific = (3221226027, 4294967295, "203.0.113.41", "scapy0.42", "0.0.0.0", 0)
     assert route_specific in conf.route.routes
+    assert conf.route.route("203.0.113.42") == ('scapy0.42', '203.0.113.42', '0.0.0.0')
+    assert conf.route.route("203.0.113.43") == ('scapy0.42', '203.0.113.42', '0.0.0.0')
     exit_status = os.system("ip link del name dev scapy0")
 else:
     assert True

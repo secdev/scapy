@@ -623,7 +623,7 @@ class PadField(_FieldContainer):
     __slots__ = ["fld", "_align", "_padwith"]
 
     def __init__(self, fld, align, padwith=None):
-        # type: (Field[Any, Any], int, Optional[bytes]) -> None
+        # type: (AnyField, int, Optional[bytes]) -> None
         self.fld = fld
         self._align = align
         self._padwith = padwith or b"\x00"
