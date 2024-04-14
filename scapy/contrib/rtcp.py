@@ -51,6 +51,9 @@ class SenderInfo(Packet):
         IntField('sender_octet_count', None)
     ]
 
+    def extract_padding(self, p):
+        return "", p
+
 
 class ReceptionReport(Packet):
     name = "Reception report"
@@ -63,6 +66,9 @@ class ReceptionReport(Packet):
         IntField('last_SR_timestamp', None),
         IntField('delay_since_last_SR', None)
     ]
+
+    def extract_padding(self, p):
+        return "", p
 
 
 _sdes_chunk_types = {
