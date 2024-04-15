@@ -192,7 +192,63 @@ Here's an example sending a ``ServerAlive`` over the ``IObjectExporter`` interfa
     resp = client.sr1_req(req)
     resp.show()
 
-Here's a different example, this time connecting over ``NCACN_NP`` to `[MS-SAMR] <https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/4df07fab-1bbc-452f-8e92-7853a3c7e380>`_ to enumerate the domains a server is in:
+Here's the same example, but this time asking for :const:`~scapy.layers.dcerpc.RPC_C_AUTHN_LEVEL.PKT_PRIVACY` (encryption) using ``NTLMSSP``:
+
+.. code-block:: python
+
+    from scapy.layers.ntlm import *
+    from scapy.layers.dcerpc import *
+    from scapy.layers.msrpce.all import *
+
+    ssp = NTLMSSP(
+        UPN="Administrator",
+        PASSWORD="Password1",
+    )
+    client = DCERPC_Client(
+        DCERPC_Transport.NCACN_IP_TCP,
+        auth_level=DCE_C_AUTHN_LEVEL.PKT_PRIVACY,
+        ssp=ssp,
+        ndr64=False,
+    )
+    client.connect("192.168.0.100")
+    client.bind(find_dcerpc_interface("IObjectExporter"))
+
+    req = ServerAlive_Request(ndr64=False)
+    resp = client.sr1_req(req)
+    resp.show()
+
+Again, but this time using :const:`~scapy.layers.dcerpc.RPC_C_AUTHN_LEVEL.PKT_INTEGRITY` (signing) using ``SPNEGOSSP[KerberosSSP]``:
+
+.. code-block:: python
+
+    from scapy.layers.kerberos import *
+    from scapy.layers.spnego import *
+    from scapy.layers.dcerpc import *
+    from scapy.layers.msrpce.all import *
+
+    ssp = SPNEGOSSP(
+        [
+            KerberosSSP(
+                UPN="Administrator@domain.local",
+                PASSWORD="Password1",
+                SPN="host/dc1",
+            )
+        ]
+    )
+    client = DCERPC_Client(
+        DCERPC_Transport.NCACN_IP_TCP,
+        auth_level=DCE_C_AUTHN_LEVEL.PKT_INTEGRITY,
+        ssp=ssp,
+        ndr64=False,
+    )
+    client.connect("192.168.0.100")
+    client.bind(find_dcerpc_interface("IObjectExporter"))
+
+    req = ServerAlive_Request(ndr64=False)
+    resp = client.sr1_req(req)
+    resp.show()
+
+Here's a different example, this time connecting over :const:`~scapy.layers.dcerpc.DCERPC_Transport.NCACN_NP` to `[MS-SAMR] <https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/4df07fab-1bbc-452f-8e92-7853a3c7e380>`_ to enumerate the domains a server is in:
 
 .. code-block:: python
 
@@ -200,12 +256,13 @@ Here's a different example, this time connecting over ``NCACN_NP`` to `[MS-SAMR]
     from scapy.layers.dcerpc import *
     from scapy.layers.msrpce.all import *
 
+    ssp = NTLMSSP(
+        UPN="User",
+        HASHNT=MD4le("Password"),
+    )
     client = DCERPC_Client(
         DCERPC_Transport.NCACN_NP,
-        ssp=NTLMSSP(
-            UPN="User",
-            HASHNT=MD4le("Password"),
-        ),
+        ssp=ssp,
         ndr64=False,
     )
     client.connect("192.168.0.100")
@@ -238,7 +295,9 @@ Here's a different example, this time connecting over ``NCACN_NP`` to `[MS-SAMR]
 
 .. note:: As you can see, we used the :class:`~scapy.layers.ntlm.NTLMSSP` security provider in the above connection.
 
-There's an extension of the ``DCERPC_Client``: the ``NetlogonClient`` which is unfinished because I can't seem to make ``NetrLogonGetCapabilities`` work, but worth mentioning because it implements its own ``NetlogonSSP``:
+There are extensions to the :class:`~scapy.layers.msrpce.rpcclient.DCERPC_Client` class:
+
+- the :class:`~scapy.layers.msrpce.msnrpc.NetlogonClient`, worth mentioning because it implements its own :class:`~scapy.layers.msrpce.msnrpc.NetlogonSSP`:
 
 .. code-block:: python
 
@@ -253,6 +312,8 @@ There's an extension of the ``DCERPC_Client``: the ``NetlogonClient`` which is u
     client.connect_and_bind("192.168.0.100")
     client.negotiate_sessionkey(bytes.fromhex("77777777777777777777777777777777"))
     client.close()
+
+- the :class:`~scapy.layers.msrpce.msdcom.DCOM_Client` (unfinished)
 
 Server
 ------
@@ -298,10 +359,10 @@ Of course that also works over :const:`~scapy.layers.dcerpc.DCERPC_Transport.NCA
 
 .. code-block:: python
 
-    from scapy.layers.ntlm import NTLMSSP
+    from scapy.layers.ntlm import NTLMSSP, MD4le
     ssp = NTLMSSP(
         IDENTITIES={
-            "User1": NTOWFv2("Password", "User1", "DOMAIN"),
+            "User1": MD4le("Password"),
         }
     )
 
@@ -333,6 +394,41 @@ To start an endpoint mapper (this should be a separate process from your RPC ser
 
 
 .. note:: Currently, a DCERPC_Server will let a client bind on all interfaces that Scapy has registered (imported). Supposedly though, you know which RPCs are going to be queried.
+
+
+Passive sniffing
+----------------
+
+If you're doing passive sniffing of a DCE/RPC session, you can instruct Scapy to still use its DCE/RPC session in order to check the INTEGRITY and decrypt (if PRIVACY is used) the packets.
+
+.. code-block:: python
+
+    from scapy.all import *
+
+    # Bind DCE/RPC port
+    bind_bottom_up(TCP, DceRpc5, dport=12345)
+    bind_bottom_up(TCP, DceRpc5, dport=12345)
+
+    # Enable passive DCE/RPC session
+    conf.dcerpc_session_enable = True
+
+    # Define SSPs that can be used for decryption / verify
+    conf.winssps_passive = [
+        SPNEGOSSP([
+            NTLMSSP(
+                IDENTITIES={
+                    "User1": MD4le("Password1!"),
+                },
+            ),
+        ])
+    ]
+
+    # Sniff
+    pkts = sniff(offline="dcerpc_exchange.pcapng", session=TCPSession)
+    pkts.show()
+
+
+.. warning:: NTLM, KerberosSSP and SPNEGOSSP are currently supported. NetlogonSSP is still unsupported.
 
 
 Define custom packets

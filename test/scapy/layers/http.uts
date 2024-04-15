@@ -68,6 +68,23 @@ assert HTTPResponse in pkt
 print(pkt[Raw].load, expected_data)
 assert pkt[Raw].load == expected_data
 
+= TCPSession - dissect HTTP 1.0 HEAD response
+~ http
+
+load_layer("http")
+
+a = sniff(offline=scapy_path("/test/pcaps/http_head.pcapng.gz"), session=TCPSession)
+
+assert HTTPRequest in a[3]
+assert a[3].Method == b"HEAD"
+assert a[3].User_Agent == b'curl/7.88.1'
+
+assert HTTPResponse in a[5]
+assert a[5].Content_Type == b'text/html; charset=UTF-8'
+assert a[5].Expires == b'Mon, 01 Apr 2024 22:25:38 GMT'
+assert a[5].Reason_Phrase == b'Moved Permanently'
+assert a[5].X_Frame_Options == b"SAMEORIGIN"
+
 = HTTP decompression (gzip)
 
 conf.debug_dissector = True

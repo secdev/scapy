@@ -555,6 +555,63 @@ assert pkt.value.Status == 1825
 assert pkt.value.DetectionLocation == 1612
 assert pkt.value.Params[0].Type == 3
 
++ [PASSIVE] Passive sniffing
+~ passive
+
+= [PASSIVE] Passive sniffing of DCE/RPC packets encrypted with SPNEGOSSP[NTLMSSP]
+
+from scapy.libs.rfc3961 import *
+
+bind_bottom_up(TCP, DceRpc5, dport=49679)
+bind_bottom_up(TCP, DceRpc5, sport=49679)
+
+conf.dcerpc_session_enable = True
+conf.winssps_passive = [
+    SPNEGOSSP(
+        [
+            NTLMSSP(
+                IDENTITIES={
+                    "Administrator": MD4le("Password123!"),
+                },
+            )
+        ]
+    )
+]
+pkts = sniff(offline=scapy_path('test/pcaps/dcerpc_privacy_ntlm.pcapng.gz'), session=TCPSession)
+pkts.show()
+
+conf.dcerpc_session_enable = False
+
+assert pkts[16].load == b'\x00\x00\x02\x00\x0e\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x00\x001\x009\x002\x00.\x001\x006\x008\x00.\x000\x00.\x001\x000\x000\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x8a\xe3\x13q\x02\xf46q\x02@(\x00\x81\xbbz6D\x98\xf15\xad2\x98\xf08\x00\x10\x03\x02\x00\x00\x00\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x00\x00'
+assert pkts[22].load == b'0\x00\x00\x00&\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00A\x00D\x00W\x00S\x00\x00\x00\xee`\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\xea\x00\x00\x00'
+assert pkts[23].load == b'\x00\x00\x00\x00\xad\xb3\xf5\xd1\x8eJ\xdeG\xa9\xa5\x85\xccvb\x8b\x970\x00\x00\x00\x03\x00\x00\x00\x1d\x83\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00'
+
+= [PASSIVE] Passive sniffing of DCE/RPC packets encrypted with SPNEGOSSP[KerberosSSP] with AES
+
+from scapy.libs.rfc3961 import *
+
+bind_bottom_up(TCP, DceRpc5, dport=49701)
+bind_bottom_up(TCP, DceRpc5, sport=49701)
+
+conf.dcerpc_session_enable = True
+conf.winssps_passive = [
+    SPNEGOSSP(
+        [
+            KerberosSSP(
+                KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("85abb9b61dc2fa49d4cc04317bbd108f8f79df28239155ed7b144c5d2ebcf016")),
+                SPN="ldap/dc1.domain.local",
+            )
+        ]
+    )
+]
+pkts = sniff(offline=scapy_path('test/pcaps/dcerpc_privacy_krb.pcapng.gz'), session=TCPSession)
+pkts.show()
+
+conf.dcerpc_session_enable = False
+
+assert pkts[15].load == b'\x00\x00\x02\x00\x00\x00\x00\x00\x1a M\xe2\xd6O\xd1\x11\xa3\xda\x00\x00\xf8u\xae\r\x00\x00\x02\x00\x00\x00\x00\x004\x00\x00\x00\x00\x00\x00\x004\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00$\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x8a\xe3\x13q\x02\xf46q\x02@(\x005BQ\xe3\x06K\xd1\x11\xab\x04\x00\xc0O\xc2\xdc\xd2\x04\x00\x00\x003\x05qq\xba\xbe7I\x83\x19\xb5\xdb\xef\x9c\xcc6\x01\x00\x00\x00'
+assert pkts[21].load == b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00K\x00\x00\x00\x00\x00\x00\x00K\x00\x00\x00\x05\x00\x13\x00\r5BQ\xe3\x06K\xd1\x11\xab\x04\x00\xc0O\xc2\xdc\xd2\x04\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0b\x02\x00\x00\x00\x01\x00\x07\x02\x00\x00\x87\x01\x00\t\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00'
+assert pkts[22].load == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00K\x00\x00\x00\x00\x00\x00\x00K\x00\x00\x00\x05\x00\x13\x00\r5BQ\xe3\x06K\xd1\x11\xab\x04\x00\xc0O\xc2\xdc\xd2\x04\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0b\x02\x00\x00\x00\x01\x00\x07\x02\x00\xc2\x03\x01\x00\t\x04\x00\xc0\xa8\x00d\x00\x00\x00\x00\x00'
 
 + MS-RPC client and server
 
@@ -660,7 +717,12 @@ def run_rpcclient(transport, command, debug=False):
         "rpcclient",
         "-c",
         command,
-        "%s:127.0.0.1[12345]" % transport,
+        "%s:127.0.0.1[12345%s]" % (
+            transport,
+            ",seal"
+            if transport == "ncacn_ip_tcp"
+            else ""
+        ),
         "-p", "12345",
         "-U", "User", "--password", "Password",
         "--configfile", CONF_FILE,
@@ -679,7 +741,6 @@ ssp = NTLMSSP(
     IDENTITIES={
         "User": MD4le("Password"),
     },
-    auth_level=DCE_C_AUTHN_LEVEL.PKT_INTEGRITY
 )
 
 rpcserver = MyRPCServer.spawn(
@@ -694,6 +755,7 @@ rpcserver = MyRPCServer.spawn(
 
 client = DCERPC_Client(
     DCERPC_Transport.NCACN_IP_TCP,
+    auth_level=DCE_C_AUTHN_LEVEL.PKT_INTEGRITY,
     ssp=ssp,
     ndr64=False,
 )
@@ -754,6 +816,65 @@ except OSError:
     pass
 
 portmapserver.close()
+
+= Functional: Close the server
+
+# Close everything now
+client.close()
+try:
+    rpcserver.shutdown(socket.SHUT_RDWR)
+except OSError:
+    pass
+
+rpcserver.close()
+
+=  Functional: Re-Start the same MS-RPC server over NCACN_IP_TCP with KerberosSSP
+
+load_module("ticketer")
+SRVKEY = Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("85abb9b61dc2fa49d4cc04317bbd108f8f79df28239155ed7b144c5d2ebcf016"))
+
+* Server SSP
+srvssp = KerberosSSP(
+    KEY=SRVKEY,
+    SPN="ldap/dc1.domain.local",
+)
+
+* Client SSP
+t = Ticketer()
+t.import_krb(
+    KRB_Ticket(bytes.fromhex("618204ae308204aaa003020105a10e1b0c444f4d41494e2e4c4f43414ca2233021a003020103a11a30181b046c6461701b106463312e646f6d61696e2e6c6f63616ca382046c30820468a003020112a10302010ea282045a04820456280c76dee773a1c5e5bd966094201dc028c76f36bbcb9b04c6bb15e02893834f92c694b26bd627fb3f17c2b7eb3ccc57f926e28a9b578b75d1a179c2ce5cba08c67d6b8529f4988490a86a25ec181615e29a344df498ee5ab11a76ff34d862a09b457f6ed528aeb3ad7e7f075f5a02513830554d17edd00554c8f80bab69b80dec86a55111e7ac476d5f099f2ae374378f814a7b85d60f3ce3cff003ff82dd81a7a91a38ff79e5f51e8576de6aba5c86cc7ae2baf13038a8b4b554ff07b9873f19a0c682e83a57811475688e93b2ff53d232a037a19aab83d741204f088fb711c883ce66f4f989752b2c8b18b5cc3fffecbfd9076c25ee39cb13856c09e2ff4958c26e5ecade8c47a2adfd5ceab9d458617b6d3998dd8ee99d0eb57765d0976031a5eb618b076b1e3f6565b4370f238e8829b13deccf5ec35279946816969d5e307e33820f98efb6f601f79c16344d891a415babc6d4d01f992d15ebbf12fb5948cdbef6ed1ba2e5303ca2b0afd0ef1e5231458571bb2e7f463ce539faef5706ac1f8fb34668b6dff101c2fdb4f231fa75c24bb5aff7ee4349ce1948c42fdb91863772bd6c0dac26f47fe6ab1e617cdc85d9e015898fb5d6a0d8a38423c2ef49ec42e200f983fa45526b8cd205db3015e9d37de9cdd5b5befe519f22b7e65780f251215f3ca618f136f73200dd719c23dd3d4072b185e58628b2408377d688ab4540d1395af818a609d3f4df611483a77cd13511978eacf7acc91dd9740d97a9cbbb1299898219650d5ae0d3c0d0521e32132c889a65819ead424ec4f2be1d930f022f27b88078d301a1ce73070062ddf2259b839211e9f83d4585242328e310656f188f3f4cec5d5a61f08f9f0c2a15992a5aa65c4da838a5fd8df426fc4c7679d6af4a261d943a2501ba7221a0af1bc2db19bdfda44064efd94db45231b89035db904b3361afb0c0da0ab4c17857e86a820027f274e01a60388931520db0d667b5453e985152ebd382872122415ec13a88eaaf8522e18b54f580365742ce5884c5fe1d719b752788ff283725c446739686c9f76c850800016287f7cb85390c045fd250104d44f641d62ce1c7882bad72b574e10e1521d843938f30ab7064b007479f2bdc5e8d0aaf26b89993bf2c7c413aec8b8cad4c8d4714904125b868a807329d54674eff909a690bfd735d2c7134c9e819e48a66385a4d48d13ea710f45df9605d727a3d28e5bd09f7385bcab92bc1903ce888571309ffaf370024c5cc527730d256b20ba19511df8f0aa970b638a4393a45db03969b7415270887ef7ec94abbda98632a8d14b0d73f855e416e6d167269d04ec2489c843f11db04074c60c7ea9a13d2d1aca94379e84529bbd96a73f0cd6d8d9d85b5e06272e8739d0d2607d0b57b6e763118996aa8bf903bbaf4ce2ebc20b071e1dbbd48102634823059d4a37d73c054d0e066a09b6c53fe7319a7fcde0f4624461c8b584743d40dc334b34230d56c338bab40426ce7ade90f05a01cb0c0b8963860e4156831e8aecfb8721bf437ab71af74c426acfe7f9134163364a7ee2e")),
+    key=SRVKEY,
+)
+clissp = t.ssp(0)
+
+rpcserver = MyRPCServer.spawn(
+    DCERPC_Transport.NCACN_IP_TCP,
+    iface=conf.loopback_name,
+    ssp=srvssp,
+    port=12345,
+    bg=True,
+)
+
+= Functional: Connect to it with DCERPC_Client over NCACN_IP_TCP with KerberosSSP
+
+client = DCERPC_Client(
+    DCERPC_Transport.NCACN_IP_TCP,
+    auth_level=DCE_C_AUTHN_LEVEL.PKT_INTEGRITY,
+    ssp=clissp,
+    ndr64=False,
+)
+client.connect(get_if_addr(conf.loopback_name), port=12345)
+client.bind(find_dcerpc_interface("wkssvc"))
+
+req = NetrWkstaGetInfo_Request(
+    ServerName="Nice",
+    Level=0x00000064,  # WKSTA_INFO_100
+    ndr64=False
+)
+resp = client.sr1_req(req)
+
+assert isinstance(resp.valueof("WkstaInfo"), LPWKSTA_INFO_100)
+assert resp.valueof("WkstaInfo").valueof("wki100_computername") == b"NiceServer"
 
 = Functional: Close the server
 

@@ -853,6 +853,10 @@ class IPField(Field[Union[str, Net], bytes]):
                 inet_aton(x)
             except socket.error:
                 return Net(x)
+        elif isinstance(x, tuple):
+            if len(x) != 2:
+                raise ValueError("Invalid IP format")
+            return Net(*x)
         elif isinstance(x, list):
             return [self.h2i(pkt, n) for n in x]
         return x
@@ -949,6 +953,10 @@ class IP6Field(Field[Optional[Union[str, Net6]], bytes]):
                 x = in6_ptop(x)
             except socket.error:
                 return Net6(x)  # type: ignore
+        elif isinstance(x, tuple):
+            if len(x) != 2:
+                raise ValueError("Invalid IPv6 format")
+            return Net6(*x)
         elif isinstance(x, list):
             x = [self.h2i(pkt, n) for n in x]
         return x  # type: ignore
@@ -1954,6 +1962,8 @@ class StrFixedLenField(StrField):
     def getfield(self, pkt, s):
         # type: (Packet, bytes) -> Tuple[bytes, bytes]
         len_pkt = self.length_from(pkt)
+        if len_pkt == 0:
+            return s, b""
         return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
 
     def addfield(self, pkt, s, val):
@@ -3544,8 +3554,6 @@ class UTCTimeField(Field[float, int]):
     __slots__ = ["epoch", "delta", "strf",
                  "use_msec", "use_micro", "use_nano", "custom_scaling"]
 
-    # Do not change the order of the keywords in here
-    # Netflow heavily rely on this
     def __init__(self,
                  name,  # type: str
                  default,  # type: int
@@ -3603,8 +3611,6 @@ class UTCTimeField(Field[float, int]):
 class SecondsIntField(Field[float, int]):
     __slots__ = ["use_msec", "use_micro", "use_nano"]
 
-    # Do not change the order of the keywords in here
-    # Netflow heavily rely on this
     def __init__(self, name, default,
                  use_msec=False,
                  use_micro=False,

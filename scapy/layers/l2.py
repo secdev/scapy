@@ -1004,18 +1004,32 @@ class ARPingResult(SndRcvList):
 @conf.commands.register
 def arping(net, timeout=2, cache=0, verbose=None, **kargs):
     # type: (str, int, int, Optional[int], **Any) -> Tuple[ARPingResult, PacketList] # noqa: E501
-    """Send ARP who-has requests to determine which hosts are up
-arping(net, [cache=0,] [iface=conf.iface,] [verbose=conf.verb]) -> None
-Set cache=True if you want arping to modify internal ARP-Cache"""
+    """
+    Send ARP who-has requests to determine which hosts are up::
+
+        arping(net, [cache=0,] [iface=conf.iface,] [verbose=conf.verb]) -> None
+
+    Set cache=True if you want arping to modify internal ARP-Cache
+    """
     if verbose is None:
         verbose = conf.verb
+
+    hwaddr = None
+    if "iface" in kargs:
+        hwaddr = get_if_hwaddr(kargs["iface"])
+    r = conf.route.route(str(net), verbose=False)
+
     ans, unans = srp(
-        Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=net),
+        Ether(dst="ff:ff:ff:ff:ff:ff", src=hwaddr) / ARP(
+            pdst=net,
+            psrc=r[1],
+            hwsrc=hwaddr
+        ),
         verbose=verbose,
         filter="arp and arp[7] = 2",
         timeout=timeout,
         iface_hint=net,
-        **kargs
+        **kargs,
     )
     ans = ARPingResult(ans.res)
 
@@ -1046,7 +1060,7 @@ def promiscping(net, timeout=2, fake_bcast="ff:ff:ff:ff:ff:fe", **kargs):
                      filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)  # noqa: E501
     ans = ARPingResult(ans.res, name="PROMISCPing")
 
-    ans.display()
+    ans.show()
     return ans, unans
 
 

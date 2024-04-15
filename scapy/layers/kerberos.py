@@ -22,7 +22,7 @@ Implements parts of:
 
 
 .. note::
-    You will find more complete documentation for this layer over
+    You will find more complete documentation for this layer over at
     `Kerberos <https://scapy.readthedocs.io/en/latest/layers/kerberos.html>`_
 
 Example decryption::
@@ -60,15 +60,13 @@ from scapy.asn1.ber import BER_id_dec, BER_Decoding_Error
 from scapy.asn1.asn1 import (
     ASN1_BIT_STRING,
     ASN1_BOOLEAN,
+    ASN1_Class,
     ASN1_GENERAL_STRING,
     ASN1_GENERALIZED_TIME,
     ASN1_INTEGER,
-    ASN1_SEQUENCE,
     ASN1_STRING,
-    ASN1_Class_UNIVERSAL,
     ASN1_Codecs,
 )
-from scapy.asn1.ber import BERcodec_SEQUENCE
 from scapy.asn1fields import (
     ASN1F_BOOLEAN,
     ASN1F_CHOICE,
@@ -89,16 +87,15 @@ from scapy.automaton import Automaton, ATMT
 from scapy.compat import bytes_encode
 from scapy.error import log_runtime
 from scapy.fields import (
-    ByteField,
     ConditionalField,
     FieldLenField,
     FlagsField,
     IntEnumField,
     LEIntEnumField,
-    LEIntField,
     LenField,
     LEShortEnumField,
     LEShortField,
+    LongField,
     MultipleTypeField,
     PacketField,
     PacketLenField,
@@ -109,46 +106,63 @@ from scapy.fields import (
     StrField,
     StrFieldUtf16,
     StrFixedLenEnumField,
+    XByteField,
     XLEIntField,
+    XLEShortField,
     XStrFixedLenField,
     XStrLenField,
+    XStrField,
 )
 from scapy.packet import Packet, bind_bottom_up, bind_top_down, bind_layers
 from scapy.supersocket import StreamSocket
+from scapy.utils import strrot, strxor
 from scapy.volatile import GeneralizedTime, RandNum, RandBin
 
 from scapy.layers.gssapi import (
+    GSSAPI_BLOB,
+    GSS_C_FLAGS,
+    GSS_S_BAD_MECH,
+    GSS_S_COMPLETE,
+    GSS_S_CONTINUE_NEEDED,
+    GSS_S_DEFECTIVE_TOKEN,
+    GSS_S_FAILURE,
+    GssChannelBindings,
     SSP,
     _GSSAPI_OIDS,
     _GSSAPI_SIGNATURE_OIDS,
-    GSSAPI_BLOB,
-    GSS_S_COMPLETE,
-    GSS_S_DEFECTIVE_TOKEN,
-    GSS_S_CONTINUE_NEEDED,
-    GSS_S_BAD_MECH,
-    GSS_S_FAILURE,
-    GssChannelBindings,
 )
 from scapy.layers.inet import TCP, UDP
+
+# Typing imports
+from typing import (
+    Optional,
+)
+
 
 # kerberos APPLICATION
 
 
-class ASN1_Class_KRB(ASN1_Class_UNIVERSAL):
-    name = "KERBEROS"
-    APPLICATION = 0x60
-
-
-class ASN1_KRB_APPLICATION(ASN1_SEQUENCE):
-    tag = ASN1_Class_KRB.APPLICATION
-
-
-class BERcodec_KRB_APPLICATION(BERcodec_SEQUENCE):
-    tag = ASN1_Class_KRB.APPLICATION
-
-
-class ASN1F_KRB_APPLICATION(ASN1F_SEQUENCE):
-    ASN1_tag = ASN1_Class_KRB.APPLICATION
+class ASN1_Class_KRB(ASN1_Class):
+    name = "Kerberos"
+    # APPLICATION + CONSTRUCTED = 0x40 | 0x20
+    Token = 0x60 | 0  # GSSAPI
+    Ticket = 0x60 | 1
+    Authenticator = 0x60 | 2
+    EncTicketPart = 0x60 | 3
+    AS_REQ = 0x60 | 10
+    AS_REP = 0x60 | 11
+    TGS_REQ = 0x60 | 12
+    TGS_REP = 0x60 | 13
+    AP_REQ = 0x60 | 14
+    AP_REP = 0x60 | 15
+    PRIV = 0x60 | 21
+    CRED = 0x60 | 22
+    EncASRepPart = 0x60 | 25
+    EncTGSRepPart = 0x60 | 26
+    EncAPRepPart = 0x60 | 27
+    EncKrbPrivPart = 0x60 | 28
+    EncKrbCredPart = 0x60 | 29
+    ERROR = 0x60 | 30
 
 
 # RFC4120 sect 5.2
@@ -1213,14 +1227,14 @@ KRB_MSG_TYPES = {
 
 class KRB_Ticket(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("tktVno", 5, explicit_tag=0xA0),
             Realm("realm", "", explicit_tag=0xA1),
             ASN1F_PACKET("sname", PrincipalName(), PrincipalName, explicit_tag=0xA2),
             ASN1F_PACKET("encPart", EncryptedData(), EncryptedData, explicit_tag=0xA3),
         ),
-        implicit_tag=1,
+        implicit_tag=ASN1_Class_KRB.Ticket,
     )
 
     def getSPN(self):
@@ -1261,7 +1275,7 @@ _TICKET_FLAGS = [
 
 class EncTicketPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             KerberosFlags(
                 "flags",
@@ -1292,7 +1306,7 @@ class EncTicketPart(ASN1_Packet):
                 ),
             ),
         ),
-        implicit_tag=3,
+        implicit_tag=ASN1_Class_KRB.EncTicketPart,
     )
 
 
@@ -1389,17 +1403,17 @@ class KrbFastReq(ASN1_Packet):
 
 class KRB_AS_REQ(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         KRB_KDC_REQ,
-        implicit_tag=10,
+        implicit_tag=ASN1_Class_KRB.AS_REQ,
     )
 
 
 class KRB_TGS_REQ(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         KRB_KDC_REQ,
-        implicit_tag=12,
+        implicit_tag=ASN1_Class_KRB.TGS_REQ,
     )
     msgType = ASN1_INTEGER(12)
 
@@ -1421,17 +1435,17 @@ KRB_KDC_REP = ASN1F_SEQUENCE(
 
 class KRB_AS_REP(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         KRB_KDC_REP,
-        implicit_tag=11,
+        implicit_tag=ASN1_Class_KRB.AS_REP,
     )
 
 
 class KRB_TGS_REP(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         KRB_KDC_REP,
-        implicit_tag=13,
+        implicit_tag=ASN1_Class_KRB.TGS_REP,
     )
 
 
@@ -1478,17 +1492,17 @@ EncKDCRepPart = ASN1F_SEQUENCE(
 
 class EncASRepPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         EncKDCRepPart,
-        implicit_tag=25,
+        implicit_tag=ASN1_Class_KRB.EncASRepPart,
     )
 
 
 class EncTGSRepPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         EncKDCRepPart,
-        implicit_tag=26,
+        implicit_tag=ASN1_Class_KRB.EncTGSRepPart,
     )
 
 
@@ -1497,7 +1511,7 @@ class EncTGSRepPart(ASN1_Packet):
 
 class KRB_AP_REQ(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("pvno", 5, explicit_tag=0xA0),
             ASN1F_enum_INTEGER("msgType", 14, KRB_MSG_TYPES, explicit_tag=0xA1),
@@ -1514,7 +1528,7 @@ class KRB_AP_REQ(ASN1_Packet):
             ASN1F_PACKET("ticket", None, KRB_Ticket, explicit_tag=0xA3),
             ASN1F_PACKET("authenticator", None, EncryptedData, explicit_tag=0xA4),
         ),
-        implicit_tag=14,
+        implicit_tag=ASN1_Class_KRB.AP_REQ,
     )
 
 
@@ -1523,7 +1537,7 @@ _PADATA_CLASSES[1] = KRB_AP_REQ
 
 class KRB_Authenticator(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("authenticatorPvno", 5, explicit_tag=0xA0),
             Realm("crealm", "", explicit_tag=0xA1),
@@ -1545,7 +1559,7 @@ class KRB_Authenticator(ASN1_Packet):
                 ),
             ),
         ),
-        implicit_tag=2,
+        implicit_tag=ASN1_Class_KRB.Authenticator,
     )
 
 
@@ -1554,19 +1568,19 @@ class KRB_Authenticator(ASN1_Packet):
 
 class KRB_AP_REP(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("pvno", 5, explicit_tag=0xA0),
             ASN1F_enum_INTEGER("msgType", 15, KRB_MSG_TYPES, explicit_tag=0xA1),
             ASN1F_PACKET("encPart", None, EncryptedData, explicit_tag=0xA2),
         ),
-        implicit_tag=15,
+        implicit_tag=ASN1_Class_KRB.AP_REP,
     )
 
 
 class EncAPRepPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             KerberosTime("ctime", GeneralizedTime(), explicit_tag=0xA0),
             Microseconds("cusec", 0, explicit_tag=0xA1),
@@ -1577,7 +1591,7 @@ class EncAPRepPart(ASN1_Packet):
                 UInt32("seqNumber", 0, explicit_tag=0xA3),
             ),
         ),
-        implicit_tag=27,
+        implicit_tag=ASN1_Class_KRB.EncAPRepPart,
     )
 
 
@@ -1586,19 +1600,19 @@ class EncAPRepPart(ASN1_Packet):
 
 class KRB_PRIV(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("pvno", 5, explicit_tag=0xA0),
             ASN1F_enum_INTEGER("msgType", 21, KRB_MSG_TYPES, explicit_tag=0xA1),
             ASN1F_PACKET("encPart", None, EncryptedData, explicit_tag=0xA3),
         ),
-        implicit_tag=21,
+        implicit_tag=ASN1_Class_KRB.PRIV,
     )
 
 
 class EncKrbPrivPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_STRING("userData", ASN1_STRING(""), explicit_tag=0xA0),
             ASN1F_optional(
@@ -1615,7 +1629,7 @@ class EncKrbPrivPart(ASN1_Packet):
                 ASN1F_PACKET("cAddress", None, HostAddress, explicit_tag=0xA5),
             ),
         ),
-        implicit_tag=28,
+        implicit_tag=ASN1_Class_KRB.EncKrbPrivPart,
     )
 
 
@@ -1624,14 +1638,14 @@ class EncKrbPrivPart(ASN1_Packet):
 
 class KRB_CRED(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("pvno", 5, explicit_tag=0xA0),
             ASN1F_enum_INTEGER("msgType", 22, KRB_MSG_TYPES, explicit_tag=0xA1),
             ASN1F_SEQUENCE_OF("tickets", [KRB_Ticket()], KRB_Ticket, explicit_tag=0xA2),
             ASN1F_PACKET("encPart", None, EncryptedData, explicit_tag=0xA3),
         ),
-        implicit_tag=22,
+        implicit_tag=ASN1_Class_KRB.CRED,
     )
 
 
@@ -1677,7 +1691,7 @@ class KrbCredInfo(ASN1_Packet):
 
 class EncKrbCredPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_SEQUENCE_OF(
                 "ticketInfo",
@@ -1701,7 +1715,7 @@ class EncKrbCredPart(ASN1_Packet):
                 ASN1F_PACKET("cAddress", None, HostAddress, explicit_tag=0xA5),
             ),
         ),
-        implicit_tag=29,
+        implicit_tag=ASN1_Class_KRB.EncKrbCredPart,
     )
 
 
@@ -1723,8 +1737,9 @@ class _KRBERROR_data_Field(_ASN1FString_PacketField):
             # 24: KDC_ERR_PREAUTH_FAILED
             # 25: KDC_ERR_PREAUTH_REQUIRED
             return MethodData(val[0].val, _underlayer=pkt), val[1]
-        elif pkt.errorCode.val in [18, 41, 60]:
+        elif pkt.errorCode.val in [18, 29, 41, 60]:
             # 18: KDC_ERR_CLIENT_REVOKED
+            # 29: KDC_ERR_SVC_UNAVAILABLE
             # 41: KRB_AP_ERR_MODIFIED
             # 60: KRB_ERR_GENERIC
             return KERB_ERROR_DATA(val[0].val, _underlayer=pkt), val[1]
@@ -1736,7 +1751,7 @@ class _KRBERROR_data_Field(_ASN1FString_PacketField):
 
 class KRB_ERROR(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("pvno", 5, explicit_tag=0xA0),
             ASN1F_enum_INTEGER("msgType", 30, KRB_MSG_TYPES, explicit_tag=0xA1),
@@ -1841,7 +1856,7 @@ class KRB_ERROR(ASN1_Packet):
             ASN1F_optional(KerberosString("eText", "", explicit_tag=0xAB)),
             ASN1F_optional(_KRBERROR_data_Field("eData", "", explicit_tag=0xAC)),
         ),
-        implicit_tag=30,
+        implicit_tag=ASN1_Class_KRB.ERROR,
     )
 
 
@@ -1865,7 +1880,6 @@ class _Error_Field(_ASN1FString_PacketField):
         if not val[0].val:
             return val
         if pkt.dataType.val == 3:  # KERB_ERR_TYPE_EXTENDED
-            print(val[0].val)
             return KERB_EXT_ERROR(val[0].val, _underlayer=pkt), val[1]
         return val
 
@@ -1913,12 +1927,12 @@ class KRB_TGT_REP(ASN1_Packet):
     )
 
 
-# RFC 6542 sect 4
+# draft-ietf-kitten-iakerb-03 sect 4
 
 
 class KRB_FINISHED(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_PACKET("gssMic", Checksum(), Checksum, explicit_tag=0xA1),
     )
 
@@ -2050,6 +2064,14 @@ class KRB_InnerToken(Packet):
         ),
     ]
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 13:
+            # Older RFC1964 variants of the token have KRB_GSSAPI_Token wrapper
+            if _pkt[2:13] == b"\x06\t*\x86H\x86\xf7\x12\x01\x02\x02":
+                return KRB_GSSAPI_Token
+        return cls
+
 
 # RFC 4121 - sect 4.1
 
@@ -2057,7 +2079,7 @@ class KRB_InnerToken(Packet):
 class KRB_GSSAPI_Token(GSSAPI_BLOB):
     name = "Kerberos GSSAPI-Token"
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_KRB_APPLICATION(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_OID("MechType", "1.2.840.113554.1.2.2"),
         ASN1F_PACKET(
             "innerToken",
@@ -2065,18 +2087,18 @@ class KRB_GSSAPI_Token(GSSAPI_BLOB):
             KRB_InnerToken,
             implicit_tag=0x0,
         ),
-        implicit_tag=0,
+        implicit_tag=ASN1_Class_KRB.Token,
     )
 
 
 # RFC 1964 - sect 1.2.1
 
 
-class KRB_GSS_GetMIC_RFC1964(Packet):
-    name = "Kerberos v5 GSS_GetMIC (RFC1964)"
+class KRB_GSS_MIC_RFC1964(Packet):
+    name = "Kerberos v5 MIC Token (RFC1964)"
     fields_desc = [
         LEShortEnumField("SGN_ALG", 0, _SGN_ALGS),
-        LEIntField("reserved", 0xFFFFFFFF),
+        XLEIntField("Filler", 0xFFFFFFFF),
         XStrFixedLenField("SND_SEQ", b"", length=8),
         PadField(  # sect 1.2.2.3
             XStrFixedLenField("SGN_CKSUM", b"", length=8),
@@ -2086,7 +2108,7 @@ class KRB_GSS_GetMIC_RFC1964(Packet):
     ]
 
 
-_InitialContextTokens[b"\x01\x01"] = KRB_GSS_GetMIC_RFC1964
+_InitialContextTokens[b"\x01\x01"] = KRB_GSS_MIC_RFC1964
 
 # RFC 1964 - sect 1.2.2
 
@@ -2096,7 +2118,7 @@ class KRB_GSS_Wrap_RFC1964(Packet):
     fields_desc = [
         LEShortEnumField("SGN_ALG", 0, _SGN_ALGS),
         LEShortEnumField("SEAL_ALG", 0, _SEAL_ALGS),
-        LEShortField("reserved", 0xFFFF),
+        XLEShortField("Filler", 0xFFFF),
         XStrFixedLenField("SND_SEQ", b"", length=8),
         PadField(  # sect 1.2.2.3
             XStrFixedLenField("SGN_CKSUM", b"", length=8),
@@ -2116,7 +2138,7 @@ _InitialContextTokens[b"\x02\x01"] = KRB_GSS_Wrap_RFC1964
 
 class KRB_GSS_Delete_sec_context_RFC1964(Packet):
     name = "Kerberos v5 GSS_Delete_sec_context (RFC1964)"
-    fields_desc = KRB_GSS_GetMIC_RFC1964.fields_desc
+    fields_desc = KRB_GSS_MIC_RFC1964.fields_desc
 
 
 _InitialContextTokens[b"\x01\x02"] = KRB_GSS_Delete_sec_context_RFC1964
@@ -2133,39 +2155,31 @@ _KRB5_GSS_Flags = [
 # RFC 4121 - sect 4.2.6.1
 
 
-class KRB_GSS_GetMIC(Packet):
-    name = "Kerberos v5 GSS_GetMIC"
+class KRB_GSS_MIC(Packet):
+    name = "Kerberos v5 MIC Token"
     fields_desc = [
-        FlagsField("Flags", 8, 0, _KRB5_GSS_Flags),
-        LEIntField("reserved", 0xFFFFFFFF),
-        XStrFixedLenField("SND_SEQ", b"", length=8),
-        PadField(
-            XStrFixedLenField("SGN_CKSUM", b"", length=8),
-            align=8,
-            padwith=b"\x04",
-        ),
+        FlagsField("Flags", 0, 8, _KRB5_GSS_Flags),
+        XStrFixedLenField("Filler", b"\xff\xff\xff\xff\xff", length=5),
+        LongField("SND_SEQ", 0),  # Big endian
+        XStrField("SGN_CKSUM", b"\x00" * 12),
     ]
 
 
-_InitialContextTokens[b"\x04\x04"] = KRB_GSS_GetMIC
+_InitialContextTokens[b"\x04\x04"] = KRB_GSS_MIC
 
 
 # RFC 4121 - sect 4.2.6.2
 
 
 class KRB_GSS_Wrap(Packet):
-    name = "Kerberos v5 GSS_Wrap"
+    name = "Kerberos v5 Wrap Token"
     fields_desc = [
-        FlagsField("Flags", 8, 0, _KRB5_GSS_Flags),
-        ByteField("reserved", 0xFF),
+        FlagsField("Flags", 0, 8, _KRB5_GSS_Flags),
+        XByteField("Filler", 0xFF),
         ShortField("EC", 0),  # Big endian
         ShortField("RRC", 0),  # Big endian
-        XStrFixedLenField("SND_SEQ", b"", length=8),
-        PadField(
-            XStrFixedLenField("SGN_CKSUM", b"", length=8),
-            align=8,
-            padwith=b"\x04",
-        ),
+        LongField("SND_SEQ", 0),  # Big endian
+        XStrField("Data", b""),
     ]
 
 
@@ -2615,11 +2629,8 @@ class KerberosClient(Automaton):
 
         if self.u2u:  # U2U
             kdc_req.kdcOptions.set(28, 1)  # set 'enc-tkt-in-skey' (bit 28)
-            kdc_req.sname = PrincipalName.fromUPN(self.upn)
-        else:
-            # RFC 4120 sect 6.1
-            # TODO: support XHST and other principals :D
-            kdc_req.sname = PrincipalName.fromSPN(self.spn)
+
+        kdc_req.sname = PrincipalName.fromSPN(self.spn)
 
         tgsreq = Kerberos(
             root=KRB_TGS_REQ(
@@ -2707,20 +2718,21 @@ class KerberosClient(Automaton):
     def _process_padatas_and_key(self, padatas):
         from scapy.libs.rfc3961 import EncryptionType, Key
 
-        # We default to RC4 because whenever something else is used,
-        # there will be at least a padata containing the salt.
-        etype = EncryptionType.RC4_HMAC
+        etype = None
         salt = b""
         # Process pa-data
         if padatas is not None:
             for padata in padatas:
-                if padata.padataType == 0x13:  # PA-ETYPE-INFO2
+                if padata.padataType == 0x13 and etype is None:  # PA-ETYPE-INFO2
                     elt = padata.padataValue.seq[0]
-                    etype = elt.etype.val
-                    if etype != EncryptionType.RC4_HMAC:
-                        salt = elt.salt.val
+                    if elt.etype.val in self.etypes:
+                        etype = elt.etype.val
+                        if etype != EncryptionType.RC4_HMAC:
+                            salt = elt.salt.val
                 elif padata.padataType == 133:  # PA-FX-COOKIE
                     self.fxcookie = padata.padataValue
+
+        etype = etype or self.etypes[0]
         # Compute key if not already provided
         if self.key is None:
             self.key = Key.string_to_key(
@@ -3056,11 +3068,13 @@ def kpasswd(
             ST=ticket,
             KEY=key,
             DC_IP=ip,
-            MUTUAL=False,
             debug=debug,
             **kwargs,
         )
-    Context, tok, negResult = ssp.GSS_Init_sec_context(None)
+    Context, tok, negResult = ssp.GSS_Init_sec_context(
+        None,
+        req_flags=0,  # No GSS_C_MUTUAL_FLAG
+    )
     if negResult != GSS_S_CONTINUE_NEEDED:
         warning("SSP failed on initial GSS_Init_sec_context !")
         if tok:
@@ -3101,7 +3115,7 @@ def kpasswd(
             ),
             timestamp=None,
             usec=None,
-            seqNumber=Context.SeqNum,
+            seqNumber=Context.SendSeqNum,
         ),
     )
     resp = sock.sr1(
@@ -3118,7 +3132,8 @@ def kpasswd(
     if not resp:
         raise TimeoutError("KPASSWD_REQ timed out !")
     if KPASSWD_REP not in resp:
-        raise ValueError("Invalid response to KPASSWD_RED !")
+        resp.show()
+        raise ValueError("Invalid response to KPASSWD_REQ !")
     Context, tok, negResult = ssp.GSS_Init_sec_context(Context, resp.aprep)
     if negResult != GSS_S_COMPLETE:
         warning("SSP failed on subsequent GSS_Init_sec_context !")
@@ -3142,8 +3157,6 @@ class KerberosSSP(SSP):
     """
     The KerberosSSP
 
-    :param auth_level: One of DCE_C_AUTHN_LEVEL
-
     Client settings:
 
     :param ST: the service ticket to use for access.
@@ -3158,6 +3171,7 @@ class KerberosSSP(SSP):
                 OR the kerberos key associated with the UPN
     :param PASSWORD: (optional) if a UPN is provided and not a KEY, this is the
                      password of the UPN.
+    :param U2U: (optional) use U2U when requesting the ST.
 
     Server settings:
 
@@ -3174,24 +3188,54 @@ class KerberosSSP(SSP):
 
     class STATE(SSP.STATE):
         INIT = 1
-        CLI_SENT_APREQ = 2
-        CLI_RCVD_APREP = 3
-        SRV_SENT_APREP = 4
+        CLI_SENT_TGTREQ = 2
+        CLI_SENT_APREQ = 3
+        CLI_RCVD_APREP = 4
+        SRV_SENT_APREP = 5
 
     class CONTEXT(SSP.CONTEXT):
         __slots__ = [
             "SessionKey",
             "ServerHostname",
-            "KrbSessionKey",  # raw Key object, set by client
-            "SeqNum",
+            "U2U",
+            "KrbSessionKey",  # raw Key object
+            "STSessionKey",  # raw ST Key object (for DCE_STYLE)
+            "SeqNum",  # for AP
+            "SendSeqNum",  # for MIC
+            "RecvSeqNum",  # for MIC
+            "IsAcceptor",
+            "SendSealKeyUsage",
+            "SendSignKeyUsage",
+            "RecvSealKeyUsage",
+            "RecvSignKeyUsage",
         ]
 
-        def __init__(self):
+        def __init__(self, IsAcceptor, req_flags=None):
             self.state = KerberosSSP.STATE.INIT
             self.SessionKey = None
             self.ServerHostname = None
+            self.U2U = False
+            self.SendSeqNum = 0
+            self.RecvSeqNum = 0
+            self.KrbSessionKey = None
+            self.STSessionKey = None
+            self.IsAcceptor = IsAcceptor
+            # [RFC 4121] sect 2
+            if IsAcceptor:
+                self.SendSealKeyUsage = 22
+                self.SendSignKeyUsage = 23
+                self.RecvSealKeyUsage = 24
+                self.RecvSignKeyUsage = 25
+            else:
+                self.SendSealKeyUsage = 24
+                self.SendSignKeyUsage = 25
+                self.RecvSealKeyUsage = 22
+                self.RecvSignKeyUsage = 23
+            super(KerberosSSP.CONTEXT, self).__init__(req_flags=req_flags)
 
         def __repr__(self):
+            if self.U2U:
+                return "KerberosSSP-U2U"
             return "KerberosSSP"
 
     def __init__(
@@ -3199,12 +3243,13 @@ class KerberosSSP(SSP):
         ST=None,
         UPN=None,
         PASSWORD=None,
+        U2U=False,
         KEY=None,
         SPN=None,
         TGT=None,
         DC_IP=None,
         REQUIRE_U2U=False,
-        MUTUAL=True,
+        SKEY_TYPE=None,
         debug=0,
         **kwargs,
     ):
@@ -3214,30 +3259,400 @@ class KerberosSSP(SSP):
         self.SPN = SPN
         self.TGT = TGT
         self.PASSWORD = PASSWORD
+        self.U2U = U2U
         self.DC_IP = DC_IP
         self.REQUIRE_U2U = REQUIRE_U2U
-        self.MUTUAL = MUTUAL
         self.debug = debug
+        if SKEY_TYPE is None:
+            from scapy.libs.rfc3961 import EncryptionType
+
+            SKEY_TYPE = EncryptionType.AES128_CTS_HMAC_SHA1_96
+        self.SKEY_TYPE = SKEY_TYPE
         super(KerberosSSP, self).__init__(**kwargs)
 
-    def _setup_u2u(self):
-        if not self.TGT:
-            # Get a TGT for ourselves
-            try:
-                upn = "@".join(self.SPN.split("/")[1].split(".", 1))
-            except KeyError:
-                raise ValueError("Couldn't transform the SPN into a valid UPN")
-            res = krb_as_req(upn, self.DC_IP, key=self.KEY)
-            self.TGT, self.KEY = res.asrep.ticket, res.sessionkey
+    def GSS_GetMICEx(self, Context, msgs, qop_req=0):
+        """
+        [MS-KILE] sect 3.4.5.6
 
-    def GSS_Init_sec_context(self, Context: CONTEXT, val=None):
+        - AES: RFC4121 sect 4.2.6.1
+        """
+        if Context.KrbSessionKey.etype in [17, 18]:  # AES
+            # Concatenate the ToSign
+            ToSign = b"".join(x.data for x in msgs if x.sign)
+            sig = KRB_InnerToken(
+                TOK_ID=b"\x04\x04",
+                root=KRB_GSS_MIC(
+                    Flags="AcceptorSubkey"
+                    + ("+SentByAcceptor" if Context.IsAcceptor else ""),
+                    SND_SEQ=Context.SendSeqNum,
+                ),
+            )
+            ToSign += bytes(sig)[:16]
+            sig.root.SGN_CKSUM = Context.KrbSessionKey.make_checksum(
+                keyusage=Context.SendSignKeyUsage,
+                text=ToSign,
+            )
+        else:
+            raise NotImplementedError
+        Context.SendSeqNum += 1
+        return sig
+
+    def GSS_VerifyMICEx(self, Context, msgs, signature):
+        """
+        [MS-KILE] sect 3.4.5.7
+
+        - AES: RFC4121 sect 4.2.6.1
+        """
+        Context.RecvSeqNum = signature.root.SND_SEQ
+        if Context.KrbSessionKey.etype in [17, 18]:  # AES
+            # Concatenate the ToSign
+            ToSign = b"".join(x.data for x in msgs if x.sign)
+            ToSign += bytes(signature)[:16]
+            sig = Context.KrbSessionKey.make_checksum(
+                keyusage=Context.RecvSignKeyUsage,
+                text=ToSign,
+            )
+        else:
+            raise NotImplementedError
+        if sig != signature.root.SGN_CKSUM:
+            raise ValueError("ERROR: Checksums don't match")
+
+    def GSS_WrapEx(self, Context, msgs, qop_req=0):
+        """
+        [MS-KILE] sect 3.4.5.4
+
+        - AES: RFC4121 sect 4.2.6.2 and [MS-KILE] sect 3.4.5.4.1
+        - HMAC-RC4: RFC4757 sect 7.3 and [MS-KILE] sect 3.4.5.4.1
+        """
+        confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
+        if Context.KrbSessionKey.etype in [17, 18]:  # AES
+            # Build token
+            tok = KRB_InnerToken(
+                TOK_ID=b"\x05\x04",
+                root=KRB_GSS_Wrap(
+                    Flags="AcceptorSubkey"
+                    + ("+SentByAcceptor" if Context.IsAcceptor else "")
+                    + ("+Sealed" if confidentiality else ""),
+                    SND_SEQ=Context.SendSeqNum,
+                    RRC=0,
+                ),
+            )
+            Context.SendSeqNum += 1
+            # Real separation starts now: RFC4121 sect 4.2.4
+            if confidentiality:
+                # Confidentiality is requested (see RFC4121 sect 4.3)
+                # {"header" | encrypt(plaintext-data | filler | "header")}
+                # 0. Roll confounder
+                Confounder = os.urandom(Context.KrbSessionKey.ep.blocksize)
+                # 1. Concatenate the data to be encrypted
+                Data = b"".join(x.data for x in msgs if x.conf_req_flag)
+                DataLen = len(Data)
+                # 2. Add filler
+                tok.root.EC = ((-DataLen) % Context.KrbSessionKey.ep.blocksize) or 16
+                Filler = b"\x00" * tok.root.EC
+                Data += Filler
+                # 3. Add first 16 octets of the Wrap token "header"
+                PlainHeader = bytes(tok)[:16]
+                Data += PlainHeader
+                # 4. Build 'ToSign', exclusively used for checksum
+                ToSign = Confounder
+                ToSign += b"".join(x.data for x in msgs if x.sign)
+                ToSign += Filler
+                ToSign += PlainHeader
+                # 5. Finalize token for signing
+                # "The RRC field is [...] 28 if encryption is requested."
+                tok.root.RRC = 28
+                # 6. encrypt() is the encryption operation (which provides for
+                # integrity protection)
+                Data = Context.KrbSessionKey.encrypt(
+                    keyusage=Context.SendSealKeyUsage,
+                    plaintext=Data,
+                    confounder=Confounder,
+                    signtext=ToSign,
+                )
+                # 7. Rotate
+                Data = strrot(Data, tok.root.RRC + tok.root.EC)
+                # 8. Split (token and encrypted messages)
+                toklen = len(Data) - DataLen
+                tok.root.Data = Data[:toklen]
+                offset = toklen
+                for msg in msgs:
+                    msglen = len(msg.data)
+                    if msg.conf_req_flag:
+                        msg.data = Data[offset : offset + msglen]
+                        offset += msglen
+                return msgs, tok
+            else:
+                # No confidentiality is requested
+                # {"header" | plaintext-data | get_mic(plaintext-data | "header")}
+                # 0. Concatenate the data
+                Data = b"".join(x.data for x in msgs if x.sign)
+                DataLen = len(Data)
+                # 1. Add first 16 octets of the Wrap token "header"
+                ToSign = Data
+                ToSign += bytes(tok)[:16]
+                # 2. get_mic() is the checksum operation for the required
+                # checksum mechanism
+                Mic = Context.KrbSessionKey.make_checksum(
+                    keyusage=Context.SendSealKeyUsage,
+                    text=ToSign,
+                )
+                # In Wrap tokens without confidentiality, the EC field SHALL be used
+                # to encode the number of octets in the trailing checksum
+                tok.root.EC = 12  # len(tok.root.Data) == 12 for AES
+                # "The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption
+                # is requested"
+                tok.root.RRC = 12
+                # 3. Concat and pack
+                for msg in msgs:
+                    if msg.sign:
+                        msg.data = b""
+                Data = Data + Mic
+                # 4. Rotate
+                tok.root.Data = strrot(Data, tok.root.RRC)
+                return msgs, tok
+        elif Context.KrbSessionKey.etype in [23, 24]:  # RC4
+            from scapy.libs.rfc3961 import Hmac_MD5, Cipher, algorithms, _rfc1964pad
+
+            # Build token
+            seq = struct.pack(">I", Context.SendSeqNum)
+            tok = KRB_InnerToken(
+                TOK_ID=b"\x02\x01",
+                root=KRB_GSS_Wrap_RFC1964(
+                    SGN_ALG="HMAC",
+                    SEAL_ALG="RC4" if confidentiality else "none",
+                    SND_SEQ=seq
+                    + (
+                        # See errata
+                        b"\xff\xff\xff\xff"
+                        if Context.IsAcceptor
+                        else b"\x00\x00\x00\x00"
+                    ),
+                ),
+            )
+            Context.SendSeqNum += 1
+            # 0. Concatenate data
+            ToSign = _rfc1964pad(b"".join(x.data for x in msgs if x.sign))
+            ToEncrypt = b"".join(x.data for x in msgs if x.conf_req_flag)
+            Kss = Context.KrbSessionKey.key
+            # 1. Roll confounder
+            Confounder = os.urandom(8)
+            # 2. Compute the 'Kseq' key
+            Klocal = strxor(Kss, len(Kss) * b"\xf0")
+            if Context.KrbSessionKey.etype == 24:  # EXP
+                Kcrypt = Hmac_MD5(Klocal).digest(b"fortybits\x00" + b"\x00\x00\x00\x00")
+                Kcrypt = Kcrypt[:7] + b"\xab" * 9
+            else:
+                Kcrypt = Hmac_MD5(Klocal).digest(b"\x00\x00\x00\x00")
+            Kcrypt = Hmac_MD5(Kcrypt).digest(seq)
+            # 3. Build SGN_CKSUM
+            tok.root.SGN_CKSUM = Context.KrbSessionKey.make_checksum(
+                keyusage=13,  # See errata
+                text=bytes(tok)[:8] + Confounder + ToSign,
+            )[:8]
+            # 4. Populate token + encrypt
+            if confidentiality:
+                # 'encrypt' is requested
+                rc4 = Cipher(algorithms.ARC4(Kcrypt), mode=None).encryptor()
+                tok.root.CONFOUNDER = rc4.update(Confounder)
+                Data = rc4.update(ToEncrypt)
+                # Split encrypted data
+                offset = 0
+                for msg in msgs:
+                    msglen = len(msg.data)
+                    if msg.conf_req_flag:
+                        msg.data = Data[offset : offset + msglen]
+                        offset += msglen
+            else:
+                # 'encrypt' is not requested
+                tok.root.CONFOUNDER = Confounder
+            # 5. Compute the 'Kseq' key
+            if Context.KrbSessionKey.etype == 24:  # EXP
+                Kseq = Hmac_MD5(Kss).digest(b"fortybits\x00" + b"\x00\x00\x00\x00")
+                Kseq = Kseq[:7] + b"\xab" * 9
+            else:
+                Kseq = Hmac_MD5(Kss).digest(b"\x00\x00\x00\x00")
+            Kseq = Hmac_MD5(Kseq).digest(tok.root.SGN_CKSUM)
+            # 6. Encrypt 'SND_SEQ'
+            rc4 = Cipher(algorithms.ARC4(Kseq), mode=None).encryptor()
+            tok.root.SND_SEQ = rc4.update(tok.root.SND_SEQ)
+            # 7. Include 'InitialContextToken pseudo ASN.1 header'
+            tok = KRB_GSSAPI_Token(
+                MechType="1.2.840.113554.1.2.2",  # Kerberos 5
+                innerToken=tok,
+            )
+            return msgs, tok
+        else:
+            raise NotImplementedError
+
+    def GSS_UnwrapEx(self, Context, msgs, signature):
+        """
+        [MS-KILE] sect 3.4.5.5
+
+        - AES: RFC4121 sect 4.2.6.2
+        - HMAC-RC4: RFC4757 sect 7.3
+        """
+        confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
+        if Context.KrbSessionKey.etype in [17, 18]:  # AES
+            # Real separation starts now: RFC4121 sect 4.2.4
+            if confidentiality:
+                # 0. Concatenate the data
+                Data = signature.root.Data
+                Data += b"".join(x.data for x in msgs if x.conf_req_flag)
+                # 1. Un-Rotate
+                Data = strrot(Data, signature.root.RRC + signature.root.EC, right=False)
+
+                # 2. Function to build 'ToSign', exclusively used for checksum
+                def MakeToSign(Confounder, DecText):
+                    offset = 0
+                    # 2.a Confounder
+                    ToSign = Confounder
+                    # 2.b Messages
+                    for msg in msgs:
+                        msglen = len(msg.data)
+                        if msg.conf_req_flag:
+                            ToSign += DecText[offset : offset + msglen]
+                            offset += msglen
+                        elif msg.sign:
+                            ToSign += msg.data
+                    # 2.c Filler & Padding
+                    ToSign += DecText[offset:]
+                    return ToSign
+
+                # 3. Decrypt
+                Data = Context.KrbSessionKey.decrypt(
+                    keyusage=Context.RecvSealKeyUsage,
+                    ciphertext=Data,
+                    presignfunc=MakeToSign,
+                )
+                # 4. Split
+                Data, f16header = (
+                    Data[:-16],
+                    Data[-16:],
+                )
+                # 5. Check header
+                hdr = signature.copy()
+                hdr.root.RRC = 0
+                if f16header != bytes(hdr)[:16]:
+                    raise ValueError("ERROR: Headers don't match")
+                # 6. Split (and ignore filler)
+                offset = 0
+                for msg in msgs:
+                    msglen = len(msg.data)
+                    if msg.conf_req_flag:
+                        msg.data = Data[offset : offset + msglen]
+                        offset += msglen
+                return msgs
+            else:
+                # No confidentiality is requested
+                # 0. Concatenate the data
+                Data = signature.root.Data
+                Data += b"".join(x.data for x in msgs if x.sign)
+                # 1. Un-Rotate
+                Data = strrot(Data, signature.root.RRC, right=False)
+                # 2. Split
+                Data, Mic = Data[: -signature.root.EC], Data[-signature.root.EC :]
+                # "Both the EC field and the RRC field in
+                # the token header SHALL be filled with zeroes for the purpose of
+                # calculating the checksum."
+                ToSign = Data
+                hdr = signature.copy()
+                hdr.root.RRC = 0
+                hdr.root.EC = 0
+                # Concatenate the data
+                ToSign += bytes(hdr)[:16]
+                # 3. Calculate the signature
+                sig = Context.KrbSessionKey.make_checksum(
+                    keyusage=Context.RecvSealKeyUsage,
+                    text=ToSign,
+                )
+                # 4. Compare
+                if sig != Mic:
+                    raise ValueError("ERROR: Checksums don't match")
+                # 5. Split
+                for msg in msgs:
+                    if msg.sign:
+                        msg.data = Data
+                return msgs
+        elif Context.KrbSessionKey.etype in [23, 24]:  # RC4
+            from scapy.libs.rfc3961 import Hmac_MD5, Cipher, algorithms, _rfc1964pad
+
+            # Drop wrapping
+            tok = signature.innerToken
+
+            # 0. Concatenate data
+            ToDecrypt = b"".join(x.data for x in msgs if x.conf_req_flag)
+            Kss = Context.KrbSessionKey.key
+            # 1. Compute the 'Kseq' key
+            if Context.KrbSessionKey.etype == 24:  # EXP
+                Kseq = Hmac_MD5(Kss).digest(b"fortybits\x00" + b"\x00\x00\x00\x00")
+                Kseq = Kseq[:7] + b"\xab" * 9
+            else:
+                Kseq = Hmac_MD5(Kss).digest(b"\x00\x00\x00\x00")
+            Kseq = Hmac_MD5(Kseq).digest(tok.root.SGN_CKSUM)
+            # 2. Decrypt 'SND_SEQ'
+            rc4 = Cipher(algorithms.ARC4(Kseq), mode=None).encryptor()
+            seq = rc4.update(tok.root.SND_SEQ)[:4]
+            # 3. Compute the 'Kcrypt' key
+            Klocal = strxor(Kss, len(Kss) * b"\xf0")
+            if Context.KrbSessionKey.etype == 24:  # EXP
+                Kcrypt = Hmac_MD5(Klocal).digest(b"fortybits\x00" + b"\x00\x00\x00\x00")
+                Kcrypt = Kcrypt[:7] + b"\xab" * 9
+            else:
+                Kcrypt = Hmac_MD5(Klocal).digest(b"\x00\x00\x00\x00")
+            Kcrypt = Hmac_MD5(Kcrypt).digest(seq)
+            # 4. Decrypt
+            if confidentiality:
+                # 'encrypt' was requested
+                rc4 = Cipher(algorithms.ARC4(Kcrypt), mode=None).encryptor()
+                Confounder = rc4.update(tok.root.CONFOUNDER)
+                Data = rc4.update(ToDecrypt)
+                # Split encrypted data
+                offset = 0
+                for msg in msgs:
+                    msglen = len(msg.data)
+                    if msg.conf_req_flag:
+                        msg.data = Data[offset : offset + msglen]
+                        offset += msglen
+            else:
+                # 'encrypt' was not requested
+                Confounder = tok.root.CONFOUNDER
+            # 5. Verify SGN_CKSUM
+            ToSign = _rfc1964pad(b"".join(x.data for x in msgs if x.sign))
+            Context.KrbSessionKey.verify_checksum(
+                keyusage=13,  # See errata
+                text=bytes(tok)[:8] + Confounder + ToSign,
+                cksum=tok.root.SGN_CKSUM,
+            )
+            return msgs
+        else:
+            raise NotImplementedError
+
+    def GSS_Init_sec_context(
+        self, Context: CONTEXT, val=None, req_flags: Optional[GSS_C_FLAGS] = None
+    ):
         if Context is None:
             # New context
-            Context = self.CONTEXT()
+            Context = self.CONTEXT(IsAcceptor=False, req_flags=req_flags)
 
-        from scapy.libs.rfc3961 import Key, EncryptionType
+        from scapy.libs.rfc3961 import Key
 
-        if Context.state == self.STATE.INIT:
+        if Context.state == self.STATE.INIT and self.U2U:
+            # U2U - Get TGT
+            Context.state = self.STATE.CLI_SENT_TGTREQ
+            return (
+                Context,
+                KRB_GSSAPI_Token(
+                    MechType="1.2.840.113554.1.2.2.3",  # U2U
+                    innerToken=KRB_InnerToken(
+                        TOK_ID=b"\x04\x00",
+                        root=KRB_TGT_REQ(),
+                    ),
+                ),
+                GSS_S_CONTINUE_NEEDED,
+            )
+
+        if Context.state in [self.STATE.INIT, self.STATE.CLI_SENT_TGTREQ]:
             if not self.UPN:
                 raise ValueError("Missing UPN attribute")
             # Do we have a ST?
@@ -3245,6 +3660,21 @@ class KerberosSSP(SSP):
                 # Client sends an AP-req
                 if not self.SPN:
                     raise ValueError("Missing SPN attribute")
+                additional_tickets = []
+                if self.U2U:
+                    try:
+                        # GSSAPI / Kerberos
+                        tgt_rep = val.root.innerToken.root
+                    except AttributeError:
+                        try:
+                            # Kerberos
+                            tgt_rep = val.innerToken.root
+                        except AttributeError:
+                            return Context, None, GSS_S_DEFECTIVE_TOKEN
+                    if not isinstance(tgt_rep, KRB_TGT_REP):
+                        tgt_rep.show()
+                        raise ValueError("KerberosSSP: Unexpected token !")
+                    additional_tickets = [tgt_rep.ticket]
                 if self.TGT is not None:
                     if not self.KEY:
                         raise ValueError("Cannot use TGT without the KEY")
@@ -3255,6 +3685,8 @@ class KerberosSSP(SSP):
                         ip=self.DC_IP,
                         sessionkey=self.KEY,
                         ticket=self.TGT,
+                        additional_tickets=additional_tickets,
+                        u2u=self.U2U,
                         debug=self.debug,
                     )
                 else:
@@ -3265,6 +3697,8 @@ class KerberosSSP(SSP):
                         ip=self.DC_IP,
                         key=self.KEY,
                         password=self.PASSWORD,
+                        additional_tickets=additional_tickets,
+                        u2u=self.U2U,
                         debug=self.debug,
                     )
                 if not res:
@@ -3273,50 +3707,43 @@ class KerberosSSP(SSP):
                 self.ST, self.KEY = res.tgsrep.ticket, res.sessionkey
             elif not self.KEY:
                 raise ValueError("Must provide KEY with ST")
+            Context.STSessionKey = self.KEY
             # Save ServerHostname
             if len(self.ST.sname.nameString) == 2:
                 Context.ServerHostname = self.ST.sname.nameString[1].val.decode()
             # Build the KRB-AP
-            ap_req = KRB_GSSAPI_Token(
-                innerToken=KRB_InnerToken(
-                    root=KRB_AP_REQ(
-                        apOptions=(
-                            ASN1_BIT_STRING("001")  # mutual-required
-                            if self.MUTUAL
-                            else ASN1_BIT_STRING("000")
-                        ),
-                        ticket=self.ST,
-                        authenticator=EncryptedData(),
-                    )
-                )
+            apOptions = ASN1_BIT_STRING("000")
+            if Context.flags & GSS_C_FLAGS.GSS_C_MUTUAL_FLAG:
+                apOptions.set(2, "1")  # mutual-required
+            if self.U2U:
+                apOptions.set(1, "1")  # use-session-key
+                Context.U2U = True
+            ap_req = KRB_AP_REQ(
+                apOptions=apOptions,
+                ticket=self.ST,
+                authenticator=EncryptedData(),
             )
             # Build the authenticator
             now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
             Context.KrbSessionKey = Key.random_to_key(
-                EncryptionType.AES128_CTS_HMAC_SHA1_96,
+                self.SKEY_TYPE,
                 os.urandom(16),
             )
-            Context.SeqNum = RandNum(0, 0x7FFFFFFF)._fix()
-            ap_req.innerToken.root.authenticator.encrypt(
-                self.KEY,
+            Context.SendSeqNum = RandNum(0, 0x7FFFFFFF)._fix()
+            ap_req.authenticator.encrypt(
+                Context.STSessionKey,
                 KRB_Authenticator(
                     crealm=self.ST.realm,
                     cname=PrincipalName.fromUPN(self.UPN),
                     # RFC 4121 checksum
                     cksum=Checksum(
                         cksumtype="KRB-AUTHENTICATOR",
-                        checksum=KRB_AuthenticatorChecksum(
-                            Flags=(
-                                "GSS_C_MUTUAL_FLAG+GSS_C_EXTENDED_ERROR_FLAG"
-                                if self.MUTUAL
-                                else "GSS_C_EXTENDED_ERROR_FLAG"
-                            )
-                        ),
+                        checksum=KRB_AuthenticatorChecksum(Flags=int(Context.flags)),
                     ),
                     ctime=ASN1_GENERALIZED_TIME(now_time),
                     cusec=ASN1_INTEGER(0),
                     subkey=EncryptionKey.fromKey(Context.KrbSessionKey),
-                    seqNumber=Context.SeqNum,
+                    seqNumber=Context.SendSeqNum,
                     encAuthorizationData=AuthorizationData(
                         seq=[
                             AuthorizationDataItem(
@@ -3343,57 +3770,112 @@ class KerberosSSP(SSP):
                 ),
             )
             Context.state = self.STATE.CLI_SENT_APREQ
-            return Context, ap_req, GSS_S_CONTINUE_NEEDED
+            if Context.flags & GSS_C_FLAGS.GSS_C_DCE_STYLE:
+                # Raw kerberos DCE-STYLE
+                return Context, ap_req, GSS_S_CONTINUE_NEEDED
+            else:
+                # Kerberos wrapper
+                return (
+                    Context,
+                    KRB_GSSAPI_Token(
+                        innerToken=KRB_InnerToken(
+                            root=ap_req,
+                        )
+                    ),
+                    GSS_S_CONTINUE_NEEDED,
+                )
+
         elif Context.state == self.STATE.CLI_SENT_APREQ:
             if isinstance(val, KRB_AP_REP):
                 # Raw AP_REP was passed
                 ap_rep = val
             else:
                 try:
-                    # GSSAPI/Kerberos
+                    # GSSAPI / Kerberos
                     ap_rep = val.root.innerToken.root
                 except AttributeError:
                     try:
-                        # Raw Kerberos
+                        # Kerberos
                         ap_rep = val.innerToken.root
                     except AttributeError:
-                        return Context, None, GSS_S_DEFECTIVE_TOKEN
+                        try:
+                            # Raw kerberos DCE-STYLE
+                            ap_rep = val.root
+                        except AttributeError:
+                            return Context, None, GSS_S_DEFECTIVE_TOKEN
             if not isinstance(ap_rep, KRB_AP_REP):
-                ap_rep.show()
-                raise ValueError("KerberosSSP: Unexpected token !")
+                return Context, None, GSS_S_DEFECTIVE_TOKEN
             # Retrieve SessionKey
-            repPart = ap_rep.encPart.decrypt(self.KEY)
+            repPart = ap_rep.encPart.decrypt(Context.STSessionKey)
             if repPart.subkey is not None:
                 Context.SessionKey = repPart.subkey.keyvalue.val
+                Context.KrbSessionKey = repPart.subkey.toKey()
             # OK !
             Context.state = self.STATE.CLI_RCVD_APREP
+            if Context.flags & GSS_C_FLAGS.GSS_C_DCE_STYLE:
+                # [MS-KILE] sect 3.4.5.1
+                # The client MUST generate an additional AP exchange reply message
+                # exactly as the server would as the final message to send to the
+                # server.
+                now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+                cli_ap_rep = KRB_AP_REP(encPart=EncryptedData())
+                cli_ap_rep.encPart.encrypt(
+                    Context.STSessionKey,
+                    EncAPRepPart(
+                        ctime=ASN1_GENERALIZED_TIME(now_time),
+                        seqNumber=repPart.seqNumber,
+                        subkey=None,
+                    ),
+                )
+                return Context, cli_ap_rep, GSS_S_COMPLETE
+            return Context, None, GSS_S_COMPLETE
+        elif (
+            Context.state == self.STATE.CLI_RCVD_APREP
+            and Context.flags & GSS_C_FLAGS.GSS_C_DCE_STYLE
+        ):
+            # DCE_STYLE with SPNEGOSSP
             return Context, None, GSS_S_COMPLETE
         else:
             raise ValueError("KerberosSSP: Unknown state")
 
+    def _setup_u2u(self):
+        if not self.TGT:
+            # Get a TGT for ourselves
+            try:
+                upn = "@".join(self.SPN.split("/")[1].split(".", 1))
+            except KeyError:
+                raise ValueError("Couldn't transform the SPN into a valid UPN")
+            res = krb_as_req(upn, self.DC_IP, key=self.KEY)
+            self.TGT, self.KEY = res.asrep.ticket, res.sessionkey
+
     def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
         if Context is None:
             # New context
-            Context = self.CONTEXT()
+            Context = self.CONTEXT(IsAcceptor=True, req_flags=0)
 
-        from scapy.libs.rfc3961 import Key, EncryptionType
+        from scapy.libs.rfc3961 import Key
 
         if Context.state == self.STATE.INIT:
             if not self.SPN:
                 raise ValueError("Missing SPN attribute")
             # Server receives AP-req, sends AP-rep
-            try:
-                # GSSAPI/Kerberos
-                ap_req = val.root.innerToken.root
-            except AttributeError:
+            if isinstance(val, KRB_AP_REQ):
+                # Raw AP_REQ was passed
+                ap_req = val
+            else:
                 try:
-                    # Raw Kerberos
-                    ap_req = val.root
+                    # GSSAPI/Kerberos
+                    ap_req = val.root.innerToken.root
                 except AttributeError:
-                    return Context, None, GSS_S_DEFECTIVE_TOKEN
+                    try:
+                        # Raw Kerberos
+                        ap_req = val.root
+                    except AttributeError:
+                        return Context, None, GSS_S_DEFECTIVE_TOKEN
             if isinstance(ap_req, KRB_TGT_REQ):
                 # Special U2U case
                 self._setup_u2u()
+                Context.U2U = True
                 return (
                     None,
                     KRB_GSSAPI_Token(
@@ -3423,6 +3905,7 @@ class KerberosSSP(SSP):
             if self.REQUIRE_U2U and ap_req.apOptions.val[1] != "1":  # use-session-key
                 # Required but not provided. Return an error
                 self._setup_u2u()
+                Context.U2U = True
                 now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
                 err = KRB_GSSAPI_Token(
                     innerToken=KRB_InnerToken(
@@ -3444,15 +3927,28 @@ class KerberosSSP(SSP):
                 tkt = ap_req.ticket.encPart.decrypt(self.KEY)
             except ValueError as ex:
                 warning("KerberosSSP: %s (bad KEY?)" % ex)
-                return Context, None, GSS_S_DEFECTIVE_TOKEN
+                now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+                err = KRB_GSSAPI_Token(
+                    innerToken=KRB_InnerToken(
+                        TOK_ID=b"\x03\x00",
+                        root=KRB_ERROR(
+                            errorCode="KRB_AP_ERR_MODIFIED",
+                            stime=ASN1_GENERALIZED_TIME(now_time),
+                            realm=ap_req.ticket.realm,
+                            sname=ap_req.ticket.sname,
+                            eData=None,
+                        ),
+                    )
+                )
+                return Context, err, GSS_S_DEFECTIVE_TOKEN
             # Get AP-REP session key
-            sessionkey = tkt.key.toKey()
-            authenticator = ap_req.authenticator.decrypt(sessionkey)
+            Context.STSessionKey = tkt.key.toKey()
+            authenticator = ap_req.authenticator.decrypt(Context.STSessionKey)
             # Compute an application session key ([MS-KILE] sect 3.1.1.2)
             subkey = None
             if ap_req.apOptions.val[2] == "1":  # mutual-required
                 appkey = Key.random_to_key(
-                    EncryptionType.AES128_CTS_HMAC_SHA1_96,
+                    self.SKEY_TYPE,
                     os.urandom(16),
                 )
                 Context.KrbSessionKey = appkey
@@ -3461,10 +3957,15 @@ class KerberosSSP(SSP):
             else:
                 Context.KrbSessionKey = self.KEY
                 Context.SessionKey = self.KEY.key
+            # Eventually process the "checksum"
+            if authenticator.cksum:
+                if authenticator.cksum.cksumtype == 0x8003:
+                    # KRB-Authenticator
+                    Context.flags = GSS_C_FLAGS(int(authenticator.cksum.checksum.Flags))
             # Build response (RFC4120 sect 3.2.4)
             ap_rep = KRB_AP_REP(encPart=EncryptedData())
             ap_rep.encPart.encrypt(
-                sessionkey,
+                Context.STSessionKey,
                 EncAPRepPart(
                     ctime=authenticator.ctime,
                     cusec=authenticator.cusec,
@@ -3473,6 +3974,81 @@ class KerberosSSP(SSP):
                 ),
             )
             Context.state = self.STATE.SRV_SENT_APREP
+            if Context.flags & GSS_C_FLAGS.GSS_C_DCE_STYLE:
+                # [MS-KILE] sect 3.4.5.1
+                return Context, ap_rep, GSS_S_CONTINUE_NEEDED
             return Context, ap_rep, GSS_S_COMPLETE  # success
+        elif (
+            Context.state == self.STATE.SRV_SENT_APREP
+            and Context.flags & GSS_C_FLAGS.GSS_C_DCE_STYLE
+        ):
+            # [MS-KILE] sect 3.4.5.1
+            # The server MUST receive the additional AP exchange reply message and
+            # verify that the message is constructed correctly.
+            if not val:
+                return Context, None, GSS_S_DEFECTIVE_TOKEN
+            # Server receives AP-req, sends AP-rep
+            if isinstance(val, KRB_AP_REP):
+                # Raw AP_REP was passed
+                ap_rep = val
+            else:
+                try:
+                    # GSSAPI/Kerberos
+                    ap_rep = val.root.innerToken.root
+                except AttributeError:
+                    try:
+                        # Raw Kerberos
+                        ap_rep = val.root
+                    except AttributeError:
+                        return Context, None, GSS_S_DEFECTIVE_TOKEN
+            # Decrypt the AP-REP
+            try:
+                ap_rep.encPart.decrypt(Context.STSessionKey)
+            except ValueError as ex:
+                warning("KerberosSSP: %s (bad KEY?)" % ex)
+                return Context, None, GSS_S_DEFECTIVE_TOKEN
+            return Context, None, GSS_S_COMPLETE  # success
         else:
             raise ValueError("KerberosSSP: Unknown state %s" % repr(Context.state))
+
+    def GSS_Passive(self, Context: CONTEXT, val=None):
+        if Context is None:
+            Context = self.CONTEXT(True)
+            Context.passive = True
+
+        if Context.state == self.STATE.INIT:
+            Context, _, status = self.GSS_Accept_sec_context(Context, val)
+            Context.state = self.STATE.CLI_SENT_APREQ
+            return Context, status
+        elif Context.state == self.STATE.CLI_SENT_APREQ:
+            Context, _, status = self.GSS_Init_sec_context(Context, val)
+            return Context, status
+
+    def GSS_Passive_set_Direction(self, Context: CONTEXT, IsAcceptor=False):
+        if Context.IsAcceptor is not IsAcceptor:
+            return
+        # Swap everything
+        Context.SendSealKeyUsage, Context.RecvSealKeyUsage = (
+            Context.RecvSealKeyUsage,
+            Context.SendSealKeyUsage,
+        )
+        Context.SendSignKeyUsage, Context.RecvSignKeyUsage = (
+            Context.RecvSignKeyUsage,
+            Context.SendSignKeyUsage,
+        )
+        Context.IsAcceptor = not Context.IsAcceptor
+
+    def MaximumSignatureLength(self, Context: CONTEXT):
+        if Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG:
+            # TODO: support DES
+            if Context.KrbSessionKey.etype in [17, 18]:  # AES
+                return 76
+            elif Context.KrbSessionKey.etype in [23, 24]:  # RC4_HMAC
+                return 45
+            else:
+                raise NotImplementedError
+        else:
+            return 28
+
+    def canMechListMIC(self, Context: CONTEXT):
+        return bool(Context.KrbSessionKey)

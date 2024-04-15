@@ -6,7 +6,11 @@
 """
 NTLM
 
-https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-NLMP/%5bMS-NLMP%5d.pdf
+This is documented in [MS-NLMP]
+
+.. note::
+    You will find more complete documentation for this layer over at
+    `GSSAPI <https://scapy.readthedocs.io/en/latest/layers/gssapi.html#ntlm>`_
 """
 
 import copy
@@ -28,56 +32,57 @@ from scapy.asn1packet import ASN1_Packet
 from scapy.compat import bytes_base64
 from scapy.error import log_runtime
 from scapy.fields import (
-    Field,
     ByteEnumField,
     ByteField,
     ConditionalField,
+    Field,
     FieldLenField,
     FlagsField,
+    LEIntEnumField,
     LEIntField,
-    _StrField,
     LEShortEnumField,
+    LEShortField,
+    LEThreeBytesField,
     MultipleTypeField,
     PacketField,
     PacketListField,
-    LEShortField,
     StrField,
     StrFieldUtf16,
     StrFixedLenField,
-    LEIntEnumField,
-    LEThreeBytesField,
     StrLenFieldUtf16,
     UTCTimeField,
     XStrField,
     XStrFixedLenField,
     XStrLenField,
+    _StrField,
 )
 from scapy.packet import Packet
 from scapy.sessions import StringBuffer
 
 from scapy.layers.gssapi import (
+    GSS_C_FLAGS,
+    GSS_S_COMPLETE,
+    GSS_S_CONTINUE_NEEDED,
+    GSS_S_DEFECTIVE_CREDENTIAL,
+    GSS_S_DEFECTIVE_TOKEN,
     SSP,
     _GSSAPI_OIDS,
     _GSSAPI_SIGNATURE_OIDS,
-    GSS_S_CONTINUE_NEEDED,
-    GSS_S_COMPLETE,
-    GSS_S_DEFECTIVE_CREDENTIAL,
 )
-from scapy.layers.tls.crypto.hash import Hash_MD5
 
 # Typing imports
 from typing import (
     Any,
     Callable,
     List,
+    Optional,
     Tuple,
     Union,
-    Optional,
 )
 
 # Crypto imports
 
-from scapy.layers.tls.crypto.hash import Hash_MD4
+from scapy.layers.tls.crypto.hash import Hash_MD4, Hash_MD5
 from scapy.layers.tls.crypto.h_mac import Hmac_MD5
 
 ##########
@@ -482,41 +487,49 @@ class _NTLM_Version(Packet):
 class NTLM_NEGOTIATE(_NTLMPayloadPacket):
     name = "NTLM Negotiate"
     MessageType = 1
-    OFFSET = lambda pkt: (
-        ((pkt.DomainNameBufferOffset or 40) > 32) and 40 or 32
-    )
-    fields_desc = [
-        NTLM_Header,
-        FlagsField("NegotiateFlags", 0, -32, _negotiateFlags),
-        # DomainNameFields
-        LEShortField("DomainNameLen", None),
-        LEShortField("DomainNameMaxLen", None),
-        LEIntField("DomainNameBufferOffset", None),
-        # WorkstationFields
-        LEShortField("WorkstationNameLen", None),
-        LEShortField("WorkstationNameMaxLen", None),
-        LEIntField("WorkstationNameBufferOffset", None),
-    ] + [
-        # VERSION
-        ConditionalField(
-            # (not present on some old Windows versions. We use a heuristic)
-            x,
-            lambda pkt: (
-                (
-                    40 if pkt.DomainNameBufferOffset is None else
-                    pkt.DomainNameBufferOffset or len(pkt.original or b"")
-                ) > 32
+    OFFSET = lambda pkt: (((pkt.DomainNameBufferOffset or 40) > 32) and 40 or 32)
+    fields_desc = (
+        [
+            NTLM_Header,
+            FlagsField("NegotiateFlags", 0, -32, _negotiateFlags),
+            # DomainNameFields
+            LEShortField("DomainNameLen", None),
+            LEShortField("DomainNameMaxLen", None),
+            LEIntField("DomainNameBufferOffset", None),
+            # WorkstationFields
+            LEShortField("WorkstationNameLen", None),
+            LEShortField("WorkstationNameMaxLen", None),
+            LEIntField("WorkstationNameBufferOffset", None),
+        ]
+        + [
+            # VERSION
+            ConditionalField(
+                # (not present on some old Windows versions. We use a heuristic)
+                x,
+                lambda pkt: (
+                    (
+                        40
+                        if pkt.DomainNameBufferOffset is None
+                        else pkt.DomainNameBufferOffset or len(pkt.original or b"")
+                    )
+                    > 32
+                )
+                or pkt.fields.get(x.name, b""),
             )
-            or pkt.fields.get(x.name, b""),
-        ) for x in _NTLM_Version.fields_desc
-    ] + [
-        # Payload
-        _NTLMPayloadField(
-            "Payload",
-            OFFSET,
-            [_NTLMStrField("DomainName", b""), _NTLMStrField("WorkstationName", b"")],
-        ),
-    ]
+            for x in _NTLM_Version.fields_desc
+        ]
+        + [
+            # Payload
+            _NTLMPayloadField(
+                "Payload",
+                OFFSET,
+                [
+                    _NTLMStrField("DomainName", b""),
+                    _NTLMStrField("WorkstationName", b""),
+                ],
+            ),
+        ]
+    )
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
@@ -614,42 +627,45 @@ class AV_PAIR(Packet):
 class NTLM_CHALLENGE(_NTLMPayloadPacket):
     name = "NTLM Challenge"
     MessageType = 2
-    OFFSET = lambda pkt: (
-        ((pkt.TargetInfoBufferOffset or 56) > 48) and 56 or 48
+    OFFSET = lambda pkt: (((pkt.TargetInfoBufferOffset or 56) > 48) and 56 or 48)
+    fields_desc = (
+        [
+            NTLM_Header,
+            # TargetNameFields
+            LEShortField("TargetNameLen", None),
+            LEShortField("TargetNameMaxLen", None),
+            LEIntField("TargetNameBufferOffset", None),
+            #
+            FlagsField("NegotiateFlags", 0, -32, _negotiateFlags),
+            XStrFixedLenField("ServerChallenge", None, length=8),
+            XStrFixedLenField("Reserved", None, length=8),
+            # TargetInfoFields
+            LEShortField("TargetInfoLen", None),
+            LEShortField("TargetInfoMaxLen", None),
+            LEIntField("TargetInfoBufferOffset", None),
+        ]
+        + [
+            # VERSION
+            ConditionalField(
+                # (not present on some old Windows versions. We use a heuristic)
+                x,
+                lambda pkt: ((pkt.TargetInfoBufferOffset or 56) > 40)
+                or pkt.fields.get(x.name, b""),
+            )
+            for x in _NTLM_Version.fields_desc
+        ]
+        + [
+            # Payload
+            _NTLMPayloadField(
+                "Payload",
+                OFFSET,
+                [
+                    _NTLMStrField("TargetName", b""),
+                    PacketListField("TargetInfo", [AV_PAIR()], AV_PAIR),
+                ],
+            ),
+        ]
     )
-    fields_desc = [
-        NTLM_Header,
-        # TargetNameFields
-        LEShortField("TargetNameLen", None),
-        LEShortField("TargetNameMaxLen", None),
-        LEIntField("TargetNameBufferOffset", None),
-        #
-        FlagsField("NegotiateFlags", 0, -32, _negotiateFlags),
-        XStrFixedLenField("ServerChallenge", None, length=8),
-        XStrFixedLenField("Reserved", None, length=8),
-        # TargetInfoFields
-        LEShortField("TargetInfoLen", None),
-        LEShortField("TargetInfoMaxLen", None),
-        LEIntField("TargetInfoBufferOffset", None),
-    ] + [
-        # VERSION
-        ConditionalField(
-            # (not present on some old Windows versions. We use a heuristic)
-            x,
-            lambda pkt: ((pkt.TargetInfoBufferOffset or 56) > 40)
-            or pkt.fields.get(x.name, b""),
-        ) for x in _NTLM_Version.fields_desc
-    ] + [
-        # Payload
-        _NTLMPayloadField(
-            "Payload",
-            OFFSET,
-            [
-                _NTLMStrField("TargetName", b""),
-                PacketListField("TargetInfo", [AV_PAIR()], AV_PAIR),
-            ],
-        ),
-    ]
 
     def getAv(self, AvId):
         try:
@@ -755,89 +771,99 @@ class NTLM_AUTHENTICATE(_NTLMPayloadPacket):
     MessageType = 3
     NTLM_VERSION = 1
     OFFSET = lambda pkt: (
-        ((pkt.DomainNameBufferOffset or 88) <= 64) and 64
+        ((pkt.DomainNameBufferOffset or 88) <= 64)
+        and 64
         or (((pkt.DomainNameBufferOffset or 88) > 72) and 88 or 72)
     )
-    fields_desc = [
-        NTLM_Header,
-        # LmChallengeResponseFields
-        LEShortField("LmChallengeResponseLen", None),
-        LEShortField("LmChallengeResponseMaxLen", None),
-        LEIntField("LmChallengeResponseBufferOffset", None),
-        # NtChallengeResponseFields
-        LEShortField("NtChallengeResponseLen", None),
-        LEShortField("NtChallengeResponseMaxLen", None),
-        LEIntField("NtChallengeResponseBufferOffset", None),
-        # DomainNameFields
-        LEShortField("DomainNameLen", None),
-        LEShortField("DomainNameMaxLen", None),
-        LEIntField("DomainNameBufferOffset", None),
-        # UserNameFields
-        LEShortField("UserNameLen", None),
-        LEShortField("UserNameMaxLen", None),
-        LEIntField("UserNameBufferOffset", None),
-        # WorkstationFields
-        LEShortField("WorkstationLen", None),
-        LEShortField("WorkstationMaxLen", None),
-        LEIntField("WorkstationBufferOffset", None),
-        # EncryptedRandomSessionKeyFields
-        LEShortField("EncryptedRandomSessionKeyLen", None),
-        LEShortField("EncryptedRandomSessionKeyMaxLen", None),
-        LEIntField("EncryptedRandomSessionKeyBufferOffset", None),
-        # NegotiateFlags
-        FlagsField("NegotiateFlags", 0, -32, _negotiateFlags),
-        # VERSION
-    ] + [
-        ConditionalField(
-            # (not present on some old Windows versions. We use a heuristic)
-            x,
-            lambda pkt: ((pkt.DomainNameBufferOffset or 88) > 64)
-            or pkt.fields.get(x.name, b""),
-        ) for x in _NTLM_Version.fields_desc
-    ] + [
-        # MIC
-        ConditionalField(
-            # (not present on some old Windows versions. We use a heuristic)
-            XStrFixedLenField("MIC", b"", length=16),
-            lambda pkt: ((pkt.DomainNameBufferOffset or 88) > 72)
-            or pkt.fields.get("MIC", b""),
-        ),
-        # Payload
-        _NTLMPayloadField(
-            "Payload",
-            OFFSET,
-            [
-                MultipleTypeField(
-                    [
-                        (
-                            PacketField(
-                                "LmChallengeResponse", LMv2_RESPONSE(), LMv2_RESPONSE
-                            ),
-                            lambda pkt: pkt.NTLM_VERSION == 2,
-                        )
-                    ],
-                    PacketField("LmChallengeResponse", LM_RESPONSE(), LM_RESPONSE),
-                ),
-                MultipleTypeField(
-                    [
-                        (
-                            PacketField(
-                                "NtChallengeResponse",
-                                NTLMv2_RESPONSE(),
-                                NTLMv2_RESPONSE,
-                            ),
-                            lambda pkt: pkt.NTLM_VERSION == 2,
-                        )
-                    ],
-                    PacketField("NtChallengeResponse", NTLM_RESPONSE(), NTLM_RESPONSE),
-                ),
-                _NTLMStrField("DomainName", b""),
-                _NTLMStrField("UserName", b""),
-                _NTLMStrField("Workstation", b""),
-                XStrField("EncryptedRandomSessionKey", b""),
-            ],
-        ),
-    ]
+    fields_desc = (
+        [
+            NTLM_Header,
+            # LmChallengeResponseFields
+            LEShortField("LmChallengeResponseLen", None),
+            LEShortField("LmChallengeResponseMaxLen", None),
+            LEIntField("LmChallengeResponseBufferOffset", None),
+            # NtChallengeResponseFields
+            LEShortField("NtChallengeResponseLen", None),
+            LEShortField("NtChallengeResponseMaxLen", None),
+            LEIntField("NtChallengeResponseBufferOffset", None),
+            # DomainNameFields
+            LEShortField("DomainNameLen", None),
+            LEShortField("DomainNameMaxLen", None),
+            LEIntField("DomainNameBufferOffset", None),
+            # UserNameFields
+            LEShortField("UserNameLen", None),
+            LEShortField("UserNameMaxLen", None),
+            LEIntField("UserNameBufferOffset", None),
+            # WorkstationFields
+            LEShortField("WorkstationLen", None),
+            LEShortField("WorkstationMaxLen", None),
+            LEIntField("WorkstationBufferOffset", None),
+            # EncryptedRandomSessionKeyFields
+            LEShortField("EncryptedRandomSessionKeyLen", None),
+            LEShortField("EncryptedRandomSessionKeyMaxLen", None),
+            LEIntField("EncryptedRandomSessionKeyBufferOffset", None),
+            # NegotiateFlags
+            FlagsField("NegotiateFlags", 0, -32, _negotiateFlags),
+            # VERSION
+        ]
+        + [
+            ConditionalField(
+                # (not present on some old Windows versions. We use a heuristic)
+                x,
+                lambda pkt: ((pkt.DomainNameBufferOffset or 88) > 64)
+                or pkt.fields.get(x.name, b""),
+            )
+            for x in _NTLM_Version.fields_desc
+        ]
+        + [
+            # MIC
+            ConditionalField(
+                # (not present on some old Windows versions. We use a heuristic)
+                XStrFixedLenField("MIC", b"", length=16),
+                lambda pkt: ((pkt.DomainNameBufferOffset or 88) > 72)
+                or pkt.fields.get("MIC", b""),
+            ),
+            # Payload
+            _NTLMPayloadField(
+                "Payload",
+                OFFSET,
+                [
+                    MultipleTypeField(
+                        [
+                            (
+                                PacketField(
+                                    "LmChallengeResponse",
+                                    LMv2_RESPONSE(),
+                                    LMv2_RESPONSE,
+                                ),
+                                lambda pkt: pkt.NTLM_VERSION == 2,
+                            )
+                        ],
+                        PacketField("LmChallengeResponse", LM_RESPONSE(), LM_RESPONSE),
+                    ),
+                    MultipleTypeField(
+                        [
+                            (
+                                PacketField(
+                                    "NtChallengeResponse",
+                                    NTLMv2_RESPONSE(),
+                                    NTLMv2_RESPONSE,
+                                ),
+                                lambda pkt: pkt.NTLM_VERSION == 2,
+                            )
+                        ],
+                        PacketField(
+                            "NtChallengeResponse", NTLM_RESPONSE(), NTLM_RESPONSE
+                        ),
+                    ),
+                    _NTLMStrField("DomainName", b""),
+                    _NTLMStrField("UserName", b""),
+                    _NTLMStrField("Workstation", b""),
+                    XStrField("EncryptedRandomSessionKey", b""),
+                ],
+            ),
+        ]
+    )
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
@@ -1154,6 +1180,7 @@ class NTLMSSP(SSP):
         __slots__ = [
             "SessionKey",
             "ExportedSessionKey",
+            "IsAcceptor",
             "SendSignKey",
             "SendSealKey",
             "RecvSignKey",
@@ -1167,7 +1194,7 @@ class NTLMSSP(SSP):
             "ServerHostname",
         ]
 
-        def __init__(self):
+        def __init__(self, IsAcceptor, req_flags=None):
             self.state = NTLMSSP.STATE.INIT
             self.SessionKey = None
             self.ExportedSessionKey = None
@@ -1182,6 +1209,8 @@ class NTLMSSP(SSP):
             self.neg_tok = None
             self.chall_tok = None
             self.ServerHostname = None
+            self.IsAcceptor = IsAcceptor
+            super(NTLMSSP.CONTEXT, self).__init__(req_flags=req_flags)
 
         def __repr__(self):
             return "NTLMSSP"
@@ -1198,8 +1227,6 @@ class NTLMSSP(SSP):
         COMPUTER_NB_NAME="SRV",
         COMPUTER_FQDN=None,
         IDENTITIES=None,
-        DROP_MIC_v1=False,
-        DROP_MIC_v2=False,
         DO_NOT_CHECK_LOGIN=False,
         SERVER_CHALLENGE=None,
         **kwargs,
@@ -1218,8 +1245,6 @@ class NTLMSSP(SSP):
         )
         self.IDENTITIES = IDENTITIES
         self.DO_NOT_CHECK_LOGIN = DO_NOT_CHECK_LOGIN
-        self.DROP_MIC_v1 = DROP_MIC_v1
-        self.DROP_MIC_v2 = DROP_MIC_v2
         self.SERVER_CHALLENGE = SERVER_CHALLENGE
         super(NTLMSSP, self).__init__(**kwargs)
 
@@ -1301,27 +1326,30 @@ class NTLMSSP(SSP):
         # "When NTLM is negotiated, the SPNG server MUST set OriginalHandle to
         # ServerHandle before generating the mechListMIC, then set ServerHandle to
         # OriginalHandle after generating the mechListMIC."
-
-        # i.e. use a new RC4 handle
-
-        return bytes(MAC(RC4Init(Context.SendSealKey), Context.SendSignKey, 0, input))
+        OriginalHandle = Context.SendSealHandle
+        Context.SendSealHandle = RC4Init(Context.SendSealKey)
+        try:
+            return super(NTLMSSP, self).getMechListMIC(Context, input)
+        finally:
+            Context.SendSealHandle = OriginalHandle
 
     def verifyMechListMIC(self, Context, otherMIC, input):
         # [MS-SPNG]
         # "the SPNEGO Extension server MUST set OriginalHandle to ClientHandle before
         # validating the mechListMIC and then set ClientHandle to OriginalHandle after
         # validating the mechListMIC."
+        OriginalHandle = Context.RecvSealHandle
+        Context.RecvSealHandle = RC4Init(Context.RecvSealKey)
+        try:
+            return super(NTLMSSP, self).verifyMechListMIC(Context, otherMIC, input)
+        finally:
+            Context.RecvSealHandle = OriginalHandle
 
-        # i.e. again, use a new RC4 handle
-
-        if otherMIC != bytes(
-            MAC(RC4Init(Context.RecvSealKey), Context.RecvSignKey, 0, input)
-        ):
-            raise ValueError("Bad mechListMIC !")
-
-    def GSS_Init_sec_context(self, Context: CONTEXT, val=None):
+    def GSS_Init_sec_context(
+        self, Context: CONTEXT, val=None, req_flags: Optional[GSS_C_FLAGS] = None
+    ):
         if Context is None:
-            Context = self.CONTEXT()
+            Context = self.CONTEXT(False, req_flags=req_flags)
 
         if Context.state == self.STATE.INIT:
             # Client: negotiate
@@ -1331,8 +1359,6 @@ class NTLMSSP(SSP):
                     [
                         "NEGOTIATE_UNICODE",
                         "REQUEST_TARGET",
-                        "NEGOTIATE_SIGN",
-                        "NEGOTIATE_SEAL",
                         "NEGOTIATE_NTLM",
                         "NEGOTIATE_ALWAYS_SIGN",
                         "TARGET_TYPE_DOMAIN",
@@ -1340,9 +1366,30 @@ class NTLMSSP(SSP):
                         "NEGOTIATE_TARGET_INFO",
                         "NEGOTIATE_VERSION",
                         "NEGOTIATE_128",
-                        "NEGOTIATE_KEY_EXCH",
                         "NEGOTIATE_56",
                     ]
+                    + (
+                        [
+                            "NEGOTIATE_KEY_EXCH",
+                        ]
+                        if Context.flags
+                        & (GSS_C_FLAGS.GSS_C_INTEG_FLAG | GSS_C_FLAGS.GSS_C_CONF_FLAG)
+                        else []
+                    )
+                    + (
+                        [
+                            "NEGOTIATE_SIGN",
+                        ]
+                        if Context.flags & GSS_C_FLAGS.GSS_C_INTEG_FLAG
+                        else []
+                    )
+                    + (
+                        [
+                            "NEGOTIATE_SEAL",
+                        ]
+                        if Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
+                        else []
+                    )
                 ),
                 ProductMajorVersion=10,
                 ProductMinorVersion=0,
@@ -1382,6 +1429,7 @@ class NTLMSSP(SSP):
             )
             tok.LmChallengeResponse = LMv2_RESPONSE()
             from scapy.layers.kerberos import _parse_upn
+
             try:
                 tok.UserName, realm = _parse_upn(self.UPN)
             except ValueError:
@@ -1406,10 +1454,10 @@ class NTLMSSP(SSP):
                 ChallengeFromClient=os.urandom(8),
             )
             try:
-                # the client SHOULD set the timestamp in the CHALLENGE_MESSAGE
+                # the server SHOULD set the timestamp in the CHALLENGE_MESSAGE
                 cr.TimeStamp = chall_tok.getAv(0x0007).Value
             except IndexError:
-                pass
+                cr.TimeStamp = int((time.time() + 11644473600) * 1e7)
             cr.AvPairs = (
                 chall_tok.TargetInfo[:-1]
                 + (
@@ -1439,23 +1487,6 @@ class NTLMSSP(SSP):
                 ]:
                     if key in self.NTLM_VALUES:
                         setattr(tok, key, self.NTLM_VALUES[key])
-            if self.DROP_MIC_v1 or self.DROP_MIC_v2:
-                tok.MIC = b"\0" * 16
-                tok.NtChallengeResponseLen = None
-                tok.NtChallengeResponseMaxLen = None
-                tok.EncryptedRandomSessionKeyBufferOffset = None
-                if self.DROP_MIC_v2:
-                    ChallengeResponse = next(
-                        v[1] for v in tok.Payload if v[0] == "NtChallengeResponse"
-                    )
-                    i = next(
-                        i
-                        for i, k in enumerate(ChallengeResponse.AvPairs)
-                        if k.AvId == 0x0006
-                    )
-                    ChallengeResponse.AvPairs.insert(
-                        i + 1, AV_PAIR(AvId="MsvAvFlags", Value=0)
-                    )
             # Compute the ResponseKeyNT
             ResponseKeyNT = NTOWFv2(
                 None,
@@ -1513,7 +1544,7 @@ class NTLMSSP(SSP):
 
     def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
         if Context is None:
-            Context = self.CONTEXT()
+            Context = self.CONTEXT(IsAcceptor=True, req_flags=0)
 
         if Context.state == self.STATE.INIT:
             # Server: challenge (val=negotiate)
@@ -1529,18 +1560,26 @@ class NTLMSSP(SSP):
                     [
                         "NEGOTIATE_UNICODE",
                         "REQUEST_TARGET",
-                        "NEGOTIATE_SIGN",
-                        "NEGOTIATE_SEAL",
                         "NEGOTIATE_NTLM",
                         "NEGOTIATE_ALWAYS_SIGN",
-                        "TARGET_TYPE_DOMAIN",
                         "NEGOTIATE_EXTENDED_SESSIONSECURITY",
                         "NEGOTIATE_TARGET_INFO",
+                        "TARGET_TYPE_DOMAIN",
                         "NEGOTIATE_VERSION",
                         "NEGOTIATE_128",
                         "NEGOTIATE_KEY_EXCH",
                         "NEGOTIATE_56",
                     ]
+                    + (
+                        ["NEGOTIATE_SIGN"]
+                        if nego_tok.NegotiateFlags.NEGOTIATE_SIGN
+                        else []
+                    )
+                    + (
+                        ["NEGOTIATE_SEAL"]
+                        if nego_tok.NegotiateFlags.NEGOTIATE_SEAL
+                        else []
+                    )
                 ),
                 ProductMajorVersion=10,
                 ProductMinorVersion=0,
@@ -1639,6 +1678,11 @@ class NTLMSSP(SSP):
                 )
                 Context.RecvSealHandle = RC4Init(Context.RecvSealKey)
                 if self._checkLogin(Context, auth_tok):
+                    # Set negotiated flags
+                    if auth_tok.NegotiateFlags.NEGOTIATE_SIGN:
+                        Context.flags |= GSS_C_FLAGS.GSS_C_INTEG_FLAG
+                    if auth_tok.NegotiateFlags.NEGOTIATE_SEAL:
+                        Context.flags |= GSS_C_FLAGS.GSS_C_CONF_FLAG
                     return Context, None, GSS_S_COMPLETE
             # Bad NTProofStr or unknown user
             Context.SessionKey = None
@@ -1646,6 +1690,68 @@ class NTLMSSP(SSP):
             return Context, None, GSS_S_DEFECTIVE_CREDENTIAL
         else:
             raise ValueError("NTLMSSP: unexpected state %s" % repr(Context.state))
+
+    def MaximumSignatureLength(self, Context: CONTEXT):
+        """
+        Returns the Maximum Signature length.
+
+        This will be used in auth_len in DceRpc5, and is necessary for
+        PFC_SUPPORT_HEADER_SIGN to work properly.
+        """
+        return 16  # len(NTLMSSP_MESSAGE_SIGNATURE())
+
+    def GSS_Passive(self, Context: CONTEXT, val=None):
+        if Context is None:
+            Context = self.CONTEXT(True)
+            Context.passive = True
+
+        # We capture the Negotiate, Challenge, then call the server's auth handling
+        # and discard the output.
+
+        if Context.state == self.STATE.INIT:
+            if not val or NTLM_NEGOTIATE not in val:
+                log_runtime.warning("NTLMSSP: Expected NTLM Negotiate")
+                return None, GSS_S_DEFECTIVE_TOKEN
+            Context.neg_tok = val
+            Context.state = self.STATE.CLI_SENT_NEGO
+            return Context, GSS_S_CONTINUE_NEEDED
+        elif Context.state == self.STATE.CLI_SENT_NEGO:
+            if not val or NTLM_CHALLENGE not in val:
+                log_runtime.warning("NTLMSSP: Expected NTLM Challenge")
+                return None, GSS_S_DEFECTIVE_TOKEN
+            Context.chall_tok = val
+            Context.state = self.STATE.SRV_SENT_CHAL
+            return Context, GSS_S_CONTINUE_NEEDED
+        elif Context.state == self.STATE.SRV_SENT_CHAL:
+            if not val or NTLM_AUTHENTICATE_V2 not in val:
+                log_runtime.warning("NTLMSSP: Expected NTLM Authenticate")
+                return None, GSS_S_DEFECTIVE_TOKEN
+            Context, _, status = self.GSS_Accept_sec_context(Context, val)
+            if status != GSS_S_COMPLETE:
+                log_runtime.info("NTLMSSP: auth failed.")
+            Context.state = self.STATE.INIT
+            return Context, status
+        else:
+            raise ValueError("NTLMSSP: unexpected state %s" % repr(Context.state))
+
+    def GSS_Passive_set_Direction(self, Context: CONTEXT, IsAcceptor=False):
+        if Context.IsAcceptor is not IsAcceptor:
+            return
+        # Swap everything
+        Context.SendSignKey, Context.RecvSignKey = (
+            Context.RecvSignKey,
+            Context.SendSignKey,
+        )
+        Context.SendSealKey, Context.RecvSealKey = (
+            Context.RecvSealKey,
+            Context.SendSealKey,
+        )
+        Context.SendSealHandle, Context.RecvSealHandle = (
+            Context.RecvSealHandle,
+            Context.SendSealHandle,
+        )
+        Context.SendSeqNum, Context.RecvSeqNum = Context.RecvSeqNum, Context.SendSeqNum
+        Context.IsAcceptor = not Context.IsAcceptor
 
     def _getSessionBaseKey(self, Context, auth_tok):
         """

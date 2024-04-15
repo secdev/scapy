@@ -208,6 +208,13 @@ if conf.crypto_valid:
         algorithms,
         modes,
     )
+    try:
+        # cryptography > 43.0
+        from cryptography.hazmat.decrepit.ciphers import (
+            algorithms as decrepit_algorithms
+        )
+    except ImportError:
+        decrepit_algorithms = algorithms
 else:
     log_loading.info("Can't import python-cryptography v1.7+. "
                      "Disabled IPsec encryption/authentication.")
@@ -565,34 +572,35 @@ if algorithms:
                                                  icv_size=16,
                                                  format_mode_iv=_salt_format_mode_iv)  # noqa: E501
 
-    # XXX: RFC7321 states that DES *MUST NOT* be implemented.
-    # XXX: Keep for backward compatibility?
     # Using a TripleDES cipher algorithm for DES is done by using the same 64
     # bits key 3 times (done by cryptography when given a 64 bits key)
     CRYPT_ALGOS['DES'] = CryptAlgo('DES',
-                                   cipher=algorithms.TripleDES,
+                                   cipher=decrepit_algorithms.TripleDES,
                                    mode=modes.CBC,
                                    key_size=(8,))
     CRYPT_ALGOS['3DES'] = CryptAlgo('3DES',
-                                    cipher=algorithms.TripleDES,
+                                    cipher=decrepit_algorithms.TripleDES,
                                     mode=modes.CBC)
-    try:
+    if decrepit_algorithms is algorithms:
+        # cryptography < 43 raises a DeprecationWarning
         from cryptography.utils import CryptographyDeprecationWarning
         with warnings.catch_warnings():
             # Hide deprecation warnings
             warnings.filterwarnings("ignore",
                                     category=CryptographyDeprecationWarning)
             CRYPT_ALGOS['CAST'] = CryptAlgo('CAST',
-                                            cipher=algorithms.CAST5,
+                                            cipher=decrepit_algorithms.CAST5,
                                             mode=modes.CBC)
-            # XXX: Flagged as weak by 'cryptography'.
-            # Kept for backward compatibility
             CRYPT_ALGOS['Blowfish'] = CryptAlgo('Blowfish',
-                                                cipher=algorithms.Blowfish,
+                                                cipher=decrepit_algorithms.Blowfish,
                                                 mode=modes.CBC)
-    except AttributeError:
-        # Future-proof, if ever removed from cryptography
-        pass
+    else:
+        CRYPT_ALGOS['CAST'] = CryptAlgo('CAST',
+                                        cipher=decrepit_algorithms.CAST5,
+                                        mode=modes.CBC)
+        CRYPT_ALGOS['Blowfish'] = CryptAlgo('Blowfish',
+                                            cipher=decrepit_algorithms.Blowfish,
+                                            mode=modes.CBC)
 
 
 ###############################################################################

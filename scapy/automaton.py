@@ -1027,11 +1027,11 @@ class Automaton(metaclass=Automaton_metaclass):
         # type: (Packet) -> bool
         return True
 
-    def my_send(self, pkt):
-        # type: (Packet) -> None
+    def my_send(self, pkt, **kwargs):
+        # type: (Packet, **Any) -> None
         if not self.send_sock:
             raise ValueError("send_sock is None !")
-        self.send_sock.send(pkt)
+        self.send_sock.send(pkt, **kwargs)
 
     def update_sock(self, sock):
         # type: (SuperSocket) -> None
@@ -1172,8 +1172,8 @@ class Automaton(metaclass=Automaton_metaclass):
         # type: () -> bool
         return self.started.locked()
 
-    def send(self, pkt):
-        # type: (Packet) -> None
+    def send(self, pkt, **kwargs):
+        # type: (Packet, **Any) -> None
         if self.state.state in self.interception_points:
             self.debug(3, "INTERCEPT: packet intercepted: %s" % pkt.summary())
             self.intercepted_packet = pkt
@@ -1196,7 +1196,7 @@ class Automaton(metaclass=Automaton_metaclass):
                 self.debug(3, "INTERCEPT: packet accepted")
             else:
                 raise self.AutomatonError("INTERCEPT: unknown verdict: %r" % cmd.type)  # noqa: E501
-        self.my_send(pkt)
+        self.my_send(pkt, **kwargs)
         self.debug(3, "SENT : %s" % pkt.summary())
 
         if self.store_packets:

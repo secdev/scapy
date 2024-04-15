@@ -455,7 +455,13 @@ b=IPv6(src="2047::deca", dst="2048::cafe")/ICMPv6EchoReply(id=0x6666, seq=0x7777
 a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(id=0x6666, seq=0x7777, data="somedata")
 (a > b) == True
 
-= ICMPv6EchoRequest and ICMPv6EchoReply - live answers() use Net6
+= ICMPv6EchoRequest and ICMPv6EchoReply - answers() test 7 - IPv6ExtHdrDestOpt
+b = IPv6(b'`\x0f\\\xe3\x00\x08:@\xfe\x80\x00\x00\x00\x00\x00\x00\x02PV\xff\xfe\x84\x1c\x14\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00&\x81\x00\r\xad\x00\x00\x00\x00')
+a = IPv6(b'`\x00\x00\x00\x00\x10<\xff\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00&\xfe\x80\x00\x00\x00\x00\x00\x00\x02PV\xff\xfe\x84\x1c\x14:\x00\x00\x00\x00\x00\x00\x00\x80\x00\x0e\xad\x00\x00\x00\x00')
+assert a.hashret() == b.hashret()
+assert b.answers(a)
+
+= ICMPv6EchoRequest and ICMPv6EchoReply - answers() test 8 - (live) use Net6
 ~ netaccess ipv6
 
 a = IPv6(dst="www.google.com")/ICMPv6EchoRequest()
@@ -837,6 +843,8 @@ assert raw(p) == b
 p = ICMPv6NDOptSrcLLAddr(b)[ICMPv6NDOptUnknown]
 assert p.type == 0 and p.len == 2 and p.data == b'somestring\x00\x00\x00\x00'
 
+= ICMPv6NDOptUnknown - fuzz
+assert isinstance(fuzz(ICMPv6NDOptUnknown()).type, RandByte)
 
 ############
 ############

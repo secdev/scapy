@@ -382,6 +382,7 @@ assert resp[3].answers(req[3])
 assert not req[3].answers(resp[3])
 
 = Test DoIPSocket
+~ automotive_comm
 
 server_up = threading.Event()
 def server():
@@ -409,6 +410,7 @@ pkts = sock.sniff(timeout=1, count=2)
 assert len(pkts) == 2
 
 = Test DoIPSocket6
+~ automotive_comm
 
 server_up = threading.Event()
 def server():

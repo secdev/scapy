@@ -596,7 +596,8 @@ class BOOTP_am(AnsweringMachine):
                       nameserver=None,
                       domain=None,
                       renewal_time=60,
-                      lease_time=1800):
+                      lease_time=1800,
+                      **kwargs):
         """
         :param pool: the range of addresses to distribute. Can be a Net,
                      a list of IPs or a string (always gives the same IP).
@@ -604,6 +605,12 @@ class BOOTP_am(AnsweringMachine):
         :param gw: the gateway IP (can be None)
         :param nameserver: the DNS server IP (by default, same than gw)
         :param domain: the domain to advertise (can be None)
+
+        Other DHCP parameters can be passed as kwargs. See DHCPOptions in dhcp.py.
+        For instance::
+
+            dhcpd(pool=Net("10.0.10.0/24"), network="10.0.0.0/8", gw="10.0.10.1",
+                  classless_static_routes=["1.2.3.4/32:9.8.7.6"])
         """
         self.domain = domain
         netw, msk = (network.split("/") + ["32"])[:2]
@@ -624,6 +631,7 @@ class BOOTP_am(AnsweringMachine):
         self.lease_time = lease_time
         self.renewal_time = renewal_time
         self.leases = {}
+        self.kwargs = kwargs
 
     def is_request(self, req):
         if not req.haslayer(BOOTP):
@@ -680,6 +688,8 @@ class DHCP_am(BOOTP_am):
                 ]
                 if x[1] is not None
             ]
+            if self.kwargs:
+                dhcp_options += self.kwargs.items()
             dhcp_options.append("end")
             resp /= DHCP(options=dhcp_options)
         return resp

@@ -7,6 +7,8 @@ You can use the :class:`~scapy.layers.smb2.SMB2_Header` to dissect or build SMB2
 
 .. warning:: Encryption is currently not supported in neither the client nor server.
 
+.. _client:
+
 SMB 2/3 client
 --------------
 
@@ -91,6 +93,15 @@ You might be wondering if you can pass the ``HashNT`` of the password of the use
     SMB authentication successful using KerberosSSP !
 
 If you pay very close attention, you'll notice that in this case we aren't using the :class:`~scapy.layers.spnego.SPNEGOSSP` wrapper. You could have used ``ssp=SPNEGOSSP([t.ssp(1)])``.
+
+.. note::
+
+    It is also possible to start the :class:`~scapy.layers.smbclient.smbclient` directly from the OS, using the following::
+
+        $ python3 -m scapy.layers.smbclient server1.domain.local Administrator@DOMAIN.LOCAL
+    
+    Use ``python3 -m scapy.layers.smbclient -h`` to see the list of available options.
+
 
 Programmatically
 ________________
@@ -198,20 +209,22 @@ It's also accessible as the ``ins`` attribute of a ``SMB_SOCKET``, or the ``sock
     >>> lowsmbsock = cli.sock
     >>> resp = cli.sock.sr1(SMB2_Tree_Connect_Request(Path=r"\\server1\c$"))
 
+.. _server:
+
 SMB 2/3 server
 --------------
 
-Scapy provides a SMB 2/3 server Automaton: :class:`~scapy.layers.smbclient.SMB_Server`
+Scapy provides a SMB 2/3 server Automaton: :class:`~scapy.layers.smbserver.SMB_Server`
 
 .. image:: ../graphics/smb/smb_server.png
    :align: center
 
-Once again, Scapy provides high level :class:`~scapy.layers.smbclient.smbserver` class that allows to spawn a SMB server.
+Once again, Scapy provides high level :class:`~scapy.layers.smbserver.smbserver` class that allows to spawn a SMB server.
 
-High-Level :class:`~scapy.layers.smbclient.smbserver`
+High-Level :class:`~scapy.layers.smbserver.smbserver`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The :class:`~scapy.layers.smbclient.smbserver` class allows to spawn a SMB server serving a selection of shares.
+The :class:`~scapy.layers.smbserver.smbserver` class allows to spawn a SMB server serving a selection of shares.
 A share is identified by a ``name`` and a ``path`` (+ an optional description called ``remark``).
 
 **Start a SMB server with NTLM auth for 2 users:**
@@ -271,10 +284,19 @@ A share is identified by a ``name`` and a ``path`` (+ an optional description ca
         ),
     )
 
-Low-Level :class:`~scapy.layers.smbclient.SMB_Server`
+.. note::
+
+    It is possible to start the :class:`~scapy.layers.smbserver.smbserver` (albeit only in unauthenticated mode) directly from the OS, using the following::
+
+        $ python3 -m scapy.layers.smbserver --port 12345
+
+    Use ``python3 -m scapy.layers.smbserver -h`` to see the list of available options.
+
+
+Low-Level :class:`~scapy.layers.smbserver.SMB_Server`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To change the functionality of the :class:`~scapy.layers.smbclient.SMB_Server`, you shall extend the server class (which is an automaton) and provide additional custom conditions (or overwrite existing ones).
+To change the functionality of the :class:`~scapy.layers.smbserver.SMB_Server`, you shall extend the server class (which is an automaton) and provide additional custom conditions (or overwrite existing ones).
 
 .. code:: python
 

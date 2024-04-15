@@ -19,7 +19,7 @@ Or (console only)::
 Note that this layer ISN'T loaded by default, as quite experimental for now.
 
 To follow HTTP packets streams = group packets together to get the
-whole request/answer, use ``TCPSession`` as:
+whole request/answer, use ``TCPSession`` as::
 
     >>> sniff(session=TCPSession)  # Live on-the-flow session
     >>> sniff(offline="./http_chunk.pcap", session=TCPSession)  # pcap
@@ -28,14 +28,14 @@ This will decode HTTP packets using ``Content_Length`` or chunks,
 and will also decompress the packets when needed.
 Note: on failure, decompression will be ignored.
 
-You can turn auto-decompression/auto-compression off with:
+You can turn auto-decompression/auto-compression off with::
 
     >>> conf.contribs["http"]["auto_compression"] = False
 
 (Defaults to True)
 """
 
-# This file is a modified version of the former scapy_http plugin.
+# This file is a rewritten version of the former scapy_http plugin.
 # It was reimplemented for scapy 2.4.3+ using sessions, stream handling.
 # Original Authors : Steeve Barbeau, Luca Invernizzi
 
@@ -47,7 +47,6 @@ import socket
 import struct
 import subprocess
 
-from scapy.base_classes import Net
 from scapy.compat import plain_str, bytes_encode
 
 from scapy.config import conf
@@ -65,6 +64,12 @@ try:
     _is_brotli_available = True
 except ImportError:
     _is_brotli_available = False
+
+try:
+    import lzw
+    _is_lzw_available = True
+except ImportError:
+    _is_lzw_available = False
 
 try:
     import zstandard
@@ -312,8 +317,13 @@ class _HTTPContent(Packet):
             elif "gzip" in encodings:
                 s = gzip.decompress(s)
             elif "compress" in encodings:
-                import lzw
-                s = lzw.decompress(s)
+                if _is_lzw_available:
+                    s = lzw.decompress(s)
+                else:
+                    log_loading.info(
+                        "Can't import lzw. compress decompression "
+                        "will be ignored !"
+                    )
             elif "br" in encodings:
                 if _is_brotli_available:
                     s = brotli.decompress(s)
@@ -351,8 +361,13 @@ class _HTTPContent(Packet):
         elif "gzip" in encodings:
             pay = gzip.compress(pay)
         elif "compress" in encodings:
-            import lzw
-            pay = lzw.compress(pay)
+            if _is_lzw_available:
+                pay = lzw.compress(pay)
+            else:
+                log_loading.info(
+                    "Can't import lzw. compress compression "
+                    "will be ignored !"
+                )
         elif "br" in encodings:
             if _is_brotli_available:
                 pay = brotli.compress(pay)
@@ -589,14 +604,22 @@ class HTTP(Packet):
     def tcp_reassemble(cls, data, metadata, _):
         detect_end = metadata.get("detect_end", None)
         is_unknown = metadata.get("detect_unknown", True)
+        # General idea of the following is explained at
+        # https://datatracker.ietf.org/doc/html/rfc2616#section-4.4
         if not detect_end or is_unknown:
             metadata["detect_unknown"] = False
             http_packet = cls(data)
             # Detect packing method
             if not isinstance(http_packet.payload, _HTTPContent):
                 return http_packet
+            is_response = isinstance(http_packet.payload, cls.clsresp)
+            # Packets may have a Content-Length we must honnor
             length = http_packet.Content_Length
-            if length is not None:
+            # Heuristic to try and detect instant HEAD responses, as those include a
+            # Content-Length that must not be honored.
+            if is_response and data.endswith(b"\r\n\r\n"):
+                detect_end = lambda _: True
+            elif length is not None:
                 # The packet provides a Content-Length attribute: let's
                 # use it. When the total size of the frags is high enough,
                 # we have the packet
@@ -613,11 +636,10 @@ class HTTP(Packet):
                 # It's not Content-Length based. It could be chunked
                 encodings = http_packet[cls].payload._get_encodings()
                 chunked = ("chunked" in encodings)
-                is_response = isinstance(http_packet.payload, cls.clsresp)
                 if chunked:
                     detect_end = lambda dat: dat.endswith(b"0\r\n\r\n")
                 # HTTP Requests that do not have any content,
-                # end with a double CRLF
+                # end with a double CRLF. Same for HEAD responses
                 elif isinstance(http_packet.payload, cls.clsreq):
                     detect_end = lambda dat: dat.endswith(b"\r\n\r\n")
                     # In case we are handling a HTTP Request,
@@ -671,7 +693,7 @@ class HTTP(Packet):
 
 def http_request(host, path="/", port=80, timeout=3,
                  display=False, verbose=0,
-                 raw=False, iptables=False, iface=None,
+                 raw=False, iface=None,
                  **headers):
     """Util to perform an HTTP request, using the TCP_client.
 
@@ -683,9 +705,6 @@ def http_request(host, path="/", port=80, timeout=3,
     :param raw: opens a raw socket instead of going through the OS's TCP
                 socket. Scapy will then use its own TCP client.
                 Careful, the OS might cancel the TCP connection with RST.
-    :param iptables: when raw is enabled, this calls iptables to temporarily
-                     prevent the OS from sending TCP RST to the host IP.
-                     On Linux, you'll almost certainly need this.
     :param iface: interface to use. Changing this turns on "raw"
     :param headers: any additional headers passed to the request
 
@@ -707,11 +726,6 @@ def http_request(host, path="/", port=80, timeout=3,
     if iface is not None:
         raw = True
     if raw:
-        # Use TCP_client on a raw socket
-        iptables_rule = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
-        if iptables:
-            host = str(Net(host))
-            assert os.system(iptables_rule % ('A', host)) == 0
         sock = TCP_client.tcplink(HTTP, host, port, debug=verbose,
                                   iface=iface)
     else:
@@ -728,9 +742,6 @@ def http_request(host, path="/", port=80, timeout=3,
         )
     finally:
         sock.close()
-        if raw and iptables:
-            host = str(Net(host))
-            assert os.system(iptables_rule % ('D', host)) == 0
     if ans:
         if display:
             if Raw not in ans:

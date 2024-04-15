@@ -323,6 +323,10 @@ class DNSStrField(StrLenField):
     It will also handle DNS decompression.
     (may be StrLenField if a length_from is passed),
     """
+    def any2i(self, pkt, x):
+        if x and isinstance(x, list):
+            return [self.h2i(pkt, y) for y in x]
+        return super(DNSStrField, self).any2i(pkt, x)
 
     def h2i(self, pkt, x):
         # Setting a DNSStrField manually (h2i) means any current compression will break
@@ -765,6 +769,19 @@ class _DNSRRdummy(Packet):
         return conf.padding_layer
 
 
+class DNSRRHINFO(_DNSRRdummy):
+    name = "DNS HINFO Resource Record"
+    fields_desc = [DNSStrField("rrname", ""),
+                   ShortEnumField("type", 13, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   FieldLenField("cpulen", None, fmt="!B", length_of="cpu"),
+                   StrLenField("cpu", "", length_from=lambda x: x.cpulen),
+                   FieldLenField("oslen", None, fmt="!B", length_of="os"),
+                   StrLenField("os", "", length_from=lambda x: x.oslen)]
+
+
 class DNSRRMX(_DNSRRdummy):
     name = "DNS MX Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
@@ -1053,6 +1070,7 @@ class DNSRRTSIG(_DNSRRdummy):
 
 DNSRR_DISPATCHER = {
     6: DNSRRSOA,         # RFC 1035
+    13: DNSRRHINFO,      # RFC 1035
     15: DNSRRMX,         # RFC 1035
     33: DNSRRSRV,        # RFC 2782
     41: DNSRROPT,        # RFC 1671

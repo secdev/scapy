@@ -213,6 +213,27 @@ full = b"\x04data\xc0\x0f"
 assert dns_get_str(full, full=full)[0] == b"data."
 
 
+= DNS record type 13 (HINFO)
+
+b = b'\x00\x00\r\x00\x01\x00\x00\x00\x00\x00\x02\x00\x00'
+
+p = DNSRRHINFO()
+assert raw(p) == b
+
+p = DNSRRHINFO(b)
+assert p.cpu == b'' and p.os == b''
+
+b = b'\x00\x00\r\x00\x01\x00\x00\x00\x00\x00\r\x06X86_64\x05LINUX'
+
+p = DNSRRHINFO(cpu='X86_64', os='LINUX')
+assert raw(p) == b
+
+p = DNSRRHINFO(b)
+assert p.cpu == b'X86_64' and p.os == b'LINUX'
+
+d = DNS(raw(DNS(qd=[],an=[p])))
+assert raw(d.an[0]) == raw(p)
+
 = DNS record type 15 (MX)
 
 p = DNS(raw(DNS(qd=[],an=DNSRRMX(exchange='example.com'))))
@@ -463,3 +484,9 @@ assert p == eval(p.command())
 
 p = DNS(qd=[])
 assert p == eval(p.command())
+
+= DNS - iter through DNSStrFields
+
+pkt = DNSQR(qname=["domain1.com", "domain2.com"], qtype="A")
+for i in pkt:
+    assert i.qname in [b"domain1.com.", b"domain2.com."]

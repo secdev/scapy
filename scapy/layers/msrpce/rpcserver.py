@@ -33,6 +33,7 @@ from scapy.layers.dcerpc import (
     CommonAuthVerifier,
     DCE_RPC_INTERFACES,
     DCERPC_Transport,
+    RPC_C_AUTHN_LEVEL,
 )
 
 # RPC
@@ -232,7 +233,15 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                     conf.color_theme.opening(
                         "<< %s" % req.payload.__class__.__name__
                         + (
-                            " (with %s)" % self.session.ssp.__class__.__name__
+                            " (with %s%s)"
+                            % (
+                                self.session.ssp.__class__.__name__,
+                                (
+                                    f" - {self.session.auth_level.name}"
+                                    if self.session.auth_level is not None
+                                    else ""
+                                ),
+                            )
                             if self.session.ssp
                             else ""
                         )
@@ -257,12 +266,10 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                     ) = self.session.ssp.GSS_Accept_sec_context(
                         self.session.sspcontext, req.auth_verifier.auth_value
                     )
-                    try:
-                        self.session.ssp.auth_level = req.auth_verifier.auth_level
-                    except AttributeError:
-                        # it is possible for the SSP to get unset, if there is a
-                        # re-negotiation
-                        pass
+                    self.session.auth_level = RPC_C_AUTHN_LEVEL(
+                        req.auth_verifier.auth_level
+                    )
+                    self.session.auth_context_id = req.auth_verifier.auth_context_id
                     if DceRpc5Auth3 in req:
                         # Auth 3 stops here (no server response) !
                         if status != 0:
@@ -272,11 +279,13 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                         return
                     # auth_verifier here contains the SSP nego packets
                     # (whereas it usually contains the verifiers)
-                    hdr.auth_verifier = CommonAuthVerifier(
-                        auth_type=req.auth_verifier.auth_type,
-                        auth_level=req.auth_verifier.auth_level,
-                        auth_value=auth_value,
-                    )
+                    if auth_value is not None:
+                        hdr.auth_verifier = CommonAuthVerifier(
+                            auth_type=req.auth_verifier.auth_type,
+                            auth_level=req.auth_verifier.auth_level,
+                            auth_context_id=req.auth_verifier.auth_context_id,
+                            auth_value=auth_value,
+                        )
 
                 def get_result(ctx):
                     name = ctx.transfer_syntaxes[0].sprintf("%if_uuid%")

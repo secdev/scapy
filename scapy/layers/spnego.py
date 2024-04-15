@@ -6,9 +6,14 @@
 """
 SPNEGO
 
-Implements parts of
+Implements parts of:
+
 - GSSAPI SPNEGO: RFC4178 > RFC2478
 - GSSAPI SPNEGO NEGOEX: [MS-NEGOEX]
+
+.. note::
+    You will find more complete documentation for this layer over at
+    `GSSAPI <https://scapy.readthedocs.io/en/latest/layers/gssapi.html#spnego>`_
 """
 
 import struct
@@ -43,10 +48,10 @@ from scapy.fields import (
     MultipleTypeField,
     PacketField,
     PacketListField,
+    StrField,
     StrFixedLenField,
     UUIDEnumField,
     UUIDField,
-    StrField,
     XStrFixedLenField,
     XStrLenField,
 )
@@ -54,11 +59,14 @@ from scapy.packet import Packet, bind_layers
 
 from scapy.layers.gssapi import (
     GSSAPI_BLOB,
+    GSSAPI_BLOB_SIGNATURE,
+    GSS_C_FLAGS,
+    GSS_S_BAD_MECH,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
-    GSS_S_BAD_MECH,
     SSP,
     _GSSAPI_OIDS,
+    _GSSAPI_SIGNATURE_OIDS,
 )
 
 # SSP Providers
@@ -75,6 +83,7 @@ from scapy.layers.ntlm import (
 # Typing imports
 from typing import (
     Dict,
+    Optional,
     Tuple,
 )
 
@@ -154,7 +163,6 @@ class SPNEGO_negHints(ASN1_Packet):
 
 
 class SPNEGO_negTokenInit(ASN1_Packet):
-    # actually it's SPNEGO_negTokenInit2 from [MS-SPNG] 2.2.1
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_optional(
@@ -235,6 +243,7 @@ class SPNEGO_negToken(ASN1_Packet):
 # Register for the GSS API Blob
 
 _GSSAPI_OIDS["1.3.6.1.5.5.2"] = SPNEGO_negToken
+_GSSAPI_SIGNATURE_OIDS["1.3.6.1.5.5.2"] = SPNEGO_negToken
 
 
 def mechListMIC(oids):
@@ -295,10 +304,10 @@ def _NEGOEX_post_build(self, p, pay_offset, fields):
         offset = fields[field_name]
         # Offset
         if self.getfieldval(field_name + "BufferOffset") is None:
-            p = p[:offset] + struct.pack("<I", pay_offset) + p[offset + 4:]
+            p = p[:offset] + struct.pack("<I", pay_offset) + p[offset + 4 :]
         # Count
         if self.getfieldval(field_name + "Count") is None:
-            p = p[: offset + 4] + struct.pack("<H", count) + p[offset + 6:]
+            p = p[: offset + 4] + struct.pack("<H", count) + p[offset + 6 :]
         pay_offset += length
     return p
 
@@ -490,8 +499,8 @@ class SPNEGOSSP(SSP):
         ssp = SPNEGOSSP([
             NTLMSSP(
                 IDENTITIES={
-                    "User1": NTOWFv2("Password1", "User1", "DOMAIN"),
-                    "Administrator": NTOWFv2("Password123!", "Administrator", "DOMAIN"),
+                    "User1": MD4le("Password1"),
+                    "Administrator": MD4le("Password123!"),
                 }
             ),
             KerberosSSP(
@@ -513,37 +522,40 @@ class SPNEGOSSP(SSP):
 
     class STATE(SSP.STATE):
         FIRST = 1
-        NOTFIRST = 2
+        CHANGESSP = 2
+        NORMAL = 3
 
     class CONTEXT(SSP.CONTEXT):
         __slots__ = [
             "supported_mechtypes",
             "requested_mechtypes",
             "negotiated_mechtype",
+            "first_reply",
             "first_choice",
             "sub_context",
             "ssp",
         ]
 
-        def __init__(self,
-                     supported_ssps,
-                     force_supported_mechtypes=None):
+        def __init__(
+            self, supported_ssps, req_flags=None, force_supported_mechtypes=None
+        ):
             self.state = SPNEGOSSP.STATE.FIRST
             self.requested_mechtypes = None
             self.first_choice = True
+            self.first_reply = True
             self.negotiated_mechtype = None
             self.sub_context = None
             self.ssp = None
             if force_supported_mechtypes is None:
                 self.supported_mechtypes = [
-                    SPNEGO_MechType(oid=ASN1_OID(oid))
-                    for oid in supported_ssps
+                    SPNEGO_MechType(oid=ASN1_OID(oid)) for oid in supported_ssps
                 ]
                 self.supported_mechtypes.sort(
                     key=lambda x: SPNEGOSSP._PREF_ORDER.index(x.oid.val)
                 )
             else:
                 self.supported_mechtypes = force_supported_mechtypes
+            super(SPNEGOSSP.CONTEXT, self).__init__(req_flags=req_flags)
 
         def __getattr__(self, attr):
             try:
@@ -579,9 +591,9 @@ class SPNEGOSSP(SSP):
         # Apply MechTypes aliases
         for ssp in ssps:
             if ssp.oid in self._MECH_ALIASES:
-                self.supported_ssps[self._MECH_ALIASES[ssp.oid]] = (
-                    self.supported_ssps[ssp.oid]
-                )
+                self.supported_ssps[self._MECH_ALIASES[ssp.oid]] = self.supported_ssps[
+                    ssp.oid
+                ]
         self.force_supported_mechtypes = kwargs.pop("force_supported_mechtypes", None)
         super(SPNEGOSSP, self).__init__(**kwargs)
 
@@ -595,8 +607,12 @@ class SPNEGOSSP(SSP):
         if hasattr(x, "mechTypes"):
             Context.requested_mechtypes = x.mechTypes
             Context.negotiated_mechtype = None
+        if hasattr(x, "supportedMech") and x.supportedMech is not None:
+            Context.negotiated_mechtype = x.supportedMech
         if hasattr(x, "mechListMIC") and x.mechListMIC:
-            otherMIC = x.mechListMIC.value.val
+            otherMIC = GSSAPI_BLOB_SIGNATURE(x.mechListMIC.value.val)
+        if hasattr(x, "_mechListMIC") and x._mechListMIC:
+            otherMIC = GSSAPI_BLOB_SIGNATURE(x._mechListMIC.value.val)
         if hasattr(x, "negResult"):
             status = x.negResult
         try:
@@ -673,25 +689,30 @@ class SPNEGOSSP(SSP):
         return Context.ssp.GSS_VerifyMICEx(Context.sub_context, *args, **kwargs)
 
     def LegsAmount(self, Context: CONTEXT):
-        # Passthrough
-        return Context.ssp.LegsAmount(Context.sub_context)
+        return 4
 
-    def _common_spnego_handler(self, Context, IsClient, val=None):
+    def _common_spnego_handler(self, Context, IsClient, val=None, req_flags=None):
         if Context is None:
             # New Context
             Context = SPNEGOSSP.CONTEXT(
                 self.supported_ssps,
+                req_flags=req_flags,
                 force_supported_mechtypes=self.force_supported_mechtypes,
             )
+            if IsClient:
+                Context.requested_mechtypes = Context.supported_mechtypes
 
-        status, MIC, rawToken = 0, None, False
+        # Extract values from GSSAPI token
+        status, MIC, otherMIC, rawToken = 0, None, None, False
         if val:
             val, status, otherMIC, rawToken = self._extract_gssapi(Context, val)
 
+        # If we don't have a SSP already negotiated, check for requested and available
+        # SSPs and find a common one.
         if Context.ssp is None:
             if Context.negotiated_mechtype is None:
-                # Get the current preferred SSP
                 if Context.requested_mechtypes:
+                    # Find a common SSP
                     try:
                         Context.negotiated_mechtype = next(
                             x
@@ -701,71 +722,93 @@ class SPNEGOSSP(SSP):
                     except StopIteration:
                         # no common mechanisms
                         raise ValueError("No common SSP mechanisms !")
+                    # Check whether the selected SSP was the one preferred by the client
                     if (
                         Context.negotiated_mechtype != Context.requested_mechtypes[0]
                         and val
                     ):
                         Context.first_choice = False
+                # No SSPs were requested. Use the first available SSP we know.
                 elif Context.supported_mechtypes:
                     Context.negotiated_mechtype = Context.supported_mechtypes[0]
                 else:
                     raise ValueError("Can't figure out what SSP to use")
-            # Init ssp
+            # Set Context.ssp to the object matching the chosen SSP type.
             Context.ssp = self.supported_ssps[Context.negotiated_mechtype.oid.val]
 
         if not Context.first_choice:
-            # Provided token is not for this ssp.
-            # Typically a client opportunistically starts
-            # with Kerberos, including its APREQ, and we want to use NTLM.
-            # We add one round trip
+            # The currently provided token is not for this SSP !
+            # Typically a client opportunistically starts with Kerberos, including
+            # its APREQ, and we want to use NTLM. We add one round trip
             Context.state = SPNEGOSSP.STATE.FIRST
-            Context.first_choice = True
+            Context.first_choice = True  # reset to not come here again.
             tok, status = None, GSS_S_CONTINUE_NEEDED
         else:
-            # Pass to the sub ssp, with its own context
+            # The currently provided token is for this SSP !
+            # Pass it to the sub ssp, with its own context
             if IsClient:
                 (
                     Context.sub_context,
                     tok,
                     status,
                 ) = Context.ssp.GSS_Init_sec_context(
-                    Context.sub_context, val=val
+                    Context.sub_context,
+                    val=val,
+                    req_flags=Context.flags,
                 )
             else:
                 Context.sub_context, tok, status = Context.ssp.GSS_Accept_sec_context(
-                    Context.sub_context,
-                    val=val
+                    Context.sub_context, val=val
                 )
-
-        if status == GSS_S_BAD_MECH:
-            # Mechanism is not usable. Typically the Kerberos SPN is wrong
-            to_remove = [Context.negotiated_mechtype.oid.val]
-            # If there's an alias (for the multiple kerberos oids, also include it)
-            if Context.negotiated_mechtype.oid.val in SPNEGOSSP._MECH_ALIASES:
-                to_remove.append(
-                    SPNEGOSSP._MECH_ALIASES[Context.negotiated_mechtype.oid.val]
-                )
-            for x in list(Context.supported_mechtypes):
-                if x.oid.val in to_remove:
-                    Context.supported_mechtypes.remove(x)
-            # Re-calculate negotiated mechtype
-            try:
-                Context.negotiated_mechtype = next(
-                    x
-                    for x in Context.requested_mechtypes
-                    if x in Context.supported_mechtypes
-                )
-            except StopIteration:
-                # no common mechanisms
-                raise ValueError("No common SSP mechanisms after GSS_S_BAD_MECH !")
-            Context.state = SPNEGOSSP.STATE.FIRST
-            Context.ssp = None  # Reset the SSP
-            Context.sub_context = None  # Reset the SSP context
-            tok, status = None, GSS_S_CONTINUE_NEEDED
+            # Check whether client or server says the specified mechanism is not valid
+            if status == GSS_S_BAD_MECH:
+                # Mechanism is not usable. Typically the Kerberos SPN is wrong
+                to_remove = [Context.negotiated_mechtype.oid.val]
+                # If there's an alias (for the multiple kerberos oids, also include it)
+                if Context.negotiated_mechtype.oid.val in SPNEGOSSP._MECH_ALIASES:
+                    to_remove.append(
+                        SPNEGOSSP._MECH_ALIASES[Context.negotiated_mechtype.oid.val]
+                    )
+                # Drop those unusable mechanisms from the supported list
+                for x in list(Context.supported_mechtypes):
+                    if x.oid.val in to_remove:
+                        Context.supported_mechtypes.remove(x)
+                # Re-calculate negotiated mechtype
+                try:
+                    Context.negotiated_mechtype = next(
+                        x
+                        for x in Context.requested_mechtypes
+                        if x in Context.supported_mechtypes
+                    )
+                except StopIteration:
+                    # no common mechanisms
+                    raise ValueError("No common SSP mechanisms after GSS_S_BAD_MECH !")
+                # Start again.
+                Context.state = SPNEGOSSP.STATE.CHANGESSP
+                Context.ssp = None  # Reset the SSP
+                Context.sub_context = None  # Reset the SSP context
+                if IsClient:
+                    # Call ourselves again for the client to generate a token
+                    return self._common_spnego_handler(Context, True, None)
+                else:
+                    # Return nothing but the supported SSP list
+                    tok, status = None, GSS_S_CONTINUE_NEEDED
 
         if rawToken:
             # No GSSAPI wrapper (fallback)
             return Context, tok, status
+
+        # Client success
+        if IsClient and tok is None and status == GSS_S_COMPLETE:
+            return Context, None, status
+
+        # Map GSSAPI codes to SPNEGO
+        if status == GSS_S_COMPLETE:
+            negResult = 0  # accept_completed
+        elif status == GSS_S_CONTINUE_NEEDED:
+            negResult = 1  # accept_incomplete
+        else:
+            negResult = 2  # reject
 
         # GSSAPI-MIC
         if Context.ssp and Context.ssp.canMechListMIC(Context.sub_context):
@@ -793,43 +836,53 @@ class SPNEGOSSP(SSP):
                     )
             # Then build our own MIC
             if IsClient:  # client
-                MIC = Context.ssp.getMechListMIC(
-                    Context,
-                    mechListMIC(Context.supported_mechtypes),
-                )
+                if negResult == 0:
+                    # Include MIC for the last packet. We could add a check
+                    # here to only send the MIC when required (when preferred ssp
+                    # isn't chosen)
+                    MIC = Context.ssp.getMechListMIC(
+                        Context,
+                        mechListMIC(Context.supported_mechtypes),
+                    )
             else:  # server
                 MIC = Context.ssp.getMechListMIC(
                     Context,
                     mechListMIC(Context.requested_mechtypes),
                 )
 
-        # Map GSSAPI codes to SPNEGO
-        if status == GSS_S_COMPLETE:
-            negResult = 0  # accept_completed
-        elif status == GSS_S_CONTINUE_NEEDED:
-            negResult = 1  # accept_incomplete
-        else:
-            negResult = 2  # reject
-
-        if IsClient and Context.state == SPNEGOSSP.STATE.FIRST:  # First client token
-            spnego_tok = SPNEGO_negToken(
-                token=SPNEGO_negTokenInit(mechTypes=Context.supported_mechtypes)
-            )
-            if tok:
-                spnego_tok.token.mechToken = SPNEGO_Token(
-                    value=tok,
+        if IsClient:
+            if Context.state == SPNEGOSSP.STATE.FIRST:
+                # First client token
+                spnego_tok = SPNEGO_negToken(
+                    token=SPNEGO_negTokenInit(mechTypes=Context.supported_mechtypes)
                 )
-        else:  # Following packet (for client OR server)
+                if tok:
+                    spnego_tok.token.mechToken = SPNEGO_Token(value=tok)
+            else:
+                # Subsequent client tokens
+                spnego_tok = SPNEGO_negToken(  # GSSAPI_BLOB is stripped
+                    token=SPNEGO_negTokenResp(
+                        supportedMech=None,
+                        negResult=None,
+                    )
+                )
+                if tok:
+                    spnego_tok.token.responseToken = SPNEGO_Token(value=tok)
+                if Context.state == SPNEGOSSP.STATE.CHANGESSP:
+                    # On renegotiation, include the negResult and chosen mechanism
+                    spnego_tok.token.negResult = negResult
+                    spnego_tok.token.supportedMech = Context.negotiated_mechtype
+        else:
             spnego_tok = SPNEGO_negToken(  # GSSAPI_BLOB is stripped
                 token=SPNEGO_negTokenResp(
                     supportedMech=None,
-                    negResult=None,
+                    negResult=negResult,
                 )
             )
-            if Context.state == SPNEGOSSP.STATE.FIRST:  # First server token
+            if Context.state in [SPNEGOSSP.STATE.FIRST, SPNEGOSSP.STATE.CHANGESSP]:
+                # Include the supportedMech list if this is the first thing we do
+                # or a renegotiation.
                 spnego_tok.token.supportedMech = Context.negotiated_mechtype
-            if not IsClient:  # Only sent by server
-                spnego_tok.token.negResult = negResult
             if tok:
                 spnego_tok.token.responseToken = SPNEGO_Token(value=tok)
         # Apply MIC if available
@@ -839,14 +892,61 @@ class SPNEGOSSP(SSP):
             )
         if (
             IsClient and Context.state == SPNEGOSSP.STATE.FIRST
-        ):  # First client packet: not implicit
+        ):  # Client: after the first packet, specifying 'SPNEGO' is implicit.
+            # Always implicit for the server.
             spnego_tok = GSSAPI_BLOB(innerToken=spnego_tok)
         # Not the first token anymore
-        Context.state = SPNEGOSSP.STATE.NOTFIRST
+        Context.state = SPNEGOSSP.STATE.NORMAL
         return Context, spnego_tok, status
 
-    def GSS_Init_sec_context(self, Context: CONTEXT, val=None):
-        return self._common_spnego_handler(Context, True, val=val)
+    def GSS_Init_sec_context(
+        self, Context: CONTEXT, val=None, req_flags: Optional[GSS_C_FLAGS] = None
+    ):
+        return self._common_spnego_handler(Context, True, val=val, req_flags=req_flags)
 
     def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
-        return self._common_spnego_handler(Context, False, val=val)
+        return self._common_spnego_handler(Context, False, val=val, req_flags=0)
+
+    def GSS_Passive(self, Context: CONTEXT, val=None):
+        if Context is None:
+            # New Context
+            Context = SPNEGOSSP.CONTEXT(self.supported_ssps)
+            Context.passive = True
+
+        # Extraction
+        val, status, _, rawToken = self._extract_gssapi(Context, val)
+
+        if val is None and status == GSS_S_COMPLETE:
+            return Context, None
+
+        # Just get the negotiated SSP
+        if Context.negotiated_mechtype:
+            mechtype = Context.negotiated_mechtype
+        elif Context.requested_mechtypes:
+            mechtype = Context.requested_mechtypes[0]
+        elif rawToken and Context.supported_mechtypes:
+            mechtype = Context.supported_mechtypes[0]
+        else:
+            return None, GSS_S_BAD_MECH
+        ssp = self.supported_ssps[mechtype.oid.val]
+
+        if Context.ssp is not None:
+            # Detect resets
+            if Context.ssp != ssp:
+                Context.ssp = ssp
+                Context.sub_context = None
+        else:
+            Context.ssp = ssp
+
+        # Passthrough
+        Context.sub_context, status = Context.ssp.GSS_Passive(Context.sub_context, val)
+
+        return Context, status
+
+    def GSS_Passive_set_Direction(self, Context: CONTEXT, IsAcceptor=False):
+        Context.ssp.GSS_Passive_set_Direction(
+            Context.sub_context, IsAcceptor=IsAcceptor
+        )
+
+    def MaximumSignatureLength(self, Context: CONTEXT):
+        return Context.ssp.MaximumSignatureLength(Context.sub_context)

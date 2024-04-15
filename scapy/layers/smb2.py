@@ -5,13 +5,19 @@
 
 """
 SMB (Server Message Block), also known as CIFS - version 2
+
+.. note::
+    You will find more complete documentation for this layer over at
+    `SMB <https://scapy.readthedocs.io/en/latest/layers/smb.html>`_
 """
 
+import os
 import collections
+import functools
 import hashlib
 import struct
 
-from scapy.config import conf
+from scapy.config import conf, crypto_validator
 from scapy.error import log_runtime
 from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import (
@@ -55,7 +61,11 @@ from scapy.fields import (
     XStrLenField,
     XStrFixedLenField,
 )
+from scapy.sessions import DefaultSession
 from scapy.supersocket import StreamSocket
+
+if conf.crypto_valid:
+    from scapy.libs.rfc3961 import SP800108_KDFCTR
 
 from scapy.layers.gssapi import GSSAPI_BLOB
 from scapy.layers.netbios import NBTSession
@@ -230,6 +240,21 @@ SMB2_COMPRESSION_ALGORITHMS = {
     0x0002: "LZ77",
     0x0003: "LZ77 + Huffman",
     0x0004: "Pattern_V1",
+}
+
+# [MS-SMB2] sect 2.2.3.1.2
+SMB2_ENCRYPTION_CIPHERS = {
+    0x0001: "AES-128-CCM",
+    0x0002: "AES-128-GCM",
+    0x0003: "AES-256-CCM",
+    0x0004: "AES-256-GCM",
+}
+
+# [MS-SMB2] sect 2.2.3.1.7
+SMB2_SIGNING_ALGORITHMS = {
+    0x0000: "HMAC-SHA256",
+    0x0001: "AES-CMAC",
+    0x0002: "AES-GMAC",
 }
 
 # sect [MS-SMB2] 2.2.13.1.1
@@ -802,6 +827,7 @@ class WINNT_ACE_HEADER(Packet):
     def extract_padding(self, p):
         return p[: self.AceSize - 4], p[self.AceSize - 4 :]
 
+    # fmt: off
     def toSDDL(self):
         """
         Return SDDL
@@ -901,6 +927,9 @@ class WINNT_ACE_HEADER(Packet):
             )
 
 
+# fmt: on
+
+
 # [MS-DTYP] sect 2.4.4.2
 
 
@@ -932,49 +961,54 @@ class WINNT_APPLICATION_DATA_LITERAL_TOKEN(Packet):
         return conf.padding_layer
 
 
+# fmt: off
 WINNT_APPLICATION_DATA_LITERAL_TOKEN.fields_desc = [
-    ByteEnumField("TokenType", 0, {
-        # [MS-DTYP] sect 2.4.4.17.5
-        0x00: "Padding token",
-        0x01: "Signed int8",
-        0x02: "Signed int16",
-        0x03: "Signed int32",
-        0x04: "Signed int64",
-        0x10: "Unicode",
-        0x18: "Octet String",
-        0x50: "Composite",
-        0x51: "SID",
-        # [MS-DTYP] sect 2.4.4.17.6
-        0x80: "==",
-        0x81: "!=",
-        0x82: "<",
-        0x83: "<=",
-        0x84: ">",
-        0x85: ">=",
-        0x86: "Contains",
-        0x88: "Any_of",
-        0x8e: "Not_Contains",
-        0x8f: "Not_Any_of",
-        0x89: "Member_of",
-        0x8a: "Device_Member_of",
-        0x8b: "Member_of_Any",
-        0x8c: "Device_Member_of_Any",
-        0x90: "Not_Member_of",
-        0x91: "Not_Device_Member_of",
-        0x92: "Not_Member_of_Any",
-        0x93: "Not_Device_Member_of_Any",
-        # [MS-DTYP] sect 2.4.4.17.7
-        0x87: "Exists",
-        0x8d: "Not_Exists",
-        0xa0: "&&",
-        0xa1: "||",
-        0xa2: "!",
-        # [MS-DTYP] sect 2.4.4.17.8
-        0xf8: "Local attribute",
-        0xf9: "User Attribute",
-        0xfa: "Resource Attribute",
-        0xfb: "Device Attribute",
-    }),
+    ByteEnumField(
+        "TokenType",
+        0,
+        {
+            # [MS-DTYP] sect 2.4.4.17.5
+            0x00: "Padding token",
+            0x01: "Signed int8",
+            0x02: "Signed int16",
+            0x03: "Signed int32",
+            0x04: "Signed int64",
+            0x10: "Unicode",
+            0x18: "Octet String",
+            0x50: "Composite",
+            0x51: "SID",
+            # [MS-DTYP] sect 2.4.4.17.6
+            0x80: "==",
+            0x81: "!=",
+            0x82: "<",
+            0x83: "<=",
+            0x84: ">",
+            0x85: ">=",
+            0x86: "Contains",
+            0x88: "Any_of",
+            0x8e: "Not_Contains",
+            0x8f: "Not_Any_of",
+            0x89: "Member_of",
+            0x8a: "Device_Member_of",
+            0x8b: "Member_of_Any",
+            0x8c: "Device_Member_of_Any",
+            0x90: "Not_Member_of",
+            0x91: "Not_Device_Member_of",
+            0x92: "Not_Member_of_Any",
+            0x93: "Not_Device_Member_of_Any",
+            # [MS-DTYP] sect 2.4.4.17.7
+            0x87: "Exists",
+            0x8d: "Not_Exists",
+            0xa0: "&&",
+            0xa1: "||",
+            0xa2: "!",
+            # [MS-DTYP] sect 2.4.4.17.8
+            0xf8: "Local attribute",
+            0xf9: "User Attribute",
+            0xfa: "Resource Attribute",
+            0xfb: "Device Attribute",
+        }
+    ),
     ConditionalField(
         # Strings
         LEIntField("length", 0),
@@ -1050,6 +1084,7 @@ WINNT_APPLICATION_DATA_LITERAL_TOKEN.fields_desc = [
         ]
     ),
 ]
+# fmt: on
 
 
 class WINNT_APPLICATION_DATA(Packet):
@@ -1072,9 +1107,7 @@ class WINNT_APPLICATION_DATA(Packet):
 class WINNT_ACCESS_ALLOWED_CALLBACK_ACE(Packet):
     fields_desc = WINNT_ACCESS_ALLOWED_ACE.fields_desc + [
         PacketField(
-            "ApplicationData",
-            WINNT_APPLICATION_DATA(),
-            WINNT_APPLICATION_DATA
+            "ApplicationData", WINNT_APPLICATION_DATA(), WINNT_APPLICATION_DATA
         ),
     ]
 
@@ -1403,7 +1436,9 @@ class SMB2_Header(Packet):
     _SMB2_OK_RETURNCODES = (
         # sect 3.3.4.4
         (0xC0000016, 0x0001),  # STATUS_MORE_PROCESSING_REQUIRED
-        (0x80000005, 0x0010),  # STATUS_BUFFER_OVERFLOW
+        (0x80000005, 0x0008),  # STATUS_BUFFER_OVERFLOW (Read)
+        (0x80000005, 0x0010),  # STATUS_BUFFER_OVERFLOW (QueryInfo)
+        (0x80000005, 0x000B),  # STATUS_BUFFER_OVERFLOW (IOCTL)
         (0xC000000D, 0x000B),  # STATUS_INVALID_PARAMETER
         (0x0000010C, 0x000F),  # STATUS_NOTIFY_ENUM_DIR
     )
@@ -1545,40 +1580,6 @@ class _SMB2_Payload(Packet):
             if self.underlayer.NextCommand:
                 return SMB2_Header
         return super(_SMB2_Payload, self).guess_payload_class(s)
-
-
-class SMBStreamSocket(StreamSocket):
-    """
-    A modified StreamSocket to dissect SMB compounded requests
-    [MS-SMB2] 3.3.5.2.7
-    """
-
-    def __init__(self, *args, **kwargs):
-        self.queue = collections.deque()
-        super(SMBStreamSocket, self).__init__(*args, **kwargs)
-
-    def recv(self, x=None):
-        # note: normal StreamSocket takes care of NBTSession / DirectTCP fragments.
-        # this takes care of compounded requests
-        if self.queue:
-            return self.queue.popleft()
-        pkt = super(SMBStreamSocket, self).recv(x)
-        if pkt is not None and SMB2_Header in pkt:
-            pay = pkt[SMB2_Header].payload
-            while SMB2_Header in pay:
-                pay = pay[SMB2_Header]
-                pay.underlayer.remove_payload()
-                self.queue.append(pay)
-                if not pay.NextCommand:
-                    break
-                pay = pay.payload
-        return pkt
-
-    @staticmethod
-    def select(sockets, remain=conf.recv_poll_rate):
-        if any(getattr(x, "queue", None) for x in sockets):
-            return [x for x in sockets if isinstance(x, SMBStreamSocket) and x.queue]
-        return StreamSocket.select(sockets, remain=remain)
 
 
 # sect 2.2.2
@@ -1819,12 +1820,7 @@ class SMB2_Encryption_Capabilities(Packet):
             LEShortEnumField(
                 "",
                 0x0,
-                {
-                    0x0001: "AES-128-CCM",
-                    0x0002: "AES-128-GCM",
-                    0x0003: "AES-256-CCM",
-                    0x0004: "AES-256-GCM",
-                },
+                SMB2_ENCRYPTION_CIPHERS,
             ),
             count_from=lambda pkt: pkt.CipherCount,
         ),
@@ -1956,11 +1952,7 @@ class SMB2_Signing_Capabilities(Packet):
             LEShortEnumField(
                 "",
                 0x0,
-                {
-                    0x0000: "HMAC-SHA256",
-                    0x0001: "AES-CMAC",
-                    0x0002: "AES-GMAC",
-                },
+                SMB2_SIGNING_ALGORITHMS,
             ),
             count_from=lambda pkt: pkt.SigningAlgorithmCount,
         ),
@@ -2873,7 +2865,7 @@ class SMB2_Read_Request(_SMB2_Payload, _NTLMPayloadPacket):
                 0x02: "SMB2_READFLAG_REQUEST_COMPRESSED",
             },
         ),
-        LEIntField("Length", 1024),
+        LEIntField("Length", 4280),
         LELongField("Offset", 0),
         PacketField("FileId", SMB2_FILEID(), SMB2_FILEID),
         LEIntField("MinimumCount", 0),
@@ -3188,7 +3180,7 @@ class SMB2_IOCTL_Request(_SMB2_Payload, _NTLMPayloadPacket):
         LEIntField("MaxInputResponse", 0),
         LEIntField("OutputBufferOffset", None),
         LEIntField("OutputLen", None),  # Called OutputCount.
-        LEIntField("MaxOutputResponse", 4280),
+        LEIntField("MaxOutputResponse", 1024),
         FlagsField("Flags", 0, -32, {0x00000001: "SMB2_0_IOCTL_IS_FSCTL"}),
         LEIntField("Reserved2", 0),
         _NTLMPayloadField(
@@ -4049,3 +4041,212 @@ def SMB2computePreauthIntegrityHashValue(
     hasher = {"SHA-512": hashlib.sha512}[HashId]
     # compute the hash of concatenation of previous and bytes
     return hasher(PreauthIntegrityHashValue + s).digest()
+
+
+# SMB2 socket and session
+
+
+class SMBStreamSocket(StreamSocket):
+    """
+    A modified StreamSocket to dissect SMB compounded requests
+    [MS-SMB2] 3.3.5.2.7
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.queue = collections.deque()
+        self.session = SMBSession()
+        super(SMBStreamSocket, self).__init__(*args, **kwargs)
+
+    def recv(self, x=None):
+        # note: normal StreamSocket takes care of NBTSession / DirectTCP fragments.
+        # this takes care of splitting compounded requests
+        if self.queue:
+            return self.queue.popleft()
+        pkt = super(SMBStreamSocket, self).recv(x)
+        if pkt is not None and SMB2_Header in pkt:
+            pay = pkt[SMB2_Header].payload
+            while SMB2_Header in pay:
+                pay = pay[SMB2_Header]
+                pay.underlayer.remove_payload()
+                self.queue.append(pay)
+                if not pay.NextCommand:
+                    break
+                pay = pay.payload
+        return self.session.in_pkt(pkt)
+
+    def send(self, x, Compounded=False, **kwargs):
+        for pkt in self.session.out_pkt(x, Compounded=Compounded):
+            return super(SMBStreamSocket, self).send(pkt, **kwargs)
+
+    @staticmethod
+    def select(sockets, remain=conf.recv_poll_rate):
+        if any(getattr(x, "queue", None) for x in sockets):
+            return [x for x in sockets if isinstance(x, SMBStreamSocket) and x.queue]
+        return StreamSocket.select(sockets, remain=remain)
+
+
+class SMBSession(DefaultSession):
+    """
+    A SMB session within a TCP socket.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.smb_header = None
+        self.ssp = kwargs.pop("ssp", None)
+        self.sspcontext = kwargs.pop("sspcontext", None)
+        self.sniffsspcontexts = {}  # Unfinished contexts for passive
+        # SMB session parameters
+        self.CompoundQueue = []
+        self.Dialect = 0x0202  # Updated by parent
+        self.SecurityMode = 0
+        # Crypto parameters
+        self.SMBSessionKey = None
+        self.PreauthIntegrityHashId = "SHA-512"
+        self.CipherId = "AES-128-CCM"
+        self.SigningAlgorithmId = "AES-CMAC"
+        self.Salt = os.urandom(32)
+        self.ConnectionPreauthIntegrityHashValue = None
+        self.SessionPreauthIntegrityHashValue = None
+        # SMB 3.1.1
+        self.SessionPreauthIntegrityHashValue = None
+        if conf.winssps_passive:
+            for ssp in conf.winssps_passive:
+                self.sniffsspcontexts[ssp] = None
+        super(SMBSession, self).__init__(*args, **kwargs)
+
+    # SMB crypto functions
+
+    @crypto_validator
+    def computeSMBSessionKey(self):
+        if not self.sspcontext.SessionKey:
+            # no signing key, no session key
+            return
+        # [MS-SMB2] sect 3.3.5.5.3
+        if self.Dialect >= 0x0300:
+            if self.Dialect == 0x0311:
+                label = b"SMBSigningKey\x00"
+                preauth_hash = self.SessionPreauthIntegrityHashValue
+            else:
+                label = b"SMB2AESCMAC\x00"
+                preauth_hash = b"SmbSign\x00"
+            # [MS-SMB2] sect 3.1.4.2
+            if "256" in self.CipherId:
+                L = 256
+            elif "128" in self.CipherId:
+                L = 128
+            else:
+                raise ValueError
+            self.SMBSessionKey = SP800108_KDFCTR(
+                self.sspcontext.SessionKey[:16],
+                label,  # label
+                preauth_hash,  # context
+                L,
+            )
+        elif self.Dialect <= 0x0210:
+            self.SMBSessionKey = self.sspcontext.SessionKey[:16]
+        else:
+            raise ValueError("Hmmm ? >:(")
+
+    def computeSMBConnectionPreauth(self, *negopkts):
+        if self.Dialect and self.Dialect >= 0x0311:  # SMB 3.1.1 only
+            # [MS-SMB2] 3.3.5.4
+            # TODO: handle SMB2_SESSION_FLAG_BINDING
+            if self.ConnectionPreauthIntegrityHashValue is None:
+                # New auth or failure
+                self.ConnectionPreauthIntegrityHashValue = b"\x00" * 64
+            # Calculate the *Connection* PreauthIntegrityHashValue
+            for negopkt in negopkts:
+                self.ConnectionPreauthIntegrityHashValue = (
+                    SMB2computePreauthIntegrityHashValue(
+                        self.ConnectionPreauthIntegrityHashValue,
+                        negopkt,
+                        HashId=self.PreauthIntegrityHashId,
+                    )
+                )
+
+    def computeSMBSessionPreauth(self, *sesspkts):
+        if self.Dialect and self.Dialect >= 0x0311:  # SMB 3.1.1 only
+            # [MS-SMB2] 3.3.5.5.3
+            if self.SessionPreauthIntegrityHashValue is None:
+                # New auth or failure
+                self.SessionPreauthIntegrityHashValue = (
+                    self.ConnectionPreauthIntegrityHashValue
+                )
+            # Calculate the *Session* PreauthIntegrityHashValue
+            for sesspkt in sesspkts:
+                self.SessionPreauthIntegrityHashValue = (
+                    SMB2computePreauthIntegrityHashValue(
+                        self.SessionPreauthIntegrityHashValue,
+                        sesspkt,
+                        HashId=self.PreauthIntegrityHashId,
+                    )
+                )
+
+    # I/O
+
+    def in_pkt(self, pkt):
+        """
+        Incoming SMB packet
+        """
+        return pkt
+
+    def out_pkt(self, pkt, Compounded=False):
+        """
+        Outgoing SMB packet
+
+        :param pkt: the packet to send
+        :param Compound: if True, will be stack to be send with the next
+                         un-compounded packet
+
+        Handles:
+         - handle compounded requests (if any): [MS-SMB2] 3.3.5.2.7
+         - handles signing (if required)
+        """
+        # Note: impacket and wireshark get crazy on compounded+signature, but
+        # windows+samba tells we're right :D
+        if SMB2_Header in pkt:
+            if self.CompoundQueue:
+                # this is a subsequent compound: only keep the SMB2
+                pkt = pkt[SMB2_Header]
+            if Compounded:
+                # [MS-SMB2] 3.2.4.1.4
+                # "Compounded requests MUST be aligned on 8-byte boundaries; the
+                # last request of the compounded requests does not need to be padded to
+                # an 8-byte boundary."
+                # [MS-SMB2] 3.1.4.1
+                # "If the message is part of a compounded chain, any
+                # padding at the end of the message MUST be used in the hash
+                # computation."
+                length = len(pkt[SMB2_Header])
+                padlen = (-length) % 8
+                if padlen:
+                    pkt.add_payload(b"\x00" * padlen)
+                pkt[SMB2_Header].NextCommand = length + padlen
+            if self.Dialect and self.SMBSessionKey and self.SecurityMode != 0:
+                # Sign SMB2 !
+                smb = pkt[SMB2_Header]
+                smb.Flags += "SMB2_FLAGS_SIGNED"
+                smb.sign(
+                    self.Dialect,
+                    self.SMBSessionKey,
+                    # SMB 3.1.1 parameters:
+                    SigningAlgorithmId=self.SigningAlgorithmId,
+                    IsClient=False,
+                )
+            if Compounded:
+                # There IS a next compound. Store in queue
+                self.CompoundQueue.append(pkt)
+                return []
+            else:
+                # If there are any compounded responses in store, sum them
+                if self.CompoundQueue:
+                    pkt = functools.reduce(lambda x, y: x / y, self.CompoundQueue) / pkt
+                    self.CompoundQueue.clear()
+        return [pkt]
+
+    def process(self, pkt: Packet):
+        # Called when passively sniffing
+        pkt = super(SMBSession, self).process(pkt)
+        if pkt is not None and SMB2_Header in pkt:
+            return self.in_pkt(pkt)
+        return pkt
