@@ -365,6 +365,28 @@ p = TestBitLenField(b'\xc0\x01\xf4')
 assert p.mode == 3
 assert p.value == 500
 
+= Test UTCTimeField
+~ field
+
+class TestUTCTimeField(Packet):
+    fields_desc = [
+        # A Windows time field. See GH#4308
+        UTCTimeField(
+            "Time",
+            None,
+            fmt="<Q",
+            epoch=[1601, 1, 1, 0, 0, 0],
+            custom_scaling=1e7,
+        )
+    ]
+
+
+p = TestUTCTimeField(Time=0)
+assert p.sprintf("%Time%") == 'Mon, 01 Jan 1601 00:00:00  (-11644473600)'
+
+p = TestUTCTimeField(Time=133587912345678900)
+assert p.sprintf("%Time%") == 'Sun, 28 Apr 2024 15:20:34  (1714317634)'
+
 ############
 ############
 + Tests on FieldListField
