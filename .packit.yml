@@ -39,6 +39,7 @@ actions:
 jobs:
 - job: copr_build
   trigger: pull_request
+  manual_trigger: true
   targets:
   - fedora-latest-stable-aarch64
   - fedora-latest-stable-i386
