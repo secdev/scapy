@@ -55,7 +55,7 @@ from scapy.volatile import (
 )
 
 from scapy.arch import get_if_raw_hwaddr
-from scapy.sendrecv import srp1, sendp
+from scapy.sendrecv import srp1
 from scapy.error import warning
 from scapy.config import conf
 
@@ -587,7 +587,6 @@ def dhcp_request(hw=None,
 class BOOTP_am(AnsweringMachine):
     function_name = "bootpd"
     filter = "udp and port 68 and port 67"
-    send_function = staticmethod(sendp)
 
     def parse_options(self,
                       pool=Net("192.168.1.128/25"),
