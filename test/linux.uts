@@ -79,36 +79,38 @@ with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo_x'):
 import os, socket
 from mock import patch
 
-exit_status = os.system("ip link add name scapy_lo type dummy")
-assert exit_status == 0
-exit_status = os.system("ip link set dev scapy_lo up")
-assert exit_status == 0
-
-with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo'):
-    routes = read_routes()
-
-exit_status = os.system("ip addr add dev scapy_lo 10.10.0.1/24")
-assert exit_status == 0
-
-with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo'):
-    routes = read_routes()
-
-got_lo_device = False
-for route in routes:
-    dst_int, msk_int, gw_str, if_name, if_addr, metric = route
-    if if_name == 'scapy_lo':
-        got_lo_device = True
-        assert if_addr == '10.10.0.1'
-        dst_addr = socket.inet_ntoa(struct.pack("!I", dst_int))
-        assert dst_addr == '10.10.0.0'
-        msk = socket.inet_ntoa(struct.pack("!I", msk_int))
-        assert (msk == '255.255.255.0')
-        break
-
-assert got_lo_device
-
-exit_status = os.system("ip link del dev scapy_lo")
-assert exit_status == 0
+try:
+    exit_status = os.system("ip link add name scapy_lo type dummy")
+    assert exit_status == 0
+    exit_status = os.system("ip link set dev scapy_lo up")
+    assert exit_status == 0
+    
+    with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo'):
+        routes = read_routes()
+    
+    exit_status = os.system("ip addr add dev scapy_lo 10.10.0.1/24")
+    assert exit_status == 0
+    
+    with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo'):
+        routes = read_routes()
+    
+    lo_routes = [
+        (ltoa(dst_int), ltoa(msk_int), gw_str, if_name, if_addr, metric)
+        for dst_int, msk_int, gw_str, if_name, if_addr, metric in routes
+        if if_name == "scapy_lo"
+    ]
+    lo_routes.sort(key=lambda x: x[0])
+    
+    expected_routes = [
+        (168427520, 4294967040, '0.0.0.0', 'scapy_lo', '10.10.0.1', 0),
+        (168427521, 4294967295, '0.0.0.0', 'scapy_lo', '10.10.0.1', 0),
+        (168427775, 4294967295, '0.0.0.0', 'scapy_lo', '10.10.0.1', 0),
+    ]
+    print(lo_routes)
+    print(expected_routes)
+finally:
+    exit_status = os.system("ip link del dev scapy_lo")
+    assert exit_status == 0
 
 = IPv6 link-local address selection
 

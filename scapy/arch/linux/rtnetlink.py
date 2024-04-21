@@ -9,7 +9,8 @@ configuration of the machine.
 """
 
 import socket
-import os
+import struct
+import time
 
 import scapy.utils6
 
@@ -33,6 +34,7 @@ from scapy.fields import (
     IPField,
     LenField,
     MACField,
+    MayEnd,
     MultipleTypeField,
     PacketListField,
     PadField,
@@ -104,8 +106,59 @@ class rtmsghdr(Packet):
         Field("nlmsg_pid", 0, fmt="=L"),
     ]
 
+    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
+        pkt += pay
+        if self.nlmsg_len is None:
+            pkt = struct.pack("=L", len(pkt)) + pkt[4:]
+        return pkt
+
     def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:
         return s[: self.nlmsg_len - 16], s[self.nlmsg_len - 16 :]
+
+    def answers(self, other: Packet) -> bool:
+        return bool(other.nlmsg_seq == self.nlmsg_seq)
+
+
+# DONE
+
+
+class nlmsgerr_rtattr(Packet):
+    fields_desc = [
+        FieldLenField(
+            "rta_len", None, length_of="rta_data", fmt="=H", adjust=lambda _, x: x + 4
+        ),
+        EnumField(
+            "rta_type",
+            0,
+            {},
+            fmt="=H",
+        ),
+        PadField(
+            MultipleTypeField(
+                [],
+                StrLenField(
+                    "rta_data",
+                    b"",
+                    length_from=lambda pkt: pkt.rta_len - 4,
+                ),
+            ),
+            align=4,
+        ),
+    ]
+
+    def default_payload_class(self, payload: bytes) -> Type[Packet]:
+        return conf.padding_layer
+
+
+class nlmsgerr(Packet):
+    fields_desc = [
+        MayEnd(Field("status", 0, fmt="=L")),
+        # Pay
+        PacketListField("data", [], nlmsgerr_rtattr),
+    ]
+
+
+bind_layers(rtmsghdr, nlmsgerr, nlmsg_type=3)
 
 
 # LINK messages
@@ -113,7 +166,9 @@ class rtmsghdr(Packet):
 
 class ifla_af_spec_inet_rtattr(Packet):
     fields_desc = [
-        FieldLenField("rta_len", None, length_of="rta_data", fmt="=H"),
+        FieldLenField(
+            "rta_len", None, length_of="rta_data", fmt="=H", adjust=lambda _, x: x + 4
+        ),
         EnumField(
             "rta_type",
             0,
@@ -128,7 +183,7 @@ class ifla_af_spec_inet_rtattr(Packet):
                 [],
                 XStrLenField(
                     "rta_data",
-                    b"\x00\x00\x00\x00",
+                    b"",
                     length_from=lambda pkt: pkt.rta_len - 4,
                 ),
             ),
@@ -142,7 +197,9 @@ class ifla_af_spec_inet_rtattr(Packet):
 
 class ifla_af_spec_inet6_rtattr(Packet):
     fields_desc = [
-        FieldLenField("rta_len", None, length_of="rta_data", fmt="=H"),
+        FieldLenField(
+            "rta_len", None, length_of="rta_data", fmt="=H", adjust=lambda _, x: x + 4
+        ),
         EnumField(
             "rta_type",
             0,
@@ -165,7 +222,7 @@ class ifla_af_spec_inet6_rtattr(Packet):
                 [],
                 XStrLenField(
                     "rta_data",
-                    b"\x00\x00\x00\x00",
+                    b"",
                     length_from=lambda pkt: pkt.rta_len - 4,
                 ),
             ),
@@ -179,7 +236,9 @@ class ifla_af_spec_inet6_rtattr(Packet):
 
 class ifla_af_spec_rtattr(Packet):
     fields_desc = [
-        FieldLenField("rta_len", None, length_of="rta_data", fmt="=H"),
+        FieldLenField(
+            "rta_len", None, length_of="rta_data", fmt="=H", adjust=lambda _, x: x + 4
+        ),
         EnumField("rta_type", 0, socket.AddressFamily, fmt="=H"),
         PadField(
             MultipleTypeField(
@@ -207,7 +266,7 @@ class ifla_af_spec_rtattr(Packet):
                 ],
                 XStrLenField(
                     "rta_data",
-                    b"\x00\x00\x00\x00",
+                    b"",
                     length_from=lambda pkt: pkt.rta_len - 4,
                 ),
             ),
@@ -221,7 +280,9 @@ class ifla_af_spec_rtattr(Packet):
 
 class ifinfomsg_rtattr(Packet):
     fields_desc = [
-        FieldLenField("rta_len", None, length_of="rta_data", fmt="=H"),
+        FieldLenField(
+            "rta_len", None, length_of="rta_data", fmt="=H", adjust=lambda _, x: x + 4
+        ),
         EnumField(
             "rta_type",
             0,
@@ -343,12 +404,9 @@ class ifinfomsg(Packet):
             32 if BIG_ENDIAN else -32,
             _iff_flags,
         ),
-        Field("ifi_change", 0xFFFFFFFF, fmt="=I"),
+        Field("ifi_change", 0, fmt="=I"),
         # Pay
-        PadField(
-            PacketListField("data", [], ifinfomsg_rtattr),
-            align=16,
-        )
+        PacketListField("data", [], ifinfomsg_rtattr),
     ]
 
 
@@ -363,7 +421,9 @@ bind_layers(rtmsghdr, ifinfomsg, nlmsg_type=19)
 
 class ifaddrmsg_rtattr(Packet):
     fields_desc = [
-        FieldLenField("rta_len", None, length_of="rta_data", fmt="=H"),
+        FieldLenField(
+            "rta_len", None, length_of="rta_data", fmt="=H", adjust=lambda _, x: x + 4
+        ),
         EnumField(
             "rta_type",
             0,
@@ -443,10 +503,7 @@ class ifaddrmsg(Packet):
         ByteField("ifa_scope", 0),
         Field("ifa_index", 0, fmt="=L"),
         # Pay
-        PadField(
-            PacketListField("data", [], ifaddrmsg_rtattr),
-            align=16,
-        )
+        PacketListField("data", [], ifaddrmsg_rtattr),
     ]
 
 
@@ -469,7 +526,9 @@ RT_CLASS = {
 
 class rtmsg_rtattr(Packet):
     fields_desc = [
-        FieldLenField("rta_len", None, length_of="rta_data", fmt="=H"),
+        FieldLenField(
+            "rta_len", None, length_of="rta_data", fmt="=H", adjust=lambda _, x: x + 4
+        ),
         EnumField(
             "rta_type",
             0,
@@ -524,7 +583,7 @@ class rtmsg_rtattr(Packet):
                     # RTS_OIF, RTA_PRIORITY
                     (
                         Field("rta_data", 0, fmt="=I"),
-                        lambda pkt: pkt.rta_type in [0x04, 0x06],
+                        lambda pkt: pkt.rta_type in [0x04, 0x06, 0x10],
                     ),
                     # RTA_TABLE
                     (
@@ -607,13 +666,14 @@ class rtmsg(Packet):
                 0x400: "RTM_F_EQUALIZE",
                 0x800: "RTM_F_PREFIX",
                 0x1000: "RTM_F_LOOKUP_TABLE",
+                0x2000: "RTM_F_FIB_MATCH",
+                0x4000: "RTM_F_OFFLOAD",
+                0x8000: "RTM_F_TRAP",
+                0x20000000: "RTM_F_OFFLOAD_FAILED",
             },
         ),
         # Pay
-        PadField(
-            PacketListField("data", [], rtmsg_rtattr),
-            align=16,
-        )
+        PacketListField("data", [], rtmsg_rtattr),
     ]
 
 
@@ -624,11 +684,22 @@ bind_layers(rtmsghdr, rtmsg, nlmsg_type=26)
 
 class rtmsghdrs(Packet):
     fields_desc = [
-        PacketListField("msgs", [], rtmsghdr),
+        PacketListField(
+            "msgs",
+            [],
+            rtmsghdr,
+            # 65535 / len(rtmsghdr)
+            max_count=4096,
+        ),
     ]
 
 
 # Utils
+
+
+SOL_NETLINK = 270
+NETLINK_EXT_ACK = 11
+NETLINK_GET_STRICT_CHK = 12
 
 
 def _sr1_rtrequest(pkt: Packet) -> List[Packet]:
@@ -636,9 +707,17 @@ def _sr1_rtrequest(pkt: Packet) -> List[Packet]:
     Send / Receive a rtnetlink request
     """
     # Create socket
-    sock = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, socket.NETLINK_ROUTE)
-    pid = os.getpid()
-    sock.bind((pid, 0))  # bind to kernel
+    sock = socket.socket(
+        socket.AF_NETLINK,
+        socket.SOCK_RAW | socket.SOCK_CLOEXEC,
+        socket.NETLINK_ROUTE,
+    )
+    # Configure socket
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 32768)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
+    sock.setsockopt(SOL_NETLINK, NETLINK_EXT_ACK, 1)
+    sock.bind((0, 0))  # bind to kernel
+    sock.setsockopt(SOL_NETLINK, NETLINK_GET_STRICT_CHK, 1)
     # Request routes
     sock.send(bytes(rtmsghdrs(msgs=[pkt])))
     results: List[Packet] = []
@@ -651,6 +730,15 @@ def _sr1_rtrequest(pkt: Packet) -> List[Packet]:
             for msg in msgs.msgs:
                 # Keep going until we find the end of the MULTI format
                 if not msg.nlmsg_flags.NLM_F_MULTI or msg.nlmsg_type == 3:
+                    if msg.nlmsg_type == 3 and nlmsgerr in msg and msg.status != 0:
+                        # NLMSG_DONE with errors
+                        if msg.data and msg.data[0].rta_type == 1:
+                            log_loading.warning(
+                                "Scapy RTNETLINK error on %s: '%s'. Please report !",
+                                pkt.sprintf("%nlmsg_type%"),
+                                msg.data[0].rta_data.decode(),
+                            )
+                            return []
                     return results
                 results.append(msg)
     finally:
@@ -662,19 +750,15 @@ def _get_ips(af_family=socket.AF_UNSPEC):
     """
     Return a mapping of all interfaces IP using a NETLINK socket.
     """
-    pid = os.getpid()
     results = _sr1_rtrequest(
         rtmsghdr(
             nlmsg_type="RTM_GETADDR",
             nlmsg_flags="NLM_F_REQUEST+NLM_F_ROOT+NLM_F_MATCH",
-            nlmsg_seq=1,
-            nlmsg_pid=pid,
+            nlmsg_seq=int(time.time()),
         )
         / ifaddrmsg(
             ifa_family=af_family,
-            data=[
-                ifaddrmsg_rtattr(),
-            ],
+            data=[],
         )
     )
     ips: Dict[int, List[Dict[str, Any]]] = {}
@@ -703,18 +787,14 @@ def _get_if_list():
     """
     Read the interfaces list using a NETLINK socket.
     """
-    pid = os.getpid()
     results = _sr1_rtrequest(
         rtmsghdr(
             nlmsg_type="RTM_GETLINK",
             nlmsg_flags="NLM_F_REQUEST+NLM_F_ROOT+NLM_F_MATCH",
-            nlmsg_seq=1,
-            nlmsg_pid=pid,
+            nlmsg_seq=int(time.time()),
         )
         / ifinfomsg(
-            data=[
-                ifinfomsg_rtattr(rta_type="IFLA_UNSPEC"),
-            ],
+            data=[],
         )
     )
     lifips = _get_ips()
@@ -768,21 +848,23 @@ def _read_routes(af_family):
     """
     Read routes using a NETLINK socket.
     """
-    pid = os.getpid()
-    results = _sr1_rtrequest(
-        rtmsghdr(
-            nlmsg_type="RTM_GETROUTE",
-            nlmsg_flags="NLM_F_REQUEST+NLM_F_ROOT+NLM_F_MATCH",
-            nlmsg_seq=1,
-            nlmsg_pid=pid,
+    results = []
+    for rttable in ["RT_TABLE_LOCAL", "RT_TABLE_MAIN"]:
+        results.extend(
+            _sr1_rtrequest(
+                rtmsghdr(
+                    nlmsg_type="RTM_GETROUTE",
+                    nlmsg_flags="NLM_F_REQUEST+NLM_F_ROOT+NLM_F_MATCH",
+                    nlmsg_seq=int(time.time()),
+                )
+                / rtmsg(
+                    rtm_family=af_family,
+                    data=[
+                        rtmsg_rtattr(rta_type="RTA_TABLE", rta_data=rttable),
+                    ],
+                )
+            )
         )
-        / rtmsg(
-            rtm_family=af_family,
-            data=[
-                rtmsg_rtattr(rta_type="RTA_TABLE", rta_data="RT_TABLE_UNSPEC"),
-            ],
-        )
-    )
     return [msg for msg in results if msg.nlmsg_type == 24]  # RTM_NEWROUTE
 
 
