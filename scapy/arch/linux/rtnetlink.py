@@ -4,7 +4,7 @@
 # Copyright (C) Gabriel Potter
 
 """
-This files implements the rtnetlink API that is used to read the network
+This file implements the rtnetlink API that is used to read the network
 configuration of the machine.
 """
 
@@ -345,7 +345,10 @@ class ifinfomsg(Packet):
         ),
         Field("ifi_change", 0xFFFFFFFF, fmt="=I"),
         # Pay
-        PacketListField("data", [], ifinfomsg_rtattr),
+        PadField(
+            PacketListField("data", [], ifinfomsg_rtattr),
+            align=16,
+        )
     ]
 
 
@@ -440,7 +443,10 @@ class ifaddrmsg(Packet):
         ByteField("ifa_scope", 0),
         Field("ifa_index", 0, fmt="=L"),
         # Pay
-        PacketListField("data", [], ifaddrmsg_rtattr),
+        PadField(
+            PacketListField("data", [], ifaddrmsg_rtattr),
+            align=16,
+        )
     ]
 
 
@@ -604,7 +610,10 @@ class rtmsg(Packet):
             },
         ),
         # Pay
-        PacketListField("data", [], rtmsg_rtattr),
+        PadField(
+            PacketListField("data", [], rtmsg_rtattr),
+            align=16,
+        )
     ]
 
 
@@ -664,8 +673,6 @@ def _get_ips(af_family=socket.AF_UNSPEC):
         / ifaddrmsg(
             ifa_family=af_family,
             data=[
-                ifaddrmsg_rtattr(),
-                ifaddrmsg_rtattr(),
                 ifaddrmsg_rtattr(),
             ],
         )
