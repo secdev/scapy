@@ -1729,6 +1729,16 @@ def _test():
 
 retry_test(_test)
 
+= Test sniffing with AsyncSniffer on failed
+
+try:
+    sniffer = AsyncSniffer(iface="this_interface_does_not_exists")
+    sniffer.start()
+    sniffer.join()
+    assert False, "Should have errored by now"
+except (OSError, Scapy_Exception):
+    assert True
+
 = Sending a TCP syn 'forever' at layer 2 and layer 3
 ~ netaccess needs_root IP
 def _test():
