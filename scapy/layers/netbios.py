@@ -34,9 +34,8 @@ from scapy.fields import (
     XShortField,
     XStrFixedLenField
 )
-from scapy.volatile import RandUUID
 from scapy.layers.inet import IP, UDP, TCP
-from scapy.layers.l2 import SourceMACField
+from scapy.layers.l2 import Ether, SourceMACField
 
 
 class NetBIOS_DS(Packet):
@@ -382,7 +381,7 @@ bind_layers(TCP, NBTSession, dport=139, sport=139)
 
 class NBNS_am(AnsweringMachine):
     function_name = "nbnsd"
-    filter = "udp port 137 or 138"
+    filter = "udp port 137"
     sniff_options = {"store": 0}
 
     def parse_options(self, server_name=None, from_ip=None, ip=None):
@@ -403,16 +402,6 @@ class NBNS_am(AnsweringMachine):
     def is_request(self, req):
         if self.from_ip and IP in req and req[IP].src not in self.from_ip:
             return False
-        if NBTDatagram in req:
-            # special case: mailslot ping
-            from scapy.layers.smb import SMBMailslot_Write, NETLOGON_SAM_LOGON_REQUEST
-            try:
-                return (
-                    SMBMailslot_Write in req and
-                    NETLOGON_SAM_LOGON_REQUEST in req.Data
-                )
-            except AttributeError:
-                return False
         return NBNSQueryRequest in req and (
             not self.ServerName or
             req[NBNSQueryRequest].QUESTION_NAME.strip() == self.ServerName
@@ -420,10 +409,13 @@ class NBNS_am(AnsweringMachine):
 
     def make_reply(self, req):
         # type: (Packet) -> Packet
-        if NBTDatagram in req:
-            # Special case
-            return self.make_mailslot_ping_reply(req)
-        resp = IP(dst=req[IP].src) / UDP(sport=req.dport, dport=req.sport)
+        resp = Ether(
+            dst=req[Ether].src,
+            src=None if req[Ether].dst == "ff:ff:ff:ff:ff:ff" else req[Ether].dst,
+        ) / IP(dst=req[IP].src) / UDP(
+            sport=req.dport,
+            dport=req.sport,
+        )
         address = self.ip or get_if_addr(self.optsniff.get("iface", conf.iface))
         resp /= NBNSHeader() / NBNSQueryResponse(
             RR_NAME=self.ServerName or req.QUESTION_NAME,
@@ -431,30 +423,4 @@ class NBNS_am(AnsweringMachine):
             ADDR_ENTRY=[NBNS_ADD_ENTRY(NB_ADDRESS=address)]
         )
         resp.NAME_TRN_ID = req.NAME_TRN_ID
-        return resp
-
-    def make_mailslot_ping_reply(self, req):
-        # type: (Packet) -> Packet
-        from scapy.layers.smb import (
-            SMBMailslot_Write,
-            SMB_Header,
-            NETLOGON_SAM_LOGON_RESPONSE_EX,
-        )
-        resp = IP(dst=req[IP].src) / UDP(sport=req.dport, dport=req.sport)
-        address = self.ip or get_if_addr(self.optsniff.get("iface", conf.iface))
-        resp /= NBTDatagram(
-            SourceName=req.DestinationName,
-            SUFFIX1=req.SUFFIX2,
-            DestinationName=req.SourceName,
-            SUFFIX2=req.SUFFIX1,
-            SourceIP=address,
-        ) / SMB_Header() / SMBMailslot_Write(
-            Name=req.Data.MailslotName,
-        )
-        resp.Data = NETLOGON_SAM_LOGON_RESPONSE_EX(
-            OpCode=0x17,
-            Flags="LDAP+DC",
-            DomainGuid=RandUUID(),
-            sin_addr=address,
-        )
         return resp

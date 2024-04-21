@@ -54,6 +54,7 @@ from scapy.supersocket import StreamSocket
 from scapy.pton_ntop import inet_ntop, inet_pton
 from scapy.volatile import RandShort
 
+from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
 
 from typing import (
@@ -1428,12 +1429,14 @@ class DNS_am(AnsweringMachine):
                       from_ip6=None,
                       src_ip=None,
                       src_ip6=None,
-                      ttl=10):
+                      ttl=10,
+                      jokerarpa=None):
         """
         :param joker: default IPv4 for unresolved domains. (Default: None)
                       Set to False to disable, None to mirror the interface's IP.
         :param joker6: default IPv6 for unresolved domains (Default: False)
                        set to False to disable, None to mirror the interface's IPv6.
+        :param jokerarpa: answer for .in-addr.arpa PTR requests. (Default: None)
         :param relay: relay unresolved domains to conf.nameservers (Default: False).
         :param match: a dictionary of {name: val} where name is a string representing
                       a domain name (A, AAAA) and val is a tuple of 2 elements, each
@@ -1477,6 +1480,7 @@ class DNS_am(AnsweringMachine):
             self.srvmatch = {normk(k): normv(v) for k, v in srvmatch.items()}
         self.joker = joker
         self.joker6 = joker6
+        self.jokerarpa = jokerarpa
         self.relay = relay
         if isinstance(from_ip, str):
             self.from_ip = Net(from_ip)
@@ -1506,11 +1510,19 @@ class DNS_am(AnsweringMachine):
         )
 
     def make_reply(self, req):
+        resp = req.copy()
+        if Ether in req:
+            resp[Ether].src, resp[Ether].dst = (
+                None if req[Ether].dst == "ff:ff:ff:ff:ff:ff" else req[Ether].dst,
+                req[Ether].src,
+            )
         from scapy.layers.inet6 import IPv6
         if IPv6 in req:
-            resp = IPv6(dst=req[IPv6].src, src=self.src_ip6)
+            resp[IPv6].underlayer.remove_payload()
+            resp /= IPv6(dst=req[IPv6].src, src=self.src_ip6 or req[IPv6].dst)
         else:
-            resp = IP(dst=req[IP].src, src=self.src_ip)
+            resp[IP].underlayer.remove_payload()
+            resp /= IP(dst=req[IP].src, src=self.src_ip or req[IP].dst)
         resp /= UDP(sport=req.dport, dport=req.sport)
         ans = []
         req = req.getlayer(self.cls)
@@ -1563,6 +1575,16 @@ class DNS_am(AnsweringMachine):
                 except KeyError:
                     # No result
                     pass
+            elif rq.qtype == 12:
+                # PTR
+                if rq.qname[-14:] == b".in-addr.arpa." and self.jokerarpa:
+                    ans.append(DNSRR(
+                        rrname=rq.qname,
+                        type=rq.qtype,
+                        ttl=self.ttl,
+                        rdata=self.jokerarpa,
+                    ))
+                    continue
             # It it arrives here, there is currently no answer
             if self.relay:
                 # Relay mode ?
