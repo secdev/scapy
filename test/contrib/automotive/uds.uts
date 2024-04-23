@@ -1412,6 +1412,11 @@ rftpr_build = UDS()/UDS_RFTPR(modeOfOperation=0x1,
                               compressionMethod=1, encryptingMethod=1)
 assert bytes(rftpr_build) == bytes(rftpr)
 
+= Check (invalid) UDS_NRC, no reply-to service
+
+nrc = UDS(b'\x7f')
+assert nrc.service == 0x7f
+
 = Check UDS_NRC
 
 nrc = UDS(b'\x7f\x22\x33')

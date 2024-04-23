@@ -124,7 +124,8 @@ class UDS(ISOTP):
 
     def hashret(self):
         # type: () -> bytes
-        if self.service == 0x7f:
+        if self.service == 0x7f and len(self) >= 2 and \
+                (bytes(self.payload) != b'\x00' and bytes(self.payload) != b'\x00\x00'):
             return struct.pack('B', self.requestServiceId & ~0x40)
         return struct.pack('B', self.service & ~0x40)
 
