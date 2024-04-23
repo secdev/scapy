@@ -93,6 +93,8 @@ _DOC_SNDRCV_PARAMS = """
     :param threaded: if True, packets will be sent in an individual thread
     :param session: a flow decoder used to handle stream of packets
     :param chainEX: if True, exceptions during send will be forwarded
+    :param stop_filter: Python function applied to each packet to determine if
+        we have to stop the capture after this packet.
     """
 
 
@@ -127,7 +129,8 @@ class SndRcvHandler(object):
                  _flood=None,  # type: Optional[_FloodGenerator]
                  threaded=False,  # type: bool
                  session=None,  # type: Optional[_GlobSessionType]
-                 chainEX=False  # type: bool
+                 chainEX=False,  # type: bool
+                 stop_filter=None # type: Optional[Callable[[Packet], bool]]
                  ):
         # type: (...) -> None
         # Instantiate all arguments
@@ -148,6 +151,7 @@ class SndRcvHandler(object):
         self.timeout = timeout
         self.session = session
         self.chainEX = chainEX
+        self.stop_filter = stop_filter
         self._send_done = False
         self.notans = 0
         self.noans = 0
@@ -294,7 +298,7 @@ class SndRcvHandler(object):
                         sentpkt._answered = 1
                     break
         if self._send_done and self.noans >= self.notans and not self.multi:
-            if self.sniffer:
+            if self.sniffer and self.sniffer.running:
                 self.sniffer.stop(join=False)
         if not ok:
             if self.verbose > 1:
@@ -315,6 +319,7 @@ class SndRcvHandler(object):
                 store=False,
                 opened_socket=self.rcv_pks,
                 session=self.session,
+                stop_filter=self.stop_filter,
                 started_callback=callback,
                 chainCC=self.chainCC,
             )
