@@ -130,7 +130,7 @@ class SndRcvHandler(object):
                  threaded=False,  # type: bool
                  session=None,  # type: Optional[_GlobSessionType]
                  chainEX=False,  # type: bool
-                 stop_filter=None # type: Optional[Callable[[Packet], bool]]
+                 stop_filter=None  # type: Optional[Callable[[Packet], bool]]
                  ):
         # type: (...) -> None
         # Instantiate all arguments
