@@ -1651,7 +1651,7 @@ class RawPcapNgReader(RawPcapReader):
             raise EOFError
 
         # Skip minor version & section length
-        self.f.seek(10, 1)
+        self.f.read(10)
 
         options = self.f.read(blocklen - 28)
         self._read_block_tail(blocklen)
