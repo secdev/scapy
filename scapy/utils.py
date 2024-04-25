@@ -1557,7 +1557,7 @@ class RawPcapNgReader(RawPcapReader):
         self.filename = filename
         self.f = fdesc
         # A list of (linktype, snaplen, tsresol); will be populated by IDBs.
-        self.interfaces = []  # type: List[Tuple[int, int, int]]
+        self.interfaces = []  # type: List[Tuple[int, int, Dict[str, Any]]]
         self.default_options = {
             "tsresol": 1000000
         }
@@ -1626,8 +1626,8 @@ class RawPcapNgReader(RawPcapReader):
             raise EOFError
 
     def _read_block_shb(self):
-        """Section Header Block"""
         # type: () -> None
+        """Section Header Block"""
         _blocklen = self.f.read(4)
         endian = self.f.read(4)
         if endian == b"\x1a\x2b\x3c\x4d":
@@ -1670,7 +1670,7 @@ class RawPcapNgReader(RawPcapReader):
                 return res
 
     def _read_options(self, options):
-        # type: (bytes) -> Dict[str, Any]
+        # type: (bytes) -> Dict[int, bytes]
         opts = dict()
         while len(options) >= 4:
             code, length = struct.unpack(self.endian + "HH", options[:4])
@@ -1709,7 +1709,7 @@ class RawPcapNgReader(RawPcapReader):
             elif c == 1:
                 options["comment"] = v
         try:
-            interface: Tuple[int, int, dict] = struct.unpack(
+            interface: Tuple[int, int, Dict[str, Any]] = struct.unpack(
                 self.endian + "HxxI",
                 block[:8]
             ) + (options,)
@@ -1919,7 +1919,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
 
 class GenericPcapWriter(object):
     nano = False
-    linktype = None  # type: Optional[int]
+    linktype: int
 
     def _write_header(self, pkt):
         # type: (Optional[Union[Packet, bytes]]) -> None
@@ -1927,11 +1927,14 @@ class GenericPcapWriter(object):
 
     def _write_packet(self,
                       packet,  # type: Union[bytes, Packet]
+                      linktype,  # type: int
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
                       wirelen=None,  # type: Optional[int]
-                      comment=None  # type: Optional[bytes]
+                      comment=None,  # type: Optional[bytes]
+                      ifname=None,  # type: Optional[bytes]
+                      direction=None,  # type: Optional[int]
                       ):
         # type: (...) -> None
         raise NotImplementedError
@@ -1955,7 +1958,7 @@ class GenericPcapWriter(object):
 
     def write_header(self, pkt):
         # type: (Optional[Union[Packet, bytes]]) -> None
-        if self.linktype is None:
+        if not hasattr(self, 'linktype'):
             try:
                 if pkt is None or isinstance(pkt, bytes):
                     # Can't guess LL
@@ -2015,7 +2018,12 @@ class GenericPcapWriter(object):
         comment = getattr(packet, "comment", None)
         ifname = getattr(packet, "sniffed_on", None)
         direction = getattr(packet, "direction", None)
-        linktype = conf.l2types.get(type(packet), self.linktype)
+        if not isinstance(packet, bytes):
+            linktype: int = conf.l2types.layer2num[
+                packet.__class__
+            ]
+        else:
+            linktype = self.linktype
         if ifname is not None:
             ifname = str(ifname).encode('utf-8')
         self._write_packet(
@@ -2118,7 +2126,8 @@ class RawPcapWriter(GenericRawPcapWriter):
 
         """
 
-        self.linktype = linktype
+        if linktype:
+            self.linktype = linktype
         self.snaplen = snaplen
         self.append = append
         self.gz = gz
@@ -2159,7 +2168,7 @@ class RawPcapWriter(GenericRawPcapWriter):
             finally:
                 g.close()
 
-        if self.linktype is None:
+        if not hasattr(self, 'linktype'):
             raise ValueError(
                 "linktype could not be guessed. "
                 "Please pass a linktype while creating the writer"
@@ -2171,6 +2180,7 @@ class RawPcapWriter(GenericRawPcapWriter):
 
     def _write_packet(self,
                       packet,  # type: Union[bytes, Packet]
+                      linktype,  # type: int
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
@@ -2178,7 +2188,6 @@ class RawPcapWriter(GenericRawPcapWriter):
                       comment=None,  # type: Optional[bytes]
                       ifname=None,  # type: Optional[bytes]
                       direction=None,  # type: Optional[int]
-                      linktype=None  # type: Optional[int]
                       ):
         # type: (...) -> None
         """
@@ -2186,6 +2195,8 @@ class RawPcapWriter(GenericRawPcapWriter):
 
         :param packet: bytes for a single packet
         :type packet: bytes
+        :param linktype: linktype value associated with the packet
+        :type linktype: int
         :param sec: time the packet was captured, in seconds since epoch. If
                     not supplied, defaults to now.
         :type sec: float
@@ -2232,11 +2243,9 @@ class RawPcapNgWriter(GenericRawPcapWriter):
 
         self.header_present = False
         self.tsresol = 1000000
-        # Note linktype must be set other than None before _write_block_idb is called.
-        self.linktype = None
         # A dict to keep if_name to IDB id mapping.
         # unknown if_name(None) id=0
-        self.interfaces2id = {None: 0}
+        self.interfaces2id: Dict[Optional[bytes], int] = {None: 0}
 
         # tcpdump only support little-endian in PCAPng files
         self.endian = "<"
@@ -2405,6 +2414,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
 
     def _write_packet(self,  # type: ignore
                       packet,  # type: bytes
+                      linktype,  # type: int
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
@@ -2412,7 +2422,6 @@ class RawPcapNgWriter(GenericRawPcapWriter):
                       comment=None,  # type: Optional[bytes]
                       ifname=None,  # type: Optional[bytes]
                       direction=None,  # type: Optional[int]
-                      linktype=None,  # type: Optional[int]
                       ):
         # type: (...) -> None
         """
@@ -2420,6 +2429,8 @@ class RawPcapNgWriter(GenericRawPcapWriter):
 
         :param packet: bytes for a single packet
         :type packet: bytes
+        :param linktype: linktype value associated with the packet
+        :type linktype: int
         :param sec: time the packet was captured, in seconds since epoch. If
                     not supplied, defaults to now.
         :type sec: float
