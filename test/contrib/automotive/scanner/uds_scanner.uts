@@ -25,6 +25,8 @@ from scapy.contrib.automotive.ecu import *
 
 load_layer("can")
 
+conf.debug_dissector = False
+
 
 = Define Testfunction
 
