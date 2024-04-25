@@ -112,6 +112,8 @@ from scapy.layers.smb2 import (
     SMB2_Session_Logoff_Response,
     SMB2_Session_Setup_Request,
     SMB2_Session_Setup_Response,
+    SMB2_Set_Info_Request,
+    SMB2_Set_Info_Response,
     SMB2_Signing_Capabilities,
     SMB2_Tree_Connect_Request,
     SMB2_Tree_Connect_Response,
@@ -210,7 +212,7 @@ class SMB_Server(Automaton):
     pkt_cls = DirectTCP
     socketcls = SMBStreamSocket
 
-    def __init__(self, shares=[], ssp=None, verb=True, *args, **kwargs):
+    def __init__(self, shares=[], ssp=None, verb=True, readonly=True, *args, **kwargs):
         self.verb = verb
         if "sock" not in kwargs:
             raise ValueError(
@@ -268,6 +270,7 @@ class SMB_Server(Automaton):
         self.DOMAIN_REFERRALS = kwargs.pop("DOMAIN_REFERRALS", [])
         if self.USE_SMB1:
             log_runtime.warning("Serving SMB1 is not supported :/")
+        self.readonly = readonly
         # We don't want to update the parent shares argument
         self.shares = shares.copy()
         # Append the IPC$ share
@@ -938,7 +941,7 @@ class SMB_Server(Automaton):
         hash = hashlib.md5((fname or "").encode()).digest()
         return 0x4000000000 | struct.unpack("<I", hash[:4])[0]
 
-    def lookup_file(self, fname, durable_handle=None):
+    def lookup_file(self, fname, durable_handle=None, create=False, createOptions=None):
         """
         Lookup the file and build it's SMB2_FILEID
         """
@@ -957,7 +960,17 @@ class SMB_Server(Automaton):
         if path.is_reserved():
             raise FileNotFoundError
         if not path.exists():
-            raise FileNotFoundError
+            if create and createOptions:
+                if createOptions.FILE_DIRECTORY_FILE:
+                    # Folder creation
+                    path.mkdir()
+                    self.vprint("Created folder:" + fname)
+                else:
+                    # File creation
+                    path.touch()
+                    self.vprint("Created file:" + fname)
+            else:
+                raise FileNotFoundError
         if durable_handle is None:
             handle = SMB2_FILEID(
                 Persistent=self.make_file_id(fname) + self.smb_header.MID,
@@ -965,15 +978,16 @@ class SMB_Server(Automaton):
         else:
             # We were given a durable handle. Use it
             handle = durable_handle
-        path_stat = path.stat()
         attrs = {
             "CreationTime": self.base_time_t,
             "LastAccessTime": self.base_time_t,
             "LastWriteTime": self.base_time_t,
             "ChangeTime": self.base_time_t,
-            "EndOfFile": path_stat.st_size,
-            "AllocationSize": path_stat.st_size,
+            "EndOfFile": 0,
+            "AllocationSize": 0,
         }
+        path_stat = path.stat()
+        attrs["EndOfFile"] = attrs["AllocationSize"] = path_stat.st_size
         if fname is None:
             # special case
             attrs["FileAttributes"] = "+".join(
@@ -1105,14 +1119,35 @@ class SMB_Server(Automaton):
             # Lookup file handle
             try:
                 handle = self.lookup_file(fname, durable_handle=durable_handle)
-                self.set_compounded_handle(handle)
             except FileNotFoundError:
                 # NOT_FOUND
-                resp = self.smb_header.copy() / SMB2_Error_Response()
-                resp.Command = "SMB2_CREATE"
-                resp.Status = "STATUS_OBJECT_NAME_NOT_FOUND"
-                self.send(resp)
-                return
+                if pkt[SMB2_Create_Request].CreateDisposition in [
+                    0x00000002,  # FILE_CREATE
+                    0x00000005,  # FILE_OVERWRITE_IF
+                ]:
+                    if self.readonly:
+                        resp = self.smb_header.copy() / SMB2_Error_Response()
+                        resp.Command = "SMB2_CREATE"
+                        resp.Status = "STATUS_ACCESS_DENIED"
+                        self.send(resp)
+                        return
+                    else:
+                        # Create file
+                        handle = self.lookup_file(
+                            fname,
+                            durable_handle=durable_handle,
+                            create=True,
+                            createOptions=pkt[SMB2_Create_Request].CreateOptions,
+                        )
+                else:
+                    resp = self.smb_header.copy() / SMB2_Error_Response()
+                    resp.Command = "SMB2_CREATE"
+                    resp.Status = "STATUS_OBJECT_NAME_NOT_FOUND"
+                    self.send(resp)
+                    return
+            # Store compounded handle
+            self.set_compounded_handle(handle)
+            # Build response
             attrs = self.current_handles[handle][1]
             resp = self.smb_header.copy() / SMB2_Create_Response(
                 OplockLevel=pkt.RequestedOplockLevel,
@@ -1372,18 +1407,45 @@ class SMB_Server(Automaton):
         )
 
     @ATMT.receive_condition(SERVING)
+    def receive_set_info_request(self, pkt):
+        if SMB2_Set_Info_Request in pkt:
+            raise self.SERVING().action_parameters(pkt)
+
+    @ATMT.action(receive_set_info_request)
+    def send_set_info_response(self, pkt):
+        self.update_smbheader(pkt)
+        self.send(self.smb_header.copy() / SMB2_Set_Info_Response())
+
+    @ATMT.receive_condition(SERVING)
     def receive_write_request(self, pkt):
         if SMB2_Write_Request in pkt:
-            fi = self.get_file_id(pkt)
-            if fi in self.PIPES_TABLE.values():
-                # A pipe
-                self.rpc_server.recv(pkt.Data)
             raise self.SERVING().action_parameters(pkt)
 
     @ATMT.action(receive_write_request)
     def send_write_response(self, pkt):
         self.update_smbheader(pkt)
-        self.send(self.smb_header.copy() / SMB2_Write_Response(Count=len(pkt.Data)))
+        resp = SMB2_Write_Response(Count=len(pkt.Data))
+        fid = self.get_file_id(pkt)
+        if self.current_tree() == "IPC$":
+            if fid in self.PIPES_TABLE.values():
+                # A pipe
+                self.rpc_server.recv(pkt.Data)
+        else:
+            if self.readonly:
+                # Read only !
+                resp = SMB2_Error_Response()
+                resp.Command = "SMB2_WRITE"
+                resp.Status = "ERROR_FILE_READ_ONLY"
+            else:
+                # Write file
+                pth, _ = self.current_handles[fid]
+                length = pkt[SMB2_Write_Request].DataLen
+                off = pkt[SMB2_Write_Request].Offset
+                self.vprint("Writing %s bytes at %s" % (length, off))
+                with open(pth, "r+b") as fd:
+                    fd.seek(off)
+                    resp.Count = fd.write(pkt[SMB2_Write_Request].Data)
+        self.send(self.smb_header.copy() / resp)
 
     @ATMT.receive_condition(SERVING)
     def receive_read_request(self, pkt):
@@ -1401,7 +1463,7 @@ class SMB_Server(Automaton):
             resp.Data = bytes(r)
         else:
             # Read file and send content
-            pth, attrs = self.current_handles[fid]
+            pth, _ = self.current_handles[fid]
             length = pkt[SMB2_Read_Request].Length
             off = pkt[SMB2_Read_Request].Offset
             self.vprint("Reading %s bytes at %s" % (length, off))
@@ -1585,9 +1647,11 @@ class smbserver:
 
         :param shares: the list of shares to announce. Note that IPC$ is appended.
                        By default, a 'Scapy' share on './'
-        :param port: the port to bind on, default 445
-        :param iface: the interface to bind on, default conf.iface
-        :param ssp: the SSP to use. See the examples below. Default NTLM with guest
+        :param port:  (optional) the port to bind on, default 445
+        :param iface:  (optional) the interface to bind on, default conf.iface
+        :param readonly: (optional) whether the server is read-only or not. default True
+        :param ssp: (optional) the SSP to use. See the examples below.
+                    Default NTLM with guest
 
     Many more SMB-specific parameters are available in help(SMB_Server)
     """
@@ -1598,6 +1662,7 @@ class smbserver:
         iface: str = None,
         port: int = 445,
         verb: int = 2,
+        readonly: bool = True,
         # SMB arguments
         ssp=None,
         **kwargs,
@@ -1613,9 +1678,14 @@ class smbserver:
         if verb >= 2:
             log_runtime.info("-- Scapy %s SMB Server --" % conf.version)
             log_runtime.info(
-                "SSP: %s. Serving %s shares:"
+                "SSP: %s. Read-Only: %s. Serving %s shares:"
                 % (
                     conf.color_theme.yellow(ssp or "NTLM (guest)"),
+                    (
+                        conf.color_theme.yellow("YES")
+                        if readonly
+                        else conf.color_theme.format("NO", "bg_red+white")
+                    ),
                     conf.color_theme.red(len(shares)),
                 )
             )
@@ -1630,6 +1700,7 @@ class smbserver:
             # SMB server
             ssp=ssp,
             shares=shares,
+            readonly=readonly,
             # SMB arguments
             **kwargs,
         )

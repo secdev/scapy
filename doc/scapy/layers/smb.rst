@@ -284,6 +284,28 @@ A share is identified by a ``name`` and a ``path`` (+ an optional description ca
         ),
     )
 
+
+.. note::
+    By default, Scapy's SMB server is read-only. You can set ``readonly`` to ``False`` to disable it, as follows.
+
+
+**Start a SMB server with NTLM in Read-Write mode**
+
+.. code:: python
+
+    smbserver(
+        shares=[SMBShare(name="Scapy", path="/tmp")],
+        iface="eth0",
+        ssp=NTLMSSP(
+            IDENTITIES={
+                "User1": MD4le("Password1"),
+                "Administrator": MD4le("Password2"),
+            },
+        ),
+        # Enable Read-Write
+        readonly=False,
+    )
+
 .. note::
 
     It is possible to start the :class:`~scapy.layers.smbserver.smbserver` (albeit only in unauthenticated mode) directly from the OS, using the following::

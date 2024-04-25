@@ -239,9 +239,10 @@ with (ROOTPATH / "fileScapy").open("w") as fd:
    fd.write("Nice\nData")
 
 class run_smbserver:
-   def __init__(self, guest=False):
+   def __init__(self, guest=False, readonly=True):
       self.srv = None
       self.guest = guest
+      self.readonly = readonly
    
    def __enter__(self):
       if self.guest:
@@ -257,6 +258,7 @@ class run_smbserver:
          debug=4,
          port=12345,
          bg=True,
+         readonly=self.readonly,
          # NTLMSSP
          IDENTITIES=IDENTITIES,
       )
@@ -313,6 +315,8 @@ class run_smbclient:
       print("smbclient arguments:", self.args)
       print("smbclient output:")
       print(self.output)
+
+cli = None
 
 = smbserver: SMB 3.1.1 - connect then list shares
 
@@ -374,6 +378,30 @@ with run_smbserver():
       assert (LOCALPATH / "fileScapy").exists(), "file doesn't exist"
       with (LOCALPATH / "fileScapy").open("r") as fd:
          assert fd.read() == "Nice\nData", "invalid data"
+   except Exception:
+      cli.printdebug()
+      raise
+   finally:
+      cli.close()
+
+= smbserver: SMB 3.1.1 - connect then put file
+
+LOCALPATH = pathlib.Path(get_temp_dir())
+
+nicedata = ("A" * 100 + "\n") * 5
+with open(LOCALPATH / "newCustomFile", "w") as fd:
+    fd.write(nicedata)
+
+with run_smbserver(readonly=False):
+   try:
+      cli = run_smbclient(user="Administrator", password="Password2", share="test", cwd=LOCALPATH)
+      cli.cmd("put newCustomFile")
+      output = cli.getoutput()
+      print(output)
+      assert "putting file newCustomFile" in output[0], "strange output"
+      assert (ROOTPATH / "newCustomFile").exists(), "file doesn't exist"
+      with (ROOTPATH / "newCustomFile").open("r") as fd:
+         assert fd.read() == nicedata, "invalid data"
    except Exception:
       cli.printdebug()
       raise
