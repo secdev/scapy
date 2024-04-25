@@ -957,8 +957,15 @@ def MD4le(x):
 def RC4Init(key):
     """Alleged RC4"""
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+    try:
+        # cryptography > 43.0
+        from cryptography.hazmat.decrepit.ciphers import (
+            algorithms as decrepit_algorithms,
+        )
+    except ImportError:
+        decrepit_algorithms = algorithms
 
-    algorithm = algorithms.ARC4(key)
+    algorithm = decrepit_algorithms.ARC4(key)
     cipher = Cipher(algorithm, mode=None)
     encryptor = cipher.encryptor()
     return encryptor
@@ -974,8 +981,15 @@ def RC4K(key, data):
     RC4 algorithm.
     """
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+    try:
+        # cryptography > 43.0
+        from cryptography.hazmat.decrepit.ciphers import (
+            algorithms as decrepit_algorithms,
+        )
+    except ImportError:
+        decrepit_algorithms = algorithms
 
-    algorithm = algorithms.ARC4(key)
+    algorithm = decrepit_algorithms.ARC4(key)
     cipher = Cipher(algorithm, mode=None)
     encryptor = cipher.encryptor()
     return encryptor.update(data) + encryptor.finalize()
