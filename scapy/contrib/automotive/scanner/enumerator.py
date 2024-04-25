@@ -80,7 +80,8 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         'debug': (bool, None),
         'scan_range': ((list, tuple, range), None),
         'unittest': (bool, None),
-        'disable_tps_while_sending': (bool, None)
+        'disable_tps_while_sending': (bool, None),
+        'inter': ((int, float), lambda x: x >= 0),
     })
 
     _supported_kwargs_doc = AutomotiveTestCase._supported_kwargs_doc + """
@@ -123,7 +124,9 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         :type scan_range: list or tuple or range or iterable
         :param disable_tps_while_sending: Temporary disables a TesterPresentSender
                                           to not interact with a seed request.
-        :type disable_tps_while_sending: bool"""
+        :type disable_tps_while_sending: bool
+        :param inter: delay between two packets during sending
+        :type inter: int or float"""
 
     def __init__(self):
         # type: () -> None
@@ -292,6 +295,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         execution_time = kwargs.pop("execution_time", 1200)
         stop_event = kwargs.pop("stop_event", None)  # type: Optional[threading.Event]  # noqa: E501
         disable_tps = kwargs.pop("disable_tps_while_sending", False)
+        inter = kwargs.pop("inter", 0)
 
         self._prepare_runtime_estimation(**kwargs)
 
@@ -319,6 +323,11 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
             "Start execution of enumerator: %s", time.ctime())
 
         for req in it:
+            if stop_event:
+                stop_event.wait(timeout=inter)
+            else:
+                time.sleep(inter)
+
             if disable_tps and self._tester_present_sender:
                 self._tester_present_sender.disable()
 
