@@ -1077,12 +1077,19 @@ class AsyncSniffer(object):
         self.running = False
         self.thread = None  # type: Optional[Thread]
         self.results = None  # type: Optional[PacketList]
+        self.exception = None  # type: Optional[Exception]
 
     def _setup_thread(self):
         # type: () -> None
+        def _run_catch(self=self, *args, **kwargs):
+            # type: (Any, *Any, **Any) -> None
+            try:
+                self._run(*args, **kwargs)
+            except Exception as ex:
+                self.exception = ex
         # Prepare sniffing thread
         self.thread = Thread(
-            target=self._run,
+            target=_run_catch,
             args=self.args,
             kwargs=self.kwargs,
             name="AsyncSniffer"
@@ -1337,6 +1344,8 @@ class AsyncSniffer(object):
         # type: (*Any, **Any) -> None
         if self.thread:
             self.thread.join(*args, **kwargs)
+        if self.exception is not None:
+            raise self.exception
 
 
 @conf.commands.register
