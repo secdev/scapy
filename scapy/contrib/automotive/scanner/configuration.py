@@ -115,6 +115,7 @@ class AutomotiveTestCaseExecutorConfiguration(object):
         self.verbose = kwargs.get("verbose", False)
         self.debug = kwargs.get("debug", False)
         self.unittest = kwargs.pop("unittest", False)
+        self.delay_enter_state = kwargs.pop("delay_enter_state", 0)
         self.state_graph = Graph()
         self.test_cases = list()  # type: List[AutomotiveTestCaseABC]
         self.stages = list()  # type: List[StagedAutomotiveTestCase]

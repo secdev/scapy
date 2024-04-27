@@ -3673,16 +3673,27 @@ class PeriodicSenderThread(threading.Thread):
             self._pkts = pkt
         self._socket = sock
         self._stopped = threading.Event()
+        self._enabled = threading.Event()
+        self._enabled.set()
         self._interval = interval
         self._ignore_exceptions = ignore_exceptions
         threading.Thread.__init__(self)
+
+    def enable(self):
+        # type: () -> None
+        self._enabled.set()
+
+    def disable(self):
+        # type: () -> None
+        self._enabled.clear()
 
     def run(self):
         # type: () -> None
         while not self._stopped.is_set() and not self._socket.closed:
             for p in self._pkts:
                 try:
-                    self._socket.send(p)
+                    if self._enabled.is_set():
+                        self._socket.send(p)
                 except (OSError, TimeoutError) as e:
                     if self._ignore_exceptions:
                         return

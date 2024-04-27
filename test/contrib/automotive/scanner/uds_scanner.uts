@@ -25,6 +25,8 @@ from scapy.contrib.automotive.ecu import *
 
 load_layer("can")
 
+conf.debug_dissector = False
+
 
 = Define Testfunction
 
@@ -662,7 +664,7 @@ resps = [EcuResponse(None, [UDS()/UDS_CCPR(controlType=1)]),
 
 es = [UDS_CCEnumerator]
 
-scanner = executeScannerInVirtualEnvironment(resps, es)
+scanner = executeScannerInVirtualEnvironment(resps, es, inter=0.001)
 
 assert scanner.scan_completed
 assert scanner.progress() > 0.95
