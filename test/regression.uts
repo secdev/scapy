@@ -2136,6 +2136,7 @@ p.show()
 ############
 ############
 + pcap / pcapng format support
+~ pcap
 
 = Variable creations
 from io import BytesIO
@@ -2170,9 +2171,9 @@ assert len(pktcapng) != 0
 tmpfile = get_temp_file(autoext=".pcapng")
 r = RawPcapNgWriter(tmpfile)
 r._write_block_shb()
-r._write_block_idb()
+r._write_block_idb(linktype=DLT_EN10MB)
 ts = 1632568366.384185
-r._write_block_epb(raw(Ether()/"Hello Scapy!!!"), ts)
+r._write_block_epb(raw(Ether()/"Hello Scapy!!!"), ifid=0, timestamp=ts)
 r.f.close()
 
 assert os.stat(tmpfile).st_size == 108
@@ -2199,6 +2200,57 @@ p.comment = b"Hello Scapy!"
 wrpcapng(tmpfile, p)
 l = rdpcap(tmpfile)
 assert l[0].comment == p.comment
+
+= Check multiple packets with different combination of linktype,comment,direction,sniffed_on fields. test both wrpcap() and wrpcapng()
+import random,string
+random.seed(0x2807)
+plist = []
+ptypes = []
+ptypes.append(Ether((Ether() / IPv6() / TCP()).build())) 
+ptypes.append(IP((IP() / IPv6() / TCP()).build()))
+ifaces=[None,'','i','int0',''.join(random.choices(string.printable,k=20))]
+comments=[None,'','a','abcd',''.join(random.choices(string.printable,k=20))]
+directions=[None,0,1,2,3]
+
+for iface in ifaces:
+    for comment in comments:
+        if comment is not None:
+            comment=comment.encode('utf-8')
+        for direction in directions:
+            for p in ptypes:
+                if iface is not None and type(ptypes[ifaces.index(iface) % len(ptypes)]) != type(p):
+                    continue
+                pnew = p.copy()
+                pnew.time = 1632568366.384185
+                pnew.sniffed_on = iface
+                pnew.direction = direction
+                pnew.comment = comment
+                plist.append(pnew)
+
+random.shuffle(plist)
+tmpfile = get_temp_file(autoext=".pcapng")
+wrpcapng(tmpfile, plist)
+plist_check = rdpcap(tmpfile)
+assert len(plist_check) == len(plist)
+for i in range(len(plist)):
+    assert plist_check[i].comment == plist[i].comment
+    assert plist_check[i].direction == plist[i].direction
+    assert plist_check[i].sniffed_on == plist[i].sniffed_on
+    assert plist_check[i].time == plist[i].time
+    #if interface is unknown, verify pkt bytes integrity and that linktype was set to first packet 
+    if plist[i].sniffed_on is None:
+        assert bytes(plist_check[i]) == bytes(plist[i])
+        assert type(plist_check[i]) == type(plist[0])
+    else:
+        assert plist_check[i] == plist[i]
+
+tmpfile = get_temp_file(autoext=".pcap")
+wrpcap(tmpfile, plist)
+plist_check = rdpcap(tmpfile)
+for i in range(len(plist)):
+    assert plist_check[i].time == plist[i].time
+    assert type(plist_check[i]) == type(plist[0])
+    assert bytes(plist_check[i]) == bytes(plist[i])
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
@@ -2305,7 +2357,7 @@ l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
 assert len(l) == 0
 
 = Check offline sniff() with Packets, tcpdump and a bad filter
-~ tcpdump libpcap
+~ tcpdump libpcap 
 
 try:
     sniff(offline=IP()/UDP(), filter="bad filter")
@@ -2404,7 +2456,7 @@ except Scapy_Exception:
     pass
 
 # Invalid Packet in PCAPNG -> return
-invalid_pcapngfile_2 = BytesIO(b'\n\r\r\n\x00\x00\x00\x10\x1a+<M\x00\x00\x00\x10\x00\x00\x00\x01\x00\x00\x00\x10    \x00\x00\x00\x10')
+invalid_pcapngfile_2 = BytesIO(b'\n\r\r\n\x00\x00\x00\x1c\x1a+<M\x00\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x10\x00\x00\x00\x1c\x00\x00\x00\x01\x00\x00\x00\x10\x12\x12\x12\x12\x00\x00\x00\x10')
 assert len(rdpcap(invalid_pcapngfile_2)) == 0
 
 # Invalid interface ID in PCAPNG -> raise EOFError
