@@ -102,6 +102,13 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
     def send(self, x):
         # type: (Packet) -> int
+        """Sends a `Packet` object
+
+        :param x: `Packet` to be send
+        :type x: Packet
+        :return: Number of bytes that have been sent
+        :rtype: int
+        """
         sx = raw(x)
         try:
             x.sent_time = time.time()
@@ -116,7 +123,15 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
     if WINDOWS:
         def _recv_raw(self, sock, x):
             # type: (socket.socket, int) -> Tuple[bytes, Any, Optional[float]]
-            """Internal function to receive a Packet"""
+            """Internal function to receive a Packet.
+
+            :param sock: Socket object from which data are received
+            :type sock: socket.socket
+            :param x: Number of bytes to be received
+            :type x: int
+            :return: Received bytes, address information and no timestamp
+            :rtype: Tuple[bytes, Any, Optional[float]]
+            """
             pkt, sa_ll = sock.recvfrom(x)
             return pkt, sa_ll, None
     else:
@@ -124,6 +139,13 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
             # type: (socket.socket, int) -> Tuple[bytes, Any, Optional[float]]
             """Internal function to receive a Packet,
             and process ancillary data.
+
+            :param sock: Socket object from which data are received
+            :type sock: socket.socket
+            :param x: Number of bytes to be received
+            :type x: int
+            :return: Received bytes, address information and an optional timestamp
+            :rtype: Tuple[bytes, Any, Optional[float]]
             """
             timestamp = None
             if not self.auxdata_available:
@@ -172,11 +194,26 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
     def recv_raw(self, x=MTU):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
-        """Returns a tuple containing (cls, pkt_data, time)"""
+        """Returns a tuple containing (cls, pkt_data, time)
+
+
+        :param x: Maximum number of bytes to be received, defaults to MTU
+        :type x: int, optional
+        :return: A tuple, consisting of a Packet type, the received data,
+                 and a timestamp
+        :rtype: Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]
+        """
         return conf.raw_layer, self.ins.recv(x), None
 
     def recv(self, x=MTU, **kwargs):
         # type: (int, **Any) -> Optional[Packet]
+        """Receive a Packet according to the `basecls` of this socket
+
+        :param x: Maximum number of bytes to be received, defaults to MTU
+        :type x: int, optional
+        :return: The received `Packet` object, or None
+        :rtype: Optional[Packet]
+        """
         cls, val, ts = self.recv_raw(x)
         if not val or not cls:
             return None
@@ -200,6 +237,8 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
     def close(self):
         # type: () -> None
+        """Gracefully close this socket
+        """
         if self.closed:
             return
         self.closed = True
@@ -213,11 +252,15 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
     def sr(self, *args, **kargs):
         # type: (Any, Any) -> Tuple[SndRcvList, PacketList]
+        """Send and Receive multiple packets
+        """
         from scapy import sendrecv
         return sendrecv.sndrcv(self, *args, **kargs)
 
     def sr1(self, *args, **kargs):
         # type: (Any, Any) -> Optional[Packet]
+        """Send one packet and receive one answer
+        """
         from scapy import sendrecv
         ans = sendrecv.sndrcv(self, *args, **kargs)[0]  # type: SndRcvList
         if len(ans) > 0:
