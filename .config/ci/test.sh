@@ -35,10 +35,6 @@ then
     # the cryptogaphy module source code
     UT_FLAGS+=" -K libressl"
   fi
-  if [[ "$OSTYPE" = "netbsd" ]]
-  then
-    UT_FLAGS+=" -K not_netbsd"
-  fi
 fi
 
 if [ ! -z "$GITHUB_ACTIONS" ]
