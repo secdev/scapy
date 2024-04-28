@@ -28,7 +28,7 @@ import zlib
 
 from scapy.consts import WINDOWS
 from scapy.config import conf
-from scapy.compat import base64_bytes, bytes_hex, plain_str
+from scapy.compat import base64_bytes
 from scapy.themes import DefaultTheme, BlackAndWhite
 from scapy.utils import tex_escape
 
@@ -548,7 +548,7 @@ def run_test(test, get_interactive_session, theme, verb=3,
             # Add optional debugging data to log
             if debug.crashed_on:
                 cls, val = debug.crashed_on
-                test.output += "\n\nPACKET DISSECTION FAILED ON:\n %s(hex_bytes('%s'))" % (cls.__name__, plain_str(bytes_hex(val)))
+                test.output += "\n\nPACKET DISSECTION FAILED ON:\n %s(bytes.fromhex('%s'))" % (cls.__name__, val.hex())
                 debug.crashed_on = None
         test.prepare(theme)
         if verb > 2:
