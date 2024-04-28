@@ -47,6 +47,7 @@ from scapy.fields import (
     IPField,
     IP6Field,
     IntField,
+    MayEnd,
     MultiEnumField,
     MultipleTypeField,
     PacketField,
@@ -1269,6 +1270,12 @@ class IPerror(IP):
 
 class TCPerror(TCP):
     name = "TCP in ICMP"
+    fields_desc = (
+        TCP.fields_desc[:2] +
+        # MayEnd after the 8 first octets.
+        [MayEnd(TCP.fields_desc[2])] +
+        TCP.fields_desc[3:]
+    )
 
     def answers(self, other):
         if not isinstance(other, TCP):
