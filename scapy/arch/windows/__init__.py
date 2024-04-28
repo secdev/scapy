@@ -35,12 +35,15 @@ from scapy.error import (
 )
 from scapy.interfaces import NetworkInterface, InterfaceProvider, \
     dev_from_index, resolve_iface, network_name
-from scapy.pton_ntop import inet_ntop, inet_pton
+from scapy.pton_ntop import inet_ntop
 from scapy.utils import atol, itom, mac2str, str2mac
 from scapy.utils6 import construct_source_candidate_set, in6_getscope
 from scapy.data import ARPHDR_ETHER
 from scapy.compat import plain_str
 from scapy.supersocket import SuperSocket
+
+# re-export
+from scapy.arch.common import get_if_raw_addr  # noqa: F401
 
 # Typing imports
 from typing import (
@@ -689,15 +692,6 @@ def get_ips(v6=False):
         else:
             res[iface] = iface.ips[4]
     return res
-
-
-def get_if_raw_addr(iff):
-    # type: (Union[NetworkInterface, str]) -> bytes
-    """Return the raw IPv4 address of interface"""
-    iff = resolve_iface(iff)
-    if not iff.ip:
-        return b"\x00" * 4
-    return inet_pton(socket.AF_INET, iff.ip)
 
 
 def get_ip_from_name(ifname, v6=False):

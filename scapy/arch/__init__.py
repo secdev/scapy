@@ -125,7 +125,6 @@ def get_if_raw_addr6(iff):
 # Next step is to import following architecture specific functions:
 # def attach_filter(s, filter, iface)
 # def get_if(iff,cmd)
-# def get_if_index(iff)
 # def get_if_raw_addr(iff)
 # def get_if_raw_hwaddr(iff)
 # def in6_getifaddr()
