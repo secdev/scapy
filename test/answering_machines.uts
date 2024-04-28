@@ -119,6 +119,13 @@ test_am(DNS_am,
         match={"google.com": ("127.0.0.1", "::1"), "gaagle.com": "128.0.0.1"},
         joker=False)
 
+assert DNS_am().make_reply(Ether()) is None
+assert DNS_am().make_reply(Ether()/IP()) is None
+assert DNS_am().make_reply(Ether()/IP()/UDP()) is None
+assert DNS_am().make_reply(
+    Ether()/IP()/UDP()/DNS(b'q\xa04\x00\x00\xa0\x01\x00\xf3\x00\x01\x04\x01y')
+) is None
+
 = DHCPv6_am - Basic Instantiaion
 ~ osx netaccess
 a = DHCPv6_am()
