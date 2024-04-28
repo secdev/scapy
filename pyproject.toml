@@ -41,10 +41,11 @@ classifiers = [
 ]
 
 [project.urls]
-homepage = "https://scapy.net"
-documentation = "https://scapy.readthedocs.io"
-repository = "https://github.com/secdev/scapy"
-changelog = "https://github.com/secdev/scapy/releases"
+Homepage = "https://scapy.net"
+Download = "https://github.com/secdev/scapy/tarball/master"
+Documentation = "https://scapy.readthedocs.io"
+"Source Code" = "https://github.com/secdev/scapy"
+Changelog = "https://github.com/secdev/scapy/releases"
 
 [project.scripts]
 scapy = "scapy.main:interact"
