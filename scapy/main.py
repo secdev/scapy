@@ -399,7 +399,7 @@ def save_session(fname="", session=None, pickleProto=-1):
         return
 
     ignore = session.get("_scpybuiltins", [])
-    hard_ignore = ["scapy_session", "In", "Out"]
+    hard_ignore = ["scapy_session", "In", "Out", "open"]
     to_be_saved = session.copy()
 
     for k in list(to_be_saved):
@@ -412,11 +412,15 @@ def save_session(fname="", session=None, pickleProto=-1):
             del to_be_saved[k]
         elif k in ignore or k in hard_ignore:
             del to_be_saved[k]
-        elif isinstance(i, (type, types.ModuleType)):
+        elif isinstance(i, (type, types.ModuleType, types.FunctionType)):
             if k[0] != "_":
-                log_interactive.warning("[%s] (%s) can't be saved.", k,
-                                        type(to_be_saved[k]))
+                log_interactive.warning("[%s] (%s) can't be saved.", k, type(i))
             del to_be_saved[k]
+        else:
+            try:
+                pickle.dumps(i)
+            except Exception:
+                log_interactive.warning("[%s] (%s) can't be saved.", k, type(i))
 
     try:
         os.rename(fname, fname + ".bak")
@@ -500,6 +504,12 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
     from scapy.config import conf
     SESSION = {}  # type: Optional[Dict[str, Any]]
 
+    # Load Scapy
+    scapy_builtins = _scapy_builtins()
+
+    # Load exts
+    scapy_builtins.update(_scapy_exts())
+
     if session_name:
         try:
             os.stat(session_name)
@@ -533,12 +543,6 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
             SESSION = {"conf": conf}
     else:
         SESSION = {"conf": conf}
-
-    # Load Scapy
-    scapy_builtins = _scapy_builtins()
-
-    # Load exts
-    scapy_builtins.update(_scapy_exts())
 
     SESSION.update(scapy_builtins)
     SESSION["_scpybuiltins"] = scapy_builtins.keys()
@@ -866,7 +870,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         if conf.interactive_shell == "ptipython":
             from ptpython.ipython import embed
         else:
-            from IPython import start_ipython as embed
+            from IPython import embed
         try:
             from traitlets.config.loader import Config
         except ImportError:
@@ -892,19 +896,19 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                 # Set "classic" prompt style when launched from
                 # run_scapy(.bat) files Register and apply scapy
                 # color+prompt style
-                apply_ipython_style(shell=cfg.TerminalInteractiveShell)
-                cfg.TerminalInteractiveShell.confirm_exit = False
-                cfg.TerminalInteractiveShell.separate_in = u''
+                apply_ipython_style(shell=cfg.InteractiveShellEmbed)
+                cfg.InteractiveShellEmbed.confirm_exit = False
+                cfg.InteractiveShellEmbed.separate_in = u''
             if int(IPython.__version__[0]) >= 6:
-                cfg.TerminalInteractiveShell.term_title_format = ("Scapy %s" %
-                                                                  conf.version)
+                cfg.InteractiveShellEmbed.term_title_format = ("Scapy %s" %
+                                                               conf.version)
                 # As of IPython 6-7, the jedi completion module is a dumpster
                 # of fire that should be scrapped never to be seen again.
                 # This is why the following defaults to False. Feel free to hurt
                 # yourself (#GH4056) :P
                 cfg.Completer.use_jedi = conf.ipython_use_jedi
             else:
-                cfg.TerminalInteractiveShell.term_title = False
+                cfg.InteractiveShellEmbed.term_title = False
             cfg.HistoryAccessor.hist_file = conf.histfile
             cfg.InteractiveShell.banner1 = banner
             # configuration can thus be specified here.

@@ -666,7 +666,7 @@ try:
 except:
     code_interact_import = "scapy.main.code.interact"
 else:
-    code_interact_import = "IPython.start_ipython"
+    code_interact_import = "IPython.embed"
 
 @mock.patch(code_interact_import)
 def interact_emulator(code_int, extra_args=[]):
