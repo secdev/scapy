@@ -105,9 +105,7 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
         """Sends a `Packet` object
 
         :param x: `Packet` to be send
-        :type x: Packet
         :return: Number of bytes that have been sent
-        :rtype: int
         """
         sx = raw(x)
         try:
@@ -126,11 +124,8 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
             """Internal function to receive a Packet.
 
             :param sock: Socket object from which data are received
-            :type sock: socket.socket
             :param x: Number of bytes to be received
-            :type x: int
             :return: Received bytes, address information and no timestamp
-            :rtype: Tuple[bytes, Any, Optional[float]]
             """
             pkt, sa_ll = sock.recvfrom(x)
             return pkt, sa_ll, None
@@ -141,11 +136,8 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
             and process ancillary data.
 
             :param sock: Socket object from which data are received
-            :type sock: socket.socket
             :param x: Number of bytes to be received
-            :type x: int
             :return: Received bytes, address information and an optional timestamp
-            :rtype: Tuple[bytes, Any, Optional[float]]
             """
             timestamp = None
             if not self.auxdata_available:
@@ -198,10 +190,8 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
 
         :param x: Maximum number of bytes to be received, defaults to MTU
-        :type x: int, optional
         :return: A tuple, consisting of a Packet type, the received data,
                  and a timestamp
-        :rtype: Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]
         """
         return conf.raw_layer, self.ins.recv(x), None
 
@@ -210,9 +200,7 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
         """Receive a Packet according to the `basecls` of this socket
 
         :param x: Maximum number of bytes to be received, defaults to MTU
-        :type x: int, optional
         :return: The received `Packet` object, or None
-        :rtype: Optional[Packet]
         """
         cls, val, ts = self.recv_raw(x)
         if not val or not cls:
