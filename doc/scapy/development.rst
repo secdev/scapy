@@ -293,12 +293,17 @@ signing a commit, the maintainer that wishes to create a release must:
 Taking v2.4.3 as an example, the following commands can be used to sign and
 publish the release::
 
- git tag -s v2.4.3 -m "Release 2.4.3"
- git tag v2.4.3 -v
- git push --tags
+ $ git tag -s v2.4.3 -m "Release 2.4.3"
+ $ git tag v2.4.3 -v
+ $ git push --tags
 
 Release Candidates (RC) could also be done. For example, the first RC will be
 tagged v2.4.3rc1 and the message ``2.4.3 Release Candidate #1``.
+
+.. note::
+   To add a signing key, configure to use a SSH one, then register it via::
+        $ git config --global gpg.format ssh
+        $ git config --global user.signingkey ~/.ssh/examplekey.pub
 
 Prior to uploading the release to PyPi, the mail address of the maintainer
 performing the release must be added next to his name in ``pyproject.toml``.
@@ -306,10 +311,10 @@ See `this <https://packaging.python.org/en/latest/specifications/declaring-proje
 
 The following commands can then be used::
 
- pip install --upgrade build
- python -m build
- twine check dist/*
- twine upload dist/*
+ $ pip install --upgrade build
+ $ SCAPY_VERSION=2.6.0rc1 python -m build
+ $ twine check dist/*
+ $ twine upload dist/*
 
 .. warning::
    Make sure that you don't have left-overs in your ``dist/`` folder ! There should only be the source and the wheel for the package.
