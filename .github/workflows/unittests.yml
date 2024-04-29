@@ -91,7 +91,7 @@ jobs:
             flags: " -K scanner"
           # PyPy tests: root only
           - os: ubuntu-latest
-            python: "pypy3.9"
+            python: "pypy3.10"
             mode: root
             flags: " -K scanner"
           # Libpcap test
@@ -112,7 +112,7 @@ jobs:
             allow-failure: 'true'
             flags: " -k scanner"
           - os: ubuntu-latest
-            python: "pypy3.9"
+            python: "pypy3.10"
             mode: root
             allow-failure: 'true'
             flags: " -k scanner"
