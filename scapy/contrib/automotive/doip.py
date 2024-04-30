@@ -261,13 +261,24 @@ class DoIP(Packet):
             return b"", None
 
 
-class _DoIPSocketBase(StreamSocket):
-    """ Custom BaseSocket for DoIP communication. This sockets automatically
-    sends a routing activation request as soon as a TCP connection is
+bind_bottom_up(UDP, DoIP, sport=13400)
+bind_bottom_up(UDP, DoIP, dport=13400)
+bind_layers(UDP, DoIP, sport=13400, dport=13400)
+
+bind_layers(TCP, DoIP, sport=13400)
+bind_layers(TCP, DoIP, dport=13400)
+
+bind_layers(DoIP, UDS, payload_type=0x8001)
+
+
+class DoIPSocket(SSLStreamSocket):
+    """Socket for DoIP communication. This sockets automatically
+    sends a routing activation request as soon as a TCP or TLS connection is
     established.
 
     :param ip: IP address of destination
     :param port: destination port, usually 13400
+    :param tls_port: destination port for TLS connection, usually 3496
     :param activate_routing: If true, routing activation request is
                              automatically sent
     :param source_address: DoIP source address
@@ -277,6 +288,8 @@ class _DoIPSocketBase(StreamSocket):
                             the routing activation request
     :param reserved_oem: Optional parameter to set value for reserved_oem field
                          of routing activation request
+    :param force_tls: Skip establishing of a TCP connection and directly try to
+                      connect via SSL/TLS
     :param context: Optional ssl.SSLContext object for initialization of ssl socket
                     connections.
 
@@ -286,20 +299,34 @@ class _DoIPSocketBase(StreamSocket):
         >>> resp = socket.sr1(pkt, timeout=1)
     """  # noqa: E501
 
-    def __init__(self, ip='127.0.0.1', port=13400, activate_routing=True,
-                 source_address=0xe80, target_address=0,
-                 activation_type=0, reserved_oem=b"", context=None):
-        # type: (str, int, bool, int, int, int, bytes, Optional[ssl.SSLContext]) -> None
+    def __init__(self,
+                 ip='127.0.0.1',  # type: str
+                 port=13400,  # type: int
+                 tls_port=3496,  # type: int
+                 activate_routing=True,  # type: bool
+                 source_address=0xe80,  # type: int
+                 target_address=0,  # type: int
+                 activation_type=0,  # type: int
+                 reserved_oem=b"",  # type: bytes
+                 force_tls=False,  # type: bool
+                 context=None  # type: Optional[ssl.SSLContext]
+                 ):  # type: (...) -> None
         self.ip = ip
         self.port = port
+        self.tls_port = tls_port
+        self.activate_routing = activate_routing
         self.source_address = source_address
+        self.target_address = target_address
+        self.activation_type = activation_type
+        self.reserved_oem = reserved_oem
         self.buffer = b""
+        self.force_tls = force_tls
         self.context = context
-        self._init_socket()
-
-        if activate_routing:
-            self._activate_routing(
-                source_address, target_address, activation_type, reserved_oem)
+        try:
+            self._init_socket(socket.AF_INET)
+        except Exception:
+            self.close()
+            raise
 
     def recv(self, x=MTU, **kwargs):
         # type: (Optional[int], **Any) -> Optional[Packet]
@@ -323,22 +350,75 @@ class _DoIPSocketBase(StreamSocket):
 
     def _init_socket(self, sock_family=socket.AF_INET):
         # type: (int) -> None
-        raise NotImplementedError
+        connected = False
+        s = socket.socket(sock_family, socket.SOCK_STREAM)
+        s.settimeout(5)
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-    def _activate_routing(self,
-                          source_address,  # type: int
-                          target_address,  # type: int
-                          activation_type,  # type: int
-                          reserved_oem=b""  # type: bytes
-                          ):  # type: (...) -> None
+        if not self.force_tls:
+            addrinfo = socket.getaddrinfo(self.ip, self.port, proto=socket.IPPROTO_TCP)
+            s.connect(addrinfo[0][-1])
+            connected = True
+            SSLStreamSocket.__init__(self, s, DoIP)
+
+            if not self.activate_routing:
+                return
+
+            activation_return = self._activate_routing()
+        else:
+            # Let's overwrite activation_return to force TLS Connection
+            activation_return = 0x07
+
+        if activation_return == 0x10:
+            # Routing successfully activated.
+            return
+        elif activation_return == 0x07:
+            # Routing activation denied because the specified activation
+            # type requires a secure TLS TCP_DATA socket.
+            if self.context is None:
+                raise ValueError("SSLContext 'context' can not be None")
+            if connected:
+                s.close()
+                s = socket.socket(sock_family, socket.SOCK_STREAM)
+                s.settimeout(5)
+                s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+            ss = self.context.wrap_socket(s)
+            addrinfo = socket.getaddrinfo(
+                self.ip, self.tls_port, proto=socket.IPPROTO_TCP)
+            ss.connect(addrinfo[0][-1])
+            SSLStreamSocket.__init__(self, ss, DoIP)
+
+            if not self.activate_routing:
+                return
+
+            activation_return = self._activate_routing()
+            if activation_return == 0x10:
+                # Routing successfully activated.
+                return
+            else:
+                raise Exception(
+                    "DoIPSocket activate_routing failed with "
+                    "routing_activation_response 0x%x" % activation_return)
+
+        elif activation_return == -1:
+            raise Exception("DoIPSocket._activate_routing failed")
+        else:
+            raise Exception(
+                "DoIPSocket activate_routing failed with "
+                "routing_activation_response 0x%x!" % activation_return)
+
+    def _activate_routing(self):  # type: (...) -> int
         resp = self.sr1(
-            DoIP(payload_type=0x5, activation_type=activation_type,
-                 source_address=source_address, reserved_oem=reserved_oem),
+            DoIP(payload_type=0x5, activation_type=self.activation_type,
+                 source_address=self.source_address, reserved_oem=self.reserved_oem),
             verbose=False, timeout=1)
         if resp and resp.payload_type == 0x6 and \
                 resp.routing_activation_response == 0x10:
             self.target_address = (
-                target_address or resp.logical_address_doip_entity)
+                self.target_address or resp.logical_address_doip_entity)
             log_automotive.info(
                 "Routing activation successful! Target address set to: 0x%x",
                 self.target_address)
@@ -346,87 +426,20 @@ class _DoIPSocketBase(StreamSocket):
             log_automotive.error(
                 "Routing activation failed! Response: %s", repr(resp))
 
-
-class DoIPSocket(_DoIPSocketBase, StreamSocket):
-    """ Custom StreamSocket for DoIP communication. This sockets automatically
-    sends a routing activation request as soon as a TCP connection is
-    established.
-
-    :param ip: IP address of destination
-    :param port: destination port, usually 13400
-    :param activate_routing: If true, routing activation request is
-                             automatically sent
-    :param source_address: DoIP source address
-    :param target_address: DoIP target address, this is automatically
-                           determined if routing activation request is sent
-    :param activation_type: This allows to set a different activation type for
-                            the routing activation request
-    :param reserved_oem: Optional parameter to set value for reserved_oem field
-                         of routing activation request
-    :param context: Optional ssl.SSLContext object for initialization of ssl socket
-                    connections.
-
-    Example:
-        >>> socket = DoIPSocket("169.254.0.131")
-        >>> pkt = DoIP(payload_type=0x8001, source_address=0xe80, target_address=0x1000) / UDS() / UDS_RDBI(identifiers=[0x1000])
-        >>> resp = socket.sr1(pkt, timeout=1)
-    """  # noqa: E501
-
-    def _init_socket(self, sock_family=socket.AF_INET):
-        # type: (int) -> None
-        s = socket.socket(sock_family, socket.SOCK_STREAM)
-        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        addrinfo = socket.getaddrinfo(self.ip, self.port, proto=socket.IPPROTO_TCP)
-        s.connect(addrinfo[0][-1])
-        StreamSocket.__init__(self, s, DoIP)
-
-
-class DoIPSslSocket(_DoIPSocketBase, SSLStreamSocket):
-    """ Custom StreamSocket for DoIP communication. This sockets automatically
-    sends a routing activation request as soon as a TCP connection is
-    established.
-
-    :param ip: IP address of destination
-    :param port: destination port, usually 13400
-    :param activate_routing: If true, routing activation request is
-                             automatically sent
-    :param source_address: DoIP source address
-    :param target_address: DoIP target address, this is automatically
-                           determined if routing activation request is sent
-    :param activation_type: This allows to set a different activation type for
-                            the routing activation request
-    :param reserved_oem: Optional parameter to set value for reserved_oem field
-                         of routing activation request
-    :param context: Optional ssl.SSLContext object for initialization of ssl socket
-                    connections.
-
-    Example:
-        >>> socket = DoIPSslSocket("169.254.0.131")
-        >>> pkt = DoIP(payload_type=0x8001, source_address=0xe80, target_address=0x1000) / UDS() / UDS_RDBI(identifiers=[0x1000])
-        >>> resp = socket.sr1(pkt, timeout=1)
-    """  # noqa: E501
-
-    def _init_socket(self, sock_family=socket.AF_INET):
-        # type: (int) -> None
-        if self.context is None:
-            raise ValueError("SSLContext 'context' can not be None")
-        s = socket.socket(sock_family, socket.SOCK_STREAM)
-        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        ss = self.context.wrap_socket(s)
-        addrinfo = socket.getaddrinfo(self.ip, self.port, proto=socket.IPPROTO_TCP)
-        ss.connect(addrinfo[0][-1])
-        SSLStreamSocket.__init__(self, ss, DoIP)
+        if resp and resp.payload_type == 0x6:
+            return resp.routing_activation_response
+        else:
+            return -1
 
 
 class DoIPSocket6(DoIPSocket):
-    """ Custom StreamSocket for DoIP communication over IPv6.
-    This sockets automatically sends a routing activation request as soon as
-    a TCP connection is established.
+    """Socket for DoIP communication. This sockets automatically
+    sends a routing activation request as soon as a TCP or TLS connection is
+    established.
 
     :param ip: IPv6 address of destination
     :param port: destination port, usually 13400
+    :param tls_port: destination port for TLS connection, usually 3496
     :param activate_routing: If true, routing activation request is
                              automatically sent
     :param source_address: DoIP source address
@@ -436,6 +449,10 @@ class DoIPSocket6(DoIPSocket):
                             the routing activation request
     :param reserved_oem: Optional parameter to set value for reserved_oem field
                          of routing activation request
+    :param force_tls: Skip establishing of a TCP connection and directly try to
+                      connect via SSL/TLS
+    :param context: Optional ssl.SSLContext object for initialization of ssl socket
+                    connections.
 
     Example:
         >>> socket = DoIPSocket6("2001:16b8:3f0e:2f00:21a:37ff:febf:edb9")
@@ -444,65 +461,34 @@ class DoIPSocket6(DoIPSocket):
         >>> resp = socket.sr1(pkt, timeout=1)
     """  # noqa: E501
 
-    def __init__(self, ip='::1', port=13400, activate_routing=True,
-                 source_address=0xe80, target_address=0,
-                 activation_type=0, reserved_oem=b"", context=None):
-        # type: (str, int, bool, int, int, int, bytes, Optional[ssl.SSLContext]) -> None
+    def __init__(self,
+                 ip='::1',  # type: str
+                 port=13400,  # type: int
+                 tls_port=3496,  # type: int
+                 activate_routing=True,  # type: bool
+                 source_address=0xe80,  # type: int
+                 target_address=0,  # type: int
+                 activation_type=0,  # type: int
+                 reserved_oem=b"",  # type: bytes
+                 force_tls=False,  # type: bool
+                 context=None  # type: Optional[ssl.SSLContext]
+                 ):  # type: (...) -> None
         self.ip = ip
         self.port = port
+        self.tls_port = tls_port
+        self.activate_routing = activate_routing
         self.source_address = source_address
+        self.target_address = target_address
+        self.activation_type = activation_type
+        self.reserved_oem = reserved_oem
         self.buffer = b""
+        self.force_tls = force_tls
         self.context = context
-        super(DoIPSocket6, self)._init_socket(socket.AF_INET6)
-
-        if activate_routing:
-            super(DoIPSocket6, self)._activate_routing(
-                source_address, target_address, activation_type, reserved_oem)
-
-
-class DoIPSslSocket6(DoIPSslSocket):
-    """ Custom SSLStreamSocket for DoIP communication over IPv6.
-    This sockets automatically sends a routing activation request as soon as
-    a TCP connection is established.
-
-    :param ip: IPv6 address of destination
-    :param port: destination port, usually 13400
-    :param activate_routing: If true, routing activation request is
-                             automatically sent
-    :param source_address: DoIP source address
-    :param target_address: DoIP target address, this is automatically
-                           determined if routing activation request is sent
-    :param activation_type: This allows to set a different activation type for
-                            the routing activation request
-    :param reserved_oem: Optional parameter to set value for reserved_oem field
-                         of routing activation request
-
-    Example:
-        >>> socket = DoIPSslSocket6("2001:16b8:3f0e:2f00:21a:37ff:febf:edb9", context=context)
-        >>> socket_link_local = DoIPSocket6("fe80::30e8:80ff:fe07:6d43%eth1", context=context)
-        >>> pkt = DoIP(payload_type=0x8001, source_address=0xe80, target_address=0x1000) / UDS() / UDS_RDBI(identifiers=[0x1000])
-        >>> resp = socket.sr1(pkt, timeout=1)
-    """  # noqa: E501
-
-    def __init__(self, ip='::1', port=13400, activate_routing=True,
-                 source_address=0xe80, target_address=0,
-                 activation_type=0, reserved_oem=b"", context=None):
-        # type: (str, int, bool, int, int, int, bytes, Optional[ssl.SSLContext]) -> None
-        super().__init__(ip, port, activate_routing, source_address,
-                         target_address, activation_type, reserved_oem,
-                         context)
-
-    def _init_socket(self, sock_family=socket.AF_INET6):
-        # type: (int) -> None
-        if self.context is None:
-            raise ValueError("SSLContext 'context' can not be None")
-        s = socket.socket(sock_family, socket.SOCK_STREAM)
-        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        ss = self.context.wrap_socket(s)
-        addrinfo = socket.getaddrinfo(self.ip, self.port, proto=socket.IPPROTO_TCP)
-        ss.connect(addrinfo[0][-1])
-        SSLStreamSocket.__init__(self, ss, DoIP)
+        try:
+            self._init_socket(socket.AF_INET6)
+        except Exception:
+            self.close()
+            raise
 
 
 class _UDS_DoIPSocketBase(StreamSocket):
@@ -566,39 +552,3 @@ class UDS_DoIPSocket6(_UDS_DoIPSocketBase, DoIPSocket6):
         >>> resp = socket.sr1(pkt, timeout=1)
     """
     pass
-
-
-class UDS_DoIPSslSocket(_UDS_DoIPSocketBase, DoIPSslSocket):
-    """
-    Application-Layer socket for DoIP endpoints. This socket takes care about
-    the encapsulation of UDS packets into DoIP packets.
-
-    Example:
-        >>> socket = UDS_DoIPSslSocket("169.254.117.238", context=context)
-        >>> pkt = UDS() / UDS_RDBI(identifiers=[0x1000])
-        >>> resp = socket.sr1(pkt, timeout=1)
-    """
-    pass
-
-
-class UDS_DoIPSslSocket6(_UDS_DoIPSocketBase, DoIPSslSocket6):
-    """
-    Application-Layer socket for DoIP endpoints. This socket takes care about
-    the encapsulation of UDS packets into DoIP packets.
-
-    Example:
-        >>> socket = UDS_DoIPSslSocket6("2001:16b8:3f0e:2f00:21a:37ff:febf:edb9", context=context)
-        >>> pkt = UDS() / UDS_RDBI(identifiers=[0x1000])
-        >>> resp = socket.sr1(pkt, timeout=1)
-    """  # noqa: E501
-    pass
-
-
-bind_bottom_up(UDP, DoIP, sport=13400)
-bind_bottom_up(UDP, DoIP, dport=13400)
-bind_layers(UDP, DoIP, sport=13400, dport=13400)
-
-bind_layers(TCP, DoIP, sport=13400)
-bind_layers(TCP, DoIP, dport=13400)
-
-bind_layers(DoIP, UDS, payload_type=0x8001)
