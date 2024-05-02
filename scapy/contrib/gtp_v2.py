@@ -233,6 +233,8 @@ IEType = {1: "IMSI",
              163: "Additional Protocol Configuration Options",
              170: "ULI Timestamp",
              172: "RAN/NAS Cause",
+             187: "Integer Number : Maximum Wait Time",
+             188: "Millisecond Time Stamp",
              197: "Extended Protocol Configuration Options",
              202: "UP Function Selection Indication Flags",
              255: "Private Extension",
@@ -1427,6 +1429,21 @@ class IE_MMBR(gtp.IE_Base):
                    IntField("uplink_rate", 0),
                    IntField("downlink_rate", 0)]
 
+class IE_Maximum_Wait_Time(gtp.IE_Base):
+    name = "IE Maximum Wait Time"
+    fields_desc = [ByteEnumField("ietype", 187, IEType),
+                   ShortField("length", None),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   ShortField("MaximumWaitTime", 4)]
+
+class IE_Millisecond_Time_Stamp(gtp.IE_Base):
+    name = "IE Millisecond Time Stamp"
+    fields_desc = [ByteEnumField("ietype", 188, IEType),
+                   ShortField("length", None),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   BitField("OriginationTimeStamp", 0, 48)]
 
 class IE_UPF_SelInd_Flags(gtp.IE_Base):
     name = "IE UP Function Selection Indication Flags"
@@ -1518,6 +1535,8 @@ ietypecls = {1: IE_IMSI,
              163: IE_APCO,
              170: IE_ULI_Timestamp,
              172: IE_Ran_Nas_Cause,
+             187: IE_Maximum_Wait_Time,
+             188: IE_Millisecond_Time_Stamp,
              197: IE_EPCO,
              202: IE_UPF_SelInd_Flags,
              255: IE_PrivateExtension}
