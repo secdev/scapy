@@ -372,11 +372,20 @@ def get_if_list():
 def get_working_if():
     # type: () -> NetworkInterface
     """Return an interface that works"""
-    # return the interface associated with the route with smallest
-    # mask (route by default if it exists)
-    routes = conf.route.routes[:]
-    routes.sort(key=lambda x: x[1])
-    ifaces = (x[3] for x in routes)
+    # return the interface associated with the default route
+    # IPv4 default route is preferred, then IPv6 route
+    # shorter or equal than /8 or any interface as a fallback
+    default_routes_v4 = (x for x in conf.route.routes if x[1] == 0)
+    if conf.route6:
+        default_routes_v6 = (x for x in conf.route6.routes if x[1] <= 8)
+        default_routes_v6 = sorted(default_routes_v6, key=lambda x: x[1])
+    else:
+        default_routes_v6 = []
+
+    ifaces = (x[3] for x in itertools.chain(
+        default_routes_v4,
+        default_routes_v6)
+    )
     # First check the routing ifaces from best to worse,
     # then check all the available ifaces as backup.
     for ifname in itertools.chain(ifaces, conf.ifaces.values()):

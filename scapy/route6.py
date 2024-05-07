@@ -360,3 +360,5 @@ class Route6:
 
 
 conf.route6 = Route6()
+# IPv6 routing table can influence default interface selection
+conf.ifaces.reload()
