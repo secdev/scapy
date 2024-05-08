@@ -1603,9 +1603,14 @@ class RawPcapNgReader(RawPcapReader):
             warning("PcapNg: Error reading blocklen before block body")
             raise EOFError
         if blocklen < 12:
-            warning("Invalid block length !")
+            warning("PcapNg: Invalid block length !")
             raise EOFError
-        block = self.f.read(blocklen - 12)
+
+        _block_body_length = blocklen - 12
+        block = self.f.read(_block_body_length)
+        if len(block) != _block_body_length:
+            raise Scapy_Exception("PcapNg: Invalid Block body length "
+                                  "(too short)")
         self._read_block_tail(blocklen)
         if blocktype in self.blocktypes:
             return self.blocktypes[blocktype](block, size)
@@ -1635,25 +1640,41 @@ class RawPcapNgReader(RawPcapReader):
         elif endian == b"\x4d\x3c\x2b\x1a":
             self.endian = "<"
         else:
-            warning("Bad magic in Section Header block (not a pcapng file?)")
+            warning("PcapNg: Bad magic in Section Header Block"
+                    " (not a pcapng file?)")
             raise EOFError
 
-        blocklen = struct.unpack(self.endian + "I", _blocklen)[0]
+        try:
+            blocklen = struct.unpack(self.endian + "I", _blocklen)[0]
+        except struct.error:
+            warning("PcapNg: Could not read blocklen")
+            raise EOFError
         if blocklen < 28:
-            warning(f"Invalid SHB block length ({blocklen})!")
+            warning(f"PcapNg: Invalid Section Header Block length ({blocklen})!")  # noqa: E501
             raise EOFError
 
         # Major version must be 1
         _major = self.f.read(2)
-        major = struct.unpack(self.endian + "H", _major)[0]
+        try:
+            major = struct.unpack(self.endian + "H", _major)[0]
+        except struct.error:
+            warning("PcapNg: Could not read major value")
+            raise EOFError
         if major != 1:
-            warning(f"SHB Major version {major} unsupported !")
+            warning(f"PcapNg: SHB Major version {major} unsupported !")
             raise EOFError
 
         # Skip minor version & section length
-        self.f.read(10)
+        skipped = self.f.read(10)
+        if len(skipped) != 10:
+            warning("PcapNg: Could not read minor value & section length")
+            raise EOFError
 
-        options = self.f.read(blocklen - 28)
+        _options_len = blocklen - 28
+        options = self.f.read(_options_len)
+        if len(options) != _options_len:
+            raise Scapy_Exception("PcapNg: Invalid Section Header Block "
+                                  " options (too short)")
         self._read_block_tail(blocklen)
         self._read_options(options)
 
@@ -1673,7 +1694,12 @@ class RawPcapNgReader(RawPcapReader):
         # type: (bytes) -> Dict[int, bytes]
         opts = dict()
         while len(options) >= 4:
-            code, length = struct.unpack(self.endian + "HH", options[:4])
+            try:
+                code, length = struct.unpack(self.endian + "HH", options[:4])
+            except struct.error:
+                warning("PcapNg: options header is too small "
+                        "%d !" % len(options))
+                raise EOFError
             if code != 0 and 4 + length < len(options):
                 opts[code] = options[4:4 + length]
             if code == 0:
@@ -1910,7 +1936,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         p.comment = comment
         p.direction = direction
         if ifname is not None:
-            p.sniffed_on = ifname.decode('utf-8')
+            p.sniffed_on = ifname.decode('utf-8', 'backslashreplace')
         return p
 
     def recv(self, size: int = MTU, **kwargs: Any) -> 'Packet':  # type: ignore
