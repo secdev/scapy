@@ -389,7 +389,6 @@ import ssl
 import tempfile
 
 = Test DoIPSocket
-~ automotive_comm
 
 server_up = threading.Event()
 def server():
@@ -419,7 +418,7 @@ assert len(pkts) == 2
 
 
 = Test DoIPSocket 2
-~ automotive_comm
+~ linux
 
 server_up = threading.Event()
 def server():
@@ -450,7 +449,6 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test DoIPSocket 3
-~ automotive_comm
 
 server_up = threading.Event()
 def server():
@@ -484,7 +482,6 @@ assert len(pkts) == 2
 
 
 = Test DoIPSocket6
-~ automotive_comm
 
 server_up = threading.Event()
 def server():
@@ -513,7 +510,6 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test DoIPSslSocket
-~ automotive_comm
 
 certstring = """
 LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2QUlCQURBTkJna3Foa2lHOXcwQkFRRUZB
@@ -616,7 +612,6 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test DoIPSslSocket6
-~ automotive_comm
 
 server_up = threading.Event()
 def server():
@@ -653,7 +648,6 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test UDS_DoIPSslSocket6
-~ automotive_comm
 
 server_up = threading.Event()
 def server():
@@ -690,7 +684,6 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test UDS_DualDoIPSslSocket6
-~ automotive_comm
 
 server_tcp_up = threading.Event()
 server_tls_up = threading.Event()
