@@ -364,14 +364,10 @@ class ISOTPNativeSocket(SuperSocket):
         )
 
         self.__bind_socket(can_socket, self.iface, self.tx_id, self.rx_id)
-        # make sure existing sockets are closed
-        if getattr(self, "outs", None):
-            if getattr(self, "ins", None) != self.outs:
-                if self.outs and self.outs.fileno() != -1:
-                    self.outs.close()
-        if getattr(self, "ins", None):
-            if self.ins.fileno() != -1:
-                self.ins.close()
+        # make sure existing sockets are closed,
+        # required in case of a reconnect.
+        self.closed = False
+        self.close()
 
         self.ins = can_socket
         self.outs = can_socket
