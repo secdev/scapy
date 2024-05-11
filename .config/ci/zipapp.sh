@@ -10,7 +10,13 @@ DIR=$(realpath "$(dirname "$0")/../../")
 cd $DIR
 
 if [ ! -e "pyproject.toml" ]; then
-    echo "zipapp.sh must be called from scapy root folder"
+    echo "zipapp.sh was not able to find scapy's root folder"
+    exit 1
+fi
+
+MODE="$1"
+if [ -z "$MODE" ] || ( [ "$MODE" != "full" ] && [ "$MODE" != "simple" ] ); then
+    echo "Usage: zipapp.sh <simple/full>"
     exit 1
 fi
 
@@ -18,6 +24,9 @@ if [ -z "$PYTHON" ]
 then
   PYTHON=${PYTHON:-python3}
 fi
+
+# Get Scapy version
+SCPY_VERSION=$(python3 -c "print(__import__('scapy').__version__)")
 
 # Get temp directory
 TMPFLD="$(mktemp -d)"
@@ -45,11 +54,17 @@ cd "$SCPY" && find . -not \( \
     -wholename "./scapy*" -o \
     -wholename "./pyproject.toml" -o \
     -wholename "./LICENSE" \
-\) -print
+\) -delete
 cd $DIR
 
-# Get DEST file
-DEST="./dist/scapy.pyz"
+# Depending on the mode, install dependencies and get DEST file
+if [ "$MODE" == "full" ]; then
+    $PYTHON -m pip install --target "$SCPY" IPython
+    DEST="./dist/scapy-full-$SCPY_VERSION.pyz"
+else
+    DEST="./dist/scapy-$SCPY_VERSION.pyz"
+fi
+
 if [ ! -d "./dist" ]; then
     mkdir dist
 fi
@@ -66,3 +81,5 @@ $PYTHON -m zipapp \
 
 # Cleanup
 rm -rf "$TMPFLD"
+
+echo "Success. zipapp avaiable at $DEST"
