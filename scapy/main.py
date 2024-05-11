@@ -422,10 +422,10 @@ def save_session(fname="", session=None, pickleProto=-1):
     log_interactive.info("Saving session into [%s]", fname)
 
     if not session:
-        try:
+        if conf.interactive_shell in ["ipython", "ptipython"]:
             from IPython import get_ipython
             session = get_ipython().user_ns
-        except Exception:
+        else:
             session = builtins.__dict__["scapy_session"]
 
     if not session:
@@ -934,6 +934,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                 cfg.InteractiveShellEmbed.confirm_exit = False
                 cfg.InteractiveShellEmbed.separate_in = u''
             if int(IPython.__version__[0]) >= 6:
+                cfg.InteractiveShellEmbed.term_title = True
                 cfg.InteractiveShellEmbed.term_title_format = ("Scapy %s" %
                                                                conf.version)
                 # As of IPython 6-7, the jedi completion module is a dumpster

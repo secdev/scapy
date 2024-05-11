@@ -66,9 +66,6 @@ doc = [
 
 # setuptools specific
 
-[tool.setuptools]
-zip-safe = false  # We use __file__ in scapy/__init__.py, therefore Scapy isn't zip safe
-
 [tool.setuptools.packages.find]
 include = [
     "scapy*",
@@ -90,7 +87,7 @@ omit = [
     # Scapy tools
     "scapy/tools/",
     # Scapy external modules
-    "scapy/libs/six.py",
-    "scapy/libs/winpcapy.py",
     "scapy/libs/ethertypes.py",
+    "scapy/libs/manuf.py",
+    "scapy/libs/winpcapy.py",
 ]
