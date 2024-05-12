@@ -861,7 +861,7 @@ def in4_ismaddr(str):
     Returns True if provided address in printable format belongs to
     allocated Multicast address space (224.0.0.0/4).
     """
-    return in4_isincluded(str, '224.0.0.0', 4)
+    return in4_isincluded(str, "224.0.0.0", 4)
 
 
 def in4_ismlladdr(str):

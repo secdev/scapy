@@ -15,7 +15,7 @@ import time
 from scapy.ansmachine import AnsweringMachine
 from scapy.arch import get_if_addr, get_if_hwaddr
 from scapy.base_classes import Gen, Net
-from scapy.compat import chb, orb
+from scapy.compat import chb
 from scapy.config import conf
 from scapy import consts
 from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
