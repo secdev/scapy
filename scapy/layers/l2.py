@@ -1002,8 +1002,13 @@ class ARPingResult(SndRcvList):
 
 
 @conf.commands.register
-def arping(net, timeout=2, cache=0, verbose=None, **kargs):
-    # type: (str, int, int, Optional[int], **Any) -> Tuple[ARPingResult, PacketList] # noqa: E501
+def arping(net: str,
+           timeout: int = 2,
+           cache: int = 0,
+           verbose: Optional[int] = None,
+           threaded: bool = True,
+           **kargs: Any,
+           ) -> Tuple[ARPingResult, PacketList]:
     """
     Send ARP who-has requests to determine which hosts are up::
 
@@ -1028,6 +1033,7 @@ def arping(net, timeout=2, cache=0, verbose=None, **kargs):
         verbose=verbose,
         filter="arp and arp[7] = 2",
         timeout=timeout,
+        threaded=threaded,
         iface_hint=net,
         **kargs,
     )
