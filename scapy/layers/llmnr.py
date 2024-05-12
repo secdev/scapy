@@ -101,6 +101,16 @@ DestIP6Field.bind_addr(LLMNRResponse, _LLMNR_IPv6_mcast_Addr, dport=5355)
 
 
 class LLMNR_am(DNS_am):
+    """
+    LLMNR answering machine.
+
+    This has the same arguments as DNS_am. See help(DNS_am)
+
+    Example::
+
+        >>> llmnrd(joker="192.168.0.2", iface="eth0")
+        >>> llmnrd(match={"TEST": "192.168.0.2"})
+    """
     function_name = "llmnrd"
     filter = "udp port 5355"
     cls = LLMNRQuery
