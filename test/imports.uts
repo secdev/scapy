@@ -12,7 +12,7 @@ import subprocess
 import re
 import time
 import sys
-from scapy.consts import WINDOWS
+from scapy.consts import WINDOWS, OPENBSD
 
 # DEV: to add your file to this list, make sure you have
 # a GREAT reason.
@@ -47,7 +47,7 @@ ALL_FILES = [
     x.split(".")[1] not in EXCEPTION_PACKAGES
 ]
 
-NB_PROC = 1 if WINDOWS else 4
+NB_PROC = 1 if WINDOWS or OPENBSD else 4
 
 def append_processes(processes, filename):
     processes.append(
