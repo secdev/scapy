@@ -17,7 +17,11 @@ from scapy.base_classes import Net
 from scapy.data import IPV6_ADDR_GLOBAL, IPV6_ADDR_LINKLOCAL, \
     IPV6_ADDR_SITELOCAL, IPV6_ADDR_LOOPBACK, IPV6_ADDR_UNICAST,\
     IPV6_ADDR_MULTICAST, IPV6_ADDR_6TO4, IPV6_ADDR_UNSPECIFIED
-from scapy.utils import strxor
+from scapy.utils import (
+    strxor,
+    stror,
+    strand,
+)
 from scapy.compat import orb, chb
 from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.volatile import RandMAC, RandBin
@@ -591,18 +595,6 @@ def in6_isanycast(x):  # RFC 2526
         return False
 
 
-def _in6_bitops(xa1, xa2, operator=0):
-    # type: (bytes, bytes, int) -> bytes
-    a1 = struct.unpack('4I', xa1)
-    a2 = struct.unpack('4I', xa2)
-    fop = [lambda x, y: x | y,
-           lambda x, y: x & y,
-           lambda x, y: x ^ y
-           ]
-    ret = map(fop[operator % len(fop)], a1, a2)
-    return b"".join(struct.pack('I', x) for x in ret)
-
-
 def in6_or(a1, a2):
     # type: (bytes, bytes) -> bytes
     """
@@ -610,7 +602,7 @@ def in6_or(a1, a2):
     passed in network format. Return value is also an IPv6 address
     in network format.
     """
-    return _in6_bitops(a1, a2, 0)
+    return stror(a1, a2)
 
 
 def in6_and(a1, a2):
@@ -620,7 +612,7 @@ def in6_and(a1, a2):
     passed in network format. Return value is also an IPv6 address
     in network format.
     """
-    return _in6_bitops(a1, a2, 1)
+    return strand(a1, a2)
 
 
 def in6_xor(a1, a2):
@@ -630,7 +622,7 @@ def in6_xor(a1, a2):
     passed in network format. Return value is also an IPv6 address
     in network format.
     """
-    return _in6_bitops(a1, a2, 2)
+    return strxor(a1, a2)
 
 
 def in6_cidr2mask(m):

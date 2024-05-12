@@ -532,6 +532,28 @@ assert (Ether() / ARP()).route()[0] is not None
 assert (Ether() / ARP()).payload.route()[0] is not None
 assert (ARP(ptype=0, pdst="hello. this isn't a valid IP")).route()[0] is None
 
+= utils/in4_is*
+
+assert in4_ismaddr("224.0.0.1")
+assert not in4_ismaddr("192.168.0.1")
+assert in4_ismaddr("239.0.0.255")
+
+assert in4_ismlladdr("224.0.0.1")
+assert in4_ismlladdr("224.0.0.255")
+assert not in4_ismlladdr("224.0.1.255")
+
+assert in4_ismgladdr("235.0.0.1")
+assert not in4_ismgladdr("224.0.0.1")
+assert not in4_ismgladdr("239.0.0.1")
+
+assert in4_ismlsaddr("239.0.0.1")
+assert not in4_ismlsaddr("224.0.0.1")
+
+assert in4_isaddrllallnodes("224.0.0.1")
+assert not in4_isaddrllallnodes("224.0.0.3")
+
+assert in4_getnsmac(b'\xe0\x00\x00\x01') == '01:00:5e:00:00:01'
+assert getmacbyip("224.0.0.1") == '01:00:5e:00:00:01'
 
 = plain_str test
 
@@ -944,7 +966,7 @@ random.seed(0x2807)
 zerofree_randstring(4) in [b"\xd2\x12\xe4\x5b", b'\xd3\x8b\x13\x12']
 
 = Test strand function
-assert strand("AC", "BC") == b'@C'
+assert strand(b"AC", b"BC") == b'@C'
 
 = Test export_object and import_object functions
 import mock

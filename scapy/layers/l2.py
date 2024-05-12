@@ -63,6 +63,8 @@ from scapy.utils import (
     checksum,
     hexdump,
     hexstr,
+    in4_getnsmac,
+    in4_ismaddr,
     inet_aton,
     inet_ntoa,
     mac2str,
@@ -131,19 +133,36 @@ _arp_cache = conf.netcache.new_cache("arp_cache", 120)
 @conf.commands.register
 def getmacbyip(ip, chainCC=0):
     # type: (str, int) -> Optional[str]
-    """Return MAC address corresponding to a given IP address"""
+    """
+    Returns the MAC address used to reach a given IP address.
+
+    This will follow the routing table and will issue an ARP request if
+    necessary. Special cases (multicast, etc.) are also handled.
+
+    .. seealso:: :func:`~scapy.layers.inet6.getmacbyip6` for IPv6.
+    """
+    # Sanitize the IP
     if isinstance(ip, Net):
         ip = next(iter(ip))
     ip = inet_ntoa(inet_aton(ip or "0.0.0.0"))
-    tmp = [orb(e) for e in inet_aton(ip)]
-    if (tmp[0] & 0xf0) == 0xe0:  # mcast @
-        return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1] & 0x7f, tmp[2], tmp[3])
+
+    # Multicast
+    if in4_ismaddr(ip):  # mcast @
+        mac = in4_getnsmac(inet_aton(ip))
+        return mac
+
+    # Check the routing table
     iff, _, gw = conf.route.route(ip)
+
+    # Broadcast case
     if (iff == conf.loopback_name) or (ip in conf.route.get_if_bcast(iff)):
         return "ff:ff:ff:ff:ff:ff"
+
+    # An ARP request is necessary
     if gw != "0.0.0.0":
         ip = gw
 
+    # Check the cache
     mac = _arp_cache.get(ip)
     if mac:
         return mac
