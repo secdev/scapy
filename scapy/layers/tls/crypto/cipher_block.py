@@ -17,10 +17,21 @@ if conf.crypto_valid:
     from cryptography.utils import (
         CryptographyDeprecationWarning,
     )
-    from cryptography.hazmat.primitives.ciphers import (Cipher, algorithms, modes,  # noqa: E501
-                                                        BlockCipherAlgorithm,
-                                                        CipherAlgorithm)
+    from cryptography.hazmat.primitives.ciphers import (
+        BlockCipherAlgorithm,
+        Cipher,
+        CipherAlgorithm,
+        algorithms,
+        modes,
+    )
     from cryptography.hazmat.backends.openssl.backend import backend
+    try:
+        # cryptography > 43.0
+        from cryptography.hazmat.decrepit.ciphers import (
+            algorithms as decrepit_algorithms,
+        )
+    except ImportError:
+        decrepit_algorithms = algorithms
 
 
 _tls_block_cipher_algs = {}
@@ -133,7 +144,7 @@ _sslv2_block_cipher_algs = {}
 
 if conf.crypto_valid:
     class Cipher_DES_CBC(_BlockCipher):
-        pc_cls = algorithms.TripleDES
+        pc_cls = decrepit_algorithms.TripleDES
         pc_cls_mode = modes.CBC
         block_size = 8
         key_len = 8
@@ -151,7 +162,7 @@ if conf.crypto_valid:
         key_len = 5
 
     class Cipher_3DES_EDE_CBC(_BlockCipher):
-        pc_cls = algorithms.TripleDES
+        pc_cls = decrepit_algorithms.TripleDES
         pc_cls_mode = modes.CBC
         block_size = 8
         key_len = 24
@@ -165,13 +176,13 @@ if conf.crypto_valid:
                                     category=CryptographyDeprecationWarning)
 
             class Cipher_IDEA_CBC(_BlockCipher):
-                pc_cls = algorithms.IDEA
+                pc_cls = decrepit_algorithms.IDEA
                 pc_cls_mode = modes.CBC
                 block_size = 8
                 key_len = 16
 
             class Cipher_SEED_CBC(_BlockCipher):
-                pc_cls = algorithms.SEED
+                pc_cls = decrepit_algorithms.SEED
                 pc_cls_mode = modes.CBC
                 block_size = 16
                 key_len = 16
