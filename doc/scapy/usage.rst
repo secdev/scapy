@@ -1449,6 +1449,15 @@ By default, ``dnsd`` uses a joker (IPv4 only): it answers to all unknown servers
 
 You can also use ``relay=True`` to replace the joker behavior with a forward to a server included in ``conf.nameservers``.
 
+mDNS server
+------------
+
+See :class:`~scapy.layers.dns.mDNS_am`::
+
+    >>> mdnsd(iface="eth0", joker="192.168.1.1")
+
+Note that ``mdnsd`` extends the ``dnsd`` API.
+
 LLMNR server
 ------------
 

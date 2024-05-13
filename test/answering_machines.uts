@@ -126,6 +126,43 @@ assert DNS_am().make_reply(
     Ether()/IP()/UDP()/DNS(b'q\xa04\x00\x00\xa0\x01\x00\xf3\x00\x01\x04\x01y')
 ) is None
 
+= LLMNR_am
+def check_LLMNR_am_am_reply(packet):
+    assert packet[Ether].src == get_if_hwaddr(conf.iface)
+    assert packet[Ether].dst == "aa:aa:aa:aa:aa:aa"
+    assert packet[IP].src == get_if_addr(conf.iface)
+    assert packet[IP].dst == "192.168.0.1"
+    assert packet[UDP].dport == 51938
+    assert packet[UDP].sport == 5355
+    assert LLMNRResponse in packet and packet[LLMNRResponse].ancount == 1 and packet[LLMNRResponse].qdcount == 1
+    assert packet[LLMNRResponse].qd[0].qname == b"TEST."
+    assert packet[LLMNRResponse].an[0].rdata == "192.168.1.1"
+    assert packet[LLMNRResponse].an[0].rrname == b"TEST."
+    assert packet[LLMNRResponse].an[0].ttl == 10
+
+test_am(LLMNR_am,
+        Ether(src="aa:aa:aa:aa:aa:aa", dst="01:00:5e:00:00:fc")/IP(src="192.168.0.1", dst="224.0.0.252")/UDP(dport=5355, sport=51938)/LLMNRQuery(qd=DNSQR(qname=b"TEST.", qtype="A")),
+        check_LLMNR_am_am_reply,
+        match={"TEST": "192.168.1.1"})
+
+= mDNS_am
+def check_mDNS_am_reply(packet):
+    assert packet[Ether].src == get_if_hwaddr(conf.iface)
+    assert packet[Ether].dst == "01:00:5e:00:00:fb"
+    assert packet[IP].src == get_if_addr(conf.iface)
+    assert packet[IP].dst == "224.0.0.251"
+    assert packet[UDP].dport == 5353
+    assert packet[UDP].sport == 5353
+    assert DNS in packet and packet[DNS].ancount == 1 and packet[DNS].qdcount == 0
+    assert packet[DNS].an[0].rdata == "192.168.1.1"
+    assert packet[DNS].an[0].rrname == b"TEST.local."
+    assert packet[DNS].an[0].ttl == 10
+
+test_am(mDNS_am,
+        Ether(src="aa:aa:aa:aa:aa:aa", dst="01:00:5e:00:00:fb")/IP(src="192.168.0.1", dst="224.0.0.251")/UDP(dport=5353, sport=5353)/DNS(qd=DNSQR(qname=b"TEST.local.", qtype="A")),
+        check_mDNS_am_reply,
+        joker="192.168.1.1")
+
 = DHCPv6_am - Basic Instantiaion
 ~ osx netaccess
 a = DHCPv6_am()
