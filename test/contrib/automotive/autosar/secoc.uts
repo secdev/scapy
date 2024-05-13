@@ -1,0 +1,103 @@
+% Regression tests for the SecOC_PDUTransport / SecOC_PDU layer
+
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
+
++ SecOC_PDUTransport contrib tests
+
+= Load Contrib Layer
+
+load_contrib("automotive.autosar.secoc", globals_dict=globals())
+
+= Defaults test
+p = SecOC_PDUTransport()
+p.show()
+assert p.pdus == [SecOC_PDU()]
+
+p = SecOC_PDU()
+assert p.pdu_id == 0
+assert p.pdu_payload_len == None
+
+
+= Build test pdu_id
+p = SecOC_PDU(bytes(SecOC_PDU(pdu_id=0x11)))
+assert len(bytes(p)) == 12
+assert p.pdu_id == 0x11
+assert p.pdu_payload_len == 4
+
+
+= Build test pdu_payload_len
+p1 = bytes(SecOC_PDU(pdu_payload_len=12, pdu_payload=bytes.fromhex("1122334455667788")))
+print(p1.hex())
+p = SecOC_PDU(p1)
+p.show()
+assert len(p) == 20
+assert p.pdu_id == 0
+assert p.pdu_payload_len == 12
+assert bytes(p.pdu_payload) == bytes.fromhex("1122334455667788")
+assert p.freshness_value == 0
+assert p.message_authentication_code == 0
+
+
+= Build test pdu_payload_len2
+p1 = bytes(SecOC_PDU(pdu_id=0xdeadbeef, pdu_payload_len=12, pdu_payload=bytes.fromhex("1122334455667788"), freshness_value=42))
+print(p1.hex())
+p = SecOC_PDU(p1)
+p.show()
+assert len(p) == 20
+assert p.pdu_id == 0xdeadbeef
+assert p.pdu_payload_len == 12
+assert bytes(p.pdu_payload) == bytes.fromhex("1122334455667788")
+assert p.freshness_value == 42
+assert p.message_authentication_code == 0
+assert SecOC_PDU.freshness_values_by_identifier[0xdeadbeef] == 42
+
+
+= Build test id and payload len with data
+p = SecOC_PDU(bytes(SecOC_PDU(pdu_id=0x12, pdu_payload=b'\x22\x33\x22\x33')))
+assert len(p) == 16
+assert p.pdu_id == 0x12
+print(p.pdu_payload)
+p.show()
+assert p.pdu_payload_len == 8
+assert len(p.pdu_payload) == 4
+assert bytes(p.pdu_payload) == b'\x22\x33\x22\x33'
+
+
+= Build SecOC_PDUTransport with multiple SecOC_PDU packets
+p1 = SecOC_PDUTransport(
+    b'\x00\x00\x00\x01\x00\x00\x00\x05\x11\x00\x00\x00\x00'
+    b'\x00\x00\x00\x02\x00\x00\x00\x06\x11\x44\x00\x00\x00\x00'
+    b'\x00\x00\x00\x03\x00\x00\x00\x07\x11\x33\x91\x00\x00\x00\x00')
+
+# Check if fields are set correctly within SecOC_PDU list
+assert p1.pdus[0].pdu_id == 0x1
+assert p1.pdus[0].pdu_payload_len == 5
+assert p1.pdus[1].pdu_id == 0x2
+assert p1.pdus[1].pdu_payload_len == 6
+assert p1.pdus[2].pdu_id == 0x3
+assert p1.pdus[2].pdu_payload_len == 7
+
+p2 = SecOC_PDUTransport(bytes(SecOC_PDUTransport(
+    pdus=[
+        SecOC_PDU(pdu_id=0x1,pdu_payload_len=5, pdu_payload=Raw(b'\x11')),
+        SecOC_PDU(pdu_id=0x2, pdu_payload_len=6, pdu_payload=Raw(b'\x11\x44')),
+        SecOC_PDU(pdu_id=0x3, pdu_payload_len=7, pdu_payload=Raw(b'\x11\x33\x91'))
+    ])))
+# Check if packets are the same
+assert p1 == p2
+
+
+= Build SecOC_PDUTransport with one SecOC_PDU packet
+p1 = SecOC_PDUTransport(b'\x00\x00\x00\x01\x00\x00\x00\x08\xaa\xaa\xaa\xaa\x11\x22\x33\x44')
+p2 = SecOC_PDUTransport(bytes(SecOC_PDUTransport(pdus=[SecOC_PDU(pdu_id=0x1, pdu_payload=Raw(b'\xaa\xaa\xaa\xaa'), freshness_value=0x11, message_authentication_code=0x223344)])))
+
+# Check if packets are the same
+assert p1 == p2
+# Check if fields are set correctly within SecOC_PDU list
+assert p1.pdus[0].pdu_id == 0x1
+assert p1.pdus[0].pdu_payload_len == 8
