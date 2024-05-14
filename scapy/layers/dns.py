@@ -13,6 +13,7 @@ import itertools
 import socket
 import struct
 import time
+import types
 import warnings
 
 from scapy.arch import (
@@ -1432,15 +1433,19 @@ class DNS_am(AnsweringMachine):
                       joker6=False,
                       send_error=False,
                       relay=False,
-                      from_ip=None,
-                      from_ip6=None,
+                      from_ip=True,
+                      from_ip6=False,
                       src_ip=None,
                       src_ip6=None,
-                      ttl=10,
+                      ttl=60,
                       jokerarpa=None):
         """
-        :param joker: default IPv4 for unresolved domains. (Default: None)
+        Simple DNS answering machine.
+
+        :param joker: default IPv4 for unresolved domains.
                       Set to False to disable, None to mirror the interface's IP.
+                      Defaults to None, unless 'match' is used, then it defaults to
+                      False.
         :param joker6: default IPv6 for unresolved domains (Default: False)
                        set to False to disable, None to mirror the interface's IPv6.
         :param jokerarpa: answer for .in-addr.arpa PTR requests. (Default: None)
@@ -1452,8 +1457,10 @@ class DNS_am(AnsweringMachine):
                       representing an IP or a list of IPs. If val is a single element,
                       (A, None) is assumed.
         :param srvmatch: a dictionary of {name: (port, target)} used for SRV
-        :param from_ip: an source IP to filter. Can contain a netmask
-        :param from_ip6: an source IPv6 to filter. Can contain a netmask
+        :param from_ip: an source IP to filter. Can contain a netmask. True for all,
+                        False for none. Default True
+        :param from_ip6: an source IPv6 to filter. Can contain a netmask. True for all,
+                        False for none. Default False
         :param ttl: the DNS time to live (in seconds)
         :param src_ip: override the source IP
         :param src_ip6:
@@ -1466,6 +1473,8 @@ class DNS_am(AnsweringMachine):
             ...     "_ldap._tcp.dc._msdcs.DOMAIN.LOCAL.": (389, "srv1.domain.local")
             ... })
         """
+        from scapy.layers.inet6 import Net6
+
         def normv(v):
             if isinstance(v, (tuple, list)) and len(v) == 2:
                 return v
@@ -1487,17 +1496,24 @@ class DNS_am(AnsweringMachine):
             self.srvmatch = {}
         else:
             self.srvmatch = {normk(k): normv(v) for k, v in srvmatch.items()}
+        assert isinstance(joker, (str, bool, types.NoneType)), "bad joker !"
+        if joker is None and match is not None:
+            joker = False
         self.joker = joker
+        assert isinstance(joker6, (str, bool, types.NoneType)), "bad joker6 !"
         self.joker6 = joker6
+        assert isinstance(jokerarpa, (str, types.NoneType)), "bad jokerarpa !"
         self.jokerarpa = jokerarpa
         self.send_error = send_error
         self.relay = relay
+        assert isinstance(from_ip, (str, Net, bool)), "bad from_ip !"
         if isinstance(from_ip, str):
             self.from_ip = Net(from_ip)
         else:
             self.from_ip = from_ip
+        assert isinstance(from_ip6, (str, Net, bool)), "bad from_ip6 !"
         if isinstance(from_ip6, str):
-            self.from_ip6 = Net(from_ip6)
+            self.from_ip6 = Net6(from_ip6)
         else:
             self.from_ip6 = from_ip6
         self.src_ip = src_ip
@@ -1510,11 +1526,13 @@ class DNS_am(AnsweringMachine):
             req.haslayer(self.cls) and
             req.getlayer(self.cls).qr == 0 and (
                 (
-                    not self.from_ip6 or req[IPv6].src in self.from_ip6
+                    self.from_ip6 is True or
+                    (self.from_ip6 and req[IPv6].src in self.from_ip6)
                 )
                 if IPv6 in req else
                 (
-                    not self.from_ip or req[IP].src in self.from_ip
+                    self.from_ip is True or
+                    (self.from_ip and req[IP].src in self.from_ip)
                 )
             )
         )
@@ -1538,19 +1556,25 @@ class DNS_am(AnsweringMachine):
         if IPv6 in req:
             resp[IPv6].underlayer.remove_payload()
             if mDNS:
-                resp /= IPv6(dst="ff02::fb", src=self.src_ip6)
+                resp /= IPv6(dst="ff02::fb", src=self.src_ip6,
+                             fl=req[IPv6].fl, hlim=req[IPv6].hlim)
             elif llmnr:
-                resp /= IPv6(dst=req[IPv6].src, src=self.src_ip6)
+                resp /= IPv6(dst=req[IPv6].src, src=self.src_ip6,
+                             fl=req[IPv6].fl, hlim=req[IPv6].hlim)
             else:
-                resp /= IPv6(dst=req[IPv6].src, src=self.src_ip6 or req[IPv6].dst)
+                resp /= IPv6(dst=req[IPv6].src, src=self.src_ip6 or req[IPv6].dst,
+                             fl=req[IPv6].fl, hlim=req[IPv6].hlim)
         elif IP in req:
             resp[IP].underlayer.remove_payload()
             if mDNS:
-                resp /= IP(dst="224.0.0.251", src=self.src_ip)
+                resp /= IP(dst="224.0.0.251", src=self.src_ip,
+                           ttl=req[IP].ttl, id=req[IP].id)
             elif llmnr:
-                resp /= IP(dst=req[IP].src, src=self.src_ip)
+                resp /= IP(dst=req[IP].src, src=self.src_ip,
+                           ttl=req[IP].ttl, id=req[IP].id)
             else:
-                resp /= IP(dst=req[IP].src, src=self.src_ip or req[IP].dst)
+                resp /= IP(dst=req[IP].src, src=self.src_ip or req[IP].dst,
+                           ttl=req[IP].ttl, id=req[IP].id)
         else:
             warning("No IP or IPv6 layer in %s", req.command())
             return
@@ -1655,12 +1679,25 @@ class DNS_am(AnsweringMachine):
             if not ans:
                 # No rq was actually answered, as none was valid. Discard.
                 return
+            # Handle Additional Records (ar) for EDNS
+            ars = []
+            for ar in req.ar:
+                type = getattr(ar, "type", None)
+                if type == 41:
+                    # OPT
+                    ars.append(DNSRROPT(
+                        rrname=ar.rrname,
+                        rclass=ar.rclass,
+                        extrcode=ar.extrcode,
+                        version=ar.version,
+                        z=ar.z,
+                    ))
             # All rq were answered
             if mDNS:
-                # in mDNS mode, don't repeat the question
-                resp /= self.cls(id=req.id, qr=1, qd=[], an=ans)
+                # in mDNS mode, don't repeat the question, set aa=1, rd=0
+                resp /= self.cls(id=req.id, aa=1, rd=0, qr=1, qd=[], an=ans)
             else:
-                resp /= self.cls(id=req.id, qr=1, qd=req.qd, an=ans)
+                resp /= self.cls(id=req.id, qr=1, qd=req.qd, ar=ars, an=ans)
             return resp
         # An error happened
         if self.send_error:
