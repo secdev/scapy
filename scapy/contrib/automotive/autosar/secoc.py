@@ -9,10 +9,15 @@
 """
 SecOC
 """
+import struct
 from collections import defaultdict
 
+from cryptography.hazmat.primitives import cmac
+from cryptography.hazmat.primitives.ciphers import algorithms
+
+from scapy.contrib.automotive.autosar.pdu import PDU
 from scapy.fields import (XByteField, X3BytesField, XIntField, PacketListField,
-                          FieldLenField, PacketLenField)
+                          FieldLenField, PacketLenField, XStrFixedLenField)
 from scapy.packet import Packet, Raw
 
 # Typing imports
@@ -22,7 +27,7 @@ from typing import (
     Type,
     Callable,
     Union,
-    Tuple
+    Tuple, List, Set
 )
 
 
@@ -60,33 +65,80 @@ class SecOC_PDU(Packet):
                         guess_pkt_cls=lambda pkt, data: SecOC_PDU.get_pdu_payload_cls(pkt, data),  # noqa: E501
                         length_from=lambda pkt: pkt.pdu_payload_len - 4),
         XByteField("freshness_value", 0),
-        X3BytesField("message_authentication_code", 0)]
+        XStrFixedLenField("message_authentication_code", None, length=3)]
 
-    pdu_payload_cls_by_identifier: Dict[int, Type[Packet]] = {}
+    pdu_payload_cls_by_identifier: Dict[int, Type[Packet]] = defaultdict(Raw)
     freshness_values_by_identifier: Dict[int, int] = defaultdict(int)
-    secret_keys_by_identifier: Dict[int, bytes] = {}
+    secret_keys_by_identifier: Dict[int, bytes] = defaultdict(lambda: b"\x00" * 16)
+    secoc_protected_pdus_by_identifier: Set[int] = set()
+
+    def secoc_authenticate(self, freshness_value: Optional[int] = None) -> None:
+        if freshness_value:
+            fv = freshness_value
+        else:
+            self.freshness_values_by_identifier[self.pdu_id] += 1
+            fv = self.freshness_values_by_identifier[self.pdu_id]
+
+        self.freshness_value = fv
+
+        mac = self.get_message_authentication_code()
+        self.message_authentication_code = mac[0:3]
+
+    def secoc_verify(self) -> bool:
+        return self.get_message_authentication_code() == bytes(self)[-3:]
+
+    def get_message_authentication_code(self):
+        payload = bytes(self)[:-3]
+        c = cmac.CMAC(algorithms.AES(self.secret_keys_by_identifier[self.pdu_id]))
+        c.update(payload)
+        mac = c.finalize()
+        return mac
+
+    @classmethod
+    def register_secoc_protected_pdu(cls,
+                                     pdu_id: int,
+                                     secret_key: bytes = b"\x00" * 16,
+                                     pdu_payload_cls: Type[Packet] = Raw
+                                     ) -> None:
+        cls.secoc_protected_pdus_by_identifier.insert(0, pdu_id)
+        cls.secret_keys_by_identifier[pdu_id] = secret_key
+        cls.pdu_payload_cls_by_identifier[pdu_id] = pdu_payload_cls
+
+    @classmethod
+    def unregister_secoc_protected_pdu(cls, pdu_id: int) -> None:
+        cls.secoc_protected_pdus_by_identifier.remove(pdu_id)
+        del cls.secret_keys_by_identifier[pdu_id]
+
+    @classmethod
+    def dispatch_hook(cls, s=None, *_args, **_kwds):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
+        """dispatch_hook determines if PDU is protected by SecOC.
+        If PDU is protected, SecOC_PDU will be returned, otherwise AutoSAR PDU
+        will be returned.
+        """
+        if s is None:
+            return SecOC_PDU
+        if len(s) < 4:
+            return Raw
+        identifier = struct.unpack('>I', s[0:4])[0]
+        if identifier in cls.secoc_protected_pdus_by_identifier:
+            return SecOC_PDU
+        else:
+            return PDU
 
     def post_dissect(self, s):  # type: (bytes) -> bytes
-        try:
-            SecOC_PDU.freshness_values_by_identifier[self.pdu_id] = self.freshness_value
-        except KeyError:
-            pass
+        SecOC_PDU.freshness_values_by_identifier[self.pdu_id] = self.freshness_value
         return s
 
     @staticmethod
     def get_pdu_payload_cls(pkt: Packet,
                             data: bytes
                             ) -> Packet:
-        try:
-            cls = SecOC_PDU.pdu_payload_cls_by_identifier[pkt.pdu_id]
-            return cls(data)
-        except Exception:
-            pass
-        return Raw(data)
+        return SecOC_PDU.pdu_payload_cls_by_identifier[pkt.pdu_id](data)
 
     def extract_padding(self, s):
         # type: (bytes) -> Tuple[bytes, Optional[bytes]]
-        return "", s
+        return b"", s
 
 
 class SecOC_PDUTransport(Packet):
@@ -94,8 +146,18 @@ class SecOC_PDUTransport(Packet):
     Packet representing SecOC_PDUTransport containing multiple PDUs
     """
 
-    # TODO: add dict to distinguish between secOC and standard PDU frames
     name = 'SecOC_PDUTransport'
     fields_desc = [
         PacketListField("pdus", [SecOC_PDU()], pkt_cls=SecOC_PDU)
     ]
+
+    @staticmethod
+    def register_secoc_protected_pdu(pdu_id: int,
+                                     secret_key: bytes = b"\x00" * 16,
+                                     pdu_payload_cls: Type[Packet] = Raw
+                                     ) -> None:
+        SecOC_PDU.register_secoc_protected_pdu(pdu_id, secret_key, pdu_payload_cls)
+
+    @staticmethod
+    def unregister_secoc_protected_pdu(pdu_id: int) -> None:
+        SecOC_PDU.unregister_secoc_protected_pdu(pdu_id)
