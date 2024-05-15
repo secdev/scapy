@@ -570,7 +570,7 @@ class SMB_Client(Automaton):
             pass
         elif SMB2_Error_Response in pkt:
             # Authentication failure
-            self.session.sspcontext = None
+            self.session.sspcontext.clifailure()
             # Reset Session preauth (SMB 3.1.1)
             self.session.SessionPreauthIntegrityHashValue = None
             if not self.RETRY:

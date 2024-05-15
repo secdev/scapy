@@ -4265,7 +4265,7 @@ class SMBSession(DefaultSession):
 
     @crypto_validator
     def computeSMBSessionKey(self):
-        if not self.sspcontext.SessionKey:
+        if not getattr(self.sspcontext, "SessionKey", None):
             # no signing key, no session key
             return
         # [MS-SMB2] sect 3.3.5.5.3

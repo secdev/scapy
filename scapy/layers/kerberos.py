@@ -3233,6 +3233,9 @@ class KerberosSSP(SSP):
                 self.RecvSignKeyUsage = 23
             super(KerberosSSP.CONTEXT, self).__init__(req_flags=req_flags)
 
+        def clifailure(self):
+            self.__init__(self.IsAcceptor, req_flags=self.flags)
+
         def __repr__(self):
             if self.U2U:
                 return "KerberosSSP-U2U"

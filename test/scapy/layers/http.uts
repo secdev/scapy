@@ -221,7 +221,7 @@ assert int(pkts[7][HTTP].Content_Length.decode()) == len(pkts[7][Raw].load)
 pkt = TCP()/HTTP()/HTTPRequest(Method=b'GET', Path=b'/download', Http_Version=b'HTTP/1.1', Accept=b'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', Accept_Encoding=b'gzip, deflate', Accept_Language=b'en-US,en;q=0.5', Cache_Control=b'max-age=0', Connection=b'keep-alive', Host=b'scapy.net', User_Agent=b'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0')
 raw_pkt = raw(pkt)
 raw_pkt
-assert raw_pkt == b'\x00P\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00GET /download HTTP/1.1\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-US,en;q=0.5\r\nCache-Control: max-age=0\r\nConnection: keep-alive\r\nHost: scapy.net\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0\r\n\r\n'
+assert raw_pkt == b'\x00P\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00GET /download HTTP/1.1\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-US,en;q=0.5\r\nCache-Control: max-age=0\r\nConnection: keep-alive\r\nContent-Length: 0\r\nHost: scapy.net\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0\r\n\r\n'
 
 = HTTP 1.1 -> HTTP 2.0 Upgrade (h2c)
 ~ Test h2c
@@ -257,3 +257,95 @@ conf.contribs["http"]["auto_compression"] = True
 c = sniff(offline=[xa, xb], session=TCPSession)[0]
 import gzip
 assert gzip.decompress(z) == c.load
+
++ Test HTTP client/server
+
+= Util function to launch HTTP_server
+~ http-client
+
+from scapy.layers.http import HTTP_Server, HTTP_AUTH_MECHS
+
+class run_httpserver:
+    def __init__(self, mech=None, ssp=None, **kwargs):
+        self.server = None
+        self.mech = mech
+        self.ssp = ssp
+        self.kwargs = kwargs
+    def __enter__(self):
+        print("@ Starting http server")
+        # Start server
+        self.server = HTTP_Server.spawn(
+            8080,
+            iface=conf.loopback_name,
+            mech=self.mech, ssp=self.ssp,
+            bg=True,
+            **self.kwargs,
+        )
+        # wait for it to start
+        for i in range(10):
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            try:
+                sock.connect(("127.0.0.1", 8080))
+                break
+            except Exception:
+                time.sleep(0.5)
+            finally:
+                sock.close()
+        else:
+            raise TimeoutError
+        print("@ Server started !")
+    def __exit__(self, exc_type, exc_value, traceback):
+        print("@ Stopping http server !")
+        self.server.shutdown(socket.SHUT_RDWR)
+        if traceback:
+            # failed
+            print("\nTest failed.")
+            raise traceback
+        print("@ http server stopped !")
+
+
+= HTTP_client fails to ask HTTP_server that required authentication
+~ http-client
+
+from scapy.layers.http import HTTP_Client
+
+with run_httpserver(mech=HTTP_AUTH_MECHS.NTLM, ssp=NTLMSSP(IDENTITIES={"user": MD4le("password")})):
+    client = HTTP_Client()
+    resp = client.request("http://127.0.0.1:8080")
+    client.close()
+
+assert resp.Status_Code == b"401"
+
+= HTTP_client asks HTTP_server with NTLMSSP
+~ http-client
+
+from scapy.layers.http import HTTP_Client
+
+with run_httpserver(mech=HTTP_AUTH_MECHS.NTLM, ssp=NTLMSSP(IDENTITIES={"user": MD4le("password")})):
+    client = HTTP_Client(
+        HTTP_AUTH_MECHS.NTLM,
+        ssp=NTLMSSP(UPN="user", PASSWORD="password"),
+    )
+    resp = client.request("http://127.0.0.1:8080")
+    client.close()
+
+assert resp.load == b'<!doctype html><html><body><h1>OK</h1></body></html>'
+
+= HTTP_Server with native python client with Basic auth
+~ http-client
+
+import urllib.request
+from scapy.layers.http import HTTP_Client
+
+# https://docs.python.org/3/howto/urllib2.html#id5 (this is so complicated...)
+password_mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
+password_mgr.add_password(None, '127.0.0.1:8080', "user", "password")
+handler = urllib.request.HTTPBasicAuthHandler(password_mgr)
+opener = urllib.request.build_opener(handler)
+
+with run_httpserver(mech=HTTP_AUTH_MECHS.BASIC, BASIC_IDENTITIES={"user": "password"}):
+    with opener.open('http://127.0.0.1:8080/') as f:
+        html = f.read().decode('utf-8')
+
+assert html == "<!doctype html><html><body><h1>OK</h1></body></html>"
