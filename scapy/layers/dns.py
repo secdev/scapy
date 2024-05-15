@@ -13,7 +13,6 @@ import itertools
 import socket
 import struct
 import time
-import types
 import warnings
 
 from scapy.arch import (
@@ -459,7 +458,7 @@ class DNSRROPT(Packet):
     name = "DNS OPT Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 41, dnstypes),
-                   ShortField("rclass", 4096),
+                   ShortEnumField("rclass", 4096, dnsclasses),
                    ByteField("extrcode", 0),
                    ByteField("version", 0),
                    # version 0 means EDNS0
@@ -775,7 +774,8 @@ class DNSRRHINFO(_DNSRRdummy):
     name = "DNS HINFO Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 13, dnstypes),
-                   ShortEnumField("rclass", 1, dnsclasses),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
                    FieldLenField("cpulen", None, fmt="!B", length_of="cpu"),
@@ -788,7 +788,8 @@ class DNSRRMX(_DNSRRdummy):
     name = "DNS MX Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 15, dnstypes),
-                   ShortEnumField("rclass", 1, dnsclasses),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
                    ShortField("preference", 0),
@@ -817,7 +818,8 @@ class DNSRRRSIG(_DNSRRdummy):
     name = "DNS RRSIG Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 46, dnstypes),
-                   ShortEnumField("rclass", 1, dnsclasses),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
                    ShortEnumField("typecovered", 1, dnstypes),
@@ -836,7 +838,8 @@ class DNSRRNSEC(_DNSRRdummy):
     name = "DNS NSEC Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 47, dnstypes),
-                   ShortEnumField("rclass", 1, dnsclasses),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
                    DNSStrField("nextname", ""),
@@ -848,7 +851,8 @@ class DNSRRDNSKEY(_DNSRRdummy):
     name = "DNS DNSKEY Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 48, dnstypes),
-                   ShortEnumField("rclass", 1, dnsclasses),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
                    FlagsField("flags", 256, 16, "S???????Z???????"),
@@ -864,7 +868,8 @@ class DNSRRDS(_DNSRRdummy):
     name = "DNS DS Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 43, dnstypes),
-                   ShortEnumField("rclass", 1, dnsclasses),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
                    ShortField("keytag", 0),
@@ -890,7 +895,8 @@ class DNSRRNSEC3(_DNSRRdummy):
     name = "DNS NSEC3 Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 50, dnstypes),
-                   ShortEnumField("rclass", 1, dnsclasses),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
                    ByteField("hashalg", 0),
@@ -908,7 +914,8 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
     name = "DNS NSEC3PARAM Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 51, dnstypes),
-                   ShortEnumField("rclass", 1, dnsclasses),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
                    ByteField("hashalg", 0),
@@ -977,7 +984,8 @@ class DNSRRSVCB(_DNSRRdummy):
     name = "DNS SVCB Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 64, dnstypes),
-                   ShortEnumField("rclass", 1, dnsclasses),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
                    ShortField("svc_priority", 0),
@@ -999,7 +1007,8 @@ class DNSRRSRV(_DNSRRdummy):
     name = "DNS SRV Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 33, dnstypes),
-                   ShortEnumField("rclass", 1, dnsclasses),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
                    ShortField("priority", 0),
@@ -1094,7 +1103,8 @@ class DNSRR(Packet):
     show_indent = 0
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 1, dnstypes),
-                   ShortEnumField("rclass", 1, dnsclasses),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
                    IntField("ttl", 0),
                    FieldLenField("rdlen", None, length_of="rdata", fmt="H"),
                    MultipleTypeField(
@@ -1151,7 +1161,8 @@ class DNSQR(Packet):
     show_indent = 0
     fields_desc = [DNSStrField("qname", "www.example.com"),
                    ShortEnumField("qtype", 1, dnsqtypes),
-                   ShortEnumField("qclass", 1, dnsclasses)]
+                   BitField("unicastresponse", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("qclass", 1, 15, dnsclasses)]
 
     def default_payload_class(self, payload):
         return conf.padding_layer
@@ -1430,15 +1441,15 @@ class DNS_am(AnsweringMachine):
     def parse_options(self, joker=None,
                       match=None,
                       srvmatch=None,
-                      joker6=False,
+                      joker6=None,
                       send_error=False,
                       relay=False,
                       from_ip=True,
                       from_ip6=False,
                       src_ip=None,
                       src_ip6=None,
-                      ttl=60,
-                      jokerarpa=None):
+                      ttl=10,
+                      jokerarpa=False):
         """
         Simple DNS answering machine.
 
@@ -1446,9 +1457,11 @@ class DNS_am(AnsweringMachine):
                       Set to False to disable, None to mirror the interface's IP.
                       Defaults to None, unless 'match' is used, then it defaults to
                       False.
-        :param joker6: default IPv6 for unresolved domains (Default: False)
-                       set to False to disable, None to mirror the interface's IPv6.
-        :param jokerarpa: answer for .in-addr.arpa PTR requests. (Default: None)
+        :param joker6: default IPv6 for unresolved domains.
+                       Set to False to disable, None to mirror the interface's IPv6.
+                       Defaults to False, unless mDNS is used, then it defaults to
+                       None.
+        :param jokerarpa: answer for .in-addr.arpa PTR requests. (Default: False)
         :param relay: relay unresolved domains to conf.nameservers (Default: False).
         :param send_error: send an error message when this server can't answer
                            (Default: False)
@@ -1488,6 +1501,14 @@ class DNS_am(AnsweringMachine):
             if not k.endswith(b"."):
                 k += b"."
             return k
+
+        # Add some checks (to help)
+        assert isinstance(joker, (str, bool)) or joker is None, "bad joker !"
+        assert isinstance(joker6, (str, bool)) or joker6 is None, "bad joker6 !"
+        assert isinstance(jokerarpa, (str, bool)), "bad jokerarpa !"
+        assert isinstance(from_ip, (str, Net, bool)), "bad from_ip !"
+        assert isinstance(from_ip6, (str, Net, bool)), "bad from_ip6 !"
+
         if match is None:
             self.match = {}
         else:
@@ -1496,22 +1517,19 @@ class DNS_am(AnsweringMachine):
             self.srvmatch = {}
         else:
             self.srvmatch = {normk(k): normv(v) for k, v in srvmatch.items()}
-        assert isinstance(joker, (str, bool, types.NoneType)), "bad joker !"
         if joker is None and match is not None:
             joker = False
+        if joker is None and not isinstance(self, mDNS_am):
+            joker6 = False
         self.joker = joker
-        assert isinstance(joker6, (str, bool, types.NoneType)), "bad joker6 !"
         self.joker6 = joker6
-        assert isinstance(jokerarpa, (str, types.NoneType)), "bad jokerarpa !"
         self.jokerarpa = jokerarpa
         self.send_error = send_error
         self.relay = relay
-        assert isinstance(from_ip, (str, Net, bool)), "bad from_ip !"
         if isinstance(from_ip, str):
             self.from_ip = Net(from_ip)
         else:
             self.from_ip = from_ip
-        assert isinstance(from_ip6, (str, Net, bool)), "bad from_ip6 !"
         if isinstance(from_ip6, str):
             self.from_ip6 = Net6(from_ip6)
         else:
@@ -1556,8 +1574,10 @@ class DNS_am(AnsweringMachine):
         if IPv6 in req:
             resp[IPv6].underlayer.remove_payload()
             if mDNS:
+                # "All Multicast DNS responses (including responses sent via unicast)
+                # SHOULD be sent with IP TTL set to 255."
                 resp /= IPv6(dst="ff02::fb", src=self.src_ip6,
-                             fl=req[IPv6].fl, hlim=req[IPv6].hlim)
+                             fl=req[IPv6].fl, hlim=255)
             elif llmnr:
                 resp /= IPv6(dst=req[IPv6].src, src=self.src_ip6,
                              fl=req[IPv6].fl, hlim=req[IPv6].hlim)
@@ -1567,14 +1587,16 @@ class DNS_am(AnsweringMachine):
         elif IP in req:
             resp[IP].underlayer.remove_payload()
             if mDNS:
+                # "All Multicast DNS responses (including responses sent via unicast)
+                # SHOULD be sent with IP TTL set to 255."
                 resp /= IP(dst="224.0.0.251", src=self.src_ip,
-                           ttl=req[IP].ttl, id=req[IP].id)
+                           id=req[IP].id, ttl=255)
             elif llmnr:
                 resp /= IP(dst=req[IP].src, src=self.src_ip,
-                           ttl=req[IP].ttl, id=req[IP].id)
+                           id=req[IP].id, ttl=req[IP].ttl)
             else:
                 resp /= IP(dst=req[IP].src, src=self.src_ip or req[IP].dst,
-                           ttl=req[IP].ttl, id=req[IP].id)
+                           id=req[IP].id, ttl=req[IP].ttl)
         else:
             warning("No IP or IPv6 layer in %s", req.command())
             return
@@ -1673,11 +1695,27 @@ class DNS_am(AnsweringMachine):
                         continue  # next
                 except TimeoutError:
                     pass
+            # No answer for this request
+            if mDNS:
+                # "In the event that a device has only IPv4 addresses but no IPv6
+                # addresses, or vice versa, then the appropriate NSEC record SHOULD be
+                # placed into the additional section".
+                # TODO: finish.
+                # ans.append(DNSRRNSEC(
+                #     # RFC6762 sect 6.1 - Negative Response
+                #     rrname=rq.qname,
+                #     ttl=self.ttl,
+                #     typebitmaps=RRlist2bitmap(...)
+                # ))
+                continue
             # Error
             break
         else:
             if not ans:
                 # No rq was actually answered, as none was valid. Discard.
+                return
+            if mDNS and all(x.type == 47 for x in ans):
+                # We only have 'NSEC' records to answer, discard.
                 return
             # Handle Additional Records (ar) for EDNS
             ars = []
@@ -1703,6 +1741,8 @@ class DNS_am(AnsweringMachine):
         if self.send_error:
             resp /= self.cls(id=req.id, qr=1, qd=req.qd, rcode=3)
             return resp
+        else:
+            log_runtime.info("No answer could be provided to: %s" % req.summary())
 
 
 class mDNS_am(DNS_am):
