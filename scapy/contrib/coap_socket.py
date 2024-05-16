@@ -30,7 +30,7 @@ from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
 from scapy.data import MTU
 from scapy.utils import EDecimal
 from scapy.automaton import ObjectPipe, select_objects
-
+from scapy.layers.inet import UDP, IP
 from scapy.supersocket import SuperSocket, SimpleSocket
 
 log_coap_sock = logging.getLogger("scapy.contrib.coap_socket")
@@ -123,8 +123,8 @@ class CoAPSocket(SuperSocket):
         if not self.closed:
             tup = self.impl.recv()
             if tup is not None:
-                return self.basecls, tup[0], float(tup[1])
-        return self.basecls, None, None
+                return IP, tup[0], float(tup[1])
+        return IP, None, None
 
     def recv(self, x=MTU, **kwargs):
         # type: (int, **Any) -> Optional[Packet]
@@ -151,6 +151,29 @@ class CoAPSocket(SuperSocket):
         """
         self.impl.send(x.dst, x.dport, x[CoAP])
         return len(x)
+
+    def sr(self, *args, **kargs):
+        args[0].sport = self.impl.port
+        return super(CoAPSocket, self).sr(*args, **kargs)
+
+    def sr1(self, *args, **kargs):
+        args[0].sport = self.impl.port
+        return super(CoAPSocket, self).sr1(*args, **kargs)
+
+    @staticmethod
+    def select(sockets, remain=None):
+        # type: (list[SuperSocket], Optional[float]) -> list[SuperSocket]
+        """
+        This function is called during sendrecv() routine to wait for
+        sockets to be ready to receive.
+        """
+        obj_pipes = [x.impl.rx_queue for x in sockets if
+                     isinstance(x, CoAPSocket) and not x.closed]
+
+        ready_pipes = select_objects(obj_pipes, 0)
+
+        return [x for x in sockets if isinstance(x, CoAPSocket) and
+                not x.closed and x.impl.rx_queue in ready_pipes]
 
     @staticmethod
     def make_coap_req_packet(method=GET, uri="", options=None, payload=b""):
@@ -572,7 +595,9 @@ class CoAPSocketImpl:
 
         if self.sock.select([self.sock], 0):
             pkt, sa_ll = self.sock.ins.recvfrom(MTU)
-            pkt = CoAP(bytes(pkt))
+            pkt = (IP(src=sa_ll[0], dst=self.ip) /
+                   UDP(sport=sa_ll[1], dport=self.port) /
+                   CoAP(bytes(pkt)))
             if pkt:
                 if not self._debug_drop_package():
                     self._on_pkt_recv(pkt, sa_ll)
@@ -629,15 +654,16 @@ class CoAPSocketImpl:
     def _handle_rcv_request(self, pkt, sa_ll):
         # type: (CoAP, tuple[str, int]) -> None
         """Process a received request"""
+        coap_pkt = pkt[CoAP]
         req_uri = "/"
-        token = int.from_bytes(pkt.token, "big")  # Can be up to 8 bytes
-        message_id = pkt.msg_id
+        token = int.from_bytes(coap_pkt.token, "big")  # Can be up to 8 bytes
+        message_id = coap_pkt.msg_id
         lst_options = []
         response = {"type": ACK, "code": NOT_FOUND_404,
                     "options": [(CONTENT_FORMAT, CF_TEXT_PLAIN)],
                     "payload": coap_codes[NOT_FOUND_404].encode("utf8")}
 
-        for option in pkt.options:
+        for option in coap_pkt.options:
             option_type_id = coap_options[1].get(option[0], -1)
             option_value = option[1]
 
@@ -658,14 +684,14 @@ class CoAPSocketImpl:
         resource = self.resources.get(req_uri, None)
         if resource is not None:
             if not resource.check_duplicated(message_id, token):
-                if pkt.code == GET:
-                    response = resource.get(pkt.payload, lst_options, token, sa_ll)
-                elif pkt.code == POST:
+                if coap_pkt.code == GET:
+                    response = resource.get(coap_pkt.payload, lst_options, token, sa_ll)
+                elif coap_pkt.code == POST:
                     # @todo: handle existing resource POST: RFC 7252 @ section-5.8.2
                     pass
-                elif pkt.code == PUT:
-                    response = resource.put(pkt.payload, lst_options, token, sa_ll)
-                elif pkt.code == DELETE:
+                elif coap_pkt.code == PUT:
+                    response = resource.put(coap_pkt.payload, lst_options, token, sa_ll)
+                elif coap_pkt.code == DELETE:
                     response = self._delete(resource)
 
                 resource._register_request_response(message_id, token, response)
@@ -677,16 +703,16 @@ class CoAPSocketImpl:
                     req_uri,
                     message_id, token)
         else:
-            if pkt.code == POST:
+            if coap_pkt.code == POST:
                 response = self._post()
             else:
                 log_coap_sock.warning("Unknown resource: URI=%s", req_uri)
 
-        response["tkl"] = pkt.tkl
-        response["token"] = pkt.token
+        response["tkl"] = coap_pkt.tkl
+        response["token"] = coap_pkt.token
         response["msg_id"] = message_id
 
-        if pkt.type == NON:
+        if coap_pkt.type == NON:
             response["type"] = NON
 
         # Add paymark (separator between options and payload)
@@ -751,13 +777,15 @@ class CoAPSocketImpl:
         Handles a received response. Will check if there is the valid request.
         Otherwise, it will put in the rx_queue for the user to handle it
         via the recv() function.
-        :param pkt: The CoAP packet to be processed
+        :param coap_pkt: The CoAP packet to be processed
         :param sa_ll: The ip/port tuple of the sender
         """
-        token = int.from_bytes(pkt.token, "big")
-        index = (pkt.msg_id, token)
+        coap_pkt = pkt[CoAP]
+        token = int.from_bytes(coap_pkt.token, "big")
+        index = (coap_pkt.msg_id, token)
         request = self.pending_requests.get(index, None)
-        if request is None and (pkt.type == ACK or pkt.type == CON or pkt.type == NON):
+        if (request is None and
+                (coap_pkt.type == ACK or coap_pkt.type == CON or coap_pkt.type == NON)):
             for key in self.pending_requests.keys():
                 if index[0] == key[0] or index[1] == key[1]:
                     log_coap_sock.info("Found request by using %s",
@@ -770,38 +798,40 @@ class CoAPSocketImpl:
         if request is None:
             log_coap_sock.warning(
                 "Request for received response not found: msg_id=%s; token=0x%x",
-                pkt.msg_id, token)
+                coap_pkt.msg_id, token)
             return
 
-        if pkt.type == ACK and pkt.code != EMPTY_MESSAGE:
+        if coap_pkt.type == ACK and coap_pkt.code != EMPTY_MESSAGE:
             log_coap_sock.debug("Request fulfilled: msg_id=%s; token=0x%x; code=%s",
                                 index[0], index[1],
-                                coap_codes[pkt.code])
+                                coap_codes[coap_pkt.code])
+            pkt.sport = self.pending_requests[index].port
             del self.pending_requests[index]
-            self.rx_queue.send((pkt.build(), pkt.time))
-        elif pkt.type == ACK and pkt.code == EMPTY_MESSAGE:
+            self.rx_queue.send((pkt.build(), coap_pkt.time))
+        elif coap_pkt.type == ACK and coap_pkt.code == EMPTY_MESSAGE:
             log_coap_sock.debug(
                 "Server sent an empty ack, request will be fulfilled later: "
                 "msg_id=%s; token=0x%x; code=%s",
-                index[0], index[1], coap_codes[pkt.code])
+                index[0], index[1], coap_codes[coap_pkt.code])
             request.empty_ack_set()
-        elif pkt.type == CON and pkt.code == CONTENT_205:
+        elif coap_pkt.type == CON and coap_pkt.code == CONTENT_205:
             log_coap_sock.debug(
                 "Received a delayed content for a previous request: msg_id=%s; "
                 "token=0x%x; code=%s",
-                index[0], index[1], coap_codes[pkt.code])
+                index[0], index[1], coap_codes[coap_pkt.code])
 
             # We need to respond with an empty ACK
             request.empty_ack_fulfilled = True
             response = CoAPSocketImpl.empty_ack_params()
-            response["msg_id"] = pkt.msg_id
+            response["msg_id"] = coap_pkt.msg_id
             self._sock_send(sa_ll, CoAP(**response))
-            self.rx_queue.send((pkt.build(), pkt.time))
+            pkt.sport = request.port
+            self.rx_queue.send((pkt.build(), coap_pkt.time))
         else:
             log_coap_sock.info("Not handled message: "
                                "type=%s; code=%s;",
-                               pkt.type, coap_codes[pkt.code])
-            self.rx_queue.send((pkt.build(), pkt.time))
+                               coap_pkt.type, coap_codes[coap_pkt.code])
+            self.rx_queue.send((pkt.build(), coap_pkt.time))
 
     def _sock_send(self, address, pl):
         # type: (tuple[str, int], Packet) -> None
