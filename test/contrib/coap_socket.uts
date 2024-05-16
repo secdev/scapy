@@ -127,3 +127,26 @@ with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, 
     # assert res.msg_id == req.msg_id - This assert doesn't make sense because it will send with another msg_id
     assert res.token == req.token
     assert res.payload.load == responses[1]
+
+= SR1
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri="/dummy", payload=b"")
+    res = coap_client.sr1(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    assert res.payload.load == responses[0]
+    assert res.type == ACK
+    assert res.code == CONTENT_205
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= SR
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    pkt = CoAPSocket.make_coap_req_packet(uri="/dummy", payload=b"")
+    ans, _ = coap_client.sr(IP(dst="127.0.0.1")/UDP(dport=5683)/pkt)
+    for _, rcv in ans:
+        assert rcv.payload.load == responses[0]
+        assert rcv.type == ACK
+        assert rcv.code == CONTENT_205
+        assert rcv.msg_id == pkt.msg_id
+        assert rcv.token == pkt.token

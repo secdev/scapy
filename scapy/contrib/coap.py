@@ -278,6 +278,12 @@ class CoAP(Packet):
                 self.content_format = k[1]
         return pay
 
+    def hashret(self):
+        return struct.pack('I', self.msg_id) + self.token
+
+    def answers(self, other):
+        return True
+
 
 bind_layers(UDP, CoAP, sport=5683)
 bind_layers(UDP, CoAP, dport=5683)
