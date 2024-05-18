@@ -25,7 +25,7 @@ with ContextManagerCaptureOutput() as cmco:
     ar.show()
     result_ar = cmco.get_output()
 
-assert result_ar.startswith("  70:ee:50:50:ee:70 Netatmo 192.168.0.1")
+assert "70:ee:50:50:ee:70  Netatmo  192.168.0.1" in result_ar
 
 = arp_mitm - IP to IP
 ~ arp_mitm

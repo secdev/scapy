@@ -59,8 +59,18 @@ from scapy.plist import (
     _PacketList,
 )
 from scapy.sendrecv import sendp, srp, srp1, srploop
-from scapy.utils import checksum, hexdump, hexstr, inet_ntoa, inet_aton, \
-    mac2str, valid_mac, valid_net, valid_net6
+from scapy.utils import (
+    checksum,
+    hexdump,
+    hexstr,
+    inet_aton,
+    inet_ntoa,
+    mac2str,
+    pretty_list,
+    valid_mac,
+    valid_net,
+    valid_net6,
+)
 
 # Typing imports
 from typing import (
@@ -987,18 +997,20 @@ class ARPingResult(SndRcvList):
         """
         Print the list of discovered MAC addresses.
         """
-
-        data = list()
-        padding = 0
+        data = list()  # type: List[Tuple[str | List[str], ...]]
 
         for s, r in self.res:
             manuf = conf.manufdb._get_short_manuf(r.src)
             manuf = "unknown" if manuf == r.src else manuf
-            padding = max(padding, len(manuf))
             data.append((r[Ether].src, manuf, r[ARP].psrc))
 
-        for src, manuf, psrc in data:
-            print("  %-17s %-*s %s" % (src, padding, manuf, psrc))
+        print(
+            pretty_list(
+                data,
+                [("src", "manuf", "psrc")],
+                sortBy=2,
+            )
+        )
 
 
 @conf.commands.register
