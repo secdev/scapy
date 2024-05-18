@@ -579,7 +579,7 @@ _AD_TYPES = {
     141: "KERB-AUTH-DATA-TOKEN-RESTRICTIONS",
     142: "KERB-LOCAL",
     143: "AD-AUTH-DATA-AP-OPTIONS",
-    144: "AD-TARGET-PRINCIPAL",  # not an official name
+    144: "KERB-AUTH-DATA-CLIENT-TARGET",
 }
 
 
@@ -665,11 +665,13 @@ _PADATA_TYPES = {
     144: "PA-OTP-PIN-CHANGE",
     145: "PA-EPAK-AS-REQ",
     146: "PA-EPAK-AS-REP",
-    147: "PA_PKINIT_KX",
-    148: "PA_PKU2U_NAME",
+    147: "PA-PKINIT-KX",
+    148: "PA-PKU2U-NAME",
     149: "PA-REQ-ENC-PA-REP",
-    150: "PA_AS_FRESHNESS",
+    150: "PA-AS-FRESHNESS",
     151: "PA-SPAKE",
+    161: "KERB-KEY-LIST-REQ",
+    162: "KERB-KEY-LIST-REP",
     165: "PA-SUPPORTED-ENCTYPES",
     166: "PA-EXTENDED-ERROR",
     167: "PA-PAC-OPTIONS",
@@ -885,6 +887,7 @@ class KERB_AUTH_DATA_AP_OPTIONS(Packet):
             0x4000,
             {
                 0x4000: "KERB_AP_OPTIONS_CBT",
+                0x8000: "KERB_AP_OPTIONS_UNVERIFIED_TARGET_NAME",
             },
         ),
     ]
@@ -893,18 +896,17 @@ class KERB_AUTH_DATA_AP_OPTIONS(Packet):
 _AUTHORIZATIONDATA_VALUES[143] = KERB_AUTH_DATA_AP_OPTIONS
 
 
-# This has no doc..? not in [MS-KILE] at least.
-# We use the name wireshark/samba gave it
+# This has no doc..? [MS-KILE] only mentions its name.
 
 
-class KERB_AD_TARGET_PRINCIPAL(Packet):
+class KERB_AUTH_DATA_CLIENT_TARGET(Packet):
     name = "KERB-AD-TARGET-PRINCIPAL"
     fields_desc = [
         StrFieldUtf16("spn", ""),
     ]
 
 
-_AUTHORIZATIONDATA_VALUES[144] = KERB_AD_TARGET_PRINCIPAL
+_AUTHORIZATIONDATA_VALUES[144] = KERB_AUTH_DATA_CLIENT_TARGET
 
 
 # RFC6806 sect 6
@@ -968,6 +970,69 @@ class PA_PAC_OPTIONS(ASN1_Packet):
 
 
 _PADATA_CLASSES[167] = PA_PAC_OPTIONS
+
+# [MS-KILE] sect 2.2.11
+
+
+class KERB_KEY_LIST_REQ(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "keytypes",
+        [],
+        ASN1F_enum_INTEGER("", 0, _KRB_E_TYPES),
+    )
+
+
+_PADATA_CLASSES[161] = KERB_KEY_LIST_REQ
+
+# [MS-KILE] sect 2.2.12
+
+
+class KERB_KEY_LIST_REP(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "keys",
+        [],
+        ASN1F_PACKET("", None, EncryptionKey),
+    )
+
+
+_PADATA_CLASSES[162] = KERB_KEY_LIST_REP
+
+# [MS-KILE] sect 2.2.13
+
+
+class KERB_SUPERSEDED_BY_USER(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_PACKET("name", None, PrincipalName, explicit_tag=0xA0),
+        Realm("realm", None, explicit_tag=0xA1),
+    )
+
+
+# [MS-KILE] sect 2.2.14
+
+
+class KERB_DMSA_KEY_PACKAGE(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE_OF(
+            "currentKeys",
+            [],
+            ASN1F_PACKET("", None, EncryptionKey),
+            explicit_tag=0xA0,
+        ),
+        ASN1F_optional(
+            ASN1F_SEQUENCE_OF(
+                "previousKeys",
+                [],
+                ASN1F_PACKET("", None, EncryptionKey),
+                explicit_tag=0xA0,
+            ),
+        ),
+        KerberosTime("expirationInterval", GeneralizedTime(), explicit_tag=0xA2),
+        KerberosTime("fetchInterval", GeneralizedTime(), explicit_tag=0xA4),
+    )
 
 
 # RFC6113 sect 5.4.1
@@ -1737,7 +1802,8 @@ class _KRBERROR_data_Field(_ASN1FString_PacketField):
             # 24: KDC_ERR_PREAUTH_FAILED
             # 25: KDC_ERR_PREAUTH_REQUIRED
             return MethodData(val[0].val, _underlayer=pkt), val[1]
-        elif pkt.errorCode.val in [18, 29, 41, 60]:
+        elif pkt.errorCode.val in [13, 18, 29, 41, 60]:
+            # 13: KDC_ERR_BADOPTION
             # 18: KDC_ERR_CLIENT_REVOKED
             # 29: KDC_ERR_SVC_UNAVAILABLE
             # 41: KRB_AP_ERR_MODIFIED
@@ -2444,6 +2510,7 @@ class KerberosClient(Automaton):
         additional_tickets=[],
         u2u=False,
         for_user=None,
+        s4u2proxy=False,
         etypes=None,
         key=None,
         port=88,
@@ -2519,6 +2586,7 @@ class KerberosClient(Automaton):
         self.additional_tickets = additional_tickets  # U2U + S4U2Proxy
         self.u2u = u2u  # U2U
         self.for_user = for_user  # FOR-USER
+        self.s4u2proxy = s4u2proxy  # S4U2Proxy
         self.key = key
         # See RFC4120 - sect 7.2.2
         # This marks whether we should follow-up after an EOF
@@ -2673,6 +2741,20 @@ class KerberosClient(Automaton):
                     padataValue=paforuser,
                 )
             )
+
+        # [MS-SFU] S4U2proxy - sect 3.1.5.2.1
+        if self.s4u2proxy:
+            # "PA-PAC-OPTIONS with resource-based constrained-delegation bit set"
+            tgsreq.root.padata.append(
+                PADATA(
+                    padataType=ASN1_INTEGER(167),  # PA-PAC-OPTIONS
+                    padataValue=PA_PAC_OPTIONS(
+                        options="Resource-based-constrained-delegation",
+                    ),
+                )
+            )
+            # "kdc-options field: MUST include the new cname-in-addl-tkt options flag"
+            kdc_req.kdcOptions.set(14, 1)
 
         # Compute checksum
         if self.key.cksumtype:
@@ -2901,6 +2983,7 @@ def krb_tgs_req(
     u2u=False,
     etypes=None,
     for_user=None,
+    s4u2proxy=False,
     **kwargs,
 ):
     r"""
@@ -2950,6 +3033,7 @@ def krb_tgs_req(
         u2u=u2u,
         etypes=etypes,
         for_user=for_user,
+        s4u2proxy=s4u2proxy,
         **kwargs,
     )
     cli.run()
