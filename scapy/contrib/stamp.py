@@ -225,8 +225,7 @@ class STAMPSessionSenderTestUnauthenticated(Packet):
         PacketField('err_estimate', ErrorEstimate(), ErrorEstimate),
         ShortField('ssid', 1),
         NBytesField('mbz', 0, 28),  # 28 bytes MBZ
-        PacketListField('tlv_objects', [], STAMPTestTLV,
-                        length_from=lambda pkt: pkt.parent.len - 8 - 44),
+        PacketListField('tlv_objects', [], STAMPTestTLV),
     ]
 
 
@@ -297,8 +296,7 @@ class STAMPSessionReflectorTestUnauthenticated(Packet):
         ShortField('mbz1', 0),
         ByteField('ttl_sender', 255),
         NBytesField('mbz2', 0, 3),  # 3 bytes MBZ
-        PacketListField('tlv_objects', [], STAMPTestTLV,
-                        length_from=lambda pkt: pkt.parent.len - 8 - 44),
+        PacketListField('tlv_objects', [], STAMPTestTLV),
     ]
 
 

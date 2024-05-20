@@ -33,7 +33,10 @@ from typing import (
     Callable,
     Type,
     cast,
+    TypeVar,
 )
+
+T = TypeVar("T")
 
 
 class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
@@ -60,7 +63,7 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
 
     def __init__(
             self,
-            socket,  # type: _SocketUnion
+            socket,  # type: Optional[_SocketUnion]
             reset_handler=None,  # type: Optional[Callable[[], None]]
             reconnect_handler=None,  # type: Optional[Callable[[], _SocketUnion]]  # noqa: E501
             test_cases=None,
@@ -71,8 +74,8 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         # The TesterPresentSender can interfere with a test_case, since a
         # target may only allow one request at a time.
         # The SingleConversationSocket prevents interleaving requests.
-        if not isinstance(socket, SingleConversationSocket):
-            self.socket = SingleConversationSocket(socket)
+        if socket and not isinstance(socket, SingleConversationSocket):
+            self.socket = SingleConversationSocket(socket)  # type: Optional[_SocketUnion]  # noqa: E501
         else:
             self.socket = socket
 
@@ -155,7 +158,8 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         # type: () -> None
         if self.reconnect_handler:
             try:
-                self.socket.close()
+                if self.socket:
+                    self.socket.close()
             except Exception as e:
                 log_automotive.exception(
                     "Exception '%s' during socket.close", e)
@@ -167,7 +171,7 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
             else:
                 self.socket = socket
 
-        if self.socket.closed:
+        if self.socket and self.socket.closed:
             raise Scapy_Exception(
                 "Socket closed even after reconnect. Stop scan!")
 
@@ -176,7 +180,7 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         """
         This function ensures the correct execution of a testcase, including
         the pre_execute, execute and post_execute.
-        Finally the testcase is asked if a new edge or a new testcase was
+        Finally, the testcase is asked if a new edge or a new testcase was
         generated.
 
         :param test_case: A test case to be executed
@@ -184,6 +188,10 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
                           the current test_case
         :return: None
         """
+
+        if not self.socket:
+            log_automotive.warning("Socket is None! Leaving execute_test_case")
+            return
 
         test_case.pre_execute(
             self.socket, self.target_state, self.configuration)
@@ -228,6 +236,10 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
 
     def check_new_states(self, test_case):
         # type: (AutomotiveTestCaseABC) -> None
+        if not self.socket:
+            log_automotive.warning("Socket is None! Leaving check_new_states")
+            return
+
         if isinstance(test_case, StateGenerator):
             edge = test_case.get_new_edge(self.socket, self.configuration)
             if edge:
@@ -307,9 +319,11 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
                     if isinstance(e, OSError):
                         log_automotive.exception(
                             "OSError occurred, closing socket")
-                        self.socket.close()
-                    if cast(SuperSocket, self.socket).closed and \
-                            self.reconnect_handler is None:
+                        if self.socket:
+                            self.socket.close()
+                    if (self.socket
+                            and cast(SuperSocket, self.socket).closed
+                            and self.reconnect_handler is None):
                         log_automotive.critical(
                             "Socket went down. Need to leave scan")
                         raise e
@@ -348,6 +362,8 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
                 return False
 
             edge = (self.target_state, next_state)
+            self.configuration.stop_event.wait(
+                timeout=self.configuration.delay_enter_state)
             if not self.enter_state(*edge):
                 self.state_graph.downrate_edge(edge)
                 self.cleanup_state()
@@ -364,6 +380,10 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         :param next_state: Desired state
         :return: True, if state could be changed successful
         """
+        if not self.socket:
+            log_automotive.warning("Socket is None! Leaving enter_state")
+            return False
+
         edge = (prev_state, next_state)
         funcs = self.state_graph.get_transition_tuple_for_edge(edge)
 
@@ -390,6 +410,10 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         Executes all collected cleanup functions from a traversed path
         :return: None
         """
+        if not self.socket:
+            log_automotive.warning("Socket is None! Leaving cleanup_state")
+            return
+
         for f in self.cleanup_functions:
             if not callable(f):
                 continue
@@ -413,7 +437,11 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         for t in self.configuration.test_cases:
             for s in self.state_graph.nodes:
                 data += [(repr(s), t.__class__.__name__, t.has_completed(s))]
-        make_lined_table(data, lambda tup: (tup[0], tup[1], tup[2]))
+        make_lined_table(data, lambda *tup: (tup[0], tup[1], tup[2]))
+
+    def get_test_cases_by_class(self, cls):
+        # type: (Type[T]) -> List[T]
+        return [x for x in self.configuration.test_cases if isinstance(x, cls)]
 
     @property
     def supported_responses(self):

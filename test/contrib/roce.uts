@@ -124,3 +124,24 @@ assert not pkt[BTH].ackreq
 assert pkt[AETH].syndrome == 0
 assert pkt[AETH].msn == 5
 assert pkt.icrc == 0x25f0c038
+
+= RoCE over IPv6
+
+# an example UC packet 
+pkt = Ether(dst='24:8a:07:a8:fa:22', src='24:8a:07:a8:fa:22')/ \
+      IPv6(nh=17,src='2022::1023', dst='2023::1024', \
+           version=6,hlim=255,plen=44,fl=0x1face,tc=226)/ \
+      UDP(sport=49152, dport=4791, len=44)/ \
+      BTH(opcode='UC_SEND_ONLY', migreq=1, padcount=2, pkey=0xffff, dqpn=211, psn=13571856)/ \
+      Raw(b'F0\x81\x8b\xe2\x895\xd9\x0e\x9a\x95PT\x01\xbe\x88^P\x00\x00')
+
+# include ICRC placeholder
+pkt = Ether(pkt.build() + b'\x00' * 4)
+
+assert IPv6 in pkt.layers()
+assert UDP in pkt.layers()
+print(hex(pkt[UDP].chksum))
+assert pkt[UDP].chksum == 0xe7c5
+assert BTH in pkt.layers()
+print(hex(pkt[BTH].icrc))
+assert pkt[BTH].icrc == 0x3e5b743b

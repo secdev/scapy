@@ -110,6 +110,23 @@ def test_list_contrib():
 
 test_list_contrib()
 
+= Test packet show() on LatexTheme
+% with LatexTheme
+
+class SmallPacket(Packet):
+    fields_desc = [ByteField("a", 0)]
+
+conf_color_theme = conf.color_theme
+conf.color_theme = LatexTheme()
+pkt = SmallPacket()
+with ContextManagerCaptureOutput() as cmco:
+    pkt.show()
+    result = cmco.get_output().strip()
+
+assert result == '\\#\\#\\#[ \\textcolor{red}{\\bf SmallPacket} ]\\#\\#\\#\n  \\textcolor{blue}{a}         = \\textcolor{purple}{0}'
+conf.color_theme = conf_color_theme
+
+
 = Test automatic doc generation
 ~ command
 
@@ -345,6 +362,95 @@ assert output == data
 
 conf.ifaces.reload()
 
+= Test extcap detection in conf.ifaces
+~ linux extcap
+
+import os
+from scapy.libs.extcap import load_extcap
+
+_bkp_extcap = conf.prog.extcap_folders
+_bkp_providers = conf.ifaces.providers.copy()
+
+conf.ifaces.providers.clear()
+
+# Create some sort of extcap parody program
+extcapfld = get_temp_dir()
+extcapprog = os.path.join(extcapfld, "runner.sh")
+data = """#!/usr/bin/env python3
+
+import struct
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('--extcap-interfaces', action='store_true')
+parser.add_argument('--capture', action='store_true')
+parser.add_argument('--extcap-config', action='store_true')
+parser.add_argument('--scan-follow-rsp', action='store_true')
+parser.add_argument('--scan-follow-aux', action='store_true')
+parser.add_argument('--extcap-interface', type=str)
+parser.add_argument('--fifo', type=str)
+
+args = parser.parse_args()
+if args.extcap_interfaces:
+    # List interfaces
+    print(bytes.fromhex("0a657874636170207b76657273696f6e3d342e312e317d7b646973706c61793d6e524620536e696666657220666f7220426c7565746f6f7468204c457d7b68656c703d68747470733a2f2f7777772e6e6f7264696373656d692e636f6d2f536f6674776172652d616e642d546f6f6c732f446576656c6f706d656e742d546f6f6c732f6e52462d536e69666665722d666f722d426c7565746f6f74682d4c457d0a696e74657266616365207b76616c75653d2f6465762f747479555342352d4e6f6e657d7b646973706c61793d6e524620536e696666657220666f7220426c7565746f6f7468204c457d0a636f6e74726f6c207b6e756d6265723d307d7b747970653d73656c6563746f727d7b646973706c61793d4465766963657d7b746f6f6c7469703d446576696365206c6973747d0a636f6e74726f6c207b6e756d6265723d317d7b747970653d73656c6563746f727d7b646973706c61793d4b65797d7b746f6f6c7469703d7d0a636f6e74726f6c207b6e756d6265723d327d7b747970653d737472696e677d7b646973706c61793d56616c75657d7b746f6f6c7469703d3620646967697420706173736b6579206f72203136206f7220333220627974657320656e6372797074696f6e206b657920696e2068657861646563696d616c207374617274696e67207769746820273078272c2062696720656e6469616e20666f726d61742e49662074686520656e7465726564206b65792069732073686f72746572207468616e203136206f722033322062797465732c2069742077696c6c206265207a65726f2d70616464656420696e2066726f6e74277d7b76616c69646174696f6e3d5c625e28285b302d395d7b367d297c2830785b302d39612d66412d465d7b312c36347d297c285b302d39412d46612d665d7b327d5b3a2d5d297b357d285b302d39412d46612d665d7b327d2920287075626c69637c72616e646f6d2929245c627d0a636f6e74726f6c207b6e756d6265723d337d7b747970653d737472696e677d7b646973706c61793d41647620486f707d7b64656661756c743d33372c33382c33397d7b746f6f6c7469703d4164766572746973696e67206368616e6e656c20686f702073657175656e63652e204368616e676520746865206f7264657220696e2077686963682074686520736e6966666572207377697463686573206164766572746973696e67206368616e6e656c732e2056616c6964206368616e6e656c73206172652033372c20333820616e642033392073657061726174656420627920636f6d6d612e7d7b76616c69646174696f6e3d5e5c732a282833377c33387c3339295c732a2c5c732a297b302c327d2833377c33387c3339297b317d5c732a247d7b72657175697265643d747275657d0a636f6e74726f6c207b6e756d6265723d377d7b747970653d627574746f6e7d7b646973706c61793d436c6561727d7b746f6f6c746f703d436c656172206f722072656d6f7665206465766963652066726f6d20446576696365206c6973747d0a636f6e74726f6c207b6e756d6265723d347d7b747970653d627574746f6e7d7b726f6c653d68656c707d7b646973706c61793d48656c707d7b746f6f6c7469703d416363657373207573657220677569646520286c61756e636865732062726f77736572297d0a636f6e74726f6c207b6e756d6265723d357d7b747970653d627574746f6e7d7b726f6c653d726573746f72657d7b646973706c61793d44656661756c74737d7b746f6f6c7469703d52657365747320746865207573657220696e7465726661636520616e6420636c6561727320746865206c6f672066696c657d0a636f6e74726f6c207b6e756d6265723d367d7b747970653d627574746f6e7d7b726f6c653d6c6f676765727d7b646973706c61793d4c6f677d7b746f6f6c7469703d4c6f672070657220696e746572666163657d0a76616c7565207b636f6e74726f6c3d307d7b76616c75653d207d7b646973706c61793d416c6c206164766572746973696e6720646576696365737d7b64656661756c743d747275657d0a76616c7565207b636f6e74726f6c3d307d7b76616c75653d5b30302c30302c30302c30302c30302c30302c305d7d7b646973706c61793d466f6c6c6f772049524b7d0a76616c7565207b636f6e74726f6c3d317d7b76616c75653d307d7b646973706c61793d4c656761637920506173736b65797d7b64656661756c743d747275657d0a76616c7565207b636f6e74726f6c3d317d7b76616c75653d317d7b646973706c61793d4c6567616379204f4f4220646174617d0a76616c7565207b636f6e74726f6c3d317d7b76616c75653d327d7b646973706c61793d4c6567616379204c544b7d0a76616c7565207b636f6e74726f6c3d317d7b76616c75653d337d7b646973706c61793d5343204c544b7d0a76616c7565207b636f6e74726f6c3d317d7b76616c75653d347d7b646973706c61793d53432050726976617465204b65797d0a76616c7565207b636f6e74726f6c3d317d7b76616c75653d357d7b646973706c61793d49524b7d0a76616c7565207b636f6e74726f6c3d317d7b76616c75653d367d7b646973706c61793d416464204c4520616464726573737d0a76616c7565207b636f6e74726f6c3d317d7b76616c75653d377d7b646973706c61793d466f6c6c6f77204c4520616464726573737d").decode())
+elif args.extcap_interface and args.extcap_config:
+    # List config
+    print(bytes.fromhex("617267207b6e756d6265723d307d7b63616c6c3d2d2d6f6e6c792d6164766572746973696e677d7b646973706c61793d4f6e6c79206164766572746973696e67207061636b6574737d7b746f6f6c7469703d54686520736e69666665722077696c6c206f6e6c792063617074757265206164766572746973696e67207061636b6574732066726f6d207468652073656c6563746564206465766963657d7b747970653d626f6f6c666c61677d7b736176653d747275657d0a617267207b6e756d6265723d317d7b63616c6c3d2d2d6f6e6c792d6c65676163792d6164766572746973696e677d7b646973706c61793d4f6e6c79206c6567616379206164766572746973696e67207061636b6574737d7b746f6f6c7469703d54686520736e69666665722077696c6c206f6e6c792063617074757265206c6567616379206164766572746973696e67207061636b6574732066726f6d207468652073656c6563746564206465766963657d7b747970653d626f6f6c666c61677d7b736176653d747275657d0a617267207b6e756d6265723d327d7b63616c6c3d2d2d7363616e2d666f6c6c6f772d7273707d7b646973706c61793d46696e64207363616e20726573706f6e736520646174617d7b746f6f6c7469703d54686520736e69666665722077696c6c20666f6c6c6f77207363616e20726571756573747320616e64207363616e20726573706f6e73657320696e207363616e206d6f64657d7b747970653d626f6f6c666c61677d7b64656661756c743d747275657d7b736176653d747275657d0a617267207b6e756d6265723d337d7b63616c6c3d2d2d7363616e2d666f6c6c6f772d6175787d7b646973706c61793d46696e6420617578696c6961727920706f696e74657220646174617d7b746f6f6c7469703d54686520736e69666665722077696c6c20666f6c6c6f772061757820706f696e7465727320696e207363616e206d6f64657d7b747970653d626f6f6c666c61677d7b64656661756c743d747275657d7b736176653d747275657d0a617267207b6e756d6265723d337d7b63616c6c3d2d2d636f6465647d7b646973706c61793d5363616e20616e6420666f6c6c6f772064657669636573206f6e204c4520436f646564205048597d7b746f6f6c7469703d5363616e20666f72206465766963657320616e6420666f6c6c6f772061647665727469736572206f6e204c4520436f646564205048597d7b747970653d626f6f6c666c61677d7b64656661756c743d66616c73657d7b736176653d747275657d").decode())
+elif args.capture and args.extcap_interface and args.fifo:
+    # Capture
+    pkts = [
+        bytes.fromhex("ffffffffffff00000000000008004500001c0001000040117cce7f0000017f0000010035003500080172")
+    ]
+    with open(args.fifo, "wb", 0) as fd:
+        # header
+        fd.write(
+            struct.pack(
+                "IHHIIII",
+                0xa1b2c3d4,
+                2, 4, 0, 0, 65535, 1
+            )
+        )
+        for pkt in pkts:
+            fd.write(struct.pack("IIII", 0, 0, len(pkt), len(pkt)))
+            fd.write(bytes(pkt))
+else:
+    raise ValueError("Bad arguments")
+""".strip()
+with open(extcapprog, "w") as fd:
+    fd.write(data)
+
+print(data)
+
+os.chmod(extcapprog, 0o777)
+
+# Inject and load provider
+conf.prog.extcap_folders = [extcapfld]
+load_extcap()
+print(conf.ifaces.providers)
+conf.ifaces.reload()
+
+# Now do the tests
+iface = conf.ifaces.dev_from_networkname('/dev/ttyUSB5-None')
+assert iface.name == "nRF Sniffer for Bluetooth LE"
+sock = iface.l2listen()(iface=iface)
+pkts = sock.sniff(timeout=2)
+sock.close()
+assert UDP in pkts[0]
+
+config = iface.get_extcap_config()
+assert config["arg"] == [
+    ('0', '--only-advertising', 'Only advertising packets', '', ''),
+    ('1', '--only-legacy-advertising', 'Only legacy advertising packets', '', ''),
+    ('2', '--scan-follow-rsp', 'Find scan response data', 'true', ''),
+    ('3', '--scan-follow-aux', 'Find auxiliary pointer data', 'true', ''),
+    ('3', '--coded', 'Scan and follow devices on LE Coded PHY', 'false', '')
+]
+
+# Restore
+conf.prog.extcap_folders = _bkp_extcap
+conf.ifaces.providers = _bkp_providers
+conf.ifaces.reload()
+
 = Test read_routes6() - default output
 
 routes6 = read_routes6()
@@ -540,15 +646,27 @@ scapy_delete_temp_files()
 assert len(conf.temp_files) == 0
 
 = Emulate interact()
+~ interact
+
 import mock, sys
 from scapy.main import interact
+
+from scapy.main import DEFAULT_PRESTART_FILE, DEFAULT_PRESTART, _read_config_file
+_read_config_file(DEFAULT_PRESTART_FILE, _locals=globals(), default=DEFAULT_PRESTART)
+# By now .config/scapy/startup.py should have been created
+with open(DEFAULT_PRESTART_FILE, "r") as fd:
+    OLD_DEFAULT_PRESTART = fd.read()
+
+with open(DEFAULT_PRESTART_FILE, "w+") as fd:
+    fd.write("conf.interactive_shell = 'ipython'")
+
 # Detect IPython
 try:
     import IPython
 except:
     code_interact_import = "scapy.main.code.interact"
 else:
-    code_interact_import = "IPython.start_ipython"
+    code_interact_import = "IPython.embed"
 
 @mock.patch(code_interact_import)
 def interact_emulator(code_int, extra_args=[]):
@@ -567,6 +685,51 @@ except:
     pass
 
 interact_emulator(extra_args=["-d"])  # Extended
+
+= Emulate interact() and test startup.py with ptpython
+~ interact
+
+import sys
+import mock
+
+from scapy.main import DEFAULT_PRESTART_FILE, DEFAULT_PRESTART, _read_config_file
+_read_config_file(DEFAULT_PRESTART_FILE, _locals=globals(), default=DEFAULT_PRESTART)
+# By now .config/scapy/startup.py should have been created
+with open(DEFAULT_PRESTART_FILE, "w+") as fd:
+    fd.write("conf.interactive_shell = 'ptpython'")
+
+called = []
+def checker(*args, **kwargs):
+    locals = kwargs.pop("locals")
+    assert locals["IP"]
+    history_filename = kwargs.pop("history_filename")
+    assert history_filename == conf.histfile
+    called.append(True)
+
+ptpython_mocked_module = Bunch(
+    repl=Bunch(
+        embed=checker
+    )
+)
+
+modules_patched = {
+    "ptpython": ptpython_mocked_module,
+    "ptpython.repl": ptpython_mocked_module.repl,
+    "ptpython.repl.embed": ptpython_mocked_module.repl.embed,
+}
+
+with mock.patch.dict("sys.modules", modules_patched):
+    try:
+        interact()
+    finally:
+        sys.ps1 = ">>> "
+
+# Restore
+with open(DEFAULT_PRESTART_FILE, "w") as fd:
+    print(OLD_DEFAULT_PRESTART)
+    r = fd.write(OLD_DEFAULT_PRESTART)
+
+assert called
 
 = Test explore() with GUI mode
 ~ command
@@ -706,11 +869,11 @@ assert fletcher16_checkbytes(b"\x28\x07", 1) == b"\xaf("
 
 = Test hexdiff function
 ~ not_pypy
-def test_hexdiff(a, b, autojunk=False):
+def test_hexdiff(a, b, algo=None, autojunk=False):
     conf_color_theme = conf.color_theme
     conf.color_theme = BlackAndWhite()
     with ContextManagerCaptureOutput() as cmco:
-        hexdiff(a, b, autojunk=autojunk)
+        hexdiff(a, b, algo=algo, autojunk=autojunk)
         result_hexdiff = cmco.get_output()
     conf.interactive = True
     conf.color_theme = conf_color_theme
@@ -740,12 +903,12 @@ expected += "0010        7F 00 00 01                                        ....
 expected += "     0010   7F 00 00 02                                        ....\n"
 assert result_hexdiff == expected
 
-# Compare using autojunk
+# Compare using difflib
 
 a = "A" * 1000 + "findme" + "B" * 1000
 b = "A" * 1000 + "B" * 1000
-ret1 = test_hexdiff(a, b)
-ret2 = test_hexdiff(a, b, autojunk=True)
+ret1 = test_hexdiff(a, b, algo="difflib")
+ret2 = test_hexdiff(a, b, algo="difflib", autojunk=True)
 
 expected_ret1 = """
 03d0 03d0   41 41 41 41 41 41 41 41  41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA
@@ -866,16 +1029,16 @@ with open(manuf2, "w") as w:
 a = load_manuf(manuf1)
 b = load_manuf(manuf2)
 
-a.lookup("00:00:00") == ('JokyIsland', 'Joky Insland Corp SA'),
-a.lookup("FF:00:11:00:00:00") == ('NoName', 'NoName')
-a.reverse_lookup("Scapy") == {'EE:05:01': ('Scapy', 'Scapy CO LTD & CIE')}
-a.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporation SA LLC')}
+assert a.lookup("00:00:00") == ('JokyIsland', 'Joky Insland Corp SA')
+assert a.lookup("FF:00:11:00:00:00") == ('NoName', 'NoName')
+assert a.reverse_lookup("Scapy") == {'EE:05:01': ('Scapy', 'Scapy CO LTD & CIE')}
+assert a.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporation SA LLC')}
 
 
-b.lookup("00:00:00") == ('JokyIsland', 'Joky Insland Corp SA'),
-b.lookup("FF:00:11:00:00:00") == ('NoName', 'NoName')
-b.reverse_lookup("Scapy") == {'EE:05:01': ('Scapy', 'Scapy CO LTD & CIE')}
-b.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporation SA LLC')}
+assert b.lookup("00:00:00") == ('JokyIsland', 'Joky Insland Corp SA')
+assert b.lookup("FF:00:11:00:00:00") == ('NoName', 'NoName')
+assert b.reverse_lookup("Scapy") == {'EE:05:01': ('Scapy', 'Scapy CO LTD & CIE')}
+assert b.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporation SA LLC')}
 
 scapy_delete_temp_files()
 
@@ -908,7 +1071,8 @@ scapy_delete_temp_files()
 = Test utility functions - network related
 ~ netaccess
 
-atol("www.secdev.org") == 3642339845
+assert atol("1.1.1.1") == 0x1010101
+assert atol("192.168.0.1") == 0xc0a80001
 
 = Test autorun functions
 ~ autorun
@@ -932,6 +1096,7 @@ assert "NameError" in ret[0]
 
 cmds = """log_runtime.info(hex_bytes("446166742050756e6b"))\n"""
 ret = autorun_get_text_interactive_session(cmds)
+ret
 assert "Daft Punk" in ret[0]
 
 = Test utility TEX functions
@@ -961,8 +1126,8 @@ conf.verb = saved_conf_verb
 
 = Test config file functions failures
 
-from scapy.main import _probe_config_file
-assert _probe_config_file("filethatdoesnotexistnorwillever.tsppajfsrdrr") is None
+from scapy.main import _read_config_file, _probe_config_folder
+assert _read_config_file(_probe_config_folder("filethatdoesnotexistnorwillever.tsppajfsrdrr")) is None
 
 = Test CacheInstance repr
 
@@ -1278,6 +1443,48 @@ conf.checkIPsrc = conf_checkIPsrc
 
 ############
 ############
++ command() / json() tests
+~ command
+
+= Test command() with normal packet
+
+pkt = IP(dst="127.0.0.1", src="127.0.0.1") / UDP(dport=12345, sport=654)
+assert pkt.command() == "IP(src='127.0.0.1', dst='127.0.0.1')/UDP(sport=654, dport=12345)"
+
+= Test json() with normal packet
+
+assert pkt.json() == '{"version": 4, "ihl": null, "tos": 0, "len": null, "id": 1, "flags": 0, "frag": 0, "ttl": 64, "proto": 17, "chksum": null, "src": "127.0.0.1", "dst": "127.0.0.1", "payload": {"sport": 654, "dport": 12345, "len": null, "chksum": null}}'
+
+= Test command() with nested packet
+
+pkt = DNS(qd=[DNSQR(qtype="A", qname="google.com")])
+assert pkt.command() == "DNS(qd=[DNSQR(qname=b'google.com.', qtype=1)])"
+
+= Test json() with nested packet
+
+assert pkt.json() == '{"length": null, "id": 0, "qr": 0, "opcode": 0, "aa": 0, "tc": 0, "rd": 1, "ra": 0, "z": 0, "ad": 0, "cd": 0, "rcode": 0, "qdcount": null, "ancount": null, "nscount": null, "arcount": null, "qd": [{"qname": "google.com.", "qtype": 1, "qclass": 1}]}'
+
+= Test command() with ASN.1 packet
+
+pkt = KRB_AP_REP(bytes(KRB_AP_REP(encPart=EncryptedData())))
+assert pkt.command() == "KRB_AP_REP(pvno=ASN1_INTEGER(5), msgType=ASN1_INTEGER(15), encPart=EncryptedData(etype=ASN1_INTEGER(23), kvno=None, cipher=ASN1_STRING(b'')))"
+
+= Test json(à with ASN.1 packet
+
+assert pkt.json() == '{"pvno": {"type": "ASN1_INTEGER", "value": "5"}, "msgType": {"type": "ASN1_INTEGER", "value": "15"}, "encPart": {"etype": {"type": "ASN1_INTEGER", "value": "23"}, "kvno": null, "cipher": {"type": "ASN1_STRING", "value": ""}}}'
+
+= Test command() with meaningless payload
+
+pkt = PPTPStartControlConnectionReply() / IP(dst="127.0.0.1", src="127.0.0.1")
+assert pkt.command() == "PPTPStartControlConnectionReply()/IP(src='127.0.0.1', dst='127.0.0.1')"
+
+= Test json() with meaningless payload
+
+assert pkt.json() == '{"len": 156, "type": 1, "magic_cookie": 439041101, "ctrl_msg_type": 2, "reserved_0": 0, "protocol_version": 256, "result_code": 1, "error_code": 0, "framing_capabilities": 0, "bearer_capabilities": 0, "maximum_channels": 65535, "firmware_revision": 256, "host_name": "linux", "vendor_string": "", "payload": {"version": 4, "ihl": null, "tos": 0, "len": null, "id": 1, "flags": 0, "frag": 0, "ttl": 64, "proto": 0, "chksum": null, "src": "127.0.0.1", "dst": "127.0.0.1"}}'
+
+
+############
+############
 + Tests on padding
 
 = Padding assembly
@@ -1309,9 +1516,10 @@ assert p.len == 23 and len(p) == 29
 ~ PadField padding
 
 class TestPad(Packet):
-    fields_desc = [ PadField(StrNullField("st", b""),4), StrField("id", b"")]
+    fields_desc = [ PadField(StrNullField("st", b""), 6, padwith=b"\xff"), StrField("id", b"")]
 
-TestPad() == TestPad(raw(TestPad()))
+assert TestPad() == TestPad(raw(TestPad()))
+assert raw(TestPad(st=b"st", id=b"id")) == b'st\x00\xff\xff\xffid'
 
 = ReversePadField
 ~ PadField padding
@@ -1362,7 +1570,7 @@ o
 assert o in [
     b'\x1e\x023V',  # PyPy 2.7
     b'A\x02\x07q',  # Python 2.7
-    b'B\x02\xfe\x92',  # python 3.7-3.9
+    b'F\x02\xfe\x92',   # python 3.7-3.9
 ]
 
 = ASN1 - ASN1_BIT_STRING
@@ -1424,6 +1632,24 @@ beacon = frame.getlayer(5)
 ssid = beacon.network_stats()['ssid']
 assert ssid == "ROUTE-821E295"
 
+= SSID is parsed properly even when the Country Information Tag Element has an odd length (not complying with the standard) and a missing pad byte
+~ Missing Pad Byte in Country Info
+# A regression test for https://github.com/secdev/scapy/pull/2685.
+# https://github.com/secdev/scapy/issues/4132 describes a packet with
+# a Country Information element tag that has an odd length, even though it's against the standard.
+# The transmitter should have added a padding byte to make the length even, but it didn't.
+# The effect on scapy used to be improper parsing of the next tag elements, causing the SSID to be overridden.
+# This test checks the SSID is parsed properly.
+from io import BytesIO
+pcapfile = BytesIO(b'\n\r\r\n\x80\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x03\x00\x10\x00Linux 6.1.21-v8+\x04\x00E\x00Dumpcap (Wireshark) 3.4.10 (Git v3.4.10 packaged as 3.4.10-0+deb11u1)\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00\x00\x01\x00\x00\x00@\x00\x00\x00\x7f\x00\x00\x00\x00\x04\x00\x00\x02\x00\x05\x00wifi2\x00\x00\x00\t\x00\x01\x00\t\x00\x00\x00\x0c\x00\x10\x00Linux 6.1.21-v8+\x00\x00\x00\x00@\x00\x00\x00\x06\x00\x00\x00\xb0\x01\x00\x00\x00\x00\x00\x00c\xd3\x87\x17\xe3c5\x82\x90\x01\x00\x00\x90\x01\x00\x00\x00\x00 \x00\xae@\x00\xa0 \x08\x00\xa0 \x08\x00\x00\x10\x0cd\x14@\x01\xa9\x00\x0c\x00\x00\x00\xa6\x00\xa8\x01\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x02\xbf\xaf\x9f\xf8\x07\x02\xbf\xaf\x9f\xf8\x070\x96[p\xdcM\x06\x00\x00\x00d\x00\x11\x00\x00\x00\x01\x08\x8c\x12\x98$\xb0H`l\x03\x01,\x05\x04\x00\x01\x00\x00\x07QUS \x01\r\x80$\x01\x80(\x01\x80,\x01\x800\x01\x804\x01\x808\x01\x80<\x01\x80@\x01\x80d\x01\x80h\x01\x80l\x01\x80p\x01\x80t\x01\x80x\x01\x80|\x01\x80\x80\x01\x80\x84\x01\x80\x88\x01\x80\x8c\x01\x80\x90\x01\x80\x95\x01\x80\x99\x01\x80\x9d\x01\x80\xa1\x01\x80\xa5\x01\x800\x14\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x02\x0c\x00;\x02s\x00-\x1a,\t\x13\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00,\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00=\x16,\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xdd\x18\x00P\xf2\x02\x01\x01\x81\x00\x03\xa4\x00\x00\'\xa4\x00\x00BC]\x00a\x11.\x00\xdd;\x00P\xf2\x04\x10J\x00\x01\x10\x10D\x00\x01\x02\x10I\x00\x06\x007*\x00\x01 \x10\x11\x00\x1358" Hisense Roku TV\x10T\x00\x08\x00\x07\x00P\xf2\x04\x00\x01\xdd\x16\xc8:k\x01\x01\x1048<@dhlptx|\x80\x84\x88\x8c\x90\xdd\x12Po\x9a\t\x02\x02\x00!\x0b\x03\x06\x00\x02\xbf\xaf\x9f\xf8\x07\xdd\rPo\x9a\n\x00\x00\x06\x01\x11\x1cD\x002\xf5N\xfbh\xb0\x01\x00\x00')
+pktpcap = rdpcap(pcapfile)
+frame = pktpcap[0]
+beacon = frame.getlayer(4)
+stats = beacon.network_stats()
+ssid = stats['ssid']
+assert ssid == ""
+country = stats['country']
+assert country == 'US'
 
 ############
 ############
@@ -1463,6 +1689,7 @@ retry_test(_test)
 = Latency check: localhost ICMP
 ~ netaccess needs_root linux latency
 
+# Note: still needs to enforce L3RawSocket as this won't work otherwise with libpcap
 sock = conf.L3socket
 conf.L3socket = L3RawSocket
 
@@ -1484,7 +1711,7 @@ finally:
 # simulate sniffing on multiple interfaces.
 
 def _test():
-	iface = conf.route.route("www.google.com")[0]
+	iface = conf.route.route(str(Net("www.google.com")))[0]
 	port = int(RandShort())
 	pkt = IP(dst="www.google.com")/TCP(sport=port, dport=80, flags="S")
 	def cb():
@@ -1501,6 +1728,16 @@ def _test():
 	    assert pkt.sniffed_on == iface
 
 retry_test(_test)
+
+= Test sniffing with AsyncSniffer on failed
+
+try:
+    sniffer = AsyncSniffer(iface="this_interface_does_not_exists")
+    sniffer.start()
+    sniffer.join()
+    assert False, "Should have errored by now"
+except (OSError, Scapy_Exception):
+    assert True
 
 = Sending a TCP syn 'forever' at layer 2 and layer 3
 ~ netaccess needs_root IP
@@ -1584,7 +1821,7 @@ retry_test(_test)
 def _test():
     ret = conf.AS_resolver.resolve("8.8.8.8", "8.8.4.4")
     assert (len(ret) == 2)
-    all(x[1] == "AS15169" for x in ret)
+    assert any(x[1] == "AS15169" for x in ret)
 
 retry_test(_test)
 
@@ -1621,7 +1858,7 @@ def _test():
     as_resolver6 = AS_resolver6()
     ret = as_resolver6.resolve("2001:4860:4860::8888", "2001:4860:4860::4444")
     assert (len(ret) == 2)
-    assert all(x[1] == 15169 for x in ret)
+    assert any(x[1] == 15169 for x in ret)
 
 retry_test(_test)
 
@@ -1899,6 +2136,7 @@ p.show()
 ############
 ############
 + pcap / pcapng format support
+~ pcap
 
 = Variable creations
 from io import BytesIO
@@ -1933,9 +2171,9 @@ assert len(pktcapng) != 0
 tmpfile = get_temp_file(autoext=".pcapng")
 r = RawPcapNgWriter(tmpfile)
 r._write_block_shb()
-r._write_block_idb()
+r._write_block_idb(linktype=DLT_EN10MB)
 ts = 1632568366.384185
-r._write_block_epb(raw(Ether()/"Hello Scapy!!!"), ts)
+r._write_block_epb(raw(Ether()/"Hello Scapy!!!"), ifid=0, timestamp=ts)
 r.f.close()
 
 assert os.stat(tmpfile).st_size == 108
@@ -1961,7 +2199,71 @@ p = Ether() / IPv6() / TCP()
 p.comment = b"Hello Scapy!"
 wrpcapng(tmpfile, p)
 l = rdpcap(tmpfile)
-assert l[0].comment.strip() == p.comment
+assert l[0].comment == p.comment
+
+= Check multiple packets with different combination of linktype,comment,direction,sniffed_on fields. test both wrpcap() and wrpcapng()
+import random,string
+random.seed(0x2807)
+plist = []
+ptypes = []
+ptypes.append(Ether((Ether() / IPv6() / TCP()).build())) 
+ptypes.append(IP((IP() / IPv6() / TCP()).build()))
+ifaces=[None,'','i','int0',''.join(random.choices(string.printable,k=20))]
+comments=[None,'','a','abcd',''.join(random.choices(string.printable,k=20))]
+directions=[None,0,1,2,3]
+
+for iface in ifaces:
+    for comment in comments:
+        if comment is not None:
+            comment=comment.encode('utf-8')
+        for direction in directions:
+            for p in ptypes:
+                if iface is not None and type(ptypes[ifaces.index(iface) % len(ptypes)]) != type(p):
+                    continue
+                pnew = p.copy()
+                pnew.time = 1632568366.384185
+                pnew.sniffed_on = iface
+                pnew.direction = direction
+                pnew.comment = comment
+                plist.append(pnew)
+
+random.shuffle(plist)
+tmpfile = get_temp_file(autoext=".pcapng")
+wrpcapng(tmpfile, plist)
+plist_check = rdpcap(tmpfile)
+assert len(plist_check) == len(plist)
+for i in range(len(plist)):
+    assert plist_check[i].comment == plist[i].comment
+    assert plist_check[i].direction == plist[i].direction
+    assert plist_check[i].sniffed_on == plist[i].sniffed_on
+    assert plist_check[i].time == plist[i].time
+    #if interface is unknown, verify pkt bytes integrity and that linktype was set to first packet 
+    if plist[i].sniffed_on is None:
+        assert bytes(plist_check[i]) == bytes(plist[i])
+        assert type(plist_check[i]) == type(plist[0])
+    else:
+        assert plist_check[i] == plist[i]
+
+tmpfile = get_temp_file(autoext=".pcap")
+wrpcap(tmpfile, plist)
+plist_check = rdpcap(tmpfile)
+for i in range(len(plist)):
+    assert plist_check[i].time == plist[i].time
+    assert type(plist_check[i]) == type(plist[0])
+    assert bytes(plist_check[i]) == bytes(plist[i])
+
+= OSS-Fuzz Findings
+
+from io import BytesIO
+# Issue 68352
+file = BytesIO(b"\n\r\r\n\x1c\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x1c\x00\x00\x00\x01\x00\x00\x00\x14\x00\x00\x00\xe4\x00\x00\x00\x00\x00\x04\x00\x14\x00\x00\x00\x01\x00\x00\x00(\x00\x00\x00\xe4\x00\x00\x00\x00\x00\x04\x00\x02\x00\t\x00b'ens16\xb0'\x00\x00\x00\x00\x00\x00\x00(\x00\x00\x00\x06\x00\x00\x004\x00\x00\x00\x01\x00\x00\x00}\x17\x06\x00\xb5t\x1d\x85\x14\x00\x00\x00\x14\x00\x00\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x014\x00\x00\x00")
+rdpcap(file)
+# Issue 68354
+file = BytesIO(b'\n\r\r\n\xff\xfe\xfe\xffM<+\x1a')
+try:
+    rdpcap(file)
+except Scapy_Exception:
+    pass
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
@@ -2068,10 +2370,19 @@ l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
 assert len(l) == 0
 
 = Check offline sniff() with Packets, tcpdump and a bad filter
-~ tcpdump libpcap
+~ tcpdump libpcap 
 
 try:
     sniff(offline=IP()/UDP(), filter="bad filter")
+except Scapy_Exception:
+    pass
+else:
+    assert False
+
+= Check online sniff() with a bad filter
+~ needs_root tcpdump libpcap
+try:
+    sniff(timeout=0, filter="bad filter")
 except Scapy_Exception:
     pass
 else:
@@ -2158,7 +2469,7 @@ except Scapy_Exception:
     pass
 
 # Invalid Packet in PCAPNG -> return
-invalid_pcapngfile_2 = BytesIO(b'\n\r\r\n\x00\x00\x00\x10\x1a+<M\x00\x00\x00\x10\x00\x00\x00\x01\x00\x00\x00\x10    \x00\x00\x00\x10')
+invalid_pcapngfile_2 = BytesIO(b'\n\r\r\n\x00\x00\x00\x1c\x1a+<M\x00\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x10\x00\x00\x00\x1c\x00\x00\x00\x01\x00\x00\x00\x10\x12\x12\x12\x12\x00\x00\x00\x10')
 assert len(rdpcap(invalid_pcapngfile_2)) == 0
 
 # Invalid interface ID in PCAPNG -> raise EOFError
@@ -2483,6 +2794,15 @@ with mock.patch("scapy.utils.warning") as warning:
     wrpcap(filename, [IP(), Ether(), IP(), IP()])
     os.remove(filename)
     assert any("Inconsistent" in arg for arg in warning.call_args[0])
+
+= Check wrpcap() with the Loopback layer
+~ tshark
+
+for cls in [Loopback, LoopbackOpenBSD]:
+    filename = tempfile.mktemp(suffix=".pcap")
+    wrpcap(filename, [cls()/IP()/ICMP()])
+    return_value = b"".join(line for line in tcpdump(filename, prog=conf.prog.tshark, getfd=True))
+    assert b"Echo (ping) request" in return_value
 
 ############
 ############
@@ -3400,8 +3720,7 @@ class DNSTCP(Packet):
     fields_desc = [ FieldLenField("len", None, fmt="!H", length_of="dns"),
                     PacketLenField("dns", 0, DNS, length_from=lambda p: p.len)]
 
-ssck = StreamSocket(sck)
-ssck.basecls = DNSTCP
+ssck = StreamSocket(sck, DNSTCP)
 
 r = ssck.sr1(DNSTCP(dns=DNS(rd=1, qd=DNSQR(qname="www.example.com"))), timeout=3)
 sck.close()
@@ -3419,7 +3738,7 @@ class MockSocket(object):
         self.l = [ b'\x00\x00\x00\x01', b'\x00\x00\x00\x02', b'\x00\x00\x00\x03' ]
     def recv(self, x):
         if len(self.l) == 0:
-            raise socket.error(100, 'EOF')
+            return b""
         return self.l.pop(0)
     def fileno(self):
         return -1
@@ -3447,7 +3766,7 @@ assert p.data == 3
 try:
     ss.recv()
     ret = False
-except socket.error:
+except EOFError:
     ret = True
 
 assert ret
@@ -3461,7 +3780,7 @@ class MockSocket(object):
         self.l = [ b'\x00\x00\x00\x01\x00\x00\x00\x02', b'\x00\x00\x00\x03\x00\x00\x00\x04' ]
     def recv(self, x):
         if len(self.l) == 0:
-            raise socket.error(100, 'EOF')
+            return b""
         return self.l.pop(0)
     def fileno(self):
         return -1
@@ -3491,7 +3810,7 @@ assert p.data == 4
 try:
     ss.recv()
     ret = False
-except socket.error:
+except EOFError:
     ret = True
 
 assert ret
@@ -3505,7 +3824,7 @@ class MockSocket(object):
         self.l = [ b'\x00\x00', b'\x00\x01', b'\x00\x00\x00', b'\x02', b'\x00\x00', b'\x00', b'\x03' ]
     def recv(self, x):
         if len(self.l) == 0:
-            raise socket.error(100, 'EOF')
+            return b""
         return self.l.pop(0)
     def fileno(self):
         return -1
@@ -3524,40 +3843,22 @@ class TestPacket(Packet):
 s = MockSocket()
 ss = SSLStreamSocket(s, basecls=TestPacket)
 
-try:
-    p = ss.recv()
-    ret = False
-except:
-    ret = True
-
-assert ret
 p = ss.recv()
 assert p.data == 1
-try:
-    p = ss.recv()
-    ret = False
-except:
-    ret = True
 
-assert ret
 p = ss.recv()
 assert p.data == 2
-try:
-    p = ss.recv()
-    ret = False
-except:
-    ret = True
 
-assert ret
-try:
-    p = ss.recv()
-    ret = False
-except:
-    ret = True
-
-assert ret
 p = ss.recv()
 assert p.data == 3
+
+try:
+    ss.recv()
+    ret = False
+except EOFError:
+    ret = True
+
+assert ret
 
 
 ############
@@ -3646,6 +3947,10 @@ n1 = ip.dst
 assert isinstance(n1, Net)
 ip.show()
 
+= Net using implicit format in IP
+
+assert len(list(IP(dst=("192.168.0.100", "192.168.0.199")))) == 100
+
 = Multiple IP addresses test
 ~ netaccess
 
@@ -3700,6 +4005,10 @@ ip.show()
 
 ip = IPv6(dst="www.yahoo.com")
 assert IPv6(raw(ip)).dst == [p.dst for p in ip][0]
+
+= Net6 using implicit format in IPv6
+
+assert len(list(IPv6(dst=("fe80::1", "fe80::1f")))) == 31
 
 = Multiple IPv6 addresses test
 ~ netaccess ipv6

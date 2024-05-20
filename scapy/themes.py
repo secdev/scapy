@@ -16,11 +16,12 @@ import sys
 
 from typing import (
     Any,
-    Callable,
     List,
     Optional,
     Tuple,
+    cast,
 )
+from scapy.compat import Protocol
 
 
 class ColorTable:
@@ -33,7 +34,8 @@ class ColorTable:
         "blue": ("\033[34m", "#ansiblue"),
         "purple": ("\033[35m", "#ansipurple"),
         "cyan": ("\033[36m", "#ansicyan"),
-        "grey": ("\033[37m", "#ansiwhite"),
+        "white": ("\033[37m", "#ansiwhite"),
+        "grey": ("\033[38;5;246m", "#ansiwhite"),
         "reset": ("\033[39m", "noinherit"),
         # background
         "bg_black": ("\033[40m", "bg:#ansiblack"),
@@ -43,7 +45,7 @@ class ColorTable:
         "bg_blue": ("\033[44m", "bg:#ansiblue"),
         "bg_purple": ("\033[45m", "bg:#ansipurple"),
         "bg_cyan": ("\033[46m", "bg:#ansicyan"),
-        "bg_grey": ("\033[47m", "bg:#ansiwhite"),
+        "bg_white": ("\033[47m", "bg:#ansiwhite"),
         "bg_reset": ("\033[49m", "noinherit"),
         # specials
         "normal": ("\033[0m", "noinherit"),  # color & brightness
@@ -75,14 +77,27 @@ class ColorTable:
 Color = ColorTable()
 
 
+class _ColorFormatterType(Protocol):
+    def __call__(self,
+                 val: Any,
+                 fmt: Optional[str] = None,
+                 fmt2: str = "",
+                 before: str = "",
+                 after: str = "") -> str:
+        pass
+
+
 def create_styler(fmt=None,  # type: Optional[str]
                   before="",  # type: str
                   after="",  # type: str
                   fmt2="%s"  # type: str
                   ):
-    # type: (...) -> Callable[[Any], str]
-    def do_style(val, fmt=fmt, fmt2=fmt2, before=before, after=after):
-        # type: (Any, Optional[str], str, str, str) -> str
+    # type: (...) -> _ColorFormatterType
+    def do_style(val: Any,
+                 fmt: Optional[str] = fmt,
+                 fmt2: str = fmt2,
+                 before: str = before,
+                 after: str = after) -> str:
         if fmt is None:
             sval = str(val)
         else:
@@ -92,6 +107,31 @@ def create_styler(fmt=None,  # type: Optional[str]
 
 
 class ColorTheme:
+    style_normal = ""
+    style_prompt = ""
+    style_punct = ""
+    style_id = ""
+    style_not_printable = ""
+    style_layer_name = ""
+    style_field_name = ""
+    style_field_value = ""
+    style_emph_field_name = ""
+    style_emph_field_value = ""
+    style_depreciate_field_name = ""
+    style_packetlist_name = ""
+    style_packetlist_proto = ""
+    style_packetlist_value = ""
+    style_fail = ""
+    style_success = ""
+    style_odd = ""
+    style_even = ""
+    style_opening = ""
+    style_active = ""
+    style_closed = ""
+    style_left = ""
+    style_right = ""
+    style_logo = ""
+
     def __repr__(self):
         # type: () -> str
         return "<%s>" % self.__class__.__name__
@@ -101,7 +141,7 @@ class ColorTheme:
         return (self.__class__, (), ())
 
     def __getattr__(self, attr):
-        # type: (str) -> Callable[[Any], str]
+        # type: (str) -> _ColorFormatterType
         if attr in ["__getstate__", "__setstate__", "__getinitargs__",
                     "__reduce_ex__"]:
             raise AttributeError()
@@ -120,7 +160,7 @@ class NoTheme(ColorTheme):
 
 class AnsiColorTheme(ColorTheme):
     def __getattr__(self, attr):
-        # type: (str) -> Callable[[Any], str]
+        # type: (str) -> _ColorFormatterType
         if attr.startswith("__"):
             raise AttributeError(attr)
         s = "style_%s" % attr
@@ -135,30 +175,6 @@ class AnsiColorTheme(ColorTheme):
 
         return create_styler(before=before, after=after)
 
-    style_normal = ""
-    style_prompt = ""
-    style_punct = ""
-    style_id = ""
-    style_not_printable = ""
-    style_layer_name = ""
-    style_field_name = ""
-    style_field_value = ""
-    style_emph_field_name = ""
-    style_emph_field_value = ""
-    style_packetlist_name = ""
-    style_packetlist_proto = ""
-    style_packetlist_value = ""
-    style_fail = ""
-    style_success = ""
-    style_odd = ""
-    style_even = ""
-    style_opening = ""
-    style_active = ""
-    style_closed = ""
-    style_left = ""
-    style_right = ""
-    style_logo = ""
-
 
 class BlackAndWhite(AnsiColorTheme, NoTheme):
     pass
@@ -169,7 +185,8 @@ class DefaultTheme(AnsiColorTheme):
     style_prompt = Color.blue + Color.bold
     style_punct = Color.normal
     style_id = Color.blue + Color.bold
-    style_not_printable = Color.grey
+    style_not_printable = Color.white
+    style_depreciate_field_name = Color.grey
     style_layer_name = Color.red + Color.bold
     style_field_name = Color.blue
     style_field_value = Color.purple
@@ -184,7 +201,7 @@ class DefaultTheme(AnsiColorTheme):
     style_odd = Color.black
     style_opening = Color.yellow
     style_active = Color.black
-    style_closed = Color.grey
+    style_closed = Color.white
     style_left = Color.blue + Color.invert
     style_right = Color.red + Color.invert
     style_logo = Color.green + Color.bold
@@ -252,9 +269,9 @@ class ColorOnBlackTheme(AnsiColorTheme):
     style_fail = Color.red + Color.bold
     style_success = Color.green
     style_even = Color.black + Color.bold
-    style_odd = Color.grey
+    style_odd = Color.white
     style_opening = Color.yellow
-    style_active = Color.grey + Color.bold
+    style_active = Color.white + Color.bold
     style_closed = Color.black + Color.bold
     style_left = Color.cyan + Color.bold
     style_right = Color.red + Color.bold
@@ -262,8 +279,7 @@ class ColorOnBlackTheme(AnsiColorTheme):
 
 
 class FormatTheme(ColorTheme):
-    def __getattr__(self, attr):
-        # type: (str) -> Callable[[Any], str]
+    def __getattr__(self, attr: str) -> _ColorFormatterType:
         if attr.startswith("__"):
             raise AttributeError(attr)
         colfmt = self.__class__.__dict__.get("style_%s" % attr, "%s")
@@ -271,6 +287,10 @@ class FormatTheme(ColorTheme):
 
 
 class LatexTheme(FormatTheme):
+    r"""
+    You can prepend the output from this theme with
+    \tt\obeyspaces\obeylines\tiny\noindent
+    """
     style_prompt = r"\textcolor{blue}{%s}"
     style_not_printable = r"\textcolor{gray}{%s}"
     style_layer_name = r"\textcolor{red}{\bf %s}"
@@ -288,6 +308,14 @@ class LatexTheme(FormatTheme):
 #    style_even = r"}{\bf "
 #    style_odd = ""
     style_logo = r"\textcolor{green}{\bf %s}"
+
+    def __getattr__(self, attr: str) -> _ColorFormatterType:
+        from scapy.utils import tex_escape
+        styler = super(LatexTheme, self).__getattr__(attr)
+        return cast(
+            _ColorFormatterType,
+            lambda x, *args, **kwargs: styler(tex_escape(x), *args, **kwargs),
+        )
 
 
 class LatexTheme2(FormatTheme):

@@ -1507,6 +1507,31 @@ except IPSecIntegrityError as err:
     err
 
 #######################################
+= IPv4 / ESP - Transport - AES-CBC - HMAC-SHA2-256-128 -- ESN
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('hello world')
+p = IP(raw(p))
+p
+
+enc_key = bytes.fromhex("85ee354b4675a9c5d16e3d6f4118043b")
+auth_key = bytes.fromhex("6f79bf94da7dde3c86009934d9258f1b3fc2f5382aca9c9cb8e216eed235f34c")
+
+sa = SecurityAssociation(ESP, spi=0xcf54ccdf, crypt_algo='AES-CBC',
+                         crypt_key=enc_key,
+                         auth_algo='SHA2-256-128', auth_key=auth_key,
+                         esn_en=True, esn=68)
+e = sa.encrypt(p, iv=bytes.fromhex("11223344112233441122334411223344"))
+
+
+assert bytes(e) == bytes.fromhex("4500006c000100004032745a0101010102020202cf54ccdf0000000111223344112233441122334411223344f5bda519c9ae64f283f0fc18a8d253eca8b34c2120c8958a97ec9d8e67756da2523fce9b5541c57fddf090afc2bfd97e8703203953f853eb61482e4c1384d4c8")
+
+* integrity verification should pass
+d = sa.decrypt(e)
+d
+
+#######################################
 = IPv4 / ESP - Transport - AES-GCM - NULL
 
 p = IP(src='1.1.1.1', dst='2.2.2.2')
@@ -3276,6 +3301,89 @@ try:
     assert False
 except IPSecIntegrityError as err:
     err
+
+###############################################################################
++ IPv4 / UDP / ESP - NAT-Traversal
+
+#######################################
+= IPv4 / UDP / ESP - NAT-Traversal - Tunnel
+~ -crypto
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='NULL', auth_key=None,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'),
+                         nat_t_header=UDP(dport=5000))
+
+e = sa.encrypt(p)
+e
+
+assert isinstance(e, IP)
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+* the encrypted packet should have an UDP layer
+assert e.proto == socket.IPPROTO_UDP
+assert e.haslayer(UDP)
+assert e[UDP].sport == 4500
+assert e[UDP].dport == 5000
+assert e[UDP].chksum == 0
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
+
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet payload should be unaltered
+assert d[TCP] == p[TCP]
+
+#######################################
+= IPv4 / UDP / ESP - NAT-Traversal - Transport
+~ -crypto
+
+import socket
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='NULL', auth_key=None,
+                         nat_t_header=UDP(dport=5000))
+
+e = sa.encrypt(p)
+e
+
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+* the encrypted packet should have an UDP layer
+assert e.proto == socket.IPPROTO_UDP
+assert e.haslayer(UDP)
+assert e[UDP].sport == 4500
+assert e[UDP].dport == 5000
+assert e[UDP].chksum == 0
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
+
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet payload should be unaltered
+assert d[TCP] == p[TCP]
 
 ###############################################################################
 + IPv6 / ESP

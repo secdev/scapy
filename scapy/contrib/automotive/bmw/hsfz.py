@@ -19,6 +19,7 @@ from scapy.contrib.automotive.uds import UDS, UDS_TP
 from scapy.data import MTU
 
 from typing import (
+    Any,
     Optional,
     Tuple,
     Type,
@@ -86,6 +87,27 @@ class HSFZSocket(StreamSocket):
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.connect((self.ip, self.port))
         StreamSocket.__init__(self, s, HSFZ)
+        self.buffer = b""
+
+    def recv(self, x=MTU, **kwargs):
+        # type: (Optional[int], **Any) -> Optional[Packet]
+        if self.buffer:
+            len_data = self.buffer[:4]
+        else:
+            len_data = self.ins.recv(4, socket.MSG_PEEK)
+            if len(len_data) != 4:
+                return None
+
+        len_int = struct.unpack(">I", len_data)[0]
+        len_int += 6
+        self.buffer += self.ins.recv(len_int - len(self.buffer))
+
+        if len(self.buffer) != len_int:
+            return None
+
+        pkt = self.basecls(self.buffer, **kwargs)  # type: Packet
+        self.buffer = b""
+        return pkt
 
 
 class UDS_HSFZSocket(HSFZSocket):
@@ -120,11 +142,11 @@ class UDS_HSFZSocket(HSFZSocket):
             self.close()
             return 0
 
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
+    def recv(self, x=MTU, **kwargs):
+        # type: (Optional[int], **Any) -> Optional[Packet]
         pkt = super(UDS_HSFZSocket, self).recv(x)
         if pkt:
-            return self.outputcls(bytes(pkt.payload))
+            return self.outputcls(bytes(pkt.payload), **kwargs)
         else:
             return pkt
 

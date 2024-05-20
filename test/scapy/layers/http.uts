@@ -68,6 +68,23 @@ assert HTTPResponse in pkt
 print(pkt[Raw].load, expected_data)
 assert pkt[Raw].load == expected_data
 
+= TCPSession - dissect HTTP 1.0 HEAD response
+~ http
+
+load_layer("http")
+
+a = sniff(offline=scapy_path("/test/pcaps/http_head.pcapng.gz"), session=TCPSession)
+
+assert HTTPRequest in a[3]
+assert a[3].Method == b"HEAD"
+assert a[3].User_Agent == b'curl/7.88.1'
+
+assert HTTPResponse in a[5]
+assert a[5].Content_Type == b'text/html; charset=UTF-8'
+assert a[5].Expires == b'Mon, 01 Apr 2024 22:25:38 GMT'
+assert a[5].Reason_Phrase == b'Moved Permanently'
+assert a[5].X_Frame_Options == b"SAMEORIGIN"
+
 = HTTP decompression (gzip)
 
 conf.debug_dissector = True
@@ -99,6 +116,25 @@ pkts = sniff(offline=filename, session=TCPSession)
 pkts[2].show()
 assert HTTPResponse in pkts[2]
 assert pkts[2].load == b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"><html><head><title></title></head><body style="background-color: transparent"><img src=\'https://pixel.mathtag.com/event/img?mt_id=151466&mt_adid=106144&v1=&v2=&v3=&s1=&s2=&s3=&ord=2047279765\' width=\'1\' height=\'1\' /><img src="https://adservice.google.com/ddm/fls/z/src=3656617;type=hpvisit;cat=homep198;u2=;u6=;u5=;u4=;u3=;u9=;u10=;u7=;u13=;u14=;u11=;u17=;u18=unknown;u20=;ord=1956603866265.9536"/></body></html>'
+
+= HTTP decompression (gzip) with retransmission
+
+# pcap from GH4340
+
+import io
+import gzip
+
+pcap = gzip.decompress(bytes.fromhex("1f8b080062b92e6602ff9d586bace4e659f6d964d3e5244b93c08f003f3a52b2e96e9573d69799738e376cd8f15ced33f6dc3cbe0954c6f68cc733b6c739e3b9d840d956085445229590902284442fb4db42aab42ab4a04a5c052d95aa52d01209352090b854a8093fd24a9ba0f2bef69973dbed36b0dad1ccb1fd3ddf7b79dee77dfdfdfd5f7cfea3e7880789f5bfef7f9f2036e0fbb56463d8f8f94d8283dff8c96b370a073ff191773ff2d77ff5b90b44052ec4c10de2e643db1ffffd9ffcee537f7aebf5bff9ca9344ebe557aa9f42949be7eebc617f9420ce3d78fe0b1b0f3c706163e3c17388f8bee78f1133ac0c374324881bc4730f7dfb31444354a2f595275f5a7cf82d40bd75f3f13b6f149f4c115f4134407d172292079bc40ea0eddccbc6cbf134b5f1b3676cbc05a86fb71e3d773ef956e6e95bf126f16fe789f47316e5fcab71882897ffe707a16cfd2b41b49a5d3977f580d9d15a96193bc1b0336e1487d586392c6f87a3305797e5d6556a9bbab8599fcea26bb9e76776b2bdf0b767c97cdb9f0e2e6e162d6b10465b95c09ada6ee05ccb39891b3e93b30743af1fc1fdde6c70b0557406012c16a789eb79fdabf96d3277d99afa613f724d6ff06c4eecf2951c456e93cfe65437b0a7cb594e92733bdbd4b339f9c0b561f1d5c23679e5e266691a44f0d7961c87836bb97e187aae0520d3e0ea6a6bb95c6e0da707fed6fcc01ba03903fb7841631038d1e85a2e9f67a9f46a30b070ddb59ce54d6760e7c5cdb1cd30e4deee4e9f64acfcf0ba5169d04268ba6cd22f5e62caf0ffe980de2587ec80b4eddd7cdebcde3b781ac311c7f6ecfaa53c3958f4bdcbf06df667839dfcfbed019a70f9129d7f3f06f952817befaa6031e490b1f3145328e4df7ba950be72e512c33d3d2fecb014651776addd9d3dfa7ab2d0e9b6c3bb2cad6bfcc2666ca6418f48535dba4d5a19f76b7b0eef8f463a1d7946a9e2f2e5bc63f8ab9191449e4e8f167cb948e97265d92c77dc66395ada747bd750a5a919176971dc2625b5478ab2e01b631d7d3a6dd3f576cd9bf7153631b4f694f73ba1c570335df3868626c4262324bcbb74f871d1dd97a3a2452ba4c6744253558666cd8bfab0462c4d76851abb346a5edcea71a1e9c35a786ebf242cac9a32d7686104eb267d8d478cd0709d89c970f877c8d76713939618a34cc1dfc25c57296fbfd419f648a5ab4c94ae1a0b729b12845eb533ec4c3cb1d32b7072afe76add6c4f1d6c6c695c6ca8f610ed467b74bf9a18b24e6a7407a2c34e8caee3caf5906c56d8b05926ddfdeef268ff26c98dac40180d1476696bd214f6069babb1e52e33bb4aab64a049a93fe0b7676adc10fddc2f4dc2266d2c2c5f81ac38d3b52d7cad9af0a54e68d79468bfcbedf6557dca434c2c8a652cdf23755598813db037607527e18096166600f10c14afc990bb42bd13a571ec66180d975f34fc765ef77946572b243f8e8aa61aa1edd3f5b387311db56b4668d614c8db0872d849c0176010e4d3bd6b9f895dc378f32cda6fd6b9915d734ee215815567f728f6d542a8319267971c17e2e7991eebea9ae4e1fd94236e7ecebb9817696e630cc754d1aa0b9e41b189555b85b8ae41ad2cadbadad34a7b0b58b3b6238b25f0a22f93cb66dc095b75291cf8ca02b9a2d3051263bb2fcf26fdeeec605f3bb66fbde7f087dbe736e234df711613e7c4de02f0a77a80f11fcab35d2350e63a729cce3bb8def445cc2f6597bc5d881769034ff90a97624be3ced0500b6313b886dcb1b57688386730e07a07f8d59eee6bc0774621adba42b654d6d568dbb3ab2cac2f9080435ab103f6e075656ee0f59a327a07aaff7caafa6f9f56fd86b656fd97b709c2741179ad259d51b35671815d94984c9866973fd40bae78cae33a075e4fd65ae24ae5912b96f8393f162662592c001b599316a0f23a5045e09d1c9156e0018b8becdd55384a6c5548ec3ab0aacab6654aea41753f6f94c5442c3b8ce45796222d92862bd88d321f62b6ad843a8e724dc9a25c97283d9048cca04671ad1ed531f9a04749e3c94a54db94448b8c347662de236722301fd8e4998181fbb2ed1a2a518f96aa608f2a2d8c5a6f6a318a0bf6c7a9ea545859a9ce5c73cc33624d2f18323731ca1629d578509c65bc9faa4e9b4546997e35c24ad628a9daf30cf8ccdc1e2975bb0ad7d34843902b4ab3dda3aa6007da306e69c7761ba5e5b251ae842d9944565ea2abbc4b8df9ead21dc49d64a82c5d7e3c751bb4e8682501a229b15a89874ee0f927bd3f83120e480e3886de82e6781ca7541c96770b8171fa1ae85fde6dba2c6531fcc2acb1635d5d2e2cec7be329f0548a1bf40aba5175d638798d91dcbe9adf69304a62b9ece1efc36b69cf843a6228cfac4bdeffc90e52dc695036f40ca81d465c588c97a0ee8909bfdb4ea60b85f6e6460db4336665d0614da62c5a2a4765b05f837a875ab293b318bd638ce3f514b7b06925eed123cfac2d17f6b832174b7bbba976a810d75215b59d1c4046a10ee994115d6032f42fdb4fb5cc1bd4b95956e7c2deb0be0226ad604f057e83b6948ac7ebe4c887bee9e96ada4f907d501d3ce880e808751d7a1eea7571caab4a64d53b05788606663927e386381a60806e427fe94df960b53784ded2a79502ecbd97f56432ddd7469633143bec76a06f205f3816fbaace90c01983327d89ecabec9caf19a8513e6a10f4db13fef033de5d65fa897a04fa090c4fd25ea5b0be0dfa66d73ce81fa28b15803dcd50a9a55d9f804ab4c343bcac8f769d631ec49d494b85d8f9d58246c3fd9213d875e04ad79aa19ee38c61aad5e57ec986ea14481378873912e225703bf52906ce50969f9f1eeb69e1647ff3f7bbbadf87fe8c7c356b55d7848a166a7a28b8fa08fc1966fba09dfa2cb5558ed85331a90b941948e0cf6a66c124a5d333f469063d7c7cd8bf9d3335e788f8817c41dd41cfdb73f91274e734b6f63a7fc17eb7e80b9063c3077bc027cb67630dfc33620bf20ff9cb9e8f74d59b09f1243cb1172828eef50e54ff2055fdb74eab7ee7c25af5ffe821821861679b9838e1c5d07dd7d36d890f81392e6a34fee64b1596af189c5c95aa6809767dab540416a5130f4c65e4142bf3b05b91987dd075eca2881300b30388ecc9aae77b55568466cec2a4e40c622edf8c39b61917277a5cbc4473873bc42d575f610da6be6731f180470bcb63819b5690d6c5a9f839aede05be82ee419f75206f890116038f421378abf78a2b716c416de7978d7105ebc3cd66135853e2233dd07106855ae1528e422dae39e674fc2a70a0b70b75b4eed74eabcb150ddfc33a40fd029eb130db8026d4c569e6c364b75d57e68711c6996299cd63c5131db4386a75d10ef085e162e02599cd0ae91ee087e0d97525365dae67a5f319c51ecf19c608ed3c3b5358f89ba626fbc853a83f7cbe2517ff7fdd09fb4a167b9c7521bb6480dad7ae4bf0a280732acc605093b807c62e8db97ab406e65e09f47614db5d2bc4d90ce6e704d64dad006b519c093003e21431541588af02b119f9605b60a55abcc27af6f4385dbb8419796e9746c5d3f770ffc991aea4fa93d555de50c5ccd65afa3bdbafb677b4a7857a039349df6781f98e5b021ec0fdf05e7ea433a36b657a1614d9769d4bdf5f30c68d920dba34d9b5e951881a0333bd6fa8ac8f1a041c088ff25a81ebf0ae00731c62ccc471916c665a0671916626cca7876bee8e475d58e8149bee899a00fab9e4cba40376c4f02e32ccec4b73e1ac754dec16d996cbadb537b06aded2007de54b36031850273ce854fee879818177915a2fc0aab531e6dda52380b6433c987ecdc377137c8ff04c5a9fe27535a9da18df751ce11ed6016a6f6852b3154e4562b99dc7be30d4ec695f5d817f55a8996c76078d3545e0d8c9dc1a3ea808d64f8a9f4e7b4ba9eca439017c9879e15db47bb856217166f775a87da8cda335e9bb6816afa3e7ef15531d67eac379208d29bcefc17bd09ae7c89753bcc2ba3ae45ed287d9086b1a351f9f43653caacb520774a37d72bfe3e916fa07f488d57e175475dd1f2a1cd8097541b1de007a2bfacf4fa496dce553bed909353734cb59abfe973788f47356f5373e1bcf50f5b79e3aadfaea9752d57fe2dcf9fc3f12449b642560b406936edc87a9a671d8e190c142adc70a752b6af9471583f369622624cce82468738fe94c6406dfdfe1e9b48ef2b0425a34e44217bb491b90b27b9207efa91e5c97ed5aa70a33ce349dda21468d3139817c452d0fe7a00e073317be1d1c72c039ad2587fa855c17659e39d1f79d74ff32f4ec388d37d4a480bd3b3210c3cdbbc06fec26a0f4c7e8a0bca9d515562c4d70b60e1083ca7ca9c34c044adc4c2216660612dfdd3bda686c4094d27900e635e06a76aa5212403785560f666098afe71039881a70b7427916238d0ce063364f5493f53b1dc605f4d7c36fcce537878f107b04917eb22c46dffedace9fdcc8cefc6e7f0c4f117fec17ce9c22be8def6ead4737de9c5f270ecf3711e7f469e4099cfced8fa738c1bd706e020efd7582d8d838bf893c79f915fdb97780f88914d1bf1bb17301105fdf7aeade88f7f1f57753c4d5dd88fa73e0eb1ba39f3de9eb6f03f7f1731667e3c5db9f449cc71fbd27ce131b6fdefc2d82589f60e66892cc35f72f6e96fbd100cf22836772742127f60fe00e9dcf51cc359ab996a7733551beb8d91d1c2c0607d772c5b06f8d0657e9edfc7681ce5dee99f3209a5fb9b8a9f40f62b87bfaf0f3f8b8f1f471e8ddc790543e7fcf53c8d3e79bd160155d1d45bef76cce1af50f6683e87a4fae6eede169e57b5eb8909d7c3f70fecfbef5a31fca3d417c43bdf3d01fbcbd3dffe487b9bff32e2f7fe7a7be9afbe36f7ce017ef7cfda5f9c75efcf1e6ab8f7e977ef83bd75efccdeffdedaf7fe2d5c68d5bc27f773f4fccbff6a12b2ffcfbfcab46e195debbcd7f78fc8b9ff9af2fffc86bbf97ffc0affcf42fc7413ffac3e056d278f89b2f49d35ffa4fe537aa7ffe730f73af7df07bcf5cdebdfd6b7f49bcf4c17f79cf67e4e1e0574f24eb3e49ff549af4c5e964bd60a5c97a6ce3cde1ebc40fc43971dc7ef9f6ad1467fec371d8d123f73b648fd243f64f9f164ffd39c0b261647e70f8cf19ca9de0be28f314e5d63d511e03947fca50fee323f7f5e9d3a94fd1199f6c40fa192cfee177d0a7ff055f2af0bdf5180000"))
+
+pkts = sniff(offline=io.BytesIO(pcap), session=TCPSession)
+
+assert HTTPRequest in pkts[3]
+assert pkts[3].Method == b"POST"
+assert len(pkts[3].load) == 4491
+
+assert HTTPResponse in pkts[8]
+assert pkts[8].Http_Version == b'HTTP/1.1'
+assert len(pkts[8].load) == 134
 
 = HTTP decompression (brotli)
 ~ brotli
@@ -185,7 +221,7 @@ assert int(pkts[7][HTTP].Content_Length.decode()) == len(pkts[7][Raw].load)
 pkt = TCP()/HTTP()/HTTPRequest(Method=b'GET', Path=b'/download', Http_Version=b'HTTP/1.1', Accept=b'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', Accept_Encoding=b'gzip, deflate', Accept_Language=b'en-US,en;q=0.5', Cache_Control=b'max-age=0', Connection=b'keep-alive', Host=b'scapy.net', User_Agent=b'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0')
 raw_pkt = raw(pkt)
 raw_pkt
-assert raw_pkt == b'\x00P\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00GET /download HTTP/1.1\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-US,en;q=0.5\r\nCache-Control: max-age=0\r\nConnection: keep-alive\r\nHost: scapy.net\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0\r\n\r\n'
+assert raw_pkt == b'\x00P\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00GET /download HTTP/1.1\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-US,en;q=0.5\r\nCache-Control: max-age=0\r\nConnection: keep-alive\r\nContent-Length: 0\r\nHost: scapy.net\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0\r\n\r\n'
 
 = HTTP 1.1 -> HTTP 2.0 Upgrade (h2c)
 ~ Test h2c
@@ -221,3 +257,95 @@ conf.contribs["http"]["auto_compression"] = True
 c = sniff(offline=[xa, xb], session=TCPSession)[0]
 import gzip
 assert gzip.decompress(z) == c.load
+
++ Test HTTP client/server
+
+= Util function to launch HTTP_server
+~ http-client
+
+from scapy.layers.http import HTTP_Server, HTTP_AUTH_MECHS
+
+class run_httpserver:
+    def __init__(self, mech=None, ssp=None, **kwargs):
+        self.server = None
+        self.mech = mech
+        self.ssp = ssp
+        self.kwargs = kwargs
+    def __enter__(self):
+        print("@ Starting http server")
+        # Start server
+        self.server = HTTP_Server.spawn(
+            8080,
+            iface=conf.loopback_name,
+            mech=self.mech, ssp=self.ssp,
+            bg=True,
+            **self.kwargs,
+        )
+        # wait for it to start
+        for i in range(10):
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            try:
+                sock.connect(("127.0.0.1", 8080))
+                break
+            except Exception:
+                time.sleep(0.5)
+            finally:
+                sock.close()
+        else:
+            raise TimeoutError
+        print("@ Server started !")
+    def __exit__(self, exc_type, exc_value, traceback):
+        print("@ Stopping http server !")
+        self.server.shutdown(socket.SHUT_RDWR)
+        if traceback:
+            # failed
+            print("\nTest failed.")
+            raise traceback
+        print("@ http server stopped !")
+
+
+= HTTP_client fails to ask HTTP_server that required authentication
+~ http-client
+
+from scapy.layers.http import HTTP_Client
+
+with run_httpserver(mech=HTTP_AUTH_MECHS.NTLM, ssp=NTLMSSP(IDENTITIES={"user": MD4le("password")})):
+    client = HTTP_Client()
+    resp = client.request("http://127.0.0.1:8080")
+    client.close()
+
+assert resp.Status_Code == b"401"
+
+= HTTP_client asks HTTP_server with NTLMSSP
+~ http-client
+
+from scapy.layers.http import HTTP_Client
+
+with run_httpserver(mech=HTTP_AUTH_MECHS.NTLM, ssp=NTLMSSP(IDENTITIES={"user": MD4le("password")})):
+    client = HTTP_Client(
+        HTTP_AUTH_MECHS.NTLM,
+        ssp=NTLMSSP(UPN="user", PASSWORD="password"),
+    )
+    resp = client.request("http://127.0.0.1:8080")
+    client.close()
+
+assert resp.load == b'<!doctype html><html><body><h1>OK</h1></body></html>'
+
+= HTTP_Server with native python client with Basic auth
+~ http-client
+
+import urllib.request
+from scapy.layers.http import HTTP_Client
+
+# https://docs.python.org/3/howto/urllib2.html#id5 (this is so complicated...)
+password_mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
+password_mgr.add_password(None, '127.0.0.1:8080', "user", "password")
+handler = urllib.request.HTTPBasicAuthHandler(password_mgr)
+opener = urllib.request.build_opener(handler)
+
+with run_httpserver(mech=HTTP_AUTH_MECHS.BASIC, BASIC_IDENTITIES={"user": "password"}):
+    with opener.open('http://127.0.0.1:8080/') as f:
+        html = f.read().decode('utf-8')
+
+assert html == "<!doctype html><html><body><h1>OK</h1></body></html>"

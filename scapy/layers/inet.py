@@ -22,8 +22,16 @@ from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Gen, Net
 from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
     IP_PROTOS, TCP_SERVICES, UDP_SERVICES
-from scapy.layers.l2 import Ether, Dot3, getmacbyip, CookedLinux, GRE, SNAP, \
-    Loopback
+from scapy.layers.l2 import (
+    CookedLinux,
+    Dot3,
+    Ether,
+    GRE,
+    Loopback,
+    SNAP,
+    arpcachepoison,
+    getmacbyip,
+)
 from scapy.compat import raw, chb, orb, bytes_encode, Optional
 from scapy.config import conf
 from scapy.fields import (
@@ -38,9 +46,12 @@ from scapy.fields import (
     FieldListField,
     FlagsField,
     IPField,
+    IP6Field,
     IntField,
+    MayEnd,
     MultiEnumField,
     MultipleTypeField,
+    PacketField,
     PacketListField,
     ShortEnumField,
     ShortField,
@@ -48,6 +59,7 @@ from scapy.fields import (
     StrField,
     StrFixedLenField,
     StrLenField,
+    TrailerField,
     XByteField,
     XShortField,
 )
@@ -559,7 +571,6 @@ class DestIPField(IPField, DestField):
 
 
 class IP(Packet, IPTools):
-    __slots__ = ["_defrag_pos"]
     name = "IP"
     fields_desc = [BitField("version", 4, 4),
                    BitField("ihl", None, 4),
@@ -657,38 +668,7 @@ class IP(Packet, IPTools):
 
     def fragment(self, fragsize=1480):
         """Fragment IP datagrams"""
-        lastfragsz = fragsize
-        fragsize -= fragsize % 8
-        lst = []
-        fnb = 0
-        fl = self
-        while fl.underlayer is not None:
-            fnb += 1
-            fl = fl.underlayer
-
-        for p in fl:
-            s = raw(p[fnb].payload)
-            if len(s) <= lastfragsz:
-                lst.append(p)
-                continue
-
-            nb = (len(s) - lastfragsz + fragsize - 1) // fragsize + 1
-            for i in range(nb):
-                q = p.copy()
-                del q[fnb].payload
-                del q[fnb].chksum
-                del q[fnb].len
-                if i != nb - 1:
-                    q[fnb].flags |= 1
-                    fragend = (i + 1) * fragsize
-                else:
-                    fragend = i * fragsize + lastfragsz
-                q[fnb].frag += i * fragsize // 8
-                r = conf.raw_layer(load=s[i * fragsize:fragend])
-                r.overload_fields = p[fnb].payload.overload_fields.copy()
-                q.add_payload(r)
-                lst.append(q)
-        return lst
+        return fragment(self, fragsize=fragsize)
 
 
 def in4_pseudoheader(proto, u, plen):
@@ -699,6 +679,7 @@ def in4_pseudoheader(proto, u, plen):
     :param u: IP layer instance
     :param plen: the length of the upper layer and payload
     """
+    u = u.copy()
     if u.len is not None:
         if u.ihl is None:
             olen = sum(len(x) for x in u.options)
@@ -733,7 +714,7 @@ def in4_chksum(proto, u, p):
     # type: (int, IP, bytes) -> int
     """IPv4 Pseudo Header checksum as defined in RFC793
 
-    :param nh: value of upper layer protocol
+    :param proto: value of upper layer protocol
     :param u: upper layer instance
     :param p: the payload of the upper layer provided as a string
     """
@@ -927,6 +908,185 @@ class UDP(Packet):
             return self.sprintf("UDP %UDP.sport% > %UDP.dport%")
 
 
+# RFC 4884 ICMP extensions
+_ICMP_classnums = {
+    # https://www.iana.org/assignments/icmp-parameters/icmp-parameters.xhtml#icmp-parameters-ext-classes
+    1: "MPLS",
+    2: "Interface Information",
+    3: "Interface Identification",
+    4: "Extended Information",
+}
+
+
+class ICMPExtension_Object(Packet):
+    name = "ICMP Extension Object"
+    show_indent = 0
+    fields_desc = [
+        ShortField("len", None),
+        ByteEnumField("classnum", 0, _ICMP_classnums),
+        ByteField("classtype", 0),
+    ]
+
+    def post_build(self, p, pay):
+        if self.len is None:
+            tmp_len = len(p) + len(pay)
+            p = struct.pack("!H", tmp_len) + p[2:]
+        return p + pay
+
+    registered_icmp_exts = {}
+
+    @classmethod
+    def register_variant(cls):
+        cls.registered_icmp_exts[cls.classnum.default] = cls
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 4:
+            classnum = _pkt[2]
+            if classnum in cls.registered_icmp_exts:
+                return cls.registered_icmp_exts[classnum]
+        return cls
+
+
+class ICMPExtension_InterfaceInformation(ICMPExtension_Object):
+    name = "ICMP Extension Object - Interface Information Object (RFC5837)"
+
+    fields_desc = [
+        ShortField("len", None),
+        ByteEnumField("classnum", 2, _ICMP_classnums),
+        BitField("classtype", 0, 2),
+        BitField("reserved", 0, 2),
+        BitField("has_ifindex", 0, 1),
+        BitField("has_ipaddr", 0, 1),
+        BitField("has_ifname", 0, 1),
+        BitField("has_mtu", 0, 1),
+        ConditionalField(IntField("ifindex", None), lambda pkt: pkt.has_ifindex == 1),
+        ConditionalField(ShortField("afi", None), lambda pkt: pkt.has_ipaddr == 1),
+        ConditionalField(ShortField("reserved2", 0), lambda pkt: pkt.has_ipaddr == 1),
+        ConditionalField(IPField("ip4", None), lambda pkt: pkt.afi == 1),
+        ConditionalField(IP6Field("ip6", None), lambda pkt: pkt.afi == 2),
+        ConditionalField(
+            FieldLenField("ifname_len", None, fmt="B", length_of="ifname"),
+            lambda pkt: pkt.has_ifname == 1,
+        ),
+        ConditionalField(
+            StrLenField("ifname", None, length_from=lambda pkt: pkt.ifname_len),
+            lambda pkt: pkt.has_ifname == 1,
+        ),
+        ConditionalField(IntField("mtu", None), lambda pkt: pkt.has_mtu == 1),
+    ]
+
+    def self_build(self, **kwargs):
+        if self.afi is None:
+            if self.ip4 is not None:
+                self.afi = 1
+            elif self.ip6 is not None:
+                self.afi = 2
+        return ICMPExtension_Object.self_build(self, **kwargs)
+
+
+class ICMPExtension_Header(Packet):
+    r"""
+    ICMP Extension per RFC4884.
+
+    Example::
+
+        pkt = IP(dst="127.0.0.1", src="127.0.0.1") / ICMP(
+            type="time-exceeded",
+            code="ttl-zero-during-transit",
+            ext=ICMPExtension_Header() / ICMPExtension_InterfaceInformation(
+                has_ifindex=1,
+                has_ipaddr=1,
+                has_ifname=1,
+                ip4="10.10.10.10",
+                ifname="hey",
+            )
+        ) / IPerror(src="12.4.4.4", dst="12.1.1.1") / \
+            UDPerror(sport=42315, dport=33440) /  \
+            b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    """
+
+    name = "ICMP Extension Header (RFC4884)"
+    show_indent = 0
+    fields_desc = [
+        BitField("version", 2, 4),
+        BitField("reserved", 0, 12),
+        XShortField("chksum", None),
+    ]
+
+    _min_ieo_len = len(ICMPExtension_Object())
+
+    def post_build(self, p, pay):
+        p += pay
+        if self.chksum is None:
+            ck = checksum(p)
+            p = p[:2] + chb(ck >> 8) + chb(ck & 0xFF) + p[4:]
+        return p
+
+    def guess_payload_class(self, payload):
+        if len(payload) < self._min_ieo_len:
+            return Packet.guess_payload_class(self, payload)
+        return ICMPExtension_Object
+
+
+class _ICMPExtensionField(TrailerField):
+    # We use a TrailerField for building only. Dissection is normal.
+
+    def __init__(self):
+        super(_ICMPExtensionField, self).__init__(
+            PacketField(
+                "ext",
+                None,
+                ICMPExtension_Header,
+            ),
+        )
+
+    def getfield(self, pkt, s):
+        # RFC4884 section 5.2 says if the ICMP packet length
+        # is >144 then ICMP extensions start at byte 137.
+        if len(pkt.original) < 144:
+            return s, None
+        offset = 136 + len(s) - len(pkt.original)
+        data = s[offset:]
+        # Validate checksum
+        if checksum(data) == data[3:5]:
+            return s, None  # failed
+        # Dissect
+        return s[:offset], ICMPExtension_Header(data)
+
+    def addfield(self, pkt, s, val):
+        if val is None:
+            return s
+        data = bytes(val)
+        # Calc how much padding we need, not how much we deserve
+        pad = 136 - len(pkt.payload) - len(s)
+        if pad < 0:
+            warning("ICMPExtension_Header is after the 136th octet of ICMP.")
+            return data
+        return super(_ICMPExtensionField, self).addfield(pkt, s, b"\x00" * pad + data)
+
+
+class _ICMPExtensionPadField(TrailerField):
+    def __init__(self):
+        super(_ICMPExtensionPadField, self).__init__(
+            StrFixedLenField("extpad", "", length=0)
+        )
+
+    def i2repr(self, pkt, s):
+        if s and s == b"\x00" * len(s):
+            return "b'' (%s octets)" % len(s)
+        return self.fld.i2repr(pkt, s)
+
+
+def _ICMP_extpad_post_dissection(self, pkt):
+    # If we have padding, put it in 'extpad' for re-build
+    if pkt.ext:
+        pad = pkt.lastlayer()
+        if isinstance(pad, conf.padding_layer):
+            pad.underlayer.remove_payload()
+            pkt.extpad = pad.load
+
+
 icmptypes = {0: "echo-reply",
              3: "dest-unreach",
              4: "source-quench",
@@ -986,35 +1146,99 @@ icmpcodes = {3: {0: "network-unreachable",
                   5: "need-authorization", }, }
 
 
+_icmp_answers = [
+    (8, 0),
+    (13, 14),
+    (15, 16),
+    (17, 18),
+    (33, 34),
+    (35, 36),
+    (37, 38),
+]
+
 icmp_id_seq_types = [0, 8, 13, 14, 15, 16, 17, 18, 37, 38]
 
 
 class ICMP(Packet):
     name = "ICMP"
-    fields_desc = [ByteEnumField("type", 8, icmptypes),
-                   MultiEnumField("code", 0, icmpcodes, depends_on=lambda pkt:pkt.type, fmt="B"),  # noqa: E501
-                   XShortField("chksum", None),
-                   ConditionalField(XShortField("id", 0), lambda pkt:pkt.type in icmp_id_seq_types),  # noqa: E501
-                   ConditionalField(XShortField("seq", 0), lambda pkt:pkt.type in icmp_id_seq_types),  # noqa: E501
-                   ConditionalField(ICMPTimeStampField("ts_ori", None), lambda pkt:pkt.type in [13, 14]),  # noqa: E501
-                   ConditionalField(ICMPTimeStampField("ts_rx", None), lambda pkt:pkt.type in [13, 14]),  # noqa: E501
-                   ConditionalField(ICMPTimeStampField("ts_tx", None), lambda pkt:pkt.type in [13, 14]),  # noqa: E501
-                   ConditionalField(IPField("gw", "0.0.0.0"), lambda pkt:pkt.type == 5),  # noqa: E501
-                   ConditionalField(ByteField("ptr", 0), lambda pkt:pkt.type == 12),  # noqa: E501
-                   ConditionalField(ByteField("reserved", 0), lambda pkt:pkt.type in [3, 11]),  # noqa: E501
-                   ConditionalField(ByteField("length", 0), lambda pkt:pkt.type in [3, 11, 12]),  # noqa: E501
-                   ConditionalField(IPField("addr_mask", "0.0.0.0"), lambda pkt:pkt.type in [17, 18]),  # noqa: E501
-                   ConditionalField(ShortField("nexthopmtu", 0), lambda pkt:pkt.type == 3),  # noqa: E501
-                   MultipleTypeField(
-                       [
-                           (ShortField("unused", 0),
-                               lambda pkt:pkt.type in [11, 12]),
-                           (IntField("unused", 0),
-                               lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12,
-                                                           13, 14, 15, 16, 17,
-                                                           18])
-                       ], StrFixedLenField("unused", "", length=0)),
-                   ]
+    fields_desc = [
+        ByteEnumField("type", 8, icmptypes),
+        MultiEnumField("code", 0, icmpcodes,
+                       depends_on=lambda pkt:pkt.type, fmt="B"),
+        XShortField("chksum", None),
+        ConditionalField(
+            XShortField("id", 0),
+            lambda pkt: pkt.type in icmp_id_seq_types
+        ),
+        ConditionalField(
+            XShortField("seq", 0),
+            lambda pkt: pkt.type in icmp_id_seq_types
+        ),
+        ConditionalField(
+            # Timestamp only (RFC792)
+            ICMPTimeStampField("ts_ori", None),
+            lambda pkt: pkt.type in [13, 14]
+        ),
+        ConditionalField(
+            # Timestamp only (RFC792)
+            ICMPTimeStampField("ts_rx", None),
+            lambda pkt: pkt.type in [13, 14]
+        ),
+        ConditionalField(
+            # Timestamp only (RFC792)
+            ICMPTimeStampField("ts_tx", None),
+            lambda pkt: pkt.type in [13, 14]
+        ),
+        ConditionalField(
+            # Redirect only (RFC792)
+            IPField("gw", "0.0.0.0"),
+            lambda pkt: pkt.type == 5
+        ),
+        ConditionalField(
+            # Parameter problem only (RFC792)
+            ByteField("ptr", 0),
+            lambda pkt: pkt.type == 12
+        ),
+        ConditionalField(
+            ByteField("reserved", 0),
+            lambda pkt: pkt.type in [3, 11]
+        ),
+        ConditionalField(
+            ByteField("length", 0),
+            lambda pkt: pkt.type in [3, 11, 12]
+        ),
+        ConditionalField(
+            IPField("addr_mask", "0.0.0.0"),
+            lambda pkt: pkt.type in [17, 18]
+        ),
+        ConditionalField(
+            ShortField("nexthopmtu", 0),
+            lambda pkt: pkt.type == 3
+        ),
+        MultipleTypeField(
+            [
+                (ShortField("unused", 0),
+                    lambda pkt:pkt.type in [11, 12]),
+                (IntField("unused", 0),
+                    lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12,
+                                                13, 14, 15, 16, 17,
+                                                18])
+            ],
+            StrFixedLenField("unused", "", length=0),
+        ),
+        # RFC4884 ICMP extension
+        ConditionalField(
+            _ICMPExtensionPadField(),
+            lambda pkt: pkt.type in [3, 11, 12],
+        ),
+        ConditionalField(
+            _ICMPExtensionField(),
+            lambda pkt: pkt.type in [3, 11, 12],
+        ),
+    ]
+
+    # To handle extpad
+    post_dissection = _ICMP_extpad_post_dissection
 
     def post_build(self, p, pay):
         p += pay
@@ -1031,7 +1255,7 @@ class ICMP(Packet):
     def answers(self, other):
         if not isinstance(other, ICMP):
             return 0
-        if ((other.type, self.type) in [(8, 0), (13, 14), (15, 16), (17, 18), (33, 34), (35, 36), (37, 38)] and  # noqa: E501
+        if ((other.type, self.type) in _icmp_answers and
             self.id == other.id and
                 self.seq == other.seq):
             return 1
@@ -1044,11 +1268,18 @@ class ICMP(Packet):
             return None
 
     def mysummary(self):
+        extra = ""
+        if self.ext:
+            extra = self.ext.payload.sprintf(" ext:%classnum%")
         if isinstance(self.underlayer, IP):
-            return self.underlayer.sprintf("ICMP %IP.src% > %IP.dst% %ICMP.type% %ICMP.code%")  # noqa: E501
+            return self.underlayer.sprintf(
+                "ICMP %IP.src% > %IP.dst% %ICMP.type% %ICMP.code%"
+            ) + extra
         else:
-            return self.sprintf("ICMP %ICMP.type% %ICMP.code%")
+            return self.sprintf("ICMP %ICMP.type% %ICMP.code%") + extra
 
+
+# IP / TCP / UDP error packets
 
 class IPerror(IP):
     name = "IP in ICMP"
@@ -1079,6 +1310,12 @@ class IPerror(IP):
 
 class TCPerror(TCP):
     name = "TCP in ICMP"
+    fields_desc = (
+        TCP.fields_desc[:2] +
+        # MayEnd after the 8 first octets.
+        [MayEnd(TCP.fields_desc[2])] +
+        TCP.fields_desc[3:]
+    )
 
     def answers(self, other):
         if not isinstance(other, TCP):
@@ -1153,6 +1390,7 @@ bind_layers(IP, ICMP, frag=0, proto=1)
 bind_layers(IP, TCP, frag=0, proto=6)
 bind_layers(IP, UDP, frag=0, proto=17)
 bind_layers(IP, GRE, frag=0, proto=47)
+bind_layers(UDP, GRE, dport=4754)
 
 conf.l2types.register(DLT_RAW, IP)
 conf.l2types.register_num2layer(DLT_RAW_ALT, IP)
@@ -1163,6 +1401,9 @@ conf.l3types.register_num2layer(ETH_P_ALL, IP)
 
 
 def inet_register_l3(l2, l3):
+    """
+    Resolves the default L2 destination address when IP is used.
+    """
     return getmacbyip(l3.dst)
 
 
@@ -1177,6 +1418,9 @@ conf.neighbor.register_l3(Dot3, IP, inet_register_l3)
 @conf.commands.register
 def fragment(pkt, fragsize=1480):
     """Fragment a big IP datagram"""
+    if fragsize < 8:
+        warning("fragsize cannot be lower than 8")
+        fragsize = max(fragsize, 8)
     lastfragsz = fragsize
     fragsize -= fragsize % 8
     lst = []
@@ -1221,86 +1465,115 @@ overlap_fragsize: the fragment size of the overlapping packet"""
     return qfrag + fragment(p, fragsize)
 
 
-def _defrag_list(lst, defrag, missfrag):
-    """Internal usage only. Part of the _defrag_logic"""
-    p = lst[0]
-    lastp = lst[-1]
-    if p.frag > 0 or lastp.flags.MF:  # first or last fragment missing
-        missfrag.extend(lst)
-        return
-    p = p.copy()
-    if conf.padding_layer in p:
-        del p[conf.padding_layer].underlayer.payload
-    ip = p[IP]
-    if ip.len is None or ip.ihl is None:
-        c_len = len(ip.payload)
-    else:
-        c_len = ip.len - (ip.ihl << 2)
-    txt = conf.raw_layer()
-    for q in lst[1:]:
-        if c_len != q.frag << 3:  # Wrong fragmentation offset
-            if c_len > q.frag << 3:
-                warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (c_len, q.frag << 3, p, txt, q))  # noqa: E501
-            missfrag.extend(lst)
-            break
-        if q[IP].len is None or q[IP].ihl is None:
-            c_len += len(q[IP].payload)
+class BadFragments(ValueError):
+    def __init__(self, *args, **kwargs):
+        self.frags = kwargs.pop("frags", None)
+        super(BadFragments, self).__init__(*args, **kwargs)
+
+
+def _defrag_iter_and_check_offsets(frags):
+    """
+    Internal generator used in _defrag_ip_pkt
+    """
+    offset = 0
+    for pkt, o, length in frags:
+        if offset != o:
+            if offset > o:
+                op = ">"
+            else:
+                op = "<"
+            warning("Fragment overlap (%i %s %i) on %r" % (offset, op, o, pkt))
+            raise BadFragments
+        offset += length
+        yield bytes(pkt[IP].payload)
+
+
+def _defrag_ip_pkt(pkt, frags):
+    """
+    Defragment a single IP packet.
+
+    :param pkt: the new pkt
+    :param frags: a defaultdict(list) used for storage
+    :return: a tuple (fragmented, defragmented_value)
+    """
+    ip = pkt[IP]
+    if pkt.frag != 0 or ip.flags.MF:
+        # fragmented !
+        uid = (ip.id, ip.src, ip.dst, ip.proto)
+        if ip.len is None or ip.ihl is None:
+            fraglen = len(ip.payload)
         else:
-            c_len += q[IP].len - (q[IP].ihl << 2)
-        if conf.padding_layer in q:
-            del q[conf.padding_layer].underlayer.payload
-        txt.add_payload(q[IP].payload.copy())
-        if q.time > p.time:
-            p.time = q.time
-    else:
-        ip.flags.MF = False
-        del ip.chksum
-        del ip.len
-        p = p / txt
-        p._defrag_pos = max(x._defrag_pos for x in lst)
-        defrag.append(p)
+            fraglen = ip.len - (ip.ihl << 2)
+        # (pkt, frag offset, frag len)
+        frags[uid].append((pkt, ip.frag << 3, fraglen))
+        if not ip.flags.MF:  # no more fragments = last fragment
+            curfrags = sorted(frags[uid], key=lambda x: x[1])  # sort by offset
+            try:
+                data = b"".join(_defrag_iter_and_check_offsets(curfrags))
+            except ValueError:
+                # bad fragment
+                badfrags = frags[uid]
+                del frags[uid]
+                raise BadFragments(frags=badfrags)
+            # re-build initial packet without fragmentation
+            p = curfrags[0][0].copy()
+            pay_class = p[IP].payload.__class__
+            p[IP].flags.MF = False
+            p[IP].remove_payload()
+            p[IP].len = None
+            p[IP].chksum = None
+            # append defragmented payload
+            p /= pay_class(data)
+            # cleanup
+            del frags[uid]
+            return True, p
+        return True, None
+    return False, pkt
 
 
 def _defrag_logic(plist, complete=False):
-    """Internal function used to defragment a list of packets.
+    """
+    Internal function used to defragment a list of packets.
     It contains the logic behind the defrag() and defragment() functions
     """
-    frags = defaultdict(lambda: [])
+    frags = defaultdict(list)
     final = []
-    pos = 0
-    for p in plist:
-        p._defrag_pos = pos
-        pos += 1
-        if IP in p:
-            ip = p[IP]
-            if ip.frag != 0 or ip.flags.MF:
-                uniq = (ip.id, ip.src, ip.dst, ip.proto)
-                frags[uniq].append(p)
-                continue
-        final.append(p)
-
-    defrag = []
-    missfrag = []
-    for lst in frags.values():
-        lst.sort(key=lambda x: x.frag)
-        _defrag_list(lst, defrag, missfrag)
-    defrag2 = []
-    for p in defrag:
-        q = p.__class__(raw(p))
-        q._defrag_pos = p._defrag_pos
-        q.time = p.time
-        defrag2.append(q)
+    notfrag = []
+    badfrag = []
+    # Defrag
+    for i, pkt in enumerate(plist):
+        if IP not in pkt:
+            # no IP layer
+            if complete:
+                final.append(pkt)
+            continue
+        try:
+            fragmented, defragmented_value = _defrag_ip_pkt(
+                pkt,
+                frags,
+            )
+        except BadFragments as ex:
+            if complete:
+                final.extend(ex.frags)
+            else:
+                badfrag.extend(ex.frags)
+            continue
+        if complete and defragmented_value:
+            final.append(defragmented_value)
+        elif defragmented_value:
+            if fragmented:
+                final.append(defragmented_value)
+            else:
+                notfrag.append(defragmented_value)
+    # Return
     if complete:
-        final.extend(defrag2)
-        final.extend(missfrag)
-        final.sort(key=lambda x: x._defrag_pos)
         if hasattr(plist, "listname"):
             name = "Defragmented %s" % plist.listname
         else:
             name = "Defragmented"
         return PacketList(final, name=name)
     else:
-        return PacketList(final), PacketList(defrag2), PacketList(missfrag)
+        return PacketList(notfrag), PacketList(final), PacketList(badfrag)
 
 
 @conf.commands.register
@@ -1928,19 +2201,22 @@ class TCP_client(Automaton):
 
     :param ip: the ip to connect to
     :param port:
+    :param src: (optional) use another source IP
     """
 
-    def parse_args(self, ip, port, *args, **kargs):
+    def parse_args(self, ip, port, srcip=None, **kargs):
         from scapy.sessions import TCPSession
         self.dst = str(Net(ip))
         self.dport = port
         self.sport = random.randrange(0, 2**16)
-        self.l4 = IP(dst=ip) / TCP(sport=self.sport, dport=self.dport, flags=0,
-                                   seq=random.randrange(0, 2**32))
+        self.l4 = IP(dst=ip, src=srcip) / TCP(
+            sport=self.sport, dport=self.dport,
+            flags=0, seq=random.randrange(0, 2**32)
+        )
         self.src = self.l4.src
         self.sack = self.l4[TCP].ack
         self.rel_seq = None
-        self.rcvbuf = TCPSession(prn=self._transmit_packet, store=False)
+        self.rcvbuf = TCPSession()
         bpf = "host %s  and host %s and port %i and port %i" % (self.src,
                                                                 self.dst,
                                                                 self.sport,
@@ -2025,7 +2301,9 @@ class TCP_client(Automaton):
             # Answer with an Ack
             self.send(self.l4)
             # Process data - will be sent to the SuperSocket through this
-            self.rcvbuf.on_packet_received(pkt)
+            pkt = self.rcvbuf.process(pkt)
+            if pkt:
+                self._transmit_packet(pkt)
 
     @ATMT.ioevent(ESTABLISHED, name="tcp", as_supersocket="tcplink")
     def outgoing_data_received(self, fd):
@@ -2200,6 +2478,68 @@ def fragleak2(target, timeout=0.4, onlyasc=0, count=None):
         pass
 
 
+@conf.commands.register
+class connect_from_ip:
+    """
+    Open a TCP socket to a host:port while spoofing another IP.
+
+    :param host: the host to connect to
+    :param port: the port to connect to
+    :param srcip: the IP to spoof. the cache of the gateway will
+                  be poisonned with this IP.
+    :param poison: (optional, default True) ARP poison the gateway (or next hop),
+                   so that it answers us (only one packet).
+    :param timeout: (optional) the socket timeout.
+
+    Example - Connect to 192.168.0.1:80 spoofing 192.168.0.2::
+
+        from scapy.layers.http import HTTP, HTTPRequest
+        client = connect_from_ip("192.168.0.1", 80, "192.168.0.2")
+        sock = SSLStreamSocket(client.sock, HTTP)
+        resp = sock.sr1(HTTP() / HTTPRequest(Path="/"))
+
+    Example - Connect to 192.168.0.1:443 with TLS wrapping spoofing 192.168.0.2::
+
+        import ssl
+        from scapy.layers.http import HTTP, HTTPRequest
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        client = connect_from_ip("192.168.0.1", 443, "192.168.0.2")
+        sock = context.wrap_socket(client.sock)
+        sock = SSLStreamSocket(client.sock, HTTP)
+        resp = sock.sr1(HTTP() / HTTPRequest(Path="/"))
+    """
+
+    def __init__(self, host, port, srcip, poison=True, timeout=1, debug=0):
+        host = str(Net(host))
+        if poison:
+            # poison the next hop
+            gateway = conf.route.route(host)[2]
+            if gateway == "0.0.0.0":
+                # on lan
+                gateway = host
+            getmacbyip(gateway)  # cache real gateway before poisoning
+            arpcachepoison(gateway, srcip, count=1, interval=0, verbose=0)
+        # create a socket pair
+        self._sock, self.sock = socket.socketpair()
+        self.sock.settimeout(timeout)
+        self.client = TCP_client(
+            host, port,
+            srcip=srcip,
+            external_fd={"tcp": self._sock},
+            debug=debug,
+        )
+        # start the TCP_client
+        self.client.runbg()
+
+    def close(self):
+        self.client.stop()
+        self.client.destroy()
+        self.sock.close()
+        self._sock.close()
+
+
 class ICMPEcho_am(AnsweringMachine):
     """Responds to ICMP Echo-Requests (ping)"""
     function_name = "icmpechod"
@@ -2213,15 +2553,21 @@ class ICMPEcho_am(AnsweringMachine):
         return False
 
     def print_reply(self, req, reply):
-        print("Replying %s to %s" % (reply.getlayer(IP).dst, req.dst))
+        print("Replying %s to %s" % (reply[IP].dst, req[IP].dst))
 
     def make_reply(self, req):
-        reply = IP(dst=req[IP].src) / ICMP()
+        reply = req.copy()
         reply[ICMP].type = 0  # echo-reply
-        reply[ICMP].seq = req[ICMP].seq
-        reply[ICMP].id = req[ICMP].id
         # Force re-generation of the checksum
         reply[ICMP].chksum = None
+        if req.haslayer(IP):
+            reply[IP].src, reply[IP].dst = req[IP].dst, req[IP].src
+            reply[IP].chksum = None
+        if req.haslayer(Ether):
+            reply[Ether].src, reply[Ether].dst = (
+                None if req[Ether].dst == "ff:ff:ff:ff:ff:ff" else req[Ether].dst,
+                req[Ether].src,
+            )
         return reply
 
 

@@ -64,6 +64,11 @@ class _TLSAutomaton(Automaton):
     which has not yet been interpreted as a TLS record is kept in 'remain_in'.
     """
 
+    def __init__(self, *args, **kwargs):
+        kwargs["ll"] = lambda *args, **kwargs: None
+        kwargs["recvsock"] = lambda *args, **kwargs: None
+        super(_TLSAutomaton, self).__init__(*args, **kwargs)
+
     def parse_args(self, mycert=None, mykey=None, **kargs):
 
         self.verbose = kargs.pop("verbose", True)
@@ -206,15 +211,22 @@ class _TLSAutomaton(Automaton):
         # Maybe we already parsed the expected packet, maybe not.
         if get_next_msg:
             self.get_next_msg()
-        from scapy.layers.tls.handshake import TLSClientHello
         if (not self.buffer_in or
-                (not isinstance(self.buffer_in[0], pkt_cls) and
-                 not (isinstance(self.buffer_in[0], TLSClientHello) and
-                 self.cur_session.advertised_tls_version == 0x0304))):
+                not isinstance(self.buffer_in[0], pkt_cls)):
             return
         self.cur_pkt = self.buffer_in[0]
         self.buffer_in = self.buffer_in[1:]
         raise state()
+
+    def in_handshake(self, pkt_cls):
+        """
+        Return True if the pkt_cls was present during the handshake.
+        This is used to detect whether Certificates were requested, etc.
+        """
+        return any(
+            isinstance(m, pkt_cls)
+            for m in self.cur_session.handshake_messages_parsed
+        )
 
     def add_record(self, is_sslv2=None, is_tls13=None, is_tls12=None):
         """

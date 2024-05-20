@@ -1,0 +1,113 @@
+% HICP test campaign
+
+#
+# execute test:
+# > test/run_tests -t test/contrib/hicp.uts
+#
+
++ Syntax check
+= Import the HICP layer
+from scapy.contrib.hicp import *
+
++ HICP Module scan request
+= Build and dissect module scan
+pkt = HICPModuleScan()
+assert(pkt.hicp_command == b"Module scan")
+assert(raw(pkt) == b"MODULE SCAN\x00")
+pkt = HICP(b"Module scan\x00")
+assert(pkt.hicp_command == b"Module scan")
+
++ HICP Module scan response
+= Build and dissect device description
+pkt=HICPModuleScanResponse(fieldbus_type="kwack")
+assert(pkt.protocol_version == b"1.00")
+assert(pkt.fieldbus_type == b"kwack")
+assert(pkt.mac_address == "ff:ff:ff:ff:ff:ff")
+pkt=HICP(
+b"\x50\x72\x6f\x74\x6f\x63\x6f\x6c\x20\x76\x65\x72\x73\x69\x6f\x6e" \
+b"\x20\x3d\x20\x31\x2e\x30\x30\x3b\x46\x42\x20\x74\x79\x70\x65\x20" \
+b"\x3d\x20\x3b\x4d\x6f\x64\x75\x6c\x65\x20\x76\x65\x72\x73\x69\x6f" \
+b"\x6e\x20\x3d\x20\x3b\x4d\x41\x43\x20\x3d\x20\x65\x65\x3a\x65\x65" \
+b"\x3a\x65\x65\x3a\x65\x65\x3a\x65\x65\x3a\x65\x65\x3b\x49\x50\x20" \
+b"\x3d\x20\x32\x35\x35\x2e\x32\x35\x35\x2e\x32\x35\x35\x2e\x32\x35" \
+b"\x35\x3b\x53\x4e\x20\x3d\x20\x32\x35\x35\x2e\x32\x35\x35\x2e\x32" \
+b"\x35\x35\x2e\x30\x3b\x47\x57\x20\x3d\x20\x30\x2e\x30\x2e\x30\x2e" \
+b"\x30\x3b\x44\x48\x43\x50\x20\x3d\x20\x4f\x46\x46\x3b\x48\x4e\x20" \
+b"\x3d\x20\x3b\x44\x4e\x53\x31\x20\x3d\x20\x30\x2e\x30\x2e\x30\x2e" \
+b"\x30\x3b\x44\x4e\x53\x32\x20\x3d\x20\x30\x2e\x30\x2e\x30\x2e\x30" \
+b"\x3b\x00"
+)
+assert(pkt.hicp_command == b"Module scan response")
+assert(pkt.protocol_version == b"1.00")
+assert(pkt.mac_address == "ee:ee:ee:ee:ee:ee")
+assert(pkt.subnet_mask == "255.255.255.0")
+pkt=HICP(b"Protocol version = 2; FB type = TEST;Module version = 1.0.0;MAC = cc:cc:cc:cc:cc:cc;IP = 192.168.1.1;SN = 255.255.255.0;GW = 192.168.1.254;DHCP=ON;HN = bonjour;DNS1 = 1.1.1.1;DNS2 = 2.2.2.2")
+assert(pkt.hicp_command == b"Module scan response")
+assert(pkt.protocol_version == b"2")
+assert(pkt.fieldbus_type == b"TEST")
+assert(pkt.module_version == b"1.0.0")
+assert(pkt.mac_address == "cc:cc:cc:cc:cc:cc")
+assert(pkt.ip_address == "192.168.1.1")
+assert(pkt.subnet_mask == "255.255.255.0")
+assert(pkt.gateway_address == "192.168.1.254")
+assert(pkt.dhcp == b"ON")
+assert(pkt.hostname == b"bonjour")
+assert(pkt.dns1 == "1.1.1.1")
+assert(pkt.dns2 == "2.2.2.2")
+
++ HICP Wink request
+= Build and dissect Winks
+pkt = HICPWink(target="dd:dd:dd:dd:dd:dd")
+assert(pkt.target == "dd:dd:dd:dd:dd:dd")
+pkt = HICP(b"To: bb:bb:bb:bb:bb:bb;WINK;\x00")
+assert(pkt.target == "bb:bb:bb:bb:bb:bb")
+
++ HICP Configure request
+= Build and dissect new network settings
+pkt = HICPConfigure(target="aa:aa:aa:aa:aa:aa", hostname="llama")
+assert(pkt.target == "aa:aa:aa:aa:aa:aa")
+assert(pkt.ip_address == "255.255.255.255")
+assert(pkt.hostname == b"llama")
+assert(raw(pkt) == b"Configure: aa-aa-aa-aa-aa-aa;IP = 255.255.255.255;SN = 255.255.255.0;GW = 0.0.0.0;DHCP = OFF;HN = llama;DNS1 = 0.0.0.0;DNS2 = 0.0.0.0;\x00")
+pkt = HICP(b"Configure: aa-aa-aa-aa-aa-aa;IP = 255.255.255.255;SN = 255.255.255.0;GW = 0.0.0.0;DHCP = OFF;HN = llama;DNS1 = 0.0.0.0;DNS2 = 0.0.0.0;\x00")
+assert(pkt.hicp_command == b"Configure")
+assert(pkt.target == "aa:aa:aa:aa:aa:aa")
+assert(pkt.ip_address == "255.255.255.255")
+assert(pkt.hostname == b"llama")
+
++ HICP Configure response
+= Build and dissect successful response to configure request
+
+pkt = HICPReconfigured(source="11:00:00:00:00:00")
+assert(pkt.source == "11:00:00:00:00:00")
+assert(raw(pkt) == b"Reconfigured: 11-00-00-00-00-00\x00")
+pkt = HICP(b"\x52\x65\x63\x6f\x6e\x66\x69\x67\x75\x72\x65\x64\x3a\x20\x31\x31" \
+b"\x2d\x30\x30\x2d\x30\x30\x2d\x30\x30\x2d\x30\x30\x2d\x30\x30\x00")
+assert(pkt.hicp_command == b"Reconfigured")
+assert(pkt.source == "11:00:00:00:00:00")
+
++ HICP Configure error
+= Build and dissect error response to configure request
+
+pkt = HICPInvalidConfiguration(source="00:11:00:00:00:00")
+assert(pkt.source == "00:11:00:00:00:00")
+assert(raw(pkt) == b"Invalid Configuration: 00-11-00-00-00-00\x00")
+pkt = HICP(
+b"\x49\x6e\x76\x61\x6c\x69\x64\x20\x43\x6f\x6e\x66\x69\x67\x75\x72" \
+b"\x61\x74\x69\x6f\x6e\x3a\x20\x30\x30\x2d\x31\x31\x2d\x30\x30\x2d" \
+b"\x30\x30\x2d\x30\x30\x2d\x30\x30\x00"
+)
+assert(pkt.hicp_command == b"Invalid Configuration")
+assert(pkt.source == "00:11:00:00:00:00")
+
++ HICP Configure invalid password
+= Build and dissect invalid password response to configure request
+
+pkt = HICPInvalidPassword(source="00:00:11:00:00:00")
+assert(pkt.source == "00:00:11:00:00:00")
+assert(raw(pkt) == b"Invalid Password: 00-00-11-00-00-00\x00")
+pkt = HICP(b"\x49\x6e\x76\x61\x6c\x69" \
+b"\x64\x20\x50\x61\x73\x73\x77\x6f\x72\x64\x3a\x20\x30\x30\x2d\x30" \
+b"\x30\x2d\x31\x31\x2d\x30\x30\x2d\x30\x30\x2d\x30\x30\x00")
+assert(pkt.hicp_command == b"Invalid Password")
+assert(pkt.source == "00:00:11:00:00:00")

@@ -6,66 +6,56 @@
 """
 Generic Security Services (GSS) API
 
-Implements parts of
-- GSSAPI: RFC2743
-- GSSAPI SPNEGO: RFC4178 > RFC2478
-- GSSAPI SPNEGO NEGOEX: [MS-NEGOEX]
+Implements parts of:
+
+    - GSSAPI: RFC4121 / RFC2743
+    - GSSAPI C bindings: RFC2744
+
+This is implemented in the following SSPs:
+
+    - :class:`~scapy.layers.ntlm.NTLMSSP`
+    - :class:`~scapy.layers.kerberos.KerberosSSP`
+    - :class:`~scapy.layers.spnego.SPNEGOSSP`
+    - :class:`~scapy.layers.msrpce.msnrpc.NetlogonSSP`
+
+.. note::
+    You will find more complete documentation for this layer over at
+    `GSSAPI <https://scapy.readthedocs.io/en/latest/layers/gssapi.html>`_
 """
 
-import struct
-from uuid import UUID
+import abc
 
-from scapy.asn1.asn1 import ASN1_SEQUENCE, ASN1_Class_UNIVERSAL, ASN1_Codecs
+from dataclasses import dataclass
+from enum import IntEnum, IntFlag
+
+from scapy.asn1.asn1 import (
+    ASN1_SEQUENCE,
+    ASN1_Class_UNIVERSAL,
+    ASN1_Codecs,
+)
 from scapy.asn1.ber import BERcodec_SEQUENCE
 from scapy.asn1.mib import conf  # loads conf.mib
 from scapy.asn1fields import (
-    ASN1F_CHOICE,
-    ASN1F_ENUMERATED,
-    ASN1F_FLAGS,
     ASN1F_OID,
     ASN1F_PACKET,
     ASN1F_SEQUENCE,
-    ASN1F_SEQUENCE_OF,
-    ASN1F_STRING,
-    ASN1F_optional
 )
 from scapy.asn1packet import ASN1_Packet
 from scapy.fields import (
-    FieldListField,
+    FieldLenField,
     LEIntEnumField,
-    LEIntField,
-    LELongEnumField,
-    LELongField,
-    LEShortField,
-    MultipleTypeField,
     PacketField,
-    PacketListField,
-    StrFixedLenField,
-    UUIDEnumField,
-    UUIDField,
-    StrField,
-    XStrFixedLenField,
-    XStrLenField
+    StrLenField,
 )
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet
 
-# Providers
-from scapy.layers.kerberos import (
-    Kerberos,
-    KRB5_GSS,
-)
-from scapy.layers.ntlm import (
-    NEGOEX_EXCHANGE_NTLM,
-    NTLM_Header,
-    _NTLMPayloadField,
-)
-
-# Typing imports
+# Type hints
 from typing import (
-    Dict,
+    Any,
+    List,
+    Optional,
     Tuple,
 )
-
 
 # https://datatracker.ietf.org/doc/html/rfc1508#page-48
 
@@ -83,371 +73,458 @@ class BERcodec_GSSAPI_APPLICATION(BERcodec_SEQUENCE):
     tag = ASN1_Class_GSSAPI.APPLICATION
 
 
-class ASN1F_SNMP_GSSAPI_APPLICATION(ASN1F_SEQUENCE):
+class ASN1F_GSSAPI_APPLICATION(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_GSSAPI.APPLICATION
 
-# SPNEGO negTokenInit
-# https://datatracker.ietf.org/doc/html/rfc4178#section-4.2.1
-
-
-class SPNEGO_MechType(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_OID("oid", None)
-
-
-class SPNEGO_MechTypes(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE_OF("mechTypes", None, SPNEGO_MechType)
-
-
-class SPNEGO_MechListMIC(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(ASN1F_STRING("value", ""))
-
-
-_mechDissector = {
-    "1.3.6.1.4.1.311.2.2.10": NTLM_Header,   # NTLM
-    "1.2.840.48018.1.2.2": Kerberos,  # MS KRB5 - Microsoft Kerberos 5
-    "1.2.840.113554.1.2.2": Kerberos,  # Kerberos 5
-}
-
-
-class _SPNEGO_Token_Field(ASN1F_STRING):
-    def i2m(self, pkt, x):
-        if x is None:
-            x = b""
-        return super(_SPNEGO_Token_Field, self).i2m(pkt, bytes(x))
-
-    def m2i(self, pkt, s):
-        dat, r = super(_SPNEGO_Token_Field, self).m2i(pkt, s)
-        if isinstance(pkt.underlayer, SPNEGO_negTokenInit):
-            types = pkt.underlayer.mechTypes
-        elif isinstance(pkt.underlayer, SPNEGO_negTokenResp):
-            types = [pkt.underlayer.supportedMech]
-        if types and types[0] and types[0].oid.val in _mechDissector:
-            return _mechDissector[types[0].oid.val](dat.val), r
-        return dat, r
-
-
-class SPNEGO_Token(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = _SPNEGO_Token_Field("value", None)
-
-
-_ContextFlags = ["delegFlag",
-                 "mutualFlag",
-                 "replayFlag",
-                 "sequenceFlag",
-                 "superseded",
-                 "anonFlag",
-                 "confFlag",
-                 "integFlag"]
-
-
-class SPNEGO_negTokenInit(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_SEQUENCE(
-            ASN1F_optional(
-                ASN1F_SEQUENCE_OF("mechTypes", None, SPNEGO_MechType,
-                                  explicit_tag=0xa0)
-            ),
-            ASN1F_optional(
-                ASN1F_FLAGS("reqFlags", None, _ContextFlags,
-                            implicit_tag=0x81)),
-            ASN1F_optional(
-                ASN1F_PACKET("mechToken", None, SPNEGO_Token,
-                             explicit_tag=0xa2)
-            ),
-            ASN1F_optional(
-                ASN1F_PACKET("mechListMIC", None,
-                             SPNEGO_MechListMIC,
-                             implicit_tag=0xa3)
-            )
-        )
-    )
-
-
-# SPNEGO negTokenTarg
-# https://datatracker.ietf.org/doc/html/rfc4178#section-4.2.2
-
-class SPNEGO_negTokenResp(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_SEQUENCE(
-            ASN1F_optional(
-                ASN1F_ENUMERATED("negResult", 0,
-                                 {0: "accept-completed",
-                                  1: "accept-incomplete",
-                                  2: "reject",
-                                  3: "request-mic"},
-                                 explicit_tag=0xa0),
-            ),
-            ASN1F_optional(
-                ASN1F_PACKET("supportedMech", SPNEGO_MechType(),
-                             SPNEGO_MechType,
-                             explicit_tag=0xa1),
-            ),
-            ASN1F_optional(
-                ASN1F_PACKET("responseToken", None,
-                             SPNEGO_Token,
-                             explicit_tag=0xa2)
-            ),
-            ASN1F_optional(
-                ASN1F_PACKET("mechListMIC", None,
-                             SPNEGO_MechListMIC,
-                             implicit_tag=0xa3)
-            )
-        )
-    )
-
-
-class SPNEGO_negToken(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_CHOICE("token", SPNEGO_negTokenInit(),
-                             ASN1F_PACKET("negTokenInit",
-                                          SPNEGO_negTokenInit(),
-                                          SPNEGO_negTokenInit,
-                                          implicit_tag=0xa0),
-                             ASN1F_PACKET("negTokenResp",
-                                          SPNEGO_negTokenResp(),
-                                          SPNEGO_negTokenResp,
-                                          implicit_tag=0xa1)
-                             )
-
-# NEGOEX
-# https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-negoex/0ad7a003-ab56-4839-a204-b555ca6759a2
-
-
-_NEGOEX_AUTH_SCHEMES = {
-    # Reversed. Is there any doc related to this?
-    # The NEGOEX doc is very ellusive
-    UUID("5c33530d-eaf9-0d4d-b2ec-4ae3786ec308"): "UUID('[NTLM-UUID]')",
-}
-
-
-class NEGOEX_MESSAGE_HEADER(Packet):
-    fields_desc = [
-        StrFixedLenField("Signature", "NEGOEXTS", length=8),
-        LEIntEnumField("MessageType", 0, {0x0: "INITIATOR_NEGO",
-                                          0x01: "ACCEPTOR_NEGO",
-                                          0x02: "INITIATOR_META_DATA",
-                                          0x03: "ACCEPTOR_META_DATA",
-                                          0x04: "CHALENGE",
-                                          0x05: "AP_REQUEST",
-                                          0x06: "VERIFY",
-                                          0x07: "ALERT"}),
-        LEIntField("SequenceNum", 0),
-        LEIntField("cbHeaderLength", None),
-        LEIntField("cbMessageLength", None),
-        UUIDField("ConversationId", None),
-    ]
-
-    def post_build(self, pkt, pay):
-        if self.cbHeaderLength is None:
-            pkt = pkt[16:] + struct.pack("<I", len(pkt)) + pkt[20:]
-        if self.cbMessageLength is None:
-            pkt = pkt[20:] + struct.pack("<I", len(pkt) + len(pay)) + pkt[24:]
-        return pkt + pay
-
-
-def _NEGOEX_post_build(self, p, pay_offset, fields):
-    # type: (Packet, bytes, int, Dict[str, Tuple[str, int]]) -> bytes
-    """Util function to build the offset and populate the lengths"""
-    for field_name, value in self.fields["Payload"]:
-        length = self.get_field(
-            "Payload").fields_map[field_name].i2len(self, value)
-        count = self.get_field(
-            "Payload").fields_map[field_name].i2count(self, value)
-        offset = fields[field_name]
-        # Offset
-        if self.getfieldval(field_name + "BufferOffset") is None:
-            p = p[:offset] + \
-                struct.pack("<I", pay_offset) + p[offset + 4:]
-        # Count
-        if self.getfieldval(field_name + "Count") is None:
-            p = p[:offset + 4] + \
-                struct.pack("<H", count) + p[offset + 6:]
-        pay_offset += length
-    return p
-
-
-class NEGOEX_BYTE_VECTOR(Packet):
-    fields_desc = [
-        LEIntField("ByteArrayBufferOffset", 0),
-        LEIntField("ByteArrayLength", 0)
-    ]
-
-    def guess_payload_class(self, payload):
-        return conf.padding_layer
-
-
-class NEGOEX_EXTENSION_VECTOR(Packet):
-    fields_desc = [
-        LELongField("ExtensionArrayOffset", 0),
-        LEShortField("ExtensionCount", 0)
-    ]
-
-
-class NEGOEX_NEGO_MESSAGE(Packet):
-    OFFSET = 92
-    show_indent = 0
-    fields_desc = [
-        NEGOEX_MESSAGE_HEADER,
-        XStrFixedLenField("Random", b"", length=32),
-        LELongField("ProtocolVersion", 0),
-        LEIntField("AuthSchemeBufferOffset", None),
-        LEShortField("AuthSchemeCount", None),
-        LEIntField("ExtensionBufferOffset", None),
-        LEShortField("ExtensionCount", None),
-        # Payload
-        _NTLMPayloadField(
-            'Payload', OFFSET, [
-                FieldListField("AuthScheme", [],
-                               UUIDEnumField("", None, _NEGOEX_AUTH_SCHEMES),
-                               count_from=lambda pkt: pkt.AuthSchemeCount),
-                PacketListField("Extension", [], NEGOEX_EXTENSION_VECTOR,
-                                count_from=lambda pkt: pkt.ExtensionCount),
-
-            ],
-            length_from=lambda pkt: pkt.cbMessageLength - 92),
-        # TODO: dissect extensions
-    ]
-
-    def post_build(self, pkt, pay):
-        # type: (bytes, bytes) -> bytes
-        return _NEGOEX_post_build(self, pkt, self.OFFSET, {
-            "AuthScheme": 96,
-            "Extension": 102,
-        }) + pay
-
-    @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if _pkt and len(_pkt) >= 12:
-            MessageType = struct.unpack("<I", _pkt[8:12])[0]
-            if MessageType in [0, 1]:
-                return NEGOEX_NEGO_MESSAGE
-            elif MessageType in [2, 3]:
-                return NEGOEX_EXCHANGE_MESSAGE
-        return cls
-
-
-# RFC3961
-_checksum_types = {
-    1: "CRC32",
-    2: "RSA-MD4",
-    3: "RSA-MD4-DES",
-    4: "DES-MAC",
-    5: "DES-MAC-K",
-    6: "RSA-MDA-DES-K",
-    7: "RSA-MD5",
-    8: "RSA-MD5-DES",
-    9: "RSA-MD5-DES3",
-    10: "SHA1",
-    12: "HMAC-SHA1-DES3-KD",
-    13: "HMAC-SHA1-DES3",
-    14: "SHA1",
-    15: "HMAC-SHA1-96-AES128",
-    16: "HMAC-SHA1-96-AES256"
-}
-
-
-def _checksum_size(pkt):
-    if pkt.ChecksumType == 1:
-        return 4
-    elif pkt.ChecksumType in [2, 4, 6, 7]:
-        return 16
-    elif pkt.ChecksumType in [3, 8, 9]:
-        return 24
-    elif pkt.ChecksumType == 5:
-        return 8
-    elif pkt.ChecksumType in [10, 12, 13, 14, 15, 16]:
-        return 20
-    return 0
-
-
-class NEGOEX_CHECKSUM(Packet):
-    fields_desc = [
-        LELongField("cbHeaderLength", 20),
-        LELongEnumField("ChecksumScheme", 1, {1: "CHECKSUM_SCHEME_RFC3961"}),
-        LELongEnumField("ChecksumType", None, _checksum_types),
-        XStrLenField("ChecksumValue", b"", length_from=_checksum_size)
-    ]
-
-
-class NEGOEX_EXCHANGE_MESSAGE(Packet):
-    OFFSET = 64
-    show_indent = 0
-    fields_desc = [
-        NEGOEX_MESSAGE_HEADER,
-        UUIDEnumField("AuthScheme", None, _NEGOEX_AUTH_SCHEMES),
-        LEIntField("ExchangeBufferOffset", 0),
-        LEIntField("ExchangeLen", 0),
-        _NTLMPayloadField(
-            'Payload', OFFSET, [
-                # The NEGOEX doc mentions the following blob as as an
-                # "opaque handshake for the client authentication scheme".
-                # NEGOEX_EXCHANGE_NTLM is a reversed interpretation, and is
-                # probably not accurate.
-                MultipleTypeField(
-                    [
-                        (PacketField("Exchange", None, NEGOEX_EXCHANGE_NTLM),
-                         lambda pkt: pkt.AuthScheme == \
-                            UUID("5c33530d-eaf9-0d4d-b2ec-4ae3786ec308")),
-                    ],
-                    StrField("Exchange", b"")
-                )
-            ],
-            length_from=lambda pkt: pkt.cbMessageLength - pkt.cbHeaderLength),
-    ]
-
-
-class NEGOEX_VERIFY_MESSAGE(Packet):
-    show_indent = 0
-    fields_desc = [
-        NEGOEX_MESSAGE_HEADER,
-        UUIDEnumField("AuthScheme", None, _NEGOEX_AUTH_SCHEMES),
-        PacketField("Checksum", NEGOEX_CHECKSUM(),
-                    NEGOEX_CHECKSUM)
-    ]
-
-
-bind_layers(NEGOEX_NEGO_MESSAGE, NEGOEX_NEGO_MESSAGE)
-
-
-_mechDissector["1.3.6.1.4.1.311.2.2.30"] = NEGOEX_NEGO_MESSAGE
 
 # GSS API Blob
-# https://datatracker.ietf.org/doc/html/rfc2743
+# https://datatracker.ietf.org/doc/html/rfc4121
 
+# Filled by providers
+_GSSAPI_OIDS = {}
+_GSSAPI_SIGNATURE_OIDS = {}
 
-_GSSAPI_OIDS = {
-    "1.3.6.1.5.5.2": SPNEGO_negToken,  # SPNEGO: RFC 2478
-    "1.2.840.113554.1.2.2": KRB5_GSS,  # RFC 1964
-}
-
-# sect 3.1
+# section 4.1
 
 
 class GSSAPI_BLOB(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SNMP_GSSAPI_APPLICATION(
+    ASN1_root = ASN1F_GSSAPI_APPLICATION(
         ASN1F_OID("MechType", "1.3.6.1.5.5.2"),
-        ASN1F_PACKET("innerContextToken", SPNEGO_negToken(), SPNEGO_negToken,
-                     next_cls_cb=lambda pkt: _GSSAPI_OIDS.get(
-            pkt.MechType.val, conf.raw_layer))
+        ASN1F_PACKET(
+            "innerToken",
+            None,
+            None,
+            next_cls_cb=lambda pkt: _GSSAPI_OIDS.get(pkt.MechType.val, conf.raw_layer),
+        ),
     )
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 1:
-            if ord(_pkt[:1]) & 0xa0 >= 0xa0:
+            if ord(_pkt[:1]) & 0xA0 >= 0xA0:
+                from scapy.layers.spnego import SPNEGO_negToken
+
                 # XXX: sometimes the token is raw, we should look from
                 # the session what to use here. For now: hardcode SPNEGO
                 # (THIS IS A VERY STRONG ASSUMPTION)
                 return SPNEGO_negToken
             if _pkt[:7] == b"NTLMSSP":
+                from scapy.layers.ntlm import NTLM_Header
+
                 # XXX: if no mechTypes are provided during SPNEGO exchange,
                 # Windows falls back to a plain NTLM_Header.
                 return NTLM_Header.dispatch_hook(_pkt=_pkt, *args, **kargs)
         return cls
+
+
+# Same but to store the signatures (e.g. DCE/RPC)
+
+
+class GSSAPI_BLOB_SIGNATURE(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_GSSAPI_APPLICATION(
+        ASN1F_OID("MechType", "1.3.6.1.5.5.2"),
+        ASN1F_PACKET(
+            "innerToken",
+            None,
+            None,
+            next_cls_cb=lambda pkt: _GSSAPI_SIGNATURE_OIDS.get(
+                pkt.MechType.val, conf.raw_layer
+            ),  # noqa: E501
+        ),
+    )
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 2:
+            # Sometimes the token is raw. Detect that with educated
+            # heuristics.
+            if _pkt[:2] in [b"\x04\x04", b"\x05\x04"]:
+                from scapy.layers.kerberos import KRB_InnerToken
+
+                return KRB_InnerToken
+            elif len(_pkt) >= 4 and _pkt[:4] == b"\x01\x00\x00\x00":
+                from scapy.layers.ntlm import NTLMSSP_MESSAGE_SIGNATURE
+
+                return NTLMSSP_MESSAGE_SIGNATURE
+        return cls
+
+
+# RFC2744 sect 3.9 - Status Values
+
+GSS_S_COMPLETE = 0
+
+# These errors are encoded into the 32-bit GSS status code as follows:
+#   MSB                                                        LSB
+#   |------------------------------------------------------------|
+#   |  Calling Error | Routine Error  |    Supplementary Info    |
+#   |------------------------------------------------------------|
+# Bit 31            24 23            16 15                       0
+
+GSS_C_CALLING_ERROR_OFFSET = 24
+GSS_C_ROUTINE_ERROR_OFFSET = 16
+GSS_C_SUPPLEMENTARY_OFFSET = 0
+
+# Calling errors:
+
+GSS_S_CALL_INACCESSIBLE_READ = 1 << GSS_C_CALLING_ERROR_OFFSET
+GSS_S_CALL_INACCESSIBLE_WRITE = 2 << GSS_C_CALLING_ERROR_OFFSET
+GSS_S_CALL_BAD_STRUCTURE = 3 << GSS_C_CALLING_ERROR_OFFSET
+
+# Routine errors:
+
+GSS_S_BAD_MECH = 1 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_BAD_NAME = 2 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_BAD_NAMETYPE = 3 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_BAD_BINDINGS = 4 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_BAD_STATUS = 5 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_BAD_SIG = 6 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_BAD_MIC = GSS_S_BAD_SIG
+GSS_S_NO_CRED = 7 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_NO_CONTEXT = 8 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_DEFECTIVE_TOKEN = 9 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_DEFECTIVE_CREDENTIAL = 10 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_CREDENTIALS_EXPIRED = 11 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_CONTEXT_EXPIRED = 12 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_FAILURE = 13 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_BAD_QOP = 14 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_UNAUTHORIZED = 15 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_UNAVAILABLE = 16 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_DUPLICATE_ELEMENT = 17 << GSS_C_ROUTINE_ERROR_OFFSET
+GSS_S_NAME_NOT_MN = 18 << GSS_C_ROUTINE_ERROR_OFFSET
+
+# Supplementary info bits:
+
+GSS_S_CONTINUE_NEEDED = 1 << (GSS_C_SUPPLEMENTARY_OFFSET + 0)
+GSS_S_DUPLICATE_TOKEN = 1 << (GSS_C_SUPPLEMENTARY_OFFSET + 1)
+GSS_S_OLD_TOKEN = 1 << (GSS_C_SUPPLEMENTARY_OFFSET + 2)
+GSS_S_UNSEQ_TOKEN = 1 << (GSS_C_SUPPLEMENTARY_OFFSET + 3)
+GSS_S_GAP_TOKEN = 1 << (GSS_C_SUPPLEMENTARY_OFFSET + 4)
+
+# Address families (RFC2744 sect 3.11)
+
+_GSS_ADDRTYPE = {
+    0: "GSS_C_AF_UNSPEC",
+    1: "GSS_C_AF_LOCAL",
+    2: "GSS_C_AF_INET",
+    3: "GSS_C_AF_IMPLINK",
+    4: "GSS_C_AF_PUP",
+    5: "GSS_C_AF_CHAOS",
+    6: "GSS_C_AF_NS",
+    7: "GSS_C_AF_NBS",
+    8: "GSS_C_AF_ECMA",
+    9: "GSS_C_AF_DATAKIT",
+    10: "GSS_C_AF_CCITT",
+    11: "GSS_C_AF_SNA",
+    12: "GSS_C_AF_DECnet",
+    13: "GSS_C_AF_DLI",
+    14: "GSS_C_AF_LAT",
+    15: "GSS_C_AF_HYLINK",
+    16: "GSS_C_AF_APPLETALK",
+    17: "GSS_C_AF_BSC",
+    18: "GSS_C_AF_DSS",
+    19: "GSS_C_AF_OSI",
+    21: "GSS_C_AF_X25",
+    255: "GSS_C_AF_NULLADDR",
+}
+
+
+# GSS Structures
+
+
+class GssBufferDesc(Packet):
+    name = "gss_buffer_desc"
+    fields_desc = [
+        FieldLenField("length", None, length_of="value", fmt="<I"),
+        StrLenField("value", "", length_from=lambda pkt: pkt.length),
+    ]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
+
+class GssChannelBindings(Packet):
+    name = "gss_channel_bindings_struct"
+    fields_desc = [
+        LEIntEnumField("initiator_addrtype", 0, _GSS_ADDRTYPE),
+        PacketField("initiator_address", GssBufferDesc(), GssBufferDesc),
+        LEIntEnumField("acceptor_addrtype", 0, _GSS_ADDRTYPE),
+        PacketField("acceptor_address", GssBufferDesc(), GssBufferDesc),
+        PacketField("application_data", None, GssBufferDesc),
+    ]
+
+
+# --- The base GSSAPI SSP base class
+
+
+class GSS_C_FLAGS(IntFlag):
+    """
+    Authenticator Flags per RFC2744 req_flags
+    """
+
+    GSS_C_DELEG_FLAG = 0x01
+    GSS_C_MUTUAL_FLAG = 0x02
+    GSS_C_REPLAY_FLAG = 0x04
+    GSS_C_SEQUENCE_FLAG = 0x08
+    GSS_C_CONF_FLAG = 0x10  # confidentiality
+    GSS_C_INTEG_FLAG = 0x20  # integrity
+    # RFC4757
+    GSS_C_DCE_STYLE = 0x1000
+    GSS_C_IDENTIFY_FLAG = 0x2000
+    GSS_C_EXTENDED_ERROR_FLAG = 0x4000
+
+
+class SSP:
+    """
+    The general SSP class
+    """
+
+    auth_type = 0x00
+
+    def __init__(self, **kwargs):
+        if kwargs:
+            raise ValueError("Unknown SSP parameters: " + ",".join(list(kwargs)))
+
+    def __repr__(self):
+        return "<%s>" % self.__class__.__name__
+
+    class CONTEXT:
+        """
+        A Security context i.e. the 'state' of the secure negotiation
+        """
+
+        __slots__ = ["state", "flags", "passive"]
+
+        def __init__(self, req_flags: Optional[GSS_C_FLAGS] = None):
+            if req_flags is None:
+                # Default
+                req_flags = (
+                    GSS_C_FLAGS.GSS_C_EXTENDED_ERROR_FLAG
+                    | GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
+                )
+            self.flags = req_flags
+            self.passive = False
+
+        def clifailure(self):
+            # This allows to reset the client context without discarding it.
+            pass
+
+        def __repr__(self):
+            return "[Default SSP]"
+
+    class STATE(IntEnum):
+        """
+        An Enum that contains the states of an SSP
+        """
+
+    @abc.abstractmethod
+    def GSS_Init_sec_context(
+        self, Context: CONTEXT, val=None, req_flags: Optional[GSS_C_FLAGS] = None
+    ):
+        """
+        GSS_Init_sec_context: client-side call for the SSP
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
+        """
+        GSS_Accept_sec_context: server-side call for the SSP
+        """
+        raise NotImplementedError
+
+    # Passive
+
+    @abc.abstractmethod
+    def GSS_Passive(self, Context: CONTEXT, val=None):
+        """
+        GSS_Passive: client/server call for the SSP in passive mode
+        """
+        raise NotImplementedError
+
+    def GSS_Passive_set_Direction(self, Context: CONTEXT, IsAcceptor=False):
+        """
+        GSS_Passive_set_Direction: used to swap the direction in passive mode
+        """
+        pass
+
+    # MS additions (*Ex functions)
+
+    @dataclass
+    class WRAP_MSG:
+        conf_req_flag: bool
+        sign: bool
+        data: bytes
+
+    @abc.abstractmethod
+    def GSS_WrapEx(
+        self, Context: CONTEXT, msgs: List[WRAP_MSG], qop_req: int = 0
+    ) -> Tuple[List[WRAP_MSG], Any]:
+        """
+        GSS_WrapEx
+
+        :param Context: the SSP context
+        :param qop_req: int (0 specifies default QOP)
+        :param msgs: list of WRAP_MSG
+
+        :returns: (data, signature)
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def GSS_UnwrapEx(
+        self, Context: CONTEXT, msgs: List[WRAP_MSG], signature
+    ) -> List[WRAP_MSG]:
+        """
+        :param Context: the SSP context
+        :param msgs: list of WRAP_MSG
+        :param signature: the signature
+
+        :raises ValueError: if MIC failure.
+        :returns: data
+        """
+        raise NotImplementedError
+
+    @dataclass
+    class MIC_MSG:
+        sign: bool
+        data: bytes
+
+    @abc.abstractmethod
+    def GSS_GetMICEx(
+        self, Context: CONTEXT, msgs: List[MIC_MSG], qop_req: int = 0
+    ) -> Any:
+        """
+        GSS_GetMICEx
+
+        :param Context: the SSP context
+        :param qop_req: int (0 specifies default QOP)
+        :param msgs: list of VERIF_MSG
+
+        :returns: signature
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def GSS_VerifyMICEx(self, Context: CONTEXT, msgs: List[MIC_MSG], signature) -> None:
+        """
+        :param Context: the SSP context
+        :param msgs: list of VERIF_MSG
+        :param signature: the signature
+
+        :raises ValueError: if MIC failure.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def MaximumSignatureLength(self, Context: CONTEXT):
+        """
+        Returns the Maximum Signature length.
+
+        This will be used in auth_len in DceRpc5, and is necessary for
+        PFC_SUPPORT_HEADER_SIGN to work properly.
+        """
+        raise NotImplementedError
+
+    # RFC 2743
+
+    # sect 2.3.1
+
+    def GSS_GetMIC(self, Context: CONTEXT, message: bytes, qop_req: int = 0):
+        return self.GSS_GetMICEx(
+            Context,
+            [
+                self.MIC_MSG(
+                    sign=True,
+                    data=message,
+                )
+            ],
+            qop_req=qop_req,
+        )
+
+    # sect 2.3.2
+
+    def GSS_VerifyMIC(self, Context: CONTEXT, message: bytes, signature):
+        self.GSS_VerifyMICEx(
+            Context,
+            [
+                self.MIC_MSG(
+                    sign=True,
+                    data=message,
+                )
+            ],
+            signature,
+        )
+
+    # sect 2.3.3
+
+    def GSS_Wrap(
+        self,
+        Context: CONTEXT,
+        input_message: bytes,
+        conf_req_flag: bool,
+        qop_req: int = 0,
+    ):
+        _msgs, signature = self.GSS_WrapEx(
+            Context,
+            [
+                self.WRAP_MSG(
+                    conf_req_flag=conf_req_flag,
+                    sign=True,
+                    data=input_message,
+                )
+            ],
+            qop_req=qop_req,
+        )
+        return _msgs[0].data, signature
+
+    # sect 2.3.4
+
+    def GSS_Unwrap(self, Context: CONTEXT, input_message: bytes, signature):
+        return self.GSS_UnwrapEx(
+            Context,
+            [
+                self.WRAP_MSG(
+                    conf_req_flag=True,
+                    sign=True,
+                    data=input_message,
+                )
+            ],
+            signature,
+        )[0].data
+
+    # MISC
+
+    def NegTokenInit2(self):
+        """
+        Server-Initiation
+        See [MS-SPNG] sect 3.2.5.2
+        """
+        return None, None
+
+    def canMechListMIC(self, Context: CONTEXT):
+        """
+        Returns whether or not mechListMIC can be computed
+        """
+        return False
+
+    def getMechListMIC(self, Context, input):
+        """
+        Compute mechListMIC
+        """
+        return bytes(self.GSS_GetMIC(Context, input))
+
+    def verifyMechListMIC(self, Context, otherMIC, input):
+        """
+        Verify mechListMIC
+        """
+        return self.GSS_VerifyMIC(Context, input, otherMIC)
+
+    def LegsAmount(self, Context: CONTEXT):
+        """
+        Returns the amount of 'legs' (how MS calls it) of the SSP.
+
+        i.e. 2 for Kerberos, 3 for NTLM and Netlogon
+        """
+        return 2

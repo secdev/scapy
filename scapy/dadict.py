@@ -10,15 +10,20 @@ Direct Access dictionary.
 from scapy.error import Scapy_Exception
 from scapy.compat import plain_str
 
+# Typing
 from typing import (
     Any,
     Dict,
     Generic,
     Iterator,
     List,
+    Tuple,
+    Type,
     TypeVar,
     Union,
 )
+from scapy.compat import Self
+
 
 ###############################
 #  Direct Access dictionary   #
@@ -66,11 +71,13 @@ class DADict(Generic[_K, _V]):
 
         ETHER_TYPES.IPv4 -> 2048
     """
+    __slots__ = ["_name", "d"]
+
     def __init__(self, _name="DADict", **kargs):
         # type: (str, **Any) -> None
         self._name = _name
         self.d = {}  # type: Dict[_K, _V]
-        self.update(kargs)
+        self.update(kargs)  # type: ignore
 
     def ident(self, v):
         # type: (_V) -> str
@@ -82,7 +89,7 @@ class DADict(Generic[_K, _V]):
         return "unknown"
 
     def update(self, *args, **kwargs):
-        # type: (*Dict[str, _V], **Dict[str, _V]) -> None
+        # type: (*Dict[_K, _V], **Dict[_K, _V]) -> None
         for k, v in dict(*args, **kwargs).items():
             self[k] = v  # type: ignore
 
@@ -148,3 +155,12 @@ class DADict(Generic[_K, _V]):
     def __dir__(self):
         # type: () -> List[str]
         return [self.ident(x) for x in self.itervalues()]
+
+    def __reduce__(self):
+        # type: () -> Tuple[Type[Self], Tuple[str], Tuple[Dict[_K, _V]]]
+        return (self.__class__, (self._name,), (self.d,))
+
+    def __setstate__(self, state):
+        # type: (Tuple[Dict[_K, _V]]) -> Self
+        self.d.update(state[0])
+        return self

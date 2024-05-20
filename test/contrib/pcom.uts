@@ -16,10 +16,10 @@ r =  b'\x65\x00\x04\x00\x00\x00\x00\x00'
 raw(PCOMResponse() / b'\x00\x00\x00\x00')[2:] == r
 
 = PCOM/TCP Guess Payload Class
-assert isinstance(PCOMRequest(b'\x00\x00\x65\x00\x01\x00\x00\x00').payload, PCOMAsciiRequest)
-assert isinstance(PCOMResponse(b'\x00\x00\x65\x00\x01\x00\x00\x00').payload, PCOMAsciiResponse)
-assert isinstance(PCOMRequest(b'\x00\x00\x66\x00\x01\x00\x00\x00').payload, PCOMBinaryRequest)
-assert isinstance(PCOMResponse(b'\x00\x00\x66\x00\x01\x00\x00\x00').payload, PCOMBinaryResponse)
+assert isinstance(PCOMRequest(b'\x00\x00\x65\x00\x01\x00\x00\x00\x00\x00\x00\x00').payload, PCOMAsciiRequest)
+assert isinstance(PCOMResponse(b'\x00\x00\x65\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00').payload, PCOMAsciiResponse)
+assert isinstance(PCOMRequest(b'\x00\x00\x66\x00\x01\x00\x00\x00' + b'\x00' * 25).payload, PCOMBinaryRequest)
+assert isinstance(PCOMResponse(b'\x00\x00\x66\x00\x01\x00\x00\x00' + b'\x00' * 25).payload, PCOMBinaryResponse)
 
 + Test PCOM/Ascii
 = PCOM/ASCII Default values

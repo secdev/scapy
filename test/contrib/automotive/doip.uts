@@ -297,7 +297,7 @@ assert p.previous_msg == b'\x10\x03'
 + pcap based tests
 
 = read diag_ack pcap file
-pkt = rdpcap("test/pcaps/doip_ack.pcap").res[0]
+pkt = rdpcap(scapy_path("test/pcaps/doip_ack.pcap")).res[0]
 
 assert len(pkt) == 70
 
@@ -313,7 +313,7 @@ assert pkt.previous_msg == b'\x22\xFD\x31'
 
 = read main pcap file
 
-pkts = rdpcap("test/pcaps/doip.pcap.gz")
+pkts = rdpcap(scapy_path("test/pcaps/doip.pcap.gz"))
 ips = [p for p in pkts if p.proto == 6]
 
 assert len(ips) > 1
@@ -380,3 +380,365 @@ assert req.hashret() == resp.hashret()
 # exclude TCP layer from answers check
 assert resp[3].answers(req[3])
 assert not req[3].answers(resp[3])
+
++ DoIP Communication tests
+
+= Load libraries
+import base64
+import ssl
+import tempfile
+
+= Test DoIPSocket
+
+server_up = threading.Event()
+def server():
+    buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', 13400))
+        sock.listen(1)
+        server_up.set()
+        connection, address = sock.accept()
+        connection.send(buffer)
+        connection.close()
+    finally:
+        sock.close()
+
+
+server_thread = threading.Thread(target=server)
+server_thread.start()
+server_up.wait(timeout=1)
+sock = DoIPSocket(activate_routing=False)
+
+pkts = sock.sniff(timeout=1, count=2)
+server_thread.join(timeout=1)
+assert len(pkts) == 2
+
+
+= Test DoIPSocket 2
+~ linux
+
+server_up = threading.Event()
+def server():
+    buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', 13400))
+        sock.listen(1)
+        server_up.set()
+        connection, address = sock.accept()
+        for i in range(len(buffer)):
+            connection.send(buffer[i:i+1])
+            time.sleep(0.01)
+        connection.close()
+    finally:
+        sock.close()
+
+
+server_thread = threading.Thread(target=server)
+server_thread.start()
+server_up.wait(timeout=1)
+sock = DoIPSocket(activate_routing=False)
+
+pkts = sock.sniff(timeout=1, count=2)
+server_thread.join(timeout=1)
+assert len(pkts) == 2
+
+= Test DoIPSocket 3
+
+server_up = threading.Event()
+def server():
+    buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', 13400))
+        sock.listen(1)
+        server_up.set()
+        connection, address = sock.accept()
+        while buffer:
+            randlen = random.randint(0, len(buffer))
+            connection.send(buffer[:randlen])
+            buffer = buffer[randlen:]
+            time.sleep(0.01)
+        connection.close()
+    finally:
+        sock.close()
+
+
+server_thread = threading.Thread(target=server)
+server_thread.start()
+server_up.wait(timeout=1)
+sock = DoIPSocket(activate_routing=False)
+
+pkts = sock.sniff(timeout=1, count=2)
+server_thread.join(timeout=1)
+assert len(pkts) == 2
+
+
+= Test DoIPSocket6
+
+server_up = threading.Event()
+def server():
+    buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('::1', 13400))
+        sock.listen(1)
+        server_up.set()
+        connection, address = sock.accept()
+        connection.send(buffer)
+        connection.close()
+    finally:
+        sock.close()
+
+
+server_thread = threading.Thread(target=server)
+server_thread.start()
+server_up.wait(timeout=1)
+sock = DoIPSocket6(activate_routing=False)
+
+pkts = sock.sniff(timeout=1, count=2)
+server_thread.join(timeout=1)
+assert len(pkts) == 2
+
+= Test DoIPSslSocket
+
+certstring = """
+LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2QUlCQURBTkJna3Foa2lHOXcwQkFRRUZB
+QVNDQktZd2dnU2lBZ0VBQW9JQkFRRFUvK0hRbVpzSDl2QVcKQ3ZMQjRxalpnZFJSSXE1b2JBanB4
+YUhoUGxCVEMvUlBzMHIxRVF0V0FtbXNEZFE3UGlLaCtYa1hES3pNY3lJSQp1a0ZpNThUQW1idGFj
+N0U5VmJHSnNlTWp2RkJKSkFqQXVtbFdRZk5XcSs2TkZhdmRkTDQrSTNBTVJ5TldJTkJYCjhHMzRo
+dldIbDdTOGhhSFFZN0FXcUZWVTNVL2xKR2pubnF3MEJraEIvVGRCTWIwM0habzkrVjIrWU9RZmk5
+QWsKTVRSRXpSeWVObWJqT0sxbHpXdFJXWkZZU0RnMEtqUVh4SkdFNVc5MzFPWitHL1NkbytTM1ZW
+SVRPdWxQbHRmVwpXMEdjeCsvZERSNFIxNG5mcUl5L1daMElHUVNXMlRsQytmeGJ0dURDUkFqelRz
+b0J3YjJ0cnpoR0VtYVFveUtNCnpBKzVSUHNyQWdNQkFBRUNnZ0VBRUJHaEoyWm5OVHh5YVY5TnZY
+QjI1NDNZQnRUMGVSUHBhanJLMXg0bk1OU3oKNE9LNFVzWlo1MnBnTHRHT1EzZm1aS0l0cEo1WlY1
+cVBUejdwN3VjUzhnQWNZUnNJUnpCMHA5d3FpWExMK3h0RApxUjB4dnR4VDJpUGlFblVNNndudHpr
+SHpKK0g0QkZLT2FvdjNaK3Fha2E1UmFCcmhheGRuaDBDNklLQmZtM3cyCm5zUWI2N0lCYWwrSnBs
+L1g5TENWRkdRT2owb0lmVWI5ZFp3OWQ3MCthSGVVb2xvMGdYZmxxcXFFcnl3ZDlPN2QKNnp4dGlx
+cnRyZUJhK1IraWs3NE1SK0xvaFNVR3o2VTRQaXhWQ3l1SnQ2U0hvRHR2L3dtSnltWDd2a0FRS2w1
+RQplK1JqUGVyakpUWTNzNXNXbEd2V21UTEtEbnVyS2pBYzZUOHhKb0pXWlFLQmdRRHdsd2RRdmww
+S28wNHhDUmtiCklYRGVJZE1jZkp2ejRGZEtka1BmVnZVT2xHVEpNZkRzbWNoUzZhcEJCQUdQMUU2
+VkN2VzJmUFdjaXhScHE3MW8KR2xtbWZ5RnlJRW0rL08yamMvSFRXWHp6Qjdoc0JISEltQklHczFU
+TC9iWFU3amhVQW5kWDdMK3RSRDBKNWRGVwpiN1VOOXNxaWdtRG42REJWZkxaUHgxRnlWUUtCZ1FE
+aXBIT1BhNmVMSlk5R1FZdkw3OTIyTHNoU3ZYSUFVMERGCjBabTlqbjM2b3ZIY0kvWEZDdHVXank2
+WG9wbk9pbjlycmtUY2FDUnBvSEFNb00ycHdiR0tFY0dVVEY2RHQ3akYKRHVnd2srR21sbDkrbjM2
+M3Iwb09YNktSbWFhRStiZHoyNjNQVEhMaktYUnFyc3h5WEtMT3ZyTXhVNWNzMXJCeQpTMWI2ZGhr
+M2Z3S0JnRjlONUliMnNkS3ArQ3B5aVRCM0ljZk1yRjBuZTN1ekRjRWdjaWlCd05lQ3J4NElHNEVP
+Ck5nMnFKRmhXNXV0NzFaa3kyenpyNlR1VzJJSTNsdk1ySlFKUWNBWk9oZ2dURjJ2ZFhSazA1TXM4
+N3JCVFhtTncKNGdzbmROck42UDZ0VTBEc0xTeDJTME91dVdNM1Y2S2U0NkRoZDBuQ3pmSnZ4dDNH
+WmszYURnaDFBb0dBWFhIcQpoNDZlZEx1V3VDUGNUTWhvUkc1RGdBSEdHQ1k3UlpTbTY4WHRZVUov
+c0FGUG10OWdMRko2cG1DUFE5NU1yUXdjCkxqZnVFM0xuMy8wSTd0NENvbWV4eGNBN0U5blRIOFNH
+clVpN3QrQzJITklNQUJZUTFaNU91L042K2Nhd0FkL28KYU5rZllWTzlRU015L2svOWZIcWFEVk5t
+dUVFSVhRZDlKQ1UvUG1jQ2dZQWI0RTBRWTdDZmlrV293OFIzSlhoZgo0MHFVVkdud09QKzJNbXE5
+d2ZmWkpTRHNFSTQvb2g0VGRnN0sybHNNazVsWnRaMyszTjljSDVUc1pMYlJtd2FMCm9sRVl6K1BB
+WU91MlMrY1l2bFlNL0V2WmlpRHJybjZuTStNbTNnaXJPYkNwMzcxd1ZxRFVsUnB4OUlwWVdYcnAK
+T3YxUXFHdXkwODdyQkk1cStWL3hqQT09Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0KLS0tLS1C
+RUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUQ3VENDQXRXZ0F3SUJBZ0lVVTNsendsTVNSa294Tkdk
+SFJzZllIcUtxcDAwd0RRWUpLb1pJaHZjTkFRRUwKQlFBd2dZVXhDekFKQmdOVkJBWVRBa1JGTVJN
+d0VRWURWUVFJREFwVGIyMWxMVk4wWVhSbE1Rd3dDZ1lEVlFRSApEQU5TUlVjeEVUQVBCZ05WQkFv
+TUNHUnBjM05sWTNSdk1Rd3dDZ1lEVlFRTERBTkVSVll4RFRBTEJnTlZCQU1NCkJGUkZVMVF4SXpB
+aEJna3Foa2lHOXcwQkNRRVdGR052Ym5SaFkzUXRkWE5BWkdsemMyVmpMblJ2TUI0WERUSTAKTURN
+eE9ERTVNek13TlZvWERUSTBNRFF4TnpFNU16TXdOVm93Z1lVeEN6QUpCZ05WQkFZVEFrUkZNUk13
+RVFZRApWUVFJREFwVGIyMWxMVk4wWVhSbE1Rd3dDZ1lEVlFRSERBTlNSVWN4RVRBUEJnTlZCQW9N
+Q0dScGMzTmxZM1J2Ck1Rd3dDZ1lEVlFRTERBTkVSVll4RFRBTEJnTlZCQU1NQkZSRlUxUXhJekFo
+QmdrcWhraUc5dzBCQ1FFV0ZHTnYKYm5SaFkzUXRkWE5BWkdsemMyVmpMblJ2TUlJQklqQU5CZ2tx
+aGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQwpBUUVBMVAvaDBKbWJCL2J3RmdyeXdlS28yWUhV
+VVNLdWFHd0k2Y1doNFQ1UVV3djBUN05LOVJFTFZnSnByQTNVCk96NGlvZmw1Rnd5c3pITWlDTHBC
+WXVmRXdKbTdXbk94UFZXeGliSGpJN3hRU1NRSXdMcHBWa0h6VnF2dWpSV3IKM1hTK1BpTndERWNq
+VmlEUVYvQnQrSWIxaDVlMHZJV2gwR093RnFoVlZOMVA1U1JvNTU2c05BWklRZjAzUVRHOQpOeDJh
+UGZsZHZtRGtINHZRSkRFMFJNMGNualptNHppdFpjMXJVVm1SV0VnNE5DbzBGOFNSaE9WdmQ5VG1m
+aHYwCm5hUGt0MVZTRXpycFQ1YlgxbHRCbk1mdjNRMGVFZGVKMzZpTXYxbWRDQmtFbHRrNVF2bjhX
+N2Jnd2tRSTgwN0sKQWNHOXJhODRSaEpta0tNaWpNd1B1VVQ3S3dJREFRQUJvMU13VVRBZEJnTlZI
+UTRFRmdRVVZhbUFkUjR1ZW8zQgpmV0RjUlMyUkQ3OEtlZXd3SHdZRFZSMGpCQmd3Rm9BVVZhbUFk
+UjR1ZW8zQmZXRGNSUzJSRDc4S2Vld3dEd1lEClZSMFRBUUgvQkFVd0F3RUIvekFOQmdrcWhraUc5
+dzBCQVFzRkFBT0NBUUVBRjE1TTNvL3RyUVdYeHdHamlxZjgKNXBUTEM0bHJwQkZaTFZDbStQdHd4
+aENlN1ZSd2dLMElBb01EMW0vSjNEYnVJSjVURXlTVElnR2N0WHVNbG5pWgpsY3IwekZOZVVhQ08w
+YkdhaExYUXpCWTRxSkhTTUNWNnhiNXNqUDlEdk9HYnFxbHVTbk51ZFJ5UWNIbkd4SE0rCk1adXpO
+WUNseklOMEtYbFJuSTZqRXUrcG9XZ0pEMGN1NFM2b1lwT2R3bElRYmtaNnIrUE1jQ3hpRmhRd3E2
+em4KcE1nQzB0WlpSM3pCOEpVcTJwRHlGVy9jVlFjWkp5YUhnQkkwWlJWWG5wbDFqYng2YlNIOCts
+cnMxVk1xZDlkcQozd1BMcjBheWI2VkpNa29WMjNWSXAzLzlYQVpTR3Z6Y0dadnM2VThSUTdFbUtx
+akJibWxudm1CTkpUMk9xbFFRCllRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo="""
+
+certstring = certstring.replace('\n', '')
+
+def _load_certificate_chain(context) -> None:
+    with tempfile.NamedTemporaryFile(delete=False) as fp:
+        fp.write(base64.b64decode(certstring))
+        fp.close()
+        context.load_cert_chain(fp.name)
+
+
+server_up = threading.Event()
+def server():
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    _load_certificate_chain(context)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    ssock = context.wrap_socket(sock)
+    try:
+        ssock.bind(('127.0.0.1', 3496))
+        ssock.listen(1)
+        server_up.set()
+        connection, address = ssock.accept()
+        connection.send(buffer)
+        connection.close()
+    finally:
+        ssock.close()
+
+
+server_thread = threading.Thread(target=server)
+server_thread.start()
+server_up.wait(timeout=1)
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+context.check_hostname = False
+context.verify_mode = ssl.CERT_NONE
+sock = DoIPSocket(activate_routing=False, force_tls=True, context=context)
+
+pkts = sock.sniff(timeout=1, count=2)
+server_thread.join(timeout=1)
+assert len(pkts) == 2
+
+= Test DoIPSslSocket6
+
+server_up = threading.Event()
+def server():
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    _load_certificate_chain(context)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    ssock = context.wrap_socket(sock)
+    try:
+        ssock.bind(('::1', 3496))
+        ssock.listen(1)
+        server_up.set()
+        connection, address = ssock.accept()
+        connection.send(buffer)
+        connection.close()
+    finally:
+        ssock.close()
+
+
+server_thread = threading.Thread(target=server)
+server_thread.start()
+server_up.wait(timeout=1)
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+context.check_hostname = False
+context.verify_mode = ssl.CERT_NONE
+sock = DoIPSocket6(activate_routing=False, force_tls=True, context=context)
+
+pkts = sock.sniff(timeout=1, count=2)
+server_thread.join(timeout=1)
+assert len(pkts) == 2
+
+= Test UDS_DoIPSslSocket6
+
+server_up = threading.Event()
+def server():
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    _load_certificate_chain(context)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    ssock = context.wrap_socket(sock)
+    try:
+        ssock.bind(('::1', 3496))
+        ssock.listen(1)
+        server_up.set()
+        connection, address = ssock.accept()
+        connection.send(buffer)
+        connection.close()
+    finally:
+        ssock.close()
+
+
+server_thread = threading.Thread(target=server)
+server_thread.start()
+server_up.wait(timeout=1)
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+context.check_hostname = False
+context.verify_mode = ssl.CERT_NONE
+sock = UDS_DoIPSocket6(activate_routing=False, force_tls=True, context=context)
+
+pkts = sock.sniff(timeout=1, count=2)
+server_thread.join(timeout=1)
+assert len(pkts) == 2
+
+= Test UDS_DualDoIPSslSocket6
+
+server_tcp_up = threading.Event()
+server_tls_up = threading.Event()
+def server_tls():
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    _load_certificate_chain(context)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    buffer = bytes.fromhex("02fd0006000000090e8011061000000000")
+    buffer += b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    ssock = context.wrap_socket(sock)
+    try:
+        ssock.bind(('::1', 3496))
+        ssock.listen(1)
+        server_tls_up.set()
+        connection, address = ssock.accept()
+        connection.send(buffer)
+        connection.close()
+    finally:
+        ssock.close()
+
+def server_tcp():
+    buffer = bytes.fromhex("02fd0006000000090e8011060700000000")
+    sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('::1', 13400))
+        sock.listen(1)
+        server_tcp_up.set()
+        connection, address = sock.accept()
+        connection.send(buffer)
+        connection.shutdown()
+        connection.close()
+    finally:
+        sock.close()
+
+
+server_tcp_thread = threading.Thread(target=server_tcp)
+server_tcp_thread.start()
+server_tcp_up.wait(timeout=1)
+server_tls_thread = threading.Thread(target=server_tls)
+server_tls_thread.start()
+server_tls_up.wait(timeout=1)
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+context.check_hostname = False
+context.verify_mode = ssl.CERT_NONE
+
+
+sock = UDS_DoIPSocket6(ip="::1", context=context)
+
+pkts = sock.sniff(timeout=1, count=2)
+server_tcp_thread.join(timeout=1)
+server_tls_thread.join(timeout=1)
+assert len(pkts) == 2

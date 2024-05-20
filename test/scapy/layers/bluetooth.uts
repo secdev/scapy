@@ -3,45 +3,149 @@
 + Bluetooth tests
 
 = HCI layers
-# a huge packet with all classes in it!
-pkt = HCI_ACL_Hdr()/HCI_Cmd_Complete_Read_BD_Addr()/HCI_Cmd_Connect_Accept_Timeout()/HCI_Cmd_Disconnect()/HCI_Cmd_LE_Connection_Update()/HCI_Cmd_LE_Create_Connection()/HCI_Cmd_LE_Create_Connection_Cancel()/HCI_Cmd_LE_Host_Supported()/HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply()/HCI_Cmd_LE_Long_Term_Key_Request_Reply()/HCI_Cmd_LE_Read_Buffer_Size()/HCI_Cmd_LE_Set_Advertise_Enable()/HCI_Cmd_LE_Set_Advertising_Data()/HCI_Cmd_LE_Set_Advertising_Parameters()/HCI_Cmd_LE_Set_Random_Address()/HCI_Cmd_LE_Set_Scan_Enable()/HCI_Cmd_LE_Set_Scan_Parameters()/HCI_Cmd_LE_Start_Encryption_Request()/HCI_Cmd_Read_BD_Addr()/HCI_Cmd_Reset()/HCI_Cmd_Set_Event_Filter()/HCI_Cmd_Set_Event_Mask()/HCI_Command_Hdr()/HCI_Event_Command_Complete()/HCI_Event_Command_Status()/HCI_Event_Disconnection_Complete()/HCI_Event_Encryption_Change()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_Event_Number_Of_Completed_Packets()/HCI_Hdr()/HCI_LE_Meta_Advertising_Reports()/HCI_LE_Meta_Connection_Complete()/HCI_LE_Meta_Connection_Update_Complete()/HCI_LE_Meta_Long_Term_Key_Request()
-assert HCI_ACL_Hdr in pkt.layers()
-assert HCI_Cmd_Complete_Read_BD_Addr in pkt.layers()
-assert HCI_Cmd_Connect_Accept_Timeout in pkt.layers()
-assert HCI_Cmd_Disconnect in pkt.layers()
-assert HCI_Cmd_LE_Connection_Update in pkt.layers()
-assert HCI_Cmd_LE_Create_Connection in pkt.layers()
-assert HCI_Cmd_LE_Create_Connection_Cancel in pkt.layers()
-assert HCI_Cmd_LE_Host_Supported in pkt.layers()
-assert HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply in pkt.layers()
-assert HCI_Cmd_LE_Long_Term_Key_Request_Reply in pkt.layers()
-assert HCI_Cmd_LE_Read_Buffer_Size in pkt.layers()
-assert HCI_Cmd_LE_Set_Advertise_Enable in pkt.layers()
-assert HCI_Cmd_LE_Set_Advertising_Data in pkt.layers()
-assert HCI_Cmd_LE_Set_Advertising_Parameters in pkt.layers()
-assert HCI_Cmd_LE_Set_Random_Address in pkt.layers()
-assert HCI_Cmd_LE_Set_Scan_Enable in pkt.layers()
-assert HCI_Cmd_LE_Set_Scan_Parameters in pkt.layers()
-assert HCI_Cmd_LE_Start_Encryption_Request in pkt.layers()
-assert HCI_Cmd_Read_BD_Addr in pkt.layers()
-assert HCI_Cmd_Reset in pkt.layers()
-assert HCI_Cmd_Set_Event_Filter in pkt.layers()
-assert HCI_Cmd_Set_Event_Mask in pkt.layers()
-assert HCI_Command_Hdr in pkt.layers()
-assert HCI_Event_Command_Complete in pkt.layers()
-assert HCI_Event_Command_Status in pkt.layers()
-assert HCI_Event_Disconnection_Complete in pkt.layers()
-assert HCI_Event_Encryption_Change in pkt.layers()
-assert HCI_Event_Hdr in pkt.layers()
-assert HCI_Event_LE_Meta in pkt.layers()
-assert HCI_Event_Number_Of_Completed_Packets in pkt.layers()
-assert HCI_Hdr in pkt.layers()
-assert HCI_LE_Meta_Advertising_Reports in pkt.layers()
-assert HCI_LE_Meta_Connection_Complete in pkt.layers()
-assert HCI_LE_Meta_Connection_Update_Complete in pkt.layers()
-assert HCI_LE_Meta_Long_Term_Key_Request in pkt.layers()
+
+#  HCI_Command_Hdr
+# default construction
+hci_cmd_hdr = HCI_Command_Hdr()
+assert hci_cmd_hdr.ogf == 0
+assert hci_cmd_hdr.ocf == 0
+assert hci_cmd_hdr.len == None
+assert raw(hci_cmd_hdr) == b'\x00\x00\x00'
+
+# parsing
+hci_cmd_hdr = HCI_Command_Hdr(raw(hci_cmd_hdr))
+assert hci_cmd_hdr.ogf == 0
+assert hci_cmd_hdr.ocf == 0
+assert hci_cmd_hdr.len == 0
+
+# HCI_Cmd_Inquiry default construction
+hci_cmd_inquiry = HCI_Command_Hdr() / HCI_Cmd_Inquiry()
+assert hci_cmd_inquiry.ogf == 0x01
+assert hci_cmd_inquiry.ocf == 0x01
+assert hci_cmd_inquiry.len == None
+assert hci_cmd_inquiry.lap == 0x9e8b33
+assert hci_cmd_inquiry.inquiry_length == 0
+assert hci_cmd_inquiry.num_responses == 0
+
+# parsing
+hci_cmd_inquiry = HCI_Command_Hdr(raw(hci_cmd_inquiry))
+assert hci_cmd_inquiry.ogf == 0x01
+assert hci_cmd_inquiry.ocf == 0x01
+assert hci_cmd_inquiry.len == 5
+assert hci_cmd_inquiry.lap == 0x9e8b33
+assert hci_cmd_inquiry.inquiry_length == 0
+assert hci_cmd_inquiry.num_responses == 0
+
+# HCI_Cmd_Inquiry constructing an invalid packet
+hci_cmd_inquiry = HCI_Command_Hdr(len = 10) / HCI_Cmd_Inquiry()
+assert hci_cmd_inquiry.ogf == 0x01
+assert hci_cmd_inquiry.ocf == 0x01
+assert hci_cmd_inquiry.len == 10
+assert hci_cmd_inquiry.lap == 0x9e8b33
+assert hci_cmd_inquiry.inquiry_length == 0
+assert hci_cmd_inquiry.num_responses == 0
+
+assert raw(hci_cmd_inquiry)[2] == 10
+
+# parse the invalid packet
+hci_cmd_inquiry = HCI_Command_Hdr(raw(hci_cmd_inquiry))
+assert hci_cmd_inquiry.ogf == 0x01
+assert hci_cmd_inquiry.ocf == 0x01
+assert hci_cmd_inquiry.len == 10
+assert hci_cmd_inquiry.lap == 0x9e8b33
+assert hci_cmd_inquiry.inquiry_length == 0
+assert hci_cmd_inquiry.num_responses == 0
+
+# HCI_Cmd_Inquiry_Cancel default construction
+hci_cmd_inquiry_cancel = HCI_Command_Hdr() / HCI_Cmd_Inquiry_Cancel()
+assert hci_cmd_inquiry_cancel.ogf == 0x01
+assert hci_cmd_inquiry_cancel.ocf == 0x02
+assert hci_cmd_inquiry_cancel.len == None
+
+# hci_cmd_inquiry_cancel parsing
+hci_cmd_inquiry_cancel = HCI_Command_Hdr(raw(hci_cmd_inquiry_cancel))
+assert hci_cmd_inquiry_cancel.ogf == 0x01
+assert hci_cmd_inquiry_cancel.ocf == 0x02
+assert hci_cmd_inquiry_cancel.len == 0
+
+
+# Hci_Cmd_Hold_Mode
+hci_cmd_hold_mode = HCI_Command_Hdr() / HCI_Cmd_Hold_Mode()
+assert hci_cmd_hold_mode.ogf == 0x02
+assert hci_cmd_hold_mode.ocf == 0x01
+assert hci_cmd_hold_mode.len == None
+
+# parsing
+hci_cmd_hold_mode = HCI_Command_Hdr(raw(hci_cmd_hold_mode))
+assert hci_cmd_hold_mode.ogf == 0x02
+assert hci_cmd_hold_mode.ocf == 0x01
+assert hci_cmd_hold_mode.len == 6
+
+# HCI_Cmd_Set_Event_Mask
+hci_cmd_set_event_mask = HCI_Command_Hdr() / HCI_Cmd_Set_Event_Mask()
+assert hci_cmd_set_event_mask.ogf == 0x03
+assert hci_cmd_set_event_mask.ocf == 0x01
+assert hci_cmd_set_event_mask.len == None
+
+# parsing
+hci_cmd_set_event_mask = HCI_Command_Hdr(raw(hci_cmd_set_event_mask))
+assert hci_cmd_set_event_mask.ogf == 0x03
+assert hci_cmd_set_event_mask.ocf == 0x01
+assert hci_cmd_set_event_mask.len == 8
+
+# HCI_Cmd_Read_BD_Addr
+hci_cmd_read_bd_addr = HCI_Command_Hdr() / HCI_Cmd_Read_BD_Addr()
+assert hci_cmd_read_bd_addr.ogf == 0x04
+assert hci_cmd_read_bd_addr.ocf == 0x09
+assert hci_cmd_read_bd_addr.len == None
+
+# parsing
+hci_cmd_read_bd_addr = HCI_Command_Hdr(raw(hci_cmd_read_bd_addr))
+assert hci_cmd_read_bd_addr.ogf == 0x04
+assert hci_cmd_read_bd_addr.ocf == 0x09
+assert hci_cmd_read_bd_addr.len == 0
+
+
+# HCI_Cmd_Read_Link_Quality
+hci_cmd_read_link_quality = HCI_Command_Hdr() / HCI_Cmd_Read_Link_Quality()
+assert hci_cmd_read_link_quality.ogf == 0x05
+assert hci_cmd_read_link_quality.ocf == 0x03
+assert hci_cmd_read_link_quality.len == None
+
+# parsing
+hci_cmd_read_link_quality = HCI_Command_Hdr(raw(hci_cmd_read_link_quality))
+assert hci_cmd_read_link_quality.ogf == 0x05
+assert hci_cmd_read_link_quality.ocf == 0x03
+assert hci_cmd_read_link_quality.len == 2
+
+
+# HCI_Cmd_Read_Loopback_Mode
+hci_cmd_read_loopback_mode = HCI_Command_Hdr() / HCI_Cmd_Read_Loopback_Mode()
+assert hci_cmd_read_loopback_mode.ogf == 0x06
+assert hci_cmd_read_loopback_mode.ocf == 0x01
+assert hci_cmd_read_loopback_mode.len == None
+
+# parsing
+hci_cmd_read_loopback_mode = HCI_Command_Hdr(raw(hci_cmd_read_loopback_mode))
+assert hci_cmd_read_loopback_mode.ogf == 0x06
+assert hci_cmd_read_loopback_mode.ocf == 0x01
+assert hci_cmd_read_loopback_mode.len == 0
+
+
+# HCI_Cmd_LE_Read_Buffer_Size_V1
+hci_cmd_le_read_buffer_size_v1 = HCI_Command_Hdr() / HCI_Cmd_LE_Read_Buffer_Size_V1()
+assert hci_cmd_le_read_buffer_size_v1.ogf == 0x08
+assert hci_cmd_le_read_buffer_size_v1.ocf == 0x02
+assert hci_cmd_le_read_buffer_size_v1.len == None
+
+# parsing
+hci_cmd_le_read_buffer_size_v1 = HCI_Command_Hdr(raw(hci_cmd_le_read_buffer_size_v1))
+assert hci_cmd_le_read_buffer_size_v1.ogf == 0x08
+assert hci_cmd_le_read_buffer_size_v1.ocf == 0x02
+assert hci_cmd_le_read_buffer_size_v1.len == 0
 
 + Bluetooth Transport Layers
+
 = Test HCI_PHDR_Hdr
 
 pkt = HCI_PHDR_Hdr()/HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_InfoReq()
@@ -52,6 +156,46 @@ assert HCI_Hdr in pkt
 assert L2CAP_InfoReq in pkt
 
 + HCI Commands
+
+= Create Connection
+
+cmd = HCI_Hdr(hex_bytes("0105040d76d56f95010018cc0200000001"))
+assert HCI_Cmd_Create_Connection in cmd
+assert cmd[HCI_Cmd_Create_Connection].bd_addr == "00:01:95:6f:d5:76"
+assert cmd[HCI_Cmd_Create_Connection].packet_type == 52248
+assert cmd[HCI_Cmd_Create_Connection].page_scan_repetition_mode == 2
+assert cmd[HCI_Cmd_Create_Connection].reserved == 0
+assert cmd[HCI_Cmd_Create_Connection].clock_offset == 0
+assert cmd[HCI_Cmd_Create_Connection].allow_role_switch == 1
+
+= Authentication Requested
+
+cmd = HCI_Hdr(hex_bytes("011104020001"))
+assert HCI_Cmd_Authentication_Requested in cmd
+assert cmd[HCI_Cmd_Authentication_Requested].handle == 256
+
+= Link Key Request Reply
+
+cmd = HCI_Hdr(hex_bytes("010b041676d56f9501006c9016a48a009180086a39200f03d3dd"))
+assert HCI_Cmd_Link_Key_Request_Reply in cmd
+assert cmd[HCI_Cmd_Link_Key_Request_Reply].bd_addr == "00:01:95:6f:d5:76"
+assert cmd[HCI_Cmd_Link_Key_Request_Reply].link_key == 0x6c9016a48a009180086a39200f03d3dd
+
+= Set Connection Encryption
+
+cmd = HCI_Hdr(hex_bytes("01130403000101"))
+assert HCI_Cmd_Set_Connection_Encryption in cmd
+assert cmd[HCI_Cmd_Set_Connection_Encryption].handle == 256
+assert cmd[HCI_Cmd_Set_Connection_Encryption].encryption_enable == 1
+
+= Remote Name Request
+
+cmd = HCI_Hdr(hex_bytes("0119040a76d56f95010002000000"))
+assert HCI_Cmd_Remote_Name_Request in cmd
+assert cmd[HCI_Cmd_Remote_Name_Request].bd_addr == "00:01:95:6f:d5:76"
+assert cmd[HCI_Cmd_Remote_Name_Request].page_scan_repetition_mode == 2
+assert cmd[HCI_Cmd_Remote_Name_Request].reserved == 0
+assert cmd[HCI_Cmd_Remote_Name_Request].clock_offset == 0
 
 = LE Create Connection
 
@@ -120,6 +264,147 @@ assert expected_cmd_raw_data == cmd_raw_data
 
 
 + HCI Events
+
+= Inquiry Complete
+evt_raw_data = hex_bytes("04010100")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Inquiry_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Inquiry_Complete].status == 0
+
+= Inquiry Result
+evt_pkt = HCI_Event_Inquiry_Result(b'\x01\xcb\x7f\xdbn\x8c\x9c\x01\x00\x00<\x04\x08\x8di')
+assert HCI_Event_Inquiry_Result in evt_pkt
+assert evt_pkt[HCI_Event_Inquiry_Result].num_response == 1
+assert evt_pkt[HCI_Event_Inquiry_Result].addr[0] == '9c:8c:6e:db:7f:cb'
+assert evt_pkt[HCI_Event_Inquiry_Result].page_scan_repetition_mode[0] == 1
+assert evt_pkt[HCI_Event_Inquiry_Result].device_class[0] == 0x8043c
+assert evt_pkt[HCI_Event_Inquiry_Result].clock_offset[0] == 27021
+
+
+= Connection Complete
+evt_raw_data = hex_bytes("04030b000b00093491e5b7540100")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Connection_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Connection_Complete].status == 0
+assert evt_pkt[HCI_Event_Connection_Complete].handle == 0x000b
+assert evt_pkt[HCI_Event_Connection_Complete].bd_addr == "54:b7:e5:91:34:09"
+assert evt_pkt[HCI_Event_Connection_Complete].link_type == 1
+assert evt_pkt[HCI_Event_Connection_Complete].encryption_enabled == 0
+
+= Disconnection Complete
+evt_raw_data = hex_bytes("04050400400016")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Disconnection_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Disconnection_Complete].status == 0
+assert evt_pkt[HCI_Event_Disconnection_Complete].handle == 0x0040
+assert evt_pkt[HCI_Event_Disconnection_Complete].reason == 0x16
+
+= Remote Name Request Complete
+evt_raw_data = hex_bytes("0407ff0076d56f950100746573742d6c6170746f70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Remote_Name_Request_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Remote_Name_Request_Complete].status == 0
+assert evt_pkt[HCI_Event_Remote_Name_Request_Complete].bd_addr == "00:01:95:6f:d5:76"
+assert evt_pkt[HCI_Event_Remote_Name_Request_Complete].remote_name == b"test-laptop".ljust(248, b"\x00")
+
+= Encryption Change
+evt_raw_data = hex_bytes("040804000b0001")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Encryption_Change in evt_pkt
+assert evt_pkt[HCI_Event_Encryption_Change].status == 0
+assert evt_pkt[HCI_Event_Encryption_Change].handle == 0x000b
+assert evt_pkt[HCI_Event_Encryption_Change].enabled == 1
+
+= Read Remote Supported Features Complete
+evt_raw_data = hex_bytes("040b0b000b00fffe8ffedbff5b87")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Read_Remote_Supported_Features_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].status == 0
+assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].handle == 0x000b
+assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].lmp_features == 0x875bffdbfe8ffeff
+
+= Read Remote Version Information Complete
+evt_raw_data = hex_bytes("040c080002000bb0022c04")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Read_Remote_Version_Information_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].status == 0
+assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].handle == 0x0002
+assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].version == 0x0b
+assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].manufacturer_name == 0x02b0
+assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].subversion == 1068
+
+= Command Complete
+evt_raw_data = hex_bytes("040e0a010b04002587ceedd668")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Command_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Command_Complete].number == 1
+assert evt_pkt[HCI_Event_Command_Complete].opcode == 0x040b
+assert evt_pkt[HCI_Event_Command_Complete].status == 0
+
+= Command Status
+evt_raw_data = hex_bytes("040f0400011904")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Command_Status in evt_pkt
+assert evt_pkt[HCI_Event_Command_Status].status == 0
+assert evt_pkt[HCI_Event_Command_Status].number == 1
+assert evt_pkt[HCI_Event_Command_Status].opcode == 0x0419
+
+= Number Of Completed Packets
+evt_raw_data = hex_bytes("0413050103000300")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Number_Of_Completed_Packets in evt_pkt
+assert evt_pkt[HCI_Event_Number_Of_Completed_Packets].num_handles == 1
+assert evt_pkt[HCI_Event_Number_Of_Completed_Packets].connection_handle_list[0] == 0x0003
+assert evt_pkt[HCI_Event_Number_Of_Completed_Packets].num_completed_packets_list[0] == 3
+
+= Link Key Request
+evt_raw_data = hex_bytes("041706093491e5b754")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Link_Key_Request in evt_pkt
+assert evt_pkt[HCI_Event_Link_Key_Request].bd_addr == '54:b7:e5:91:34:09'
+
+= Inquiry Result with RSSI
+# TODO
+
+= Read Remote Extended Features Complete
+evt_raw_data = hex_bytes("04230d000b0001020300000000000000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Read_Remote_Extended_Features_Complete in evt_pkt
+assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].status == 0
+assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].handle == 0x000b
+assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].page == 1
+assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].max_page == 2
+assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].extended_features == 0x0000000000000003
+
+= Extended Inquiry Result
+evt_raw_data = hex_bytes("042fff01093491e5b75401001404247c37c2091001000a00ffffffff020a040b020d110b110a110e110f110c095354414e4d4f524520494900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Extended_Inquiry_Result in evt_pkt
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].num_response == 1
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].bd_addr == '54:b7:e5:91:34:09'
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].page_scan_repetition_mode == 1
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].device_class == 0x240414
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].clock_offset == 0x377c
+assert evt_pkt[HCI_Event_Extended_Inquiry_Result].rssi == -62
+assert EIR_Hdr in evt_pkt[HCI_Event_Extended_Inquiry_Result].eir_data[0]
+assert Raw in evt_pkt[HCI_Event_Extended_Inquiry_Result].eir_data[-1]
+assert len(evt_pkt[HCI_Event_Extended_Inquiry_Result].eir_data[-1].load) == 200
+
+= IO Capability Response
+evt_raw_data = hex_bytes("043209093491e5b754030002")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_IO_Capability_Response in evt_pkt
+assert evt_pkt[HCI_Event_IO_Capability_Response].bd_addr == '54:b7:e5:91:34:09'
+assert evt_pkt[HCI_Event_IO_Capability_Response].io_capability == 0x03
+assert evt_pkt[HCI_Event_IO_Capability_Response].oob_data_present == 0
+assert evt_pkt[HCI_Event_IO_Capability_Response].authentication_requirements == 0x02
+
+= LE Meta
+evt_raw_data = hex_bytes("043e0414400000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_LE_Meta in evt_pkt
+assert evt_pkt[HCI_Event_LE_Meta].event == 0x14
+
 = LE Connection Update Event
 evt_raw_data = hex_bytes("043e0a03004800140001003c00")
 evt_pkt =  HCI_Hdr(evt_raw_data)
@@ -217,7 +502,7 @@ assert a[SM_Identity_Address_Information].atype == 0
 a.show()
 
 = Basic HCI_ACL_Hdr build & dissect
-a = HCI_Hdr()/HCI_ACL_Hdr(handle=0xf4c, PB=2, BC=2, len=20)/L2CAP_Hdr(len=16)/L2CAP_CmdHdr(code=8, len=12)/Raw("A"*12)
+a = HCI_Hdr()/HCI_ACL_Hdr(handle=0xf4c, PB=2, BC=2, len=20)/L2CAP_Hdr(len=16)/L2CAP_CmdHdr(code=8, len=12)/L2CAP_EchoReq(data="AAAAAAAAAAAA")
 assert raw(a) == b'\x02L\xaf\x14\x00\x10\x00\x05\x00\x08\x00\x0c\x00AAAAAAAAAAAA'
 b = HCI_Hdr(raw(a))
 assert a == b
@@ -232,7 +517,24 @@ a = HCI_Hdr(b'\x02\x00\x00\x11\x00\r\x00\x05\x00\x0b\x00\t\x00\x01\x00\x00\x00de
 assert a[L2CAP_InfoResp].result == 0
 assert a[L2CAP_InfoResp].data == b"debug"
 
-= Answers
+= HCI - L2CAP Echo test
+
+rq = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_EchoReq(data=b"data")
+assert bytes(rq) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x08\x00\x04\x00data'
+
+rsp = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_EchoResp(data=b"data")
+assert bytes(rsp) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\t\x00\x04\x00data'
+assert rsp.answers(rq)
+
+= HCI - L2CAP Create Channel request
+
+p = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_Create_Channel_Request(psm="SDP")
+assert bytes(p) == b'\x02\x00\x00\r\x00\t\x00\x05\x00\x0c\x00\x05\x00\x01\x00\x00\x00\x00'
+
+p = HCI_Hdr(bytes(p))
+assert p[L2CAP_Create_Channel_Request].psm == 1
+
+= L2CAP Conn Answers
 a = HCI_Hdr(b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x9a;')
 b = HCI_Hdr(b'\x02\x00\x00\x10\x00\x0c\x00\x05\x00\x03\x00\x08\x00\xff\xff\x9a;\x00\x00\x01\x00')
 assert b.answers(a)
@@ -332,24 +634,6 @@ pkt.handles[0].value == b'\x02\x03\x00\x00*'
 pkt.handles[1].value == b'\x02\x05\x00\x01*'
 pkt.handles[2].value == b'\x02\x07\x00\x04*'
 
-= L2CAP layers
-
-# a crazy packet with all classes in it!
-pkt = L2CAP_CmdHdr()/L2CAP_CmdRej()/L2CAP_ConfReq()/L2CAP_ConfResp()/L2CAP_ConnReq()/L2CAP_ConnResp()/L2CAP_Connection_Parameter_Update_Request()/L2CAP_Connection_Parameter_Update_Response()/L2CAP_DisconnReq()/L2CAP_DisconnResp()/L2CAP_Hdr()/L2CAP_InfoReq()/L2CAP_InfoResp()
-assert L2CAP_CmdHdr in pkt.layers()
-assert L2CAP_CmdRej in pkt.layers()
-assert L2CAP_ConfReq in pkt.layers()
-assert L2CAP_ConfResp in pkt.layers()
-assert L2CAP_ConnReq in pkt.layers()
-assert L2CAP_ConnResp in pkt.layers()
-assert L2CAP_Connection_Parameter_Update_Request in pkt.layers()
-assert L2CAP_Connection_Parameter_Update_Response in pkt.layers()
-assert L2CAP_DisconnReq in pkt.layers()
-assert L2CAP_DisconnResp in pkt.layers()
-assert L2CAP_Hdr in pkt.layers()
-assert L2CAP_InfoReq in pkt.layers()
-assert L2CAP_InfoResp in pkt.layers()
-
 = SM_Public_Key() tests
 
 r = raw(SM_Hdr()/SM_Public_Key(key_x="sca", key_y="py"))
@@ -365,3 +649,41 @@ assert r == b'\rscapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 p = SM_Hdr(r)
 assert SM_DHKey_Check in p and p.dhkey_check[:5] == b"scapy"
+
+
++ HCIMon tests
+
+= HCI_Mon - Bluetooth Monitor Pcap Header
+
+p = HCI_Mon_Pcap_Hdr(hex_bytes("00000008"))
+assert HCI_Mon_Pcap_Hdr in p
+assert p[HCI_Mon_Pcap_Hdr].adapter_id == 0
+assert p[HCI_Mon_Pcap_Hdr].opcode == 8
+
+= HCI_Mon - Bluetooth Monitor HCI_Mon_New_Index
+
+p = HCI_Mon_Pcap_Hdr(hex_bytes("0000000000030000109a81206863693000000000"))
+assert HCI_Mon_New_Index in p
+assert p[HCI_Mon_New_Index].bus == 0
+assert p[HCI_Mon_New_Index].type == 3
+assert p[HCI_Mon_New_Index].addr == '20:81:9a:10:00:00'
+assert p[HCI_Mon_New_Index].devname.decode('utf-8').rstrip('\x00') == 'hci0'
+
+= HCI_Mon - Bluetooth Monitor HCI_Mon_Delete_Index
+
+p = HCI_Mon_Pcap_Hdr(hex_bytes("00000001"))
+assert HCI_Mon_Pcap_Hdr in p
+assert p[HCI_Mon_Pcap_Hdr].opcode == 1
+
+= HCI_Mon - Bluetooth Monitor HCI_Mon_Index_Info
+
+p = HCI_Mon_Pcap_Hdr(hex_bytes("0000000a0000109a81203101"))
+assert HCI_Mon_Index_Info in p
+assert p[HCI_Mon_Index_Info].addr == '20:81:9a:10:00:00'
+assert p[HCI_Mon_Index_Info].manufacturer == 0x131
+
+= HCI_Mon - Bluetooth Monitor HCI_Mon_System_Note
+
+p = HCI_Mon_Pcap_Hdr(hex_bytes("ffff000c426c7565746f6f74682073756273797374656d2076657273696f6e20322e323200"))
+assert HCI_Mon_System_Note in p
+assert p[HCI_Mon_System_Note].note == b'Bluetooth subsystem version 2.22'

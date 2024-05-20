@@ -25,6 +25,8 @@ from scapy.contrib.automotive.ecu import *
 
 load_layer("can")
 
+conf.debug_dissector = False
+
 
 = Define Testfunction
 
@@ -196,6 +198,7 @@ scanner = executeScannerInVirtualEnvironment(
                                   "request_length": 1})
 
 scanner.show_testcases()
+scanner.show_testcases_status()
 assert len(scanner.state_paths) == 5
 assert scanner.scan_completed
 assert scanner.progress() > 0.95
@@ -275,8 +278,13 @@ resps = [EcuResponse(None, [UDS()/UDS_NR(negativeResponseCode="subFunctionNotSup
 
 es = [UDS_ServiceEnumerator]
 
+debug_dissector_backup = conf.debug_dissector
+
+# This Enumerator is sending corrupted Packets, therefore we need to disable the debug_dissector
+conf.debug_dissector = False
 scanner = executeScannerInVirtualEnvironment(
     resps, es, UDS_ServiceEnumerator_kwargs={"request_length": 3}, unstable_socket=False)
+conf.debug_dissector = debug_dissector_backup
 
 assert scanner.scan_completed
 assert scanner.progress() > 0.95
@@ -656,7 +664,7 @@ resps = [EcuResponse(None, [UDS()/UDS_CCPR(controlType=1)]),
 
 es = [UDS_CCEnumerator]
 
-scanner = executeScannerInVirtualEnvironment(resps, es)
+scanner = executeScannerInVirtualEnvironment(resps, es, inter=0.001)
 
 assert scanner.scan_completed
 assert scanner.progress() > 0.95
@@ -1090,6 +1098,51 @@ tc = scanner.configuration.test_cases[0]
 tc.show()
 
 assert len(tc.results_with_negative_response) == 4
+
+= UDS_ServiceEnumerator, all range
+
+def req_handler(resp, req):
+    if req.service != 0x22:
+        return False
+    if len(req) == 1:
+        resp.negativeResponseCode="generalReject"
+        return True
+    if len(req) == 2:
+        resp.negativeResponseCode="incorrectMessageLengthOrInvalidFormat"
+        return True
+    if len(req) == 3:
+        resp.negativeResponseCode="requestOutOfRange"
+        return True
+    return False
+
+resps = [EcuResponse(None, [UDS()/UDS_NR(negativeResponseCode="subFunctionNotSupported", requestServiceId="ReadDataByIdentifier")], req_handler)]
+
+es = [UDS_ServiceEnumerator]
+
+debug_dissector_backup = conf.debug_dissector
+
+# This Enumerator is sending corrupted Packets, therefore we need to disable the debug_dissector
+conf.debug_dissector = False
+scanner = executeScannerInVirtualEnvironment(
+    resps, es, UDS_ServiceEnumerator_kwargs={"request_length": 3, "scan_range": range(256)}, unstable_socket=False)
+conf.debug_dissector = debug_dissector_backup
+
+assert scanner.scan_completed
+assert scanner.progress() > 0.95
+tc = scanner.configuration.test_cases[0]
+
+assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+tc.show()
+
+assert len(tc.scanned_states) == 1
+
+result = tc.show(dump=True)
+
+assert "incorrectMessageLengthOrInvalidFormat" in result
+assert "requestOutOfRange" in result
 
 + Cleanup
 

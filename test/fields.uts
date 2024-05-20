@@ -95,6 +95,19 @@ r = m.addfield(None, b"FOO", "c0:01:be:ef:ba:be")
 r
 assert r == b"FOO\xc0\x01\xbe\xef\xba\xbe" 
 
+= LEMACField class
+~ core field
+m = LEMACField("foo", None)
+r = m.i2m(None, None)
+r
+assert r == b"\x00\x00\x00\x00\x00\x00"
+r = m.getfield(None, b"\xbe\xba\xef\xbe\x01\xc0ABCD")
+r
+assert r == (b"ABCD","c0:01:be:ef:ba:be")
+r = m.addfield(None, b"FOO", "be:ba:ef:be:01:c0")
+r
+assert r == b"FOO\xc0\x01\xbe\xef\xba\xbe"
+
 = SourceMACField
 conf.route.add(net="1.2.3.4/32", dev=conf.iface)
 p = Ether() / ARP(pdst="1.2.3.4")
@@ -151,7 +164,7 @@ class TestThreeBytesField(Packet):
     fields_desc = [ 
         X3BytesField('test1', None),
         ThreeBytesField('test2', None),
-        LEX3BytesField('test3', None),
+        XLE3BytesField('test3', None),
         LEThreeBytesField('test4', None),
     ]
 
@@ -191,6 +204,14 @@ class TestFuzzNBytesField(Packet):
 f = fuzz(TestFuzzNBytesField())
 assert f.test1.max == 2 ** (128 * 8) - 1
 
+p2 = TestNBytesField(raw(p))
+assert p2.sprintf('%test1% %test2% %test3% %test4%') == '18838586676582 0xc000ff3333 0xffeeddccbbaa9988776655 309404098707666285700277845'
+assert p2.test1 == 18838586676582
+assert p2.test2 == 0xc000ff3333
+assert p2.test3 == 0xffeeddccbbaa9988776655
+assert p2.test4 == 309404098707666285700277845
+assert raw(p2) == raw(TestNBytesField(test1=p2.test1, test2=p2.test2, test3=p2.test3, test4=p2.test4))
+
 = StrField
 ~ field strfield
 ~ field strlenfield
@@ -205,7 +226,7 @@ class TestStrField(Packet):
 p = TestStrField(s1="cafe", s2="deadbeef")
 assert raw(p) == b'\x04\x00cafedeadbeef'
 print(p.sprintf("%s1% %s2%"))
-assert p.sprintf("%s1% %s2%") == "'cafe' 'deadbeef'"
+assert p.sprintf("%s1% %s2%") == "b'cafe' b'deadbeef'"
 
 
 = StrFieldUtf16
@@ -323,7 +344,48 @@ p = TestBFLenF(b"\xff\x6fabcdeFGH")
 p
 assert p.len == 6 and p.str == b"abcde" and Raw in p and p[Raw].load == b"FGH"
 
+= Test BitLenField
+~ field
 
+SIZES = {0: 6, 1: 6, 2: 14, 3: 22}
+
+class TestBitLenField(Packet):
+    fields_desc = [
+        BitField("mode", 0, 2),
+        BitLenField("value", 0, length_from=lambda pkt: SIZES[pkt.mode])
+    ]
+
+p = TestBitLenField(mode=1, value=50)
+assert bytes(p) == b"r"
+
+p = TestBitLenField(mode=2, value=5000)
+assert bytes(p) == b'\x93\x88'
+
+p = TestBitLenField(b'\xc0\x01\xf4')
+assert p.mode == 3
+assert p.value == 500
+
+= Test UTCTimeField
+~ field
+
+class TestUTCTimeField(Packet):
+    fields_desc = [
+        # A Windows time field. See GH#4308
+        UTCTimeField(
+            "Time",
+            None,
+            fmt="<Q",
+            epoch=[1601, 1, 1, 0, 0, 0],
+            custom_scaling=1e7,
+        )
+    ]
+
+
+p = TestUTCTimeField(Time=0)
+assert p.sprintf("%Time%") == 'Mon, 01 Jan 1601 00:00:00  (-11644473600)'
+
+p = TestUTCTimeField(Time=133587912345678900)
+assert p.sprintf("%Time%") == 'Sun, 28 Apr 2024 15:20:34  (1714317634)'
 
 ############
 ############
@@ -1186,6 +1248,22 @@ class Breakfast(Packet):
 
 assert raw(Breakfast(juice="ORANGE")) == b"\x00\x01"
 
+= LE3BytesEnumField
+~ field le3bytesenumfield
+
+f = LE3BytesEnumField('test', 0, {0: 'Foo', 1: 'Bar'})
+
+= LE3BytesEnumField.i2repr_one
+~ field le3bytesenumfield
+
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == 'Bar'
+assert f.i2repr_one(None, 2) == '2'
+
+= XLE3BytesEnumField
+
+assert XLE3BytesEnumField("a", 0, {0: "test"}).i2repr_one(None, 0) == "test"
+assert XLE3BytesEnumField("a", 0, {0: "test"}).i2repr_one(None, 1) == "0x1"
 
 ############
 ############

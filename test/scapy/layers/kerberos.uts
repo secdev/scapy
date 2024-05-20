@@ -4,7 +4,7 @@
 
 # https://www.cloudshark.org/captures/fa35bc16bbb0?filter=kerberos
 
-= AS-REQ
+= Parse AS-REQ
 
 pkt = IP(b'E\x00\x00\xd9\xff\xff@\x00\xff\x11\x00\x00\x7f\x00\x00\x15\x00\x00\x00\x00;o\x00X\x00\xc5\x00\x00j\x81\xba0\x81\xb7\xa1\x03\x02\x01\x05\xa2\x03\x02\x01\n\xa3\x0e0\x0c0\n\xa1\x04\x02\x02\x00\x95\xa2\x02\x04\x00\xa4\x81\x9a0\x81\x97\xa0\x07\x03\x05\x00\x00\x01\x00\x10\xa1\x150\x13\xa0\x03\x02\x01\x01\xa1\x0c0\n\x1b\x08LOCALDC$\xa2\x13\x1b\x11SAMBA.EXAMPLE.COM\xa3&0$\xa0\x03\x02\x01\x02\xa1\x1d0\x1b\x1b\x06krbtgt\x1b\x11SAMBA.EXAMPLE.COM\xa5\x11\x18\x0f20150130151703Z\xa7\x06\x02\x04\x14\xe1\x18\xa7\xa8\x1d0\x1b\x02\x01\x12\x02\x01\x11\x02\x01\x10\x02\x01\x17\x02\x01\x19\x02\x01\x1a\x02\x01\x01\x02\x01\x03\x02\x01\x02')
 
@@ -15,7 +15,7 @@ assert pkt.root.reqBody.sname.nameString[0] == b"krbtgt"
 assert pkt.root.reqBody.nonce == 0x14e118a7
 assert pkt.root.reqBody.etype == [0x12, 0x11, 0x10, 0x17, 0x19, 0x1a, 0x1, 0x3, 0x2]
 
-= KRB-ERROR
+= Parse KRB-ERROR
 
 pkt = IP(b'E\x00\x02c\xff\xff@\x00\xff\x11\x00\x00\x7f\x00\x00\x15\x7f\x00\x00\x15\x00X;o\x02O\x00\x00~\x82\x02C0\x82\x02?\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x1e\xa2\x11\x18\x0f19810206083031Z\xa4\x11\x18\x0f20150129151703Z\xa5\x05\x02\x03\t\xae\xc0\xa6\x03\x02\x01\x19\xa7\x13\x1b\x11SAMBA.EXAMPLE.COM\xa8\x150\x13\xa0\x03\x02\x01\x01\xa1\x0c0\n\x1b\x08LOCALDC$\xa9\x13\x1b\x11SAMBA.EXAMPLE.COM\xaa&0$\xa0\x03\x02\x01\x02\xa1\x1d0\x1b\x1b\x06krbtgt\x1b\x11SAMBA.EXAMPLE.COM\xab\x10\x1b\x0eNEEDED_PREAUTH\xac\x82\x01\x84\x04\x82\x01\x800\x82\x01|0\n\xa1\x04\x02\x02\x00\x88\xa2\x02\x04\x000\x82\x01R\xa1\x03\x02\x01\x13\xa2\x82\x01I\x04\x82\x01E0\x82\x01A07\xa0\x03\x02\x01\x12\xa10\x1b.SAMBA.EXAMPLE.COMhostlocaldc.samba.example.com07\xa0\x03\x02\x01\x11\xa10\x1b.SAMBA.EXAMPLE.COMhostlocaldc.samba.example.com07\xa0\x03\x02\x01\x03\xa10\x1b.SAMBA.EXAMPLE.COMhostlocaldc.samba.example.com07\xa0\x03\x02\x01\x01\xa10\x1b.SAMBA.EXAMPLE.COMhostlocaldc.samba.example.com07\xa0\x03\x02\x01\x01\xa10\x1b.SAMBA.EXAMPLE.COMhostlocaldc.samba.example.com0"\xa0\x03\x02\x01\x17\xa1\x1b\x1b\x19SAMBA.EXAMPLE.COMLOCALDC$0\t\xa1\x03\x02\x01\x02\xa2\x02\x04\x000\r\xa1\x04\x02\x02\x00\x85\xa2\x05\x04\x03MIT')
 
@@ -32,7 +32,7 @@ assert pkt.root.eData.seq[3].padataValue == b"MIT"
 etype_info2 = pkt.root.eData.seq[1]
 assert etype_info2.padataValue.seq[0].salt == b'SAMBA.EXAMPLE.COMhostlocaldc.samba.example.com'
 
-= AS-REP
+= Parse AS-REP
 
 pkt = IP(b'E\x00\x05\x95\xff\xff@\x00\xff\x11\x00\x00\x7f\x00\x00\x15\x7f\x00\x00\x15\x00X;p\x05\x81\x00\x00k\x82\x05u0\x82\x05q\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0b\xa2H0F0D\xa1\x03\x02\x01\x13\xa2=\x04;0907\xa0\x03\x02\x01\x12\xa10\x1b.SAMBA.EXAMPLE.COMhostlocaldc.samba.example.com\xa3\x13\x1b\x11SAMBA.EXAMPLE.COM\xa4\x150\x13\xa0\x03\x02\x01\x00\xa1\x0c0\n\x1b\x08LOCALDC$\xa5\x82\x03\xafa\x82\x03\xab0\x82\x03\xa7\xa0\x03\x02\x01\x05\xa1\x13\x1b\x11SAMBA.EXAMPLE.COM\xa2&0$\xa0\x03\x02\x01\x02\xa1\x1d0\x1b\x1b\x06krbtgt\x1b\x11SAMBA.EXAMPLE.COM\xa3\x82\x03a0\x82\x03]\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\x01\xa2\x82\x03O\x04\x82\x03K\t\x05\xd7\x91\xdc\x14\xaa\xe2\xfb\xcc\x85\x1f*?\xbau\xbc0\x0f\x80\x8bc\x87\xe5z\x1a4i\xa3\x9bL[-\xb1\xb7\xaa\xd9-\x01\xc2\xf2\xdfs\x17<\xf3&\x99\'1\xfa\x80\xd9\x02\xae\xf5\xb3S\x14\xc2L\xc3e\xc9\x94\x03dH\xe2\xa9\xfd\x9a\xc6\xffs\x10\xf3er\xbd\xa0\xfep[~\x82+\xde0\x91%tc\xdcx\xfe\xd0\xd8\xc4\xb6u\x91\xe7\xe1C\x00y\xb8\x15\xd9\x91j\x0f\xe7\xa0\xe24m\xd94\xe5.I\xc51\x8f\x1do\t\xe9\x98\xb8\xad\xa6\x92\xf3\x15f\xc98o\x92\x0ch\x08\\\x8f\xab\xfau\xaf\x19v\xcc\xcb!v\xb5v2\xeb(h\x1c+o\xea\xc3\x0b\xcf\x81\xc8\x89\xe8i\xdd?\xd1\xaa\x0f3\xc9\xe9\xf2\xd7\x8a\x93`\x02\x9d\xb2 LV\xda\x0f&>,~\xb3\xecK\xe76v\x9a\xc3\x88\xe3\rj\\/\xd6\x9e_X\x14z\xc2w\x1d.|\xbf\x18\x01\xc8`].\xd2\xc2\x1e\xd0\x89\x8f\xd2\x18\xb9U\xaf\x98\xe9V\xe2\x19\xa1\xbb\xc45\xd9\x16\x08c\xaf$\xef\xf2\xf4S\xeco\xa1\xa1\xe5)\x99\xc9b#[\xd1:O\xbej\xb91\xb3i\xbepb\x06\xd8\x14\xc3\xdf\xbb\x18\xbf]\xf1\x82+\x18*\x85D\xecy\x0eu_\xe2\xfa\xbcd\x82A>\x88p\xa2\xc1\xf6\x9c\x89Qj\xfdM\x99\xd1\x84r\x0fp\x06$\xab\xc2\xb5\xae4\xe8\xf1\xbb}\x98\xedWX\xe2*uB\x93\x11\x1c\xc7f\x1c\xce\xc9\xff\t\x88\x94\xddN\xcf\xa68O\x0c^I\x9ew\x81\xba\xc3\xbc\xa8\x07\x8b\xd4\xdf\x7f(\xc2\x15gX\xd0oN\x00u\x1aU@\xbd\xb8\xa9)Ur\x94\xc1\xcf\xa1\xd8k\xc1F\x19\xd3rR\xaa\x93\xe2\x06D#\x12\x07M\xe3\x15\xd6\xd0\xb3\xa6\x89\x0c\xfeLO6\xe6\xf0w\x1a\x80\x0f\xffO\xf2N\xf4(\n\xdb-\x96`\xa4\xb7\xd3g\x16\xbfY\xff\xad\x95\x19\xd9\x9cS\xaa\xe3\x06W\xf3\xc2\x18it5\xda\x1c\x99\x8a\xaf\xfa"MT\xc7$#j,P\x9b\xf9\r\xbbA\xd0w\x15.\xc3PC\xc4\xe7vL/\xca0h7\x1c4z\x8bS@\x0ej\xb4q\xde\x19\xd8so\x9c\xea\x8f^w7\x1e\x92\x1c\xcc\xe2\xa60\xe8\xce}\xee\xb1\x87F!n\x80\xe4l"\xed\xc2fI \xb9\t\x14\t\x8d\xect\xa4\xb48\xe0\xfd\xf3\xe5\x8es\xd2\x08;\x9f\xb2\xb8q\x1bX\xadd\xbb\x07z\x16\tZ\xb0z1+h\x0e\xf7\x98w\x0bX\xf0W\t\xa6\x86.\x1e\x9c\xc2\x9d\xac+\xca\xdf&\xa9\xf3\xcb\xa7\xca\x1fn\xe8\x8a]h\xf6\xeb\xe9\xd4\xa0\x16\x1b\xb4\x8d\xc7\xaf\xe3\xf0.\x85\x1e\xc2\xa5\xf2DhhgQ\xe0\xb8y\xb8\xbd\x98\xf8\xa0\rW\x93/\x07>0\xf5\x92Y\x15Y\x0bD\xdb\xd6\xac#\xd8z\xbdeY\x87\xf2\x97\xfdZ\x0c\x1d\xbc\xefXONv\xc9\xfdp\xdd^\x16\x83\xc3\xeb\x9e\x96+\xe8\xed\x0c<$\x83A\xeb\xc6e\x94\x0c\x11\x19\xb4\x99\xcd\x17\xeb\xcb.\x0b}\x01i\x88\x03R\xde\x1a\xea\x03\x10\xa9Z\x8e\xf7\x87\r\xa6\x08@\xf7\x96\xc8\xa5g\xde\x8dE\xf8\xb0\xe8\xe6T\x80=\x0cm\xe0z\xa5\x03\xa2X\xed\'\x17\x001O\xee\xfb\x87\xbe\xf7\xbbS\xc1p\xaeZ\x17\x92}\xc2\x07\x01\x81\xaew\xd9\xc5\x9c\xe5k\x8d+\x13\xd2\x00Q\xd4\xe5M\x9d\x06\xc7)\xac\x06\xb2+\xd1\x83\xcb\xfe\xb9\xf9\x0bbRN\x04\xe7\xd8\xa0\xf9\xe3\xc3m\x18\xc4\x108\xfa\xa6\x82\x01:0\x82\x016\xa0\x03\x02\x01\x12\xa2\x82\x01-\x04\x82\x01)/pDi\x13\xee\x0b\x8ehN2\x01P\x19|\xda\x1a\xde\xec\xde\rt\xcbe7\x00-sG&\x8b\xfc\xa4\x92~~[,\xd5\rAj\xd6[\xbe\xeeB\xf8X\\x\xa6$Z\x83\xf6\x1bq\xc5\x8fm\\\x94\xd7l\xc5\x89#\xcb\xcd\xaf\xff\x15\x1b\x8f;7\xb0\xc8u\x19\xb1\xd0\xb0\x93\xa7z\x9cz\x14\x0b\x86q\x01\xb8<\xa7\xa4\xceb\x1f\x88\x14\xe3S0\xe3]\xa5\x9b\xa0\x0e\x97#\x87\x9a\xe0\x90a\xdfj.\x1e6x\x87GV\xc0/\xa4\xab}\xdbS\xd5\xff<t\xb4}\x05~\xf3\x08\xef\xde\xb8\xea\xb2$\xf8\x12rPcE1;\x1a]\xa5\xa9\\\'\xc1a~\x05\xd5\xa0~\x91\xfe\x8e3\xfa\x1c\xa1\xa8\xba\xfa\x1f\xeeA\x9a\xd5\x17\xab\xbd\xe4\x82.\x13\xa2"\x87\x1b\x0c\xd8\xd0\xdd\xa0\x7f\xa8\x9e\x86\x0b\xe5\x94\xcdk/\xd1\x1e\xb4\xa7\xc5\xd5x\x81\xe7\xe2\xdav\x1a\xb2\xa6\xc5Ma\xe5\xb6\x8b\xa3\xfck\x9c\x7fG\x08\xcc\x07X\xd50a\xa14\xd7;P\xe6[4\x98\xdbR\x87\xad^U3\x1ao\xcb\xaf\x01\x95\xa1Osnt\xd7_\x87A\x9b$\x9d{V\xf5~\x91\x13\xa8J1\xd4\xcb\xb4\xcb\xc2Pe')
 
@@ -46,7 +46,7 @@ assert pkt.root.ticket.sname.nameString == [b"krbtgt", b"SAMBA.EXAMPLE.COM"]
 assert len(pkt.root.ticket.encPart.cipher.val) == 843
 assert len(pkt.root.encPart.cipher.val) == 297
 
-= TGS-REQ
+= Parse TGS-REQ
 
 pkt = IP(b'E\x00\x06V\xff\xff@\x00\xff\x11\x00\x00\x7f\x00\x00\x1d\x00\x00\x00\x00;\x97\x00X\x06B\x00\x00l\x82\x0660\x82\x062\xa1\x03\x02\x01\x05\xa2\x03\x02\x01\x0c\xa3\x82\x05\xac0\x82\x05\xa80\x82\x04\xc1\xa1\x03\x02\x01\x01\xa2\x82\x04\xb8\x04\x82\x04\xb4n\x82\x04\xb00\x82\x04\xac\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0e\xa2\x07\x03\x05\x00\x00\x00\x00\x00\xa3\x82\x03\xcca\x82\x03\xc80\x82\x03\xc4\xa0\x03\x02\x01\x05\xa1\x13\x1b\x11SAMBA.EXAMPLE.COM\xa2&0$\xa0\x03\x02\x01\x02\xa1\x1d0\x1b\x1b\x06krbtgt\x1b\x11SAMBA.EXAMPLE.COM\xa3\x82\x03~0\x82\x03z\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\x01\xa2\x82\x03l\x04\x82\x03hr\xb6;\xb7\x93\xfb4\xadU\x17A\x93\xf27\xc0\x88I\x1f\x0f\x8eG\xbfk\x13ZF\x1a|l\xc9\xbd\xfe\xc1\xe8\xd6\x9a\x18t\xc7\x04\x05\xfe\xa8\xcaN\xb7`\x14t\xdf\xf8\x82R`m\xac\xd6\x17\\b\xa5\xe3\x98\xca\x97\xb7\xaam\xbf\xd1\x19\x05\x16k\xbb\xf451,H\x88e\xed\xbc\x1a\x87\xe1\xfb\xad\xf0\xd1\xc0\xb5L=\x95\xca\xd7\xc6;\t7%QI\x98s!\xf9\xfe\xfe_\xe9\xae\xeaj\x1e\xb8\x0eN9\x8e_\xcd\x1d,\xfd\x16\x0c\xad\xfc@\xd9\x97\xa2n)\x17\x02\xffL\xff\xcd{\n\r\xb3\x07W7\xcb\x93\x0f\x1b\xc3\xae\xb7\xc9f{\x1c\xa7\xc6\xf3\xe8\x1cz\x16\x8a\x15\xf5H6k\xc2\r6L\xf1\x99\x80Z\xd2R\xce\xd5\xbc\x82c_p[JG\nu\x1a\xa5Xz\x96&\xec\xf8\xe8\xa2 8\xfaGD87\x11\xac\x87\xb5E\xf7\'x\x0b,\xa5,=\xd2;s\xf9\xbb\xc1\xc30|\xb2y\xa5\xd5\xee\xe3\\\xeam`\xa4\xd3\xd1\n\x11\xb5\xd3\xc8\xcats{\xa8\x07\x18\xdc\x12d\x0b\xab-eB\x1f\xd7&\xf2\x1e\xb7\r\xdf\xe6\xb7\xa3{_\xd0.xrFG\x03\xe0r\xcfu\xbd\x14>\xc1\x9f\xeb\xae\xcb\x04\x071\xf1x\xff\xe5M\xfc\xbct\xea^e!\xce!|\x893/\xa1\n.\xb7T\xc5Ph\t\xf1\xbak\xcd\xdb\xff+c\xab\xcfY\x8a;*/\xd8\xa5\xd0\xd7c\xc6\x02B\xed\x82\xcf\xa0\xe5\xdf@rq\x8cRG\x1a\xdey_#\x18\t\x9d\xac\xa4\xfe\xd0\xeb{\xcb(E\xb8\xac\xc9\xe3\x06\xe0\x15}\xb89\xb1L>\x060\x93\x1dtl\x1f\xa0\\s\xdb\x85\x82\xdf\xb3L\x80\xe7/\xae\x0e\x11V\xdeH:J K\xb1g\x95\n\xc2\xd2\xc2\x83k\\6\x0eg\xd0{v\'\xa4\x1c\xe2\x10-\xeb\'\xc7?F\xd8J\xe8\x90Z4V\x12\\\x9e\xc2\x05\xfc|\xb3\x01\xe5\x1b\x14\n\xaa\xff\xb9\xff\x07\x03L\x10\x1d\xc8\xa8\xed\x00A\xf3\xf2\x16\xa3\xd8":!\x04m\x10Uo\x11\xa5d5\xc1\x1es\xde=\xa6\xdd\x9b\'\x03(L(*\x92C\xca\xc8\x92\x1b\x08\x06z/\xb4=\xd8Mz\x816\x9f-\xc0\xe8\xcf\xd2A\xfeyk)WH\x11\xdf\'\xf4\xefG\xfc\xef\xd0\xb5\xec\x91\x87\xf4}b\xb2\x1e>\x1f\x9d4~h\xa0=\xfd(i0|\x03\x98k\x05#Y\xe35\x1c\x7fn\xac\xf2\x896\xa6p\x13\xc1\x94&Q\x8f\x1c\x07\x8cN\xb0\xb6=\x83R46\x04\xfa\x86\xbc\xc1UO\x03\xd8\x0e\x0c\x9f\xbd/\x02f\x90\xa8\x9e\xd3 \xb4\\\n!\xf9"\xc3\n\xe7\xe2\x92\x05t\x11\xa1\x9e<$i+U\\d1\t^\'\xb7\x12\xfd\xe5\xd7\xc4\xd4\xb2\xa9!`\xd8\x97\x8b\x9a\x0c:\xcc\x85\x90)_\x11\xefR\x00\xe5k\x12I\xe2\xf6\xf4h\xa4.\x97\xf2\xea?\x1e\xf9\xcf\xe6\xac\xc7\xdd\xd0\x8f\x0bml\xcb[\x801\xce\xae\xd28\xc0\xe9\xb1\xb0\x19\xc9r\xd2\xd4=\xdaw\xff\xc7\xbd\xe7\xf8\xa9\x8d\xc6\xda\xa9y\x9b\x98\x19\x05\xb1]\xbc\xe2\xe3\xaf\x8c8\xcd\x12\xf8\x90\xea\xd0\xe3\xc3\xba|\xe28(\x8f\x99\xba\xden\xefJ\xc4r\x9e\x17\xe8&\xd6\xe4\x83 \x92\x19d?\xa6\xcc\xbd\xff\xa5\x83@\x17\x13\xefY\xd7\xa7\x1e\xe4\r\xd2\x846\xf8~!L\xe5\xdd\xb3\xb4(\x14\x1e\x1a\xfcP\x8ezE\x1ffFJ.\x82\x1f\xd3\xc5l\x9e\x0b3u4b\x0c\x94\xd6R\xc0\xe5\x96\x83\x95\xa1\x12\xa2\x18;\x96\x9di\xca\xc8\xd9\x15\x81\n\xa9\xc3\xe8\x1eS \x93j\xeb\xa4\x81\xc60\x81\xc3\xa0\x03\x02\x01\x12\xa2\x81\xbb\x04\x81\xb8-Y=\xd3\xfc\xeb \xd8\x16\xd9\xb2O\xfc1\xc9\xd5\'zN\xd2\xb6\xf4\xc6Q7\xaa"B\xe7\xac3\x19\x86\xad\xd5@\xa6\x1f\xd8a#EN\n\xba\xc3\xd95\xe5\x93\x07,j\x97V [o\xe3\x91!d\xe6|\xa4\x94\x14\x9dj1J\x82as[\x83\x80\x99\xa3\xec\xc1\xda_\xe7\nLej\\\x9eW\x11\'7\xfeq=)\xef-\xf5K\x15\x8e\xbf\xb8]m\xb6\xc2\xce\xb4xN,\xdb\xbeaB\x86\'\x068\x05\\\xafF\x08DFpJtX\x0c\xc1\xdfw\x9b\xb1\xf8x\x93\xac\xf9\x14X;h\xe3E\xc0\xe4i\x19\xe5:\xe7\xe5\x86\xa7{\x96\t|\x9aG\xc0\x169\x08\x03A\xa6\xc4j\'-\x07\xf4\x9c\x88"\xc00\x81\xe0\xa1\x04\x02\x02\x00\x88\xa2\x81\xd7\x04\x81\xd4\xa0\x81\xd10\x81\xce\xa1\x170\x15\xa0\x03\x02\x01\x10\xa1\x0e\x04\x0cW\xb7\xdc~\x96.\'\x92\x1a\xdfh\xb9\xa2\x81\xb20\x81\xaf\xa0\x03\x02\x01\x12\xa2\x81\xa7\x04\x81\xa4\x9b\xfc\xb3\x8c\xc5\x1e\xa1q\x19"\xf0\\\xa7\xa6`\xc9:\xd6KA\xd5\xac\xa9$\x8a\x18z\x81\xce\xc9\x0f\xe0\xd5\xad\x848t\xb7\xe3\xf1\xffC\'\x16Z\xc6\xe1of5\xf2R\xb31\xbf\xfa\xaf$\xe5\x1d\xa8\xd3sf\xbb$\xc5%\x17\x0c\x98\x98\x08\x85\xd18\x91o\x8d\x83\x86P\x9e\t\xd9V\xd1\xe4\xeb\xa8\x11\xd6\xaa\xb7\x88\xde\xbe2\xbf7\xb8\xca\x1c\x90\x10GB\x06\x046\xc8\xff\n\x02$_\xce\xcfk\xc9xd\xe5\xbf!4q\x83*/B[\x8fJ\xfa\xf4\xad97\xd8\x8f,3b\xb7\xe0\x94\xca\n\x12]\xc9\xfc\x7f\xbb{2p\xa0\x8f1e6$\xa4v0t\xa0\x07\x03\x05\x00@\x81\x00\x00\xa2\x13\x1b\x11SAMBA.EXAMPLE.COM\xa3,0*\xa0\x03\x02\x01\x01\xa1#0!\x1b\x04ldap\x1b\x19localdc.samba.example.com\xa5\x11\x18\x0f20150130011709Z\xa7\x06\x02\x04T\xcaN\xf5\xa8\x0b0\t\x02\x01\x12\x02\x01\x11\x02\x01\x17')
 
@@ -63,7 +63,7 @@ assert pkt.root.reqBody.kdcOptions.val == '01000000100000010000000000000000'
 assert pkt.root.reqBody.sname.nameString == [b'ldap', b'localdc.samba.example.com']
 assert pkt.root.reqBody.till.val == '20150130011709Z'
 
-= TGS-REP
+= Parse TGS-REP
 
 pkt = IP(b'E\x00\x06V\xff\xff@\x00\xff\x11\x00\x00\x7f\x00\x00\x15\x7f\x00\x00\x1d\x00X;\x97\x06B\x00\x00m\x82\x0660\x82\x062\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\r\xa2\x81\xe90\x81\xe60\x81\xe3\xa1\x04\x02\x02\x00\x88\xa2\x81\xda\x04\x81\xd7\xa0\x81\xd40\x81\xd1\xa0\x81\xce0\x81\xcb\xa0\x03\x02\x01\x12\xa2\x81\xc3\x04\x81\xc0\x8cqa\xdf\xfe\x13<7\xc1:\x8d\x0bshxOC\xd6\xcb\xbdz\x1a\xf5\xaa\x9c8\xce\x9f\xed\x99\xeb\xd8A\xba\xdcj\xffF4|\xc7\xab\x84~\xb9\x8f\x04\x0e<\xf1p#\xf7kK\x86\x05+%\\:\xcb^\xc8e\xeb\x0f\x81\x92\xa0\xf3"\xcd\xbb\xf3\xb9\x91\xc8\x94\xa27\x8c\xae\xc44\xa8\xd27\xd1J`K\x93M\xe3\xefUy\xda\xc6\xb7\xe6\xc8\xed\xa79\xd4\xd5\x9a\x12f\t\x1c\xb5\xa7A\x95\xaf\xa1\xac\x1d\xde\xfb\x1c\x0ec<5\t\xabYU\xd4\xd4\r\xf4]\xec\x00t^K\xed\xca\x81\xad\xbe\x99\xdc\x10g\x9c$\xfb\x82s?\xf4\xb9\xa5\x8eW\x02\x7f\x87A\xf7\xc4;2q \xd2\xbc\x10\x13\xc9\xa0w[\r\x01Pt\x7f\x95^\\\x8e\xbe\xee+\xa3\x13\x1b\x11SAMBA.EXAMPLE.COM\xa4\x1a0\x18\xa0\x03\x02\x01\x01\xa1\x110\x0f\x1b\rAdministrator\xa5\x82\x03\xe5a\x82\x03\xe10\x82\x03\xdd\xa0\x03\x02\x01\x05\xa1\x13\x1b\x11SAMBA.EXAMPLE.COM\xa2,0*\xa0\x03\x02\x01\x01\xa1#0!\x1b\x04ldap\x1b\x19localdc.samba.example.com\xa3\x82\x03\x910\x82\x03\x8d\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\x01\xa2\x82\x03\x7f\x04\x82\x03{\x97\x9c\xac\xf1\n\xe6;\xd8\xe28m\xba\xb7\xea#\x19\xd3Zf\x1c@\x00H\xf9"\xe7\xb4\xf3&3\x02X\xb5\xc0{e\xffm\xc8\xcf\xe2\xf9p\xb57~\xd8\x91?/5\x7f\xde\xc4/\xaa\x1c\x08pQ(\xff@\x8e\xb7\xf0\x91N\xbcK&0\xbdWo_W\xf8\xbe\xd6(\xd1`\xba\x8f.\x86\xc29\x88\xe5:,\x16ui\x98y\x100Q\xf6k1\xe6\xe5-e\xdc\x80\xc0@\x87i9Z\x7f\x07\xeb\xf2\x8f\xb1\xc4\x83*z\xbbq\xbfZs\xd7\xefFAZ\x84w\xa2-\xc8\xca\xa3\x84\xa2\x0bm\xce7 pIX\xa1\x05\x83\x01t\x06\xabI\xa3dp\xe3\xaa\xd0\xd6\xb0!\xfd\xbea\x9buL\x0f\x99\xbfg\x11|J?\xfdl\xcd\xb6\xae\n\xdc\x06kS\xc60\xad\xf3\xacq\x0f\xd5lbX\x8d^\xf9\x83\x80ax\x1c\x12\xaa\xe3\x07Y\x1ef\xae\xd6\xc9\xd4y\x94\xb5\x93\x83\x03m\x03U\xf3\x9a}L3Xi \xf94\xffFf}\x99\xfd\x04I\xe3\xcd\x9f\r\xb7>r\x0e\xcf\xeb$\xc8\xdcO\x95\x88\x04\x1c\xf0\xf9\t2\x92\xc4\xe3\x10\xfa\xb0\x14\xb5\xfb\xf0.\xcc\xa3\xdc\xab\x0f\xd76\x8e\xbf\xd8\x7f@U-x\xc8 \xd42\xf8\xfd\xce8\xdbl\x16\xc1\xaa\xb3\xe32\x87\xd3\xecIc-\xcf\xab7\x0b\xd9b\x9f9\x06\x88|q\xca[\xb8\n\xfb\xf7\x0bl]:\xbc\xe1\xab:K;w6\xcf\x1c\xa6\x1a\xec\xc0\xe2\xea\x89\xe6u\xe4(\xec\xec\xda!\x06\xfd\x9c\xeeZb4\xeb\xff\x06j\xbc\xfe\x90\xb6\x93\x0b:t\xf1|\xa3`\xfb\xc5\x9a\xa5\x11w\xb2}oP\xccj\x10M\xf3\x98\xbdCj\xa9\xcd\x93\x83\xf9N"\xbc!z8\xf6\xca\xe3\xbc\x04\x92\x14\x16i\xa40\xbf~\xb5\x12\xbeC\x83\x9e\xbdH\x13\xcasxFM\\\xd7\xc9\xd3B\xacM\xe7\x1c\x8ej\x12\x197\x06\xae\xbd\x1c\x84J}\xab\x8b\x05F\x8a\x13\xbe@]\r\xc2-\x9fA\x19\x94Jl\x12\xba\n\xad\x16T\x94\xb85U\xc1o\t\x04\xb2F\xa1\x17M4\xc3\xb2N\x17\x8f\xfe\x190\xc2\x11q\xc3A\xd9\xafn\xc8\xc909\xc4\x05\x03\xf3\xb2\x8e\x97\xfcL>E`\x11`\xce\xe5n\x15\x84\x84~\xdfZ\x98S\x0f[\xc3\xaa\x8e\xcf\x9cU\x93\x94\x04>\x05\x90\x1c\x00\x1a7\xb7\xe9\xc9\xc9\xb6Eq\x13\x1e\xb5\x86\xc3}&\xe7\x1b\xe5(\xce\xe3b\xd5\t\x11\x1f\x1e\xe3;O\xd9J\x85\xc5\xfa\x82\xd2\xc9\x88\xc5\xa8\t\xf5\xdb\x85vi\x1d\x97\x12j\xe8\xabL\xf0J\xd3\xbe\x1c\x7f\x1a\xb7$k\x87\x9e\xc3\x9aH\x1e\x96>\x19\x0fE\xff\xe2\xc8\xc2|W4\x12\xe4\xc7G[\xdc\x93\x17E%ur\xcem\x169\xf2I\xab\xbb\x8d\xca\x0fM0n\x19\x06\xeb<\x03\xa7fw^\xdd(V:\xc0\x14+\x08L\x17\xbe\xc9<L\xb3\xc5\xfbqgo\xf9"\x83\xf8\r\x91m\xe16!F\xb9r&\xb2\xcd0\xdc\xb3\\\xce%t\xcc\x91\xc09\x83\xe6R\xd9n\xc4\xd8evc\xcdl6\x04P__\xcel(Rt\xa1(.Xl*R\xf2\xa9\x9f\xc8H\\b\xaa\xf5k\xa3\x01\xc1\x1e\xd7\xa4\x97\xe58\x8aR\xcf\xc0\xcc\xdf\xa7%\xf1[\xa4T\xedb\xa65\xf85\xd6xd\xe2\xe1\xde@\xefV\x87\xce\xac\x0c\xb8\xaf\x01\xd9\x94\xdf\xb1S\x7f\xf1\x1e=R7H\xdc\xea\x1b\xe4\xa5\xfb\xc7\x9a@b\x8bJ!T\xab6w\xa5/\xef\x92\x1d\xd71\xfap\x8d\xf3\xb1\r\xd8\xed\x1aR\xc2\xd9z@g\x10\x0b\x8c2\xd4\x1a\'\x9e\xda6\x80\xa8\x93\x0bT\xc2m\x87bt\xc2\xf3;\xb9>\xa6\x82\x01\x1e0\x82\x01\x1a\xa0\x03\x02\x01\x12\xa2\x82\x01\x11\x04\x82\x01\r\xeeN\xd0\x1b\xa0\xc4\xb0C\x12,\xdd\xbd\x96\xe8\xbai"j\xbc[O\xff}Z\n5%\x98\xfc{`Q\x92\xe4\x95\x1azM\x15b\x98Ah\x02\xb2V\xd5\x0f9\xb3\xd5\xcf!\xdf\x1e\x9c\xd4\xc08\xc0|\x10\xc8\xb0ol\xcd\xa6?\x19\xfa\xb9\x0b\x9d\x96\xaa_,O\xe2 @4;\x1f!\x12\x8e\xf3h\xbc\x95\xa2\xcfE\xaey\\U\xdcc\xbe\xecN\x9e\xaa\x9d\x83\x1a\x9ad\x11\x15X\xdf)L\xd8Z\xe3\xa2&\x1c\x1b\xf8\xd1\x8e\xfb~\xdd\x16^\xfa\xf9\x15\x96s\x03\xf8T\x86\x12B\xdf\xf7m@\xfa\xf5L\xdd\xb6\xa8\x9af\x90\x90\xcd\xa9\xdf\x97`\xd3\x1c)\xc5n\xe8\xc1\xe0\xb4\xc7"\x16\x91<}\n\x94\xec\x8d\xc6.d\xe1\xf5/i\x89$\x9a\xebW\x0c\xf7\xfe\xc5\x12\x10\xb8\xa5\x193\x88hR\xa0\xf7t\xa9\xc6\xc2\x15E\xbd\xd6\xf09\x1d\x12\x83o\xb35>o\xa0\x98\xda\xf2\xad-1\xd0\x94\x12Be\xe0\x04\xe0\xf7\xcf\xbbAZ\xf5\x1c\x88\xf5\xef\xb2\x9bi\xdc\xd0\x07\x8f\xca\r^\x92\x02\x15\x87\xef\xd5\x90\xb5')
 
@@ -74,19 +74,133 @@ assert pkt.root.ticket.sname.nameString == [b'ldap', b'localdc.samba.example.com
 assert len(pkt.root.ticket.encPart.cipher.val) == 891
 assert pkt.root.encPart.etype == 0x12
 
++ Kerberos dissection and decryption tests
+
+# For the following tests, we use an account with no preauth and request a DES-CBC-MD5 sessionkey on Windows.
+# (unconventional but allows us to test edge cases)
+
+= Create Key (RC4_HMAC)
+
+from scapy.libs.rfc3961 import EncryptionType, Key
+key = Key.string_to_key(EncryptionType.RC4_HMAC, "Password1!", None)
+assert key.key == b'\x7f\xac\xdcI\x8e\xd1h\x0cO\xd1D\x83\x19\xa8\xc0O'
+
+= Parse AS-REQ (no preauth)
+
+pkt = KerberosTCPHeader(b'\x00\x00\x00\xd4j\x81\xd10\x81\xce\xa1\x03\x02\x01\x05\xa2\x03\x02\x01\n\xa3\x150\x130\x11\xa1\x04\x02\x02\x00\x80\xa2\t\x04\x070\x05\xa0\x03\x01\x01\xff\xa4\x81\xaa0\x81\xa7\xa0\x07\x03\x05\x00@\x81\x00\x00\xa1\x120\x10\xa0\x03\x02\x01\x01\xa1\t0\x07\x1b\x05User1\xa2\x0e\x1b\x0cDOMAIN.LOCAL\xa3!0\x1f\xa0\x03\x02\x01\x02\xa1\x180\x16\x1b\x06krbtgt\x1b\x0cDOMAIN.LOCAL\xa5\x11\x18\x0f20231213110146Z\xa6\x11\x18\x0f20231213110146Z\xa7\x06\x02\x048\xa6\xb8x\xa8\x080\x06\x02\x01\x03\x02\x01\x17\xa9\x1d0\x1b0\x19\xa0\x03\x02\x01\x14\xa1\x12\x04\x10WIN10           ')
+
+assert pkt.len == 212
+assert pkt.root.padata[0].padataValue.includePac
+assert pkt.root.reqBody.etype == [0x3, 0x17]
+
+= Parse and decrypt AS-REP (no preauth, RC4)
+
+pkt = KerberosTCPHeader(b'\x00\x00\x06\x1dk\x82\x06\x190\x82\x06\x15\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0b\xa3\x0e\x1b\x0cDOMAIN.LOCAL\xa4\x120\x10\xa0\x03\x02\x01\x01\xa1\t0\x07\x1b\x05User1\xa5\x82\x04\xa0a\x82\x04\x9c0\x82\x04\x98\xa0\x03\x02\x01\x05\xa1\x0e\x1b\x0cDOMAIN.LOCAL\xa2!0\x1f\xa0\x03\x02\x01\x02\xa1\x180\x16\x1b\x06krbtgt\x1b\x0cDOMAIN.LOCAL\xa3\x82\x04\\0\x82\x04X\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\x03\xa2\x82\x04J\x04\x82\x04Fm[\x1a\xa0G\xd5 \xee\x9c\x0c\t\xfb\xc3\xee\xd8Ki\xca\xaa6~\x87\x0fu\xde\xfd\x8d9\trl\x9d\xe9\xf0\x10\x0b\x85SO\xc2\xae0\xb1\xc1\x9a\x8c\xa0\xcb/\xad\x94\xaa\xe0\xb1R\'C\xd0uqw\'\xa6zF\x9d7\xf7\x08\xd8[(\xd5\x11\xc6:\xf5\r:\xde\xf9\xdd\xd9/T\xaa\xe1Q/\x9eD\x91\x01\xa8X\xf0O\xde\x88\xcb\xc4\xc7\x87\xb1pv\xd4\xb0r\xc1\x10\x80W9\xf7\xe7+\xd9M:\xf2\x8f\xdf\xa4\xc1\xa5\x95lU\xc02A\rf\x0b\xef\xc8\xc9A\'\x87\xff\x92W\xd4\xed\xb9\xd0|{\\\xbd\xf2\xfb%h\xe3\xb8\xccs\xec_\xe7\xf9\x90\xae\xb8E\xab\xf6!\xe6z@\xf1-nO\xcf X\x1eh\x86L\xba\x0ef_\xde]\xe2_\x94\xb0\x13\xccN\r/\xd3\xf2\x81\x07\x1b\x14\xfd6\x00Y~\xc0?\xaeYb\x7f\x16\x139\xe5P:\x93\xe3N3\x08iB\xc5m\xa3\xb5\x10d\xd1~\x0eb~wk{u\xec\xbe_!w{\xb7Z\\\xcf\xf5\xd9\xc3\xea\xe5\xfd\xfd\x03\x18\x07\xab\xe3\x06\x07\x9a\xa1\x9c\xc2C.\x0e\xb7c\x14\xf6\\\xd2\x82\xf2\xfc\x01>\xed\xfb6&<\x8f\xab\xe0\xfe5\x86!e{\xadr\xa3\xab\x87\xbc;p\xbdh|\x04\xf5\xffJ6\x94\xca\xacLc\xeb\x91\x14\xb94\xe7\xf4k+_V\xefh\xd4G@\x16\xc7?\x92\x94\xa3\x87\x81#\xbc\xa6>\xefh\xdd\x91\xe2\xce\x06\xba+\x96\x83\xb5n\xb2\x0c\xc3\xf9\x1f\x15\xe8\xba\x10\xf7V\x8b\xf4\xc1Rg\x86S\xfa\x89\x90\xe4\xceJ\x8d4\xc1Bh\xb5S\xa8\']8z,j-z\x0c\xc28Z\x06d\xd9\x90\x19\xf4\xc2)\xc7\x86\x9dk\x17{\x12/\t\x8a.\xc4\xe7\xdb~t\x92\xadx\xb2\x91\xb5\x96@\xf6\xa8ftuM\xdf\x17\xc4V\xa0y\xd0\xdf\x1f\x1a\xc9y>\xc0\xd1\x85\xde\xf4\xee#\xc8\x82F\xc8H\xa6h\xe8\x02H\x9bE5U`o\x98\xc0P\x9c\xd9L\xb9D\xff\xd8G\xd0k\xc0\x07\xda\xd2#\xc3"\xb7\xb8\xf2)\x9c\x164\xaa\xe4\x18-i(\xabn\xb7\xeaB5\xe4\xb7\xdc$$\x9e|\xcdA\x03\xf3\xd7n\xd3\xc1\xd7\xe6e\xb6\\\xd3)\xfah\xb7\x88\x0e\xeby \xfe\xd2!.Q\xa0\x97\xa8\xe2O\x1d\x99\x02#9\xf4\x1c\x0e\x1fN\xc9;\xd5?\x0fm=\xee\x0efj\xc1\xcb\x14\xb5\xa9}\xe2:F\xd7\x1d\x07\xfd\xaf\x96D\xfc\x007q\x11\xe1\xf6\x12\xdc%\xf7\x92ML\xbfH$\x10\x8a\xb9\xfbp\x9b\xff\x07\\N\x83\xf5\x11\xaex\xf2\x171F\xe3\xfc\xf6\x89\xc3\xdf]\xaa:\x8f\x99\'\x16` P\xe6X\x04\xe9@\x89\x90\x8cP\xc5b\xf82\t+\x14+\xb7\xa3\xfa\xba\xa4*r\xb41i\x070!\xba\xc8\xb17\x06\x12\xf2\xce\xa0\t9P\xd9]\xe4p1i\xf3\xed\xc0oT\'\x99\xc0\x7f\xa8s\x0bW\xc7S\x90w\xe6\xa7\x91\xe1\x84\xd3V5$\x92\xa3\x81\x90\x02\xdfVu\xd7\xb7x\x13+p\x8djP\xfa\x0eL\xc5}=\x12t\xc3\xa6\xa5\x12\xd9H+w\xea\t\x92km\xf9$\x0c\xa0Y\xda\xea\x15\xd0\xa1\xbe\x85\xa3\xd3\x9fQ\x1a\xd8A\xabf\x9d\x9c \x19\xa5\x8e\t\xb4<H)\xcf\xf6\xb9zBX\x1a*\xe3\x13+\xad\x0f\x9bq\xdfO\x88N\x00hh\x82\xd5\xbc\x0fq\xf2\xe9\x1b}\x9f\xcc\xdb\x12z\xfe\x8c\xfdn\xb9\xa2i\xa8ev\xc6\xca\x8ak\xe2A\xab!\xfa\xe5\xef\x14HL\xfa-\x11w\x8d\x84B\xeaB\xcc\xa0\xe7w\xb6\x0cL\x05\xc4\xc5{E\xbfu\xe4_p*%\xba\x08 \xab\xd1=\xef\xc0\x1e\xb9%\x8cVh\x9bg\x89e\x0b\xc2\xc8}\x1eOI\xa3\x0c\xce\xb5\x98\x96\xeb\xae!\xff_\x07T.e\xf3F\xc5F\xb62\xeb\x05f\x0c.1\xb6\x96\xe1\x9d\xb1\x0e\xa8`\xcdhUY%\xcc\x01\tX\x1f\x11\xfb\xd6\xc6P\xff\xefyeY+\x18!\xbcD\x8a\r\xb51\x96\xe0%\x1c\x0f}X\x80\x93\xda\xba\x85\x1e.\xc69\xb9\xd1\xc3\xa1\x13\xc4\x1a\x98\xcb&\x88\x9aT\xbe\xaf\tI\xdc\xbc\x07\x8by\x7f\xf2nk\xb2\x03}\xd1!\x87\xdb\xc1\x96\xfa\xb6\xdc\xcdJ\x8bn\xa4&\xcc\xda\xa5\xd5,\xc2\xdd\x7f\x8e\xf1t\xae\x01\xb1tE\xd7\xc0{\xf2\xfe\\]\x91E\xdfS\x80V\xb5\xe2\xd4\x85\xa7@p^\x97$N\x8f\xb2\x98\xd68\xd4\xaaM`\xaer\xa0\x1c\x0e\xf4\xb5\xbf\'q-\x8b\x9a\xb7\xd6\xa6\x82\x01?0\x82\x01;\xa0\x03\x02\x01\x17\xa1\x03\x02\x01\x19\xa2\x82\x01-\x04\x82\x01)\xbe\x0c\x10Lz\xc3\x17\x0ff\xe6\xf0\xfeZg\xf4-\xfbX\xbelH\xe6_S\xd9+4\x14s\xb4\xa6\'\xaa\n.\x06\x9f\x17\xe3\xb8+U\xc1\xad\x06k=\x08]Pu\x06\xfa\x1b\xa9\xe8\x90\xe5h\xfc\xf2\x86S\xe9J\x11\xbc\x8a5ox\x1et\x9c\xe9\\M\xa8\xe7\xd3\x7f\x1e\xa5\xa4Ox\xfdP\x14y^\rn.\xe3V\xfczdQ\xbe#5\x9f\xbe"+\xb6\xbaA\x12\xcc\x84\xc8\x99)l\x90g\xde\x9b\xd5\xb9v\x036E\x18\xc7G\x1d\x1dI\xcd\xe9\xa7\xf7\x99\x92-j\x95B\xae \x8d6$.UrS)\xe5&m\x85A\x87\xdd\r\xdbVZ>c\xac\xe3\x99\x00\xf4i\xc4\x14c\xd7h\xd3\xc6x\x11\xa5\xa0`\xe5\x8d"\xae\xa3\xa7\xba\xb8\xc4~\x87\xad\x1d\xa6\x19\xe3v\xdd^(-w7d\xd1\xb0D<\xeaW\x84\x90=\x9e\xee\xa3\xe3u\xa7\x074\xf3:6{\xbd-\x87\xfee\xd6b\x8a\xe5\xa9v\x0c\xe8N\x1c\x10\x12\x91\x1e~\x92\x02Uh)\xdd\xb5f\xf9\xcc\xadf\xf3:\xa7\x9f\xfd\xe1>\xd19\x10U1\xf0\xf8\xb1G\xe8H\xcb!h\xab\x14q\xe51d\xb2A\xf07\xda\x11\x81\xd9\xff')
+
+assert pkt.root.cname.nameString[0].val == b'User1'
+
+asrep = pkt.root.encPart.decrypt(key)
+sessionkey = asrep.key.toKey()
+assert asrep.encryptedPaData[0].padataValue.flags == 0x5001f
+
+= Parse and decrypt TGS-REQ (DES-CBC-MD5)
+
+pkt = KerberosTCPHeader(b'\x00\x00\x05\xd1l\x82\x05\xcd0\x82\x05\xc9\xa1\x03\x02\x01\x05\xa2\x03\x02\x01\x0c\xa3\x82\x05=0\x82\x0590\x82\x055\xa1\x03\x02\x01\x01\xa2\x82\x05,\x04\x82\x05(n\x82\x05$0\x82\x05 \xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0e\xa2\x03\x03\x01\x00\xa3\x82\x04\xa0a\x82\x04\x9c0\x82\x04\x98\xa0\x03\x02\x01\x05\xa1\x0e\x1b\x0cDOMAIN.LOCAL\xa2!0\x1f\xa0\x03\x02\x01\x02\xa1\x180\x16\x1b\x06krbtgt\x1b\x0cDOMAIN.LOCAL\xa3\x82\x04\\0\x82\x04X\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\x03\xa2\x82\x04J\x04\x82\x04Fm[\x1a\xa0G\xd5 \xee\x9c\x0c\t\xfb\xc3\xee\xd8Ki\xca\xaa6~\x87\x0fu\xde\xfd\x8d9\trl\x9d\xe9\xf0\x10\x0b\x85SO\xc2\xae0\xb1\xc1\x9a\x8c\xa0\xcb/\xad\x94\xaa\xe0\xb1R\'C\xd0uqw\'\xa6zF\x9d7\xf7\x08\xd8[(\xd5\x11\xc6:\xf5\r:\xde\xf9\xdd\xd9/T\xaa\xe1Q/\x9eD\x91\x01\xa8X\xf0O\xde\x88\xcb\xc4\xc7\x87\xb1pv\xd4\xb0r\xc1\x10\x80W9\xf7\xe7+\xd9M:\xf2\x8f\xdf\xa4\xc1\xa5\x95lU\xc02A\rf\x0b\xef\xc8\xc9A\'\x87\xff\x92W\xd4\xed\xb9\xd0|{\\\xbd\xf2\xfb%h\xe3\xb8\xccs\xec_\xe7\xf9\x90\xae\xb8E\xab\xf6!\xe6z@\xf1-nO\xcf X\x1eh\x86L\xba\x0ef_\xde]\xe2_\x94\xb0\x13\xccN\r/\xd3\xf2\x81\x07\x1b\x14\xfd6\x00Y~\xc0?\xaeYb\x7f\x16\x139\xe5P:\x93\xe3N3\x08iB\xc5m\xa3\xb5\x10d\xd1~\x0eb~wk{u\xec\xbe_!w{\xb7Z\\\xcf\xf5\xd9\xc3\xea\xe5\xfd\xfd\x03\x18\x07\xab\xe3\x06\x07\x9a\xa1\x9c\xc2C.\x0e\xb7c\x14\xf6\\\xd2\x82\xf2\xfc\x01>\xed\xfb6&<\x8f\xab\xe0\xfe5\x86!e{\xadr\xa3\xab\x87\xbc;p\xbdh|\x04\xf5\xffJ6\x94\xca\xacLc\xeb\x91\x14\xb94\xe7\xf4k+_V\xefh\xd4G@\x16\xc7?\x92\x94\xa3\x87\x81#\xbc\xa6>\xefh\xdd\x91\xe2\xce\x06\xba+\x96\x83\xb5n\xb2\x0c\xc3\xf9\x1f\x15\xe8\xba\x10\xf7V\x8b\xf4\xc1Rg\x86S\xfa\x89\x90\xe4\xceJ\x8d4\xc1Bh\xb5S\xa8\']8z,j-z\x0c\xc28Z\x06d\xd9\x90\x19\xf4\xc2)\xc7\x86\x9dk\x17{\x12/\t\x8a.\xc4\xe7\xdb~t\x92\xadx\xb2\x91\xb5\x96@\xf6\xa8ftuM\xdf\x17\xc4V\xa0y\xd0\xdf\x1f\x1a\xc9y>\xc0\xd1\x85\xde\xf4\xee#\xc8\x82F\xc8H\xa6h\xe8\x02H\x9bE5U`o\x98\xc0P\x9c\xd9L\xb9D\xff\xd8G\xd0k\xc0\x07\xda\xd2#\xc3"\xb7\xb8\xf2)\x9c\x164\xaa\xe4\x18-i(\xabn\xb7\xeaB5\xe4\xb7\xdc$$\x9e|\xcdA\x03\xf3\xd7n\xd3\xc1\xd7\xe6e\xb6\\\xd3)\xfah\xb7\x88\x0e\xeby \xfe\xd2!.Q\xa0\x97\xa8\xe2O\x1d\x99\x02#9\xf4\x1c\x0e\x1fN\xc9;\xd5?\x0fm=\xee\x0efj\xc1\xcb\x14\xb5\xa9}\xe2:F\xd7\x1d\x07\xfd\xaf\x96D\xfc\x007q\x11\xe1\xf6\x12\xdc%\xf7\x92ML\xbfH$\x10\x8a\xb9\xfbp\x9b\xff\x07\\N\x83\xf5\x11\xaex\xf2\x171F\xe3\xfc\xf6\x89\xc3\xdf]\xaa:\x8f\x99\'\x16` P\xe6X\x04\xe9@\x89\x90\x8cP\xc5b\xf82\t+\x14+\xb7\xa3\xfa\xba\xa4*r\xb41i\x070!\xba\xc8\xb17\x06\x12\xf2\xce\xa0\t9P\xd9]\xe4p1i\xf3\xed\xc0oT\'\x99\xc0\x7f\xa8s\x0bW\xc7S\x90w\xe6\xa7\x91\xe1\x84\xd3V5$\x92\xa3\x81\x90\x02\xdfVu\xd7\xb7x\x13+p\x8djP\xfa\x0eL\xc5}=\x12t\xc3\xa6\xa5\x12\xd9H+w\xea\t\x92km\xf9$\x0c\xa0Y\xda\xea\x15\xd0\xa1\xbe\x85\xa3\xd3\x9fQ\x1a\xd8A\xabf\x9d\x9c \x19\xa5\x8e\t\xb4<H)\xcf\xf6\xb9zBX\x1a*\xe3\x13+\xad\x0f\x9bq\xdfO\x88N\x00hh\x82\xd5\xbc\x0fq\xf2\xe9\x1b}\x9f\xcc\xdb\x12z\xfe\x8c\xfdn\xb9\xa2i\xa8ev\xc6\xca\x8ak\xe2A\xab!\xfa\xe5\xef\x14HL\xfa-\x11w\x8d\x84B\xeaB\xcc\xa0\xe7w\xb6\x0cL\x05\xc4\xc5{E\xbfu\xe4_p*%\xba\x08 \xab\xd1=\xef\xc0\x1e\xb9%\x8cVh\x9bg\x89e\x0b\xc2\xc8}\x1eOI\xa3\x0c\xce\xb5\x98\x96\xeb\xae!\xff_\x07T.e\xf3F\xc5F\xb62\xeb\x05f\x0c.1\xb6\x96\xe1\x9d\xb1\x0e\xa8`\xcdhUY%\xcc\x01\tX\x1f\x11\xfb\xd6\xc6P\xff\xefyeY+\x18!\xbcD\x8a\r\xb51\x96\xe0%\x1c\x0f}X\x80\x93\xda\xba\x85\x1e.\xc69\xb9\xd1\xc3\xa1\x13\xc4\x1a\x98\xcb&\x88\x9aT\xbe\xaf\tI\xdc\xbc\x07\x8by\x7f\xf2nk\xb2\x03}\xd1!\x87\xdb\xc1\x96\xfa\xb6\xdc\xcdJ\x8bn\xa4&\xcc\xda\xa5\xd5,\xc2\xdd\x7f\x8e\xf1t\xae\x01\xb1tE\xd7\xc0{\xf2\xfe\\]\x91E\xdfS\x80V\xb5\xe2\xd4\x85\xa7@p^\x97$N\x8f\xb2\x98\xd68\xd4\xaaM`\xaer\xa0\x1c\x0e\xf4\xb5\xbf\'q-\x8b\x9a\xb7\xd6\xa4k0i\xa0\x03\x02\x01\x03\xa2b\x04`(\xa6\xae\x0fB\x1e\xc0CB1\xc6\xc45\xb25K\xf6\xceT\xce\xe3\x1a\t\x9am\xed\xe9Q\x10\xdb\xd1~A\x1b"\xe5\xf8"\x8a\x9d\x02\x12\xb0\xaf\x17\x1a\x9f\x17"\xac\xbcCUU\xe6\x91\xc6\xe7E\x17\xd0B3HFH\x16\x9b\xaf\xc6\x17J\x8e\xcb\x05\x1cY(M{\x86U\x171x\xc72\x18\x87\x0b\xb9\xab\xfc\x8d\xb9\xca\xa4|0z\xa0\x07\x03\x05\x00@\x81\x00\x00\xa2\x0e\x1b\x0cDOMAIN.LOCAL\xa3#0!\xa0\x03\x02\x01\x03\xa1\x1a0\x18\x1b\x04cifs\x1b\x10dc1.domain.local\xa5\x11\x18\x0f20231213110146Z\xa6\x11\x18\x0f20231213110146Z\xa7\x06\x02\x04z3\xe0j\xa8\x080\x06\x02\x01\x03\x02\x01\x17\xa9\x020\x00')
+
+assert pkt.root.reqBody.kdcOptions == '01000000100000010000000000000000'
+assert pkt.root.reqBody.etype == [0x3, 0x17]
+
+apreq = pkt.root.padata[0].padataValue
+auth = apreq.authenticator.decrypt(sessionkey)
+assert auth.ctime == '20231213010146Z'
+assert auth.crealm == b'DOMAIN.LOCAL'
+
+= Parse and decrypt TGS-REP (DES-CBC-MD5)
+
+pkt = KerberosTCPHeader(b'\x00\x00\x05\xdfm\x82\x05\xdb0\x82\x05\xd7\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\r\xa3\x0e\x1b\x0cDOMAIN.LOCAL\xa4\x120\x10\xa0\x03\x02\x01\x01\xa1\t0\x07\x1b\x05User1\xa5\x82\x04\x9aa\x82\x04\x960\x82\x04\x92\xa0\x03\x02\x01\x05\xa1\x0e\x1b\x0cDOMAIN.LOCAL\xa2#0!\xa0\x03\x02\x01\x03\xa1\x1a0\x18\x1b\x04cifs\x1b\x10dc1.domain.local\xa3\x82\x04T0\x82\x04P\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\x0b\xa2\x82\x04B\x04\x82\x04>\xcc@\xf6_\xdd\x85\xb9\\\x9f\xf5P\'\x9ae\xf0\x925\x884W\xde\x9fn\xb3q.\x08e\xd4\t\xf2;\xb5\xd0\xcb\xe8\x1b\x9e\x15\x83~ q]\xdaw\xd2X\xac\t=aV\xa7\x9c\xfb\xee\xe2n\xf7\x9a\xf1\'t[\xe2\xcc\xaeL\xb9\xe1\xbc\x87C\xddG-\xdeJ\x9d\x8d\xa4\xb4W\x83\xb8\xf0(\xa4\x92\xf9\xa9OJ\xb2s\x07\xfa*\x0f\xf9\xbf\x17Z\x15\xd5\x867\xe3\xfd\xa6r\xb3\x9f\xca\xb5\x9dth\n\xc4\xe3\xc4P\x08\xfe\xd6Fd=R\xde\xe6\x80CC,\xe9l=\x89,\x82\xed\xc5<\xec \x8b\x19\xe1\x88\xaf\xf2\x8b\xbby\x8f\xf1\x88\x84?\xcc\xa4\xb5\x7f\x84\x99\x9d\x85\xedEs\xfc\xc6f\xfc\xb8\x04=\xa5\xcf\x0f3\xb3\xed\'\x01\xa2(\xb5\xec\x1d9\xcd\x88%\x86\xf4u\x91\x11\xe6O\xfc:I7\x1b\xd4\xc0\x11u\x80\x1dt\xc1\x81\xd5#\x10\xff4\x03Fs;O^\x0c\xfb9v\xcb\rt\xd2\xfb\xa3-\x01\\\xa4\xd2\x07\xcdm\xe4*\x85)A\xf6[\xf7\xbbOarb\x0f\xd8\xbaq2LL%0\x1c\xc5\xfa\x94L-M\xab\x90<\xb1\x0e`\x81%\xc3\x1b\xe9\x80\n\xf2\x89}t\x07\xe6\x9e\x02\x80\x998@\xd6G>\x88\x18\x0e\xdb\xc329\x7fD~\xbe\xac\xc1\xd9\x05z\x8aP\x175\xad\xf90\x13\xaa\x13/=|\xf6T\xb9\xf5f\x95\xe1?\xaf\xca\xbfq\\^\xa2\t\xe9G\x81\xbd\x01\'\x9a\xed\xe4\x87\xee\xee\xd1\xaa\xd4\x1b\xd45\xa9\xb1\x14\xc4\x98)0\xde9/\xfe{~/\xd3\x05:|\xd4\x9d~\xde\xce\x8a\xd8\x80\xad\xc6\x19\xddzk\\\xb8$\xafY/\x90\xd3*L\xf7\xf5V\xd3\xa7E\x86\xf1Y=\x81\xfd\xcd\xa6n\xd3\xe4\xa362\xb6\xed\xa5\x8e\xa4\xb3\x0eC\xee^i^_\xaa\xf8\xc1\x93f\x7f\xb1\xdcr\xd8\xcc\x9bV\x17\xec\x14W\x0e\xbcUPw\x02"/L\xbc\x1b\xdb\x8c\x91G\xae\xfaI\xfbY\x8f\x9d\xa1\xab\xf0)\xb0J\x9b#\xc4a\xccw\xc9\xc3\x89A3\x9b\xcc\x87\xccx\xb2\x8c\xa4\xb4\xe6c\xc9\xd3Y:\x1d\xc8=\xd8K\x8bn\xe7\xf6\xa3\xf2\xc7\xe1\xffm\x14\xf1m\x80\xb91\x81`&\xc5\xab#Q+r\x14\xb4\xa6!tI\x8aNS\x179r9\x8b\x95\xbe\xf8\r\xd0P\x1f\x06\xe7\xd7V\xe3\x06\x98\xec\xa1\xeby\xe6cm\x88\xd3\xd6<\x1c\xea\x12%\xb5\x1b\x9b\r\xe6\xb4\xfba\x04\x81\xa2\xd1W-x\xe9\xb9\xc5e`\xf1\xcd\x9e\x83Z\x10\xeb-[\xa0\x95\xe1]\xf2)\x0f+{fW6C\x19$\xddd\x8a\n\xa4^\xbe\xf6\n\xe9\x1eI\x1fD\xf5\xdc9O\xe95!\xd9p\x87\x06\xbbgCh\x10\xebjI\xc9\x13n\x8e\xa0\x1bU\xf3./\xb1xU\xab\x1e\xe1\r\xcd\x8d\xa4Od\x14~R\x83\xe4F5r\xbb\xd8-{=\xb5\x9f<\x1er\xe7v\xf7&8\xdfD\x9f\xab/B\xcf\x0e\x87\xf4\xc9G\x8c\x1e\xf77Bem\x96D)!t\x1af\xbe\x84\x91\xe2\x10\x0bmb\xee\xa7%3\x95\xf6\xdc\xcd\xfc\xfd\x00S\xe3\xa13\xbc\xa33m\xfe\xa4\x91\xc7\xaeG%\\\x87)\xdc\xd2=\xef$\xb5\x8ew\x13\xba\xa2\xc0\xfc\xaal,!>\x17>\xd0D\xf7un\x8cI\x98D\x056@\x88y@"\x05T\xec\xd5a\xe66\x1d)\xf2\x80 \xf5&o\xa5\xda\xcd\xde_\x86-\x00\xcb\x02\xfa\xc7\t\x05\xfcX"\x9d\xb8\xbbSe=\xdey\x0e\xbb@\x00\xba\x9bpb\xbd\x98\xe1\x9az\xa9\xdd\xdd\xd5\x00B\xecu\xb0\x08\xf8\xbb\x0f\xf7z\xfb\xd8j\x14\xe9i]\xced\x00\xf7\xdb\x01\xe2\x03\xda\xf2\xbf)-\xad*,\x05\xd7\x11\xbc\xfc,[\x0f\xcb\x8b#\xfdt\x04A\x11\xfb\x95\xe5\xd1\x1e\xbf\x81\x16t\xa4\x81,\r\xb6\x02\x17\xcd\xa1t\xb4MX.\xbd\xcabFn\x0c\xa6\xb8g@\x0f\x14g~_"\xb9\xe9\x8cu\x94\xcc\x8dX~V\xacv\x86v\x98\t\x8d\xbc\xfe\x80\xee\x1c%\xcdJMj\x18\x90\xcf\t\xb4\x8d\rw\x1eK\xfd\xb3n\x0f\xf8|9/\x04\xd2\tIC\x8f\xfe%\xef;\x86\xb2Sm\x7f\x8f\x87\xb2\xa79(\x1a\x15\xb6\x80G\x81)<MO\x91p\x90}q\x1e\xb2\x0e\xc9\x93m\x07d\xdb\xcax6\xcc\xb9{lV\x19\xa0\xfa\x94:|\x00&%\xa2\x1cvbK\x9c\x92\xf3\xd7\xc0Y\xd4h0\xd4c\x92\x83\xdeb\xbaZ\xa0R\x81q\xa6\x82\x01\x070\x82\x01\x03\xa0\x03\x02\x01\x03\xa2\x81\xfb\x04\x81\xf8t\xf3\xc4\x02\xba\xbe9\xebg\xe7\xeb\xfa\x07\x16J\xe8\x99*\x96\xae\x8f>\x9cg\xe0\x19# \xdd\x11Z)\x8f\x87\xc2s$.\xa89\xeb\xd8\x14\xbb#\x8a\xf0\xbc\xd5\xa9\x00\x10\xf9W[M\xf9\xc37B-.\xd9\x8e]\xfa \xf9\x01\x9b\x1fb\x13h~\x12\x11\x86\xf1\xd0\xcb\x8c>B\xf2\xfe\x82!\x8f\xb2\xa1vi\xf5i\\\xcfD\xcc\xb3\xfe\xda\xdcpin}\xa4t\xc9\x02\xa5\xe4\x1c\x17\xf9\x05H\xdf\x02\xf2\xa3n\xac(*\x9f\xb2\xec\xf0`\xbe\r\xb8\x04\xfd\x0f\x19\xd7&v\xd4\x9dA\xa5l\x01\xc7\xa7\xd8\x97B\x83\xe1\x9bD`v\xb4\xad\xe9\xcc+\xc1J\xa6\xb8\xe0\xc1\xf6\x9e\x8e@\xb3\x00\rc\x9e\x08\xbe\xedq%~"\xa0\x19J\x90\x96a\xb8\xc5\x8c\x012$M\x97K\x14e\x068\xda\x03D\x13On\xff\xd9\x1f\x88\xb6`\xe4K\xda\xed\x9b-\x02w,t\xc8\xd8\x18\xe9f\xfd\xa9\xc4\x82\xc9p\x04\xf9CJ\x18\x9e\x13\x07\xce>(')
+
+tgsrep = pkt.root.encPart.decrypt(sessionkey)
+assert tgsrep.nonce == 0x7a33e06a
+assert tgsrep.flags == '01000000100001010000000000000000'
+assert tgsrep.renewTill == '20231213110146Z'
+assert tgsrep.encryptedPaData[0].padataValue.flags == 0x1f
+
++ Kerberos FAST tests
+
+% Same than in kerberos.rst
+
+= FAST - Parse FAST AS-Req
+
+pkt = Ether(bytes.fromhex('52540013d0835254003ea3be08004502089636a1400080063ad3c0a87fd2c0a87fc8fecc0058eea93069573b278e50180402897400000000086a6a82086630820862a103020105a20302010aa38207a23082079e3082079aa10402020088a28207900482078ca082078830820784a082064a30820646a003020101a182063d048206396e82063530820631a003020105a10302010ea20703050000000000a38205796182057530820571a003020105a10c1b0a444f4d312e4c4f43414ca21f301da003020102a11630141b066b72627467741b0a444f4d312e4c4f43414ca382053930820535a003020112a103020102a282052704820523acc8b7671c0d50522f1a8d8452ce450aceb40fff0229e8ee546bccf1512e4877ef93dde465595260a6a5a8e85ea38600ce8dff7d510f3c744e2c43eb9d3187d638f716c29b6e7aa9eb407de28d0161f49013966eda0a161ff174dad42e7aa500cfe298541215448013ffe4883b6b1166f908f50de129487fe77fff874fd4102cdcce8db8dbeb8da02f08cc88b3790cdad5ec499959c7e79d6fef107d1e17ce80cc3df050b7e7a1c31f278e4fd4ea9523c950876f174be363234f8495b9550de1560ba17daeafbf133f78991053d929ad3fd668327d42288e6581671daaef908682ee282e17c31d8f8bb55d27fce155ee2e84a2ff8bc9600891be15e6ede3e1bbd2742a7af8b0a32c48973c9e3776a69647bab11592756c5a15b9101c392efa35d000abb3dabccd97e64426e3fd8d47e0e369c83b5391f38947d536d351c061081d654eef1a3861cdb2ea2bc48222b450d1b7d09c0670493bccc60dfcaa5cfe46fd50adf8e388204a4691dc5f0c3dbae0b4da6ac2dd781f149a444840aaa3a3c3befb5a5c04ee0405baed66afcf9b988d10ea14a955f43df79465e6fc02a12bce3870988950f1ab48e1a4f876f351671c5061e6399a63cb0479f7bd017dfd9bc5be192faf6d4f11e6ee6003933eeaf632f0056c4c1ccd183d7977cfca85419fe5b039674419d802068e792c9576ae2a88bfbeb1f59273226782c6efb288717d8f7a4bc3bf4c697fcac1adc1829f0a914f2559b278ccadd108eb87a11dacc88e4302e9af627474e57171192b94c6b358f8f98e308596215d2fb9d9c2b49c4cbedcb43fc231b86f0493d56b82962cf3383a84f8922c2b99f8fa8fdd85797b09a6e60f72007c0379988be2ff1cfc16f21300c1b4b784174005a9185f760e68ef94b9384eb24decee31b63d1b92278cd75b85d4d80c4e83306533a9d95aa6207cbfbeb0970a41c44aba59839f007923ecd8ff0de8314990a435dbea4dedbee16faf5ab2be9f96d691cfa983a6c843bd183f84c1b4998a3eaa907cae6b82b0ae8363f3edd8cb03d3c9c60ff55a84d8a292ea20555fbd6ce5ad4ad7a6b4bc5bff2e02c477a7a8a98d5a387d389caa172c400b151d95871b2aa16a040dc71a9be5f0774b06a5ca87674ccb4109a2c41db9e3160704218ad495d0751194fbef4becae4d7be24b9d968da592256a2b22cf724e989e71a60d0603b59bebd475285f793794b7a18af49a2b68670e3a6247c453274e35c863a16b5023c6c94659e25abb27c760f989ac0bbf9a5b125d0ea34fb03225cc93d5b8b6829e906883ee76cf8ee61dfacc488e8dc5cbc8ba9705a9e915a68f838232394f97fb1aac4a2a90fe17d46f9c51946a2bf9598df7f5b5e7ee692a78860eea3cef748a5be36529228e40b4aec83ebc8bb14176a4c565b06500e9517229b8340c55812101dbbc6bee693c35873082a5a1a53b35cf3509193d4dc5175c9360a00da71692ba205b3264aecc9ecc8bca31fec43efc8701423bb484f6f21699439dd30f71228f16eaab96b7de3547721d1635bbfe50678900ac378a4958b6c34964f3e0dc843880dbde57fb4a76ab85eba2b190bfdaefc7ba17e109f839493b0f2d6fc7ea17403bebe06f2809314ca514606f54668082364ed6752019f27e1df74f93fcf1c25630a29713a89d4a998c444bc91279c6fc66e0aa5dec72be316e1160cf9f90d5915c464b6bfec5216e901be4726db596a15745511c63736a69ac9ecb9e86601c631b4992653c320e6983562fa613134560cb606621e9661ac5961313ee70868ab48d6010173d8a96fffdb2baf4afe18c846d3fed6f30b9a809d72e647735fc536edec543abc232480d28660395a4819e30819ba003020112a281930481901273d5af61ad426d51d0757e897917caeb6fc1b6950554e8d750f95d27f444e3aaf7ae0bf4595b5e906d9682dbdeedcf6eb42a84ab8092997b783f57710127228165deeb2ce5e09e2ddc71555dc31970a8312d888b8ae766382098276d62b4bd76f34cbc889e24ad5405ec037ceb724fdb71fe247fe2a414a037ed33c796f4475fcfb5993eed147b6d63d740d58da5b0a1173015a003020110a10e040c75f02d8d2954e0ae1a9e0653a282011930820115a003020112a282010c04820108ae9bbc4629c80f4a383a69c4583824295c75f34b000b3fdbdaab073a042935e32c29e0ee2b2b446e4a6a2592362d0d593cddd74dacc24f16353776e1b5d192ad1cf5e63f66f40a134ecb87c077c30922bc0cab00ae23d187d56090d9098f843c54fabe7c012ff87e317dfe339c40911264609d489b041a4e9b52c0eb03ee88a393d17da92786bd1716b92eb0d7a5a24a64ade0870dea8a7e138acdf209ee277cb3fadeedab173fd64cc10a1004010774658b94852639bda10a5e8aff29174e3d2c7032c32631b074afdac0e6832bae74de9be19e522f63bc8499753a209291fee1861c29096cc8ee3cfda5be235b0aa95635916edcfcdaf90b896e2eaa5a57d5e4da0b00408f4201a481af3081aca00703050040810010a11a3018a003020101a111300f1b0d61646d2d302d66617374656e62a2061b04444f4d31a3193017a003020102a110300e1b066b72627467741b04444f4d31a511180f32303337303931333032343830355aa611180f32303337303931333032343830355aa70602043f58a7a0a81530130201120201110201170201180202ff79020103a91d301b3019a003020114a112041053525620202020202020202020202020'))
+
+fastreq =  pkt.root.padata[0].padataValue
+
+assert isinstance(fastreq, PA_FX_FAST_REQUEST)
+
+= FAST - Decrypt fast ticket in AS-REQ
+
+from scapy.libs.rfc3961 import Key, EncryptionType
+krbtgt_hex = "ac67a63d7155791fe31dace230ab516e818c453dfdbd44cbe691b240725c4907"
+krbtgt = Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex(krbtgt_hex))
+
+enc = fastreq.armoredData.armor.armorValue.ticket.encPart
+encticketpart = enc.decrypt(krbtgt)
+assert encticketpart.authtime == '20220712230225Z'
+assert encticketpart.cname.nameString[0] == b"SRV$"
+
+= FAST - Decrypt authenticator in AS-REQ
+
+ticket_session_key = encticketpart.key.toKey()
+assert ticket_session_key.key == b'\xe3\xa2\x0f\x8e\xb2\xe1*\xe0\x7f\x86\xcc\x88\xe6,\x08>B\xd8)m/G\x82B;\x9f+\x86\xcd\xcd\xf4\x05'
+
+enc = fastreq.armoredData.armor.armorValue.authenticator
+authenticator = enc.decrypt(ticket_session_key)
+
+assert authenticator.crealm == b"DOM1.LOCAL"
+assert authenticator.seqNumber == 0
+assert authenticator.ctime == "20220712235437Z"
+
+= FAST - Compute the armor key
+
+subkey = authenticator.subkey.toKey()
+assert subkey.key == b'%\xa4n\xe1\xd0\xf5\x8d\xc4\x8d\xecv\xe8\x9c\xd3\xc9\xee\x1bu\xc9\xa5\xa6\xf8\x83f\x98\xa1\xd9\xe7*I\x9b\xf8'
+
+from scapy.libs.rfc3961 import KRB_FX_CF2
+armorkey = KRB_FX_CF2(subkey, ticket_session_key, b"subkeyarmor", b"ticketarmor")
+assert armorkey.key == b'\x9f\x18L]I\x16\xd0\xe5\xa6\xd9\x92+\xbf\xbc\xe0\n\xd1\xcb6\xf3\xd1.C\xc2\xdcp\xf0H(\x99\x14\x80'
+
+= FAST - Decrypt KDC REQ BODY from AS-REQ
+
+enc = fastreq.armoredData.encFastReq
+krbfastreq = enc.decrypt(armorkey)
+
+assert krbfastreq.padata[0].padataType == 0x80
+assert krbfastreq.padata[0].padataValue.includePac
+assert krbfastreq.padata[1].padataValue.options == "10000000000000000000000000000000"
+assert krbfastreq.reqBody.cname.nameString[0] == b"adm-0-fastenb"
+assert krbfastreq.reqBody.etype == [0x12, 0x11, 0x17, 0x18, -0x87, 0x3]
+assert krbfastreq.reqBody.addresses[0].address == b'SRV             '
+
+= FAST - Check Fast Armor checksum
+
+data = bytes(pkt.root.reqBody)
+fastreq.armoredData.reqChecksum.verify(armorkey, data)
+
 + Advanced Kerberos tests
 
-= Use ancient RFC1964 with InitialContext
+= Test Kerberos InnerToken wrapping (ancient RFC1964)
 
 pkt = GSSAPI_BLOB(b'`\x82\n\xc2\x06\x06+\x06\x01\x05\x05\x02\xa0\x82\n\xb60\x82\n\xb2\xa0\r0\x0b\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\xa2\x82\n\x9f\x04\x82\n\x9b`\x82\n\x97\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\x01\x00n\x82\n\x860\x82\n\x82\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0e\xa2\x07\x03\x05\x00 \x00\x00\x00\xa3\x82\x03\xf9a\x82\x03\xf50\x82\x03\xf1\xa0\x03\x02\x01\x05\xa1\x13\x1b\x11SAMBA.EXAMPLE.COM\xa2\x1a0\x18\xa0\x03\x02\x01\x01\xa1\x110\x0f\x1b\x04cifs\x1b\x07localdc\xa3\x82\x03\xb70\x82\x03\xb3\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\x01\xa2\x82\x03\xa5\x04\x82\x03\xa1\x8eA^\xd1\xa6!\x0f\x82\xb9\xbe\x82\xd0\xe8\x8c\xd7\x1bs\xb7\xb4&h\xec\xd6]\x0f\xdc\xc30n\x9f\xc2\xbb\xf03\x93\x027\x88_\xd7\x85I\x81\xf1\xba7\xcf \xa4\xf4\xa3\xc5C\x1d\xe8z\x1f\xb7\x97\xb1\x1e\x93\xcc\x1e\xc2\'\x94\xee\xf3v\xael\x95\x9d5x\xde\xcf\xad\x16\x1c=\x0eDbb\x9e\xbaE\xfc\x9d\xddnu\x19\x1c\xa4x\xf0#\xc8\x1fTI:\xfb\x94\xd7#,\x9f\xf8\xca\t\xf5\xdd\xcf\xd4\'qLy\x85\xac#\xcb\xde\xe1\xc1\x02+\xf8\xf4{.\xe6\xd7`)\x9d[\xfd\xb8\xc3+\xcaF\t\xa1\x97\xd4\x8c\xe3.\xa4\x80\xd1v2\xf8\xff\xb7\x89y\x98\x13&\x94\xe4\x95\\\x12l\xd8j)\xa7\xa4^\xed\xa9\xee\x92\xaf\x99a\x18\x08\x96M\x8d\xe2\xed\xf4J\xf9\xa8\xb9L0b6\xfc\xa6\x82\x84\xa5`Z\\\xe3\x8e\xaaW\xffj\x94\x05\x88(D$\x84\x11\xe3f1\xfb@\x05g\x00\xad\xf9\x92\x9a\x92^/\xe5\xd4J\xbd\x1bH\x98\xe4#\xb2\x87S^p\xb30\xe6hdK\x1fpp\xde\xf3\xf8\x1b1C\x9c\x9f^e\xfa\x1e\r%\xf6@\xe1=#\xd6\xbf\x82\x8c\'\xca\xcf\xf1\xda\xaa\xdch\x7f\x99\x8e\xa8{4_\xb6\xc1\x1a\xb2\xd0\x16Pfb"\x0b\xde\x02\xb8)=\xbbF\xdfg\xd3\xa4CGb\xfd\xe3\xc0\xff\x96\x8a)\xd9\xd4d\x15\xaa\x01\xa7\xa6\x8f\x81\xf3\xedl\xeb\x8a@\x86\xf6dv\x17\xc4\xda\x14a\xbb5\x80\x08\xa4BPR\xe3);\xb7I\xd3\x90\xaa\xb5\x02\xcb ?\xd2\xb5T\x9d\xd0Ho`\xb0r\xd9R\x9fI\x05\xf9b\xd9\xa6\xa8\xae2Q\xed\x1f/@\x1b=bC\xc8\x1d\xbb1\t\xc7\xabBNK\xf4\x0f0Q\x13\x8e\'\xf9\x91\n\x90\xa4\x97\x81S\xda7u\x92<\xa7@\xa0LO\xb7\xa5\x88\x0b\xa8\xd8p\xbbs\x97f\x17\x16\x87\xbe\xff\x84\xcf\xbf\xba=n\xd0w\xeb\x99x\x03\n\xb5\'\x0ewQ\x90;\xed~}}\x1a\xaf\xe5\x9d\xc4r\xe8\xa6\x97\x07AYl\xec\x8b\xc8\xf5I#\x0f\x04#\xf1\xf9\xec\xdf=\xd7\xc25\tC\xa2\x00\x0cr\xa7N\xfa\x1d\x18\x0es\x05\xef\x11\x84\xc2}\xee\xecKW\xc3\xaeo\x8eS\xa3\xa2n\xb3\xd3\xf1\xb0\xfc\xd8\xe8\xd7jp\xf7$\x11\xd2\xafZ\x83\';*\x87\xa6\xc2\n\xd9:\x8cy9d8\x1a\xf7B\n\nr\xa9M\xcf\xf5?\xe1\xa0\xdca\xd3\xc9\xdc\xc6\x04KyQ\x7f)g;\xc8s?0\xab\xf7\xd7\xd7\x85\xdd1]\xd2\x12\xb5\x1c\x87\x05/\xf4\xe4\x8ci\xe3+\xdeH"\xc2\xe7Z\x17\xaa  \xd2\xbaKr\xcc\xd0\xa9\x1d\xe2u\xab\xcc\xd9\xc0\x05\xc5\xf2\t\xf5\xb1M\xa4\x84\x1fS\xfe\xb1\x18r\x81\xba\xc9\xfe\x8f\x01\x8c\x12\xd2\xa6Jy\n\x98\xe9\xd1\xfa\x89\x9c\x84\xf8\xd5\x7f3\x92\'\xed\xa9\xc3\xc1\xcd\xcd\xb9\x19\xec\xb2\x08\xa2\xd0\xc1@\x80\xf1\xc1\x1b(\\\xd3\x17\x04\xf8\xbf\x1a\xb4>.\xcbzP>R\xe9\x84V\x04\x92\xf3\r\x9a\xd2\x99\xf0q>K\\\xb5f\x8e\x9c\xc2\xb3\x1f\xebL\x19~\xda^\x1dY\n\x9d\xd11B;n\xcc\xd3\x1e\x1d\xe0\xe2o\x14\xd8_\xaf\'f\r\xe1 \xfaD\xaa\xad7\xac\x81\xd2\xfd\xf1-D\xba\xa8*\x07J\xbb4\x1b\x19ny\x81\x113\x0e]\xfa|T\x91ayS\xe8\xf6y\x9d\x8b1\xf5\xbb\\\xfb8JD\x17Fq\xd4\x8aF\x16\x9ed\x1cJ\x864p\x94k\xe2\xdd\xdc\x15\xb7\x0f*\xae\xa3@\xc2\x92\xcd\x17>|\xc8\xb7\xd7\x1ay \x8b\xbdZ\xef3*~S\x81D\x12}$\x0c\xce\xa7`\xcam\x9a4q\xdfK\x0eE\xbe\xbf,\xfe\x8a\xe6\xd0Q\x03\xe2\x19\xefx\xb6`%\xcb/\xfa&\\\x15\xc8\xa3\x83V\x18N\xad\xce|6r\x01tW\xa4\x82\x06n0\x82\x06j\xa0\x03\x02\x01\x12\xa2\x82\x06a\x04\x82\x06]\xbe\x88N^mh#\x18\xc2\xf0\x8e\xda\xe5E\xab\xe8\x811\xd2\x0e\xd2q\x96\xf3\xb6\r\xa2s\xcf\xe70s\x0eF\x1b\x01~\x9ev\xcc\xb0h`5\x11\x8d\xb4f}\xad\xc9\xbeGG\xe4\x1f,\x08\x8f\xde}\xad\x0f\xee\x00\n`j\xb2\x9fy]>\xd3)w)8\xc4\x88\xf3]2ea\xce\xf5.R1\xe5G\x87\xeb\xa8\x0f4\xcf\x13\xe7\x1d\xcd\x16\x00\xe8\xf5\xc4_1\x95\xb6\x16\xa0b*\xf6\x8e\xd2\xd5\x19s\x1b\xce\x86\xd4)R\xa9\x13i"\xe7}\xda\x8d_\x961\xb3\x8b=\xd3R\xa9\xb8c,\xb3\xb7#\xdbt*\x04\x15\xa5\xa8f\x80m\xe8m\x1b\xb2\xe9\x1f\x1f\\\x1a\xbb\x90x{&@\xc3v\xa5#>\xd2\xb7\xd1y\x1f\xf6&wz\x88\xe2\xdd\xdb\xc0\xbfP\xec\xbf\x9a\xff\xf0"\xdf\x9e\xdd\x87\xb4\x06)2\x12\xd7\xad\x99\xf0\x98\xfdB6<\x8d\x1e\xf5\x0c0\x9e+\x19\xa4\x91E\xcet5\xbbz@M\xd8\x18\t\xdd\xaa\x16V\x87Ii\x0f\xe5)P\x0e\xd32\xbfK\x06j\x14\xcc\x8e&TZ\xfa\x89\x87\xe6\xd0\xe5\xe5[`\x97\x13|0s\x1c\x841Y\xbcT\x19\xa1\x8b\xef\x16k\xde\xf6\x0e\x9fPA^\xfe\xa3S\xd9-\xab\xf2{Y#b(\xcb\x13\x1b\xae\xb0h\x91wy\xfd\xff\x01\x13\x92O\xcc<\xf1\x88\xb7\x07\xc5\xe8,\xa3\x8et\xe7\x186FP\xe9?\x862\x881\xd3E\x91\xea\xf0\xa3I\xba\xc1^\xa1\x1b\xce\xeftZn\xb1m\x1ah\xfa\xe8\xf2z\xb8\x11\xa19Z\x13Y{1\x8a\xa4\xc5LRl(\x91\xf7\xcaI7\x13\xf6\xe4\x1c\xb1\xf6!\xe9;/U~\r\x17\xcd5}J\xcd\x18\xe0\xae\x1a\xca\xdb\x99\x02\x13\xbc\x93\xff\xfe\x82\x90&|\xf4\xf2fI\xbb\xfc\x81m\xc0\x94\xcb\x9a\x0f{\xd3\xa2<\x86g N2\xd8\x8f]NA\x0c?\x8d\x80 S\r\xde\xa6\x87\xd4"W\x9c\xa1\x18p\xbf\xc5e(\x06Bc\x1c\x8e<\xf8D\xb8\xd8\x8b\x88_Q\nh\xb6xW\xd7\xc1l\x08t\xce\xc2\n\x06\xb1\x1b\xe1\x16x\xe6\xb9Q \xba\xdfa\x97\xa9\x9c\xf1\xf3N\x97w\xf8\xfd:!\x93\xa6\xc7\xfc\xcd\xf3\x12\x14\xe5\x8dB\x9d\xe2uY{3\xc8bukA\xfa\x95\xa5\xa3\xcc(-\xf6\\\x9f\x14OD\xef\x0f\x8c\xde\xd0B\'<\xd36hT\xbd\xa0\'\x89\x1f\'\x15`\xbb[\xf8Zx\xdc\xcdx0)\xc2\x8dD-\xa9m\xe3\xd7\x91w\x10\x8aD\xd37+\x8b\xf7\xa7\xa2\x8d{\x0c\xd8\x80\xe1<)lg\xb9\xbfr\x95^)^\x0e\xe5*\xbfGk!5/$01z\xf7\xcf\x86\x1aF\xf2V\x12\xa8w\xad\x070\xf3\x10\x86\xd6\x19\r\xdd\x88\xbe\xc4\xef\xbb\xd2\t,\xa2\xcd9\xbd\x11\x03\xed\xc9X\x98_\x00\xf5\xfa\t<\x9d\xfco/\x84\xca:\x1e\xc6A\xb0\x1f\x8d\x07\x18\x11\\WC\r\x7f\\\xa0\xea\'\xcc\x96\xc7\xd8\x9a\xb4-\r\x88\xc8\x12\x1f\x8b`\n#\x9a\x92\xa9\x86\x85z\x0ctB\xff:\xaf\xbc\xd4F\xcf$R\x8a\x81\xbd\x84\xe03F\x95\xa0\xbb\xdc\xd9\x7f\xc9\x91/\xc3\x9c~m\x9d\xbb\xfd\x8a\x80\xa8\x81\xb1VC\xf5y\x13N\xa6\x1dq\x1bn\xa0\x83\xeaQ\xe4-\xe3m\x99\xcf\xe6\xb2n\xe7\x0e\xea*\x01\xb5\xdb\xf5P\x03\x96\x82\x91\xe9\xa7\x9bm\x9c\x98\xe3j\x85UG\xd9\x0f\xb5\xb47\xd18d\x9f~VL\xa6\x98\xf2.\xf3\x821\xc8\x03\\fP\'\xee\x85\xbf\xdbd\xc1\x023\xf9\xb5D\xda\xe6Y\x0b[\x86\x9b\xbd\x96z\xe67\x05\xba\x1f\xfd\x1f\xb2F\xf2P\xbd<\xd7\xbdUj\xb1@O\xa2}\x02C\xc4\x01eu\x7f%b\xb4\xfc\xe1D\x02\x8f\xbfj\xd7~E\xd5^h\xc8\xc3\xf9\xb3\x1e\xf0\xbb\x02\xfb\x8c\xc4\xc2\xa8&xn)\x08^\xc0H\xbc\x19\xb7-a?N=?\x93\x97\xb2Q\xe0\x04`T\x1bS2\xd8\xbc3d\xef?\x1e\xab\xc2\x82\xcc\xa4\xe7\xd9\xe6\xe2\xd3\xe9Q\x83\x11\xf4\xfb\x82\xa4y\x176\xaf\xf4_\xbf\xa196\xb4\x05B\xc7\xb3\xd2\x0c\x8c\x18\x95\xe1\xba\x97=Y|\x19k\x0c\xf2\xb3\x0fAV\xd1\x04\xeffX\xcd*?\x03S\x92\x0b\x85\x00\x99x+sh\x07\xd2zl\xbbUS\xf0A\x1aS\xa1\x1fFRf\xc6\x9b\x8dV\x85\x14kE\xae\xef\x05\x18Nx\t\xc8K\xd2\xfd1\xc2\xb9H\xde:L\xd5h%c\xa5,$b\xf9\xa2\xce\xa6\xe5X\x11\xb9\x12\xe7\xd6\x1d\x1f\x03\x8e\xba\xc8>=\x8f\xca\xdf\x80U\xce\x16\xb50w\xaes\xa9)\xdd\x863f\xad2\xc6t`\xc1><O|\xf5\xd6\xddO\xa5\xa8\x9b\xe8:\xcd\x17\x8f\xc2\x16\xf7dF\x14\xa2o$\xe6+\xc8C\x03\x80\x17\x94\xb4n1\xeb\xc2\xfe\xda\xda\x01\xba2b\xf5\xfcb\x95\x9e\xb9 \xa8P\xf3\x84X#\xbeM\x8a\xaf\xe1\x88wq\x18?\x1b\x1b\x8d\xaa\x14\x81!\x06\x1cj\x1a\xe9\xde\xa6=\xeco\x18\x18?Q1$t\xaf\xf5\xcb\xdf\xcc+*\xfcaM\x1c\xa9\x01C\x8f>\x9d;7o\xa6\xef\x08}1S\xb3\xf7\xdf\xa6\xa0@\xae=\xa3\xb8H\x89\x0f\xdd\x7f\xed\xa4\x19\xf5\x94\xc91\xb9B\xca"\x93\xc1\x05&\xbd\x8c\x82\xdf;C\xcb\xd4R\xc8>\xde\xd8j@\x81\xb6\xa7r\xe9\xb5\xb2\xe0\r:\x8d+\x89\xe1\xee\xf5Aj\x8d\xfb\xa0\xd8?\x06\x10D\xcc\xa6?@\'\xc06^\xfa^s\xe6\r\x8d\x1e\x9cv\xd6\xce\xda)Q\x7f\x83\xba\xe0\xc7R\x82\xe9\xbf\xb8\x88\x12\xe7\x13\xc4\xc4/\x8f\x1d\xde\x197\xe8\x9aFe:\xc33\x02\xbc\x85q7\xbc\xde#\x1e\xdb\x7f\xf2#\xda\x80IT,\xc5\xe7\xe7)\x1a\xb0\x0e-\xbe\xf8\x14\xee\xa1\x82\x1c\x99j\xe4}\x84\xb4\xcc\x10\x84\xean\xc8\x9f\xe7=a2\xa7\x84\xa1\x87\x00n\xd7\x9b\xd2\xe8c\xc7\x9f\xca\xbd=\xdch*\x1b\x0f\xceH\x81\xf7\xdc\x1a\x93A\xdbJ\xe3\x936\xe3\xff\xfb!\'\xe3\x1b"\xff\xc6\x1b4\x98\xde\xc1%A3\x16\x7f&\xafM\xdfX\xfb\\\x1d\x91Vp\x19\xcd\xd8\xe3$\x13J\x9c\x89\xbc~\x07O\xac?\x0c\xa6\x80yZ\xef0\xef}\x89BA\xe9k\xfa\xf9P\x97\xe5\x14\xd4+/_\xa6\xba\xf9\x04Ph\xe1\x1a\xb5=\xd6nq\xd8\x13L\x03\xd5\x19V\xd9e&\xdfJ\x99\x90\xca\xc7\x84\xfb\x08H\xa6Y\xc0T[\x87\xbeok\xb4\xeb\xca\xdb\x9d\xcf|\xbdn\x9f\xde\xb10\xecnWc\x80\x18\x07\xfb\x1eYb{Q\x0e\x0f\xfc\xcbE\xcct\xfe\xd7\x8a\xb6\x1a\x17\xba\xeb\xfdG\xdbz\xa8\xe89\xb5[\x0e\x83kO\xdc|\x14\x92\xdc3\nc\x05~e1')
 
-assert isinstance(pkt.innerContextToken.token.mechToken.value.root, KRB_InitialContextToken)
-assert pkt.innerContextToken.token.mechToken.value.root.innerContextToken.TOK_ID == b'\x01\x00'
-krb = pkt.innerContextToken.token.mechToken.value.root.innerContextToken.payload
-assert isinstance(krb, Kerberos)
-assert krb.root.ticket.sname.nameString == [b"cifs", b"localdc"]
+assert isinstance(pkt.innerToken.token.mechToken.value.root, GSSAPI_BLOB)
+assert pkt.innerToken.token.mechToken.value.root.innerToken.TOK_ID == b'\x01\x00'
+krb = pkt.innerToken.token.mechToken.value.root.innerToken.root
+assert isinstance(krb, KRB_AP_REQ)
+assert krb.ticket.sname.nameString == [b"cifs", b"localdc"]
 
-= Parse WIN2K-PAC (real life)
+= MSPAC - Parse WIN2K-PAC (real life)
+
+from scapy.layers.msrpce.mspac import *
 
 # PAC in the example from https://scapy.readthedocs.io/en/latest/layers/kerberos.html#decrypt-fast
 
@@ -110,16 +224,16 @@ assert [type(x) for x in pkt.Payloads] == [
 assert pkt.Payloads[2].Upn == 'SRV$@dom1.local'
 assert pkt.Payloads[2].DnsDomainName == 'DOM1.LOCAL'
 assert pkt.Payloads[2].SamName == 'SRV$'
-assert pkt.Payloads[2].Sid == b'\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00\xfa*@1\xb2f\xa6\x1c\x11dp\\P\x04\x00\x00'
+assert pkt.Payloads[2].Sid.summary() == 'S-1-5-21-826288890-480667314-1550869521-1104'
 
-assert pkt.Payloads[3].value.Claims.ClaimsSet.value.value[0].value.data.ClaimsArrays.value.value[0].usClaimsSourceType == 1
-claimentry = pkt.Payloads[3].value.Claims.ClaimsSet.value.value[0].value.data.ClaimsArrays.value.value[0].ClaimEntries.value.value[0]
+assert pkt.Payloads[3].value.Claims.ClaimsSet.value.value[0].value.ClaimsArrays.value.value[0].usClaimsSourceType == 1
+claimentry = pkt.Payloads[3].value.Claims.ClaimsSet.value.value[0].value.ClaimsArrays.value.value[0].ClaimEntries.value.value[0]
 assert claimentry.Id.value.value[0].value == b'ad://ext/AuthenticationSilo'
 assert claimentry.Values.value.StringValues.value.value[0].value.value[0].value == b'T0-silo'
 
 assert pkt.Payloads[4].Flags[0].PAC_WAS_REQUESTED
 
-assert pkt.Payloads[5].Sid == b'\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00\xfa*@1\xb2f\xa6\x1c\x11dp\\P\x04\x00\x00'
+assert pkt.Payloads[5].Sid.summary() == 'S-1-5-21-826288890-480667314-1550869521-1104'
 
 assert pkt.Payloads[6].SignatureType == 16
 assert pkt.Payloads[6].Signature == b'd\xb0qv\xf8\xd3X\x0b\x7f4\xfe\xda'
@@ -127,7 +241,7 @@ assert pkt.Payloads[6].Signature == b'd\xb0qv\xf8\xd3X\x0b\x7f4\xfe\xda'
 assert pkt.Payloads[7].SignatureType == 16
 assert pkt.Payloads[7].Signature == b'\x835J\xa7\x80\xb1S\xcez\x8b\xd2\xc2'
 
-= Parse WIN2K-PAC (MS-PAC sect 3)
+= MSPAC - Parse WIN2K-PAC (MS-PAC sect 3)
 
 # Example data from [MS-PAC] sect 3 - Structural example
 
@@ -136,7 +250,7 @@ data = b'0\x82\x05R0\x82\x05N\xa0\x04\x02\x02\x00\x80\xa1\x82\x05D\x04\x82\x05@\
 pkt = AuthorizationData(data)
 
 assert isinstance(pkt.seq[0].adData.Payloads[0], NDRSerialization1Header)
-k = pkt.seq[0].adData.Payloads[0].value.data
+k = pkt.seq[0].adData.Payloads[0].value
 assert isinstance(k, KERB_VALIDATION_INFO)
 assert k.EffectiveName.Buffer.value.value[0].value == b'lzhu'
 assert k.LogonDomainName.Buffer.value.value[0].value == b"NTDEV"
@@ -154,7 +268,7 @@ assert len(pkt.seq[0].adData.Payloads[2].Signature) == 16
 assert isinstance(pkt.seq[0].adData.Payloads[3], PAC_SIGNATURE_DATA)
 assert  pkt.seq[0].adData.Payloads[3].Signature == b'\xf7\xa54\xda\xb2\xc0)\x86\xef\xe0\xfb\xe5\x11\nO2'
 
-= Build WIN2K-PAC (MS-PAC sect 3)
+= MSPAC - Build WIN2K-PAC (MS-PAC sect 3)
 
 pkt = PACTYPE(
     Buffers=[
@@ -165,509 +279,508 @@ pkt = PACTYPE(
     ],
     Payloads=[
         NDRSerialization1Header(
-            Version=1, Endianness=16, CommonHeaderLength=8, Filler=3435973836
+            Version=1,
+            Endianness=16,
+            CommonHeaderLength=8,
+            Filler=3435973836,
         )
         / NDRSerialization1PrivateHeader(ObjectBufferLength=1184, Filler=0)
         / NDRPointer(
-            ndr64=False,
             referent_id=131072,
-            value=KERB_VALIDATION_INFO_WRAP(
-                ndr64=False,
-                data=KERB_VALIDATION_INFO(
-                    LogonTime=FILETIME(
-                        dwLowDateTime=258377425, dwHighDateTime=29780581
-                    ),
-                    LogoffTime=FILETIME(
-                        dwLowDateTime=4294967295, dwHighDateTime=2147483647
-                    ),
-                    KickOffTime=FILETIME(
-                        dwLowDateTime=4294967295, dwHighDateTime=2147483647
-                    ),
-                    PasswordLastSet=FILETIME(
-                        dwLowDateTime=4265202711, dwHighDateTime=29772408
-                    ),
-                    PasswordCanChange=FILETIME(
-                        dwLowDateTime=681808919, dwHighDateTime=29772610
-                    ),
-                    PasswordMustChange=FILETIME(
-                        dwLowDateTime=2535740439, dwHighDateTime=29786490
-                    ),
-                    EffectiveName=RPC_UNICODE_STRING(
-                        Length=8,
-                        MaximumLength=8,
-                        Buffer=NDRPointer(
-                            referent_id=131076,
-                            value=NDRConformantArray(
-                                max_count=4,
-                                value=[
-                                    NDRVaryingArray(
-                                        offset=0, actual_count=4, value=b"lzhu"
-                                    )
-                                ],
-                            ),
-                        ),
-                    ),
-                    FullName=RPC_UNICODE_STRING(
-                        Length=36,
-                        MaximumLength=36,
-                        Buffer=NDRPointer(
-                            referent_id=131080,
-                            value=NDRConformantArray(
-                                max_count=18,
-                                value=[
-                                    NDRVaryingArray(
-                                        offset=0,
-                                        actual_count=18,
-                                        value=b"Liqiang(Larry) Zhu",
-                                    )
-                                ],
-                            ),
-                        ),
-                    ),
-                    LogonScript=RPC_UNICODE_STRING(
-                        Length=18,
-                        MaximumLength=18,
-                        Buffer=NDRPointer(
-                            referent_id=131084,
-                            value=NDRConformantArray(
-                                max_count=9,
-                                value=[
-                                    NDRVaryingArray(
-                                        offset=0, actual_count=9, value=b"ntds2.bat"
-                                    )
-                                ],
-                            ),
-                        ),
-                    ),
-                    ProfilePath=RPC_UNICODE_STRING(
-                        Length=0,
-                        MaximumLength=0,
-                        Buffer=NDRPointer(
-                            referent_id=131088,
-                            value=NDRConformantArray(
-                                max_count=0,
-                                value=[
-                                    NDRVaryingArray(offset=0, actual_count=0, value=b"")
-                                ],
-                            ),
-                        ),
-                    ),
-                    HomeDirectory=RPC_UNICODE_STRING(
-                        Length=0,
-                        MaximumLength=0,
-                        Buffer=NDRPointer(
-                            referent_id=131092,
-                            value=NDRConformantArray(
-                                max_count=0,
-                                value=[
-                                    NDRVaryingArray(offset=0, actual_count=0, value=b"")
-                                ],
-                            ),
-                        ),
-                    ),
-                    HomeDirectoryDrive=RPC_UNICODE_STRING(
-                        Length=0,
-                        MaximumLength=0,
-                        Buffer=NDRPointer(
-                            referent_id=131096,
-                            value=NDRConformantArray(
-                                max_count=0,
-                                value=[
-                                    NDRVaryingArray(offset=0, actual_count=0, value=b"")
-                                ],
-                            ),
-                        ),
-                    ),
-                    UserSessionKey=USER_SESSION_KEY(
-                        data=[
-                            CYPHER_BLOCK(data=b"\x00\x00\x00\x00\x00\x00\x00\x00"),
-                            CYPHER_BLOCK(data=b"\x00\x00\x00\x00\x00\x00\x00\x00"),
-                        ]
-                    ),
-                    LogonServer=RPC_UNICODE_STRING(
-                        Length=22,
-                        MaximumLength=24,
-                        Buffer=NDRPointer(
-                            referent_id=131104,
-                            value=NDRConformantArray(
-                                max_count=12,
-                                value=[
-                                    NDRVaryingArray(
-                                        offset=0, actual_count=11, value=b"NTDEV-DC-05"
-                                    )
-                                ],
-                            ),
-                        ),
-                    ),
-                    LogonDomainName=RPC_UNICODE_STRING(
-                        Length=10,
-                        MaximumLength=12,
-                        Buffer=NDRPointer(
-                            referent_id=131108,
-                            value=NDRConformantArray(
-                                max_count=6,
-                                value=[
-                                    NDRVaryingArray(
-                                        offset=0, actual_count=5, value=b"NTDEV"
-                                    )
-                                ],
-                            ),
-                        ),
-                    ),
-                    Reserved1=[0, 0],
-                    Reserved3=[0, 0, 0, 0, 0, 0, 0],
-                    LogonCount=4180,
-                    BadPasswordCount=0,
-                    UserId=2914711,
-                    PrimaryGroupId=513,
-                    GroupCount=26,
-                    GroupIds=NDRPointer(
-                        referent_id=131100,
+            value=KERB_VALIDATION_INFO(
+                LogonTime=FILETIME(dwLowDateTime=258377425, dwHighDateTime=29780581),
+                LogoffTime=FILETIME(
+                    dwLowDateTime=4294967295, dwHighDateTime=2147483647
+                ),
+                KickOffTime=FILETIME(
+                    dwLowDateTime=4294967295, dwHighDateTime=2147483647
+                ),
+                PasswordLastSet=FILETIME(
+                    dwLowDateTime=4265202711, dwHighDateTime=29772408
+                ),
+                PasswordCanChange=FILETIME(
+                    dwLowDateTime=681808919, dwHighDateTime=29772610
+                ),
+                PasswordMustChange=FILETIME(
+                    dwLowDateTime=2535740439, dwHighDateTime=29786490
+                ),
+                EffectiveName=RPC_UNICODE_STRING(
+                    Length=8,
+                    MaximumLength=8,
+                    Buffer=NDRPointer(
+                        referent_id=131076,
                         value=NDRConformantArray(
-                            max_count=26,
-                            value=[
-                                PGROUP_MEMBERSHIP(RelativeId=3392609, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=2999049, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3322974, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=513, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=2931095, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3338539, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3354830, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3026599, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3338538, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=2931096, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3392610, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3342740, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3392630, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3014318, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=2937394, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3278870, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3038018, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3322975, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3513546, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=2966661, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3338434, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3271401, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3051245, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3271606, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3026603, Attributes=7),
-                                PGROUP_MEMBERSHIP(RelativeId=3018354, Attributes=7),
-                            ],
-                        ),
-                    ),
-                    UserFlags=32,
-                    LogonDomainId=NDRPointer(
-                        referent_id=131112,
-                        value=PSID(
                             max_count=4,
-                            Revision=1,
-                            SubAuthorityCount=4,
-                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                Value=b"\x00\x00\x00\x00\x00\x05"
-                            ),
-                            SubAuthority=[21, 397955417, 626881126, 188441444],
-                        ),
-                    ),
-                    UserAccountControl=16,
-                    SidCount=13,
-                    ExtraSids=NDRPointer(
-                        referent_id=131116,
-                        value=NDRConformantArray(
-                            max_count=13,
                             value=[
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131120,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                773533881,
-                                                1816936887,
-                                                355810188,
-                                                513,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=7,
-                                ),
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131124,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                397955417,
-                                                626881126,
-                                                188441444,
-                                                3101812,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=536870919,
-                                ),
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131128,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                397955417,
-                                                626881126,
-                                                188441444,
-                                                3291368,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=536870919,
-                                ),
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131132,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                397955417,
-                                                626881126,
-                                                188441444,
-                                                3291341,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=536870919,
-                                ),
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131136,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                397955417,
-                                                626881126,
-                                                188441444,
-                                                3322973,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=536870919,
-                                ),
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131140,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                397955417,
-                                                626881126,
-                                                188441444,
-                                                3479105,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=536870919,
-                                ),
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131144,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                397955417,
-                                                626881126,
-                                                188441444,
-                                                3271400,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=536870919,
-                                ),
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131148,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                397955417,
-                                                626881126,
-                                                188441444,
-                                                3283393,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=536870919,
-                                ),
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131152,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                397955417,
-                                                626881126,
-                                                188441444,
-                                                3338537,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=536870919,
-                                ),
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131156,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                397955417,
-                                                626881126,
-                                                188441444,
-                                                3038991,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=536870919,
-                                ),
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131160,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                397955417,
-                                                626881126,
-                                                188441444,
-                                                3037999,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=536870919,
-                                ),
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131164,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                397955417,
-                                                626881126,
-                                                188441444,
-                                                3248111,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=536870919,
-                                ),
-                                PKERB_SID_AND_ATTRIBUTES(
-                                    Sid=NDRPointer(
-                                        referent_id=131168,
-                                        value=PSID(
-                                            max_count=5,
-                                            Revision=1,
-                                            SubAuthorityCount=5,
-                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
-                                                Value=b"\x00\x00\x00\x00\x00\x05"
-                                            ),
-                                            SubAuthority=[
-                                                21,
-                                                397955417,
-                                                626881126,
-                                                188441444,
-                                                3038983,
-                                            ],
-                                        ),
-                                    ),
-                                    Attributes=536870919,
-                                ),
+                                NDRVaryingArray(offset=0, actual_count=4, value=b"lzhu")
                             ],
                         ),
                     ),
-                    ResourceGroupDomainSid=None,
-                    ResourceGroupCount=0,
-                    ResourceGroupIds=None,
-                )
-            )
-            / Padding(load=b"\x00\x00\x00\x00"),
-        ),
-        PAC_CLIENT_INFO(
-            ClientId=127906621700000000, NameLength=8, Name=b"lzhu"
-        ),
+                ),
+                FullName=RPC_UNICODE_STRING(
+                    Length=36,
+                    MaximumLength=36,
+                    Buffer=NDRPointer(
+                        referent_id=131080,
+                        value=NDRConformantArray(
+                            max_count=18,
+                            value=[
+                                NDRVaryingArray(
+                                    offset=0,
+                                    actual_count=18,
+                                    value=b"Liqiang(Larry) Zhu",
+                                )
+                            ],
+                        ),
+                    ),
+                ),
+                LogonScript=RPC_UNICODE_STRING(
+                    Length=18,
+                    MaximumLength=18,
+                    Buffer=NDRPointer(
+                        referent_id=131084,
+                        value=NDRConformantArray(
+                            max_count=9,
+                            value=[
+                                NDRVaryingArray(
+                                    offset=0,
+                                    actual_count=9,
+                                    value=b"ntds2.bat",
+                                )
+                            ],
+                        ),
+                    ),
+                ),
+                ProfilePath=RPC_UNICODE_STRING(
+                    Length=0,
+                    MaximumLength=0,
+                    Buffer=NDRPointer(
+                        referent_id=131088,
+                        value=NDRConformantArray(
+                            max_count=0,
+                            value=[
+                                NDRVaryingArray(offset=0, actual_count=0, value=b"")
+                            ],
+                        ),
+                    ),
+                ),
+                HomeDirectory=RPC_UNICODE_STRING(
+                    Length=0,
+                    MaximumLength=0,
+                    Buffer=NDRPointer(
+                        referent_id=131092,
+                        value=NDRConformantArray(
+                            max_count=0,
+                            value=[
+                                NDRVaryingArray(offset=0, actual_count=0, value=b"")
+                            ],
+                        ),
+                    ),
+                ),
+                HomeDirectoryDrive=RPC_UNICODE_STRING(
+                    Length=0,
+                    MaximumLength=0,
+                    Buffer=NDRPointer(
+                        referent_id=131096,
+                        value=NDRConformantArray(
+                            max_count=0,
+                            value=[
+                                NDRVaryingArray(offset=0, actual_count=0, value=b"")
+                            ],
+                        ),
+                    ),
+                ),
+                UserSessionKey=USER_SESSION_KEY(
+                    data=[
+                        CYPHER_BLOCK(data=b"\x00\x00\x00\x00\x00\x00\x00\x00"),
+                        CYPHER_BLOCK(data=b"\x00\x00\x00\x00\x00\x00\x00\x00"),
+                    ]
+                ),
+                LogonServer=RPC_UNICODE_STRING(
+                    Length=22,
+                    MaximumLength=24,
+                    Buffer=NDRPointer(
+                        referent_id=131104,
+                        value=NDRConformantArray(
+                            max_count=12,
+                            value=[
+                                NDRVaryingArray(
+                                    offset=0,
+                                    actual_count=11,
+                                    value=b"NTDEV-DC-05",
+                                )
+                            ],
+                        ),
+                    ),
+                ),
+                LogonDomainName=RPC_UNICODE_STRING(
+                    Length=10,
+                    MaximumLength=12,
+                    Buffer=NDRPointer(
+                        referent_id=131108,
+                        value=NDRConformantArray(
+                            max_count=6,
+                            value=[
+                                NDRVaryingArray(
+                                    offset=0, actual_count=5, value=b"NTDEV"
+                                )
+                            ],
+                        ),
+                    ),
+                ),
+                Reserved1=[0, 0],
+                Reserved3=[0, 0, 0, 0, 0, 0, 0],
+                LogonCount=4180,
+                BadPasswordCount=0,
+                UserId=2914711,
+                PrimaryGroupId=513,
+                GroupCount=26,
+                GroupIds=NDRPointer(
+                    referent_id=131100,
+                    value=NDRConformantArray(
+                        max_count=26,
+                        value=[
+                            GROUP_MEMBERSHIP(RelativeId=3392609, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=2999049, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3322974, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=513, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=2931095, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3338539, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3354830, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3026599, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3338538, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=2931096, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3392610, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3342740, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3392630, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3014318, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=2937394, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3278870, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3038018, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3322975, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3513546, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=2966661, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3338434, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3271401, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3051245, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3271606, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3026603, Attributes=7),
+                            GROUP_MEMBERSHIP(RelativeId=3018354, Attributes=7),
+                        ],
+                    ),
+                ),
+                UserFlags=32,
+                LogonDomainId=NDRPointer(
+                    referent_id=131112,
+                    value=SID(
+                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                            Value=b"\x00\x00\x00\x00\x00\x05"
+                        ),
+                        SubAuthority=[21, 397955417, 626881126, 188441444],
+                        max_count=4,
+                        Revision=1,
+                        SubAuthorityCount=4,
+                    ),
+                ),
+                UserAccountControl=16,
+                SidCount=13,
+                ExtraSids=NDRPointer(
+                    referent_id=131116,
+                    value=NDRConformantArray(
+                        max_count=13,
+                        value=[
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131120,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            773533881,
+                                            1816936887,
+                                            355810188,
+                                            513,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=7,
+                            ),
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131124,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            397955417,
+                                            626881126,
+                                            188441444,
+                                            3101812,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=536870919,
+                            ),
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131128,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            397955417,
+                                            626881126,
+                                            188441444,
+                                            3291368,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=536870919,
+                            ),
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131132,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            397955417,
+                                            626881126,
+                                            188441444,
+                                            3291341,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=536870919,
+                            ),
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131136,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            397955417,
+                                            626881126,
+                                            188441444,
+                                            3322973,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=536870919,
+                            ),
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131140,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            397955417,
+                                            626881126,
+                                            188441444,
+                                            3479105,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=536870919,
+                            ),
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131144,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            397955417,
+                                            626881126,
+                                            188441444,
+                                            3271400,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=536870919,
+                            ),
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131148,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            397955417,
+                                            626881126,
+                                            188441444,
+                                            3283393,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=536870919,
+                            ),
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131152,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            397955417,
+                                            626881126,
+                                            188441444,
+                                            3338537,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=536870919,
+                            ),
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131156,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            397955417,
+                                            626881126,
+                                            188441444,
+                                            3038991,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=536870919,
+                            ),
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131160,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            397955417,
+                                            626881126,
+                                            188441444,
+                                            3037999,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=536870919,
+                            ),
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131164,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            397955417,
+                                            626881126,
+                                            188441444,
+                                            3248111,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=536870919,
+                            ),
+                            KERB_SID_AND_ATTRIBUTES(
+                                Sid=NDRPointer(
+                                    referent_id=131168,
+                                    value=SID(
+                                        IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                            Value=b"\x00\x00\x00\x00\x00\x05"
+                                        ),
+                                        SubAuthority=[
+                                            21,
+                                            397955417,
+                                            626881126,
+                                            188441444,
+                                            3038983,
+                                        ],
+                                        max_count=5,
+                                        Revision=1,
+                                        SubAuthorityCount=5,
+                                    ),
+                                ),
+                                Attributes=536870919,
+                            ),
+                        ],
+                    ),
+                ),
+                ResourceGroupDomainSid=None,
+                ResourceGroupCount=0,
+                ResourceGroupIds=None,
+            ),
+        )
+        / Padding(),
+        PAC_CLIENT_INFO(ClientId=127906621700000000, NameLength=8, Name="lzhu"),
         PAC_SIGNATURE_DATA(
             SignatureType=4294967158,
             Signature=b"A\xed\xce\x9a4\x81]:\xef{\xc9\x88t\x80]%",
+            RODCIdentifier=b"",
         ),
         PAC_SIGNATURE_DATA(
             SignatureType=4294967158,
             Signature=b"\xf7\xa54\xda\xb2\xc0)\x86\xef\xe0\xfb\xe5\x11\nO2",
+            RODCIdentifier=b"",
         ),
     ],
     cBuffers=4,
@@ -676,12 +789,175 @@ pkt = PACTYPE(
 
 assert raw(pkt) == data[22:]
 
+= MSPAC - Dissect and rebuild UPN_DNS_INFO
+
+from scapy.layers.msrpce.mspac import UPN_DNS_INFO
+
+data = b'4\x00\x18\x00\x18\x00P\x00\x03\x00\x00\x00\x1a\x00h\x00\x1c\x00\x88\x00\x00\x00\x00\x00A\x00d\x00m\x00i\x00n\x00i\x00s\x00t\x00r\x00a\x00t\x00o\x00r\x00@\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\x00\x00\x00\x00D\x00O\x00M\x00A\x00I\x00N\x00.\x00L\x00O\x00C\x00A\x00L\x00A\x00d\x00m\x00i\x00n\x00i\x00s\x00t\x00r\x00a\x00t\x00o\x00r\x00\x00\x00\x00\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00\xfe\x00\xb0r\x02\n\xa6\xdd\xa9\xa4e\x02\xf4\x01\x00\x00\x00\x00\x00\x00'
+
+# This is extended
+pkt = UPN_DNS_INFO(data)
+
+assert pkt.Upn == 'Administrator@domain.local'
+assert pkt.DnsDomainName == 'DOMAIN.LOCAL'
+assert pkt.SamName == 'Administrator'
+assert pkt.Sid.summary() == 'S-1-5-21-1924137214-3718646274-40215721-500'
+assert isinstance(pkt.payload, Raw) and pkt.load == b"\x00\x00\x00\x00"
+
+# Re-build
+pkt.clear_cache()
+assert bytes(pkt) == data
+
+
++ Build a CLAIMS_SET to test size_of
+
+= MSPAC - Construct a CLAIMS_SET object
+
+% the goal of this test is to see if:
+% - all intermediate types are properly inferred
+% - sizes are properly computed
+
+from scapy.layers.msrpce.mspac import *
+
+claimSet = CLAIMS_SET(
+    ClaimsArrays=[
+        CLAIMS_ARRAY(
+            usClaimsSourceType=1,
+            ClaimEntries=[
+                CLAIM_ENTRY(
+                    Id="ad://ext/AuthenticationSilo",
+                    Type=3,
+                    Values=NDRUnion(
+                        tag=3,
+                        value=CLAIM_ENTRY_sub2(
+                            StringValues=["T0-silo"],
+                        ),
+                    ),
+                )
+            ],
+        )
+    ],
+    usReservedType=0,
+    ulReservedFieldSize=0,
+    ReservedField=None,
+)
+
+= MSPAC - Check that Pointers, Arrays, etc. were inferred
+
+assert isinstance(claimSet.ClaimsArrays, NDRPointer)
+assert isinstance(claimSet.ClaimsArrays.value, NDRConformantArray)
+assert isinstance(claimSet.ClaimsArrays.value.value[0].ClaimEntries, NDRPointer)
+assert isinstance(claimSet.ClaimsArrays.value.value[0].ClaimEntries.value, NDRConformantArray)
+assert isinstance(claimSet.valueof("ClaimsArrays")[0].valueof("ClaimEntries")[0].Values, NDRUnion)
+assert isinstance(claimSet.valueof("ClaimsArrays")[0].valueof("ClaimEntries")[0].Values.value.StringValues, NDRPointer)
+assert isinstance(claimSet.valueof("ClaimsArrays")[0].valueof("ClaimEntries")[0].Values.value.StringValues.value, NDRConformantArray)
+assert isinstance(claimSet.valueof("ClaimsArrays")[0].valueof("ClaimEntries")[0].Values.value.StringValues.value.value[0], NDRPointer)
+assert isinstance(claimSet.valueof("ClaimsArrays")[0].valueof("ClaimEntries")[0].Values.value.StringValues.value.value[0].value, NDRConformantArray)
+assert isinstance(claimSet.valueof("ClaimsArrays")[0].valueof("ClaimEntries")[0].Values.value.StringValues.value.value[0].value.value[0], NDRVaryingArray)
+assert claimSet.valueof("ClaimsArrays")[0].valueof("ClaimEntries")[0].valueof("Values").valueof("StringValues")[0] == b'T0-silo'
+
+= MSPAC - Build the packet
+
+assert bytes(claimSet) == b'\x01\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x02\x00\x01\x00\x00\x00\x00\x00\x02\x00\x03\x00\x03\x00\x01\x00\x00\x00\x00\x00\x02\x00\x1c\x00\x00\x00\x00\x00\x00\x00\x1c\x00\x00\x00a\x00d\x00:\x00/\x00/\x00e\x00x\x00t\x00/\x00A\x00u\x00t\x00h\x00e\x00n\x00t\x00i\x00c\x00a\x00t\x00i\x00o\x00n\x00S\x00i\x00l\x00o\x00\x00\x00\x01\x00\x00\x00\x00\x00\x02\x00\x08\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00T\x000\x00-\x00s\x00i\x00l\x00o\x00\x00\x00'
+
+= MSPAC - Dissect the packet
+
+claimSet = CLAIMS_SET(bytes(claimSet), ndr64=False)
+
+assert claimSet.ClaimsArrays.value.value[0].ClaimEntries.value.value[0].Id.value.value[0].value == b'ad://ext/AuthenticationSilo'
+assert claimSet.ClaimsArrays.value.value[0].ClaimEntries.value.value[0].Type == 3
+assert claimSet.ClaimsArrays.value.value[0].ClaimEntries.value.value[0].Values.value.ValueCount == 1
+assert claimSet.valueof("ClaimsArrays")[0].valueof("ClaimEntries")[0].valueof("Values").valueof("StringValues")[0] == b'T0-silo'
+
+
++ Ticketer++ tests
+~ mock
+
+% Same test ccache as kerberos.rst
+
+= Ticketer++ - Load ticketer module
+
+from scapy.modules.ticketer import *
+
+= Ticketer++ - Write ccache to disk
+
+from scapy.utils import get_temp_file
+
+CCACHE_DATA = bytes.fromhex("0504000c00010008ffffffff0000000000000001000000010000000c444f4d41494e2e4c4f43414c0000000d41646d696e6973747261746f7200000001000000010000000c444f4d41494e2e4c4f43414c0000000d41646d696e6973747261746f7200000002000000020000000c444f4d41494e2e4c4f43414c000000066b72627467740000000c444f4d41494e2e4c4f43414c0012000000208b4226a190866cbe345ae5e668823edd5359cb00bd479a6428bc8feb1ba55752633332fa633332fa6333bf9a633484770050e100000000000000000000000004486182044430820440a003020105a10e1b0c444f4d41494e2e4c4f43414ca221301fa003020102a11830161b066b72627467741b0c444f4d41494e2e4c4f43414ca382040430820400a003020112a103020102a28203f2048203ee662c2aefcca3f8c78de38e1af1d63b18de011d864d9bec12f3c11e20b0bbdc46e6f5c8311b331b1cc27b23193e90fa47ba7aa6a67fba5826a1f4754ea5050eeab2e07d07a3ec1029b2a11e058ce31e48f4de2bce017e9c2915ee40ffa0f7109597088286fa290fe6ca777465162c5757a67cc53a8e3204846a4ca9cff30c8073d1e9e735b5eb22717f9777c2f38fb13d204952db15e4f160e26535f596f3ce64f9a8d96011718d0405650d7f7c728f87dd2d0e220e4610347faa8a45099b63a351f5adcfccf669d9b6112e31881af869561294a21eb6e2b164b8ce6c6c7b0327ec6c71c23784b06c19030a3f81119f377cb6f0395b5477bffbc5c1a2264ec4af76f4b39a4e2f7030d48c8ebbcaf212036ea0a5abdd5da91fcdc3fb9700d5379f03fbc9fe3a47078dae30b05a418f46ee9ea25f520eb7e67b53d96f7f486e5878b22ea8f4215137a7dcf7f4b6f50463715d9d3c544f294420ed0f7426955fa0a527efce86264f7c29bdfc2cee2c3eb227eb4b7651eb8008e0eb269446a45488296b0427f82b959ad070146cd8a9aed9ef236815bd2149f3f86d73227584f294dc86cf4a77e4eeabf98f4f342dbfc4beb46d834b0c3103d8c5964cad4852eed365ca8e50937e21976122d5cde18c5ab6dd5528c3a680c0a219711766dd5b6a3c103ae65ad5f573a31543a0ebcefde1749062951030f63907cde092010c22c90763248c9f6cd03a6f0a7cb9a7b7441bc7de4c40c1d749373afee597a52c9dbe7533d7ba24a3a26df29474b93643eed97f6b8ffd13976869844841bdd364f2454d6e3ce1ae677ec01c592c25b50e120303240ddaac82dfa9d63b1c42c239b78a6c4ebba2b6458b924931c52b223b9c9cfd6cf0f083e6239e30747f1302de8bde94fe8756b5e0118f5ed61dccc3862ddbc93f103c3160ac15858cbe330420d6e07e2c9f242c2caf8f04d83f3cd71f404c1d56814c9e2aa787763abc295334299487f454e4b4eb5f0e7c3cf5e377374acf827c9fe255e1c7cdb13129ef07c731164ee4eed503f735829a8b7cc2e3718db23d85838fbf7a43861a1c8f890e4c33437b65749946b46f6cff1767158f5684b035f2ea086f7b564f6a57050714b4cad5165b72be6f7a6820b2e9f8936506147e64a77a2f9cf9c13fe4fd59b83191898101068a003e6f7f918006616204ff4b18a9bf495497ba0df0dfcbb89a5e643c60637667357fcf1d97b424240ea75fcf0d26bb159055107f80d1bc682c9057f22a3ef5fb0f50adb30ba975b25069d393bf7eb2522f230912ac1e64bba93c91aa760abb1209bb1313e38dddebcac325d27bef99d66045c09799b71020a44f64bbb59c405449304fd95b8d6bdc6d17e476cba188f30ad04bb6c91d91b028b0953986929a9fb42b21f73028c8ba1f416c70630000000000000001000000010000000c444f4d41494e2e4c4f43414c0000000d41646d696e6973747261746f7200000000000000030000000c582d4341434845434f4e463a000000156b7262355f6363616368655f636f6e665f646174610000000770615f74797065000000206b72627467742f444f4d41494e2e4c4f43414c40444f4d41494e2e4c4f43414c0000000000000000000000000000000000000000000000000000000000000000000000000000013200000000")
+KRBTGT = bytes.fromhex("6df5a9a90cb076f4d232a123d9c24f46ae11590a5430710bc1881dca337989ce")
+
+TICKETER_TEMPFILE = get_temp_file()
+
+with open(TICKETER_TEMPFILE, "wb") as fd:
+    fd.write(CCACHE_DATA)
+
+= Ticketer++ - Create and load Ticketer object
+
+t = Ticketer()
+t.open_file(TICKETER_TEMPFILE)
+
+= Ticketer++ - Get ticket 0, change it, resign it and set it back
+
+# mock the random to get consistency
+import mock
+
+def fake_random(x):
+    # wow, impressive entropy
+    return b"0" * x
+
+with mock.patch('scapy.libs.rfc3961.os.urandom', side_effect=fake_random):
+    tkt = t.dec_ticket(0, hash=KRBTGT)
+    assert tkt.renewTill.val == '20220928172927Z'
+    tkt.renewTill.val = '20220930172927Z'
+    t.update_ticket(0, tkt, resign=True, hash=KRBTGT, kdc_hash=KRBTGT)
+
+= Ticketer++ - Call show()
+
+with ContextManagerCaptureOutput() as cmco:
+    t.show(utc=True)
+    outp = cmco.get_output().strip()
+
+print(outp)
+
+assert outp == """
+Tickets:
+0. Administrator@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
+   canonicalize+pre-authent+initial+renewable+proxiable+forwardable
+Start time         End time           Renew until        Auth time        
+27/09/22 17:29:30  28/09/22 03:29:30  30/09/22 17:29:27  27/09/22 17:29:30
+""".strip()
+
+= Ticketer++ - Save to disk
+
+t.save()
+
+= Ticketer++ - Read and check written ccache
+
+EXPECTED_CCACHE_DATA = bytes.fromhex("0504000c00010008ffffffff0000000000000001000000010000000c444f4d41494e2e4c4f43414c0000000d41646d696e6973747261746f7200000001000000010000000c444f4d41494e2e4c4f43414c0000000d41646d696e6973747261746f7200000002000000020000000c444f4d41494e2e4c4f43414c000000066b72627467740000000c444f4d41494e2e4c4f43414c0012000000208b4226a190866cbe345ae5e668823edd5359cb00bd479a6428bc8feb1ba55752633332fa633332fa6333bf9a633727770050e100000000000000000000000004486182044430820440a003020105a10e1b0c444f4d41494e2e4c4f43414ca221301fa003020102a11830161b066b72627467741b0c444f4d41494e2e4c4f43414ca382040430820400a003020112a103020102a28203f2048203eed3d1adb3a09042173463eb0ef195beb666adbaa83193905697db7340daa9fc6cd3450280651effddc129b3761d49569f3c384e450db9ef094b4619d2036126a0b1b44c983e46664ee28cdb8fc33b52d14d2a8357f6c37b31bec5074ee6ee5ab74a896460c767411d0532c6cb69e0da698054ef8f8bf87fb9e8d2d289ec1b22d1ec602ce71c80b98a14aff448374054d4987c0bd13127914a0191d93c3440b5209c4f2190c80d21e064e6f71ab269ab9c0dbf6533e8e29068a3c686b6377d3c79c902818f12a400eabd8f8bb35bce837e9cb0a4413db223bf22e13bee81eb6a4170ae863fd7082db8dac81b70f96c7880c6d5f8350209aa090b75f6343635ba01e9fafdc7700ee84bd9ae0497517ce69b89e44b3933ea3b1a6c36bd38699eba195bb22f0e694b9e952fc187cf7ee5e02b05ec2397e76c217da3c328eeccf5d4ffbe77a765127fc2828e5c8edc1987cb7fbfcfecbb308f4858f711c52ada9c3622dd43d47c29b30630ecf51b9e88cefcf06cb7862922c36a81ae09ec9f62f406f6d4a269cec849a2fe872a16026dce242c775870d827450700c9defdd204342ea1e7d72c5b1c8d92b0318f298898b19a2c705722837c2ff569fc796d55b779950be0db9955d57d349c7d7688b81b9219e376098a2902e23cd01d7bf7734089ab08bc30a7fd2d138aea4454084e3e14d76119e2ef4da6fff3b5758c58efe2904491f6dd57a7eb777aa847783b6ef905c8c796889e6d7e89952a2cef7f99d09405a07b6897291d13eb3a0c4280601b4f4d5cbd00a0125fb87eeb522cd90a8b046163c076a61115e1affe3e362700d984747f1372c92beeb3e1ce4b97ceac032ac8988c536a9594f9032463750f78ca30161e4910d8ff3810d7d4da60d90fded2fcda92a4d6a7b776ba82370130807a30ab0b648f50537453de6c575cc6c98847ae1aa342c3b324005c3988e6cfb161b5b39153cdbd7a305c4cc0949e47197673cd72c29f41f383a7c2b241bd0e70d736f6e342b88128cc38f964588aa32b860dd788a43fb91d4d934401434d6d9e6c622e58a9d99e02331ca642cd9c435305ddbf949751b8c2617489a4cefe376920b7803d493e61d4fdc41f2f6fe50bf5919ede1295eaab25db71aa6e98bbc80a32d7acc24f9cc9b651cb72d22b17031a1d03fd9166c5f488924689aa4859094b42b72c4bf467a1fdb826289bde90035aff2322c68a34b350b0b3b2818c656701b359cbfdb7eb5665439a4deb2cc95bacc358a693f2d0e31975653665fdc468d627c6eee589bbc46bd019a70e394c90529abe646105623c43956c86bf366e4be1f3560b2e4ca01f1e25432618573a9f257890a435e899724eebd9fd271abefeae2f0a55f3abb4619b9ded206bf70ac3b77622d114309e49bb42d01e8c8678765ab4b80000000000000001000000010000000c444f4d41494e2e4c4f43414c0000000d41646d696e6973747261746f7200000000000000030000000c582d4341434845434f4e463a000000156b7262355f6363616368655f636f6e665f646174610000000770615f74797065000000206b72627467742f444f4d41494e2e4c4f43414c40444f4d41494e2e4c4f43414c0000000000000000000000000000000000000000000000000000000000000000000000000000013200000000")
+
+with open(TICKETER_TEMPFILE, "rb") as fd:
+    RESULT = fd.read()
+
+print(RESULT.hex())
+
+assert RESULT == EXPECTED_CCACHE_DATA
+
+= Ticketer++ - Import ticket
+
+TKT = KRB_Ticket(bytes.fromhex("618204b3308204afa003020105a10e1b0c444f4d41494e2e4c4f43414ca221301fa003020102a11830161b066b72627467741b0c444f4d41494e2e4c4f43414ca38204733082046fa003020112a103020103a28204610482045dbd10c11e1def682dc3607c98db0806acf2809a1f8c73fda44f86c14bd039c4c95a41ed400ac4e558970c51316ffdf34bd695a636bcb1e5074419d083e918085ec56ff77af9f6a410faff3b9859a635184486c83521b5390ec724185057e3e62843a92d9ba500dd24d9ebeff0654fe459cf35d9607b11f7c35bf6ba4dd378fd5c99554650296abcc374c3ff2fcf807038848f351e9134f69726b5e92aec99e4aa99613c35609b0094b533811513e9ba48b9113f0f2b4dbcf9e05a6668c998c09f65ae48c8ea1b7fbc62b5cbbec7decc0a4832df93aec08c138a63621f8c584a8530a380b54b37fdb8dda6924e4260710cf8b66c71479dcb6916790c5c582b9953cab7085178e280d182a74f93fcd3bc83a0dc26284551a4d230a50a8b341de132fdf0f97bb7abdec48021e04c3deda89897c684d5603636bd66842ed4b2586f8e09fbb5e0228bcce3e5ffc82e5674f16a65a4f1b7b17b3854a5465734a5fec573c54526f27b9ea8a64646f01268b040d09f2acda82a37fb195cb24f8c1092919574999fd61d859aed2af5a9457a20a72e6188c0d813cb12713779f84f7bed298e2cd793b06e639d859b4fb3a5f746e2023bcf0627a8a87425899aa3a9b63f558965eccabc35330562b055426e2fc6808c456ee8f047d09a7021b6a4f2547cde6552224b294750efd492ea0745035f76a394d5b6e26442e5542b4d557722ee21b70c05567241ed97dffb31502d950c50462f478fccd8454ec38424688e87c4428c3763b369f1b51509ef36548dcf7a5c842475aa65bec10d6f86cecd90e4694f36d68052b55a2715c00e269c215071311482118ed0168fabb3053ad59dcdf42a42502685cdfcc679d2272dd12ab658ff8588b34cb48b3aef4a1961694ab2b31a812a683015ed343a8c21498997b0ded3767f73e069c9633845b582d6f1a987d6b09d31b330a3cbf2c430fb6f5d6fa27f83d9624b7bb8cebc248933b68dbe1b6b2822b96621159d9249ded893cbedcf1fc5ee77cb69695852170b24ea2f36aa898a24212b2edf84459a4381bd243797b9a3281d7e1b280f6add79dbb1cc5d887178d0813549a168a38be441bb387764098c4e7bed81f7973ee19e733767a4dd05212a18b12c838c674c18b0d6304a28be3de7928ffdd1449d297884c6a6a574b13a0d289425c1ebf37c5af56d04753fcc0c02fdcc98427fb9aa33510905ba2b6746a8b59742e4243f6fba814585b122794a54aecba3ea956a0c85fded2582cb4809ee7be471253f0256503636e81f35df38b177c3c071677e1dd9efa6b10c6a122ab0522f2b10e8b625355f5c1e7996c7055237182691ede31a5e602966f90c2a66bdf997872dbdc97155d723bc1fb187bd0f42cbcdedbe2c5717d13e27e2134ac6cd9d3a53cd215344a8278065da4eea7544860eda5fdb41f849ff7c1db775f7a0a62d2875b43b55bc091e8056666507dfcaded40a83211db7a5856d4c9b5e2ef862830cef8a4c36ce034e9a9e11f558f008cdbe4152081c30dae53b6de44e1703236490cfc87be9e96fa0679f87255069994a262d61d57be0382fe9e570"))
+
+t = Ticketer()
+t.import_krb(TKT, hash=bytes.fromhex("dd4e16dbcfe19d82cb6fc9b593bb7449c1d8a46687dc20c295ed0e51cc4c3d0d"))
+
+tkt, _, upn, spn = t.export_krb(0)
+hexdiff(tkt, TKT)
+assert bytes(tkt) == bytes(TKT)
+assert upn == 'DC1$@DOMAIN.LOCAL'
+assert spn == 'krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL'
+
 + Crypto tests
-~ disabled
 
-# disabled because pycryptodome but they work !
-
-= Test vectors for KRB-FX-CF2
+= RFC3691 - Test vectors for KRB-FX-CF2
 
 # https://datatracker.ietf.org/doc/html/rfc6113.html#appendix-A
 
@@ -690,60 +966,60 @@ from scapy.libs.rfc3961 import Key, EncryptionType, KRB_FX_CF2
 def test_krb_fx_cf2(etype):
     k1 = Key.string_to_key(etype, b"key1", b"key1")
     k2 = Key.string_to_key(etype, b"key2", b"key2")
-    return bytes_hex(KRB_FX_CF2(k1, k2, b"a", b"b").key)
+    return KRB_FX_CF2(k1, k2, b"a", b"b").key.hex()
 
-assert test_krb_fx_cf2(EncryptionType.AES128) == b"97df97e4b798b29eb31ed7280287a92a"
-assert test_krb_fx_cf2(EncryptionType.AES256) == b"4d6ca4e629785c1f01baf55e2e548566b9617ae3a96868c337cb93b5e72b1c7b"
-assert test_krb_fx_cf2(EncryptionType.RC4) == b'24d7f6b6bae4e5c00d2082c5ebab3672'
+assert test_krb_fx_cf2(EncryptionType.AES128_CTS_HMAC_SHA1_96) == "97df97e4b798b29eb31ed7280287a92a"
+assert test_krb_fx_cf2(EncryptionType.AES256_CTS_HMAC_SHA1_96) == "4d6ca4e629785c1f01baf55e2e548566b9617ae3a96868c337cb93b5e72b1c7b"
+assert test_krb_fx_cf2(EncryptionType.RC4_HMAC) == '24d7f6b6bae4e5c00d2082c5ebab3672'
 
-= Test vectors for _n_fold
+= RFC3691 - Test vectors for _n_fold
 
 from scapy.libs.rfc3961 import _n_fold
 
 # https://datatracker.ietf.org/doc/html/rfc3961.html#appendix-A.1
 
-assert bytes_hex(_n_fold(b"012345", 8)) == b"be072631276b1955"
-assert bytes_hex(_n_fold(b"password", 7)) == b"78a07b6caf85fa"
-assert bytes_hex(_n_fold(b"Rough Consensus, and Running Code", 8)) == b"bb6ed30870b7f0e0"
-assert bytes_hex(_n_fold(b"password", 21)) == b"59e4a8ca7c0385c3c37b3f6d2000247cb6e6bd5b3e"
-assert bytes_hex(_n_fold(b"MASSACHVSETTS INSTITVTE OF TECHNOLOGY", 24)) == b"db3b0d8f0b061e603282b308a50841229ad798fab9540c1b"
-assert bytes_hex(_n_fold(b"Q", 21)) == b"518a54a215a8452a518a54a215a8452a518a54a215"
-assert bytes_hex(_n_fold(b"ba", 21)) ==b"fb25d531ae8974499f52fd92ea9857c4ba24cf297e"
+assert _n_fold(b"012345", 8).hex() == "be072631276b1955"
+assert _n_fold(b"password", 7).hex() == "78a07b6caf85fa"
+assert _n_fold(b"Rough Consensus, and Running Code", 8).hex() == "bb6ed30870b7f0e0"
+assert _n_fold(b"password", 21).hex() == "59e4a8ca7c0385c3c37b3f6d2000247cb6e6bd5b3e"
+assert _n_fold(b"MASSACHVSETTS INSTITVTE OF TECHNOLOGY", 24).hex() == "db3b0d8f0b061e603282b308a50841229ad798fab9540c1b"
+assert _n_fold(b"Q", 21).hex() == "518a54a215a8452a518a54a215a8452a518a54a215"
+assert _n_fold(b"ba", 21).hex() == "fb25d531ae8974499f52fd92ea9857c4ba24cf297e"
 
 
-= Test vectors for mit_des_string_to_key
+= RFC3691 - Test vectors for mit_des_string_to_key
 
 # https://datatracker.ietf.org/doc/html/rfc3961.html#appendix-A.2
 
 from scapy.libs.rfc3961 import Key, EncryptionType
 
 def _mit_des_string_to_key(text, salt):
-    k = Key.string_to_key(EncryptionType.DES_MD5, text, salt)
-    return bytes_hex(k.key)
+    k = Key.string_to_key(EncryptionType.DES_CBC_MD5, text, salt)
+    return k.key.hex()
 
-assert _mit_des_string_to_key(b"password", b"ATHENA.MIT.EDUraeburn") == b"cbc22fae235298e3"
-assert _mit_des_string_to_key(b"potatoe", b"WHITEHOUSE.GOVdanny") == b"df3d32a74fd92a01"
-assert _mit_des_string_to_key((u"\U0001d11e").encode(), b"EXAMPLE.COMpianist") == b"4ffb26bab0cd9413"
-assert _mit_des_string_to_key((u"\xdf").encode(), (u"ATHENA.MIT.EDUJuri\u0161i\u0107").encode()) == b"62c81a5232b5e69d"
-assert _mit_des_string_to_key(b"11119999", b"AAAAAAAA") == b"984054d0f1a73e31"
-assert _mit_des_string_to_key(b"NNNN6666", b"FFFFAAAA") == b"c4bf6b25adf7a4f8"
+assert _mit_des_string_to_key(b"password", b"ATHENA.MIT.EDUraeburn") == "cbc22fae235298e3"
+assert _mit_des_string_to_key(b"potatoe", b"WHITEHOUSE.GOVdanny") == "df3d32a74fd92a01"
+assert _mit_des_string_to_key((u"\U0001d11e").encode(), b"EXAMPLE.COMpianist") == "4ffb26bab0cd9413"
+assert _mit_des_string_to_key((u"\xdf").encode(), (u"ATHENA.MIT.EDUJuri\u0161i\u0107").encode()) == "62c81a5232b5e69d"
+assert _mit_des_string_to_key(b"11119999", b"AAAAAAAA") == "984054d0f1a73e31"
+assert _mit_des_string_to_key(b"NNNN6666", b"FFFFAAAA") == "c4bf6b25adf7a4f8"
 
-= Test vectors for DES3
+= RFC3691 - Test vectors for DES3
 
 # https://datatracker.ietf.org/doc/html/rfc3961.html#appendix-A.4
 
 def _des3_string_to_key(text, salt):
-    k = Key.string_to_key(EncryptionType.DES3, text, salt)
-    return bytes_hex(k.key)
+    k = Key.string_to_key(EncryptionType.DES3_CBC_SHA1_KD, text, salt)
+    return k.key.hex()
 
-assert _des3_string_to_key(b"password", b"ATHENA.MIT.EDUraeburn") == b"850bb51358548cd05e86768c313e3bfef7511937dcf72c3e"
-assert _des3_string_to_key(b"potatoe", b"WHITEHOUSE.GOVdanny") == b"dfcd233dd0a43204ea6dc437fb15e061b02979c1f74f377a"
-assert _des3_string_to_key(b"penny", b"EXAMPLE.COMbuckaroo") == b"6d2fcdf2d6fbbc3ddcadb5da5710a23489b0d3b69d5d9d4a"
-assert _des3_string_to_key((u"\xdf").encode(), (u"ATHENA.MIT.EDUJuri\u0161i\u0107").encode()) == b"16d5a40e1ce3bacb61b9dce00470324c831973a7b952feb0"
-assert _des3_string_to_key((u"\U0001d11e").encode(), b"EXAMPLE.COMpianist") == b"85763726585dbc1cce6ec43e1f751f07f1c4cbb098f40b19"
+assert _des3_string_to_key(b"password", b"ATHENA.MIT.EDUraeburn") == "850bb51358548cd05e86768c313e3bfef7511937dcf72c3e"
+assert _des3_string_to_key(b"potatoe", b"WHITEHOUSE.GOVdanny") == "dfcd233dd0a43204ea6dc437fb15e061b02979c1f74f377a"
+assert _des3_string_to_key(b"penny", b"EXAMPLE.COMbuckaroo") == "6d2fcdf2d6fbbc3ddcadb5da5710a23489b0d3b69d5d9d4a"
+assert _des3_string_to_key((u"\xdf").encode(), (u"ATHENA.MIT.EDUJuri\u0161i\u0107").encode()) == "16d5a40e1ce3bacb61b9dce00470324c831973a7b952feb0"
+assert _des3_string_to_key((u"\U0001d11e").encode(), b"EXAMPLE.COMpianist") == "85763726585dbc1cce6ec43e1f751f07f1c4cbb098f40b19"
 
 
-= Test vectors for AES
+= RFC3692 - Test vectors for AES
 
 from scapy.libs.rfc3961 import Key, EncryptionType
 
@@ -753,16 +1029,170 @@ from scapy.libs.rfc3961 import Key, EncryptionType
 # Pass phrase = "password"
 # Salt = "ATHENA.MIT.EDUraeburn"
 
-k = Key.string_to_key(EncryptionType.AES128, b"password", b"ATHENA.MIT.EDUraeburn", struct.pack(">L", 1200))
-assert bytes_hex(k.key) == b"4c01cd46d632d01e6dbe230a01ed642a"
+k = Key.string_to_key(EncryptionType.AES128_CTS_HMAC_SHA1_96, b"password", b"ATHENA.MIT.EDUraeburn", struct.pack(">L", 1200))
+assert k.key.hex() == "4c01cd46d632d01e6dbe230a01ed642a"
 
 # Iteration count = 1200
 # Pass phrase = (65 characters)
 #   "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 # Salt = "pass phrase exceeds block size"
 
-k = Key.string_to_key(EncryptionType.AES256, b"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", b"pass phrase exceeds block size", struct.pack(">L", 1200))
-assert bytes_hex(k.key) == b"d78c5c9cb872a8c9dad4697f0bb5b2d21496c82beb2caeda2112fceea057401b"
+k = Key.string_to_key(EncryptionType.AES256_CTS_HMAC_SHA1_96, b"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", b"pass phrase exceeds block size", struct.pack(">L", 1200))
+assert k.key.hex() == "d78c5c9cb872a8c9dad4697f0bb5b2d21496c82beb2caeda2112fceea057401b"
+
+= RFC8009 - Test vectors for AES-CTS HMAC-SHA2 - Sample results for string-to-key conversion
+
+from scapy.libs.rfc3961 import Key, EncryptionType
+
+# https://datatracker.ietf.org/doc/html/rfc8009#appendix-A
+
+# Iteration count = 32768
+# Pass phrase = "password"
+# Salt = 10df9dd783e5bc8acea1730e74355f61 + "ATHENA.MIT.EDUraeburn"
+
+k = Key.string_to_key(EncryptionType.AES128_CTS_HMAC_SHA256_128, b"password", b"\x10\xdf\x9d\xd7\x83\xe5\xbc\x8a\xce\xa1s\x0et5_aATHENA.MIT.EDUraeburn")
+assert k.key.hex() == '089bca48b105ea6ea77ca5d2f39dc5e7'
+
+# Iteration count = 32768
+# Pass phrase = "password"
+# Salt = 10df9dd783e5bc8acea1730e74355f61 + "ATHENA.MIT.EDUraeburn"
+
+k = Key.string_to_key(EncryptionType.AES256_CTS_HMAC_SHA384_192, b"password", b"\x10\xdf\x9d\xd7\x83\xe5\xbc\x8a\xce\xa1s\x0et5_aATHENA.MIT.EDUraeburn")
+assert k.key.hex() == '45bd806dbf6a833a9cffc1c94589a222367a79bc21c413718906e9f578a78467'
+
+= RFC8009 - Test vectors for AES-CTS HMAC-SHA2 - Sample results for key derivation
+
+# enctype aes128-cts-hmac-sha256-128:
+# 128-bit base-key: 3705D96080C17728A0E800EAB6E0D23C
+
+from scapy.libs.rfc3961 import _AES128CTS_SHA256_128
+
+k = Key(EncryptionType.AES128_CTS_HMAC_SHA256_128, key=bytes.fromhex("3705D96080C17728A0E800EAB6E0D23C"))
+
+# Kc value for key usage 2 (label = 0x0000000299):
+kc = _AES128CTS_SHA256_128.derive(k, struct.pack(">IB", 2, 0x99), 128)
+assert kc.hex() == 'b31a018a48f54776f403e9a396325dc3'
+
+# Ke value for key usage 2 (label = 0x00000002AA):
+ke = _AES128CTS_SHA256_128.derive(k, struct.pack(">IB", 2, 0xAA), 128)
+assert ke.hex() == '9b197dd1e8c5609d6e67c3e37c62c72e'
+
+# Ki value for key usage 2 (label = 0x0000000255):
+ki = _AES128CTS_SHA256_128.derive(k, struct.pack(">IB", 2, 0x55), 128)
+assert ki.hex() == '9fda0e56ab2d85e1569a688696c26a6c'
+
+# enctype aes256-cts-hmac-sha384-192:
+# 256-bit base-key: 6D404D37FAF79F9DF0D33568D320669800EB4836472EA8A026D16B7182460C52
+
+from scapy.libs.rfc3961 import _AES256CTS_SHA384_192
+
+k = Key(EncryptionType.AES256_CTS_HMAC_SHA384_192, key=bytes.fromhex("6D404D37FAF79F9DF0D33568D320669800EB4836472EA8A026D16B7182460C52"))
+
+# Kc value for key usage 2 (label = 0x0000000299):
+kc = _AES256CTS_SHA384_192.derive(k, struct.pack(">IB", 2, 0x99), 192)
+assert kc.hex() == 'ef5718be86cc84963d8bbb5031e9f5c4ba41f28faf69e73d'
+
+# Ke value for key usage 2 (label = 0x00000002AA):
+ke = _AES256CTS_SHA384_192.derive(k, struct.pack(">IB", 2, 0xAA), 256)
+assert ke.hex() == '56ab22bee63d82d7bc5227f6773f8ea7a5eb1c825160c38312980c442e5c7e49'
+
+# Ki value for key usage 2 (label = 0x0000000255):
+ki = _AES256CTS_SHA384_192.derive(k, struct.pack(">IB", 2, 0x55), 192)
+assert ki.hex() == '69b16514e3cd8e56b82010d5c73012b622c4d00ffc23ed1f'
+
+= RFC8009 - Test vectors for AES-CTS HMAC-SHA2 - Sample encryptions and decryptions
+
+# enctype aes128-cts-hmac-sha256-128:
+
+k = Key(EncryptionType.AES128_CTS_HMAC_SHA256_128, key=bytes.fromhex("3705D96080C17728A0E800EAB6E0D23C"))
+
+# Plaintext: (empty)
+# Confounder: 7E5895EAF2672435BAD817F545A37148
+
+c = k.encrypt(2, b"", confounder=bytes.fromhex("7E5895EAF2672435BAD817F545A37148"))
+assert c.hex() == "ef85fb890bb8472f4dab20394dca781dad877eda39d50c870c0d5a0a8e48c718"
+assert k.decrypt(2, c) == b""
+
+# Plaintext: 000102030405
+# Confounder: 7BCA285E2FD4130FB55B1A5C83BC5B24
+
+c = k.encrypt(2, bytes.fromhex("000102030405"), confounder=bytes.fromhex("7BCA285E2FD4130FB55B1A5C83BC5B24"))
+assert c.hex() == "84d7f30754ed987bab0bf3506beb09cfb55402cef7e6877ce99e247e52d16ed4421dfdf8976c"
+assert k.decrypt(2, c).hex() == "000102030405".lower()
+
+# Plaintext: 000102030405060708090A0B0C0D0E0F
+# Confounder: 56AB21713FF62C0A1457200F6FA9948F
+
+c = k.encrypt(2, bytes.fromhex("000102030405060708090A0B0C0D0E0F"), confounder=bytes.fromhex("56AB21713FF62C0A1457200F6FA9948F"))
+assert c.hex() == "3517d640f50ddc8ad3628722b3569d2ae07493fa8263254080ea65c1008e8fc295fb4852e7d83e1e7c48c37eebe6b0d3"
+assert k.decrypt(2, c).hex() == "000102030405060708090A0B0C0D0E0F".lower()
+
+# Plaintext: 000102030405060708090A0B0C0D0E0F1011121314
+# Confounder: A7A4E29A4728CE10664FB64E49AD3FAC
+
+c = k.encrypt(2, bytes.fromhex("000102030405060708090A0B0C0D0E0F1011121314"), confounder=bytes.fromhex("A7A4E29A4728CE10664FB64E49AD3FAC"))
+assert c.hex() == "720f73b18d9859cd6ccb4346115cd336c70f58edc0c4437c5573544c31c813bce1e6d072c186b39a413c2f92ca9b8334a287ffcbfc"
+assert k.decrypt(2, c).hex() == "000102030405060708090A0B0C0D0E0F1011121314".lower()
+
+# aes256-cts-hmac-sha384-192:
+
+k = Key(EncryptionType.AES256_CTS_HMAC_SHA384_192, key=bytes.fromhex("6D404D37FAF79F9DF0D33568D320669800EB4836472EA8A026D16B7182460C52"))
+
+# Plaintext: (empty)
+# Confounder: F764E9FA15C276478B2C7D0C4E5F58E4
+
+c = k.encrypt(2, b"", confounder=bytes.fromhex("F764E9FA15C276478B2C7D0C4E5F58E4"))
+assert c.hex() == "41f53fa5bfe7026d91faf9be959195a058707273a96a40f0a01960621ac612748b9bbfbe7eb4ce3c"
+assert k.decrypt(2, c) == b""
+
+# Plaintext: 000102030405
+# Confounder: B80D3251C1F6471494256FFE712D0B9A
+
+c = k.encrypt(2, bytes.fromhex("000102030405"), confounder=bytes.fromhex("B80D3251C1F6471494256FFE712D0B9A"))
+assert c.hex() == "4ed7b37c2bcac8f74f23c1cf07e62bc7b75fb3f637b9f559c7f664f69eab7b6092237526ea0d1f61cb20d69d10f2"
+assert k.decrypt(2, c).hex() == "000102030405".lower()
+
+# Plaintext: 000102030405060708090A0B0C0D0E0F
+# Confounder: 53BF8A0D105265D4E276428624CE5E63
+
+c = k.encrypt(2, bytes.fromhex("000102030405060708090A0B0C0D0E0F"), confounder=bytes.fromhex("53BF8A0D105265D4E276428624CE5E63"))
+assert c.hex() == "bc47ffec7998eb91e8115cf8d19dac4bbbe2e163e87dd37f49beca92027764f68cf51f14d798c2273f35df574d1f932e40c4ff255b36a266"
+assert k.decrypt(2, c).hex() == "000102030405060708090A0B0C0D0E0F".lower()
+
+# Plaintext: 000102030405060708090A0B0C0D0E0F1011121314
+# Confounder: 763E65367E864F02F55153C7E3B58AF1
+
+c = k.encrypt(2, bytes.fromhex("000102030405060708090A0B0C0D0E0F1011121314"), confounder=bytes.fromhex("763E65367E864F02F55153C7E3B58AF1"))
+assert c.hex() == "40013e2df58e8751957d2878bcd2d6fe101ccfd556cb1eae79db3c3ee86429f2b2a602ac86fef6ecb647d6295fae077a1feb517508d2c16b4192e01f62"
+assert k.decrypt(2, c).hex() == "000102030405060708090A0B0C0D0E0F1011121314".lower()
+
+= RFC8009 - Test vectors for AES-CTS HMAC-SHA2 - Sample checksums
+
+# Checksum type: hmac-sha256-128-aes128
+
+k = Key(EncryptionType.AES128_CTS_HMAC_SHA256_128, key=bytes.fromhex("3705D96080C17728A0E800EAB6E0D23C"))
+cksum = k.make_checksum(2, bytes.fromhex("000102030405060708090A0B0C0D0E0F1011121314"))
+assert cksum.hex() == "d78367186643d67b411cba9139fc1dee"
+
+# Checksum type: hmac-sha384-192-aes256
+
+k = Key(EncryptionType.AES256_CTS_HMAC_SHA384_192, key=bytes.fromhex("6D404D37FAF79F9DF0D33568D320669800EB4836472EA8A026D16B7182460C52"))
+cksum = k.make_checksum(2, bytes.fromhex("000102030405060708090A0B0C0D0E0F1011121314"))
+assert cksum.hex() == "45ee791567eefca37f4ac1e0222de80d43c3bfa06699672a"
+
+= RFC8009 - Test vectors for AES-CTS HMAC-SHA2 - Sample pseudorandom function (PRF) invocations
+
+# enctype aes128-cts-hmac-sha256-128:
+
+k = Key(EncryptionType.AES128_CTS_HMAC_SHA256_128, key=bytes.fromhex("3705D96080C17728A0E800EAB6E0D23C"))
+out = k.prf(b"test")
+assert out.hex() == "9d188616f63852fe86915bb840b4a886ff3e6bb0f819b49b893393d393854295"
+
+# enctype aes256-cts-hmac-sha384-192:
+
+k = Key(EncryptionType.AES256_CTS_HMAC_SHA384_192, key=bytes.fromhex("6D404D37FAF79F9DF0D33568D320669800EB4836472EA8A026D16B7182460C52"))
+out = k.prf(b"test")
+assert out.hex() == "9801f69a368c2bf675e59521e177d9a07f67efe1cfde8d3c8d6f6a0256e3b17db3c1b62ad1b8553360d17367eb1514d2"
 
 = Decrypt PA-ENC-TIMESTAMP
 
@@ -770,8 +1200,484 @@ from scapy.libs.rfc3961 import Key, EncryptionType
 
 pkt = Ether(b"RT\x00iX\x13RT\x00!l+\x08\x00E\x00\x01]\xa7\x18@\x00\x80\x06\xdc\x83\xc0\xa8z\x9c\xc0\xa8z\x11\xc2\t\x00XT\xf6\xab#\x92\xc2[\xd6P\x18 \x14\xb6\xe0\x00\x00\x00\x00\x011j\x82\x01-0\x82\x01)\xa1\x03\x02\x01\x05\xa2\x03\x02\x01\n\xa3c0a0L\xa1\x03\x02\x01\x02\xa2E\x04C0A\xa0\x03\x02\x01\x12\xa2:\x048HHM\xec\xb0\x1c\x9bb\xa1\xca\xbf\xbc?-\x1e\xd8Z\xa5\xe0\x93\xba\x83X\xa8\xce\xa3MC\x93\xaf\x93\xbf!\x1e'O\xa5\x8e\x81Hx\xdb\x9f\rz(\xd9Ns'f\r\xb4\xf3pK0\x11\xa1\x04\x02\x02\x00\x80\xa2\t\x04\x070\x05\xa0\x03\x01\x01\xff\xa4\x81\xb70\x81\xb4\xa0\x07\x03\x05\x00@\x81\x00\x10\xa1\x120\x10\xa0\x03\x02\x01\x01\xa1\t0\x07\x1b\x05win1$\xa2\x0e\x1b\x0cDOMAIN.LOCAL\xa3!0\x1f\xa0\x03\x02\x01\x02\xa1\x180\x16\x1b\x06krbtgt\x1b\x0cDOMAIN.LOCAL\xa5\x11\x18\x0f20370913024805Z\xa6\x11\x18\x0f20370913024805Z\xa7\x06\x02\x04p\x1c\xc5\xd1\xa8\x150\x13\x02\x01\x12\x02\x01\x11\x02\x01\x17\x02\x01\x18\x02\x02\xffy\x02\x01\x03\xa9\x1d0\x1b0\x19\xa0\x03\x02\x01\x14\xa1\x12\x04\x10WIN1            ")
 enc = pkt[Kerberos].root.padata[0].padataValue
-k = Key(enc.etype.val, key=hex_bytes("7fada4e566ae4fb270e2800a23ae87127a819d42e69b5e22de0ddc63da80096d"))
+k = Key(enc.etype.val, key=bytes.fromhex("7fada4e566ae4fb270e2800a23ae87127a819d42e69b5e22de0ddc63da80096d"))
 ts = enc.decrypt(k)
 
 assert ts.patimestamp == "20220715171847Z"
 ts.pausec == 0x9a4db
+
++ [MS-KILE] test vectors
+~ mock
+
+= [MS-KILE] RC4 GSS_WrapEx (RFC4757) test vectors (sect 4.5)
+
+import mock
+from scapy.libs.rfc3961 import Key, EncryptionType
+
+ssp = KerberosSSP()
+ctx = KerberosSSP.CONTEXT(IsAcceptor=False, req_flags=GSS_C_FLAGS.GSS_C_CONF_FLAG)
+
+ctx.KrbSessionKey = Key(EncryptionType.RC4_HMAC, key=bytes.fromhex("81a2cb90af7fc2d19554a150d8185359"))
+ctx.SendSeqNum = 0x60cbacd3
+Confounder = bytes.fromhex("5256f3fb630cf12a")
+
+with mock.patch('scapy.layers.kerberos.os.urandom', side_effect=lambda x: Confounder):
+    _msgs, sig = ssp.GSS_WrapEx(
+        ctx,
+        [
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=bytes.fromhex("112233445566778899aabbccddeeff")),
+        ],
+    )
+
+assert isinstance(sig, KRB_GSSAPI_Token)
+assert sig.innerToken.TOK_ID == b"\x02\x01"
+assert sig.innerToken.root.SGN_ALG == 0x11
+assert sig.innerToken.root.SEAL_ALG == 0x10
+
+assert bytes(sig) == b'`+\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\x02\x01\x11\x00\x10\x00\xff\xff\xe2\x9e\x8b\xbccH\xe7@\xeb\xaaa\x92D\xa1V\xa1;\\\xf6^<!\xb9\xaa'
+
+= [MS-KILE] RC4 GSS_UnwrapEx (RFC4757) test vectors (sect 4.5)
+
+_msgs = ssp.GSS_UnwrapEx(
+    ctx,
+    _msgs,
+    signature=sig,
+)
+
+assert _msgs[0].data.hex() == "112233445566778899aabbccddeeff"
+
++ GSS-API KerberosSSP tests
+~ mock
+
+= Create randomness-mock context manager
+
+# mock the random to get consistency
+import mock
+from datetime import datetime
+
+def fake_urandom(x):
+    # wow, impressive entropy
+    return b"0" * x
+
+def fake_randrange(a, b):
+    return (a + b) // 2
+
+def fake_choice(x):
+    return x[0]
+
+date_mock = mock.MagicMock()
+date_mock.utcnow.return_value = datetime(2024, 3, 5, 16, 52, 55, 424801)
+
+_patches = [
+    # Patch all the random
+    mock.patch('scapy.layers.kerberos.os.urandom', side_effect=fake_urandom),
+    mock.patch('scapy.libs.rfc3961.os.urandom', side_effect=fake_urandom),
+    mock.patch('scapy.volatile.random.randrange', side_effect=fake_randrange),
+    mock.patch('scapy.volatile.random.choice', side_effect=fake_choice),
+    # Patch date
+    mock.patch('scapy.layers.kerberos.datetime', date_mock),
+]
+
+class KrbRandomPatcher:
+    def __enter__(self):
+        for p in _patches:
+            p.start()
+    def __exit__(self, *args, **kwargs):
+        for p in _patches:
+            p.stop()
+
+= Create client and server SPNEGOSSP[KerberosSSP]
+
+from scapy.libs.rfc3961 import Key, EncryptionType
+from scapy.layers.kerberos import KRB_Ticket, KRB_GSSAPI_Token, KRB_AP_REQ, KRB_AP_REP
+from scapy.layers.spnego import SPNEGOSSP
+
+client = SPNEGOSSP([
+    KerberosSSP(
+        UPN="User1@domain.local",
+        SPN="cifs/dc1",
+        ST=KRB_Ticket(bytes.fromhex("618204a13082049da003020105a10e1b0c444f4d41494e2e4c4f43414ca2163014a003020103a10d300b1b04636966731b03646331a382046c30820468a003020112a10302010da282045a04820456671f6131b38ee6e682d62cb937b8b79c589753182f8dbcb14a91b031052a3c20f7b4c89bf9a41fe9960d112acc73f6bd6527dfe70700a3d3c2e72b4ba6705dfc040fd56f9d7cd60b580ebecec2bfb240baac619690dbd9301ed98cac037cfdff8ff96ac98358969f3532f9c6adc076d136a0ef96ebddef293df879bb42adfbf7670434f340ad673e0303ae186e1a510d7f50dbfee9ebab323c715d6b27a67ffec60dba9f7475e5dbf88eee1fcc95b7d467ab2b4ecef893a92a25c80b8480ac8c12bc10741523a2738a3d7c3d2c438235111188968486cab2934b32cad1b6b4b2cbf343b25d41ad463c0513cf21cf9f77f072f4a49d8042947064e3375a1ae76c355fd48d5fc163cf7f865af91bcb788cffe2e9e1a30a7e3f91be8fb55b0a8b8c0b600ef3e0e88feaad4fbf4fffe76c9302ee2acfa3b64ca28cd006fd4af9c27d2eb45e47e582b87e632aa23475caeb0e3e9d777339f5cb94abc19ebd080ffc78181bf81ff227182de422937675546633bd6ab688258a94d132fb590f8152d3f19bd55a1f336fb7c382140987ac2389134d8033882f923d3d5324a3e9f5437bd70f095e6bb00ee68d8f21912b19b27924c61b4e3bfe68411f9f220de8dace00e767b662313706730d4dc8539b309fc75e6ca4cae470cdf12cc3cfb191486e3e5eb8c80723b2b0473b07e4ea4d385487dd303df2db8d31f8c90d53c4adcf39ad78cf6c85fbb87b4c4ee531a42c2133df2b0362132374df995420e4b2a6d1e19d7879d518652d5101a316962b27b3884cb67d07572f96b9668ca42cca7311a7152ac7c6d492009192fa4a707989e43b2a10f19e535e7cf8afdaf63ce9a2a85ce1bd17d81cfe76d2ce5759a7fdbeff6fb279b8620bc2c5183b24be831c7ee157114f2700da210b36edb7bda7d91a32f7940bef431c76571cd44499f779cc4ebe829fb34eeaa1e442240d5962bdbcbc16c962974b546e9cee380dda49f651acc5c58acae4ad06d57e4b91d8c5557365e8ddda7ee9550963d70d4f56b44fc5a26e29b36cb21d11221825b5a2217cb1f1454d34d94a855cb860f2fe43681e3d302e7e124273dd18b04fddf660b8858e1e78d022cc03f467f3cf1a6e5df53bb831794542b1d08e38d3bfb0bf2e5ba6f75a0f77d56bf2924b144fff3c87ec7a57bff345ee8a4496676d38c9453c38e64521db2de6d6452aa8f3da1675134e8d90cbb0d274ce6189563fd9a56e56a800661e787b083950623035ddeeb2fb84f6fb2507f2c157e74e81a81970e11475ce926e393a55b06b77c444dbd23688e8a77c7f30337874fef787a187fcafd73a5a4837c8e3e60712308597ff72ea2edae69c9402ad7ae81abb3e9100f0c87b99b2564246bd56af8e6d0ecf2928e5151218f7e627c565e15540666f4f7c0e937c2d0e84782fcb1b535e596f6c4e0aed7c1d350e169d045f2eaaa4bb2f94cd149576f835e5eecb4418677d0444e51fafcbed2afac50b1d320bc223d2623601aee6df6a363a24294bfb3b00f2668dfc404e9fa17fe936e6620756a6918f7de2de343f380fab83fde911124be508")),
+        KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("4aad1c4c7b5bf02bfd061cfaebf0188d6c4f4642d569ca4ab536cb68adcb0e68")),
+    ),
+])
+server = SPNEGOSSP([
+    KerberosSSP(
+        SPN="cifs/dc1",
+        PASSWORD="Password1",
+        KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("133614b285c1d76d4ec78d642e9c6f7451d7652cf6c5fe635af6e89050d42517")),
+    ),
+])
+
+= GSS_Init_sec_context (negTokenInit: KRB_AP_REQ)
+
+with KrbRandomPatcher():
+    clicontext, tok, negResult = client.GSS_Init_sec_context(
+        None,
+        req_flags=(
+            GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
+            GSS_C_FLAGS.GSS_C_INTEG_FLAG |
+            GSS_C_FLAGS.GSS_C_CONF_FLAG
+        )
+    )
+
+assert negResult == 1
+assert isinstance(tok, GSSAPI_BLOB)
+tok = GSSAPI_BLOB(bytes(tok))
+assert tok.MechType.val == '1.3.6.1.5.5.2'
+assert isinstance(tok.innerToken.token, SPNEGO_negTokenInit)
+assert len(tok.innerToken.token.mechTypes) == 2
+assert tok.innerToken.token.mechTypes[0].oid == '1.2.840.48018.1.2.2'
+assert tok.innerToken.token.mechTypes[1].oid == '1.2.840.113554.1.2.2'
+assert tok.innerToken.token.reqFlags is None
+assert tok.innerToken.token.negHints is None
+assert tok.innerToken.token.mechListMIC is None
+assert tok.innerToken.token._mechListMIC is None
+
+krb = tok.innerToken.token.mechToken.value.root
+assert isinstance(krb, KRB_GSSAPI_Token)
+ap_req = krb.innerToken.root
+assert isinstance(ap_req, KRB_AP_REQ)
+assert ap_req.apOptions == "001"
+assert ap_req.ticket == clicontext.ssp.ST
+
+# Hardcode (yes this will probably require updating this test)
+bytes(tok)
+assert bytes(tok) == b'`\x82\x06@\x06\x06+\x06\x01\x05\x05\x02\xa0\x82\x0640\x82\x060\xa0\x180\x16\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\xa2\x82\x06\x12\x04\x82\x06\x0e`\x82\x06\n\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\x01\x00n\x82\x05\xf90\x82\x05\xf5\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0e\xa2\x04\x03\x02\x05 \xa3\x82\x04\xa5a\x82\x04\xa10\x82\x04\x9d\xa0\x03\x02\x01\x05\xa1\x0e\x1b\x0cDOMAIN.LOCAL\xa2\x160\x14\xa0\x03\x02\x01\x03\xa1\r0\x0b\x1b\x04cifs\x1b\x03dc1\xa3\x82\x04l0\x82\x04h\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\r\xa2\x82\x04Z\x04\x82\x04Vg\x1fa1\xb3\x8e\xe6\xe6\x82\xd6,\xb97\xb8\xb7\x9cX\x97S\x18/\x8d\xbc\xb1J\x91\xb01\x05*< \xf7\xb4\xc8\x9b\xf9\xa4\x1f\xe9\x96\r\x11*\xccs\xf6\xbde\'\xdf\xe7\x07\x00\xa3\xd3\xc2\xe7+K\xa6p]\xfc\x04\x0f\xd5o\x9d|\xd6\x0bX\x0e\xbe\xce\xc2\xbf\xb2@\xba\xaca\x96\x90\xdb\xd90\x1e\xd9\x8c\xac\x03|\xfd\xff\x8f\xf9j\xc9\x83X\x96\x9f52\xf9\xc6\xad\xc0v\xd16\xa0\xef\x96\xeb\xdd\xef)=\xf8y\xbbB\xad\xfb\xf7g\x044\xf3@\xadg>\x03\x03\xae\x18n\x1aQ\r\x7fP\xdb\xfe\xe9\xeb\xab2<q]k\'\xa6\x7f\xfe\xc6\r\xba\x9ftu\xe5\xdb\xf8\x8e\xee\x1f\xcc\x95\xb7\xd4g\xab+N\xce\xf8\x93\xa9*%\xc8\x0b\x84\x80\xac\x8c\x12\xbc\x10t\x15#\xa2s\x8a=|=,C\x825\x11\x11\x88\x96\x84\x86\xca\xb2\x93K2\xca\xd1\xb6\xb4\xb2\xcb\xf3C\xb2]A\xadF<\x05\x13\xcf!\xcf\x9fw\xf0r\xf4\xa4\x9d\x80B\x94pd\xe37Z\x1a\xe7l5_\xd4\x8d_\xc1c\xcf\x7f\x86Z\xf9\x1b\xcbx\x8c\xff\xe2\xe9\xe1\xa3\n~?\x91\xbe\x8f\xb5[\n\x8b\x8c\x0b`\x0e\xf3\xe0\xe8\x8f\xea\xadO\xbfO\xff\xe7l\x93\x02\xee*\xcf\xa3\xb6L\xa2\x8c\xd0\x06\xfdJ\xf9\xc2}.\xb4^G\xe5\x82\xb8~c*\xa24u\xca\xeb\x0e>\x9dws9\xf5\xcb\x94\xab\xc1\x9e\xbd\x08\x0f\xfcx\x18\x1b\xf8\x1f\xf2\'\x18-\xe4"\x93vuTf3\xbdj\xb6\x88%\x8a\x94\xd12\xfbY\x0f\x81R\xd3\xf1\x9b\xd5Z\x1f3o\xb7\xc3\x82\x14\t\x87\xac#\x89\x13M\x803\x88/\x92==S$\xa3\xe9\xf5C{\xd7\x0f\t^k\xb0\x0e\xe6\x8d\x8f!\x91+\x19\xb2y$\xc6\x1bN;\xfehA\x1f\x9f"\r\xe8\xda\xce\x00\xe7g\xb6b17\x06s\rM\xc8S\x9b0\x9f\xc7^l\xa4\xca\xe4p\xcd\xf1,\xc3\xcf\xb1\x91Hn>^\xb8\xc8\x07#\xb2\xb0G;\x07\xe4\xeaM8T\x87\xdd0=\xf2\xdb\x8d1\xf8\xc9\rS\xc4\xad\xcf9\xadx\xcfl\x85\xfb\xb8{LN\xe51\xa4,!3\xdf+\x03b\x13#t\xdf\x99T \xe4\xb2\xa6\xd1\xe1\x9dxy\xd5\x18e-Q\x01\xa3\x16\x96+\'\xb3\x88L\xb6}\x07W/\x96\xb9f\x8c\xa4,\xcas\x11\xa7\x15*\xc7\xc6\xd4\x92\x00\x91\x92\xfaJpy\x89\xe4;*\x10\xf1\x9eS^|\xf8\xaf\xda\xf6<\xe9\xa2\xa8\\\xe1\xbd\x17\xd8\x1c\xfev\xd2\xceWY\xa7\xfd\xbe\xffo\xb2y\xb8b\x0b\xc2\xc5\x18;$\xbe\x83\x1c~\xe1W\x11O\'\x00\xda!\x0b6\xed\xb7\xbd\xa7\xd9\x1a2\xf7\x94\x0b\xefC\x1cvW\x1c\xd4D\x99\xf7y\xccN\xbe\x82\x9f\xb3N\xea\xa1\xe4B$\rYb\xbd\xbc\xbc\x16\xc9b\x97KTn\x9c\xee8\r\xdaI\xf6Q\xac\xc5\xc5\x8a\xca\xe4\xad\x06\xd5~K\x91\xd8\xc5Use\xe8\xdd\xda~\xe9U\tc\xd7\rOV\xb4O\xc5\xa2n)\xb3l\xb2\x1d\x11"\x18%\xb5\xa2!|\xb1\xf1EM4\xd9J\x85\\\xb8`\xf2\xfeCh\x1e=0.~\x12Bs\xdd\x18\xb0O\xdd\xf6`\xb8\x85\x8e\x1ex\xd0"\xcc\x03\xf4g\xf3\xcf\x1an]\xf5;\xb81yEB\xb1\xd0\x8e8\xd3\xbf\xb0\xbf.[\xa6\xf7Z\x0fw\xd5k\xf2\x92K\x14O\xff<\x87\xeczW\xbf\xf3E\xee\x8aD\x96gm8\xc9E<8\xe6E!\xdb-\xe6\xd6E*\xa8\xf3\xda\x16u\x13N\x8d\x90\xcb\xb0\xd2t\xcea\x89V?\xd9\xa5nV\xa8\x00f\x1ex{\x089Pb05\xdd\xee\xb2\xfb\x84\xf6\xfb%\x07\xf2\xc1W\xe7N\x81\xa8\x19p\xe1\x14u\xce\x92n9:U\xb0kw\xc4D\xdb\xd26\x88\xe8\xa7|\x7f03xt\xfe\xf7\x87\xa1\x87\xfc\xaf\xd7:ZH7\xc8\xe3\xe6\x07\x120\x85\x97\xffr\xea.\xda\xe6\x9c\x94\x02\xadz\xe8\x1a\xbb>\x91\x00\xf0\xc8{\x99\xb2VBF\xbdV\xaf\x8em\x0e\xcf)(\xe5\x15\x12\x18\xf7\xe6\'\xc5e\xe1U@foO|\x0e\x93|-\x0e\x84x/\xcb\x1bS^YolN\n\xed|\x1d5\x0e\x16\x9d\x04_.\xaa\xa4\xbb/\x94\xcd\x14\x95v\xf85\xe5\xee\xcbD\x18g}\x04D\xe5\x1f\xaf\xcb\xed*\xfa\xc5\x0b\x1d2\x0b\xc2#\xd2b6\x01\xae\xe6\xdfj6:$)K\xfb;\x00\xf2f\x8d\xfc@N\x9f\xa1\x7f\xe96\xe6b\x07V\xa6\x91\x8f}\xe2\xde4?8\x0f\xab\x83\xfd\xe9\x11\x12K\xe5\x08\xa4\x82\x0180\x82\x014\xa0\x03\x02\x01\x12\xa2\x82\x01+\x04\x82\x01\'\\>\t\xe4\x1d8,a(\x7f\x1e\xd2\x8dHH\x9c\xef\x8d\x1fqW\xbf(\x97S+\rs_zM\xee\xa7\xc2\x1a\x8eh1\xa4\xcb\x06\xed\x8e\xe6\xc0\x9a\xf7\x93g5\xa5vp\x0e~G\xaf:\xbb<\xaa2\x0e\xf8+l \xc5\xdb\x17,\xa9\x99\xae\x80\r\x0f\xdd4\x92\xf1\xa3h\xc3)^*I\x92\x01\x9f\x06jW\x1a\xac=\xa4\xee\xfdo.\xc8\xd5\x9e\xeaNw\x9eu\xc3\x8b0\xc9_S\x1f\x19u\xbap\x1d\\\x88\x0eu\xbek\xa8}\n\xa0>\x85\xcc3\xed\x84\xadi\x0bB\x9ao\xd2lW\x7f+\x16\x1cxU\x99\x90\x92\xfd\x06\x11ij\xdc\xb5\xc6F\xc0P\xf6\\\xbe\x04I\x9aP\x11\xa5\xff=\xd7\x95\'\xaa\x0e\x1c\xbf\xc4O\xf4D\xc8\xb1Fv\x8f\xff\xde*\'\x17\xe1\xcf\x06\xeb\xd7s\xfc\xa4\x0c6\x87\x9f\xa7\x9b\xe6\xddmMb\xc3\xc8\xcfH\x1a\x1a`\x08\t\x83\x01\x01\x81R\x8d\xda\xd7\xebZ\x83\x8eO\x14\x8e\xf7\x1fc\xb0KcC\xba\xf3\x04+L\xe3\xc1\xf5\xadF\xda\xfa\xe6q\xe0\x90&\x93\xffd\x16<q\x04\x81\xb2d\xa67\x12\xb9_\x99\nq\x02fY\x0e\x89\x83X\xf3\xab`\x1b'
+
+= GSS_Accept_sec_context (SPNEGO_negTokenResp: KRB_AP_REQ->KRB_AP_REP)
+
+with KrbRandomPatcher():
+    srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+
+assert negResult == 0
+assert isinstance(tok, SPNEGO_negToken)
+tok = SPNEGO_negToken(bytes(tok))
+assert isinstance(tok.token, SPNEGO_negTokenResp)
+assert tok.token.negResult == 0
+assert tok.token.supportedMech.oid == '1.2.840.48018.1.2.2'
+assert isinstance(tok.token.responseToken, SPNEGO_Token)
+assert tok.token.mechListMIC is not None
+
+ap_rep = tok.token.responseToken.value.root
+assert isinstance(ap_rep, KRB_AP_REP)
+
+apreppart = ap_rep.encPart.decrypt(clicontext.ssp.KEY)
+assert apreppart.ctime == "20240305165255Z"
+assert apreppart.subkey.keyvalue == b"0000000000000000"
+assert apreppart.subkey.keytype == 17
+
+# Hardcode (yes this will probably require updating this test)
+bytes(tok)
+assert bytes(tok) == b'\xa1\x81\xa90\x81\xa6\xa0\x03\n\x01\x00\xa1\x0b\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\xa2r\x04pon0l\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0f\xa2`0^\xa0\x03\x02\x01\x12\xa2W\x04UaS\xeck\xcc\xad~\xfa^\x8d\xca\xbb\xc5\xd2/\xfd\xd3\xc3\xd9\xadN`\xd2;\xd7{\xb7\xf4p.\xa9\x9a\xb1}D\xc6|_t\n\r"M\xcd\xe2\t\xf0Ri\xc7\xcf\xb5\xefr9\xf0`iS7N\x06qKP\x06\xde\xc4\x18\xd5_\xcb\x0ct\x03k\xbc\xb9\x1adT\x03\xc1\x8bM\xa3\x1e\x04\x1c\x04\x04\x05\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x17F\x8al\x01c\x00\xcf4\x12oI'
+
+= GSS_Init_sec_context (SPNEGO_negToken: KRB_AP_REP->OK)
+
+with KrbRandomPatcher():
+    clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+
+assert tok is None
+assert negResult == 0
+assert clicontext.KrbSessionKey.key == srvcontext.KrbSessionKey.key
+assert srvcontext.KrbSessionKey.key == b'0000000000000000'
+
+= GSS_GetMICEx/GSS_VerifyMICEx: client sends a signed payload
+
+data_header = b"header"  # signed but not encrypted
+data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"  # encrypted
+
+sig = client.GSS_GetMICEx(
+    clicontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+    ]
+)
+assert isinstance(sig, KRB_InnerToken) and sig.TOK_ID == b"\x04\x04"
+assert sig.root.SND_SEQ == 0x7FFFFFFF//2 + 1
+assert bytes(sig) == b'\x04\x04\x04\xff\xff\xff\xff\xff\x00\x00\x00\x00@\x00\x00\x00\xfc\xc6\x86\xab\x85e\x18\xe8\x7f\xa81t'
+server.GSS_VerifyMICEx(
+    srvcontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data),
+    ],
+    sig
+)
+
+= GSS_GetMICEx/GSS_VerifyMICEx: server answers back
+
+sig = server.GSS_GetMICEx(
+    srvcontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+    ]
+)
+assert isinstance(sig, KRB_InnerToken) and sig.TOK_ID == b"\x04\x04"
+assert sig.root.SND_SEQ == 1
+assert bytes(sig) == b'\x04\x04\x05\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x01G\x81\x93\xb9\x92\xd0NvHH\xf6\x9c'
+client.GSS_VerifyMICEx(
+    clicontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data),
+    ],
+    sig
+)
+
+= GSS_GetMICEx/GSS_VerifyMICEx: inject fault
+
+sig = client.GSS_GetMICEx(
+    clicontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+    ]
+)
+bad_data_header = data_header[:-3] + b"hey"
+try:
+    server.GSS_VerifyMICEx(
+        srvcontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=bad_data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data),
+        ],
+        sig
+    )
+    assert False, "No error was reported, but there should have been one"
+except ValueError:
+    pass
+
+= Create client and server KerberosSSP (raw)
+
+client = KerberosSSP(
+    UPN="User1@domain.local",
+    SPN="cifs/dc1",
+    ST=KRB_Ticket(bytes.fromhex("618204a13082049da003020105a10e1b0c444f4d41494e2e4c4f43414ca2163014a003020103a10d300b1b04636966731b03646331a382046c30820468a003020112a10302010da282045a04820456671f6131b38ee6e682d62cb937b8b79c589753182f8dbcb14a91b031052a3c20f7b4c89bf9a41fe9960d112acc73f6bd6527dfe70700a3d3c2e72b4ba6705dfc040fd56f9d7cd60b580ebecec2bfb240baac619690dbd9301ed98cac037cfdff8ff96ac98358969f3532f9c6adc076d136a0ef96ebddef293df879bb42adfbf7670434f340ad673e0303ae186e1a510d7f50dbfee9ebab323c715d6b27a67ffec60dba9f7475e5dbf88eee1fcc95b7d467ab2b4ecef893a92a25c80b8480ac8c12bc10741523a2738a3d7c3d2c438235111188968486cab2934b32cad1b6b4b2cbf343b25d41ad463c0513cf21cf9f77f072f4a49d8042947064e3375a1ae76c355fd48d5fc163cf7f865af91bcb788cffe2e9e1a30a7e3f91be8fb55b0a8b8c0b600ef3e0e88feaad4fbf4fffe76c9302ee2acfa3b64ca28cd006fd4af9c27d2eb45e47e582b87e632aa23475caeb0e3e9d777339f5cb94abc19ebd080ffc78181bf81ff227182de422937675546633bd6ab688258a94d132fb590f8152d3f19bd55a1f336fb7c382140987ac2389134d8033882f923d3d5324a3e9f5437bd70f095e6bb00ee68d8f21912b19b27924c61b4e3bfe68411f9f220de8dace00e767b662313706730d4dc8539b309fc75e6ca4cae470cdf12cc3cfb191486e3e5eb8c80723b2b0473b07e4ea4d385487dd303df2db8d31f8c90d53c4adcf39ad78cf6c85fbb87b4c4ee531a42c2133df2b0362132374df995420e4b2a6d1e19d7879d518652d5101a316962b27b3884cb67d07572f96b9668ca42cca7311a7152ac7c6d492009192fa4a707989e43b2a10f19e535e7cf8afdaf63ce9a2a85ce1bd17d81cfe76d2ce5759a7fdbeff6fb279b8620bc2c5183b24be831c7ee157114f2700da210b36edb7bda7d91a32f7940bef431c76571cd44499f779cc4ebe829fb34eeaa1e442240d5962bdbcbc16c962974b546e9cee380dda49f651acc5c58acae4ad06d57e4b91d8c5557365e8ddda7ee9550963d70d4f56b44fc5a26e29b36cb21d11221825b5a2217cb1f1454d34d94a855cb860f2fe43681e3d302e7e124273dd18b04fddf660b8858e1e78d022cc03f467f3cf1a6e5df53bb831794542b1d08e38d3bfb0bf2e5ba6f75a0f77d56bf2924b144fff3c87ec7a57bff345ee8a4496676d38c9453c38e64521db2de6d6452aa8f3da1675134e8d90cbb0d274ce6189563fd9a56e56a800661e787b083950623035ddeeb2fb84f6fb2507f2c157e74e81a81970e11475ce926e393a55b06b77c444dbd23688e8a77c7f30337874fef787a187fcafd73a5a4837c8e3e60712308597ff72ea2edae69c9402ad7ae81abb3e9100f0c87b99b2564246bd56af8e6d0ecf2928e5151218f7e627c565e15540666f4f7c0e937c2d0e84782fcb1b535e596f6c4e0aed7c1d350e169d045f2eaaa4bb2f94cd149576f835e5eecb4418677d0444e51fafcbed2afac50b1d320bc223d2623601aee6df6a363a24294bfb3b00f2668dfc404e9fa17fe936e6620756a6918f7de2de343f380fab83fde911124be508")),
+    KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("4aad1c4c7b5bf02bfd061cfaebf0188d6c4f4642d569ca4ab536cb68adcb0e68")),
+)
+server = KerberosSSP(
+    SPN="cifs/dc1",
+    PASSWORD="Password1",
+    KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("133614b285c1d76d4ec78d642e9c6f7451d7652cf6c5fe635af6e89050d42517")),
+)
+
+= GSS_Init_sec_context (KRB_AP_REQ) - DCE_STYLE
+
+with KrbRandomPatcher():
+    clicontext, tok, negResult = client.GSS_Init_sec_context(
+        None,
+        req_flags=(
+            GSS_C_FLAGS.GSS_C_DCE_STYLE |
+            GSS_C_FLAGS.GSS_C_REPLAY_FLAG |
+            GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG |
+            GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
+            GSS_C_FLAGS.GSS_C_INTEG_FLAG
+        )
+    )
+
+assert negResult == 1
+assert isinstance(tok, KRB_AP_REQ)
+ap_req = KRB_AP_REQ(bytes(tok))
+assert isinstance(ap_req, KRB_AP_REQ)
+assert ap_req.apOptions == "001"
+assert ap_req.ticket == client.ST
+
+auth = ap_req.authenticator.decrypt(client.KEY)
+assert auth.cksum.cksumtype == 0x8003
+assert auth.cksum.checksum.Flags == (
+    GSS_C_FLAGS.GSS_C_DCE_STYLE |
+    GSS_C_FLAGS.GSS_C_REPLAY_FLAG |
+    GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG |
+    GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
+    GSS_C_FLAGS.GSS_C_INTEG_FLAG
+)
+assert auth.cksum.checksum.Exts[0].sprintf("%type%") == 'GSS_EXTS_CHANNEL_BINDING'
+
+# Hardcode (yes this will probably require updating this test)
+bytes(tok)
+assert bytes(tok) == b'n\x82\x05\xf90\x82\x05\xf5\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0e\xa2\x04\x03\x02\x05 \xa3\x82\x04\xa5a\x82\x04\xa10\x82\x04\x9d\xa0\x03\x02\x01\x05\xa1\x0e\x1b\x0cDOMAIN.LOCAL\xa2\x160\x14\xa0\x03\x02\x01\x03\xa1\r0\x0b\x1b\x04cifs\x1b\x03dc1\xa3\x82\x04l0\x82\x04h\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\r\xa2\x82\x04Z\x04\x82\x04Vg\x1fa1\xb3\x8e\xe6\xe6\x82\xd6,\xb97\xb8\xb7\x9cX\x97S\x18/\x8d\xbc\xb1J\x91\xb01\x05*< \xf7\xb4\xc8\x9b\xf9\xa4\x1f\xe9\x96\r\x11*\xccs\xf6\xbde\'\xdf\xe7\x07\x00\xa3\xd3\xc2\xe7+K\xa6p]\xfc\x04\x0f\xd5o\x9d|\xd6\x0bX\x0e\xbe\xce\xc2\xbf\xb2@\xba\xaca\x96\x90\xdb\xd90\x1e\xd9\x8c\xac\x03|\xfd\xff\x8f\xf9j\xc9\x83X\x96\x9f52\xf9\xc6\xad\xc0v\xd16\xa0\xef\x96\xeb\xdd\xef)=\xf8y\xbbB\xad\xfb\xf7g\x044\xf3@\xadg>\x03\x03\xae\x18n\x1aQ\r\x7fP\xdb\xfe\xe9\xeb\xab2<q]k\'\xa6\x7f\xfe\xc6\r\xba\x9ftu\xe5\xdb\xf8\x8e\xee\x1f\xcc\x95\xb7\xd4g\xab+N\xce\xf8\x93\xa9*%\xc8\x0b\x84\x80\xac\x8c\x12\xbc\x10t\x15#\xa2s\x8a=|=,C\x825\x11\x11\x88\x96\x84\x86\xca\xb2\x93K2\xca\xd1\xb6\xb4\xb2\xcb\xf3C\xb2]A\xadF<\x05\x13\xcf!\xcf\x9fw\xf0r\xf4\xa4\x9d\x80B\x94pd\xe37Z\x1a\xe7l5_\xd4\x8d_\xc1c\xcf\x7f\x86Z\xf9\x1b\xcbx\x8c\xff\xe2\xe9\xe1\xa3\n~?\x91\xbe\x8f\xb5[\n\x8b\x8c\x0b`\x0e\xf3\xe0\xe8\x8f\xea\xadO\xbfO\xff\xe7l\x93\x02\xee*\xcf\xa3\xb6L\xa2\x8c\xd0\x06\xfdJ\xf9\xc2}.\xb4^G\xe5\x82\xb8~c*\xa24u\xca\xeb\x0e>\x9dws9\xf5\xcb\x94\xab\xc1\x9e\xbd\x08\x0f\xfcx\x18\x1b\xf8\x1f\xf2\'\x18-\xe4"\x93vuTf3\xbdj\xb6\x88%\x8a\x94\xd12\xfbY\x0f\x81R\xd3\xf1\x9b\xd5Z\x1f3o\xb7\xc3\x82\x14\t\x87\xac#\x89\x13M\x803\x88/\x92==S$\xa3\xe9\xf5C{\xd7\x0f\t^k\xb0\x0e\xe6\x8d\x8f!\x91+\x19\xb2y$\xc6\x1bN;\xfehA\x1f\x9f"\r\xe8\xda\xce\x00\xe7g\xb6b17\x06s\rM\xc8S\x9b0\x9f\xc7^l\xa4\xca\xe4p\xcd\xf1,\xc3\xcf\xb1\x91Hn>^\xb8\xc8\x07#\xb2\xb0G;\x07\xe4\xeaM8T\x87\xdd0=\xf2\xdb\x8d1\xf8\xc9\rS\xc4\xad\xcf9\xadx\xcfl\x85\xfb\xb8{LN\xe51\xa4,!3\xdf+\x03b\x13#t\xdf\x99T \xe4\xb2\xa6\xd1\xe1\x9dxy\xd5\x18e-Q\x01\xa3\x16\x96+\'\xb3\x88L\xb6}\x07W/\x96\xb9f\x8c\xa4,\xcas\x11\xa7\x15*\xc7\xc6\xd4\x92\x00\x91\x92\xfaJpy\x89\xe4;*\x10\xf1\x9eS^|\xf8\xaf\xda\xf6<\xe9\xa2\xa8\\\xe1\xbd\x17\xd8\x1c\xfev\xd2\xceWY\xa7\xfd\xbe\xffo\xb2y\xb8b\x0b\xc2\xc5\x18;$\xbe\x83\x1c~\xe1W\x11O\'\x00\xda!\x0b6\xed\xb7\xbd\xa7\xd9\x1a2\xf7\x94\x0b\xefC\x1cvW\x1c\xd4D\x99\xf7y\xccN\xbe\x82\x9f\xb3N\xea\xa1\xe4B$\rYb\xbd\xbc\xbc\x16\xc9b\x97KTn\x9c\xee8\r\xdaI\xf6Q\xac\xc5\xc5\x8a\xca\xe4\xad\x06\xd5~K\x91\xd8\xc5Use\xe8\xdd\xda~\xe9U\tc\xd7\rOV\xb4O\xc5\xa2n)\xb3l\xb2\x1d\x11"\x18%\xb5\xa2!|\xb1\xf1EM4\xd9J\x85\\\xb8`\xf2\xfeCh\x1e=0.~\x12Bs\xdd\x18\xb0O\xdd\xf6`\xb8\x85\x8e\x1ex\xd0"\xcc\x03\xf4g\xf3\xcf\x1an]\xf5;\xb81yEB\xb1\xd0\x8e8\xd3\xbf\xb0\xbf.[\xa6\xf7Z\x0fw\xd5k\xf2\x92K\x14O\xff<\x87\xeczW\xbf\xf3E\xee\x8aD\x96gm8\xc9E<8\xe6E!\xdb-\xe6\xd6E*\xa8\xf3\xda\x16u\x13N\x8d\x90\xcb\xb0\xd2t\xcea\x89V?\xd9\xa5nV\xa8\x00f\x1ex{\x089Pb05\xdd\xee\xb2\xfb\x84\xf6\xfb%\x07\xf2\xc1W\xe7N\x81\xa8\x19p\xe1\x14u\xce\x92n9:U\xb0kw\xc4D\xdb\xd26\x88\xe8\xa7|\x7f03xt\xfe\xf7\x87\xa1\x87\xfc\xaf\xd7:ZH7\xc8\xe3\xe6\x07\x120\x85\x97\xffr\xea.\xda\xe6\x9c\x94\x02\xadz\xe8\x1a\xbb>\x91\x00\xf0\xc8{\x99\xb2VBF\xbdV\xaf\x8em\x0e\xcf)(\xe5\x15\x12\x18\xf7\xe6\'\xc5e\xe1U@foO|\x0e\x93|-\x0e\x84x/\xcb\x1bS^YolN\n\xed|\x1d5\x0e\x16\x9d\x04_.\xaa\xa4\xbb/\x94\xcd\x14\x95v\xf85\xe5\xee\xcbD\x18g}\x04D\xe5\x1f\xaf\xcb\xed*\xfa\xc5\x0b\x1d2\x0b\xc2#\xd2b6\x01\xae\xe6\xdfj6:$)K\xfb;\x00\xf2f\x8d\xfc@N\x9f\xa1\x7f\xe96\xe6b\x07V\xa6\x91\x8f}\xe2\xde4?8\x0f\xab\x83\xfd\xe9\x11\x12K\xe5\x08\xa4\x82\x0180\x82\x014\xa0\x03\x02\x01\x12\xa2\x82\x01+\x04\x82\x01\'\\>\t\xe4\x1d8,a(\x7f\x1e\xd2\x8dHH\x9c\xef\x8d\x1fqW\xbf(\x97S+\rs_zM\xee\xa7\xc2\x1a\x8eh1\xa4\xcb\x06\xed\x8e\xe6\xc0\x9a\xf7\x93g5\xa5vp\x0e~G\xaf:\xbb<\xaa2\x0e\xf8+l \xc5\xdb\x17,\xa9\x99\xae\x80\r\x0f\xdd4\x92\xf1\xa3h\xc3)^*I\x92\x01\x9f\x06jW\x1a\xac\x02r\x05\n`d\xd1\xda\xf5i\x9e\x04e\xa9\\,2\xf9\xa55\x16m\x92\x7fI\xe6\x81\x98\xe5V\xa1i\x17\xf0\x10\xf9\x16\x92\x81\x95mJ\xe3\xcc\x0f\x83gW\xca\xc5l\xc2~\x1fFmt~\x81\xd5%{\x87\xe1!\x15\xc4o\x163,\x8eg\xd4\xc5\xdc\xd7\x11at\x87v\x13j\xd0/\x07z/\xee\xd6\xd8b\x0b(\xae*\xd7\x87\xe3\xb7\x1b\xf8d\xd8\xbc\xadL7\x18a0o`\xa7\xd1Q\xe8\xf3\x9a\xf1\x95\xf2\xec\x06\xc0v\xba\x81\xc4\xbc7@8\x08\xd9\xa7{~\x8fz\xeeE\xdc\xc9\x81"\xb6b\x872=.\x19$KP\xcd\xfd\x85\x861@c\x05,\xa9\x98\xe9\x8e\x84A\x9f\n#&\xb2\xf4"\xa5O\x86\xc9\x93\xcb\x97\x0e\x18C\xf5\x00^\xe8De\x94|\xbaf'
+
+= GSS_Accept_sec_context (KRB_AP_REQ->KRB_AP_REP) - DCE_STYLE
+
+with KrbRandomPatcher():
+    srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+
+assert negResult == 1
+assert isinstance(tok, KRB_AP_REP)
+ap_rep = KRB_AP_REP(bytes(tok))
+
+apreppart = ap_rep.encPart.decrypt(client.KEY)
+assert apreppart.ctime == "20240305165255Z"
+assert apreppart.subkey.keyvalue == b"0000000000000000"
+assert apreppart.subkey.keytype == 17
+
+# Hardcode (yes this will probably require updating this test)
+bytes(tok)
+assert bytes(tok) == b'on0l\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0f\xa2`0^\xa0\x03\x02\x01\x12\xa2W\x04UaS\xeck\xcc\xad~\xfa^\x8d\xca\xbb\xc5\xd2/\xfd\xd3\xc3\xd9\xadN`\xd2;\xd7{\xb7\xf4p.\xa9\x9a\xb1}D\xc6|_t\n\r"M\xcd\xe2\t\xf0Ri\xc7\xcf\xb5\xefr9\xf0`iS7N\x06qKP\x06\xde\xc4\x18\xd5_\xcb\x0ct\x03k\xbc\xb9\x1adT\x03\xc1\x8bM'
+
+= GSS_Init_sec_context (SPNEGO_negToken: KRB_AP_REP->KRB_AP_REP) - DCE_STYLE
+
+with KrbRandomPatcher():
+    clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+
+assert negResult == 0
+assert isinstance(tok, KRB_AP_REP)
+ap_rep = KRB_AP_REP(bytes(tok))
+
+apreppart = ap_rep.encPart.decrypt(client.KEY)
+assert apreppart.ctime == "20240305165255Z"
+
+# Hardcode (yes this will probably require updating this test)
+bytes(tok)
+assert bytes(tok) == b'oQ0O\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0f\xa2C0A\xa0\x03\x02\x01\x12\xa2:\x048aS\xeck\xcc\xad~\xfa^\x8d\xca\xbb\xc5\xd2/\xfd.e\xec\xef\xce\x91\x1d\x99\xd8\xcd2\x01\x0fA\xe4\xde\x12\xf4\xbc>\xe1\x98T\xc4\x82\xb5w\x1arZb\xdb\x9b-+\xf3\xfa\x0b\xdeD'
+
+= GSS_Accept_sec_context (KRB_AP_REP->OK) - DCE_STYLE
+
+with KrbRandomPatcher():
+    srvcontext, tok, negResult = server.GSS_Accept_sec_context(srvcontext, tok)
+
+assert negResult == 0
+assert tok is None
+
+
+= GSS_Wrap/GSS_Unwrap: client sends wrapped payload without confidentiality
+
+data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"
+
+edata, sig = client.GSS_Wrap(
+    clicontext,
+    data,
+    conf_req_flag=False,
+)
+assert edata == b""
+assert sig.TOK_ID == b"\x05\x04"
+assert sig.root.Flags == 4
+assert sig.root.EC == 12
+assert sig.root.RRC == 12
+assert bytes(sig) == b'\x05\x04\x04\xff\x00\x0c\x00\x0c\x00\x00\x00\x00@\x00\x00\x00\x8f\x0c\xab\x90h\xc8\xdf1\x078\x03\x0ctestAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE'
+
+ddata = server.GSS_Unwrap(
+    srvcontext,
+    edata,
+    sig,
+)
+assert ddata == data
+
+= GSS_Wrap/GSS_Unwrap: server answers back without confidentiality
+
+data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"
+
+edata, sig = server.GSS_Wrap(
+    srvcontext,
+    data,
+    conf_req_flag=False,
+)
+assert edata == b""
+assert sig.TOK_ID == b"\x05\x04"
+assert sig.root.Flags == 5
+assert sig.root.EC == 12
+assert sig.root.RRC == 12
+bytes(sig)
+assert bytes(sig) == b"\x05\x04\x05\xff\x00\x0c\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x00~\xd8\x08\x89K'\xa0\x01\xda\x7f\xff\xd3testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"
+
+ddata = client.GSS_Unwrap(
+    clicontext,
+    edata,
+    sig,
+)
+assert ddata == data
+
+= GSS_WrapEx/GSS_UnwrapEx: client sends wrapped payload with confidentiality
+
+import mock
+from scapy.libs.rfc3961 import Key, EncryptionType
+
+# Data
+
+dcerpc_hdr = bytes.fromhex("0500000310000000fc004c00030000008c00000001000c00")
+dcerpc_data = bytes.fromhex("000000001bc104a40f046e43bd2a4b2722092807010000000100000000000000e40400000904000000000000010000000600000001000000000002000000000001000000000000000000020000000000120000000000000000000000000000001200000000000000440043003d0063006f006e0074006f0073006f002c00440043003d0063006f006d00000000000000")
+dcerpc_sectrailer = bytes.fromhex("0906040000000000")
+Confounder = bytes.fromhex("aeb63f1db8e2cb61548867a0e4074e85")
+k = Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("613f2dfabd35d17d86b00cf1001ce9458bf379c1d3921bbfdcd2de8782bec540"))
+SeqNum = 0x60298ed4
+
+# Prepare context
+
+clicontext = KerberosSSP.CONTEXT(IsAcceptor=False)
+srvcontext = KerberosSSP.CONTEXT(IsAcceptor=True)
+
+clicontext.KrbSessionKey = srvcontext.KrbSessionKey = k
+clicontext.SendSeqNum = srvcontext.RecvSeqNum = SeqNum
+clicontext.flags = srvcontext.flags = (
+    GSS_C_FLAGS.GSS_C_DCE_STYLE |
+    GSS_C_FLAGS.GSS_C_REPLAY_FLAG |
+    GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG |
+    GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
+    GSS_C_FLAGS.GSS_C_INTEG_FLAG |
+    GSS_C_FLAGS.GSS_C_CONF_FLAG
+)
+
+client = server = KerberosSSP()
+
+# Test
+
+with mock.patch('scapy.layers.kerberos.os.urandom', side_effect=lambda x: Confounder):
+    _msgs, sig = client.GSS_WrapEx(
+        clicontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=dcerpc_hdr),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=dcerpc_data),
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=dcerpc_sectrailer),
+        ],
+    )
+
+assert _msgs[0].data == dcerpc_hdr
+assert _msgs[1].data == b'|\xdf\xf8\xe5lS#\xe9\x9c\x15\xb4\xad\x06\xa8\xb9\x01\xd2\x13\xe6qLL\xd1\x82:v\xf2\xb1B\xc9u \xc5\xc88\xce\x91\xed*\x9c+v,W\x97\xde\xaan\xb8\x80\x9bd\xedW\x1aot\xa1\xb8\xbdp\xc0\xee\xe5\xb0\xa4\xce\x15{OA\x08\xee#;w\tV\x0e3\x9el\x00\x8f\xbaM\x07[\x1f,&\x99\x92\x91tvh\xbf\xcf\xb6\xd1\xbaB\xe3\xc9\x943\xed\xf04\x92!\xbd`\x00\x05;\xfce18H\xcb\xd8\x1eTT\x18\xbe\xb4\xbc\x08X\x1b$\x96\x04\xc9\xc6\xf1$\xfc,\xc0'
+assert _msgs[2].data == dcerpc_sectrailer
+
+assert sig.TOK_ID == b"\x05\x04"
+assert sig.root.Flags == 6
+assert sig.root.Filler == 0xFF
+assert sig.root.EC == 16
+assert sig.root.RRC == 28
+assert sig.root.SND_SEQ == SeqNum
+assert bytes(sig) == b'\x05\x04\x06\xff\x00\x10\x00\x1c\x00\x00\x00\x00`)\x8e\xd4\xf8\xb9\x99JO\xdeA\x9c+t\xbb\xe9>\xf0G\xd5\x9d\x9b\xca:\x10\xee\x1f\xe93\xc1*/`H\x89\xf4\xab\xd7E!\xd5<*ou\x94\xa3\t\xf1\x7f\xaa\xe9\x95}\xaa\xb7\x9f\xd4F\xfe\x9bt\xa1\x00'
+
+decrypted = server.GSS_UnwrapEx(
+    srvcontext,
+    _msgs,
+    sig,
+)[1].data
+assert decrypted == dcerpc_data
+
+= GSS_WrapEx/GSS_UnwrapEx: server answers back confidentiality
+
+with KrbRandomPatcher():
+    _msgs, sig = server.GSS_WrapEx(
+        srvcontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=dcerpc_hdr),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=dcerpc_data),
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=dcerpc_sectrailer),
+        ],
+    )
+
+assert _msgs[0].data == dcerpc_hdr
+assert _msgs[1].data == b"\x9av\xf9 :e\x0f\xd8!\x1c\xc7\x076'a.NN\xcf\x0c\xec\x8c\x83\xb4\x9c'<%i\x17\xbe\xcc\x01 \x1d\x031\\Y\x92H\xe4\xd50W\x8e\xe0\xe85\xd8\xf5c[\x97Bl\x16\x12P\x03l\xdb\x99$\xef\x9a\x06\x85\x18\xcf\xc5\x91~\x88\xca\xb2D\xf8\xe5(+\xb30\r\xbf\xe8\xc7\x11\x18\xfa,&(\xc3l)c\x08%\xaf\x80\xe5u\xadw\x06\x15\xe8\xed\xfa\xb3\xe0\x1d\xb2\xdan\xcfb<\x01\x9d\xa6\xb4=W:Z\xb6\xbf\xe9\x1a\xc8g\x9d\x01\x87<B\xb8u\x90i\xd9\xb4"
+assert _msgs[2].data == dcerpc_sectrailer
+
+assert sig.TOK_ID == b"\x05\x04"
+assert sig.root.Flags == 7
+assert sig.root.Filler == 0xFF
+assert sig.root.EC == 16
+assert sig.root.RRC == 28
+assert sig.root.SND_SEQ == 0
+assert bytes(sig) == b'\x05\x04\x07\xff\x00\x10\x00\x1c\x00\x00\x00\x00\x00\x00\x00\x00<g\x9d\xba\x82hSzt65\xdejXN\xa8h\xf3\xa1\x94\xc7\xd1\xa2\xf7"\xde\x81D9\xf4!\xeb\x8cT\x98C\x8d&WL\xac\x98\xca\xab\xb0#\x8bH\x0ew\xdb\xa9\xf4Q\x00\xa6V\n\xf8\xaf'
+
+decrypted = client.GSS_UnwrapEx(
+    clicontext,
+    _msgs,
+    sig,
+)[1].data
+assert decrypted == dcerpc_data

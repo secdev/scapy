@@ -55,7 +55,7 @@ from scapy.volatile import (
 )
 
 from scapy.arch import get_if_raw_hwaddr
-from scapy.sendrecv import srp1, sendp
+from scapy.sendrecv import srp1
 from scapy.error import warning
 from scapy.config import conf
 
@@ -303,6 +303,7 @@ DHCPOptions = {
     77: "user_class",
     78: "slp_service_agent",
     79: "slp_service_scope",
+    80: "rapid_commit",
     81: "client_FQDN",
     82: "relay_agent_information",
     85: IPField("nds-server", "0.0.0.0"),
@@ -318,9 +319,10 @@ DHCPOptions = {
     98: StrField("uap-servers", ""),
     100: StrField("pcode", ""),
     101: StrField("tcode", ""),
+    108: IntField("ipv6-only-preferred", 0),
     112: IPField("netinfo-server-address", "0.0.0.0"),
     113: StrField("netinfo-server-tag", ""),
-    114: StrField("default-url", ""),
+    114: StrField("captive-portal", ""),
     116: ByteField("auto-config", 0),
     117: ShortField("name-service-search", 0,),
     118: IPField("subnet-selection", "0.0.0.0"),
@@ -585,16 +587,16 @@ def dhcp_request(hw=None,
 class BOOTP_am(AnsweringMachine):
     function_name = "bootpd"
     filter = "udp and port 68 and port 67"
-    send_function = staticmethod(sendp)
 
     def parse_options(self,
                       pool=Net("192.168.1.128/25"),
                       network="192.168.1.0/24",
                       gw="192.168.1.1",
                       nameserver=None,
-                      domain="localnet",
+                      domain=None,
                       renewal_time=60,
-                      lease_time=1800):
+                      lease_time=1800,
+                      **kwargs):
         """
         :param pool: the range of addresses to distribute. Can be a Net,
                      a list of IPs or a string (always gives the same IP).
@@ -602,6 +604,12 @@ class BOOTP_am(AnsweringMachine):
         :param gw: the gateway IP (can be None)
         :param nameserver: the DNS server IP (by default, same than gw)
         :param domain: the domain to advertise (can be None)
+
+        Other DHCP parameters can be passed as kwargs. See DHCPOptions in dhcp.py.
+        For instance::
+
+            dhcpd(pool=Net("10.0.10.0/24"), network="10.0.0.0/8", gw="10.0.10.1",
+                  classless_static_routes=["1.2.3.4/32:9.8.7.6"])
         """
         self.domain = domain
         netw, msk = (network.split("/") + ["32"])[:2]
@@ -622,6 +630,7 @@ class BOOTP_am(AnsweringMachine):
         self.lease_time = lease_time
         self.renewal_time = renewal_time
         self.leases = {}
+        self.kwargs = kwargs
 
     def is_request(self, req):
         if not req.haslayer(BOOTP):
@@ -678,6 +687,8 @@ class DHCP_am(BOOTP_am):
                 ]
                 if x[1] is not None
             ]
+            if self.kwargs:
+                dhcp_options += self.kwargs.items()
             dhcp_options.append("end")
             resp /= DHCP(options=dhcp_options)
         return resp

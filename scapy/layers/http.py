@@ -19,7 +19,7 @@ Or (console only)::
 Note that this layer ISN'T loaded by default, as quite experimental for now.
 
 To follow HTTP packets streams = group packets together to get the
-whole request/answer, use ``TCPSession`` as:
+whole request/answer, use ``TCPSession`` as::
 
     >>> sniff(session=TCPSession)  # Live on-the-flow session
     >>> sniff(offline="./http_chunk.pcap", session=TCPSession)  # pcap
@@ -28,43 +28,60 @@ This will decode HTTP packets using ``Content_Length`` or chunks,
 and will also decompress the packets when needed.
 Note: on failure, decompression will be ignored.
 
-You can turn auto-decompression/auto-compression off with:
+You can turn auto-decompression/auto-compression off with::
 
     >>> conf.contribs["http"]["auto_compression"] = False
 
 (Defaults to True)
 """
 
-# This file is a modified version of the former scapy_http plugin.
+# This file is a rewritten version of the former scapy_http plugin.
 # It was reimplemented for scapy 2.4.3+ using sessions, stream handling.
 # Original Authors : Steeve Barbeau, Luca Invernizzi
 
+import base64
+import datetime
 import gzip
 import io
 import os
 import re
 import socket
+import ssl
 import struct
 import subprocess
 
-from scapy.base_classes import Net
+from enum import Enum
+
 from scapy.compat import plain_str, bytes_encode
 
+from scapy.automaton import Automaton, ATMT
 from scapy.config import conf
 from scapy.consts import WINDOWS
-from scapy.error import warning, log_loading
+from scapy.error import warning, log_loading, log_interactive, Scapy_Exception
 from scapy.fields import StrField
 from scapy.packet import Packet, bind_layers, bind_bottom_up, Raw
-from scapy.supersocket import StreamSocket
+from scapy.supersocket import StreamSocket, SSLStreamSocket
 from scapy.utils import get_temp_file, ContextManagerSubprocess
 
-from scapy.layers.inet import TCP, TCP_client
+from scapy.layers.gssapi import (
+    GSS_S_COMPLETE,
+    GSS_S_FAILURE,
+    GSS_S_CONTINUE_NEEDED,
+    GSSAPI_BLOB,
+)
+from scapy.layers.inet import TCP
 
 try:
     import brotli
     _is_brotli_available = True
 except ImportError:
     _is_brotli_available = False
+
+try:
+    import lzw
+    _is_lzw_available = True
+except ImportError:
+    _is_lzw_available = False
 
 try:
     import zstandard
@@ -266,6 +283,8 @@ def _dissect_headers(obj, s):
 
 
 class _HTTPContent(Packet):
+    __slots__ = ["_original_len"]
+
     # https://developer.mozilla.org/fr/docs/Web/HTTP/Headers/Transfer-Encoding
     def _get_encodings(self):
         encodings = []
@@ -282,6 +301,7 @@ class _HTTPContent(Packet):
         return b"HTTP1"
 
     def post_dissect(self, s):
+        self._original_len = len(s)
         if not conf.contribs["http"]["auto_compression"]:
             return s
         encodings = self._get_encodings()
@@ -312,8 +332,13 @@ class _HTTPContent(Packet):
             elif "gzip" in encodings:
                 s = gzip.decompress(s)
             elif "compress" in encodings:
-                import lzw
-                s = lzw.decompress(s)
+                if _is_lzw_available:
+                    s = lzw.decompress(s)
+                else:
+                    log_loading.info(
+                        "Can't import lzw. compress decompression "
+                        "will be ignored !"
+                    )
             elif "br" in encodings:
                 if _is_brotli_available:
                     s = brotli.decompress(s)
@@ -351,8 +376,13 @@ class _HTTPContent(Packet):
         elif "gzip" in encodings:
             pay = gzip.compress(pay)
         elif "compress" in encodings:
-            import lzw
-            pay = lzw.compress(pay)
+            if _is_lzw_available:
+                pay = lzw.compress(pay)
+            else:
+                log_loading.info(
+                    "Can't import lzw. compress compression "
+                    "will be ignored !"
+                )
         elif "br" in encodings:
             if _is_brotli_available:
                 pay = brotli.compress(pay)
@@ -382,30 +412,33 @@ class _HTTPContent(Packet):
         if self.raw_packet_cache is not None:
             return self.raw_packet_cache
         p = b""
+        encodings = self._get_encodings()
         # Walk all the fields, in order
-        for f in self.fields_desc:
+        for i, f in enumerate(self.fields_desc):
             if f.name == "Unknown_Headers":
                 continue
             # Get the field value
             val = self.getfieldval(f.name)
             if not val:
-                # Not specified. Skip
-                continue
-            if f.name not in ['Method', 'Path', 'Reason_Phrase',
-                              'Http_Version', 'Status_Code']:
+                if f.name == "Content_Length" and "chunked" not in encodings:
+                    # Add Content-Length anyways
+                    val = str(len(self.payload or b""))
+                elif f.name == "Date" and isinstance(self, HTTPResponse):
+                    val = datetime.datetime.utcnow().strftime(
+                        '%a, %d %b %Y %H:%M:%S GMT'
+                    )
+                else:
+                    # Not specified. Skip
+                    continue
+
+            if i >= 3:
                 val = _header_line(f.real_name, val)
             # Fields used in the first line have a space as a separator,
             # whereas headers are terminated by a new line
-            if isinstance(self, HTTPRequest):
-                if f.name in ['Method', 'Path']:
-                    separator = b' '
-                else:
-                    separator = b'\r\n'
-            elif isinstance(self, HTTPResponse):
-                if f.name in ['Http_Version', 'Status_Code']:
-                    separator = b' '
-                else:
-                    separator = b'\r\n'
+            if i <= 1:
+                separator = b' '
+            else:
+                separator = b'\r\n'
             # Add the field into the packet
             p = f.addfield(self, p, val + separator)
         # Handle Unknown_Headers
@@ -425,6 +458,8 @@ class _HTTPContent(Packet):
     def guess_payload_class(self, payload):
         """Detect potential payloads
         """
+        if not hasattr(self, "Connection"):
+            return super(_HTTPContent, self).guess_payload_class(payload)
         if self.Connection and b"Upgrade" in self.Connection:
             from scapy.contrib.http2 import H2Frame
             return H2Frame
@@ -439,6 +474,11 @@ class _HTTPHeaderField(StrField):
         self.real_name = name
         name = _strip_header_name(name)
         StrField.__init__(self, name, default, fmt="H")
+
+    def i2repr(self, pkt, x):
+        if isinstance(x, bytes):
+            return x.decode(errors="backslashreplace")
+        return x
 
 
 def _generate_headers(*args):
@@ -493,8 +533,7 @@ class HTTPRequest(_HTTPContent):
 
     def mysummary(self):
         return self.sprintf(
-            "%HTTPRequest.Method% %HTTPRequest.Path% "
-            "%HTTPRequest.Http_Version%"
+            "%HTTPRequest.Method% '%HTTPRequest.Path%' "
         )
 
 
@@ -538,8 +577,7 @@ class HTTPResponse(_HTTPContent):
 
     def mysummary(self):
         return self.sprintf(
-            "%HTTPResponse.Http_Version% %HTTPResponse.Status_Code% "
-            "%HTTPResponse.Reason_Phrase%"
+            "%HTTPResponse.Status_Code% %HTTPResponse.Reason_Phrase%"
         )
 
 # General HTTP class + defragmentation
@@ -549,6 +587,19 @@ class HTTP(Packet):
     name = "HTTP 1"
     fields_desc = []
     show_indent = 0
+    clsreq = HTTPRequest
+    clsresp = HTTPResponse
+    hdr = b"HTTP"
+    reqmethods = b"|".join([
+        b"OPTIONS",
+        b"GET",
+        b"HEAD",
+        b"POST",
+        b"PUT",
+        b"DELETE",
+        b"TRACE",
+        b"CONNECT",
+    ])
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -580,21 +631,29 @@ class HTTP(Packet):
     def tcp_reassemble(cls, data, metadata, _):
         detect_end = metadata.get("detect_end", None)
         is_unknown = metadata.get("detect_unknown", True)
+        # General idea of the following is explained at
+        # https://datatracker.ietf.org/doc/html/rfc2616#section-4.4
         if not detect_end or is_unknown:
             metadata["detect_unknown"] = False
-            http_packet = HTTP(data)
+            http_packet = cls(data)
             # Detect packing method
             if not isinstance(http_packet.payload, _HTTPContent):
                 return http_packet
+            is_response = isinstance(http_packet.payload, cls.clsresp)
+            # Packets may have a Content-Length we must honnor
             length = http_packet.Content_Length
-            if length is not None:
+            # Heuristic to try and detect instant HEAD responses, as those include a
+            # Content-Length that must not be honored.
+            if is_response and data.endswith(b"\r\n\r\n"):
+                detect_end = lambda _: True
+            elif length is not None:
                 # The packet provides a Content-Length attribute: let's
                 # use it. When the total size of the frags is high enough,
                 # we have the packet
                 length = int(length)
                 # Subtract the length of the "HTTP*" layer
                 if http_packet.payload.payload or length == 0:
-                    http_length = len(data) - len(http_packet.payload.payload)
+                    http_length = len(data) - http_packet.payload._original_len
                     detect_end = lambda dat: len(dat) - http_length >= length
                 else:
                     # The HTTP layer isn't fully received.
@@ -602,14 +661,13 @@ class HTTP(Packet):
                     metadata["detect_unknown"] = True
             else:
                 # It's not Content-Length based. It could be chunked
-                encodings = http_packet[HTTP].payload._get_encodings()
+                encodings = http_packet[cls].payload._get_encodings()
                 chunked = ("chunked" in encodings)
-                is_response = isinstance(http_packet.payload, HTTPResponse)
                 if chunked:
                     detect_end = lambda dat: dat.endswith(b"0\r\n\r\n")
                 # HTTP Requests that do not have any content,
-                # end with a double CRLF
-                elif isinstance(http_packet.payload, HTTPRequest):
+                # end with a double CRLF. Same for HEAD responses
+                elif isinstance(http_packet.payload, cls.clsreq):
                     detect_end = lambda dat: dat.endswith(b"\r\n\r\n")
                     # In case we are handling a HTTP Request,
                     # we want to continue assessing the data,
@@ -631,7 +689,7 @@ class HTTP(Packet):
                 return http_packet
         else:
             if detect_end(data):
-                http_packet = HTTP(data)
+                http_packet = cls(data)
                 return http_packet
 
     def guess_payload_class(self, payload):
@@ -640,90 +698,232 @@ class HTTP(Packet):
         """
         try:
             prog = re.compile(
-                br"^(?:OPTIONS|GET|HEAD|POST|PUT|DELETE|TRACE|CONNECT) "
-                br"(?:.+?) "
-                br"HTTP/\d\.\d$"
+                br"^(?:" + self.reqmethods + br") " +
+                br"(?:.+?) " +
+                self.hdr + br"/\d\.\d$"
             )
             crlfIndex = payload.index(b"\r\n")
             req = payload[:crlfIndex]
             result = prog.match(req)
             if result:
-                return HTTPRequest
+                return self.clsreq
             else:
-                prog = re.compile(br"^HTTP/\d\.\d \d\d\d .*$")
+                prog = re.compile(b"^" + self.hdr + br"/\d\.\d \d\d\d .*$")
                 result = prog.match(req)
                 if result:
-                    return HTTPResponse
+                    return self.clsresp
         except ValueError:
             # Anything that isn't HTTP but on port 80
             pass
         return Raw
 
 
+class HTTP_AUTH_MECHS(Enum):
+    NONE = "NONE"
+    BASIC = "Basic"
+    NTLM = "NTLM"
+    NEGOTIATE = "Negotiate"
+
+
+class HTTP_Client(object):
+    """
+    A basic HTTP client
+
+    :param mech: one of HTTP_AUTH_MECHS
+    :param ssl: whether to use HTTPS or not
+    :param ssp: the SSP object to use for binding
+    """
+
+    def __init__(
+        self,
+        mech=HTTP_AUTH_MECHS.NONE,
+        verb=True,
+        sslcontext=None,
+        ssp=None,
+        no_check_certificate=False,
+    ):
+        self.sock = None
+        self._sockinfo = None
+        self.authmethod = mech
+        self.verb = verb
+        self.sslcontext = sslcontext
+        self.ssp = ssp
+        self.sspcontext = None
+        self.no_check_certificate = no_check_certificate
+
+    def _connect_or_reuse(self, host, port=None, tls=False, timeout=5):
+        # Get the port
+        if port is None:
+            if tls:
+                port = 443
+            else:
+                port = 80
+        # If the current socket matches, keep it.
+        if self._sockinfo == (host, port):
+            return
+        # A new socket is needed
+        if self._sockinfo:
+            self.close()
+        sock = socket.socket()
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        sock.settimeout(timeout)
+        if self.verb:
+            print(
+                "\u2503 Connecting to %s on port %s%s..."
+                % (
+                    host,
+                    port,
+                    " with SSL" if tls else "",
+                )
+            )
+        sock.connect((host, port))
+        if self.verb:
+            print(
+                conf.color_theme.green(
+                    "\u2514 Connected from %s" % repr(sock.getsockname())
+                )
+            )
+        if tls:
+            if self.sslcontext is None:
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                if self.no_check_certificate:
+                    context.check_hostname = False
+                    context.verify_mode = ssl.CERT_NONE
+            else:
+                context = self.sslcontext
+            sock = context.wrap_socket(sock)
+            self.sock = SSLStreamSocket(sock, HTTP)
+        else:
+            self.sock = StreamSocket(sock, HTTP)
+        # Store information regarding the current socket
+        self._sockinfo = (host, port)
+
+    def sr1(self, req, **kwargs):
+        if self.verb:
+            print(conf.color_theme.opening(">> %s" % req.summary()))
+        resp = self.sock.sr1(
+            HTTP() / req,
+            verbose=0,
+            **kwargs,
+        )
+        if self.verb:
+            print(
+                conf.color_theme.success(
+                    "<< %s" % (resp and resp.summary())
+                )
+            )
+        return resp
+
+    def request(self, url, data=b"", timeout=5, follow_redirects=True, **headers):
+        """
+        Perform a HTTP(s) request.
+        """
+        # Parse request url
+        m = re.match(r"(https?)://([^/:]+)(?:\:(\d+))?(?:/(.*))?", url)
+        if not m:
+            raise ValueError("Bad URL !")
+        transport, host, port, path = m.groups()
+        if transport == "https":
+            tls = True
+        else:
+            tls = False
+
+        path = path or "/"
+        port = port and int(port)
+
+        # Connect (or reuse) socket
+        self._connect_or_reuse(host, port=port, tls=tls, timeout=timeout)
+
+        # Build request
+        http_headers = {
+            "Accept_Encoding": b'gzip, deflate',
+            "Cache_Control": b'no-cache',
+            "Pragma": b'no-cache',
+            "Connection": b'keep-alive',
+            "Host": host,
+            "Path": path,
+        }
+        http_headers.update(headers)
+        req = HTTP() / HTTPRequest(**http_headers)
+        if data:
+            req /= data
+
+        while True:
+            # Perform the request.
+            resp = self.sr1(req)
+            if not resp:
+                break
+            # First case: auth was required. Handle that
+            if resp.Status_Code in [b"401", b"407"]:
+                # Authentication required
+                if self.authmethod in [
+                    HTTP_AUTH_MECHS.NTLM,
+                    HTTP_AUTH_MECHS.NEGOTIATE,
+                ]:
+                    # Parse authenticate
+                    if b" " in resp.WWW_Authenticate:
+                        method, data = resp.WWW_Authenticate.split(b" ", 1)
+                        try:
+                            ssp_blob = GSSAPI_BLOB(base64.b64decode(data))
+                        except Exception:
+                            raise Scapy_Exception("Invalid WWW-Authenticate")
+                    else:
+                        method = resp.WWW_Authenticate
+                        ssp_blob = None
+                    if plain_str(method) != self.authmethod.value:
+                        raise Scapy_Exception("Invalid WWW-Authenticate")
+                    # SPNEGO / Kerberos / NTLM
+                    self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
+                        self.sspcontext,
+                        ssp_blob,
+                        req_flags=0,
+                    )
+                    if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
+                        raise Scapy_Exception("Authentication failure")
+                    req.Authorization = (
+                        self.authmethod.value.encode() + b" " +
+                        base64.b64encode(bytes(token))
+                    )
+                    continue
+            # Second case: follow redirection
+            if resp.Status_Code in [b"301", b"302"] and follow_redirects:
+                return self.request(
+                    resp.Location.decode(),
+                    data=data,
+                    timeout=timeout,
+                    follow_redirects=follow_redirects,
+                    **headers,
+                )
+            break
+        return resp
+
+    def close(self):
+        if self.verb:
+            print("X Connection to %s closed\n" % repr(self.sock.ins.getpeername()))
+        self.sock.close()
+
+
 def http_request(host, path="/", port=80, timeout=3,
-                 display=False, verbose=0,
-                 raw=False, iptables=False, iface=None,
-                 **headers):
-    """Util to perform an HTTP request, using the TCP_client.
+                 display=False, verbose=0, **headers):
+    """
+    Util to perform an HTTP request.
 
     :param host: the host to connect to
     :param path: the path of the request (default /)
     :param port: the port (default 80)
     :param timeout: timeout before None is returned
     :param display: display the result in the default browser (default False)
-    :param raw: opens a raw socket instead of going through the OS's TCP
-                socket. Scapy will then use its own TCP client.
-                Careful, the OS might cancel the TCP connection with RST.
-    :param iptables: when raw is enabled, this calls iptables to temporarily
-                     prevent the OS from sending TCP RST to the host IP.
-                     On Linux, you'll almost certainly need this.
     :param iface: interface to use. Changing this turns on "raw"
     :param headers: any additional headers passed to the request
 
     :returns: the HTTPResponse packet
     """
-    from scapy.sessions import TCPSession
-    http_headers = {
-        "Accept_Encoding": b'gzip, deflate',
-        "Cache_Control": b'no-cache',
-        "Pragma": b'no-cache',
-        "Connection": b'keep-alive',
-        "Host": host,
-        "Path": path,
-    }
-    http_headers.update(headers)
-    req = HTTP() / HTTPRequest(**http_headers)
-    ans = None
+    client = HTTP_Client(HTTP_AUTH_MECHS.NONE, verb=verbose)
+    ans = client.request(
+        "http://%s:%s%s" % (host, port, path),
+        timeout=timeout,
+    )
 
-    # Open a socket
-    if iface is not None:
-        raw = True
-    if raw:
-        # Use TCP_client on a raw socket
-        iptables_rule = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
-        if iptables:
-            host = str(Net(host))
-            assert os.system(iptables_rule % ('A', host)) == 0
-        sock = TCP_client.tcplink(HTTP, host, port, debug=verbose,
-                                  iface=iface)
-    else:
-        # Use a native TCP socket
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((host, port))
-        sock = StreamSocket(sock, HTTP)
-    # Send the request and wait for the answer
-    try:
-        ans = sock.sr1(
-            req,
-            session=TCPSession(app=True),
-            timeout=timeout,
-            verbose=verbose
-        )
-    finally:
-        sock.close()
-        if raw and iptables:
-            host = str(Net(host))
-            assert os.system(iptables_rule % ('D', host)) == 0
     if ans:
         if display:
             if Raw not in ans:
@@ -751,3 +951,231 @@ bind_layers(TCP, HTTP, sport=80, dport=80)
 
 bind_bottom_up(TCP, HTTP, sport=8080)
 bind_bottom_up(TCP, HTTP, dport=8080)
+
+
+# Automatons
+
+class HTTP_Server(Automaton):
+    """
+    HTTP server automaton
+
+    :param ssp: the SSP to serve. If None, unauthenticated (or basic).
+    :param mech: the HTTP_AUTH_MECHS to use (default: NONE)
+
+    Other parameters:
+
+    :param BASIC_IDENTITIES: a dict that contains {"user": "password"} for Basic
+                             authentication.
+    :param BASIC_REALM: the basic realm.
+    """
+
+    pkt_cls = HTTP
+
+    def __init__(
+        self,
+        mech=HTTP_AUTH_MECHS.NONE,
+        ssp=None,
+        verb=True,
+        *args,
+        **kwargs,
+    ):
+        self.verb = verb
+        if "sock" not in kwargs:
+            raise ValueError(
+                "HTTP_Server cannot be started directly ! Use SMB_Server.spawn"
+            )
+        self.ssp = ssp
+        self.authmethod = mech.value
+        self.sspcontext = None
+        self.basic = False
+        self.BASIC_IDENTITIES = kwargs.pop("BASIC_IDENTITIES", {})
+        self.BASIC_REALM = kwargs.pop("BASIC_REALM", "default")
+        if mech == HTTP_AUTH_MECHS.BASIC:
+            if not self.BASIC_IDENTITIES:
+                raise ValueError("Please provide 'BASIC_IDENTITIES' !")
+            if ssp is not None:
+                raise ValueError("Can't use 'BASIC_IDENTITIES' with 'ssp' !")
+            self.basic = True
+        elif mech == HTTP_AUTH_MECHS.NONE:
+            if ssp is not None:
+                raise ValueError("Cannot use ssp with mech=NONE !")
+        # Initialize
+        Automaton.__init__(self, *args, **kwargs)
+
+    def send(self, resp):
+        self.sock.send(HTTP() / resp)
+
+    def vprint(self, s=""):
+        """
+        Verbose print (if enabled)
+        """
+        if self.verb:
+            if conf.interactive:
+                log_interactive.info("> %s", s)
+            else:
+                print("> %s" % s)
+
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.authenticated = False
+        self.sspcontext = None
+
+    @ATMT.condition(BEGIN, prio=0)
+    def should_authenticate(self):
+        if self.authmethod == HTTP_AUTH_MECHS.NONE:
+            raise self.SERVE()
+        else:
+            raise self.AUTH()
+
+    @ATMT.state()
+    def AUTH(self):
+        pass
+
+    @ATMT.state()
+    def AUTH_ERROR(self, proxy):
+        self.sspcontext = None
+        self._ask_authorization(proxy, self.authmethod)
+        self.vprint("AUTH ERROR")
+
+    @ATMT.condition(AUTH_ERROR)
+    def allow_reauth(self):
+        raise self.AUTH()
+
+    def _ask_authorization(self, proxy, data):
+        if proxy:
+            self.send(
+                HTTPResponse(
+                    Status_Code=b"407",
+                    Reason_Phrase=b"Proxy Authentication Required",
+                    Proxy_Authenticate=data,
+                )
+            )
+        else:
+            self.send(
+                HTTPResponse(
+                    Status_Code=b"401",
+                    Reason_Phrase=b"Unauthorized",
+                    WWW_Authenticate=data,
+                )
+            )
+
+    @ATMT.receive_condition(AUTH, prio=1)
+    def received_unauthenticated(self, pkt):
+        if HTTPRequest in pkt:
+            self.vprint(pkt.summary())
+            if pkt.Method == b"CONNECT":
+                # HTTP tunnel (proxy)
+                proxy = True
+            else:
+                # HTTP non-tunnel
+                proxy = False
+            # Get authorization
+            if proxy:
+                authorization = pkt.Proxy_Authorization
+            else:
+                authorization = pkt.Authorization
+            if not authorization:
+                # Initial ask.
+                data = self.authmethod
+                if self.basic:
+                    data += " realm='%s'" % self.BASIC_REALM
+                self._ask_authorization(proxy, data)
+                return
+            # Parse authorization
+            method, data = authorization.split(b" ", 1)
+            if plain_str(method) != self.authmethod:
+                raise self.AUTH_ERROR(proxy)
+            try:
+                data = base64.b64decode(data)
+            except Exception:
+                raise self.AUTH_ERROR(proxy)
+            # Now process the authorization
+            if not self.basic:
+                try:
+                    ssp_blob = GSSAPI_BLOB(data)
+                except Exception:
+                    self.sspcontext = None
+                    self._ask_authorization(proxy, self.authmethod)
+                    raise self.AUTH_ERROR(proxy)
+                # And call the SSP
+                self.sspcontext, tok, status = self.ssp.GSS_Accept_sec_context(
+                    self.sspcontext, ssp_blob
+                )
+            else:
+                # This is actually Basic authentication
+                try:
+                    next(
+                        True
+                        for k, v in self.BASIC_IDENTITIES.items()
+                        if ("%s:%s" % (k, v)).encode() == data
+                    )
+                    tok, status = None, GSS_S_COMPLETE
+                except StopIteration:
+                    tok, status = None, GSS_S_FAILURE
+            # Send answer
+            if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
+                raise self.AUTH_ERROR(proxy)
+            elif status == GSS_S_CONTINUE_NEEDED:
+                data = self.authmethod.encode()
+                if tok:
+                    data += b" " + base64.b64encode(bytes(tok))
+                self._ask_authorization(proxy, data)
+                raise self.AUTH()
+            else:
+                # Authenticated !
+                self.authenticated = True
+                self.vprint("AUTH OK")
+                raise self.SERVE(pkt)
+
+    @ATMT.eof(AUTH)
+    def auth_eof(self):
+        raise self.CLOSED()
+
+    @ATMT.state(error=1)
+    def ERROR(self):
+        self.send(
+            HTTPResponse(
+                Status_Code="400",
+                Reason_Phrase="Bad Request",
+            )
+        )
+
+    @ATMT.state(final=1)
+    def CLOSED(self):
+        self.vprint("CLOSED")
+
+    # Serving
+
+    @ATMT.state()
+    def SERVE(self, pkt):
+        answer = self.answer(pkt)
+        if answer:
+            self.send(answer)
+            self.vprint("%s -> %s" % (pkt.summary(), answer.summary()))
+        else:
+            self.vprint("%s" % pkt.summary())
+
+    @ATMT.receive_condition(SERVE)
+    def new_request(self, pkt):
+        raise self.SERVE(pkt)
+
+    # DEV: overwrite this function
+
+    def answer(self, pkt):
+        """
+        HTTP_server answer function.
+
+        :param pkt: a HTTPRequest packet
+        :returns: a HTTPResponse packet
+        """
+        if pkt.Path == b"/":
+            return HTTPResponse() / (
+                "<!doctype html><html><body><h1>OK</h1></body></html>"
+            )
+        else:
+            return HTTPResponse(
+                Status_Code=b"404",
+                Reason_Phrase=b"Not Found",
+            ) / (
+                "<!doctype html><html><body><h1>404 - Not Found</h1></body></html>"
+            )

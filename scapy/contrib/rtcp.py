@@ -51,6 +51,9 @@ class SenderInfo(Packet):
         IntField('sender_octet_count', None)
     ]
 
+    def extract_padding(self, p):
+        return "", p
+
 
 class ReceptionReport(Packet):
     name = "Reception report"
@@ -63,6 +66,9 @@ class ReceptionReport(Packet):
         IntField('last_SR_timestamp', None),
         IntField('delay_since_last_SR', None)
     ]
+
+    def extract_padding(self, p):
+        return "", p
 
 
 _sdes_chunk_types = {
@@ -94,7 +100,12 @@ class SDESChunk(Packet):
     name = "SDES chunk"
     fields_desc = [
         IntField('sourcesync', None),
-        PacketListField('items', None, pkt_cls=SDESItem)
+        PacketListField(
+            'items', None,
+            next_cls_cb=(
+                lambda x, y, p, z: None if (p and p.chunk_type == 0) else SDESItem
+            )
+        )
     ]
 
 

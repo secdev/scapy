@@ -30,6 +30,16 @@ assert (s == b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x81\x00\x00\x01\
 p = Ether(s)
 assert GENEVE in p and Ether in p[GENEVE].payload and p[GENEVE].proto == 0x6558 and p[GeneveOptions].length == 1 and p[GeneveOptions].classid == 0x102 and p[GeneveOptions].type == 0x80
 
+= Build & dissect - GENEVE with multiple options
+
+s = raw(GENEVE(proto=0x0800,options=[GeneveOptions(classid=0x0102,type=0x1,data=b'\x00\x01\x00\x02'), GeneveOptions(classid=0x0102,type=0x2,data=b'\x00\x01\x00\x02')]))
+p = GENEVE(s)
+assert p.optionlen == 4
+assert len(p.options) == 2
+assert p.options[0].classid == 0x102 and p.options[0].type == 0x1
+assert p.options[1].classid == 0x102 and p.options[1].type == 0x2
+
+
 = Build & dissect - GENEVE encapsulates IPv4
 
 s = raw(IP()/UDP(sport=10000)/GENEVE()/IP())
@@ -66,3 +76,11 @@ a = GENEVE(proto=0x0800)/b'E\x00\x00\x1c\x00\x01\x00\x00@\x01\xfa$\xc0\xa8\x00w\
 a = GENEVE(raw(a))
 assert a.summary() == 'GENEVE / IP / ICMP 192.168.0.119 > 172.217.18.195 echo-request 0'
 assert a.mysummary() in ['GENEVE (vni=0x0,optionlen=0,proto=0x800)', 'GENEVE (vni=0x0,optionlen=0,proto=IPv4)']
+
+= GENEVE - Optionlen
+
+for size in range(0, 0x1f, 4):
+    p = GENEVE(bytes(GENEVE(options=GeneveOptions(data=RandString(size)))))
+    assert p[GENEVE].optionlen == (size // 4 + 1)
+    assert len(p[GENEVE].options[0].data) == size
+

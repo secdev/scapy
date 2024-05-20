@@ -50,8 +50,7 @@ len(iflist) > 0
 = Misc functions
 ~ needs_root
 
-from scapy.arch.bpf.supersocket import isBPFSocket, bpf_select
-isBPFSocket(L2bpfListenSocket()) and isBPFSocket(L2bpfSocket()) and isBPFSocket(L3bpfSocket())
+from scapy.arch.bpf.supersocket import bpf_select
 
 l = bpf_select([L2bpfSocket()])
 l = bpf_select([L2bpfSocket(), sys.stdin.fileno()])
@@ -147,10 +146,7 @@ s.assigned_interface = conf.loopback_name
 s.send(IP(dst="8.8.8.8")/ICMP())
 
 = L3bpfSocket - send and sniff on loopback
-~ needs_root not_netbsd
-
-# Note: as of November 2022, it is not possible to send packet on lo0
-#       using bpf on NetBSD 9.3
+~ needs_root
 
 localhost_ip = conf.ifaces[conf.loopback_name].ips[4][0]
 

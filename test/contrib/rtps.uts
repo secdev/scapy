@@ -405,3 +405,74 @@ p1 = RTPS(
 assert p0.build() == d
 assert p1.build() == d
 assert p1 == p0
+
++ Test for pr #3914
+= RTPS Heartbeat SequenceNumber_t packing and dissection
+
+d = b"\x52\x54\x50\x53\x02\x02\x01\x0f\x01\x0f\x45\xd2\xb3\xf5\x58\xb9" \
+    b"\x01\x00\x00\x00\x07\x01\x1c\x00\x00\x00\x03\xc7\x00\x00\x03\xc2" \
+    b"\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00" \
+    b"\x01\x00\x00\x00"
+
+p0 = RTPS(d)
+
+p1 = RTPS(
+    protocolVersion=ProtocolVersionPacket(major=2, minor=2),
+    vendorId=VendorIdPacket(vendor_id=0x010f),
+    guidPrefix=GUIDPrefixPacket(
+        hostId=0x010f45d2, appId=0xb3f558b9, instanceId=0x01000000
+    ),
+    magic=b"RTPS",
+) / RTPSMessage(
+    submessages=[
+        RTPSSubMessage_HEARTBEAT(
+            submessageId=0x07,
+            submessageFlags=0x01,
+            octetsToNextHeader=28,
+            reader_id=b"\x00\x00\x03\xc7",
+            writer_id=b"\x00\x00\x03\xc2",
+            firstAvailableSeqNumHi=0,
+            firstAvailableSeqNumLow=1,
+            lastSeqNumHi=0,
+            lastSeqNumLow=1,
+            count=1
+        )
+    ]
+)
+
+assert p0.build() == d
+assert p1.build() == d
+assert p0 == p1
+
++ Test for pr #3915
+= RTPS ACKNACK count packing and dissection
+
+d = b"\x52\x54\x50\x53\x02\x02\x01\x0f\x01\x0f\x45\xd2\xb3\xf5\x58\xb9" \
+    b"\x01\x00\x00\x00\x06\x03\x18\x00\x00\x00\x03\xc7\x00\x00\x03\xc2" \
+    b"\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00"
+p0 = RTPS(d)
+
+p1 = RTPS(
+    protocolVersion=ProtocolVersionPacket(major=2, minor=2),
+    vendorId=VendorIdPacket(vendor_id=0x010f),
+    guidPrefix=GUIDPrefixPacket(
+        hostId=0x010f45d2, appId=0xb3f558b9, instanceId=0x01000000
+    ),
+    magic=b"RTPS",
+) / RTPSMessage(
+    submessages=[
+        RTPSSubMessage_ACKNACK(
+            submessageId=6,
+            submessageFlags=3,
+            octetsToNextHeader=0x18,
+            reader_id=b'\x00\x00\x03\xc7',
+            writer_id=b'\x00\x00\x03\xc2',
+            readerSNState=b'\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00',
+            count=1
+        )
+    ]
+)
+
+assert p0.build() == d
+assert p1.build() == d
+assert p0 == p1

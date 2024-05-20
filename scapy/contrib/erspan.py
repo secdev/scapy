@@ -4,6 +4,8 @@
 
 """
 ERSPAN - Encapsulated Remote SPAN
+
+https://datatracker.ietf.org/doc/html/draft-foschiano-erspan-03
 """
 
 # scapy.contrib.description = ERSPAN - Encapsulated Remote SPAN
@@ -19,16 +21,24 @@ from scapy.layers.l2 import Ether, GRE
 
 class ERSPAN(Packet):
     """
-    A generic ERSPAN packet, pointing by default to ERSPAN II
+    A generic ERSPAN packet
     """
     name = "ERSPAN"
     fields_desc = []
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            ver = _pkt[0] >> 4
+            if ver == 1:
+                return ERSPAN_II
+            elif ver == 2:
+                return ERSPAN_III
+            else:
+                return ERSPAN_I
         if cls == ERSPAN:
             return ERSPAN_II
-        return Packet.dispatch_hook(cls, _pkt, *args, **kargs)
+        return cls
 
 
 class ERSPAN_I(ERSPAN):
@@ -40,7 +50,7 @@ class ERSPAN_I(ERSPAN):
 class ERSPAN_II(ERSPAN):
     name = "ERSPAN II"
     match_subclass = True
-    fields_desc = [BitField("ver", 0, 4),
+    fields_desc = [BitField("ver", 1, 4),
                    BitField("vlan", 0, 12),
                    BitField("cos", 0, 3),
                    BitField("en", 0, 2),

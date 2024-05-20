@@ -315,7 +315,7 @@ raw(BGPAuthenticationInformation()) == b'\x00'
 
 = BGPAuthenticationInformation - Basic dissection
 c = BGPAuthenticationInformation(b'\x00')
-c.authentication_code == 0 and c.authentication_data == None
+c.authentication_code == 0 and not c.authentication_data
 
 
 ################################# BGPOptParam #################################
@@ -595,6 +595,20 @@ raw(BGPPAAS4Aggregator(aggregator_asn = 644566565, speaker_address = "192.0.2.1"
 = BGPPAAS4Aggregator - Dissection
 a = BGPPAAS4Aggregator(b'&kN%\xc0\x00\x02\x01')
 a.aggregator_asn == 644566565 and a.speaker_address == "192.0.2.1"
+
+
+############################# BGPPALargeCommunity ############################
++ BGPPALargeCommunity class tests
+
+= BGPPALargeCommunity - Instantiation
+raw(BGPPALargeCommunity()) == b''
+
+= BGPPALargeCommunity - Instantiation with specific values
+raw(BGPPALargeCommunity(segments=BGPLargeCommunitySegment(global_administrator=161,local_data_part1=0,local_data_part2=0))) == b'\x00\x00\x00\xa1\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= BGPPALargeCommunity - Dissection
+a = BGPPALargeCommunity(b'\x00\x00\x00\xa1\x00\x00\x00\x00\x00\x00\x00\x00')
+a.segments[0].global_administrator == 161 and a.segments[0].local_data_part1 == 0 and a.segments[0].local_data_part2 == 0
 
 
 ################################ BGPPathAttr #################################

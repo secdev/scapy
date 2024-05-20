@@ -11,12 +11,9 @@
 = L3RawSocket
 ~ netaccess IP TCP linux needs_root
 
-old_l3socket = conf.L3socket
-conf.L3socket = L3RawSocket
 with no_debug_dissector():
     x = sr1(IP(dst="www.google.com")/TCP(sport=RandShort(), dport=80, flags="S"),timeout=3)
 
-conf.L3socket = old_l3socket
 x
 assert x[IP].ottl() in [32, 64, 128, 255]
 assert 0 <= x[IP].hops() <= 126
@@ -58,8 +55,10 @@ if exit_status == 0:
     conf.route.resync()
     print(conf.route.routes)
     assert conf.route.route("192.0.2.43") == ("scapy0.42", "203.0.113.42", "203.0.113.41")
-    route_specific = (3221226027, 4294967295, "203.0.113.41", "scapy0.42", "203.0.113.42", 0)
+    route_specific = (3221226027, 4294967295, "203.0.113.41", "scapy0.42", "0.0.0.0", 0)
     assert route_specific in conf.route.routes
+    assert conf.route.route("203.0.113.42") == ('scapy0.42', '203.0.113.42', '0.0.0.0')
+    assert conf.route.route("203.0.113.43") == ('scapy0.42', '203.0.113.42', '0.0.0.0')
     exit_status = os.system("ip link del name dev scapy0")
 else:
     assert True
@@ -80,56 +79,57 @@ with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo_x'):
 import os, socket
 from mock import patch
 
-exit_status = os.system("ip link add name scapy_lo type dummy")
-assert exit_status == 0
-exit_status = os.system("ip link set dev scapy_lo up")
-assert exit_status == 0
-
-with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo'):
-    routes = read_routes()
-
-exit_status = os.system("ip addr add dev scapy_lo 10.10.0.1/24")
-assert exit_status == 0
-
-with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo'):
-    routes = read_routes()
-
-got_lo_device = False
-for route in routes:
-    dst_int, msk_int, gw_str, if_name, if_addr, metric = route
-    if if_name == 'scapy_lo':
-        got_lo_device = True
-        assert if_addr == '10.10.0.1'
-        dst_addr = socket.inet_ntoa(struct.pack("!I", dst_int))
-        assert dst_addr == '10.10.0.0'
-        msk = socket.inet_ntoa(struct.pack("!I", msk_int))
-        assert (msk == '255.255.255.0')
-        break
-
-assert got_lo_device
-
-exit_status = os.system("ip link del dev scapy_lo")
-assert exit_status == 0
+try:
+    exit_status = os.system("ip link add name scapy_lo type dummy")
+    assert exit_status == 0
+    exit_status = os.system("ip link set dev scapy_lo up")
+    assert exit_status == 0
+    
+    with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo'):
+        routes = read_routes()
+    
+    exit_status = os.system("ip addr add dev scapy_lo 10.10.0.1/24")
+    assert exit_status == 0
+    
+    with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo'):
+        routes = read_routes()
+    
+    lo_routes = [
+        (ltoa(dst_int), ltoa(msk_int), gw_str, if_name, if_addr, metric)
+        for dst_int, msk_int, gw_str, if_name, if_addr, metric in routes
+        if if_name == "scapy_lo"
+    ]
+    lo_routes.sort(key=lambda x: x[0])
+    
+    expected_routes = [
+        (168427520, 4294967040, '0.0.0.0', 'scapy_lo', '10.10.0.1', 0),
+        (168427521, 4294967295, '0.0.0.0', 'scapy_lo', '10.10.0.1', 0),
+        (168427775, 4294967295, '0.0.0.0', 'scapy_lo', '10.10.0.1', 0),
+    ]
+    print(lo_routes)
+    print(expected_routes)
+finally:
+    exit_status = os.system("ip link del dev scapy_lo")
+    assert exit_status == 0
 
 = IPv6 link-local address selection
 
-conf.ifaces._add_fake_iface("scapy0")
+conf.ifaces._add_fake_iface("scapy0", 'e2:39:91:79:19:10')
 
 from mock import patch
 conf.route6.routes =  [('fe80::', 64, '::', 'scapy0', ['fe80::e039:91ff:fe79:1910'], 256)]
 conf.route6.ipv6_ifaces = set(['scapy0'])
 bck_conf_iface = conf.iface
 conf.iface = "scapy0"
-with patch("scapy.layers.l2.get_if_hwaddr") as mgih:
-    mgih.return_value = 'e2:39:91:79:19:10'
-    p = Ether()/IPv6(dst="ff02::1")/ICMPv6NIQueryName(data="ff02::1")
-    print(p.sprintf("%Ether.src% > %Ether.dst%\n%IPv6.src% > %IPv6.dst%"))
-    ip6_ll_address = 'fe80::e039:91ff:fe79:1910'
-    print(p[IPv6].src, ip6_ll_address)
-    assert p[IPv6].src == ip6_ll_address
-    mac_address = 'e2:39:91:79:19:10'
-    print(p[Ether].src, mac_address)
-    assert p[Ether].src == mac_address
+
+p = Ether()/IPv6(dst="ff02::1")/ICMPv6NIQueryName(data="ff02::1")
+print(p.sprintf("%Ether.src% > %Ether.dst%\n%IPv6.src% > %IPv6.dst%"))
+ip6_ll_address = 'fe80::e039:91ff:fe79:1910'
+print(p[IPv6].src, ip6_ll_address)
+assert p[IPv6].src == ip6_ll_address
+mac_address = 'e2:39:91:79:19:10'
+print(p[Ether].src, mac_address)
+assert p[Ether].src == mac_address
 
 conf.iface = bck_conf_iface
 conf.route6.resync()
@@ -309,16 +309,20 @@ assert test_L3PacketSocket_sendto_python3()
 
 import os
 from scapy.sendrecv import _interface_selection
-assert _interface_selection(None, IP(dst="8.8.8.8")/UDP()) == conf.iface
+assert _interface_selection(None, IP(dst="8.8.8.8")/UDP()) == (conf.iface, False)
 exit_status = os.system("ip link add name scapy0 type dummy")
 exit_status = os.system("ip addr add 192.0.2.1/24 dev scapy0")
+exit_status = os.system("ip addr add fc00::/24 dev scapy0")
 exit_status = os.system("ip link set scapy0 up")
 conf.ifaces.reload()
 conf.route.resync()
-assert _interface_selection(None, IP(dst="192.0.2.42")/UDP()) == "scapy0"
+conf.route6.resync()
+assert _interface_selection(None, IP(dst="192.0.2.42")/UDP()) == ("scapy0", False)
+assert _interface_selection(None, IPv6(dst="fc00::ae0d")/UDP()) == ("scapy0", True)
 exit_status = os.system("ip link del name dev scapy0")
 conf.ifaces.reload()
 conf.route.resync()
+conf.route6.resync()
 
 = Test 802.Q sniffing
 ~ linux needs_root veth

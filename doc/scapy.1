@@ -1,4 +1,5 @@
-.TH SCAPY 1 "May 8, 2018"
+\" SPDX-License-Identifier: GPL-2.0-only
+.TH SCAPY 1 "March 24, 2024"
 .SH NAME
 scapy \- Interactive packet manipulation tool
 .SH SYNOPSIS
@@ -51,13 +52,13 @@ increase log verbosity. Can be used many times.
 use FILE to save/load session values (variables, functions, instances, ...) 
 .TP
 \fB\-p\fR PRESTART_FILE 
-use PRESTART_FILE instead of $HOME/.scapy_prestart.py as pre-startup file
+use PRESTART_FILE instead of $HOME/.config/scapy/prestart.py as pre-startup file
 .TP
 \fB\-P\fR
 do not run prestart file
 .TP
 \fB\-c\fR STARTUP_FILE 
-use STARTUP_FILE instead of $HOME/.scapy_startup.py as startup file
+use STARTUP_FILE instead of $HOME/.config/scapy/startup.py as startup file
 .TP
 \fB\-C\fR
 do not run startup file
@@ -70,11 +71,6 @@ lists supported protocol layers.
 If a protocol layer is given as parameter, lists its fields and types of fields.
 If a string is given as parameter, it is used to filter the layers.
 .TP
-\fBexplore()\fR
-explores available protocols.
-Allows one to look for a layer or protocol through an interactive GUI.
-If a Scapy module is given as parameter, explore this specific module.
-.TP
 \fBlsc()\fR
 lists scapy's main user commands.
 .TP
@@ -82,19 +78,22 @@ lists scapy's main user commands.
 this object contains the configuration. 
 
 .SH FILES
-\fB$HOME/.scapy_prestart.py\fR
+\fB$HOME/.config/scapy/prestart.py\fR
 This file is run before Scapy core is loaded. Only the \fBconf\fP object
-is available. This file can be used to manipulate \fBconf.load_layers\fP 
-list to choose which layers will be loaded:
+is available. This file can be used to configure the CLI, configure
+parameters such as the \fBconf.load_layers\fP  list to choose which layers
+will be loaded, or change the logging level (for instance):
 
 .nf
+conf.interactive_shell = "bpython"
+log_loading.setLevel(logging.WARNING)
 conf.load_layers.remove("bluetooth")
 conf.load_layers.append("new_layer")
 .fi
 
-\fB$HOME/.scapy_startup.py\fR
+\fB$HOME/.config/scapy/startup.py\fR
 This file is run after Scapy is loaded. It can be used to configure
-some of the Scapy behaviors:
+more of Scapy behaviors, like un-registering layers:
 
 .nf
 conf.prog.pdfreader = "xpdf"
@@ -103,8 +102,8 @@ split_layers(UDP,DNS)
 
 .SH EXAMPLES
 
-More verbose examples are available in the documentation
-https://scapy.readthedocs.io/
+More verbose examples are available in the documentation at
+\fIhttps://scapy.readthedocs.io/\fP.
 Just run \fBscapy\fP and try the following commands in the interpreter.
 
 .LP
@@ -117,7 +116,7 @@ sr(IP(dst="172.16.1.1", ihl=2, options=["verb$2"], version=3)/ICMP(), timeout=2)
 Packet sniffing and dissection (with a bpf filter or tshark-like output):
 .nf
 a=sniff(filter="tcp port 110")
-a=sniff(prn = lambda x: x.display) 
+a=sniff(prn = lambda x: x.show) 
 .fi
 
 .LP
@@ -203,7 +202,4 @@ BPF filters don't work on Point-to-point interfaces.
 
 
 .SH AUTHOR
-Philippe Biondi <phil@secdev.org>
-.PP
-This manual page was written by Alberto Gonzalez Iniesta <agi@agi.as>
-and Philippe Biondi.
+Philippe Biondi and the Scapy community.

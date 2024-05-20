@@ -52,7 +52,7 @@ from scapy.arch.windows.structures import GetIcmpStatistics
 from scapy.compat import raw
 from scapy.config import conf
 from scapy.data import MTU
-from scapy.error import Scapy_Exception, warning
+from scapy.error import Scapy_Exception, log_runtime
 from scapy.packet import Packet
 from scapy.interfaces import resolve_iface, _GlobInterfaceType
 from scapy.supersocket import SuperSocket
@@ -77,7 +77,7 @@ class L3WinSocket(SuperSocket):
 
     def __init__(self,
                  iface=None,  # type: Optional[_GlobInterfaceType]
-                 proto=socket.IPPROTO_IP,  # type: int
+                 proto=None,  # type: Optional[int]
                  ttl=128,  # type: int
                  ipv6=False,  # type: bool
                  promisc=True,  # type: bool
@@ -87,20 +87,34 @@ class L3WinSocket(SuperSocket):
         from scapy.layers.inet import IP
         from scapy.layers.inet6 import IPv6
         for kwarg in kwargs:
-            warning("Dropping unsupported option: %s" % kwarg)
+            log_runtime.warning("Dropping unsupported option: %s" % kwarg)
         self.iface = iface and resolve_iface(iface) or conf.iface
         af = socket.AF_INET6 if ipv6 else socket.AF_INET
-        self.proto = proto
-        if ipv6:
-            from scapy.arch import get_if_addr6
-            self.host_ip6 = get_if_addr6(conf.iface) or "::1"
-            if proto == socket.IPPROTO_IP:
-                # We'll restrict ourselves to UDP, as TCP isn't bindable
-                # on AF_INET6
-                self.proto = socket.IPPROTO_UDP
-        # On Windows, with promisc=False, you won't get much
         self.ipv6 = ipv6
+        # Proto and cls
+        if proto is None:
+            if self.ipv6:
+                # On IPv6, the header isn't returned with recvfrom().
+                # We don't want to guess if it's TCP, UDP or SCTP.. so ask for proto
+                # (This would be fixable if Python supported recvmsg() on Windows)
+                log_runtime.warning(
+                    "Due to restrictions, 'proto' must be provided when "
+                    "opening raw IPv6 sockets. Defaulting to socket.IPPROTO_UDP"
+                )
+                self.proto = socket.IPPROTO_UDP
+            else:
+                self.proto = socket.IPPROTO_IP
+        elif self.ipv6 and proto == socket.IPPROTO_TCP:
+            # Ah, sadly this isn't supported either.
+            log_runtime.warning(
+                "Be careful, socket.IPPROTO_TCP doesn't work in raw sockets on "
+                "Windows, so this is equivalent to socket.IPPROTO_IP."
+            )
+            self.proto = socket.IPPROTO_IP
+        else:
+            self.proto = proto
         self.cls = IPv6 if ipv6 else IP
+        # Promisc
         if promisc is None:
             promisc = conf.sniff_promisc
         self.promisc = promisc
@@ -111,34 +125,30 @@ class L3WinSocket(SuperSocket):
         # However, using IPPROTO_IP with AF_INET6 will still receive
         # the IPv6 packets
         try:
+            # Listening on AF_INET6 IPPROTO_IPV6 is broken. Use IPPROTO_IP
             self.ins = socket.socket(af,
                                      socket.SOCK_RAW,
-                                     self.proto)
+                                     socket.IPPROTO_IP)
             self.outs = socket.socket(af,
                                       socket.SOCK_RAW,
                                       socket.IPPROTO_RAW)
         except OSError as e:
-            if e.errno == 10013:
+            if e.errno == 13:
                 raise OSError("Windows native L3 Raw sockets are only "
                               "usable as administrator ! "
-                              "Install Winpcap/Npcap to workaround !")
+                              "Please install Npcap to workaround !")
             raise
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
-        # IOCTL Include IP headers
-        self.ins.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-        self.outs.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
         # set TTL
         self.ins.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, ttl)
         self.outs.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, ttl)
-        # Bind on all ports
-        host = self.iface.ip if self.iface.ip else socket.gethostname()
-        self.ins.bind((host, 0))
-        self.ins.setblocking(False)
         # Get as much data as possible: reduce what is cropped
         if ipv6:
+            # IPV6_HDRINCL is broken. Use IP_HDRINCL even on IPv6
+            self.outs.setsockopt(socket.IPPROTO_IPV6, socket.IP_HDRINCL, 1)
             try:  # Not all Windows versions
                 self.ins.setsockopt(socket.IPPROTO_IPV6,
                                     socket.IPV6_RECVTCLASS, 1)
@@ -147,6 +157,9 @@ class L3WinSocket(SuperSocket):
             except (OSError, socket.error):
                 pass
         else:
+            # IOCTL Include IP headers
+            self.ins.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+            self.outs.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
             try:  # Not Windows XP
                 self.ins.setsockopt(socket.IPPROTO_IP,
                                     socket.IP_RECVDSTADDR, 1)
@@ -160,6 +173,16 @@ class L3WinSocket(SuperSocket):
                 )
             except (OSError, socket.error):
                 pass
+        # Bind on all ports
+        if ipv6:
+            from scapy.arch import get_if_addr6
+            host = get_if_addr6(self.iface)
+        else:
+            from scapy.arch import get_if_addr
+            host = get_if_addr(self.iface)
+        self.ins.bind((host or socket.gethostname(), 0))
+        # self.ins.setblocking(False)
+        # Set promisc
         if promisc:
             # IOCTL Receive all packets
             self.ins.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
@@ -197,19 +220,25 @@ class L3WinSocket(SuperSocket):
             data, address = self.ins.recvfrom(x)
         except io.BlockingIOError:
             return None, None, None  # type: ignore
-        from scapy.layers.inet import IP
-        from scapy.layers.inet6 import IPv6
         if self.ipv6:
+            from scapy.layers.inet6 import IPv6
             # AF_INET6 does not return the IPv6 header. Let's build it
             # (host, port, flowinfo, scopeid)
             host, _, flowinfo, _ = address
-            header = raw(IPv6(src=host,
-                              dst=self.host_ip6,
-                              fl=flowinfo,
-                              nh=self.proto,  # fixed for AF_INET6
-                              plen=len(data)))
+            header = raw(
+                IPv6(
+                    src=host,
+                    dst="::",
+                    fl=flowinfo,
+                    # when IPPROTO_IP (0) is selected, we have no idea what's nh,
+                    # so set an invalid value.
+                    nh=self.proto or 0xFF,
+                    plen=len(data)
+                )
+            )
             return IPv6, header + data, time.time()
         else:
+            from scapy.layers.inet import IP
             return IP, data, time.time()
 
     def close(self):
@@ -229,7 +258,10 @@ class L3WinSocket6(L3WinSocket):
 
     def __init__(self, **kwargs):
         # type: (**Any) -> None
-        super(L3WinSocket6, self).__init__(ipv6=True, **kwargs)
+        super(L3WinSocket6, self).__init__(
+            ipv6=True,
+            **kwargs,
+        )
 
 
 def open_icmp_firewall(host):

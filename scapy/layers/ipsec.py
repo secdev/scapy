@@ -208,6 +208,13 @@ if conf.crypto_valid:
         algorithms,
         modes,
     )
+    try:
+        # cryptography > 43.0
+        from cryptography.hazmat.decrepit.ciphers import (
+            algorithms as decrepit_algorithms
+        )
+    except ImportError:
+        decrepit_algorithms = algorithms
 else:
     log_loading.info("Can't import python-cryptography v1.7+. "
                      "Disabled IPsec encryption/authentication.")
@@ -492,8 +499,8 @@ class CryptAlgo(object):
         nh = orb(data[-1])
 
         # then use padlen to determine data and padding
-        data = data[:len(data) - padlen - 2]
         padding = data[len(data) - padlen - 2: len(data) - 2]
+        data = data[:len(data) - padlen - 2]
 
         return _ESPPlain(spi=esp.spi,
                          seq=esp.seq,
@@ -565,34 +572,35 @@ if algorithms:
                                                  icv_size=16,
                                                  format_mode_iv=_salt_format_mode_iv)  # noqa: E501
 
-    # XXX: RFC7321 states that DES *MUST NOT* be implemented.
-    # XXX: Keep for backward compatibility?
     # Using a TripleDES cipher algorithm for DES is done by using the same 64
     # bits key 3 times (done by cryptography when given a 64 bits key)
     CRYPT_ALGOS['DES'] = CryptAlgo('DES',
-                                   cipher=algorithms.TripleDES,
+                                   cipher=decrepit_algorithms.TripleDES,
                                    mode=modes.CBC,
                                    key_size=(8,))
     CRYPT_ALGOS['3DES'] = CryptAlgo('3DES',
-                                    cipher=algorithms.TripleDES,
+                                    cipher=decrepit_algorithms.TripleDES,
                                     mode=modes.CBC)
-    try:
+    if decrepit_algorithms is algorithms:
+        # cryptography < 43 raises a DeprecationWarning
         from cryptography.utils import CryptographyDeprecationWarning
         with warnings.catch_warnings():
             # Hide deprecation warnings
             warnings.filterwarnings("ignore",
                                     category=CryptographyDeprecationWarning)
             CRYPT_ALGOS['CAST'] = CryptAlgo('CAST',
-                                            cipher=algorithms.CAST5,
+                                            cipher=decrepit_algorithms.CAST5,
                                             mode=modes.CBC)
-            # XXX: Flagged as weak by 'cryptography'.
-            # Kept for backward compatibility
             CRYPT_ALGOS['Blowfish'] = CryptAlgo('Blowfish',
-                                                cipher=algorithms.Blowfish,
+                                                cipher=decrepit_algorithms.Blowfish,
                                                 mode=modes.CBC)
-    except AttributeError:
-        # Future-proof, if ever removed from cryptography
-        pass
+    else:
+        CRYPT_ALGOS['CAST'] = CryptAlgo('CAST',
+                                        cipher=decrepit_algorithms.CAST5,
+                                        mode=modes.CBC)
+        CRYPT_ALGOS['Blowfish'] = CryptAlgo('Blowfish',
+                                            cipher=decrepit_algorithms.Blowfish,
+                                            mode=modes.CBC)
 
 
 ###############################################################################
@@ -674,16 +682,17 @@ class AuthAlgo(object):
         mac = self.new_mac(key)
 
         if pkt.haslayer(ESP):
-            mac.update(raw(pkt[ESP]))
+            mac.update(bytes(pkt[ESP]))
+            if esn_en:
+                # RFC4303 sect 2.2.1
+                mac.update(struct.pack('!L', esn))
             pkt[ESP].data += mac.finalize()[:self.icv_size]
 
         elif pkt.haslayer(AH):
-            clone = zero_mutable_fields(pkt.copy(), sending=True)
+            mac.update(bytes(zero_mutable_fields(pkt.copy(), sending=True)))
             if esn_en:
-                temp = raw(clone) + struct.pack('!L', esn)
-            else:
-                temp = raw(clone)
-            mac.update(temp)
+                # RFC4302 sect 2.5.1
+                mac.update(struct.pack('!L', esn))
             pkt[AH].icv = mac.finalize()[:self.icv_size]
 
         return pkt
@@ -712,7 +721,10 @@ class AuthAlgo(object):
             pkt_icv = pkt.data[len(pkt.data) - self.icv_size:]
             clone = pkt.copy()
             clone.data = clone.data[:len(clone.data) - self.icv_size]
-            temp = raw(clone)
+            mac.update(bytes(clone))
+            if esn_en:
+                # RFC4303 sect 2.2.1
+                mac.update(struct.pack('!L', esn))
 
         elif pkt.haslayer(AH):
             if len(pkt[AH].icv) != self.icv_size:
@@ -721,12 +733,11 @@ class AuthAlgo(object):
                 pkt[AH].icv = pkt[AH].icv[:self.icv_size]
             pkt_icv = pkt[AH].icv
             clone = zero_mutable_fields(pkt.copy(), sending=False)
+            mac.update(bytes(clone))
             if esn_en:
-                temp = raw(clone) + struct.pack('!L', esn)
-            else:
-                temp = raw(clone)
+                # RFC4302 sect 2.5.1
+                mac.update(struct.pack('!L', esn))
 
-        mac.update(temp)
         computed_icv = mac.finalize()[:self.icv_size]
 
         # XXX: Cannot use mac.verify because the ICV can be truncated
@@ -1033,7 +1044,10 @@ class SecurityAssociation(object):
                                       esn_en=esn_en or self.esn_en,
                                       esn=esn or self.esn)
 
-        self.auth_algo.sign(esp, self.auth_key)
+        self.auth_algo.sign(esp,
+                            self.auth_key,
+                            esn_en=esn_en or self.esn_en,
+                            esn=esn or self.esn)
 
         if self.nat_t_header:
             nat_t_header = self.nat_t_header.copy()
@@ -1046,17 +1060,16 @@ class SecurityAssociation(object):
             ip_header /= nat_t_header
 
         if ip_header.version == 4:
-            ip_header.len = len(ip_header) + len(esp)
+            del ip_header.len
             del ip_header.chksum
-            ip_header = ip_header.__class__(raw(ip_header))
         else:
-            ip_header.plen = len(ip_header.payload) + len(esp)
+            del ip_header.plen
 
         # sequence number must always change, unless specified by the user
         if seq_num is None:
             self.seq_num += 1
 
-        return ip_header / esp
+        return ip_header.__class__(raw(ip_header / esp))
 
     def _encrypt_ah(self, pkt, seq_num=None, esn_en=False, esn=0):
 
@@ -1145,7 +1158,9 @@ class SecurityAssociation(object):
 
         if verify:
             self.check_spi(pkt)
-            self.auth_algo.verify(encrypted, self.auth_key)
+            self.auth_algo.verify(encrypted, self.auth_key,
+                                  esn_en=esn_en or self.esn_en,
+                                  esn=esn or self.esn)
 
         esp = self.crypt_algo.decrypt(self, encrypted, self.crypt_key,
                                       self.crypt_icv_size or

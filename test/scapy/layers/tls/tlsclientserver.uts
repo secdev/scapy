@@ -1,0 +1,533 @@
+% TLS session establishment tests
+
+~ crypto
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
+
++ Common util functions
+
+= Load server util functions
+
+import sys, os, re, time, subprocess
+from queue import Queue
+import threading
+
+from ast import literal_eval
+import os
+import sys
+from contextlib import contextmanager
+from scapy.autorun import StringWriter
+
+from scapy.config import conf
+from scapy.layers.tls.automaton_srv import TLSServerAutomaton
+
+conf.verb = 4
+conf.debug_tls = True  
+conf.debug_dissector = 2
+load_layer("tls")
+
+@contextmanager
+def captured_output():
+    old_out, old_err = sys.stdout, sys.stderr
+    new_out, new_err = StringWriter(debug=old_out), StringWriter(debug=old_out)
+    try:
+        sys.stdout, sys.stderr = new_out, new_err
+        yield sys.stdout, sys.stderr
+    finally:
+        sys.stdout, sys.stderr = old_out, old_err
+
+def check_output_for_data(out, err, expected_data):
+    errored = err.s.strip()
+    if errored:
+        return (False, errored)
+    output = out.s.strip()
+    if expected_data:
+        expected_data = plain_str(expected_data)
+        print("Testing for output: '%s'" % expected_data)
+        p = re.compile(r"> Received: b?'([^']*)'")
+        for s in p.finditer(output):
+            if s:
+                data = s.group(1)
+                print("Found: %s" % data)
+                if expected_data in data:
+                    return (True, data)
+        return (False, output)
+    else:
+        return (False, None)
+
+
+def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=False,
+                        psk=None, handle_session_ticket=False):
+    correct = False
+    print("Server started !")
+    with captured_output() as (out, err):
+        # Prepare automaton
+        mycert = scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem")
+        mykey = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
+        print(mykey)
+        print(mycert)
+        assert os.path.exists(mycert)
+        assert os.path.exists(mykey)
+        kwargs = dict()
+        if psk:
+            kwargs["psk"] = psk
+            kwargs["psk_mode"] = "psk_dhe_ke"
+        t = TLSServerAutomaton(mycert=mycert,
+                               mykey=mykey,
+                               curve=curve,
+                               cookie=cookie,
+                               client_auth=client_auth,
+                               handle_session_ticket=handle_session_ticket,
+                               debug=4,
+                               **kwargs)
+        # Sync threads
+        q.put(t)
+        # Run server automaton
+        t.run()
+        # Return correct answer
+        res = check_output_for_data(out, err, expected_data)
+    # Return data
+    q.put(res)
+
+
+def wait_tls_test_server_online():
+    t = time.time()
+    while True:
+        if time.time() - t > 1:
+            raise RuntimeError("Server socket failed to start in time")
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(1)
+            s.connect(("127.0.0.1", 4433))
+            s.shutdown(socket.SHUT_RDWR)
+            s.close()
+            return
+        except IOError:
+            try:
+                s.close()
+            except:
+                pass
+            continue
+
+
+def run_openssl_client(msg, suite="", version="", tls13=False, client_auth=False,
+                       psk=None, sess_out=None):
+    # Run client
+    CA_f = scapy_path("/test/scapy/layers/tls/pki/ca_cert.pem")
+    mycert = scapy_path("/test/scapy/layers/tls/pki/cli_cert.pem")
+    mykey = scapy_path("/test/scapy/layers/tls/pki/cli_key.pem")
+    args = [
+        "openssl", "s_client",
+        "-connect", "127.0.0.1:4433", "-debug",
+        "-ciphersuites" if tls13 else "-cipher", suite,
+        version,
+        "-CAfile", CA_f
+    ]
+    if client_auth:
+        args.extend(["-cert", mycert, "-key", mykey])
+    if psk:
+        args.extend(["-psk", str(psk)])
+    if sess_out:
+        args.extend(["-sess_out", sess_out])
+    p = subprocess.Popen(
+        " ".join(args),
+        shell=True,
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+    msg += b"\nstop_server\n"
+    out = p.communicate(input=msg)[0]
+    print(plain_str(out))
+    if p.returncode != 0:
+        raise RuntimeError("OpenSSL returned with error code %s" % p.returncode)
+    else:
+        p = re.compile(br'verify return:(\d+)')
+        _failed = False
+        _one_success = False
+        for match in p.finditer(out):
+            if match.group(1).strip() != b"1":
+                _failed = True
+                break
+            else:
+                _one_success = True
+                break
+        if _failed or not _one_success:
+            raise RuntimeError("OpenSSL returned unexpected values")
+
+def test_tls_server(suite="", version="", tls13=False, client_auth=False, psk=None):
+    msg = ("TestS_%s_data" % suite).encode()
+    # Run server
+    q_ = Queue()
+    th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_),
+                           kwargs={"curve": None, "cookie": False, "client_auth": client_auth, "psk": psk},
+                           name="test_tls_server %s %s" % (suite, version), daemon=True)
+    th_.start()
+    # Synchronise threads
+    print("Synchronising...")
+    atmtsrv = q_.get(timeout=5)
+    if not atmtsrv:
+        raise RuntimeError("Server hanged on startup")
+    wait_tls_test_server_online()
+    print("Thread synchronised")
+    # Run openssl client
+    run_openssl_client(msg, suite=suite, version=version, tls13=tls13, client_auth=client_auth, psk=psk)
+    # Wait for server
+    ret = q_.get(timeout=5)
+    if not ret:
+        raise RuntimeError("Test timed out")
+    atmtsrv.stop()
+    print(ret)
+    assert ret[0]
+
++ TLS server automaton tests
+~ server needs_root
+
+= Testing TLS server with TLS 1.0 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+~ open_ssl_client
+
+test_tls_server("ECDHE-RSA-AES128-SHA", "-tls1")
+
+= Testing TLS server with TLS 1.1 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+~ open_ssl_client
+
+test_tls_server("ECDHE-RSA-AES128-SHA", "-tls1_1")
+
+= Testing TLS server with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_CBC_SHA256
+~ open_ssl_client
+
+test_tls_server("DHE-RSA-AES128-SHA256", "-tls1_2")
+
+= Testing TLS server with TLS 1.2 and TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+~ open_ssl_client
+
+test_tls_server("ECDHE-RSA-AES256-GCM-SHA384", "-tls1_2")
+
+= Testing TLS server with TLS 1.3 and TLS_AES_256_GCM_SHA384
+~ open_ssl_client
+
+test_tls_server("TLS_AES_256_GCM_SHA384", "-tls1_3", tls13=True)
+
+= Testing TLS server with TLS 1.3 and TLS_AES_256_GCM_SHA384 and client auth
+~ open_ssl_client
+
+test_tls_server("TLS_AES_256_GCM_SHA384", "-tls1_3", tls13=True, client_auth=True)
+
+= Testing TLS server with TLS 1.3 and ECDHE-PSK-AES256-CBC-SHA384 and PSK
+~ open_ssl_client
+
+test_tls_server("ECDHE-PSK-AES256-CBC-SHA384", "-tls1_3", tls13=False, psk="1a2b3c4d")
+
++ TLS client automaton tests
+~ client
+
+= Load client utils functions
+
+import sys, os, time, threading
+
+from scapy.layers.tls.automaton_cli import TLSClientAutomaton
+from scapy.layers.tls.handshake import TLSClientHello, TLS13ClientHello
+
+from queue import Queue
+
+send_data = cipher_suite_code = version = None
+
+def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None,
+                        client_auth=False, key_update=False, stop_server=True,
+                        session_ticket_file_out=None, session_ticket_file_in=None):
+    print("Loading client...")
+    mycert = scapy_path("/test/scapy/layers/tls/pki/cli_cert.pem") if client_auth else None
+    mykey = scapy_path("/test/scapy/layers/tls/pki/cli_key.pem") if client_auth else None
+    commands = [send_data]
+    if key_update:
+        commands.append(b"key_update")
+    if stop_server:
+        commands.append(b"stop_server")
+    if session_ticket_file_out:
+        commands.append(b"wait")
+    commands.append(b"quit")
+    if version == "0002":
+        t = TLSClientAutomaton(data=commands, version="sslv2", debug=4, mycert=mycert, mykey=mykey,
+                               session_ticket_file_in=session_ticket_file_in,
+                               session_ticket_file_out=session_ticket_file_out)
+    elif version == "0304":
+        ch = TLS13ClientHello(ciphers=int(cipher_suite_code, 16))
+        t = TLSClientAutomaton(client_hello=ch, data=commands, version="tls13", debug=4, mycert=mycert, mykey=mykey,
+                               session_ticket_file_in=session_ticket_file_in,
+                               session_ticket_file_out=session_ticket_file_out)
+    else:
+        ch = TLSClientHello(version=int(version, 16), ciphers=int(cipher_suite_code, 16))
+        t = TLSClientAutomaton(client_hello=ch, data=commands, debug=4, mycert=mycert, mykey=mykey,
+                               session_ticket_file_in=session_ticket_file_in,
+                               session_ticket_file_out=session_ticket_file_out)
+    print("Running client...")
+    t.run()
+
+def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
+                    key_update=False, sess_in_out=False):
+    msg = ("TestC_%s_data" % suite).encode()
+    # Run server
+    q_ = Queue()
+    print("Starting server...")
+    th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_),
+                           kwargs={"curve": None, "cookie": False, "client_auth": client_auth,
+                                   "handle_session_ticket": sess_in_out},
+                           name="test_tls_client %s %s" % (suite, version), daemon=True)
+    th_.start()
+    # Synchronise threads
+    print("Synchronising...")
+    atmtsrv = q_.get(timeout=5)
+    if not atmtsrv:
+        raise RuntimeError("Server hanged on startup")
+    wait_tls_test_server_online()
+    print("Thread synchronised")
+    # Run client
+    if sess_in_out:
+        file_sess = scapy_path("/test/session")
+        run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_out=file_sess,
+                            stop_server=False)
+        run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_in=file_sess,
+                            stop_server=True)
+    else:
+        run_tls_test_client(msg, suite, version, client_auth, key_update)
+    # Wait for server
+    print("Client running, waiting...")
+    ret = q_.get(timeout=5)
+    if not ret:
+        raise RuntimeError("Test timed out")
+    atmtsrv.stop()
+    print(ret)
+    assert ret[0]
+
+= Testing TLS server and client with SSLv2 and SSL_CK_DES_192_EDE3_CBC_WITH_MD5
+
+test_tls_client("0700c0", "0002")
+
+= Testing TLS server and client with SSLv2 and SSL_CK_RC2_128_CBC_EXPORT40_WITH_MD5
+
+test_tls_client("040080", "0002")
+
+= Testing TLS client with SSLv3 and TLS_RSA_EXPORT_WITH_RC4_40_MD5
+
+test_tls_client("0003", "0300")
+
+= Testing TLS client with TLS 1.0 and TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA
+
+test_tls_client("0088", "0301")
+
+= Testing TLS client with TLS 1.0 and TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5
+
+test_tls_client("0006", "0301")
+
+= Testing TLS client with TLS 1.1 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+
+test_tls_client("c013", "0302")
+
+= Testing TLS client with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_GCM_SHA256
+
+test_tls_client("009e", "0303")
+
+= Testing TLS client with TLS 1.2 and TLS_ECDH_anon_WITH_RC4_128_SHA
+
+test_tls_client("c016", "0303")
+
+= Testing TLS server and client with TLS 1.3 and TLS_AES_128_GCM_SHA256
+
+test_tls_client("1301", "0304")
+
+= Testing TLS server and client with TLS 1.3 and TLS_CHACHA20_POLY1305_SHA256
+~ crypto_advanced
+
+test_tls_client("1303", "0304")
+
+= Testing TLS server and client with TLS 1.3 and TLS_AES_128_CCM_8_SHA256
+~ crypto_advanced
+
+test_tls_client("1305", "0304")
+
+= Testing TLS server and client with TLS 1.3 and TLS_AES_128_CCM_8_SHA256 and x448
+~ crypto_advanced
+
+test_tls_client("1305", "0304", curve="x448")
+
+= Testing TLS server and client with TLS 1.3 and a retry
+~ crypto_advanced
+
+test_tls_client("1302", "0304", curve="secp256r1", cookie=True)
+
+= Testing TLS server and client with TLS 1.3 and TLS_AES_128_CCM_8_SHA256 and client auth
+~ crypto_advanced
+
+test_tls_client("1305", "0304", client_auth=True)
+
+= Testing TLS server and client with TLS 1.3 and TLS_AES_128_CCM_8_SHA256 and key update
+~ crypto_advanced
+
+test_tls_client("1305", "0304", key_update=True)
+
+= Testing TLS server and client with TLS 1.3 and TLS_AES_128_CCM_8_SHA256 and session resumption
+~ crypto_advanced not_pypy
+
+test_tls_client("1305", "0304", client_auth=True, sess_in_out=True)
+
+= Clear session file
+
+file_sess = scapy_path("/test/session")
+try:
+    os.remove(file_sess)
+except:
+    pass
+
+############
+############
++ TLS client automaton tests against builtin ssl using Post Handshake Authentication
+~ client post_handshake_auth
+
+= Load native server util functions
+
+# Imports
+
+import ssl
+import contextlib
+import threading
+
+load_layer("tls")
+load_layer("http")
+
+# Define PKI
+
+root_ca_cert = hex_bytes("0a2d2d2d2d2d424547494e2043455254494649434154452d2d2d2d2d0a4d4949446c7a4343416e2b6741774942416749555664642b794d436278356772635441773335717939337552517841774451594a4b6f5a496876634e4151454c0a42514177577a454c4d416b474131554542684d4351554578436a414942674e564241674d41574578436a414942674e564241634d41574578436a414942674e560a42416f4d41574578436a414942674e564241734d41574578436a414942674e5642414d4d415745784544414f42676b71686b69473977304243514557415745770a4868634e4d6a4d774e5445344d444d7a4d4455305768634e4d7a67774e5445354d444d7a4d445530576a42624d517377435159445651514745774a425154454b0a4d41674741315545434177425954454b4d41674741315545427777425954454b4d41674741315545436777425954454b4d41674741315545437777425954454b0a4d4167474131554541777742595445514d41344743537147534962334451454a4152594259544343415349774451594a4b6f5a496876634e41514542425141440a676745504144434341516f4367674542414a37775a326b6457577a6b6277725838565176743565747a55587737577967664970475038786543483632446979690a354a48546b3352716a6531444362476369566b4b386956746439507852475478764a6a476a49694b686a3545306e304c336542513771466c6567374a6d3147750a507a4154455779456f6a773975513343794c4f76395742374574434e626647476334544f564649635742684e5a5777324e306e37533834546f435a4942366c4e0a4c4c583639646f65684a33372b55457455553159775a4a474d72586a435653502b6f3136436568306c4d466e6553594d6a376c434b49426666525278725765720a354763733577423548574d636d6630626e774471534d78374d566a746f663678506b7570495039526f497977306b324f71516c4543612b4855556451306346590a564a53506d63424b554e6336787254756c346e447136442b6563594f7461754854726c36326e55434177454141614e544d464577485159445652304f424259450a4650786e62526467356a436549742b65556d314342695245583536334d42384741315564497751594d4261414650786e62526467356a436549742b65556d31430a42695245583536334d41384741315564457745422f7751464d414d42416638774451594a4b6f5a496876634e4151454c4251414467674542414876625a7a572b0a767553313239393268774442424a67586938386f426955787459383931556839364e77315876586841685873745338775551643749497a62795251626b6866530a424e6d626f59656e6b6b4272462b37474e696e394630564c516f7a344c67414c566e376c763635414f51554d7357503859694238563841516c6c447a305a2f770a69335a78423631436c50694f4d347a6e4a6a33324263794f50594267456b4a6c695143503854514c68555067504f742f7a4130453873584e56757354563976690a3168356d6e77332f4248572f52524e79496642365938336c5939345a577933754a72514d674352633957344a5076644e564a61494b38694241743258533276740a5665634a4b6942785347474a4564486561774b6a542f5674736b64432b3357696f756430527652716c7745622f4a50686b686553576d4a6b70436545773253720a6e6f64314c4c346b6a574159344c633d0a2d2d2d2d2d454e442043455254494649434154452d2d2d2d2d0a")
+rsa_cert = hex_bytes("0a2d2d2d2d2d424547494e2043455254494649434154452d2d2d2d2d0a4d494944666a4343416d616741774942416749424154414e42676b71686b69473977304241517346414442624d517377435159445651514745774a425154454b0a4d41674741315545434177425954454b4d41674741315545427777425954454b4d41674741315545436777425954454b4d41674741315545437777425954454b0a4d4167474131554541777742595445514d41344743537147534962334451454a4152594259544165467730794d7a41314d5467774d7a51354d445261467730790a4f4441314d5463774d7a51354d4452614d467378437a414a42674e5642415954416b4a434d516f774341594456515149444146694d516f7743415944565151480a444146694d516f77434159445651514b444146694d516f77434159445651514c444146694d516f774341594456515144444146694d5241774467594a4b6f5a490a6876634e41516b42466746694d494942496a414e42676b71686b6947397730424151454641414f43415138414d49494243674b43415145413647667370784a570a655a366231313741312f6f637668303368706e6e366e6b5064487a5a33387956784b4f586a38505a4f4659794d79676a6546742f625a644a6a4b4179716432520a6c4374397a76716b3067306346336552373756457a626b724b6f7a384e73506757566577496e5933436c5633313367666b4e755955652f73666259303448376f0a5455694a73392f524c383975746a444e742b6d7259544f62426e4c7036734546774a646574426f694e6a623767693631363641763471576c50556d5a5331796b0a69386e385867554e5131535a5a4d4776497a4138556148433034684a556c342f4a5944622f51665551715034316464426d3877677252726b553176384136346b0a6a543344334954766f7234516e4b6b61436a32675853486658306e42636e4a644759572f484a38642f426e2b47714f6b324d5a515636656649722b4f6b5948330a7448575753543271676f6c6930514944415141426f303077537a414a42674e5648524d45416a41414d4230474131556444675157424254754631747a507a557a0a6b726471483838483850443354485269637a416642674e5648534d4547444157674254385a323058594f59776e694c666e6c4a745167596b52462b65747a414e0a42676b71686b6947397730424151734641414f4341514541484278614d6d68744a5035524d306b48595932486952755862635677455a2b6a46745968636252460a53484d32562f59526d55576f324f78666236574c727679482f65703552792f525a4c737261426a4e53495749394774462b3457794c305949482b52436e3235550a35316a34724e587269484d5a6c2f796375686d7456496c754a4f4d6a67572b44684b6b4568726e307a674653537654636c797a6843726653556f52595a7a362b0a474e305a705476486f35512f746d72752f6f6c47695a4271464d30554d4e4f4577444251586c68645964365134313479793574616c2f524f4c424b64595949420a534744696b552b356a75764e613761686e6f726365314c5a6d6d6e332b576530673052792f73362f39555135577339336f39635136335458654775773078674b0a7a496744627a38534948634c2b747559784b68364357636b4f436b67366e564e63616b45554c2f3243674b687a413d3d0a2d2d2d2d2d454e442043455254494649434154452d2d2d2d2d0a")
+rsa_key = hex_bytes("0a2d2d2d2d2d424547494e2050524956415445204b45592d2d2d2d2d0a4d494945766749424144414e42676b71686b6947397730424151454641415343424b67776767536b41674541416f49424151446f5a2b796e456c5a356e7076580a587344582b68792b485465476d65667165513930664e6e667a4a58456f35655077396b34566a497a4b434e34573339746c306d4d6f444b70335a47554b33334f0a2b71545344527758643548767455544e755373716a507732772b425a56374169646a634b5658665865422b5132356852372b7839746a54676675684e53496d7a0a333945767a3236324d4d3233366174684d35734763756e71775158416c313630476949324e7675434c7258726f432f6970615539535a6c4c584b534c796678650a42513144564a6c6b7761386a4d4478526f634c5469456c53586a386c674e7639423952436f2f6a56313047627a43437447755254572f77447269534e506350630a684f2b697668436371526f4b506142644964396653634679636c305a686238636e783338476634616f365459786c4258703538697634365267666530645a5a4a0a5061714369574c5241674d42414145436767454142756750447342516768446f317475357744617555394774394b6e4f5958665973667444685553726c4754370a3173373436465646624d3259704f73576763543778507054627877477832713179644e77676b364237637045383770464563454669364241795962614a7241320a414e777355726f4c55356a2b425363617a63714e765162365a336141727656457a774532665539394d7a47786c31776e612b6a5152716d4a456f764c466a66310a68584841786e4d6765514f73556c6f506e6833682f4159774b3934385444732b634a4b4a33776a376a6335794a66456e70352f73784268433165356738594f450a563671426c682f702f3462615074757a49726a324d384f44566772304661624945362b537530577a4c6366597a50432b35536930543345673735672f736e666b0a724473703743517a55644973696d3443485432627a44483656775749774271386d4f645961766e592f514b426751442b764d626b414d54714c2f4d482f70614c0a46672f505272322f502b384c745a555247593477414138566c4b4334664342473250544a474837475231546559386e5a466d584878526561534a4667365855690a6153534f484b39586d2f43715962477664624a7553426f42492f6562566264706c504454376143374a52697766704176504d7a516b6552326d36556775516e720a6b49474376584f2f673874525357494e6d68354e5a46364533514b42675144706a732f78783531423753544c386d5946544e7147506a52316669697635684b2b0a492b6255643975585a33527445503078666e682f344f6c682b7a6c664d596b7a49356c376a68384c74326a6b31364978426a38376e774366566c636b5044464d0a516c4f624a676376383632364a5843377745666c3837594e77524d426b5238776964685a774b5052464a79395072315270782b715176507054483633704368770a704f435a7273514d68514b4267472b73334e6936435a6e4e575a4d6f706d446c5642722f6e56484a756f64386e4a5135697438364e324b7a6e4e346a394a5a360a714a3238636c2b4569413153322f7569325134434e7232356b4a7057337259754f41746851664637654c2b4a517264304e72776f4f645a454b566e6338794b440a58437a636f546c4b49772f452f487270416256794d434662544d4953764f6d626d567479714e724e38595636555655374f6f75644d393631416f4742414a4d630a6f5635706e5751704f3051374b6f657349506a74745a314d4764537831707874674c6654787a3157724c38474e48553464433459504f69366c536967797771720a49634878677879654b6a50366e753743514a494e56526349433175486a6f573651573834524d3676626e34526c7a4372724a33724a49454658444e67645954640a54716b3537665745526a58746a74496673704a4d4764615a6d446554377555453958505834535542416f4742414e4466535966544239774330334859415846550a78553554682f763075387a7a2b7235477a586863342b33513446746769336b51743164682f702b47384c764257744b65354d622f6651424c77514154613143330a735837786863612b66553467642f536638526a6a54783634696b413545585147306c6443696a6c4463554c4f5868386d4557574d636b2b333932416648584a740a4a687951526b427a453941664339526f642b61365455686f0a2d2d2d2d2d454e442050524956415445204b45592d2d2d2d2d0a")
+
+cafile = get_temp_file()
+certfile = get_temp_file()
+keyfile = get_temp_file()
+
+with open(cafile, "wb") as fd:
+    fd.write(root_ca_cert)
+
+with open(certfile, "wb") as fd:
+    fd.write(rsa_cert)
+
+with open(keyfile, "wb") as fd:
+    fd.write(rsa_key)
+
+# Define server
+
+REQS = [
+    HTTP() / HTTPRequest(Path="/a.txt", Host="127.0.0.1:59000") / b"hey1",
+    HTTP() / HTTPRequest(Path="/b.txt", Host="127.0.0.1:59000") / b"hey2",
+]
+
+RESPS = [
+    HTTP() / HTTPResponse(Status_Code="401", Reason_Phrase="Unauthorized") / "Please login",
+    HTTP() / HTTPResponse(Status_Code="200", Reason_Phrase="OK") / "Welcome",
+]
+
+def run_tls_native_test_server(post_handshake_auth=False,
+                               with_hello_retry=False):
+    # Create
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_verify_locations(cafile=cafile)
+    if post_handshake_auth:
+        context.post_handshake_auth = True
+    if with_hello_retry:
+        context.set_ecdh_curve("prime256v1")
+    context.verify_mode = ssl.CERT_REQUIRED
+    context.load_cert_chain(certfile=certfile, keyfile=keyfile)
+    
+    lock = threading.Lock()
+    lock.acquire()
+    
+    def ssl_server():
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.settimeout(10)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind(("0.0.0.0", 59000))
+        server.listen(5)
+        # Sync
+        lock.release()
+        # Accept socket
+        client_socket, addr = server.accept()
+        ssl_client_socket = context.wrap_socket(client_socket, server_side=True)
+        # Receive / send data
+        resp = ssl_client_socket.read(len(REQS[0]))
+        assert resp == bytes(REQS[0])
+        ssl_client_socket.send(bytes(RESPS[0]))
+        if post_handshake_auth:
+            # Post-handshake
+            t = ssl_client_socket.verify_client_post_handshake()
+        # Receive / send data
+        resp = ssl_client_socket.read(len(REQS[1]))
+        assert resp == bytes(REQS[1])
+        ssl_client_socket.send(bytes(RESPS[1]))
+        # close socket
+        server.close()
+    
+    server = threading.Thread(target=ssl_server)
+    server.start()
+    assert lock.acquire(timeout=5), "Server failed to start in time !"
+    return server
+
+
+def test_tls_client_native(post_handshake_auth=False,
+                           with_hello_retry=False):
+    server = run_tls_native_test_server(
+        post_handshake_auth=post_handshake_auth,
+        with_hello_retry=with_hello_retry,
+    )
+    
+    a = TLSClientAutomaton.tlslink(
+        HTTP,
+        server="127.0.0.1",
+        dport=59000,
+        version="tls13",
+        mycert=certfile,
+        mykey=keyfile,
+        # we select x25519 but the server enforces seco256r1, so a Hello Retry will be issued
+        curve="x25519" if with_hello_retry else None,
+        # debug=4,
+    )
+    # First request
+    pkt = a.sr1(REQS[0], timeout=1, verbose=0)
+    assert pkt.load == b"Please login"
+    # Second request
+    a.send(REQS[1])
+    pkt = a.sr1(REQS[1], timeout=1, verbose=0)
+    assert pkt.load == b"Welcome"
+    # Wait
+    server.join(3)
+    assert not server.is_alive()
+
+
+= Testing TLS client against ssl.SSLContext server with TLS 1.3 and a post-handshake authentication
+
+test_tls_client_native(post_handshake_auth=True)
+
+= Testing TLS client against ssl.SSLContext server with TLS 1.3 and a Hello-Retry request
+
+test_tls_client_native(with_hello_retry=True)
+
+# Automaton as Socket tests
+
++ TLSAutomatonClient socket tests
+~ netaccess needs_root
+
+= Connect to google.com
+
+load_layer("tls")
+load_layer("http")
+
+def _test_connection():
+    a = TLSClientAutomaton.tlslink(HTTP, server="www.google.com", dport=443,
+                                   server_name="www.google.com", debug=4)
+    pkt = a.sr1(HTTP()/HTTPRequest(Host="www.google.com"),
+                session=TCPSession(app=True), timeout=2, retry=3)
+    a.close()
+    assert pkt
+    assert HTTPResponse in pkt
+    assert b"</html>" in pkt[HTTPResponse].load
+
+retry_test(_test_connection)

@@ -10,6 +10,7 @@ TLS session handler.
 """
 
 import binascii
+import collections
 import socket
 import struct
 
@@ -18,7 +19,7 @@ from scapy.compat import raw
 from scapy.error import log_runtime, warning
 from scapy.packet import Packet
 from scapy.pton_ntop import inet_pton
-from scapy.sessions import DefaultSession
+from scapy.sessions import TCPSession
 from scapy.utils import repr_hex, strxor
 from scapy.layers.inet import TCP
 from scapy.layers.tls.crypto.compression import Comp_NULL
@@ -34,14 +35,15 @@ def load_nss_keys(filename):
     """
     Parses a NSS Keys log and returns unpacked keys in a dictionary.
     """
-    keys = {}
+    # http://udn.realityripple.com/docs/Mozilla/Projects/NSS/Key_Log_Format
+    keys = collections.defaultdict(dict)
     try:
         fd = open(filename)
         fd.close()
     except FileNotFoundError:
         warning("Cannot open NSS Key Log: %s", filename)
         return {}
-    else:
+    try:
         with open(filename) as fd:
             for line in fd:
                 if line.startswith("#"):
@@ -65,12 +67,14 @@ def load_nss_keys(filename):
 
                 # Warn that a duplicated entry was detected. The latest one
                 # will be kept in the resulting dictionary.
-                if data[0] in keys:
+                if client_random in keys[data[0]]:
                     warning("Duplicated entry for %s !", data[0])
 
-                keys[data[0]] = {"ClientRandom": client_random,
-                                 "Secret": secret}
+                keys[data[0]][client_random] = secret
         return keys
+    except UnicodeDecodeError as ex:
+        warning("Cannot read NSS Key Log: %s %s", filename, str(ex))
+        return {}
 
 
 # Note the following import may happen inside connState.__init__()
@@ -368,6 +372,9 @@ class tlsSession(object):
         self.dport = dport
         self.sid = sid
 
+        # Identify duplicate sessions
+        self.firsttcp = None
+
         # Our TCP socket. None until we send (or receive) a packet.
         self.sock = None
 
@@ -497,7 +504,9 @@ class tlsSession(object):
         self.tls13_handshake_secret = None
         self.tls13_master_secret = None
         self.tls13_derived_secrets = {}
-        self.post_handshake_auth = False
+        self.tls13_cert_req_ctxt = False
+        self.post_handshake = False  # whether handshake is done
+        self.post_handshake_auth = False  # whether "Post-Handshake Auth" is used
         self.tls13_ticket_ciphersuite = None
         self.tls13_retry = False
         self.middlebox_compatibility = False
@@ -506,6 +515,9 @@ class tlsSession(object):
         # No record layer headers, no HelloRequests, no ChangeCipherSpecs.
         self.handshake_messages = []
         self.handshake_messages_parsed = []
+
+        # Post-handshake, handshake messages for post-handshake client authentication
+        self.post_handshake_messages = []
 
         # Flag, whether we derive the secret as Extended MS or not
         self.extms = False
@@ -529,6 +541,21 @@ class tlsSession(object):
                 self.pwcs.connection_end = val
         super(tlsSession, self).__setattr__(name, val)
 
+    # Get infos from underlayer
+
+    def set_underlayer(self, _underlayer):
+        if isinstance(_underlayer, TCP):
+            tcp = _underlayer
+            self.sport = tcp.sport
+            self.dport = tcp.dport
+            try:
+                self.ipsrc = tcp.underlayer.src
+                self.ipdst = tcp.underlayer.dst
+            except AttributeError:
+                pass
+            if self.firsttcp is None:
+                self.firsttcp = tcp.seq
+
     # Mirroring
 
     def mirror(self):
@@ -541,15 +568,15 @@ class tlsSession(object):
         client and the server. In such a situation, it should be used every
         time the message being read comes from a different side than the one
         read right before, as the reading state becomes the writing state, and
-        vice versa. For instance you could do:
+        vice versa. For instance you could do::
 
-        client_hello = open('client_hello.raw').read()
-        <read other messages>
+            client_hello = open('client_hello.raw').read()
+            <read other messages>
 
-        m1 = TLS(client_hello)
-        m2 = TLS(server_hello, tls_session=m1.tls_session.mirror())
-        m3 = TLS(server_cert, tls_session=m2.tls_session)
-        m4 = TLS(client_keyexchange, tls_session=m3.tls_session.mirror())
+            m1 = TLS(client_hello)
+            m2 = TLS(server_hello, tls_session=m1.tls_session.mirror())
+            m3 = TLS(server_cert, tls_session=m2.tls_session)
+            m4 = TLS(client_keyexchange, tls_session=m3.tls_session.mirror())
         """
 
         self.ipdst, self.ipsrc = self.ipsrc, self.ipdst
@@ -598,12 +625,16 @@ class tlsSession(object):
         if conf.debug_tls:
             log_runtime.debug("TLS: master secret: %s", repr_hex(ms))
 
-    def compute_ms_and_derive_keys(self):
+    def use_nss_master_secret_if_present(self) -> bool:
         # Load the master secret from an NSS Key dictionary
-        if self.nss_keys and self.nss_keys.get("CLIENT_RANDOM", False) and \
-           self.nss_keys["CLIENT_RANDOM"].get("Secret", False):
-            self.master_secret = self.nss_keys["CLIENT_RANDOM"]["Secret"]
+        if not self.nss_keys or "CLIENT_RANDOM" not in self.nss_keys:
+            return False
+        if self.client_random in self.nss_keys["CLIENT_RANDOM"]:
+            self.master_secret = self.nss_keys["CLIENT_RANDOM"][self.client_random]
+            return True
+        return False
 
+    def compute_ms_and_derive_keys(self):
         if not self.master_secret:
             self.compute_master_secret()
 
@@ -778,27 +809,50 @@ class tlsSession(object):
         elif self.connection_end == "client":
             self.pwcs.tls13_derive_keys(cts0)
 
-    def compute_tls13_verify_data(self, connection_end, read_or_write):
-        shts = "server_handshake_traffic_secret"
-        chts = "client_handshake_traffic_secret"
+    def compute_tls13_verify_data(self, connection_end, read_or_write,
+                                  handshake_context):
+        # RFC8446 - 4.4
+        # +-----------+-------------------------+-----------------------------+
+        # | Mode      | Handshake Context       | Base Key                    |
+        # +-----------+-------------------------+-----------------------------+
+        # | Server    | ClientHello ... later   | server_handshake_traffic_   |
+        # |           | of EncryptedExtensions/ | secret                      |
+        # |           | CertificateRequest      |                             |
+        # |           |                         |                             |
+        # | Client    | ClientHello ... later   | client_handshake_traffic_   |
+        # |           | of server               | secret                      |
+        # |           | Finished/EndOfEarlyData |                             |
+        # |           |                         |                             |
+        # | Post-     | ClientHello ... client  | client_application_traffic_ |
+        # | Handshake | Finished +              | secret_N                    |
+        # |           | CertificateRequest      |                             |
+        # +-----------+-------------------------+-----------------------------+
+        if self.post_handshake:
+            # RFC8446 - 4.6
+            # TLS also allows other messages to be sent after the main handshake.
+            # These messages use a handshake content type and are encrypted under
+            # the appropriate application traffic key.
+            shts = self.tls13_derived_secrets["server_traffic_secrets"][-1]
+            chts = self.tls13_derived_secrets["client_traffic_secrets"][-1]
+        else:
+            shts = self.tls13_derived_secrets["server_handshake_traffic_secret"]
+            chts = self.tls13_derived_secrets["client_handshake_traffic_secret"]
         if read_or_write == "read":
             hkdf = self.rcs.hkdf
             if connection_end == "client":
-                basekey = self.tls13_derived_secrets[shts]
+                basekey = shts
             elif connection_end == "server":
-                basekey = self.tls13_derived_secrets[chts]
+                basekey = chts
         elif read_or_write == "write":
             hkdf = self.wcs.hkdf
             if connection_end == "client":
-                basekey = self.tls13_derived_secrets[chts]
+                basekey = chts
             elif connection_end == "server":
-                basekey = self.tls13_derived_secrets[shts]
+                basekey = shts
 
         if not hkdf or not basekey:
             warning("Missing arguments for verify_data computation!")
             return None
-        # XXX this join() works in standard cases, but does it in all of them?
-        handshake_context = b"".join(self.handshake_messages)
         return hkdf.compute_verify_data(basekey, handshake_context)
 
     def compute_tls13_resumption_secret(self):
@@ -903,12 +957,19 @@ class tlsSession(object):
 
         return False
 
-    def __repr__(self):
+    def repr(self, _underlayer=None):
         sid = repr(self.sid)
         if len(sid) > 12:
             sid = sid[:11] + "..."
+        if _underlayer and _underlayer.dport != self.dport:
+            return "%s:%s > %s:%s" % (self.ipdst, str(self.dport),
+                                      self.ipsrc, str(self.sport))
         return "%s:%s > %s:%s" % (self.ipsrc, str(self.sport),
                                   self.ipdst, str(self.dport))
+
+    def __repr__(self):
+        return self.repr()
+
 
 ###############################################################################
 #   Session singleton                                                         #
@@ -946,14 +1007,8 @@ class _GenericTLSSessionInheritance(Packet):
         self.wcs_snap_init = self.tls_session.wcs.snapshot()
 
         if isinstance(_underlayer, TCP):
-            tcp = _underlayer
-            self.tls_session.sport = tcp.sport
-            self.tls_session.dport = tcp.dport
-            try:
-                self.tls_session.ipsrc = tcp.underlayer.src
-                self.tls_session.ipdst = tcp.underlayer.dst
-            except AttributeError:
-                pass
+            # Get information from _underlayer
+            self.tls_session.set_underlayer(_underlayer)
 
             # Load a NSS Key Log file
             if conf.tls_nss_filename is not None:
@@ -1079,25 +1134,52 @@ class _GenericTLSSessionInheritance(Packet):
         s.rcs = rcs_snap
         s.wcs = wcs_snap
 
-    def mysummary(self):
-        return "TLS %s / %s" % (repr(self.tls_session),
-                                getattr(self, "_name", self.name))
+    def mysummary(self, first=True):
+        from scapy.layers.tls.record import TLS
+        from scapy.layers.tls.record_tls13 import TLS13
+        if (
+            self.underlayer and
+            isinstance(self.underlayer, _GenericTLSSessionInheritance)
+        ):
+            summary = getattr(self, "_name", self.name)
+        else:
+            _underlayer = None
+            if self.underlayer and isinstance(self.underlayer, TCP):
+                _underlayer = self.underlayer
+            summary = "TLS %s / %s" % (
+                self.tls_session.repr(_underlayer=_underlayer),
+                getattr(self, "_name", self.name)
+            )
+        return summary, [TLS, TLS13]
 
     @classmethod
     def tcp_reassemble(cls, data, metadata, session):
-        # Used with TLSSession
+        # Used with TCPSession
         from scapy.layers.tls.record import TLS
         from scapy.layers.tls.record_tls13 import TLS13
         if cls in (TLS, TLS13):
             length = struct.unpack("!H", data[3:5])[0] + 5
-            if len(data) == length:
-                return cls(data)
-            elif len(data) > length:
-                pkt = cls(data)
-                if hasattr(pkt.payload, "tcp_reassemble"):
-                    return pkt.payload.tcp_reassemble(data[length:], metadata, session)
-                else:
-                    return pkt
+            if len(data) >= length:
+                # get the underlayer as it is used to populate tls_session
+                underlayer = metadata["original"][TCP].copy()
+                underlayer.remove_payload()
+                # eventually get the tls_session now for TLS.dispatch_hook
+                tls_session = None
+                if conf.tls_session_enable:
+                    s = tlsSession()
+                    s.set_underlayer(underlayer)
+                    tls_session = conf.tls_sessions.find(s)
+                    if tls_session:
+                        if tls_session.dport != underlayer.dport:
+                            tls_session = tls_session.mirror()
+                        if tls_session.firsttcp == underlayer.seq:
+                            log_runtime.info(
+                                "TLS: session %s is a duplicate of a previous "
+                                "dissection. Discard it" % repr(tls_session)
+                            )
+                            conf.tls_sessions.rem(tls_session, force=True)
+                            tls_session = None
+                return cls(data, _underlayer=underlayer, tls_session=tls_session)
         else:
             return cls(data)
 
@@ -1123,11 +1205,12 @@ class _tls_sessions(object):
         else:
             self.sessions[h] = [session]
 
-    def rem(self, session):
-        s = self.find(session)
-        if s:
-            log_runtime.info("TLS: previous session shall not be overwritten")
-            return
+    def rem(self, session, force=False):
+        if not force:
+            s = self.find(session)
+            if s:
+                log_runtime.info("TLS: previous session shall not be overwritten")
+                return
 
         h = session.hash()
         self.sessions[h].remove(session)
@@ -1140,10 +1223,10 @@ class _tls_sessions(object):
         if h in self.sessions:
             for k in self.sessions[h]:
                 if k.eq(session):
-                    if conf.tls_verbose:
+                    if conf.debug_tls:
                         log_runtime.info("TLS: found session matching %s", k)
                     return k
-        if conf.tls_verbose:
+        if conf.debug_tls:
             log_runtime.info("TLS: did not find session matching %s", session)
         return None
 
@@ -1162,8 +1245,13 @@ class _tls_sessions(object):
         return "\n".join(map(lambda x: fmt % x, res))
 
 
-class TLSSession(DefaultSession):
+class TLSSession(TCPSession):
     def __init__(self, *args, **kwargs):
+        # XXX this doesn't bring any value.
+        warning(
+            "TLSSession is deprecated and will be removed in a future version. "
+            "Please use TCPSession instead with conf.tls_session_enable=True"
+        )
         server_rsa_key = kwargs.pop("server_rsa_key", None)
         super(TLSSession, self).__init__(*args, **kwargs)
         self._old_conf_status = conf.tls_session_enable
@@ -1176,10 +1264,5 @@ class TLSSession(DefaultSession):
         return super(TLSSession, self).toPacketList()
 
 
+# Instantiate the TLS sessions holder
 conf.tls_sessions = _tls_sessions()
-conf.tls_session_enable = False
-conf.tls_verbose = False
-# Filename containing NSS Keys Log
-conf.tls_nss_filename = None
-# Dictionary containing parsed NSS Keys
-conf.tls_nss_keys = None

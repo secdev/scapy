@@ -1,0 +1,409 @@
+% SMB2 Client and Server tests
+
++ SMB2 Client tests
+~ linux smbclient samba
+
+= Define samba server
+
+import subprocess
+
+# Create a temporary directory to serve
+TEMP_DIR = pathlib.Path(get_temp_dir())
+TEMP_DIR.chmod(0o0755)
+print(TEMP_DIR)
+
+# Put stuff in it
+SHARE_DIR = TEMP_DIR / "share"
+SHARE_DIR.mkdir()
+SHARE_DIR.chmod(0o0777)
+(SHARE_DIR / "fileA").touch()
+(SHARE_DIR / "fileB").touch()
+(SHARE_DIR / "fileScapy").touch()
+(SHARE_DIR / "ignoredFile").symlink_to("fileA")
+(SHARE_DIR / "sub").mkdir()
+(SHARE_DIR / "sub").chmod(0o0777)
+(SHARE_DIR / "sub" / "secret").touch()
+
+# required for smb.conf to work in standalone without root.. wtf
+LOGS_DIR = TEMP_DIR / "logs"
+LOCK_DIR = TEMP_DIR / "lock"
+PRIVATE_DIR = TEMP_DIR / "private"
+PID_DIR = TEMP_DIR / "pid"
+CACHE_DIR = TEMP_DIR / "cache"
+STATE_DIRECTORY = TEMP_DIR / "state"
+NCALRPC_DIR = TEMP_DIR / "ncalrpc"
+
+for dir in [LOGS_DIR, LOCK_DIR, PRIVATE_DIR, PID_DIR, CACHE_DIR, STATE_DIRECTORY, NCALRPC_DIR]:
+   dir.mkdir()
+
+SMBD_LOG = LOGS_DIR / "log.smbd"
+SMBD_LOG.touch()
+
+# smb.conf
+CONF_FILE = get_temp_file(autoext=".conf")
+CONF = """
+# Scapy unit tests samba server
+
+[global]
+   workgroup = WORKGROUP
+   server role = standalone server
+   security = user
+   map to guest = bad user
+   log level = 1 smb2:5 auth:3
+
+   bind interfaces only = yes
+   interfaces = 127.0.0.0/8
+
+   lock directory = %s
+   private directory = %s
+   cache directory = %s
+   ncalrpc dir = %s
+   pid directory = %s
+   state directory = %s
+
+[test]
+   comment = Test share
+   path = %s
+   guest ok = yes
+   browseable = yes
+   read only = no
+   public = yes
+""" % (
+   LOCK_DIR,
+   PRIVATE_DIR,
+   CACHE_DIR,
+   NCALRPC_DIR,
+   PID_DIR,
+   STATE_DIRECTORY,
+   SHARE_DIR,
+)
+
+print(CONF)
+
+with open(CONF_FILE, "w") as fd:
+   fd.write(CONF)
+
+# define server context manager
+
+class run_smbserver:
+   def __init__(self):
+      self.proc = None
+   
+   def __enter__(self):
+      # Empty log
+      with SMBD_LOG.open('w') as fd:
+         fd.write("")
+      print("@ Starting smbd server")
+      # Start server
+      self.proc = subprocess.Popen(["/usr/sbin/smbd", "-F", "-p", "12345", "-s", CONF_FILE, "-l", LOGS_DIR])
+      # wait for it to start
+      for i in range(10):
+         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+         sock.settimeout(1)
+         try:
+            sock.connect(("127.0.0.1", 12345))
+            break
+         except Exception:
+            time.sleep(0.5)
+         finally:
+            sock.close()
+      else:
+         raise TimeoutError
+      print("@ Server started !")
+   
+   def __exit__(self, exc_type, exc_value, traceback):
+      print("@ Stopping smbd server !")
+      self.proc.terminate()
+      self.proc.wait()
+      if traceback:
+         # failed
+         print("\nTest failed. Smbd logs:")
+         with SMBD_LOG.open('r') as fd:
+            print(fd.read())
+      print("@ smbd server stopped !")
+      
+
+
+# define client
+
+def run_smbclient():
+   return smbclient("localhost", "guest", port=12345, guest=True, cli=False, debug=4)
+
+
+= smbclient: connect then list shares
+
+with run_smbserver():
+   try:
+      cli = run_smbclient()
+      results = cli.shares()
+      print(results)
+      assert ('test', 'DISKTREE', 'Test share') in results
+      assert any(x[0] == "IPC$" for x in results)
+   finally:
+      cli.close()
+
+= smbclient: connect to test share and list files
+
+with run_smbserver():
+   try:
+      cli = run_smbclient()
+      cli.use("test")
+      files = cli.ls()
+      names = [x[0] for x in files]
+      assert all(x in names for x in ['.', '..', 'sub', 'fileB', 'fileScapy', 'fileA'])
+   finally:
+      cli.close()
+
+= smbclient: connect to test share and get file
+
+LOCALPATH = pathlib.Path(get_temp_dir())
+
+with run_smbserver():
+   try:
+      cli = run_smbclient()
+      cli.use("test")
+      cli.lcd(str(LOCALPATH))
+      completions = cli.get_complete("file")
+      assert all(x in completions for x in ['fileA', 'fileB'])
+      cli.get('fileA')
+      assert (LOCALPATH / "fileA").exists()
+      assert [x.name for x in cli.lls()] == ['fileA']
+   finally:
+      cli.close()
+
+= smbclient: connect to test share, cd, put file and cat it
+
+LOCALPATH = pathlib.Path(get_temp_dir())
+with (LOCALPATH / "fileC").open("w") as fd:
+   fd.write("Nice\nData")
+
+with run_smbserver():
+   try:
+      cli = run_smbclient()
+      cli.use("test")
+      cli.lcd(str(LOCALPATH))
+      cli.cd("sub")
+      # upload
+      cli.put('fileC')
+      # check completion
+      completions = cli.get_complete("")
+      assert all(x in completions for x in ['secret', 'fileC'])
+      # cat
+      assert cli.cat('fileC') == b'Nice\nData'
+      # check on disk
+      with (SHARE_DIR / "sub" / "fileC").open("r") as fd:
+         assert fd.read() == "Nice\nData"
+   finally:
+      cli.close()
+
+
+= smbclient: connect to test share and recursive get
+
+LOCALPATH = pathlib.Path(get_temp_dir())
+
+with run_smbserver():
+   try:
+      cli = run_smbclient()
+      cli.use("test")
+      cli.lcd(str(LOCALPATH))
+      cli.get(".", r=True)
+      # check on disk
+   finally:
+      cli.close()
+
+assert (LOCALPATH / "fileA").exists()
+assert (LOCALPATH / "fileB").exists()
+assert (LOCALPATH / "fileScapy").exists()
+assert (LOCALPATH / "sub").exists()
+assert (LOCALPATH / "sub" / "secret").exists()
+
++ SMB2 Server tests
+~ linux smbserver samba
+
+= Define Scapy smb server
+
+import subprocess
+import select
+
+ROOTPATH = pathlib.Path(get_temp_dir())
+
+# Populate with stuff
+(ROOTPATH / "fileA").touch()
+(ROOTPATH / "fileB").touch()
+(ROOTPATH / "fileScapy").touch()
+(ROOTPATH / "sub").mkdir()
+(ROOTPATH / "sub" / "secret").touch()
+
+# content
+with (ROOTPATH / "fileScapy").open("w") as fd:
+   fd.write("Nice\nData")
+
+class run_smbserver:
+   def __init__(self, guest=False, readonly=True):
+      self.srv = None
+      self.guest = guest
+      self.readonly = readonly
+   
+   def __enter__(self):
+      if self.guest:
+         IDENTITIES = None
+      else:
+         IDENTITIES = {
+            "User1": MD4le("Password1"),
+            "Administrator": MD4le("Password2")
+         }
+      self.srv = smbserver(
+         shares=[SMBShare("Scapy", ROOTPATH), SMBShare("test", ROOTPATH)],
+         iface=conf.loopback_name,
+         debug=4,
+         port=12345,
+         bg=True,
+         readonly=self.readonly,
+         # NTLMSSP
+         IDENTITIES=IDENTITIES,
+      )
+   
+   def __exit__(self, exc_type, exc_value, traceback):
+      self.srv.close()
+
+
+# define client
+
+class run_smbclient:
+   def __init__(self, user=None, password=None, share=None, list=False, cwd=None, debug=None, maxversion=None):
+      args = [
+         "smbclient",
+      ] + (["-L"] if list else []) + [
+         "//127.0.0.1%s" % (("/%s" % share) if share else ""),
+         "-p", "12345",
+      ]
+      if user and password:
+         args.extend([
+            "-U",
+            "DOMAIN/%s" % user,
+            "--password",
+            password,
+         ])
+      else:
+         args.append("-N")
+      if maxversion:
+         args.extend(["-m", maxversion])
+      self.args = args
+      self.proc = subprocess.Popen(
+         args,
+         text=True,
+         bufsize=0,
+         stdin=subprocess.PIPE,
+         stdout=subprocess.PIPE,
+         stderr=subprocess.STDOUT,
+         cwd=cwd,
+      )
+      self.output = ""
+   def cmd(self, command):
+      # send command
+      self.proc.stdin.write(command + "\n")
+      self.proc.stdin.flush()
+   def getoutput(self):
+      self.output += self.proc.communicate(input="exit\n", timeout=10)[0]
+      return [x.strip() for x in self.output.split("\n") if x.strip()]
+   def close(self):
+      if self.proc.poll():
+         self.proc.terminate()
+   def printdebug(self):
+      # Print stuff
+      print("\nTest failed.")
+      print("smbclient arguments:", self.args)
+      print("smbclient output:")
+      print(self.output)
+
+cli = None
+
+= smbserver: SMB 3.1.1 - connect then list shares
+
+with run_smbserver(guest=True):
+   try:
+      cli = run_smbclient(list=True)
+      output = cli.getoutput()
+      shares = [x[0] for x in (y.split(" ") for y in output if "Disk" in y)]
+      assert shares == ['Scapy', 'test']
+   except Exception:
+      cli.printdebug()
+      raise
+   finally:
+      cli.close()
+
+= smbserver: SMB 3.1.1 - connect then ls
+
+with run_smbserver():
+   try:
+      cli = run_smbclient(user="Administrator", password="Password2", share="test")
+      cli.cmd("ls")
+      output = cli.getoutput()[1:]
+      files = [x[0] for x in (y.split(" ") for y in output if "blocks" not in y)]
+      print(files)
+      assert files == ['.', 'fileA', 'fileB', 'fileScapy', 'sub']
+   except Exception:
+      cli.printdebug()
+      raise
+   finally:
+      cli.close()
+
+= smbserver: SMB 2.0.2 - connect then ls
+
+with run_smbserver():
+   try:
+      cli = run_smbclient(user="Administrator", password="Password2", share="test", maxversion="SMB2_02")
+      cli.cmd("ls")
+      output = cli.getoutput()[1:]
+      files = [x[0] for x in (y.split(" ") for y in output if "blocks" not in y)]
+      print(files)
+      assert files == ['.', 'fileA', 'fileB', 'fileScapy', 'sub']
+   except Exception:
+      cli.printdebug()
+      raise
+   finally:
+      cli.close()
+
+= smbserver: SMB 3.1.1 - connect then get file
+
+LOCALPATH = pathlib.Path(get_temp_dir())
+
+with run_smbserver():
+   try:
+      cli = run_smbclient(user="Administrator", password="Password2", share="test", cwd=LOCALPATH)
+      cli.cmd("get fileScapy")
+      output = cli.getoutput()
+      print(output)
+      assert "size 9" in output[0], "no size"
+      assert (LOCALPATH / "fileScapy").exists(), "file doesn't exist"
+      with (LOCALPATH / "fileScapy").open("r") as fd:
+         assert fd.read() == "Nice\nData", "invalid data"
+   except Exception:
+      cli.printdebug()
+      raise
+   finally:
+      cli.close()
+
+= smbserver: SMB 3.1.1 - connect then put file
+
+LOCALPATH = pathlib.Path(get_temp_dir())
+
+nicedata = ("A" * 100 + "\n") * 5
+with open(LOCALPATH / "newCustomFile", "w") as fd:
+    fd.write(nicedata)
+
+with run_smbserver(readonly=False):
+   try:
+      cli = run_smbclient(user="Administrator", password="Password2", share="test", cwd=LOCALPATH)
+      cli.cmd("put newCustomFile")
+      output = cli.getoutput()
+      print(output)
+      assert "putting file newCustomFile" in output[0], "strange output"
+      assert (ROOTPATH / "newCustomFile").exists(), "file doesn't exist"
+      with (ROOTPATH / "newCustomFile").open("r") as fd:
+         assert fd.read() == nicedata, "invalid data"
+   except Exception:
+      cli.printdebug()
+      raise
+   finally:
+      cli.close()

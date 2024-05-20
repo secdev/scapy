@@ -298,7 +298,7 @@ raw(DHCP6OptOptReq(reqopts=[])) == b'\x00\x06\x00\x00'
 
 = DHCP6OptOptReq - Basic dissection
 a=DHCP6OptOptReq(b'\x00\x06\x00\x00')
-a.optcode == 6 and a.optlen == 0 and a.reqopts == [23,24]
+a.optcode == 6 and a.optlen == 0 and a.reqopts == []
 
 = DHCP6OptOptReq - Dissection with specific value
 a=DHCP6OptOptReq(b'\x00\x06\x00\x08\x00\x01\x00\x02\x00\x03\x00\x04')
@@ -1022,7 +1022,7 @@ raw(DHCP6OptRelayAgentERO(reqopts=[])) == b'\x00+\x00\x00'
 
 = DHCP6OptRelayAgentERO - Basic dissection
 a=DHCP6OptRelayAgentERO(b'\x00+\x00\x00')
-a.optcode == 43 and a.optlen == 0 and a.reqopts == [23,24]
+a.optcode == 43 and a.optlen == 0 and a.reqopts == []
 
 = DHCP6OptRelayAgentERO - Dissection with specific value
 a=DHCP6OptRelayAgentERO(b'\x00+\x00\x08\x00\x01\x00\x02\x00\x03\x00\x04')
@@ -1053,6 +1053,81 @@ raw(DHCP6OptLQClientLink(linkaddress=["2001:db8::1", "2001:db8::2"])) == b'\x000
 = DHCP6OptLQClientLink - Dissection with specific values (2 addresses)
 a = DHCP6OptLQClientLink(b'\x000\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
 a.optcode == 48 and a.optlen == 32 and len(a.linkaddress) == 2 and a.linkaddress[0] == "2001:db8::1" and a.linkaddress[1] == "2001:db8::2"
+
+
+############
+############
++ Test DHCP6 Option - NTP Server
+
+= DHCP6NTPSubOptSrvAddr - Basic dissection/instantiation
+b = b'\x00\x01' + b'\x00\x10' + b'\x00' * 16
+assert raw(DHCP6NTPSubOptSrvAddr()) == b
+
+p = DHCP6NTPSubOptSrvAddr(b)
+assert p.optcode == 1 and p.optlen == 16 and p.addr == '::'
+
+= DHCP6NTPSubOptSrvAddr - Dissection/instantiation with specific values
+b = b'\x00\x01' + b'\x00\x10' + b'\x20\x01\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+assert raw(DHCP6NTPSubOptSrvAddr(addr='2001:db8::1')) == b
+
+p = DHCP6NTPSubOptSrvAddr(b)
+assert p.optcode == 1 and p.optlen == 16 and p.addr == '2001:db8::1'
+
+= DHCP6NTPSubOptMCAddr - Basic dissection/instantiation
+b = b'\x00\x02' + b'\x00\x10' + b'\x00' * 16
+assert raw(DHCP6NTPSubOptMCAddr()) == b
+
+p = DHCP6NTPSubOptMCAddr(b)
+assert p.optcode == 2 and p.optlen == 16 and p.addr == '::'
+
+= DHCP6NTPSubOptMCAddr - Dissection/instantiation with specific values
+b = b'\x00\x02' + b'\x00\x10' + b'\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01'
+assert raw(DHCP6NTPSubOptMCAddr(addr='ff02::101')) == b
+
+p = DHCP6NTPSubOptMCAddr(b)
+assert p.optcode == 2 and p.optlen == 16 and p.addr == 'ff02::101'
+
+= DHCP6NTPSubOptSrvFQDN - Basic dissection/instantiation
+b = b'\x00\x03' + b'\x00\x01' + b'\x00'
+assert raw(DHCP6NTPSubOptSrvFQDN()) == b
+
+p = DHCP6NTPSubOptSrvFQDN(b)
+assert p.optcode == 3 and p.optlen == 1 and p.fqdn == b'.'
+
+= DHCP6NTPSubOptSrvFQDN - Dissection/instantiation with specific values
+b = b'\x00\x03' + b'\x00\x0d' + b'\x07example\x03com\x00'
+assert raw(DHCP6NTPSubOptSrvFQDN(fqdn='example.com')) == b
+
+p = DHCP6NTPSubOptSrvFQDN(b)
+assert p.optcode == 3 and p.optlen == 13 and p.fqdn == b'example.com.'
+
+= DHCP6OptNTPServer - Basic dissection/instantiation
+b = b'\x00\x38' + b'\x00\x00'
+assert raw(DHCP6OptNTPServer()) == b
+
+p = DHCP6OptNTPServer(b)
+assert p.optcode == 56 and p.optlen == 0 and p.ntpserver == []
+
+= DHCP6OptNTPServer - Dissection/instantiation with specific values
+srv_addr = b'\x00\x01' + b'\x00\x10' + b'\x20\x01\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+mc_addr = b'\x00\x02' + b'\x00\x10' + b'\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01'
+srv_fqdn = b'\x00\x03' + b'\x00\x0d' + b'\x07example\x03com\x00'
+b = b'\x00\x38' + b'\x00\x39' + srv_addr + mc_addr + srv_fqdn
+
+p = DHCP6OptNTPServer(
+    ntpserver=[DHCP6NTPSubOptSrvAddr(addr='2001:db8::1'),
+               DHCP6NTPSubOptMCAddr(addr='ff02::101'),
+               DHCP6NTPSubOptSrvFQDN(fqdn='example.com'),
+               ]
+)
+assert raw(p) == b
+
+p = DHCP6OptNTPServer(b)
+assert p.optcode == 56 and p.optlen == 57 and len(p.ntpserver) == 3
+assert p.ntpserver[0] == DHCP6NTPSubOptSrvAddr(srv_addr)
+assert p.ntpserver[1] == DHCP6NTPSubOptMCAddr(mc_addr)
+assert p.ntpserver[2] == DHCP6NTPSubOptSrvFQDN(srv_fqdn)
+
 
 ############
 ############
@@ -1188,6 +1263,23 @@ r = b"\x00O\x00\x08\x00\x01\x00\x01\x02\x03\x04\x05"
 p = DHCP6OptClientLinkLayerAddr(r)
 assert p.clladdr == "00:01:02:03:04:05"
 
+############
+############
++ Test DHCP6 Option Captive-Portal
+
+= Basic build & dissect
+s = raw(DHCP6OptCaptivePortal())
+assert s == b"\x00\x67\x00\x00"
+
+p = DHCP6OptCaptivePortal(s)
+assert p.optcode == 103
+assert p.optlen == 0
+assert p.URI == b""
+
+p = DHCP6OptCaptivePortal(b"\x00\x67\x00\x13https://example.org")
+assert p.optcode == 103
+assert p.optlen == 19
+assert p.URI == b"https://example.org"
 
 ############
 ############
@@ -1451,7 +1543,7 @@ raw(DHCP6OptRelayMsg(optcode=37)) == b'\x00%\x00\x04\x00\x00\x00\x00'
 
 = DHCP6OptRelayMsg - Basic Dissection
 a = DHCP6OptRelayMsg(b'\x00\r\x00\x00')
-a.optcode == 13 and a.optlen == 0 and isinstance(a.message, DHCP6)
+a.optcode == 13 and a.optlen == 0 and a.message is None
 
 = DHCP6OptRelayMsg - Embedded DHCP6 packet Instantiation
 raw(DHCP6OptRelayMsg(message=DHCP6_Solicit())) == b'\x00\t\x00\x04\x01\x00\x00\x00'

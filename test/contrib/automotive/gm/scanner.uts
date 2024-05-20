@@ -108,6 +108,11 @@ config = {}
 
 s = EcuState(session=1)
 
+debug_dissector_backup = conf.debug_dissector
+
+# This tests involves corrupted Packets, therefore we need to disable the debug_dissector
+conf.debug_dissector = False
+
 assert False == e._evaluate_response(s, GMLAN(b"\x27\x01"), None, **config)
 config = {"exit_if_service_not_supported": True}
 assert not e._retry_pkt[s]
@@ -125,6 +130,7 @@ assert True == e._evaluate_response(s, GMLAN(b"\x27\x01"), GMLAN(b"\x67\x01ab"),
 assert not e._retry_pkt[s]
 assert False == e._evaluate_response(s, GMLAN(b"\x27\x01"), GMLAN(b"\x67\x02ab"), **config)
 assert not e._retry_pkt[s]
+conf.debug_dissector = debug_dissector_backup
 
 
 = Simulate ECU and run Scanner

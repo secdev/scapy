@@ -28,7 +28,7 @@ import zlib
 
 from scapy.consts import WINDOWS
 from scapy.config import conf
-from scapy.compat import base64_bytes, bytes_hex, plain_str
+from scapy.compat import base64_bytes
 from scapy.themes import DefaultTheme, BlackAndWhite
 from scapy.utils import tex_escape
 
@@ -89,9 +89,12 @@ def scapy_path(fname):
 
 class no_debug_dissector:
     """Context object used to disable conf.debug_dissector"""
+    def __init__(self, reverse=False):
+        self.new_value = reverse
+
     def __enter__(self):
         self.old_dbg = conf.debug_dissector
-        conf.debug_dissector = False
+        conf.debug_dissector = self.new_value
 
     def __exit__(self, exc_type, exc_value, traceback):
         conf.debug_dissector = self.old_dbg
@@ -545,7 +548,7 @@ def run_test(test, get_interactive_session, theme, verb=3,
             # Add optional debugging data to log
             if debug.crashed_on:
                 cls, val = debug.crashed_on
-                test.output += "\n\nPACKET DISSECTION FAILED ON:\n %s(hex_bytes('%s'))" % (cls.__name__, plain_str(bytes_hex(val)))
+                test.output += "\n\nPACKET DISSECTION FAILED ON:\n %s(bytes.fromhex('%s'))" % (cls.__name__, val.hex())
                 debug.crashed_on = None
         test.prepare(theme)
         if verb > 2:
@@ -967,6 +970,9 @@ def main():
     argv = sys.argv[1:]
     logger = logging.getLogger("scapy")
     logger.addHandler(logging.StreamHandler())
+
+    # Treat SyntaxWarning as errors
+    warnings.filterwarnings("error", category=SyntaxWarning)
 
     import scapy
     print(dash + " UTScapy - Scapy %s - %s" % (

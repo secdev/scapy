@@ -23,6 +23,7 @@ from scapy.layers.can import CAN_MTU, CAN_FD_MTU, CAN_MAX_DLEN, CAN_FD_MAX_DLEN
 
 # Typing imports
 from typing import (
+    Any,
     Optional,
     Union,
     Tuple,
@@ -318,44 +319,59 @@ class ISOTPNativeSocket(SuperSocket):
                 raise Scapy_Exception("Provide a string or a CANSocket "
                                       "object as iface parameter")
 
-        self.iface = cast(str, iface) or conf.contribs['NativeCANSocket']['iface']  # noqa: E501
-        self.can_socket = socket.socket(socket.PF_CAN, socket.SOCK_DGRAM,
-                                        CAN_ISOTP)
-        self.__set_option_flags(self.can_socket,
-                                ext_address,
-                                rx_ext_address,
-                                listen_only,
-                                padding,
-                                frame_txtime)
-
+        self.iface: str = cast(str, iface) or conf.contribs['NativeCANSocket']['iface']  # noqa: E501
+        # store arguments internally
         self.tx_id = tx_id
         self.rx_id = rx_id
         self.ext_address = ext_address
         self.rx_ext_address = rx_ext_address
+        self.bs = bs
+        self.stmin = stmin
+        self.padding = padding
+        self.listen_only = listen_only
+        self.frame_txtime = frame_txtime
+        self.fd = fd
+        if basecls is None:
+            log_isotp.warning('Provide a basecls ')
+        self.basecls = basecls
+        self._init_socket()
 
-        self.can_socket.setsockopt(SOL_CAN_ISOTP,
-                                   CAN_ISOTP_RECV_FC,
-                                   self.__build_can_isotp_fc_options(
-                                       stmin=stmin, bs=bs))
-        self.can_socket.setsockopt(SOL_CAN_ISOTP,
-                                   CAN_ISOTP_LL_OPTS,
-                                   self.__build_can_isotp_ll_options(
-                                       mtu=CAN_ISOTP_CANFD_MTU if fd
-                                       else CAN_ISOTP_DEFAULT_LL_MTU,
-                                       tx_dl=CAN_FD_ISOTP_DEFAULT_LL_TX_DL if fd
-                                       else CAN_ISOTP_DEFAULT_LL_TX_DL))
-        self.can_socket.setsockopt(
+    def _init_socket(self) -> None:
+        can_socket = socket.socket(socket.PF_CAN, socket.SOCK_DGRAM,
+                                   CAN_ISOTP)
+        self.__set_option_flags(can_socket,
+                                self.ext_address,
+                                self.rx_ext_address,
+                                self.listen_only,
+                                self.padding,
+                                self.frame_txtime)
+
+        can_socket.setsockopt(SOL_CAN_ISOTP,
+                              CAN_ISOTP_RECV_FC,
+                              self.__build_can_isotp_fc_options(
+                                  stmin=self.stmin, bs=self.bs))
+        can_socket.setsockopt(SOL_CAN_ISOTP,
+                              CAN_ISOTP_LL_OPTS,
+                              self.__build_can_isotp_ll_options(
+                                  mtu=CAN_ISOTP_CANFD_MTU if self.fd
+                                  else CAN_ISOTP_DEFAULT_LL_MTU,
+                                  tx_dl=CAN_FD_ISOTP_DEFAULT_LL_TX_DL if self.fd
+                                  else CAN_ISOTP_DEFAULT_LL_TX_DL))
+        can_socket.setsockopt(
             socket.SOL_SOCKET,
             SO_TIMESTAMPNS,
             1
         )
 
-        self.__bind_socket(self.can_socket, self.iface, tx_id, rx_id)
-        self.ins = self.can_socket
-        self.outs = self.can_socket
-        if basecls is None:
-            log_isotp.warning('Provide a basecls ')
-        self.basecls = basecls
+        self.__bind_socket(can_socket, self.iface, self.tx_id, self.rx_id)
+        # make sure existing sockets are closed,
+        # required in case of a reconnect.
+        self.closed = False
+        self.close()
+
+        self.ins = can_socket
+        self.outs = can_socket
+        self.closed = False
 
     def recv_raw(self, x=0xffff):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
@@ -379,17 +395,23 @@ class ISOTPNativeSocket(SuperSocket):
                                   "Increasing `stmin` could solve this problem.")
             elif e.errno == 110:
                 log_isotp.warning('Captured no data, socket read timed out.')
+            elif e.errno == 70:
+                log_isotp.warning(
+                    'Communication error on send. '
+                    'TX path flowcontrol reception timeout.')
             else:
+                log_isotp.error(
+                    'Unknown error code received %d. Closing socket!', e.errno)
                 self.close()
             return None, None, None
 
-        if ts is None:
+        if pkt and ts is None:
             ts = get_last_packet_timestamp(self.ins)
         return self.basecls, pkt, ts
 
-    def recv(self, x=0xffff):
-        # type: (int) -> Optional[Packet]
-        msg = SuperSocket.recv(self, x)
+    def recv(self, x=0xffff, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
+        msg = SuperSocket.recv(self, x, **kwargs)
         if msg is None:
             return msg
 

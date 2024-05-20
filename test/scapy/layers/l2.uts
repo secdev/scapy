@@ -193,6 +193,36 @@ assert "Net" in repr(p)
 
 ############
 ############
++ 802.1Q bridging tests
+
+= 802.1Q VLAN
+p = Ether(raw(Ether() / Dot1Q(vlan=99) / b"Payload"))
+assert p[Dot1Q].vlan == 99
+
+= 802.1ad Q-in-Q
+p = Ether(raw(Ether() / Dot1AD(vlan=88) / Dot1Q(vlan=99) / b"Payload"))
+assert p[Dot1AD].vlan == 88
+assert p[Dot1Q].vlan == 99
+
+= 802.1ah PBB mac-in-mac
+p = Ether(raw(Ether() / Dot1AD(vlan=88) / Dot1AH(isid=123456) / Ether() / Dot1Q(vlan=99) / b"Payload"))
+assert p[Dot1AD].vlan == 88
+assert p[Dot1AH].isid == 123456
+assert p[Dot1Q].vlan == 99
+
+= 802.1ah PBB mac-in-mac - answer
+p = Ether(raw(Ether() / Dot1AD(vlan=88) / Dot1AH(isid=123456) / Ether() / Dot1Q(vlan=99) / b"Payload"))
+q = Ether(raw(Ether() / Dot1AD(vlan=88) / Dot1AH(isid=123456) / Ether() / Dot1Q(vlan=99) / b"Response"))
+r = Ether(raw(Ether() / Dot1AD(vlan=88) / Dot1AH(isid=123456) / Ether() / Dot1Q(vlan=90) / b"Payload"))
+s = Ether(raw(Ether() / Dot1AD(vlan=88) / Dot1AH(isid=987654) / Ether() / Dot1Q(vlan=99) / b"Payload"))
+
+assert q.answers(p)
+assert not r.answers(p)
+assert not s.answers(p)
+
+
+############
+############
 + CookedLinux
 
 = CookedLinux - Basic Dissection

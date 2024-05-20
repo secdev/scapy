@@ -59,7 +59,7 @@ IFE_TYPES_INT = [
 
 class IFETlv(Packet):
     """
-    Parent Class interhit by all ForCES TLV strucutures
+    Parent Class interhit by all ForCES TLV structures
     """
     name = "IFETlv"
 

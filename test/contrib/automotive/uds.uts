@@ -26,7 +26,7 @@ dsc.hashret() == dscpr.hashret()
 = Check if negative response answers
 
 dsc = UDS(b'\x10')
-neg = UDS(b'\x7f\x10')
+neg = UDS(b'\x7f\x10\x00')
 assert neg.answers(dsc)
 
 = CHECK hashret NEG
@@ -35,7 +35,7 @@ dsc.hashret() == neg.hashret()
 = Check if negative response answers not
 
 dsc = UDS(b'\x10')
-neg = UDS(b'\x7f\x11')
+neg = UDS(b'\x7f\x11\x00')
 assert not neg.answers(dsc)
 
 = Check if positive response answers not
@@ -1046,6 +1046,20 @@ assert rdtcipr.DTCCount == 0xddaa
 
 assert rdtcipr.answers(rdtci)
 
+rdtcipr1 = UDS(b'\x59\x02\xff\x11\x07\x11\'\x022\x12\'\x01\x07\x11\'\x01\x18\x12\'\x01\x13\x12\'\x01"\x11\'\x06C\x00\'\x06S\x00\'\x161\x00\'\x14\x03\x12\'')
+
+assert len(rdtcipr1.DTCAndStatusRecord) == 10
+assert rdtcipr1.DTCAndStatusRecord[0].dtc.system == 0
+assert rdtcipr1.DTCAndStatusRecord[0].dtc.type == 1
+assert rdtcipr1.DTCAndStatusRecord[0].dtc.numeric_value_code == 263
+assert rdtcipr1.DTCAndStatusRecord[0].dtc.additional_information_code == 17
+assert rdtcipr1.DTCAndStatusRecord[0].status == 0x27
+assert rdtcipr1.DTCAndStatusRecord[-1].dtc.system == 0
+assert rdtcipr1.DTCAndStatusRecord[-1].dtc.type == 1
+assert rdtcipr1.DTCAndStatusRecord[-1].dtc.numeric_value_code == 1027
+assert rdtcipr1.DTCAndStatusRecord[-1].dtc.additional_information_code == 18
+assert rdtcipr1.DTCAndStatusRecord[-1].status == 0x27
+
 = Check UDS_RDTCI
 
 rdtci = UDS(b'\x19\x02\xff')
@@ -1086,9 +1100,7 @@ assert rdtci.DTCStatusMask == 0xff
 rdtci = UDS(b'\x19\x03\xff\xee\xdd\xaa')
 assert rdtci.service == 0x19
 assert rdtci.reportType == 0x03
-assert rdtci.DTCHighByte == 0xff
-assert rdtci.DTCMiddleByte == 0xee
-assert rdtci.DTCLowByte == 0xdd
+assert rdtci.dtc == DTC(bytes.fromhex("ffeedd"))
 assert rdtci.DTCSnapshotRecordNumber == 0xaa
 
 = Check UDS_RDTCI
@@ -1096,9 +1108,7 @@ assert rdtci.DTCSnapshotRecordNumber == 0xaa
 rdtci = UDS(b'\x19\x04\xff\xee\xdd\xaa')
 assert rdtci.service == 0x19
 assert rdtci.reportType == 0x04
-assert rdtci.DTCHighByte == 0xff
-assert rdtci.DTCMiddleByte == 0xee
-assert rdtci.DTCLowByte == 0xdd
+assert rdtci.dtc == DTC(bytes.fromhex("ffeedd"))
 assert rdtci.DTCSnapshotRecordNumber == 0xaa
 
 = Check UDS_RDTCI
@@ -1113,9 +1123,7 @@ assert rdtci.DTCSnapshotRecordNumber == 0xaa
 rdtci = UDS(b'\x19\x06\xff\xee\xdd\xaa')
 assert rdtci.service == 0x19
 assert rdtci.reportType == 0x06
-assert rdtci.DTCHighByte == 0xff
-assert rdtci.DTCMiddleByte == 0xee
-assert rdtci.DTCLowByte == 0xdd
+assert rdtci.dtc == DTC(bytes.fromhex("ffeedd"))
 assert rdtci.DTCExtendedDataRecordNumber == 0xaa
 
 = Check UDS_RDTCI
@@ -1139,28 +1147,29 @@ assert rdtci.DTCStatusMask == 0xbb
 rdtci = UDS(b'\x19\x09\xff\xee\xdd')
 assert rdtci.service == 0x19
 assert rdtci.reportType == 0x09
-assert rdtci.DTCHighByte == 0xff
-assert rdtci.DTCMiddleByte == 0xee
-assert rdtci.DTCLowByte == 0xdd
+assert rdtci.dtc == DTC(bytes.fromhex("ffeedd"))
 
 = Check UDS_RDTCI
 
 rdtci = UDS(b'\x19\x10\xff\xee\xdd\xaa')
 assert rdtci.service == 0x19
 assert rdtci.reportType == 0x10
-assert rdtci.DTCHighByte == 0xff
-assert rdtci.DTCMiddleByte == 0xee
-assert rdtci.DTCLowByte == 0xdd
+assert rdtci.dtc == DTC(bytes.fromhex("ffeedd"))
 assert rdtci.DTCExtendedDataRecordNumber == 0xaa
 
 
 = Check UDS_RDTCIPR
 
-rdtcipr = UDS(b'\x59\x02\xff\xee\xdd\xaa')
+rdtcipr = UDS(b'\x59\x02\xff\xee\xdd\xaa\x02')
+rdtcipr.show()
 assert rdtcipr.service == 0x59
 assert rdtcipr.reportType == 2
 assert rdtcipr.DTCStatusAvailabilityMask == 0xff
-assert rdtcipr.DTCAndStatusRecord == b'\xee\xdd\xaa'
+assert rdtcipr.DTCAndStatusRecord[0].dtc.system == 3
+assert rdtcipr.DTCAndStatusRecord[0].dtc.type == 2
+assert rdtcipr.DTCAndStatusRecord[0].dtc.numeric_value_code == 3805
+assert rdtcipr.DTCAndStatusRecord[0].dtc.additional_information_code == 170
+assert rdtcipr.DTCAndStatusRecord[0].status == 2
 
 assert not rdtcipr.answers(rdtci)
 
@@ -1170,6 +1179,23 @@ rdtcipr = UDS(b'\x59\x03\xff\xee\xdd\xaa')
 assert rdtcipr.service == 0x59
 assert rdtcipr.reportType == 3
 assert rdtcipr.dataRecord == b'\xff\xee\xdd\xaa'
+
+
+= Check UDS_RDTCIPR 2
+req = UDS(bytes.fromhex("1904480a46ff"))
+resp = UDS(bytes.fromhex("5904480a46af000b170002ff6417010a8278fa170c2ff1800000800104800200028003400a8004808005054002400a400004010b170002ff6417010a82ec69170c2f2c800000800100800200028003400a80048080050540024017400004"))
+
+assert resp.answers(req)
+
+req = UDS(bytes.fromhex("1904480a47ff"))
+resp = UDS(bytes.fromhex("5904480a46af000b170002ff6417010a8278fa170c2ff1800000800104800200028003400a8004808005054002400a400004010b170002ff6417010a82ec69170c2f2c800000800100800200028003400a80048080050540024017400004"))
+
+assert not resp.answers(req)
+
+req = UDS(bytes.fromhex("1906480a46ff"))
+resp = UDS(bytes.fromhex("5906480a46af010002070328"))
+
+assert resp.answers(req)
 
 = Check UDS_RC
 
@@ -1343,8 +1369,7 @@ assert rtepr.answers(rte)
 iocbi = UDS(b'\x2f\x23\x34\xffcoffee')
 assert iocbi.service == 0x2f
 assert iocbi.dataIdentifier == 0x2334
-assert iocbi.controlOptionRecord == 255
-assert iocbi.controlEnableMaskRecord == b'coffee'
+assert iocbi.load == b'\xffcoffee'
 
 = Check UDS_RFT
 
@@ -1386,6 +1411,11 @@ rftpr_build = UDS()/UDS_RFTPR(modeOfOperation=0x1,
                               maxNumberOfBlockLength=b'\xc3\x50',
                               compressionMethod=1, encryptingMethod=1)
 assert bytes(rftpr_build) == bytes(rftpr)
+
+= Check (invalid) UDS_NRC, no reply-to service
+
+nrc = UDS(b'\x7f')
+assert nrc.service == 0x7f
 
 = Check UDS_NRC
 

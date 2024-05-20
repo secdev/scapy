@@ -16,9 +16,8 @@ smb2 = pkt[SMB2_Header]
 assert smb2.Start == b'\xfeSMB'
 assert smb2.StructureSize == 64
 assert smb2.CreditCharge == 1
-assert smb2.CreditsRequested == 0
+assert smb2.CreditRequest == 0
 assert smb2.Command == 0
-assert smb2.CreditsRequested == 0
 assert smb2.Flags == 0
 assert smb2.NextCommand == 0
 assert smb2.MID == 0
@@ -73,8 +72,8 @@ assert nego_req.DialectCount == 4
 assert nego_req.SecurityMode == 0
 assert nego_req.Capabilities == 0x7f
 assert str(nego_req.ClientGUID) == 'f1849e59-619d-99ce-1f50-5c044474b10a'
-assert nego_req.NegotiateContextOffset == 0x70
-assert nego_req.NegotiateCount == 4
+assert nego_req.NegotiateContextsBufferOffset == 0x70
+assert nego_req.NegotiateContextsCount == 4
 for dialect in nego_req.Dialects:
     assert dialect in SMB_DIALECTS.keys()
 
@@ -86,7 +85,7 @@ assert 0x300 in nego_req.Dialects
 assert 0x302 in nego_req.Dialects
 # Check SMB 3.1.1
 assert 0x311 in nego_req.Dialects
-assert len(nego_req.NegotiateContexts) == nego_req.NegotiateCount
+assert len(nego_req.NegotiateContexts) == nego_req.NegotiateContextsCount
 
 = SMB2 Negotiate Context in Request - type PREAUTH - disassemble
 
@@ -142,7 +141,8 @@ preauth = SMB2_Preauth_Integrity_Capabilities()
 preauth_context = SMB2_Negotiate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
 
 pkt = SMB2_Negotiate_Protocol_Request(Dialects=[0x0202], NegotiateContexts=[preauth_context])
-assert pkt.__class__(raw(pkt)).NegotiateContexts is None
+pkt = pkt.__class__(raw(pkt)).NegotiateContexts[0]
+assert SMB2_Preauth_Integrity_Capabilities in pkt
 
 + SMB2 Negotiate Protocol Response Header dissecting
 
@@ -160,18 +160,18 @@ nego_resp = pkt[SMB2_Negotiate_Protocol_Response]
 # check field values
 
 assert nego_resp.StructureSize == 0x41
-assert str(nego_resp.SecurityMode) == 'Signing Required'
+assert str(nego_resp.SecurityMode) == 'SIGNING_ENABLED'
 assert nego_resp.DialectRevision == 0x0311
-assert nego_resp.NegotiateCount == 0x3
+assert nego_resp.NegotiateContextsCount == 0x3
 assert str(nego_resp.GUID) == '1cdd6d53-1f30-4244-a5c8-88737a6805e1'
 assert nego_resp.Capabilities == 0x2f
 assert nego_resp.MaxTransactionSize == 0x00800000
 assert nego_resp.MaxReadSize == 0x00800000
 assert nego_resp.MaxWriteSize == 0x00800000
-assert nego_resp.SecurityBlobOffset == 0x00000080
-assert nego_resp.SecurityBlobLength == 320
-assert nego_resp.NegotiateContextOffset == 0x1c0
-assert bytes(nego_resp.SecurityBlob.innerContextToken.token.mechToken.value) == b"NEGOEXTS\x01\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00p\x00\x00\x00\x11p\xff\xd0\xfa\xf1O\xa2o@\\\x94UhS\xcf\xa1w\x02z2\xa9bx\n!\xfb\x9e,^\xe9x\xeb\xab\xee\x91\xfd\xfc\xda\x0f\xc5\x91\x03n\xf8\xfdL\x08\x00\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\\3S\r\xea\xf9\rM\xb2\xecJ\xe3xn\xc3\x08NEGOEXTS\x03\x00\x00\x00\x01\x00\x00\x00@\x00\x00\x00\x98\x00\x00\x00\x11p\xff\xd0\xfa\xf1O\xa2o@\\\x94UhS\xcf\\3S\r\xea\xf9\rM\xb2\xecJ\xe3xn\xc3\x08@\x00\x00\x00X\x00\x00\x000V\xa0T0R0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key"
+assert nego_resp.SecurityBlobBufferOffset == 0x00000080
+assert nego_resp.SecurityBlobLen == 320
+assert nego_resp.NegotiateContextsBufferOffset == 0x1c0
+assert bytes(nego_resp.SecurityBlob.innerToken.token.mechToken.value) == b"NEGOEXTS\x01\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00p\x00\x00\x00\x11p\xff\xd0\xfa\xf1O\xa2o@\\\x94UhS\xcf\xa1w\x02z2\xa9bx\n!\xfb\x9e,^\xe9x\xeb\xab\xee\x91\xfd\xfc\xda\x0f\xc5\x91\x03n\xf8\xfdL\x08\x00\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\\3S\r\xea\xf9\rM\xb2\xecJ\xe3xn\xc3\x08NEGOEXTS\x03\x00\x00\x00\x01\x00\x00\x00@\x00\x00\x00\x98\x00\x00\x00\x11p\xff\xd0\xfa\xf1O\xa2o@\\\x94UhS\xcf\\3S\r\xea\xf9\rM\xb2\xecJ\xe3xn\xc3\x08@\x00\x00\x00X\x00\x00\x000V\xa0T0R0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key"
 assert len(nego_resp.NegotiateContexts) == 3
 
 = SMB2 Negotiate Context in Response - Type PREAUTH
@@ -209,14 +209,6 @@ pkt = IP() / TCP() / NBTSession() / SMB2_Header() / SMB2_Negotiate_Protocol_Resp
 pkt = IP(raw(pkt))
 assert SMB2_Negotiate_Protocol_Response in pkt
 
-= Response with dialect different from 0x0311
-
-preauth = SMB2_Preauth_Integrity_Capabilities()
-preauth_context = SMB2_Negotiate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
-
-pkt = SMB2_Negotiate_Protocol_Response(DialectRevision=0x0202, NegotiateContexts=[preauth_context])
-assert pkt.__class__(raw(pkt)).NegotiateContexts is None
-
 + SMB2 Negotiate Procotol Request Header with 1 dialect
 
 = Common fields in header
@@ -237,14 +229,14 @@ assert nego_req.DialectCount == 1
 assert nego_req.SecurityMode == 0
 assert nego_req.Capabilities == 0x7f
 assert str(nego_req.ClientGUID) == 'f1849e59-619d-99ce-1f50-5c044474b10a'
-assert nego_req.NegotiateContextOffset == 0x68
-assert nego_req.NegotiateCount == 4
+assert nego_req.NegotiateContextsBufferOffset == 0x68
+assert nego_req.NegotiateContextsCount == 4
 for dialect in nego_req.Dialects:
     assert dialect in SMB_DIALECTS.keys()
 
 # Check SMB 3.1.1
 assert 0x311 in nego_req.Dialects
-assert len(nego_req.NegotiateContexts) == nego_req.NegotiateCount
+assert len(nego_req.NegotiateContexts) == nego_req.NegotiateContextsCount
 
 = SMB2 Negotiate Context in Request - type PREAUTH - disassemble
 
@@ -295,13 +287,13 @@ assert netname.NetName == '192.168.178.21'
 pkt = SMB2_Negotiate_Protocol_Request()
 assert len(pkt.Dialects) == pkt.__class__(raw(pkt)).DialectCount
 
-= Default NegotiateCount
+= Default NegotiateContextsCount
 
 preauth = SMB2_Preauth_Integrity_Capabilities()
 preauth_context = SMB2_Negotiate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
 
-pkt = SMB2_Negotiate_Protocol_Request(Dialects=[0x0311], NegotiateContexts=[preauth_context], NegotiateContextOffset=0x68)
-assert len(pkt.NegotiateContexts) == pkt.__class__(raw(pkt)).NegotiateCount
+pkt = SMB2_Negotiate_Protocol_Request(Dialects=[0x0311], NegotiateContexts=[preauth_context], NegotiateContextsBufferOffset=0x68)
+assert len(pkt.NegotiateContexts) == pkt.__class__(raw(pkt)).NegotiateContextsCount
 
 + Negotiate Request without manual padding of Negotiate Contexts
 
@@ -319,7 +311,7 @@ comp_context = SMB2_Negotiate_Context(ContextType = 3, DataLength = len(comp)) /
 netname = SMB2_Netname_Negotiate_Context_ID("192.168.178.21".encode("utf-16le"))
 netname_context = SMB2_Negotiate_Context(ContextType = 5, DataLength = len(netname)) / netname
 
-pkt = SMB2_Header() / SMB2_Negotiate_Protocol_Request(Dialects=[0x0311], NegotiateContexts=[preauth_context, enc_context, comp_context, netname_context], NegotiateContextOffset=0x68)
+pkt = SMB2_Header() / SMB2_Negotiate_Protocol_Request(Dialects=[0x0311], NegotiateContexts=[preauth_context, enc_context, comp_context, netname_context], NegotiateContextsBufferOffset=0x68)
 
 pkt = SMB2_Header(raw(pkt))
 
@@ -328,8 +320,8 @@ nego_req = pkt[SMB2_Negotiate_Protocol_Request]
 preauth_dissected = nego_req.NegotiateContexts[0]
 assert preauth_dissected.ContextType == preauth_context.ContextType
 assert preauth_dissected.DataLength == preauth_context.DataLength
-assert preauth_dissected.HashAlgorithmCount == preauth_context.HashAlgorithmCount
-assert preauth_dissected.SaltLength == preauth_context.SaltLength
+assert preauth_dissected.HashAlgorithmCount == 1
+assert preauth_dissected.SaltLength == 0
 assert len(preauth_dissected.HashAlgorithms) == len(preauth_context.HashAlgorithms)
 assert preauth_dissected.HashAlgorithms[0] == preauth_context.HashAlgorithms[0]
 
@@ -338,7 +330,7 @@ assert preauth_dissected.HashAlgorithms[0] == preauth_context.HashAlgorithms[0]
 enc_dissected = nego_req.NegotiateContexts[1]
 assert enc_dissected.ContextType == enc_context.ContextType
 assert enc_dissected.DataLength == enc_context.DataLength
-assert enc_dissected.CipherCount == enc_context.CipherCount
+assert enc_dissected.CipherCount == 1
 assert len(enc_dissected.Ciphers) == len(enc_context.Ciphers)
 assert enc_dissected.Ciphers[0] == enc_context.Ciphers[0]
 
@@ -346,8 +338,8 @@ assert enc_dissected.Ciphers[0] == enc_context.Ciphers[0]
 
 comp_dissected = nego_req.NegotiateContexts[2]
 assert comp_dissected.ContextType == comp_context.ContextType
-assert comp_dissected.DataLength == comp_context.DataLength
-assert comp_dissected.CompressionAlgorithmCount == comp_context.CompressionAlgorithmCount
+assert comp_dissected.DataLength == 8
+assert comp_dissected.CompressionAlgorithmCount == 0
 assert len(comp_dissected.CompressionAlgorithms) == len(comp_context.CompressionAlgorithms)
 
 = SMB2 Negotiate Context in Request - type NETNAME NEGOCIATE
@@ -357,6 +349,28 @@ assert netname_dissected.ContextType == netname_context.ContextType
 assert netname_dissected.DataLength == netname_context.DataLength
 assert netname_dissected.NetName == netname_context.NetName
 
++ SMB 2 Tree connect exchange
+
+= SMB2 Tree connect request
+
+# this is a rare one, and is kindof a nightmare to setup. figure it out alexander
+
+tree_con = Ether(b'RT\x00\x1c\x91\x8dRT\x00O9T\x08\x00E\x00\x00\xb0\x91\n@\x00\x80\x06\xe7\x1f\xc0\xa8\x00e\xc0\xa8\x00h\xc2@\x01\xbd\xd6a\x0e\xc2gX\xca\xb8P\x18\x04\x02\x82\xc0\x00\x00\x00\x00\x00\x84\xfeSMB@\x00\x01\x00\x00\x00\x00\x00\x03\x00\x01\x00\x18\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x00\x00\x00\x00!\x00\x00\x00\x00$\x08\x00\xe4\xd7o\xa1\x96\xf9mm\xca[%\x1c\x8bG\x8a\xd6\t\x00\x02\x00H\x00<\x00\\\x00\\\x00s\x00c\x00a\x00l\x00e\x00o\x00u\x00t\x00.\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\\\x00s\x00h\x00a\x00r\x00e\x001\x00')
+assert tree_con.Path == '\\\\scaleout.domain.local\\share1'
+assert tree_con[SMB2_Tree_Connect_Request].Flags.REDIRECT_TO_OWNER
+
+= SMB2 Tree connect response
+
+tree_con_resp = Ether(b'RT\x00O9TRT\x00\x1c\x91\x8d\x08\x00E\x00\x00\xfeM\xfb@\x00\x80\x06)\xe1\xc0\xa8\x00h\xc0\xa8\x00e\x01\xbd\xc2@gX\xca\xb8\xd6a\x0fJP\x18 \x13\x83\x0e\x00\x00\x00\x00\x00\xd2\xfeSMB@\x00\x01\x00\xcc\x00\x00\xc0\x03\x00\x01\x00\x19\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x00\x00\x00\x00!\x00\x00\x00\x00$\x08\x00\x1a\xc0\nRt\xe7\x04\x1b;\xd3gV\xe0\x1e\x87\xd1\t\x00\x01\x00\x8a\x00\x00\x00\x82\x00\x00\x00SRdr0\x00\x00\x00\x03\x00\x00\x00`\x00\x00\x00"\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\xc0\xa8\x00il\x00\\\x00s\x00h\x00a\x00r\x00\x01\x00\x00\x00\x00\x00\x00\x00\xc0\xa8d\x8f\x1e\xd4.mk\xa0\xa3py\xa4\x9c\x8dJ\xc8\xd0\x9a\xfd\xc1\x00\x00\x02\x00\x06\x00\x00\x00\x00\x00\x02\x00\x02\x00\x01\x00\x00\x00\\\x00\\\x00S\x00C\x00A\x00L\x00E\x00O\x00U\x00T\x00\\\x00s\x00h\x00a\x00r\x00e\x001\x00')
+assert tree_con_resp.Status == 0xc00000cc
+assert tree_con_resp.Flags.SMB2_FLAGS_SERVER_TO_REDIR
+
+ctx = SMB2_Error_ContextResponse(tree_con_resp.ErrorData)
+assert ctx.ErrorId == 0x72645253
+assert ctx.ErrorContextData.NotificationType == 3
+assert ctx.ErrorContextData.ResourceName == '\\\\SCALEOUT\\share1'
+assert [x.IPAddress for x in ctx.ErrorContextData.IPAddrMoveList] == ['192.168.0.105', '192.168.100.143']
+
 + SMB 2 Setup Session
 
 = Setup Session Request
@@ -364,8 +378,8 @@ assert netname_dissected.NetName == netname_context.NetName
 from scapy.layers.ntlm import *
 
 setup_sess = NBTSession(b'\x00\x00\x00\xa2\xfeSMB@\x00\x01\x00\x00\x00\x00\x00\x01\x00!\x00\x10\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x19\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00X\x00J\x00\x00\x00\x00\x00\x00\x00\x00\x00`H\x06\x06+\x06\x01\x05\x05\x02\xa0>0<\xa0\x0e0\x0c\x06\n+\x06\x01\x04\x01\x827\x02\x02\n\xa2*\x04(NTLMSSP\x00\x01\x00\x00\x00\x97\x82\x08\xe2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\x00aJ\x00\x00\x00\x0f')
-assert isinstance(setup_sess.Buffer[0][1].innerContextToken.token.mechToken.value, NTLM_NEGOTIATE)
-assert setup_sess.Buffer[0][1].innerContextToken.token.mechToken.value.ProductBuild == 19041
+assert isinstance(setup_sess.Buffer[0][1].innerToken.token.mechToken.value, NTLM_NEGOTIATE)
+assert setup_sess.Buffer[0][1].innerToken.token.mechToken.value.ProductBuild == 19041
 
 = Setup Session Response
 
@@ -378,7 +392,7 @@ assert setup_sess.Buffer[0][1].token.responseToken.value.Payload[0] == ('TargetN
 assert setup_sess.Buffer[0][1].token.responseToken.value.Payload[1][1][-1].AvId == 0
 
 
-= SMB2 IOCTL Request
+= SMB2 IOCTL Request - Validate negotiate info
 
 ioctl_req = Ether(b'RT\x00<?\x1cRT\x00\x0cG\xab\x08\x00E\x00\x00\xc6\x88\x1f@\x00\x80\x06\xfc\xb9\xc0\xa8z\x06\xc0\xa8z\x01\xc2\xb3\x01\xbd\x04)\xc4a\t\xda\x92\xdbP\x18 \x12o\xb3\x00\x00\x00\x00\x00\x9a\xfeSMB@\x00\x01\x00\x00\x00\x00\x00\x0b\x00!\x00\x08\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xd8a\x1c\xc86\x0f\xc4\xec\x98$\x08\x038\xe6\x82\x039\x00\x00\x00\x04\x02\x14\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xffx\x00\x00\x00"\x00\x00\x00\x00\x00\x00\x00x\x00\x00\x00\x00\x00\x00\x00\x18\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x00\x9b\x9c\xaa3\xf0\xe6\xec\x11\x8c\x12RT\x00\x0cG\xab\x01\x00\x05\x00\x02\x02\x10\x02\x00\x03\x02\x03\x11\x03')
 assert ioctl_req.CtlCode == 1311236
@@ -386,7 +400,7 @@ assert ioctl_req.InputBufferOffset == 120
 assert ioctl_req.InputLen == 34
 validate_neg = ioctl_req.Buffer[0][1]
 assert isinstance(validate_neg, SMB2_IOCTL_Validate_Negotiate_Info_Request)
-assert validate_neg.SecurityMode.SMB2_NEGOTIATE_SIGNING_ENABLED
+assert validate_neg.SecurityMode.SIGNING_ENABLED
 assert validate_neg.Dialects == [514, 528, 768, 770, 785]
 
 c = ioctl_req.copy()
@@ -396,6 +410,105 @@ c = Ether(raw(c))
 assert c.InputBufferOffset == 120
 assert c.InputLen == 34
 assert len(c.Buffer[0][1]) == 34
+
+= SMB2 IOCTL Request - DFS referral (TargetSetBoundary)
+
+ioctl_req = NBTSession(b'\x00\x00\x01t\xfeSMB@\x00\x01\x00\x00\x00\x00\x00\x0b\x00\x01\x009\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x01\x00\x00\x00i\x00\x00\x00\x00D\x00\x00\x93\xefQ\xd3\xf2\xc7\xc3\xf3m\xcf.\xb4\xe9\x16\xb7+1\x00\x00\x00\x94\x01\x06\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xffp\x00\x00\x00\x00\x00\x00\x00p\x00\x00\x00\x04\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00(\x00\x02\x00\x03\x00\x00\x00\x04\x00"\x00\x01\x00\x04\x00,\x01\x00\x00D\x00n\x00\x98\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00"\x00\x01\x00\x00\x00,\x01\x00\x00"\x00L\x00\xa8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\\\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\\\x00c\x00o\x00m\x00m\x00o\x00n\x00\x00\x00\\\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\\\x00c\x00o\x00m\x00m\x00o\x00n\x00\x00\x00\\\x00D\x00C\x001\x00.\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\\\x00c\x00o\x00m\x00m\x00o\x00n\x00\x00\x00\\\x00D\x00C\x002\x00.\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\\\x00c\x00o\x00m\x00m\x00o\x00n\x00\x00\x00')
+assert ioctl_req.CtlCode == 393620
+dfs_referral = ioctl_req.Output
+
+assert isinstance(dfs_referral, SMB2_IOCTL_RESP_GET_DFS_Referral)
+assert dfs_referral.ReferralBuffer[0].DFSPath == '\\domain.local\\common'
+assert dfs_referral.ReferralBuffer[0].DFSAlternatePath == '\\domain.local\\common'
+assert dfs_referral.ReferralBuffer[0].NetworkAddress == '\\DC1.domain.local\\common'
+assert dfs_referral.ReferralBuffer[1].DFSPath == '\\domain.local\\common'
+assert dfs_referral.ReferralBuffer[1].DFSAlternatePath == '\\domain.local\\common'
+assert dfs_referral.ReferralBuffer[1].NetworkAddress == '\\DC2.domain.local\\common'
+
+= SMB2 IOCTL Response - DFS referral (TargetSetBoundary)
+
+dfs_referral = SMB2_IOCTL_RESP_GET_DFS_Referral(
+    ReferralHeaderFlags="ReferralServers+StorageServers",
+    ReferralEntries=[
+        DFS_REFERRAL_V4(
+            ServerType="root",
+            ReferralEntryFlags="TargetSetBoundary",
+            TimeToLive=300,
+        ),
+        DFS_REFERRAL_V4(
+            ServerType="root",
+            ReferralEntryFlags="TargetSetBoundary",
+            TimeToLive=300,
+        )
+    ],
+    ReferralBuffer=[
+        DFS_REFERRAL_ENTRY0(
+            DFSPath="\\domain.local\\common",
+            DFSAlternatePath="\\domain.local\\common",
+            NetworkAddress="\\DC1.domain.local\\common",
+        ),
+        DFS_REFERRAL_ENTRY0(
+            DFSPath="\\domain.local\\common",
+            DFSAlternatePath="\\domain.local\\common",
+            NetworkAddress="\\DC2.domain.local\\common",
+        )
+    ]
+)
+assert bytes(dfs_referral) == b'\x00\x00\x02\x00\x03\x00\x00\x00\x04\x00"\x00\x01\x00\x04\x00,\x01\x00\x00D\x00n\x00\x98\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00"\x00\x01\x00\x04\x00,\x01\x00\x00\xa8\x00\xd2\x00\xfc\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\\\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\\\x00c\x00o\x00m\x00m\x00o\x00n\x00\x00\x00\\\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\\\x00c\x00o\x00m\x00m\x00o\x00n\x00\x00\x00\\\x00D\x00C\x001\x00.\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\\\x00c\x00o\x00m\x00m\x00o\x00n\x00\x00\x00\\\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\\\x00c\x00o\x00m\x00m\x00o\x00n\x00\x00\x00\\\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\\\x00c\x00o\x00m\x00m\x00o\x00n\x00\x00\x00\\\x00D\x00C\x002\x00.\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\\\x00c\x00o\x00m\x00m\x00o\x00n\x00\x00\x00'
+
+# Re-dissect
+dfs_referral = SMB2_IOCTL_RESP_GET_DFS_Referral(bytes(dfs_referral))
+assert dfs_referral.ReferralBuffer[0].DFSPath == '\\domain.local\\common'
+assert dfs_referral.ReferralBuffer[0].DFSAlternatePath == '\\domain.local\\common'
+assert dfs_referral.ReferralBuffer[0].NetworkAddress == '\\DC1.domain.local\\common'
+assert dfs_referral.ReferralBuffer[1].DFSPath == '\\domain.local\\common'
+assert dfs_referral.ReferralBuffer[1].DFSAlternatePath == '\\domain.local\\common'
+assert dfs_referral.ReferralBuffer[1].NetworkAddress == '\\DC2.domain.local\\common'
+
+= SMB2 IOCTL Request - DFS referral (NameListReferral)
+
+ioctl_req = NBTSession(b'\x00\x00\x00\xc8\xfeSMB@\x00\x01\x00\x00\x00\x00\x00\x0b\x00\x01\x009\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x01\x00\x00\x00}\x00\x00\x10\x00\xf8\x01\x00\xd4UjTy\xef\xdd2\x19)\x9a\r\x15\xa7\x1f11\x00\x00\x00\x94\x01\x06\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xffp\x00\x00\x00\x00\x00\x00\x00p\x00\x00\x00X\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x03\x00\x12\x00\x00\x00\x02\x00X\x02\x00\x00$\x00\x00\x00\x00\x00\x03\x00\x12\x00\x00\x00\x02\x00X\x02\x00\x00"\x00\x00\x00\x00\x00\\\x00D\x00O\x00M\x00A\x00I\x00N\x00\x00\x00\\\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\x00\x00')
+assert ioctl_req.CtlCode == 393620
+dfs_referral = ioctl_req.Output
+
+assert isinstance(dfs_referral, SMB2_IOCTL_RESP_GET_DFS_Referral)
+assert dfs_referral.ReferralEntries[0].SpecialNameOffset == 36
+assert dfs_referral.ReferralEntries[0].ExpandedNameOffset == 0
+assert dfs_referral.ReferralEntries[1].SpecialNameOffset == 34
+assert dfs_referral.ReferralEntries[1].ExpandedNameOffset == 0
+
+assert dfs_referral.ReferralBuffer[0].SpecialName == "\\DOMAIN"
+assert dfs_referral.ReferralBuffer[0].ExpandedName == []
+assert dfs_referral.ReferralBuffer[1].SpecialName == "\\domain.local"
+assert dfs_referral.ReferralBuffer[1].ExpandedName == []
+
+= SMB2 IOCTL Response - DFS referral (NameListReferral)
+
+DOMAIN_REFERRALS = ["\\DOMAIN", "\\domain.local"]
+dfs_referral = SMB2_IOCTL_RESP_GET_DFS_Referral(
+    ReferralEntries=[
+        DFS_REFERRAL_V3(
+            ReferralEntryFlags="NameListReferral",
+            TimeToLive=600,
+        )
+        for _ in DOMAIN_REFERRALS
+    ],
+    ReferralBuffer=[
+        DFS_REFERRAL_ENTRY1(
+            SpecialName=name
+        )
+        for name in DOMAIN_REFERRALS
+    ]
+)
+
+assert bytes(dfs_referral) == b'\x00\x00\x02\x00\x00\x00\x00\x00\x03\x00\x12\x00\x00\x00\x02\x00X\x02\x00\x00$\x00\x00\x00\x00\x00\x03\x00\x12\x00\x00\x00\x02\x00X\x02\x00\x00"\x00\x00\x00\x00\x00\\\x00D\x00O\x00M\x00A\x00I\x00N\x00\x00\x00\\\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\x00\x00'
+
+# Re-dissect
+dfs_referral = SMB2_IOCTL_RESP_GET_DFS_Referral(bytes(dfs_referral))
+assert dfs_referral.ReferralBuffer[0].SpecialName == "\\DOMAIN"
+assert dfs_referral.ReferralBuffer[0].ExpandedName == []
+assert dfs_referral.ReferralBuffer[1].SpecialName == "\\domain.local"
+assert dfs_referral.ReferralBuffer[1].ExpandedName == []
 
 = SMB2 Create Request with Contexts
 
@@ -410,4 +523,30 @@ sess_create_context_response = NBTSession(b"\x00\x00\x00\xf0\xfeSMB@\x00\x01\x00
 assert sess_create_context_response.CreateContexts[0].Data.QueryStatus == 0
 assert sess_create_context_response.CreateContexts[1].Data.DiskFileId == 2359297
 assert sess_create_context_response.CreateContexts[1].Data.Reserved == b'\x00' * 16
+
+= SMB2 Query Info Response with Security Descriptor
+
+qr = SMB2_Query_Info_Response(b'\t\x00H\x00\xe0\x00\x00\x00\x01\x00\x14\x9c\x14\x00\x00\x004\x00\x00\x00\x00\x00\x00\x00T\x00\x00\x00\x01\x06\x00\x00\x00\x00\x00\x05P\x00\x00\x00\xb5\x89\xfb8\x19\x84\xc2\xcb\\l#mW\x00wn\xc0\x02d\x87\x01\x06\x00\x00\x00\x00\x00\x05P\x00\x00\x00\xb5\x89\xfb8\x19\x84\xc2\xcb\\l#mW\x00wn\xc0\x02d\x87\x02\x00\x8c\x00\x06\x00\x00\x00\x00\x03\x18\x00\xa9\x00\x12\x00\x01\x02\x00\x00\x00\x00\x00\x0f\x02\x00\x00\x00\x01\x00\x00\x00\x00\x0b\x14\x00\xff\x01\x1f\x00\x01\x01\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x03\x14\x00\xff\x01\x1f\x00\x01\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x03\x14\x00\xff\x01\x1f\x00\x01\x01\x00\x00\x00\x00\x00\x05\x12\x00\x00\x00\x00\x03\x18\x00\xff\x01\x1f\x00\x01\x02\x00\x00\x00\x00\x00\x05 \x00\x00\x00 \x02\x00\x00\x00\x03\x18\x00\xa9\x00\x12\x00\x01\x02\x00\x00\x00\x00\x00\x05 \x00\x00\x00!\x02\x00\x00')
+sd = SECURITY_DESCRIPTOR(qr.Output)
+
+assert sd.OwnerSid.summary() == 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'
+assert sd.GroupSid.summary() == 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'
+
+assert sd.Dacl.toSDDL() == [
+    '(A;OI+CI;;;;S-1-15-2-1)',
+    '(A;OI+CI+IO;;;;S-1-3-0)',
+    '(A;OI+CI;;;;S-1-1-0)',
+    '(A;OI+CI;;;;S-1-5-18)',
+    '(A;OI+CI;;;;S-1-5-32-544)',
+    '(A;OI+CI;;;;S-1-5-32-545)',
+]
+
+= SMB2 Set Info Request with Rename
+
+set_info = NBTSession(b'\x00\x00\x00|\xfeSMB@\x00\x01\x00#\x00\x00\x00\x11\x00\x01\x000\x00\x00\x00\x00\x00\x00\x00\xa8\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x01\x00\x00\x00\x15\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00!\x00\x01\n\x1c\x00\x00\x00`\x00\x00\x00\x00\x00\x00\x00\xb0\n\x9c\xfd@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xc3\x01\xc1\\\\1\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00t\x00e\x00s\x00t\x00')
+
+assert set_info.FileId.Persistent == 0x40fd9c0ab0
+assert isinstance(set_info.Data, FileRenameInformation)
+assert set_info.Data.FileName == "test"
+assert not set_info.Data.ReplaceIfExists
 

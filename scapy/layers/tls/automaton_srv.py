@@ -11,10 +11,11 @@ Obviously you need rights for network access.
 
 We support versions SSLv2 to TLS 1.3, along with many features.
 
-In order to run a server listening on tcp/4433:
-> from scapy.all import *
-> t = TLSServerAutomaton(mycert='<cert.pem>', mykey='<key.pem>')
-> t.run()
+In order to run a server listening on tcp/4433::
+
+    from scapy.layers.tls import *
+    t = TLSServerAutomaton(mycert='<cert.pem>', mykey='<key.pem>')
+    t.run()
 """
 
 import socket
@@ -211,6 +212,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SOCKET_CLOSED(self):
+        self.socket.close()
         raise self.WAITING_CLIENT()
 
     @ATMT.state()
@@ -262,6 +264,9 @@ class TLSServerAutomaton(_TLSAutomaton):
     def tls13_should_handle_ClientHello(self):
         self.raise_on_packet(TLS13ClientHello,
                              self.tls13_HANDLED_CLIENTHELLO)
+        if self.cur_session.advertised_tls_version == 0x0304:
+            self.raise_on_packet(TLSClientHello,
+                                 self.tls13_HANDLED_CLIENTHELLO)
 
     @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=2)
     def should_handle_ClientHello(self):
@@ -1169,8 +1174,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.condition(SSLv2_HANDLED_CLIENTFINISHED, prio=1)
     def sslv2_should_add_ServerVerify_from_ClientFinished(self):
-        hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
-        if SSLv2ServerVerify in hs_msg:
+        if self.in_handshake(SSLv2ServerVerify):
             return
         self.add_record(is_sslv2=True)
         p = SSLv2ServerVerify(challenge=self.cur_session.sslv2_challenge)
@@ -1179,8 +1183,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.condition(SSLv2_RECEIVED_CLIENTFINISHED, prio=2)
     def sslv2_should_add_ServerVerify_from_NoClientFinished(self):
-        hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
-        if SSLv2ServerVerify in hs_msg:
+        if self.in_handshake(SSLv2ServerVerify):
             return
         self.add_record(is_sslv2=True)
         p = SSLv2ServerVerify(challenge=self.cur_session.sslv2_challenge)
@@ -1207,8 +1210,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_SENT_SERVERVERIFY(self):
-        hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
-        if SSLv2ClientFinished in hs_msg:
+        if self.in_handshake(SSLv2ClientFinished):
             raise self.SSLv2_HANDLED_CLIENTFINISHED()
         else:
             raise self.SSLv2_RECEIVED_CLIENTFINISHED()
@@ -1217,8 +1219,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.condition(SSLv2_HANDLED_CLIENTFINISHED, prio=2)
     def sslv2_should_add_RequestCertificate(self):
-        hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
-        if not self.client_auth or SSLv2RequestCertificate in hs_msg:
+        if not self.client_auth or self.in_handshake(SSLv2RequestCertificate):
             return
         self.add_record(is_sslv2=True)
         self.add_msg(SSLv2RequestCertificate(challenge=randstring(16)))

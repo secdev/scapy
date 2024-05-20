@@ -85,37 +85,37 @@ assert inet_pton(socket.AF_INET6, f.randval())
 
 = EIGRPGuessPayloadClass function: Return Parameters TLV
 from scapy.contrib.eigrp import _EIGRPGuessPayloadClass
-isinstance(_EIGRPGuessPayloadClass(b"\x00\x01"), EIGRPParam)
+isinstance(_EIGRPGuessPayloadClass(b"\x00\x01" + b"\x00" * 50), EIGRPParam)
 
 = EIGRPGuessPayloadClass function: Return Authentication Data TLV
-isinstance(_EIGRPGuessPayloadClass(b"\x00\x02"), EIGRPAuthData)
+isinstance(_EIGRPGuessPayloadClass(b"\x00\x02" + b"\x00" * 50), EIGRPAuthData)
 
 = EIGRPGuessPayloadClass function: Return Sequence TLV
-isinstance(_EIGRPGuessPayloadClass(b"\x00\x03"), EIGRPSeq)
+isinstance(_EIGRPGuessPayloadClass(b"\x00\x03" + b"\x00" * 50), EIGRPSeq)
 
 = EIGRPGuessPayloadClass function: Return Software Version TLV
-isinstance(_EIGRPGuessPayloadClass(b"\x00\x04"), EIGRPSwVer)
+isinstance(_EIGRPGuessPayloadClass(b"\x00\x04" + b"\x00" * 50), EIGRPSwVer)
 
 = EIGRPGuessPayloadClass function: Return Next Multicast Sequence TLV
-isinstance(_EIGRPGuessPayloadClass(b"\x00\x05"), EIGRPNms)
+isinstance(_EIGRPGuessPayloadClass(b"\x00\x05" + b"\x00" * 50), EIGRPNms)
 
 = EIGRPGuessPayloadClass function: Return Stub Router TLV
-isinstance(_EIGRPGuessPayloadClass(b"\x00\x06"), EIGRPStub)
+isinstance(_EIGRPGuessPayloadClass(b"\x00\x06" + b"\x00" * 50), EIGRPStub)
 
 = EIGRPGuessPayloadClass function: Return Internal Route TLV
-isinstance(_EIGRPGuessPayloadClass(b"\x01\x02"), EIGRPIntRoute)
+isinstance(_EIGRPGuessPayloadClass(b"\x01\x02" + b"\x00" * 50), EIGRPIntRoute)
 
 = EIGRPGuessPayloadClass function: Return External Route TLV
-isinstance(_EIGRPGuessPayloadClass(b"\x01\x03"), EIGRPExtRoute)
+isinstance(_EIGRPGuessPayloadClass(b"\x01\x03" + b"\x00" * 50), EIGRPExtRoute)
 
 = EIGRPGuessPayloadClass function: Return IPv6 Internal Route TLV
-isinstance(_EIGRPGuessPayloadClass(b"\x04\x02"), EIGRPv6IntRoute)
+isinstance(_EIGRPGuessPayloadClass(b"\x04\x02" + b"\x00" * 50), EIGRPv6IntRoute)
 
 = EIGRPGuessPayloadClass function: Return IPv6 External Route TLV
-isinstance(_EIGRPGuessPayloadClass(b"\x04\x03"), EIGRPv6ExtRoute)
+isinstance(_EIGRPGuessPayloadClass(b"\x04\x03" + b"\x00" * 100), EIGRPv6ExtRoute)
 
 = EIGRPGuessPayloadClass function: Return EIGRPGeneric
-isinstance(_EIGRPGuessPayloadClass(b"\x23\x42"), EIGRPGeneric)
+isinstance(_EIGRPGuessPayloadClass(b"\x23\x42" + b"\x00" * 50), EIGRPGeneric)
 
 + TLV List
 
@@ -160,7 +160,7 @@ p = IP()/EIGRP(tlvlist=[EIGRPv6ExtRoute(prefixlen=99, dst="2000::")])
 struct.unpack("!H", p[EIGRPv6ExtRoute].build()[2:4])[0] == 70
 
 + Stub Flags
-* The receive-only flag is always set, when a router anounces itself as stub router.
+* The receive-only flag is always set, when a router announces itself as stub router.
 
 = Receive-Only
 p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="receive-only")])

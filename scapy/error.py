@@ -68,7 +68,7 @@ class ScapyFreqFilter(logging.Filter):
                 if nb < 2:
                     nb += 1
                     if nb == 2:
-                        record.msg = "more " + record.msg
+                        record.msg = "more " + str(record.msg)
                 else:
                     return False
             self.warning_table[caller] = (tm, nb)
@@ -108,6 +108,7 @@ if WINDOWS:
 
 # get Scapy's master logger
 log_scapy = logging.getLogger("scapy")
+log_scapy.propagate = False
 # override the level if not already set
 if log_scapy.level == logging.NOTSET:
     log_scapy.setLevel(logging.WARNING)

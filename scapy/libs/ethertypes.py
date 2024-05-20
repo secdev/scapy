@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
@@ -34,105 +35,60 @@
  */
 """
 
-# This file contains data automatically generated using
-# scapy/tools/generate_ethertypes.py
-# based on OpenBSD public source.
+# Hi There!
+#
+# You may be wondering what this giant blob of binary data here is, you might
+# even be worried that we're up to something nefarious (good for you for being
+# paranoid!). This is a base85 encoding of a zip file, this zip file contains
+# a version of '/etc/ethertypes', generated from OpenBSD's own copy, so that
+# we are able to use it when not available on your OS.
 
-DATA = b"""
-#
-# Ethernet frame types
-#       This file describes some of the various Ethernet
-#       protocol types that are used on Ethernet networks.
-#
-# This list could be found on:
-#         http://www.iana.org/assignments/ethernet-numbers
-#         http://www.iana.org/assignments/ieee-802-numbers
-#
-# <name>    <hexnumber> <alias1>...<alias35> #Comment
-#
-8023            0004                         # IEEE 802.3 packet
-PUP             0200                         # Xerox PUP protocol - see 0A00
-PUPAT           0200                         # PUP Address Translation - see 0A01
-NS              0600                         # XNS
-NSAT            0601                         # XNS Address Translation (3Mb only)
-DLOG1           0660                         # DLOG (?)
-DLOG2           0661                         # DLOG (?)
-IPv4            0800                         # IP protocol
-X75             0801                         # X.75 Internet
-NBS             0802                         # NBS Internet
-ECMA            0803                         # ECMA Internet
-CHAOS           0804                         # CHAOSnet
-X25             0805                         # X.25 Level 3
-ARP             0806                         # Address resolution protocol
-FRARP           0808                         # Frame Relay ARP (RFC1701)
-VINES           0BAD                         # Banyan VINES
-TRAIL           1000                         # Trailer packet
-DCA             1234                         # DCA - Multicast
-VALID           1600                         # VALID system protocol
-RCL             1995                         # Datapoint Corporation (RCL lan protocol)
-NBPCC           3C04                         # 3Com NBP Connect complete not registered
-NBPDG           3C07                         # 3Com NBP Datagram (like XNS IDP) not registered
-PCS             4242                         # PCS Basic Block Protocol
-IMLBL           4C42                         # Information Modes Little Big LAN
-MOPDL           6001                         # DEC MOP dump/load
-MOPRC           6002                         # DEC MOP remote console
-LAT             6004                         # DEC LAT
-SCA             6007                         # DEC LAVC, SCA
-AMBER           6008                         # DEC AMBER
-RAWFR           6559                         # Raw Frame Relay (RFC1701)
-UBDL            7000                         # Ungermann-Bass download
-UBNIU           7001                         # Ungermann-Bass NIUs
-UBNMC           7003                         # Ungermann-Bass ??? (NMC to/from UB Bridge)
-UBBST           7005                         # Ungermann-Bass Bridge Spanning Tree
-OS9             7007                         # OS/9 Microware
-RACAL           7030                         # Racal-Interlan
-HP              8005                         # HP Probe
-TIGAN           802F                         # Tigan, Inc.
-DECAM           8048                         # DEC Availability Manager for Distributed Systems DECamds (but someone at DEC says not)
-VEXP            805B                         # Stanford V Kernel exp.
-VPROD           805C                         # Stanford V Kernel prod.
-ES              805D                         # Evans & Sutherland
-VEECO           8067                         # Veeco Integrated Auto.
-ATT             8069                         # AT&T
-MATRA           807A                         # Matra
-DDE             807B                         # Dansk Data Elektronik
-MERIT           807C                         # Merit Internodal (or Univ of Michigan?)
-ATALK           809B                         # AppleTalk
-PACER           80C6                         # Pacer Software
-SNA             80D5                         # IBM SNA Services over Ethernet
-RETIX           80F2                         # Retix
-AARP            80F3                         # AppleTalk AARP
-VLAN            8100                         # IEEE 802.1Q VLAN tagging (XXX conflicts)
-BOFL            8102                         # Wellfleet; BOFL (Breath OF Life) pkts [every 5-10 secs.]
-HAYES           8130                         # Hayes Microcomputers (XXX which?)
-VGLAB           8131                         # VG Laboratory Systems
-IPX             8137                         # Novell (old) NetWare IPX (ECONFIG E option)
-MUMPS           813F                         # M/MUMPS data sharing
-FLIP            8146                         # Vrije Universiteit (NL) FLIP (Fast Local Internet Protocol)
-NCD             8149                         # Network Computing Devices
-ALPHA           814A                         # Alpha Micro
-SNMP            814C                         # SNMP over Ethernet (see RFC1089)
-XTP             817D                         # Protocol Engines XTP
-SGITW           817E                         # SGI/Time Warner prop.
-STP             8181                         # Scheduled Transfer STP, HIPPI-ST
-IPv6            86DD                         # IP protocol version 6
-RDP             8739                         # Control Technology Inc. RDP Without IP
-MICP            873A                         # Control Technology Inc. Mcast Industrial Ctrl Proto.
-IPAS            876C                         # IP Autonomous Systems (RFC1701)
-SLOW            8809                         # 803.3ad slow protocols (LACP/Marker)
-PPP             880B                         # PPP (obsolete by PPPOE)
-MPLS            8847                         # MPLS Unicast
-AXIS            8856                         # Axis Communications AB proprietary bootstrap/config
-PPPOE           8864                         # PPP Over Ethernet Session Stage
-PAE             888E                         # 802.1X Port Access Entity
-AOE             88A2                         # ATA over Ethernet
-QINQ            88A8                         # 802.1ad VLAN stacking
-LLDP            88CC                         # Link Layer Discovery Protocol
-PBB             88E7                         # 802.1Q Provider Backbone Bridging
-XNSSM           9001                         # 3Com (Formerly Bridge Communications), XNS Systems Management
-TCPSM           9002                         # 3Com (Formerly Bridge Communications), TCP/IP Systems Management
-DEBNI           AAAA                         # DECNET? Used by VAX 6220 DEBNI
-SONIX           FAF5                         # Sonix Arpeggio
-VITAL           FF00                         # BBN VITAL-LanBridge cache wakeups
-MAX             FFFF                         # Maximum valid ethernet type, reserved
-"""
+# This file is automatically generated using
+# scapy/tools/generate_ethertypes.py
+
+import gzip
+from base64 import b85decode
+
+def _d(x: str) -> str:
+    return gzip.decompress(
+        b85decode(x.replace("\n", ""))
+    ).decode()
+
+
+DATA = _d("""
+ABzY8N|hyM0{^91ZExbZ7XI#Eaioz}AWb2>6zJa3jGPeKXcNeglyY@-KbXWoE+IxqXv@Ff<IvJNyVvd
+RMru`2KTnQ*-kxK=kS}1DTb^gUgmupL9Lm#y7x?k{3AafB>m=n6^CHTV6)&I=xJ;}8aq!6UL>!9?$pv
+`GMJXbYp80SsD}m)4js=fFWN&Z9pC^&;iWd2T;Oc#8Qj`#hV;aMX!&)3O3HkNH4X`cC!>{f3)6-KcVH
+s<QeA8w{k!-R(&&s0BU)Zm*<9@~S;x9lG&iU2I=)OS_{4K+y`7Yt#w*2}0pYQOEr3ouK-&?KL`On_<c
+lct7y<|chvh?8HV;Dvs{@?Qj9NV@5F|8gPShT~#^zVITjnOp>4Z)J<;u$39a{5<La1I7F3`s`A&yz_S
+8pk;=3J7zS6)7tdbliopL#BZWG6s6{rU60}8ziKohy1A#jh?r{kVsEWGInRT9ffhAGeRzh#*Z_utKvG
+J!8!h;;zVPl-L&)O46+<vLk+6kd<)k*S$R&ZsTtJ4T@6?+zhG_4qcv<#gRPcdz}6j|1u9q<#np0&TXz
+4j+iUG^alOkQc?vy3=YAbK&|qIf1b>P2SVhR?&?j@145>yMs!3G@=R9R6kif=#Vs(Z_r%4vh)K<>Hq+
+<<{$+8p6phA&wP968%zdMFDXfV{V<mRtsU~DPggHE@n^MG7_1>P|&lZX{1Sy0z`Z)r!Lrsw6wsVMpW?
+HK2ltJ-jLqx0sNmFysrtOQHs2a&&|tz=2rn|GRIdZ)S?i&94$))<;o{#?SHIG~#@{`Oxho^)8Z*Xts+
+>08!2bkEWTZVwAL^809Umhnh-p#34`C5KFu7+M?bN<8PW<Q?Ctyu;7%$}`zuctImgcD$->&e(6(>3vI
+0^nSOmOLV#1WJMBznTlw4ISAr-uKC_)eM`&ZWNVS{&wla*c6)G>vc$%3CL3_+lz20L{GM;1_te<703i
+?`_lI^WSS$(VmP*k51VPUC0-X?v44uu1t2PkH(*J-3Atb2f5W<EZ!WPz7Kp>%>Y0p*g=mT&CA#?gLQG
+nOiHyYraJt+m~t@zxV%GtwEUqJ4&4M%5Y*%gLH0kL?>Di_?FQ|Df#>3p6Bv4y1YER~}7d5RxDen3MKl
+%l=PF){8<F!LndaJfe_2vz3m&oiG{AUNPBNw&cn$~l<@>TwVCUY`Z+8}O1S7f+~F(R&tk6?D(gdM{$>
+Rn<4K#*sU<g`u+3ZU>iR>aI8mom)CpaNUWnS0o#jeZ};RS_A`+dJ44vVVpi<t6{4oP0AB^D2VY;QF7-
+n#(IQ$|5&1452|KRNC4Z%1vK#EY77t=2Nd>_s9>i;mNIOV_R?23er;;32udbPPYetAO)8EQ`17Gf7XE
+xTR#~jS#DYC0ZV@}Ed*NEwwe3d~neYn)M>#>D8)Mv#ZOs&hfi8v?oJXQkPgv{a;n8C$T7-sS&5nVt64
+3CMka!ezgMt}S4aQ?-&d7Ld*IqO<wT(I}c2#QvJLS7F7g@3+o;`O$l|*;=9?z5VMKOw)VH3sxy3dkFI
+VNI0ZDow2cBUb9e^Y30bhgn0_TP}DJK|GIDZnGc(&<5;MHt0_SeI2E2UA)*lCdrm9n%8|33&dPMA!($
+BeGp4+_@b(ONDKsYh!a>CeMV{6fJ^!pV>J`AX&IdMSxL9KXbeelAWJWK~Z;XWKC==mrL15*J%=!MU$A
+biCg2<ZRLTd={n`S{1;TnhM99#Zecb-t+3`zIPA&-{(~AmKf(1?$G}lBDq8;~cl6&%9*#QNLVCwec<N
+OhmKqF8P+pvEf7)U&VIVDTU23X?x<0nJ1(&U)3KeMCOEtquZmEVvr>9HoDTYBRLpzO|C_&2yd7U9S8d
+x8u6XzCe5C^HBn#8;J{Mv?fHQZ~T0kKTOV#{)L7MZw?8Zw=}F6I|`@;_cB9iCQFa!km^)NMjV)0p5O0
+It9Wbs6j~N)eT^HLjgRUss%_=PMf&%F;P9u*ST~6hdA9j;chuibd1ImYp4qN$S<NtF8BPxssUBkQWnD
+F&U$qCRv7lZBIj8;lIoec7~~f;fHt<+&bZd%3<qlx^>!Ng6a)JBa`D>F0hdWe=uaEi`5|7^7xoy<ESn
+?*0PX={#UqjeBZeWLU{q9#KCAV9)Iov0;<qJeLo=cam}b<Pv>zQiLf)I5b|i7iBxP(mEZtL^N^HVfqK
+C4iRV~;jg|flR!@$t_-A~S5(GomD)aR0p%!kR2I@NomVW!P0cT<_uPI-J%$u+d+}VRdhdoI{H!^yy9*
+dz!#na_nk<X=;-}YF(<9U<#e(i8ahOW)Y<qfft(+$o!tCRd-W@8cYU3I6UzOFu1%Q63}nV&A58unUyf
+%2RbGM)EFiI+9304%UFfb)cx46Ei!h!Wkw4sF>$k`1Y>R9-RYf3VA$lCJ?Ts%S*%w&BF4{>)YAMz+=w
+*xr_asB;yN6Dpn6q|b<UwHk}oTKi9D`m;tb`p5<hhN{OFC5v{lZo96UTceSs3s5)7cG#Uxypr6JsG8?
+xi1$siwk3P`kwrfx{4t4<(L|e8QlwYYk+g0a+^K{&{mCav{ficYJI*Ap%%4%uFtE%{gW&zhaigCotIL
+qaMC5x^*QeK^O^v+f*XnNMHCN9=Np+<jT7Lay-GBZvWNl-a_>=dIZJd|iQBr*L^VHN1f55%`jsx>}L6
+<P-b`7X_NHCi!!f`?;IvE<E5`PAoA2^CPK^9J^45O2YRs)*m6e`G-%d(f9M+|!lJh2@=9txZ;RQWT(M
+>}0SC;Q_b9$A{i@cIQy_4UqIdGU$?!ejC~XT@GkQ5paM
+""")

@@ -18,7 +18,7 @@ from typing import NamedTuple
 from scapy.compat import orb
 from scapy.contrib.automotive import log_automotive
 from scapy.error import Scapy_Exception
-from scapy.utils import make_lined_table, EDecimal
+from scapy.utils import make_lined_table, EDecimal, PeriodicSenderThread
 from scapy.packet import Packet
 from scapy.contrib.automotive.ecu import EcuState, EcuResponse
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCase, \
@@ -79,7 +79,9 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         'stop_event': (threading.Event, None),
         'debug': (bool, None),
         'scan_range': ((list, tuple, range), None),
-        'unittest': (bool, None)
+        'unittest': (bool, None),
+        'disable_tps_while_sending': (bool, None),
+        'inter': ((int, float), lambda x: x >= 0),
     })
 
     _supported_kwargs_doc = AutomotiveTestCase._supported_kwargs_doc + """
@@ -119,7 +121,12 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         :param bool debug: Enables debug functions during execute.
         :param Event stop_event: Signals immediate stop of the execution.
         :param scan_range: Specifies the identifiers to be scanned.
-        :type scan_range: list or tuple or range or iterable"""
+        :type scan_range: list or tuple or range or iterable
+        :param disable_tps_while_sending: Temporary disables a TesterPresentSender
+                                          to not interact with a seed request.
+        :type disable_tps_while_sending: bool
+        :param inter: delay between two packets during sending
+        :type inter: int or float"""
 
     def __init__(self):
         # type: () -> None
@@ -130,6 +137,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         self._retry_pkt = defaultdict(list)  # type: Dict[EcuState, Union[Packet, Iterable[Packet]]]  # noqa: E501
         self._negative_response_blacklist = [0x10, 0x11]  # type: List[int]
         self._requests_per_state_estimated = None  # type: Optional[int]
+        self._tester_present_sender = None  # type: Optional[PeriodicSenderThread]
 
     @staticmethod
     @abc.abstractmethod
@@ -272,6 +280,13 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
 
         return pkts_tbs, pkts_snt, float(pkts_snt) / pkts_tbs
 
+    def pre_execute(self, socket, state, global_configuration):
+        # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
+        try:
+            self._tester_present_sender = global_configuration["tps"]
+        except KeyError:
+            self._tester_present_sender = None
+
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None
         self.check_kwargs(kwargs)
@@ -279,6 +294,8 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         count = kwargs.pop('count', None)
         execution_time = kwargs.pop("execution_time", 1200)
         stop_event = kwargs.pop("stop_event", None)  # type: Optional[threading.Event]  # noqa: E501
+        disable_tps = kwargs.pop("disable_tps_while_sending", False)
+        inter = kwargs.pop("inter", 0)
 
         self._prepare_runtime_estimation(**kwargs)
 
@@ -306,7 +323,18 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
             "Start execution of enumerator: %s", time.ctime())
 
         for req in it:
+            if stop_event:
+                stop_event.wait(timeout=inter)
+            else:
+                time.sleep(inter)
+
+            if disable_tps and self._tester_present_sender:
+                self._tester_present_sender.disable()
+
             res = self.sr1_with_retry_on_error(req, socket, state, timeout)
+
+            if disable_tps and self._tester_present_sender:
+                self._tester_present_sender.enable()
 
             self._store_result(state, req, res)
 

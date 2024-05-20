@@ -12,9 +12,10 @@ References:
 import struct
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitFieldLenField, BitField, BitEnumField, ByteField, \
-    ShortField, XShortField, IPField, PacketListField, \
-    IntField, FieldLenField, BoundStrLenField, FlagsField
+    ShortField, XShortField, IPField, IP6Field, PacketListField, \
+    IntField, FieldLenField, BoundStrLenField, MultipleTypeField
 from scapy.layers.inet import IP
+from scapy.layers.inet6 import IPv6, in6_chksum, _IPv6ExtHdr
 from scapy.utils import checksum
 from scapy.compat import orb
 from scapy.config import conf
@@ -53,8 +54,21 @@ class PIMv2Hdr(Packet):
         """
         p += pay
         if self.chksum is None:
-            ck = checksum(p)
-            p = p[:2] + struct.pack("!H", ck) + p[4:]
+            if isinstance(self.underlayer, IP):
+                ck = checksum(p)
+                # ck = in4_chksum(103, self.underlayer, p)
+                # According to RFC768 if the result checksum is 0, it should be set to 0xFFFF  # noqa: E501
+                if ck == 0:
+                    ck = 0xFFFF
+                p = p[:2] + struct.pack("!H", ck) + p[4:]
+
+            elif isinstance(self.underlayer, IPv6) or isinstance(self.underlayer, _IPv6ExtHdr):  # noqa: E501
+                ck = in6_chksum(103, self.underlayer, p)  # noqa: E501
+                # According to RFC2460 if the result checksum is 0, it should be set to 0xFFFF  # noqa: E501
+                if ck == 0:
+                    ck = 0xFFFF
+                p = p[:2] + struct.pack("!H", ck) + p[4:]
+
         return p
 
 
@@ -114,7 +128,7 @@ class PIMv2HelloHoldtime(_PIMv2GenericHello):
 class PIMv2HelloLANPruneDelayValue(_PIMv2GenericHello):
     name = "PIMv2 Hello Options : LAN Prune Delay Value"
     fields_desc = [
-        FlagsField("t", 0, 1, [0, 1]),
+        BitField("t", 0, 1),
         BitField("propagation_delay", 500, 15),
         ShortField("override_interval", 2500),
     ]
@@ -170,12 +184,34 @@ class PIMv2HelloStateRefresh(_PIMv2GenericHello):
     ]
 
 
+class PIMv2HelloAddrListValue(_PIMv2GenericHello):
+    name = "PIMv2 Hello Options : Address List Value"
+    fields_desc = [
+        ByteField("addr_family", 1),
+        ByteField("encoding_type", 0),
+        IP6Field("prefix", "::"),
+    ]
+
+
+class PIMv2HelloAddrList(_PIMv2GenericHello):
+    name = "PIMv2 Hello Options : Address List"
+    fields_desc = [
+        ShortField("type", 24),
+        FieldLenField(
+            "length", None, length_of="value" , fmt="!H"
+        ),
+        PacketListField("value", PIMv2HelloAddrListValue(),
+                        PIMv2HelloAddrListValue)
+    ]
+
+
 PIMv2_HELLO_CLASSES = {
     1: PIMv2HelloHoldtime,
     2: PIMv2HelloLANPruneDelay,
     19: PIMv2HelloDRPriority,
     20: PIMv2HelloGenerationID,
     21: PIMv2HelloStateRefresh,
+    24: PIMv2HelloAddrList,
     None: _PIMv2GenericHello,
 }
 
@@ -192,7 +228,11 @@ class PIMv2JoinPruneAddrsBase(_PIMGenericTlvBase):
         BitField("wildcard", 0, 1),
         BitField("rpt", 1, 1),
         ByteField("mask_len", 32),
-        IPField("src_ip", "0.0.0.0")
+        MultipleTypeField(
+            [(IP6Field("src_ip", "::"),
+              lambda pkt: pkt.addr_family == 2)],
+            IPField("src_ip", "0.0.0.0")
+        ),
 
     ]
 
@@ -214,7 +254,11 @@ class PIMv2GroupAddrs(_PIMGenericTlvBase):
         BitField("reserved", 0, 6),
         BitField("admin_scope_zone", 0, 1),
         ByteField("mask_len", 32),
-        IPField("gaddr", "0.0.0.0"),
+        MultipleTypeField(
+            [(IP6Field("gaddr", "::"),
+              lambda pkt: pkt.addr_family == 2)],
+            IPField("gaddr", "0.0.0.0")
+        ),
         BitFieldLenField("num_joins", None, size=16, count_of="join_ips"),
         BitFieldLenField("num_prunes", None, size=16, count_of="prune_ips"),
         PacketListField("join_ips", [], PIMv2JoinAddrs,
@@ -229,7 +273,11 @@ class PIMv2JoinPrune(_PIMGenericTlvBase):
     fields_desc = [
         ByteField("up_addr_family", 1),
         ByteField("up_encoding_type", 0),
-        IPField("up_neighbor_ip", "0.0.0.0"),
+        MultipleTypeField(
+            [(IP6Field("up_neighbor_ip", "::"),
+              lambda pkt: pkt.up_addr_family == 2)],
+            IPField("up_neighbor_ip", "0.0.0.0")
+        ),
         ByteField("reserved", 0),
         FieldLenField("num_group", None, count_of="jp_ips", fmt="B"),
         ShortField("holdtime", 210),
@@ -239,5 +287,6 @@ class PIMv2JoinPrune(_PIMGenericTlvBase):
 
 
 bind_layers(IP, PIMv2Hdr, proto=103)
+bind_layers(IPv6, PIMv2Hdr, nh=103)
 bind_layers(PIMv2Hdr, PIMv2Hello, type=0)
 bind_layers(PIMv2Hdr, PIMv2JoinPrune, type=3)

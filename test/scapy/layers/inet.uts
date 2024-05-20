@@ -82,6 +82,16 @@ sniff(offline=tmp_file, session=IPSession, prn=callback)
 assert len(dissected_packets) == 1
 assert raw(dissected_packets[0]) == raw(packet)
 
+= IPSession - contains non-IP packets
+
+pkts = fragment(IP(dst="10.0.0.5")/ICMP()/("X"*1500))
+pkts.insert(1, ARP())
+assert len(pkts) == 3
+
+pkts = sniff(offline=pkts, session=IPSession)
+assert len(pkts) == 2
+assert pkts[1].load == b"X" * 1500
+
 = StringBuffer
 
 buffer = StringBuffer()
@@ -150,6 +160,25 @@ assert len(frags2) == 2
 assert len(frags2[0]) == 20 + paylen - paylen % 8
 assert len(frags2[1]) == 20 + 1 + paylen % 8
 
+= fragment() with fragsize lower than 8
+paylen = 5
+fragsize = paylen
+frags1 = fragment(IP() / ("X" * paylen), paylen)
+assert len(frags1) == 1
+assert bytes(frags1[0].payload) == b"X" * paylen
+
+fragsize = paylen + 1
+frags2 = fragment(IP() / ("X" * paylen), fragsize)
+assert len(frags2) == 1
+assert bytes(frags2[0].payload) == b"X" * paylen
+
+paylen = 16
+fragsize = 5
+frags3 = fragment(IP() / ("X" * paylen), fragsize)
+assert len(frags3) == 2
+assert bytes(frags3[0].payload) == b"X" * 8
+assert bytes(frags3[1].payload) == b"X" * 8
+
 = defrag()
 nonfrag, unfrag, badfrag = defrag(frags)
 assert not nonfrag
@@ -161,7 +190,7 @@ defrags = defragment(frags)
 * we should have one single packet
 assert len(defrags) == 1
 * which should be the same as pkt reconstructed
-assert defrags[0] == IP(raw(pkt))
+assert bytes(defrags[0]) == bytes(pkt)
 
 = defragment() uses timestamp of last fragment
 payloadlen, fragsize = 100, 8
@@ -191,10 +220,8 @@ b = base64.b64decode('bnmYJ63mREVTUwEACABFAAV0U8UgrDIR+kEEAgIECv0DxApz1F5olFRytj
 c = base64.b64decode('bnmYJ63mREVTUwEACABFAAFHU8UBWDIRHcMEAgIECv0DxDtlufeCT1zQktat4aEVA8MF0FO1sNbpEQtqfu5Al//OJISaRvtaArR/tLUj2CoZjS7uEnl7QpP/Ui/gR0YtyLurk9yTw7Vei0lSz4cnaOJqDiTGAKYwzVxjnoR1F3n8lplgQaOalVsHx9UAAQABAAADLAAEobkBA8epAAEAAQAAAywABKG5AQzHvwABAAEAAAMsAASnmYIMx5MAAQABAAADLAAEp5mCDcn9AAEAAQAAAqUABKeZhAvKFAABAAEAAAOEAAShuQIfyisAAQABAAADhAAEobkCKcpCAAEAAQAAA4QABKG5AjPKWQABAAEAAAOEAAShuQI9ynAAAQABAAADhAAEobkCC8nPAAEAAQAAA4QABKG5AgzJ5gABAAEAAAOEAASnmYQMAAApIAAAAAAAAAA=')
 d = base64.b64decode('////////REVTUwEACABFAABOawsAAIARtGoK/QExCv0D/wCJAIkAOry/3wsBEAABAAAAAAAAIEVKRkRFQkZFRUJGQUNBQ0FDQUNBQ0FDQUNBQ0FDQUFBAAAgAAEAABYP/WUAAB6N4XIAAB6E4XsAAACR/24AADyEw3sAABfu6BEAAAkx9s4AABXB6j4AAANe/KEAAAAT/+wAAB7z4QwAAEuXtGgAAB304gsAABTB6z4AAAdv+JAAACCu31EAADm+xkEAABR064sAABl85oMAACTw2w8AADrKxTUAABVk6psAABnF5joAABpA5b8AABjP5zAAAAqV9WoAAAUW+ukAACGS3m0AAAEP/vAAABoa5eUAABYP6fAAABX/6gAAABUq6tUAADXIyjcAABpy5Y0AABzb4yQAABqi5V0AAFXaqiUAAEmRtm4AACrL1TQAAESzu0wAAAzs8xMAAI7LcTQAABxN47IAAAbo+RcAABLr7RQAAB3Q4i8AAAck+NsAABbi6R0AAEdruJQAAJl+ZoEAABDH7zgAACOA3H8AAAB5/4YAABQk69sAAEo6tcUAABJU7asAADO/zEAAABGA7n8AAQ9L8LMAAD1DwrwAAB8F4PoAABbG6TkAACmC1n0AAlHErjkAABG97kIAAELBvT4AAEo0tcsAABtC5L0AAA9u8JEAACBU36sAAAAl/9oAABBO77EAAA9M8LMAAA8r8NQAAAp39YgAABB874MAAEDxvw4AAEgyt80AAGwsk9MAAB1O4rEAAAxL87QAADtmxJkAAATo+xcAAAM8/MMAABl55oYAACKh3V4AACGj3lwAAE5ssZMAAC1x0o4AAAO+/EEAABNy7I0AACYp2dYAACb+2QEAABB974IAABc36MgAAA1c8qMAAAf++AEAABDo7xcAACLq3RUAAA8L8PQAAAAV/+oAACNU3KsAABBv75AAABFI7rcAABuH5HgAABAe7+EAAB++4EEAACBl35oAAB7c4SMAADgJx/YAADeVyGoAACKN3XIAAA/C8D0AAASq+1UAAOHPHjAAABRI67cAAABw/48=')
 
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = 0
-plist = PacketList([Ether(x) for x in [a, b, c, d]])
-conf.debug_dissector = old_debug_dissector
+with no_debug_dissector():
+    plist = PacketList([Ether(x) for x in [a, b, c, d]])
 
 left, defragmented, errored = defrag(plist)
 assert len(left) == 1
@@ -421,6 +448,9 @@ pkt = IP(len=28, ihl=5) / UDP()
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x7cce and bpkt.payload.chksum == 0x0172
 
+* Invalid territory
+conf.debug_dissector = False
+
 pkt = IP() / UDP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x7cc4 and bpkt.payload.chksum == 0xbb17
@@ -445,6 +475,8 @@ pkt = IP(len=42, ihl=6, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
 
+conf.debug_dissector = True
+
 = IP with forced-length 0
 p = IP()/TCP()
 p[IP].len = 0
@@ -459,6 +491,74 @@ pkt2 = IP(raw(pkt))
 pkt2.len = 0
 pkt3 = IP(raw(pkt2))
 assert pkt3.load == data
+
+= TCPSession: test tcp_reassemble with variable orders
+
+class CustomPacket(Packet):
+    fields_desc = [
+        ByteField("len", 0),
+        StrLenField("a", 0, length_from=lambda pkt: pkt.len - 1),
+    ]
+    @classmethod
+    def tcp_reassemble(cls, data, metadata, session):
+        length = struct.unpack("!B", data[:1])[0]
+        if len(data) < length:
+            return None
+        return CustomPacket(data)
+
+
+# above we have a CustomPacket that is X bytes long.
+bind_layers(TCP, CustomPacket, sport=12345)
+
+with no_debug_dissector(reverse=True):
+    # incremental order
+    pkts = sniff(offline=[
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x05a",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=3)/"b",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=4)/"c",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
+    ], session=TCPSession)
+    assert pkts[0][CustomPacket].a == b"abcd", "incremental failure"
+    # same with a pcapng
+    tmp_file = get_temp_file()
+    wrpcap(tmp_file, [
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x05a",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=3)/"b",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=4)/"c",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
+    ])
+    pkts = sniff(offline=tmp_file, session=TCPSession)
+    assert pkts[0][CustomPacket].a == b"abcd", "pcapng failure"
+    # messed up order: fragments 2 and 3 arrive in the wrong order
+    pkts = sniff(offline=[
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x05a",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=4)/"c",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=3)/"b",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
+    ], session=TCPSession)
+    assert pkts[0][CustomPacket].a == b"abcd", "messed up order 1 failure"
+    # messed up order: fragment 1 arrives not in first position
+    pkts = sniff(offline=[
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=6)/"e",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=4)/"c",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=3)/"b",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x06a",
+    ], session=TCPSession)
+    assert pkts[0][CustomPacket].a == b"abcde", "messed up order 2 failure"
+    # retransmitted packets
+    pkts = sniff(offline=[
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=6)/"e",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=4)/"c",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=6)/"e",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=3)/"b",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=6)/"e",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x06a",
+    ], session=TCPSession)
+    assert pkts[0][CustomPacket].a == b"abcde", "retransmitted failure"
+
+split_layers(TCP, CustomPacket, sport=12345)
 
 
 = Layer binding
@@ -483,6 +583,82 @@ assert isinstance(pkt, UDP) and pkt.dport == 5353
 pkt = pkt.payload
 assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
 
+= Layer binding with show()
+* getmacbyip must only be called when building
+
+import mock
+
+def _err(*_):
+    raise ValueError
+
+with mock.patch("scapy.layers.l2.getmacbyip", side_effect=_err):
+    with mock.patch("scapy.layers.inet.getmacbyip", side_effect=_err):
+        # ARP who-has should never call getmacbyip
+        pkt1 = Ether() / ARP(pdst="10.0.0.1")
+        pkt1.show()
+        bytes(pkt1)
+        # IP should only call getmacbyip when building
+        pkt2 = Ether() / IP(dst="10.0.0.1")
+        pkt2.show()
+        try:
+            bytes(pkt2)
+            assert False, "Should have called getmacbyip"
+        except ValueError:
+            pass
+
+= GRE binding tests
+
+* Test GRE-in-IP
+pkt = Ether(raw(Ether()/IP()/GRE()/IP()/UDP()))
+assert isinstance(pkt, Ether)
+pkt = pkt.payload
+assert isinstance(pkt, IP) and pkt.proto == 47
+pkt = pkt.payload
+assert isinstance(pkt, GRE) and pkt.proto == 0x0800
+pkt = pkt.payload
+assert isinstance(pkt, IP)
+pkt = pkt.payload
+assert isinstance(pkt, UDP)
+
+* Test GRE-in-IPv6
+pkt = Ether(raw(Ether()/IPv6()/GRE()/IPv6()/UDP()))
+assert isinstance(pkt, Ether)
+pkt = pkt.payload
+assert isinstance(pkt, IPv6) and pkt.nh == 47
+pkt = pkt.payload
+assert isinstance(pkt, GRE) and pkt.proto == 0x86dd
+pkt = pkt.payload
+assert isinstance(pkt, IPv6)
+pkt = pkt.payload
+assert isinstance(pkt, UDP)
+
+* Test GRE-in-UDP
+pkt = Ether(raw(Ether()/IP()/UDP()/GRE()/IP()/UDP()))
+assert isinstance(pkt, Ether)
+pkt = pkt.payload
+assert isinstance(pkt, IP)
+pkt = pkt.payload
+assert isinstance(pkt, UDP) and pkt.dport == 4754
+pkt = pkt.payload
+assert isinstance(pkt, GRE) and pkt.proto == 0x0800
+pkt = pkt.payload
+assert isinstance(pkt, IP)
+pkt = pkt.payload
+assert isinstance(pkt, UDP)
+
+* Test GRE-in-UDP (IPv6)
+pkt = Ether(raw(Ether()/IPv6()/UDP()/GRE()/IPv6()/UDP()))
+assert isinstance(pkt, Ether)
+pkt = pkt.payload
+assert isinstance(pkt, IPv6)
+pkt = pkt.payload
+assert isinstance(pkt, UDP) and pkt.dport == 4754
+pkt = pkt.payload
+assert isinstance(pkt, GRE) and pkt.proto == 0x86dd
+pkt = pkt.payload
+assert isinstance(pkt, IPv6)
+pkt = pkt.payload
+assert isinstance(pkt, UDP)
 
 ############
 ############
@@ -495,7 +671,8 @@ value == 26908070
 test.i2repr("", value) == '7:28:28.70'
 
 = IPv4 - UDP null checksum
-IP(raw(IP()/UDP()/Raw(b"\xff\xff\x01\x6a")))[UDP].chksum == 0xFFFF
+with no_debug_dissector():
+    IP(raw(IP()/UDP()/Raw(b"\xff\xff\x01\x6a")))[UDP].chksum == 0xFFFF
 
 = IPv4 - (IP|UDP|TCP|ICMP)Error
 query = IP(dst="192.168.0.1", src="192.168.0.254", ttl=1)/UDP()/DNS()
@@ -513,6 +690,10 @@ assert answer.answers(query) == True
 query = IP(dst="192.168.0.1", src="192.168.0.254", ttl=1)/ICMP()/"scapy"
 answer = IP(dst="192.168.0.254", src="192.168.0.2")/ICMP(type=11)/IPerror(dst="192.168.0.1", src="192.168.0.254", ttl=0)/ICMPerror()/"scapy"
 assert answer.answers(query) == True
+
+= IPv4 - TCPError parsing
+pkt = Ether(bytes.fromhex('005056a4302ffcbd676360c908004500003800000000f80164b6682ce6b70ad504560b004f410000000045000028400e00000106fdae0ad50456681204d7f73100507d4430f8'))
+assert TCPerror in pkt and pkt[TCPerror].sport == 63281 and pkt[TCPerror].dport == 80
 
 = IPv4 - mDNS
 a = IP(dst="224.0.0.251")
@@ -651,3 +832,82 @@ assert no_sr[UDP].chksum == sr[UDP].chksum
 
 sr = IP(raw(IP(options=[IPOption_LSRR(routers=["1.1.1.1"]), IPOption_SSRR(routers=["8.8.8.8"])])/UDP()/DNS()))
 assert no_sr[UDP].chksum != sr[UDP].chksum
+
+# GH4174
+sr = Ether(src="de:ad:be:ef:aa:55", dst="ca:fe:00:00:00:00")/IP(src="20.0.0.1",dst="100.0.0.1")/ \
+           IP(src="20.0.0.1",dst="100.0.0.1", options=[IPOption_SSRR(copy_flag=1, pointer=4, routers=["1.1.1.1", "8.8.8.8"])])/ \
+           UDP(sport=1111, dport=2222) / VXLAN() / \
+           Ether(src="de:ad:be:ef:aa:55", dst="ca:fe:00:00:00:00")/IP(src="20.0.0.1",dst="100.0.0.1") / \
+           TCP()
+bytes(sr[UDP])
+assert sr[IP:2].dst == "100.0.0.1"
+
+
+###############
+###############
++ ICMPv4 extensions
+
+= Build ICMP extension from scratch
+
+pkt = IP(dst="127.0.0.1", src="127.0.0.1") / ICMP(
+    type="time-exceeded",
+    code="ttl-zero-during-transit",
+    ext=ICMPExtension_Header() / ICMPExtension_InterfaceInformation(
+        has_ifindex=1,
+        has_ipaddr=1,
+        has_ifname=1,
+        ip4="10.10.10.10",
+        ifname="hey",
+    )
+) / IPerror(src="12.4.4.4", dst="12.1.1.1") / \
+    UDPerror(sport=42315, dport=33440) /  \
+    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+assert bytes(pkt) == b'E\x00\x00\xb0\x00\x01\x00\x00@\x01|J\x7f\x00\x00\x01\x7f\x00\x00\x01\x0b\x00\x12/\x00\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x11]\xbb\x0c\x04\x04\x04\x0c\x01\x01\x01\xa5K\x82\xa0\x00\x14\xba\xd0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00u\x00\x00\x10\x02\x0e\x00\x00\x00\x00\x00\x00\x00\x00\x03hey'
+
+= Check dissection and rebuild of MPLS ICMPv4 extension
+
+# GH4281
+
+load_contrib("mpls")
+pkt = Ether(b'\x00\x15]\x94AY\x00\x15]\x07\xcb\x04\x08\x00E\x00\x00\xb0?2\x00\x00\xe6\x01\x1b\xabh,\x1f\x1d\xac\x1cF\n\x0b\x00Ll\x00\x11\x00\x00E \x00<\x96\xdf\x00\x00\x02\x11\xa7\xc6\xac\x1cF\n(Q_t\xb8-\x82\xb3\x00(xt@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00\x02\xff\x00\x10\x01\x01\tp2\x01\x05\xde\xd2\x01\x05\x9c\xc3\x02')
+
+assert isinstance(pkt[ICMP].ext, ICMPExtension_Header)
+assert ICMPExtension_MPLS in pkt[ICMP].ext
+assert all(isinstance(x, MPLS) for x in pkt[ICMP].ext.stack)
+assert [x.label for x in pkt[ICMP].ext.stack[0].iterpayloads()] == [38659, 24045, 22988]
+
+# Build
+pkt.clear_cache()
+pkt.ext.chksum = None  # Check that chksum rebuilds
+pkt[IP].chksum = None
+assert bytes(pkt) == b'\x00\x15]\x94AY\x00\x15]\x07\xcb\x04\x08\x00E\x00\x00\xb0?2\x00\x00\xe6\x01\x1b\xabh,\x1f\x1d\xac\x1cF\n\x0b\x00Ll\x00\x11\x00\x00E \x00<\x96\xdf\x00\x00\x02\x11\xa7\xc6\xac\x1cF\n(Q_t\xb8-\x82\xb3\x00(xt@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00\x02\xff\x00\x10\x01\x01\tp2\x01\x05\xde\xd2\x01\x05\x9c\xc3\x02'
+
+= ICMPv4 extension - Other dissection example
+
+# GH1773
+
+load_contrib("mpls")
+pkt = Ether(b'\x00\x1cs\x03\x12\x06t\x83\xef\x00\n\xd5\x08\x00E\x00\x00\xa8H\x1e\x00\x00\xfb\x01\xf0\xe3\xc0\xa8\x02\x01\xc0\xa8\x03\x01\x0b\x00rr\x00 \x00\x00E\x00\x00<H\x1e\x00\x00\x01\x11\xe9?\xc0\xa8\x03\x01\xc0\xa8\x04\x02\xcc_\x82\x9f\x00(3F\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00\xab\x84\x00\x08\x01\x01\x02q1\x01')
+assert isinstance(pkt[ICMP].ext, ICMPExtension_Header)
+assert ICMPExtension_MPLS in pkt[ICMP].ext
+assert all(isinstance(x, MPLS) for x in pkt[ICMP].ext.stack)
+assert [x.label for x in pkt[ICMP].ext.stack[0].iterpayloads()] == [10003]
+
+# Build
+pkt.clear_cache()
+pkt.ext.chksum = None  # Check that chksum rebuilds
+pkt[IP].chksum = None
+assert bytes(pkt) == b'\x00\x1cs\x03\x12\x06t\x83\xef\x00\n\xd5\x08\x00E\x00\x00\xa8H\x1e\x00\x00\xfb\x01\xf0\xe3\xc0\xa8\x02\x01\xc0\xa8\x03\x01\x0b\x00rr\x00 \x00\x00E\x00\x00<H\x1e\x00\x00\x01\x11\xe9?\xc0\xa8\x03\x01\xc0\xa8\x04\x02\xcc_\x82\x9f\x00(3F\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00\xab\x84\x00\x08\x01\x01\x02q1\x01'
+
+= ICMPv4 extension - RFC5837
+
+# pcap from https://gitlab.com/wireshark/wireshark/-/issues/6632
+
+pkt = PPP(b'\xff\x03\x00!E\x00\x00\xf0\xe7 @\x00\xfe\x01z\xde\n\x04\x00\x02\x0c\x04\x04\x04\x0b\x00\xcc\xff\x00\x00\x00\x00E\x00\x00(\xa5Q\x00\x00\x01\x11\xf7j\x0c\x04\x04\x04\x0c\x01\x01\x01\xa5K\x82\xa0\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00\xc4\xe4\x00P\x02\x0e\x00\x00\x00\x0f\x00\x01\x00\x00\n\n\n\n?This-is-the-name-of-the-Interface-that-we-are-looking-for-[:-)]')
+
+assert isinstance(pkt[ICMP].ext, ICMPExtension_Header)
+assert ICMPExtension_InterfaceInformation in pkt[ICMP].ext
+assert pkt[ICMP].ext.ifindex == 15
+assert pkt[ICMP].ext.ip4 == "10.10.10.10"
+assert pkt[ICMP].ext.ifname == b"This-is-the-name-of-the-Interface-that-we-are-looking-for-[:-)]"

@@ -55,12 +55,10 @@ binstr = b"\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x00\x00\xde\
 assert pstr == binstr
 
 = Dissect EVENT_ID packet
-p = SOMEIP(b"\x11\x11\x81\x11\x00\x00\x00\x04\x33\x33\x44\x44\x02\x03\x04\x05")
+p = SOMEIP(b"\x11\x11\x81\x11\x00\x00\x00\x08\x33\x33\x44\x44\x02\x03\x04\x05")
 
 assert p.srv_id == 0x1111
-assert p.sub_id == 0x1
-assert p.method_id == None
-assert p.event_id == 0x0111
+assert p.sub_id == 0x8111
 assert p.client_id == 0x3333
 assert p.session_id == 0x4444
 assert p.proto_ver == 0x02
@@ -68,13 +66,12 @@ assert p.iface_ver == 0x03
 assert p.msg_type == 0x04
 assert p.retcode == 0x05
 
+
 = Dissect METHOD_ID packet
-p = SOMEIP(b"\x11\x11\x01\x11\x00\x00\x00\x04\x33\x33\x44\x44\x02\x03\x04\x05")
+p = SOMEIP(b"\x11\x11\x01\x11\x00\x00\x00\x08\x33\x33\x44\x44\x02\x03\x04\x05")
 
 assert p.srv_id == 0x1111
-assert p.sub_id == 0x0
-assert p.method_id == 0x0111
-assert p.event_id == None
+assert p.sub_id == 0x0111
 assert p.client_id == 0x3333
 assert p.session_id == 0x4444
 assert p.proto_ver == 0x02
@@ -196,21 +193,26 @@ assert p.eventgroup_id == 0x8888
 
 = Build and check flags
 p = SD()
-p.set_flag("REBOOT", 1)
+p.flags = "REBOOT"
 assert p.flags == 0x80
 
-p.set_flag("REBOOT", 0)
+p.flags = ""
 assert p.flags == 0x00
 
-p.set_flag("UNICAST", 1)
+p.flags = "UNICAST"
 assert p.flags == 0x40
 
-p.set_flag("UNICAST", 0)
+p.flags = ""
 assert p.flags == 0x00
 
-p.set_flag("REBOOT", 1)
-p.set_flag("UNICAST", 1)
-assert p.flags == 0xc0
+p.flags = "EXPLICIT_INITIAL_DATA_CONTROL"
+assert p.flags == 0x20
+
+p.flags = ""
+assert p.flags == 0x00
+
+p.flags = "REBOOT+UNICAST+EXPLICIT_INITIAL_DATA_CONTROL"
+assert p.flags == 0xe0
 
 + SD Get SOME/IP Packet
 
@@ -220,8 +222,7 @@ assert len(bytes(p)) == SOMEIP._OVERALL_LEN_NOPAYLOAD + 12
 
 = Verify constants against spec TR_SOMEIP_00250
 assert SD.SOMEIP_MSGID_SRVID == 0xffff
-assert SD.SOMEIP_MSGID_SUBID == 0x1
-assert SD.SOMEIP_MSGID_EVENTID == 0x0100
+assert SD.SOMEIP_MSGID_SUBID == 0x8100
 assert SD.SOMEIP_CLIENT_ID == 0x0000
 assert SD.SOMEIP_MINIMUM_SESSION_ID == 0x0001
 assert SD.SOMEIP_PROTO_VER == 0x01
@@ -232,7 +233,6 @@ assert SD.SOMEIP_RETCODE == 0x00
 = check that values are bound
 assert p[SOMEIP].srv_id == SD.SOMEIP_MSGID_SRVID
 assert p[SOMEIP].sub_id == SD.SOMEIP_MSGID_SUBID
-assert p[SOMEIP].event_id == SD.SOMEIP_MSGID_EVENTID
 assert p[SOMEIP].client_id == SD.SOMEIP_CLIENT_ID
 assert p[SOMEIP].session_id != 0x0000
 assert p[SOMEIP].session_id >= SD.SOMEIP_MINIMUM_SESSION_ID
@@ -721,3 +721,9 @@ _opts_check(opts)
 _opts_check(opts[::-1])
 _opts_check(opts + opts[::-1])
 
+
+= build test SOMEIP/TP
+
+p = SOMEIP(srv_id=1234, sub_id=4321, msg_type=0xff, retcode=0xff, offset=4294967040, data=[Raw(b"deadbeef")])
+
+assert p.data[0].load == b"deadbeef"

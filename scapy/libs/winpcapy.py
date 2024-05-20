@@ -6,7 +6,7 @@
 
 # Modified for scapy's usage - To support Npcap/Monitor mode
 #
-# NOTE: the "winpcap" in the name nonwithstanding, this is for use
+# NOTE: the "winpcap" in the name notwithstanding, this is for use
 # with libpcap on non-Windows platforms, as well as for WinPcap and Npcap.
 
 from ctypes import *

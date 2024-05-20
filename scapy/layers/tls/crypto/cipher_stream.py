@@ -14,6 +14,13 @@ from scapy.layers.tls.crypto.common import CipherError
 if conf.crypto_valid:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
     from cryptography.hazmat.backends import default_backend
+    try:
+        # cryptography > 43.0
+        from cryptography.hazmat.decrepit.ciphers import (
+            algorithms as decrepit_algorithms,
+        )
+    except ImportError:
+        decrepit_algorithms = algorithms
 
 
 _tls_stream_cipher_algs = {}
@@ -103,7 +110,7 @@ class _StreamCipher(metaclass=_StreamCipherMetaclass):
 
 if conf.crypto_valid:
     class Cipher_RC4_128(_StreamCipher):
-        pc_cls = algorithms.ARC4
+        pc_cls = decrepit_algorithms.ARC4
         key_len = 16
 
     class Cipher_RC4_40(Cipher_RC4_128):

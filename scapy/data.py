@@ -9,14 +9,14 @@ Global variables and functions for handling external data sets.
 
 import calendar
 import os
+import pickle
 import warnings
-
 
 from scapy.dadict import DADict, fixname
 from scapy.consts import FREEBSD, NETBSD, OPENBSD, WINDOWS
 from scapy.error import log_loading
-from scapy.compat import plain_str
 
+# Typing imports
 from typing import (
     Any,
     Callable,
@@ -28,6 +28,7 @@ from typing import (
     Union,
     cast,
 )
+from scapy.compat import DecoratorCallable
 
 
 ############
@@ -128,8 +129,10 @@ DLT_USBPCAP = 249
 DLT_NETLINK = 253
 DLT_USB_DARWIN = 266
 DLT_BLUETOOTH_LE_LL = 251
+DLT_BLUETOOTH_LINUX_MONITOR = 254
 DLT_BLUETOOTH_LE_LL_WITH_PHDR = 256
 DLT_VSOCK = 271
+DLT_NORDIC_BLE = 272
 DLT_ETHERNET_MPACKET = 274
 DLT_LINUX_SLL2 = 276
 
@@ -288,17 +291,69 @@ IANA_ENTERPRISE_NUMBERS = {
 }
 
 
+def scapy_data_cache(name):
+    # type: (str) -> Callable[[DecoratorCallable], DecoratorCallable]
+    """
+    This decorator caches the loading of 'data' dictionaries, in order to reduce
+    loading times.
+    """
+    from scapy.main import SCAPY_CACHE_FOLDER
+    if SCAPY_CACHE_FOLDER is None:
+        # Cannot cache.
+        return lambda x: x
+    cachepath = SCAPY_CACHE_FOLDER / name
+
+    def _cached_loader(func, name=name):
+        # type: (DecoratorCallable, str) -> DecoratorCallable
+        def load(filename=None):
+            # type: (Optional[str]) -> Any
+            cache_id = hash(filename)
+            if cachepath.exists():
+                try:
+                    with cachepath.open("rb") as fd:
+                        data = pickle.load(fd)
+                    if data["id"] == cache_id:
+                        return data["content"]
+                except Exception:
+                    log_loading.warning(
+                        "Couldn't load cache from %s" % str(cachepath),
+                        exc_info=True,
+                    )
+                    cachepath.unlink()
+            # Cache does not exist or is invalid.
+            content = func(filename)
+            data = {
+                "content": content,
+                "id": cache_id,
+            }
+            try:
+                cachepath.parent.mkdir(parents=True, exist_ok=True)
+                with cachepath.open("wb") as fd:
+                    pickle.dump(data, fd)
+                return content
+            except Exception:
+                log_loading.warning(
+                    "Couldn't cache %s into %s" % (repr(func), str(cachepath)),
+                    exc_info=True,
+                )
+                return content
+        return load  # type: ignore
+    return _cached_loader
+
+
 def load_protocols(filename, _fallback=None, _integer_base=10,
                    _cls=DADict[int, str]):
-    # type: (str, Optional[bytes], int, type) -> DADict[int, str]
-    """"Parse /etc/protocols and return values as a dictionary."""
+    # type: (str, Optional[Callable[[], Iterator[str]]], int, type) -> DADict[int, str]
+    """"
+    Parse /etc/protocols and return values as a dictionary.
+    """
     dct = _cls(_name=filename)  # type: DADict[int, str]
 
     def _process_data(fdesc):
-        # type: (Iterator[bytes]) -> None
+        # type: (Iterator[str]) -> None
         for line in fdesc:
             try:
-                shrp = line.find(b"#")
+                shrp = line.find("#")
                 if shrp >= 0:
                     line = line[:shrp]
                 line = line.strip()
@@ -318,11 +373,11 @@ def load_protocols(filename, _fallback=None, _integer_base=10,
     try:
         if not filename:
             raise IOError
-        with open(filename, "rb") as fdesc:
+        with open(filename, "r", errors="backslashreplace") as fdesc:
             _process_data(fdesc)
     except IOError:
         if _fallback:
-            _process_data(iter(_fallback.split(b"\n")))
+            _process_data(_fallback())
         else:
             log_loading.info("Can't open %s file", filename)
     return dct
@@ -352,18 +407,23 @@ class EtherDA(DADict[int, str]):
         return super(EtherDA, self).__getitem__(attr)
 
 
-def load_ethertypes(filename):
+@scapy_data_cache("ethertypes")
+def load_ethertypes(filename=None):
     # type: (Optional[str]) -> EtherDA
     """"Parse /etc/ethertypes and return values as a dictionary.
     If unavailable, use the copy bundled with Scapy."""
-    from scapy.libs.ethertypes import DATA
-    prot = load_protocols(filename or "Scapy's backup ETHER_TYPES",
-                          _fallback=DATA,
+    def _fallback() -> Iterator[str]:
+        # Fallback. Lazy loaded as the file is big.
+        from scapy.libs.ethertypes import DATA
+        return iter(DATA.split("\n"))
+    prot = load_protocols(filename or "scapy/ethertypes",
+                          _fallback=_fallback,
                           _integer_base=16,
                           _cls=EtherDA)
     return cast(EtherDA, prot)
 
 
+@scapy_data_cache("services")
 def load_services(filename):
     # type: (str) -> Tuple[DADict[int, str], DADict[int, str], DADict[int, str]]  # noqa: E501
     tdct = DADict(_name="%s-tcp" % filename)  # type: DADict[int, str]
@@ -470,30 +530,42 @@ class ManufDA(DADict[str, Tuple[str, str]]):
         ] + super(ManufDA, self).__dir__()
 
 
-def load_manuf(filename):
-    # type: (str) -> ManufDA
+@scapy_data_cache("manufdb")
+def load_manuf(filename=None):
+    # type: (Optional[str]) -> ManufDA
     """
     Loads manuf file from Wireshark.
 
     :param filename: the file to load the manuf file from
     :returns: a ManufDA filled object
     """
-    manufdb = ManufDA(_name=filename)
-    with open(filename, "rb") as fdesc:
+    manufdb = ManufDA(_name=filename or "scapy/manufdb")
+
+    def _process_data(fdesc):
+        # type: (Iterator[str]) -> None
         for line in fdesc:
             try:
                 line = line.strip()
-                if not line or line.startswith(b"#"):
+                if not line or line.startswith("#"):
                     continue
                 parts = line.split(None, 2)
-                ouib, shrt = parts[:2]
-                lng = parts[2].lstrip(b"#").strip() if len(parts) > 2 else b""
+                oui, shrt = parts[:2]
+                lng = parts[2].lstrip("#").strip() if len(parts) > 2 else ""
                 lng = lng or shrt
-                oui = plain_str(ouib)
-                manufdb[oui] = plain_str(shrt), plain_str(lng)
+                manufdb[oui] = shrt, lng
             except Exception:
                 log_loading.warning("Couldn't parse one line from [%s] [%r]",
                                     filename, line, exc_info=True)
+
+    try:
+        if not filename:
+            raise IOError
+        with open(filename, "r", errors="backslashreplace") as fdesc:
+            _process_data(fdesc)
+    except IOError:
+        # Fallback. Lazy loaded as the file is big.
+        from scapy.libs.manuf import DATA
+        _process_data(iter(DATA.split("\n")))
     return manufdb
 
 
@@ -522,24 +594,19 @@ if WINDOWS:
         "etc",
         "services",
     ))
-    # Default values, will be updated by arch.windows
-    ETHER_TYPES = load_ethertypes(None)
-    MANUFDB = ManufDA()
+    ETHER_TYPES = load_ethertypes()
+    MANUFDB = load_manuf()
 else:
     IP_PROTOS = load_protocols("/etc/protocols")
-    ETHER_TYPES = load_ethertypes("/etc/ethertypes")
     TCP_SERVICES, UDP_SERVICES, SCTP_SERVICES = load_services("/etc/services")
-    MANUFDB = ManufDA()
-    manuf_path = select_path(
-        ['/usr', '/usr/local', '/opt', '/opt/wireshark',
-         '/Applications/Wireshark.app/Contents/Resources'],
-        "share/wireshark/manuf"
+    ETHER_TYPES = load_ethertypes("/etc/ethertypes")
+    MANUFDB = load_manuf(
+        select_path(
+            ['/usr', '/usr/local', '/opt', '/opt/wireshark',
+             '/Applications/Wireshark.app/Contents/Resources'],
+            "share/wireshark/manuf"
+        )
     )
-    if manuf_path:
-        try:
-            MANUFDB = load_manuf(manuf_path)
-        except (IOError, OSError):
-            log_loading.warning("Cannot read wireshark manuf database")
 
 
 #####################

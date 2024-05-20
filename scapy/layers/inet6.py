@@ -34,13 +34,45 @@ from scapy.data import (
     MTU,
 )
 from scapy.error import log_runtime, warning
-from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    DestIP6Field, FieldLenField, FlagsField, IntField, IP6Field, \
-    LongField, MACField, PacketLenField, PacketListField, ShortEnumField, \
-    ShortField, SourceIP6Field, StrField, StrFixedLenField, StrLenField, \
-    X3BytesField, XBitField, XIntField, XShortField
-from scapy.layers.inet import IP, IPTools, TCP, TCPerror, TracerouteResult, \
-    UDP, UDPerror
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    DestIP6Field,
+    FieldLenField,
+    FlagsField,
+    IntField,
+    IP6Field,
+    LongField,
+    MACField,
+    MayEnd,
+    PacketLenField,
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    SourceIP6Field,
+    StrField,
+    StrFixedLenField,
+    StrLenField,
+    X3BytesField,
+    XBitField,
+    XByteField,
+    XIntField,
+    XShortField,
+)
+from scapy.layers.inet import (
+    _ICMPExtensionField,
+    _ICMPExtensionPadField,
+    _ICMP_extpad_post_dissection,
+    IP,
+    IPTools,
+    TCP,
+    TCPerror,
+    TracerouteResult,
+    UDP,
+    UDPerror,
+)
 from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.sendrecv import sendp, sniff, sr, srp1
@@ -95,7 +127,7 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
     p = Ether(dst=dm, src=sm) / IPv6(dst=d, src=src, hlim=255)
     p /= ICMPv6ND_NS(tgt=addr)
     p /= ICMPv6NDOptSrcLLAddr(lladdr=sm)
-    res = srp1(p, type=ETH_P_IPV6, iface=iface, timeout=1, verbose=0,
+    res = srp1(p, type=ETH_P_IPV6, iface=iface, timeout=timeout, verbose=0,
                chainCC=chainCC)
 
     return res
@@ -372,8 +404,8 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 if isinstance(o, HAO):
                     foundhao = o
             if foundhao:
-                nh = self.payload.nh  # XXX what if another extension follows ?
                 ss = foundhao.hoa
+            nh = self.payload.nh  # XXX what if another extension follows ?
 
         if conf.checkIPsrc and conf.checkIPaddr and not in6_ismaddr(sd):
             sd = inet_pton(socket.AF_INET6, sd)
@@ -429,7 +461,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         elif other.nh == 43 and isinstance(other.payload, IPv6ExtHdrSegmentRouting):  # noqa: E501
             return self.payload.answers(other.payload.payload)  # Buggy if self.payload is a IPv6ExtHdrRouting  # noqa: E501
         elif other.nh == 60 and isinstance(other.payload, IPv6ExtHdrDestOpt):
-            return self.payload.payload.answers(other.payload.payload)
+            return self.payload.answers(other.payload.payload)
         elif self.nh == 60 and isinstance(self.payload, IPv6ExtHdrDestOpt):  # BU in reply to BRR, for instance  # noqa: E501
             return self.payload.payload.answers(other.payload)
         else:
@@ -454,6 +486,9 @@ class IPv46(IP):
 
 
 def inet6_register_l3(l2, l3):
+    """
+    Resolves the default L2 destination address when IPv6 is used.
+    """
     return getmacbyip6(l3.dst)
 
 
@@ -759,6 +794,27 @@ class RouterAlert(Packet):  # RFC 2711 - IPv6 Hop-By-Hop Option
         return b"", p
 
 
+class RplOption(Packet):    # RFC 6553 - RPL Option
+    name = "RPL Option"
+    fields_desc = [_OTypeField("otype", 0x63, _hbhopts),
+                   ByteField("optlen", 4),
+                   BitField("Down", 0, 1),
+                   BitField("RankError", 0, 1),
+                   BitField("ForwardError", 0, 1),
+                   BitField("unused", 0, 5),
+                   XByteField("RplInstanceId", 0),
+                   XShortField("SenderRank", 0)]
+
+    def alignment_delta(self, curpos):  # alignment requirement : 2n+0
+        x = 2
+        y = 0
+        delta = x * ((curpos - y + x - 1) // x) + y - curpos
+        return delta
+
+    def extract_padding(self, p):
+        return b"", p
+
+
 class Jumbo(Packet):  # IPv6 Hop-By-Hop Option
     name = "Jumbo Payload"
     fields_desc = [_OTypeField("otype", 0xC2, _hbhopts),
@@ -794,6 +850,7 @@ class HAO(Packet):  # IPv6 Destination Options Header Option
 _hbhoptcls = {0x00: Pad1,
               0x01: PadN,
               0x05: RouterAlert,
+              0x63: RplOption,
               0xC2: Jumbo,
               0xC9: HAO}
 
@@ -1391,7 +1448,10 @@ class ICMPv6DestUnreach(_ICMPv6Error):
                                              4: "Port unreachable"}),
                    XShortField("cksum", None),
                    ByteField("length", 0),
-                   X3BytesField("unused", 0)]
+                   X3BytesField("unused", 0),
+                   _ICMPExtensionPadField(),
+                   _ICMPExtensionField()]
+    post_dissection = _ICMP_extpad_post_dissection
 
 
 class ICMPv6PacketTooBig(_ICMPv6Error):
@@ -1409,7 +1469,11 @@ class ICMPv6TimeExceeded(_ICMPv6Error):
                                              1: "fragment reassembly time exceeded"}),  # noqa: E501
                    XShortField("cksum", None),
                    ByteField("length", 0),
-                   X3BytesField("unused", 0)]
+                   X3BytesField("unused", 0),
+                   _ICMPExtensionPadField(),
+                   _ICMPExtensionField()]
+    post_dissection = _ICMP_extpad_post_dissection
+
 
 # The default pointer value is set to the next header field of
 # the encapsulated IPv6 packet
@@ -1697,7 +1761,9 @@ icmp6ndoptscls = {1: "ICMPv6NDOptSrcLLAddr",
                   24: "ICMPv6NDOptRouteInfo",
                   25: "ICMPv6NDOptRDNSS",
                   26: "ICMPv6NDOptEFA",
-                  31: "ICMPv6NDOptDNSSL"
+                  31: "ICMPv6NDOptDNSSL",
+                  37: "ICMPv6NDOptCaptivePortal",
+                  38: "ICMPv6NDOptPREF64",
                   }
 
 icmp6ndraprefs = {0: "Medium (default)",
@@ -1711,18 +1777,41 @@ class _ICMPv6NDGuessPayload:
 
     def guess_payload_class(self, p):
         if len(p) > 1:
-            return icmp6ndoptscls.get(orb(p[0]), Raw)  # s/Raw/ICMPv6NDOptUnknown/g ?  # noqa: E501
+            return icmp6ndoptscls.get(orb(p[0]), ICMPv6NDOptUnknown)
 
 
 # Beginning of ICMPv6 Neighbor Discovery Options.
 
+class ICMPv6NDOptDataField(StrLenField):
+    __slots__ = ["strip_zeros"]
+
+    def __init__(self, name, default, strip_zeros=False, **kwargs):
+        super().__init__(name, default, **kwargs)
+        self.strip_zeros = strip_zeros
+
+    def i2len(self, pkt, x):
+        return len(self.i2m(pkt, x))
+
+    def i2m(self, pkt, x):
+        r = (len(x) + 2) % 8
+        if r:
+            x += b"\x00" * (8 - r)
+        return x
+
+    def m2i(self, pkt, x):
+        if self.strip_zeros:
+            x = x.rstrip(b"\x00")
+        return x
+
+
 class ICMPv6NDOptUnknown(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Scapy Unimplemented"
-    fields_desc = [ByteField("type", None),
+    fields_desc = [ByteField("type", 0),
                    FieldLenField("len", None, length_of="data", fmt="B",
-                                 adjust=lambda pkt, x: x + 2),
-                   StrLenField("data", "",
-                               length_from=lambda pkt: pkt.len - 2)]
+                                 adjust=lambda pkt, x: (2 + x) // 8),
+                   ICMPv6NDOptDataField("data", "", strip_zeros=False,
+                                        length_from=lambda pkt:
+                                        8 * max(pkt.len, 1) - 2)]
 
 # NOTE: len includes type and len field. Expressed in unit of 8 bytes
 # TODO: Revoir le coup du ETHER_ANY
@@ -1767,44 +1856,22 @@ class ICMPv6NDOptPrefixInfo(_ICMPv6NDGuessPayload, Packet):
 
 
 class TruncPktLenField(PacketLenField):
-    __slots__ = ["cur_shift"]
-
-    def __init__(self, name, default, cls, cur_shift, length_from=None, shift=0):  # noqa: E501
-        PacketLenField.__init__(self, name, default, cls, length_from=length_from)  # noqa: E501
-        self.cur_shift = cur_shift
-
-    def getfield(self, pkt, s):
-        tmp_len = self.length_from(pkt)
-        i = self.m2i(pkt, s[:tmp_len])
-        return s[tmp_len:], i
-
-    def m2i(self, pkt, m):
-        s = None
-        try:  # It can happen we have sth shorter than 40 bytes
-            s = self.cls(m)
-        except Exception:
-            return conf.raw_layer(m)
-        return s
-
     def i2m(self, pkt, x):
-        s = raw(x)
+        s = bytes(x)
         tmp_len = len(s)
-        r = (tmp_len + self.cur_shift) % 8
-        tmp_len = tmp_len - r
-        return s[:tmp_len]
+        return s[:tmp_len - (tmp_len % 8)]
 
     def i2len(self, pkt, i):
         return len(self.i2m(pkt, i))
 
 
-# Faire un post_build pour le recalcul de la taille (en multiple de 8 octets)
 class ICMPv6NDOptRedirectedHdr(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Redirected Header"
     fields_desc = [ByteField("type", 4),
                    FieldLenField("len", None, length_of="pkt", fmt="B",
-                                 adjust=lambda pkt, x:(x + 8) // 8),
-                   StrFixedLenField("res", b"\x00" * 6, 6),
-                   TruncPktLenField("pkt", b"", IPv6, 8,
+                                 adjust=lambda pkt, x: (x + 8) // 8),
+                   MayEnd(StrFixedLenField("res", b"\x00" * 6, 6)),
+                   TruncPktLenField("pkt", b"", IPv6,
                                     length_from=lambda pkt: 8 * pkt.len - 8)]
 
 # See which value should be used for default MTU instead of 1280
@@ -2002,6 +2069,11 @@ class DomainNameListField(StrLenField):
     def i2len(self, pkt, x):
         return len(self.i2m(pkt, x))
 
+    def i2h(self, pkt, x):
+        if not x:
+            return []
+        return x
+
     def m2i(self, pkt, x):
         x = plain_str(x)  # Decode bytes to string
         res = []
@@ -2053,6 +2125,41 @@ class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet):  # RFC 6106
 
     def mysummary(self):
         return self.sprintf("%name% ") + ", ".join(self.searchlist)
+
+
+class ICMPv6NDOptCaptivePortal(_ICMPv6NDGuessPayload, Packet):  # RFC 8910
+    name = "ICMPv6 Neighbor Discovery Option - Captive-Portal Option"
+    fields_desc = [ByteField("type", 37),
+                   FieldLenField("len", None, length_of="URI", fmt="B",
+                                 adjust=lambda pkt, x: (2 + x) // 8),
+                   ICMPv6NDOptDataField("URI", "", strip_zeros=True,
+                                        length_from=lambda pkt:
+                                        8 * max(pkt.len, 1) - 2)]
+
+    def mysummary(self):
+        return self.sprintf("%name% %URI%")
+
+
+class _PREF64(IP6Field):
+    def addfield(self, pkt, s, val):
+        return s + self.i2m(pkt, val)[:12]
+
+    def getfield(self, pkt, s):
+        return s[12:], self.m2i(pkt, s[:12] + b"\x00" * 4)
+
+
+class ICMPv6NDOptPREF64(_ICMPv6NDGuessPayload, Packet):  # RFC 8781
+    name = "ICMPv6 Neighbor Discovery Option - PREF64 Option"
+    fields_desc = [ByteField("type", 38),
+                   ByteField("len", 2),
+                   BitField("scaledlifetime", 0, 13),
+                   BitEnumField("plc", 0, 3,
+                                ["/96", "/64", "/56", "/48", "/40", "/32"]),
+                   _PREF64("prefix", "::")]
+
+    def mysummary(self):
+        plc = self.sprintf("%plc%") if self.plc < 6 else f"[invalid PLC({self.plc})]"
+        return self.sprintf("%name% %prefix%") + plc
 
 # End of ICMPv6 Neighbor Discovery Options.
 

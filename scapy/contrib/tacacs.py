@@ -362,7 +362,8 @@ class TacacsClientPacket(Packet):
 
         if self.flags == 0:
             pay = obfuscate(pay, SECRET, self.session_id, self.version, self.seq)  # noqa: E501
-            return pay
+
+        return pay
 
 
 class TacacsHeader(TacacsClientPacket):
@@ -420,11 +421,9 @@ class TacacsHeader(TacacsClientPacket):
             p = p[:-4] + struct.pack('!I', len(pay))
 
         if self.flags == 0:
-
             pay = obfuscate(pay, SECRET, self.session_id, self.version, self.seq)  # noqa: E501
-            return p + pay
 
-        return p
+        return p + pay
 
     def hashret(self):
         return struct.pack('I', self.session_id)

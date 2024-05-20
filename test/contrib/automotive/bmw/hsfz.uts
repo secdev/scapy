@@ -74,3 +74,32 @@ assert pkt.dst == 0x10
 assert pkt.type == 1
 assert pkt.securitySeed == b"0" * 0xfff00
 
+= Test HSFZSocket
+
+
+server_up = threading.Event()
+def server():
+    buffer = bytes(HSFZ(type=1, src=0xf4, dst=0x10) / Raw(b'\x11\x22\x33' * 1024))
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', 6801))
+        sock.listen(1)
+        server_up.set()
+        connection, address = sock.accept()
+        connection.send(buffer[:1024])
+        time.sleep(0.1)
+        connection.send(buffer[1024:])
+        connection.close()
+    finally:
+        sock.close()
+
+server_thread = threading.Thread(target=server)
+server_thread.start()
+server_up.wait(timeout=1)
+sock = HSFZSocket()
+
+pkts = sock.sniff(timeout=1, count=1)
+assert len(pkts) == 1
+assert len(pkts[0]) > 2048

@@ -1,0 +1,502 @@
+% NTLM tests
+
++ [MS-NLMP] tests
+
+= [MS-NLMP] 4.2.1 - Common Values
+
+User = "User"
+UserDom = "Domain"
+Passwd = "Password"
+ServerName = "Server"
+WorkstationName = "COMPUTER"
+RandomSessionKey = b"UUUUUUUUUUUUUUUU"
+Time = 0
+ClientChallenge = b'\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa'
+ServerChallenge = b'\x01\x23\x45\x67\x89\xab\xcd\xef'
+
+= [MS-NLMP] 4.2.4
+
+NegotiateFlags = 0xe28a8233
+AVPairs1 = "Server"
+AVPairs2 = "Domain"
+
+= [MS-NLMP] 4.2.4.1.1 NTOWFv2()
+
+ResponseKeyNT = NTOWFv2(Passwd, User, UserDom)
+assert ResponseKeyNT == b'\x0c\x86\x8a@;\xfdz\x93\xa3\x00\x1e\xf2.\xf0.?'
+
+= Build NTLMv2_RESPONSE
+
+ntlm_response = NTLMv2_RESPONSE(
+    TimeStamp=Time,
+    ChallengeFromClient=ClientChallenge,
+    AvPairs=[
+        AV_PAIR(AvId="MsvAvNbDomainName", Value=AVPairs2),
+        AV_PAIR(AvId="MsvAvNbComputerName", Value=AVPairs1),
+        AV_PAIR(AvId="MsvAvEOL"),  # Windows does this (samba does not)
+        AV_PAIR(AvId="MsvAvEOL"),
+    ]
+)
+
+= [MS-NLMP] 4.2.4.2.2 NTLMv2 Response
+
+ntlm_response.NTProofStr = ntlm_response.computeNTProofStr(
+    ResponseKeyNT,
+    ServerChallenge,
+)
+assert ntlm_response.NTProofStr == b'h\xcd\n\xb8Q\xe5\x1c\x96\xaa\xbc\x92{\xeb\xefj\x1c'
+
+= [MS-NLMP] 4.2.4.1.2 Session Base Key
+
+ExportedSessionKey = SessionBaseKey = NTLMv2_ComputeSessionBaseKey(
+    ResponseKeyNT,
+    ntlm_response.NTProofStr,
+)
+assert SessionBaseKey == b'\x8d\xe4\x0c\xca\xdb\xc1J\x82\xf1\\\xb0\xad\r\xe9\\\xa3'
+
+= [MS-NLMP] 4.2.4.2.3 Encrypted Session Key
+
+EncryptedRandomSessionKey = RC4K(SessionBaseKey, RandomSessionKey)
+assert EncryptedRandomSessionKey == b'\xc5\xda\xd2TO\xc9y\x90\x94\xce\x1c\xe9\x0b\xc9\xd0>'
+
+= [MS-NLMP] 4.2.4.3 Messages
+
+ntlm_nego = NTLM_NEGOTIATE(
+    NegotiateFlags=NegotiateFlags,
+    ProductMajorVersion=5,
+    ProductMinorVersion=1,
+    ProductBuild=2600,
+)
+ntlm_nego.DomainName = UserDom
+ntlm_nego.WorkstationName = WorkstationName
+
+# ntlm_chall = NTLM_Header(b'NTLMSSP\x00\x02\x00\x00\x00\x0c\x00\x0c\x008\x00\x00\x003\x82\x8a\xe2\x01#Eg\x89\xab\xcd\xef\x00\x00\x00\x00\x00\x00\x00\x00$\x00$\x00D\x00\x00\x00\x06\x00p\x17\x00\x00\x00\x0fS\x00e\x00r\x00v\x00e\x00r\x00\x02\x00\x0c\x00D\x00o\x00m\x00a\x00i\x00n\x00\x01\x00\x0c\x00S\x00e\x00r\x00v\x00e\x00r\x00\x00\x00\x00\x00')
+
+ntlm_auth = NTLM_Header(b'NTLMSSP\x00\x03\x00\x00\x00\x18\x00\x18\x00l\x00\x00\x00T\x00T\x00\x84\x00\x00\x00\x0c\x00\x0c\x00H\x00\x00\x00\x08\x00\x08\x00T\x00\x00\x00\x10\x00\x10\x00\\\x00\x00\x00\x10\x00\x10\x00\xd8\x00\x00\x005\x82\x88\xe2\x05\x01(\n\x00\x00\x00\x0fD\x00o\x00m\x00a\x00i\x00n\x00U\x00s\x00e\x00r\x00C\x00O\x00M\x00P\x00U\x00T\x00E\x00R\x00\x86\xc3P\x97\xac\x9c\xec\x10%TvJW\xcc\xcc\x19\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaah\xcd\n\xb8Q\xe5\x1c\x96\xaa\xbc\x92{\xeb\xefj\x1c\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x00\x02\x00\x0c\x00D\x00o\x00m\x00a\x00i\x00n\x00\x01\x00\x0c\x00S\x00e\x00r\x00v\x00e\x00r\x00\x00\x00\x00\x00\x00\x00\x00\x00\xc5\xda\xd2TO\xc9y\x90\x94\xce\x1c\xe9\x0b\xc9\xd0>')
+
+assert ntlm_auth.MIC is None
+
+= [MS-NLMP] 4.2.4.4 GSS_WrapEx
+
+SeqNum = 0
+Plaintext = b'P\x00l\x00a\x00i\x00n\x00t\x00e\x00x\x00t\x00'
+
+SealKey = SEALKEY(ntlm_nego.NegotiateFlags, RandomSessionKey, "Client")
+assert SealKey == b'Y\xf6\x00\x97<\xc4\x96\n%H\n|\x19nLX'
+
+SignKey = SIGNKEY(ntlm_nego.NegotiateFlags, RandomSessionKey, "Client")
+assert SignKey == b'G\x88\xdc\x86\x1bG\x82\xf3]C\xfd\x98\xfe\x1a-9'
+
+# Build SSP and Context manually
+ssp = NTLMSSP()
+ctx = NTLMSSP.CONTEXT(IsAcceptor=False)
+ctx.SendSeqNum = SeqNum
+ctx.SendSignKey = SignKey
+ctx.SendSealKey = SealKey
+ctx.SendSealHandle = RC4Init(SealKey)
+
+_msgs, sig = ssp.GSS_WrapEx(ctx, [
+    SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=Plaintext),
+])
+s = _msgs[0].data
+
+assert s == b'T\xe5\x01e\xbf\x196\xdc\x99` \xc1\x81\x1b\x0f\x06\xfb_'
+assert sig.Checksum == b'\x7f\xb3\x8e\xc5\xc5]Iv'
+
+assert bytes(sig) == b'\x01\x00\x00\x00\x7f\xb3\x8e\xc5\xc5]Iv\x00\x00\x00\x00'
+
++ GSS-API SPNEGO: SPNEGOSSP tests
+
+= Create randomness-mock context manager
+
+# mock the random to get consistency
+import mock
+
+def fake_urandom(x):
+    # wow, impressive entropy
+    return b"0" * x
+
+_patches = [
+    # Patch all the random
+    mock.patch('scapy.layers.ntlm.os.urandom', side_effect=fake_urandom),
+]
+
+class NTLMRandomPatcher:
+    def __enter__(self):
+        for p in _patches:
+            p.start()
+    def __exit__(self, *args, **kwargs):
+        for p in _patches:
+            p.stop()
+
+
+= Create client and server SPNEGOSSPs
+
+from scapy.layers.ntlm import NTLM_NEGOTIATE
+from scapy.layers.spnego import SPNEGO_negTokenInit, SPNEGO_negTokenResp, SPNEGO_Token, SPNEGO_negToken, SPNEGO_MechListMIC, SPNEGOSSP
+
+client = SPNEGOSSP([
+    NTLMSSP(
+        UPN="User1",
+        PASSWORD="Password1",
+    ),
+])
+server = SPNEGOSSP([
+    NTLMSSP(
+        IDENTITIES={
+            "User1": MD4le("Password1"),
+        },
+        NTLM_VALUES={
+            "NetbiosDomainName": "DOMAIN",
+            "NetbiosComputerName": "WIN10",
+            "DnsDomainName": "domain.local",
+            "DnsComputerName": "WIN10.domain.local",
+            "DnsTreeName": "domain.local",
+        },
+    )
+])
+
+= GSS_Init_sec_context (negTokenInit: NTLM_NEGOTIATE)
+
+clicontext, tok, negResult = client.GSS_Init_sec_context(
+    None,
+    req_flags=(
+        GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
+        GSS_C_FLAGS.GSS_C_INTEG_FLAG |
+        GSS_C_FLAGS.GSS_C_CONF_FLAG
+    )
+)
+assert negResult == 1
+assert isinstance(tok, GSSAPI_BLOB)
+tok = GSSAPI_BLOB(bytes(tok))
+assert tok.MechType.val == '1.3.6.1.5.5.2'
+assert isinstance(tok.innerToken.token, SPNEGO_negTokenInit)
+assert len(tok.innerToken.token.mechTypes) == 1
+assert tok.innerToken.token.mechTypes[0].oid == '1.3.6.1.4.1.311.2.2.10'
+assert tok.innerToken.token.reqFlags is None
+assert tok.innerToken.token.negHints is None
+assert tok.innerToken.token.mechListMIC is None
+assert tok.innerToken.token._mechListMIC is None
+
+ntlm_nego = tok.innerToken.token.mechToken.value
+assert isinstance(ntlm_nego, NTLM_NEGOTIATE)
+assert ntlm_nego.Payload == []
+assert ntlm_nego.MessageType == 1
+assert ntlm_nego.NegotiateFlags.NEGOTIATE_UNICODE and ntlm_nego.NegotiateFlags.NEGOTIATE_SIGN and ntlm_nego.NegotiateFlags.NEGOTIATE_KEY_EXCH
+assert ntlm_nego.NegotiateFlags == 0xe2898235
+assert ntlm_nego.ProductMajorVersion == 10
+assert ntlm_nego.ProductMinorVersion == 0
+assert ntlm_nego.ProductBuild == 19041
+assert bytes(ntlm_nego) == b'NTLMSSP\x00\x01\x00\x00\x005\x82\x89\xe2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\x00aJ\x00\x00\x00\x0f'
+
+= GSS_Accept_sec_context (SPNEGO_negTokenResp: NTLM_NEGOTIATE->NTLM_CHALLENGE)
+
+with NTLMRandomPatcher():
+    srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+
+assert negResult == 1
+assert isinstance(tok, SPNEGO_negToken)
+tok = SPNEGO_negToken(bytes(tok))
+assert isinstance(tok.token, SPNEGO_negTokenResp)
+assert tok.token.negResult == 1
+assert tok.token.supportedMech.oid == '1.3.6.1.4.1.311.2.2.10'
+assert isinstance(tok.token.responseToken, SPNEGO_Token)
+assert tok.token.mechListMIC is None
+
+ntlm_chall = tok.token.responseToken.value
+assert isinstance(ntlm_chall, NTLM_CHALLENGE)
+assert ntlm_chall.NegotiateFlags == 0xe2898235
+assert ntlm_chall.getAv(2).Value == "DOMAIN"
+assert ntlm_chall.getAv(1).Value == "WIN10"
+assert ntlm_chall.getAv(4).Value == "domain.local"
+assert ntlm_chall.getAv(3).Value == "WIN10.domain.local"
+assert ntlm_chall.getAv(5).Value == "domain.local"
+assert ntlm_chall.getAv(0)
+
+= GSS_Init_sec_context (SPNEGO_negToken: NTLM_CHALLENGE->NTLM_AUTHENTICATE)
+
+with NTLMRandomPatcher():
+    clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+
+assert isinstance(tok, SPNEGO_negToken)
+tok = SPNEGO_negToken(bytes(tok))
+assert isinstance(tok.token, SPNEGO_negTokenResp)
+assert tok.token.negResult is None
+assert tok.token.supportedMech is None
+assert isinstance(tok.token.mechListMIC, SPNEGO_MechListMIC)
+sig = NTLMSSP_MESSAGE_SIGNATURE(tok.token.mechListMIC.value.val)
+assert sig.Version == 1
+assert sig.SeqNum == 0
+assert isinstance(tok.token.responseToken, SPNEGO_Token)
+
+ntlm_auth = NTLM_Header(tok.token.responseToken.value.val)
+assert isinstance(ntlm_auth, NTLM_AUTHENTICATE_V2)
+assert ntlm_auth.NegotiateFlags == 0xe2898235
+assert ntlm_auth.UserName == "User1"
+assert ntlm_auth.DomainName == "DOMAIN"
+assert ntlm_auth.Workstation == "WIN10"
+assert ntlm_chall.TargetInfo[:6] ==  ntlm_auth.NtChallengeResponse.AvPairs[:6]
+assert ntlm_auth.NtChallengeResponse.TimeStamp == ntlm_chall.getAv(7).Value
+assert ntlm_auth.NtChallengeResponse.getAv(6).Value == 2
+assert ntlm_auth.NtChallengeResponse.getAv(9).Value == "host/WIN10"
+
+= GSS_Accept_sec_context (SPNEGO_negToken: NTLM_AUTHENTICATE->OK)
+
+srvcontext, tok, negResult = server.GSS_Accept_sec_context(srvcontext, tok)
+assert negResult == 0  # success :p
+assert isinstance(tok, SPNEGO_negToken)
+assert isinstance(tok.token, SPNEGO_negTokenResp)
+assert tok.token.negResult == 0
+assert tok.token.supportedMech is None
+assert tok.token.responseToken is None
+assert isinstance(tok.token.mechListMIC, SPNEGO_MechListMIC)
+sig = NTLMSSP_MESSAGE_SIGNATURE(tok.token.mechListMIC.value.val)
+assert sig.Version == 1
+assert sig.SeqNum == 0
+
+assert srvcontext.SessionKey == clicontext.SessionKey
+assert clicontext.SessionKey == b"0000000000000000"
+
+= GSS_WrapEx/GSS_UnwrapEx: client sends a encrypted payload
+
+data_header = b"header"  # signed but not encrypted
+data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"  # encrypted
+
+with NTLMRandomPatcher():
+    _msgs, sig = client.GSS_WrapEx(
+        clicontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+        ]
+    )
+
+encrypted = _msgs[1].data
+assert bytes(encrypted) == b'\x9c_\xe9\xf2D\xc3\xe9^\xcd\x939\xff\xac\xa8\x16Y7\xcb \x80mS\xee.3\x85\x90\xfe\xb1_l\xcc\xcc\x7fl\x1ae,\x8b\xb3\x1cK\xd7zT\x1b\xd4W9Z'
+assert sig.Checksum == b'\x91\xca\x9d\x0c\x15\x1e\xc5"'
+
+decrypted = server.GSS_UnwrapEx(
+    srvcontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=encrypted),
+    ],
+    sig
+)[1].data
+assert decrypted == data
+
+= GSS_WrapEx/GSS_UnwrapEx: server answers back
+
+with NTLMRandomPatcher():
+    _msgs, sig = server.GSS_WrapEx(
+        srvcontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+        ]
+    )
+
+re_encrypted = _msgs[1].data
+assert bytes(re_encrypted) == b'\x8f@s\x9c\xa5[\xd4\xee\xb6\x9b,\x96\xe6\x94\x8e\x8d\x1565\x81\xd0E\xe9WI\xd0\\\x80\x9fD\x1f\xee\xfb\xe5\xc6s\x0c+\t\xba,\xf1\xa2Zj\xd6\x0e\xe4C\x02'
+assert sig.Checksum == b'\x11l/\xeaO\xb8\x08z'
+
+decrypted = client.GSS_UnwrapEx(
+    clicontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=re_encrypted),
+    ],
+    sig
+)[1].data
+assert decrypted == data
+
+= GSS_WrapEx/GSS_UnwrapEx: client continues with seqnum 2
+
+with NTLMRandomPatcher():
+    _msgs, sig = client.GSS_WrapEx(
+        clicontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+        ]
+    )
+
+encrypted = _msgs[1].data
+assert bytes(encrypted) == b'\x96\xc2\xa8>\xa8\xc0\xb8\xc6\xb6\x8a\xe3\xc2\x84\x8a\xd4e\xeb?"s\xf9\x1drfC\xb9\xbe\xe8\x1e9\xfe\xa1\xa8^\xbe\x0e\x98\xb3]\xa0\x906\xf6`\xdfn\x88d_L'
+assert sig.Checksum == b'\xc5t\xfa\xba\x1c\x9d-\xa1'
+
+assert sig.SeqNum == 2
+decrypted = server.GSS_UnwrapEx(
+    srvcontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=encrypted),
+    ],
+    sig
+)[1].data
+assert decrypted == data
+
+= GSS_WrapEx/GSS_UnwrapEx: inject fault
+
+_msgs, sig = client.GSS_WrapEx(
+    clicontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+    ]
+)
+encrypted = _msgs[1].data
+assert encrypted != data
+bad_data_header = data_header[:-3] + b"hey"
+try:
+    server.GSS_UnwrapEx(srvcontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=bad_data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=encrypted),
+        ],
+        sig
+    )
+    assert False, "No error was reported, but there should have been one"
+except ValueError:
+    pass
+
+
++ GSSAPI - Verify real exchange
+
+= Real exchange - Parse token 0 from server
+
+from scapy.layers.gssapi import GSSAPI_BLOB
+
+tok0 = GSSAPI_BLOB(
+b"\x60\x76\x06\x06\x2b\x06\x01\x05\x05\x02\xa0\x6c\x30\x6a\xa0\x3c" \
+b"\x30\x3a\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x1e\x06\x09" \
+b"\x2a\x86\x48\x82\xf7\x12\x01\x02\x02\x06\x09\x2a\x86\x48\x86\xf7" \
+b"\x12\x01\x02\x02\x06\x0a\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x03" \
+b"\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a\xa3\x2a\x30\x28" \
+b"\xa0\x26\x1b\x24\x6e\x6f\x74\x5f\x64\x65\x66\x69\x6e\x65\x64\x5f" \
+b"\x69\x6e\x5f\x52\x46\x43\x34\x31\x37\x38\x40\x70\x6c\x65\x61\x73" \
+b"\x65\x5f\x69\x67\x6e\x6f\x72\x65")
+
+= Real exchange - Create server SPNEGOSSP
+
+from scapy.layers.ntlm import NTLM_NEGOTIATE, MD4le
+from scapy.layers.spnego import SPNEGOSSP
+
+server = SPNEGOSSP(
+    [
+        NTLMSSP(
+            IDENTITIES={
+                "User1": MD4le("Password1!"),
+            },
+        ),
+    ],
+    force_supported_mechtypes=tok0.innerToken.token.mechTypes
+)
+
+= Real exchange - Parse token 1 from client
+
+tok1 = GSSAPI_BLOB(
+b"\x60\x48\x06\x06\x2b\x06\x01\x05\x05\x02\xa0\x3e\x30\x3c\xa0\x0e" \
+b"\x30\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a\xa2\x2a" \
+b"\x04\x28\x4e\x54\x4c\x4d\x53\x53\x50\x00\x01\x00\x00\x00\x97\x82" \
+b"\x08\xe2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" \
+b"\x00\x00\x0a\x00\x61\x4a\x00\x00\x00\x0f")
+
+srvcontext, _, negResult = server.GSS_Accept_sec_context(None, tok1)
+assert negResult == 1
+
+= Real exchange - Inject token 2 from server
+
+tok2 = GSSAPI_BLOB(
+b"\xa1\x81\xca\x30\x81\xc7\xa0\x03\x0a\x01\x01\xa1\x0c\x06\x0a\x2b" \
+b"\x06\x01\x04\x01\x82\x37\x02\x02\x0a\xa2\x81\xb1\x04\x81\xae\x4e" \
+b"\x54\x4c\x4d\x53\x53\x50\x00\x02\x00\x00\x00\x0c\x00\x0c\x00\x38" \
+b"\x00\x00\x00\x15\x82\x89\xe2\xdd\x92\xcd\x56\xcf\x74\xc6\x03\x00" \
+b"\x00\x00\x00\x00\x00\x00\x00\x6a\x00\x6a\x00\x44\x00\x00\x00\x0a" \
+b"\x00\x63\x45\x00\x00\x00\x0f\x44\x00\x4f\x00\x4d\x00\x41\x00\x49" \
+b"\x00\x4e\x00\x02\x00\x0c\x00\x44\x00\x4f\x00\x4d\x00\x41\x00\x49" \
+b"\x00\x4e\x00\x01\x00\x06\x00\x44\x00\x43\x00\x31\x00\x04\x00\x18" \
+b"\x00\x64\x00\x6f\x00\x6d\x00\x61\x00\x69\x00\x6e\x00\x2e\x00\x6c" \
+b"\x00\x6f\x00\x63\x00\x61\x00\x6c\x00\x03\x00\x20\x00\x44\x00\x43" \
+b"\x00\x31\x00\x2e\x00\x64\x00\x6f\x00\x6d\x00\x61\x00\x69\x00\x6e" \
+b"\x00\x2e\x00\x6c\x00\x6f\x00\x63\x00\x61\x00\x6c\x00\x07\x00\x08" \
+b"\x00\x02\xea\x8e\xe8\xd2\x8d\xd9\x01\x00\x00\x00\x00")
+
+tok2.token.responseToken.value.show()
+
+# Inject challenge token
+srvcontext.sub_context.chall_tok = tok2.token.responseToken.value
+
+= Real exchange - Parse token 3 from client
+
+tok3 = GSSAPI_BLOB(
+b"\xa1\x82\x01\xd7\x30\x82\x01\xd3\xa0\x03\x0a\x01\x01\xa2\x82\x01" \
+b"\xb6\x04\x82\x01\xb2\x4e\x54\x4c\x4d\x53\x53\x50\x00\x03\x00\x00" \
+b"\x00\x18\x00\x18\x00\x78\x00\x00\x00\x12\x01\x12\x01\x90\x00\x00" \
+b"\x00\x0c\x00\x0c\x00\x58\x00\x00\x00\x0a\x00\x0a\x00\x64\x00\x00" \
+b"\x00\x0a\x00\x0a\x00\x6e\x00\x00\x00\x10\x00\x10\x00\xa2\x01\x00" \
+b"\x00\x15\x82\x88\xe2\x0a\x00\x61\x4a\x00\x00\x00\x0f\x6c\xf5\x94" \
+b"\xd3\x4b\x59\x37\x72\x4a\x63\xe0\xb8\xf1\x2e\xf7\x39\x44\x00\x4f" \
+b"\x00\x4d\x00\x41\x00\x49\x00\x4e\x00\x55\x00\x73\x00\x65\x00\x72" \
+b"\x00\x31\x00\x57\x00\x49\x00\x4e\x00\x31\x00\x30\x00\x00\x00\x00" \
+b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" \
+b"\x00\x00\x00\x00\x00\xd7\x44\x98\xd1\xdf\xdf\xd0\x5f\xaf\x33\xbe" \
+b"\x69\x12\xdf\x7f\x6d\x01\x01\x00\x00\x00\x00\x00\x00\x02\xea\x8e" \
+b"\xe8\xd2\x8d\xd9\x01\x24\x0a\x3b\xc1\x49\x92\xcc\x1e\x00\x00\x00" \
+b"\x00\x02\x00\x0c\x00\x44\x00\x4f\x00\x4d\x00\x41\x00\x49\x00\x4e" \
+b"\x00\x01\x00\x06\x00\x44\x00\x43\x00\x31\x00\x04\x00\x18\x00\x64" \
+b"\x00\x6f\x00\x6d\x00\x61\x00\x69\x00\x6e\x00\x2e\x00\x6c\x00\x6f" \
+b"\x00\x63\x00\x61\x00\x6c\x00\x03\x00\x20\x00\x44\x00\x43\x00\x31" \
+b"\x00\x2e\x00\x64\x00\x6f\x00\x6d\x00\x61\x00\x69\x00\x6e\x00\x2e" \
+b"\x00\x6c\x00\x6f\x00\x63\x00\x61\x00\x6c\x00\x07\x00\x08\x00\x02" \
+b"\xea\x8e\xe8\xd2\x8d\xd9\x01\x06\x00\x04\x00\x02\x00\x00\x00\x08" \
+b"\x00\x30\x00\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" \
+b"\x20\x00\x00\xc5\xb6\xc9\x62\xcc\x25\x74\x2d\xc9\x64\xc0\xcb\x01" \
+b"\xe8\xae\x03\x12\x56\xa9\xfa\x84\xcb\x37\xcd\xa6\xae\x6e\x5b\xe2" \
+b"\x16\x52\xbb\x0a\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" \
+b"\x00\x00\x00\x00\x00\x00\x00\x09\x00\x24\x00\x63\x00\x69\x00\x66" \
+b"\x00\x73\x00\x2f\x00\x31\x00\x39\x00\x32\x00\x2e\x00\x31\x00\x36" \
+b"\x00\x38\x00\x2e\x00\x30\x00\x2e\x00\x31\x00\x30\x00\x30\x00\x00" \
+b"\x00\x00\x00\x00\x00\x00\x00\x2a\xdf\x42\x60\xc7\x4b\xac\x30\xa0" \
+b"\x47\xdc\xcd\xb5\x5e\x13\x62\xa3\x12\x04\x10\x01\x00\x00\x00\x0f" \
+b"\x96\x54\xbb\x55\xd0\x6c\xcb\x00\x00\x00\x00")
+
+# Parse auth
+srvcontext, tok, negResult = server.GSS_Accept_sec_context(srvcontext, tok3)
+assert negResult == 0
+
+= Real exchange - Check mechListMIC against token 4 from server
+
+tok4 = GSSAPI_BLOB(
+b"\xa1\x1b\x30\x19\xa0\x03\x0a\x01\x00\xa3\x12\x04\x10\x01\x00\x00" \
+b"\x00\xe3\x39\x61\x56\xbc\x42\x23\xdc\x00\x00\x00\x00")
+
+tok.show()
+tok4.show()
+assert tok.token.mechListMIC == tok4.token.mechListMIC
+
+= MISC - Dissect legacy formed NTLM messages
+
+# NTLM Negotiate with missing everything
+
+data = b'NTLMSSP\x00\x01\x00\x00\x00\x05\x02\x88\xa0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+pkt = NTLM_Header(data)
+assert pkt.WorkstationNameLen == 0
+assert pkt.ProductMajorVersion is None
+
+pkt.clear_cache()
+assert bytes(pkt) == data
+
+
+# NTLM AUTH with missing version
+
+data = b'NTLMSSP\x00\x03\x00\x00\x00\x18\x00\x18\x00d\x00\x00\x00\xb6\x00\xb6\x00|\x00\x00\x00\x08\x00\x08\x00@\x00\x00\x00\x10\x00\x10\x00H\x00\x00\x00\x0c\x00\x0c\x00X\x00\x00\x00\x00\x00\x00\x002\x01\x00\x005\x82\x89\x00C\x00O\x00U\x00S\x00B\x00A\x00N\x00A\x00N\x00A\x00N\x00A\x00G\x00O\x00U\x00R\x00D\x00E\x00\x91\xe9\xa2\xd8\xefE\xcd!2\xe8r\xae\x17*\xbfq\xbe8\x0b4\x90\x98\x12\x00s\x9e\x9e\xdc\nj(q\x1f\x84\xf8\xd3\x90e\xa7\xb3\x01\x01\x00\x00\x00\x00\x00\x00\x80\x8ax\xeeXc\xda\x01\xbe8\x0b4\x90\x98\x12W\x00\x00\x00\x00\x01\x00\x06\x00S\x00R\x00V\x00\x02\x00\x0c\x00D\x00O\x00M\x00A\x00I\x00N\x00\x03\x00 \x00s\x00r\x00v\x00.\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\x04\x00\x18\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\x05\x00\x18\x00d\x00o\x00m\x00a\x00i\x00n\x00.\x00l\x00o\x00c\x00a\x00l\x00\x07\x00\x08\x00\x90\xa8;}Qc\xda\x01\x00\x00\x00\x00\x00\x00\x00\x00'
+
+pkt = NTLM_Header(data)
+assert pkt.Workstation == "GOURDE"
+assert pkt.DomainName == "COUS"
+assert pkt.UserName == "BANANANA"
+
+pkt.clear_cache()
+assert bytes(pkt) == data

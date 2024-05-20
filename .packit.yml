@@ -1,0 +1,54 @@
+---
+# Docs: https://packit.dev/docs
+
+specfile_path: .packit_rpm/scapy.spec
+files_to_sync:
+  - .packit.yml
+  - src: .packit_rpm/scapy.spec
+    dest: scapy.spec
+upstream_package_name: scapy
+downstream_package_name: scapy
+upstream_tag_template: "v{version}"
+srpm_build_deps: []
+
+actions:
+  post-upstream-clone:
+    # Use the Fedora Rawhide specfile
+    - "git clone https://src.fedoraproject.org/rpms/scapy .packit_rpm --depth=1"
+    # Drop the "sources" file so rebase-helper doesn't think we're a dist-git
+    - "rm -fv .packit_rpm/sources"
+    - "sed -i '/^# check$/a%check\\n./test/run_tests -c test/configs/linux.utsc -K scanner' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: can-utils' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: libpcap' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: openssl' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: tcpdump' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: wireshark' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: python3-tox-current-env' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: python3-mock' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: python3-ipython' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: python3-brotli' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: python3-can' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: python3-coverage' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: python3-cryptography' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: python3-tkinter' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: python3-zstandard' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: samba' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: samba-client' .packit_rpm/scapy.spec"
+    - "sed -i 's/^\\(TOX_PARALLEL_NO_SPINNER=1 tox\\)/\\1 --current-env/' .config/ci/test.sh"
+
+jobs:
+- job: copr_build
+  trigger: pull_request
+  manual_trigger: true
+  enable_net: true
+  targets:
+  - fedora-latest-stable-aarch64
+  - fedora-latest-stable-i386
+  - fedora-latest-stable-ppc64le
+  - fedora-latest-stable-s390x
+  - fedora-latest-stable-x86_64
+  - fedora-rawhide-aarch64
+  - fedora-rawhide-i386
+  - fedora-rawhide-ppc64le
+  - fedora-rawhide-s390x
+  - fedora-rawhide-x86_64

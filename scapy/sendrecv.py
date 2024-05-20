@@ -11,6 +11,7 @@ import itertools
 from threading import Thread, Event
 import os
 import re
+import socket
 import subprocess
 import time
 
@@ -24,6 +25,7 @@ from scapy.interfaces import (
     NetworkInterface,
 )
 from scapy.packet import Packet
+from scapy.pton_ntop import inet_pton
 from scapy.utils import get_temp_file, tcpdump, wrpcap, \
     ContextManagerSubprocess, PcapReader, EDecimal
 from scapy.plist import (
@@ -88,9 +90,12 @@ _DOC_SNDRCV_PARAMS = """
     :param prebuild: pre-build the packets before starting to send them.
         Automatically enabled when a generator is passed as the packet
     :param _flood:
-    :param threaded: if True, packets will be sent in an individual thread
+    :param threaded: if True, packets are sent in a thread and received in another.
+        defaults to False.
     :param session: a flow decoder used to handle stream of packets
     :param chainEX: if True, exceptions during send will be forwarded
+    :param stop_filter: Python function applied to each packet to determine if
+        we have to stop the capture after this packet.
     """
 
 
@@ -105,9 +110,8 @@ class SndRcvHandler(object):
     This matches the requests and answers.
 
     Notes::
-      - threaded mode: enabling threaded mode will likely
-        break packet timestamps, but might result in a speedup
-        when sending a big amount of packets. Disabled by default
+      - threaded: if you're planning to send/receive many packets, it's likely
+        a good idea to use threaded mode.
       - DEVS: store the outgoing timestamp right BEFORE sending the packet
         to avoid races that could result in negative latency. We aren't Stadia
     """
@@ -125,7 +129,8 @@ class SndRcvHandler(object):
                  _flood=None,  # type: Optional[_FloodGenerator]
                  threaded=False,  # type: bool
                  session=None,  # type: Optional[_GlobSessionType]
-                 chainEX=False  # type: bool
+                 chainEX=False,  # type: bool
+                 stop_filter=None  # type: Optional[Callable[[Packet], bool]]
                  ):
         # type: (...) -> None
         # Instantiate all arguments
@@ -146,10 +151,13 @@ class SndRcvHandler(object):
         self.timeout = timeout
         self.session = session
         self.chainEX = chainEX
+        self.stop_filter = stop_filter
         self._send_done = False
         self.notans = 0
         self.noans = 0
         self._flood = _flood
+        self.threaded = threaded
+        self.breakout = False
         # Instantiate packet holders
         if prebuild and not self._flood:
             self.tobesent = list(pkt)  # type: _PacketIterable
@@ -169,22 +177,35 @@ class SndRcvHandler(object):
 
             if threaded or self._flood:
                 # Send packets in thread.
-                # https://github.com/secdev/scapy/issues/1791
                 snd_thread = Thread(
                     target=self._sndrcv_snd
                 )
                 snd_thread.daemon = True
 
                 # Start routine with callback
-                self._sndrcv_rcv(snd_thread.start)
+                interrupted = None
+                try:
+                    self._sndrcv_rcv(snd_thread.start)
+                except KeyboardInterrupt as ex:
+                    interrupted = ex
+
+                self.breakout = True
 
                 # Ended. Let's close gracefully
                 if self._flood:
                     # Flood: stop send thread
                     self._flood.stop()
                 snd_thread.join()
+
+                if interrupted and self.chainCC:
+                    raise interrupted
             else:
-                self._sndrcv_rcv(self._sndrcv_snd)
+                # Send packets, then receive.
+                try:
+                    self._sndrcv_rcv(self._sndrcv_snd)
+                except KeyboardInterrupt:
+                    if self.chainCC:
+                        raise
 
             if multi:
                 remain = [
@@ -244,7 +265,10 @@ class SndRcvHandler(object):
                 self.hsent.setdefault(p.hashret(), []).append(p)
                 # Send packet
                 self.pks.send(p)
-                time.sleep(self.inter)
+                if self.inter:
+                    time.sleep(self.inter)
+                if self.breakout:
+                    break
                 i += 1
             if self.verbose:
                 print("Finished sending %i packets." % i)
@@ -266,6 +290,15 @@ class SndRcvHandler(object):
             elif not self._send_done:
                 self.notans = i
             self._send_done = True
+        # In threaded mode, timeout.
+        if self.threaded and self.timeout is not None and not self.breakout:
+            t = time.monotonic() + self.timeout
+            while time.monotonic() < t:
+                if self.breakout:
+                    break
+                time.sleep(0.1)
+            if self.sniffer and self.sniffer.running:
+                self.sniffer.stop()
 
     def _process_packet(self, r):
         # type: (Packet) -> None
@@ -291,7 +324,7 @@ class SndRcvHandler(object):
                         sentpkt._answered = 1
                     break
         if self._send_done and self.noans >= self.notans and not self.multi:
-            if self.sniffer:
+            if self.sniffer and self.sniffer.running:
                 self.sniffer.stop(join=False)
         if not ok:
             if self.verbose > 1:
@@ -303,20 +336,19 @@ class SndRcvHandler(object):
     def _sndrcv_rcv(self, callback):
         # type: (Callable[[], None]) -> None
         """Function used to receive packets and check their hashret"""
+        # This is blocking.
         self.sniffer = None  # type: Optional[AsyncSniffer]
-        try:
-            self.sniffer = AsyncSniffer()
-            self.sniffer._run(
-                prn=self._process_packet,
-                timeout=self.timeout,
-                store=False,
-                opened_socket=self.rcv_pks,
-                session=self.session,
-                started_callback=callback
-            )
-        except KeyboardInterrupt:
-            if self.chainCC:
-                raise
+        self.sniffer = AsyncSniffer()
+        self.sniffer._run(
+            prn=self._process_packet,
+            timeout=None if self.threaded else self.timeout,
+            store=False,
+            opened_socket=self.rcv_pks,
+            session=self.session,
+            stop_filter=self.stop_filter,
+            started_callback=callback,
+            chainCC=True,
+        )
 
 
 def sndrcv(*args, **kwargs):
@@ -439,10 +471,10 @@ def send(x,  # type: _PacketIterable
     :param monitor: (not on linux) send in monitor mode
     :returns: None
     """
-    iface = _interface_selection(iface, x)
+    iface, ipv6 = _interface_selection(iface, x)
     return _send(
         x,
-        lambda iface: iface.l3socket(),
+        lambda iface: iface.l3socket(ipv6),
         iface=iface,
         **kargs
     )
@@ -483,15 +515,16 @@ def sendp(x,  # type: _PacketIterable
 
 
 @conf.commands.register
-def sendpfast(x,  # type: _PacketIterable
-              pps=None,  # type: Optional[float]
-              mbps=None,  # type: Optional[float]
-              realtime=False,  # type: bool
-              loop=None,  # type: Optional[int]
-              file_cache=False,  # type: bool
-              iface=None,  # type: Optional[_GlobInterfaceType]
-              replay_args=None,  # type: Optional[List[str]]
-              parse_results=False,  # type: bool
+def sendpfast(x: _PacketIterable,
+              pps: Optional[float] = None,
+              mbps: Optional[float] = None,
+              realtime: bool = False,
+              count: Optional[int] = None,
+              loop: int = 0,
+              file_cache: bool = False,
+              iface: Optional[_GlobInterfaceType] = None,
+              replay_args: Optional[List[str]] = None,
+              parse_results: bool = False,
               ):
     # type: (...) -> Optional[Dict[str, Any]]
     """Send packets at layer 2 using tcpreplay for performance
@@ -499,8 +532,8 @@ def sendpfast(x,  # type: _PacketIterable
     :param pps:  packets per second
     :param mbps: MBits per second
     :param realtime: use packet's timestamp, bending time with real-time value
-    :param loop: number of times to process the packet list. 0 implies
-        infinite loop
+    :param loop: send the packet indefinitely (default 0)
+    :param count: number of packets to send (default None=1)
     :param file_cache: cache packets in RAM instead of reading from
         disk at each iteration
     :param iface: output interface
@@ -513,7 +546,7 @@ def sendpfast(x,  # type: _PacketIterable
         iface = conf.iface
     argv = [conf.prog.tcpreplay, "--intf1=%s" % network_name(iface)]
     if pps is not None:
-        argv.append("--pps=%i" % pps)
+        argv.append("--pps=%f" % pps)
     elif mbps is not None:
         argv.append("--mbps=%f" % mbps)
     elif realtime is not None:
@@ -521,8 +554,11 @@ def sendpfast(x,  # type: _PacketIterable
     else:
         argv.append("--topspeed")
 
-    if loop is not None:
-        argv.append("--loop=%i" % loop)
+    if count:
+        assert not loop, "Can't use loop and count at the same time in sendpfast"
+        argv.append("--loop=%i" % count)
+    elif loop:
+        argv.append("--loop=0")
     if file_cache:
         argv.append("--preload-pcap")
 
@@ -616,19 +652,26 @@ def _parse_tcpreplay_result(stdout_b, stderr_b, argv):
 def _interface_selection(iface,  # type: Optional[_GlobInterfaceType]
                          packet  # type: _PacketIterable
                          ):
-    # type: (...) -> _GlobInterfaceType
+    # type: (...) -> Tuple[NetworkInterface, bool]
     """
     Select the network interface according to the layer 3 destination
     """
-
+    _iff, src, _ = next(packet.__iter__()).route()
+    ipv6 = False
+    if src:
+        try:
+            inet_pton(socket.AF_INET6, src)
+            ipv6 = True
+        except (ValueError, OSError):
+            pass
     if iface is None:
         try:
-            iff = next(packet.__iter__()).route()[0]
+            iff = resolve_iface(_iff or conf.iface)
         except AttributeError:
             iff = None
-        return iff or conf.iface
+        return iff or conf.iface, ipv6
 
-    return iface
+    return resolve_iface(iface), ipv6
 
 
 @conf.commands.register
@@ -644,9 +687,11 @@ def sr(x,  # type: _PacketIterable
     """
     Send and receive packets at layer 3
     """
-    iface = _interface_selection(iface, x)
-    s = conf.L3socket(promisc=promisc, filter=filter,
-                      iface=iface, nofilter=nofilter)
+    iface, ipv6 = _interface_selection(iface, x)
+    s = iface.l3socket(ipv6)(
+        promisc=promisc, filter=filter,
+        iface=iface, nofilter=nofilter,
+    )
     result = sndrcv(s, x, *args, **kargs)
     s.close()
     return result
@@ -887,8 +932,11 @@ def srflood(x,  # type: _PacketIterable
     :param filter:   provide a BPF filter
     :param iface:    listen answers only on the given interface
     """
-    iface = resolve_iface(iface or conf.iface)
-    s = iface.l3socket()(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
+    iface, ipv6 = _interface_selection(iface, x)
+    s = iface.l3socket(ipv6)(
+        promisc=promisc, filter=filter,
+        iface=iface, nofilter=nofilter,
+    )
     r = sndrcvflood(s, x, *args, **kargs)
     s.close()
     return r
@@ -912,8 +960,11 @@ def sr1flood(x,  # type: _PacketIterable
     :param filter:   provide a BPF filter
     :param iface:    listen answers only on the given interface
     """
-    iface = resolve_iface(iface or conf.iface)
-    s = iface.l3socket()(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
+    iface, ipv6 = _interface_selection(iface, x)
+    s = iface.l3socket(ipv6)(
+        promisc=promisc, filter=filter,
+        nofilter=nofilter, iface=iface,
+    )
     ans, _ = sndrcvflood(s, x, *args, **kargs)
     s.close()
     if len(ans) > 0:
@@ -1007,7 +1058,7 @@ class AsyncSniffer(object):
                      we have to stop the capture after this packet.
                      --Ex: stop_filter = lambda x: x.haslayer(TCP)
         iface: interface or list of interfaces (default: None for sniffing
-               on all interfaces).
+               on the default interface).
         monitor: use monitor mode. May not be available on all OS
         started_callback: called as soon as the sniffer starts sniffing
                           (default: None).
@@ -1049,12 +1100,19 @@ class AsyncSniffer(object):
         self.running = False
         self.thread = None  # type: Optional[Thread]
         self.results = None  # type: Optional[PacketList]
+        self.exception = None  # type: Optional[Exception]
 
     def _setup_thread(self):
         # type: () -> None
+        def _run_catch(self=self, *args, **kwargs):
+            # type: (Any, *Any, **Any) -> None
+            try:
+                self._run(*args, **kwargs)
+            except Exception as ex:
+                self.exception = ex
         # Prepare sniffing thread
         self.thread = Thread(
-            target=self._run,
+            target=_run_catch,
             args=self.args,
             kwargs=self.kwargs,
             name="AsyncSniffer"
@@ -1075,20 +1133,18 @@ class AsyncSniffer(object):
              iface=None,  # type: Optional[_GlobInterfaceType]
              started_callback=None,  # type: Optional[Callable[[], Any]]
              session=None,  # type: Optional[_GlobSessionType]
-             session_kwargs={},  # type: Dict[str, Any]
+             chainCC=False,  # type: bool
              **karg  # type: Any
              ):
         # type: (...) -> None
         self.running = True
+        self.count = 0
+        lst = []
         # Start main thread
         # instantiate session
         if not isinstance(session, DefaultSession):
             session = session or DefaultSession
-            session = session(prn=prn, store=store,
-                              **session_kwargs)
-        else:
-            session.prn = prn
-            session.store = store
+            session = session()
         # sniff_sockets follows: {socket: label}
         sniff_sockets = {}  # type: Dict[SuperSocket, _GlobInterfaceType]
         if opened_socket is not None:
@@ -1185,7 +1241,7 @@ class AsyncSniffer(object):
         if not nonblocking_socket:
             # select is blocking: Add special control socket
             from scapy.automaton import ObjectPipe
-            close_pipe = ObjectPipe[None]()
+            close_pipe = ObjectPipe[None]("control_socket")
             sniff_sockets[close_pipe] = "control_socket"  # type: ignore
 
             def stop_cb():
@@ -1221,8 +1277,28 @@ class AsyncSniffer(object):
                 for s in sockets:
                     if s is close_pipe:  # type: ignore
                         break
+                    # The session object is passed the socket to call recv() on,
+                    # and may perform additional processing (ip defrag, etc.)
                     try:
-                        p = s.recv()
+                        packets = session.recv(s)
+                        # A session can return multiple objects
+                        for p in packets:
+                            if lfilter and not lfilter(p):
+                                continue
+                            p.sniffed_on = sniff_sockets[s]
+                            # post-processing
+                            self.count += 1
+                            if store:
+                                lst.append(p)
+                            if prn:
+                                result = prn(p)
+                                if result is not None:
+                                    print(result)
+                            # check
+                            if (stop_filter and stop_filter(p)) or \
+                                    (0 < count <= self.count):
+                                self.continue_sniff = False
+                                break
                     except EOFError:
                         # End of stream
                         try:
@@ -1245,18 +1321,6 @@ class AsyncSniffer(object):
                         if conf.debug_dissector >= 2:
                             raise
                         continue
-                    if p is None:
-                        continue
-                    if lfilter and not lfilter(p):
-                        continue
-                    p.sniffed_on = sniff_sockets[s]
-                    # on_packet_received handles the prn/storage
-                    session.on_packet_received(p)
-                    # check
-                    if (stop_filter and stop_filter(p)) or \
-                            (0 < count <= session.count):
-                        self.continue_sniff = False
-                        break
                 # Removed dead sockets
                 for s in dead_sockets:
                     del sniff_sockets[s]
@@ -1265,14 +1329,15 @@ class AsyncSniffer(object):
                         # Only the close_pipe left
                         del sniff_sockets[close_pipe]  # type: ignore
         except KeyboardInterrupt:
-            pass
+            if chainCC:
+                raise
         self.running = False
         if opened_socket is None:
             for s in sniff_sockets:
                 s.close()
         elif close_pipe:
             close_pipe.close()
-        self.results = session.toPacketList()
+        self.results = PacketList(lst, "Sniffed")
 
     def start(self):
         # type: () -> None
@@ -1302,6 +1367,8 @@ class AsyncSniffer(object):
         # type: (*Any, **Any) -> None
         if self.thread:
             self.thread.join(*args, **kwargs)
+        if self.exception is not None:
+            raise self.exception
 
 
 @conf.commands.register

@@ -12,6 +12,7 @@ maintainers = [
     { name="Pierre LALET" },
     { name="Gabriel POTTER" },
     { name="Guillaume VALADON" },
+    { name="Nils WEISS" },
 ]
 license = { text="GPL-2.0-only" }
 requires-python = ">=3.7, <4"
@@ -32,16 +33,19 @@ classifiers = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Security",
     "Topic :: System :: Networking",
     "Topic :: System :: Networking :: Monitoring",
 ]
 
 [project.urls]
-homepage = "https://scapy.net"
-documentation = "https://scapy.readthedocs.io"
-repository = "https://github.com/secdev/scapy"
-changelog = "https://github.com/secdev/scapy/releases"
+Homepage = "https://scapy.net"
+Download = "https://github.com/secdev/scapy/tarball/master"
+Documentation = "https://scapy.readthedocs.io"
+"Source Code" = "https://github.com/secdev/scapy"
+Changelog = "https://github.com/secdev/scapy/releases"
 
 [project.scripts]
 scapy = "scapy.main:interact"
@@ -54,16 +58,13 @@ all = [
     "cryptography>=2.0",
     "matplotlib",
 ]
-docs = [
-    "sphinx>=3.0.0",
-    "sphinx_rtd_theme>=0.4.3",
+doc = [
+    "sphinx>=7.0.0",
+    "sphinx_rtd_theme>=1.3.0",
     "tox>=3.0.0",
 ]
 
 # setuptools specific
-
-[tool.setuptools]
-zip-safe = false  # We use __file__ in scapy/__init__.py, therefore Scapy isn't zip safe
 
 [tool.setuptools.packages.find]
 include = [
@@ -86,7 +87,7 @@ omit = [
     # Scapy tools
     "scapy/tools/",
     # Scapy external modules
-    "scapy/libs/six.py",
-    "scapy/libs/winpcapy.py",
     "scapy/libs/ethertypes.py",
+    "scapy/libs/manuf.py",
+    "scapy/libs/winpcapy.py",
 ]

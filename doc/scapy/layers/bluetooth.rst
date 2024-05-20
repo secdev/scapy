@@ -71,11 +71,27 @@ There are multiple protocols available for Bluetooth through ``AF_BLUETOOTH``
 sockets:
 
 Host-controller interface (HCI) ``BTPROTO_HCI``
-  Scapy class: ``BluetoothHCISocket``
-
   This is the "base" level interface for communicating with a Bluetooth
   controller.  Everything is built on top of this, and this represents about as
   close to the physical layer as one can get with regular Bluetooth hardware.
+
+  Scapy class: ``BluetoothMonitorSocket``
+
+  Allows to capture all HCI transactions that are taking place over all HCI
+  interfaces (including in BlueZ core). It is intended to perform monitoring of
+  transactions, device attachment and removal, BlueZ logging...
+
+  Scapy class: ``BluetoothUserSocket``
+
+  This socket interacts with a Bluetooth controller with complete and exclusive
+  control of de device. This means that BlueZ will not try to take control of
+  the interface and will not help you manage connections via this interface.
+
+  Scapy class: ``BluetoothHCISocket``
+
+  Using HCI protocol, this socket interacts with a Bluetooth controller but
+  does not have exclusive control over it, allowing BlueZ and other
+  applications to still use the adapter to communicate with devices.
 
 Logical Link Control and Adaptation Layer Protocol (L2CAP) ``BTPROTO_L2CAP``
   Scapy class: ``BluetoothL2CAPSocket``
@@ -638,3 +654,26 @@ Results in the output:
              |         |  len= 5
              |         |###[ Raw ]###
              |         |     load= '\x03\x18\xc0\xb5%'
+
+
+Using Nordic Semiconductor's nRF Sniffer
+========================================
+
+Since **Scapy >2.5.0**, Scapy supports `Wireshark's extcap <https://www.wireshark.org/docs/man-pages/extcap.html>`_ interfaces.
+You can therefore use your USB nordic bluetooth dongle, provided that you `have installed <https://infocenter.nordicsemi.com/topic/ug_sniffer_ble/UG/sniffer_ble/installing_sniffer_plugin.html>`_ the Wireshark module properly.
+
+.. code:: pycon
+
+   >>> load_contrib("nrf_sniffer")
+   >>> load_extcap()
+   >>> conf.ifaces
+   Source           Index  Name                          Address
+   nrf_sniffer_ble  100    nRF Sniffer for Bluetooth LE  /dev/ttyUSB0-None
+   [...]
+   >>> sniff(iface="/dev/ttyUSB0-None", prn=lambda x: x.summary())
+   NRFS2_PCAP / NRFS2_Packet / NRF2_Packet_Event / BTLE / BTLE_ADV / BTLE_ADV_IND
+   NRFS2_PCAP / NRFS2_Packet / NRF2_Packet_Event / BTLE / BTLE_ADV / BTLE_ADV_IND
+   NRFS2_PCAP / NRFS2_Packet / NRF2_Packet_Event / BTLE / BTLE_ADV / BTLE_ADV_IND
+   NRFS2_PCAP / NRFS2_Packet / NRF2_Packet_Event / BTLE / BTLE_ADV / BTLE_ADV_NONCONN_IND
+   NRFS2_PCAP / NRFS2_Packet / NRF2_Packet_Event / BTLE / BTLE_ADV / BTLE_ADV_NONCONN_IND
+   NRFS2_PCAP / NRFS2_Packet / NRF2_Packet_Event / BTLE / BTLE_ADV / BTLE_ADV_IND

@@ -136,6 +136,22 @@ assert not a.answers(b)
 assert not (Dot11()/Dot11Ack()).answers(Dot11())
 assert (Dot11()/LLC(dsap=2, ctrl=4)).answers(Dot11()/LLC(dsap=1, ctrl=5))
 
+# SAE
+a = Dot11()/Dot11Auth(algo=3, seqnum=1)  # non-AP STA --> AP STA      COMMIT
+b = Dot11()/Dot11Auth(algo=3, seqnum=1)  # AP STA     --> non-AP STA  COMMIT
+c = Dot11()/Dot11Auth(algo=3, seqnum=2)  # non-AP STA --> AP STA      CONFIRM
+d = Dot11()/Dot11Auth(algo=3, seqnum=2)  # AP STA     --> non-AP STA  CONFIRM
+e = Dot11()/Dot11Auth(algo=0, seqnum=1)
+
+assert b.answers(a)
+assert c.answers(b)
+assert d.answers(c)
+
+assert not a.answers(e)
+assert not c.answers(e)
+assert not e.answers(a)
+assert not e.answers(c)
+
 = Dot11Beacon network_stats()
 
 data = b'\x00\x00\x12\x00.H\x00\x00\x00\x02\x8f\t\xa0\x00\x01\x01\x00\x00\x80\x00\x00\x00\xff\xff\xff\xff\xff\xffDH\xc1\xb7\xf0uDH\xc1\xb7\xf0u\x10\xb7\x00\x00\x00\x00\x00\x00\x00\x00\x90\x01\x11\x00\x00\x06SSID76\x01\n\x82\x84\x0c\x12\x18$0H`l\x03\x01\x080\x18\x01\x00\x00\x0f\xac\x04\x02\x00\x00\x0f\xac\x04\x00\x0f\xac\x02\x01\x00\x00\x0f\xac\x02\x0c\x00\x07\tUSI\x01\x18\x00\n\x05\xe7'
@@ -178,8 +194,8 @@ assert pkt[Dot11EltCountry].pad == 0
 assert pkt.getlayer(Dot11Elt, ID=11)
 
 * Country element: Secondary padding check
-erp_payload = b'\x1e\x2a\x01\x62'
-country_payload = b'\x07\x06\x55\x53\x20\x01\x0b'
+erp_payload = b'\x2a\x01\x62'
+country_payload = b'\x07\x06\x55\x53\x20\x01\x0b\x1e'
 
 bare_country = Dot11EltCountry(country_payload)
 country_nested = Dot11EltCountry(country_payload + erp_payload)
@@ -484,7 +500,7 @@ assert isinstance(p, Dot11WEP)
 conf.crypto_valid = bck_conf_crypto_valid
 
 conf.wepkey = "Fobar"
-r = raw(Dot11WEP()/LLC()/SNAP()/IP()/TCP(seq=12345678))
+r = raw(Dot11WEP()/LLC()/SNAP()/IP(src="127.0.0.1", dst="127.0.0.1")/TCP(seq=12345678))
 r
 assert r == b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5\xde\xe7\xb8\x1d,\xa1\xfe\xe83\xca\xe1\xfe\xbd\xfe\xec\x00)T`\xde.\x93Td\x95C\x0f\x07\xdd'
 p = Dot11WEP(r)

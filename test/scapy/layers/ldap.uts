@@ -21,19 +21,23 @@ from scapy.layers.ntlm import *
 
 pkt = Ether(b'RT\x00!l+RT\x00\x0cG\xab\x08\x00E\x00\x00x\xb2\x94@\x00\x80\x06\xd1\xf7\xc0\xa8z\x06\xc0\xa8z\x9c\xc2\xfc\x01\x85\x1d\x92\x85\xc3U/c\x9fP\x18 \x12U\x96\x00\x000B\x02\x01\x0c`=\x02\x01\x03\x04\x00\xa36\x04\nGSS-SPNEGO\x04(NTLMSSP\x00\x01\x00\x00\x00\xb7\x82\x08\xe2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\x00aJ\x00\x00\x00\x0f')
 assert isinstance(pkt[LDAP].protocolOp, LDAP_BindRequest)
-assert isinstance(pkt[LDAP].protocolOp.authentication, LDAP_SaslCredentials)
-ntlm = NTLM_Header(pkt[LDAP].protocolOp.authentication.credentials.val)
+assert isinstance(pkt[LDAP].protocolOp.authentication, LDAP_Authentication_SaslCredentials)
+ntlm = pkt[LDAP].protocolOp.authentication.credentials
 assert isinstance(ntlm, NTLM_NEGOTIATE)
 
 pkt = Ether(b'RT\x00!l+RT\x00\x0cG\xab\x08\x00E\x00\x01\xce\xb2\x95@\x00\x80\x06\xd0\xa0\xc0\xa8z\x06\xc0\xa8z\x9c\xc2\xfc\x01\x85\x1d\x92\x86\x13U/d9P\x18 \x11\x11\x93\x00\x000\x82\x01\x9c\x02\x01\r`\x82\x01\x95\x02\x01\x03\x04\x00\xa3\x82\x01\x8c\x04\nGSS-SPNEGO\x04\x82\x01|NTLMSSP\x00\x03\x00\x00\x00\x18\x00\x18\x00h\x00\x00\x00\xec\x00\xec\x00\x80\x00\x00\x00\x00\x00\x00\x00X\x00\x00\x00\x08\x00\x08\x00X\x00\x00\x00\x08\x00\x08\x00`\x00\x00\x00\x10\x00\x10\x00l\x01\x00\x005\x82\x88\xe2\n\x00aJ\x00\x00\x00\x0f\xa0\xcd\xd2\xaa\xfdQc\xacs\\\xf6\xa3\x07\n\x05$t\x00o\x00t\x00o\x00W\x00I\x00N\x002\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xf1\xd1\x8e\xd6w\x99\t\rdQ\x05\xa6iI\xd1\x19\x01\x01\x00\x00\x00\x00\x00\x00\xb8}\x868\xe1\xc5\xd7\x01?\x84\xe3V\xcf&/\xf0\x00\x00\x00\x00\x02\x00\x08\x00W\x00I\x00N\x001\x00\x01\x00\x08\x00W\x00I\x00N\x001\x00\x04\x00\x08\x00W\x00I\x00N\x001\x00\x03\x00\x08\x00W\x00I\x00N\x001\x00\x07\x00\x08\x00\xb8}\x868\xe1\xc5\xd7\x01\x06\x00\x04\x00\x02\x00\x00\x00\x08\x000\x000\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00 \x00\x00\x0b\xd3s!~\x13\x9a\xcc\xc77\xf4\xcc\x90b\xcc|\x8f\xd2\xe8\xb85cw\x89#\x0e\x8bd\xfcPYf\n\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\t\x00(\x00l\x00d\x00a\x00p\x00/\x001\x009\x002\x00.\x001\x006\x008\x00.\x001\x002\x002\x00.\x001\x005\x006\x00\x00\x00\x00\x00\x00\x00\x00\x00rD\x8c\x9d\x1b\xa6\xa9\x1a7\xd3\x96\x0f\xbe\xab\xecC')
 assert isinstance(pkt[LDAP].protocolOp, LDAP_BindRequest)
-assert isinstance(pkt[LDAP].protocolOp.authentication, LDAP_SaslCredentials)
-ntlm = NTLM_Header(pkt[LDAP].protocolOp.authentication.credentials.val)
+assert isinstance(pkt[LDAP].protocolOp.authentication, LDAP_Authentication_SaslCredentials)
+ntlm = pkt[LDAP].protocolOp.authentication.credentials
 assert isinstance(ntlm, NTLM_AUTHENTICATE_V2)
 assert ntlm.Payload[0] == ('UserName', 'toto')
 assert ntlm.Payload[1] == ('Workstation', 'WIN2')
 assert isinstance(ntlm.Payload[3][1], NTLMv2_RESPONSE)
 assert ntlm.Payload[3][1].AvPairs[8].Value == 'ldap/192.168.122.156'
+
+pkt = LDAP_BindRequest(bind_name="user", authentication=LDAP_Authentication_simple("password"))
+assert bytes(pkt) == b'`\x13\x02\x01\x03\x04\x04user\x80\x08password'
+assert LDAP_BindRequest(b'`\x13\x02\x01\x03\x04\x04user\x80\x08password').authentication.val == b"password"
 
 = LDAP_BindResponse
 
@@ -65,7 +69,7 @@ assert raw(pkt2) == pkt.original
 pkt = LDAP(b'0\x82\nr\x02\x01\x08d\x82\nk\x04\x000\x82\ne0\x1a\x04\x13forestFunctionality1\x03\x04\x0120$\x04\x1ddomainControllerFunctionality1\x03\x04\x0170E\x04\x17supportedSASLMechanisms1*\x04\x06GSSAPI\x04\nGSS-SPNEGO\x04\x08EXTERNAL\x04\nDIGEST-MD50\x1e\x04\x14supportedLDAPVersion1\x06\x04\x013\x04\x0120\x82\x01\x98\x04\x15supportedLDAPPolicies1\x82\x01}\x04\x0eMaxPoolThreads\x04\x19MaxPercentDirSyncRequests\x04\x0fMaxDatagramRecv\x04\x10MaxReceiveBuffer\x04\x0fInitRecvTimeout\x04\x0eMaxConnections\x04\x0fMaxConnIdleTime\x04\x0bMaxPageSize\x04\x16MaxBatchReturnMessages\x04\x10MaxQueryDuration\x04\x12MaxDirSyncDuration\x04\x10MaxTempTableSize\x04\x10MaxResultSetSize\x04\rMinResultSets\x04\x14MaxResultSetsPerConn\x04\x16MaxNotificationPerConn\x04\x0bMaxValRange\x04\x15MaxValRangeTransitive\x04\x11ThreadMemoryLimit\x04\x18SystemMemoryLimitPercent0\x82\x03\xf2\x04\x10supportedControl1\x82\x03\xdc\x04\x161.2.840.113556.1.4.319\x04\x161.2.840.113556.1.4.801\x04\x161.2.840.113556.1.4.473\x04\x161.2.840.113556.1.4.528\x04\x161.2.840.113556.1.4.417\x04\x161.2.840.113556.1.4.619\x04\x161.2.840.113556.1.4.841\x04\x161.2.840.113556.1.4.529\x04\x161.2.840.113556.1.4.805\x04\x161.2.840.113556.1.4.521\x04\x161.2.840.113556.1.4.970\x04\x171.2.840.113556.1.4.1338\x04\x161.2.840.113556.1.4.474\x04\x171.2.840.113556.1.4.1339\x04\x171.2.840.113556.1.4.1340\x04\x171.2.840.113556.1.4.1413\x04\x172.16.840.1.113730.3.4.9\x04\x182.16.840.1.113730.3.4.10\x04\x171.2.840.113556.1.4.1504\x04\x171.2.840.113556.1.4.1852\x04\x161.2.840.113556.1.4.802\x04\x171.2.840.113556.1.4.1907\x04\x171.2.840.113556.1.4.1948\x04\x171.2.840.113556.1.4.1974\x04\x171.2.840.113556.1.4.1341\x04\x171.2.840.113556.1.4.2026\x04\x171.2.840.113556.1.4.2064\x04\x171.2.840.113556.1.4.2065\x04\x171.2.840.113556.1.4.2066\x04\x171.2.840.113556.1.4.2090\x04\x171.2.840.113556.1.4.2205\x04\x171.2.840.113556.1.4.2204\x04\x171.2.840.113556.1.4.2206\x04\x171.2.840.113556.1.4.2211\x04\x171.2.840.113556.1.4.2239\x04\x171.2.840.113556.1.4.2255\x04\x171.2.840.113556.1.4.2256\x04\x171.2.840.113556.1.4.2309\x04\x171.2.840.113556.1.4.2330\x04\x171.2.840.113556.1.4.23540\x81\xc9\x04\x15supportedCapabilities1\x81\xaf\x04\x171.2.840.113556.1.4.1851\x04\x171.2.840.113556.1.4.1670\x04\x171.2.840.113556.1.4.1791\x04\x171.2.840.113556.1.4.1935\x04\x171.2.840.113556.1.4.2080\x04\x171.2.840.113556.1.4.2237\x04\x171.2.840.113556.1.4.18800h\x04\x11subschemaSubentry1S\x04QCN=Aggregate,CN=Schema,CN=Configuration,CN={7FA71C80-F7BA-4B58-9219-6C6B09E8D0A1}0\x81\x88\x04\nserverName1z\x04xCN=WIN1$ADWIN1,CN=Servers,CN=Default-First-Site-Name,CN=Sites,CN=Configuration,CN={7FA71C80-F7BA-4B58-9219-6C6B09E8D0A1}0]\x04\x13schemaNamingContext1F\x04DCN=Schema,CN=Configuration,CN={7FA71C80-F7BA-4B58-9219-6C6B09E8D0A1}0\x81\x95\x04\x0enamingContexts1\x81\x82\x04:CN=Configuration,CN={7FA71C80-F7BA-4B58-9219-6C6B09E8D0A1}\x04DCN=Schema,CN=Configuration,CN={7FA71C80-F7BA-4B58-9219-6C6B09E8D0A1}0\x18\x04\x0eisSynchronized1\x06\x04\x04TRUE0\x1e\x04\x13highestCommittedUSN1\x07\x04\x05123490\x81\x9e\x04\rdsServiceName1\x81\x8c\x04\x81\x89CN=NTDS Settings,CN=WIN1$ADWIN1,CN=Servers,CN=Default-First-Site-Name,CN=Sites,CN=Configuration,CN={7FA71C80-F7BA-4B58-9219-6C6B09E8D0A1}0\x15\x04\x0bdnsHostName1\x06\x04\x04WIN10"\x04\x0bcurrentTime1\x13\x04\x1120211020183502.0Z0Z\x04\x1aconfigurationNamingContext1<\x04:CN=Configuration,CN={7FA71C80-F7BA-4B58-9219-6C6B09E8D0A1}0\x0c\x02\x01\x08e\x07\n\x01\x00\x04\x00\x04\x00')
 assert pkt.getlayer(LDAP, 2)
 assert isinstance(pkt.protocolOp, LDAP_SearchResponseEntry)
-assert isinstance(pkt.getlayer(LDAP, 2).protocolOp, LDAP_SearchResponseResultCode)
+assert isinstance(pkt.getlayer(LDAP, 2).protocolOp, LDAP_SearchResponseResultDone)
 
 assert len(pkt.protocolOp.attributes) == 17
 assert [x.type.val for x in pkt.protocolOp.attributes] == [
@@ -103,7 +107,7 @@ pkt = Ether(b'RT\x00\xbc\xe0=RT\x00y\xb1F\x08\x00E\x00\x00\xa5\x01\x1a\x00\x00\x
 assert pkt.protocolOp.filter.filter.getfieldval("and_")[2].filter.attributeType == b"NtVer"
 assert pkt.protocolOp.attributes[0].type == b"Netlogon"
 
-raw(pkt[CLDAP]) == b'0k\x02\x01\x01cf\x04\x00\n\x01\x00\n\x01\x00\x02\x01\x00\x02\x01\x00\x01\x01\x00\x80G\x88"\x04\tDnsDomain\x04\x15s4.howto.abartlet.net\x88\x12\x04\x04Host\x04\nWINDOWS7-3\x88\r\x04\x05NtVer\x04\x04\x16\x00\x00\x000\n\x04\x08Netlogon'
+assert raw(pkt[CLDAP]) == b'0k\x02\x01\x01cf\x04\x00\n\x01\x00\n\x01\x00\x02\x01\x00\x02\x01\x00\x01\x01\x00\xa0G\xa3"\x04\tDnsDomain\x04\x15s4.howto.abartlet.net\xa3\x12\x04\x04Host\x04\nWINDOWS7-3\xa3\r\x04\x05NtVer\x04\x04\x16\x00\x00\x000\n\x04\x08Netlogon'
 
 = More advanced CLDAP dissection & build test
 
@@ -115,3 +119,100 @@ assert pkt.getlayer(CLDAP, 2).protocolOp.resultCode == 0x0
 pkt2 = Ether(raw(pkt))
 pkt2.clear_cache()
 assert raw(pkt2) == pkt.original
+
++ Microsoft LDAP tests
+
+= Test dissection of Microsoft LDAP
+
+pkt = LDAP(b'0\x84\x00\x00\x00-\x02\x01\x01c\x84\x00\x00\x00$\x04\x00\n\x01\x00\n\x01\x00\x02\x01\x00\x02\x01d\x01\x01\x00\x87\x0bobjectClass0\x84\x00\x00\x00\x00')
+assert pkt.protocolOp.filter.filter.present.val == b'objectClass'
+assert pkt.Controls is None
+
+= Test re-build of Microsoft LDAP
+
+pkt = LDAP(protocolOp=LDAP_SearchRequest(filter=LDAP_Filter(filter=LDAP_FilterPresent(present=ASN1_STRING(b'objectClass'))), baseObject=ASN1_STRING(b''), scope=ASN1_ENUMERATED(0), derefAliases=ASN1_ENUMERATED(0), sizeLimit=ASN1_INTEGER(0), timeLimit=ASN1_INTEGER(100), attrsOnly=ASN1_BOOLEAN(0)), messageID=ASN1_INTEGER(1), Controls=None)
+
+conf.ASN1_default_long_size = 4
+assert bytes(pkt) == b'0\x84\x00\x00\x00-\x02\x01\x01c\x84\x00\x00\x00$\x04\x00\n\x01\x00\n\x01\x00\x02\x01\x00\x02\x01d\x01\x01\x00\x87\x0bobjectClass0\x84\x00\x00\x00\x00'
+
+conf.ASN1_default_long_size = 0
+assert bytes(pkt) == b'0%\x02\x01\x01c \x04\x00\n\x01\x00\n\x01\x00\x02\x01\x00\x02\x01d\x01\x01\x00\x87\x0bobjectClass0\x00'
+
+= Craft new Microsoft LDAP Search Request with Controls
+
+conf.ASN1_default_long_size = 4
+
+pkt = LDAP(
+    protocolOp=LDAP_SearchRequest(
+        filter=LDAP_Filter(filter=LDAP_FilterPresent(present=ASN1_STRING(b'objectClass'))),
+        attributes=[
+            LDAP_SearchRequestAttribute(type=ASN1_STRING(b'rootDomainNamingContext')),
+            LDAP_SearchRequestAttribute(type=ASN1_STRING(b'defaultNamingContext')),
+            LDAP_SearchRequestAttribute(type=ASN1_STRING(b'configurationNamingContext'))
+        ],
+        baseObject=ASN1_STRING(b''),
+        scope=ASN1_ENUMERATED(0),
+        derefAliases=ASN1_ENUMERATED(0),
+        sizeLimit=ASN1_INTEGER(1),
+        timeLimit=ASN1_INTEGER(100),
+        attrsOnly=ASN1_BOOLEAN(0)
+    ),
+    messageID=ASN1_INTEGER(2),
+    Controls=[
+        LDAP_Control(controlType=ASN1_STRING(b'1.2.840.113556.1.4.529'), criticality=None, controlValue=ASN1_STRING(b''))
+    ]
+)
+
+assert bytes(pkt) == b'0\x84\x00\x00\x00\x9e\x02\x01\x02c\x84\x00\x00\x00o\x04\x00\n\x01\x00\n\x01\x00\x02\x01\x01\x02\x01d\x01\x01\x00\x87\x0bobjectClass0\x84\x00\x00\x00K\x04\x17rootDomainNamingContext\x04\x14defaultNamingContext\x04\x1aconfigurationNamingContext\xa0\x84\x00\x00\x00 0\x84\x00\x00\x00\x1a\x04\x161.2.840.113556.1.4.529\x04\x00'
+
+conf.ASN1_default_long_size = 0
+
++ NETLOGON_SAM_LOGON tests
+
+= Dissect NETLOGON_SAM_LOGON_RESPONSE_EX - V1+V5EX+V5EXWITH_IP
+
+pkt = NETLOGON(b'\x17\x00\x00\x00\xfd\xf3\x03\x00\x8c#\xf1G^\xe5\xfeL\x89\xe8x\t7\xb1\xcd;\x06domain\x05local\x00\xc0\x18\x03DC1\xc0\x18\x06DOMAIN\x00\x03DC1\x00\x00\x17Default-First-Site-Name\x00\xc0<\x10\x02\x00\x00\x00\xc0\xa8\x00d\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00\xff\xff\xff\xff')
+
+assert pkt.NtVersion.V5EX_WITH_IP and pkt.NtVersion == 13
+assert pkt.DnsForestName == b"domain.local."
+assert pkt.DnsDomainName == b"domain.local."
+assert pkt.DnsHostName == b"DC1.domain.local."
+assert pkt.DcSiteName == b"Default-First-Site-Name."
+assert pkt.ClientSiteName == b"Default-First-Site-Name."
+assert pkt.DcSockAddrSize == 0x10
+assert pkt.DcSockAddr.sin_addr == "192.168.0.100"
+assert pkt.Flags == 0x3f3fd
+
+= Dissect NETLOGON_SAM_LOGON_RESPONSE_EX - V1+V5EX
+
+pkt = NETLOGON(b'\x17\x00\x00\x00\xfd\xf3\x03\x00\x8c#\xf1G^\xe5\xfeL\x89\xe8x\t7\xb1\xcd;\x06domain\x05local\x00\xc0\x18\x03DC1\xc0\x18\x06DOMAIN\x00\x03DC1\x00\x00\x17Default-First-Site-Name\x00\xc0<\x05\x00\x00\x00\xff\xff\xff\xff')
+
+assert pkt.NtVersion == 5
+assert pkt.DnsForestName == b"domain.local."
+assert pkt.DnsDomainName == b"domain.local."
+assert pkt.DnsHostName == b"DC1.domain.local."
+assert pkt.DcSiteName == b"Default-First-Site-Name."
+assert pkt.ClientSiteName == b"Default-First-Site-Name."
+assert pkt.Flags == 0x3f3fd
+
+= Dissect NETLOGON_SAM_LOGON_RESPONSE - V1+V5
+
+import uuid
+
+pkt = NETLOGON(b'\x13\x00\\\x00\\\x00D\x00C\x001\x00\x00\x00\x00\x00D\x00O\x00M\x00A\x00I\x00N\x00\x00\x00\x8c#\xf1G^\xe5\xfeL\x89\xe8x\t7\xb1\xcd;\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x06domain\x05local\x00\xc0>\x03DC1\xc0>d\x00\xa8\xc0}\xf3\x03\x00\x03\x00\x00\x00\xff\xff\xff\xff')
+
+assert pkt.NtVersion == 3
+assert pkt.NullGuid == uuid.UUID('00000000-0000-0000-0000-000000000000')
+assert pkt.DnsForestName == b"domain.local."
+assert pkt.DnsDomainName == b"domain.local."
+assert pkt.DnsHostName == b"DC1.domain.local."
+assert pkt.Flags == 0x3f37d
+
+= Dissect NETLOGON_SAM_LOGON_RESPONSE_NT40 - V1
+
+pkt = NETLOGON(b'\x13\x00\\\x00\\\x00D\x00C\x001\x00\x00\x00\x00\x00D\x00O\x00M\x00A\x00I\x00N\x00\x00\x00\x01\x00\x00\x00\xff\xff\xff\xff')
+
+assert pkt.NtVersion == 1
+assert pkt.UnicodeLogonServer == r"\\DC1"
+assert pkt.UnicodeDomainName == "DOMAIN"
+

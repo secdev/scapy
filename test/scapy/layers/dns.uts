@@ -17,6 +17,20 @@ def _test():
 
 dns_ans = retry_test(_test)
 
+= DNS request using dns_resolve
+~ netaccess DNS
+* this is not using a raw socket so should also work without root
+
+val = dns_resolve(qname="google.com", qtype="A")
+assert val
+assert inet_pton(socket.AF_INET, val[0].rdata)
+assert val == conf.netcache.dns_cache[b'google.com.;\x01']
+
+val = dns_resolve(qname="google.com", qtype="AAAA")
+assert val
+assert inet_pton(socket.AF_INET6, val[0].rdata)
+assert val == conf.netcache.dns_cache[b'google.com.;\x1c']
+
 = DNS labels
 ~ DNS
 query = DNSQR(qname=b"www.secdev.org")
@@ -26,11 +40,11 @@ assert query.qname == query.__class__(raw(query)).qname
 ~ netaccess needs_root IP UDP DNS
 dns_ans.show()
 dns_ans.show2()
-dns_ans[DNS].an.show()
+dns_ans[DNS].an[0].show()
 dns_ans2 = IP(raw(dns_ans))
 DNS in dns_ans2
 assert raw(dns_ans2) == raw(dns_ans)
-dns_ans2.qd.qname = "www.secdev.org."
+dns_ans2.qd[0].qname = "www.secdev.org."
 * We need to recalculate these values
 del dns_ans2[IP].len
 del dns_ans2[IP].chksum
@@ -44,13 +58,13 @@ assert raw(DNSRR(type='A', rdata='1.2.3.4')) == b'\x00\x00\x01\x00\x01\x00\x00\x
 pkt = IP(raw(IP(src="10.0.0.1", dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(qd=DNSQR(qname="secdev.org."))))
 assert UDP in pkt and isinstance(pkt[UDP].payload, DNS)
 assert pkt[UDP].dport == 53 and pkt[UDP].length is None
-assert pkt[DNS].qdcount == 1 and pkt[DNS].qd.qname == b"secdev.org."
+assert pkt[DNS].qdcount == 1 and pkt[DNS].qd[0].qname == b"secdev.org."
 
 * DNS over TCP
 pkt = IP(raw(IP(src="10.0.0.1", dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="P")/DNS(qd=DNSQR(qname="secdev.org."))))
 assert TCP in pkt and isinstance(pkt[TCP].payload, DNS)
 assert pkt[TCP].dport == 53 and pkt[DNS].length is not None
-assert pkt[DNS].qdcount == 1 and pkt[DNS].qd.qname == b"secdev.org."
+assert pkt[DNS].qdcount == 1 and pkt[DNS].qd[0].qname == b"secdev.org."
 
 = DNS frame with advanced decompression
 ~ dns
@@ -60,7 +74,9 @@ pkt = Ether(a)
 assert pkt.ancount == 3
 assert pkt.arcount == 4
 assert pkt.an[1].rdata == b'Zalmoid.local.'
+assert pkt.an[1].rdlen is None
 assert pkt.an[2].rdata == b'Zalmoid.local.'
+assert pkt.an[2].rdlen is None
 assert pkt.ar[1].nextname == b'1.A.9.4.7.E.A.4.B.A.F.B.2.1.4.0.0.6.E.F.7.1.F.2.5.3.E.0.1.0.A.2.ip6.arpa.'
 assert pkt.ar[2].nextname == b'136.0.168.192.in-addr.arpa.'
 pkt.show()
@@ -80,25 +96,46 @@ assert b.an[6].rdata == b'24:e3:14:4d:84:c0@fe80::26e3:14ff:fe4d:84c0._apple-mob
 c = b'\x01\x00^\x00\x00\xfb\x14\x0cv\x8f\xfe(\x08\x00E\x00\x01C\xe3\x91@\x00\xff\x11\xf4u\xc0\xa8\x00\xfe\xe0\x00\x00\xfb\x14\xe9\x14\xe9\x01/L \x00\x00\x84\x00\x00\x00\x00\x04\x00\x00\x00\x00\x05_raop\x04_tcp\x05local\x00\x00\x0c\x00\x01\x00\x00\x11\x94\x00\x1e\x1b140C768FFE28@Freebox Server\xc0\x0c\xc0(\x00\x10\x80\x01\x00\x00\x11\x94\x00\xa0\ttxtvers=1\x08vs=190.9\x04ch=2\x08sr=44100\x05ss=16\x08pw=false\x06et=0,1\x04ek=1\ntp=TCP,UDP\x13am=FreeboxServer1,2\ncn=0,1,2,3\x06md=0,2\x07sf=0x44\x0bft=0xBF0A00\x08sv=false\x07da=true\x08vn=65537\x04vv=2\xc0(\x00!\x80\x01\x00\x00\x00x\x00\x19\x00\x00\x00\x00\x13\x88\x10Freebox-Server-3\xc0\x17\xc1\x04\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8\x00\xfe'
 pkt = Ether(c)
 assert DNS in pkt
-assert pkt.an.rdata == b'140C768FFE28@Freebox Server._raop._tcp.local.'
-assert pkt.an.getlayer(DNSRR, type=1).rrname == b'Freebox-Server-3.local.'
-assert pkt.an.getlayer(DNSRR, type=1).rdata == '192.168.0.254'
-assert pkt.an.getlayer(DNSRR, type=16).rdata == [b'txtvers=1', b'vs=190.9', b'ch=2', b'sr=44100', b'ss=16', b'pw=false', b'et=0,1', b'ek=1', b'tp=TCP,UDP', b'am=FreeboxServer1,2', b'cn=0,1,2,3', b'md=0,2', b'sf=0x44', b'ft=0xBF0A00', b'sv=false', b'da=true', b'vn=65537', b'vv=2']
+assert pkt.an[0].rdata == b'140C768FFE28@Freebox Server._raop._tcp.local.'
+assert pkt.an[1].rdata == [b'txtvers=1', b'vs=190.9', b'ch=2', b'sr=44100', b'ss=16', b'pw=false', b'et=0,1', b'ek=1', b'tp=TCP,UDP', b'am=FreeboxServer1,2', b'cn=0,1,2,3', b'md=0,2', b'sf=0x44', b'ft=0xBF0A00', b'sv=false', b'da=true', b'vn=65537', b'vv=2']
+assert pkt.an[2].rrname == b'140C768FFE28@Freebox Server._raop._tcp.local.'
+assert pkt.an[2].port == 5000
+assert pkt.an[2].target == b'Freebox-Server-3.local.'
+assert pkt.an[3].rrname == b'Freebox-Server-3.local.'
+assert pkt.an[3].rdata == '192.168.0.254'
+
+= Other compressed DNS
+~ dns
+s = b'\x00\x00\x84\x00\x00\x00\x00\x02\x00\x00\x00\x06\x0bGourmandise\x04_smb\x04_tcp\x05local\x00\x00!\x80\x01\x00\x00\x00x\x00\x14\x00\x00\x00\x00\x01\xbd\x0bGourmandise\xc0"\x0bGourmandise\x0b_afpovertcp\xc0\x1d\x00!\x80\x01\x00\x00\x00x\x00\x08\x00\x00\x00\x00\x02$\xc09\xc09\x00\x1c\x80\x01\x00\x00\x00x\x00\x10\xfe\x80\x00\x00\x00\x00\x00\x00\x00s#\x99\xca\xf7\xea\xdc\xc09\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8\x01x\xc09\x00\x1c\x80\x01\x00\x00\x00x\x00\x10*\x01\xcb\x00\x0bD\x1f\x00\x18k\xb1\x99\x90\xdf\x84.\xc0\x0c\x00/\x80\x01\x00\x00\x00x\x00\t\xc0\x0c\x00\x05\x00\x00\x80\x00@\xc0G\x00/\x80\x01\x00\x00\x00x\x00\t\xc0G\x00\x05\x00\x00\x80\x00@\xc09\x00/\x80\x01\x00\x00\x00x\x00\x08\xc09\x00\x04@\x00\x00\x08'
+pkt = DNS(s)
+assert [x.rrname for x in pkt.ar] == [
+    b'Gourmandise.local.',
+    b'Gourmandise.local.',
+    b'Gourmandise.local.',
+    b'Gourmandise._smb._tcp.local.',
+    b'Gourmandise._afpovertcp._tcp.local.',
+    b'Gourmandise.local.'
+]
 
 = DNS advanced building
 ~ dns
 
-pkt = DNS(qr=1, qd=None, aa=1, rd=1)
-pkt.an = DNSRR(type=12, rrname='_raop._tcp.local.', rdata='140C768FFE28@Freebox Server._raop._tcp.local.')/DNSRR(rrname='140C768FFE28@Freebox Server._raop._tcp.local.', type=16, rdata=[b'txtvers=1', b'vs=190.9', b'ch=2', b'sr=44100', b'ss=16', b'pw=false', b'et=0,1', b'ek=1', b'tp=TCP,UDP', b'am=FreeboxServer1,2', b'cn=0,1,2,3', b'md=0,2', b'sf=0x44', b'ft=0xBF0A00', b'sv=false', b'da=true', b'vn=65537', b'vv=2'])/DNSRRSRV(rrname='140C768FFE28@Freebox Server._raop._tcp.local.', target='Freebox-Server-3.local.', port=5000, type=33, rclass=32769)/DNSRR(rrname='Freebox-Server-3.local.', rdata='192.168.0.254', rclass=32769, type=1, ttl=120)
+pkt = DNS(qr=1, qd=[], aa=1, rd=1)
+pkt.an = [
+    DNSRR(type=12, rrname='_raop._tcp.local.', rdata='140C768FFE28@Freebox Server._raop._tcp.local.'),
+    DNSRR(rrname='140C768FFE28@Freebox Server._raop._tcp.local.', type=16, rdata=[b'txtvers=1', b'vs=190.9', b'ch=2', b'sr=44100', b'ss=16', b'pw=false', b'et=0,1', b'ek=1', b'tp=TCP,UDP', b'am=FreeboxServer1,2', b'cn=0,1,2,3', b'md=0,2', b'sf=0x44', b'ft=0xBF0A00', b'sv=false', b'da=true', b'vn=65537', b'vv=2']),
+    DNSRRSRV(rrname='140C768FFE28@Freebox Server._raop._tcp.local.', target='Freebox-Server-3.local.', port=5000, type=33, rclass=32769),
+    DNSRR(rrname='Freebox-Server-3.local.', rdata='192.168.0.254', rclass=32769, type=1, ttl=120),
+]
 
 pkt = DNS(raw(pkt))
 
-assert DNSRRSRV in pkt.an
-assert pkt[DNSRRSRV].target == b'Freebox-Server-3.local.'
-assert pkt[DNSRRSRV].rrname == b'140C768FFE28@Freebox Server._raop._tcp.local.'
-assert isinstance(pkt[DNSRRSRV].payload, DNSRR)
-assert pkt[DNSRRSRV].payload.rrname == b'Freebox-Server-3.local.'
-assert pkt[DNSRRSRV].payload.rdata == '192.168.0.254'
+assert DNSRRSRV in pkt.an[2]
+assert pkt.an[2][DNSRRSRV].target == b'Freebox-Server-3.local.'
+assert pkt.an[2][DNSRRSRV].rrname == b'140C768FFE28@Freebox Server._raop._tcp.local.'
+
+assert pkt.an[3].rrname == b'Freebox-Server-3.local.'
+assert pkt.an[3].rdata == '192.168.0.254'
 
 = Basic DNS Compression
 ~ dns
@@ -127,50 +164,218 @@ recompressed.an[3].rdlen = None
 
 assert raw(recompressed) == raw(pkt)
 
+= DNS cache clearance on sub change
+~ dns
+
+# GH4216
+p = DNS(b'\x00\x00\x01\x00\x00\x00\x00\x02\x00\x00\x00\x00\x03H-1\x05local\x00\x00\x05\x00\x01\x00\x00\x00\x00\x00\x06\x03H-2\xc0\x10\xc0!\x00\x05\x00\x01\x00\x00\x00\x00\x00\x02\xc0\x0c')
+p[DNS].an[0].rrname = 'H'
+assert p.raw_packet_cache is None
+assert bytes(p) == b'\x00\x00\x01\x00\x00\x00\x00\x02\x00\x00\x00\x00\x01H\x00\x00\x05\x00\x01\x00\x00\x00\x00\x00\x0b\x03H-2\x05local\x00\x03H-2\x05local\x00\x00\x05\x00\x01\x00\x00\x00\x00\x00\x0b\x03H-1\x05local\x00'
+
 = DNS frames with MX records
 ~ dns
 
 frame = b'E\x00\x00\xa4\x93\x1d\x00\x00y\x11\xdc\xfc\x08\x08\x08\x08\xc0\xa8\x00w\x005\xb4\x9b\x00\x90k\x80\x00\x00\x81\x80\x00\x01\x00\x05\x00\x00\x00\x00\x06google\x03com\x00\x00\x0f\x00\x01\xc0\x0c\x00\x0f\x00\x01\x00\x00\x02B\x00\x11\x00\x1e\x04alt2\x05aspmx\x01l\xc0\x0c\xc0\x0c\x00\x0f\x00\x01\x00\x00\x02B\x00\t\x00\x14\x04alt1\xc0/\xc0\x0c\x00\x0f\x00\x01\x00\x00\x02B\x00\t\x002\x04alt4\xc0/\xc0\x0c\x00\x0f\x00\x01\x00\x00\x02B\x00\t\x00(\x04alt3\xc0/\xc0\x0c\x00\x0f\x00\x01\x00\x00\x02B\x00\x04\x00\n\xc0/'
 pkt = IP(frame)
-results = [x.exchange for x in pkt.an.iterpayloads()]
+results = [x.exchange for x in pkt.an]
 assert results == [b'alt2.aspmx.l.google.com.', b'alt1.aspmx.l.google.com.', b'alt4.aspmx.l.google.com.', b'alt3.aspmx.l.google.com.', b'aspmx.l.google.com.']
 
 pkt.clear_cache()
 assert raw(dns_compress(pkt)) == frame
 
+= DNS frame with typebitmaps
+~ dns
+
+compressed_pkt =  b'\x01\x00^\x00\x00\xfb\xa0\x10\x81\xd9\xd3y\x08\x00E\x00\x01\x14\\\n@\x00\xff\x116n\xc0\xa8F\xbc\xe0\x00\x00\xfb\x14\xe9\x14\xe9\x01\x00Ho\x00\x00\x84\x00\x00\x00\x00\x04\x00\x00\x00\x03\x03188\x0270\x03168\x03192\x07in-addr\x04arpa\x00\x00\x0c\x80\x01\x00\x00\x00x\x00\x0f\x07Android\x05local\x00\x019\x017\x013\x01D\x019\x01D\x01E\x01F\x01F\x01F\x011\x018\x010\x011\x012\x01A\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x018\x01E\x01F\x03ip6\xc0#\x00\x0c\x80\x01\x00\x00\x00x\x00\x02\xc03\xc03\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8F\xbc\xc03\x00\x1c\x80\x01\x00\x00\x00x\x00\x10\xfe\x80\x00\x00\x00\x00\x00\x00\xa2\x10\x81\xff\xfe\xd9\xd3y\xc0\x0c\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0\x0c\x00\x02\x00\x08\xc0B\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0B\x00\x02\x00\x08\xc03\x00/\x80\x01\x00\x00\x00x\x00\x08\xc03\x00\x04@\x00\x00\x08'
+pkt = Ether(compressed_pkt)
+assert pkt.ar[2].nextname == b"Android.local."
+assert pkt.ar[2].sprintf("%typebitmaps%") == "['A', 'AAAA']"
+
 = Advanced dns_get_str tests
 ~ dns
 
-assert dns_get_str(b"\x06cheese\x00blobofdata....\x06hamand\xc0\x0c", 22, _fullpacket=True)[0] == b'hamand.cheese.'
-
-compressed_pkt =  b'\x01\x00^\x00\x00\xfb\xa0\x10\x81\xd9\xd3y\x08\x00E\x00\x01\x14\\\n@\x00\xff\x116n\xc0\xa8F\xbc\xe0\x00\x00\xfb\x14\xe9\x14\xe9\x01\x00Ho\x00\x00\x84\x00\x00\x00\x00\x04\x00\x00\x00\x03\x03188\x0270\x03168\x03192\x07in-addr\x04arpa\x00\x00\x0c\x80\x01\x00\x00\x00x\x00\x0f\x07Android\x05local\x00\x019\x017\x013\x01D\x019\x01D\x01E\x01F\x01F\x01F\x011\x018\x010\x011\x012\x01A\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x018\x01E\x01F\x03ip6\xc0#\x00\x0c\x80\x01\x00\x00\x00x\x00\x02\xc03\xc03\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8F\xbc\xc03\x00\x1c\x80\x01\x00\x00\x00x\x00\x10\xfe\x80\x00\x00\x00\x00\x00\x00\xa2\x10\x81\xff\xfe\xd9\xd3y\xc0\x0c\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0\x0c\x00\x02\x00\x08\xc0B\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0B\x00\x02\x00\x08\xc03\x00/\x80\x01\x00\x00\x00x\x00\x08\xc03\x00\x04@\x00\x00\x08'
-
-Ether(compressed_pkt)
+full = b"\x06cheese\x00blobofdata....\x06hamand\xc0\x00"
+assert dns_get_str(full[22:], full=full)[0] == b'hamand.cheese.'
 
 = Decompression loop in dns_get_str
 ~ dns
 
-assert dns_get_str(b"\x04data\xc0\x0c", 0, _fullpacket=True)[0] == b"data.data."
+full = b"\x04data\xc0\x00"
+assert dns_get_str(full, full=full)[0] == b"data.data."
 
 = Prematured end in dns_get_str
 ~ dns
 
-assert dns_get_str(b"\x06da", 0, _fullpacket=True)[0] == b"da."
-assert dns_get_str(b"\x04data\xc0\x01", 0, _fullpacket=True)[0] == b"data."
+assert dns_get_str(b"\x06da", 0)[0] == b"da."
 
-= Other decompression loop in dns_get_str
-~ dns
-s = b'\x00\x00\x84\x00\x00\x00\x00\x02\x00\x00\x00\x06\x0bGourmandise\x04_smb\x04_tcp\x05local\x00\x00!\x80\x01\x00\x00\x00x\x00\x14\x00\x00\x00\x00\x01\xbd\x0bGourmandise\xc0"\x0bGourmandise\x0b_afpovertcp\xc0\x1d\x00!\x80\x01\x00\x00\x00x\x00\x08\x00\x00\x00\x00\x02$\xc09\xc09\x00\x1c\x80\x01\x00\x00\x00x\x00\x10\xfe\x80\x00\x00\x00\x00\x00\x00\x00s#\x99\xca\xf7\xea\xdc\xc09\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8\x01x\xc09\x00\x1c\x80\x01\x00\x00\x00x\x00\x10*\x01\xcb\x00\x0bD\x1f\x00\x18k\xb1\x99\x90\xdf\x84.\xc0\x0c\x00/\x80\x01\x00\x00\x00x\x00\t\xc0\x0c\x00\x05\x00\x00\x80\x00@\xc0G\x00/\x80\x01\x00\x00\x00x\x00\t\xc0G\x00\x05\x00\x00\x80\x00@\xc09\x00/\x80\x01\x00\x00\x00x\x00\x08\xc09\x00\x04@\x00\x00\x08'
-DNS(s)
+full = b"\x04data\xc0\x0f"
+assert dns_get_str(full, full=full)[0] == b"data."
+
+
+= DNS record type 13 (HINFO)
+
+b = b'\x00\x00\r\x00\x01\x00\x00\x00\x00\x00\x02\x00\x00'
+
+p = DNSRRHINFO()
+assert raw(p) == b
+
+p = DNSRRHINFO(b)
+assert p.cpu == b'' and p.os == b''
+
+b = b'\x00\x00\r\x00\x01\x00\x00\x00\x00\x00\r\x06X86_64\x05LINUX'
+
+p = DNSRRHINFO(cpu='X86_64', os='LINUX')
+assert raw(p) == b
+
+p = DNSRRHINFO(b)
+assert p.cpu == b'X86_64' and p.os == b'LINUX'
+
+d = DNS(raw(DNS(qd=[],an=[p])))
+assert raw(d.an[0]) == raw(p)
+
+= DNS record type 15 (MX)
+
+p = DNS(raw(DNS(qd=[],an=DNSRRMX(exchange='example.com'))))
+assert p.an[0].exchange == b'example.com.'
 
 = DNS record type 16 (TXT)
 
-p = DNS(raw(DNS(id=1,ra=1,qd=None,an=DNSRR(rrname='scapy', type='TXT', rdata="niceday", ttl=1))))
-assert p[DNS].an.rdata == [b"niceday"]
+p = DNS(raw(DNS(id=1,ra=1,qd=[],an=DNSRR(rrname='scapy', type='TXT', rdata="niceday", ttl=1))))
+assert p[DNS].an[0].rdata == [b"niceday"]
 
-p = DNS(raw(DNS(id=1,ra=1,qd=None,an=DNSRR(rrname='secdev', type='TXT', rdata=["sweet", "celestia"], ttl=1))))
-assert p[DNS].an.rdata == [b"sweet", b"celestia"]
+p = DNS(raw(DNS(id=1,ra=1,qd=[],an=DNSRR(rrname='secdev', type='TXT', rdata=["sweet", "celestia"], ttl=1))))
+assert p[DNS].an[0].rdata == [b"sweet", b"celestia"]
 assert raw(p) == b'\x00\x01\x01\x80\x00\x00\x00\x01\x00\x00\x00\x00\x06secdev\x00\x00\x10\x00\x01\x00\x00\x00\x01\x00\x0f\x05sweet\x08celestia'
+
+# TXT RR with one empty string
+b = b'\x05scapy\x00\x00\x10\x00\x01\x00\x00\x00\x00\x00\x01\x00'
+rr = DNSRR(b)
+assert rr.rdata == [b""]
+assert rr.rdlen == 1
+rr.clear_cache()
+assert DNSRR(raw(rr)).rdata == [b""]
+
+rr = DNSRR(rrname='scapy', type='TXT', rdata=[""])
+assert raw(rr) == b
+
+rr = DNSRR(rrname='scapy', type='TXT')
+assert raw(rr) == b
+
+# TXT RR with zero-length RDATA
+b = b'\x05scapy\x00\x00\x10\x00\x01\x00\x00\x00\x00\x00\x00'
+rr = DNSRR(b)
+assert rr.rdata == []
+assert rr.rdlen == 0
+rr.clear_cache()
+assert DNSRR(raw(rr)).rdata == []
+
+rr = DNSRR(rrname='scapy', type='TXT', rdata=[])
+assert raw(rr) == b
+
+= DNS record type 39 (DNAME)
+
+b = b'\x05local\x00\x00\x27\x00\x01\x00\x00\x00\x00\x00\x07\x05local\x00'
+
+p = DNSRR(b)
+assert p.rrname == b'local.' and p.type == 39 and p.rdata == b'local.'
+
+p = DNSRR(rrname=b'local', type='DNAME', rdata='local')
+assert raw(p) == b
+
+# Even though according to https://datatracker.ietf.org/doc/html/rfc6672#section-2.5
+# The DNAME RDATA target name MUST NOT be sent out in compressed form
+# dns_compress compresses it intentionally to make it easier to test
+# DNS-related software that should be able to handle compressed and
+# uncompressed DNAMEs anyway regardless of what the RFC says.
+
+# Make sure it isn't compressed by default
+p = DNS(qd=[], an=[DNSRR(rrname='local', type='DNAME', rdata='local')])
+assert raw(p).endswith(b'\x07\x05local\x00')
+
+# Make sure it can parse uncompressed DNAMEs
+rr = DNS(raw(p)).an[0]
+assert rr.rrname == b'local.' and rr.type == 39 and rr.rdata == b'local.'
+
+# Make sure dns_compress compresses DNAME RDATA
+cp = dns_compress(p)
+assert raw(cp).endswith(b'\x02\xc0\x0c')
+
+# Make sure it can parse compressed DNAMEs
+rr = DNS(raw(cp)).an[0]
+assert rr.rrname == b'local.' and rr.type == 39 and rr.rdata == b'local.'
+
+= DNS record type 64, 65 (SVCB, HTTPS)
+
+b = b'\x00\x00\x00\x04\x00\x01\x00\x06'
+p = SvcParam(b)
+assert p.key == 0 and p.value == [1, 6]
+assert b == raw(SvcParam(key='mandatory', value=['alpn', 'ipv6hint']))
+
+b = b'\x00\x01\x00\x06\x02h3\x02h2'
+p = SvcParam(b)
+assert p.key == 1 and p.value == [b'h3', b'h2']
+assert b == raw(SvcParam(key='alpn', value=['h3', 'h2']))
+
+b = b'\x00\x02\x00\x00'
+p = SvcParam(b)
+assert p.key == 2 and p.value == []
+assert b == raw(SvcParam(key='no-default-alpn'))
+
+b = b'\x00\x03\x00\x02\x04\xd2'
+p = SvcParam(b)
+assert p.key == 3 and p.value == 1234
+assert b == raw(SvcParam(key='port', value=1234))
+
+b = b'\x00\x04\x00\x08\xc0\xa8\x00\x01\xc0\xa8\x00\x02'
+p = SvcParam(b)
+assert p.key == 4 and p.value == ['192.168.0.1', '192.168.0.2']
+assert b == raw(SvcParam(key='ipv4hint', value=['192.168.0.1', '192.168.0.2']))
+
+b = b'\x00\x06\x00\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+p = SvcParam(b)
+assert p.key == 6 and p.value == ['2001:db8::1']
+assert b == raw(SvcParam(key='ipv6hint', value=['2001:db8::1']))
+
+b = b'\x00\x07\x00\x10/dns-query{?dns}'
+p = SvcParam(b)
+assert p.key == 7 and p.value == b'/dns-query{?dns}'
+assert b == raw(SvcParam(key='dohpath', value=b'/dns-query{?dns}'))
+
+p = DNSRRSVCB()
+assert p.rrname == b'.' and p.type == 64 and p.svc_priority == 0 and p.svc_params == []
+
+p = DNSRRHTTPS()
+assert p.rrname == b'.' and p.type == 65 and p.svc_priority == 0 and p.svc_params == []
+
+# Real-world SVCB RR
+b = b'\x04_dns\x03one\x03one\x03one\x03one\x00\x00@\x00\x01\x00\x00\x01,\x001\x00\x01\x03one\x03one\x03one\x03one\x00\x00\x01\x00\x06\x02h3\x02h2\x00\x07\x00\x10/dns-query{?dns}'
+p = DNSRRSVCB(b)
+assert p.type == 64 and p.ttl == 300 and p.svc_priority == 1 and p.target_name == b'one.one.one.one.'
+
+alpn = SvcParam(key='alpn', value=['h3', 'h2'])
+dohpath = SvcParam(key='dohpath', value=b'/dns-query{?dns}')
+
+assert raw(p.svc_params[0]) == raw(alpn)
+assert raw(p.svc_params[1]) == raw(dohpath)
+
+assert b == raw(DNSRRSVCB(rrname='_dns.one.one.one.one', ttl=300, svc_priority=1, target_name='one.one.one.one', svc_params=[alpn, dohpath]))
+
+# Real-world HTTPS RR
+b = b'\ncloudflare\x03com\x00\x00A\x00\x01\x00\x00\x00>\x00=\x00\x01\x00\x00\x01\x00\x06\x02h3\x02h2\x00\x04\x00\x08h\x10\x84\xe5h\x10\x85\xe5\x00\x06\x00 &\x06G\x00\x00\x00\x00\x00\x00\x00\x00\x00h\x10\x84\xe5&\x06G\x00\x00\x00\x00\x00\x00\x00\x00\x00h\x10\x85\xe5'
+
+p = DNSRRHTTPS(b)
+assert p.type == 65 and p.ttl == 62 and p.svc_priority == 1 and p.target_name == b'.'
+
+alpn = SvcParam(key='alpn', value=['h3', 'h2'])
+ipv4hint = SvcParam(key='ipv4hint', value=['104.16.132.229', '104.16.133.229'])
+ipv6hint = SvcParam(key='ipv6hint', value=['2606:4700::6810:84e5', '2606:4700::6810:85e5'])
+
+assert raw(p.svc_params[0]) == raw(alpn)
+assert raw(p.svc_params[1]) == raw(ipv4hint)
+assert raw(p.svc_params[2]) == raw(ipv6hint)
+
+assert b == raw(DNSRRHTTPS(rrname='cloudflare.com', ttl=62, svc_priority=1, target_name='.', svc_params=[alpn, ipv4hint, ipv6hint]))
 
 = DNS - Malformed DNS over TCP message
 
@@ -178,13 +383,13 @@ _old_dbg = conf.debug_dissector
 conf.debug_dissector = True
 
 try:
-    p = IP(raw(IP()/TCP()/DNS(qd=None,length=28))[:-13])
+    p = IP(raw(IP()/TCP()/DNS(qd=[],length=28))[:-13])
     assert False
 except Scapy_Exception as e:
     assert str(e) == "Malformed DNS message: too small!"
 
 try:
-    p = IP(raw(IP()/TCP()/DNS(qd=None,length=28, qdcount=1)))
+    p = IP(raw(IP()/TCP()/DNS(qd=[],length=28, qdcount=1)))
     assert False
 except Scapy_Exception as e:
     assert str(e) == "Malformed DNS message: invalid length!"
@@ -196,17 +401,17 @@ conf.debug_dissector = _old_dbg
 data = b'E\x00\x00n~\x82\x00\x00{\x11\xae\xeb\x08\x08\x08\x08\x01\x01\x01\x01\x005\x005\x00Z!\x17\x00\x00\x81\x80\x00\x01\x00\x00\x00\x01\x00\x00\x03www\x06google\x03com\x00\x00\x0f\x00\x01\xc0\x10\x00\x06\x00\x01\x00\x00\x002\x00&\x03ns1\xc0\x10\tdns-admin\xc0\x10\x14Po\x8f\x00\x00\x03\x84\x00\x00\x03\x84\x00\x00\x07\x08\x00\x00\x00<'
 
 p = IP(data)
-assert p.ns.rrname == b"google.com."
-assert p.ns.mname == b"ns1.google.com."
-assert p.ns.rname == b"dns-admin.google.com."
+assert p.ns[0].rrname == b"google.com."
+assert p.ns[0].mname == b"ns1.google.com."
+assert p.ns[0].rname == b"dns-admin.google.com."
 cp = dns_compress(p)
-assert cp.ns.rrname == b'\xc0\x10'
-assert cp.ns.mname == b'\x03ns1\xc0\x10'
-assert cp.ns.rname == b'\tdns-admin\xc0\x10'
+assert cp.ns[0].rrname == b'\xc0\x10'
+assert cp.ns[0].mname == b'\x03ns1\xc0\x10'
+assert cp.ns[0].rname == b'\tdns-admin\xc0\x10'
 p = IP(raw(cp))
-assert p.ns.rrname == b"google.com."
-assert p.ns.mname == b"ns1.google.com."
-assert p.ns.rname == b"dns-admin.google.com."
+assert p.ns[0].rrname == b"google.com."
+assert p.ns[0].mname == b"ns1.google.com."
+assert p.ns[0].rname == b"dns-admin.google.com."
 
 = DNS - dns_compress on close indexes
 
@@ -214,9 +419,17 @@ p = dns_compress(DNS(qd=DNSQR(qname=b'scapy.'), an=DNSRR(rrname=b'scapy.'), ar=D
 assert raw(p) == b'\x00\x00\x01\x00\x00\x01\x00\x01\x00\x00\x00\x01\x05scapy\x00\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00)\x10\x00\x00\x00\x80\x00\x00\x00'
 
 p = DNS(raw(p))
-assert p.qd.qname == b'scapy.'
-assert p.an.rrname == b'scapy.'
-assert p.ar.rrname == b'.'
+assert p.qd[0].qname == b'scapy.'
+assert p.an[0].rrname == b'scapy.'
+assert p.ar[0].rrname == b'.'
+
+= DNS - dns_compress with 1-length strings
+
+data = b'\xac\x81\x81\x80\x00\x01\x00\x06\x00\r\x00\x00\x04mqtt\x0bweatherflow\x03com\x00\x00\x01\x00\x01\xc0\x0c\x00\x05\x00\x01\x00\x00\x00\xe4\x00<!weatherflow-mqtt-904569b6a89a9ad5\x03elb\tus-east-1\tamazonaws\xc0\x1d\xc02\x00\x01\x00\x01\x00\x00\x00<\x00\x046\x9c\xff\xb3\xc02\x00\x01\x00\x01\x00\x00\x00<\x00\x046Q\'\xdd\xc02\x00\x01\x00\x01\x00\x00\x00<\x00\x04,\xd9\xc4\x8e\xc02\x00\x01\x00\x01\x00\x00\x00<\x00\x04\x03\\\x8c2\xc02\x00\x01\x00\x01\x00\x00\x00<\x00\x04"\xeeff\x00\x00\x02\x00\x01\x00\x04])\x00\x14\x01b\x0croot-servers\x03net\x00\x00\x00\x02\x00\x01\x00\x04])\x00\x04\x01k\xc0\xcb\x00\x00\x02\x00\x01\x00\x04])\x00\x04\x01f\xc0\xcb\x00\x00\x02\x00\x01\x00\x04])\x00\x04\x01c\xc0\xcb\x00\x00\x02\x00\x01\x00\x04])\x00\x04\x01d\xc0\xcb\x00\x00\x02\x00\x01\x00\x04])\x00\x04\x01l\xc0\xcb\x00\x00\x02\x00\x01\x00\x04])\x00\x04\x01e\xc0\xcb\x00\x00\x02\x00\x01\x00\x04])\x00\x04\x01j\xc0\xcb\x00\x00\x02\x00\x01\x00\x04])\x00\x04\x01i\xc0\xcb\x00\x00\x02\x00\x01\x00\x04])\x00\x04\x01m\xc0\xcb\x00\x00\x02\x00\x01\x00\x04])\x00\x04\x01a\xc0\xcb\x00\x00\x02\x00\x01\x00\x04])\x00\x04\x01h\xc0\xcb\x00\x00\x02\x00\x01\x00\x04])\x00\x04\x01g\xc0\xcb'
+
+p = DNS(data)
+cmp = p.compress()
+assert len(cmp) == len(data)
 
 = DNS - dns_encode edge cases
 
@@ -228,14 +441,52 @@ assert dns_encode(dns_encode(b"*")) == b'\x03\x01*\x00'
 
 assert raw(DNS()) == b'\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03www\x07example\x03com\x00\x00\x01\x00\x01'
 
-= DNS - preserve rdlen when rdata is not a compressed DNS string
+= DNS - OOM test
+% parse a DNS packet specifically crafted for OOM
 
-# RR type A
-dnsrr1 = Raw(b'\x01a\x01b\x01c\x00\x00\x01\x10\x00\x00\x00\x00\x01\x00\x04\x01\x02\x03\x04')
-# RR type NS & plain rdata
-dnsrr2 = Raw(b'\x02ns\xc0\x0e\x00\x02\x10\x00\x00\x00\x00\x01\x00\x06\x01x\x01y\x01z')
-# RR type NS & compressed rdata
-dnsrr3 = Raw(b'\x02ns\xc0\x0e\x00\x02\x10\x00\x00\x00\x00\x01\x00\x07\x04test\xc0\x0e')
+import zlib
+data = zlib.decompress(b'x\x9c\xed\xce!\n\xc2`\x00\x80\xd1\x7f\x0c\xc1\xbal\xf1\x12\x1e\xc0 Vob3\xaf+\xec\x02\xbb\x82x\x83\xb1"\xa2\xc1\xac\x06\x9b\xc9\xb0"\x0b3\xccdV\x93\xa0\x0f^\xfc\xc2w^\x16U\x88\x8a\xd5n\xdf\xb6\xdd0\n\xf5q\xb1\t!M&Y>K\xae\xf9\xacw\t\x83\xe8V\xaf\x0f\xa7m\xdaV\xf78z\xad\x1f\xbf\x95=5\xd9\x071\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xc0\x0f\xe94\xdf\x7f\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\xff\x15\x85\xe18.\xcbrZ\xce\x1f5u\n\xd1')
 
-d = DNS(raw(DNS(ancount=3, an=dnsrr1/dnsrr2/dnsrr3)))
-assert d.an[0].rdlen == 4 and d.an[1].rdlen == 6 and d.an[2].rdlen is None
+# measure the time it takes
+old_max_list_count = conf.max_list_count
+conf.max_list_count = 10
+import time
+t = time.monotonic()
+
+with no_debug_dissector():
+    try:
+        dns = Ether(data)
+    except MaximumItemsCount:
+        pass
+
+delta = time.monotonic() - t
+assert delta < 10
+
+conf.max_list_count = old_max_list_count
+
+= DNS - Backward compatibility: keep deprecated behavior
+~ dns
+
+# Get through a list (should be pkt.an[0].rdata)
+c = b'\x01\x00^\x00\x00\xfb\x14\x0cv\x8f\xfe(\x08\x00E\x00\x01C\xe3\x91@\x00\xff\x11\xf4u\xc0\xa8\x00\xfe\xe0\x00\x00\xfb\x14\xe9\x14\xe9\x01/L \x00\x00\x84\x00\x00\x00\x00\x04\x00\x00\x00\x00\x05_raop\x04_tcp\x05local\x00\x00\x0c\x00\x01\x00\x00\x11\x94\x00\x1e\x1b140C768FFE28@Freebox Server\xc0\x0c\xc0(\x00\x10\x80\x01\x00\x00\x11\x94\x00\xa0\ttxtvers=1\x08vs=190.9\x04ch=2\x08sr=44100\x05ss=16\x08pw=false\x06et=0,1\x04ek=1\ntp=TCP,UDP\x13am=FreeboxServer1,2\ncn=0,1,2,3\x06md=0,2\x07sf=0x44\x0bft=0xBF0A00\x08sv=false\x07da=true\x08vn=65537\x04vv=2\xc0(\x00!\x80\x01\x00\x00\x00x\x00\x19\x00\x00\x00\x00\x13\x88\x10Freebox-Server-3\xc0\x17\xc1\x04\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8\x00\xfe'
+pkt = Ether(c)
+assert pkt.an.rdata == b'140C768FFE28@Freebox Server._raop._tcp.local.'
+
+# Set qd to None (should be qd=[])
+pkt = DNS(qr=1, qd=None, aa=1, rd=1)
+pkt = DNS(bytes(pkt))
+assert pkt.qd == []
+
+= DNS - command
+
+p = DNS()
+assert p == eval(p.command())
+
+p = DNS(qd=[])
+assert p == eval(p.command())
+
+= DNS - iter through DNSStrFields
+
+pkt = DNSQR(qname=["domain1.com", "domain2.com"], qtype="A")
+for i in pkt:
+    assert i.qname in [b"domain1.com.", b"domain2.com."]

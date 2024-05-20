@@ -309,41 +309,6 @@ Screenshots
    :scale: 80
    :align: center
 
-Known bugs
-^^^^^^^^^^
-
-You may bump into the following bugs, which are platform-specific, if Scapy didn't manage work around them automatically:
-
- * You may not be able to capture WLAN traffic on Windows. Reasons are explained on the `Wireshark wiki <https://wiki.wireshark.org/CaptureSetup/WLAN>`_ and in the `WinPcap FAQ <https://www.winpcap.org/misc/faq.htm>`_. Try switching off promiscuous mode with ``conf.sniff_promisc=False``.
- * Packets sometimes cannot be sent to localhost (or local IP addresses on your own host).
- 
-Winpcap/Npcap conflicts
-^^^^^^^^^^^^^^^^^^^^^^^
-
-As ``Winpcap`` is becoming old, it's recommended to use ``Npcap`` instead. ``Npcap`` is part of the ``Nmap`` project.
-
-.. note::
-    This does NOT apply for Windows XP, which isn't supported by ``Npcap``.
-
-1. If you get the message ``'Winpcap is installed over Npcap.'`` it means that you have installed both Winpcap and Npcap versions, which isn't recommended.
-
-You may first **uninstall winpcap from your Program Files**, then you will need to remove::
-
-    C:/Windows/System32/wpcap.dll
-    C:/Windows/System32/Packet.dll
-
-And if you are on an x64 machine::
-
-   C:/Windows/SysWOW64/wpcap.dll
-   C:/Windows/SysWOW64/Packet.dll
-
-To use ``Npcap`` instead, as those files are not removed by the ``Winpcap`` un-installer.
-
-2. If you get the message ``'The installed Windump version does not work with Npcap'`` it surely means that you have installed an old version of ``Windump``, made for ``Winpcap``.
-Download the correct one on https://github.com/hsluoyz/WinDump/releases
-
-In some cases, it could also mean that you had installed ``Npcap`` and ``Winpcap``, and that ``Windump`` is using ``Winpcap``. Fully delete ``Winpcap`` using the above method to solve the problem.
-
 Build the documentation offline
 ===============================
 

@@ -10,12 +10,17 @@ assert pkt.sport == 5355
 assert pkt.dport == 5355
 assert pkt[LLMNRQuery].opcode == 0
 
+= Dissection with the "T"entative bit set and the "TrunCation" bit unset
+r = LLMNRResponse(b'\x87\xdf\x81\x00\x00\x01\x00\x01\x00\x00\x00\x00\x01C\x00\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x1e\x00\x04\xc0\xa8-\x15')
+assert r.tc == 0 and r.t == 1
+
 = Packet build / dissection
 pkt = UDP(raw(UDP()/LLMNRResponse()))
 assert LLMNRResponse in pkt
 assert pkt.qr == 1
 assert pkt.c == 0
 assert pkt.tc == 0
+assert pkt.t == 0
 assert pkt.z == 0
 assert pkt.rcode == 0
 assert pkt.qdcount == 0
@@ -37,8 +42,22 @@ assert b.answers(a)
 assert not a.answers(b)
 
 = Summary
+q = LLMNRQuery(b'\xd5\xd5\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x07example\x00\x00\x01\x00\x01')
+assert q.mysummary()[0] == r"LLMNRQuery who has 'example.'"
+
 q = LLMNRQuery(b'Yy\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x01\xff\x00\x00\x01\x00\x01')
 assert q.mysummary()[0] == r"LLMNRQuery who has '\xff.'"
 
+with no_debug_dissector():
+    q = LLMNRQuery(b'@@\x00\x1b\xed7\x96J\x00\x00\x00\x01\x00\x00')
+    assert q.mysummary()[0] == r"LLMNRQuery [malformed]"
+
+r = LLMNRResponse(b'e\xcc\x80\x00\x00\x01\x00\x01\x00\x00\x00\x00\x07example\x00\x00\x01\x00\x01\x07example\x00\x00\x01\x00\x01\x00\x00\x00\x1e\x00\x04\xc0\x00\x02\x01')
+assert r.mysummary()[0] == r"LLMNRResponse 'example.' is at '192.0.2.1'"
+
 r = LLMNRResponse(b'\n\xe6\x80\x00\x00\x01\x00\x01\x00\x00\x00\x00\x01\xff\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x00\x1e\x00\x10\xfe\x80\x00\x00\x00\x00\x00\x00xu\x17\xff\xfe\xbc\xac\xcb')
 assert r.mysummary()[0] == r"LLMNRResponse '\xff.' is at 'fe80::7875:17ff:febc:accb'"
+
+with no_debug_dissector():
+    r = LLMNRResponse(b'\xd3<\x80\x00\x00\x01\x00\x01\x00\x00\x00\x00\x04H\x00\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x1e\x00\x04\xc0\xa88\x04')
+    assert r.mysummary()[0] == r"LLMNRResponse [malformed]"

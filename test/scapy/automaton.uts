@@ -446,6 +446,27 @@ graph = HelloWorld.build_graph()
 assert graph.startswith("digraph")
 assert '"BEGIN" -> "END"' in graph
 
+= Automaton graph - with indirection
+~ automaton
+
+class HelloWorld(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.count1 = 0
+        self.count2 = 0
+    @ATMT.condition(BEGIN)
+    def cnd_1(self):
+        self.cnd_generic()
+    def cnd_generic(self):
+        raise END
+    @ATMT.state(final=1)
+    def END(self):
+        pass
+
+graph = HelloWorld.build_graph()
+assert graph.startswith("digraph")
+assert '"BEGIN" -> "END"' in graph
+
 = TCP_client automaton
 ~ automaton netaccess needs_root
 * This test retries on failure because it may fail quite easily

@@ -16,12 +16,17 @@ import time
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
-from scapy.data import MTU, ETH_P_IP, SOL_PACKET, SO_TIMESTAMPNS
+from scapy.data import (
+    MTU,
+    ETH_P_IP,
+    ETH_P_IPV6,
+    SOL_PACKET,
+    SO_TIMESTAMPNS,
+)
 from scapy.compat import raw
 from scapy.error import warning, log_runtime
 from scapy.interfaces import network_name
-from scapy.packet import Packet
-import scapy.packet
+from scapy.packet import Packet, NoPayload
 from scapy.plist import (
     PacketList,
     SndRcvList,
@@ -33,6 +38,7 @@ from scapy.utils import PcapReader, tcpdump
 from scapy.interfaces import _GlobInterfaceType
 from typing import (
     Any,
+    Dict,
     Iterator,
     List,
     Optional,
@@ -96,6 +102,11 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
     def send(self, x):
         # type: (Packet) -> int
+        """Sends a `Packet` object
+
+        :param x: `Packet` to be send
+        :return: Number of bytes that have been sent
+        """
         sx = raw(x)
         try:
             x.sent_time = time.time()
@@ -110,7 +121,12 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
     if WINDOWS:
         def _recv_raw(self, sock, x):
             # type: (socket.socket, int) -> Tuple[bytes, Any, Optional[float]]
-            """Internal function to receive a Packet"""
+            """Internal function to receive a Packet.
+
+            :param sock: Socket object from which data are received
+            :param x: Number of bytes to be received
+            :return: Received bytes, address information and no timestamp
+            """
             pkt, sa_ll = sock.recvfrom(x)
             return pkt, sa_ll, None
     else:
@@ -118,6 +134,10 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
             # type: (socket.socket, int) -> Tuple[bytes, Any, Optional[float]]
             """Internal function to receive a Packet,
             and process ancillary data.
+
+            :param sock: Socket object from which data are received
+            :param x: Number of bytes to be received
+            :return: Received bytes, address information and an optional timestamp
             """
             timestamp = None
             if not self.auxdata_available:
@@ -166,16 +186,27 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
     def recv_raw(self, x=MTU):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
-        """Returns a tuple containing (cls, pkt_data, time)"""
+        """Returns a tuple containing (cls, pkt_data, time)
+
+
+        :param x: Maximum number of bytes to be received, defaults to MTU
+        :return: A tuple, consisting of a Packet type, the received data,
+                 and a timestamp
+        """
         return conf.raw_layer, self.ins.recv(x), None
 
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
+    def recv(self, x=MTU, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
+        """Receive a Packet according to the `basecls` of this socket
+
+        :param x: Maximum number of bytes to be received, defaults to MTU
+        :return: The received `Packet` object, or None
+        """
         cls, val, ts = self.recv_raw(x)
         if not val or not cls:
             return None
         try:
-            pkt = cls(val)  # type: Packet
+            pkt = cls(val, **kwargs)  # type: Packet
         except KeyboardInterrupt:
             raise
         except Exception:
@@ -194,6 +225,8 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
     def close(self):
         # type: () -> None
+        """Gracefully close this socket
+        """
         if self.closed:
             return
         self.closed = True
@@ -207,12 +240,15 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
     def sr(self, *args, **kargs):
         # type: (Any, Any) -> Tuple[SndRcvList, PacketList]
+        """Send and Receive multiple packets
+        """
         from scapy import sendrecv
-        ans, unans = sendrecv.sndrcv(self, *args, **kargs)  # type: SndRcvList, PacketList  # noqa: E501
-        return ans, unans
+        return sendrecv.sndrcv(self, *args, **kargs)
 
     def sr1(self, *args, **kargs):
         # type: (Any, Any) -> Optional[Packet]
+        """Send one packet and receive one answer
+        """
         from scapy import sendrecv
         ans = sendrecv.sndrcv(self, *args, **kargs)[0]  # type: SndRcvList
         if len(ans) > 0:
@@ -224,8 +260,7 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
     def sniff(self, *args, **kargs):
         # type: (Any, Any) -> PacketList
         from scapy import sendrecv
-        pkts = sendrecv.sniff(opened_socket=self, *args, **kargs)  # type: PacketList  # noqa: E501
-        return pkts
+        return sendrecv.sniff(opened_socket=self, *args, **kargs)
 
     def tshark(self, *args, **kargs):
         # type: (Any, Any) -> None
@@ -315,8 +350,8 @@ if not WINDOWS:
                 msg = "Your Linux Kernel does not support Auxiliary Data!"
                 log_runtime.info(msg)
 
-        def recv(self, x=MTU):
-            # type: (int) -> Optional[Packet]
+        def recv(self, x=MTU, **kwargs):
+            # type: (int, **Any) -> Optional[Packet]
             data, sa_ll, ts = self._recv_raw(self.ins, x)
             if sa_ll[2] == socket.PACKET_OUTGOING:
                 return None
@@ -332,7 +367,7 @@ if not WINDOWS:
                 lvl = 3
 
             try:
-                pkt = cls(data)
+                pkt = cls(data, **kwargs)
             except KeyboardInterrupt:
                 raise
             except Exception:
@@ -370,81 +405,126 @@ if not WINDOWS:
                 log_runtime.error(msg)
             return 0
 
+    class L3RawSocket6(L3RawSocket):
+        def __init__(self,
+                     type: int = ETH_P_IPV6,
+                     filter: Optional[str] = None,
+                     iface: Optional[_GlobInterfaceType] = None,
+                     promisc: Optional[bool] = None,
+                     nofilter: bool = False) -> None:
+            # NOTE: if fragmentation is needed, it will be done by the kernel (RFC 2292)  # noqa: E501
+            self.outs = socket.socket(
+                socket.AF_INET6,
+                socket.SOCK_RAW,
+                socket.IPPROTO_RAW
+            )
+            self.ins = socket.socket(
+                socket.AF_PACKET,
+                socket.SOCK_RAW,
+                socket.htons(type)
+            )
+            self.iface = cast(_GlobInterfaceType, iface)
+
 
 class SimpleSocket(SuperSocket):
     desc = "wrapper around a classic socket"
-
-    def __init__(self, sock):
-        # type: (socket.socket) -> None
-        self.ins = sock
-        self.outs = sock
-
-
-class StreamSocket(SimpleSocket):
-    desc = "transforms a stream socket into a layer 2"
-    nonblocking_socket = True
+    __selectable_force_select__ = True
 
     def __init__(self, sock, basecls=None):
         # type: (socket.socket, Optional[Type[Packet]]) -> None
+        self.ins = sock
+        self.outs = sock
         if basecls is None:
             basecls = conf.raw_layer
-        SimpleSocket.__init__(self, sock)
         self.basecls = basecls
 
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
+    def recv_raw(self, x=MTU):
+        # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]
+        return self.basecls, self.ins.recv(x), None
+
+    if WINDOWS:
+        @staticmethod
+        def select(sockets, remain=None):
+            # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+            from scapy.automaton import select_objects
+            return select_objects(sockets, remain)
+
+
+class StreamSocket(SimpleSocket):
+    """
+    Wrap a stream socket into a layer 2 SuperSocket
+
+    :param sock: the socket to wrap
+    :param basecls: the base class packet to use to dissect the packet
+    """
+    desc = "transforms a stream socket into a layer 2"
+
+    def __init__(self,
+                 sock,  # type: socket.socket
+                 basecls=None,  # type: Optional[Type[Packet]]
+                 ):
+        # type: (...) -> None
+        from scapy.sessions import streamcls
+        self.rcvcls = streamcls(basecls or conf.raw_layer)
+        self.metadata: Dict[str, Any] = {}
+        self.streamsession: Dict[str, Any] = {}
+        self._buf = b""
+        super(StreamSocket, self).__init__(sock, basecls=basecls)
+
+    def recv(self, x=None, **kwargs):
+        # type: (Optional[int], Any) -> Optional[Packet]
+        if x is None:
+            x = MTU
+        # Block but in PEEK mode
         data = self.ins.recv(x, socket.MSG_PEEK)
+        if data == b"":
+            raise EOFError
         x = len(data)
-        if x == 0:
-            return None
-        pkt = self.basecls(data)  # type: Packet
+        pkt = self.rcvcls(self._buf + data, self.metadata, self.streamsession)
+        if pkt is None:  # Incomplete packet.
+            self._buf += self.ins.recv(x)
+            return self.recv(x)
+        self.metadata.clear()
+        # Strip any madding
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
             del pad.underlayer.payload
-        from scapy.packet import NoPayload
         while pad is not None and not isinstance(pad, NoPayload):
             x -= len(pad.load)
             pad = pad.payload
+        # Only receive the packet length
         self.ins.recv(x)
+        self._buf = b""
         return pkt
 
 
 class SSLStreamSocket(StreamSocket):
     desc = "similar usage than StreamSocket but specialized for handling SSL-wrapped sockets"  # noqa: E501
 
+    # Basically StreamSocket but we can't PEEK
+
     def __init__(self, sock, basecls=None):
         # type: (socket.socket, Optional[Type[Packet]]) -> None
-        self._buf = b""
+        from scapy.sessions import TCPSession
+        self.sess = TCPSession(app=True)
         super(SSLStreamSocket, self).__init__(sock, basecls)
 
     # 65535, the default value of x is the maximum length of a TLS record
-    def recv(self, x=65535):
-        # type: (int) -> Optional[Packet]
-        pkt = None  # type: Optional[Packet]
-        if self._buf != b"":
-            try:
-                pkt = self.basecls(self._buf)
-            except Exception:
-                # We assume that the exception is generated by a buffer underflow  # noqa: E501
-                pass
-
+    def recv(self, x=None, **kwargs):
+        # type: (Optional[int], **Any) -> Optional[Packet]
+        if x is None:
+            x = MTU
+        # Block
+        data = self.ins.recv(x)
+        try:
+            pkt = self.sess.process(data, cls=self.basecls)  # type: ignore
+        except struct.error:
+            # Buffer underflow
+            pkt = None
+        if data == b"" and not pkt:
+            raise EOFError
         if not pkt:
-            buf = self.ins.recv(x)
-            if len(buf) == 0:
-                raise socket.error((100, "Underlying stream socket tore down"))
-            self._buf += buf
-
-        x = len(self._buf)
-        pkt = self.basecls(self._buf)
-        if pkt is not None:
-            pad = pkt.getlayer(conf.padding_layer)
-
-            if pad is not None and pad.underlayer is not None:
-                del pad.underlayer.payload
-            while pad is not None and not isinstance(pad, scapy.packet.NoPayload):   # noqa: E501
-                x -= len(pad.load)
-                pad = pad.payload
-            self._buf = self._buf[x:]
+            return self.recv(x)
         return pkt
 
 
@@ -457,6 +537,7 @@ class L2ListenTcpdump(SuperSocket):
                  filter=None,  # type: Optional[str]
                  nofilter=False,  # type: bool
                  prog=None,  # type: Optional[str]
+                 quiet=False,  # type: bool
                  *arg,  # type: Any
                  **karg  # type: Any
                  ):
@@ -480,13 +561,14 @@ class L2ListenTcpdump(SuperSocket):
                     filter = "not (%s)" % conf.except_filter
         if filter is not None:
             args.append(filter)
-        self.tcpdump_proc = tcpdump(None, prog=prog, args=args, getproc=True)
+        self.tcpdump_proc = tcpdump(
+            None, prog=prog, args=args, getproc=True, quiet=quiet)
         self.reader = PcapReader(self.tcpdump_proc.stdout)
         self.ins = self.reader  # type: ignore
 
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
-        return self.reader.recv(x)
+    def recv(self, x=MTU, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
+        return self.reader.recv(x, **kwargs)
 
     def close(self):
         # type: () -> None
@@ -535,11 +617,11 @@ class IterSocket(SuperSocket):
         # type: (List[SuperSocket], Any) -> List[SuperSocket]
         return sockets
 
-    def recv(self, *args):
-        # type: (*Any) -> Optional[Packet]
+    def recv(self, x=None, **kwargs):
+        # type: (Optional[int], Any) -> Optional[Packet]
         try:
             pkt = next(self.iter)
-            return pkt.__class__(bytes(pkt))
+            return pkt.__class__(bytes(pkt), **kwargs)
         except StopIteration:
             raise EOFError
 

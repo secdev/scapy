@@ -6,7 +6,9 @@
 
 from scapy.layers.smb import *
 
-= test SMB Negociate Header - dissect
+= test SMB Generic Header - dissect
+
+from scapy.layers.smb import _SMBGeneric
 
 # OK test
 rawpkt = b'\x45\x00\x00\x5b\x69\x10\x40\x00\x73\x06\xca\x85\x7a\xa0\x9a\xb6\xc0\xa8\xfe\x07\xeb\xec\x01\xbd\xaf\x97\x2e\xb7\x78\x60\x84\x6c\x50\x18\x40\x29\xd5\x36\x00\x00\x00\x00\x00\x2f\xff\x53\x4d\x42\x72\x00\x00\x00\x00\x18\x01\x48\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x20\x18\x00\x00\x00\x00\x00\x0c\x00\x02\x4e\x54\x20\x4c\x4d\x20\x30\x2e\x31\x32\x00'
@@ -29,7 +31,7 @@ pkt = IP(rawpkt)
 assert TCP in pkt
 assert NBTSession in pkt
 assert pkt[NBTSession].LENGTH == 47
-assert SMBNegociate_Protocol_Request_Header_Generic in pkt
+assert _SMBGeneric in pkt
 # Should not have a proper SMBNegociate header as magic is \xf0SMB, not \xffSMB
 assert SMB_Header not in pkt
 
@@ -61,13 +63,13 @@ assert SMBNegotiate_Response_Extended_Security in smb_nego_resp
 assert smb_nego_resp[SMBNegotiate_Response_Extended_Security].ServerTime == 131210789640364829
 assert isinstance(smb_nego_resp.SecurityBlob, GSSAPI_BLOB)
 assert smb_nego_resp.SecurityBlob.MechType.oidname == 'SPNEGO - Simple Protected Negotiation'
-assert smb_nego_resp.SecurityBlob.innerContextToken.token.mechTypes[0].oid.oidname == 'NEGOEX - SPNEGO Extended Negotiation Security Mechanism'
+assert smb_nego_resp.SecurityBlob.innerToken.token.mechTypes[0].oid.oidname == 'NEGOEX - SPNEGO Extended Negotiation Security Mechanism'
 assert smb_nego_resp.ServerCapabilities.EXTENDED_SECURITY
 assert smb_nego_resp.Flags2.EXTENDED_SECURITY
 
 from uuid import UUID
 
-negoex_nego = smb_nego_resp.SecurityBlob.innerContextToken.token.mechToken.value
+negoex_nego = smb_nego_resp.SecurityBlob.innerToken.token.mechToken.value
 assert negoex_nego.MessageType == 1
 assert negoex_nego.SequenceNum == 0
 assert len(negoex_nego.Payload) == 1
@@ -92,8 +94,8 @@ smb_sax_req_1 = Ether(b'\x00PV\xc0\x00\x01\x00\x0c)a\xf5_\x08\x00E\x00\x00\xb6Qf
 assert SMBSession_Setup_AndX_Request_Extended_Security in smb_sax_req_1
 assert smb_sax_req_1.Flags2.EXTENDED_SECURITY
 assert smb_sax_req_1.Flags2.UNICODE
-assert isinstance(smb_sax_req_1.SecurityBlob.innerContextToken.token.mechToken.value, NTLM_NEGOTIATE)
-ntlm_nego = smb_sax_req_1.SecurityBlob.innerContextToken.token.mechToken.value
+assert isinstance(smb_sax_req_1.SecurityBlob.innerToken.token.mechToken.value, NTLM_NEGOTIATE)
+ntlm_nego = smb_sax_req_1.SecurityBlob.innerToken.token.mechToken.value
 assert ntlm_nego.ProductBuild == 10586
 
 = SMB Setup AndX Response (ES)
@@ -146,3 +148,58 @@ assert smb_sax_resp_2.SecurityBlob.token.negResult == 0
 assert smb_sax_resp_2.SecurityBlob.token.mechListMIC.value.val == b'\x01\x00\x00\x00\xee\t\x91S\xab\x7f]\xe6\x00\x00\x00\x00'
 assert smb_sax_resp_2.NativeOS == 'Windows 8.1 9600'
 assert smb_sax_resp_2.NativeLanMan == 'Windows 8.1 6.3'
+
+
++ Test BRWS
+
+= BRWS BecomeBackup - build
+
+pkt = \
+    IP(id=3109, ttl=128, src='192.168.1.2', dst='192.168.1.255') / \
+    UDP(sport=138, dport=138) / \
+    NBTDatagram(Type=17, Flags=2, ID=37087, SourceIP='192.168.1.2',
+                SourcePort=138, SourceName=b'VIKRANT-LAPTOP ',
+                SUFFIX1=16705, DestinationName=b'WORKGROUP',
+                SUFFIX2=16975) / \
+    SMB_Header(Flags=0) / \
+    SMBMailslot_Write(Data=BRWS_BecomeBackup(OpCode=11, BrowserToPromote='LENOVO-NETBOOK'),
+                      Timeout=1000, Name='\\MAILSLOT\\BROWSE')
+
+
+assert bytes(pkt) == b'E\x00\x00\xd4\x0c%\x00\x00\x80\x11\xa9\xa2\xc0\xa8\x01\x02\xc0\xa8\x01\xff\x00\x8a\x00\x8a\x00\xc0\xca)\x11\x02\x90\xdf\xc0\xa8\x01\x02\x00\x8a\x00\xaa\x00\x00 FGEJELFCEBEOFECNEMEBFAFEEPFACAAA\x00 FHEPFCELEHFCEPFFFACACACACACACABO\x00\xffSMB%\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x00\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\xe8\x03\x00\x00\x00\x00\x00\x00\x00\x00\x10\x00V\x00\x03\x00\x01\x00\x01\x00\x02\x00!\x00\\MAILSLOT\\BROWSE\x00\x0bLENOVO-NETBOOK\x00'
+
+= BRWS BecomeBackup - dissection
+
+pkt = IP(b'E\x00\x00\xd4\x0c%\x00\x00\x80\x11\xa9\xa2\xc0\xa8\x01\x02\xc0\xa8\x01\xff\x00\x8a\x00\x8a\x00\xc0\xca)\x11\x02\x90\xdf\xc0\xa8\x01\x02\x00\x8a\x00\xaa\x00\x00 FGEJELFCEBEOFECNEMEBFAFEEPFACAAA\x00 FHEPFCELEHFCEPFFFACACACACACACABO\x00\xffSMB%\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x00\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\xe8\x03\x00\x00\x00\x00\x00\x00\x00\x00\x10\x00V\x00\x03\x00\x01\x00\x01\x00\x02\x00!\x00\\MAILSLOT\\BROWSE\x00\x0bLENOVO-NETBOOK\x00')
+
+assert SMBMailslot_Write in pkt
+assert pkt[SMBMailslot_Write].Timeout == 1000
+assert pkt[SMBMailslot_Write].Name == b"\\MAILSLOT\\BROWSE"
+assert pkt[SMBMailslot_Write].Data.BrowserToPromote == b'LENOVO-NETBOOK'
+
+= BRWS HostAnnouncement - build
+
+pkt = \
+    IP(id=51657, tos=0x20, src='192.168.1.8', dst='192.168.1.255') / \
+    UDP(sport=138, dport=138) / \
+    NBTDatagram(Type=17, Flags=2, ID=18755, SourceIP='192.168.1.8',
+                SourcePort=0, SourceName='MACBOOKPRO-199C',
+                SUFFIX1=16705, DestinationName='WORKGROUP',
+                SUFFIX2=16974) / \
+    SMB_Header(Flags=0, PIDLow=176, MID=18754) / \
+    SMBMailslot_Write(Data=BRWS_HostAnnouncement(ServerName="MACBOOKPRO-122A", Comment="Super's MacBook Pro"),
+                      Timeout=0, Flags=2, Name='\\MAILSLOT\\BROWSE')
+
+
+assert bytes(pkt) == b"E \x00\xf8\xc9\xc9\x00\x00@\x11+\xb4\xc0\xa8\x01\x08\xc0\xa8\x01\xff\x00\x8a\x00\x8a\x00\xe4\xb3\xb0\x11\x02IC\xc0\xa8\x01\x08\x00\x00\x00\xce\x00\x00 ENEBEDECEPEPELFAFCEPCNDBDJDJEDAA\x00 FHEPFCELEHFCEPFFFACACACACACACABN\x00\xffSMB%\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb0\x00\x00\x00BI\x11\x00\x004\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x004\x00V\x00\x03\x00\x01\x00\x01\x00\x02\x00E\x00\\MAILSLOT\\BROWSE\x00\x01\x00\x00\xf4\x01\x00MACBOOKPRO-122A\x00\x06\x01\x03\x12\x00\x00\x15\x01U\xaaSuper's MacBook Pro\x00"
+
+= BRWS HostAnnouncement - dissection
+
+pkt = IP(b"E \x00\xf8\xc9\xc9\x00\x00@\x11+\xb4\xc0\xa8\x01\x08\xc0\xa8\x01\xff\x00\x8a\x00\x8a\x00\xe4\xb3\xb0\x11\x02IC\xc0\xa8\x01\x08\x00\x00\x00\xce\x00\x00 ENEBEDECEPEPELFAFCEPCNDBDJDJEDAA\x00 FHEPFCELEHFCEPFFFACACACACACACABN\x00\xffSMB%\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb0\x00\x00\x00BI\x11\x00\x004\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x004\x00V\x00\x03\x00\x01\x00\x01\x00\x02\x00E\x00\\MAILSLOT\\BROWSE\x00\x01\x00\x00\xf4\x01\x00MACBOOKPRO-122A\x00\x06\x01\x03\x12\x00\x00\x15\x01U\xaaSuper's MacBook Pro\x00")
+
+assert SMBMailslot_Write in pkt
+assert pkt[SMBMailslot_Write].Name == b"\\MAILSLOT\\BROWSE"
+assert pkt[SMBMailslot_Write].Data.OpCode == 1
+assert pkt[SMBMailslot_Write].Data.ServerName == b"MACBOOKPRO-122A\x00"
+assert pkt[SMBMailslot_Write].Data.Comment == b"Super's MacBook Pro"
+assert pkt[SMBMailslot_Write].Data.Signature == 0xAA55

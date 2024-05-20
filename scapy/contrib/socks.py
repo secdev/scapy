@@ -16,8 +16,15 @@ from scapy.error import warning
 from scapy.layers.dns import DNSStrField
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.inet6 import IP6Field
-from scapy.fields import ByteField, ByteEnumField, ShortField, IPField, \
-    StrField, MultipleTypeField
+from scapy.fields import (
+    ByteEnumField,
+    ByteField,
+    IPField,
+    MultipleTypeField,
+    ShortField,
+    StrField,
+    StrNullField,
+)
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 
 # TODO: support the 3 different authentication exchange procedures for SOCKS5  # noqa: E501
@@ -86,8 +93,7 @@ class SOCKS4Request(Packet):
         ByteEnumField("cd", 1, _socks4_cd_request),
         ShortField("dstport", 80),
         IPField("dst", "0.0.0.0"),
-        StrField("userid", ""),
-        ByteField("null", 0),
+        StrNullField("userid", ""),
     ]
 
 
@@ -104,7 +110,7 @@ class SOCKS4Reply(Packet):
     overload_fields = {SOCKS: {"vn": 0x0}}
     fields_desc = [
         ByteEnumField("cd", 90, _socks4_cd_reply),
-    ] + SOCKS4Request.fields_desc[1:-2]  # Re-use dstport, dst and userid
+    ] + SOCKS4Request.fields_desc[1:-2]  # Reuse dstport, dst and userid
 
 # SOCKS v5 - TCP
 
@@ -168,7 +174,7 @@ class SOCKS5UDP(Packet):
     fields_desc = [
         ShortField("res", 0),
         ByteField("frag", 0),
-    ] + SOCKS5Request.fields_desc[2:]  # Re-use the atyp, addr and port fields
+    ] + SOCKS5Request.fields_desc[2:]  # Reuse the atyp, addr and port fields
 
     def guess_payload_class(self, s):
         if self.port == 0:

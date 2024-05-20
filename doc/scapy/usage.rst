@@ -27,30 +27,13 @@ some features will not be available::
 
 The basic features of sending and receiving packets should still work, though. 
 
-
-Customizing the Terminal
-------------------------
-
-Before you actually start using Scapy, you may want to configure Scapy to properly render colors on your terminal. To do so, set ``conf.color_theme`` to one of of the following themes::
-
-    DefaultTheme, BrightTheme, RastaTheme, ColorOnBlackTheme, BlackAndWhite, HTMLTheme, LatexTheme
-
-For instance::
-
-    conf.color_theme = BrightTheme()
-
-.. image:: graphics/animations/animation-scapy-themes-demo.gif
-   :align: center
-
-Other parameters such as ``conf.prompt`` can also provide some customization. Note Scapy will update the shell automatically as soon as the ``conf`` values are changed.
-
-
 Interactive tutorial
 ====================
 
 This section will show you several of Scapy's features with Python 2.
 Just open a Scapy session as shown above and try the examples yourself.
 
+.. note:: You can configure the Scapy terminal by modifying the ``~/.config/scapy/prestart.py`` file.
 
 First steps
 -----------
@@ -174,6 +157,7 @@ pkt.decode_payload_as()   changes the way the payload is decoded
 pkt.psdump()              draws a PostScript diagram with explained dissection 
 pkt.pdfdump()             draws a PDF with explained dissection 
 pkt.command()             return a Scapy command that can generate the packet 
+pkt.json()                return a JSON string representing the packet
 =======================   ====================================================
 
 
@@ -408,7 +392,7 @@ The above will send a single SYN packet to Google's port 80 and will quit after 
 
 From the above output, we can see Google returned “SA” or SYN-ACK flags indicating an open port.
 
-Use either notations to scan ports 400 through 443 on the system:
+Use either notations to scan ports 440 through 443 on the system:
 
     >>> sr(IP(dst="192.168.1.1")/TCP(sport=666,dport=(440,443),flags="S"))
 
@@ -784,11 +768,12 @@ Advanced Sniffing - Sniffing Sessions
 Scapy includes some basic Sessions, but it is possible to implement your own.
 Available by default:
 
-- :py:class:`~scapy.sessions.IPSession` -> *defragment IP packets* on-the-flow, to make a stream usable by ``prn``.
+- :py:class:`~scapy.sessions.IPSession` -> *defragment IP packets* on-the-fly, to make a stream usable by ``prn``.
 - :py:class:`~scapy.sessions.TCPSession` -> *defragment certain TCP protocols*. Currently supports:
    - HTTP 1.0
    - TLS
-   - Kerberos / DCERPC
+   - Kerberos
+   - DCE/RPC
 - :py:class:`~scapy.sessions.TLSSession` -> *matches TLS sessions* on the flow.
 - :py:class:`~scapy.sessions.NetflowSession` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
 
@@ -800,9 +785,12 @@ Those sessions can be used using the ``session=`` parameter of ``sniff()``. Exam
 
 .. note::
    To implement your own Session class, in order to support another flow-based protocol, start by copying a sample from `scapy/sessions.py <https://github.com/secdev/scapy/blob/master/scapy/sessions.py>`_
-   Your custom ``Session`` class only needs to extend the :py:class:`~scapy.sessions.DefaultSession` class, and implement a ``on_packet_received`` function, such as in the example.
+   Your custom ``Session`` class only needs to extend the :py:class:`~scapy.sessions.DefaultSession` class, and implement a ``process`` or a ``recv`` function, such as in the examples.
 
-.. note:: Would you need it, you can use: ``class TLS_over_TCP(TLSSession, TCPSession): pass`` to sniff TLS packets that are defragmented.
+
+.. warning::
+    The inner workings of ``Session`` is currently UNSTABLE: custom Sessions may break in the future.
+
 
 How to use TCPSession to defragment TCP packets
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1230,21 +1218,9 @@ Wireless frame injection
    single: FakeAP, Dot11, wireless, WLAN
 
 .. note::
-   See the TroubleShooting section for more information on the usage of Monitor mode among Scapy.
+   See the :doc:`TroubleShooting <troubleshooting>` section for more information on the usage of Monitor mode among Scapy.
 
-Provided that your wireless card and driver are correctly configured for frame injection
-
-::
-
-    $ iw dev wlan0 interface add mon0 type monitor
-    $ ifconfig mon0 up
-
-On Windows, if using Npcap, the equivalent would be to call::
-
-    >>> # Of course, conf.iface can be replaced by any interfaces accessed through conf.ifaces
-    ... conf.iface.setmonitor(True)
-
-you can have a kind of FakeAP::
+Provided that your wireless card and driver are correctly configured for frame injection, you can have a kind of FakeAP::
 
     >>> sendp(RadioTap()/
               Dot11(addr1="ff:ff:ff:ff:ff:ff",
@@ -1361,21 +1337,21 @@ DNS Requests
 This will perform a DNS request looking for IPv4 addresses
 
     >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="secdev.org",qtype="A")))
-    >>> ans.an.rdata
+    >>> ans.an[0].rdata
     '217.25.178.5'
 
 **SOA request:**
 
     >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="secdev.org",qtype="SOA")))
-    >>> ans.ns.mname
+    >>> ans.an[0].mname
     b'dns.ovh.net.'
-    >>> ans.ns.rname
+    >>> ans.an[0].rname
     b'tech.ovh.net.'
 
 **MX request:**
 
     >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="google.com",qtype="MX")))
-    >>> results = [x.exchange for x in ans.an.iterpayloads()]
+    >>> results = [x.exchange for x in ans.an]
     >>> results
     [b'alt1.aspmx.l.google.com.',
      b'alt4.aspmx.l.google.com.',
@@ -1464,28 +1440,41 @@ Visualizing the results in a list::
     >>> res.nsummary(prn=lambda s,r: r.src, lfilter=lambda s,r: r.haslayer(ISAKMP) ) 
 
 
-DNS spoof
----------
+DNS server
+----------
 
-See :class:`~scapy.layers.dns.DNS_am`::
+By default, ``dnsd`` uses a joker (IPv4 only): it answers to all unknown servers with the joker. See :class:`~scapy.layers.dns.DNS_am`::
 
-    >>> dns_spoof(iface="tap0", joker="192.168.1.1")
+    >>> dnsd(iface="tap0", match={"google.com": "1.1.1.1"}, joker="192.168.1.1")
 
-LLMNR spoof
------------
+You can also use ``relay=True`` to replace the joker behavior with a forward to a server included in ``conf.nameservers``.
+
+mDNS server
+------------
+
+See :class:`~scapy.layers.dns.mDNS_am`::
+
+    >>> mdnsd(iface="eth0", joker="192.168.1.1")
+
+Note that ``mdnsd`` extends the ``dnsd`` API.
+
+LLMNR server
+------------
 
 See :class:`~scapy.layers.llmnr.LLMNR_am`::
 
     >>> conf.iface = "tap0"
-    >>> llmnr_spoof(iface="tap0", filter_ips=Net("10.0.0.1/24"))
+    >>> llmnrd(iface="tap0", from_ip=Net("10.0.0.1/24"))
 
-Netbios spoof
--------------
+Note that ``llmnrd`` extends the ``dnsd`` API.
+
+Netbios server
+--------------
 
 See :class:`~scapy.layers.netbios.NBNS_am`::
 
-    >>> nbns_spoof(iface="eth0")  # With local IP
-    >>> nbns_spoof(iface="eth0", ip="192.168.122.17")  # With some other IP
+    >>> nbnsd(iface="eth0")  # With local IP
+    >>> nbnsd(iface="eth0", ip="192.168.122.17")  # With some other IP
 
 Node status request (get NetbiosName from IP)
 ---------------------------------------------
@@ -1798,7 +1787,7 @@ Scapy dissects slowly and/or misses packets under heavy loads.
 
 .. note::
 
-    Please bare in mind that Scapy is not designed to be blazing fast, but rather easily hackable & extensible. The packet model makes it VERY easy to create new layers, compared to pretty much all other alternatives, but comes with a performance cost. Of course, we still do our best to make Scapy as fast as possible, but it's not the absolute main goal.
+    Please bear in mind that Scapy is not designed to be blazing fast, but rather easily hackable & extensible. The packet model makes it VERY easy to create new layers, compared to pretty much all other alternatives, but comes with a performance cost. Of course, we still do our best to make Scapy as fast as possible, but it's not the absolute main goal.
 
 Solution
 ^^^^^^^^
@@ -1814,6 +1803,39 @@ There are quite a few ways of speeding up scapy's dissection. You can use all of
     conf.layers.filter([Ether, IP, ICMP])
     # Disable filtering: restore everything to normal
     conf.layers.unfilter()
+
+Very slow start because of big routes
+-------------------------------------
+
+Problem
+^^^^^^^
+
+Scapy takes ages to start because you have very big routing tables.
+
+Solution
+^^^^^^^^
+
+Disable the auto-loading of the routing tables:
+
+**CLI:** in ``~/.config/scapy/prestart.py`` add:
+
+.. code:: python
+
+    conf.route_autoload = False
+    conf.route6_autoload = False
+
+**Programmatically:**
+
+.. code:: python
+
+    # Before any other Scapy import
+    from scapy.config import conf
+    conf.route_autoload = False
+    conf.route6_autoload = False
+    # Import Scapy here
+    from scapy.all import *
+
+At anytime, you can trigger the routes loading using ``conf.route.resync()`` or ``conf.route6.resync()``, or add the routes yourself `as shown here <#routing>`_.
 
 
 OS Fingerprinting

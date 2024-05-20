@@ -40,14 +40,6 @@ from scapy.layers.tls.crypto.h_mac import HMACError
 if conf.crypto_valid_advanced:
     from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 
-# Util
-
-
-def _tls_version_check(version, min):
-    """Returns if version >= min, or False if version == None"""
-    if version is None:
-        return False
-    return version >= min
 
 ###############################################################################
 #   TLS Record Protocol                                                       #
@@ -216,7 +208,7 @@ class _TLSMsgListField(PacketListField):
         # Add TLS13ClientHello in case of HelloRetryRequest
         # Add ChangeCipherSpec for middlebox compatibility
         if (isinstance(pkt, _GenericTLSSessionInheritance) and
-                _tls_version_check(pkt.tls_session.tls_version, 0x0304) and
+                pkt.tls_session.tls_version == 0x0304 and
                 not isinstance(pkt.msg[0], TLS13ServerHello) and
                 not isinstance(pkt.msg[0], TLS13ClientHello) and
                 not isinstance(pkt.msg[0], TLSChangeCipherSpec)):
@@ -336,8 +328,14 @@ class TLS(_GenericTLSSessionInheritance):
                         return SSLv2
                     # Not SSLv2: continuation
                     return _TLSEncryptedContent
+                if plen >= 5:
+                    # Check minimum length
+                    msglen = struct.unpack('!H', _pkt[3:5])[0] + 5
+                    if plen < msglen:
+                        # This is a fragment
+                        return conf.padding_layer
                 # Check TLS 1.3
-                if s and _tls_version_check(s.tls_version, 0x0304):
+                if s and s.tls_version == 0x0304:
                     _has_cipher = lambda x: (
                         x and not isinstance(x.cipher, Cipher_NULL)
                     )
@@ -575,12 +573,24 @@ class TLS(_GenericTLSSessionInheritance):
         as the TLS session to be used would get lost.
         """
         if s:
+            # Check minimum length
+            if len(s) < 5:
+                p = conf.raw_layer(s, _internal=1, _underlayer=self)
+                self.add_payload(p)
+                return
+            msglen = struct.unpack('!H', s[3:5])[0] + 5
+            if len(s) < msglen:
+                # This is a fragment
+                self.add_payload(conf.padding_layer(s))
+                return
             try:
                 p = TLS(s, _internal=1, _underlayer=self,
                         tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
             except Exception:
+                if conf.debug_dissector:
+                    raise
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
@@ -734,11 +744,11 @@ class TLS(_GenericTLSSessionInheritance):
         return hdr + efrag + pay
 
     def mysummary(self):
-        s = super(TLS, self).mysummary()
+        s, n = super(TLS, self).mysummary()
         if self.msg:
             s += " / "
             s += " / ".join(getattr(x, "_name", x.name) for x in self.msg)
-        return s
+        return s, n
 
 ###############################################################################
 #   TLS ChangeCipherSpec                                                      #

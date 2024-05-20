@@ -7,8 +7,6 @@
 # scapy.contrib.description = Scalable service-Oriented MiddlewarE/IP (SOME/IP)
 # scapy.contrib.status = loads
 
-import ctypes
-import collections
 import struct
 
 from scapy.layers.inet import TCP, UDP
@@ -16,10 +14,12 @@ from scapy.layers.inet6 import IP6Field
 from scapy.compat import raw, orb
 from scapy.config import conf
 from scapy.packet import Packet, Raw, bind_top_down, bind_bottom_up
-from scapy.fields import XShortField, BitEnumField, ConditionalField, \
-    BitField, XBitField, IntField, XByteField, ByteEnumField, \
-    ShortField, X3BytesField, StrLenField, IPField, FieldLenField, \
-    PacketListField, XIntField
+from scapy.fields import (XShortField, ConditionalField,
+                          BitField, XBitField, XByteField, ByteEnumField,
+                          ShortField, X3BytesField, StrLenField, IPField,
+                          FieldLenField, PacketListField, XIntField,
+                          MultipleTypeField, FlagsField, IntField,
+                          XByteEnumField, BitScalingField)
 
 
 class SOMEIP(Packet):
@@ -62,11 +62,17 @@ class SOMEIP(Packet):
 
     fields_desc = [
         XShortField("srv_id", 0),
-        BitEnumField("sub_id", 0, 1, {0: "METHOD_ID", 1: "EVENT_ID"}),
-        ConditionalField(XBitField("method_id", 0, 15),
-                         lambda pkt: pkt.sub_id == 0),
-        ConditionalField(XBitField("event_id", 0, 15),
-                         lambda pkt: pkt.sub_id == 1),
+        MultipleTypeField(
+            [
+                (XShortField("sub_id", 0),
+                 (lambda pkt: False,
+                  lambda pkt, val: val < 0x8000), "method_id"),
+                (XShortField("sub_id", 0),
+                 (lambda pkt: False,
+                  lambda pkt, val: val >= 0x8000), "event_id"),
+            ],
+            XShortField("sub_id", 0),
+        ),
         IntField("len", None),
         XShortField("client_id", 0),
         XShortField("session_id", 0),
@@ -102,13 +108,28 @@ class SOMEIP(Packet):
             RET_E_MALFORMED_MSG: "E_MALFORMED_MESSAGE",
             RET_E_WRONG_MESSAGE_TYPE: "E_WRONG_MESSAGE_TYPE",
         }),
-        ConditionalField(BitField("offset", 0, 28),
-                         lambda pkt: SOMEIP._is_tp(pkt)),
-        ConditionalField(BitField("res", 0, 3),
-                         lambda pkt: SOMEIP._is_tp(pkt)),
-        ConditionalField(BitField("more_seg", 0, 1),
-                         lambda pkt: SOMEIP._is_tp(pkt))
+        ConditionalField(
+            BitScalingField("offset", 0, 28, scaling=16, unit="bytes"),
+            lambda pkt: SOMEIP._is_tp(pkt)),  # noqa: E501
+        ConditionalField(
+            BitField("res", 0, 3),
+            lambda pkt: SOMEIP._is_tp(pkt)),  # noqa: E501
+        ConditionalField(
+            BitField("more_seg", 0, 1),
+            lambda pkt: SOMEIP._is_tp(pkt)),  # noqa: E501
+        ConditionalField(PacketListField(
+            "data", [Raw()], Raw,
+            length_from=lambda pkt: pkt.len - (SOMEIP.LEN_OFFSET_TP if (SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len >= SOMEIP.LEN_OFFSET_TP)) else SOMEIP.LEN_OFFSET),  # noqa: E501
+            next_cls_cb=lambda pkt, lst, cur, remain:
+                SOMEIP.get_payload_cls_by_srv_id(pkt, lst, cur, remain)),
+            lambda pkt: SOMEIP._is_tp(pkt))  # noqa: E501
     ]
+
+    payload_cls_by_srv_id = dict()  # To be customized
+
+    @staticmethod
+    def get_payload_cls_by_srv_id(pkt, lst, cur, remain):
+        return SOMEIP.payload_cls_by_srv_id.get(pkt.srv_id, Raw)
 
     def post_build(self, pkt, pay):
         length = self.len
@@ -135,14 +156,18 @@ class SOMEIP(Packet):
     @staticmethod
     def _is_tp(pkt):
         """Returns true if pkt is using SOMEIP-TP, else returns false."""
-
-        tp = [SOMEIP.TYPE_TP_REQUEST, SOMEIP.TYPE_TP_REQUEST_NO_RET,
-              SOMEIP.TYPE_TP_NOTIFICATION, SOMEIP.TYPE_TP_RESPONSE,
-              SOMEIP.TYPE_TP_ERROR]
         if isinstance(pkt, Packet):
-            return pkt.msg_type in tp
+            return pkt.msg_type & 0x20
         else:
-            return pkt[15] in tp
+            return pkt[15] & 0x20
+
+    @staticmethod
+    def _is_sd(pkt):
+        """Returns true if pkt is using SOMEIP-SD, else returns false."""
+        if isinstance(pkt, Packet):
+            return pkt.srv_id == 0xffff and pkt.sub_id == 0x8100
+        else:
+            return pkt[:4] == b"\xff\xff\x81\x00"
 
     def fragment(self, fragsize=1392):
         """Fragment SOME/IP-TP"""
@@ -188,6 +213,7 @@ _bind_someip_layers()
 
 class _SDPacketBase(Packet):
     """ base class to be used among all SD Packet definitions."""
+
     def extract_padding(self, s):
         return "", s
 
@@ -205,7 +231,11 @@ SDENTRY_OVERALL_LEN = 16
 
 def _MAKE_SDENTRY_COMMON_FIELDS_DESC(type):
     return [
-        XByteField("type", type),
+        XByteEnumField("type", type, {
+            0: "FindService",
+            1: "OfferService",
+            6: "SubscribeEventgroup",
+            7: "SubscribeEventgroupACK"}),
         XByteField("index_1", 0),
         XByteField("index_2", 0),
         XBitField("n_opt_1", 0, 4),
@@ -288,7 +318,15 @@ SDOPTION_IP6_SDENDPOINT_LEN = 0x0015
 def _MAKE_COMMON_SDOPTION_FIELDS_DESC(type, length=None):
     return [
         ShortField("len", length),
-        XByteField("type", type),
+        XByteEnumField("type", type, {
+            SDOPTION_CFG_TYPE: "Configuration",
+            SDOPTION_LOADBALANCE_TYPE: "LoadBalancing",
+            SDOPTION_IP4_ENDPOINT_TYPE: "IPv4Endpoint",
+            SDOPTION_IP4_MCAST_TYPE: "IPv4MultiCast",
+            SDOPTION_IP4_SDENDPOINT_TYPE: "IPv4SDEndpoint",
+            SDOPTION_IP6_ENDPOINT_TYPE: "IPv6Endpoint",
+            SDOPTION_IP6_MCAST_TYPE: "IPv6MultiCast",
+            SDOPTION_IP6_SDENDPOINT_TYPE: "IPv6SDEndpoint"}),
         XByteField("res_hdr", 0)
     ]
 
@@ -304,7 +342,7 @@ def _MAKE_COMMON_IP_SDOPTION_FIELDS_DESC():
 class SDOption_Config(_SDPacketBase):
     name = "Config Option"
     fields_desc = _MAKE_COMMON_SDOPTION_FIELDS_DESC(SDOPTION_CFG_TYPE) + [
-        StrLenField("cfg_str", "\x00", length_from=lambda pkt: pkt.len - 1)
+        StrLenField("cfg_str", b"\x00", length_from=lambda pkt: pkt.len - 1)
     ]
 
     def post_build(self, pkt, pay):
@@ -420,8 +458,7 @@ class SD(_SDPacketBase):
             p.option_array = [SDOption_Config(),SDOption_IP6_EndPoint()]
     """
     SOMEIP_MSGID_SRVID = 0xffff
-    SOMEIP_MSGID_SUBID = 0x1
-    SOMEIP_MSGID_EVENTID = 0x100
+    SOMEIP_MSGID_SUBID = 0x8100
     SOMEIP_CLIENT_ID = 0x0000
     SOMEIP_MINIMUM_SESSION_ID = 0x0001
     SOMEIP_PROTO_VER = 0x01
@@ -429,15 +466,11 @@ class SD(_SDPacketBase):
     SOMEIP_MSG_TYPE = SOMEIP.TYPE_NOTIFICATION
     SOMEIP_RETCODE = SOMEIP.RET_E_OK
 
-    _sdFlag = collections.namedtuple('Flag', 'mask offset')
-    FLAGSDEF = {
-        "REBOOT": _sdFlag(mask=0x80, offset=7),
-        "UNICAST": _sdFlag(mask=0x40, offset=6)
-    }
-
     name = "SD"
     fields_desc = [
-        XByteField("flags", 0),
+        FlagsField("flags", 0, 8, [
+            "res0", "res1", "res2", "res3", "res4",
+            "EXPLICIT_INITIAL_DATA_CONTROL", "UNICAST", "REBOOT"]),
         X3BytesField("res", 0),
         FieldLenField("len_entry_array", None,
                       length_of="entry_array", fmt="!I"),
@@ -448,21 +481,6 @@ class SD(_SDPacketBase):
         PacketListField("option_array", None, _sdoption_class,
                         length_from=lambda pkt: pkt.len_option_array)
     ]
-
-    def get_flag(self, name):
-        name = name.upper()
-        if name in self.FLAGSDEF:
-            return ((self.flags & self.FLAGSDEF[name].mask) >>
-                    self.FLAGSDEF[name].offset)
-        else:
-            return None
-
-    def set_flag(self, name, value):
-        name = name.upper()
-        if name in self.FLAGSDEF:
-            self.flags = (self.flags &
-                          (ctypes.c_ubyte(~self.FLAGSDEF[name].mask).value)) \
-                | ((value & 0x01) << self.FLAGSDEF[name].offset)
 
     def set_entryArray(self, entry_list):
         if isinstance(entry_list, list):
@@ -482,7 +500,6 @@ bind_top_down(SOMEIP, SD,
               sub_id=SD.SOMEIP_MSGID_SUBID,
               client_id=SD.SOMEIP_CLIENT_ID,
               session_id=SD.SOMEIP_MINIMUM_SESSION_ID,
-              event_id=SD.SOMEIP_MSGID_EVENTID,
               proto_ver=SD.SOMEIP_PROTO_VER,
               iface_ver=SD.SOMEIP_IFACE_VER,
               msg_type=SD.SOMEIP_MSG_TYPE,
@@ -491,7 +508,6 @@ bind_top_down(SOMEIP, SD,
 bind_bottom_up(SOMEIP, SD,
                srv_id=SD.SOMEIP_MSGID_SRVID,
                sub_id=SD.SOMEIP_MSGID_SUBID,
-               event_id=SD.SOMEIP_MSGID_EVENTID,
                proto_ver=SD.SOMEIP_PROTO_VER,
                iface_ver=SD.SOMEIP_IFACE_VER,
                msg_type=SD.SOMEIP_MSG_TYPE,

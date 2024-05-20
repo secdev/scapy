@@ -7,8 +7,17 @@
 # scapy.contrib.status = loads
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import FieldLenField, BitEnumField, StrLenField, \
-    ShortField, ConditionalField, ByteEnumField, ByteField, PacketListField
+from scapy.fields import (
+    BitEnumField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    FieldLenField,
+    FieldListField,
+    PacketListField,
+    ShortField,
+    StrLenField,
+)
 from scapy.layers.inet import TCP
 from scapy.error import Scapy_Exception
 from scapy.compat import orb, chb
@@ -250,10 +259,18 @@ class MQTTSubscribe(Packet):
 
 
 ALLOWED_RETURN_CODE = {
-    0: 'Success',
-    1: 'Success',
-    2: 'Success',
-    128: 'Failure'
+    0x00: 'Granted QoS 0',
+    0x01: 'Granted QoS 1',
+    0x02: 'Granted QoS 2',
+    0x80: 'Unspecified error',
+    0x83: 'Implementation specific error',
+    0x87: 'Not authorized',
+    0x8F: 'Topic Filter invalid',
+    0x91: 'Packet Identifier in use',
+    0x97: 'Quota exceeded',
+    0x9E: 'Shared Subscriptions not supported',
+    0xA1: 'Subscription Identifiers not supported',
+    0xA2: 'Wildcard Subscriptions not supported',
 }
 
 
@@ -261,7 +278,7 @@ class MQTTSuback(Packet):
     name = "MQTT suback"
     fields_desc = [
         ShortField("msgid", None),
-        ByteEnumField("retcode", None, ALLOWED_RETURN_CODE)
+        FieldListField("retcodes", None, ByteEnumField("", None, ALLOWED_RETURN_CODE))
     ]
 
 

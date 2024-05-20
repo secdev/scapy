@@ -10,11 +10,16 @@ scapy/__main__.py
 scapy/all.py
 scapy/ansmachine.py
 scapy/arch/__init__.py
+scapy/arch/bpf/__init__.py
+scapy/arch/bpf/consts.py
+scapy/arch/bpf/core.py
+scapy/arch/bpf/supersocket.py
 scapy/arch/common.py
 scapy/arch/libpcap.py
-scapy/arch/linux.py
-scapy/arch/unix.py
+scapy/arch/linux/__init__.py
+scapy/arch/linux/rtnetlink.py
 scapy/arch/solaris.py
+scapy/arch/unix.py
 scapy/arch/windows/__init__.py
 scapy/arch/windows/native.py
 scapy/arch/windows/structures.py
@@ -85,6 +90,15 @@ scapy/contrib/isotp/isotp_soft_socket.py
 scapy/contrib/isotp/isotp_utils.py
 scapy/contrib/roce.py
 scapy/contrib/tcpao.py
+
+# LIBS
+scapy/libs/__init__.py
+scapy/libs/ethertypes.py
+scapy/libs/extcap.py
+scapy/libs/matplot.py
+scapy/libs/rfc3961.py
+scapy/libs/structures.py
+scapy/libs/test_pyx.py
 
 # TEST
 test/testsocket.py

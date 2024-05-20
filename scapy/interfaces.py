@@ -12,7 +12,7 @@ import uuid
 from collections import defaultdict
 
 from scapy.config import conf
-from scapy.consts import WINDOWS
+from scapy.consts import WINDOWS, LINUX
 from scapy.utils import pretty_list
 from scapy.utils6 import in6_isvalid
 
@@ -20,6 +20,7 @@ from scapy.utils6 import in6_isvalid
 import scapy
 from scapy.compat import UserDict
 from typing import (
+    cast,
     Any,
     DefaultDict,
     Dict,
@@ -34,7 +35,7 @@ from typing import (
 
 class InterfaceProvider(object):
     name = "Unknown"
-    headers = ("Index", "Name", "MAC", "IPv4", "IPv6")
+    headers: Tuple[str, ...] = ("Index", "Name", "MAC", "IPv4", "IPv6")
     header_sort = 1
     libpcap = False
 
@@ -49,19 +50,27 @@ class InterfaceProvider(object):
         """Same than load() but for reloads. By default calls load"""
         return self.load()
 
-    def l2socket(self):
-        # type: () -> Type[scapy.supersocket.SuperSocket]
+    def _l2socket(self, dev):
+        # type: (NetworkInterface) -> Type[scapy.supersocket.SuperSocket]
         """Return L2 socket used by interfaces of this provider"""
         return conf.L2socket
 
-    def l2listen(self):
-        # type: () -> Type[scapy.supersocket.SuperSocket]
+    def _l2listen(self, dev):
+        # type: (NetworkInterface) -> Type[scapy.supersocket.SuperSocket]
         """Return L2listen socket used by interfaces of this provider"""
         return conf.L2listen
 
-    def l3socket(self):
-        # type: () -> Type[scapy.supersocket.SuperSocket]
+    def _l3socket(self, dev, ipv6):
+        # type: (NetworkInterface, bool) -> Type[scapy.supersocket.SuperSocket]
         """Return L3 socket used by interfaces of this provider"""
+        if LINUX and not self.libpcap and dev.name == conf.loopback_name:
+            # handle the loopback case. see troubleshooting.rst
+            if ipv6:
+                from scapy.supersocket import L3RawSocket6
+                return cast(Type['scapy.supersocket.SuperSocket'], L3RawSocket6)
+            else:
+                from scapy.supersocket import L3RawSocket
+                return L3RawSocket
         return conf.L3socket
 
     def _is_valid(self, dev):
@@ -73,7 +82,7 @@ class InterfaceProvider(object):
                 dev,  # type: NetworkInterface
                 **kwargs  # type: Any
                 ):
-        # type: (...) -> Tuple[str, str, str, List[str], List[str]]
+        # type: (...) -> Tuple[Union[str, List[str]], ...]
         """Returns the elements used by show()
 
         If a tuple is returned, this consist of the strings that will be
@@ -87,6 +96,12 @@ class InterfaceProvider(object):
             mac = conf.manufdb._resolve_MAC(mac)
         index = str(dev.index)
         return (index, dev.description, mac or "", dev.ips[4], dev.ips[6])
+
+    def __repr__(self) -> str:
+        """
+        repr
+        """
+        return "<InterfaceProvider: %s>" % self.name
 
 
 class NetworkInterface(object):
@@ -156,15 +171,15 @@ class NetworkInterface(object):
 
     def l2socket(self):
         # type: () -> Type[scapy.supersocket.SuperSocket]
-        return self.provider.l2socket()
+        return self.provider._l2socket(self)
 
     def l2listen(self):
         # type: () -> Type[scapy.supersocket.SuperSocket]
-        return self.provider.l2listen()
+        return self.provider._l2listen(self)
 
-    def l3socket(self):
-        # type: () -> Type[scapy.supersocket.SuperSocket]
-        return self.provider.l3socket()
+    def l3socket(self, ipv6=False):
+        # type: (bool) -> Type[scapy.supersocket.SuperSocket]
+        return self.provider._l3socket(self, ipv6)
 
     def __repr__(self):
         # type: () -> str
@@ -213,6 +228,9 @@ class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
         # type: (type) -> None
         prov = provider()
         self.providers[provider] = prov
+        if self.data:
+            # late registration
+            self._load(prov.reload(), prov)
 
     def load_confiface(self):
         # type: () -> None
@@ -233,8 +251,10 @@ class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
     def reload(self):
         # type: () -> None
         self._reload_provs()
-        if conf.route:
-            self.load_confiface()
+        if not conf.route:
+            # routes are not loaded yet.
+            return
+        self.load_confiface()
 
     def dev_from_name(self, name):
         # type: (str) -> NetworkInterface
@@ -271,8 +291,8 @@ class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
                 return self.dev_from_networkname(conf.loopback_name)
             raise ValueError("Unknown network interface index %r" % if_index)
 
-    def _add_fake_iface(self, ifname):
-        # type: (str) -> None
+    def _add_fake_iface(self, ifname, mac="00:00:00:00:00:00"):
+        # type: (str, str) -> None
         """Internal function used for a testing purpose"""
         data = {
             'name': ifname,
@@ -280,13 +300,14 @@ class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
             'network_name': ifname,
             'index': -1000,
             'dummy': True,
-            'mac': '00:00:00:00:00:00',
+            'mac': mac,
             'flags': 0,
             'ips': ["127.0.0.1", "::"],
             # Windows only
             'guid': "{%s}" % uuid.uuid1(),
             'ipv4_metric': 0,
             'ipv6_metric': 0,
+            'nameservers': [],
         }
         if WINDOWS:
             from scapy.arch.windows import NetworkInterface_Win, \
@@ -316,15 +337,16 @@ class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
             if not hidden and not dev.is_valid():
                 continue
             prov = dev.provider
-            res[prov].append(
+            res[(prov.headers, prov.header_sort)].append(
                 (prov.name,) + prov._format(dev, **kwargs)
             )
         output = ""
-        for provider in res:
+        for key in res:
+            hdrs, sortBy = key
             output += pretty_list(
-                res[provider],  # type: ignore
-                [("Source",) + provider.headers],
-                sortBy=provider.header_sort
+                res[key],
+                [("Source",) + hdrs],
+                sortBy=sortBy
             ) + "\n"
         output = output[:-1]
         if print_result:
