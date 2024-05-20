@@ -166,6 +166,31 @@ test_am(mDNS_am,
         check_mDNS_am_reply,
         joker="192.168.1.1")
 
+
+def check_mDNS_am_reply2(packet):
+    # $ avahi-resolve -n bonjour.local
+    packet.show()
+    # assert packet[Ether].src == get_if_hwaddr(conf.iface)
+    assert packet[Ether].dst == "01:00:5e:00:00:fb"
+    # assert packet[IP].src == get_if_addr(conf.iface)
+    assert packet[IP].dst == "224.0.0.251"
+    assert packet[IP].ttl == 255
+    assert packet[UDP].dport == 5353
+    assert packet[UDP].sport == 5353
+    assert DNS in packet and packet[DNS].ancount == 2 and packet[DNS].qdcount == 0
+    assert packet[DNS].an[0].rdata == "192.168.1.1"
+    assert packet[DNS].an[0].rrname == b"bonjour.local."
+    assert packet[DNS].an[0].ttl == 120
+    assert packet[DNS].an[1].type == 47
+    assert packet[DNS].an[1].rrname == b"bonjour.local."
+    assert packet[DNS].an[1].ttl == 120
+
+test_am(mDNS_am,
+        Ether(b'\x01\x00^\x00\x00\xfb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00A\xce}@\x00\xff\x11\x0b\x89\xc0\xa8\x00\x01\xe0\x00\x00\xfb\x14\xe9\x14\xe9\x00-\xdbl\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x07bonjour\x05local\x00\x00\x01\x00\x01\xc0\x0c\x00\x1c\x00\x01'),
+        check_mDNS_am_reply2,
+        joker="192.168.1.1",
+        ttl=120)
+
 = DHCPv6_am - Basic Instantiaion
 ~ osx netaccess
 a = DHCPv6_am()
