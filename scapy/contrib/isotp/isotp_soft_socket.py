@@ -39,6 +39,7 @@ from typing import (
     Callable,
     TYPE_CHECKING,
 )
+
 if TYPE_CHECKING:
     from scapy.contrib.cansocket import CANSocket
 

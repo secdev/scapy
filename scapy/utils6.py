@@ -85,6 +85,8 @@ def construct_source_candidate_set(
             cset = (x for x in laddr if x[1] == IPV6_ADDR_SITELOCAL)
     elif addr == '::' and plen == 0:
         cset = (x for x in laddr if x[1] == IPV6_ADDR_GLOBAL)
+    elif addr == '::1':
+        cset = (x for x in laddr if x[1] == IPV6_ADDR_LOOPBACK)
     addrs = [x[0] for x in cset]
     # TODO convert the cmd use into a key
     addrs.sort(key=cmp_to_key(cset_sort))  # Sort with global addresses first

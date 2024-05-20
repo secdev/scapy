@@ -557,6 +557,9 @@ class SPNEGOSSP(SSP):
                 self.supported_mechtypes = force_supported_mechtypes
             super(SPNEGOSSP.CONTEXT, self).__init__(req_flags=req_flags)
 
+        def clifailure(self):
+            self.sub_context.clifailure()
+
         def __getattr__(self, attr):
             try:
                 return object.__getattribute__(self, attr)

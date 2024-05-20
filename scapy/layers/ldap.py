@@ -22,6 +22,7 @@ import uuid
 
 from enum import Enum
 
+from scapy.arch import get_if_addr
 from scapy.ansmachine import AnsweringMachine
 from scapy.asn1.asn1 import (
     ASN1_STRING,
@@ -54,6 +55,7 @@ from scapy.packet import (
     bind_bottom_up,
     bind_layers,
 )
+from scapy.sendrecv import send
 from scapy.supersocket import (
     SimpleSocket,
     StreamSocket,
@@ -72,6 +74,7 @@ from scapy.layers.gssapi import (
 from scapy.layers.kerberos import (
     _ASN1FString_PacketField,
 )
+from scapy.layers.netbios import NBTDatagram
 from scapy.layers.smb import (
     NETLOGON,
     NETLOGON_SAM_LOGON_RESPONSE_EX,
@@ -708,7 +711,8 @@ bind_layers(UDP, CLDAP, sport=389, dport=389)
 
 class LdapPing_am(AnsweringMachine):
     function_name = "ldappingd"
-    filter = "udp port 389"
+    filter = "udp port 389 or 138"
+    send_function = staticmethod(send)
 
     def parse_options(
         self,
@@ -737,6 +741,16 @@ class LdapPing_am(AnsweringMachine):
         # (&(DnsDomain=abcde.corp.microsoft.com)(Host=abcdefgh-dev)(User=abcdefgh-
         # dev$)(AAC=\80\00\00\00)(DomainGuid=\3b\b0\21\ca\d3\6d\d1\11\8a\7d\b8\df\b1\56\87\1f)(NtVer
         # =\06\00\00\00))
+        if NBTDatagram in req:
+            # special case: mailslot ping
+            from scapy.layers.smb import SMBMailslot_Write, NETLOGON_SAM_LOGON_REQUEST
+            try:
+                return (
+                    SMBMailslot_Write in req and
+                    NETLOGON_SAM_LOGON_REQUEST in req.Data
+                )
+            except AttributeError:
+                return False
         if CLDAP not in req or not isinstance(req.protocolOp, LDAP_SearchRequest):
             return False
         req = req.protocolOp
@@ -751,10 +765,13 @@ class LdapPing_am(AnsweringMachine):
         )
 
     def make_reply(self, req):
+        if NBTDatagram in req:
+            # Special case
+            return self.make_mailslot_ping_reply(req)
         if IPv6 in req:
-            resp = IPv6(dst=req[IPv6].src, src=self.src_ip6)
+            resp = IPv6(dst=req[IPv6].src, src=self.src_ip6 or req[IPv6].dst)
         else:
-            resp = IP(dst=req[IP].src, src=self.src_ip)
+            resp = IP(dst=req[IP].src, src=self.src_ip or req[IP].dst)
         resp /= UDP(sport=req.dport, dport=req.sport)
         # get the DnsDomainName from the request
         try:
@@ -778,7 +795,7 @@ class LdapPing_am(AnsweringMachine):
                                             NETLOGON_SAM_LOGON_RESPONSE_EX(
                                                 # Mandatory fields
                                                 DnsDomainName=DnsDomainName,
-                                                NtVersion=5,
+                                                NtVersion="V1+V5",
                                                 LmNtToken=65535,
                                                 Lm20Token=65535,
                                                 # Below can be customized
@@ -812,6 +829,50 @@ class LdapPing_am(AnsweringMachine):
                 user=None,
             )
         )
+
+    def make_mailslot_ping_reply(self, req):
+        # type: (Packet) -> Packet
+        from scapy.layers.smb import (
+            SMBMailslot_Write,
+            SMB_Header,
+            DcSockAddr,
+            NETLOGON_SAM_LOGON_RESPONSE_EX,
+        )
+        resp = IP(dst=req[IP].src) / UDP(
+            sport=req.dport,
+            dport=req.sport,
+        )
+        address = self.src_ip or get_if_addr(self.optsniff.get("iface", conf.iface))
+        resp /= NBTDatagram(
+            SourceName=req.DestinationName,
+            SUFFIX1=req.SUFFIX2,
+            DestinationName=req.SourceName,
+            SUFFIX2=req.SUFFIX1,
+            SourceIP=address,
+        ) / SMB_Header() / SMBMailslot_Write(
+            Name=req.Data.MailslotName,
+        )
+        NetbiosDomainName = req.DestinationName.strip()
+        resp.Data = NETLOGON_SAM_LOGON_RESPONSE_EX(
+            # Mandatory fields
+            NetbiosDomainName=NetbiosDomainName,
+            DcSockAddr=DcSockAddr(
+                sin_addr=address,
+            ),
+            NtVersion="V1+V5EX+V5EX_WITH_IP",
+            LmNtToken=65535,
+            Lm20Token=65535,
+            # Below can be customized
+            Flags=0x3F3FD,
+            DomainGuid=self.DomainGuid,
+            DnsForestName=self.DnsForestName,
+            DnsDomainName=self.DnsForestName,
+            DnsHostName=self.DnsHostName,
+            NetbiosComputerName=self.NetbiosComputerName,
+            DcSiteName=self.DcSiteName,
+            ClientSiteName=self.DcSiteName,
+        )
+        return resp
 
 
 _located_dc = collections.namedtuple("LocatedDC", ["ip", "samlogon"])

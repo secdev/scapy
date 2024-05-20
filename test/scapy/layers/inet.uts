@@ -518,7 +518,7 @@ with no_debug_dissector(reverse=True):
         IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=4)/"c",
         IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
     ], session=TCPSession)
-    assert pkts[0][CustomPacket].a == b"abcd"
+    assert pkts[0][CustomPacket].a == b"abcd", "incremental failure"
     # same with a pcapng
     tmp_file = get_temp_file()
     wrpcap(tmp_file, [
@@ -528,7 +528,7 @@ with no_debug_dissector(reverse=True):
         IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
     ])
     pkts = sniff(offline=tmp_file, session=TCPSession)
-    assert pkts[0][CustomPacket].a == b"abcd"
+    assert pkts[0][CustomPacket].a == b"abcd", "pcapng failure"
     # messed up order: fragments 2 and 3 arrive in the wrong order
     pkts = sniff(offline=[
         IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x05a",
@@ -536,7 +536,7 @@ with no_debug_dissector(reverse=True):
         IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=3)/"b",
         IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
     ], session=TCPSession)
-    assert pkts[0][CustomPacket].a == b"abcd"
+    assert pkts[0][CustomPacket].a == b"abcd", "messed up order 1 failure"
     # messed up order: fragment 1 arrives not in first position
     pkts = sniff(offline=[
         IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=6)/"e",
@@ -545,7 +545,18 @@ with no_debug_dissector(reverse=True):
         IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
         IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x06a",
     ], session=TCPSession)
-    assert pkts[0][CustomPacket].a == b"abcde"
+    assert pkts[0][CustomPacket].a == b"abcde", "messed up order 2 failure"
+    # retransmitted packets
+    pkts = sniff(offline=[
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=6)/"e",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=4)/"c",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=6)/"e",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=3)/"b",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=5)/"d",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=6)/"e",
+        IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x06a",
+    ], session=TCPSession)
+    assert pkts[0][CustomPacket].a == b"abcde", "retransmitted failure"
 
 split_layers(TCP, CustomPacket, sport=12345)
 
@@ -679,6 +690,10 @@ assert answer.answers(query) == True
 query = IP(dst="192.168.0.1", src="192.168.0.254", ttl=1)/ICMP()/"scapy"
 answer = IP(dst="192.168.0.254", src="192.168.0.2")/ICMP(type=11)/IPerror(dst="192.168.0.1", src="192.168.0.254", ttl=0)/ICMPerror()/"scapy"
 assert answer.answers(query) == True
+
+= IPv4 - TCPError parsing
+pkt = Ether(bytes.fromhex('005056a4302ffcbd676360c908004500003800000000f80164b6682ce6b70ad504560b004f410000000045000028400e00000106fdae0ad50456681204d7f73100507d4430f8'))
+assert TCPerror in pkt and pkt[TCPerror].sport == 63281 and pkt[TCPerror].dport == 80
 
 = IPv4 - mDNS
 a = IP(dst="224.0.0.251")

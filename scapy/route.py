@@ -145,8 +145,8 @@ class Route:
         the_net = the_rawaddr & the_msk
         self.routes.append((the_net, the_msk, '0.0.0.0', iff, the_addr, 1))
 
-    def route(self, dst=None, verbose=conf.verb):
-        # type: (Optional[str], int) -> Tuple[str, str, str]
+    def route(self, dst=None, verbose=conf.verb, _internal=False):
+        # type: (Optional[str], int, bool) -> Tuple[str, str, str]
         """Returns the IPv4 routes to a host.
         parameters:
          - dst: the IPv4 of the destination host
@@ -195,6 +195,10 @@ class Route:
         paths.sort(key=lambda x: (-x[0], x[1]))
         # Return interface
         ret = paths[0][2]
+        # Check if source is 0.0.0.0. This is a 'via' route with no src.
+        if ret[1] == "0.0.0.0" and not _internal:
+            # Then get the source from route(gw)
+            ret = (ret[0], self.route(ret[2], _internal=True)[1], ret[2])
         self.cache[dst] = ret
         return ret
 

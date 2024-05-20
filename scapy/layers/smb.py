@@ -5,7 +5,11 @@
 # Copyright (C) Gabriel Potter
 
 """
-SMB (Server Message Block), also known as CIFS.
+SMB 1.0 (Server Message Block), also known as CIFS.
+
+.. note::
+    You will find more complete documentation for this layer over at
+    `SMB <https://scapy.readthedocs.io/en/latest/layers/smb.html>`_
 
 Specs:
 

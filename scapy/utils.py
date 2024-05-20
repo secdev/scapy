@@ -1550,14 +1550,14 @@ class RawPcapNgReader(RawPcapReader):
     PacketMetadata = collections.namedtuple("PacketMetadataNg",  # type: ignore
                                             ["linktype", "tsresol",
                                              "tshigh", "tslow", "wirelen",
-                                             "comment"])
+                                             "comment", "ifname", "direction"])
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, IO[bytes], bytes) -> None
         self.filename = filename
         self.f = fdesc
         # A list of (linktype, snaplen, tsresol); will be populated by IDBs.
-        self.interfaces = []  # type: List[Tuple[int, int, int]]
+        self.interfaces = []  # type: List[Tuple[int, int, Dict[str, Any]]]
         self.default_options = {
             "tsresol": 1000000
         }
@@ -1600,11 +1600,17 @@ class RawPcapNgReader(RawPcapReader):
         try:
             blocklen = struct.unpack(self.endian + "I", self.f.read(4))[0]
         except struct.error:
+            warning("PcapNg: Error reading blocklen before block body")
             raise EOFError
         if blocklen < 12:
-            warning("Invalid block length !")
+            warning("PcapNg: Invalid block length !")
             raise EOFError
-        block = self.f.read(blocklen - 12)
+
+        _block_body_length = blocklen - 12
+        block = self.f.read(_block_body_length)
+        if len(block) != _block_body_length:
+            raise Scapy_Exception("PcapNg: Invalid Block body length "
+                                  "(too short)")
         self._read_block_tail(blocklen)
         if blocktype in self.blocktypes:
             return self.blocktypes[blocktype](block, size)
@@ -1621,10 +1627,12 @@ class RawPcapNgReader(RawPcapReader):
                                          self.f.read(4))[0]:
                 raise EOFError("PcapNg: Invalid pcapng block (bad blocklen)")
         except struct.error:
+            warning("PcapNg: Could not read blocklen after block body")
             raise EOFError
 
     def _read_block_shb(self):
         # type: () -> None
+        """Section Header Block"""
         _blocklen = self.f.read(4)
         endian = self.f.read(4)
         if endian == b"\x1a\x2b\x3c\x4d":
@@ -1632,14 +1640,41 @@ class RawPcapNgReader(RawPcapReader):
         elif endian == b"\x4d\x3c\x2b\x1a":
             self.endian = "<"
         else:
-            warning("Bad magic in Section Header block (not a pcapng file?)")
+            warning("PcapNg: Bad magic in Section Header Block"
+                    " (not a pcapng file?)")
             raise EOFError
 
-        blocklen = struct.unpack(self.endian + "I", _blocklen)[0]
-        if blocklen < 16:
-            warning("Invalid SHB block length!")
+        try:
+            blocklen = struct.unpack(self.endian + "I", _blocklen)[0]
+        except struct.error:
+            warning("PcapNg: Could not read blocklen")
             raise EOFError
-        options = self.f.read(blocklen - 16)
+        if blocklen < 28:
+            warning(f"PcapNg: Invalid Section Header Block length ({blocklen})!")  # noqa: E501
+            raise EOFError
+
+        # Major version must be 1
+        _major = self.f.read(2)
+        try:
+            major = struct.unpack(self.endian + "H", _major)[0]
+        except struct.error:
+            warning("PcapNg: Could not read major value")
+            raise EOFError
+        if major != 1:
+            warning(f"PcapNg: SHB Major version {major} unsupported !")
+            raise EOFError
+
+        # Skip minor version & section length
+        skipped = self.f.read(10)
+        if len(skipped) != 10:
+            warning("PcapNg: Could not read minor value & section length")
+            raise EOFError
+
+        _options_len = blocklen - 28
+        options = self.f.read(_options_len)
+        if len(options) != _options_len:
+            raise Scapy_Exception("PcapNg: Invalid Section Header Block "
+                                  " options (too short)")
         self._read_block_tail(blocklen)
         self._read_options(options)
 
@@ -1656,24 +1691,21 @@ class RawPcapNgReader(RawPcapReader):
                 return res
 
     def _read_options(self, options):
-        # type: (bytes) -> Dict[str, Any]
-        """Section Header Block"""
-        opts = self.default_options.copy()  # type: Dict[str, Any]
+        # type: (bytes) -> Dict[int, bytes]
+        opts = dict()
         while len(options) >= 4:
-            code, length = struct.unpack(self.endian + "HH", options[:4])
-            # PCAP Next Generation (pcapng) Capture File Format
-            # 4.2. - Interface Description Block
-            # http://xml2rfc.tools.ietf.org/cgi-bin/xml2rfc.cgi?url=https://raw.githubusercontent.com/pcapng/pcapng/master/draft-tuexen-opsawg-pcapng.xml&modeAsFormat=html/ascii&type=ascii#rfc.section.4.2
-            if code == 9 and length == 1 and len(options) >= 5:
-                tsresol = orb(options[4])
-                opts["tsresol"] = (2 if tsresol & 128 else 10) ** (
-                    tsresol & 127
-                )
-            if code == 1 and length >= 1 and 4 + length < len(options):
-                opts["comment"] = options[4:4 + length]
+            try:
+                code, length = struct.unpack(self.endian + "HH", options[:4])
+            except struct.error:
+                warning("PcapNg: options header is too small "
+                        "%d !" % len(options))
+                raise EOFError
+            if code != 0 and 4 + length < len(options):
+                opts[code] = options[4:4 + length]
             if code == 0:
                 if length != 0:
-                    warning("PcapNg: invalid option length %d for end-of-option" % length)  # noqa: E501
+                    warning("PcapNg: invalid option "
+                            "length %d for end-of-option" % length)
                 break
             if length % 4:
                 length += (4 - (length % 4))
@@ -1685,12 +1717,28 @@ class RawPcapNgReader(RawPcapReader):
         """Interface Description Block"""
         # 2 bytes LinkType + 2 bytes Reserved
         # 4 bytes Snaplen
-        options = self._read_options(block[8:-4])
+        options_raw = self._read_options(block[8:])
+        options = self.default_options.copy()  # type: Dict[str, Any]
+        for c, v in options_raw.items():
+            if c == 9:
+                length = len(v)
+                if length == 1:
+                    tsresol = orb(v)
+                    options["tsresol"] = (2 if tsresol & 128 else 10) ** (
+                        tsresol & 127
+                    )
+                else:
+                    warning("PcapNg: invalid options "
+                            "length %d for IDB tsresol" % length)
+            elif c == 2:
+                options["name"] = v
+            elif c == 1:
+                options["comment"] = v
         try:
-            interface: Tuple[int, int, int] = struct.unpack(
+            interface: Tuple[int, int, Dict[str, Any]] = struct.unpack(
                 self.endian + "HxxI",
                 block[:8]
-            ) + (options["tsresol"],)
+            ) + (options,)
         except struct.error:
             warning("PcapNg: IDB is too small %d/8 !" % len(block))
             raise EOFError
@@ -1724,17 +1772,31 @@ class RawPcapNgReader(RawPcapReader):
 
         # Parse options
         options = self._read_options(block[opt_offset:])
-        comment = options.get("comment", None)
+        comment = options.get(1, None)
+        epb_flags_raw = options.get(2, None)
+        if epb_flags_raw:
+            try:
+                epb_flags, = struct.unpack(self.endian + "I", epb_flags_raw)
+            except struct.error:
+                warning("PcapNg: EPB invalid flags size"
+                        "(expected 4 bytes, got %d) !" % len(epb_flags_raw))
+                raise EOFError
+            direction = epb_flags & 3
+
+        else:
+            direction = None
 
         self._check_interface_id(intid)
-
+        ifname = self.interfaces[intid][2].get('name', None)
         return (block[20:20 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
-                                               tsresol=self.interfaces[intid][2],  # noqa: E501
+                                               tsresol=self.interfaces[intid][2]['tsresol'],  # noqa: E501
                                                tshigh=tshigh,
                                                tslow=tslow,
                                                wirelen=wirelen,
-                                               comment=comment))
+                                               comment=comment,
+                                               ifname=ifname,
+                                               direction=direction))
 
     def _read_block_spb(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -1754,11 +1816,13 @@ class RawPcapNgReader(RawPcapReader):
         caplen = min(wirelen, self.interfaces[intid][1])
         return (block[4:4 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
-                                               tsresol=self.interfaces[intid][2],  # noqa: E501
+                                               tsresol=self.interfaces[intid][2]['tsresol'],  # noqa: E501
                                                tshigh=None,
                                                tslow=None,
                                                wirelen=wirelen,
-                                               comment=None))
+                                               comment=None,
+                                               ifname=None,
+                                               direction=None))
 
     def _read_block_pkt(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -1775,11 +1839,13 @@ class RawPcapNgReader(RawPcapReader):
         self._check_interface_id(intid)
         return (block[20:20 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
-                                               tsresol=self.interfaces[intid][2],  # noqa: E501
+                                               tsresol=self.interfaces[intid][2]['tsresol'],  # noqa: E501
                                                tshigh=tshigh,
                                                tslow=tslow,
                                                wirelen=wirelen,
-                                               comment=None))
+                                               comment=None,
+                                               ifname=None,
+                                               direction=None))
 
     def _read_block_dsb(self, block, size):
         # type: (bytes, int) -> None
@@ -1851,7 +1917,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         rp = super(PcapNgReader, self)._read_packet(size=size)
         if rp is None:
             raise EOFError
-        s, (linktype, tsresol, tshigh, tslow, wirelen, comment) = rp
+        s, (linktype, tsresol, tshigh, tslow, wirelen, comment, ifname, direction) = rp
         try:
             cls = conf.l2types.num2layer[linktype]  # type: Type[Packet]
             p = cls(s, **kwargs)  # type: Packet
@@ -1868,6 +1934,9 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
             p.time = EDecimal((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen
         p.comment = comment
+        p.direction = direction
+        if ifname is not None:
+            p.sniffed_on = ifname.decode('utf-8', 'backslashreplace')
         return p
 
     def recv(self, size: int = MTU, **kwargs: Any) -> 'Packet':  # type: ignore
@@ -1876,7 +1945,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
 
 class GenericPcapWriter(object):
     nano = False
-    linktype = None  # type: Optional[int]
+    linktype: int
 
     def _write_header(self, pkt):
         # type: (Optional[Union[Packet, bytes]]) -> None
@@ -1884,11 +1953,14 @@ class GenericPcapWriter(object):
 
     def _write_packet(self,
                       packet,  # type: Union[bytes, Packet]
+                      linktype,  # type: int
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
                       wirelen=None,  # type: Optional[int]
-                      comment=None  # type: Optional[bytes]
+                      comment=None,  # type: Optional[bytes]
+                      ifname=None,  # type: Optional[bytes]
+                      direction=None,  # type: Optional[int]
                       ):
         # type: (...) -> None
         raise NotImplementedError
@@ -1912,7 +1984,7 @@ class GenericPcapWriter(object):
 
     def write_header(self, pkt):
         # type: (Optional[Union[Packet, bytes]]) -> None
-        if self.linktype is None:
+        if not hasattr(self, 'linktype'):
             try:
                 if pkt is None or isinstance(pkt, bytes):
                     # Can't guess LL
@@ -1970,12 +2042,24 @@ class GenericPcapWriter(object):
             wirelen = caplen
 
         comment = getattr(packet, "comment", None)
-
+        ifname = getattr(packet, "sniffed_on", None)
+        direction = getattr(packet, "direction", None)
+        if not isinstance(packet, bytes):
+            linktype: int = conf.l2types.layer2num[
+                packet.__class__
+            ]
+        else:
+            linktype = self.linktype
+        if ifname is not None:
+            ifname = str(ifname).encode('utf-8')
         self._write_packet(
             rawpkt,
             sec=f_sec, usec=usec,
             caplen=caplen, wirelen=wirelen,
-            comment=comment
+            comment=comment,
+            ifname=ifname,
+            direction=direction,
+            linktype=linktype
         )
 
 
@@ -2160,7 +2244,8 @@ class RawPcapWriter(GenericRawPcapWriter):
 
         """
 
-        self.linktype = linktype
+        if linktype:
+            self.linktype = linktype
         self.snaplen = snaplen
         self.append = append
         self.gz = gz
@@ -2201,7 +2286,7 @@ class RawPcapWriter(GenericRawPcapWriter):
             finally:
                 g.close()
 
-        if self.linktype is None:
+        if not hasattr(self, 'linktype'):
             raise ValueError(
                 "linktype could not be guessed. "
                 "Please pass a linktype while creating the writer"
@@ -2213,11 +2298,14 @@ class RawPcapWriter(GenericRawPcapWriter):
 
     def _write_packet(self,
                       packet,  # type: Union[bytes, Packet]
+                      linktype,  # type: int
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
                       wirelen=None,  # type: Optional[int]
-                      comment=None  # type: Optional[bytes]
+                      comment=None,  # type: Optional[bytes]
+                      ifname=None,  # type: Optional[bytes]
+                      direction=None,  # type: Optional[int]
                       ):
         # type: (...) -> None
         """
@@ -2225,6 +2313,8 @@ class RawPcapWriter(GenericRawPcapWriter):
 
         :param packet: bytes for a single packet
         :type packet: bytes
+        :param linktype: linktype value associated with the packet
+        :type linktype: int
         :param sec: time the packet was captured, in seconds since epoch. If
                     not supplied, defaults to now.
         :type sec: float
@@ -2271,7 +2361,9 @@ class RawPcapNgWriter(GenericRawPcapWriter):
 
         self.header_present = False
         self.tsresol = 1000000
-        self.linktype = DLT_EN10MB
+        # A dict to keep if_name to IDB id mapping.
+        # unknown if_name(None) id=0
+        self.interfaces2id: Dict[Optional[bytes], int] = {None: 0}
 
         # tcpdump only support little-endian in PCAPng files
         self.endian = "<"
@@ -2328,7 +2420,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         if not self.header_present:
             self.header_present = True
             self._write_block_shb()
-            self._write_block_idb()
+            self._write_block_idb(linktype=self.linktype)
 
     def _write_block_shb(self):
         # type: () -> None
@@ -2342,23 +2434,34 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         # Minor Version
         block_shb += struct.pack(self.endian + "H", 0)
         # Section Length
-        block_shb += struct.pack(self.endian + "Q", 0)
+        block_shb += struct.pack(self.endian + "q", -1)
 
         self.f.write(self.build_block(block_type, block_shb))
 
-    def _write_block_idb(self):
-        # type: () -> None
+    def _write_block_idb(self,
+                         linktype,  # type: int
+                         ifname=None  # type: Optional[bytes]
+                         ):
+        # type: (...) -> None
 
         # Block Type
         block_type = struct.pack(self.endian + "I", 1)
         # LinkType
-        block_idb = struct.pack(self.endian + "H", self.linktype)
+        block_idb = struct.pack(self.endian + "H", linktype)
         # Reserved
         block_idb += struct.pack(self.endian + "H", 0)
         # SnapLen
         block_idb += struct.pack(self.endian + "I", 262144)
 
-        self.f.write(self.build_block(block_type, block_idb))
+        # if_name option
+        opts = None
+        if ifname is not None:
+            opts = struct.pack(self.endian + "HH", 2, len(ifname))
+            # Pad Option Value to 32 bits
+            opts += self._add_padding(ifname)
+            opts += struct.pack(self.endian + "HH", 0, 0)
+
+        self.f.write(self.build_block(block_type, block_idb, options=opts))
 
     def _write_block_spb(self, raw_pkt):
         # type: (bytes) -> None
@@ -2374,10 +2477,12 @@ class RawPcapNgWriter(GenericRawPcapWriter):
 
     def _write_block_epb(self,
                          raw_pkt,  # type: bytes
+                         ifid,  # type: int
                          timestamp=None,  # type: Optional[Union[EDecimal, float]]  # noqa: E501
                          caplen=None,  # type: Optional[int]
                          orglen=None,  # type: Optional[int]
-                         comment=None  # type: Optional[bytes]
+                         comment=None,  # type: Optional[bytes]
+                         flags=None,  # type: Optional[int]
                          ):
         # type: (...) -> None
 
@@ -2397,7 +2502,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         # Block Type
         block_type = struct.pack(self.endian + "I", 6)
         # Interface ID
-        block_epb = struct.pack(self.endian + "I", 0)
+        block_epb = struct.pack(self.endian + "I", ifid)
         # Timestamp (High)
         block_epb += struct.pack(self.endian + "I", ts_high)
         # Timestamp (Low)
@@ -2409,26 +2514,32 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         # Packet Data
         block_epb += raw_pkt
 
-        # Comment option
-        comment_opt = None
-        if comment:
+        # Options
+        opts = b''
+        if comment is not None:
             comment = bytes_encode(comment)
-            comment_opt = struct.pack(self.endian + "HH", 1, len(comment))
-
+            opts += struct.pack(self.endian + "HH", 1, len(comment))
             # Pad Option Value to 32 bits
-            comment_opt += self._add_padding(bytes_encode(comment))
-            comment_opt += struct.pack(self.endian + "HH", 0, 0)
+            opts += self._add_padding(comment)
+        if type(flags) == int:
+            opts += struct.pack(self.endian + "HH", 2, 4)
+            opts += struct.pack(self.endian + "I", flags)
+        if opts:
+            opts += struct.pack(self.endian + "HH", 0, 0)
 
         self.f.write(self.build_block(block_type, block_epb,
-                                      options=comment_opt))
+                                      options=opts))
 
     def _write_packet(self,  # type: ignore
                       packet,  # type: bytes
+                      linktype,  # type: int
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
                       wirelen=None,  # type: Optional[int]
-                      comment=None  # type: Optional[bytes]
+                      comment=None,  # type: Optional[bytes]
+                      ifname=None,  # type: Optional[bytes]
+                      direction=None,  # type: Optional[int]
                       ):
         # type: (...) -> None
         """
@@ -2436,6 +2547,8 @@ class RawPcapNgWriter(GenericRawPcapWriter):
 
         :param packet: bytes for a single packet
         :type packet: bytes
+        :param linktype: linktype value associated with the packet
+        :type linktype: int
         :param sec: time the packet was captured, in seconds since epoch. If
                     not supplied, defaults to now.
         :type sec: float
@@ -2445,6 +2558,21 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         :param wirelen: The length of the packet on the wire. If not
                         specified, uses ``caplen``.
         :type wirelen: int
+        :param comment: UTF-8 string containing human-readable comment text
+                        that is associated to the current block. Line separators
+                        SHOULD be a carriage-return + linefeed ('\r\n') or
+                        just linefeed ('\n'); either form may appear and
+                        be considered a line separator. The string is not
+                        zero-terminated.
+        :type bytes
+        :param ifname: UTF-8 string containing the
+                       name of the device used to capture data.
+                       The string is not zero-terminated.
+        :type bytes
+        :param direction:  0 = information not available,
+                           1 = inbound,
+                           2 = outbound
+        :type int
         :return: None
         :rtype: None
         """
@@ -2453,8 +2581,21 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         if wirelen is None:
             wirelen = caplen
 
+        ifid = self.interfaces2id.get(ifname, None)
+        if ifid is None:
+            ifid = max(self.interfaces2id.values()) + 1
+            self.interfaces2id[ifname] = ifid
+            self._write_block_idb(linktype=linktype, ifname=ifname)
+
+        # EPB flags (32 bits).
+        # currently only direction is implemented (least 2 significant bits)
+        if type(direction) == int:
+            flags = direction & 0x3
+        else:
+            flags = None
+
         self._write_block_epb(packet, timestamp=sec, caplen=caplen,
-                              orglen=wirelen, comment=comment)
+                              orglen=wirelen, comment=comment, ifid=ifid, flags=flags)
         if self.sync:
             self.f.flush()
 
@@ -3765,16 +3906,27 @@ class PeriodicSenderThread(threading.Thread):
             self._pkts = pkt
         self._socket = sock
         self._stopped = threading.Event()
+        self._enabled = threading.Event()
+        self._enabled.set()
         self._interval = interval
         self._ignore_exceptions = ignore_exceptions
         threading.Thread.__init__(self)
+
+    def enable(self):
+        # type: () -> None
+        self._enabled.set()
+
+    def disable(self):
+        # type: () -> None
+        self._enabled.clear()
 
     def run(self):
         # type: () -> None
         while not self._stopped.is_set() and not self._socket.closed:
             for p in self._pkts:
                 try:
-                    self._socket.send(p)
+                    if self._enabled.is_set():
+                        self._socket.send(p)
                 except (OSError, TimeoutError) as e:
                     if self._ignore_exceptions:
                         return

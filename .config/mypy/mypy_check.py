@@ -63,57 +63,56 @@ ARGS = [
     "--ignore-missing-imports",
     # config
     "--follow-imports=skip",  # Remove eventually
-    "--config-file=" + os.path.abspath(
-        os.path.join(
-            localdir,
-            "mypy.ini"
-        )
-    ),
+    "--config-file=" + os.path.abspath(os.path.join(localdir, "mypy.ini")),
     "--show-traceback",
-] + ([
-    "--platform=" + PLATFORM
-] if PLATFORM else [])
+] + (["--platform=" + PLATFORM] if PLATFORM else [])
 
 if PLATFORM.startswith("linux"):
-    ARGS.extend([
-        "--always-true=LINUX",
-        "--always-false=OPENBSD",
-        "--always-false=FREEBSD",
-        "--always-false=NETBSD",
-        "--always-false=DARWIN",
-        "--always-false=WINDOWS",
-        "--always-false=BSD",
-    ])
+    ARGS.extend(
+        [
+            "--always-true=LINUX",
+            "--always-false=OPENBSD",
+            "--always-false=FREEBSD",
+            "--always-false=NETBSD",
+            "--always-false=DARWIN",
+            "--always-false=WINDOWS",
+            "--always-false=BSD",
+        ]
+    )
     FILES = [x for x in FILES if not x.startswith("scapy/arch/windows")]
 elif PLATFORM.startswith("win32"):
-    ARGS.extend([
-        "--always-false=LINUX",
-        "--always-false=OPENBSD",
-        "--always-false=FREEBSD",
-        "--always-false=NETBSD",
-        "--always-false=DARWIN",
-        "--always-true=WINDOWS",
-        "--always-false=WINDOWS_XP",
-        "--always-false=BSD",
-    ])
+    ARGS.extend(
+        [
+            "--always-false=LINUX",
+            "--always-false=OPENBSD",
+            "--always-false=FREEBSD",
+            "--always-false=NETBSD",
+            "--always-false=DARWIN",
+            "--always-true=WINDOWS",
+            "--always-false=WINDOWS_XP",
+            "--always-false=BSD",
+        ]
+    )
     FILES = [
-        x for x in FILES if (
-            x not in {
+        x
+        for x in FILES
+        if (
+            x
+            not in {
                 # Disabled on Windows
-                "scapy/arch/linux.py",
                 "scapy/arch/unix.py",
                 "scapy/arch/solaris.py",
                 "scapy/contrib/cansocket_native.py",
                 "scapy/contrib/isotp/isotp_native_socket.py",
             }
-        ) and not x.startswith("scapy/arch/bpf")
+        )
+        and not x.startswith("scapy/arch/bpf")
+        and not x.startswith("scapy/arch/linux")
     ]
 else:
     raise ValueError("Unknown platform")
 
 # Run mypy over the files
-ARGS += [
-    os.path.abspath(f) for f in FILES
-]
+ARGS += [os.path.abspath(f) for f in FILES]
 
 mypy_main(args=ARGS)

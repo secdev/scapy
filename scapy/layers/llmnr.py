@@ -28,6 +28,8 @@ from scapy.layers.dns import (
     DNSCompressedPacket,
     DNS_am,
     DNS,
+    DNSQR,
+    DNSRR,
 )
 
 
@@ -57,15 +59,22 @@ class LLMNRQuery(DNSCompressedPacket):
         return struct.pack("!H", self.id)
 
     def mysummary(self):
-        if self.an:
-            return "LLMNRResponse '%s' is at '%s'" % (
-                self.an[0].rrname.decode(errors="backslashreplace"),
-                self.an[0].rdata,
-            ), [UDP]
-        if self.qd:
-            return "LLMNRQuery who has '%s'" % (
+        s = self.__class__.__name__
+        if self.qr:
+            if self.an and isinstance(self.an[0], DNSRR):
+                s += " '%s' is at '%s'" % (
+                    self.an[0].rrname.decode(errors="backslashreplace"),
+                    self.an[0].rdata,
+                )
+            else:
+                s += " [malformed]"
+        elif self.qd and isinstance(self.qd[0], DNSQR):
+            s += " who has '%s'" % (
                 self.qd[0].qname.decode(errors="backslashreplace"),
-            ), [UDP]
+            )
+        else:
+            s += " [malformed]"
+        return s, [UDP]
 
 
 class LLMNRResponse(LLMNRQuery):
@@ -101,6 +110,16 @@ DestIP6Field.bind_addr(LLMNRResponse, _LLMNR_IPv6_mcast_Addr, dport=5355)
 
 
 class LLMNR_am(DNS_am):
+    """
+    LLMNR answering machine.
+
+    This has the same arguments as DNS_am. See help(DNS_am)
+
+    Example::
+
+        >>> llmnrd(joker="192.168.0.2", iface="eth0")
+        >>> llmnrd(match={"TEST": "192.168.0.2"})
+    """
     function_name = "llmnrd"
     filter = "udp port 5355"
     cls = LLMNRQuery

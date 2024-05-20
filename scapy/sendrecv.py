@@ -90,9 +90,12 @@ _DOC_SNDRCV_PARAMS = """
     :param prebuild: pre-build the packets before starting to send them.
         Automatically enabled when a generator is passed as the packet
     :param _flood:
-    :param threaded: if True, packets will be sent in an individual thread
+    :param threaded: if True, packets are sent in a thread and received in another.
+        defaults to False.
     :param session: a flow decoder used to handle stream of packets
     :param chainEX: if True, exceptions during send will be forwarded
+    :param stop_filter: Python function applied to each packet to determine if
+        we have to stop the capture after this packet.
     """
 
 
@@ -107,9 +110,8 @@ class SndRcvHandler(object):
     This matches the requests and answers.
 
     Notes::
-      - threaded mode: enabling threaded mode will likely
-        break packet timestamps, but might result in a speedup
-        when sending a big amount of packets. Disabled by default
+      - threaded: if you're planning to send/receive many packets, it's likely
+        a good idea to use threaded mode.
       - DEVS: store the outgoing timestamp right BEFORE sending the packet
         to avoid races that could result in negative latency. We aren't Stadia
     """
@@ -127,7 +129,8 @@ class SndRcvHandler(object):
                  _flood=None,  # type: Optional[_FloodGenerator]
                  threaded=False,  # type: bool
                  session=None,  # type: Optional[_GlobSessionType]
-                 chainEX=False  # type: bool
+                 chainEX=False,  # type: bool
+                 stop_filter=None  # type: Optional[Callable[[Packet], bool]]
                  ):
         # type: (...) -> None
         # Instantiate all arguments
@@ -148,10 +151,13 @@ class SndRcvHandler(object):
         self.timeout = timeout
         self.session = session
         self.chainEX = chainEX
+        self.stop_filter = stop_filter
         self._send_done = False
         self.notans = 0
         self.noans = 0
         self._flood = _flood
+        self.threaded = threaded
+        self.breakout = False
         # Instantiate packet holders
         if prebuild and not self._flood:
             self.tobesent = list(pkt)  # type: _PacketIterable
@@ -171,22 +177,35 @@ class SndRcvHandler(object):
 
             if threaded or self._flood:
                 # Send packets in thread.
-                # https://github.com/secdev/scapy/issues/1791
                 snd_thread = Thread(
                     target=self._sndrcv_snd
                 )
                 snd_thread.daemon = True
 
                 # Start routine with callback
-                self._sndrcv_rcv(snd_thread.start)
+                interrupted = None
+                try:
+                    self._sndrcv_rcv(snd_thread.start)
+                except KeyboardInterrupt as ex:
+                    interrupted = ex
+
+                self.breakout = True
 
                 # Ended. Let's close gracefully
                 if self._flood:
                     # Flood: stop send thread
                     self._flood.stop()
                 snd_thread.join()
+
+                if interrupted and self.chainCC:
+                    raise interrupted
             else:
-                self._sndrcv_rcv(self._sndrcv_snd)
+                # Send packets, then receive.
+                try:
+                    self._sndrcv_rcv(self._sndrcv_snd)
+                except KeyboardInterrupt:
+                    if self.chainCC:
+                        raise
 
             if multi:
                 remain = [
@@ -248,6 +267,8 @@ class SndRcvHandler(object):
                 self.pks.send(p)
                 if self.inter:
                     time.sleep(self.inter)
+                if self.breakout:
+                    break
                 i += 1
             if self.verbose:
                 print("Finished sending %i packets." % i)
@@ -269,6 +290,15 @@ class SndRcvHandler(object):
             elif not self._send_done:
                 self.notans = i
             self._send_done = True
+        # In threaded mode, timeout.
+        if self.threaded and self.timeout is not None and not self.breakout:
+            t = time.monotonic() + self.timeout
+            while time.monotonic() < t:
+                if self.breakout:
+                    break
+                time.sleep(0.1)
+            if self.sniffer and self.sniffer.running:
+                self.sniffer.stop()
 
     def _process_packet(self, r):
         # type: (Packet) -> None
@@ -294,7 +324,7 @@ class SndRcvHandler(object):
                         sentpkt._answered = 1
                     break
         if self._send_done and self.noans >= self.notans and not self.multi:
-            if self.sniffer:
+            if self.sniffer and self.sniffer.running:
                 self.sniffer.stop(join=False)
         if not ok:
             if self.verbose > 1:
@@ -306,21 +336,19 @@ class SndRcvHandler(object):
     def _sndrcv_rcv(self, callback):
         # type: (Callable[[], None]) -> None
         """Function used to receive packets and check their hashret"""
+        # This is blocking.
         self.sniffer = None  # type: Optional[AsyncSniffer]
-        try:
-            self.sniffer = AsyncSniffer()
-            self.sniffer._run(
-                prn=self._process_packet,
-                timeout=self.timeout,
-                store=False,
-                opened_socket=self.rcv_pks,
-                session=self.session,
-                started_callback=callback,
-                chainCC=self.chainCC,
-            )
-        except KeyboardInterrupt:
-            if self.chainCC:
-                raise
+        self.sniffer = AsyncSniffer()
+        self.sniffer._run(
+            prn=self._process_packet,
+            timeout=None if self.threaded else self.timeout,
+            store=False,
+            opened_socket=self.rcv_pks,
+            session=self.session,
+            stop_filter=self.stop_filter,
+            started_callback=callback,
+            chainCC=True,
+        )
 
 
 def sndrcv(*args, **kwargs):
@@ -1072,12 +1100,19 @@ class AsyncSniffer(object):
         self.running = False
         self.thread = None  # type: Optional[Thread]
         self.results = None  # type: Optional[PacketList]
+        self.exception = None  # type: Optional[Exception]
 
     def _setup_thread(self):
         # type: () -> None
+        def _run_catch(self=self, *args, **kwargs):
+            # type: (Any, *Any, **Any) -> None
+            try:
+                self._run(*args, **kwargs)
+            except Exception as ex:
+                self.exception = ex
         # Prepare sniffing thread
         self.thread = Thread(
-            target=self._run,
+            target=_run_catch,
             args=self.args,
             kwargs=self.kwargs,
             name="AsyncSniffer"
@@ -1332,6 +1367,8 @@ class AsyncSniffer(object):
         # type: (*Any, **Any) -> None
         if self.thread:
             self.thread.join(*args, **kwargs)
+        if self.exception is not None:
+            raise self.exception
 
 
 @conf.commands.register

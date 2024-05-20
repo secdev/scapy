@@ -310,6 +310,7 @@ class DCERPC_Client(object):
             )
             if status not in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
                 # Authentication failed.
+                self.sspcontext.clifailure()
                 return False
             resp = self.sr1(
                 reqcls(context_elem=self.get_bind_context(interface)),

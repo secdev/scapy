@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+
 # test.sh
 # Usage:
 #   ./test.sh [tox version] [both/root/non_root (default root)]
@@ -34,10 +38,6 @@ then
     # Note: LibreSSL 3.6.* does not support X25519 according to
     # the cryptogaphy module source code
     UT_FLAGS+=" -K libressl"
-  fi
-  if [[ "$OSTYPE" = "netbsd" ]]
-  then
-    UT_FLAGS+=" -K not_netbsd"
   fi
 fi
 

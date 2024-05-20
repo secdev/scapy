@@ -1520,6 +1520,8 @@ class Automaton(metaclass=Automaton_metaclass):
         Destroys a stopped Automaton: this cleanups all opened file descriptors.
         Required on PyPy for instance where the garbage collector behaves differently.
         """
+        if not hasattr(self, "started"):
+            return  # was never started.
         if self.isrunning():
             raise ValueError("Can't close running Automaton ! Call stop() beforehand")
         # Close command pipes

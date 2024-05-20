@@ -142,9 +142,11 @@ class GSSAPI_BLOB_SIGNATURE(ASN1_Packet):
             # heuristics.
             if _pkt[:2] in [b"\x04\x04", b"\x05\x04"]:
                 from scapy.layers.kerberos import KRB_InnerToken
+
                 return KRB_InnerToken
             elif len(_pkt) >= 4 and _pkt[:4] == b"\x01\x00\x00\x00":
                 from scapy.layers.ntlm import NTLMSSP_MESSAGE_SIGNATURE
+
                 return NTLMSSP_MESSAGE_SIGNATURE
         return cls
 
@@ -260,6 +262,7 @@ class GSS_C_FLAGS(IntFlag):
     """
     Authenticator Flags per RFC2744 req_flags
     """
+
     GSS_C_DELEG_FLAG = 0x01
     GSS_C_MUTUAL_FLAG = 0x02
     GSS_C_REPLAY_FLAG = 0x04
@@ -297,11 +300,15 @@ class SSP:
             if req_flags is None:
                 # Default
                 req_flags = (
-                    GSS_C_FLAGS.GSS_C_EXTENDED_ERROR_FLAG |
-                    GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
+                    GSS_C_FLAGS.GSS_C_EXTENDED_ERROR_FLAG
+                    | GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
                 )
             self.flags = req_flags
             self.passive = False
+
+        def clifailure(self):
+            # This allows to reset the client context without discarding it.
+            pass
 
         def __repr__(self):
             return "[Default SSP]"
@@ -312,8 +319,9 @@ class SSP:
         """
 
     @abc.abstractmethod
-    def GSS_Init_sec_context(self, Context: CONTEXT, val=None,
-                             req_flags: Optional[GSS_C_FLAGS] = None):
+    def GSS_Init_sec_context(
+        self, Context: CONTEXT, val=None, req_flags: Optional[GSS_C_FLAGS] = None
+    ):
         """
         GSS_Init_sec_context: client-side call for the SSP
         """

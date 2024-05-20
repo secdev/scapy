@@ -144,7 +144,7 @@ def _version():
         with open(version_file, 'r') as fdsec:
             tag = fdsec.read()
         return tag
-    except FileNotFoundError:
+    except (FileNotFoundError, NotADirectoryError):
         pass
 
     # Method 2: from the archive tag, exported when using git archives

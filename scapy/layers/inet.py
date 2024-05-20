@@ -48,6 +48,7 @@ from scapy.fields import (
     IPField,
     IP6Field,
     IntField,
+    MayEnd,
     MultiEnumField,
     MultipleTypeField,
     PacketField,
@@ -1309,6 +1310,12 @@ class IPerror(IP):
 
 class TCPerror(TCP):
     name = "TCP in ICMP"
+    fields_desc = (
+        TCP.fields_desc[:2] +
+        # MayEnd after the 8 first octets.
+        [MayEnd(TCP.fields_desc[2])] +
+        TCP.fields_desc[3:]
+    )
 
     def answers(self, other):
         if not isinstance(other, TCP):
@@ -2546,15 +2553,21 @@ class ICMPEcho_am(AnsweringMachine):
         return False
 
     def print_reply(self, req, reply):
-        print("Replying %s to %s" % (reply.getlayer(IP).dst, req.dst))
+        print("Replying %s to %s" % (reply[IP].dst, req[IP].dst))
 
     def make_reply(self, req):
-        reply = IP(dst=req[IP].src) / ICMP()
+        reply = req.copy()
         reply[ICMP].type = 0  # echo-reply
-        reply[ICMP].seq = req[ICMP].seq
-        reply[ICMP].id = req[ICMP].id
         # Force re-generation of the checksum
         reply[ICMP].chksum = None
+        if req.haslayer(IP):
+            reply[IP].src, reply[IP].dst = req[IP].dst, req[IP].src
+            reply[IP].chksum = None
+        if req.haslayer(Ether):
+            reply[Ether].src, reply[Ether].dst = (
+                None if req[Ether].dst == "ff:ff:ff:ff:ff:ff" else req[Ether].dst,
+                req[Ether].src,
+            )
         return reply
 
 

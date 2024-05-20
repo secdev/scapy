@@ -12,6 +12,7 @@ Fields: basic data structures that make up parts of packets.
 import calendar
 import collections
 import copy
+import datetime
 import inspect
 import math
 import socket
@@ -19,7 +20,6 @@ import struct
 import time
 import warnings
 
-from datetime import datetime
 from types import MethodType
 from uuid import UUID
 from enum import Enum
@@ -623,7 +623,7 @@ class PadField(_FieldContainer):
     __slots__ = ["fld", "_align", "_padwith"]
 
     def __init__(self, fld, align, padwith=None):
-        # type: (Field[Any, Any], int, Optional[bytes]) -> None
+        # type: (AnyField, int, Optional[bytes]) -> None
         self.fld = fld
         self._align = align
         self._padwith = padwith or b"\x00"
@@ -3589,7 +3589,12 @@ class UTCTimeField(Field[float, int]):
         elif self.custom_scaling:
             x = x / self.custom_scaling
         x += self.delta
-        t = datetime.fromtimestamp(x).strftime(self.strf)
+        # To make negative timestamps work on all plateforms (e.g. Windows),
+        # we need a trick.
+        t = (
+            datetime.datetime(1970, 1, 1) +
+            datetime.timedelta(seconds=x)
+        ).strftime(self.strf)
         return "%s (%d)" % (t, int(x))
 
     def i2m(self, pkt, x):

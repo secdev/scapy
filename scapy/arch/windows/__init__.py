@@ -35,12 +35,15 @@ from scapy.error import (
 )
 from scapy.interfaces import NetworkInterface, InterfaceProvider, \
     dev_from_index, resolve_iface, network_name
-from scapy.pton_ntop import inet_ntop, inet_pton
+from scapy.pton_ntop import inet_ntop
 from scapy.utils import atol, itom, mac2str, str2mac
 from scapy.utils6 import construct_source_candidate_set, in6_getscope
-from scapy.data import ARPHDR_ETHER, load_manuf
+from scapy.data import ARPHDR_ETHER
 from scapy.compat import plain_str
 from scapy.supersocket import SuperSocket
+
+# re-export
+from scapy.arch.common import get_if_raw_addr  # noqa: F401
 
 # Typing imports
 from typing import (
@@ -202,20 +205,6 @@ class WinProgPath(ProgPath):
         )
         self.cmd = win_find_exe("cmd", installsubdir="System32",
                                 env="SystemRoot")
-        if self.wireshark:
-            try:
-                new_manuf = load_manuf(
-                    os.path.sep.join(
-                        self.wireshark.split(os.path.sep)[:-1]
-                    ) + os.path.sep + "manuf"
-                )
-            except (IOError, OSError):  # FileNotFoundError not available on Py2 - using OSError  # noqa: E501
-                log_loading.warning("Wireshark is installed, but cannot read manuf !")  # noqa: E501
-                new_manuf = None
-            if new_manuf:
-                # Inject new ManufDB
-                conf.manufdb.__dict__.clear()
-                conf.manufdb.__dict__.update(new_manuf.__dict__)
 
 
 def _exec_cmd(command):
@@ -703,15 +692,6 @@ def get_ips(v6=False):
         else:
             res[iface] = iface.ips[4]
     return res
-
-
-def get_if_raw_addr(iff):
-    # type: (Union[NetworkInterface, str]) -> bytes
-    """Return the raw IPv4 address of interface"""
-    iff = resolve_iface(iff)
-    if not iff.ip:
-        return b"\x00" * 4
-    return inet_pton(socket.AF_INET, iff.ip)
 
 
 def get_ip_from_name(ifname, v6=False):

@@ -65,13 +65,34 @@ QUOTES = [
 ]
 
 
-def _probe_config_file(*cf):
-    # type: (str) -> Union[str, None]
-    path = pathlib.Path(os.path.expanduser("~"))
+def _probe_xdg_folder(var, default, *cf):
+    # type: (str, str, *str) -> Optional[pathlib.Path]
+    path = pathlib.Path(os.environ.get(var, default))
     if not path.exists():
-        # ~ folder doesn't exist. Unsalvageable
-        return None
-    return str(path.joinpath(*cf).resolve())
+        # ~ folder doesn't exist. Create according to spec
+        # https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+        # "If, when attempting to write a file, the destination directory is
+        # non-existent an attempt should be made to create it with permission 0700."
+        path.mkdir(mode=0o700)
+    return path.joinpath(*cf).resolve()
+
+
+def _probe_config_folder(*cf):
+    # type: (str) -> Optional[pathlib.Path]
+    return _probe_xdg_folder(
+        "XDG_CONFIG_HOME",
+        os.path.join(os.path.expanduser("~"), ".config"),
+        *cf
+    )
+
+
+def _probe_cache_folder(*cf):
+    # type: (str) -> Optional[pathlib.Path]
+    return _probe_xdg_folder(
+        "XDG_CACHE_HOME",
+        os.path.join(os.path.expanduser("~"), ".cache"),
+        *cf
+    )
 
 
 def _read_config_file(cf, _globals=globals(), _locals=locals(),
@@ -107,10 +128,15 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
         if default is None:
             return
         # We have a default ! set it
-        cf_path.parent.mkdir(parents=True, exist_ok=True)
-        with cf_path.open("w") as fd:
-            fd.write(default)
-        log_loading.debug("Config file [%s] created with default.", cf)
+        try:
+            cf_path.parent.mkdir(parents=True, exist_ok=True)
+            with cf_path.open("w") as fd:
+                fd.write(default)
+            log_loading.debug("Config file [%s] created with default.", cf)
+        except OSError:
+            log_loading.warning("Config file [%s] could not be created.", cf,
+                                exc_info=True)
+            return
     log_loading.debug("Loading config file [%s]", cf)
     try:
         with open(cf) as cfgf:
@@ -135,6 +161,17 @@ def _validate_local(k):
     return k[0] != "_" and k not in ["range", "map"]
 
 
+# This is ~/.config/scapy
+SCAPY_CONFIG_FOLDER = _probe_config_folder("scapy")
+SCAPY_CACHE_FOLDER = _probe_cache_folder("scapy")
+
+if SCAPY_CONFIG_FOLDER:
+    DEFAULT_PRESTART_FILE: Optional[str] = str(SCAPY_CONFIG_FOLDER / "prestart.py")
+    DEFAULT_STARTUP_FILE: Optional[str] = str(SCAPY_CONFIG_FOLDER / "startup.py")
+else:
+    DEFAULT_PRESTART_FILE = None
+    DEFAULT_STARTUP_FILE = None
+
 # Default scapy prestart.py config file
 
 DEFAULT_PRESTART = """
@@ -154,9 +191,6 @@ conf.color_theme = DefaultTheme()
 # force-use libpcap
 # conf.use_pcap = True
 """.strip()
-
-DEFAULT_PRESTART_FILE = _probe_config_file(".config", "scapy", "prestart.py")
-DEFAULT_STARTUP_FILE = _probe_config_file(".config", "scapy", "startup.py")
 
 
 def _usage():
@@ -388,10 +422,10 @@ def save_session(fname="", session=None, pickleProto=-1):
     log_interactive.info("Saving session into [%s]", fname)
 
     if not session:
-        try:
+        if conf.interactive_shell in ["ipython", "ptipython"]:
             from IPython import get_ipython
             session = get_ipython().user_ns
-        except Exception:
+        else:
             session = builtins.__dict__["scapy_session"]
 
     if not session:
@@ -399,7 +433,7 @@ def save_session(fname="", session=None, pickleProto=-1):
         return
 
     ignore = session.get("_scpybuiltins", [])
-    hard_ignore = ["scapy_session", "In", "Out"]
+    hard_ignore = ["scapy_session", "In", "Out", "open"]
     to_be_saved = session.copy()
 
     for k in list(to_be_saved):
@@ -412,11 +446,15 @@ def save_session(fname="", session=None, pickleProto=-1):
             del to_be_saved[k]
         elif k in ignore or k in hard_ignore:
             del to_be_saved[k]
-        elif isinstance(i, (type, types.ModuleType)):
+        elif isinstance(i, (type, types.ModuleType, types.FunctionType)):
             if k[0] != "_":
-                log_interactive.warning("[%s] (%s) can't be saved.", k,
-                                        type(to_be_saved[k]))
+                log_interactive.warning("[%s] (%s) can't be saved.", k, type(i))
             del to_be_saved[k]
+        else:
+            try:
+                pickle.dumps(i)
+            except Exception:
+                log_interactive.warning("[%s] (%s) can't be saved.", k, type(i))
 
     try:
         os.rename(fname, fname + ".bak")
@@ -500,6 +538,12 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
     from scapy.config import conf
     SESSION = {}  # type: Optional[Dict[str, Any]]
 
+    # Load Scapy
+    scapy_builtins = _scapy_builtins()
+
+    # Load exts
+    scapy_builtins.update(_scapy_exts())
+
     if session_name:
         try:
             os.stat(session_name)
@@ -533,12 +577,6 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
             SESSION = {"conf": conf}
     else:
         SESSION = {"conf": conf}
-
-    # Load Scapy
-    scapy_builtins = _scapy_builtins()
-
-    # Load exts
-    scapy_builtins.update(_scapy_exts())
 
     SESSION.update(scapy_builtins)
     SESSION["_scpybuiltins"] = scapy_builtins.keys()
@@ -866,7 +904,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         if conf.interactive_shell == "ptipython":
             from ptpython.ipython import embed
         else:
-            from IPython import start_ipython as embed
+            from IPython import embed
         try:
             from traitlets.config.loader import Config
         except ImportError:
@@ -892,19 +930,20 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                 # Set "classic" prompt style when launched from
                 # run_scapy(.bat) files Register and apply scapy
                 # color+prompt style
-                apply_ipython_style(shell=cfg.TerminalInteractiveShell)
-                cfg.TerminalInteractiveShell.confirm_exit = False
-                cfg.TerminalInteractiveShell.separate_in = u''
+                apply_ipython_style(shell=cfg.InteractiveShellEmbed)
+                cfg.InteractiveShellEmbed.confirm_exit = False
+                cfg.InteractiveShellEmbed.separate_in = u''
             if int(IPython.__version__[0]) >= 6:
-                cfg.TerminalInteractiveShell.term_title_format = ("Scapy %s" %
-                                                                  conf.version)
+                cfg.InteractiveShellEmbed.term_title = True
+                cfg.InteractiveShellEmbed.term_title_format = ("Scapy %s" %
+                                                               conf.version)
                 # As of IPython 6-7, the jedi completion module is a dumpster
                 # of fire that should be scrapped never to be seen again.
                 # This is why the following defaults to False. Feel free to hurt
                 # yourself (#GH4056) :P
                 cfg.Completer.use_jedi = conf.ipython_use_jedi
             else:
-                cfg.TerminalInteractiveShell.term_title = False
+                cfg.InteractiveShellEmbed.term_title = False
             cfg.HistoryAccessor.hist_file = conf.histfile
             cfg.InteractiveShell.banner1 = banner
             # configuration can thus be specified here.

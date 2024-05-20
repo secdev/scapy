@@ -958,7 +958,15 @@ def RC4Init(key):
     """Alleged RC4"""
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 
-    algorithm = algorithms.ARC4(key)
+    try:
+        # cryptography > 43.0
+        from cryptography.hazmat.decrepit.ciphers import (
+            algorithms as decrepit_algorithms,
+        )
+    except ImportError:
+        decrepit_algorithms = algorithms
+
+    algorithm = decrepit_algorithms.ARC4(key)
     cipher = Cipher(algorithm, mode=None)
     encryptor = cipher.encryptor()
     return encryptor
@@ -975,7 +983,15 @@ def RC4K(key, data):
     """
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 
-    algorithm = algorithms.ARC4(key)
+    try:
+        # cryptography > 43.0
+        from cryptography.hazmat.decrepit.ciphers import (
+            algorithms as decrepit_algorithms,
+        )
+    except ImportError:
+        decrepit_algorithms = algorithms
+
+    algorithm = decrepit_algorithms.ARC4(key)
     cipher = Cipher(algorithm, mode=None)
     encryptor = cipher.encryptor()
     return encryptor.update(data) + encryptor.finalize()
@@ -1212,6 +1228,9 @@ class NTLMSSP(SSP):
             self.IsAcceptor = IsAcceptor
             super(NTLMSSP.CONTEXT, self).__init__(req_flags=req_flags)
 
+        def clifailure(self):
+            self.__init__(self.IsAcceptor, req_flags=self.flags)
+
         def __repr__(self):
             return "NTLMSSP"
 
@@ -1418,8 +1437,8 @@ class NTLMSSP(SSP):
                     "running in standalone !"
                 )
             if not chall_tok or NTLM_CHALLENGE not in chall_tok:
-                chall_tok.show()
-                raise ValueError("NTLMSSP: Unexpected token. Expected NTLM Challenge")
+                log_runtime.debug("NTLMSSP: Unexpected token. Expected NTLM Challenge")
+                return Context, None, GSS_S_DEFECTIVE_TOKEN
             # Take a default token
             tok = NTLM_AUTHENTICATE_V2(
                 NegotiateFlags=chall_tok.NegotiateFlags,
@@ -1550,8 +1569,8 @@ class NTLMSSP(SSP):
             # Server: challenge (val=negotiate)
             nego_tok = val
             if not nego_tok or NTLM_NEGOTIATE not in nego_tok:
-                nego_tok.show()
-                raise ValueError("NTLMSSP: Unexpected token. Expected NTLM Negotiate")
+                log_runtime.debug("NTLMSSP: Unexpected token. Expected NTLM Negotiate")
+                return Context, None, GSS_S_DEFECTIVE_TOKEN
             # Take a default token
             currentTime = (time.time() + 11644473600) * 1e7
             tok = NTLM_CHALLENGE(
@@ -1640,10 +1659,10 @@ class NTLMSSP(SSP):
             # server: OK or challenge again (val=auth)
             auth_tok = val
             if not auth_tok or NTLM_AUTHENTICATE_V2 not in auth_tok:
-                auth_tok.show()
-                raise ValueError(
+                log_runtime.debug(
                     "NTLMSSP: Unexpected token. Expected NTLM Authenticate v2"
                 )
+                return Context, None, GSS_S_DEFECTIVE_TOKEN
             if self.DO_NOT_CHECK_LOGIN:
                 # Just trust me bro
                 return Context, None, GSS_S_COMPLETE
@@ -1764,7 +1783,7 @@ class NTLMSSP(SSP):
         if auth_tok.DomainNameLen:
             domain = auth_tok.DomainName
         else:
-            domain = self.DOMAIN_NB_NAME
+            domain = ""
         if self.IDENTITIES and username in self.IDENTITIES:
             ResponseKeyNT = NTOWFv2(
                 None, username, domain, HashNt=self.IDENTITIES[username]
@@ -1788,7 +1807,7 @@ class NTLMSSP(SSP):
         if auth_tok.DomainNameLen:
             domain = auth_tok.DomainName
         else:
-            domain = self.DOMAIN_NB_NAME
+            domain = ""
         if username in self.IDENTITIES:
             ResponseKeyNT = NTOWFv2(
                 None, username, domain, HashNt=self.IDENTITIES[username]

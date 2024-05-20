@@ -7,12 +7,15 @@
 Functions common to different architectures
 """
 
+import socket
 import ctypes
+
 from scapy.config import conf
 from scapy.data import MTU, ARPHDR_ETHER, ARPHRD_TO_DLT
 from scapy.error import Scapy_Exception
-from scapy.interfaces import network_name
+from scapy.interfaces import network_name, resolve_iface, NetworkInterface
 from scapy.libs.structures import bpf_program
+from scapy.pton_ntop import inet_pton
 from scapy.utils import decode_locale_str
 
 # Type imports
@@ -33,7 +36,6 @@ _iff_flags = [
     "RUNNING",
     "NOARP",
     "PROMISC",
-    "NOTRAILERS",
     "ALLMULTI",
     "MASTER",
     "SLAVE",
@@ -45,6 +47,15 @@ _iff_flags = [
     "DORMANT",
     "ECHO"
 ]
+
+
+def get_if_raw_addr(iff):
+    # type: (Union[NetworkInterface, str]) -> bytes
+    """Return the raw IPv4 address of interface"""
+    iff = resolve_iface(iff)
+    if not iff.ip:
+        return b"\x00" * 4
+    return inet_pton(socket.AF_INET, iff.ip)
 
 
 # BPF HANDLERS

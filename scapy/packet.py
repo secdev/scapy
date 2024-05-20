@@ -430,6 +430,8 @@ class Packet(
         clone.payload.add_underlayer(clone)
         clone.time = self.time
         clone.comment = self.comment
+        clone.direction = self.direction
+        clone.sniffed_on = self.sniffed_on
         return clone
 
     def _resolve_alias(self, attr):
@@ -1403,6 +1405,8 @@ class Packet(
         )
         pkt.wirelen = self.wirelen
         pkt.comment = self.comment
+        pkt.sniffed_on = self.sniffed_on
+        pkt.direction = self.direction
         if payload is not None:
             pkt.add_payload(payload)
         return pkt

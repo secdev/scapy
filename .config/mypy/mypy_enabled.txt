@@ -16,7 +16,8 @@ scapy/arch/bpf/core.py
 scapy/arch/bpf/supersocket.py
 scapy/arch/common.py
 scapy/arch/libpcap.py
-scapy/arch/linux.py
+scapy/arch/linux/__init__.py
+scapy/arch/linux/rtnetlink.py
 scapy/arch/solaris.py
 scapy/arch/unix.py
 scapy/arch/windows/__init__.py

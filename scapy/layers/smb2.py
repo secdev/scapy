@@ -60,6 +60,7 @@ from scapy.fields import (
     XLEShortField,
     XStrLenField,
     XStrFixedLenField,
+    YesNoByteField,
 )
 from scapy.sessions import DefaultSession
 from scapy.supersocket import StreamSocket
@@ -108,6 +109,7 @@ STATUS_ERREF = {
     0xC0000034: "STATUS_OBJECT_NAME_NOT_FOUND",
     0xC0000043: "STATUS_SHARING_VIOLATION",
     0xC000006D: "STATUS_LOGON_FAILURE",
+    0xC000006E: "STATUS_ACCOUNT_RESTRICTION",
     0xC0000071: "STATUS_PASSWORD_EXPIRED",
     0xC0000072: "STATUS_ACCOUNT_DISABLED",
     0xC000009A: "STATUS_INSUFFICIENT_RESOURCES",
@@ -351,6 +353,7 @@ FileInformationClasses = {
     0x06: "FileInternalInformation",
     0x07: "FileEaInformation",
     0x08: "FileAccessInformation",
+    0x0A: "FileRenameInformation",
     0x0E: "FilePositionInformation",
     0x10: "FileModeInformation",
     0x11: "FileAlignmentInformation",
@@ -362,6 +365,7 @@ FileInformationClasses = {
     0x30: "FileNormalizedNameInformation",
     0x3C: "FileIdExtdDirectoryInformation",
 }
+_FileInformationClasses = {}
 
 
 # [MS-FSCC] 2.1.7 FILE_NAME_INFORMATION
@@ -680,6 +684,33 @@ class FilePositionInformation(Packet):
 
     def default_payload_class(self, s):
         return conf.padding_layer
+
+
+# [MS-FSCC] 2.4.37 FileRenameInformation
+
+
+class FileRenameInformation(Packet):
+    fields_desc = [
+        YesNoByteField("ReplaceIfExists", False),
+        XStrFixedLenField("Reserved", b"", length=7),
+        LELongField("RootDirectory", 0),
+        FieldLenField("FileNameLength", 0, length_of="FileName", fmt="<I"),
+        StrLenFieldUtf16("FileName", b"", length_from=lambda pkt: pkt.FileNameLength),
+    ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        if len(pkt) < 24:
+            # 'Length of this field MUST be the number of bytes required to make the
+            # size of this structure at least 24.'
+            pkt += (24 - len(pkt)) * b"\x00"
+        return pkt + pay
+
+    def default_payload_class(self, s):
+        return conf.padding_layer
+
+
+_FileInformationClasses[0x0A] = FileRenameInformation
 
 
 # [MS-FSCC] 2.4.41 FileStandardInformation
@@ -1502,6 +1533,10 @@ class SMB2_Header(Packet):
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
                 return SMB2_Query_Info_Response
             return SMB2_Query_Info_Request
+        elif self.Command == 0x0011:  # Set info
+            if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
+                return SMB2_Set_Info_Response
+            return SMB2_Set_Info_Request
         elif self.Command == 0x000B:  # IOCTL
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
                 return SMB2_IOCTL_Response
@@ -3663,6 +3698,25 @@ class SMB2_Query_Quota_Info(Packet):
     ]
 
 
+SMB2_INFO_TYPE = {
+    0x01: "SMB2_0_INFO_FILE",
+    0x02: "SMB2_0_INFO_FILESYSTEM",
+    0x03: "SMB2_0_INFO_SECURITY",
+    0x04: "SMB2_0_INFO_QUOTA",
+}
+
+SMB2_ADDITIONAL_INFORMATION = {
+    0x00000001: "OWNER_SECURITY_INFORMATION",
+    0x00000002: "GROUP_SECURITY_INFORMATION",
+    0x00000004: "DACL_SECURITY_INFORMATION",
+    0x00000008: "SACL_SECURITY_INFORMATION",
+    0x00000010: "LABEL_SECURITY_INFORMATION",
+    0x00000020: "ATTRIBUTE_SECURITY_INFORMATION",
+    0x00000040: "SCOPE_SECURITY_INFORMATION",
+    0x00010000: "BACKUP_SECURITY_INFORMATION",
+}
+
+
 class SMB2_Query_Info_Request(_SMB2_Payload, _NTLMPayloadPacket):
     name = "SMB2 QUERY INFO Request"
     Command = 0x0010
@@ -3673,12 +3727,7 @@ class SMB2_Query_Info_Request(_SMB2_Payload, _NTLMPayloadPacket):
         ByteEnumField(
             "InfoType",
             0,
-            {
-                0x01: "SMB2_0_INFO_FILE",
-                0x02: "SMB2_0_INFO_FILESYSTEM",
-                0x03: "SMB2_0_INFO_SECURITY",
-                0x04: "SMB2_0_INFO_QUOTA",
-            },
+            SMB2_INFO_TYPE,
         ),
         ByteEnumField("FileInfoClass", 0, FileInformationClasses),
         LEIntField("OutputBufferLength", 0),
@@ -3688,16 +3737,7 @@ class SMB2_Query_Info_Request(_SMB2_Payload, _NTLMPayloadPacket):
             "AdditionalInformation",
             0,
             -32,
-            {
-                0x00000001: "OWNER_SECURITY_INFORMATION",
-                0x00000002: "GROUP_SECURITY_INFORMATION",
-                0x00000004: "DACL_SECURITY_INFORMATION",
-                0x00000008: "SACL_SECURITY_INFORMATION",
-                0x00000010: "LABEL_SECURITY_INFORMATION",
-                0x00000020: "ATTRIBUTE_SECURITY_INFORMATION",
-                0x00000040: "SCOPE_SECURITY_INFORMATION",
-                0x00010000: "BACKUP_SECURITY_INFORMATION",
-            },
+            SMB2_ADDITIONAL_INFORMATION,
         ),
         FlagsField(
             "Flags",
@@ -3714,11 +3754,20 @@ class SMB2_Query_Info_Request(_SMB2_Payload, _NTLMPayloadPacket):
             "Buffer",
             OFFSET,
             [
-                PacketListField(
-                    "Input",
-                    None,
-                    SMB2_Query_Quota_Info,
-                    length_from=lambda pkt: pkt.InputLen,
+                MultipleTypeField(
+                    [
+                        (
+                            # QUOTA
+                            PacketListField(
+                                "Input",
+                                None,
+                                SMB2_Query_Quota_Info,
+                                length_from=lambda pkt: pkt.InputLen,
+                            ),
+                            lambda pkt: pkt.InfoType == 0x04,
+                        ),
+                    ],
+                    StrLenField("Input", b"", length_from=lambda pkt: pkt.InputLen),
                 ),
             ],
         ),
@@ -3784,6 +3833,104 @@ bind_top_down(
     SMB2_Header,
     SMB2_Query_Info_Response,
     Command=0x00010,
+    Flags=1,
+)
+
+
+# sect 2.2.39
+
+
+class SMB2_Set_Info_Request(_SMB2_Payload, _NTLMPayloadPacket):
+    name = "SMB2 SET INFO Request"
+    Command = 0x0011
+    OFFSET = 32 + 64
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
+    fields_desc = [
+        XLEShortField("StructureSize", 0x21),
+        ByteEnumField(
+            "InfoType",
+            0,
+            SMB2_INFO_TYPE,
+        ),
+        ByteEnumField("FileInfoClass", 0, FileInformationClasses),
+        LEIntField("DataLen", None),
+        XLEIntField("DataBufferOffset", None),  # Short + Reserved = Int
+        FlagsField(
+            "AdditionalInformation",
+            0,
+            -32,
+            SMB2_ADDITIONAL_INFORMATION,
+        ),
+        PacketField("FileId", SMB2_FILEID(), SMB2_FILEID),
+        _NTLMPayloadField(
+            "Buffer",
+            OFFSET,
+            [
+                MultipleTypeField(
+                    [
+                        (
+                            # FILE
+                            PacketLenField(
+                                "Data",
+                                None,
+                                lambda x, _parent: _FileInformationClasses.get(
+                                    _parent.FileInfoClass, conf.raw_layer
+                                )(x),
+                                length_from=lambda pkt: pkt.DataLen,
+                            ),
+                            lambda pkt: pkt.InfoType == 0x01,
+                        ),
+                        (
+                            # QUOTA
+                            PacketListField(
+                                "Data",
+                                None,
+                                SMB2_Query_Quota_Info,
+                                length_from=lambda pkt: pkt.DataLen,
+                            ),
+                            lambda pkt: pkt.InfoType == 0x04,
+                        ),
+                    ],
+                    StrLenField("Data", b"", length_from=lambda pkt: pkt.DataLen),
+                ),
+            ],
+        ),
+    ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        return (
+            _SMB2_post_build(
+                self,
+                pkt,
+                self.OFFSET,
+                {
+                    "Data": 4,
+                },
+            )
+            + pay
+        )
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_Set_Info_Request,
+    Command=0x00011,
+)
+
+
+class SMB2_Set_Info_Response(_SMB2_Payload):
+    name = "SMB2 SET INFO Request"
+    Command = 0x0011
+    fields_desc = [
+        XLEShortField("StructureSize", 0x02),
+    ]
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_Set_Info_Response,
+    Command=0x00011,
     Flags=1,
 )
 
@@ -4118,7 +4265,7 @@ class SMBSession(DefaultSession):
 
     @crypto_validator
     def computeSMBSessionKey(self):
-        if not self.sspcontext.SessionKey:
+        if not getattr(self.sspcontext, "SessionKey", None):
             # no signing key, no session key
             return
         # [MS-SMB2] sect 3.3.5.5.3
