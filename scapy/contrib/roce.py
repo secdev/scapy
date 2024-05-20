@@ -83,11 +83,6 @@ UD_SEND_ONLY = _transports['UD'] | _ops['SEND_ONLY']
 UD_SEND_ONLY_IMM = _transports['UD'] | _ops['SEND_ONLY_WITH_IMMEDIATE']
 
 
-def opcode(transport, op):
-    # type: (str, str) -> Tuple[int, str]
-    return (_transports[transport] + _ops[op], '{}_{}'.format(transport, op))
-
-
 class _ETH(enum.Flag):
     '''Enum of RDMA extended transport headers'''
 
