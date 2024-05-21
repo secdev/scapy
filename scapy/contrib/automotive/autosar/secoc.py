@@ -10,7 +10,6 @@
 SecOC
 """
 import struct
-from collections import defaultdict
 
 from cryptography.hazmat.primitives import cmac
 from cryptography.hazmat.primitives.ciphers import algorithms
