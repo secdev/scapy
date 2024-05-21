@@ -15,19 +15,22 @@ from collections import defaultdict
 from cryptography.hazmat.primitives import cmac
 from cryptography.hazmat.primitives.ciphers import algorithms
 
+from scapy.base_classes import Packet_metaclass
 from scapy.contrib.automotive.autosar.pdu import PDU
-from scapy.fields import (XByteField, X3BytesField, XIntField, PacketListField,
+from scapy.fields import (XByteField, XIntField, PacketListField,
                           FieldLenField, PacketLenField, XStrFixedLenField)
 from scapy.packet import Packet, Raw
 
 # Typing imports
 from typing import (
+    Any,
+    Callable,
     Dict,
     Optional,
+    Set,
+    Tuple,
     Type,
-    Callable,
     Union,
-    Tuple, List, Set
 )
 
 
@@ -64,44 +67,52 @@ class SecOC_PDU(Packet):
                         Raw(),
                         guess_pkt_cls=lambda pkt, data: SecOC_PDU.get_pdu_payload_cls(pkt, data),  # noqa: E501
                         length_from=lambda pkt: pkt.pdu_payload_len - 4),
-        XByteField("freshness_value", 0),
-        XStrFixedLenField("message_authentication_code", None, length=3)]
+        XByteField("tfv", 0),  # truncated freshness value
+        XStrFixedLenField("tmac", None, length=3)]  # truncated message authentication code # noqa: E501
 
     pdu_payload_cls_by_identifier: Dict[int, Type[Packet]] = defaultdict(Raw)
-    freshness_values_by_identifier: Dict[int, int] = defaultdict(int)
-    secret_keys_by_identifier: Dict[int, bytes] = defaultdict(lambda: b"\x00" * 16)
     secoc_protected_pdus_by_identifier: Set[int] = set()
 
-    def secoc_authenticate(self, freshness_value: Optional[int] = None) -> None:
-        if freshness_value:
-            fv = freshness_value
-        else:
-            self.freshness_values_by_identifier[self.pdu_id] += 1
-            fv = self.freshness_values_by_identifier[self.pdu_id]
-
-        self.freshness_value = fv
-
-        mac = self.get_message_authentication_code()
-        self.message_authentication_code = mac[0:3]
+    def secoc_authenticate(self) -> None:
+        self.tfv = self.get_secoc_freshness_value()[-1:]
+        self.tmac = self.get_message_authentication_code()[0:3]
 
     def secoc_verify(self) -> bool:
-        return self.get_message_authentication_code() == bytes(self)[-3:]
+        return self.get_message_authentication_code()[0:3] == self.tmac
+
+    def get_secoc_payload(self) -> bytes:
+        """Override this method for customization
+        """
+        return self.pdu_payload
+
+    def get_secoc_key(self) -> bytes:
+        """Override this method for customization
+        """
+        return b"\x00" * 16
+
+    def get_secoc_freshness_value(self) -> bytes:
+        """Override this method for customization
+        """
+        return b"\x00" * 4
 
     def get_message_authentication_code(self):
-        payload = bytes(self)[:-3]
-        c = cmac.CMAC(algorithms.AES(self.secret_keys_by_identifier[self.pdu_id]))
-        c.update(payload)
-        mac = c.finalize()
-        return mac
+        payload = self.get_secoc_payload()
+        key = self.get_secoc_key()
+        freshness_value = self.get_freshness_value()
+        return self.calculate_cmac(key, payload, freshness_value)
+
+    @staticmethod
+    def calculate_cmac(key: bytes, payload: bytes, freshness_value: bytes) -> bytes:
+        c = cmac.CMAC(algorithms.AES128(key))
+        c.update(payload + freshness_value)
+        return c.finalize()
 
     @classmethod
     def register_secoc_protected_pdu(cls,
                                      pdu_id: int,
-                                     secret_key: bytes = b"\x00" * 16,
                                      pdu_payload_cls: Type[Packet] = Raw
                                      ) -> None:
-        cls.secoc_protected_pdus_by_identifier.insert(0, pdu_id)
-        cls.secret_keys_by_identifier[pdu_id] = secret_key
+        cls.secoc_protected_pdus_by_identifier.add(pdu_id)
         cls.pdu_payload_cls_by_identifier[pdu_id] = pdu_payload_cls
 
     @classmethod
@@ -111,7 +122,7 @@ class SecOC_PDU(Packet):
 
     @classmethod
     def dispatch_hook(cls, s=None, *_args, **_kwds):
-        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
+        # type: (Optional[bytes], Any, Any) -> Packet_metaclass
         """dispatch_hook determines if PDU is protected by SecOC.
         If PDU is protected, SecOC_PDU will be returned, otherwise AutoSAR PDU
         will be returned.
@@ -125,10 +136,6 @@ class SecOC_PDU(Packet):
             return SecOC_PDU
         else:
             return PDU
-
-    def post_dissect(self, s):  # type: (bytes) -> bytes
-        SecOC_PDU.freshness_values_by_identifier[self.pdu_id] = self.freshness_value
-        return s
 
     @staticmethod
     def get_pdu_payload_cls(pkt: Packet,
@@ -153,10 +160,9 @@ class SecOC_PDUTransport(Packet):
 
     @staticmethod
     def register_secoc_protected_pdu(pdu_id: int,
-                                     secret_key: bytes = b"\x00" * 16,
                                      pdu_payload_cls: Type[Packet] = Raw
                                      ) -> None:
-        SecOC_PDU.register_secoc_protected_pdu(pdu_id, secret_key, pdu_payload_cls)
+        SecOC_PDU.register_secoc_protected_pdu(pdu_id, pdu_payload_cls)
 
     @staticmethod
     def unregister_secoc_protected_pdu(pdu_id: int) -> None:

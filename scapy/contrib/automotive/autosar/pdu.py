@@ -9,7 +9,7 @@
 # scapy.contrib.status = loads
 from typing import Tuple, Optional
 from scapy.layers.inet import UDP
-from scapy.fields import IntField, XIntField, PacketListField, LenField
+from scapy.fields import XIntField, PacketListField, LenField
 from scapy.packet import Packet, bind_bottom_up
 
 

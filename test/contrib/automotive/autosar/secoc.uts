@@ -15,7 +15,7 @@ load_contrib("automotive.autosar.secoc")
 
 = Prepare SecOC keys
 
-SecOC_PDU.secoc_protected_pdus_by_identifier = [0, 1, 2, 3, 17, 18]
+SecOC_PDU.secoc_protected_pdus_by_identifier = {0, 1, 2, 3, 17, 18}
 SecOC_PDU.register_secoc_protected_pdu(0xdeadbeef)
 
 
@@ -45,12 +45,12 @@ assert len(p) == 20
 assert p.pdu_id == 0
 assert p.pdu_payload_len == 12
 assert bytes(p.pdu_payload) == bytes.fromhex("1122334455667788")
-assert p.freshness_value == 0
-assert p.message_authentication_code == b"\x00\x00\x00"
+assert p.tfv == 0
+assert p.tmac == b"\x00\x00\x00"
 
 
 = Build test pdu_payload_len2
-p1 = bytes(SecOC_PDU(pdu_id=0xdeadbeef, pdu_payload_len=12, pdu_payload=bytes.fromhex("1122334455667788"), freshness_value=42))
+p1 = bytes(SecOC_PDU(pdu_id=0xdeadbeef, pdu_payload_len=12, pdu_payload=bytes.fromhex("1122334455667788"), tfv=42))
 print(p1.hex())
 p = SecOC_PDU(p1)
 p.show()
@@ -58,9 +58,8 @@ assert len(p) == 20
 assert p.pdu_id == 0xdeadbeef
 assert p.pdu_payload_len == 12
 assert bytes(p.pdu_payload) == bytes.fromhex("1122334455667788")
-assert p.freshness_value == 42
-assert p.message_authentication_code == b"\x00\x00\x00"
-assert SecOC_PDU.freshness_values_by_identifier[0xdeadbeef] == 42
+assert p.tfv == 42
+assert p.tmac == b"\x00\x00\x00"
 
 
 = Build test id and payload len with data
@@ -100,7 +99,7 @@ assert p1 == p2
 
 = Build SecOC_PDUTransport with one SecOC_PDU packet
 p1 = SecOC_PDUTransport(b'\x00\x00\x00\x01\x00\x00\x00\x08\xaa\xaa\xaa\xaa\x11\x22\x33\x44')
-p2 = SecOC_PDUTransport(bytes(SecOC_PDUTransport(pdus=[SecOC_PDU(pdu_id=0x1, pdu_payload=Raw(b'\xaa\xaa\xaa\xaa'), freshness_value=0x11, message_authentication_code=b"\x22\x33\x44")])))
+p2 = SecOC_PDUTransport(bytes(SecOC_PDUTransport(pdus=[SecOC_PDU(pdu_id=0x1, pdu_payload=Raw(b'\xaa\xaa\xaa\xaa'), tfv=0x11, tmac=b"\x22\x33\x44")])))
 
 # Check if packets are the same
 assert p1 == p2
