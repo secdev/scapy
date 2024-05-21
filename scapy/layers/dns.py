@@ -1493,7 +1493,7 @@ class DNS_am(AnsweringMachine):
                        Set to False to disable, None to mirror the interface's IPv6.
                        Defaults to False.
         :param match: queries to match.
-                      Thies can be a dictionary of {name: val} where name is a string
+                      This can be a dictionary of {name: val} where name is a string
                       representing a domain name (A, AAAA) and val is a tuple of 2
                       elements, each representing an IP or a list of IPs. If val is
                       a single element, (A, None) is assumed.
@@ -1524,14 +1524,15 @@ class DNS_am(AnsweringMachine):
 
             >>> dnsd(match={"google.com": "192.168.0.2"}, iface="eth0")
 
-        - Answer DNS for a Windows domain controller ('SRV' and 'A')::
+        - Answer DNS for a Windows domain controller ('SRV', 'A' and 'AAAA')::
 
             >>> dnsd(
             ...     srvmatch={
             ...         "_ldap._tcp.dc._msdcs.DOMAIN.LOCAL.": (389,
             ...                                                "srv1.domain.local"),
             ...     },
-            ...     match={"src1.domain.local": "192.168.0.102"},
+            ...     match={"src1.domain.local": ("192.168.0.102",
+            ...                                  "fe80::260:8ff:fe52:f9d8")},
             ... )
 
         - Relay all queries to another DNS server, except some::
@@ -1853,13 +1854,24 @@ class mDNS_am(DNS_am):
 
     Example::
 
-        - Answer for 'TEST.local' with local IPv4:
+        - Answer for 'TEST.local' with local IPv4::
 
             >>> mdnsd(match=["TEST.local"])
 
-        - Answer all requests with other IP:
+        - Answer all requests with other IP::
 
-            >>> mdnsd(joker="192.168.0.2", iface="eth0")
+            >>> mdnsd(joker="192.168.0.2", joker6="fe80::260:8ff:fe52:f9d8",
+            ...       iface="eth0")
+
+        - Answer for multiple different mDNS names::
+
+            >>> mdnsd(match={"TEST.local": "192.168.0.100",
+            ...              "BOB.local": "192.168.0.101"})
+
+        - Answer with both A and AAAA records::
+
+            >>> mdnsd(match={"TEST.local": ("192.168.0.100",
+            ...                             "fe80::260:8ff:fe52:f9d8")})
     """
     function_name = "mdnsd"
     filter = "udp port 5353"
