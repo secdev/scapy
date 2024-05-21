@@ -18,6 +18,15 @@ load_contrib("automotive.autosar.secoc")
 SecOC_PDU.secoc_protected_pdus_by_identifier = {0, 1, 2, 3, 17, 18}
 SecOC_PDU.register_secoc_protected_pdu(0xdeadbeef)
 
+class PDU_Payload(Packet):
+    fields_desc = [
+        ByteField("a", 0),
+        ByteField("b", 0),
+        ByteField("c", 0)
+    ]
+
+SecOC_PDUTransport.register_secoc_protected_pdu(32, PDU_Payload)
+
 
 = Defaults test
 p = SecOC_PDUTransport()
@@ -106,3 +115,20 @@ assert p1 == p2
 # Check if fields are set correctly within SecOC_PDU list
 assert p1.pdus[0].pdu_id == 0x1
 assert p1.pdus[0].pdu_payload_len == 8
+
+
+= Build SecOC_PDUTransport with one SecOC_PDU packet
+p1 = SecOC_PDUTransport(b'\x00\x00\x00\x20\x00\x00\x00\x07\xaa\xbb\xcc\x11\x22\x33\x44')
+
+# Check if packets are the same
+assert p1
+# Check if fields are set correctly within SecOC_PDU list
+assert p1.pdus[0].pdu_id == 0x20
+assert p1.pdus[0].pdu_payload_len == 7
+assert p1.pdus[0].tmac == b"\x22\x33\x44"
+pdu = p1.pdus[0]
+pdu.show()
+assert pdu.pdu_payload.a == 0xaa
+assert pdu.pdu_payload.b == 0xbb
+assert pdu.pdu_payload.c == 0xcc
+

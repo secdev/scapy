@@ -50,9 +50,9 @@ class PduPayloadField(PacketLenField):
         # type: (Optional[Packet], bytes) -> Packet
         try:
             # we want to set parent wherever possible
-            return self.cls(self, m, _parent=pkt)  # type: ignore
+            return self.cls(pkt, m, _parent=pkt)  # type: ignore
         except TypeError:
-            return self.cls(self, m)
+            return self.cls(pkt, m)
 
 
 class SecOC_PDU(Packet):
