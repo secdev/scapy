@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives import cmac
 from cryptography.hazmat.primitives.ciphers import algorithms
 
 from scapy.base_classes import Packet_metaclass
+from scapy.config import conf
 from scapy.contrib.automotive.autosar.pdu import PDU
 from scapy.fields import (XByteField, XIntField, PacketListField,
                           FieldLenField, PacketLenField, XStrFixedLenField)
@@ -30,29 +31,27 @@ from typing import (
     Set,
     Tuple,
     Type,
-    Union,
 )
 
 
 class PduPayloadField(PacketLenField):
 
+    __slots__ = ["guess_pkt_cls"]
+
     def __init__(self,
                  name,  # type: str
                  default,  # type: Packet
-                 guess_pkt_cls,  # type: Union[Callable[[Packet, bytes], Packet], Type[Packet]]  # noqa: E501
+                 guess_pkt_cls,  # type: Callable[[Packet, bytes], Packet]  # noqa: E501
                  length_from=None  # type: Optional[Callable[[Packet], int]]  # noqa: E501
                  ):
         # type: (...) -> None
-        super(PacketLenField, self).__init__(name, default, guess_pkt_cls)
+        super(PacketLenField, self).__init__(name, default, Raw)
         self.length_from = length_from or (lambda x: 0)
+        self.guess_pkt_cls = guess_pkt_cls
 
     def m2i(self, pkt, m):  # type: ignore
         # type: (Optional[Packet], bytes) -> Packet
-        try:
-            # we want to set parent wherever possible
-            return self.cls(pkt, m, _parent=pkt)  # type: ignore
-        except TypeError:
-            return self.cls(pkt, m)
+        return self.guess_pkt_cls(pkt, m)
 
 
 class SecOC_PDU(Packet):
@@ -141,7 +140,11 @@ class SecOC_PDU(Packet):
     def get_pdu_payload_cls(pkt: Packet,
                             data: bytes
                             ) -> Packet:
-        return SecOC_PDU.pdu_payload_cls_by_identifier[pkt.pdu_id](data)
+        try:
+            cls = SecOC_PDU.pdu_payload_cls_by_identifier[pkt.pdu_id]
+        except KeyError:
+            cls = conf.raw_layer
+        return cls(data, _parent=pkt)
 
     def extract_padding(self, s):
         # type: (bytes) -> Tuple[bytes, Optional[bytes]]
