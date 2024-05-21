@@ -69,7 +69,7 @@ class SecOC_PDU(Packet):
         XByteField("tfv", 0),  # truncated freshness value
         XStrFixedLenField("tmac", None, length=3)]  # truncated message authentication code # noqa: E501
 
-    pdu_payload_cls_by_identifier: Dict[int, Type[Packet]] = defaultdict(Raw)
+    pdu_payload_cls_by_identifier: Dict[int, Type[Packet]] = dict()
     secoc_protected_pdus_by_identifier: Set[int] = set()
 
     def secoc_authenticate(self) -> None:
