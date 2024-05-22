@@ -96,7 +96,7 @@ class SecOC_PDU(Packet):
     def get_message_authentication_code(self):
         payload = self.get_secoc_payload()
         key = self.get_secoc_key()
-        freshness_value = self.get_freshness_value()
+        freshness_value = self.get_secoc_freshness_value()
         return self.calculate_cmac(key, payload, freshness_value)
 
     @staticmethod
