@@ -501,6 +501,8 @@ class ASN1_BIT_STRING(ASN1_Object[str]):
         """
         val = str(val)
         assert val in ['0', '1']
+        if len(self.val) < i:
+            self.val += "0" * (i - len(self.val))
         self.val = self.val[:i] + val + self.val[i + 1:]
 
     def __repr__(self):

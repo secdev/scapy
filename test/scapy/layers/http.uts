@@ -297,7 +297,11 @@ class run_httpserver:
         print("@ Server started !")
     def __exit__(self, exc_type, exc_value, traceback):
         print("@ Stopping http server !")
-        self.server.shutdown(socket.SHUT_RDWR)
+        try:
+            self.server.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        self.server.close()
         if traceback:
             # failed
             print("\nTest failed.")
