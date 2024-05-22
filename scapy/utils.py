@@ -11,6 +11,7 @@ General utility functions.
 from decimal import Decimal
 from io import StringIO
 from itertools import zip_longest
+from uuid import UUID
 
 import array
 import argparse
@@ -1646,7 +1647,8 @@ class RawPcapNgReader(RawPcapReader):
     PacketMetadata = collections.namedtuple("PacketMetadataNg",  # type: ignore
                                             ["linktype", "tsresol",
                                              "tshigh", "tslow", "wirelen",
-                                             "comment", "ifname", "direction"])
+                                             "comment", "ifname", "direction",
+                                             "process_information"])
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, IO[bytes], bytes) -> None
@@ -1668,8 +1670,10 @@ class RawPcapNgReader(RawPcapReader):
                 3: self._read_block_spb,
                 6: self._read_block_epb,
                 10: self._read_block_dsb,
+                0x80000001: self._read_block_pib,
         }
         self.endian = "!"  # Will be overwritten by first SHB
+        self.process_information = []
 
         if magic != b"\x0a\x0d\x0d\x0a":  # PcapNg:
             raise Scapy_Exception(
@@ -1868,6 +1872,18 @@ class RawPcapNgReader(RawPcapReader):
 
         # Parse options
         options = self._read_options(block[opt_offset:])
+
+        process_information = {}
+        for code, value in options.items():
+            if code in [0x8001, 0x8003]:  # PCAPNG_EPB_PIB_INDEX, PCAPNG_EPB_E_PIB_INDEX
+                proc_index = struct.unpack(self.endian + "I", value)[0]
+                if proc_index < len(self.process_information):
+                    key = "proc" if code == 0x8001 else "eproc"
+                    process_information[key] = self.process_information[proc_index]
+                else:
+                    warning("PcapNg: EPB invalid process information index "
+                            "(%d/%d) !" % (proc_index, len(self.process_information)))
+
         comment = options.get(1, None)
         epb_flags_raw = options.get(2, None)
         if epb_flags_raw:
@@ -1884,6 +1900,9 @@ class RawPcapNgReader(RawPcapReader):
 
         self._check_interface_id(intid)
         ifname = self.interfaces[intid][2].get('name', None)
+
+        self.process_information = []
+
         return (block[20:20 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
                                                tsresol=self.interfaces[intid][2]['tsresol'],  # noqa: E501
@@ -1892,7 +1911,8 @@ class RawPcapNgReader(RawPcapReader):
                                                wirelen=wirelen,
                                                comment=comment,
                                                ifname=ifname,
-                                               direction=direction))
+                                               direction=direction,
+                                               process_information=process_information))
 
     def _read_block_spb(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -1909,6 +1929,8 @@ class RawPcapNgReader(RawPcapReader):
             warning("PcapNg: SPB is too small %d/4 !" % len(block))
             raise EOFError
 
+        self.process_information = []
+
         caplen = min(wirelen, self.interfaces[intid][1])
         return (block[4:4 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
@@ -1918,7 +1940,8 @@ class RawPcapNgReader(RawPcapReader):
                                                wirelen=wirelen,
                                                comment=None,
                                                ifname=None,
-                                               direction=None))
+                                               direction=None,
+                                               process_information={}))
 
     def _read_block_pkt(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -1932,6 +1955,8 @@ class RawPcapNgReader(RawPcapReader):
             warning("PcapNg: PKT is too small %d/20 !" % len(block))
             raise EOFError
 
+        self.process_information = []
+
         self._check_interface_id(intid)
         return (block[20:20 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
@@ -1941,7 +1966,8 @@ class RawPcapNgReader(RawPcapReader):
                                                wirelen=wirelen,
                                                comment=None,
                                                ifname=None,
-                                               direction=None))
+                                               direction=None,
+                                               process_information={}))
 
     def _read_block_dsb(self, block, size):
         # type: (bytes, int) -> None
@@ -1995,6 +2021,32 @@ class RawPcapNgReader(RawPcapReader):
         else:
             warning("PcapNg: Unknown DSB secrets type (0x%x)!", secrets_type)
 
+    def _read_block_pib(self, block, _):
+        # type: (bytes, int) -> None
+        """Apple Process Information Block"""
+
+        process_information = []
+        # Get the Process ID
+        try:
+            dpeb_pid = struct.unpack(self.endian + "I", block[:4])[0]
+            process_information = {"id": dpeb_pid}
+            block = block[4:]
+        except struct.error:
+            warning("PcapNg: DPEB is too small (%d). Cannot get PID!",
+                    len(block))
+            raise EOFError
+
+        # Get Options
+        options = self._read_options(block)
+        for code, value in options.items():
+            if code == 2:
+                process_information["name"] = value.decode("ascii", "backslashreplace")
+            elif code == 4:
+                process_information["uuid"] = str(UUID(bytes=value))
+
+        # Store process information
+        self.process_information.append(process_information)
+
 
 class PcapNgReader(RawPcapNgReader, PcapReader):
 
@@ -2013,7 +2065,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         rp = super(PcapNgReader, self)._read_packet(size=size)
         if rp is None:
             raise EOFError
-        s, (linktype, tsresol, tshigh, tslow, wirelen, comment, ifname, direction) = rp
+        s, (linktype, tsresol, tshigh, tslow, wirelen, comment, ifname, direction, process_information) = rp  # noqa: E501
         try:
             cls = conf.l2types.num2layer[linktype]  # type: Type[Packet]
             p = cls(s, **kwargs)  # type: Packet
@@ -2031,6 +2083,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         p.wirelen = wirelen
         p.comment = comment
         p.direction = direction
+        p.process_information = process_information.copy()
         if ifname is not None:
             p.sniffed_on = ifname.decode('utf-8', 'backslashreplace')
         return p

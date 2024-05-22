@@ -100,7 +100,8 @@ class Packet(
         "direction", "sniffed_on",
         # handle snaplen Vs real length
         "wirelen",
-        "comment"
+        "comment",
+        "process_information"
     ]
     name = None
     fields_desc = []  # type: List[AnyField]
@@ -178,6 +179,7 @@ class Packet(
         self.direction = None  # type: Optional[int]
         self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
         self.comment = None  # type: Optional[bytes]
+        self.process_information = None  # type: Optional[Dict[str, Any]]
         self.stop_dissection_after = stop_dissection_after
         if _pkt:
             self.dissect(_pkt)
