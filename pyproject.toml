@@ -66,6 +66,9 @@ doc = [
 
 # setuptools specific
 
+[tool.setuptools.package-data]
+"scapy" = ["py.typed"]
+
 [tool.setuptools.packages.find]
 include = [
     "scapy*",
