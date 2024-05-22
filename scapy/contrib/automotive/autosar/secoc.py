@@ -72,7 +72,7 @@ class SecOC_PDU(Packet):
     secoc_protected_pdus_by_identifier: Set[int] = set()
 
     def secoc_authenticate(self) -> None:
-        self.tfv = self.get_secoc_freshness_value()[-1:]
+        self.tfv = struct.unpack(">B", self.get_secoc_freshness_value()[-1:])[0]
         self.tmac = self.get_message_authentication_code()[0:3]
 
     def secoc_verify(self) -> bool:
