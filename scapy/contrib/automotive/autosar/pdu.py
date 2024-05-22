@@ -26,7 +26,7 @@ class PDU(Packet):
     name = 'PDU'
     fields_desc = [
         XIntField('pdu_id', 0),
-        LenField('pdu_payload_len', 0, fmt="I")]
+        LenField('pdu_payload_len', None, fmt="I")]
 
     def extract_padding(self, s):
         # type: (bytes) -> Tuple[bytes, Optional[bytes]]

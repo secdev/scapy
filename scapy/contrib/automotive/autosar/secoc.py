@@ -11,8 +11,15 @@ SecOC
 """
 import struct
 
-from cryptography.hazmat.primitives import cmac
-from cryptography.hazmat.primitives.ciphers import algorithms
+from scapy.config import conf
+from scapy.error import log_loading
+
+if conf.crypto_valid:
+    from cryptography.hazmat.primitives import cmac
+    from cryptography.hazmat.primitives.ciphers import algorithms
+else:
+    log_loading.info("Can't import python-cryptography v1.7+. "
+                     "Disabled SecOC calculate_cmac.")
 
 from scapy.base_classes import Packet_metaclass
 from scapy.config import conf
