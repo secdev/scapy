@@ -704,13 +704,22 @@ def zerofree_randstring(length):
                     for _ in range(length))
 
 
+def stror(s1, s2):
+    # type: (bytes, bytes) -> bytes
+    """
+    Returns the binary OR of the 2 provided strings s1 and s2. s1 and s2
+    must be of same length.
+    """
+    return b"".join(map(lambda x, y: struct.pack("!B", x | y), s1, s2))
+
+
 def strxor(s1, s2):
     # type: (bytes, bytes) -> bytes
     """
     Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return b"".join(map(lambda x, y: chb(orb(x) ^ orb(y)), s1, s2))
+    return b"".join(map(lambda x, y: struct.pack("!B", x ^ y), s1, s2))
 
 
 def strand(s1, s2):
@@ -719,7 +728,7 @@ def strand(s1, s2):
     Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return b"".join(map(lambda x, y: chb(orb(x) & orb(y)), s1, s2))
+    return b"".join(map(lambda x, y: struct.pack("!B", x & y), s1, s2))
 
 
 def strrot(s1, count, right=True):
@@ -817,6 +826,93 @@ def ltoa(x):
 def itom(x):
     # type: (int) -> int
     return (0xffffffff00000000 >> x) & 0xffffffff
+
+
+def in4_cidr2mask(m):
+    # type: (int) -> bytes
+    """
+    Return the mask (bitstring) associated with provided length
+    value. For instance if function is called on 20, return value is
+    b'\xff\xff\xf0\x00'.
+    """
+    if m > 32 or m < 0:
+        raise Scapy_Exception("value provided to in4_cidr2mask outside [0, 32] domain (%d)" % m)  # noqa: E501
+
+    return strxor(
+        b"\xff" * 4,
+        struct.pack(">I", 2**(32 - m) - 1)
+    )
+
+
+def in4_isincluded(addr, prefix, mask):
+    # type: (str, str, int) -> bool
+    """
+    Returns True when 'addr' belongs to prefix/mask. False otherwise.
+    """
+    temp = inet_pton(socket.AF_INET, addr)
+    pref = in4_cidr2mask(mask)
+    zero = inet_pton(socket.AF_INET, prefix)
+    return zero == strand(temp, pref)
+
+
+def in4_ismaddr(str):
+    # type: (str) -> bool
+    """
+    Returns True if provided address in printable format belongs to
+    allocated Multicast address space (224.0.0.0/4).
+    """
+    return in4_isincluded(str, "224.0.0.0", 4)
+
+
+def in4_ismlladdr(str):
+    # type: (str) -> bool
+    """
+    Returns True if address belongs to link-local multicast address
+    space (224.0.0.0/24)
+    """
+    return in4_isincluded(str, "224.0.0.0", 24)
+
+
+def in4_ismgladdr(str):
+    # type: (str) -> bool
+    """
+    Returns True if address belongs to global multicast address
+    space (224.0.1.0-238.255.255.255).
+    """
+    return (
+        in4_isincluded(str, "224.0.0.0", 4) and
+        not in4_isincluded(str, "224.0.0.0", 24) and
+        not in4_isincluded(str, "239.0.0.0", 8)
+    )
+
+
+def in4_ismlsaddr(str):
+    # type: (str) -> bool
+    """
+    Returns True if address belongs to limited scope multicast address
+    space (239.0.0.0/8).
+    """
+    return in4_isincluded(str, "239.0.0.0", 8)
+
+
+def in4_isaddrllallnodes(str):
+    # type: (str) -> bool
+    """
+    Returns True if address is the link-local all-nodes multicast
+    address (224.0.0.1).
+    """
+    return (inet_pton(socket.AF_INET, "224.0.0.1") ==
+            inet_pton(socket.AF_INET, str))
+
+
+def in4_getnsmac(a):
+    # type: (bytes) -> str
+    """
+    Return the multicast mac address associated with provided
+    IPv4 address. Passed address must be in network format.
+    """
+
+    return "01:00:5e:%.2x:%.2x:%.2x" % (a[1] & 0x7f, a[2], a[3])
 
 
 def decode_locale_str(x):
