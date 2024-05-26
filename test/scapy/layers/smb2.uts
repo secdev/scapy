@@ -52,7 +52,7 @@ assert pkt[NBTSession].TYPE == 0x00         # session message
 smb2 = pkt[SMB2_Header]
 assert smb2.Start == b'\xfeSMB'
 
-+ SMB2 Negotiate Procotol Request Header dissecting
++ SMB2 Negotiate Protocol Request Header dissecting
 
 = Common fields in header
 
@@ -209,7 +209,7 @@ pkt = IP() / TCP() / NBTSession() / SMB2_Header() / SMB2_Negotiate_Protocol_Resp
 pkt = IP(raw(pkt))
 assert SMB2_Negotiate_Protocol_Response in pkt
 
-+ SMB2 Negotiate Procotol Request Header with 1 dialect
++ SMB2 Negotiate Protocol Request Header with 1 dialect
 
 = Common fields in header
 

@@ -404,7 +404,7 @@ class TLS13ClientHello(_TLSHandshake):
                         # For a resumed PSK, the hash function use
                         # to compute the binder must be the same
                         # as the one used to establish the original
-                        # conntection. For that, we assume that
+                        # connection. For that, we assume that
                         # the ciphersuite associate with the ticket
                         # is given as argument to tlsSession
                         # (see layers/tls/automaton_cli.py for an
