@@ -746,7 +746,7 @@ def pcap_service_stop(askadmin=True):
 if conf.use_pcap:
     _orig_open_pcap = libpcap.open_pcap
 
-    def open_pcap(iface,  # type: Union[str, NetworkInterface]
+    def open_pcap(device,  # type: Union[str, NetworkInterface]
                   *args,  # type: Any
                   **kargs  # type: Any
                   ):
@@ -754,7 +754,7 @@ if conf.use_pcap:
         """open_pcap: Windows routine for creating a pcap from an interface.
         This function is also responsible for detecting monitor mode.
         """
-        iface = cast(NetworkInterface_Win, resolve_iface(iface))
+        iface = cast(NetworkInterface_Win, resolve_iface(device))
         iface_network_name = iface.network_name
         if not iface:
             raise Scapy_Exception(
