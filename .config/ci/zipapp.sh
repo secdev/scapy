@@ -69,6 +69,9 @@ if [ ! -d "./dist" ]; then
     mkdir dist
 fi
 
+# Copy version
+echo "$SCPY_VERSION" > "./dist/version"
+
 echo "$SCPY"
 # Build the zipapp
 echo "Building zipapp"
