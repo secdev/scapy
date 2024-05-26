@@ -18,7 +18,8 @@ from scapy.data import (
     ARPHDR_LOOPBACK,
     ARPHDR_PPP,
     ARPHDR_TUN,
-    IPV6_ADDR_GLOBAL
+    IPV6_ADDR_GLOBAL,
+    IPV6_ADDR_LOOPBACK,
 )
 from scapy.error import log_loading, Scapy_Exception
 from scapy.interfaces import _GlobInterfaceType, network_name
@@ -104,8 +105,11 @@ def get_if_addr6(niff):
     None is returned.
     """
     iff = network_name(niff)
+    scope = IPV6_ADDR_GLOBAL
+    if iff == conf.loopback_name:
+        scope = IPV6_ADDR_LOOPBACK
     return next((x[0] for x in in6_getifaddr()
-                 if x[2] == iff and x[1] == IPV6_ADDR_GLOBAL), None)
+                 if x[2] == iff and x[1] == scope), None)
 
 
 def get_if_raw_addr6(iff):
