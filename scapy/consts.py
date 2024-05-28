@@ -10,6 +10,20 @@ This file contains constants
 from sys import byteorder, platform, maxsize
 import platform as platform_lib
 
+__all__ = [
+    "LINUX",
+    "OPENBSD",
+    "FREEBSD",
+    "NETBSD",
+    "DARWIN",
+    "SOLARIS",
+    "WINDOWS",
+    "WINDOWS_XP",
+    "BSD",
+    "IS_64BITS",
+    "BIG_ENDIAN",
+]
+
 LINUX = platform.startswith("linux")
 OPENBSD = platform.startswith("openbsd")
 FREEBSD = "freebsd" in platform
