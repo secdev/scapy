@@ -35,6 +35,10 @@ assert pkt[NBNSQueryResponse].mysummary() == r"NBNSQueryResponse '\\FRED' is at 
 z = NBNSQueryResponse(b' PPFCEFEECACACACACACACACACACACAAA\x00\x00 \x00\x01\x00\x04\x93\xe0\x00\x06\x00\x00\xc0\xa8\x00\r')
 assert z.mysummary() == r"NBNSQueryResponse '\\\xffRED' is at 192.168.0.13"
 
+z = NBNSHeader(b'/S\x85\x80\x00\x00\x00\x01\x00\x00\x00\x00 FAEPFEEBFEEPCACACACACACACACACAAA\x00\x00 \x00\x01\x00\x03\xf4\x80\x00\x06\x00\x00\xc0\xa8\x01A')
+assert z.RR_NAME == b'POTATO         '
+assert z.ADDR_ENTRY[0].G == 0
+assert z.ADDR_ENTRY[0].NB_ADDRESS == "192.168.1.65"
 
 = NBNSNodeStatusResponse - build & dissect
 
