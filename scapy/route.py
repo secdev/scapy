@@ -85,7 +85,7 @@ class Route:
                 nhop = thenet
             dev, ifaddr, _ = self.route(nhop)
         else:
-            ifaddr = "0.0.0.0"  # acts as a 'via'
+            ifaddr = "0.0.0.0"  # acts as a 'via' in `ip addr add`
         return (atol(thenet), itom(msk), gw, dev, ifaddr, metric)
 
     def add(self, *args, **kargs):
