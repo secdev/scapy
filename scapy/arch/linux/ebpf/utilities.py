@@ -142,3 +142,30 @@ def bpf_assign_kprobe(kprobe_id, bpf_fd):
         return False
 
     return True
+
+
+def bpf_prog_update_map_fd(bpf_prog, instruction, instruction_offset, new_instruction):
+    # type: (bytes, bytes, int, int) -> bytes
+    """
+    Update the eBPF program with a new instruction containing the eBPF map ID
+    :param bpf_prog: bytes of the eBPF program
+    :param instruction: bytes of the instruction to replace
+    """
+
+    # Check that the original instruction if at the provided offset
+    try:
+        tmp_index = bpf_prog.index(instruction)
+    except ValueError:
+        tmp_index = -1
+    if tmp_index != instruction_offset:
+        warning(f"Incorrect instruction offset ({tmp_index}/{instruction_offset})")  # noqa: E501
+        return b""
+
+    # Check that the provided program contains the expected original instuction
+    tmp_instruction = bpf_prog[instruction_offset:instruction_offset + len(instruction)]  # noqa: E501
+    if tmp_instruction != instruction:
+        print(f"Incorrect instruction found {tmp_instruction}")  # noqa: E501
+        return b""
+
+    # Replace the instruction and return the new eBPF program
+    return bpf_prog[:instruction_offset] + new_instruction + bpf_prog[instruction_offset + 16:]  # noqa: E501
