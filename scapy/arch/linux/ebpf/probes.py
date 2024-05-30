@@ -7,8 +7,18 @@
 Scapy eBPF native support - programs that retrieve process information
 """
 
+import collections
 import ctypes
+import socket
+import struct
+import threading
+import time
 
+from scapy.layers.inet import IP
+
+from .consts import BPF_MAP_LOOKUP_AND_DELETE_ELEM
+from .structures import BpfAttrMapLookup
+from .syscalls import bpf
 from .utilities import bpf_prog_update_map_fd
 
 
@@ -90,6 +100,9 @@ class Program_security_sk_classify_flow(object):
     51: (85) call bpf_map_push_elem#87
     52: (b7) r0 = 0
     53: (95) exit
+
+    This eBPF program fills a ProcessInformation structure and
+    pushes it to an eBPF map queue.
     """
 
     prog_hex = ""
@@ -160,3 +173,39 @@ class Program_security_sk_classify_flow(object):
         bpf_prog_raw = bytes.fromhex(cls.prog_hex)
         return bpf_prog_update_map_fd(bpf_prog_raw, cls.original_instruction,
                                       cls.map_instruction_count * 8, new_instruction)
+
+
+class ProcessInformationPoller(threading.Thread):
+    def __init__(self, map_fd):
+        self.queue = collections.OrderedDict()
+
+        self.bpf_attr_map_lookup = BpfAttrMapLookup()
+        self.bpf_attr_map_lookup.map_fd = map_fd
+        self.process_information = ProcessInformation()
+        self.bpf_attr_map_lookup.value = ctypes.addressof(self.process_information)
+
+        self.continue_polling = True
+        threading.Thread.__init__(self)
+
+    def run(self):
+        while self.continue_polling:
+            ret = bpf(BPF_MAP_LOOKUP_AND_DELETE_ELEM,
+                      ctypes.byref(self.bpf_attr_map_lookup),
+                      ctypes.sizeof(self.bpf_attr_map_lookup))
+            if ret >= 0:
+                src = socket.inet_ntoa(struct.pack("I", self.process_information.src))
+                dst = socket.inet_ntoa(struct.pack("I", self.process_information.dst))
+                value = (self.process_information.pid, self.process_information.name)
+                self.queue[f"{dst} {src} {self.process_information.proto}"] = value
+                self.queue[f"{src} {dst} {self.process_information.proto}"] = value
+            else:
+                time.sleep(0.0001)
+
+    def stop(self):
+        self.continue_polling = False
+
+    def lookup(self, packet):
+        packet_key = f"{packet[IP].src} {packet[IP].dst} {packet[IP].proto}"
+        if packet_key in self.queue:
+            pid, name = self.queue[packet_key]
+            packet.comment = f"{pid} {name}"
