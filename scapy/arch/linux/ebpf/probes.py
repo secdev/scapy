@@ -14,7 +14,7 @@ import struct
 import threading
 import time
 
-from scapy.layers.inet import IP
+from scapy.layers.inet import IP, TCP, UDP
 
 from .consts import BPF_MAP_LOOKUP_AND_DELETE_ELEM
 from .structures import BpfAttrMapLookup
@@ -204,8 +204,14 @@ class ProcessInformationPoller(threading.Thread):
     def stop(self):
         self.continue_polling = False
 
-    def lookup(self, packet):
-        packet_key = f"{packet[IP].src} {packet[IP].dst} {packet[IP].proto}"
-        if packet_key in self.queue:
-            pid, name = self.queue[packet_key]
-            packet.comment = f"{pid} {name}"
+    def lookup(self, packet, retries=3):
+        if IP not in packet and TCP not in packet and UDP not in packet:
+            return
+        while retries:
+            packet_key = f"{packet[IP].src} {packet[IP].dst} {packet[IP].proto}"
+            if packet_key in self.queue:
+                pid, name = self.queue[packet_key]
+                packet.comment = f"{pid} {name}"
+                return
+            retries -= 1
+            time.sleep(0.00001)
