@@ -286,18 +286,24 @@ if conf.use_pcap:
             )
             self.dtl = -1
             if monitor:
-                if WINDOWS and not conf.use_npcap:
-                    raise OSError("On Windows, this feature requires NPcap !")
-                # Npcap-only functions
-                from scapy.libs.winpcapy import pcap_create, \
-                    pcap_set_snaplen, pcap_set_promisc, \
-                    pcap_set_timeout, pcap_set_rfmon, pcap_activate, \
-                    pcap_statustostr, pcap_geterr
+                from scapy.libs.winpcapy import pcap_create
                 self.pcap = pcap_create(self.iface, self.errbuf)
                 if not self.pcap:
                     error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
                     if error:
                         raise OSError(error)
+                if WINDOWS and not conf.use_npcap:
+                    raise OSError("On Windows, this feature requires NPcap !")
+                # Non-winpcap functions
+                from scapy.libs.winpcapy import (
+                    pcap_set_snaplen,
+                    pcap_set_promisc,
+                    pcap_set_timeout,
+                    pcap_set_rfmon,
+                    pcap_activate,
+                    pcap_statustostr,
+                    pcap_geterr,
+                )
                 pcap_set_snaplen(self.pcap, snaplen)
                 pcap_set_promisc(self.pcap, promisc)
                 pcap_set_timeout(self.pcap, to_ms)
@@ -486,9 +492,13 @@ if conf.use_pcap:
                 self.promisc = promisc
             else:
                 self.promisc = conf.sniff_promisc
+            self.monitor = monitor
             fd = open_pcap(
-                iface, MTU, self.promisc, 100,
-                monitor=monitor
+                device=iface,
+                snaplen=MTU,
+                promisc=self.promisc,
+                to_ms=100,
+                monitor=self.monitor,
             )
             super(L2pcapListenSocket, self).__init__(fd)
             try:
@@ -534,8 +544,14 @@ if conf.use_pcap:
                 self.promisc = promisc
             else:
                 self.promisc = conf.sniff_promisc
-            fd = open_pcap(iface, MTU, self.promisc, 100,
-                           monitor=monitor)
+            self.monitor = monitor
+            fd = open_pcap(
+                device=iface,
+                snaplen=MTU,
+                promisc=self.promisc,
+                to_ms=100,
+                monitor=self.monitor,
+            )
             super(L2pcapSocket, self).__init__(fd)
             try:
                 if not WINDOWS:
@@ -579,6 +595,11 @@ if conf.use_pcap:
     class L3pcapSocket(L2pcapSocket):
         desc = "read/write packets at layer 3 using only libpcap"
 
+        def __init__(self, *args, **kwargs):
+            # type: (*Any, **Any) -> None
+            super(L3pcapSocket, self).__init__(*args, **kwargs)
+            self.send_pcap_fds = {network_name(self.iface): self.pcap_fd}
+
         def recv(self, x=MTU, **kwargs):
             # type: (int, **Any) -> Optional[Packet]
             r = L2pcapSocket.recv(self, x, **kwargs)
@@ -589,11 +610,32 @@ if conf.use_pcap:
 
         def send(self, x):
             # type: (Packet) -> int
-            # Makes send detects when it should add
-            # Loopback(), Dot11... instead of Ether()
+            # Select the file descriptor to send the packet on.
+            iff = x.route()[0]
+            if iff is None:
+                iff = network_name(conf.iface)
+            if iff not in self.send_pcap_fds:
+                self.send_pcap_fds[iff] = fd = open_pcap(
+                    device=iff,
+                    snaplen=0,
+                    promisc=False,
+                    to_ms=0,
+                )
+            else:
+                fd = self.send_pcap_fds[iff]
+            # Now send.
             sx = raw(self.cls() / x)
             try:
                 x.sent_time = time.time()
             except AttributeError:
                 pass
-            return self.pcap_fd.send(sx)
+            return fd.send(sx)
+
+        def close(self):
+            # type: () -> None
+            if self.closed:
+                return
+            super(L3pcapSocket, self).close()
+            for fd in self.send_pcap_fds.values():
+                if fd is not self.pcap_fd:
+                    fd.close()
