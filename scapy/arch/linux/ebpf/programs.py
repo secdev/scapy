@@ -4,7 +4,7 @@
 # Copyright (C) Guillaume Valadon <guillaume@valadon.net>
 
 """
-Scapy eBPF native support - programs that retrieve process information
+Scapy eBPF native support - eBPF programs that retrieve process information
 """
 
 import collections
@@ -22,7 +22,7 @@ from .syscalls import bpf
 from .utilities import bpf_prog_update_map_fd
 
 
-class ProcessInformation(ctypes.Structure):
+class ProcessInformationStructure(ctypes.Structure):
     _fields_ = [
         ("pid", ctypes.c_uint32),
         ("name", ctypes.c_char * 64),
@@ -101,7 +101,7 @@ class Program_security_sk_classify_flow(object):
     52: (b7) r0 = 0
     53: (95) exit
 
-    This eBPF program fills a ProcessInformation structure and
+    This eBPF program fills a ProcessInformationStructure and
     pushes it to an eBPF map queue.
     """
 
@@ -181,7 +181,7 @@ class ProcessInformationPoller(threading.Thread):
 
         self.bpf_attr_map_lookup = BpfAttrMapLookup()
         self.bpf_attr_map_lookup.map_fd = map_fd
-        self.process_information = ProcessInformation()
+        self.process_information = ProcessInformationStructure()
         self.bpf_attr_map_lookup.value = ctypes.addressof(self.process_information)
 
         self.continue_polling = True
@@ -205,6 +205,9 @@ class ProcessInformationPoller(threading.Thread):
         self.continue_polling = False
 
     def lookup(self, packet, retries=3):
+        # TODO:
+        # - ICMP support
+        # - IPv6 & ICMPv6 support
         if IP not in packet and TCP not in packet and UDP not in packet:
             return
         while retries:
