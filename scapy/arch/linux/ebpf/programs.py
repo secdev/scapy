@@ -205,9 +205,6 @@ class ProcessInformationPoller(threading.Thread):
         self.continue_polling = False
 
     def lookup(self, packet, retries=3):
-        # TODO:
-        # - ICMP support
-        # - IPv6 & ICMPv6 support
         if IP not in packet and TCP not in packet and UDP not in packet:
             return
         while retries:

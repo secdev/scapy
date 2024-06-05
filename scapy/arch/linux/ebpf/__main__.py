@@ -7,24 +7,48 @@
 Scapy eBPF native support - programs that retrieve process information
 """
 
+from scapy.all import *
 
-from scapy.all import sniff
+from .process_information import KprobeProcessInformation
 
-from scapy.arch.linux.ebpf.process_information import KprobeProcessInformation
+
+@conf.commands.register
+def sniff(*args, **kwargs):
+    # type: (*Any, **Any) -> PacketList
+
+    kprobe = None
+    if "process_information" in kwargs:
+        del kwargs["process_information"]
+
+        if LINUX:
+            kprobe = KprobeProcessInformation()
+            kprobe.start()
+
+            user_prn = lambda p: None
+            if "prn" in kwargs:
+                user_prn = kwargs["prn"]
+
+            def _prn(packet):
+                kprobe.lookup(packet)
+                user_prn(packet)
+
+            kwargs["prn"] = _prn
+        else:
+            warning("'process_information' is only support on Linux!")
+
+    sniffer = AsyncSniffer()
+    sniffer._run(*args, **kwargs)
+    if kprobe:
+        kprobe.stop()
+        kprobe.join()
+    return cast(PacketList, sniffer.results)
 
 
 if __name__ == "__main__":
     print("Scapy + eBPF = <3")
 
-    k = KprobeProcessInformation()
-    k.start()
-
-    def get_process_information(packet):
-        k.lookup(packet)
-
     packets = sniff(count=10, filter="ip and not port 22",
-                    prn=get_process_information)
-    k.stop()
-    k.join()
+                    process_information=True)
+
     for p in packets:
         print(p.comment, p.summary())
