@@ -111,7 +111,7 @@ def bpf_prog_raw_load(bpf_prog_raw):
 
 
 def bpf_assign_kprobe(kprobe_id, bpf_fd):
-    # type: (int, int) -> bool
+    # type: (int, int) -> int
     """
     Assign a BPF program to a kprobe, and return True if successful
     :param kprobe_id: ID of the kprobe
@@ -129,19 +129,19 @@ def bpf_assign_kprobe(kprobe_id, bpf_fd):
     if perf_fd < 0:
         warning("perf_event_open() failed with: ", ctypes.get_errno(),
                 os.strerror(ctypes.get_errno()))
-        return False
+        return perf_fd
 
     ret = fcntl.ioctl(perf_fd, PERF_EVENT_IOC_SET_BPF, bpf_fd)
     if ret < 0:
         warning("ioctl(PERF_EVENT_IOC_SET_BPF) failed")
-        return False
+        return ret
 
     ret = fcntl.ioctl(perf_fd, PERF_EVENT_IOC_ENABLE, 0)
     if ret < 0:
         warning("ioctl(PERF_EVENT_IOC_ENABLE) failed")
-        return False
+        return ret
 
-    return True
+    return perf_fd
 
 
 def bpf_prog_update_map_fd(bpf_prog, instruction, instruction_offset, new_instruction):
