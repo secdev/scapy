@@ -40,6 +40,7 @@ mkdir "$ARCH"
 mkdir "$SCPY"
 
 # Create git archive
+echo "> Creating git archive..."
 git archive HEAD -o "$ARCH/scapy.tar.gz"
 
 # Unpack the archive to a temporary directory
@@ -47,9 +48,11 @@ if [ ! -e "$ARCH/scapy.tar.gz" ]; then
     echo "ERROR: git archive failed"
     exit 1
 fi
-tar -xvf "$ARCH/scapy.tar.gz" -C "$SCPY"
+echo "> Unpacking..."
+tar -xf "$ARCH/scapy.tar.gz" -C "$SCPY"
 
 # Remove unnecessary files
+echo "> Stripping down..."
 cd "$SCPY" && find . -not \( \
     -wholename "./scapy*" -o \
     -wholename "./pyproject.toml" -o \
@@ -59,7 +62,8 @@ cd $DIR
 
 # Depending on the mode, install dependencies and get DEST file
 if [ "$MODE" == "full" ]; then
-    $PYTHON -m pip install --target "$SCPY" IPython
+    echo "> Bundling dependencies..."
+    $PYTHON -m pip install --quiet --target "$SCPY" IPython
     DEST="./dist/scapy-full-$SCPY_VERSION.pyz"
 else
     DEST="./dist/scapy-$SCPY_VERSION.pyz"
@@ -72,9 +76,8 @@ fi
 # Copy version
 echo "$SCPY_VERSION" > "./dist/version"
 
-echo "$SCPY"
 # Build the zipapp
-echo "Building zipapp"
+echo "> Building zipapp..."
 $PYTHON -m zipapp \
     -o "$DEST" \
     -p "/usr/bin/env python3" \
@@ -86,3 +89,4 @@ $PYTHON -m zipapp \
 rm -rf "$TMPFLD"
 
 echo "Success. zipapp avaiable at $DEST"
+stat $DEST | head -n 2
