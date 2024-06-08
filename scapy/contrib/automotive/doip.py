@@ -38,6 +38,7 @@ from typing import (
     Union,
     Tuple,
     Optional,
+    Dict,
 )
 
 
@@ -259,6 +260,14 @@ class DoIP(Packet):
             return s[:self.payload_length - 4], None
         else:
             return b"", None
+
+    @classmethod
+    def tcp_reassemble(cls, data, metadata, session):
+        # type: (bytes, Dict[str, Any], Dict[str, Any]) -> Optional[Packet]
+        length = struct.unpack("!I", data[4:8])[0] + 8
+        if len(data) == length:
+            return DoIP(data)
+        return None
 
 
 bind_bottom_up(UDP, DoIP, sport=13400)
