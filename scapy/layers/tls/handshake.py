@@ -1370,7 +1370,7 @@ class _VerifyDataField(StrLenField):
     def getfield(self, pkt, s):
         if pkt.tls_session.tls_version == 0x0300:
             sep = 36
-        elif pkt.tls_session.tls_version >= 0x0304:
+        elif pkt.tls_session.tls_version and pkt.tls_session.tls_version >= 0x0304:
             sep = pkt.tls_session.rcs.hash.hash_len
         else:
             sep = 12
