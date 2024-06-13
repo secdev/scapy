@@ -12,6 +12,10 @@ RFC 4511 - LDAP v3
 Note: to mimic Microsoft Windows LDAP packets, you must set::
 
     conf.ASN1_default_long_size = 4
+
+.. note::
+    You will find more complete documentation for this layer over at
+    `LDAP <https://scapy.readthedocs.io/en/latest/layers/ldap.html>`_
 """
 
 import collections
@@ -29,24 +33,31 @@ from scapy.asn1.asn1 import (
     ASN1_Class,
     ASN1_Codecs,
 )
-from scapy.asn1.ber import BERcodec_STRING
+from scapy.asn1.ber import (
+    BERcodec_STRING,
+    BER_id_dec,
+    BER_len_dec,
+)
 from scapy.asn1fields import (
+    ASN1F_badsequence,
     ASN1F_BOOLEAN,
     ASN1F_CHOICE,
     ASN1F_ENUMERATED,
     ASN1F_INTEGER,
     ASN1F_NULL,
+    ASN1F_optional,
     ASN1F_PACKET,
-    ASN1F_SEQUENCE,
     ASN1F_SEQUENCE_OF,
+    ASN1F_SEQUENCE,
     ASN1F_SET_OF,
     ASN1F_STRING,
-    ASN1F_optional,
+    ASN1F_STRING_PacketField,
 )
 from scapy.asn1packet import ASN1_Packet
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.fields import (
+    FieldLenField,
     FlagsField,
     ThreeBytesField,
 )
@@ -59,20 +70,19 @@ from scapy.sendrecv import send
 from scapy.supersocket import (
     SimpleSocket,
     StreamSocket,
+    SSLStreamSocket,
 )
 
 from scapy.layers.dns import dns_resolve
 from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.gssapi import (
+    _GSSAPI_Field,
     GSS_C_FLAGS,
     GSS_S_COMPLETE,
-    GSSAPI_BLOB,
     GSSAPI_BLOB_SIGNATURE,
+    GSSAPI_BLOB,
     SSP,
-)
-from scapy.layers.kerberos import (
-    _ASN1FString_PacketField,
 )
 from scapy.layers.netbios import NBTDatagram
 from scapy.layers.smb import (
@@ -170,20 +180,20 @@ class ASN1_Class_LDAP(ASN1_Class):
     SearchRequest = 0x63
     SearchResultEntry = 0x64
     SearchResultDone = 0x65
-    SearchResultReference = 0x66
-    ModifyRequest = 0x67
-    ModifyResponse = 0x68
-    AddRequest = 0x69
-    AddResponse = 0x6A
-    DelRequest = 0x6B
-    DelResponse = 0x6C
-    ModifyDNRequest = 0x6D
-    ModifyDNResponse = 0x6E
-    CompareRequest = 0x6F
-    CompareResponse = 0x70
-    AbandonRequest = 0x71
-    ExtendedRequest = 0x72
-    ExtendedResponse = 0x73
+    ModifyRequest = 0x66
+    ModifyResponse = 0x67
+    AddRequest = 0x68
+    AddResponse = 0x69
+    DelRequest = 0x4A  # not constructed
+    DelResponse = 0x6B
+    ModifyDNRequest = 0x6C
+    ModifyDNResponse = 0x6D
+    CompareRequest = 0x6E
+    CompareResponse = 0x7F
+    AbandonRequest = 0x50  # application + primitive
+    SearchResultReference = 0x73
+    ExtendedRequest = 0x77
+    ExtendedResponse = 0x78
 
 
 # Bind operation
@@ -284,7 +294,7 @@ class ASN1F_LDAP_Authentication_sicilyResponse(ASN1F_STRING):
 _SASL_MECHANISMS = {b"GSS-SPNEGO": GSSAPI_BLOB, b"GSSAPI": GSSAPI_BLOB}
 
 
-class _SaslCredentialsField(_ASN1FString_PacketField):
+class _SaslCredentialsField(ASN1F_STRING_PacketField):
     def m2i(self, pkt, s):
         val = super(_SaslCredentialsField, self).m2i(pkt, s)
         if not val[0].val:
@@ -336,8 +346,6 @@ class LDAP_BindResponse(ASN1_Packet):
                     # LDAP_Authentication_SaslCredentials
                     ASN1F_STRING("serverSaslCredsWrap", "", implicit_tag=0xA7),
                 ),
-            )
-            + (
                 ASN1F_optional(
                     ASN1F_STRING("serverSaslCreds", "", implicit_tag=0x87),
                 ),
@@ -454,7 +462,7 @@ class LDAP_FilterOr(ASN1_Packet):
 
 class LDAP_FilterPresent(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = AttributeType("present", "")
+    ASN1_root = AttributeType("present", "objectClass")
 
 
 class LDAP_FilterEqual(ASN1_Packet):
@@ -624,6 +632,8 @@ class LDAP_AbandonRequest(ASN1_Packet):
 
 # LDAP v3
 
+# RFC 4511 sect 4.1.11
+
 
 class LDAP_Control(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
@@ -636,7 +646,37 @@ class LDAP_Control(ASN1_Packet):
     )
 
 
-# LDAP
+# RFC 4511 sect 4.12 - Extended Operation
+
+
+class LDAP_ExtendedResponse(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        *(
+            LDAPResult
+            + (
+                ASN1F_optional(LDAPOID("responseName", None, implicit_tag=0x8A)),
+                ASN1F_optional(ASN1F_STRING("responseValue", None, implicit_tag=0x8B)),
+            )
+        ),
+        implicit_tag=ASN1_Class_LDAP.ExtendedResponse,
+    )
+
+    def do_dissect(self, x):
+        # Note: Windows builds this packet with a buggy sequence size, that does not
+        # include the optional fields. Do another pass of dissection on the optionals.
+        s = super(LDAP_ExtendedResponse, self).do_dissect(x)
+        if not s:
+            return s
+        for obj in self.ASN1_root.seq[-2:]:  # only on the 2 optional fields
+            try:
+                s = obj.dissect(self, s)
+            except ASN1F_badsequence:
+                break
+        return s
+
+
+# LDAP main class
 
 
 class LDAP(ASN1_Packet):
@@ -653,6 +693,7 @@ class LDAP(ASN1_Packet):
             LDAP_SearchResponseResultDone,
             LDAP_AbandonRequest,
             LDAP_UnbindRequest,
+            LDAP_ExtendedResponse,
         ),
         # LDAP v3 only
         ASN1F_optional(
@@ -660,7 +701,31 @@ class LDAP(ASN1_Packet):
         ),
     )
 
+    show_indent = 0
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 4:
+            # Heuristic to detect SASL_Buffer
+            if _pkt[0] != 0x30:
+                if struct.unpack("!I", _pkt[:4])[0] + 4 == len(_pkt):
+                    return LDAP_SASL_Buffer
+                return conf.raw_layer
+        return cls
+
+    def hashret(self):
+        return b"ldap"
+
+    @property
+    def unsolicited(self):
+        # RFC4511 sect 4.4. - Unsolicited Notification
+        return self.messageID == 0 and isinstance(
+            self.protocolOp, LDAP_ExtendedResponse
+        )
+
     def answers(self, other):
+        if self.unsolicited:
+            return True
         return isinstance(other, LDAP) and other.messageID == self.messageID
 
     def mysummary(self):
@@ -744,10 +809,10 @@ class LdapPing_am(AnsweringMachine):
         if NBTDatagram in req:
             # special case: mailslot ping
             from scapy.layers.smb import SMBMailslot_Write, NETLOGON_SAM_LOGON_REQUEST
+
             try:
                 return (
-                    SMBMailslot_Write in req and
-                    NETLOGON_SAM_LOGON_REQUEST in req.Data
+                    SMBMailslot_Write in req and NETLOGON_SAM_LOGON_REQUEST in req.Data
                 )
             except AttributeError:
                 return False
@@ -838,19 +903,24 @@ class LdapPing_am(AnsweringMachine):
             DcSockAddr,
             NETLOGON_SAM_LOGON_RESPONSE_EX,
         )
+
         resp = IP(dst=req[IP].src) / UDP(
             sport=req.dport,
             dport=req.sport,
         )
         address = self.src_ip or get_if_addr(self.optsniff.get("iface", conf.iface))
-        resp /= NBTDatagram(
-            SourceName=req.DestinationName,
-            SUFFIX1=req.SUFFIX2,
-            DestinationName=req.SourceName,
-            SUFFIX2=req.SUFFIX1,
-            SourceIP=address,
-        ) / SMB_Header() / SMBMailslot_Write(
-            Name=req.Data.MailslotName,
+        resp /= (
+            NBTDatagram(
+                SourceName=req.DestinationName,
+                SUFFIX1=req.SUFFIX2,
+                DestinationName=req.SourceName,
+                SUFFIX2=req.SUFFIX1,
+                SourceIP=address,
+            )
+            / SMB_Header()
+            / SMBMailslot_Write(
+                Name=req.Data.MailslotName,
+            )
         )
         NetbiosDomainName = req.DestinationName.strip()
         resp.Data = NETLOGON_SAM_LOGON_RESPONSE_EX(
@@ -1051,7 +1121,7 @@ def dclocator(
 
 
 class LDAP_BIND_MECHS(Enum):
-    NONE = "NONE"
+    NONE = "UNAUTHENTICATED"
     SIMPLE = "SIMPLE"
     SASL_GSSAPI = "GSSAPI"
     SASL_GSS_SPNEGO = "GSS-SPNEGO"
@@ -1082,106 +1152,127 @@ class LDAP_SASL_GSSAPI_SsfCap(Packet):
     ]
 
 
+class LDAP_SASL_Buffer(Packet):
+    """
+    RFC 4422 sect 3.7
+    """
+
+    # "Each buffer of protected data is transferred over the underlying
+    # transport connection as a sequence of octets prepended with a four-
+    # octet field in network byte order that represents the length of the
+    # buffer."
+
+    fields_desc = [
+        FieldLenField("BufferLength", None,
+                      fmt="!I", length_of="Buffer"),
+        _GSSAPI_Field("Buffer", LDAP),
+    ]
+
+    def hashret(self):
+        return b"ldap"
+
+    def answers(self, other):
+        return isinstance(other, LDAP_SASL_Buffer)
+
+    @classmethod
+    def tcp_reassemble(cls, data, *args, **kwargs):
+        if len(data) < 4:
+            return None
+        if data[0] == 0x30:
+            # Add a heuristic to detect LDAP errors
+            xlen, x = BER_len_dec(BER_id_dec(data)[1])
+            if xlen and xlen == len(x):
+                return LDAP(data)
+        # Check BufferLength
+        length = struct.unpack("!I", data[:4])[0] + 4
+        if len(data) >= length:
+            return cls(data)
+
+
 class LDAP_Client(object):
     """
     A basic LDAP client
 
-    :param mech: one of LDAP_BIND_MECHS
-    :param ssl: whether to use LDAPS or not
-    :param ssp: the SSP object to use for binding
+    The complete documentation is available at
+    https://scapy.readthedocs.io/en/latest/layers/ldap.html
 
-    :param sign: request signing when binding
-    :param encrypt: request encryption when binding
+    Example 1 - SICILY - NTLM (with encryption)::
 
-    Example 1 - SICILY - NTLM::
-
+        client = LDAP_Client()
+        client.connect("192.168.0.100")
         ssp = NTLMSSP(UPN="Administrator", PASSWORD="Password1!")
-        client = LDAP_Client(
+        client.bind(
             LDAP_BIND_MECHS.SICILY,
             ssp=ssp,
+            encrypt=True,
         )
+
+    Example 2 - SASL_GSSAPI - Kerberos (with signing)::
+
+        client = LDAP_Client()
         client.connect("192.168.0.100")
-        client.bind()
-
-    Example 2 - SASL_GSSAPI - Kerberos::
-
         ssp = KerberosSSP(UPN="Administrator@domain.local", PASSWORD="Password1!",
                           SPN="ldap/dc1.domain.local")
-        client = LDAP_Client(
+        client.bind(
             LDAP_BIND_MECHS.SASL_GSSAPI,
             ssp=ssp,
+            sign=True,
         )
-        client.connect("192.168.0.100")
-        client.bind()
 
     Example 3 - SASL_GSS_SPNEGO - NTLM / Kerberos::
 
+        client = LDAP_Client()
+        client.connect("192.168.0.100")
         ssp = SPNEGOSSP([
             NTLMSSP(UPN="Administrator", PASSWORD="Password1!"),
             KerberosSSP(UPN="Administrator@domain.local", PASSWORD="Password1!",
                           SPN="ldap/dc1.domain.local"),
         ])
-        client = LDAP_Client(
+        client.bind(
             LDAP_BIND_MECHS.SASL_GSS_SPNEGO,
             ssp=ssp,
         )
-        client.connect("192.168.0.100")
-        client.bind()
 
-    Example 4 - Simple bind::
+    Example 4 - Simple bind over TLS::
 
-        client = LDAP_Client(LDAP_BIND_MECHS.SIMPLE)
-        client.connect("192.168.0.100")
-        client.bind(simple_username="Administrator",
-                    simple_password="Password1!")
+        client = LDAP_Client()
+        client.connect("192.168.0.100", use_ssl=True)
+        client.bind(
+            LDAP_BIND_MECHS.SIMPLE,
+            simple_username="Administrator",
+            simple_password="Password1!",
+        )
     """
 
     def __init__(
         self,
-        mech,
         verb=True,
-        ssl=False,
-        sslcontext=None,
-        ssp=None,
-        sign=False,
-        encrypt=False,
     ):
         self.sock = None
-        self.mech = mech
         self.verb = verb
-        self.ssl = ssl
-        self.sslcontext = sslcontext
-        self.ssp = ssp  # type: SSP
-        assert isinstance(mech, LDAP_BIND_MECHS)
-        if mech == LDAP_BIND_MECHS.SASL_GSSAPI:
-            from scapy.layers.kerberos import KerberosSSP
-
-            if not isinstance(self.ssp, KerberosSSP):
-                raise ValueError("Only raw KerberosSSP is supported with SASL_GSSAPI !")
-        elif mech == LDAP_BIND_MECHS.SASL_GSS_SPNEGO:
-            from scapy.layers.spnego import SPNEGOSSP
-
-            if not isinstance(self.ssp, SPNEGOSSP):
-                raise ValueError("Only SPNEGOSSP is supported with SASL_GSS_SPNEGO !")
-        elif mech == LDAP_BIND_MECHS.SICILY:
-            from scapy.layers.ntlm import NTLMSSP
-
-            if not isinstance(self.ssp, NTLMSSP):
-                raise ValueError("Only raw NTLMSSP is supported with SICILY !")
-        if self.ssp is not None and mech in [
-            LDAP_BIND_MECHS.NONE,
-            LDAP_BIND_MECHS.SIMPLE,
-        ]:
-            raise ValueError("%s cannot be used with a ssp !" % mech.value)
+        self.ssl = False
+        self.sslcontext = None
+        self.ssp = None
         self.sspcontext = None
-        self.sign = sign
-        self.encrypt = encrypt
+        self.encrypt = False
+        self.sign = False
+        # Session status
+        self.sasl_wrap = False
         self.messageID = 0
 
-    def connect(self, ip, port=None, timeout=5):
+    def connect(self, ip, port=None, use_ssl=False, sslcontext=None, timeout=5):
         """
         Initiate a connection
+
+        :param ip: the IP to connect to.
+        :param port: the port to connect to. (Default: 389 or 636)
+
+        :param use_ssl: whether to use LDAPS or not. (Default: False)
+        :param sslcontext: an optional SSLContext to use.
         """
+        self.ssl = use_ssl
+        self.sslcontext = sslcontext
+
         if port is None:
             if self.ssl:
                 port = 636
@@ -1208,44 +1299,134 @@ class LDAP_Client(object):
         if self.ssl:
             if self.sslcontext is None:
                 context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                # Hm, this is insecure.
                 context.check_hostname = False
                 context.verify_mode = ssl.CERT_NONE
             else:
                 context = self.sslcontext
             sock = context.wrap_socket(sock)
-        self.sock = StreamSocket(sock, LDAP)
+        if self.ssl:
+            self.sock = SSLStreamSocket(sock, LDAP)
+        else:
+            self.sock = StreamSocket(sock, LDAP)
 
     def sr1(self, protocolOp, controls=None, **kwargs):
         self.messageID += 1
         if self.verb:
             print(conf.color_theme.opening(">> %s" % protocolOp.__class__.__name__))
+        # Build packet
+        pkt = LDAP(
+            messageID=self.messageID,
+            protocolOp=protocolOp,
+            Controls=controls,
+        )
+        # If signing / encryption is used, apply
+        if self.sasl_wrap:
+            pkt = LDAP_SASL_Buffer(
+                Buffer=self.ssp.GSS_Wrap(
+                    self.sspcontext,
+                    bytes(pkt),
+                    conf_req_flag=self.encrypt,
+                )
+            )
+        # Send / Receive
         resp = self.sock.sr1(
-            LDAP(
-                messageID=self.messageID,
-                protocolOp=protocolOp,
-                Controls=controls,
-            ),
+            pkt,
             verbose=0,
             **kwargs,
         )
-        if self.verb:
-            print(
-                conf.color_theme.success(
-                    "<< %s"
-                    % (
-                        resp.protocolOp.__class__.__name__
-                        if LDAP in resp
-                        else resp.__class__.__name__
+        # Check for unsolicited notification
+        if resp and LDAP in resp and resp[LDAP].unsolicited:
+            resp.show()
+            if self.verb:
+                print(conf.color_theme.fail("! Got unsolicited notification."))
+                return resp
+        # If signing / encryption is used, unpack
+        if self.sasl_wrap:
+            if resp.Buffer:
+                resp = LDAP(
+                    self.ssp.GSS_Unwrap(
+                        self.sspcontext,
+                        resp.Buffer,
                     )
                 )
-            )
+            else:
+                resp = None
+        if self.verb:
+            if not resp:
+                print(conf.color_theme.fail("! Bad response."))
+            else:
+                print(
+                    conf.color_theme.success(
+                        "<< %s"
+                        % (
+                            resp.protocolOp.__class__.__name__
+                            if LDAP in resp
+                            else resp.__class__.__name__
+                        )
+                    )
+                )
         return resp
 
-    def bind(self, simple_username=None, simple_password=None):
+    def bind(
+        self,
+        mech,
+        ssp=None,
+        sign=False,
+        encrypt=False,
+        simple_username=None,
+        simple_password=None,
+    ):
         """
         Send Bind request.
+
+        :param mech: one of LDAP_BIND_MECHS
+        :param ssp: the SSP object to use for binding
+
+        :param sign: request signing when binding
+        :param encrypt: request encryption when binding
+
+        :
         This acts differently based on the :mech: provided during initialization.
         """
+        # Store and check consistency
+        self.mech = mech
+        self.ssp = ssp  # type: SSP
+        self.sign = sign
+        self.encrypt = encrypt
+
+        assert isinstance(mech, LDAP_BIND_MECHS)
+        if mech == LDAP_BIND_MECHS.SASL_GSSAPI:
+            from scapy.layers.kerberos import KerberosSSP
+
+            if not isinstance(self.ssp, KerberosSSP):
+                raise ValueError("Only raw KerberosSSP is supported with SASL_GSSAPI !")
+        elif mech == LDAP_BIND_MECHS.SASL_GSS_SPNEGO:
+            from scapy.layers.spnego import SPNEGOSSP
+
+            if not isinstance(self.ssp, SPNEGOSSP):
+                raise ValueError("Only SPNEGOSSP is supported with SASL_GSS_SPNEGO !")
+        elif mech == LDAP_BIND_MECHS.SICILY:
+            from scapy.layers.ntlm import NTLMSSP
+
+            if not isinstance(self.ssp, NTLMSSP):
+                raise ValueError("Only raw NTLMSSP is supported with SICILY !")
+            if self.sign and not self.encrypt:
+                raise ValueError(
+                    "NTLM on LDAP does not support signing without encryption !"
+                )
+        elif mech == LDAP_BIND_MECHS.NONE:
+            if self.sign or self.encrypt:
+                raise ValueError(
+                    "Cannot use 'sign' or 'encrypt' with unauthenticated (NONE) !"
+                )
+        if self.ssp is not None and mech in [
+            LDAP_BIND_MECHS.NONE,
+            LDAP_BIND_MECHS.SIMPLE,
+        ]:
+            raise ValueError("%s cannot be used with a ssp !" % mech.value)
+
+        # Now perform the bind, depending on the mech
         if self.mech == LDAP_BIND_MECHS.SIMPLE:
             # Simple binding
             resp = self.sr1(
@@ -1322,6 +1503,7 @@ class LDAP_Client(object):
             self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                 self.sspcontext,
                 req_flags=(
+                    # Required flags for GSSAPI: RFC4752 sect 3.1
                     GSS_C_FLAGS.GSS_C_REPLAY_FLAG
                     | GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG
                     | GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
@@ -1351,8 +1533,11 @@ class LDAP_Client(object):
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                     self.sspcontext, GSSAPI_BLOB(val)
                 )
+        else:
+            status = GSS_S_COMPLETE
         if status != GSS_S_COMPLETE:
-            raise RuntimeError("%s bind returned %s !" % (self.mech.name, status))
+            resp.show()
+            raise RuntimeError("%s bind failed !" % self.mech.name)
         elif self.mech == LDAP_BIND_MECHS.SASL_GSSAPI:
             # GSSAPI has 2 extra exchanges
             # https://datatracker.ietf.org/doc/html/rfc2222#section-7.2.1
@@ -1366,10 +1551,11 @@ class LDAP_Client(object):
                 )
             )
             # Parse server-supported layers
-            saslOptions = GSSAPI_BLOB_SIGNATURE(resp.protocolOp.serverSaslCredsData)
-            saslOptions.show()
             saslOptions = LDAP_SASL_GSSAPI_SsfCap(
-                self.ssp.GSS_Unwrap(self.sspcontext, b"", saslOptions)
+                self.ssp.GSS_Unwrap(
+                    self.sspcontext,
+                    GSSAPI_BLOB_SIGNATURE(resp.protocolOp.serverSaslCredsData),
+                )
             )
             if self.sign and not saslOptions.supported_security_layers.INTEGRITY:
                 raise RuntimeError("GSSAPI SASL failed to negotiate INTEGRITY !")
@@ -1380,12 +1566,14 @@ class LDAP_Client(object):
                 raise RuntimeError("GSSAPI SASL failed to negotiate CONFIDENTIALITY !")
             # Announce client-supported layers
             saslOptions = LDAP_SASL_GSSAPI_SsfCap(
-                supported_security_layers=(
-                    "NONE"
-                    + ("+INTEGRITY" if self.sign else "")
-                    + ("+CONFIDENTIALITY" if self.encrypt else "")
-                ),
-                max_output_token_size=0xA00000,
+                supported_security_layers="+".join(
+                    (["INTEGRITY"] if self.sign else [])
+                    + (["CONFIDENTIALITY"] if self.encrypt else [])
+                )
+                if (self.sign or self.encrypt)
+                else "NONE",
+                # Same as server
+                max_output_token_size=saslOptions.max_output_token_size,
             )
             resp = self.sr1(
                 LDAP_BindRequest(
@@ -1393,8 +1581,11 @@ class LDAP_Client(object):
                     authentication=LDAP_Authentication_SaslCredentials(
                         mechanism=ASN1_STRING(self.mech.value),
                         credentials=self.ssp.GSS_Wrap(
-                            self.sspcontext, bytes(saslOptions), False
-                        )[1],
+                            self.sspcontext,
+                            bytes(saslOptions),
+                            # We still haven't finished negotiating
+                            conf_req_flag=False,
+                        ),
                     ),
                 )
             )
@@ -1403,6 +1594,12 @@ class LDAP_Client(object):
                 raise RuntimeError(
                     "GSSAPI SASL failed to negotiate client security flags !"
                 )
+        # SASL wrapping is now available.
+        self.sasl_wrap = self.encrypt or self.sign
+        if self.sasl_wrap:
+            self.sock.closed = True  # prevent closing by marking it as already closed.
+            self.sock = StreamSocket(self.sock.ins, LDAP_SASL_Buffer)
+        # Success.
         if self.verb:
             print("%s bind succeeded !" % self.mech.name)
 

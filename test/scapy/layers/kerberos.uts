@@ -1545,12 +1545,11 @@ assert tok is None
 
 data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"
 
-edata, sig = client.GSS_Wrap(
+sig = client.GSS_Wrap(
     clicontext,
     data,
     conf_req_flag=False,
 )
-assert edata == b""
 assert sig.TOK_ID == b"\x05\x04"
 assert sig.root.Flags == 4
 assert sig.root.EC == 12
@@ -1559,7 +1558,6 @@ assert bytes(sig) == b'\x05\x04\x04\xff\x00\x0c\x00\x0c\x00\x00\x00\x00@\x00\x00
 
 ddata = server.GSS_Unwrap(
     srvcontext,
-    edata,
     sig,
 )
 assert ddata == data
@@ -1568,12 +1566,11 @@ assert ddata == data
 
 data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"
 
-edata, sig = server.GSS_Wrap(
+sig = server.GSS_Wrap(
     srvcontext,
     data,
     conf_req_flag=False,
 )
-assert edata == b""
 assert sig.TOK_ID == b"\x05\x04"
 assert sig.root.Flags == 5
 assert sig.root.EC == 12
@@ -1583,7 +1580,6 @@ assert bytes(sig) == b"\x05\x04\x05\xff\x00\x0c\x00\x0c\x00\x00\x00\x00\x00\x00\
 
 ddata = client.GSS_Unwrap(
     clicontext,
-    edata,
     sig,
 )
 assert ddata == data

@@ -968,3 +968,22 @@ class ASN1F_FLAGS(ASN1F_BIT_STRING):
             pretty_s = ", ".join(self.get_flags(pkt))
             return pretty_s + " " + repr(x)
         return repr(x)
+
+
+class ASN1F_STRING_PacketField(ASN1F_STRING):
+    """
+    ASN1F_STRING that holds packets.
+    """
+    holds_packets = 1
+
+    def i2m(self, pkt, val):
+        # type: (ASN1_Packet, Any) -> bytes
+        if hasattr(val, "ASN1_root"):
+            val = ASN1_STRING(bytes(val))  # type: ignore
+        return super(ASN1F_STRING_PacketField, self).i2m(pkt, val)
+
+    def any2i(self, pkt, x):
+        # type: (ASN1_Packet, Any) -> Any
+        if hasattr(x, "add_underlayer"):
+            x.add_underlayer(pkt)
+        return super(ASN1F_STRING_PacketField, self).any2i(pkt, x)

@@ -246,6 +246,8 @@ class _PubKeyFactory(_PKIObjMaker):
                 marker = b"RSA PUBLIC KEY"
             except Exception:
                 # We cannot import an ECDSA public key without curve knowledge
+                if conf.debug_dissector:
+                    raise
                 raise Exception("Unable to import public key")
 
         if obj.frmt == "DER":
@@ -595,6 +597,8 @@ class _CertMaker(_PKIObjMaker):
         try:
             cert = X509_Cert(obj.der)
         except Exception:
+            if conf.debug_dissector:
+                raise
             raise Exception("Unable to import certificate")
         obj.import_from_asn1pkt(cert)
         return obj

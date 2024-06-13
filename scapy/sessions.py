@@ -248,6 +248,8 @@ class TCPSession(IPSession):
     def _strip_padding(self, pkt: Packet) -> Optional[bytes]:
         """Strip the packet of any padding, and return the padding.
         """
+        if isinstance(pkt, conf.padding_layer):
+            return cast(bytes, pkt.load)
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
             # strip padding
@@ -283,6 +285,9 @@ class TCPSession(IPSession):
                 if padding:
                     # There is remaining data for the next payload.
                     self.data.shiftleft(len(self.data) - len(padding))
+                    # Skip full-padding
+                    if isinstance(packet, conf.padding_layer):
+                        return None
                 else:
                     # No padding (data) left. Clear
                     self.data.clear()
@@ -345,6 +350,7 @@ class TCPSession(IPSession):
         if data.full():
             # Reassemble using all previous packets
             metadata["original"] = pkt
+            metadata["ident"] = ident
             packet = tcp_reassemble(
                 bytes(data),
                 metadata,
@@ -369,6 +375,9 @@ class TCPSession(IPSession):
                 del self.tcp_frags[ident]
             # Minimum next seq
             metadata["next_seq"] = pkt[TCP].seq + len(new_data)
+            # Skip full-padding
+            if isinstance(packet, conf.padding_layer):
+                return None
             # Rebuild resulting packet
             pay.underlayer.remove_payload()
             if IP in pkt:

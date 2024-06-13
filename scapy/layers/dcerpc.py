@@ -2697,10 +2697,11 @@ class DceRpcSession(DefaultSession):
                 and body
             ):
                 # This is a request/response
-                self.ssp.GSS_Passive_set_Direction(
-                    self.sspcontext,
-                    IsAcceptor=DceRpc5Response in pkt,
-                )
+                if self.sspcontext.passive:
+                    self.ssp.GSS_Passive_set_Direction(
+                        self.sspcontext,
+                        IsAcceptor=DceRpc5Response in pkt,
+                    )
         if pkt.auth_verifier and pkt.auth_verifier.is_protected() and body:
             if self.sspcontext is None:
                 return pkt
