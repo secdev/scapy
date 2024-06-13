@@ -4435,6 +4435,18 @@ except DeprecationWarning:
     # -Werror is used
     pass
 
+= MIB - Check that MIB OIDs are not duplicated
+~ mib
+
+from scapy.asn1.mib import x509_oids_sets
+
+_dct = {}
+for d in x509_oids_sets:
+    for elt in d:
+        if elt in _dct:
+            raise ValueError("OID %s already exists" % elt)
+    _dct.update(d)
+
 = BER tests
 
 BER_id_enc(42) == '*'

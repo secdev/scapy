@@ -151,6 +151,29 @@ class GSSAPI_BLOB_SIGNATURE(ASN1_Packet):
         return cls
 
 
+class _GSSAPI_Field(PacketField):
+    """
+    PacketField that contains a GSSAPI_BLOB_SIGNATURE, but one that can
+    have a payload when not encrypted.
+    """
+    __slots__ = ["pay_cls"]
+
+    def __init__(self, name, pay_cls):
+        self.pay_cls = pay_cls
+        super().__init__(
+            name,
+            None,
+            GSSAPI_BLOB_SIGNATURE,
+        )
+
+    def getfield(self, pkt, s):
+        remain, val = super().getfield(pkt, s)
+        if remain and val:
+            val.payload = self.pay_cls(remain)
+            return b"", val
+        return remain, val
+
+
 # RFC2744 sect 3.9 - Status Values
 
 GSS_S_COMPLETE = 0
@@ -294,7 +317,7 @@ class SSP:
         A Security context i.e. the 'state' of the secure negotiation
         """
 
-        __slots__ = ["state", "flags", "passive"]
+        __slots__ = ["state", "_flags", "passive"]
 
         def __init__(self, req_flags: Optional[GSS_C_FLAGS] = None):
             if req_flags is None:
@@ -309,6 +332,16 @@ class SSP:
         def clifailure(self):
             # This allows to reset the client context without discarding it.
             pass
+
+        # 'flags' is the most important attribute. Use a setter to sanitize it.
+
+        @property
+        def flags(self):
+            return self._flags
+
+        @flags.setter
+        def flags(self, x):
+            self._flags = GSS_C_FLAGS(int(x))
 
         def __repr__(self):
             return "[Default SSP]"
@@ -477,18 +510,30 @@ class SSP:
             ],
             qop_req=qop_req,
         )
-        return _msgs[0].data, signature
+        if _msgs[0].data:
+            signature /= _msgs[0].data
+        return signature
 
     # sect 2.3.4
 
-    def GSS_Unwrap(self, Context: CONTEXT, input_message: bytes, signature):
+    def GSS_Unwrap(self, Context: CONTEXT, signature):
+        data = b""
+        if signature.payload:
+            # signature has a payload that is the data. Let's get that payload
+            # in its original form, and use it for verifying the checksum.
+            if signature.payload.original:
+                data = signature.payload.original
+            else:
+                data = bytes(signature.payload)
+            signature = signature.copy()
+            signature.remove_payload()
         return self.GSS_UnwrapEx(
             Context,
             [
                 self.WRAP_MSG(
                     conf_req_flag=True,
                     sign=True,
-                    data=input_message,
+                    data=data,
                 )
             ],
             signature,

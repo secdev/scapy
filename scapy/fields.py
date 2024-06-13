@@ -2728,6 +2728,12 @@ class LEShortEnumField(EnumField[int]):
         super(LEShortEnumField, self).__init__(name, default, enum, "<H")
 
 
+class LongEnumField(EnumField[int]):
+    def __init__(self, name, default, enum):
+        # type: (str, int, Union[Dict[int, str], List[str]]) -> None
+        super(LongEnumField, self).__init__(name, default, enum, "Q")
+
+
 class LELongEnumField(EnumField[int]):
     def __init__(self, name, default, enum):
         # type: (str, int, Union[Dict[int, str], List[str]]) -> None
