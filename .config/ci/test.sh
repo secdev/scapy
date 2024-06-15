@@ -133,3 +133,10 @@ sys.exit()
 EOF
 echo "DEBUG: TEMPFILE=${TEMPFILE}"
 ./run_scapy -H -c "${TEMPFILE}" || exit 1
+
+# OSX: clear DNS cache
+if [ "$OSTYPE" = "darwin"* ]
+then
+    # https://www.hongkiat.com/blog/clear-dns-cache-mac/
+    sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+fi
