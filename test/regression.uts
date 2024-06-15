@@ -2223,6 +2223,18 @@ wrpcapng(tmpfile, p)
 l = rdpcap(tmpfile)
 assert l[0].comment == p.comment
 
+= rdpcap on fifo
+~ linux
+f = get_temp_file()
+os.unlink(f)
+os.mkfifo(f)
+p = Ether(bytes(Ether(dst="ff:ff:ff:ff:ff:ff")/"Hello Scapy!!!"))
+s = AsyncSniffer(offline=f)
+s.start()
+wrpcap(f, p)
+s.join(timeout=1)
+assert s.results[0] == p
+
 = Check multiple packets with different combination of linktype,comment,direction,sniffed_on fields. test both wrpcap() and wrpcapng()
 import random,string
 random.seed(0x2807)

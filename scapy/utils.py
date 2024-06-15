@@ -1426,12 +1426,14 @@ class PcapReader_metaclass(type):
         """Open (if necessary) filename, and read the magic."""
         if isinstance(fname, str):
             filename = fname
-            try:
-                fdesc = gzip.open(filename, "rb")  # type: _ByteStream
-                magic = fdesc.read(4)
-            except IOError:
-                fdesc = open(filename, "rb")
-                magic = fdesc.read(4)
+            fdesc = open(filename, "rb")  # type: _ByteStream
+            magic = fdesc.read(2)
+            if magic == b"\x1f\x8b":
+                # GZIP header detected.
+                fdesc.seek(0)
+                fdesc = gzip.GzipFile(fileobj=fdesc)
+                magic = fdesc.read(2)
+            magic += fdesc.read(2)
         else:
             fdesc = fname
             filename = getattr(fdesc, "name", "No name")
@@ -1557,8 +1559,10 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
         return -1 if WINDOWS else self.f.fileno()
 
     def close(self):
-        # type: () -> Optional[Any]
-        return self.f.close()
+        # type: () -> None
+        if isinstance(self.f, gzip.GzipFile):
+            self.f.fileobj.close()  # type: ignore
+        self.f.close()
 
     def __exit__(self, exc_type, exc_value, tracback):
         # type: (Optional[Any], Optional[Any], Optional[Any]) -> None
