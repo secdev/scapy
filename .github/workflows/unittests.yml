@@ -137,6 +137,7 @@ jobs:
         run: UT_FLAGS="${{ matrix.flags }}" ./.config/ci/test.sh ${{ matrix.python }} ${{ matrix.mode }}
       - name: Codecov
         uses: codecov/codecov-action@v4
+        continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
