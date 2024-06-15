@@ -134,9 +134,16 @@ EOF
 echo "DEBUG: TEMPFILE=${TEMPFILE}"
 ./run_scapy -H -c "${TEMPFILE}" || exit 1
 
+# DEBUG
 # OSX: clear DNS cache
-if [ "$OSTYPE" = "darwin"* ]
+if [[ "$OSTYPE" = "darwin"* ]]
 then
+    echo "HEY"
     # https://www.hongkiat.com/blog/clear-dns-cache-mac/
     sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+    ifconfig
+    cat /etc/resolv.conf
+    ping 1.1.1.1
+    dig google.com
 fi
+
