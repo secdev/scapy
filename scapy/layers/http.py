@@ -1022,7 +1022,7 @@ class HTTP_Server(Automaton):
 
     @ATMT.condition(BEGIN, prio=0)
     def should_authenticate(self):
-        if self.authmethod == HTTP_AUTH_MECHS.NONE:
+        if self.authmethod == HTTP_AUTH_MECHS.NONE.value:
             raise self.SERVE()
         else:
             raise self.AUTH()
@@ -1147,7 +1147,9 @@ class HTTP_Server(Automaton):
     # Serving
 
     @ATMT.state()
-    def SERVE(self, pkt):
+    def SERVE(self, pkt=None):
+        if pkt is None:
+            return
         answer = self.answer(pkt)
         if answer:
             self.send(answer)
