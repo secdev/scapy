@@ -20,7 +20,7 @@ assert p.pdus == [PDU()]
 
 p = PDU()
 assert p.pdu_id == 0
-assert p.pdu_payload_len == 0
+assert p.pdu_payload_len == None
 
 = Build test pdu_id
 p = PDU(bytes(PDU(pdu_id=0x11)))
