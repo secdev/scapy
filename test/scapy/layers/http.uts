@@ -353,3 +353,15 @@ with run_httpserver(mech=HTTP_AUTH_MECHS.BASIC, BASIC_IDENTITIES={"user": "passw
         html = f.read().decode('utf-8')
 
 assert html == "<!doctype html><html><body><h1>OK</h1></body></html>"
+
+
+= HTTP_Server with native python client without auth
+~ http-client
+
+import urllib.request
+
+with run_httpserver(mech=HTTP_AUTH_MECHS.NONE):
+    with urllib.request.urlopen('http://127.0.0.1:8080/') as f:
+        html = f.read().decode('utf-8')
+
+assert html == "<!doctype html><html><body><h1>OK</h1></body></html>"
