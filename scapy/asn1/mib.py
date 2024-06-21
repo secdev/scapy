@@ -532,6 +532,10 @@ certPkixAd_oids = {
     "1.3.6.1.5.5.7.48.1.1": "basic-response"
 }
 
+certTransp_oids = {
+    '1.3.6.1.4.1.11129.2.4.2': "SignedCertificateTimestampList",
+}
+
 #       ansi-x962       #
 
 x962KeyType_oids = {
@@ -669,11 +673,12 @@ x509_oids_sets = [
     attributeType_oids,
     certificateExtension_oids,
     certExt_oids,
+    certPkixAd_oids,
+    certPkixKp_oids,
     certPkixPe_oids,
     certPkixQt_oids,
-    certPkixKp_oids,
-    certPkixAd_oids,
     certPolicy_oids,
+    certTransp_oids,
     evPolicy_oids,
     x962KeyType_oids,
     x962Signature_oids,
