@@ -107,6 +107,10 @@ assert bytes_hex(bytes(buffer)) == b'0070696e6b696500706965'
 assert len(buffer) == 11
 assert buffer
 
+buffer = StringBuffer()
+buffer.append(b"")
+assert not buffer
+assert bytes(buffer) == b""
 
 ############
 ############

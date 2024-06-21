@@ -104,6 +104,8 @@ class StringBuffer(object):
         self.incomplete = []  # type: List[Tuple[int, int]]
 
     def append(self, data: bytes, seq: Optional[int] = None) -> None:
+        if not data:
+            return
         data_len = len(data)
         if seq is None:
             seq = self.content_len
@@ -136,7 +138,7 @@ class StringBuffer(object):
         # type: () -> bool
         # Should only be true when all missing data was filled up,
         # (or there never was missing data)
-        return True  # XXX
+        return bool(self)
 
     def clear(self):
         # type: () -> None
@@ -273,11 +275,12 @@ class TCPSession(IPSession):
                 self.metadata["tcp_reassemble"] = tcp_reassemble = streamcls(cls)
             else:
                 return None
-            packet = tcp_reassemble(
-                bytes(self.data),
-                self.metadata,
-                self.session,
-            )
+            if self.data.full():
+                packet = tcp_reassemble(
+                    bytes(self.data),
+                    self.metadata,
+                    self.session,
+                )
             if packet:
                 padding = self._strip_padding(packet)
                 if padding:

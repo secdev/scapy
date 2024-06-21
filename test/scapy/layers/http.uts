@@ -248,11 +248,13 @@ for i in range(3, 10):
 = Test chunked with gzip
 
 conf.contribs["http"]["auto_compression"] = False
+conf.contribs["http"]["auto_chunk"] = False
 z = b'\x1f\x8b\x08\x00S\\-_\x02\xff\xb3\xc9(\xc9\xcd\xb1\xcb\xcd)\xb0\xd1\x07\xb3\x00\xe6\xedpt\x10\x00\x00\x00'
 a = IP(dst="1.1.1.1", src="2.2.2.2")/TCP(seq=1)/HTTP()/HTTPResponse(Content_Encoding="gzip", Transfer_Encoding="chunked")/(b"5\r\n" + z[:5] + b"\r\n")
 b = IP(dst="1.1.1.1", src="2.2.2.2")/TCP(seq=len(a[TCP].payload)+1)/HTTP()/(hex(len(z[5:])).encode()[2:] + b"\r\n" + z[5:] + b"\r\n0\r\n\r\n")
 xa, xb = IP(raw(a)), IP(raw(b))
 conf.contribs["http"]["auto_compression"] = True
+conf.contribs["http"]["auto_chunk"] = True
 
 c = sniff(offline=[xa, xb], session=TCPSession)[0]
 import gzip
