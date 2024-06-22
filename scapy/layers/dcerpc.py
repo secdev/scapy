@@ -182,7 +182,7 @@ class DCERPC_Transport(IntEnum):
     # TODO: add more.. if people use them?
 
 
-def _dce_rpc_endianess(pkt):
+def _dce_rpc_endianness(pkt):
     """
     Determine the right endianness sign for a given DCE/RPC packet
     """
@@ -196,7 +196,7 @@ def _dce_rpc_endianess(pkt):
 
 class _EField(EField):
     def __init__(self, fld):
-        super(_EField, self).__init__(fld, endianness_from=_dce_rpc_endianess)
+        super(_EField, self).__init__(fld, endianness_from=_dce_rpc_endianness)
 
 
 class DceRpc(Packet):
@@ -222,7 +222,7 @@ class _DceRpcPayload(Packet):
     def endianness(self):
         if not self.underlayer:
             return "!"
-        return _dce_rpc_endianess(self.underlayer)
+        return _dce_rpc_endianness(self.underlayer)
 
 
 # sect 12.5
@@ -947,7 +947,7 @@ class DceRpc5Context(EPacket):
             None,
             DceRpc5TransferSyntax,
             count_from=lambda pkt: pkt.n_transfer_syn,
-            endianness_from=_dce_rpc_endianess,
+            endianness_from=_dce_rpc_endianness,
         ),
     ]
 
@@ -997,7 +997,7 @@ class DceRpc5Bind(_DceRpcPayload):
             "context_elem",
             [],
             DceRpc5Context,
-            endianness_from=_dce_rpc_endianess,
+            endianness_from=_dce_rpc_endianness,
             count_from=lambda pkt: pkt.n_context_elem,
         ),
     ]
@@ -1025,7 +1025,7 @@ class DceRpc5BindAck(_DceRpcPayload):
             "results",
             [],
             DceRpc5Result,
-            endianness_from=_dce_rpc_endianess,
+            endianness_from=_dce_rpc_endianness,
             count_from=lambda pkt: pkt.n_results,
         ),
     ]
@@ -1057,7 +1057,7 @@ class DceRpc5BindNak(_DceRpcPayload):
             [],
             DceRpc5Version,
             count_from=lambda pkt: pkt.n_protocols,
-            endianness_from=_dce_rpc_endianess,
+            endianness_from=_dce_rpc_endianness,
         ),
         # [MS-RPCE] sect 2.2.2.9
         ConditionalField(
