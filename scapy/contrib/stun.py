@@ -253,7 +253,7 @@ class STUN(Packet):
         pkt += pay
         if self.length is None:
             pkt = pkt[:2] + struct.pack("!h", len(pkt) - 20) + pkt[4:]
-        for attr in self.tlvlist:
+        for attr in self.attributes:
             if isinstance(attr, STUNMessageIntegrity):
                 pass    # TODO Fill hmac-sha1 in MESSAGE-INTEGRITY attribute
         return pkt
