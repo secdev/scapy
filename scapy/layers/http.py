@@ -33,6 +33,12 @@ You can turn auto-decompression/auto-compression off with::
     >>> conf.contribs["http"]["auto_compression"] = False
 
 (Defaults to True)
+
+You can also turn auto-chunking/dechunking off with::
+
+    >>> conf.contribs["http"]["auto_chunk"] = False
+
+(Defaults to True)
 """
 
 # This file is a rewritten version of the former scapy_http plugin.
@@ -92,6 +98,7 @@ except ImportError:
 if "http" not in conf.contribs:
     conf.contribs["http"] = {}
     conf.contribs["http"]["auto_compression"] = True
+    conf.contribs["http"]["auto_chunk"] = True
 
 # https://en.wikipedia.org/wiki/List_of_HTTP_header_fields
 
@@ -302,11 +309,9 @@ class _HTTPContent(Packet):
 
     def post_dissect(self, s):
         self._original_len = len(s)
-        if not conf.contribs["http"]["auto_compression"]:
-            return s
         encodings = self._get_encodings()
         # Un-chunkify
-        if "chunked" in encodings:
+        if conf.contribs["http"]["auto_chunk"] and "chunked" in encodings:
             data = b""
             while s:
                 length, _, body = s.partition(b"\r\n")
@@ -324,6 +329,8 @@ class _HTTPContent(Packet):
                     data += load
             if not s:
                 s = data
+        if not conf.contribs["http"]["auto_compression"]:
+            return s
         # Decompress
         try:
             if "deflate" in encodings:
@@ -366,39 +373,42 @@ class _HTTPContent(Packet):
         return s
 
     def post_build(self, pkt, pay):
-        if not conf.contribs["http"]["auto_compression"]:
-            return pkt + pay
         encodings = self._get_encodings()
-        # Compress
-        if "deflate" in encodings:
-            import zlib
-            pay = zlib.compress(pay)
-        elif "gzip" in encodings:
-            pay = gzip.compress(pay)
-        elif "compress" in encodings:
-            if _is_lzw_available:
-                pay = lzw.compress(pay)
-            else:
-                log_loading.info(
-                    "Can't import lzw. compress compression "
-                    "will be ignored !"
-                )
-        elif "br" in encodings:
-            if _is_brotli_available:
-                pay = brotli.compress(pay)
-            else:
-                log_loading.info(
-                    "Can't import brotli. brotli compression will "
-                    "be ignored !"
-                )
-        elif "zstd" in encodings:
-            if _is_zstd_available:
-                pay = zstandard.ZstdCompressor().compress(pay)
-            else:
-                log_loading.info(
-                    "Can't import zstandard. zstd compression will "
-                    "be ignored !"
-                )
+        if conf.contribs["http"]["auto_compression"]:
+            # Compress
+            if "deflate" in encodings:
+                import zlib
+                pay = zlib.compress(pay)
+            elif "gzip" in encodings:
+                pay = gzip.compress(pay)
+            elif "compress" in encodings:
+                if _is_lzw_available:
+                    pay = lzw.compress(pay)
+                else:
+                    log_loading.info(
+                        "Can't import lzw. compress compression "
+                        "will be ignored !"
+                    )
+            elif "br" in encodings:
+                if _is_brotli_available:
+                    pay = brotli.compress(pay)
+                else:
+                    log_loading.info(
+                        "Can't import brotli. brotli compression will "
+                        "be ignored !"
+                    )
+            elif "zstd" in encodings:
+                if _is_zstd_available:
+                    pay = zstandard.ZstdCompressor().compress(pay)
+                else:
+                    log_loading.info(
+                        "Can't import zstandard. zstd compression will "
+                        "be ignored !"
+                    )
+        # Chunkify
+        if conf.contribs["http"]["auto_chunk"] and "chunked" in encodings:
+            # Dumb: 1 single chunk.
+            pay = (b"%X" % len(pay)) + b"\r\n" + pay + b"\r\n0\r\n\r\n"
         return pkt + pay
 
     def self_build(self, **kwargs):
@@ -643,8 +653,13 @@ class HTTP(Packet):
             # Packets may have a Content-Length we must honnor
             length = http_packet.Content_Length
             # Heuristic to try and detect instant HEAD responses, as those include a
-            # Content-Length that must not be honored.
-            if is_response and data.endswith(b"\r\n\r\n"):
+            # Content-Length that must not be honored. This is a bit crappy, and assumes
+            # that a 'HEAD' will never include an Encoding...
+            if (
+                is_response and
+                data.endswith(b"\r\n\r\n") and
+                not http_packet[HTTPResponse]._get_encodings()
+            ):
                 detect_end = lambda _: True
             elif length is not None:
                 # The packet provides a Content-Length attribute: let's
