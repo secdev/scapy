@@ -85,6 +85,11 @@ assert a[5].Expires == b'Mon, 01 Apr 2024 22:25:38 GMT'
 assert a[5].Reason_Phrase == b'Moved Permanently'
 assert a[5].X_Frame_Options == b"SAMEORIGIN"
 
+= HTTP build with 'chunked' content type
+
+pkt = HTTP()/HTTPResponse(Content_Encoding="chunked", Date=b'Sat, 22 Jun 2024 10:00:00 GMT')/(b"A" * 100)
+assert bytes(pkt) == b'HTTP/1.1 200 OK\r\nContent-Encoding: chunked\r\nDate: Sat, 22 Jun 2024 10:00:00 GMT\r\n\r\n64\r\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\r\n0\r\n\r\n'
+
 = HTTP decompression (gzip)
 
 conf.debug_dissector = True
