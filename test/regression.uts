@@ -1684,10 +1684,11 @@ assert country == 'US'
 def _test():
     with no_debug_dissector():
     	x = sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
+    assert x is not None
     x
     assert x[IP].ottl() in [32, 64, 128, 255]
     assert 0 <= x[IP].hops() <= 126
-    x is not None and ICMP in x and x[ICMP].type == 0
+    assert ICMP in x and x[ICMP].type == 0
 
 retry_test(_test)
 
@@ -1996,7 +1997,8 @@ retry_test(_test)
 ~ netaccess needs_root tcpdump
 * Let's test traceroute
 def _test():
-    ans, unans = traceroute("www.slashdot.org")
+    with no_debug_dissector():
+        ans, unans = traceroute("www.slashdot.org")
     ans.nsummary()
     s,r=ans[0]
     s.show()
