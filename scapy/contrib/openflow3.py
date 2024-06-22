@@ -979,10 +979,8 @@ class OFPATSetField(OFPAT):
             zero_bytes = (8 - tmp_len % 8) % 8
             tmp_len = tmp_len + zero_bytes    # add padding length
             p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
-        else:
-            zero_bytes = (8 - tmp_len % 8) % 8
-        # every message will be padded correctly
-        p += b"\x00" * zero_bytes
+            p += b"\x00" * zero_bytes
+        # message with user-defined length will not be automatically padded
         return p + pay
 
     def extract_padding(self, s):
@@ -2697,9 +2695,9 @@ class OFPTFPT(Packet):
         if tmp_len is None:
             tmp_len = len(p) + len(pay)
             p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
-        # every message will be padded correctly
-        zero_bytes = (8 - tmp_len % 8) % 8
-        p += b"\x00" * zero_bytes
+            zero_bytes = (8 - tmp_len % 8) % 8
+            p += b"\x00" * zero_bytes
+        # message with user-defined length will not be automatically padded
         return p + pay
 
     def extract_padding(self, s):
