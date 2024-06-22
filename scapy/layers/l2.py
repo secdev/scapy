@@ -910,6 +910,7 @@ def arp_mitm(
 
         $ sysctl net.ipv4.conf.virbr0.send_redirects=0  # virbr0 = interface
         $ sysctl net.ipv4.ip_forward=1
+        $ sudo iptables -t mangle -A PREROUTING -j TTL --ttl-inc 1
         $ sudo scapy
         >>> arp_mitm("192.168.122.156", "192.168.122.17")
 
@@ -986,7 +987,7 @@ def arp_mitm(
              for ipa, maca in tup1
              for ipb, macb in tup2
              for x in
-             Ether(dst=maca, src=macb) /
+             Ether(dst="ff:ff:ff:ff:ff:ff", src=macb) /
              ARP(op="who-has", psrc=ipb, pdst=ipa,
                  hwsrc=macb, hwdst="00:00:00:00:00:00")
              ),
@@ -994,7 +995,7 @@ def arp_mitm(
              for ipb, macb in tup2
              for ipa, maca in tup1
              for x in
-             Ether(dst=macb, src=maca) /
+             Ether(dst="ff:ff:ff:ff:ff:ff", src=maca) /
              ARP(op="who-has", psrc=ipa, pdst=ipb,
                  hwsrc=maca, hwdst="00:00:00:00:00:00")
              ),
