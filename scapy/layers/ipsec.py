@@ -1191,8 +1191,13 @@ class SecurityAssociation(object):
                 # recompute checksum
                 ip_header = ip_header.__class__(raw(ip_header))
             else:
-                encrypted.underlayer.nh = esp.nh
-                encrypted.underlayer.remove_payload()
+                if self.nat_t_header:
+                    # drop the UDP header and return the payload untouched
+                    ip_header.nh = esp.nh
+                    ip_header.remove_payload()
+                else:
+                    encrypted.underlayer.nh = esp.nh
+                    encrypted.underlayer.remove_payload()
                 ip_header.plen = len(ip_header.payload) + len(esp.data)
 
             cls = ip_header.guess_payload_class(esp.data)

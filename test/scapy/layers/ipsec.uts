@@ -3386,6 +3386,46 @@ d
 assert d[TCP] == p[TCP]
 
 ###############################################################################
+= IPv6 / ESP - NAT-Traversal - Transport
+~ -crypto
+
+import socket
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=3333, dport=55)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='NULL', auth_key=None,
+                         nat_t_header=UDP(dport=5000))
+
+e = sa.encrypt(p)
+e
+
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
+assert e.chksum != p.chksum
+* the encrypted packet should have an UDP layer
+assert e.nh == socket.IPPROTO_UDP
+assert e.haslayer(UDP)
+assert e[UDP].sport == 4500
+assert e[UDP].dport == 5000
+assert e[UDP].chksum == 0
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet payload should be unaltered
+assert d[TCP] == p[TCP]
+assert not d.haslayer(UDP)
+assert d[Raw] == p[Raw]
+###############################################################################
 + IPv6 / ESP
 
 #######################################
