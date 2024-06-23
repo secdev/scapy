@@ -334,6 +334,20 @@ assert "cuz you know the way to go" + conf.iface  # right +
 
 _test_get_working_if()
 
+# Test IPv6 default route interface selection
+ni4 = NetworkInterface(InterfaceProvider(), {"name": conf.loopback_name, "ips": ["127.0.0.1"], "mac": "aa:aa:aa:aa:aa:aa"})
+ni6 = NetworkInterface(InterfaceProvider(), {"name": "scapy0", "ips": ["::1"], "mac": "aa:aa:aa:aa:aa:aa"})
+
+import mock
+@mock.patch("scapy.interfaces.conf.ifaces.values")
+@mock.patch("scapy.interfaces.conf.route.routes", [(0, 0, '0.0.0.0', 'lo0', '127.0.0.1', 1)])
+@mock.patch("scapy.interfaces.conf.route6.routes", [("::", 0, "", ni6, [""], 0)])
+def _test_get_working_if_v6(ifaces_values):
+    ifaces_values.side_effect = lambda: []
+    assert get_working_if() == ni6
+
+_test_get_working_if_v6()
+
 = Test conf.ifaces
 
 conf.iface

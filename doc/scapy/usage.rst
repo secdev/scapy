@@ -226,6 +226,9 @@ make\_table()    displays a table according to a lambda function
 Sending packets
 ---------------
 
+.. note::
+   Scapy automatically detects the network interface to be used by default, and stores this result in ``conf.iface``. Packets built by Scapy uses this variable to set relevant fields such as Ethernet source addresses. When sending packets, with functions such as ``send()``, Scapy will use the network interface stored in ``conf.iface``. This behavior can be changed using the ``iface=`` argument.  With IPv6 and link-local addresses, it is mandatory to setup both ``conf.iface`` and ``iface=`` the same value to get the desired result, as Scapy cannot find which interface to use for link-local communications.
+
 .. index::
    single: Sending packets, send
    
