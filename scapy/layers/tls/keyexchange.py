@@ -160,11 +160,9 @@ class _TLSSignature(_GenericTLSSessionInheritance):
     but if it is provided a TLS context with a tls_version < 0x0303
     at initialization, it will fall back to the implicit signature.
     Even more, the 'sig_len' field won't be used with SSLv2.
-
-    #XXX 'sig_alg' should be set in __init__ depending on the context.
     """
     name = "TLS Digital Signature"
-    fields_desc = [SigAndHashAlgField("sig_alg", 0x0804, _tls_hash_sig),
+    fields_desc = [SigAndHashAlgField("sig_alg", None, _tls_hash_sig),
                    SigLenField("sig_len", None, fmt="!H",
                                length_of="sig_val"),
                    SigValField("sig_val", None,
@@ -172,14 +170,23 @@ class _TLSSignature(_GenericTLSSessionInheritance):
 
     def __init__(self, *args, **kargs):
         super(_TLSSignature, self).__init__(*args, **kargs)
-        if (self.tls_session and
-                self.tls_session.tls_version):
-            if self.tls_session.tls_version < 0x0303:
-                self.sig_alg = None
-            elif self.tls_session.tls_version == 0x0304:
-                # For TLS 1.3 signatures, set the signature
-                # algorithm to RSA-PSS
-                self.sig_alg = 0x0804
+        if "sig_alg" not in kargs:
+            # Default sig_alg
+            self.sig_alg = 0x0804
+            if self.tls_session and self.tls_session.tls_version:
+                s = self.tls_session
+                if s.selected_sig_alg:
+                    self.sig_alg = s.selected_sig_alg
+                elif s.tls_version < 0x0303:
+                    self.sig_alg = None
+                elif s.tls_version == 0x0304:
+                    # For TLS 1.3 signatures, set the signature
+                    # algorithm to RSA-PSS
+                    self.sig_alg = 0x0804
+
+    def post_dissection(self, r):
+        # for client
+        self.tls_session.selected_sig_alg = self.sig_alg
 
     def _update_sig(self, m, key):
         """
@@ -193,11 +200,14 @@ class _TLSSignature(_GenericTLSSessionInheritance):
             else:
                 self.sig_val = key.sign(m, t='pkcs', h='md5')
         else:
-            h, sig = _tls_hash_sig[self.sig_alg].split('+')
-            if sig.endswith('pss'):
-                t = "pss"
+            if self.sig_alg in [0x0807, 0x0808]:  # ed25519, ed448
+                h, t = _tls_hash_sig[self.sig_alg], None
             else:
-                t = "pkcs"
+                h, sig = _tls_hash_sig[self.sig_alg].split('+')
+                if sig.endswith('pss'):
+                    t = "pss"
+                else:
+                    t = "pkcs"
             self.sig_val = key.sign(m, t=t, h=h)
 
     def _verify_sig(self, m, cert):
@@ -207,11 +217,14 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         """
         if self.sig_val:
             if self.sig_alg:
-                h, sig = _tls_hash_sig[self.sig_alg].split('+')
-                if sig.endswith('pss'):
-                    t = "pss"
+                if self.sig_alg in [0x0807, 0x0808]:  # ed25519, ed448
+                    h, t = _tls_hash_sig[self.sig_alg], None
                 else:
-                    t = "pkcs"
+                    h, sig = _tls_hash_sig[self.sig_alg].split('+')
+                    if sig.endswith('pss'):
+                        t = "pss"
+                    else:
+                        t = "pkcs"
                 return cert.verify(m, self.sig_val, t=t, h=h)
             else:
                 if self.tls_session.tls_version >= 0x0300:
@@ -338,6 +351,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
             self.dh_p = pkcs_i2osp(default_params.p, default_mLen // 8)
         if self.dh_plen is None:
             self.dh_plen = len(self.dh_p)
+        s.kx_group = "ffdhe%s" % (self.dh_plen * 8)
 
         if not self.dh_g:
             self.dh_g = pkcs_i2osp(default_params.g, 1)
@@ -374,6 +388,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
 
         s = self.tls_session
         s.server_kx_pubkey = public_numbers.public_key(default_backend())
+        s.kx_group = "ffdhe%s" % (self.dh_plen * 8)
 
         if not s.client_kx_ffdh_params:
             s.client_kx_ffdh_params = pn.parameters(default_backend())
@@ -584,6 +599,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
             # this fallback is arguable
             curve_group = 23  # default to secp256r1
         s.server_kx_privkey = _tls_named_groups_generate(curve_group)
+        s.kx_group = _tls_named_curves.get(curve_group, str(curve_group))
 
         if self.point is None:
             self.point = _tls_named_groups_pubbytes(
@@ -612,6 +628,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
             self.named_curve,
             self.point
         )
+        s.kx_group = _tls_named_curves.get(self.named_curve, str(self.named_curve))
 
         if not s.client_kx_ecdh_params:
             s.client_kx_ecdh_params = self.named_curve
@@ -668,6 +685,8 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
         if self.rsamodlen is None:
             self.rsamodlen = len(self.rsamod)
 
+        self.tls_session.kx_group = "rsa%s" % self.rsamodlen
+
         rsaexplen = math.ceil(math.log(pubNum.e) / math.log(2) / 8.)
         if not self.rsaexp:
             self.rsaexp = pkcs_i2osp(pubNum.e, rsaexplen)
@@ -680,6 +699,7 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
         m = self.rsamod
         e = self.rsaexp
         self.tls_session.server_tmp_rsa_key = PubKeyRSA((e, m, mLen))
+        self.tls_session.kx_group = "rsa%s" % mLen
 
     def post_dissection(self, pkt):
         try:

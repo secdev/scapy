@@ -527,6 +527,11 @@ class TLSServerHello(_TLSHandshake):
                 return TLS13ServerHello
         return TLSServerHello
 
+    def build(self, *args, **kargs):
+        if self.getfieldval("sid") == b"" and self.tls_session:
+            self.sid = self.tls_session.sid
+        return super(TLSServerHello, self).build(*args, **kargs)
+
     def post_build(self, p, pay):
         if self.random_bytes is None:
             p = p[:10] + randstring(28) + p[10 + 28:]
@@ -707,6 +712,8 @@ class TLS13HelloRetryRequest(_TLSHandshake):
         fval = self.getfieldval("random_bytes")
         if fval is None:
             self.random_bytes = _tls_hello_retry_magic
+        if self.getfieldval("sid") == b"" and self.tls_session:
+            self.sid = self.tls_session.sid
         return _TLSHandshake.build(self)
 
     def tls_session_update(self, msg_str):
