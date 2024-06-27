@@ -1483,6 +1483,14 @@ Node status request (get NetbiosName from IP)
 
     >>> sr1(IP(dst="192.168.122.17")/UDP()/NBNSHeader()/NBNSNodeStatusRequest())
 
+NBNS Query Request (find by NetbiosName)
+----------------------------------------
+
+.. code::
+
+    >>> conf.checkIPaddr = False  # Mandatory because we are using a broadcast destination
+    >>> sr1(IP(dst="192.168.0.255")/UDP()/NBNSHeader()/NBNSQueryRequest(QUESTION_NAME="DC1"))
+
 Advanced traceroute
 -------------------
 

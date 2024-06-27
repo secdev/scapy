@@ -1955,13 +1955,13 @@ class NetBIOSNameField(StrFixedLenField):
 
     def m2i(self, pkt, x):
         # type: (Optional[Packet], bytes) -> bytes
-        x = x[1:].strip(b"\x00").strip(b" ")
+        x = x[1:].strip(b"\x00")
         return b"".join(map(
             lambda x, y: chb(
                 (((orb(x) - 1) & 0xf) << 4) + ((orb(y) - 1) & 0xf)
             ),
             x[::2], x[1::2]
-        ))
+        )).rstrip(b" ")
 
 
 class StrLenField(StrField):
