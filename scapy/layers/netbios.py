@@ -193,9 +193,10 @@ class NBNSQueryResponse(Packet):
         )
 
     def answers(self, other):
+        trimmed_name = self.RR_NAME[:15]
         return (
             isinstance(other, NBNSQueryRequest) and
-            other.QUESTION_NAME == self.RR_NAME
+            other.QUESTION_NAME == trimmed_name
         )
 
 
