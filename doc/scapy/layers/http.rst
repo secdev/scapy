@@ -154,15 +154,26 @@ Start an unauthenticated HTTP server automaton:
         iface="eth0",
     )
 
-We could also have started the same server, but requiring NTLM authorization using:
+We could also have started the same server, but requiring **NTLM authorization using**:
 
 .. code:: python
 
     server = HTTP_Server.spawn(
         port=8080,
         iface="eth0",
-        HTTP_AUTH_MECHS.NTLM,
+        mech=HTTP_AUTH_MECHS.NTLM,
         ssp=NTLMSSP(IDENTITIES={"user": MD4le("password")}),
+    )
+
+Or **basic auth**:
+
+.. code:: python
+
+    server = HTTP_Server.spawn(
+        port=8080,
+        iface="eth0",
+        mech=HTTP_AUTH_MECHS.BASIC,
+        BASIC_IDENTITIES={"user": MD4le("password")},
     )
 
 - ``TCP_client.tcplink``:
