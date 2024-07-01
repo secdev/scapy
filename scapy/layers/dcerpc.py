@@ -3000,7 +3000,7 @@ class DceRpc4Payload(Packet):
         for klass in cls._payload_class:
             if hasattr(klass, "can_handle") and klass.can_handle(_pkt, _underlayer):
                 return klass
-        print("DCE/RPC payload class not found or undefined (using Raw)")
+        log_runtime.warning("DCE/RPC payload class not found or undefined (using Raw)")
         return Raw
 
     @classmethod
