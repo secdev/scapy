@@ -712,7 +712,7 @@ class Dot11(Packet):
         _Dot11MacField("addr1", ETHER_ANY, 1),
         ConditionalField(
             _Dot11MacField("addr2", ETHER_ANY, 2),
-            lambda pkt: (pkt.type != 1 or
+            lambda pkt: (pkt.type not in [1, 3] or
                          pkt.subtype in [0x4, 0x5, 0x6, 0x8, 0x9, 0xa, 0xb, 0xe, 0xf]),
         ),
         ConditionalField(
@@ -720,7 +720,7 @@ class Dot11(Packet):
             lambda pkt: (pkt.type in [0, 2] or
                          ((pkt.type, pkt.subtype) == (1, 6) and pkt.cfe == 6)),
         ),
-        ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type != 1),
+        ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type not in [1, 3]),
         ConditionalField(
             _Dot11MacField("addr4", ETHER_ANY, 4),
             lambda pkt: (pkt.type == 2 and
@@ -1829,6 +1829,12 @@ class Dot11CSA(Packet):
     ]
 
 
+class Dot11S1GBeacon(_Dot11EltUtils):
+    name = "802.11 S1G Beacon"
+    fields_desc = [LEIntField("timestamp", 0),
+                   ByteField("change_seq", 0)]
+
+
 ###################
 # 802.11 Security #
 ###################
@@ -1978,6 +1984,7 @@ bind_layers(Dot11, Dot11ReassoResp, subtype=3, type=0)
 bind_layers(Dot11, Dot11ProbeReq, subtype=4, type=0)
 bind_layers(Dot11, Dot11ProbeResp, subtype=5, type=0)
 bind_layers(Dot11, Dot11Beacon, subtype=8, type=0)
+bind_layers(Dot11, Dot11S1GBeacon, subtype=1, type=3)
 bind_layers(Dot11, Dot11ATIM, subtype=9, type=0)
 bind_layers(Dot11, Dot11Disas, subtype=10, type=0)
 bind_layers(Dot11, Dot11Auth, subtype=11, type=0)
@@ -1985,6 +1992,7 @@ bind_layers(Dot11, Dot11Deauth, subtype=12, type=0)
 bind_layers(Dot11, Dot11Action, subtype=13, type=0)
 bind_layers(Dot11, Dot11Ack, subtype=13, type=1)
 bind_layers(Dot11Beacon, Dot11Elt,)
+bind_layers(Dot11S1GBeacon, Dot11Elt,)
 bind_layers(Dot11AssoReq, Dot11Elt,)
 bind_layers(Dot11AssoResp, Dot11Elt,)
 bind_layers(Dot11ReassoReq, Dot11Elt,)
