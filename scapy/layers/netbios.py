@@ -195,7 +195,7 @@ class NBNSQueryResponse(Packet):
     def answers(self, other):
         return (
             isinstance(other, NBNSQueryRequest) and
-            other.QUESTION_NAME[:15] == self.RR_NAME
+            other.QUESTION_NAME == self.RR_NAME
         )
 
 
