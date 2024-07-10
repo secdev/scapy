@@ -1112,22 +1112,23 @@ class DNSRRTSIG(_DNSRRdummy):
 
 
 class DNSRRNAPTR(_DNSRRdummy):
-    name = "DNS NAPTR Record"
+    name = "DNS NAPTR Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 35, dnstypes),
-                   ShortEnumField("rclass", 1, dnsclasses),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
-                   BitField('order', 0, 16),  # ok
-                   BitField('preference', 0, 16),  # ok
-                   FieldLenField('flags_len', 0, fmt="!B", length_of="flags"),
-                   StrLenField('flags', b"", length_from=lambda pkt: pkt.flags_len),
-                   FieldLenField('service_len', 0, fmt="!B", length_of="services"),
-                   StrLenField('services', b"",
-                               length_from=lambda pkt: pkt.service_len),
-                   FieldLenField('regexp_len', 0, fmt="!B", length_of='regexp'),
-                   StrLenField('regexp', b"", length_from=lambda pkt: pkt.regexp_len),
-                   DNSStrField('replacement', b""),
+                   ShortField("order", 0),
+                   ShortField("preference", 0),
+                   FieldLenField("flags_len", None, fmt="!B", length_of="flags"),
+                   StrLenField("flags", "", length_from=lambda pkt: pkt.flags_len),
+                   FieldLenField("services_len", None, fmt="!B", length_of="services"),
+                   StrLenField("services", "",
+                               length_from=lambda pkt: pkt.services_len),
+                   FieldLenField("regexp_len", None, fmt="!B", length_of="regexp"),
+                   StrLenField("regexp", "", length_from=lambda pkt: pkt.regexp_len),
+                   DNSStrField("replacement", ""),
                    ]
 
 
