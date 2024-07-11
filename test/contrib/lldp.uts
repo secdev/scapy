@@ -371,6 +371,7 @@ try:
 except:
     assert False
 
++ Power via MDI
 ~ tshark
 
 = Define check_tshark function

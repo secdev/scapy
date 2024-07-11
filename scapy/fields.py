@@ -32,7 +32,7 @@ from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, \
     RandSLong, RandFloat
 from scapy.data import EPOCH
 from scapy.error import log_runtime, Scapy_Exception
-from scapy.compat import bytes_hex, chb, orb, plain_str, raw, bytes_encode
+from scapy.compat import bytes_hex, plain_str, raw, bytes_encode
 from scapy.pton_ntop import inet_ntop, inet_pton
 from scapy.utils import inet_aton, inet_ntoa, lhex, mac2str, str2mac, EDecimal
 from scapy.utils6 import in6_6to4ExtractAddr, in6_isaddr6to4, \
@@ -1947,21 +1947,25 @@ class NetBIOSNameField(StrFixedLenField):
         x += b" " * len_pkt
         x = x[:len_pkt]
         x = b"".join(
-            chb(0x41 + (orb(b) >> 4)) +
-            chb(0x41 + (orb(b) & 0xf))
+            struct.pack(
+                "!BB",
+                0x41 + (b >> 4),
+                0x41 + (b & 0xf),
+            )
             for b in x
-        )  # noqa: E501
+        )
         return b" " + x
 
     def m2i(self, pkt, x):
         # type: (Optional[Packet], bytes) -> bytes
-        x = x[1:].strip(b"\x00").strip(b" ")
+        x = x[1:].strip(b"\x00")
         return b"".join(map(
-            lambda x, y: chb(
-                (((orb(x) - 1) & 0xf) << 4) + ((orb(y) - 1) & 0xf)
+            lambda x, y: struct.pack(
+                "!B",
+                (((x - 1) & 0xf) << 4) + ((y - 1) & 0xf)
             ),
             x[::2], x[1::2]
-        ))
+        )).rstrip(b" ")
 
 
 class StrLenField(StrField):
