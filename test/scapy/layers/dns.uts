@@ -273,6 +273,17 @@ assert DNSRR(raw(rr)).rdata == []
 rr = DNSRR(rrname='scapy', type='TXT', rdata=[])
 assert raw(rr) == b
 
+= DNS record type 35 (NAPTR)
+
+b = b'\x00\x00#\x00\x01\x00\x00\x00\x00\x00+\x00\n\x00d\x01u\x07E2U+sip\x1b!^.*$!sip:info@example.com!\x00'
+
+p = DNSRRNAPTR(b)
+assert p.order == 10 and p.preference == 100 and p.flags == b'u' and p.services == b'E2U+sip'
+assert p.regexp == b'!^.*$!sip:info@example.com!' and p.replacement == b'.'
+
+p = DNSRRNAPTR(order=10, preference=100, flags="u", services="E2U+sip", regexp="!^.*$!sip:info@example.com!")
+assert raw(p) == b
+
 = DNS record type 39 (DNAME)
 
 b = b'\x05local\x00\x00\x27\x00\x01\x00\x00\x00\x00\x00\x07\x05local\x00'

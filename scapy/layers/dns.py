@@ -1111,11 +1111,33 @@ class DNSRRTSIG(_DNSRRdummy):
                    ]
 
 
+class DNSRRNAPTR(_DNSRRdummy):
+    name = "DNS NAPTR Resource Record"
+    fields_desc = [DNSStrField("rrname", ""),
+                   ShortEnumField("type", 35, dnstypes),
+                   BitField("cacheflush", 0, 1),  # mDNS RFC 6762
+                   BitEnumField("rclass", 1, 15, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   ShortField("order", 0),
+                   ShortField("preference", 0),
+                   FieldLenField("flags_len", None, fmt="!B", length_of="flags"),
+                   StrLenField("flags", "", length_from=lambda pkt: pkt.flags_len),
+                   FieldLenField("services_len", None, fmt="!B", length_of="services"),
+                   StrLenField("services", "",
+                               length_from=lambda pkt: pkt.services_len),
+                   FieldLenField("regexp_len", None, fmt="!B", length_of="regexp"),
+                   StrLenField("regexp", "", length_from=lambda pkt: pkt.regexp_len),
+                   DNSStrField("replacement", ""),
+                   ]
+
+
 DNSRR_DISPATCHER = {
     6: DNSRRSOA,         # RFC 1035
     13: DNSRRHINFO,      # RFC 1035
     15: DNSRRMX,         # RFC 1035
     33: DNSRRSRV,        # RFC 2782
+    35: DNSRRNAPTR,      # RFC 2915
     41: DNSRROPT,        # RFC 1671
     43: DNSRRDS,         # RFC 4034
     46: DNSRRRSIG,       # RFC 4034
