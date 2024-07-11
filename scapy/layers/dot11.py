@@ -702,6 +702,14 @@ class Dot11(Packet):
                     FlagsField("FCfield", 0, 4,
                                ["pw-mgt", "MD", "protected", "order"]),
                     lambda pkt: (pkt.type, pkt.subtype) == (1, 6)
+                ),
+                (
+                    # FIXME: bw1/2/3 are a 3-bit field.
+                    # Unsure how to do this properly.
+                    FlagsField("FCfield", 0, 8,
+                               ["next_tbtt", "comp_ssid", "ano", "bw1",
+                                "bw2", "bw3", "security", "AP_PM"]),
+                    lambda pkt: (pkt.type, pkt.subtype) == (3, 1)
                 )
             ],
             FlagsField("FCfield", 0, 8,
@@ -736,7 +744,7 @@ class Dot11(Packet):
         if self.type == 0x02 and (
                 0x08 <= self.subtype <= 0xF and self.subtype != 0xD):
             return Dot11QoS
-        elif self.FCfield.protected:
+        elif hasattr(self.FCfield, "protected") and self.FCfield.protected:
             # When a frame is handled by encryption, the Protected Frame bit
             # (previously called WEP bit) is set to 1, and the Frame Body
             # begins with the appropriate cryptographic header.
