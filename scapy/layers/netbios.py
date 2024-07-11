@@ -130,6 +130,10 @@ class NBNSHeader(Packet):
         ShortField("ARCOUNT", 0),
     ]
 
+    def hashret(self):
+        return b"NBNS" + struct.pack("!B", self.OPCODE)
+
+
 # Name Query Request
 # RFC1002 sect 4.2.12
 
@@ -144,7 +148,7 @@ class NBNSQueryRequest(Packet):
 
     def mysummary(self):
         return "NBNSQueryRequest who has '\\\\%s'" % (
-            self.QUESTION_NAME.strip().decode(errors="backslashreplace")
+            self.QUESTION_NAME.decode(errors="backslashreplace")
         )
 
 
@@ -184,8 +188,14 @@ class NBNSQueryResponse(Packet):
         if not self.ADDR_ENTRY:
             return "NBNSQueryResponse"
         return "NBNSQueryResponse '\\\\%s' is at %s" % (
-            self.RR_NAME.strip().decode(errors="backslashreplace"),
+            self.RR_NAME.decode(errors="backslashreplace"),
             self.ADDR_ENTRY[0].NB_ADDRESS
+        )
+
+    def answers(self, other):
+        return (
+            isinstance(other, NBNSQueryRequest) and
+            other.QUESTION_NAME == self.RR_NAME
         )
 
 
@@ -206,7 +216,7 @@ class NBNSNodeStatusRequest(NBNSQueryRequest):
 
     def mysummary(self):
         return "NBNSNodeStatusRequest who has '\\\\%s'" % (
-            self.QUESTION_NAME.strip().decode(errors="backslashreplace")
+            self.QUESTION_NAME.decode(errors="backslashreplace")
         )
 
 

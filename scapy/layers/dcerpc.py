@@ -340,7 +340,7 @@ class NL_AUTH_SIGNATURE(Packet):
             {
                 0xFFFF: "Unencrypted",
                 0x007A: "RC4",
-                0x00A1: "AES-128",
+                0x001A: "AES-128",
             },
         ),
         XLEShortField("Pad", 0xFFFF),
@@ -2671,8 +2671,8 @@ class DceRpcSession(DefaultSession):
         opnum, opts = self._up_pkt(pkt)
         # Check for encrypted payloads
         body = None
-        if conf.raw_layer in pkt:
-            body = bytes(pkt[conf.raw_layer])
+        if conf.raw_layer in pkt.payload:
+            body = bytes(pkt.payload[conf.raw_layer])
         # If we are doing passive sniffing
         if conf.dcerpc_session_enable and conf.winssps_passive:
             # We have Windows SSPs, and no current context
@@ -2801,18 +2801,18 @@ class DceRpcSession(DefaultSession):
                     "Unknown opnum %s for interface %s"
                     % (opnum, self.rpc_bind_interface)
                 )
-                pkt[conf.raw_layer].load = body
+                pkt.payload[conf.raw_layer].load = body
                 return pkt
             if body:
                 # Dissect payload using class
                 payload = cls(body, ndr64=self.ndr64, ndrendian=self.ndrendian, **opts)
-                pkt[conf.raw_layer].underlayer.remove_payload()
+                pkt.payload[conf.raw_layer].underlayer.remove_payload()
                 pkt /= payload
             elif not cls.fields_desc:
                 # Request class has no payload
                 pkt /= cls(ndr64=self.ndr64, ndrendian=self.ndrendian, **opts)
         elif body:
-            pkt[conf.raw_layer].load = body
+            pkt.payload[conf.raw_layer].load = body
         return pkt
 
     def out_pkt(self, pkt):
@@ -3000,7 +3000,7 @@ class DceRpc4Payload(Packet):
         for klass in cls._payload_class:
             if hasattr(klass, "can_handle") and klass.can_handle(_pkt, _underlayer):
                 return klass
-        print("DCE/RPC payload class not found or undefined (using Raw)")
+        log_runtime.warning("DCE/RPC payload class not found or undefined (using Raw)")
         return Raw
 
     @classmethod

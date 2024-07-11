@@ -74,6 +74,9 @@ assert len(fpti) == 16
 assert fpti.instruction_ids[0].type == 1
 assert fpti.instruction_ids[1].type == 5
 
+fpti.instruction_ids[0] = OFPITGotoTableID()
+assert bytes(fpti) == b'\x00\x00\x00\x0c\x00\x01\x00\x04\x00\x05\x00\x04\x00\x00\x00\x00'
+
 = OFPTPacketIn() containing an Ethernet frame
 ofm = OFPTPacketIn(data=Ether()/IP()/ICMP())
 p = OFPTPacketIn(raw(ofm))
