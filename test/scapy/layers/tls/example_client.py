@@ -18,6 +18,7 @@ from scapy.config import conf
 from scapy.utils import inet_aton
 from scapy.layers.tls.automaton_cli import TLSClientAutomaton
 from scapy.layers.tls.basefields import _tls_version_options
+from scapy.layers.tls.keyexchange import _tls_hash_sig
 from scapy.layers.tls.handshake import TLSClientHello, TLS13ClientHello
 from scapy.tools.UTscapy import scapy_path
 
@@ -38,6 +39,7 @@ parser.add_argument("--res_master",
 parser.add_argument("--sni",
                     help="Server Name Indication")
 parser.add_argument("--curve", help="ECC group to advertise")
+parser.add_argument("--sig-algs", help="Signature algorithms to advertise (coma separated)")
 parser.add_argument("--debug", action="store_const", const=5, default=0,
                     help="Enter debug mode")
 parser.add_argument("server", nargs="?", default="127.0.0.1",
@@ -79,6 +81,13 @@ if not server_name and args.server:
     except socket.error:
         server_name = args.server
 
+supported_signature_algorithms = None
+if args.sig_algs:
+    supported_signature_algorithms = args.sig_algs.split(",")
+    for sigalg in supported_signature_algorithms:
+        if sigalg not in _tls_hash_sig.values():
+            sys.exit("Unrecognized signature algorithm: %s" % sigalg)
+
 t = TLSClientAutomaton(server=args.server, dport=args.port,
                        server_name=server_name,
                        client_hello=ch,
@@ -90,6 +99,7 @@ t = TLSClientAutomaton(server=args.server, dport=args.port,
                        resumption_master_secret=args.res_master,
                        session_ticket_file_in=args.session_ticket_file_in,
                        session_ticket_file_out=args.session_ticket_file_out,
+                       supported_signature_algorithms=supported_signature_algorithms,
                        curve=args.curve,
                        debug=args.debug)
 t.run()
