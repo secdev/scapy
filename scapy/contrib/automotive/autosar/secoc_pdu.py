@@ -11,6 +11,7 @@ SecOC PDU
 """
 import struct
 
+from scapy.config import conf
 from scapy.contrib.automotive.autosar.secoc import SecOCMixin, PduPayloadField
 from scapy.base_classes import Packet_metaclass
 from scapy.contrib.automotive.autosar.pdu import PDU
@@ -70,6 +71,17 @@ class SecOC_PDU(Packet, SecOCMixin):
             return SecOC_PDU
         else:
             return PDU
+
+    @classmethod
+    def get_pdu_payload_cls(cls,
+                            pkt: Packet,
+                            data: bytes
+                            ) -> Packet:
+        try:
+            klass = cls.pdu_payload_cls_by_identifier[pkt.pdu_id]
+        except KeyError:
+            klass = conf.raw_layer
+        return klass(data, _parent=pkt)
 
     def extract_padding(self, s):
         # type: (bytes) -> Tuple[bytes, Optional[bytes]]

@@ -84,17 +84,6 @@ class SecOCMixin:
         cls.secoc_protected_pdus_by_identifier.remove(pdu_id)
         del cls.pdu_payload_cls_by_identifier[pdu_id]
 
-    @classmethod
-    def get_pdu_payload_cls(cls,
-                            pkt: Packet,
-                            data: bytes
-                            ) -> Packet:
-        try:
-            klass = cls.pdu_payload_cls_by_identifier[pkt.pdu_id]
-        except KeyError:
-            klass = conf.raw_layer
-        return klass(data, _parent=pkt)
-
 
 class PduPayloadField(PacketLenField):
     __slots__ = ["guess_pkt_cls"]
