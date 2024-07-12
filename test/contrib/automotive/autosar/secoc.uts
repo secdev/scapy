@@ -11,7 +11,7 @@
 
 = Load Contrib Layer
 
-load_contrib("automotive.autosar.secoc")
+load_contrib("automotive.autosar.secoc_pdu")
 
 = Prepare SecOC keys
 
