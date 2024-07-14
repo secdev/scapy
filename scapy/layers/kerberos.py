@@ -2643,7 +2643,7 @@ class KerberosClient(Automaton):
         return kdcreq
 
     def as_req(self):
-        now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+        now_time = datetime.now(timezone.utc).replace(microsecond=0)
 
         kdc_req = self._base_kdc_req(now_time=now_time)
         kdc_req.addresses = [
@@ -2690,7 +2690,7 @@ class KerberosClient(Automaton):
         return asreq
 
     def tgs_req(self):
-        now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+        now_time = datetime.now(timezone.utc).replace(microsecond=0)
 
         kdc_req = self._base_kdc_req(now_time=now_time)
 
@@ -3836,7 +3836,7 @@ class KerberosSSP(SSP):
                 authenticator=EncryptedData(),
             )
             # Build the authenticator
-            now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+            now_time = datetime.now(timezone.utc).replace(microsecond=0)
             Context.KrbSessionKey = Key.random_to_key(
                 self.SKEY_TYPE,
                 os.urandom(16),
@@ -3929,7 +3929,7 @@ class KerberosSSP(SSP):
                 # The client MUST generate an additional AP exchange reply message
                 # exactly as the server would as the final message to send to the
                 # server.
-                now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+                now_time = datetime.now(timezone.utc).replace(microsecond=0)
                 cli_ap_rep = KRB_AP_REP(encPart=EncryptedData())
                 cli_ap_rep.encPart.encrypt(
                     Context.STSessionKey,
@@ -4018,7 +4018,7 @@ class KerberosSSP(SSP):
                 # Required but not provided. Return an error
                 self._setup_u2u()
                 Context.U2U = True
-                now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+                now_time = datetime.now(timezone.utc).replace(microsecond=0)
                 err = KRB_GSSAPI_Token(
                     innerToken=KRB_InnerToken(
                         TOK_ID=b"\x03\x00",
@@ -4039,7 +4039,7 @@ class KerberosSSP(SSP):
                 tkt = ap_req.ticket.encPart.decrypt(self.KEY)
             except ValueError as ex:
                 warning("KerberosSSP: %s (bad KEY?)" % ex)
-                now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+                now_time = datetime.now(timezone.utc).replace(microsecond=0)
                 err = KRB_GSSAPI_Token(
                     innerToken=KRB_InnerToken(
                         TOK_ID=b"\x03\x00",

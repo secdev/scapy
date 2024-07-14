@@ -434,7 +434,7 @@ class _HTTPContent(Packet):
                     # Add Content-Length anyways
                     val = str(len(self.payload or b""))
                 elif f.name == "Date" and isinstance(self, HTTPResponse):
-                    val = datetime.datetime.utcnow().strftime(
+                    val = datetime.datetime.now(datetime.timezone.utc).strftime(
                         '%a, %d %b %Y %H:%M:%S GMT'
                     )
                 else:

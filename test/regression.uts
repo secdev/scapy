@@ -5136,10 +5136,10 @@ assert pl[1][Ether].dst == '00:22:33:44:55:66'
 = _version()
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 version_filename = os.path.join(scapy._SCAPY_PKG_DIR, "VERSION")
-mtime = datetime.utcfromtimestamp(os.path.getmtime(scapy.__file__))
+mtime = datetime.fromtimestamp(os.path.getmtime(scapy.__file__), timezone.utc)
 version = "2.0.0"
 with open(version_filename, "w") as fd:
     fd.write(version)
