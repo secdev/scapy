@@ -175,9 +175,11 @@ class TLSClientAutomaton(_TLSAutomaton):
 
         if supported_signature_algorithms is None:
             supported_signature_algorithms = [
+                "sha256+rsaepss",
                 "sha256+rsa",
+                "ed25519",
+                "ed448",
             ]
-            supported_signature_algorithms.insert(0, "sha256+rsaepss")
         self.supported_signature_algorithms = supported_signature_algorithms
 
         self.curve = None
