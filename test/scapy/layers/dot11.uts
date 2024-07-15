@@ -772,6 +772,7 @@ assert pkt[Dot11].subtype == 1
 assert pkt[Dot11].addr1 == '2c:2f:75:1c:10:33'
 assert pkt[Dot11S1GBeacon].timestamp == 16281960
 assert pkt[Dot11Elt::{"ID": 0}].info == b"WiFiDiving"
+assert pkt[Dot11Elt::{"ID": 214}].len == 2
 assert pkt[Dot11Elt::{"ID": 217}].len == 15
 assert pkt[Dot11Elt::{"ID": 232}].len == 6
 assert pkt[Dot11].FCfield.bw1 == 1
