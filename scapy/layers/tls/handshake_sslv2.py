@@ -528,7 +528,7 @@ class SSLv2ServerFinished(_SSLv2Handshake):
 
     def build(self, *args, **kargs):
         fval = self.getfieldval("sid")
-        if fval == b"":
+        if fval == b"" and self.tls_session:
             self.sid = self.tls_session.sid
         return super(SSLv2ServerFinished, self).build(*args, **kargs)
 

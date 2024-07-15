@@ -36,7 +36,6 @@ class PDU(Packet):
 class PDUTransport(Packet):
     """
     Packet representing PDUTransport containing multiple PDUs
-    FIXME: Support CAN messages as well.
     """
     name = 'PDUTransport'
     fields_desc = [

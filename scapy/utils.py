@@ -1880,7 +1880,12 @@ class RawPcapNgReader(RawPcapReader):
         process_information = {}
         for code, value in options.items():
             if code in [0x8001, 0x8003]:  # PCAPNG_EPB_PIB_INDEX, PCAPNG_EPB_E_PIB_INDEX
-                proc_index = struct.unpack(self.endian + "I", value)[0]
+                try:
+                    proc_index = struct.unpack(self.endian + "I", value)[0]
+                except struct.error:
+                    warning("PcapNg: EPB invalid proc index"
+                            "(expected 4 bytes, got %d) !" % len(value))
+                    raise EOFError
                 if proc_index < len(self.process_information):
                     key = "proc" if code == 0x8001 else "eproc"
                     process_information[key] = self.process_information[proc_index]
