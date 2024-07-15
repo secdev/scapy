@@ -1266,7 +1266,7 @@ def fake_choice(x):
     return x[0]
 
 date_mock = mock.MagicMock()
-date_mock.utcnow.return_value = datetime(2024, 3, 5, 16, 52, 55, 424801)
+date_mock.now.side_effect = lambda tz=None: datetime(2024, 3, 5, 16, 52, 55, 424801, tz)
 
 _patches = [
     # Patch all the random
