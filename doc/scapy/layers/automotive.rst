@@ -1364,6 +1364,174 @@ Request the Vehicle Identification Number (VIN)::
 .. image:: ../graphics/animations/animation-scapy-obd.svg
 
 
+Message Authentication (AUTOSAR SecOC)
+======================================
+
+AutoSAR SecOC is a security architecture protecting communication between ECUs in a vehicle from cyber-attacks.
+
+- **Module**: AUTOSAR
+- **Functions**: Provides message integrity and authentication
+- **Protection**: Freshness value to counter replay attacks
+- **Cryptography**: Supports asymmetric and symmetric methods
+- **Key Distribution**: Not specified
+- **Unique Identifiers**: Every PDU has a SecOCDataID
+  - **CAN Networks**: Uses CAN identifier
+  - **Ethernet Networks**: Uses PDU identifier or mappings to SecOCDataIDs
+
+.. figure:: ../graphics/automotive/autosar1.png
+   :alt: Overview SecOC. Author: AUTOSAR
+
+Generation
+----------
+
+- Secured I-PDU includes freshness value and MAC
+- Freshness value increments on every transmit or derived from a tick count
+- MAC generation uses SecOCDataID, PDU, and freshness value
+- In symmetric mode, MAC bits can be truncated, reducing security
+
+Truncation
+----------
+
+.. figure:: ../graphics/automotive/autosar2.png
+   :alt: Secured I-PDU contents with truncated Freshness Counter and truncated Authenticator. Author: AUTOSAR
+
+- MAC and freshness value are transferred in truncated format to save bandwidth
+
+Verification
+------------
+
+- Only LSBs of the freshness value are transmitted
+- Compute full freshness value internally
+  - Overwrite LSBs of the last received value
+  - Increment MSBs if received LSBs are smaller than the last LSBs
+- Calculate MAC from PDU and full freshness count
+- Accept PDU if calculated and transmitted MACs match, otherwise reject
+
+Profiles
+--------
+
+AutoSAR specifies three profiles for truncated freshness value and MAC sizes. All use CMAC with AES128:
+
+- **Profile 1 (24Bit-CMAC-8Bit-FV)**
+  - Algorithm: CMAC/AES-128
+  - Freshness value: 8 bits
+  - MAC: 24 bits
+
+- **Profile 2 (24Bit-CMAC-No-FV)**
+  - Algorithm: CMAC/AES-128
+  - Freshness value: 0 bits
+  - MAC: 24 bits
+  - No freshness values used
+
+- **Profile 3 (JASPAR)**
+  - Algorithm: CMAC/AES-128
+  - Freshness value: 64 bits
+  - Truncated Freshness value: 4 bits
+  - MAC: 28 bits
+
+Freshness Value
+---------------
+
+Protects against replay attacks. AUTOSAR recommends a structure for the freshness value, commonly distributed via authenticated PDUs.
+
+.. figure:: ../graphics/automotive/autosar3.png
+   :alt: Structure of FreshnessValue. Author: AUTOSAR
+
+Sync Message
+------------
+
+Synchronizes the 'Trip Counter' and 'Reset Counter' across all ECUs to maintain a consistent freshness value.
+
+- Sync message sent when 'Message Counter' overflows
+- Security recommendation: Use broadcast or multicast to prevent DoS attacks
+
+.. figure:: ../graphics/automotive/autosar4.png
+   :alt: Format of the synchronization message (TripResetSyncMsg). Author: AUTOSAR
+
+SecOC in Scapy
+==============
+
+Scapy supports the dissection, building, verification, and authentication of SecOC messages sent via AUTOSAR PDUs or CANFD packets. The implementation is designed to be vendor-independent and easily customizable, addressing common challenges such as handling freshness values and differentiating between SecOC and non-SecOC PDUs.
+
+General Implementation Difficulties
+-----------------------------------
+
+Implementing SecOC in Scapy involves several challenges:
+
+- **Vendor-Specific Implementations**: Different Original Equipment Manufacturers (OEMs) define their own standards for implementing SecOC, requiring the Scapy implementation to be flexible and adaptable.
+- **Freshness Value Tracking**: Freshness values need to be tracked accurately to ensure proper message authentication and to prevent replay attacks.
+- **SecOCDataID Management**: The SecOCDataID, which uniquely identifies each PDU, must be known and managed correctly.
+- **Mix of SecOC and Non-SecOC PDUs**: SecOC PDUs are mixed with non-SecOC PDUs, and the only difference is their identifier. Proper identification and handling are crucial for correct processing.
+
+Customization
+-------------
+
+Scapy SecOC Packets provide three stub functions that need to be customized to handle SecOC properly:
+
+.. code-block:: python
+
+   class My_SecOC_CANFD(SecOC_CANFD):
+
+       def get_secoc_payload(self) -> bytes:
+           """
+           This method retrieves the payload, including the SecOCDataID,
+           which is used for MAC computation.
+           """
+           secoc_data_id = self.identifier  # CANFD identifier
+           payload = self.pdu_payload
+           return bytes(secoc_data_id) + bytes(payload)
+
+       def get_secoc_key(self) -> bytes:
+           """
+           This method provides the secret key for the specified SecOCDataID.
+           """
+           secoc_data_id = self.identifier
+           secoc_key = GLOBAL_KEYS[secoc_data_id]
+           return secoc_key
+
+       def get_secoc_freshness_value(self) -> bytes:
+           """
+           This method provides the full freshness value required for MAC computation.
+           """
+           freshness_value = trip_count + reset_counter + message_count + self.tfv
+           return bytes(freshness_value)
+
+Preparation
+-----------
+
+To properly dissect SecOC and non-SecOC AUTOSAR PDUs or CANFD frames, SecOC PDUs need to be registered. This registration informs the dissector whether to use SecOC variants or non-SecOC variants of the packet for dissection.
+
+.. code-block:: python
+
+   My_SecOC_CANFD.register_secoc_protected_pdu(pdu_id=0x123)
+
+   socket = CANSocket("vcan0", fd=True, basecls=My_SecOC_CANFD)
+
+The above code registers the PDU with identifier `0x123` as a SecOC_CANFD packet. All other packets will be interpreted as regular CANFD packets.
+
+Working with SecOC
+------------------
+
+Once you have obtained a SecOC packet from a socket or a PCAP file, you can use the SecOC-related functions to handle authentication and verification.
+
+.. code-block:: python
+
+   # Suppose this is our SecOC packet
+   pkt: My_SecOC_CANFD
+
+   # A call to secoc_authenticate will update the truncated freshness value and the truncated MAC of the packet
+   pkt.secoc_authenticate()
+
+   # The truncated freshness value and MAC are now updated
+   print(pkt.tfv)  # Updated truncated freshness value
+   print(pkt.tmac)  # Updated truncated MAC
+
+   # A call to secoc_verify will compute the MAC from the payload of the packet and the local freshness value,
+   # then compare it with the truncated MAC of the packet.
+   if pkt.secoc_verify():
+       print("Message verified")
+
+
 Test-Setup Tutorials
 ====================
 
