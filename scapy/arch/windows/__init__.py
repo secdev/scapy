@@ -626,7 +626,8 @@ class WindowsInterfacesProvider(InterfaceProvider):
             else:
                 # We don't have a libpcap provider: only use Windows data
                 for guid, data in windows_interfaces.items():
-                    yield guid, None, [], 0, guid, data
+                    netw = r'\Device\NPF_' + guid if guid[0] != '\\' else guid
+                    yield netw, None, [], 0, guid, data
 
         index = 0
         for netw, name, ips, flags, guid, data in iterinterfaces():
@@ -1021,7 +1022,7 @@ class _NotAvailableSocket(SuperSocket):
         # type: (*Any, **Any) -> None
         raise RuntimeError(
             "Sniffing and sending packets is not available at layer 2: "
-            "winpcap is not installed. You may use conf.L3socket or"
+            "winpcap is not installed. You may use conf.L3socket or "
             "conf.L3socket6 to access layer 3"
         )
 
