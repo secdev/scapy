@@ -71,6 +71,7 @@ from scapy.arch.libpcap import (  # noqa: E402
 
 # Detection happens after libpcap import (NPcap detection)
 NPCAP_LOOPBACK_NAME = r"\Device\NPF_Loopback"
+NPCAP_LOOPBACK_NAME_LEGACY = "Npcap Loopback Adapter"  # before npcap 0.9983
 if conf.use_npcap:
     conf.loopback_name = NPCAP_LOOPBACK_NAME
 else:
@@ -342,7 +343,7 @@ class NetworkInterface_Win(NetworkInterface):
 
         try:
             # Npcap loopback interface
-            if conf.use_npcap and self.network_name == NPCAP_LOOPBACK_NAME:
+            if conf.use_npcap and self.network_name == conf.loopback_name:
                 # https://nmap.org/npcap/guide/npcap-devguide.html
                 data["mac"] = "00:00:00:00:00:00"
                 data["ip"] = "127.0.0.1"
@@ -602,14 +603,20 @@ class WindowsInterfacesProvider(InterfaceProvider):
             # Try a restart
             WindowsInterfacesProvider._pcap_check()
 
+        legacy_npcap_guid = None
         windows_interfaces = dict()
         for i in get_windows_if_list():
-            # Detect Loopback interface
-            if "Loopback" in i['name']:
-                i['name'] = conf.loopback_name
+            # Only consider interfaces with a GUID
             if i['guid']:
-                if conf.use_npcap and i['name'] == conf.loopback_name:
-                    i['guid'] = NPCAP_LOOPBACK_NAME
+                if conf.use_npcap:
+                    # Detect the legacy Loopback interface
+                    if i['name'] == NPCAP_LOOPBACK_NAME_LEGACY:
+                        # Legacy Npcap (<0.9983)
+                        legacy_npcap_guid = i['guid']
+                    elif "Loopback" in i['name']:
+                        # Newer Npcap
+                        i['guid'] = conf.loopback_name
+                # Map interface
                 windows_interfaces[i['guid']] = i
 
         def iterinterfaces() -> Iterator[
@@ -621,6 +628,9 @@ class WindowsInterfacesProvider(InterfaceProvider):
                 for netw, if_data in conf.cache_pcapiflist.items():
                     name, ips, flags, _ = if_data
                     guid = _pcapname_to_guid(netw)
+                    if guid == legacy_npcap_guid:
+                        # Legacy Npcap detected !
+                        conf.loopback_name = netw
                     data = windows_interfaces.get(guid, None)
                     yield netw, name, ips, flags, guid, data
             else:
