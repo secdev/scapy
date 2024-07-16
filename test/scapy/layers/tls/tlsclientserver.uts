@@ -507,11 +507,15 @@ def test_tls_client_native(post_handshake_auth=False,
     assert not server.is_alive()
 
 
+# XXX: Ugh, Appveyor uses an ancient Windows 10 build that doesn't support TLS 1.3 natively.
+
 = Testing TLS client against ssl.SSLContext server with TLS 1.3 and a post-handshake authentication
+~ native_tls13
 
 test_tls_client_native(post_handshake_auth=True)
 
 = Testing TLS client against ssl.SSLContext server with TLS 1.3 and a Hello-Retry request
+~ native_tls13
 
 test_tls_client_native(with_hello_retry=True)
 
