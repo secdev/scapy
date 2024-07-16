@@ -40,7 +40,7 @@ test_script:
   # Set environment variables
   - set PYTHONPATH=%APPVEYOR_BUILD_FOLDER%
   - set PATH=%APPVEYOR_BUILD_FOLDER%;C:\Program Files\Wireshark\;C:\Program Files\Windump\;%PATH%
-  - set TOX_PARALLEL_NO_SPINNER=1
+  # - set TOX_PARALLEL_NO_SPINNER=1
   
   # Main unit tests
   - "%PYTHON%\\python -m tox -- %UT_FLAGS%"
