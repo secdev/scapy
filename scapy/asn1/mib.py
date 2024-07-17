@@ -260,6 +260,13 @@ secsig_oids = {
     "1.3.14.3.2.29": "sha1RSASign",
 }
 
+#       thawte      #
+
+thawte_oids = {
+    "1.3.101.112": "Ed25519",
+    "1.3.101.113": "Ed448",
+}
+
 #       pkcs9       #
 
 pkcs9_oids = {
@@ -669,6 +676,7 @@ gssapi_oids = {
 x509_oids_sets = [
     pkcs1_oids,
     secsig_oids,
+    thawte_oids,
     pkcs9_oids,
     attributeType_oids,
     certificateExtension_oids,

@@ -30,7 +30,7 @@ from scapy.utils import get_temp_file, randstring, repr_hex
 from scapy.automaton import ATMT
 from scapy.error import warning
 from scapy.layers.tls.automaton import _TLSAutomaton
-from scapy.layers.tls.cert import PrivKeyRSA, PrivKeyECDSA
+from scapy.layers.tls.cert import PrivKeyRSA, PrivKeyECDSA, PrivKeyEdDSA
 from scapy.layers.tls.basefields import _tls_version
 from scapy.layers.tls.session import tlsSession
 from scapy.layers.tls.crypto.groups import _tls_named_groups
@@ -339,6 +339,8 @@ class TLSServerAutomaton(_TLSAutomaton):
             kx = "RSA"
         elif isinstance(self.mykey, PrivKeyECDSA):
             kx = "ECDSA"
+        elif isinstance(self.mykey, PrivKeyEdDSA):
+            kx = ""
         if get_usable_ciphersuites(self.cur_pkt.ciphers, kx):
             raise self.PREPARE_SERVERFLIGHT1()
         raise self.NO_USABLE_CIPHERSUITE()
@@ -371,6 +373,8 @@ class TLSServerAutomaton(_TLSAutomaton):
             kx = "RSA"
         elif isinstance(self.mykey, PrivKeyECDSA):
             kx = "ECDSA"
+        elif isinstance(self.mykey, PrivKeyEdDSA):
+            kx = ""
         usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
         c = usable_suites[0]
         if self.preferred_ciphersuite in usable_suites:
@@ -646,6 +650,8 @@ class TLSServerAutomaton(_TLSAutomaton):
             kx = "RSA"
         elif isinstance(self.mykey, PrivKeyECDSA):
             kx = "ECDSA"
+        elif isinstance(self.mykey, PrivKeyEdDSA):
+            kx = ""
         usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
         c = usable_suites[0]
         ext = [TLS_Ext_SupportedVersion_SH(version="TLS 1.3"),
@@ -786,6 +792,8 @@ class TLSServerAutomaton(_TLSAutomaton):
             kx = "RSA"
         elif isinstance(self.mykey, PrivKeyECDSA):
             kx = "ECDSA"
+        elif isinstance(self.mykey, PrivKeyEdDSA):
+            kx = ""
         usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
         c = usable_suites[0]
         group = next(iter(self.cur_session.tls13_client_pubshares))
