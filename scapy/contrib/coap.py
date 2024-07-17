@@ -87,7 +87,7 @@ coap_codes = {
     162: "5.02 Bad Gateway",
     163: "5.03 Service Unavailable",
     164: "5.04 Gateway Timeout",
-    165: "Proxying Not Supported"}
+    165: "5.05 Proxying Not Supported"}
 
 coap_options = ({
     1: "If-Match",
@@ -282,7 +282,16 @@ class CoAP(Packet):
         return struct.pack('I', self.msg_id) + self.token
 
     def answers(self, other):
-        return True
+        # type: (Packet) -> int
+        """
+        DEV: true if self is an answer from other
+        Any response that is inside coap_codes that is not a request is valid.
+        i.e.: do not answer a request with a request.
+        """
+        if self.code not in COAP_REQ_CODES:
+            if self.code in coap_codes.keys():
+                return 1
+        return 0
 
 
 bind_layers(UDP, CoAP, sport=5683)

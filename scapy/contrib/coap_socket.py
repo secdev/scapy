@@ -16,7 +16,6 @@ from typing import (
     Optional,
     Union,
     Tuple,
-    Any,
     cast,
     Type
 )
@@ -106,8 +105,8 @@ class CoAPSocket(SuperSocket):
                  ack_timeout=500,  # type: int
                  retries=3,  # type: int
                  duplication_response_timeout=1.00,  # type: float
-                 lst_resources=None,  # type: Optional[None, list[CoAPResource]]
-                 sock=None,  # type: Optional[None, SuperSocket, any]
+                 lst_resources=None,  # type: Optional[list[CoAPResource]]
+                 sock=None,  # type: Optional[SuperSocket]
                  close_on_timeout=False  # type: bool
                  ):
         self.impl = CoAPSocketImpl(ip, port, ack_timeout, retries,
@@ -125,10 +124,6 @@ class CoAPSocket(SuperSocket):
             if tup is not None:
                 return IP, tup[0], float(tup[1])
         return IP, None, None
-
-    def recv(self, x=MTU, **kwargs):
-        # type: (int, **Any) -> Optional[Packet]
-        return super(CoAPSocket, self).recv(x, **kwargs)
 
     def close(self):
         # type: () -> None
@@ -149,16 +144,15 @@ class CoAPSocket(SuperSocket):
         :param x: Concatenated packet with IP / UDP / CoAP
         :return: The length of x, which is the amount of bytes sent
         """
-        self.impl.send(x.dst, x.dport, x[CoAP])
-        return len(x)
+        return self.impl.send(x)
 
-    def sr(self, *args, **kargs):
-        args[0].sport = self.impl.port
-        return super(CoAPSocket, self).sr(*args, **kargs)
+    def sr(self, pkt, *args, **kargs):
+        pkt[UDP].sport = self.impl.port
+        return super(CoAPSocket, self).sr(pkt, *args, **kargs)
 
-    def sr1(self, *args, **kargs):
-        args[0].sport = self.impl.port
-        return super(CoAPSocket, self).sr1(*args, **kargs)
+    def sr1(self, pkt, *args, **kargs):
+        pkt[UDP].sport = self.impl.port
+        return super(CoAPSocket, self).sr1(pkt, *args, **kargs)
 
     @staticmethod
     def select(sockets, remain=None):
@@ -474,10 +468,12 @@ class CoAPSocketImpl:
         # type: (Optional[int]) -> Optional[Tuple[bytes, Union[float, EDecimal]]]
         return self.rx_queue.recv(timeout)
 
-    def send(self, ip, port, x):
-        # type: (str, int, CoAP) -> None
+    def send(self, x):
+        # type: (CoAP) -> int
         self.tx_queue.send(
-            CoAPSocketImpl.CoAPRequest(ip, port, self.retries, self.ack_timeout, x))
+            CoAPSocketImpl.CoAPRequest(x.dst, x.dport, self.retries, self.ack_timeout,
+                                       x[CoAP]))
+        return len(x)
 
     def close(self):
         # type: () -> None
