@@ -93,7 +93,7 @@ def bpf_prog_raw_load(bpf_prog_raw):
     bpf_attr_prog_load.license = ctypes.cast(ctypes.byref(license),
                                              ctypes.POINTER(ctypes.c_uint64))
     # Note: a smaller buffer triggers an ENOSPC error
-    log_buf = ctypes.create_string_buffer(2**14)
+    log_buf = ctypes.create_string_buffer(2**16)
     bpf_attr_prog_load.log_buf = ctypes.cast(ctypes.byref(log_buf),
                                              ctypes.POINTER(ctypes.c_uint64))
     bpf_attr_prog_load.log_size = ctypes.sizeof(log_buf)
@@ -103,10 +103,12 @@ def bpf_prog_raw_load(bpf_prog_raw):
     bpf_fd = bpf(BPF_PROG_LOAD, ctypes.byref(bpf_attr_prog_load),
                  ctypes.sizeof(bpf_attr_prog_load))
     if bpf_fd < 0:
-        warning("bpf() failed with: ", ctypes.get_errno(),
-                os.strerror(ctypes.get_errno()))
+        message = "%s " % ctypes.get_errno()
+        message += "%s" % os.strerror(ctypes.get_errno())
+        warning(f"bpf() failed with: {message}")
         if ctypes.get_errno() in [13, 22]:
-            warning("Verifier log:\n", log_buf.value.decode("ascii"))
+            log = log_buf.value.decode("ascii")
+            warning(f"Verifier log:\n {log}")
     return bpf_fd
 
 

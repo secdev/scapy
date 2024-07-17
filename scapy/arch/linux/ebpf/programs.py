@@ -15,6 +15,8 @@ import threading
 import time
 
 from scapy.layers.inet import IP, TCP, UDP
+from scapy.layers.inet6 import IPv6
+
 
 from .consts import BPF_MAP_LOOKUP_AND_DELETE_ELEM
 from .structures import BpfAttrMapLookup
@@ -26,153 +28,202 @@ class ProcessInformationStructure(ctypes.Structure):
     _fields_ = [
         ("pid", ctypes.c_uint32),
         ("name", ctypes.c_char * 64),
-        ("dst", ctypes.c_uint32),
-        ("src", ctypes.c_uint32),
+        ("is_ipv6", ctypes.c_uint8),
+        ("dst", ctypes.c_uint32 * 4),
+        ("src", ctypes.c_uint32 * 4),
         ("proto", ctypes.c_uint8),
+        ("type", ctypes.c_uint8),
+        ("code", ctypes.c_uint8),
+        ("dport", ctypes.c_uint16),
+        ("sport", ctypes.c_uint16),
     ]
+
+    def unpack(self):
+        """
+        Convert structures values
+        """
+
+        sport = struct.unpack("!H", struct.pack("H", self.sport))[0]
+        dport = struct.unpack("!H", struct.pack("H", self.dport))[0]
+
+        if self.is_ipv6 == 0:
+            src = socket.inet_ntoa(struct.pack("I", self.src[0]))
+            dst = socket.inet_ntoa(struct.pack("I", self.dst[0]))
+        elif self.is_ipv6 == 1:
+            src = socket.inet_ntop(socket.AF_INET6,
+                                   struct.pack("IIII", *self.src))
+            dst = socket.inet_ntop(socket.AF_INET6,
+                                   struct.pack("IIII", *self.dst))
+        else:
+            src = dst = None
+
+        return src, dst, sport, dport
 
 
 class Program_security_sk_classify_flow(object):
     """
-  The following eBPF bytecode was generated with bcc from a C function named
-    kprobe_security_sk_classify_flow, then retrieved using:
-    bpf_handler = BPF(text=ebpf_program_c)
-
-    start = lib.bpf_function_start(bpf_handler.module,
-                                   b"kprobe_security_sk_classify_flow")
-    size = lib.bpf_function_size(bpf_handler.module,
-                                 b"kprobe_security_sk_classify_flow")
-    bpf_prog = ct.string_at(start, size)
-
-  The assembly was retieved with:
-    dis = bpf_handler.disassemble_func("kprobe_security_sk_classify_flow")
-    0: (79) r6 = *(u64*)(r1 +8)
-    1: (b7) r1 = 0
-    2: (63) *(u32*)(r10 -8) = r1
-    3: (63) *(u32*)(r10 -12) = r1
-    4: (63) *(u32*)(r10 -16) = r1
-    5: (63) *(u32*)(r10 -20) = r1
-    6: (63) *(u32*)(r10 -24) = r1
-    7: (63) *(u32*)(r10 -28) = r1
-    8: (63) *(u32*)(r10 -32) = r1
-    9: (63) *(u32*)(r10 -36) = r1
-    10: (63) *(u32*)(r10 -40) = r1
-    11: (63) *(u32*)(r10 -44) = r1
-    12: (63) *(u32*)(r10 -48) = r1
-    13: (63) *(u32*)(r10 -52) = r1
-    14: (63) *(u32*)(r10 -56) = r1
-    15: (63) *(u32*)(r10 -60) = r1
-    16: (63) *(u32*)(r10 -64) = r1
-    17: (63) *(u32*)(r10 -68) = r1
-    18: (63) *(u32*)(r10 -72) = r1
-    19: (63) *(u32*)(r10 -76) = r1
-    20: (63) *(u32*)(r10 -4) = r1
-    21: (85) call bpf_get_current_pid_tgid#14
-    22: (77) r0 >>= 32
-    23: (63) *(u32*)(r10 -80) = r0
-    24: (bf) r1 = r10
-    25: (07) r1 += -76
-    26: (b7) r2 = 64
-    27: (85) call bpf_get_current_comm#16
-    28: (bf) r3 = r6
-    29: (07) r3 += 14
-    30: (bf) r1 = r10
-    31: (07) r1 += -4
-    32: (b7) r2 = 1
-    33: (85) call bpf_probe_read#4
-    34: (bf) r3 = r6
-    35: (07) r3 += 44
-    36: (bf) r1 = r10
-    37: (07) r1 += -12
-    38: (b7) r2 = 4
-    39: (85) call bpf_probe_read#4
-    40: (07) r6 += 40
-    41: (bf) r1 = r10
-    42: (07) r1 += -8
-    43: (b7) r2 = 4
-    44: (bf) r3 = r6
-    45: (85) call bpf_probe_read#4
-    46: (18) r1 = <map at fd #0>
-    48:      (64-bit upper word)
-    48: (bf) r2 = r10
-    49: (07) r2 += -80
-    50: (b7) r3 = 0
-    51: (85) call bpf_map_push_elem#87
-    52: (b7) r0 = 0
-    53: (95) exit
+    The following eBPF bytecode was generated with bcc
+    using the KprobeProcessInformationBCC object
 
     This eBPF program fills a ProcessInformationStructure and
     pushes it to an eBPF map queue.
     """
 
     prog_hex = ""
+    prog_hex += "7917000000000000"
     prog_hex += "7916080000000000"
-    prog_hex += "b701000000000000"
-    prog_hex += "631af8ff00000000"
-    prog_hex += "631af4ff00000000"
-    prog_hex += "631af0ff00000000"
-    prog_hex += "631aecff00000000"
-    prog_hex += "631ae8ff00000000"
-    prog_hex += "631ae4ff00000000"
-    prog_hex += "631ae0ff00000000"
-    prog_hex += "631adcff00000000"
-    prog_hex += "631ad8ff00000000"
-    prog_hex += "631ad4ff00000000"
-    prog_hex += "631ad0ff00000000"
-    prog_hex += "631accff00000000"
-    prog_hex += "631ac8ff00000000"
-    prog_hex += "631ac4ff00000000"
-    prog_hex += "631ac0ff00000000"
-    prog_hex += "631abcff00000000"
-    prog_hex += "631ab8ff00000000"
-    prog_hex += "631ab4ff00000000"
-    prog_hex += "631afcff00000000"
+    prog_hex += "b708000000000000"
+    prog_hex += "638af8ff00000000"
+    prog_hex += "638af4ff00000000"
+    prog_hex += "638af0ff00000000"
+    prog_hex += "638aecff00000000"
+    prog_hex += "638ae8ff00000000"
+    prog_hex += "638ae4ff00000000"
+    prog_hex += "638ae0ff00000000"
+    prog_hex += "638adcff00000000"
+    prog_hex += "638ad8ff00000000"
+    prog_hex += "638ad4ff00000000"
+    prog_hex += "638ad0ff00000000"
+    prog_hex += "638accff00000000"
+    prog_hex += "638ac8ff00000000"
+    prog_hex += "638ac4ff00000000"
+    prog_hex += "638ac0ff00000000"
+    prog_hex += "638abcff00000000"
+    prog_hex += "638ab8ff00000000"
+    prog_hex += "638ab4ff00000000"
+    prog_hex += "638ab0ff00000000"
+    prog_hex += "638aacff00000000"
+    prog_hex += "638aa8ff00000000"
+    prog_hex += "638aa4ff00000000"
+    prog_hex += "638aa0ff00000000"
+    prog_hex += "638a9cff00000000"
+    prog_hex += "638a98ff00000000"
+    prog_hex += "638a94ff00000000"
+    prog_hex += "638afcff00000000"
     prog_hex += "850000000e000000"
     prog_hex += "7700000020000000"
-    prog_hex += "630ab0ff00000000"
+    prog_hex += "630a90ff00000000"
     prog_hex += "bfa1000000000000"
-    prog_hex += "07010000b4ffffff"
+    prog_hex += "0701000094ffffff"
     prog_hex += "b702000040000000"
     prog_hex += "8500000010000000"
     prog_hex += "bf63000000000000"
     prog_hex += "070300000e000000"
     prog_hex += "bfa1000000000000"
-    prog_hex += "07010000fcffffff"
+    prog_hex += "07010000f8ffffff"
+    prog_hex += "b709000001000000"
     prog_hex += "b702000001000000"
     prog_hex += "8500000004000000"
+    prog_hex += "0707000010000000"
+    prog_hex += "6b8a8cff00000000"
+    prog_hex += "bfa1000000000000"
+    prog_hex += "070100008cffffff"
+    prog_hex += "b702000002000000"
+    prog_hex += "bf73000000000000"
+    prog_hex += "8500000004000000"
+    prog_hex += "69a18cff00000000"
+    prog_hex += "150101000a000000"
+    prog_hex += "b709000000000000"
+    prog_hex += "739ad4ff00000000"
+    prog_hex += "6b8a8cff00000000"
+    prog_hex += "bfa1000000000000"
+    prog_hex += "070100008cffffff"
+    prog_hex += "b702000002000000"
+    prog_hex += "bf73000000000000"
+    prog_hex += "8500000004000000"
+    prog_hex += "69a18cff00000000"
+    prog_hex += "5501150002000000"
     prog_hex += "bf63000000000000"
     prog_hex += "070300002c000000"
     prog_hex += "bfa1000000000000"
-    prog_hex += "07010000f4ffffff"
+    prog_hex += "07010000d8ffffff"
     prog_hex += "b702000004000000"
     prog_hex += "8500000004000000"
-    prog_hex += "0706000028000000"
+    prog_hex += "bf63000000000000"
+    prog_hex += "0703000028000000"
     prog_hex += "bfa1000000000000"
-    prog_hex += "07010000f8ffffff"
+    prog_hex += "07010000e8ffffff"
     prog_hex += "b702000004000000"
+    prog_hex += "8500000004000000"
+    prog_hex += "bf67000000000000"
+    prog_hex += "0707000030000000"
+    prog_hex += "bfa1000000000000"
+    prog_hex += "07010000f9ffffff"
+    prog_hex += "b702000002000000"
+    prog_hex += "bf73000000000000"
+    prog_hex += "8500000004000000"
+    prog_hex += "0706000031000000"
+    prog_hex += "05001d0000000000"
+    prog_hex += "b701000000000000"
+    prog_hex += "6b1a8cff00000000"
+    prog_hex += "bfa1000000000000"
+    prog_hex += "070100008cffffff"
+    prog_hex += "b702000002000000"
+    prog_hex += "bf73000000000000"
+    prog_hex += "8500000004000000"
+    prog_hex += "69a18cff00000000"
+    prog_hex += "55012a000a000000"
+    prog_hex += "bf63000000000000"
+    prog_hex += "0703000028000000"
+    prog_hex += "bfa1000000000000"
+    prog_hex += "07010000d8ffffff"
+    prog_hex += "b702000010000000"
+    prog_hex += "8500000004000000"
+    prog_hex += "bf63000000000000"
+    prog_hex += "0703000038000000"
+    prog_hex += "bfa1000000000000"
+    prog_hex += "07010000e8ffffff"
+    prog_hex += "b702000010000000"
+    prog_hex += "8500000004000000"
+    prog_hex += "bf67000000000000"
+    prog_hex += "070700004c000000"
+    prog_hex += "bfa1000000000000"
+    prog_hex += "07010000f9ffffff"
+    prog_hex += "b702000002000000"
+    prog_hex += "bf73000000000000"
+    prog_hex += "8500000004000000"
+    prog_hex += "070600004d000000"
+    prog_hex += "bfa1000000000000"
+    prog_hex += "07010000faffffff"
+    prog_hex += "b702000002000000"
     prog_hex += "bf63000000000000"
     prog_hex += "8500000004000000"
-    prog_hex += "1811000000000000"
+    prog_hex += "bfa1000000000000"
+    prog_hex += "07010000fcffffff"
+    prog_hex += "b702000002000000"
+    prog_hex += "bf73000000000000"
+    prog_hex += "8500000004000000"
+    prog_hex += "0707000002000000"
+    prog_hex += "bfa1000000000000"
+    prog_hex += "07010000feffffff"
+    prog_hex += "b702000002000000"
+    prog_hex += "bf73000000000000"
+    prog_hex += "8500000004000000"
+    prog_hex += "1811000004000000"
     prog_hex += "0000000000000000"
     prog_hex += "bfa2000000000000"
-    prog_hex += "07020000b0ffffff"
+    prog_hex += "0702000090ffffff"
     prog_hex += "b703000000000000"
     prog_hex += "8500000057000000"
     prog_hex += "b700000000000000"
     prog_hex += "9500000000000000"
 
-    map_instruction_count = 46
-    original_instruction = bytes.fromhex("1811000000000000")
+    map_instruction_count = 129
+    original_instruction = bytes.fromhex("18110000040000000000000000000000")
 
     @classmethod
-    def update(cls, map_fd):
+    def build_instruction(cls, map_fd):
         new_instruction = bytes.fromhex("18110000")
         new_instruction += map_fd.to_bytes(1, "little")
         new_instruction += bytes.fromhex("0000000000000000000000")
+        return new_instruction
 
-        bpf_prog_raw = bytes.fromhex(cls.prog_hex)
-        return bpf_prog_update_map_fd(bpf_prog_raw, cls.original_instruction,
-                                      cls.map_instruction_count * 8, new_instruction)
+    @classmethod
+    def update(cls, map_fd):
+        return bpf_prog_update_map_fd(bytes.fromhex(cls.prog_hex),
+                                      cls.original_instruction,
+                                      cls.map_instruction_count * 8,
+                                      cls.build_instruction(map_fd))
 
 
 class ProcessInformationPoller(threading.Thread):
@@ -193,11 +244,11 @@ class ProcessInformationPoller(threading.Thread):
                       ctypes.byref(self.bpf_attr_map_lookup),
                       ctypes.sizeof(self.bpf_attr_map_lookup))
             if ret >= 0:
-                src = socket.inet_ntoa(struct.pack("I", self.process_information.src))
-                dst = socket.inet_ntoa(struct.pack("I", self.process_information.dst))
-                value = (self.process_information.pid, self.process_information.name)
-                self.queue[f"{dst} {src} {self.process_information.proto}"] = value
-                self.queue[f"{src} {dst} {self.process_information.proto}"] = value
+                src, dst, sport, dport = self.process_information.unpack()
+                value = (self.process_information.pid,
+                         self.process_information.name)
+                self.queue[f"{dst} {src} {self.process_information.proto} {dport} {sport}"] = value  # noqa: E501
+                self.queue[f"{src} {dst} {self.process_information.proto} {sport} {dport}"] = value  # noqa: E501
             else:
                 time.sleep(0.0001)
 
@@ -205,10 +256,18 @@ class ProcessInformationPoller(threading.Thread):
         self.continue_polling = False
 
     def lookup(self, packet, retries=3):
-        if IP not in packet and TCP not in packet and UDP not in packet:
+        if IP not in packet and IPv6 not in packet:
+            return
+        if TCP not in packet and UDP not in packet:
             return
         while retries:
-            packet_key = f"{packet[IP].src} {packet[IP].dst} {packet[IP].proto}"
+            if IPv6 in packet:
+                ip_key = IPv6
+                proto = packet[ip_key].nh
+            else:
+                ip_key = IP
+                proto = packet[ip_key].proto
+            packet_key = f"{packet[ip_key].src} {packet[ip_key].dst} {proto} {packet[ip_key].sport} {packet[ip_key].dport}"  # noqa: E501
             if packet_key in self.queue:
                 pid, name = self.queue[packet_key]
                 packet.comment = f"{pid} {name}"

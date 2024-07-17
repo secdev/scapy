@@ -12,11 +12,15 @@ import sys
 
 from scapy.all import *
 
-from .process_information import KprobeProcessInformation
+from .process_information import KprobeProcessInformation, \
+    KprobeProcessInformationBCC
+
+DEV_PROGRAM = False
 
 
 @conf.commands.register
 def sniff(*args, **kwargs):
+    global DEV_PROGRAM
     # type: (*Any, **Any) -> PacketList
 
     kprobe = None
@@ -25,7 +29,10 @@ def sniff(*args, **kwargs):
 
         if LINUX:
             try:
-                kprobe = KprobeProcessInformation()
+                if DEV_PROGRAM:
+                    kprobe = KprobeProcessInformationBCC()
+                else:
+                    kprobe = KprobeProcessInformation()
                 kprobe.start()
 
                 user_prn = lambda p: None
@@ -55,15 +62,19 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description=banner)
     parser.add_argument("-i", "--interactive", action="store_true", default=False)
+    parser.add_argument("-d", "--dev", action="store_true", default=False)
     args, left = parser.parse_known_args()
     sys.argv = sys.argv[:1] + left
+
+    if args.dev:
+        DEV_PROGRAM = True
 
     if args.interactive:
         interact(mydict=globals(), mybanner=banner)
     else:
         print(banner + "\n")
 
-        packets = sniff(count=10, filter="ip and not port 22",
+        packets = sniff(count=10, filter="(ip or ip6) and not port 22",
                         process_information=True)
 
         for p in packets:
