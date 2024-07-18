@@ -14,7 +14,7 @@ import struct
 import threading
 import time
 
-from scapy.layers.inet import IP, TCP, UDP
+from scapy.layers.inet import IP, TCP, UDP, ICMP
 from scapy.layers.inet6 import IPv6
 
 
@@ -64,12 +64,17 @@ class ProcessInformationStructure(ctypes.Structure):
         Generate the lookup keys for the ProcessInformationStructure
         """
         if self.proto != socket.IPPROTO_TCP and self.proto != socket.IPPROTO_UDP:
-            return []
+            if self.proto != socket.IPPROTO_ICMP:
+                return []
 
         src, dst, sport, dport = self.unpack()
 
-        keys = [f"{dst} {src} {self.proto} {dport} {sport}"]
-        keys += [f"{src} {dst} {self.proto} {sport} {dport}"]
+        if self.proto == socket.IPPROTO_ICMP:
+            keys = [f"{dst} {src} {self.proto} {self.type} {self.code}"]
+            keys += [f"{src} {dst} {self.proto} {self.type} {self.code}"]
+        else:
+            keys = [f"{dst} {src} {self.proto} {dport} {sport}"]
+            keys += [f"{src} {dst} {self.proto} {sport} {dport}"]
 
         return keys
 
@@ -87,9 +92,16 @@ class ProcessInformationStructure(ctypes.Structure):
         else:
             return ""
 
-        key = f"{packet[ip_key].src} {packet[ip_key].dst} {proto} "
-        key += f"{packet[ip_key].sport} {packet[ip_key].dport}"
-        return key
+        if TCP in packet or UDP in packet:
+            key = f"{packet[ip_key].src} {packet[ip_key].dst} {proto} "
+            key += f"{packet[ip_key].sport} {packet[ip_key].dport}"
+            return key
+        elif ICMP in packet:
+            key = f"0.0.0.0 {packet[ip_key].dst} {proto} "
+            key += f"{packet[ICMP].type} {packet[ICMP].code}"
+            return key
+
+        return ""
 
 
 class Program_security_sk_classify_flow(object):
@@ -287,12 +299,12 @@ class ProcessInformationPoller(threading.Thread):
         self.continue_polling = False
 
     def lookup(self, packet, retries=3):
-        if TCP not in packet and UDP not in packet:
+        if TCP not in packet and UDP not in packet and ICMP not in packet:
             return
         while retries:
             packet_key = ProcessInformationStructure.key_from_packet(packet)
             if packet_key in self.queue:
-                pid, name = self.queue[packet_key]
+                pid, name = self.queue.pop(packet_key)
                 packet.comment = f"{pid} {name}"
                 return
             retries -= 1
