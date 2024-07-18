@@ -47,7 +47,7 @@ def sniff(*args, **kwargs):
             except Scapy_Exception:
                 warning("Could not instanciate KprobeProcessInformation() !")
         else:
-            warning("'process_information' is only support on Linux!")
+            warning("'process_information' is only supported on Linux!")
 
     sniffer = AsyncSniffer()
     sniffer._run(*args, **kwargs)

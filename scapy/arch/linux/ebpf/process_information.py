@@ -22,6 +22,7 @@ class KprobeProcessInformation(ProcessInformationPoller):
     map_fd = bpf_fd = perf_fd = -42
 
     def __init__(self):
+        # type: () -> None
         # Step 1 - Create the eBPF map queue
         self.map_fd = bpf_map_queue_create(
             ctypes.sizeof(ProcessInformationStructure), 256, b"Scapy_procinfo")
@@ -52,9 +53,14 @@ class KprobeProcessInformation(ProcessInformationPoller):
         ProcessInformationPoller.__init__(self, self.map_fd)
 
     def get_program(self, map_fd):
+        # type: (int) -> bytes
+        """
+        Retrieve the eBPF program as bytes
+        """
         return Program_security_sk_classify_flow.update(map_fd)
 
     def __del__(self):
+        # type: () -> None
         if self.map_fd >= 0:
             os.close(self.map_fd)
         if self.bpf_fd >= 0:
@@ -70,6 +76,7 @@ class KprobeProcessInformationBCC(KprobeProcessInformation):
     """
 
     def get_program(self, map_fd):
+        # type: (int) -> bytes
         """
         This method is used to prepare the static eBPF program used by Scapy.
 

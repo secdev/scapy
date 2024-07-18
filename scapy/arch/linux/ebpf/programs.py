@@ -25,6 +25,9 @@ from .utilities import bpf_prog_update_map_fd
 
 
 class ProcessInformationStructure(ctypes.Structure):
+    """
+    Structure filled by the eBPF program and retrieved with an eBPF map
+    """
     _fields_ = [
         ("pid", ctypes.c_uint32),
         ("name", ctypes.c_char * 64),
@@ -39,6 +42,7 @@ class ProcessInformationStructure(ctypes.Structure):
     ]
 
     def unpack(self):
+        # type: () -> Tuple[str, str, int, int]
         """
         Convert internal values
         """
@@ -60,11 +64,12 @@ class ProcessInformationStructure(ctypes.Structure):
         return src, dst, sport, dport
 
     def keys(self):
+        # type: () -> List[str]
         """
         Generate the lookup keys for the ProcessInformationStructure
         """
         if self.proto != socket.IPPROTO_TCP and self.proto != socket.IPPROTO_UDP:
-            if self.proto != socket.IPPROTO_ICMP and self.proto != socket.IPPROTO_ICMPV6:
+            if self.proto != socket.IPPROTO_ICMP and self.proto != socket.IPPROTO_ICMPV6:  # noqa: E501
                 return []
 
         src, dst, sport, dport = self.unpack()
@@ -72,7 +77,6 @@ class ProcessInformationStructure(ctypes.Structure):
         if self.proto in [socket.IPPROTO_ICMP, socket.IPPROTO_ICMPV6]:
             keys = [f"{dst} {src} {self.proto} {self.type} {self.code}"]
             keys += [f"{src} {dst} {self.proto} {self.type} {self.code}"]
-            print(keys)
         else:
             keys = [f"{dst} {src} {self.proto} {dport} {sport}"]
             keys += [f"{src} {dst} {self.proto} {sport} {dport}"]
@@ -81,6 +85,7 @@ class ProcessInformationStructure(ctypes.Structure):
 
     @classmethod
     def key_from_packet(cls, packet):
+        # type: (Packet) -> str
         """
         Generate a lookup key from a packet
         """
@@ -104,7 +109,6 @@ class ProcessInformationStructure(ctypes.Structure):
         elif packet.haslayer(_ICMPv6, _ICMPv6):
             key = f":: {packet[ip_key].dst} {proto} "
             key += f"{packet[ip_key].type} {packet[ip_key].code}"
-            print("PACKET", key)
             return key
 
         return ""
@@ -263,6 +267,10 @@ class Program_security_sk_classify_flow(object):
 
     @classmethod
     def build_instruction(cls, map_fd):
+        # type: (int) -> bytes
+        """"
+        Assemble a new instruction with the map FD value
+        """
         new_instruction = bytes.fromhex("18110000")
         new_instruction += map_fd.to_bytes(1, "little")
         new_instruction += bytes.fromhex("0000000000000000000000")
@@ -270,6 +278,10 @@ class Program_security_sk_classify_flow(object):
 
     @classmethod
     def update(cls, map_fd):
+        # type: (int) -> bytes
+        """"
+        Patch the eBPF program with the map FD value
+        """
         return bpf_prog_update_map_fd(bytes.fromhex(cls.prog_hex),
                                       cls.original_instruction,
                                       cls.map_instruction_count * 8,
@@ -278,8 +290,10 @@ class Program_security_sk_classify_flow(object):
 
 class ProcessInformationPoller(threading.Thread):
     def __init__(self, map_fd):
+        # type: (int) -> None
         self.queue = collections.OrderedDict()
 
+        # Prepare the eBPF map lookup structure
         self.bpf_attr_map_lookup = BpfAttrMapLookup()
         self.bpf_attr_map_lookup.map_fd = map_fd
         self.process_information = ProcessInformationStructure()
@@ -289,6 +303,10 @@ class ProcessInformationPoller(threading.Thread):
         threading.Thread.__init__(self)
 
     def run(self):
+        # type: () -> None
+        """
+        Poll the eBPF map for new entries
+        """
         while self.continue_polling:
             ret = bpf(BPF_MAP_LOOKUP_AND_DELETE_ELEM,
                       ctypes.byref(self.bpf_attr_map_lookup),
@@ -302,9 +320,14 @@ class ProcessInformationPoller(threading.Thread):
                 time.sleep(0.0001)
 
     def stop(self):
+        # type: () -> None
         self.continue_polling = False
 
     def lookup(self, packet, retries=3):
+        # type: (Packet, int) -> None
+        """
+        Lookup the process information for a packet
+        """
         if TCP not in packet and UDP not in packet:
             if ICMP not in packet and not packet.haslayer(_ICMPv6, _ICMPv6):
                 return

@@ -26,7 +26,7 @@ def set_kprobe(symbol):
     # type: (str) -> int
     """
     Set a kprobe on a symbol and return its ID
-    :param symbol: symbol of a Linux kernel function
+    :param symbol: name of a Linux kernel function
     """
     kprobe_name = "p_scapy_%s" % symbol
     definition = "p:%s %s" % (kprobe_name, symbol)
@@ -40,7 +40,7 @@ def set_kprobe(symbol):
         kprobe_id = 0
 
     try:
-        fd = open("/sys/kernel/debug/tracing/events/kprobes/%s/id" % kprobe_name)  # noqa: E501
+        fd = open(f"/sys/kernel/debug/tracing/events/kprobes/{kprobe_name}/id")
         kprobe_id = fd.read()
         fd.close()
     except FileNotFoundError:
@@ -60,6 +60,7 @@ def bpf_map_queue_create(value_size, max_entries, map_name):
     :return: file descriptor of the eBPF map
     """
 
+    # Prepare the eBPF map creation structure
     bpf_attr_map_create = BpfAttrMapCreate()
     bpf_attr_map_create.map_type = BPF_MAP_TYPE_QUEUE
     bpf_attr_map_create.key_size = 0  # always 0 for a queue
@@ -119,6 +120,7 @@ def bpf_assign_kprobe(kprobe_id, bpf_fd):
     :param kprobe_id: ID of the kprobe
     :param bpf_fd: file descriptor of the BPF program
     """
+    # Prepare the perf_event_attr structure
     perf_event_attr = PerfEventAttr()
     perf_event_attr.type = PERF_TYPE_TRACEPOINT
     perf_event_attr.sample_period = 1
@@ -166,8 +168,9 @@ def bpf_prog_update_map_fd(bpf_prog, instruction, instruction_offset, new_instru
     # Check that the provided program contains the expected original instuction
     tmp_instruction = bpf_prog[instruction_offset:instruction_offset + len(instruction)]  # noqa: E501
     if tmp_instruction != instruction:
-        print(f"Incorrect instruction found {tmp_instruction}")  # noqa: E501
+        print(f"Incorrect instruction found {tmp_instruction}")
         return b""
 
     # Replace the instruction and return the new eBPF program
-    return bpf_prog[:instruction_offset] + new_instruction + bpf_prog[instruction_offset + 16:]  # noqa: E501
+    return bpf_prog[:instruction_offset] + new_instruction + \
+        bpf_prog[instruction_offset + 16:]
