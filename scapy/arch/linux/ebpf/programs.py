@@ -40,7 +40,7 @@ class ProcessInformationStructure(ctypes.Structure):
 
     def unpack(self):
         """
-        Convert structures values
+        Convert internal values
         """
 
         sport = struct.unpack("!H", struct.pack("H", self.sport))[0]
@@ -58,6 +58,38 @@ class ProcessInformationStructure(ctypes.Structure):
             src = dst = None
 
         return src, dst, sport, dport
+
+    def keys(self):
+        """
+        Generate the lookup keys for the ProcessInformationStructure
+        """
+        if self.proto != socket.IPPROTO_TCP and self.proto != socket.IPPROTO_UDP:
+            return []
+
+        src, dst, sport, dport = self.unpack()
+
+        keys = [f"{dst} {src} {self.proto} {dport} {sport}"]
+        keys += [f"{src} {dst} {self.proto} {sport} {dport}"]
+
+        return keys
+
+    @classmethod
+    def key_from_packet(cls, packet):
+        """
+        Generate a lookup key from a packet
+        """
+        if IPv6 in packet:
+            ip_key = IPv6
+            proto = packet[ip_key].nh
+        elif IP in packet:
+            ip_key = IP
+            proto = packet[ip_key].proto
+        else:
+            return ""
+
+        key = f"{packet[ip_key].src} {packet[ip_key].dst} {proto} "
+        key += f"{packet[ip_key].sport} {packet[ip_key].dport}"
+        return key
 
 
 class Program_security_sk_classify_flow(object):
@@ -244,11 +276,10 @@ class ProcessInformationPoller(threading.Thread):
                       ctypes.byref(self.bpf_attr_map_lookup),
                       ctypes.sizeof(self.bpf_attr_map_lookup))
             if ret >= 0:
-                src, dst, sport, dport = self.process_information.unpack()
                 value = (self.process_information.pid,
                          self.process_information.name)
-                self.queue[f"{dst} {src} {self.process_information.proto} {dport} {sport}"] = value  # noqa: E501
-                self.queue[f"{src} {dst} {self.process_information.proto} {sport} {dport}"] = value  # noqa: E501
+                for key in self.process_information.keys():
+                    self.queue[key] = value
             else:
                 time.sleep(0.0001)
 
@@ -256,18 +287,10 @@ class ProcessInformationPoller(threading.Thread):
         self.continue_polling = False
 
     def lookup(self, packet, retries=3):
-        if IP not in packet and IPv6 not in packet:
-            return
         if TCP not in packet and UDP not in packet:
             return
         while retries:
-            if IPv6 in packet:
-                ip_key = IPv6
-                proto = packet[ip_key].nh
-            else:
-                ip_key = IP
-                proto = packet[ip_key].proto
-            packet_key = f"{packet[ip_key].src} {packet[ip_key].dst} {proto} {packet[ip_key].sport} {packet[ip_key].dport}"  # noqa: E501
+            packet_key = ProcessInformationStructure.key_from_packet(packet)
             if packet_key in self.queue:
                 pid, name = self.queue[packet_key]
                 packet.comment = f"{pid} {name}"

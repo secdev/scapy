@@ -22,8 +22,8 @@ _syscall.args = ctypes.c_uint, ctypes.c_uint, ctypes.c_void_p, \
 
 _perf_event_open = ctypes.CDLL(None, use_errno=True).syscall
 _perf_event_open.restype = ctypes.c_int
-_perf_event_open.args = ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint, \
-    ctypes.c_uint, ctypes.c_uint
+_perf_event_open.args = ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint, \
+    ctypes.c_uint, ctypes.c_uint, ctypes.c_uint
 
 
 def bpf(cmd, attr, size):
@@ -44,7 +44,7 @@ def bpf(cmd, attr, size):
 def perf_event_open(attr, pid, cpu, group_fd, flags):
     # type: (ctypes.c_void_p, int, int, int, int) -> int
     """
-    Call the bperf_event_open syscall independently of the processor
+    Call the perf_event_open syscall independently of the processor
     """
     processor = platform.processor()
     try:

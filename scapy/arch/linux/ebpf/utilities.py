@@ -62,7 +62,7 @@ def bpf_map_queue_create(value_size, max_entries, map_name):
 
     bpf_attr_map_create = BpfAttrMapCreate()
     bpf_attr_map_create.map_type = BPF_MAP_TYPE_QUEUE
-    bpf_attr_map_create.key_size = 0  # Always 0 for a queue
+    bpf_attr_map_create.key_size = 0  # always 0 for a queue
     bpf_attr_map_create.value_size = value_size
     bpf_attr_map_create.max_entries = max_entries
     bpf_attr_map_create.map_name = map_name
