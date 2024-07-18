@@ -15,7 +15,7 @@ import threading
 import time
 
 from scapy.layers.inet import IP, TCP, UDP, ICMP
-from scapy.layers.inet6 import IPv6
+from scapy.layers.inet6 import IPv6, _ICMPv6
 
 
 from .consts import BPF_MAP_LOOKUP_AND_DELETE_ELEM
@@ -64,14 +64,15 @@ class ProcessInformationStructure(ctypes.Structure):
         Generate the lookup keys for the ProcessInformationStructure
         """
         if self.proto != socket.IPPROTO_TCP and self.proto != socket.IPPROTO_UDP:
-            if self.proto != socket.IPPROTO_ICMP:
+            if self.proto != socket.IPPROTO_ICMP and self.proto != socket.IPPROTO_ICMPV6:
                 return []
 
         src, dst, sport, dport = self.unpack()
 
-        if self.proto == socket.IPPROTO_ICMP:
+        if self.proto in [socket.IPPROTO_ICMP, socket.IPPROTO_ICMPV6]:
             keys = [f"{dst} {src} {self.proto} {self.type} {self.code}"]
             keys += [f"{src} {dst} {self.proto} {self.type} {self.code}"]
+            print(keys)
         else:
             keys = [f"{dst} {src} {self.proto} {dport} {sport}"]
             keys += [f"{src} {dst} {self.proto} {sport} {dport}"]
@@ -98,7 +99,12 @@ class ProcessInformationStructure(ctypes.Structure):
             return key
         elif ICMP in packet:
             key = f"0.0.0.0 {packet[ip_key].dst} {proto} "
-            key += f"{packet[ICMP].type} {packet[ICMP].code}"
+            key += f"{packet[ip_key].type} {packet[ip_key].code}"
+            return key
+        elif packet.haslayer(_ICMPv6, _ICMPv6):
+            key = f":: {packet[ip_key].dst} {proto} "
+            key += f"{packet[ip_key].type} {packet[ip_key].code}"
+            print("PACKET", key)
             return key
 
         return ""
@@ -299,8 +305,9 @@ class ProcessInformationPoller(threading.Thread):
         self.continue_polling = False
 
     def lookup(self, packet, retries=3):
-        if TCP not in packet and UDP not in packet and ICMP not in packet:
-            return
+        if TCP not in packet and UDP not in packet:
+            if ICMP not in packet and not packet.haslayer(_ICMPv6, _ICMPv6):
+                return
         while retries:
             packet_key = ProcessInformationStructure.key_from_packet(packet)
             if packet_key in self.queue:
