@@ -21,6 +21,12 @@ from scapy.layers.tls.automaton_srv import TLSServerAutomaton
 from scapy.tools.UTscapy import scapy_path
 
 parser = ArgumentParser(description='Simple TLS Server')
+parser.add_argument("--cert",
+                    default=scapy_path('/test/scapy/layers/tls/pki/srv_cert.pem'),
+                    help="Cert file.")
+parser.add_argument("--key",
+                    default=scapy_path('/test/scapy/layers/tls/pki/srv_key.pem'),
+                    help="Key file.")
 parser.add_argument("--psk",
                     help="External PSK for symmetric authentication (for TLS 1.3)")  # noqa: E501
 parser.add_argument("--no_pfs", action="store_true",
@@ -49,8 +55,8 @@ if args.no_pfs and args.psk:
 else:
     psk_mode = "psk_dhe_ke"
 
-t = TLSServerAutomaton(mycert=scapy_path('/test/scapy/layers/tls/pki/srv_cert.pem'),
-                       mykey=scapy_path('/test/scapy/layers/tls/pki/srv_key.pem'),
+t = TLSServerAutomaton(mycert=args.cert,
+                       mykey=args.key,
                        preferred_ciphersuite=args.pcs,
                        preferred_signature_algorithm=args.psa,
                        client_auth=args.client_auth,

@@ -26,7 +26,7 @@ from scapy.fields import (
 )
 from scapy.packet import Packet
 from scapy.layers.tls.extensions import TLS_Ext_Unknown, _tls_ext
-from scapy.layers.tls.cert import PrivKeyECDSA, PrivKeyRSA
+from scapy.layers.tls.cert import PrivKeyECDSA, PrivKeyRSA, PrivKeyEdDSA
 from scapy.layers.tls.crypto.groups import (
     _tls_named_curves,
     _tls_named_ffdh_groups,
@@ -39,8 +39,8 @@ from scapy.layers.tls.crypto.groups import (
 if conf.crypto_valid:
     from cryptography.hazmat.primitives.asymmetric import ec
 if conf.crypto_valid_advanced:
-    from cryptography.hazmat.primitives.asymmetric import x25519
-    from cryptography.hazmat.primitives.asymmetric import x448
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+    from cryptography.hazmat.primitives.asymmetric import ed448
 
 
 class KeyShareEntry(Packet):
@@ -329,15 +329,16 @@ def get_usable_tls13_sigalgs(li, key, location="certificateverify"):
     from scapy.layers.tls.keyexchange import _tls_hash_sig
     res = []
     if isinstance(key, PrivKeyRSA):
-        kxs = ["rsa"]
+        kx = "rsa"
     elif isinstance(key, PrivKeyECDSA):
-        kxs = []
-        if isinstance(key.key, x25519.X25519PrivateKey):
-            kxs.append("ed25519")
-        elif isinstance(key.key, x448.X448PrivateKey):
-            kxs.append("edx448")
+        kx = "ecdsa"
+    elif isinstance(key, PrivKeyEdDSA):
+        if isinstance(key.pubkey, ed25519.Ed25519PublicKey):
+            kx = "ed25519"
+        elif isinstance(key.pubkey, ed448.Ed448PublicKey):
+            kx = "ed448"
         else:
-            kxs = ["ecdsa"]
+            kx = "unknown"
     else:
         return res
     if location == "certificateverify":
@@ -353,6 +354,6 @@ def get_usable_tls13_sigalgs(li, key, location="certificateverify"):
                 _, sig = sigalg.split('+')
             else:
                 sig = sigalg
-            if any(kx in sig for kx in kxs):
+            if kx in sig:
                 res.append(c)
     return res

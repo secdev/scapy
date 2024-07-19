@@ -480,7 +480,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             return self.payload.answers(other.payload)
 
 
-class IPv46(IP):
+class IPv46(IP, IPv6):
     """
     This class implements a dispatcher that is used to detect the IP version
     while parsing Raw IP pcap files.

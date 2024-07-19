@@ -645,7 +645,7 @@ class Ticketer:
         duration = kwargs.get(
             "duration", int(self._prompt("Expires in (h) [10]: ") or "10")
         )
-        now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+        now_time = datetime.now(timezone.utc).replace(microsecond=0)
         rand = random.SystemRandom()
         key = Key.random_to_key(
             EncryptionType.AES256_CTS_HMAC_SHA1_96, rand.randbytes(32)

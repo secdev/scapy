@@ -180,6 +180,35 @@ class ECDSASignature(ASN1_Packet):
         ASN1F_INTEGER("s", 0))
 
 
+####################################
+#      x25519/x448 packets         #
+####################################
+# based on RFC 8410
+
+class EdDSAPublicKey(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_BIT_STRING("ecPoint", "")
+
+
+class AlgorithmIdentifier(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_OID("algorithm", None),
+    )
+
+
+class EdDSAPrivateKey(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_enum_INTEGER("version", 1, {1: "ecPrivkeyVer1"}),
+        ASN1F_PACKET("privateKeyAlgorithm", AlgorithmIdentifier(), AlgorithmIdentifier),
+        ASN1F_STRING("privateKey", ""),
+        ASN1F_optional(
+            ASN1F_PACKET("publicKey", None,
+                         ECDSAPublicKey,
+                         explicit_tag=0xa1)))
+
+
 ######################
 #    X509 packets    #
 ######################
@@ -799,6 +828,10 @@ class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
                                      ECDSAPublicKey(),
                                      ECDSAPublicKey),
                         lambda pkt: "ecPublicKey" == pkt.signatureAlgorithm.algorithm.oidname),  # noqa: E501
+                       (ASN1F_PACKET("subjectPublicKey",
+                                     EdDSAPublicKey(),
+                                     EdDSAPublicKey),
+                        lambda pkt: pkt.signatureAlgorithm.algorithm.oidname in ["Ed25519", "Ed448"]),  # noqa: E501
                    ],
                    ASN1F_BIT_STRING("subjectPublicKey", ""))]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
