@@ -683,7 +683,7 @@ class _Dot11MacField(MACField):
         return s
 
 
-# 802.11-2016 9.2.4.1.1
+# 802.11-2020 9.2.4.1.1
 class Dot11(Packet):
     name = "802.11"
     fields_desc = [
@@ -704,11 +704,8 @@ class Dot11(Packet):
                     lambda pkt: (pkt.type, pkt.subtype) == (1, 6)
                 ),
                 (
-                    # FIXME: bw1/2/3 are a 3-bit field.
-                    # Unsure how to do this properly.
-                    FlagsField("FCfield", 0, 8,
-                               ["next_tbtt", "comp_ssid", "ano", "bw1",
-                                "bw2", "bw3", "security", "AP_PM"]),
+                    FlagsField("FCfield", 0, 2,
+                               ["security", "AP_PM"]),
                     lambda pkt: (pkt.type, pkt.subtype) == (3, 1)
                 )
             ],
@@ -716,11 +713,20 @@ class Dot11(Packet):
                        ["to-DS", "from-DS", "MF", "retry",
                         "pw-mgt", "MD", "protected", "order"])
         ),
+        ConditionalField(
+            BitField("FCfield_bw", 0, 3),
+            lambda pkt: (pkt.type, pkt.subtype) == (3, 1)
+        ),
+        ConditionalField(
+            FlagsField("FCfield2", 0, 3,
+                       ["next_tbtt", "comp_ssid", "ano"]),
+            lambda pkt: (pkt.type, pkt.subtype) == (3, 1)
+        ),
         ShortField("ID", 0),
         _Dot11MacField("addr1", ETHER_ANY, 1),
         ConditionalField(
             _Dot11MacField("addr2", ETHER_ANY, 2),
-            lambda pkt: (pkt.type not in [1, 3] or
+            lambda pkt: (pkt.type not in {1, 3} or
                          pkt.subtype in [0x4, 0x5, 0x6, 0x8, 0x9, 0xa, 0xb, 0xe, 0xf]),
         ),
         ConditionalField(
@@ -728,7 +734,7 @@ class Dot11(Packet):
             lambda pkt: (pkt.type in [0, 2] or
                          ((pkt.type, pkt.subtype) == (1, 6) and pkt.cfe == 6)),
         ),
-        ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type not in [1, 3]),
+        ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type not in {1, 3}),
         ConditionalField(
             _Dot11MacField("addr4", ETHER_ANY, 4),
             lambda pkt: (pkt.type == 2 and

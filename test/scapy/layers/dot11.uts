@@ -775,11 +775,9 @@ assert pkt[Dot11Elt::{"ID": 0}].info == b"WiFiDiving"
 assert pkt[Dot11Elt::{"ID": 214}].len == 2
 assert pkt[Dot11Elt::{"ID": 217}].len == 15
 assert pkt[Dot11Elt::{"ID": 232}].len == 6
-assert pkt[Dot11].FCfield.bw1 == 1
-assert pkt[Dot11].FCfield.bw2 == 1
-assert pkt[Dot11].FCfield.bw3 == 0
-assert pkt[Dot11].FCfield.next_tbtt == False
-assert pkt[Dot11].FCfield.comp_ssid == False
-assert pkt[Dot11].FCfield.ano == False
+assert pkt[Dot11].FCfield_bw == 3
+assert pkt[Dot11].FCfield2.next_tbtt == False
+assert pkt[Dot11].FCfield2.comp_ssid == False
+assert pkt[Dot11].FCfield2.ano == False
 assert pkt[Dot11].FCfield.security == False
 assert pkt[Dot11].FCfield.AP_PM == False
