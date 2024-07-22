@@ -23,6 +23,7 @@
     "test\\scapy\\layers\\tls\\*.uts": "load_layer(\"tls\")"
   },
   "kw_ko": [
+    "as_resolvers",
     "brotli",
     "ipv6",
     "linux",
