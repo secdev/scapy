@@ -469,7 +469,10 @@ def run_tls_native_test_server(post_handshake_auth=False,
         assert resp == bytes(REQS[1])
         ssl_client_socket.send(bytes(RESPS[1]))
         # close socket
-        server.close()
+        try:
+            server.shutdown(socket.SHUT_RDWR)
+        finally:
+            server.close()
     
     server = threading.Thread(target=ssl_server)
     server.start()
