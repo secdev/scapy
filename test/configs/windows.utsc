@@ -25,6 +25,7 @@
   "kw_ko": [
     "as_resolvers",
     "brotli",
+    "broken_windows",
     "ipv6",
     "linux",
     "native_tls13",
