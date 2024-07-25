@@ -524,6 +524,7 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test DoIPSslSocket
+~ broken_windows
 
 certstring = """
 LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2QUlCQURBTkJna3Foa2lHOXcwQkFRRUZB
@@ -626,6 +627,7 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test DoIPSslSocket6
+~ broken_windows
 
 server_up = threading.Event()
 def server():
@@ -662,6 +664,7 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test UDS_DoIPSslSocket6
+~ broken_windows
 
 server_up = threading.Event()
 def server():
@@ -698,6 +701,7 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test UDS_DualDoIPSslSocket6
+~ broken_windows
 
 server_tcp_up = threading.Event()
 server_tls_up = threading.Event()

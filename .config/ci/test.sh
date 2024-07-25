@@ -117,7 +117,8 @@ then
 fi
 
 # Launch Scapy unit tests
-TOX_PARALLEL_NO_SPINNER=1 tox -- ${UT_FLAGS} || exit 1
+# export TOX_PARALLEL_NO_SPINNER=1
+tox -- ${UT_FLAGS} || exit 1
 
 # Stop if NO_BASH_TESTS is set
 if [ ! -z "$SIMPLE_TESTS" ]

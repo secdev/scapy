@@ -55,13 +55,13 @@ def load_nss_keys(filename):
 
                 try:
                     client_random = binascii.unhexlify(data[1])
-                except binascii.Error:
+                except ValueError:
                     warning("Invalid ClientRandom: %s", data[1])
                     return {}
 
                 try:
                     secret = binascii.unhexlify(data[2])
-                except binascii.Error:
+                except ValueError:
                     warning("Invalid Secret: %s", data[2])
                     return {}
 

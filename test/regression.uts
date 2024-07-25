@@ -1830,7 +1830,7 @@ def _test():
 retry_test(_test)
 
 = Whois request
-~ netaccess IP
+~ netaccess IP as_resolvers
 * This test retries on failure because it often fails
 def _test():
     IP(src="8.8.8.8").whois()
@@ -1874,7 +1874,7 @@ assert len(tmp) == 3
 assert [l[1] for l in tmp] == ['AS24776', 'AS36459', 'AS26496']
 
 = AS resolver - IPv6
-~ netaccess IP
+~ netaccess IP as_resolvers
 * This test retries on failure because it often fails
 
 def _test():
