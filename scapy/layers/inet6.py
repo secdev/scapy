@@ -492,6 +492,8 @@ class IPv46(IP, IPv6):
     This class implements a dispatcher that is used to detect the IP version
     while parsing Raw IP pcap files.
     """
+    name = "IPv4/6"
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
