@@ -35,6 +35,7 @@ from scapy.fields import (
     MayEnd,
     MultiEnumField,
     MultipleTypeField,
+    PadField,
     PacketListField,
     RawVal,
     StrField,
@@ -2513,13 +2514,25 @@ def rfc(cls, ret=False, legend=True):
     # when formatted, from its length in bits
     clsize = lambda x: 2 * x - 1  # type: Callable[[int], int]
     ident = 0  # Fields UUID
+
     # Generate packet groups
-    for f in cls.fields_desc:
-        flen = int(f.sz * 8)
+    def _iterfields() -> Iterator[Tuple[str, int]]:
+        for f in cls.fields_desc:
+            # Fancy field name
+            fname = f.name.upper().replace("_", " ")
+            fsize = int(f.sz * 8)
+            yield fname, fsize
+            # Add padding optionally
+            if isinstance(f, PadField):
+                if isinstance(f._align, tuple):
+                    pad = - cur_len % (f._align[0] * 8)
+                else:
+                    pad = - cur_len % (f._align * 8)
+                if pad:
+                    yield "padding", pad
+    for fname, flen in _iterfields():
         cur_len += flen
         ident += 1
-        # Fancy field name
-        fname = f.name.upper().replace("_", " ")
         # The field might exceed the current line or
         # take more than one line. Copy it as required
         while True:
