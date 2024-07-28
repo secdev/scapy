@@ -8,7 +8,7 @@
 + Answering Machines
 
 = Generic answering machine mocker
-import mock
+from unittest import mock
 @mock.patch("scapy.ansmachine.sniff")
 def test_am(cls_name, packet_query, check_reply, mock_sniff, **kargs):
     packet_query = packet_query.__class__(bytes(packet_query))
@@ -236,7 +236,7 @@ assert res[DHCP6_Solicit]
 a.print_reply(req, res)
 
 = WiFi_am
-import mock
+from unittest import mock
 @mock.patch("scapy.layers.dot11.sniff")
 def test_WiFi_am(packet_query, check_reply, mock_sniff, **kargs):
     def sniff(*args,**kargs):
