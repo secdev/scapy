@@ -899,7 +899,7 @@ t.open_file(TICKETER_TEMPFILE)
 = Ticketer++ - Get ticket 0, change it, resign it and set it back
 
 # mock the random to get consistency
-import mock
+from unittest import mock
 
 def fake_random(x):
     # wow, impressive entropy
@@ -1211,7 +1211,7 @@ ts.pausec == 0x9a4db
 
 = [MS-KILE] RC4 GSS_WrapEx (RFC4757) test vectors (sect 4.5)
 
-import mock
+from unittest import mock
 from scapy.libs.rfc3961 import Key, EncryptionType
 
 ssp = KerberosSSP()
@@ -1252,7 +1252,7 @@ assert _msgs[0].data.hex() == "112233445566778899aabbccddeeff"
 = Create randomness-mock context manager
 
 # mock the random to get consistency
-import mock
+from unittest import mock
 from datetime import datetime
 
 def fake_urandom(x):
@@ -1586,7 +1586,7 @@ assert ddata == data
 
 = GSS_WrapEx/GSS_UnwrapEx: client sends wrapped payload with confidentiality
 
-import mock
+from unittest import mock
 from scapy.libs.rfc3961 import Key, EncryptionType
 
 # Data

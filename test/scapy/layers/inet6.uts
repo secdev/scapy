@@ -1970,7 +1970,7 @@ r6.ifdel("scapy0")
 
 = IPv6 - utils
 
-import mock
+from unittest import mock
 @mock.patch("scapy.layers.inet6.get_if_hwaddr")
 @mock.patch("scapy.layers.inet6.srp1")
 def test_neighsol(mock_srp1, mock_get_if_hwaddr):
@@ -2069,7 +2069,7 @@ assert a.answers(q)
 
 = Define test utilities
 
-import mock
+from unittest import mock
 
 @mock.patch("scapy.layers.inet6.sniff")
 @mock.patch("scapy.layers.inet6.sendp")

@@ -1345,7 +1345,7 @@ assert not TLSHelloRequest().tls_session_update(None)
 
 = Cryptography module is unavailable
 ~ mock
-import mock
+from unittest import mock
 
 @mock.patch("scapy.layers.tls.crypto.suites.get_algs_from_ciphersuite_name")
 def test_tls_without_cryptography(get_algs_from_ciphersuite_name_mock):

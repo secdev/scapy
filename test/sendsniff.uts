@@ -276,7 +276,7 @@ with VEthPair('a_0', 'a_1') as veth_0:
 
 = Create a tap interface
 
-import mock
+from unittest import mock
 import struct
 import subprocess
 from threading import Thread
