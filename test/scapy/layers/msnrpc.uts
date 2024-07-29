@@ -1,5 +1,89 @@
 % MS-NRPC tests
 
++ [MS-NRPC] test vectors
+
+= [MS-NRPC] test vectors - sect 4.2
+
+from scapy.layers.tls.crypto.hash import Hash_MD4
+from scapy.layers.msrpce.msnrpc import ComputeSessionKeyStrongKey
+
+# Clear-text SharedSecret:
+ClearSharedSecret = bytes.fromhex("2e002f002c006e004c003e004f004c005a003600730074005e0058004b0065004d0025002e0049002d00740045006000570056006a0043005b00300036003f005d003a00510076005f0054006e0055006f003a003a00420077002c0067006000760023004a004d0036004d007100530050007500550028006e00710034003e0079006a005b0064005c002b005600700052005f00790078007500630021006700300054003600350076007a005700410042005f004200220069003c003c0053002b00340027005e003a0021002c003b002500470073002d00280022003a0020006d003e00210043004c0066006e004e00")
+
+# OWF of SharedSecret:
+SharedSecret = Hash_MD4().digest(ClearSharedSecret)
+assert SharedSecret.hex() == "31a590170a351fd51148b2a10af2c305"
+
+# Client Challenge:
+
+ClientChallenge = bytes.fromhex("3a0390a46d0c3d4f")
+
+# Server Challenge:
+ServerChallenge = bytes.fromhex("0c4c13d16041c860")
+
+# Session Key:
+assert ComputeSessionKeyStrongKey(SharedSecret, ClientChallenge, ServerChallenge).hex() == "eefe8f40007a2eeb6843d0d30a5be2e3"
+
+= [MS-NRPC] test vectors - sect 4.3
+
+from unittest import mock
+from scapy.layers.msrpce.msnrpc import NetlogonSSP
+
+# Input
+SessionKey = bytes.fromhex("0cb6948805f797bf2a82807973b89537")
+Confounder = bytes.fromhex("717f5076c5902bcd")
+ClearTextMessage = bytes.fromhex("3000000000000000000000000000000030000000000000005c005c00570049004e002d00450055003400550047003800370048003200490056002e00320033003000360066006500760032002e006e00740074006500730074002e006d006900630072006f0073006f00660074002e0063006f006d0000000000020000000000100000000000000000000000000000001000000000000000570049004e002d004400310049005400420046004d003400410038005500000085bb1511fd09786d3b61b06400000000000000000000000001000000000000000000000000000000")
+# Expected
+FullNetlogonSignatureHeader = bytes.fromhex("13001a00ffff0000b37c1f0ec86468f086761f2f86f4f4c1632d1f547d2cf6ff")
+EncryptedMessage = bytes.fromhex("c930c9a079d95c78bea6a3150908c11f4b68e41219bcb91680ead287da211eec66bc27df2bc9a0f4ecf25c88624e493c59cdec6bc7b08bed84b97c33138ae3c8377cb327f3ea6076da91c5d23dbf1b2f4066a455332716b7b64f2ec9a944702d20a85035de3b231a5216b7a6c9102bd17c7d6ab1b379445eb5a5276e360d3bcef93b5359d36b0006b0c10bc2fec73777816a383a4614494b7b18bc34cd5447681eb48f8132a0a08a50d752826cff068c76959d49767557e503d509fa3c18b0860a22a7e2bae50e812c5d71c31f9f1dfd143333b3043f6bf906e5d91207f1d988")
+
+# Perform the same operation using NetlogonSSP:
+
+client = NetlogonSSP(SessionKey=SessionKey, computername="DC1", domainname="DOMAIN", AES=True)
+clicontext, tok, negResult = client.GSS_Init_sec_context(None)
+
+with mock.patch('scapy.layers.msrpce.msnrpc.os.urandom', side_effect=lambda x: Confounder):
+    _msgs, sig = client.GSS_WrapEx(
+        clicontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=ClearTextMessage),
+        ]
+    )
+
+assert _msgs[0].data == EncryptedMessage
+assert bytes(sig)[:len(FullNetlogonSignatureHeader)] == FullNetlogonSignatureHeader
+
+= [MS-NRPC] test vectors - sect 4.3.1
+
+from unittest import mock
+from scapy.layers.msrpce.msnrpc import NetlogonSSP
+
+# Input
+RpcPDUHeader = bytes.fromhex("0500000310000000380138000c000000d400000001001500")
+RpcSecTrailer = bytes.fromhex("44060c0003000000")
+# Expected
+FullNetlogonSignatureHeader = bytes.fromhex("13001a00ffff00005d69950dfde45ae9f092ae5c3c55aacd632d1f547d2cf6ff")
+
+# Perform the same operation using NetlogonSSP:
+
+client = NetlogonSSP(SessionKey=SessionKey, computername="DC1", domainname="DOMAIN", AES=True)
+clicontext, tok, negResult = client.GSS_Init_sec_context(None)
+
+with mock.patch('scapy.layers.msrpce.msnrpc.os.urandom', side_effect=lambda x: Confounder):
+    _msgs, sig = client.GSS_WrapEx(
+        clicontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=RpcPDUHeader),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=ClearTextMessage),
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=RpcSecTrailer),
+        ]
+    )
+
+assert _msgs[0].data == RpcPDUHeader
+assert _msgs[1].data == EncryptedMessage
+assert _msgs[2].data == RpcSecTrailer
+assert bytes(sig)[:len(FullNetlogonSignatureHeader)] == FullNetlogonSignatureHeader
+
 + Dissect and Build full NRPC exchange
 
 # XXX in the DCE/RPC spec + MS-RPCE, padding is only supposed to be zeros
@@ -10,17 +94,17 @@
 # to make the output match, but it would be cool to reverse engineer the ndr lib in windows and copy
 # exactly the same debug values
 
-= Load MSRPCE and bind
+= [EXCH] - Load MSRPCE and bind
 
 load_layer("msrpce")
 bind_layers(TCP, DceRpc, sport=40564)  # the DCE/RPC port
 bind_layers(TCP, DceRpc, dport=40564)
 
-= Parse NRPC exchange (pcap)
+= [EXCH] - Parse NRPC exchange (pcap)
 
 pkts = sniff(offline=scapy_path('test/pcaps/dcerpc_msnrpc.pcapng.gz'), session=DceRpcSession)
 
-= Check ept_map_Request
+= [EXCH] - Check ept_map_Request
 
 from scapy.layers.msrpce.ept import *
 
@@ -34,7 +118,7 @@ twr = protocol_tower_t(epm_req.map_tower.value.tower_octet_string)
 assert twr.count == 5
 assert twr.floors[0].sprintf("%uuid%") == 'logon'
 
-= Re-build ept_map_Request from scratch
+= [EXCH] - Re-build ept_map_Request from scratch
 
 pkt = ept_map_Request(
     entry_handle=NDRContextHandle(attributes=0, uuid=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'),
@@ -52,7 +136,7 @@ pkt = ept_map_Request(
 output = bytearray(bytes(pkt))
 assert bytes(output) == bytes(epm_req)
 
-= Check ept_map_Response
+= [EXCH] - Check ept_map_Response
 
 epm_resp = pkts[3][DceRpc5].payload.payload
 
@@ -74,7 +158,7 @@ assert twr.floors[3].rhs == 49676
 assert twr.floors[4].sprintf("%protocol_identifier%") == "IP"
 assert twr.floors[4].rhs == "192.168.122.17"
 
-= Re-build ept_map_Response from scratch
+= [EXCH] - Re-build ept_map_Response from scratch
 
 pkt = ept_map_Response(
     entry_handle=NDRContextHandle(attributes=0),
@@ -89,14 +173,14 @@ pkt.ITowers.value[0].value[1].referent_id = 0x4
 pkt.ITowers.max_count = 4
 assert bytes(pkt) == bytes(epm_resp)
 
-= Check NetrServerReqChallenge_Request
+= [EXCH] - Check NetrServerReqChallenge_Request
 
 chall_req = pkts[6][NetrServerReqChallenge_Request]
 assert chall_req.valueof("ComputerName") == b"WIN1"
 assert chall_req.PrimaryName is None
 assert chall_req.ClientChallenge.data == b"12345678"
 
-= Re-build NetrServerReqChallenge_Request from scratch
+= [EXCH] - Re-build NetrServerReqChallenge_Request from scratch
 
 pkt = NetrServerReqChallenge_Request(
     ComputerName=b'WIN1',
@@ -106,13 +190,13 @@ pkt = NetrServerReqChallenge_Request(
 
 assert bytes(pkt) == bytes(chall_req)
 
-= Check NetrServerReqChallenge_Response
+= [EXCH] - Check NetrServerReqChallenge_Response
 
 chall_resp = pkts[7][NetrServerReqChallenge_Response]
 assert chall_resp.ServerChallenge.data == b'Zq/\xc4D\xfeRI'
 assert chall_resp.status == 0
 
-= Re-build NetrServerReqChallenge_Response from scratch
+= [EXCH] - Re-build NetrServerReqChallenge_Response from scratch
 
 pkt = NetrServerReqChallenge_Response(
     ServerChallenge=PNETLOGON_CREDENTIAL(data=b'Zq/\xc4D\xfeRI')
@@ -120,7 +204,7 @@ pkt = NetrServerReqChallenge_Response(
 
 assert bytes(pkt) == bytes(chall_resp)
 
-= Check NetrServerAuthenticate3_Request
+= [EXCH] - Check NetrServerAuthenticate3_Request
 
 auth_req = pkts[8][NetrServerAuthenticate3_Request]
 assert auth_req.PrimaryName is None
@@ -130,7 +214,7 @@ assert auth_req.valueof("ComputerName") == b"WIN1"
 assert auth_req.ClientCredential.data == b'd:\xb3p\xc6\x9e\xf40'
 assert auth_req.NegotiateFlags == 1611661311
 
-= Re-build NetrServerAuthenticate3_Request from scratch
+= [EXCH] - Re-build NetrServerAuthenticate3_Request from scratch
 
 pkt = NetrServerAuthenticate3_Request(
     AccountName=b'WIN1$',
@@ -144,7 +228,7 @@ pkt = NetrServerAuthenticate3_Request(
 output = bytearray(bytes(pkt))
 assert bytes(output) == bytes(auth_req)
 
-= Check NetrServerAuthenticate3_Response
+= [EXCH] - Check NetrServerAuthenticate3_Response
 
 auth_resp = pkts[9][NetrServerAuthenticate3_Response]
 assert auth_resp.ServerCredential.data == b'1h\x8d\xb8\xf4zH\xaf'
@@ -152,7 +236,7 @@ assert auth_resp.NegotiateFlags == 1611661311
 assert auth_resp.AccountRid == 1105
 assert auth_resp.status == 0
 
-= Re-build NetrServerAuthenticate3_Response from scratch
+= [EXCH] - Re-build NetrServerAuthenticate3_Response from scratch
 
 pkt = NetrServerAuthenticate3_Response(
     ServerCredential=PNETLOGON_CREDENTIAL(data=b'1h\x8d\xb8\xf4zH\xaf'),
@@ -166,10 +250,10 @@ assert bytes(pkt) == bytes(auth_resp)
 + GSS-API NetlogonSSP tests
 ~ mock
 
-= Create randomness-mock context manager
+= [NetlogonSSP] - Create randomness-mock context manager
 
 # mock the random to get consistency
-import mock
+from unittest import mock
 
 def fake_urandom(x):
     # wow, impressive entropy
@@ -188,14 +272,14 @@ class NetlogonRandomPatcher:
         for p in _patches:
             p.stop()
 
-= Create client and server NetlogonSSP
+= [NetlogonSSP] - RC4 - Create client and server NetlogonSSP
 
 from scapy.layers.msrpce.msnrpc import NetlogonSSP, NL_AUTH_MESSAGE
 
-client = NetlogonSSP(SessionKey=b"\x00\x00\x00\x00\x00\x00\x00\x00", computername="DC1", domainname="DOMAIN")
-server = NetlogonSSP(SessionKey=b"\x00\x00\x00\x00\x00\x00\x00\x00", computername="DC1", domainname="DOMAIN")
+client = NetlogonSSP(SessionKey=b"\x00\x00\x00\x00\x00\x00\x00\x00", computername="DC1", domainname="DOMAIN", AES=False)
+server = NetlogonSSP(SessionKey=b"\x00\x00\x00\x00\x00\x00\x00\x00", computername="DC1", domainname="DOMAIN", AES=False)
 
-= GSS_Init_sec_context (NL_AUTH_MESSAGE)
+= [NetlogonSSP] - RC4 - GSS_Init_sec_context (NL_AUTH_MESSAGE)
 
 clicontext, tok, negResult = client.GSS_Init_sec_context(None)
 
@@ -207,7 +291,7 @@ assert tok.Flags == 3
 bytes(tok)
 assert bytes(tok) == b'\x00\x00\x00\x00\x03\x00\x00\x00DOMAIN\x00DC1\x00'
 
-= GSS_Accept_sec_context (NL_AUTH_MESSAGE->NL_AUTH_MESSAGE)
+= [NetlogonSSP] - RC4 - GSS_Accept_sec_context (NL_AUTH_MESSAGE->NL_AUTH_MESSAGE)
 
 srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
 
@@ -217,14 +301,14 @@ assert tok.MessageType == 1
 bytes(tok)
 assert bytes(tok) == b'\x01\x00\x00\x00\x00\x00\x00\x00'
 
-= GSS_Init_sec_context (NL_AUTH_MESSAGE->OK)
+= [NetlogonSSP] - RC4 - GSS_Init_sec_context (NL_AUTH_MESSAGE->OK)
 
 clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
 
 assert negResult == 0
 assert tok is None
 
-= GSS_WrapEx/GSS_UnwrapEx: client sends a encrypted payload
+= [NetlogonSSP] - RC4 - GSS_WrapEx/GSS_UnwrapEx: client sends a encrypted payload
 
 data_header = b"header"  # signed but not encrypted
 data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"  # encrypted
@@ -252,7 +336,7 @@ decrypted = server.GSS_UnwrapEx(
 )[1].data
 assert decrypted == data
 
-= GSS_WrapEx/GSS_UnwrapEx: server answers back
+= [NetlogonSSP] - RC4 - GSS_WrapEx/GSS_UnwrapEx: server answers back
 
 with NetlogonRandomPatcher():
     _msgs, sig = server.GSS_WrapEx(
@@ -277,7 +361,120 @@ decrypted = client.GSS_UnwrapEx(
 )[1].data
 assert decrypted == data
 
-= GSS_WrapEx/GSS_UnwrapEx: inject fault
+= [NetlogonSSP] - RC4 - GSS_WrapEx/GSS_UnwrapEx: inject fault
+
+_msgs, sig = client.GSS_WrapEx(
+    clicontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+    ]
+)
+encrypted = _msgs[1].data
+assert encrypted != data
+bad_data_header = data_header[:-3] + b"hey"
+try:
+    server.GSS_UnwrapEx(srvcontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=bad_data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=encrypted),
+        ],
+        sig
+    )
+    assert False, "No error was reported, but there should have been one"
+except ValueError:
+    pass
+
+= [NetlogonSSP] - AES - Create client and server NetlogonSSP
+
+from scapy.layers.msrpce.msnrpc import NetlogonSSP, NL_AUTH_MESSAGE
+
+client = NetlogonSSP(SessionKey=b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", computername="DC1", domainname="DOMAIN", AES=True)
+server = NetlogonSSP(SessionKey=b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", computername="DC1", domainname="DOMAIN", AES=True)
+
+= [NetlogonSSP] - AES - GSS_Init_sec_context (NL_AUTH_MESSAGE)
+
+clicontext, tok, negResult = client.GSS_Init_sec_context(None)
+
+assert negResult == 1
+assert isinstance(tok, NL_AUTH_MESSAGE)
+assert tok.MessageType == 0
+assert tok.Flags == 3
+
+bytes(tok)
+assert bytes(tok) == b'\x00\x00\x00\x00\x03\x00\x00\x00DOMAIN\x00DC1\x00'
+
+= [NetlogonSSP] - AES - GSS_Accept_sec_context (NL_AUTH_MESSAGE->NL_AUTH_MESSAGE)
+
+srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+
+assert negResult == 0
+assert tok.MessageType == 1
+
+bytes(tok)
+assert bytes(tok) == b'\x01\x00\x00\x00\x00\x00\x00\x00'
+
+= [NetlogonSSP] - AES - GSS_Init_sec_context (NL_AUTH_MESSAGE->OK)
+
+clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+
+assert negResult == 0
+assert tok is None
+
+= [NetlogonSSP] - AES - GSS_WrapEx/GSS_UnwrapEx: client sends a encrypted payload
+
+data_header = b"header"  # signed but not encrypted
+data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"  # encrypted
+
+with NetlogonRandomPatcher():
+    _msgs, sig = client.GSS_WrapEx(
+        clicontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+        ]
+    )
+
+encrypted = _msgs[1].data
+assert bytes(encrypted) == b'\xbf\x1aP\xb4\xb54\xe4^\x1a\xfe\xf3\x1f(\xfa[\xc4\x06\xdb_\x1a9\x90<r\xe7Q\x97\xacR\x823\xee]b\xf5\xa0w#4n\xaa#j\xf0\xc0pOe\x88\xf3'
+assert bytes(sig) == b'\x13\x00\x1a\x00\xff\xff\x00\x00.\n\x8e\xce\xd2\x14\x06W\x978\xe2\xad\x8c\xdd\x8ef\xeba\xa5\x15\xb2\xc2\xce?\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+decrypted = server.GSS_UnwrapEx(
+    srvcontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=encrypted),
+    ],
+    sig
+)[1].data
+assert decrypted == data
+
+= [NetlogonSSP] - AES - GSS_WrapEx/GSS_UnwrapEx: server answers back
+
+with NetlogonRandomPatcher():
+    _msgs, sig = server.GSS_WrapEx(
+        srvcontext,
+        [
+            SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+            SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=data)
+        ]
+    )
+
+re_encrypted = _msgs[1].data
+assert bytes(re_encrypted) == b'\xf9\xb1g\xaf\xb8\x87\x1f\xd5\xe0\x12).\x8dW\xf1\x0cG\x16\xf5\xb4:\xde\x91\xd5\x03\x8a#\xa6\xe1j[*U\xfc\xdb\xfa\x02\xcd\x85\x82O\x11\x908\xbd\xf3q\xd6>P'
+assert bytes(sig) == b'\x13\x00\x1a\x00\xff\xff\x00\x00.\n\x8e\xcf\xbek \x84\x978\xe2\xad\x8c\xdd\x8efS\x9b\xf3DG\xf4[\x1c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+decrypted = client.GSS_UnwrapEx(
+    clicontext,
+    [
+        SSP.WRAP_MSG(conf_req_flag=False, sign=True, data=data_header),
+        SSP.WRAP_MSG(conf_req_flag=True, sign=True, data=re_encrypted),
+    ],
+    sig
+)[1].data
+assert decrypted == data
+
+= [NetlogonSSP] - AES - GSS_WrapEx/GSS_UnwrapEx: inject fault
 
 _msgs, sig = client.GSS_WrapEx(
     clicontext,

@@ -182,7 +182,7 @@ class DCERPC_Transport(IntEnum):
     # TODO: add more.. if people use them?
 
 
-def _dce_rpc_endianess(pkt):
+def _dce_rpc_endianness(pkt):
     """
     Determine the right endianness sign for a given DCE/RPC packet
     """
@@ -196,7 +196,7 @@ def _dce_rpc_endianess(pkt):
 
 class _EField(EField):
     def __init__(self, fld):
-        super(_EField, self).__init__(fld, endianness_from=_dce_rpc_endianess)
+        super(_EField, self).__init__(fld, endianness_from=_dce_rpc_endianness)
 
 
 class DceRpc(Packet):
@@ -222,7 +222,7 @@ class _DceRpcPayload(Packet):
     def endianness(self):
         if not self.underlayer:
             return "!"
-        return _dce_rpc_endianess(self.underlayer)
+        return _dce_rpc_endianness(self.underlayer)
 
 
 # sect 12.5
@@ -340,7 +340,7 @@ class NL_AUTH_SIGNATURE(Packet):
             {
                 0xFFFF: "Unencrypted",
                 0x007A: "RC4",
-                0x00A1: "AES-128",
+                0x001A: "AES-128",
             },
         ),
         XLEShortField("Pad", 0xFFFF),
@@ -947,7 +947,7 @@ class DceRpc5Context(EPacket):
             None,
             DceRpc5TransferSyntax,
             count_from=lambda pkt: pkt.n_transfer_syn,
-            endianness_from=_dce_rpc_endianess,
+            endianness_from=_dce_rpc_endianness,
         ),
     ]
 
@@ -997,7 +997,7 @@ class DceRpc5Bind(_DceRpcPayload):
             "context_elem",
             [],
             DceRpc5Context,
-            endianness_from=_dce_rpc_endianess,
+            endianness_from=_dce_rpc_endianness,
             count_from=lambda pkt: pkt.n_context_elem,
         ),
     ]
@@ -1025,7 +1025,7 @@ class DceRpc5BindAck(_DceRpcPayload):
             "results",
             [],
             DceRpc5Result,
-            endianness_from=_dce_rpc_endianess,
+            endianness_from=_dce_rpc_endianness,
             count_from=lambda pkt: pkt.n_results,
         ),
     ]
@@ -1057,7 +1057,7 @@ class DceRpc5BindNak(_DceRpcPayload):
             [],
             DceRpc5Version,
             count_from=lambda pkt: pkt.n_protocols,
-            endianness_from=_dce_rpc_endianess,
+            endianness_from=_dce_rpc_endianness,
         ),
         # [MS-RPCE] sect 2.2.2.9
         ConditionalField(
@@ -2671,8 +2671,8 @@ class DceRpcSession(DefaultSession):
         opnum, opts = self._up_pkt(pkt)
         # Check for encrypted payloads
         body = None
-        if conf.raw_layer in pkt:
-            body = bytes(pkt[conf.raw_layer])
+        if conf.raw_layer in pkt.payload:
+            body = bytes(pkt.payload[conf.raw_layer])
         # If we are doing passive sniffing
         if conf.dcerpc_session_enable and conf.winssps_passive:
             # We have Windows SSPs, and no current context
@@ -2697,10 +2697,11 @@ class DceRpcSession(DefaultSession):
                 and body
             ):
                 # This is a request/response
-                self.ssp.GSS_Passive_set_Direction(
-                    self.sspcontext,
-                    IsAcceptor=DceRpc5Response in pkt,
-                )
+                if self.sspcontext.passive:
+                    self.ssp.GSS_Passive_set_Direction(
+                        self.sspcontext,
+                        IsAcceptor=DceRpc5Response in pkt,
+                    )
         if pkt.auth_verifier and pkt.auth_verifier.is_protected() and body:
             if self.sspcontext is None:
                 return pkt
@@ -2800,18 +2801,18 @@ class DceRpcSession(DefaultSession):
                     "Unknown opnum %s for interface %s"
                     % (opnum, self.rpc_bind_interface)
                 )
-                pkt[conf.raw_layer].load = body
+                pkt.payload[conf.raw_layer].load = body
                 return pkt
             if body:
                 # Dissect payload using class
                 payload = cls(body, ndr64=self.ndr64, ndrendian=self.ndrendian, **opts)
-                pkt[conf.raw_layer].underlayer.remove_payload()
+                pkt.payload[conf.raw_layer].underlayer.remove_payload()
                 pkt /= payload
             elif not cls.fields_desc:
                 # Request class has no payload
                 pkt /= cls(ndr64=self.ndr64, ndrendian=self.ndrendian, **opts)
         elif body:
-            pkt[conf.raw_layer].load = body
+            pkt.payload[conf.raw_layer].load = body
         return pkt
 
     def out_pkt(self, pkt):
@@ -2999,7 +3000,7 @@ class DceRpc4Payload(Packet):
         for klass in cls._payload_class:
             if hasattr(klass, "can_handle") and klass.can_handle(_pkt, _underlayer):
                 return klass
-        print("DCE/RPC payload class not found or undefined (using Raw)")
+        log_runtime.warning("DCE/RPC payload class not found or undefined (using Raw)")
         return Raw
 
     @classmethod

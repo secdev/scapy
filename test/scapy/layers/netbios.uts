@@ -14,7 +14,7 @@ assert raw(z) == b'\x00\x00\x01\x10\x00\x01\x00\x00\x00\x00\x00\x00 FEEFFDFEDBCA
 
 pkt = IP(dst='192.168.0.255')/UDP(sport=137, dport='netbios_ns')/z
 pkt = IP(raw(pkt))
-assert pkt.QUESTION_NAME == b'TEST1          '
+assert pkt.QUESTION_NAME == b'TEST1'
 assert pkt[NBNSQueryRequest].mysummary() == r"NBNSQueryRequest who has '\\TEST1'"
 
 assert NBNSQueryRequest in NBNSHeader(raw(z))
@@ -35,6 +35,23 @@ assert pkt[NBNSQueryResponse].mysummary() == r"NBNSQueryResponse '\\FRED' is at 
 z = NBNSQueryResponse(b' PPFCEFEECACACACACACACACACACACAAA\x00\x00 \x00\x01\x00\x04\x93\xe0\x00\x06\x00\x00\xc0\xa8\x00\r')
 assert z.mysummary() == r"NBNSQueryResponse '\\\xffRED' is at 192.168.0.13"
 
+z = NBNSHeader(b'/S\x85\x80\x00\x00\x00\x01\x00\x00\x00\x00 FAEPFEEBFEEPCACACACACACACACACAAA\x00\x00 \x00\x01\x00\x03\xf4\x80\x00\x06\x00\x00\xc0\xa8\x01A')
+assert z.RR_NAME == b'POTATO'
+assert z.ADDR_ENTRY[0].G == 0
+assert z.ADDR_ENTRY[0].NB_ADDRESS == "192.168.1.65"
+
+= NBNSQueryResponse answers NBNSQueryRequest
+
+req = IP(ihl=5, len=78, proto=17, chksum=8562, src='172.19.0.7', dst='172.19.0.255')/UDP(sport=137, dport=137, len=58, chksum=62101)/NBNSHeader(NM_FLAGS=17, QDCOUNT=1)/NBNSQueryRequest(QUESTION_NAME=b'Loremipsumdolor', SUFFIX=17217)
+resp = IP(b'E\x00\x00Zn\xab@\x00@\x11s\xb5\xac\x13\x00\x05\xac\x13\x00\x07\x00\x89\x00\x89\x00FX\x8a\x00\x00\x85\x00\x00\x00\x00\x01\x00\x00\x00\x00 EMGPHCGFGNGJHAHDHFGNGEGPGMGPHCCA\x00\x00 \x00\x01\x00\x00\x00\xa5\x00\x06\x00\x00\xac\x13\x00\x05')
+
+try:
+    conf.checkIPaddr = True
+    assert not resp.answers(req)
+    conf.checkIPaddr = False
+    assert resp.answers(req)
+finally:
+    conf.checkIPaddr = True
 
 = NBNSNodeStatusResponse - build & dissect
 
@@ -62,7 +79,7 @@ assert z.mysummary() == r"NBNSNodeStatusRequest who has '\\\xff'"
 z = NBNSHeader()/NBNSWackResponse(RR_NAME="SARAH")
 assert raw(z) == b'\x00\x00\xbc\x00\x00\x00\x00\x01\x00\x00\x00\x00 FDEBFCEBEICACACACACACACACACACAAA\x00\x00 \x00\x01\x00\x00\x00\x02\x00\x02)\x10'
 pkt = NBNSHeader(raw(z))
-assert pkt[NBNSWackResponse].RR_NAME == b'SARAH          '
+assert pkt[NBNSWackResponse].RR_NAME == b'SARAH'
 
 = NBTSession
 

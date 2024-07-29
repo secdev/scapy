@@ -85,6 +85,11 @@ assert a[5].Expires == b'Mon, 01 Apr 2024 22:25:38 GMT'
 assert a[5].Reason_Phrase == b'Moved Permanently'
 assert a[5].X_Frame_Options == b"SAMEORIGIN"
 
+= HTTP build with 'chunked' content type
+
+pkt = HTTP()/HTTPResponse(Content_Encoding="chunked", Date=b'Sat, 22 Jun 2024 10:00:00 GMT')/(b"A" * 100)
+assert bytes(pkt) == b'HTTP/1.1 200 OK\r\nContent-Encoding: chunked\r\nDate: Sat, 22 Jun 2024 10:00:00 GMT\r\n\r\n64\r\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\r\n0\r\n\r\n'
+
 = HTTP decompression (gzip)
 
 conf.debug_dissector = True
@@ -248,11 +253,13 @@ for i in range(3, 10):
 = Test chunked with gzip
 
 conf.contribs["http"]["auto_compression"] = False
+conf.contribs["http"]["auto_chunk"] = False
 z = b'\x1f\x8b\x08\x00S\\-_\x02\xff\xb3\xc9(\xc9\xcd\xb1\xcb\xcd)\xb0\xd1\x07\xb3\x00\xe6\xedpt\x10\x00\x00\x00'
 a = IP(dst="1.1.1.1", src="2.2.2.2")/TCP(seq=1)/HTTP()/HTTPResponse(Content_Encoding="gzip", Transfer_Encoding="chunked")/(b"5\r\n" + z[:5] + b"\r\n")
 b = IP(dst="1.1.1.1", src="2.2.2.2")/TCP(seq=len(a[TCP].payload)+1)/HTTP()/(hex(len(z[5:])).encode()[2:] + b"\r\n" + z[5:] + b"\r\n0\r\n\r\n")
 xa, xb = IP(raw(a)), IP(raw(b))
 conf.contribs["http"]["auto_compression"] = True
+conf.contribs["http"]["auto_chunk"] = True
 
 c = sniff(offline=[xa, xb], session=TCPSession)[0]
 import gzip
@@ -297,7 +304,11 @@ class run_httpserver:
         print("@ Server started !")
     def __exit__(self, exc_type, exc_value, traceback):
         print("@ Stopping http server !")
-        self.server.shutdown(socket.SHUT_RDWR)
+        try:
+            self.server.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        self.server.close()
         if traceback:
             # failed
             print("\nTest failed.")
@@ -346,6 +357,18 @@ opener = urllib.request.build_opener(handler)
 
 with run_httpserver(mech=HTTP_AUTH_MECHS.BASIC, BASIC_IDENTITIES={"user": "password"}):
     with opener.open('http://127.0.0.1:8080/') as f:
+        html = f.read().decode('utf-8')
+
+assert html == "<!doctype html><html><body><h1>OK</h1></body></html>"
+
+
+= HTTP_Server with native python client without auth
+~ http-client
+
+import urllib.request
+
+with run_httpserver(mech=HTTP_AUTH_MECHS.NONE):
+    with urllib.request.urlopen('http://127.0.0.1:8080/') as f:
         html = f.read().decode('utf-8')
 
 assert html == "<!doctype html><html><body><h1>OK</h1></body></html>"

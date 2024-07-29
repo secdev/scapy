@@ -861,7 +861,7 @@ class IE_EvolvedAllocationRetentionPriority(IE_Base):
 
 
 class IE_CharginGatewayAddress(IE_Base):
-    name = "Chargin Gateway Address"
+    name = "Charging Gateway Address"
     fields_desc = [ByteEnumField("ietype", 251, IEType),
                    ShortField("length", 4),
                    ConditionalField(IPField("ipv4_address", "127.0.0.1"),

@@ -114,7 +114,7 @@ s.close()
 = L2bpfListenSocket - read failure
 ~ needs_root
 
-import mock
+from unittest import mock
 
 @mock.patch("scapy.arch.bpf.supersocket.os.read")
 def _test_osread(osread):

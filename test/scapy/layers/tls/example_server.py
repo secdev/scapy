@@ -21,10 +21,20 @@ from scapy.layers.tls.automaton_srv import TLSServerAutomaton
 from scapy.tools.UTscapy import scapy_path
 
 parser = ArgumentParser(description='Simple TLS Server')
+parser.add_argument("--cert",
+                    default=scapy_path('/test/scapy/layers/tls/pki/srv_cert.pem'),
+                    help="Cert file.")
+parser.add_argument("--key",
+                    default=scapy_path('/test/scapy/layers/tls/pki/srv_key.pem'),
+                    help="Key file.")
 parser.add_argument("--psk",
                     help="External PSK for symmetric authentication (for TLS 1.3)")  # noqa: E501
 parser.add_argument("--no_pfs", action="store_true",
                     help="Disable (EC)DHE exchange with PFS")
+parser.add_argument("--pcs",
+                    help="Preferred Cipher Suite (ex: 0x1301 = TLS_AES_128_GCM_SHA256)")
+parser.add_argument("--psa",
+                    help="Preferred Signature Algorithm (ex: sha256+rsaepss)")
 # args.curve must be a value in the dict _tls_named_curves (see tls/crypto/groups.py)
 parser.add_argument("--curve", help="ECC curve to advertise (ex: secp256r1...")
 parser.add_argument("--cookie", action="store_true",
@@ -39,16 +49,16 @@ parser.add_argument("--debug", action="store_const", const=5, default=0,
                     help="Enter debug mode")
 args = parser.parse_args()
 
-pcs = None
 # PFS is set by default...
 if args.no_pfs and args.psk:
     psk_mode = "psk_ke"
 else:
     psk_mode = "psk_dhe_ke"
 
-t = TLSServerAutomaton(mycert=scapy_path('/test/scapy/layers/tls/pki/srv_cert.pem'),
-                       mykey=scapy_path('/test/scapy/layers/tls/pki/srv_key.pem'),
-                       preferred_ciphersuite=pcs,
+t = TLSServerAutomaton(mycert=args.cert,
+                       mykey=args.key,
+                       preferred_ciphersuite=args.pcs,
+                       preferred_signature_algorithm=args.psa,
                        client_auth=args.client_auth,
                        curve=args.curve,
                        cookie=args.cookie,

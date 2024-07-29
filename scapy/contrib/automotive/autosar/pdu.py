@@ -9,7 +9,7 @@
 # scapy.contrib.status = loads
 from typing import Tuple, Optional
 from scapy.layers.inet import UDP
-from scapy.fields import IntField, XIntField, PacketListField
+from scapy.fields import XIntField, PacketListField, LenField
 from scapy.packet import Packet, bind_bottom_up
 
 
@@ -26,7 +26,7 @@ class PDU(Packet):
     name = 'PDU'
     fields_desc = [
         XIntField('pdu_id', 0),
-        IntField('pdu_payload_len', 0)]
+        LenField('pdu_payload_len', None, fmt="I")]
 
     def extract_padding(self, s):
         # type: (bytes) -> Tuple[bytes, Optional[bytes]]
@@ -36,7 +36,6 @@ class PDU(Packet):
 class PDUTransport(Packet):
     """
     Packet representing PDUTransport containing multiple PDUs
-    FIXME: Support CAN messages as well.
     """
     name = 'PDUTransport'
     fields_desc = [

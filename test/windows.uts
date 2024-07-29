@@ -6,7 +6,7 @@
 
 = Imports
 
-import mock
+from unittest import mock
 
 ############
 ############
@@ -40,6 +40,7 @@ from scapy.config import conf
 assert dev_from_networkname(conf.iface.network_name).guid == conf.iface.guid
 
 = test pcap_service_status
+~ npcap_service
 
 from scapy.arch.windows import pcap_service_status
 
@@ -54,16 +55,20 @@ print(get_if_list())
 assert all(x.startswith(r"\Device\NPF_") for x in get_if_list())
 
 = test pcap_service_stop
-~ appveyor_only require_gui
+~ appveyor_only require_gui npcap_service
+
+from scapy.arch.windows import pcap_service_stop
 
 pcap_service_stop()
-assert pcap_service_status()[2] == False
+assert pcap_service_status() == False
 
 = test pcap_service_start
-~ appveyor_only require_gui
+~ appveyor_only require_gui npcap_service
+
+from scapy.arch.windows import pcap_service_start
 
 pcap_service_start()
-assert pcap_service_status()[2] == True
+assert pcap_service_status() == True
 
 = Test auto-pcap start UI
 
@@ -86,39 +91,23 @@ finally:
 = Set up native mode
 
 conf.use_pcap = False
+conf.route.resync()
+conf.ifaces.reload()
 assert conf.use_pcap == False
-
-= Prepare ping: open firewall & get current seq number
-~ netaccess needs_root
-
-from scapy.arch.windows.native import open_icmp_firewall, get_current_icmp_seq
-
-# Note: this method is complicated, but allow us to perform a real test
-# it is discouraged otherwise. Npcap/Winpcap does NOT require such mechanics
-
-# output of this may vary, but it doesn't matter:
-# if it fails the teat below won't work
-open_icmp_firewall("www.google.com")
-
-seq = get_current_icmp_seq()
-assert seq > 0
-
-True
 
 = Ping
 ~ netaccess needs_root
 
 def _test():
     with conf.L3socket() as a:
-        answer = a.sr1(IP(dst="www.google.com", ttl=128)/ICMP(id=1, seq=seq)/"abcdefghijklmnopqrstuvwabcdefghi", timeout=2)
+        answer = a.sr1(IP(dst="1.1.1.1", ttl=128)/ICMP()/"abcdefghijklmnopqrstuvwabcdefghi", timeout=2)
         answer.show()
         assert ICMP in answer
 
 retry_test(_test)
 
 = DNS lookup
-~ netaccess needs_root require_gui
-% XXX currently disabled
+~ netaccess needs_root
 
 def _test():
     answer = sr1(IP(dst="8.8.8.8")/UDP()/DNS(rd=1, qd=DNSQR(qname="www.google.com")), timeout=2)
@@ -131,4 +120,6 @@ retry_test(_test)
 = Leave native mode
 
 conf.use_pcap = True
+conf.route.resync()
+conf.ifaces.reload()
 assert conf.use_pcap == True

@@ -1008,6 +1008,9 @@ class NTLMSSP_MESSAGE_SIGNATURE(Packet):
         LEIntField("SeqNum", 0x00000000),
     ]
 
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
 
 _GSSAPI_OIDS["1.3.6.1.4.1.311.2.2.10"] = NTLM_Header
 _GSSAPI_SIGNATURE_OIDS["1.3.6.1.4.1.311.2.2.10"] = NTLMSSP_MESSAGE_SIGNATURE

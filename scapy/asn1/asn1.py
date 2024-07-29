@@ -88,11 +88,9 @@ class RandASN1Object(RandField["ASN1_Object[Any]"]):
         if issubclass(o, ASN1_INTEGER):
             return o(int(random.gauss(0, 1000)))
         elif issubclass(o, ASN1_IPADDRESS):
-            z = RandIP()._fix()
-            return o(z)
-        elif issubclass(o, ASN1_GENERALIZED_TIME) or issubclass(o, ASN1_UTC_TIME):  # noqa: E501
-            z = GeneralizedTime()._fix()
-            return o(z)
+            return o(RandIP()._fix())
+        elif issubclass(o, ASN1_GENERALIZED_TIME) or issubclass(o, ASN1_UTC_TIME):
+            return o(GeneralizedTime()._fix())
         elif issubclass(o, ASN1_STRING):
             z1 = int(random.expovariate(0.05) + 1)
             return o("".join(random.choice(self.chars) for _ in range(z1)))
@@ -501,6 +499,8 @@ class ASN1_BIT_STRING(ASN1_Object[str]):
         """
         val = str(val)
         assert val in ['0', '1']
+        if len(self.val) < i:
+            self.val += "0" * (i - len(self.val))
         self.val = self.val[:i] + val + self.val[i + 1:]
 
     def __repr__(self):
@@ -709,6 +709,22 @@ class ASN1_UNIVERSAL_STRING(ASN1_STRING):
 
 class ASN1_BMP_STRING(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.BMP_STRING
+
+    def __setattr__(self, name, value):
+        # type: (str, Any) -> None
+        if name == "val":
+            if isinstance(value, str):
+                value = value.encode("utf-16be")
+            object.__setattr__(self, name, value)
+        else:
+            object.__setattr__(self, name, value)
+
+    def __repr__(self):
+        # type: () -> str
+        return "<%s[%r]>" % (
+            self.__dict__.get("name", self.__class__.__name__),
+            self.val.decode("utf-16be"),  # type: ignore
+        )
 
 
 class ASN1_SEQUENCE(ASN1_Object[List[Any]]):

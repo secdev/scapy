@@ -79,11 +79,13 @@ from scapy.asn1fields import (
     ASN1F_SEQUENCE,
     ASN1F_SEQUENCE_OF,
     ASN1F_STRING,
+    ASN1F_STRING_PacketField,
     ASN1F_enum_INTEGER,
     ASN1F_optional,
 )
 from scapy.asn1packet import ASN1_Packet
 from scapy.automaton import Automaton, ATMT
+from scapy.config import conf
 from scapy.compat import bytes_encode
 from scapy.error import log_runtime
 from scapy.fields import (
@@ -411,21 +413,7 @@ class EncryptionKey(ASN1_Packet):
         )
 
 
-class _ASN1FString_PacketField(ASN1F_STRING):
-    holds_packets = 1
-
-    def i2m(self, pkt, val):
-        if isinstance(val, ASN1_Packet):
-            val = ASN1_STRING(bytes(val))
-        return super(_ASN1FString_PacketField, self).i2m(pkt, val)
-
-    def any2i(self, pkt, x):
-        if hasattr(x, "add_underlayer"):
-            x.add_underlayer(pkt)
-        return super(_ASN1FString_PacketField, self).any2i(pkt, x)
-
-
-class _Checksum_Field(_ASN1FString_PacketField):
+class _Checksum_Field(ASN1F_STRING_PacketField):
     def m2i(self, pkt, s):
         val = super(_Checksum_Field, self).m2i(pkt, s)
         if not val[0].val:
@@ -547,7 +535,7 @@ _AUTHORIZATIONDATA_VALUES = {
 }
 
 
-class _AuthorizationData_value_Field(_ASN1FString_PacketField):
+class _AuthorizationData_value_Field(ASN1F_STRING_PacketField):
     def m2i(self, pkt, s):
         val = super(_AuthorizationData_value_Field, self).m2i(pkt, s)
         if not val[0].val:
@@ -579,7 +567,7 @@ _AD_TYPES = {
     141: "KERB-AUTH-DATA-TOKEN-RESTRICTIONS",
     142: "KERB-LOCAL",
     143: "AD-AUTH-DATA-AP-OPTIONS",
-    144: "AD-TARGET-PRINCIPAL",  # not an official name
+    144: "KERB-AUTH-DATA-CLIENT-TARGET",
 }
 
 
@@ -665,11 +653,13 @@ _PADATA_TYPES = {
     144: "PA-OTP-PIN-CHANGE",
     145: "PA-EPAK-AS-REQ",
     146: "PA-EPAK-AS-REP",
-    147: "PA_PKINIT_KX",
-    148: "PA_PKU2U_NAME",
+    147: "PA-PKINIT-KX",
+    148: "PA-PKU2U-NAME",
     149: "PA-REQ-ENC-PA-REP",
-    150: "PA_AS_FRESHNESS",
+    150: "PA-AS-FRESHNESS",
     151: "PA-SPAKE",
+    161: "KERB-KEY-LIST-REQ",
+    162: "KERB-KEY-LIST-REP",
     165: "PA-SUPPORTED-ENCTYPES",
     166: "PA-EXTENDED-ERROR",
     167: "PA-PAC-OPTIONS",
@@ -683,7 +673,7 @@ _PADATA_CLASSES = {
 # RFC4120
 
 
-class _PADATA_value_Field(_ASN1FString_PacketField):
+class _PADATA_value_Field(ASN1F_STRING_PacketField):
     """
     A special field that properly dispatches PA-DATA values according to
     padata-type and if the paquet is a request or a response.
@@ -845,7 +835,7 @@ class LSAP_TOKEN_INFO_INTEGRITY(Packet):
 # [MS-KILE] sect 2.2.6
 
 
-class _KerbAdRestrictionEntry_Field(_ASN1FString_PacketField):
+class _KerbAdRestrictionEntry_Field(ASN1F_STRING_PacketField):
     def m2i(self, pkt, s):
         val = super(_KerbAdRestrictionEntry_Field, self).m2i(pkt, s)
         if not val[0].val:
@@ -885,6 +875,7 @@ class KERB_AUTH_DATA_AP_OPTIONS(Packet):
             0x4000,
             {
                 0x4000: "KERB_AP_OPTIONS_CBT",
+                0x8000: "KERB_AP_OPTIONS_UNVERIFIED_TARGET_NAME",
             },
         ),
     ]
@@ -893,18 +884,17 @@ class KERB_AUTH_DATA_AP_OPTIONS(Packet):
 _AUTHORIZATIONDATA_VALUES[143] = KERB_AUTH_DATA_AP_OPTIONS
 
 
-# This has no doc..? not in [MS-KILE] at least.
-# We use the name wireshark/samba gave it
+# This has no doc..? [MS-KILE] only mentions its name.
 
 
-class KERB_AD_TARGET_PRINCIPAL(Packet):
+class KERB_AUTH_DATA_CLIENT_TARGET(Packet):
     name = "KERB-AD-TARGET-PRINCIPAL"
     fields_desc = [
         StrFieldUtf16("spn", ""),
     ]
 
 
-_AUTHORIZATIONDATA_VALUES[144] = KERB_AD_TARGET_PRINCIPAL
+_AUTHORIZATIONDATA_VALUES[144] = KERB_AUTH_DATA_CLIENT_TARGET
 
 
 # RFC6806 sect 6
@@ -969,11 +959,74 @@ class PA_PAC_OPTIONS(ASN1_Packet):
 
 _PADATA_CLASSES[167] = PA_PAC_OPTIONS
 
+# [MS-KILE] sect 2.2.11
+
+
+class KERB_KEY_LIST_REQ(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "keytypes",
+        [],
+        ASN1F_enum_INTEGER("", 0, _KRB_E_TYPES),
+    )
+
+
+_PADATA_CLASSES[161] = KERB_KEY_LIST_REQ
+
+# [MS-KILE] sect 2.2.12
+
+
+class KERB_KEY_LIST_REP(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "keys",
+        [],
+        ASN1F_PACKET("", None, EncryptionKey),
+    )
+
+
+_PADATA_CLASSES[162] = KERB_KEY_LIST_REP
+
+# [MS-KILE] sect 2.2.13
+
+
+class KERB_SUPERSEDED_BY_USER(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_PACKET("name", None, PrincipalName, explicit_tag=0xA0),
+        Realm("realm", None, explicit_tag=0xA1),
+    )
+
+
+# [MS-KILE] sect 2.2.14
+
+
+class KERB_DMSA_KEY_PACKAGE(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE_OF(
+            "currentKeys",
+            [],
+            ASN1F_PACKET("", None, EncryptionKey),
+            explicit_tag=0xA0,
+        ),
+        ASN1F_optional(
+            ASN1F_SEQUENCE_OF(
+                "previousKeys",
+                [],
+                ASN1F_PACKET("", None, EncryptionKey),
+                explicit_tag=0xA0,
+            ),
+        ),
+        KerberosTime("expirationInterval", GeneralizedTime(), explicit_tag=0xA2),
+        KerberosTime("fetchInterval", GeneralizedTime(), explicit_tag=0xA4),
+    )
+
 
 # RFC6113 sect 5.4.1
 
 
-class _KrbFastArmor_value_Field(_ASN1FString_PacketField):
+class _KrbFastArmor_value_Field(ASN1F_STRING_PacketField):
     def m2i(self, pkt, s):
         val = super(_KrbFastArmor_value_Field, self).m2i(pkt, s)
         if not val[0].val:
@@ -1727,7 +1780,7 @@ class MethodData(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE_OF("seq", [PADATA()], PADATA)
 
 
-class _KRBERROR_data_Field(_ASN1FString_PacketField):
+class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
     def m2i(self, pkt, s):
         val = super(_KRBERROR_data_Field, self).m2i(pkt, s)
         if not val[0].val:
@@ -1737,7 +1790,8 @@ class _KRBERROR_data_Field(_ASN1FString_PacketField):
             # 24: KDC_ERR_PREAUTH_FAILED
             # 25: KDC_ERR_PREAUTH_REQUIRED
             return MethodData(val[0].val, _underlayer=pkt), val[1]
-        elif pkt.errorCode.val in [18, 29, 41, 60]:
+        elif pkt.errorCode.val in [13, 18, 29, 41, 60]:
+            # 13: KDC_ERR_BADOPTION
             # 18: KDC_ERR_CLIENT_REVOKED
             # 29: KDC_ERR_SVC_UNAVAILABLE
             # 41: KRB_AP_ERR_MODIFIED
@@ -1874,7 +1928,7 @@ class KERB_EXT_ERROR(Packet):
 # [MS-KILE] sect 2.2.2
 
 
-class _Error_Field(_ASN1FString_PacketField):
+class _Error_Field(ASN1F_STRING_PacketField):
     def m2i(self, pkt, s):
         val = super(_Error_Field, self).m2i(pkt, s)
         if not val[0].val:
@@ -2064,6 +2118,16 @@ class KRB_InnerToken(Packet):
         ),
     ]
 
+    def mysummary(self):
+        return self.sprintf(
+            "Kerberos %s" % _TOK_IDS.get(self.TOK_ID, repr(self.TOK_ID))
+        )
+
+    def guess_payload_class(self, payload):
+        if self.TOK_ID in [b"\x01\x01", b"\x02\x01", b"\x04\x04", b"\x05\x04"]:
+            return conf.padding_layer
+        return Kerberos
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 13:
@@ -2107,6 +2171,9 @@ class KRB_GSS_MIC_RFC1964(Packet):
         ),
     ]
 
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
 
 _InitialContextTokens[b"\x01\x01"] = KRB_GSS_MIC_RFC1964
 
@@ -2128,6 +2195,9 @@ class KRB_GSS_Wrap_RFC1964(Packet):
         # sect 1.2.2.3
         XStrFixedLenField("CONFOUNDER", b"", length=8),
     ]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
 
 
 _InitialContextTokens[b"\x02\x01"] = KRB_GSS_Wrap_RFC1964
@@ -2164,6 +2234,9 @@ class KRB_GSS_MIC(Packet):
         XStrField("SGN_CKSUM", b"\x00" * 12),
     ]
 
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
 
 _InitialContextTokens[b"\x04\x04"] = KRB_GSS_MIC
 
@@ -2179,8 +2252,20 @@ class KRB_GSS_Wrap(Packet):
         ShortField("EC", 0),  # Big endian
         ShortField("RRC", 0),  # Big endian
         LongField("SND_SEQ", 0),  # Big endian
-        XStrField("Data", b""),
+        MultipleTypeField(
+            [
+                (
+                    XStrField("Data", b""),
+                    lambda pkt: pkt.Flags.Sealed,
+                )
+            ],
+            XStrLenField("Data", b"",
+                         length_from=lambda pkt: pkt.EC),
+        ),
     ]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
 
 
 _InitialContextTokens[b"\x05\x04"] = KRB_GSS_Wrap
@@ -2250,8 +2335,6 @@ _InitialContextTokens[b"\x02\x00"] = KRB_AP_REP
 _InitialContextTokens[b"\x03\x00"] = KRB_ERROR
 _InitialContextTokens[b"\x04\x00"] = KRB_TGT_REQ
 _InitialContextTokens[b"\x04\x01"] = KRB_TGT_REP
-
-bind_layers(KRB_InnerToken, Kerberos)
 
 
 # RFC4120 sect 7.2.2
@@ -2444,6 +2527,7 @@ class KerberosClient(Automaton):
         additional_tickets=[],
         u2u=False,
         for_user=None,
+        s4u2proxy=False,
         etypes=None,
         key=None,
         port=88,
@@ -2519,6 +2603,7 @@ class KerberosClient(Automaton):
         self.additional_tickets = additional_tickets  # U2U + S4U2Proxy
         self.u2u = u2u  # U2U
         self.for_user = for_user  # FOR-USER
+        self.s4u2proxy = s4u2proxy  # S4U2Proxy
         self.key = key
         # See RFC4120 - sect 7.2.2
         # This marks whether we should follow-up after an EOF
@@ -2558,7 +2643,7 @@ class KerberosClient(Automaton):
         return kdcreq
 
     def as_req(self):
-        now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+        now_time = datetime.now(timezone.utc).replace(microsecond=0)
 
         kdc_req = self._base_kdc_req(now_time=now_time)
         kdc_req.addresses = [
@@ -2605,7 +2690,7 @@ class KerberosClient(Automaton):
         return asreq
 
     def tgs_req(self):
-        now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+        now_time = datetime.now(timezone.utc).replace(microsecond=0)
 
         kdc_req = self._base_kdc_req(now_time=now_time)
 
@@ -2673,6 +2758,20 @@ class KerberosClient(Automaton):
                     padataValue=paforuser,
                 )
             )
+
+        # [MS-SFU] S4U2proxy - sect 3.1.5.2.1
+        if self.s4u2proxy:
+            # "PA-PAC-OPTIONS with resource-based constrained-delegation bit set"
+            tgsreq.root.padata.append(
+                PADATA(
+                    padataType=ASN1_INTEGER(167),  # PA-PAC-OPTIONS
+                    padataValue=PA_PAC_OPTIONS(
+                        options="Resource-based-constrained-delegation",
+                    ),
+                )
+            )
+            # "kdc-options field: MUST include the new cname-in-addl-tkt options flag"
+            kdc_req.kdcOptions.set(14, 1)
 
         # Compute checksum
         if self.key.cksumtype:
@@ -2901,6 +3000,7 @@ def krb_tgs_req(
     u2u=False,
     etypes=None,
     for_user=None,
+    s4u2proxy=False,
     **kwargs,
 ):
     r"""
@@ -2950,6 +3050,7 @@ def krb_tgs_req(
         u2u=u2u,
         etypes=etypes,
         for_user=for_user,
+        s4u2proxy=s4u2proxy,
         **kwargs,
     )
     cli.run()
@@ -3327,7 +3428,10 @@ class KerberosSSP(SSP):
         - AES: RFC4121 sect 4.2.6.2 and [MS-KILE] sect 3.4.5.4.1
         - HMAC-RC4: RFC4757 sect 7.3 and [MS-KILE] sect 3.4.5.4.1
         """
-        confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
+        # Is confidentiality in use?
+        confidentiality = (Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG) and any(
+            x.conf_req_flag for x in msgs
+        )
         if Context.KrbSessionKey.etype in [17, 18]:  # AES
             # Build token
             tok = KRB_InnerToken(
@@ -3495,8 +3599,8 @@ class KerberosSSP(SSP):
         - AES: RFC4121 sect 4.2.6.2
         - HMAC-RC4: RFC4757 sect 7.3
         """
-        confidentiality = Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
         if Context.KrbSessionKey.etype in [17, 18]:  # AES
+            confidentiality = signature.root.Flags.Sealed
             # Real separation starts now: RFC4121 sect 4.2.4
             if confidentiality:
                 # 0. Concatenate the data
@@ -3545,6 +3649,9 @@ class KerberosSSP(SSP):
                     if msg.conf_req_flag:
                         msg.data = Data[offset : offset + msglen]
                         offset += msglen
+                # Case without msgs
+                if len(msgs) == 1 and not msgs[0].data:
+                    msgs[0].data = Data
                 return msgs
             else:
                 # No confidentiality is requested
@@ -3572,16 +3679,18 @@ class KerberosSSP(SSP):
                 # 4. Compare
                 if sig != Mic:
                     raise ValueError("ERROR: Checksums don't match")
-                # 5. Split
-                for msg in msgs:
-                    if msg.sign:
-                        msg.data = Data
+                # Case without msgs
+                if len(msgs) == 1 and not msgs[0].data:
+                    msgs[0].data = Data
                 return msgs
         elif Context.KrbSessionKey.etype in [23, 24]:  # RC4
             from scapy.libs.rfc3961 import Hmac_MD5, Cipher, algorithms, _rfc1964pad
 
             # Drop wrapping
             tok = signature.innerToken
+
+            # Detect confidentiality
+            confidentiality = tok.root.SEAL_ALG != 0xFFFF
 
             # 0. Concatenate data
             ToDecrypt = b"".join(x.data for x in msgs if x.conf_req_flag)
@@ -3727,7 +3836,7 @@ class KerberosSSP(SSP):
                 authenticator=EncryptedData(),
             )
             # Build the authenticator
-            now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+            now_time = datetime.now(timezone.utc).replace(microsecond=0)
             Context.KrbSessionKey = Key.random_to_key(
                 self.SKEY_TYPE,
                 os.urandom(16),
@@ -3820,7 +3929,7 @@ class KerberosSSP(SSP):
                 # The client MUST generate an additional AP exchange reply message
                 # exactly as the server would as the final message to send to the
                 # server.
-                now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+                now_time = datetime.now(timezone.utc).replace(microsecond=0)
                 cli_ap_rep = KRB_AP_REP(encPart=EncryptedData())
                 cli_ap_rep.encPart.encrypt(
                     Context.STSessionKey,
@@ -3909,7 +4018,7 @@ class KerberosSSP(SSP):
                 # Required but not provided. Return an error
                 self._setup_u2u()
                 Context.U2U = True
-                now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+                now_time = datetime.now(timezone.utc).replace(microsecond=0)
                 err = KRB_GSSAPI_Token(
                     innerToken=KRB_InnerToken(
                         TOK_ID=b"\x03\x00",
@@ -3930,7 +4039,7 @@ class KerberosSSP(SSP):
                 tkt = ap_req.ticket.encPart.decrypt(self.KEY)
             except ValueError as ex:
                 warning("KerberosSSP: %s (bad KEY?)" % ex)
-                now_time = datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc)
+                now_time = datetime.now(timezone.utc).replace(microsecond=0)
                 err = KRB_GSSAPI_Token(
                     innerToken=KRB_InnerToken(
                         TOK_ID=b"\x03\x00",
@@ -3964,7 +4073,7 @@ class KerberosSSP(SSP):
             if authenticator.cksum:
                 if authenticator.cksum.cksumtype == 0x8003:
                     # KRB-Authenticator
-                    Context.flags = GSS_C_FLAGS(int(authenticator.cksum.checksum.Flags))
+                    Context.flags = authenticator.cksum.checksum.Flags
             # Build response (RFC4120 sect 3.2.4)
             ap_rep = KRB_AP_REP(encPart=EncryptedData())
             ap_rep.encPart.encrypt(
@@ -4022,7 +4131,7 @@ class KerberosSSP(SSP):
         if Context.state == self.STATE.INIT:
             Context, _, status = self.GSS_Accept_sec_context(Context, val)
             Context.state = self.STATE.CLI_SENT_APREQ
-            return Context, status
+            return Context, GSS_S_CONTINUE_NEEDED
         elif Context.state == self.STATE.CLI_SENT_APREQ:
             Context, _, status = self.GSS_Init_sec_context(Context, val)
             return Context, status

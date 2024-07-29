@@ -1484,3 +1484,51 @@ nan = [x for x in li if math.isnan(x)]
 
 assert len(nan) >= 0
 assert abs(len(gz) - len(lz)) < (testlen // 10)
+
++ SECOC CANFD
+
+= Load SecOC_CANFD
+
+load_contrib("automotive.autosar.secoc_canfd", globals_dict=globals())
+
+
+= Test SecOC_CANFD build
+
+#SecOC_CANFD.register_secoc_protected_pdu(0x123)
+
+pkt = SecOC_CANFD(identifier=0x123, pdu_payload=bytes.fromhex("1122334455667788AABBCCDDEEFF0011"))
+pkt.show2()
+canfd = CANFD(bytes(pkt))
+canfd.show2()
+pkt = SecOC_CANFD(bytes(pkt))
+
+assert pkt.identifier == canfd.identifier
+assert pkt.data == canfd.data
+assert pkt.length == canfd.length
+
+SecOC_CANFD.register_secoc_protected_pdu(0x123)
+
+pkt = CANFD(identifier=0x123, data=bytes.fromhex("1122334455667788AABBCCDDEEFF001122334455"))
+canfd = CANFD(bytes(pkt))
+canfd.show2()
+pkt = SecOC_CANFD(bytes(pkt))
+pkt.show2()
+
+assert pkt.identifier == canfd.identifier
+assert bytes(pkt.pdu_payload) == bytes(canfd.data)[:-4]
+assert pkt.length == canfd.length
+assert pkt.tfv == 0x22
+assert pkt.tmac == b"\x33\x44\x55"
+
+pkt.secoc_authenticate()
+
+assert pkt.tfv == 0
+assert pkt.tmac != b"\x33\x44\x55"
+
+if conf.crypto_valid:
+    from cryptography.hazmat.primitives import cmac
+    from cryptography.hazmat.primitives.ciphers import algorithms
+    c = cmac.CMAC(algorithms.AES128(b"\x00" * 16))
+    c.update(bytes.fromhex("1122334455667788AABBCCDDEEFF0011") + bytes.fromhex("00000000"))
+    mac = c.finalize()
+    assert pkt.tmac == mac[:3]

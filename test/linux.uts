@@ -66,7 +66,7 @@ else:
 = catch loopback device missing
 ~ linux needs_root
 
-from mock import patch
+from unittest.mock import patch
 
 # can't remove the lo device (or its address without causing trouble) - use some pseudo dummy instead
 
@@ -77,7 +77,7 @@ with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo_x'):
 ~ linux needs_root
 
 import os, socket
-from mock import patch
+from unittest.mock import patch
 
 try:
     exit_status = os.system("ip link add name scapy_lo type dummy")
@@ -116,7 +116,7 @@ finally:
 
 conf.ifaces._add_fake_iface("scapy0", 'e2:39:91:79:19:10')
 
-from mock import patch
+from unittest.mock import patch
 conf.route6.routes =  [('fe80::', 64, '::', 'scapy0', ['fe80::e039:91ff:fe79:1910'], 256)]
 conf.route6.ipv6_ifaces = set(['scapy0'])
 bck_conf_iface = conf.iface
@@ -274,7 +274,7 @@ except Exception:
 = Routing table, interface with no names
 ~ linux
 
-from mock import patch
+from unittest.mock import patch
 
 @patch("scapy.arch.linux.ioctl")
 def test_read_routes(mock_ioctl):
@@ -293,7 +293,8 @@ test_read_routes()
 
 from scapy.arch.linux import L3PacketSocket
 
-import mock, socket
+import socket
+from unittest import mock
 
 @mock.patch("scapy.arch.linux.socket.socket.sendto")
 def test_L3PacketSocket_sendto_python3(mock_sendto):

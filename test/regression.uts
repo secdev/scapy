@@ -46,7 +46,7 @@ assert _version_checker(FakeModule3, (2, 4, 2))
 
 = Check Scapy version
 
-import mock
+from unittest import mock
 
 import scapy
 from scapy import _parse_tag, _version_from_git_describe
@@ -280,7 +280,7 @@ assert p == "127.0.0.1"
 
 = Interface related functions
 
-import mock
+from unittest import mock
 
 conf.iface
 
@@ -321,7 +321,7 @@ assert conf.iface == old
 assert isinstance(conf.iface, NetworkInterface)
 assert conf.iface.is_valid()
 
-import mock
+from unittest import mock
 @mock.patch("scapy.interfaces.conf.route.routes", [])
 @mock.patch("scapy.interfaces.conf.ifaces.values")
 def _test_get_working_if(rou):
@@ -532,6 +532,28 @@ assert (Ether() / ARP()).route()[0] is not None
 assert (Ether() / ARP()).payload.route()[0] is not None
 assert (ARP(ptype=0, pdst="hello. this isn't a valid IP")).route()[0] is None
 
+= utils/in4_is*
+
+assert in4_ismaddr("224.0.0.1")
+assert not in4_ismaddr("192.168.0.1")
+assert in4_ismaddr("239.0.0.255")
+
+assert in4_ismlladdr("224.0.0.1")
+assert in4_ismlladdr("224.0.0.255")
+assert not in4_ismlladdr("224.0.1.255")
+
+assert in4_ismgladdr("235.0.0.1")
+assert not in4_ismgladdr("224.0.0.1")
+assert not in4_ismgladdr("239.0.0.1")
+
+assert in4_ismlsaddr("239.0.0.1")
+assert not in4_ismlsaddr("224.0.0.1")
+
+assert in4_isaddrllallnodes("224.0.0.1")
+assert not in4_isaddrllallnodes("224.0.0.3")
+
+assert in4_getnsmac(b'\xe0\x00\x00\x01') == '01:00:5e:00:00:01'
+assert getmacbyip("224.0.0.1") == '01:00:5e:00:00:01'
 
 = plain_str test
 
@@ -648,7 +670,8 @@ assert len(conf.temp_files) == 0
 = Emulate interact()
 ~ interact
 
-import mock, sys
+import sys
+from unittest import mock
 from scapy.main import interact
 
 from scapy.main import DEFAULT_PRESTART_FILE, DEFAULT_PRESTART, _read_config_file
@@ -690,7 +713,7 @@ interact_emulator(extra_args=["-d"])  # Extended
 ~ interact
 
 import sys
-import mock
+from unittest import mock
 
 from scapy.main import DEFAULT_PRESTART_FILE, DEFAULT_PRESTART, _read_config_file
 _read_config_file(DEFAULT_PRESTART_FILE, _locals=globals(), default=DEFAULT_PRESTART)
@@ -734,7 +757,7 @@ assert called
 = Test explore() with GUI mode
 ~ command
 
-import mock
+from unittest import mock
 
 def test_explore_gui(is_layer, layer):
     prompt_toolkit_mocked_module = Bunch(
@@ -825,7 +848,7 @@ assert lhex((28,7)) == "(0x1c, 0x7)"
 assert lhex([28,7]) == "[0x1c, 0x7]"
 
 = Test restart function
-import mock
+from unittest import mock
 conf.interactive = True
 
 try:
@@ -944,10 +967,10 @@ random.seed(0x2807)
 zerofree_randstring(4) in [b"\xd2\x12\xe4\x5b", b'\xd3\x8b\x13\x12']
 
 = Test strand function
-assert strand("AC", "BC") == b'@C'
+assert strand(b"AC", b"BC") == b'@C'
 
 = Test export_object and import_object functions
-import mock
+from unittest import mock
 def test_export_import_object():
     with ContextManagerCaptureOutput() as cmco:
         export_object(2807)
@@ -1135,7 +1158,7 @@ conf.netcache
 
 = Test pyx detection functions
 
-from mock import patch
+from unittest.mock import patch
 
 def _r(*args, **kwargs):
     raise OSError
@@ -1146,7 +1169,7 @@ with patch("scapy.libs.test_pyx.subprocess.check_call", _r):
 
 = Test matplotlib detection functions
 
-from mock import MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 bck_scapy_libs_matplot = sys.modules.get("scapy.libs.matplot", None)
 if bck_scapy_libs_matplot:
@@ -1462,7 +1485,7 @@ assert pkt.command() == "DNS(qd=[DNSQR(qname=b'google.com.', qtype=1)])"
 
 = Test json() with nested packet
 
-assert pkt.json() == '{"length": null, "id": 0, "qr": 0, "opcode": 0, "aa": 0, "tc": 0, "rd": 1, "ra": 0, "z": 0, "ad": 0, "cd": 0, "rcode": 0, "qdcount": null, "ancount": null, "nscount": null, "arcount": null, "qd": [{"qname": "google.com.", "qtype": 1, "qclass": 1}]}'
+assert pkt.json() == '{"length": null, "id": 0, "qr": 0, "opcode": 0, "aa": 0, "tc": 0, "rd": 1, "ra": 0, "z": 0, "ad": 0, "cd": 0, "rcode": 0, "qdcount": null, "ancount": null, "nscount": null, "arcount": null, "qd": [{"qname": "google.com.", "qtype": 1, "unicastresponse": 0, "qclass": 1}]}'
 
 = Test command() with ASN.1 packet
 
@@ -1662,10 +1685,11 @@ assert country == 'US'
 def _test():
     with no_debug_dissector():
     	x = sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
+    assert x is not None
     x
     assert x[IP].ottl() in [32, 64, 128, 255]
     assert 0 <= x[IP].hops() <= 126
-    x is not None and ICMP in x and x[ICMP].type == 0
+    assert ICMP in x and x[ICMP].type == 0
 
 retry_test(_test)
 
@@ -1807,7 +1831,7 @@ def _test():
 retry_test(_test)
 
 = Whois request
-~ netaccess IP
+~ netaccess IP as_resolvers
 * This test retries on failure because it often fails
 def _test():
     IP(src="8.8.8.8").whois()
@@ -1851,7 +1875,7 @@ assert len(tmp) == 3
 assert [l[1] for l in tmp] == ['AS24776', 'AS36459', 'AS26496']
 
 = AS resolver - IPv6
-~ netaccess IP
+~ netaccess IP as_resolvers
 * This test retries on failure because it often fails
 
 def _test():
@@ -1974,7 +1998,8 @@ retry_test(_test)
 ~ netaccess needs_root tcpdump
 * Let's test traceroute
 def _test():
-    ans, unans = traceroute("www.slashdot.org")
+    with no_debug_dissector():
+        ans, unans = traceroute("www.slashdot.org")
     ans.nsummary()
     s,r=ans[0]
     s.show()
@@ -2025,7 +2050,7 @@ send(fuzz(ARP()))
 = Test SuperSocket.select
 ~ select
 
-import mock
+from unittest import mock
 
 @mock.patch("scapy.supersocket.select")
 def _test_select(select):
@@ -2201,6 +2226,18 @@ wrpcapng(tmpfile, p)
 l = rdpcap(tmpfile)
 assert l[0].comment == p.comment
 
+= rdpcap on fifo
+~ linux
+f = get_temp_file()
+os.unlink(f)
+os.mkfifo(f)
+p = Ether(bytes(Ether(dst="ff:ff:ff:ff:ff:ff")/"Hello Scapy!!!"))
+s = AsyncSniffer(offline=f)
+s.start()
+wrpcap(f, p)
+s.join(timeout=1)
+assert s.results[0] == p
+
 = Check multiple packets with different combination of linktype,comment,direction,sniffed_on fields. test both wrpcap() and wrpcapng()
 import random,string
 random.seed(0x2807)
@@ -2252,18 +2289,33 @@ for i in range(len(plist)):
     assert type(plist_check[i]) == type(plist[0])
     assert bytes(plist_check[i]) == bytes(plist[i])
 
+= PcapNg - Process Information Block
+
+pib_pcapng_file = BytesIO(b'\n\r\r\n\xbc\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x02\x00\x05\x00arm64\x00\x00\x00\x03\x00f\x00Darwin Kernel Version 23.3.0: Thu Dec 21 02:29:41 PST 2023; root:xnu-10002.81.5~11/RELEASE_ARM64_T8122\x00\x00\x04\x00 \x00tcpdump (libpcap version 1.10.1)\x00\x00\x00\x00\xbc\x00\x00\x00\x01\x00\x00\x00 \x00\x00\x00\x01\x00\x00\x00\x00\x00\x08\x00\x02\x00\x03\x00en0\x00\x00\x00\x00\x00 \x00\x00\x00\x01\x00\x00\x80 \x00\x00\x00$\'\x00\x00\x02\x00\x06\x00trustd\x00\x00\x00\x00\x00\x00 \x00\x00\x00\x01\x00\x00\x80$\x00\x00\x00")\x00\x00\x02\x00\x0c\x00mobileassetd\x00\x00\x00\x00$\x00\x00\x00\x06\x00\x00\x00\x90\x00\x00\x00\x00\x00\x00\x00\xfb\x18\x06\x00EcqdB\x00\x00\x00B\x00\x00\x00\xe8\x9f\x80\xfa\x8c\xc6P\xa6\xd8\xd5\x83v\x08\x00E\x00\x004\x00\x00@\x00@\x06\x90T\nh\x01\xc3\xc0\xe5\xdd_\xf4\xb8\x00P\x95\xc3\xcb\x01\xcb\xeb\x11\xe8\x80\x11\x08\x00\x0c\xe6\x00\x00\x01\x01\x08\n\xbe\xb8\xd4\xb3\xbb\x9b4\xbc\x00\x00\x01\x80\x04\x00\x00\x00\x00\x00\x03\x80\x04\x00\x01\x00\x00\x00\x02\x00\x04\x00\x02\x00\x00\x00\x02\x80\x04\x00\x00\x00\x00\x00\x04\x80\x04\x00\x10\x00\x00\x00\x00\x00\x00\x00\x90\x00\x00\x00')
+
+l = rdpcap(pib_pcapng_file)
+assert(len(l) == 1)
+assert(TCP in l[0])
+assert(len(l[0].process_information) == 2)
+assert(l[0].process_information["proc"]["name"] == "trustd")
+
 = OSS-Fuzz Findings
 
 from io import BytesIO
 # Issue 68352
 file = BytesIO(b"\n\r\r\n\x1c\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x1c\x00\x00\x00\x01\x00\x00\x00\x14\x00\x00\x00\xe4\x00\x00\x00\x00\x00\x04\x00\x14\x00\x00\x00\x01\x00\x00\x00(\x00\x00\x00\xe4\x00\x00\x00\x00\x00\x04\x00\x02\x00\t\x00b'ens16\xb0'\x00\x00\x00\x00\x00\x00\x00(\x00\x00\x00\x06\x00\x00\x004\x00\x00\x00\x01\x00\x00\x00}\x17\x06\x00\xb5t\x1d\x85\x14\x00\x00\x00\x14\x00\x00\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x014\x00\x00\x00")
 rdpcap(file)
+
 # Issue 68354
 file = BytesIO(b'\n\r\r\n\xff\xfe\xfe\xffM<+\x1a')
 try:
     rdpcap(file)
 except Scapy_Exception:
     pass
+
+# Issue #70115
+file = BytesIO(b"\n\r\r\n\x00\x00\x008\x1a+<M\x00\x01\x00\x00\xef\xff\xff\x81\x01\x00\x00\x01\x00\x00\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x009\x00\x00\x00\x01\x00\x00\x000\x00e\x00\x00\x00\x00\x00\x00\x00\x008\x00\x00\x00\x06\x00\x00\x00d\x00\x00\x00\x00'\x00\x00\x00\x01\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x80\x01\x00\x00\x000\x00\x00\x00\x01\x00\x00\x008\x00\x00\n\x0c\x00A\x05\xc0\x01\x00\x00\x00\x00\x00d\x00\x00\x00\x00\x00\x00\x00\x00\x000\x00\x00\x00\x01\x00\x00\x008\x00\x00\n\x0c\x00A\x05\xc0\x83\x00\x00\x043\x01\x00\x00\x00\x00\x00d\x00\x00\x00\x00d")
+l = rdpcap(file)
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
@@ -2393,7 +2445,7 @@ assert len(sniff(offline=[IP()/UDP(), IP()/TCP()], lfilter=lambda x: TCP in x)) 
 
 = Check offline sniff() without a tcpdump binary
 ~ tcpdump
-import mock
+from unittest import mock
 
 conf_prog_tcpdump = conf.prog.tcpdump
 conf.prog.tcpdump = "tcpdump_fake"
@@ -2577,7 +2629,7 @@ assert b'127.0.0.1 > 127.0.0.1:' in data[2]
 
 * Non existing tcpdump binary
 
-import mock
+from unittest import mock
 
 conf_prog_tcpdump = conf.prog.tcpdump
 conf.prog.tcpdump = "tcpdump_fake"
@@ -2785,7 +2837,7 @@ os.remove(filename)
 
 = Check wrpcap() with different packets types
 
-import mock
+from unittest import mock
 import os
 import tempfile
 
@@ -2859,7 +2911,7 @@ assert pkterf[1][Ether].src == "00:0f:53:3f:ca:c0"
 = Truncated netstat -rn output on OS X
 ~ mock_read_routes_bsd
 
-import mock
+from unittest import mock
 from io import StringIO
 
 @mock.patch("scapy.arch.get_if_addr")
@@ -2917,7 +2969,7 @@ test_osx_netstat_truncated()
 = macOS 10.13
 ~ mock_read_routes_bsd
 
-import mock
+from unittest import mock
 from io import StringIO
 
 @mock.patch("scapy.arch.get_if_addr")
@@ -2976,7 +3028,7 @@ test_osx_10_13_ipv4()
 = macOS 10.15
 ~ mock_read_routes_bsd
 
-import mock
+from unittest import mock
 from io import StringIO
 
 @mock.patch("scapy.arch.get_if_addr")
@@ -3031,7 +3083,7 @@ test_osx_10_15_ipv4()
 = OpenBSD 6.3
 ~ mock_read_routes_bsd
 
-import mock
+from unittest import mock
 from io import StringIO
 
 @mock.patch("scapy.arch.get_if_addr")
@@ -3101,7 +3153,7 @@ assert locked[3] == "bge0"
 = Solaris 11.1
 ~ mock_read_routes_bsd
 
-import mock
+from unittest import mock
 from io import StringIO
 
 # Mocked Solaris 11.1 parsing behavior
@@ -3233,7 +3285,7 @@ assert results_dict == expected
 = Preliminary definitions
 ~ mock_read_routes_bsd
 
-import mock
+from unittest import mock
 from io import StringIO
 
 def valid_output_read_routes6(routes):
@@ -3263,7 +3315,7 @@ def check_mandatory_ipv6_routes(routes6):
 = Mac OS X 10.9.5
 ~ mock_read_routes_bsd
 
-import mock
+from unittest import mock
 from io import StringIO
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
@@ -3311,7 +3363,7 @@ test_osx_10_9_5()
 = Mac OS X 10.9.5 with global IPv6 connectivity
 ~ mock_read_routes_bsd
 
-import mock
+from unittest import mock
 from io import StringIO
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
@@ -3364,7 +3416,7 @@ test_osx_10_9_5_global()
 = Mac OS X 10.10.4
 ~ mock_read_routes_bsd
 
-import mock
+from unittest import mock
 from io import StringIO
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
@@ -3407,7 +3459,7 @@ test_osx_10_10_4()
 = FreeBSD 10.2
 ~ mock_read_routes_bsd
 
-import mock
+from unittest import mock
 from io import StringIO
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
@@ -3453,7 +3505,7 @@ test_freebsd_10_2()
 = FreeBSD 13.0
 ~ mock_read_routes_bsd
 
-import mock
+from unittest import mock
 from io import StringIO
  
 @mock.patch("scapy.arch.get_if_addr")
@@ -3499,7 +3551,7 @@ test_freebsd_13()
 = OpenBSD 5.5
 ~ mock_read_routes_bsd
 
-import mock
+from unittest import mock
 from io import StringIO
 
 @mock.patch("scapy.arch.unix.OPENBSD")
@@ -4364,7 +4416,7 @@ assert sum(1 for oid in conf.mib) > 100
 = MIB - graph
 ~ mib
 
-import mock
+from unittest import mock
 
 @mock.patch("scapy.asn1.mib.do_graph")
 def get_mib_graph(do_graph):
@@ -4412,6 +4464,18 @@ try:
 except DeprecationWarning:
     # -Werror is used
     pass
+
+= MIB - Check that MIB OIDs are not duplicated
+~ mib
+
+from scapy.asn1.mib import x509_oids_sets
+
+_dct = {}
+for d in x509_oids_sets:
+    for elt in d:
+        if elt in _dct:
+            raise ValueError("OID %s already exists" % elt)
+    _dct.update(d)
 
 = BER tests
 
@@ -4827,7 +4891,7 @@ assert all(bytes(a[0]) == bytes(b[0]) for a, b in zip(unp, srl))
 
 = plot()
 
-import mock
+from unittest import mock
 import scapy.libs.matplot
 
 @mock.patch("scapy.libs.matplot.plt")
@@ -4843,7 +4907,7 @@ test_plot()
 
 = diffplot()
 
-import mock
+from unittest import mock
 import scapy.libs.matplot
 
 @mock.patch("scapy.libs.matplot.plt")
@@ -4859,7 +4923,7 @@ test_diffplot()
 
 = multiplot()
 
-import mock
+from unittest import mock
 import scapy.libs.matplot
 
 @mock.patch("scapy.libs.matplot.plt")
@@ -4968,7 +5032,7 @@ test_nzpadding()
 
 = conversations()
 
-import mock
+from unittest import mock
 @mock.patch("scapy.plist.do_graph")
 def test_conversations(mock_do_graph):
     def fake_do_graph(graph, **kwargs):
@@ -4996,7 +5060,7 @@ assert len(pl.sessions().keys()) == 5
 
 = afterglow()
 
-import mock
+from unittest import mock
 @mock.patch("scapy.plist.do_graph")
 def test_afterglow(mock_do_graph):
     def fake_do_graph(graph, **kwargs):
@@ -5073,10 +5137,10 @@ assert pl[1][Ether].dst == '00:22:33:44:55:66'
 = _version()
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 version_filename = os.path.join(scapy._SCAPY_PKG_DIR, "VERSION")
-mtime = datetime.utcfromtimestamp(os.path.getmtime(scapy.__file__))
+mtime = datetime.fromtimestamp(os.path.getmtime(scapy.__file__), timezone.utc)
 version = "2.0.0"
 with open(version_filename, "w") as fd:
     fd.write(version)
@@ -5088,7 +5152,7 @@ del os.environ["SCAPY_VERSION"]
 assert scapy._version() == version
 os.unlink(version_filename)
 
-import mock
+from unittest import mock
 with mock.patch("scapy._version_from_git_archive") as archive:
     archive.return_value = "4.4.4"
     assert scapy._version() == "4.4.4"
@@ -5126,7 +5190,7 @@ assert os.path.isdir(dname)
 = test fragleak functions
 ~ netaccess linux fragleak
 
-import mock
+from unittest import mock
 
 @mock.patch("scapy.layers.inet.conf.L3socket")
 @mock.patch("scapy.layers.inet.select.select")

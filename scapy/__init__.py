@@ -68,7 +68,7 @@ def _version_from_git_archive():
         return _parse_tag(tag)
     elif tstamp:
         # archived revision is not tagged, use the commit date
-        d = datetime.datetime.utcfromtimestamp(int(tstamp))
+        d = datetime.datetime.fromtimestamp(int(tstamp), datetime.timezone.utc)
         return d.strftime('%Y.%m.%d')
 
     raise ValueError("invalid git archive format")
@@ -162,7 +162,9 @@ def _version():
     # Fallback
     try:
         # last resort, use the modification date of __init__.py
-        d = datetime.datetime.utcfromtimestamp(os.path.getmtime(__file__))
+        d = datetime.datetime.fromtimestamp(
+            os.path.getmtime(__file__), datetime.timezone.utc
+        )
         return d.strftime('%Y.%m.%d')
     except Exception:
         pass

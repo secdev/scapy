@@ -71,6 +71,7 @@ from scapy.arch.libpcap import (  # noqa: E402
 
 # Detection happens after libpcap import (NPcap detection)
 NPCAP_LOOPBACK_NAME = r"\Device\NPF_Loopback"
+NPCAP_LOOPBACK_NAME_LEGACY = "Npcap Loopback Adapter"  # before npcap 0.9983
 if conf.use_npcap:
     conf.loopback_name = NPCAP_LOOPBACK_NAME
 else:
@@ -342,7 +343,7 @@ class NetworkInterface_Win(NetworkInterface):
 
         try:
             # Npcap loopback interface
-            if conf.use_npcap and self.network_name == NPCAP_LOOPBACK_NAME:
+            if conf.use_npcap and self.network_name == conf.loopback_name:
                 # https://nmap.org/npcap/guide/npcap-devguide.html
                 data["mac"] = "00:00:00:00:00:00"
                 data["ip"] = "127.0.0.1"
@@ -602,14 +603,20 @@ class WindowsInterfacesProvider(InterfaceProvider):
             # Try a restart
             WindowsInterfacesProvider._pcap_check()
 
+        legacy_npcap_guid = None
         windows_interfaces = dict()
         for i in get_windows_if_list():
-            # Detect Loopback interface
-            if "Loopback" in i['name']:
-                i['name'] = conf.loopback_name
+            # Only consider interfaces with a GUID
             if i['guid']:
-                if conf.use_npcap and i['name'] == conf.loopback_name:
-                    i['guid'] = NPCAP_LOOPBACK_NAME
+                if conf.use_npcap:
+                    # Detect the legacy Loopback interface
+                    if i['name'] == NPCAP_LOOPBACK_NAME_LEGACY:
+                        # Legacy Npcap (<0.9983)
+                        legacy_npcap_guid = i['guid']
+                    elif "Loopback" in i['name']:
+                        # Newer Npcap
+                        i['guid'] = conf.loopback_name
+                # Map interface
                 windows_interfaces[i['guid']] = i
 
         def iterinterfaces() -> Iterator[
@@ -621,12 +628,16 @@ class WindowsInterfacesProvider(InterfaceProvider):
                 for netw, if_data in conf.cache_pcapiflist.items():
                     name, ips, flags, _ = if_data
                     guid = _pcapname_to_guid(netw)
+                    if guid == legacy_npcap_guid:
+                        # Legacy Npcap detected !
+                        conf.loopback_name = netw
                     data = windows_interfaces.get(guid, None)
                     yield netw, name, ips, flags, guid, data
             else:
                 # We don't have a libpcap provider: only use Windows data
                 for guid, data in windows_interfaces.items():
-                    yield guid, None, [], 0, guid, data
+                    netw = r'\Device\NPF_' + guid if guid[0] != '\\' else guid
+                    yield netw, None, [], 0, guid, data
 
         index = 0
         for netw, name, ips, flags, guid, data in iterinterfaces():
@@ -746,7 +757,7 @@ def pcap_service_stop(askadmin=True):
 if conf.use_pcap:
     _orig_open_pcap = libpcap.open_pcap
 
-    def open_pcap(iface,  # type: Union[str, NetworkInterface]
+    def open_pcap(device,  # type: Union[str, NetworkInterface]
                   *args,  # type: Any
                   **kargs  # type: Any
                   ):
@@ -754,7 +765,7 @@ if conf.use_pcap:
         """open_pcap: Windows routine for creating a pcap from an interface.
         This function is also responsible for detecting monitor mode.
         """
-        iface = cast(NetworkInterface_Win, resolve_iface(iface))
+        iface = cast(NetworkInterface_Win, resolve_iface(device))
         iface_network_name = iface.network_name
         if not iface:
             raise Scapy_Exception(
@@ -1021,7 +1032,7 @@ class _NotAvailableSocket(SuperSocket):
         # type: (*Any, **Any) -> None
         raise RuntimeError(
             "Sniffing and sending packets is not available at layer 2: "
-            "winpcap is not installed. You may use conf.L3socket or"
+            "winpcap is not installed. You may use conf.L3socket or "
             "conf.L3socket6 to access layer 3"
         )
 

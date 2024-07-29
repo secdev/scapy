@@ -15,7 +15,7 @@ import time
 from scapy.ansmachine import AnsweringMachine
 from scapy.arch import get_if_addr, get_if_hwaddr
 from scapy.base_classes import Gen, Net
-from scapy.compat import chb, orb
+from scapy.compat import chb
 from scapy.config import conf
 from scapy import consts
 from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
@@ -59,8 +59,20 @@ from scapy.plist import (
     _PacketList,
 )
 from scapy.sendrecv import sendp, srp, srp1, srploop
-from scapy.utils import checksum, hexdump, hexstr, inet_ntoa, inet_aton, \
-    mac2str, valid_mac, valid_net, valid_net6
+from scapy.utils import (
+    checksum,
+    hexdump,
+    hexstr,
+    in4_getnsmac,
+    in4_ismaddr,
+    inet_aton,
+    inet_ntoa,
+    mac2str,
+    pretty_list,
+    valid_mac,
+    valid_net,
+    valid_net6,
+)
 
 # Typing imports
 from typing import (
@@ -121,19 +133,36 @@ _arp_cache = conf.netcache.new_cache("arp_cache", 120)
 @conf.commands.register
 def getmacbyip(ip, chainCC=0):
     # type: (str, int) -> Optional[str]
-    """Return MAC address corresponding to a given IP address"""
+    """
+    Returns the MAC address used to reach a given IP address.
+
+    This will follow the routing table and will issue an ARP request if
+    necessary. Special cases (multicast, etc.) are also handled.
+
+    .. seealso:: :func:`~scapy.layers.inet6.getmacbyip6` for IPv6.
+    """
+    # Sanitize the IP
     if isinstance(ip, Net):
         ip = next(iter(ip))
     ip = inet_ntoa(inet_aton(ip or "0.0.0.0"))
-    tmp = [orb(e) for e in inet_aton(ip)]
-    if (tmp[0] & 0xf0) == 0xe0:  # mcast @
-        return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1] & 0x7f, tmp[2], tmp[3])
+
+    # Multicast
+    if in4_ismaddr(ip):  # mcast @
+        mac = in4_getnsmac(inet_aton(ip))
+        return mac
+
+    # Check the routing table
     iff, _, gw = conf.route.route(ip)
+
+    # Broadcast case
     if (iff == conf.loopback_name) or (ip in conf.route.get_if_bcast(iff)):
         return "ff:ff:ff:ff:ff:ff"
+
+    # An ARP request is necessary
     if gw != "0.0.0.0":
         ip = gw
 
+    # Check the cache
     mac = _arp_cache.get(ip)
     if mac:
         return mac
@@ -199,8 +228,6 @@ class SourceMACField(MACField):
         # type: (Optional[Packet], Optional[str]) -> str
         if x is None:
             iff = self.getif(pkt)
-            if iff is None:
-                iff = conf.iface
             if iff:
                 x = resolve_iface(iff).mac
             if x is None:
@@ -881,6 +908,7 @@ def arp_mitm(
 
         $ sysctl net.ipv4.conf.virbr0.send_redirects=0  # virbr0 = interface
         $ sysctl net.ipv4.ip_forward=1
+        $ sudo iptables -t mangle -A PREROUTING -j TTL --ttl-inc 1
         $ sudo scapy
         >>> arp_mitm("192.168.122.156", "192.168.122.17")
 
@@ -957,7 +985,7 @@ def arp_mitm(
              for ipa, maca in tup1
              for ipb, macb in tup2
              for x in
-             Ether(dst=maca, src=macb) /
+             Ether(dst="ff:ff:ff:ff:ff:ff", src=macb) /
              ARP(op="who-has", psrc=ipb, pdst=ipa,
                  hwsrc=macb, hwdst="00:00:00:00:00:00")
              ),
@@ -965,7 +993,7 @@ def arp_mitm(
              for ipb, macb in tup2
              for ipa, maca in tup1
              for x in
-             Ether(dst=macb, src=maca) /
+             Ether(dst="ff:ff:ff:ff:ff:ff", src=maca) /
              ARP(op="who-has", psrc=ipa, pdst=ipb,
                  hwsrc=maca, hwdst="00:00:00:00:00:00")
              ),
@@ -987,18 +1015,20 @@ class ARPingResult(SndRcvList):
         """
         Print the list of discovered MAC addresses.
         """
-
-        data = list()
-        padding = 0
+        data = list()  # type: List[Tuple[str | List[str], ...]]
 
         for s, r in self.res:
             manuf = conf.manufdb._get_short_manuf(r.src)
             manuf = "unknown" if manuf == r.src else manuf
-            padding = max(padding, len(manuf))
             data.append((r[Ether].src, manuf, r[ARP].psrc))
 
-        for src, manuf, psrc in data:
-            print("  %-17s %-*s %s" % (src, padding, manuf, psrc))
+        print(
+            pretty_list(
+                data,
+                [("src", "manuf", "psrc")],
+                sortBy=2,
+            )
+        )
 
 
 @conf.commands.register

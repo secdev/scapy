@@ -381,6 +381,20 @@ assert req.hashret() == resp.hashret()
 assert resp[3].answers(req[3])
 assert not req[3].answers(resp[3])
 
+= TCPSession Test
+
+tmp_file = get_temp_file()
+
+wrpcap(tmp_file, [
+    IP(src="10.10.10.10", dst="10.10.10.11") / TCP(sport=61000, seq=1) / DoIP(payload_type=0x8001, payload_length=6) / b"\x3E",
+    IP(src="10.10.10.10", dst="10.10.10.11") / TCP(sport=61000, dport=13400, seq=14) / Raw(load=b"\xff")
+])
+
+pkts = sniff(offline=tmp_file, session=TCPSession)
+assert pkts[0].haslayer(UDS_TP)
+assert pkts[0].service == 0x3E
+
+
 + DoIP Communication tests
 
 = Load libraries
@@ -510,6 +524,7 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test DoIPSslSocket
+~ broken_windows
 
 certstring = """
 LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2QUlCQURBTkJna3Foa2lHOXcwQkFRRUZB
@@ -612,6 +627,7 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test DoIPSslSocket6
+~ broken_windows
 
 server_up = threading.Event()
 def server():
@@ -648,6 +664,7 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test UDS_DoIPSslSocket6
+~ broken_windows
 
 server_up = threading.Event()
 def server():
@@ -684,6 +701,7 @@ server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test UDS_DualDoIPSslSocket6
+~ broken_windows
 
 server_tcp_up = threading.Event()
 server_tls_up = threading.Event()

@@ -57,6 +57,10 @@ from typing import (
 from scapy.compat import DecoratorCallable
 
 
+# winsock.h
+FD_READ = 0x00000001
+
+
 def select_objects(inputs, remain):
     # type: (Iterable[Any], Union[float, int, None]) -> List[Any]
     """
@@ -83,12 +87,26 @@ def select_objects(inputs, remain):
     """
     if not WINDOWS:
         return select.select(inputs, [], [], remain)[0]
-    natives = []
+    inputs = list(inputs)
     events = []
+    created = []
     results = set()
-    for i in list(inputs):
+    for i in inputs:
         if getattr(i, "__selectable_force_select__", False):
-            natives.append(i)
+            # Native socket.socket object. We would normally use select.select.
+            evt = ctypes.windll.ws2_32.WSACreateEvent()
+            created.append(evt)
+            res = ctypes.windll.ws2_32.WSAEventSelect(
+                ctypes.c_void_p(i.fileno()),
+                evt,
+                FD_READ
+            )
+            if res == 0:
+                # Was a socket
+                events.append(evt)
+            else:
+                # Fallback to normal event
+                events.append(i.fileno())
         elif i.fileno() < 0:
             # Special case: On Windows, we consider that an object that returns
             # a negative fileno (impossible), is always readable. This is used
@@ -96,18 +114,13 @@ def select_objects(inputs, remain):
             # no valid fileno (and will stop on EOFError).
             results.add(i)
         else:
-            events.append(i)
-    if natives:
-        results = results.union(set(select.select(natives, [], [], remain)[0]))
-        if results:
-            # We have native results, poll.
-            remain = 0
+            events.append(i.fileno())
     if events:
         # 0xFFFFFFFF = INFINITE
         remainms = int(remain * 1000 if remain is not None else 0xFFFFFFFF)
         if len(events) == 1:
             res = ctypes.windll.kernel32.WaitForSingleObject(
-                ctypes.c_void_p(events[0].fileno()),
+                ctypes.c_void_p(events[0]),
                 remainms
             )
         else:
@@ -117,22 +130,25 @@ def select_objects(inputs, remain):
             res = ctypes.windll.kernel32.WaitForMultipleObjects(
                 len(events),
                 (ctypes.c_void_p * len(events))(
-                    *[x.fileno() for x in events]
+                    *events
                 ),
                 False,
                 remainms
             )
         if res != 0xFFFFFFFF and res != 0x00000102:  # Failed or Timeout
-            results.add(events[res])
+            results.add(inputs[res])
             if len(events) > 1:
                 # Now poll the others, if any
-                for evt in events:
+                for i, evt in enumerate(events):
                     res = ctypes.windll.kernel32.WaitForSingleObject(
-                        ctypes.c_void_p(evt.fileno()),
+                        ctypes.c_void_p(evt),
                         0  # poll: don't wait
                     )
                     if res == 0:
-                        results.add(evt)
+                        results.add(inputs[i])
+    # Cleanup created events, if any
+    for evt in created:
+        ctypes.windll.ws2_32.WSACloseEvent(evt)
     return list(results)
 
 

@@ -101,7 +101,7 @@ jobs:
             installmode: 'libpcap'
             flags: " -K scanner"
           # macOS tests
-          - os: macos-12
+          - os: macos-14
             python: "3.12"
             mode: both
             flags: " -K scanner"
@@ -116,7 +116,7 @@ jobs:
             mode: root
             allow-failure: 'true'
             flags: " -k scanner"
-          - os: macos-12
+          - os: macos-14
             python: "3.12"
             mode: both
             allow-failure: 'true'
@@ -137,6 +137,7 @@ jobs:
         run: UT_FLAGS="${{ matrix.flags }}" ./.config/ci/test.sh ${{ matrix.python }} ${{ matrix.mode }}
       - name: Codecov
         uses: codecov/codecov-action@v4
+        continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 

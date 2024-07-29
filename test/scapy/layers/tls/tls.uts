@@ -1345,7 +1345,7 @@ assert not TLSHelloRequest().tls_session_update(None)
 
 = Cryptography module is unavailable
 ~ mock
-import mock
+from unittest import mock
 
 @mock.patch("scapy.layers.tls.crypto.suites.get_algs_from_ciphersuite_name")
 def test_tls_without_cryptography(get_algs_from_ciphersuite_name_mock):
@@ -1548,6 +1548,11 @@ assert tls_packet.tls_session.tls13_client_pubshares['ffdhe4096'].key_size == 40
 tls_packet = TLS(msg=[TLSClientHello(ext=[TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group="ffdhe4096")])])])
 tls_packet.raw_stateful()
 assert tls_packet.tls_session.tls13_client_privshares['ffdhe4096'].key_size == 4096
+
+= Issue 4418 - TLSFinished
+
+tls_packet = TLSFinished(bytes.fromhex('1400000c72793a9d2f946a0455bf1995'))
+assert tls_packet.vdata == b'ry:\x9d/\x94j\x04U\xbf\x19\x95'
 
 = OCSP: payload after OCSP - GH3291
 

@@ -124,8 +124,8 @@ pkt = DNS(qr=1, qd=[], aa=1, rd=1)
 pkt.an = [
     DNSRR(type=12, rrname='_raop._tcp.local.', rdata='140C768FFE28@Freebox Server._raop._tcp.local.'),
     DNSRR(rrname='140C768FFE28@Freebox Server._raop._tcp.local.', type=16, rdata=[b'txtvers=1', b'vs=190.9', b'ch=2', b'sr=44100', b'ss=16', b'pw=false', b'et=0,1', b'ek=1', b'tp=TCP,UDP', b'am=FreeboxServer1,2', b'cn=0,1,2,3', b'md=0,2', b'sf=0x44', b'ft=0xBF0A00', b'sv=false', b'da=true', b'vn=65537', b'vv=2']),
-    DNSRRSRV(rrname='140C768FFE28@Freebox Server._raop._tcp.local.', target='Freebox-Server-3.local.', port=5000, type=33, rclass=32769),
-    DNSRR(rrname='Freebox-Server-3.local.', rdata='192.168.0.254', rclass=32769, type=1, ttl=120),
+    DNSRRSRV(rrname='140C768FFE28@Freebox Server._raop._tcp.local.', target='Freebox-Server-3.local.', port=5000, type=33, cacheflush=1, rclass=1),
+    DNSRR(rrname='Freebox-Server-3.local.', rdata='192.168.0.254', cacheflush=1, rclass=1, type=1, ttl=120),
 ]
 
 pkt = DNS(raw(pkt))
@@ -272,6 +272,17 @@ assert DNSRR(raw(rr)).rdata == []
 
 rr = DNSRR(rrname='scapy', type='TXT', rdata=[])
 assert raw(rr) == b
+
+= DNS record type 35 (NAPTR)
+
+b = b'\x00\x00#\x00\x01\x00\x00\x00\x00\x00+\x00\n\x00d\x01u\x07E2U+sip\x1b!^.*$!sip:info@example.com!\x00'
+
+p = DNSRRNAPTR(b)
+assert p.order == 10 and p.preference == 100 and p.flags == b'u' and p.services == b'E2U+sip'
+assert p.regexp == b'!^.*$!sip:info@example.com!' and p.replacement == b'.'
+
+p = DNSRRNAPTR(order=10, preference=100, flags="u", services="E2U+sip", regexp="!^.*$!sip:info@example.com!")
+assert raw(p) == b
 
 = DNS record type 39 (DNAME)
 

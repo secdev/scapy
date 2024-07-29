@@ -899,7 +899,7 @@ t.open_file(TICKETER_TEMPFILE)
 = Ticketer++ - Get ticket 0, change it, resign it and set it back
 
 # mock the random to get consistency
-import mock
+from unittest import mock
 
 def fake_random(x):
     # wow, impressive entropy
@@ -1211,7 +1211,7 @@ ts.pausec == 0x9a4db
 
 = [MS-KILE] RC4 GSS_WrapEx (RFC4757) test vectors (sect 4.5)
 
-import mock
+from unittest import mock
 from scapy.libs.rfc3961 import Key, EncryptionType
 
 ssp = KerberosSSP()
@@ -1252,7 +1252,7 @@ assert _msgs[0].data.hex() == "112233445566778899aabbccddeeff"
 = Create randomness-mock context manager
 
 # mock the random to get consistency
-import mock
+from unittest import mock
 from datetime import datetime
 
 def fake_urandom(x):
@@ -1266,7 +1266,7 @@ def fake_choice(x):
     return x[0]
 
 date_mock = mock.MagicMock()
-date_mock.utcnow.return_value = datetime(2024, 3, 5, 16, 52, 55, 424801)
+date_mock.now.side_effect = lambda tz=None: datetime(2024, 3, 5, 16, 52, 55, 424801, tz)
 
 _patches = [
     # Patch all the random
@@ -1545,12 +1545,11 @@ assert tok is None
 
 data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"
 
-edata, sig = client.GSS_Wrap(
+sig = client.GSS_Wrap(
     clicontext,
     data,
     conf_req_flag=False,
 )
-assert edata == b""
 assert sig.TOK_ID == b"\x05\x04"
 assert sig.root.Flags == 4
 assert sig.root.EC == 12
@@ -1559,7 +1558,6 @@ assert bytes(sig) == b'\x05\x04\x04\xff\x00\x0c\x00\x0c\x00\x00\x00\x00@\x00\x00
 
 ddata = server.GSS_Unwrap(
     srvcontext,
-    edata,
     sig,
 )
 assert ddata == data
@@ -1568,12 +1566,11 @@ assert ddata == data
 
 data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"
 
-edata, sig = server.GSS_Wrap(
+sig = server.GSS_Wrap(
     srvcontext,
     data,
     conf_req_flag=False,
 )
-assert edata == b""
 assert sig.TOK_ID == b"\x05\x04"
 assert sig.root.Flags == 5
 assert sig.root.EC == 12
@@ -1583,14 +1580,13 @@ assert bytes(sig) == b"\x05\x04\x05\xff\x00\x0c\x00\x0c\x00\x00\x00\x00\x00\x00\
 
 ddata = client.GSS_Unwrap(
     clicontext,
-    edata,
     sig,
 )
 assert ddata == data
 
 = GSS_WrapEx/GSS_UnwrapEx: client sends wrapped payload with confidentiality
 
-import mock
+from unittest import mock
 from scapy.libs.rfc3961 import Key, EncryptionType
 
 # Data

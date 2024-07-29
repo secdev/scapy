@@ -130,7 +130,12 @@ class NBNSHeader(Packet):
         ShortField("ARCOUNT", 0),
     ]
 
+    def hashret(self):
+        return b"NBNS" + struct.pack("!B", self.OPCODE)
+
+
 # Name Query Request
+# RFC1002 sect 4.2.12
 
 
 class NBNSQueryRequest(Packet):
@@ -143,7 +148,7 @@ class NBNSQueryRequest(Packet):
 
     def mysummary(self):
         return "NBNSQueryRequest who has '\\\\%s'" % (
-            self.QUESTION_NAME.strip().decode(errors="backslashreplace")
+            self.QUESTION_NAME.decode(errors="backslashreplace")
         )
 
 
@@ -152,6 +157,7 @@ bind_layers(NBNSHeader, NBNSQueryRequest,
 
 
 # Name Query Response
+# RFC1002 sect 4.2.13
 
 
 class NBNS_ADD_ENTRY(Packet):
@@ -182,16 +188,26 @@ class NBNSQueryResponse(Packet):
         if not self.ADDR_ENTRY:
             return "NBNSQueryResponse"
         return "NBNSQueryResponse '\\\\%s' is at %s" % (
-            self.RR_NAME.strip().decode(errors="backslashreplace"),
+            self.RR_NAME.decode(errors="backslashreplace"),
             self.ADDR_ENTRY[0].NB_ADDRESS
         )
 
+    def answers(self, other):
+        return (
+            isinstance(other, NBNSQueryRequest) and
+            other.QUESTION_NAME == self.RR_NAME
+        )
 
-bind_layers(NBNSHeader, NBNSQueryResponse,
+
+bind_layers(NBNSHeader, NBNSQueryResponse,  # RD+AA
             OPCODE=0x0, NM_FLAGS=0x50, RESPONSE=1, ANCOUNT=1)
+for _flg in [0x58, 0x70, 0x78]:
+    bind_bottom_up(NBNSHeader, NBNSQueryResponse,
+                   OPCODE=0x0, NM_FLAGS=_flg, RESPONSE=1, ANCOUNT=1)
+
 
 # Node Status Request
-
+# RFC1002 sect 4.2.17
 
 class NBNSNodeStatusRequest(NBNSQueryRequest):
     name = "NBNS status request"
@@ -200,15 +216,16 @@ class NBNSNodeStatusRequest(NBNSQueryRequest):
 
     def mysummary(self):
         return "NBNSNodeStatusRequest who has '\\\\%s'" % (
-            self.QUESTION_NAME.strip().decode(errors="backslashreplace")
+            self.QUESTION_NAME.decode(errors="backslashreplace")
         )
 
 
 bind_bottom_up(NBNSHeader, NBNSNodeStatusRequest, OPCODE=0x0, NM_FLAGS=0, QDCOUNT=1)
 bind_layers(NBNSHeader, NBNSNodeStatusRequest, OPCODE=0x0, NM_FLAGS=1, QDCOUNT=1)
 
-# Node Status Response
 
+# Node Status Response
+# RFC1002 sect 4.2.18
 
 class NBNSNodeStatusResponseService(Packet):
     name = "NBNS Node Status Response Service"
@@ -255,8 +272,9 @@ class NBNSNodeStatusResponse(Packet):
 bind_layers(NBNSHeader, NBNSNodeStatusResponse,
             OPCODE=0x0, NM_FLAGS=0x40, RESPONSE=1, ANCOUNT=1)
 
-# Name Registration Request
 
+# Name Registration Request
+# RFC1002 sect 4.2.2
 
 class NBNSRegistrationRequest(Packet):
     name = "NBNS registration request"
@@ -288,7 +306,7 @@ bind_layers(NBNSHeader, NBNSRegistrationRequest,
 
 
 # Wait for Acknowledgement Response
-
+# RFC1002 sect 4.2.16
 
 class NBNSWackResponse(Packet):
     name = "NBNS Wait for Acknowledgement Response"

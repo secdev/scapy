@@ -788,7 +788,7 @@ class SMBTransaction_Request(_NTLMPayloadPacket):
         )
 
     def mysummary(self):
-        if self.DataLen:
+        if getattr(self, "Data", None) is not None:
             return self.sprintf("Tran %Name% ") + self.Data.mysummary()
         return self.sprintf("Tran %Name%")
 

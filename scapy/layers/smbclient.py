@@ -1137,6 +1137,15 @@ class smbclient(CLIUtil):
                 ssp = None
         # Open socket
         sock = socket.socket(family, socket.SOCK_STREAM)
+        # Configure socket for SMB:
+        # - TCP KEEPALIVE, TCP_KEEPIDLE and TCP_KEEPINTVL. Against a Windows server this
+        #   isn't necessary, but samba kills the socket VERY fast otherwise.
+        # - set TCP_NODELAY to disable Nagle's algorithm (we're streaming data)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 10)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+        # Timeout & connect
         sock.settimeout(timeout)
         sock.connect((target, port))
         self.extra_create_options = []
@@ -1193,6 +1202,7 @@ class smbclient(CLIUtil):
         self.localpwd = pathlib.Path(".").resolve()
         self.current_tree = None
         self.ls_cache = {}  # cache the listing of the current directory
+        self.sh_cache = []  # cache the shares
         # Start CLI
         if cli:
             self.loop(debug=debug)
@@ -1226,6 +1236,9 @@ class smbclient(CLIUtil):
         """
         List the shares available
         """
+        # Poll cache
+        if self.sh_cache:
+            return self.sh_cache
         # One of the 'hardest' considering it's an RPC
         self.rpcclient.open_smbpipe("srvsvc")
         self.rpcclient.bind(find_dcerpc_interface("srvsvc"))
@@ -1253,6 +1266,7 @@ class smbclient(CLIUtil):
                     share.valueof("shi1_remark").decode(),
                 )
             )
+        self.sh_cache = results  # cache
         return results
 
     @CLIUtil.addoutput(shares)
@@ -1271,6 +1285,15 @@ class smbclient(CLIUtil):
         self.pwd = pathlib.PureWindowsPath("/")
         self.ls_cache.clear()
 
+    @CLIUtil.addcomplete(use)
+    def use_complete(self, share):
+        """
+        Auto-complete 'use'
+        """
+        return [
+            x[0] for x in self.shares() if x[0].startswith(share) and x[0] != "IPC$"
+        ]
+
     def _parsepath(self, arg, remote=True):
         """
         Parse a path. Returns the parent folder and file name
@@ -1282,7 +1305,7 @@ class smbclient(CLIUtil):
         if arg.endswith("/") or arg.endswith("\\"):
             eltpar = elt
             eltname = ""
-        elif elt.parent and elt.parent.name:
+        elif elt.parent and elt.parent.name or elt.is_absolute():
             eltpar = elt.parent
         return eltpar, eltname
 
@@ -1426,8 +1449,9 @@ class smbclient(CLIUtil):
         eltpar, eltname = self._parsepath(arg, remote=False)
         eltpar = self.localpwd / eltpar
         return [
-            str(x.relative_to(self.localpwd))
-            for x in eltpar.glob("*")
+            # trickery so that ../<TAB> works
+            str(eltpar / x.name)
+            for x in eltpar.resolve().glob("*")
             if (x.name.lower().startswith(eltname.lower()) and cond(x))
         ]
 

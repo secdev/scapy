@@ -404,7 +404,7 @@ class TLS13ClientHello(_TLSHandshake):
                         # For a resumed PSK, the hash function use
                         # to compute the binder must be the same
                         # as the one used to establish the original
-                        # conntection. For that, we assume that
+                        # connection. For that, we assume that
                         # the ciphersuite associate with the ticket
                         # is given as argument to tlsSession
                         # (see layers/tls/automaton_cli.py for an
@@ -526,6 +526,11 @@ class TLSServerHello(_TLSHandshake):
             if version == 0x0304 or version > 0x7f00:
                 return TLS13ServerHello
         return TLSServerHello
+
+    def build(self, *args, **kargs):
+        if self.getfieldval("sid") == b"" and self.tls_session:
+            self.sid = self.tls_session.sid
+        return super(TLSServerHello, self).build(*args, **kargs)
 
     def post_build(self, p, pay):
         if self.random_bytes is None:
@@ -707,6 +712,8 @@ class TLS13HelloRetryRequest(_TLSHandshake):
         fval = self.getfieldval("random_bytes")
         if fval is None:
             self.random_bytes = _tls_hello_retry_magic
+        if self.getfieldval("sid") == b"" and self.tls_session:
+            self.sid = self.tls_session.sid
         return _TLSHandshake.build(self)
 
     def tls_session_update(self, msg_str):
@@ -1370,7 +1377,7 @@ class _VerifyDataField(StrLenField):
     def getfield(self, pkt, s):
         if pkt.tls_session.tls_version == 0x0300:
             sep = 36
-        elif pkt.tls_session.tls_version >= 0x0304:
+        elif pkt.tls_session.tls_version and pkt.tls_session.tls_version >= 0x0304:
             sep = pkt.tls_session.rcs.hash.hash_len
         else:
             sep = 12

@@ -319,7 +319,7 @@ def scapy_data_cache(name):
                         "Couldn't load cache from %s" % str(cachepath),
                         exc_info=True,
                     )
-                    cachepath.unlink()
+                    cachepath.unlink(missing_ok=True)
             # Cache does not exist or is invalid.
             content = func(filename)
             data = {

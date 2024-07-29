@@ -73,7 +73,14 @@ from scapy.layers.inet import (
     UDP,
     UDPerror,
 )
-from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
+from scapy.layers.l2 import (
+    CookedLinux,
+    Ether,
+    GRE,
+    Loopback,
+    SNAP,
+    SourceMACField,
+)
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.sendrecv import sendp, sniff, sr, srp1
 from scapy.supersocket import SuperSocket
@@ -83,6 +90,11 @@ from scapy.utils6 import in6_getnsma, in6_getnsmac, in6_isaddr6to4, \
     in6_isaddrllallnodes, in6_isaddrllallservers, in6_isaddrTeredo, \
     in6_isllsnmaddr, in6_ismaddr, Net6, teredoAddrExtractInfo
 from scapy.volatile import RandInt, RandShort
+
+# Typing
+from typing import (
+    Optional,
+)
 
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
@@ -135,19 +147,24 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
 
 @conf.commands.register
 def getmacbyip6(ip6, chainCC=0):
-    """Returns the MAC address corresponding to an IPv6 address
+    # type: (str, int) -> Optional[str]
+    """
+    Returns the MAC address used to reach a given IPv6 address.
 
     neighborCache.get() method is used on instantiated neighbor cache.
     Resolution mechanism is described in associated doc string.
 
     (chainCC parameter value ends up being passed to sending function
      used to perform the resolution, if needed)
-    """
 
+    .. seealso:: :func:`~scapy.layers.l2.getmacbyip` for IPv4.
+    """
+    # Sanitize the IP
     if isinstance(ip6, Net6):
         ip6 = str(ip6)
 
-    if in6_ismaddr(ip6):  # Multicast
+    # Multicast
+    if in6_ismaddr(ip6):  # mcast @
         mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
         return mac
 
@@ -470,7 +487,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             return self.payload.answers(other.payload)
 
 
-class IPv46(IP):
+class IPv46(IP, IPv6):
     """
     This class implements a dispatcher that is used to detect the IP version
     while parsing Raw IP pcap files.
@@ -1821,7 +1838,7 @@ class ICMPv6NDOptSrcLLAddr(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Source Link-Layer Address"
     fields_desc = [ByteField("type", 1),
                    ByteField("len", 1),
-                   MACField("lladdr", ETHER_ANY)]
+                   SourceMACField("lladdr")]
 
     def mysummary(self):
         return self.sprintf("%name% %lladdr%")

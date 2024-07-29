@@ -529,8 +529,8 @@ class SPNEGOSSP(SSP):
         __slots__ = [
             "supported_mechtypes",
             "requested_mechtypes",
+            "req_flags",
             "negotiated_mechtype",
-            "first_reply",
             "first_choice",
             "sub_context",
             "ssp",
@@ -541,8 +541,8 @@ class SPNEGOSSP(SSP):
         ):
             self.state = SPNEGOSSP.STATE.FIRST
             self.requested_mechtypes = None
+            self.req_flags = req_flags
             self.first_choice = True
-            self.first_reply = True
             self.negotiated_mechtype = None
             self.sub_context = None
             self.ssp = None
@@ -555,7 +555,9 @@ class SPNEGOSSP(SSP):
                 )
             else:
                 self.supported_mechtypes = force_supported_mechtypes
-            super(SPNEGOSSP.CONTEXT, self).__init__(req_flags=req_flags)
+            super(SPNEGOSSP.CONTEXT, self).__init__()
+
+        # Passthrough attributes and functions
 
         def clifailure(self):
             self.sub_context.clifailure()
@@ -571,6 +573,20 @@ class SPNEGOSSP(SSP):
                 return object.__setattr__(self, attr, val)
             except AttributeError:
                 return setattr(self.sub_context, attr, val)
+
+        # Passthrough the flags property
+
+        @property
+        def flags(self):
+            if self.sub_context:
+                return self.sub_context.flags
+            return GSS_C_FLAGS(0)
+
+        @flags.setter
+        def flags(self, x):
+            if not self.sub_context:
+                return
+            self.sub_context.flags = x
 
         def __repr__(self):
             return "SPNEGOSSP[%s]" % repr(self.sub_context)
@@ -757,7 +773,7 @@ class SPNEGOSSP(SSP):
                 ) = Context.ssp.GSS_Init_sec_context(
                     Context.sub_context,
                     val=val,
-                    req_flags=Context.flags,
+                    req_flags=Context.req_flags,
                 )
             else:
                 Context.sub_context, tok, status = Context.ssp.GSS_Accept_sec_context(
@@ -931,7 +947,10 @@ class SPNEGOSSP(SSP):
             mechtype = Context.supported_mechtypes[0]
         else:
             return None, GSS_S_BAD_MECH
-        ssp = self.supported_ssps[mechtype.oid.val]
+        try:
+            ssp = self.supported_ssps[mechtype.oid.val]
+        except KeyError:
+            return None, GSS_S_BAD_MECH
 
         if Context.ssp is not None:
             # Detect resets

@@ -33,6 +33,12 @@ You can turn auto-decompression/auto-compression off with::
     >>> conf.contribs["http"]["auto_compression"] = False
 
 (Defaults to True)
+
+You can also turn auto-chunking/dechunking off with::
+
+    >>> conf.contribs["http"]["auto_chunk"] = False
+
+(Defaults to True)
 """
 
 # This file is a rewritten version of the former scapy_http plugin.
@@ -92,6 +98,7 @@ except ImportError:
 if "http" not in conf.contribs:
     conf.contribs["http"] = {}
     conf.contribs["http"]["auto_compression"] = True
+    conf.contribs["http"]["auto_chunk"] = True
 
 # https://en.wikipedia.org/wiki/List_of_HTTP_header_fields
 
@@ -302,11 +309,9 @@ class _HTTPContent(Packet):
 
     def post_dissect(self, s):
         self._original_len = len(s)
-        if not conf.contribs["http"]["auto_compression"]:
-            return s
         encodings = self._get_encodings()
         # Un-chunkify
-        if "chunked" in encodings:
+        if conf.contribs["http"]["auto_chunk"] and "chunked" in encodings:
             data = b""
             while s:
                 length, _, body = s.partition(b"\r\n")
@@ -324,6 +329,8 @@ class _HTTPContent(Packet):
                     data += load
             if not s:
                 s = data
+        if not conf.contribs["http"]["auto_compression"]:
+            return s
         # Decompress
         try:
             if "deflate" in encodings:
@@ -366,39 +373,42 @@ class _HTTPContent(Packet):
         return s
 
     def post_build(self, pkt, pay):
-        if not conf.contribs["http"]["auto_compression"]:
-            return pkt + pay
         encodings = self._get_encodings()
-        # Compress
-        if "deflate" in encodings:
-            import zlib
-            pay = zlib.compress(pay)
-        elif "gzip" in encodings:
-            pay = gzip.compress(pay)
-        elif "compress" in encodings:
-            if _is_lzw_available:
-                pay = lzw.compress(pay)
-            else:
-                log_loading.info(
-                    "Can't import lzw. compress compression "
-                    "will be ignored !"
-                )
-        elif "br" in encodings:
-            if _is_brotli_available:
-                pay = brotli.compress(pay)
-            else:
-                log_loading.info(
-                    "Can't import brotli. brotli compression will "
-                    "be ignored !"
-                )
-        elif "zstd" in encodings:
-            if _is_zstd_available:
-                pay = zstandard.ZstdCompressor().compress(pay)
-            else:
-                log_loading.info(
-                    "Can't import zstandard. zstd compression will "
-                    "be ignored !"
-                )
+        if conf.contribs["http"]["auto_compression"]:
+            # Compress
+            if "deflate" in encodings:
+                import zlib
+                pay = zlib.compress(pay)
+            elif "gzip" in encodings:
+                pay = gzip.compress(pay)
+            elif "compress" in encodings:
+                if _is_lzw_available:
+                    pay = lzw.compress(pay)
+                else:
+                    log_loading.info(
+                        "Can't import lzw. compress compression "
+                        "will be ignored !"
+                    )
+            elif "br" in encodings:
+                if _is_brotli_available:
+                    pay = brotli.compress(pay)
+                else:
+                    log_loading.info(
+                        "Can't import brotli. brotli compression will "
+                        "be ignored !"
+                    )
+            elif "zstd" in encodings:
+                if _is_zstd_available:
+                    pay = zstandard.ZstdCompressor().compress(pay)
+                else:
+                    log_loading.info(
+                        "Can't import zstandard. zstd compression will "
+                        "be ignored !"
+                    )
+        # Chunkify
+        if conf.contribs["http"]["auto_chunk"] and "chunked" in encodings:
+            # Dumb: 1 single chunk.
+            pay = (b"%X" % len(pay)) + b"\r\n" + pay + b"\r\n0\r\n\r\n"
         return pkt + pay
 
     def self_build(self, **kwargs):
@@ -424,7 +434,7 @@ class _HTTPContent(Packet):
                     # Add Content-Length anyways
                     val = str(len(self.payload or b""))
                 elif f.name == "Date" and isinstance(self, HTTPResponse):
-                    val = datetime.datetime.utcnow().strftime(
+                    val = datetime.datetime.now(datetime.timezone.utc).strftime(
                         '%a, %d %b %Y %H:%M:%S GMT'
                     )
                 else:
@@ -519,7 +529,7 @@ class HTTPRequest(_HTTPContent):
         """From the HTTP packet string, populate the scapy object"""
         first_line, body = _dissect_headers(self, s)
         try:
-            Method, Path, HTTPVersion = re.split(br"\s+", first_line, 2)
+            Method, Path, HTTPVersion = re.split(br"\s+", first_line, maxsplit=2)
             self.setfieldval('Method', Method)
             self.setfieldval('Path', Path)
             self.setfieldval('Http_Version', HTTPVersion)
@@ -563,7 +573,7 @@ class HTTPResponse(_HTTPContent):
         ''' From the HTTP packet string, populate the scapy object '''
         first_line, body = _dissect_headers(self, s)
         try:
-            HTTPVersion, Status, Reason = re.split(br"\s+", first_line, 2)
+            HTTPVersion, Status, Reason = re.split(br"\s+", first_line, maxsplit=2)
             self.setfieldval('Http_Version', HTTPVersion)
             self.setfieldval('Status_Code', Status)
             self.setfieldval('Reason_Phrase', Reason)
@@ -643,8 +653,13 @@ class HTTP(Packet):
             # Packets may have a Content-Length we must honnor
             length = http_packet.Content_Length
             # Heuristic to try and detect instant HEAD responses, as those include a
-            # Content-Length that must not be honored.
-            if is_response and data.endswith(b"\r\n\r\n"):
+            # Content-Length that must not be honored. This is a bit crappy, and assumes
+            # that a 'HEAD' will never include an Encoding...
+            if (
+                is_response and
+                data.endswith(b"\r\n\r\n") and
+                not http_packet[HTTPResponse]._get_encodings()
+            ):
                 detect_end = lambda _: True
             elif length is not None:
                 # The packet provides a Content-Length attribute: let's
@@ -754,10 +769,7 @@ class HTTP_Client(object):
     def _connect_or_reuse(self, host, port=None, tls=False, timeout=5):
         # Get the port
         if port is None:
-            if tls:
-                port = 443
-            else:
-                port = 80
+            port = 443 if tls else 80
         # If the current socket matches, keep it.
         if self._sockinfo == (host, port):
             return
@@ -785,13 +797,15 @@ class HTTP_Client(object):
             )
         if tls:
             if self.sslcontext is None:
-                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 if self.no_check_certificate:
+                    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                     context.check_hostname = False
                     context.verify_mode = ssl.CERT_NONE
+                else:
+                    context = ssl.create_default_context()
             else:
                 context = self.sslcontext
-            sock = context.wrap_socket(sock)
+            sock = context.wrap_socket(sock, server_hostname=host)
             self.sock = SSLStreamSocket(sock, HTTP)
         else:
             self.sock = StreamSocket(sock, HTTP)
@@ -903,14 +917,14 @@ class HTTP_Client(object):
         self.sock.close()
 
 
-def http_request(host, path="/", port=80, timeout=3,
-                 display=False, verbose=0, **headers):
+def http_request(host, path="/", port=None, timeout=3,
+                 display=False, tls=False, verbose=0, **headers):
     """
     Util to perform an HTTP request.
 
     :param host: the host to connect to
     :param path: the path of the request (default /)
-    :param port: the port (default 80)
+    :param port: the port (default 80/443)
     :param timeout: timeout before None is returned
     :param display: display the result in the default browser (default False)
     :param iface: interface to use. Changing this turns on "raw"
@@ -919,8 +933,10 @@ def http_request(host, path="/", port=80, timeout=3,
     :returns: the HTTPResponse packet
     """
     client = HTTP_Client(HTTP_AUTH_MECHS.NONE, verb=verbose)
+    if port is None:
+        port = 443 if tls else 80
     ans = client.request(
-        "http://%s:%s%s" % (host, port, path),
+        "http%s://%s:%s%s" % (tls and "s" or "", host, port, path),
         timeout=timeout,
     )
 
@@ -1022,7 +1038,7 @@ class HTTP_Server(Automaton):
 
     @ATMT.condition(BEGIN, prio=0)
     def should_authenticate(self):
-        if self.authmethod == HTTP_AUTH_MECHS.NONE:
+        if self.authmethod == HTTP_AUTH_MECHS.NONE.value:
             raise self.SERVE()
         else:
             raise self.AUTH()
@@ -1147,7 +1163,9 @@ class HTTP_Server(Automaton):
     # Serving
 
     @ATMT.state()
-    def SERVE(self, pkt):
+    def SERVE(self, pkt=None):
+        if pkt is None:
+            return
         answer = self.answer(pkt)
         if answer:
             self.send(answer)

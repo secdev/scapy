@@ -1710,7 +1710,10 @@ class smbserver:
         Close the smbserver if started in background mode (bg=True)
         """
         if self.srv:
-            self.srv.shutdown(socket.SHUT_RDWR)
+            try:
+                self.srv.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
             self.srv.close()
 
 

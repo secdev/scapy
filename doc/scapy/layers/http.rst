@@ -84,18 +84,97 @@ All common header fields should be supported.
 Use Scapy to send/receive HTTP 1.X
 __________________________________
 
-To handle this decompression, Scapy uses `Sessions classes <../usage.html#advanced-sniffing-sessions>`_, more specifically the ``TCPSession`` class.
-You have several ways of using it:
+Scapy uses `Sessions classes <../usage.html#advanced-sniffing-sessions>`_ (more specifically the ``TCPSession`` class), in order to dissect and reconstruct HTTP packets.
+This handles Content-Length, chunks and/or compression.
 
-+--------------------------------------------+-------------------------------------------+
-| ``sniff(session=TCPSession, [...])``       | ``TCP_client.tcplink(HTTP, host, 80)``    |
-+============================================+===========================================+
-| | Perform decompression / defragmentation  | | Acts as a TCP client: handles SYN/ACK,  |
-| | on all TCP streams simultaneously, but   | | and all TCP actions, but only creates   |
-| | only acts passively.                     | | one stream.                             |
-+--------------------------------------------+-------------------------------------------+
+Here are the main ways of using HTTP 1.X with Scapy:
+
+- :class:`~scapy.layers.http.HTTP_Client`: Automata that send HTTP requests. It supports the :func:`~scapy.layers.gssapi.SSP` mechanism to support authorization with NTLM, Kerberos, etc.
+- :class:`~scapy.layers.http.HTTP_Server`: Automata to handle incoming HTTP requests. Also supports :func:`~scapy.layers.gssapi.SSP`.
+- ``sniff(session=TCPSession, [...])``: Perform decompression / defragmentation on all TCP streams simultaneously, but only acts passively.
+- ``TCP_client.tcplink(HTTP, host, 80)``: Acts as a raw TCP client, handles SYN/ACK, and all TCP actions, but only creates one stream. It however supports some specific features, such as changing the source IP.
 
 **Examples:**
+
+- :class:`~scapy.layers.http.HTTP_Client`:
+
+Let's perform a very simple GET request to an HTTP server:
+
+.. code:: python
+
+    from scapy.layers.http import *  # or load_layer("http")
+    client = HTTP_Client()
+    resp = client.request("http://127.0.0.1:8080")
+    client.close()
+
+You can use the following shorthand to do the same very basic feature: :func:`~scapy.layers.http.http_request`, usable as so:
+
+.. code:: python
+
+    load_layer("http")
+    http_request("www.google.com", "/")  # first argument is Host, second is Path
+
+Let's do the same request, but this time to a server that requires NTLM authentication:
+
+.. code:: python
+
+    from scapy.layers.http import *  # or load_layer("http")
+    client = HTTP_Client(
+        HTTP_AUTH_MECHS.NTLM,
+        ssp=NTLMSSP(UPN="user", PASSWORD="password"),
+    )
+    resp = client.request("http://127.0.0.1:8080")
+    client.close()
+
+- :class:`~scapy.layers.http.HTTP_Server`:
+
+Start an unauthenticated HTTP server automaton:
+
+.. code:: python
+
+    from scapy.layers.http import *
+    from scapy.layers.ntlm import *
+
+    class Custom_HTTP_Server(HTTP_Server):
+        def answer(self, pkt):
+            if pkt.Path == b"/":
+                return HTTPResponse() / (
+                    "<!doctype html><html><body><h1>OK</h1></body></html>"
+                )
+            else:
+                return HTTPResponse(
+                    Status_Code=b"404",
+                    Reason_Phrase=b"Not Found",
+                ) / (
+                    "<!doctype html><html><body><h1>404 - Not Found</h1></body></html>"
+                )
+
+    server = HTTP_Server.spawn(
+        port=8080,
+        iface="eth0",
+    )
+
+We could also have started the same server, but requiring **NTLM authorization using**:
+
+.. code:: python
+
+    server = HTTP_Server.spawn(
+        port=8080,
+        iface="eth0",
+        mech=HTTP_AUTH_MECHS.NTLM,
+        ssp=NTLMSSP(IDENTITIES={"user": MD4le("password")}),
+    )
+
+Or **basic auth**:
+
+.. code:: python
+
+    server = HTTP_Server.spawn(
+        port=8080,
+        iface="eth0",
+        mech=HTTP_AUTH_MECHS.BASIC,
+        BASIC_IDENTITIES={"user": MD4le("password")},
+    )
 
 - ``TCP_client.tcplink``:
 
@@ -120,18 +199,9 @@ Send an HTTPRequest to ``www.secdev.org`` and write the result in a file:
 ``TCP_client.tcplink`` makes it feel like it only received one packet, but in reality it was recombined in ``TCPSession``.
 If you performed a plain ``sniff()``, you would have seen those packets.
 
-**This code is implemented in a utility function:** ``http_request()``, usable as so:
-
-.. code:: python
-
-    load_layer("http")
-    http_request("www.google.com", "/", display=True)
-
-This will open the webpage in your default browser thanks to ``display=True``.
-
 - ``sniff()``:
 
-Dissect a pcap which contains a JPEG image that was sent over HTTP using chunks.
+Dissect a pcap which contains a JPEG image that was sent over HTTP using chunks. This is able to reconstruct all HTTP streams in parallel.
 
 .. note::
 

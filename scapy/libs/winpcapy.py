@@ -398,6 +398,12 @@ try:
     pcap_statustostr = _lib.pcap_statustostr
     pcap_statustostr.restype = STRING
     pcap_statustostr.argtypes = [c_int]
+
+    # int pcap_set_buffer_size(pcap_t *p, int buffer_size)
+    # set the buffer size for a not-yet-activated capture handle
+    pcap_set_buffer_size = _lib.pcap_set_buffer_size
+    pcap_set_buffer_size.restype = c_int
+    pcap_set_buffer_size.argtypes = [POINTER(pcap_t), c_int]
 except AttributeError:
     pass
 
