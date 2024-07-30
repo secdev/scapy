@@ -529,7 +529,7 @@ class HTTPRequest(_HTTPContent):
         """From the HTTP packet string, populate the scapy object"""
         first_line, body = _dissect_headers(self, s)
         try:
-            Method, Path, HTTPVersion = re.split(br"\s+", first_line, 2)
+            Method, Path, HTTPVersion = re.split(br"\s+", first_line, maxsplit=2)
             self.setfieldval('Method', Method)
             self.setfieldval('Path', Path)
             self.setfieldval('Http_Version', HTTPVersion)
@@ -573,7 +573,7 @@ class HTTPResponse(_HTTPContent):
         ''' From the HTTP packet string, populate the scapy object '''
         first_line, body = _dissect_headers(self, s)
         try:
-            HTTPVersion, Status, Reason = re.split(br"\s+", first_line, 2)
+            HTTPVersion, Status, Reason = re.split(br"\s+", first_line, maxsplit=2)
             self.setfieldval('Http_Version', HTTPVersion)
             self.setfieldval('Status_Code', Status)
             self.setfieldval('Reason_Phrase', Reason)
@@ -769,10 +769,7 @@ class HTTP_Client(object):
     def _connect_or_reuse(self, host, port=None, tls=False, timeout=5):
         # Get the port
         if port is None:
-            if tls:
-                port = 443
-            else:
-                port = 80
+            port = 443 if tls else 80
         # If the current socket matches, keep it.
         if self._sockinfo == (host, port):
             return
@@ -800,13 +797,15 @@ class HTTP_Client(object):
             )
         if tls:
             if self.sslcontext is None:
-                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 if self.no_check_certificate:
+                    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                     context.check_hostname = False
                     context.verify_mode = ssl.CERT_NONE
+                else:
+                    context = ssl.create_default_context()
             else:
                 context = self.sslcontext
-            sock = context.wrap_socket(sock)
+            sock = context.wrap_socket(sock, server_hostname=host)
             self.sock = SSLStreamSocket(sock, HTTP)
         else:
             self.sock = StreamSocket(sock, HTTP)
@@ -918,14 +917,14 @@ class HTTP_Client(object):
         self.sock.close()
 
 
-def http_request(host, path="/", port=80, timeout=3,
-                 display=False, verbose=0, **headers):
+def http_request(host, path="/", port=None, timeout=3,
+                 display=False, tls=False, verbose=0, **headers):
     """
     Util to perform an HTTP request.
 
     :param host: the host to connect to
     :param path: the path of the request (default /)
-    :param port: the port (default 80)
+    :param port: the port (default 80/443)
     :param timeout: timeout before None is returned
     :param display: display the result in the default browser (default False)
     :param iface: interface to use. Changing this turns on "raw"
@@ -934,8 +933,10 @@ def http_request(host, path="/", port=80, timeout=3,
     :returns: the HTTPResponse packet
     """
     client = HTTP_Client(HTTP_AUTH_MECHS.NONE, verb=verbose)
+    if port is None:
+        port = 443 if tls else 80
     ans = client.request(
-        "http://%s:%s%s" % (host, port, path),
+        "http%s://%s:%s%s" % (tls and "s" or "", host, port, path),
         timeout=timeout,
     )
 

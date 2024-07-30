@@ -981,14 +981,10 @@ class ContextManagerCaptureOutput(object):
     def __init__(self):
         # type: () -> None
         self.result_export_object = ""
-        try:
-            import mock  # noqa: F401
-        except Exception:
-            raise ImportError("The mock module needs to be installed !")
 
     def __enter__(self):
         # type: () -> ContextManagerCaptureOutput
-        import mock
+        from unittest import mock
 
         def write(s, decorator=self):
             # type: (str, ContextManagerCaptureOutput) -> None

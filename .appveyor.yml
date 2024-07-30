@@ -7,26 +7,23 @@ environment:
   # Python versions that will be tested
   # Note: it defines variables that can be used later
   matrix:
-    - PYTHON: "C:\\Python37-x64"
-      PYTHON_VERSION: "3.7.x"
+    - PYTHON: "C:\\Python312-x64"
+      PYTHON_VERSION: "3.12.x"
       PYTHON_ARCH: "64"
-      TOXENV: "py37-windows"
+      TOXENV: "py312-windows"
       UT_FLAGS: "-K scanner"
-    - PYTHON: "C:\\Python37-x64"
-      PYTHON_VERSION: "3.7.x"
+    - PYTHON: "C:\\Python312-x64"
+      PYTHON_VERSION: "3.12.x"
       PYTHON_ARCH: "64"
-      TOXENV: "py37-windows"
+      TOXENV: "py312-windows"
       UT_FLAGS: "-k scanner"
-
-# allow scanner builds to fail
-matrix:
-  allow_failures:
-    - UT_FLAGS: "-k scanner"
 
 # There is no build phase for Scapy
 build: off
 
 install:
+  # Log some debug info
+  - ver
   # Install the npcap, windump and wireshark suites
   - ps: .\.config\appveyor\InstallNpcap.ps1
   - ps: .\.config\appveyor\InstallWindumpNpcap.ps1
@@ -43,7 +40,7 @@ test_script:
   # Set environment variables
   - set PYTHONPATH=%APPVEYOR_BUILD_FOLDER%
   - set PATH=%APPVEYOR_BUILD_FOLDER%;C:\Program Files\Wireshark\;C:\Program Files\Windump\;%PATH%
-  - set TOX_PARALLEL_NO_SPINNER=1
+  # - set TOX_PARALLEL_NO_SPINNER=1
   
   # Main unit tests
   - "%PYTHON%\\python -m tox -- %UT_FLAGS%"

@@ -73,7 +73,14 @@ from scapy.layers.inet import (
     UDP,
     UDPerror,
 )
-from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
+from scapy.layers.l2 import (
+    CookedLinux,
+    Ether,
+    GRE,
+    Loopback,
+    SNAP,
+    SourceMACField,
+)
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.sendrecv import sendp, sniff, sr, srp1
 from scapy.supersocket import SuperSocket
@@ -1831,7 +1838,7 @@ class ICMPv6NDOptSrcLLAddr(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Source Link-Layer Address"
     fields_desc = [ByteField("type", 1),
                    ByteField("len", 1),
-                   MACField("lladdr", ETHER_ANY)]
+                   SourceMACField("lladdr")]
 
     def mysummary(self):
         return self.sprintf("%name% %lladdr%")

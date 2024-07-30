@@ -24,6 +24,7 @@
   "kw_ko": [
     "osx",
     "linux",
+    "broken_windows",
     "crypto_advanced",
     "mock_read_routes_bsd",
     "appveyor_only",

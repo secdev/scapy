@@ -590,7 +590,7 @@ assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
 = Layer binding with show()
 * getmacbyip must only be called when building
 
-import mock
+from unittest import mock
 
 def _err(*_):
     raise ValueError
@@ -763,7 +763,7 @@ def test_summary():
 
 test_summary()
 
-import mock
+from unittest import mock
 import scapy.libs.matplot
 
 @mock.patch("scapy.libs.matplot.plt")
@@ -802,7 +802,7 @@ assert "192.168.0.254" not in [p[IP].src for p in new_pl]
 = IPv4 - reporting
 ~ netaccess
 
-import mock
+from unittest import mock
 
 @mock.patch("scapy.layers.inet.sr")
 def test_report_ports(mock_sr):

@@ -17,6 +17,7 @@ import functools
 import hashlib
 import struct
 
+from scapy.automaton import select_objects
 from scapy.config import conf, crypto_validator
 from scapy.error import log_runtime
 from scapy.packet import Packet, bind_layers, bind_top_down
@@ -4237,7 +4238,7 @@ class SMBStreamSocket(StreamSocket):
     def select(sockets, remain=conf.recv_poll_rate):
         if any(getattr(x, "queue", None) for x in sockets):
             return [x for x in sockets if isinstance(x, SMBStreamSocket) and x.queue]
-        return StreamSocket.select(sockets, remain=remain)
+        return select_objects(sockets, remain=remain)
 
 
 class SMBSession(DefaultSession):

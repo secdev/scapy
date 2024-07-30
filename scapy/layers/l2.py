@@ -228,8 +228,6 @@ class SourceMACField(MACField):
         # type: (Optional[Packet], Optional[str]) -> str
         if x is None:
             iff = self.getif(pkt)
-            if iff is None:
-                iff = conf.iface
             if iff:
                 x = resolve_iface(iff).mac
             if x is None:

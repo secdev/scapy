@@ -26,7 +26,7 @@ assert ComputeSessionKeyStrongKey(SharedSecret, ClientChallenge, ServerChallenge
 
 = [MS-NRPC] test vectors - sect 4.3
 
-import mock
+from unittest import mock
 from scapy.layers.msrpce.msnrpc import NetlogonSSP
 
 # Input
@@ -55,7 +55,7 @@ assert bytes(sig)[:len(FullNetlogonSignatureHeader)] == FullNetlogonSignatureHea
 
 = [MS-NRPC] test vectors - sect 4.3.1
 
-import mock
+from unittest import mock
 from scapy.layers.msrpce.msnrpc import NetlogonSSP
 
 # Input
@@ -253,7 +253,7 @@ assert bytes(pkt) == bytes(auth_resp)
 = [NetlogonSSP] - Create randomness-mock context manager
 
 # mock the random to get consistency
-import mock
+from unittest import mock
 
 def fake_urandom(x):
     # wow, impressive entropy

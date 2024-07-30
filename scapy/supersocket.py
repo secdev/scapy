@@ -515,7 +515,10 @@ class SSLStreamSocket(StreamSocket):
         if x is None:
             x = MTU
         # Block
-        data = self.ins.recv(x)
+        try:
+            data = self.ins.recv(x)
+        except OSError:
+            raise EOFError
         try:
             pkt = self.sess.process(data, cls=self.basecls)  # type: ignore
         except struct.error:
@@ -526,6 +529,18 @@ class SSLStreamSocket(StreamSocket):
         if not pkt:
             return self.recv(x)
         return pkt
+
+    @staticmethod
+    def select(sockets, remain=None):
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+        queued = [
+            x
+            for x in sockets
+            if isinstance(x, SSLStreamSocket) and x.sess.data
+        ]
+        if queued:
+            return queued  # type: ignore
+        return super(SSLStreamSocket, SSLStreamSocket).select(sockets, remain=remain)
 
 
 class L2ListenTcpdump(SuperSocket):

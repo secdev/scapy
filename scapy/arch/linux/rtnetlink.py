@@ -715,9 +715,17 @@ def _sr1_rtrequest(pkt: Packet) -> List[Packet]:
     # Configure socket
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 32768)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
-    sock.setsockopt(SOL_NETLINK, NETLINK_EXT_ACK, 1)
+    try:
+        sock.setsockopt(SOL_NETLINK, NETLINK_EXT_ACK, 1)
+    except OSError:
+        # Linux 4.12+ only
+        pass
     sock.bind((0, 0))  # bind to kernel
-    sock.setsockopt(SOL_NETLINK, NETLINK_GET_STRICT_CHK, 1)
+    try:
+        sock.setsockopt(SOL_NETLINK, NETLINK_GET_STRICT_CHK, 1)
+    except OSError:
+        # Linux 4.20+ only
+        pass
     # Request routes
     sock.send(bytes(rtmsghdrs(msgs=[pkt])))
     results: List[Packet] = []
