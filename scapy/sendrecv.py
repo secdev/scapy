@@ -1285,7 +1285,7 @@ class AsyncSniffer(object):
                         for p in packets:
                             if lfilter and not lfilter(p):
                                 continue
-                            p.sniffed_on = sniff_sockets[s]
+                            p.sniffed_on = sniff_sockets.get(s, None)
                             # post-processing
                             self.count += 1
                             if store:
