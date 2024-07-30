@@ -1939,7 +1939,7 @@ class NetBIOSNameField(StrFixedLenField):
 
     def h2i(self, pkt, x):
         # type: (Optional[Packet], bytes) -> bytes
-        if len(x) > 15:
+        if x and len(x) > 15:
             x = x[:15]
         return x
 
