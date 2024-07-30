@@ -17,7 +17,12 @@ from scapy.automaton import select_objects
 from scapy.compat import raw, plain_str
 from scapy.config import conf
 from scapy.consts import WINDOWS
-from scapy.data import MTU, ETH_P_ALL
+from scapy.data import (
+    DLT_RAW_ALT,
+    DLT_RAW,
+    ETH_P_ALL,
+    MTU,
+)
 from scapy.error import (
     Scapy_Exception,
     log_loading,
@@ -78,20 +83,27 @@ _pcap_if_flags = [
 
 
 class _L2libpcapSocket(SuperSocket):
-    __slots__ = ["pcap_fd"]
+    __slots__ = ["pcap_fd", "lvl"]
 
     def __init__(self, fd):
         # type: (_PcapWrapper_libpcap) -> None
         self.pcap_fd = fd
         ll = self.pcap_fd.datalink()
         if ll in conf.l2types:
-            self.cls = conf.l2types[ll]
+            self.LL = conf.l2types[ll]
+            if ll in [
+                DLT_RAW,
+                DLT_RAW_ALT,
+            ]:
+                self.lvl = 3
+            else:
+                self.lvl = 2
         else:
-            self.cls = conf.default_l2
+            self.LL = conf.default_l2
             warning(
                 "Unable to guess datalink type "
                 "(interface=%s linktype=%i). Using %s",
-                self.iface, ll, self.cls.name
+                self.iface, ll, self.LL.name
             )
 
     def recv_raw(self, x=MTU):
@@ -103,7 +115,7 @@ class _L2libpcapSocket(SuperSocket):
         ts, pkt = self.pcap_fd.next()
         if pkt is None:
             return None, None, None
-        return self.cls, pkt, ts
+        return self.LL, pkt, ts
 
     def nonblock_recv(self, x=MTU):
         # type: (int) -> Optional[Packet]
@@ -540,6 +552,7 @@ if conf.use_pcap:
             if iface is None:
                 iface = conf.iface
             self.iface = iface
+            self.type = type
             if promisc is not None:
                 self.promisc = promisc
             else:
@@ -580,6 +593,7 @@ if conf.use_pcap:
                         filter = "(ether proto %i) and (%s)" % (type, filter)
                     else:
                         filter = "ether proto %i" % type
+            self.filter = filter
             if filter:
                 self.pcap_fd.setfilter(filter)
 
@@ -598,12 +612,12 @@ if conf.use_pcap:
         def __init__(self, *args, **kwargs):
             # type: (*Any, **Any) -> None
             super(L3pcapSocket, self).__init__(*args, **kwargs)
-            self.send_pcap_fds = {network_name(self.iface): self.pcap_fd}
+            self.send_socks = {network_name(self.iface): self}
 
         def recv(self, x=MTU, **kwargs):
             # type: (int, **Any) -> Optional[Packet]
             r = L2pcapSocket.recv(self, x, **kwargs)
-            if r:
+            if r and self.lvl == 2:
                 r.payload.time = r.time
                 return r.payload
             return r
@@ -614,28 +628,49 @@ if conf.use_pcap:
             iff = x.route()[0]
             if iff is None:
                 iff = network_name(conf.iface)
-            if iff not in self.send_pcap_fds:
-                self.send_pcap_fds[iff] = fd = open_pcap(
-                    device=iff,
-                    snaplen=0,
-                    promisc=False,
-                    to_ms=0,
+            type_x = type(x)
+            if iff not in self.send_socks:
+                self.send_socks[iff] = L3pcapSocket(
+                    iface=iff,
+                    type=self.type,
+                    filter=self.filter,
+                    promisc=self.promisc,
+                    monitor=self.monitor,
                 )
+            sock = self.send_socks[iff]
+            fd = sock.pcap_fd
+            if sock.lvl == 3:
+                if not issubclass(sock.LL, type_x):
+                    warning("Incompatible L3 types detected using %s instead of %s !",
+                            type_x, sock.LL)
+                    sock.LL = type_x
+            if sock.lvl == 2:
+                sx = bytes(sock.LL() / x)
             else:
-                fd = self.send_pcap_fds[iff]
+                sx = bytes(x)
             # Now send.
-            sx = raw(self.cls() / x)
             try:
                 x.sent_time = time.time()
             except AttributeError:
                 pass
             return fd.send(sx)
 
+        @staticmethod
+        def select(sockets, remain=None):
+            # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+            socks = []  # type: List[SuperSocket]
+            for sock in sockets:
+                if isinstance(sock, L3pcapSocket):
+                    socks += sock.send_socks.values()
+                else:
+                    socks.append(sock)
+            return L2pcapSocket.select(socks, remain=remain)
+
         def close(self):
             # type: () -> None
             if self.closed:
                 return
             super(L3pcapSocket, self).close()
-            for fd in self.send_pcap_fds.values():
-                if fd is not self.pcap_fd:
+            for fd in self.send_socks.values():
+                if fd is not self:
                     fd.close()

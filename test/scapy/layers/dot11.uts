@@ -764,6 +764,21 @@ assert pkt[Dot11EltVHTOperation].VHT_Operation_Info.channel_width == 1
 assert pkt[Dot11EltVHTOperation].VHT_Operation_Info.channel_center0 == 42
 assert pkt[Dot11EltVHTOperation].VHT_Operation_Info.channel_center1 == 50
 
+= Dot11EltVHTOperation in isolation
+
+pkt = Dot11EltVHTOperation(b'\xc0\x05\x01*2\x00\x00')
+assert pkt[Dot11Elt::{"ID": 192}].len == 5
+
+= Dot11EltOBSS in isolation
+
+pkt = Dot11EltOBSS(b'J\x0e\x14\x00\n\x00,\x01\xc8\x00\x14\x00\x05\x00\x19\x00')
+assert pkt[Dot11Elt::{"ID": 74}].len == 14
+
+= Dot11EltCSA in isolation
+
+pkt = Dot11EltCSA(b'%\x03\x01\x0b\x05')
+assert pkt[Dot11Elt::{"ID": 37}].len == 3
+
 = Dot11S1GBeacon
 
 pkt=Dot11(b"\x1c\x18\x00\x00,/u\x1c\x103hq\xf8\x00\x00\xd5\x08\x01\x00d\x00\x00\x00\x00\x00\x05\x02\x00\x01\xd9\x0f\x9e\x00@\x18\x80\x0c\x00\x02@\x00\xfe\x00\xfc\x01\x00\xe8\x06\x06\x18&(\xc4\xcc\xd6\x02d\x00\x00\nWiFiDiving\xdd\x18\x00P\xf2\x02\x01\x01\x01\x00\x03\xa4\xd5\x01'\xa4\xd5\x01BC\xd5\x01b2\xd5\x01")
