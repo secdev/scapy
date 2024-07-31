@@ -344,7 +344,7 @@ class Packet_metaclass(type):
                                   default=f.default)
                 for f in dct["fields_desc"]
             ])
-        except (ImportError, AttributeError, KeyError):
+        except (ImportError, AttributeError, KeyError, ValueError):
             pass
         newcls = cast(Type['Packet'], type.__new__(cls, name, bases, dct))
         # Note: below can't be typed because we use attributes
