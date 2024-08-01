@@ -23,7 +23,6 @@ actions:
     - "sed -i '/^BuildArch/aBuildRequires: openssl' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: tcpdump' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: wireshark' .packit_rpm/scapy.spec"
-    - "sed -i '/^BuildArch/aBuildRequires: python3-mock' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: python3-ipython' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: python3-brotli' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: python3-can' .packit_rpm/scapy.spec"
