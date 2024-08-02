@@ -126,11 +126,11 @@ class run_smbserver:
 
 # define client
 
-def run_smbclient():
-   return smbclient("localhost", "guest", port=12345, guest=True, cli=False, debug=4)
+def run_smbclient(max_dialect=0x0202):
+   return smbclient("localhost", "guest", port=12345, guest=True, cli=False, debug=4, MAX_DIALECT=max_dialect)
 
 
-= smbclient: connect then list shares
+= smbclient: SMB 2.0.2 - connect then list shares
 
 with run_smbserver():
    try:
@@ -142,7 +142,7 @@ with run_smbserver():
    finally:
       cli.close()
 
-= smbclient: connect to test share and list files
+= smbclient: SMB 2.0.2 - connect to test share and list files
 
 with run_smbserver():
    try:
@@ -154,7 +154,7 @@ with run_smbserver():
    finally:
       cli.close()
 
-= smbclient: connect to test share and get file
+= smbclient: SMB 2.0.2 - connect to test share and get file
 
 LOCALPATH = pathlib.Path(get_temp_dir())
 
@@ -171,7 +171,7 @@ with run_smbserver():
    finally:
       cli.close()
 
-= smbclient: connect to test share, cd, put file and cat it
+= smbclient: SMB 2.0.2 - connect to test share, cd, put file and cat it
 
 LOCALPATH = pathlib.Path(get_temp_dir())
 with (LOCALPATH / "fileC").open("w") as fd:
@@ -197,13 +197,33 @@ with run_smbserver():
       cli.close()
 
 
-= smbclient: connect to test share and recursive get
+= smbclient: SMB 2.0.2 - connect to test share and recursive get
 
 LOCALPATH = pathlib.Path(get_temp_dir())
 
 with run_smbserver():
    try:
       cli = run_smbclient()
+      cli.use("test")
+      cli.lcd(str(LOCALPATH))
+      cli.get(".", r=True)
+      # check on disk
+   finally:
+      cli.close()
+
+assert (LOCALPATH / "fileA").exists()
+assert (LOCALPATH / "fileB").exists()
+assert (LOCALPATH / "fileScapy").exists()
+assert (LOCALPATH / "sub").exists()
+assert (LOCALPATH / "sub" / "secret").exists()
+
+= smbclient: SMB 3.1.1 - connect to test share and recursive get
+
+LOCALPATH = pathlib.Path(get_temp_dir())
+
+with run_smbserver():
+   try:
+      cli = run_smbclient(max_dialect=0x0311)
       cli.use("test")
       cli.lcd(str(LOCALPATH))
       cli.get(".", r=True)
