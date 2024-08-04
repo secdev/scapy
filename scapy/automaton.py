@@ -113,6 +113,7 @@ def select_objects(inputs, remain):
             # in very few places but important (e.g. PcapReader), where we have
             # no valid fileno (and will stop on EOFError).
             results.add(i)
+            remain = 0
         else:
             events.append(i.fileno())
     if events:

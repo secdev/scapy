@@ -358,6 +358,9 @@ if conf.use_pcap:
                     raise OSError(error)
 
             if WINDOWS:
+                # On Windows, we need to cache whether there are still packets in the
+                # queue or not. When they aren't, then we select normally like on linux.
+                self.remaining = True
                 # Winpcap/Npcap exclusive: make every packet to be instantly
                 # returned, and not buffered within Winpcap/Npcap
                 pcap_setmintocopy(self.pcap, 0)
@@ -378,7 +381,10 @@ if conf.use_pcap:
                 byref(self.pkt_data)
             )
             if not c > 0:
+                self.remaining = False  # we emptied the queue
                 return None, None
+            else:
+                self.remaining = True
             ts = (
                 self.header.contents.ts.tv_sec +
                 float(self.header.contents.ts.tv_usec) / 1e6
@@ -399,6 +405,9 @@ if conf.use_pcap:
         def fileno(self):
             # type: () -> int
             if WINDOWS:
+                if self.remaining:
+                    # Still packets in the queue. Don't select
+                    return -1
                 return cast(int, pcap_getevent(self.pcap))
             else:
                 # This does not exist under Windows
