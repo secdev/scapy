@@ -5156,6 +5156,16 @@ assert pl[0].wirelen == 1
 assert pl[0][Ether].src == '00:11:22:33:44:55'
 assert pl[1][Ether].dst == '00:22:33:44:55:66'
 
+= EDecimal
+
+# GH4488
+p1, p2 = EDecimal('1722417787.778435252'), EDecimal('1722417787.778435216')
+assert p1 != p2
+assert p1 > p2
+assert not (p1 < p2)
+assert p1 == 1722417787.778435252  # float test
+assert p2 == 1722417787.778435216
+assert (p1, 0) > (p2, 1)
 
 ############
 ############
