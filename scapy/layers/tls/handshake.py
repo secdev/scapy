@@ -1006,11 +1006,11 @@ class TLS13Certificate(_TLSHandshake):
         connection_end = self.tls_session.connection_end
         if connection_end == "client":
             if self.certs:
-                sc = [x.cert[1] for x in self.certs]
+                sc = [x.cert[1] for x in self.certs if hasattr(x, 'cert')]
                 self.tls_session.server_certs = sc
         else:
             if self.certs:
-                cc = [x.cert[1] for x in self.certs]
+                cc = [x.cert[1] for x in self.certs if hasattr(x, 'cert')]
                 self.tls_session.client_certs = cc
 
 
