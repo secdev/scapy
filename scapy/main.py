@@ -61,7 +61,7 @@ QUOTES = [
      "the wires and in the waves.", "Jean-Claude Van Damme"),
     ("We are in France, we say Skappee. OK? Merci.", "Sebastien Chabal"),
     ("Wanna support scapy? Star us on GitHub!", "Satoshi Nakamoto"),
-    ("What is dead may never die!", "Python 2"),
+    ("I'll be back.", "Python 2"),
 ]
 
 

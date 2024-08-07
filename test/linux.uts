@@ -63,6 +63,53 @@ if exit_status == 0:
 else:
     assert True
 
+
+= Test scoped interface addresses
+~ linux needs_root
+
+import os
+exit_status = os.system("ip link add name scapy0 type dummy")
+exit_status = os.system("ip link add name scapy1 type dummy")
+exit_status |= os.system("ip addr add 192.0.2.1/24 dev scapy0")
+exit_status |= os.system("ip addr add 192.0.3.1/24 dev scapy1")
+exit_status |= os.system("ip link set scapy0 address 00:01:02:03:04:05 multicast on up")
+exit_status |= os.system("ip link set scapy1 address 06:07:08:09:10:11 multicast on up")
+assert exit_status == 0
+
+conf.ifaces.reload()
+conf.route.resync()
+conf.route6.resync()
+
+conf.route6
+
+try:
+    # IPv4
+    a = Ether()/IP(dst="224.0.0.1%scapy0")
+    assert a[Ether].src == "00:01:02:03:04:05"
+    assert a[IP].src == "192.0.2.1"
+    b = Ether()/IP(dst="224.0.0.1%scapy1")
+    assert b[Ether].src == "06:07:08:09:10:11"
+    assert b[IP].src == "192.0.3.1"
+    c = Ether()/IP(dst="224.0.0.1/24%scapy1")
+    assert c[Ether].src == "06:07:08:09:10:11"
+    assert c[IP].src == "192.0.3.1"
+    # IPv6
+    a = Ether()/IPv6(dst="ff02::fb%scapy0")
+    assert a[Ether].src == "00:01:02:03:04:05"
+    assert a[IPv6].src == "fe80::201:2ff:fe03:405"
+    b = Ether()/IPv6(dst="ff02::fb%scapy1")
+    assert b[Ether].src == "06:07:08:09:10:11"
+    assert b[IPv6].src == "fe80::407:8ff:fe09:1011"
+    c = Ether()/IPv6(dst="ff02::fb/30%scapy1")
+    assert c[Ether].src == "06:07:08:09:10:11"
+    assert c[IPv6].src == "fe80::407:8ff:fe09:1011"
+finally:
+    exit_status = os.system("ip link del scapy0")
+    exit_status = os.system("ip link del scapy1")
+    conf.ifaces.reload()
+    conf.route.resync()
+    conf.route6.resync()
+
 = catch loopback device missing
 ~ linux needs_root
 
@@ -310,7 +357,7 @@ assert test_L3PacketSocket_sendto_python3()
 
 import os
 from scapy.sendrecv import _interface_selection
-assert _interface_selection(None, IP(dst="8.8.8.8")/UDP()) == (conf.iface, False)
+assert _interface_selection(IP(dst="8.8.8.8")/UDP()) == (conf.iface, False)
 exit_status = os.system("ip link add name scapy0 type dummy")
 exit_status = os.system("ip addr add 192.0.2.1/24 dev scapy0")
 exit_status = os.system("ip addr add fc00::/24 dev scapy0")
@@ -318,8 +365,8 @@ exit_status = os.system("ip link set scapy0 up")
 conf.ifaces.reload()
 conf.route.resync()
 conf.route6.resync()
-assert _interface_selection(None, IP(dst="192.0.2.42")/UDP()) == ("scapy0", False)
-assert _interface_selection(None, IPv6(dst="fc00::ae0d")/UDP()) == ("scapy0", True)
+assert _interface_selection(IP(dst="192.0.2.42")/UDP()) == ("scapy0", False)
+assert _interface_selection(IPv6(dst="fc00::ae0d")/UDP()) == ("scapy0", True)
 exit_status = os.system("ip link del name dev scapy0")
 conf.ifaces.reload()
 conf.route.resync()

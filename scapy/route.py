@@ -38,7 +38,7 @@ class Route:
 
     def invalidate_cache(self):
         # type: () -> None
-        self.cache = {}  # type: Dict[str, Tuple[str, str, str]]
+        self.cache = {}  # type: Dict[Tuple[str, Optional[str]], Tuple[str, str, str]]
 
     def resync(self):
         # type: () -> None
@@ -165,11 +165,13 @@ class Route:
         the_net = the_rawaddr & the_msk
         self.routes.append((the_net, the_msk, '0.0.0.0', iff, the_addr, 1))
 
-    def route(self, dst=None, verbose=conf.verb, _internal=False):
-        # type: (Optional[str], int, bool) -> Tuple[str, str, str]
+    def route(self, dst=None, dev=None, verbose=conf.verb, _internal=False):
+        # type: (Optional[str], Optional[str], int, bool) -> Tuple[str, str, str]
         """Returns the IPv4 routes to a host.
 
         :param dst: the IPv4 of the destination host
+        :param dev: (optional) filtering is performed to limit search to route
+                    associated to that interface.
 
         :returns: tuple (iface, output_ip, gateway_ip) where
             - ``iface``: the interface used to connect to the host
@@ -182,8 +184,8 @@ class Route:
                 dst = plain_str(dst)
             except UnicodeDecodeError:
                 raise TypeError("Unknown IP address input (bytes)")
-        if dst in self.cache:
-            return self.cache[dst]
+        if (dst, dev) in self.cache:
+            return self.cache[(dst, dev)]
         # Transform "192.168.*.1-5" to one IP of the set
         _dst = dst.split("/")[0].replace("*", "0")
         while True:
@@ -198,6 +200,8 @@ class Route:
         for d, m, gw, i, a, me in self.routes:
             if not a:  # some interfaces may not currently be connected
                 continue
+            if dev is not None and i != dev:
+                continue
             aa = atol(a)
             if aa == atol_dst:
                 paths.append(
@@ -208,8 +212,9 @@ class Route:
 
         if not paths:
             if verbose:
-                warning("No route found (no default route?)")
-            return conf.loopback_name, "0.0.0.0", "0.0.0.0"
+                warning("No route found for IPv4 destination %s "
+                        "(no default route?)", dst)
+            return (dev or conf.loopback_name, "0.0.0.0", "0.0.0.0")
         # Choose the more specific route
         # Sort by greatest netmask and use metrics as a tie-breaker
         paths.sort(key=lambda x: (-x[0], x[1]))
@@ -219,7 +224,7 @@ class Route:
         if ret[1] == "0.0.0.0" and not _internal:
             # Then get the source from route(gw)
             ret = (ret[0], self.route(ret[2], _internal=True)[1], ret[2])
-        self.cache[dst] = ret
+        self.cache[(dst, dev)] = ret
         return ret
 
     def get_if_bcast(self, iff):

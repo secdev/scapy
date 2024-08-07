@@ -220,7 +220,7 @@ class Route6:
         self.ipv6_ifaces.add(iff)
 
     def route(self, dst="", dev=None, verbose=conf.verb):
-        # type: (str, Optional[Any], int) -> Tuple[str, str, str]
+        # type: (str, Optional[str], int) -> Tuple[str, str, str]
         """
         Provide best route to IPv6 destination address, based on Scapy
         internal routing table content.
@@ -254,7 +254,7 @@ class Route6:
 
         # Choose a valid IPv6 interface while dealing with link-local addresses
         if dev is None and (in6_islladdr(dst) or in6_ismlladdr(dst)):
-            dev = conf.iface  # default interface
+            dev = str(conf.iface)  # default interface
 
             # Check if the default interface supports IPv6!
             if dev not in self.ipv6_ifaces and self.ipv6_ifaces:
@@ -309,7 +309,7 @@ class Route6:
                 if verbose:
                     warning("No route found for IPv6 destination %s "
                             "(no default route?)", dst)
-                return (conf.loopback_name, "::", "::")
+                return (dev or conf.loopback_name, "::", "::")
 
         # Sort with longest prefix first then use metrics as a tie-breaker
         paths.sort(key=lambda x: (-x[0], x[1]))

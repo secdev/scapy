@@ -18,7 +18,7 @@ from collections import defaultdict
 from scapy.utils import checksum, do_graph, incremental_label, \
     linehexdump, strxor, whois, colgen
 from scapy.ansmachine import AnsweringMachine
-from scapy.base_classes import Gen, Net
+from scapy.base_classes import Gen, Net, _ScopedIP
 from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
     IP_PROTOS, TCP_SERVICES, UDP_SERVICES
 from scapy.layers.l2 import (
@@ -543,7 +543,7 @@ class IP(Packet, IPTools):
                    ByteEnumField("proto", 0, IP_PROTOS),
                    XShortField("chksum", None),
                    # IPField("src", "127.0.0.1"),
-                   Emph(SourceIPField("src", "dst")),
+                   Emph(SourceIPField("src")),
                    Emph(DestIPField("dst", "127.0.0.1")),
                    PacketListField("options", [], IPOption, length_from=lambda p:p.ihl * 4 - 20)]  # noqa: E501
 
@@ -569,12 +569,15 @@ class IP(Packet, IPTools):
 
     def route(self):
         dst = self.dst
-        if isinstance(dst, Gen):
+        scope = None
+        if isinstance(dst, (Net, _ScopedIP)):
+            scope = dst.scope
+        if isinstance(dst, (Gen, list)):
             dst = next(iter(dst))
         if conf.route is None:
             # unused import, only to initialize conf.route
             import scapy.route  # noqa: F401
-        return conf.route.route(dst)
+        return conf.route.route(dst, dev=scope)
 
     def hashret(self):
         if ((self.proto == socket.IPPROTO_ICMP) and
