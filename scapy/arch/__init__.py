@@ -140,12 +140,6 @@ def get_if_raw_addr6(iff):
 if LINUX:
     from scapy.arch.linux import *  # noqa F403
 elif BSD:
-    from scapy.arch.unix import (  # noqa F403
-        read_nameservers,
-        read_routes,
-        read_routes6,
-        in6_getifaddr,
-    )
     from scapy.arch.bpf.core import *  # noqa F403
     if not conf.use_pcap:
         # Native

@@ -18,6 +18,7 @@ socket.IPPROTO_GRE = 47
 # From sys/sockio.h and net/if.h
 SIOCGIFHWADDR = 0xc02069b9  # Get hardware address
 
+from scapy.arch.common import get_if_raw_addr  # noqa: F401, F403, E402
 from scapy.arch.libpcap import *  # noqa: F401, F403, E402
 from scapy.arch.unix import *  # noqa: F401, F403, E402
 
