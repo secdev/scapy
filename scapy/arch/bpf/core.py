@@ -10,6 +10,7 @@ Scapy *BSD native support - core
 
 import fcntl
 import os
+import socket
 import struct
 
 from scapy.arch.bpf.consts import BIOCSETF, BIOCSETIF
@@ -107,7 +108,7 @@ def in6_getifaddr():
         (ip["address"], ip["scope"], iface["name"])
         for iface in ifaces.values()
         for ip in iface["ips"]
-        if ip["af_family"] == 28
+        if ip["af_family"] == socket.AF_INET6
     ]
 
 

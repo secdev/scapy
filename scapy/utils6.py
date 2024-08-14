@@ -657,7 +657,7 @@ def in6_mask2cidr(m):
         for j in range(32):
             if not s & (1 << (31 - j)):
                 return i * 32 + j
-    return 32
+    return 128
 
 
 def in6_getnsma(a):

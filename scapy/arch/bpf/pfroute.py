@@ -13,7 +13,7 @@ import ctypes.util
 import socket
 import struct
 
-from scapy.consts import BIG_ENDIAN, OPENBSD
+from scapy.consts import BIG_ENDIAN, NETBSD, OPENBSD
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.packet import (
@@ -35,6 +35,7 @@ from scapy.fields import (
     MultipleTypeField,
     PacketField,
     PacketListField,
+    FieldListField,
     PadField,
     StrField,
     StrFixedLenField,
@@ -77,7 +78,7 @@ _bsd_iff_flags = [
     "DEBUG",
     "LOOPBACK",
     "POINTOPOINT",
-    "NEEDSEPOCH",
+    "NEEDSEPOCH",  # UNNUMBERED on NetBSD
     "DRV_RUNNING",
     "NOARP",
     "PROMISC",
@@ -125,16 +126,16 @@ _RTM_FLAGS = {
     0x10: "RTF_DYNAMIC",
     0x20: "RTF_MODIFIED",
     0x40: "RTF_DONE",
-    0x80: "RTF_DELCLONE",  # deprecated
-    0x100: "RTF_CLONING",  # deprecated
+    0x80: "RTF_MASK",  # NetBSD
+    0x100: "RTF_CONNECTED",  # NetBSD
     0x200: "RTF_XRESOLVE",
     0x400: "RTF_LLDATA",
     0x800: "RTF_STATIC",
     0x1000: "RTF_BLACKHOLE",
     0x4000: "RTF_PROTO2",
     0x8000: "RTF_PROTO1",
-    0x10000: "RTF_PRCLONING",  # deprecated
-    0x20000: "RTF_WASCLONED",  # deprecated
+    0x10000: "RTF_SRC",  # NetBSD
+    0x20000: "RTF_ANNOUNCE",  # NetBSD
     0x40000: "RTF_PROTO3",
     0x80000: "RTF_FIXEDMTU",
     0x100000: "RTF_PINNED",
@@ -190,10 +191,17 @@ class pfmsghdr(Packet):
                 0x10: "RTM_DELMADDR",
                 0x11: "RTM_IFANNOUNCE",
                 0x12: "RTM_IEEE80211",
+                # NetBSD
+                0x13: "RTM_LLINFO_UPD",
+                0x14: "RTM_IFINFO_NETBSD",
+                0x15: "RTM_OCHGADDR_NETBSD",
+                0x16: "RTM_NEWADDR_NETBSD",
+                0x17: "RTM_DELADDR_NETBSD",
+                0x18: "RTM_CHGADDR_NETBSD",
             },
         ),
     ] + (
-        # Every BSD must feel soooo smart
+        # It begins... the IFs apocalypse
         [Field("rtm_hdrlen", 0, fmt="=H")]
         if OPENBSD
         else []
@@ -227,7 +235,7 @@ class sockaddr(Packet):
         ),
         ConditionalField(
             StrFixedLenField("sin_zero", "", length=8),
-            lambda pkt: pkt.sa_family == socket.AF_INET,
+            lambda pkt: pkt.sa_family == socket.AF_INET and pkt.sa_len > 7,
         ),
         # sockaddr_in6
         ConditionalField(
@@ -246,7 +254,8 @@ class sockaddr(Packet):
             lambda pkt: pkt.sa_family == socket.AF_INET6,
         ),
         ConditionalField(
-            Field("sin6_pad", 0, fmt="=I"), lambda pkt: pkt.sa_family == socket.AF_INET6
+            Field("sin6_pad", 0, fmt="=I"),
+            lambda pkt: pkt.sa_family == socket.AF_INET6,
         ),
         # sockaddr_dl
         ConditionalField(
@@ -281,7 +290,7 @@ class sockaddr(Packet):
         ),
         ConditionalField(
             XStrLenField(
-                "sdl_pad",
+                "sdl_data",
                 "",
                 length_from=lambda pkt: pkt.sa_len
                 - pkt.sdl_nlen
@@ -293,16 +302,11 @@ class sockaddr(Packet):
         ),
         # others
         ConditionalField(
-            XStrLenField("sa_data", "", length_from=lambda pkt: pkt.sa_len - 2),
-            lambda pkt: pkt.sa_family
-            not in [
-                socket.AF_INET,
-                socket.AF_INET6,
-                socket.AF_LINK,
-            ],
-        ),
-        ConditionalField(
-            XStrLenField("sa_pad", "", length_from=lambda pkt: -pkt.sa_len % 8),
+            XStrLenField(
+                "sa_data",
+                "",
+                length_from=lambda pkt: pkt.sa_len - 2 if pkt.sa_len >= 2 else 0,
+            ),
             lambda pkt: pkt.sa_family
             not in [
                 socket.AF_INET,
@@ -314,6 +318,17 @@ class sockaddr(Packet):
 
     def default_payload_class(self, payload: bytes) -> Type[Packet]:
         return conf.padding_layer
+
+
+class SockAddrsField(FieldListField):
+    holds_packets = 1
+
+    def __init__(self, name):
+        super(SockAddrsField, self).__init__(
+            name,
+            [],
+            PadField(PacketField("", None, sockaddr), 8),
+        )
 
 
 if OPENBSD:
@@ -347,6 +362,35 @@ if OPENBSD:
                 32 if BIG_ENDIAN else -32,
                 _IFCAP,
             ),
+            StrFixedLenField("ifi_lastchange", 0, length=16),
+        ]
+
+        def default_payload_class(self, payload: bytes) -> Type[Packet]:
+            return conf.padding_layer
+
+elif NETBSD:
+
+    class if_data(Packet):
+        # net/if.h
+        fields_desc = [
+            ByteField("ifi_type", 0),
+            ByteField("ifi_addrlen", 0),
+            ByteField("ifi_hdrlen", 0),
+            Field("ifi_link_state", 0, fmt="=I"),
+            Field("ifi_mtu", 0, fmt="=Q"),
+            Field("ifi_metric", 0, fmt="=Q"),
+            Field("ifi_baudrate", 0, fmt="=Q"),
+            Field("ifi_ipackets", 0, fmt="=Q"),
+            Field("ifi_ierrors", 0, fmt="=Q"),
+            Field("ifi_opackets", 0, fmt="=Q"),
+            Field("ifi_oerrors", 0, fmt="=Q"),
+            Field("ifi_collision", 0, fmt="=Q"),
+            Field("ifi_ibytes", 0, fmt="=Q"),
+            Field("ifi_obytes", 0, fmt="=Q"),
+            Field("ifi_imcasts", 0, fmt="=Q"),
+            Field("ifi_omcasts", 0, fmt="=Q"),
+            Field("ifi_iqdrops", 0, fmt="=Q"),
+            Field("ifi_noproto", 0, fmt="=Q"),
             StrFixedLenField("ifi_lastchange", 0, length=16),
         ]
 
@@ -413,7 +457,7 @@ if OPENBSD:
                 PacketField("ifm_data", [], if_data),
                 8,
             ),
-            PacketListField("addrs", [], sockaddr),
+            SockAddrsField("addrs"),
         ]
 
 else:
@@ -434,12 +478,16 @@ else:
             ),
             Field("ifm_index", 0, fmt="=H"),
             Field("_ifm_spare1", 0, fmt="=H"),
-            PacketField("ifm_data", [], if_data),
-            PacketListField("addrs", [], sockaddr),
+            PadField(
+                PacketField("ifm_data", [], if_data),
+                8,
+            ),
+            SockAddrsField("addrs"),
         ]
 
 
 bind_layers(pfmsghdr, if_msghdr, rtm_type=0x0E)
+bind_layers(pfmsghdr, if_msghdr, rtm_type=0x14)
 
 
 if OPENBSD:
@@ -447,7 +495,34 @@ if OPENBSD:
     class ifa_msghdr(Packet):
         fields_desc = if_msghdr.fields_desc[:5] + [
             Field("ifam_metric", 0, fmt="=I"),
-            PacketListField("addrs", [], sockaddr),
+            SockAddrsField("addrs"),
+        ]
+
+elif NETBSD:
+
+    class ifa_msghdr(Packet):
+        fields_desc = [
+            Field("ifm_index", 0, fmt="=H"),
+            Field("_rtm_spare1", 0, fmt="=H"),
+            FlagsField(
+                "ifm_flags",
+                0,
+                32 if BIG_ENDIAN else -32,
+                _bsd_iff_flags,
+            ),
+            FlagsField(
+                "ifm_addrs",
+                0,
+                32 if BIG_ENDIAN else -32,
+                _RTM_ADDRS,
+            ),
+            Field("ifam_pid", 0, fmt="=I"),
+            Field("ifam_addrflags", 0, fmt="=I"),
+            PadField(
+                Field("ifam_metric", 0, fmt="=I"),
+                8,
+            ),
+            SockAddrsField("addrs"),
         ]
 
 else:
@@ -455,12 +530,14 @@ else:
     class ifa_msghdr(Packet):
         fields_desc = if_msghdr.fields_desc[:4] + [
             Field("ifam_metric", 0, fmt="=I"),
-            PacketListField("addrs", [], sockaddr),
+            SockAddrsField("addrs"),
         ]
 
 
 bind_layers(pfmsghdr, ifa_msghdr, rtm_type=0x0C)
 bind_layers(pfmsghdr, ifa_msghdr, rtm_type=0x0D)
+bind_layers(pfmsghdr, ifa_msghdr, rtm_type=0x16)
+bind_layers(pfmsghdr, ifa_msghdr, rtm_type=0x17)
 
 
 class ifma_msghdr(Packet):
@@ -498,6 +575,25 @@ if OPENBSD:
             Field("rmx_rtt", 0, fmt="=I"),
             Field("rmx_rttvar", 0, fmt="=I"),
             Field("rmx_pad", 0, fmt="=I"),
+        ]
+
+        def default_payload_class(self, payload: bytes) -> Type[Packet]:
+            return conf.padding_layer
+
+elif NETBSD:
+
+    class rt_metrics(Packet):
+        fields_desc = [
+            Field("rmx_locks", 0, fmt="=Q"),
+            Field("rmx_mtu", 0, fmt="=Q"),
+            Field("rmx_hopcount", 0, fmt="=Q"),
+            Field("rmx_recvpipe", 0, fmt="=Q"),
+            Field("rmx_sendpipe", 0, fmt="=Q"),
+            Field("rmx_sshthresh", 0, fmt="=Q"),
+            Field("rmx_rtt", 0, fmt="=Q"),
+            Field("rmx_rttvar", 0, fmt="=Q"),
+            Field("rmx_expire", 0, fmt="=Q"),
+            Field("rmx_pksent", 0, fmt="=Q"),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
@@ -551,8 +647,44 @@ if OPENBSD:
             Field("rtm_seq", 0, fmt="=I"),
             Field("rtm_errno", 0, fmt="=I"),
             Field("rtm_inits", 0, fmt="=I"),
-            PacketField("rtm_rmx", rt_metrics(), rt_metrics),
-            PacketListField("addrs", [], sockaddr),
+            PadField(
+                PacketField("rtm_rmx", rt_metrics(), rt_metrics),
+                8,
+            ),
+            SockAddrsField("addrs"),
+        ]
+
+elif NETBSD:
+
+    class rt_msghdr(Packet):
+        fields_desc = [
+            Field("rtm_index", 0, fmt="=H"),
+            Field("_rtm_spare1", 0, fmt="=H"),
+            FlagsField(
+                "rtm_flags",
+                0,
+                32 if BIG_ENDIAN else -32,
+                _RTM_FLAGS,
+            ),
+            FlagsField(
+                "rtm_addrs",
+                0,
+                32 if BIG_ENDIAN else -32,
+                _RTM_ADDRS,
+            ),
+            Field("rtm_pid", 0, fmt="=I"),
+            Field("rtm_seq", 0, fmt="=I"),
+            Field("rtm_errno", 0, fmt="=I"),
+            Field("rtm_use", 0, fmt="=I"),
+            PadField(
+                Field("rtm_inits", 0, fmt="=I"),
+                8,
+            ),
+            PadField(
+                PacketField("rtm_rmx", rt_metrics(), rt_metrics),
+                8,
+            ),
+            SockAddrsField("addrs"),
         ]
 
 else:
@@ -578,8 +710,11 @@ else:
             Field("rtm_errno", 0, fmt="=I"),
             Field("rtm_fmask", 0, fmt="=I"),
             Field("rtm_inits", 0, fmt="=Q"),
-            PacketField("rtm_rmx", rt_metrics(), rt_metrics),
-            PacketListField("addrs", [], sockaddr),
+            PadField(
+                PacketField("rtm_rmx", rt_metrics(), rt_metrics),
+                8,
+            ),
+            SockAddrsField("addrs"),
         ]
 
 
@@ -602,8 +737,11 @@ class pfmsghdrs(Packet):
 
 CTL_NET = 4
 NET_RT_DUMP = 1
-NET_RT_IFLIST = 3
 NET_RT_TABLE = 5
+if NETBSD:
+    NET_RT_IFLIST = 6
+else:
+    NET_RT_IFLIST = 3
 
 
 def _sr1_bsdsysctl(mib) -> List[Packet]:
@@ -643,19 +781,22 @@ def read_routes():
     """
     Read the IPv4 routes using PF_ROUTE
     """
-    if OPENBSD:
-        fib = 0  # default table
-    else:
-        fib = -1  # means 'all'
-    mib = (ctypes.c_int * 7)(
+    mib = [
         CTL_NET,
         socket.PF_ROUTE,
         0,
         int(socket.AF_INET),
         NET_RT_DUMP,
         0,
-        fib,
-    )
+    ]
+    if not NETBSD:
+        if OPENBSD:
+            fib = 0  # default table
+        else:  # FreeBSD
+            fib = -1  # means 'all'
+        # NetBSD is missing the fib
+        mib.append(fib)
+    mib = (ctypes.c_int * len(mib))(*mib)
     resp = _sr1_bsdsysctl(mib)
     if not resp:
         return []
@@ -673,7 +814,7 @@ def read_routes():
         mask = 0xFFFFFFFF
         gw = 0
         iface = ""
-        addr = 0
+        addr = ""
         metric = 1
         i = 0
         try:
@@ -687,8 +828,10 @@ def read_routes():
                 nm = msg.addrs[i]
                 if nm.sa_family == socket.AF_INET:
                     mask = atol(nm.sin_addr)
+                elif nm.sa_family in [0x00, 0xFF]:  # NetBSD
+                    mask = struct.unpack("<I", nm.sa_data[:4].rjust(4, b"\x00"))[0]
                 else:
-                    mask = int.from_bytes(nm.sa_data, "big")
+                    mask = int.from_bytes(nm.sa_data[:4], "big")
                 i += 1
             if addrs.RTA_GENMASK:
                 i += 1
@@ -699,7 +842,7 @@ def read_routes():
                 addr = msg.addrs[i].sin_addr
                 i += 1
         except Exception:
-            log_runtime.debug("Failed to read route %s" % repr(msg.addrs[i]))
+            log_runtime.debug("Failed to read route %s" % repr(msg))
             continue
         routes.append((net, mask, gw, iface, addr, metric))
     if OPENBSD:
@@ -726,19 +869,22 @@ def read_routes6():
     """
     Read the IPv6 routes using PF_ROUTE
     """
-    if OPENBSD:
-        fib = 0  # default table
-    else:
-        fib = -1  # means 'all'
-    mib = (ctypes.c_int * 7)(
+    mib = [
         CTL_NET,
         socket.PF_ROUTE,
         0,
         int(socket.AF_INET6),
         NET_RT_DUMP,
         0,
-        fib,
-    )
+    ]
+    if not NETBSD:
+        # NetBSD is missing the fib
+        if OPENBSD:
+            fib = 0  # default table
+        else:  # FreeBSD
+            fib = -1  # means 'all'
+        mib.append(fib)
+    mib = (ctypes.c_int * len(mib))(*mib)
     resp = _sr1_bsdsysctl(mib)
     if not resp:
         return []
@@ -767,7 +913,18 @@ def read_routes6():
                 nh = msg.addrs[i].sin6_addr or "::"
                 i += 1
             if addrs.RTA_NETMASK:
-                plen = in6_mask2cidr(inet_pton(socket.AF_INET6, msg.addrs[i].sin6_addr))
+                nm = msg.addrs[i]
+                if nm.sa_family == socket.AF_INET6:
+                    plen = in6_mask2cidr(
+                        inet_pton(socket.AF_INET6, msg.addrs[i].sin6_addr)
+                    )
+                elif nm.sa_family in [0xFF, 0x00]:  # NetBSD
+                    plen = in6_mask2cidr(
+                        # The 6 first octets seem to be garbage. This is weird
+                        nm.sa_data[6:].ljust(16, b"\x00")
+                    )
+                else:
+                    plen = int.from_bytes(nm.sa_data, "big")
                 i += 1
             if addrs.RTA_GENMASK:
                 i += 1
@@ -778,7 +935,7 @@ def read_routes6():
                 candidates.append(msg.addrs[i].sin6_addr)
                 i += 1
         except Exception:
-            log_runtime.debug("Failed to read route %s" % repr(msg.addrs[i]))
+            log_runtime.debug("Failed to read route %s" % repr(msg))
             continue
         routes.append((prefix, plen, nh, iface, candidates, metric))
     if OPENBSD:
@@ -814,7 +971,7 @@ def _get_if_list():
         return {}
     lifips = {}
     for msg in resp.msgs:
-        if msg.rtm_type != 12:  # RTM_NEWADDR
+        if msg.rtm_type not in [0x0C, 0x16]:  # RTM_NEWADDR
             continue
         if not msg.ifm_addrs.RTA_IFA:
             continue
@@ -845,7 +1002,7 @@ def _get_if_list():
         lifips.setdefault(ifindex, list()).append(data)
     interfaces = {}
     for msg in resp.msgs:
-        if msg.rtm_type != 14:  # RTM_IFINFO
+        if msg.rtm_type not in [0xE, 0x14]:  # RTM_IFINFO
             continue
         ifindex = msg.ifm_index
         ifname = None
