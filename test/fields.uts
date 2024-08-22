@@ -139,7 +139,7 @@ assert r == b"FOO\x01\x02\x03\x04"
 = SourceIPField
 ~ core field
 defaddr = conf.route.route('0.0.0.0')[1]
-class Test(Packet): fields_desc = [SourceIPField("sourceip", None)]
+class Test(Packet): fields_desc = [SourceIPField("sourceip")]
 
 assert Test().sourceip == defaddr
 assert Test(raw(Test())).sourceip == defaddr

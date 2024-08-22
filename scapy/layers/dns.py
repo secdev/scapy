@@ -27,7 +27,7 @@ from scapy.arch import (
     read_nameservers,
 )
 from scapy.ansmachine import AnsweringMachine
-from scapy.base_classes import Net
+from scapy.base_classes import Net, ScopedIP
 from scapy.config import conf
 from scapy.compat import orb, raw, chb, bytes_encode, plain_str
 from scapy.error import log_runtime, warning, Scapy_Exception
@@ -1918,16 +1918,14 @@ class DNSSDResult(SndRcvList):
                  ):
         SndRcvList.__init__(self, res, name, stats)
 
-    def show(self, *args, **kwargs):
-        # type: (*Any, **Any) -> None
+    def show(self, types=['PTR', 'SRV'], alltypes=False):
+        # type: (List[str], bool) -> None
         """
         Print the list of discovered services.
 
         :param types: types to show. Default ['PTR', 'SRV']
         :param alltypes: show all types. Default False
         """
-        types = kwargs.get("types", ['PTR', 'SRV'])
-        alltypes = kwargs.get("alltypes", False)
         if alltypes:
             types = None
         data = list()  # type: List[Tuple[str | List[str], ...]]
@@ -1969,8 +1967,10 @@ class DNSSDResult(SndRcvList):
 
 @conf.commands.register
 def dnssd(service="_services._dns-sd._udp.local",
-          af=socket.AF_INET6,
+          af=socket.AF_INET,
           qtype="PTR",
+          iface=None,
+          verbose=2,
           timeout=3):
     """
     Performs a DNS-SD (RFC6763) request
@@ -1978,15 +1978,15 @@ def dnssd(service="_services._dns-sd._udp.local",
     :param service: the service name to query (e.g. _spotify-connect._tcp.local)
     :param af: the transport to use. socket.AF_INET or socket.AF_INET6
     :param qtype: the type to use in the mDNS. Either TXT, PTR or SRV.
-    :param ret: return instead of printing
+    :param iface: the interface to do this discovery on.
     """
     if af == socket.AF_INET:
-        pkt = IP(dst="224.0.0.251")
+        pkt = IP(dst=ScopedIP("224.0.0.251", iface), ttl=255)
     elif af == socket.AF_INET6:
-        pkt = IPv6(dst="ff02::fb")
+        pkt = IPv6(dst=ScopedIP("ff02::fb", iface))
     else:
         return
     pkt /= UDP(sport=5353, dport=5353)
     pkt /= DNS(rd=0, qd=[DNSQR(qname=service, qtype=qtype)])
-    ans, _ = sr(pkt, multi=True, timeout=timeout)
+    ans, _ = sr(pkt, multi=True, timeout=timeout, verbose=verbose)
     return DNSSDResult(ans.res)
