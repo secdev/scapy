@@ -328,16 +328,6 @@ get_working_if()
 
 get_if_raw_addr6(conf.iface)
 
-if conf.use_bpf:
-    addr = u"lladdr 29:0b:c2:ff:fe:53:21:e9\n"
-    b = Bunch(returncode=0, communicate=lambda *args, **kargs: (addr, None))
-    with mock.patch('scapy.arch.bpf.core.subprocess.Popen', return_value=b) as popen:
-        try:
-            scapy.arch.bpf.core.get_if_raw_hwaddr("fw0")
-            assert False
-        except Scapy_Exception:
-            assert True
-
 = More Interfaces related functions
 
 # Test name resolution
@@ -529,14 +519,17 @@ pkt.build()
 
 = Test read_routes6() - check mandatory routes
 
+import re
+ll_route = re.compile(r"fe80:\d{0,2}:")
+# match fe80::, fe80:5:, etc. (if scoped)
+
 conf.route6
 
-# Doesn't pass on Travis Bionic XXX
 if len(routes6) > 2 and not WINDOWS:
     # Identify routes to fe80::/64
     assert sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) >= 1
-    if not OPENBSD and len(iflist) >= 2:
-        assert sum(1 for r in routes6 if r[0] == "fe80::" and r[1] == 64) >= 1
+    if len(iflist) >= 2:
+        assert sum(1 for r in routes6 if ll_route.match(r[0]) and r[1] == 64) >= 1
         try:
             # Identify a route to a node IPv6 link-local address
             assert sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128) >= 1

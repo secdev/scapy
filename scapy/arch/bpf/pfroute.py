@@ -13,7 +13,7 @@ import ctypes.util
 import socket
 import struct
 
-from scapy.consts import BIG_ENDIAN, NETBSD, OPENBSD
+from scapy.consts import BIG_ENDIAN, NETBSD, OPENBSD, DARWIN
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.packet import (
@@ -100,6 +100,101 @@ _bsd_iff_flags = [
     "NETLINK_1",
 ]
 
+if NETBSD:
+    _RTM_TYPE = {
+        # man 4 route
+        0x01: "RTM_ADD",
+        0x02: "RTM_DELETE",
+        0x03: "RTM_CHANGE",
+        0x04: "RTM_GET",
+        0x05: "RTM_LOSING",
+        0x06: "RTM_REDIRECT",
+        0x07: "RTM_MISS",
+        0x08: "RTM_LOCK",
+        0x09: "RTM_OLDADD",
+        0x0A: "RTM_OLDDEL",
+        0x0B: "RTM_RESOLVE",
+        0x0C: "RTM_ONEWADDR",
+        0x0D: "RTM_ODELADDR",
+        0x0E: "RTM_OOIFINFO",
+        0x0F: "RTM_OIFINFO",
+        0x10: "RTM_IFANNOUNCE",
+        0x11: "RTM_IEEE80211",
+        0x12: "RTM_SETGATE",
+        0x13: "RTM_LLINFO_UPD",
+        0x14: "RTM_IFINFO",
+        0x15: "RTM_OCHGADDR",
+        0x16: "RTM_NEWADDR",
+        0x17: "RTM_DELADDR",
+        0x18: "RTM_CHGADDR",
+    }
+elif OPENBSD:
+    _RTM_TYPE = {
+        # man 4 route
+        0x01: "RTM_ADD",
+        0x02: "RTM_DELETE",
+        0x03: "RTM_CHANGE",
+        0x04: "RTM_GET",
+        0x05: "RTM_LOSING",
+        0x06: "RTM_REDIRECT",
+        0x07: "RTM_MISS",
+        0x08: "RTM_LOCK",
+        0x09: "RTM_OLDADD",
+        0x0A: "RTM_OLDDEL",
+        0x0B: "RTM_RESOLVE",
+        0x0C: "RTM_NEWADDR",
+        0x0D: "RTM_DELADDR",
+        0x0E: "RTM_IFINFO",
+        0x0F: "RTM_IFANNOUNCE",
+        0x10: "RTM_DESYNC",
+        0x11: "RTM_INVALIDATE",
+    }
+elif DARWIN:
+    _RTM_TYPE = {
+        # man 4 route
+        0x01: "RTM_ADD",
+        0x02: "RTM_DELETE",
+        0x03: "RTM_CHANGE",
+        0x04: "RTM_GET",
+        0x05: "RTM_LOSING",
+        0x06: "RTM_REDIRECT",
+        0x07: "RTM_MISS",
+        0x08: "RTM_LOCK",
+        0x09: "RTM_OLDADD",
+        0x0A: "RTM_OLDDEL",
+        0x0B: "RTM_RESOLVE",
+        0x0C: "RTM_NEWADDR",
+        0x0D: "RTM_DELADDR",
+        0x0E: "RTM_IFINFO",
+        0x0F: "RTM_NEWMADDR",
+        0x10: "RTM_DELMADDR",
+        0x12: "RTM_IFINFO2",
+        0x13: "RTM_NEWMADDR2",
+        0x14: "RTM_GET2",
+    }
+else:  # FreeBSD
+    _RTM_TYPE = {
+        # man 4 route
+        0x01: "RTM_ADD",
+        0x02: "RTM_DELETE",
+        0x03: "RTM_CHANGE",
+        0x04: "RTM_GET",
+        0x05: "RTM_LOSING",
+        0x06: "RTM_REDIRECT",
+        0x07: "RTM_MISS",
+        0x08: "RTM_LOCK",
+        0x09: "RTM_OLDADD",
+        0x0A: "RTM_OLDDEL",
+        0x0B: "RTM_RESOLVE",
+        0x0C: "RTM_NEWADDR",
+        0x0D: "RTM_DELADDR",
+        0x0E: "RTM_IFINFO",
+        0x0F: "RTM_NEWMADDR",
+        0x10: "RTM_DELMADDR",
+        0x11: "RTM_IFANNOUNCE",
+        0x12: "RTM_IEEE80211",
+    }
+
 _RTM_ADDRS = {
     0x01: "RTA_DST",
     0x02: "RTA_GATEWAY",
@@ -134,17 +229,40 @@ _RTM_FLAGS = {
     0x1000: "RTF_BLACKHOLE",
     0x4000: "RTF_PROTO2",
     0x8000: "RTF_PROTO1",
-    0x10000: "RTF_SRC",  # NetBSD
-    0x20000: "RTF_ANNOUNCE",  # NetBSD
+    **(
+        {
+            0x10000: "RTF_PRCLONING",
+            0x20000: "RTF_WASCLONED",
+        }
+        if DARWIN
+        else {
+            0x10000: "RTF_SRC",  # NetBSD
+            0x20000: "RTF_ANNOUNCE",  # NetBSD
+        }
+    ),
     0x40000: "RTF_PROTO3",
     0x80000: "RTF_FIXEDMTU",
     0x100000: "RTF_PINNED",
     0x200000: "RTF_LOCAL",
     0x400000: "RTF_BROADCAST",
     0x800000: "RTF_MULTICAST",
-    0x1000000: "RTF_STICKY",
-    0x4000000: "RTF_RNH_LOCKED",  # deprecated
-    0x8000000: "RTF_GWFLAG_COMPAT",
+    **(
+        {
+            0x1000000: "RTF_IFSCOPE",
+            0x2000000: "RTF_CONDEMNED",
+            0x4000000: "RTF_IFREF",
+            0x8000000: "RTF_PROXY",
+            0x10000000: "RTF_ROUTER",
+            0x20000000: "RTF_DEAD",
+            0x40000000: "RTF_GLOBAL",
+        }
+        if DARWIN
+        else {
+            0x1000000: "RTF_STICKY",
+            0x4000000: "RTF_RNH_LOCKED",  # deprecated
+            0x8000000: "RTF_GWFLAG_COMPAT",
+        }
+    ),
 }
 
 _IFCAP = {
@@ -168,38 +286,7 @@ class pfmsghdr(Packet):
     fields_desc = [
         Field("rtm_msglen", 0, fmt="=H"),
         ByteField("rtm_version", 5),
-        ByteEnumField(
-            "rtm_type",
-            0,
-            {
-                # man 4 route
-                0x01: "RTM_ADD",
-                0x02: "RTM_DELETE",
-                0x03: "RTM_CHANGE",
-                0x04: "RTM_GET",
-                0x05: "RTM_LOSING",
-                0x06: "RTM_REDIRECT",
-                0x07: "RTM_MISS",
-                0x08: "RTM_LOCK",
-                0x09: "RTM_OLDADD",
-                0x0A: "RTM_OLDDEL",
-                0x0B: "RTM_RESOLVE",
-                0x0C: "RTM_NEWADDR",
-                0x0D: "RTM_DELADDR",
-                0x0E: "RTM_IFINFO",
-                0x0F: "RTM_NEWMADDR",
-                0x10: "RTM_DELMADDR",
-                0x11: "RTM_IFANNOUNCE",
-                0x12: "RTM_IEEE80211",
-                # NetBSD
-                0x13: "RTM_LLINFO_UPD",
-                0x14: "RTM_IFINFO_NETBSD",
-                0x15: "RTM_OCHGADDR_NETBSD",
-                0x16: "RTM_NEWADDR_NETBSD",
-                0x17: "RTM_DELADDR_NETBSD",
-                0x18: "RTM_CHGADDR_NETBSD",
-            },
-        ),
+        ByteEnumField("rtm_type", 0, _RTM_TYPE),
     ] + (
         # It begins... the IFs apocalypse
         [Field("rtm_hdrlen", 0, fmt="=H")]
@@ -253,10 +340,6 @@ class sockaddr(Packet):
             Field("sin6_scope_id", 0, fmt="=I"),
             lambda pkt: pkt.sa_family == socket.AF_INET6,
         ),
-        ConditionalField(
-            Field("sin6_pad", 0, fmt="=I"),
-            lambda pkt: pkt.sa_family == socket.AF_INET6,
-        ),
         # sockaddr_dl
         ConditionalField(
             Field("sdl_index", 0, fmt="=H"), lambda pkt: pkt.sa_family == socket.AF_LINK
@@ -292,13 +375,15 @@ class sockaddr(Packet):
             XStrLenField(
                 "sdl_data",
                 "",
-                length_from=lambda pkt: pkt.sa_len
-                - pkt.sdl_nlen
-                - pkt.sdl_alen
-                - pkt.sdl_slen
-                - 8,
+                length_from=lambda pkt: max(
+                    pkt.sa_len - pkt.sdl_nlen - pkt.sdl_alen - pkt.sdl_slen - 8, 0
+                ),
             ),
             lambda pkt: pkt.sa_family == socket.AF_LINK,
+        ),
+        ConditionalField(
+            XStrLenField("sdl_pad", b"", length_from=lambda pkt: 16 - pkt.sa_len),
+            lambda pkt: pkt.sa_len < 16 and pkt.sa_family == socket.AF_LINK,
         ),
         # others
         ConditionalField(
@@ -324,10 +409,14 @@ class SockAddrsField(FieldListField):
     holds_packets = 1
 
     def __init__(self, name):
+        if DARWIN:
+            align = 4
+        else:
+            align = 8
         super(SockAddrsField, self).__init__(
             name,
             [],
-            PadField(PacketField("", None, sockaddr), 8),
+            PadField(PacketField("", None, sockaddr), align),
         )
 
 
@@ -397,7 +486,46 @@ elif NETBSD:
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
             return conf.padding_layer
 
+elif DARWIN:
+
+    class if_data(Packet):
+        # if_var.h
+        fields_desc = [
+            ByteField("ifi_type", 0),
+            ByteField("ifi_typelen", 0),
+            ByteField("ifi_physical", 0),
+            ByteField("ifi_addrlen", 0),
+            ByteField("ifi_hdrlen", 0),
+            ByteField("ifi_recvquota", 0),
+            ByteField("ifi_xmitquota", 0),
+            ByteField("ifi_unused", 0),
+            Field("ifi_mtu", 0, fmt="=I"),
+            Field("ifi_metric", 0, fmt="=I"),
+            Field("ifi_baudrate", 0, fmt="=I"),
+            Field("ifi_ipackets", 0, fmt="=I"),
+            Field("ifi_ierrors", 0, fmt="=I"),
+            Field("ifi_opackets", 0, fmt="=I"),
+            Field("ifi_oerrors", 0, fmt="=I"),
+            Field("ifi_collision", 0, fmt="=I"),
+            Field("ifi_ibytes", 0, fmt="=I"),
+            Field("ifi_obytes", 0, fmt="=I"),
+            Field("ifi_imcasts", 0, fmt="=I"),
+            Field("ifi_omcasts", 0, fmt="=I"),
+            Field("ifi_iqdrops", 0, fmt="=I"),
+            Field("ifi_noproto", 0, fmt="=I"),
+            Field("ifi_recvtiming", 0, fmt="=I"),
+            Field("ifi_xmittiming", 0, fmt="=I"),
+            Field("ifi_lastchange", 0, fmt="=Q"),
+            Field("ifi_unused2", 0, fmt="=I"),
+            Field("ifi_hwassist", 0, fmt="=I"),
+            Field("ifi_reserved", 0, fmt="=Q"),
+        ]
+
+        def default_payload_class(self, payload: bytes) -> Type[Packet]:
+            return conf.padding_layer
+
 else:
+    # FreeBSD
 
     class if_data(Packet):
         # net/if.h
@@ -487,7 +615,8 @@ else:
 
 
 bind_layers(pfmsghdr, if_msghdr, rtm_type=0x0E)
-bind_layers(pfmsghdr, if_msghdr, rtm_type=0x14)
+if NETBSD:
+    bind_layers(pfmsghdr, if_msghdr, rtm_type=0x14)
 
 
 if OPENBSD:
@@ -525,7 +654,7 @@ elif NETBSD:
             SockAddrsField("addrs"),
         ]
 
-else:
+else:  # FreeBSD, Darwin
 
     class ifa_msghdr(Packet):
         fields_desc = if_msghdr.fields_desc[:4] + [
@@ -536,8 +665,9 @@ else:
 
 bind_layers(pfmsghdr, ifa_msghdr, rtm_type=0x0C)
 bind_layers(pfmsghdr, ifa_msghdr, rtm_type=0x0D)
-bind_layers(pfmsghdr, ifa_msghdr, rtm_type=0x16)
-bind_layers(pfmsghdr, ifa_msghdr, rtm_type=0x17)
+if NETBSD:
+    bind_layers(pfmsghdr, ifa_msghdr, rtm_type=0x16)
+    bind_layers(pfmsghdr, ifa_msghdr, rtm_type=0x17)
 
 
 class ifma_msghdr(Packet):
@@ -594,6 +724,26 @@ elif NETBSD:
             Field("rmx_rttvar", 0, fmt="=Q"),
             Field("rmx_expire", 0, fmt="=Q"),
             Field("rmx_pksent", 0, fmt="=Q"),
+        ]
+
+        def default_payload_class(self, payload: bytes) -> Type[Packet]:
+            return conf.padding_layer
+
+elif DARWIN:
+
+    class rt_metrics(Packet):
+        fields_desc = [
+            Field("rmx_locks", 0, fmt="=I"),
+            Field("rmx_mtu", 0, fmt="=I"),
+            Field("rmx_hopcount", 0, fmt="=I"),
+            Field("rmx_expire", 0, fmt="=i"),
+            Field("rmx_recvpipe", 0, fmt="=I"),
+            Field("rmx_sendpipe", 0, fmt="=I"),
+            Field("rmx_sshthresh", 0, fmt="=I"),
+            Field("rmx_rtt", 0, fmt="=I"),
+            Field("rmx_rttvar", 0, fmt="=I"),
+            Field("rmx_pksent", 0, fmt="=I"),
+            StrFixedLenField("rmx_filler", b"", length=16),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
@@ -687,6 +837,42 @@ elif NETBSD:
             SockAddrsField("addrs"),
         ]
 
+elif DARWIN:
+
+    class rt_msghdr(Packet):
+        # actually rt_msghdr2 (we need parentflags)
+        fields_desc = [
+            Field("rtm_index", 0, fmt="=H"),
+            Field("_rtm_spare1", 0, fmt="=H"),
+            FlagsField(
+                "rtm_flags",
+                0,
+                32 if BIG_ENDIAN else -32,
+                _RTM_FLAGS,
+            ),
+            FlagsField(
+                "rtm_addrs",
+                0,
+                32 if BIG_ENDIAN else -32,
+                _RTM_ADDRS,
+            ),
+            Field("rtm_refcnt", 0, fmt="=I"),
+            FlagsField(
+                "rtm_parentflags",
+                0,
+                32 if BIG_ENDIAN else -32,
+                _RTM_FLAGS,
+            ),
+            Field("rtm_reserved", 0, fmt="=I"),
+            Field("rtm_use", 0, fmt="=I"),
+            Field("rtm_inits", 0, fmt="=I"),
+            PadField(
+                PacketField("rtm_rmx", rt_metrics(), rt_metrics),
+                4,
+            ),
+            SockAddrsField("addrs"),
+        ]
+
 else:
 
     class rt_msghdr(Packet):
@@ -736,7 +922,10 @@ class pfmsghdrs(Packet):
 # Utils
 
 CTL_NET = 4
-NET_RT_DUMP = 1
+if DARWIN:
+    NET_RT_DUMP = 7  # NET_RT_DUMP2
+else:
+    NET_RT_DUMP = 1
 NET_RT_TABLE = 5
 if NETBSD:
     NET_RT_IFLIST = 6
@@ -789,12 +978,12 @@ def read_routes():
         NET_RT_DUMP,
         0,
     ]
-    if not NETBSD:
+    if not NETBSD and not DARWIN:
+        # NetBSD / OSX is missing the fib
         if OPENBSD:
             fib = 0  # default table
         else:  # FreeBSD
             fib = -1  # means 'all'
-        # NetBSD is missing the fib
         mib.append(fib)
     mib = (ctypes.c_int * len(mib))(*mib)
     resp = _sr1_bsdsysctl(mib)
@@ -803,11 +992,14 @@ def read_routes():
     ifaces = _get_if_list()
     routes = []
     for msg in resp.msgs:
-        if msg.rtm_type != 4:
+        if msg.rtm_type != 0x4 and (not DARWIN or msg.rtm_type != 0x14):  # RTM_GET(2)
             continue
         # Parse route. addrs contains what addresses are present
         flags = msg.rtm_flags
         if not flags.RTF_UP:
+            continue
+        if DARWIN and flags.RTF_WASCLONED and msg.rtm_parentflags.RTF_PRCLONING:
+            # OSX needs filtering
             continue
         addrs = msg.rtm_addrs
         net = 0
@@ -822,7 +1014,10 @@ def read_routes():
                 net = atol(msg.addrs[i].sin_addr)
                 i += 1
             if addrs.RTA_GATEWAY:
-                gw = msg.addrs[i].sin_addr or "0.0.0.0"
+                if msg.addrs[i].sa_family == socket.AF_LINK:
+                    gw = "0.0.0.0"
+                else:
+                    gw = msg.addrs[i].sin_addr or "0.0.0.0"
                 i += 1
             if addrs.RTA_NETMASK:
                 nm = msg.addrs[i]
@@ -844,9 +1039,11 @@ def read_routes():
         except Exception:
             log_runtime.debug("Failed to read route %s" % repr(msg))
             continue
+        if not iface:
+            iface = ifaces[msg.rtm_index]["name"]
         routes.append((net, mask, gw, iface, addr, metric))
-    if OPENBSD:
-        # OpenBSD includes multicast routes
+    if OPENBSD or DARWIN:
+        # OpenBSD and OSX include multicast routes
         return routes
     # Add multicast routes, as those are missing by default
     for _iface in ifaces.values():
@@ -877,8 +1074,8 @@ def read_routes6():
         NET_RT_DUMP,
         0,
     ]
-    if not NETBSD:
-        # NetBSD is missing the fib
+    if not NETBSD and not DARWIN:
+        # NetBSD / OSX is missing the fib
         if OPENBSD:
             fib = 0  # default table
         else:  # FreeBSD
@@ -891,11 +1088,14 @@ def read_routes6():
     ifaces = _get_if_list()
     routes = []
     for msg in resp.msgs:
-        if msg.rtm_type != 4:
+        if msg.rtm_type != 0x4 and (not DARWIN or msg.rtm_type != 0x14):  # RTM_GET(2)
             continue
         # Parse route. addrs contains what addresses are present
         flags = msg.rtm_flags
         if not flags.RTF_UP:
+            continue
+        if DARWIN and flags.RTF_WASCLONED and msg.rtm_parentflags.RTF_PRCLONING:
+            # OSX needs filtering
             continue
         addrs = msg.rtm_addrs
         prefix = "::"
@@ -910,7 +1110,10 @@ def read_routes6():
                 prefix = msg.addrs[i].sin6_addr
                 i += 1
             if addrs.RTA_GATEWAY:
-                nh = msg.addrs[i].sin6_addr or "::"
+                if msg.addrs[i].sa_family == socket.AF_LINK:
+                    nh = "::"
+                else:
+                    nh = msg.addrs[i].sin6_addr or "::"
                 i += 1
             if addrs.RTA_NETMASK:
                 nm = msg.addrs[i]
@@ -937,9 +1140,11 @@ def read_routes6():
         except Exception:
             log_runtime.debug("Failed to read route %s" % repr(msg))
             continue
+        if not iface:
+            iface = ifaces[msg.rtm_index]["name"]
         routes.append((prefix, plen, nh, iface, candidates, metric))
-    if OPENBSD:
-        # OpenBSD includes multicast routes
+    if OPENBSD or DARWIN:
+        # OpenBSD and OSX include multicast routes
         return routes
     # Add multicast routes, as those are missing by default
     for _iface in ifaces.values():
@@ -1002,7 +1207,7 @@ def _get_if_list():
         lifips.setdefault(ifindex, list()).append(data)
     interfaces = {}
     for msg in resp.msgs:
-        if msg.rtm_type not in [0xE, 0x14]:  # RTM_IFINFO
+        if msg.rtm_type != 0xE and (not NETBSD or msg.rtm_type != 0x14):  # RTM_IFINFO
             continue
         ifindex = msg.ifm_index
         ifname = None

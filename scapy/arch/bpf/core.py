@@ -86,7 +86,7 @@ def get_if_raw_hwaddr(iface):
     # type: (Union[NetworkInterface, str]) -> Tuple[int, bytes]
     _iface = resolve_iface(iface)
     if _iface == conf.loopback_name:
-        return ARPHDR_LOOPBACK, "b\x00" * 6
+        return ARPHDR_LOOPBACK, b"\x00" * 6
     return (
         ARPHDR_ETHER,
         _iface.mac and mac2str(_iface.mac) or b"\x00" * 6,
