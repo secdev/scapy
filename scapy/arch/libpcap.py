@@ -16,7 +16,7 @@ import time
 from scapy.automaton import select_objects
 from scapy.compat import raw, plain_str
 from scapy.config import conf
-from scapy.consts import WINDOWS
+from scapy.consts import WINDOWS, LINUX, BSD, SOLARIS
 from scapy.data import (
     DLT_RAW_ALT,
     DLT_RAW,
@@ -217,6 +217,7 @@ if conf.use_pcap:
                     flags = p.contents.flags  # FLAGS
                     ips = []
                     mac = ""
+                    itype = -1
                     a = p.contents.addresses
                     while a:
                         # IPv4 address
@@ -244,7 +245,7 @@ if conf.use_pcap:
                             ips.append(addr)
                         a = a.contents.next
                     flags = FlagValue(flags, _pcap_if_flags)
-                    if_list[name] = (description, ips, flags, mac)
+                    if_list[name] = (description, ips, flags, mac, itype)
                     p = p.contents.next
                 conf.cache_pcapiflist = if_list
             except Exception:
@@ -297,15 +298,13 @@ if conf.use_pcap:
                 network_name(device).encode("utf8")
             )
             self.dtl = -1
-            if monitor:
+            if not WINDOWS or conf.use_npcap:
                 from scapy.libs.winpcapy import pcap_create
                 self.pcap = pcap_create(self.iface, self.errbuf)
                 if not self.pcap:
                     error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
                     if error:
                         raise OSError(error)
-                if WINDOWS and not conf.use_npcap:
-                    raise OSError("On Windows, this feature requires NPcap !")
                 # Non-winpcap functions
                 from scapy.libs.winpcapy import (
                     pcap_set_snaplen,
@@ -316,11 +315,27 @@ if conf.use_pcap:
                     pcap_statustostr,
                     pcap_geterr,
                 )
-                pcap_set_snaplen(self.pcap, snaplen)
-                pcap_set_promisc(self.pcap, promisc)
-                pcap_set_timeout(self.pcap, to_ms)
-                if pcap_set_rfmon(self.pcap, 1) != 0:
-                    log_runtime.error("Could not set monitor mode")
+                if pcap_set_snaplen(self.pcap, snaplen) != 0:
+                    error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
+                    if error:
+                        raise OSError(error)
+                    log_runtime.error("Could not set snaplen")
+                if pcap_set_promisc(self.pcap, promisc) != 0:
+                    error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
+                    if error:
+                        raise OSError(error)
+                    log_runtime.error("Could not set promisc")
+                if pcap_set_timeout(self.pcap, to_ms) != 0:
+                    error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
+                    if error:
+                        raise OSError(error)
+                    log_runtime.error("Could not set timeout")
+                if monitor:
+                    if pcap_set_rfmon(self.pcap, 1) != 0:
+                        error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
+                        if error:
+                            raise OSError(error)
+                        log_runtime.error("Could not set monitor mode")
                 status = pcap_activate(self.pcap)
                 # status == 0 means success
                 # status < 0 means error
@@ -350,6 +365,8 @@ if conf.use_pcap:
                         errmsg = "%s: %s" % (iface, statusstr)
                     raise OSError(errmsg)
             else:
+                if WINDOWS and monitor:
+                    raise OSError("On Windows, this feature requires NPcap !")
                 self.pcap = pcap_open_live(self.iface,
                                            snaplen, promisc, to_ms,
                                            self.errbuf)
@@ -454,27 +471,23 @@ if conf.use_pcap:
             data = {}
             i = 0
             for ifname, dat in conf.cache_pcapiflist.items():
-                description, ips, flags, mac = dat
+                description, ips, flags, mac, itype = dat
                 i += 1
-                if not mac:
-                    from scapy.arch import get_if_hwaddr
+                if LINUX or BSD or SOLARIS and not mac:
+                    from scapy.arch.unix import get_if_raw_hwaddr
                     try:
-                        mac = get_if_hwaddr(ifname)
-                    except Exception as ex:
+                        itype, _mac = get_if_raw_hwaddr(ifname)
+                        mac = str2mac(_mac)
+                    except Exception:
                         # There are at least 3 different possible exceptions
-                        log_loading.warning(
-                            "Could not get MAC address of interface '%s': %s." % (
-                                ifname,
-                                ex,
-                            )
-                        )
-                        continue
+                        mac = "00:00:00:00:00:00"
                 if_data = {
                     'name': ifname,
                     'description': description or ifname,
                     'network_name': ifname,
                     'index': i,
                     'mac': mac,
+                    'type': itype,
                     'ips': ips,
                     'flags': flags
                 }

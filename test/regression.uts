@@ -311,7 +311,8 @@ from unittest import mock
 
 conf.iface
 
-get_if_raw_hwaddr(conf.iface)
+get_if_addr(conf.iface)
+get_if_hwaddr(conf.iface)
 
 bytes_hex(get_if_raw_addr(conf.iface))
 
@@ -343,7 +344,7 @@ from unittest import mock
 @mock.patch("scapy.interfaces.conf.ifaces.values")
 def _test_get_working_if(rou):
     rou.side_effect = lambda: []
-    assert get_working_if() == conf.loopback_name
+    assert get_working_if() is None
 
 assert conf.iface + "a"  # left +
 assert "hey! are you, ready to go ? %s" % conf.iface  # format
@@ -1780,7 +1781,7 @@ try:
     sniffer.start()
     sniffer.join()
     assert False, "Should have errored by now"
-except (OSError, Scapy_Exception):
+except ValueError:
     assert True
 
 = Sending a TCP syn 'forever' at layer 2 and layer 3
@@ -3757,16 +3758,6 @@ finally:
     conf.iface = old_iface
     conf.route6.resync()
     conf.ifaces.reload()
-
-= Find a link-local address when conf.iface does not support IPv6
-
-old_iface = conf.iface
-conf.route6.ipv6_ifaces = set(['eth1', 'lo'])
-conf.iface = "eth0"
-conf.route6.routes = [("fe80::", 64, "::", "eth1", ["fe80::a00:28ff:fe07:1980"], 256), ("::1", 128, "::", "lo", ["::1"], 0), ("fe80::a00:28ff:fe07:1980", 128, "::", "lo", ["::1"], 0)]
-assert conf.route6.route("fe80::2807") == ("eth1", "fe80::a00:28ff:fe07:1980", "::")
-conf.iface = old_iface
-conf.route6.resync()
 
 = Windows: reset routes properly
 

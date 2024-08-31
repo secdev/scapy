@@ -99,9 +99,8 @@ def compile_filter(filter_exp,  # type: str
                 )
             iface = conf.iface
         # Try to guess linktype to avoid requiring root
-        from scapy.arch import get_if_raw_hwaddr
         try:
-            arphd = get_if_raw_hwaddr(iface)[0]
+            arphd = resolve_iface(iface).type
             linktype = ARPHRD_TO_DLT.get(arphd)
         except Exception:
             # Failed to use linktype: use the interface

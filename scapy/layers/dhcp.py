@@ -43,7 +43,7 @@ from scapy.fields import (
 from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether, HARDWARE_TYPES
 from scapy.packet import bind_layers, bind_bottom_up, Packet
-from scapy.utils import atol, itom, ltoa, sane, str2mac
+from scapy.utils import atol, itom, ltoa, sane, str2mac, mac2str
 from scapy.volatile import (
     RandBin,
     RandByte,
@@ -54,7 +54,7 @@ from scapy.volatile import (
     RandNumExpo,
 )
 
-from scapy.arch import get_if_raw_hwaddr
+from scapy.arch import get_if_hwaddr
 from scapy.sendrecv import srp1
 from scapy.error import warning
 from scapy.config import conf
@@ -551,10 +551,10 @@ def dhcp_request(hw=None,
     if hw is None:
         if iface is None:
             iface = conf.iface
-        _, hw = get_if_raw_hwaddr(iface)
+        hw = get_if_hwaddr(iface)
     dhcp_options = [
         ('message-type', req_type),
-        ('client_id', b'\x01' + hw),
+        ('client_id', b'\x01' + mac2str(hw)),
     ]
     if requested_addr is not None:
         dhcp_options.append(('requested_addr', requested_addr))

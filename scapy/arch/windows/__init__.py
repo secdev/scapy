@@ -36,9 +36,8 @@ from scapy.error import (
 from scapy.interfaces import NetworkInterface, InterfaceProvider, \
     dev_from_index, resolve_iface, network_name
 from scapy.pton_ntop import inet_ntop
-from scapy.utils import atol, itom, mac2str, str2mac
+from scapy.utils import atol, itom, str2mac
 from scapy.utils6 import construct_source_candidate_set, in6_getscope
-from scapy.data import ARPHDR_ETHER
 from scapy.compat import plain_str
 from scapy.supersocket import SuperSocket
 
@@ -297,6 +296,7 @@ def get_windows_if_list(extended=False):
             "description": plain_str(x["description"]),
             "guid": plain_str(x["adapter_name"]),
             "mac": _get_mac(x),
+            "type": x["interface_type"],
             "ipv4_metric": 0 if WINDOWS_XP else x["ipv4_metric"],
             "ipv6_metric": 0 if WINDOWS_XP else x["ipv6_metric"],
             "ips": _get_ips(x),
@@ -626,7 +626,7 @@ class WindowsInterfacesProvider(InterfaceProvider):
                 # We have a libpcap provider: enrich pcap interfaces with
                 # Windows data
                 for netw, if_data in conf.cache_pcapiflist.items():
-                    name, ips, flags, _ = if_data
+                    name, ips, flags, _, _ = if_data
                     guid = _pcapname_to_guid(netw)
                     if guid == legacy_npcap_guid:
                         # Legacy Npcap detected !
@@ -783,12 +783,6 @@ if conf.use_pcap:
                 iface.setmonitor(kw_monitor)
         return _orig_open_pcap(iface_network_name, *args, **kargs)
     libpcap.open_pcap = open_pcap  # type: ignore
-
-
-def get_if_raw_hwaddr(iface):
-    # type: (Union[NetworkInterface, str]) -> Tuple[int, bytes]
-    _iface = resolve_iface(iface)
-    return ARPHDR_ETHER, _iface.mac and mac2str(_iface.mac) or b"\x00" * 6
 
 
 def _read_routes_c_v1():

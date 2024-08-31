@@ -21,9 +21,7 @@ import time
 
 from scapy.compat import raw
 from scapy.consts import LINUX
-from scapy.arch.common import (
-    compile_filter,
-)
+from scapy.arch.common import compile_filter
 from scapy.config import conf
 from scapy.data import MTU, ETH_P_ALL, SOL_PACKET, SO_ATTACH_FILTER, \
     SO_TIMESTAMPNS
@@ -46,7 +44,6 @@ from scapy.supersocket import SuperSocket
 
 # re-export
 from scapy.arch.common import get_if_raw_addr, read_nameservers  # noqa: F401
-from scapy.arch.unix import get_if_raw_hwaddr  # noqa: F401
 from scapy.arch.linux.rtnetlink import (  # noqa: F401
     read_routes,
     read_routes6,

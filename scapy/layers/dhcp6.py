@@ -15,7 +15,7 @@ import struct
 import time
 
 from scapy.ansmachine import AnsweringMachine
-from scapy.arch import get_if_raw_hwaddr, in6_getifaddr
+from scapy.arch import get_if_hwaddr, in6_getifaddr
 from scapy.config import conf
 from scapy.data import EPOCH, ETHER_ANY
 from scapy.compat import raw, orb
@@ -1588,8 +1588,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             timeval = time.time() - delta
 
             # Mac Address
-            rawmac = get_if_raw_hwaddr(iface)[1]
-            mac = ":".join("%.02x" % orb(x) for x in rawmac)
+            mac = get_if_hwaddr(iface)
 
             self.duid = DUID_LLT(timeval=timeval, lladdr=mac)
 

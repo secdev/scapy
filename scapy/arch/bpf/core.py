@@ -17,14 +17,11 @@ from scapy.arch.bpf.consts import BIOCSETF, BIOCSETIF
 from scapy.arch.common import compile_filter
 from scapy.config import conf
 from scapy.consts import LINUX
-from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
 from scapy.error import Scapy_Exception
-from scapy.utils import mac2str
 from scapy.interfaces import (
     InterfaceProvider,
     NetworkInterface,
     _GlobInterfaceType,
-    resolve_iface,
 )
 
 # re-export
@@ -40,7 +37,6 @@ from typing import (
     Dict,
     List,
     Tuple,
-    Union,
 )
 
 if LINUX:
@@ -80,17 +76,6 @@ def attach_filter(fd, bpf_filter, iface):
     ret = fcntl.ioctl(fd, BIOCSETF, bp)
     if ret < 0:
         raise Scapy_Exception("Can't attach the BPF filter !")
-
-
-def get_if_raw_hwaddr(iface):
-    # type: (Union[NetworkInterface, str]) -> Tuple[int, bytes]
-    _iface = resolve_iface(iface)
-    if _iface == conf.loopback_name:
-        return ARPHDR_LOOPBACK, b"\x00" * 6
-    return (
-        ARPHDR_ETHER,
-        _iface.mac and mac2str(_iface.mac) or b"\x00" * 6,
-    )
 
 
 def in6_getifaddr():

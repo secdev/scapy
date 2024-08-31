@@ -389,7 +389,6 @@ with VEthPair("left0", "right0") as veth:
     exit_status = os.system("ip link set vlanleft0 up")
     exit_status = os.system("ip addr add 198.51.100.1/24 dev vlanleft0")
     exit_status = os.system("ip addr add 198.51.100.2/24 dev vlanright0")
-    conf.ifaces.reload()
     sniffer = AsyncSniffer(
         iface="right0",
         lfilter=lambda p: Dot1Q in p,
