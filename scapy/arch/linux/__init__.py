@@ -145,6 +145,8 @@ def attach_filter(sock, bpf_filter, iface):
 def set_promisc(s, iff, val=1):
     # type: (socket.socket, _GlobInterfaceType, int) -> None
     _iff = resolve_iface(iff)
+    if not _iff.is_valid():
+        raise OSError("set_promisc: Unknown interface %s" % iff)
     mreq = struct.pack("IHH8s", _iff.index, PACKET_MR_PROMISC, 0, b"")
     if val:
         cmd = PACKET_ADD_MEMBERSHIP
