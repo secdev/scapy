@@ -13,7 +13,7 @@ import ctypes.util
 import socket
 import struct
 
-from scapy.consts import BIG_ENDIAN, NETBSD, OPENBSD, DARWIN
+from scapy.consts import BIG_ENDIAN, BSD, NETBSD, OPENBSD, DARWIN
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.packet import (
@@ -54,23 +54,25 @@ from typing import (
     Type,
 )
 
-# Missing PF_ROUTE
+# Missing attributes
 if not hasattr(socket, "PF_ROUTE"):
     socket.PF_ROUTE = 17
 
 # ctypes definitions
 
-LIBC = ctypes.cdll.LoadLibrary(ctypes.util.find_library("c"))
-
-LIBC.sysctl.argtypes = [
-    ctypes.POINTER(ctypes.c_int),
-    ctypes.c_uint,
-    ctypes.c_void_p,
-    ctypes.POINTER(ctypes.c_size_t),
-    ctypes.c_void_p,
-    ctypes.c_size_t,
-]
-LIBC.sysctl.restype = ctypes.c_int
+if BSD:  # Can be imported for testing.
+    LIBC = ctypes.cdll.LoadLibrary(ctypes.util.find_library("c"))
+    LIBC.sysctl.argtypes = [
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.c_uint,
+        ctypes.c_void_p,
+        ctypes.POINTER(ctypes.c_size_t),
+        ctypes.c_void_p,
+        ctypes.c_size_t,
+    ]
+    LIBC.sysctl.restype = ctypes.c_int
+else:
+    LIBC = None
 
 _bsd_iff_flags = [
     "UP",
@@ -297,12 +299,19 @@ class pfmsghdr(Packet):
     if OPENBSD:
 
         def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:
+            if self.rtm_msglen < 6:
+                return s, b""
             return s[: self.rtm_msglen - 6], s[self.rtm_msglen - 6 :]
 
     else:
 
         def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:
+            if self.rtm_msglen < 4:
+                return s, b""
             return s[: self.rtm_msglen - 4], s[self.rtm_msglen - 4 :]
+
+
+bind_layers(pfmsghdr, conf.raw_layer, rtm_msglen=0)  # padding
 
 
 # END
