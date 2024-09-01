@@ -394,6 +394,15 @@ pkts = sniff(offline=tmp_file, session=TCPSession)
 assert pkts[0].haslayer(UDS_TP)
 assert pkts[0].service == 0x3E
 
+= TCPSession Test multiple DoIP messages
+
+filename = scapy_path("/test/pcaps/multiple_doip_layers.pcap.gz")
+
+pkts = sniff(offline=filename, session=TCPSession)
+
+assert len(pkts) == 2
+assert pkts[0][DoIP].payload_length == 2
+assert pkts[0][DoIP].payload.payload_length == 7
 
 + DoIP Communication tests
 
