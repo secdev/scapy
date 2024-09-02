@@ -26,7 +26,7 @@ import traceback
 import warnings
 import zlib
 
-from scapy.consts import WINDOWS
+from scapy.consts import WINDOWS, BIG_ENDIAN
 from scapy.config import conf
 from scapy.compat import base64_bytes
 from scapy.themes import DefaultTheme, BlackAndWhite
@@ -1104,6 +1104,9 @@ def main():
                 print(" " + arrow + " Non-root mode")
     except AttributeError:
         pass
+
+    if BIG_ENDIAN:
+        KW_KO.append("little_endian_only")
 
     if conf.use_pcap or WINDOWS:
         KW_KO.append("not_libpcap")

@@ -811,6 +811,7 @@ def _get_if_list():
         ifindex = msg.ifi_index
         ifname = None
         mac = "00:00:00:00:00:00"
+        itype = msg.ifi_type
         ifflags = msg.ifi_flags
         ips = []
         for attr in msg.data:
@@ -826,6 +827,7 @@ def _get_if_list():
                 "index": ifindex,
                 "flags": ifflags,
                 "mac": mac,
+                "type": itype,
                 "ips": ips,
             }
     return interfaces

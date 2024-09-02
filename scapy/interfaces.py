@@ -117,6 +117,7 @@ class NetworkInterface(object):
         self.index = -1
         self.ip = None  # type: Optional[str]
         self.ips = defaultdict(list)  # type: DefaultDict[int, List[str]]
+        self.type = -1
         self.mac = None  # type: Optional[str]
         self.dummy = False
         if data is not None:
@@ -132,6 +133,7 @@ class NetworkInterface(object):
         self.network_name = data.get('network_name', "")
         self.index = data.get('index', 0)
         self.ip = data.get('ip', "")
+        self.type = data.get('type', -1)
         self.mac = data.get('mac', "")
         self.flags = data.get('flags', 0)
         self.dummy = data.get('dummy', False)
@@ -240,7 +242,7 @@ class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
         # Can only be called after conf.route is populated
         if not conf.route:
             raise ValueError("Error: conf.route isn't populated !")
-        conf.iface = get_working_if()
+        conf.iface = get_working_if()  # type: ignore
 
     def _reload_provs(self):
         # type: () -> None
@@ -370,7 +372,7 @@ def get_if_list():
 
 
 def get_working_if():
-    # type: () -> NetworkInterface
+    # type: () -> Optional[NetworkInterface]
     """Return an interface that works"""
     # return the interface associated with the route with smallest
     # mask (route by default if it exists)
@@ -380,11 +382,17 @@ def get_working_if():
     # First check the routing ifaces from best to worse,
     # then check all the available ifaces as backup.
     for ifname in itertools.chain(ifaces, conf.ifaces.values()):
-        iface = resolve_iface(ifname)  # type: ignore
-        if iface.is_valid():
-            return iface
+        try:
+            iface = conf.ifaces.dev_from_networkname(ifname)  # type: ignore
+            if iface.is_valid():
+                return iface
+        except ValueError:
+            pass
     # There is no hope left
-    return resolve_iface(conf.loopback_name)
+    try:
+        return conf.ifaces.dev_from_networkname(conf.loopback_name)
+    except ValueError:
+        return None
 
 
 def get_working_ifaces():
@@ -405,8 +413,8 @@ def dev_from_index(if_index):
     return conf.ifaces.dev_from_index(if_index)
 
 
-def resolve_iface(dev):
-    # type: (_GlobInterfaceType) -> NetworkInterface
+def resolve_iface(dev, retry=True):
+    # type: (_GlobInterfaceType, bool) -> NetworkInterface
     """
     Resolve an interface name into the interface
     """
@@ -416,19 +424,14 @@ def resolve_iface(dev):
         return conf.ifaces.dev_from_name(dev)
     except ValueError:
         try:
-            return dev_from_networkname(dev)
+            return conf.ifaces.dev_from_networkname(dev)
         except ValueError:
             pass
-    # Return a dummy interface
-    return NetworkInterface(
-        InterfaceProvider(),
-        data={
-            "name": dev,
-            "description": dev,
-            "network_name": dev,
-            "dummy": True
-        }
-    )
+    if not retry:
+        raise ValueError("Interface '%s' not found !" % dev)
+    # Nothing found yet. Reload to detect if it was added recently
+    conf.ifaces.reload()
+    return resolve_iface(dev, retry=False)
 
 
 def network_name(dev):

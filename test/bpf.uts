@@ -12,13 +12,13 @@
 get_if_raw_addr(conf.iface)
 
 
-= Get the packed MAC address of conf.iface
+= Get the MAC address of conf.iface
 
-get_if_raw_hwaddr(conf.iface)
+get_if_hwaddr(conf.iface)
 
-= Get the packed MAC address of conf.loopback_name
+= Get the MAC address of conf.loopback_name
 
-get_if_raw_hwaddr(conf.loopback_name) == (ARPHDR_LOOPBACK, b'\x00'*6) 
+get_if_hwaddr(conf.loopback_name) == "00:00:00:00:00:00"
 
 
 ############

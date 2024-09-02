@@ -7,12 +7,13 @@
 Functions common to different architectures
 """
 
-import socket
 import ctypes
+import re
+import socket
 
 from scapy.config import conf
 from scapy.data import MTU, ARPHDR_ETHER, ARPHRD_TO_DLT
-from scapy.error import Scapy_Exception
+from scapy.error import Scapy_Exception, warning
 from scapy.interfaces import network_name, resolve_iface, NetworkInterface
 from scapy.libs.structures import bpf_program
 from scapy.pton_ntop import inet_pton
@@ -21,6 +22,7 @@ from scapy.utils import decode_locale_str
 # Type imports
 import scapy
 from typing import (
+    List,
     Optional,
     Union,
 )
@@ -97,9 +99,8 @@ def compile_filter(filter_exp,  # type: str
                 )
             iface = conf.iface
         # Try to guess linktype to avoid requiring root
-        from scapy.arch import get_if_raw_hwaddr
         try:
-            arphd = get_if_raw_hwaddr(iface)[0]
+            arphd = resolve_iface(iface).type
             linktype = ARPHRD_TO_DLT.get(arphd)
         except Exception:
             # Failed to use linktype: use the interface
@@ -128,3 +129,18 @@ def compile_filter(filter_exp,  # type: str
             "Failed to compile filter expression %s (%s)" % (filter_exp, ret)
         )
     return bpf
+
+
+#######
+# DNS #
+#######
+
+def read_nameservers() -> List[str]:
+    """Return the nameservers configured by the OS
+    """
+    try:
+        with open('/etc/resolv.conf', 'r') as fd:
+            return re.findall(r"nameserver\s+([^\s]+)", fd.read())
+    except FileNotFoundError:
+        warning("Could not retrieve the OS's nameserver !")
+        return []

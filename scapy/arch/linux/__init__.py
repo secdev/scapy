@@ -21,10 +21,7 @@ import time
 
 from scapy.compat import raw
 from scapy.consts import LINUX
-from scapy.arch.common import (
-    compile_filter,
-)
-from scapy.arch.unix import get_if
+from scapy.arch.common import compile_filter
 from scapy.config import conf
 from scapy.data import MTU, ETH_P_ALL, SOL_PACKET, SO_ATTACH_FILTER, \
     SO_TIMESTAMPNS
@@ -37,16 +34,16 @@ from scapy.error import (
 from scapy.interfaces import (
     InterfaceProvider,
     NetworkInterface,
-    network_name,
     _GlobInterfaceType,
+    network_name,
+    resolve_iface,
 )
 from scapy.libs.structures import sock_fprog
 from scapy.packet import Packet, Padding
 from scapy.supersocket import SuperSocket
 
 # re-export
-from scapy.arch.common import get_if_raw_addr  # noqa: F401
-from scapy.arch.unix import read_nameservers, get_if_raw_hwaddr  # noqa: F401
+from scapy.arch.common import get_if_raw_addr, read_nameservers  # noqa: F401
 from scapy.arch.linux.rtnetlink import (  # noqa: F401
     read_routes,
     read_routes6,
@@ -144,17 +141,15 @@ def attach_filter(sock, bpf_filter, iface):
 
 def set_promisc(s, iff, val=1):
     # type: (socket.socket, _GlobInterfaceType, int) -> None
-    mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, b"")
+    _iff = resolve_iface(iff)
+    if not _iff.is_valid():
+        raise OSError("set_promisc: Unknown interface %s" % iff)
+    mreq = struct.pack("IHH8s", _iff.index, PACKET_MR_PROMISC, 0, b"")
     if val:
         cmd = PACKET_ADD_MEMBERSHIP
     else:
         cmd = PACKET_DROP_MEMBERSHIP
     s.setsockopt(SOL_PACKET, cmd, mreq)
-
-
-def get_if_index(iff):
-    # type: (_GlobInterfaceType) -> int
-    return int(struct.unpack("I", get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
 
 # Interface provider
