@@ -976,6 +976,12 @@ class Automaton(metaclass=Automaton_metaclass):
 
         :param port: the port to listen to
         :param bg: background mode? (default: False)
+
+        Note that in background mode, you shall close the TCP server as such::
+
+            srv = MyAutomaton.spawn(8080, bg=True)
+            srv.shutdown(socket.SHUT_RDWR)  # important
+            srv.close()
         """
         from scapy.arch import get_if_addr
         # create server sock and bind it
@@ -1020,7 +1026,7 @@ class Automaton(metaclass=Automaton_metaclass):
                         if atmt_server is not None:
                             atmt_server.destroy()
                         if kwargs.get("verb", True):
-                            print("X Connection closed.")
+                            print("X Connection aborted.")
                         if kwargs.get("debug", 0) > 0:
                             traceback.print_exc()
                         continue
