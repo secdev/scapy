@@ -14,6 +14,7 @@ import re
 import socket
 import subprocess
 import time
+import warnings
 
 from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL
@@ -452,12 +453,14 @@ def _send(x,  # type: _PacketIterable
 
 @conf.commands.register
 def send(x,  # type: _PacketIterable
-         iface=None,  # type: Optional[_GlobInterfaceType]
          **kargs  # type: Any
          ):
     # type: (...) -> Optional[PacketList]
     """
     Send packets at layer 3
+
+    This determines the interface (or L2 source to use) based on the routing
+    table: conf.route / conf.route6
 
     :param x: the packets
     :param inter: time (in s) between two packets (default 0)
@@ -467,11 +470,18 @@ def send(x,  # type: _PacketIterable
     :param realtime: check that a packet was sent before sending the next one
     :param return_packets: return the sent packets
     :param socket: the socket to use (default is conf.L3socket(kargs))
-    :param iface: the interface to send the packets on
     :param monitor: (not on linux) send in monitor mode
     :returns: None
     """
-    iface, ipv6 = _interface_selection(iface, x)
+    if "iface" in kargs:
+        # Warn that it isn't used.
+        warnings.warn(
+            "'iface' has no effect on L3 I/O send(). For multicast/link-local "
+            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
+            SyntaxWarning,
+        )
+        del kargs["iface"]
+    iface, ipv6 = _interface_selection(x)
     return _send(
         x,
         lambda iface: iface.l3socket(ipv6),
@@ -649,10 +659,7 @@ def _parse_tcpreplay_result(stdout_b, stderr_b, argv):
         return {}
 
 
-def _interface_selection(iface,  # type: Optional[_GlobInterfaceType]
-                         packet  # type: _PacketIterable
-                         ):
-    # type: (...) -> Tuple[NetworkInterface, bool]
+def _interface_selection(packet: _PacketIterable) -> Tuple[NetworkInterface, bool]:
     """
     Select the network interface according to the layer 3 destination
     """
@@ -664,21 +671,17 @@ def _interface_selection(iface,  # type: Optional[_GlobInterfaceType]
             ipv6 = True
         except (ValueError, OSError):
             pass
-    if iface is None:
-        try:
-            iff = resolve_iface(_iff or conf.iface)
-        except AttributeError:
-            iff = None
-        return iff or conf.iface, ipv6
-
-    return resolve_iface(iface), ipv6
+    try:
+        iff = resolve_iface(_iff or conf.iface)
+    except AttributeError:
+        iff = None
+    return iff or conf.iface, ipv6
 
 
 @conf.commands.register
 def sr(x,  # type: _PacketIterable
        promisc=None,  # type: Optional[bool]
        filter=None,  # type: Optional[str]
-       iface=None,  # type: Optional[_GlobInterfaceType]
        nofilter=0,  # type: int
        *args,  # type: Any
        **kargs  # type: Any
@@ -686,8 +689,19 @@ def sr(x,  # type: _PacketIterable
     # type: (...) -> Tuple[SndRcvList, PacketList]
     """
     Send and receive packets at layer 3
+
+    This determines the interface (or L2 source to use) based on the routing
+    table: conf.route / conf.route6
     """
-    iface, ipv6 = _interface_selection(iface, x)
+    if "iface" in kargs:
+        # Warn that it isn't used.
+        warnings.warn(
+            "'iface' has no effect on L3 I/O sr(). For multicast/link-local "
+            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
+            SyntaxWarning,
+        )
+        del kargs["iface"]
+    iface, ipv6 = _interface_selection(x)
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         iface=iface, nofilter=nofilter,
@@ -702,7 +716,18 @@ def sr1(*args, **kargs):
     # type: (*Any, **Any) -> Optional[Packet]
     """
     Send packets at layer 3 and return only the first answer
+
+    This determines the interface (or L2 source to use) based on the routing
+    table: conf.route / conf.route6
     """
+    if "iface" in kargs:
+        # Warn that it isn't used.
+        warnings.warn(
+            "'iface' has no effect on L3 I/O sr1(). For multicast/link-local "
+            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
+            SyntaxWarning,
+        )
+        del kargs["iface"]
     ans, _ = sr(*args, **kargs)
     if ans:
         return cast(Packet, ans[0][1])
@@ -926,13 +951,23 @@ def srflood(x,  # type: _PacketIterable
     # type: (...) -> Tuple[SndRcvList, PacketList]
     """Flood and receive packets at layer 3
 
+    This determines the interface (or L2 source to use) based on the routing
+    table: conf.route / conf.route6
+
     :param prn:      function applied to packets received
     :param unique:   only consider packets whose print
     :param nofilter: put 1 to avoid use of BPF filters
     :param filter:   provide a BPF filter
-    :param iface:    listen answers only on the given interface
     """
-    iface, ipv6 = _interface_selection(iface, x)
+    if "iface" in kargs:
+        # Warn that it isn't used.
+        warnings.warn(
+            "'iface' has no effect on L3 I/O srflood(). For multicast/link-local "
+            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
+            SyntaxWarning,
+        )
+        del kargs["iface"]
+    iface, ipv6 = _interface_selection(x)
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         iface=iface, nofilter=nofilter,
@@ -946,7 +981,6 @@ def srflood(x,  # type: _PacketIterable
 def sr1flood(x,  # type: _PacketIterable
              promisc=None,  # type: Optional[bool]
              filter=None,  # type: Optional[str]
-             iface=None,  # type: Optional[_GlobInterfaceType]
              nofilter=0,  # type: int
              *args,  # type: Any
              **kargs  # type: Any
@@ -954,13 +988,24 @@ def sr1flood(x,  # type: _PacketIterable
     # type: (...) -> Optional[Packet]
     """Flood and receive packets at layer 3 and return only the first answer
 
+    This determines the interface (or L2 source to use) based on the routing
+    table: conf.route / conf.route6
+
     :param prn:      function applied to packets received
     :param verbose:  set verbosity level
     :param nofilter: put 1 to avoid use of BPF filters
     :param filter:   provide a BPF filter
     :param iface:    listen answers only on the given interface
     """
-    iface, ipv6 = _interface_selection(iface, x)
+    if "iface" in kargs:
+        # Warn that it isn't used.
+        warnings.warn(
+            "'iface' has no effect on L3 I/O sr1flood(). For multicast/link-local "
+            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
+            SyntaxWarning,
+        )
+        del kargs["iface"]
+    iface, ipv6 = _interface_selection(x)
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         nofilter=nofilter, iface=iface,
@@ -1285,7 +1330,7 @@ class AsyncSniffer(object):
                         for p in packets:
                             if lfilter and not lfilter(p):
                                 continue
-                            p.sniffed_on = sniff_sockets[s]
+                            p.sniffed_on = sniff_sockets.get(s, None)
                             # post-processing
                             self.count += 1
                             if store:

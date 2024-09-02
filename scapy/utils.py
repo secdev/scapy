@@ -151,19 +151,10 @@ class EDecimal(Decimal):
         # type: (_Decimal) -> EDecimal
         return EDecimal(Decimal.__floordiv__(self, Decimal(other)))
 
-    if sys.version_info >= (3,):
-        def __divmod__(self, other):
-            # type: (_Decimal) -> Tuple[EDecimal, EDecimal]
-            r = Decimal.__divmod__(self, Decimal(other))
-            return EDecimal(r[0]), EDecimal(r[1])
-    else:
-        def __div__(self, other):
-            # type: (_Decimal) -> EDecimal
-            return EDecimal(Decimal.__div__(self, Decimal(other)))
-
-        def __rdiv__(self, other):
-            # type: (_Decimal) -> EDecimal
-            return EDecimal(Decimal.__rdiv__(self, Decimal(other)))
+    def __divmod__(self, other):
+        # type: (_Decimal) -> Tuple[EDecimal, EDecimal]
+        r = Decimal.__divmod__(self, Decimal(other))
+        return EDecimal(r[0]), EDecimal(r[1])
 
     def __mod__(self, other):
         # type: (_Decimal) -> EDecimal
@@ -179,7 +170,10 @@ class EDecimal(Decimal):
 
     def __eq__(self, other):
         # type: (Any) -> bool
-        return super(EDecimal, self).__eq__(other) or float(self) == other
+        if isinstance(other, Decimal):
+            return super(EDecimal, self).__eq__(other)
+        else:
+            return bool(float(self) == other)
 
     def normalize(self, precision):  # type: ignore
         # type: (int) -> EDecimal

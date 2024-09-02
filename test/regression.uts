@@ -127,7 +127,7 @@ assert result == '\\#\\#\\#[ \\textcolor{red}{\\bf SmallPacket} ]\\#\\#\\#\n  \\
 conf.color_theme = conf_color_theme
 
 
-= Test automatic doc generation
+= Test rfc()
 ~ command
 
 dat = rfc(IP, ret=True).split("\n")
@@ -209,6 +209,33 @@ result = """
 """.strip()
 result = [x.strip() for x in result.split("\n")]
 output = [x.strip() for x in rfc(IPv6, ret=True).strip().split("\n")]
+assert result == output
+
+
+class TestPad(Packet):
+   fields_desc = [ShortField("f0", 0),
+                  ShortField("f1", 0),
+                  PadField(ByteField("f2", 1), 8),
+                  PadField(ShortField("f3", 0), 4)]
+
+
+result = """
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |               F0              |               F1              |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |       F2      |                    padding                    |
+ +-+-+-+-+-+-+-+-+                                               +
+ |                                                               |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |               F3              |            padding            |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                            Fig. TestPad
+""".strip()
+result = [x.strip() for x in result.split("\n")]
+output = [x.strip() for x in rfc(TestPad, ret=True).strip().split("\n")]
 assert result == output
 
 = Check that all contrib modules are well-configured
@@ -5129,6 +5156,16 @@ assert pl[0].wirelen == 1
 assert pl[0][Ether].src == '00:11:22:33:44:55'
 assert pl[1][Ether].dst == '00:22:33:44:55:66'
 
+= EDecimal
+
+# GH4488
+p1, p2 = EDecimal('1722417787.778435252'), EDecimal('1722417787.778435216')
+assert p1 != p2
+assert p1 > p2
+assert not (p1 < p2)
+assert p1 == 1722417787.778435252  # float test
+assert p2 == 1722417787.778435216
+assert (p1, 0) > (p2, 1)
 
 ############
 ############

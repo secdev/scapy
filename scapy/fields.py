@@ -37,8 +37,13 @@ from scapy.pton_ntop import inet_ntop, inet_pton
 from scapy.utils import inet_aton, inet_ntoa, lhex, mac2str, str2mac, EDecimal
 from scapy.utils6 import in6_6to4ExtractAddr, in6_isaddr6to4, \
     in6_isaddrTeredo, in6_ptop, Net6, teredoAddrExtractInfo
-from scapy.base_classes import Gen, Net, BasePacket, Field_metaclass
-from scapy.error import warning
+from scapy.base_classes import (
+    _ScopedIP,
+    BasePacket,
+    Field_metaclass,
+    Net,
+    ScopedIP,
+)
 
 # Typing imports
 from typing import (
@@ -848,7 +853,10 @@ class IPField(Field[Union[str, Net], bytes]):
         # type: (Optional[Packet], Union[AnyStr, List[AnyStr]]) -> Any
         if isinstance(x, bytes):
             x = plain_str(x)  # type: ignore
-        if isinstance(x, str):
+        if isinstance(x, _ScopedIP):
+            return x
+        elif isinstance(x, str):
+            x = ScopedIP(x)
             try:
                 inet_aton(x)
             except socket.error:
@@ -893,6 +901,8 @@ class IPField(Field[Union[str, Net], bytes]):
 
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], Union[str, Net]) -> str
+        if isinstance(x, _ScopedIP) and x.scope:
+            return repr(x)
         r = self.resolve(self.i2h(pkt, x))
         return r if isinstance(r, str) else repr(r)
 
@@ -902,29 +912,16 @@ class IPField(Field[Union[str, Net], bytes]):
 
 
 class SourceIPField(IPField):
-    __slots__ = ["dstname"]
-
-    def __init__(self, name, dstname):
-        # type: (str, Optional[str]) -> None
+    def __init__(self, name):
+        # type: (str) -> None
         IPField.__init__(self, name, None)
-        self.dstname = dstname
 
     def __findaddr(self, pkt):
-        # type: (Packet) -> str
+        # type: (Packet) -> Optional[str]
         if conf.route is None:
             # unused import, only to initialize conf.route
             import scapy.route  # noqa: F401
-        dst = ("0.0.0.0" if self.dstname is None
-               else getattr(pkt, self.dstname) or "0.0.0.0")
-        if isinstance(dst, (Gen, list)):
-            r = {
-                conf.route.route(str(daddr))
-                for daddr in dst
-            }  # type:  Set[Tuple[str, str, str]]
-            if len(r) > 1:
-                warning("More than one possible route for %r" % (dst,))
-            return min(r)[1]
-        return conf.route.route(dst)[1]
+        return pkt.route()[1] or conf.route.route()[1]
 
     def i2m(self, pkt, x):
         # type: (Optional[Packet], Optional[Union[str, Net]]) -> bytes
@@ -945,18 +942,21 @@ class IP6Field(Field[Optional[Union[str, Net6]], bytes]):
         Field.__init__(self, name, default, "16s")
 
     def h2i(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> str
+        # type: (Optional[Packet], Any) -> str
         if isinstance(x, bytes):
             x = plain_str(x)
-        if isinstance(x, str):
+        if isinstance(x, _ScopedIP):
+            return x
+        elif isinstance(x, str):
+            x = ScopedIP(x)
             try:
-                x = in6_ptop(x)
+                x = ScopedIP(in6_ptop(x), scope=x.scope)
             except socket.error:
                 return Net6(x)  # type: ignore
         elif isinstance(x, tuple):
             if len(x) != 2:
                 raise ValueError("Invalid IPv6 format")
-            return Net6(*x)
+            return Net6(*x)  # type: ignore
         elif isinstance(x, list):
             x = [self.h2i(pkt, n) for n in x]
         return x  # type: ignore
@@ -990,6 +990,8 @@ class IP6Field(Field[Optional[Union[str, Net6]], bytes]):
             elif in6_isaddr6to4(x):   # print encapsulated address
                 vaddr = in6_6to4ExtractAddr(x)
                 return "%s [6to4 GW: %s]" % (self.i2h(pkt, x), vaddr)
+            elif isinstance(x, _ScopedIP) and x.scope:
+                return repr(x)
         r = self.i2h(pkt, x)          # No specific information to return
         return r if isinstance(r, str) else repr(r)
 
@@ -999,36 +1001,27 @@ class IP6Field(Field[Optional[Union[str, Net6]], bytes]):
 
 
 class SourceIP6Field(IP6Field):
-    __slots__ = ["dstname"]
-
-    def __init__(self, name, dstname):
-        # type: (str, str) -> None
+    def __init__(self, name):
+        # type: (str) -> None
         IP6Field.__init__(self, name, None)
-        self.dstname = dstname
+
+    def __findaddr(self, pkt):
+        # type: (Packet) -> Optional[str]
+        if conf.route6 is None:
+            # unused import, only to initialize conf.route
+            import scapy.route6  # noqa: F401
+        return pkt.route()[1]
 
     def i2m(self, pkt, x):
         # type: (Optional[Packet], Optional[Union[str, Net6]]) -> bytes
-        if x is None:
-            dst = ("::" if self.dstname is None else
-                   getattr(pkt, self.dstname) or "::")
-            iff, x, nh = conf.route6.route(dst)
+        if x is None and pkt is not None:
+            x = self.__findaddr(pkt)
         return super(SourceIP6Field, self).i2m(pkt, x)
 
     def i2h(self, pkt, x):
         # type: (Optional[Packet], Optional[Union[str, Net6]]) -> str
-        if x is None:
-            if conf.route6 is None:
-                # unused import, only to initialize conf.route6
-                import scapy.route6  # noqa: F401
-            dst = ("::" if self.dstname is None else getattr(pkt, self.dstname))  # noqa: E501
-            if isinstance(dst, (Gen, list)):
-                r = {conf.route6.route(str(daddr))
-                     for daddr in dst}
-                if len(r) > 1:
-                    warning("More than one possible route for %r" % (dst,))
-                x = min(r)[1]
-            else:
-                x = conf.route6.route(dst)[1]
+        if x is None and pkt is not None:
+            x = self.__findaddr(pkt)
         return super(SourceIP6Field, self).i2h(pkt, x)
 
 
@@ -3252,7 +3245,8 @@ class FlagsField(_BitField[Optional[Union[int, FlagValue]]]):
                  name,  # type: str
                  default,  # type: Optional[Union[int, FlagValue]]
                  size,  # type: int
-                 names  # type: Union[List[str], str, Dict[int, str]]
+                 names,     # type: Union[List[str], str, Dict[int, str]]
+                 **kwargs   # type: Any
                  ):
         # type: (...) -> None
         # Convert the dict to a list
@@ -3263,7 +3257,7 @@ class FlagsField(_BitField[Optional[Union[int, FlagValue]]]):
             names = tmp
         # Store the names as str or list
         self.names = names
-        super(FlagsField, self).__init__(name, default, size)
+        super(FlagsField, self).__init__(name, default, size, **kwargs)
 
     def _fixup_val(self, x):
         # type: (Any) -> Optional[FlagValue]

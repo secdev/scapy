@@ -715,9 +715,17 @@ def _sr1_rtrequest(pkt: Packet) -> List[Packet]:
     # Configure socket
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 32768)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
-    sock.setsockopt(SOL_NETLINK, NETLINK_EXT_ACK, 1)
+    try:
+        sock.setsockopt(SOL_NETLINK, NETLINK_EXT_ACK, 1)
+    except OSError:
+        # Linux 4.12+ only
+        pass
     sock.bind((0, 0))  # bind to kernel
-    sock.setsockopt(SOL_NETLINK, NETLINK_GET_STRICT_CHK, 1)
+    try:
+        sock.setsockopt(SOL_NETLINK, NETLINK_GET_STRICT_CHK, 1)
+    except OSError:
+        # Linux 4.20+ only
+        pass
     # Request routes
     sock.send(bytes(rtmsghdrs(msgs=[pkt])))
     results: List[Packet] = []
@@ -733,7 +741,7 @@ def _sr1_rtrequest(pkt: Packet) -> List[Packet]:
                     if msg.nlmsg_type == 3 and nlmsgerr in msg and msg.status != 0:
                         # NLMSG_DONE with errors
                         if msg.data and msg.data[0].rta_type == 1:
-                            log_loading.warning(
+                            log_loading.debug(
                                 "Scapy RTNETLINK error on %s: '%s'. Please report !",
                                 pkt.sprintf("%nlmsg_type%"),
                                 msg.data[0].rta_data.decode(),
@@ -900,6 +908,20 @@ def read_routes():
             elif attr.rta_type == 0x07:  # RTA_PREFSRC
                 addr = attr.rta_data
         routes.append((net, mask, gw, iface, addr, metric))
+    # Add multicast routes, as those are missing by default
+    for _iface in ifaces.values():
+        if _iface['flags'].MULTICAST:
+            try:
+                addr = next(
+                    x["address"]
+                    for x in _iface["ips"]
+                    if x["af_family"] == socket.AF_INET
+                )
+            except StopIteration:
+                continue
+            routes.append((
+                0xe0000000, 0xf0000000, "0.0.0.0", _iface["name"], addr, 250
+            ))
     return routes
 
 
@@ -937,4 +959,17 @@ def read_routes6():
         cset = scapy.utils6.construct_source_candidate_set(prefix, plen, devaddrs)
         if cset:
             routes.append((prefix, plen, nh, iface, cset, metric))
+    # Add multicast routes, as those are missing by default
+    for _iface in ifaces.values():
+        if _iface['flags'].MULTICAST:
+            addrs = [
+                x["address"]
+                for x in _iface["ips"]
+                if x["af_family"] == socket.AF_INET6
+            ]
+            if not addrs:
+                continue
+            routes.append((
+                "ff00::", 8, "::", _iface["name"], addrs, 250
+            ))
     return routes

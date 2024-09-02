@@ -72,6 +72,7 @@ from scapy.layers.smb2 import (
     DirectTCP,
     FileAllInformation,
     FileIdBothDirectoryInformation,
+    SMB_DIALECTS,
     SMB2_Change_Notify_Request,
     SMB2_Change_Notify_Response,
     SMB2_Close_Request,
@@ -79,6 +80,7 @@ from scapy.layers.smb2 import (
     SMB2_Create_Context,
     SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2,
     SMB2_CREATE_REQUEST_LEASE_V2,
+    SMB2_CREATE_REQUEST_LEASE,
     SMB2_Create_Request,
     SMB2_Create_Response,
     SMB2_Encryption_Capabilities,
@@ -126,7 +128,7 @@ class SMB_Client(Automaton):
 
     :param REQUIRE_SIGNATURE: set 'Require Signature'
     :param MIN_DIALECT: minimum SMB dialect. Defaults to 0x0202 (2.0.2)
-    :param MAX_DIALECT: maximum SMB dialect. Defaults to 0x0210 (2.1.0)
+    :param MAX_DIALECT: maximum SMB dialect. Defaults to 0x0311 (3.1.1)
     :param DIALECTS: list of supported SMB2 dialects.
                      Constructed from MIN_DIALECT, MAX_DIALECT otherwise.
     """
@@ -147,8 +149,7 @@ class SMB_Client(Automaton):
             self.DIALECTS = kwargs.pop("DIALECTS")
         else:
             MIN_DIALECT = kwargs.pop("MIN_DIALECT", 0x0202)
-            # MAX_DIALECT is currently SMB 2.0.2. 3.1.1 support is unfinished
-            self.MAX_DIALECT = kwargs.pop("MAX_DIALECT", 0x0202)
+            self.MAX_DIALECT = kwargs.pop("MAX_DIALECT", 0x0311)
             self.DIALECTS = sorted(
                 [
                     x
@@ -161,6 +162,7 @@ class SMB_Client(Automaton):
         self.ErrorStatus = None
         self.NegotiateCapabilities = None
         self.GUID = RandUUID()._fix()
+        self.SequenceWindow = (0, 0)  # keep track of allowed MIDs
         self.MaxTransactionSize = 0
         self.MaxReadSize = 0
         self.MaxWriteSize = 0
@@ -242,6 +244,10 @@ class SMB_Client(Automaton):
             else:
                 # "For all other requests, the client MUST set CreditCharge to 1"
                 pkt.CreditCharge = 1
+            # [MS-SMB2] 3.2.4.1.2
+            pkt.CreditRequest = pkt.CreditCharge + 1  # this code is a bit lazy
+        # Get first available message ID: [MS-SMB2] 3.2.4.1.3 and 3.2.4.1.5
+        pkt.MID = self.SequenceWindow[0]
         return super(SMB_Client, self).send(pkt)
 
     @ATMT.state(initial=1)
@@ -376,15 +382,6 @@ class SMB_Client(Automaton):
     @ATMT.receive_condition(SENT_NEGOTIATE)
     def receive_negotiate_response(self, pkt):
         if (
-            SMBNegotiate_Response_Security in pkt
-            or SMBNegotiate_Response_Extended_Security in pkt
-            or SMB2_Negotiate_Protocol_Response in pkt
-        ):
-            if SMB2_Negotiate_Protocol_Response in pkt:
-                # SMB2
-                self.SMB2 = True  # We are using SMB2 to talk to the server
-                self.smb_header = DirectTCP() / SMB2_Header(PID=0xFEFF)
-        if (
             SMBNegotiate_Response_Extended_Security in pkt
             or SMB2_Negotiate_Protocol_Response in pkt
         ):
@@ -393,13 +390,19 @@ class SMB_Client(Automaton):
                 ssp_blob = pkt.SecurityBlob  # eventually SPNEGO server initiation
             except AttributeError:
                 ssp_blob = None
-            if self.SMB2:
-                self.smb_header.MID += 1
             if (
                 SMB2_Negotiate_Protocol_Response in pkt
                 and pkt.DialectRevision & 0xFF == 0xFF
             ):
                 # Version is SMB X.???
+                # [MS-SMB2] 3.2.5.2
+                # If the DialectRevision field in the SMB2 NEGOTIATE Response is
+                # 0x02FF ... the client MUST allocate sequence number 1 from
+                # Connection.SequenceWindow, and MUST set MessageId field of the
+                # SMB2 header to 1.
+                self.SequenceWindow = (1, 1)
+                self.smb_header = DirectTCP() / SMB2_Header(PID=0xFEFF, MID=1)
+                self.SMB2 = True  # We're now using SMB2 to talk to the server
                 raise self.SMB2_NEGOTIATE()
             else:
                 if SMB2_Negotiate_Protocol_Response in pkt:
@@ -464,6 +467,11 @@ class SMB_Client(Automaton):
             self.smb_header.SessionId = pkt.SessionId
             self.smb_header.TID = pkt.TID
             self.smb_header.PID = pkt.PID
+        # [MS-SMB2] 3.2.5.1.4
+        self.SequenceWindow = (
+            self.SequenceWindow[0] + max(pkt.CreditCharge, 1),
+            self.SequenceWindow[1] + pkt.CreditRequest,
+        )
 
     # DEV: add a condition on NEGOTIATED with prio=0
 
@@ -481,7 +489,6 @@ class SMB_Client(Automaton):
     @ATMT.action(should_send_setup_andx_request)
     def send_setup_andx_request(self, ssp_tuple):
         self.session.sspcontext, token, negResult = ssp_tuple
-        self.smb_header.MID += 1
         if self.SMB2 and negResult == GSS_S_CONTINUE_NEEDED:
             # New session: force 0
             self.SessionId = 0
@@ -544,6 +551,8 @@ class SMB_Client(Automaton):
                     pkt.sprintf("SMB Session Setup Response: %SMB2_Header.Status%")
                 ),
             )
+        if self.SMB2:
+            self.update_smbheader(pkt)
         # Cases depending on the response packet
         if (
             SMBSession_Setup_AndX_Response_Extended_Security in pkt
@@ -622,7 +631,6 @@ class SMB_Client(Automaton):
 
     @ATMT.action(incoming_data_received_smb)
     def receive_data_smb(self, pkt):
-        self.update_smbheader(pkt)
         resp = pkt[SMB2_Header].payload
         if isinstance(resp, SMB2_Error_Response):
             if pkt.Status == 0x00000103:  # STATUS_PENDING
@@ -631,6 +639,7 @@ class SMB_Client(Automaton):
             if pkt.Status == 0x0000010B:  # STATUS_NOTIFY_CLEANUP
                 # this is a notify cleanup. ignore
                 return
+        self.update_smbheader(pkt)
         # Add the status to the response as metadata
         resp.NTStatus = pkt.sprintf("%SMB2_Header.Status%")
         self.oi.smbpipe.send(resp)
@@ -641,7 +650,6 @@ class SMB_Client(Automaton):
 
     @ATMT.action(outgoing_data_received_smb)
     def send_data(self, d):
-        self.smb_header.MID += 1
         self.send(self.smb_header.copy() / d)
 
 
@@ -675,6 +683,10 @@ class SMB_SOCKET(SuperSocket):
             smbsock=SMB_Client.from_tcpsock(sock, **kwargs),
         )
 
+    @property
+    def session(self):
+        return self.ins.atmt.session
+
     def set_TID(self, TID):
         """
         Set the TID (Tree ID).
@@ -699,7 +711,7 @@ class SMB_SOCKET(SuperSocket):
                         "Path",
                         "\\\\%s\\%s"
                         % (
-                            self.ins.atmt.session.sspcontext.ServerHostname,
+                            self.session.sspcontext.ServerHostname,
                             name,
                         ),
                     )
@@ -774,8 +786,14 @@ class SMB_SOCKET(SuperSocket):
                 FileAttributes.append("FILE_ATTRIBUTE_NORMAL")
         elif type:
             raise ValueError("Unknown type: %s" % type)
-        # SMB 3.11
-        if self.ins.atmt.session.Dialect >= 0x0311 and type in ["file", "folder"]:
+        # [MS-SMB2] 3.2.4.3.8
+        RequestedOplockLevel = 0
+        if self.session.Dialect >= 0x0300:
+            RequestedOplockLevel = "SMB2_OPLOCK_LEVEL_LEASE"
+        elif self.session.Dialect >= 0x0210 and type == "file":
+            RequestedOplockLevel = "SMB2_OPLOCK_LEVEL_LEASE"
+        # SMB 3.X
+        if self.session.Dialect >= 0x0300 and type in ["file", "folder"]:
             CreateContexts.extend(
                 [
                     # [SMB2] sect 3.2.4.3.5
@@ -795,7 +813,18 @@ class SMB_SOCKET(SuperSocket):
                     ),
                     # [SMB2] sect 3.2.4.3.8
                     SMB2_Create_Context(
-                        Name=b"RqLs", Data=SMB2_CREATE_REQUEST_LEASE_V2()
+                        Name=b"RqLs",
+                        Data=SMB2_CREATE_REQUEST_LEASE_V2(LeaseKey=RandUUID()._fix()),
+                    ),
+                ]
+            )
+        elif self.session.Dialect == 0x0210 and type == "file":
+            CreateContexts.extend(
+                [
+                    # [SMB2] sect 3.2.4.3.8
+                    SMB2_Create_Context(
+                        Name=b"RqLs",
+                        Data=SMB2_CREATE_REQUEST_LEASE(LeaseKey=RandUUID()._fix()),
                     ),
                 ]
             )
@@ -814,6 +843,7 @@ class SMB_SOCKET(SuperSocket):
                 ShareAccess="+".join(ShareAccess),
                 FileAttributes="+".join(FileAttributes),
                 CreateContexts=CreateContexts,
+                RequestedOplockLevel=RequestedOplockLevel,
                 Name=name,
             ),
             verbose=0,
@@ -1191,9 +1221,13 @@ class smbclient(CLIUtil):
         self.rpcclient = DCERPC_Client.from_smblink(self.sock, ndr64=False, verb=False)
         # We have a valid smb connection !
         print(
-            "SMB authentication successful using %s%s !"
+            "%s authentication successful using %s%s !"
             % (
-                repr(self.sock.atmt.session.sspcontext),
+                SMB_DIALECTS.get(
+                    self.smbsock.session.Dialect,
+                    "SMB %s" % self.smbsock.session.Dialect,
+                ),
+                repr(self.smbsock.session.sspcontext),
                 " as GUEST" if self.sock.atmt.IsGuest else "",
             )
         )

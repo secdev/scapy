@@ -767,7 +767,7 @@ class IKEv2_Notify(IKEv2_Payload):
             MultipleTypeField(
                 [
                     (IPField("gw_id", "127.0.0.1"), lambda x: x.gw_id_type == 1),
-                    (IP6Field("gw_id", "::1"), lambda x: x.gw_id_type == 5),
+                    (IP6Field("gw_id", "::1"), lambda x: x.gw_id_type == 2),
                 ],
                 StrLenField("gw_id", "", length_from=lambda x: x.gw_id_len)
             ),

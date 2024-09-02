@@ -1450,6 +1450,7 @@ class Dot11EltMicrosoftWPA(Dot11EltVendorSpecific):
 
 class Dot11EltCSA(Dot11Elt):
     name = "802.11 CSA Element"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("ID", 37, _dot11_id_enum),
         ByteField("len", 3),
@@ -1463,6 +1464,7 @@ class Dot11EltCSA(Dot11Elt):
 
 class Dot11EltOBSS(Dot11Elt):
     name = "802.11 OBSS Scan Parameters Element"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("ID", 74, _dot11_id_enum),
         ByteField("len", 14),
@@ -1492,6 +1494,7 @@ class Dot11VHTOperationInfo(Packet):
 
 class Dot11EltVHTOperation(Dot11Elt):
     name = "802.11 VHT Operation Element"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("ID", 192, _dot11_id_enum),
         ByteField("len", 5),

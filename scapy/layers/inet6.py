@@ -20,7 +20,7 @@ from time import gmtime, strftime
 
 from scapy.arch import get_if_hwaddr
 from scapy.as_resolvers import AS_resolver_riswhois
-from scapy.base_classes import Gen
+from scapy.base_classes import Gen, _ScopedIP
 from scapy.compat import chb, orb, raw, plain_str, bytes_encode
 from scapy.consts import WINDOWS
 from scapy.config import conf
@@ -149,7 +149,7 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
 def getmacbyip6(ip6, chainCC=0):
     # type: (str, int) -> Optional[str]
     """
-    Returns the MAC address used to reach a given IPv6 address.
+    Returns the MAC address of the next hop used to reach a given IPv6 address.
 
     neighborCache.get() method is used on instantiated neighbor cache.
     Resolution mechanism is described in associated doc string.
@@ -319,15 +319,18 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                    ShortField("plen", None),
                    ByteEnumField("nh", 59, ipv6nh),
                    ByteField("hlim", 64),
-                   SourceIP6Field("src", "dst"),  # dst is for src @ selection
+                   SourceIP6Field("src"),
                    DestIP6Field("dst", "::1")]
 
     def route(self):
         """Used to select the L2 address"""
         dst = self.dst
-        if isinstance(dst, Gen):
+        scope = None
+        if isinstance(dst, (Net6, _ScopedIP)):
+            scope = dst.scope
+        if isinstance(dst, (Gen, list)):
             dst = next(iter(dst))
-        return conf.route6.route(dst)
+        return conf.route6.route(dst, dev=scope)
 
     def mysummary(self):
         return "%s > %s (%i)" % (self.src, self.dst, self.nh)
@@ -492,6 +495,8 @@ class IPv46(IP, IPv6):
     This class implements a dispatcher that is used to detect the IP version
     while parsing Raw IP pcap files.
     """
+    name = "IPv4/6"
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:

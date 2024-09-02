@@ -195,10 +195,10 @@ lowpan_frag_iphc = LoWPAN_IPHC(lowpan_iphc)
 assert IPv6 in lowpan_frag_iphc
 assert lowpan_frag_iphc.load == b'<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http'
 
-p = LoWPAN_IPHC(tf=0x0, flowlabel=0x8, _nhField=0x3a, _hopLimit=64)/IPv6(dst="aaaa::11:22ff:fe33:4455", src="aaaa::1")/ICMPv6EchoRequest()
+p = LoWPAN_IPHC(tf=0x0, flowlabel=0x8, nhField=0x3a, hopLimit=64)/IPv6(dst="aaaa::11:22ff:fe33:4455", src="aaaa::1")/ICMPv6EchoRequest()
 p = LoWPAN_IPHC(raw(p))
 assert ICMPv6EchoRequest in p
-assert p.destinyAddr == "aaaa::11:22ff:fe33:4455"
+assert p.dst == "aaaa::11:22ff:fe33:4455"
 
 q = LoWPAN_IPHC(tf=0x0)
 assert raw(q) == b'`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
@@ -356,24 +356,24 @@ assert raw(ipv6_tcp_http) == raw(ipv6)
 = SixLoWPAN - Advanced 1
 
 packet = LoWPAN_IPHC(b"\x7b\x49\x3a\x02\x01\xff\x02\x02\x02\x87\x00\x02\x0b\x00\x00\x00\x00\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x12\x74\x02\x00\x02\x02\x02")
-assert packet._nhField == 0x3a
+assert packet.nhField == 0x3a
 assert packet.src == "::"
 assert packet.dst == "ff02::1:ff02:202"
 
 = SixLoWPAN - Advanced 2
 
 packet = SixLoWPAN(b"\x7b\x49\x3a\x02\x01\xff\x01\x01\x01\x87\x00\x57\xe6\x00\x00\x00\x00\xaa\xaa\x00\x00\x00\x00\x00\x00\x02\x12\x74\x01\x00\x01\x01\x01")
-assert packet._nhField == 0x3a
-assert packet.sourceAddr == "::"
-assert packet.destinyAddr == "ff02::1:ff01:101"
+assert packet.nhField == 0x3a
+assert packet.src == "::"
+assert packet.dst == "ff02::1:ff01:101"
 
 = SixLoWPAN - Advanced 3
 
 packet = Ether()/IP()/UDP()/ZEP2()/Dot15d4(fcf_srcaddrmode=2)/Dot15d4Data(src_addr=0x0)/b"\x7b\x33\x3a\x88\x00\x3c\xb9\x60\x00\x00\x00\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x12\x74\x02\x00\x02\x02\x02\x02\x02\x00\x12\x74\x02\x00\x02\x02\x02\x00\x00\x00\x00\x00\x00"
 packet = Ether(raw(packet))
 packet.show2()
-assert packet.sourceAddr == 'fe80::ff:fe00:0'
-assert packet.destinyAddr == 'fe80::ff:fe00:ffff'
+assert packet[LoWPAN_IPHC].src == 'fe80::ff:fe00:0'
+assert packet[LoWPAN_IPHC].dst == 'fe80::ff:fe00:ffff'
 
 = SixLoWPAN - Using ICMP
 
@@ -390,7 +390,7 @@ assert packet.sam == 0x3
 assert packet.m == False
 assert packet.dac == True
 assert packet.dam == 0x2
-assert packet._nhField == 0x3a
+assert packet.nhField == 0x3a
 
 = LoWPAN_IPHC - Extracted packet
 icmp = Ether()/IP()/UDP()/ZEP2()/Dot15d4(fcf_srcaddrmode=2)/Dot15d4Data(src_addr=0xFFFF)/b"\x7b\x3b\x3a\x01\x86\x00\xd3\xfd\x80\x00\x00\xc8\x00\x05\x7e\x40\x00\x00\x00\x00\x03\x04\x40\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\xaa\xaa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x01\x00\x00\x00\x00\x05\x00\x01\x02\x02\x12\x13\xff\xfe\x14\x15\x16\x7b\x66\x6f\x6e\x74\x2d"
@@ -457,10 +457,10 @@ assert packet[IPv6].hlim == 255
 #TODO: Context Test
 
 = SixLoWPAN - Check Source Address
-packet = SixLoWPAN()/LoWPAN_IPHC(sam = 0, sac = 0, destinyAddr='ff02::1a')/IPv6(hlim=65, src="aaaa::1", dst="ff02::1a")/ICMPv6EchoRequest()
+packet = SixLoWPAN()/LoWPAN_IPHC(sam = 0, sac = 0, dst='ff02::1a')/IPv6(hlim=65, src="aaaa::1", dst="ff02::1a")/ICMPv6EchoRequest()
 packet = SixLoWPAN(raw(packet))
-assert packet.sourceAddr == "aaaa::1"
-assert packet.destinyAddr == "ff02::1a"
+assert packet.src == "aaaa::1"
+assert packet.dst == "ff02::1a"
 
 = SixLoWPAN over Ethernet
 # See https://github.com/secdev/scapy/issues/2716
@@ -484,7 +484,7 @@ pkt_2 = Ether(ack_frame)
 pkt_3 = Ether(router_adv)
 
 assert ZEP2 in pkt_1
-assert pkt_1[LoWPAN_IPHC].sourceAddr == "fe80::ff:fe00:5566"
+assert pkt_1[LoWPAN_IPHC].src == "fe80::ff:fe00:5566"
 
 assert ZEP2 in pkt_2
 assert Dot15d4Ack in pkt_2
@@ -507,8 +507,8 @@ assert packet.sam == 0x2
 assert packet.m == 0x0
 assert packet.dac == 0x1
 assert packet.dam == 0x03
-assert packet._nhField == 0x06
-assert packet._hopLimit == 128
+assert packet.nhField == 0x06
+assert packet.hopLimit == 128
 
 = SixLoWPAN - Using ETH 2
 
@@ -524,8 +524,8 @@ assert packet.sam == 0x3
 assert packet.m == 0x0
 assert packet.dac == 0x1
 assert packet.dam == 0x02
-assert packet._nhField == 0x06
-assert packet._hopLimit == 128
+assert packet.nhField == 0x06
+assert packet.hopLimit == 128
 
 = SixLoWPAN - Using ETH 3
 
@@ -540,8 +540,8 @@ assert packet.sam == 0x2
 assert packet.m == 0x0
 assert packet.dac == 0x1
 assert packet.dam == 0x03
-assert packet._nhField == 0x06
-assert packet._hopLimit == 128
+assert packet.nhField == 0x06
+assert packet.hopLimit == 128
 packet.show2()
 
 
