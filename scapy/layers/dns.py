@@ -1666,7 +1666,7 @@ class DNS_am(AnsweringMachine):
                 resp[Ether].src, resp[Ether].dst = None, req[Ether].src
             else:
                 resp[Ether].src, resp[Ether].dst = (
-                    None if req[Ether].dst in "ff:ff:ff:ff:ff:ff" else req[Ether].dst,
+                    None if req[Ether].dst == "ff:ff:ff:ff:ff:ff" else req[Ether].dst,
                     req[Ether].src,
                 )
         from scapy.layers.inet6 import IPv6

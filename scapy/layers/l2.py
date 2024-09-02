@@ -195,7 +195,7 @@ class DestMACField(MACField):
     def i2h(self, pkt, x):
         # type: (Optional[Packet], Optional[str]) -> str
         if x is None and pkt is not None:
-            x = "None (resolved on build)"
+            x = None
         return super(DestMACField, self).i2h(pkt, x)
 
     def i2m(self, pkt, x):
