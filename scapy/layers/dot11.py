@@ -63,8 +63,16 @@ from scapy.sendrecv import sniff, sendp
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+
+    try:
+        # cryptography > 43.0
+        from cryptography.hazmat.decrepit.ciphers import (
+            algorithms as decrepit_algorithms,
+        )
+    except ImportError:
+        decrepit_algorithms = algorithms
 else:
-    default_backend = Ciphers = algorithms = None
+    default_backend = Ciphers = algorithms = decrepit_algorithms = None
     log_loading.info("Can't import python-cryptography v1.7+. Disabled WEP decryption/encryption. (Dot11)")  # noqa: E501
 
 
@@ -1876,7 +1884,7 @@ class Dot11WEP(Dot11Encrypted):
             key = conf.wepkey
         if key and conf.crypto_valid:
             d = Cipher(
-                algorithms.ARC4(self.iv + key.encode("utf8")),
+                decrepit_algorithms.ARC4(self.iv + key.encode("utf8")),
                 None,
                 default_backend(),
             ).decryptor()
@@ -1901,7 +1909,7 @@ class Dot11WEP(Dot11Encrypted):
             else:
                 icv = p[4:8]
             e = Cipher(
-                algorithms.ARC4(self.iv + key.encode("utf8")),
+                decrepit_algorithms.ARC4(self.iv + key.encode("utf8")),
                 None,
                 default_backend(),
             ).encryptor()

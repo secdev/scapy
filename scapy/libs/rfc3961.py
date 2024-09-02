@@ -878,14 +878,18 @@ class _DES3CBC(_SimplifiedEncryptionProfile):
     def basic_encrypt(cls, key, plaintext):
         # type: (bytes, bytes) -> bytes
         assert len(plaintext) % 8 == 0
-        des3 = Cipher(algorithms.TripleDES(key), modes.CBC(b"\0" * 8)).encryptor()
+        des3 = Cipher(
+            decrepit_algorithms.TripleDES(key), modes.CBC(b"\0" * 8)
+        ).encryptor()
         return des3.update(bytes(plaintext))
 
     @classmethod
     def basic_decrypt(cls, key, ciphertext):
         # type: (bytes, bytes) -> bytes
         assert len(ciphertext) % 8 == 0
-        des3 = Cipher(algorithms.TripleDES(key), modes.CBC(b"\0" * 8)).decryptor()
+        des3 = Cipher(
+            decrepit_algorithms.TripleDES(key), modes.CBC(b"\0" * 8)
+        ).decryptor()
         return des3.update(bytes(ciphertext))
 
 
@@ -1083,7 +1087,7 @@ class _RC4(_EncryptionAlgorithmProfile):
         else:
             kie = ki
         ke = Hmac_MD5(kie).digest(cksum)
-        rc4 = Cipher(algorithms.ARC4(ke), mode=None).decryptor()
+        rc4 = Cipher(decrepit_algorithms.ARC4(ke), mode=None).decryptor()
         basic_plaintext = rc4.update(bytes(basic_ctext))
         exp_cksum = Hmac_MD5(ki).digest(basic_plaintext)
         ok = _mac_equal(cksum, exp_cksum)

@@ -3519,7 +3519,12 @@ class KerberosSSP(SSP):
                 tok.root.Data = strrot(Data, tok.root.RRC)
                 return msgs, tok
         elif Context.KrbSessionKey.etype in [23, 24]:  # RC4
-            from scapy.libs.rfc3961 import Hmac_MD5, Cipher, algorithms, _rfc1964pad
+            from scapy.libs.rfc3961 import (
+                Cipher,
+                Hmac_MD5,
+                _rfc1964pad,
+                decrepit_algorithms,
+            )
 
             # Build token
             seq = struct.pack(">I", Context.SendSeqNum)
@@ -3560,7 +3565,7 @@ class KerberosSSP(SSP):
             # 4. Populate token + encrypt
             if confidentiality:
                 # 'encrypt' is requested
-                rc4 = Cipher(algorithms.ARC4(Kcrypt), mode=None).encryptor()
+                rc4 = Cipher(decrepit_algorithms.ARC4(Kcrypt), mode=None).encryptor()
                 tok.root.CONFOUNDER = rc4.update(Confounder)
                 Data = rc4.update(ToEncrypt)
                 # Split encrypted data
@@ -3581,7 +3586,7 @@ class KerberosSSP(SSP):
                 Kseq = Hmac_MD5(Kss).digest(b"\x00\x00\x00\x00")
             Kseq = Hmac_MD5(Kseq).digest(tok.root.SGN_CKSUM)
             # 6. Encrypt 'SND_SEQ'
-            rc4 = Cipher(algorithms.ARC4(Kseq), mode=None).encryptor()
+            rc4 = Cipher(decrepit_algorithms.ARC4(Kseq), mode=None).encryptor()
             tok.root.SND_SEQ = rc4.update(tok.root.SND_SEQ)
             # 7. Include 'InitialContextToken pseudo ASN.1 header'
             tok = KRB_GSSAPI_Token(
@@ -3684,7 +3689,12 @@ class KerberosSSP(SSP):
                     msgs[0].data = Data
                 return msgs
         elif Context.KrbSessionKey.etype in [23, 24]:  # RC4
-            from scapy.libs.rfc3961 import Hmac_MD5, Cipher, algorithms, _rfc1964pad
+            from scapy.libs.rfc3961 import (
+                Cipher,
+                Hmac_MD5,
+                _rfc1964pad,
+                decrepit_algorithms,
+            )
 
             # Drop wrapping
             tok = signature.innerToken
@@ -3703,7 +3713,7 @@ class KerberosSSP(SSP):
                 Kseq = Hmac_MD5(Kss).digest(b"\x00\x00\x00\x00")
             Kseq = Hmac_MD5(Kseq).digest(tok.root.SGN_CKSUM)
             # 2. Decrypt 'SND_SEQ'
-            rc4 = Cipher(algorithms.ARC4(Kseq), mode=None).encryptor()
+            rc4 = Cipher(decrepit_algorithms.ARC4(Kseq), mode=None).encryptor()
             seq = rc4.update(tok.root.SND_SEQ)[:4]
             # 3. Compute the 'Kcrypt' key
             Klocal = strxor(Kss, len(Kss) * b"\xf0")
@@ -3716,7 +3726,7 @@ class KerberosSSP(SSP):
             # 4. Decrypt
             if confidentiality:
                 # 'encrypt' was requested
-                rc4 = Cipher(algorithms.ARC4(Kcrypt), mode=None).encryptor()
+                rc4 = Cipher(decrepit_algorithms.ARC4(Kcrypt), mode=None).encryptor()
                 Confounder = rc4.update(tok.root.CONFOUNDER)
                 Data = rc4.update(ToDecrypt)
                 # Split encrypted data
