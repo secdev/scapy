@@ -990,15 +990,15 @@ class HTTP_Server(Automaton):
     def __init__(
         self,
         mech=HTTP_AUTH_MECHS.NONE,
-        ssp=None,
         verb=True,
+        ssp=None,
         *args,
         **kwargs,
     ):
         self.verb = verb
         if "sock" not in kwargs:
             raise ValueError(
-                "HTTP_Server cannot be started directly ! Use SMB_Server.spawn"
+                "HTTP_Server cannot be started directly ! Use HTTP_Server.spawn"
             )
         self.ssp = ssp
         self.authmethod = mech.value
@@ -1197,3 +1197,51 @@ class HTTP_Server(Automaton):
             ) / (
                 "<!doctype html><html><body><h1>404 - Not Found</h1></body></html>"
             )
+
+
+class HTTPS_Server(HTTP_Server):
+    """
+    HTTPS server automaton
+
+    This has the same arguments and attributes as HTTP_Server, with the addition of:
+
+    :param sslcontext: an optional SSLContext object.
+                       If used, cert and key are ignored.
+    :param cert: path to the certificate
+    :param key: path to the key
+    """
+
+    socketcls = None
+
+    def __init__(
+        self,
+        mech=HTTP_AUTH_MECHS.NONE,
+        verb=True,
+        cert=None,
+        key=None,
+        sslcontext=None,
+        ssp=None,
+        *args,
+        **kwargs,
+    ):
+        if "sock" not in kwargs:
+            raise ValueError(
+                "HTTPS_Server cannot be started directly ! Use HTTPS_Server.spawn"
+            )
+        # wrap socket in SSL
+        if sslcontext is None:
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(cert, key)
+        else:
+            context = sslcontext
+        kwargs["sock"] = SSLStreamSocket(
+            context.wrap_socket(kwargs["sock"], server_side=True),
+            self.pkt_cls,
+        )
+        super(HTTPS_Server, self).__init__(
+            mech=mech,
+            verb=verb,
+            ssp=ssp,
+            *args,
+            **kwargs,
+        )
