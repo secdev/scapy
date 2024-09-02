@@ -1674,8 +1674,14 @@ class NTLMSSP(SSP):
                 # [MS-NLMP] sect 3.2.5.1.2
                 KeyExchangeKey = SessionBaseKey  # Only true for NTLMv2
                 if auth_tok.NegotiateFlags.NEGOTIATE_KEY_EXCH:
+                    if not auth_tok.EncryptedRandomSessionKeyLen:
+                        # No EncryptedRandomSessionKey. libcurl for instance
+                        # hmm. this looks bad
+                        EncryptedRandomSessionKey = b"\x00" * 16
+                    else:
+                        EncryptedRandomSessionKey = auth_tok.EncryptedRandomSessionKey
                     ExportedSessionKey = RC4K(
-                        KeyExchangeKey, auth_tok.EncryptedRandomSessionKey
+                        KeyExchangeKey, EncryptedRandomSessionKey
                     )
                 else:
                     ExportedSessionKey = KeyExchangeKey

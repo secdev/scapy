@@ -1790,7 +1790,9 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
             # 24: KDC_ERR_PREAUTH_FAILED
             # 25: KDC_ERR_PREAUTH_REQUIRED
             return MethodData(val[0].val, _underlayer=pkt), val[1]
-        elif pkt.errorCode.val in [13, 18, 29, 41, 60]:
+        elif pkt.errorCode.val in [6, 7, 13, 18, 29, 41, 60]:
+            # 6: KDC_ERR_C_PRINCIPAL_UNKNOWN
+            # 7: KDC_ERR_S_PRINCIPAL_UNKNOWN
             # 13: KDC_ERR_BADOPTION
             # 18: KDC_ERR_CLIENT_REVOKED
             # 29: KDC_ERR_SVC_UNAVAILABLE

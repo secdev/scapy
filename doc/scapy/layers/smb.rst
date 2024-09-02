@@ -125,7 +125,7 @@ Let's re-do the initial example programmatically, by turning off the CLI mode. O
     ('Users', 'DISKTREE', '')]
     >>> cli.use('c$')
     >>> cli.cd(r'Program Files\Microsoft')
-    >>> >>> names = [x[0] for x in cli.ls()]
+    >>> names = [x[0] for x in cli.ls()]
     >>> names
     ['.', '..', 'EdgeUpdater']
 
