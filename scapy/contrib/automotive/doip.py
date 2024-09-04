@@ -257,29 +257,17 @@ class DoIP(Packet):
     def extract_padding(self, s):
         # type: (bytes) -> Tuple[bytes, Optional[bytes]]
         if self.payload_type == 0x8001:
-            return s[:self.payload_length - 4], None
+            return s[:self.payload_length - 4], s[self.payload_length - 4:]
         else:
-            return b"", None
+            return b"", s
 
     @classmethod
     def tcp_reassemble(cls, data, metadata, session):
         # type: (bytes, Dict[str, Any], Dict[str, Any]) -> Optional[Packet]
-        consumed = 0
-        root_pkt: Optional[Packet] = None
-        while consumed < len(data):
-            version = data[consumed + 0]
-            inverse_version = data[consumed + 1]
-            length = struct.unpack("!I", data[consumed + 4: consumed + 8])[0] + 8
-            if (version == 2 and inverse_version == 0xfd and
-                    (len(data) - consumed) >= length):
-                if root_pkt:
-                    root_pkt.add_payload(DoIP(data[consumed:consumed + length]))
-                else:
-                    root_pkt = DoIP(data[consumed:consumed + length])
-                consumed += length
-            else:
-                return None
-        return root_pkt
+        length = struct.unpack("!I", data[4:8])[0] + 8
+        if len(data) >= length:
+            return DoIP(data)
+        return None
 
 
 bind_bottom_up(UDP, DoIP, sport=13400)

@@ -399,10 +399,11 @@ assert pkts[0].service == 0x3E
 filename = scapy_path("/test/pcaps/multiple_doip_layers.pcap.gz")
 
 pkts = sniff(offline=filename, session=TCPSession)
-
+print(repr(pkts[0]))
+print(repr(pkts[1]))
 assert len(pkts) == 2
 assert pkts[0][DoIP].payload_length == 2
-assert pkts[0][DoIP].payload.payload_length == 7
+assert pkts[1][DoIP].payload_length == 7
 
 + DoIP Communication tests
 
