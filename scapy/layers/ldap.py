@@ -729,6 +729,8 @@ class LDAP(ASN1_Packet):
         return isinstance(other, LDAP) and other.messageID == self.messageID
 
     def mysummary(self):
+        if not self.protocolOp or not self.messageID:
+            return ""
         return (
             "%s(%s)"
             % (
