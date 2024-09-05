@@ -1930,6 +1930,12 @@ class NetBIOSNameField(StrFixedLenField):
         # type: (str, bytes, int) -> None
         StrFixedLenField.__init__(self, name, default, length)
 
+    def h2i(self, pkt, x):
+        # type: (Optional[Packet], bytes) -> bytes
+        if x and len(x) > 15:
+            x = x[:15]
+        return x
+
     def i2m(self, pkt, y):
         # type: (Optional[Packet], Optional[bytes]) -> bytes
         if pkt:
