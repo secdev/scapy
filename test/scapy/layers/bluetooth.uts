@@ -197,6 +197,42 @@ assert cmd[HCI_Cmd_Remote_Name_Request].page_scan_repetition_mode == 2
 assert cmd[HCI_Cmd_Remote_Name_Request].reserved == 0
 assert cmd[HCI_Cmd_Remote_Name_Request].clock_offset == 0
 
+= 7.3.12 Read Local Name
+cmd = HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_Read_Local_Name()
+assert raw(cmd) == hex_bytes("01140c00")
+
+# Response
+response = HCI_Hdr(hex_bytes("040efc01140c00546865726d6973746f7200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"))
+assert HCI_Cmd_Complete_Read_Local_Name in response
+assert response[HCI_Cmd_Complete_Read_Local_Name].local_name.decode('utf-8').rstrip('\x00') == 'Thermistor'
+assert response.answers(cmd)
+
+= 7.4.1 Read Local Version Information
+cmd = HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_Read_Local_Version_Information()
+assert raw(cmd) == hex_bytes("01011000")
+
+# Response
+response = HCI_Hdr(hex_bytes("040e0c010110000900100931010c22"))
+assert HCI_Cmd_Complete_Read_Local_Version_Information in response
+assert response[HCI_Cmd_Complete_Read_Local_Version_Information].hci_version == 9
+assert response[HCI_Cmd_Complete_Read_Local_Version_Information].hci_subversion == 4096
+assert response[HCI_Cmd_Complete_Read_Local_Version_Information].lmp_version == 9
+assert response[HCI_Cmd_Complete_Read_Local_Version_Information].company_identifier == 0x0131
+assert response[HCI_Cmd_Complete_Read_Local_Version_Information].lmp_subversion == 8716
+assert response.answers(cmd)
+
+= 7.4.4 Read Local Extended Features
+cmd = HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_Read_Local_Extended_Features(page_number=1)
+assert raw(cmd) == hex_bytes("0104100101")
+
+# Response
+response = HCI_Hdr(hex_bytes("040e0e0104100001020000000000000000"))
+assert HCI_Cmd_Complete_Read_Local_Extended_Features in response
+assert response[HCI_Cmd_Complete_Read_Local_Extended_Features].page == 1
+assert response[HCI_Cmd_Complete_Read_Local_Extended_Features].max_page == 2
+assert response[HCI_Cmd_Complete_Read_Local_Extended_Features].extended_features == 0
+assert response.answers(cmd)
+
 = LE Create Connection
 
 # Request data
