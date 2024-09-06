@@ -403,7 +403,8 @@ print(repr(pkts[0]))
 print(repr(pkts[1]))
 assert len(pkts) == 2
 assert pkts[0][DoIP].payload_length == 2
-assert pkts[1][DoIP].payload_length == 7
+assert pkts[0][DoIP:2].payload_length == 7
+assert pkts[1][DoIP].payload_length == 103
 
 + DoIP Communication tests
 
