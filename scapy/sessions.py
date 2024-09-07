@@ -367,11 +367,22 @@ class TCPSession(IPSession):
             metadata.clear()
             # Check for padding
             padding = self._strip_padding(packet)
-            if padding:
+            while padding:
                 # There is remaining data for the next payload.
                 full_length = data.content_len - len(padding)
                 metadata["relative_seq"] = relative_seq + full_length
                 data.shiftleft(full_length)
+                # There might be a sub-payload hidden in the padding
+                sub_packet = tcp_reassemble(
+                    bytes(data),
+                    metadata,
+                    tcp_session
+                )
+                if sub_packet:
+                    packet /= sub_packet
+                    padding = self._strip_padding(sub_packet)
+                else:
+                    break
             else:
                 # No padding (data) left. Clear
                 data.clear()
@@ -397,10 +408,15 @@ class TCPSession(IPSession):
         """
         pkt = sock.recv(stop_dissection_after=self.stop_dissection_after)
         # Now handle TCP reassembly
-        while pkt is not None:
-            pkt = self.process(pkt)
+        if self.app:
+            while pkt is not None:
+                pkt = self.process(pkt)
+                if pkt:
+                    yield pkt
+                    # keep calling process as there might be more
+                    pkt = b""  # type: ignore
+        else:
+            pkt = self.process(pkt)  # type: ignore
             if pkt:
                 yield pkt
-                # keep calling process as there might be more
-                pkt = b""  # type: ignore
         return None

@@ -257,15 +257,15 @@ class DoIP(Packet):
     def extract_padding(self, s):
         # type: (bytes) -> Tuple[bytes, Optional[bytes]]
         if self.payload_type == 0x8001:
-            return s[:self.payload_length - 4], None
+            return s[:self.payload_length - 4], s[self.payload_length - 4:]
         else:
-            return b"", None
+            return b"", s
 
     @classmethod
     def tcp_reassemble(cls, data, metadata, session):
         # type: (bytes, Dict[str, Any], Dict[str, Any]) -> Optional[Packet]
         length = struct.unpack("!I", data[4:8])[0] + 8
-        if len(data) == length:
+        if len(data) >= length:
             return DoIP(data)
         return None
 
