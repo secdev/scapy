@@ -965,7 +965,7 @@ class Conf(ConfClass):
     #: holds the Scapy interface list and manager
     ifaces = None  # type: 'scapy.interfaces.NetworkInterfaceDict'
     #: holds the cache of interfaces loaded from Libpcap
-    cache_pcapiflist = {}  # type: Dict[str, Tuple[str, List[str], Any, str]]
+    cache_pcapiflist = {}  # type: Dict[str, Tuple[str, List[str], Any, str, int]]
     # `neighbor` will be filed by scapy.layers.l2
     neighbor = None  # type: 'scapy.layers.l2.Neighbor'
     #: holds the name servers IP/hosts used for custom DNS resolution

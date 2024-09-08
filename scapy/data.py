@@ -8,6 +8,7 @@ Global variables and functions for handling external data sets.
 """
 
 import calendar
+import hashlib
 import os
 import pickle
 import warnings
@@ -307,17 +308,19 @@ def scapy_data_cache(name):
         # type: (DecoratorCallable, str) -> DecoratorCallable
         def load(filename=None):
             # type: (Optional[str]) -> Any
-            cache_id = hash(filename)
+            cache_id = hashlib.sha256((filename or "").encode()).hexdigest()
             if cachepath.exists():
                 try:
                     with cachepath.open("rb") as fd:
                         data = pickle.load(fd)
                     if data["id"] == cache_id:
                         return data["content"]
-                except Exception:
-                    log_loading.warning(
-                        "Couldn't load cache from %s" % str(cachepath),
-                        exc_info=True,
+                except Exception as ex:
+                    log_loading.info(
+                        "Couldn't load cache from %s: %s" % (
+                            str(cachepath),
+                            str(ex),
+                        )
                     )
                     cachepath.unlink(missing_ok=True)
             # Cache does not exist or is invalid.
@@ -331,10 +334,12 @@ def scapy_data_cache(name):
                 with cachepath.open("wb") as fd:
                     pickle.dump(data, fd)
                 return content
-            except Exception:
-                log_loading.warning(
-                    "Couldn't cache %s into %s" % (repr(func), str(cachepath)),
-                    exc_info=True,
+            except Exception as ex:
+                log_loading.info(
+                    "Couldn't write cache into %s: %s" % (
+                        str(cachepath),
+                        str(ex)
+                    )
                 )
                 return content
         return load  # type: ignore

@@ -311,7 +311,8 @@ from unittest import mock
 
 conf.iface
 
-get_if_raw_hwaddr(conf.iface)
+get_if_addr(conf.iface)
+get_if_hwaddr(conf.iface)
 
 bytes_hex(get_if_raw_addr(conf.iface))
 
@@ -328,16 +329,6 @@ get_working_if()
 
 get_if_raw_addr6(conf.iface)
 
-if conf.use_bpf:
-    addr = u"lladdr 29:0b:c2:ff:fe:53:21:e9\n"
-    b = Bunch(returncode=0, communicate=lambda *args, **kargs: (addr, None))
-    with mock.patch('scapy.arch.bpf.core.subprocess.Popen', return_value=b) as popen:
-        try:
-            scapy.arch.bpf.core.get_if_raw_hwaddr("fw0")
-            assert False
-        except Scapy_Exception:
-            assert True
-
 = More Interfaces related functions
 
 # Test name resolution
@@ -353,7 +344,7 @@ from unittest import mock
 @mock.patch("scapy.interfaces.conf.ifaces.values")
 def _test_get_working_if(rou):
     rou.side_effect = lambda: []
-    assert get_working_if() == conf.loopback_name
+    assert get_working_if() is None
 
 assert conf.iface + "a"  # left +
 assert "hey! are you, ready to go ? %s" % conf.iface  # format
@@ -529,14 +520,17 @@ pkt.build()
 
 = Test read_routes6() - check mandatory routes
 
+import re
+ll_route = re.compile(r"fe80:\d{0,2}:")
+# match fe80::, fe80:5:, etc. (if scoped)
+
 conf.route6
 
-# Doesn't pass on Travis Bionic XXX
 if len(routes6) > 2 and not WINDOWS:
     # Identify routes to fe80::/64
     assert sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) >= 1
-    if not OPENBSD and len(iflist) >= 2:
-        assert sum(1 for r in routes6 if r[0] == "fe80::" and r[1] == 64) >= 1
+    if len(iflist) >= 2:
+        assert sum(1 for r in routes6 if ll_route.match(r[0]) and r[1] == 64) >= 1
         try:
             # Identify a route to a node IPv6 link-local address
             assert sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128) >= 1
@@ -1787,7 +1781,7 @@ try:
     sniffer.start()
     sniffer.join()
     assert False, "Should have errored by now"
-except (OSError, Scapy_Exception):
+except ValueError:
     assert True
 
 = Sending a TCP syn 'forever' at layer 2 and layer 3
@@ -2196,7 +2190,7 @@ pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x0
 pcapngfile = BytesIO(b'\n\r\r\n\\\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x01\x00,\x00File created by merging: \nFile1: test.pcap \n\x04\x00\x08\x00mergecap\x00\x00\x00\x00\\\x00\x00\x00\x01\x00\x00\x00\\\x00\x00\x00e\x00\x00\x00\xff\xff\x00\x00\x02\x006\x00Unknown/not available in original file format(libpcap)\x00\x00\t\x00\x01\x00\x06\x00\x00\x00\x00\x00\x00\x00\\\x00\x00\x00\x06\x00\x00\x00H\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00/\xfc[\xcd(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00H\x00\x00\x00\x06\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00\x1f\xff[\xcd\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r<\x00\x00\x00\x06\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00\xb9\x02\\\xcd\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00<\x00\x00\x00')
 pcapnanofile = BytesIO(b"M<\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacV\xc9\xc1\xb5'(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV-;\xc1'\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\x9aL\xcf'\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00")
 pcapwirelenfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\x01\x00\x00\x00}\x87pZ.\xa2\x08\x00\x0f\x00\x00\x00\x10\x00\x00\x00\xff\xff\xff\xff\xff\xff GG\xee\xdd\xa8\x90\x00a')
-pcapngdefaults = BytesIO(base64_bytes(b'Cg0NChwAAABNPCsaAQAAAP//////////HAAAAAEAAAAgAAAAEgEAAP//AAAJAAEACUeZiQAAAAAgAAAAAQAAACAAAAASAQAA//8AAAkAAQAJAAAAAAAAACAAAAABAAAAIAAAABIBAAD//wAACQABAAkAAAAAAAAAIAAAAAEAAAAgAAAAEgEAAP//AAAJAAEACQAAAAAAAAAgAAAABgAAAIQBAAADAAAApO/bFdgJaeBiAQAAYgEAAFVVVVVVVVXV////////IMbr4D7PCABFAAFIlQkAAEAR5JwAAAAA/////wBEAEMBNJDsAQEGAFSpVwIACoAAAAAAAAAAAAAAAAAAAAAAACDG6+A+zwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABjglNjNQEB/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAsOs+bAAAhAEAAAYAAACAAQAAAwAAAKTv2xXIDYznYAEAAGABAABVVVVVVVVV1QEAXn//+iDG6+A+zwgARQABRgGPAAAEEal3qf5wqO////rhbgdsATJi0U5PVElGWSAqIEhUVFAvMS4xDQpIT1NUOiAyMzkuMjU1LjI1NS4yNTA6MTkwMA0KQ0FDSEUtQ09OVFJPTDogbWF4LWFnZT0xODAwDQpMT0NBVElPTjogaHR0cDovLzE2OS4yNTQuMTEyLjE2ODo1NTAwMC9ucmMvZGRkLnhtbA0KTlQ6IHV1aWQ6NEQ0NTQ5MzAtMDIwMC0xMDAwLTgwMDEtMjBDNkVCRTAzRUNGDQpOVFM6IHNzZHA6YWxpdmUNClNFUlZFUjogRnJlZUJTRC84LjAgVVBuUC8xLjAgUGFuYXNvbmljLU1JTC1ETE5BLVNWLzEuMA0KVVNOOiB1dWlkOjRENDU0OTMwLTAyMDAtMTAwMC04MDAxLTIwQzZFQkUwM0VDRg0KDQpcQcvWgAEAAAYAAAC4AQAAAwAAAKTv2xV4Ao3nlQEAAJUBAABVVVVVVVVV1QEAXn//+iDG6+A+zwgARQABewGQAAAEEalBqf5wqO////rhbgdsAWfu+k5PVElGWSAqIEhUVFAvMS4xDQpIT1NUOiAyMzkuMjU1LjI1NS4yNTA6MTkwMA0KQ0FDSEUtQ09OVFJPTDogbWF4LWFnZT0xODAwDQpMT0NBVElPTjogaHR0cDovLzE2OS4yNTQuMTEyLjE2ODo1NTAwMC9ucmMvZGRkLnhtbA0KTlQ6IHVybjpwYW5hc29uaWMtY29tOmRldmljZTpwMDBSZW1vdGVDb250cm9sbGVyOjENCk5UUzogc3NkcDphbGl2ZQ0KU0VSVkVSOiBGcmVlQlNELzguMCBVUG5QLzEuMCBQYW5hc29uaWMtTUlMLURMTkEtU1YvMS4wDQpVU046IHV1aWQ6NEQ0NTQ5MzAtMDIwMC0xMDAwLTgwMDEtMjBDNkVCRTAzRUNGOjp1cm46cGFuYXNvbmljLWNvbTpkZXZpY2U6cDAwUmVtb3RlQ29udHJvbGxlcjoxDQoNCrLVKmoAAAC4AQAABgAAAHgBAAADAAAApO/bFVjbjedXAQAAVwEAAFVVVVVVVVXVAQBef//6IMbr4D7PCABFAAE9AZEAAAQRqX6p/nCo7///+uFuB2wBKaZATk9USUZZICogSFRUUC8xLjENCkhPU1Q6IDIzOS4yNTUuMjU1LjI1MDoxOTAwDQpDQUNIRS1DT05UUk9MOiBtYXgtYWdlPTE4MDANCkxPQ0FUSU9OOiBodHRwOi8vMTY5LjI1NC4xMTIuMTY4OjU1MDAwL25yYy9kZGQueG1sDQpOVDogdXBucDpyb290ZGV2aWNlDQpOVFM6IHNzZHA6YWxpdmUNClNFUlZFUjogRnJlZUJTRC84LjAgVVBuUC8xLjAgUGFuYXNvbmljLU1JTC1ETE5BLVNWLzEuMA0KVVNOOiB1dWlkOjRENDU0OTMwLTAyMDAtMTAwMC04MDAxLTIwQzZFQkUwM0VDRjo6dXBucDpyb290ZGV2aWNlDQoNCjagXoUAeAEAAAYAAAC0AQAAAwAAAKTv2xXYw47nkwEAAJMBAABVVVVVVVVV1QEAXn//+iDG6+A+zwgARQABeQGSAAAEEalBqf5wqO////rhbgdsAWWV4E5PVElGWSAqIEhUVFAvMS4xDQpIT1NUOiAyMzkuMjU1LjI1NS4yNTA6MTkwMA0KQ0FDSEUtQ09OVFJPTDogbWF4LWFnZT0xODAwDQpMT0NBVElPTjogaHR0cDovLzE2OS4yNTQuMTEyLjE2ODo1NTAwMC9ucmMvZGRkLnhtbA0KTlQ6IHVybjpwYW5hc29uaWMtY29tOnNlcnZpY2U6cDAwTmV0d29ya0NvbnRyb2w6MQ0KTlRTOiBzc2RwOmFsaXZlDQpTRVJWRVI6IEZyZWVCU0QvOC4wIFVQblAvMS4wIFBhbmFzb25pYy1NSUwtRExOQS1TVi8xLjANClVTTjogdXVpZDo0RDQ1NDkzMC0wMjAwLTEwMDAtODAwMS0yMEM2RUJFMDNFQ0Y6OnVybjpwYW5hc29uaWMtY29tOnNlcnZpY2U6cDAwTmV0d29ya0NvbnRyb2w6MQ0KDQovXKFrALQBAAAGAAAAqAEAAAMAAACk79sVuJKP54cBAACHAQAAVVVVVVVVVdUBAF5///ogxuvgPs8IAEUAAW0BkwAABBGpTKn+cKjv///64W4HbAFZRNJOT1RJRlkgKiBIVFRQLzEuMQ0KSE9TVDogMjM5LjI1NS4yNTUuMjUwOjE5MDANCkNBQ0hFLUNPTlRST0w6IG1heC1hZ2U9MTgwMA0KTE9DQVRJT046IGh0dHA6Ly8xNjkuMjU0LjExMi4xNjg6NTUwMDAvbnJjL2RkZC54bWwNCk5UOiB1cm46ZGlhbC1tdWx0aXNjcmVlbi1vcmc6c2VydmljZTpkaWFsOjENCk5UUzogc3NkcDphbGl2ZQ0KU0VSVkVSOiBGcmVlQlNELzguMCBVUG5QLzEuMCBQYW5hc29uaWMtTUlMLURMTkEtU1YvMS4wDQpVU046IHV1aWQ6NEQ0NTQ5MzAtMDIwMC0xMDAwLTgwMDEtMjBDNkVCRTAzRUNGOjp1cm46ZGlhbC1tdWx0aXNjcmVlbi1vcmc6c2VydmljZTpkaWFsOjENCg0KLn5A6QCoAQAA'))
+pcapngdefaults = BytesIO(base64.b64decode(b'Cg0NChwAAABNPCsaAQAAAP//////////HAAAAAEAAAAgAAAAEgEAAP//AAAJAAEACUeZiQAAAAAgAAAAAQAAACAAAAASAQAA//8AAAkAAQAJAAAAAAAAACAAAAABAAAAIAAAABIBAAD//wAACQABAAkAAAAAAAAAIAAAAAEAAAAgAAAAEgEAAP//AAAJAAEACQAAAAAAAAAgAAAABgAAAIQBAAADAAAApO/bFdgJaeBiAQAAYgEAAFVVVVVVVVXV////////IMbr4D7PCABFAAFIlQkAAEAR5JwAAAAA/////wBEAEMBNJDsAQEGAFSpVwIACoAAAAAAAAAAAAAAAAAAAAAAACDG6+A+zwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABjglNjNQEB/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAsOs+bAAAhAEAAAYAAACAAQAAAwAAAKTv2xXIDYznYAEAAGABAABVVVVVVVVV1QEAXn//+iDG6+A+zwgARQABRgGPAAAEEal3qf5wqO////rhbgdsATJi0U5PVElGWSAqIEhUVFAvMS4xDQpIT1NUOiAyMzkuMjU1LjI1NS4yNTA6MTkwMA0KQ0FDSEUtQ09OVFJPTDogbWF4LWFnZT0xODAwDQpMT0NBVElPTjogaHR0cDovLzE2OS4yNTQuMTEyLjE2ODo1NTAwMC9ucmMvZGRkLnhtbA0KTlQ6IHV1aWQ6NEQ0NTQ5MzAtMDIwMC0xMDAwLTgwMDEtMjBDNkVCRTAzRUNGDQpOVFM6IHNzZHA6YWxpdmUNClNFUlZFUjogRnJlZUJTRC84LjAgVVBuUC8xLjAgUGFuYXNvbmljLU1JTC1ETE5BLVNWLzEuMA0KVVNOOiB1dWlkOjRENDU0OTMwLTAyMDAtMTAwMC04MDAxLTIwQzZFQkUwM0VDRg0KDQpcQcvWgAEAAAYAAAC4AQAAAwAAAKTv2xV4Ao3nlQEAAJUBAABVVVVVVVVV1QEAXn//+iDG6+A+zwgARQABewGQAAAEEalBqf5wqO////rhbgdsAWfu+k5PVElGWSAqIEhUVFAvMS4xDQpIT1NUOiAyMzkuMjU1LjI1NS4yNTA6MTkwMA0KQ0FDSEUtQ09OVFJPTDogbWF4LWFnZT0xODAwDQpMT0NBVElPTjogaHR0cDovLzE2OS4yNTQuMTEyLjE2ODo1NTAwMC9ucmMvZGRkLnhtbA0KTlQ6IHVybjpwYW5hc29uaWMtY29tOmRldmljZTpwMDBSZW1vdGVDb250cm9sbGVyOjENCk5UUzogc3NkcDphbGl2ZQ0KU0VSVkVSOiBGcmVlQlNELzguMCBVUG5QLzEuMCBQYW5hc29uaWMtTUlMLURMTkEtU1YvMS4wDQpVU046IHV1aWQ6NEQ0NTQ5MzAtMDIwMC0xMDAwLTgwMDEtMjBDNkVCRTAzRUNGOjp1cm46cGFuYXNvbmljLWNvbTpkZXZpY2U6cDAwUmVtb3RlQ29udHJvbGxlcjoxDQoNCrLVKmoAAAC4AQAABgAAAHgBAAADAAAApO/bFVjbjedXAQAAVwEAAFVVVVVVVVXVAQBef//6IMbr4D7PCABFAAE9AZEAAAQRqX6p/nCo7///+uFuB2wBKaZATk9USUZZICogSFRUUC8xLjENCkhPU1Q6IDIzOS4yNTUuMjU1LjI1MDoxOTAwDQpDQUNIRS1DT05UUk9MOiBtYXgtYWdlPTE4MDANCkxPQ0FUSU9OOiBodHRwOi8vMTY5LjI1NC4xMTIuMTY4OjU1MDAwL25yYy9kZGQueG1sDQpOVDogdXBucDpyb290ZGV2aWNlDQpOVFM6IHNzZHA6YWxpdmUNClNFUlZFUjogRnJlZUJTRC84LjAgVVBuUC8xLjAgUGFuYXNvbmljLU1JTC1ETE5BLVNWLzEuMA0KVVNOOiB1dWlkOjRENDU0OTMwLTAyMDAtMTAwMC04MDAxLTIwQzZFQkUwM0VDRjo6dXBucDpyb290ZGV2aWNlDQoNCjagXoUAeAEAAAYAAAC0AQAAAwAAAKTv2xXYw47nkwEAAJMBAABVVVVVVVVV1QEAXn//+iDG6+A+zwgARQABeQGSAAAEEalBqf5wqO////rhbgdsAWWV4E5PVElGWSAqIEhUVFAvMS4xDQpIT1NUOiAyMzkuMjU1LjI1NS4yNTA6MTkwMA0KQ0FDSEUtQ09OVFJPTDogbWF4LWFnZT0xODAwDQpMT0NBVElPTjogaHR0cDovLzE2OS4yNTQuMTEyLjE2ODo1NTAwMC9ucmMvZGRkLnhtbA0KTlQ6IHVybjpwYW5hc29uaWMtY29tOnNlcnZpY2U6cDAwTmV0d29ya0NvbnRyb2w6MQ0KTlRTOiBzc2RwOmFsaXZlDQpTRVJWRVI6IEZyZWVCU0QvOC4wIFVQblAvMS4wIFBhbmFzb25pYy1NSUwtRExOQS1TVi8xLjANClVTTjogdXVpZDo0RDQ1NDkzMC0wMjAwLTEwMDAtODAwMS0yMEM2RUJFMDNFQ0Y6OnVybjpwYW5hc29uaWMtY29tOnNlcnZpY2U6cDAwTmV0d29ya0NvbnRyb2w6MQ0KDQovXKFrALQBAAAGAAAAqAEAAAMAAACk79sVuJKP54cBAACHAQAAVVVVVVVVVdUBAF5///ogxuvgPs8IAEUAAW0BkwAABBGpTKn+cKjv///64W4HbAFZRNJOT1RJRlkgKiBIVFRQLzEuMQ0KSE9TVDogMjM5LjI1NS4yNTUuMjUwOjE5MDANCkNBQ0hFLUNPTlRST0w6IG1heC1hZ2U9MTgwMA0KTE9DQVRJT046IGh0dHA6Ly8xNjkuMjU0LjExMi4xNjg6NTUwMDAvbnJjL2RkZC54bWwNCk5UOiB1cm46ZGlhbC1tdWx0aXNjcmVlbi1vcmc6c2VydmljZTpkaWFsOjENCk5UUzogc3NkcDphbGl2ZQ0KU0VSVkVSOiBGcmVlQlNELzguMCBVUG5QLzEuMCBQYW5hc29uaWMtTUlMLURMTkEtU1YvMS4wDQpVU046IHV1aWQ6NEQ0NTQ5MzAtMDIwMC0xMDAwLTgwMDEtMjBDNkVCRTAzRUNGOjp1cm46ZGlhbC1tdWx0aXNjcmVlbi1vcmc6c2VydmljZTpkaWFsOjENCg0KLn5A6QCoAQAA'))
 
 = Read a pcap file
 pktpcap = rdpcap(pcapfile)
@@ -2343,6 +2337,11 @@ except Scapy_Exception:
 # Issue #70115
 file = BytesIO(b"\n\r\r\n\x00\x00\x008\x1a+<M\x00\x01\x00\x00\xef\xff\xff\x81\x01\x00\x00\x01\x00\x00\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x009\x00\x00\x00\x01\x00\x00\x000\x00e\x00\x00\x00\x00\x00\x00\x00\x008\x00\x00\x00\x06\x00\x00\x00d\x00\x00\x00\x00'\x00\x00\x00\x01\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x80\x01\x00\x00\x000\x00\x00\x00\x01\x00\x00\x008\x00\x00\n\x0c\x00A\x05\xc0\x01\x00\x00\x00\x00\x00d\x00\x00\x00\x00\x00\x00\x00\x00\x000\x00\x00\x00\x01\x00\x00\x008\x00\x00\n\x0c\x00A\x05\xc0\x83\x00\x00\x043\x01\x00\x00\x00\x00\x00d\x00\x00\x00\x00d")
 l = rdpcap(file)
+
+# Issue #69628
+file = BytesIO(b"M<\xb2\xa1 \x00\xff\xf9\xff\x00\x00\xff\xff\xff\xa1\xb2<M\x01\x00\x00\x00\x00\x00\x00\x17\xca\xca\xca\xca\xca\xca\xca\xca\xca\xca\r\x80\x01[\x00\x01noenum\x00\x00\x00\x00\x00\x06value\x01\x00\x00\x00\x00\x00\x00\x01\x85\xff\xff\x00\x00\x94\xc3\x000\x00\x08\xa0\xf30\x800\x000\x00")
+l = rdpcap(file)
+assert l[0][LDAP].summary() == "LDAP"
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
@@ -2933,297 +2932,321 @@ assert pkterf[1][Ether].src == "00:0f:53:3f:ca:c0"
 
 ############
 ############
-+ Mocked read_routes() calls
++ Mocked read_routes() and read_routes6() calls
 
-= Truncated netstat -rn output on OS X
-~ mock_read_routes_bsd
+= Create patcher util
+~ mock_read_routes_bsd little_endian_only
 
+# mock the random to get consistency
 from unittest import mock
-from io import StringIO
 
-@mock.patch("scapy.arch.get_if_addr")
-@mock.patch("scapy.arch.unix.os")
-def test_osx_netstat_truncated(mock_os, mock_get_if_addr):
-    """Test read_routes() on OS X 10.? with a long interface name"""
-    # netstat & ifconfig outputs from https://github.com/secdev/scapy/pull/119
-    netstat_output = u"""
-Routing tables
+from scapy.pton_ntop import inet_pton
+import scapy.arch.bpf.pfroute
 
-Internet:
-Destination        Gateway            Flags        Refs      Use   Netif Expire
-default            192.168.1.1        UGSc          460        0     en1
-default            link#11            UCSI            1        0 bridge1
-127                127.0.0.1          UCS             1        0     lo0
-127.0.0.1          127.0.0.1          UH             10  2012351     lo0
-"""
-    ifconfig_output = u"lo0 en1 bridge10\n"
-    # Mocked file descriptors
-    def se_popen(command):
-        """Perform specific side effects"""
-        if command.startswith("netstat -rn"):
-            return StringIO(netstat_output)
-        elif command == "ifconfig -l":
-            ret = StringIO(ifconfig_output)
-            def unit():
-                return ret
-            ret.__call__ = unit
-            ret.__enter__ = unit
-            ret.__exit__ = lambda x,y,z: None
-            return ret
-        raise Exception("Command not mocked: %s" % command)
-    mock_os.popen.side_effect = se_popen
-    # Mocked get_if_addr() behavior
-    def se_get_if_addr(iface):
-        """Perform specific side effects"""
-        if iface == "bridge1":
-            return "0.0.0.0"
-        return "1.2.3.4"
-    mock_get_if_addr.side_effect = se_get_if_addr
-    # Test the function
-    from scapy.arch.unix import read_routes
-    scapy.arch.unix.DARWIN = True
-    scapy.arch.unix.FREEBSD = False
-    scapy.arch.unix.NETBSD = False
-    scapy.arch.unix.OPENBSD = False
-    routes = read_routes()
-    assert len(routes) == 4
-    assert [r for r in routes if r[3] == "bridge10"]
+og_afinet6 = socket.AF_INET6
+og_inet_pton = socket.inet_pton
+def mock_inet_pton(af, data):
+    if af in [24, 28, 30]:
+        return og_inet_pton(og_afinet6, data)
+    return og_inet_pton(af, data)
 
 
-test_osx_netstat_truncated()
+og_inet_ntop = socket.inet_ntop
+def mock_inet_ntop(af, data):
+    if af in [24, 28, 30]:
+        return og_inet_ntop(og_afinet6, data)
+    return og_inet_ntop(af, data)
 
 
-= macOS 10.13
-~ mock_read_routes_bsd
-
-from unittest import mock
-from io import StringIO
-
-@mock.patch("scapy.arch.get_if_addr")
-@mock.patch("scapy.arch.unix.os")
-def test_osx_10_13_ipv4(mock_os, mock_get_if_addr):
-    """Test read_routes() on OS X 10.13"""
-    # 'netstat -rn -f inet' output
-    netstat_output = u"""
-Routing tables
-
-Internet:
-Destination        Gateway            Flags        Refs      Use   Netif Expire
-default            192.168.28.1       UGSc           82        0     en0
-127                127.0.0.1          UCS             0        0     lo0
-127.0.0.1          127.0.0.1          UH              1      878     lo0
-169.254            link#5             UCS             0        0     en0
-192.168.28         link#5             UCS             4        0     en0
-192.168.28.1/32    link#5             UCS             2        0     en0
-192.168.28.1       88:32:9c:f5:4e:ea  UHLWIir        40       37     en0   1177
-192.168.28.2       62:aa:56:4b:51:54  UHLWI           0        0     en0    619
-192.168.28.4       38:17:ed:9a:58:28  UHLWIi          1        6     en0    428
-192.168.28.18/32   link#5             UCS             1        0     en0
-192.168.28.18      88:32:9c:f5:4e:eb  UHLWI           0        1     lo0
-192.168.28.28      04:0e:eb:11:74:a7  UHLWI           0        0     en0    576
-224.0.0/4          link#5             UmCS            1        0     en0
-224.0.0.251        1:0:5e:0:0:fb      UHmLWI          0        0     en0
-255.255.255.255/32 link#5             UCS             0        0     en0
-"""
-    # Mocked file descriptor
-    strio = StringIO(netstat_output)
-    mock_os.popen = mock.MagicMock(return_value=strio)
-    # Mocked get_if_addr() output
-    def se_get_if_addr(iface):
-        """Perform specific side effects"""
-        import socket
-        if iface == "en0":
-            return "192.168.28.18"
-        return "127.0.0.1"
-    mock_get_if_addr.side_effect = se_get_if_addr
-    # Test the function
-    from scapy.arch.unix import read_routes
-    scapy.arch.unix.DARWIN = False
-    scapy.arch.unix.FREEBSD = True
-    scapy.arch.unix.NETBSD = False
-    scapy.arch.unix.OPENBSD = False
-    routes = read_routes()
-    for r in routes:
-        print(r)
-    assert len(routes) == 15
-    default_route = [r for r in routes if r[0] == 0][0]
-    assert default_route[3] == "en0" and default_route[4] == "192.168.28.18"
-
-test_osx_10_13_ipv4()
+class BSDLoader:
+    def __init__(self, OPENBSD=False, FREEBSD=False, NETBSD=False, DARWIN=False, sysctldata=None, ifaces={}, AF_INET6=socket.AF_INET6):
+        self.sysctldata = sysctldata
+        self.ifaces = ifaces
+        socket.AF_LINK = 18
+        self.loadpatches = [
+            mock.patch('socket.AF_INET6', AF_INET6),
+            mock.patch('socket.inet_pton', side_effect=mock_inet_pton),
+            mock.patch('socket.inet_ntop', side_effect=mock_inet_ntop),
+            mock.patch('scapy.consts.OPENBSD', OPENBSD),
+            # mock.patch('scapy.consts.FREEBSD', FREEBSD),
+            mock.patch('scapy.consts.NETBSD', NETBSD),
+            mock.patch('scapy.consts.DARWIN', DARWIN),
+        ]
+    def __enter__(self):
+        # Apply patches that only occur when loading
+        for p in self.loadpatches:
+            p.start()
+        # Reload module
+        pfroute = importlib.reload(scapy.arch.bpf.pfroute)
+        # Now apply post-load patches
+        self.patches = [
+            mock.patch.object(
+                pfroute,
+                '_sr1_bsdsysctl',
+                return_value=pfroute.pfmsghdrs(self.sysctldata)
+            ),
+            mock.patch.object(
+                pfroute,
+                '_get_if_list',
+                return_value=self.ifaces,
+            ),
+        ]
+        for p in self.patches:
+            p.start()        
+        return pfroute
+    def __exit__(self, *args, **kwargs):
+        for p in self.loadpatches:
+            p.stop()
+        for p in self.patches:
+            p.stop()
 
 
-= macOS 10.15
-~ mock_read_routes_bsd
+= OpenBSD 7.5 amd64 - read_routes()
+~ mock_read_routes_bsd little_endian_only
 
-from unittest import mock
-from io import StringIO
+import zlib
 
-@mock.patch("scapy.arch.get_if_addr")
-@mock.patch("scapy.arch.unix.os")
-def test_osx_10_15_ipv4(mock_os, mock_get_if_addr):
-    """Test read_routes() on OS X 10.15"""
-    # 'netstat -rn -f inet' output
-    netstat_output = u"""
-Routing tables
-
-Internet:
-Destination        Gateway            Flags        Netif Expire
-default            192.168.122.1      UGSc           en0       
-127                127.0.0.1          UCS            lo0       
-127.0.0.1          127.0.0.1          UH             lo0       
-169.254            link#8             UCS            en0      !
-192.168.122        link#8             UCS            en0      !
-192.168.122.1/32   link#8             UCS            en0      !
-192.168.122.1      52:54:0:c0:b7:af   UHLWIir        en0   1169
-192.168.122.63/32  link#8             UCS            en0      !
-224.0.0/4          link#8             UmCS           en0      !
-224.0.0.251        1:0:5e:0:0:fb      UHmLWI         en0       
-255.255.255.255/32 link#8             UCS            en0      !
-"""
-    # Mocked file descriptor
-    strio = StringIO(netstat_output)
-    mock_os.popen = mock.MagicMock(return_value=strio)
-    # Mocked get_if_addr() output
-    def se_get_if_addr(iface):
-        """Perform specific side effects"""
-        import socket
-        if iface == "en0":
-            return "192.168.122.42"
-        return "127.0.0.1"
-    mock_get_if_addr.side_effect = se_get_if_addr
-    # Test the function
-    from scapy.arch.unix import read_routes
-    scapy.arch.unix.DARWIN = False
-    scapy.arch.unix.FREEBSD = True
-    scapy.arch.unix.NETBSD = False
-    scapy.arch.unix.OPENBSD = False
-    routes = read_routes()
-    for r in routes:
-        print(r)
-    assert len(routes) == 11
-    default_route = [r for r in routes if r[0] == 0][0]
-    assert default_route[3] == "en0" and default_route[4] == "192.168.122.42"
-
-test_osx_10_15_ipv4()
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789c7bc1c0ca92c0c0c8c0c0c0c160cec2c0e0ccc10006de0f1850003f0376c08a431c06049830f96bc40f30e2925710626460636163c828cb3360108d6548e5c4aabf0bc6576248c9482ec8494d2c4e4dc1e78e03607f323380fd09243d71f853109be6067c2623dcf5008d5fcfc080e2cf0f48f20a42cc0c1240e7e4e41be0340f593fbafbbd71b81f2b20d2fdf504dcff9f2aee6704bbdf151873d8dc8f961ce0ee67c4264ec0bd18ee0702cadc0fe2b280ddefc8d880d5fdb80031ee07a66b747e1732ffff7f440a22359f5c80bb9f1912fe2ccc58ddcf03a5cd675f494316c71a2f98f6c1bd09761f1002dd26f4b900bb7ad4f820d73fd0f4c4a280d53f5c04dc4dc03f70fb88711f25fe3980ee1f0607acfe61a7c83fe7ffa3f2d1d317f9ee1f05a360148c8251300a46c128180543030000bd836967'))
 
 
-= OpenBSD 6.3
-~ mock_read_routes_bsd
+with BSDLoader(OPENBSD=True, sysctldata=_PFROUTE_DATA, AF_INET6=24) as pfroute:
+    routes = pfroute.read_routes()
 
-from unittest import mock
-from io import StringIO
 
-@mock.patch("scapy.arch.get_if_addr")
-@mock.patch("scapy.arch.unix.OPENBSD")
-@mock.patch("scapy.arch.unix.os")
-def test_openbsd_6_3(mock_os, mock_openbsd, mock_get_if_addr):
-    """Test read_routes() on OpenBSD 6.3"""
-    # 'netstat -rn -f inet' output
-    netstat_output = u"""
-Routing tables
+assert routes == [
+    (0, 0, '172.23.192.1', 'hvn0', '172.23.192.138', 1),
+    (3758096384, 4026531840, '127.0.0.1', 'lo0', '127.0.0.1', 1),
+    (2130706432, 4278190080, '127.0.0.1', 'lo0', '127.0.0.1', 1),
+    (2130706433, 4294967295, '127.0.0.1', 'lo0', '127.0.0.1', 1),
+    (2887237632, 4294963200, '172.23.192.138', 'hvn0', '172.23.192.138', 1),
+    (2887237633, 4294967295, '0.0.0.0', 'hvn0', '172.23.192.138', 1),
+    (2887237770, 4294967295, '0.0.0.0', 'hvn0', '172.23.192.138', 1),
+    (2887241727, 4294967295, '172.23.192.138', 'hvn0', '172.23.192.138', 1)
+]
 
-Internet:
-Destination        Gateway            Flags   Refs      Use   Mtu  Prio Iface
-default            10.0.1.254         UGS        0        0     -     8 bge0 
-224/4              127.0.0.1          URS        0       23 32768     8 lo0  
-10.0.1/24          10.0.1.26          UCn        4      192     -     4 bge0 
-10.0.1.1           00:30:48:57:ed:0b  UHLc       2      338     -     3 bge0 
-10.0.1.2           00:03:ba:0c:0b:52  UHLc       1      186     -     3 bge0 
-10.0.1.26          00:30:48:62:b3:f4  UHLl       0    47877     -     1 bge0 
-10.0.1.135         link#1             UHLch      1      194     -     3 bge0 
-10.0.1.254         link#1             UHLch      1      190     -     3 bge0 
-10.0.1.255         10.0.1.26          UHb        0        0     -     1 bge0 
-10.188.6/24        10.188.6.17        Cn         0        0     -     4 tap3 
-10.188.6.17        fe:e1:ba:d7:ff:32  UHLl       0       25     -     1 tap3 
-10.188.6.255       10.188.6.17        Hb         0        0     -     1 tap3 
-10.188.135/24      10.0.1.135         UGS        0        0  1350 L   8 bge0 
-127/8              127.0.0.1          UGRS       0        0 32768     8 lo0  
-127.0.0.1          127.0.0.1          UHhl       1  3835230 32768     1 lo0  
-"""
-    # Mocked file descriptor
-    strio = StringIO(netstat_output)
-    mock_os.popen = mock.MagicMock(return_value=strio)
-    
-    # Mocked OpenBSD parsing behavior
-    mock_openbsd = True
-    
-    # Mocked get_if_addr() output
-    def se_get_if_addr(iface):
-        """Perform specific side effects"""
-        import socket
-        if iface == "bge0":
-            return "192.168.122.42"
-        return "10.0.1.26"
-    mock_get_if_addr.side_effect = se_get_if_addr
-    
-    # Test the function
-    from scapy.arch.unix import read_routes
-    return read_routes()
 
-routes = test_openbsd_6_3()
+= OpenBSD 7.5 amd64 - read_routes6()
+~ mock_read_routes_bsd little_endian_only
 
-for r in routes:
-    print(ltoa(r[0]), ltoa(r[1]), r)
-    # check that default route exists in parsed data structure
-    if ltoa(r[0]) == "0.0.0.0":
-        default = r
-    # check that route with locked mtu exists in parsed data structure
-    if ltoa(r[0]) == "10.188.135.0":
-        locked = r
+import zlib
 
-assert len(routes) == 11
-assert default[2] == "10.0.1.254"
-assert default[3] == "bge0"
-assert locked[2] == "10.0.1.135"
-assert locked[3] == "bge0"
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789ced96bb0dc2301086cf38481125a248411131011d3505a2600906406204325a4661040a6a4264f130d6c5b19c87e2f07f458adcd9be2f7fe190984647924414d3a67c1e6252dcf7544f56dfb24cbceac2ac171a7a633a979494e39fce6baffde9e32f94ff8e56eab5e9bfe076c98866ecf6eee7fbf8ebdfa03dffbef2ffcd6f38f977eb9f4eecf5aaf9347fb6311cff8bd77ce3f1bf7acdf7f5bfb18de1f8f3f9fd4bfe8f8a5e67ff9c5f1f8c7f6eaf57cdd79ffffbfe4fd5eb0ef297dcf9aef5a6f77fd5fe7de55f087bdd80f1e7d7b7977fa4fcb7af7bdaf467c7cff899b8f34b7f69abbbe4cfad0f26ffc6ff3ffcfa60f29f0c347f00000000000000000000306a9e0a72ae83'))
 
-= Solaris 11.1
-~ mock_read_routes_bsd
 
-from unittest import mock
-from io import StringIO
+with BSDLoader(OPENBSD=True, sysctldata=_PFROUTE_DATA, AF_INET6=24) as pfroute:
+    routes = pfroute.read_routes6()
 
-# Mocked Solaris 11.1 parsing behavior
 
-@mock.patch("scapy.arch.get_if_addr")
-@mock.patch("scapy.arch.unix.SOLARIS", True)
-@mock.patch("scapy.arch.unix.os")
-def test_solaris_111(mock_os, mock_get_if_addr):
-    """Test read_routes() on Solaris 11.1"""
-    # 'netstat -rvn -f inet' output
-    netstat_output = u"""
-IRE Table: IPv4
-  Destination             Mask           Gateway          Device  MTU  Ref Flg  Out  In/Fwd 
--------------------- --------------- -------------------- ------ ----- --- --- ----- ------ 
-default              0.0.0.0         10.0.2.2             net0    1500   2 UG       5      0 
-10.0.2.0             255.255.255.0   10.0.2.15            net0    1500   3 U        0      0 
-127.0.0.1            255.255.255.255 127.0.0.1            lo0     8232   2 UH    1517   1517
-"""
-    # Mocked file descriptor
-    strio = StringIO(netstat_output)
-    mock_os.popen = mock.MagicMock(return_value=strio)
-    print(scapy.arch.unix.SOLARIS)
-    
-    # Mocked get_if_addr() output
-    def se_get_if_addr(iface):
-        """Perform specific side effects"""
-        import socket
-        if iface == "net0":
-            return "10.0.2.15"
-        return "127.0.0.1"
-    mock_get_if_addr.side_effect = se_get_if_addr
-    
-    # Test the function
-    from scapy.arch.unix import read_routes
-    return read_routes()
+assert routes == [
+    ('::', 96, '::1', 'lo0', ['::1'], 1),
+    ('::1', 128, '::1', 'lo0', ['::1'], 1),
+    ('::ffff:0.0.0.0', 96, '::1', 'lo0', ['::1'], 1),
+    ('2002::', 24, '::1', 'lo0', ['::1'], 1),
+    ('2002:7f00::', 24, '::1', 'lo0', ['::1'], 1),
+    ('2002:e000::', 20, '::1', 'lo0', ['::1'], 1),
+    ('2002:ff00::', 24, '::1', 'lo0', ['::1'], 1),
+    ('fe80::', 10, '::1', 'lo0', ['::1'], 1),
+    ('fec0::', 10, '::1', 'lo0', ['::1'], 1),
+    ('fe80:3::1', 128, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1),
+    ('ff01::', 16, '::1', 'lo0', ['::1'], 1),
+    ('ff01:3::', 32, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1),
+    ('ff02::', 16, '::1', 'lo0', ['::1'], 1),
+    ('ff02:3::', 32, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1)
+]
 
-routes = test_solaris_111()
-print(routes)
-assert len(routes) == 3
-assert routes[0][:4] == (0, 0, '10.0.2.2', 'net0')
-assert routes[1][:4] == (167772672, 4294967040, '0.0.0.0', 'net0')
-assert routes[2][:4] == (2130706433, 4294967295, '0.0.0.0', 'lo0')
+= FreeBSD 14.1 amd64 - read_routes()
+~ mock_read_routes_bsd little_endian_only
 
+import zlib
+
+from scapy.arch.bpf.pfroute import _bsd_iff_flags
+_FREEBSD_IFACES = {1: {'name': 'lo0', 'index': 1, 'flags': FlagValue(32841, _bsd_iff_flags), 'mac': '00:00:00:00:00:00', 'ips': [{'af_family': 28, 'index': 1, 'address': '::1', 'scope': 16}, {'af_family': 28, 'index': 1, 'address': 'fe80::1', 'scope': 32}, {'af_family': 2, 'index': 1, 'address': '127.0.0.1'}]}, 2: {'name': 'hn0', 'index': 2, 'flags': FlagValue(34883, _bsd_iff_flags), 'mac': '00:15:5d:00:65:07', 'ips': [{'af_family': 28, 'index': 2, 'address': 'fe80::215:5dff:fe00:6507', 'scope': 32}, {'af_family': 2, 'index': 2, 'address': '172.23.198.182'}]}}
+
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789c136064656162606060e660603067200ceeb012a18808c008a55970c80b3061f2d7881f60c4256f21c4c4c0c6ccc6909167c0201acb90ca4ea43b20e61edb8670182b0bc8125606010663620c7020d2220280118d46072077d623490b0831324820c95b80f8cc0c0c39f90624d98b612e343d3002fd3f10e98109873c34fe117c507ca3c9ffffff01cea77a7ae01898f4c08c431edd9de8e141adf40000e8611aa8'))
+
+
+with BSDLoader(FREEBSD=True, sysctldata=_PFROUTE_DATA, ifaces=_FREEBSD_IFACES, AF_INET6=28) as pfroute:
+    routes = pfroute.read_routes()
+
+assert routes == [
+    (0, 0, '172.23.192.1', 'hn0', '172.23.198.182', 1),
+    (2130706433, 4294967295, '0.0.0.0', 'lo0', '127.0.0.1', 1),
+    (2887237632, 4294963200, '0.0.0.0', 'hn0', '172.23.198.182', 1),
+    (2887239350, 4294967295, '0.0.0.0', 'lo0', '127.0.0.1', 1),
+    (3758096384, 4026531840, '0.0.0.0', 'lo0', '127.0.0.1', 250),
+    (3758096384, 4026531840, '0.0.0.0', 'hn0', '172.23.198.182', 250)
+]
+
+= FreeBSD 14.1 amd64 - read_routes6()
+~ mock_read_routes_bsd little_endian_only
+
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789ce5553b0e8240109d593e62b72121b1a0e00824165a72042e40696261f40a1ecd837816101236c28461872801e36bb678f3797979bb9ba3e722006c0380030890498aecc0f6f4193e8ec7fb191e295f75d02d3c86083b07e0724b457aa57b93d64f2fd0b0970ccc26ad6781e4a4b0e9d68d1f1d622e7ff29fc95b3f2f6bcddbdafd2cefe33c33f6ede763b87f2e3fb3d64f04bd889f0ec3737e9a3e7a7f691ee9bc4ffd233ad0e858fafd530c6fd3fdedf78fdbd3e44b813c5f4f6fd27a16663f378ecb97f15387aa77d7edf9aaeb1d1fced714a2024e1ba14eaa43454555d6ed46c7d2f97219dea69bfaf7afff41c55c50f9ff3adc3f979f2f44725d78'))
+
+
+with BSDLoader(FREEBSD=True, sysctldata=_PFROUTE_DATA, ifaces=_FREEBSD_IFACES, AF_INET6=28) as pfroute:
+    routes = pfroute.read_routes6()
+
+assert routes == [
+    ('::', 96, '::1', 'lo0', ['::1'], 1),
+    ('::1', 128, '::', 'lo0', ['::1'], 1),
+    ('::ffff:0.0.0.0', 96, '::1', 'lo0', ['::1'], 1),
+    ('fe80::', 10, '::1', 'lo0', ['::1'], 1),
+    ('fe80::', 64, '::', 'lo0', ['fe80::1'], 1),
+    ('fe80::1', 128, '::', 'lo0', ['fe80::1'], 1),
+    ('fe80::', 64, '::', 'hn0', ['fe80::215:5dff:fe00:6507'], 1),
+    ('fe80::215:5dff:fe00:6507', 128, '::', 'lo0', ['::1'], 1),
+    ('ff02::', 16, '::1', 'lo0', ['::1'], 1),
+    ('ff00::', 8, '::', 'lo0', ['::1', 'fe80::1'], 250),
+    ('ff00::', 8, '::', 'hn0', ['fe80::215:5dff:fe00:6507'], 250)
+]
+
+= NetBSD 10.0 amd64 - read_routes()
+~ mock_read_routes_bsd little_endian_only
+
+import zlib
+
+from scapy.arch.bpf.pfroute import _bsd_iff_flags
+_NETBSD_IFACES = {1: {'name': 'hvn0', 'index': 1, 'flags': FlagValue(34883, _bsd_iff_flags), 'mac': '00:15:5d:00:65:0a', 'ips': [{'af_family': 24, 'index': 1, 'address': 'fe80:1::7184:2b50:9fbe:e337', 'scope': 32}, {'af_family': 2, 'index': 1, 'address': '172.23.207.191'}]}, 2: {'name': 'lo0', 'index': 2, 'flags': FlagValue(32841, _bsd_iff_flags), 'mac': '00:00:00:00:00:00', 'ips': [{'af_family': 2, 'index': 2, 'address': '127.0.0.1'}, {'af_family': 24, 'index': 2, 'address': '::1', 'scope': 16}, {'af_family': 24, 'index': 2, 'address': 'fe80:2::1', 'scope': 32}]}}
+
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789c3bc1c0c2c2c8c0c0c00cc4e60ca8c08a91816640800993bf46fc00868d42428c0c6c2c6c0c196579060ca2b10ca95cc8eacfef87a93b00f407c8486e0e4c7f600311cd94b81ed5ddf5987cb83f58ff0301c85d424c0c12c040cec937c0aa6e07d4fdac0c2c0cc6f4773fdc1de8ee24e4ee0bd0f4c3c88819ee2c2cd471232e7703d30b9c0f4e2758d4b183c2ffff0792d311b1f1402d80ee0e5cfec1161fc8fa6640e383550592a769058cef5d4943e6a3e75f3eb0fb813e108d15fa5c404387e000001e173214'))
+
+
+with BSDLoader(NETBSD=True, sysctldata=_PFROUTE_DATA, ifaces=_NETBSD_IFACES, AF_INET6=24) as pfroute:
+    routes = pfroute.read_routes()
+
+assert routes == [
+    (0, 0, '172.23.192.1', 'hvn0', '172.23.207.191', 1),
+    (2130706432, 4294967040, '127.0.0.1', 'lo0', '127.0.0.1', 1),
+    (2130706433, 4294967295, '0.0.0.0', 'lo0', '127.0.0.1', 1),
+    (2887237632, 4294967295, '0.0.0.0', 'hvn0', '172.23.207.191', 1),
+    (2887241663, 4294967295, '0.0.0.0', 'lo0', '172.23.207.191', 1),
+    (2887237633, 4294967295, '0.0.0.0', 'hvn0', '', 1),
+    (3758096384, 4026531840, '0.0.0.0', 'hvn0', '172.23.207.191', 250),
+    (3758096384, 4026531840, '0.0.0.0', 'lo0', '127.0.0.1', 250)
+]
+
+= NetBSD 10.0 amd64 - read_routes6()
+~ mock_read_routes_bsd little_endian_only
+
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789ced97b14ec3301445af4da8aa964a5544a50e1dd8592a31f01b8c2c1d2b31205017d65682ffe86f30213e8331123fd09109d3368a8127fbd9898c2c87de29ce4dac77749f1d0722cb24807e17b8845bd78f1e0f7968326ee48bea62a40cdadeefe712e323e0f67eea350f12e53f35e3d7e67f43c97f8c0c171e75ff31bfae8b72a49cebd2e1a3e57d5d387c38f837489b5f397cb43a7fa5787fafe0fbda07e2f29f89c133e713e9ba4f52e796bc4ff4bddfffc64e907bc9fa442de22e589fc8c0bd29c7c9712bd6276a4dde9f2bde27d275f72aead772dc847b3710c28f3b947e700b939fe7021dc3fd21f986ed9fcb3ab879b89b6234c3bc679e7ff1747eb57e79d78845cdf37928b9eab271db72b5cd53f5f3ce8c94abf18b65f1750fd07c196ee3fb75ffbb42c95597ef7f97edfdd8eb54897aeb949eb79aae53ddc79edca1f7e52d37dbc74441cf9b51f396ff346f1927ef830efa028ffb7c47'))
+
+
+with BSDLoader(NETBSD=True, sysctldata=_PFROUTE_DATA, ifaces=_NETBSD_IFACES, AF_INET6=24) as pfroute:
+    routes = pfroute.read_routes6()
+
+assert routes == [
+    ('::', 104, '::1', 'lo0', ['::1'], 1),
+    ('::', 96, '::1', 'lo0', ['::1'], 1),
+    ('::1', 128, '::', 'lo0', ['::1'], 1),
+    ('::127.0.0.0', 104, '::1', 'lo0', ['::1'], 1),
+    ('::224.0.0.0', 100, '::1', 'lo0', ['::1'], 1),
+    ('::255.0.0.0', 104, '::1', 'lo0', ['::1'], 1),
+    ('::ffff:0.0.0.0', 96, '::1', 'lo0', ['::1'], 1),
+    ('2001:db8::', 32, '::1', 'lo0', ['::1'], 1),
+    ('2002::', 24, '::1', 'lo0', ['::1'], 1),
+    ('2002:7f00::', 24, '::1', 'lo0', ['::1'], 1),
+    ('2002:e000::', 20, '::1', 'lo0', ['::1'], 1),
+    ('2002:ff00::', 24, '::1', 'lo0', ['::1'], 1),
+    ('fe80::', 10, '::1', 'lo0', ['::1'], 1),
+    ('fe80:1::', 64, '::', 'hvn0', ['fe80:1::7184:2b50:9fbe:e337'], 1),
+    ('fe80:1::7184:2b50:9fbe:e337',
+     128,
+     '::',
+     'lo0',
+     ['fe80:1::7184:2b50:9fbe:e337'],
+     1),
+    ('fe80:2::', 64, 'fe80:2::1', 'lo0', ['fe80:2::1'], 1),
+    ('fe80:2::1', 128, '::', 'lo0', ['fe80:2::1'], 1),
+    ('ff01:1::', 32, '::', 'hvn0', ['fe80:1::7184:2b50:9fbe:e337'], 1),
+    ('ff01:2::', 32, '::1', 'lo0', ['::1'], 1),
+    ('ff02:1::', 32, '::', 'hvn0', ['fe80:1::7184:2b50:9fbe:e337'], 1),
+    ('ff02:2::', 32, '::1', 'lo0', ['::1'], 1),
+    ('ff00::', 8, '::', 'hvn0', ['fe80:1::7184:2b50:9fbe:e337'], 250),
+    ('ff00::', 8, '::', 'lo0', ['::1', 'fe80:2::1'], 250)
+]
+
+= Darwin 23.6 (MacOS 14.5) x86_64 - read_routes()
+~ mock_read_routes_bsd little_endian_only
+
+import zlib
+
+from scapy.arch.bpf.pfroute import _bsd_iff_flags
+_DARWIN_IFACES = {1: {'name': 'lo0',  'index': 1,  'flags': FlagValue(32841, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 2, 'index': 1, 'address': '127.0.0.1'},   {'af_family': 30, 'index': 1, 'address': '::1', 'scope': 16},   {'af_family': 30, 'index': 1, 'address': 'fe80:1::1', 'scope': 32}]}, 2: {'name': 'gif0',  'index': 2,  'flags': FlagValue(32784, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 3: {'name': 'stf0',  'index': 3,  'flags': FlagValue(0, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 4: {'name': 'XHC2',  'index': 4,  'flags': FlagValue(0, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 5: {'name': 'en0',  'index': 5,  'flags': FlagValue(34915, _bsd_iff_flags),  'mac': '52:54:00:09:49:17',  'ips': [{'af_family': 30,    'index': 5,    'address': 'fe80:5::409:eec9:f06c:50ab',    'scope': 32},   {'af_family': 30,    'index': 5,    'address': 'fec0::89e:daf7:5cb1:f1f0',    'scope': 64},   {'af_family': 30,    'index': 5,    'address': 'fec0::c0c4:1f0b:61ba:ea8',    'scope': 64},   {'af_family': 2, 'index': 5, 'address': '10.0.2.15'}]}, 6: {'name': 'utun0',  'index': 6,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 6,    'address': 'fe80:6::d36e:82de:94dc:84fc',    'scope': 32}]}, 7: {'name': 'utun1',  'index': 7,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 7,    'address': 'fe80:7::7ce2:1f7b:2c29:a5ee',    'scope': 32}]}, 8: {'name': 'utun2',  'index': 8,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 8,    'address': 'fe80:8::e4e0:bef:bf56:2605',    'scope': 32}]}, 9: {'name': 'utun3',  'index': 9,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 9,    'address': 'fe80:9::ce81:b1c:bd2c:69e',    'scope': 32}]}}
+
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789ccdd94d6813411400e0d9ddcc36e6608d4472a950a8e0d183e8a1a7da5a503008012948b11eaa78f0e6498b180a45c1802d08164f7ab3f4208817b1e84a0ff647ea0fd2832815a5e021018f518931dbce6c5e76df6cb2e36c3a0325bce936fbf5bdd96176669ad00c2584584963e060fd7382e0ed3315fc22a4ed3183718a98260df675f3b8c83c5dc41ceeab7f1acca6ca6366922f451ebf6596598c5d84b8b9f1fd3b01cb8bc58f17a35852e01b337b29b17dd774d5b65a4b97a1dee5c1305772db55f3bba6998b26cc7d6eedf2cc2872ed5ffe5f974df2671abd211eea7a4ce0d9403c59816703e963f7b2508f857b3a5037ef5e72751b34fa581fcf9305fe9ebb4a029785f4b17bd59a5d3661431bb5fbe700b76e2ae780eef2d4619f4f3807c43d1fa5b3e753da587ad7e7b4b11c583aad8d65fe50561bcbc29de7fa589e7c93b5a87ea6d30bcf6eca5a12c082cd77a2269aefd295d280ac45798d2aa541598b052c70edd3ca82ad93986548d612435e8ecb5a605e145986652deaf3f23ba19185c2b83d8b7d8caf61c2c6eedbf7f81a463876ab3d7fa25b62ca4bf5c81b8d2c6b1a59dee96339b9aa8f25b72c6b513ed755732bd12dc1671abe3b71cb9ae099c6deb3b62d97af47b7c455a3196dde03b2fd4e8f4696c72a2cd8781135d178a95bd655586093cfcbab823616e7fb2f590b7c0f505223a72cfd1e10836556d6a2be46e5872a2c2af27234f76053850536d9bc8c54c61fe96219bdf6e9be2e96b1f1a913ba582e5d397bbb5dcbddbac5bd3fdf631536a873d84f1b961bc1d81be6946d69fafb8bcc44492fe1f38cc7680ac24d4dd70a0cade2b035d529f0bdbc56b73ee06b2af7daa7be7abaf72ae6af5a30dec93da17b17266c184739eb1135d9bdf9b9bf8d18db9bb7d97e78a773e46c7e1983f14e3ee7af7fcc27dbb534ea5588e52ce52b88b17ab9cffa4fc4c573441393e02ca520744569cce5ed43ec6667290639b7d5dbe931dd38c18976def40fb15043e2'))
+
+
+with BSDLoader(DARWIN=True, sysctldata=_PFROUTE_DATA, ifaces=_DARWIN_IFACES, AF_INET6=30) as pfroute:
+    routes = pfroute.read_routes()
+
+assert routes == [
+    (0, 0, '10.0.2.2', 'en0', '10.0.2.15', 1),
+    (167772672, 4294967295, '0.0.0.0', 'en0', '10.0.2.15', 1),
+    (167772674, 4294967295, '0.0.0.0', 'en0', '10.0.2.15', 1),
+    (167772674, 4294967295, '0.0.0.0', 'en0', '10.0.2.15', 1),
+    (167772675, 4294967295, '0.0.0.0', 'en0', '10.0.2.15', 1),
+    (167772687, 4294967295, '0.0.0.0', 'en0', '10.0.2.15', 1),
+    (167772927, 4294967295, '0.0.0.0', 'en0', '10.0.2.15', 1),
+    (2130706432, 4294967040, '127.0.0.1', 'lo0', '127.0.0.1', 1),
+    (2130706433, 4294967295, '127.0.0.1', 'lo0', '127.0.0.1', 1),
+    (2851995648, 4294967295, '0.0.0.0', 'en0', '10.0.2.15', 1),
+    (3758096384, 4043308800, '0.0.0.0', 'en0', '10.0.2.15', 1),
+    (3758096635, 4294967295, '0.0.0.0', 'en0', '10.0.2.15', 1),
+    (4294967295, 4294967295, '0.0.0.0', 'en0', '10.0.2.15', 1)
+]
+
+= Darwin 23.6 (MacOS 14.5) x86_64 - read_routes6()
+~ mock_read_routes_bsd little_endian_only
+
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789cd5dd5f8c13451800f0d96dbbdb5e8fbbdaebfd114eaf08148fdc830124045f0a1581981062f48c8698c32022313c1925c2c381f8a0a28290887f728644e0d0aa60ce80e60897887fe08120f060cc051030218af74713088a60b73b5bda6e77f73a33fbcd7dfbc27667d2fefaddb7dfcc6cb7a58f84122142488028e9e9b97f8f90cadb60c8a1c1656bbddbbbed6637297e6635e4d01e8c0c1d1b797ed9a7c67e5fceac99e6f9d35d5edf47b3567c5c73683fbd76d3d91d839b6f58667d0ce695fe99f5e2e3ba43fb860b6deb3bda770f59e6f018cc277597463e73b8f878d8a1fdd2f9e8f091ce54c83247c660be1cf0cd1c293e1e71683fb131da7ab843eb31f6f7e7cc4aeedf503049a6b801d2c2cc0a4fdb7e5a3374a2cdb7bc46fd28ef6c9d7f43a7ceacaad69b5416772d56c94c7a784e715ba59ae1562faaf5fec9ed55d6417a39e23b9b1ec6125fea858d2f87770e32ef5c19de1106efd4e06a920e8669894f0620bd2cf14d91ad64f2dbf308894df8f9a9f4f65d38bcab9079d722f36e42e67d1f99770099f72832ef6554ded4d3130999747c70188db70399772632ef1a64deadc8bcfdc8bcc79179cf48f18eb278833db96585d26e8a6a4aae31f8edbdc4e2d5ee25eaac7f546dfd475757e8e159905e96f57c4a5b5438b63a9eb880cbdb08eabdc2ea8d516f22f0072e6f10d4cb9c0f96b729b810973704ea1de6f64eedc2e59d06ea651a8f4bbcb33b7179ef17e455171a5ec5c35bcd56d93bef075cde07047961c68b6ca6a1458c1726bed94ce345315e98f1229b69fe1dd2cb5b1fb299d41a482fef7891cdcc3826c6eb73fe26cdfdd513b5cd62bcfe7dde52ead541bdccf95bf086f7e1f24640bdcce75bc15bb71797b71ed4cb7bbe65338bbe87f4f2c6379b79380de9e53ddf72de51482ff3fc61b2b9ffe633eb6a9079a390deeb2c5efdef652430ed3962ce226a21bd4ce75ba977022e6f12597c93a0f13df5138337a92c21d763f4110922f14e43e64d21f35ab7c0a2f0aae180e5ba0b99f76e245eeb56752cf1b5ee2c9f24c66baee7831ede6ab6626fcd68e1700c85f7aa68af8f9f1f27952bd17385c30b20bdd718bc334862595a0fd36748aa905e96f90ef5d2af582441c70b96f531f5d6522fe8fd041cf1ad93e165591f9779c3905e8ef8d22bc0b0e71b4b3da3de06195e8ef85a5e0dd2cb91bf2dd45b87c43b917ab1d433cb0b9abf2cd7a3cabca0d7cf583e8f2df382e6ef632c5ee560ba462d4c8041f3e1257e2fe87c6711bf17743c6e64f56a9657d929c6ebdfe7b1796fb8105fd0f1ed04c3fa38ef6db29e5201bd7f5280f72f48efbfacf9db34629140c76301de00a49769be53eabd538cd7e7fad06279c9f85fbf957a41f3e11cb357cefc813dbe72e60fccf537791f3d2aaafefa7cbea5909d6fb7bd3aa497793e999233dfb9c9ea9d5fd76d8a60f3418017b49eb5f27b41c70b01f105adbf02bc2164def17fbd2fe76de832eb426e038daf002fb6f8828e6f02bca0d74b047823c8bca0d753057841ef4714e005bd5f4e8017f47e39015ed0ebebcff27beb21bd02e20b7a7f8900ef1d905ea6fb4bd4d45c73964e9f1ed0cbf47961a917b49e317d7ea1a646b46e53bcfce53def427a99ee8729f57e8bccfb1ba497e97e8d9c771bad0b5db1eba0eb0b015ed0f585002fe8fa428017747d21c00bbabe6862f72e34f69b17c37ae3fcde6648af80f80ababf1a2cbe6d90de667e6f1299773232ef3dc8bc539079a7427a1f62f686bb2909f4f7f038bcafcbf03eceed6d7e02d2cb11df2d9484251fb6c9f072e4c376f3119a7cf89a9240e39b64f6d6bf623e8a7f07e97d92dd4bebc383a0df2fe4f06e91e1e5c887f7cc47b0f9c03e5f6fd8489f612912ef6b32bcacd727735e29f3878becde3764787f65f7be23c3cb910fdb917977caf0b2cf771a3e301fc1ce7738ceb70f2909cbf9d623c3cb91bfbb647839f2618f0c2fc7f946bdb0e71b47feeea5242cf9db2bc3cb11df7d32bc1cf3c94fe83380ce27c9695e6f3be8fd041cde2c32ef67c8bc9fcbf0728c6f5f5012687de0882ff5a2c9870332bc1ce3c5979484251ffacc4768f2e12b64de8332bc1cf5ec102561c95fea858def7fccf16da4d74b26fc88c4db23c3cb743fad9aba463e26247b7e45a8bc6d9c7bf5f2b671eead41e6ad45e6ad47e68d61f12a4d86f72d34f940bd75d0de192cdee0d205e6afbc1a9bfe22a497e9f7b90cef1aeb68f055486f1bb7577f81c73b90f31a5f3c5188a24c27a4f02514db667b0763f7e65ed7f6b40e6df9fdd8add2cdad6f2ff5878249650a8c3fbf9f882ba4a58afe87685e28b9401b71561d5e93e7772bcafef6c47486cc2ff8166d2ef1b5e5472f7587826aa311dfe3f43df8e8566fbb35f248272904cbcb599c078e5b9adf59fcba05e7a324b2a4d9bbbf71be197f0feb7cf3290fcaffe4b6b6d36b379ddd31b8f986b1ef920fb6be4071b6bd6e22aed992ceadbf11676332ed15e7957c71d6bdda365c685bdfd1be7bc8d87789b3ad2f509c6daf9b88eb6e71b6f537e26c7c01c52bce276d91aaca19f66abb743e3a7ca43395ff6bbac4d9d61728ceb6d74dc4c36e71b6f537e26c7c11c52bce97035cce8857db898dd1d6c31d5afe5a804b9c6d7d81e26c7bdd443ce216675bffa2719af8569f07ec6d02c7e9427c15fac68bdf8397bbd2fb7570f38ed3c4b73ca0ce70cf2fd7961f181d2971561aa72bf487740e1c6d8baef8a6ae77accee2fefdd6fc5de956acff7045b4f3964b5bd996cfb88895b01efdfa0ae79abb9de75cab64af74ae553257cadf7e6bfe066c769beb38d86dfdfaad3991879d674ee461b7cd1f1cecb67efdd63cc3c3ce33cff0b0dbc66407bbad5fbf35767bd879c66e0fbb6d9c73b0dbfa81d4970aeb49b7ba515b614cacd40fa4be28635b7357324bab2f4a75eb4307bb9cfaa254b7e672b0cba92f4a75eb1807bb9cfaa254b73670b0cba92f2ae2faa222ac2f2ae2faa222ae2f2ae2faa2fa535ffe079dfe8806'))
+
+
+with BSDLoader(DARWIN=True, sysctldata=_PFROUTE_DATA, ifaces=_DARWIN_IFACES, AF_INET6=30) as pfroute:
+    routes = pfroute.read_routes6()
+
+assert routes == [
+    ('::', 0, 'fe80:5::2', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
+    ('::', 0, 'fe80:6::', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
+    ('::', 0, 'fe80:7::', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
+    ('::', 0, 'fe80:8::', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
+    ('::', 0, 'fe80:9::', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
+    ('::1', 128, '::1', 'lo0', ['::1'], 1),
+    ('fe80:1::', 64, 'fe80:1::1', 'lo0', ['fe80:1::1'], 1),
+    ('fe80:1::1', 128, '::', 'lo0', ['fe80:1::1'], 1),
+    ('fe80:5::', 64, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
+    ('fe80:5::2', 128, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
+    ('fe80:5::409:eec9:f06c:50ab', 128, '::', 'lo0', ['fe80:5::409:eec9:f06c:50ab'], 1),
+    ('fe80:6::', 64, 'fe80:6::d36e:82de:94dc:84fc', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
+    ('fe80:6::d36e:82de:94dc:84fc', 128, '::', 'lo0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
+    ('fe80:7::', 64, 'fe80:7::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
+    ('fe80:7::7ce2:1f7b:2c29:a5ee', 128, '::', 'lo0', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
+    ('fe80:8::', 64, 'fe80:8::e4e0:bef:bf56:2605', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
+    ('fe80:8::e4e0:bef:bf56:2605', 128, '::', 'lo0', ['fe80:8::e4e0:bef:bf56:2605'], 1),
+    ('fe80:9::', 64, 'fe80:9::ce81:b1c:bd2c:69e', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
+    ('fe80:9::ce81:b1c:bd2c:69e', 128, '::', 'lo0', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
+    ('fec0::', 64, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
+    ('fec0::2', 128, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
+    ('fec0::89e:daf7:5cb1:f1f0', 128, '::', 'lo0', ['fec0::89e:daf7:5cb1:f1f0'], 1),
+    ('fec0::c0c4:1f0b:61ba:ea8', 128, '::', 'lo0', ['fec0::c0c4:1f0b:61ba:ea8'], 1),
+    ('ff00::', 8, '::1', 'lo0', ['::1'], 1),
+    ('ff00::', 8, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
+    ('ff00::', 8, 'fe80:6::d36e:82de:94dc:84fc', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
+    ('ff00::', 8, 'fe80:7::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
+    ('ff00::', 8, 'fe80:8::e4e0:bef:bf56:2605', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
+    ('ff00::', 8, 'fe80:9::ce81:b1c:bd2c:69e', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
+    ('ff01:1::', 32, '::1', 'lo0', ['::1'], 1),
+    ('ff01:5::', 32, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
+    ('ff01:6::', 32, 'fe80:6::d36e:82de:94dc:84fc', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
+    ('ff01:7::', 32, 'fe80:7::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
+    ('ff01:8::', 32, 'fe80:8::e4e0:bef:bf56:2605', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
+    ('ff01:9::', 32, 'fe80:9::ce81:b1c:bd2c:69e', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
+    ('ff02:1::', 32, '::1', 'lo0', ['::1'], 1),
+    ('ff02:5::', 32, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
+    ('ff02:6::', 32, 'fe80:6::d36e:82de:94dc:84fc', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
+    ('ff02:7::', 32, 'fe80:7::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
+    ('ff02:8::', 32, 'fe80:8::e4e0:bef:bf56:2605', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
+    ('ff02:9::', 32, 'fe80:9::ce81:b1c:bd2c:69e', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1)
+]
 
 ############
 ############
@@ -3307,390 +3330,6 @@ assert results_dict == expected
 
 ############
 ############
-+ Mocked read_routes6() calls
-
-= Preliminary definitions
-~ mock_read_routes_bsd
-
-from unittest import mock
-from io import StringIO
-
-def valid_output_read_routes6(routes):
-    """"Return True if 'routes' contains correctly formatted entries, False otherwise"""
-    for destination, plen, next_hop, dev, cset, me  in routes:
-        if not in6_isvalid(destination) or not type(plen) == int:
-            return False
-        if not in6_isvalid(next_hop) or not isinstance(dev, str):
-            return False
-        for address in cset:
-            if not in6_isvalid(address):
-                return False
-    return True
-
-def check_mandatory_ipv6_routes(routes6):
-    """Ensure that mandatory IPv6 routes are present"""
-    if sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) < 1:
-        return False
-    if sum(1 for r in routes6 if r[0] == "fe80::" and r[1] == 64) < 1:
-        return False
-    if sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and \
-           r[4] == ["::1"]) < 1:
-        return False
-    return True
-
-
-= Mac OS X 10.9.5
-~ mock_read_routes_bsd
-
-from unittest import mock
-from io import StringIO
-
-@mock.patch("scapy.arch.unix.in6_getifaddr")
-@mock.patch("scapy.arch.unix.os")
-def test_osx_10_9_5(mock_os, mock_in6_getifaddr):
-    """Test read_routes6() on OS X 10.9.5"""
-    # 'netstat -rn -f inet6' output
-    netstat_output = u"""
-Routing tables
-
-Internet6:
-Destination                             Gateway                         Flags         Netif Expire
-::1                                     ::1                             UHL             lo0
-fe80::%lo0/64                           fe80::1%lo0                     UcI             lo0
-fe80::1%lo0                             link#1                          UHLI            lo0
-fe80::%en0/64                           link#4                          UCI             en0
-fe80::ba26:6cff:fe5f:4eee%en0           b8:26:6c:5f:4e:ee               UHLWIi          en0
-fe80::bae8:56ff:fe45:8ce6%en0           b8:e8:56:45:8c:e6               UHLI            lo0
-ff01::%lo0/32                           ::1                             UmCI            lo0
-ff01::%en0/32                           link#4                          UmCI            en0
-ff02::%lo0/32                           ::1                             UmCI            lo0
-ff02::%en0/32                           link#4                          UmCI            en0
-"""
-    # Mocked file descriptor
-    strio = StringIO(netstat_output)
-    mock_os.popen = mock.MagicMock(return_value=strio)
-    # Mocked in6_getifaddr() output
-    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
-                                       ("fe80::ba26:6cff:fe5f:4eee", IPV6_ADDR_LINKLOCAL, "en0")]
-    # Test the function
-    from scapy.arch.unix import read_routes6
-    scapy.arch.unix.DARWIN = False
-    scapy.arch.unix.FREEBSD = True
-    scapy.arch.unix.NETBSD = False
-    scapy.arch.unix.OPENBSD = False
-    routes = read_routes6()
-    for r in routes:
-        print(r)
-    assert len(routes) == 6
-    assert check_mandatory_ipv6_routes(routes)
-
-test_osx_10_9_5()
-
-
-= Mac OS X 10.9.5 with global IPv6 connectivity
-~ mock_read_routes_bsd
-
-from unittest import mock
-from io import StringIO
-
-@mock.patch("scapy.arch.unix.in6_getifaddr")
-@mock.patch("scapy.arch.unix.os")
-def test_osx_10_9_5_global(mock_os, mock_in6_getifaddr):
-    """Test read_routes6() on OS X 10.9.5 with an IPv6 connectivity"""
-    # 'netstat -rn -f inet6' output
-    netstat_output = u"""
-Routing tables
-
-Internet6:
-Destination                             Gateway                         Flags         Netif Expire
-default                                 fe80::ba26:8aff:fe5f:4eef%en0   UGc             en0
-::1                                     ::1                             UHL             lo0
-2a01:ab09:7d:1f01::/64                  link#4                          UC              en0
-2a01:ab09:7d:1f01:420:205c:9fab:5be7    b8:e9:55:44:7c:e5               UHL             lo0
-2a01:ab09:7d:1f01:ba26:8aff:fe5f:4eef   b8:26:8a:5f:4e:ef               UHLWI           en0
-2a01:ab09:7d:1f01:bae9:55ff:fe44:7ce5   b8:e9:55:44:7c:e5               UHL             lo0
-fe80::%lo0/64                           fe80::1%lo0                     UcI             lo0
-fe80::1%lo0                             link#1                          UHLI            lo0
-fe80::%en0/64                           link#4                          UCI             en0
-fe80::5664:d9ff:fe79:4e00%en0           54:64:d9:79:4e:0                UHLWI           en0
-fe80::6ead:f8ff:fe74:945a%en0           6c:ad:f8:74:94:5a               UHLWI           en0
-fe80::a2f3:c1ff:fec4:5b50%en0           a0:f3:c1:c4:5b:50               UHLWI           en0
-fe80::ba26:8aff:fe5f:4eef%en0           b8:26:8a:5f:4e:ef               UHLWIir         en0
-fe80::bae9:55ff:fe44:7ce5%en0           b8:e9:55:44:7c:e5               UHLI            lo0
-ff01::%lo0/32                           ::1                             UmCI            lo0
-ff01::%en0/32                           link#4                          UmCI            en0
-ff02::%lo0/32                           ::1                             UmCI            lo
-"""
-    # Mocked file descriptor
-    strio = StringIO(netstat_output)
-    mock_os.popen = mock.MagicMock(return_value=strio)
-    # Mocked in6_getifaddr() output
-    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
-                                       ("fe80::ba26:6cff:fe5f:4eee", IPV6_ADDR_LINKLOCAL, "en0")]
-    # Test the function
-    from scapy.arch.unix import read_routes6
-    routes = read_routes6()
-    print(routes)
-    assert valid_output_read_routes6(routes)
-    for r in routes:
-        print(r)
-    assert len(routes) == 11
-    assert check_mandatory_ipv6_routes(routes)
-
-test_osx_10_9_5_global()
-
-
-= Mac OS X 10.10.4
-~ mock_read_routes_bsd
-
-from unittest import mock
-from io import StringIO
-
-@mock.patch("scapy.arch.unix.in6_getifaddr")
-@mock.patch("scapy.arch.unix.os")
-def test_osx_10_10_4(mock_os, mock_in6_getifaddr):
-    """Test read_routes6() on OS X 10.10.4"""
-    # 'netstat -rn -f inet6' output
-    netstat_output = u"""
-Routing tables
-
-Internet6:
-Destination                             Gateway                         Flags         Netif Expire
-::1                                     ::1                             UHL             lo0
-fe80::%lo0/64                           fe80::1%lo0                     UcI             lo0
-fe80::1%lo0                             link#1                          UHLI            lo0
-fe80::%en0/64                           link#4                          UCI             en0
-fe80::a00:27ff:fe9b:c965%en0            8:0:27:9b:c9:65                 UHLI            lo0
-ff01::%lo0/32                           ::1                             UmCI            lo0
-ff01::%en0/32                           link#4                          UmCI            en0
-ff02::%lo0/32                           ::1                             UmCI            lo0
-ff02::%en0/32                           link#4                          UmCI            en0
-"""
-    # Mocked file descriptor
-    strio = StringIO(netstat_output)
-    mock_os.popen = mock.MagicMock(return_value=strio)
-    # Mocked in6_getifaddr() output
-    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
-                                       ("fe80::a00:27ff:fe9b:c965", IPV6_ADDR_LINKLOCAL, "en0")]
-    # Test the function
-    from scapy.arch.unix import read_routes6
-    routes = read_routes6()
-    for r in routes:
-        print(r)
-    assert len(routes) == 5
-    assert check_mandatory_ipv6_routes(routes)
-
-test_osx_10_10_4()
-
-
-= FreeBSD 10.2
-~ mock_read_routes_bsd
-
-from unittest import mock
-from io import StringIO
-
-@mock.patch("scapy.arch.unix.in6_getifaddr")
-@mock.patch("scapy.arch.unix.os")
-def test_freebsd_10_2(mock_os, mock_in6_getifaddr):
-    """Test read_routes6() on FreeBSD 10.2"""
-    # 'netstat -rn -f inet6' output
-    netstat_output = u"""
-Routing tables
-
-Internet6:
-Destination                       Gateway                       Flags      Netif Expire
-::/96                             ::1                           UGRS        lo0
-::1                               link#2                        UH          lo0
-::ffff:0.0.0.0/96                 ::1                           UGRS        lo0
-fe80::/10                         ::1                           UGRS        lo0
-fe80::%lo0/64                     link#2                        U           lo0
-fe80::1%lo0                       link#2                        UHS         lo0
-ff01::%lo0/32                     ::1                           U           lo0
-ff02::/16                         ::1                           UGRS        lo0
-ff02::%lo0/32                     ::1                           U           lo0
-"""
-    # Mocked file descriptor
-    strio = StringIO(netstat_output)
-    mock_os.popen = mock.MagicMock(return_value=strio)
-    # Mocked in6_getifaddr() output
-    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0")]
-    # Test the function
-    from scapy.arch.unix import read_routes6
-    routes = read_routes6()
-    scapy.arch.unix.DARWIN = False
-    scapy.arch.unix.FREEBSD = True
-    scapy.arch.unix.NETBSD = False
-    scapy.arch.unix.OPENBSD = False
-    for r in routes:
-        print(r)
-    assert len(routes) == 3
-    assert check_mandatory_ipv6_routes(routes)
-
-test_freebsd_10_2()
-
-
-= FreeBSD 13.0
-~ mock_read_routes_bsd
-
-from unittest import mock
-from io import StringIO
- 
-@mock.patch("scapy.arch.get_if_addr")
-@mock.patch("scapy.arch.unix.os")
-def test_freebsd_13(mock_os, mock_get_if_addr):
-    """Test read_routes() on FreeBSD 13"""
-    # 'netstat -rnW -f inet' output
-    netstat_output = u"""
-Routing tables
-
-Internet:
-Destination        Gateway            Flags   Nhop#    Mtu      Netif Expire
-default            10.0.0.1           UGS         3   1500     vtnet0
-10.0.0.0/24        link#1             U           2   1500     vtnet0
-10.0.0.8           link#2             UHS         1  16384        lo0
-127.0.0.1          link#2             UH          1  16384        lo0
-"""
-    # Mocked file descriptor
-    strio = StringIO(netstat_output)
-    mock_os.popen = mock.MagicMock(return_value=strio)
-    # Mocked get_if_addr() behavior
-    def se_get_if_addr(iface):
-        """Perform specific side effects"""
-        if iface == "vtnet0":
-            return "10.0.0.1"
-        return "1.2.3.4"
-    mock_get_if_addr.side_effect = se_get_if_addr
-    # Test the function
-    from scapy.arch.unix import read_routes
-    routes = read_routes()
-    scapy.arch.unix.DARWIN = False
-    scapy.arch.unix.FREEBSD = True
-    scapy.arch.unix.NETBSD = False
-    scapy.arch.unix.OPENBSD = False
-    for r in routes:
-        print(r)
-        assert r[3] in ["vtnet0", "lo0"]
-    assert len(routes) == 4
-
-test_freebsd_13()
-
-
-= OpenBSD 5.5
-~ mock_read_routes_bsd
-
-from unittest import mock
-from io import StringIO
-
-@mock.patch("scapy.arch.unix.OPENBSD")
-@mock.patch("scapy.arch.unix.in6_getifaddr")
-@mock.patch("scapy.arch.unix.os")
-def test_openbsd_5_5(mock_os, mock_in6_getifaddr, mock_openbsd):
-    """Test read_routes6() on OpenBSD 5.5"""
-    # 'netstat -rn -f inet6' output
-    netstat_output = u"""
-Routing tables
-
-Internet6:
-Destination                        Gateway                        Flags   Refs      Use   Mtu  Prio Iface
-::/104                             ::1                            UGRS       0        0     -     8 lo0  
-::/96                              ::1                            UGRS       0        0     -     8 lo0  
-::1                                ::1                            UH        14        0 33144     4 lo0  
-::127.0.0.0/104                    ::1                            UGRS       0        0     -     8 lo0  
-::224.0.0.0/100                    ::1                            UGRS       0        0     -     8 lo0  
-::255.0.0.0/104                    ::1                            UGRS       0        0     -     8 lo0  
-::ffff:0.0.0.0/96                  ::1                            UGRS       0        0     -     8 lo0  
-2002::/24                          ::1                            UGRS       0        0     -     8 lo0  
-2002:7f00::/24                     ::1                            UGRS       0        0     -     8 lo0  
-2002:e000::/20                     ::1                            UGRS       0        0     -     8 lo0  
-2002:ff00::/24                     ::1                            UGRS       0        0     -     8 lo0  
-fe80::/10                          ::1                            UGRS       0        0     -     8 lo0  
-fe80::%em0/64                      link#1                         UC         0        0     -     4 em0  
-fe80::a00:27ff:fe04:59bf%em0       08:00:27:04:59:bf              UHL        0        0     -     4 lo0  
-fe80::%lo0/64                      fe80::1%lo0                    U          0        0     -     4 lo0  
-fe80::1%lo0                        link#3                         UHL        0        0     -     4 lo0  
-fec0::/10                          ::1                            UGRS       0        0     -     8 lo0  
-ff01::/16                          ::1                            UGRS       0        0     -     8 lo0  
-ff01::%em0/32                      link#1                         UC         0        0     -     4 em0  
-ff01::%lo0/32                      fe80::1%lo0                    UC         0        0     -     4 lo0  
-ff02::/16                          ::1                            UGRS       0        0     -     8 lo0  
-ff02::%em0/32                      link#1                         UC         0        0     -     4 em0  
-ff02::%lo0/32                      fe80::1%lo0                    UC         0        0     -     4 lo0 
-"""
-    # Mocked file descriptor
-    strio = StringIO(netstat_output)
-    mock_os.popen = mock.MagicMock(return_value=strio)
-    
-    # Mocked in6_getifaddr() output
-    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
-                                       ("fe80::a00:27ff:fe04:59bf", IPV6_ADDR_LINKLOCAL, "em0")]
-    # Mocked OpenBSD parsing behavior
-    mock_openbsd = True
-    # Test the function
-    from scapy.arch.unix import read_routes6
-    routes = read_routes6()
-    for r in routes:
-        print(r)
-    assert len(routes) == 5
-    assert check_mandatory_ipv6_routes(routes)
-
-test_openbsd_5_5()
-
-
-= NetBSD 7.0
-~ mock_read_routes_bsd
-
-@mock.patch("scapy.arch.unix.NETBSD")
-@mock.patch("scapy.arch.unix.in6_getifaddr")
-@mock.patch("scapy.arch.unix.os")
-def test_netbsd_7_0(mock_os, mock_in6_getifaddr, mock_netbsd):
-    """Test read_routes6() on NetBSD 7.0"""
-    # 'netstat -rn -f inet6' output
-    netstat_output = u"""
-Routing tables
-
-Internet6:
-Destination                        Gateway                        Flags    Refs      Use    Mtu Interface
-::/104                             ::1                            UGRS        -        -      -  lo0
-::/96                              ::1                            UGRS        -        -      -  lo0
-::1                                ::1                            UH          -        -  33648  lo0
-::127.0.0.0/104                    ::1                            UGRS        -        -      -  lo0
-::224.0.0.0/100                    ::1                            UGRS        -        -      -  lo0
-::255.0.0.0/104                    ::1                            UGRS        -        -      -  lo0
-::ffff:0.0.0.0/96                  ::1                            UGRS        -        -      -  lo0
-2001:db8::/32                      ::1                            UGRS        -        -      -  lo0
-2002::/24                          ::1                            UGRS        -        -      -  lo0
-2002:7f00::/24                     ::1                            UGRS        -        -      -  lo0
-2002:e000::/20                     ::1                            UGRS        -        -      -  lo0
-2002:ff00::/24                     ::1                            UGRS        -        -      -  lo0
-fe80::/10                          ::1                            UGRS        -        -      -  lo0
-fe80::%wm0/64                      link#1                         UC          -        -      -  wm0
-fe80::acd1:3989:180e:fde0          08:00:27:a1:64:d8              UHL         -        -      -  lo0
-fe80::%lo0/64                      fe80::1                        U           -        -      -  lo0
-fe80::1                            link#2                         UHL         -        -      -  lo0
-ff01:1::/32                        link#1                         UC          -        -      -  wm0
-ff01:2::/32                        ::1                            UC          -        -      -  lo0
-ff02::%wm0/32                      link#1                         UC          -        -      -  wm0
-ff02::%lo0/32                      ::1                            UC          -        -      -  lo0
-"""
-    # Mocked file descriptor
-    strio = StringIO(netstat_output)
-    mock_os.popen = mock.MagicMock(return_value=strio)
-    # Mocked in6_getifaddr() output
-    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
-                                       ("fe80::acd1:3989:180e:fde0", IPV6_ADDR_LINKLOCAL, "wm0")]
-    # Test the function
-    from scapy.arch.unix import read_routes6
-    routes = read_routes6()
-    for r in routes:
-        print(r)
-    assert len(routes) == 5
-    assert check_mandatory_ipv6_routes(routes)
-
-test_netbsd_7_0()
-
-
-############
-############
 + Mocked route() calls
 
 = Mocked IPv4 routes calls
@@ -3764,16 +3403,6 @@ finally:
     conf.iface = old_iface
     conf.route6.resync()
     conf.ifaces.reload()
-
-= Find a link-local address when conf.iface does not support IPv6
-
-old_iface = conf.iface
-conf.route6.ipv6_ifaces = set(['eth1', 'lo'])
-conf.iface = "eth0"
-conf.route6.routes = [("fe80::", 64, "::", "eth1", ["fe80::a00:28ff:fe07:1980"], 256), ("::1", 128, "::", "lo", ["::1"], 0), ("fe80::a00:28ff:fe07:1980", 128, "::", "lo", ["::1"], 0)]
-assert conf.route6.route("fe80::2807") == ("eth1", "fe80::a00:28ff:fe07:1980", "::")
-conf.iface = old_iface
-conf.route6.resync()
 
 = Windows: reset routes properly
 

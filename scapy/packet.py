@@ -167,7 +167,7 @@ class Packet(
         self.fieldtype = {}  # type: Dict[str, AnyField]
         self.packetfields = []  # type: List[AnyField]
         self.payload = NoPayload()  # type: Packet
-        self.init_fields()
+        self.init_fields(bool(_pkt))
         self.underlayer = _underlayer
         self.parent = _parent
         if isinstance(_pkt, bytearray):
@@ -253,8 +253,8 @@ class Packet(
         """Used by copy.deepcopy"""
         return self.copy()
 
-    def init_fields(self):
-        # type: () -> None
+    def init_fields(self, for_dissect_only=False):
+        # type: (bool) -> None
         """
         Initialize each fields of the fields_desc dict
         """
@@ -262,7 +262,7 @@ class Packet(
         if self.class_dont_cache.get(self.__class__, False):
             self.do_init_fields(self.fields_desc)
         else:
-            self.do_init_cached_fields()
+            self.do_init_cached_fields(for_dissect_only=for_dissect_only)
 
     def do_init_fields(self,
                        flist,  # type: Sequence[AnyField]
@@ -280,8 +280,8 @@ class Packet(
         # We set default_fields last to avoid race issues
         self.default_fields = default_fields
 
-    def do_init_cached_fields(self):
-        # type: () -> None
+    def do_init_cached_fields(self, for_dissect_only=False):
+        # type: (bool) -> None
         """
         Initialize each fields of the fields_desc dict, or use the cached
         fields information
@@ -299,6 +299,10 @@ class Packet(
             self.default_fields = default_fields
             self.fieldtype = Packet.class_fieldtype[cls_name]
             self.packetfields = Packet.class_packetfields[cls_name]
+
+            # Optimization: no need for references when only dissecting.
+            if for_dissect_only:
+                return
 
             # Deepcopy default references
             for fname in Packet.class_default_fields_ref[cls_name]:
@@ -334,8 +338,7 @@ class Packet(
                 self.do_init_fields(self.fields_desc)
                 return
 
-            tmp_copy = copy.deepcopy(f.default)
-            class_default_fields[f.name] = tmp_copy
+            class_default_fields[f.name] = copy.deepcopy(f.default)
             class_fieldtype[f.name] = f
             if f.holds_packets:
                 class_packetfields.append(f)

@@ -2002,7 +2002,9 @@ from scapy.layers.inet6 import _ICMPv6Error
 assert _ICMPv6Error().guess_payload_class(None) == IPerror6
 assert _ICMPv6Error().hashret() == b''
 
-= Windows: reset routes properly
+= reset routes properly
+
+conf.ifaces.reload()
 
 if WINDOWS:
     from scapy.arch.windows import _route_add_loopback

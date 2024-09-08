@@ -644,6 +644,22 @@ def in6_cidr2mask(m):
     return b"".join(struct.pack('!I', x) for x in t)
 
 
+def in6_mask2cidr(m):
+    # type: (bytes) -> int
+    """
+    Opposite of in6_cidr2mask
+    """
+    if len(m) != 16:
+        raise Scapy_Exception("value must be 16 octets long")
+
+    for i in range(0, 4):
+        s = struct.unpack('!I', m[i * 4:(i + 1) * 4])[0]
+        for j in range(32):
+            if not s & (1 << (31 - j)):
+                return i * 32 + j
+    return 128
+
+
 def in6_getnsma(a):
     # type: (bytes) -> bytes
     """

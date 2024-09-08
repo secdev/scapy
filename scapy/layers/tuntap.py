@@ -111,7 +111,7 @@ class TunTapInterface(SimpleSocket):
     def __init__(self, iface=None, mode_tun=None, default_read_size=MTU,
                  strip_packet_info=True, *args, **kwargs):
         self.iface = bytes_encode(
-            network_name(conf.iface if iface is None else iface)
+            network_name(conf.iface) if iface is None else iface
         )
 
         self.mode_tun = mode_tun

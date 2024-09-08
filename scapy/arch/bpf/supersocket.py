@@ -116,6 +116,7 @@ class _L2bpfSocket(SuperSocket):
 
         self.fd_flags = None  # type: Optional[int]
         self.type = type
+        self.bpf_fd = -1
 
         # SuperSocket mandatory variables
         if promisc is None:

@@ -13,8 +13,9 @@ from io import StringIO
 from itertools import zip_longest
 from uuid import UUID
 
-import array
 import argparse
+import array
+import base64
 import collections
 import decimal
 import difflib
@@ -44,8 +45,6 @@ from scapy.compat import (
     orb,
     plain_str,
     chb,
-    bytes_base64,
-    base64_bytes,
     hex_bytes,
     bytes_encode,
 )
@@ -1229,7 +1228,7 @@ class Enum_metaclass(type):
 def export_object(obj):
     # type: (Any) -> None
     import zlib
-    print(bytes_base64(zlib.compress(pickle.dumps(obj, 2), 9)))
+    print(base64.b64encode(zlib.compress(pickle.dumps(obj, 2), 9)).decode())
 
 
 def import_object(obj=None):
@@ -1237,7 +1236,7 @@ def import_object(obj=None):
     import zlib
     if obj is None:
         obj = sys.stdin.read()
-    return pickle.loads(zlib.decompress(base64_bytes(obj.strip())))  # noqa: E501
+    return pickle.loads(zlib.decompress(base64.b64decode(obj.strip())))
 
 
 def save_object(fname, obj):

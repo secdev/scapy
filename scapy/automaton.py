@@ -976,6 +976,12 @@ class Automaton(metaclass=Automaton_metaclass):
 
         :param port: the port to listen to
         :param bg: background mode? (default: False)
+
+        Note that in background mode, you shall close the TCP server as such::
+
+            srv = MyAutomaton.spawn(8080, bg=True)
+            srv.shutdown(socket.SHUT_RDWR)  # important
+            srv.close()
         """
         from scapy.arch import get_if_addr
         # create server sock and bind it
@@ -1000,29 +1006,49 @@ class Automaton(metaclass=Automaton_metaclass):
             # Wait for clients forever
             try:
                 while True:
+                    atmt_server = None
                     clientsocket, address = ssock.accept()
                     if kwargs.get("verb", True):
                         print(conf.color_theme.gold(
                             "\u2503 Connection received from %s" % repr(address)
                         ))
-                    # Start atmt class with socket
-                    sock = cls.socketcls(clientsocket, cls.pkt_cls)
-                    atmt_server = cls(
-                        sock=sock,
-                        iface=iface, **kwargs
-                    )
+                    try:
+                        # Start atmt class with socket
+                        if cls.socketcls is not None:
+                            sock = cls.socketcls(clientsocket, cls.pkt_cls)
+                        else:
+                            sock = clientsocket
+                        atmt_server = cls(
+                            sock=sock,
+                            iface=iface, **kwargs
+                        )
+                    except OSError:
+                        if atmt_server is not None:
+                            atmt_server.destroy()
+                        if kwargs.get("verb", True):
+                            print("X Connection aborted.")
+                        if kwargs.get("debug", 0) > 0:
+                            traceback.print_exc()
+                        continue
                     clients.append((atmt_server, clientsocket))
                     # start atmt
                     atmt_server.runbg()
+                    # housekeeping
+                    for atmt, clientsocket in clients:
+                        if not atmt.isrunning():
+                            atmt.destroy()
             except KeyboardInterrupt:
                 print("X Exiting.")
                 ssock.shutdown(socket.SHUT_RDWR)
             except OSError:
                 print("X Server closed.")
+                if kwargs.get("debug", 0) > 0:
+                    traceback.print_exc()
             finally:
                 for atmt, clientsocket in clients:
                     try:
                         atmt.forcestop(wait=False)
+                        atmt.destroy()
                     except Exception:
                         pass
                     try:

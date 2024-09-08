@@ -372,52 +372,42 @@ conf.ifaces.reload()
 conf.route.resync()
 conf.route6.resync()
 
-= Test 802.Q sniffing
+= Test 802.1Q sniffing
 ~ linux needs_root veth
 
+from scapy.arch.linux import VEthPair
 from threading import Thread, Condition
 
-veth = VEthPair("left0", "right0")
-veth.setup()
-veth.up()
-exit_status = os.system("ip link add link right0 name vlanright0 type vlan id 42")
-exit_status = os.system("ip link add link left0 name vlanleft0 type vlan id 42")
-exit_status = os.system("ip link set vlanright0 up")
-exit_status = os.system("ip link set vlanleft0 up")
-exit_status = os.system("ip addr add 198.51.100.1/24 dev vlanleft0")
-exit_status = os.system("ip addr add 198.51.100.2/24 dev vlanright0")
+def _send():
+    sendp(Ether()/IP(dst="198.51.100.2")/ICMP(), iface='vlanleft0', count=2)
 
-cond_started = Condition()
 
-def _sniffer_started():
+with VEthPair("left0", "right0") as veth:
+    exit_status = os.system("ip link add link right0 name vlanright0 type vlan id 42")
+    exit_status = os.system("ip link add link left0 name vlanleft0 type vlan id 42")
+    exit_status = os.system("ip link set vlanright0 up")
+    exit_status = os.system("ip link set vlanleft0 up")
+    exit_status = os.system("ip addr add 198.51.100.1/24 dev vlanleft0")
+    exit_status = os.system("ip addr add 198.51.100.2/24 dev vlanright0")
+    sniffer = AsyncSniffer(
+        iface="right0",
+        lfilter=lambda p: Dot1Q in p,
+        count=2,
+        timeout=5,
+        started_callback=_send,
+    )
+    sniffer.start()
+    sniffer.join(1)
+    if sniffer.running:
+        sniffer.stop()
+        raise Scapy_Exception("Sniffer did not stop !")
+    else:
+        results = sniffer.results
 
-    global cond_started
-    cond_started.acquire()
-    cond_started.notify()
-    cond_started.release()
 
-cond_started.acquire()
+assert len(results) == 2
+assert all(Dot1Q in x for x in results)
 
-dot1q_count = 0
-
-def _sniffer():
-    sniffed = sniff(iface="right0",
-                    lfilter=lambda p: Dot1Q in p,
-                    count=2,
-                    timeout=5,
-                    started_callback=_sniffer_started)
-    global dot1q_count
-    dot1q_count = len(sniffed)
-
-t_sniffer = Thread(target=_sniffer, name="linux.uts sniff right0")
-t_sniffer.start()
-cond_started.wait()
-sendp(Ether()/IP(dst="198.51.100.2")/ICMP(), iface='vlanleft0', count=2)
-
-t_sniffer.join(1)
-assert dot1q_count == 2
-
-veth.destroy()
 
 = Reload interfaces & routes
 

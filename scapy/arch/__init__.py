@@ -14,15 +14,15 @@ from scapy.compat import orb
 from scapy.config import conf, _set_conf_sockets
 from scapy.consts import LINUX, SOLARIS, WINDOWS, BSD
 from scapy.data import (
-    ARPHDR_ETHER,
-    ARPHDR_LOOPBACK,
-    ARPHDR_PPP,
-    ARPHDR_TUN,
     IPV6_ADDR_GLOBAL,
     IPV6_ADDR_LOOPBACK,
 )
-from scapy.error import log_loading, Scapy_Exception
-from scapy.interfaces import _GlobInterfaceType, network_name
+from scapy.error import log_loading
+from scapy.interfaces import (
+    _GlobInterfaceType,
+    network_name,
+    resolve_iface,
+)
 from scapy.pton_ntop import inet_pton, inet_ntop
 
 from scapy.libs.extcap import load_extcap
@@ -50,7 +50,6 @@ __all__ = [  # noqa: F405
     "get_if_list",
     "get_if_raw_addr",
     "get_if_raw_addr6",
-    "get_if_raw_hwaddr",
     "get_working_if",
     "in6_getifaddr",
     "read_nameservers",
@@ -89,12 +88,7 @@ def get_if_hwaddr(iff):
     """
     Returns the MAC (hardware) address of an interface
     """
-    from scapy.arch import get_if_raw_hwaddr
-    addrfamily, mac = get_if_raw_hwaddr(iff)  # noqa: F405
-    if addrfamily in [ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_PPP, ARPHDR_TUN]:
-        return str2mac(mac)
-    else:
-        raise Scapy_Exception("Unsupported address family (%i) for interface [%s]" % (addrfamily, iff))  # noqa: E501
+    return resolve_iface(iff).mac or "00:00:00:00:00:00"
 
 
 def get_if_addr6(niff):
@@ -128,9 +122,7 @@ def get_if_raw_addr6(iff):
 
 # Next step is to import following architecture specific functions:
 # def attach_filter(s, filter, iface)
-# def get_if(iff,cmd)
 # def get_if_raw_addr(iff)
-# def get_if_raw_hwaddr(iff)
 # def in6_getifaddr()
 # def read_nameservers()
 # def read_routes()
@@ -140,12 +132,6 @@ def get_if_raw_addr6(iff):
 if LINUX:
     from scapy.arch.linux import *  # noqa F403
 elif BSD:
-    from scapy.arch.unix import (  # noqa F403
-        read_nameservers,
-        read_routes,
-        read_routes6,
-        in6_getifaddr,
-    )
     from scapy.arch.bpf.core import *  # noqa F403
     if not conf.use_pcap:
         # Native
@@ -167,9 +153,6 @@ else:
     # DUMMYS
     def get_if_raw_addr(iff: Union['NetworkInterface', str]) -> bytes:
         return b"\0\0\0\0"
-
-    def get_if_raw_hwaddr(iff: Union['NetworkInterface', str]) -> Tuple[int, bytes]:
-        return -1, b""
 
     def in6_getifaddr() -> List[Tuple[str, int, str]]:
         return []

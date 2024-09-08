@@ -1532,6 +1532,286 @@ Once you have obtained a SecOC packet from a socket or a PCAP file, you can use 
        print("Message verified")
 
 
+
+Simulating ECUs and Security Functions
+=======================================
+
+
+Modeling an ECU as an Automaton
+-------------------------------
+
+To begin, we need to power cycle our simulated ECU by creating a simple automaton with two states: ON and OFF.
+Before building the actual ECU automaton, we require a power supply interface.
+
+Power Supply
+------------
+
+The power supply object serves as the interface to power cycle our ECU automaton. It enables communication between the
+automaton and the power supply to accurately simulate the ECU's power consumption.
+For multiprocessing support, file descriptors and multiprocessing Values are used. Here’s how to set it up:
+
+.. code-block:: python
+
+    import logging
+    import sys
+    from multiprocessing import Value, Pipe
+    from multiprocessing.sharedctypes import Synchronized
+
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
+    class AutomatonPowerSupply():
+        def __init__(self) -> None:
+            super().__init__()
+            self.logger = logging.getLogger("AutomatonPowerSupply")
+            self.logger.info("Init done")
+            self.voltage_on: Synchronized[int] = Value("i", 0)
+            self.current_noise: Synchronized[int] = Value("i", 0)
+            self.current_on: Synchronized[int] = Value("i", 0)
+            self.delay_off = 0.001
+            self.delay_on = 0.001
+            self.read_pipe, self.write_pipe = Pipe()
+            self.closed = False
+
+        def on(self) -> None:
+            self.logger.debug("ON")
+            with self.voltage_on.get_lock():
+                self.voltage_on.value = 12
+            self.write_pipe.send(b"1")
+
+        def off(self) -> None:
+            self.logger.debug("OFF")
+            with self.voltage_on.get_lock():
+                self.voltage_on.value = 0
+            self.write_pipe.send(b"0")
+
+        def close(self) -> None:
+            if self.closed:
+                return
+            self.closed = True
+            self.read_pipe.close()
+            self.write_pipe.close()
+
+        def reset(self) -> None:
+            self.off()
+            time.sleep(self.delay_off)
+            self.on()
+            time.sleep(self.delay_on)
+
+This code establishes the power supply, enabling it to control the power state of the ECU automaton.
+The `on`, `off`, and `reset` methods manage state transitions, while `Pipe` and `Value` ensure inter-process
+communication and synchronization. This setup guarantees accurate modeling and control of the ECU's power
+consumption within a multiprocessing environment.
+
+ECU Automaton
+-------------
+
+Now that we have a power supply, we can start modeling our ECU automaton, which can be turned on and off.
+
+.. code-block:: python
+
+    from typing import Optional, List, IO, Type, Any
+    from scapy.automaton import Automaton, ATMT
+
+    class EcuAutomaton(Automaton):
+        def __init__(self, *args: Any, power_supply: AutomatonPowerSupply, **kargs: Any) -> None:
+            self.power_supply = power_supply
+            super().__init__(*args,
+                             external_fd={"power_supply_fd": self.power_supply.read_pipe.fileno()},
+                             **kargs)
+
+        @ATMT.state(initial=1)  # type: ignore
+        def ECU_OFF(self) -> None:
+            pass
+
+        @ATMT.state()  # type: ignore
+        def ECU_ON(self) -> None:
+            pass
+
+        # ====== POWER HANDLING ==========
+        @ATMT.ioevent(ECU_OFF, name="power_supply_fd")  # type: ignore
+        def event_voltage_changed_on(self, fd: IO[bytes]) -> None:
+            new_voltage = fd.read(1)
+            if new_voltage == b"1":
+                raise self.ECU_ON()
+
+        @ATMT.ioevent(ECU_ON, name="power_supply_fd")  # type: ignore
+        def event_voltage_changed_off(self, fd: IO[bytes]) -> None:
+            new_voltage = fd.read(1)
+            if new_voltage == b"0":
+                raise self.ECU_OFF()
+
+        @ATMT.action(event_voltage_changed_on)  # type: ignore
+        def action_consumption_on(self) -> None:
+            self.debug(1, "Consuming energy ON")
+            with self.power_supply.current_on.get_lock():
+                self.power_supply.current_on.value = 1
+
+        @ATMT.action(event_voltage_changed_off)  # type: ignore
+        def action_consumption_off(self) -> None:
+            self.debug(1, "Consuming energy OFF")
+            with self.power_supply.current_on.get_lock():
+                self.power_supply.current_on.value = 0
+
+This code defines an `EcuAutomaton` class that models an ECU with two states: ON and OFF. It uses Scapy's automaton
+framework to handle the state transitions based on the power supply's status. The `event_voltage_changed_on` and
+`event_voltage_changed_off` methods listen for voltage changes to switch states, while `action_consumption_on` and
+`action_consumption_off` manage the power consumption behavior. This setup allows for a robust simulation of an ECU's
+power cycling behavior.
+
+Let's give it a shot:
+
+.. code-block:: python
+
+    import threading
+    import time
+    from scapy.contrib.cansocket import NativeCANSocket
+    from scapy.error import log_runtime
+
+    ps = AutomatonPowerSupply()
+    cs = NativeCANSocket("vcan0")
+    automaton = EcuAutomaton(debug=1, power_supply=ps, sock=cs)
+    automaton.runbg()
+
+    ps.on()
+    time.sleep(0.1)
+    print(f"Current consumption {ps.current_on.value}")
+    ps.off()
+    time.sleep(0.1)
+    print(f"Current consumption {ps.current_on.value}")
+
+    automaton.stop()
+
+This code sets up and tests our ECU automaton. We import the necessary modules and initialize the power supply and
+CAN socket. We then create an instance of `EcuAutomaton` with debugging enabled, and run it in the background.
+
+We power on the ECU and wait a bit to let it stabilize. Then, we print the current consumption, turn off the power,
+wait again, and print the current consumption once more. Finally, we stop the automaton.
+
+By running this code, you should see the current consumption values change as the ECU powers on and off, demonstrating
+our automaton in action.
+
+Simulating UDS
+--------------
+
+Next up, we want to communicate with our automaton over UDS (Unified Diagnostic Services), aiming to implement
+complex state machines like Security Access. Let's start with a simpler example. The following function allows
+us to receive and send packets from the automaton's socket, as provided in the `init` function.
+
+.. code-block:: python
+
+    class EcuAutomaton(Automaton):
+
+        # Existing states and transitions
+
+        @ATMT.receive_condition(ECU_ON)  # type: ignore
+        def on_pkt_on_received_ON(self, pkt: Packet) -> None:
+            response = None
+            if pkt:
+                if response := self.get_default_uds_response(pkt):
+                    self.my_send(response)
+
+        def get_default_uds_response(self, pkt: Packet) -> Optional[Packet]:
+            service = bytes(pkt)[0]
+            length = len(pkt)
+            sub_function = bytes(pkt)[1] if length > 1 else None
+            match service, length, sub_function:
+                case 0x10, 2, 1:
+                    return UDS() / UDS_DSCPR(b"\x01")
+                case 0x3E, 2, 0:
+                    return UDS() / UDS_TPPR()
+                case 0x3E, 2, 0x80:
+                    return None
+                case 0x3E, 2, _:
+                    return UDS() / UDS_NR(requestServiceId=service,
+                                          negativeResponseCode="subFunctionNotSupported")
+                case 0x3E, _, _:
+                    return UDS() / UDS_NR(requestServiceId=service,
+                                          negativeResponseCode="incorrectMessageLengthOrInvalidFormat")
+                case 0x27, _, _:
+                    return UDS() / UDS_NR(requestServiceId=service,
+                                          negativeResponseCode="incorrectMessageLengthOrInvalidFormat")
+                case _:
+                    return UDS() / UDS_NR(requestServiceId=service, negativeResponseCode="serviceNotSupported")
+
+By using Python's match-case operator, we can craft a very elegant UDS answering machine. ECUs are usually precise
+with their negative response codes, and modeling this becomes straightforward with the match operator. For instance,
+consider the TesterPresent case. If we receive the correct service, length, and sub-function, we respond positively.
+If the sub-function is anything else, we fall through to the negative response case "subFunctionNotSupported". If the
+length is incorrect, we return "incorrectMessageLengthOrInvalidFormat". Finally, if the service is unknown, the
+function returns "serviceNotSupported". This approach allows us to handle UDS communication effectively and implement
+the necessary logic for our ECU automaton.
+
+Full example:
+
+.. code-block:: python
+
+    from typing import Optional, List, IO, Type, Any
+    from scapy.packet import Packet
+    from scapy.automaton import ATMT, Automaton
+    from scapy.contrib.automotive.uds import *
+    from scapy.contrib.isotp import *
+
+    class EcuAutomaton(Automaton):
+        def __init__(self, *args: Any, power_supply: AutomatonPowerSupply, **kargs: Any) -> None:
+            self.power_supply = power_supply
+            super().__init__(*args,
+                             external_fd={"power_supply_fd": self.power_supply.read_pipe.fileno()},
+                             **kargs)
+
+        @ATMT.state(initial=1)  # type: ignore
+        def ECU_OFF(self) -> None:
+            pass
+
+        @ATMT.state()  # type: ignore
+        def ECU_ON(self) -> None:
+            pass
+
+        # ====== POWER HANDLING ==========
+        @ATMT.ioevent(ECU_OFF, name="power_supply_fd")  # type: ignore
+        def event_voltage_changed_on(self, fd: IO[bytes]) -> None:
+            new_voltage = fd.read(1)
+            if new_voltage == b"1":
+                raise self.ECU_ON()
+
+        @ATMT.ioevent(ECU_ON, name="power_supply_fd")  # type: ignore
+        def event_voltage_changed_off(self, fd: IO[bytes]) -> None:
+            new_voltage = fd.read(1)
+            if new_voltage == b"0":
+                raise self.ECU_OFF()
+
+        @ATMT.action(event_voltage_changed_on)  # type: ignore
+        def action_consumption_on(self) -> None:
+            self.debug(1, "Consuming energy ON")
+            with self.power_supply.current_on.get_lock():
+                self.power_supply.current_on.value = 1
+
+        @ATMT.action(event_voltage_changed_off)  # type: ignore
+        def action_consumption_off(self) -> None:
+            self.debug(1, "Consuming energy OFF")
+            with self.power_supply.current_on.get_lock():
+                self.power_supply.current_on.value = 0
+
+        @ATMT.receive_condition(ECU_ON)  # type: ignore
+        def on_pkt_on_received(self, pkt: Packet) -> None:
+            if response := self.get_default_uds_response(pkt):
+                self.my_send(response)
+
+        def get_default_uds_response(self, pkt: Packet) -> Optional[Packet]:
+            service = bytes(pkt)[0]
+            length = len(pkt)
+            sub_function = bytes(pkt)[1] if length else None
+            match service, length, sub_function:
+                case 0x10, 2, 1:
+                    return UDS()/UDS_DSCPR(b"\x01")
+                case 0x3E, 2, 0:
+                    return UDS() / UDS_TPPR()
+                case 0x3E, 2, 0x80:
+                    return None
+                case 0x3E, 2, _:
+                    return UDS() / UDS_NR(requestServiceId=service,
+
+
+
 Test-Setup Tutorials
 ====================
 
