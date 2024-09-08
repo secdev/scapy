@@ -60,13 +60,19 @@ def check_output_for_data(out, err, expected_data):
 
 
 def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=False,
-                        psk=None, handle_session_ticket=False):
+                        psk=None, handle_session_ticket=False, sigalgo="rsa"):
     correct = False
     print("Server started !")
     with captured_output() as (out, err):
         # Prepare automaton
-        mycert = scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem")
-        mykey = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
+        if sigalgo == "rsa":
+            mycert = scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem")
+            mykey = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
+        elif sigalgo == "ed25519":
+            mycert = scapy_path("/test/scapy/layers/tls/pki/srv_cert_ed25519.pem")
+            mykey = scapy_path("/test/scapy/layers/tls/pki/srv_key_ed25519.pem")
+        else:
+            raise ValueError
         print(mykey)
         print(mycert)
         assert os.path.exists(mycert)
@@ -156,12 +162,13 @@ def run_openssl_client(msg, suite="", version="", tls13=False, client_auth=False
         if _failed or not _one_success:
             raise RuntimeError("OpenSSL returned unexpected values")
 
-def test_tls_server(suite="", version="", tls13=False, client_auth=False, psk=None):
+def test_tls_server(suite="", version="", tls13=False, client_auth=False, psk=None, curve=None, sigalgo="rsa"):
     msg = ("TestS_%s_data" % suite).encode()
     # Run server
     q_ = Queue()
     th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_),
-                           kwargs={"curve": None, "cookie": False, "client_auth": client_auth, "psk": psk},
+                           kwargs={"curve": curve, "cookie": False, "client_auth": client_auth,
+                                   "psk": psk, "sigalgo": sigalgo},
                            name="test_tls_server %s %s" % (suite, version), daemon=True)
     th_.start()
     # Synchronise threads
@@ -208,6 +215,16 @@ test_tls_server("ECDHE-RSA-AES256-GCM-SHA384", "-tls1_2")
 ~ open_ssl_client
 
 test_tls_server("TLS_AES_256_GCM_SHA384", "-tls1_3", tls13=True)
+
+= Testing TLS server with TLS 1.3 and TLS_AES_256_GCM_SHA384 with x448 curve (+HelloRetryRequest)
+~ open_ssl_client
+
+test_tls_server("TLS_AES_256_GCM_SHA384", "-tls1_3", tls13=True, curve="x448")
+
+= Testing TLS server with TLS 1.3 and TLS_AES_256_GCM_SHA384 with Ed25519-signed cert
+~ open_ssl_client
+
+test_tls_server("TLS_AES_256_GCM_SHA384", "-tls1_3", tls13=True, sigalgo="ed25519")
 
 = Testing TLS server with TLS 1.3 and TLS_AES_256_GCM_SHA384 and client auth
 ~ open_ssl_client
@@ -265,14 +282,14 @@ def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None,
     t.run()
 
 def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
-                    key_update=False, sess_in_out=False):
+                    key_update=False, sess_in_out=False, sigalgo="rsa"):
     msg = ("TestC_%s_data" % suite).encode()
     # Run server
     q_ = Queue()
     print("Starting server...")
     th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_),
                            kwargs={"curve": None, "cookie": False, "client_auth": client_auth,
-                                   "handle_session_ticket": sess_in_out},
+                                   "handle_session_ticket": sess_in_out, "sigalgo": sigalgo},
                            name="test_tls_client %s %s" % (suite, version), daemon=True)
     th_.start()
     # Synchronise threads
@@ -355,6 +372,11 @@ test_tls_client("1305", "0304", curve="x448")
 ~ crypto_advanced
 
 test_tls_client("1302", "0304", curve="secp256r1", cookie=True)
+
+= Testing TLS server and client with TLS 1.3 and TLS_AES_128_CCM_8_SHA256 with Ed25519-signed cert
+~ open_ssl_client
+
+test_tls_client("1305", "0304", sigalgo="ed25519")
 
 = Testing TLS server and client with TLS 1.3 and TLS_AES_128_CCM_8_SHA256 and client auth
 ~ crypto_advanced
@@ -464,7 +486,10 @@ def run_tls_native_test_server(post_handshake_auth=False,
         assert resp == bytes(REQS[1])
         ssl_client_socket.send(bytes(RESPS[1]))
         # close socket
-        server.close()
+        try:
+            server.shutdown(socket.SHUT_RDWR)
+        finally:
+            server.close()
     
     server = threading.Thread(target=ssl_server)
     server.start()
@@ -502,11 +527,15 @@ def test_tls_client_native(post_handshake_auth=False,
     assert not server.is_alive()
 
 
+# XXX: Ugh, Appveyor uses an ancient Windows 10 build that doesn't support TLS 1.3 natively.
+
 = Testing TLS client against ssl.SSLContext server with TLS 1.3 and a post-handshake authentication
+~ native_tls13
 
 test_tls_client_native(post_handshake_auth=True)
 
 = Testing TLS client against ssl.SSLContext server with TLS 1.3 and a Hello-Retry request
+~ native_tls13
 
 test_tls_client_native(with_hello_retry=True)
 

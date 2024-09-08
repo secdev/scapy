@@ -763,3 +763,18 @@ assert pkt[Dot11EltVHTOperation].VHT_Operation_Info
 assert pkt[Dot11EltVHTOperation].VHT_Operation_Info.channel_width == 1
 assert pkt[Dot11EltVHTOperation].VHT_Operation_Info.channel_center0 == 42
 assert pkt[Dot11EltVHTOperation].VHT_Operation_Info.channel_center1 == 50
+
+= Dot11EltVHTOperation in isolation
+
+pkt = Dot11EltVHTOperation(b'\xc0\x05\x01*2\x00\x00')
+assert pkt[Dot11Elt::{"ID": 192}].len == 5
+
+= Dot11EltOBSS in isolation
+
+pkt = Dot11EltOBSS(b'J\x0e\x14\x00\n\x00,\x01\xc8\x00\x14\x00\x05\x00\x19\x00')
+assert pkt[Dot11Elt::{"ID": 74}].len == 14
+
+= Dot11EltCSA in isolation
+
+pkt = Dot11EltCSA(b'%\x03\x01\x0b\x05')
+assert pkt[Dot11Elt::{"ID": 37}].len == 3

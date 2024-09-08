@@ -17,14 +17,12 @@ actions:
     - "git clone https://src.fedoraproject.org/rpms/scapy .packit_rpm --depth=1"
     # Drop the "sources" file so rebase-helper doesn't think we're a dist-git
     - "rm -fv .packit_rpm/sources"
-    - "sed -i '/^# check$/a%check\\n./test/run_tests -c test/configs/linux.utsc -K scanner' .packit_rpm/scapy.spec"
+    - "sed -i '/^# check$/a%check\\nOPENSSL_CONF=$(python3 ./.config/ci/openssl.py) ./test/run_tests -c test/configs/linux.utsc -K scanner' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: can-utils' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: libpcap' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: openssl' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: tcpdump' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: wireshark' .packit_rpm/scapy.spec"
-    - "sed -i '/^BuildArch/aBuildRequires: python3-tox-current-env' .packit_rpm/scapy.spec"
-    - "sed -i '/^BuildArch/aBuildRequires: python3-mock' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: python3-ipython' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: python3-brotli' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: python3-can' .packit_rpm/scapy.spec"
@@ -34,7 +32,6 @@ actions:
     - "sed -i '/^BuildArch/aBuildRequires: python3-zstandard' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: samba' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: samba-client' .packit_rpm/scapy.spec"
-    - "sed -i 's/^\\(TOX_PARALLEL_NO_SPINNER=1 tox\\)/\\1 --current-env/' .config/ci/test.sh"
 
 jobs:
 - job: copr_build

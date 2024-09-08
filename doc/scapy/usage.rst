@@ -252,6 +252,31 @@ Now that we know how to manipulate packets. Let's see how to send them. The send
     Sent 1 packets.
     <PacketList: TCP:0 UDP:0 ICMP:0 Other:1>
 
+.. _multicast:
+
+Multicast on layer 3: Scope Identifiers
+---------------------------------------
+
+.. index::
+   single: Multicast
+
+.. note:: This feature is only available since Scapy 2.6.0.
+
+If you try to use multicast addresses (IPv4) or link-local addresses (IPv6), you'll notice that Scapy follows the routing table and takes the first entry. In order to specify which interface to use when looking through the routing table, Scapy supports scope identifiers (similar to RFC6874 but for both IPv6 and IPv4).
+
+.. code:: python
+
+    >>> conf.checkIPaddr = False  # answer IP will be != from the one we requested
+    # send on interface 'eth0'
+    >>> sr(IP(dst="224.0.0.1%eth0")/ICMP(), multi=True)
+    >>> sr(IPv6(dst="ff02::1%eth0")/ICMPv6EchoRequest(), multi=True)
+
+You can use both ``%eth0`` format or ``%15`` (the interface id) format. You can query those using ``conf.ifaces``.
+
+.. note::
+
+   Behind the scene, calling ``IP(dst="224.0.0.1%eth0")`` creates a ``ScopedIP`` object that contains ``224.0.0.1`` on the scope of the interface ``eth0``. If you are using an interface object (for instance ``conf.iface``), you can also craft that object. For instance::
+        >>> pkt = IP(dst=ScopedIP("224.0.0.1", scope=conf.iface))/ICMP()
 
 Fuzzing
 -------
@@ -1482,6 +1507,29 @@ Node status request (get NetbiosName from IP)
 .. code::
 
     >>> sr1(IP(dst="192.168.122.17")/UDP()/NBNSHeader()/NBNSNodeStatusRequest())
+
+NBNS Query Request (find by NetbiosName)
+----------------------------------------
+
+.. code::
+
+    >>> conf.checkIPaddr = False  # Mandatory because we are using a broadcast destination and receiving unicast
+    >>> sr1(IP(dst="192.168.0.255")/UDP()/NBNSHeader()/NBNSQueryRequest(QUESTION_NAME="DC1"))
+
+mDNS Query Request
+------------------
+
+For instance, find all spotify connect devices.
+
+.. code::
+
+    >>> # For interface 'eth0'
+    >>> ans, _ = sr(IPv6(dst="ff02::fb%eth0")/UDP(sport=5353, dport=5353)/DNS(rd=0, qd=[DNSQR(qname='_spotify-connect._tcp.local', qtype="PTR")]), multi=True, timeout=2)
+    >>> ans.show()
+
+.. note::
+
+    As you can see, we used a scope identifier (``%eth0``) to specify on which interface we want to use the above multicast IP.
 
 Advanced traceroute
 -------------------

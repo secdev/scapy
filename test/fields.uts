@@ -139,7 +139,7 @@ assert r == b"FOO\x01\x02\x03\x04"
 = SourceIPField
 ~ core field
 defaddr = conf.route.route('0.0.0.0')[1]
-class Test(Packet): fields_desc = [SourceIPField("sourceip", None)]
+class Test(Packet): fields_desc = [SourceIPField("sourceip")]
 
 assert Test().sourceip == defaddr
 assert Test(raw(Test())).sourceip == defaddr
@@ -862,6 +862,53 @@ while p.pl:
     i += 1
 
 assert i == 100
+
+= Test cache handling of payload modification in a PacketListField
+~ field
+
+# GH4414
+class SubPacket(Packet):
+    fields_desc = [
+        ByteField("b", 0),
+    ]
+
+class MyPacket(Packet):
+    fields_desc = [
+        PacketListField("a", [], SubPacket),
+    ]
+
+
+p = MyPacket(b"\x00extrapayload")
+p.a[0] = SubPacket(b=0) / b"test"
+
+assert bytes(p) == b"\x00test"
+
+= Test cache handling of payload modification in a PacketField
+~ field
+
+# also GH4414
+class PayloadPacket(Packet):
+    fields_desc = [
+        StrField("b", ""),
+    ]
+
+class SubPacket(Packet):
+    fields_desc = []
+
+bind_layers(SubPacket, PayloadPacket)
+
+class MyPacket(Packet):
+    fields_desc = [
+        PacketField("a", None, SubPacket),
+    ]
+
+
+s = b'test'
+p = MyPacket(s)
+
+p[PayloadPacket].b = b'new'
+assert p.build() != s
+
 
 ############
 ############

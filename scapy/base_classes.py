@@ -109,8 +109,75 @@ class SetGen(Gen[_T]):
         return "<SetGen %r>" % self.values
 
 
+class _ScopedIP(str):
+    """
+    A str that also holds extra attributes.
+    """
+    __slots__ = ["scope"]
+
+    def __init__(self, _: str) -> None:
+        self.scope = None
+
+    def __repr__(self) -> str:
+        val = super(_ScopedIP, self).__repr__()
+        if self.scope is not None:
+            return "ScopedIP(%s, scope=%s)" % (val, repr(self.scope))
+        return val
+
+
+def ScopedIP(net: str, scope: Optional[Any] = None) -> _ScopedIP:
+    """
+    An str that also holds extra attributes.
+
+    Examples::
+
+        >>> ScopedIP("224.0.0.1%eth0")  # interface 'eth0'
+        >>> ScopedIP("224.0.0.1%1")  # interface index 1
+        >>> ScopedIP("224.0.0.1", scope=conf.iface)
+    """
+    if "%" in net:
+        try:
+            net, scope = net.split("%", 1)
+        except ValueError:
+            raise Scapy_Exception("Scope identifier can only be present once !")
+    if scope is not None:
+        from scapy.interfaces import resolve_iface, network_name, dev_from_index
+        try:
+            iface = dev_from_index(int(scope))
+        except (ValueError, TypeError):
+            iface = resolve_iface(scope)
+        if not iface.is_valid():
+            raise Scapy_Exception(
+                "RFC6874 scope identifier '%s' could not be resolved to a "
+                "valid interface !" % scope
+            )
+        scope = network_name(iface)
+    x = _ScopedIP(net)
+    x.scope = scope
+    return x
+
+
 class Net(Gen[str]):
-    """Network object from an IP address or hostname and mask"""
+    """
+    Network object from an IP address or hostname and mask
+
+    Examples:
+
+        - With mask::
+
+            >>> list(Net("192.168.0.1/24"))
+            ['192.168.0.0', '192.168.0.1', ..., '192.168.0.255']
+
+        - With 'end'::
+
+            >>> list(Net("192.168.0.100", "192.168.0.200"))
+            ['192.168.0.100', '192.168.0.101', ..., '192.168.0.200']
+
+        - With 'scope' (for multicast)::
+
+            >>> Net("224.0.0.1%lo")
+            >>> Net("224.0.0.1", scope=conf.iface)
+    """
     name = "Net"  # type: str
     family = socket.AF_INET  # type: int
     max_mask = 32  # type: int
@@ -143,11 +210,16 @@ class Net(Gen[str]):
         # type: (int) -> str
         return socket.inet_ntoa(struct.pack('!I', val))
 
-    def __init__(self, net, stop=None):
-        # type: (str, Union[None, str]) -> None
+    def __init__(self, net, stop=None, scope=None):
+        # type: (str, Optional[str], Optional[str]) -> None
         if "*" in net:
             raise Scapy_Exception("Wildcards are no longer accepted in %s()" %
                                   self.__class__.__name__)
+        self.scope = None
+        if "%" in net:
+            net = ScopedIP(net)
+        if isinstance(net, _ScopedIP):
+            self.scope = net.scope
         if stop is None:
             try:
                 net, mask = net.split("/", 1)
@@ -174,7 +246,10 @@ class Net(Gen[str]):
         # type: () -> Iterator[str]
         # Python 2 won't handle huge (> sys.maxint) values in range()
         for i in range(self.count):
-            yield self.int2ip(self.start + i)
+            yield ScopedIP(
+                self.int2ip(self.start + i),
+                scope=self.scope,
+            )
 
     def __len__(self):
         # type: () -> int
@@ -187,20 +262,28 @@ class Net(Gen[str]):
 
     def choice(self):
         # type: () -> str
-        return self.int2ip(random.randint(self.start, self.stop))
+        return ScopedIP(
+            self.int2ip(random.randint(self.start, self.stop)),
+            scope=self.scope,
+        )
 
     def __repr__(self):
         # type: () -> str
+        scope_id_repr = ""
+        if self.scope:
+            scope_id_repr = ", scope=%s" % repr(self.scope)
         if self.mask is not None:
-            return '%s("%s/%d")' % (
+            return '%s("%s/%d"%s)' % (
                 self.__class__.__name__,
                 self.net,
                 self.mask,
+                scope_id_repr,
             )
-        return '%s("%s", "%s")' % (
+        return '%s("%s", "%s"%s)' % (
             self.__class__.__name__,
             self.int2ip(self.start),
             self.int2ip(self.stop),
+            scope_id_repr,
         )
 
     def __eq__(self, other):
@@ -220,7 +303,7 @@ class Net(Gen[str]):
 
     def __hash__(self):
         # type: () -> int
-        return hash(("scapy.Net", self.family, self.start, self.stop))
+        return hash(("scapy.Net", self.family, self.start, self.stop, self.scope))
 
     def __contains__(self, other):
         # type: (Any) -> bool

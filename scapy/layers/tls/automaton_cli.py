@@ -80,6 +80,11 @@ from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 from scapy.packet import Raw
 from scapy.compat import bytes_encode
 
+# Typing imports
+from typing import (
+    Optional,
+)
+
 
 class TLSClientAutomaton(_TLSAutomaton):
     """
@@ -95,12 +100,16 @@ class TLSClientAutomaton(_TLSAutomaton):
     :param mycert:
     :param mykey: may be provided as filenames. They will be used in the (or post)
         handshake, should the server ask for client authentication.
-    :param client_hello: may hold a TLSClientHello or SSLv2ClientHello to be
-        sent to the server. This is particularly useful for extensions
-        tweaking. If not set, a default is populated accordingly.
+    :param client_hello: may hold a TLSClientHello, TLS13ClientHello or
+        SSLv2ClientHello to be sent to the server. This is particularly useful
+        for extensions tweaking. If not set, a default is populated accordingly.
     :param version: is a quicker way to advertise a protocol version ("sslv2",
-        "tls1", "tls12", etc.) It may be overridden by the previous
+        "tls1", "tls12", "tls13", etc.) It may be overridden by the previous
         'client_hello'.
+    :param session_ticket_file_in: path to a file that contains a session ticket
+        acquired in a previous session.
+    :param session_ticket_file_out: path to store any session ticket acquired during
+        this session.
     :param data: is a list of raw data to be sent to the server once the
         handshake has been completed. Both 'stop_server' and 'quit' will
         work this way.
@@ -114,9 +123,10 @@ class TLSClientAutomaton(_TLSAutomaton):
                    session_ticket_file_out=None,
                    psk=None, psk_mode=None,
                    data=None,
-                   ciphersuite=None,
-                   curve=None,
+                   ciphersuite: Optional[int] = None,
+                   curve: Optional[str] = None,
                    supported_groups=None,
+                   supported_signature_algorithms=None,
                    **kargs):
 
         super(TLSClientAutomaton, self).parse_args(mycert=mycert,
@@ -157,16 +167,31 @@ class TLSClientAutomaton(_TLSAutomaton):
         if supported_groups is None:
             supported_groups = ["secp256r1", "secp384r1", "x448"]
             if conf.crypto_valid_advanced:
-                supported_groups.append("x25519")
+                supported_groups.extend([
+                    "x25519",
+                    "ffdhe2048",
+                ])
         self.supported_groups = supported_groups
 
+        if supported_signature_algorithms is None:
+            supported_signature_algorithms = [
+                "sha256+rsaepss",
+                "sha256+rsa",
+                "ed25519",
+                "ed448",
+            ]
+        self.supported_signature_algorithms = supported_signature_algorithms
+
         self.curve = None
+        self.ciphersuite = None
+
+        if ciphersuite is not None:
+            if ciphersuite in _tls_cipher_suites.keys():
+                self.ciphersuite = ciphersuite
+            else:
+                self.vprint("Unrecognized cipher suite.")
+
         if self.advertised_tls_version == 0x0304:
-            self.ciphersuite = 0x1301
-            if ciphersuite is not None:
-                cs = int(ciphersuite, 16)
-                if cs in _tls_cipher_suites.keys():
-                    self.ciphersuite = cs
             if conf.crypto_valid_advanced:
                 # Default to x25519 if supported
                 self.curve = 29
@@ -192,14 +217,16 @@ class TLSClientAutomaton(_TLSAutomaton):
         if self.verbose:
             s = self.cur_session
             v = _tls_version[s.tls_version]
-            self.vprint("Version       : %s" % v)
+            self.vprint("Version         : %s" % v)
             cs = s.wcs.ciphersuite.name
-            self.vprint("Cipher suite  : %s" % cs)
+            self.vprint("Cipher suite    : %s" % cs)
+            kx_groupname = s.kx_group
+            self.vprint("Server temp key : %s" % kx_groupname)
             if s.tls_version >= 0x0304:
                 ms = s.tls13_master_secret
             else:
                 ms = s.master_secret
-            self.vprint("Master secret : %s" % repr_hex(ms))
+            self.vprint("Master secret   : %s" % repr_hex(ms))
             if s.server_certs:
                 self.vprint("Server certificate chain: %r" % s.server_certs)
             if s.tls_version >= 0x0304:
@@ -306,11 +333,13 @@ class TLSClientAutomaton(_TLSAutomaton):
         if self.client_hello:
             p = self.client_hello
         else:
-            p = TLSClientHello()
+            p = TLSClientHello(ciphers=self.ciphersuite)
             ext = []
             # Add TLS_Ext_SignatureAlgorithms for TLS 1.2 ClientHello
             if self.cur_session.advertised_tls_version == 0x0303:
-                ext += [TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsa"])]
+                ext += [TLS_Ext_SignatureAlgorithms(
+                    sig_algs=self.supported_signature_algorithms,
+                )]
             # Add TLS_Ext_ServerName
             if self.server_name:
                 ext += TLS_Ext_ServerName(
@@ -1147,8 +1176,9 @@ class TLSClientAutomaton(_TLSAutomaton):
             ext += TLS_Ext_KeyShare_CH(
                 client_shares=[KeyShareEntry(group=self.curve)]
             )
-            ext += TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsaepss",
-                                                         "sha256+rsa"])
+            ext += TLS_Ext_SignatureAlgorithms(
+                sig_algs=self.supported_signature_algorithms,
+            )
         p.ext = ext
         self.add_msg(p)
         raise self.TLS13_ADDED_CLIENTHELLO()
@@ -1215,7 +1245,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.vprint(self.cur_pkt.mysummary())
         raise self.CLOSE_NOTIFY()
 
-    @ATMT.condition(TLS13_RECEIVED_SERVERFLIGHT1, prio=4)
+    @ATMT.condition(TLS13_RECEIVED_SERVERFLIGHT1, prio=5)
     def tls13_missing_ServerHello(self):
         raise self.MISSING_SERVERHELLO()
 

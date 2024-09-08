@@ -55,13 +55,13 @@ def load_nss_keys(filename):
 
                 try:
                     client_random = binascii.unhexlify(data[1])
-                except binascii.Error:
+                except ValueError:
                     warning("Invalid ClientRandom: %s", data[1])
                     return {}
 
                 try:
                     secret = binascii.unhexlify(data[2])
-                except binascii.Error:
+                except ValueError:
                     warning("Invalid Secret: %s", data[2])
                     return {}
 
@@ -441,6 +441,9 @@ class tlsSession(object):
 
         # Ephemeral key exchange parameters
 
+        # The agreed-upon ephemeral key group
+        self.kx_group = None
+
         # These are the group/curve parameters, needed to hold the information
         # e.g. from receiving an SKE to sending a CKE. Usually, only one of
         # these attributes will be different from None.
@@ -483,6 +486,9 @@ class tlsSession(object):
         self.pre_master_secret = None
         self.master_secret = None
 
+        # The advertised supported signature algorithms found in the ClientHello
+        # extension. (for TLS 1.2-TLS 1.3 only)
+        self.advertised_sig_algs = []
         # The agreed-upon signature algorithm (for TLS 1.2-TLS 1.3 only)
         self.selected_sig_alg = None
 

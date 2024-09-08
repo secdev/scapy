@@ -63,7 +63,10 @@ class AS_resolver:
         self.s.send(("%s\n" % ip).encode("utf8"))
         x = b""
         while not (b"%" in x or b"source" in x):
-            x += self.s.recv(8192)
+            d = self.s.recv(8192)
+            if not d:
+                break
+            x += d
         asn, desc = self._parse_whois(x)
         return ip, asn, desc
 

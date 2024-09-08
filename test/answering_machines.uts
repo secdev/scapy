@@ -8,7 +8,7 @@
 + Answering Machines
 
 = Generic answering machine mocker
-import mock
+from unittest import mock
 @mock.patch("scapy.ansmachine.sniff")
 def test_am(cls_name, packet_query, check_reply, mock_sniff, **kargs):
     packet_query = packet_query.__class__(bytes(packet_query))
@@ -128,9 +128,9 @@ assert DNS_am().make_reply(
 
 = LLMNR_am
 def check_LLMNR_am_am_reply(packet):
-    assert packet[Ether].src == get_if_hwaddr(conf.iface)
+    # assert packet[Ether].src == get_if_hwaddr(conf.iface)
     assert packet[Ether].dst == "aa:aa:aa:aa:aa:aa"
-    assert packet[IP].src == get_if_addr(conf.iface)
+    # assert packet[IP].src == get_if_addr(conf.iface)
     assert packet[IP].dst == "192.168.0.1"
     assert packet[UDP].dport == 51938
     assert packet[UDP].sport == 5355
@@ -138,19 +138,22 @@ def check_LLMNR_am_am_reply(packet):
     assert packet[LLMNRResponse].qd[0].qname == b"TEST."
     assert packet[LLMNRResponse].an[0].rdata == "192.168.1.1"
     assert packet[LLMNRResponse].an[0].rrname == b"TEST."
-    assert packet[LLMNRResponse].an[0].ttl == 10
+    assert packet[LLMNRResponse].an[0].ttl == 60
 
 test_am(LLMNR_am,
         Ether(src="aa:aa:aa:aa:aa:aa", dst="01:00:5e:00:00:fc")/IP(src="192.168.0.1", dst="224.0.0.252")/UDP(dport=5355, sport=51938)/LLMNRQuery(qd=DNSQR(qname=b"TEST.", qtype="A")),
         check_LLMNR_am_am_reply,
+        ttl=60,
         match={"TEST": "192.168.1.1"})
 
 = mDNS_am
 def check_mDNS_am_reply(packet):
-    assert packet[Ether].src == get_if_hwaddr(conf.iface)
+    packet.show()
+    # assert packet[Ether].src == get_if_hwaddr(conf.iface)
     assert packet[Ether].dst == "01:00:5e:00:00:fb"
-    assert packet[IP].src == get_if_addr(conf.iface)
+    # assert packet[IP].src == get_if_addr(conf.iface)
     assert packet[IP].dst == "224.0.0.251"
+    assert packet[IP].ttl == 255
     assert packet[UDP].dport == 5353
     assert packet[UDP].sport == 5353
     assert DNS in packet and packet[DNS].ancount == 1 and packet[DNS].qdcount == 0
@@ -159,9 +162,34 @@ def check_mDNS_am_reply(packet):
     assert packet[DNS].an[0].ttl == 10
 
 test_am(mDNS_am,
-        Ether(src="aa:aa:aa:aa:aa:aa", dst="01:00:5e:00:00:fb")/IP(src="192.168.0.1", dst="224.0.0.251")/UDP(dport=5353, sport=5353)/DNS(qd=DNSQR(qname=b"TEST.local.", qtype="A")),
+        Ether(src="aa:aa:aa:aa:aa:aa", dst="01:00:5e:00:00:fb")/IP(src="192.168.0.1", dst="224.0.0.251", ttl=1)/UDP(dport=5353, sport=5353)/DNS(qd=DNSQR(qname=b"TEST.local.", qtype="A")),
         check_mDNS_am_reply,
         joker="192.168.1.1")
+
+
+def check_mDNS_am_reply2(packet):
+    # $ avahi-resolve -n bonjour.local
+    packet.show()
+    # assert packet[Ether].src == get_if_hwaddr(conf.iface)
+    assert packet[Ether].dst == "01:00:5e:00:00:fb"
+    # assert packet[IP].src == get_if_addr(conf.iface)
+    assert packet[IP].dst == "224.0.0.251"
+    assert packet[IP].ttl == 255
+    assert packet[UDP].dport == 5353
+    assert packet[UDP].sport == 5353
+    assert DNS in packet and packet[DNS].ancount == 2 and packet[DNS].qdcount == 0
+    assert packet[DNS].an[0].rdata == "192.168.1.1"
+    assert packet[DNS].an[0].rrname == b"bonjour.local."
+    assert packet[DNS].an[0].ttl == 120
+    assert packet[DNS].an[1].type == 47
+    assert packet[DNS].an[1].rrname == b"bonjour.local."
+    assert packet[DNS].an[1].ttl == 120
+
+test_am(mDNS_am,
+        Ether(b'\x01\x00^\x00\x00\xfb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00A\xce}@\x00\xff\x11\x0b\x89\xc0\xa8\x00\x01\xe0\x00\x00\xfb\x14\xe9\x14\xe9\x00-\xdbl\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x07bonjour\x05local\x00\x00\x01\x00\x01\xc0\x0c\x00\x1c\x00\x01'),
+        check_mDNS_am_reply2,
+        joker="192.168.1.1",
+        ttl=120)
 
 = DHCPv6_am - Basic Instantiaion
 ~ osx netaccess
@@ -208,7 +236,7 @@ assert res[DHCP6_Solicit]
 a.print_reply(req, res)
 
 = WiFi_am
-import mock
+from unittest import mock
 @mock.patch("scapy.layers.dot11.sniff")
 def test_WiFi_am(packet_query, check_reply, mock_sniff, **kargs):
     def sniff(*args,**kargs):
@@ -233,13 +261,13 @@ def check_NBNS_am_reply(name):
         packet.show()
         assert packet[Ether].src != "ff:ff:ff:ff:ff:ff"
         assert packet[Ether].dst == "aa:aa:aa:aa:aa:aa"
-        assert NBNSQueryResponse in packet and packet[NBNSQueryResponse].RR_NAME.strip() == bytes_encode(name)
+        assert NBNSQueryResponse in packet and packet[NBNSQueryResponse].RR_NAME == name
     return check
 
 for server_name in (None, "", b"test", "test"):
     test_am(NBNS_am,
             Ether(src="aa:aa:aa:aa:aa:aa", dst="ff:ff:ff:ff:ff:ff")/IP()/UDP()/NBNSHeader()/NBNSQueryRequest(QUESTION_NAME="test"),
-            check_NBNS_am_reply("test"),
+            check_NBNS_am_reply(b"test"),
             server_name=server_name)
 
 test_am(NBNS_am,

@@ -210,6 +210,7 @@ def load_mib(filenames):
 #      pkcs1       #
 
 pkcs1_oids = {
+    "1.2.840.113549.1.1": "pkcs1",
     "1.2.840.113549.1.1.1": "rsaEncryption",
     "1.2.840.113549.1.1.2": "md2WithRSAEncryption",
     "1.2.840.113549.1.1.3": "md4WithRSAEncryption",
@@ -229,12 +230,47 @@ pkcs1_oids = {
 #       secsig oiw       #
 
 secsig_oids = {
-    "1.3.14.3.2.26": "sha1"
+    "1.3.14.3.2": "OIWSEC",
+    "1.3.14.3.2.2": "md4RSA",
+    "1.3.14.3.2.3": "md5RSA",
+    "1.3.14.3.2.4": "md4RSA2",
+    "1.3.14.3.2.6": "desECB",
+    "1.3.14.3.2.7": "desCBC",
+    "1.3.14.3.2.8": "desOFB",
+    "1.3.14.3.2.9": "desCFB",
+    "1.3.14.3.2.10": "desMAC",
+    "1.3.14.3.2.11": "rsaSign",
+    "1.3.14.3.2.12": "dsa",
+    "1.3.14.3.2.13": "shaDSA",
+    "1.3.14.3.2.14": "mdc2RSA",
+    "1.3.14.3.2.15": "shaRSA",
+    "1.3.14.3.2.16": "dhCommMod",
+    "1.3.14.3.2.17": "desEDE",
+    "1.3.14.3.2.18": "sha",
+    "1.3.14.3.2.19": "mdc2",
+    "1.3.14.3.2.20": "dsaComm",
+    "1.3.14.3.2.21": "dsaCommSHA",
+    "1.3.14.3.2.22": "rsaXchg",
+    "1.3.14.3.2.23": "keyHashSeal",
+    "1.3.14.3.2.24": "md2RSASign",
+    "1.3.14.3.2.25": "md5RSASign",
+    "1.3.14.3.2.26": "sha1",
+    "1.3.14.3.2.27": "dsaSHA1",
+    "1.3.14.3.2.28": "dsaCommSHA1",
+    "1.3.14.3.2.29": "sha1RSASign",
+}
+
+#       thawte      #
+
+thawte_oids = {
+    "1.3.101.112": "Ed25519",
+    "1.3.101.113": "Ed448",
 }
 
 #       pkcs9       #
 
 pkcs9_oids = {
+    "1.2.840.113549.1.9": "pkcs9",
     "1.2.840.113549.1.9.0": "modules",
     "1.2.840.113549.1.9.1": "emailAddress",
     "1.2.840.113549.1.9.2": "unstructuredName",
@@ -361,7 +397,9 @@ attributeType_oids = {
     "2.5.4.94": "epcInUrn",
     "2.5.4.95": "ldapUrl",
     "2.5.4.96": "ldapUrl",
-    "2.5.4.97": "organizationIdentifier"
+    "2.5.4.97": "organizationIdentifier",
+    # RFC 4519
+    "0.9.2342.19200300.100.1.25": "dc",
 }
 
 certificateExtension_oids = {
@@ -430,7 +468,13 @@ certificateExtension_oids = {
     "2.5.29.66": "id-ce-groupAC",
     "2.5.29.67": "id-ce-allowedAttAss",
     "2.5.29.68": "id-ce-attributeMappings",
-    "2.5.29.69": "id-ce-holderNameConstraints"
+    "2.5.29.69": "id-ce-holderNameConstraints",
+    # [MS-WCCE]
+    "1.3.6.1.4.1.311.2.1.14": "CERT_EXTENSIONS",
+    "1.3.6.1.4.1.311.20.2": "ENROLL_CERTTYPE",
+    "1.3.6.1.4.1.311.25.1": "NTDS_REPLICATION",
+    "1.3.6.1.4.1.311.25.2": "NTDS_CA_SECURITY_EXT",
+    "1.3.6.1.4.1.311.25.2.1": "NTDS_OBJECTSID",
 }
 
 certExt_oids = {
@@ -493,6 +537,10 @@ certPkixAd_oids = {
     "1.3.6.1.5.5.7.48.7": "id-pkix-ocsp-service-locator",
     "1.3.6.1.5.5.7.48.12": "id-ad-cmc",
     "1.3.6.1.5.5.7.48.1.1": "basic-response"
+}
+
+certTransp_oids = {
+    '1.3.6.1.4.1.11129.2.4.2': "SignedCertificateTimestampList",
 }
 
 #       ansi-x962       #
@@ -628,15 +676,17 @@ gssapi_oids = {
 x509_oids_sets = [
     pkcs1_oids,
     secsig_oids,
+    thawte_oids,
     pkcs9_oids,
     attributeType_oids,
     certificateExtension_oids,
     certExt_oids,
+    certPkixAd_oids,
+    certPkixKp_oids,
     certPkixPe_oids,
     certPkixQt_oids,
-    certPkixKp_oids,
-    certPkixAd_oids,
     certPolicy_oids,
+    certTransp_oids,
     evPolicy_oids,
     x962KeyType_oids,
     x962Signature_oids,

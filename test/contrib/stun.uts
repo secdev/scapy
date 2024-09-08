@@ -136,3 +136,13 @@ assert parsed.transaction_id == 0x1d9357a1e94a2051271996d9, parsed.transaction_i
 assert parsed.attributes == [
       STUNFingerprint(crc_32=0x53800d81)
 ]
+
+= test STUN packet build
+stun = STUN(
+    stun_message_type="Binding request",
+    transaction_id=0x7664047a24772b5748c0f173
+)
+built = stun.build()
+parsed = STUN(built)
+
+assert parsed.build() == built

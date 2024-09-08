@@ -53,7 +53,9 @@ from scapy.fields import (
     XLELongField,
     XStrLenField,
     XLEShortField,
+    XLEIntField,
     LEMACField,
+    BitEnumField,
 )
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
@@ -1038,6 +1040,19 @@ class EIR_IncompleteList16BitServiceUUIDs(EIR_CompleteList16BitServiceUUIDs):
     name = "Incomplete list of 16-bit service UUIDs"
 
 
+class EIR_CompleteList32BitServiceUUIDs(EIR_Element):
+    name = 'Complete list of 32-bit service UUIDs'
+    fields_desc = [
+        # https://www.bluetooth.com/specifications/assigned-numbers
+        FieldListField('svc_uuids', None, XLEIntField('uuid', 0),
+                       length_from=EIR_Element.length_from)
+    ]
+
+
+class EIR_IncompleteList32BitServiceUUIDs(EIR_CompleteList32BitServiceUUIDs):
+    name = 'Incomplete list of 32-bit service UUIDs'
+
+
 class EIR_CompleteList128BitServiceUUIDs(EIR_Element):
     name = "Complete list of 128-bit service UUIDs"
     fields_desc = [
@@ -1065,6 +1080,69 @@ class EIR_ShortenedLocalName(EIR_CompleteLocalName):
 class EIR_TX_Power_Level(EIR_Element):
     name = "TX Power Level"
     fields_desc = [SignedByteField("level", 0)]
+
+
+class EIR_ClassOfDevice(EIR_Element):
+    name = 'Class of device'
+    fields_desc = [
+        FlagsField('major_service_classes', 0, 11, [
+            'limited_discoverable_mode',
+            'le_audio',
+            'reserved',
+            'positioning',
+            'networking',
+            'rendering',
+            'capturing',
+            'object_transfer',
+            'audio',
+            'telephony',
+            'information'
+        ], tot_size=-3),
+        BitEnumField('major_device_class', 0, 5, {
+            0x00: 'miscellaneous',
+            0x01: 'computer',
+            0x02: 'phone',
+            0x03: 'lan',
+            0x04: 'audio_video',
+            0x05: 'peripheral',
+            0x06: 'imaging',
+            0x07: 'wearable',
+            0x08: 'toy',
+            0x09: 'health',
+            0x1f: 'uncategorized'
+        }),
+        BitField('minor_device_class', 0, 6),
+        BitField('fixed', 0, 2, end_tot_size=-3)
+    ]
+
+
+class EIR_SecureSimplePairingHashC192(EIR_Element):
+    name = 'Secure Simple Pairing Hash C-192'
+    fields_desc = [NBytesField('hash', 0, 16)]
+
+
+class EIR_SecureSimplePairingRandomizerR192(EIR_Element):
+    name = 'Secure Simple Pairing Randomizer R-192'
+    fields_desc = [NBytesField('randomizer', 0, 16)]
+
+
+class EIR_SecurityManagerOOBFlags(EIR_Element):
+    name = 'Security Manager Out of Band Flags'
+    fields_desc = [
+        BitField('oob_flags_field', 0, 1),
+        BitField('le_supported', 0, 1),
+        BitField('previously_used', 0, 1),
+        BitField('address_type', 0, 1),
+        BitField('reserved', 0, 4)
+    ]
+
+
+class EIR_PeripheralConnectionIntervalRange(EIR_Element):
+    name = 'Peripheral Connection Interval Range'
+    fields_desc = [
+        LEShortField('conn_interval_min', 0xFFFF),
+        LEShortField('conn_interval_max', 0xFFFF)
+    ]
 
 
 class EIR_Manufacturer_Specific_Data(EIR_Element):
@@ -1154,6 +1232,30 @@ class EIR_ServiceData16BitUUID(EIR_Element):
         return s[:plen], s[plen:]
 
 
+class EIR_ServiceData32BitUUID(EIR_Element):
+    name = 'EIR Service Data - 32-bit UUID'
+    fields_desc = [
+        XLEIntField('svc_uuid', 0),
+    ]
+
+    def extract_padding(self, s):
+        # Needed to end each EIR_Element packet and make PacketListField work.
+        plen = EIR_Element.length_from(self) - 4
+        return s[:plen], s[plen:]
+
+
+class EIR_ServiceData128BitUUID(EIR_Element):
+    name = 'EIR Service Data - 128-bit UUID'
+    fields_desc = [
+        UUIDField('svc_uuid', None, uuid_fmt=UUIDField.FORMAT_REV)
+    ]
+
+    def extract_padding(self, s):
+        # Needed to end each EIR_Element packet and make PacketListField work.
+        plen = EIR_Element.length_from(self) - 16
+        return s[:plen], s[plen:]
+
+
 class HCI_Command_Hdr(Packet):
     name = "HCI Command header"
     fields_desc = [XBitField("ogf", 0, 6, tot_size=-2),
@@ -1175,7 +1277,7 @@ class HCI_Command_Hdr(Packet):
 
 
 # BUETOOTH CORE SPECIFICATION 5.4 | Vol 3, Part C
-# 8  EXTENDED INQUIRY RESPONSE
+# 8 EXTENDED INQUIRY RESPONSE
 
 class HCI_Extended_Inquiry_Response(Packet):
     fields_desc = [
@@ -1195,14 +1297,10 @@ class HCI_Extended_Inquiry_Response(Packet):
 # 7 HCI COMMANDS AND EVENTS
 # 7.1 LINK CONTROL COMMANDS, the OGF is defined as 0x01
 
-
 class HCI_Cmd_Inquiry(Packet):
     """
-
     7.1.1 Inquiry command
-
     """
-
     name = "HCI_Inquiry"
     fields_desc = [XLE3BytesField("lap", 0x9E8B33),
                    ByteField("inquiry_length", 0),
@@ -1211,21 +1309,15 @@ class HCI_Cmd_Inquiry(Packet):
 
 class HCI_Cmd_Inquiry_Cancel(Packet):
     """
-
     7.1.2 Inquiry Cancel command
-
     """
-
     name = "HCI_Inquiry_Cancel"
 
 
 class HCI_Cmd_Periodic_Inquiry_Mode(Packet):
     """
-
     7.1.3 Periodic Inquiry Mode command
-
     """
-
     name = "HCI_Periodic_Inquiry_Mode"
     fields_desc = [LEShortField("max_period_length", 0x0003),
                    LEShortField("min_period_length", 0x0002),
@@ -1236,21 +1328,15 @@ class HCI_Cmd_Periodic_Inquiry_Mode(Packet):
 
 class HCI_Cmd_Exit_Peiodic_Inquiry_Mode(Packet):
     """
-
     7.1.4 Exit Periodic Inquiry Mode command
-
     """
-
     name = "HCI_Exit_Periodic_Inquiry_Mode"
 
 
 class HCI_Cmd_Create_Connection(Packet):
     """
-
     7.1.5 Create Connection command
-
     """
-
     name = "HCI_Create_Connection"
     fields_desc = [LEMACField("bd_addr", None),
                    LEShortField("packet_type", 0xcc18),
@@ -1262,11 +1348,8 @@ class HCI_Cmd_Create_Connection(Packet):
 
 class HCI_Cmd_Disconnect(Packet):
     """
-
     7.1.6 Disconnect command
-
     """
-
     name = "HCI_Disconnect"
     fields_desc = [XLEShortField("handle", 0),
                    ByteField("reason", 0x13), ]
@@ -1274,22 +1357,16 @@ class HCI_Cmd_Disconnect(Packet):
 
 class HCI_Cmd_Create_Connection_Cancel(Packet):
     """
-
     7.1.7 Create Connection Cancel command
-
     """
-
     name = "HCI_Create_Connection_Cancel"
     fields_desc = [LEMACField("bd_addr", None), ]
 
 
 class HCI_Cmd_Accept_Connection_Request(Packet):
     """
-
     7.1.8 Accept Connection Request command
-
     """
-
     name = "HCI_Accept_Connection_Request"
     fields_desc = [LEMACField("bd_addr", None),
                    ByteField("role", 0x1), ]
@@ -1297,9 +1374,7 @@ class HCI_Cmd_Accept_Connection_Request(Packet):
 
 class HCI_Cmd_Reject_Connection_Response(Packet):
     """
-
     7.1.9 Reject Connection Request command
-
     """
     name = "HCI_Reject_Connection_Response"
     fields_desc = [LEMACField("bd_addr", None),
@@ -1308,11 +1383,8 @@ class HCI_Cmd_Reject_Connection_Response(Packet):
 
 class HCI_Cmd_Link_Key_Request_Reply(Packet):
     """
-
     7.1.10 Link Key Request Reply command
-
     """
-
     name = "HCI_Link_Key_Request_Reply"
     fields_desc = [LEMACField("bd_addr", None),
                    NBytesField("link_key", None, 16), ]
@@ -1320,22 +1392,16 @@ class HCI_Cmd_Link_Key_Request_Reply(Packet):
 
 class HCI_Cmd_Link_Key_Request_Negative_Reply(Packet):
     """
-
     7.1.11 Link Key Request Negative Reply command
-
     """
-
     name = "HCI_Link_Key_Request_Negative_Reply"
     fields_desc = [LEMACField("bd_addr", None), ]
 
 
 class HCI_Cmd_PIN_Code_Request_Reply(Packet):
     """
-
     7.1.12 PIN Code Request Reply command
-
     """
-
     name = "HCI_PIN_Code_Request_Reply"
     fields_desc = [LEMACField("bd_addr", None),
                    ByteField("pin_code_length", 7),
@@ -1344,22 +1410,16 @@ class HCI_Cmd_PIN_Code_Request_Reply(Packet):
 
 class HCI_Cmd_PIN_Code_Request_Negative_Reply(Packet):
     """
-
     7.1.13 PIN Code Request Negative Reply command
-
     """
-
     name = "HCI_PIN_Code_Request_Negative_Reply"
     fields_desc = [LEMACField("bd_addr", None), ]
 
 
 class HCI_Cmd_Change_Connection_Packet_Type(Packet):
     """
-
     7.1.14 Change Connection Packet Type command
-
     """
-
     name = "HCI_Cmd_Change_Connection_Packet_Type"
     fields_desc = [XLEShortField("connection_handle", None),
                    LEShortField("packet_type", 0), ]
@@ -1367,44 +1427,32 @@ class HCI_Cmd_Change_Connection_Packet_Type(Packet):
 
 class HCI_Cmd_Authentication_Requested(Packet):
     """
-
     7.1.15 Authentication Requested command
-
     """
-
     name = "HCI_Authentication_Requested"
     fields_desc = [LEShortField("handle", 0)]
 
 
 class HCI_Cmd_Set_Connection_Encryption(Packet):
     """
-
     7.1.16 Set Connection Encryption command
-
     """
-
     name = "HCI_Set_Connection_Encryption"
     fields_desc = [LEShortField("handle", 0), ByteField("encryption_enable", 0)]
 
 
 class HCI_Cmd_Change_Connection_Link_Key(Packet):
     """
-
     7.1.17 Change Connection Link Key command
-
     """
-
     name = "HCI_Change_Connection_Link_Key"
     fields_desc = [LEShortField("handle", 0), ]
 
 
 class HCI_Cmd_Link_Key_Selection(Packet):
     """
-
     7.1.18 Change Connection Link Key command
-
     """
-
     name = "HCI_Cmd_Link_Key_Selection"
     fields_desc = [ByteEnumField("handle", 0, {0: "Use semi-permanent Link Keys",
                                                1: "Use Temporary Link Key", }), ]
@@ -1412,11 +1460,8 @@ class HCI_Cmd_Link_Key_Selection(Packet):
 
 class HCI_Cmd_Remote_Name_Request(Packet):
     """
-
     7.1.19 Remote Name Request command
-
     """
-
     name = "HCI_Remote_Name_Request"
     fields_desc = [LEMACField("bd_addr", None),
                    ByteField("page_scan_repetition_mode", 0x02),
@@ -1426,33 +1471,24 @@ class HCI_Cmd_Remote_Name_Request(Packet):
 
 class HCI_Cmd_Remote_Name_Request_Cancel(Packet):
     """
-
     7.1.20 Remote Name Request Cancel command
-
     """
-
     name = "HCI_Remote_Name_Request_Cancel"
     fields_desc = [LEMACField("bd_addr", None), ]
 
 
 class HCI_Cmd_Read_Remote_Supported_Features(Packet):
     """
-
     7.1.21 Read Remote Supported Features command
-
     """
-
     name = "HCI_Read_Remote_Supported_Features"
     fields_desc = [LEShortField("connection_handle", None), ]
 
 
 class HCI_Cmd_Read_Remote_Extended_Features(Packet):
     """
-
     7.1.22 Read Remote Extended Features command
-
     """
-
     name = "HCI_Read_Remote_Supported_Features"
     fields_desc = [LEShortField("connection_handle", None),
                    ByteField("page_number", None), ]
@@ -1460,11 +1496,8 @@ class HCI_Cmd_Read_Remote_Extended_Features(Packet):
 
 class HCI_Cmd_IO_Capability_Request_Reply(Packet):
     """
-
     7.1.29 IO Capability Request Reply command
-
     """
-
     name = "HCI_Read_Remote_Supported_Features"
     fields_desc = [LEMACField("bd_addr", None),
                    ByteEnumField("io_capability", None, {0x00: "DisplayOnly",
@@ -1486,33 +1519,24 @@ class HCI_Cmd_IO_Capability_Request_Reply(Packet):
 
 class HCI_Cmd_User_Confirmation_Request_Reply(Packet):
     """
-
     7.1.30 User Confirmation Request Reply command
-
     """
-
     name = "HCI_User_Confirmation_Request_Reply"
     fields_desc = [LEMACField("bd_addr", None), ]
 
 
 class HCI_Cmd_User_Confirmation_Request_Negative_Reply(Packet):
     """
-
     7.1.31 User Confirmation Request Negative Reply command
-
     """
-
     name = "HCI_User_Confirmation_Request_Negative_Reply"
     fields_desc = [LEMACField("bd_addr", None), ]
 
 
 class HCI_Cmd_User_Passkey_Request_Reply(Packet):
     """
-
     7.1.32 User Passkey Request Reply command
-
     """
-
     name = "HCI_User_Passkey_Request_Reply"
     fields_desc = [LEMACField("bd_addr", None),
                    LEIntField("numeric_value", None), ]
@@ -1520,22 +1544,16 @@ class HCI_Cmd_User_Passkey_Request_Reply(Packet):
 
 class HCI_Cmd_User_Passkey_Request_Negative_Reply(Packet):
     """
-
     7.1.33 User Passkey Request Negative Reply command
-
     """
-
     name = "HCI_User_Passkey_Request_Negative_Reply"
     fields_desc = [LEMACField("bd_addr", None), ]
 
 
 class HCI_Cmd_Remote_OOB_Data_Request_Reply(Packet):
     """
-
     7.1.34 Remote OOB Data Request Reply command
-
     """
-
     name = "HCI_Remote_OOB_Data_Request_Reply"
     fields_desc = [LEMACField("bd_addr", None),
                    NBytesField("C", b"\x00" * 16, sz=16),
@@ -1544,16 +1562,13 @@ class HCI_Cmd_Remote_OOB_Data_Request_Reply(Packet):
 
 class HCI_Cmd_Remote_OOB_Data_Request_Negative_Reply(Packet):
     """
-
     7.1.35 Remote OOB Data Request Negative Reply command
-
     """
-
     name = "HCI_Remote_OOB_Data_Request_Negative_Reply"
     fields_desc = [LEMACField("bd_addr", None), ]
 
-# 7.2 Link Policy commands, the OGF is defined as 0x02
 
+# 7.2 Link Policy commands, the OGF is defined as 0x02
 
 class HCI_Cmd_Hold_Mode(Packet):
     name = "HCI_Hold_Mode"
@@ -1565,22 +1580,41 @@ class HCI_Cmd_Hold_Mode(Packet):
 # 7.3 CONTROLLER & BASEBAND COMMANDS, the OGF is defined as 0x03
 
 class HCI_Cmd_Set_Event_Mask(Packet):
+    """
+    7.3.1 Set Event Mask command
+    """
     name = "HCI_Set_Event_Mask"
     fields_desc = [StrFixedLenField("mask", b"\xff\xff\xfb\xff\x07\xf8\xbf\x3d", 8)]  # noqa: E501
 
 
 class HCI_Cmd_Reset(Packet):
+    """
+    7.3.2 Reset command
+    """
     name = "HCI_Reset"
 
 
 class HCI_Cmd_Set_Event_Filter(Packet):
+    """
+    7.3.3 Set Event Filter command
+    """
     name = "HCI_Set_Event_Filter"
     fields_desc = [ByteEnumField("type", 0, {0: "clear"}), ]
 
 
 class HCI_Cmd_Write_Local_Name(Packet):
+    """
+    7.3.11 Write Local Name command
+    """
     name = "HCI_Write_Local_Name"
     fields_desc = [StrFixedLenField('name', '', length=248)]
+
+
+class HCI_Cmd_Read_Local_Name(Packet):
+    """
+    7.3.12 Read Local Name command
+    """
+    name = "HCI_Read_Local_Name"
 
 
 class HCI_Cmd_Write_Connect_Accept_Timeout(Packet):
@@ -1605,11 +1639,30 @@ class HCI_Cmd_Write_LE_Host_Support(Packet):
 
 
 # 7.4 INFORMATIONAL PARAMETERS, the OGF is defined as 0x04
+
+class HCI_Cmd_Read_Local_Version_Information(Packet):
+    """
+    7.4.1 Read Local Version Information command
+    """
+    name = "HCI_Read_Local_Version_Information"
+
+
+class HCI_Cmd_Read_Local_Extended_Features(Packet):
+    """
+    7.4.4 Read Local Extended Features command
+    """
+    name = "HCI_Read_Local_Extended_Features"
+    fields_desc = [ByteField("page_number", 0)]
+
+
 class HCI_Cmd_Read_BD_Addr(Packet):
+    """
+    7.4.6 Read BD_ADDR command
+    """
     name = "HCI_Read_BD_ADDR"
 
-# 7.5 STATUS PARAMETERS, the OGF is defined as 0x05
 
+# 7.5 STATUS PARAMETERS, the OGF is defined as 0x05
 
 class HCI_Cmd_Read_Link_Quality(Packet):
     name = "HCI_Read_Link_Quality"
@@ -1622,6 +1675,7 @@ class HCI_Cmd_Read_RSSI(Packet):
 
 
 # 7.6 TESTING COMMANDS, the OGF is defined as 0x06
+
 class HCI_Cmd_Read_Loopback_Mode(Packet):
     name = "HCI_Read_Loopback_Mode"
 
@@ -1635,6 +1689,7 @@ class HCI_Cmd_Write_Loopback_Mode(Packet):
 
 
 # 7.8 LE CONTROLLER COMMANDS, the OGF code is defined as 0x08
+
 class HCI_Cmd_LE_Read_Buffer_Size_V1(Packet):
     name = "HCI_LE_Read_Buffer_Size [v1]"
 
@@ -2034,7 +2089,43 @@ class HCI_Event_LE_Meta(Packet):
         return self.payload.answers(other)
 
 
+class HCI_Cmd_Complete_Read_Local_Name(Packet):
+    """
+    7.3.12 Read Local Name command complete
+    """
+    name = 'Read Local Name command complete'
+    fields_desc = [StrFixedLenField('local_name', '', length=248)]
+
+
+class HCI_Cmd_Complete_Read_Local_Version_Information(Packet):
+    """
+    7.4.1 Read Local Version Information command complete
+    """
+    name = 'Read Local Version Information'
+    fields_desc = [
+        ByteField('hci_version', 0),
+        LEShortField('hci_subversion', 0),
+        ByteField('lmp_version', 0),
+        LEShortField('company_identifier', 0),
+        LEShortField('lmp_subversion', 0)]
+
+
+class HCI_Cmd_Complete_Read_Local_Extended_Features(Packet):
+    """
+    7.4.4 Read Local Extended Features command complete
+    """
+    name = 'Read Local Extended Features command complete'
+    fields_desc = [
+        ByteField('page', 0x00),
+        ByteField('max_page', 0x00),
+        XLELongField('extended_features', 0)
+    ]
+
+
 class HCI_Cmd_Complete_Read_BD_Addr(Packet):
+    """
+    7.4.6 Read BD_ADDR command complete
+    """
     name = "Read BD Addr"
     fields_desc = [LEMACField("addr", None), ]
 
@@ -2160,12 +2251,15 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Mask, ogf=0x03, ocf=0x0001)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Reset, ogf=0x03, ocf=0x0003)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Filter, ogf=0x03, ocf=0x0005)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Local_Name, ogf=0x03, ocf=0x0013)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Local_Name, ogf=0x03, ocf=0x0014)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Connect_Accept_Timeout, ogf=0x03, ocf=0x0016)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Extended_Inquiry_Response, ogf=0x03, ocf=0x0052)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_LE_Host_Support, ogf=0x03, ocf=0x006c)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_LE_Host_Support, ogf=0x03, ocf=0x006d)
 
 # 7.4 INFORMATIONAL PARAMETERS, the OGF is defined as 0x04
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Local_Version_Information, ogf=0x04, ocf=0x0001)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Local_Extended_Features, ogf=0x04, ocf=0x0004)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_BD_Addr, ogf=0x04, ocf=0x0009)
 
 # 7.5 STATUS PARAMETERS, the OGF is defined as 0x05
@@ -2220,6 +2314,9 @@ bind_layers(HCI_Event_Hdr, HCI_Event_Extended_Inquiry_Result, code=0x2f)
 bind_layers(HCI_Event_Hdr, HCI_Event_IO_Capability_Response, code=0x32)
 bind_layers(HCI_Event_Hdr, HCI_Event_LE_Meta, code=0x3e)
 
+bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_Local_Name, opcode=0x0c14)  # noqa: E501
+bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_Local_Version_Information, opcode=0x1001)  # noqa: E501
+bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_Local_Extended_Features, opcode=0x1004)  # noqa: E501
 bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_BD_Addr, opcode=0x1009)  # noqa: E501
 bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_LE_Read_White_List_Size, opcode=0x200f)  # noqa: E501
 
@@ -2231,13 +2328,22 @@ bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=5)
 bind_layers(EIR_Hdr, EIR_Flags, type=0x01)
 bind_layers(EIR_Hdr, EIR_IncompleteList16BitServiceUUIDs, type=0x02)
 bind_layers(EIR_Hdr, EIR_CompleteList16BitServiceUUIDs, type=0x03)
+bind_layers(EIR_Hdr, EIR_IncompleteList32BitServiceUUIDs, type=0x04)
+bind_layers(EIR_Hdr, EIR_CompleteList32BitServiceUUIDs, type=0x05)
 bind_layers(EIR_Hdr, EIR_IncompleteList128BitServiceUUIDs, type=0x06)
 bind_layers(EIR_Hdr, EIR_CompleteList128BitServiceUUIDs, type=0x07)
 bind_layers(EIR_Hdr, EIR_ShortenedLocalName, type=0x08)
 bind_layers(EIR_Hdr, EIR_CompleteLocalName, type=0x09)
 bind_layers(EIR_Hdr, EIR_Device_ID, type=0x10)
 bind_layers(EIR_Hdr, EIR_TX_Power_Level, type=0x0a)
+bind_layers(EIR_Hdr, EIR_ClassOfDevice, type=0x0d)
+bind_layers(EIR_Hdr, EIR_SecureSimplePairingHashC192, type=0x0e)
+bind_layers(EIR_Hdr, EIR_SecureSimplePairingRandomizerR192, type=0x0f)
+bind_layers(EIR_Hdr, EIR_SecurityManagerOOBFlags, type=0x11)
+bind_layers(EIR_Hdr, EIR_PeripheralConnectionIntervalRange, type=0x12)
 bind_layers(EIR_Hdr, EIR_ServiceData16BitUUID, type=0x16)
+bind_layers(EIR_Hdr, EIR_ServiceData32BitUUID, type=0x20)
+bind_layers(EIR_Hdr, EIR_ServiceData128BitUUID, type=0x21)
 bind_layers(EIR_Hdr, EIR_Manufacturer_Specific_Data, type=0xff)
 bind_layers(EIR_Hdr, EIR_Raw)
 

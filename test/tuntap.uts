@@ -80,8 +80,7 @@ if not LINUX:
 
 import subprocess
 
-iface = resolve_iface("tun0")  # test TunTapInterface on NetworkInterface
-tun0 = TunTapInterface(iface, strip_packet_info=False)
+tun0 = TunTapInterface("tun0", strip_packet_info=False)
 
 assert subprocess.check_call(["ip", "link", "set", "tun0", "up"]) == 0
 assert subprocess.check_call([

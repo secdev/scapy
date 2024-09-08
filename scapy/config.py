@@ -965,7 +965,7 @@ class Conf(ConfClass):
     #: holds the Scapy interface list and manager
     ifaces = None  # type: 'scapy.interfaces.NetworkInterfaceDict'
     #: holds the cache of interfaces loaded from Libpcap
-    cache_pcapiflist = {}  # type: Dict[str, Tuple[str, List[str], Any, str]]
+    cache_pcapiflist = {}  # type: Dict[str, Tuple[str, List[str], Any, str, int]]
     # `neighbor` will be filed by scapy.layers.l2
     neighbor = None  # type: 'scapy.layers.l2.Neighbor'
     #: holds the name servers IP/hosts used for custom DNS resolution
@@ -1111,7 +1111,7 @@ class Conf(ConfClass):
     #: When TCPSession is used, parse DCE/RPC sessions automatically.
     #: This should be used for passive sniffing.
     dcerpc_session_enable = False
-    #: If a capture is missing the first DCE/RPC bindin message, we might incorrectly
+    #: If a capture is missing the first DCE/RPC binding message, we might incorrectly
     #: assume that header signing isn't used. This forces it on.
     dcerpc_force_header_signing = False
     #: Windows SSPs for sniffing. This is used with

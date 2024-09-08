@@ -314,7 +314,7 @@ class LatexTheme(FormatTheme):
         styler = super(LatexTheme, self).__getattr__(attr)
         return cast(
             _ColorFormatterType,
-            lambda x, *args, **kwargs: styler(tex_escape(x), *args, **kwargs),
+            lambda x, *args, **kwargs: styler(tex_escape(str(x)), *args, **kwargs),
         )
 
 

@@ -16,7 +16,7 @@ assert pkt[DTP].tlvlist[3].status == b'\x03'
 
 = Test negotiate_trunk
 
-import mock
+from unittest import mock
 
 def test_pkt(pkt):
     pkt = Ether(raw(pkt))

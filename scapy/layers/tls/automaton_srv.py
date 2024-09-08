@@ -30,17 +30,28 @@ from scapy.utils import get_temp_file, randstring, repr_hex
 from scapy.automaton import ATMT
 from scapy.error import warning
 from scapy.layers.tls.automaton import _TLSAutomaton
-from scapy.layers.tls.cert import PrivKeyRSA, PrivKeyECDSA
+from scapy.layers.tls.cert import PrivKeyRSA, PrivKeyECDSA, PrivKeyEdDSA
 from scapy.layers.tls.basefields import _tls_version
 from scapy.layers.tls.session import tlsSession
 from scapy.layers.tls.crypto.groups import _tls_named_groups
-from scapy.layers.tls.extensions import TLS_Ext_SupportedVersion_SH, \
-    TLS_Ext_SupportedGroups, TLS_Ext_Cookie, \
-    TLS_Ext_SignatureAlgorithms, TLS_Ext_PSKKeyExchangeModes, \
-    TLS_Ext_EarlyDataIndicationTicket
-from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_SH, \
-    KeyShareEntry, TLS_Ext_KeyShare_HRR, TLS_Ext_PreSharedKey_CH, \
-    TLS_Ext_PreSharedKey_SH
+from scapy.layers.tls.extensions import (
+    TLS_Ext_Cookie,
+    TLS_Ext_EarlyDataIndicationTicket,
+    TLS_Ext_PSKKeyExchangeModes,
+    TLS_Ext_RenegotiationInfo,
+    TLS_Ext_SignatureAlgorithms,
+    TLS_Ext_SupportedGroups,
+    TLS_Ext_SupportedVersion_SH,
+)
+from scapy.layers.tls.keyexchange import _tls_hash_sig
+from scapy.layers.tls.keyexchange_tls13 import (
+    TLS_Ext_KeyShare_SH,
+    KeyShareEntry,
+    TLS_Ext_KeyShare_HRR,
+    TLS_Ext_PreSharedKey_CH,
+    TLS_Ext_PreSharedKey_SH,
+    get_usable_tls13_sigalgs,
+)
 from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, TLSFinished, \
     TLSServerHello, TLSServerHelloDone, TLSServerKeyExchange, \
@@ -55,8 +66,17 @@ from scapy.layers.tls.record import TLSAlert, TLSChangeCipherSpec, \
     TLSApplicationData
 from scapy.layers.tls.record_tls13 import TLS13
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
-from scapy.layers.tls.crypto.suites import _tls_cipher_suites_cls, \
-    get_usable_ciphersuites
+from scapy.layers.tls.crypto.suites import (
+    _tls_cipher_suites_cls,
+    _tls_cipher_suites,
+    get_usable_ciphersuites,
+)
+
+# Typing imports
+from typing import (
+    Optional,
+    Union,
+)
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
@@ -89,7 +109,8 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     def parse_args(self, server="127.0.0.1", sport=4433,
                    mycert=None, mykey=None,
-                   preferred_ciphersuite=None,
+                   preferred_ciphersuite: Optional[int] = None,
+                   preferred_signature_algorithm: Union[str, int, None] = None,
                    client_auth=False,
                    is_echo_server=True,
                    max_client_idle_time=60,
@@ -120,36 +141,65 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.remote_ip = None
         self.remote_port = None
 
-        self.preferred_ciphersuite = preferred_ciphersuite
         self.client_auth = client_auth
         self.is_echo_server = is_echo_server
         self.max_client_idle_time = max_client_idle_time
         self.curve = None
+        self.preferred_ciphersuite = None
+        self.preferred_signature_algorithm = None
         self.cookie = cookie
         self.psk_secret = psk
         self.psk_mode = psk_mode
+
         if handle_session_ticket is None:
             handle_session_ticket = session_ticket_file is not None
         if handle_session_ticket:
             session_ticket_file = session_ticket_file or get_temp_file()
         self.handle_session_ticket = handle_session_ticket
         self.session_ticket_file = session_ticket_file
-        for (group_id, ng) in _tls_named_groups.items():
-            if ng == curve:
-                self.curve = group_id
+
+        if preferred_ciphersuite is not None:
+            if preferred_ciphersuite in _tls_cipher_suites:
+                self.preferred_ciphersuite = preferred_ciphersuite
+            else:
+                self.vprint("Unrecognized cipher suite.")
+
+        if preferred_signature_algorithm is not None:
+            if preferred_signature_algorithm in _tls_hash_sig:
+                self.preferred_signature_algorithm = preferred_signature_algorithm
+            else:
+                for (sig_id, nc) in _tls_hash_sig.items():
+                    if nc == preferred_signature_algorithm:
+                        self.preferred_signature_algorithm = sig_id
+                        break
+                else:
+                    self.vprint("Unrecognized signature algorithm.")
+
+        if curve:
+            for (group_id, ng) in _tls_named_groups.items():
+                if ng == curve:
+                    self.curve = group_id
+                    break
+            else:
+                self.vprint("Unrecognized curve.")
 
     def vprint_sessioninfo(self):
         if self.verbose:
             s = self.cur_session
             v = _tls_version[s.tls_version]
-            self.vprint("Version       : %s" % v)
+            self.vprint("Version            : %s" % v)
             cs = s.wcs.ciphersuite.name
-            self.vprint("Cipher suite  : %s" % cs)
+            self.vprint("Cipher suite       : %s" % cs)
+            kx_groupname = s.kx_group
+            self.vprint("Server temp key    : %s" % kx_groupname)
+            if s.tls_version >= 0x0304:
+                sigalg = _tls_hash_sig[s.selected_sig_alg]
+                self.vprint("Negotiated sig_alg : %s" % sigalg)
             if s.tls_version < 0x0304:
                 ms = s.master_secret
             else:
                 ms = s.tls13_master_secret
-            self.vprint("Master secret : %s" % repr_hex(ms))
+            self.vprint("Master secret      : %s" % repr_hex(ms))
             if s.client_certs:
                 self.vprint("Client certificate chain: %r" % s.client_certs)
 
@@ -273,6 +323,13 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.raise_on_packet(TLSClientHello,
                              self.HANDLED_CLIENTHELLO)
 
+    @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=3)
+    def tls13_should_handle_ChangeCipherSpec_after_tls13_retry(self):
+        # Middlebox compatibility mode after a HelloRetryRequest.
+        if self.cur_session.tls13_retry:
+            self.raise_on_packet(TLSChangeCipherSpec,
+                                 self.RECEIVED_CLIENTFLIGHT1)
+
     @ATMT.state()
     def HANDLED_CLIENTHELLO(self):
         """
@@ -282,6 +339,8 @@ class TLSServerAutomaton(_TLSAutomaton):
             kx = "RSA"
         elif isinstance(self.mykey, PrivKeyECDSA):
             kx = "ECDSA"
+        elif isinstance(self.mykey, PrivKeyEdDSA):
+            kx = ""
         if get_usable_ciphersuites(self.cur_pkt.ciphers, kx):
             raise self.PREPARE_SERVERFLIGHT1()
         raise self.NO_USABLE_CIPHERSUITE()
@@ -309,18 +368,22 @@ class TLSServerAutomaton(_TLSAutomaton):
         """
         Selecting a cipher suite should be no trouble as we already caught
         the None case previously.
-
-        Also, we do not manage extensions at all.
         """
         if isinstance(self.mykey, PrivKeyRSA):
             kx = "RSA"
         elif isinstance(self.mykey, PrivKeyECDSA):
             kx = "ECDSA"
+        elif isinstance(self.mykey, PrivKeyEdDSA):
+            kx = ""
         usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
         c = usable_suites[0]
         if self.preferred_ciphersuite in usable_suites:
             c = self.preferred_ciphersuite
-        self.add_msg(TLSServerHello(cipher=c))
+
+        # Some extensions
+        ext = [TLS_Ext_RenegotiationInfo()]
+
+        self.add_msg(TLSServerHello(cipher=c, ext=ext))
         raise self.ADDED_SERVERHELLO()
 
     @ATMT.state()
@@ -568,6 +631,12 @@ class TLSServerAutomaton(_TLSAutomaton):
                         if self.curve in e.groups:
                             # Here, we need to send an HelloRetryRequest
                             raise self.tls13_PREPARE_HELLORETRYREQUEST()
+
+        # Signature Algorithms extension is mandatory
+        if not s.advertised_sig_algs:
+            self.vprint("Missing signature_algorithms extension in ClientHello!")
+            raise self.CLOSE_NOTIFY()
+
         raise self.tls13_PREPARE_SERVERFLIGHT1()
 
     @ATMT.state()
@@ -581,6 +650,8 @@ class TLSServerAutomaton(_TLSAutomaton):
             kx = "RSA"
         elif isinstance(self.mykey, PrivKeyECDSA):
             kx = "ECDSA"
+        elif isinstance(self.mykey, PrivKeyEdDSA):
+            kx = ""
         usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
         c = usable_suites[0]
         ext = [TLS_Ext_SupportedVersion_SH(version="TLS 1.3"),
@@ -721,6 +792,8 @@ class TLSServerAutomaton(_TLSAutomaton):
             kx = "RSA"
         elif isinstance(self.mykey, PrivKeyECDSA):
             kx = "ECDSA"
+        elif isinstance(self.mykey, PrivKeyEdDSA):
+            kx = ""
         usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
         c = usable_suites[0]
         group = next(iter(self.cur_session.tls13_client_pubshares))
@@ -818,6 +891,22 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.condition(tls13_ADDED_CERTIFICATE)
     def tls13_should_add_CertificateVerifiy(self):
         if not self.cur_session.tls13_psk_secret:
+            # If we have a preferred signature algorithm, and the client supports
+            # it, use that.
+            if self.cur_session.advertised_sig_algs:
+                usable_sigalgs = get_usable_tls13_sigalgs(
+                    self.cur_session.advertised_sig_algs,
+                    self.mykey,
+                    location="certificateverify",
+                )
+                if not usable_sigalgs:
+                    self.vprint("No usable signature algorithm!")
+                    raise self.CLOSE_NOTIFY()
+                pref_alg = self.preferred_signature_algorithm
+                if pref_alg in usable_sigalgs:
+                    self.cur_session.selected_sig_alg = pref_alg
+                else:
+                    self.cur_session.selected_sig_alg = usable_sigalgs[0]
             self.add_msg(TLSCertificateVerify())
         raise self.tls13_ADDED_CERTIFICATEVERIFY()
 

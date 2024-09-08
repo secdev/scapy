@@ -8,12 +8,22 @@
 # scapy.contrib.description = Diagnostic over IP (DoIP) / ISO 13400
 # scapy.contrib.status = loads
 
-import struct
 import socket
-import time
 import ssl
+import struct
+import time
+from typing import (
+    Any,
+    Union,
+    Tuple,
+    Optional,
+    Dict,
+    Type,
+)
 
 from scapy.contrib.automotive import log_automotive
+from scapy.contrib.automotive.uds import UDS
+from scapy.data import MTU
 from scapy.fields import (
     ByteEnumField,
     ConditionalField,
@@ -27,18 +37,9 @@ from scapy.fields import (
     XShortField,
     XStrField,
 )
+from scapy.layers.inet import TCP, UDP
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.supersocket import StreamSocket, SSLStreamSocket
-from scapy.layers.inet import TCP, UDP
-from scapy.contrib.automotive.uds import UDS
-from scapy.data import MTU
-
-from typing import (
-    Any,
-    Union,
-    Tuple,
-    Optional,
-)
 
 
 # ISO 13400-2 sect 9.2
@@ -256,9 +257,17 @@ class DoIP(Packet):
     def extract_padding(self, s):
         # type: (bytes) -> Tuple[bytes, Optional[bytes]]
         if self.payload_type == 0x8001:
-            return s[:self.payload_length - 4], None
+            return s[:self.payload_length - 4], s[self.payload_length - 4:]
         else:
-            return b"", None
+            return b"", s
+
+    @classmethod
+    def tcp_reassemble(cls, data, metadata, session):
+        # type: (bytes, Dict[str, Any], Dict[str, Any]) -> Optional[Packet]
+        length = struct.unpack("!I", data[4:8])[0] + 8
+        if len(data) >= length:
+            return DoIP(data)
+        return None
 
 
 bind_bottom_up(UDP, DoIP, sport=13400)
@@ -271,7 +280,37 @@ bind_layers(TCP, DoIP, dport=13400)
 bind_layers(DoIP, UDS, payload_type=0x8001)
 
 
-class DoIPSocket(SSLStreamSocket):
+class DoIPSSLStreamSocket(SSLStreamSocket):
+    """Custom SSLStreamSocket for DoIP communication.
+    """
+
+    def __init__(self, sock, basecls=None):
+        # type: (socket.socket, Optional[Type[Packet]]) -> None
+        super(DoIPSSLStreamSocket, self).__init__(sock, basecls or DoIP)
+        self.buffer = b""
+
+    def recv(self, x=MTU, **kwargs):
+        # type: (Optional[int], **Any) -> Optional[Packet]
+        if len(self.buffer) < 8:
+            self.buffer += self.ins.recv(8)
+        if len(self.buffer) < 8:
+            return None
+        len_data = self.buffer[:8]
+
+        len_int = struct.unpack(">I", len_data[4:8])[0]
+        len_int += 8
+
+        self.buffer += self.ins.recv(len_int - len(self.buffer))
+        if len(self.buffer) < len_int:
+            return None
+        pktbuf = self.buffer[:len_int]
+        self.buffer = self.buffer[len_int:]
+
+        pkt = self.basecls(pktbuf, **kwargs)  # type: Packet
+        return pkt
+
+
+class DoIPSocket(DoIPSSLStreamSocket):
     """Socket for DoIP communication. This sockets automatically
     sends a routing activation request as soon as a TCP or TLS connection is
     established.
@@ -319,7 +358,6 @@ class DoIPSocket(SSLStreamSocket):
         self.target_address = target_address
         self.activation_type = activation_type
         self.reserved_oem = reserved_oem
-        self.buffer = b""
         self.force_tls = force_tls
         self.context = context
         try:
@@ -327,26 +365,6 @@ class DoIPSocket(SSLStreamSocket):
         except Exception:
             self.close()
             raise
-
-    def recv(self, x=MTU, **kwargs):
-        # type: (Optional[int], **Any) -> Optional[Packet]
-        if len(self.buffer) < 8:
-            self.buffer += self.ins.recv(8)
-        if len(self.buffer) < 8:
-            return None
-        len_data = self.buffer[:8]
-
-        len_int = struct.unpack(">I", len_data[4:8])[0]
-        len_int += 8
-
-        self.buffer += self.ins.recv(len_int - len(self.buffer))
-        if len(self.buffer) < len_int:
-            return None
-        pktbuf = self.buffer[:len_int]
-        self.buffer = self.buffer[len_int:]
-
-        pkt = self.basecls(pktbuf, **kwargs)  # type: Packet
-        return pkt
 
     def _init_socket(self, sock_family=socket.AF_INET):
         # type: (int) -> None
@@ -360,7 +378,7 @@ class DoIPSocket(SSLStreamSocket):
             addrinfo = socket.getaddrinfo(self.ip, self.port, proto=socket.IPPROTO_TCP)
             s.connect(addrinfo[0][-1])
             connected = True
-            SSLStreamSocket.__init__(self, s, DoIP)
+            DoIPSSLStreamSocket.__init__(self, s)
 
             if not self.activate_routing:
                 return
@@ -389,7 +407,7 @@ class DoIPSocket(SSLStreamSocket):
             addrinfo = socket.getaddrinfo(
                 self.ip, self.tls_port, proto=socket.IPPROTO_TCP)
             ss.connect(addrinfo[0][-1])
-            SSLStreamSocket.__init__(self, ss, DoIP)
+            DoIPSSLStreamSocket.__init__(self, ss)
 
             if not self.activate_routing:
                 return

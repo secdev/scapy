@@ -63,10 +63,57 @@ if exit_status == 0:
 else:
     assert True
 
+
+= Test scoped interface addresses
+~ linux needs_root
+
+import os
+exit_status = os.system("ip link add name scapy0 type dummy")
+exit_status = os.system("ip link add name scapy1 type dummy")
+exit_status |= os.system("ip addr add 192.0.2.1/24 dev scapy0")
+exit_status |= os.system("ip addr add 192.0.3.1/24 dev scapy1")
+exit_status |= os.system("ip link set scapy0 address 00:01:02:03:04:05 multicast on up")
+exit_status |= os.system("ip link set scapy1 address 06:07:08:09:10:11 multicast on up")
+assert exit_status == 0
+
+conf.ifaces.reload()
+conf.route.resync()
+conf.route6.resync()
+
+conf.route6
+
+try:
+    # IPv4
+    a = Ether()/IP(dst="224.0.0.1%scapy0")
+    assert a[Ether].src == "00:01:02:03:04:05"
+    assert a[IP].src == "192.0.2.1"
+    b = Ether()/IP(dst="224.0.0.1%scapy1")
+    assert b[Ether].src == "06:07:08:09:10:11"
+    assert b[IP].src == "192.0.3.1"
+    c = Ether()/IP(dst="224.0.0.1/24%scapy1")
+    assert c[Ether].src == "06:07:08:09:10:11"
+    assert c[IP].src == "192.0.3.1"
+    # IPv6
+    a = Ether()/IPv6(dst="ff02::fb%scapy0")
+    assert a[Ether].src == "00:01:02:03:04:05"
+    assert a[IPv6].src == "fe80::201:2ff:fe03:405"
+    b = Ether()/IPv6(dst="ff02::fb%scapy1")
+    assert b[Ether].src == "06:07:08:09:10:11"
+    assert b[IPv6].src == "fe80::407:8ff:fe09:1011"
+    c = Ether()/IPv6(dst="ff02::fb/30%scapy1")
+    assert c[Ether].src == "06:07:08:09:10:11"
+    assert c[IPv6].src == "fe80::407:8ff:fe09:1011"
+finally:
+    exit_status = os.system("ip link del scapy0")
+    exit_status = os.system("ip link del scapy1")
+    conf.ifaces.reload()
+    conf.route.resync()
+    conf.route6.resync()
+
 = catch loopback device missing
 ~ linux needs_root
 
-from mock import patch
+from unittest.mock import patch
 
 # can't remove the lo device (or its address without causing trouble) - use some pseudo dummy instead
 
@@ -77,7 +124,7 @@ with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo_x'):
 ~ linux needs_root
 
 import os, socket
-from mock import patch
+from unittest.mock import patch
 
 try:
     exit_status = os.system("ip link add name scapy_lo type dummy")
@@ -116,7 +163,7 @@ finally:
 
 conf.ifaces._add_fake_iface("scapy0", 'e2:39:91:79:19:10')
 
-from mock import patch
+from unittest.mock import patch
 conf.route6.routes =  [('fe80::', 64, '::', 'scapy0', ['fe80::e039:91ff:fe79:1910'], 256)]
 conf.route6.ipv6_ifaces = set(['scapy0'])
 bck_conf_iface = conf.iface
@@ -274,7 +321,7 @@ except Exception:
 = Routing table, interface with no names
 ~ linux
 
-from mock import patch
+from unittest.mock import patch
 
 @patch("scapy.arch.linux.ioctl")
 def test_read_routes(mock_ioctl):
@@ -293,7 +340,8 @@ test_read_routes()
 
 from scapy.arch.linux import L3PacketSocket
 
-import mock, socket
+import socket
+from unittest import mock
 
 @mock.patch("scapy.arch.linux.socket.socket.sendto")
 def test_L3PacketSocket_sendto_python3(mock_sendto):
@@ -309,7 +357,7 @@ assert test_L3PacketSocket_sendto_python3()
 
 import os
 from scapy.sendrecv import _interface_selection
-assert _interface_selection(None, IP(dst="8.8.8.8")/UDP()) == (conf.iface, False)
+assert _interface_selection(IP(dst="8.8.8.8")/UDP()) == (conf.iface, False)
 exit_status = os.system("ip link add name scapy0 type dummy")
 exit_status = os.system("ip addr add 192.0.2.1/24 dev scapy0")
 exit_status = os.system("ip addr add fc00::/24 dev scapy0")
@@ -317,59 +365,49 @@ exit_status = os.system("ip link set scapy0 up")
 conf.ifaces.reload()
 conf.route.resync()
 conf.route6.resync()
-assert _interface_selection(None, IP(dst="192.0.2.42")/UDP()) == ("scapy0", False)
-assert _interface_selection(None, IPv6(dst="fc00::ae0d")/UDP()) == ("scapy0", True)
+assert _interface_selection(IP(dst="192.0.2.42")/UDP()) == ("scapy0", False)
+assert _interface_selection(IPv6(dst="fc00::ae0d")/UDP()) == ("scapy0", True)
 exit_status = os.system("ip link del name dev scapy0")
 conf.ifaces.reload()
 conf.route.resync()
 conf.route6.resync()
 
-= Test 802.Q sniffing
+= Test 802.1Q sniffing
 ~ linux needs_root veth
 
+from scapy.arch.linux import VEthPair
 from threading import Thread, Condition
 
-veth = VEthPair("left0", "right0")
-veth.setup()
-veth.up()
-exit_status = os.system("ip link add link right0 name vlanright0 type vlan id 42")
-exit_status = os.system("ip link add link left0 name vlanleft0 type vlan id 42")
-exit_status = os.system("ip link set vlanright0 up")
-exit_status = os.system("ip link set vlanleft0 up")
-exit_status = os.system("ip addr add 198.51.100.1/24 dev vlanleft0")
-exit_status = os.system("ip addr add 198.51.100.2/24 dev vlanright0")
+def _send():
+    sendp(Ether()/IP(dst="198.51.100.2")/ICMP(), iface='vlanleft0', count=2)
 
-cond_started = Condition()
 
-def _sniffer_started():
+with VEthPair("left0", "right0") as veth:
+    exit_status = os.system("ip link add link right0 name vlanright0 type vlan id 42")
+    exit_status = os.system("ip link add link left0 name vlanleft0 type vlan id 42")
+    exit_status = os.system("ip link set vlanright0 up")
+    exit_status = os.system("ip link set vlanleft0 up")
+    exit_status = os.system("ip addr add 198.51.100.1/24 dev vlanleft0")
+    exit_status = os.system("ip addr add 198.51.100.2/24 dev vlanright0")
+    sniffer = AsyncSniffer(
+        iface="right0",
+        lfilter=lambda p: Dot1Q in p,
+        count=2,
+        timeout=5,
+        started_callback=_send,
+    )
+    sniffer.start()
+    sniffer.join(1)
+    if sniffer.running:
+        sniffer.stop()
+        raise Scapy_Exception("Sniffer did not stop !")
+    else:
+        results = sniffer.results
 
-    global cond_started
-    cond_started.acquire()
-    cond_started.notify()
-    cond_started.release()
 
-cond_started.acquire()
+assert len(results) == 2
+assert all(Dot1Q in x for x in results)
 
-dot1q_count = 0
-
-def _sniffer():
-    sniffed = sniff(iface="right0",
-                    lfilter=lambda p: Dot1Q in p,
-                    count=2,
-                    timeout=5,
-                    started_callback=_sniffer_started)
-    global dot1q_count
-    dot1q_count = len(sniffed)
-
-t_sniffer = Thread(target=_sniffer, name="linux.uts sniff right0")
-t_sniffer.start()
-cond_started.wait()
-sendp(Ether()/IP(dst="198.51.100.2")/ICMP(), iface='vlanleft0', count=2)
-
-t_sniffer.join(1)
-assert dot1q_count == 2
-
-veth.destroy()
 
 = Reload interfaces & routes
 

@@ -26,6 +26,7 @@ from scapy.fields import (
 )
 from scapy.packet import Packet
 from scapy.layers.tls.extensions import TLS_Ext_Unknown, _tls_ext
+from scapy.layers.tls.cert import PrivKeyECDSA, PrivKeyRSA, PrivKeyEdDSA
 from scapy.layers.tls.crypto.groups import (
     _tls_named_curves,
     _tls_named_ffdh_groups,
@@ -37,6 +38,9 @@ from scapy.layers.tls.crypto.groups import (
 
 if conf.crypto_valid:
     from cryptography.hazmat.primitives.asymmetric import ec
+if conf.crypto_valid_advanced:
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+    from cryptography.hazmat.primitives.asymmetric import ed448
 
 
 class KeyShareEntry(Packet):
@@ -176,6 +180,7 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
                     else:
                         pms = privkey.exchange(ec.ECDH(), pubkey)
                 self.tls_session.tls13_dhe_secret = pms
+                self.tls_session.kx_group = group_name
         return super(TLS_Ext_KeyShare_SH, self).post_build(pkt, pay)
 
     def post_dissection(self, r):
@@ -199,6 +204,7 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
                     else:
                         pms = privkey.exchange(ec.ECDH(), pubkey)
                 self.tls_session.tls13_dhe_secret = pms
+                self.tls_session.kx_group = group_name
             elif group_name in self.tls_session.tls13_server_privshare:
                 pubkey = self.tls_session.tls13_client_pubshares[group_name]
                 privkey = self.tls_session.tls13_server_privshare[group_name]
@@ -210,6 +216,7 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
                     else:
                         pms = privkey.exchange(ec.ECDH(), pubkey)
                 self.tls_session.tls13_dhe_secret = pms
+                self.tls_session.kx_group = group_name
         return super(TLS_Ext_KeyShare_SH, self).post_dissection(r)
 
 
@@ -284,3 +291,69 @@ class TLS_Ext_PreSharedKey_SH(TLS_Ext_Unknown):
 
 _tls_ext_presharedkey_cls = {1: TLS_Ext_PreSharedKey_CH,
                              2: TLS_Ext_PreSharedKey_SH}
+
+
+# Util to find usable signature algorithms
+
+# TLS 1.3 SignatureScheme is a subset of _tls_hash_sig
+_tls13_usable_certificate_verify_algs = [
+    # ECDSA algorithms
+    0x0403, 0x0503, 0x0603,
+    # RSASSA-PSS algorithms with public key OID rsaEncryption
+    0x0804, 0x0805, 0x0806,
+    # EdDSA algorithms
+    0x0807, 0x0808,
+]
+
+_tls13_usable_certificate_signature_algs = [
+    # RSASSA-PKCS1-v1_5 algorithms
+    0x0401, 0x0501, 0x0601,
+    # ECDSA algorithms
+    0x0403, 0x0503, 0x0603,
+    # EdDSA algorithms
+    0x0807, 0x0808,
+    # RSASSA-PSS algorithms with public key OID RSASSA-PSS
+    0x0809, 0x080a, 0x080b,
+    # Legacy algorithms
+    0x0201, 0x0203,
+]
+
+
+def get_usable_tls13_sigalgs(li, key, location="certificateverify"):
+    """
+    From a list of proposed signature algorithms, this function returns a list of
+    usable signature algorithms.
+    The order of the signature algorithms in the list returned by the
+    function matches the one of the proposal.
+    """
+    from scapy.layers.tls.keyexchange import _tls_hash_sig
+    res = []
+    if isinstance(key, PrivKeyRSA):
+        kx = "rsa"
+    elif isinstance(key, PrivKeyECDSA):
+        kx = "ecdsa"
+    elif isinstance(key, PrivKeyEdDSA):
+        if isinstance(key.pubkey, ed25519.Ed25519PublicKey):
+            kx = "ed25519"
+        elif isinstance(key.pubkey, ed448.Ed448PublicKey):
+            kx = "ed448"
+        else:
+            kx = "unknown"
+    else:
+        return res
+    if location == "certificateverify":
+        algs = _tls13_usable_certificate_verify_algs
+    elif location == "certificatesignature":
+        algs = _tls13_usable_certificate_signature_algs
+    else:
+        return res
+    for c in li:
+        if c in algs:
+            sigalg = _tls_hash_sig[c]
+            if "+" in sigalg:
+                _, sig = sigalg.split('+')
+            else:
+                sig = sigalg
+            if kx in sig:
+                res.append(c)
+    return res

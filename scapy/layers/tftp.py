@@ -133,7 +133,13 @@ bind_layers(TFTP_WRQ, TFTP_Options)
 bind_layers(TFTP_OACK, TFTP_Options)
 
 
+# Automatons
+
 class TFTP_read(Automaton):
+    """
+    TFTP automaton to read a remote file on a TFTP server.
+    """
+
     def parse_args(self, filename, server, sport=None, port=69, **kargs):
         Automaton.parse_args(self, **kargs)
         self.filename = filename
@@ -221,6 +227,10 @@ class TFTP_read(Automaton):
 
 
 class TFTP_write(Automaton):
+    """
+    TFTP automaton to write a local file onto a TFTP server.
+    """
+
     def parse_args(self, filename, data, server, sport=None, port=69, **kargs):
         Automaton.parse_args(self, **kargs)
         self.filename = filename
@@ -301,6 +311,9 @@ class TFTP_write(Automaton):
 
 
 class TFTP_WRQ_server(Automaton):
+    """
+    TFTP automaton to wait for incoming files
+    """
 
     def parse_args(self, ip=None, sport=None, *args, **kargs):
         Automaton.parse_args(self, *args, **kargs)
@@ -378,6 +391,10 @@ class TFTP_WRQ_server(Automaton):
 
 
 class TFTP_RRQ_server(Automaton):
+    """
+    TFTP automaton to serve local files
+    """
+
     def parse_args(self, store=None, joker=None, dir=None, ip=None, sport=None, serve_one=False, **kargs):  # noqa: E501
         Automaton.parse_args(self, **kargs)
         if store is None:
@@ -410,7 +427,7 @@ class TFTP_RRQ_server(Automaton):
     @ATMT.state()
     def RECEIVED_RRQ(self, pkt):
         ip = pkt[IP]
-        options = pkt[TFTP_Options]
+        options = pkt.getlayer(TFTP_Options)
         self.l3 = IP(src=ip.dst, dst=ip.src) / UDP(sport=self.my_tid, dport=ip.sport) / TFTP()  # noqa: E501
         self.filename = pkt[TFTP_RRQ].filename.decode("utf-8", "ignore")
         self.blk = 1

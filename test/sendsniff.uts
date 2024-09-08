@@ -276,7 +276,7 @@ with VEthPair('a_0', 'a_1') as veth_0:
 
 = Create a tap interface
 
-import mock
+from unittest import mock
 import struct
 import subprocess
 from threading import Thread
@@ -359,3 +359,39 @@ if conf.use_pypy:
     tap0.close()
 else:
     del tap0
+
+#####
+#####
++ Test sr() on multiple interfaces
+
+= Setup multiple linux interfaces and ranges
+~ linux needs_root dbg
+
+import os
+exit_status = os.system("ip netns add blob0")
+exit_status |= os.system("ip netns add blob1")
+exit_status |= os.system("ip link add name scapy0.0 type veth peer name scapy0.1")
+exit_status |= os.system("ip link add name scapy1.0 type veth peer name scapy1.1")
+exit_status |= os.system("ip link set scapy0.1 netns blob0 up")
+exit_status |= os.system("ip link set scapy1.1 netns blob1 up")
+exit_status |= os.system("ip addr add 100.64.2.1/24 dev scapy0.0")
+exit_status |= os.system("ip addr add 100.64.3.1/24 dev scapy1.0")
+exit_status |= os.system("ip --netns blob0 addr add 100.64.2.2/24 dev scapy0.1")
+exit_status |= os.system("ip --netns blob1 addr add 100.64.3.2/24 dev scapy1.1")
+exit_status |= os.system("ip link set scapy0.0 up")
+exit_status |= os.system("ip link set scapy1.0 up")
+assert exit_status == 0
+
+conf.ifaces.reload()
+conf.route.resync()
+
+try:
+    pkts = sr(IP(dst=["100.64.2.2", "100.64.3.2"])/ICMP(), timeout=1)[0]
+    assert len(pkts) == 2
+    assert pkts[0].answer.src in ["100.64.2.2", "100.64.3.2"]
+    assert pkts[1].answer.src in ["100.64.2.2", "100.64.3.2"]
+finally:
+    e = os.system("ip netns del blob0")
+    e = os.system("ip netns del blob1")
+    conf.ifaces.reload()
+    conf.route.resync()

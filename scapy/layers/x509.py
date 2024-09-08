@@ -14,16 +14,36 @@ from scapy.asn1.mib import conf  # loads conf.mib
 from scapy.asn1.asn1 import ASN1_Codecs, ASN1_OID, \
     ASN1_IA5_STRING, ASN1_NULL, ASN1_PRINTABLE_STRING, \
     ASN1_UTC_TIME, ASN1_UTF8_STRING
-from scapy.asn1.ber import BER_tagging_dec, BER_Decoding_Error
 from scapy.asn1packet import ASN1_Packet
-from scapy.asn1fields import ASN1F_BIT_STRING, ASN1F_BIT_STRING_ENCAPS, \
-    ASN1F_BMP_STRING, ASN1F_BOOLEAN, ASN1F_CHOICE, ASN1F_ENUMERATED, \
-    ASN1F_FLAGS, ASN1F_GENERALIZED_TIME, ASN1F_IA5_STRING, ASN1F_INTEGER, \
-    ASN1F_ISO646_STRING, ASN1F_NULL, ASN1F_OID, ASN1F_PACKET, \
-    ASN1F_PRINTABLE_STRING, ASN1F_SEQUENCE, ASN1F_SEQUENCE_OF, ASN1F_SET_OF, \
-    ASN1F_STRING, ASN1F_T61_STRING, ASN1F_UNIVERSAL_STRING, ASN1F_UTC_TIME, \
-    ASN1F_UTF8_STRING, ASN1F_badsequence, ASN1F_enum_INTEGER, ASN1F_field, \
-    ASN1F_optional
+from scapy.asn1fields import (
+    ASN1F_BIT_STRING_ENCAPS,
+    ASN1F_BIT_STRING,
+    ASN1F_BMP_STRING,
+    ASN1F_BOOLEAN,
+    ASN1F_CHOICE,
+    ASN1F_enum_INTEGER,
+    ASN1F_ENUMERATED,
+    ASN1F_field,
+    ASN1F_FLAGS,
+    ASN1F_GENERALIZED_TIME,
+    ASN1F_IA5_STRING,
+    ASN1F_INTEGER,
+    ASN1F_ISO646_STRING,
+    ASN1F_NULL,
+    ASN1F_OID,
+    ASN1F_optional,
+    ASN1F_PACKET,
+    ASN1F_PRINTABLE_STRING,
+    ASN1F_SEQUENCE_OF,
+    ASN1F_SEQUENCE,
+    ASN1F_SET_OF,
+    ASN1F_STRING_PacketField,
+    ASN1F_STRING,
+    ASN1F_T61_STRING,
+    ASN1F_UNIVERSAL_STRING,
+    ASN1F_UTC_TIME,
+    ASN1F_UTF8_STRING,
+)
 from scapy.packet import Packet
 from scapy.fields import PacketField, MultipleTypeField
 from scapy.volatile import ZuluTime, GeneralizedTime
@@ -160,6 +180,35 @@ class ECDSASignature(ASN1_Packet):
         ASN1F_INTEGER("s", 0))
 
 
+####################################
+#      x25519/x448 packets         #
+####################################
+# based on RFC 8410
+
+class EdDSAPublicKey(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_BIT_STRING("ecPoint", "")
+
+
+class AlgorithmIdentifier(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_OID("algorithm", None),
+    )
+
+
+class EdDSAPrivateKey(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_enum_INTEGER("version", 1, {1: "ecPrivkeyVer1"}),
+        ASN1F_PACKET("privateKeyAlgorithm", AlgorithmIdentifier(), AlgorithmIdentifier),
+        ASN1F_STRING("privateKey", ""),
+        ASN1F_optional(
+            ASN1F_PACKET("publicKey", None,
+                         ECDSAPublicKey,
+                         explicit_tag=0xa1)))
+
+
 ######################
 #    X509 packets    #
 ######################
@@ -216,7 +265,16 @@ class X509_OtherName(ASN1_Packet):
         ASN1F_CHOICE("value", None,
                      ASN1F_IA5_STRING, ASN1F_ISO646_STRING,
                      ASN1F_BMP_STRING, ASN1F_UTF8_STRING,
+                     ASN1F_STRING,
                      explicit_tag=0xa0))
+
+
+class ASN1F_X509_otherName(ASN1F_SEQUENCE):
+    # field version of X509_OtherName, for usage in [MS-WCCE]
+    def __init__(self, **kargs):
+        seq = [ASN1F_SEQUENCE(*X509_OtherName.ASN1_root.seq,
+                              implicit_tag=0xA0)]
+        ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
 
 
 class X509_RFC822Name(ASN1_Packet):
@@ -662,9 +720,16 @@ class X509_ExtComment(ASN1_Packet):
                              ASN1F_BMP_STRING, ASN1F_UTF8_STRING)
 
 
-class X509_ExtDefault(ASN1_Packet):
+class X509_ExtCertificateTemplateName(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_field("value", None)
+    ASN1_root = ASN1F_BMP_STRING("Name", b"")
+
+
+class X509_ExtOidNTDSCaSecurity(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_X509_otherName()
+    type_id = ASN1_OID("1.3.6.1.4.1.311.25.2.1")
+    value = ASN1_UTF8_STRING("")
 
 
 # oid-info.com shows that some extensions share multiple OIDs.
@@ -694,50 +759,34 @@ _ext_mapping = {
     "2.5.29.54": X509_ExtInhibitAnyPolicy,
     "2.16.840.1.113730.1.1": X509_ExtNetscapeCertType,
     "2.16.840.1.113730.1.13": X509_ExtComment,
+    "1.3.6.1.4.1.311.20.2": X509_ExtCertificateTemplateName,
+    "1.3.6.1.4.1.311.25.2": X509_ExtOidNTDSCaSecurity,
     "1.3.6.1.5.5.7.1.1": X509_ExtAuthInfoAccess,
     "1.3.6.1.5.5.7.1.3": X509_ExtQcStatements,
     "1.3.6.1.5.5.7.1.11": X509_ExtSubjInfoAccess
 }
 
 
+class _X509_ExtField(ASN1F_STRING_PacketField):
+    def m2i(self, pkt, s):
+        val = super(_X509_ExtField, self).m2i(pkt, s)
+        if not val[0].val:
+            return val
+        if pkt.extnID.val in _ext_mapping:
+            return (
+                _ext_mapping[pkt.extnID.val](val[0].val, _underlayer=pkt),
+                val[1],
+            )
+        return val
+
+
 class ASN1F_EXT_SEQUENCE(ASN1F_SEQUENCE):
-    # We use explicit_tag=0x04 with extnValue as STRING encapsulation.
     def __init__(self, **kargs):
         seq = [ASN1F_OID("extnID", "2.5.29.19"),
                ASN1F_optional(
                    ASN1F_BOOLEAN("critical", False)),
-               ASN1F_PACKET("extnValue",
-                            X509_ExtBasicConstraints(),
-                            X509_ExtBasicConstraints,
-                            explicit_tag=0x04)]
+               _X509_ExtField("extnValue", X509_ExtBasicConstraints())]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
-
-    def dissect(self, pkt, s):
-        _, s = BER_tagging_dec(s, implicit_tag=self.implicit_tag,
-                               explicit_tag=self.explicit_tag,
-                               safe=self.flexible_tag)
-        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        i, s, remain = codec.check_type_check_len(s)
-        extnID = self.seq[0]
-        critical = self.seq[1]
-        try:
-            oid, s = extnID.m2i(pkt, s)
-            extnID.set_val(pkt, oid)
-            s = critical.dissect(pkt, s)
-            encapsed = X509_ExtDefault
-            if oid.val in _ext_mapping:
-                encapsed = _ext_mapping[oid.val]
-            self.seq[2].cls = encapsed
-            self.seq[2].cls.ASN1_root.flexible_tag = True
-            # there are too many private extensions not to be flexible here
-            self.seq[2].default = encapsed()
-            s = self.seq[2].dissect(pkt, s)
-            if not self.flexible_tag and len(s) > 0:
-                err_msg = "extension sequence length issue"
-                raise BER_Decoding_Error(err_msg, remaining=s)
-        except ASN1F_badsequence:
-            raise Exception("could not parse extensions")
-        return remain
 
 
 class X509_Extension(ASN1_Packet):
@@ -779,6 +828,10 @@ class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
                                      ECDSAPublicKey(),
                                      ECDSAPublicKey),
                         lambda pkt: "ecPublicKey" == pkt.signatureAlgorithm.algorithm.oidname),  # noqa: E501
+                       (ASN1F_PACKET("subjectPublicKey",
+                                     EdDSAPublicKey(),
+                                     EdDSAPublicKey),
+                        lambda pkt: pkt.signatureAlgorithm.algorithm.oidname in ["Ed25519", "Ed448"]),  # noqa: E501
                    ],
                    ASN1F_BIT_STRING("subjectPublicKey", ""))]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)

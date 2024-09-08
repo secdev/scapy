@@ -104,6 +104,8 @@ class StringBuffer(object):
         self.incomplete = []  # type: List[Tuple[int, int]]
 
     def append(self, data: bytes, seq: Optional[int] = None) -> None:
+        if not data:
+            return
         data_len = len(data)
         if seq is None:
             seq = self.content_len
@@ -136,7 +138,7 @@ class StringBuffer(object):
         # type: () -> bool
         # Should only be true when all missing data was filled up,
         # (or there never was missing data)
-        return True  # XXX
+        return bool(self)
 
     def clear(self):
         # type: () -> None
@@ -248,6 +250,8 @@ class TCPSession(IPSession):
     def _strip_padding(self, pkt: Packet) -> Optional[bytes]:
         """Strip the packet of any padding, and return the padding.
         """
+        if isinstance(pkt, conf.padding_layer):
+            return cast(bytes, pkt.load)
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
             # strip padding
@@ -273,16 +277,20 @@ class TCPSession(IPSession):
                 self.metadata["tcp_reassemble"] = tcp_reassemble = streamcls(cls)
             else:
                 return None
-            packet = tcp_reassemble(
-                bytes(self.data),
-                self.metadata,
-                self.session,
-            )
+            if self.data.full():
+                packet = tcp_reassemble(
+                    bytes(self.data),
+                    self.metadata,
+                    self.session,
+                )
             if packet:
                 padding = self._strip_padding(packet)
                 if padding:
                     # There is remaining data for the next payload.
                     self.data.shiftleft(len(self.data) - len(padding))
+                    # Skip full-padding
+                    if isinstance(packet, conf.padding_layer):
+                        return None
                 else:
                     # No padding (data) left. Clear
                     self.data.clear()
@@ -345,6 +353,7 @@ class TCPSession(IPSession):
         if data.full():
             # Reassemble using all previous packets
             metadata["original"] = pkt
+            metadata["ident"] = ident
             packet = tcp_reassemble(
                 bytes(data),
                 metadata,
@@ -358,17 +367,31 @@ class TCPSession(IPSession):
             metadata.clear()
             # Check for padding
             padding = self._strip_padding(packet)
-            if padding:
+            while padding:
                 # There is remaining data for the next payload.
                 full_length = data.content_len - len(padding)
                 metadata["relative_seq"] = relative_seq + full_length
                 data.shiftleft(full_length)
+                # There might be a sub-payload hidden in the padding
+                sub_packet = tcp_reassemble(
+                    bytes(data),
+                    metadata,
+                    tcp_session
+                )
+                if sub_packet:
+                    packet /= sub_packet
+                    padding = self._strip_padding(sub_packet)
+                else:
+                    break
             else:
                 # No padding (data) left. Clear
                 data.clear()
                 del self.tcp_frags[ident]
             # Minimum next seq
             metadata["next_seq"] = pkt[TCP].seq + len(new_data)
+            # Skip full-padding
+            if isinstance(packet, conf.padding_layer):
+                return None
             # Rebuild resulting packet
             pay.underlayer.remove_payload()
             if IP in pkt:
@@ -385,10 +408,15 @@ class TCPSession(IPSession):
         """
         pkt = sock.recv(stop_dissection_after=self.stop_dissection_after)
         # Now handle TCP reassembly
-        while pkt is not None:
-            pkt = self.process(pkt)
+        if self.app:
+            while pkt is not None:
+                pkt = self.process(pkt)
+                if pkt:
+                    yield pkt
+                    # keep calling process as there might be more
+                    pkt = b""  # type: ignore
+        else:
+            pkt = self.process(pkt)  # type: ignore
             if pkt:
                 yield pkt
-                # keep calling process as there might be more
-                pkt = b""  # type: ignore
         return None

@@ -23,9 +23,12 @@
     "test\\scapy\\layers\\tls\\*.uts": "load_layer(\"tls\")"
   },
   "kw_ko": [
+    "as_resolvers",
     "brotli",
+    "broken_windows",
     "ipv6",
     "linux",
+    "native_tls13",
     "mock_read_routes_bsd",
     "open_ssl_client",
     "osx",

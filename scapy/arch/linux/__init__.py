@@ -21,10 +21,7 @@ import time
 
 from scapy.compat import raw
 from scapy.consts import LINUX
-from scapy.arch.common import (
-    compile_filter,
-)
-from scapy.arch.unix import get_if
+from scapy.arch.common import compile_filter
 from scapy.config import conf
 from scapy.data import MTU, ETH_P_ALL, SOL_PACKET, SO_ATTACH_FILTER, \
     SO_TIMESTAMPNS
@@ -37,16 +34,16 @@ from scapy.error import (
 from scapy.interfaces import (
     InterfaceProvider,
     NetworkInterface,
-    network_name,
     _GlobInterfaceType,
+    network_name,
+    resolve_iface,
 )
 from scapy.libs.structures import sock_fprog
 from scapy.packet import Packet, Padding
 from scapy.supersocket import SuperSocket
 
 # re-export
-from scapy.arch.common import get_if_raw_addr  # noqa: F401
-from scapy.arch.unix import read_nameservers, get_if_raw_hwaddr  # noqa: F401
+from scapy.arch.common import get_if_raw_addr, read_nameservers  # noqa: F401
 from scapy.arch.linux.rtnetlink import (  # noqa: F401
     read_routes,
     read_routes6,
@@ -57,8 +54,8 @@ from scapy.arch.linux.rtnetlink import (  # noqa: F401
 # Typing imports
 from typing import (
     Any,
-    Callable,
     Dict,
+    List,
     NoReturn,
     Optional,
     Tuple,
@@ -144,17 +141,13 @@ def attach_filter(sock, bpf_filter, iface):
 
 def set_promisc(s, iff, val=1):
     # type: (socket.socket, _GlobInterfaceType, int) -> None
-    mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, b"")
+    _iff = resolve_iface(iff)
+    mreq = struct.pack("IHH8s", _iff.index, PACKET_MR_PROMISC, 0, b"")
     if val:
         cmd = PACKET_ADD_MEMBERSHIP
     else:
         cmd = PACKET_DROP_MEMBERSHIP
     s.setsockopt(SOL_PACKET, cmd, mreq)
-
-
-def get_if_index(iff):
-    # type: (_GlobInterfaceType) -> int
-    return int(struct.unpack("I", get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
 
 # Interface provider
@@ -322,6 +315,26 @@ class L2ListenSocket(L2Socket):
 class L3PacketSocket(L2Socket):
     desc = "read/write packets at layer 3 using Linux PF_PACKET sockets"
 
+    def __init__(self,
+                 iface=None,  # type: Optional[Union[str, NetworkInterface]]
+                 type=ETH_P_ALL,  # type: int
+                 promisc=None,  # type: Optional[Any]
+                 filter=None,  # type: Optional[Any]
+                 nofilter=0,  # type: int
+                 monitor=None,  # type: Optional[Any]
+                 ):
+        self.send_socks = {}
+        super(L3PacketSocket, self).__init__(
+            iface=iface,
+            type=type,
+            promisc=promisc,
+            filter=filter,
+            nofilter=nofilter,
+            monitor=monitor,
+        )
+        self.filter = filter
+        self.send_socks = {network_name(self.iface): self}
+
     def recv(self, x=MTU, **kwargs):
         # type: (int, **Any) -> Optional[Packet]
         pkt = SuperSocket.recv(self, x, **kwargs)
@@ -332,38 +345,68 @@ class L3PacketSocket(L2Socket):
 
     def send(self, x):
         # type: (Packet) -> int
+        # Select the file descriptor to send the packet on.
         iff = x.route()[0]
         if iff is None:
             iff = network_name(conf.iface)
-        sdto = (iff, self.type)
-        self.outs.bind(sdto)
-        sn = self.outs.getsockname()
-        ll = lambda x: x  # type: Callable[[Packet], Packet]
         type_x = type(x)
-        if type_x in conf.l3types:
-            sdto = (iff, conf.l3types.layer2num[type_x])
-        if sn[3] in conf.l2types:
-            ll = lambda x: conf.l2types.num2layer[sn[3]]() / x
-        if self.lvl == 3 and type_x != self.LL:
-            warning("Incompatible L3 types detected using %s instead of %s !",
-                    type_x, self.LL)
-            self.LL = type_x
-        sx = raw(ll(x))
-        x.sent_time = time.time()
+        if iff not in self.send_socks:
+            self.send_socks[iff] = L3PacketSocket(
+                iface=iff,
+                type=conf.l3types.layer2num.get(type_x, self.type),
+                filter=self.filter,
+                promisc=self.promisc,
+            )
+        sock = self.send_socks[iff]
+        fd = sock.outs
+        if sock.lvl == 3:
+            if not issubclass(sock.LL, type_x):
+                warning("Incompatible L3 types detected using %s instead of %s !",
+                        type_x, sock.LL)
+                sock.LL = type_x
+        if sock.lvl == 2:
+            sx = bytes(sock.LL() / x)
+        else:
+            sx = bytes(x)
+        # Now send.
         try:
-            return self.outs.sendto(sx, sdto)
+            x.sent_time = time.time()
+        except AttributeError:
+            pass
+        try:
+            return fd.send(sx)
         except socket.error as msg:
             if msg.errno == 22 and len(sx) < conf.min_pkt_size:
-                return self.outs.send(
+                return fd.send(
                     sx + b"\x00" * (conf.min_pkt_size - len(sx))
                 )
             elif conf.auto_fragment and msg.errno == 90:
                 i = 0
                 for p in x.fragment():
-                    i += self.outs.sendto(raw(ll(p)), sdto)
+                    i += fd.send(bytes(self.LL() / p))
                 return i
             else:
                 raise
+
+    @staticmethod
+    def select(sockets, remain=None):
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+        socks = []  # type: List[SuperSocket]
+        for sock in sockets:
+            if isinstance(sock, L3PacketSocket):
+                socks += sock.send_socks.values()
+            else:
+                socks.append(sock)
+        return L2Socket.select(socks, remain=remain)
+
+    def close(self):
+        # type: () -> None
+        if self.closed:
+            return
+        super(L3PacketSocket, self).close()
+        for fd in self.send_socks.values():
+            if fd is not self:
+                fd.close()
 
 
 class VEthPair(object):

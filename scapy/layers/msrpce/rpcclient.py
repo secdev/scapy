@@ -42,6 +42,7 @@ from scapy.layers.gssapi import (
     GSS_S_CONTINUE_NEEDED,
     GSS_C_FLAGS,
 )
+from scapy.layers.smb2 import STATUS_ERREF
 from scapy.layers.smbclient import (
     SMB_RPC_SOCKET,
 )
@@ -210,7 +211,11 @@ class DCERPC_Client(object):
                             )
                         )
                     else:
-                        print(conf.color_theme.fail("! Failure"))
+                        print(
+                            conf.color_theme.fail(
+                                "! %s" % STATUS_ERREF.get(resp.status, "Failure")
+                            )
+                        )
                         resp.show()
                 return
             return resp
@@ -425,7 +430,11 @@ class DCERPC_Client(object):
                             )
                         )
                     else:
-                        print(conf.color_theme.fail("! Failure"))
+                        print(
+                            conf.color_theme.fail(
+                                "! %s" % STATUS_ERREF.get(resp.status, "Failure")
+                            )
+                        )
                         resp.show()
                     if DceRpc5Fault in resp:
                         if resp[DceRpc5Fault].payload and not isinstance(

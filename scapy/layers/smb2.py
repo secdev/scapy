@@ -17,6 +17,7 @@ import functools
 import hashlib
 import struct
 
+from scapy.automaton import select_objects
 from scapy.config import conf, crypto_validator
 from scapy.error import log_runtime
 from scapy.packet import Packet, bind_layers, bind_top_down
@@ -30,7 +31,6 @@ from scapy.fields import (
     FlagsField,
     IP6Field,
     IPField,
-    IntEnumField,
     IntField,
     LEIntField,
     LEIntEnumField,
@@ -96,9 +96,13 @@ STATUS_ERREF = {
     0x0000010C: "STATUS_NOTIFY_ENUM_DIR",
     0x00000532: "ERROR_PASSWORD_EXPIRED",
     0x00000533: "ERROR_ACCOUNT_DISABLED",
+    0x000006FE: "ERROR_TRUST_FAILURE",
     0x80000005: "STATUS_BUFFER_OVERFLOW",
     0x80000006: "STATUS_NO_MORE_FILES",
     0x8000002D: "STATUS_STOPPED_ON_SYMLINK",
+    0x8009030C: "SEC_E_LOGON_DENIED",
+    0x8009030F: "SEC_E_MESSAGE_ALTERED",
+    0x80090310: "SEC_E_OUT_OF_SEQUENCE",
     0xC0000003: "STATUS_INVALID_INFO_CLASS",
     0xC0000004: "STATUS_INFO_LENGTH_MISMATCH",
     0xC000000D: "STATUS_INVALID_PARAMETER",
@@ -108,6 +112,8 @@ STATUS_ERREF = {
     0xC0000033: "STATUS_OBJECT_NAME_INVALID",
     0xC0000034: "STATUS_OBJECT_NAME_NOT_FOUND",
     0xC0000043: "STATUS_SHARING_VIOLATION",
+    0xC0000061: "STATUS_PRIVILEGE_NOT_HELD",
+    0xC0000064: "STATUS_NO_SUCH_USER",
     0xC000006D: "STATUS_LOGON_FAILURE",
     0xC000006E: "STATUS_ACCOUNT_RESTRICTION",
     0xC0000071: "STATUS_PASSWORD_EXPIRED",
@@ -118,8 +124,10 @@ STATUS_ERREF = {
     0xC00000C9: "STATUS_NETWORK_NAME_DELETED",
     0xC00000CC: "STATUS_BAD_NETWORK_NAME",
     0xC0000120: "STATUS_CANCELLED",
+    0xC0000122: "STATUS_INVALID_COMPUTER_NAME",
     0xC0000128: "STATUS_FILE_CLOSED",  # backup error for older Win versions
     0xC000015B: "STATUS_LOGON_TYPE_NOT_GRANTED",
+    0xC000018B: "STATUS_NO_TRUST_SAM_ACCOUNT",
     0xC000019C: "STATUS_FS_DRIVER_REQUIRED",
     0xC0000203: "STATUS_USER_SESSION_DELETED",
     0xC000020C: "STATUS_CONNECTION_DISCONNECTED",
@@ -1880,7 +1888,7 @@ class SMB2_Compression_Capabilities(Packet):
             count_of="CompressionAlgorithms",
         ),
         ShortField("Padding", 0x0),
-        IntEnumField(
+        LEIntEnumField(
             "Flags",
             0x0,
             {
@@ -2416,7 +2424,7 @@ class SMB2_CREATE_QUERY_ON_DISK_ID(Packet):
 
 class SMB2_CREATE_RESPONSE_LEASE(Packet):
     fields_desc = [
-        XStrFixedLenField("LeaseKey", b"", length=16),
+        UUIDField("LeaseKey", None),
         FlagsField(
             "LeaseState",
             0x7,
@@ -2443,7 +2451,7 @@ class SMB2_CREATE_RESPONSE_LEASE(Packet):
 class SMB2_CREATE_RESPONSE_LEASE_V2(Packet):
     fields_desc = [
         SMB2_CREATE_RESPONSE_LEASE,
-        XStrFixedLenField("ParentLeaseKey", b"", length=16),
+        UUIDField("ParentLeaseKey", None),
         LEShortField("Epoch", 0),
         LEShortField("Reserved", 0),
     ]
@@ -3944,7 +3952,7 @@ class SMB2_Compression_Transform_Header(Packet):
         StrFixedLenField("Start", b"\xfcSMB", 4),
         LEIntField("OriginalCompressedSegmentSize", 0x0),
         LEShortEnumField("CompressionAlgorithm", 0, SMB2_COMPRESSION_ALGORITHMS),
-        ShortEnumField(
+        LEShortEnumField(
             "Flags",
             0x0,
             {
@@ -4229,7 +4237,7 @@ class SMBStreamSocket(StreamSocket):
     def select(sockets, remain=conf.recv_poll_rate):
         if any(getattr(x, "queue", None) for x in sockets):
             return [x for x in sockets if isinstance(x, SMBStreamSocket) and x.queue]
-        return StreamSocket.select(sockets, remain=remain)
+        return select_objects(sockets, remain=remain)
 
 
 class SMBSession(DefaultSession):
@@ -4245,6 +4253,7 @@ class SMBSession(DefaultSession):
         # SMB session parameters
         self.CompoundQueue = []
         self.Dialect = 0x0202  # Updated by parent
+        self.Credits = 0
         self.SecurityMode = 0
         # Crypto parameters
         self.SMBSessionKey = None
