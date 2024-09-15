@@ -357,8 +357,8 @@ class Pipe(metaclass=_PipeMeta):
 class Source(Pipe, ObjectPipe[Any]):
     def __init__(self, name=None):
         # type: (Optional[str]) -> None
-        Pipe.__init__(self, name=name)
         ObjectPipe.__init__(self, name)
+        Pipe.__init__(self, name=name)
         self.is_exhausted = False
 
     def _read_message(self):
