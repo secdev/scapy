@@ -716,6 +716,7 @@ class TermSink(Sink):
             if not self.opened:
                 self.opened = True
                 rdesc, self.wdesc = os.pipe()
+                os.set_inheritable(rdesc, True)
                 cmd = ["xterm"]
                 if self.name is not None:
                     cmd.extend(["-title", self.name])
