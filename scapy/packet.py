@@ -980,7 +980,6 @@ class Packet(
                                     raise ValueError("field_fuzzed.default is not int")
                                 else:
                                     field_fuzzed.state_pos = field_fuzzed.default
-
                                 next_field['done'] = True
                             else:
                                 # Reset the item before us to not done
@@ -2934,6 +2933,7 @@ def fuzz(p,  # type: _P
                     # Store the default value of the field
                     rnd.default = f.default
                     if rnd is not None:
+                        # print(f"Adding: {f.name} with {f.default=}")
                         new_default_fields[f.name] = rnd
         # Process packets with MultipleTypeFields
         if multiple_type_fields:

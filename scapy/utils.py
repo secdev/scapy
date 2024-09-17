@@ -1500,7 +1500,14 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
         if len(hdr) < 16:
             raise EOFError
         sec, usec, caplen, wirelen = struct.unpack(self.endian + "IIII", hdr)
-        return (self.f.read(caplen)[:size],
+
+        try:
+            data = self.f.read(caplen)[:size]
+        except OverflowError as e:
+            warning(f"Pcap: {e}")
+            raise EOFError
+
+        return (data,
                 RawPcapReader.PacketMetadata(sec=sec, usec=usec,
                                              wirelen=wirelen, caplen=caplen))
 

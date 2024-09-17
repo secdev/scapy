@@ -3,135 +3,85 @@ Implement PPM
 
 https://en.wikipedia.org/wiki/Netpbm#File_formats
 """
-from scapy.fields import StrField, StrEnumField
+
+from scapy.fields import StrField, FuzzingString
 from scapy.packet import Packet
-from scapy.utils import hexdump
+import scapy.layers.l2
 import scapy.compat
 
-class StrFieldWithSuffix(StrField):
+TRIPLET_COUNT = 0
+
+class StrDelimiterField(StrField):
+    """ String field with a Delimiter (generic) """
     __slots__ = ["suffix"]
-    def __init__(self, name, default, suffix):
-        self.suffix = suffix
-        super(StrField, self).__init__(name, default)
+    ALIGNMENT = 1
 
-    def i2m(self, pkt, x):
-        if x is None:
-            return b""
-        if not isinstance(x, bytes):
-            return scapy.compat.bytes_encode(x)
-        return x + self.suffix.encode()
-    
-    
-    def randval(self):
-        return scapy.volatile.RandString()
-    
-class StrEnumFieldWithSuffix(StrEnumField):
-    __slots__ = ["enum", "suffix"]
-    def __init__(
-            self,
-            name,  # type: str
-            default,  # type: bytes
-            enum=None,  # type: Optional[Dict[str, str]]
-            suffix="",
-            **kwargs  # type: Any
-    ):
-        # type: (...) -> None
-        StrEnumField.__init__(self, name, default, enum, **kwargs)  # type: ignore
+    def __init__(self, name, default, suffix, fmt="H", remain=0):
+        scapy.fields.StrField.__init__(self, name, default, fmt, remain)
+        if not isinstance(suffix, bytes):
+            suffix = scapy.compat.bytes_encode(suffix)
+
         self.suffix = suffix
 
-    def i2m(self, pkt, x):
-        if x is None:
-            return b""
-        if not isinstance(x, bytes):
-            return scapy.compat.bytes_encode(x)
-        return x + self.suffix.encode()
-
     def randval(self):
-        return scapy.volatile.RandString()
+        return FuzzingString(default=self.default, suffix=self.suffix)
 
-class PPMHeader(Packet):
+    # def addfield(self, pkt, s, val):
+    #     # type: (Packet, bytes, Optional[bytes]) -> bytes
+    #     ret = s
+    #     ret += self.i2m(pkt, val)
+    #     ret += self.suffix
+    #     return ret
+
+    def getfield(self,
+                 pkt,  # type: Packet
+                 s,  # type: bytes
+                 ):
+        # type: (...) -> Tuple[bytes, bytes]
+        len_str = 0
+        while True:
+            len_str = s.find(self.suffix, len_str)
+            if len_str < 0:
+                # DELIMITER not found: return empty
+                return b"", s
+            if len_str % self.ALIGNMENT:
+                len_str += 1
+            else:
+                break
+        return s[len_str + len(self.suffix):], self.m2i(pkt, s[:len_str])
+
+
+class PPMTriplet(Packet):
+    """PPM Triplet"""
+    def __init__(self,
+                 _pkt=b"",
+                 post_transform=None,
+                 _internal=0,
+                 _underlayer=None,
+                 _parent=None,
+                 **fields
+                 ):
+        global TRIPLET_COUNT
+        Packet.__init__(self, _pkt, post_transform, _internal, _underlayer, _parent)
+
+        TRIPLET_COUNT += 1
+        name = f"PPM Triplet {TRIPLET_COUNT}"
+        self.name = name
+
+    fields_desc = [
+        StrDelimiterField("r", "0", suffix=" "),
+        StrDelimiterField("g", "0", suffix=" "),
+        StrDelimiterField("b", "0", suffix="\n"),
+    ]
+
+class PPM(Packet):
     """PPM Header"""
 
     name = "PPM Header"
+
     fields_desc = [
-        StrEnumFieldWithSuffix("ppm_marker", "P3", enum=["P1", "P2", "P3"], suffix="\n"),
-        StrFieldWithSuffix("height", "0", suffix=" "),
-        StrFieldWithSuffix("width", "0", suffix="\n"),
-        StrFieldWithSuffix("colors", "0", suffix="\n"),
+        StrDelimiterField("ppm_marker", "P1", suffix="\n"),
+        StrDelimiterField("height", "0", suffix=" "),
+        StrDelimiterField("width", "0", suffix="\n"),
+        StrDelimiterField("colors", "0", suffix="\n"),
     ]
-
-
-class RGBTriplets(Packet):
-    """RGB triplets"""
-
-    name = "RGB triplets"
-    fields_desc = [
-        StrFieldWithSuffix("r", "0", suffix=" "),
-        StrFieldWithSuffix("g", "0", suffix=" "),
-        StrFieldWithSuffix("b", "0", suffix="\n"),
-    ]
-
-
-def test():
-    ppm_test = PPMHeader()
-    ppm_test.height = str(3)
-    ppm_test.width = str(2)
-    ppm_test.colors = str(255)
-
-    triplet = RGBTriplets()
-    triplet.r = str(255)
-    triplet.g = str(0)
-    triplet.b = str(0)
-    ppm_test /=triplet
-
-    triplet = RGBTriplets()
-    triplet.r = str(0)
-    triplet.g = str(255)
-    triplet.b = str(0)
-    ppm_test /=triplet
-
-    triplet = RGBTriplets()
-    triplet.r = str(0)
-    triplet.g = str(0)
-    triplet.b = str(255)
-    ppm_test /=triplet
-
-    triplet = RGBTriplets()
-    triplet.r = str(255)
-    triplet.g = str(255)
-    triplet.b = str(0)
-    ppm_test /=triplet
-
-    triplet = RGBTriplets()
-    triplet.r = str(255)
-    triplet.g = str(255)
-    triplet.b = str(255)
-    ppm_test /=triplet
-
-    triplet = RGBTriplets()
-    triplet.r = str(0)
-    triplet.g = str(0)
-    triplet.b = str(0)
-    ppm_test /=triplet
-
-    packet_fuzz = scapy.packet.fuzz(ppm_test)
-    states = packet_fuzz.prepare_combinations(2)
-
-    generated = hexdump(ppm_test, dump=True)
-
-    hex_encoded = (
-        """
-        50 33 0A 33 20 32 0A 32 35 35 0A 32 35 35 20 30
-        20 30 0A 30 20 32 35 35 20 30 0A 30 20 30 20 32
-        35 35 0A 32 35 35 20 32 35 35 20 30 0A 32 35 35
-        20 32 35 35 20 32 35 35 0A 30 20 30 20 30 0A
-        """
-    )
-
-    hex_decoded = hexdump(bytes.fromhex(hex_encoded), dump=True)
-
-    if generated != hex_decoded:
-        raise ValueError("Generator error")
-
-if __name__ == "__main__":
-    test()
