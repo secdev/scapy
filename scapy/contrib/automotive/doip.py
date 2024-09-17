@@ -350,12 +350,6 @@ class DoIPSocket(DoIPSSLStreamSocket):
                  force_tls=False,  # type: bool
                  context=None  # type: Optional[ssl.SSLContext]
                  ):  # type: (...) -> None
-
-        if ':' in ip:
-            self.ip_family = socket.AF_INET6
-        else:
-            self.ip_family = socket.AF_INET
-
         self.ip = ip
         self.port = port
         self.tls_port = tls_port
@@ -367,21 +361,23 @@ class DoIPSocket(DoIPSSLStreamSocket):
         self.force_tls = force_tls
         self.context = context
         try:
-            self._init_socket(self.ip_family)
+            self._init_socket()
         except Exception:
             self.close()
             raise
 
-    def _init_socket(self, sock_family=socket.AF_INET):
-        # type: (int) -> None
+    def _init_socket(self):
+        # type: () -> None
         connected = False
+        addrinfo = socket.getaddrinfo(self.ip, self.port, proto=socket.IPPROTO_TCP)
+        sock_family = addrinfo[0][0]
+
         s = socket.socket(sock_family, socket.SOCK_STREAM)
         s.settimeout(5)
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         if not self.force_tls:
-            addrinfo = socket.getaddrinfo(self.ip, self.port, proto=socket.IPPROTO_TCP)
             s.connect(addrinfo[0][-1])
             connected = True
             DoIPSSLStreamSocket.__init__(self, s)
