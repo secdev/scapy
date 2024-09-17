@@ -577,6 +577,10 @@ class RandString(_RandString[str]):
             else:
                 return self.chars[:self.max]
 
+        if len(self.chars) == 0:
+            # If no value was given, don't divide it...
+            return bytes_encode(self.chars)
+
         pos_adjusted = self.state_pos % len(self.chars)
         s = bytes_encode(self.chars[0:pos_adjusted]) # Make it change by state_pos
 
