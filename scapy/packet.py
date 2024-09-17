@@ -778,7 +778,8 @@ class Packet(
             field = pkt.default_fields[field_name]
             class_name = type(field).__name__
             # print(f"Class type: {class_name} for: {pkt._name}-{field_name}")
-            if class_name in ['NoneType', 'int', 'str', 'list', 'bytes']:
+            if class_name in ['NoneType', 'int', 'str', 'list', 'bytes', '_ScopedIP']:
+                # _ScopedIP is 'str' with extra attrs - skip it
                 continue
 
             # We will want to fix this in the future... maybe make it into a min-max?
