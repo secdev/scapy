@@ -528,7 +528,7 @@ def server():
 server_thread = threading.Thread(target=server)
 server_thread.start()
 server_up.wait(timeout=1)
-sock = DoIPSocket6(activate_routing=False)
+sock = DoIPSocket(ip="::1", activate_routing=False)
 
 pkts = sock.sniff(timeout=1, count=2)
 server_thread.join(timeout=1)
@@ -668,7 +668,7 @@ server_up.wait(timeout=1)
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 context.check_hostname = False
 context.verify_mode = ssl.CERT_NONE
-sock = DoIPSocket6(activate_routing=False, force_tls=True, context=context)
+sock = DoIPSocket(ip="::1", activate_routing=False, force_tls=True, context=context)
 
 pkts = sock.sniff(timeout=1, count=2)
 server_thread.join(timeout=1)
@@ -705,7 +705,7 @@ server_up.wait(timeout=1)
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 context.check_hostname = False
 context.verify_mode = ssl.CERT_NONE
-sock = UDS_DoIPSocket6(activate_routing=False, force_tls=True, context=context)
+sock = UDS_DoIPSocket(ip="::1", activate_routing=False, force_tls=True, context=context)
 
 pkts = sock.sniff(timeout=1, count=2)
 server_thread.join(timeout=1)
@@ -765,7 +765,7 @@ context.check_hostname = False
 context.verify_mode = ssl.CERT_NONE
 
 
-sock = UDS_DoIPSocket6(ip="::1", context=context)
+sock = UDS_DoIPSocket(ip="::1", context=context)
 
 pkts = sock.sniff(timeout=1, count=2)
 server_tcp_thread.join(timeout=1)
