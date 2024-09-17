@@ -3,6 +3,7 @@ Implement PPM
 
 https://en.wikipedia.org/wiki/Netpbm#File_formats
 """
+
 from scapy.fields import StrField, FuzzingString
 from scapy.packet import Packet
 import scapy.layers.l2

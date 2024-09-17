@@ -19,7 +19,6 @@ from scapy.packet import Packet
 from scapy.utils import hexdump
 
 LZW_COUNT = 0
-
 class GIFRGB(Packet):
     """RGB Header"""
 

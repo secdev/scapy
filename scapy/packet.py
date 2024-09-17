@@ -805,10 +805,10 @@ class Packet(
                 raise ValueError(f"Cannot find {packet_field} inside {packet_type}")
 
             if packet_field in pkt.default_fields:
-                return pkt.default_fields[packet_field]
+                return (pkt, pkt.default_fields[packet_field])
 
             if packet_field in pkt.fields:
-                return pkt.fields[packet_field]
+                return (pkt, pkt.fields[packet_field])
             
             raise ValueError("Shouldn't have reached this point")
         else:
@@ -817,6 +817,7 @@ class Packet(
         return None
 
     def prepare_combinations(self, complexity: int) -> Dict:
+        """Prepare fuzzing by returning a 'states' of fields"""
         relevant_fields = self.return_relevant_fields(self)
 
         # If there is more than one field, do a combination, otherwise just put it
@@ -869,7 +870,7 @@ class Packet(
                     print(f"Now fuzzing: {fields}")
                     state['active'] = True
                     for field_item in fields:
-                        field_obj = self.locate_field(self, field_item['name'])
+                        (_, field_obj) = self.locate_field(self, field_item['name'])
 
                         if not isinstance(field_obj, VolatileValue):
                             err = (f"field_obj: '{field_item['name']}' "
@@ -919,7 +920,7 @@ class Packet(
         found_a_fuzzable_field = False
         for (field_idx, field) in enumerate(state_fuzzed['fields']):
             if not field['done']:
-                field_fuzzed = self.locate_field(self, field['name'])
+                (packet_holder, field_fuzzed) = self.locate_field(self, field['name'])
                 if field_fuzzed.max == field_fuzzed.min and field_fuzzed.max == 0:
                     print(f"'{field['name']}' max == 0")
 
@@ -946,7 +947,12 @@ class Packet(
                         raise ValueError("field_fuzzed.default is not int")
                     else:
                         field_fuzzed.state_pos = field_fuzzed.default
-                        
+
+                    # Make the 'fields' no longer list this value as non-default
+                    field_name = field['name']
+                    packet_field = field_name[field_name.index('-')+1:]
+                    del packet_holder.fields[packet_field]
+
                     field['done'] = True
                     field['active'] = False
 
@@ -960,7 +966,7 @@ class Packet(
 
                         if not next_field['done']:
                             # Try to move to the next item
-                            field_fuzzed = self.locate_field(self, next_field['name'])
+                            (_, field_fuzzed) = self.locate_field(self, next_field['name'])
 
                             if 'state_pos' not in dir(field_fuzzed):
                                 err = f"We will fail for: {field_fuzzed}"
@@ -974,14 +980,13 @@ class Packet(
                                     raise ValueError("field_fuzzed.default is not int")
                                 else:
                                     field_fuzzed.state_pos = field_fuzzed.default
-                                    
                                 next_field['done'] = True
                             else:
                                 # Reset the item before us to not done
                                 state_fuzzed['fields'][curr_pos]['done'] = False
 
                                 # Reset the previous item pos to the begining
-                                field_fuzzed = self.locate_field(
+                                (_, field_fuzzed) = self.locate_field(
                                     self,
                                     state_fuzzed['fields'][curr_pos]['name']
                                 )
@@ -1018,6 +1023,23 @@ class Packet(
 
             # Try to find the next one that is fuzzable (state)
             (states, found_a_fuzzable_field) = self.forward(states)
+
+        if found_a_fuzzable_field:
+            # If we found a field to fuzz, put it in the 'fields' so that
+            #  command() will return its non-default value
+            for state in states:
+                if not state['active']:
+                    continue
+                
+                fields = state['fields']
+                for field in fields:
+                    field_name = field["name"]
+                    packet_field = field_name[field_name.index('-')+1:]
+                    
+                    (packet_holder, field_obj) = self.locate_field(self, field_name)
+                    packet_holder.fields[packet_field] = field_obj._fix()
+                    
+                break
 
         return (states, found_a_fuzzable_field)
 
@@ -1411,8 +1433,6 @@ class Packet(
         )
         pkt.wirelen = self.wirelen
         pkt.comment = self.comment
-        pkt.sniffed_on = self.sniffed_on
-        pkt.direction = self.direction
         if payload is not None:
             pkt.add_payload(payload)
         return pkt
