@@ -949,10 +949,11 @@ class Packet(
                     else:
                         field_fuzzed.state_pos = field_fuzzed.default
 
-                    # Make the 'fields' no longer list this value as non-default
-                    field_name = field['name']
-                    packet_field = field_name[field_name.index('-')+1:]
-                    del packet_holder.fields[packet_field]
+                    # Breaks send, shows 'int' error
+                    # # Make the 'fields' no longer list this value as non-default
+                    # field_name = field['name']
+                    # packet_field = field_name[field_name.index('-')+1:]
+                    # del packet_holder.fields[packet_field]
 
                     field['done'] = True
                     field['active'] = False
@@ -1025,22 +1026,23 @@ class Packet(
             # Try to find the next one that is fuzzable (state)
             (states, found_a_fuzzable_field) = self.forward(states)
 
-        if found_a_fuzzable_field:
-            # If we found a field to fuzz, put it in the 'fields' so that
-            #  command() will return its non-default value
-            for state in states:
-                if not state['active']:
-                    continue
-                
-                fields = state['fields']
-                for field in fields:
-                    field_name = field["name"]
-                    packet_field = field_name[field_name.index('-')+1:]
-                    
-                    (packet_holder, field_obj) = self.locate_field(self, field_name)
-                    packet_holder.fields[packet_field] = field_obj._fix()
-                    
-                break
+        # Breaks send
+        # if found_a_fuzzable_field:
+        #     # If we found a field to fuzz, put it in the 'fields' so that
+        #     #  command() will return its non-default value
+        #     for state in states:
+        #         if not state['active']:
+        #             continue
+
+        #         fields = state['fields']
+        #         for field in fields:
+        #             field_name = field["name"]
+        #             packet_field = field_name[field_name.index('-')+1:]
+
+        #             (packet_holder, field_obj) = self.locate_field(self, field_name)
+        #             packet_holder.fields[packet_field] = field_obj._fix()
+
+        #         break
 
         return (states, found_a_fuzzable_field)
 
