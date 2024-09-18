@@ -1108,6 +1108,8 @@ class Conf(ConfClass):
     )
     #: Dictionary containing parsed NSS Keys
     tls_nss_keys: Dict[str, bytes] = None
+    #: PrivKeyRSA object used to decrypt TLS sessions
+    tls_rsa_private_key = None
     #: When TCPSession is used, parse DCE/RPC sessions automatically.
     #: This should be used for passive sniffing.
     dcerpc_session_enable = False

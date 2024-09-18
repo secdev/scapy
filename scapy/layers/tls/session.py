@@ -22,6 +22,7 @@ from scapy.pton_ntop import inet_pton
 from scapy.sessions import TCPSession
 from scapy.utils import repr_hex, strxor
 from scapy.layers.inet import TCP
+from scapy.layers.tls.cert import PrivKeyRSA
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 from scapy.layers.tls.crypto.prf import PRF
@@ -1027,6 +1028,8 @@ class _GenericTLSSessionInheritance(Packet):
                     if s:
                         if conf.tls_nss_keys is not None:
                             s.nss_keys = conf.tls_nss_keys
+                        if isinstance(conf.tls_rsa_private_key, PrivKeyRSA):
+                            s.server_rsa_key = conf.tls_rsa_private_key
                         if s.dport == self.tls_session.dport:
                             self.tls_session = s
                         else:
@@ -1034,6 +1037,8 @@ class _GenericTLSSessionInheritance(Packet):
                     else:
                         if conf.tls_nss_keys is not None:
                             self.tls_session.nss_keys = conf.tls_nss_keys
+                        if isinstance(conf.tls_rsa_private_key, PrivKeyRSA):
+                            self.tls_session.server_rsa_key = conf.tls_rsa_private_key
                         conf.tls_sessions.add(self.tls_session)
             if self.tls_session.connection_end == "server":
                 srk = conf.tls_sessions.server_rsa_key

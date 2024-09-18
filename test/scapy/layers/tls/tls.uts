@@ -1586,6 +1586,18 @@ assert b"z2|gxarIKOxt,G1d>.Q2MzGY[k@" in packets[13].msg[0].data
 
 conf = bck_conf
 
+= pcap file & a RSA private key
+
+bck_conf = conf
+conf.tls_session_enable = True
+conf.tls_rsa_private_key = scapy_path("test/scapy/layers/tls/pki/srv_key.pem")
+
+packets = rdpcap(scapy_path("doc/notebooks/tls/raw_data/tls_nss_example.pcap"))
+assert b"GET /secret.txt HTTP/1.0\n" in packets[11].msg[0].data
+assert b"z2|gxarIKOxt,G1d>.Q2MzGY[k@" in packets[13].msg[0].data
+
+conf = bck_conf
+
 = pcapng file with a Decryption Secrets Block
 ~ tshark linux
 
