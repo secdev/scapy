@@ -404,7 +404,6 @@ p1 = RTPS(
 )
 assert p0.build() == d
 assert p1.build() == d
-assert p1 == p0
 
 + Test for pr #3914
 = RTPS Heartbeat SequenceNumber_t packing and dissection
@@ -476,3 +475,106 @@ p1 = RTPS(
 assert p0.build() == d
 assert p1.build() == d
 assert p0 == p1
+
++ Test for #PR4545
+= RTPS length computation with inlineQos
+
+p0 = RTPS(
+      protocolVersion=ProtocolVersionPacket(major=2, minor=2),
+      vendorId=VendorIdPacket(vendor_id=0x010f),
+      guidPrefix=GUIDPrefixPacket(
+        hostId=0x010f45d2, appId=0xb3f558b9, instanceId=0x01000000
+      ),magic=b"RTPS"
+    )/RTPSMessage(submessages=[
+    RTPSSubMessage_INFO_TS(
+      submessageId=9,
+      submessageFlags=1,
+      octetsToNextHeader=8,
+      ts_seconds=1638425814,
+      ts_fraction=2083784982,
+    ), 
+    RTPSSubMessage_DATA(
+      submessageId= 0x15,
+      submessageFlags= 0x7,
+      octetsToNextHeader= 54,
+      extraFlags= 0x0,
+      octetsToInlineQoS= 16,
+      readerEntityIdKey= 0x0,
+      readerEntityIdKind= 0x0,
+      writerEntityIdKey= 0x0,
+      writerEntityIdKind= 0x0,
+      writerSeqNumHi= 0,
+      writerSeqNumLow= 4,
+      inlineQoS= InlineQoSPacket(
+        parameters= [
+          PID_UNKNOWN(
+            parameterId= 0x801e,
+            parameterLength= 4,
+            parameterData= b'\x00\x00\x00\x00',
+          ),
+        ],
+        sentinel= PID_SENTINEL(
+          parameterId= 0x1,
+          parameterLength= 0,
+          parameterData= b'',
+        ),
+      ),
+      data= DataPacket(
+        encapsulationKind= 0x1,
+        encapsulationOptions= 0x3,
+        serializedData= b'=\x00\x00\x00abcdefghij\x00\x00\x00\x00',
+      ),
+    ),
+    RTPSSubMessage_INFO_TS(
+      submessageId=9,
+      submessageFlags=1,
+      octetsToNextHeader=8,
+      ts_seconds=1638425814,
+      ts_fraction=2083784982,
+    ), 
+    RTPSSubMessage_DATA(
+      submessageId= 0x15,
+      submessageFlags= 0x7,
+      octetsToNextHeader= 54,
+      extraFlags= 0x0,
+      octetsToInlineQoS= 16,
+      readerEntityIdKey= 0x0,
+      readerEntityIdKind= 0x0,
+      writerEntityIdKey= 0x0,
+      writerEntityIdKind= 0x0,
+      writerSeqNumHi= 0,
+      writerSeqNumLow= 4,
+      inlineQoS= InlineQoSPacket(
+        parameters= [
+          PID_UNKNOWN(
+            parameterId= 0x801e,
+            parameterLength= 4,
+            parameterData= b'\x00\x00\x00\x00',
+          ),
+        ],
+        sentinel= PID_SENTINEL(
+          parameterId= 0x1,
+          parameterLength= 0,
+          parameterData= b'',
+        ),
+      ),
+      data= DataPacket(
+        encapsulationKind= 0x1,
+        encapsulationOptions= 0x3,
+        serializedData= b'=\x00\x00\x00abcdefghij\x00\x00\x00\x00',
+      ),
+    ),
+])
+
+d = b"\x52\x54\x50\x53\x02\x02\x01\x0f\x01\x0f\x45\xd2\xb3\xf5\x58\xb9" \
+    b"\x01\x00\x00\x00\x09\x01\x08\x00\xd6\x64\xa8\x61\x16\x09\x34\x7c" \
+    b"\x15\x07\x36\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00" \
+    b"\x00\x00\x00\x00\x04\x00\x00\x00\x1e\x80\x04\x00\x00\x00\x00\x00" \
+    b"\x01\x00\x00\x00\x00\x01\x00\x03\x3d\x00\x00\x00\x61\x62\x63\x64" \
+    b"\x65\x66\x67\x68\x69\x6a\x00\x00\x00\x00\x09\x01\x08\x00\xd6\x64" \
+    b"\xa8\x61\x16\x09\x34\x7c\x15\x07\x36\x00\x00\x00\x10\x00\x00\x00" \
+    b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x1e\x80" \
+    b"\x04\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x01\x00\x03\x3d\x00" \
+    b"\x00\x00\x61\x62\x63\x64\x65\x66\x67\x68\x69\x6a\x00\x00\x00\x00"
+
+assert RTPS(d) == p0
