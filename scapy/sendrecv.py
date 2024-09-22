@@ -251,6 +251,12 @@ class SndRcvHandler(object):
         # type: () -> Tuple[SndRcvList, PacketList]
         return self.ans_result, self.unans_result
 
+    def _stop_sniffer_if_done(self) -> None:
+        """Close the sniffer if all expected answers have been received"""
+        if self._send_done and self.noans >= self.notans and not self.multi:
+            if self.sniffer and self.sniffer.running:
+                self.sniffer.stop(join=False)
+
     def _sndrcv_snd(self):
         # type: () -> None
         """Function used in the sending thread of sndrcv()"""
@@ -299,6 +305,7 @@ class SndRcvHandler(object):
                 time.sleep(0.1)
             if self.sniffer and self.sniffer.running:
                 self.sniffer.stop()
+        self._stop_sniffer_if_done()
 
     def _process_packet(self, r):
         # type: (Packet) -> None
@@ -323,9 +330,7 @@ class SndRcvHandler(object):
                             self.noans += 1
                         sentpkt._answered = 1
                     break
-        if self._send_done and self.noans >= self.notans and not self.multi:
-            if self.sniffer and self.sniffer.running:
-                self.sniffer.stop(join=False)
+        self._stop_sniffer_if_done()
         if not ok:
             if self.verbose > 1:
                 os.write(1, b".")
