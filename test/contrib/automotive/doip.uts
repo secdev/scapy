@@ -748,7 +748,7 @@ def server_tcp():
         server_tcp_up.set()
         connection, address = sock.accept()
         connection.send(buffer)
-        connection.shutdown()
+        connection.shutdown(socket.SHUT_RDWR)
         connection.close()
     finally:
         sock.close()
