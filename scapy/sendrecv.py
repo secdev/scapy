@@ -128,7 +128,7 @@ class SndRcvHandler(object):
                  rcv_pks=None,  # type: Optional[SuperSocket]
                  prebuild=False,  # type: bool
                  _flood=None,  # type: Optional[_FloodGenerator]
-                 threaded=False,  # type: bool
+                 threaded=True,  # type: bool
                  session=None,  # type: Optional[_GlobSessionType]
                  chainEX=False,  # type: bool
                  stop_filter=None  # type: Optional[Callable[[Packet], bool]]
@@ -266,8 +266,7 @@ class SndRcvHandler(object):
                 self.hsent.setdefault(p.hashret(), []).append(p)
                 # Send packet
                 self.pks.send(p)
-                if self.inter:
-                    time.sleep(self.inter)
+                time.sleep(self.inter)
                 if self.breakout:
                     break
                 i += 1
