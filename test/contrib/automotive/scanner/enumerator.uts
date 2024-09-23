@@ -219,6 +219,7 @@ class MockISOTPSocket(SuperSocket):
         return len(sx)
     @staticmethod
     def select(sockets, remain=None):
+        time.sleep(0)
         return sockets
 
 sock = MockISOTPSocket()
