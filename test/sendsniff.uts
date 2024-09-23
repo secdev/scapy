@@ -398,7 +398,7 @@ finally:
 
 
 = sr() performance test
-~ linux needs_root veth
+~ linux needs_root veth not_pypy
 
 import subprocess
 import shlex
