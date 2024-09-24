@@ -1832,7 +1832,7 @@ sck = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 ssck = StreamSocket(sck)
 
 try:
-    r = ssck.sr1(ICMP(type='echo-request'), timeout=0.1, chainEX=True)
+    r = ssck.sr1(ICMP(type='echo-request'), timeout=0.1, chainEX=True, threaded=False)
     assert False
 except Exception:
     assert True

@@ -9,7 +9,6 @@
 import time
 import random
 
-from socket import socket
 from threading import Lock
 
 from scapy.config import conf
@@ -25,9 +24,13 @@ from typing import (
     Tuple,
     Any,
     List,
-    cast,
 )
 from scapy.supersocket import SuperSocket
+
+from scapy.plist import (
+    PacketList,
+    SndRcvList,
+)
 
 
 open_test_sockets = list()  # type: List[TestSocket]
