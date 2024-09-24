@@ -395,3 +395,42 @@ finally:
     e = os.system("ip netns del blob1")
     conf.ifaces.reload()
     conf.route.resync()
+
+
+= sr() performance test
+~ linux needs_root veth not_pypy
+
+import subprocess
+import shlex
+
+try:
+    # Create a dedicated network name space to simulate remote host
+    subprocess.check_call(shlex.split("sudo ip netns add scapy"))
+    # Create a virtual Ethernet pair to connect default and new NS
+    subprocess.check_call(shlex.split("sudo ip link add type veth"))
+    # Move veth1 to the new NS
+    subprocess.check_call(shlex.split("sudo ip link set veth1 netns scapy"))
+    # Setup vNIC in the default NS
+    subprocess.check_call(shlex.split("sudo ip link set veth0 up"))
+    subprocess.check_call(shlex.split("sudo ip addr add 192.168.168.1/24 dev veth0"))
+    # Setup vNIC in the dedicated NS
+    subprocess.check_call(shlex.split("sudo ip netns exec scapy ip link set lo up"))
+    subprocess.check_call(shlex.split("sudo ip netns exec scapy ip link set veth1 up"))
+    subprocess.check_call(shlex.split("sudo ip netns exec scapy ip addr add 192.168.168.2/24 dev veth1"))
+    # Perform test
+    conf.route.resync()
+    res, unansw = sr(IP(dst='192.168.168.2') / ICMP(seq=(1, 1000)), timeout=1, verbose=False)
+finally:
+    try:
+        # Bring down the interfaces
+        subprocess.check_call(shlex.split("sudo ip netns exec scapy ip link set veth1 down"))
+        subprocess.check_call(shlex.split("sudo ip netns exec scapy ip link set lo down"))
+        # Delete the namespace
+        subprocess.check_call(shlex.split("sudo ip netns delete scapy"))
+        # Remove the virtual Ethernet pair
+        subprocess.check_call(shlex.split("sudo ip link delete veth0"))
+    except subprocess.CalledProcessError as e:
+        print(f"Error during cleanup: {e}")
+
+len(res) == 1000
+

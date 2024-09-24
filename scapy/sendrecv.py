@@ -92,7 +92,7 @@ _DOC_SNDRCV_PARAMS = """
         Automatically enabled when a generator is passed as the packet
     :param _flood:
     :param threaded: if True, packets are sent in a thread and received in another.
-        defaults to False.
+        Defaults to True.
     :param session: a flow decoder used to handle stream of packets
     :param chainEX: if True, exceptions during send will be forwarded
     :param stop_filter: Python function applied to each packet to determine if
@@ -128,7 +128,7 @@ class SndRcvHandler(object):
                  rcv_pks=None,  # type: Optional[SuperSocket]
                  prebuild=False,  # type: bool
                  _flood=None,  # type: Optional[_FloodGenerator]
-                 threaded=False,  # type: bool
+                 threaded=True,  # type: bool
                  session=None,  # type: Optional[_GlobSessionType]
                  chainEX=False,  # type: bool
                  stop_filter=None  # type: Optional[Callable[[Packet], bool]]
@@ -158,7 +158,7 @@ class SndRcvHandler(object):
         self.noans = 0
         self._flood = _flood
         self.threaded = threaded
-        self.breakout = False
+        self.breakout = Event()
         # Instantiate packet holders
         if prebuild and not self._flood:
             self.tobesent = list(pkt)  # type: _PacketIterable
@@ -174,6 +174,7 @@ class SndRcvHandler(object):
             self.timeout = None
 
         while retry >= 0:
+            self.breakout.clear()
             self.hsent = {}  # type: Dict[bytes, List[Packet]]
 
             if threaded or self._flood:
@@ -190,7 +191,7 @@ class SndRcvHandler(object):
                 except KeyboardInterrupt as ex:
                     interrupted = ex
 
-                self.breakout = True
+                self.breakout.set()
 
                 # Ended. Let's close gracefully
                 if self._flood:
@@ -251,6 +252,12 @@ class SndRcvHandler(object):
         # type: () -> Tuple[SndRcvList, PacketList]
         return self.ans_result, self.unans_result
 
+    def _stop_sniffer_if_done(self) -> None:
+        """Close the sniffer if all expected answers have been received"""
+        if self._send_done and self.noans >= self.notans and not self.multi:
+            if self.sniffer and self.sniffer.running:
+                self.sniffer.stop(join=False)
+
     def _sndrcv_snd(self):
         # type: () -> None
         """Function used in the sending thread of sndrcv()"""
@@ -258,7 +265,7 @@ class SndRcvHandler(object):
         p = None
         try:
             if self.verbose:
-                print("Begin emission:")
+                os.write(1, b"Begin emission\n")
             for p in self.tobesent:
                 # Populate the dictionary of _sndrcv_rcv
                 # _sndrcv_rcv won't miss the answer of a packet that
@@ -266,13 +273,12 @@ class SndRcvHandler(object):
                 self.hsent.setdefault(p.hashret(), []).append(p)
                 # Send packet
                 self.pks.send(p)
-                if self.inter:
-                    time.sleep(self.inter)
-                if self.breakout:
+                time.sleep(self.inter)
+                if self.breakout.is_set():
                     break
                 i += 1
             if self.verbose:
-                print("Finished sending %i packets." % i)
+                os.write(1, b"\nFinished sending %i packets\n" % i)
         except SystemExit:
             pass
         except Exception:
@@ -291,13 +297,10 @@ class SndRcvHandler(object):
             elif not self._send_done:
                 self.notans = i
             self._send_done = True
-        # In threaded mode, timeout.
-        if self.threaded and self.timeout is not None and not self.breakout:
-            t = time.monotonic() + self.timeout
-            while time.monotonic() < t:
-                if self.breakout:
-                    break
-                time.sleep(0.1)
+        self._stop_sniffer_if_done()
+        # In threaded mode, timeout
+        if self.threaded and self.timeout is not None and not self.breakout.is_set():
+            self.breakout.wait(timeout=self.timeout)
             if self.sniffer and self.sniffer.running:
                 self.sniffer.stop()
 
@@ -324,9 +327,7 @@ class SndRcvHandler(object):
                             self.noans += 1
                         sentpkt._answered = 1
                     break
-        if self._send_done and self.noans >= self.notans and not self.multi:
-            if self.sniffer and self.sniffer.running:
-                self.sniffer.stop(join=False)
+        self._stop_sniffer_if_done()
         if not ok:
             if self.verbose > 1:
                 os.write(1, b".")
@@ -342,7 +343,7 @@ class SndRcvHandler(object):
         self.sniffer = AsyncSniffer()
         self.sniffer._run(
             prn=self._process_packet,
-            timeout=None if self.threaded else self.timeout,
+            timeout=None if self.threaded and not self._flood else self.timeout,
             store=False,
             opened_socket=self.rcv_pks,
             session=self.session,
