@@ -3854,10 +3854,11 @@ class KerberosSSP(SSP):
                 os.urandom(16),
             )
             Context.SendSeqNum = RandNum(0, 0x7FFFFFFF)._fix()
+            _, crealm = _parse_upn(self.UPN)
             ap_req.authenticator.encrypt(
                 Context.STSessionKey,
                 KRB_Authenticator(
-                    crealm=self.ST.realm,
+                    crealm=crealm,
                     cname=PrincipalName.fromUPN(self.UPN),
                     # RFC 4121 checksum
                     cksum=Checksum(
