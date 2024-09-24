@@ -1167,11 +1167,10 @@ class _GenericTLSSessionInheritance(Packet):
             length = struct.unpack("!H", data[3:5])[0] + 5
             if len(data) >= length:
                 # get the underlayer as it is used to populate tls_session
-                if metadata.get("original", None) is None:
-                    underlayer = TCP()
-                else:
-                    underlayer = metadata["original"][TCP].copy()
-                    underlayer.remove_payload()
+                if "original" not in metadata:
+                    return cls(data)
+                underlayer = metadata["original"][TCP].copy()
+                underlayer.remove_payload()
                 # eventually get the tls_session now for TLS.dispatch_hook
                 tls_session = None
                 if conf.tls_session_enable:
