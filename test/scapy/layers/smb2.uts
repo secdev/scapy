@@ -532,7 +532,7 @@ sd = SECURITY_DESCRIPTOR(qr.Output)
 assert sd.OwnerSid.summary() == 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'
 assert sd.GroupSid.summary() == 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'
 
-assert sd.Dacl.toSDDL() == [
+assert sd.DACL.toSDDL() == [
     '(A;OI+CI;;;;S-1-15-2-1)',
     '(A;OI+CI+IO;;;;S-1-3-0)',
     '(A;OI+CI;;;;S-1-1-0)',
