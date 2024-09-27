@@ -1848,6 +1848,7 @@ class LDAP_Client(object):
                 if self.verb:
                     resp.show()
                 raise RuntimeError("LDAP simple bind failed !")
+            status = GSS_S_COMPLETE
         elif self.mech == LDAP_BIND_MECHS.SICILY:
             # [MS-ADTS] sect 5.1.1.1.3
             # 1. Package Discovery
