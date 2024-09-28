@@ -465,7 +465,7 @@ def run_tls_native_test_server(post_handshake_auth=False,
     
     def ssl_server():
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.settimeout(10)
+        server.settimeout(1)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind(("0.0.0.0", 59000))
         server.listen(5)
@@ -486,6 +486,10 @@ def run_tls_native_test_server(post_handshake_auth=False,
         assert resp == bytes(REQS[1])
         ssl_client_socket.send(bytes(RESPS[1]))
         # close socket
+        try:
+            ssl_client_socket.shutdown(socket.SHUT_RDWR)
+        finally:
+            ssl_client_socket.close()
         try:
             server.shutdown(socket.SHUT_RDWR)
         finally:
@@ -522,7 +526,9 @@ def test_tls_client_native(post_handshake_auth=False,
     a.send(REQS[1])
     pkt = a.sr1(REQS[1], timeout=1, verbose=0)
     assert pkt.load == b"Welcome"
-    # Wait
+    # Close
+    a.close()
+    # Wait for server to close
     server.join(3)
     assert not server.is_alive()
 

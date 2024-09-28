@@ -1,7 +1,7 @@
 % Tests that need a local instance of OpenLDAP to run
 
 + Functional test against OpenLDAP
-~ linux
+~ linux ci_only
 
 = (OpenLDAP) connect to server, bind
 
