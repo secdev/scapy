@@ -1686,9 +1686,6 @@ class NDRFullPointerField(_FieldContainer):
     def h2i(self, pkt, x):
         return x
 
-    # def i2count(self, pkt, x):
-    #     return 1
-
     def i2len(self, pkt, x):
         if x is None:
             return 0
@@ -2156,7 +2153,7 @@ class _NDRConfField(object):
     def any2i(self, pkt, x):
         # User-friendly helper
         if self.conformant_in_struct:
-            return x
+            return super(_NDRConfField, self).any2i(pkt, x)
         if self.CONFORMANT_STRING and not isinstance(x, NDRConformantString):
             return NDRConformantString(
                 value=super(_NDRConfField, self).any2i(pkt, x),

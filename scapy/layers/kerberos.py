@@ -2261,8 +2261,7 @@ class KRB_GSS_Wrap(Packet):
                     lambda pkt: pkt.Flags.Sealed,
                 )
             ],
-            XStrLenField("Data", b"",
-                         length_from=lambda pkt: pkt.EC),
+            XStrLenField("Data", b"", length_from=lambda pkt: pkt.EC),
         ),
     ]
 
@@ -2514,6 +2513,7 @@ class KerberosClient(Automaton):
     class MODE(IntEnum):
         AS_REQ = 0
         TGS_REQ = 1
+        GET_SALT = 2
 
     def __init__(
         self,
@@ -2544,7 +2544,7 @@ class KerberosClient(Automaton):
         if not spn:
             raise ValueError("Invalid spn")
         if realm is None:
-            if mode == self.MODE.AS_REQ:
+            if mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
                 _, realm = _parse_upn(upn)
             elif mode == self.MODE.TGS_REQ:
                 _, realm = _parse_spn(spn)
@@ -2555,7 +2555,7 @@ class KerberosClient(Automaton):
             else:
                 raise ValueError("Invalid realm")
 
-        if mode == self.MODE.AS_REQ:
+        if mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
             if not host:
                 raise ValueError("Invalid host")
         elif mode == self.MODE.TGS_REQ:
@@ -2574,7 +2574,17 @@ class KerberosClient(Automaton):
                 debug=kwargs.get("debug", 0),
             ).ip
 
-        if etypes is None:
+        if mode == self.MODE.GET_SALT:
+            if etypes is not None:
+                raise ValueError("Cannot specify etypes in GET_SALT mode !")
+
+            from scapy.libs.rfc3961 import EncryptionType
+
+            etypes = [
+                EncryptionType.AES256_CTS_HMAC_SHA1_96,
+                EncryptionType.AES128_CTS_HMAC_SHA1_96,
+            ]
+        elif etypes is None:
             from scapy.libs.rfc3961 import EncryptionType
 
             etypes = [
@@ -2594,7 +2604,7 @@ class KerberosClient(Automaton):
         self._port = port
         sock = self._connect()
 
-        if self.mode == self.MODE.AS_REQ:
+        if self.mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
             self.host = host.upper()
             self.password = password and bytes_encode(password)
         self.spn = spn
@@ -2792,7 +2802,7 @@ class KerberosClient(Automaton):
 
     @ATMT.condition(BEGIN)
     def should_send_as_req(self):
-        if self.mode == self.MODE.AS_REQ:
+        if self.mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
             raise self.SENT_AP_REQ()
 
     @ATMT.condition(BEGIN)
@@ -2842,12 +2852,35 @@ class KerberosClient(Automaton):
                 salt,
             )
 
-    @ATMT.receive_condition(SENT_AP_REQ)
+    @ATMT.receive_condition(SENT_AP_REQ, prio=0)
+    def receive_salt_mode(self, pkt):
+        # This is only for "Salt-Mode", a mode where we get the salt then
+        # exit.
+        if self.mode == self.MODE.GET_SALT:
+            if Kerberos not in pkt:
+                raise self.FINAL()
+            if not isinstance(pkt.root, KRB_ERROR):
+                log_runtime.error("Pre-auth is likely disabled !")
+                raise self.FINAL()
+            if pkt.root.errorCode == 25:  # KDC_ERR_PREAUTH_REQUIRED
+                for padata in pkt.root.eData.seq:
+                    if padata.padataType == 0x13:  # PA-ETYPE-INFO2
+                        elt = padata.padataValue.seq[0]
+                        if elt.etype.val in self.etypes:
+                            self.result = elt.salt.val
+                            raise self.FINAL()
+            else:
+                log_runtime.error("Failed to retrieve the salt !")
+                raise self.FINAL()
+
+    @ATMT.receive_condition(SENT_AP_REQ, prio=1)
     def receive_krb_error_as_req(self, pkt):
+        # We check for a PREAUTH_REQUIRED error. This means that preauth is required
+        # and we need to do a second exchange.
         if Kerberos in pkt and isinstance(pkt.root, KRB_ERROR):
             if pkt.root.errorCode == 25:  # KDC_ERR_PREAUTH_REQUIRED
                 if not self.key and (not self.upn or not self.password):
-                    log_runtime.warning(
+                    log_runtime.error(
                         "Got 'KDC_ERR_PREAUTH_REQUIRED', "
                         "but no key, nor upn+pass was passed."
                     )
@@ -2857,11 +2890,11 @@ class KerberosClient(Automaton):
                 self.pre_auth = True
                 raise self.BEGIN()
             else:
-                log_runtime.warning("Received KRB_ERROR")
+                log_runtime.error("Received KRB_ERROR")
                 pkt.show()
                 raise self.FINAL()
 
-    @ATMT.receive_condition(SENT_AP_REQ)
+    @ATMT.receive_condition(SENT_AP_REQ, prio=2)
     def receive_as_rep(self, pkt):
         if Kerberos in pkt and isinstance(pkt.root, KRB_AS_REP):
             raise self.FINAL().action_parameters(pkt)
@@ -2874,7 +2907,7 @@ class KerberosClient(Automaton):
             self.update_sock(self._connect())
             raise self.BEGIN()
         else:
-            log_runtime.warning("Socket was closed in an unexpected state")
+            log_runtime.error("Socket was closed in an unexpected state")
             raise self.FINAL()
 
     @ATMT.action(receive_as_rep)
@@ -3075,6 +3108,26 @@ def krb_as_and_tgs(upn, spn, ip=None, key=None, password=None, **kwargs):
         ip=ip,
         **kwargs,
     )
+
+
+def krb_get_salt(upn, ip=None, realm=None, host="WIN10", **kwargs):
+    """
+    Kerberos AS-Req only to get the salt associated with the UPN.
+    """
+    if realm is None:
+        _, realm = _parse_upn(upn)
+    cli = KerberosClient(
+        mode=KerberosClient.MODE.GET_SALT,
+        realm=realm,
+        ip=ip,
+        spn="krbtgt/" + realm,
+        upn=upn,
+        host=host,
+        **kwargs,
+    )
+    cli.run()
+    cli.stop()
+    return cli.result
 
 
 def kpasswd(
@@ -3854,10 +3907,11 @@ class KerberosSSP(SSP):
                 os.urandom(16),
             )
             Context.SendSeqNum = RandNum(0, 0x7FFFFFFF)._fix()
+            _, crealm = _parse_upn(self.UPN)
             ap_req.authenticator.encrypt(
                 Context.STSessionKey,
                 KRB_Authenticator(
-                    crealm=self.ST.realm,
+                    crealm=crealm,
                     cname=PrincipalName.fromUPN(self.UPN),
                     # RFC 4121 checksum
                     cksum=Checksum(
