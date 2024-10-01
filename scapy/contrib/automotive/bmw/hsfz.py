@@ -6,18 +6,9 @@
 # scapy.contrib.description = HSFZ - BMW High-Speed-Fahrzeug-Zugang
 # scapy.contrib.status = loads
 import logging
-import struct
 import socket
+import struct
 import time
-
-from scapy.contrib.automotive import log_automotive
-from scapy.packet import Packet, bind_layers, bind_bottom_up
-from scapy.fields import IntField, ShortEnumField, XByteField
-from scapy.layers.inet import TCP
-from scapy.supersocket import StreamSocket
-from scapy.contrib.automotive.uds import UDS, UDS_TP
-from scapy.data import MTU
-
 from typing import (
     Any,
     Optional,
@@ -28,6 +19,14 @@ from typing import (
     Union,
 )
 
+from scapy.contrib.automotive import log_automotive
+from scapy.contrib.automotive.uds import UDS, UDS_TP
+from scapy.data import MTU
+from scapy.fields import (IntField, ShortEnumField, XByteField,
+                          ConditionalField, StrFixedLenField)
+from scapy.layers.inet import TCP, UDP
+from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.supersocket import StreamSocket
 
 """
 BMW HSFZ (High-Speed-Fahrzeug-Zugang / High-Speed-Car-Access).
@@ -35,22 +34,43 @@ BMW specific diagnostic over IP protocol implementation.
 The physical interface for this connection is called ENET.
 """
 
+
 # #########################HSFZ###################################
 
 
 class HSFZ(Packet):
+    control_words = {
+        0x01: "diagnostic_req_res",
+        0x02: "acknowledge_transfer",
+        0x10: "terminal15",
+        0x11: "vehicle_ident_data",
+        0x12: "alive_check",
+        0x13: "status_data_inquiry",
+        0x40: "incorrect_tester_address",
+        0x41: "incorrect_control_word",
+        0x42: "incorrect_format",
+        0x43: "incorrect_dest_address",
+        0x44: "message_too_large",
+        0x45: "diag_app_not_ready",
+        0xFF: "out_of_memory"
+    }
     name = 'HSFZ'
     fields_desc = [
         IntField('length', None),
-        ShortEnumField('type', 1, {0x01: "message",
-                                   0x02: "echo"}),
-        XByteField('src', 0),
-        XByteField('dst', 0),
+        ShortEnumField('control', 1, control_words),
+        ConditionalField(
+            XByteField('source', 0), lambda p: p.control == 1),
+        ConditionalField(
+            XByteField('target', 0), lambda p: p.control == 1),
+        ConditionalField(
+            StrFixedLenField("identification_string",
+                             None, None, lambda p: p.length),
+            lambda p: p.control == 0x11)
     ]
 
     def hashret(self):
         # type: () -> bytes
-        hdr_hash = struct.pack("B", self.src ^ self.dst)
+        hdr_hash = struct.pack("B", self.source ^ self.target)
         pay_hash = self.payload.hashret()
         return hdr_hash + pay_hash
 
@@ -71,6 +91,11 @@ class HSFZ(Packet):
 bind_bottom_up(TCP, HSFZ, sport=6801)
 bind_bottom_up(TCP, HSFZ, dport=6801)
 bind_layers(TCP, HSFZ, sport=6801, dport=6801)
+
+bind_bottom_up(UDP, HSFZ, sport=6811)
+bind_bottom_up(UDP, HSFZ, dport=6811)
+bind_layers(UDP, HSFZ, sport=6811, dport=6811)
+
 bind_layers(HSFZ, UDS)
 
 
@@ -111,11 +136,11 @@ class HSFZSocket(StreamSocket):
 
 
 class UDS_HSFZSocket(HSFZSocket):
-    def __init__(self, src, dst, ip='127.0.0.1', port=6801, basecls=UDS):
+    def __init__(self, source, target, ip='127.0.0.1', port=6801, basecls=UDS):
         # type: (int, int, str, int, Type[Packet]) -> None
         super(UDS_HSFZSocket, self).__init__(ip, port)
-        self.src = src
-        self.dst = dst
+        self.source = source
+        self.target = target
         self.basecls = HSFZ
         self.outputcls = basecls
 
@@ -128,7 +153,7 @@ class UDS_HSFZSocket(HSFZSocket):
 
         try:
             return super(UDS_HSFZSocket, self).send(
-                HSFZ(src=self.src, dst=self.dst) / x)
+                HSFZ(source=self.source, target=self.target) / x)
         except Exception as e:
             # Workaround:
             # This catch block is currently necessary to detect errors
@@ -153,7 +178,7 @@ class UDS_HSFZSocket(HSFZSocket):
 
 def hsfz_scan(ip,  # type: str
               scan_range=range(0x100),  # type: Iterable[int]
-              src=0xf4,  # type: int
+              source=0xf4,  # type: int
               timeout=0.1,  # type: Union[int, float]
               verbose=True  # type: bool
               ):
@@ -166,7 +191,7 @@ def hsfz_scan(ip,  # type: str
 
     :param ip: IPv4 address of target to scan
     :param scan_range: Range for HSFZ destination address
-    :param src: HSFZ source address, used during the scan
+    :param source: HSFZ source address, used during the scan
     :param timeout: Timeout for each request
     :param verbose: Show information during scan, if True
     :return: A list of open UDS_HSFZSockets
@@ -175,7 +200,7 @@ def hsfz_scan(ip,  # type: str
         log_automotive.setLevel(logging.DEBUG)
     results = list()
     for i in scan_range:
-        with UDS_HSFZSocket(src, i, ip) as sock:
+        with UDS_HSFZSocket(source, i, ip) as sock:
             try:
                 resp = sock.sr1(UDS() / UDS_TP(),
                                 timeout=timeout,
@@ -184,8 +209,8 @@ def hsfz_scan(ip,  # type: str
                     results.append((i, resp))
                 if resp:
                     log_automotive.debug(
-                        "Found endpoint %s, src=0x%x, dst=0x%x" % (ip, src, i))
+                        "Found endpoint %s, source=0x%x, target=0x%x" % (ip, source, i))
             except Exception as e:
                 log_automotive.exception(
                     "Error %s at destination address 0x%x" % (e, i))
-    return [UDS_HSFZSocket(0xf4, dst, ip) for dst, _ in results]
+    return [UDS_HSFZSocket(0xf4, target, ip) for target, _ in results]
