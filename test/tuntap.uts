@@ -96,7 +96,7 @@ conf.route6.resync()
 def cb():
     send(IP(dst="192.0.2.2")/ICMP(seq=(1,3)))
 
-t = AsyncSniffer(opened_socket=tun0, lfilter=lambda x: IP in x, started_callback=cb, count=3)
+t = AsyncSniffer(opened_socket=tun0, lfilter=lambda x: ICMP in x, started_callback=cb, count=3)
 t.start()
 t.join(timeout=3)
 
