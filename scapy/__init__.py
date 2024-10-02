@@ -37,7 +37,12 @@ def _parse_tag(tag):
         # remove the 'v' prefix and add a '.devN' suffix
         return '%s.dev%s' % (match.group(1), match.group(2))
     else:
-        raise ValueError('tag has invalid format')
+        match = re.match('^v?([\\d\\.]+(rc\\d+)?)$', tag)
+        if match:
+            # tagged release version
+            return '%s' % (match.group(1))
+        else:
+            raise ValueError('tag has invalid format')
 
 
 def _version_from_git_archive():
