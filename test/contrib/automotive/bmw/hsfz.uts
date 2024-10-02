@@ -13,36 +13,36 @@ load_contrib("automotive.bmw.hsfz", globals_dict=globals())
 
 = Basic Test 1
 
-pkt = HSFZ(type=1, src=0xf4, dst=0x10)/Raw(b'\x11\x22\x33')
+pkt = HSFZ(control=1, source=0xf4, target=0x10)/Raw(b'\x11\x22\x33')
 assert bytes(pkt) == b'\x00\x00\x00\x05\x00\x01\xf4\x10\x11"3'
 
 = Basic Test 2
 
-pkt = HSFZ(type=1, src=0xf4, dst=0x10)/Raw(b'\x11\x22\x33\x11\x11\x11\x11\x11')
+pkt = HSFZ(control=1, source=0xf4, target=0x10)/Raw(b'\x11\x22\x33\x11\x11\x11\x11\x11')
 assert bytes(pkt) == b'\x00\x00\x00\x0a\x00\x01\xf4\x10\x11"3\x11\x11\x11\x11\x11'
 
 = Basic Dissect Test
 
 pkt = HSFZ(b'\x00\x00\x00\x0a\x00\x01\xf4\x10\x11"3\x11\x11\x11\x11\x11')
 assert pkt.length == 10
-assert pkt.src == 0xf4
-assert pkt.dst == 0x10
-assert pkt.type == 1
+assert pkt.source == 0xf4
+assert pkt.target == 0x10
+assert pkt.control == 1
 assert pkt[1].service == 17
 assert pkt[2].resetType == 34
 
 = Build Test
 
-pkt = HSFZ(src=0xf4, dst=0x10)/Raw(b"0" * 20)
+pkt = HSFZ(source=0xf4, target=0x10)/Raw(b"0" * 20)
 assert bytes(pkt) == b'\x00\x00\x00\x16\x00\x01\xf4\x10' + b"0" * 20
 
 = Dissect Test
 
 pkt = HSFZ(b'\x00\x00\x00\x18\x00\x01\xf4\x10\x67\x01' + b"0" * 20)
 assert pkt.length == 24
-assert pkt.src == 0xf4
-assert pkt.dst == 0x10
-assert pkt.type == 1
+assert pkt.source == 0xf4
+assert pkt.target == 0x10
+assert pkt.control == 1
 assert pkt.securitySeed == b"0" * 20
 assert len(pkt[1]) == pkt.length - 2
 
@@ -50,9 +50,9 @@ assert len(pkt[1]) == pkt.length - 2
 
 pkt = HSFZ(b'\x00\x00\x00\x18\x00\x01\xf4\x10\x67\x01' + b"0" * 20 + b"p" * 100)
 assert pkt.length == 24
-assert pkt.src == 0xf4
-assert pkt.dst == 0x10
-assert pkt.type == 1
+assert pkt.source == 0xf4
+assert pkt.target == 0x10
+assert pkt.control == 1
 assert pkt.securitySeed == b"0" * 20
 assert pkt.load == b'p' * 100
 
@@ -60,26 +60,40 @@ assert pkt.load == b'p' * 100
 
 pkt = HSFZ(b'\x00\x00\x00\x18\x00\x01\xf4\x10\x67\x01' + b"0" * 19)
 assert pkt.length == 24
-assert pkt.src == 0xf4
-assert pkt.dst == 0x10
-assert pkt.type == 1
+assert pkt.source == 0xf4
+assert pkt.target == 0x10
+assert pkt.control == 1
 assert pkt.securitySeed == b"0" * 19
+
 
 = Dissect Test very long packet
 
 pkt = HSFZ(b'\x00\x0f\xff\x04\x00\x01\xf4\x10\x67\x01' + b"0" * 0xfff00)
 assert pkt.length == 0xfff04
-assert pkt.src == 0xf4
-assert pkt.dst == 0x10
-assert pkt.type == 1
+assert pkt.source == 0xf4
+assert pkt.target == 0x10
+assert pkt.control == 1
 assert pkt.securitySeed == b"0" * 0xfff00
+
+
+= Dissect identification
+
+pkt = HSFZ(bytes.fromhex("000000320011444941474144523130424d574d4143374346436343463837393343424d5756494e5742413558373333333246483735373334"))
+assert pkt.length == 50
+assert pkt.control == 0x11
+assert b"BMW" in pkt.identification_string
+
+pkt = UDP(bytes.fromhex("1a9be2d90040d67d000000320011444941474144523130424d574d4143374346436343463837393343424d5756494e5742413558373333333246483735373334"))
+assert pkt.length == 50
+assert pkt.control == 0x11
+assert b"BMW" in pkt.identification_string
 
 = Test HSFZSocket
 
 
 server_up = threading.Event()
 def server():
-    buffer = bytes(HSFZ(type=1, src=0xf4, dst=0x10) / Raw(b'\x11\x22\x33' * 1024))
+    buffer = bytes(HSFZ(control=1, source=0xf4, target=0x10) / Raw(b'\x11\x22\x33' * 1024))
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
