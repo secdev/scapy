@@ -625,17 +625,19 @@ the value to set is also known) of ._find_fld_pkt() instead.
 class PadField(_FieldContainer):
     """Add bytes after the proxified field so that it ends at the specified
        alignment from its beginning"""
-    __slots__ = ["fld", "_align", "_padwith"]
+    __slots__ = ["fld", "_align", "_align_from", "_padwith"]
 
-    def __init__(self, fld, align, padwith=None):
-        # type: (AnyField, int, Optional[bytes]) -> None
+    def __init__(self, fld, align=None, align_from=None, padwith=None):
+        # type: (AnyField, Optional[int], Optional[Callable[[Packet], int]], Optional[bytes]) -> None  # noqa: E501
         self.fld = fld
-        self._align = align
+        self._align_from = align_from or (lambda x: 0)
+        if align is not None:
+            self._align_from = lambda x, align=align: align  # type: ignore
         self._padwith = padwith or b"\x00"
 
     def padlen(self, flen, pkt):
         # type: (int, Packet) -> int
-        return -flen % self._align
+        return -flen % self._align_from(pkt)
 
     def getfield(self,
                  pkt,  # type: Packet
