@@ -1,0 +1,158 @@
+% IFA unit test
+
+#
+# execute test:
+# > test/run_tests -P "load_contrib('ifa')" -t test/contrib/ifa.uts
+# TBD: IPv6 with ext header
+#
+
++ IFA testsuit
+
+
+= Build & Dissect, IFA Over IPv4 UDP
+
+def check_ifa_shim(pkt:Packet):
+    protocols=[socket.IPPROTO_UDP, socket.IPPROTO_TCP, socket.IPPROTO_GRE]
+    assert pkt[IFA].ver == 3
+    assert pkt[IFA].gns == 0xf
+    assert pkt[IFA].next_protocol in protocols
+    assert pkt[IFA].flags == "inband"
+    assert pkt[IFA].max_len == 0xff
+
+def check_ifa_meta(pkt:Packet):
+    assert pkt[IFAMetaHdr].request == 0xef
+    assert pkt[IFAMetaHdr].action == 0xff
+    assert pkt[IFAMetaHdr].hop_limit == 128
+    assert pkt[IFAMetaHdr].cur_len == 16
+    assert len(pkt[IFAMetaHdr].meta_hops) == 2
+    assert pkt[IFAMetaHdr].meta_hops[0].device_id == 0xb22
+    assert pkt[IFAMetaHdr].meta_hops[0].ip_ttl == 62
+    assert pkt[IFAMetaHdr].meta_hops[0].eport_speed == 4
+    assert pkt[IFAMetaHdr].meta_hops[0].egr_port == 6
+    assert pkt[IFAMetaHdr].meta_hops[0].igr_port == 5
+    assert pkt[IFAMetaHdr].meta_hops[1].device_id == 0xa11
+    assert pkt[IFAMetaHdr].meta_hops[1].ip_ttl == 63
+    assert pkt[IFAMetaHdr].meta_hops[1].eport_speed == 4
+    assert pkt[IFAMetaHdr].meta_hops[1].egr_port == 11
+    assert pkt[IFAMetaHdr].meta_hops[1].igr_port == 10
+
+meta_hop0 = IFAMetaHop(device_id=0xb22, ip_ttl=62, eport_speed=4, egr_port=6, igr_port=5)
+meta_hop1 = IFAMetaHop(device_id=0xa11, ip_ttl=63, eport_speed=4, egr_port=11, igr_port=10)
+ifa_meta = IFAMetaHdr(request=0xef, action=0xff, hop_limit=128, meta_hops=[meta_hop0, meta_hop1])
+ifa_shim = IFA(ver=3, gns=0xf, flags="inband", max_len=0xff)
+o_eth = Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")
+o_ip4 = IP(src="198.1.1.17", dst="198.1.2.18", ttl=63)
+o_ip6 = IPv6(src="2000::1", dst="5000::2", hlim=63)
+o_udp = UDP(sport=4196, dport=9028)
+o_udp_vxlan = UDP(sport=4196, dport=4789)
+o_tcp = TCP(sport=4196, dport=9028)
+o_gre = GRE(proto=0x6558)
+o_vxlan = VXLAN(vni=5000)
+i_eth = Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')
+i_ip4 = IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)
+i_tcp = TCP(sport=6677, dport=8899)
+payload = Raw('a'*64)
+
+pkt=o_eth/o_ip4/ifa_shim/o_udp/ifa_meta/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IP].proto == IPPROTO_IFA
+assert pkt[IP].chksum == 0xebb0
+check_ifa_shim(pkt)
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 9028
+assert pkt[UDP].chksum == 0xec18
+check_ifa_meta(pkt)
+
+
+= Build & Dissect, IFA Over IPv4 TCP
+
+pkt=o_eth/o_ip4/ifa_shim/o_tcp/ifa_meta/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IP].proto == IPPROTO_IFA
+assert pkt[IP].chksum == 0xeba4
+check_ifa_shim(pkt)
+assert pkt[TCP].sport == 4196
+assert pkt[TCP].dport == 9028
+assert pkt[TCP].chksum == 0x7ca1
+check_ifa_meta(pkt)
+
+
+= Build & Dissect, IFA Over IPv4 VXLAN
+
+pkt=o_eth/o_ip4/ifa_shim/UDP(sport=4196, dport=4789)/ifa_meta/o_vxlan/i_eth/i_ip4/i_tcp/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IP].proto == IPPROTO_IFA
+assert pkt[IP].chksum == 0xeb72
+check_ifa_shim(pkt)
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 4789
+assert pkt[UDP].chksum == 0x86a7
+assert pkt[VXLAN].vni == 5000
+assert pkt[VXLAN].NextProtocol == 3
+check_ifa_meta(pkt)
+
+
+= Build & Dissect, IFA Over IPv4 GRE
+
+pkt=o_eth/o_ip4/ifa_shim/o_gre/ifa_meta/i_eth/i_ip4/i_tcp/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IP].proto == IPPROTO_IFA
+assert pkt[IP].chksum == 0xeb7e
+check_ifa_shim(pkt)
+assert pkt[GRE].proto == 0x6558
+check_ifa_meta(pkt)
+
+= Build & Dissect, IFA Over IPv6 UDP
+
+pkt=o_eth/o_ip6/ifa_shim/o_udp/ifa_meta/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IPv6].nh == IPPROTO_IFA
+check_ifa_shim(pkt)
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 9028
+assert pkt[UDP].chksum == 0xb3c
+check_ifa_meta(pkt)
+
+
+= Build & Dissect, IFA Over IPv6 TCP
+
+pkt=o_eth/o_ip6/ifa_shim/o_tcp/ifa_meta/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IPv6].nh == IPPROTO_IFA
+check_ifa_shim(pkt)
+assert pkt[TCP].sport == 4196
+assert pkt[TCP].dport == 9028
+assert pkt[TCP].chksum == 0x9bc4
+check_ifa_meta(pkt)
+
+
+= Build & Dissect, IFA Over IPv6 VXLAN
+
+pkt=o_eth/o_ip6/ifa_shim/UDP(sport=4196, dport=4789)/ifa_meta/o_vxlan/i_eth/i_ip4/i_tcp/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IPv6].nh == IPPROTO_IFA
+check_ifa_shim(pkt)
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 4789
+assert pkt[UDP].chksum == 0xa5ca
+assert pkt[VXLAN].vni == 5000
+assert pkt[VXLAN].NextProtocol == 3
+check_ifa_meta(pkt)
+
+
+= Build & Dissect, IFA Over IPv6 GRE
+
+pkt=o_eth/o_ip6/ifa_shim/o_gre/ifa_meta/i_eth/i_ip4/i_tcp/payload
+pkt=Ether(raw(pkt))
+# pkt.show2()
+assert pkt[IPv6].nh == IPPROTO_IFA
+check_ifa_shim(pkt)
+assert pkt[GRE].proto == 0x6558
+check_ifa_meta(pkt)
