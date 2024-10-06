@@ -577,6 +577,7 @@ class RandTermString(RandBin):
         # type: (Union[int, RandNum], bytes) -> None
         self.term = bytes_encode(term)
         super(RandTermString, self).__init__(size=size)
+        self.chars = self.chars.replace(self.term, b"")
 
     def _command_args(self):
         # type: () -> str
