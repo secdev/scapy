@@ -887,6 +887,9 @@ def read_routes():
     ifaces = _get_if_list()
     results = _read_routes(socket.AF_INET)
     for msg in results:
+        # Omit stupid answers (some OS conf appears to lead to this)
+        if msg.rtm_family != socket.AF_INET:
+            continue
         # Process the RTM_NEWROUTE
         net = 0
         mask = itom(msg.rtm_dst_len)
@@ -937,6 +940,9 @@ def read_routes6():
     results = _read_routes(socket.AF_INET6)
     lifaddr = _get_ips(af_family=socket.AF_INET6)
     for msg in results:
+        # Omit stupid answers (some OS conf appears to lead to this)
+        if msg.rtm_family != socket.AF_INET6:
+            continue
         # Process the RTM_NEWROUTE
         prefix = "::"
         plen = msg.rtm_dst_len
