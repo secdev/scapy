@@ -1561,6 +1561,11 @@ data = '1603031616020000660303602161b58e22f4966f18f9aa6afd5759f343935ed437cf09c5
 pkt = TLS(bytes.fromhex(data))
 assert [type(x) for x in pkt.msg] == [TLSServerHello, TLSCertificate, TLSCertificateStatus, TLSServerKeyExchange, TLSServerHelloDone]
 
+= Issue 3853
+data = hex_bytes("16030300360200002e030342615f0b32366c85b5de265ec99fd68c59079d9783dc2f547592fe12f4ab3fde00c02c000015ff01000100000e000000")
+tls_packet = TLS(data)
+assert raw(tls_packet) == data
+
 ###############################################################################
 ############################ Automaton behaviour ##############################
 ###############################################################################
