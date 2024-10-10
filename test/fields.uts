@@ -377,15 +377,26 @@ class TestUTCTimeField(Packet):
             fmt="<Q",
             epoch=[1601, 1, 1, 0, 0, 0],
             custom_scaling=1e7,
+        ),
+        UTCTimeField(
+            "Time1",
+            None,
+            fmt="<Q",
+            epoch=[1601, 1, 1, 0, 0, 0],
+            tz=timezone(timedelta(seconds=14400)),
+            custom_scaling=1e7,
         )
     ]
 
 
 p = TestUTCTimeField(Time=0)
-assert p.sprintf("%Time%") == 'Mon, 01 Jan 1601 00:00:00  (-11644473600)'
+assert p.sprintf("%Time%") == 'Mon, 01 Jan 1601 00:00:00 +0000 (-11644473600)'
 
 p = TestUTCTimeField(Time=133587912345678900)
-assert p.sprintf("%Time%") == 'Sun, 28 Apr 2024 15:20:34  (1714317634)'
+assert p.sprintf("%Time%") == 'Sun, 28 Apr 2024 15:20:34 +0000 (1714317634)'
+
+p = TestUTCTimeField(Time1=133587912345678900)
+assert p.sprintf("%Time1%") == 'Sun, 28 Apr 2024 19:20:34 +0400 (1714317634)'
 
 ############
 ############

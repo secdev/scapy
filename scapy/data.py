@@ -266,9 +266,8 @@ PPI_TYPES = {
     PPI_BTLE: 'btle',
 }
 
-
-# On windows, epoch is 01/02/1970 at 00:00
-EPOCH = calendar.timegm((1970, 1, 2, 0, 0, 0, 3, 1, 0)) - 86400
+# See https://github.com/secdev/scapy/issues/4557
+EPOCH = calendar.timegm((1970, 1, 1, 0, 0, 0, 3, 1, 0))
 
 MTU = 0xffff  # a.k.a give me all you have
 
