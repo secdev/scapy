@@ -963,7 +963,14 @@ class LDAP(ASN1_Packet):
             if length and len(x) >= length:
                 remaining = x[length:]
                 if not remaining:
-                    return cls(data)
+                    pkt = cls(data)
+                    # Packet can be a whole response yet still miss some content.
+                    if (
+                        LDAP_SearchResponseEntry in pkt and
+                        LDAP_SearchResponseResultDone not in pkt
+                    ):
+                        return None
+                    return pkt
             else:
                 return None
         return None
