@@ -27,7 +27,7 @@ techniques (VLAN hopping+ARP cache poisoning, VoIP decoding on WEP protected
 channel, ...), etc.
 
 Scapy supports Python 3.7+. It's intended to
-be cross platform, and runs on many different platforms (Linux, OSX,
+be cross-platform, and run on many different platforms (Linux, OSX,
 \*BSD, and Windows).
 
 ## Getting started
@@ -41,7 +41,7 @@ For further details, please head over to [Getting started with Scapy](https://sc
 
 Scapy can easily be used as an interactive shell to interact with the network.
 The following example shows how to send an ICMP Echo Request message to
-`github.com`, then display the reply source IP address:
+`github.com`, and display the reply's source IP address:
 
 ```python
 sudo ./run_scapy
@@ -49,9 +49,9 @@ Welcome to Scapy
 >>> p = IP(dst="github.com")/ICMP()
 >>> r = sr1(p)
 Begin emission:
-.Finished to send 1 packets.
+.Finished sending 1 packet.
 *
-Received 2 packets, got 1 answers, remaining 0 packets
+Received 2 packets, got 1 answer, remaining 0 packets
 >>> r[IP].src
 '192.30.253.113'
 ```
