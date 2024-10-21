@@ -185,7 +185,8 @@ class NBNSQueryResponse(Packet):
                    ]
 
     def mysummary(self):
-        if not self.ADDR_ENTRY:
+        if not self.ADDR_ENTRY or \
+           not isinstance(self.ADDR_ENTRY[0], NBNS_ADD_ENTRY):
             return "NBNSQueryResponse"
         return "NBNSQueryResponse '\\\\%s' is at %s" % (
             self.RR_NAME.decode(errors="backslashreplace"),
