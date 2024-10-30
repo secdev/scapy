@@ -1173,6 +1173,10 @@ class HTTP_Server(Automaton):
         else:
             self.vprint("%s" % pkt.summary())
 
+    @ATMT.eof(SERVE)
+    def serve_eof(self):
+        raise self.CLOSED()
+
     @ATMT.receive_condition(SERVE)
     def new_request(self, pkt):
         raise self.SERVE(pkt)
