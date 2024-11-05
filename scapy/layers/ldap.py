@@ -208,7 +208,7 @@ class ASN1_Class_LDAP(ASN1_Class):
 
 
 # Bind operation
-# https://datatracker.ietf.org/doc/html/rfc1777#section-4.1
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.2
 
 
 class ASN1_Class_LDAP_Authentication(ASN1_Class):
@@ -397,7 +397,7 @@ class LDAP_BindResponse(ASN1_Packet):
 
 
 # Unbind operation
-# https://datatracker.ietf.org/doc/html/rfc1777#section-4.2
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.3
 
 
 class LDAP_UnbindRequest(ASN1_Packet):
@@ -409,7 +409,7 @@ class LDAP_UnbindRequest(ASN1_Packet):
 
 
 # Search operation
-# https://datatracker.ietf.org/doc/html/rfc1777#section-4.3
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.5
 
 
 class LDAP_SubstringFilterInitial(ASN1_Packet):
@@ -759,16 +759,16 @@ class LDAP_SearchRequest(ASN1_Packet):
     )
 
 
-class LDAP_SearchResponseEntryAttributeValue(ASN1_Packet):
+class LDAP_AttributeValue(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = AttributeValue("value", "")
 
 
-class LDAP_SearchResponseEntryAttribute(ASN1_Packet):
+class LDAP_PartialAttribute(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         AttributeType("type", ""),
-        ASN1F_SET_OF("values", [], LDAP_SearchResponseEntryAttributeValue),
+        ASN1F_SET_OF("values", [], LDAP_AttributeValue),
     )
 
 
@@ -778,8 +778,8 @@ class LDAP_SearchResponseEntry(ASN1_Packet):
         LDAPDN("objectName", ""),
         ASN1F_SEQUENCE_OF(
             "attributes",
-            LDAP_SearchResponseEntryAttribute(),
-            LDAP_SearchResponseEntryAttribute,
+            LDAP_PartialAttribute(),
+            LDAP_PartialAttribute,
         ),
         implicit_tag=ASN1_Class_LDAP.SearchResultEntry,
     )
@@ -793,14 +793,6 @@ class LDAP_SearchResponseResultDone(ASN1_Packet):
     )
 
 
-class LDAP_AbandonRequest(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("messageID", 0),
-        implicit_tag=ASN1_Class_LDAP.AbandonRequest,
-    )
-
-
 class LDAP_SearchResponseReference(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE_OF(
@@ -808,6 +800,106 @@ class LDAP_SearchResponseReference(ASN1_Packet):
         [],
         URI,
         implicit_tag=ASN1_Class_LDAP.SearchResultReference,
+    )
+
+
+# Modify Operation
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.6
+
+
+class LDAP_ModifyRequestChange(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_ENUMERATED(
+            "operation",
+            0,
+            {
+                0: "add",
+                1: "delete",
+                2: "replace",
+            },
+        ),
+        ASN1F_PACKET("modification", LDAP_PartialAttribute(), LDAP_PartialAttribute),
+    )
+
+
+class LDAP_ModifyRequest(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        LDAPDN("object", ""),
+        ASN1F_SEQUENCE_OF("changes", [], LDAP_ModifyRequestChange),
+        implicit_tag=ASN1_Class_LDAP.ModifyRequest,
+    )
+
+
+class LDAP_ModifyResponse(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        *LDAPResult,
+        implicit_tag=ASN1_Class_LDAP.ModifyResponse,
+    )
+
+
+# Add Operation
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.7
+
+
+class LDAP_Attribute(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = LDAP_PartialAttribute.ASN1_root
+
+
+class LDAP_AddRequest(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        LDAPDN("entry", ""),
+        ASN1F_SEQUENCE_OF(
+            "attributes",
+            LDAP_Attribute(),
+            LDAP_Attribute,
+        ),
+        implicit_tag=ASN1_Class_LDAP.AddRequest,
+    )
+
+
+class LDAP_AddResponse(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        *LDAPResult,
+        implicit_tag=ASN1_Class_LDAP.AddResponse,
+    )
+
+
+# Delete Operation
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.8
+
+
+class LDAP_DelRequest(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = LDAPDN(
+        "entry",
+        "",
+        implicit_tag=ASN1_Class_LDAP.DelRequest,
+    )
+
+
+class LDAP_DelResponse(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        *LDAPResult,
+        implicit_tag=ASN1_Class_LDAP.DelResponse,
+    )
+
+
+# Abandon Operation
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.11
+
+
+class LDAP_AbandonRequest(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("messageID", 0),
+        implicit_tag=ASN1_Class_LDAP.AbandonRequest,
     )
 
 
@@ -926,6 +1018,12 @@ class LDAP(ASN1_Packet):
             LDAP_SearchResponseResultDone,
             LDAP_AbandonRequest,
             LDAP_SearchResponseReference,
+            LDAP_ModifyRequest,
+            LDAP_ModifyResponse,
+            LDAP_AddRequest,
+            LDAP_AddResponse,
+            LDAP_DelRequest,
+            LDAP_DelResponse,
             LDAP_UnbindRequest,
             LDAP_ExtendedResponse,
         ),
@@ -966,8 +1064,8 @@ class LDAP(ASN1_Packet):
                     pkt = cls(data)
                     # Packet can be a whole response yet still miss some content.
                     if (
-                        LDAP_SearchResponseEntry in pkt and
-                        LDAP_SearchResponseResultDone not in pkt
+                        LDAP_SearchResponseEntry in pkt
+                        and LDAP_SearchResponseResultDone not in pkt
                     ):
                         return None
                     return pkt
@@ -1242,9 +1340,9 @@ class LdapPing_am(AnsweringMachine):
             / CLDAP(
                 protocolOp=LDAP_SearchResponseEntry(
                     attributes=[
-                        LDAP_SearchResponseEntryAttribute(
+                        LDAP_PartialAttribute(
                             values=[
-                                LDAP_SearchResponseEntryAttributeValue(
+                                LDAP_AttributeValue(
                                     value=ASN1_STRING(
                                         val=bytes(
                                             NETLOGON_SAM_LOGON_RESPONSE_EX(
@@ -2145,6 +2243,34 @@ class LDAP_Client(object):
             if not cookie:
                 break
         return entries
+
+    def modify(
+        self,
+        object: str,
+        changes: List[LDAP_ModifyRequestChange],
+        controls: List[LDAP_Control] = [],
+    ) -> None:
+        """
+        Perform a LDAP modify request.
+
+        :returns:
+        """
+        resp = self.sr1(
+            LDAP_ModifyRequest(
+                object=object,
+                changes=changes,
+            ),
+            controls=controls,
+            timeout=3,
+        )
+        if (
+            LDAP_ModifyResponse not in resp.protocolOp
+            or resp.protocolOp.resultCode != 0
+        ):
+            raise LDAP_Exception(
+                "LDAP modify failed !",
+                resp=resp,
+            )
 
     def close(self):
         if self.verb:

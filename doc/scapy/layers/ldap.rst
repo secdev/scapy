@@ -3,9 +3,6 @@ LDAP
 
 Scapy fully implements the LDAPv2 / LDAPv3 messages, in addition to a very basic :class:`~scapy.layers.ldap.LDAP_Client` class.
 
-.. warning::
-    Scapy's LDAP client is currently read-only. PRs are welcome !
-
 
 LDAP client usage
 -----------------
@@ -16,6 +13,7 @@ The general idea when using the :class:`~scapy.layers.ldap.LDAP_Client` class co
 - calling :func:`~scapy.layers.ldap.LDAP_Client.connect` with the IP (this is where to specify whether to use SSL or not)
 - calling :func:`~scapy.layers.ldap.LDAP_Client.bind` (this is where to specify a SSP if authentication is desired)
 - calling :func:`~scapy.layers.ldap.LDAP_Client.search` to search data.
+- calling :func:`~scapy.layers.ldap.LDAP_Client.modify` to edit data attributes.
 
 The simplest, unauthenticated demo of the client would be something like:
 
@@ -36,20 +34,20 @@ The simplest, unauthenticated demo of the client would be something like:
     |###[ LDAP_SearchResponseEntry ]###
     |  objectName= <ASN1_STRING[b'']>
     |  \attributes\
-    |   |###[ LDAP_SearchResponseEntryAttribute ]###
+    |   |###[ LDAP_PartialAttribute ]###
     |   |  type      = <ASN1_STRING[b'domainFunctionality']>
     |   |  \values    \
-    |   |   |###[ LDAP_SearchResponseEntryAttributeValue ]###
+    |   |   |###[ LDAP_AttributeValue ]###
     |   |   |  value     = <ASN1_STRING[b'7']>
-    |   |###[ LDAP_SearchResponseEntryAttribute ]###
+    |   |###[ LDAP_PartialAttribute ]###
     |   |  type      = <ASN1_STRING[b'forestFunctionality']>
     |   |  \values    \
-    |   |   |###[ LDAP_SearchResponseEntryAttributeValue ]###
+    |   |   |###[ LDAP_AttributeValue ]###
     |   |   |  value     = <ASN1_STRING[b'7']>
-    |   |###[ LDAP_SearchResponseEntryAttribute ]###
+    |   |###[ LDAP_PartialAttribute ]###
     |   |  type      = <ASN1_STRING[b'domainControllerFunctionality']>
     |   |  \values    \
-    |   |   |###[ LDAP_SearchResponseEntryAttributeValue ]###
+    |   |   |###[ LDAP_AttributeValue ]###
     |   |   |  value     = <ASN1_STRING[b'7']>
     [...]
 
@@ -222,3 +220,35 @@ To understand exactly what's going on, note that the previous call is exactly id
 
 .. warning::
     Our RFC2254 parser currently does not support 'Extensible Match'.
+
+Modifying attributes
+~~~~~~~~~~~~~~~~~~~~
+
+It's also possible to change some attributes on an object.
+The following issues a ``Modify Request`` that replaces the ``displayName`` attribute and adds a ``servicePrincipalName``:
+
+.. code:: python
+
+    client.modify(
+        "CN=User1,CN=Users,DC=domain,DC=local",
+        changes=[
+            LDAP_ModifyRequestChange(
+                operation="replace",
+                modification=LDAP_PartialAttribute(
+                    type="displayName",
+                    values=[
+                        LDAP_AttributeValue(value="Lord User the 1st")
+                    ]
+                )
+            ),
+            LDAP_ModifyRequestChange(
+                operation="add",
+                modification=LDAP_PartialAttribute(
+                    type="servicePrincipalName",
+                    values=[
+                        LDAP_AttributeValue(value="http/lorduser")
+                    ]
+                )
+            )
+        ]
+    )
