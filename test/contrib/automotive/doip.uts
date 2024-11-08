@@ -10,6 +10,8 @@
 
 = Load Contrib Layer
 
+from test.testsocket import TestSocket, cleanup_testsockets, UnstableSocket
+
 load_contrib("automotive.doip", globals_dict=globals())
 load_contrib("automotive.uds", globals_dict=globals())
 
@@ -405,6 +407,26 @@ assert len(pkts) == 2
 assert pkts[0][DoIP].payload_length == 2
 assert pkts[0][DoIP:2].payload_length == 7
 assert pkts[1][DoIP].payload_length == 103
+
+= Doip logical addressing
+
+filename = scapy_path("/test/pcaps/doip_functional_request.pcap.gz")
+tx_sock = TestSocket(DoIP)
+rx_sock = TestSocket(DoIP)
+tx_sock.pair(rx_sock)
+
+for pkt in PcapReader(filename):
+    if pkt.haslayer(DoIP):
+        tx_sock.send(pkt[DoIP])
+
+ans, unans = rx_sock.sr(DoIP(bytes(DoIP(payload_type=0x8001, source_address=0xe80, target_address=0xe400) / UDS() / UDS_TP())), multi=True, timeout=0.01, verbose=False)
+
+cleanup_testsockets()
+
+assert len(ans) == 8
+ans.summary()
+assert len(unans) == 0
+
 
 + DoIP Communication tests
 
