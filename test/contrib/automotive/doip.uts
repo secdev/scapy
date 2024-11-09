@@ -419,7 +419,7 @@ for pkt in PcapReader(filename):
     if pkt.haslayer(DoIP):
         tx_sock.send(pkt[DoIP])
 
-ans, unans = rx_sock.sr(DoIP(bytes(DoIP(payload_type=0x8001, source_address=0xe80, target_address=0xe400) / UDS() / UDS_TP())), multi=True, timeout=0.01, verbose=False)
+ans, unans = rx_sock.sr(DoIP(bytes(DoIP(payload_type=0x8001, source_address=0xe80, target_address=0xe400) / UDS() / UDS_TP())), multi=True, timeout=0.1, verbose=False)
 
 cleanup_testsockets()
 
