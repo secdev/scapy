@@ -423,6 +423,10 @@ ans, unans = rx_sock.sr(DoIP(bytes(DoIP(payload_type=0x8001, source_address=0xe8
 
 cleanup_testsockets()
 
+ans.summary()
+if unans:
+    unans.summary()
+
 assert len(ans) == 8
 ans.summary()
 assert len(unans) == 0
