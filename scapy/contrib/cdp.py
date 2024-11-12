@@ -249,23 +249,19 @@ class CDPMsgIPGateway(CDPMsgGeneric):
                    ShortField("len", 8),
                    IPField("defaultgw", "192.168.0.1")]
 
-class CDPIPPrefixRecord(Packet):
-    name = "Prefixes"
+
+class IPPrefix(CDPMsgGeneric):
     fields_desc = [
-        IPField("prefix", "192.168.0.1"),
-        ByteField("plen", 24)]
-    def guess_payload_class(self, payload):
-        if len(payload) >= 5:
-            return CDPIPPrefixRecord
-        else:
-            return Raw
-            
+            IPField("Prefix", "192.168.0.1"),
+            ByteField("plen", 24)]
+
+
 class CDPMsgIPPrefix(CDPMsgGeneric):
     name = "IP Prefix"
     type = 0x0007
     fields_desc = [XShortEnumField("type", 0x0007, _cdp_tlv_types),
                    ShortField("len", 9),
-                   PacketListField("prefixes", [],CDPIPPrefixRecord, length_from=lambda p: p.len - 4)]
+                   PacketListField("prefixes", [], IPPrefix, length_from=lambda p: p.len - 4)]
 
 
 class CDPMsgProtoHello(CDPMsgGeneric):
