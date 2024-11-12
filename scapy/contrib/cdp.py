@@ -252,7 +252,7 @@ class CDPMsgIPGateway(CDPMsgGeneric):
 
 class IPPrefix(CDPMsgGeneric):
     fields_desc = [
-            IPField("Prefix", "192.168.0.1"),
+            IPField("prefix", "192.168.0.1"),
             ByteField("plen", 24)]
 
 
