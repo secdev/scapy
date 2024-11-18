@@ -203,6 +203,7 @@ h = "d89ef3da40e2fa163e956dce08004500008a0001000040114bbd0a0a0f3d0a0f0b5b084b084
 gtp = Ether(hex_bytes(h))
 ie = gtp.IE_list[1].IE_list[0]
 ie.fqdn == b'pgw1.test.local'
+gtp.build().hex() == h
 
 = IE_PDNConnection, IE_FQDN, basic instantiation
 ie = IE_PDNConnection(IE_list=[IE_FQDN(ietype=136, length=5, CR_flag=0, instance=0, fqdn=b'pgw1.test.local')], ietype=109, length=9, CR_flag=0, instance=0)
