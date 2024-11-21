@@ -252,8 +252,9 @@ class CDPMsgIPGateway(CDPMsgGeneric):
 
 class IPPrefix(CDPMsgGeneric):
     fields_desc = [
-            IPField("prefix", "192.168.0.1"),
-            ByteField("plen", 24)]
+        IPField("prefix", "192.168.0.1"),
+        ByteField("plen", 24),
+    ]
 
 
 class CDPMsgIPPrefix(CDPMsgGeneric):
@@ -261,7 +262,8 @@ class CDPMsgIPPrefix(CDPMsgGeneric):
     type = 0x0007
     fields_desc = [XShortEnumField("type", 0x0007, _cdp_tlv_types),
                    ShortField("len", 9),
-                   PacketListField("prefixes", [], IPPrefix, length_from=lambda p: p.len - 4)]
+                   PacketListField("prefixes", [], IPPrefix,
+                                   length_from=lambda p: p.len - 4)]
 
 
 class CDPMsgProtoHello(CDPMsgGeneric):
