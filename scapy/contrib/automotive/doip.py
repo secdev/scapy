@@ -239,10 +239,7 @@ class DoIP(Packet):
 
     def hashret(self):
         # type: () -> bytes
-        if self.payload_type in [0x8001, 0x8002, 0x8003]:
-            return bytes(self)[:2] + struct.pack(
-                "H", self.target_address ^ self.source_address)
-        return bytes(self)[:2]
+        return bytes(self)[:3]
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
