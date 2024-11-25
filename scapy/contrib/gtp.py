@@ -208,11 +208,16 @@ class TBCDByteField(StrFixedLenField):
                 ret_string += chb(int(b"F" + tmp[:1], 16))
         return ret_string
 
-class FQDNField(DNSStrField):   #ETSI TS 129.244 18.07.00 - 8.66, NOTE 1
+
+class FQDNField(DNSStrField):
+    """
+    DNSStrField without ending null.
+
+    See ETSI TS 129.244 18.07.00 - 8.66, NOTE 1
+    """
 
     def h2i(self, pkt, x):
-        x = bytes_encode(x)
-        return x
+        return bytes_encode(x)
 
     def i2m(self, pkt, x):
         return b"".join(chb(len(y)) + y for y in (k[:63] for k in x.split(b".")))
@@ -220,6 +225,7 @@ class FQDNField(DNSStrField):   #ETSI TS 129.244 18.07.00 - 8.66, NOTE 1
     def getfield(self, pkt, s):
         remain, s = super().getfield(pkt, s)
         return remain, s[:-1]
+
 
 TBCD_TO_ASCII = b"0123456789*#abc"
 
