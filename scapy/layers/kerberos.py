@@ -19,6 +19,7 @@ Implements parts of:
   draft-ietf-kitten-iakerb-03
 - Kerberos Protocol Extensions: [MS-KILE]
 - Kerberos Protocol Extensions: Service for User: [MS-SFU]
+- Kerberos Key Distribution Center Proxy Protocol: [MS-KKDCP]
 
 
 .. note::
@@ -134,6 +135,7 @@ from scapy.layers.gssapi import (
     _GSSAPI_SIGNATURE_OIDS,
 )
 from scapy.layers.inet import TCP, UDP
+from scapy.layers.smb import _NV_VERSION
 
 # Typing imports
 from typing import (
@@ -2501,6 +2503,32 @@ bind_layers(KpasswdTCPHeader, Kpasswd)
 
 bind_bottom_up(TCP, KpasswdTCPHeader, sport=464)
 bind_layers(TCP, KpasswdTCPHeader, dport=464)
+
+# [MS-KKDCP]
+
+
+class _KerbMessage_Field(ASN1F_STRING_PacketField):
+    def m2i(self, pkt, s):
+        val = super(_KerbMessage_Field, self).m2i(pkt, s)
+        if not val[0].val:
+            return val
+        return KerberosTCPHeader(val[0].val, _underlayer=pkt), val[1]
+
+
+class KDC_PROXY_MESSAGE(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        _KerbMessage_Field("kerbMessage", "", explicit_tag=0xA0),
+        ASN1F_optional(Realm("targetDomain", None, explicit_tag=0xA1)),
+        ASN1F_optional(
+            ASN1F_FLAGS(
+                "dclocatorHint",
+                "",
+                FlagsField("", 0, -32, _NV_VERSION).names,
+                explicit_tag=0xA2,
+            )
+        ),
+    )
 
 
 # Util functions
