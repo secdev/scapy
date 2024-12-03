@@ -652,16 +652,7 @@ class HTTP(Packet):
             is_response = isinstance(http_packet.payload, cls.clsresp)
             # Packets may have a Content-Length we must honnor
             length = http_packet.Content_Length
-            # Heuristic to try and detect instant HEAD responses, as those include a
-            # Content-Length that must not be honored. This is a bit crappy, and assumes
-            # that a 'HEAD' will never include an Encoding...
-            if (
-                is_response and
-                data.endswith(b"\r\n\r\n") and
-                not http_packet[HTTPResponse]._get_encodings()
-            ):
-                detect_end = lambda _: True
-            elif length is not None:
+            if length is not None:
                 # The packet provides a Content-Length attribute: let's
                 # use it. When the total size of the frags is high enough,
                 # we have the packet
@@ -672,8 +663,12 @@ class HTTP(Packet):
                     detect_end = lambda dat: len(dat) - http_length >= length
                 else:
                     # The HTTP layer isn't fully received.
-                    detect_end = lambda dat: False
-                    metadata["detect_unknown"] = True
+                    if metadata.get("tcp_end", False):
+                        # This was likely a HEAD response. Ugh
+                        detect_end = lambda dat: True
+                    else:
+                        detect_end = lambda dat: False
+                        metadata["detect_unknown"] = True
             else:
                 # It's not Content-Length based. It could be chunked
                 encodings = http_packet[cls].payload._get_encodings()
@@ -833,7 +828,7 @@ class HTTP_Client(object):
         Perform a HTTP(s) request.
         """
         # Parse request url
-        m = re.match(r"(https?)://([^/:]+)(?:\:(\d+))?(?:/(.*))?", url)
+        m = re.match(r"(https?)://([^/:]+)(?:\:(\d+))?(/.*)?", url)
         if not m:
             raise ValueError("Bad URL !")
         transport, host, port, path = m.groups()

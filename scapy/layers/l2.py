@@ -158,7 +158,11 @@ def getmacbyip(ip, chainCC=0):
     # Check the routing table
     iff, _, gw = conf.route.route(ip)
 
-    # Broadcast case
+    # Limited broadcast
+    if ip == "255.255.255.255":
+        return "ff:ff:ff:ff:ff:ff"
+
+    # Directed broadcast
     if (iff == conf.loopback_name) or (ip in conf.route.get_if_bcast(iff)):
         return "ff:ff:ff:ff:ff:ff"
 
