@@ -1219,6 +1219,30 @@ class EIR_Device_ID(EIR_Element):
     ]
 
 
+class EIR_ServiceSolicitation16BitUUID(EIR_Element):
+    name = "EIR Service Solicitation - 16-bit UUID"
+    fields_desc = [
+        XLEShortField("svc_uuid", None)
+    ]
+
+    def extract_padding(self, s):
+        # Needed to end each EIR_Element packet and make PacketListField work.
+        plen = EIR_Element.length_from(self) - 2
+        return s[:plen], s[plen:]
+
+
+class EIR_ServiceSolicitation128BitUUID(EIR_Element):
+    name = "EIR Service Solicitation - 128-bit UUID"
+    fields_desc = [
+        UUIDField('svc_uuid', None, uuid_fmt=UUIDField.FORMAT_REV)
+    ]
+
+    def extract_padding(self, s):
+        # Needed to end each EIR_Element packet and make PacketListField work.
+        plen = EIR_Element.length_from(self) - 2
+        return s[:plen], s[plen:]
+
+
 class EIR_ServiceData16BitUUID(EIR_Element):
     name = "EIR Service Data - 16-bit UUID"
     fields_desc = [
@@ -2341,6 +2365,8 @@ bind_layers(EIR_Hdr, EIR_SecureSimplePairingHashC192, type=0x0e)
 bind_layers(EIR_Hdr, EIR_SecureSimplePairingRandomizerR192, type=0x0f)
 bind_layers(EIR_Hdr, EIR_SecurityManagerOOBFlags, type=0x11)
 bind_layers(EIR_Hdr, EIR_PeripheralConnectionIntervalRange, type=0x12)
+bind_layers(EIR_Hdr, EIR_ServiceSolicitation16BitUUID, type=0x14)
+bind_layers(EIR_Hdr, EIR_ServiceSolicitation128BitUUID, type=0x15)
 bind_layers(EIR_Hdr, EIR_ServiceData16BitUUID, type=0x16)
 bind_layers(EIR_Hdr, EIR_ServiceData32BitUUID, type=0x20)
 bind_layers(EIR_Hdr, EIR_ServiceData128BitUUID, type=0x21)

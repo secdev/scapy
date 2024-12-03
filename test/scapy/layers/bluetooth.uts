@@ -547,6 +547,13 @@ except TypeError:
 else:
     assert False, "expected exception"
 
+= Parse EIR_ServiceSolicitation16BitUUID and EIR_ServiceSolicitation128BitUUID
+
+d = hex_bytes("043e29020100013d1ef10747d81d0319000002010603140d181115d0002d121e4b0fa4994eceb531f40579aa") 
+p = HCI_Hdr(d)
+assert p[EIR_ServiceSolicitation16BitUUID].svc_uuid == 0x180d
+assert p[EIR_ServiceSolicitation128BitUUID].svc_uuid == UUID('7905f431-b5ce-4e99-a40f-4b1e122d00d0')
+
 = Parse EIR_ServiceData16BitUUID
 
 d = hex_bytes("043e1902010001abcdef7da97f0d020102030350fe051650fee6c2ac")
