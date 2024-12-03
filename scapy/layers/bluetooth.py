@@ -2156,6 +2156,23 @@ class HCI_LE_Meta_Connection_Complete(Packet):
                 other[HCI_Cmd_LE_Create_Connection].paddr == self.paddr)
 
 
+class HCI_LE_Meta_Enhanced_Connection_Complete(Packet):
+    name = "Enhanced Connection Complete"
+    fields_desc = [
+        ByteEnumField("status", 0, {0: "success"}),
+        LEShortField("handle", 0),
+        ByteEnumField("role", 0, {0: "master"}),
+        ByteEnumField("patype", 0, {0: "public", 1: "random"}),
+        LEMACField("paddr", None),
+        LEMACField("lrpa", None),
+        LEMACField("prpa", None),
+        LEShortField("interval", 54),
+        LEShortField("latency", 0),
+        LEShortField("supervision", 42),
+        XByteField("clock_latency", 5),
+    ]
+
+
 class HCI_LE_Meta_Connection_Update_Complete(Packet):
     name = "Connection Update Complete"
     fields_desc = [ByteEnumField("status", 0, {0: "success"}),
@@ -2324,6 +2341,7 @@ bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=1)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Reports, event=2)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=3)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=5)
+bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Enhanced_Connection_Complete, event=0x0A)
 
 bind_layers(EIR_Hdr, EIR_Flags, type=0x01)
 bind_layers(EIR_Hdr, EIR_IncompleteList16BitServiceUUIDs, type=0x02)
