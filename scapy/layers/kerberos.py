@@ -46,7 +46,7 @@ Example decryption::
     >>> enc.decrypt(k)
 """
 
-from collections import namedtuple
+from collections import namedtuple, deque
 from datetime import datetime, timedelta, timezone
 from enum import IntEnum
 
@@ -117,7 +117,7 @@ from scapy.fields import (
     XStrField,
 )
 from scapy.packet import Packet, bind_bottom_up, bind_top_down, bind_layers
-from scapy.supersocket import StreamSocket
+from scapy.supersocket import StreamSocket, SuperSocket
 from scapy.utils import strrot, strxor
 from scapy.volatile import GeneralizedTime, RandNum, RandBin
 
@@ -2523,12 +2523,75 @@ class KDC_PROXY_MESSAGE(ASN1_Packet):
         ASN1F_optional(
             ASN1F_FLAGS(
                 "dclocatorHint",
-                "",
+                None,
                 FlagsField("", 0, -32, _NV_VERSION).names,
                 explicit_tag=0xA2,
             )
         ),
     )
+
+
+class KdcProxySocket(SuperSocket):
+    """
+    This is a wrapper of a HTTP_Client that does KKDCP proxying,
+    disguised as a SuperSocket to be compatible with the rest of the KerberosClient.
+    """
+
+    def __init__(
+        self,
+        url,
+        targetDomain,
+        dclocatorHint=None,
+        no_check_certificate=False,
+        **kwargs,
+    ):
+        self.url = url
+        self.targetDomain = targetDomain
+        self.dclocatorHint = dclocatorHint
+        self.no_check_certificate = no_check_certificate
+        self.queue = deque()
+        super(KdcProxySocket, self).__init__(**kwargs)
+
+    def recv(self, x=None):
+        return self.queue.popleft()
+
+    def send(self, x, **kwargs):
+        from scapy.layers.http import HTTP_Client
+
+        cli = HTTP_Client(no_check_certificate=self.no_check_certificate)
+        try:
+            # sr it via the web client
+            resp = cli.request(
+                self.url,
+                Method="POST",
+                data=bytes(
+                    # Wrap request in KDC_PROXY_MESSAGE
+                    KDC_PROXY_MESSAGE(
+                        kerbMessage=bytes(x),
+                        targetDomain=ASN1_GENERAL_STRING(self.targetDomain.encode()),
+                        # dclocatorHint is optional
+                        dclocatorHint=self.dclocatorHint,
+                    )
+                ),
+                http_headers={
+                    "Cache-Control": "no-cache",
+                    "Pragma": "no-cache",
+                    "User-Agent": "kerberos/1.0",
+                },
+            )
+            if resp and conf.raw_layer in resp:
+                # Parse the payload
+                resp = KDC_PROXY_MESSAGE(resp.load).kerbMessage
+                # We have an answer, queue it.
+                self.queue.append(resp)
+            else:
+                raise EOFError
+        finally:
+            cli.close()
+
+    @staticmethod
+    def select(sockets, remain=None):
+        return [x for x in sockets if isinstance(x, KdcProxySocket) and x.queue]
 
 
 # Util functions
@@ -2558,6 +2621,8 @@ class KerberosClient(Automaton):
         u2u=False,
         for_user=None,
         s4u2proxy=False,
+        kdc_proxy=None,
+        kdc_proxy_no_check_certificate=False,
         etypes=None,
         key=None,
         port=88,
@@ -2590,7 +2655,7 @@ class KerberosClient(Automaton):
             if not ticket:
                 raise ValueError("Invalid ticket")
 
-        if not ip:
+        if not ip and not kdc_proxy:
             # No KDC IP provided. Find it by querying the DNS
             ip = dclocator(
                 realm,
@@ -2630,7 +2695,8 @@ class KerberosClient(Automaton):
         self._timeout = timeout
         self._ip = ip
         self._port = port
-        sock = self._connect()
+        self.kdc_proxy = kdc_proxy
+        self.kdc_proxy_no_check_certificate = kdc_proxy_no_check_certificate
 
         if self.mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
             self.host = host.upper()
@@ -2651,16 +2717,25 @@ class KerberosClient(Automaton):
         # Negotiated parameters
         self.pre_auth = False
         self.fxcookie = None
+
+        sock = self._connect()
         super(KerberosClient, self).__init__(
             sock=sock,
             **kwargs,
         )
 
     def _connect(self):
-        sock = socket.socket()
-        sock.settimeout(self._timeout)
-        sock.connect((self._ip, self._port))
-        sock = StreamSocket(sock, KerberosTCPHeader)
+        if self.kdc_proxy:
+            sock = KdcProxySocket(
+                url=self.kdc_proxy,
+                targetDomain=self.realm,
+                no_check_certificate=self.kdc_proxy_no_check_certificate,
+            )
+        else:
+            sock = socket.socket()
+            sock.settimeout(self._timeout)
+            sock.connect((self._ip, self._port))
+            sock = StreamSocket(sock, KerberosTCPHeader)
         return sock
 
     def send(self, pkt):
