@@ -839,7 +839,7 @@ class HTTP_Client(object):
         :param follow_redirects: if True, request() will follow 302 return codes
         :param http_headers: if specified, overwrites the HTTP headers
             (except Host and Path).
-        :param **headers: any additional HTTPRequest parameter to add.
+        :param headers: any additional HTTPRequest parameter to add.
             e.g. Method="POST"
         """
         # Parse request url
