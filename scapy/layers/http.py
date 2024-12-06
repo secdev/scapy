@@ -823,9 +823,24 @@ class HTTP_Client(object):
             )
         return resp
 
-    def request(self, url, data=b"", timeout=5, follow_redirects=True, **headers):
+    def request(self,
+                url,
+                data=b"",
+                timeout=5,
+                follow_redirects=True,
+                http_headers={},
+                **headers):
         """
         Perform a HTTP(s) request.
+
+        :param url: the full URL to connect to.
+            e.g. https://google.com/test
+        :param data: the data to send as payload
+        :param follow_redirects: if True, request() will follow 302 return codes
+        :param http_headers: if specified, overwrites the HTTP headers
+            (except Host and Path).
+        :param headers: any additional HTTPRequest parameter to add.
+            e.g. Method="POST"
         """
         # Parse request url
         m = re.match(r"(https?)://([^/:]+)(?:\:(\d+))?(/.*)?", url)
@@ -844,14 +859,20 @@ class HTTP_Client(object):
         self._connect_or_reuse(host, port=port, tls=tls, timeout=timeout)
 
         # Build request
-        http_headers = {
-            "Accept_Encoding": b'gzip, deflate',
-            "Cache_Control": b'no-cache',
-            "Pragma": b'no-cache',
-            "Connection": b'keep-alive',
-            "Host": host,
-            "Path": path,
-        }
+        headers.setdefault("Host", host)
+        headers.setdefault("Path", path)
+
+        if not http_headers:
+            http_headers = {
+                "Accept_Encoding": b'gzip, deflate',
+                "Cache_Control": b'no-cache',
+                "Pragma": b'no-cache',
+                "Connection": b'keep-alive',
+            }
+        else:
+            http_headers = {
+                k.replace("-", "_"): v for k, v in http_headers.items()
+            }
         http_headers.update(headers)
         req = HTTP() / HTTPRequest(**http_headers)
         if data:
