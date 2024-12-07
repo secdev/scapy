@@ -179,6 +179,13 @@ assert ext[6].extnValue.cRLDistributionPoints[0].distributionPoint.distributionP
 assert ext[8].extnValue.subjectAltName[1].generalName.dNSName == b"DC1.domain.local"
 assert ext[9].extnValue.value == b'S-1-5-21-1924137214-3718646274-40215721-1000'
 
+= Cert class : X509 Certificate with rare fields types
+cert_with_bmp_string = base64.b64decode('MIIB3DCCAaagAwIBAgIBATANBgkqhkiG9w0BAQsFADCB9jELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkNBMQswCQYDVQQHEwJMRzEXMBUGA1UEChMOV2Vic2Vuc2UsIEluYy4xGjAYBgNVBAsTEVdlYnNlbnNlIEVuZHBvaW50MSMwIQYJKoZIhvcNAQkBFhRzdXBwb3J0QHdlYnNlbnNlLmNvbTE2MDQGA1UEAxMtV2Vic2Vuc2UgUHVibGljIFByaW1hcnkgQ2VydGlmaWNhdGUgQXV0aG9yaXR5MTswOQYDVQQNHjIAMQAyADQANgAxADgAMwA1ADEANABFAFAAQAB3AGUAYgBzAGUAbgBzAGUALgBjAG8AbTAeFw0yNDExMDUxMDA0MjlaFw0yNDExMDYxMDE0MjlaMEMxCzAJBgNVBAYTAkZSMRQwEgYDVQQKEwtTY2FweSwgSW5jLjEeMBwGA1UEAxMVU2NhcHkgRGVmYXVsdCBTdWJqZWN0MBowDQYJKoZIhvcNAQELBQADCQAwBgIBCgIBA6MTMBEwDwYDVR0TAQEABAUwAwEBADANBgkqhkiG9w0BAQsFAAMhAGRlZmF1bHRzaWduYXR1cmVkZWZhdWx0c2lnbmF0dXJl')
+c = X509_Cert(cert_with_bmp_string)
+bmp_field_value = str(c.tbsCertificate.issuer[7].rdn[0].value.val, "utf-16be")
+assert bmp_field_value == '1246183514EP@websense.com'
+
+
 ############ CRL class ###############################################
 
 + X509_CRL class tests

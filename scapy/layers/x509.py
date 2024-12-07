@@ -218,12 +218,13 @@ class EdDSAPrivateKey(ASN1_Packet):
 #       Names       #
 
 class ASN1F_X509_DirectoryString(ASN1F_CHOICE):
-    # we include ASN1 bit strings for rare instances of x500 addresses
+    # we include ASN1 bit strings and bmp strings for rare instances of x500 addresses
     def __init__(self, name, default, **kwargs):
         ASN1F_CHOICE.__init__(self, name, default,
                               ASN1F_PRINTABLE_STRING, ASN1F_UTF8_STRING,
                               ASN1F_IA5_STRING, ASN1F_T61_STRING,
                               ASN1F_UNIVERSAL_STRING, ASN1F_BIT_STRING,
+                              ASN1F_BMP_STRING,
                               **kwargs)
 
 
