@@ -1232,6 +1232,13 @@ class EIR_ServiceData16BitUUID(EIR_Element):
         return s[:plen], s[plen:]
 
 
+class EIR_PublicTargetAddress(EIR_Element):
+    name = "Public Target Address"
+    fields_desc = [
+        LEMACField('bd_addr', None)
+    ]
+
+
 class EIR_ServiceData32BitUUID(EIR_Element):
     name = 'EIR Service Data - 32-bit UUID'
     fields_desc = [
@@ -2342,6 +2349,7 @@ bind_layers(EIR_Hdr, EIR_SecureSimplePairingRandomizerR192, type=0x0f)
 bind_layers(EIR_Hdr, EIR_SecurityManagerOOBFlags, type=0x11)
 bind_layers(EIR_Hdr, EIR_PeripheralConnectionIntervalRange, type=0x12)
 bind_layers(EIR_Hdr, EIR_ServiceData16BitUUID, type=0x16)
+bind_layers(EIR_Hdr, EIR_PublicTargetAddress, type=0x17)
 bind_layers(EIR_Hdr, EIR_ServiceData32BitUUID, type=0x20)
 bind_layers(EIR_Hdr, EIR_ServiceData128BitUUID, type=0x21)
 bind_layers(EIR_Hdr, EIR_Manufacturer_Specific_Data, type=0xff)
