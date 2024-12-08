@@ -2112,120 +2112,27 @@ assert bytes(y) != bytes(y)
 
 ############
 ############
-+ BitExtendedField
-
-= BitExtendedField: simple test
-
-class DebugPacket(Packet):
-    fields_desc = [
-        BitExtendedField("val", None, extension_bit=0)
-    ]
-
-a = DebugPacket(val=1234)
-assert a.val == 1234
-
-= BitExtendedField i2m: corner values
-* 7 bits of data = 0
-import codecs
-for i in range(8):
-    m = BitExtendedField("foo", None, extension_bit=i)
-    r = m.i2m(None, 0)
-    r = int(codecs.encode(r, 'hex'), 16)
-    assert r == 0
-
-* 7 bits of data = 1
-for i in range(8):
-    m = BitExtendedField("foo", None, extension_bit=i)
-    r = m.i2m(None, 0b1111111)
-    r = int(codecs.encode(r, 'hex'), 16)
-    assert r == 0xff - 2**i
-
-= BitExtendedField i2m: field expansion
-* If there is 8 bits of data, we need to add a byte
-m = BitExtendedField("foo", None, extension_bit=0)
-r = m.i2m(None, 0b10000000)
-r = int(codecs.encode(r, 'hex'), 16)
-assert r == 0x0300
-
-= BitExtendedField i2m: test all FX bit positions
-* Data is 0b10000001 (129) and all str values are precomputed
-data_129 = {
-    "extended": 129,
-    "int_with_fx": [770, 769, 1281, 2305, 4353, 8449, 16641, 33025],
-    "str_with_fx" : []
-}
-for i in range(8):
-    m = BitExtendedField("foo", None, extension_bit=i)
-    r = m.i2m(None, data_129["extended"])
-    data_129["str_with_fx"].append(r)
-    r = int(codecs.encode(r, 'hex'), 16)
-    assert r == data_129["int_with_fx"][i]
-
-= BitExtendedField m2i: test all FX bit positions
-* Data is 0b10000001 (129) and all str values are precomputed
-for i in range(8):
-    m = BitExtendedField("foo", None, extension_bit=i)
-    r = m.m2i(None, data_129["str_with_fx"][i])
-    assert r == data_129["extended"]
-
-= BitExtendedField m2i: stop at FX zero
-* 1 byte of zeroes (FX stop) then 1 byte of ones : ignore 2nd byte
-for i in range(8):
-    m = BitExtendedField("foo", None, extension_bit=i)
-    r = m.m2i(None, b'\x00\xff')
-    assert r == 0
-
-= BitExtendedField m2i: multiple bytes
-* 0b00000011 0b11111110 --> 0xff
-data_254 = {
-    "extended": 0xff,
-    "str_with_fx" : [b'\x03\xfe', b'\x03\xfd', b'\x05\xfb', b'\x09\xf7', b'\x11\xef', b'\x21\xdf', b'\x41\xbf', b'\x81\x7f']
-}
-for i in range(len(data_254['str_with_fx'])):
-    m = BitExtendedField("foo", None, extension_bit=i)
-    r = m.m2i(None, data_254["str_with_fx"][i])
-    assert r == data_254['extended']
-
-= BitExtendedField m2i: invalid field with no stopping bit
-* 1 byte of one (no FX stop) shall return an error
-for i in range(8):
-    m = BitExtendedField("foo", None, extension_bit=i)
-    r = m.m2i(None, b'\xff')
-    assert r == None
-
 = LSBExtendedField
-* Test i2m and m2i
-data_129 = {
-    "extended": 129,
-    "int_with_fx": 770,
-    "str_with_fx" : None
-}
-m = LSBExtendedField("foo", None)
-r = m.i2m(None, data_129["extended"])
-data_129["str_with_fx"] = r
-r = int(codecs.encode(r, 'hex'), 16)
-assert r == data_129["int_with_fx"]
+* Test addfield and getfield
 
-m = LSBExtendedField("foo", None)
-r = m.m2i(None, data_129["str_with_fx"])
-assert r == data_129["extended"]
+f = LSBExtendedField("a", 0)
+
+assert f.addfield(None, b"", 1) == b"\x02"
+assert f.addfield(None, b"", 127) == b"\xfe"
+assert f.addfield(None, b"", 128) == b"\x01\x02"
+assert f.addfield(None, b"", 536) == b"1\x08"
+assert f.addfield(None, b"", 16383) == b"\xff\xfe"
 
 = MSBExtendedField
 * Test i2m and m2i
-data_129 = {
-    "extended": 129,
-    "int_with_fx": 33025,
-    "str_with_fx" : None
-}
-m = MSBExtendedField("foo", None)
-r = m.i2m(None, data_129["extended"])
-data_129["str_with_fx"] = r
-r = int(codecs.encode(r, 'hex'), 16)
-assert r == data_129["int_with_fx"]
 
-m = MSBExtendedField("foo", None)
-r = m.m2i(None, data_129["str_with_fx"])
-assert r == data_129["extended"]
+f = MSBExtendedField("a", 0)
+
+assert f.addfield(None, b"", 1) == b"\x01"
+assert f.addfield(None, b"", 127) == b"\x7f"
+assert f.addfield(None, b"", 128) == b"\x80\x01"
+assert f.addfield(None, b"", 536) == b"\x98\x04"
+assert f.addfield(None, b"", 16383) == b"\xff\x7f"
 
 
 ############
