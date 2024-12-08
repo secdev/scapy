@@ -66,8 +66,8 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
             socket,  # type: Optional[_SocketUnion]
             reset_handler=None,  # type: Optional[Callable[[], None]]
             reconnect_handler=None,  # type: Optional[Callable[[], _SocketUnion]]  # noqa: E501
-            test_cases=None,
-            # type: Optional[List[Union[AutomotiveTestCaseABC, Type[AutomotiveTestCaseABC]]]]  # noqa: E501
+            test_cases=None,  # type: Optional[List[Union[AutomotiveTestCaseABC, Type[AutomotiveTestCaseABC]]]]  # noqa: E501
+            software_reset_handler=None,  # type: Optional[Callable[[_SocketUnion], None]]  # noqa: E501
             **kwargs  # type: Optional[Dict[str, Any]]
     ):  # type: (...) -> None
 
@@ -82,6 +82,7 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         self.target_state = self._initial_ecu_state
         self.reset_handler = reset_handler
         self.reconnect_handler = reconnect_handler
+        self.software_reset_handler = software_reset_handler
 
         self.cleanup_functions = list()  # type: List[_CleanupCallable]
 
@@ -152,6 +153,11 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         log_automotive.info("Target reset")
         if self.reset_handler:
             self.reset_handler()
+        elif self.software_reset_handler:
+            if self.socket and self.socket.closed:
+                self.reconnect()
+            if self.socket:
+                self.software_reset_handler(self.socket)
         self.target_state = self._initial_ecu_state
 
     def reconnect(self):

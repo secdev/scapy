@@ -30,7 +30,7 @@ conf.debug_dissector = False
 
 = Define Testfunction
 
-def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstable_socket=True, **kwargs):
+def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstable_socket=True, software_reset=False, **kwargs):
     tester_obj_pipe = ObjectPipe(name="TesterPipe")
     ecu_obj_pipe = ObjectPipe(name="ECUPipe")
     TesterSocket = UnstableSocket if unstable_socket else TestSocket
@@ -58,11 +58,26 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
     sim = threading.Thread(target=answering_machine_thread)
     try:
         sim.start()
-        scanner = UDS_Scanner(
-            tester, reset_handler=reset, reconnect_handler=reconnect,
-            test_cases=enumerators, timeout=0.1,
-            retry_if_none_received=True, unittest=True,
-            **kwargs)
+        if software_reset:
+            scanner = UDS_Scanner(
+                tester,
+                software_reset_handler=uds_software_reset,
+                reconnect_handler=reconnect,
+                test_cases=enumerators,
+                timeout=0.1,
+                retry_if_none_received=True,
+                unittest=True,
+                **kwargs)
+        else:
+            scanner = UDS_Scanner(
+                tester,
+                reset_handler=reset,
+                reconnect_handler=reconnect,
+                test_cases=enumerators,
+                timeout=0.1,
+                retry_if_none_received=True,
+                unittest=True,
+                **kwargs)
         for i in range(12):
             print("Starting scan")
             scanner.scan(timeout=10)
@@ -257,6 +272,170 @@ assert "incorrectMessageLengthOrInvalidFormat received 34 times" in result
 assert "serviceNotSupported received 75 times" in result
 assert "serviceNotSupportedInActiveSession received 19 times" in result
 assert "securityAccessDenied received 2 times" in result
+
+= Simulate ECU and run Scanner with software resert
+
+responses = ([EcuResponse(None, [UDS()/UDS_DSCPR(b"\x01")])]
+             + mEcu.supported_responses)
+
+scanner = executeScannerInVirtualEnvironment(
+    responses,
+    [UDS_SA_XOR_Enumerator, UDS_DSCEnumerator, UDS_ServiceEnumerator],
+    software_reset=True,
+    UDS_DSCEnumerator_kwargs={"scan_range": range(5), "delay_state_change": 0,
+                              "overwrite_timeout": False},
+    UDS_SA_XOR_Enumerator_kwargs={"scan_range": range(5)},
+    UDS_ServiceEnumerator_kwargs={"scan_range": [0x10, 0x11, 0x14, 0x19, 0x22,
+                                                 0x23, 0x24, 0x27, 0x28, 0x29,
+                                                 0x2A, 0x2C, 0x2E, 0x2F, 0x31,
+                                                 0x34, 0x35, 0x36, 0x37, 0x38,
+                                                 0x3D, 0x3E, 0x83, 0x84, 0x85,
+                                                 0x87],
+                                  "request_length": 1})
+
+scanner.show_testcases()
+scanner.show_testcases_status()
+assert len(scanner.state_paths) == 6
+assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
+assert EcuState(session=1) in scanner.final_states
+assert EcuState(session=2, tp=1) in scanner.final_states
+assert EcuState(session=1, tp=1) in scanner.final_states
+assert EcuState(session=3, tp=1) in scanner.final_states
+assert EcuState(session=2, tp=1, security_level=2) in scanner.final_states
+assert EcuState(session=3, tp=1, security_level=2) in scanner.final_states
+
+#################### UDS_SA_XOR_Enumerator ################
+tc = scanner.configuration.test_cases[0]
+
+assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+assert len(tc.results_with_negative_response) == 24
+assert len(tc.results_with_positive_response) >= 6
+assert len(tc.scanned_states) == 6
+
+result = tc.show(dump=True)
+
+assert "serviceNotSupportedInActiveSession received 5 times" in result
+assert "incorrectMessageLengthOrInvalidFormat received 14 times" in result
+
+################# UDS_DSCEnumerator #####################
+tc = scanner.configuration.test_cases[1]
+
+assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+assert len(tc.results_with_negative_response) == 17
+assert len(tc.results_with_positive_response) == 13
+assert len(tc.scanned_states) == 6
+
+result = tc.show(dump=True)
+
+assert "incorrectMessageLengthOrInvalidFormat received 14 times" in result
+
+###################### UDS_ServiceEnumerator ###################
+tc = scanner.configuration.test_cases[2]
+
+assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+assert len(tc.results_with_negative_response) == 156
+assert len(tc.results_with_positive_response) == 0
+assert len(tc.scanned_states) == 6
+
+result = tc.show(dump=True)
+
+assert "incorrectMessageLengthOrInvalidFormat received 34 times" in result
+assert "serviceNotSupported received 75 times" in result
+assert "serviceNotSupportedInActiveSession received 19 times" in result
+assert "securityAccessDenied received 2 times" in result
+
+= Simulate ECU and run Scanner with software resert 2
+
+responses = ([EcuResponse(None, [UDS()/UDS_ERPR(b"\x01")])]
+             + mEcu.supported_responses)
+
+scanner = executeScannerInVirtualEnvironment(
+    responses,
+    [UDS_SA_XOR_Enumerator, UDS_DSCEnumerator, UDS_ServiceEnumerator],
+    software_reset=True,
+    UDS_DSCEnumerator_kwargs={"scan_range": range(5), "delay_state_change": 0,
+                              "overwrite_timeout": False},
+    UDS_SA_XOR_Enumerator_kwargs={"scan_range": range(5)},
+    UDS_ServiceEnumerator_kwargs={"scan_range": [0x10, 0x11, 0x14, 0x19, 0x22,
+                                                 0x23, 0x24, 0x27, 0x28, 0x29,
+                                                 0x2A, 0x2C, 0x2E, 0x2F, 0x31,
+                                                 0x34, 0x35, 0x36, 0x37, 0x38,
+                                                 0x3D, 0x3E, 0x83, 0x84, 0x85,
+                                                 0x87],
+                                  "request_length": 1})
+
+scanner.show_testcases()
+scanner.show_testcases_status()
+assert len(scanner.state_paths) == 5
+assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
+assert EcuState(session=1) in scanner.final_states
+assert EcuState(session=2, tp=1) in scanner.final_states
+assert EcuState(session=3, tp=1) in scanner.final_states
+assert EcuState(session=2, tp=1, security_level=2) in scanner.final_states
+assert EcuState(session=3, tp=1, security_level=2) in scanner.final_states
+
+#################### UDS_SA_XOR_Enumerator ################
+tc = scanner.configuration.test_cases[0]
+
+assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+assert len(tc.results_with_negative_response) == 19
+assert len(tc.results_with_positive_response) >= 6
+assert len(tc.scanned_states) == 5
+
+result = tc.show(dump=True)
+
+assert "serviceNotSupportedInActiveSession received 5 times" in result
+assert "incorrectMessageLengthOrInvalidFormat received 14 times" in result
+
+################# UDS_DSCEnumerator #####################
+tc = scanner.configuration.test_cases[1]
+
+assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+assert len(tc.results_with_negative_response) == 20
+assert len(tc.results_with_positive_response) == 5
+assert len(tc.scanned_states) == 5
+
+result = tc.show(dump=True)
+
+assert "incorrectMessageLengthOrInvalidFormat received 20 times" in result
+
+###################### UDS_ServiceEnumerator ###################
+tc = scanner.configuration.test_cases[2]
+
+assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+assert len(tc.results_with_negative_response) == 130
+assert len(tc.results_with_positive_response) == 0
+assert len(tc.scanned_states) == 5
+
+result = tc.show(dump=True)
+
+assert "incorrectMessageLengthOrInvalidFormat received 34 times" in result
+assert "serviceNotSupported received 75 times" in result
+assert "serviceNotSupportedInActiveSession received 19 times" in result
+assert "securityAccessDenied received 2 times" in result
+
 
 = UDS_ServiceEnumerator
 
