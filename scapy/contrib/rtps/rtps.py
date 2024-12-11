@@ -258,10 +258,11 @@ class RTPSSubMessage_DATA(EPacket):
         #     fmt="4s",
         #     enum=_rtps_reserved_entity_ids,
         # ),
-        EField(IntField("writerSeqNumHi", 0),
-               endianness_from=e_flags),
-        EField(IntField("writerSeqNumLow", 0),
-               endianness_from=e_flags),
+        EField(IntField("writerSeqNumber", 0), endianness_from=e_flags),
+        #EField(IntField("writerSeqNumHi", 0),
+        #       endianness_from=e_flags),
+        #EField(IntField("writerSeqNumLow", 0),
+        #       endianness_from=e_flags),
         # -------------------------------------
         ConditionalField(
             InlineQoSPacketField("inlineQoS", "", InlineQoSPacket),
