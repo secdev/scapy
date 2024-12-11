@@ -2,43 +2,15 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
-
-# scapy.contrib.description = UDS AutomotiveTestCaseExecutor
-# scapy.contrib.status = loads
-
-from abc import ABC
-import struct
-import random
-import time
-import itertools
 import copy
 import inspect
-
+import itertools
+import logging
+import random
+import struct
+import time
+from abc import ABC
 from collections import defaultdict
-
-from scapy.compat import orb
-from scapy.contrib.automotive import log_automotive
-from scapy.packet import Raw, Packet
-from scapy.error import Scapy_Exception
-from scapy.contrib.automotive.uds import UDS, UDS_NR, UDS_DSC, UDS_TP, \
-    UDS_RDBI, UDS_WDBI, UDS_SA, UDS_RC, UDS_IOCBI, UDS_RMBA, UDS_ER, \
-    UDS_TesterPresentSender, UDS_CC, UDS_RDBPI, UDS_RD, UDS_TD
-
-from scapy.contrib.automotive.ecu import EcuState
-from scapy.contrib.automotive.scanner.enumerator import ServiceEnumerator, \
-    _AutomotiveTestCaseScanResult, _AutomotiveTestCaseFilteredScanResult, \
-    StateGeneratingServiceEnumerator
-from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
-    _SocketUnion, _TransitionTuple, StateGenerator
-from scapy.contrib.automotive.scanner.configuration import \
-    AutomotiveTestCaseExecutorConfiguration  # noqa: E501
-from scapy.contrib.automotive.scanner.graph import _Edge
-from scapy.contrib.automotive.scanner.staged_test_case import StagedAutomotiveTestCase  # noqa: E501
-from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor  # noqa: E501
-
-# TODO: Refactor this import
-from scapy.contrib.automotive.uds_ecu_states import *  # noqa: F401, F403
-
 # typing imports
 from typing import (
     Dict,
@@ -54,6 +26,29 @@ from typing import (
     Sequence,
 )
 
+from scapy.compat import orb
+from scapy.contrib.automotive import log_automotive
+from scapy.contrib.automotive.ecu import EcuState
+from scapy.contrib.automotive.scanner.configuration import \
+    AutomotiveTestCaseExecutorConfiguration  # noqa: E501
+from scapy.contrib.automotive.scanner.enumerator import ServiceEnumerator, \
+    _AutomotiveTestCaseScanResult, _AutomotiveTestCaseFilteredScanResult, \
+    StateGeneratingServiceEnumerator
+from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor  # noqa: E501
+from scapy.contrib.automotive.scanner.graph import _Edge
+from scapy.contrib.automotive.scanner.staged_test_case import StagedAutomotiveTestCase  # noqa: E501
+from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
+    _SocketUnion, _TransitionTuple, StateGenerator
+from scapy.contrib.automotive.uds import UDS, UDS_NR, UDS_DSC, UDS_TP, \
+    UDS_RDBI, UDS_WDBI, UDS_SA, UDS_RC, UDS_IOCBI, UDS_RMBA, UDS_ER, \
+    UDS_TesterPresentSender, UDS_CC, UDS_RDBPI, UDS_RD, UDS_TD
+# TODO: Refactor this import
+from scapy.contrib.automotive.uds_ecu_states import *  # noqa: F401, F403
+from scapy.error import Scapy_Exception
+from scapy.packet import Raw, Packet
+
+# scapy.contrib.description = UDS AutomotiveTestCaseExecutor
+# scapy.contrib.status = loads
 
 # Definition outside the class UDS_RMBASequentialEnumerator
 # to allow pickling
@@ -872,8 +867,8 @@ class UDS_IOCBIEnumerator(UDS_Enumerator):
         resp = tup[2]
         if resp is not None:
             return "0x%04x: %s" % \
-                   (tup[1].dataIdentifier,
-                    repr(resp.payload))
+                (tup[1].dataIdentifier,
+                 repr(resp.payload))
         else:
             return "0x%04x: No response" % tup[1].dataIdentifier
 
@@ -1252,3 +1247,24 @@ class UDS_Scanner(AutomotiveTestCaseExecutor):
         return [UDS_ServiceEnumerator, UDS_DSCEnumerator, UDS_TPEnumerator,
                 UDS_SAEnumerator, UDS_WDBISelectiveEnumerator,
                 UDS_RMBAEnumerator, UDS_RCEnumerator, UDS_IOCBIEnumerator]
+
+
+def uds_software_reset(connection,  # type: _SocketUnion
+                       logger=log_automotive  # type: logging.Logger
+                       ):  # type: (...) -> None
+    logger.debug("Reset procedure of target started.")
+    resp = connection.sr1(UDS() / UDS_ER(resetType=1),
+                          timeout=5,
+                          verbose=False)
+    if resp and resp.service != 0x7f:
+        logger.debug("Reset procedure of target complete")
+        return
+
+    logger.debug("Couldn't reset target with UDS_ER. "
+                 "At least try to set target back to DefaultSession")
+    resp = connection.sr1(UDS() / UDS_DSC(b"\x01"), verbose=False, timeout=5)
+    if resp and resp.service != 0x7f:
+        logger.debug("Target in DefaultSession")
+        return
+
+    logger.error("Target not in DefaultSession. Software reset failed.")
