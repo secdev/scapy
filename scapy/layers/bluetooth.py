@@ -1270,6 +1270,71 @@ class EIR_AdvertisingInterval(EIR_Element):
     ]
 
 
+class EIR_Appearance(EIR_Element):
+    name = "EIR_Appearance2"
+    fields_desc = [
+        BitEnumField('category', 0, 10, tot_size=-2, enum={
+            0x000: 'Unknown',
+            0x001: 'Phone',
+            0x002: 'Computer',
+            0x003: 'Watch',
+            0x004: 'Clock',
+            0x005: 'Display',
+            0x006: 'Remote Control',
+            0x007: 'Eyeglasses',
+            0x008: 'Tag',
+            0x009: 'Keyring',
+            0x00A: 'Media Player',
+            0x00B: 'Barcode Scanner',
+            0x00C: 'Thermometer',
+            0x00D: 'Heart Rate Sensor',
+            0x00E: 'Blood Pressure',
+            0x00F: 'Human Interface Device',
+            0x010: 'Glucose Meter',
+            0x011: 'Running Walking Sensor',
+            0x012: 'Cycling',
+            0x013: 'Control Device',
+            0x014: 'Network Device',
+            0x015: 'Sensor',
+            0x016: 'Light Fixtures',
+            0x017: 'Fan',
+            0x018: 'HVAC',
+            0x019: 'Air Conditioning',
+            0x01A: 'Humidifier',
+            0x01B: 'Heating',
+            0x01C: 'Access Control',
+            0x01D: 'Motorized Device',
+            0x01E: 'Power Device',
+            0x01F: 'Light Source',
+            0x020: 'Window Covering',
+            0x021: 'Audio Sink',
+            0x022: 'Audio Source',
+            0x023: 'Motorized Vehicle',
+            0x024: 'Domestic Appliance',
+            0x025: 'Wearable Audio Device',
+            0x026: 'Aircraft',
+            0x027: 'AV Equipment',
+            0x028: 'Display Equipment',
+            0x029: 'Hearing aid',
+            0x02A: 'Gaming',
+            0x02B: 'Signage',
+            0x031: 'Pulse Oximeter',
+            0x032: 'Weight Scale',
+            0x033: 'Personal Mobility Device',
+            0x034: 'Continuous Glucose Monitor',
+            0x035: 'Insulin Pump',
+            0x036: 'Medication Delivery',
+            0x037: 'Spirometer',
+            0x051: 'Outdoor Sports Activity'
+        }),
+        XBitField('subcategory', 0, 6, end_tot_size=-2)
+    ]
+
+    @property
+    def appearance(self):
+        return (self.category << 6) + self.subcategory
+
+
 class EIR_ServiceData32BitUUID(EIR_Element):
     name = 'EIR Service Data - 32-bit UUID'
     fields_desc = [
@@ -2383,6 +2448,7 @@ bind_layers(EIR_Hdr, EIR_ServiceSolicitation16BitUUID, type=0x14)
 bind_layers(EIR_Hdr, EIR_ServiceSolicitation128BitUUID, type=0x15)
 bind_layers(EIR_Hdr, EIR_ServiceData16BitUUID, type=0x16)
 bind_layers(EIR_Hdr, EIR_PublicTargetAddress, type=0x17)
+bind_layers(EIR_Hdr, EIR_Appearance, type=0x19)
 bind_layers(EIR_Hdr, EIR_AdvertisingInterval, type=0x1a)
 bind_layers(EIR_Hdr, EIR_ServiceData32BitUUID, type=0x20)
 bind_layers(EIR_Hdr, EIR_ServiceData128BitUUID, type=0x21)
