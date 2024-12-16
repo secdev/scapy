@@ -1263,6 +1263,13 @@ class EIR_PublicTargetAddress(EIR_Element):
     ]
 
 
+class EIR_AdvertisingInterval(EIR_Element):
+    name = "Advertising Interval"
+    fields_desc = [
+        LEShortField("advertising_interval", 0)
+    ]
+
+
 class EIR_ServiceData32BitUUID(EIR_Element):
     name = 'EIR Service Data - 32-bit UUID'
     fields_desc = [
@@ -2376,6 +2383,7 @@ bind_layers(EIR_Hdr, EIR_ServiceSolicitation16BitUUID, type=0x14)
 bind_layers(EIR_Hdr, EIR_ServiceSolicitation128BitUUID, type=0x15)
 bind_layers(EIR_Hdr, EIR_ServiceData16BitUUID, type=0x16)
 bind_layers(EIR_Hdr, EIR_PublicTargetAddress, type=0x17)
+bind_layers(EIR_Hdr, EIR_AdvertisingInterval, type=0x1a)
 bind_layers(EIR_Hdr, EIR_ServiceData32BitUUID, type=0x20)
 bind_layers(EIR_Hdr, EIR_ServiceData128BitUUID, type=0x21)
 bind_layers(EIR_Hdr, EIR_Manufacturer_Specific_Data, type=0xff)
