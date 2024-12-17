@@ -35,6 +35,7 @@ from scapy.layers.tls.keyexchange import (SigAndHashAlgsLenField,
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.crypto.groups import _tls_named_groups
 from scapy.layers.tls.crypto.suites import _tls_cipher_suites
+from scapy.layers.tls.quic import _QuicTransportParametersField
 from scapy.themes import AnsiColorTheme
 from scapy.compat import raw
 from scapy.config import conf
@@ -93,6 +94,7 @@ _tls_ext = {0: "server_name",             # RFC 4366
             0x31: "post_handshake_auth",
             0x32: "signature_algorithms_cert",
             0x33: "key_share",
+            0x39: "quic_transport_parameters",  # RFC 9000
             0x3374: "next_protocol_negotiation",
             # RFC-draft-agl-tls-nextprotoneg-03
             0xff01: "renegotiation_info",   # RFC 5746
@@ -697,6 +699,15 @@ class TLS_Ext_RecordSizeLimit(TLS_Ext_Unknown):  # RFC 8449
                    ShortField("record_size_limit", None)]
 
 
+class TLS_Ext_QuicTransportParameters(TLS_Ext_Unknown):  # RFC9000
+    name = "TLS Extension - QUIC Transport Parameters"
+    fields_desc = [ShortEnumField("type", 0x39, _tls_ext),
+                   FieldLenField("len", None, length_of="params"),
+                   _QuicTransportParametersField("params",
+                                                 None,
+                                                 length_from=lambda pkt: pkt.len)]
+
+
 _tls_ext_cls = {0: TLS_Ext_ServerName,
                 1: TLS_Ext_MaxFragLen,
                 2: TLS_Ext_ClientCertURL,
@@ -730,6 +741,7 @@ _tls_ext_cls = {0: TLS_Ext_ServerName,
                 0x33: TLS_Ext_KeyShare,
                 # 0x2f: TLS_Ext_CertificateAuthorities,       #XXX
                 # 0x30: TLS_Ext_OIDFilters,                   #XXX
+                0x39: TLS_Ext_QuicTransportParameters,
                 0x3374: TLS_Ext_NPN,
                 0xff01: TLS_Ext_RenegotiationInfo,
                 0xffce: TLS_Ext_EncryptedServerName
