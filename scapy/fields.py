@@ -3492,7 +3492,7 @@ class IP6PrefixField(_IPPrefixFieldBase):
 
 
 class UTCTimeField(Field[float, int]):
-    __slots__ = ["epoch", "delta", "strf",
+    __slots__ = ["epoch", "delta", "tz", "strf",
                  "use_msec", "use_micro", "use_nano", "custom_scaling"]
 
     def __init__(self,
@@ -3502,6 +3502,7 @@ class UTCTimeField(Field[float, int]):
                  use_micro=False,  # type: bool
                  use_nano=False,  # type: bool
                  epoch=None,  # type: Optional[Tuple[int, int, int, int, int, int, int, int, int]]  # noqa: E501
+                 tz=datetime.timezone.utc, # type: datetime.timezone
                  strf="%a, %d %b %Y %H:%M:%S %z",  # type: str
                  custom_scaling=None,  # type: Optional[int]
                  fmt="I"  # type: str
@@ -3511,6 +3512,7 @@ class UTCTimeField(Field[float, int]):
         mk_epoch = EPOCH if epoch is None else calendar.timegm(epoch)
         self.epoch = mk_epoch
         self.delta = mk_epoch - EPOCH
+        self.tz = tz
         self.strf = strf
         self.use_msec = use_msec
         self.use_micro = use_micro
@@ -3533,9 +3535,9 @@ class UTCTimeField(Field[float, int]):
         # To make negative timestamps work on all plateforms (e.g. Windows),
         # we need a trick.
         t = (
-            datetime.datetime(1970, 1, 1) +
+            datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc) +
             datetime.timedelta(seconds=x)
-        ).strftime(self.strf)
+        ).astimezone(self.tz).strftime(self.strf)
         return "%s (%d)" % (t, int(x))
 
     def i2m(self, pkt, x):
