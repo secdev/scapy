@@ -494,6 +494,14 @@ p = HCI_Hdr(hex_bytes('042fff01c47c80894df801000c0128a269a30c4a125d13f30196894df
 assert EIR_ServiceData32BitUUID in p
 assert p[EIR_ServiceData32BitUUID].svc_uuid == 0x001a1af6
 
+= Parse EIR_URI
+
+p = HCI_Event_Hdr(hex_bytes('3e2902010301f3c1dad728031d1c24172f2f6669726d776172652e73696c766169722e636f6d2f6f6f62ac'))
+assert EIR_URI in p
+assert p[EIR_URI].scheme == 0x17
+assert p[EIR_URI].uri_hier_part == b'//firmware.silvair.com/oob'
+assert p[EIR_URI].uri == 'https://firmware.silvair.com/oob'
+
 = Parse EIR_Flags, EIR_CompleteList16BitServiceUUIDs, EIR_CompleteLocalName and EIR_TX_Power_Level
 
 ad_report_raw_data = \
