@@ -1271,7 +1271,7 @@ class EIR_AdvertisingInterval(EIR_Element):
 
 
 class EIR_Appearance(EIR_Element):
-    name = "EIR_Appearance2"
+    name = "EIR_Appearance"
     fields_desc = [
         BitEnumField('category', 0, 10, tot_size=-2, enum={
             0x000: 'Unknown',
