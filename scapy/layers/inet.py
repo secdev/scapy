@@ -757,11 +757,15 @@ class TCP(Packet):
             dataofs = (dataofs << 4) | orb(p[12]) & 0x0f
             p = p[:12] + chb(dataofs & 0xff) + p[13:]
         if self.chksum is None:
-            if isinstance(self.underlayer, IP):
-                ck = in4_chksum(socket.IPPROTO_TCP, self.underlayer, p)
+            _underlayer = self.underlayer
+            from scapy.contrib.ifa import IFA
+            if isinstance(self.underlayer, IFA):
+                _underlayer = self.underlayer.underlayer
+            if isinstance(_underlayer, IP):
+                ck = in4_chksum(socket.IPPROTO_TCP, _underlayer, p)
                 p = p[:16] + struct.pack("!H", ck) + p[18:]
-            elif conf.ipv6_enabled and isinstance(self.underlayer, scapy.layers.inet6.IPv6) or isinstance(self.underlayer, scapy.layers.inet6._IPv6ExtHdr):  # noqa: E501
-                ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_TCP, self.underlayer, p)  # noqa: E501
+            elif conf.ipv6_enabled and isinstance(_underlayer, scapy.layers.inet6.IPv6) or isinstance(_underlayer, scapy.layers.inet6._IPv6ExtHdr):  # noqa: E501
+                ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_TCP, _underlayer, p)  # noqa: E501
                 p = p[:16] + struct.pack("!H", ck) + p[18:]
             else:
                 log_runtime.info(
@@ -814,6 +818,12 @@ class TCP(Packet):
         else:
             return self.sprintf("TCP %TCP.sport% > %TCP.dport% %TCP.flags%")
 
+    def guess_payload_class(self, payload):
+        from scapy.contrib.ifa import IFA, IFAMdHdr
+        if isinstance(self.underlayer, IFA):
+            return IFAMdHdr
+        return Packet.guess_payload_class(self, payload)
+
 
 class UDP(Packet):
     name = "UDP"
@@ -829,14 +839,18 @@ class UDP(Packet):
             tmp_len = len(p)
             p = p[:4] + struct.pack("!H", tmp_len) + p[6:]
         if self.chksum is None:
-            if isinstance(self.underlayer, IP):
-                ck = in4_chksum(socket.IPPROTO_UDP, self.underlayer, p)
+            _underlayer = self.underlayer
+            from scapy.contrib.ifa import IFA
+            if isinstance(self.underlayer, IFA):
+                _underlayer = self.underlayer.underlayer
+            if isinstance(_underlayer, IP):
+                ck = in4_chksum(socket.IPPROTO_UDP, _underlayer, p)
                 # According to RFC768 if the result checksum is 0, it should be set to 0xFFFF  # noqa: E501
                 if ck == 0:
                     ck = 0xFFFF
                 p = p[:6] + struct.pack("!H", ck) + p[8:]
-            elif isinstance(self.underlayer, scapy.layers.inet6.IPv6) or isinstance(self.underlayer, scapy.layers.inet6._IPv6ExtHdr):  # noqa: E501
-                ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_UDP, self.underlayer, p)  # noqa: E501
+            elif isinstance(_underlayer, scapy.layers.inet6.IPv6) or isinstance(_underlayer, scapy.layers.inet6._IPv6ExtHdr):  # noqa: E501
+                ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_UDP, _underlayer, p)  # noqa: E501
                 # According to RFC2460 if the result checksum is 0, it should be set to 0xFFFF  # noqa: E501
                 if ck == 0:
                     ck = 0xFFFF
@@ -869,6 +883,12 @@ class UDP(Packet):
             return self.underlayer.sprintf("UDP %IPv6.src%:%UDP.sport% > %IPv6.dst%:%UDP.dport%")  # noqa: E501
         else:
             return self.sprintf("UDP %UDP.sport% > %UDP.dport%")
+
+    def guess_payload_class(self, payload):
+        from scapy.contrib.ifa import IFA, IFAMdHdr
+        if isinstance(self.underlayer, IFA):
+            return IFAMdHdr
+        return Packet.guess_payload_class(self, payload)
 
 
 # RFC 4884 ICMP extensions
