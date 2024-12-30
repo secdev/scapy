@@ -16,11 +16,11 @@ from scapy.fields import (
     StrFixedLenField,
 )
 from scapy.packet import Packet
-
+from typing import Tuple
 # from scapy.layers.tls.session import _GenericTLSSessionInheritance
 
 
-def _quic_m2varint(m: bytes) -> tuple[int, int]:
+def _quic_m2varint(m: bytes) -> Tuple[int, int]:
     """Decode QUIC variable-length integers"""
     length = 1 << ((m[0] & 0xC0) >> 6)
     if len(m) < length:
@@ -32,7 +32,7 @@ def _quic_m2varint(m: bytes) -> tuple[int, int]:
     return int.from_bytes(m[:length], "big") & mask, length
 
 
-def _quic_i2mask_len(i: int) -> tuple[int, int]:
+def _quic_i2mask_len(i: int) -> Tuple[int, int]:
     length = i.bit_length()
     if length <= 6:
         return 0, 1
@@ -298,10 +298,7 @@ class _QuicTransportParametersField(PacketListField):
 
     def getfield(self, pkt, s):
         tmp_len = self.length_from(pkt) or 0
-        if tmp_len <= 0:
-            return s, []
-        else:
-            return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def i2m(self, pkt, i):
         if i is None:

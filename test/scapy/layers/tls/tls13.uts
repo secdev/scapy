@@ -1231,34 +1231,33 @@ from binascii import unhexlify
 from scapy.layers.tls.quic import *
 from scapy.layers.tls.all import TLS13ClientHello, TLS_Ext_QuicTransportParameters
 
-ch_data = unhexlify("010000f40303e4de73a1d4479044cf059e910eaefaa983f4f8bf19c1655e13e375c2022ea986000006130113021303010000c500000013001100000e717569632e6e67696e782e6f7267000a00080006001d00170018001000050003026833000d00140012040308040401050308050501080606010201003300260024001d00208d29460c9281267d97af86a7bcc70031c482f64ef2bde21ceb89e5702e89ba71002d00020101002b00030203040039004601025388030245460404809896800504800f42400604800f42400704800f424008024064090240640a01030b01190c000f142173071905d778f98e367b8ad8eeb526484e8f5d")
+ch_data = unhexlify("010001e403034f417babafc5dc240c744225bb09b0c5067618b7501ef4bf7ea73c64249e5d0c000006130213011303010001b50033010c010a00170041048497f2dd89fb1d341b02894edd154ebd5ee5e55594d7935d99d2c05733991cccc9af02200e53bcc80208fa1498c5c88ccf643d598cb05c5fde37a1e468cd593200180061045bff37b0fde67fcfc50b7ab6eb139f51998bdb859632138b30caf96882ef871b27aaf534cce0dcfa157be21343fd6b0db5cc306564f19c46d3c9e175e3dbbb594fe7c393e35de695fc84f64ec4a59ee3cea26a0599a61d6dfc18568fb5c0cb85001d00205af975b0ec59288a578c94890d3264f9ac025ab86f7cd718112da6b923b2e54d001e0038f989efd52e4e8ab64491bfd8b8d30481d854b9394f517148dc8d5a50a43ebbdcca6e4b27229acd2f20b6633632d32e9be6999a40d30561e2002b0003020304000d00140012040308040401050308050501020108070808000a000a000800170018001d001e002d000201010000000e000c00000968332d7365727665720010000500030268330039005301048000ea600404801000000508c0000001000000000608c0000001000000000708c00000010000000008024080090240800a01030b01190e01080f087f317d3033e6423e110c00000001000000016b3343cf")
 
 ch = TLS13ClientHello(ch_data)
 tp = ch.ext[-1]
 assert isinstance(tp, TLS_Ext_QuicTransportParameters)
 assert isinstance(tp.params[0], Quic_Tp_MaxIdleTimeout)
-assert tp.params[0].value == 5000
-assert isinstance(tp.params[1], Quic_Tp_MaxUdpPayloadSize)
-assert tp.params[1].value == 1350
-assert isinstance(tp.params[2], Quic_Tp_InitialMaxData)
-assert tp.params[2].value == 10000000
-assert isinstance(tp.params[3], Quic_Tp_InitialMaxStreamDataBidiLocal)
-assert tp.params[3].value == 1000000
-assert isinstance(tp.params[4], Quic_Tp_InitialMaxStreamDataBidiRemote)
-assert tp.params[4].value == 1000000
-assert isinstance(tp.params[5], Quic_Tp_InitialMaxStreamDataUni)
-assert tp.params[5].value == 1000000
-assert isinstance(tp.params[6], Quic_Tp_InitialMaxStreamsBidi)
-assert tp.params[6].value == 100
-assert isinstance(tp.params[7], Quic_Tp_InitialMaxStreamsUni)
-assert tp.params[7].value == 100
-assert isinstance(tp.params[8], Quic_Tp_AckDelayExponent)
-assert tp.params[8].value == 3
-assert isinstance(tp.params[9], Quic_Tp_MaxAckDelay)
-assert tp.params[9].value == 25
-assert isinstance(tp.params[10], Quic_Tp_DisableActiveMigration)
-assert isinstance(tp.params[11], Quic_Tp_InitialSourceConnectionId)
-assert tp.params[11].value == unhexlify("2173071905d778f98e367b8ad8eeb526484e8f5d")
+assert tp.params[0].value == 60000
+assert isinstance(tp.params[1], Quic_Tp_InitialMaxData)
+assert tp.params[1].value == 1048576
+assert isinstance(tp.params[2], Quic_Tp_InitialMaxStreamDataBidiLocal)
+assert tp.params[2].value == 4294967296
+assert isinstance(tp.params[3], Quic_Tp_InitialMaxStreamDataBidiRemote)
+assert tp.params[3].value == 4294967296
+assert isinstance(tp.params[4], Quic_Tp_InitialMaxStreamDataUni)
+assert tp.params[4].value == 4294967296
+assert isinstance(tp.params[5], Quic_Tp_InitialMaxStreamsBidi)
+assert tp.params[5].value == 128
+assert isinstance(tp.params[6], Quic_Tp_InitialMaxStreamsUni)
+assert tp.params[6].value == 128
+assert isinstance(tp.params[7], Quic_Tp_AckDelayExponent)
+assert tp.params[7].value == 3
+assert isinstance(tp.params[8], Quic_Tp_MaxAckDelay)
+assert tp.params[8].value == 25
+assert isinstance(tp.params[9], Quic_Tp_ActiveConnectionIdLimit)
+assert tp.params[9].value == 8
+assert isinstance(tp.params[10], Quic_Tp_InitialSourceConnectionId)
+assert tp.params[10].value == unhexlify("7f317d3033e6423e")
 
 = QUIC Transport Parameters - Build packet
 ~ quic
@@ -1287,3 +1286,31 @@ actual = tp.build()
 expect = unhexlify("0039004601025388030245460404809896800504800f42400604800f42400704800f424008024064090240640a01030b01190c000f142173071905d778f98e367b8ad8eeb526484e8f5d")
 
 assert actual == expect
+
+= QUIC Transport Parameters - Build empty packet
+~ quic
+
+from scapy.layers.tls.all import TLS_Ext_QuicTransportParameters
+
+p = TLS_Ext_QuicTransportParameters(params=[None])
+actual = p.build()
+
+assert actual == b'\x009\x00\x00'
+
+p = TLS_Ext_QuicTransportParameters(params=[])
+actual = p.build()
+
+assert actual == b'\x009\x00\x00'
+
+= QUIC Transport Parameters - Throw error if value is a big integer
+~ quic
+
+from scapy.layers.tls.quic import Quic_Tp_InitialMaxData
+
+# A 62-bit left shift results in an integer of 63 bits
+p = Quic_Tp_InitialMaxData(value=1<<62)
+try:
+    p.build()
+    assert False, "QUIC cannot decode integers with more than 62 bits"
+except ValueError:
+    pass
