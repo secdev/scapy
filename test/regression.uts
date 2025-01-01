@@ -1832,7 +1832,7 @@ sck = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 ssck = StreamSocket(sck)
 
 try:
-    r = ssck.sr1(ICMP(type='echo-request'), timeout=0.1, chainEX=True)
+    r = ssck.sr1(ICMP(type='echo-request'), timeout=0.1, chainEX=True, threaded=False)
     assert False
 except Exception:
     assert True
@@ -2132,7 +2132,7 @@ retry_test(_test)
 ~ netaccess needs_root IP ICMP
 def _test():
     packet = IP(dst="8.8.8.8")/ICMP()
-    r = srflood(packet, timeout=2)
+    r = srflood(packet, timeout=0.5)
     assert packet.sent_time is not None
 
 retry_test(_test)
@@ -2142,7 +2142,7 @@ retry_test(_test)
 def _test():
     packet1 = IP(dst="8.8.8.8")/ICMP()
     packet2 = IP(dst="8.8.4.4")/ICMP()
-    r = srflood([packet1, packet2], timeout=2)
+    r = srflood([packet1, packet2], timeout=0.5)
     assert packet1.sent_time is not None
     assert packet2.sent_time is not None
 

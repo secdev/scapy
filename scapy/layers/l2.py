@@ -21,7 +21,11 @@ from scapy import consts
 from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
     DLT_ETHERNET_MPACKET, DLT_LINUX_IRDA, DLT_LINUX_SLL, DLT_LINUX_SLL2, \
     DLT_LOOP, DLT_NULL, ETHER_ANY, ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, ETH_P_MACSEC
-from scapy.error import warning, ScapyNoDstMacException, log_runtime
+from scapy.error import (
+    ScapyNoDstMacException,
+    log_runtime,
+    warning,
+)
 from scapy.fields import (
     BCDFloatField,
     BitField,
@@ -154,7 +158,11 @@ def getmacbyip(ip, chainCC=0):
     # Check the routing table
     iff, _, gw = conf.route.route(ip)
 
-    # Broadcast case
+    # Limited broadcast
+    if ip == "255.255.255.255":
+        return "ff:ff:ff:ff:ff:ff"
+
+    # Directed broadcast
     if (iff == conf.loopback_name) or (ip in conf.route.get_if_bcast(iff)):
         return "ff:ff:ff:ff:ff:ff"
 
@@ -938,7 +946,7 @@ def arp_mitm(
                 # ip can be a Net/list/etc and will be iterated upon while sending
                 return [(ip, "ff:ff:ff:ff:ff:ff")]
             return [(x.query.pdst, x.answer.hwsrc)
-                    for x in arping(ip, verbose=0)[0]]
+                    for x in arping(ip, verbose=0, iface=iface)[0]]
         elif isinstance(mac, list):
             return [(ip, x) for x in mac]
         else:
@@ -960,6 +968,7 @@ def arp_mitm(
             (x
              for ipa, maca in tup1
              for ipb, _ in tup2
+             if ipb != ipa
              for x in
              Ether(dst=maca, src=target_mac) /
              ARP(op="who-has", psrc=ipb, pdst=ipa,
@@ -968,6 +977,7 @@ def arp_mitm(
             (x
              for ipb, macb in tup2
              for ipa, _ in tup1
+             if ipb != ipa
              for x in
              Ether(dst=macb, src=target_mac) /
              ARP(op="who-has", psrc=ipa, pdst=ipb,
@@ -987,6 +997,7 @@ def arp_mitm(
             (x
              for ipa, maca in tup1
              for ipb, macb in tup2
+             if ipb != ipa
              for x in
              Ether(dst="ff:ff:ff:ff:ff:ff", src=macb) /
              ARP(op="who-has", psrc=ipb, pdst=ipa,
@@ -995,6 +1006,7 @@ def arp_mitm(
             (x
              for ipb, macb in tup2
              for ipa, maca in tup1
+             if ipb != ipa
              for x in
              Ether(dst="ff:ff:ff:ff:ff:ff", src=maca) /
              ARP(op="who-has", psrc=ipa, pdst=ipb,
@@ -1055,19 +1067,33 @@ def arping(net: str,
     hwaddr = None
     if "iface" in kargs:
         hwaddr = get_if_hwaddr(kargs["iface"])
-    r = conf.route.route(str(net), verbose=False)
+    if isinstance(net, list):
+        hint = net[0]
+    else:
+        hint = str(net)
+    psrc = conf.route.route(hint, verbose=False)[1]
+    if psrc == "0.0.0.0":
+        if "iface" in kargs:
+            psrc = get_if_addr(kargs["iface"])
+        else:
+            warning(
+                "No route found for IPv4 destination %s. "
+                "Using conf.iface. Please provide an 'iface' !" % hint)
+            psrc = get_if_addr(conf.iface)
+            hwaddr = get_if_hwaddr(conf.iface)
+            kargs["iface"] = conf.iface
 
     ans, unans = srp(
         Ether(dst="ff:ff:ff:ff:ff:ff", src=hwaddr) / ARP(
             pdst=net,
-            psrc=r[1],
+            psrc=psrc,
             hwsrc=hwaddr
         ),
         verbose=verbose,
         filter="arp and arp[7] = 2",
         timeout=timeout,
         threaded=threaded,
-        iface_hint=net,
+        iface_hint=hint,
         **kargs,
     )
     ans = ARPingResult(ans.res)

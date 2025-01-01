@@ -12,7 +12,7 @@ import struct
 
 from scapy.compat import orb
 from scapy.config import conf
-from scapy.packet import NoPayload, Packet
+from scapy.packet import Packet
 from scapy.pton_ntop import inet_pton
 
 # Typing imports
@@ -310,8 +310,6 @@ class TCPSession(IPSession):
         if TCP not in pkt:
             return pkt
         pay = pkt[TCP].payload
-        if isinstance(pay, (NoPayload, conf.padding_layer)):
-            return pkt
         new_data = pay.original
         # Match packets by a unique TCP identifier
         ident = self._get_ident(pkt)
@@ -333,16 +331,22 @@ class TCPSession(IPSession):
             metadata["tcp_reassemble"] = tcp_reassemble = streamcls(pay_class)
         else:
             tcp_reassemble = metadata["tcp_reassemble"]
-        # Get a relative sequence number for a storage purpose
-        relative_seq = metadata.get("relative_seq", None)
-        if relative_seq is None:
-            relative_seq = metadata["relative_seq"] = seq - 1
-        seq = seq - relative_seq
-        # Add the data to the buffer
-        data.append(new_data, seq)
+
+        if pay:
+            # Get a relative sequence number for a storage purpose
+            relative_seq = metadata.get("relative_seq", None)
+            if relative_seq is None:
+                relative_seq = metadata["relative_seq"] = seq - 1
+            seq = seq - relative_seq
+            # Add the data to the buffer
+            data.append(new_data, seq)
+
         # Check TCP FIN or TCP RESET
         if pkt[TCP].flags.F or pkt[TCP].flags.R:
             metadata["tcp_end"] = True
+        elif not pay:
+            # If there's no payload and the stream isn't ending, ignore.
+            return pkt
 
         # In case any app layer protocol requires it,
         # allow the parser to inspect TCP PSH flag
@@ -393,7 +397,8 @@ class TCPSession(IPSession):
             if isinstance(packet, conf.padding_layer):
                 return None
             # Rebuild resulting packet
-            pay.underlayer.remove_payload()
+            if pay:
+                pay.underlayer.remove_payload()
             if IP in pkt:
                 pkt[IP].len = None
                 pkt[IP].chksum = None

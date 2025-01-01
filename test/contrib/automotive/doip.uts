@@ -10,6 +10,8 @@
 
 = Load Contrib Layer
 
+from test.testsocket import TestSocket, cleanup_testsockets, UnstableSocket
+
 load_contrib("automotive.doip", globals_dict=globals())
 load_contrib("automotive.uds", globals_dict=globals())
 
@@ -406,6 +408,30 @@ assert pkts[0][DoIP].payload_length == 2
 assert pkts[0][DoIP:2].payload_length == 7
 assert pkts[1][DoIP].payload_length == 103
 
+= Doip logical addressing
+
+filename = scapy_path("/test/pcaps/doip_functional_request.pcap.gz")
+tx_sock = TestSocket(DoIP)
+rx_sock = TestSocket(DoIP)
+tx_sock.pair(rx_sock)
+
+for pkt in PcapReader(filename):
+    if pkt.haslayer(DoIP):
+        tx_sock.send(pkt[DoIP])
+
+ans, unans = rx_sock.sr(DoIP(bytes(DoIP(payload_type=0x8001, source_address=0xe80, target_address=0xe400) / UDS() / UDS_TP())), multi=True, timeout=0.1, verbose=False)
+
+cleanup_testsockets()
+
+ans.summary()
+if unans:
+    unans.summary()
+
+assert len(ans) == 8
+ans.summary()
+assert len(unans) == 0
+
+
 + DoIP Communication tests
 
 = Load libraries
@@ -416,6 +442,7 @@ import tempfile
 = Test DoIPSocket
 
 server_up = threading.Event()
+sniff_up = threading.Event()
 def server():
     buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -426,6 +453,7 @@ def server():
         sock.listen(1)
         server_up.set()
         connection, address = sock.accept()
+        sniff_up.wait(timeout=1)
         connection.send(buffer)
         connection.close()
     finally:
@@ -437,7 +465,7 @@ server_thread.start()
 server_up.wait(timeout=1)
 sock = DoIPSocket(activate_routing=False)
 
-pkts = sock.sniff(timeout=1, count=2)
+pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
 server_thread.join(timeout=1)
 assert len(pkts) == 2
 
@@ -446,6 +474,7 @@ assert len(pkts) == 2
 ~ linux
 
 server_up = threading.Event()
+sniff_up = threading.Event()
 def server():
     buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -456,6 +485,7 @@ def server():
         sock.listen(1)
         server_up.set()
         connection, address = sock.accept()
+        sniff_up.wait(timeout=1)
         for i in range(len(buffer)):
             connection.send(buffer[i:i+1])
             time.sleep(0.01)
@@ -469,13 +499,14 @@ server_thread.start()
 server_up.wait(timeout=1)
 sock = DoIPSocket(activate_routing=False)
 
-pkts = sock.sniff(timeout=1, count=2)
+pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
 server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test DoIPSocket 3
 
 server_up = threading.Event()
+sniff_up = threading.Event()
 def server():
     buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -486,6 +517,7 @@ def server():
         sock.listen(1)
         server_up.set()
         connection, address = sock.accept()
+        sniff_up.wait(timeout=1)
         while buffer:
             randlen = random.randint(0, len(buffer))
             connection.send(buffer[:randlen])
@@ -501,7 +533,7 @@ server_thread.start()
 server_up.wait(timeout=1)
 sock = DoIPSocket(activate_routing=False)
 
-pkts = sock.sniff(timeout=1, count=2)
+pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
 server_thread.join(timeout=1)
 assert len(pkts) == 2
 
@@ -509,6 +541,7 @@ assert len(pkts) == 2
 = Test DoIPSocket6
 
 server_up = threading.Event()
+sniff_up = threading.Event()
 def server():
     buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
     sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
@@ -519,6 +552,7 @@ def server():
         sock.listen(1)
         server_up.set()
         connection, address = sock.accept()
+        sniff_up.wait(timeout=1)
         connection.send(buffer)
         connection.close()
     finally:
@@ -528,9 +562,9 @@ def server():
 server_thread = threading.Thread(target=server)
 server_thread.start()
 server_up.wait(timeout=1)
-sock = DoIPSocket6(activate_routing=False)
+sock = DoIPSocket(ip="::1", activate_routing=False)
 
-pkts = sock.sniff(timeout=1, count=2)
+pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
 server_thread.join(timeout=1)
 assert len(pkts) == 2
 
@@ -604,6 +638,7 @@ def _load_certificate_chain(context) -> None:
 
 
 server_up = threading.Event()
+sniff_up = threading.Event()
 def server():
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     _load_certificate_chain(context)
@@ -619,6 +654,7 @@ def server():
         ssock.listen(1)
         server_up.set()
         connection, address = ssock.accept()
+        sniff_up.wait(timeout=1)
         connection.send(buffer)
         connection.close()
     finally:
@@ -633,7 +669,7 @@ context.check_hostname = False
 context.verify_mode = ssl.CERT_NONE
 sock = DoIPSocket(activate_routing=False, force_tls=True, context=context)
 
-pkts = sock.sniff(timeout=1, count=2)
+pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
 server_thread.join(timeout=1)
 assert len(pkts) == 2
 
@@ -641,6 +677,7 @@ assert len(pkts) == 2
 ~ broken_windows
 
 server_up = threading.Event()
+sniff_up = threading.Event()
 def server():
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     _load_certificate_chain(context)
@@ -656,6 +693,7 @@ def server():
         ssock.listen(1)
         server_up.set()
         connection, address = ssock.accept()
+        sniff_up.wait(timeout=1)
         connection.send(buffer)
         connection.close()
     finally:
@@ -668,9 +706,9 @@ server_up.wait(timeout=1)
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 context.check_hostname = False
 context.verify_mode = ssl.CERT_NONE
-sock = DoIPSocket6(activate_routing=False, force_tls=True, context=context)
+sock = DoIPSocket(ip="::1", activate_routing=False, force_tls=True, context=context)
 
-pkts = sock.sniff(timeout=1, count=2)
+pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
 server_thread.join(timeout=1)
 assert len(pkts) == 2
 
@@ -678,6 +716,7 @@ assert len(pkts) == 2
 ~ broken_windows
 
 server_up = threading.Event()
+sniff_up = threading.Event()
 def server():
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     _load_certificate_chain(context)
@@ -693,6 +732,7 @@ def server():
         ssock.listen(1)
         server_up.set()
         connection, address = ssock.accept()
+        sniff_up.wait(timeout=1)
         connection.send(buffer)
         connection.close()
     finally:
@@ -705,17 +745,18 @@ server_up.wait(timeout=1)
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 context.check_hostname = False
 context.verify_mode = ssl.CERT_NONE
-sock = UDS_DoIPSocket6(activate_routing=False, force_tls=True, context=context)
+sock = UDS_DoIPSocket(ip="::1", activate_routing=False, force_tls=True, context=context)
 
-pkts = sock.sniff(timeout=1, count=2)
+pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
 server_thread.join(timeout=1)
 assert len(pkts) == 2
 
 = Test UDS_DualDoIPSslSocket6
-~ broken_windows
+~ broken_windows not_pypy
 
 server_tcp_up = threading.Event()
 server_tls_up = threading.Event()
+sniff_up = threading.Event()
 def server_tls():
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     _load_certificate_chain(context)
@@ -732,6 +773,7 @@ def server_tls():
         ssock.listen(1)
         server_tls_up.set()
         connection, address = ssock.accept()
+        sniff_up.wait(timeout=1)
         connection.send(buffer)
         connection.close()
     finally:
@@ -748,7 +790,7 @@ def server_tcp():
         server_tcp_up.set()
         connection, address = sock.accept()
         connection.send(buffer)
-        connection.shutdown()
+        connection.shutdown(socket.SHUT_RDWR)
         connection.close()
     finally:
         sock.close()
@@ -765,9 +807,9 @@ context.check_hostname = False
 context.verify_mode = ssl.CERT_NONE
 
 
-sock = UDS_DoIPSocket6(ip="::1", context=context)
+sock = UDS_DoIPSocket(ip="::1", context=context)
 
-pkts = sock.sniff(timeout=1, count=2)
+pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
 server_tcp_thread.join(timeout=1)
 server_tls_thread.join(timeout=1)
 assert len(pkts) == 2

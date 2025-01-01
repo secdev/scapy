@@ -19,6 +19,7 @@ Implements parts of:
   draft-ietf-kitten-iakerb-03
 - Kerberos Protocol Extensions: [MS-KILE]
 - Kerberos Protocol Extensions: Service for User: [MS-SFU]
+- Kerberos Key Distribution Center Proxy Protocol: [MS-KKDCP]
 
 
 .. note::
@@ -45,7 +46,7 @@ Example decryption::
     >>> enc.decrypt(k)
 """
 
-from collections import namedtuple
+from collections import namedtuple, deque
 from datetime import datetime, timedelta, timezone
 from enum import IntEnum
 
@@ -116,7 +117,7 @@ from scapy.fields import (
     XStrField,
 )
 from scapy.packet import Packet, bind_bottom_up, bind_top_down, bind_layers
-from scapy.supersocket import StreamSocket
+from scapy.supersocket import StreamSocket, SuperSocket
 from scapy.utils import strrot, strxor
 from scapy.volatile import GeneralizedTime, RandNum, RandBin
 
@@ -134,6 +135,7 @@ from scapy.layers.gssapi import (
     _GSSAPI_SIGNATURE_OIDS,
 )
 from scapy.layers.inet import TCP, UDP
+from scapy.layers.smb import _NV_VERSION
 
 # Typing imports
 from typing import (
@@ -2261,8 +2263,7 @@ class KRB_GSS_Wrap(Packet):
                     lambda pkt: pkt.Flags.Sealed,
                 )
             ],
-            XStrLenField("Data", b"",
-                         length_from=lambda pkt: pkt.EC),
+            XStrLenField("Data", b"", length_from=lambda pkt: pkt.EC),
         ),
     ]
 
@@ -2503,6 +2504,95 @@ bind_layers(KpasswdTCPHeader, Kpasswd)
 bind_bottom_up(TCP, KpasswdTCPHeader, sport=464)
 bind_layers(TCP, KpasswdTCPHeader, dport=464)
 
+# [MS-KKDCP]
+
+
+class _KerbMessage_Field(ASN1F_STRING_PacketField):
+    def m2i(self, pkt, s):
+        val = super(_KerbMessage_Field, self).m2i(pkt, s)
+        if not val[0].val:
+            return val
+        return KerberosTCPHeader(val[0].val, _underlayer=pkt), val[1]
+
+
+class KDC_PROXY_MESSAGE(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        _KerbMessage_Field("kerbMessage", "", explicit_tag=0xA0),
+        ASN1F_optional(Realm("targetDomain", None, explicit_tag=0xA1)),
+        ASN1F_optional(
+            ASN1F_FLAGS(
+                "dclocatorHint",
+                None,
+                FlagsField("", 0, -32, _NV_VERSION).names,
+                explicit_tag=0xA2,
+            )
+        ),
+    )
+
+
+class KdcProxySocket(SuperSocket):
+    """
+    This is a wrapper of a HTTP_Client that does KKDCP proxying,
+    disguised as a SuperSocket to be compatible with the rest of the KerberosClient.
+    """
+
+    def __init__(
+        self,
+        url,
+        targetDomain,
+        dclocatorHint=None,
+        no_check_certificate=False,
+        **kwargs,
+    ):
+        self.url = url
+        self.targetDomain = targetDomain
+        self.dclocatorHint = dclocatorHint
+        self.no_check_certificate = no_check_certificate
+        self.queue = deque()
+        super(KdcProxySocket, self).__init__(**kwargs)
+
+    def recv(self, x=None):
+        return self.queue.popleft()
+
+    def send(self, x, **kwargs):
+        from scapy.layers.http import HTTP_Client
+
+        cli = HTTP_Client(no_check_certificate=self.no_check_certificate)
+        try:
+            # sr it via the web client
+            resp = cli.request(
+                self.url,
+                Method="POST",
+                data=bytes(
+                    # Wrap request in KDC_PROXY_MESSAGE
+                    KDC_PROXY_MESSAGE(
+                        kerbMessage=bytes(x),
+                        targetDomain=ASN1_GENERAL_STRING(self.targetDomain.encode()),
+                        # dclocatorHint is optional
+                        dclocatorHint=self.dclocatorHint,
+                    )
+                ),
+                http_headers={
+                    "Cache-Control": "no-cache",
+                    "Pragma": "no-cache",
+                    "User-Agent": "kerberos/1.0",
+                },
+            )
+            if resp and conf.raw_layer in resp:
+                # Parse the payload
+                resp = KDC_PROXY_MESSAGE(resp.load).kerbMessage
+                # We have an answer, queue it.
+                self.queue.append(resp)
+            else:
+                raise EOFError
+        finally:
+            cli.close()
+
+    @staticmethod
+    def select(sockets, remain=None):
+        return [x for x in sockets if isinstance(x, KdcProxySocket) and x.queue]
+
 
 # Util functions
 
@@ -2514,6 +2604,7 @@ class KerberosClient(Automaton):
     class MODE(IntEnum):
         AS_REQ = 0
         TGS_REQ = 1
+        GET_SALT = 2
 
     def __init__(
         self,
@@ -2530,6 +2621,8 @@ class KerberosClient(Automaton):
         u2u=False,
         for_user=None,
         s4u2proxy=False,
+        kdc_proxy=None,
+        kdc_proxy_no_check_certificate=False,
         etypes=None,
         key=None,
         port=88,
@@ -2544,7 +2637,7 @@ class KerberosClient(Automaton):
         if not spn:
             raise ValueError("Invalid spn")
         if realm is None:
-            if mode == self.MODE.AS_REQ:
+            if mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
                 _, realm = _parse_upn(upn)
             elif mode == self.MODE.TGS_REQ:
                 _, realm = _parse_spn(spn)
@@ -2555,14 +2648,14 @@ class KerberosClient(Automaton):
             else:
                 raise ValueError("Invalid realm")
 
-        if mode == self.MODE.AS_REQ:
+        if mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
             if not host:
                 raise ValueError("Invalid host")
         elif mode == self.MODE.TGS_REQ:
             if not ticket:
                 raise ValueError("Invalid ticket")
 
-        if not ip:
+        if not ip and not kdc_proxy:
             # No KDC IP provided. Find it by querying the DNS
             ip = dclocator(
                 realm,
@@ -2574,7 +2667,17 @@ class KerberosClient(Automaton):
                 debug=kwargs.get("debug", 0),
             ).ip
 
-        if etypes is None:
+        if mode == self.MODE.GET_SALT:
+            if etypes is not None:
+                raise ValueError("Cannot specify etypes in GET_SALT mode !")
+
+            from scapy.libs.rfc3961 import EncryptionType
+
+            etypes = [
+                EncryptionType.AES256_CTS_HMAC_SHA1_96,
+                EncryptionType.AES128_CTS_HMAC_SHA1_96,
+            ]
+        elif etypes is None:
             from scapy.libs.rfc3961 import EncryptionType
 
             etypes = [
@@ -2592,9 +2695,10 @@ class KerberosClient(Automaton):
         self._timeout = timeout
         self._ip = ip
         self._port = port
-        sock = self._connect()
+        self.kdc_proxy = kdc_proxy
+        self.kdc_proxy_no_check_certificate = kdc_proxy_no_check_certificate
 
-        if self.mode == self.MODE.AS_REQ:
+        if self.mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
             self.host = host.upper()
             self.password = password and bytes_encode(password)
         self.spn = spn
@@ -2613,16 +2717,25 @@ class KerberosClient(Automaton):
         # Negotiated parameters
         self.pre_auth = False
         self.fxcookie = None
+
+        sock = self._connect()
         super(KerberosClient, self).__init__(
             sock=sock,
             **kwargs,
         )
 
     def _connect(self):
-        sock = socket.socket()
-        sock.settimeout(self._timeout)
-        sock.connect((self._ip, self._port))
-        sock = StreamSocket(sock, KerberosTCPHeader)
+        if self.kdc_proxy:
+            sock = KdcProxySocket(
+                url=self.kdc_proxy,
+                targetDomain=self.realm,
+                no_check_certificate=self.kdc_proxy_no_check_certificate,
+            )
+        else:
+            sock = socket.socket()
+            sock.settimeout(self._timeout)
+            sock.connect((self._ip, self._port))
+            sock = StreamSocket(sock, KerberosTCPHeader)
         return sock
 
     def send(self, pkt):
@@ -2792,7 +2905,7 @@ class KerberosClient(Automaton):
 
     @ATMT.condition(BEGIN)
     def should_send_as_req(self):
-        if self.mode == self.MODE.AS_REQ:
+        if self.mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
             raise self.SENT_AP_REQ()
 
     @ATMT.condition(BEGIN)
@@ -2842,12 +2955,35 @@ class KerberosClient(Automaton):
                 salt,
             )
 
-    @ATMT.receive_condition(SENT_AP_REQ)
+    @ATMT.receive_condition(SENT_AP_REQ, prio=0)
+    def receive_salt_mode(self, pkt):
+        # This is only for "Salt-Mode", a mode where we get the salt then
+        # exit.
+        if self.mode == self.MODE.GET_SALT:
+            if Kerberos not in pkt:
+                raise self.FINAL()
+            if not isinstance(pkt.root, KRB_ERROR):
+                log_runtime.error("Pre-auth is likely disabled !")
+                raise self.FINAL()
+            if pkt.root.errorCode == 25:  # KDC_ERR_PREAUTH_REQUIRED
+                for padata in pkt.root.eData.seq:
+                    if padata.padataType == 0x13:  # PA-ETYPE-INFO2
+                        elt = padata.padataValue.seq[0]
+                        if elt.etype.val in self.etypes:
+                            self.result = elt.salt.val
+                            raise self.FINAL()
+            else:
+                log_runtime.error("Failed to retrieve the salt !")
+                raise self.FINAL()
+
+    @ATMT.receive_condition(SENT_AP_REQ, prio=1)
     def receive_krb_error_as_req(self, pkt):
+        # We check for a PREAUTH_REQUIRED error. This means that preauth is required
+        # and we need to do a second exchange.
         if Kerberos in pkt and isinstance(pkt.root, KRB_ERROR):
             if pkt.root.errorCode == 25:  # KDC_ERR_PREAUTH_REQUIRED
                 if not self.key and (not self.upn or not self.password):
-                    log_runtime.warning(
+                    log_runtime.error(
                         "Got 'KDC_ERR_PREAUTH_REQUIRED', "
                         "but no key, nor upn+pass was passed."
                     )
@@ -2857,11 +2993,11 @@ class KerberosClient(Automaton):
                 self.pre_auth = True
                 raise self.BEGIN()
             else:
-                log_runtime.warning("Received KRB_ERROR")
+                log_runtime.error("Received KRB_ERROR")
                 pkt.show()
                 raise self.FINAL()
 
-    @ATMT.receive_condition(SENT_AP_REQ)
+    @ATMT.receive_condition(SENT_AP_REQ, prio=2)
     def receive_as_rep(self, pkt):
         if Kerberos in pkt and isinstance(pkt.root, KRB_AS_REP):
             raise self.FINAL().action_parameters(pkt)
@@ -2874,7 +3010,7 @@ class KerberosClient(Automaton):
             self.update_sock(self._connect())
             raise self.BEGIN()
         else:
-            log_runtime.warning("Socket was closed in an unexpected state")
+            log_runtime.error("Socket was closed in an unexpected state")
             raise self.FINAL()
 
     @ATMT.action(receive_as_rep)
@@ -3075,6 +3211,26 @@ def krb_as_and_tgs(upn, spn, ip=None, key=None, password=None, **kwargs):
         ip=ip,
         **kwargs,
     )
+
+
+def krb_get_salt(upn, ip=None, realm=None, host="WIN10", **kwargs):
+    """
+    Kerberos AS-Req only to get the salt associated with the UPN.
+    """
+    if realm is None:
+        _, realm = _parse_upn(upn)
+    cli = KerberosClient(
+        mode=KerberosClient.MODE.GET_SALT,
+        realm=realm,
+        ip=ip,
+        spn="krbtgt/" + realm,
+        upn=upn,
+        host=host,
+        **kwargs,
+    )
+    cli.run()
+    cli.stop()
+    return cli.result
 
 
 def kpasswd(
@@ -3854,10 +4010,11 @@ class KerberosSSP(SSP):
                 os.urandom(16),
             )
             Context.SendSeqNum = RandNum(0, 0x7FFFFFFF)._fix()
+            _, crealm = _parse_upn(self.UPN)
             ap_req.authenticator.encrypt(
                 Context.STSessionKey,
                 KRB_Authenticator(
-                    crealm=self.ST.realm,
+                    crealm=crealm,
                     cname=PrincipalName.fromUPN(self.UPN),
                     # RFC 4121 checksum
                     cksum=Checksum(

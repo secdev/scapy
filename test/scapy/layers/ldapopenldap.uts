@@ -1,0 +1,32 @@
+% Tests that need a local instance of OpenLDAP to run
+
++ Functional test against OpenLDAP
+~ linux ci_only
+
+= (OpenLDAP) connect to server, bind
+
+cli = LDAP_Client()
+cli.connect("127.0.0.1")
+cli.bind(LDAP_BIND_MECHS.SIMPLE, simple_username="cn=admin,dc=scapy,dc=net", simple_password="Bonjour1")
+cli.close()
+
+= (OpenLDAP) connect to server, bind, search
+
+cli = LDAP_Client()
+cli.connect("127.0.0.1")
+cli.bind(LDAP_BIND_MECHS.SIMPLE, simple_username="cn=admin,dc=scapy,dc=net", simple_password="Bonjour1")
+res = cli.search("dc=scapy,dc=net", "(&(givenName=Another)(sn=Test))", scope=2)
+cli.close()
+
+assert res == {
+    'uid=another,ou=People,dc=scapy,dc=net': {
+        'objectClass': ['top',
+        'person',
+        'inetOrgPerson'],
+        'cn': ['Another Test'],
+        'uid': ['another'],
+        'sn': ['Test'],
+        'givenName': ['Another'],
+        'userPassword': ['testing']
+    }
+}

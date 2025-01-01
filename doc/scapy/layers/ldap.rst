@@ -3,10 +3,6 @@ LDAP
 
 Scapy fully implements the LDAPv2 / LDAPv3 messages, in addition to a very basic :class:`~scapy.layers.ldap.LDAP_Client` class.
 
-.. warning::
-    *The String Representation of LDAP Search Filters* (RFC2254) is currently **unsupported**.
-    This means that you can't use the commonly known LDAP search syntax, and instead have to use the binary format.
-    PRs are welcome !
 
 LDAP client usage
 -----------------
@@ -16,6 +12,8 @@ The general idea when using the :class:`~scapy.layers.ldap.LDAP_Client` class co
 - instantiating the class
 - calling :func:`~scapy.layers.ldap.LDAP_Client.connect` with the IP (this is where to specify whether to use SSL or not)
 - calling :func:`~scapy.layers.ldap.LDAP_Client.bind` (this is where to specify a SSP if authentication is desired)
+- calling :func:`~scapy.layers.ldap.LDAP_Client.search` to search data.
+- calling :func:`~scapy.layers.ldap.LDAP_Client.modify` to edit data attributes.
 
 The simplest, unauthenticated demo of the client would be something like:
 
@@ -36,20 +34,20 @@ The simplest, unauthenticated demo of the client would be something like:
     |###[ LDAP_SearchResponseEntry ]###
     |  objectName= <ASN1_STRING[b'']>
     |  \attributes\
-    |   |###[ LDAP_SearchResponseEntryAttribute ]###
+    |   |###[ LDAP_PartialAttribute ]###
     |   |  type      = <ASN1_STRING[b'domainFunctionality']>
     |   |  \values    \
-    |   |   |###[ LDAP_SearchResponseEntryAttributeValue ]###
+    |   |   |###[ LDAP_AttributeValue ]###
     |   |   |  value     = <ASN1_STRING[b'7']>
-    |   |###[ LDAP_SearchResponseEntryAttribute ]###
+    |   |###[ LDAP_PartialAttribute ]###
     |   |  type      = <ASN1_STRING[b'forestFunctionality']>
     |   |  \values    \
-    |   |   |###[ LDAP_SearchResponseEntryAttributeValue ]###
+    |   |   |###[ LDAP_AttributeValue ]###
     |   |   |  value     = <ASN1_STRING[b'7']>
-    |   |###[ LDAP_SearchResponseEntryAttribute ]###
+    |   |###[ LDAP_PartialAttribute ]###
     |   |  type      = <ASN1_STRING[b'domainControllerFunctionality']>
     |   |  \values    \
-    |   |   |###[ LDAP_SearchResponseEntryAttributeValue ]###
+    |   |   |###[ LDAP_AttributeValue ]###
     |   |   |  value     = <ASN1_STRING[b'7']>
     [...]
 
@@ -172,8 +170,27 @@ Once the LDAP connection is bound, it becomes possible to perform requests. For 
 
     client.sr1(LDAP_SearchRequest()).show()
 
-Querying more complicated requests is a bit tedious, as it *currently* requires you to build the Search request yourself.
+We can also use the :func:`~scapy.layers.ldap.LDAP_Client.search` passing a base DN, a filter (as specified by RFC2254) and a scope.\\
+
+The scope can be one of the following:
+
+- 0=baseObject: only the base DN's attributes are queried
+- 1=singleLevel: the base DN's children are queried
+- 2=wholeSubtree: the entire subtree under the base DN is included
+
 For instance, this corresponds to querying the DN ``CN=Users,DC=domain,DC=local`` with the filter ``(objectCategory=person)`` and asking for the attributes ``objectClass,name,description,canonicalName``:
+
+.. code:: python
+
+    resp = client.search(
+        "CN=Users,DC=domain,DC=local",
+        "(objectCategory=person)",
+        ["objectClass", "name", "description", "canonicalName"],
+        scope=1,  # children
+    )
+    resp.show()
+
+To understand exactly what's going on, note that the previous call is exactly identical to the following:
 
 .. code:: python
 
@@ -199,4 +216,39 @@ For instance, this corresponds to querying the DN ``CN=Users,DC=domain,DC=local`
             attrsOnly=ASN1_BOOLEAN(0)
         )
     )
-    resp.show()
+
+
+.. warning::
+    Our RFC2254 parser currently does not support 'Extensible Match'.
+
+Modifying attributes
+~~~~~~~~~~~~~~~~~~~~
+
+It's also possible to change some attributes on an object.
+The following issues a ``Modify Request`` that replaces the ``displayName`` attribute and adds a ``servicePrincipalName``:
+
+.. code:: python
+
+    client.modify(
+        "CN=User1,CN=Users,DC=domain,DC=local",
+        changes=[
+            LDAP_ModifyRequestChange(
+                operation="replace",
+                modification=LDAP_PartialAttribute(
+                    type="displayName",
+                    values=[
+                        LDAP_AttributeValue(value="Lord User the 1st")
+                    ]
+                )
+            ),
+            LDAP_ModifyRequestChange(
+                operation="add",
+                modification=LDAP_PartialAttribute(
+                    type="servicePrincipalName",
+                    values=[
+                        LDAP_AttributeValue(value="http/lorduser")
+                    ]
+                )
+            )
+        ]
+    )

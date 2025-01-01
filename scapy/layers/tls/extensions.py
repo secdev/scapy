@@ -843,4 +843,6 @@ class _ExtensionsField(StrLenField):
                 cls = _tls_ext_early_data_cls.get(pkt.msgtype, TLS_Ext_Unknown)
             res.append(cls(m[:tmp_len + 4], tls_session=pkt.tls_session))
             m = m[tmp_len + 4:]
+        if m:
+            res.append(conf.raw_layer(m))
         return res

@@ -357,8 +357,8 @@ class Pipe(metaclass=_PipeMeta):
 class Source(Pipe, ObjectPipe[Any]):
     def __init__(self, name=None):
         # type: (Optional[str]) -> None
-        Pipe.__init__(self, name=name)
         ObjectPipe.__init__(self, name)
+        Pipe.__init__(self, name=name)
         self.is_exhausted = False
 
     def _read_message(self):
@@ -716,6 +716,7 @@ class TermSink(Sink):
             if not self.opened:
                 self.opened = True
                 rdesc, self.wdesc = os.pipe()
+                os.set_inheritable(rdesc, True)
                 cmd = ["xterm"]
                 if self.name is not None:
                     cmd.extend(["-title", self.name])

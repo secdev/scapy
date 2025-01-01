@@ -276,7 +276,7 @@ class L2Socket(SuperSocket):
         try:
             if self.promisc and getattr(self, "ins", None):
                 set_promisc(self.ins, self.iface, 0)
-        except (AttributeError, OSError):
+        except (AttributeError, OSError, ValueError):
             pass
         SuperSocket.close(self)
 

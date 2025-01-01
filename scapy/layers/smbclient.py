@@ -663,6 +663,7 @@ class SMB_SOCKET(SuperSocket):
         self.ins = smbsock
         self.timeout = timeout
         if not self.ins.atmt.smb_sock_ready.wait(timeout=timeout):
+            self.ins.atmt.session.sspcontext.clifailure()
             raise TimeoutError(
                 "The SMB handshake timed out ! (enable debug=1 for logs)"
             )

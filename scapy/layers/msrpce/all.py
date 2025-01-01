@@ -32,6 +32,7 @@ _LAYERS = [
     # Low-level RPC definitions
     "msrpce.raw.ept",
     "msrpce.raw.ms_dcom",
+    "msrpce.raw.ms_drsr",
     "msrpce.raw.ms_nrpc",
     "msrpce.raw.ms_samr",
     "msrpce.raw.ms_srvs",

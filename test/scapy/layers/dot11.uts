@@ -778,3 +778,21 @@ assert pkt[Dot11Elt::{"ID": 74}].len == 14
 
 pkt = Dot11EltCSA(b'%\x03\x01\x0b\x05')
 assert pkt[Dot11Elt::{"ID": 37}].len == 3
+
+= Dot11S1GBeacon
+
+pkt=Dot11(b"\x1c\x18\x00\x00,/u\x1c\x103hq\xf8\x00\x00\xd5\x08\x01\x00d\x00\x00\x00\x00\x00\x05\x02\x00\x01\xd9\x0f\x9e\x00@\x18\x80\x0c\x00\x02@\x00\xfe\x00\xfc\x01\x00\xe8\x06\x06\x18&(\xc4\xcc\xd6\x02d\x00\x00\nWiFiDiving\xdd\x18\x00P\xf2\x02\x01\x01\x01\x00\x03\xa4\xd5\x01'\xa4\xd5\x01BC\xd5\x01b2\xd5\x01")
+assert pkt[Dot11].type == 3
+assert pkt[Dot11].subtype == 1
+assert pkt[Dot11].addr1 == '2c:2f:75:1c:10:33'
+assert pkt[Dot11S1GBeacon].timestamp == 16281960
+assert pkt[Dot11Elt::{"ID": 0}].info == b"WiFiDiving"
+assert pkt[Dot11Elt::{"ID": 214}].len == 2
+assert pkt[Dot11Elt::{"ID": 217}].len == 15
+assert pkt[Dot11Elt::{"ID": 232}].len == 6
+assert pkt[Dot11].FCfield_bw == 3
+assert pkt[Dot11].FCfield2.next_tbtt == False
+assert pkt[Dot11].FCfield2.comp_ssid == False
+assert pkt[Dot11].FCfield2.ano == False
+assert pkt[Dot11].FCfield.security == False
+assert pkt[Dot11].FCfield.AP_PM == False

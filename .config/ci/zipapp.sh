@@ -56,6 +56,7 @@ echo "> Stripping down..."
 cd "$SCPY" && find . -not \( \
     -wholename "./scapy*" -o \
     -wholename "./pyproject.toml" -o \
+    -wholename "./doc/scapy.1" -o \
     -wholename "./setup.py" -o \
     -wholename "./README.md" -o \
     -wholename "./LICENSE" \

@@ -1,0 +1,146 @@
+# SPDX-License-Identifier: OLDAP-2.8
+# This file is https://git.openldap.org/openldap/openldap/-/blob/master/tests/data/ppolicy.ldif?ref_type=heads
+# (renamed to dc=scapy, dc=net)
+
+dn: dc=scapy, dc=net
+objectClass: top
+objectClass: organization
+objectClass: dcObject
+o: Scapy
+dc: scapy
+
+dn: ou=People, dc=scapy, dc=net
+objectClass: top
+objectClass: organizationalUnit
+ou: People
+
+dn: ou=Groups, dc=scapy, dc=net
+objectClass: organizationalUnit
+ou: Groups
+
+dn: cn=Policy Group, ou=Groups, dc=scapy, dc=net
+objectClass: groupOfNames
+cn: Policy Group
+member: uid=nd, ou=People, dc=scapy, dc=net
+owner: uid=ndadmin, ou=People, dc=scapy, dc=net
+
+dn: cn=Test Group, ou=Groups, dc=scapy, dc=net
+objectClass: groupOfNames
+cn: Policy Group
+member: uid=another, ou=People, dc=scapy, dc=net
+
+dn: ou=Policies, dc=scapy, dc=net
+objectClass: top
+objectClass: organizationalUnit
+ou: Policies
+
+dn: cn=Standard Policy, ou=Policies, dc=scapy, dc=net
+objectClass: top
+objectClass: device
+objectClass: pwdPolicy
+cn: Standard Policy
+pwdAttribute: 2.5.4.35
+pwdLockoutDuration: 15
+pwdInHistory: 6
+pwdCheckQuality: 2
+pwdExpireWarning: 10
+pwdMaxAge: 30
+pwdMinLength: 5
+pwdMaxLength: 13
+pwdGraceAuthnLimit: 3
+pwdAllowUserChange: TRUE
+pwdMustChange: TRUE
+pwdMaxFailure: 3
+pwdFailureCountInterval: 120
+pwdSafeModify: TRUE
+pwdLockout: TRUE
+
+dn: cn=Idle Expiration Policy, ou=Policies, dc=scapy, dc=net
+objectClass: top
+objectClass: device
+objectClass: pwdPolicy
+cn: Idle Expiration Policy
+pwdAttribute: 2.5.4.35
+pwdLockoutDuration: 15
+pwdInHistory: 6
+pwdCheckQuality: 2
+pwdExpireWarning: 10
+pwdMaxIdle: 15
+pwdMinLength: 5
+pwdMaxLength: 13
+pwdGraceAuthnLimit: 3
+pwdAllowUserChange: TRUE
+pwdMustChange: TRUE
+pwdMaxFailure: 3
+pwdFailureCountInterval: 120
+pwdSafeModify: TRUE
+pwdLockout: TRUE
+
+dn: cn=Stricter Policy, ou=Policies, dc=scapy, dc=net
+objectClass: top
+objectClass: device
+objectClass: pwdPolicy
+cn: Stricter Policy
+pwdAttribute: 2.5.4.35
+pwdLockoutDuration: 15
+pwdInHistory: 6
+pwdCheckQuality: 2
+pwdExpireWarning: 10
+pwdMaxAge: 15
+pwdMinLength: 5
+pwdMaxLength: 13
+pwdAllowUserChange: TRUE
+pwdMustChange: TRUE
+pwdMaxFailure: 3
+pwdFailureCountInterval: 120
+pwdSafeModify: TRUE
+pwdLockout: TRUE
+
+dn: cn=Another Policy, ou=Policies, dc=scapy, dc=net
+objectClass: top
+objectClass: device
+objectClass: pwdPolicy
+cn: Test Policy
+pwdAttribute: 2.5.4.35
+
+dn: uid=nd, ou=People, dc=scapy, dc=net
+objectClass: top
+objectClass: person
+objectClass: inetOrgPerson
+cn: Neil Dunbar
+uid: nd
+sn: Dunbar
+givenName: Neil
+userPassword: testpassword
+
+dn: uid=ndadmin, ou=People, dc=scapy, dc=net
+objectClass: top
+objectClass: person
+objectClass: inetOrgPerson
+cn: Neil Dunbar (Admin)
+uid: ndadmin
+sn: Dunbar
+givenName: Neil
+userPassword: testpw
+
+dn: uid=test, ou=People, dc=scapy, dc=net
+objectClass: top
+objectClass: person
+objectClass: inetOrgPerson
+cn: test test
+uid: test
+sn: Test
+givenName:  Test
+userPassword: kfhgkjhfdgkfd
+pwdPolicySubEntry: cn=No Policy, ou=Policies, dc=scapy, dc=net
+
+dn: uid=another, ou=People, dc=scapy, dc=net
+objectClass: top
+objectClass: person
+objectClass: inetOrgPerson
+cn: Another Test
+uid: another
+sn: Test
+givenName:  Another
+userPassword: testing
+

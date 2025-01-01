@@ -45,6 +45,7 @@ from scapy.fields import (
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6, IP6Field
 from scapy.layers.ppp import PPP
+from scapy.layers.dns import DNSStrField
 from scapy.packet import bind_layers, bind_bottom_up, bind_top_down, \
     Packet, Raw
 from scapy.volatile import RandInt, RandIP, RandNum, RandString
@@ -206,6 +207,24 @@ class TBCDByteField(StrFixedLenField):
             else:
                 ret_string += chb(int(b"F" + tmp[:1], 16))
         return ret_string
+
+
+class FQDNField(DNSStrField):
+    """
+    DNSStrField without ending null.
+
+    See ETSI TS 129.244 18.07.00 - 8.66, NOTE 1
+    """
+
+    def h2i(self, pkt, x):
+        return bytes_encode(x)
+
+    def i2m(self, pkt, x):
+        return b"".join(chb(len(y)) + y for y in (k[:63] for k in x.split(b".")))
+
+    def getfield(self, pkt, s):
+        remain, s = super().getfield(pkt, s)
+        return remain, s[:-1]
 
 
 TBCD_TO_ASCII = b"0123456789*#abc"

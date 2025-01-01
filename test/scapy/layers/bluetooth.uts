@@ -471,11 +471,36 @@ assert p[EIR_ClassOfDevice].major_service_classes == 0
 assert p[EIR_ClassOfDevice].major_device_class == 5
 assert p[EIR_ClassOfDevice].minor_device_class == 1
 
+= Parse EIR_PublicTargetAddress
+p = HCI_Hdr(hex_bytes('043e1402010001554433221100080717ffeeddccbbaaaa'))
+assert EIR_PublicTargetAddress in p
+assert p[EIR_PublicTargetAddress].bd_addr == 'aa:bb:cc:dd:ee:ff'
+
+= Parse EIR_AdvertisingInterval
+p = HCI_Event_Hdr(hex_bytes('3e23020100002e4961121110170201060f0954656c6553617420283432453229031a9001a3'))
+assert EIR_AdvertisingInterval in p
+assert p[EIR_AdvertisingInterval].advertising_interval == 400
+
+= Parse EIR_Appearance
+p = BTLE(hex_bytes("d6be898e201660d4d3cebffb0201050319420c0303e7fe040948393850c27c"))
+assert EIR_Appearance in p
+assert p[EIR_Appearance].appearance == 0x0c42
+assert p[EIR_Appearance].category == 0x31 #'Pulse Oximeter'
+assert p[EIR_Appearance].subcategory == 0x02 # Wrist Worn Pulse Oximeter
+
 = Parse EIR_ServiceData32BitUUID
 
 p = HCI_Hdr(hex_bytes('042fff01c47c80894df801000c0128a269a30c4a125d13f30196894df80c012820f61a1a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'))
 assert EIR_ServiceData32BitUUID in p
 assert p[EIR_ServiceData32BitUUID].svc_uuid == 0x001a1af6
+
+= Parse EIR_URI
+
+p = HCI_Event_Hdr(hex_bytes('3e2902010301f3c1dad728031d1c24172f2f6669726d776172652e73696c766169722e636f6d2f6f6f62ac'))
+assert EIR_URI in p
+assert p[EIR_URI].scheme == 0x17
+assert p[EIR_URI].uri_hier_part == b'//firmware.silvair.com/oob'
+assert p[EIR_URI].uri == 'https://firmware.silvair.com/oob'
 
 = Parse EIR_Flags, EIR_CompleteList16BitServiceUUIDs, EIR_CompleteLocalName and EIR_TX_Power_Level
 
@@ -546,6 +571,13 @@ except TypeError:
     pass
 else:
     assert False, "expected exception"
+
+= Parse EIR_ServiceSolicitation16BitUUID and EIR_ServiceSolicitation128BitUUID
+
+d = hex_bytes("043e29020100013d1ef10747d81d0319000002010603140d181115d0002d121e4b0fa4994eceb531f40579aa") 
+p = HCI_Hdr(d)
+assert p[EIR_ServiceSolicitation16BitUUID].svc_uuid == 0x180d
+assert p[EIR_ServiceSolicitation128BitUUID].svc_uuid == UUID('7905f431-b5ce-4e99-a40f-4b1e122d00d0')
 
 = Parse EIR_ServiceData16BitUUID
 

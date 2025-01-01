@@ -73,7 +73,12 @@ def _probe_xdg_folder(var, default, *cf):
         # https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
         # "If, when attempting to write a file, the destination directory is
         # non-existent an attempt should be made to create it with permission 0700."
-        path.mkdir(mode=0o700)
+        try:
+            path.mkdir(mode=0o700, exist_ok=True)
+        except Exception:
+            # There is a gazillion ways this can fail. Most notably,
+            # a read-only fs.
+            return None
     return path.joinpath(*cf).resolve()
 
 
@@ -129,9 +134,38 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
             return
         # We have a default ! set it
         try:
-            cf_path.parent.mkdir(parents=True, exist_ok=True)
+            if not cf_path.parent.exists():
+                cf_path.parent.mkdir(parents=True, exist_ok=True)
+                if (
+                    not WINDOWS and
+                    "SUDO_UID" in os.environ and
+                    "SUDO_GID" in os.environ
+                ):
+                    # Was started with sudo. Still, chown to the user.
+                    try:
+                        os.chown(
+                            cf_path.parent,
+                            int(os.environ["SUDO_UID"]),
+                            int(os.environ["SUDO_GID"]),
+                        )
+                    except Exception:
+                        pass
             with cf_path.open("w") as fd:
                 fd.write(default)
+            if (
+                not WINDOWS and
+                "SUDO_UID" in os.environ and
+                "SUDO_GID" in os.environ
+            ):
+                # Was started with sudo. Still, chown to the user.
+                try:
+                    os.chown(
+                        cf_path,
+                        int(os.environ["SUDO_UID"]),
+                        int(os.environ["SUDO_GID"]),
+                    )
+                except Exception:
+                    pass
             log_loading.debug("Config file [%s] created with default.", cf)
         except OSError:
             log_loading.warning("Config file [%s] could not be created.", cf,

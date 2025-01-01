@@ -652,16 +652,7 @@ class HTTP(Packet):
             is_response = isinstance(http_packet.payload, cls.clsresp)
             # Packets may have a Content-Length we must honnor
             length = http_packet.Content_Length
-            # Heuristic to try and detect instant HEAD responses, as those include a
-            # Content-Length that must not be honored. This is a bit crappy, and assumes
-            # that a 'HEAD' will never include an Encoding...
-            if (
-                is_response and
-                data.endswith(b"\r\n\r\n") and
-                not http_packet[HTTPResponse]._get_encodings()
-            ):
-                detect_end = lambda _: True
-            elif length is not None:
+            if length is not None:
                 # The packet provides a Content-Length attribute: let's
                 # use it. When the total size of the frags is high enough,
                 # we have the packet
@@ -672,8 +663,12 @@ class HTTP(Packet):
                     detect_end = lambda dat: len(dat) - http_length >= length
                 else:
                     # The HTTP layer isn't fully received.
-                    detect_end = lambda dat: False
-                    metadata["detect_unknown"] = True
+                    if metadata.get("tcp_end", False):
+                        # This was likely a HEAD response. Ugh
+                        detect_end = lambda dat: True
+                    else:
+                        detect_end = lambda dat: False
+                        metadata["detect_unknown"] = True
             else:
                 # It's not Content-Length based. It could be chunked
                 encodings = http_packet[cls].payload._get_encodings()
@@ -828,12 +823,27 @@ class HTTP_Client(object):
             )
         return resp
 
-    def request(self, url, data=b"", timeout=5, follow_redirects=True, **headers):
+    def request(self,
+                url,
+                data=b"",
+                timeout=5,
+                follow_redirects=True,
+                http_headers={},
+                **headers):
         """
         Perform a HTTP(s) request.
+
+        :param url: the full URL to connect to.
+            e.g. https://google.com/test
+        :param data: the data to send as payload
+        :param follow_redirects: if True, request() will follow 302 return codes
+        :param http_headers: if specified, overwrites the HTTP headers
+            (except Host and Path).
+        :param headers: any additional HTTPRequest parameter to add.
+            e.g. Method="POST"
         """
         # Parse request url
-        m = re.match(r"(https?)://([^/:]+)(?:\:(\d+))?(?:/(.*))?", url)
+        m = re.match(r"(https?)://([^/:]+)(?:\:(\d+))?(/.*)?", url)
         if not m:
             raise ValueError("Bad URL !")
         transport, host, port, path = m.groups()
@@ -849,14 +859,20 @@ class HTTP_Client(object):
         self._connect_or_reuse(host, port=port, tls=tls, timeout=timeout)
 
         # Build request
-        http_headers = {
-            "Accept_Encoding": b'gzip, deflate',
-            "Cache_Control": b'no-cache',
-            "Pragma": b'no-cache',
-            "Connection": b'keep-alive',
-            "Host": host,
-            "Path": path,
-        }
+        headers.setdefault("Host", host)
+        headers.setdefault("Path", path)
+
+        if not http_headers:
+            http_headers = {
+                "Accept_Encoding": b'gzip, deflate',
+                "Cache_Control": b'no-cache',
+                "Pragma": b'no-cache',
+                "Connection": b'keep-alive',
+            }
+        else:
+            http_headers = {
+                k.replace("-", "_"): v for k, v in http_headers.items()
+            }
         http_headers.update(headers)
         req = HTTP() / HTTPRequest(**http_headers)
         if data:
@@ -1172,6 +1188,10 @@ class HTTP_Server(Automaton):
             self.vprint("%s -> %s" % (pkt.summary(), answer.summary()))
         else:
             self.vprint("%s" % pkt.summary())
+
+    @ATMT.eof(SERVE)
+    def serve_eof(self):
+        raise self.CLOSED()
 
     @ATMT.receive_condition(SERVE)
     def new_request(self, pkt):
