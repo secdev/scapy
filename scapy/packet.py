@@ -789,7 +789,7 @@ class Packet(
                 continue
 
             # print(f"Adding: {pkt.name}-{field_name}")
-            relevant_fields.append(f"{pkt.name}-{field_name}")
+            relevant_fields.append(f"{pkt.name}:{field_name}")
 
         if type(pkt.payload).__name__ != 'NoPayload':
             relevant_fields += self.return_relevant_fields(pkt.payload)
@@ -798,8 +798,8 @@ class Packet(
 
     def locate_field(self, pkt, name):
         """ Locate a given field name inside a pkt (recursively) """
-        packet_type = name[0:name.index('-')]
-        packet_field = name[name.index('-')+1:]
+        packet_type = name[0:name.index(':')]
+        packet_field = name[name.index(':')+1:]
 
         if pkt.name == packet_type:
             if (packet_field not in pkt.fields and packet_field not in pkt.default_fields):
@@ -952,7 +952,7 @@ class Packet(
                     # Breaks send, shows 'int' error
                     # # Make the 'fields' no longer list this value as non-default
                     # field_name = field['name']
-                    # packet_field = field_name[field_name.index('-')+1:]
+                    # packet_field = field_name[field_name.index(':')+1:]
                     # del packet_holder.fields[packet_field]
 
                     field['done'] = True
@@ -1037,7 +1037,7 @@ class Packet(
         #         fields = state['fields']
         #         for field in fields:
         #             field_name = field["name"]
-        #             packet_field = field_name[field_name.index('-')+1:]
+        #             packet_field = field_name[field_name.index(':')+1:]
 
         #             (packet_holder, field_obj) = self.locate_field(self, field_name)
         #             packet_holder.fields[packet_field] = field_obj._fix()
