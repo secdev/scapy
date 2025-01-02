@@ -283,7 +283,7 @@ class BTLE_ADV(Packet):
                                         2: "ADV_NONCONN_IND",
                                         3: "SCAN_REQ",
                                         4: "SCAN_RSP",
-                                        5: "CONNECT_REQ",
+                                        5: "CONNECT_IND",
                                         6: "ADV_SCAN_IND"}),
         XByteField("Length", None),
     ]
