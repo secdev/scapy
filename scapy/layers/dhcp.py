@@ -115,12 +115,12 @@ class BOOTP(Packet):
         return self.xid == other.xid
 
 
-class _DHCPParamReqFieldListField(FieldListField):
+class _DHCPByteFieldListField(FieldListField):
     def randval(self):
-        class _RandReqFieldList(RandField):
+        class _RandByteFieldList(RandField):
             def _fix(self):
                 return [RandByte()] * int(RandByte())
-        return _RandReqFieldList()
+        return _RandByteFieldList()
 
 
 class RandClasslessStaticRoutesField(RandField):
@@ -277,7 +277,7 @@ DHCPOptions = {
     52: ByteField("dhcp-option-overload", 100),
     53: ByteEnumField("message-type", 1, DHCPTypes),
     54: IPField("server_id", "0.0.0.0"),
-    55: _DHCPParamReqFieldListField(
+    55: _DHCPByteFieldListField(
         "param_req_list", [],
         ByteField("opcode", 0)),
     56: "error_message",
@@ -337,6 +337,9 @@ DHCPOptions = {
     137: "v4-lost",
     138: IPField("capwap-ac-v4", "0.0.0.0"),
     141: "sip_ua_service_domains",
+    145: _DHCPByteFieldListField(
+         "forcerenew_nonce_capable", [],
+         ByteEnumField("algorithm", 1, {1: "HMAC-MD5"})),
     146: "rdnss-selection",
     150: IPField("tftp_server_address", "0.0.0.0"),
     159: "v4-portparams",
