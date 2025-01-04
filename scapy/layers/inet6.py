@@ -1133,7 +1133,7 @@ def defragment6(packets):
 
     # regenerate the fragmentable part
     fragmentable = b""
-    frag_hdr_len = len(IPv6ExtHdrFragment)
+    frag_hdr_len = 8
     for p in res:
         q = p[IPv6ExtHdrFragment]
         offset = 8 * q.offset
