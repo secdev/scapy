@@ -19,9 +19,8 @@ from scapy.fields import (XShortField, ConditionalField,
                           BitField, XBitField, XByteField, ByteEnumField,
                           ShortField, X3BytesField, StrLenField, IPField,
                           FieldLenField, PacketListField, XIntField,
-                          MultipleTypeField, FlagsField, IntField,
+                          MultipleTypeField, FlagsField,
                           XByteEnumField, BitScalingField, LenField)
-from scapy.utils import hexdump
 
 
 class SOMEIP(Packet):
@@ -75,7 +74,7 @@ class SOMEIP(Packet):
             ],
             XShortField("sub_id", 0),
         ),
-        LenField("len", None, fmt=">I", adjust=lambda x: x+8),
+        LenField("len", None, fmt=">I", adjust=lambda x: x + 8),
         XShortField("client_id", 0),
         XShortField("session_id", 0),
         XByteField("proto_ver", PROTOCOL_VERSION),
