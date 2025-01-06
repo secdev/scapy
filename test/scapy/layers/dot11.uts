@@ -18,6 +18,11 @@ len(dpl_ether) == 1 and Ether in dpl_ether[0]
 s = raw(Dot11())
 s == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
+pkt = Dot11(ID=0x1205)
+raw_data = raw(pkt)
+expected = b'\x05\x12'
+assert raw_data[2:4] == b'\x05\x12', f"Encoded Dot11 ID field is {raw_data[2:4]}, expected {repr(expected)}."
+
 = Dot11 - dissection
 p = Dot11(s)
 Dot11 in p and p.addr3 == "00:00:00:00:00:00"
@@ -25,6 +30,10 @@ assert p.mysummary() == '802.11 Management Association Request 00:00:00:00:00:00
 assert "DA" in p.address_meaning(1)
 assert "SA" in p.address_meaning(2)
 assert "BSSID" in p.address_meaning(3)
+
+pkt = b'\x00\x00\x05\x12\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+decoded_pkt = Dot11(pkt)
+assert decoded_pkt.ID == 0x1205, f"Decoded Dot11 ID field is {hex(decoded_pkt.ID)}, expected 0x1205."
 
 = Dot11QoS - build
 s = raw(Dot11()/Dot11QoS(Ack_Policy=1))
