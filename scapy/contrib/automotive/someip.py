@@ -8,6 +8,7 @@
 # scapy.contrib.status = loads
 
 import struct
+from typing import Type
 
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.inet6 import IP6Field
@@ -19,7 +20,8 @@ from scapy.fields import (XShortField, ConditionalField,
                           ShortField, X3BytesField, StrLenField, IPField,
                           FieldLenField, PacketListField, XIntField,
                           MultipleTypeField, FlagsField, IntField,
-                          XByteEnumField, BitScalingField)
+                          XByteEnumField, BitScalingField, LenField)
+from scapy.utils import hexdump
 
 
 class SOMEIP(Packet):
@@ -73,7 +75,7 @@ class SOMEIP(Packet):
             ],
             XShortField("sub_id", 0),
         ),
-        IntField("len", None),
+        LenField("len", None, fmt=">I", adjust=lambda x: x+8),
         XShortField("client_id", 0),
         XShortField("session_id", 0),
         XByteField("proto_ver", PROTOCOL_VERSION),
@@ -117,12 +119,10 @@ class SOMEIP(Packet):
         ConditionalField(
             BitField("more_seg", 0, 1),
             lambda pkt: SOMEIP._is_tp(pkt)),  # noqa: E501
-        ConditionalField(PacketListField(
+        PacketListField(
             "data", [Raw()], Raw,
             length_from=lambda pkt: pkt.len - (SOMEIP.LEN_OFFSET_TP if (SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len >= SOMEIP.LEN_OFFSET_TP)) else SOMEIP.LEN_OFFSET),  # noqa: E501
-            next_cls_cb=lambda pkt, lst, cur, remain:
-                SOMEIP.get_payload_cls_by_srv_id(pkt, lst, cur, remain)),
-            lambda pkt: SOMEIP._is_tp(pkt))  # noqa: E501
+            next_cls_cb=lambda pkt, lst, cur, remain: SOMEIP.get_payload_cls_by_srv_id(pkt, lst, cur, remain))  # noqa: E501
     ]
 
     payload_cls_by_srv_id = dict()  # To be customized
@@ -130,6 +130,10 @@ class SOMEIP(Packet):
     @staticmethod
     def get_payload_cls_by_srv_id(pkt, lst, cur, remain):
         return SOMEIP.payload_cls_by_srv_id.get(pkt.srv_id, Raw)
+
+    def default_payload_class(self, payload):
+        # type: (bytes) -> Type[Packet]
+        return SOMEIP
 
     def post_build(self, pkt, pay):
         length = self.len
