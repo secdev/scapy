@@ -577,10 +577,7 @@ class ISOTPSocketImplementation:
                     return fd_accepted_sizes[-1]
                 return fd_accepted_sizes[pos]
 
-        if self.fd:
-            pkt_cls = CANFD
-        else:
-            pkt_cls = CAN
+        pkt_cls = CANFD if self.fd else CAN
 
         if self.padding:
             load += b"\xCC" * (_get_padding_size(len(load)) - len(load))
