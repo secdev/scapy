@@ -1,0 +1,95 @@
+% PTP regression tests for Scapy
+
++ Basic tests
+
+= specific haslayer and getlayer implementations for PTP
+~ haslayer getlayer PTP
+pkt = IP() / UDP() / PTP()
+assert PTP in pkt
+assert pkt.haslayer(PTP)
+assert isinstance(pkt[PTP], PTP)
+assert isinstance(pkt.getlayer(PTP), PTP)
+
++ Packet dissection tests
+
+= Sync packet dissection
+s = b'\x10\x02\x00\x2c\x7b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x63\xff\xff\x00\x09\xba\x00\x01\x00\x74\x00\x00\x00\x00\x45\xb1\x11\x5a\x0a\x64\xfa\xb0'
+pkt = PTP(s)
+assert pkt.transportSpecific == 1
+assert pkt.messageType == 0
+assert pkt.reserved1 == 0
+assert pkt.version == 2
+assert pkt.messageLength == 44
+assert pkt.domainNumber == 123
+assert pkt.reserved2 == 0
+assert pkt.flags == None
+assert pkt.correctionField == 0
+assert pkt.reserved3 == 0
+assert pkt.clockIdentity == 0x8063ffff0009ba
+assert pkt.portNumber == 1
+assert pkt.sequenceId == 116
+assert pkt.controlField == 0
+assert pkt.logMessageInterval == 0
+assert pkt.originTimestamp_seconds == 1169232218
+assert pkt.originTimestamp_nanoseconds == 174389936
+
+= Delay_Req packet dissection
+s= b'\x11\x02\x00\x2c\x7b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x63\xff\xff\x00\x09\xba\x00\x01\x00\x74\x01\x00\x00\x00\x45\xb1\x11\x5a\x0a\x64\xfa\xb0'
+pkt = PTP(s)
+assert pkt.messageType == 0x1
+assert pkt.controlField == 0x1
+
+= Pdelay_Req packet dissection
+s= b'\x12\x02\x00\x2c\x7b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x63\xff\xff\x00\x09\xba\x00\x01\x00\x74\x05\x00\x00\x00\x45\xb1\x11\x5a\x0a\x64\xfa\xb0'
+pkt = PTP(s)
+assert pkt.messageType == 0x2
+assert pkt.controlField == 0x5
+
+= Pdelay_Resp packet dissection
+s= b'\x13\x02\x00\x2c\x7b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x63\xff\xff\x00\x09\xba\x00\x01\x00\x74\x05\x00\x00\x00\x45\xb1\x11\x5a\x0a\x64\xfa\xb0'
+pkt = PTP(s)
+assert pkt.messageType == 0x3
+assert pkt.controlField == 0x5
+assert pkt.requestReceiptTimestamp_seconds == 1169232218
+assert pkt.requestReceiptTimestamp_nanoseconds == 174389936
+
+= Follow_Up packet dissection
+s= b'\x18\x02\x00\x2c\x7b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x63\xff\xff\x00\x09\xba\x00\x01\x00\x74\x02\x00\x00\x00\x45\xb1\x11\x5a\x0a\x64\xfa\xb0'
+pkt = PTP(s)
+assert pkt.messageType == 0x8
+assert pkt.controlField == 0x2
+assert pkt.preciseOriginTimestamp_seconds == 1169232218
+assert pkt.preciseOriginTimestamp_nanoseconds == 174389936
+
+= Delay_Resp packet dissection
+s= b'\x19\x02\x00\x2c\x7b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x63\xff\xff\x00\x09\xba\x00\x01\x00\x74\x03\x00\x00\x00\x45\xb1\x11\x5a\x0a\x64\xfa\xb0'
+pkt = PTP(s)
+assert pkt.messageType == 0x9
+assert pkt.controlField == 0x3
+assert pkt.receiveTimestamp_seconds == 1169232218
+assert pkt.receiveTimestamp_nanoseconds == 174389936
+
+= Pdelay_Resp_Follow packet dissection
+s= b'\x1A\x02\x00\x2c\x7b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x63\xff\xff\x00\x09\xba\x00\x01\x00\x74\x05\x00\x00\x00\x45\xb1\x11\x5a\x0a\x64\xfa\xb0'
+pkt = PTP(s)
+assert pkt.messageType == 0xA
+assert pkt.controlField == 0x5
+assert pkt.responseOriginTimestamp_seconds == 1169232218
+assert pkt.responseOriginTimestamp_nanoseconds == 174389936
+
+= Announce packet dissection
+s= b'\x1b\x02\x00\x40\x7b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x63\xff\xff\x00\x09\xba\x00\x01\x00\x74\x05\x01\x00\x00\x45\xb1\x11\x5a\x0a\x64\xfa\xb0\x00\x00\x00\x60\x00\x00\x00\x80\x63\xff\xff\x00\x09\xba\xf8\x21\x00\x00\x80\x80'
+pkt = PTP(s)
+assert pkt.messageType == 0xB
+assert pkt.messageLength == 64
+assert pkt.controlField == 0x5
+assert pkt.currentUtcOffset == 0
+assert pkt.reserved4 == 0
+assert pkt.grandmasterPriority1 == 96
+assert pkt.grandmasterClockClass == 0
+assert pkt.grandmasterClockAccuracy == 0x0
+assert pkt.grandmasterClockVariance == 128
+assert pkt.grandmasterPriority2 == 99
+assert pkt.grandmasterIdentity == 0xffff0009baf82100
+assert pkt.stepsRemoved == 128
+assert pkt.timeSource == 0x80
