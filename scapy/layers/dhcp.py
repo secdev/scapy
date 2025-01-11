@@ -700,7 +700,7 @@ class DHCP_am(BOOTP_am):
                 # Use if statement to reduce how much changes there are.
                 ns_val = IP(len=RawVal(self.ip_to_bytes(self.nameserver)))
             else:
-                ns_val = nameserver
+                ns_val = self.nameserver
 
             dhcp_options += [
                 x for x in [
