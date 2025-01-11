@@ -696,14 +696,18 @@ class DHCP_am(BOOTP_am):
                 if isinstance(op, tuple) and op[0] == "message-type"
             ]
 
-            nameserver_list = self.ip_to_bytes(self.nameserver)
+            if ',' in self.nameserver:
+                # Use if statement to reduce how much changes there are.
+                ns_val = IP(len=RawVal(self.ip_to_bytes(self.nameserver)))
+            else:
+                ns_val = nameserver
 
             dhcp_options += [
                 x for x in [
                     ("server_id", self.gw),
                     ("domain", self.domain),
                     ("router", self.gw),
-                    ("name_server", IP(len=RawVal(nameserver_list))),
+                    ("name_server", ns_val),
                     ("broadcast_address", self.broadcast),
                     ("subnet_mask", self.netmask),
                     ("renewal_time", self.renewal_time),
