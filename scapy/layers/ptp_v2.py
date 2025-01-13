@@ -9,6 +9,8 @@ PTP (Precision Time Protocol).
 References : IEEE 1588-2008
 """
 
+import struct
+
 from scapy.packet import Packet, bind_layers
 from scapy.fields import (
     BitEnumField,
@@ -19,8 +21,9 @@ from scapy.fields import (
     ShortField,
     ByteEnumField,
     FlagsField,
-    PacketField,
     XLongField,
+    XByteField,
+    ConditionalField,
 )
 from scapy.layers.inet import UDP
 
@@ -75,64 +78,19 @@ _flags = {
 }
 
 
-class OriginTimestamp(Packet):
-    name = "originTimestamp"
-    fields_desc = [
-        BitField("seconds", 0, 48),
-        IntField("nanoseconds", 0)
-    ]
-
-
-class PTPHeader(Packet):
+class PTP(Packet):
     """
-    PTP Header based on IEEE 1588-2008 / Section 13.3.
+    PTP packet based on IEEE 1588-2008 / Section 13.3
     """
 
-    ########################################################################################
-    # IEEE 1588-2008 / Section 13.3 Header / Table 18
-    ########################################################################################
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |                             Bits                              |         |         |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+  Octets |  Offset |
-    #  |   7   |   6   |   5   |   4   |   3   |   2   |   1   |   0   |         |         |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |       transportSpecific       |          messageType          |    1    |    0    |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |           reserved            |          versionPTP           |    1    |    1    |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |                         messageLength                         |    2    |    2    |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |                         domainNumber                          |    1    |    4    |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |                           reserved                            |    1    |    5    |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |                           flagField                           |    2    |    6    |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |                        correctionField                        |    8    |    8    |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |                           reserved                            |    4    |   16    |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |                       sourcePortIdentity                      |   10    |   20    |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |                          sequenceId                           |    2    |   30    |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |                         controlField                          |    1    |   32    |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #  |                      logMessageInterval                       |    1    |   33    |
-    #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    ########################################################################################
-    #
-    # sourcePortIdentity(10 bytes) contain clockIdentity(8 bytes) and portNumber(2 bytes)
-    #
-
-    name = "PTPHeader"
+    name = "PTP"
     match_subclass = True
     fields_desc = [
         BitField("transportSpecific", 0, 4),
         BitEnumField("messageType", 0x0, 4, _message_type),
         BitField("reserved1", 0, 4),
         BitField("version", 2, 4),
-        ShortField("messageLength", 0),
+        ShortField("messageLength", None),
         ByteField("domainNumber", 0),
         ByteField("reserved2", 0),
         FlagsField("flags", 0, 16, _flags),
@@ -142,111 +100,61 @@ class PTPHeader(Packet):
         ShortField("portNumber", 0),
         ShortField("sequenceId", 0),
         ByteEnumField("controlField", 0, _control_field),
-        ByteField("logMessageInterval", 0)
+        ByteField("logMessageInterval", 0),
+        ConditionalField(BitField("originTimestamp_seconds", 0, 48),
+                         lambda pkt: pkt.messageType in [0x0, 0x1, 0x2, 0xB]),
+        ConditionalField(IntField("originTimestamp_nanoseconds", 0),
+                         lambda pkt: pkt.messageType in [0x0, 0x1, 0x2, 0xB]),
+        ConditionalField(BitField("preciseOriginTimestamp_seconds", 0, 48),
+                         lambda pkt: pkt.messageType == 0x8),
+        ConditionalField(IntField("preciseOriginTimestamp_nanoseconds", 0),
+                         lambda pkt: pkt.messageType == 0x8),
+        ConditionalField(BitField("requestReceiptTimestamp_seconds", 0, 48),
+                         lambda pkt: pkt.messageType == 0x3),
+        ConditionalField(IntField("requestReceiptTimestamp_nanoseconds", 0),
+                         lambda pkt: pkt.messageType == 0x3),
+        ConditionalField(BitField("receiveTimestamp_seconds", 0, 48),
+                         lambda pkt: pkt.messageType == 0x9),
+        ConditionalField(IntField("receiveTimestamp_nanoseconds", 0),
+                         lambda pkt: pkt.messageType == 0x9),
+        ConditionalField(BitField("responseOriginTimestamp_seconds", 0, 48),
+                         lambda pkt: pkt.messageType == 0xA),
+        ConditionalField(IntField("responseOriginTimestamp_nanoseconds", 0),
+                         lambda pkt: pkt.messageType == 0xA),
+        ConditionalField(ShortField("currentUtcOffset", 0),
+                         lambda pkt: pkt.messageType == 0xB),
+        ConditionalField(ByteField("reserved4", 0),
+                         lambda pkt: pkt.messageType == 0xB),
+        ConditionalField(ByteField("grandmasterPriority1", 0),
+                         lambda pkt: pkt.messageType == 0xB),
+        ConditionalField(ByteField("grandmasterClockClass", 0),
+                         lambda pkt: pkt.messageType == 0xB),
+        ConditionalField(XByteField("grandmasterClockAccuracy", 0),
+                         lambda pkt: pkt.messageType == 0xB),
+        ConditionalField(ShortField("grandmasterClockVariance", 0),
+                         lambda pkt: pkt.messageType == 0xB),
+        ConditionalField(ByteField("grandmasterPriority2", 0),
+                         lambda pkt: pkt.messageType == 0xB),
+        ConditionalField(XLongField("grandmasterIdentity", 0),
+                         lambda pkt: pkt.messageType == 0xB),
+        ConditionalField(ShortField("stepsRemoved", 0),
+                         lambda pkt: pkt.messageType == 0xB),
+        ConditionalField(XByteField("timeSource", 0),
+                         lambda pkt: pkt.messageType == 0xB)
+
     ]
-
-    def guess_payload_class(self, payload):  # type: (bytes) -> Type[Packet]
-        """
-        Guess payload class based on messageType
-        """
-
-        if self.messageType == 0x0:
-            return Sync
-        elif self.messageType == 0x1:
-            return DelayReq
-        elif self.messageType == 0x2:
-            return PDelayReq
-        elif self.messageType == 0x3:
-            return PDelayResp
-        elif self.messageType == 0x8:
-            return FollowUp
-        elif self.messageType == 0x9:
-            return DelayResp
-        elif self.messageType == 0xA:
-            return PDelayRespFollow
-        elif self.messageType == 0xB:
-            return Announce
-        elif self.messageType == 0xC:
-            return Signaling
-        elif self.messageType == 0xD:
-            return Management
-
-        return Packet.guess_payload_class(self, payload)
 
     def post_build(self, pkt, pay):  # type: (bytes, bytes) -> bytes
         """
         Update the messageLength field after building the packet
         """
-        pass
+        if self.messageLength is None:
+            pkt = pkt[:2] + struct.pack("!H", len(pkt)) + pkt[4:]
+
+        return pkt + pay
 
 
-class Sync(Packet):
-    """
-    Handle the Sync message type in PTP
-    """
-    name = "Sync"
-    fields_desc = [
-        PacketField("originTimestamp", 0, OriginTimestamp)
-    ]
-
-
-class DelayReq(Packet):
-    """
-    Handle the DelayReq message type in PTP
-    """
-
-
-class PDelayReq(Packet):
-    """
-    Handle the PDelayReq message type in PTP
-    """
-
-
-class FollowUp(Packet):
-    """
-    Handle the FollowUp message type in PTP
-    """
-
-
-class PDelayResp(Packet):
-    """
-    Handle the PDelayResp message type in PTP
-    """
-
-
-class DelayResp(Packet):
-    """
-    Handle the DelayResp message type in PTP
-    """
-
-
-class PDelayRespFollow(Packet):
-    """
-    Handle the PDelayRespFollow message type in PTP
-    """
-
-
-class Announce(Packet):
-    """
-    Handle the Announce message type in PTP
-    """
-
-
-class Signaling(Packet):
-    """
-    Handle the Signaling message type in PTP
-    """
-
-
-class Management(Packet):
-    """
-    Handle the Management message type in PTP
-    """
-
-
-##############################################################################
 #     Layer bindings
-##############################################################################
 
-bind_layers(UDP, PTPHeader, sport=319, dport=319)
-bind_layers(UDP, PTPHeader, sport=320, dport=320)
+bind_layers(UDP, PTP, sport=319, dport=319)
+bind_layers(UDP, PTP, sport=320, dport=320)
