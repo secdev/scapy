@@ -102,7 +102,8 @@ class ModbusPDU03ReadHoldingRegistersResponse(Packet):
                                     adjust=lambda pkt, x: x * 2),
                    FieldListField("registerVal", [0x0000],
                                   ShortField("", 0x0000),
-                                  count_from=lambda pkt: pkt.byteCount)]
+                                  count_from=lambda pkt: pkt.byteCount,
+                                  max_count=123)]
 
 
 class ModbusPDU03ReadHoldingRegistersError(Packet):
