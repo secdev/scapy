@@ -68,17 +68,18 @@ QUOTES = [
 def _probe_xdg_folder(var, default, *cf):
     # type: (str, str, *str) -> Optional[pathlib.Path]
     path = pathlib.Path(os.environ.get(var, default))
-    if not path.exists():
-        # ~ folder doesn't exist. Create according to spec
-        # https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
-        # "If, when attempting to write a file, the destination directory is
-        # non-existent an attempt should be made to create it with permission 0700."
-        try:
+    try:
+        if not path.exists():
+            # ~ folder doesn't exist. Create according to spec
+            # https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+            # "If, when attempting to write a file, the destination directory is
+            # non-existent an attempt should be made to create it with permission 0700."
             path.mkdir(mode=0o700, exist_ok=True)
-        except Exception:
-            # There is a gazillion ways this can fail. Most notably,
-            # a read-only fs.
-            return None
+    except Exception:
+        # There is a gazillion ways this can fail. Most notably, a read-only fs or no
+        # permissions to even check for folder to exist (e.x. privileges were dropped
+        # before scapy was started).
+        return None
     return path.joinpath(*cf).resolve()
 
 
