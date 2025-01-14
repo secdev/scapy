@@ -730,7 +730,7 @@ class Dot11(Packet):
                        ["next_tbtt", "comp_ssid", "ano"]),
             lambda pkt: (pkt.type, pkt.subtype) == (3, 1)
         ),
-        ShortField("ID", 0),
+        LEShortField("ID", 0),
         _Dot11MacField("addr1", ETHER_ANY, 1),
         ConditionalField(
             _Dot11MacField("addr2", ETHER_ANY, 2),
