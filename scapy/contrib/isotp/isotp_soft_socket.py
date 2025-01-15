@@ -207,8 +207,9 @@ class ISOTPSoftSocket(SuperSocket):
         """This function is called during sendrecv() routine to wait for
         sockets to be ready to receive
         """
-        obj_pipes = [x.impl.rx_queue for x in sockets if
-                     isinstance(x, ISOTPSoftSocket) and not x.closed]
+        obj_pipes: List[Union[SuperSocket, ObjectPipe[Tuple[bytes, Union[float, EDecimal]]]]] = [   # noqa: E501
+            x.impl.rx_queue for x in sockets if
+            isinstance(x, ISOTPSoftSocket) and not x.closed]
         obj_pipes += [x for x in sockets if isinstance(x, ObjectPipe) and not x.closed]
 
         ready_pipes = select_objects(obj_pipes, remain)
