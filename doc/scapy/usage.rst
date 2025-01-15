@@ -798,7 +798,12 @@ Available by default:
    - HTTP 1.0
    - TLS
    - Kerberos
+   - LDAP
+   - SMB
    - DCE/RPC
+   - Postgres
+   - DOIP
+   - and maybe other protocols if this page isn't up to date.
 - :py:class:`~scapy.sessions.TLSSession` -> *matches TLS sessions* on the flow.
 - :py:class:`~scapy.sessions.NetflowSession` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
 
