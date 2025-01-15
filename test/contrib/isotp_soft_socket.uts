@@ -950,13 +950,9 @@ msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 with TestSocket(CAN) as isocan_tx, ISOTPSoftSocket(isocan_tx, 0x123, 0x321) as sock_tx, \
     TestSocket(CAN) as isocan_rx, ISOTPSoftSocket(isocan_rx, 0x321, 0x123) as sock_rx:
     isocan_rx.pair(isocan_tx)
-    sniffer = AsyncSniffer(opened_socket=sock_rx, timeout=1, count=1, prn=lambda x: sock_rx.send(msg))
-    sniffer.start()
-    time.sleep(1)
-    sniffer.join(timeout=1)
-    rx = sniffer.results
+    rx2 = sock_tx.sr1(msg, timeout=1, verbose=True)
 
-assert len(rx) == 0
+assert rx2 is None
 
 = ISOTPSoftSocket sniff
 
