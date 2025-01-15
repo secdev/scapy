@@ -209,6 +209,7 @@ class ISOTPSoftSocket(SuperSocket):
         """
         obj_pipes = [x.impl.rx_queue for x in sockets if
                      isinstance(x, ISOTPSoftSocket) and not x.closed]
+        obj_pipes += [x for x in sockets if isinstance(x, ObjectPipe) and not x.closed]
 
         ready_pipes = select_objects(obj_pipes, remain)
 
