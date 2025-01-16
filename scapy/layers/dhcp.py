@@ -670,23 +670,6 @@ class BOOTP_am(AnsweringMachine):
 class DHCP_am(BOOTP_am):
     function_name = "dhcpd"
 
-    def ip_to_bytes(self, ip_string):
-        """Concat a IP str of form IP,IP,IP and returns it as bytes
-        Backcompatible if IP is a single IP.
-        :param ip_string: String of the IP to be packed"""
-        ip_string = ip_string.replace(" ", "")
-
-        # Split IPs by commas and filter out empty strings
-        ip_list = [ip.strip() for ip in ip_string.split(',') if ip.strip()]
-
-        # Convert each IP to packed format
-        packed_ips = []
-        for ip in ip_list:
-            packed_ips.append(socket.inet_aton(ip))
-
-        # Concatenate packed IPs into a single byte string
-        return b''.join(packed_ips)
-
     def make_reply(self, req):
         resp = BOOTP_am.make_reply(self, req)
         if DHCP in req:
@@ -697,17 +680,18 @@ class DHCP_am(BOOTP_am):
             ]
 
             if ',' in self.nameserver:
-                # Use if statement to reduce how much changes there are.
-                ns_val = IP(len=RawVal(self.ip_to_bytes(self.nameserver)))
+                # flatten if multiple
+                split = tuple(self.nameserver.split(","))
+                ns_val = ("name_server", *split)
             else:
-                ns_val = self.nameserver
+                ns_val = ("name_server", self.nameserver)
 
             dhcp_options += [
                 x for x in [
                     ("server_id", self.gw),
                     ("domain", self.domain),
                     ("router", self.gw),
-                    ("name_server", ns_val),
+                    ns_val,
                     ("broadcast_address", self.broadcast),
                     ("subnet_mask", self.netmask),
                     ("renewal_time", self.renewal_time),
