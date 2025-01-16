@@ -39,7 +39,6 @@ from scapy.fields import (
     StrField,
     StrFixedLenField,
     XIntField,
-    RawVal
 )
 from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether, HARDWARE_TYPES
