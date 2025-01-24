@@ -1528,6 +1528,7 @@ class Radius_am(AnsweringMachine):
                       IDENTITIES=None,
                       IDENTITIES_MSCHAPv2=None,
                       servicetype=None,
+                      mschapdomain=None,
                       extra_attributes=[]):
         """
         This provides a tiny RADIUS daemon that answers Access-Request messages.
@@ -1545,10 +1546,12 @@ class Radius_am(AnsweringMachine):
             {"username": b"HashNT"}. The HashNT can be obtained
             using MD4le(). If IDENTITIES is provided, this will be calculated.
         :param servicetype: the Service-Type to answer.
+        :param mschapdomain: the MS-CHAP-DOMAIN to answer if MS-CHAP* is used.
         :param extra_attributes: a list of extra Radius attributes
         """
         self.secret = bytes_encode(secret)
         self.servicetype = servicetype
+        self.mschapdomain = mschapdomain
         self.extra_attributes = extra_attributes
         if not IDENTITIES:
             IDENTITIES = {}
@@ -1678,17 +1681,27 @@ class Radius_am(AnsweringMachine):
                         AuthenticatorChallenge,
                         UserName,
                     )
-                    succ = MS_CHAP2_Success(
-                        Ident=response.Ident,
-                        String="S=%s" % auth_string.hex().upper()
-                    )
                     rad.attributes.append(
                         RadiusAttr_Vendor_Specific(
                             vendor_id=311,
-                            vendor_type=26,
-                            value=succ,
+                            vendor_type="MS-CHAP2-Success",
+                            value=MS_CHAP2_Success(
+                                Ident=response.Ident,
+                                String="S=%s" % auth_string.hex().upper()
+                            )
                         )
                     )
+                    if self.mschapdomain is not None:
+                        rad.attributes.append(
+                            RadiusAttr_Vendor_Specific(
+                                vendor_id=311,
+                                vendor_type="MS-CHAP-Domain",
+                                value=MS_CHAP_Domain(
+                                    Ident=response.Ident,
+                                    String=self.mschapdomain,
+                                )
+                            )
+                        )
             else:
                 raise Scapy_Exception(
                     "Authentication method not provided or unsupported !"
