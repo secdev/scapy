@@ -1438,7 +1438,7 @@ assert str(h[16]) == 'accept-encoding: gzip, deflate'
 
 assert expect_exception(KeyError, 'h2.HPackHdrTable()[h2.HPackHdrTable._static_entries_last_idx+1]')
 
-= HTTP/2 HPackHdrTable : Addind Dynamic Entries without overflowing the table
+= HTTP/2 HPackHdrTable : Adding Dynamic Entries without overflowing the table
 ~ http2 hpack hpackhdrtable
 
 tbl = h2.HPackHdrTable(dynamic_table_max_size=1<<32, dynamic_table_cap_size=1<<32)
@@ -1493,7 +1493,7 @@ assert tbl.get_idx_by_name('x-requested-by') == h2.HPackHdrTable._static_entries
 assert tbl[h2.HPackHdrTable._static_entries_last_idx+2].value() == hdrv2
 assert tbl[h2.HPackHdrTable._static_entries_last_idx+3].value() == hdrv
 
-= HTTP/2 HPackHdrTable : Addind already registered Dynamic Entries without overflowing the table
+= HTTP/2 HPackHdrTable : Adding already registered Dynamic Entries without overflowing the table
 ~ http2 hpack hpackhdrtable
 
 tbl = h2.HPackHdrTable(dynamic_table_max_size=1<<32, dynamic_table_cap_size=1<<32)
@@ -1522,7 +1522,7 @@ assert tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv
 assert tbl[h2.HPackHdrTable._static_entries_last_idx+2].value() == hdr2v
 assert tbl[h2.HPackHdrTable._static_entries_last_idx+3].value() == hdrv
 
-= HTTP/2 HPackHdrTable : Addind Dynamic Entries and overflowing the table
+= HTTP/2 HPackHdrTable : Adding Dynamic Entries and overflowing the table
 ~ http2 hpack hpackhdrtable
 
 tbl = h2.HPackHdrTable(dynamic_table_max_size=80, dynamic_table_cap_size=80)
