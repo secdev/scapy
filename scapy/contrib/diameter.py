@@ -2527,8 +2527,8 @@ class AVP_10415_1259 (AVP_FL_V):
             'val',
             None,
             {
-                1: "Pre-emptive priority: ",
-                2: "High priority: Lower than Pre-emptive priority",
+                1: "Preemptive priority: ",
+                2: "High priority: Lower than Preemptive priority",
                 3: "Normal priority: Normal level. Lower than High priority",
                 4: "Low priority: Lowest level priority",
             })]

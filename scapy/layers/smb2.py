@@ -4464,7 +4464,7 @@ class SMB2_IOCTL_RESP_GET_DFS_Referral(Packet):
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
         # Note: Windows is smart and uses some sort of compression in the sense
-        # that it re-uses fields that are used several times across ReferralBuffer.
+        # that it reuses fields that are used several times across ReferralBuffer.
         # But we just do the dumb thing because it's 'easier', and do no compression.
         offsets = {
             # DFS_REFERRAL_ENTRY0
