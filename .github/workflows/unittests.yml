@@ -7,6 +7,11 @@ on:
     # The branches below must be a subset of the branches above
     branches: [master]
 
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(github.ref, 'master')}}
+
 permissions:
   contents: read
 
