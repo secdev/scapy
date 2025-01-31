@@ -253,7 +253,7 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
         # if not explicitly specified by the user,
         # set threaded to False in sr1 to remove the overhead
         # for a Thread creation
-        kargs["threaded"] = kargs.get("threaded", False)
+        kargs.setdefault("threaded", False)
         ans = sendrecv.sndrcv(self, *args, **kargs)[0]  # type: SndRcvList
         if len(ans) > 0:
             pkt = ans[0][1]  # type: Packet
