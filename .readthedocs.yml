@@ -5,7 +5,7 @@
 version: 2
 
 sphinx:
-  - configuration: doc/scapy/conf.py
+  configuration: doc/scapy/conf.py
 
 formats:
   - epub
