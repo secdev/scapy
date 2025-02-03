@@ -308,8 +308,7 @@ enc_context = SMB2_Negotiate_Context(ContextType = 2, DataLength = len(enc)) / e
 comp = SMB2_Compression_Capabilities()
 comp_context = SMB2_Negotiate_Context(ContextType = 3, DataLength = len(comp)) / comp
 
-netname = SMB2_Netname_Negotiate_Context_ID("192.168.178.21".encode("utf-16le"))
-netname_context = SMB2_Negotiate_Context(ContextType = 5, DataLength = len(netname)) / netname
+netname_context = SMB2_Negotiate_Context(b'\x05\x00\x1c\x00\x00\x00\x00\x001\x009\x002\x00.\x001\x006\x008\x00.\x001\x007\x008\x00.\x002\x001\x00')
 
 pkt = SMB2_Header() / SMB2_Negotiate_Protocol_Request(Dialects=[0x0311], NegotiateContexts=[preauth_context, enc_context, comp_context, netname_context], NegotiateContextsBufferOffset=0x68)
 

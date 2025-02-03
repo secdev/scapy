@@ -8,6 +8,7 @@ browseable
 byteorder
 cace
 cas
+ciph
 componet
 comversion
 cros
