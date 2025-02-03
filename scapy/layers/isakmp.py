@@ -409,6 +409,7 @@ class ISAKMP_payload_SA(ISAKMP_payload):
 
 class ISAKMP_payload_Nonce(ISAKMP_payload):
     name = "ISAKMP Nonce"
+    deprecated_fields = {"load": ("nonce", "2.6.2")}
     fields_desc = ISAKMP_payload.fields_desc[:3] + [
         StrLenField("nonce", "", length_from=lambda x: x.length - 4)
     ]
@@ -416,6 +417,7 @@ class ISAKMP_payload_Nonce(ISAKMP_payload):
 
 class ISAKMP_payload_KE(ISAKMP_payload):
     name = "ISAKMP Key Exchange"
+    deprecated_fields = {"load": ("ke", "2.6.2")}
     fields_desc = ISAKMP_payload.fields_desc[:3] + [
         StrLenField("ke", "", length_from=lambda x: x.length - 4)
     ]
@@ -445,12 +447,14 @@ class ISAKMP_payload_ID(ISAKMP_payload):
 
 class ISAKMP_payload_Hash(ISAKMP_payload):
     name = "ISAKMP Hash"
+    deprecated_fields = {"load": ("hash", "2.6.2")}
     fields_desc = ISAKMP_payload.fields_desc[:3] + [
         StrLenField("hash", "", length_from=lambda x: x.length - 4)
     ]
 
 class ISAKMP_payload_SIG(ISAKMP_payload):
     name = "ISAKMP Signature"
+    deprecated_fields = {"load": ("sig", "2.6.2")}
     fields_desc = ISAKMP_payload.fields_desc[:3] + [
         StrLenField("sig", "", length_from=lambda x: x.length - 4)
     ]
