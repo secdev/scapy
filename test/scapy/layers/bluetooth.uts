@@ -481,6 +481,12 @@ p = HCI_Event_Hdr(hex_bytes('3e23020100002e4961121110170201060f0954656c655361742
 assert EIR_AdvertisingInterval in p
 assert p[EIR_AdvertisingInterval].advertising_interval == 400
 
+= Parse EIR_LEBluetoothDeviceAddress
+p = HCI_Event_Hdr(hex_bytes("3e2a02010000d93519d7ba4c1e0201020affc4000734151317fd80081b00d93519d7ba4c0303b9fe020ad4ad"))
+assert EIR_LEBluetoothDeviceAddress in p
+assert p[EIR_LEBluetoothDeviceAddress].addr_type == 0x0
+assert p[EIR_LEBluetoothDeviceAddress].bd_addr == '4c:ba:d7:19:35:d9'
+
 = Parse EIR_Appearance
 p = BTLE(hex_bytes("d6be898e201660d4d3cebffb0201050319420c0303e7fe040948393850c27c"))
 assert EIR_Appearance in p

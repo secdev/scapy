@@ -1270,6 +1270,18 @@ class EIR_AdvertisingInterval(EIR_Element):
     ]
 
 
+class EIR_LEBluetoothDeviceAddress(EIR_Element):
+    name = "LE Bluetooth Device Address"
+    fields_desc = [
+        XBitField('reserved', 0, 7, tot_size=-1),
+        BitEnumField('addr_type', 0, 1, end_tot_size=-1, enum={
+            0x0: 'Public',
+            0x1: 'Random'
+        }),
+        LEMACField('bd_addr', None)
+    ]
+
+
 class EIR_Appearance(EIR_Element):
     name = "EIR_Appearance"
     fields_desc = [
@@ -2659,6 +2671,7 @@ bind_layers(EIR_Hdr, EIR_ServiceData16BitUUID, type=0x16)
 bind_layers(EIR_Hdr, EIR_PublicTargetAddress, type=0x17)
 bind_layers(EIR_Hdr, EIR_Appearance, type=0x19)
 bind_layers(EIR_Hdr, EIR_AdvertisingInterval, type=0x1a)
+bind_layers(EIR_Hdr, EIR_LEBluetoothDeviceAddress, type=0x1b)
 bind_layers(EIR_Hdr, EIR_ServiceData32BitUUID, type=0x20)
 bind_layers(EIR_Hdr, EIR_ServiceData128BitUUID, type=0x21)
 bind_layers(EIR_Hdr, EIR_URI, type=0x24)
