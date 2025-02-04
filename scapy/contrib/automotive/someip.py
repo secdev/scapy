@@ -8,7 +8,6 @@
 # scapy.contrib.status = loads
 
 import struct
-from typing import Type
 
 from build.lib.scapy.packet import bind_layers
 from scapy.layers.inet import TCP, UDP
