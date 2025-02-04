@@ -10,6 +10,7 @@
 import struct
 from typing import Type
 
+from build.lib.scapy.packet import bind_layers
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.inet6 import IP6Field
 from scapy.compat import raw, orb
@@ -130,10 +131,6 @@ class SOMEIP(Packet):
     def get_payload_cls_by_srv_id(pkt, lst, cur, remain):
         return SOMEIP.payload_cls_by_srv_id.get(pkt.srv_id, Raw)
 
-    def default_payload_class(self, payload):
-        # type: (bytes) -> Type[Packet]
-        return SOMEIP
-
     def post_build(self, pkt, pay):
         length = self.len
         if length is None:
@@ -212,6 +209,7 @@ def _bind_someip_layers():
 
 
 _bind_someip_layers()
+bind_layers(SOMEIP, SOMEIP)
 
 
 class _SDPacketBase(Packet):
