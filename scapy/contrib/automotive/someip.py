@@ -14,7 +14,7 @@ from scapy.layers.inet6 import IP6Field
 from scapy.compat import raw, orb
 from scapy.config import conf
 from scapy.packet import (Packet, Raw, bind_top_down, bind_bottom_up,
-                          bind_layers, NoPayload)
+                          bind_layers)
 from scapy.fields import (XShortField, ConditionalField,
                           BitField, XBitField, XByteField, ByteEnumField,
                           ShortField, X3BytesField, StrLenField, IPField,
