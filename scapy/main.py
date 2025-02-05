@@ -816,8 +816,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
     try:
         if not pathlib.Path(conf.histfile).exists():
             pathlib.Path(conf.histfile).touch()
-
-        _check_perms(conf.histfile)
+            _check_perms(conf.histfile)
     except OSError:
         pass
 
