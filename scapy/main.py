@@ -101,6 +101,26 @@ def _probe_cache_folder(*cf):
     )
 
 
+def _check_perms(file: Union[pathlib.Path, str]) -> None:
+    """
+    Checks that the permissions of a file are properly user-specific, if sudo is used.
+    """
+    if (
+        not WINDOWS and
+        "SUDO_UID" in os.environ and
+        "SUDO_GID" in os.environ
+    ):
+        # Was started with sudo. Still, chown to the user.
+        try:
+            os.chown(
+                file,
+                int(os.environ["SUDO_UID"]),
+                int(os.environ["SUDO_GID"]),
+            )
+        except Exception:
+            pass
+
+
 def _read_config_file(cf, _globals=globals(), _locals=locals(),
                       interactive=True, default=None):
     # type: (str, Dict[str, Any], Dict[str, Any], bool, Optional[str]) -> None
@@ -137,36 +157,12 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
         try:
             if not cf_path.parent.exists():
                 cf_path.parent.mkdir(parents=True, exist_ok=True)
-                if (
-                    not WINDOWS and
-                    "SUDO_UID" in os.environ and
-                    "SUDO_GID" in os.environ
-                ):
-                    # Was started with sudo. Still, chown to the user.
-                    try:
-                        os.chown(
-                            cf_path.parent,
-                            int(os.environ["SUDO_UID"]),
-                            int(os.environ["SUDO_GID"]),
-                        )
-                    except Exception:
-                        pass
+                _check_perms(cf_path.parent)
+
             with cf_path.open("w") as fd:
                 fd.write(default)
-            if (
-                not WINDOWS and
-                "SUDO_UID" in os.environ and
-                "SUDO_GID" in os.environ
-            ):
-                # Was started with sudo. Still, chown to the user.
-                try:
-                    os.chown(
-                        cf_path,
-                        int(os.environ["SUDO_UID"]),
-                        int(os.environ["SUDO_GID"]),
-                    )
-                except Exception:
-                    pass
+
+            _check_perms(cf_path)
             log_loading.debug("Config file [%s] created with default.", cf)
         except OSError:
             log_loading.warning("Config file [%s] could not be created.", cf,
@@ -815,6 +811,15 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
     if mybanner is not None:
         banner_text += "\n"
         banner_text += mybanner
+
+    # Make sure the history file has proper permissions
+    try:
+        if not pathlib.Path(conf.histfile).exists():
+            pathlib.Path(conf.histfile).touch()
+
+        _check_perms(conf.histfile)
+    except OSError:
+        pass
 
     # Configure interactive terminal
 
