@@ -2100,20 +2100,58 @@ class Ticketer:
         tkt = self.dec_ticket(i, hash=hash)
         self.update_ticket(i, tkt, resign=True, hash=hash, kdc_hash=kdc_hash)
 
-    def request_tgt(self, upn, ip=None, key=None, password=None, realm=None, **kwargs):
+    def request_tgt(
+        self,
+        upn,
+        ip=None,
+        key=None,
+        password=None,
+        realm=None,
+        fast=False,
+        armor_with=None,
+        **kwargs,
+    ):
         """
         Request a Kerberos TGT and add it to the local CCache
 
         See :func:`~scapy.layers.kerberos.krb_as_req` for the full documentation.
         """
-        res = krb_as_req(upn, ip=ip, key=key, password=password, realm=realm, **kwargs)
+        # If `armor_with` is specified, get the armor ticket from our store
+        armor_ticket, armor_ticket_skey, armor_ticket_upn = None, None, None
+        if armor_with is not None:
+            fast = True
+            armor_ticket, armor_ticket_skey, armor_ticket_upn, _ = self.export_krb(
+                armor_with
+            )
+
+        res = krb_as_req(
+            upn=upn,
+            ip=ip,
+            key=key,
+            password=password,
+            realm=realm,
+            fast=fast,
+            armor_ticket=armor_ticket,
+            armor_ticket_upn=armor_ticket_upn,
+            armor_ticket_skey=armor_ticket_skey,
+            **kwargs,
+        )
         if not res:
             return
 
         self.import_krb(res)
 
     def request_st(
-        self, i, spn, ip=None, renew=False, realm=None, additional_tickets=[], **kwargs
+        self,
+        i,
+        spn,
+        ip=None,
+        renew=False,
+        realm=None,
+        additional_tickets=[],
+        fast=False,
+        armor_with=None,
+        **kwargs,
     ):
         """
         Request a Kerberos TS and add it to the local CCache using another ticket
@@ -2124,6 +2162,14 @@ class Ticketer:
         """
         ticket, sessionkey, upn, _ = self.export_krb(i)
 
+        # If `armor_with` is specified, get the armor ticket from our store
+        armor_ticket, armor_ticket_skey, armor_ticket_upn = None, None, None
+        if armor_with is not None:
+            fast = True
+            armor_ticket, armor_ticket_skey, armor_ticket_upn, _ = self.export_krb(
+                armor_with
+            )
+
         res = krb_tgs_req(
             upn,
             spn,
@@ -2133,6 +2179,10 @@ class Ticketer:
             renew=renew,
             realm=realm,
             additional_tickets=additional_tickets,
+            fast=fast,
+            armor_ticket=armor_ticket,
+            armor_ticket_upn=armor_ticket_upn,
+            armor_ticket_skey=armor_ticket_skey,
             **kwargs,
         )
         if not res:
