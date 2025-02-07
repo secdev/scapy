@@ -1452,7 +1452,7 @@ class Dot11EltVendorSpecific(Dot11Elt):
     def register_variant(cls):  # XXX: We do not accept id, but our super-class does
         oui = cls.oui.default
         if oui not in cls.registered_ouis:
-            cls.registered_ouis[id] = cls
+            cls.registered_ouis[oui] = cls
 
 
 class Dot11EltMicrosoftWPA(Dot11EltVendorSpecific):
