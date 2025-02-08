@@ -1410,23 +1410,29 @@ class PcapReader_metaclass(type):
         raise Scapy_Exception("Not a supported capture file")
 
     @staticmethod
-    def open(fname  # type: Union[IO[bytes], str]
-             ):
-        # type: (...) -> Tuple[str, _ByteStream, bytes]
-        """Open (if necessary) filename, and read the magic."""
+    def _open_stream(fname  # type: Union[IO[bytes], str]
+                     ):
+        # type: (...) -> Tuple[str, _ByteStream]
+        """Open (if necessary) filename, and obtain a stream."""
         if isinstance(fname, str):
             filename = fname
             fdesc = open(filename, "rb")  # type: _ByteStream
-            magic = fdesc.read(2)
-            if magic == b"\x1f\x8b":
-                # GZIP header detected.
-                fdesc.seek(0)
-                fdesc = gzip.GzipFile(fileobj=fdesc)
-                magic = fdesc.read(2)
-            magic += fdesc.read(2)
         else:
             fdesc = fname
             filename = getattr(fdesc, "name", "No name")
+        return filename, fdesc
+
+    @staticmethod
+    def open(fname  # type: Union[IO[bytes], str]
+             ):
+        # type: (...) -> Tuple[str, _ByteStream, bytes]
+        """Open (if necessary) filename, obtain a stream and read the magic."""
+        filename, fdesc = PcapReader_metaclass._open_stream(fname)
+        magic = fdesc.read(4)
+        if magic[0:2] == b"\x1f\x8b":
+            # GZIP header detected.
+            fdesc.seek(0)
+            fdesc = gzip.GzipFile(fileobj=fdesc)
             magic = fdesc.read(4)
         return filename, fdesc, magic
 
