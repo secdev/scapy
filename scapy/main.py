@@ -68,17 +68,18 @@ QUOTES = [
 def _probe_xdg_folder(var, default, *cf):
     # type: (str, str, *str) -> Optional[pathlib.Path]
     path = pathlib.Path(os.environ.get(var, default))
-    if not path.exists():
-        # ~ folder doesn't exist. Create according to spec
-        # https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
-        # "If, when attempting to write a file, the destination directory is
-        # non-existent an attempt should be made to create it with permission 0700."
-        try:
+    try:
+        if not path.exists():
+            # ~ folder doesn't exist. Create according to spec
+            # https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+            # "If, when attempting to write a file, the destination directory is
+            # non-existent an attempt should be made to create it with permission 0700."
             path.mkdir(mode=0o700, exist_ok=True)
-        except Exception:
-            # There is a gazillion ways this can fail. Most notably,
-            # a read-only fs.
-            return None
+    except Exception:
+        # There is a gazillion ways this can fail. Most notably, a read-only fs or no
+        # permissions to even check for folder to exist (e.x. privileges were dropped
+        # before scapy was started).
+        return None
     return path.joinpath(*cf).resolve()
 
 
@@ -98,6 +99,26 @@ def _probe_cache_folder(*cf):
         os.path.join(os.path.expanduser("~"), ".cache"),
         *cf
     )
+
+
+def _check_perms(file: Union[pathlib.Path, str]) -> None:
+    """
+    Checks that the permissions of a file are properly user-specific, if sudo is used.
+    """
+    if (
+        not WINDOWS and
+        "SUDO_UID" in os.environ and
+        "SUDO_GID" in os.environ
+    ):
+        # Was started with sudo. Still, chown to the user.
+        try:
+            os.chown(
+                file,
+                int(os.environ["SUDO_UID"]),
+                int(os.environ["SUDO_GID"]),
+            )
+        except Exception:
+            pass
 
 
 def _read_config_file(cf, _globals=globals(), _locals=locals(),
@@ -136,36 +157,12 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
         try:
             if not cf_path.parent.exists():
                 cf_path.parent.mkdir(parents=True, exist_ok=True)
-                if (
-                    not WINDOWS and
-                    "SUDO_UID" in os.environ and
-                    "SUDO_GID" in os.environ
-                ):
-                    # Was started with sudo. Still, chown to the user.
-                    try:
-                        os.chown(
-                            cf_path.parent,
-                            int(os.environ["SUDO_UID"]),
-                            int(os.environ["SUDO_GID"]),
-                        )
-                    except Exception:
-                        pass
+                _check_perms(cf_path.parent)
+
             with cf_path.open("w") as fd:
                 fd.write(default)
-            if (
-                not WINDOWS and
-                "SUDO_UID" in os.environ and
-                "SUDO_GID" in os.environ
-            ):
-                # Was started with sudo. Still, chown to the user.
-                try:
-                    os.chown(
-                        cf_path,
-                        int(os.environ["SUDO_UID"]),
-                        int(os.environ["SUDO_GID"]),
-                    )
-                except Exception:
-                    pass
+
+            _check_perms(cf_path)
             log_loading.debug("Config file [%s] created with default.", cf)
         except OSError:
             log_loading.warning("Config file [%s] could not be created.", cf,
@@ -814,6 +811,14 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
     if mybanner is not None:
         banner_text += "\n"
         banner_text += mybanner
+
+    # Make sure the history file has proper permissions
+    try:
+        if not pathlib.Path(conf.histfile).exists():
+            pathlib.Path(conf.histfile).touch()
+            _check_perms(conf.histfile)
+    except OSError:
+        pass
 
     # Configure interactive terminal
 

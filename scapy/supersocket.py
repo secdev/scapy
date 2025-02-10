@@ -250,6 +250,10 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
         """Send one packet and receive one answer
         """
         from scapy import sendrecv
+        # if not explicitly specified by the user,
+        # set threaded to False in sr1 to remove the overhead
+        # for a Thread creation
+        kargs.setdefault("threaded", False)
         ans = sendrecv.sndrcv(self, *args, **kargs)[0]  # type: SndRcvList
         if len(ans) > 0:
             pkt = ans[0][1]  # type: Packet

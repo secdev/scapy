@@ -303,6 +303,9 @@ class EncryptedData(ASN1_Packet):
                 if patype == 2:
                     # AS-REQ PA-ENC-TIMESTAMP padata timestamp
                     return 1, PA_ENC_TS_ENC
+                elif patype == 138:
+                    # RFC6113 PA-ENC-TS-ENC
+                    return 54, PA_ENC_TS_ENC
             elif isinstance(self.underlayer, KRB_Ticket):
                 # AS-REP Ticket and TGS-REP Ticket
                 return 2, EncTicketPart
@@ -332,6 +335,9 @@ class EncryptedData(ASN1_Packet):
             elif isinstance(self.underlayer, KrbFastArmoredReq):
                 # KEY_USAGE_FAST_ENC
                 return 51, KrbFastReq
+            elif isinstance(self.underlayer, KrbFastArmoredRep):
+                # KEY_USAGE_FAST_REP
+                return 52, KrbFastResponse
         raise ValueError(
             "Could not guess key usage number. Please specify key_usage_number"
         )
@@ -460,6 +466,9 @@ class Checksum(ASN1_Packet):
             elif isinstance(self.underlayer, KrbFastArmoredReq):
                 # KEY_USAGE_FAST_REQ_CHKSUM
                 return 50
+            elif isinstance(self.underlayer, KrbFastFinished):
+                # KEY_USAGE_FAST_FINISHED
+                return 53
         raise ValueError(
             "Could not guess key usage number. Please specify key_usage_number"
         )
@@ -720,7 +729,8 @@ class PA_ENC_TS_ENC(ASN1_Packet):
     )
 
 
-_PADATA_CLASSES[2] = EncryptedData
+_PADATA_CLASSES[2] = EncryptedData  # PA-ENC-TIMESTAMP
+_PADATA_CLASSES[138] = EncryptedData  # PA-ENCRYPTED-CHALLENGE
 
 
 # RFC 4120 sect 5.2.7.4
@@ -1056,7 +1066,7 @@ class KrbFastArmoredReq(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE(
             ASN1F_optional(
-                ASN1F_PACKET("armor", KrbFastArmor(), KrbFastArmor, explicit_tag=0xA0)
+                ASN1F_PACKET("armor", None, KrbFastArmor, explicit_tag=0xA0)
             ),
             ASN1F_PACKET("reqChecksum", Checksum(), Checksum, explicit_tag=0xA1),
             ASN1F_PACKET("encFastReq", None, EncryptedData, explicit_tag=0xA2),
@@ -1110,7 +1120,7 @@ class KrbFastResponse(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE_OF("padata", [PADATA()], PADATA, explicit_tag=0xA0),
         ASN1F_optional(
-            ASN1F_PACKET("stengthenKey", None, EncryptionKey, explicit_tag=0xA1)
+            ASN1F_PACKET("strengthenKey", None, EncryptionKey, explicit_tag=0xA1)
         ),
         ASN1F_optional(
             ASN1F_PACKET(
@@ -1787,10 +1797,11 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
         val = super(_KRBERROR_data_Field, self).m2i(pkt, s)
         if not val[0].val:
             return val
-        if pkt.errorCode.val in [14, 24, 25]:
+        if pkt.errorCode.val in [14, 24, 25, 36]:
             # 14: KDC_ERR_ETYPE_NOSUPP
             # 24: KDC_ERR_PREAUTH_FAILED
             # 25: KDC_ERR_PREAUTH_REQUIRED
+            # 36: KRB_AP_ERR_BADMATCH
             return MethodData(val[0].val, _underlayer=pkt), val[1]
         elif pkt.errorCode.val in [6, 7, 13, 18, 29, 41, 60]:
             # 6: KDC_ERR_C_PRINCIPAL_UNKNOWN
@@ -1916,6 +1927,10 @@ class KRB_ERROR(ASN1_Packet):
         ),
         implicit_tag=ASN1_Class_KRB.ERROR,
     )
+
+
+# PA-FX-ERROR
+_PADATA_CLASSES[137] = KRB_ERROR
 
 
 # [MS-KILE] sect 2.2.1
@@ -2598,6 +2613,32 @@ class KdcProxySocket(SuperSocket):
 
 
 class KerberosClient(Automaton):
+    """
+    :param mode: the mode to use for the client (default: AS_REQ).
+    :param ip: the IP of the DC (default: discovered by dclocator)
+    :param upn: the UPN of the client.
+    :param password: the password of the client.
+    :param key: the Key of the client (instead of the password)
+    :param realm: the realm of the domain. (default: from the UPN)
+    :param spn: the SPN to request in a TGS-REQ
+    :param ticket: the existing ticket to use in a TGS-REQ
+    :param host: the name of the host doing the request
+    :param renew: sets the Renew flag in a TGS-REQ
+    :param additional_tickets: in U2U or S4U2Proxy, the additional tickets
+    :param u2u: sets the U2U flag
+    :param for_user: the UPN of another user in TGS-REQ, to do a S4U2Self
+    :param s4u2proxy: sets the S4U2Proxy flag
+    :param kdc_proxy: specify a KDC proxy url
+    :param kdc_proxy_no_check_certificate: do not check the KDC proxy certificate
+    :param fast: use FAST armoring
+    :param armor_ticket: an external ticket to use for armoring
+    :param armor_ticket_upn: the UPN of the client of the armoring ticket
+    :param armor_ticket_skey: the session Key object of the armoring ticket
+    :param etypes: specify the list of encryption types to support
+    :param port: the Kerberos port (default 88)
+    :param timeout: timeout of each request (default 5)
+    """
+
     RES_AS_MODE = namedtuple("AS_Result", ["asrep", "sessionkey", "kdcrep"])
     RES_TGS_MODE = namedtuple("TGS_Result", ["tgsrep", "sessionkey", "kdcrep"])
 
@@ -2610,12 +2651,13 @@ class KerberosClient(Automaton):
         self,
         mode=MODE.AS_REQ,
         ip=None,
-        host=None,
         upn=None,
         password=None,
+        key=None,
         realm=None,
         spn=None,
         ticket=None,
+        host=None,
         renew=False,
         additional_tickets=[],
         u2u=False,
@@ -2623,8 +2665,11 @@ class KerberosClient(Automaton):
         s4u2proxy=False,
         kdc_proxy=None,
         kdc_proxy_no_check_certificate=False,
+        fast=False,
+        armor_ticket=None,
+        armor_ticket_upn=None,
+        armor_ticket_skey=None,
         etypes=None,
-        key=None,
         port=88,
         timeout=5,
         **kwargs,
@@ -2667,6 +2712,20 @@ class KerberosClient(Automaton):
                 debug=kwargs.get("debug", 0),
             ).ip
 
+        if fast:
+            if mode == self.MODE.AS_REQ:
+                # Requires an external ticket
+                if not armor_ticket or not armor_ticket_upn or not armor_ticket_skey:
+                    raise ValueError(
+                        "Implicit armoring is not possible on AS-REQ: "
+                        "please provide the 3 required armor arguments"
+                    )
+            elif mode == self.MODE.TGS_REQ:
+                if armor_ticket and (not armor_ticket_upn or not armor_ticket_skey):
+                    raise ValueError(
+                        "Cannot specify armor_ticket without armor_ticket_{upn,skey}"
+                    )
+
         if mode == self.MODE.GET_SALT:
             if etypes is not None:
                 raise ValueError("Cannot specify etypes in GET_SALT mode !")
@@ -2684,6 +2743,7 @@ class KerberosClient(Automaton):
                 EncryptionType.AES256_CTS_HMAC_SHA1_96,
                 EncryptionType.AES128_CTS_HMAC_SHA1_96,
                 EncryptionType.RC4_HMAC,
+                EncryptionType.RC4_HMAC_EXP,
                 EncryptionType.DES_CBC_MD5,
             ]
         self.etypes = etypes
@@ -2705,17 +2765,29 @@ class KerberosClient(Automaton):
         self.upn = upn
         self.realm = realm.upper()
         self.ticket = ticket
+        self.fast = fast
+        self.armor_ticket = armor_ticket
+        self.armor_ticket_upn = armor_ticket_upn
+        self.armor_ticket_skey = armor_ticket_skey
         self.renew = renew
         self.additional_tickets = additional_tickets  # U2U + S4U2Proxy
         self.u2u = u2u  # U2U
         self.for_user = for_user  # FOR-USER
         self.s4u2proxy = s4u2proxy  # S4U2Proxy
         self.key = key
+        self.subkey = None  # In the AP-REQ authenticator
+        self.replykey = None  # Key used for reply
         # See RFC4120 - sect 7.2.2
         # This marks whether we should follow-up after an EOF
         self.should_followup = False
-        # Negotiated parameters
+        # This marks that we sent a FAST-req and are awaiting for an answer
+        self.fast_req_sent = False
+        # Session parameters
         self.pre_auth = False
+        self.fast_rep = None
+        self.fast_error = None
+        self.fast_skey = None  # The random subkey used for fast
+        self.fast_armorkey = None  # The armor key
         self.fxcookie = None
 
         sock = self._connect()
@@ -2726,6 +2798,8 @@ class KerberosClient(Automaton):
 
     def _connect(self):
         if self.kdc_proxy:
+            # If we are using a KDC Proxy, wrap the socket with the KdcProxySocket,
+            # that takes our messages and transport them over HTTP.
             sock = KdcProxySocket(
                 url=self.kdc_proxy,
                 targetDomain=self.realm,
@@ -2746,7 +2820,7 @@ class KerberosClient(Automaton):
             etype=[ASN1_INTEGER(x) for x in self.etypes],
             additionalTickets=None,
             # Windows default
-            kdcOptions="forwardable+renewable+canonicalize",
+            kdcOptions="forwardable+renewable+canonicalize+renewable-ok",
             cname=None,
             realm=ASN1_GENERAL_STRING(self.realm),
             till=ASN1_GENERALIZED_TIME(now_time + timedelta(hours=10)),
@@ -2757,9 +2831,136 @@ class KerberosClient(Automaton):
             kdcreq.kdcOptions.set(30, 1)  # set 'renew' (bit 30)
         return kdcreq
 
+    def calc_fast_armorkey(self):
+        """
+        Calculate and return the FAST armorkey
+        """
+        # Generate a random key of the same type than ticket_skey
+        from scapy.libs.rfc3961 import Key, KRB_FX_CF2
+
+        if self.mode == self.MODE.AS_REQ:
+            # AS-REQ mode
+            self.fast_skey = Key.new_random_key(self.armor_ticket_skey.etype)
+
+            self.fast_armorkey = KRB_FX_CF2(
+                self.fast_skey,
+                self.armor_ticket_skey,
+                b"subkeyarmor",
+                b"ticketarmor",
+            )
+        elif self.mode == self.MODE.TGS_REQ:
+            # TGS-REQ: 2 cases
+
+            self.subkey = Key.new_random_key(self.key.etype)
+
+            if not self.armor_ticket:
+                # Case 1: Implicit armoring
+                self.fast_armorkey = KRB_FX_CF2(
+                    self.subkey,
+                    self.key,
+                    b"subkeyarmor",
+                    b"ticketarmor",
+                )
+            else:
+                # Case 2: Explicit armoring, in "Compounded Identity mode".
+                # This is a Microsoft extension: see [MS-KILE] sect 3.3.5.7.4
+
+                self.fast_skey = Key.new_random_key(self.armor_ticket_skey.etype)
+
+                explicit_armor_key = KRB_FX_CF2(
+                    self.fast_skey,
+                    self.armor_ticket_skey,
+                    b"subkeyarmor",
+                    b"ticketarmor",
+                )
+
+                self.fast_armorkey = KRB_FX_CF2(
+                    explicit_armor_key,
+                    self.subkey,
+                    b"explicitarmor",
+                    b"tgsarmor",
+                )
+
+    def _fast_wrap(self, kdc_req, padata, now_time, pa_tgsreq_ap=None):
+        """
+        :param kdc_req: the KDC_REQ_BODY to wrap
+        :param padata: the list of PADATA to wrap
+        :param now_time: the current timestamp used by the client
+        """
+
+        # Create the PA Fast request wrapper
+        pafastreq = PA_FX_FAST_REQUEST(
+            armoredData=KrbFastArmoredReq(
+                reqChecksum=Checksum(),
+                encFastReq=EncryptedData(),
+            )
+        )
+
+        if self.armor_ticket is not None:
+            # EXPLICIT mode only (AS-REQ or TGS-REQ)
+
+            pafastreq.armoredData.armor = KrbFastArmor(
+                armorType=1,  # FX_FAST_ARMOR_AP_REQUEST
+                armorValue=KRB_AP_REQ(
+                    ticket=self.armor_ticket,
+                    authenticator=EncryptedData(),
+                ),
+            )
+
+            # Populate the authenticator. Note the client is the wrapper
+            _, crealm = _parse_upn(self.armor_ticket_upn)
+            authenticator = KRB_Authenticator(
+                crealm=ASN1_GENERAL_STRING(crealm),
+                cname=PrincipalName.fromUPN(self.armor_ticket_upn),
+                cksum=None,
+                ctime=ASN1_GENERALIZED_TIME(now_time),
+                cusec=ASN1_INTEGER(0),
+                subkey=EncryptionKey.fromKey(self.fast_skey),
+                seqNumber=ASN1_INTEGER(0),
+                encAuthorizationData=None,
+            )
+            pafastreq.armoredData.armor.armorValue.authenticator.encrypt(
+                self.armor_ticket_skey,
+                authenticator,
+            )
+
+        # Sign the fast request wrapper
+        if self.mode == self.MODE.TGS_REQ:
+            # "for a TGS-REQ, it is performed over the type AP-
+            # REQ in the PA-TGS-REQ padata of the TGS request"
+            pafastreq.armoredData.reqChecksum.make(
+                self.fast_armorkey,
+                bytes(pa_tgsreq_ap),
+            )
+        else:
+            # "For an AS-REQ, it is performed over the type KDC-REQ-
+            # BODY for the req-body field of the KDC-REQ structure of the
+            # containing message"
+            pafastreq.armoredData.reqChecksum.make(
+                self.fast_armorkey,
+                bytes(kdc_req),
+            )
+
+        # Build and encrypt the Fast request
+        fastreq = KrbFastReq(
+            padata=padata,
+            reqBody=kdc_req,
+        )
+        pafastreq.armoredData.encFastReq.encrypt(
+            self.fast_armorkey,
+            fastreq,
+        )
+
+        # Return the PADATA
+        return PADATA(
+            padataType=ASN1_INTEGER(136),  # PA-FX-FAST
+            padataValue=pafastreq,
+        )
+
     def as_req(self):
         now_time = datetime.now(timezone.utc).replace(microsecond=0)
 
+        # 1. Build and populate KDC-REQ
         kdc_req = self._base_kdc_req(now_time=now_time)
         kdc_req.addresses = [
             HostAddress(
@@ -2770,79 +2971,120 @@ class KerberosClient(Automaton):
         kdc_req.cname = PrincipalName.fromUPN(self.upn)
         kdc_req.sname = PrincipalName.fromSPN(self.spn)
 
-        asreq = Kerberos(
-            root=KRB_AS_REQ(
-                padata=[
-                    PADATA(
-                        padataType=ASN1_INTEGER(128),  # PA-PAC-REQUEST
-                        padataValue=PA_PAC_REQUEST(includePac=ASN1_BOOLEAN(-1)),
-                    )
-                ],
-                reqBody=kdc_req,
+        # 2. Build the list of PADATA
+        padata = [
+            PADATA(
+                padataType=ASN1_INTEGER(128),  # PA-PAC-REQUEST
+                padataValue=PA_PAC_REQUEST(includePac=ASN1_BOOLEAN(-1)),
             )
-        )
-        # Pre-auth support
-        if self.pre_auth:
-            asreq.root.padata.insert(
-                0,
-                PADATA(
-                    padataType=0x2,  # PA-ENC-TIMESTAMP
-                    padataValue=EncryptedData(),
-                ),
-            )
-            asreq.root.padata[0].padataValue.encrypt(
-                self.key, PA_ENC_TS_ENC(patimestamp=ASN1_GENERALIZED_TIME(now_time))
-            )
+        ]
+
         # Cookie support
         if self.fxcookie:
-            asreq.root.padata.insert(
+            padata.insert(
                 0,
                 PADATA(
                     padataType=133,  # PA-FX-COOKIE
                     padataValue=self.fxcookie,
                 ),
             )
+
+        # FAST
+        if self.fast:
+            # Calculate the armor key
+            self.calc_fast_armorkey()
+
+            # [MS-KILE] sect 3.2.5.5
+            # "When sending the AS-REQ, add a PA-PAC-OPTIONS [167]"
+            padata.append(
+                PADATA(
+                    padataType=ASN1_INTEGER(167),  # PA-PAC-OPTIONS
+                    padataValue=PA_PAC_OPTIONS(
+                        options="Claims",
+                    ),
+                )
+            )
+
+        # Pre-auth is requested
+        if self.pre_auth:
+            if self.fast:
+                # Special FAST factor
+                # RFC6113 sect 5.4.6
+                from scapy.libs.rfc3961 import KRB_FX_CF2
+
+                # Calculate the 'challenge key'
+                ts_key = KRB_FX_CF2(
+                    self.fast_armorkey,
+                    self.key,
+                    b"clientchallengearmor",
+                    b"challengelongterm",
+                )
+                pafactor = PADATA(
+                    padataType=138,  # PA-ENCRYPTED-CHALLENGE
+                    padataValue=EncryptedData(),
+                )
+            else:
+                # Usual 'timestamp' factor
+                ts_key = self.key
+                pafactor = PADATA(
+                    padataType=2,  # PA-ENC-TIMESTAMP
+                    padataValue=EncryptedData(),
+                )
+            pafactor.padataValue.encrypt(
+                ts_key,
+                PA_ENC_TS_ENC(patimestamp=ASN1_GENERALIZED_TIME(now_time)),
+            )
+            padata.insert(
+                0,
+                pafactor,
+            )
+
+        # FAST support
+        if self.fast:
+            # We are using RFC6113's FAST armoring. The PADATA's are therefore
+            # hidden inside the encrypted section.
+            padata = [
+                self._fast_wrap(
+                    kdc_req=kdc_req,
+                    padata=padata,
+                    now_time=now_time,
+                )
+            ]
+
+        # 3. Build the request
+        asreq = Kerberos(
+            root=KRB_AS_REQ(
+                padata=padata,
+                reqBody=kdc_req,
+            )
+        )
+
+        # Note the reply key
+        self.replykey = self.key
+
         return asreq
 
     def tgs_req(self):
         now_time = datetime.now(timezone.utc).replace(microsecond=0)
 
+        # Compute armor key for FAST
+        if self.fast:
+            self.calc_fast_armorkey()
+
+        # 1. Build and populate KDC-REQ
         kdc_req = self._base_kdc_req(now_time=now_time)
-
-        _, crealm = _parse_upn(self.upn)
-        authenticator = KRB_Authenticator(
-            crealm=ASN1_GENERAL_STRING(crealm),
-            cname=PrincipalName.fromUPN(self.upn),
-            cksum=None,
-            ctime=ASN1_GENERALIZED_TIME(now_time),
-            cusec=ASN1_INTEGER(0),
-            subkey=None,
-            seqNumber=None,
-            encAuthorizationData=None,
-        )
-
-        apreq = KRB_AP_REQ(ticket=self.ticket, authenticator=EncryptedData())
+        kdc_req.sname = PrincipalName.fromSPN(self.spn)
 
         # Additional tickets
         if self.additional_tickets:
             kdc_req.additionalTickets = self.additional_tickets
 
-        if self.u2u:  # U2U
+        # U2U
+        if self.u2u:
             kdc_req.kdcOptions.set(28, 1)  # set 'enc-tkt-in-skey' (bit 28)
 
-        kdc_req.sname = PrincipalName.fromSPN(self.spn)
-
-        tgsreq = Kerberos(
-            root=KRB_TGS_REQ(
-                padata=[
-                    PADATA(
-                        padataType=ASN1_INTEGER(1),  # PA-TGS-REQ
-                        padataValue=apreq,
-                    )
-                ],
-                reqBody=kdc_req,
-            )
-        )
+        # 2. Build the list of PADATA
+        padata = []
 
         # [MS-SFU] FOR-USER extension
         if self.for_user is not None:
@@ -2867,7 +3109,7 @@ class KerberosClient(Automaton):
                 S4UByteArray,
                 cksumtype=ChecksumType.HMAC_MD5,
             )
-            tgsreq.root.padata.append(
+            padata.append(
                 PADATA(
                     padataType=ASN1_INTEGER(129),  # PA-FOR-USER
                     padataValue=paforuser,
@@ -2877,7 +3119,7 @@ class KerberosClient(Automaton):
         # [MS-SFU] S4U2proxy - sect 3.1.5.2.1
         if self.s4u2proxy:
             # "PA-PAC-OPTIONS with resource-based constrained-delegation bit set"
-            tgsreq.root.padata.append(
+            padata.append(
                 PADATA(
                     padataType=ASN1_INTEGER(167),  # PA-PAC-OPTIONS
                     padataValue=PA_PAC_OPTIONS(
@@ -2888,6 +3130,26 @@ class KerberosClient(Automaton):
             # "kdc-options field: MUST include the new cname-in-addl-tkt options flag"
             kdc_req.kdcOptions.set(14, 1)
 
+        # 3. Build the AP-req inside a PA
+        apreq = KRB_AP_REQ(ticket=self.ticket, authenticator=EncryptedData())
+        pa_tgs_req = PADATA(
+            padataType=ASN1_INTEGER(1),  # PA-TGS-REQ
+            padataValue=apreq,
+        )
+
+        # 4. Populate it's authenticator
+        _, crealm = _parse_upn(self.upn)
+        authenticator = KRB_Authenticator(
+            crealm=ASN1_GENERAL_STRING(crealm),
+            cname=PrincipalName.fromUPN(self.upn),
+            cksum=None,
+            ctime=ASN1_GENERALIZED_TIME(now_time),
+            cusec=ASN1_INTEGER(0),
+            subkey=EncryptionKey.fromKey(self.subkey) if self.subkey else None,
+            seqNumber=None,
+            encAuthorizationData=None,
+        )
+
         # Compute checksum
         if self.key.cksumtype:
             authenticator.cksum = Checksum()
@@ -2895,8 +3157,38 @@ class KerberosClient(Automaton):
                 self.key,
                 bytes(kdc_req),
             )
+
         # Encrypt authenticator
         apreq.authenticator.encrypt(self.key, authenticator)
+
+        # 5. Process FAST if required
+        if self.fast:
+            padata = [
+                self._fast_wrap(
+                    kdc_req=kdc_req,
+                    padata=padata,
+                    now_time=now_time,
+                    pa_tgsreq_ap=apreq,
+                )
+            ]
+
+        # 6. Add the final PADATA
+        padata.append(pa_tgs_req)
+
+        # 7. Build the request
+        tgsreq = Kerberos(
+            root=KRB_TGS_REQ(
+                padata=padata,
+                reqBody=kdc_req,
+            )
+        )
+
+        # Note the reply key
+        if self.subkey:
+            self.replykey = self.subkey
+        else:
+            self.replykey = self.key
+
         return tgsreq
 
     @ATMT.state(initial=1)
@@ -2906,7 +3198,7 @@ class KerberosClient(Automaton):
     @ATMT.condition(BEGIN)
     def should_send_as_req(self):
         if self.mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
-            raise self.SENT_AP_REQ()
+            raise self.SENT_AS_REQ()
 
     @ATMT.condition(BEGIN)
     def should_send_tgs_req(self):
@@ -2922,7 +3214,7 @@ class KerberosClient(Automaton):
         self.send(self.tgs_req())
 
     @ATMT.state()
-    def SENT_AP_REQ(self):
+    def SENT_AS_REQ(self):
         pass
 
     @ATMT.state()
@@ -2930,11 +3222,11 @@ class KerberosClient(Automaton):
         pass
 
     def _process_padatas_and_key(self, padatas):
-        from scapy.libs.rfc3961 import EncryptionType, Key
+        from scapy.libs.rfc3961 import EncryptionType, Key, KRB_FX_CF2
 
         etype = None
         salt = b""
-        # Process pa-data
+        # 1. Process pa-data
         if padatas is not None:
             for padata in padatas:
                 if padata.padataType == 0x13 and etype is None:  # PA-ETYPE-INFO2
@@ -2945,17 +3237,37 @@ class KerberosClient(Automaton):
                             salt = elt.salt.val
                 elif padata.padataType == 133:  # PA-FX-COOKIE
                     self.fxcookie = padata.padataValue
+                elif padata.padataType == 136:  # PA-FX-FAST
+                    if isinstance(padata.padataValue, PA_FX_FAST_REPLY):
+                        self.fast_rep = (
+                            padata.padataValue.armoredData.encFastRep.decrypt(
+                                self.fast_armorkey,
+                            )
+                        )
+                elif padata.padataType == 137:  # PA-FX-ERROR
+                    self.fast_error = padata.padataValue
 
-        etype = etype or self.etypes[0]
+        # 2. Update the current key if necessary
+
         # Compute key if not already provided
-        if self.key is None:
+        if self.key is None and etype is not None:
             self.key = Key.string_to_key(
                 etype,
                 self.password,
                 salt,
             )
 
-    @ATMT.receive_condition(SENT_AP_REQ, prio=0)
+        # Update the key with the fast reply, if necessary
+        if self.fast_rep and self.fast_rep.strengthenKey:
+            # "The strengthen-key field MAY be set in an AS reply"
+            self.replykey = KRB_FX_CF2(
+                self.fast_rep.strengthenKey.toKey(),
+                self.replykey,
+                b"strengthenkey",
+                b"replykey",
+            )
+
+    @ATMT.receive_condition(SENT_AS_REQ, prio=0)
     def receive_salt_mode(self, pkt):
         # This is only for "Salt-Mode", a mode where we get the salt then
         # exit.
@@ -2976,11 +3288,29 @@ class KerberosClient(Automaton):
                 log_runtime.error("Failed to retrieve the salt !")
                 raise self.FINAL()
 
-    @ATMT.receive_condition(SENT_AP_REQ, prio=1)
+    @ATMT.receive_condition(SENT_AS_REQ, prio=1)
     def receive_krb_error_as_req(self, pkt):
-        # We check for a PREAUTH_REQUIRED error. This means that preauth is required
-        # and we need to do a second exchange.
+        # We check for Kerberos errors.
+        # There is a special case for PREAUTH_REQUIRED error, which means that preauth
+        # is required and we need to do a second exchange.
         if Kerberos in pkt and isinstance(pkt.root, KRB_ERROR):
+            # Process PAs if available
+            if pkt.root.eData and isinstance(pkt.root.eData, MethodData):
+                self._process_padatas_and_key(pkt.root.eData.seq)
+
+            # Special case for FAST errors
+            if self.fast_rep:
+                # This is actually a fast response error !
+                frep, self.fast_rep = self.fast_rep, None
+                # Re-process PAs
+                self._process_padatas_and_key(frep.padata)
+                # Extract real Kerberos error from FAST message
+                ferr = Kerberos(root=self.fast_error)
+                self.fast_error = None
+                # Recurse
+                self.receive_krb_error_as_req(ferr)
+                return
+
             if pkt.root.errorCode == 25:  # KDC_ERR_PREAUTH_REQUIRED
                 if not self.key and (not self.upn or not self.password):
                     log_runtime.error(
@@ -2988,7 +3318,6 @@ class KerberosClient(Automaton):
                         "but no key, nor upn+pass was passed."
                     )
                     raise self.FINAL()
-                self._process_padatas_and_key(pkt.root.eData.seq)
                 self.should_followup = True
                 self.pre_auth = True
                 raise self.BEGIN()
@@ -2997,12 +3326,12 @@ class KerberosClient(Automaton):
                 pkt.show()
                 raise self.FINAL()
 
-    @ATMT.receive_condition(SENT_AP_REQ, prio=2)
+    @ATMT.receive_condition(SENT_AS_REQ, prio=2)
     def receive_as_rep(self, pkt):
         if Kerberos in pkt and isinstance(pkt.root, KRB_AS_REP):
             raise self.FINAL().action_parameters(pkt)
 
-    @ATMT.eof(SENT_AP_REQ)
+    @ATMT.eof(SENT_AS_REQ)
     def retry_after_eof_in_apreq(self):
         if self.should_followup:
             # Reconnect and Restart
@@ -3018,14 +3347,42 @@ class KerberosClient(Automaton):
         self._process_padatas_and_key(pkt.root.padata)
         if not self.pre_auth:
             log_runtime.warning("Pre-authentication was disabled for this account !")
-        # Decrypt
+
+        # Process FAST response
+        if self.fast_rep:
+            # Verify the ticket-checksum
+            self.fast_rep.finished.ticketChecksum.verify(
+                self.fast_armorkey,
+                bytes(pkt.root.ticket),
+            )
+            self.fast_rep = None
+        elif self.fast:
+            raise ValueError("Answer was not FAST ! Is it supported?")
+
+        # Decrypt AS-REP response
         enc = pkt.root.encPart
-        res = enc.decrypt(self.key)
+        res = enc.decrypt(self.replykey)
         self.result = self.RES_AS_MODE(pkt.root, res.key.toKey(), res)
 
     @ATMT.receive_condition(SENT_TGS_REQ)
     def receive_krb_error_tgs_req(self, pkt):
         if Kerberos in pkt and isinstance(pkt.root, KRB_ERROR):
+            # Process PAs if available
+            if pkt.root.eData and isinstance(pkt.root.eData, MethodData):
+                self._process_padatas_and_key(pkt.root.eData.seq)
+
+            if self.fast_rep:
+                # This is actually a fast response error !
+                frep, self.fast_rep = self.fast_rep, None
+                # Re-process PAs
+                self._process_padatas_and_key(frep.padata)
+                # Extract real Kerberos error from FAST message
+                ferr = Kerberos(root=self.fast_error)
+                self.fast_error = None
+                # Recurse
+                self.receive_krb_error_tgs_req(ferr)
+                return
+
             log_runtime.warning("Received KRB_ERROR")
             pkt.show()
             raise self.FINAL()
@@ -3039,9 +3396,28 @@ class KerberosClient(Automaton):
 
     @ATMT.action(receive_tgs_rep)
     def decrypt_tgs_rep(self, pkt):
-        # Decrypt
+        self._process_padatas_and_key(pkt.root.padata)
+
+        # Process FAST response
+        if self.fast_rep:
+            # Verify the ticket-checksum
+            self.fast_rep.finished.ticketChecksum.verify(
+                self.fast_armorkey,
+                bytes(pkt.root.ticket),
+            )
+            self.fast_rep = None
+        elif self.fast:
+            raise ValueError("Answer was not FAST ! Is it supported?")
+
+        # Decrypt TGS-REP response
         enc = pkt.root.encPart
-        res = enc.decrypt(self.key)
+        if self.subkey:
+            # "In a TGS-REP message, the key
+            # usage value is 8 if the TGS session key is used, or 9 if a TGS
+            # authenticator subkey is used."
+            res = enc.decrypt(self.replykey, key_usage_number=9, cls=EncTGSRepPart)
+        else:
+            res = enc.decrypt(self.replykey)
         self.result = self.RES_TGS_MODE(pkt.root, res.key.toKey(), res)
 
     @ATMT.state(final=1)
@@ -4005,9 +4381,8 @@ class KerberosSSP(SSP):
             )
             # Build the authenticator
             now_time = datetime.now(timezone.utc).replace(microsecond=0)
-            Context.KrbSessionKey = Key.random_to_key(
+            Context.KrbSessionKey = Key.new_random_key(
                 self.SKEY_TYPE,
-                os.urandom(16),
             )
             Context.SendSeqNum = RandNum(0, 0x7FFFFFFF)._fix()
             _, crealm = _parse_upn(self.UPN)
@@ -4228,9 +4603,8 @@ class KerberosSSP(SSP):
             # Compute an application session key ([MS-KILE] sect 3.1.1.2)
             subkey = None
             if ap_req.apOptions.val[2] == "1":  # mutual-required
-                appkey = Key.random_to_key(
+                appkey = Key.new_random_key(
                     self.SKEY_TYPE,
-                    os.urandom(16),
                 )
                 Context.KrbSessionKey = appkey
                 Context.SessionKey = appkey.key

@@ -268,6 +268,11 @@ SMB2_SIGNING_ALGORITHMS = {
     0x0002: "AES-GMAC",
 }
 
+# [MS-SMB2] sect 2.2.3.1.1
+SMB2_HASH_ALGORITHMS = {
+    0x0001: "SHA-512",
+}
+
 # sect [MS-SMB2] 2.2.13.1.1
 SMB2_ACCESS_FLAGS_FILE = {
     0x00000001: "FILE_READ_DATA",
@@ -809,9 +814,11 @@ class WINNT_SID(Packet):
         return "S-%s-%s%s" % (
             self.Revision,
             struct.unpack(">Q", b"\x00\x00" + self.IdentifierAuthority.Value)[0],
-            ("-%s" % "-".join(str(x) for x in self.SubAuthority))
-            if self.SubAuthority
-            else "",
+            (
+                ("-%s" % "-".join(str(x) for x in self.SubAuthority))
+                if self.SubAuthority
+                else ""
+            ),
         )
 
 
@@ -1740,6 +1747,8 @@ class DirectTCP(NBTSession):
 
 
 class SMB2_Header(Packet):
+    __slots__ = ["_decrypted"]
+
     name = "SMB2 Header"
     fields_desc = [
         StrFixedLenField("Start", b"\xfeSMB", 4),
@@ -1790,6 +1799,11 @@ class SMB2_Header(Packet):
         (0xC000000D, 0x000B),  # STATUS_INVALID_PARAMETER
         (0x0000010C, 0x000F),  # STATUS_NOTIFY_ENUM_DIR
     )
+
+    def __init__(self, *args, **kwargs):
+        # The parent passes whether this packet was decrypted or not.
+        self._decrypted = kwargs.pop("_decrypted", False)
+        super(SMB2_Header, self).__init__(*args, **kwargs)
 
     def guess_payload_class(self, payload):
         if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR and self.Status != 0x00000000:
@@ -1860,17 +1874,22 @@ class SMB2_Header(Packet):
             return SMB2_IOCTL_Request
         return super(SMB2_Header, self).guess_payload_class(payload)
 
-    def sign(self, dialect, SigningSessionKey, SigningAlgorithmId=None, IsClient=None):
-        # [MS-SMB2] 3.1.4.1
-        self.SecuritySignature = b"\x00" * 16
-        s = bytes(self)
+    def _calc_signature(
+        self, s, dialect, SigningSessionKey, SigningAlgorithmId=None, IsClient=None
+    ):
+        """
+        This function calculates the signature of a SMB2 packet.
+        Detail is from [MS-SMB2] 3.1.4.1
+        """
         if len(s) <= 64:
             log_runtime.warning("Cannot sign invalid SMB packet !")
             return s
         if dialect in [0x0300, 0x0302, 0x0311]:  # SMB 3
             if dialect == 0x0311:  # SMB 3.1.1
-                if SigningAlgorithmId is None or IsClient is None:
-                    raise Exception("SMB 3.1.1 needs a SigningAlgorithmId and IsClient")
+                if IsClient is None:
+                    raise Exception("SMB 3.1.1 needs a IsClient")
+                if SigningAlgorithmId is None:
+                    SigningAlgorithmId = "AES-CMAC"  # AES-128-CMAC
             else:
                 SigningAlgorithmId = "AES-CMAC"  # AES-128-CMAC
             if "GMAC" in SigningAlgorithmId:
@@ -1903,10 +1922,87 @@ class SMB2_Header(Packet):
             sig = sig[:16]
         else:
             log_runtime.warning("Unknown SMB Version %s ! Cannot sign." % dialect)
-            sig = s[:-16] + b"\x00" * 16
-        self.SecuritySignature = sig
+            sig = b"\x00" * 16
+        return sig
+
+    def sign(self, dialect, SigningSessionKey, SigningAlgorithmId=None, IsClient=None):
+        """
+        [MS-SMB2] 3.1.4.1 - Signing An Outgoing Message
+        """
+        # Set the current signature to nul
+        self.SecuritySignature = b"\x00" * 16
+        # Calculate the signature
+        s = bytes(self)
+        self.SecuritySignature = self._calc_signature(
+            s,
+            dialect=dialect,
+            SigningSessionKey=SigningSessionKey,
+            SigningAlgorithmId=SigningAlgorithmId,
+            IsClient=IsClient,
+        )
         # we make sure the payload is static
         self.payload = conf.raw_layer(load=s[64:])
+
+    def verify(
+        self, dialect, SigningSessionKey, SigningAlgorithmId=None, IsClient=None
+    ):
+        """
+        [MS-SMB2] sect 3.2.5.1.3 - Verifying the signature
+        """
+        s = bytes(self)
+        # Set SecuritySignature to nul
+        s = s[:48] + b"\x00" * 16 + s[64:]
+        # Calculate the signature
+        sig = self._calc_signature(
+            s,
+            dialect=dialect,
+            SigningSessionKey=SigningSessionKey,
+            SigningAlgorithmId=SigningAlgorithmId,
+            IsClient=IsClient,
+        )
+        if self.SecuritySignature != sig:
+            log_runtime.error("SMB signature is invalid !")
+            raise Exception("ERROR: SMB signature is invalid !")
+
+    def encrypt(self, dialect, EncryptionKey, CipherId):
+        """
+        [MS-SMB2] sect 3.1.4.3 - Encrypting the Message
+        """
+        if dialect < 0x0300:
+            raise Exception("Encryption is not supported on this SMB dialect !")
+        elif dialect < 0x0311 and CipherId != "AES-128-CCM":
+            raise Exception("CipherId is not supported on this SMB dialect !")
+
+        data = bytes(self)
+        smbt = SMB2_Transform_Header(
+            OriginalMessageSize=len(self),
+            SessionId=self.SessionId,
+            Flags=0x0001,
+        )
+        if "GCM" in CipherId:
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+            nonce = os.urandom(12)
+            cipher = AESGCM(EncryptionKey)
+        elif "CCM" in CipherId:
+            from cryptography.hazmat.primitives.ciphers.aead import AESCCM
+
+            nonce = os.urandom(11)
+            cipher = AESCCM(EncryptionKey)
+        else:
+            raise Exception("Unknown CipherId !")
+
+        # Add nonce to header and build the auth data
+        smbt.Nonce = nonce
+        aad = bytes(smbt)[20:]
+
+        # Perform the actual encryption
+        data = cipher.encrypt(nonce, data, aad)
+
+        # Put the auth tag in the Signature field
+        smbt.Signature, data = data[-16:], data[:-16]
+
+        return smbt / data
 
 
 class _SMB2_Payload(Packet):
@@ -2139,10 +2235,7 @@ class SMB2_Preauth_Integrity_Capabilities(Packet):
             LEShortEnumField(
                 "",
                 0x0,
-                {
-                    # As for today, no other hash algorithm is described by the spec
-                    0x0001: "SHA-512",
-                },
+                SMB2_HASH_ALGORITHMS,
             ),
             count_from=lambda pkt: pkt.HashAlgorithmCount,
         ),
@@ -2224,7 +2317,11 @@ bind_layers(SMB2_Negotiate_Context, SMB2_Compression_Capabilities, ContextType=0
 
 class SMB2_Netname_Negotiate_Context_ID(Packet):
     name = "SMB2 Netname Negotiate Context ID"
-    fields_desc = [StrFieldUtf16("NetName", "")]
+    fields_desc = [
+        StrLenFieldUtf16(
+            "NetName", "", length_from=lambda pkt: pkt.underlayer.DataLength
+        )
+    ]
 
     def default_payload_class(self, payload):
         return conf.padding_layer
@@ -2477,7 +2574,7 @@ class SMB2_Session_Setup_Response(_SMB2_Payload, _NTLMPayloadPacket):
             {
                 0x0001: "IS_GUEST",
                 0x0002: "IS_NULL",
-                0x0004: "ENCRYPT_DATE",
+                0x0004: "ENCRYPT_DATA",
             },
         ),
         XLEShortField("SecurityBufferOffset", None),
@@ -2896,11 +2993,15 @@ class SMB2_Create_Context(_NTLMPayloadPacket):
             "pad",
             b"",
             length_from=lambda x: (
-                x.Next
-                - max(x.DataBufferOffset + x.DataLen, x.NameBufferOffset + x.NameLen)
-            )
-            if x.Next
-            else 0,
+                (
+                    x.Next
+                    - max(
+                        x.DataBufferOffset + x.DataLen, x.NameBufferOffset + x.NameLen
+                    )
+                )
+                if x.Next
+                else 0
+            ),
         ),
     ]
 
@@ -4252,6 +4353,60 @@ bind_top_down(
 )
 
 
+# sect 2.2.41
+
+
+class SMB2_Transform_Header(Packet):
+    name = "SMB2 Transform Header"
+    fields_desc = [
+        StrFixedLenField("Start", b"\xfdSMB", 4),
+        XStrFixedLenField("Signature", 0, length=16),
+        XStrFixedLenField("Nonce", b"", length=16),
+        LEIntField("OriginalMessageSize", 0x0),
+        LEShortField("Reserved", 0),
+        LEShortEnumField(
+            "Flags",
+            0x1,
+            {
+                0x0001: "ENCRYPTED",
+            },
+        ),
+        LELongField("SessionId", 0),
+    ]
+
+    def decrypt(self, dialect, DecryptionKey, CipherId):
+        """
+        [MS-SMB2] sect 3.2.5.1.1.1 - Decrypting the Message
+        """
+        if not isinstance(self.payload, conf.raw_layer):
+            raise Exception("No payload to decrypt !")
+
+        if "GCM" in CipherId:
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+            nonce = self.Nonce[:12]
+            cipher = AESGCM(DecryptionKey)
+        elif "CCM" in CipherId:
+            from cryptography.hazmat.primitives.ciphers.aead import AESCCM
+
+            nonce = self.Nonce[:11]
+            cipher = AESCCM(DecryptionKey)
+        else:
+            raise Exception("Unknown CipherId !")
+
+        # Decrypt the data
+        aad = self.self_build()[20:]
+        data = cipher.decrypt(
+            nonce,
+            self.payload.load + self.Signature,
+            aad,
+        )
+        return SMB2_Header(data, _decrypted=True)
+
+
+bind_layers(SMB2_Transform_Header, conf.raw_layer)
+
+
 # sect 2.2.42.1
 
 
@@ -4464,7 +4619,7 @@ class SMB2_IOCTL_RESP_GET_DFS_Referral(Packet):
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
         # Note: Windows is smart and uses some sort of compression in the sense
-        # that it re-uses fields that are used several times across ReferralBuffer.
+        # that it reuses fields that are used several times across ReferralBuffer.
         # But we just do the dumb thing because it's 'easier', and do no compression.
         offsets = {
             # DFS_REFERRAL_ENTRY0
@@ -4525,9 +4680,17 @@ class SMBStreamSocket(StreamSocket):
         # note: normal StreamSocket takes care of NBTSession / DirectTCP fragments.
         # this takes care of splitting compounded requests
         if self.queue:
-            return self.queue.popleft()
-        pkt = super(SMBStreamSocket, self).recv(x)
-        if pkt is not None and SMB2_Header in pkt:
+            pkt = self.queue.popleft()
+        else:
+            pkt = super(SMBStreamSocket, self).recv(x)
+        # If there are multiple SMB2_Header requests (aka. compounded),
+        # take the first and store the rest in a queue.
+        if pkt is not None and (
+            SMB2_Header in pkt
+            or SMB2_Transform_Header in pkt
+            or SMB2_Compression_Transform_Header in pkt
+        ):
+            pkt = self.session.in_pkt(pkt)
             pay = pkt[SMB2_Header].payload
             while SMB2_Header in pay:
                 pay = pay[SMB2_Header]
@@ -4536,10 +4699,29 @@ class SMBStreamSocket(StreamSocket):
                 if not pay.NextCommand:
                     break
                 pay = pay.payload
-        return self.session.in_pkt(pkt)
+        # Verify the signature if required.
+        # This happens here because we must have split compounded requests first.
+        smbh = pkt.getlayer(SMB2_Header)
+        if (
+            smbh
+            and self.session.Dialect
+            and self.session.SigningKey
+            and self.session.SigningRequired
+            and not smbh._decrypted
+        ):
+            smbh.verify(
+                self.session.Dialect,
+                self.session.SigningKey,
+                # SMB 3.1.1 parameters:
+                SigningAlgorithmId=self.session.SigningAlgorithmId,
+                IsClient=False,
+            )
+        return pkt
 
-    def send(self, x, Compounded=False, **kwargs):
-        for pkt in self.session.out_pkt(x, Compounded=Compounded):
+    def send(self, x, Compounded=False, ForceSign=False, ForceEncrypt=False, **kwargs):
+        for pkt in self.session.out_pkt(
+            x, Compounded=Compounded, ForceSign=ForceSign, ForceEncrypt=ForceEncrypt
+        ):
             return super(SMBStreamSocket, self).send(pkt, **kwargs)
 
     @staticmethod
@@ -4563,12 +4745,28 @@ class SMBSession(DefaultSession):
         self.CompoundQueue = []
         self.Dialect = 0x0202  # Updated by parent
         self.Credits = 0
-        self.SecurityMode = 0
-        # Crypto parameters
-        self.SMBSessionKey = None
+        self.IsGuest = False
+        # Crypto parameters. Go read [MS-SMB2] to understand the names.
+        self.SigningRequired = True
+        self.SupportsEncryption = False
+        self.EncryptData = False
+        self.TreeEncryptData = False
+        self.SigningKey = None
+        self.EncryptionKey = None
+        self.DecryptionKey = None
         self.PreauthIntegrityHashId = "SHA-512"
+        self.SupportedCipherIds = [
+            "AES-128-CCM",
+            "AES-128-GCM",
+            "AES-256-CCM",
+            "AES-256-GCM",
+        ]
         self.CipherId = "AES-128-CCM"
-        self.SigningAlgorithmId = "AES-CMAC"
+        self.SupportedSigningAlgorithmIds = [
+            "AES-CMAC",
+            "HMAC-SHA256",
+        ]
+        self.SigningAlgorithmId = None
         self.Salt = os.urandom(32)
         self.ConnectionPreauthIntegrityHashValue = None
         self.SessionPreauthIntegrityHashValue = None
@@ -4582,18 +4780,22 @@ class SMBSession(DefaultSession):
     # SMB crypto functions
 
     @crypto_validator
-    def computeSMBSessionKey(self):
+    def computeSMBSessionKeys(self, IsClient=None):
+        """
+        Compute the SigningKey and EncryptionKey (for SMB 3+)
+        """
         if not getattr(self.sspcontext, "SessionKey", None):
             # no signing key, no session key
             return
         # [MS-SMB2] sect 3.3.5.5.3
+        # SigningKey
         if self.Dialect >= 0x0300:
             if self.Dialect == 0x0311:
                 label = b"SMBSigningKey\x00"
-                preauth_hash = self.SessionPreauthIntegrityHashValue
+                context = self.SessionPreauthIntegrityHashValue
             else:
                 label = b"SMB2AESCMAC\x00"
-                preauth_hash = b"SmbSign\x00"
+                context = b"SmbSign\x00"
             # [MS-SMB2] sect 3.1.4.2
             if "256" in self.CipherId:
                 L = 256
@@ -4601,14 +4803,43 @@ class SMBSession(DefaultSession):
                 L = 128
             else:
                 raise ValueError
-            self.SMBSessionKey = SP800108_KDFCTR(
+            self.SigningKey = SP800108_KDFCTR(
                 self.sspcontext.SessionKey[:16],
-                label,  # label
-                preauth_hash,  # context
+                label,
+                context,
+                L,
+            )
+            # EncryptionKey / DecryptionKey
+            if self.Dialect == 0x0311:
+                if IsClient:
+                    label_out = b"SMBC2SCipherKey\x00"
+                    label_in = b"SMBS2CCipherKey\x00"
+                else:
+                    label_out = b"SMBS2CCipherKey\x00"
+                    label_in = b"SMBC2SCipherKey\x00"
+                context_out = context_in = self.SessionPreauthIntegrityHashValue
+            else:
+                label_out = label_in = b"SMB2AESCCM\x00"
+                if IsClient:
+                    context_out = b"ServerIn \x00"  # extra space per spec
+                    context_in = b"ServerOut\x00"
+                else:
+                    context_out = b"ServerOut\x00"
+                    context_in = b"ServerIn \x00"
+            self.EncryptionKey = SP800108_KDFCTR(
+                self.sspcontext.SessionKey[: L // 8],
+                label_out,
+                context_out,
+                L,
+            )
+            self.DecryptionKey = SP800108_KDFCTR(
+                self.sspcontext.SessionKey[: L // 8],
+                label_in,
+                context_in,
                 L,
             )
         elif self.Dialect <= 0x0210:
-            self.SMBSessionKey = self.sspcontext.SessionKey[:16]
+            self.SigningKey = self.sspcontext.SessionKey[:16]
         else:
             raise ValueError("Hmmm ? >:(")
 
@@ -4653,19 +4884,29 @@ class SMBSession(DefaultSession):
         """
         Incoming SMB packet
         """
+        if SMB2_Transform_Header in pkt:
+            # Packet is encrypted
+            pkt = pkt[SMB2_Transform_Header].decrypt(
+                self.Dialect,
+                self.DecryptionKey,
+                CipherId=self.CipherId,
+            )
+        # Signature is verified in SMBStreamSocket
         return pkt
 
-    def out_pkt(self, pkt, Compounded=False):
+    def out_pkt(self, pkt, Compounded=False, ForceSign=False, ForceEncrypt=False):
         """
         Outgoing SMB packet
 
         :param pkt: the packet to send
         :param Compound: if True, will be stack to be send with the next
                          un-compounded packet
+        :param ForceSign: if True, force to sign the packet.
+        :param ForceEncrypt: if True, force to encrypt the packet.
 
         Handles:
          - handle compounded requests (if any): [MS-SMB2] 3.3.5.2.7
-         - handles signing (if required)
+         - handles signing and encryption (if required)
         """
         # Note: impacket and wireshark get crazy on compounded+signature, but
         # windows+samba tells we're right :D
@@ -4687,13 +4928,17 @@ class SMBSession(DefaultSession):
                 if padlen:
                     pkt.add_payload(b"\x00" * padlen)
                 pkt[SMB2_Header].NextCommand = length + padlen
-            if self.Dialect and self.SMBSessionKey and self.SecurityMode != 0:
-                # Sign SMB2 !
+            if (
+                self.Dialect
+                and self.SigningKey
+                and (ForceSign or self.SigningRequired and not ForceEncrypt)
+            ):
+                # [MS-SMB2] sect 3.2.4.1.1 - Signing
                 smb = pkt[SMB2_Header]
                 smb.Flags += "SMB2_FLAGS_SIGNED"
                 smb.sign(
                     self.Dialect,
-                    self.SMBSessionKey,
+                    self.SigningKey,
                     # SMB 3.1.1 parameters:
                     SigningAlgorithmId=self.SigningAlgorithmId,
                     IsClient=False,
@@ -4707,6 +4952,22 @@ class SMBSession(DefaultSession):
                 if self.CompoundQueue:
                     pkt = functools.reduce(lambda x, y: x / y, self.CompoundQueue) / pkt
                     self.CompoundQueue.clear()
+            if self.EncryptionKey and (
+                ForceEncrypt or self.EncryptData or self.TreeEncryptData
+            ):
+                # [MS-SMB2] sect 3.1.4.3 - Encrypting the message
+                smb = pkt[SMB2_Header]
+                assert not smb.Flags.SMB2_FLAGS_SIGNED
+                smbt = smb.encrypt(
+                    self.Dialect,
+                    self.EncryptionKey,
+                    CipherId=self.CipherId,
+                )
+                if smb.underlayer:
+                    # If there's an underlayer, replace current SMB header
+                    smb.underlayer.payload = smbt
+                else:
+                    smb = smbt
         return [pkt]
 
     def process(self, pkt: Packet):

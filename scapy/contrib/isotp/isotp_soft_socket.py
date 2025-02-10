@@ -4,29 +4,16 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # Copyright (C) Enrico Pozzobon <enricopozzobon@gmail.com>
 
+import heapq
 # scapy.contrib.description = ISO-TP (ISO 15765-2) Soft Socket Library
 # scapy.contrib.status = library
 import logging
+import socket
 import struct
 import time
 import traceback
-import heapq
-import socket
-
-from threading import Thread, Event, RLock
 from bisect import bisect_left
-
-from scapy.packet import Packet
-from scapy.layers.can import CAN
-from scapy.error import Scapy_Exception
-from scapy.supersocket import SuperSocket
-from scapy.config import conf
-from scapy.consts import LINUX
-from scapy.utils import EDecimal
-from scapy.automaton import ObjectPipe, select_objects
-from scapy.contrib.isotp.isotp_packet import ISOTP, CAN_MAX_DLEN, N_PCI_SF, \
-    N_PCI_CF, N_PCI_FC, N_PCI_FF, ISOTP_MAX_DLEN, ISOTP_MAX_DLEN_2015, CAN_FD_MAX_DLEN
-
+from threading import Thread, Event, RLock
 # Typing imports
 from typing import (
     Optional,
@@ -39,6 +26,17 @@ from typing import (
     Callable,
     TYPE_CHECKING,
 )
+
+from scapy.automaton import ObjectPipe, select_objects
+from scapy.config import conf
+from scapy.consts import LINUX
+from scapy.contrib.isotp.isotp_packet import ISOTP, CAN_MAX_DLEN, N_PCI_SF, \
+    N_PCI_CF, N_PCI_FC, N_PCI_FF, ISOTP_MAX_DLEN, ISOTP_MAX_DLEN_2015, CAN_FD_MAX_DLEN
+from scapy.error import Scapy_Exception
+from scapy.layers.can import CAN, CANFD
+from scapy.packet import Packet
+from scapy.supersocket import SuperSocket
+from scapy.utils import EDecimal
 
 if TYPE_CHECKING:
     from scapy.contrib.cansocket import CANSocket
@@ -209,8 +207,10 @@ class ISOTPSoftSocket(SuperSocket):
         """This function is called during sendrecv() routine to wait for
         sockets to be ready to receive
         """
-        obj_pipes = [x.impl.rx_queue for x in sockets if
-                     isinstance(x, ISOTPSoftSocket) and not x.closed]
+        obj_pipes: List[Union[SuperSocket, ObjectPipe[Tuple[bytes, Union[float, EDecimal]]]]] = [   # noqa: E501
+            x.impl.rx_queue for x in sockets if
+            isinstance(x, ISOTPSoftSocket) and not x.closed]
+        obj_pipes += [x for x in sockets if isinstance(x, ObjectPipe) and not x.closed]
 
         ready_pipes = select_objects(obj_pipes, remain)
 
@@ -579,13 +579,15 @@ class ISOTPSocketImplementation:
                     return fd_accepted_sizes[-1]
                 return fd_accepted_sizes[pos]
 
+        pkt_cls = CANFD if self.fd else CAN
+
         if self.padding:
             load += b"\xCC" * (_get_padding_size(len(load)) - len(load))
         if self.tx_id is None or self.tx_id <= 0x7ff:
-            self.can_socket.send(CAN(identifier=self.tx_id, data=load))
+            self.can_socket.send(pkt_cls(identifier=self.tx_id, data=load))
         else:
-            self.can_socket.send(CAN(identifier=self.tx_id, flags="extended",
-                                     data=load))
+            self.can_socket.send(pkt_cls(identifier=self.tx_id, flags="extended",
+                                         data=load))
 
     def can_recv(self):
         # type: () -> None

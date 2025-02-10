@@ -1270,6 +1270,18 @@ class EIR_AdvertisingInterval(EIR_Element):
     ]
 
 
+class EIR_LEBluetoothDeviceAddress(EIR_Element):
+    name = "LE Bluetooth Device Address"
+    fields_desc = [
+        XBitField('reserved', 0, 7, tot_size=-1),
+        BitEnumField('addr_type', 0, 1, end_tot_size=-1, enum={
+            0x0: 'Public',
+            0x1: 'Random'
+        }),
+        LEMACField('bd_addr', None)
+    ]
+
+
 class EIR_Appearance(EIR_Element):
     name = "EIR_Appearance"
     fields_desc = [
@@ -2377,10 +2389,20 @@ class HCI_Event_LE_Meta(Packet):
     """
     name = "HCI_LE_Meta"
     fields_desc = [ByteEnumField("event", 0, {
-                   1: "connection_complete",
-                   2: "advertising_report",
-                   3: "connection_update_complete",
-                   5: "long_term_key_request",
+                   0x01: "connection_complete",
+                   0x02: "advertising_report",
+                   0x03: "connection_update_complete",
+                   0x04: "read_remote_features_page_0_complete",
+                   0x05: "long_term_key_request",
+                   0x06: "remote_connection_parameter_request",
+                   0x07: "data_length_change",
+                   0x08: "read_local_p256_public_key_complete",
+                   0x09: "generate_dhkey_complete",
+                   0x0a: "enhanced_connection_complete_v1",
+                   0x0b: "directed_advertising_report",
+                   0x0c: "phy_update_complete",
+                   0x0d: "extended_advertising_report",
+                   0x29: "enhanced_connection_complete_v2"
                    }), ]
 
     def answers(self, other):
@@ -2622,10 +2644,10 @@ bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_Local_Extended_Fea
 bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_BD_Addr, opcode=0x1009)  # noqa: E501
 bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_LE_Read_White_List_Size, opcode=0x200f)  # noqa: E501
 
-bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=1)
-bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Reports, event=2)
-bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=3)
-bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=5)
+bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=0x01)
+bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Reports, event=0x02)
+bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=0x03)
+bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=0x05)
 
 bind_layers(EIR_Hdr, EIR_Flags, type=0x01)
 bind_layers(EIR_Hdr, EIR_IncompleteList16BitServiceUUIDs, type=0x02)
@@ -2649,6 +2671,7 @@ bind_layers(EIR_Hdr, EIR_ServiceData16BitUUID, type=0x16)
 bind_layers(EIR_Hdr, EIR_PublicTargetAddress, type=0x17)
 bind_layers(EIR_Hdr, EIR_Appearance, type=0x19)
 bind_layers(EIR_Hdr, EIR_AdvertisingInterval, type=0x1a)
+bind_layers(EIR_Hdr, EIR_LEBluetoothDeviceAddress, type=0x1b)
 bind_layers(EIR_Hdr, EIR_ServiceData32BitUUID, type=0x20)
 bind_layers(EIR_Hdr, EIR_ServiceData128BitUUID, type=0x21)
 bind_layers(EIR_Hdr, EIR_URI, type=0x24)

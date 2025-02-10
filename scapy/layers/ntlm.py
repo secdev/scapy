@@ -1680,9 +1680,7 @@ class NTLMSSP(SSP):
                         EncryptedRandomSessionKey = b"\x00" * 16
                     else:
                         EncryptedRandomSessionKey = auth_tok.EncryptedRandomSessionKey
-                    ExportedSessionKey = RC4K(
-                        KeyExchangeKey, EncryptedRandomSessionKey
-                    )
+                    ExportedSessionKey = RC4K(KeyExchangeKey, EncryptedRandomSessionKey)
                 else:
                     ExportedSessionKey = KeyExchangeKey
                 Context.ExportedSessionKey = ExportedSessionKey
@@ -1800,6 +1798,7 @@ class NTLMSSP(SSP):
             return NTLMv2_ComputeSessionBaseKey(
                 ResponseKeyNT, auth_tok.NtChallengeResponse.NTProofStr
             )
+        log_runtime.debug("NTLMSSP: Bad credentials for %s" % username)
         return None
 
     def _checkLogin(self, Context, auth_tok):
