@@ -2614,24 +2614,24 @@ class DceRpcSession(DefaultSession):
     # Since the connection-oriented transport guarantees sequentiality, the receiver
     # will always receive the fragments in order.
 
-    def _defragment(self, pkt):
+    def _defragment(self, pkt, body=None):
         """
         Function to defragment DCE/RPC packets.
         """
         uid = pkt.call_id
         if pkt.pfc_flags.PFC_FIRST_FRAG and pkt.pfc_flags.PFC_LAST_FRAG:
             # Not fragmented
-            return pkt
+            return body
         if pkt.pfc_flags.PFC_FIRST_FRAG or uid in self.frags:
             # Packet is fragmented
-            self.frags[uid] += pkt[DceRpc5].payload.payload.original
+            if body is None:
+                body = pkt[DceRpc5].payload.payload.original
+            self.frags[uid] += body
             if pkt.pfc_flags.PFC_LAST_FRAG:
-                pkt[DceRpc5].payload.remove_payload()
-                pkt[DceRpc5].payload /= self.frags[uid]
-                return pkt
+                return self.frags[uid]
         else:
             # Not fragmented
-            return pkt
+            return body
 
     def _fragment(self, pkt):
         """
@@ -2656,12 +2656,6 @@ class DceRpcSession(DefaultSession):
     # Similarly the signature output SHOULD be ignored.
 
     def in_pkt(self, pkt):
-        # Defragment
-        pkt = self._defragment(pkt)
-        if not pkt:
-            return
-        # Get opnum and options
-        opnum, opts = self._up_pkt(pkt)
         # Check for encrypted payloads
         body = None
         if conf.raw_layer in pkt.payload:
@@ -2783,6 +2777,13 @@ class DceRpcSession(DefaultSession):
                 if pkt.vt_trailer:
                     vtlen = len(pkt.vt_trailer)
                     body, pkt.vt_trailer = body[:-vtlen], body[-vtlen:]
+        # Defragment
+        if body:
+            body = self._defragment(pkt, body)
+            if not body:
+                return
+        # Get opnum and options
+        opnum, opts = self._up_pkt(pkt)
         # Try to parse the payload
         if opnum is not None and self.rpc_bind_interface:
             # use opnum to parse the payload
