@@ -452,12 +452,14 @@ class ISAKMP_payload_Hash(ISAKMP_payload):
         StrLenField("hash", "", length_from=lambda x: x.length - 4)
     ]
 
+
 class ISAKMP_payload_SIG(ISAKMP_payload):
     name = "ISAKMP Signature"
     deprecated_fields = {"load": ("sig", "2.6.2")}
     fields_desc = ISAKMP_payload.fields_desc[:3] + [
         StrLenField("sig", "", length_from=lambda x: x.length - 4)
     ]
+
 
 NotifyMessageType = {
     1: "INVALID-PAYLOAD-TYPE",
