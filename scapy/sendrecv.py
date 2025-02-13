@@ -1147,6 +1147,7 @@ class AsyncSniffer(object):
         self.thread = None  # type: Optional[Thread]
         self.results = None  # type: Optional[PacketList]
         self.exception = None  # type: Optional[Exception]
+        self.stop_cb = lambda: None  # type: Callable[[], None]
 
     def _setup_thread(self):
         # type: () -> None
