@@ -13,13 +13,13 @@ from scapy.layers.inet import TCP, UDP
 from scapy.layers.inet6 import IP6Field
 from scapy.compat import raw, orb
 from scapy.config import conf
-from scapy.packet import Packet, Raw, bind_top_down, bind_bottom_up
+from scapy.packet import Packet, Raw, bind_top_down, bind_bottom_up, bind_layers
 from scapy.fields import (XShortField, ConditionalField,
                           BitField, XBitField, XByteField, ByteEnumField,
                           ShortField, X3BytesField, StrLenField, IPField,
                           FieldLenField, PacketListField, XIntField,
-                          MultipleTypeField, FlagsField, IntField,
-                          XByteEnumField, BitScalingField)
+                          MultipleTypeField, FlagsField,
+                          XByteEnumField, BitScalingField, LenField)
 
 
 class SOMEIP(Packet):
@@ -73,7 +73,7 @@ class SOMEIP(Packet):
             ],
             XShortField("sub_id", 0),
         ),
-        IntField("len", None),
+        LenField("len", None, fmt=">I", adjust=lambda x: x + 8),
         XShortField("client_id", 0),
         XShortField("session_id", 0),
         XByteField("proto_ver", PROTOCOL_VERSION),
@@ -117,12 +117,10 @@ class SOMEIP(Packet):
         ConditionalField(
             BitField("more_seg", 0, 1),
             lambda pkt: SOMEIP._is_tp(pkt)),  # noqa: E501
-        ConditionalField(PacketListField(
+        PacketListField(
             "data", [Raw()], Raw,
             length_from=lambda pkt: pkt.len - (SOMEIP.LEN_OFFSET_TP if (SOMEIP._is_tp(pkt) and (pkt.len is None or pkt.len >= SOMEIP.LEN_OFFSET_TP)) else SOMEIP.LEN_OFFSET),  # noqa: E501
-            next_cls_cb=lambda pkt, lst, cur, remain:
-                SOMEIP.get_payload_cls_by_srv_id(pkt, lst, cur, remain)),
-            lambda pkt: SOMEIP._is_tp(pkt))  # noqa: E501
+            next_cls_cb=lambda pkt, lst, cur, remain: SOMEIP.get_payload_cls_by_srv_id(pkt, lst, cur, remain))  # noqa: E501
     ]
 
     payload_cls_by_srv_id = dict()  # To be customized
@@ -209,6 +207,7 @@ def _bind_someip_layers():
 
 
 _bind_someip_layers()
+bind_layers(SOMEIP, SOMEIP)
 
 
 class _SDPacketBase(Packet):
