@@ -34,6 +34,7 @@ from scapy.fields import (
     FlagsField,
     IntField,
     IPField,
+    MACField,
     ShortField,
     StrEnumField,
     StrField,
@@ -52,6 +53,7 @@ from scapy.volatile import (
     RandInt,
     RandNum,
     RandNumExpo,
+    VolatileValue,
 )
 
 from scapy.arch import get_if_hwaddr
@@ -63,7 +65,14 @@ dhcpmagic = b"c\x82Sc"
 
 
 class _BOOTP_chaddr(StrFixedLenField):
+    def i2m(self, pkt, x):
+        if isinstance(x, VolatileValue):
+            x = x._fix()
+        return MACField.i2m(self, pkt, x)
+
     def i2repr(self, pkt, v):
+        if isinstance(v, VolatileValue):
+            return repr(v)
         if pkt.htype == 1:  # Ethernet
             if v[6:] == b"\x00" * 10:  # Default padding
                 return "%s (+ 10 nul pad)" % str2mac(v[:6])

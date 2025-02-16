@@ -806,7 +806,7 @@ class MACField(Field[Optional[str], bytes]):
             return b"\0\0\0\0\0\0"
         try:
             y = mac2str(x)
-        except (struct.error, OverflowError):
+        except (struct.error, OverflowError, ValueError):
             y = bytes_encode(x)
         return y
 
