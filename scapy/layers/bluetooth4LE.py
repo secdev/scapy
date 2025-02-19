@@ -541,7 +541,7 @@ class LL_VERSION_IND(Packet):
     fields_desc = [
         ByteEnumField("version", 8, BTLE_Versions),
         LEShortEnumField("company", 0, BTLE_Corp_IDs),
-        XShortField("subversion", 0)
+        XLEShortField("subversion", 0)
     ]
 
 
