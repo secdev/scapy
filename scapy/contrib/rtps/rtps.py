@@ -197,7 +197,7 @@ class DataPacket(EPacket):
         writer_entity_id_key = kwargs.pop("writer_entity_id_key", None)
         writer_entity_id_kind = kwargs.pop("writer_entity_id_kind", None)
         pl_len = kwargs.pop("pl_len", 0)
-        if writer_entity_id_key == 0x200 and writer_entity_id_kind == 0xC2:
+        if (writer_entity_id_key == 0x200 or writer_entity_id_key == 0x100) and writer_entity_id_kind == 0xC2:
             DataPacket._pl_type = "ParticipantMessageData"
         else:
             DataPacket._pl_type = "SerializedData"
@@ -258,10 +258,11 @@ class RTPSSubMessage_DATA(EPacket):
         #     fmt="4s",
         #     enum=_rtps_reserved_entity_ids,
         # ),
-        EField(IntField("writerSeqNumHi", 0),
-               endianness_from=e_flags),
-        EField(IntField("writerSeqNumLow", 0),
-               endianness_from=e_flags),
+        EField(IntField("writerSeqNumber", 0), endianness_from=e_flags),
+        #EField(IntField("writerSeqNumHi", 0),
+        #       endianness_from=e_flags),
+        #EField(IntField("writerSeqNumLow", 0),
+        #       endianness_from=e_flags),
         # -------------------------------------
         ConditionalField(
             InlineQoSPacketField("inlineQoS", "", InlineQoSPacket),
