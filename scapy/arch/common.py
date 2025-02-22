@@ -12,7 +12,7 @@ import re
 import socket
 
 from scapy.config import conf
-from scapy.data import MTU, ARPHDR_ETHER, ARPHRD_TO_DLT
+from scapy.data import MTU, ARPHRD_TO_DLT
 from scapy.error import Scapy_Exception, warning
 from scapy.interfaces import network_name, resolve_iface, NetworkInterface
 from scapy.libs.structures import bpf_program
@@ -105,8 +105,6 @@ def compile_filter(filter_exp,  # type: str
         except Exception:
             # Failed to use linktype: use the interface
             pass
-        if not linktype and conf.use_bpf:
-            linktype = ARPHDR_ETHER
     if linktype is not None:
         ret = pcap_compile_nopcap(
             MTU, linktype, ctypes.byref(bpf), bpf_filter, 1, -1
