@@ -1205,15 +1205,9 @@ def register_dcerpc_interface(name, uuid, version, opnums):
         # Interface is already registered.
         interface = DCE_RPC_INTERFACES[(uuid, if_version)]
         if interface.name == name:
-            if interface.if_version == if_version and set(opnums) - set(
-                interface.opnums
-            ):
+            if set(opnums) - set(interface.opnums):
                 # Interface is an extension of a previous interface
                 interface.opnums.update(opnums)
-                return
-            elif interface.if_version != if_version:
-                # Interface has a different version
-                pass
             else:
                 log_runtime.warning(
                     "This interface is already registered: %s. Skip" % interface
@@ -1223,15 +1217,17 @@ def register_dcerpc_interface(name, uuid, version, opnums):
             raise ValueError(
                 "An interface with the same UUID is already registered: %s" % interface
             )
-    DCE_RPC_INTERFACES_NAMES[uuid] = name
-    DCE_RPC_INTERFACES_NAMES_rev[name.lower()] = uuid
-    DCE_RPC_INTERFACES[(uuid, if_version)] = DceRpcInterface(
-        name,
-        uuid,
-        version_tuple,
-        if_version,
-        opnums,
-    )
+    else:
+        # New interface
+        DCE_RPC_INTERFACES_NAMES[uuid] = name
+        DCE_RPC_INTERFACES_NAMES_rev[name.lower()] = uuid
+        DCE_RPC_INTERFACES[(uuid, if_version)] = DceRpcInterface(
+            name,
+            uuid,
+            version_tuple,
+            if_version,
+            opnums,
+        )
     # bind for build
     for opnum, operations in opnums.items():
         bind_top_down(DceRpc5Request, operations.request, opnum=opnum)
