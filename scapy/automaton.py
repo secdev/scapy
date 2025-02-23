@@ -968,6 +968,7 @@ class Automaton(metaclass=Automaton_metaclass):
     def spawn(cls,
               port: int,
               iface: Optional[_GlobInterfaceType] = None,
+              local_ip: Optional[str] = None,
               bg: bool = False,
               **kwargs: Any) -> Optional[socket.socket]:
         """
@@ -986,7 +987,8 @@ class Automaton(metaclass=Automaton_metaclass):
         from scapy.arch import get_if_addr
         # create server sock and bind it
         ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        local_ip = get_if_addr(iface or conf.iface)
+        if local_ip is None:
+            local_ip = get_if_addr(iface or conf.iface)
         try:
             ssock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         except OSError:
