@@ -177,7 +177,7 @@ class SOMEIP(Packet):
             fnb += 1
             fl = fl.underlayer
 
-        has_payload = not any(self.data)
+        has_payload = len(self.data) == 0 or sum(len(p) for p in self.data) == 0
 
         for p in fl:
             if has_payload:
