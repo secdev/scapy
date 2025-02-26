@@ -2641,7 +2641,6 @@ class DceRpcSession(DefaultSession):
         """
         Function to fragment DCE/RPC packets.
         """
-        uid = pkt.call_id
         if len(body) > self.MAX_PDU_BODY_SIZE:
             # Clear any PFC_*_FRAG flag
             pkt.pfc_flags &= 0xFC
@@ -2802,12 +2801,13 @@ class DceRpcSession(DefaultSession):
                 if pkt.auth_padding:
                     padlen = len(pkt.auth_padding)
                     body, pkt.auth_padding = body[:-padlen], body[-padlen:]
-                # Put back vt_trailer into the header
-                if pkt.vt_trailer:
-                    vtlen = len(pkt.vt_trailer)
-                    body, pkt.vt_trailer = body[:-vtlen], body[-vtlen:]
-        # Defragment
-        if body:
+                # Put back vt_trailer into the header, if present.
+                if _SECTRAILER_MAGIC in body:
+                    body, pkt.vt_trailer = pkt.get_field("vt_trailer").getfield(
+                        pkt, body
+                    )
+        # If it's a request / response, could be fragmented
+        if isinstance(pkt.payload, (DceRpc5Request, DceRpc5Response)) and body:
             body = self._defragment(pkt, body)
             if not body:
                 return
@@ -2828,9 +2828,28 @@ class DceRpcSession(DefaultSession):
                 return pkt
             if body:
                 # Dissect payload using class
-                payload = cls(body, ndr64=self.ndr64, ndrendian=self.ndrendian, **opts)
+                try:
+                    payload = cls(
+                        body, ndr64=self.ndr64, ndrendian=self.ndrendian, **opts
+                    )
+                except Exception:
+                    if conf.debug_dissector:
+                        log_runtime.error("%s dissector failed", cls.__name__)
+                        if cls is not None:
+                            raise
+                    payload = conf.raw_layer(body, _internal=1)
                 pkt.payload[conf.raw_layer].underlayer.remove_payload()
+                if conf.padding_layer in payload:
+                    # Most likely, dissection failed.
+                    log_runtime.warning(
+                        "Padding detected when dissecting %s. Looks wrong." % cls
+                    )
+                    pad = payload[conf.padding_layer]
+                    pad.underlayer.payload = conf.raw_layer(load=pad.load)
                 pkt /= payload
+                # If a request was encrypted, we need to re-register it once re-parsed.
+                if not is_response and self.auth_level == RPC_C_AUTHN_LEVEL.PKT_PRIVACY:
+                    self._up_pkt(pkt)
             elif not cls.fields_desc:
                 # Request class has no payload
                 pkt /= cls(ndr64=self.ndr64, ndrendian=self.ndrendian, **opts)
@@ -2840,6 +2859,7 @@ class DceRpcSession(DefaultSession):
 
     def out_pkt(self, pkt):
         assert DceRpc5 in pkt
+        # Register opnum and options
         self._up_pkt(pkt)
 
         # If it's a request / response, we can frag it
@@ -2879,12 +2899,13 @@ class DceRpcSession(DefaultSession):
                             auth_level=self.auth_level,
                             auth_context_id=self.auth_context_id,
                             auth_pad_length=padlen,
-                            # Note: auth_value should have the correct length because when
-                            # using PFC_SUPPORT_HEADER_SIGN, auth_len (and frag_len) is
-                            # included in the token.. but this creates a dependency loop as
-                            # you'd need to know the token length to compute the token.
-                            # Windows solves this by setting the 'Maximum Signature Length'
-                            # (or something similar) beforehand, instead of the real length.
+                            # Note: auth_value should have the correct length because
+                            # when using PFC_SUPPORT_HEADER_SIGN, auth_len
+                            # (and frag_len) is included in the token.. but this
+                            # creates a dependency loop as you'd need to know the token
+                            # length to compute the token. Windows solves this by
+                            # setting the 'Maximum Signature Length' (or something
+                            # similar) beforehand, instead of the real length.
                             # See `gensec_sig_size` in samba.
                             auth_value=b"\x00"
                             * self.ssp.MaximumSignatureLength(self.sspcontext),
@@ -2894,7 +2915,8 @@ class DceRpcSession(DefaultSession):
                         pdu_header.auth_len = len(pdu_header.auth_verifier) - 8
                         pdu_header.frag_len = len(pdu_header)
                         sec_trailer = pdu_header.auth_verifier
-                        # sec_trailer: include the sec_trailer but not the Authentication token
+                        # sec_trailer: include the sec_trailer but not the
+                        # Authentication token
                         authval_len = len(sec_trailer.auth_value)
                         # sec_trailer.auth_value = None
                         # Discard everything out of the header
@@ -2978,9 +3000,18 @@ class DceRpcSession(DefaultSession):
             return [pkt]
 
     def process(self, pkt: Packet) -> Optional[Packet]:
+        """
+        Used when DceRpcSession is used for passive sniffing.
+        """
         pkt = super(DceRpcSession, self).process(pkt)
         if pkt is not None and DceRpc5 in pkt:
-            return self.in_pkt(pkt)
+            rpkt = self.in_pkt(pkt)
+            if rpkt is None:
+                # We are passively dissecting a fragmented packet. Return
+                # just the header showing that it was indeed, fragmented.
+                pkt[DceRpc5].payload.remove_payload()
+                return pkt
+            return rpkt
         return pkt
 
 
