@@ -164,9 +164,6 @@ class SMB_Client(Automaton):
         self.NegotiateCapabilities = None
         self.GUID = RandUUID()._fix()
         self.SequenceWindow = (0, 0)  # keep track of allowed MIDs
-        self.MaxTransactionSize = 0
-        self.MaxReadSize = 0
-        self.MaxWriteSize = 0
         if ssp is None:
             # We got no SSP. Assuming the server allows anonymous
             ssp = SPNEGOSSP(
@@ -412,9 +409,9 @@ class SMB_Client(Automaton):
                         bytes(pkt[SMB2_Header]),  # nego response
                     )
                     # Process max sizes
-                    self.MaxReadSize = pkt.MaxReadSize
-                    self.MaxTransactionSize = pkt.MaxTransactionSize
-                    self.MaxWriteSize = pkt.MaxWriteSize
+                    self.session.MaxReadSize = pkt.MaxReadSize
+                    self.session.MaxTransactionSize = pkt.MaxTransactionSize
+                    self.session.MaxWriteSize = pkt.MaxWriteSize
                     # Process SecurityMode
                     if pkt.SecurityMode.SIGNING_REQUIRED:
                         self.session.SigningRequired = True
@@ -1028,8 +1025,12 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
         """
         Internal ObjectPipe function.
         """
-        # Reminder: this class is an ObjectPipe, it's just a queue
-        if self.use_ioctl:
+        # Reminder: this class is an ObjectPipe, it's just a queue.
+
+        # Detect if DCE/RPC is fragmented. Then we must use Read/Write
+        is_frag = x.pfc_flags & 3 != 3
+
+        if self.use_ioctl and not is_frag:
             # Use IOCTLRequest
             pkt = SMB2_IOCTL_Request(
                 FileId=self.PipeFileId,
@@ -1062,6 +1063,9 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
             resp = self.ins.sr1(pkt, verbose=0)
             if SMB2_Write_Response not in resp:
                 raise ValueError("Failed sending WriteResponse ! %s" % resp.NTStatus)
+            # If fragmented, only read if it's the last.
+            if is_frag and not x.pfc_flags.PFC_LAST_FRAG:
+                return
             # We send a Read Request afterwards
             resp = self.ins.sr1(
                 SMB2_Read_Request(
@@ -1071,9 +1075,9 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
             )
             if SMB2_Read_Response not in resp:
                 raise ValueError("Failed reading ReadResponse ! %s" % resp.NTStatus)
-            data = bytes(resp.Data)
-            # Handle BUFFER_OVERFLOW (big DCE/RPC response)
-            while resp.NTStatus == "STATUS_BUFFER_OVERFLOW":
+            super(SMB_RPC_SOCKET, self).send(resp.Data)
+            # Handle fragmented response
+            while resp.Data[3] & 2 != 2:  # PFC_LAST_FRAG not set
                 # Retrieve DCE/RPC full size
                 resp = self.ins.sr1(
                     SMB2_Read_Request(
@@ -1081,8 +1085,7 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
                     ),
                     verbose=0,
                 )
-                data += resp.Data
-            super(SMB_RPC_SOCKET, self).send(data)
+                super(SMB_RPC_SOCKET, self).send(resp.Data)
 
     def close(self):
         SMB_SOCKET.close(self)
@@ -1611,7 +1614,7 @@ class smbclient(CLIUtil):
         offset = 0
         # Read the file
         while length:
-            lengthRead = min(self.sock.atmt.MaxReadSize, length)
+            lengthRead = min(self.smbsock.session.MaxReadSize, length)
             fd.write(
                 self.smbsock.read_request(fileId, Length=lengthRead, Offset=offset)
             )
@@ -1638,7 +1641,7 @@ class smbclient(CLIUtil):
         # Send the file
         offset = 0
         while True:
-            data = fd.read(self.sock.atmt.MaxWriteSize)
+            data = fd.read(self.smbsock.session.MaxWriteSize)
             if not data:
                 # end of file
                 break
