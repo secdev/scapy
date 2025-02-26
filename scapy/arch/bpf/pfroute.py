@@ -1234,11 +1234,13 @@ def _get_if_list():
         ifindex = msg.ifm_index
         ifname = None
         mac = "00:00:00:00:00:00"
+        itype = -1
         ifflags = msg.ifm_flags
         ips = []
         for addr in msg.addrs:
             if addr.sa_family == socket.AF_LINK:
                 ifname = addr.sdl_iface.decode()
+                itype = addr.sdl_type
                 if addr.sdl_addr:
                     mac = addr.sdl_addr
         if ifname is not None:
@@ -1250,5 +1252,6 @@ def _get_if_list():
                 "flags": ifflags,
                 "mac": mac,
                 "ips": ips,
+                "type": itype,
             }
     return interfaces
