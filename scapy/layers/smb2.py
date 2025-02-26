@@ -3633,7 +3633,7 @@ class SMB2_IOCTL_Request(_SMB2_Payload, _NTLMPayloadPacket):
         LEIntField("MaxInputResponse", 0),
         LEIntField("OutputBufferOffset", None),
         LEIntField("OutputLen", None),  # Called OutputCount.
-        LEIntField("MaxOutputResponse", 1024),
+        LEIntField("MaxOutputResponse", 65535),
         FlagsField("Flags", 0, -32, {0x00000001: "SMB2_0_IOCTL_IS_FSCTL"}),
         LEIntField("Reserved2", 0),
         _NTLMPayloadField(
@@ -4707,7 +4707,14 @@ class SMBStreamSocket(StreamSocket):
             and self.session.Dialect
             and self.session.SigningKey
             and self.session.SigningRequired
+            # [MS-SMB2] sect 3.2.5.1.3 Verifying the Signature
+            # "The client MUST skip the processing in this section if any of:"
+            # - [...] decryption in section 3.2.5.1.1.1 succeeds
             and not smbh._decrypted
+            # - MessageId is 0xFFFFFFFFFFFFFFFF
+            and smbh.MID != 0xFFFFFFFFFFFFFFFF
+            # - Status in the SMB2 header is STATUS_PENDING
+            and smbh.Status != 0x00000103
         ):
             smbh.verify(
                 self.session.Dialect,
@@ -4746,6 +4753,9 @@ class SMBSession(DefaultSession):
         self.Dialect = 0x0202  # Updated by parent
         self.Credits = 0
         self.IsGuest = False
+        self.MaxTransactionSize = 0
+        self.MaxReadSize = 0
+        self.MaxWriteSize = 0
         # Crypto parameters. Go read [MS-SMB2] to understand the names.
         self.SigningRequired = True
         self.SupportsEncryption = False

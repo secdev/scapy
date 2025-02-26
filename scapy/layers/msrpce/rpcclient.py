@@ -81,6 +81,7 @@ class DCERPC_Client(object):
         self.ssp = kwargs.pop("ssp", None)  # type: SSP
         self.sspcontext = None
         self.dcesockargs = kwargs
+        self.dcesockargs["transport"] = self.transport
 
     @classmethod
     def from_smblink(cls, smbcli, smb_kwargs={}, **kwargs):
