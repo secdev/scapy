@@ -68,6 +68,17 @@ assert HTTPResponse in pkt
 print(pkt[Raw].load, expected_data)
 assert pkt[Raw].load == expected_data
 
+= TCPSession - Invalid Content-Length
+
+pkts = [
+    IP()/TCP(seq=1)/HTTP()/Raw(load=b'GET / HTTP/1.1\r\nContent-Length: bad\r\nCoo'),
+    IP()/TCP(seq=41)/HTTP()/Raw(load=b'kie: cookie\r\n\r\n'),
+]
+a = sniff(offline=pkts, session=TCPSession)
+
+assert HTTPRequest in a[0]
+assert a[0].Cookie == b"cookie"
+
 = TCPSession - dissect HTTP 1.0 HEAD response
 ~ http
 
