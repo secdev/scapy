@@ -13,7 +13,8 @@ from scapy.layers.inet import TCP, UDP
 from scapy.layers.inet6 import IP6Field
 from scapy.compat import raw, orb
 from scapy.config import conf
-from scapy.packet import Packet, Raw, bind_top_down, bind_bottom_up, bind_layers
+from scapy.packet import (Packet, Raw, bind_top_down, bind_bottom_up,
+                          bind_layers)
 from scapy.fields import (XShortField, ConditionalField,
                           BitField, XBitField, XByteField, ByteEnumField,
                           ShortField, X3BytesField, StrLenField, IPField,
@@ -176,21 +177,35 @@ class SOMEIP(Packet):
             fnb += 1
             fl = fl.underlayer
 
+        has_payload = len(self.data) == 0 or sum(len(p) for p in self.data) == 0
+
         for p in fl:
-            s = raw(p[fnb].payload)
+            if has_payload:
+                s = raw(p[fnb].payload)
+            else:
+                s = raw(p[fnb].data[0])
             nb = (len(s) + fragsize) // fragsize
             for i in range(nb):
                 q = p.copy()
-                del q[fnb].payload
+                if has_payload:
+                    del q[fnb].payload
+                else:
+                    del q[fnb].data[0]
                 q[fnb].len = SOMEIP.LEN_OFFSET_TP + \
                     len(s[i * fragsize:(i + 1) * fragsize])
                 q[fnb].more_seg = 1
                 if i == nb - 1:
                     q[fnb].more_seg = 0
-                q[fnb].offset += i * fragsize // 16
+                q[fnb].offset += i * fragsize
                 r = conf.raw_layer(load=s[i * fragsize:(i + 1) * fragsize])
-                r.overload_fields = p[fnb].payload.overload_fields.copy()
-                q.add_payload(r)
+                if has_payload:
+                    r.overload_fields = p[fnb].payload.overload_fields.copy()
+                else:
+                    r.overload_fields = p[fnb].data[0].overload_fields.copy()
+                if has_payload:
+                    q.add_payload(r)
+                else:
+                    q.data.append(r)
                 lst.append(q)
 
         return lst
