@@ -652,11 +652,17 @@ class HTTP(Packet):
             is_response = isinstance(http_packet.payload, cls.clsresp)
             # Packets may have a Content-Length we must honnor
             length = http_packet.Content_Length
+            if length:
+                # Parse the length as an integer
+                try:
+                    length = int(length)
+                except ValueError:
+                    length = None
             if length is not None:
                 # The packet provides a Content-Length attribute: let's
                 # use it. When the total size of the frags is high enough,
                 # we have the packet
-                length = int(length)
+
                 # Subtract the length of the "HTTP*" layer
                 if http_packet.payload.payload or length == 0:
                     http_length = len(data) - http_packet.payload._original_len
