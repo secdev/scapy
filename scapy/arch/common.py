@@ -12,7 +12,7 @@ import re
 import socket
 
 from scapy.config import conf
-from scapy.data import MTU, ARPHRD_TO_DLT
+from scapy.data import MTU, ARPHRD_TO_DLT, DLT_RAW_ALT, DLT_RAW
 from scapy.error import Scapy_Exception, warning
 from scapy.interfaces import network_name, resolve_iface, NetworkInterface
 from scapy.libs.structures import bpf_program
@@ -106,6 +106,9 @@ def compile_filter(filter_exp,  # type: str
             # Failed to use linktype: use the interface
             pass
     if linktype is not None:
+        # Some conversion aliases (e.g. linktype_to_dlt in libpcap)
+        if linktype == DLT_RAW_ALT:
+            linktype = DLT_RAW
         ret = pcap_compile_nopcap(
             MTU, linktype, ctypes.byref(bpf), bpf_filter, 1, -1
         )
