@@ -1904,6 +1904,11 @@ pkts = fragment6(IPv6()/IPv6ExtHdrFragment()/UDP(dport=42, sport=42)/Raw(load="A
 pkts = [IPv6(raw(p)) for p in pkts]
 assert defragment6(pkts).plen == 1508
 
+= defragment6 - discard payload
+pkt = Ether() / IPv6() / ICMPv6EchoRequest(data='b'*100)
+frags = fragment6(pkt, 100)
+pkt = defragment6(Ether(raw(frag / Padding(b'a' * 8))) for frag in frags)
+assert b'a' not in pkt.data
 
 ############
 ############
