@@ -11,13 +11,18 @@ import os
 import random
 
 from scapy.packet import Packet, bind_layers, split_bottom_up, bind_bottom_up
-from scapy.fields import PacketListField, ShortEnumField, ShortField, \
-    StrNullField
+from scapy.fields import (
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    StrNullField,
+)
 from scapy.automaton import ATMT, Automaton
-from scapy.layers.inet import UDP, IP
+from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.volatile import RandShort
 
+from scapy.layers.inet import UDP, IP
 
 TFTP_operations = {1: "RRQ", 2: "WRQ", 3: "DATA", 4: "ACK", 5: "ERROR", 6: "OACK"}  # noqa: E501
 
@@ -141,6 +146,9 @@ class TFTP_read(Automaton):
     """
 
     def parse_args(self, filename, server, sport=None, port=69, **kargs):
+        if "iface" not in kargs:
+            server = str(Net(server))
+            kargs["iface"] = conf.route.route(server)[0]
         Automaton.parse_args(self, **kargs)
         self.filename = filename
         self.server = server
@@ -232,6 +240,9 @@ class TFTP_write(Automaton):
     """
 
     def parse_args(self, filename, data, server, sport=None, port=69, **kargs):
+        if "iface" not in kargs:
+            server = str(Net(server))
+            kargs["iface"] = conf.route.route(server)[0]
         Automaton.parse_args(self, **kargs)
         self.filename = filename
         self.server = server
@@ -316,6 +327,9 @@ class TFTP_WRQ_server(Automaton):
     """
 
     def parse_args(self, ip=None, sport=None, *args, **kargs):
+        if "iface" not in kargs:
+            ip = str(Net(ip))
+            kargs["iface"] = conf.route.route(ip)[0]
         Automaton.parse_args(self, *args, **kargs)
         self.ip = ip
         self.sport = sport
@@ -396,6 +410,9 @@ class TFTP_RRQ_server(Automaton):
     """
 
     def parse_args(self, store=None, joker=None, dir=None, ip=None, sport=None, serve_one=False, **kargs):  # noqa: E501
+        if "iface" not in kargs:
+            ip = str(Net(ip))
+            kargs["iface"] = conf.route.route(ip)[0]
         Automaton.parse_args(self, **kargs)
         if store is None:
             store = {}
