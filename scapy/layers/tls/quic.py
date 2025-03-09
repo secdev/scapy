@@ -5,83 +5,24 @@
 """
 RFC9000 QUIC Transport Parameters
 """
+import struct
 
-from scapy.compat import raw
+from scapy.config import conf
 from scapy.fields import (
     PacketListField,
-    Field,
     FieldLenField,
-    EnumField,
     StrLenField,
-    StrFixedLenField,
 )
 from scapy.packet import Packet
-from typing import Tuple
-# from scapy.layers.tls.session import _GenericTLSSessionInheritance
+
+from scapy.layers.quic import (
+    QuicVarIntField,
+    QuicVarLenField,
+    QuicVarEnumField,
+)
 
 
-def _quic_m2varint(m: bytes) -> Tuple[int, int]:
-    """Decode QUIC variable-length integers"""
-    length = 1 << ((m[0] & 0xC0) >> 6)
-    if len(m) < length:
-        raise ValueError(
-            "QUIC variable-length integer decoding expects %d byte(s), "
-            "while %d byte(s) given" % (length, len(m))
-        )
-    mask = (0x40 << (length - 1) * 8) - 1
-    return int.from_bytes(m[:length], "big") & mask, length
-
-
-def _quic_i2mask_len(i: int) -> Tuple[int, int]:
-    length = i.bit_length()
-    if length <= 6:
-        return 0, 1
-    elif length <= 14:
-        return 0x4000, 2
-    elif length <= 30:
-        return 0x80000000, 4
-    elif length <= 62:
-        return 0xC000000000000000, 8
-    else:
-        raise ValueError(
-            "cannot apply QUIC variable-length encoding on integer "
-            "with more than 62 bits"
-        )
-
-
-def _quic_i2m(i: int) -> bytes:
-    mask, length = _quic_i2mask_len(i)
-    return (i | mask).to_bytes(length, "big")
-
-
-class _QuicVarIntMixin:
-    def getfield(self, pkt, s):
-        val, val_len = _quic_m2varint(s)
-        return s[val_len:], val
-
-    def addfield(self, pkt, s, val):
-        return s + self.i2m(pkt, val)
-
-    def i2len(self, pkt, x):
-        return _quic_i2mask_len(x)[1]
-
-
-class QuicVarIntField(_QuicVarIntMixin, Field):
-    def i2m(self, pkt, x):
-        return _quic_i2m(super(QuicVarIntField, self).i2m(pkt, x))
-
-
-class QuicVarLenField(_QuicVarIntMixin, FieldLenField):
-    def i2m(self, pkt, x):
-        return _quic_i2m(super(QuicVarLenField, self).i2m(pkt, x))
-
-
-class QuicVarEnumField(_QuicVarIntMixin, EnumField):
-    def i2m(self, pkt, x):
-        return _quic_i2m(super(QuicVarEnumField, self).i2m(pkt, x))
-
-
-_quic_tp_type = {
+_QUIC_TP_type = {
     0x00: "original_destination_connection_id",
     0x01: "max_idle_timeout",
     0x02: "stateless_reset_token",
@@ -101,207 +42,176 @@ _quic_tp_type = {
     0x10: "retry_source_connection_id",
 }
 
+# Generic values
 
-class Quic_Tp_Unknown(Packet):
+
+class QUIC_TP_Unknown(Packet):
     name = "QUIC Transport Parameter - Scapy Unknown"
     fields_desc = [
-        QuicVarEnumField("type", None, _quic_tp_type),
+        QuicVarEnumField("type", None, _QUIC_TP_type),
         QuicVarLenField("len", None, length_of="value"),
         StrLenField("value", None, length_from=lambda pkt: pkt.len),
     ]
 
+    def default_payload_class(self, _):
+        return conf.padding_layer
 
-class Quic_Tp_OriginalDestinationConnectionId(Quic_Tp_Unknown):
+
+class _QUIC_VarInt_Len(FieldLenField):
+    def i2m(self, pkt, x):
+        if x is None and pkt is not None:
+            fld, fval = pkt.getfield_and_val(self.length_of)
+            value = fld.i2len(pkt, fval) or 0
+            if value < 0 or value > 0xFFFFFFFF:
+                raise struct.error("requires 0 <= number <= 0xFFFFFFFF")
+            if value < 0x100:
+                return 1
+            elif value < 0x10000:
+                return 2
+            elif value < 0x100000000:
+                return 3
+            else:
+                return 4
+        elif x is None:
+            return 1
+        return x
+
+
+class _QUIC_TP_VarIntValue(QUIC_TP_Unknown):
+    fields_desc = [
+        QuicVarEnumField("type", None, _QUIC_TP_type),
+        _QUIC_VarInt_Len("len", None, length_of="value", fmt="B"),
+        QuicVarIntField("value", None),
+    ]
+
+
+# RFC 9000 sect 18.2
+
+
+class QUIC_TP_OriginalDestinationConnectionId(QUIC_TP_Unknown):
     name = "QUIC Transport Parameters - Original Destination Connection Id"
-    fields_desc = [
-        QuicVarEnumField("type", 0x00, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        StrLenField("value", None, length_from=lambda pkt: pkt.len),
-    ]
+    type = 0x00
 
 
-class Quic_Tp_MaxIdleTimeout(Quic_Tp_Unknown):
+class QUIC_TP_MaxIdleTimeout(_QUIC_TP_VarIntValue):
     name = "QUIC Transport Parameters - Max Idle Timeout"
-    fields_desc = [
-        QuicVarEnumField("type", 0x01, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        QuicVarIntField("value", None),
-    ]
+    type = 0x01
 
 
-class Quic_Tp_StatelessResetToken(Quic_Tp_Unknown):
+class QUIC_TP_StatelessResetToken(QUIC_TP_Unknown):
     name = "QUIC Transport Parameters - Stateless Reset Token"
-    fields_desc = [
-        QuicVarEnumField("type", 0x02, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        StrFixedLenField("value", None, 16),
-    ]
+    type = 0x02
 
 
-class Quic_Tp_MaxUdpPayloadSize(Quic_Tp_Unknown):
+class QUIC_TP_MaxUdpPayloadSize(_QUIC_TP_VarIntValue):
     name = "QUIC Transport Parameters - Max Udp Payload Size"
-    fields_desc = [
-        QuicVarEnumField("type", 0x03, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        QuicVarIntField("value", None),
-    ]
+    type = 0x03
 
 
-class Quic_Tp_InitialMaxData(Quic_Tp_Unknown):
+class QUIC_TP_InitialMaxData(_QUIC_TP_VarIntValue):
     name = "QUIC Transport Parameters - Initial Max Data"
-    fields_desc = [
-        QuicVarEnumField("type", 0x04, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        QuicVarIntField("value", None),
-    ]
+    type = 0x04
 
 
-class Quic_Tp_InitialMaxStreamDataBidiLocal(Quic_Tp_Unknown):
+class QUIC_TP_InitialMaxStreamDataBidiLocal(_QUIC_TP_VarIntValue):
     name = "QUIC Transport Parameters - Initial Max Stream Data Bidi Local"
-    fields_desc = [
-        QuicVarEnumField("type", 0x05, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        QuicVarIntField("value", None),
-    ]
+    type = 0x05
 
 
-class Quic_Tp_InitialMaxStreamDataBidiRemote(Quic_Tp_Unknown):
+class QUIC_TP_InitialMaxStreamDataBidiRemote(_QUIC_TP_VarIntValue):
     name = "QUIC Transport Parameters - Initial Max Stream Data Bidi Remote"
-    fields_desc = [
-        QuicVarEnumField("type", 0x06, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        QuicVarIntField("value", None),
-    ]
+    type = 0x06
 
 
-class Quic_Tp_InitialMaxStreamDataUni(Quic_Tp_Unknown):
+class QUIC_TP_InitialMaxStreamDataUni(_QUIC_TP_VarIntValue):
     name = "QUIC Transport Parameters - Initial Max Stream Data Uni"
-    fields_desc = [
-        QuicVarEnumField("type", 0x07, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        QuicVarIntField("value", None),
-    ]
+    type = 0x07
 
 
-class Quic_Tp_InitialMaxStreamsBidi(Quic_Tp_Unknown):
+class QUIC_TP_InitialMaxStreamsBidi(_QUIC_TP_VarIntValue):
     name = "QUIC Transport Parameters - Initial Max Streams Bidi"
-    fields_desc = [
-        QuicVarEnumField("type", 0x08, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        QuicVarIntField("value", None),
-    ]
+    type = 0x08
 
 
-class Quic_Tp_InitialMaxStreamsUni(Quic_Tp_Unknown):
+class QUIC_TP_InitialMaxStreamsUni(_QUIC_TP_VarIntValue):
     name = "QUIC Transport Parameters - Initial Max Streams Uni"
-    fields_desc = [
-        QuicVarEnumField("type", 0x09, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        QuicVarIntField("value", None),
-    ]
+    type = 0x09
 
 
-class Quic_Tp_AckDelayExponent(Quic_Tp_Unknown):
+class QUIC_TP_AckDelayExponent(_QUIC_TP_VarIntValue):
     name = "QUIC Transport Parameters - Ack Delay Exponent"
-    fields_desc = [
-        QuicVarEnumField("type", 0x0A, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        QuicVarIntField("value", None),
-    ]
+    type = 0x0A
 
 
-class Quic_Tp_MaxAckDelay(Quic_Tp_Unknown):
+class QUIC_TP_MaxAckDelay(_QUIC_TP_VarIntValue):
     name = "QUIC Transport Parameters - Max Ack Delay"
-    fields_desc = [
-        QuicVarEnumField("type", 0x0B, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        QuicVarIntField("value", None),
-    ]
+    type = 0x0B
 
 
-class Quic_Tp_DisableActiveMigration(Quic_Tp_Unknown):
+class QUIC_TP_DisableActiveMigration(QUIC_TP_Unknown):
     name = "QUIC Transport Parameters - Disable Active Migration"
     fields_desc = [
-        QuicVarEnumField("type", 0x0C, _quic_tp_type),
+        QuicVarEnumField("type", 0x0C, _QUIC_TP_type),
         QuicVarIntField("len", 0),
     ]
 
 
-class Quic_Tp_PreferredAddress(Quic_Tp_Unknown):
+class QUIC_TP_PreferredAddress(QUIC_TP_Unknown):
     name = "QUIC Transport Parameters - Preferred Address"
-    fields_desc = [
-        QuicVarEnumField("type", 0x0D, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        StrLenField("value", None, length_from=lambda pkt: pkt.len),
-    ]
+    type = 0x0D
 
 
-class Quic_Tp_ActiveConnectionIdLimit(Quic_Tp_Unknown):
+class QUIC_TP_ActiveConnectionIdLimit(_QUIC_TP_VarIntValue):
     name = "QUIC Transport Parameters - Active Connection Id Limit"
-    fields_desc = [
-        QuicVarEnumField("type", 0x0E, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        QuicVarIntField("value", None),
-    ]
+    type = 0x0E
 
 
-class Quic_Tp_InitialSourceConnectionId(Quic_Tp_Unknown):
+class QUIC_TP_InitialSourceConnectionId(QUIC_TP_Unknown):
     name = "QUIC Transport Parameters - Initial Source Connection Id"
-    fields_desc = [
-        QuicVarEnumField("type", 0x0F, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        StrLenField("value", None, length_from=lambda pkt: pkt.len),
-    ]
+    type = 0x0F
 
 
-class Quic_Tp_RetrySourceConnectionId(Quic_Tp_Unknown):
+class QUIC_TP_RetrySourceConnectionId(QUIC_TP_Unknown):
     name = "QUIC Transport Parameters - Retry Source Connection Id"
-    fields_desc = [
-        QuicVarEnumField("type", 0x10, _quic_tp_type),
-        QuicVarLenField("len", None, length_of="value"),
-        StrLenField("value", None, length_from=lambda pkt: pkt.len),
-    ]
+    type = 0x10
 
 
-_quic_tp_cls = {
-    0x00: Quic_Tp_OriginalDestinationConnectionId,
-    0x01: Quic_Tp_MaxIdleTimeout,
-    0x02: Quic_Tp_StatelessResetToken,
-    0x03: Quic_Tp_MaxUdpPayloadSize,
-    0x04: Quic_Tp_InitialMaxData,
-    0x05: Quic_Tp_InitialMaxStreamDataBidiLocal,
-    0x06: Quic_Tp_InitialMaxStreamDataBidiRemote,
-    0x07: Quic_Tp_InitialMaxStreamDataUni,
-    0x08: Quic_Tp_InitialMaxStreamsBidi,
-    0x09: Quic_Tp_InitialMaxStreamsUni,
-    0x0A: Quic_Tp_AckDelayExponent,
-    0x0B: Quic_Tp_MaxAckDelay,
-    0x0C: Quic_Tp_DisableActiveMigration,
-    0x0D: Quic_Tp_PreferredAddress,
-    0x0E: Quic_Tp_ActiveConnectionIdLimit,
-    0x0F: Quic_Tp_InitialSourceConnectionId,
-    0x10: Quic_Tp_RetrySourceConnectionId,
+_QUIC_TP_cls = {
+    0x00: QUIC_TP_OriginalDestinationConnectionId,
+    0x01: QUIC_TP_MaxIdleTimeout,
+    0x02: QUIC_TP_StatelessResetToken,
+    0x03: QUIC_TP_MaxUdpPayloadSize,
+    0x04: QUIC_TP_InitialMaxData,
+    0x05: QUIC_TP_InitialMaxStreamDataBidiLocal,
+    0x06: QUIC_TP_InitialMaxStreamDataBidiRemote,
+    0x07: QUIC_TP_InitialMaxStreamDataUni,
+    0x08: QUIC_TP_InitialMaxStreamsBidi,
+    0x09: QUIC_TP_InitialMaxStreamsUni,
+    0x0A: QUIC_TP_AckDelayExponent,
+    0x0B: QUIC_TP_MaxAckDelay,
+    0x0C: QUIC_TP_DisableActiveMigration,
+    0x0D: QUIC_TP_PreferredAddress,
+    0x0E: QUIC_TP_ActiveConnectionIdLimit,
+    0x0F: QUIC_TP_InitialSourceConnectionId,
+    0x10: QUIC_TP_RetrySourceConnectionId,
 }
 
 
 class _QuicTransportParametersField(PacketListField):
-    def m2i(self, pkt, m):
-        res = []
-        while len(m) >= 2:
-            ty, ty_len = _quic_m2varint(m)
-            vl, vl_len = _quic_m2varint(m[ty_len:])
-            pay_len = ty_len + vl_len + vl
-            cls = _quic_tp_cls.get(ty, Quic_Tp_Unknown)
-            res.append(cls(m[:pay_len]))
-            m = m[pay_len:]
-        return res
+    _varfield = QuicVarIntField("", 0)
 
-    def getfield(self, pkt, s):
-        tmp_len = self.length_from(pkt) or 0
-        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
+    def __init__(self, name, default, **kwargs):
+        kwargs["next_cls_cb"] = self.cls_from_quictptype
+        super(_QuicTransportParametersField, self).__init__(
+            name,
+            default,
+            **kwargs,
+        )
 
-    def i2m(self, pkt, i):
-        if i is None:
-            return b""
-        else:
-            return b"".join(map(raw, i))
+    @classmethod
+    def cls_from_quictptype(cls, pkt, lst, cur, remain):
+        _, typ = cls._varfield.getfield(None, remain)
+        return _QUIC_TP_cls.get(
+            typ,
+            QUIC_TP_Unknown,
+        )

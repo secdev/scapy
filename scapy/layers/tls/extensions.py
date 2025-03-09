@@ -699,7 +699,7 @@ class TLS_Ext_RecordSizeLimit(TLS_Ext_Unknown):  # RFC 8449
                    ShortField("record_size_limit", None)]
 
 
-class TLS_Ext_QuicTransportParameters(TLS_Ext_Unknown):  # RFC9000
+class TLS_Ext_QUICTransportParameters(TLS_Ext_Unknown):  # RFC9000
     name = "TLS Extension - QUIC Transport Parameters"
     fields_desc = [ShortEnumField("type", 0x39, _tls_ext),
                    FieldLenField("len", None, length_of="params"),
@@ -741,7 +741,7 @@ _tls_ext_cls = {0: TLS_Ext_ServerName,
                 0x33: TLS_Ext_KeyShare,
                 # 0x2f: TLS_Ext_CertificateAuthorities,       #XXX
                 # 0x30: TLS_Ext_OIDFilters,                   #XXX
-                0x39: TLS_Ext_QuicTransportParameters,
+                0x39: TLS_Ext_QUICTransportParameters,
                 0x3374: TLS_Ext_NPN,
                 0xff01: TLS_Ext_RenegotiationInfo,
                 0xffce: TLS_Ext_EncryptedServerName
