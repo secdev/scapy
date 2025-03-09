@@ -1696,7 +1696,7 @@ class PacketListField(_PacketField[List[BasePacket]]):
                 cbk(pkt:Packet,
                     lst:List[Packet],
                     cur:Optional[Packet],
-                    remain:str
+                    remain:bytes,
                 ) -> Optional[Type[Packet]]
 
               The pkt argument contains a reference to the Packet instance
