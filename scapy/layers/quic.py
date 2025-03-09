@@ -35,6 +35,7 @@ from scapy.fields import (
     MultipleTypeField,
     ShortField,
     StrLenField,
+    ThreeBytesField,
 )
 
 # Typing imports
@@ -80,9 +81,9 @@ class QuicVarIntField(Field[int, int]):
         elif val < 0x4000:
             return s + struct.pack("!H", val | 0x4000)
         elif val < 0x40000000:
-            return s + struct.pack("!I", val | 0x40000000)
+            return s + struct.pack("!I", val | 0x80000000)
         else:
-            return s + struct.pack("!Q", val | 0x4000000000000000)
+            return s + struct.pack("!Q", val | 0xC000000000000000)
 
     def getfield(self, pkt: Packet, s: bytes) -> Tuple[bytes, int]:
         length = (s[0] & 0xC0) >> 6
@@ -185,7 +186,7 @@ class QUIC_Version(QUIC):
         IntField("Version", 0),
         FieldLenField("DstConnIDLen", None, length_of="DstConnID", fmt="B"),
         StrLenField("DstConnID", "", length_from=lambda pkt: pkt.DstConnIDLen),
-        FieldLenField("SrcConnIDLen", None, length_of="DstConnID", fmt="B"),
+        FieldLenField("SrcConnIDLen", None, length_of="SrcConnID", fmt="B"),
         StrLenField("SrcConnID", "", length_from=lambda pkt: pkt.SrcConnIDLen),
         FieldListField("SupportedVersions", [], IntField("", 0)),
     ]
@@ -195,9 +196,34 @@ class QUIC_Version(QUIC):
 
 QuicPacketNumberField = lambda name, default: MultipleTypeField(
     [
-        (ByteField(name, default), lambda pkt: pkt.PacketNumberLen == 0),
-        (ShortField(name, default), lambda pkt: pkt.PacketNumberLen == 1),
-        (IntField(name, default), lambda pkt: pkt.PacketNumberLen == 2),
+        (
+            ByteField(name, default),
+            (
+                lambda pkt: pkt.PacketNumberLen == 0,
+                lambda _, val: val < 0x100,
+            ),
+        ),
+        (
+            ShortField(name, default),
+            (
+                lambda pkt: pkt.PacketNumberLen == 1,
+                lambda _, val: val < 0x10000,
+            ),
+        ),
+        (
+            ThreeBytesField(name, default),
+            (
+                lambda pkt: pkt.PacketNumberLen == 2,
+                lambda _, val: val < 0x1000000,
+            ),
+        ),
+        (
+            IntField(name, default),
+            (
+                lambda pkt: pkt.PacketNumberLen == 3,
+                lambda _, val: val < 0x100000000,
+            ),
+        ),
     ],
     ByteField(name, default),
 )
@@ -213,7 +239,7 @@ class QuicPacketNumberBitFieldLenField(BitField):
                 return 0
             elif PacketNumber < 0x10000:
                 return 1
-            elif PacketNumber < 0x100000000:
+            elif PacketNumber < 0x1000000:
                 return 2
             else:
                 return 3
