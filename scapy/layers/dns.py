@@ -199,7 +199,10 @@ def dns_get_str(s, full=None, _ignore_compression=False):
 
 
 def _is_ptr(x):
-    return b"." not in x and (
+    """
+    Heuristic to guess if bytes are an encoded DNS pointer.
+    """
+    return (
         (x and x[-1] == 0) or
         (len(x) >= 2 and (x[-2] & 0xc0) == 0xc0)
     )
