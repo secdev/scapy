@@ -1822,9 +1822,10 @@ class DNS_am(AnsweringMachine):
             if self.relay:
                 # Relay mode ?
                 try:
-                    _rslv = dns_resolve(rq.qname, qtype=rq.qtype)
+                    _rslv = dns_resolve(rq.qname, qtype=rq.qtype, raw=True)
                     if _rslv:
-                        ans.extend(_rslv)
+                        ans.extend(_rslv.an)
+                        ars.extend(_rslv.ar)
                         continue  # next
                 except TimeoutError:
                     pass
