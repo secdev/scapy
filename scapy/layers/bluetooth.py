@@ -2518,6 +2518,46 @@ class HCI_LE_Meta_Long_Term_Key_Request(Packet):
                    XLEShortField("ediv", 0), ]
 
 
+class HCI_LE_Meta_Extended_Advertising_Report(Packet):
+    name = "Extended Advertising Report"
+    fields_desc = [
+        LEShortField("type", 0),
+        ByteEnumField("atype", 0, {0: "public", 1: "random"}),
+        LEMACField('addr', None),
+        ByteEnumField("pri_phy", 0, {
+            0x01: "le_1m",
+            0x03: "le_coded_s8",
+            0x04: "le_coded_s2"
+        }),
+        ByteEnumField("sec_phy", 0, {
+            0x01: "le_1m",
+            0x02: "le_2m",
+            0x03: "le_coded_s8",
+            0x04: "le_coded_s2"
+        }),
+        ByteField("adv_sid", 0xff),
+        ByteField("tx_pwr", 0x7f),
+        SignedByteField("rssi", 0x00),
+        LEShortField("interval", 0x0000),
+        ByteEnumField("datype", 0, {0: "public"}),
+        LEMACField("daddr", None),
+        FieldLenField("len", None, length_of="data", fmt="B"),
+        PacketListField("data", [], EIR_Hdr,
+                        length_from=lambda pkt: pkt.len),
+    ]
+
+    def extract_padding(self, s):
+        return '', s
+
+
+class HCI_LE_Meta_Extended_Advertising_Reports(Packet):
+    name = "Extended Advertising Reports"
+    fields_desc = [FieldLenField("num_reports", None, count_of="reports", fmt="B"),
+                   PacketListField("reports", None,
+                                   HCI_LE_Meta_Extended_Advertising_Report,
+                                   count_from=lambda pkt: pkt.num_reports)]
+
+
 bind_layers(HCI_PHDR_Hdr, HCI_Hdr)
 
 bind_layers(HCI_Hdr, HCI_Command_Hdr, type=1)
@@ -2648,6 +2688,7 @@ bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=0x01)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Reports, event=0x02)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=0x03)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=0x05)
+bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Extended_Advertising_Reports, event=0x0d)
 
 bind_layers(EIR_Hdr, EIR_Flags, type=0x01)
 bind_layers(EIR_Hdr, EIR_IncompleteList16BitServiceUUIDs, type=0x02)
