@@ -708,10 +708,10 @@ assert a.summary() == "HCI Event / HCI_Event_Hdr / HCI_Event_LE_Meta / HCI_LE_Me
 = EIR_Hdr - HCI_LE_Meta_Extended_Advertising_Report
 a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Extended_Advertising_Reports(reports=[
    HCI_LE_Meta_Extended_Advertising_Report(
-      type = 0x0012,
-      atype = 0x01,
-      addr="a1:b2:c3:d4:e5:f6",
-      pri_phy = 1,
+      event_type = 0x0012,
+      address_type = 0x01,
+      address="a1:b2:c3:d4:e5:f6",
+      primary_phy = 1,
       rssi = -85,
       data=[
          EIR_Hdr()/EIR_CompleteList16BitServiceUUIDs(
@@ -723,10 +723,10 @@ a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Extended_Advertisi
       ]
    ),
     HCI_LE_Meta_Extended_Advertising_Report(
-      type = 0x001a,
-      atype = 0x01,
-      addr="a1:b2:c3:d4:e5:f6",
-      pri_phy = 1,
+      event_type = 0x001a,
+      address_type = 0x01,
+      address="a1:b2:c3:d4:e5:f6",
+      primary_phy = 1,
       rssi = -85,
       data=[
          EIR_Hdr()/EIR_Manufacturer_Specific_Data(
@@ -742,10 +742,10 @@ b = HCI_Hdr(raw(a))
 b.show()
 assert b[HCI_Event_Hdr].len > 0
 assert b[HCI_LE_Meta_Extended_Advertising_Reports].num_reports == 2
-assert b[HCI_LE_Meta_Extended_Advertising_Report][0].addr == "a1:b2:c3:d4:e5:f6"
-assert b[HCI_LE_Meta_Extended_Advertising_Report][0].tx_pwr == 0x7f
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].address == "a1:b2:c3:d4:e5:f6"
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].tx_power == 0x7f
 assert b[HCI_LE_Meta_Extended_Advertising_Report][0].rssi == -85
-assert b[HCI_LE_Meta_Extended_Advertising_Report][0].len > 0
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].data_length > 0
 assert b[EIR_CompleteList16BitServiceUUIDs].svc_uuids == [0xffff]
 assert b[EIR_ServiceData16BitUUID].svc_uuid == 0xffff
 assert raw(b[EIR_ServiceData16BitUUID].payload) == b"scapy\x00\x00\x00"

@@ -2521,29 +2521,29 @@ class HCI_LE_Meta_Long_Term_Key_Request(Packet):
 class HCI_LE_Meta_Extended_Advertising_Report(Packet):
     name = "Extended Advertising Report"
     fields_desc = [
-        LEShortField("type", 0),
-        ByteEnumField("atype", 0, {0: "public", 1: "random"}),
-        LEMACField('addr', None),
-        ByteEnumField("pri_phy", 0, {
+        LEShortField("event_type", 0),
+        ByteEnumField("address_type", 0, {0: "public", 1: "random"}),
+        LEMACField('address', None),
+        ByteEnumField("primary_phy", 0, {
             0x01: "le_1m",
             0x03: "le_coded_s8",
             0x04: "le_coded_s2"
         }),
-        ByteEnumField("sec_phy", 0, {
+        ByteEnumField("secondary_phy", 0, {
             0x01: "le_1m",
             0x02: "le_2m",
             0x03: "le_coded_s8",
             0x04: "le_coded_s2"
         }),
-        ByteField("adv_sid", 0xff),
-        ByteField("tx_pwr", 0x7f),
+        ByteField("advertising_sid", 0xff),
+        ByteField("tx_power", 0x7f),
         SignedByteField("rssi", 0x00),
-        LEShortField("interval", 0x0000),
-        ByteEnumField("datype", 0, {0: "public"}),
-        LEMACField("daddr", None),
-        FieldLenField("len", None, length_of="data", fmt="B"),
+        LEShortField("periodic_advertising_interval", 0x0000),
+        ByteEnumField("direct_address_type", 0, {0: "public"}),
+        LEMACField("direct_address", None),
+        FieldLenField("data_length", None, length_of="data", fmt="B"),
         PacketListField("data", [], EIR_Hdr,
-                        length_from=lambda pkt: pkt.len),
+                        length_from=lambda pkt: pkt.data_length),
     ]
 
     def extract_padding(self, s):
