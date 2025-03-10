@@ -29,7 +29,7 @@ from scapy.arch import (
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net, ScopedIP
 from scapy.config import conf
-from scapy.compat import orb, raw, chb, bytes_encode, plain_str
+from scapy.compat import raw, chb, bytes_encode, plain_str
 from scapy.error import log_runtime, warning, Scapy_Exception
 from scapy.packet import Packet, bind_layers, Raw
 from scapy.fields import (
@@ -200,8 +200,8 @@ def dns_get_str(s, full=None, _ignore_compression=False):
 
 def _is_ptr(x):
     return b"." not in x and (
-        (x and orb(x[-1]) == 0) or
-        (len(x) >= 2 and (orb(x[-2]) & 0xc0) == 0xc0)
+        (x and x[-1] == 0) or
+        (len(x) >= 2 and (x[-2] & 0xc0) == 0xc0)
     )
 
 
@@ -396,7 +396,7 @@ class DNSTextField(StrLenField):
         # RDATA contains a list of strings, each are prepended with
         # a byte containing the size of the following string.
         while tmp_s:
-            tmp_len = orb(tmp_s[0]) + 1
+            tmp_len = tmp_s[0] + 1
             if tmp_len > len(tmp_s):
                 log_runtime.info(
                     "DNS RR TXT prematured end of character-string "
@@ -559,7 +559,7 @@ class ClientSubnetv4(StrLenField):
         # type: (bytes) -> bytes
         packed_subnet = inet_pton(self.af_familly, plain_str(subnet))
         for i in list(range(operator.floordiv(self.af_length, 8)))[::-1]:
-            if orb(packed_subnet[i]) != 0:
+            if packed_subnet[i] != 0:
                 i += 1
                 break
         return packed_subnet[:i]
@@ -699,9 +699,9 @@ def bitmap2RRlist(bitmap):
             log_runtime.info("bitmap too short (%i)", len(bitmap))
             return
 
-        window_block = orb(bitmap[0])  # window number
+        window_block = bitmap[0]  # window number
         offset = 256 * window_block  # offset of the Resource Record
-        bitmap_len = orb(bitmap[1])  # length of the bitmap in bytes
+        bitmap_len = bitmap[1]  # length of the bitmap in bytes
 
         if bitmap_len <= 0 or bitmap_len > 32:
             log_runtime.info("bitmap length is no valid (%i)", bitmap_len)
@@ -713,7 +713,7 @@ def bitmap2RRlist(bitmap):
         for b in range(len(tmp_bitmap)):
             v = 128
             for i in range(8):
-                if orb(tmp_bitmap[b]) & v:
+                if tmp_bitmap[b] & v:
                     # each of the RR is encoded as a bit
                     RRlist += [offset + b * 8 + i]
                 v = v >> 1
