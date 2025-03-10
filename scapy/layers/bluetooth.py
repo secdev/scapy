@@ -2521,8 +2521,27 @@ class HCI_LE_Meta_Long_Term_Key_Request(Packet):
 class HCI_LE_Meta_Extended_Advertising_Report(Packet):
     name = "Extended Advertising Report"
     fields_desc = [
-        LEShortField("event_type", 0),
-        ByteEnumField("address_type", 0, {0: "public", 1: "random"}),
+        #LEShortField("event_type", 0),
+        BitField("reserved0", 0, 1),
+        BitEnumField("data_status", 0, 2, {
+            0b00: "complete",
+            0b01: "incomplete",
+            0b10: "incomplete_truncated",
+            0b11: "reserved"
+        }),
+        BitField("legacy", 0, 1),
+        BitField("scan_response", 0, 1),
+        BitField("directed", 0, 1),
+        BitField("scannable", 0, 1),
+        BitField("connectable", 0, 1),
+        ByteField("reserved", 0),
+        ByteEnumField("address_type", 0, {
+            0x00: "public_device_address",
+            0x01: "random_device_address",
+            0x02: "public_identity_address",
+            0x03: "random_identity_address",
+            0xff: "anonymous"
+        }),
         LEMACField('address', None),
         ByteEnumField("primary_phy", 0, {
             0x01: "le_1m",
@@ -2539,7 +2558,12 @@ class HCI_LE_Meta_Extended_Advertising_Report(Packet):
         ByteField("tx_power", 0x7f),
         SignedByteField("rssi", 0x00),
         LEShortField("periodic_advertising_interval", 0x0000),
-        ByteEnumField("direct_address_type", 0, {0: "public"}),
+        ByteEnumField("direct_address_type", 0, {
+            0x00: "public_device_address",
+            0x01: "non_resolvable_private_address",
+            0x02: "resolvable_private_address_resolved_0",
+            0x03: "resolvable_private_address_resolved_1",
+            0xfe: "resolvable_private_address_unable_resolve"}),
         LEMACField("direct_address", None),
         FieldLenField("data_length", None, length_of="data", fmt="B"),
         PacketListField("data", [], EIR_Hdr,

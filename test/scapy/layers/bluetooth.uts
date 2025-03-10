@@ -708,7 +708,9 @@ assert a.summary() == "HCI Event / HCI_Event_Hdr / HCI_Event_LE_Meta / HCI_LE_Me
 = EIR_Hdr - HCI_LE_Meta_Extended_Advertising_Report
 a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Extended_Advertising_Reports(reports=[
    HCI_LE_Meta_Extended_Advertising_Report(
-      event_type = 0x0012,
+      #event_type = 0x0012,
+      scannable = 1,
+      legacy = 1,
       address_type = 0x01,
       address="a1:b2:c3:d4:e5:f6",
       primary_phy = 1,
@@ -723,7 +725,10 @@ a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Extended_Advertisi
       ]
    ),
     HCI_LE_Meta_Extended_Advertising_Report(
-      event_type = 0x001a,
+      #event_type = 0x001a,
+      scannable = 1,
+      scan_response = 1,
+      legacy = 1,
       address_type = 0x01,
       address="a1:b2:c3:d4:e5:f6",
       primary_phy = 1,
