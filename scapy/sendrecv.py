@@ -585,12 +585,15 @@ def sendpfast(x: _PacketIterable,
         try:
             cmd = subprocess.Popen(argv, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
+            cmd.wait()
         except KeyboardInterrupt:
+            if cmd:
+                cmd.terminate()
             log_interactive.info("Interrupted by user")
         except Exception:
             os.unlink(f)
             raise
-        else:
+        finally:
             stdout, stderr = cmd.communicate()
             if stderr:
                 log_runtime.warning(stderr.decode())
