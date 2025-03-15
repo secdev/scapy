@@ -12,6 +12,7 @@ Real-Time Publish-Subscribe Protocol (RTPS) dissection
 # scapy.contrib.status = library
 
 import struct
+from enum import IntEnum
 
 from scapy.fields import (
     _FieldContainer,
@@ -277,29 +278,53 @@ class ProtocolVersionPacket(Packet):
         return b"", p
 
 
+class Vendor(IntEnum):
+    UNKNOWN = 0x0000,
+    RTI_CONNEXT = 0x0101,
+    ADLINK_OPENSPLICE = 0x0102,
+    OCI_OPENDDS = 0x0103,
+    MILSOFT_MIL = 0x0104,
+    KONGSBERG_INTERCOM = 0x0105,
+    TWINOAKS_COREDX = 0x0106,
+    LAKOTA = 0x0107,
+    ICOUP = 0x0108,
+    ETRI_DIAMOND = 0x0109,
+    RTI_CONNEXT_MICRO = 0x010A,
+    ADLINK_VORTEXCAFE = 0x010B,
+    PRISMTECH = 0x010C,
+    ADLINK_VORTEXLITE = 0x010D,
+    TECHNICOLOR_QEO = 0x010E,
+    EPROSIMA_FASTDDS = 0x010F,
+    ECLIPSE_CYCLONE = 0x0110,
+    GURUMNETWORKS_GURUM = 0x0111,
+    ATOSTEK_RUSTDDS = 0x0112,
+    NANJINGZHENRONG_ZRDDS = 0x0113,
+    S2E_DUST = 0x0114
+
+
 _rtps_vendor_ids = {
-    0x0000: "VENDOR_ID_UNKNOWN (0x0000)",
-    0x0101: "Real-Time Innovations, Inc. (RTI) - Connext DDS",
-    0x0102: "ADLink Ltd. - OpenSplice DDS",
-    0x0103: "Object Computing Inc. (OCI) - OpenDDS",
-    0x0104: "MilSoft - Mil-DDS",
-    0x0105: "Kongsberg - InterCOM DDS",
-    0x0106: "Twin Oaks Computing, Inc. - CoreDX DDS",
-    0x0107: "Lakota Technical Solutions, Inc.",
-    0x0108: "ICOUP Consulting",
-    0x0109: "Electronics and Telecommunication Research Institute (ETRI) - Diamond DDS",
-    0x010A: "Real-Time Innovations, Inc. (RTI) - Connext DDS Micro",
-    0x010B: "ADLink Ltd. - VortexCafe",
-    0x010C: "PrismTech Ltd",
-    0x010D: "ADLink Ltd. - Vortex Lite",
-    0x010E: "Technicolor - Qeo",
-    0x010F: "eProsima - FastRTPS, FastDDS",
-    0x0110: "Eclipse Foundation - Cyclone DDS",
-    0x0111: "Gurum Networks, Inc. - GurumDDS",
-    0x0112: "Atostek - RustDDS",
-    0x0113: "Nanjing Zhenrong Software Technology Co. \
+    Vendor.UNKNOWN: "VENDOR_ID_UNKNOWN (0x0000)",
+    Vendor.RTI_CONNEXT: "Real-Time Innovations, Inc. (RTI) - Connext DDS",
+    Vendor.ADLINK_OPENSPLICE: "ADLink Ltd. - OpenSplice DDS",
+    Vendor.OCI_OPENDDS: "Object Computing Inc. (OCI) - OpenDDS",
+    Vendor.MILSOFT_MIL: "MilSoft - Mil-DDS",
+    Vendor.KONGSBERG_INTERCOM: "Kongsberg - InterCOM DDS",
+    Vendor.TWINOAKS_COREDX: "Twin Oaks Computing, Inc. - CoreDX DDS",
+    Vendor.LAKOTA: "Lakota Technical Solutions, Inc.",
+    Vendor.ICOUP: "ICOUP Consulting",
+    Vendor.ETRI_DIAMOND: "Electronics and Telecommunication Research Institute (ETRI) - Diamond DDS",
+    Vendor.RTI_CONNEXT_MICRO: "Real-Time Innovations, Inc. (RTI) - Connext DDS Micro",
+    Vendor.ADLINK_VORTEXCAFE: "ADLink Ltd. - VortexCafe",
+    Vendor.PRISMTECH: "PrismTech Ltd",
+    Vendor.ADLINK_VORTEXLITE: "ADLink Ltd. - Vortex Lite",
+    Vendor.TECHNICOLOR_QEO: "Technicolor - Qeo",
+    Vendor.EPROSIMA_FASTDDS: "eProsima - FastRTPS, FastDDS",
+    Vendor.ECLIPSE_CYCLONE: "Eclipse Foundation - Cyclone DDS",
+    Vendor.GURUMNETWORKS_GURUM: "Gurum Networks, Inc. - GurumDDS",
+    Vendor.ATOSTEK_RUSTDDS: "Atostek - RustDDS",
+    Vendor.NANJINGZHENRONG_ZRDDS: "Nanjing Zhenrong Software Technology Co. \
         - Zhenrong Data Distribution Service (ZRDDS)",
-    0x0114: "S2E Software Systems B.V. - Dust DDS",
+    Vendor.S2E_DUST: "S2E Software Systems B.V. - Dust DDS",
 }
 
 
