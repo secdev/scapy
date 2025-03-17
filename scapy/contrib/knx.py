@@ -577,7 +577,7 @@ class KNXRoutingIndication(Packet):
 # KNX FRAME
 
 # we made the choice to define a KNX service as a payload for a KNX Header
-# it could also be possible to define the body as a conditionnal PacketField
+# it could also be possible to define the body as a conditional PacketField
 # contained after the header.
 
 class KNX(Packet):
