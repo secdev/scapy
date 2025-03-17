@@ -31,7 +31,7 @@ from scapy.fields import PacketField, MultipleTypeField, ByteField, XByteField, 
 from scapy.packet import Packet, bind_layers, bind_bottom_up, Padding
 from scapy.layers.inet import UDP
 
-### KNX CODES
+# KNX CODES
 
 # KNX Standard v2.1 - 03_08_02 p20
 SERVICE_IDENTIFIER_CODES = {
@@ -161,7 +161,7 @@ CEMI_PROPERTIES = {
 }
 
 
-### KNX SPECIFIC FIELDS
+# KNX SPECIFIC FIELDS
 
 # KNX Standard v2.1 - 03_05_01 p.17
 class KNXAddressField(ShortField):
@@ -171,13 +171,12 @@ class KNXAddressField(ShortField):
         return "%d.%d.%d" % ((x >> 12) & 0xf, (x >> 8) & 0xf, (x & 0xff))
 
     def any2i(self, pkt, x):
+        # Raises ValueError in x does not have format a/b/c
         if type(x) is str:
-            try:
-                a, b, c = map(int, x.split("."))
-                x = (a << 12) | (b << 8) | c
-            except:
-                raise ValueError(x)
+            a, b, c = map(int, x.split("."))
+            x = (a << 12) | (b << 8) | c
         return ShortField.any2i(self, pkt, x)
+
 
 # KNX Standard v2.1 - 03_05_01 p.18
 class KNXGroupField(ShortField):
@@ -185,16 +184,14 @@ class KNXGroupField(ShortField):
         return "%d/%d/%d" % ((x >> 11) & 0x1f, (x >> 8) & 0x7, (x & 0xff))
 
     def any2i(self, pkt, x):
+        # Raises ValueError in x does not have format a/b/c
         if type(x) is str:
-            try:
-                a, b, c = map(int, x.split("/"))
-                x = (a << 11) | (b << 8) | c
-            except:
-                raise ValueError(x)
+            a, b, c = map(int, x.split("/"))
+            x = (a << 11) | (b << 8) | c
         return ShortField.any2i(self, pkt, x)
 
 
-### KNX PLACEHOLDERS
+# KNX PLACEHOLDERS
 
 # KNX Standard v2.1 - 03_08_02 p21
 class HPAI(Packet):
@@ -251,7 +248,7 @@ class DIBSuppSvcFamilies(Packet):
         ConditionalField(
             PacketListField("service_family", ServiceFamily(), ServiceFamily,
                             length_from=lambda
-                                pkt: pkt.structure_length - 0x02),
+                            pkt: pkt.structure_length - 0x02),
             lambda pkt: pkt.structure_length > 0x02)
     ]
 
@@ -347,7 +344,7 @@ class LcEMI(Packet):
                  lambda pkt: pkt.address_type == 0)
             ],
             ShortField("destination_address", "")
-            ),
+        ),
         FieldLenField("npdu_length", 0x01, fmt="B", length_of="data"),
         # TPCI and APCI (2 byte made of 1+1+4+4+6 bits)
         BitEnumField("packet_type", 0, 1, {
@@ -357,7 +354,7 @@ class LcEMI(Packet):
         BitEnumField("sequence_type", 0, 1, {
             0: "unnumbered"
         }),
-        BitField("sequence_number", 0, 4), # Not used when sequence_type = unnumbered
+        BitField("sequence_number", 0, 4),  # Not used when sequence_type = unnumbered
         ConditionalField(BitEnumField("acpi", 2, 4, KNX_ACPI_CODES),
                          lambda pkt: pkt.packet_type == 0),
         ConditionalField(BitEnumField("service", 0, 2, KNX_SERVICE_CODES),
@@ -403,7 +400,7 @@ class CEMI(Packet):
     ]
 
 
-### KNX SERVICES
+# KNX SERVICES
 
 # KNX Standard v2.1 - 03_08_02 p28
 class KNXSearchRequest(Packet):
@@ -565,6 +562,7 @@ class KNXTunnelingACK(Packet):
         p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
         return p + pay
 
+
 class KNXRoutingIndication(Packet):
     name = "ROUTING_INDICATION"
     fields_desc = [
@@ -576,7 +574,7 @@ class KNXRoutingIndication(Packet):
         return p + pay
 
 
-### KNX FRAME
+# KNX FRAME
 
 # we made the choice to define a KNX service as a payload for a KNX Header
 # it could also be possible to define the body as a conditionnal PacketField
@@ -599,7 +597,7 @@ class KNX(Packet):
         return p + pay
 
 
-### LAYERS BINDING
+# LAYERS BINDING
 
 bind_bottom_up(UDP, KNX, dport=3671)
 bind_bottom_up(UDP, KNX, sport=3671)
@@ -626,7 +624,7 @@ bind_layers(KNX, KNXRoutingIndication, service_identifier=0x0530)
 # we could also define a new Packet class with no payload and inherit
 # every KNX packet from it :
 #
-#class _KNXBodyNoPayload(Packet):
+# class _KNXBodyNoPayload(Packet):
 #
 #    def extract_padding(self, s):
 #        return b"", None
