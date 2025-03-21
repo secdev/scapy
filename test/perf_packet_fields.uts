@@ -1,0 +1,128 @@
+% Packet field performance issue
+
+############
+############
++ Test utils
+
+= Prepare a `check_exec_time()` function.
+
+def check_exec_time(description, t0, tf, max):
+    print(f"{description}: {tf - t0:.3f} seconds")
+    assert tf - t0 <= max, f"{description!r} FAILED: {tf - t0:.3f} > {max:.3f}"
+
+
+############
+############
++ Test data
+
+= Define the `C` final packet class.
+
+class C(Packet):
+    fields_desc = [
+        ByteField(name="val", default=0),
+    ]
+    def extract_padding(self, s):
+        return (b'', s)
+
+= Define the `B` intermediate packet class.
+
+class B(Packet):
+    NUMBER_OF_C_PER_B = 100
+    fields_desc = [
+        PacketField(name=f"c{i}", pkt_cls=C, default=C(val=i))
+        for i in range(NUMBER_OF_C_PER_B)
+    ]
+    def extract_padding(self, s):
+        return (b'', s)
+
+= Define the `A` root packet class.
+
+class A(Packet):
+    NUMBER_OF_B_PER_A = 100
+    fields_desc = [
+        PacketField(name=f"b{i}", pkt_cls=B, default=B())
+        for i in range(NUMBER_OF_B_PER_A)
+    ]
+
+= Define `MAX_INSTANTIATION_TIME_EXPECTED`.
+
+MAX_INSTANTIATION_TIME_EXPECTED = 1.0
+
+= Define `MAX_SERIALIZATION_TIME_EXPECTED`.
+
+MAX_SERIALIZATION_TIME_EXPECTED = 0.250
+
+= Define `MAX_PARSING_TIME_EXPECTED`.
+
+MAX_PARSING_TIME_EXPECTED = 0.250
+
+
+############
+############
++ Default instantiations
+
+= Build a default instance of `C`.
+
+t0 = time.time()
+c = C()
+tf = time.time()
+check_exec_time("Default instantiation of `C`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
+
+= Build a default instance of `C` again.
+
+t0 = time.time()
+c = C()
+tf = time.time()
+check_exec_time("Default instantiation of `C`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
+
+= Build a default instance of `B`.
+
+t0 = time.time()
+b = B()
+tf = time.time()
+check_exec_time("Default instantiation of `B`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
+
+= Build a default instance of `B` again.
+
+t0 = time.time()
+b = B()
+tf = time.time()
+check_exec_time("Default instantiation of `B`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
+
+= Build a default instance of `A`.
+
+t0 = time.time()
+a = A()
+tf = time.time()
+check_exec_time("Default instantiation of `A`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
+
+= Build a default instance of `A` again.
+
+t0 = time.time()
+a = A()
+tf = time.time()
+check_exec_time("Default instantiation of `A`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
+
+
+############
+############
++ Serialization
+
+= Launch serialization from the latest instance of `A` created.
+
+t0 = time.time()
+b = a.build()
+tf = time.time()
+check_exec_time("Serialization of `A`", t0, tf, MAX_SERIALIZATION_TIME_EXPECTED)
+
+
+############
+############
++ Parsing
+
+= Parse the buffer serialized before with the latest instance of `A` created.
+
+t0 = time.time()
+a.dissect(b)
+tf = time.time()
+check_exec_time("Parsing of `A`", t0, tf, MAX_PARSING_TIME_EXPECTED)
