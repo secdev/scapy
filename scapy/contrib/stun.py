@@ -149,7 +149,7 @@ class XorIp(IPField):
     def i2m(self, pkt, x):
         if x is None:
             return b"\x00\x00\x00\x00"
-        return struct.pack(">i", struct.unpack(">i", inet_aton(x)) ^ MAGIC_COOKIE)
+        return struct.pack(">i", struct.unpack(">i", inet_aton(x))[0] ^ MAGIC_COOKIE)
 
 
 class STUNXorMappedAddress(STUNGenericTlv):
