@@ -146,3 +146,20 @@ built = stun.build()
 parsed = STUN(built)
 
 assert parsed.build() == built
+
+= test STUN packet build with attributes
+stun = STUN(
+    stun_message_type="Binding success response",
+    transaction_id=0x3479476534635936316a796a,
+    attributes=[
+        STUNXorMappedAddress(xport=25000, xip="172.20.0.200"),
+        STUNUsername(length=37, username="Ht11MaRZHc4GOLJUsbu1R3YCs72HYN25:oNph"),
+        STUNMessageIntegrity(hmac_sha1=0x4b67036dfb65ca84d63bcac86c8d5981df657031),
+        STUNFingerprint(crc_32=0x4041e9c3)
+    ]
+)
+
+built = stun.build()
+parsed = STUN(built)
+
+assert parsed.build() == built
