@@ -52,6 +52,8 @@ def _extcap_call(prog: str,
     """
     p = subprocess.Popen(
         [prog] + args,
+        # On Windows, we must be in the Wireshark/ folder.
+        cwd=pathlib.Path(prog).parent.parent,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         text=True
     )
