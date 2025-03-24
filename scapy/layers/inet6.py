@@ -1047,10 +1047,8 @@ class IPv6ExtHdrSegmentRoutingTLVEgressNode(IPv6ExtHdrSegmentRoutingTLV):
 
 class IPv6ExtHdrSegmentRoutingTLVPad1(IPv6ExtHdrSegmentRoutingTLV):
     name = "IPv6 Option Header Segment Routing - Pad1 TLV"
-    # RFC8754 sect 2.1.1.1
-    fields_desc = [ByteEnumField("type", 0, _segment_routing_header_tlvs),
-                   FieldLenField("len", None, length_of="padding", fmt="B"),
-                   StrLenField("padding", b"\x00", length_from=lambda pkt: pkt.len)]  # noqa: E501
+    # RFC8754 sect 2.1.1.1, Pad1 is a single byte
+    fields_desc = [ByteEnumField("type", 0, _segment_routing_header_tlvs)]
 
 
 class IPv6ExtHdrSegmentRoutingTLVPadN(IPv6ExtHdrSegmentRoutingTLV):
