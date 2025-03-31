@@ -1188,13 +1188,17 @@ def defragment6(packets):
 
     # regenerate the fragmentable part
     fragmentable = b""
+    frag_hdr_len = 8
     for p in res:
         q = p[IPv6ExtHdrFragment]
         offset = 8 * q.offset
         if offset != len(fragmentable):
             warning("Expected an offset of %d. Found %d. Padding with XXXX" % (len(fragmentable), offset))  # noqa: E501
+        frag_data_len = p[IPv6].plen
+        if frag_data_len is not None:
+            frag_data_len -= frag_hdr_len
         fragmentable += b"X" * (offset - len(fragmentable))
-        fragmentable += raw(q.payload)
+        fragmentable += raw(q.payload)[:frag_data_len]
 
     # Regenerate the unfragmentable part.
     q = res[0].copy()
