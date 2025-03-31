@@ -1800,7 +1800,7 @@ class RawPcapNgReader(RawPcapReader):
                 warning("PcapNg: options header is too small "
                         "%d !" % len(options))
                 raise EOFError
-            if code != 0 and 4 + length < len(options):
+            if code != 0 and 4 + length <= len(options):
                 opts[code] = options[4:4 + length]
             if code == 0:
                 if length != 0:
