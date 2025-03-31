@@ -1811,6 +1811,7 @@ class LDAP_Client(object):
             else:
                 port = 389
         sock = socket.socket()
+        self.timeout = timeout
         sock.settimeout(timeout)
         if self.verb:
             print(
@@ -2151,7 +2152,7 @@ class LDAP_Client(object):
         filter: str = "",
         scope=0,
         derefAliases=0,
-        sizeLimit=3000,
+        sizeLimit=300000,
         timeLimit=3000,
         attrsOnly=0,
         attributes: List[str] = [],
@@ -2202,7 +2203,7 @@ class LDAP_Client(object):
                                 controlType="1.2.840.113556.1.4.319",
                                 criticality=True,
                                 controlValue=LDAP_realSearchControlValue(
-                                    size=500,  # paging to 500 per 500
+                                    size=200,  # paging to 200 per 200
                                     cookie=cookie,
                                 ),
                             )
@@ -2211,7 +2212,7 @@ class LDAP_Client(object):
                         else []
                     )
                 ),
-                timeout=3,
+                timeout=self.timeout,
             )
             if LDAP_SearchResponseResultDone not in resp:
                 resp.show()
@@ -2294,7 +2295,7 @@ class LDAP_Client(object):
                 changes=changes,
             ),
             controls=controls,
-            timeout=3,
+            timeout=self.timeout,
         )
         if (
             LDAP_ModifyResponse not in resp.protocolOp
@@ -2341,7 +2342,7 @@ class LDAP_Client(object):
                 attributes=attributes,
             ),
             controls=controls,
-            timeout=3,
+            timeout=self.timeout,
         )
         if LDAP_AddResponse not in resp.protocolOp or resp.protocolOp.resultCode != 0:
             raise LDAP_Exception(
@@ -2382,7 +2383,7 @@ class LDAP_Client(object):
                 deleteoldrdn=deleteoldrdn,
             ),
             controls=controls,
-            timeout=3,
+            timeout=self.timeout,
         )
         if (
             LDAP_ModifyDNResponse not in resp.protocolOp

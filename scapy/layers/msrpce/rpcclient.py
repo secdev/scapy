@@ -490,6 +490,7 @@ class DCERPC_Client(object):
         ip,
         interface,
         port=None,
+        timeout=5,
         smb_kwargs={},
     ):
         """
@@ -527,7 +528,7 @@ class DCERPC_Client(object):
             else:
                 return
             # 2. connect to the SMB server
-            self.connect(ip, port=port, smb_kwargs=smb_kwargs)
+            self.connect(ip, port=port, timeout=timeout, smb_kwargs=smb_kwargs)
             # 3. open the new named pipe
             self.open_smbpipe(pipename)
         # Bind in RPC
