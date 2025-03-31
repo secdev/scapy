@@ -695,10 +695,14 @@ class _PADATA_value_Field(ASN1F_STRING_PacketField):
         if pkt.padataType.val in _PADATA_CLASSES:
             cls = _PADATA_CLASSES[pkt.padataType.val]
             if isinstance(cls, tuple):
-                is_reply = (
-                    pkt.underlayer.underlayer is not None
-                    and isinstance(pkt.underlayer.underlayer, KRB_ERROR)
-                ) or isinstance(pkt.underlayer, (KRB_AS_REP, KRB_TGS_REP))
+                parent = pkt.underlayer or pkt.parent
+                is_reply = False
+                if parent is not None:
+                    if isinstance(parent, (KRB_AS_REP, KRB_TGS_REP)):
+                        is_reply = True
+                    else:
+                        parent = parent.underlayer or parent.parent
+                        is_reply = isinstance(parent, KRB_ERROR)
                 cls = cls[is_reply]
             if not val[0].val:
                 return val
@@ -1803,15 +1807,23 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
             # 25: KDC_ERR_PREAUTH_REQUIRED
             # 36: KRB_AP_ERR_BADMATCH
             return MethodData(val[0].val, _underlayer=pkt), val[1]
-        elif pkt.errorCode.val in [6, 7, 13, 18, 29, 41, 60]:
+        elif pkt.errorCode.val in [6, 7, 12, 13, 18, 29, 41, 60]:
             # 6: KDC_ERR_C_PRINCIPAL_UNKNOWN
             # 7: KDC_ERR_S_PRINCIPAL_UNKNOWN
+            # 12: KDC_ERR_POLICY
             # 13: KDC_ERR_BADOPTION
             # 18: KDC_ERR_CLIENT_REVOKED
             # 29: KDC_ERR_SVC_UNAVAILABLE
             # 41: KRB_AP_ERR_MODIFIED
             # 60: KRB_ERR_GENERIC
-            return KERB_ERROR_DATA(val[0].val, _underlayer=pkt), val[1]
+            try:
+                return KERB_ERROR_DATA(val[0].val, _underlayer=pkt), val[1]
+            except BER_Decoding_Error:
+                if pkt.errorCode.val in [18]:
+                    # Some types can also happen in FAST sessions
+                    # 18: KDC_ERR_CLIENT_REVOKED
+                    return MethodData(val[0].val, _underlayer=pkt), val[1]
+                raise
         elif pkt.errorCode.val == 69:
             # KRB_AP_ERR_USER_TO_USER_REQUIRED
             return KRB_TGT_REP(val[0].val, _underlayer=pkt), val[1]
@@ -2669,6 +2681,7 @@ class KerberosClient(Automaton):
         armor_ticket=None,
         armor_ticket_upn=None,
         armor_ticket_skey=None,
+        key_list_req=[],
         etypes=None,
         port=88,
         timeout=5,
@@ -2769,6 +2782,7 @@ class KerberosClient(Automaton):
         self.armor_ticket = armor_ticket
         self.armor_ticket_upn = armor_ticket_upn
         self.armor_ticket_skey = armor_ticket_skey
+        self.key_list_req = key_list_req
         self.renew = renew
         self.additional_tickets = additional_tickets  # U2U + S4U2Proxy
         self.u2u = u2u  # U2U
@@ -3129,6 +3143,17 @@ class KerberosClient(Automaton):
             )
             # "kdc-options field: MUST include the new cname-in-addl-tkt options flag"
             kdc_req.kdcOptions.set(14, 1)
+
+        # [MS-KILE] 2.2.11 KERB-KEY-LIST-REQ
+        if self.key_list_req:
+            padata.append(
+                PADATA(
+                    padataType=ASN1_INTEGER(161),  # KERB-KEY-LIST-REQ
+                    padataValue=KERB_KEY_LIST_REQ(keytypes=[
+                        ASN1_INTEGER(x) for x in self.key_list_req
+                    ])
+                )
+            )
 
         # 3. Build the AP-req inside a PA
         apreq = KRB_AP_REQ(ticket=self.ticket, authenticator=EncryptedData())

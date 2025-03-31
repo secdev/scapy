@@ -1229,7 +1229,7 @@ class smbclient(CLIUtil):
         )
         try:
             # Wrap with SMB_SOCKET
-            self.smbsock = SMB_SOCKET(self.sock)
+            self.smbsock = SMB_SOCKET(self.sock, timeout=self.timeout)
             # Wait for either the atmt to fail, or the smb_sock_ready to timeout
             _t = time.time()
             while True:

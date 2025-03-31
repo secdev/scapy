@@ -619,11 +619,15 @@ class ExtsManager(importlib.abc.MetaPathFinder):
                 for k, v in distr.metadata.items() if k == 'Classifier'
             ):
                 try:
-                    pkg = next(
-                        k
-                        for k, v in importlib.metadata.packages_distributions().items()
-                        if distr.name in v
-                    )
+                    # Python 3.13 raises an internal warning when calling this
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings("ignore", category=DeprecationWarning)
+                        pkg = next(
+                            k
+                            for k, v in
+                            importlib.metadata.packages_distributions().items()
+                            if distr.name in v
+                        )
                 except KeyError:
                     pkg = distr.name
                 if pkg in self._loaded:

@@ -1805,12 +1805,14 @@ class _NDRPacketField(_NDRValueOf, PacketField):
         return self.cls(m, ndr64=pkt.ndr64, ndrendian=pkt.ndrendian, _parent=pkt)
 
 
-# class _NDRPacketPadField(PadField):
-#     def padlen(self, flen, pkt):
-#         if pkt.ndr64:
-#             return -flen % self._align[1]
-#         else:
-#             return 0
+class _NDRPacketPadField(PadField):
+    # [MS-RPCE] 2.2.5.3.4.1 Structure with Trailing Gap
+    # Structures have extra alignment/padding in NDR64.
+    def padlen(self, flen, pkt):
+        if pkt.ndr64:
+            return -flen % self._align[1]
+        else:
+            return 0
 
 
 class NDRPacketField(NDRConstructedType, NDRAlign):
@@ -1819,9 +1821,7 @@ class NDRPacketField(NDRConstructedType, NDRAlign):
         self.fld = _NDRPacketField(name, default, pkt_cls=pkt_cls, **kwargs)
         NDRAlign.__init__(
             self,
-            # There is supposed to be padding after a struct in NDR64?
-            # _NDRPacketPadField(fld, align=pkt_cls.ALIGNMENT),
-            self.fld,
+            _NDRPacketPadField(self.fld, align=pkt_cls.ALIGNMENT),
             align=pkt_cls.ALIGNMENT,
         )
         NDRConstructedType.__init__(self, pkt_cls.fields_desc)
