@@ -15,33 +15,33 @@ def check_exec_time(description, t0, tf, max):
 ############
 + Test data
 
-= Define the `C` final packet class.
+= Define the `F` final packet class.
 
-class C(Packet):
+class F(Packet):
     fields_desc = [
-        ByteField(name="val", default=0),
+        ByteField(name="value", default=0),
     ]
     def extract_padding(self, s):
         return (b'', s)
 
-= Define the `B` intermediate packet class.
+= Define the `I` intermediate packet class.
 
-class B(Packet):
-    NUMBER_OF_C_PER_B = 100
+class I(Packet):
+    NUMBER_OF_F_PER_I = 100
     fields_desc = [
-        PacketField(name=f"c{i}", pkt_cls=C, default=C(val=i))
-        for i in range(NUMBER_OF_C_PER_B)
+        PacketField(name=f"f{i}", pkt_cls=F, default=F(value=i))
+        for i in range(NUMBER_OF_F_PER_I)
     ]
     def extract_padding(self, s):
         return (b'', s)
 
-= Define the `A` root packet class.
+= Define the `M` main packet class.
 
-class A(Packet):
-    NUMBER_OF_B_PER_A = 100
+class M(Packet):
+    NUMBER_OF_I_PER_M = 100
     fields_desc = [
-        PacketField(name=f"b{i}", pkt_cls=B, default=B())
-        for i in range(NUMBER_OF_B_PER_A)
+        PacketField(name=f"i{i}", pkt_cls=I, default=I())
+        for i in range(NUMBER_OF_I_PER_M)
     ]
 
 = Define `MAX_INSTANTIATION_TIME_EXPECTED`.
@@ -61,68 +61,68 @@ MAX_PARSING_TIME_EXPECTED = 0.250
 ############
 + Default instantiations
 
-= Build a default instance of `C`.
+= Build a default instance of `F`.
 
 t0 = time.time()
-c = C()
+f = F()
 tf = time.time()
-check_exec_time("Default instantiation of `C`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
+check_exec_time("Default instantiation of `F`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
 
-= Build a default instance of `C` again.
+= Build a default instance of `F` again.
 
 t0 = time.time()
-c = C()
+f = F()
 tf = time.time()
-check_exec_time("Default instantiation of `C`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
+check_exec_time("Default instantiation of `F`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
 
-= Build a default instance of `B`.
+= Build a default instance of `I`.
 
 t0 = time.time()
-b = B()
+i = I()
 tf = time.time()
-check_exec_time("Default instantiation of `B`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
+check_exec_time("Default instantiation of `I`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
 
 = Build a default instance of `B` again.
 
 t0 = time.time()
-b = B()
+i = I()
 tf = time.time()
-check_exec_time("Default instantiation of `B`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
+check_exec_time("Default instantiation of `I`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
 
-= Build a default instance of `A`.
+= Build a default instance of `M`.
 
 t0 = time.time()
-a = A()
+m = M()
 tf = time.time()
-check_exec_time("Default instantiation of `A`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
+check_exec_time("Default instantiation of `M`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
 
-= Build a default instance of `A` again.
+= Build a default instance of `M` again.
 
 t0 = time.time()
-a = A()
+m = M()
 tf = time.time()
-check_exec_time("Default instantiation of `A`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
+check_exec_time("Default instantiation of `M`", t0, tf, MAX_INSTANTIATION_TIME_EXPECTED)
 
 
 ############
 ############
 + Serialization
 
-= Launch serialization from the latest instance of `A` created.
+= Launch serialization from the latest instance of `M` created.
 
 t0 = time.time()
-b = a.build()
+buf = m.build()
 tf = time.time()
-check_exec_time("Serialization of `A`", t0, tf, MAX_SERIALIZATION_TIME_EXPECTED)
+check_exec_time("Serialization of `M`", t0, tf, MAX_SERIALIZATION_TIME_EXPECTED)
 
 
 ############
 ############
 + Parsing
 
-= Parse the buffer serialized before with the latest instance of `A` created.
+= Parse the buffer serialized before with the latest instance of `M` created.
 
 t0 = time.time()
-a.dissect(b)
+m.dissect(buf)
 tf = time.time()
-check_exec_time("Parsing of `A`", t0, tf, MAX_PARSING_TIME_EXPECTED)
+check_exec_time("Parsing of `M`", t0, tf, MAX_PARSING_TIME_EXPECTED)
