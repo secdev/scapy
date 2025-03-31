@@ -1,5 +1,8 @@
 % Packet field performance issue
 
+# See https://github.com/secdev/scapy/issues/4705
+
+
 ############
 ############
 + Test utils
