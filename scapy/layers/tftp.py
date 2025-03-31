@@ -26,6 +26,7 @@ from scapy.fields import (
 from scapy.automaton import ATMT, Automaton
 from scapy.base_classes import Net
 from scapy.config import conf
+from scapy.sessions import IPSession
 from scapy.volatile import RandShort
 
 from scapy.layers.inet import UDP, IP
@@ -347,9 +348,10 @@ class TFTP_WRQ_server(Automaton):
     """
 
     def parse_args(self, ip=None, sport=None, *args, **kargs):
-        if "iface" not in kargs:
+        if "iface" not in kargs and ip:
             ip = str(Net(ip))
             kargs["iface"] = conf.route.route(ip)[0]
+        kargs.setdefault("session", IPSession())
         Automaton.parse_args(self, *args, **kargs)
         self.ip = ip
         self.sport = sport
@@ -440,9 +442,10 @@ class TFTP_RRQ_server(Automaton):
     """
 
     def parse_args(self, store=None, joker=None, dir=None, ip=None, sport=None, serve_one=False, **kargs):  # noqa: E501
-        if "iface" not in kargs:
+        if "iface" not in kargs and ip:
             ip = str(Net(ip))
             kargs["iface"] = conf.route.route(ip)[0]
+        kargs.setdefault("session", IPSession())
         Automaton.parse_args(self, **kargs)
         if store is None:
             store = {}
