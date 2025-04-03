@@ -67,6 +67,7 @@ from typing import (
     Union,
     Sequence,
     cast,
+    TYPE_CHECKING,
 )
 from scapy.compat import Self
 
@@ -74,9 +75,6 @@ try:
     import pyx
 except ImportError:
     pass
-
-
-_T = TypeVar("_T", Dict[str, Any], Optional[Dict[str, Any]])
 
 
 class Packet(
@@ -90,7 +88,7 @@ class Packet(
         "overload_fields", "overloaded_fields",
         "packetfields",
         "original", "explicit", "raw_packet_cache",
-        "raw_packet_cache_fields", "_pkt", "post_transforms",
+        "_pkt", "post_transforms",
         "stop_dissection_after",
         # then payload, underlayer and parent
         "payload", "underlayer", "parent",
@@ -117,6 +115,12 @@ class Packet(
     class_default_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     class_default_fields_ref = {}  # type: Dict[Type[Packet], List[str]]
     class_fieldtype = {}  # type: Dict[Type[Packet], Dict[str, AnyField]]  # noqa: E501
+
+    #: Set to ``True`` for classes which should not save a :attr:`raw_packet_cache`.
+    #:
+    #: Useful when the packet contains auto fields depending on external content
+    #: (parent or neighbour packets).
+    no_cache = False  # type: bool
 
     @classmethod
     def from_hexcap(cls):
@@ -167,15 +171,17 @@ class Packet(
         self.fieldtype = {}  # type: Dict[str, AnyField]
         self.packetfields = []  # type: List[AnyField]
         self.payload = NoPayload()  # type: Packet
-        self.init_fields(bool(_pkt))
+        self.init_fields(for_dissect_only=bool(_pkt), init_fields=fields)
         self.underlayer = _underlayer
         self.parent = _parent
         if isinstance(_pkt, bytearray):
             _pkt = bytes(_pkt)
         self.original = _pkt
+        # TODO:
+        #   Clarify the meaning for this `explicit` flag.
+        #   Now that cache is cleared as soon as the packet is modified, possibly we could get rid of it?
         self.explicit = 0
         self.raw_packet_cache = None  # type: Optional[bytes]
-        self.raw_packet_cache_fields = None  # type: Optional[Dict[str, Any]]  # noqa: E501
         self.wirelen = None  # type: Optional[int]
         self.direction = None  # type: Optional[int]
         self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
@@ -253,8 +259,8 @@ class Packet(
         """Used by copy.deepcopy"""
         return self.copy()
 
-    def init_fields(self, for_dissect_only=False):
-        # type: (bool) -> None
+    def init_fields(self, for_dissect_only=False, init_fields=None):
+        # type: (bool, Optional[Dict[str, Any]]) -> None
         """
         Initialize each fields of the fields_desc dict
         """
@@ -262,7 +268,7 @@ class Packet(
         if self.class_dont_cache.get(self.__class__, False):
             self.do_init_fields(self.fields_desc)
         else:
-            self.do_init_cached_fields(for_dissect_only=for_dissect_only)
+            self.do_init_cached_fields(for_dissect_only=for_dissect_only, init_fields=init_fields)
 
     def do_init_fields(self,
                        flist,  # type: Sequence[AnyField]
@@ -280,8 +286,8 @@ class Packet(
         # We set default_fields last to avoid race issues
         self.default_fields = default_fields
 
-    def do_init_cached_fields(self, for_dissect_only=False):
-        # type: (bool) -> None
+    def do_init_cached_fields(self, for_dissect_only=False, init_fields=None):
+        # type: (bool, Optional[Dict[str, Any]]) -> None
         """
         Initialize each fields of the fields_desc dict, or use the cached
         fields information
@@ -300,18 +306,18 @@ class Packet(
             self.fieldtype = Packet.class_fieldtype[cls_name]
             self.packetfields = Packet.class_packetfields[cls_name]
 
-            # Optimization: no need for references when only dissecting.
+            # Optimization: no need for default references when only dissecting.
             if for_dissect_only:
                 return
 
             # Deepcopy default references
             for fname in Packet.class_default_fields_ref[cls_name]:
-                value = self.default_fields[fname]
-                try:
-                    self.fields[fname] = value.copy()
-                except AttributeError:
-                    # Python 2.7 - list only
-                    self.fields[fname] = value[:]
+                # Optimization: no need for a default reference when the value is given on init.
+                if init_fields and (fname in init_fields):
+                    continue
+
+                # Fix: Use `copy_field_value()` instead of just `value.copy()`, in order to duplicate list items as well in case of a list.
+                self.fields[fname] = self.copy_field_value(fname, self.default_fields[fname])
 
     def prepare_cached_fields(self, flist):
         # type: (Sequence[AnyField]) -> None
@@ -338,8 +344,11 @@ class Packet(
                 self.do_init_fields(self.fields_desc)
                 return
 
-            class_default_fields[f.name] = copy.deepcopy(f.default)
+            # Default field values.
+            class_default_fields[f.name] = f.default  # Optimization: No need to make a copy.
+            # Field types.
             class_fieldtype[f.name] = f
+            # Packet fields.
             if f.holds_packets:
                 class_packetfields.append(f)
 
@@ -389,11 +398,17 @@ class Packet(
             else:
                 raise TypeError("payload must be 'Packet', 'bytes', 'str', 'bytearray', or 'memoryview', not [%s]" % repr(payload))  # noqa: E501
 
+            # Invalidate cache when the packet has changed.
+            self.clear_cache()
+
     def remove_payload(self):
         # type: () -> None
         self.payload.remove_underlayer(self)
         self.payload = NoPayload()
         self.overloaded_fields = {}
+
+        # Invalidate cache when the packet has changed.
+        self.clear_cache()
 
     def add_underlayer(self, underlayer):
         # type: (Packet) -> None
@@ -419,25 +434,151 @@ class Packet(
 
     def copy(self) -> Self:
         """Returns a deep copy of the instance."""
-        clone = self.__class__()
-        clone.fields = self.copy_fields_dict(self.fields)
-        clone.default_fields = self.copy_fields_dict(self.default_fields)
-        clone.overloaded_fields = self.overloaded_fields.copy()
-        clone.underlayer = self.underlayer
-        clone.parent = self.parent
-        clone.explicit = self.explicit
-        clone.raw_packet_cache = self.raw_packet_cache
-        clone.raw_packet_cache_fields = self.copy_fields_dict(
-            self.raw_packet_cache_fields
+        return self._fast_copy(for_clone_with=False)
+
+    def clone_with(self, payload=None, **kargs):
+        # type: (Optional[Any], **Any) -> Any
+        return self._fast_copy(
+            for_clone_with=True,
+            payload=payload,
+            **kargs
         )
+
+    def _fast_copy(
+            self,
+            for_clone_with, # type: bool
+            payload=None,  # type: Optional[Any]
+            **kargs  # type: Any
+    ):  # type: (...) -> Self
+        """
+        Optimized implementation for :meth:`copy()` and :meth:`clone_with()`.
+        """
+
+        # Both `copy()` and `clone_with()` start with a default instantiation.
+        #
+        # Pre-set *ref fields* in order to avoid instantiations of useless default instances.
+        #
+        # Memo:
+        #   *Ref fields* are fields whose default is of type `list`, `dict`, `set`, `RandField` or `Packet`.
+        #   See `prepare_cached_fields()`.
+        def _init_fields():  # type: (...) -> Dict[str, Any]
+            source_fields = kargs if for_clone_with else self.fields  # type: Dict[str, Any]
+            init_fields = {}  # type: Dict[str, Any]
+            # Walk *ref field* names.
+            for field_name in Packet.class_default_fields_ref.get(self.__class__, {}):  # type: str
+                if field_name in source_fields:
+                    if for_clone_with:
+                        # `clone_with()`: Take value from `kargs` without making a copy.
+                        init_fields[field_name] = source_fields[field_name]
+                    else:
+                        # `copy()`: Prepare a copy of the *ref field* installed in `self.fields` for the new instance.
+                        init_fields[field_name] = self.copy_field_value(field_name, source_fields[field_name])
+            return init_fields
+        clone = self.__class__(**_init_fields())  # type: Self
+
+        if TYPE_CHECKING:
+            _VarDictFieldType = TypeVar(
+                "_VarDictFieldType",
+                Dict[str, Any],
+                Optional[Dict[str, Any]],
+            )
+
+        def _fast_copy_fields_dict(
+                fields,  # type: _VarDictFieldType
+                use_fields_already_set=True,  # type: bool
+        ):  # type: (...) -> _VarDictFieldType
+            """
+            Optimized version of former :meth:`copy_fields_dict()`,
+            defined as an inner function
+            in order to work directly on the ``clone`` instance being built.
+            """
+            if fields is None:
+                return None
+
+            fields_dict = {}  # type: Dict[str, Any]
+            for fname, fval in fields.items():  # type: str, Any
+                if use_fields_already_set and (fname in clone.fields):
+                    # Optimization: Don't instantiate again a field that has already been set / copied.
+                    fields_dict[fname] = clone.fields[fname]
+                else:
+                    # Default `copy_fields_dict()` behaviour.
+                    fields_dict[fname] = self.copy_field_value(fname, fval)
+            return fields_dict
+
+        # One of the first things that `copy()` and `clone_with()` do is to set the `fields` dictionary.
+        if for_clone_with:
+            # `clone_with()` explicitly uses `kwargs` directly, without making copies.
+            clone.explicit = 1
+            clone.fields = kargs
+        else:
+            # `copy()` uses the `copy_fields_dict()` method, and copies the `explicit` attribute as is.
+            clone.fields = _fast_copy_fields_dict(self.fields)
+            clone.explicit = self.explicit
+
+        # Both `copy()` and `clone_with()` set the `default_fields` attribute with the `copy_fields_dict()` method.
+        #
+        # Memo:
+        #   `default_fields` is generally set with a simple copy of the related `class_default_fields` entry in `do_init_cached_fields()`.
+        #   May be fully recomputed in `do_init_fields()`, but the latter method is called only in case of *dont-cache* packets
+        #   (`Packet.init_fields()` terminology, different from the `Packet.no_cache` flag).
+        if Packet.class_dont_cache.get(self.__class__, False):
+            clone.default_fields = _fast_copy_fields_dict(
+                self.default_fields,
+                use_fields_already_set=False,  # Default fields may not be the same as the fields currently set.
+            )
+        else:
+            # Optimization: Don't make copies of default fields.
+            clone.default_fields = self.default_fields
+
+        # Both `copy()` and `clone_with()` set the `overloaded_fields` attribute with `self.overloaded_fields.copy()`.
+        #
+        # Memo:
+        #   `overloaded_fields` is a `Dict[str, Any]`.
+        #   It describes fields contained in the payload if any.
+        #
+        # Todo:
+        #   It seems quite dangerous to just copy the dictionary, but not clone its potential packet or list values...
+        #   Why wasn't `copy_fields_dict()` used?
+        #   By the way, let's stick with former implementations.
+        clone.overloaded_fields = self.overloaded_fields.copy()
+
+        # Both `copy()` and `clone_with()` copy the `underlayer` reference as is.
+        clone.underlayer = self.underlayer
+
+        # Both `copy()` and `clone_with()` copy the `parent` reference as is.
+        clone.parent = self.parent
+
+        # Both `copy()` and `clone_with()` copy the `raw_packet_cache` attribute as is.
+        clone.raw_packet_cache = self.raw_packet_cache
+
+        # Both `copy()` and `clone_with()` copy the `wirelen` attribute as is.
         clone.wirelen = self.wirelen
-        clone.post_transforms = self.post_transforms[:]
-        clone.payload = self.payload.copy()
-        clone.payload.add_underlayer(clone)
+
+        # `copy()` and `clone_with()` have a slight different way to handle the `payload` attribute.
+        # Let's stick with initial implementations.
+        if for_clone_with:
+            if payload is not None:
+                clone.add_payload(payload)
+        else:
+            clone.payload = self.payload.copy()
+            clone.payload.add_underlayer(clone)
+
+        # Both `copy()` and `clone_with()` copy the `time` attribute as is.
         clone.time = self.time
+
+        # The `post_transforms` list is cloned in `copy()`, but set as is in `clone_with()`.
+        # Todo: Cloning the list seems safer, to be confirmed.
+        clone.post_transforms = self.post_transforms[:]
+
+        # Both `copy()` and `clone_with()` copy the `comment` attribute as is.
         clone.comment = self.comment
+
+        # Both `copy()` and `clone_with()` copy the `direction` attribute as is.
         clone.direction = self.direction
+
+        # Both `copy()` and `clone_with()` copy the `sniffed_on` attribute as is.
         clone.sniffed_on = self.sniffed_on
+
         return clone
 
     def _resolve_alias(self, attr):
@@ -486,6 +627,21 @@ class Packet(
 
     def setfieldval(self, attr, val):
         # type: (str, Any) -> None
+
+        # Optimization:
+        #   Try to avoid replacing a value by the same value,
+        #   and avoid recursive cache invalidation by the way.
+        old_val = self.getfieldval(attr)  # type: Any
+        if (
+            # In case of packets, check the given packet reference differs from the previous one.
+            (val is old_val) if isinstance(val, Packet)
+            # In case of lists, let's take the new value whatever (no optimization).
+            else False if isinstance(val, list)
+            # In the general case, compare the values.
+            else (val == old_val)
+        ):
+            return
+
         if self.deprecated_fields and attr in self.deprecated_fields:
             attr = self._resolve_alias(attr)
         if attr in self.default_fields:
@@ -497,8 +653,8 @@ class Packet(
             self.fields[attr] = val if isinstance(val, RawVal) else \
                 any2i(self, val)
             self.explicit = 0
-            self.raw_packet_cache = None
-            self.raw_packet_cache_fields = None
+            # Invalidate cache when the packet has changed.
+            self.clear_cache()
             self.wirelen = None
         elif attr == "payload":
             self.remove_payload()
@@ -521,8 +677,8 @@ class Packet(
         if attr in self.fields:
             del self.fields[attr]
             self.explicit = 0  # in case a default value must be explicit
-            self.raw_packet_cache = None
-            self.raw_packet_cache_fields = None
+            # Invalidate cache when the packet has changed.
+            self.clear_cache()
             self.wirelen = None
         elif attr in self.default_fields:
             pass
@@ -653,61 +809,41 @@ class Packet(
         # type: (str, Any) -> Any
         return self.get_field(fieldname).do_copy(value)
 
-    def copy_fields_dict(self, fields):
-        # type: (_T) -> _T
-        if fields is None:
-            return None
-        return {fname: self.copy_field_value(fname, fval)
-                for fname, fval in fields.items()}
-
-    def _raw_packet_cache_field_value(self, fld, val, copy=False):
-        # type: (AnyField, Any, bool) -> Optional[Any]
-        """Get a value representative of a mutable field to detect changes"""
-        _cpy = lambda x: fld.do_copy(x) if copy else x  # type: Callable[[Any], Any]
-        if fld.holds_packets:
-            # avoid copying whole packets (perf: #GH3894)
-            if fld.islist:
-                return [
-                    (_cpy(x.fields), x.payload.raw_packet_cache) for x in val
-                ]
-            else:
-                return (_cpy(val.fields), val.payload.raw_packet_cache)
-        elif fld.islist or fld.ismutable:
-            return _cpy(val)
-        return None
-
     def clear_cache(self):
         # type: () -> None
-        """Clear the raw packet cache for the field and all its subfields"""
-        self.raw_packet_cache = None
-        for fname, fval in self.fields.items():
-            fld = self.get_field(fname)
-            if fld.holds_packets:
-                if isinstance(fval, Packet):
-                    fval.clear_cache()
-                elif isinstance(fval, list):
-                    for fsubval in fval:
-                        fsubval.clear_cache()
-        self.payload.clear_cache()
+        """
+        Ensure cache invalidation for all:
+
+        - parent packet if any,
+        - underlayer if any.
+
+        .. note::
+            Contrary to base former implementation, don't invalidate cache for:
+
+            - packet fields if any,
+            - payload if any.
+
+        .. todo::
+            Shall we restore a default behaviour to avoid breaking the API:
+            "Clear the raw packet cache for the field and all its subfields"?
+        """
+        def _clear_cache_ascending(pkt):  # type: (Packet) -> None
+            pkt.raw_packet_cache = None
+
+            if isinstance(pkt, Packet) and pkt.parent:
+                _clear_cache_ascending(pkt.parent)
+            if pkt.underlayer:
+                _clear_cache_ascending(pkt.underlayer)
+
+        _clear_cache_ascending(self)
 
     def self_build(self):
         # type: () -> bytes
         """
         Create the default layer regarding fields_desc dict
-
-        :param field_pos_list:
         """
-        if self.raw_packet_cache is not None and \
-                self.raw_packet_cache_fields is not None:
-            for fname, fval in self.raw_packet_cache_fields.items():
-                fld, val = self.getfield_and_val(fname)
-                if self._raw_packet_cache_field_value(fld, val) != fval:
-                    self.raw_packet_cache = None
-                    self.raw_packet_cache_fields = None
-                    self.wirelen = None
-                    break
-            if self.raw_packet_cache is not None:
-                return self.raw_packet_cache
+        if self.raw_packet_cache is not None:
+            return self.raw_packet_cache
         p = b""
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
@@ -725,6 +861,17 @@ class Packet(
                     except (AttributeError, IndexError):
                         pass
                     raise ex
+
+        # Optimization:
+        #   Once a packet has been built, save the result for the current layer in `raw_packet_cache`,
+        #   except for *no-cache* packets.
+        if self.no_cache:
+            self.raw_packet_cache = None
+        else:
+            self.raw_packet_cache = p
+            # Once a packet has been built, and cache saved, flag as `explicit`.
+            self.explicit = 1
+
         return p
 
     def do_build_payload(self):
@@ -734,6 +881,9 @@ class Packet(
 
         :return: a string of payload layer
         """
+        # Optimization: Flag the payload as explicit to avoid creating new instances for serialization.
+        self.payload.explicit = 1
+
         return self.payload.do_build()
 
     def do_build(self):
@@ -765,6 +915,9 @@ class Packet(
 
         :return: string of the packet with the payload
         """
+        # Flag as explicit to avoid creating new instances for serialization.
+        self.explicit = 1
+
         p = self.do_build()
         p += self.build_padding()
         p = self.build_done(p)
@@ -1017,25 +1170,22 @@ class Packet(
     def do_dissect(self, s):
         # type: (bytes) -> bytes
         _raw = s
-        self.raw_packet_cache_fields = {}
         for f in self.fields_desc:
             s, fval = f.getfield(self, s)
             # Skip unused ConditionalField
             if isinstance(f, ConditionalField) and fval is None:
                 continue
-            # We need to track fields with mutable values to discard
-            # .raw_packet_cache when needed.
-            if (f.islist or f.holds_packets or f.ismutable) and fval is not None:
-                self.raw_packet_cache_fields[f.name] = \
-                    self._raw_packet_cache_field_value(f, fval, copy=True)
             self.fields[f.name] = fval
             # Nothing left to dissect
             if not s and (isinstance(f, MayEnd) or
                           (fval is not None and isinstance(f, ConditionalField) and
                            isinstance(f.fld, MayEnd))):
                 break
-        self.raw_packet_cache = _raw[:-len(s)] if s else _raw
-        self.explicit = 1
+        if self.no_cache:
+            self.raw_packet_cache = None
+        else:
+            self.raw_packet_cache = _raw[:-len(s)] if s else _raw
+            self.explicit = 1
         return s
 
     def do_dissect_payload(self, s):
@@ -1130,29 +1280,6 @@ class Packet(
                 if self.default_fields[k] == v:
                     del self.fields[k]
         self.payload.hide_defaults()
-
-    def clone_with(self, payload=None, **kargs):
-        # type: (Optional[Any], **Any) -> Any
-        pkt = self.__class__()
-        pkt.explicit = 1
-        pkt.fields = kargs
-        pkt.default_fields = self.copy_fields_dict(self.default_fields)
-        pkt.overloaded_fields = self.overloaded_fields.copy()
-        pkt.time = self.time
-        pkt.underlayer = self.underlayer
-        pkt.parent = self.parent
-        pkt.post_transforms = self.post_transforms
-        pkt.raw_packet_cache = self.raw_packet_cache
-        pkt.raw_packet_cache_fields = self.copy_fields_dict(
-            self.raw_packet_cache_fields
-        )
-        pkt.wirelen = self.wirelen
-        pkt.comment = self.comment
-        pkt.sniffed_on = self.sniffed_on
-        pkt.direction = self.direction
-        if payload is not None:
-            pkt.add_payload(payload)
-        return pkt
 
     def __iter__(self):
         # type: () -> Iterator[Packet]
