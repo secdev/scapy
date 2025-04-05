@@ -193,6 +193,25 @@ class STUNXorMappedAddress(STUNGenericTlv):
     ]
 
 
+class STUNMappedAddress(STUNGenericTlv):
+    name = "STUN Mapped Address"
+
+    fields_desc = [
+        XShortField("type", 0x0001),
+        FieldLenField("length", None, length_of="ip", adjust=lambda pkt, x: x + 4),
+        ByteField("RESERVED", 0),
+        ByteEnumField("address_family", 1, _xor_mapped_address_family),
+        ShortField("port", 0),
+        MultipleTypeField(
+            [
+                (IPField("ip", "127.0.0.1"), lambda pkt: pkt.address_family == 1),
+                (IP6Field("ip", "::1"), lambda pkt: pkt.address_family == 2),
+            ],
+            IPField("ip", "127.0.0.1"),
+        ),
+    ]
+
+
 class STUNUseCandidate(STUNGenericTlv):
     name = "STUN Use Candidate"
 
@@ -235,6 +254,7 @@ class STUNGoogNetworkInfo(STUNGenericTlv):
 
 
 _stun_tlv_class = {
+    0x0001: STUNMappedAddress,
     0x0006: STUNUsername,
     0x0008: STUNMessageIntegrity,
     0x0020: STUNXorMappedAddress,

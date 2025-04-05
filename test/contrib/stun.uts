@@ -126,6 +126,24 @@ assert parsed.attributes[0].address_family == 0x02, parsed.attributes[0].address
 assert parsed.attributes[0].xport == 7621, parsed.attributes[0].xport
 assert parsed.attributes[0].xip == "::1", parsed.attributes[0].xip
 
+= test STUN classic binding success response
+
+raw = b"\x01\x01\x00\x0c\x37\x06\xd1\x4d\x38\x3a\xd6\xc8\x40\x5e\x17\x9a" \
+      b"\x93\x92\xea\xa8\x00\x01\x00\x08\x00\x01\x0d\x14\xc0\xa8\x00\x05"
+
+parsed = STUN(raw)
+assert parsed.RESERVED == 0x00, parsed.RESERVED
+assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding success response"
+assert parsed.length == 12
+assert parsed.magic_cookie == 0x3706d14d
+assert parsed.transaction_id == 0x383ad6c8405e179a9392eaa8, parsed.transaction_id
+assert len(parsed.attributes) == 1, len(parsed.attributes)
+assert parsed.attributes[0].type == 0x0001, parsed.attributes[0].type
+assert parsed.attributes[0].length == 8, parsed.attributes[0].length
+assert parsed.attributes[0].address_family == 0x01, parsed.attributes[0].address_family
+assert parsed.attributes[0].port == 3348, parsed.attributes[0].port
+assert parsed.attributes[0].ip == "192.168.0.5", parsed.attributes[0].ip
+
 = test STUN binding indication 1
 
 raw = b"\x00\x11\x00\x08\x21\x12\xa4\x42\x29\x3d\x68\x7b\x0f\xbc\x44\x7c" \
