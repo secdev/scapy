@@ -39,7 +39,9 @@ from scapy.fields import (
     XLongField,
     XIntField,
     XBitField,
-    IPField
+    IPField,
+    IP6Field,
+    MultipleTypeField,
 )
 
 MAGIC_COOKIE = 0x2112A442
@@ -152,16 +154,42 @@ class XorIp(IPField):
         return struct.pack(">i", struct.unpack(">i", inet_aton(x))[0] ^ MAGIC_COOKIE)
 
 
+class XorIp6(IP6Field):
+
+    def m2i(self, pkt, x):
+        addr = self._xor_address(pkt, x)
+        return super().m2i(pkt, addr)
+
+    def i2m(self, pkt, x):
+        addr = super().i2m(pkt, x)
+        return self._xor_address(pkt, addr)
+
+    def _xor_address(self, pkt, addr):
+        xor_words = [pkt.parent.magic_cookie]
+        xor_words += struct.unpack(
+            ">III", pkt.parent.transaction_id.to_bytes(12, "big")
+        )
+        addr_words = struct.unpack(">IIII", addr)
+        xor_addr = [a ^ b for a, b in zip(addr_words, xor_words)]
+        return struct.pack(">IIII", *xor_addr)
+
+
 class STUNXorMappedAddress(STUNGenericTlv):
     name = "STUN XOR Mapped Address"
 
     fields_desc = [
         XShortField("type", 0x0020),
-        ShortField("length", 8),
+        FieldLenField("length", None, length_of="xip", adjust=lambda pkt, x: x + 4),
         ByteField("RESERVED", 0),
         ByteEnumField("address_family", 1, _xor_mapped_address_family),
         XorPort("xport", 0),
-        XorIp("xip", 0)     # FIXME <- only IPv4 addresses will work
+        MultipleTypeField(
+            [
+                (XorIp("xip", "127.0.0.1"), lambda pkt: pkt.address_family == 1),
+                (XorIp6("xip", "::1"), lambda pkt: pkt.address_family == 2),
+            ],
+            XorIp("xip", "127.0.0.1"),
+        ),
     ]
 
 
