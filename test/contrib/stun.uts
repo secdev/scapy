@@ -78,7 +78,7 @@ assert parsed.length == 44
 assert parsed.magic_cookie == 0x2112A442
 assert parsed.transaction_id == 0xcfacb2a43aa2de5a9d56d85a, parsed.transaction_id
 assert parsed.attributes == [
-      STUNXorMappedAddress(xport=40480, xip="172.20.0.42"),
+      STUNXorMappedAddress(length=8, xport=40480, xip="172.20.0.42"),
       STUNMessageIntegrity(hmac_sha1=0xb71fc9235897c802e3fff8e3d889fa41428d967d),
       STUNFingerprint(crc_32=0xea9b6559)
 ]
@@ -99,13 +99,50 @@ assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding
 assert parsed.length == 88
 assert parsed.magic_cookie == 0x2112A442
 assert parsed.transaction_id == 0x3479476534635936316a796a, parsed.transaction_id
-assert parsed.attributes[0] == STUNXorMappedAddress(xport=25000, xip="172.20.0.200"), parsed.attributes
+assert parsed.attributes[0] == STUNXorMappedAddress(length=8, xport=25000, xip="172.20.0.200"), parsed.attributes
 assert parsed.attributes == [
-      STUNXorMappedAddress(xport=25000, xip="172.20.0.200"),
+      STUNXorMappedAddress(length=8, xport=25000, xip="172.20.0.200"),
       STUNUsername(length=37, username="Ht11MaRZHc4GOLJUsbu1R3YCs72HYN25:oNph"),
       STUNMessageIntegrity(hmac_sha1=0x4b67036dfb65ca84d63bcac86c8d5981df657031),
       STUNFingerprint(crc_32=0x4041e9c3)
 ]
+
+= test STUN binding success response IPv6
+
+raw = b"\x01\x01\x00\x18\x21\x12\xa4\x42\x91\x1b\x25\x32\x99\x8d\xa0\x1c" \
+      b"\xf9\xd0\x53\xd9\x00\x20\x00\x14\x00\x02\x3c\xd7\x21\x12\xa4\x42" \
+      b"\x91\x1b\x25\x32\x99\x8d\xa0\x1c\xf9\xd0\x53\xd8"
+
+parsed = STUN(raw)
+assert parsed.RESERVED == 0x00, parsed.RESERVED
+assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding success response"
+assert parsed.length == 24
+assert parsed.magic_cookie == 0x2112A442
+assert parsed.transaction_id == 0x911b2532998da01cf9d053d9, parsed.transaction_id
+assert len(parsed.attributes) == 1, len(parsed.attributes)
+assert parsed.attributes[0].type == 0x0020, parsed.attributes[0].type
+assert parsed.attributes[0].length == 20, parsed.attributes[0].length
+assert parsed.attributes[0].address_family == 0x02, parsed.attributes[0].address_family
+assert parsed.attributes[0].xport == 7621, parsed.attributes[0].xport
+assert parsed.attributes[0].xip == "::1", parsed.attributes[0].xip
+
+= test STUN classic binding success response
+
+raw = b"\x01\x01\x00\x0c\x37\x06\xd1\x4d\x38\x3a\xd6\xc8\x40\x5e\x17\x9a" \
+      b"\x93\x92\xea\xa8\x00\x01\x00\x08\x00\x01\x0d\x14\xc0\xa8\x00\x05"
+
+parsed = STUN(raw)
+assert parsed.RESERVED == 0x00, parsed.RESERVED
+assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding success response"
+assert parsed.length == 12
+assert parsed.magic_cookie == 0x3706d14d
+assert parsed.transaction_id == 0x383ad6c8405e179a9392eaa8, parsed.transaction_id
+assert len(parsed.attributes) == 1, len(parsed.attributes)
+assert parsed.attributes[0].type == 0x0001, parsed.attributes[0].type
+assert parsed.attributes[0].length == 8, parsed.attributes[0].length
+assert parsed.attributes[0].address_family == 0x01, parsed.attributes[0].address_family
+assert parsed.attributes[0].port == 3348, parsed.attributes[0].port
+assert parsed.attributes[0].ip == "192.168.0.5", parsed.attributes[0].ip
 
 = test STUN binding indication 1
 
@@ -146,3 +183,60 @@ built = stun.build()
 parsed = STUN(built)
 
 assert parsed.build() == built
+
+= test STUN packet build with attributes
+stun = STUN(
+    stun_message_type="Binding success response",
+    transaction_id=0x3479476534635936316a796a,
+    attributes=[
+        STUNXorMappedAddress(xport=25000, xip="172.20.0.200"),
+        STUNUsername(length=37, username="Ht11MaRZHc4GOLJUsbu1R3YCs72HYN25:oNph"),
+        STUNMessageIntegrity(hmac_sha1=0x4b67036dfb65ca84d63bcac86c8d5981df657031),
+        STUNFingerprint(crc_32=0x4041e9c3)
+    ]
+)
+
+built = stun.build()
+parsed = STUN(built)
+
+assert parsed.build() == built
+
+= test STUN packet build IPv6
+
+stun = STUN(
+    stun_message_type="Binding success response",
+    transaction_id=0x911b2532998da01cf9d053d9,
+    attributes=[
+        STUNXorMappedAddress(xport=7621, address_family="IPv6", xip="::1")
+    ]
+)
+built = stun.build()
+parsed = STUN(built)
+
+assert parsed.build() == built
+assert parsed.attributes[0].length == 20
+
+= test STUN bottom up binding 1
+
+udp = UDP(sport=62049, dport=3478) / STUN()
+built = udp.build()
+parsed = UDP(built)
+
+assert type(parsed.payload) == STUN, parsed.show(dump=True)
+
+= test STUN bottom up binding 2
+
+udp = UDP(sport=3478, dport=62049) / STUN(stun_message_type="Binding error response")
+built = udp.build()
+parsed = UDP(built)
+
+assert type(parsed.payload) == STUN, parsed.show(dump=True)
+
+= test STUN top down binding
+
+udp = UDP() / STUN()
+built = udp.build()
+parsed = UDP(built)
+
+assert parsed.sport == 3478, parsed.sport
+assert parsed.dport == 3478, parsed.dport
