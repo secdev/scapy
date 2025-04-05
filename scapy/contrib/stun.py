@@ -20,7 +20,7 @@ import itertools
 
 from scapy.layers.inet import UDP, TCP
 from scapy.config import conf
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_bottom_up, bind_top_down
 from scapy.utils import inet_ntoa, inet_aton
 from scapy.fields import (
     BitField,
@@ -307,5 +307,10 @@ class STUN(Packet):
         return pkt
 
 
-bind_layers(UDP, STUN, dport=3478)
-bind_layers(TCP, STUN, dport=3478)
+bind_bottom_up(UDP, STUN, sport=3478)
+bind_bottom_up(UDP, STUN, dport=3478)
+bind_top_down(UDP, STUN, sport=3478, dport=3478)
+
+bind_bottom_up(TCP, STUN, sport=3478)
+bind_bottom_up(TCP, STUN, dport=3478)
+bind_top_down(TCP, STUN, sport=3478, dport=3478)

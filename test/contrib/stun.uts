@@ -215,3 +215,28 @@ parsed = STUN(built)
 
 assert parsed.build() == built
 assert parsed.attributes[0].length == 20
+
+= test STUN bottom up binding 1
+
+udp = UDP(sport=62049, dport=3478) / STUN()
+built = udp.build()
+parsed = UDP(built)
+
+assert type(parsed.payload) == STUN, parsed.show(dump=True)
+
+= test STUN bottom up binding 2
+
+udp = UDP(sport=3478, dport=62049) / STUN(stun_message_type="Binding error response")
+built = udp.build()
+parsed = UDP(built)
+
+assert type(parsed.payload) == STUN, parsed.show(dump=True)
+
+= test STUN top down binding
+
+udp = UDP() / STUN()
+built = udp.build()
+parsed = UDP(built)
+
+assert parsed.sport == 3478, parsed.sport
+assert parsed.dport == 3478, parsed.dport
