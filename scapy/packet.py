@@ -379,12 +379,12 @@ class Packet(
         """DEV: returns the field instance from the name of the field"""
         return self.fieldtype[fld]
 
-    def add_payload(self, payload):
-        # type: (Union[Packet, bytes]) -> None
+    def add_payload(self, payload, clear_cache=True):
+        # type: (Union[Packet, bytes], bool) -> None
         if payload is None:
             return
         elif not isinstance(self.payload, NoPayload):
-            self.payload.add_payload(payload)
+            self.payload.add_payload(payload, clear_cache=clear_cache)
         else:
             if isinstance(payload, Packet):
                 self.payload = payload
@@ -399,7 +399,8 @@ class Packet(
                 raise TypeError("payload must be 'Packet', 'bytes', 'str', 'bytearray', or 'memoryview', not [%s]" % repr(payload))  # noqa: E501
 
             # Invalidate cache when the packet has changed.
-            self.clear_cache()
+            if clear_cache:
+                self.clear_cache()
 
     def remove_payload(self):
         # type: () -> None
@@ -1202,7 +1203,7 @@ class Packet(
             ):
                 # stop dissection here
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
-                self.add_payload(p)
+                self.add_payload(p, clear_cache=False)
                 return
             cls = self.guess_payload_class(s)
             try:
@@ -1225,7 +1226,7 @@ class Packet(
                     if cls is not None:
                         raise
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
-            self.add_payload(p)
+            self.add_payload(p, clear_cache=False)
 
     def dissect(self, s):
         # type: (bytes) -> None
