@@ -400,7 +400,7 @@ class Packet(
 
             # Invalidate cache when the packet has changed.
             if clear_cache:
-                self.clear_cache()
+                self.clear_cache(upwards=True, downwards=False)
 
     def remove_payload(self):
         # type: () -> None
@@ -409,7 +409,7 @@ class Packet(
         self.overloaded_fields = {}
 
         # Invalidate cache when the packet has changed.
-        self.clear_cache()
+        self.clear_cache(upwards=True, downwards=False)
 
     def add_underlayer(self, underlayer):
         # type: (Packet) -> None
@@ -655,7 +655,7 @@ class Packet(
                 any2i(self, val)
             self.explicit = 0
             # Invalidate cache when the packet has changed.
-            self.clear_cache()
+            self.clear_cache(upwards=True, downwards=False)
             self.wirelen = None
         elif attr == "payload":
             self.remove_payload()
@@ -679,7 +679,7 @@ class Packet(
             del self.fields[attr]
             self.explicit = 0  # in case a default value must be explicit
             # Invalidate cache when the packet has changed.
-            self.clear_cache()
+            self.clear_cache(upwards=True, downwards=False)
             self.wirelen = None
         elif attr in self.default_fields:
             pass
@@ -810,33 +810,33 @@ class Packet(
         # type: (str, Any) -> Any
         return self.get_field(fieldname).do_copy(value)
 
-    def clear_cache(self):
-        # type: () -> None
+    def clear_cache(self, upwards=False, downwards=True):
+        # type: (bool, bool) -> None
         """
-        Ensure cache invalidation for all:
+        Clear the raw packet cache for the current packet.
 
-        - parent packet if any,
-        - underlayer if any.
+        ``upwards`` and ``downwards`` indicate how this call should recurse in the packet tree.
 
-        .. note::
-            Contrary to base former implementation, don't invalidate cache for:
-
-            - packet fields if any,
-            - payload if any.
-
-        .. todo::
-            Shall we restore a default behaviour to avoid breaking the API:
-            "Clear the raw packet cache for the field and all its subfields"?
+        :param upwards: Set to ``True`` to clear cache recursively over parent and underlayer packets. ``False`` by default.
+        :param downwards: Set to ``True`` (default) to clear cache recursively over subfields and payload.
         """
-        def _clear_cache_ascending(pkt):  # type: (Packet) -> None
-            pkt.raw_packet_cache = None
+        self.raw_packet_cache = None
 
-            if isinstance(pkt, Packet) and pkt.parent:
-                _clear_cache_ascending(pkt.parent)
-            if pkt.underlayer:
-                _clear_cache_ascending(pkt.underlayer)
-
-        _clear_cache_ascending(self)
+        if upwards:
+            if self.parent:
+                self.parent.clear_cache(upwards=True, downwards=False)
+            if self.underlayer:
+                self.underlayer.clear_cache(upwards=True, downwards=False)
+        if downwards:
+            for fname, fval in self.fields.items():
+                fld = self.get_field(fname)
+                if fld.holds_packets:
+                    if isinstance(fval, Packet):
+                        fval.clear_cache(upwards=False, downwards=True)
+                    elif isinstance(fval, list):
+                        for fsubval in fval:
+                            fsubval.clear_cache(upwards=False, downwards=True)
+            self.payload.clear_cache(upwards=False, downwards=True)
 
     def self_build(self):
         # type: () -> bytes
