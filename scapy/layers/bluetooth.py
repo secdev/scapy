@@ -21,7 +21,8 @@ from scapy.config import conf
 from scapy.data import (
     DLT_BLUETOOTH_HCI_H4,
     DLT_BLUETOOTH_HCI_H4_WITH_PHDR,
-    DLT_BLUETOOTH_LINUX_MONITOR
+    DLT_BLUETOOTH_LINUX_MONITOR,
+    BLUETOOTH_CORE_COMPANY_IDENTIFIERS
 )
 from scapy.packet import bind_layers, Packet
 from scapy.fields import (
@@ -265,6 +266,24 @@ _bluetooth_features = [
     'reserved4_bit3',
     'extended_features',
 ]
+
+_bluetooth_core_specification_versions = {
+    0x00: '1.0b',
+    0x01: '1.1',
+    0x02: '1.2',
+    0x03: '2.0+EDR',
+    0x04: '2.1+EDR',
+    0x05: '3.0+HS',
+    0x06: '4.0',
+    0x07: '4.1',
+    0x08: '4.2',
+    0x09: '5.0',
+    0x0a: '5.1',
+    0x0b: '5.2',
+    0x0c: '5.3',
+    0x0d: '5.4',
+    0x0e: '6.0',
+}
 
 
 class HCI_Hdr(Packet):
@@ -2445,10 +2464,10 @@ class HCI_Cmd_Complete_Read_Local_Version_Information(Packet):
     """
     name = 'Read Local Version Information'
     fields_desc = [
-        ByteField('hci_version', 0),
+        ByteEnumField('hci_version', 0, _bluetooth_core_specification_versions),
         LEShortField('hci_subversion', 0),
-        ByteField('lmp_version', 0),
-        LEShortField('company_identifier', 0),
+        ByteEnumField('lmp_version', 0, _bluetooth_core_specification_versions),
+        LEShortEnumField('company_identifier', 0, BLUETOOTH_CORE_COMPANY_IDENTIFIERS),
         LEShortField('lmp_subversion', 0)]
 
 
