@@ -56,6 +56,7 @@ from scapy.fields import (
     XLEIntField,
     LEMACField,
     BitEnumField,
+    LEThreeBytesField,
 )
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
@@ -1266,7 +1267,19 @@ class EIR_PublicTargetAddress(EIR_Element):
 class EIR_AdvertisingInterval(EIR_Element):
     name = "Advertising Interval"
     fields_desc = [
-        LEShortField("advertising_interval", 0)
+        MultipleTypeField(
+            [
+                (ByteField("advertising_interval", 0),
+                 lambda p: p.underlayer.len - 1 == 1),
+                (LEShortField("advertising_interval", 0),
+                 lambda p: p.underlayer.len - 1 == 2),
+                (LEThreeBytesField("advertising_interval", 0),
+                 lambda p: p.underlayer.len - 1 == 3),
+                (LEIntField("advertising_interval", 0),
+                 lambda p: p.underlayer.len - 1 == 4),
+            ],
+            LEShortField("advertising_interval", 0)
+        )
     ]
 
 
