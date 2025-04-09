@@ -283,6 +283,7 @@ _bluetooth_core_specification_versions = {
     0x0e: '6.0',
 }
 
+# From https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/company_identifiers/company_identifiers.yaml 2025-04-09 # noqa
 _bluetooth_core_company_identifiers = {
     0x0ECC: 'Shenzhen NEOECO Technology Co., Ltd.',
     0x0ECB: 'Zhong Shan City Richsound Electronic Industrial Ltd.',
