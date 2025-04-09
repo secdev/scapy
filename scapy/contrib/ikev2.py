@@ -568,7 +568,7 @@ class IKEv2_Payload(_IKEv2_Packet):
     name = "IKEv2 Payload"
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2PayloadTypes),
-        FlagsField("flags", 0, 8, ["critical"]),
+        FlagsField("flags", 0, 8, {0x80: "critical"}),
         ShortField("length", None),
         XStrLenField("load", "", length_from=lambda pkt: pkt.length - 4),
     ]

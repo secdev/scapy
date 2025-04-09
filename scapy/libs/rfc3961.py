@@ -1383,6 +1383,18 @@ class Key(object):
         return ep.random_to_key(seed)
 
     @classmethod
+    def new_random_key(cls, etype):
+        # type: (EncryptionType) -> Key
+        """
+        Generates a seed then calls random-to-key
+        """
+        try:
+            ep = _enctypes[etype]
+        except ValueError:
+            raise ValueError("Unknown etype '%s'" % etype)
+        return cls.random_to_key(etype, os.urandom(ep.seedsize))
+
+    @classmethod
     def string_to_key(cls, etype, string, salt, params=None):
         # type: (EncryptionType, bytes, bytes, Optional[bytes]) -> Key
         """

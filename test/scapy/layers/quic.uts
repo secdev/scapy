@@ -1,0 +1,117 @@
+% Scapy QUIC layer tests
+
++ QUIC dissection / build
+
+% We use the examples from https://quic.xargs.org/. Big props & kudos to them !
+% FIXME TODO: THIS IS VERY INCOMPLETE.
+
+= QUIC - Dissect Client Initial Packet
+
+from scapy.layers.quic import *
+
+pkt = QUIC(bytes.fromhex("c00000000108000102030405060705635f636964004103001c36a7ed78716be9711ba498b7ed868443bb2e0c514d4d848eadcc7a00d25ce9f9afa483978088de836be68c0b32a24595d7813ea5414a9199329a6d9f7f760dd8bb249bf3f53d9a77fbb7b395b8d66d7879a51fe59ef9601f79998eb3568e1fdc789f640acab3858a82ef2930fa5ce14b5b9ea0bdb29f4572da85aa3def39b7efafffa074b9267070d50b5d07842e49bba3bc787ff295d6ae3b514305f102afe5a047b3fb4c99eb92a274d244d60492c0e2e6e212cef0f9e3f62efd0955e71c768aa6bb3cd80bbb3755c8b7ebee32712f40f2245119487021b4b84e1565e3ca31967ac8604d4032170dec280aeefa095d08b3b7241ef6646a6c86e5c62ce08be099"))
+assert QUIC_Initial in pkt
+assert pkt.LongPacketType == 0
+assert pkt.DstConnID == b"\x00\x01\x02\x03\x04\x05\x06\x07"
+assert pkt.SrcConnID == b"c_cid"
+assert pkt.Length == 259
+assert len(pkt.load) + 1 == 259
+assert pkt.PacketNumber == 0
+
+= QUIC - Dissect Server Initial Packet
+
+from scapy.layers.quic import *
+
+pkt = QUIC(bytes.fromhex("c00000000105635f63696405735f63696400407500836855d5d9c823d07c616882ca770279249864b556e51632257e2d8ab1fd0dc04b18b9203fb919d8ef5a33f378a627db674d3c7fce6ca5bb3e8cf90109cbb955665fc1a4b93d05f6eb83252f6631bcadc7402c10f65c52ed15b4429c9f64d84d64fa406cf0b517a926d62a54a9294136b143b033"))
+assert QUIC_Initial in pkt
+assert pkt.LongPacketType == 0
+assert pkt.DstConnID == b"c_cid"
+assert pkt.SrcConnID == b"s_cid"
+assert pkt.Length == 117
+assert len(pkt.load) + 1 == 117
+assert pkt.PacketNumber == 0
+
+= QUIC - Dissect Server Handshake Packet
+
+from scapy.layers.quic import *
+
+pkt = QUIC(bytes.fromhex("e00000000105635f63696405735f63696440cf014420f919681c3f0f102a30f5e647a3399abf54bc8e80453134996ba33099056242f3b8e662bbfce42f3ef2b6ba87159147489f8479e849284e983fd905320a62fc7d67e9587797096ca60101d0b2685d8747811178133ad9172b7ff8ea83fd81a814bae27b953a97d57ebff4b4710dba8df82a6b49d7d7fa3d8179cbdb8683d4bfa832645401e5a56a76535f71c6fb3e616c241bb1f43bc147c296f591402997ed49aa0c55e31721d03e14114af2dc458ae03944de5126fe08d66a6ef3ba2ed1025f98fea6d6024998184687dc06"))
+assert QUIC_Handshake in pkt
+assert pkt.LongPacketType == 2
+assert pkt.DstConnID == b"c_cid"
+assert pkt.SrcConnID == b"s_cid"
+assert pkt.PacketNumber == 1
+
+= QUIC - QuicPacketNumberField / QuicPacketNumberBitFieldLenField - variable lengths
+
+from scapy.layers.quic import *
+
+pkt = QUIC_Initial(DstConnID=b'p\xa2\x8e@\x96\xc5}\xd0\xff\xb6\xc3\xd8\x1b\xcaR', SrcConnID=b'\xf7\x10Q', PacketNumber=0xFF)
+assert bytes(pkt) == b'\xc0\x00\x00\x00\x01\x0fp\xa2\x8e@\x96\xc5}\xd0\xff\xb6\xc3\xd8\x1b\xcaR\x03\xf7\x10Q\x00\x00\xff'
+pkt = QUIC_Initial(bytes(pkt))
+assert pkt.DstConnIDLen == 15
+assert pkt.SrcConnIDLen == 3
+assert pkt.PacketNumberLen == 0
+assert pkt.PacketNumber == 0xFF
+
+pkt = QUIC_Initial(DstConnID=b'p\xa2\x8e@\x96\xc5}\xd0\xff\xb6\xc3\xd8\x1b\xcaR', SrcConnID=b'\xf7\x10Q', PacketNumber=0xFFFF)
+assert bytes(pkt) == b'\xc1\x00\x00\x00\x01\x0fp\xa2\x8e@\x96\xc5}\xd0\xff\xb6\xc3\xd8\x1b\xcaR\x03\xf7\x10Q\x00\x00\xff\xff'
+pkt = QUIC_Initial(bytes(pkt))
+assert pkt.PacketNumberLen == 1
+assert pkt.PacketNumber == 0xFFFF
+
+pkt = QUIC_Initial(DstConnID=b'p\xa2\x8e@\x96\xc5}\xd0\xff\xb6\xc3\xd8\x1b\xcaR', SrcConnID=b'\xf7\x10Q', PacketNumber=0xFFFFFF)
+assert bytes(pkt) == b'\xc2\x00\x00\x00\x01\x0fp\xa2\x8e@\x96\xc5}\xd0\xff\xb6\xc3\xd8\x1b\xcaR\x03\xf7\x10Q\x00\x00\xff\xff\xff'
+pkt = QUIC_Initial(bytes(pkt))
+assert pkt.PacketNumberLen == 2
+assert pkt.PacketNumber == 0xFFFFFF
+
+pkt = QUIC_Initial(DstConnID=b'p\xa2\x8e@\x96\xc5}\xd0\xff\xb6\xc3\xd8\x1b\xcaR', SrcConnID=b'\xf7\x10Q', PacketNumber=0xFFFFFFFF)
+assert bytes(pkt) == b'\xc3\x00\x00\x00\x01\x0fp\xa2\x8e@\x96\xc5}\xd0\xff\xb6\xc3\xd8\x1b\xcaR\x03\xf7\x10Q\x00\x00\xff\xff\xff\xff'
+pkt = QUIC_Initial(bytes(pkt))
+assert pkt.PacketNumberLen == 3
+assert pkt.PacketNumber == 0xFFFFFFFF
+
+= QUIC - QuicPacketNumberField / QuicPacketNumberBitFieldLenField - Out of range
+
+import struct
+from scapy.layers.quic import *
+
+try:
+    pkt = QUIC_Initial(PacketNumber=0xFFFFFFFFFF)
+    bytes(pkt)
+    assert False, "QUIC Packet Number length should fail"
+except struct.error:
+    pass
+
+= QUIC - QuicVarIntField - variable lengths
+
+from scapy.layers.quic import *
+
+pkt = QUIC_Initial(Length=1)
+assert bytes(pkt) == b'\xc0\x00\x00\x00\x01\x00\x00\x00\x01\x00'
+assert QUIC_Initial(bytes(pkt)).Length == 1
+
+pkt = QUIC_Initial(Length=1 << 9)
+assert bytes(pkt) == b'\xc0\x00\x00\x00\x01\x00\x00\x00B\x00\x00'
+assert QUIC_Initial(bytes(pkt)).Length == 1 << 9
+
+pkt = QUIC_Initial(Length=1 << 17)
+assert bytes(pkt) == b'\xc0\x00\x00\x00\x01\x00\x00\x00\x80\x02\x00\x00\x00'
+assert QUIC_Initial(bytes(pkt)).Length == 1 << 17
+
+pkt = QUIC_Initial(Length=4611686018427387903)
+assert bytes(pkt) == b'\xc0\x00\x00\x00\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x00'
+assert QUIC_Initial(bytes(pkt)).Length == 4611686018427387903
+
+= QUIC - QuicVarIntField - Out of range
+
+import struct
+from scapy.layers.quic import *
+
+try:
+    pkt = QUIC_Initial(Length=0xFFFFFFFFFFFFFFFF)
+    bytes(pkt)
+    assert False, "QUIC Variable length should fail"
+except struct.error:
+    pass

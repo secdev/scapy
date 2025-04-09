@@ -358,16 +358,25 @@ class Ticketer:
         with open(self.fname, "rb") as fd:
             self.ccache = CCache(fd.read())
 
-    def save(self, fname=None):
+    def save(self, fname=None, i=None):
         """
         Save opened CCache file
+
+        :param fname: if provided, save to a specific file.
+        :param i: if provided, only save the ticket n°i.
         """
         if fname:
             self.fname = fname
         if not self.fname:
             raise ValueError("No file opened. Specify the 'fname' argument !")
+        if i is not None:
+            ccache = self.ccache.copy()
+            ccache.credentials = [ccache.credentials[i]]
+            data = bytes(ccache)
+        else:
+            data = bytes(self.ccache)
         with open(self.fname, "wb") as fd:
-            return fd.write(bytes(self.ccache))
+            return fd.write(data)
 
     def show(self, utc=False):
         """
@@ -501,6 +510,14 @@ class Ticketer:
             decTkt.key.toKey(),
             decTkt,
         )
+
+    def remove_krb(self, i):
+        """
+        Remove a ticket from the store.
+
+        :param i: the ticket to remove.
+        """
+        del self.ccache.credentials[i]
 
     def import_krb(self, res, key=None, hash=None, _inplace=None):
         """
@@ -2100,29 +2117,88 @@ class Ticketer:
         tkt = self.dec_ticket(i, hash=hash)
         self.update_ticket(i, tkt, resign=True, hash=hash, kdc_hash=kdc_hash)
 
-    def request_tgt(self, upn, ip=None, key=None, password=None, realm=None, **kwargs):
+    def request_tgt(
+        self,
+        upn,
+        ip=None,
+        key=None,
+        password=None,
+        realm=None,
+        fast=False,
+        armor_with=None,
+        **kwargs,
+    ):
         """
         Request a Kerberos TGT and add it to the local CCache
 
         See :func:`~scapy.layers.kerberos.krb_as_req` for the full documentation.
         """
-        res = krb_as_req(upn, ip=ip, key=key, password=password, realm=realm, **kwargs)
+        # If `armor_with` is specified, get the armor ticket from our store
+        armor_ticket, armor_ticket_skey, armor_ticket_upn = None, None, None
+        if armor_with is not None:
+            fast = True
+            armor_ticket, armor_ticket_skey, armor_ticket_upn, _ = self.export_krb(
+                armor_with
+            )
+
+        res = krb_as_req(
+            upn=upn,
+            ip=ip,
+            key=key,
+            password=password,
+            realm=realm,
+            fast=fast,
+            armor_ticket=armor_ticket,
+            armor_ticket_upn=armor_ticket_upn,
+            armor_ticket_skey=armor_ticket_skey,
+            **kwargs,
+        )
         if not res:
             return
 
         self.import_krb(res)
 
     def request_st(
-        self, i, spn, ip=None, renew=False, realm=None, additional_tickets=[], **kwargs
+        self,
+        i,
+        spn,
+        ip=None,
+        renew=False,
+        realm=None,
+        additional_tickets=[],
+        fast=False,
+        armor_with=None,
+        for_user=None,
+        s4u2proxy=None,
+        **kwargs,
     ):
         """
-        Request a Kerberos TS and add it to the local CCache using another ticket
+        Request a Kerberos TS and add it to the local CCache using another ticket.
 
-        :param i: the ticket/sessionkey to use in the TGS request
+        :param i: the index of the ticket/sessionkey to use in the TGS request.
+        :param spn: the SPN to request a ticket for.
+        :param armor_with: the index of the ticket/sessionkey to armor this request.
+        :param s4u2proxy: if an index, the index of the additional ticket to send along
+                          a S4U2PROXY request. If True, it will use additional_tickets
+                          as usual.
+        :param for_user: if provided, requests S4U2SELF for that user.
 
         See :func:`~scapy.layers.kerberos.krb_tgs_req` for the the other parameters.
         """
         ticket, sessionkey, upn, _ = self.export_krb(i)
+
+        # If `armor_with` is specified, get the armor ticket from our store
+        armor_ticket, armor_ticket_skey, armor_ticket_upn = None, None, None
+        if armor_with is not None:
+            fast = True
+            armor_ticket, armor_ticket_skey, armor_ticket_upn, _ = self.export_krb(
+                armor_with
+            )
+
+        # If `s4u2proxy` is an index, get the ticket to armor with
+        if isinstance(s4u2proxy, int):
+            additional_tickets.append(self.export_krb(s4u2proxy)[0])
+            s4u2proxy = True
 
         res = krb_tgs_req(
             upn,
@@ -2133,6 +2209,11 @@ class Ticketer:
             renew=renew,
             realm=realm,
             additional_tickets=additional_tickets,
+            fast=fast,
+            for_user=for_user,
+            armor_ticket=armor_ticket,
+            armor_ticket_upn=armor_ticket_upn,
+            armor_ticket_skey=armor_ticket_skey,
             **kwargs,
         )
         if not res:
@@ -2140,7 +2221,7 @@ class Ticketer:
 
         self.import_krb(res)
 
-    def kpasswdset(self, i, targetupn=None):
+    def kpasswdset(self, i, targetupn=None, newpassword=None):
         """
         Use kpasswd in 'Set Password' mode to set the password of an account.
 
@@ -2153,6 +2234,7 @@ class Ticketer:
             setpassword=True,
             ticket=ticket,
             key=sessionkey,
+            newpassword=newpassword,
         )
 
     def renew(self, i, ip=None, additional_tickets=[], **kwargs):

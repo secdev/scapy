@@ -20,7 +20,7 @@ import itertools
 
 from scapy.layers.inet import UDP, TCP
 from scapy.config import conf
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_bottom_up, bind_top_down
 from scapy.utils import inet_ntoa, inet_aton
 from scapy.fields import (
     BitField,
@@ -39,7 +39,9 @@ from scapy.fields import (
     XLongField,
     XIntField,
     XBitField,
-    IPField
+    IPField,
+    IP6Field,
+    MultipleTypeField,
 )
 
 MAGIC_COOKIE = 0x2112A442
@@ -149,7 +151,27 @@ class XorIp(IPField):
     def i2m(self, pkt, x):
         if x is None:
             return b"\x00\x00\x00\x00"
-        return struct.pack(">i", struct.unpack(">i", inet_aton(x)) ^ MAGIC_COOKIE)
+        return struct.pack(">i", struct.unpack(">i", inet_aton(x))[0] ^ MAGIC_COOKIE)
+
+
+class XorIp6(IP6Field):
+
+    def m2i(self, pkt, x):
+        addr = self._xor_address(pkt, x)
+        return super().m2i(pkt, addr)
+
+    def i2m(self, pkt, x):
+        addr = super().i2m(pkt, x)
+        return self._xor_address(pkt, addr)
+
+    def _xor_address(self, pkt, addr):
+        xor_words = [pkt.parent.magic_cookie]
+        xor_words += struct.unpack(
+            ">III", pkt.parent.transaction_id.to_bytes(12, "big")
+        )
+        addr_words = struct.unpack(">IIII", addr)
+        xor_addr = [a ^ b for a, b in zip(addr_words, xor_words)]
+        return struct.pack(">IIII", *xor_addr)
 
 
 class STUNXorMappedAddress(STUNGenericTlv):
@@ -157,11 +179,36 @@ class STUNXorMappedAddress(STUNGenericTlv):
 
     fields_desc = [
         XShortField("type", 0x0020),
-        ShortField("length", 8),
+        FieldLenField("length", None, length_of="xip", adjust=lambda pkt, x: x + 4),
         ByteField("RESERVED", 0),
         ByteEnumField("address_family", 1, _xor_mapped_address_family),
         XorPort("xport", 0),
-        XorIp("xip", 0)     # FIXME <- only IPv4 addresses will work
+        MultipleTypeField(
+            [
+                (XorIp("xip", "127.0.0.1"), lambda pkt: pkt.address_family == 1),
+                (XorIp6("xip", "::1"), lambda pkt: pkt.address_family == 2),
+            ],
+            XorIp("xip", "127.0.0.1"),
+        ),
+    ]
+
+
+class STUNMappedAddress(STUNGenericTlv):
+    name = "STUN Mapped Address"
+
+    fields_desc = [
+        XShortField("type", 0x0001),
+        FieldLenField("length", None, length_of="ip", adjust=lambda pkt, x: x + 4),
+        ByteField("RESERVED", 0),
+        ByteEnumField("address_family", 1, _xor_mapped_address_family),
+        ShortField("port", 0),
+        MultipleTypeField(
+            [
+                (IPField("ip", "127.0.0.1"), lambda pkt: pkt.address_family == 1),
+                (IP6Field("ip", "::1"), lambda pkt: pkt.address_family == 2),
+            ],
+            IPField("ip", "127.0.0.1"),
+        ),
     ]
 
 
@@ -207,6 +254,7 @@ class STUNGoogNetworkInfo(STUNGenericTlv):
 
 
 _stun_tlv_class = {
+    0x0001: STUNMappedAddress,
     0x0006: STUNUsername,
     0x0008: STUNMessageIntegrity,
     0x0020: STUNXorMappedAddress,
@@ -259,5 +307,10 @@ class STUN(Packet):
         return pkt
 
 
-bind_layers(UDP, STUN, dport=3478)
-bind_layers(TCP, STUN, dport=3478)
+bind_bottom_up(UDP, STUN, sport=3478)
+bind_bottom_up(UDP, STUN, dport=3478)
+bind_top_down(UDP, STUN, sport=3478, dport=3478)
+
+bind_bottom_up(TCP, STUN, sport=3478)
+bind_bottom_up(TCP, STUN, dport=3478)
+bind_top_down(TCP, STUN, sport=3478, dport=3478)

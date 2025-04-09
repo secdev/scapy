@@ -13,7 +13,14 @@ import ctypes.util
 import socket
 import struct
 
-from scapy.consts import BIG_ENDIAN, BSD, NETBSD, OPENBSD, DARWIN
+from scapy.consts import (
+    BIG_ENDIAN,
+    BSD,
+    DARWIN,
+    IS_64BITS,
+    NETBSD,
+    OPENBSD,
+)
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.packet import (
@@ -418,7 +425,7 @@ class SockAddrsField(FieldListField):
     holds_packets = 1
 
     def __init__(self, name):
-        if DARWIN:
+        if not IS_64BITS or DARWIN:
             align = 4
         else:
             align = 8
@@ -460,7 +467,8 @@ if OPENBSD:
                 32 if BIG_ENDIAN else -32,
                 _IFCAP,
             ),
-            StrFixedLenField("ifi_lastchange", 0, length=16),
+            StrFixedLenField("ifi_lastchange", 0,
+                             length=16 if IS_64BITS else 8),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
@@ -489,7 +497,8 @@ elif NETBSD:
             Field("ifi_omcasts", 0, fmt="=Q"),
             Field("ifi_iqdrops", 0, fmt="=Q"),
             Field("ifi_noproto", 0, fmt="=Q"),
-            StrFixedLenField("ifi_lastchange", 0, length=16),
+            StrFixedLenField("ifi_lastchange", 0,
+                             length=16 if IS_64BITS else 8),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
@@ -563,7 +572,8 @@ else:
             Field("ifi_noproto", 0, fmt="=Q"),
             Field("ifi_hwassist", 0, fmt="=Q"),
             Field("tt", 0, fmt="=Q"),
-            StrFixedLenField("tv", 0, length=16),
+            StrFixedLenField("tv", 0,
+                             length=16 if IS_64BITS else 8),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
@@ -752,13 +762,15 @@ elif DARWIN:
             Field("rmx_rtt", 0, fmt="=I"),
             Field("rmx_rttvar", 0, fmt="=I"),
             Field("rmx_pksent", 0, fmt="=I"),
-            StrFixedLenField("rmx_filler", b"", length=16),
+            StrFixedLenField("rmx_filler", 0,
+                             length=16 if IS_64BITS else 8),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
             return conf.padding_layer
 
 else:
+    # FreeBSD
 
     class rt_metrics(Packet):
         fields_desc = [
@@ -774,7 +786,8 @@ else:
             Field("rmx_pksent", 0, fmt="=Q"),
             Field("rmx_weight", 0, fmt="=Q"),
             Field("rmx_nhidx", 0, fmt="=Q"),
-            StrFixedLenField("rmx_filler", b"", length=16),
+            StrFixedLenField("rmx_filler", 0,
+                             length=16 if IS_64BITS else 8),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
@@ -1221,11 +1234,13 @@ def _get_if_list():
         ifindex = msg.ifm_index
         ifname = None
         mac = "00:00:00:00:00:00"
+        itype = -1
         ifflags = msg.ifm_flags
         ips = []
         for addr in msg.addrs:
             if addr.sa_family == socket.AF_LINK:
                 ifname = addr.sdl_iface.decode()
+                itype = addr.sdl_type
                 if addr.sdl_addr:
                     mac = addr.sdl_addr
         if ifname is not None:
@@ -1237,5 +1252,6 @@ def _get_if_list():
                 "flags": ifflags,
                 "mac": mac,
                 "ips": ips,
+                "type": itype,
             }
     return interfaces

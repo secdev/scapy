@@ -409,10 +409,18 @@ class ISAKMP_payload_SA(ISAKMP_payload):
 
 class ISAKMP_payload_Nonce(ISAKMP_payload):
     name = "ISAKMP Nonce"
+    deprecated_fields = {"load": ("nonce", "2.6.2")}
+    fields_desc = ISAKMP_payload.fields_desc[:3] + [
+        StrLenField("nonce", "", length_from=lambda x: x.length - 4)
+    ]
 
 
 class ISAKMP_payload_KE(ISAKMP_payload):
     name = "ISAKMP Key Exchange"
+    deprecated_fields = {"load": ("ke", "2.6.2")}
+    fields_desc = ISAKMP_payload.fields_desc[:3] + [
+        StrLenField("ke", "", length_from=lambda x: x.length - 4)
+    ]
 
 
 class ISAKMP_payload_ID(ISAKMP_payload):
@@ -439,6 +447,18 @@ class ISAKMP_payload_ID(ISAKMP_payload):
 
 class ISAKMP_payload_Hash(ISAKMP_payload):
     name = "ISAKMP Hash"
+    deprecated_fields = {"load": ("hash", "2.6.2")}
+    fields_desc = ISAKMP_payload.fields_desc[:3] + [
+        StrLenField("hash", "", length_from=lambda x: x.length - 4)
+    ]
+
+
+class ISAKMP_payload_SIG(ISAKMP_payload):
+    name = "ISAKMP Signature"
+    deprecated_fields = {"load": ("sig", "2.6.2")}
+    fields_desc = ISAKMP_payload.fields_desc[:3] + [
+        StrLenField("sig", "", length_from=lambda x: x.length - 4)
+    ]
 
 
 NotifyMessageType = {
@@ -471,6 +491,8 @@ NotifyMessageType = {
     27: "NOTIFY-SA-LIFETIME",
     28: "CERTIFICATE-UNAVAILABLE",
     29: "UNSUPPORTED-EXCHANGE-TYPE",
+    30: "UNEQUAL-PAYLOAD-LENGTHS",
+    16384: "CONNECTED",
     # RFC 3706
     36136: "R-U-THERE",
     36137: "R-U-THERE-ACK",
@@ -520,7 +542,7 @@ bind_layers(_ISAKMP_class, ISAKMP_payload_ID, next_payload=5)
 # bind_layers(_ISAKMP_class, ISAKMP_payload_CERT, next_payload=6)
 # bind_layers(_ISAKMP_class, ISAKMP_payload_CR, next_payload=7)
 bind_layers(_ISAKMP_class, ISAKMP_payload_Hash, next_payload=8)
-# bind_layers(_ISAKMP_class, ISAKMP_payload_SIG, next_payload=9)
+bind_layers(_ISAKMP_class, ISAKMP_payload_SIG, next_payload=9)
 bind_layers(_ISAKMP_class, ISAKMP_payload_Nonce, next_payload=10)
 bind_layers(_ISAKMP_class, ISAKMP_payload_Notify, next_payload=11)
 bind_layers(_ISAKMP_class, ISAKMP_payload_Delete, next_payload=12)

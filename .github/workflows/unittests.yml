@@ -7,6 +7,11 @@ on:
     # The branches below must be a subset of the branches above
     branches: [master]
 
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(github.ref, 'master')}}
+
 permissions:
   contents: read
 
@@ -78,12 +83,17 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+        python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
         mode: [non_root]
         installmode: ['']
         flags: [" -K scanner"]
         allow-failure: ['false']
         include:
+          # Python 3.7
+          - os: ubuntu-22.04
+            python: "3.7"
+            mode: non_root
+            flags: " -K scanner"
           # Linux root tests
           - os: ubuntu-latest
             python: "3.12"

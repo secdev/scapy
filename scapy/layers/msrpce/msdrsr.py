@@ -8,11 +8,59 @@
 """
 
 import uuid
+from dataclasses import dataclass
+
 from scapy.packet import Packet
 from scapy.fields import LEIntField, FlagsField, UUIDField, UTCTimeField
+from scapy.volatile import RandShort
 
+from scapy.asn1.asn1 import ASN1_OID
 from scapy.layers.msrpce.raw.ms_drsr import UUID
 from scapy.layers.msrpce.raw.ms_drsr import *  # noqa: F403,F401
+
+# [MS-DRSR] sect 5.16.4 ATTRTYP-to-OID Conversion
+
+
+@dataclass
+class Prefix:
+    prefixString: str
+    prefixIndex: int
+
+
+def MakeAttid(t, o):
+    """
+    MakeAttid per [MS-DRSR] sect 5.16.4
+    """
+    ToBinary = lambda x: bytes(ASN1_OID(x))
+
+    lastValue = int(o.split(".")[-1])
+
+    # "convert the dotted form of OID into a BER encoded binary"
+    binaryOID = ToBinary(o)
+
+    # "get the prefix of the OID"
+    if lastValue < 128:
+        oidPrefix = binaryOID[:-1]
+    else:
+        oidPrefix = binaryOID[:-2]
+
+    lowerWord = lastValue % 16384
+    if lastValue >= 16384:
+        lowerWord += 32768
+    try:
+        upperWord = next(x.prefixIndex for x in t if x.prefixString == oidPrefix)
+    except StopIteration:
+        # AddPrefixTableEntry
+        upperWord = int(RandShort())
+        t.append(
+            Prefix(
+                prefixString=oidPrefix,
+                prefixIndex=upperWord,
+            )
+        )
+
+    return upperWord * 65536 + lowerWord
+
 
 # [MS-DRSR] sect 5.39 DRS_EXTENSIONS_INT
 

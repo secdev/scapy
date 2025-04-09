@@ -400,7 +400,7 @@ class ConditionalField(_FieldContainer):
         # However, having i2h implemented (#2364), it changes the default
         # behavior and broke all packets that wrongly use two ConditionalField
         # with the same name. Those packets are the problem: they are wrongly
-        # built (they should either be re-using the same conditional field, or
+        # built (they should either be reusing the same conditional field, or
         # using a MultipleTypeField).
         # But I don't want to dive into fixing all of them just yet,
         # so for now, let's keep this this way, even though it's not correct.
@@ -806,7 +806,7 @@ class MACField(Field[Optional[str], bytes]):
             return b"\0\0\0\0\0\0"
         try:
             y = mac2str(x)
-        except (struct.error, OverflowError):
+        except (struct.error, OverflowError, ValueError):
             y = bytes_encode(x)
         return y
 
@@ -1765,7 +1765,7 @@ class PacketListField(_PacketField[List[BasePacket]]):
                 cbk(pkt:Packet,
                     lst:List[Packet],
                     cur:Optional[Packet],
-                    remain:str
+                    remain:bytes,
                 ) -> Optional[Type[Packet]]
 
               The pkt argument contains a reference to the Packet instance
