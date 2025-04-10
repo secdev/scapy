@@ -1312,6 +1312,19 @@ assert p.type == 255
 
 ############
 ############
++ Test DHCP6 Option - Address Registration Enabled
+
+= DHCP6OptAddrRegEnable - Basic Instantiation
+raw(DHCP6OptAddrRegEnable()) == b'\x00\x94\x00\x00'
+
+= DHCP6OptAddrRegEnable - Basic Dissection
+a=DHCP6OptAddrRegEnable(b'\x00\x94\x00\x00')
+a.optcode == 148 and a.optlen == 0
+
+
+
+############
+############
 + Test DHCP6 Messages - DHCP6_Solicit
 
 = DHCP6_Solicit - Basic Instantiation
@@ -1564,4 +1577,52 @@ raw(DHCP6_RelayReply()) == b'\r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 a=DHCP6_RelayReply(b'\r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.msgtype == 13 and a.hopcount == 0 and a.linkaddr == "::" and a.peeraddr == "::"
 
+############
+############
++ Test DHCP6 Messages - DHCP6_AddrRegInform
 
+= DHCP6_AddrRegInform - Basic Instantiation
+raw(DHCP6_AddrRegInform()) == b'\x24\x00\x00\x00'
+
+= DHCP6_AddrRegInform - Basic Dissection
+a = DHCP6_AddrRegInform(b'\x24\x00\x00\x00')
+a.msgtype == 36 and a.trid == 0
+
+= DHCP6_AddrRegInform - Basic test of DHCP6_addrreginform.hashret()
+DHCP6_AddrRegInform().hashret() == b'\x00\x00\x00'
+
+= DHCP6_AddrRegInform - Test of DHCP6_addrreginform.hashret() with specific values
+DHCP6_AddrRegInform(trid=0xbbccdd).hashret() == b'\xbb\xcc\xdd'
+
+= DHCP6_AddrRegInform - UDP ports overload
+a=UDP()/DHCP6_AddrRegInform()
+a.sport == 546 and a.dport == 547
+
+= DHCP6_AddrRegInform - Dispatch based on UDP port
+a=UDP(raw(UDP()/DHCP6_AddrRegInform()))
+isinstance(a.payload, DHCP6_AddrRegInform)
+
+############
+############
++ Test DHCP6 Messages - DHCP6_AddrRegReply
+
+= DHCP6_AddrRegReply - Basic Instantiation
+raw(DHCP6_AddrRegReply()) == b'\x25\x00\x00\x00'
+
+= DHCP6_AddrRegReply - Basic Dissection
+a = DHCP6_AddrRegReply(b'\x25\x00\x00\x00')
+a.msgtype == 37 and a.trid == 0
+
+= DHCP6_AddrRegReply - Basic test of DHCP6_addrregreply.hashret()
+DHCP6_AddrRegReply().hashret() == b'\x00\x00\x00'
+
+= DHCP6_AddrRegReply - Test of DHCP6_addrregreply.hashret() with specific values
+DHCP6_AddrRegReply(trid=0xbbccdd).hashret() == b'\xbb\xcc\xdd'
+
+= DHCP6_AddrRegReply - UDP ports overload
+a=UDP()/DHCP6_AddrRegReply()
+a.sport == 546 and a.dport == 547
+
+= DHCP6_AddrRegReply - Dispatch based on UDP port
+a=UDP(raw(UDP()/DHCP6_AddrRegReply()))
+isinstance(a.payload, DHCP6_AddrRegReply)
