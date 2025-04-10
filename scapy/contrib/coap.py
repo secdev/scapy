@@ -19,35 +19,75 @@ from scapy.packet import Packet, bind_layers
 from scapy.error import warning
 from scapy.compat import raw
 
+"""
+CoAP message request codes (RFC 7252 @ section-5.8.1)
+"""
+EMPTY_MESSAGE = 0
+GET = 1
+POST = 2
+PUT = 3
+DELETE = 4
+COAP_REQ_CODES = [GET, POST, PUT, DELETE]
+"""
+CoAP message response codes (RFC 7252 @ section-12.1.2)
+"""
+EMPTY_ACK = EMPTY_MESSAGE
+CONTENT_205 = 69
+NOT_FOUND_404 = 132
+NOT_ALLOWED_405 = 133
+NOT_IMPLEMENTED_501 = 161
+"""
+CoAP content type (RFC 7252 @ section-12.3)
+"""
+CF_TEXT_PLAIN = b"\x00"
+CF_APP_LINK_FORMAT = b"\x28"
+CF_APP_XML = b"\x29"
+CF_APP_OCTET_STREAM = b"\x2A"
+CF_APP_EXI = b"\x2F"
+CF_APP_JSON = b"\x32"
+"""
+CoAP options (RFC 7252 @ section-5.10)
+"""
+PAYMARK = b"\xff"
+URI_PATH = 11
+CONTENT_FORMAT = 12
+"""
+CoAP message type
+"""
+CON = 0
+NON = 1
+ACK = 2
+RST = 3
+
 coap_codes = {
-    0: "Empty",
+    EMPTY_MESSAGE: "Empty",
     # Request codes
-    1: "GET",
-    2: "POST",
-    3: "PUT",
-    4: "DELETE",
+    GET: "GET",
+    POST: "POST",
+    PUT: "PUT",
+    DELETE: "DELETE",
     # Response codes
     65: "2.01 Created",
     66: "2.02 Deleted",
     67: "2.03 Valid",
     68: "2.04 Changed",
-    69: "2.05 Content",
+    CONTENT_205: "2.05 Content",
     128: "4.00 Bad Request",
     129: "4.01 Unauthorized",
     130: "4.02 Bad Option",
     131: "4.03 Forbidden",
-    132: "4.04 Not Found",
-    133: "4.05 Method Not Allowed",
+    NOT_FOUND_404: "4.04 Not Found",
+    NOT_ALLOWED_405: "4.05 Method Not Allowed",
     134: "4.06 Not Acceptable",
     140: "4.12 Precondition Failed",
     141: "4.13 Request Entity Too Large",
     143: "4.15 Unsupported Content-Format",
     160: "5.00 Internal Server Error",
-    161: "5.01 Not Implemented",
+    NOT_IMPLEMENTED_501: "5.01 Not Implemented",
     162: "5.02 Bad Gateway",
     163: "5.03 Service Unavailable",
     164: "5.04 Gateway Timeout",
-    165: "Proxying Not Supported"}
+    165: "5.05 Proxying Not Supported"}
 
 coap_options = ({
     1: "If-Match",
@@ -120,7 +160,8 @@ def _get_opt_val_size(pkt):
 class _CoAPOpt(Packet):
     fields_desc = [BitField("delta", 0, 4),
                    BitField("len", 0, 4),
-                   StrLenField("delta_ext", "", length_from=_get_delta_ext_size),  # noqa: E501
+                   StrLenField("delta_ext", "", length_from=_get_delta_ext_size),
+                   # noqa: E501
                    StrLenField("len_ext", "", length_from=_get_len_ext_size),
                    StrLenField("opt_val", "", length_from=_get_opt_val_size)]
 
@@ -149,7 +190,8 @@ class _CoAPOptsField(StrField):
     islist = 1
 
     def i2h(self, pkt, x):
-        return [(coap_options[0][o[0]], o[1]) if o[0] in coap_options[0] else o for o in x]  # noqa: E501
+        return [(coap_options[0][o[0]], o[1]) if o[0] in coap_options[0] else o for o in
+                x]  # noqa: E501
 
     # consume only the coap layer from the wire string
     def getfield(self, pkt, s):
@@ -214,7 +256,8 @@ class CoAP(Packet):
     name = "CoAP"
 
     fields_desc = [BitField("ver", 1, 2),
-                   BitEnumField("type", 0, 2, {0: "CON", 1: "NON", 2: "ACK", 3: "RST"}),  # noqa: E501
+                   BitEnumField("type", 0, 2, {0: "CON", 1: "NON", 2: "ACK", 3: "RST"}),
+                   # noqa: E501
                    BitFieldLenField("tkl", None, 4, length_of='token'),
                    ByteEnumField("code", 0, coap_codes),
                    ShortField("msg_id", 0),
@@ -234,6 +277,21 @@ class CoAP(Packet):
             if k[0] == "Content-Format":
                 self.content_format = k[1]
         return pay
+
+    def hashret(self):
+        return struct.pack('I', self.msg_id) + self.token
+
+    def answers(self, other):
+        # type: (Packet) -> int
+        """
+        DEV: true if self is an answer from other
+        Any response that is inside coap_codes that is not a request is valid.
+        i.e.: do not answer a request with a request.
+        """
+        if self.code not in COAP_REQ_CODES:
+            if self.code in coap_codes.keys():
+                return 1
+        return 0
 
 
 bind_layers(UDP, CoAP, sport=5683)
