@@ -529,10 +529,10 @@ class HTTPRequest(_HTTPContent):
         """From the HTTP packet string, populate the scapy object"""
         first_line, body = _dissect_headers(self, s)
         try:
-            Method, Path, HTTPVersion = re.split(br"\s+", first_line, maxsplit=2)
-            self.setfieldval('Method', Method)
-            self.setfieldval('Path', Path)
-            self.setfieldval('Http_Version', HTTPVersion)
+            method_path_version = re.split(br"\s+", first_line, maxsplit=2) + [None]
+            self.setfieldval('Method', method_path_version[0])
+            self.setfieldval('Path', method_path_version[1])
+            self.setfieldval('Http_Version', method_path_version[2])
         except ValueError:
             pass
         if body:
@@ -573,10 +573,10 @@ class HTTPResponse(_HTTPContent):
         ''' From the HTTP packet string, populate the scapy object '''
         first_line, body = _dissect_headers(self, s)
         try:
-            HTTPVersion, Status, Reason = re.split(br"\s+", first_line, maxsplit=2)
-            self.setfieldval('Http_Version', HTTPVersion)
-            self.setfieldval('Status_Code', Status)
-            self.setfieldval('Reason_Phrase', Reason)
+            version_status_reason = re.split(br"\s+", first_line, maxsplit=2) + [None]
+            self.setfieldval('Http_Version', version_status_reason[0])
+            self.setfieldval('Status_Code', version_status_reason[1])
+            self.setfieldval('Reason_Phrase', version_status_reason[2])
         except ValueError:
             pass
         if body:
