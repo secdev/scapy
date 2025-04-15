@@ -869,5 +869,14 @@ class PACTYPE(Packet):
         _PACTYPEPayloads("Payloads", [], None),
     ]
 
+    def getPayload(self, ulType):
+        """
+        Get a payload if it exists.
+        """
+        for i, buf in enumerate(self.Buffers):
+            if buf.ulType == ulType:
+                return self.Payloads[i]
+        return None
+
 
 _AUTHORIZATIONDATA_VALUES[128] = PACTYPE  # AD-WIN2K-PAC

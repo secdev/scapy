@@ -483,18 +483,18 @@ class SMB_Client(Automaton):
     # DEV: add a condition on NEGOTIATED with prio=0
 
     @ATMT.condition(NEGOTIATED, prio=1)
-    def should_send_setup_andx_request(self, ssp_tuple):
+    def should_send_session_setup_request(self, ssp_tuple):
         _, _, negResult = ssp_tuple
         if negResult not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
             raise ValueError("Internal error: the SSP completed with an error.")
-        raise self.SENT_SETUP_ANDX_REQUEST().action_parameters(ssp_tuple)
+        raise self.SENT_SESSION_REQUEST().action_parameters(ssp_tuple)
 
     @ATMT.state()
-    def SENT_SETUP_ANDX_REQUEST(self):
+    def SENT_SESSION_REQUEST(self):
         pass
 
-    @ATMT.action(should_send_setup_andx_request)
-    def send_setup_andx_request(self, ssp_tuple):
+    @ATMT.action(should_send_session_setup_request)
+    def send_setup_session_request(self, ssp_tuple):
         self.session.sspcontext, token, negResult = ssp_tuple
         if self.SMB2 and negResult == GSS_S_CONTINUE_NEEDED:
             # New session: force 0
@@ -541,8 +541,8 @@ class SMB_Client(Automaton):
                 bytes(pkt[SMB2_Header]),  # session request
             )
 
-    @ATMT.receive_condition(SENT_SETUP_ANDX_REQUEST)
-    def receive_setup_andx_response(self, pkt):
+    @ATMT.receive_condition(SENT_SESSION_REQUEST)
+    def receive_session_setup_response(self, pkt):
         if (
             SMBSession_Null in pkt
             or SMBSession_Setup_AndX_Response_Extended_Security in pkt
