@@ -202,8 +202,17 @@ class PrincipalName(ASN1_Packet):
         ASN1F_SEQUENCE_OF("nameString", [], KerberosString, explicit_tag=0xA1),
     )
 
+    def toString(self):
+        """
+        Convert a PrincipalName back into its string representation.
+        """
+        return "/".join(x.val.decode() for x in self.nameString)
+
     @staticmethod
     def fromUPN(upn: str):
+        """
+        Create a PrincipalName from a UPN string.
+        """
         user, _ = _parse_upn(upn)
         return PrincipalName(
             nameString=[ASN1_GENERAL_STRING(user)],
@@ -211,17 +220,26 @@ class PrincipalName(ASN1_Packet):
         )
 
     @staticmethod
-    def fromSPN(spn: bytes):
+    def fromSPN(spn: str):
+        """
+        Create a PrincipalName from a SPN string.
+        """
         spn, _ = _parse_spn(spn)
         if spn.startswith("krbtgt"):
             return PrincipalName(
                 nameString=[ASN1_GENERAL_STRING(x) for x in spn.split("/")],
                 nameType=ASN1_INTEGER(2),  # NT-SRV-INST
             )
-        else:
+        elif "/" in spn:
             return PrincipalName(
                 nameString=[ASN1_GENERAL_STRING(x) for x in spn.split("/")],
                 nameType=ASN1_INTEGER(3),  # NT-SRV-HST
+            )
+        else:
+            # In case of U2U
+            return PrincipalName(
+                nameString=[ASN1_GENERAL_STRING(spn)],
+                nameType=ASN1_INTEGER(1),  # NT-PRINCIPAL
             )
 
 
@@ -281,6 +299,7 @@ _KRB_S_TYPES = {
     0x8003: "KRB-AUTHENTICATOR",
     # [MS-KILE]
     0xFFFFFF76: "MD5",
+    -138: "MD5",
 }
 
 
@@ -600,6 +619,9 @@ class AuthorizationData(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE_OF(
         "seq", [AuthorizationDataItem()], AuthorizationDataItem
     )
+
+    def getAuthData(self, adType):
+        return next((x.adData for x in self.seq if x.adType == adType), None)
 
 
 AD_IF_RELEVANT = AuthorizationData
@@ -1308,7 +1330,7 @@ class KRB_Ticket(ASN1_Packet):
 
     def getSPN(self):
         return "%s@%s" % (
-            "/".join(x.val.decode() for x in self.sname.nameString),
+            self.sname.toString(),
             self.realm.val.decode(),
         )
 
@@ -1823,6 +1845,10 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
                     # Some types can also happen in FAST sessions
                     # 18: KDC_ERR_CLIENT_REVOKED
                     return MethodData(val[0].val, _underlayer=pkt), val[1]
+                elif pkt.errorCode.val == 7:
+                    # This looks like an undocumented structure.
+                    # 7: KDC_ERR_S_PRINCIPAL_UNKNOWN
+                    return KERB_ERROR_UNK(val[0].val, _underlayer=pkt), val[1]
                 raise
         elif pkt.errorCode.val == 69:
             # KRB_AP_ERR_USER_TO_USER_REQUIRED
@@ -1940,6 +1966,12 @@ class KRB_ERROR(ASN1_Packet):
         implicit_tag=ASN1_Class_KRB.ERROR,
     )
 
+    def getSPN(self):
+        return "%s@%s" % (
+            self.sname.toString(),
+            self.realm.val.decode(),
+        )
+
 
 # PA-FX-ERROR
 _PADATA_CLASSES[137] = KRB_ERROR
@@ -1983,6 +2015,26 @@ class KERB_ERROR_DATA(ASN1_Packet):
             explicit_tag=0xA1,
         ),
         ASN1F_optional(_Error_Field("dataValue", None, explicit_tag=0xA2)),
+    )
+
+
+# This looks like an undocumented structure.
+
+
+class KERB_ERROR_UNK(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE(
+            ASN1F_enum_INTEGER(
+                "dataType",
+                0,
+                {
+                    -128: "KDC_ERR_MUST_USE_USER2USER",
+                },
+                explicit_tag=0xA0,
+            ),
+            ASN1F_STRING("dataValue", None, explicit_tag=0xA1),
+        )
     )
 
 
@@ -3149,9 +3201,9 @@ class KerberosClient(Automaton):
             padata.append(
                 PADATA(
                     padataType=ASN1_INTEGER(161),  # KERB-KEY-LIST-REQ
-                    padataValue=KERB_KEY_LIST_REQ(keytypes=[
-                        ASN1_INTEGER(x) for x in self.key_list_req
-                    ])
+                    padataValue=KERB_KEY_LIST_REQ(
+                        keytypes=[ASN1_INTEGER(x) for x in self.key_list_req]
+                    ),
                 )
             )
 
@@ -3408,7 +3460,16 @@ class KerberosClient(Automaton):
                 self.receive_krb_error_tgs_req(ferr)
                 return
 
-            log_runtime.warning("Received KRB_ERROR")
+            if (
+                pkt.root.errorCode == 0x07
+                and isinstance(pkt.root.eData, KERB_ERROR_UNK)
+                and pkt.root.eData.dataType == -128
+            ):
+                log_runtime.warning(
+                    "KDC requires U2U for SPN '%s' !" % pkt.root.getSPN()
+                )
+            else:
+                log_runtime.warning("Received KRB_ERROR")
             pkt.show()
             raise self.FINAL()
 
@@ -3451,9 +3512,17 @@ class KerberosClient(Automaton):
 
 
 def _parse_upn(upn):
-    m = re.match(r"^([^@\\/]+)(@|\\|/)([^@\\/]+)$", upn)
+    """
+    Extract the username and realm from full UPN
+    """
+    m = re.match(r"^([^@\\/]+)(@|\\)([^@\\/]+)$", upn)
     if not m:
-        raise ValueError("Invalid UPN: '%s'" % upn)
+        err = "Invalid UPN: '%s'" % upn
+        if "/" in upn:
+            err += ". Did you mean '%s' ?" % upn.replace("/", "\\")
+        elif "@" not in upn and "\\" not in upn:
+            err += ". Provide domain as so: '%s@domain.local'" % upn
+        raise ValueError(err)
     if m.group(2) == "@":
         user = m.group(1)
         domain = m.group(3)
@@ -3464,10 +3533,27 @@ def _parse_upn(upn):
 
 
 def _parse_spn(spn):
-    m = re.match(r"^((?:[^@\\/]+)/(?:[^@\\/]+))(?:@([^@\\/]+))?$", spn)
+    """
+    Extract ServiceName and realm from full SPN
+    """
+    # See [MS-ADTS] sect 2.2.21 for SPN format. We discard the servicename.
+    m = re.match(r"^((?:[^@\\/]+)/(?:[^@\\/]+))(?:/[^@\\/]+)?(?:@([^@\\/]+))?$", spn)
     if not m:
-        raise ValueError("Invalid SPN: '%s'" % spn)
+        try:
+            # If SPN is a UPN, we are doing U2U :D
+            return _parse_upn(spn)
+        except ValueError:
+            raise ValueError("Invalid SPN: '%s'" % spn)
     return m.group(1), m.group(2)
+
+
+def _spn_are_equal(spn1, spn2):
+    """
+    Check that two SPNs are equal.
+    """
+    spn1, _ = _parse_spn(spn1)
+    spn2, _ = _parse_spn(spn2)
+    return spn1.lower() == spn2.lower()
 
 
 def krb_as_req(
@@ -3835,12 +3921,12 @@ class KerberosSSP(SSP):
 
     Server settings:
 
-    :param SPN: the SPN of the service to use
+    :param SPN: the SPN of the service to use.
     :param KEY: the kerberos key to use to decrypt the AP-req
-    :param TGT: (optional) pass a TGT to use for U2U
+    :param UPN: (optional) the UPN, if used in U2U mode.
+    :param TGT: (optional) pass a TGT to use for U2U.
     :param DC_IP: (optional) if TGT is not provided, request one on the KDC at
                   this IP using using the KEY when using U2U.
-    :param REQUIRE_U2U: (optional, default False) require U2U
     """
 
     oid = "1.2.840.113554.1.2.2"
@@ -3868,6 +3954,9 @@ class KerberosSSP(SSP):
             "SendSignKeyUsage",
             "RecvSealKeyUsage",
             "RecvSignKeyUsage",
+            # server-only
+            "UPN",
+            "PAC",
         ]
 
         def __init__(self, IsAcceptor, req_flags=None):
@@ -3880,6 +3969,8 @@ class KerberosSSP(SSP):
             self.KrbSessionKey = None
             self.STSessionKey = None
             self.IsAcceptor = IsAcceptor
+            self.UPN = None
+            self.PAC = None
             # [RFC 4121] sect 2
             if IsAcceptor:
                 self.SendSealKeyUsage = 22
@@ -3911,7 +4002,6 @@ class KerberosSSP(SSP):
         SPN=None,
         TGT=None,
         DC_IP=None,
-        REQUIRE_U2U=False,
         SKEY_TYPE=None,
         debug=0,
         **kwargs,
@@ -3924,7 +4014,6 @@ class KerberosSSP(SSP):
         self.PASSWORD = PASSWORD
         self.U2U = U2U
         self.DC_IP = DC_IP
-        self.REQUIRE_U2U = REQUIRE_U2U
         self.debug = debug
         if SKEY_TYPE is None:
             from scapy.libs.rfc3961 import EncryptionType
@@ -4519,26 +4608,28 @@ class KerberosSSP(SSP):
         else:
             raise ValueError("KerberosSSP: Unknown state")
 
-    def _setup_u2u(self):
-        if not self.TGT:
-            # Get a TGT for ourselves
-            try:
-                upn = "@".join(self.SPN.split("/")[1].split(".", 1))
-            except KeyError:
-                raise ValueError("Couldn't transform the SPN into a valid UPN")
-            res = krb_as_req(upn, self.DC_IP, key=self.KEY)
-            self.TGT, self.KEY = res.asrep.ticket, res.sessionkey
-
     def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
         if Context is None:
             # New context
             Context = self.CONTEXT(IsAcceptor=True, req_flags=0)
 
         from scapy.libs.rfc3961 import Key
+        import scapy.layers.msrpce.mspac  # noqa: F401
 
         if Context.state == self.STATE.INIT:
-            if not self.SPN:
-                raise ValueError("Missing SPN attribute")
+            if self.UPN and self.SPN:
+                raise ValueError("Cannot use SPN and UPN at the same time !")
+            if self.SPN and self.TGT:
+                raise ValueError("Cannot use TGT with SPN.")
+            if self.UPN and not self.TGT:
+                # UPN is provided: use U2U
+                res = krb_as_req(
+                    self.UPN,
+                    self.DC_IP,
+                    key=self.KEY,
+                    password=self.PASSWORD,
+                )
+                self.TGT, self.KEY = res.asrep.ticket, res.sessionkey
             # Server receives AP-req, sends AP-rep
             if isinstance(val, KRB_AP_REQ):
                 # Raw AP_REQ was passed
@@ -4549,13 +4640,16 @@ class KerberosSSP(SSP):
                     ap_req = val.root.innerToken.root
                 except AttributeError:
                     try:
-                        # Raw Kerberos
-                        ap_req = val.root
+                        # Kerberos
+                        ap_req = val.innerToken.root
                     except AttributeError:
-                        return Context, None, GSS_S_DEFECTIVE_TOKEN
+                        try:
+                            # Raw kerberos
+                            ap_req = val.root
+                        except AttributeError:
+                            return Context, None, GSS_S_DEFECTIVE_TOKEN
             if isinstance(ap_req, KRB_TGT_REQ):
                 # Special U2U case
-                self._setup_u2u()
                 Context.U2U = True
                 return (
                     None,
@@ -4575,17 +4669,9 @@ class KerberosSSP(SSP):
                 raise ValueError("Unexpected type in KerberosSSP")
             if not self.KEY:
                 raise ValueError("Missing KEY attribute")
-            # Validate SPN
-            tkt_spn = "/".join(
-                x.val.decode() for x in ap_req.ticket.sname.nameString[:2]
-            ).lower()
-            if tkt_spn not in [self.SPN.lower(), self.SPN.lower().split(".", 1)[0]]:
-                warning("KerberosSSP: bad SPN: %s != %s" % (tkt_spn, self.SPN))
-                return Context, None, GSS_S_BAD_MECH
-            # Enforce U2U if required
-            if self.REQUIRE_U2U and ap_req.apOptions.val[1] != "1":  # use-session-key
+            # If using a UPN, require U2U
+            if self.UPN and ap_req.apOptions.val[1] != "1":  # use-session-key
                 # Required but not provided. Return an error
-                self._setup_u2u()
                 Context.U2U = True
                 now_time = datetime.now(timezone.utc).replace(microsecond=0)
                 err = KRB_GSSAPI_Token(
@@ -4603,6 +4689,12 @@ class KerberosSSP(SSP):
                     )
                 )
                 return Context, err, GSS_S_CONTINUE_NEEDED
+            # Validate the 'serverName' of the ticket.
+            sname = ap_req.ticket.getSPN()
+            our_sname = self.SPN or self.UPN
+            if not _spn_are_equal(our_sname, sname):
+                warning("KerberosSSP: bad server name: %s != %s" % (sname, our_sname))
+                return Context, None, GSS_S_BAD_MECH
             # Decrypt the ticket
             try:
                 tkt = ap_req.ticket.encPart.decrypt(self.KEY)
@@ -4622,6 +4714,13 @@ class KerberosSSP(SSP):
                     )
                 )
                 return Context, err, GSS_S_DEFECTIVE_TOKEN
+            # Store information about the user in the Context
+            if tkt.authorizationData and tkt.authorizationData.seq:
+                # Get AD-IF-RELEVANT
+                adIfRelevant = tkt.authorizationData.getAuthData(0x1)
+                if adIfRelevant:
+                    # Get AD-WIN2K-PAC
+                    Context.PAC = adIfRelevant.getAuthData(0x80)
             # Get AP-REP session key
             Context.STSessionKey = tkt.key.toKey()
             authenticator = ap_req.authenticator.decrypt(Context.STSessionKey)
