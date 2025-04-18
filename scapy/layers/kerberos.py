@@ -2108,11 +2108,21 @@ class KRB_GSS_EXT(Packet):
 class KRB_AuthenticatorChecksum(Packet):
     fields_desc = [
         FieldLenField("Lgth", None, length_of="Bnd", fmt="<I"),
-        PacketLenField(
-            "Bnd",
-            GssChannelBindings(),
-            GssChannelBindings,
-            length_from=lambda pkt: pkt.Lgth,
+        MultipleTypeField(
+            [
+                (
+                    # If using a MD5 hash.
+                    XStrFixedLenField("Bnd", b"", length=16),
+                    lambda pkt: pkt.Lgth == 16,
+                ),
+            ],
+            # Default to using the gss_channel_bindings_struct
+            PacketLenField(
+                "Bnd",
+                GssChannelBindings(),
+                GssChannelBindings,
+                length_from=lambda pkt: pkt.Lgth,
+            ),
         ),
         FlagsField(
             "Flags",
