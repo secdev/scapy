@@ -2518,6 +2518,70 @@ class HCI_LE_Meta_Long_Term_Key_Request(Packet):
                    XLEShortField("ediv", 0), ]
 
 
+class HCI_LE_Meta_Extended_Advertising_Report(Packet):
+    name = "Extended Advertising Report"
+    fields_desc = [
+        #LEShortField("event_type", 0),
+        BitField("reserved0", 0, 1),
+        BitEnumField("data_status", 0, 2, {
+            0b00: "complete",
+            0b01: "incomplete",
+            0b10: "incomplete_truncated",
+            0b11: "reserved"
+        }),
+        BitField("legacy", 0, 1),
+        BitField("scan_response", 0, 1),
+        BitField("directed", 0, 1),
+        BitField("scannable", 0, 1),
+        BitField("connectable", 0, 1),
+        ByteField("reserved", 0),
+        ByteEnumField("address_type", 0, {
+            0x00: "public_device_address",
+            0x01: "random_device_address",
+            0x02: "public_identity_address",
+            0x03: "random_identity_address",
+            0xff: "anonymous"
+        }),
+        LEMACField('address', None),
+        ByteEnumField("primary_phy", 0, {
+            0x01: "le_1m",
+            0x03: "le_coded_s8",
+            0x04: "le_coded_s2"
+        }),
+        ByteEnumField("secondary_phy", 0, {
+            0x01: "le_1m",
+            0x02: "le_2m",
+            0x03: "le_coded_s8",
+            0x04: "le_coded_s2"
+        }),
+        ByteField("advertising_sid", 0xff),
+        ByteField("tx_power", 0x7f),
+        SignedByteField("rssi", 0x00),
+        LEShortField("periodic_advertising_interval", 0x0000),
+        ByteEnumField("direct_address_type", 0, {
+            0x00: "public_device_address",
+            0x01: "non_resolvable_private_address",
+            0x02: "resolvable_private_address_resolved_0",
+            0x03: "resolvable_private_address_resolved_1",
+            0xfe: "resolvable_private_address_unable_resolve"}),
+        LEMACField("direct_address", None),
+        FieldLenField("data_length", None, length_of="data", fmt="B"),
+        PacketListField("data", [], EIR_Hdr,
+                        length_from=lambda pkt: pkt.data_length),
+    ]
+
+    def extract_padding(self, s):
+        return '', s
+
+
+class HCI_LE_Meta_Extended_Advertising_Reports(Packet):
+    name = "Extended Advertising Reports"
+    fields_desc = [FieldLenField("num_reports", None, count_of="reports", fmt="B"),
+                   PacketListField("reports", None,
+                                   HCI_LE_Meta_Extended_Advertising_Report,
+                                   count_from=lambda pkt: pkt.num_reports)]
+
+
 bind_layers(HCI_PHDR_Hdr, HCI_Hdr)
 
 bind_layers(HCI_Hdr, HCI_Command_Hdr, type=1)
@@ -2648,6 +2712,7 @@ bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=0x01)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Reports, event=0x02)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=0x03)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=0x05)
+bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Extended_Advertising_Reports, event=0x0d)
 
 bind_layers(EIR_Hdr, EIR_Flags, type=0x01)
 bind_layers(EIR_Hdr, EIR_IncompleteList16BitServiceUUIDs, type=0x02)
