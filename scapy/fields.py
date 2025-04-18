@@ -1554,34 +1554,11 @@ class _PacketField(_StrField[K]):
 
     def m2i(self, pkt, m):  # type: ignore
         # type: (Optional[Packet], bytes) -> Packet
-        # Do not import at module level on runtime ! (import loop) => local import
-        from scapy.packet import Packet
-
-        # Build a default instance.
-        if isinstance(self.cls, type):
-            # Instantiation from packet class.
-            if TYPE_CHECKING:
-                assert issubclass(self.cls, Packet)
-            # Pre-set all default references with `None` values in order to avoid useless copies of default instances.
-            # They will be parsed after with the `dissect()` call below.
-            init_fields = {
-                field_name: None
-                for field_name in Packet.class_default_fields_ref.get(self.cls, {})
-            }  # type: Dict[str, None]
-            new_pkt = self.cls(**init_fields)  # type: Packet
-        else:
-            # Instantiation from callback.
-            new_pkt = self.cls(b'')
-
-        # we want to set parent wherever possible
-        # (only if `pkt` and `new_pkt` are both packets).
-        if isinstance(pkt, Packet) and isinstance(new_pkt, Packet):
-            new_pkt.parent = pkt
-
-        # Eventually dissect the buffer to parse.
-        new_pkt.dissect(m)
-
-        return new_pkt
+        try:
+            # we want to set parent wherever possible
+            return self.cls(m, _parent=pkt)  # type: ignore
+        except TypeError:
+            return self.cls(m)
 
 
 class _PacketFieldSingle(_PacketField[K]):
