@@ -1073,16 +1073,87 @@ class HTTP_Server(Automaton):
         self.authenticated = False
         self.sspcontext = None
 
-    @ATMT.condition(BEGIN, prio=0)
-    def should_authenticate(self):
+    @ATMT.receive_condition(BEGIN, prio=1)
+    def should_authenticate(self, pkt):
         if self.authmethod == HTTP_AUTH_MECHS.NONE.value:
-            raise self.SERVE()
+            raise self.SERVE(pkt)
         else:
-            raise self.AUTH()
+            raise self.AUTH(pkt)
 
     @ATMT.state()
-    def AUTH(self):
-        pass
+    def AUTH(self, pkt=None):
+        if pkt is None:
+            return
+        if HTTPRequest in pkt:
+            self.vprint(pkt.summary())
+            if pkt.Method == b"CONNECT":
+                # HTTP tunnel (proxy)
+                proxy = True
+            else:
+                # HTTP non-tunnel
+                proxy = False
+            # Get authorization
+            if proxy:
+                authorization = pkt.Proxy_Authorization
+            else:
+                authorization = pkt.Authorization
+            if not authorization:
+                # Initial ask.
+                data = self.authmethod
+                if self.basic:
+                    data += " realm='%s'" % self.BASIC_REALM
+                self._ask_authorization(proxy, data)
+                return
+            # Parse authorization
+            method, data = authorization.split(b" ", 1)
+            if plain_str(method) != self.authmethod:
+                self.debug(3, "Bad auth method.")
+                raise self.AUTH_ERROR(proxy)
+            try:
+                data = base64.b64decode(data)
+            except Exception:
+                self.debug(3, "Couldn't unpack base64 of auth.")
+                raise self.AUTH_ERROR(proxy)
+            # Now process the authorization
+            if not self.basic:
+                try:
+                    ssp_blob = GSSAPI_BLOB(data)
+                except Exception:
+                    self.sspcontext = None
+                    self._ask_authorization(proxy, self.authmethod)
+                    self.debug(3, "Couldn't unpack GSSAPI_BLOB of auth.")
+                    raise self.AUTH_ERROR(proxy)
+                # And call the SSP
+                self.sspcontext, tok, status = self.ssp.GSS_Accept_sec_context(
+                    self.sspcontext, ssp_blob
+                )
+            else:
+                # This is actually Basic authentication
+                try:
+                    next(
+                        True
+                        for k, v in self.BASIC_IDENTITIES.items()
+                        if ("%s:%s" % (k, v)).encode() == data
+                    )
+                    tok, status = None, GSS_S_COMPLETE
+                except StopIteration:
+                    self.debug(3, "Basic authentication failed with 'unknown user'.")
+                    tok, status = None, GSS_S_FAILURE
+            # Send answer
+            if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
+                self.debug(3, "Authentication failed.")
+                raise self.AUTH_ERROR(proxy)
+            elif status == GSS_S_CONTINUE_NEEDED:
+                data = self.authmethod.encode()
+                if tok:
+                    data += b" " + base64.b64encode(bytes(tok))
+                self._ask_authorization(proxy, data)
+                raise self.AUTH()
+            else:
+                # Authenticated !
+                self.authenticated = True
+                self.vprint("AUTH OK")
+                raise self.SERVE(pkt)
 
     @ATMT.state()
     def AUTH_ERROR(self, proxy):
@@ -1114,71 +1185,7 @@ class HTTP_Server(Automaton):
 
     @ATMT.receive_condition(AUTH, prio=1)
     def received_unauthenticated(self, pkt):
-        if HTTPRequest in pkt:
-            self.vprint(pkt.summary())
-            if pkt.Method == b"CONNECT":
-                # HTTP tunnel (proxy)
-                proxy = True
-            else:
-                # HTTP non-tunnel
-                proxy = False
-            # Get authorization
-            if proxy:
-                authorization = pkt.Proxy_Authorization
-            else:
-                authorization = pkt.Authorization
-            if not authorization:
-                # Initial ask.
-                data = self.authmethod
-                if self.basic:
-                    data += " realm='%s'" % self.BASIC_REALM
-                self._ask_authorization(proxy, data)
-                return
-            # Parse authorization
-            method, data = authorization.split(b" ", 1)
-            if plain_str(method) != self.authmethod:
-                raise self.AUTH_ERROR(proxy)
-            try:
-                data = base64.b64decode(data)
-            except Exception:
-                raise self.AUTH_ERROR(proxy)
-            # Now process the authorization
-            if not self.basic:
-                try:
-                    ssp_blob = GSSAPI_BLOB(data)
-                except Exception:
-                    self.sspcontext = None
-                    self._ask_authorization(proxy, self.authmethod)
-                    raise self.AUTH_ERROR(proxy)
-                # And call the SSP
-                self.sspcontext, tok, status = self.ssp.GSS_Accept_sec_context(
-                    self.sspcontext, ssp_blob
-                )
-            else:
-                # This is actually Basic authentication
-                try:
-                    next(
-                        True
-                        for k, v in self.BASIC_IDENTITIES.items()
-                        if ("%s:%s" % (k, v)).encode() == data
-                    )
-                    tok, status = None, GSS_S_COMPLETE
-                except StopIteration:
-                    tok, status = None, GSS_S_FAILURE
-            # Send answer
-            if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
-                raise self.AUTH_ERROR(proxy)
-            elif status == GSS_S_CONTINUE_NEEDED:
-                data = self.authmethod.encode()
-                if tok:
-                    data += b" " + base64.b64encode(bytes(tok))
-                self._ask_authorization(proxy, data)
-                raise self.AUTH()
-            else:
-                # Authenticated !
-                self.authenticated = True
-                self.vprint("AUTH OK")
-                raise self.SERVE(pkt)
+        raise self.AUTH(pkt)
 
     @ATMT.eof(AUTH)
     def auth_eof(self):
