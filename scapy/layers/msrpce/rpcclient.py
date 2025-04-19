@@ -347,7 +347,8 @@ class DCERPC_Client(object):
             else:
                 # Call the underlying SSP
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
-                    self.sspcontext, val=resp.auth_verifier.auth_value
+                    self.sspcontext,
+                    token=resp.auth_verifier.auth_value,
                 )
             if status in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
                 # Authentication should continue
@@ -388,7 +389,8 @@ class DCERPC_Client(object):
                             status = GSS_S_COMPLETE
                             break
                         self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
-                            self.sspcontext, val=resp.auth_verifier.auth_value
+                            self.sspcontext,
+                            token=resp.auth_verifier.auth_value,
                         )
         # Check context acceptance
         if (

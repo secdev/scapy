@@ -70,10 +70,14 @@ from scapy.supersocket import StreamSocket, SSLStreamSocket
 from scapy.utils import get_temp_file, ContextManagerSubprocess
 
 from scapy.layers.gssapi import (
-    GSS_S_COMPLETE,
-    GSS_S_FAILURE,
-    GSS_S_CONTINUE_NEEDED,
+    ChannelBindingType,
     GSSAPI_BLOB,
+    GSS_C_NO_CHANNEL_BINDINGS,
+    GSS_S_COMPLETE,
+    GSS_S_CONTINUE_NEEDED,
+    GSS_S_FAILURE,
+    GSS_S_FLAGS,
+    GssChannelBindings,
 )
 from scapy.layers.inet import TCP
 
@@ -758,6 +762,7 @@ class HTTP_Client(object):
     :param mech: one of HTTP_AUTH_MECHS
     :param ssl: whether to use HTTPS or not
     :param ssp: the SSP object to use for binding
+    :param no_check_certificate: with SSL, do not check the certificate
     """
 
     def __init__(
@@ -776,6 +781,7 @@ class HTTP_Client(object):
         self.ssp = ssp
         self.sspcontext = None
         self.no_check_certificate = no_check_certificate
+        self.chan_bindings = GSS_C_NO_CHANNEL_BINDINGS
 
     def _connect_or_reuse(self, host, port=None, tls=False, timeout=5):
         # Get the port
@@ -817,6 +823,12 @@ class HTTP_Client(object):
             else:
                 context = self.sslcontext
             sock = context.wrap_socket(sock, server_hostname=host)
+            if self.ssp:
+                # Compute the channel binding token (CBT)
+                self.chan_bindings = GssChannelBindings.fromssl(
+                    ChannelBindingType.TLS_SERVER_END_POINT,
+                    sslsock=sock,
+                )
             self.sock = SSLStreamSocket(sock, HTTP)
         else:
             self.sock = StreamSocket(sock, HTTP)
@@ -925,6 +937,7 @@ class HTTP_Client(object):
                         self.sspcontext,
                         ssp_blob,
                         req_flags=0,
+                        chan_bindings=self.chan_bindings,
                     )
                     if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
                         raise Scapy_Exception("Authentication failure")
@@ -948,7 +961,7 @@ class HTTP_Client(object):
 
     def close(self):
         if self.verb:
-            print("X Connection to %s closed\n" % repr(self.sock.ins.getpeername()))
+            print("X Connection to server closed\n")
         self.sock.close()
 
 
@@ -1040,6 +1053,8 @@ class HTTP_Server(Automaton):
         self.ssp = ssp
         self.authmethod = mech.value
         self.sspcontext = None
+        self.ssp_req_flags = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS
+        self.chan_bindings = GSS_C_NO_CHANNEL_BINDINGS
         self.basic = False
         self.BASIC_IDENTITIES = kwargs.pop("BASIC_IDENTITIES", {})
         self.BASIC_REALM = kwargs.pop("BASIC_REALM", "default")
@@ -1125,7 +1140,10 @@ class HTTP_Server(Automaton):
                     raise self.AUTH_ERROR(proxy)
                 # And call the SSP
                 self.sspcontext, tok, status = self.ssp.GSS_Accept_sec_context(
-                    self.sspcontext, ssp_blob
+                    self.sspcontext,
+                    ssp_blob,
+                    req_flags=self.ssp_req_flags,
+                    chan_bindings=self.chan_bindings,
                 )
             else:
                 # This is actually Basic authentication
@@ -1141,7 +1159,7 @@ class HTTP_Server(Automaton):
                     tok, status = None, GSS_S_FAILURE
             # Send answer
             if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
-                self.debug(3, "Authentication failed.")
+                self.debug(3, "Authentication failed: %s." % status)
                 raise self.AUTH_ERROR(proxy)
             elif status == GSS_S_CONTINUE_NEEDED:
                 data = self.authmethod.encode()
@@ -1252,9 +1270,11 @@ class HTTPS_Server(HTTP_Server):
     This has the same arguments and attributes as HTTP_Server, with the addition of:
 
     :param sslcontext: an optional SSLContext object.
-                       If used, cert and key are ignored.
+                       If used, key is ignored but cert can still be used for
+                       channel bindings.
     :param cert: path to the certificate
     :param key: path to the key
+    :param require_cbt: require Channel Bindings to be valid
     """
 
     socketcls = None
@@ -1267,6 +1287,7 @@ class HTTPS_Server(HTTP_Server):
         key=None,
         sslcontext=None,
         ssp=None,
+        require_cbt=False,
         *args,
         **kwargs,
     ):
@@ -1284,6 +1305,8 @@ class HTTPS_Server(HTTP_Server):
             context.wrap_socket(kwargs["sock"], server_side=True),
             self.pkt_cls,
         )
+
+        # Call super
         super(HTTPS_Server, self).__init__(
             mech=mech,
             verb=verb,
@@ -1291,3 +1314,13 @@ class HTTPS_Server(HTTP_Server):
             *args,
             **kwargs,
         )
+
+        # Set channel binding
+        if cert:
+            self.chan_bindings = GssChannelBindings.fromssl(
+                ChannelBindingType.TLS_SERVER_END_POINT,
+                certfile=cert,
+            )
+        if require_cbt:
+            # We require CBT by removing GSS_S_ALLOW_MISSING_BINDINGS
+            self.ssp_req_flags &= ~GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS

@@ -768,6 +768,15 @@ class Cert(metaclass=_CertMaker):
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
         return self.pubKey.verify(msg, sig, t=t, h=h, mgf=mgf, L=L)
 
+    def getSignatureHash(self):
+        """
+        Return the hash used by the 'signatureAlgorithm'
+        """
+        tbsCert = self.tbsCertificate
+        sigAlg = tbsCert.signature
+        h = hash_by_oid[sigAlg.algorithm.val]
+        return _get_hash(h)
+
     def remainingDays(self, now=None):
         """
         Based on the value of notAfter field, returns the number of

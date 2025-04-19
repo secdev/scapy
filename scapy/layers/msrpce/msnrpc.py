@@ -24,9 +24,11 @@ from scapy.layers.dcerpc import (
 )
 from scapy.layers.gssapi import (
     GSS_C_FLAGS,
+    GSS_C_NO_CHANNEL_BINDINGS,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
     GSS_S_FAILURE,
+    GSS_S_FLAGS,
 )
 from scapy.layers.ntlm import RC4, RC4K, RC4Init, SSP
 
@@ -473,7 +475,7 @@ class NetlogonSSP(SSP):
         self._unsecure(Context, msgs, signature, False)
 
     def GSS_Init_sec_context(
-        self, Context, val=None, req_flags: Optional[GSS_C_FLAGS] = None
+        self, Context, token=None, req_flags: Optional[GSS_C_FLAGS] = None
     ):
         if Context is None:
             Context = self.CONTEXT(True, req_flags=req_flags, AES=self.AES)
@@ -493,9 +495,15 @@ class NetlogonSSP(SSP):
         else:
             return Context, None, GSS_S_COMPLETE
 
-    def GSS_Accept_sec_context(self, Context, val=None):
+    def GSS_Accept_sec_context(
+        self,
+        Context: CONTEXT,
+        token=None,
+        req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
+        chan_bindings: bytes = GSS_C_NO_CHANNEL_BINDINGS,
+    ):
         if Context is None:
-            Context = self.CONTEXT(False, req_flags=0, AES=self.AES)
+            Context = self.CONTEXT(False, req_flags=req_flags, AES=self.AES)
 
         if Context.state == self.STATE.INIT:
             Context.state = self.STATE.SRV_SENT_NL
