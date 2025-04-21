@@ -4,6 +4,7 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
+# Install packages needed for the CI on Linux/MacOS
 # Usage:
 # ./install.sh [install mode]
 

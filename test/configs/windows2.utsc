@@ -27,7 +27,7 @@
     "broken_windows",
     "crypto_advanced",
     "mock_read_routes_bsd",
-    "appveyor_only",
+    "ci_only",
     "open_ssl_client",
     "vcan_socket",
     "ipv6",
