@@ -1,30 +1,42 @@
 Kerberos
 ========
 
-.. note:: Kerberos per `RFC4120 <https://datatracker.ietf.org/doc/html/rfc6113.html>`_ + `RFC6113 <https://datatracker.ietf.org/doc/html/rfc6113.html>`_ (FAST)
+.. note:: Kerberos per `RFC4120 <https://datatracker.ietf.org/doc/html/rfc6113.html>`_ + `RFC6113 <https://datatracker.ietf.org/doc/html/rfc6113.html>`_ (FAST) + `[MS-KILE] <https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-kile/2a32282e-dd48-4ad9-a542-609804b02cc9>`_ (Windows)
 
 High-Level
 __________
 
+Scapy provides several high-level utilities related to Kerberos:
+
+- ``Ticketer``: a module that allows manipulating Kerberos tickets:
+  - Request TGT/ST
+  - Generate a ``KerberosSSP`` from a ST
+  - Renew tickets
+  - Read, create, write **ccache** files
+  - Read, create, write **keytab** files
+  - Kerberos armoring (via FAST) is available
+  - S4U2Self / S4U2Proxy are implemented
+  - KPasswd is implemented
+- ``KerberosSSP``: an implementation of a GSSAPI SSP for Kerberos, usable in any of Scapy's client that support GSSAPI.
+  - Encryption/MIC using GSSAPI is available
+  - Channel bindings are supported
+  - U2U (User-To-User) is fully supported
+  - [MS-KKDCP] (KDC proxy) is supported
+
 Ticketer module
 ~~~~~~~~~~~~~~~
 
-Scapy implements a **Ticketer** module, in order to manipulate Kerberos tickets.
-Ticketer++ is easy to use programmatically, and allows you to manipulate the tickets yourself.
-Scapy's ticketer++ implements all fields from RFC4120, [MS-KILE] and [MS-PAC], meaning you can edit ANY field in a ticket to your likings.
+The **Ticketer** module can be used both from the CLI or programmatically. This section tries to give many usage examples of features
+that are available. For more detail regarding the parameters of the functions, it is encouraged to have a look at their docstrings.
 
-- **Request TGT/ST**:
+- **Request TGT**:
 
-.. code::
+.. code:: pycon
 
     >>> load_module("ticketer")
     >>> t = Ticketer()
     >>> t.request_tgt("Administrator@DOMAIN.LOCAL")
     Enter password: ************
-    >>> t.show()
-    Tickets:
-    0. Administrator@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
-    >>> t.request_st(0, "host/dc1.domain.local")
     >>> t.show()
     Tickets:
     0. Administrator@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
@@ -32,14 +44,11 @@ Scapy's ticketer++ implements all fields from RFC4120, [MS-KILE] and [MS-PAC], m
     31/08/23 11:38:34  31/08/23 21:38:34  31/08/23 21:38:35  31/08/23 01:38:34
 
 
-- **Renew TGT/ST**: Scapy's ticketer can be used to renew TGT or ST.
+- **Then request a ST, using the TGT**:
 
-.. code::
+.. code:: pycon
 
-    >>> load_module("ticketer")
-    >>> t = Ticketer()
-    >>> t.request_tgt("Administrator@DOMAIN.LOCAL")
-    Enter password: ************
+    >>> # The TGT we just got has an ID of 0
     >>> t.request_st(0, "host/dc1.domain.local")
     >>> t.show()
     Tickets:
@@ -50,8 +59,7 @@ Scapy's ticketer++ implements all fields from RFC4120, [MS-KILE] and [MS-PAC], m
     1. Administrator@DOMAIN.LOCAL -> host/dc1.domain.local@DOMAIN.LOCAL
     Start time         End time           Renew until        Auth time        
     31/08/23 11:39:07  31/08/23 21:38:34  31/08/23 21:38:35  31/08/23 01:38:34
-    >>> t.renew(0)  # renew TGT
-    >>> t.renew(1)  # renew ST
+
 
 - **Use ticket as SSP**: the ``.ssp()`` function.
 
@@ -59,6 +67,48 @@ Scapy's ticketer++ implements all fields from RFC4120, [MS-KILE] and [MS-PAC], m
 
    >>> # We use ticket 1 from the above store.
    >>> smbclient("dc1.domain.local", ssp=t.ssp(1))
+
+- **Renew a TGT or ST**:
+
+.. code::
+
+    >>> t.renew(0)  # renew TGT
+    >>> t.renew(1)  # renew ST. Works only with 'host/' SPNs
+
+- **Import tickets from a ccache**:
+
+.. note:: We first added a realm ``DOMAIN.LOCAL`` with a kdc to ``/etc/krb5.conf``
+
+.. code:: pycon
+
+    $ kinit Administrator@DOMAIN.LOCAL
+    Password for Administrator@DOMAIN.LOCAL:
+    $ scapy
+    >>> load_module("ticketer")
+    >>> t = Ticketer()
+    >>> t.open_file("/tmp/krb5cc_1000")
+    >>> t.show()
+    Tickets:
+    1. Administrator@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
+    Start time         End time           Renew until        Auth time
+    31/08/23 12:08:15  31/08/23 22:08:15  01/09/23 12:08:12  31/08/23 12:08:15
+
+- **Export tickets into a ccache**:
+
+.. code:: pycon
+
+    >>> load_module("ticketer")
+    >>> t = Ticketer()
+    >>> t.request_tgt("Administrator@domain.local", password="ScapyScapy1")
+    >>> t.save("/tmp/krb5cc_1000")
+    >>> exit()
+    $ klist
+    Ticket cache: FILE:/tmp/krb5cc_1000
+    Default principal: Administrator@DOMAIN.LOCAL
+
+    Valid starting       Expires              Service principal
+    08/31/2023 12:08:15  08/31/2023 23:08:15  krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
+            renew until 09/01/2023 12:08:12
 
 - **Perform S4U2Self**
 
@@ -79,52 +129,6 @@ Scapy's ticketer++ implements all fields from RFC4120, [MS-KILE] and [MS-PAC], m
       canonicalize+pre-authent+renewable+forwardable
    Start time         End time           Renew until        Auth time
    15/04/25 20:15:20  16/04/25 06:10:22  16/04/25 06:10:22  15/04/25 20:15:17
-
-- **Change password using kpasswd in 'set' mode:**
-
-.. code:: pycon
-
-    >>> t = Ticketer()
-    >>> t.request_tgt("Administrator@domain.local")
-    Enter password: ************
-    >>> t.kpasswdset(0, "SERVER1$@domain.local")
-    INFO: Using 'Set Password' mode. This only works with admin privileges.
-    Enter NEW password: ***********
-
-- **Import tickets**
-
-.. note:: We first added a realm ``DOMAIN.LOCAL`` with a kdc to ``/etc/krb5.conf``
-
-.. code:: pycon
-
-    $ kinit Administrator@DOMAIN.LOCAL
-    Password for Administrator@DOMAIN.LOCAL:
-    $ scapy
-    >>> load_module("ticketer")
-    >>> t = Ticketer()
-    >>> t.open_file("/tmp/krb5cc_1000")
-    >>> t.show()
-    Tickets:
-    1. Administrator@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
-    Start time         End time           Renew until        Auth time
-    31/08/23 12:08:15  31/08/23 22:08:15  01/09/23 12:08:12  31/08/23 12:08:15
-
-- **Export tickets**
-
-.. code:: pycon
-
-    >>> load_module("ticketer")
-    >>> t = Ticketer()
-    >>> t.request_tgt("Administrator@domain.local", password="ScapyScapy1")
-    >>> t.save("/tmp/krb5cc_1000")
-    >>> exit()
-    $ klist
-    Ticket cache: FILE:/tmp/krb5cc_1000
-    Default principal: Administrator@DOMAIN.LOCAL
-
-    Valid starting       Expires              Service principal
-    08/31/2023 12:08:15  08/31/2023 23:08:15  krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
-            renew until 09/01/2023 12:08:12
 
 - **Load and use keytab for client**
 
@@ -173,6 +177,17 @@ Scapy's ticketer++ implements all fields from RFC4120, [MS-KILE] and [MS-PAC], m
     Administrator@domain.local  15/04/25 20:24:13  3     RC4-HMAC
     
     No tickets in CCache.
+
+- **Change password using kpasswd in 'set' mode:**
+
+.. code:: pycon
+
+    >>> t = Ticketer()
+    >>> t.request_tgt("Administrator@domain.local")
+    Enter password: ************
+    >>> t.kpasswdset(0, "SERVER1$@domain.local")
+    INFO: Using 'Set Password' mode. This only works with admin privileges.
+    Enter NEW password: ***********
 
 - **Craft tickets**: We can start by showing how to craft a **golden ticket**:
 

@@ -61,10 +61,14 @@ from scapy.sessions import StringBuffer
 
 from scapy.layers.gssapi import (
     GSS_C_FLAGS,
+    GSS_C_NO_CHANNEL_BINDINGS,
+    GSS_S_BAD_BINDINGS,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
     GSS_S_DEFECTIVE_CREDENTIAL,
     GSS_S_DEFECTIVE_TOKEN,
+    GSS_S_FLAGS,
+    GssChannelBindings,
     SSP,
     _GSSAPI_OIDS,
     _GSSAPI_SIGNATURE_OIDS,
@@ -1129,7 +1133,7 @@ def SEALKEY(NegFlg, ExportedSessionKey, Mode):
             raise ValueError("Unknown Mode")
     elif NegFlg.NEGOTIATE_LM_KEY:
         if NegFlg.NEGOTIATE_56:
-            return ExportedSessionKey[:6] + b"\xA0"
+            return ExportedSessionKey[:6] + b"\xa0"
         else:
             return ExportedSessionKey[:4] + b"\xe5\x38\xb0"
     else:
@@ -1368,7 +1372,11 @@ class NTLMSSP(SSP):
             Context.RecvSealHandle = OriginalHandle
 
     def GSS_Init_sec_context(
-        self, Context: CONTEXT, val=None, req_flags: Optional[GSS_C_FLAGS] = None
+        self,
+        Context: CONTEXT,
+        token=None,
+        req_flags: Optional[GSS_C_FLAGS] = None,
+        chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
     ):
         if Context is None:
             Context = self.CONTEXT(False, req_flags=req_flags)
@@ -1432,8 +1440,8 @@ class NTLMSSP(SSP):
             Context.state = self.STATE.CLI_SENT_NEGO
             return Context, tok, GSS_S_CONTINUE_NEEDED
         elif Context.state == self.STATE.CLI_SENT_NEGO:
-            # Client: auth (val=challenge)
-            chall_tok = val
+            # Client: auth (token=challenge)
+            chall_tok = token
             if self.UPN is None or self.HASHNT is None:
                 raise ValueError(
                     "Must provide a 'UPN' and a 'HASHNT' or 'PASSWORD' when "
@@ -1494,7 +1502,20 @@ class NTLMSSP(SSP):
                         AvId="MsvAvSingleHost",
                         Value=Single_Host_Data(MachineID=os.urandom(32)),
                     ),
-                    AV_PAIR(AvId="MsvAvChannelBindings", Value=b"\x00" * 16),
+                ]
+                + (
+                    [
+                        AV_PAIR(
+                            # [MS-NLMP] sect 2.2.2.1 refers to RFC 4121 sect 4.1.1.2
+                            # "The Bnd field contains the MD5 hash of channel bindings"
+                            AvId="MsvAvChannelBindings",
+                            Value=chan_bindings.digestMD5(),
+                        ),
+                    ]
+                    if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS
+                    else []
+                )
+                + [
                     AV_PAIR(AvId="MsvAvTargetName", Value="host/" + tok.Workstation),
                     AV_PAIR(AvId="MsvAvEOL"),
                 ]
@@ -1555,7 +1576,7 @@ class NTLMSSP(SSP):
             Context.state = self.STATE.CLI_SENT_AUTH
             return Context, tok, GSS_S_COMPLETE
         elif Context.state == self.STATE.CLI_SENT_AUTH:
-            if val:
+            if token:
                 # what is that?
                 status = GSS_S_DEFECTIVE_CREDENTIAL
             else:
@@ -1564,13 +1585,19 @@ class NTLMSSP(SSP):
         else:
             raise ValueError("NTLMSSP: unexpected state %s" % repr(Context.state))
 
-    def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
+    def GSS_Accept_sec_context(
+        self,
+        Context: CONTEXT,
+        token=None,
+        req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
+        chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
+    ):
         if Context is None:
-            Context = self.CONTEXT(IsAcceptor=True, req_flags=0)
+            Context = self.CONTEXT(IsAcceptor=True, req_flags=req_flags)
 
         if Context.state == self.STATE.INIT:
-            # Server: challenge (val=negotiate)
-            nego_tok = val
+            # Server: challenge (token=negotiate)
+            nego_tok = token
             if not nego_tok or NTLM_NEGOTIATE not in nego_tok:
                 log_runtime.debug("NTLMSSP: Unexpected token. Expected NTLM Negotiate")
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
@@ -1659,16 +1686,20 @@ class NTLMSSP(SSP):
             Context.state = self.STATE.SRV_SENT_CHAL
             return Context, tok, GSS_S_CONTINUE_NEEDED
         elif Context.state == self.STATE.SRV_SENT_CHAL:
-            # server: OK or challenge again (val=auth)
-            auth_tok = val
+            # server: OK or challenge again (token=auth)
+            auth_tok = token
+
             if not auth_tok or NTLM_AUTHENTICATE_V2 not in auth_tok:
                 log_runtime.debug(
                     "NTLMSSP: Unexpected token. Expected NTLM Authenticate v2"
                 )
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
+
             if self.DO_NOT_CHECK_LOGIN:
                 # Just trust me bro
                 return Context, None, GSS_S_COMPLETE
+
+            # Compute the session key
             SessionBaseKey = self._getSessionBaseKey(Context, auth_tok)
             if SessionBaseKey:
                 # [MS-NLMP] sect 3.2.5.1.2
@@ -1686,6 +1717,19 @@ class NTLMSSP(SSP):
                 Context.ExportedSessionKey = ExportedSessionKey
                 # [MS-SMB] 3.2.5.3
                 Context.SessionKey = Context.ExportedSessionKey
+
+            # Check the channel bindings
+            if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS:
+                try:
+                    Bnd = auth_tok.NtChallengeResponse.getAv(0x000A).Value
+                    if Bnd != chan_bindings.digestMD5():
+                        # Bad channel bindings
+                        return Context, None, GSS_S_BAD_BINDINGS
+                except IndexError:
+                    if GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS not in req_flags:
+                        # Uhoh, we required channel bindings
+                        return Context, None, GSS_S_BAD_BINDINGS
+
             # Check the NTProofStr
             if Context.SessionKey:
                 # Compute NTLM keys
@@ -1710,6 +1754,7 @@ class NTLMSSP(SSP):
                     if auth_tok.NegotiateFlags.NEGOTIATE_SEAL:
                         Context.flags |= GSS_C_FLAGS.GSS_C_CONF_FLAG
                     return Context, None, GSS_S_COMPLETE
+
             # Bad NTProofStr or unknown user
             Context.SessionKey = None
             Context.state = self.STATE.INIT
@@ -1726,7 +1771,7 @@ class NTLMSSP(SSP):
         """
         return 16  # len(NTLMSSP_MESSAGE_SIGNATURE())
 
-    def GSS_Passive(self, Context: CONTEXT, val=None):
+    def GSS_Passive(self, Context: CONTEXT, token=None):
         if Context is None:
             Context = self.CONTEXT(True)
             Context.passive = True
@@ -1735,24 +1780,24 @@ class NTLMSSP(SSP):
         # and discard the output.
 
         if Context.state == self.STATE.INIT:
-            if not val or NTLM_NEGOTIATE not in val:
+            if not token or NTLM_NEGOTIATE not in token:
                 log_runtime.warning("NTLMSSP: Expected NTLM Negotiate")
                 return None, GSS_S_DEFECTIVE_TOKEN
-            Context.neg_tok = val
+            Context.neg_tok = token
             Context.state = self.STATE.CLI_SENT_NEGO
             return Context, GSS_S_CONTINUE_NEEDED
         elif Context.state == self.STATE.CLI_SENT_NEGO:
-            if not val or NTLM_CHALLENGE not in val:
+            if not token or NTLM_CHALLENGE not in token:
                 log_runtime.warning("NTLMSSP: Expected NTLM Challenge")
                 return None, GSS_S_DEFECTIVE_TOKEN
-            Context.chall_tok = val
+            Context.chall_tok = token
             Context.state = self.STATE.SRV_SENT_CHAL
             return Context, GSS_S_CONTINUE_NEEDED
         elif Context.state == self.STATE.SRV_SENT_CHAL:
-            if not val or NTLM_AUTHENTICATE_V2 not in val:
+            if not token or NTLM_AUTHENTICATE_V2 not in token:
                 log_runtime.warning("NTLMSSP: Expected NTLM Authenticate")
                 return None, GSS_S_DEFECTIVE_TOKEN
-            Context, _, status = self.GSS_Accept_sec_context(Context, val)
+            Context, _, status = self.GSS_Accept_sec_context(Context, token)
             if status != GSS_S_COMPLETE:
                 log_runtime.info("NTLMSSP: auth failed.")
             Context.state = self.STATE.INIT

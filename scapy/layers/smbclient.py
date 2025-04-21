@@ -456,7 +456,7 @@ class SMB_Client(Automaton):
         # Begin session establishment
         ssp_tuple = self.session.ssp.GSS_Init_sec_context(
             self.session.sspcontext,
-            ssp_blob,
+            token=ssp_blob,
             req_flags=(
                 GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
                 | (GSS_C_FLAGS.GSS_C_INTEG_FLAG if self.session.SigningRequired else 0)
@@ -615,7 +615,8 @@ class SMB_Client(Automaton):
     @ATMT.state()
     def AUTHENTICATED(self, ssp_blob=None):
         self.session.sspcontext, _, status = self.session.ssp.GSS_Init_sec_context(
-            self.session.sspcontext, ssp_blob
+            self.session.sspcontext,
+            token=ssp_blob,
         )
         if status != GSS_S_COMPLETE:
             raise ValueError("Internal error: the SSP completed with an error.")

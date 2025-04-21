@@ -30,3 +30,13 @@ assert res == {
         'userPassword': ['testing']
     }
 }
+
+= (OpenLDAP) connect to server using SSL
+~ disabled
+
+# We need a version of OpenLDAP that is more recent. Let's wait.
+
+cli = LDAP_Client()
+cli.connect("127.0.0.1", use_ssl=True, no_check_certificate=True)
+cli.bind(LDAP_BIND_MECHS.SIMPLE, simple_username="cn=admin,dc=scapy,dc=net", simple_password="Bonjour1")
+cli.close()
