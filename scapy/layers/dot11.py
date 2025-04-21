@@ -1452,10 +1452,10 @@ class Dot11EltVendorSpecific(Dot11Elt):
     def register_variant(cls):  # XXX: We do not accept id, but our super-class does
         oui = cls.oui.default
         if not oui:
-            # This is us, register ourselves in the super-class.
-            # TODO: Is there a better way to check?
+            # This is Dot11EltVendorSpecific, register it in the super-class.
             super().register_variant()
-        if oui not in cls.registered_ouis:
+        elif oui not in cls.registered_ouis:
+            # Sub-Vendor (e.g. Dot11EltMicrosoftWPA)
             cls.registered_ouis[oui] = cls
 
 
