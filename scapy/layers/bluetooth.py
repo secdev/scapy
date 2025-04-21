@@ -2521,7 +2521,6 @@ class HCI_LE_Meta_Long_Term_Key_Request(Packet):
 class HCI_LE_Meta_Extended_Advertising_Report(Packet):
     name = "Extended Advertising Report"
     fields_desc = [
-        #LEShortField("event_type", 0),
         BitField("reserved0", 0, 1),
         BitEnumField("data_status", 0, 2, {
             0b00: "complete",
