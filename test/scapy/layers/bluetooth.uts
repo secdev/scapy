@@ -709,6 +709,59 @@ assert b[EIR_CompleteList128BitServiceUUIDs].svc_uuids[0] == UUID("01234567-89ab
 
 assert a.summary() == "HCI Event / HCI_Event_Hdr / HCI_Event_LE_Meta / HCI_LE_Meta_Advertising_Reports"
 
+= EIR_Hdr - HCI_LE_Meta_Extended_Advertising_Report
+a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Extended_Advertising_Reports(reports=[
+   HCI_LE_Meta_Extended_Advertising_Report(
+      #event_type = 0x0012,
+      scannable = 1,
+      legacy = 1,
+      address_type = 0x01,
+      address="a1:b2:c3:d4:e5:f6",
+      primary_phy = 1,
+      rssi = -85,
+      data=[
+         EIR_Hdr()/EIR_CompleteList16BitServiceUUIDs(
+            svc_uuids = [0xffff],
+         ),
+         EIR_Hdr()/EIR_ServiceData16BitUUID(
+             svc_uuid = 0xffff
+         )/Raw(b"scapy\x00\x00\x00")
+      ]
+   ),
+    HCI_LE_Meta_Extended_Advertising_Report(
+      #event_type = 0x001a,
+      scannable = 1,
+      scan_response = 1,
+      legacy = 1,
+      address_type = 0x01,
+      address="a1:b2:c3:d4:e5:f6",
+      primary_phy = 1,
+      rssi = -85,
+      data=[
+         EIR_Hdr()/EIR_Manufacturer_Specific_Data(
+            company_id = 0xffff,
+         ) / Raw(b"scapy\x00\x01\x02\x03\x04")
+      ]
+   ),
+])
+
+assert raw(a) == b"\x04\x3e\x50\x0d\x02\x12\x00\x01\xf6\xe5\xd4\xc3\xb2\xa1\x01\x00\xff\x7f\xab\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10\x03\x03\xff\xff\x0b\x16\xff\xffscapy\x00\x00\x00\x1a\x00\x01\xf6\xe5\xd4\xc3\xb2\xa1\x01\x00\xff\x7f\xab\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x0d\xff\xff\xffscapy\x00\x01\x02\x03\x04"
+
+b = HCI_Hdr(raw(a))
+b.show()
+assert b[HCI_Event_Hdr].len > 0
+assert b[HCI_LE_Meta_Extended_Advertising_Reports].num_reports == 2
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].address == "a1:b2:c3:d4:e5:f6"
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].tx_power == 0x7f
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].rssi == -85
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].data_length > 0
+assert b[EIR_CompleteList16BitServiceUUIDs].svc_uuids == [0xffff]
+assert b[EIR_ServiceData16BitUUID].svc_uuid == 0xffff
+assert raw(b[EIR_ServiceData16BitUUID].payload) == b"scapy\x00\x00\x00"
+assert b[EIR_Manufacturer_Specific_Data].company_id == 0xffff
+assert raw(b[EIR_Manufacturer_Specific_Data].payload) == b"scapy\x00\x01\x02\x03\x04"
+
+
 = ATT_Hdr - misc
 a = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/ATT_Hdr()/ATT_Read_By_Type_Request_128bit(uuid1=0xa14, uuid2=0xa24)
 a = HCI_Hdr(raw(a))
