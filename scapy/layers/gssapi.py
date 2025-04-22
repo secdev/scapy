@@ -346,9 +346,13 @@ class GssChannelBindings(Packet):
             # RFC5929 sect 4.1
             if h == hashes.MD5 or h == hashes.SHA1:
                 h = hashes.SHA256
+            # Get bytes of first certificate if there are multiple
+            c = cert.x509Cert.copy()
+            c.remove_payload()
+            cdata = bytes(c)
             # Calc hash of certificate
             digest = hashes.Hash(h)
-            digest.update(bytes(cert.x509Cert))
+            digest.update(cdata)
             cbdata = digest.finalize()
         elif token_type == ChannelBindingType.TLS_UNIQUE:
             # RFC5929 sect 3
@@ -414,7 +418,7 @@ class SSP:
 
         __slots__ = ["state", "_flags", "passive"]
 
-        def __init__(self, req_flags: Optional['GSS_C_FLAGS | GSS_S_FLAGS'] = None):
+        def __init__(self, req_flags: Optional["GSS_C_FLAGS | GSS_S_FLAGS"] = None):
             if req_flags is None:
                 # Default
                 req_flags = (

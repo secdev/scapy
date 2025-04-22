@@ -1027,6 +1027,9 @@ class HTTP_Server(Automaton):
 
     :param ssp: the SSP to serve. If None, unauthenticated (or basic).
     :param mech: the HTTP_AUTH_MECHS to use (default: NONE)
+    :param require_cbt: require Channel Bindings to be valid (default: False)
+    :param cbt_cert: the path to the certificate used for channel bindings.
+                     Useful if behind a reverse proxy. (default: None)
 
     Other parameters:
 
@@ -1042,6 +1045,8 @@ class HTTP_Server(Automaton):
         mech=HTTP_AUTH_MECHS.NONE,
         verb=True,
         ssp=None,
+        require_cbt: bool = False,
+        cbt_cert: str = None,
         *args,
         **kwargs,
     ):
@@ -1053,8 +1058,20 @@ class HTTP_Server(Automaton):
         self.ssp = ssp
         self.authmethod = mech.value
         self.sspcontext = None
+
+        # CBT settings
         self.ssp_req_flags = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS
-        self.chan_bindings = GSS_C_NO_CHANNEL_BINDINGS
+        if require_cbt:
+            self.ssp_req_flags &= ~GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS
+        if cbt_cert:
+            self.chan_bindings = GssChannelBindings.fromssl(
+                ChannelBindingType.TLS_SERVER_END_POINT,
+                certfile=cbt_cert,
+            )
+        else:
+            self.chan_bindings = GSS_C_NO_CHANNEL_BINDINGS
+
+        # Auth settings
         self.basic = False
         self.BASIC_IDENTITIES = kwargs.pop("BASIC_IDENTITIES", {})
         self.BASIC_REALM = kwargs.pop("BASIC_REALM", "default")
@@ -1311,16 +1328,8 @@ class HTTPS_Server(HTTP_Server):
             mech=mech,
             verb=verb,
             ssp=ssp,
+            cbt_cert=cert,
+            require_cbt=require_cbt,
             *args,
             **kwargs,
         )
-
-        # Set channel binding
-        if cert:
-            self.chan_bindings = GssChannelBindings.fromssl(
-                ChannelBindingType.TLS_SERVER_END_POINT,
-                certfile=cert,
-            )
-        if require_cbt:
-            # We require CBT by removing GSS_S_ALLOW_MISSING_BINDINGS
-            self.ssp_req_flags &= ~GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS
