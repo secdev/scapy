@@ -678,7 +678,7 @@ scapy_delete_temp_files()
 tmpfile = get_temp_file(autoext=".ut")
 tmpfile
 if WINDOWS:
-    assert "scapy" in tmpfile and tmpfile.lower().startswith('c:\\users\\appveyor\\appdata\\local\\temp')
+    assert "scapy" in tmpfile and "AppData\\Local\\Temp" in tmpfile
 else:
     import platform
     BYPASS_TMP = platform.python_implementation().lower() == "pypy" or DARWIN
