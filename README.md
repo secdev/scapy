@@ -4,7 +4,7 @@
 
 [![Scapy unit tests](https://github.com/secdev/scapy/actions/workflows/unittests.yml/badge.svg?branch=master&event=push)](https://github.com/secdev/scapy/actions/workflows/unittests.yml?query=event%3Apush) <!-- ignore_ppi -->
 [![Codecov Status](https://codecov.io/gh/secdev/scapy/branch/master/graph/badge.svg)](https://codecov.io/gh/secdev/scapy) <!-- ignore_ppi -->
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/30ee6772bb264a689a2604f5cdb0437b)](https://www.codacy.com/app/secdev/scapy) <!-- ignore_ppi -->
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/30ee6772bb264a689a2604f5cdb0437b)](https://app.codacy.com/gh/secdev/scapy/dashboard) <!-- ignore_ppi -->
 [![PyPI Version](https://img.shields.io/pypi/v/scapy.svg)](https://pypi.python.org/pypi/scapy/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](LICENSE)
 [![Join the chat at https://gitter.im/secdev/scapy](https://badges.gitter.im/secdev/scapy.svg)](https://gitter.im/secdev/scapy) <!-- ignore_ppi -->
