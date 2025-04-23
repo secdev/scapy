@@ -79,7 +79,7 @@ class F(TestPacket):
 
 class I(TestPacket):
     fields_desc = [
-        PacketField(name=f"f{i}", pkt_cls=F, default=F(value=i))
+        PacketField(name=f"f{i}", pkt_cls=F, default=F(value=(i%256)))
         for i in range(NUMBER_OF_F_PER_I)
     ]
 
