@@ -543,9 +543,6 @@ class Packet(
         # Both `copy()` and `clone_with()` copy the `parent` reference as is.
         clone.parent = self.parent
 
-        # Both `copy()` and `clone_with()` copy the `raw_packet_cache` attribute as is.
-        clone.raw_packet_cache = self.raw_packet_cache
-
         # Both `copy()` and `clone_with()` copy the `wirelen` attribute as is.
         clone.wirelen = self.wirelen
 
@@ -573,6 +570,10 @@ class Packet(
 
         # Both `copy()` and `clone_with()` copy the `sniffed_on` attribute as is.
         clone.sniffed_on = self.sniffed_on
+
+        # Eventually set cache.
+        # Both `copy()` and `clone_with()` copy the `raw_packet_cache` attribute as is.
+        clone.raw_packet_cache = self.raw_packet_cache
 
         return clone
 
