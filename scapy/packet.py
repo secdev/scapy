@@ -319,6 +319,7 @@ class Packet(
 
                 # Fix: Use `copy_field_value()` instead of just `value.copy()`, in order to duplicate list items as well in case of a list.
                 self.fields[fname] = self.copy_field_value(fname, self.default_fields[fname])
+                self._ensure_parent_of(self.fields[fname])
 
     def prepare_cached_fields(self, flist):
         # type: (Sequence[AnyField]) -> None
@@ -426,6 +427,15 @@ class Packet(
         When packet is an element in PacketListField, parent field would
         point to the list owner packet."""
         self.parent = None
+
+    def _ensure_parent_of(self, val):
+        # type: (Any) -> None
+        """Ensures a parent reference with self for val when applicable."""
+        if isinstance(val, Packet):
+            val.parent = self
+        elif isinstance(val, list):
+            for item in val:  # type: Any
+                self._ensure_parent_of(item)
 
     def copy(self) -> Self:
         """Returns a deep copy of the instance."""
