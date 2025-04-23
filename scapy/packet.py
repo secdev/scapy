@@ -181,6 +181,7 @@ class Packet(
         #   Clarify the meaning for this `explicit` flag.
         #   Now that cache is cleared as soon as the packet is modified, possibly we could get rid of it?
         self.explicit = 0
+        #: Caches bytes after `dissect()` or `build()` for the current layer only (not the payload, even if set).
         self.raw_packet_cache = None  # type: Optional[bytes]
         self.wirelen = None  # type: Optional[int]
         self.direction = None  # type: Optional[int]
@@ -379,12 +380,12 @@ class Packet(
         """DEV: returns the field instance from the name of the field"""
         return self.fieldtype[fld]
 
-    def add_payload(self, payload, clear_cache=True):
-        # type: (Union[Packet, bytes], bool) -> None
+    def add_payload(self, payload):
+        # type: (Union[Packet, bytes]) -> None
         if payload is None:
             return
         elif not isinstance(self.payload, NoPayload):
-            self.payload.add_payload(payload, clear_cache=clear_cache)
+            self.payload.add_payload(payload)
         else:
             if isinstance(payload, Packet):
                 self.payload = payload
@@ -398,18 +399,11 @@ class Packet(
             else:
                 raise TypeError("payload must be 'Packet', 'bytes', 'str', 'bytearray', or 'memoryview', not [%s]" % repr(payload))  # noqa: E501
 
-            # Invalidate cache when the packet has changed.
-            if clear_cache:
-                self.clear_cache(upwards=True, downwards=False)
-
     def remove_payload(self):
         # type: () -> None
         self.payload.remove_underlayer(self)
         self.payload = NoPayload()
         self.overloaded_fields = {}
-
-        # Invalidate cache when the packet has changed.
-        self.clear_cache(upwards=True, downwards=False)
 
     def add_underlayer(self, underlayer):
         # type: (Packet) -> None
@@ -1203,7 +1197,7 @@ class Packet(
             ):
                 # stop dissection here
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
-                self.add_payload(p, clear_cache=False)
+                self.add_payload(p)
                 return
             cls = self.guess_payload_class(s)
             try:
@@ -1226,7 +1220,7 @@ class Packet(
                     if cls is not None:
                         raise
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
-            self.add_payload(p, clear_cache=False)
+            self.add_payload(p)
 
     def dissect(self, s):
         # type: (bytes) -> None
