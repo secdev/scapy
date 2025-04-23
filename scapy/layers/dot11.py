@@ -1449,7 +1449,7 @@ class Dot11EltVendorSpecific(Dot11Elt):
     registered_ouis = {}
 
     @classmethod
-    def register_variant(cls):  # XXX: We do not accept id, but our super-class does
+    def register_variant(cls):
         oui = cls.oui.default
         if not oui:
             # This is Dot11EltVendorSpecific, register it in the super-class.
