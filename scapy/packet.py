@@ -778,9 +778,20 @@ class Packet(
             field = pkt.default_fields[field_name]
             class_name = type(field).__name__
             # print(f"Class type: {class_name} for: {pkt._name}-{field_name}")
-            if class_name in ['NoneType', 'int', 'str', 'list', 'bytes', '_ScopedIP']:
+            if class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP']:
                 # _ScopedIP is 'str' with extra attrs - skip it
                 continue
+
+            if class_name == "list":
+                # If the class_name is a list, see if it has something inside, if it does
+                #  go into it
+                if len(field) == 0:
+                    # Empty list should be skipped
+                    continue
+
+                for idx, field_value in enumerate(field):
+                    for field_in_list_name in field_value.fields:
+                        relevant_fields.append(f"{pkt.name}:{field_name}:{idx}:{field_in_list_name}")
 
             # We will want to fix this in the future... maybe make it into a min-max?
             # These are inside dot11
@@ -800,12 +811,41 @@ class Packet(
         """ Locate a given field name inside a pkt (recursively) """
         packet_type = name[0:name.index(':')]
         packet_field = name[name.index(':')+1:]
+        field_type = "normal"
+        field_idx = None
+        field_in_list = None
+        if ":" in packet_field:
+            # There is a subsequent item/value here, it should be the index of 'list'
+            field_type = "list"
+
+            field_list = packet_field[packet_field.index(':')+1:]
+
+            # Remove the 'list' part
+            packet_field = packet_field[:packet_field.index(':')]
+
+            field_idx = field_list[:field_list.index(':')]
+            field_in_list = field_list[field_list.index(':')+1:]
+            try:
+                field_idx = int(field_idx)
+            except:
+                raise ValueError(f"We expected {field_idx} to be an int ")
+            
+            val = pkt.default_fields[packet_field]
+            if not isinstance(val, list):
+                raise ValueError(f"The field {packet_field} isn't a list")
+
+            if field_idx > len(val):
+                raise ValueError(f"The field {packet_field} cannot accomodate {field_idx} index")
 
         if pkt.name == packet_type:
             if (packet_field not in pkt.fields and packet_field not in pkt.default_fields):
                 raise ValueError(f"Cannot find {packet_field} inside {packet_type}")
 
             if packet_field in pkt.default_fields:
+                if field_type == "list":
+                    item_in_list = pkt.default_fields[packet_field][field_idx]
+                    return (pkt, item_in_list.default_fields[field_in_list])
+
                 return (pkt, pkt.default_fields[packet_field])
 
             if packet_field in pkt.fields:
