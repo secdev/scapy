@@ -828,30 +828,35 @@ class Packet(
         field_type = "normal"
         field_idx = None
         field_in_list = None
-        if ":" in packet_field:
-            # There is a subsequent item/value here, it should be the index of 'list'
-            field_type = "list"
 
-            field_list = packet_field[packet_field.index(':')+1:]
-
-            # Remove the 'list' part
-            packet_field = packet_field[:packet_field.index(':')]
-
-            field_idx = field_list[:field_list.index(':')]
-            field_in_list = field_list[field_list.index(':')+1:]
-            try:
-                field_idx = int(field_idx)
-            except:
-                raise ValueError(f"We expected {field_idx} to be an int ")
-            
-            val = pkt.default_fields[packet_field]
-            if not isinstance(val, list):
-                raise ValueError(f"The field {packet_field} isn't a list")
-
-            if field_idx > len(val):
-                raise ValueError(f"The field {packet_field} cannot accomodate {field_idx} index")
-
+        # Make sure we are in the right place
         if pkt.name == packet_type:
+            if ":" in packet_field:
+                # There is a subsequent item/value here, it should be the index of 'list'
+                field_type = "list"
+
+                field_list = packet_field[packet_field.index(':')+1:]
+
+                # Remove the 'list' part
+                packet_field = packet_field[:packet_field.index(':')]
+
+                field_idx = field_list[:field_list.index(':')]
+                field_in_list = field_list[field_list.index(':')+1:]
+                try:
+                    field_idx = int(field_idx)
+                except:
+                    raise ValueError(f"We expected {field_idx} to be an int ")
+                
+                if packet_field not in pkt.default_fields:
+                    raise ValueError(f"We are referencing {packet_field} which is not found inside default_fields")
+
+                val = pkt.default_fields[packet_field]
+                if not isinstance(val, list):
+                    raise ValueError(f"The field {packet_field} isn't a list")
+
+                if field_idx > len(val):
+                    raise ValueError(f"The field {packet_field} cannot accomodate {field_idx} index")
+
             if (packet_field not in pkt.fields and packet_field not in pkt.default_fields):
                 raise ValueError(f"Cannot find {packet_field} inside {packet_type}")
 
