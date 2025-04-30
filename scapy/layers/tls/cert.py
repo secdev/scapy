@@ -777,6 +777,21 @@ class Cert(metaclass=_CertMaker):
         h = hash_by_oid[sigAlg.algorithm.val]
         return _get_hash(h)
 
+    def setSubjectPublicKeyFromPrivateKey(self, key):
+        """
+        Replace the subjectPublicKeyInfo of this certificate with the one from
+        the provided key.
+        """
+        if isinstance(key, (PubKey, PrivKey)):
+            self.tbsCertificate.subjectPublicKeyInfo = X509_SubjectPublicKeyInfo(
+                key.pubkey.public_bytes(
+                    encoding=serialization.Encoding.DER,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                )
+            )
+        else:
+            raise ValueError("Unknown type 'key', should be PubKey or PrivKey")
+
     def remainingDays(self, now=None):
         """
         Based on the value of notAfter field, returns the number of
