@@ -778,6 +778,9 @@ class Packet(
             field = pkt.default_fields[field_name]
             class_name = type(field).__name__
             # print(f"Class type: {class_name} for: {pkt._name}-{field_name}")
+
+            # Make sure that the class of the field is relevant for fuzzing, if you change this
+            #  change the one just below - if it is a 'list' here DONT skip
             if class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP']:
                 # _ScopedIP is 'str' with extra attrs - skip it
                 continue
@@ -791,6 +794,15 @@ class Packet(
 
                 for idx, field_value in enumerate(field):
                     for field_in_list_name in field_value.fields:
+                        field_in_list = field_value.default_fields[field_in_list_name]
+                        field_in_list_class_name = type(field_in_list).__name__
+
+                        # Make sure that the class of the field is relevant for fuzzing, if you change this
+                        #  change the one just above - if it is a 'list' here skip
+                        if field_in_list_class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP', 'list']:
+                            # _ScopedIP is 'str' with extra attrs - skip it
+                            continue
+
                         relevant_fields.append(f"{pkt.name}:{field_name}:{idx}:{field_in_list_name}")
 
                 continue
@@ -846,6 +858,9 @@ class Packet(
             if packet_field in pkt.default_fields:
                 if field_type == "list":
                     item_in_list = pkt.default_fields[packet_field][field_idx]
+
+                    if item_in_list.default_fields[field_in_list] is None:
+                        raise ValueError(f"Shouldn't be None, did we not find the obj? {field_idx=}:{field_in_list=}")
                     return (pkt, item_in_list.default_fields[field_in_list])
 
                 return (pkt, pkt.default_fields[packet_field])
