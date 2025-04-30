@@ -2,10 +2,10 @@
 Forwarding Machine
 ******************
 
-Scapy's ``ForwardingMachine`` is a class utility that allows to very quickly design a server that forwards packets to another server, with the ability
-to modify them on-the-fly. This is commonly referred to as a "transparent proxy". The ``ForwardingMachine`` was initially designed to be used with TPROXY,
-a linux feature that allows to bind a socket that received *packets to any IP destination*, in which case it properly forwards the packet to the initially
-intended destination.
+Scapy's ``ForwardingMachine`` is a utility that allows to create server that forwards packets to another server, with the ability
+to modify them on-the-fly. This is similar to a "proxy", but works with any protocols over IP/IPv6. The ``ForwardingMachine`` was initially designed to be used with TPROXY,
+a linux feature that allows to bind a socket that received *packets to any IP destination* (in which case it properly forwards the packet to the initially
+intended destination), but it also work as a standalone server.
 
 A ``ForwardingMachine`` is expected to be used over a normal Python socket, of any kind, and needs to extended with two
 functions: ``xfrmcs`` and ``xfrmsc``. The first one is called whenever data is received from the client side (client-to-server), the other when the data
@@ -15,7 +15,7 @@ Basic usage
 ___________
 
 Here's an example of a ``ForwardingMachine`` over TPROXY that does nothing. Packets for all destinations are handled, and forwarded to their
-initial destinations afterwards. More details on how to setup TPROXY are provided below. Note that a ``ForwardingMachine`` **also works without TPROXY**.
+initial destinations afterwards. More details on how to setup TPROXY are provided below.
 
 .. code:: python
 
@@ -62,7 +62,7 @@ ___________
 ``ForwardingMachine`` has support for TLS through the ``ssl=True`` argument. When TLS is enabled, the SNI (Server Name Indication) is
 properly forwarded to the remote peer, and can be accessed through the ``ctx.tls_sni_name`` attribute in the callbacks.
 
-**By default, a ``ForwardingMachine`` generates self-signed certificates** that copy the attributes from the certificate of the remote
+**By default, a ForwardingMachine generates self-signed certificates** that copy the attributes from the certificate of the remote
 server. This behavior can be changed by specifying a certificate (which will be served by the TLS stack).
 
 .. code:: python
@@ -86,3 +86,8 @@ server. This behavior can be changed by specifying a certificate (which will be 
         cls=HTTP,
         ssl=True,
     ).run()
+
+Configuring TPROXY
+__________________
+
+For ease of use, a script
