@@ -793,6 +793,8 @@ class Packet(
                     for field_in_list_name in field_value.fields:
                         relevant_fields.append(f"{pkt.name}:{field_name}:{idx}:{field_in_list_name}")
 
+                continue
+
             # We will want to fix this in the future... maybe make it into a min-max?
             # These are inside dot11
             if class_name in ['FlagValue', 'RSNCipherSuite', 'PMKIDListPacket']:
