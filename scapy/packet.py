@@ -942,7 +942,7 @@ class Packet(
 
                         if "default" in dir(field_obj):
                             # Some fields have a 'default'
-                            if type(field_obj.default).__name__ in ['str', 'bytes']:
+                            if type(field_obj.default).__name__ in ['str', 'bytes', 'tuple']:
                                 # Store the value so we can use it
                                 field_obj.default = field_obj.default
                             elif type(field_obj.default).__name__ == 'int':
@@ -1004,7 +1004,7 @@ class Packet(
                 # If we recached max for this field, try the next one
                 if field_fuzzed.state_pos > field_fuzzed.max:
                     # Reset the position back to default
-                    if type(field_fuzzed.default).__name__ in ['str', 'bytes']:
+                    if type(field_fuzzed.default).__name__ in ['str', 'bytes', 'tuple']:
                         field_fuzzed.state_pos = 0 # 0 is when we send the default
                     elif type(field_fuzzed.default).__name__ != 'int':
                         raise ValueError("field_fuzzed.default is not int")
@@ -1038,7 +1038,7 @@ class Packet(
 
                             field_fuzzed.state_pos += 1
                             if field_fuzzed.state_pos > field_fuzzed.max:
-                                if type(field_fuzzed.default).__name__ in ['str', 'bytes']:
+                                if type(field_fuzzed.default).__name__ in ['str', 'bytes', 'tuple']:
                                     field_fuzzed.state_pos = 0 # 0 is when we send the default
                                 elif type(field_fuzzed.default).__name__ != 'int':
                                     raise ValueError("field_fuzzed.default is not int")
@@ -1055,7 +1055,7 @@ class Packet(
                                     state_fuzzed['fields'][curr_pos]['name']
                                 )
 
-                                if type(field_fuzzed.default).__name__ in ['str', 'bytes']:
+                                if type(field_fuzzed.default).__name__ in ['str', 'bytes', 'tuple']:
                                     field_fuzzed.state_pos = 0 # 0 is when we send the default
                                 elif type(field_fuzzed.default).__name__ != 'int':
                                     raise ValueError("field_fuzzed.default is not int")
