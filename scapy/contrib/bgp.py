@@ -93,6 +93,8 @@ class BGPFieldIPv4(Field):
     """
 
     def __init__(self, name, default):
+        # The correct format should be "B" as can be seen in the i2m and not the default
+        #  'H'
         Field.__init__(
             self, name, default, "B"
         )
