@@ -266,6 +266,12 @@ class RandNum(_RandNumeral[int]):
 
             return self.min
 
+        if type(self).__name__ == "RandByte":
+            # We need to return 'str' typed not 'int' so that the value is encoded
+            #  and not made into a bytes length of the state_pos
+            # See: def bytes_encode(x): inside 'compat.py'
+            return self.state_pos.to_bytes(1, 'big')
+
         return self.state_pos
 
     def __lshift__(self, other):
@@ -545,6 +551,17 @@ class RandString(_RandString[str]):
             size = RandNumExpo(0.01)
         self.size = size
         self.chars = chars
+
+    def __getitem__(self, start, stop=None, step=None):
+        # Missing subscriptable (needed by BOOTP while show calls it, maybe others?)
+        #  due to i2repr being called/implemented
+        if stop is not None and step is None:
+            return self.chars[start:stop]
+        
+        if stop is not None and step is not None:
+            return self.chars[start:stop:step]
+        
+        return self.chars[start]
 
     def _command_args(self):
         # type: () -> str
