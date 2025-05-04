@@ -266,12 +266,6 @@ class RandNum(_RandNumeral[int]):
 
             return self.min
 
-        if type(self).__name__ == "RandByte":
-            # We need to return 'str' typed not 'int' so that the value is encoded
-            #  and not made into a bytes length of the state_pos
-            # See: def bytes_encode(x): inside 'compat.py'
-            return self.state_pos.to_bytes(1, 'big')
-
         return self.state_pos
 
     def __lshift__(self, other):
