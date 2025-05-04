@@ -266,6 +266,13 @@ class RandNum(_RandNumeral[int]):
 
             return self.min
 
+        if isinstance(self.default, tuple):
+            # if the default value is a tuple, we modify the first item
+            if not isinstance(self.default[0], int):
+                raise ValueError("We expected the first value to be a 'int' in the 'tuple'")
+
+            return (self.state_pos, self.default[1])
+
         return self.state_pos
 
     def __lshift__(self, other):
