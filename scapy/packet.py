@@ -781,7 +781,7 @@ class Packet(
 
             # Make sure that the class of the field is relevant for fuzzing, if you change this
             #  change the one just below - if it is a 'list' here DONT skip
-            if class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP']:
+            if class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP', 'BGPORF']:
                 # _ScopedIP is 'str' with extra attrs - skip it
                 continue
 
@@ -799,8 +799,9 @@ class Packet(
 
                         # Make sure that the class of the field is relevant for fuzzing, if you change this
                         #  change the one just above - if it is a 'list' here skip
-                        if field_in_list_class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP', 'list']:
+                        if field_in_list_class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP', 'BGPORF', 'list']:
                             # _ScopedIP is 'str' with extra attrs - skip it
+                            # We dont' allow 'list' inside 'list' (at the moment)
                             continue
 
                         relevant_fields.append(f"{pkt.name}:{field_name}:{idx}:{field_in_list_name}")
