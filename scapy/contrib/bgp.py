@@ -91,6 +91,11 @@ class BGPFieldIPv4(Field):
     IPv4 Field (CIDR)
     """
 
+    def __init__(self, name, default):
+        Field.__init__(
+            self, name, default, "B"
+        )
+
     def mask2iplen(self, mask):
         """Get the IP field mask length (in bytes)."""
         return (mask + 7) // 8
