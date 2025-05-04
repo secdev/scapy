@@ -781,7 +781,7 @@ class Packet(
 
             # Make sure that the class of the field is relevant for fuzzing, if you change this
             #  change the one just below - if it is a 'list' here DONT skip
-            if class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP', 'tuple']:
+            if class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP']:
                 # _ScopedIP is 'str' with extra attrs - skip it
                 continue
 
@@ -3000,9 +3000,9 @@ def fuzz(p,  # type: _P
                     if rnd is not None:
                         # print(f"Adding: {f.name} with {f.default=}")
                         new_default_fields[f.name] = rnd
-                        if f.name in p.fields:
-                            # Remove the override found inside fields
-                            del p.fields[f.name]
+                        # if f.name in p.fields:
+                        #     # Remove the override found inside fields
+                        #     del p.fields[f.name]
 
         # Process packets with MultipleTypeFields
         if multiple_type_fields:
