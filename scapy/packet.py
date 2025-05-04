@@ -781,7 +781,7 @@ class Packet(
 
             # Make sure that the class of the field is relevant for fuzzing, if you change this
             #  change the one just below - if it is a 'list' here DONT skip
-            if class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP']:
+            if class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP', 'tuple']:
                 # _ScopedIP is 'str' with extra attrs - skip it
                 continue
 
