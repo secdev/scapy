@@ -3000,6 +3000,10 @@ def fuzz(p,  # type: _P
                     if rnd is not None:
                         # print(f"Adding: {f.name} with {f.default=}")
                         new_default_fields[f.name] = rnd
+                        if f.name in p.fields:
+                            # Remove the override found inside fields
+                            del p.fields[f.name]
+
         # Process packets with MultipleTypeFields
         if multiple_type_fields:
             # freeze the other random values
