@@ -22,6 +22,7 @@ from scapy.fields import (Field, BitField, BitEnumField, XBitField, ByteField,
                           FieldListField, PacketField, PacketListField,
                           IPField, FlagsField, ConditionalField,
                           MultiEnumField)
+from scapy.volatile import VolatileValue
 from scapy.layers.inet import TCP
 from scapy.layers.inet6 import IP6Field
 from scapy.config import conf, ConfClass
@@ -108,6 +109,9 @@ class BGPFieldIPv4(Field):
     def i2h(self, pkt, i):
         """"Internal" representation to "human" representation
         (x.x.x.x/y)."""
+        if isinstance(i, VolatileValue):
+            # If its a fuzzed value, display the default for pkt.show
+            i = i.default
         mask, ip = i
         return ip + "/" + str(mask)
 
