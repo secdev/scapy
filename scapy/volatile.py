@@ -266,12 +266,16 @@ class RandNum(_RandNumeral[int]):
 
             return self.min
 
-        if isinstance(self.default, tuple):
+        if 'default' in dir(self) and isinstance(self.default, tuple):
             # if the default value is a tuple, we modify the first item
             if not isinstance(self.default[0], int):
                 raise ValueError("We expected the first value to be a 'int' in the 'tuple'")
 
             return (self.state_pos, self.default[1])
+
+        if isinstance(self, RandByte):
+            # We need to return the value, not the length (i.e. bytes not int)
+            return self.state_pos.to_bytes(1, 'big')
 
         return self.state_pos
 
