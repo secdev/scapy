@@ -2136,9 +2136,9 @@ class BGPPathAttr(Packet):
         packet = None
         extended_length = False
 
-        if self.default_fields['type_flags'].state_pos is not None and self.default_fields['type_flags'].state_pos > 0:
-            # We want the type_flags to be overwritten if default_field has a non-default value
-            self.type_flags.value = self.default_fields['type_flags'].state_pos
+        # if 'state_pos' in dir(self.default_fields) and self.default_fields['type_flags'].state_pos is not None and self.default_fields['type_flags'].state_pos > 0:
+        #     # We want the type_flags to be overwritten if default_field has a non-default value
+        #     self.type_flags.value = self.default_fields['type_flags'].state_pos
 
         # Set default flags value ?
         if self.type_flags is None:
