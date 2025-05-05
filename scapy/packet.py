@@ -908,6 +908,16 @@ class Packet(
 
         return states
 
+    def display_now_fuzzing(self, fields):
+        """
+        Display the 'now fuzzing' in a nicer way
+        """
+        fields_fuzzed = []
+        for field in fields:
+            fields_fuzzed.append(field['name'])
+
+        print(f"Now fuzzing: {', '.join(fields_fuzzed)}")
+
 
     def forward(self, states):
         """
@@ -930,7 +940,8 @@ class Packet(
 
                 # Mark it as active, and reset the values
                 if not state['active']:
-                    print(f"Now fuzzing: {fields}")
+                    self.display_now_fuzzing(fields)
+                    # print(f"Now fuzzing: {fields}")
                     state['active'] = True
                     for field_item in fields:
                         (_, field_obj) = self.locate_field(self, field_item['name'])
