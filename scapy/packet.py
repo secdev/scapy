@@ -772,7 +772,7 @@ class Packet(
         for field_name in pkt.default_fields:
             if field_name in pkt.overloaded_fields:
                 # This is not actually fuzzable, as it gets overloaded
-                # print(f"Skipping: {p._name}-{f}")
+                # print(f"Skipping: {pkt._name}-{field_name}")
                 continue
 
             field = pkt.default_fields[field_name]
@@ -875,10 +875,9 @@ class Packet(
                 return (pkt, pkt.fields[packet_field])
             
             raise ValueError("Shouldn't have reached this point")
-        else:
-            return pkt.locate_field(pkt.payload, name)
 
-        return None
+        return pkt.locate_field(pkt.payload, name)
+
 
     def prepare_combinations(self, complexity: int) -> Dict:
         """Prepare fuzzing by returning a 'states' of fields"""
@@ -938,7 +937,7 @@ class Packet(
 
                         if not isinstance(field_obj, VolatileValue):
                             err = (f"field_obj: '{field_item['name']}' "
-                                   f"isn't VolatileValue: {type(field_obj)=}")
+                                   f"isn't VolatileValue: {type(field_obj)=}, was scapy.all.fuzz called?")
                             raise ValueError(err)
 
                         if "default" in dir(field_obj):
