@@ -463,7 +463,7 @@ class Packet_metaclass(type):
                  *args,  # type: Any
                  **kargs  # type: Any
                  ):
-        # type: (...) -> 'Packet'
+        # type: (...) -> 'cls'
         if "dispatch_hook" in cls.__dict__:
             try:
                 cls = cls.dispatch_hook(*args, **kargs)
