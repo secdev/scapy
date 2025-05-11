@@ -502,16 +502,14 @@ class StreamSocket(SimpleSocket):
         return pkt
 
 
-class SSLStreamSocket(StreamSocket):
-    desc = "similar usage than StreamSocket but specialized for handling SSL-wrapped sockets"  # noqa: E501
-
-    # Basically StreamSocket but we can't PEEK
+class StreamSocketPeekless(StreamSocket):
+    desc = "StreamSocket that doesn't use MSG_PEEK"
 
     def __init__(self, sock, basecls=None):
         # type: (socket.socket, Optional[Type[Packet]]) -> None
         from scapy.sessions import TCPSession
         self.sess = TCPSession(app=True)
-        super(SSLStreamSocket, self).__init__(sock, basecls)
+        super(StreamSocketPeekless, self).__init__(sock, basecls)
 
     # 65535, the default value of x is the maximum length of a TLS record
     def recv(self, x=None, **kwargs):
@@ -540,11 +538,15 @@ class SSLStreamSocket(StreamSocket):
         queued = [
             x
             for x in sockets
-            if isinstance(x, SSLStreamSocket) and x.sess.data
+            if isinstance(x, StreamSocketPeekless) and x.sess.data
         ]
         if queued:
             return queued  # type: ignore
-        return super(SSLStreamSocket, SSLStreamSocket).select(sockets, remain=remain)
+        return super(StreamSocketPeekless, StreamSocketPeekless).select(sockets, remain=remain)
+
+
+# Old name: SSLStreamSocket
+SSLStreamSocket = StreamSocketPeekless
 
 
 class L2ListenTcpdump(SuperSocket):

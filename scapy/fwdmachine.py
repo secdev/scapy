@@ -23,8 +23,8 @@ from scapy.asn1.asn1 import ASN1_BOOLEAN, ASN1_OID, ASN1_UTC_TIME
 from scapy.config import conf
 from scapy.data import MTU
 from scapy.packet import Packet
-from scapy.supersocket import StreamSocket, SSLStreamSocket
-from scapy.themes import DefaultTheme, ColorOnBlackTheme
+from scapy.supersocket import StreamSocket, StreamSocketPeekless
+from scapy.themes import DefaultTheme
 from scapy.utils import get_temp_file
 from scapy.volatile import RandInt
 
@@ -57,7 +57,7 @@ class ForwardMachine:
     two modes:
 
     - SERVER: the server binds a port on its local IP and forwards packets to a
-        `remote_ip`.
+        `remote_address`.
     - TPROXY: the server binds can intercept packets to any IP destination, provided
         that they are routed through the local server, and some tweaking of the OS
         routes;
@@ -75,11 +75,11 @@ class ForwardMachine:
     :param cls: the scapy class to parse on that port
     :param af: the address family to use (default AF_INET)
     :param proto: the proto to use (default SOCK_STREAM)
-    :param remote_ip: the IP to use in SERVER mode, or by default in TPROXY when the destination
+    :param remote_address: the IP to use in SERVER mode, or by default in TPROXY when the destination
         is the local IP.
     :param remote_af: (optional) if provided, use a different address family to connect
         to the remote host.
-    :param bind_ip: the IP to bind locally. "0.0.0.0" by default in SERVER mode, but "2.2.2.2" by default
+    :param bind_address: the IP to bind locally. "0.0.0.0" by default in SERVER mode, but "2.2.2.2" by default
         in TPROXY (if you are using the provided 'vethrelay.sh' script).
     :param tls: enable TLS (in both the server and client)
     :param crtfile: (optional) if provided, uses a certificate instead of self signed ones.
@@ -107,9 +107,9 @@ class ForwardMachine:
         cls: Type[Packet],
         af: socket.AddressFamily = socket.AF_INET,
         proto: socket.SocketKind = socket.SOCK_STREAM,
-        remote_ip: str = None,
+        remote_address: str = None,
         remote_af: Optional[socket.AddressFamily] = None,
-        bind_ip: str = None,
+        bind_address: str = None,
         tls: bool = False,
         crtfile: Optional[str] = None,
         keyfile: Optional[str] = None,
@@ -121,27 +121,30 @@ class ForwardMachine:
         self.port = port
         self.cls = cls
         self.af = af
-        self.remote_af = remote_af or af
+        self.remote_af = remote_af if remote_af is not None else af
         self.proto = proto
         self.tls = tls
         self.crtfile = crtfile
         self.keyfile = keyfile
         self.timeout = timeout
         self.MTU = MTU
-        self.remote_ip = remote_ip
-        if self.tls:
-            self.sockcls = SSLStreamSocket
+        self.remote_address = remote_address
+        if self.tls or self.af == 40:  # TLS or VSOCK
+            self.sockcls = StreamSocketPeekless
         else:
             self.sockcls = StreamSocket
-        # Chose 'bind_ip' depending on the mode
-        if self.mode == ForwardMachine.MODE.SERVER:
-            self.bind_ip = "0.0.0.0"
-        elif self.mode == ForwardMachine.MODE.TPROXY:
-            self.bind_ip = "2.2.2.2"
-        else:
-            raise ValueError("Unknown mode :/")
+        # Chose 'bind_address' depending on the mode
+        self.bind_address = bind_address
+        if self.bind_address is None:
+            if self.mode == ForwardMachine.MODE.SERVER:
+                self.bind_address = "0.0.0.0"
+            elif self.mode == ForwardMachine.MODE.TPROXY:
+                self.bind_address = "2.2.2.2"
+            else:
+                raise ValueError("Unknown mode :/")
         red = lambda z: functools.reduce(lambda x, y: x + y, z)
-        # Session settings
+        # Utils
+        self.ct = DefaultTheme()
         self.local_ips = red(red(list(x.ips.values())) for x in conf.ifaces.values())
         self.cache = {}
         super(ForwardMachine, self).__init__(**kwargs)
@@ -154,23 +157,23 @@ class ForwardMachine:
         self.ssock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         if self.mode == ForwardMachine.MODE.TPROXY:
             self.ssock.setsockopt(socket.SOL_IP, socket.IP_TRANSPARENT, 1)  # TPROXY !
-        self.ssock.bind((self.bind_ip, self.port))
+        self.ssock.bind((self.bind_address, self.port))
         self.ssock.listen(5)
-        print(ct.green("Relay server waiting on port %s" % self.port))
+        print(self.ct.green("Relay server waiting on port %s" % self.port))
         while True:
             conn, addr = self.ssock.accept()
             # Calc dest
             dest = conn.getsockname()
-            if dest[0] in self.local_ips and self.remote_ip:
-                dest = (self.remote_ip,) + dest[1:]
-            print(ct.green("%s -> %s connected !" % (repr(addr), repr(dest))))
+            if self.mode == ForwardMachine.MODE.SERVER or (dest[0] in self.local_ips and self.remote_address):
+                dest = (self.remote_address,) + dest[1:]
+            print(self.ct.green("%s -> %s connected !" % (repr(addr), repr(dest))))
             try:
                 threading.Thread(
                     target=self.handler,
                     args=(conn, addr, dest),
                 ).start()
             except Exception as ex:
-                print(ct.red("%s errored !" % repr(addr)))
+                print(self.ct.red("%s errored !" % repr(addr)))
                 conn.close()
                 pass
 
@@ -262,7 +265,7 @@ class ForwardMachine:
         if ndest != dest:
             print("C: %s redirected to %s" % (repr(dest), repr(ndest)))
         dest = ndest
-        s.connect(dest)  # we connect to the real destination server
+        s.connect(dest)
         return s
 
     def gen_alike_chain(self, certs, privkey):
@@ -397,7 +400,7 @@ class ForwardMachine:
             try:
                 sock = sslcontext.wrap_socket(sock, server_side=True)
             except Exception as ex:
-                print(ct.red("%s errored in SSL: %s" % (repr(addr), str(ex))))
+                print(self.ct.red("%s errored in SSL: %s" % (repr(addr), str(ex))))
                 sock.close()
                 return
             ss = _clisock[0]
@@ -429,7 +432,7 @@ class ForwardMachine:
                         try:
                             func(data, ctx)
                             # If this doesn't raise, it's a user error.
-                            print(ct.red("%s ERROR: you must always raise in %s !" % func))
+                            print(self.ct.red("%s ERROR: you must always raise in %s !" % func))
                             return
                         except self.REDIRECT_TO as ex:
                             # Replace the peer socket with a new socket
@@ -468,7 +471,7 @@ class ForwardMachine:
                     except Exception as ex:
                         # Processing failed. forward to not break anything
                         print(
-                            ct.orange(
+                            self.ct.orange(
                                 "Exception happend in handling client %s ! (forwarding.)"
                                 % repr(addr)
                             )
@@ -477,6 +480,6 @@ class ForwardMachine:
                         othersock.send(data)
                         self.print_reply(self.FORWARD, cs, data, None)
         except RuntimeError:
-            print(ct.red("%s DISCONNECTED !" % repr(addr)))
+            print(self.ct.red("%s DISCONNECTED !" % repr(addr)))
             sock.close()
             ss.close()
