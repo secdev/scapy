@@ -86,7 +86,7 @@ that are available. For more detail regarding the parameters of the functions, i
     $ scapy
     >>> load_module("ticketer")
     >>> t = Ticketer()
-    >>> t.open_file("/tmp/krb5cc_1000")
+    >>> t.open_ccache("/tmp/krb5cc_1000")
     >>> t.show()
     Tickets:
     1. Administrator@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
@@ -256,7 +256,7 @@ This ticket was saved to a ``.ccache`` file, that we'll know try to open.
 
     >>> load_module("ticketer")
     >>> t = Ticketer()
-    >>> t.open_file("krb.ccache")
+    >>> t.open_ccache("krb.ccache")
     >>> t.show()
     Tickets:
     1. Administrator@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
@@ -281,35 +281,35 @@ This ticket was saved to a ``.ccache`` file, that we'll know try to open.
 Cheat sheet
 -----------
 
-+-------------------------------------+--------------------------------+
-| Command                             | Description                    |
-+=====================================+================================+
-| ``load_module("ticketer")``         | Load ticketer++                |
-+-------------------------------------+--------------------------------+
-| ``t = Ticketer()``                  | Create a Ticketer object       |
-+-------------------------------------+--------------------------------+
-| ``t.open_file("/tmp/krb5cc_1000")`` | Open a ccache file             |
-+-------------------------------------+--------------------------------+
-| ``t.save()``                        | Save a ccache file             |
-+-------------------------------------+--------------------------------+
-| ``t.show()``                        | List the tickets               |
-+-------------------------------------+--------------------------------+
-| ``t.create_ticket()``               | Forge a ticket                 |
-+-------------------------------------+--------------------------------+
-| ``dTkt = t.dec_ticket(<index>)``    | Decipher a ticket              |
-+-------------------------------------+--------------------------------+
-| ``t.update_ticket(<index>, dTkt)``  | Re-inject a deciphered ticket  |
-+-------------------------------------+--------------------------------+
-| ``t.edit_ticket(<index>)``          | Edit a ticket (GUI)            |
-+-------------------------------------+--------------------------------+
-| ``t.resign_ticket(<index>)``        | Resign a ticket                |
-+-------------------------------------+--------------------------------+
-| ``t.request_tgt(upn, [...])``       | Request a TGT                  |
-+-------------------------------------+--------------------------------+
-| ``t.request_st(i, spn, [...])``     | Request a ST using ticket i    |
-+-------------------------------------+--------------------------------+
-| ``t.renew(i, [...])``               | Renew a TGT/ST                 |
-+-------------------------------------+--------------------------------+
++---------------------------------------+--------------------------------+
+| Command                               | Description                    |
++=======================================+================================+
+| ``load_module("ticketer")``           | Load ticketer++                |
++---------------------------------------+--------------------------------+
+| ``t = Ticketer()``                    | Create a Ticketer object       |
++---------------------------------------+--------------------------------+
+| ``t.open_ccache("/tmp/krb5cc_1000")`` | Open a ccache file             |
++---------------------------------------+--------------------------------+
+| ``t.save()``                          | Save a ccache file             |
++---------------------------------------+--------------------------------+
+| ``t.show()``                          | List the tickets               |
++---------------------------------------+--------------------------------+
+| ``t.create_ticket()``                 | Forge a ticket                 |
++---------------------------------------+--------------------------------+
+| ``dTkt = t.dec_ticket(<index>)``      | Decipher a ticket              |
++---------------------------------------+--------------------------------+
+| ``t.update_ticket(<index>, dTkt)``    | Re-inject a deciphered ticket  |
++---------------------------------------+--------------------------------+
+| ``t.edit_ticket(<index>)``            | Edit a ticket (GUI)            |
++---------------------------------------+--------------------------------+
+| ``t.resign_ticket(<index>)``          | Resign a ticket                |
++---------------------------------------+--------------------------------+
+| ``t.request_tgt(upn, [...])``         | Request a TGT                  |
++---------------------------------------+--------------------------------+
+| ``t.request_st(i, spn, [...])``       | Request a ST using ticket i    |
++---------------------------------------+--------------------------------+
+| ``t.renew(i, [...])``                 | Renew a TGT/ST                 |
++---------------------------------------+--------------------------------+
 
 Other useful commands
 ---------------------
