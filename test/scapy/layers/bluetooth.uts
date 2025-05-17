@@ -791,6 +791,12 @@ pkt.handles[0].value == b'\x02\x03\x00\x00*'
 pkt.handles[1].value == b'\x02\x05\x00\x01*'
 pkt.handles[2].value == b'\x02\x07\x00\x04*'
 
+= SM_Security_Request
+pkt = HCI_Hdr(hex_bytes('0200260600020006000b0d'))
+assert SM_Security_Request in pkt
+assert pkt[SM_Security_Request].auth_req == 0x0d
+
+
 = SM_Public_Key() tests
 
 r = raw(SM_Hdr()/SM_Public_Key(key_x="sca", key_y="py"))
