@@ -1129,6 +1129,8 @@ class Conf(ConfClass):
     #: Windows SSPs for sniffing. This is used with
     #: dcerpc_session_enable
     winssps_passive = []
+    #: Disables auto-stripping of StrFixedLenField for debugging purposes
+    debug_strfixedlenfield = False
 
     def __getattribute__(self, attr):
         # type: (str) -> Any
