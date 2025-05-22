@@ -1741,6 +1741,9 @@ class _ExtCommValuePacketField(PacketField):
             elif type_low == 0x09:
                 ret = BGPPAExtCommTrafficMarking(m)
 
+            else:
+                ret = conf.raw_layer(m)
+
         elif type_high == 0x81:
             # FlowSpec
             if type_low == 0x08:
