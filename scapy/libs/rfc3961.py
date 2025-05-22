@@ -149,7 +149,7 @@ class EncryptionType(enum.IntEnum):
 
 class ChecksumType(enum.IntEnum):
     CRC32 = 1
-    # RSA_MD4 = 2
+    RSA_MD4 = 2
     RSA_MD4_DES = 3
     # RSA_MD5 = 7
     RSA_MD5_DES = 8
