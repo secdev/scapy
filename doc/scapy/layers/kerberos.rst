@@ -130,6 +130,37 @@ that are available. For more detail regarding the parameters of the functions, i
    Start time         End time           Renew until        Auth time
    15/04/25 20:15:20  16/04/25 06:10:22  16/04/25 06:10:22  15/04/25 20:15:17
 
+- **Request a ticket for a DMSA**
+
+For more information about DMSAs and how to create them, consult the `relevant Microsoft documentation <https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/delegated-managed-service-accounts/delegated-managed-service-accounts-set-up-dmsa>`_. In this example we allowed ``SERVER1$`` to retrieve the managed password of ``dmsa_user$``.
+
+.. code:: pycon
+
+   >>> load_module("ticketer")
+   >>> t = Ticketer()
+   >>> t.request_tgt("SERVER1$@domain.local", key=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, bytes.fromhex("63a2577d8bf6abeba0847cded36b9aed202c23750eb9c56b6155be1cc946bb1d")))
+   >>> t.request_st(0, "krbtgt/domain.local", for_user="dmsa_user$@domain.local", dmsa=True)
+   INFO: 3 DMSA keys found and imported !
+   >>> t.show()
+   Keytab name: UNSAVED
+   Principal                Timestamp          KVNO  Keytype
+   dmsa_user$@domain.local  22/05/25 22:03:58  1     AES256-CTS-HMAC-SHA1-96
+   dmsa_user$@domain.local  22/05/25 22:03:58  2     AES128-CTS-HMAC-SHA1-96
+   dmsa_user$@domain.local  22/05/25 22:03:58  3     RC4-HMAC
+   
+   CCache tickets:
+   0. SERVER1$@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
+      canonicalize+pre-authent+initial+renewable+forwardable
+   Start time         End time           Renew until        Auth time
+   22/05/25 22:06:32  23/05/25 08:03:53  23/05/25 08:03:53  22/05/25 22:06:32
+   
+   1. dmsa_user$@domain.local -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
+      canonicalize+pre-authent+renewable+forwardable
+   Start time         End time           Renew until        Auth time
+   22/05/25 22:06:37  23/05/25 08:03:53  23/05/25 08:03:53  22/05/25 22:06:32
+
+As you can see, DMSA keys were imported in the keytab. You can use those as detailed in some of the following sections.
+
 - **Load and use keytab for client**
 
 .. code:: pycon

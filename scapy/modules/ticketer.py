@@ -695,6 +695,21 @@ class Ticketer:
                 rep = res.asrep
             elif isinstance(res, KerberosClient.RES_TGS_MODE):
                 rep = res.tgsrep
+
+                # There could be 171 = KERB_DMSA_KEY_PACKAGE to import
+                for padata in res.kdcrep.encryptedPaData:
+                    if padata.padataType == 171:
+                        # We have keys to import.
+                        key_package = padata.padataValue
+                        for key in key_package.currentKeys:
+                            self.add_cred(
+                                principal=rep.getUPN(),
+                                key=key.toKey(),
+                            )
+                        log_interactive.info(
+                            "%s DMSA keys found and imported !"
+                            % len(key_package.currentKeys)
+                        )
             else:
                 raise ValueError("Unknown type of obj !")
             cred.set_from_krb(
@@ -2343,15 +2358,16 @@ class Ticketer:
             hash=kdc_hash,
         )
 
-        # NOTE: the doc is very unclear regarding the order of the Signatures.
+        # Doc was updated after feedback ! it's now very clear.
 
-        # "The extended KDC signature is a keyed hash [RFC4757] of the entire PAC
-        # message, with the Signature fields of all other PAC_SIGNATURE_DATA structures
-        # (section 2.8) set to zero."
-        # ==> This is wrong.
-        # The Ticket Signature is present when computing the Extended KDC Signature.
+        # [MS-PAC] sect 2.8.1
+        # Signatures are computed in this order:
+        # - Ticket signature
+        # - Extended KDC signature
+        # - Server signature
+        # - KDC signature
 
-        # sect 2.8.3 - Ticket Signature
+        # sect 2.8.2 - Ticket Signature
 
         if 0x00000010 in sig_i:
             # "The ad-data in the PAC’s AuthorizationData element ([RFC4120]
@@ -2365,7 +2381,7 @@ class Ticketer:
             # included in the PAC when signing it for Extended Server Signature & Server Signature
             pac.Payloads[sig_i[0x00000010]].Signature = ticket_sig
 
-        # sect 2.8.4 - Extended KDC Signature
+        # sect 2.8.3 - Extended KDC Signature
 
         if 0x00000013 in sig_i:
             rpac.Payloads[sig_i[0x00000013]].Signature = extended_kdc_sig = (
@@ -2374,13 +2390,13 @@ class Ticketer:
             # included in the PAC when signing it for Server Signature
             pac.Payloads[sig_i[0x00000013]].Signature = extended_kdc_sig
 
-        # sect 2.8.1 - Server Signature
+        # sect 2.8.4 - Server Signature
 
         rpac.Payloads[sig_i[0x00000006]].Signature = server_sig = key_srv.make_checksum(
             17, bytes(pac)  # KERB_NON_KERB_CKSUM_SALT(17)
         )
 
-        # sect 2.8.2 - KDC Signature
+        # sect 2.8.5 - KDC Signature
 
         rpac.Payloads[sig_i[0x00000007]].Signature = key_kdc.make_checksum(
             17, server_sig  # KERB_NON_KERB_CKSUM_SALT(17)
