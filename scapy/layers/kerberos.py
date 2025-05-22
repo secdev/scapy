@@ -701,6 +701,8 @@ _PADATA_TYPES = {
     165: "PA-SUPPORTED-ENCTYPES",
     166: "PA-EXTENDED-ERROR",
     167: "PA-PAC-OPTIONS",
+    170: "KERB-SUPERSEDED-BY-USER",
+    171: "KERB-DMSA-KEY-PACKAGE",
 }
 
 _PADATA_CLASSES = {
@@ -1053,6 +1055,9 @@ class KERB_SUPERSEDED_BY_USER(ASN1_Packet):
     )
 
 
+_PADATA_CLASSES[170] = KERB_SUPERSEDED_BY_USER
+
+
 # [MS-KILE] sect 2.2.14
 
 
@@ -1070,12 +1075,15 @@ class KERB_DMSA_KEY_PACKAGE(ASN1_Packet):
                 "previousKeys",
                 [],
                 ASN1F_PACKET("", None, EncryptionKey),
-                explicit_tag=0xA0,
+                explicit_tag=0xA1,
             ),
         ),
         KerberosTime("expirationInterval", GeneralizedTime(), explicit_tag=0xA2),
         KerberosTime("fetchInterval", GeneralizedTime(), explicit_tag=0xA4),
     )
+
+
+_PADATA_CLASSES[171] = KERB_DMSA_KEY_PACKAGE
 
 
 # RFC6113 sect 5.4.1
@@ -1557,6 +1565,12 @@ class KRB_TGS_REP(ASN1_Packet):
         KRB_KDC_REP,
         implicit_tag=ASN1_Class_KRB.TGS_REP,
     )
+
+    def getUPN(self):
+        return "%s@%s" % (
+            self.cname.toString(),
+            self.crealm.val.decode(),
+        )
 
 
 class LastReqItem(ASN1_Packet):
@@ -3389,6 +3403,19 @@ class KerberosClient(Automaton):
                         )
                 elif padata.padataType == 137:  # PA-FX-ERROR
                     self.fast_error = padata.padataValue
+                elif padata.padataType == 130:  # PA-FOR-X509-USER
+                    # Verify S4U checksum
+                    key_usage_number = None
+                    pasfux509 = padata.padataValue
+                    # [MS-SFU] sect 2.2.2
+                    # "In a reply, indicates that it was signed with key usage 27"
+                    if pasfux509.userId.options.val[2] == "1":  # USE_REPLY_KEY_USAGE
+                        key_usage_number = 27
+                    pasfux509.checksum.verify(
+                        self.key,
+                        bytes(pasfux509.userId),
+                        key_usage_number=key_usage_number,
+                    )
 
         # 2. Update the current key if necessary
 
@@ -3455,10 +3482,10 @@ class KerberosClient(Automaton):
                 return
 
             if pkt.root.errorCode == 25:  # KDC_ERR_PREAUTH_REQUIRED
-                if not self.key and (not self.upn or not self.password):
+                if not self.key:
                     log_runtime.error(
                         "Got 'KDC_ERR_PREAUTH_REQUIRED', "
-                        "but no key, nor upn+pass was passed."
+                        "but no possible key could be computed."
                     )
                     raise self.FINAL()
                 self.should_followup = True
@@ -3542,7 +3569,11 @@ class KerberosClient(Automaton):
     @ATMT.receive_condition(SENT_TGS_REQ)
     def receive_tgs_rep(self, pkt):
         if Kerberos in pkt and isinstance(pkt.root, KRB_TGS_REP):
-            if not self.renew and pkt.root.ticket.sname.nameString[0].val == b"krbtgt":
+            if (
+                not self.renew
+                and not self.dmsa
+                and pkt.root.ticket.sname.nameString[0].val == b"krbtgt"
+            ):
                 log_runtime.warning("Received a cross-realm referral ticket !")
             raise self.FINAL().action_parameters(pkt)
 
@@ -3570,6 +3601,8 @@ class KerberosClient(Automaton):
             res = enc.decrypt(self.replykey, key_usage_number=9, cls=EncTGSRepPart)
         else:
             res = enc.decrypt(self.replykey)
+
+        # Store result
         self.result = self.RES_TGS_MODE(pkt.root, res.key.toKey(), res)
 
     @ATMT.state(final=1)
@@ -4169,6 +4202,8 @@ class KerberosSSP(SSP):
                 Data = b"".join(x.data for x in msgs if x.conf_req_flag)
                 DataLen = len(Data)
                 # 2. Add filler
+                # [MS-KILE] sect 3.4.5.4.1 - "For AES-SHA1 ciphers, the EC must not
+                # be zero"
                 tok.root.EC = ((-DataLen) % Context.KrbSessionKey.ep.blocksize) or 16
                 Filler = b"\x00" * tok.root.EC
                 Data += Filler
