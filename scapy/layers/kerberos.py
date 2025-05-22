@@ -139,6 +139,7 @@ from scapy.layers.gssapi import (
 )
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.smb import _NV_VERSION
+from scapy.layers.x509 import X509_AlgorithmIdentifier
 
 # Typing imports
 from typing import (
@@ -480,8 +481,8 @@ class Checksum(ASN1_Packet):
                 # [MS-SFU] sect 2.2.1
                 return 17
             elif isinstance(self.underlayer, PA_S4U_X509_USER):
-                # [MS-SFU] sect 2.2.1
-                return 17
+                # [MS-SFU] sect 2.2.2
+                return 26
             elif isinstance(self.underlayer, AD_KDCIssued):
                 # AD-KDC-ISSUED checksum
                 return 19
@@ -672,6 +673,7 @@ _PADATA_TYPES = {
     17: "PA-PK-AS-REP",
     19: "PA-ETYPE-INFO2",
     20: "PA-SVR-REFERRAL-INFO",
+    111: "TD-CMS-DIGEST-ALGORITHMS",
     128: "PA-PAC-REQUEST",
     129: "PA-FOR-USER",
     130: "PA-FOR-X509-USER",
@@ -804,6 +806,18 @@ class ETYPE_INFO2(ASN1_Packet):
 
 
 _PADATA_CLASSES[19] = ETYPE_INFO2
+
+
+# RFC8636 - PKINIT Algorithm Agility
+
+
+class TD_CMS_DIGEST_ALGORITHMS(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF("seq", [], X509_AlgorithmIdentifier)
+
+
+_PADATA_CLASSES[111] = TD_CMS_DIGEST_ALGORITHMS
+
 
 # PADATA Extended with RFC6113
 
@@ -1271,7 +1285,9 @@ class S4UUserID(ASN1_Packet):
                 [
                     "reserved",
                     "KDC_CHECK_LOGON_HOUR_RESTRICTIONS",
-                    "KDC_KEY_USAGE_27",
+                    "USE_REPLY_KEY_USAGE",
+                    "NT_AUTH_POLICY_NOT_REQUIRED",
+                    "UNCONDITIONAL_DELEGATION",
                 ],
                 explicit_tag=0xA4,
             )
@@ -2690,6 +2706,7 @@ class KerberosClient(Automaton):
     :param u2u: sets the U2U flag
     :param for_user: the UPN of another user in TGS-REQ, to do a S4U2Self
     :param s4u2proxy: sets the S4U2Proxy flag
+    :param dmsa: sets the 'unconditional delegation' mode for DMSA TGT retrieval
     :param kdc_proxy: specify a KDC proxy url
     :param kdc_proxy_no_check_certificate: do not check the KDC proxy certificate
     :param fast: use FAST armoring
@@ -2725,6 +2742,7 @@ class KerberosClient(Automaton):
         u2u=False,
         for_user=None,
         s4u2proxy=False,
+        dmsa=False,
         kdc_proxy=None,
         kdc_proxy_no_check_certificate=False,
         fast=False,
@@ -2838,6 +2856,7 @@ class KerberosClient(Automaton):
         self.u2u = u2u  # U2U
         self.for_user = for_user  # FOR-USER
         self.s4u2proxy = s4u2proxy  # S4U2Proxy
+        self.dmsa = dmsa  # DMSA
         self.key = key
         self.subkey = None  # In the AP-REQ authenticator
         self.replykey = None  # Key used for reply
@@ -3152,33 +3171,82 @@ class KerberosClient(Automaton):
 
         # [MS-SFU] FOR-USER extension
         if self.for_user is not None:
-            from scapy.libs.rfc3961 import ChecksumType
+            from scapy.libs.rfc3961 import ChecksumType, EncryptionType
 
-            paforuser = PA_FOR_USER(
-                userName=PrincipalName.fromUPN(self.for_user),
-                userRealm=ASN1_GENERAL_STRING(_parse_upn(self.for_user)[1]),
-                cksum=Checksum(),
+            # [MS-SFU] note 4:
+            # "Windows Vista, Windows Server 2008, Windows 7, and Windows Server
+            # 2008 R2 send the PA-S4U-X509-USER padata type alone if the user's
+            # certificate is available.
+            # If the user's certificate is not available, it sends both the
+            # PA-S4U-X509-USER padata type and the PA-FOR-USER padata type.
+            # When the PA-S4U-X509-USER padata type is used without the user's
+            # certificate, the certificate field is not present."
+
+            # 1. Add PA_S4U_X509_USER
+            pasfux509 = PA_S4U_X509_USER(
+                userId=S4UUserID(
+                    nonce=kdc_req.nonce,
+                    # [MS-SFU] note 5:
+                    # "Windows S4U clients always set this option."
+                    options="USE_REPLY_KEY_USAGE",
+                    cname=PrincipalName.fromUPN(self.for_user),
+                    crealm=ASN1_GENERAL_STRING(_parse_upn(self.for_user)[1]),
+                    subjectCertificate=None,  # TODO
+                ),
+                checksum=Checksum(),
             )
-            S4UByteArray = struct.pack(  # [MS-SFU] sect 2.2.1
-                "<I", paforuser.userName.nameType.val
-            ) + (
-                (
-                    "".join(x.val for x in paforuser.userName.nameString)
-                    + paforuser.userRealm.val
-                    + paforuser.authPackage.val
-                ).encode()
-            )
-            paforuser.cksum.make(
-                self.key,
-                S4UByteArray,
-                cksumtype=ChecksumType.HMAC_MD5,
-            )
+
+            if self.dmsa:
+                # DMSA = set UNCONDITIONAL_DELEGATION to 1
+                pasfux509.userId.options.set(4, 1)
+
+            if self.key.etype in [EncryptionType.RC4_HMAC, EncryptionType.RC4_HMAC_EXP]:
+                # "if the key's encryption type is RC4_HMAC_NT (23) the checksum type
+                # is rsa-md4 (2) as defined in section 6.2.6 of [RFC3961]."
+                pasfux509.checksum.make(
+                    self.key,
+                    bytes(pasfux509.userId),
+                    cksumtype=ChecksumType.RSA_MD4,
+                )
+            else:
+                pasfux509.checksum.make(
+                    self.key,
+                    bytes(pasfux509.userId),
+                )
             padata.append(
                 PADATA(
-                    padataType=ASN1_INTEGER(129),  # PA-FOR-USER
-                    padataValue=paforuser,
+                    padataType=ASN1_INTEGER(130),  # PA-FOR-X509-USER
+                    padataValue=pasfux509,
                 )
             )
+
+            # 2. Add PA_FOR_USER
+            if True:  # XXX user's certificate is not available.
+                paforuser = PA_FOR_USER(
+                    userName=PrincipalName.fromUPN(self.for_user),
+                    userRealm=ASN1_GENERAL_STRING(_parse_upn(self.for_user)[1]),
+                    cksum=Checksum(),
+                )
+                S4UByteArray = struct.pack(  # [MS-SFU] sect 2.2.1
+                    "<I", paforuser.userName.nameType.val
+                ) + (
+                    (
+                        "".join(x.val for x in paforuser.userName.nameString)
+                        + paforuser.userRealm.val
+                        + paforuser.authPackage.val
+                    ).encode()
+                )
+                paforuser.cksum.make(
+                    self.key,
+                    S4UByteArray,
+                    cksumtype=ChecksumType.HMAC_MD5,
+                )
+                padata.append(
+                    PADATA(
+                        padataType=ASN1_INTEGER(129),  # PA-FOR-USER
+                        padataValue=paforuser,
+                    )
+                )
 
         # [MS-SFU] S4U2proxy - sect 3.1.5.2.1
         if self.s4u2proxy:
