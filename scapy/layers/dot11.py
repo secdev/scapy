@@ -1597,8 +1597,11 @@ class Dot11ReassoReq(_Dot11EltUtils):
                    MACField("current_AP", ETHER_ANY)]
 
 
-class Dot11ReassoResp(Dot11AssoResp):
+class Dot11ReassoResp(_Dot11EltUtils):
     name = "802.11 Reassociation Response"
+    fields_desc = [FlagsField("cap", 0, 16, capability_list),
+                   LEShortField("status", 0),
+                   LEShortField("AID", 0)]
 
 
 class Dot11ProbeReq(_Dot11EltUtils):
