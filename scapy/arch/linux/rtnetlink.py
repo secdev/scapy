@@ -394,7 +394,7 @@ class ifinfomsg_rtattr(Packet):
 
 class ifinfomsg(Packet):
     fields_desc = [
-        ByteEnumField("ifi_family", 0, socket.AddressFamily),  # type: ignore
+        ByteEnumField("ifi_family", 0, socket.AddressFamily),
         ByteField("res", 0),
         Field("ifi_type", 0, fmt="=H"),
         Field("ifi_index", 0, fmt="=i"),
@@ -483,7 +483,7 @@ class ifaddrmsg_rtattr(Packet):
 
 class ifaddrmsg(Packet):
     fields_desc = [
-        ByteEnumField("ifa_family", 0, socket.AddressFamily),  # type: ignore
+        ByteEnumField("ifa_family", 0, socket.AddressFamily),
         ByteField("ifa_prefixlen", 0),
         FlagsField(
             "ifa_flags",
@@ -607,7 +607,7 @@ class rtmsg_rtattr(Packet):
 
 class rtmsg(Packet):
     fields_desc = [
-        ByteEnumField("rtm_family", 0, socket.AddressFamily),  # type: ignore
+        ByteEnumField("rtm_family", 0, socket.AddressFamily),
         ByteField("rtm_dst_len", 0),
         ByteField("rtm_src_len", 0),
         ByteField("rtm_tos", 0),
