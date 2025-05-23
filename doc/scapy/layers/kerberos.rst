@@ -3,33 +3,21 @@ Kerberos
 
 .. note:: Kerberos per `RFC4120 <https://datatracker.ietf.org/doc/html/rfc6113.html>`_ + `RFC6113 <https://datatracker.ietf.org/doc/html/rfc6113.html>`_ (FAST) + `[MS-KILE] <https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-kile/2a32282e-dd48-4ad9-a542-609804b02cc9>`_ (Windows)
 
-High-Level
-__________
+Scapy's Kerberos implementation is accessed through two main components:
 
-Scapy provides several high-level utilities related to Kerberos:
+- :class:`~scapy.modules.ticketer.Ticketer`: a module that allows manipulating Kerberos tickets;
+- :class:`~scapy.layers.kerberos.KerberosSSP`: an implementation of a GSSAPI SSP for Kerberos, usable in any of Scapy's client that support GSSAPI, for both authentication and encryption.
 
-- ``Ticketer``: a module that allows manipulating Kerberos tickets:
-  - Request TGT/ST
-  - Generate a ``KerberosSSP`` from a ST
-  - Renew tickets
-  - Read, create, write **ccache** files
-  - Read, create, write **keytab** files
-  - Kerberos armoring (via FAST) is available
-  - S4U2Self / S4U2Proxy are implemented
-  - KPasswd is implemented
-- ``KerberosSSP``: an implementation of a GSSAPI SSP for Kerberos, usable in any of Scapy's client that support GSSAPI.
-  - Encryption/MIC using GSSAPI is available
-  - Channel bindings are supported
-  - U2U (User-To-User) is fully supported
-  - [MS-KKDCP] (KDC proxy) is supported
+The general idea is that the first one allows to request tickets and perform almost all Kerberos related operations (S4U2Self, S4U2Proxy, FAST armoring, U2U, DMSA, etc.). The latter is used once a final Service Ticket is obtained, by other parts of Scapy, for instance `SMB <smb.html>`_, `LDAP <ldap.html>`_ or `DCE/RPC <dcerpc.html>`_.
 
 Ticketer module
 ~~~~~~~~~~~~~~~
 
-The **Ticketer** module can be used both from the CLI or programmatically. This section tries to give many usage examples of features
-that are available. For more detail regarding the parameters of the functions, it is encouraged to have a look at their docstrings.
+The :class:`~scapy.modules.ticketer.Ticketer` module can be used both from the CLI or programmatically to perform operations on Kerberos tickets. To use it, you must first create an instance of a :class:`~scapy.modules.ticketer.Ticketer`, which acts as both a **ccache** (holds tickets) and a **keytab** (holds secrets).
 
-- **Request TGT**:
+This section tries to give many usage examples, but isn't exhaustive. For more details regarding the parameters of each functions, it is encouraged to have a look at the docstrings of :class:`~scapy.layers.kerberos.KerberosClient`.
+
+- **Request TGT**: see the docstring of :func:`~scapy.layers.kerberos.krb_as_req`
 
 .. code:: pycon
 
@@ -44,7 +32,7 @@ that are available. For more detail regarding the parameters of the functions, i
     31/08/23 11:38:34  31/08/23 21:38:34  31/08/23 21:38:35  31/08/23 01:38:34
 
 
-- **Then request a ST, using the TGT**:
+- **Then request a ST, using the TGT**: see the docstring of :func:`~scapy.layers.kerberos.krb_tgs_req`
 
 .. code:: pycon
 
@@ -61,7 +49,7 @@ that are available. For more detail regarding the parameters of the functions, i
     31/08/23 11:39:07  31/08/23 21:38:34  31/08/23 21:38:35  31/08/23 01:38:34
 
 
-- **Use ticket as SSP**: the ``.ssp()`` function.
+- **Use ticket as SSP**: the :func:`~scapy.modules.ticketer.Ticketer.ssp` function.
 
 .. code:: pycon
 
@@ -467,11 +455,12 @@ You can typically use it in :class:`~scapy.layers.smbclient.SMB_Client`, :class:
 
 .. note:: Remember that you can wrap it in a :class:`~scapy.layers.spnego.SPNEGOSSP`
 
-Low-level
-_________
+See `GSSAPI <gssapi.html>`_ for usage examples.
 
-Decrypt kerberos packets
-~~~~~~~~~~~~~~~~~~~~~~~~
+Decrypt kerberos packets manually
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note:: This section is useful to understand the inner workings of Kerberos, but isn't necessary to use Scapy's implementation.
 
 Kerberos packets contain encrypted content, let's take the following packet:
 
@@ -576,10 +565,10 @@ Let's run a few examples:
     '4c01cd46d632d01e6dbe230a01ed642a'
 
 
-Decrypt FAST
-~~~~~~~~~~~~
+Decrypt FAST manually
+~~~~~~~~~~~~~~~~~~~~~
 
-.. note:: Have a look at `RFC6113 <https://datatracker.ietf.org/doc/html/rfc6113.html>`_ for Kerberos FAST
+.. note:: This section is useful to understand the inner workings of Kerberos FAST, but FAST can simply be used in :class:`~scapy.modules.ticketer.Ticketer` through the ``armor_with`` parameter when performing either a ASREQ or TGSREQ. For more details related to how FAST works, have a look at `RFC6113 <https://datatracker.ietf.org/doc/html/rfc6113.html>`_.
 
 Let's take a Kerberos AS-REQ packet with FAST armoring (RFC6113):
 
@@ -802,8 +791,8 @@ That we can now use to decrypt the last payload:
         |  encAuthorizationData= None
         |  additionalTickets= None
 
-Encryption
-~~~~~~~~~~
+Manually using Kerberos encryption
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A  :func:`~scapy.libs.rfc3961.Key.encrypt` function exists in the :class:`~scapy.libs.rfc3961.Key` object in order to do the opposite of :func:`~scapy.libs.rfc3961.Key.decrypt`.
 
