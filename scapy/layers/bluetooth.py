@@ -919,6 +919,11 @@ class SM_Signing_Information(Packet):
     fields_desc = [StrFixedLenField("csrk", b'\x00' * 16, 16), ]
 
 
+class SM_Security_Request(Packet):
+    name = "Security Request"
+    fields_desc = [BitField("auth_req", 0, 8), ]
+
+
 class SM_Public_Key(Packet):
     name = "Public Key"
     fields_desc = [StrFixedLenField("key_x", b'\x00' * 32, 32),
@@ -2813,16 +2818,17 @@ bind_layers(ATT_Hdr, ATT_Write_Command, opcode=0x52)
 bind_layers(ATT_Hdr, ATT_Handle_Value_Notification, opcode=0x1b)
 bind_layers(ATT_Hdr, ATT_Handle_Value_Indication, opcode=0x1d)
 bind_layers(L2CAP_Hdr, SM_Hdr, cid=6)
-bind_layers(SM_Hdr, SM_Pairing_Request, sm_command=1)
-bind_layers(SM_Hdr, SM_Pairing_Response, sm_command=2)
-bind_layers(SM_Hdr, SM_Confirm, sm_command=3)
-bind_layers(SM_Hdr, SM_Random, sm_command=4)
-bind_layers(SM_Hdr, SM_Failed, sm_command=5)
-bind_layers(SM_Hdr, SM_Encryption_Information, sm_command=6)
-bind_layers(SM_Hdr, SM_Master_Identification, sm_command=7)
-bind_layers(SM_Hdr, SM_Identity_Information, sm_command=8)
-bind_layers(SM_Hdr, SM_Identity_Address_Information, sm_command=9)
+bind_layers(SM_Hdr, SM_Pairing_Request, sm_command=0x01)
+bind_layers(SM_Hdr, SM_Pairing_Response, sm_command=0x02)
+bind_layers(SM_Hdr, SM_Confirm, sm_command=0x03)
+bind_layers(SM_Hdr, SM_Random, sm_command=0x04)
+bind_layers(SM_Hdr, SM_Failed, sm_command=0x05)
+bind_layers(SM_Hdr, SM_Encryption_Information, sm_command=0x06)
+bind_layers(SM_Hdr, SM_Master_Identification, sm_command=0x07)
+bind_layers(SM_Hdr, SM_Identity_Information, sm_command=0x08)
+bind_layers(SM_Hdr, SM_Identity_Address_Information, sm_command=0x09)
 bind_layers(SM_Hdr, SM_Signing_Information, sm_command=0x0a)
+bind_layers(SM_Hdr, SM_Security_Request, sm_command=0x0b)
 bind_layers(SM_Hdr, SM_Public_Key, sm_command=0x0c)
 bind_layers(SM_Hdr, SM_DHKey_Check, sm_command=0x0d)
 
