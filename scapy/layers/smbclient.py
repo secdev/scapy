@@ -72,15 +72,15 @@ from scapy.layers.smb2 import (
     DirectTCP,
     FileAllInformation,
     FileIdBothDirectoryInformation,
-    SMB_DIALECTS,
+    SECURITY_DESCRIPTOR,
+    SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2,
+    SMB2_CREATE_REQUEST_LEASE,
+    SMB2_CREATE_REQUEST_LEASE_V2,
     SMB2_Change_Notify_Request,
     SMB2_Change_Notify_Response,
     SMB2_Close_Request,
     SMB2_Close_Response,
     SMB2_Create_Context,
-    SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2,
-    SMB2_CREATE_REQUEST_LEASE_V2,
-    SMB2_CREATE_REQUEST_LEASE,
     SMB2_Create_Request,
     SMB2_Create_Response,
     SMB2_ENCRYPTION_CIPHERS,
@@ -111,6 +111,7 @@ from scapy.layers.smb2 import (
     SMB2_Write_Request,
     SMB2_Write_Response,
     SMBStreamSocket,
+    SMB_DIALECTS,
     SRVSVC_SHARE_TYPES,
     STATUS_ERREF,
 )
@@ -1821,6 +1822,96 @@ class smbclient(CLIUtil):
         else:
             print("Backup Intent: On")
             self.extra_create_options.append("FILE_OPEN_FOR_BACKUP_INTENT")
+
+    @CLIUtil.addcommand(spaces=True)
+    def watch(self, folder):
+        """
+        Watch file changes in folder (recursively)
+        """
+        if self._require_share():
+            return
+        # Get pwd of the ls
+        fpath = self.pwd / folder
+        self.smbsock.set_TID(self.current_tree)
+        # Open file
+        fileId = self.smbsock.create_request(
+            self.normalize_path(fpath),
+            type="folder",
+            extra_create_options=self.extra_create_options,
+        )
+        print("Watching '%s'" % fpath)
+        # Watch for changes
+        try:
+            while True:
+                changes = self.smbsock.changenotify(fileId)
+                for chg in changes:
+                    print(chg.sprintf("%.time%: %Action% %FileName%"))
+        except KeyboardInterrupt:
+            pass
+        # Close the file
+        self.smbsock.close_request(fileId)
+        print("Cancelled.")
+
+    @CLIUtil.addcommand(spaces=True)
+    def getsd(self, file):
+        """
+        Get the Security Descriptor
+        """
+        if self._require_share():
+            return
+        fpath = self.pwd / file
+        self.smbsock.set_TID(self.current_tree)
+        # Open file
+        fileId = self.smbsock.create_request(
+            self.normalize_path(fpath),
+            type="",
+            mode="",
+            extra_desired_access=["READ_CONTROL", "ACCESS_SYSTEM_SECURITY"],
+        )
+        # Get the file size
+        info = self.smbsock.query_info(
+            FileId=fileId,
+            InfoType="SMB2_0_INFO_SECURITY",
+            FileInfoClass=0,
+            AdditionalInformation=(
+                0x00000001
+                | 0x00000002
+                | 0x00000004
+                | 0x00000008
+                | 0x00000010
+                | 0x00000020
+                | 0x00000040
+                | 0x00010000
+            ),
+        )
+        self.smbsock.close_request(fileId)
+        return info
+
+    @CLIUtil.addcomplete(getsd)
+    def getsd_complete(self, file):
+        """
+        Auto-complete getsd
+        """
+        if self._require_share(silent=True):
+            return []
+        return self._fs_complete(file)
+
+    @CLIUtil.addoutput(getsd)
+    def getsd_output(self, results):
+        """
+        Print the output of 'getsd'
+        """
+        sd = SECURITY_DESCRIPTOR(results)
+        print("Owner:", sd.OwnerSid.summary())
+        print("Group:", sd.GroupSid.summary())
+        if getattr(sd, "DACL", None):
+            print("DACL:")
+            for ace in sd.DACL.Aces:
+                print(" - ", ace.toSDDL())
+        if getattr(sd, "SACL", None):
+            print("SACL:")
+            for ace in sd.SACL.Aces:
+                print(" - ", ace.toSDDL())
 
 
 if __name__ == "__main__":
