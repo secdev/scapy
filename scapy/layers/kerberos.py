@@ -111,6 +111,7 @@ from scapy.fields import (
     StrFixedLenEnumField,
     XByteField,
     XLEIntField,
+    XLEIntEnumField,
     XLEShortField,
     XStrFixedLenField,
     XStrLenField,
@@ -139,6 +140,7 @@ from scapy.layers.gssapi import (
 )
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.smb import _NV_VERSION
+from scapy.layers.smb2 import STATUS_ERREF
 from scapy.layers.x509 import X509_AlgorithmIdentifier
 
 # Typing imports
@@ -1874,7 +1876,7 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
             try:
                 return KERB_ERROR_DATA(val[0].val, _underlayer=pkt), val[1]
             except BER_Decoding_Error:
-                if pkt.errorCode.val in [18]:
+                if pkt.errorCode.val in [18, 12]:
                     # Some types can also happen in FAST sessions
                     # 18: KDC_ERR_CLIENT_REVOKED
                     return MethodData(val[0].val, _underlayer=pkt), val[1]
@@ -2015,7 +2017,7 @@ _PADATA_CLASSES[137] = KRB_ERROR
 
 class KERB_EXT_ERROR(Packet):
     fields_desc = [
-        XLEIntField("status", 0),
+        XLEIntEnumField("status", 0, STATUS_ERREF),
         XLEIntField("reserved", 0),
         XLEIntField("flags", 0x00000001),
     ]

@@ -2783,6 +2783,12 @@ class LEIntEnumField(EnumField[int]):
         super(LEIntEnumField, self).__init__(name, default, enum, "<I")
 
 
+class XLEIntEnumField(LEIntEnumField):
+    def _i2repr(self, pkt, x):
+        # type: (Optional[Packet], Any) -> str
+        return lhex(x)
+
+
 class XShortEnumField(ShortEnumField):
     def _i2repr(self, pkt, x):
         # type: (Optional[Packet], Any) -> str
