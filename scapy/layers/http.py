@@ -905,7 +905,7 @@ class HTTP_Client(object):
         while True:
             # Perform the request.
             try:
-                resp = self.sr1(req)
+                resp = self.sr1(req, timeout=timeout)
             except Exception:
                 # Socket has died, restart.
                 self._sockinfo = None
