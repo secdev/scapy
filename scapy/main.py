@@ -985,6 +985,8 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                 cfg.InteractiveShellEmbed.term_title = False
             cfg.HistoryAccessor.hist_file = conf.histfile
             cfg.InteractiveShell.banner1 = banner
+            if conf.verb < 2:
+                cfg.InteractiveShellEmbed.enable_tip = False
             # configuration can thus be specified here.
             _kwargs = {}
             if conf.interactive_shell == "ptipython":
