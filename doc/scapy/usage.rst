@@ -847,6 +847,8 @@ The ``data`` argument is bytes and the ``metadata`` argument is a dictionary whi
 - ``metadata.get("tcp_psh", False)``: will be present if the PUSH flag is set
 - ``metadata.get("tcp_end", False)``: will be present if the END or RESET flag is set
 
+If ``tcp_reassemble`` **returns any padding**, it will be kept for the next payload.
+
 Filters
 -------
 
