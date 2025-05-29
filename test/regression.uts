@@ -1840,7 +1840,7 @@ finally:
     sck.close()
 
 = Sending and receiving an ICMPv6EchoRequest
-~ netaccess ipv6
+~ netaccess ipv6 needs_root
 def _test():
     with no_debug_dissector():
         x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
@@ -3414,13 +3414,13 @@ try:
         (3232235775, 4294967295, '0.0.0.0', 'enp3s0', '2.2.2.2', 281),
         (3232235639, 4294967295, '0.0.0.0', 'enp3s0', '3.3.3.3', 281),
         (3232235520, 4294967040, '0.0.0.0', 'enp3s0', '4.4.4.4', 281),
-        (0, 0, '192.168.0.254', 'enp3s0', '192.168.0.119', 25)
+        (0, 0, '192.168.0.254', 'enp3s0', '0.0.0.0', 25)
     ]
     assert conf.route.route("192.168.0.0-10") == ('enp3s0', '4.4.4.4', '0.0.0.0')
     assert conf.route.route("192.168.0.119") == ('lo', '192.168.0.119', '0.0.0.0')
     assert conf.route.route("224.0.0.0") == ('enp3s0', '1.1.1.1', '0.0.0.0')
     assert conf.route.route("255.255.255.255") == ('enp3s0', '192.168.0.119', '0.0.0.0')
-    assert conf.route.route("*") == ('enp3s0', '192.168.0.119', '192.168.0.254')
+    assert conf.route.route("*") == ('enp3s0', '4.4.4.4', '192.168.0.254')
 finally:
     conf.loopback_name = old_loopback
     conf.iface = old_iface
