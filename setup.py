@@ -12,7 +12,7 @@ if sys.version_info[0] <= 2:
     raise OSError("Scapy no longer supports Python 2 ! Please use Scapy 2.5.0")
 
 try:
-    from setuptools import setup
+    from setuptools import setup, find_packages
     from setuptools.command.sdist import sdist
     from setuptools.command.build_py import build_py
 except:
@@ -82,7 +82,16 @@ class BuildPy(build_py):
         _build_version(self.build_lib)
 
 setup(
+    name='scapy',
+    version=__import__('scapy').VERSION,
+    packages=find_packages(exclude=["test"]),
     cmdclass={'sdist': SDist, 'build_py': BuildPy},
+    # Build starting scripts automatically
+    entry_points={
+        'console_scripts': [
+            'scapy = scapy.main:interact'
+        ]
+    },
     data_files=[('share/man/man1', ["doc/scapy.1"])],
     long_description=get_long_description(),
     long_description_content_type='text/markdown',
