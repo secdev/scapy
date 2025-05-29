@@ -1172,9 +1172,13 @@ class EIR_PeripheralConnectionIntervalRange(EIR_Element):
 
 class EIR_Manufacturer_Specific_Data(EIR_Element):
     name = "EIR Manufacturer Specific Data"
+    deprecated_fields = {
+        "company_id": ("company_identifier", "2.6.2"),
+    }
     fields_desc = [
         # https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers
-        XLEShortField("company_id", None),
+        LEShortEnumField("company_identifier", None,
+                         BLUETOOTH_CORE_COMPANY_IDENTIFIERS),
     ]
 
     registered_magic_payloads = {}
