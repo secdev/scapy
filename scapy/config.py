@@ -294,6 +294,12 @@ class LayersList(List[Type['scapy.packet.Packet']]):
     def register(self, layer):
         # type: (Type[Packet]) -> None
         self.append(layer)
+
+        # Skip arch* modules
+        if layer.__module__.startswith("scapy.arch."):
+            return
+
+        # Register in module
         if layer.__module__ not in self.ldict:
             self.ldict[layer.__module__] = []
         self.ldict[layer.__module__].append(layer)
