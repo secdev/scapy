@@ -2514,11 +2514,14 @@ class XBitField(BitField):
         return lhex(self.i2h(pkt, x))
 
 
+_EnumType = Union[Dict[I, str], Dict[str, I], List[str], DADict[I, str], Type[Enum], Tuple[Callable[[I], str], Callable[[str], I]]]  # noqa: E501
+
+
 class _EnumField(Field[Union[List[I], I], I]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[I]
-                 enum,  # type: Union[Dict[I, str], Dict[str, I], List[str], DADict[I, str], Type[Enum], Tuple[Callable[[I], str], Callable[[str], I]]]  # noqa: E501
+                 enum,  # type: _EnumType[I]
                  fmt="H",  # type: str
                  ):
         # type: (...) -> None
@@ -2647,7 +2650,7 @@ class CharEnumField(EnumField[str]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: str
-                 enum,  # type: Union[Dict[str, str], Dict[str, str], List[str], DADict[str, str], Type[Enum], Tuple[Callable[[str], str], Callable[[str], str]]]  # noqa: E501
+                 enum,  # type: _EnumType[str]
                  fmt="1s",  # type: str
                  ):
         # type: (...) -> None
@@ -2674,7 +2677,7 @@ class BitEnumField(_BitField[Union[List[int], int]], _EnumField[int]):
                  name,  # type: str
                  default,  # type:  Optional[int]
                  size,  # type:  int
-                 enum,  # type: Union[Dict[int, str], Dict[str, int], List[str], DADict[int, str], Type[Enum], Tuple[Callable[[int], str], Callable[[str], int]]]  # noqa: E501
+                 enum,  # type: _EnumType[int]
                  **kwargs  # type: Any
                  ):
         # type: (...) -> None
@@ -2700,7 +2703,7 @@ class BitLenEnumField(BitLenField, _EnumField[int]):
                  name,  # type: str
                  default,  # type: Optional[int]
                  length_from,  # type: Callable[[Packet], int]
-                 enum,  # type: Union[Dict[int, str], Dict[str, int], List[str], DADict[int, str], Type[Enum], Tuple[Callable[[int], str], Callable[[str], int]]]  # noqa: E501
+                 enum,  # type: _EnumType[int]
                  **kwargs,  # type: Any
                  ):
         # type: (...) -> None
@@ -2725,7 +2728,7 @@ class ShortEnumField(EnumField[int]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[int]
-                 enum,  # type: Union[Dict[int, str], Dict[str, int], List[str], DADict[int, str], Type[Enum], Tuple[Callable[[int], str], Callable[[str], int]]]  # noqa: E501
+                 enum,  # type: _EnumType[int]
                  ):
         # type: (...) -> None
         super(ShortEnumField, self).__init__(name, default, enum, "H")
@@ -2735,7 +2738,7 @@ class LEShortEnumField(EnumField[int]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[int]
-                 enum  # type: Union[Dict[int, str], Dict[str, int], List[str], DADict[int, str], Type[Enum], Tuple[Callable[[int], str], Callable[[str], int]]]  # noqa: E501
+                 enum,  # type: _EnumType[int]
                  ):
         # type: (...) -> None
         super(LEShortEnumField, self).__init__(name, default, enum, "<H")
@@ -2745,7 +2748,7 @@ class LongEnumField(EnumField[int]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[int]
-                 enum  # type: Union[Dict[int, str], Dict[str, int], List[str], DADict[int, str], Type[Enum], Tuple[Callable[[int], str], Callable[[str], int]]]  # noqa: E501
+                 enum,  # type: _EnumType[int]
                  ):
         # type: (...) -> None
         super(LongEnumField, self).__init__(name, default, enum, "Q")
@@ -2755,7 +2758,7 @@ class LELongEnumField(EnumField[int]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[int]
-                 enum  # type: Union[Dict[int, str], Dict[str, int], List[str], DADict[int, str], Type[Enum], Tuple[Callable[[int], str], Callable[[str], int]]]  # noqa: E501
+                 enum,  # type: _EnumType[int]
                  ):
         # type: (...) -> None
         super(LELongEnumField, self).__init__(name, default, enum, "<Q")
@@ -2765,7 +2768,7 @@ class ByteEnumField(EnumField[int]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[int]
-                 enum  # type: Union[Dict[int, str], Dict[str, int], List[str], DADict[int, str], Type[Enum], Tuple[Callable[[int], str], Callable[[str], int]]]  # noqa: E501
+                 enum,  # type: _EnumType[int]
                  ):
         # type: (...) -> None
         super(ByteEnumField, self).__init__(name, default, enum, "B")
@@ -2791,7 +2794,7 @@ class IntEnumField(EnumField[int]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[int]
-                 enum  # type: Union[Dict[int, str], Dict[str, int], List[str], DADict[int, str], Type[Enum], Tuple[Callable[[int], str], Callable[[str], int]]]  # noqa: E501
+                 enum,  # type: _EnumType[int]
                  ):
         # type: (...) -> None
         super(IntEnumField, self).__init__(name, default, enum, "I")
@@ -2801,7 +2804,7 @@ class SignedIntEnumField(EnumField[int]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[int]
-                 enum  # type: Union[Dict[int, str], Dict[str, int], List[str], DADict[int, str], Type[Enum], Tuple[Callable[[int], str], Callable[[str], int]]]  # noqa: E501
+                 enum,  # type: _EnumType[int]
                  ):
         # type: (...) -> None
         super(SignedIntEnumField, self).__init__(name, default, enum, "i")
@@ -2811,7 +2814,7 @@ class LEIntEnumField(EnumField[int]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[int]
-                 enum  # type: Union[Dict[int, str], Dict[str, int], List[str], DADict[int, str], Type[Enum], Tuple[Callable[[int], str], Callable[[str], int]]]  # noqa: E501
+                 enum,  # type: _EnumType[int]
                  ):
         # type: (...) -> None
         super(LEIntEnumField, self).__init__(name, default, enum, "<I")
@@ -2829,7 +2832,7 @@ class LE3BytesEnumField(LEThreeBytesField, _EnumField[int]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[int]
-                 enum  # type: Union[Dict[int, str], Dict[str, int], List[str], DADict[int, str], Type[Enum], Tuple[Callable[[int], str], Callable[[str], int]]]  # noqa: E501
+                 enum,  # type: _EnumType[int]
                  ):
         # type: (...) -> None
         _EnumField.__init__(self, name, default, enum)
