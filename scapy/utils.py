@@ -1786,7 +1786,7 @@ class RawPcapNgReader(RawPcapReader):
 
         """
         while True:
-            res = self._read_block()
+            res = self._read_block(size=size)
             if res is not None:
                 return res
 
