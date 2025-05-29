@@ -3128,7 +3128,7 @@ class BluetoothUserSocket(_BluetoothLibcSocket):
             sock_address=sa)
 
     def send_command(self, cmd):
-        opcode = cmd.opcode
+        opcode = cmd[HCI_Command_Hdr].opcode
         self.send(cmd)
         while True:
             r = self.recv()
