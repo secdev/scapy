@@ -288,6 +288,9 @@ pkt = NetflowHeader()/NetflowHeaderV5()/NetflowRecordV5()
 conf.layers.filter([NetflowHeader, NetflowHeaderV5])
 assert NetflowRecordV5 not in NetflowHeader(bytes(pkt))
 
+# Conf.ifaces.reload() should still work (arch/* is exempt)
+conf.ifaces.reload()
+
 conf.layers.unfilter()
 assert NetflowRecordV5 in NetflowHeader(bytes(pkt))
 
