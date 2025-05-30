@@ -76,6 +76,24 @@ assert pkt.control == 1
 assert pkt.securitySeed == b"0" * 0xfff00
 
 
+= Dissect diagnostic request
+
+pkt = HSFZ(hex_bytes("000000050001f41022f150"))
+assert pkt.length == 5
+assert pkt.control == 0x01
+assert pkt.source == 0xf4
+assert pkt.target == 0x10
+
+
+= Dissect acknowledgment transfer
+
+pkt = HSFZ(hex_bytes("000000050002f41022f150"))
+assert pkt.length == 5
+assert pkt.control == 0x02
+assert pkt.source == 0xf4
+assert pkt.target == 0x10
+
+
 = Dissect identification
 
 pkt = HSFZ(bytes.fromhex("000000320011444941474144523130424d574d4143374346436343463837393343424d5756494e5742413558373333333246483735373334"))
