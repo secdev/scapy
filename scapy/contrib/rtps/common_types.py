@@ -162,7 +162,7 @@ class DataPacketField(EPacketField):
     def m2i(self, pkt, m):
         self.set_endianness(pkt)
         fld, val = pkt.getfield_and_val("inlineQoS")
-        pl_len = pkt.octetsToNextHeader - 24 - len(fld.i2m(pkt, val))
+        pl_len = pkt.octetsToNextHeader - 24 - fld.i2len(pkt, val)
         _pkt = self.cls(
             m,
             endianness=self.endianness,
