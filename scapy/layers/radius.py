@@ -520,6 +520,11 @@ class RadiusAttr_WLAN_RF_Band(_RadiusAttrIntValue):
     val = 190
 
 
+class RadiusAttr_Event_Timestamp(_RadiusAttrIntValue):
+    """RFC 2869"""
+    val = 55
+
+
 #
 # RADIUS attributes which values are string (displayed as hex)
 #
