@@ -65,7 +65,7 @@ class HSFZ(Packet):
         ConditionalField(
             StrFixedLenField("identification_string",
                              None, None, lambda p: p.length),
-            lambda p: p.control == 0x11)
+            lambda p: p.control == 0x11 and p.length != 0)
     ]
 
     def _hasaddrs(self):
