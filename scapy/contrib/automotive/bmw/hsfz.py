@@ -59,14 +59,18 @@ class HSFZ(Packet):
         IntField('length', None),
         ShortEnumField('control', 1, control_words),
         ConditionalField(
-            XByteField('source', 0), lambda p: p.control == 1),
+            XByteField('source', 0), lambda p: p._hasaddrs()),
         ConditionalField(
-            XByteField('target', 0), lambda p: p.control == 1),
+            XByteField('target', 0), lambda p: p._hasaddrs()),
         ConditionalField(
             StrFixedLenField("identification_string",
                              None, None, lambda p: p.length),
             lambda p: p.control == 0x11)
     ]
+
+    def _hasaddrs(self):
+        # type: () -> bool
+        return self.control == 0x01 or self.control == 0x02
 
     def hashret(self):
         # type: () -> bytes
