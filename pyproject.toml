@@ -60,6 +60,7 @@ all = [
     "matplotlib",
 ]
 doc = [
+    "cryptography>=2.0",
     "sphinx>=7.0.0",
     "sphinx_rtd_theme>=1.3.0",
     "tox>=3.0.0",

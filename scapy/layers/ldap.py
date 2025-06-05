@@ -88,6 +88,7 @@ from scapy.layers.gssapi import (
     GSSAPI_BLOB,
     GSSAPI_BLOB_SIGNATURE,
     GSS_C_FLAGS,
+    GSS_C_NO_CHANNEL_BINDINGS,
     GSS_S_COMPLETE,
     GssChannelBindings,
     SSP,
@@ -1808,7 +1809,7 @@ class LDAP_Client(object):
         self.sign = False
         # Session status
         self.sasl_wrap = False
-        self.chan_bindings = None
+        self.chan_bindings = GSS_C_NO_CHANNEL_BINDINGS
         self.bound = False
         self.messageID = 0
 
