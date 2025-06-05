@@ -87,8 +87,6 @@ In that case, the default port is 636. This can be changed using the ``port`` at
 Binding
 ~~~~~~~
 
-.. section:: binding
-
 When binding, you must specify a *mechanism type*. This type comes from the :class:`~scapy.layers.ldap.LDAP_BIND_MECHS` enumeration, which contains:
 
 - :attr:`~scapy.layers.ldap.LDAP_BIND_MECHS.NONE`: an unauthenticated bind.
