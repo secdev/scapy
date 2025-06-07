@@ -1067,6 +1067,7 @@ class Conf(ConfClass):
         'ppi',
         'ppp',
         'pptp',
+        'ptp_v2',
         'radius',
         'rip',
         'rtp',
