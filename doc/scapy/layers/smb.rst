@@ -246,6 +246,14 @@ A share is identified by a ``name`` and a ``path`` (+ an optional description ca
         )
     )
 
+**Start a SMB server with NTLM auth in an AD, using machine credentials:**
+
+.. note:: This requires an active account with ``WORKSTATION_TRUST_ACCOUNT`` in its ``userAccountControl``. (otherwise you might get ``STATUS_NO_TRUST_SAM_ACCOUNT``)
+
+.. code:: python
+
+    smbserver(ssp=NTLMSSP_DOMAIN(UPN="Computer1@domain.local", HASHNT=bytes.fromhex("7facdc498ed1680c4fd1448319a8c04f")))
+
 **Start a SMB server with Kerberos auth:**
 
 .. code:: python
