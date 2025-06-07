@@ -1227,6 +1227,7 @@ class smbclient(CLIUtil):
             ssp=ssp,
             debug=debug,
             REQUIRE_ENCRYPTION=REQUIRE_ENCRYPTION,
+            timeout=timeout,
             **kwargs,
         )
         try:
