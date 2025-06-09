@@ -3900,13 +3900,26 @@ def AutoArgparse(func: DecoratorCallable) -> None:
             continue
         parname = param.name
         paramkwargs = {}
-        if param.annotation is bool:
+        paramtype = param.annotation
+        # Process types we don't know
+        if paramtype not in [bool, str, int, float]:
+            try:
+                if paramtype.__origin__ is Union:
+                    # Handles Optional[] and Union[]
+                    paramtype = next(
+                        x for x in paramtype.__args__
+                        if x in [bool, str, int, float]
+                    )
+            except Exception:
+                pass
+        # Process the types we know
+        if paramtype is bool:
             if param.default is True:
                 parname = "no-" + parname
                 paramkwargs["action"] = "store_false"
             else:
                 paramkwargs["action"] = "store_true"
-        elif param.annotation in [str, int, float]:
+        elif paramtype in [str, int, float]:
             paramkwargs["type"] = param.annotation
         else:
             continue

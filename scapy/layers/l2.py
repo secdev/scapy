@@ -895,14 +895,14 @@ def arpcachepoison(
 
 @conf.commands.register
 def arp_mitm(
-    ip1,  # type: str
-    ip2,  # type: str
+    ip1: str,
+    ip2: str,
     mac1=None,  # type: Optional[Union[str, List[str]]]
     mac2=None,  # type: Optional[Union[str, List[str]]]
-    broadcast=False,  # type: bool
-    target_mac=None,  # type: Optional[str]
-    iface=None,  # type: Optional[_GlobInterfaceType]
-    inter=3,  # type: int
+    broadcast: bool = False,
+    target_mac: Optional[str] = None,
+    iface: Optional[_GlobInterfaceType] = None,
+    inter: int = 3,
 ):
     # type: (...) -> None
     r"""ARP MitM: poison 2 target's ARP cache
