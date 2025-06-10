@@ -19,6 +19,7 @@ import base64
 import collections
 import decimal
 import difflib
+import enum
 import gzip
 import inspect
 import locale
@@ -3566,7 +3567,38 @@ def whois(ip_address):
 ####################
 
 
-class CLIUtil:
+class _CLIUtilMetaclass(type):
+    class TYPE(enum.Enum):
+        COMMAND = 0
+        OUTPUT = 1
+        COMPLETE = 2
+
+    def __new__(cls,  # type: Type[_CLIUtilMetaclass]
+                name,  # type: str
+                bases,  # type: Tuple[type, ...]
+                dct  # type: Dict[str, Any]
+                ):
+        # type: (...) -> Type[CLIUtil]
+        dct["commands"] = {
+            x.__name__: x
+            for x in dct.values()
+            if getattr(x, "cliutil_type", None) == _CLIUtilMetaclass.TYPE.COMMAND
+        }
+        dct["commands_output"] = {
+            x.cliutil_ref.__name__: x
+            for x in dct.values()
+            if getattr(x, "cliutil_type", None) == _CLIUtilMetaclass.TYPE.OUTPUT
+        }
+        dct["commands_complete"] = {
+            x.cliutil_ref.__name__: x
+            for x in dct.values()
+            if getattr(x, "cliutil_type", None) == _CLIUtilMetaclass.TYPE.COMPLETE
+        }
+        newcls = cast(Type['CLIUtil'], type.__new__(cls, name, bases, dct))
+        return newcls
+
+
+class CLIUtil(metaclass=_CLIUtilMetaclass):
     """
     Provides a Util class to easily create simple CLI tools in Scapy,
     that can still be used as an API.
@@ -3593,6 +3625,14 @@ class CLIUtil:
     commands_output: Dict[str, Callable[..., str]] = {}
     # provides completion to command
     commands_complete: Dict[str, Callable[..., List[str]]] = {}
+
+    def __init__(self, cli: bool = True, debug: bool = False) -> None:
+        """
+        DEV: overwrite
+        """
+        if cli:
+            self._depcheck()
+            self.loop(debug=debug)
 
     @staticmethod
     def _inspectkwargs(func: DecoratorCallable) -> None:
@@ -3655,7 +3695,7 @@ class CLIUtil:
         Decorator to register a command
         """
         def func(cmd: DecoratorCallable) -> DecoratorCallable:
-            cls.commands[cmd.__name__] = cmd
+            cmd.cliutil_type = _CLIUtilMetaclass.TYPE.COMMAND  # type: ignore
             cmd._spaces = spaces  # type: ignore
             cmd._globsupport = globsupport  # type: ignore
             cls._inspectkwargs(cmd)
@@ -3670,7 +3710,8 @@ class CLIUtil:
         Decorator to register a command output processor
         """
         def func(processor: DecoratorCallable) -> DecoratorCallable:
-            cls.commands_output[cmd.__name__] = processor
+            processor.cliutil_type = _CLIUtilMetaclass.TYPE.OUTPUT  # type: ignore
+            processor.cliutil_ref = cmd  # type: ignore
             cls._inspectkwargs(processor)
             return processor
         return func
@@ -3681,7 +3722,8 @@ class CLIUtil:
         Decorator to register a command completor
         """
         def func(processor: DecoratorCallable) -> DecoratorCallable:
-            cls.commands_complete[cmd.__name__] = processor
+            processor.cliutil_type = _CLIUtilMetaclass.TYPE.COMPLETE  # type: ignore
+            processor.cliutil_ref = cmd  # type: ignore
             return processor
         return func
 
