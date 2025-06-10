@@ -4937,3 +4937,34 @@ def _test_fragleak(func, sr1, select, L3socket):
 
 assert _test_fragleak(fragleak)
 assert _test_fragleak(fragleak2)
+
++ CLIUtil
+~ cliutil
+
+= CLIUtil: define and check overlap
+
+from scapy.layers.smbclient import smbclient
+
+class CLI1(CLIUtil):
+    @CLIUtil.addcommand()
+    def shares(self):
+        return 1
+    @CLIUtil.addoutput(shares)
+    def shares_output(self, results):
+        print(results)
+
+
+class CLI2(CLIUtil):
+    @CLIUtil.addcommand()
+    def shares(self):
+        return 2
+    @CLIUtil.addoutput(shares)
+    def shares_output(self, results):
+        print(results)
+
+
+c1 = CLI1(cli=False)
+c2 = CLI2(cli=False)
+
+assert c1.shares() == 1
+assert c2.shares() == 2
