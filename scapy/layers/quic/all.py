@@ -6,4 +6,4 @@
 Aggregate top level objects from all QUIC modules.
 """
 
-from scapy.layers.quic.quic import *
+from scapy.layers.quic.packet import *
