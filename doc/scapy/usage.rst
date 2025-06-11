@@ -1121,7 +1121,7 @@ We can easily plot some harvested values using Matplotlib. (Make sure that you h
 For example, we can observe the IP ID patterns to know how many distinct IP stacks are used behind a load balancer::
 
     >>> a, b = sr(IP(dst="www.target.com")/TCP(sport=[RandShort()]*1000))
-    >>> a.plot(lambda x:x[1].id)
+    >>> a.plot(lambda q,r: r.id)
     [<matplotlib.lines.Line2D at 0x2367b80d6a0>]
 
 .. image:: graphics/ipid.png
