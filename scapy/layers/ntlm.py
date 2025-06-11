@@ -1180,8 +1180,8 @@ class NTLMSSP(SSP):
 
     Server-only arguments:
 
-        :param DOMAIN_NB_NAME: the domain Netbios name (default: DOMAIN)
-        :param DOMAIN_FQDN: the domain FQDN (default: <domain_nb_name>.local)
+        :param DOMAIN_FQDN: the domain FQDN (default: domain.local)
+        :param DOMAIN_NB_NAME: the domain Netbios name (default: strip DOMAIN_FQDN)
         :param COMPUTER_NB_NAME: the server Netbios name (default: SRV)
         :param COMPUTER_FQDN: the server FQDN
                               (default: <computer_nb_name>.<domain_fqdn>)
@@ -1248,9 +1248,9 @@ class NTLMSSP(SSP):
         PASSWORD=None,
         USE_MIC=True,
         NTLM_VALUES={},
-        DOMAIN_NB_NAME="DOMAIN",
         DOMAIN_FQDN=None,
-        COMPUTER_NB_NAME="SRV",
+        DOMAIN_NB_NAME=None,
+        COMPUTER_NB_NAME=None,
         COMPUTER_FQDN=None,
         IDENTITIES=None,
         DO_NOT_CHECK_LOGIN=False,
@@ -1263,9 +1263,22 @@ class NTLMSSP(SSP):
         self.HASHNT = HASHNT
         self.USE_MIC = USE_MIC
         self.NTLM_VALUES = NTLM_VALUES
-        self.DOMAIN_NB_NAME = DOMAIN_NB_NAME
-        self.DOMAIN_FQDN = DOMAIN_FQDN or (self.DOMAIN_NB_NAME.lower() + ".local")
-        self.COMPUTER_NB_NAME = COMPUTER_NB_NAME
+        if UPN is not None:
+            from scapy.layers.kerberos import _parse_upn
+
+            try:
+                user, realm = _parse_upn(UPN)
+                if DOMAIN_FQDN is None:
+                    DOMAIN_FQDN = realm
+                if COMPUTER_NB_NAME is None:
+                    COMPUTER_NB_NAME = user
+            except ValueError:
+                pass
+        self.DOMAIN_FQDN = DOMAIN_FQDN or "domain.local"
+        self.DOMAIN_NB_NAME = (
+            DOMAIN_NB_NAME or self.DOMAIN_FQDN.split(".")[0].upper()[:15]
+        )
+        self.COMPUTER_NB_NAME = COMPUTER_NB_NAME or "SRV"
         self.COMPUTER_FQDN = COMPUTER_FQDN or (
             self.COMPUTER_NB_NAME.lower() + "." + self.DOMAIN_FQDN
         )
@@ -1843,7 +1856,8 @@ class NTLMSSP(SSP):
             return NTLMv2_ComputeSessionBaseKey(
                 ResponseKeyNT, auth_tok.NtChallengeResponse.NTProofStr
             )
-        log_runtime.debug("NTLMSSP: Bad credentials for %s" % username)
+        elif self.IDENTITIES:
+            log_runtime.debug("NTLMSSP: Bad credentials for %s" % username)
         return None
 
     def _checkLogin(self, Context, auth_tok):
@@ -1872,3 +1886,175 @@ class NTLMSSP(SSP):
             if NTProofStr == auth_tok.NtChallengeResponse.NTProofStr:
                 return True
         return False
+
+
+class NTLMSSP_DOMAIN(NTLMSSP):
+    """
+    A variant of the NTLMSSP to be used in server mode that gets the session
+    keys from the domain using a Netlogon channel.
+
+    This has the same arguments as NTLMSSP, but supports the following in server
+    mode:
+
+    :param UPN: the UPN of the machine account to login for Netlogon.
+    :param HASHNT: the HASHNT of the machine account to use for Netlogon.
+    :param PASSWORD: the PASSWORD of the machine acconut to use for Netlogon.
+    :param DC_IP: (optional) specify the IP of the DC.
+
+    Examples::
+
+        >>> mySSP = NTLMSSP_DOMAIN(
+        ...     UPN="Server1@domain.local",
+        ...     HASHNT=bytes.fromhex("8846f7eaee8fb117ad06bdd830b7586c"),
+        ... )
+    """
+
+    def __init__(self, UPN, *args, timeout=3, ssp=None, **kwargs):
+        from scapy.layers.kerberos import KerberosSSP
+
+        # UPN is mandatory
+        kwargs["UPN"] = UPN
+
+        # Either PASSWORD or HASHNT or ssp
+        if "HASHNT" not in kwargs and "PASSWORD" not in kwargs and ssp is None:
+            raise ValueError(
+                "Must specify either 'HASHNT', 'PASSWORD' or "
+                "provide a ssp=KerberosSSP()"
+            )
+        elif ssp is not None and not isinstance(ssp, KerberosSSP):
+            raise ValueError("'ssp' can only be None or a KerberosSSP !")
+
+        # Call parent
+        super(NTLMSSP_DOMAIN, self).__init__(
+            *args,
+            **kwargs,
+        )
+
+        # Treat specific parameters
+        self.DC_IP = kwargs.pop("DC_IP", None)
+        if self.DC_IP is None:
+            # Get DC_IP from dclocator
+            from scapy.layers.ldap import dclocator
+
+            self.DC_IP = dclocator(
+                self.DOMAIN_FQDN,
+                timeout=timeout,
+                debug=kwargs.get("debug", 0),
+            ).ip
+
+        # If logging in via Kerberos
+        self.ssp = ssp
+
+    def _getSessionBaseKey(self, Context, ntlm):
+        """
+        Return the Session Key by asking the DC.
+        """
+        # No user / no domain: skip.
+        if not ntlm.UserNameLen or not ntlm.DomainNameLen:
+            return super(NTLMSSP_DOMAIN, self)._getSessionBaseKey(Context, ntlm)
+
+        # Import RPC stuff
+        from scapy.layers.dcerpc import NDRUnion
+        from scapy.layers.msrpce.msnrpc import (
+            NetlogonClient,
+            NETLOGON_SECURE_CHANNEL_METHOD,
+        )
+        from scapy.layers.msrpce.raw.ms_nrpc import (
+            NetrLogonSamLogonWithFlags_Request,
+            PNETLOGON_NETWORK_INFO,
+            PNETLOGON_AUTHENTICATOR,
+            NETLOGON_LOGON_IDENTITY_INFO,
+            RPC_UNICODE_STRING,
+            STRING,
+        )
+
+        # Create NetlogonClient with PRIVACY
+        client = NetlogonClient()
+        client.connect_and_bind(self.DC_IP)
+
+        # Establish the Netlogon secure channel (this will bind)
+        try:
+            if self.ssp is None:
+                # Login via classic NetlogonSSP
+                client.establish_secure_channel(
+                    mode=NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticate3,
+                    computername=self.COMPUTER_NB_NAME,
+                    domainname=self.DOMAIN_NB_NAME,
+                    HashNt=self.HASHNT,
+                )
+            else:
+                # Login via KerberosSSP (Windows 2025)
+                # TODO
+                client.establish_secure_channel(
+                    mode=NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticateKerberos,
+                )
+        except ValueError:
+            log_runtime.warning(
+                "Couldn't establish the Netlogon secure channel. "
+                "Check the credentials for '%s' !" % self.COMPUTER_NB_NAME
+            )
+            return super(NTLMSSP_DOMAIN, self)._getSessionBaseKey(Context, ntlm)
+
+        # Request validation of the NTLM request
+        req = NetrLogonSamLogonWithFlags_Request(
+            LogonServer="",
+            ComputerName=self.COMPUTER_NB_NAME,
+            Authenticator=client.create_authenticator(),
+            ReturnAuthenticator=PNETLOGON_AUTHENTICATOR(),
+            LogonLevel=6,  # NetlogonNetworkTransitiveInformation
+            LogonInformation=NDRUnion(
+                tag=6,
+                value=PNETLOGON_NETWORK_INFO(
+                    Identity=NETLOGON_LOGON_IDENTITY_INFO(
+                        LogonDomainName=RPC_UNICODE_STRING(
+                            Buffer=ntlm.DomainName,
+                        ),
+                        ParameterControl=0x00002AE0,
+                        UserName=RPC_UNICODE_STRING(
+                            Buffer=ntlm.UserName,
+                        ),
+                        Workstation=RPC_UNICODE_STRING(
+                            Buffer=ntlm.Workstation,
+                        ),
+                    ),
+                    LmChallenge=Context.chall_tok.ServerChallenge,
+                    NtChallengeResponse=STRING(
+                        Buffer=bytes(ntlm.NtChallengeResponse),
+                    ),
+                    LmChallengeResponse=STRING(
+                        Buffer=bytes(ntlm.LmChallengeResponse),
+                    ),
+                ),
+            ),
+            ValidationLevel=6,
+            ExtraFlags=0,
+            ndr64=client.ndr64,
+        )
+
+        # Get response
+        resp = client.sr1_req(req)
+        if resp and resp.status == 0:
+            # Success
+
+            # Validate DC authenticator
+            client.validate_authenticator(resp.ReturnAuthenticator.value)
+
+            # Get and return the SessionKey
+            UserSessionKey = resp.ValidationInformation.value.value.UserSessionKey
+            return bytes(UserSessionKey)
+        else:
+            # Failed
+            from scapy.layers.smb2 import STATUS_ERREF
+
+            print(
+                conf.color_theme.fail(
+                    "! %s" % STATUS_ERREF.get(resp.status, "Failure !")
+                )
+            )
+            if resp.status not in STATUS_ERREF:
+                resp.show()
+            return super(NTLMSSP_DOMAIN, self)._getSessionBaseKey(Context, ntlm)
+
+    def _checkLogin(self, Context, auth_tok):
+        # Always OK if we got the session key
+        return True

@@ -563,7 +563,7 @@ class NetlogonClient(DCERPC_Client):
 
         >>> cli = NetlogonClient()
         >>> cli.connect_and_bind("192.168.0.100")
-        >>> cli.establishSecureChannel(
+        >>> cli.establish_secure_channel(
         ...     domainname="DOMAIN", computername="WIN10",
         ...     HashNT=bytes.fromhex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
         ... )
@@ -571,7 +571,8 @@ class NetlogonClient(DCERPC_Client):
 
     def __init__(
         self,
-        auth_level=DCE_C_AUTHN_LEVEL.NONE,
+        # Default to PRIVACY: see KB5021130
+        auth_level=DCE_C_AUTHN_LEVEL.PKT_PRIVACY,
         verb=True,
         supportAES=True,
         **kwargs,
@@ -645,7 +646,7 @@ class NetlogonClient(DCERPC_Client):
         if tempcred != auth.Credential.data:
             raise ValueError("Server netlogon authenticator is wrong !")
 
-    def establishSecureChannel(
+    def establish_secure_channel(
         self,
         computername: str,
         domainname: str,
@@ -669,6 +670,7 @@ class NetlogonClient(DCERPC_Client):
         # Flow documented in 3.1.4 Session-Key Negotiation
         # and sect 3.4.5.2 for specific calls
         clientChall = os.urandom(8)
+
         # Step 1: NetrServerReqChallenge
         netr_server_req_chall_response = self.sr1_req(
             NetrServerReqChallenge_Request(
@@ -693,6 +695,7 @@ class NetlogonClient(DCERPC_Client):
             )
             netr_server_req_chall_response.show()
             raise ValueError
+
         # Calc NegotiateFlags
         NegotiateFlags = FlagValue(
             0x602FFFFF,  # sensible default (Windows)
@@ -700,6 +703,7 @@ class NetlogonClient(DCERPC_Client):
         )
         if self.supportAES:
             NegotiateFlags += "AES"
+
         # We are either using NetrServerAuthenticate3 or NetrServerAuthenticateKerberos
         if mode == NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticate3:
             # We use the legacy NetrServerAuthenticate3 function (NetlogonSSP)
@@ -735,6 +739,7 @@ class NetlogonClient(DCERPC_Client):
                 NetrServerAuthenticate3_Response not in netr_server_auth3_response
                 or netr_server_auth3_response.status != 0
             ):
+                # An error occurred.
                 NegotiatedFlags = None
                 if NetrServerAuthenticate3_Response in netr_server_auth3_response:
                     NegotiatedFlags = FlagValue(
@@ -748,14 +753,19 @@ class NetlogonClient(DCERPC_Client):
                                 % (NegotiatedFlags ^ NegotiateFlags)
                             )
                         )
+
+                # Show the error
                 print(
                     conf.color_theme.fail(
                         "! %s"
                         % STATUS_ERREF.get(netr_server_auth3_response.status, "Failure")
                     )
                 )
+
+                # If error is unknown, show the packet entirely
                 if netr_server_auth3_response.status not in STATUS_ERREF:
                     netr_server_auth3_response.show()
+
                 raise ValueError
             # Check Server Credential
             if self.supportAES:
@@ -772,8 +782,10 @@ class NetlogonClient(DCERPC_Client):
                 ):
                     print(conf.color_theme.fail("! Invalid ServerCredential."))
                     raise ValueError
+
             # SessionKey negotiated !
             self.SessionKey = SessionKey
+
             # Create the NetlogonSSP and assign it to the local client
             self.ssp = self.sock.session.ssp = NetlogonSSP(
                 SessionKey=self.SessionKey,
@@ -785,5 +797,6 @@ class NetlogonClient(DCERPC_Client):
             NegotiateFlags += "Kerberos"
             # TODO
             raise NotImplementedError
+
         # Finally alter context (to use the SSP)
         self.alter_context()
