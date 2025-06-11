@@ -435,6 +435,11 @@ class RadiusAttr_Acct_Output_Gigawords(_RadiusAttrIntValue):
     val = 53
 
 
+class RadiusAttr_Event_Timestamp(_RadiusAttrIntValue):
+    """RFC 2869"""
+    val = 55
+
+
 class RadiusAttr_Egress_VLANID(_RadiusAttrIntValue):
     """RFC 4675"""
     val = 56
