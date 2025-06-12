@@ -25,6 +25,7 @@ from scapy.layers.quic.basefields import (
     QuicPacketNumberField,
 )
 
+from scapy.layers.quic.crypto import QUICCrypto
 from scapy.packet import (
     Packet,
 )
@@ -132,6 +133,33 @@ class QUIC_Initial(QUIC_Long):
             QuicPacketNumberField("PacketNumber", 0),
         ]
     )
+
+    def pre_dissect(self, s):
+        _, protected_header = BitField("", 0, 8).getfield(self, s)
+        _, quic_version = IntEnumField("", 1, _quic_versions).getfield(self, s)
+        _, dst_conn_id_len = FieldLenField("", None, fmt="B").getfield(self, s)
+        _, dst_connd_id = StrLenField("", None, length_from=lambda pkt: dst_conn_id_len).getfield(self, s)
+        _, src_conn_id_len = FieldLenField("", None, length_of="SrcConnID", fmt="B").getfield(self, s)
+        _, _ = StrLenField("", None, length_from=lambda pkt: src_conn_id_len).getfield(self, s)
+        token_len = QuicVarLenField("").getfield(self, s)
+        _token = StrLenField("", "", length_from=lambda pkt: token_len).getfield(self, s)
+        _length = QuicVarIntField("", None).getfield(self, s)
+        protected_packet_number = IntField("", None).getfield(self, s)
+        sample = BitField("", 0, 8*16).getfield(self, s)
+
+        self.crypto = QUICCrypto(dst_connd_id, quic_version)
+        unprotected_header, raw_packet_number = self.crypto.header_protect(sample, protected_header, protected_packet_number)
+        return s
+
+    def post_dissect(self, s):
+        """
+        Post-dissection hook to handle the payload.
+        """
+        self.crypto = QUICCrypto(self.DstConnID, self.Version)
+        sample = s[4:4+16]
+        unprotected_header, raw_packet_number = self.crypto.header_protect(sample, self.ProtectedHeader, s[0:4])
+        self.fields_desc.append()
+        return s
 
 
 # RFC9000 sect 17.2.3
