@@ -65,12 +65,23 @@ class HSFZ(Packet):
         ConditionalField(
             StrFixedLenField("identification_string",
                              None, None, lambda p: p.length),
-            lambda p: p.control == 0x11 and p.length != 0)
+            lambda p: p._hasidstring())
     ]
 
     def _hasaddrs(self):
         # type: () -> bool
-        return self.control == 0x01 or self.control == 0x02
+        # Address present in diagnostic_req_res, acknowledge_transfer and
+        # two byte length alive_check frames.
+        return self.control == 0x01 or \
+            self.control == 0x02 or \
+            (self.control == 0x12 and self.length == 2)
+
+    def _hasidstring(self):
+        # type: () -> bool
+        # ID string is present in some vehicle_ident_data frames and in
+        # long alive_check grames.
+        return (self.control == 0x11 and self.length != 0) or \
+            (self.control == 0x12 and self.length > 2)
 
     def hashret(self):
         # type: () -> bytes
