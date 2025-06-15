@@ -124,6 +124,14 @@ assert pkt.source == 0x00
 assert pkt.target == 0xf4
 
 
+= Dissect incorrect tester address
+pkt = HSFZ(bytes.fromhex("000000020040fff4"))
+assert pkt.length == 2
+assert pkt.control == 0x40
+assert pkt.source == 0xff
+assert pkt.target == 0xf4
+
+
 = Test HSFZSocket
 
 server_up = threading.Event()
