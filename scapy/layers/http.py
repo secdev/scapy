@@ -885,7 +885,13 @@ class HTTP_Client(object):
         self._connect_or_reuse(host, port=port, tls=tls, timeout=timeout)
 
         # Build request
-        headers.setdefault("Host", host)
+        if ((tls and port != 443) or
+                (not tls and port != 80)):
+            host_hdr = "%s:%d" % (host, port)
+        else:
+            host_hdr = host
+
+        headers.setdefault("Host", host_hdr)
         headers.setdefault("Path", path)
 
         if not http_headers:
