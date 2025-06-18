@@ -135,31 +135,40 @@ class QUIC_Initial(QUIC_Long):
     )
 
     def pre_dissect(self, s):
-        _, protected_header = BitField("", 0, 8).getfield(self, s)
-        _, quic_version = IntEnumField("", 1, _quic_versions).getfield(self, s)
-        _, dst_conn_id_len = FieldLenField("", None, fmt="B").getfield(self, s)
-        _, dst_connd_id = StrLenField("", None, length_from=lambda pkt: dst_conn_id_len).getfield(self, s)
-        _, src_conn_id_len = FieldLenField("", None, length_of="SrcConnID", fmt="B").getfield(self, s)
-        _, _ = StrLenField("", None, length_from=lambda pkt: src_conn_id_len).getfield(self, s)
-        token_len = QuicVarLenField("").getfield(self, s)
-        _token = StrLenField("", "", length_from=lambda pkt: token_len).getfield(self, s)
-        _length = QuicVarIntField("", None).getfield(self, s)
-        protected_packet_number = IntField("", None).getfield(self, s)
-        sample = BitField("", 0, 8*16).getfield(self, s)
-
-        self.crypto = QUICCrypto(dst_connd_id, quic_version)
+        unencrypted_packet = bytearray(s)
+        s, protected_header = BitField("", 0, 8).getfield(self, s)
+        s, quic_version = IntEnumField("", 1, _quic_versions).getfield(self, s)
+        s, dst_conn_id_len = FieldLenField("", None, fmt="B").getfield(self, s)
+        s, dst_conn_id = StrLenField("", None, length_from=lambda pkt: dst_conn_id_len).getfield(self, s)
+        s, src_conn_id_len = FieldLenField("", None, length_of="SrcConnID", fmt="B").getfield(self, s)
+        s, _ = StrLenField("", None, length_from=lambda pkt: src_conn_id_len).getfield(self, s)
+        s, token_len = QuicVarLenField("", None).getfield(self, s)
+        s, _ = StrLenField("", "", length_from=lambda pkt: token_len).getfield(self, s)
+        s, length = QuicVarIntField("", None).getfield(self, s)
+        packet_number_offset = len(unencrypted_packet) - len(s)
+        s, protected_packet_number = IntField("", None).getfield(self, s)
+        _, sample = BitField("", 0, 8*16).getfield(self, s)
+        sample = sample.to_bytes(16, 'big')
+        protected_packet_number = protected_packet_number.to_bytes(4, 'big')
+        self.crypto = QUICCrypto(dst_conn_id, quic_version)
         unprotected_header, raw_packet_number = self.crypto.header_protect(sample, protected_header, protected_packet_number)
-        return s
-
-    def post_dissect(self, s):
-        """
-        Post-dissection hook to handle the payload.
-        """
-        self.crypto = QUICCrypto(self.DstConnID, self.Version)
-        sample = s[4:4+16]
-        unprotected_header, raw_packet_number = self.crypto.header_protect(sample, self.ProtectedHeader, s[0:4])
-        self.fields_desc.append()
-        return s
+        unencrypted_packet[0] = unprotected_header[0]
+        unprotected_header, _ = BitField("", None, 1).getfield(self, unprotected_header)
+        unprotected_header, _ = BitField("", None, 1).getfield(self, unprotected_header)
+        unprotected_header, _ = BitField("", None, 2).getfield(self, unprotected_header)
+        unprotected_header, _ = BitField("", None, 2).getfield(self, unprotected_header)
+        unprotected_header, packet_number_len = QuicPacketNumberBitFieldLenField("", None, 2).getfield(self, unprotected_header)
+        packet_number_len += 1
+        packet_number = raw_packet_number[:packet_number_len]
+        unencrypted_packet[packet_number_offset:packet_number_offset + packet_number_len] = packet_number
+        plaintext = self.crypto.decrypt_packet(
+            is_client=True,
+            pn=int.from_bytes(packet_number, 'big'),
+            recdata=bytes(unencrypted_packet[:packet_number_offset+packet_number_len]),
+            ciphertext=bytes(unencrypted_packet[packet_number_offset+packet_number_len:packet_number_offset+length])
+        )
+        unencrypted_packet[packet_number_offset+packet_number_len:packet_number_offset+length] = plaintext
+        return bytes(unencrypted_packet)
 
 
 # RFC9000 sect 17.2.3
