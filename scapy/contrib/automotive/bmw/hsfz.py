@@ -70,11 +70,12 @@ class HSFZ(Packet):
 
     def _hasaddrs(self):
         # type: () -> bool
-        # Address present in diagnostic_req_res, acknowledge_transfer and
-        # two byte length alive_check frames.
+        # Address present in diagnostic_req_res, acknowledge_transfer,
+        # two byte length alive_check and incorrect_tester_address frames.
         return self.control == 0x01 or \
             self.control == 0x02 or \
-            (self.control == 0x12 and self.length == 2)
+            (self.control == 0x12 and self.length == 2) or \
+            self.control == 0x40
 
     def _hasidstring(self):
         # type: () -> bool
