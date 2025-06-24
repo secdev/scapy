@@ -330,7 +330,7 @@ class L2CAP_CmdHdr(Packet):
                                   24: "credit_based_conn_resp",
                                   25: "credit_based_reconf_req",
                                   26: "credit_based_reconf_resp"}),
-        ByteField("id", 0),
+        ByteField("id", 1),
         LEShortField("len", None)]
 
     def post_build(self, p, pay):
