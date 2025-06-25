@@ -4039,6 +4039,7 @@ class KerberosSSP(SSP):
         CLI_SENT_APREQ = 3
         CLI_RCVD_APREP = 4
         SRV_SENT_APREP = 5
+        FAILED = -1
 
     class CONTEXT(SSP.CONTEXT):
         __slots__ = [
@@ -4982,11 +4983,17 @@ class KerberosSSP(SSP):
 
         if Context.state == self.STATE.INIT:
             Context, _, status = self.GSS_Accept_sec_context(Context, token)
-            Context.state = self.STATE.CLI_SENT_APREQ
-            return Context, GSS_S_CONTINUE_NEEDED
+            if status == GSS_S_CONTINUE_NEEDED:
+                Context.state = self.STATE.CLI_SENT_APREQ
+            else:
+                Context.state = self.STATE.FAILED
+            return Context, status
         elif Context.state == self.STATE.CLI_SENT_APREQ:
             Context, _, status = self.GSS_Init_sec_context(Context, token)
             return Context, status
+
+        # Unknown state. Don't crash though.
+        return Context, GSS_S_FAILURE
 
     def GSS_Passive_set_Direction(self, Context: CONTEXT, IsAcceptor=False):
         if Context.IsAcceptor is not IsAcceptor:
