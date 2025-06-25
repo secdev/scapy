@@ -1059,6 +1059,8 @@ class Conf(ConfClass):
         'llmnr',
         'lltd',
         'mgcp',
+        'msrpce.rpcclient',
+        'msrpce.rpcserver',
         'mobileip',
         'netbios',
         'netflow',

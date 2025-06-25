@@ -4818,11 +4818,12 @@ class KerberosSSP(SSP):
             if not self.KEY:
                 raise ValueError("Missing KEY attribute")
 
+            now_time = datetime.now(timezone.utc).replace(microsecond=0)
+
             # If using a UPN, require U2U
             if self.UPN and ap_req.apOptions.val[1] != "1":  # use-session-key
                 # Required but not provided. Return an error
                 Context.U2U = True
-                now_time = datetime.now(timezone.utc).replace(microsecond=0)
                 err = KRB_GSSAPI_Token(
                     innerToken=KRB_InnerToken(
                         TOK_ID=b"\x03\x00",
@@ -4863,7 +4864,6 @@ class KerberosSSP(SSP):
                 tkt = ap_req.ticket.encPart.decrypt(self.KEY)
             except ValueError as ex:
                 warning("KerberosSSP: %s (bad KEY?)" % ex)
-                now_time = datetime.now(timezone.utc).replace(microsecond=0)
                 err = KRB_GSSAPI_Token(
                     innerToken=KRB_InnerToken(
                         TOK_ID=b"\x03\x00",
