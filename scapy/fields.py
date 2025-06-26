@@ -3,6 +3,7 @@
 # See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # Copyright (C) Michael Farrell <micolous+git@gmail.com>
+# Copyright (C) 2025 Thales
 
 
 """
