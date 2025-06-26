@@ -186,7 +186,7 @@ class UDS_HSFZSocket(HSFZSocket):
     def recv(self, x=MTU, **kwargs):
         # type: (Optional[int], **Any) -> Optional[Packet]
         pkt = super(UDS_HSFZSocket, self).recv(x)
-        if pkt:
+        if pkt and pkt.control == 1:
             return self.outputcls(bytes(pkt.payload), **kwargs)
         else:
             return pkt
