@@ -767,6 +767,63 @@ class FCSField(TrailerField):
         return lhex(self.i2h(pkt, x))
 
 
+class ApproximateField(_FieldContainer):
+    """
+    Field container to compare values with tolerance.
+
+    Useful with :class:`.diff.PacketCmp`.
+    """
+    __slots__ = ["fld", "tolerance", "fld2float"]
+
+    if TYPE_CHECKING:
+        #: Field to ``float`` handler type.
+        #:
+        #: Converts a field value into a comparable ``float`` value.
+        #:
+        #: .. warning::
+        #:     Do not loose precision with ``fld2float``!
+        #:
+        #:     It is important that the returned value differs even if the precision is below the tolerance.
+        #:     In other words, the returned value is not only an ordered value,
+        #:     but should behave somehow like a hash for the field values:
+        #:     different contents <=> different returned values.
+        #:
+        #:     Otherwise, :class:`.diff.PacketCmp` considers strict equality.
+        #:     Consequently, it does not fix the expected value with the inputed compared value,
+        #:     and auto fields (like CRCs) don't get recomputed.
+        Fld2FloatHandlerType = Callable[[Any], float]
+
+    def __init__(
+            self,
+            fld,  # type: Field[Any, Any]
+            tolerance,  # type: float
+            fld2float=None,  # type: Optional[ApproximateField.Fld2FloatHandlerType]
+    ):  # type: (...) -> None
+        """
+        :param fld: Any kind of field.
+        :param tolerance: Tolerance to use for approximate comparisons.
+        :param fld2float: Callable used to convert any type of field value into a ``float`` value used for tolerance comparison.
+        """
+        self.fld = fld  # type: Field[Any, Any]
+        self.tolerance = float(tolerance)  # type: float
+        self.fld2float = fld2float or (lambda val: float(val))  # type: ApproximateField.Fld2FloatHandlerType
+
+    def any2i(self, pkt, x):  # type: (Packet, Any) -> Any
+        return self.fld.any2i(pkt, x)
+
+    def i2h(self, pkt, val):  # type: (Optional[Packet], Any) -> Any
+        return self.fld.i2h(pkt, val)
+
+    def i2m(self, pkt, x):  # type: (Optional[Packet], Any) -> Any
+        return self.fld.i2m(pkt, x)
+
+    def getfield(self, pkt, s):  # type: (Packet, bytes) -> Tuple[bytes, Any]
+        return self.fld.getfield(pkt, s)
+
+    def addfield(self, pkt, s, val):  # type: (Packet, bytes, Any) -> bytes
+        return self.fld.addfield(pkt, s, val)
+
+
 class DestField(Field[str, bytes]):
     __slots__ = ["defaultdst"]
     # Each subclass must have its own bindings attribute

@@ -1,0 +1,146 @@
+% Diff feature
+
+# See https://github.com/secdev/scapy/issues/4739
+
++ Test data
+
+= 000) Configure scapy logging.
+
+log_runtime.setLevel(logging.INFO)
+
+= 001) Define a `check_diff()` function.
+
+def check_diff(diff, item, error, approx):  # type: (PacketCmp.Diff, str, bool, bool) -> None
+    assert diff.item == item, f"Wrong item name {diff.item!r}, {item!r} expected"
+    assert bool(diff.error_message) == error, f"Unexpected error message {diff.error_message!r}"
+    assert (diff.tolerance is not None) == approx, f"Unexpected tolerance {diff.tolerance!r}"
+
+= 002) Define packet class A with an approximate field.
+
+class A(Packet):
+    fields_desc = [
+        ByteField(name="k", default=0),
+        ApproximateField(
+            IntField(name="t", default=0),
+            tolerance=2.0,
+        ),
+    ]
+
+= 003) Let a1 a first packet of A, with k=1 and t=<current time>.
+
+a1 = A(k=1, t=int(time.time()))
+a1.show()
+
+= 004) Let a2 a clone of a1.
+
+a2 = a1.copy()
+a2.show()
+
+= 005) Compare a1 with a2 => PacketCmp.compare() returns ``True``.
+
+cmp = PacketCmp(a1, a2)
+assert cmp.compare(log_success_level=logging.INFO) is True
+
+= 006) The comparison instance holds 2 successful exact comparisons, and no errors.
+
+print(f"diffs: {cmp.diffs!r}")
+assert len(cmp.diffs) == 2
+check_diff(cmp.diffs[0], "k", error=False, approx=False)
+check_diff(cmp.diffs[1], "t", error=False, approx=False)
+print(f"errors: {cmp.errors!r}")
+assert len(cmp.errors) == 0
+
+= 007) Assert a1 equals a2 => PacketCmp.assert_equal() throws no exception.
+
+PacketCmp(a1, a2).assert_equal(log_success_level=logging.INFO)
+
+= 008) Remove 1 second to a2.t.
+
+a2.t -= 1
+a2.show()
+
+= 009) Compare a1 with a2 => PacketCmp.compare() returns ``True``.
+
+cmp = PacketCmp(a1, a2)
+assert cmp.compare(log_success_level=logging.INFO) is True
+
+= 010) The comparison instance holds 3 diffs, the 1st being the approximation that restarted the comparison, and no errors.
+
+print(f"diffs: {cmp.diffs!r}")
+assert len(cmp.diffs) == 3
+check_diff(cmp.diffs[0], "t", error=False, approx=True)
+check_diff(cmp.diffs[1], "k", error=False, approx=False)
+check_diff(cmp.diffs[2], "t", error=False, approx=False)
+print(f"errors: {cmp.errors!r}")
+assert len(cmp.errors) == 0
+
+= 011) Assert a1 equals a2 => PacketCmp.assert_equal() throws no exception.
+
+PacketCmp(a1, a2).assert_equal(log_success_level=logging.INFO)
+
+= 012) Remove 2 seconds more to a2.t.
+
+a2.t -= 2
+a2.show()
+
+= 013) Compare a1 with a2 => PacketCmp.compare() returns ``False``.
+
+cmp = PacketCmp(a1, a2)
+assert cmp.compare(log_success_level=logging.INFO) is False
+
+= 014) The comparison instance holds 2 diffs, 1 error among them.
+
+print(f"diffs: {cmp.diffs!r}")
+assert len(cmp.diffs) == 2
+check_diff(cmp.diffs[0], "k", error=False, approx=False)
+check_diff(cmp.diffs[1], "t", error=True, approx=True)
+print(f"errors: {cmp.errors!r}")
+check_diff(cmp.errors[0], "t", error=True, approx=True)
+
+= 015) Assert a1 equals a2 => PacketCmp.assert_equal() throws an exception.
+
+exception = None
+try:
+    PacketCmp(a1, a2).assert_equal(log_success_level=logging.INFO)
+except Exception as err:
+    exception = err
+
+print(f"exception={exception!r}")
+assert exception is not None
+
+= 016) Define a class that uses A as a packet field.
+
+class B(Packet):
+    fields_desc = [
+        PacketField("a", pkt_cls=A, default=A()),
+    ]
+
+= 017) Let b1 a first packet of B, with k=1 and t=<current time>.
+
+b1 = B(a=A(k=1, t=int(time.time())))
+b1.show()
+
+= 018) Let b2 a clone of b1, with b2.a.t -= 1.
+
+b2 = b1.copy()
+b2.a.t -= 1
+b2.show()
+
+= 019) Compare b1 with b2 => PacketCmp.compare() returns ``True``.
+
+cmp = PacketCmp(b1, b2)
+assert cmp.compare(log_success_level=logging.INFO) is True
+
+= 020) The comparison instance holds 3 diffs, the 1st being the approximation that restarted the comparison, and no errors.
+
+print(f"diffs: {cmp.diffs!r}")
+assert len(cmp.diffs) == 3
+check_diff(cmp.diffs[0], "a.t", error=False, approx=True)
+check_diff(cmp.diffs[1], "a.k", error=False, approx=False)
+check_diff(cmp.diffs[2], "a.t", error=False, approx=False)
+print(f"errors: {cmp.errors!r}")
+assert len(cmp.errors) == 0
+
+= 021) Assert b1 equals b2 => PacketCmp.assert_equal() throws no exception.
+
+PacketCmp(b1, b2).assert_equal(log_success_level=logging.INFO)
