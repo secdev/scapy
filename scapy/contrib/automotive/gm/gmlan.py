@@ -41,11 +41,11 @@ try:
     if conf.contribs['GMLAN']['treat-response-pending-as-answer']:
         pass
 except KeyError:
-    log_automotive.info("Specify \"conf.contribs['GMLAN'] = "
-                        "{'treat-response-pending-as-answer': True}\" to treat "
-                        "a negative response 'RequestCorrectlyReceived-"
-                        "ResponsePending' as answer of a request. \n"
-                        "The default value is False.")
+    # log_automotive.info("Specify \"conf.contribs['GMLAN'] = "
+    #                    "{'treat-response-pending-as-answer': True}\" to treat "
+    #                    "a negative response 'RequestCorrectlyReceived-"
+    #                    "ResponsePending' as answer of a request. \n"
+    #                    "The default value is False.")
     conf.contribs['GMLAN'] = {'treat-response-pending-as-answer': False}
 
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = None
