@@ -21,7 +21,6 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     PacketField
 from scapy.packet import Packet, bind_layers, NoPayload, Raw
 from scapy.config import conf
-from scapy.error import log_loading
 from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
 
@@ -35,13 +34,12 @@ try:
     if conf.contribs['UDS']['treat-response-pending-as-answer']:
         pass
 except KeyError:
-    log_loading.info("Specify \"conf.contribs['UDS'] = "
-                     "{'treat-response-pending-as-answer': True}\" to treat "
-                     "a negative response 'requestCorrectlyReceived-"
-                     "ResponsePending' as answer of a request. \n"
-                     "The default value is False.")
+    # log_loading.info("Specify \"conf.contribs['UDS'] = "
+    #                 "{'treat-response-pending-as-answer': True}\" to treat "
+    #                 "a negative response 'requestCorrectlyReceived-"
+    #                 "ResponsePending' as answer of a request. \n"
+    #                 "The default value is False.")
     conf.contribs['UDS'] = {'treat-response-pending-as-answer': False}
-
 
 conf.debug_dissector = True
 
@@ -1096,9 +1094,12 @@ class UDS_RDTCIPR(Packet):
         ByteEnumField('reportType', 0, UDS_RDTCI.reportTypes),
         ConditionalField(
             FlagsField('DTCStatusAvailabilityMask', 0, 8, UDS_RDTCI.dtcStatus),
-            lambda pkt: pkt.reportType in [0x01, 0x07, 0x11, 0x12, 0x02, 0x0A,
-                                           0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x13,
-                                           0x15]),
+            lambda pkt: pkt.reportType in [0x01, 0x07, 0x09, 0x11, 0x12, 0x02, 0x0A,
+                                           0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x13, 0x15]),
+        ConditionalField(ByteField('DTCSeverity', 0),
+                         lambda pkt: pkt.reportType in [0x09]),
+        ConditionalField(ByteField('DTCFunctionalUnit', 0),
+                         lambda pkt: pkt.reportType in [0x09]),
         ConditionalField(ByteEnumField('DTCFormatIdentifier', 0,
                                        {0: 'ISO15031-6DTCFormat',
                                         1: 'UDS-1DTCFormat',
@@ -1111,12 +1112,11 @@ class UDS_RDTCIPR(Packet):
                                                         0x11, 0x12]),
         ConditionalField(PacketListField('DTCAndStatusRecord', None,
                                          pkt_cls=DTCAndStatusRecord),
-                         lambda pkt: pkt.reportType in [0x02, 0x0A, 0x0B,
+                         lambda pkt: pkt.reportType in [0x02, 0x09, 0x0A, 0x0B,
                                                         0x0C, 0x0D, 0x0E,
                                                         0x0F, 0x13, 0x15]),
         ConditionalField(StrField('dataRecord', b""),
-                         lambda pkt: pkt.reportType in [0x03, 0x08, 0x09,
-                                                        0x10, 0x14]),
+                         lambda pkt: pkt.reportType in [0x03, 0x08, 0x10, 0x14]),
         ConditionalField(PacketField('snapshotRecord', None,
                                      pkt_cls=DTCSnapshotRecord),
                          lambda pkt: pkt.reportType in [0x04]),
@@ -1130,6 +1130,8 @@ class UDS_RDTCIPR(Packet):
             return False
         if not other.reportType == self.reportType:
             return False
+        if self.reportType == 0x02:
+            return other.DTCStatusMask & self.DTCStatusAvailabilityMask
         if self.reportType == 0x06:
             return other.dtc == self.extendedDataRecord.dtcAndStatus.dtc
         if self.reportType == 0x04:
@@ -1168,9 +1170,14 @@ class UDS_RCPR(Packet):
     ]
 
     def answers(self, other):
-        return isinstance(other, UDS_RC) \
-            and other.routineControlType == self.routineControlType \
-            and other.routineIdentifier == self.routineIdentifier
+        if isinstance(other, UDS_RC) \
+                and other.routineControlType == self.routineControlType \
+                and other.routineIdentifier == self.routineIdentifier:
+            if isinstance(self.payload, NoPayload):
+                return True
+            else:
+                return self.payload.answers(other.payload)
+        return False
 
 
 bind_layers(UDS, UDS_RCPR, service=0x71)

@@ -191,6 +191,12 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
 
     def __reduce__(self):  # type: ignore
         f, t, d = super(ServiceEnumerator, self).__reduce__()  # type: ignore
+
+        try:
+            del d["_tester_present_sender"]
+        except KeyError:
+            pass
+
         try:
             for k, v in d["_request_iterators"].items():
                 d["_request_iterators"][k] = list(v)
@@ -286,6 +292,10 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
             self._tester_present_sender = global_configuration["tps"]
         except KeyError:
             self._tester_present_sender = None
+
+    def post_execute(self, socket, state, global_configuration):
+        # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
+        self._tester_present_sender = None
 
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None

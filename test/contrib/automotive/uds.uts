@@ -1173,6 +1173,21 @@ assert rdtcipr.DTCAndStatusRecord[0].status == 2
 
 assert not rdtcipr.answers(rdtci)
 
+= Check UDS_RDTCIPR extended data
+
+p = UDS(b'Y\x06\x80SV`\x01\x00\x02\x01\x03\x15')
+
+assert len(p.extendedDataRecord.extendedData) == 3
+
+assert p.extendedDataRecord.extendedData[0].data_type == 1
+assert p.extendedDataRecord.extendedData[1].data_type == 2
+assert p.extendedDataRecord.extendedData[2].data_type == 3
+
+assert p.extendedDataRecord.extendedData[0].record == 0
+assert p.extendedDataRecord.extendedData[1].record == 1
+assert p.extendedDataRecord.extendedData[2].record == 0x15
+
+
 = Check UDS_RDTCIPR
 
 rdtcipr = UDS(b'\x59\x03\xff\xee\xdd\xaa')
