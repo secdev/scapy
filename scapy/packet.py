@@ -2,6 +2,7 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) 2025 Thales
 
 """
 Packet class
