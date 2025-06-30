@@ -1150,7 +1150,7 @@ class AsyncSniffer(object):
         self.thread = None  # type: Optional[Thread]
         self.results = None  # type: Optional[PacketList]
         self.exception = None  # type: Optional[Exception]
-        self.stop_cb = lambda: None  # type: Callable[[], None]
+        self.stop_cb = lambda: None  # type: Callable[[], Optional[bool]]
 
     def _setup_thread(self):
         # type: () -> None
@@ -1295,16 +1295,18 @@ class AsyncSniffer(object):
             sniff_sockets[close_pipe] = "control_socket"  # type: ignore
 
             def stop_cb():
-                # type: () -> None
+                # type: () -> bool
                 if self.running and close_pipe:
                     close_pipe.send(None)
                 self.continue_sniff = False
+                return True
             self.stop_cb = stop_cb
         else:
             # select is non blocking
             def stop_cb():
-                # type: () -> None
+                # type: () -> bool
                 self.continue_sniff = False
+                return True
             self.stop_cb = stop_cb
 
         try:
@@ -1400,9 +1402,7 @@ class AsyncSniffer(object):
         # type: (bool) -> Optional[PacketList]
         """Stops AsyncSniffer if not in async mode"""
         if self.running:
-            try:
-                self.stop_cb()
-            except AttributeError:
+            if not self.stop_cb():
                 raise Scapy_Exception(
                     "Unsupported (offline or unsupported socket)"
                 )
