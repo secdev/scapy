@@ -1,6 +1,14 @@
 # scapy.contrib.description = Concise Binary Object Representation (CBOR)
 # scapy.contrib.status = library
 
+"""
+    Concise Binary Object Representation (CBOR) utility
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    :authors:    Timothy Recker, timothy.recker@nasa.gov
+                 Tad Kollar, tad.kollar@nasa.gov
+"""
+
 from scapy.fields import (
     Field,
     BitField,

@@ -1,5 +1,12 @@
 # scapy.contrib.description = TCP Convergence Layer version 4 (TCPCLv4)
-# scappy.contrib.status = loads
+# scapy.contrib.status = loads
+
+"""
+    TCP Convergence Layer version 4 (TCPCLv4) layer
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    :author:    Timothy Recker, timothy.recker@nasa.gov
+"""
 
 from scapy.packet import Packet, Raw, bind_layers
 from scapy.fields import (

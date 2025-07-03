@@ -1,5 +1,13 @@
 # scapy.contrib.description = Bundle Protocol version 7 (BPv7)
-# scappy.contrib.status = loads
+# scapy.contrib.status = loads
+
+"""
+    Bundle Protocol version 7 (BPv7) layer
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    :authors:    Timothy Recker, timothy.recker@nasa.gov
+                 Tad Kollar, tad.kollar@nasa.gov
+"""
 
 from scapy.packet import Packet
 from scapy.fields import (
