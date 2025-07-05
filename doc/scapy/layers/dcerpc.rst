@@ -395,6 +395,21 @@ To start an endpoint mapper (this should be a separate process from your RPC ser
 
 .. note:: Currently, a DCERPC_Server will let a client bind on all interfaces that Scapy has registered (imported). Supposedly though, you know which RPCs are going to be queried.
 
+Debugging with extended error information (eerr)
+------------------------------------------------
+
+To debug a RPC call, you can enable the forwarding of Extended Error Information in ``Computer Configuration > Administrative Templates > System > Remote Procedure Call`` on the remote computer.
+
+.. image:: ../graphics/dcerpc/debug_eerr.png
+   :align: center
+
+Once this is done, load EERR in Scapy (in your script) as such:
+
+.. code:: python
+
+   from scapy.layers.msrpce.mseerr import *
+
+To enable parsing of the extended error information. Those information will provide a more in-depth stack trace of errors, if available.
 
 Passive sniffing
 ----------------
