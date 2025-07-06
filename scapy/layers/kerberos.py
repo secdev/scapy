@@ -4976,20 +4976,37 @@ class KerberosSSP(SSP):
         else:
             raise ValueError("KerberosSSP: Unknown state %s" % repr(Context.state))
 
-    def GSS_Passive(self, Context: CONTEXT, token=None):
+    def GSS_Passive(
+        self,
+        Context: CONTEXT,
+        token=None,
+        req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
+    ):
         if Context is None:
             Context = self.CONTEXT(True)
             Context.passive = True
 
-        if Context.state == self.STATE.INIT:
-            Context, _, status = self.GSS_Accept_sec_context(Context, token)
-            if status == GSS_S_CONTINUE_NEEDED:
+        if Context.state == self.STATE.INIT or (
+            # In DCE/RPC, there's an extra AP-REP sent from the client.
+            Context.state == self.STATE.SRV_SENT_APREP
+            and req_flags & GSS_C_FLAGS.GSS_C_DCE_STYLE
+        ):
+            Context, _, status = self.GSS_Accept_sec_context(
+                Context, token, req_flags=req_flags
+            )
+            if status in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
                 Context.state = self.STATE.CLI_SENT_APREQ
             else:
                 Context.state = self.STATE.FAILED
             return Context, status
         elif Context.state == self.STATE.CLI_SENT_APREQ:
-            Context, _, status = self.GSS_Init_sec_context(Context, token)
+            Context, _, status = self.GSS_Init_sec_context(
+                Context, token, req_flags=req_flags
+            )
+            if status == GSS_S_COMPLETE:
+                Context.state = self.STATE.SRV_SENT_APREP
+            else:
+                Context.state == self.STATE.FAILED
             return Context, status
 
         # Unknown state. Don't crash though.
@@ -5008,6 +5025,12 @@ class KerberosSSP(SSP):
             Context.SendSignKeyUsage,
         )
         Context.IsAcceptor = not Context.IsAcceptor
+
+    def LegsAmount(self, Context: CONTEXT):
+        if Context.flags & GSS_C_FLAGS.GSS_C_DCE_STYLE:
+            return 4
+        else:
+            return 2
 
     def MaximumSignatureLength(self, Context: CONTEXT):
         if Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG:

@@ -32,6 +32,7 @@ from scapy.layers.dcerpc import (
     NDRLongField,
     NDRPacket,
     NDRPacketField,
+    NDRFullEmbPointerField,
     NDRFullPointerField,
     NDRConfPacketListField,
     NDRConfFieldListField,
@@ -109,11 +110,10 @@ class InstantiationInfoData(NDRPacket):
         NDRSignedIntField("fIsSurrogate", 0),
         NDRIntField("cIID", 0),
         NDRIntField("instFlag", 0),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRConfPacketListField(
                 "pIID", [GUID()], GUID, count_from=lambda pkt: pkt.cIID
             ),
-            deferred=True,
         ),
         NDRIntField("thisSize", 0),
         NDRPacketField("clientCOMVersion", COMVERSION(), COMVERSION),
@@ -147,15 +147,13 @@ class SpecialPropertiesData(NDRPacket):
 class InstanceInfoData(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRFullPointerField(NDRConfVarStrNullFieldUtf16("fileName", ""), deferred=True),
+        NDRFullEmbPointerField(NDRConfVarStrNullFieldUtf16("fileName", "")),
         NDRIntField("mode", 0),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRPacketField("ifdROT", MInterfacePointer(), MInterfacePointer),
-            deferred=True,
         ),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRPacketField("ifdStg", MInterfacePointer(), MInterfacePointer),
-            deferred=True,
         ),
     ]
 
@@ -168,11 +166,10 @@ class customREMOTE_REQUEST_SCM_INFO(NDRPacket):
     fields_desc = [
         NDRIntField("ClientImpLevel", 0),
         NDRShortField("cRequestedProtseqs", 0),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRConfStrLenFieldUtf16(
                 "pRequestedProtseqs", "", length_from=lambda pkt: pkt.cRequestedProtseqs
             ),
-            deferred=True,
         ),
     ]
 
@@ -180,14 +177,13 @@ class customREMOTE_REQUEST_SCM_INFO(NDRPacket):
 class ScmRequestInfoData(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRFullPointerField(NDRIntField("pdwReserved", 0), deferred=True),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(NDRIntField("pdwReserved", 0)),
+        NDRFullEmbPointerField(
             NDRPacketField(
                 "remoteRequest",
                 customREMOTE_REQUEST_SCM_INFO(),
                 customREMOTE_REQUEST_SCM_INFO,
             ),
-            deferred=True,
         ),
     ]
 
@@ -202,13 +198,11 @@ class ActivationContextInfoData(NDRPacket):
         NDRSignedIntField("bReserved1", 0),
         NDRIntField("dwReserved1", 0),
         NDRIntField("dwReserved2", 0),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRPacketField("pIFDClientCtx", MInterfacePointer(), MInterfacePointer),
-            deferred=True,
         ),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRPacketField("pIFDPrototypeCtx", MInterfacePointer(), MInterfacePointer),
-            deferred=True,
         ),
     ]
 
@@ -219,8 +213,8 @@ class ActivationContextInfoData(NDRPacket):
 class LocationInfoData(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRFullPointerField(
-            NDRConfVarStrNullFieldUtf16("machineName", ""), deferred=True
+        NDRFullEmbPointerField(
+            NDRConfVarStrNullFieldUtf16("machineName", ""),
         ),
         NDRIntField("processId", 0),
         NDRIntField("apartmentId", 0),
@@ -235,8 +229,8 @@ class COSERVERINFO(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
         NDRIntField("dwReserved1", 0),
-        NDRFullPointerField(NDRConfVarStrNullFieldUtf16("pwszName", ""), deferred=True),
-        NDRFullPointerField(NDRIntField("pdwReserved", 0), deferred=True),
+        NDRFullEmbPointerField(NDRConfVarStrNullFieldUtf16("pwszName", "")),
+        NDRFullEmbPointerField(NDRIntField("pdwReserved", 0)),
         NDRIntField("dwReserved2", 0),
     ]
 
@@ -245,10 +239,10 @@ class SecurityInfoData(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
         NDRIntField("dwAuthnFlags", 0),
-        NDRFullPointerField(
-            NDRPacketField("pServerInfo", COSERVERINFO(), COSERVERINFO), deferred=True
+        NDRFullEmbPointerField(
+            NDRPacketField("pServerInfo", COSERVERINFO(), COSERVERINFO),
         ),
-        NDRFullPointerField(NDRIntField("pdwReserved", 0), deferred=True),
+        NDRFullPointerField(NDRIntField("pdwReserved", 0)),
     ]
 
 
@@ -282,9 +276,8 @@ class customREMOTE_REPLY_SCM_INFO(NDRPacket):
     ALIGNMENT = (8, 8)
     fields_desc = [
         NDRLongField("Oxid", 0),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRPacketField("pdsaOxidBindings", DUALSTRINGARRAY(), DUALSTRINGARRAY),
-            deferred=True,
         ),
         NDRPacketField("ipidRemUnknown", GUID(), GUID),
         NDRIntField("authnHint", 0),
@@ -295,14 +288,13 @@ class customREMOTE_REPLY_SCM_INFO(NDRPacket):
 class ScmReplyInfoData(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRFullPointerField(NDRIntField("pdwReserved", 0), deferred=True),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(NDRIntField("pdwReserved", 0)),
+        NDRFullEmbPointerField(
             NDRPacketField(
                 "remoteReply",
                 customREMOTE_REPLY_SCM_INFO(),
                 customREMOTE_REPLY_SCM_INFO,
             ),
-            deferred=True,
         ),
     ]
 
@@ -314,29 +306,26 @@ class PropsOutInfo(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
         NDRIntField("cIfs", 0),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRConfPacketListField(
                 "piid", [GUID()], GUID, count_from=lambda pkt: pkt.cIfs
             ),
-            deferred=True,
         ),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRConfFieldListField(
                 "phresults",
                 [],
                 NDRSignedIntField("", 0),
                 count_from=lambda pkt: pkt.cIfs,
             ),
-            deferred=True,
         ),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRConfPacketListField(
                 "ppIntfData",
                 [MInterfacePointer()],
                 MInterfacePointer,
                 count_from=lambda pkt: pkt.cIfs,
             ),
-            deferred=True,
         ),
     ]
 
@@ -353,19 +342,17 @@ class CustomHeader(NDRPacket):
         NDRIntField("destCtx", 0),
         NDRIntField("cIfs", 0),
         NDRPacketField("classInfoClsid", GUID(), GUID),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRConfPacketListField(
                 "pclsid", [GUID()], GUID, count_from=lambda pkt: pkt.cIfs
             ),
-            deferred=True,
         ),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRConfFieldListField(
                 "pSizes", [], NDRIntField("", 0), count_from=lambda pkt: pkt.cIfs
             ),
-            deferred=True,
         ),
-        NDRFullPointerField(NDRIntField("pdwReserved", 0), deferred=True),
+        NDRFullEmbPointerField(NDRIntField("pdwReserved", 0)),
     ]
 
 

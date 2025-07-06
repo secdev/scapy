@@ -809,6 +809,7 @@ class SPNEGOSSP(SSP):
                 for x in list(Context.supported_mechtypes):
                     if x.oid.val in to_remove:
                         Context.supported_mechtypes.remove(x)
+                        break
                 # Re-calculate negotiated mechtype
                 try:
                     Context.negotiated_mechtype = next(
@@ -971,7 +972,7 @@ class SPNEGOSSP(SSP):
             chan_bindings=chan_bindings,
         )
 
-    def GSS_Passive(self, Context: CONTEXT, token=None):
+    def GSS_Passive(self, Context: CONTEXT, token=None, req_flags=None):
         if Context is None:
             # New Context
             Context = SPNEGOSSP.CONTEXT(self.supported_ssps)
@@ -1007,7 +1008,9 @@ class SPNEGOSSP(SSP):
 
         # Passthrough
         Context.sub_context, status = Context.ssp.GSS_Passive(
-            Context.sub_context, token
+            Context.sub_context,
+            token,
+            req_flags=req_flags,
         )
 
         return Context, status

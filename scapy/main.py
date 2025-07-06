@@ -730,8 +730,12 @@ def get_fancy_banner(mini: Optional[bool] = None) -> str:
     )
 
 
-def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
-    # type: (Optional[Any], Optional[Any], Optional[Any], int) -> None
+def interact(mydict=None,
+             argv=None,
+             mybanner=None,
+             mybanneronly=False,
+             loglevel=logging.INFO):
+    # type: (Optional[Any], Optional[Any], Optional[Any], bool, int) -> None
     """
     Starts Scapy's console.
     """
@@ -808,9 +812,6 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         banner_text = get_fancy_banner()
     else:
         banner_text = "Welcome to Scapy (%s)" % conf.version
-    if mybanner is not None:
-        banner_text += "\n"
-        banner_text += mybanner
 
     # Make sure the history file has proper permissions
     try:
@@ -936,6 +937,12 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
     elif conf.interactive_shell == "bpython":
         import bpython
         banner = banner_text + " using bpython %s" % bpython.__version__
+
+    if mybanner is not None:
+        if mybanneronly:
+            banner = ""
+        banner += "\n"
+        banner += mybanner
 
     # Start IPython or ptipython
     if conf.interactive_shell in ["ipython", "ptipython"]:

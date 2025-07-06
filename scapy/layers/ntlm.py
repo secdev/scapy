@@ -1784,7 +1784,7 @@ class NTLMSSP(SSP):
         """
         return 16  # len(NTLMSSP_MESSAGE_SIGNATURE())
 
-    def GSS_Passive(self, Context: CONTEXT, token=None):
+    def GSS_Passive(self, Context: CONTEXT, token=None, req_flags=None):
         if Context is None:
             Context = self.CONTEXT(True)
             Context.passive = True
