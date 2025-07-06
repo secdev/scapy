@@ -730,7 +730,11 @@ def get_fancy_banner(mini: Optional[bool] = None) -> str:
     )
 
 
-def interact(mydict=None, argv=None, mybanner=None, mybanneronly=False, loglevel=logging.INFO):
+def interact(mydict=None,
+             argv=None,
+             mybanner=None,
+             mybanneronly=False,
+             loglevel=logging.INFO):
     # type: (Optional[Any], Optional[Any], Optional[Any], bool, int) -> None
     """
     Starts Scapy's console.

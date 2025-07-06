@@ -351,7 +351,9 @@ class DCERPC_Client(object):
                     token=resp.auth_verifier.auth_value,
                 )
             if status in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
-                # Authentication should continue
+                # Authentication should continue, in two ways:
+                # - through DceRpc5Auth3 (e.g. NTLM)
+                # - through DceRpc5AlterContext (e.g. Kerberos)
                 if token and self.ssp.LegsAmount(self.sspcontext) % 2 == 1:
                     # AUTH 3 for certain SSPs (e.g. NTLM)
                     # "The server MUST NOT respond to an rpc_auth_3 PDU"
@@ -366,9 +368,6 @@ class DCERPC_Client(object):
                     )
                     status = GSS_S_COMPLETE
                 else:
-                    # Authentication can continue in two ways:
-                    # - through DceRpc5Auth3 (e.g. NTLM)
-                    # - through DceRpc5AlterContext (e.g. Kerberos)
                     while token:
                         respcls = DceRpc5AlterContextResp
                         resp = self.sr1(

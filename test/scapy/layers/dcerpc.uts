@@ -6,7 +6,9 @@ import re
 from scapy.layers.dcerpc import *
 from uuid import UUID
 
+old_debug_dissector = conf.debug_dissector
 conf.debug_dissector = 2
+True
 
 + Check EField
 
@@ -211,12 +213,13 @@ class LPSHARE_INFO_1(NDRPacket):
 
 = DCE/RPC 5 NDR: Check user friendliness
 
-pkt = LPSHARE_INFO_1(shi1_netname=b"ADMIN1$", ndr64=True)
+pkt = LPSHARE_INFO_1(shi1_netname="ADMIN1$", ndr64=True)
 val = pkt.fields['shi1_netname']
 assert isinstance(val, NDRPointer)
 assert isinstance(val.value, NDRConformantArray)
 assert isinstance(val.value.value[0], NDRVaryingArray)
 assert val.value.value[0].value == b"ADMIN1$"
+assert pkt.valueof("shi1_netname") == b"ADMIN1$"
 
 = DCE/RPC 5 NDR: Try building it
 
@@ -228,10 +231,11 @@ val = z.fields['shi1_netname']
 assert val.value.max_count == 8
 assert val.value.value[0].actual_count == 8
 assert val.value.value[0].value == b"ADMIN1$"
+assert z.valueof("shi1_netname") == b"ADMIN1$"
 
 = DCE/RPC 5 NDR: Same thing with NDR32
 
-pkt = LPSHARE_INFO_1(shi1_netname=b"ADMIN1$", ndr64=False)
+pkt = LPSHARE_INFO_1(shi1_netname="ADMIN1$", ndr64=False)
 assert bytes(pkt) == b'\x00\x00\x02\x00\x08\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00A\x00D\x00M\x00I\x00N\x001\x00$\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 z = LPSHARE_INFO_1(bytes(pkt), ndr64=False)
@@ -239,6 +243,7 @@ val = z.fields['shi1_netname']
 assert val.value.max_count == 8
 assert val.value.value[0].actual_count == 8
 assert val.value.value[0].value == b"ADMIN1$"
+assert z.valueof("shi1_netname") == b"ADMIN1$"
 
 + Real tests on complex packets
 
@@ -249,8 +254,8 @@ assert val.value.value[0].value == b"ADMIN1$"
 class LPWKSTA_USER_INFO_0(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRFullPointerField(
-            NDRConfVarStrNullFieldUtf16("wkui0_username", ""), deferred=True
+        NDRFullEmbPointerField(
+            NDRConfVarStrNullFieldUtf16("wkui0_username", "")
         )
     ]
 
@@ -259,14 +264,13 @@ class LPWKSTA_USER_INFO_0_CONTAINER(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
         NDRIntField("EntriesRead", 0),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRConfPacketListField(
                 "Buffer",
                 [LPWKSTA_USER_INFO_0()],
                 LPWKSTA_USER_INFO_0,
                 count_from=lambda pkt: pkt.EntriesRead,
             ),
-            deferred=True,
         ),
     ]
 
@@ -274,17 +278,17 @@ class LPWKSTA_USER_INFO_0_CONTAINER(NDRPacket):
 class LPWKSTA_USER_INFO_1(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
-        NDRFullPointerField(
-            NDRConfVarStrNullFieldUtf16("wkui1_username", ""), deferred=True
+        NDRFullEmbPointerField(
+            NDRConfVarStrNullFieldUtf16("wkui1_username", "")
         ),
-        NDRFullPointerField(
-            NDRConfVarStrNullFieldUtf16("wkui1_logon_domain", ""), deferred=True
+        NDRFullEmbPointerField(
+            NDRConfVarStrNullFieldUtf16("wkui1_logon_domain", "")
         ),
-        NDRFullPointerField(
-            NDRConfVarStrNullFieldUtf16("wkui1_oth_domains", ""), deferred=True
+        NDRFullEmbPointerField(
+            NDRConfVarStrNullFieldUtf16("wkui1_oth_domains", "")
         ),
-        NDRFullPointerField(
-            NDRConfVarStrNullFieldUtf16("wkui1_logon_server", ""), deferred=True
+        NDRFullEmbPointerField(
+            NDRConfVarStrNullFieldUtf16("wkui1_logon_server", "")
         ),
     ]
 
@@ -293,14 +297,13 @@ class LPWKSTA_USER_INFO_1_CONTAINER(NDRPacket):
     ALIGNMENT = (4, 8)
     fields_desc = [
         NDRIntField("EntriesRead", 0),
-        NDRFullPointerField(
+        NDRFullEmbPointerField(
             NDRConfPacketListField(
                 "Buffer",
                 [LPWKSTA_USER_INFO_1()],
                 LPWKSTA_USER_INFO_1,
                 count_from=lambda pkt: pkt.EntriesRead,
-            ),
-            deferred=True,
+            )
         ),
     ]
 
@@ -312,13 +315,12 @@ class LPWKSTA_USER_ENUM_STRUCT(NDRPacket):
         NDRUnionField(
             [
                 (
-                    NDRFullPointerField(
+                    NDRFullEmbPointerField(
                         NDRPacketField(
                             "WkstaUserInfo",
                             LPWKSTA_USER_INFO_0_CONTAINER(),
                             LPWKSTA_USER_INFO_0_CONTAINER,
                         ),
-                        deferred=True,
                     ),
                     (
                         (lambda pkt: getattr(pkt, "Level", None) == 0),
@@ -326,13 +328,12 @@ class LPWKSTA_USER_ENUM_STRUCT(NDRPacket):
                     ),
                 ),
                 (
-                    NDRFullPointerField(
+                    NDRFullEmbPointerField(
                         NDRPacketField(
                             "WkstaUserInfo",
                             LPWKSTA_USER_INFO_1_CONTAINER(),
                             LPWKSTA_USER_INFO_1_CONTAINER,
                         ),
-                        deferred=True,
                     ),
                     (
                         (lambda pkt: getattr(pkt, "Level", None) == 1),
@@ -447,98 +448,7 @@ assert tower.floors[0].uuid
 
 = DCE/RPC 5 NDR: Test DEPORTED_CONFORMANTS with offsetted padding
 
-# From [MS-EERR]
-
-class EEUString(NDRPacket):
-    ALIGNMENT = (4, 8)
-    fields_desc = [
-        NDRSignedShortField("nLength", None, size_of="pString"),
-        NDRFullPointerField(
-            NDRConfStrLenFieldUtf16("pString", "", size_is=lambda pkt: pkt.nLength),
-            deferred=True,
-        ),
-    ]
-
-
-class ExtendedErrorParamTypesInternal(IntEnum):
-    eeptiLongVal = 3
-
-
-class ExtendedErrorParam(NDRPacket):
-    ALIGNMENT = (8, 8)
-    fields_desc = [
-        NDRInt3264EnumField("Type", 0, ExtendedErrorParamTypesInternal),
-        NDRUnionField(
-            [
-                (
-                    NDRSignedIntField("value", 0),
-                    (
-                        (lambda pkt: getattr(pkt, "Type", None) == 3),
-                        (lambda _, val: val.tag == 3),
-                    ),
-                ),
-            ],
-            StrFixedLenField("value", "", length=0),
-            align=(2, 8),
-            switch_fmt=("H", "I"),
-        ),
-    ]
-
-
-class EEComputerNamePresent(IntEnum):
-    eecnpPresent = 1
-    eecnpNotPresent = 2
-
-
-class EEComputerName(NDRPacket):
-    ALIGNMENT = (4, 8)
-    fields_desc = [
-        NDRInt3264EnumField("Type", 0, EEComputerNamePresent),
-        NDRUnionField(
-            [
-                (
-                    NDRPacketField("value", EEUString(), EEUString),
-                    (
-                        (lambda pkt: getattr(pkt, "Type", None) == 1),
-                        (lambda _, val: val.tag == 1),
-                    ),
-                ),
-                (
-                    StrFixedLenField("value", "", length=0),
-                    (
-                        (lambda pkt: getattr(pkt, "Type", None) == 2),
-                        (lambda _, val: val.tag == 2),
-                    ),
-                ),
-            ],
-            StrFixedLenField("value", "", length=0),
-            align=(2, 8),
-            switch_fmt=("H", "I"),
-        ),
-    ]
-
-
-class ExtendedErrorInfo(NDRPacket):
-    ALIGNMENT = (8, 8)
-    DEPORTED_CONFORMANTS = ["Params"]
-    fields_desc = [
-        NDRRecursiveField("Next"),
-        NDRPacketField("ComputerName", EEComputerName(), EEComputerName),
-        NDRIntField("ProcessID", 0),
-        NDRLongField("TimeStamp", 0),
-        NDRIntField("GeneratingComponent", 0),
-        NDRIntField("Status", 0),
-        NDRShortField("DetectionLocation", 0),
-        NDRShortField("Flags", 0),
-        NDRSignedShortField("nLen", None, size_of="Params"),
-        NDRConfPacketListField(
-            "Params",
-            [],
-            ExtendedErrorParam,
-            size_is=lambda pkt: pkt.nLen,
-            conformant_in_struct=True,
-        ),
-    ]
+from scapy.layers.msrpce.mseerr import *
 
 pkt = ndr_deserialize1(b'\x01\x10\x08\x00\xcc\xcc\xcc\xcc\x98\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01\x00\x00\x00\x04\x00\x02\x00\x01\x00\x01\x00\x04\x00\x00\x00\x08\x00\x02\x00\xc0\x03\x00\x00\x00\x00\x00\x00\xa5\xcfq`,\xea\xd9\x01\x02\x00\x00\x00!\x07\x00\x00L\x06\x00\x00\x01\x00\x00\x00\x03\x00\x03\x00\xc4\xfe\xfc\x99\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x02\x00\xc0\x03\x00\x00\x00\x00\x00\x00)fo`,\xea\xd9\x01\x03\x00\x00\x00\x00\x00\x00\x00G\x00\x00\x00\x03\x00\x00\x00\x03\x00\x03\x00\n\x00\x00\x00\x03\x00\x03\x00\x06\x00\x00\x00\x03\x00\x03\x00!\x07\x00\x00\x04\x00\x00\x00D\x00C\x001\x00\x00\x00\x00\x00\x00\x00', ExtendedErrorInfo)
 
@@ -623,8 +533,15 @@ conf.dcerpc_session_enable = False
 assert pkts[15].vt_trailer.commands[0].Command == 2
 assert pkts[15].load == b'\x00\x00\x02\x00\x00\x00\x00\x00\x1a M\xe2\xd6O\xd1\x11\xa3\xda\x00\x00\xf8u\xae\r\x00\x00\x02\x00\x00\x00\x00\x004\x00\x00\x00\x00\x00\x00\x004\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00$\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
-assert pkts[21].load == b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00K\x00\x00\x00\x00\x00\x00\x00K\x00\x00\x00\x05\x00\x13\x00\r5BQ\xe3\x06K\xd1\x11\xab\x04\x00\xc0O\xc2\xdc\xd2\x04\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0b\x02\x00\x00\x00\x01\x00\x07\x02\x00\x00\x87\x01\x00\t\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00'
-assert pkts[22].load == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00K\x00\x00\x00\x00\x00\x00\x00K\x00\x00\x00\x05\x00\x13\x00\r5BQ\xe3\x06K\xd1\x11\xab\x04\x00\xc0O\xc2\xdc\xd2\x04\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0b\x02\x00\x00\x00\x01\x00\x07\x02\x00\xc2\x03\x01\x00\t\x04\x00\xc0\xa8\x00d\x00\x00\x00\x00\x00'
+assert pkts[21].obj.referent_id == 0x1
+assert pkts[21].map_tower.value.tower_octet_string == b'\x05\x00\x13\x00\r5BQ\xe3\x06K\xd1\x11\xab\x04\x00\xc0O\xc2\xdc\xd2\x04\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0b\x02\x00\x00\x00\x01\x00\x07\x02\x00\x00\x87\x01\x00\t\x04\x00\x00\x00\x00\x00'
+assert pkts[21].max_towers == 4
+
+assert pkts[22].num_towers == 1
+assert pkts[22].ITowers.max_count == 4
+assert pkts[22][ept_map_Response].valueof("ITowers")[0].max_count == 75
+assert pkts[22][ept_map_Response].valueof("ITowers")[0].tower_length == 75
+assert pkts[22][ept_map_Response].valueof("ITowers")[0].tower_octet_string == b'\x05\x00\x13\x00\r5BQ\xe3\x06K\xd1\x11\xab\x04\x00\xc0O\xc2\xdc\xd2\x04\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0b\x02\x00\x00\x00\x01\x00\x07\x02\x00\xc2\x03\x01\x00\t\x04\x00\xc0\xa8\x00d'
 
 + MS-RPC client and server
 
@@ -1000,3 +917,9 @@ except OSError:
     pass
 
 rpcserver.close()
+
++ Cleanup
+
+= Restore conf.debug_dissector
+
+conf.debug_dissector = old_debug_dissector

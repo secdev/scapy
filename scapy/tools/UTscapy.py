@@ -10,7 +10,6 @@ Unit testing infrastructure for Scapy
 import builtins
 import bz2
 import copy
-import code
 import getopt
 import glob
 import hashlib
