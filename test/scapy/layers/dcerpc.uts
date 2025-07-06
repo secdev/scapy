@@ -450,20 +450,45 @@ assert tower.floors[0].uuid
 
 from scapy.layers.msrpce.mseerr import *
 
-pkt = ndr_deserialize1(b'\x01\x10\x08\x00\xcc\xcc\xcc\xcc\x98\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01\x00\x00\x00\x04\x00\x02\x00\x01\x00\x01\x00\x04\x00\x00\x00\x08\x00\x02\x00\xc0\x03\x00\x00\x00\x00\x00\x00\xa5\xcfq`,\xea\xd9\x01\x02\x00\x00\x00!\x07\x00\x00L\x06\x00\x00\x01\x00\x00\x00\x03\x00\x03\x00\xc4\xfe\xfc\x99\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x02\x00\xc0\x03\x00\x00\x00\x00\x00\x00)fo`,\xea\xd9\x01\x03\x00\x00\x00\x00\x00\x00\x00G\x00\x00\x00\x03\x00\x00\x00\x03\x00\x03\x00\n\x00\x00\x00\x03\x00\x03\x00\x06\x00\x00\x00\x03\x00\x03\x00!\x07\x00\x00\x04\x00\x00\x00D\x00C\x001\x00\x00\x00\x00\x00\x00\x00', ExtendedErrorInfo)
+pkt = DceRpc5ExtendedErrorInfo(b'\x01\x10\x08\x00\xcc\xcc\xcc\xcc\x98\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01\x00\x00\x00\x04\x00\x02\x00\x01\x00\x01\x00\x04\x00\x00\x00\x08\x00\x02\x00\xc0\x03\x00\x00\x00\x00\x00\x00\xa5\xcfq`,\xea\xd9\x01\x02\x00\x00\x00!\x07\x00\x00L\x06\x00\x00\x01\x00\x00\x00\x03\x00\x03\x00\xc4\xfe\xfc\x99\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x02\x00\xc0\x03\x00\x00\x00\x00\x00\x00)fo`,\xea\xd9\x01\x03\x00\x00\x00\x00\x00\x00\x00G\x00\x00\x00\x03\x00\x00\x00\x03\x00\x03\x00\n\x00\x00\x00\x03\x00\x03\x00\x06\x00\x00\x00\x03\x00\x03\x00!\x07\x00\x00\x04\x00\x00\x00D\x00C\x001\x00\x00\x00\x00\x00\x00\x00', ExtendedErrorInfo)
 
-assert isinstance(pkt.value, ExtendedErrorInfo)
-assert pkt.value.max_count == 1
-assert pkt.value.Next.value.ProcessID == 960
-assert pkt.value.Next.value.TimeStamp == 133395140301514281
-assert [x.Type for x in pkt.value.Next.value.Params] == [3, 3, 3]
+assert isinstance(pkt.extended_error.value, ExtendedErrorInfo)
+assert pkt.extended_error.value.max_count == 1
+assert pkt.extended_error.value.Next.value.ProcessID == 960
+assert pkt.extended_error.value.Next.value.TimeStamp == 133395140301514281
+assert [x.Type for x in pkt.extended_error.value.Next.value.Params] == [3, 3, 3]
 
-assert pkt.value.ComputerName.value.value.valueof("pString") == b'D\x00C\x001\x00\x00\x00'
-assert pkt.value.ProcessID == 960
-assert pkt.value.TimeStamp == 133395140301672357
-assert pkt.value.Status == 1825
-assert pkt.value.DetectionLocation == 1612
-assert pkt.value.Params[0].Type == 3
+assert pkt.extended_error.value.ComputerName.value.value.valueof("pString") == b'D\x00C\x001\x00\x00\x00'
+assert pkt.extended_error.value.ProcessID == 960
+assert pkt.extended_error.value.TimeStamp == 133395140301672357
+assert pkt.extended_error.value.Status == 1825
+assert pkt.extended_error.value.DetectionLocation == 1612
+assert pkt.extended_error.value.Params[0].Type == 3
+
+= [MS-EERR] test show()
+
+with ContextManagerCaptureOutput() as cmco:
+    pkt.show()
+    result = cmco.get_output()
+
+EXPECTED = """# Extended Error Information
+PID: 960 - 18/09/2023 12:33:50.167234 (1695040430)
+ | ComputerName: DC1\x00
+ | Generating Component: Runtime
+ | Status: 1825
+ | DetectionLocation: OSF_SCALL__DoSecurityCallbackAndAccessCheck
+ | Flags 0
+ | Params:  [('eeptiLongVal', 2583494340)]
+PID: 960 - 18/09/2023 12:33:50.151428 (1695040430)
+ | Generating Component: Security Provider
+ | Status: STATUS_SUCCESS
+ | DetectionLocation: AcceptThirdLeg10
+ | Flags 0
+ | Params:  [('eeptiLongVal', 10), ('eeptiLongVal', 6), ('eeptiLongVal', 1825)]
+"""
+
+result
+assert result.strip() == EXPECTED.strip()
 
 + [PASSIVE] Passive sniffing
 ~ passive
