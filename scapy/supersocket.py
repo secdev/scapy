@@ -542,7 +542,10 @@ class StreamSocketPeekless(StreamSocket):
         ]
         if queued:
             return queued  # type: ignore
-        return super(StreamSocketPeekless, StreamSocketPeekless).select(sockets, remain=remain)
+        return super(StreamSocketPeekless, StreamSocketPeekless).select(
+            sockets,
+            remain=remain,
+        )
 
 
 # Old name: SSLStreamSocket

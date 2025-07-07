@@ -164,7 +164,7 @@ class _PKIObjMaker(type):
             if b"-----BEGIN" in _raw:
                 frmt = "PEM"
                 pem = _raw
-                der_list = split_pem(_raw)
+                der_list = split_pem(pem)
                 der = b''.join(map(pem2der, der_list))
             else:
                 frmt = "DER"
@@ -276,6 +276,13 @@ class PubKey(metaclass=_PubKeyFactory):
             encoding=serialization.Encoding.DER,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
+
+    def public_numbers(self, *args, **kwargs):
+        return self.pubkey.public_numbers(*args, **kwargs)
+
+    @property
+    def key_size(self):
+        return self.pubkey.key_size
 
     def export(self, filename, fmt="DER"):
         """

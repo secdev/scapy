@@ -7,19 +7,16 @@
 Forwarding machine.
 """
 
-from datetime import datetime, timezone, timedelta
-
 import enum
 import functools
 import os
 import select
 import socket
 import ssl
-import sys
 import threading
 import traceback
 
-from scapy.asn1.asn1 import ASN1_BOOLEAN, ASN1_OID, ASN1_UTC_TIME
+from scapy.asn1.asn1 import ASN1_OID
 from scapy.config import conf
 from scapy.data import MTU
 from scapy.packet import Packet
@@ -30,13 +27,10 @@ from scapy.volatile import RandInt
 
 from scapy.layers.tls.all import (
     Cert,
-    Chain,
-    PrivKeyRSA,
     PrivKeyECDSA,
 )
 from scapy.layers.x509 import (
     X509_AlgorithmIdentifier,
-    X509_SubjectPublicKeyInfo,
 )
 
 from cryptography.hazmat.primitives import serialization
@@ -62,12 +56,13 @@ class ForwardMachine:
         that they are routed through the local server, and some tweaking of the OS
         routes;
 
-    The TPROXY mode is expected to be used on a router with FORWARDING and only a specific
-    set of *nat rules set to -j TPROXY. A scripts called 'vethrelay.sh' is provided in the documentation
-    for setting this up.
-    
-    ForwardMachine supports transparently proxifying TLS. By default, it will generate lookalike self-signed
-    certificates, but it's also possible to specify a certificate by using crtfile and keyfile.
+    The TPROXY mode is expected to be used on a router with FORWARDING and only a
+    specific set of *nat rules set to -j TPROXY. A script called 'vethrelay.sh'
+    is provided in the documentation for setting this up.
+
+    ForwardMachine supports transparently proxifying TLS. By default, it will generate
+    lookalike self-signed certificates, but it's also possible to specify a certificate
+    by using crtfile and keyfile.
 
     Parameters:
 
@@ -75,14 +70,16 @@ class ForwardMachine:
     :param cls: the scapy class to parse on that port
     :param af: the address family to use (default AF_INET)
     :param proto: the proto to use (default SOCK_STREAM)
-    :param remote_address: the IP to use in SERVER mode, or by default in TPROXY when the destination
-        is the local IP.
+    :param remote_address: the IP to use in SERVER mode, or by default in TPROXY when
+        the destination is the local IP.
     :param remote_af: (optional) if provided, use a different address family to connect
         to the remote host.
-    :param bind_address: the IP to bind locally. "0.0.0.0" by default in SERVER mode, but "2.2.2.2" by default
-        in TPROXY (if you are using the provided 'vethrelay.sh' script).
+    :param bind_address: the IP to bind locally. "0.0.0.0" by default in SERVER mode,
+        but "2.2.2.2" by default in TPROXY (if you are using the provided
+        'vethrelay.sh' script).
     :param tls: enable TLS (in both the server and client)
-    :param crtfile: (optional) if provided, uses a certificate instead of self signed ones.
+    :param crtfile: (optional) if provided, uses a certificate instead of self signed
+        ones.
     :param keyfile: (optional) path to the key file
     :param timeout: the timeout before connecting to the real server (default 2)
 
@@ -164,7 +161,9 @@ class ForwardMachine:
             conn, addr = self.ssock.accept()
             # Calc dest
             dest = conn.getsockname()
-            if self.mode == ForwardMachine.MODE.SERVER or (dest[0] in self.local_ips and self.remote_address):
+            if self.mode == ForwardMachine.MODE.SERVER or (
+                dest[0] in self.local_ips and self.remote_address
+            ):
                 dest = (self.remote_address,) + dest[1:]
             print(self.ct.green("%s -> %s connected !" % (repr(addr), repr(dest))))
             try:
@@ -172,7 +171,7 @@ class ForwardMachine:
                     target=self.handler,
                     args=(conn, addr, dest),
                 ).start()
-            except Exception as ex:
+            except Exception:
                 print(self.ct.red("%s errored !" % repr(addr)))
                 conn.close()
                 pass
@@ -283,17 +282,20 @@ class ForwardMachine:
         # Set SubjectPublicKeyInfo to the one from our private key
         c.setSubjectPublicKeyFromPrivateKey(privkey)
         # Filter out extensions that would cause trouble
-        c.tbsCertificate.serialNumber.val = int(RandInt())  # otherwise SEC_ERROR_REUSED_ISSUER_AND_SERIAL
+        c.tbsCertificate.serialNumber.val = int(
+            RandInt()
+        )  # otherwise SEC_ERROR_REUSED_ISSUER_AND_SERIAL
         c.tbsCertificate.extensions = [
             x
             for x in c.tbsCertificate.extensions
-            if x.extnID not in [
-                '2.5.29.32',  # CPS
-                '2.5.29.31',  # cRLDistributionPoints
-                '1.3.6.1.5.5.7.1.1',  # authorityInfoAccess
-                '1.3.6.1.4.1.11129.2.4.2',  # SCT
-                '2.5.29.14',  # subjectKeyIdentifier
-                '2.5.29.35',  # authorityKeyIdentifier
+            if x.extnID
+            not in [
+                "2.5.29.32",  # CPS
+                "2.5.29.31",  # cRLDistributionPoints
+                "1.3.6.1.5.5.7.1.1",  # authorityInfoAccess
+                "1.3.6.1.4.1.11129.2.4.2",  # SCT
+                "2.5.29.14",  # subjectKeyIdentifier
+                "2.5.29.35",  # authorityKeyIdentifier
             ]
         ]
         # For now, we only provide a RSA private key, so we can only sign with that :/
@@ -315,19 +317,18 @@ class ForwardMachine:
         ident = server_name or dest
         if ident in self.cache:
             return self.cache[ident]
-        # Parse CAs 
+        # Parse CAs
         certs = [Cert(c.public_bytes()) for c in cas]
         # certs = certs[:1]
         # Generate Private Key
         privkey = PrivKeyECDSA()
         # Iterate
         certs = self.gen_alike_chain(certs, privkey)
-        # Build a chain object. This checks that everything is properly signed, and re-order
-        # the certs.
+        # Build a chain object. This checks that everything is properly signed, and
+        # re-order the certs.
         # chain = Chain(certs, cert0=certs[-1])
         self.cache[ident] = privkey, certs
         return privkey, certs
-
 
     def handler(self, sock, addr, dest):
         """
@@ -346,7 +347,8 @@ class ForwardMachine:
 
             # This acts as follows:
             # - start the server-side TLS handshake
-            # - use the SNI callback to pop a client-side socket (using the real provided SNI)
+            # - use the SNI callback to pop a client-side socket (using the real
+            #   provided SNI)
             # - serve the certificate
 
             _clisock = [ss]
@@ -361,12 +363,12 @@ class ForwardMachine:
                 ss = clisslcontext.wrap_socket(ss, server_hostname=server_name)
                 # Get certificate chain
                 cas = ss._sslobj.get_unverified_chain()
-                # Get negotiated cipher type
-                cipher = ss.shared_ciphers()
                 if self.crtfile is None:
                     # SELF-SIGNED mode
                     # Generate private key based on the type of certificate
-                    privkey, certs = self.get_key_and_alike_chain(cas, dest, server_name)
+                    privkey, certs = self.get_key_and_alike_chain(
+                        cas, dest, server_name
+                    )
                     # Load result certificate our SSL server
                     # (this is dumb but we need to store them on disk)
                     certfile = get_temp_file()
@@ -376,11 +378,15 @@ class ForwardMachine:
                     keyfile = get_temp_file()
                     with open(keyfile, "wb") as fd:
                         password = os.urandom(32)
-                        fd.write(privkey.key.private_bytes(
-                            encoding=serialization.Encoding.PEM,
-                            format=serialization.PrivateFormat.PKCS8,
-                            encryption_algorithm=serialization.BestAvailableEncryption(password),
-                        ))
+                        fd.write(
+                            privkey.key.private_bytes(
+                                encoding=serialization.Encoding.PEM,
+                                format=serialization.PrivateFormat.PKCS8,
+                                encryption_algorithm=serialization.BestAvailableEncryption(  # noqa: E501
+                                    password
+                                ),
+                            )
+                        )
                 else:
                     # Certificate is provided
                     certfile = self.crtfile
@@ -432,7 +438,11 @@ class ForwardMachine:
                         try:
                             func(data, ctx)
                             # If this doesn't raise, it's a user error.
-                            print(self.ct.red("%s ERROR: you must always raise in %s !" % func))
+                            print(
+                                self.ct.red(
+                                    "%s ERROR: you must always raise in %s !" % func
+                                )
+                            )
                             return
                         except self.REDIRECT_TO as ex:
                             # Replace the peer socket with a new socket
@@ -441,7 +451,10 @@ class ForwardMachine:
                                 ex.dest, server_hostname=ex.server_hostname
                             )
                             ss = self.sockcls(ss, self.cls)
-                            print("C: %s redirected to %s" % (repr(ctx.dest), repr(ex.dest)))
+                            print(
+                                "C: %s redirected to %s"
+                                % (repr(ctx.dest), repr(ex.dest))
+                            )
                             ctx.dest = ex.dest  # update context
                             # Shut the old one.
                             oldss.ins.shutdown(socket.SHUT_RDWR)
@@ -472,7 +485,7 @@ class ForwardMachine:
                         # Processing failed. forward to not break anything
                         print(
                             self.ct.orange(
-                                "Exception happend in handling client %s ! (forwarding.)"
+                                "Exception happened in handling client %s ! (forward)"
                                 % repr(addr)
                             )
                         )

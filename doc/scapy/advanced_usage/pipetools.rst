@@ -34,11 +34,11 @@ The following code will sniff packets on the default interface, anonymize the so
 
 The engine is pretty straightforward:
 
-.. image:: graphics/pipetool_demo.svg
+.. image:: ../graphics/pipetool_demo.svg
 
 Let's run it:
 
-.. image:: graphics/animations/pipetool_demo.gif
+.. image:: ../graphics/animations/pipetool_demo.gif
 
 Class Types
 -----------
@@ -56,7 +56,7 @@ The data then goes from Drains to Drains until it arrives in a Sink, the final s
 
 Let's see with a basic demo how to build a pipetool system.
 
-.. image:: graphics/pipetool_engine.png
+.. image:: ../graphics/pipetool_engine.png
 
 For instance, this engine was generated with this code:
 
