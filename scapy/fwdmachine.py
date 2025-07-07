@@ -51,13 +51,13 @@ class ForwardMachine:
     two modes:
 
     - SERVER: the server binds a port on its local IP and forwards packets to a
-        `remote_address`.
+        ``remote_address``.
     - TPROXY: the server binds can intercept packets to any IP destination, provided
         that they are routed through the local server, and some tweaking of the OS
         routes;
 
     The TPROXY mode is expected to be used on a router with FORWARDING and only a
-    specific set of *nat rules set to -j TPROXY. A script called 'vethrelay.sh'
+    specific set of nat rules set to -j TPROXY. A script called 'vethrelay.sh'
     is provided in the documentation for setting this up.
 
     ForwardMachine supports transparently proxifying TLS. By default, it will generate
