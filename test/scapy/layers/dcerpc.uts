@@ -446,6 +446,35 @@ assert [x.floors[3].rhs.decode().rstrip("\x00") for x in towers if x.floors[3].p
 tower = next(x for x in towers if x.floors[3].protocol_identifier == 15 and x.floors[3].rhs == b"\\PIPE\\ROUTER\x00")
 assert tower.floors[0].uuid 
 
+= DCE/RPC 5 NDR: Test length_is with size_is with after-the-fact size
+
+# From [MS-RRP]
+
+class BaseRegQueryValue_Response(NDRPacket):
+    fields_desc = [
+        NDRFullPointerField(NDRIntField("lpType", 0)),
+        NDRFullPointerField(
+            NDRConfVarStrLenField(
+                "lpData",
+                "",
+                size_is=lambda pkt: (pkt.lpcbData if pkt.lpcbData else 0),
+                length_is=lambda pkt: (pkt.lpcbLen if pkt.lpcbLen else 0),
+            )
+        ),
+        NDRFullPointerField(NDRIntField("lpcbData", 0)),
+        NDRFullPointerField(NDRIntField("lpcbLen", 0)),
+        NDRIntField("status", 0),
+    ]
+
+
+pkt = BaseRegQueryValue_Response(b'\x00\x00\x02\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x1a\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1a\x00\x00\x00\x00\x00\x00\x00W\x00i\x00n\x00d\x00o\x00w\x00s\x00 \x00U\x00s\x00e\x00r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x1a\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x1a\x00\x00\x00\x00\x00\x00\x00', ndr64=True)
+
+assert pkt.valueof("lpType") == 1
+assert pkt.valueof("lpData").decode("utf-16le") == 'Windows User\x00'
+assert pkt.valueof("lpcbData") == 26
+assert pkt.valueof("lpcbLen") == 26
+assert pkt.status == 0
+
 = DCE/RPC 5 NDR: Test DEPORTED_CONFORMANTS with offsetted padding
 
 from scapy.layers.msrpce.mseerr import *
