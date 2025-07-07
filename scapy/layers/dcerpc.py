@@ -1988,9 +1988,15 @@ class _NDRVarField:
     COUNT_FROM = False
 
     def __init__(self, *args, **kwargs):
-        # size is either from the length_is, if specified, or the "actual_count"
-        self.from_actual = "length_is" not in kwargs
-        length_is = kwargs.pop("length_is", lambda pkt: pkt.actual_count)
+        # We build the length_is function by taking into account both the
+        # actual_count (from the varying field) and a potentially provided
+        # length_is field.
+        if "length_is" in kwargs:
+            _length_is = kwargs.pop("length_is")
+            length_is = lambda pkt: (_length_is(pkt.underlayer) or pkt.actual_count)
+        else:
+            length_is = lambda pkt: pkt.actual_count
+        # Pass it to the sub-field (actually subclass)
         if self.LENGTH_FROM:
             kwargs["length_from"] = length_is
         elif self.COUNT_FROM:
@@ -2008,11 +2014,9 @@ class _NDRVarField:
             ndrendian=pkt.ndrendian,
             offset=offset,
             actual_count=actual_count,
+            _underlayer=pkt,
         )
-        if self.from_actual:
-            remain, val = super(_NDRVarField, self).getfield(final, remain)
-        else:
-            remain, val = super(_NDRVarField, self).getfield(pkt, remain)
+        remain, val = super(_NDRVarField, self).getfield(final, remain)
         final.value = super(_NDRVarField, self).i2h(pkt, val)
         return remain, final
 
