@@ -1044,8 +1044,9 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
             if SMB2_IOCTL_Response not in resp:
                 raise ValueError("Failed reading IOCTL_Response ! %s" % resp.NTStatus)
             data = bytes(resp.Output)
+            super(SMB_RPC_SOCKET, self).send(data)
             # Handle BUFFER_OVERFLOW (big DCE/RPC response)
-            while resp.NTStatus == "STATUS_BUFFER_OVERFLOW":
+            while resp.NTStatus == "STATUS_BUFFER_OVERFLOW" or data[3] & 2 != 2:
                 # Retrieve DCE/RPC full size
                 resp = self.ins.sr1(
                     SMB2_Read_Request(
@@ -1053,8 +1054,8 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
                     ),
                     verbose=0,
                 )
-                data += resp.Data
-            super(SMB_RPC_SOCKET, self).send(data)
+                data = resp.Data
+                super(SMB_RPC_SOCKET, self).send(data)
         else:
             # Use WriteRequest/ReadRequest
             pkt = SMB2_Write_Request(
