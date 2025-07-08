@@ -284,15 +284,20 @@ class PubKey(metaclass=_PubKeyFactory):
     def key_size(self):
         return self.pubkey.key_size
 
-    def export(self, filename, fmt="DER"):
+    def export(self, filename, fmt=None):
         """
         Export public key in 'fmt' format (DER or PEM) to file 'filename'
         """
+        if fmt is None:
+            if filename.endswith(".pem"):
+                fmt = "PEM"
+            else:
+                fmt = "DER"
         with open(filename, "wb") as f:
             if fmt == "DER":
-                f.write(self.der)
+                return f.write(self.der)
             elif fmt == "PEM":
-                f.write(self.pem)
+                return f.write(self.pem.encode())
 
 
 class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
@@ -544,15 +549,20 @@ class PrivKey(metaclass=_PrivKeyFactory):
             encryption_algorithm=serialization.NoEncryption()
         )
 
-    def export(self, filename, fmt="DER"):
+    def export(self, filename, fmt=None):
         """
         Export private key in 'fmt' format (DER or PEM) to file 'filename'
         """
+        if fmt is None:
+            if filename.endswith(".pem"):
+                fmt = "PEM"
+            else:
+                fmt = "DER"
         with open(filename, "wb") as f:
             if fmt == "DER":
-                f.write(self.der)
+                return f.write(self.der)
             elif fmt == "PEM":
-                f.write(self.pem)
+                return f.write(self.pem.encode())
 
 
 class PrivKeyRSA(PrivKey, _DecryptAndSignRSA):
@@ -826,6 +836,12 @@ class Cert(metaclass=_CertMaker):
         else:
             raise ValueError("Unknown type 'key', should be PubKey or PrivKey")
 
+    def resignWith(self, key):
+        """
+        Resign a certificate with a specific key
+        """
+        self.import_from_asn1pkt(key.resignCert(self))
+
     def remainingDays(self, now=None):
         """
         Based on the value of notAfter field, returns the number of
@@ -896,15 +912,20 @@ class Cert(metaclass=_CertMaker):
     def der(self):
         return bytes(self.x509Cert)
 
-    def export(self, filename, fmt="DER"):
+    def export(self, filename, fmt=None):
         """
         Export certificate in 'fmt' format (DER or PEM) to file 'filename'
         """
+        if fmt is None:
+            if filename.endswith(".pem"):
+                fmt = "PEM"
+            else:
+                fmt = "DER"
         with open(filename, "wb") as f:
             if fmt == "DER":
-                f.write(self.der)
+                return f.write(self.der)
             elif fmt == "PEM":
-                f.write(self.pem)
+                return f.write(self.pem.encode())
 
     def show(self):
         print("Serial: %s" % self.serial)
