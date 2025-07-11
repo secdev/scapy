@@ -225,6 +225,10 @@ def scan(sock,  # type: SuperSocket
                                                 noise_ids, False, pkt),
                    timeout=sniff_time * 10, store=False)
 
+    if return_values != cleaned_ret_val:
+        log_isotp.error("Some ISOTP endpoints detected in first scan didn't "
+                        "answer validation round. Possible bug on target.")
+
     return cleaned_ret_val
 
 
@@ -385,18 +389,18 @@ def isotp_scan(sock,  # type: SuperSocket
     filter_periodic_packets(found_packets)
 
     if output_format == "text":
-        return generate_text_output(found_packets, extended_addressing)
+        return generate_text_output(found_packets, extended_addressing, fd)
 
     if output_format == "code":
         return generate_code_output(found_packets, can_interface,
-                                    extended_addressing)
+                                    extended_addressing, fd)
 
     if output_format == "json":
         return generate_json_output(found_packets, can_interface,
-                                    extended_addressing)
+                                    extended_addressing, fd)
 
     return generate_isotp_list(found_packets, can_interface or sock,
-                               extended_addressing)
+                               extended_addressing, fd)
 
 
 def generate_text_output(found_packets, extended_addressing=False, fd=False):
