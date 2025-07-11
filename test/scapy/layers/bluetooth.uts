@@ -476,11 +476,41 @@ p = HCI_Hdr(hex_bytes('043e1402010001554433221100080717ffeeddccbbaaaa'))
 assert EIR_PublicTargetAddress in p
 assert p[EIR_PublicTargetAddress].bd_addr == 'aa:bb:cc:dd:ee:ff'
 
+= Parse EIR_AdvertisingInterval
+p = HCI_Event_Hdr(hex_bytes('3e23020100002e4961121110170201060f0954656c6553617420283432453229031a9001a3'))
+assert EIR_AdvertisingInterval in p
+assert p[EIR_AdvertisingInterval].advertising_interval == 400
+
+p = BTLE(hex_bytes('d6be898e20234fe761e5b754021a1803030a18020ace12fffa07104a2b010000000054b7e561e74f00000000'))
+assert EIR_AdvertisingInterval in p
+assert p[EIR_AdvertisingInterval].advertising_interval == 24
+
+= Parse EIR_LEBluetoothDeviceAddress
+p = HCI_Event_Hdr(hex_bytes("3e2a02010000d93519d7ba4c1e0201020affc4000734151317fd80081b00d93519d7ba4c0303b9fe020ad4ad"))
+assert EIR_LEBluetoothDeviceAddress in p
+assert p[EIR_LEBluetoothDeviceAddress].addr_type == 0x0
+assert p[EIR_LEBluetoothDeviceAddress].bd_addr == '4c:ba:d7:19:35:d9'
+
+= Parse EIR_Appearance
+p = BTLE(hex_bytes("d6be898e201660d4d3cebffb0201050319420c0303e7fe040948393850c27c"))
+assert EIR_Appearance in p
+assert p[EIR_Appearance].appearance == 0x0c42
+assert p[EIR_Appearance].category == 0x31 #'Pulse Oximeter'
+assert p[EIR_Appearance].subcategory == 0x02 # Wrist Worn Pulse Oximeter
+
 = Parse EIR_ServiceData32BitUUID
 
 p = HCI_Hdr(hex_bytes('042fff01c47c80894df801000c0128a269a30c4a125d13f30196894df80c012820f61a1a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'))
 assert EIR_ServiceData32BitUUID in p
 assert p[EIR_ServiceData32BitUUID].svc_uuid == 0x001a1af6
+
+= Parse EIR_URI
+
+p = HCI_Event_Hdr(hex_bytes('3e2902010301f3c1dad728031d1c24172f2f6669726d776172652e73696c766169722e636f6d2f6f6f62ac'))
+assert EIR_URI in p
+assert p[EIR_URI].scheme == 0x17
+assert p[EIR_URI].uri_hier_part == b'//firmware.silvair.com/oob'
+assert p[EIR_URI].uri == 'https://firmware.silvair.com/oob'
 
 = Parse EIR_Flags, EIR_CompleteList16BitServiceUUIDs, EIR_CompleteLocalName and EIR_TX_Power_Level
 
@@ -679,6 +709,59 @@ assert b[EIR_CompleteList128BitServiceUUIDs].svc_uuids[0] == UUID("01234567-89ab
 
 assert a.summary() == "HCI Event / HCI_Event_Hdr / HCI_Event_LE_Meta / HCI_LE_Meta_Advertising_Reports"
 
+= EIR_Hdr - HCI_LE_Meta_Extended_Advertising_Report
+a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Extended_Advertising_Reports(reports=[
+   HCI_LE_Meta_Extended_Advertising_Report(
+      #event_type = 0x0012,
+      scannable = 1,
+      legacy = 1,
+      address_type = 0x01,
+      address="a1:b2:c3:d4:e5:f6",
+      primary_phy = 1,
+      rssi = -85,
+      data=[
+         EIR_Hdr()/EIR_CompleteList16BitServiceUUIDs(
+            svc_uuids = [0xffff],
+         ),
+         EIR_Hdr()/EIR_ServiceData16BitUUID(
+             svc_uuid = 0xffff
+         )/Raw(b"scapy\x00\x00\x00")
+      ]
+   ),
+    HCI_LE_Meta_Extended_Advertising_Report(
+      #event_type = 0x001a,
+      scannable = 1,
+      scan_response = 1,
+      legacy = 1,
+      address_type = 0x01,
+      address="a1:b2:c3:d4:e5:f6",
+      primary_phy = 1,
+      rssi = -85,
+      data=[
+         EIR_Hdr()/EIR_Manufacturer_Specific_Data(
+            company_id = 0xffff,
+         ) / Raw(b"scapy\x00\x01\x02\x03\x04")
+      ]
+   ),
+])
+
+assert raw(a) == b"\x04\x3e\x50\x0d\x02\x12\x00\x01\xf6\xe5\xd4\xc3\xb2\xa1\x01\x00\xff\x7f\xab\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10\x03\x03\xff\xff\x0b\x16\xff\xffscapy\x00\x00\x00\x1a\x00\x01\xf6\xe5\xd4\xc3\xb2\xa1\x01\x00\xff\x7f\xab\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x0d\xff\xff\xffscapy\x00\x01\x02\x03\x04"
+
+b = HCI_Hdr(raw(a))
+b.show()
+assert b[HCI_Event_Hdr].len > 0
+assert b[HCI_LE_Meta_Extended_Advertising_Reports].num_reports == 2
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].address == "a1:b2:c3:d4:e5:f6"
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].tx_power == 0x7f
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].rssi == -85
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].data_length > 0
+assert b[EIR_CompleteList16BitServiceUUIDs].svc_uuids == [0xffff]
+assert b[EIR_ServiceData16BitUUID].svc_uuid == 0xffff
+assert raw(b[EIR_ServiceData16BitUUID].payload) == b"scapy\x00\x00\x00"
+assert b[EIR_Manufacturer_Specific_Data].company_id == 0xffff
+assert raw(b[EIR_Manufacturer_Specific_Data].payload) == b"scapy\x00\x01\x02\x03\x04"
+
+
 = ATT_Hdr - misc
 a = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/ATT_Hdr()/ATT_Read_By_Type_Request_128bit(uuid1=0xa14, uuid2=0xa24)
 a = HCI_Hdr(raw(a))
@@ -707,6 +790,12 @@ assert pkt.handles[2].handle == 0x6
 pkt.handles[0].value == b'\x02\x03\x00\x00*'
 pkt.handles[1].value == b'\x02\x05\x00\x01*'
 pkt.handles[2].value == b'\x02\x07\x00\x04*'
+
+= SM_Security_Request
+pkt = HCI_Hdr(hex_bytes('0200260600020006000b0d'))
+assert SM_Security_Request in pkt
+assert pkt[SM_Security_Request].auth_req == 0x0d
+
 
 = SM_Public_Key() tests
 

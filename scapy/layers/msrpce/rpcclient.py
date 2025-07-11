@@ -81,6 +81,7 @@ class DCERPC_Client(object):
         self.ssp = kwargs.pop("ssp", None)  # type: SSP
         self.sspcontext = None
         self.dcesockargs = kwargs
+        self.dcesockargs["transport"] = self.transport
 
     @classmethod
     def from_smblink(cls, smbcli, smb_kwargs={}, **kwargs):
@@ -346,10 +347,13 @@ class DCERPC_Client(object):
             else:
                 # Call the underlying SSP
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
-                    self.sspcontext, val=resp.auth_verifier.auth_value
+                    self.sspcontext,
+                    token=resp.auth_verifier.auth_value,
                 )
             if status in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
-                # Authentication should continue
+                # Authentication should continue, in two ways:
+                # - through DceRpc5Auth3 (e.g. NTLM)
+                # - through DceRpc5AlterContext (e.g. Kerberos)
                 if token and self.ssp.LegsAmount(self.sspcontext) % 2 == 1:
                     # AUTH 3 for certain SSPs (e.g. NTLM)
                     # "The server MUST NOT respond to an rpc_auth_3 PDU"
@@ -364,9 +368,6 @@ class DCERPC_Client(object):
                     )
                     status = GSS_S_COMPLETE
                 else:
-                    # Authentication can continue in two ways:
-                    # - through DceRpc5Auth3 (e.g. NTLM)
-                    # - through DceRpc5AlterContext (e.g. Kerberos)
                     while token:
                         respcls = DceRpc5AlterContextResp
                         resp = self.sr1(
@@ -387,7 +388,8 @@ class DCERPC_Client(object):
                             status = GSS_S_COMPLETE
                             break
                         self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
-                            self.sspcontext, val=resp.auth_verifier.auth_value
+                            self.sspcontext,
+                            token=resp.auth_verifier.auth_value,
                         )
         # Check context acceptance
         if (
@@ -489,6 +491,7 @@ class DCERPC_Client(object):
         ip,
         interface,
         port=None,
+        timeout=5,
         smb_kwargs={},
     ):
         """
@@ -526,7 +529,7 @@ class DCERPC_Client(object):
             else:
                 return
             # 2. connect to the SMB server
-            self.connect(ip, port=port, smb_kwargs=smb_kwargs)
+            self.connect(ip, port=port, timeout=timeout, smb_kwargs=smb_kwargs)
             # 3. open the new named pipe
             self.open_smbpipe(pipename)
         # Bind in RPC

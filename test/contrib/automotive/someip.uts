@@ -113,7 +113,7 @@ pstr = bytes(p)
 binstr = b"\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x00\x00"
 assert pstr == binstr
 
-= Build TP fragmented
+= Build TP fragmented payload
 p = SOMEIP()
 p.msg_type = 0x20
 p.add_payload(Raw("A"*1400))
@@ -124,6 +124,20 @@ assert f[0].len == 1404
 assert f[1].len == 20
 assert f[0].payload == Raw("A"*1392)
 assert f[1].payload == Raw("A"*8)
+assert f[0].more_seg == 1
+assert f[1].more_seg == 0
+
+= Build TP fragmented data
+p = SOMEIP()
+p.msg_type = 0x20
+p.data = [Raw("A"*1400)]
+
+f = p.fragment()
+
+assert f[0].len == 1404
+assert f[1].len == 20
+assert f[0].data[0] == Raw("A"*1392)
+assert f[1].data[0] == Raw("A"*8)
 assert f[0].more_seg == 1
 assert f[1].more_seg == 0
 
@@ -727,3 +741,58 @@ _opts_check(opts + opts[::-1])
 p = SOMEIP(srv_id=1234, sub_id=4321, msg_type=0xff, retcode=0xff, offset=4294967040, data=[Raw(b"deadbeef")])
 
 assert p.data[0].load == b"deadbeef"
+
+= test fragment
+
+msg = bytes.fromhex("aabbccdd0003aabbccdd20608100a5dc0800450005a050ad400040117ee9c0a87262c0a872037725e107058c6b54402f801e0000057c0000000e0101220000000001123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210123456789abcdef0fedcba9876543210fedcba9876543210a1b2c3d4e5f678901234567890abcdef0f1e2d3c4b5a697889abcdef01234567f0e1d2c3b4a59687111122223333444455556666777788889999aaaabbbbccccdeadbeafbaddcafecafebabedeafbeef1122334455667788a1b2c3d4e5f6f7f823456789abcdef0199887766554433221a2b3c4d5e6f7a8beaf1234567890deffedcba987654321001f23e45d6789abce1f2d3c4b5a6d7e8c9a1b2f3e4d5a6b7d8e1f0a2b3c4d5e623a1b2c3d4e5f678f23456789abcdef09876543210abcdefabcdef012345678987654321f0e1d2c312f34d56a78b9c019a8b7c6d5e4f3a2b56789abcdef0123423456789abcdef01a1b2c3d4e5f678909876543210abcdefabcdef0123456789f23456789abcdef099887766554433221a2b3c4d5e6f7a8bf0e1d2c3b4a59687abcdef9876543210234567890abcdef19999aaaabbbbccccdeadbeafbaddcafecafebabedeafbeef111122223333444455556666777788889999aaaabbbbccccdeadbeafbaddcafecafebabedeafbeef1122334455667788a1b2c3d4e5f6f7f823456789abcdef0199887766554433221a2b3c4d5e6f7a8beaf1234567890deffedcba987654321001f23e45d6789abce1f2d3c4b5a6d7e8c9a1b2f3e4d5a6b7d8e1f0a2b3c4d5e623a1b2c3d4e5f678f23456789abcdef09876543210abcdefabcdef012345678987654321f0e1d2c312f34d56a78b9c019a8b7c6d5e4f3a2b56789abcdef0123423456789abcdef01a1b2c3d4e5f678909876543210abcdefabcdef0123456789f23456789abcdef099887766554433221a2b3c4d5e6f7a8bf0e1d2c3b4a59687abcdef9876543210234567890abcdef19999aaaabbbbccccdeadbeafbaddcafecafebabedeafbeef111122223333444455556666777788889999aaaabbbbccccdeadbeafbaddcafecafebabedeafbeef1122334455667788a1b2c3d4e5f6f7f823456789abcdef0199887766554433221a2b3c4d5e6f7a8beaf1234567890deffedcba987654321001f23e45d6789abce1f2d3c4b5a6d7e8c9a1b2f3e4d5a6b7d8e1f0a2b3c4d5e623a1b2c3d4e5f678f23456789abcdef09876543210abcdefabcdef0123456789123456789abcdef01a2b3c4d5e6f70819a8b7c6d5e4f3a21d1c2b3a4f5e60798a9b8c7d6e5f4f3d2123456789abcdef01f2e3d4c5b6a7980a4b3c2d1e0f1f8a9456789abcdef0123f1e2d3c4b5a60789d6c5b4a3f2e1f0a91e2d3c4b5a6078f09c8b7a6d5e4f3b212b1a3c4d5e6f7081a7b8c9d6e5f4f0d2f5e4d3c2b1a0798a8123456789abcdef1f2e3d4c5b6a7981a3b2c1d0f1e607929081726354abcdef0f1e2d3c4b5a60788b7a6c5d4e3f2109d4c3b2a1f0e6078a4f5e6d7c8b9a1234e9d8c7b6a5f4e308a1b2c3d4e5f678909c8b7a6d5e4f32103b2a1c0d5e6f7098a0b1c2d3e4f5e6176d5e4f3c2b1a7890d7c8b9a0f1e2f390f1e2d3c4b5a607899b8a7c6d5e4f3211d3c2b1a0f1e6078b8f9e6d7c5b4a3210b2c1a3d4e5f6f8090e1d2c3b4a5f6789c9b8a7d6e5f4e3087d6c5b4a3f2e10989a8b7c6d5e4f32106e5d4c3b2a1f70980a9b8c7d6e5f4d023e1f2d4c5b6a70988f9e7d6c5b4a3102")
+pkt = Ether(msg)[SOMEIP]
+
+x = pkt.fragment(fragsize=100)
+for i, p in enumerate(x):
+	if i == len(x) -1:
+		assert p.more_seg == 0
+		assert len(p.data[0]) < 100
+	else:
+		assert p.more_seg == 1
+		assert len(p.data[0]) == 100
+
+= SOMEIP multiple frames in one TCP/UDP
+
+payload_3 = bytes.fromhex("deadbeef")
+someip_3 = SOMEIP(srv_id=0xabcd, sub_id=0x8001, len=8 + len(payload_3))
+someip_3.payload = Raw(load=payload_3)
+
+payload_2 = bytes.fromhex("ff")
+someip_23 = SOMEIP(srv_id=0x5678, sub_id=0x8002, len=8 + len(payload_2))
+someip_23.payload = Raw(load=payload_2 + bytes(someip_3))
+
+payload_1 = bytes.fromhex("0000")
+someip_123 = SOMEIP(srv_id=0x1234, sub_id=0x8001, len=8 + len(payload_1))
+someip_123.payload = Raw(load=payload_1 + bytes(someip_23))
+
+eth_frame = (
+    Ether(src="00:11:22:33:44:55", dst="AA:BB:CC:DD:EE:FF")
+    / IP(src="192.168.0.10", dst="192.168.0.20")
+    / UDP(sport=30501, dport=30491)
+    / someip_123
+)
+
+pkt = Ether(bytes(eth_frame))
+
+
+pkt.show()
+layers = pkt.layers()
+assert len(layers) == 6
+assert layers[-1] == SOMEIP
+assert layers[-2] == SOMEIP
+assert layers[-3] == SOMEIP
+
+
+someip_123_x = pkt[SOMEIP]
+
+assert someip_123_x.data[0].load == payload_1
+someip_23_x = someip_123_x.payload
+assert someip_23_x.data[0].load == payload_2
+someip_3_x = someip_23_x.payload
+assert someip_3_x.data[0].load == payload_3
+

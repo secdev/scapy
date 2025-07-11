@@ -203,7 +203,7 @@ class Route:
             if dev is not None and i != dev:
                 continue
             aa = atol(a)
-            if aa == atol_dst:
+            if aa == atol_dst and aa != 0:
                 paths.append(
                     (0xffffffff, 1, (conf.loopback_name, a, "0.0.0.0"))  # noqa: E501
                 )

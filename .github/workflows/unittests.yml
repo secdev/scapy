@@ -7,6 +7,11 @@ on:
     # The branches below must be a subset of the branches above
     branches: [master]
 
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(github.ref, 'master')}}
+
 permissions:
   contents: read
 
@@ -78,15 +83,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+        python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
         mode: [non_root]
         installmode: ['']
         flags: [" -K scanner"]
         allow-failure: ['false']
         include:
-          # Linux root tests
+          # Python 3.7
+          - os: ubuntu-22.04
+            python: "3.7"
+            mode: non_root
+            flags: " -K scanner"
+          # Linux root tests on last version
           - os: ubuntu-latest
-            python: "3.12"
+            python: "3.13"
             mode: root
             flags: " -K scanner"
           # PyPy tests: root only
@@ -96,28 +106,33 @@ jobs:
             flags: " -K scanner"
           # Libpcap test
           - os: ubuntu-latest
-            python: "3.12"
+            python: "3.13"
             mode: root
             installmode: 'libpcap'
             flags: " -K scanner"
           # macOS tests
           - os: macos-14
-            python: "3.12"
+            python: "3.13"
             mode: both
+            flags: " -K scanner"
+          # windows tests
+          - os: windows-latest
+            python: "3.13"
+            mode: root
             flags: " -K scanner"
           # Scanner tests
           - os: ubuntu-latest
-            python: "3.12"
-            mode: root
-            allow-failure: 'true'
-            flags: " -k scanner"
-          - os: ubuntu-latest
-            python: "pypy3.9"
+            python: "3.13"
             mode: root
             allow-failure: 'true'
             flags: " -k scanner"
           - os: macos-14
-            python: "3.12"
+            python: "3.13"
+            mode: both
+            allow-failure: 'true'
+            flags: " -k scanner"
+          - os: windows-latest
+            python: "3.13"
             mode: both
             allow-failure: 'true'
             flags: " -k scanner"
@@ -131,12 +146,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - name: Install Tox and any other packages
+      - name: Install Tox and any other packages (linux/osx)
         run: ./.config/ci/install.sh ${{ matrix.installmode }}
-      - name: Run Tox
-        run: UT_FLAGS="${{ matrix.flags }}" ./.config/ci/test.sh ${{ matrix.python }} ${{ matrix.mode }}
+        if: ${{ ! contains(matrix.os, 'windows') }}
+      - name: Install Tox and any other packages (win)
+        run: ./.config/ci/install.ps1
+        if: ${{ contains(matrix.os, 'windows') }}
+      - name: Run Tox (linux/osx)
+        run: ./.config/ci/test.sh ${{ matrix.python }} ${{ matrix.mode }}
+        env:
+          UT_FLAGS: ${{ matrix.flags }}
+        if: ${{ ! contains(matrix.os, 'windows') }}
+      - name: Run Tox (win)
+        run: ./.config/ci/test.ps1 ${{ matrix.python }}
+        env:
+          UT_FLAGS: ${{ matrix.flags }}
+        if: ${{ contains(matrix.os, 'windows') }}
       - name: Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

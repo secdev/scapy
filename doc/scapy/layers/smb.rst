@@ -5,8 +5,6 @@ Scapy provides pretty good support for SMB 2/3 and very partial support of SMB1.
 
 You can use the :class:`~scapy.layers.smb2.SMB2_Header` to dissect or build SMB2/3, or :class:`~scapy.layers.smb.SMB_Header` for SMB1.
 
-.. warning:: Encryption is currently not supported in neither the client nor server.
-
 .. _client:
 
 SMB 2/3 client
@@ -93,6 +91,12 @@ You might be wondering if you can pass the ``HashNT`` of the password of the use
     SMB authentication successful using KerberosSSP !
 
 If you pay very close attention, you'll notice that in this case we aren't using the :class:`~scapy.layers.spnego.SPNEGOSSP` wrapper. You could have used ``ssp=SPNEGOSSP([t.ssp(1)])``.
+
+**smbclient forcing encryption**:
+
+.. code:: python
+
+   >>> smbclient("server1.domain.local", "admin", REQUIRE_ENCRYPTION=True)
 
 .. note::
 
@@ -242,6 +246,14 @@ A share is identified by a ``name`` and a ``path`` (+ an optional description ca
         )
     )
 
+**Start a SMB server with NTLM auth in an AD, using machine credentials:**
+
+.. note:: This requires an active account with ``WORKSTATION_TRUST_ACCOUNT`` in its ``userAccountControl``. (otherwise you might get ``STATUS_NO_TRUST_SAM_ACCOUNT``)
+
+.. code:: python
+
+    smbserver(ssp=NTLMSSP_DOMAIN(UPN="Computer1@domain.local", HASHNT=bytes.fromhex("7facdc498ed1680c4fd1448319a8c04f")))
+
 **Start a SMB server with Kerberos auth:**
 
 .. code:: python
@@ -305,6 +317,15 @@ A share is identified by a ``name`` and a ``path`` (+ an optional description ca
         # Enable Read-Write
         readonly=False,
     )
+
+**Start a SMB server requiring encryption (two methods)**:
+
+.. code:: python
+
+   # Method 1: require encryption globally (available in SMB 3.0.0+)
+   >>> smbserver(..., REQUIRE_ENCRYPTION=True)
+   # Method 2: for a specific share (only available in SMB 3.1.1+)
+   >>> smbserver(..., shares=[SMBShare(name="Scapy", path="/tmp", encryptdata=True)])
 
 .. note::
 

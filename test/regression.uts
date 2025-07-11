@@ -288,6 +288,9 @@ pkt = NetflowHeader()/NetflowHeaderV5()/NetflowRecordV5()
 conf.layers.filter([NetflowHeader, NetflowHeaderV5])
 assert NetflowRecordV5 not in NetflowHeader(bytes(pkt))
 
+# Conf.ifaces.reload() should still work (arch/* is exempt)
+conf.ifaces.reload()
+
 conf.layers.unfilter()
 assert NetflowRecordV5 in NetflowHeader(bytes(pkt))
 
@@ -678,7 +681,7 @@ scapy_delete_temp_files()
 tmpfile = get_temp_file(autoext=".ut")
 tmpfile
 if WINDOWS:
-    assert "scapy" in tmpfile and tmpfile.lower().startswith('c:\\users\\appveyor\\appdata\\local\\temp')
+    assert "scapy" in tmpfile and "AppData\\Local\\Temp" in tmpfile
 else:
     import platform
     BYPASS_TMP = platform.python_implementation().lower() == "pypy" or DARWIN
@@ -1840,7 +1843,7 @@ finally:
     sck.close()
 
 = Sending and receiving an ICMPv6EchoRequest
-~ netaccess ipv6
+~ netaccess ipv6 needs_root
 def _test():
     with no_debug_dissector():
         x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
@@ -2347,6 +2350,11 @@ assert l[0][LDAP].summary() == "LDAP"
 file = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\x01\x00\x00\x00%\xa8\xddfK\x1b\x05\x00\xca\xca\xca\xca*\x00\x00\x00\xff\xff\xff\xff\xff\xff\x86"\x11&\xab3\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01]\x80\x0f\x13*r\n\x00\x02\x0f\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 l = rdpcap(file)
 assert len(l) == 0 or ARP in l[0]
+
+# Read PCAPNG file with tightly packed comment option, no End of Options
+file = BytesIO(b'\n\r\r\n\x1c\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x1c\x00\x00\x00\x01\x00\x00\x00\x14\x00\x00\x00\x01\x00\x00\x00\x00\x00\x04\x00\x14\x00\x00\x00\x06\x00\x00\x00,\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x08\x00Helloooo,\x00\x00\x00')
+l = rdpcap(file)
+assert len(l) == 1 and l[0].comment == b'Helloooo'
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
@@ -2964,7 +2972,7 @@ def mock_inet_ntop(af, data):
 
 
 class BSDLoader:
-    def __init__(self, OPENBSD=False, FREEBSD=False, NETBSD=False, DARWIN=False, sysctldata=None, ifaces={}, AF_INET6=socket.AF_INET6):
+    def __init__(self, OPENBSD=False, FREEBSD=False, NETBSD=False, DARWIN=False, sysctldata=None, ifaces={}, AF_INET6=socket.AF_INET6, IS_64BITS=True):
         self.sysctldata = sysctldata
         self.ifaces = ifaces
         socket.AF_LINK = 18
@@ -2976,6 +2984,7 @@ class BSDLoader:
             # mock.patch('scapy.consts.FREEBSD', FREEBSD),
             mock.patch('scapy.consts.NETBSD', NETBSD),
             mock.patch('scapy.consts.DARWIN', DARWIN),
+            mock.patch('scapy.consts.IS_64BITS', IS_64BITS),
         ]
     def __enter__(self):
         # Apply patches that only occur when loading
@@ -3029,6 +3038,26 @@ assert routes == [
     (2887241727, 4294967295, '172.23.192.138', 'hvn0', '172.23.192.138', 1)
 ]
 
+= OpenBSD 7.6 GENERIC#531 i386 - read_routes()
+~ mock_read_routes_bsd little_endian_only
+
+import zlib
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789c7bc2c0ca92c0c0c8c0c0c0c160cec2c0e0ccc10006fa760c28c08089012b60c52e0c07024c98fc35120f1871c92b083132b031b331a4a41a3088c632a47262316f8dc4ab1330be12434a4672414e6a62716a0a2e371c00fb919901ec4720e989c38f584103612520373d40e3d73330a0f8f10392bc8210338304d03939f90638cd43d68fee7e6f1ab8bf9e80fbff53c5fd8c60f7bb02630d9bfbb126b1062483f0bb9f111fff3f1050e67e109705ec7e47c606aceec70588713f304fa0f111691ce27e440a22358f5c80bb9f1912fe2ccc58ddbf1c4a478aec4a4716c791f5d1dd0ff726d87d4008749cd0e702ecea51e3835cff40d3138b0256ff781370377eff20ec23c67d94f8e700ba7f181cb0fa673a45fe79ff1f958f9ebec877ff281805a360148c8251300a46c128183a0000223e6527'))
+
+with BSDLoader(OPENBSD=True, sysctldata=_PFROUTE_DATA, AF_INET6=24, IS_64BITS=False) as pfroute:
+    routes = pfroute.read_routes()
+
+assert routes == [
+    (0, 0, '172.24.224.1', 'de0', '172.24.234.200', 1),
+    (3758096384, 4026531840, '127.0.0.1', 'lo0', '127.0.0.1', 1),
+    (2130706432, 4278190080, '127.0.0.1', 'lo0', '127.0.0.1', 1),
+    (2130706433, 4294967295, '127.0.0.1', 'lo0', '127.0.0.1', 1),
+    (2887311360, 4294963200, '172.24.234.200', 'de0', '172.24.234.200', 1),
+    (2887311361, 4294967295, '0.0.0.0', 'de0', '172.24.234.200', 1),
+    (2887314120, 4294967295, '0.0.0.0', 'de0', '172.24.234.200', 1),
+    (2887315455, 4294967295, '172.24.234.200', 'de0', '172.24.234.200', 1)
+]
+
 
 = OpenBSD 7.5 amd64 - read_routes6()
 ~ mock_read_routes_bsd little_endian_only
@@ -3041,6 +3070,34 @@ _PFROUTE_DATA = zlib.decompress(bytes.fromhex('789ced96bb0dc2301086cf38481125a24
 with BSDLoader(OPENBSD=True, sysctldata=_PFROUTE_DATA, AF_INET6=24) as pfroute:
     routes = pfroute.read_routes6()
 
+
+assert routes == [
+    ('::', 96, '::1', 'lo0', ['::1'], 1),
+    ('::1', 128, '::1', 'lo0', ['::1'], 1),
+    ('::ffff:0.0.0.0', 96, '::1', 'lo0', ['::1'], 1),
+    ('2002::', 24, '::1', 'lo0', ['::1'], 1),
+    ('2002:7f00::', 24, '::1', 'lo0', ['::1'], 1),
+    ('2002:e000::', 20, '::1', 'lo0', ['::1'], 1),
+    ('2002:ff00::', 24, '::1', 'lo0', ['::1'], 1),
+    ('fe80::', 10, '::1', 'lo0', ['::1'], 1),
+    ('fec0::', 10, '::1', 'lo0', ['::1'], 1),
+    ('fe80:3::1', 128, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1),
+    ('ff01::', 16, '::1', 'lo0', ['::1'], 1),
+    ('ff01:3::', 32, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1),
+    ('ff02::', 16, '::1', 'lo0', ['::1'], 1),
+    ('ff02:3::', 32, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1)
+]
+
+= OpenBSD 7.6 GENERIC#531 i386 - read_routes6()
+~ mock_read_routes_bsd little_endian_only
+
+import zlib
+
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789ced96310e824010450717136269456141ac2cedac2dacaced3d808947905b781d8ee21138814836226477083b0ae89aff0a9a1966e7e5872c394dc32329228a68533ef71169ae87803a49bb5b16b1b816346b4583aa21992b8acb954fe7b5786efef20db4ef8e96ba68faaeb80929d1ac4dc6e16ca96fe5dc8fef58f9d6397d37df617d93896caf86afd5e087ef45b497ffbe37d15eb56f6e35f8e16be7f4cff9de995e27dfcc6ef0c23793ed35bc6f75ff26ba3840beca3cdba5f6c9fdcbcd1d2bdf8219e7f6fdda0dfde41b6adfedf39e347d59fb949dcb9e5dfaaab65a57bee67b5ee4fbf6ff86dde045be93dfc81700000000000000000000009f7900a834b765'))
+
+
+with BSDLoader(OPENBSD=True, sysctldata=_PFROUTE_DATA, AF_INET6=24, IS_64BITS=False) as pfroute:
+    routes = pfroute.read_routes6()
 
 assert routes == [
     ('::', 96, '::1', 'lo0', ['::1'], 1),
@@ -3360,13 +3417,13 @@ try:
         (3232235775, 4294967295, '0.0.0.0', 'enp3s0', '2.2.2.2', 281),
         (3232235639, 4294967295, '0.0.0.0', 'enp3s0', '3.3.3.3', 281),
         (3232235520, 4294967040, '0.0.0.0', 'enp3s0', '4.4.4.4', 281),
-        (0, 0, '192.168.0.254', 'enp3s0', '192.168.0.119', 25)
+        (0, 0, '192.168.0.254', 'enp3s0', '0.0.0.0', 25)
     ]
     assert conf.route.route("192.168.0.0-10") == ('enp3s0', '4.4.4.4', '0.0.0.0')
     assert conf.route.route("192.168.0.119") == ('lo', '192.168.0.119', '0.0.0.0')
     assert conf.route.route("224.0.0.0") == ('enp3s0', '1.1.1.1', '0.0.0.0')
     assert conf.route.route("255.255.255.255") == ('enp3s0', '192.168.0.119', '0.0.0.0')
-    assert conf.route.route("*") == ('enp3s0', '192.168.0.119', '192.168.0.254')
+    assert conf.route.route("*") == ('enp3s0', '4.4.4.4', '192.168.0.254')
 finally:
     conf.loopback_name = old_loopback
     conf.iface = old_iface
@@ -4880,3 +4937,34 @@ def _test_fragleak(func, sr1, select, L3socket):
 
 assert _test_fragleak(fragleak)
 assert _test_fragleak(fragleak2)
+
++ CLIUtil
+~ cliutil
+
+= CLIUtil: define and check overlap
+
+from scapy.layers.smbclient import smbclient
+
+class CLI1(CLIUtil):
+    @CLIUtil.addcommand()
+    def shares(self):
+        return 1
+    @CLIUtil.addoutput(shares)
+    def shares_output(self, results):
+        print(results)
+
+
+class CLI2(CLIUtil):
+    @CLIUtil.addcommand()
+    def shares(self):
+        return 2
+    @CLIUtil.addoutput(shares)
+    def shares_output(self, results):
+        print(results)
+
+
+c1 = CLI1(cli=False)
+c2 = CLI2(cli=False)
+
+assert c1.shares() == 1
+assert c2.shares() == 2

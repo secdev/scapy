@@ -294,6 +294,12 @@ class LayersList(List[Type['scapy.packet.Packet']]):
     def register(self, layer):
         # type: (Type[Packet]) -> None
         self.append(layer)
+
+        # Skip arch* modules
+        if layer.__module__.startswith("scapy.arch."):
+            return
+
+        # Register in module
         if layer.__module__ not in self.ldict:
             self.ldict[layer.__module__] = []
         self.ldict[layer.__module__].append(layer)
@@ -619,11 +625,15 @@ class ExtsManager(importlib.abc.MetaPathFinder):
                 for k, v in distr.metadata.items() if k == 'Classifier'
             ):
                 try:
-                    pkg = next(
-                        k
-                        for k, v in importlib.metadata.packages_distributions().items()
-                        if distr.name in v
-                    )
+                    # Python 3.13 raises an internal warning when calling this
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings("ignore", category=DeprecationWarning)
+                        pkg = next(
+                            k
+                            for k, v in
+                            importlib.metadata.packages_distributions().items()
+                            if distr.name in v
+                        )
                 except KeyError:
                     pkg = distr.name
                 if pkg in self._loaded:
@@ -1049,6 +1059,8 @@ class Conf(ConfClass):
         'llmnr',
         'lltd',
         'mgcp',
+        'msrpce.rpcclient',
+        'msrpce.rpcserver',
         'mobileip',
         'netbios',
         'netflow',
@@ -1117,6 +1129,8 @@ class Conf(ConfClass):
     #: Windows SSPs for sniffing. This is used with
     #: dcerpc_session_enable
     winssps_passive = []
+    #: Disables auto-stripping of StrFixedLenField for debugging purposes
+    debug_strfixedlenfield = False
 
     def __getattribute__(self, attr):
         # type: (str) -> Any

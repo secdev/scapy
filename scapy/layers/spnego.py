@@ -61,9 +61,12 @@ from scapy.layers.gssapi import (
     GSSAPI_BLOB,
     GSSAPI_BLOB_SIGNATURE,
     GSS_C_FLAGS,
+    GSS_C_NO_CHANNEL_BINDINGS,
     GSS_S_BAD_MECH,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
+    GSS_S_FLAGS,
+    GssChannelBindings,
     SSP,
     _GSSAPI_OIDS,
     _GSSAPI_SIGNATURE_OIDS,
@@ -710,7 +713,17 @@ class SPNEGOSSP(SSP):
     def LegsAmount(self, Context: CONTEXT):
         return 4
 
-    def _common_spnego_handler(self, Context, IsClient, val=None, req_flags=None):
+    def _common_spnego_handler(
+        self,
+        Context,
+        IsClient,
+        token=None,
+        req_flags=None,
+        chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
+    ):
+        """
+        Common code shared across both GSS_sec_Init_Context and GSS_sec_Accept_Context
+        """
         if Context is None:
             # New Context
             Context = SPNEGOSSP.CONTEXT(
@@ -723,8 +736,8 @@ class SPNEGOSSP(SSP):
 
         # Extract values from GSSAPI token
         status, MIC, otherMIC, rawToken = 0, None, None, False
-        if val:
-            val, status, otherMIC, rawToken = self._extract_gssapi(Context, val)
+        if token:
+            token, status, otherMIC, rawToken = self._extract_gssapi(Context, token)
 
         # If we don't have a SSP already negotiated, check for requested and available
         # SSPs and find a common one.
@@ -744,7 +757,7 @@ class SPNEGOSSP(SSP):
                     # Check whether the selected SSP was the one preferred by the client
                     if (
                         Context.negotiated_mechtype != Context.requested_mechtypes[0]
-                        and val
+                        and token
                     ):
                         Context.first_choice = False
                 # No SSPs were requested. Use the first available SSP we know.
@@ -772,12 +785,16 @@ class SPNEGOSSP(SSP):
                     status,
                 ) = Context.ssp.GSS_Init_sec_context(
                     Context.sub_context,
-                    val=val,
+                    token=token,
                     req_flags=Context.req_flags,
+                    chan_bindings=chan_bindings,
                 )
             else:
                 Context.sub_context, tok, status = Context.ssp.GSS_Accept_sec_context(
-                    Context.sub_context, val=val
+                    Context.sub_context,
+                    token=token,
+                    req_flags=Context.req_flags,
+                    chan_bindings=chan_bindings,
                 )
             # Check whether client or server says the specified mechanism is not valid
             if status == GSS_S_BAD_MECH:
@@ -792,6 +809,7 @@ class SPNEGOSSP(SSP):
                 for x in list(Context.supported_mechtypes):
                     if x.oid.val in to_remove:
                         Context.supported_mechtypes.remove(x)
+                        break
                 # Re-calculate negotiated mechtype
                 try:
                     Context.negotiated_mechtype = next(
@@ -808,7 +826,13 @@ class SPNEGOSSP(SSP):
                 Context.sub_context = None  # Reset the SSP context
                 if IsClient:
                     # Call ourselves again for the client to generate a token
-                    return self._common_spnego_handler(Context, True, None)
+                    return self._common_spnego_handler(
+                        Context,
+                        IsClient=True,
+                        token=None,
+                        req_flags=req_flags,
+                        chan_bindings=chan_bindings,
+                    )
                 else:
                     # Return nothing but the supported SSP list
                     tok, status = None, GSS_S_CONTINUE_NEEDED
@@ -919,23 +943,45 @@ class SPNEGOSSP(SSP):
         return Context, spnego_tok, status
 
     def GSS_Init_sec_context(
-        self, Context: CONTEXT, val=None, req_flags: Optional[GSS_C_FLAGS] = None
+        self,
+        Context: CONTEXT,
+        token=None,
+        req_flags: Optional[GSS_C_FLAGS] = None,
+        chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
     ):
-        return self._common_spnego_handler(Context, True, val=val, req_flags=req_flags)
+        return self._common_spnego_handler(
+            Context,
+            True,
+            token=token,
+            req_flags=req_flags,
+            chan_bindings=chan_bindings,
+        )
 
-    def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
-        return self._common_spnego_handler(Context, False, val=val, req_flags=0)
+    def GSS_Accept_sec_context(
+        self,
+        Context: CONTEXT,
+        token=None,
+        req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
+        chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
+    ):
+        return self._common_spnego_handler(
+            Context,
+            False,
+            token=token,
+            req_flags=req_flags,
+            chan_bindings=chan_bindings,
+        )
 
-    def GSS_Passive(self, Context: CONTEXT, val=None):
+    def GSS_Passive(self, Context: CONTEXT, token=None, req_flags=None):
         if Context is None:
             # New Context
             Context = SPNEGOSSP.CONTEXT(self.supported_ssps)
             Context.passive = True
 
         # Extraction
-        val, status, _, rawToken = self._extract_gssapi(Context, val)
+        token, status, _, rawToken = self._extract_gssapi(Context, token)
 
-        if val is None and status == GSS_S_COMPLETE:
+        if token is None and status == GSS_S_COMPLETE:
             return Context, None
 
         # Just get the negotiated SSP
@@ -961,7 +1007,11 @@ class SPNEGOSSP(SSP):
             Context.ssp = ssp
 
         # Passthrough
-        Context.sub_context, status = Context.ssp.GSS_Passive(Context.sub_context, val)
+        Context.sub_context, status = Context.ssp.GSS_Passive(
+            Context.sub_context,
+            token,
+            req_flags=req_flags,
+        )
 
         return Context, status
 

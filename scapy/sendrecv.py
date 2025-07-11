@@ -585,12 +585,15 @@ def sendpfast(x: _PacketIterable,
         try:
             cmd = subprocess.Popen(argv, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
+            cmd.wait()
         except KeyboardInterrupt:
+            if cmd:
+                cmd.terminate()
             log_interactive.info("Interrupted by user")
         except Exception:
             os.unlink(f)
             raise
-        else:
+        finally:
             stdout, stderr = cmd.communicate()
             if stderr:
                 log_runtime.warning(stderr.decode())
@@ -1147,6 +1150,7 @@ class AsyncSniffer(object):
         self.thread = None  # type: Optional[Thread]
         self.results = None  # type: Optional[PacketList]
         self.exception = None  # type: Optional[Exception]
+        self.stop_cb = lambda: None  # type: Callable[[], None]
 
     def _setup_thread(self):
         # type: () -> None

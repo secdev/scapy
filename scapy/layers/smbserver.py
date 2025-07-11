@@ -26,6 +26,7 @@ import time
 from scapy.arch import get_if_addr
 from scapy.automaton import ATMT, Automaton
 from scapy.config import conf
+from scapy.consts import WINDOWS
 from scapy.error import log_runtime, log_interactive
 from scapy.volatile import RandUUID
 
@@ -76,17 +77,18 @@ from scapy.layers.smb2 import (
     FileStreamInformation,
     NETWORK_INTERFACE_INFO,
     SECURITY_DESCRIPTOR,
+    SMB2_CREATE_DURABLE_HANDLE_RESPONSE_V2,
+    SMB2_CREATE_QUERY_MAXIMAL_ACCESS_RESPONSE,
+    SMB2_CREATE_QUERY_ON_DISK_ID,
     SMB2_Cancel_Request,
     SMB2_Change_Notify_Request,
     SMB2_Change_Notify_Response,
     SMB2_Close_Request,
     SMB2_Close_Response,
     SMB2_Create_Context,
-    SMB2_CREATE_DURABLE_HANDLE_RESPONSE_V2,
-    SMB2_CREATE_QUERY_MAXIMAL_ACCESS_RESPONSE,
-    SMB2_CREATE_QUERY_ON_DISK_ID,
     SMB2_Create_Request,
     SMB2_Create_Response,
+    SMB2_ENCRYPTION_CIPHERS,
     SMB2_Echo_Request,
     SMB2_Echo_Response,
     SMB2_Encryption_Capabilities,
@@ -94,8 +96,8 @@ from scapy.layers.smb2 import (
     SMB2_FILEID,
     SMB2_Header,
     SMB2_IOCTL_Network_Interface_Info,
-    SMB2_IOCTL_Request,
     SMB2_IOCTL_RESP_GET_DFS_Referral,
+    SMB2_IOCTL_Request,
     SMB2_IOCTL_Response,
     SMB2_IOCTL_Validate_Negotiate_Info_Response,
     SMB2_Negotiate_Context,
@@ -108,6 +110,7 @@ from scapy.layers.smb2 import (
     SMB2_Query_Info_Response,
     SMB2_Read_Request,
     SMB2_Read_Response,
+    SMB2_SIGNING_ALGORITHMS,
     SMB2_Session_Logoff_Request,
     SMB2_Session_Logoff_Response,
     SMB2_Session_Setup_Request,
@@ -155,9 +158,11 @@ class SMBShare:
     :param path: the path the the folder hosted by the share
     :param type: (optional) share type per [MS-SRVS] sect 2.2.2.4
     :param remark: (optional) a description of the share
+    :param encryptdata: (optional) whether encryption should be used for this
+        share. This only applies to SMB 3.1.1.
     """
 
-    def __init__(self, name, path=".", type=None, remark=""):
+    def __init__(self, name, path=".", type=None, remark="", encryptdata=False):
         # Set the default type
         if type is None:
             type = 0  # DISKTREE
@@ -171,6 +176,7 @@ class SMBShare:
         self.name = name
         self.type = type
         self.remark = remark
+        self.encryptdata = encryptdata
 
     def __repr__(self):
         type = SRVSVC_SHARE_TYPES[self.type & 0x0FFFFFFF]
@@ -202,6 +208,8 @@ class SMB_Server(Automaton):
     :param ANONYMOUS_LOGIN: mark the clients as anonymous
     :param GUEST_LOGIN: mark the clients as guest
     :param REQUIRE_SIGNATURE: set 'Require Signature'
+    :param REQUIRE_ENCRYPTION: globally require encryption.
+        You could also make it share-specific on 3.1.1.
     :param MAX_DIALECT: maximum SMB dialect. Defaults to 0x0311 (3.1.1)
     :param TREE_SHARE_FLAGS: flags to announce on Tree_Connect_Response
     :param TREE_CAPABILITIES: capabilities to announce on Tree_Connect_Response
@@ -223,7 +231,8 @@ class SMB_Server(Automaton):
         self.GUEST_LOGIN = kwargs.pop("GUEST_LOGIN", None)
         self.EXTENDED_SECURITY = kwargs.pop("EXTENDED_SECURITY", True)
         self.USE_SMB1 = kwargs.pop("USE_SMB1", False)
-        self.REQUIRE_SIGNATURE = kwargs.pop("REQUIRE_SIGNATURE", False)
+        self.REQUIRE_SIGNATURE = kwargs.pop("REQUIRE_SIGNATURE", None)
+        self.REQUIRE_ENCRYPTION = kwargs.pop("REQUIRE_ENCRYPTION", False)
         self.MAX_DIALECT = kwargs.pop("MAX_DIALECT", 0x0311)
         self.TREE_SHARE_FLAGS = kwargs.pop(
             "TREE_SHARE_FLAGS", "FORCE_LEVELII_OPLOCK+RESTRICT_EXCLUSIVE_OPENS"
@@ -294,6 +303,8 @@ class SMB_Server(Automaton):
         self.SMB2 = False
         self.NegotiateCapabilities = None
         self.GUID = RandUUID()._fix()
+        self.NextForceSign = False
+        self.NextForceEncrypt = False
         # Compounds are handled on receiving by the StreamSocket,
         # and on aggregated in a CompoundQueue to be sent in one go
         self.NextCompound = False
@@ -315,9 +326,8 @@ class SMB_Server(Automaton):
         Automaton.__init__(self, *args, **kwargs)
         # Set session options
         self.session.ssp = ssp
-        self.session.SecurityMode = kwargs.pop(
-            "SECURITY_MODE",
-            3 if self.REQUIRE_SIGNATURE else bool(ssp),
+        self.session.SigningRequired = (
+            self.REQUIRE_SIGNATURE if self.REQUIRE_SIGNATURE is not None else bool(ssp)
         )
 
     @property
@@ -336,7 +346,14 @@ class SMB_Server(Automaton):
                 print("> %s" % s)
 
     def send(self, pkt):
-        return super(SMB_Server, self).send(pkt, Compounded=self.NextCompound)
+        ForceSign, ForceEncrypt = self.NextForceSign, self.NextForceEncrypt
+        self.NextForceSign = self.NextForceEncrypt = False
+        return super(SMB_Server, self).send(
+            pkt,
+            Compounded=self.NextCompound,
+            ForceSign=ForceSign,
+            ForceEncrypt=ForceEncrypt,
+        )
 
     @ATMT.state(initial=1)
     def BEGIN(self):
@@ -433,6 +450,9 @@ class SMB_Server(Automaton):
             self.send(resp)
             return
         if self.SMB2:  # SMB2
+            # SecurityMode
+            if SMB2_Header in pkt and pkt.SecurityMode.SIGNING_REQUIRED:
+                self.session.SigningRequired = True
             # Capabilities: [MS-SMB2] 3.3.5.4
             self.NegotiateCapabilities = "+".join(
                 [
@@ -449,16 +469,17 @@ class SMB_Server(Automaton):
                         "MULTI_CHANNEL",
                         "PERSISTENT_HANDLES",
                         "DIRECTORY_LEASING",
+                        "ENCRYPTION",
                     ]
                 )
-            if DialectRevision in [0x0300, 0x0302]:
-                # "if Connection.Dialect is "3.0" or "3.0.2""...
-                # Note: 3.1.1 uses the ENCRYPT_DATA flag in Tree Connect Response
-                self.NegotiateCapabilities += "+ENCRYPTION"
             # Build response
             resp = self.smb_header.copy() / cls(
                 DialectRevision=DialectRevision,
-                SecurityMode=self.session.SecurityMode,
+                SecurityMode=(
+                    "SIGNING_ENABLED+SIGNING_REQUIRED"
+                    if self.session.SigningRequired
+                    else "SIGNING_ENABLED"
+                ),
                 ServerTime=(time.time() + 11644473600) * 1e7,
                 ServerStartTime=0,
                 MaxTransactionSize=65536,
@@ -473,7 +494,27 @@ class SMB_Server(Automaton):
                 resp.MaxReadSize = 0x800000
                 resp.MaxWriteSize = 0x800000
             # SMB 3.1.1
-            if DialectRevision >= 0x0311:
+            if DialectRevision >= 0x0311 and pkt.NegotiateContextsCount:
+                # Negotiate context-capabilities
+                for ngctx in pkt.NegotiateContexts:
+                    if ngctx.ContextType == 0x0002:
+                        # SMB2_ENCRYPTION_CAPABILITIES
+                        for ciph in ngctx.Ciphers:
+                            tciph = SMB2_ENCRYPTION_CIPHERS.get(ciph, None)
+                            if tciph in self.session.SupportedCipherIds:
+                                # Common !
+                                self.session.CipherId = tciph
+                                self.session.SupportsEncryption = True
+                                break
+                    elif ngctx.ContextType == 0x0008:
+                        # SMB2_SIGNING_CAPABILITIES
+                        for signalg in ngctx.SigningAlgorithms:
+                            tsignalg = SMB2_SIGNING_ALGORITHMS.get(signalg, None)
+                            if tsignalg in self.session.SupportedSigningAlgorithmIds:
+                                # Common !
+                                self.session.SigningAlgorithmId = tsignalg
+                                break
+                # Send back the negotiated algorithms
                 resp.NegotiateContexts = [
                     # Preauth capabilities
                     SMB2_Negotiate_Context()
@@ -504,7 +545,11 @@ class SMB_Server(Automaton):
                     "LEVEL_II_OPLOCKS+LOCK_AND_READ+NT_FIND+"
                     "LWIO+INFOLEVEL_PASSTHRU+LARGE_READX+LARGE_WRITEX"
                 ),
-                SecurityMode=self.session.SecurityMode,
+                SecurityMode=(
+                    "SIGNING_ENABLED+SIGNING_REQUIRED"
+                    if self.session.SigningRequired
+                    else "SIGNING_ENABLED"
+                ),
                 ServerTime=(time.time() + 11644473600) * 1e7,
                 ServerTimeZone=0x3C,
             )
@@ -534,6 +579,11 @@ class SMB_Server(Automaton):
             )
         self.send(resp)
 
+    @ATMT.state(final=1)
+    def NEGO_FAILED(self):
+        self.vprint("SMB Negotiate failed: encryption was not negotiated.")
+        self.end()
+
     @ATMT.state()
     def NEGOTIATED(self):
         pass
@@ -550,6 +600,17 @@ class SMB_Server(Automaton):
         self.smb_header.CreditCharge = pkt.CreditCharge
         # If the packet has a NextCommand, set NextCompound to True
         self.NextCompound = bool(pkt.NextCommand)
+        # [MS-SMB2] sect 3.3.4.1.1 - "If the request was signed by the client..."
+        # If the packet was signed, note we must answer with a signed packet.
+        if (
+            not self.session.SigningRequired
+            and pkt.SecuritySignature != b"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+        ):
+            self.NextForceSign = True
+        # [MS-SMB2] sect 3.3.4.1.4 - "If the message being sent is any response to a
+        # client request for which Request.IsEncrypted is TRUE"
+        if pkt[SMB2_Header]._decrypted:
+            self.NextForceEncrypt = True
         # [MS-SMB2] sect 3.3.5.2.7.2
         # Add SMB2_FLAGS_RELATED_OPERATIONS to the response if present
         if pkt.Flags.SMB2_FLAGS_RELATED_OPERATIONS:
@@ -632,12 +693,19 @@ class SMB_Server(Automaton):
             ):
                 # SMB1 extended / SMB2
                 if SMB2_Session_Setup_Request in pkt:
-                    # SMB2
                     resp = self.smb_header.copy() / SMB2_Session_Setup_Response()
                     if self.GUEST_LOGIN:
+                        # "If the security subsystem indicates that the session
+                        # was established by a guest user, Session.SigningRequired
+                        # MUST be set to FALSE and Session.IsGuest MUST be set to TRUE."
                         resp.SessionFlags = "IS_GUEST"
+                        self.session.IsGuest = True
+                        self.session.SigningRequired = False
                     if self.ANONYMOUS_LOGIN:
                         resp.SessionFlags = "IS_NULL"
+                    # [MS-SMB2] sect 3.3.5.5.3
+                    if self.session.Dialect >= 0x0300 and self.REQUIRE_ENCRYPTION:
+                        resp.SessionFlags += "ENCRYPT_DATA"
                 else:
                     # SMB1 extended
                     resp = (
@@ -672,10 +740,23 @@ class SMB_Server(Automaton):
             )
         if status == GSS_S_COMPLETE:
             # Authentication was successful
-            self.session.computeSMBSessionKey()
+            self.session.computeSMBSessionKeys(IsClient=False)
             self.authenticated = True
-        # and send
+        # [MS-SMB2] Note: "Windows-based servers always sign the final session setup
+        # response when the user is neither anonymous nor guest."
+        # If not available, it will still be ignored.
+        self.NextForceSign = True
         self.send(resp)
+        # Check whether we must enable encryption from now on
+        if (
+            self.authenticated
+            and not self.session.IsGuest
+            and self.session.Dialect >= 0x0300
+            and self.REQUIRE_ENCRYPTION
+        ):
+            # [MS-SMB2] sect 3.3.5.5.3: from now on, turn encryption on !
+            self.session.EncryptData = True
+            self.session.SigningRequired = False
 
     @ATMT.condition(RECEIVED_SETUP_ANDX_REQUEST)
     def wait_for_next_request(self):
@@ -771,7 +852,9 @@ class SMB_Server(Automaton):
     def send_tree_connect_response(self, pkt, tree_name):
         self.update_smbheader(pkt)
         # Check the tree name against the shares we're serving
-        if not any(x._name == tree_name.lower() for x in self.shares):
+        try:
+            share = next(x for x in self.shares if x._name == tree_name.lower())
+        except StopIteration:
             # Unknown tree
             resp = self.smb_header.copy() / SMB2_Error_Response()
             resp.Command = "SMB2_TREE_CONNECT"
@@ -783,17 +866,32 @@ class SMB_Server(Automaton):
             self.tree_id += 1
             self.smb_header.TID = self.tree_id
         self.current_trees[self.smb_header.TID] = tree_name
+
+        # Construct ShareFlags
+        ShareFlags = (
+            "AUTO_CACHING+NO_CACHING"
+            if self.current_tree() == "IPC$"
+            else self.TREE_SHARE_FLAGS
+        )
+        # [MS-SMB2] sect 3.3.5.7
+        if (
+            self.session.Dialect >= 0x0311
+            and not self.session.EncryptData
+            and share.encryptdata
+        ):
+            if not self.session.SupportsEncryption:
+                raise Exception("Peer asked for encryption but doesn't support it !")
+            ShareFlags += "+ENCRYPT_DATA"
+
         self.vprint("Tree Connect on: %s" % tree_name)
         self.send(
-            self.smb_header
+            self.smb_header.copy()
             / SMB2_Tree_Connect_Response(
                 ShareType="PIPE" if self.current_tree() == "IPC$" else "DISK",
-                ShareFlags="AUTO_CACHING+NO_CACHING"
-                if self.current_tree() == "IPC$"
-                else self.TREE_SHARE_FLAGS,
-                Capabilities=0
-                if self.current_tree() == "IPC$"
-                else self.TREE_CAPABILITIES,
+                ShareFlags=ShareFlags,
+                Capabilities=(
+                    0 if self.current_tree() == "IPC$" else self.TREE_CAPABILITIES
+                ),
                 MaximalAccess=self.TREE_MAXIMAL_ACCESS,
             )
         )
@@ -848,7 +946,11 @@ class SMB_Server(Automaton):
                             SMB2_IOCTL_Validate_Negotiate_Info_Response(
                                 GUID=self.GUID,
                                 DialectRevision=self.session.Dialect,
-                                SecurityMode=self.session.SecurityMode,
+                                SecurityMode=(
+                                    "SIGNING_ENABLED+SIGNING_REQUIRED"
+                                    if self.session.SigningRequired
+                                    else "SIGNING_ENABLED"
+                                ),
                                 Capabilities=self.NegotiateCapabilities,
                             ),
                         )
@@ -957,7 +1059,7 @@ class SMB_Server(Automaton):
         # Note: symbolic links are currently unsupported.
         if root not in path.parents and path != root:
             raise FileNotFoundError
-        if path.is_reserved():
+        if WINDOWS and path.is_reserved():
             raise FileNotFoundError
         if not path.exists():
             if create and createOptions:

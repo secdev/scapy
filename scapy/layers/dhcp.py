@@ -34,6 +34,7 @@ from scapy.fields import (
     FlagsField,
     IntField,
     IPField,
+    MACField,
     ShortField,
     StrEnumField,
     StrField,
@@ -52,6 +53,7 @@ from scapy.volatile import (
     RandInt,
     RandNum,
     RandNumExpo,
+    VolatileValue,
 )
 
 from scapy.arch import get_if_hwaddr
@@ -63,7 +65,14 @@ dhcpmagic = b"c\x82Sc"
 
 
 class _BOOTP_chaddr(StrFixedLenField):
+    def i2m(self, pkt, x):
+        if isinstance(x, VolatileValue):
+            x = x._fix()
+        return MACField.i2m(self, pkt, x)
+
     def i2repr(self, pkt, v):
+        if isinstance(v, VolatileValue):
+            return repr(v)
         if pkt.htype == 1:  # Ethernet
             if v[6:] == b"\x00" * 10:  # Default padding
                 return "%s (+ 10 nul pad)" % str2mac(v[:6])
@@ -115,12 +124,12 @@ class BOOTP(Packet):
         return self.xid == other.xid
 
 
-class _DHCPParamReqFieldListField(FieldListField):
+class _DHCPByteFieldListField(FieldListField):
     def randval(self):
-        class _RandReqFieldList(RandField):
+        class _RandByteFieldList(RandField):
             def _fix(self):
                 return [RandByte()] * int(RandByte())
-        return _RandReqFieldList()
+        return _RandByteFieldList()
 
 
 class RandClasslessStaticRoutesField(RandField):
@@ -277,7 +286,7 @@ DHCPOptions = {
     52: ByteField("dhcp-option-overload", 100),
     53: ByteEnumField("message-type", 1, DHCPTypes),
     54: IPField("server_id", "0.0.0.0"),
-    55: _DHCPParamReqFieldListField(
+    55: _DHCPByteFieldListField(
         "param_req_list", [],
         ByteField("opcode", 0)),
     56: "error_message",
@@ -337,6 +346,9 @@ DHCPOptions = {
     137: "v4-lost",
     138: IPField("capwap-ac-v4", "0.0.0.0"),
     141: "sip_ua_service_domains",
+    145: _DHCPByteFieldListField(
+         "forcerenew_nonce_capable", [],
+         ByteEnumField("algorithm", 1, {1: "HMAC-MD5"})),
     146: "rdnss-selection",
     150: IPField("tftp_server_address", "0.0.0.0"),
     159: "v4-portparams",

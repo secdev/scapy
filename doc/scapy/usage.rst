@@ -559,7 +559,7 @@ In this example, we used the `traceroute_map()` function to print the graphic. T
 It could have been done differently:
 
     >>> conf.geoip_city = "path/to/GeoLite2-City.mmdb"
-    >>> a = traceroute(["www.google.co.uk", "www.secdev.org"], verbose=0)
+    >>> a, _ = traceroute(["www.google.co.uk", "www.secdev.org"], verbose=0)
     >>> a.world_trace()
 
 or such as above:
@@ -798,7 +798,12 @@ Available by default:
    - HTTP 1.0
    - TLS
    - Kerberos
+   - LDAP
+   - SMB
    - DCE/RPC
+   - Postgres
+   - DOIP
+   - and maybe other protocols if this page isn't up to date.
 - :py:class:`~scapy.sessions.TLSSession` -> *matches TLS sessions* on the flow.
 - :py:class:`~scapy.sessions.NetflowSession` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
 
@@ -841,6 +846,8 @@ The ``data`` argument is bytes and the ``metadata`` argument is a dictionary whi
 - ``metadata["pay_class"]``: the TCP payload class (here TLS)
 - ``metadata.get("tcp_psh", False)``: will be present if the PUSH flag is set
 - ``metadata.get("tcp_end", False)``: will be present if the END or RESET flag is set
+
+If ``tcp_reassemble`` **returns any padding**, it will be kept for the next payload.
 
 Filters
 -------
@@ -1114,7 +1121,7 @@ We can easily plot some harvested values using Matplotlib. (Make sure that you h
 For example, we can observe the IP ID patterns to know how many distinct IP stacks are used behind a load balancer::
 
     >>> a, b = sr(IP(dst="www.target.com")/TCP(sport=[RandShort()]*1000))
-    >>> a.plot(lambda x:x[1].id)
+    >>> a.plot(lambda q,r: r.id)
     [<matplotlib.lines.Line2D at 0x2367b80d6a0>]
 
 .. image:: graphics/ipid.png

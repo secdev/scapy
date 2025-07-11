@@ -13,6 +13,10 @@ Implementation of cryptographic functions for Kerberos 5
 - RFC 4757: The RC4-HMAC Kerberos Encryption Types Used by Microsoft Windows
 - RFC 6113: A Generalized Framework for Kerberos Pre-Authentication
 - RFC 8009: AES Encryption with HMAC-SHA2 for Kerberos 5
+
+.. note::
+    You will find more complete documentation for Kerberos over at
+    `SMB <https://scapy.readthedocs.io/en/latest/layers/kerberos.html>`_
 """
 
 # TODO: support cipher states...
@@ -149,7 +153,7 @@ class EncryptionType(enum.IntEnum):
 
 class ChecksumType(enum.IntEnum):
     CRC32 = 1
-    # RSA_MD4 = 2
+    RSA_MD4 = 2
     RSA_MD4_DES = 3
     # RSA_MD5 = 7
     RSA_MD5_DES = 8
@@ -1381,6 +1385,18 @@ class Key(object):
         if len(seed) != ep.seedsize:
             raise ValueError("Wrong crypto seed length")
         return ep.random_to_key(seed)
+
+    @classmethod
+    def new_random_key(cls, etype):
+        # type: (EncryptionType) -> Key
+        """
+        Generates a seed then calls random-to-key
+        """
+        try:
+            ep = _enctypes[etype]
+        except ValueError:
+            raise ValueError("Unknown etype '%s'" % etype)
+        return cls.random_to_key(etype, os.urandom(ep.seedsize))
 
     @classmethod
     def string_to_key(cls, etype, string, salt, params=None):

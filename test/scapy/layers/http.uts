@@ -68,6 +68,17 @@ assert HTTPResponse in pkt
 print(pkt[Raw].load, expected_data)
 assert pkt[Raw].load == expected_data
 
+= TCPSession - Invalid Content-Length
+
+pkts = [
+    IP()/TCP(seq=1)/HTTP()/Raw(load=b'GET / HTTP/1.1\r\nContent-Length: bad\r\nCoo'),
+    IP()/TCP(seq=41)/HTTP()/Raw(load=b'kie: cookie\r\n\r\n'),
+]
+a = sniff(offline=pkts, session=TCPSession)
+
+assert HTTPRequest in a[0]
+assert a[0].Cookie == b"cookie"
+
 = TCPSession - dissect HTTP 1.0 HEAD response
 ~ http
 
@@ -268,20 +279,32 @@ assert gzip.decompress(z) == c.load
 + Test HTTP client/server
 
 = Util function to launch HTTP_server
-~ http-client
+~ http-client https-client
 
-from scapy.layers.http import HTTP_Server, HTTP_AUTH_MECHS
+from scapy.layers.http import (
+    HTTP_Server,
+    HTTPS_Server,
+    HTTP_AUTH_MECHS,
+)
 
 class run_httpserver:
-    def __init__(self, mech=None, ssp=None, **kwargs):
+    def __init__(self, mech=None, ssp=None, ssl=False, **kwargs):
         self.server = None
         self.mech = mech
         self.ssp = ssp
+        self.ssl = ssl
         self.kwargs = kwargs
     def __enter__(self):
-        print("@ Starting http server")
+        if self.ssl:
+            cls = HTTPS_Server
+            self.kwargs["cert"] = scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem")
+            self.kwargs["key"] = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
+            print("@ Starting https server")
+        else:
+            cls = HTTP_Server
+            print("@ Starting http server")
         # Start server
-        self.server = HTTP_Server.spawn(
+        self.server = cls.spawn(
             8080,
             iface=conf.loopback_name,
             mech=self.mech, ssp=self.ssp,
@@ -316,7 +339,7 @@ class run_httpserver:
         print("@ http server stopped !")
 
 
-= HTTP_client fails to ask HTTP_server that required authentication
+= HTTP - HTTP_client fails to ask HTTP_server that required authentication
 ~ http-client
 
 from scapy.layers.http import HTTP_Client
@@ -328,7 +351,7 @@ with run_httpserver(mech=HTTP_AUTH_MECHS.NTLM, ssp=NTLMSSP(IDENTITIES={"user": M
 
 assert resp.Status_Code == b"401"
 
-= HTTP_client asks HTTP_server with NTLMSSP
+= HTTP - HTTP_client asks HTTP_server with NTLMSSP
 ~ http-client
 
 from scapy.layers.http import HTTP_Client
@@ -343,7 +366,7 @@ with run_httpserver(mech=HTTP_AUTH_MECHS.NTLM, ssp=NTLMSSP(IDENTITIES={"user": M
 
 assert resp.load == b'<!doctype html><html><body><h1>OK</h1></body></html>'
 
-= HTTP_Server with native python client with Basic auth
+= HTTP - HTTP_Server with native python client with Basic auth
 ~ http-client
 
 import urllib.request
@@ -362,7 +385,7 @@ with run_httpserver(mech=HTTP_AUTH_MECHS.BASIC, BASIC_IDENTITIES={"user": "passw
 assert html == "<!doctype html><html><body><h1>OK</h1></body></html>"
 
 
-= HTTP_Server with native python client without auth
+= HTTP - HTTP_Server with native python client without auth
 ~ http-client
 
 import urllib.request
@@ -372,3 +395,21 @@ with run_httpserver(mech=HTTP_AUTH_MECHS.NONE):
         html = f.read().decode('utf-8')
 
 assert html == "<!doctype html><html><body><h1>OK</h1></body></html>"
+
++ Test HTTPS client/server
+
+= HTTPS - HTTPS_client asks HTTPS_server with NTLMSSP and CBT
+~ https-client
+
+from scapy.layers.http import HTTP_Client
+
+with run_httpserver(mech=HTTP_AUTH_MECHS.NTLM, ssp=NTLMSSP(IDENTITIES={"user": MD4le("password")}), ssl=True):
+    client = HTTP_Client(
+        HTTP_AUTH_MECHS.NTLM,
+        ssp=NTLMSSP(UPN="user", PASSWORD="password"),
+        no_check_certificate=True,
+    )
+    resp = client.request("https://127.0.0.1:8080")
+    client.close()
+
+assert resp.load == b'<!doctype html><html><body><h1>OK</h1></body></html>'

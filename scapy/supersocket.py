@@ -250,6 +250,10 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
         """Send one packet and receive one answer
         """
         from scapy import sendrecv
+        # if not explicitly specified by the user,
+        # set threaded to False in sr1 to remove the overhead
+        # for a Thread creation
+        kargs.setdefault("threaded", False)
         ans = sendrecv.sndrcv(self, *args, **kargs)[0]  # type: SndRcvList
         if len(ans) > 0:
             pkt = ans[0][1]  # type: Packet
@@ -498,16 +502,14 @@ class StreamSocket(SimpleSocket):
         return pkt
 
 
-class SSLStreamSocket(StreamSocket):
-    desc = "similar usage than StreamSocket but specialized for handling SSL-wrapped sockets"  # noqa: E501
-
-    # Basically StreamSocket but we can't PEEK
+class StreamSocketPeekless(StreamSocket):
+    desc = "StreamSocket that doesn't use MSG_PEEK"
 
     def __init__(self, sock, basecls=None):
         # type: (socket.socket, Optional[Type[Packet]]) -> None
         from scapy.sessions import TCPSession
         self.sess = TCPSession(app=True)
-        super(SSLStreamSocket, self).__init__(sock, basecls)
+        super(StreamSocketPeekless, self).__init__(sock, basecls)
 
     # 65535, the default value of x is the maximum length of a TLS record
     def recv(self, x=None, **kwargs):
@@ -536,11 +538,18 @@ class SSLStreamSocket(StreamSocket):
         queued = [
             x
             for x in sockets
-            if isinstance(x, SSLStreamSocket) and x.sess.data
+            if isinstance(x, StreamSocketPeekless) and x.sess.data
         ]
         if queued:
             return queued  # type: ignore
-        return super(SSLStreamSocket, SSLStreamSocket).select(sockets, remain=remain)
+        return super(StreamSocketPeekless, StreamSocketPeekless).select(
+            sockets,
+            remain=remain,
+        )
+
+
+# Old name: SSLStreamSocket
+SSLStreamSocket = StreamSocketPeekless
 
 
 class L2ListenTcpdump(SuperSocket):

@@ -97,9 +97,11 @@ from scapy.layers.kerberos import (
     Kerberos,
 )
 from scapy.layers.gssapi import (
-    GSS_S_COMPLETE,
-    GSSAPI_BLOB_SIGNATURE,
     GSSAPI_BLOB,
+    GSSAPI_BLOB_SIGNATURE,
+    GSS_S_COMPLETE,
+    GSS_S_FLAGS,
+    GSS_C_FLAGS,
     SSP,
 )
 from scapy.layers.inet import TCP
@@ -211,6 +213,12 @@ class DceRpc(Packet):
             elif ver == 5:
                 return DceRpc5
         return DceRpc5
+
+    @classmethod
+    def tcp_reassemble(cls, data, metadata, session):
+        if data[0:1] == b"\x05":
+            return DceRpc5.tcp_reassemble(data, metadata, session)
+        return DceRpc(data)
 
 
 bind_bottom_up(TCP, DceRpc, sport=135)
@@ -1205,15 +1213,9 @@ def register_dcerpc_interface(name, uuid, version, opnums):
         # Interface is already registered.
         interface = DCE_RPC_INTERFACES[(uuid, if_version)]
         if interface.name == name:
-            if interface.if_version == if_version and set(opnums) - set(
-                interface.opnums
-            ):
+            if set(opnums) - set(interface.opnums):
                 # Interface is an extension of a previous interface
                 interface.opnums.update(opnums)
-                return
-            elif interface.if_version != if_version:
-                # Interface has a different version
-                pass
             else:
                 log_runtime.warning(
                     "This interface is already registered: %s. Skip" % interface
@@ -1223,15 +1225,17 @@ def register_dcerpc_interface(name, uuid, version, opnums):
             raise ValueError(
                 "An interface with the same UUID is already registered: %s" % interface
             )
-    DCE_RPC_INTERFACES_NAMES[uuid] = name
-    DCE_RPC_INTERFACES_NAMES_rev[name.lower()] = uuid
-    DCE_RPC_INTERFACES[(uuid, if_version)] = DceRpcInterface(
-        name,
-        uuid,
-        version_tuple,
-        if_version,
-        opnums,
-    )
+    else:
+        # New interface
+        DCE_RPC_INTERFACES_NAMES[uuid] = name
+        DCE_RPC_INTERFACES_NAMES_rev[name.lower()] = uuid
+        DCE_RPC_INTERFACES[(uuid, if_version)] = DceRpcInterface(
+            name,
+            uuid,
+            version_tuple,
+            if_version,
+            opnums,
+        )
     # bind for build
     for opnum, operations in opnums.items():
         bind_top_down(DceRpc5Request, operations.request, opnum=opnum)
@@ -1616,32 +1620,38 @@ class NDRFullPointerField(_FieldContainer):
     """
     A NDR Full/Unique pointer field encapsulation.
 
-    :param deferred: This pointer is deferred. This means that it's representation
-                     will not appear after the pointer.
+    :param EMBEDDED: This pointer is embedded. This means that it's representation
+                     will not appear after the pointer (pointer deferral applies).
                      See [C706] 14.3.12.3 - Algorithm for Deferral of Referents
     """
 
     EMBEDDED = False
+    EMBEDDED_REF = False
 
-    def __init__(self, fld, deferred=False, fmt="I"):
+    def __init__(self, fld, ref=False, fmt="I"):
         self.fld = fld
+        self.ref = ref
         self.default = None
-        self.deferred = deferred
 
     def getfield(self, pkt, s):
         fmt = _e(pkt.ndrendian) + ["I", "Q"][pkt.ndr64]
         remain, referent_id = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).getfield(
             pkt, s
         )
-        if not self.EMBEDDED and referent_id == 0:
+
+        # No value
+        if referent_id == 0 and not self.EMBEDDED_REF:
             return remain, None
-        if self.deferred:
+
+        # With value
+        if self.EMBEDDED:
             # deferred
             ptr = NDRPointer(
                 ndr64=pkt.ndr64, ndrendian=pkt.ndrendian, referent_id=referent_id
             )
             pkt.deferred_pointers.append((ptr, partial(self.fld.getfield, pkt)))
             return remain, ptr
+
         remain, val = self.fld.getfield(pkt, remain)
         return remain, NDRPointer(
             ndr64=pkt.ndr64, ndrendian=pkt.ndrendian, referent_id=referent_id, value=val
@@ -1654,17 +1664,21 @@ class NDRFullPointerField(_FieldContainer):
             )
         fmt = _e(pkt.ndrendian) + ["I", "Q"][pkt.ndr64]
         fld = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8))
-        if not self.EMBEDDED and val is None:
+
+        # No value
+        if val is None and not self.EMBEDDED_REF:
             return fld.addfield(pkt, s, 0)
-        else:
-            _set_ctx_on(val.value, pkt)
-            s = fld.addfield(pkt, s, val.referent_id)
-        if self.deferred:
+
+        # With value
+        _set_ctx_on(val.value, pkt)
+        s = fld.addfield(pkt, s, val.referent_id)
+        if self.EMBEDDED:
             # deferred
             pkt.deferred_pointers.append(
                 ((lambda s: self.fld.addfield(pkt, s, val.value)), val)
             )
             return s
+
         return self.fld.addfield(pkt, s, val.value)
 
     def any2i(self, pkt, x):
@@ -1697,12 +1711,25 @@ class NDRFullPointerField(_FieldContainer):
         return self.fld.valueof(pkt, x.value)
 
 
-class NDRRefEmbPointerField(NDRFullPointerField):
+class NDRFullEmbPointerField(NDRFullPointerField):
     """
-    A NDR Embedded Reference pointer
+    A NDR Embedded Full pointer.
+
+    Same as NDRFullPointerField with EMBEDDED = True.
     """
 
     EMBEDDED = True
+
+
+class NDRRefEmbPointerField(NDRFullPointerField):
+    """
+    A NDR Embedded Reference pointer.
+
+    Same as NDRFullPointerField with EMBEDDED = True and EMBEDDED_REF = True.
+    """
+
+    EMBEDDED = True
+    EMBEDDED_REF = True
 
 
 # Constructed types
@@ -1742,7 +1769,7 @@ class NDRConstructedType(object):
         # If we have a pointer, mark this field as handling deferrance
         # and make all sub-constructed types not.
         for f in self.ndr_fields:
-            if isinstance(f, NDRFullPointerField) and f.deferred:
+            if isinstance(f, NDRFullPointerField) and f.EMBEDDED:
                 self.handles_deferred = True
             if isinstance(f, NDRConstructedType):
                 f.rec_check_deferral()
@@ -1809,12 +1836,14 @@ class _NDRPacketField(_NDRValueOf, PacketField):
         return self.cls(m, ndr64=pkt.ndr64, ndrendian=pkt.ndrendian, _parent=pkt)
 
 
-# class _NDRPacketPadField(PadField):
-#     def padlen(self, flen, pkt):
-#         if pkt.ndr64:
-#             return -flen % self._align[1]
-#         else:
-#             return 0
+class _NDRPacketPadField(PadField):
+    # [MS-RPCE] 2.2.5.3.4.1 Structure with Trailing Gap
+    # Structures have extra alignment/padding in NDR64.
+    def padlen(self, flen, pkt):
+        if pkt.ndr64:
+            return -flen % self._align[1]
+        else:
+            return 0
 
 
 class NDRPacketField(NDRConstructedType, NDRAlign):
@@ -1823,9 +1852,7 @@ class NDRPacketField(NDRConstructedType, NDRAlign):
         self.fld = _NDRPacketField(name, default, pkt_cls=pkt_cls, **kwargs)
         NDRAlign.__init__(
             self,
-            # There is supposed to be padding after a struct in NDR64?
-            # _NDRPacketPadField(fld, align=pkt_cls.ALIGNMENT),
-            self.fld,
+            _NDRPacketPadField(self.fld, align=pkt_cls.ALIGNMENT),
             align=pkt_cls.ALIGNMENT,
         )
         NDRConstructedType.__init__(self, pkt_cls.fields_desc)
@@ -1881,9 +1908,7 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
     def __init__(self, name, default, pkt_cls, **kwargs):
         self.ptr_pack = kwargs.pop("ptr_pack", False)
         if self.ptr_pack:
-            self.fld = NDRFullPointerField(
-                NDRPacketField("", None, pkt_cls), deferred=True
-            )
+            self.fld = NDRFullEmbPointerField(NDRPacketField("", None, pkt_cls))
         else:
             self.fld = NDRPacketField("", None, pkt_cls)
         PacketListField.__init__(self, name, default, pkt_cls=pkt_cls, **kwargs)
@@ -1954,7 +1979,7 @@ class NDRVaryingArray(_NDRPacket):
     ]
 
 
-class _NDRVarField(object):
+class _NDRVarField:
     """
     NDR Varying Array / String field
     """
@@ -1963,9 +1988,15 @@ class _NDRVarField(object):
     COUNT_FROM = False
 
     def __init__(self, *args, **kwargs):
-        # size is either from the length_is, if specified, or the "actual_count"
-        self.from_actual = "length_is" not in kwargs
-        length_is = kwargs.pop("length_is", lambda pkt: pkt.actual_count)
+        # We build the length_is function by taking into account both the
+        # actual_count (from the varying field) and a potentially provided
+        # length_is field.
+        if "length_is" in kwargs:
+            _length_is = kwargs.pop("length_is")
+            length_is = lambda pkt: (_length_is(pkt.underlayer) or pkt.actual_count)
+        else:
+            length_is = lambda pkt: pkt.actual_count
+        # Pass it to the sub-field (actually subclass)
         if self.LENGTH_FROM:
             kwargs["length_from"] = length_is
         elif self.COUNT_FROM:
@@ -1983,11 +2014,9 @@ class _NDRVarField(object):
             ndrendian=pkt.ndrendian,
             offset=offset,
             actual_count=actual_count,
+            _underlayer=pkt,
         )
-        if self.from_actual:
-            remain, val = super(_NDRVarField, self).getfield(final, remain)
-        else:
-            remain, val = super(_NDRVarField, self).getfield(pkt, remain)
+        remain, val = super(_NDRVarField, self).getfield(final, remain)
         final.value = super(_NDRVarField, self).i2h(pkt, val)
         return remain, final
 
@@ -2074,7 +2103,7 @@ class NDRConformantString(_NDRPacket):
     ]
 
 
-class _NDRConfField(object):
+class _NDRConfField:
     """
     NDR Conformant Array / String field
     """
@@ -2245,7 +2274,7 @@ class NDRConfStrLenField(_NDRConfField, _NDRValueOf, StrLenField):
 
 class NDRConfStrLenFieldUtf16(_NDRConfField, _NDRValueOf, StrLenFieldUtf16, _NDRUtf16):
     """
-    NDR Conformant StrLenField.
+    NDR Conformant StrLenFieldUtf16.
 
     See NDRConfLenStrField for comment.
     """
@@ -2265,7 +2294,7 @@ class NDRVarStrLenField(_NDRVarField, StrLenField):
 
 class NDRVarStrLenFieldUtf16(_NDRVarField, _NDRValueOf, StrLenFieldUtf16, _NDRUtf16):
     """
-    NDR Varying StrLenField
+    NDR Varying StrLenFieldUtf16
     """
 
     ON_WIRE_SIZE_UTF16 = False
@@ -2284,7 +2313,7 @@ class NDRConfVarStrLenFieldUtf16(
     _NDRConfField, _NDRVarField, _NDRValueOf, StrLenFieldUtf16, _NDRUtf16
 ):
     """
-    NDR Conformant Varying StrLenField
+    NDR Conformant Varying StrLenFieldUtf16
     """
 
     ON_WIRE_SIZE_UTF16 = False
@@ -2395,14 +2424,14 @@ class NDRRecursiveField(Field):
         super(NDRRecursiveField, self).__init__(name, None, fmt=fmt)
 
     def getfield(self, pkt, s):
-        return NDRFullPointerField(
-            NDRPacketField("", None, pkt.__class__), deferred=True
-        ).getfield(pkt, s)
+        return NDRFullEmbPointerField(NDRPacketField("", None, pkt.__class__)).getfield(
+            pkt, s
+        )
 
     def addfield(self, pkt, s, val):
-        return NDRFullPointerField(
-            NDRPacketField("", None, pkt.__class__), deferred=True
-        ).addfield(pkt, s, val)
+        return NDRFullEmbPointerField(NDRPacketField("", None, pkt.__class__)).addfield(
+            pkt, s, val
+        )
 
 
 # The very few NDR-specific structures
@@ -2618,31 +2647,59 @@ class DceRpcSession(DefaultSession):
     # Since the connection-oriented transport guarantees sequentiality, the receiver
     # will always receive the fragments in order.
 
-    def _defragment(self, pkt):
+    def _defragment(self, pkt, body=None):
         """
         Function to defragment DCE/RPC packets.
         """
         uid = pkt.call_id
         if pkt.pfc_flags.PFC_FIRST_FRAG and pkt.pfc_flags.PFC_LAST_FRAG:
             # Not fragmented
-            return pkt
+            return body
         if pkt.pfc_flags.PFC_FIRST_FRAG or uid in self.frags:
             # Packet is fragmented
-            self.frags[uid] += pkt[DceRpc5].payload.payload.original
+            if body is None:
+                body = pkt[DceRpc5].payload.payload.original
+            self.frags[uid] += body
             if pkt.pfc_flags.PFC_LAST_FRAG:
-                pkt[DceRpc5].payload.remove_payload()
-                pkt[DceRpc5].payload /= self.frags[uid]
-                return pkt
+                return self.frags[uid]
         else:
             # Not fragmented
-            return pkt
+            return body
 
-    def _fragment(self, pkt):
+    # C706 sect 12.5.2.15 - PDU Body Length
+    # "The maximum PDU body size is 65528 bytes."
+    MAX_PDU_BODY_SIZE = 4176
+
+    def _fragment(self, pkt, body):
         """
         Function to fragment DCE/RPC packets.
         """
-        # unimplemented
-        pass
+        if len(body) > self.MAX_PDU_BODY_SIZE:
+            # Clear any PFC_*_FRAG flag
+            pkt.pfc_flags &= 0xFC
+
+            # Iterate through fragments
+            cur = None
+            while body:
+                # Create a fragment
+                pkt_frag = pkt.copy()
+
+                if cur is None:
+                    # It's the first one
+                    pkt_frag.pfc_flags += "PFC_FIRST_FRAG"
+
+                # Split
+                cur, body = (
+                    body[: self.MAX_PDU_BODY_SIZE],
+                    body[self.MAX_PDU_BODY_SIZE :],
+                )
+
+                if not body:
+                    # It's the last one
+                    pkt_frag.pfc_flags += "PFC_LAST_FRAG"
+                yield pkt_frag, cur
+        else:
+            yield pkt, body
 
     # [MS-RPCE] sect 3.3.1.5.2.2
 
@@ -2660,12 +2717,6 @@ class DceRpcSession(DefaultSession):
     # Similarly the signature output SHOULD be ignored.
 
     def in_pkt(self, pkt):
-        # Defragment
-        pkt = self._defragment(pkt)
-        if not pkt:
-            return
-        # Get opnum and options
-        opnum, opts = self._up_pkt(pkt)
         # Check for encrypted payloads
         body = None
         if conf.raw_layer in pkt.payload:
@@ -2679,6 +2730,8 @@ class DceRpcSession(DefaultSession):
                     self.sniffsspcontexts[ssp], status = ssp.GSS_Passive(
                         self.sniffsspcontexts[ssp],
                         pkt.auth_verifier.auth_value,
+                        req_flags=GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS
+                        | GSS_C_FLAGS.GSS_C_DCE_STYLE,
                     )
                     if status == GSS_S_COMPLETE:
                         self.auth_level = DCE_C_AUTHN_LEVEL(
@@ -2783,10 +2836,18 @@ class DceRpcSession(DefaultSession):
                 if pkt.auth_padding:
                     padlen = len(pkt.auth_padding)
                     body, pkt.auth_padding = body[:-padlen], body[-padlen:]
-                # Put back vt_trailer into the header
-                if pkt.vt_trailer:
-                    vtlen = len(pkt.vt_trailer)
-                    body, pkt.vt_trailer = body[:-vtlen], body[-vtlen:]
+                # Put back vt_trailer into the header, if present.
+                if _SECTRAILER_MAGIC in body:
+                    body, pkt.vt_trailer = pkt.get_field("vt_trailer").getfield(
+                        pkt, body
+                    )
+        # If it's a request / response, could be fragmented
+        if isinstance(pkt.payload, (DceRpc5Request, DceRpc5Response)) and body:
+            body = self._defragment(pkt, body)
+            if not body:
+                return
+        # Get opnum and options
+        opnum, opts = self._up_pkt(pkt)
         # Try to parse the payload
         if opnum is not None and self.rpc_bind_interface:
             # use opnum to parse the payload
@@ -2802,9 +2863,28 @@ class DceRpcSession(DefaultSession):
                 return pkt
             if body:
                 # Dissect payload using class
-                payload = cls(body, ndr64=self.ndr64, ndrendian=self.ndrendian, **opts)
+                try:
+                    payload = cls(
+                        body, ndr64=self.ndr64, ndrendian=self.ndrendian, **opts
+                    )
+                except Exception:
+                    if conf.debug_dissector:
+                        log_runtime.error("%s dissector failed", cls.__name__)
+                        if cls is not None:
+                            raise
+                    payload = conf.raw_layer(body, _internal=1)
                 pkt.payload[conf.raw_layer].underlayer.remove_payload()
+                if conf.padding_layer in payload:
+                    # Most likely, dissection failed.
+                    log_runtime.warning(
+                        "Padding detected when dissecting %s. Looks wrong." % cls
+                    )
+                    pad = payload[conf.padding_layer]
+                    pad.underlayer.payload = conf.raw_layer(load=pad.load)
                 pkt /= payload
+                # If a request was encrypted, we need to re-register it once re-parsed.
+                if not is_response and self.auth_level == RPC_C_AUTHN_LEVEL.PKT_PRIVACY:
+                    self._up_pkt(pkt)
             elif not cls.fields_desc:
                 # Request class has no payload
                 pkt /= cls(ndr64=self.ndr64, ndrendian=self.ndrendian, **opts)
@@ -2814,134 +2894,159 @@ class DceRpcSession(DefaultSession):
 
     def out_pkt(self, pkt):
         assert DceRpc5 in pkt
+        # Register opnum and options
         self._up_pkt(pkt)
-        if pkt.auth_verifier is not None:
-            # Verifier already set
-            return [pkt]
-        if self.sspcontext and isinstance(
-            pkt.payload, (DceRpc5Request, DceRpc5Response)
-        ):
-            body = bytes(pkt.payload.payload)
-            signature = None
-            if self.auth_level in (
-                RPC_C_AUTHN_LEVEL.PKT_INTEGRITY,
-                RPC_C_AUTHN_LEVEL.PKT_PRIVACY,
-            ):
-                # Account for padding when computing checksum/encryption
-                if pkt.auth_padding is None:
-                    padlen = (-len(body)) % _COMMON_AUTH_PAD  # authdata padding
-                    pkt.auth_padding = b"\x00" * padlen
-                else:
-                    padlen = len(pkt.auth_padding)
-                # Remember that vt_trailer is included in the PDU
-                if pkt.vt_trailer:
-                    body += bytes(pkt.vt_trailer)
-                # Remember that padding IS SIGNED & ENCRYPTED
-                body += pkt.auth_padding
-                # Add the auth_verifier
-                pkt.auth_verifier = CommonAuthVerifier(
-                    auth_type=self.ssp.auth_type,
-                    auth_level=self.auth_level,
-                    auth_context_id=self.auth_context_id,
-                    auth_pad_length=padlen,
-                    # Note: auth_value should have the correct length because when
-                    # using PFC_SUPPORT_HEADER_SIGN, auth_len (and frag_len) is
-                    # included in the token.. but this creates a dependency loop as
-                    # you'd need to know the token length to compute the token.
-                    # Windows solves this by setting the 'Maximum Signature Length'
-                    # (or something similar) beforehand, instead of the real length.
-                    # See `gensec_sig_size` in samba.
-                    auth_value=b"\x00"
-                    * self.ssp.MaximumSignatureLength(self.sspcontext),
-                )
-                # Build pdu_header and sec_trailer
-                pdu_header = pkt.copy()
-                pdu_header.auth_len = len(pdu_header.auth_verifier) - 8
-                pdu_header.frag_len = len(pdu_header)
-                sec_trailer = pdu_header.auth_verifier
-                # sec_trailer: include the sec_trailer but not the Authentication token
-                authval_len = len(sec_trailer.auth_value)
-                # sec_trailer.auth_value = None
-                # Discard everything out of the header
-                pdu_header.auth_padding = None
-                pdu_header.auth_verifier = None
-                pdu_header.payload.payload = NoPayload()
-                pdu_header.vt_trailer = None
-                signature = None
-                # [MS-RPCE] sect 2.2.2.12
-                if self.auth_level == RPC_C_AUTHN_LEVEL.PKT_PRIVACY:
-                    _msgs, signature = self.ssp.GSS_WrapEx(
-                        self.sspcontext,
-                        [
-                            # "PDU header"
-                            SSP.WRAP_MSG(
-                                conf_req_flag=False,
-                                sign=self.header_sign,
-                                data=bytes(pdu_header),
-                            ),
-                            # "PDU body"
-                            SSP.WRAP_MSG(
-                                conf_req_flag=True,
-                                sign=True,
-                                data=body,
-                            ),
-                            # "sec_trailer"
-                            SSP.WRAP_MSG(
-                                conf_req_flag=False,
-                                sign=self.header_sign,
-                                data=bytes(sec_trailer)[:-authval_len],
-                            ),
-                        ],
-                    )
-                    s = _msgs[1].data  # PDU body
-                elif self.auth_level == RPC_C_AUTHN_LEVEL.PKT_INTEGRITY:
-                    signature = self.ssp.GSS_GetMICEx(
-                        self.sspcontext,
-                        [
-                            # "PDU header"
-                            SSP.MIC_MSG(
-                                sign=self.header_sign,
-                                data=bytes(pdu_header),
-                            ),
-                            # "PDU body"
-                            SSP.MIC_MSG(
-                                sign=True,
-                                data=body,
-                            ),
-                            # "sec_trailer"
-                            SSP.MIC_MSG(
-                                sign=self.header_sign,
-                                data=bytes(sec_trailer)[:-authval_len],
-                            ),
-                        ],
-                        pkt.auth_verifier.auth_value,
-                    )
-                    s = body
-                else:
-                    raise ValueError("Impossible")
-                # Put padding back in the header
-                if padlen:
-                    s, pkt.auth_padding = s[:-padlen], s[-padlen:]
-                # Put back vt_trailer into the header
-                if pkt.vt_trailer:
-                    vtlen = len(pkt.vt_trailer)
-                    s, pkt.vt_trailer = s[:-vtlen], s[-vtlen:]
-            else:
-                s = body
 
-            # now inject the encrypted payload into the packet
-            pkt.payload.payload = conf.raw_layer(load=s)
-            # and the auth_value
-            if signature:
-                pkt.auth_verifier.auth_value = signature
-            else:
-                pkt.auth_verifier = None
-        return [pkt]
+        # If it's a request / response, we can frag it
+        if isinstance(pkt.payload, (DceRpc5Request, DceRpc5Response)):
+            # The list of packet responses
+            pkts = []
+            # Take the body payload, and eventually split it
+            body = bytes(pkt.payload.payload)
+
+            for pkt, body in self._fragment(pkt, body):
+                if pkt.auth_verifier is not None:
+                    # Verifier already set
+                    pkts.append(pkt)
+                    continue
+
+                # Sign / Encrypt
+                if self.sspcontext:
+                    signature = None
+                    if self.auth_level in (
+                        RPC_C_AUTHN_LEVEL.PKT_INTEGRITY,
+                        RPC_C_AUTHN_LEVEL.PKT_PRIVACY,
+                    ):
+                        # Account for padding when computing checksum/encryption
+                        if pkt.auth_padding is None:
+                            padlen = (-len(body)) % _COMMON_AUTH_PAD  # authdata padding
+                            pkt.auth_padding = b"\x00" * padlen
+                        else:
+                            padlen = len(pkt.auth_padding)
+                        # Remember that vt_trailer is included in the PDU
+                        if pkt.vt_trailer:
+                            body += bytes(pkt.vt_trailer)
+                        # Remember that padding IS SIGNED & ENCRYPTED
+                        body += pkt.auth_padding
+                        # Add the auth_verifier
+                        pkt.auth_verifier = CommonAuthVerifier(
+                            auth_type=self.ssp.auth_type,
+                            auth_level=self.auth_level,
+                            auth_context_id=self.auth_context_id,
+                            auth_pad_length=padlen,
+                            # Note: auth_value should have the correct length because
+                            # when using PFC_SUPPORT_HEADER_SIGN, auth_len
+                            # (and frag_len) is included in the token.. but this
+                            # creates a dependency loop as you'd need to know the token
+                            # length to compute the token. Windows solves this by
+                            # setting the 'Maximum Signature Length' (or something
+                            # similar) beforehand, instead of the real length.
+                            # See `gensec_sig_size` in samba.
+                            auth_value=b"\x00"
+                            * self.ssp.MaximumSignatureLength(self.sspcontext),
+                        )
+                        # Build pdu_header and sec_trailer
+                        pdu_header = pkt.copy()
+                        pdu_header.auth_len = len(pdu_header.auth_verifier) - 8
+                        pdu_header.frag_len = len(pdu_header)
+                        sec_trailer = pdu_header.auth_verifier
+                        # sec_trailer: include the sec_trailer but not the
+                        # Authentication token
+                        authval_len = len(sec_trailer.auth_value)
+                        # sec_trailer.auth_value = None
+                        # Discard everything out of the header
+                        pdu_header.auth_padding = None
+                        pdu_header.auth_verifier = None
+                        pdu_header.payload.payload = NoPayload()
+                        pdu_header.vt_trailer = None
+                        signature = None
+                        # [MS-RPCE] sect 2.2.2.12
+                        if self.auth_level == RPC_C_AUTHN_LEVEL.PKT_PRIVACY:
+                            _msgs, signature = self.ssp.GSS_WrapEx(
+                                self.sspcontext,
+                                [
+                                    # "PDU header"
+                                    SSP.WRAP_MSG(
+                                        conf_req_flag=False,
+                                        sign=self.header_sign,
+                                        data=bytes(pdu_header),
+                                    ),
+                                    # "PDU body"
+                                    SSP.WRAP_MSG(
+                                        conf_req_flag=True,
+                                        sign=True,
+                                        data=body,
+                                    ),
+                                    # "sec_trailer"
+                                    SSP.WRAP_MSG(
+                                        conf_req_flag=False,
+                                        sign=self.header_sign,
+                                        data=bytes(sec_trailer)[:-authval_len],
+                                    ),
+                                ],
+                            )
+                            s = _msgs[1].data  # PDU body
+                        elif self.auth_level == RPC_C_AUTHN_LEVEL.PKT_INTEGRITY:
+                            signature = self.ssp.GSS_GetMICEx(
+                                self.sspcontext,
+                                [
+                                    # "PDU header"
+                                    SSP.MIC_MSG(
+                                        sign=self.header_sign,
+                                        data=bytes(pdu_header),
+                                    ),
+                                    # "PDU body"
+                                    SSP.MIC_MSG(
+                                        sign=True,
+                                        data=body,
+                                    ),
+                                    # "sec_trailer"
+                                    SSP.MIC_MSG(
+                                        sign=self.header_sign,
+                                        data=bytes(sec_trailer)[:-authval_len],
+                                    ),
+                                ],
+                                pkt.auth_verifier.auth_value,
+                            )
+                            s = body
+                        else:
+                            raise ValueError("Impossible")
+                        # Put padding back in the header
+                        if padlen:
+                            s, pkt.auth_padding = s[:-padlen], s[-padlen:]
+                        # Put back vt_trailer into the header
+                        if pkt.vt_trailer:
+                            vtlen = len(pkt.vt_trailer)
+                            s, pkt.vt_trailer = s[:-vtlen], s[-vtlen:]
+                    else:
+                        s = body
+
+                    # now inject the encrypted payload into the packet
+                    pkt.payload.payload = conf.raw_layer(load=s)
+                    # and the auth_value
+                    if signature:
+                        pkt.auth_verifier.auth_value = signature
+                    else:
+                        pkt.auth_verifier = None
+                # Add to the list
+                pkts.append(pkt)
+            return pkts
+        else:
+            return [pkt]
 
     def process(self, pkt: Packet) -> Optional[Packet]:
+        """
+        Used when DceRpcSession is used for passive sniffing.
+        """
         pkt = super(DceRpcSession, self).process(pkt)
         if pkt is not None and DceRpc5 in pkt:
-            return self.in_pkt(pkt)
+            rpkt = self.in_pkt(pkt)
+            if rpkt is None:
+                # We are passively dissecting a fragmented packet. Return
+                # just the header showing that it was indeed, fragmented.
+                pkt[DceRpc5].payload.remove_payload()
+                return pkt
+            return rpkt
         return pkt
 
 
@@ -2951,6 +3056,7 @@ class DceRpcSocket(StreamSocket):
     """
 
     def __init__(self, *args, **kwargs):
+        self.transport = kwargs.pop("transport", None)
         self.session = DceRpcSession(
             ssp=kwargs.pop("ssp", None),
             auth_level=kwargs.pop("auth_level", None),
@@ -2961,7 +3067,11 @@ class DceRpcSocket(StreamSocket):
 
     def send(self, x, **kwargs):
         for pkt in self.session.out_pkt(x):
-            return super(DceRpcSocket, self).send(pkt, **kwargs)
+            if self.transport == DCERPC_Transport.NCACN_NP:
+                # In this case DceRpcSocket wraps a SMB_RPC_SOCKET, call it directly.
+                self.ins.send(pkt, **kwargs)
+            else:
+                super(DceRpcSocket, self).send(pkt, **kwargs)
 
     def recv(self, x=None):
         pkt = super(DceRpcSocket, self).recv(x)
