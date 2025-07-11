@@ -10,14 +10,30 @@ High-level methods for PKI objects (X.509 certificates, CRLs, asymmetric keys).
 Supports both RSA and ECDSA objects.
 
 The classes below are wrappers for the ASN.1 objects defined in x509.py.
-For instance, here is what you could do in order to modify the serial of
-'cert' and then resign it with whatever 'key'::
+For instance, here is what you could do in order to modify the subject public
+key info of a 'cert' and then resign it with whatever 'key'::
 
-    f = open('cert.der')
-    c = X509_Cert(f.read())
+    from scapy.layers.tls.cert import *
+    cert = Cert("cert.der")
+    k = PrivKeyRSA()  # generate a private key
+    cert.setSubjectPublicKeyFromPrivateKey(k)
+    cert.resignWith(k)
+    cert.export("newcert.pem")
+    k.export("mykey.pem")
+
+One could also edit arguments like the serial number, as such::
+
+    from scapy.layers.tls.cert import *
+    c = Cert("mycert.pem")
     c.tbsCertificate.serialNumber = 0x4B1D
-    k = PrivKey('key.pem')
-    new_x509_cert = k.resignCert(c)
+    k = PrivKey("mykey.pem")  # import an existing private key
+    c.resignWith(k)
+    c.export("newcert.pem")
+
+To export the public key of a private key::
+
+    k = PrivKey("mykey.pem")
+    k.pubkey.export("mypubkey.pem")
 
 No need for obnoxious openssl tweaking anymore. :)
 """
