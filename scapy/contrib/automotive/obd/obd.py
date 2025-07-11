@@ -9,7 +9,6 @@
 
 import struct
 
-from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.obd.iid.iids import *
 from scapy.contrib.automotive.obd.mid.mids import *
 from scapy.contrib.automotive.obd.pid.pids import *
@@ -24,11 +23,11 @@ try:
     if conf.contribs['OBD']['treat-response-pending-as-answer']:
         pass
 except KeyError:
-    log_automotive.info("Specify \"conf.contribs['OBD'] = "
-                        "{'treat-response-pending-as-answer': True}\" to treat "
-                        "a negative response 'requestCorrectlyReceived-"
-                        "ResponsePending' as answer of a request. \n"
-                        "The default value is False.")
+    # log_automotive.info("Specify \"conf.contribs['OBD'] = "
+    #                     "{'treat-response-pending-as-answer': True}\" to treat "
+    #                     "a negative response 'requestCorrectlyReceived-"
+    #                     "ResponsePending' as answer of a request. \n"
+    #                     "The default value is False.")
     conf.contribs['OBD'] = {'treat-response-pending-as-answer': False}
 
 
