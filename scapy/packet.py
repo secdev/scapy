@@ -902,12 +902,34 @@ class Packet(
         """
         if not self.explicit:
             self = next(iter(self))
+
+        # First of all, save whether `post_build()` should be called after `self_build()`.
+        # For the memo, `self_build()` norammly sets the `raw_packet_cache` field.
+        do_post_build = (self.raw_packet_cache is None)
+
         pkt = self.self_build()
         for t in self.post_transforms:
             pkt = t(pkt)
         pay = self.do_build_payload()
-        if self.raw_packet_cache is None:
-            return self.post_build(pkt, pay)
+        if do_post_build:
+            pkt_pay = self.post_build(pkt, pay)
+
+            # If set, update `raw_packet_cache` after `post_build()` has been called.
+            if self.raw_packet_cache is not None:
+                # Note:
+                # The `post_build()` API does not let us know with certainty
+                # what part of the returned value actually corresponds to the current layer,
+                # and what part corresponds to the payload.
+                #
+                # Check the total size of current layer + payload has not changed.
+                # If lengths have not changed, take the first bytes to update the `raw_packet_cache` field.
+                # If lengths have changed, forget the `raw_packet_cache` optimization.
+                if len(pkt_pay) == len(pkt) + len(pay):
+                    self.raw_packet_cache = pkt_pay[:len(self.raw_packet_cache)]
+                else:
+                    self.raw_packet_cache = None
+
+            return pkt_pay
         else:
             return pkt + pay
 
