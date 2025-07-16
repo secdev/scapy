@@ -1992,8 +1992,8 @@ class NoPayload(Packet):
         # type: () -> NoPayload
         return self
 
-    def clear_cache(self):
-        # type: () -> None
+    def clear_cache(self, upwards=False, downwards=True):
+        # type: (bool, bool) -> None
         pass
 
     def __repr__(self):
