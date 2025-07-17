@@ -146,14 +146,20 @@ assert hci_cmd_le_read_buffer_size_v1.len == 0
 
 + Bluetooth Transport Layers
 
-= Test HCI_PHDR_Hdr
+= Test HCI_PHDR_Hdr piling up
 
 pkt = HCI_PHDR_Hdr()/HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_InfoReq()
-assert raw(pkt) == b'\x00\x00\x00\x00\x02\x00\x00\n\x00\x06\x00\x05\x00\n\x00\x02\x00\x00\x00'
+assert raw(pkt) == b'\x00\x00\x00\x00\x02\x00\x00\n\x00\x06\x00\x05\x00\n\x01\x02\x00\x00\x00'
 pkt = HCI_PHDR_Hdr(raw(pkt))
 
 assert HCI_Hdr in pkt
 assert L2CAP_InfoReq in pkt
+assert pkt[L2CAP_Hdr].len == 6
+assert pkt[L2CAP_Hdr].cid == 5
+assert pkt[L2CAP_CmdHdr].code == 10
+assert pkt[L2CAP_CmdHdr].id == 1
+assert pkt[L2CAP_CmdHdr].len == 2
+assert len(pkt[L2CAP_InfoReq]) == 2
 
 + HCI Commands
 
@@ -607,13 +613,13 @@ a.show()
 
 = Basic HCI_ACL_Hdr build & dissect
 a = HCI_Hdr()/HCI_ACL_Hdr(handle=0xf4c, PB=2, BC=2, len=20)/L2CAP_Hdr(len=16)/L2CAP_CmdHdr(code=8, len=12)/L2CAP_EchoReq(data="AAAAAAAAAAAA")
-assert raw(a) == b'\x02L\xaf\x14\x00\x10\x00\x05\x00\x08\x00\x0c\x00AAAAAAAAAAAA'
+assert raw(a) == b'\x02L\xaf\x14\x00\x10\x00\x05\x00\x08\x01\x0c\x00AAAAAAAAAAAA'
 b = HCI_Hdr(raw(a))
 assert a == b
 
 = Complex HCI - L2CAP build
 a = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_ConnReq(scid=1)
-assert raw(a) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x01\x00'
+assert raw(a) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x01\x04\x00\x00\x00\x01\x00'
 a.show()
 
 = Complex HCI - L2CAP dissect
@@ -624,19 +630,20 @@ assert a[L2CAP_InfoResp].data == b"debug"
 = HCI - L2CAP Echo test
 
 rq = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_EchoReq(data=b"data")
-assert bytes(rq) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x08\x00\x04\x00data'
+assert bytes(rq) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x08\x01\x04\x00data'
 
 rsp = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_EchoResp(data=b"data")
-assert bytes(rsp) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\t\x00\x04\x00data'
+assert bytes(rsp) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\t\x01\x04\x00data'
 assert rsp.answers(rq)
 
 = HCI - L2CAP Create Channel request
 
 p = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_Create_Channel_Request(psm="SDP")
-assert bytes(p) == b'\x02\x00\x00\r\x00\t\x00\x05\x00\x0c\x00\x05\x00\x01\x00\x00\x00\x00'
+assert bytes(p) == b'\x02\x00\x00\r\x00\t\x00\x05\x00\x0c\x01\x05\x00\x01\x00\x00\x00\x00'
 
 p = HCI_Hdr(bytes(p))
 assert p[L2CAP_Create_Channel_Request].psm == 1
+assert p[L2CAP_Create_Channel_Request].scid == 0
 
 = L2CAP Conn Answers
 a = HCI_Hdr(b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x9a;')
