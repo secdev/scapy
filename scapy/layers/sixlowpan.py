@@ -518,13 +518,18 @@ def _extract_upperaddress(pkt, source=True):
         # https://tools.ietf.org/html/rfc2464#section-4
         return LINK_LOCAL_PREFIX[:8] + addr[:3] + b"\xff\xfe" + addr[3:]
     elif type(underlayer) == Dot15d4Data:
-        addr = underlayer.src_addr if source else underlayer.dest_addr
+        if source:
+            addr = underlayer.src_addr
+            addrmode = underlayer.underlayer.fcf_srcaddrmode
+        else:
+            addr = underlayer.dest_addr
+            addrmode = underlayer.underlayer.fcf_destaddrmode
         addr = struct.pack(">Q", addr)
-        if underlayer.underlayer.fcf_destaddrmode == 3:  # Extended/long
+        if addrmode == 3:  # Extended/long
             tmp_ip = LINK_LOCAL_PREFIX[0:8] + addr
             # Turn off the bit 7.
             return tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]  # noqa: E501
-        elif underlayer.underlayer.fcf_destaddrmode == 2:  # Short
+        elif addrmode == 2:  # Short
             return (
                 LINK_LOCAL_PREFIX[0:8] +
                 b"\x00\x00\x00\xff\xfe\x00" +
