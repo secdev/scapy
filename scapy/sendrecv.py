@@ -1400,9 +1400,8 @@ class AsyncSniffer(object):
         # type: (bool) -> Optional[PacketList]
         """Stops AsyncSniffer if not in async mode"""
         if self.running:
-            try:
-                self.stop_cb()
-            except AttributeError:
+            self.stop_cb()
+            if self.continue_sniff:
                 raise Scapy_Exception(
                     "Unsupported (offline or unsupported socket)"
                 )
