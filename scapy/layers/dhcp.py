@@ -630,7 +630,9 @@ class BOOTP_am(AnsweringMachine):
         self.network = ltoa(atol(netw) & msk)
         self.broadcast = ltoa(atol(self.network) | (0xffffffff & ~msk))
         self.gw = gw
-        self.nameserver = nameserver or gw
+        realns = nameserver or gw
+        self.nameserver = tuple(realns.split(",")) if ("," in realns) else (realns,)
+
         if isinstance(pool, str):
             pool = Net(pool)
         if isinstance(pool, Iterable):
@@ -686,12 +688,13 @@ class DHCP_am(BOOTP_am):
                 for op in req[DHCP].options
                 if isinstance(op, tuple) and op[0] == "message-type"
             ]
+
             dhcp_options += [
                 x for x in [
                     ("server_id", self.gw),
                     ("domain", self.domain),
                     ("router", self.gw),
-                    ("name_server", self.nameserver),
+                    ("name_server", *self.nameserver),
                     ("broadcast_address", self.broadcast),
                     ("subnet_mask", self.netmask),
                     ("renewal_time", self.renewal_time),
