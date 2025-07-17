@@ -17,7 +17,7 @@ actions:
     - "git clone https://src.fedoraproject.org/rpms/scapy .packit_rpm --depth=1"
     # Drop the "sources" file so rebase-helper doesn't think we're a dist-git
     - "rm -fv .packit_rpm/sources"
-    - "sed -i '/^# check$/a%check\\nOPENSSL_CONF=$(python3 ./.config/ci/openssl.py) ./test/run_tests -c test/configs/linux.utsc -K ci_only -K scanner' .packit_rpm/scapy.spec"
+    - "sed -i '/^# check$/a%check\\nOPENSSL_ENABLE_SHA1_SIGNATURES=1 OPENSSL_CONF=$(python3 ./.config/ci/openssl.py) ./test/run_tests -c test/configs/linux.utsc -K ci_only -K scanner' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: can-utils' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: libpcap' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: openssl' .packit_rpm/scapy.spec"
