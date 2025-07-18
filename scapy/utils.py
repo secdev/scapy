@@ -2094,11 +2094,9 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         if tshigh is not None:
             p.time = EDecimal((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen
-        p.comment = comment
-        if comments is not None:
-            comments.remove(comment)
-            if len(comments) > 0:
-                p.comments = comments
+        p.comments = comments
+        if p.comments is None:
+            p.comment = comment
         p.direction = direction
         p.process_information = process_information.copy()
         if ifname is not None:
@@ -2595,8 +2593,8 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         # Options
         opts = b''
         if comments is not None and len(comments) > 0:
-            for comment in comments:
-                comment = bytes_encode(comment)
+            for c in comments:
+                comment = bytes_encode(c)
                 opts += struct.pack(self.endian + "HH", 1, len(comment))
                 # Pad Option Value to 32 bits
                 opts += self._add_padding(comment)
