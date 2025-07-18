@@ -101,7 +101,7 @@ class Packet(
         "direction", "sniffed_on",
         # handle snaplen Vs real length
         "wirelen",
-        "comment",
+        "comments",
         "process_information"
     ]
     name = None
@@ -179,7 +179,7 @@ class Packet(
         self.wirelen = None  # type: Optional[int]
         self.direction = None  # type: Optional[int]
         self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
-        self.comment = None  # type: Optional[bytes]
+        self.comments = None  # type: Optional[List[bytes]]
         self.process_information = None  # type: Optional[Dict[str, Any]]
         self.stop_dissection_after = stop_dissection_after
         if _pkt:
@@ -222,6 +222,25 @@ class Packet(
         Optional[int],
         Optional[bytes],
     ]
+
+    @property
+    def comment(self):
+        # type: () -> Optional[bytes]
+        """Get the comment of the packet"""
+        if self.comments is not None and len(self.comments) > 0:
+            return self.comments[-1]
+
+    @comment.setter
+    def comment(self, value):
+        """
+        Set the comment of the packet.
+        If value is None, it will clear the comments.
+        """
+        # type: (Optional[bytes]) -> None
+        if value is not None:
+            self.comments = [value]
+        else:
+            self.comments = None
 
     def __reduce__(self):
         # type: () -> Tuple[Type[Packet], Tuple[bytes], Packet._PickleType]
@@ -435,7 +454,7 @@ class Packet(
         clone.payload = self.payload.copy()
         clone.payload.add_underlayer(clone)
         clone.time = self.time
-        clone.comment = self.comment
+        clone.comments = self.comments
         clone.direction = self.direction
         clone.sniffed_on = self.sniffed_on
         return clone
@@ -1145,7 +1164,7 @@ class Packet(
             self.raw_packet_cache_fields
         )
         pkt.wirelen = self.wirelen
-        pkt.comment = self.comment
+        pkt.comments = self.comments
         pkt.sniffed_on = self.sniffed_on
         pkt.direction = self.direction
         if payload is not None:
