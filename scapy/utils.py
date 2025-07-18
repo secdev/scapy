@@ -2383,7 +2383,7 @@ class RawPcapWriter(GenericRawPcapWriter):
                       comment=None,  # type: Optional[bytes]
                       ifname=None,  # type: Optional[bytes]
                       direction=None,  # type: Optional[int]
-                      comments=None,  # type: Optional[List[bytes]
+                      comments=None,  # type: Optional[List[bytes]]
                       ):
         # type: (...) -> None
         """
