@@ -16,7 +16,8 @@ NUMBER_OF_F_PER_I = 100
 # - Make `TestPacket.end_case()` check for exact operation counts.
 ASSERT_COUNTS = False
 # - About 1.5s measured with optimizations on Windows / Python 3.8.6 with NUMBER_OF_I_PER_M=100, NUMBER_OF_F_PER_I=100.
-MAX_TIME_PER_OP = (1.5 / (100.0 * 100.0)) * 1.10  # 10% margin.
+# - About 1.9s measured with optimizations on github ci windows-latest / Python 3.13 with NUMBER_OF_I_PER_M=100, NUMBER_OF_F_PER_I=100.
+MAX_TIME_PER_OP = (2.0 / (100.0 * 100.0)) * 1.10  # 10% margin.
 
 class TestPacket(Packet):
     """Base class for `M`, `I` and `F`."""
