@@ -1648,10 +1648,10 @@ class RawPcapNgReader(RawPcapReader):
     PacketMetadata = collections.namedtuple("PacketMetadataNg",  # type: ignore
                                             ["linktype", "tsresol",
                                              "tshigh", "tslow", "wirelen",
-                                             "comments", "ifname", "direction",
-                                             "process_information"])
+                                             "comment", "ifname", "direction",
+                                             "process_information", "comments", ])
 
-    def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
+    def __init__(self, filename, fdesc=None, magic=None, comments=None):  # type: ignore
         # type: (str, IO[bytes], bytes) -> None
         self.filename = filename
         self.f = fdesc
@@ -1675,6 +1675,7 @@ class RawPcapNgReader(RawPcapReader):
         }
         self.endian = "!"  # Will be overwritten by first SHB
         self.process_information = []  # type: List[Dict[str, Any]]
+        self.comments = comments
 
         if magic != b"\x0a\x0d\x0d\x0a":  # PcapNg:
             raise Scapy_Exception(
@@ -1802,9 +1803,12 @@ class RawPcapNgReader(RawPcapReader):
                         "%d !" % len(options))
                 raise EOFError
             if code != 0 and 4 + length <= len(options):
-                if code not in opts:
-                    opts[code] = []
-                opts[code].append(options[4:4 + length])
+                if code in [1, 2988, 2989, 19372, 19373]:
+                    if code not in opts:
+                        opts[code] = []
+                    opts[code].append(options[4:4 + length])
+                else:
+                    opts[code] = options[4:4 + length]
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option "
@@ -1893,6 +1897,7 @@ class RawPcapNgReader(RawPcapReader):
                             "(%d/%d) !" % (proc_index, len(self.process_information)))
 
         comments = options.get(1, None)
+        comment = comments[-1] if comments is not None and len(comments) > 0 else None
         epb_flags_raw = options.get(2, None)
         if epb_flags_raw:
             try:
@@ -1915,10 +1920,11 @@ class RawPcapNgReader(RawPcapReader):
                                                tshigh=tshigh,
                                                tslow=tslow,
                                                wirelen=wirelen,
-                                               comments=comments,
+                                               comment=comment,
                                                ifname=ifname,
                                                direction=direction,
-                                               process_information=process_information))
+                                               process_information=process_information,
+                                               comments=comments))
 
     def _read_block_spb(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -1945,7 +1951,8 @@ class RawPcapNgReader(RawPcapReader):
                                                comment=None,
                                                ifname=None,
                                                direction=None,
-                                               process_information={}))
+                                               process_information={},
+                                               comments=None))
 
     def _read_block_pkt(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -1969,7 +1976,8 @@ class RawPcapNgReader(RawPcapReader):
                                                comment=None,
                                                ifname=None,
                                                direction=None,
-                                               process_information={}))
+                                               process_information={},
+                                               comments=None))
 
     def _read_block_dsb(self, block, size):
         # type: (bytes, int) -> None
@@ -2070,7 +2078,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         rp = super(PcapNgReader, self)._read_packet(size=size)
         if rp is None:
             raise EOFError
-        s, (linktype, tsresol, tshigh, tslow, wirelen, comments, ifname, direction, process_information) = rp  # noqa: E501
+        s, (linktype, tsresol, tshigh, tslow, wirelen, comment, ifname, direction, process_information, comments) = rp  # noqa: E501
         try:
             cls = conf.l2types.num2layer[linktype]  # type: Type[Packet]
             p = cls(s, **kwargs)  # type: Packet
@@ -2086,7 +2094,11 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         if tshigh is not None:
             p.time = EDecimal((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen
-        p.comments = comments
+        p.comment = comment
+        if comments is not None:
+            comments.remove(comment)
+            if len(comments) > 0:
+                p.comments = comments
         p.direction = direction
         p.process_information = process_information.copy()
         if ifname is not None:
@@ -2112,6 +2124,7 @@ class GenericPcapWriter(object):
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
                       wirelen=None,  # type: Optional[int]
+                      comment=None,  # type: Optional[bytes]
                       ifname=None,  # type: Optional[bytes]
                       direction=None,  # type: Optional[int]
                       comments=None,  # type: Optional[List[bytes]]
@@ -2195,6 +2208,7 @@ class GenericPcapWriter(object):
         if wirelen is None:
             wirelen = caplen
 
+        comment = getattr(packet, "comment", None)
         comments = getattr(packet, "comments", None)
         ifname = getattr(packet, "sniffed_on", None)
         direction = getattr(packet, "direction", None)
@@ -2210,10 +2224,11 @@ class GenericPcapWriter(object):
             rawpkt,
             sec=f_sec, usec=usec,
             caplen=caplen, wirelen=wirelen,
+            comment=comment,
             ifname=ifname,
             direction=direction,
             linktype=linktype,
-            comments=comments
+            comments=comments,
         )
 
 
@@ -2368,6 +2383,7 @@ class RawPcapWriter(GenericRawPcapWriter):
                       comment=None,  # type: Optional[bytes]
                       ifname=None,  # type: Optional[bytes]
                       direction=None,  # type: Optional[int]
+                      comments=None,  # type: Optional[List[bytes]
                       ):
         # type: (...) -> None
         """
@@ -2600,9 +2616,10 @@ class RawPcapNgWriter(GenericRawPcapWriter):
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
                       wirelen=None,  # type: Optional[int]
-                      comments=None,  # type: Optional[List[bytes]]
+                      comment=None,  # type: Optional[bytes]
                       ifname=None,  # type: Optional[bytes]
                       direction=None,  # type: Optional[int]
+                      comments=None,  # type: Optional[List[bytes]]
                       ):
         # type: (...) -> None
         """
