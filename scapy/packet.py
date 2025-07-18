@@ -2939,4 +2939,9 @@ def fuzz(p,  # type: _P
                     new_default_fields[name] = rnd
         q.default_fields.update(new_default_fields)
         q = q.payload
+
+    # Avoid caching for `p`.
+    p.no_cache = True
+    p.clear_cache()
+
     return p
