@@ -101,6 +101,7 @@ class Packet(
         "direction", "sniffed_on",
         # handle snaplen Vs real length
         "wirelen",
+        "intid",
         "comment",
         "process_information"
     ]
@@ -177,6 +178,7 @@ class Packet(
         self.raw_packet_cache = None  # type: Optional[bytes]
         self.raw_packet_cache_fields = None  # type: Optional[Dict[str, Any]]  # noqa: E501
         self.wirelen = None  # type: Optional[int]
+        self.intid = None  # type: Optional[int]
         self.direction = None  # type: Optional[int]
         self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
         self.comment = None  # type: Optional[bytes]
@@ -232,6 +234,7 @@ class Packet(
             self.direction,
             self.sniffed_on,
             self.wirelen,
+            self.intid,
             self.comment
         ))
 
@@ -431,6 +434,7 @@ class Packet(
             self.raw_packet_cache_fields
         )
         clone.wirelen = self.wirelen
+        clone.intid = self.intid
         clone.post_transforms = self.post_transforms[:]
         clone.payload = self.payload.copy()
         clone.payload.add_underlayer(clone)
@@ -500,6 +504,7 @@ class Packet(
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
             self.wirelen = None
+            self.intid = None
         elif attr == "payload":
             self.remove_payload()
             self.add_payload(val)
@@ -524,6 +529,7 @@ class Packet(
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
             self.wirelen = None
+            self.intid = None
         elif attr in self.default_fields:
             pass
         elif attr == "payload":
@@ -703,6 +709,7 @@ class Packet(
                     self.raw_packet_cache = None
                     self.raw_packet_cache_fields = None
                     self.wirelen = None
+                    self.intid = None
                     break
             if self.raw_packet_cache is not None:
                 return self.raw_packet_cache
@@ -1145,6 +1152,7 @@ class Packet(
             self.raw_packet_cache_fields
         )
         pkt.wirelen = self.wirelen
+        pkt.intid = self.intid
         pkt.comment = self.comment
         pkt.sniffed_on = self.sniffed_on
         pkt.direction = self.direction
