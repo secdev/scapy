@@ -623,7 +623,7 @@ class DceRpc5ExtendedErrorInfo(Packet):
             if err.ComputerName.Type == EEComputerNamePresent.eecnpPresent:
                 print(
                     " | ComputerName:",
-                    err.ComputerName.value.value.valueof("pString").decode("utf-16"),
+                    err.ComputerName.value.value.valueof("pString").decode("utf-16le"),
                 )
             print(
                 " | Generating Component:",
