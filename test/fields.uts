@@ -616,6 +616,7 @@ assert b[TestPkt:2].f1 == 100
 assert Raw in b and b[Raw].load == b"123456"
 
 a.plist.append(TestPkt(f1=200))
+a.clear_cache()  # List fields, if modified, do not automatically invalidate the cache. We currently have to do it explicitly.
 b = TestPLF2(raw(a))
 b.show()
 assert b.len1 == 5 and b.len2 == 5
@@ -713,6 +714,7 @@ assert b[TestPkt:2].f1 == 100
 assert Raw in b and b[Raw].load == b"123456"
 
 a.plist.append(TestPkt(f1=200))
+a.clear_cache()  # List fields, if modified, do not automatically invalidate the cache. We currently have to do it explicitly.
 b = TestPLF2(raw(a))
 b.show()
 assert b.len1 == 5 and b.len2 == 5
