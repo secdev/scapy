@@ -587,10 +587,10 @@ class ScapyExt:
 class ExtsManager(importlib.abc.MetaPathFinder):
     __slots__ = ["exts", "_loaded", "all_specs"]
 
-    SCAPY_PLUGIN_CLASSIFIER = 'Framework :: Scapy'
-    GPLV2_CLASSIFIERS = [
-        'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
-        'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
+    SCAPY_PLUGIN_CLASSIFIER = "Framework :: Scapy Plugin"
+    ALLOWED_LICENCES = [
+        "GPL-2.0-only",
+        "GPL-2.0-or-later",
     ]
 
     def __init__(self):
@@ -639,8 +639,8 @@ class ExtsManager(importlib.abc.MetaPathFinder):
                 if pkg in self._loaded:
                     continue
                 if not any(
-                    v in self.GPLV2_CLASSIFIERS
-                    for k, v in distr.metadata.items() if k == 'Classifier'
+                    v in self.ALLOWED_LICENCES
+                    for k, v in distr.metadata.items() if k == 'License-Expression'
                 ):
                     log_loading.warning(
                         "'%s' has no GPLv2 classifier therefore cannot be loaded." % pkg  # noqa: E501

@@ -1127,7 +1127,7 @@ class smbclient(CLIUtil):
         guest: bool = False,
         kerberos: bool = True,
         kerberos_required: bool = False,
-        HashNt: str = None,
+        HashNt: bytes = None,
         port: int = 445,
         timeout: int = 2,
         debug: int = 0,
