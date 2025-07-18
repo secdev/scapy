@@ -203,16 +203,28 @@ class Packet(
                 value = fields.pop(fname)
             except KeyError:
                 continue
-            self.fields[fname] = value if isinstance(value, RawVal) else \
-                self.get_field(fname).any2i(self, value)
+            if not isinstance(value, RawVal):
+                value = self.get_field(fname).any2i(self, value)
+
+            # In case of a list, ensure we store a `list_field` instance, not a simple `list`.
+            if isinstance(value, list):
+                value = list_field.ensure_bound(self, value)
+
+            self.fields[fname] = value
         # The remaining fields are unknown
         for fname in fields:
             if fname in self.deprecated_fields:
                 # Resolve deprecated fields
                 value = fields[fname]
                 fname = self._resolve_alias(fname)
-                self.fields[fname] = value if isinstance(value, RawVal) else \
-                    self.get_field(fname).any2i(self, value)
+                if not isinstance(value, RawVal):
+                    value = self.get_field(fname).any2i(self, value)
+
+                # In case of a list, ensure we store a `list_field` instance, not a simple `list`.
+                if isinstance(value, list):
+                    value = list_field.ensure_bound(self, value)
+
+                self.fields[fname] = value
                 continue
             raise AttributeError(fname)
         if isinstance(post_transform, list):
@@ -320,6 +332,11 @@ class Packet(
 
                 # Fix: Use `copy_field_value()` instead of just `value.copy()`, in order to duplicate list items as well in case of a list.
                 self.fields[fname] = self.copy_field_value(fname, self.default_fields[fname])
+
+                # In case of a list, ensure we store a `list_field` instance, not a simple `list`.
+                if isinstance(self.fields[fname], list):
+                    self.fields[fname] = list_field.ensure_bound(self, self.fields[fname])
+
                 self._ensure_parent_of(self.fields[fname])
 
     def prepare_cached_fields(self, flist):
@@ -663,8 +680,14 @@ class Packet(
                 any2i = lambda x, y: y  # type: Callable[..., Any]
             else:
                 any2i = fld.any2i
-            self.fields[attr] = val if isinstance(val, RawVal) else \
-                any2i(self, val)
+            if not isinstance(val, RawVal):
+                val = any2i(self, val)
+
+            # In case of a list, ensure we store a `list_field` instance, not a simple `list`.
+            if isinstance(val, list):
+                val = list_field.ensure_bound(self, val)
+
+            self.fields[attr] = val
             self.explicit = 0
             # Invalidate cache when the packet has changed.
             self.clear_cache(upwards=True, downwards=False)
@@ -1210,6 +1233,11 @@ class Packet(
             # Skip unused ConditionalField
             if isinstance(f, ConditionalField) and fval is None:
                 continue
+
+            # In case of a list, ensure we store a `list_field` instance, not a simple `list`.
+            if isinstance(fval, list):
+                fval = list_field.ensure_bound(self, fval)
+
             self.fields[f.name] = fval
             # Nothing left to dissect
             if not s and (isinstance(f, MayEnd) or
@@ -2131,6 +2159,90 @@ class NoPayload(Packet):
     def route(self):
         # type: () -> Tuple[None, None, None]
         return (None, None, None)
+
+
+#################
+#  list fields  #
+#################
+
+
+class list_field_meta(type):
+    """
+    Wraps modifying methods for ``list`` base type.
+
+    Inspired from https://stackoverflow.com/questions/8858525/track-changes-to-lists-and-dictionaries-in-python#8859168.
+    """
+    def __new__(
+            mcs,
+            name,  # type: str
+            bases,  # Tuple[type, ...]
+            attrs,  # type: Dict[str, Any]
+    ):  # type: (...) -> type
+        # List names of `list` methods modifying the list.
+        for method_name in [
+            "append",
+            "clear",
+            "extend",
+            "insert",
+            "pop",
+            "remove",
+            "reverse",  # Memo: Reverse *IN PLACE*.
+            "sort",  # Memo: Stable sort *IN PLACE*.
+            "__delitem__",
+            "__iadd__",
+            "__imul__",
+            "__setitem__",
+        ]:
+            # Wrap the method so that `Packet.clear_cache()` be automatically called.
+            attrs[method_name] = list_field_meta._wrap_method(getattr(list, method_name))
+        return type.__new__(mcs, name, bases, attrs)
+
+    @staticmethod
+    def _wrap_method(meth):  # type: (Callable[[Any, ...], Any]) -> Callable[[Any, ...], Any]
+        def wrapped(
+                self,  # type: list_field
+                *args,  # type: Any
+                **kwargs,  # type: Any
+        ):  # type: (...) -> Any
+            # Automatically call `Packet.clear_cache()` when the `list_field` is modified.
+            self.pkt.clear_cache(upwards=True, downwards=False)
+
+            # Call the wrapped method, and return its result.
+            return meth(self, *args, **kwargs)
+        return wrapped
+
+
+class list_field(list, metaclass=list_field_meta):
+    """
+    Overrides the base ``list`` type for list fields bound with packets.
+
+    Ensures :meth:`Packet.clear_cache()` is called when the list is modified.
+
+    Lower case for the class name in order to avoid confusions with classes like ``PacketListField``.
+    """
+    def __init__(
+            self,
+            pkt,  # type: Packet,
+            *args  # type: Any
+    ):  # type: (...) -> None
+        # Call the `list.__init__()` super constructor.
+        super().__init__(*args)
+
+        #: Packet bound with this list field.
+        self.pkt = pkt
+
+    @staticmethod
+    def ensure_bound(
+            pkt,  # type: Packet
+            lst,  # type: List[Any]
+    ):  # type: (...) -> list_field
+        """
+        Ensures a :class:`list_field` instance bound with ``pkt``.
+        """
+        # If `lst` is a simple `list`, this method intends to create a new `list_field` instance.
+        # If `lst` is already a `list_field` instance, we never know where this instance comes from, and what it's being used for.
+        # Let's create a new `list_field` instance in any case.
+        return list_field(pkt, lst)
 
 
 ####################
