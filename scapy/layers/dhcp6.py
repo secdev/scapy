@@ -1875,7 +1875,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             client_duid = p[DHCP6OptClientId].duid
             resp = IPv6(src=self.src_addr, dst=req_src)
             resp /= UDP(sport=547, dport=546)
-            resp /= DHCP6_Solicit(trid=trid)
+            resp /= DHCP6_Reply(trid=trid)
             resp /= DHCP6OptServerId(duid=self.duid)
             resp /= DHCP6OptClientId(duid=client_duid)
 
