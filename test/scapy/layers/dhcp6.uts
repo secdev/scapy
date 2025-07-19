@@ -1626,3 +1626,15 @@ a.sport == 546 and a.dport == 547
 = DHCP6_AddrRegReply - Dispatch based on UDP port
 a=UDP(raw(UDP()/DHCP6_AddrRegReply()))
 isinstance(a.payload, DHCP6_AddrRegReply)
+
+############
+############
++ DHCP6_Reply - make_reply generates DHCP6_Reply and not DHCP6_Solicit in response to DHCP6_Request
+
+= DHCP6_Reply - Test that make_reply generates DHCP6_Reply and not DHCP6_Solicit in response to DHCP6_Request
+req = IPv6(src="fe80::1", dst="ff02::1:2")/UDP(sport=546, dport=547)/DHCP6_Request(trid=1)/DHCP6OptClientId(duid=2)
+am = DHCPv6_am()
+am.src_addr = "fe80::2"
+am.duid = 3
+reply = am.make_reply(req)
+reply.haslayer(DHCP6_Reply) and not reply.haslayer(DHCP6_Solicit)
