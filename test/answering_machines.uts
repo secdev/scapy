@@ -232,7 +232,7 @@ assert a.is_request(req)
 res = a.make_reply(req)
 assert not a.is_request(res)
 assert res[UDP].dport == 546
-assert res[DHCP6_Solicit]
+assert res[DHCP6_Reply]
 a.print_reply(req, res)
 
 = WiFi_am
