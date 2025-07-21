@@ -2937,7 +2937,12 @@ def fuzz(p,  # type: _P
                 rnd = fld._find_fld_pkt(q).randval()
                 if rnd is not None:
                     new_default_fields[name] = rnd
-        q.default_fields.update(new_default_fields)
+        # Avoid messing up the original packet `default_fields` dictionary which is unique for all instances of the given layer.
+        # Build a new dictionary, and update it with `new_default_fields`.
+        q.default_fields = {
+            **q.default_fields,
+            **new_default_fields,
+        }
         q = q.payload
 
     # Avoid caching for `p`.
