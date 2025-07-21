@@ -205,11 +205,7 @@ class Packet(
                 continue
             if not isinstance(value, RawVal):
                 value = self.get_field(fname).any2i(self, value)
-
-            # In case of a list, ensure we store a `list_field` instance, not a simple `list`.
-            if isinstance(value, list):
-                value = list_field.ensure_bound(self, value)
-
+            value = self._ensure_bound_field_value(value)
             self.fields[fname] = value
         # The remaining fields are unknown
         for fname in fields:
@@ -219,11 +215,7 @@ class Packet(
                 fname = self._resolve_alias(fname)
                 if not isinstance(value, RawVal):
                     value = self.get_field(fname).any2i(self, value)
-
-                # In case of a list, ensure we store a `list_field` instance, not a simple `list`.
-                if isinstance(value, list):
-                    value = list_field.ensure_bound(self, value)
-
+                value = self._ensure_bound_field_value(value)
                 self.fields[fname] = value
                 continue
             raise AttributeError(fname)
@@ -332,10 +324,7 @@ class Packet(
 
                 # Fix: Use `copy_field_value()` instead of just `value.copy()`, in order to duplicate list items as well in case of a list.
                 self.fields[fname] = self.copy_field_value(fname, self.default_fields[fname])
-
-                # In case of a list, ensure we store a `list_field` instance, not a simple `list`.
-                if isinstance(self.fields[fname], list):
-                    self.fields[fname] = list_field.ensure_bound(self, self.fields[fname])
+                self.fields[fname] = self._ensure_bound_field_value(self.fields[fname])
 
                 self._ensure_parent_of(self.fields[fname])
 
@@ -682,11 +671,7 @@ class Packet(
                 any2i = fld.any2i
             if not isinstance(val, RawVal):
                 val = any2i(self, val)
-
-            # In case of a list, ensure we store a `list_field` instance, not a simple `list`.
-            if isinstance(val, list):
-                val = list_field.ensure_bound(self, val)
-
+            val = self._ensure_bound_field_value(val)
             self.fields[attr] = val
             self.explicit = 0
             # Invalidate cache when the packet has changed.
@@ -707,6 +692,31 @@ class Packet(
         except AttributeError:
             pass
         return object.__setattr__(self, attr, val)
+
+    def _ensure_bound_field_value(
+            self,
+            value,  # type: Any
+    ):  # type: (...) -> Any
+        """
+        Ensures a field instance bound with ``self`` when applicable.
+        """
+        if isinstance(value, list):
+            # If `value` is a simple `list`, create a new `list_field` instance.
+            # If `value` is already a `list_field` instance, we never know where this instance comes from, and what it's being used for.
+            # Let's create a new `list_field` instance in any case.
+            return list_field(self, value)
+
+        if isinstance(value, FlagValue):
+            # We never know where the `FlagValue` instance comes from, and what it's being used for.
+            # Let's create a new instance.
+            value = value.copy()
+            value.pkt = self
+            return value
+
+        # Non-specific bound field.
+        # Maybe a packet? rely on parentship in that case.
+        # Return `value` as is.
+        return value
 
     def delfieldval(self, attr):
         # type: (str) -> None
@@ -1233,11 +1243,7 @@ class Packet(
             # Skip unused ConditionalField
             if isinstance(f, ConditionalField) and fval is None:
                 continue
-
-            # In case of a list, ensure we store a `list_field` instance, not a simple `list`.
-            if isinstance(fval, list):
-                fval = list_field.ensure_bound(self, fval)
-
+            fval = self._ensure_bound_field_value(fval)
             self.fields[f.name] = fval
             # Nothing left to dissect
             if not s and (isinstance(f, MayEnd) or
@@ -2230,19 +2236,6 @@ class list_field(list, metaclass=list_field_meta):
 
         #: Packet bound with this list field.
         self.pkt = pkt
-
-    @staticmethod
-    def ensure_bound(
-            pkt,  # type: Packet
-            lst,  # type: List[Any]
-    ):  # type: (...) -> list_field
-        """
-        Ensures a :class:`list_field` instance bound with ``pkt``.
-        """
-        # If `lst` is a simple `list`, this method intends to create a new `list_field` instance.
-        # If `lst` is already a `list_field` instance, we never know where this instance comes from, and what it's being used for.
-        # Let's create a new `list_field` instance in any case.
-        return list_field(pkt, lst)
 
 
 ####################

@@ -2973,7 +2973,7 @@ class FlagValueIter(object):
 
 
 class FlagValue(object):
-    __slots__ = ["value", "names", "multi"]
+    __slots__ = ["pkt", "value", "names", "multi"]
 
     def _fixvalue(self, value):
         # type: (Any) -> int
@@ -2990,6 +2990,12 @@ class FlagValue(object):
 
     def __init__(self, value, names):
         # type: (Union[List[str], int, str], Union[List[str], str]) -> None
+
+        #: Packet bound with this flag value.
+        #:
+        #: Ensures ``Packet.clear_cache()`` is called when the flags are modified.
+        self.pkt = None  # type: Optional[Packet]
+
         self.multi = isinstance(names, list)
         self.names = names
         self.value = self._fixvalue(value)
@@ -3125,6 +3131,10 @@ class FlagValue(object):
                 self.value |= (2 ** self.names.index(attr))
             else:
                 self.value &= ~(2 ** self.names.index(attr))
+
+            # Automatically call `Packet.clear_cache()` when the flags are modified.
+            if self.pkt is not None:
+                self.pkt.clear_cache(upwards=True, downwards=True)
         else:
             return super(FlagValue, self).__setattr__(attr, value)
 
