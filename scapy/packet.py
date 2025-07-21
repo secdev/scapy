@@ -704,7 +704,11 @@ class Packet(
             # If `value` is a simple `list`, create a new `list_field` instance.
             # If `value` is already a `list_field` instance, we never know where this instance comes from, and what it's being used for.
             # Let's create a new `list_field` instance in any case.
-            return list_field(self, value)
+            return list_field(
+                self,
+                # Recurse on list items.
+                [self._ensure_bound_field_value(x) for x in value],
+            )
 
         if isinstance(value, FlagValue):
             # We never know where the `FlagValue` instance comes from, and what it's being used for.
