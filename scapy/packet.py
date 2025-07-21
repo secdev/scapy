@@ -229,14 +229,15 @@ class Packet(
         """Get the comment of the packet"""
         if self.comments is not None and len(self.comments) > 0:
             return self.comments[-1]
+        return None
 
     @comment.setter
     def comment(self, value):
+        # type: (Optional[bytes]) -> None
         """
         Set the comment of the packet.
         If value is None, it will clear the comments.
         """
-        # type: (Optional[bytes]) -> None
         if value is not None:
             self.comments = [value]
         else:

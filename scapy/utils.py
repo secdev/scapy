@@ -1652,7 +1652,7 @@ class RawPcapNgReader(RawPcapReader):
                                              "process_information", "comments", ])
 
     def __init__(self, filename, fdesc=None, magic=None, comments=None):  # type: ignore
-        # type: (str, IO[bytes], bytes) -> None
+        # type: (str, IO[bytes], bytes, List[bytes]) -> None
         self.filename = filename
         self.f = fdesc
         # A list of (linktype, snaplen, tsresol); will be populated by IDBs.
@@ -1793,8 +1793,8 @@ class RawPcapNgReader(RawPcapReader):
                 return res
 
     def _read_options(self, options):
-        # type: (bytes) -> Dict[int, bytes]
-        opts = dict()
+        # type: (bytes) -> Dict[int, Union[bytes, List[bytes]]]
+        opts = dict()  # type: Dict[int, Union[bytes, List[bytes]]]
         while len(options) >= 4:
             try:
                 code, length = struct.unpack(self.endian + "HH", options[:4])
@@ -1806,7 +1806,7 @@ class RawPcapNgReader(RawPcapReader):
                 if code in [1, 2988, 2989, 19372, 19373]:
                     if code not in opts:
                         opts[code] = []
-                    opts[code].append(options[4:4 + length])
+                    cast(List[bytes], opts[code]).append(options[4:4 + length])
                 else:
                     opts[code] = options[4:4 + length]
             if code == 0:
@@ -1827,6 +1827,10 @@ class RawPcapNgReader(RawPcapReader):
         options_raw = self._read_options(block[8:])
         options = self.default_options.copy()  # type: Dict[str, Any]
         for c, v in options_raw.items():
+            if isinstance(v, list):
+                # If the option is a list, we take the last value
+                # (as per pcapng spec)
+                v = v[-1]
             if c == 9:
                 length = len(v)
                 if length == 1:
@@ -1883,6 +1887,7 @@ class RawPcapNgReader(RawPcapReader):
         process_information = {}
         for code, value in options.items():
             if code in [0x8001, 0x8003]:  # PCAPNG_EPB_PIB_INDEX, PCAPNG_EPB_E_PIB_INDEX
+                value = cast(bytes, value)
                 try:
                     proc_index = struct.unpack(self.endian + "I", value)[0]
                 except struct.error:
@@ -1900,6 +1905,7 @@ class RawPcapNgReader(RawPcapReader):
         comment = comments[-1] if comments is not None and len(comments) > 0 else None
         epb_flags_raw = options.get(2, None)
         if epb_flags_raw:
+            epb_flags_raw = cast(bytes, epb_flags_raw)
             try:
                 epb_flags, = struct.unpack(self.endian + "I", epb_flags_raw)
             except struct.error:
@@ -2048,6 +2054,7 @@ class RawPcapNgReader(RawPcapReader):
         # Get Options
         options = self._read_options(block)
         for code, value in options.items():
+            value = cast(bytes, value)
             if code == 2:
                 process_information["name"] = value.decode("ascii", "backslashreplace")
             elif code == 4:
