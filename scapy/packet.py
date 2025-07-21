@@ -33,6 +33,7 @@ from scapy.fields import (
     Field,
     FlagsField,
     FlagValue,
+    ListValue,
     MayEnd,
     MultiEnumField,
     MultipleTypeField,
@@ -701,10 +702,10 @@ class Packet(
         Ensures a field instance bound with ``self`` when applicable.
         """
         if isinstance(value, list):
-            # If `value` is a simple `list`, create a new `list_field` instance.
-            # If `value` is already a `list_field` instance, we never know where this instance comes from, and what it's being used for.
-            # Let's create a new `list_field` instance in any case.
-            return list_field(
+            # If `value` is a simple `list`, create a new `ListValue` instance.
+            # If `value` is already a `ListValue` instance, we never know where this instance comes from, and what it's being used for.
+            # Let's create a new `ListValue` instance in any case.
+            return ListValue(
                 self,
                 # Recurse on list items.
                 [self._ensure_bound_field_value(x) for x in value],
@@ -2169,77 +2170,6 @@ class NoPayload(Packet):
     def route(self):
         # type: () -> Tuple[None, None, None]
         return (None, None, None)
-
-
-#################
-#  list fields  #
-#################
-
-
-class list_field_meta(type):
-    """
-    Wraps modifying methods for ``list`` base type.
-
-    Inspired from https://stackoverflow.com/questions/8858525/track-changes-to-lists-and-dictionaries-in-python#8859168.
-    """
-    def __new__(
-            mcs,
-            name,  # type: str
-            bases,  # Tuple[type, ...]
-            attrs,  # type: Dict[str, Any]
-    ):  # type: (...) -> type
-        # List names of `list` methods modifying the list.
-        for method_name in [
-            "append",
-            "clear",
-            "extend",
-            "insert",
-            "pop",
-            "remove",
-            "reverse",  # Memo: Reverse *IN PLACE*.
-            "sort",  # Memo: Stable sort *IN PLACE*.
-            "__delitem__",
-            "__iadd__",
-            "__imul__",
-            "__setitem__",
-        ]:
-            # Wrap the method so that `Packet.clear_cache()` be automatically called.
-            attrs[method_name] = list_field_meta._wrap_method(getattr(list, method_name))
-        return type.__new__(mcs, name, bases, attrs)
-
-    @staticmethod
-    def _wrap_method(meth):  # type: (Callable[[Any, ...], Any]) -> Callable[[Any, ...], Any]
-        def wrapped(
-                self,  # type: list_field
-                *args,  # type: Any
-                **kwargs,  # type: Any
-        ):  # type: (...) -> Any
-            # Automatically call `Packet.clear_cache()` when the `list_field` is modified.
-            self.pkt.clear_cache(upwards=True, downwards=False)
-
-            # Call the wrapped method, and return its result.
-            return meth(self, *args, **kwargs)
-        return wrapped
-
-
-class list_field(list, metaclass=list_field_meta):
-    """
-    Overrides the base ``list`` type for list fields bound with packets.
-
-    Ensures :meth:`Packet.clear_cache()` is called when the list is modified.
-
-    Lower case for the class name in order to avoid confusions with classes like ``PacketListField``.
-    """
-    def __init__(
-            self,
-            pkt,  # type: Packet,
-            *args  # type: Any
-    ):  # type: (...) -> None
-        # Call the `list.__init__()` super constructor.
-        super().__init__(*args)
-
-        #: Packet bound with this list field.
-        self.pkt = pkt
 
 
 ####################
