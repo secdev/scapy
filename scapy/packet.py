@@ -643,24 +643,26 @@ class Packet(
         # type: (str, Any) -> None
 
         # Optimization:
-        #   Try to avoid replacing a value by the same value,
+        #   If `attr` is already in `self.fields`,
+        #   try to avoid replacing a value by the same value,
         #   and avoid recursive cache invalidation by the way.
-        try:
-            old_val = self.getfieldval(attr)  # type: Any
-            if (
-                # In case of packets, check the given packet reference differs from the previous one.
-                (val is old_val) if isinstance(val, Packet)
-                # In case of lists, let's take the new value whatever (no optimization).
-                else False if isinstance(val, list)
-                # In the general case, compare the values.
-                else (val == old_val)
-            ):
-                return
-        except AttributeError:
-            # Field name can't be found (yet?).
-            # Let the execution go on, especially on the payload.
-            # An `AttributeError` may eventually be raised in case of a `NoPayload`.
-            pass
+        if attr in self.fields:
+            try:
+                old_val = self.getfieldval(attr)  # type: Any
+                if (
+                    # In case of packets, check the given packet reference differs from the previous one.
+                    (val is old_val) if isinstance(val, Packet)
+                    # In case of lists, let's take the new value whatever (no optimization).
+                    else False if isinstance(val, list)
+                    # In the general case, compare the values.
+                    else (val == old_val)
+                ):
+                    return
+            except AttributeError:
+                # Field name can't be found (yet?).
+                # Let the execution go on, especially on the payload.
+                # An `AttributeError` may eventually be raised in case of a `NoPayload`.
+                pass
 
         if self.deprecated_fields and attr in self.deprecated_fields:
             attr = self._resolve_alias(attr)
