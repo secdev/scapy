@@ -1802,6 +1802,7 @@ from functools import partial
 def _test_flood(ip, flood_function, add_ether=False):
     with no_debug_dissector():
         p = IP(dst=ip)/TCP(sport=RandShort(), dport=80, flags="S")
+        p[TCP].no_cache = True  # Disable caching for the TCP layer, since `sport` is set with a random field.
         if add_ether:
             p = Ether()/p
         p.show2()
