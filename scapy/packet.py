@@ -528,6 +528,10 @@ class Packet(
             clone.fields = _fast_copy_fields_dict(self.fields)
             clone.explicit = self.explicit
 
+        # Copy the `no_cache` flag if set on the source packet, and not already set on the clone.
+        if self.no_cache and (not clone.no_cache):
+            clone.no_cache = True
+
         # Both `copy()` and `clone_with()` set the `default_fields` attribute with the `copy_fields_dict()` method.
         #
         # Memo:
