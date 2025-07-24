@@ -1619,6 +1619,70 @@ class PacketLenField(_PacketFieldSingle[Optional[BasePacket]]):
         return s[len_pkt:], i
 
 
+class _ListValueMeta(type):
+    """
+    Wraps modifying methods for ``list`` base type.
+
+    Inspired from https://stackoverflow.com/questions/8858525/track-changes-to-lists-and-dictionaries-in-python#8859168.
+    """
+    def __new__(
+            mcs,
+            name,  # type: str
+            bases,  # Tuple[type, ...]
+            attrs,  # type: Dict[str, Any]
+    ):  # type: (...) -> type
+        # List names of `list` methods modifying the list.
+        for method_name in [
+            "append",
+            "clear",
+            "extend",
+            "insert",
+            "pop",
+            "remove",
+            "reverse",  # Memo: Reverse *IN PLACE*.
+            "sort",  # Memo: Stable sort *IN PLACE*.
+            "__delitem__",
+            "__iadd__",
+            "__imul__",
+            "__setitem__",
+        ]:
+            # Wrap the method so that `Packet.clear_cache()` be automatically called.
+            attrs[method_name] = _ListValueMeta._wrap_method(getattr(list, method_name))
+        return type.__new__(mcs, name, bases, attrs)
+
+    @staticmethod
+    def _wrap_method(meth):  # type: (Callable[[Any, ...], Any]) -> Callable[[Any, ...], Any]
+        def wrapped(
+                self,  # type: ListValue
+                *args,  # type: Any
+                **kwargs,  # type: Any
+        ):  # type: (...) -> Any
+            # Automatically call `Packet.clear_cache()` when the `ListValue` is modified.
+            self.pkt.clear_cache(upwards=True, downwards=False)
+
+            # Call the wrapped method, and return its result.
+            return meth(self, *args, **kwargs)
+        return wrapped
+
+
+class ListValue(list, metaclass=_ListValueMeta):
+    """
+    Overrides the base ``list`` type for list fields bound with packets.
+
+    Ensures ``Packet.clear_cache()`` is called when the list is modified.
+    """
+    def __init__(
+            self,
+            pkt,  # type: Packet,
+            *args  # type: Any
+    ):  # type: (...) -> None
+        # Call the `list.__init__()` super constructor.
+        super().__init__(*args)
+
+        #: Packet bound with this list field.
+        self.pkt = pkt
+
+
 class PacketListField(_PacketField[List[BasePacket]]):
     """PacketListField represents a list containing a series of Packet instances
     that might occur right in the middle of another Packet field.
@@ -3020,7 +3084,7 @@ class FlagValueIter(object):
 
 
 class FlagValue(object):
-    __slots__ = ["value", "names", "multi"]
+    __slots__ = ["pkt", "value", "names", "multi"]
 
     def _fixvalue(self, value):
         # type: (Any) -> int
@@ -3037,6 +3101,12 @@ class FlagValue(object):
 
     def __init__(self, value, names):
         # type: (Union[List[str], int, str], Union[List[str], str]) -> None
+
+        #: Packet bound with this flag value.
+        #:
+        #: Ensures ``Packet.clear_cache()`` is called when the flags are modified.
+        self.pkt = None  # type: Optional[Packet]
+
         self.multi = isinstance(names, list)
         self.names = names
         self.value = self._fixvalue(value)
@@ -3172,6 +3242,10 @@ class FlagValue(object):
                 self.value |= (2 ** self.names.index(attr))
             else:
                 self.value &= ~(2 ** self.names.index(attr))
+
+            # Automatically call `Packet.clear_cache()` when the flags are modified.
+            if self.pkt is not None:
+                self.pkt.clear_cache(upwards=True, downwards=True)
         else:
             return super(FlagValue, self).__setattr__(attr, value)
 

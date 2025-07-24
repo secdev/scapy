@@ -1,0 +1,175 @@
+% No auto clear cache issue
+
+# See https://github.com/secdev/scapy/issues/4706
+
+
+############
+############
++ Test utils
+
+= 000) Prepare a `check_equal()` function.
+
+def check_equal(description, measured, expected):
+    assert measured == expected, f"{description!r} FAILED: {measured!r} != {expected!r}"
+    print(f"{description}: {measured!r}")
+
+
+############
+############
++ Test data
+
+= 001) Define a final packet class.
+
+class F(Packet):
+    fields_desc = [
+        ByteField(name="value", default=0),
+    ]
+
+
+############
+############
++ Auto clear cache on final packet
+
+= 002) Instantiate a packet of the final packet class with cache.
+
+f = F(bytes.fromhex("01"))
+f.show()
+check_equal("Cache is set", f.raw_packet_cache, bytes.fromhex("01"))
+
+= 003) Change the value of the `F.value` field.
+
+f.value = 2
+f.show()
+
+= 004) Check the final packet has no cache anymore.
+
+check_equal("Cache is reset", f.raw_packet_cache, None)
+
+= 005) Serialize the resulting packet.
+
+buf = f.build()
+check_equal("f.build()", buf, bytes.fromhex("02"))
+
+= 006) Check whether the final packet has cache after `build()`.
+
+# Just watch, don't assert.
+# Note: Behaviour changed after #4705.
+print(f"f.raw_packet_cache={f.raw_packet_cache!r}")
+
+
+############
+############
++ Auto clear cache with payload
+
+= 007) Define a packet class bound with final class after it.
+
+class M0(Packet):
+    fields_desc = [
+        StrFixedLenField("foo", length_from=lambda pkt: 0, default=b''),
+    ]
+
+bind_layers(M0, F)
+
+= 008) Instantiate a packet of this class with cache.
+
+m = M0(bytes.fromhex("01"))
+m.show()
+check_equal("Cache is set", m.raw_packet_cache, b'')
+check_equal("Cache is set", m.payload.raw_packet_cache, bytes.fromhex("01"))
+
+= 009) Change the value of the `F.value` field.
+
+m.value = 2
+m.show()
+
+= 010) Check the underlayer packet has no cache anymore.
+
+check_equal("Cache is reset", m.raw_packet_cache, None)
+
+= 011) Serialize the resulting packet.
+
+buf = m.build()
+check_equal("m.build()", buf, bytes.fromhex("02"))
+
+= 012) Check whether the underlayer packet has cache.
+
+# Just watch, don't assert.
+# Note: Behaviour changed after #4705.
+print(f"m.raw_packet_cache={m.raw_packet_cache!r}")
+
+
+############
+############
++ Auto clear cache with `PacketField`
+
+= 013) Define a packet class using a `PacketField`
+
+class M1(Packet):
+    fields_desc = [
+        PacketField("f", pkt_cls=F, default=F()),
+    ]
+
+= 014) Instantiate a packet of this class with cache.
+
+m = M1(bytes.fromhex("01"))
+m.show()
+check_equal("Cache is set", m.raw_packet_cache, bytes.fromhex("01"))
+
+= 015) Change the value of the `F.value` field.
+
+m.f.value = 2
+m.show()
+
+= 016) Check the parent packet has no cache anymore.
+
+check_equal("Cache is reset", m.raw_packet_cache, None)
+
+= 017) Serialize the resulting packet.
+
+buf = m.build()
+check_equal("m.build()", buf, bytes.fromhex("02"))
+
+= 018) Check whether the parent packet has cache.
+
+# Just watch, don't assert.
+# Note: Behaviour changed after #4705.
+print(f"m.raw_packet_cache={m.raw_packet_cache!r}")
+
+
+############
+############
++ Auto clear cache with `PacketListField`
+
+= 019) Define a packet class using a `PacketListField`
+
+class M2(Packet):
+    fields_desc = [
+        PacketListField("f", pkt_cls=F, count_from=lambda pkkt: 1, default=[]),
+    ]
+
+= 020) Instantiate a packet of this class with cache.
+
+m = M2(bytes.fromhex("01"))
+m.show()
+check_equal("Cache is set", m.raw_packet_cache, bytes.fromhex("01"))
+
+= 021) Change the value of the `F.value` field.
+
+m.f[0].value = 2
+m.show()
+
+= 022) Check the parent packet has no cache anymore.
+
+check_equal("Cache is reset", m.raw_packet_cache, None)
+
+= 023) Serialize the resulting packet.
+
+buf = m.build()
+check_equal("m.build()", buf, bytes.fromhex("02"))
+
+= 024) Check whether the parent packet has cache.
+
+# Just watch, don't assert.
+# Note: Not reset in v2.4.5, reset in v2.5.0.
+# Note: Behaviour changed after #4705.
+print(f"m.raw_packet_cache={m.raw_packet_cache!r}")
