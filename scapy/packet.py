@@ -667,6 +667,10 @@ class Packet(
                 # Let the execution go on, especially on the payload.
                 # An `AttributeError` may eventually be raised in case of a `NoPayload`.
                 pass
+            except ValueError:
+                # Value comparisons may fail (may occur with `FlagValue`s among others).
+                # Forget the optimization in such case.
+                pass
 
         if self.deprecated_fields and attr in self.deprecated_fields:
             attr = self._resolve_alias(attr)
