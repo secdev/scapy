@@ -1623,6 +1623,10 @@ class PcapReader(RawPcapReader):
         # type: (int, **Any) -> Packet
         return self.read_packet(size=size, **kwargs)
 
+    def __iter__(self):
+        # type: () -> PcapReader
+        return self
+
     def __next__(self):  # type: ignore
         # type: () -> Packet
         try:
