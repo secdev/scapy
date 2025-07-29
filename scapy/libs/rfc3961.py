@@ -22,10 +22,12 @@ Implementation of cryptographic functions for Kerberos 5
 # TODO: support cipher states...
 
 __all__ = [
-    "EncryptionType",
     "ChecksumType",
-    "Key",
+    "EncryptionType",
     "InvalidChecksum",
+    "KRB_FX_CF2",
+    "Key",
+    "SP800108_KDFCTR",
     "_rfc1964pad",
 ]
 

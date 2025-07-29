@@ -38,6 +38,7 @@ from scapy.asn1fields import (
     ASN1F_optional,
 )
 from scapy.asn1packet import ASN1_Packet
+from scapy.base_classes import Net
 from scapy.fields import (
     FieldListField,
     LEIntEnumField,
@@ -56,7 +57,12 @@ from scapy.fields import (
     XStrLenField,
 )
 from scapy.packet import Packet, bind_layers
+from scapy.utils import (
+    valid_ip,
+    valid_ip6,
+)
 
+from scapy.layers.inet6 import Net6
 from scapy.layers.gssapi import (
     GSSAPI_BLOB,
     GSSAPI_BLOB_SIGNATURE,
@@ -75,8 +81,13 @@ from scapy.layers.gssapi import (
 # SSP Providers
 from scapy.layers.kerberos import (
     Kerberos,
+    KerberosSSP,
+    krb_as_and_tgs,
+    _parse_upn,
 )
 from scapy.layers.ntlm import (
+    NTLMSSP,
+    MD4le,
     NEGOEX_EXCHANGE_NTLM,
     NTLM_Header,
     _NTLMPayloadField,
@@ -618,6 +629,115 @@ class SPNEGOSSP(SSP):
                 ]
         self.force_supported_mechtypes = kwargs.pop("force_supported_mechtypes", None)
         super(SPNEGOSSP, self).__init__(**kwargs)
+
+    @classmethod
+    def from_cli_arguments(
+        cls,
+        UPN: str,
+        target: str,
+        password: str = None,
+        HashNt: bytes = None,
+        HashAes256Sha96: bytes = None,
+        HashAes128Sha96: bytes = None,
+        kerberos_required: bool = False,
+        ST=None,
+        KEY=None,
+        debug: int = 0,
+    ):
+        """
+        Initialize a SPNEGOSSP from a list of many arguments.
+        This is useful in a CLI, with NTLM and Kerberos supported by default.
+
+        :param UPN: the UPN of the user to use.
+        :param target: the target IP/hostname entered by the user.
+        :param kerberos_required: require kerberos
+        :param password: (string) if provided, used for auth
+        :param HashNt: (bytes) if provided, used for auth (NTLM)
+        :param HashAes256Sha96: (bytes) if provided, used for auth (Kerberos)
+        :param HashAes128Sha96: (bytes) if provided, used for auth (Kerberos)
+        :param ST: if provided, the service ticket to use (Kerberos)
+        :param KEY: if ST provided, the session key associated to the ticket (Kerberos).
+                    Else, the user secret key.
+        """
+        kerberos = True
+        hostname = None
+        # Check if target is a hostname / Check IP
+        if ":" in target:
+            if not valid_ip6(target):
+                hostname = target
+            target = str(Net6(target))
+        else:
+            if not valid_ip(target):
+                hostname = target
+            target = str(Net(target))
+        # Check UPN
+        try:
+            _, realm = _parse_upn(UPN)
+            if realm == ".":
+                # Local
+                kerberos = False
+        except ValueError:
+            # not a UPN: NTLM only
+            kerberos = False
+        # Do we need to ask the password?
+        if HashNt is None and password is None and ST is None:
+            # yes.
+            from prompt_toolkit import prompt
+
+            password = prompt("Password: ", is_password=True)
+        ssps = []
+        # Kerberos
+        if kerberos and hostname:
+            # Get ticket if we don't already have one.
+            if ST is None:
+                # In this case, KEY is supposed to be the user's key.
+                from scapy.libs.rfc3961 import Key, EncryptionType
+                if KEY is None and HashAes256Sha96:
+                    KEY = Key(
+                        EncryptionType.AES256_CTS_HMAC_SHA1_96,
+                        HashAes256Sha96,
+                    )
+                elif KEY is None and HashAes128Sha96:
+                    KEY = Key(
+                        EncryptionType.AES128_CTS_HMAC_SHA1_96,
+                        HashAes128Sha96,
+                    )
+                elif KEY is None and HashNt:
+                    KEY = Key(
+                        EncryptionType.RC4_HMAC,
+                        HashNt,
+                    )
+                # Make a SSP that only has a UPN and secret.
+                ssps.append(
+                    KerberosSSP(
+                        UPN=UPN,
+                        PASSWORD=password,
+                        KEY=KEY,
+                        debug=debug,
+                    )
+                )
+            else:
+                # We have a ST, use it with the key.
+                ssps.append(
+                    KerberosSSP(
+                        UPN=UPN,
+                        ST=ST,
+                        KEY=KEY,
+                        debug=debug,
+                    )
+                )
+        elif kerberos_required:
+            raise ValueError(
+                "Kerberos required but domain not specified in the UPN, "
+                "or target isn't a hostname !"
+            )
+        # NTLM
+        if not kerberos_required:
+            if HashNt is None and password is not None:
+                HashNt = MD4le(password)
+            ssps.append(NTLMSSP(UPN=UPN, HASHNT=HashNt))
+        # Build the SSP
+        return cls(ssps)
 
     def _extract_gssapi(self, Context, x):
         status, otherMIC, rawToken = None, None, False

@@ -20,7 +20,6 @@ import time
 import threading
 
 from scapy.automaton import ATMT, Automaton, ObjectPipe
-from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.error import Scapy_Exception
 from scapy.fields import UTCTimeField
@@ -29,8 +28,6 @@ from scapy.utils import (
     CLIUtil,
     pretty_list,
     human_size,
-    valid_ip,
-    valid_ip6,
 )
 from scapy.volatile import RandUUID
 
@@ -40,12 +37,6 @@ from scapy.layers.gssapi import (
     GSS_S_CONTINUE_NEEDED,
     GSS_C_FLAGS,
 )
-from scapy.layers.inet6 import Net6
-from scapy.layers.kerberos import (
-    KerberosSSP,
-    krb_as_and_tgs,
-    _parse_upn,
-)
 from scapy.layers.msrpce.raw.ms_srvs import (
     LPSHARE_ENUM_STRUCT,
     NetrShareEnum_Request,
@@ -54,7 +45,6 @@ from scapy.layers.msrpce.raw.ms_srvs import (
 )
 from scapy.layers.ntlm import (
     NTLMSSP,
-    MD4le,
 )
 from scapy.layers.smb import (
     SMBNegotiate_Request,
@@ -1104,11 +1094,12 @@ class smbclient(CLIUtil):
     :param UPN: the upn to use (DOMAIN/USER, DOMAIN\USER, USER@DOMAIN or USER)
     :param guest: use guest mode (over NTLM)
     :param ssp: if provided, use this SSP for auth.
-    :param kerberos: if available, whether to use Kerberos or not
     :param kerberos_required: require kerberos
     :param port: the TCP port. default 445
     :param password: (string) if provided, used for auth
     :param HashNt: (bytes) if provided, used for auth (NTLM)
+    :param HashAes256Sha96: (bytes) if provided, used for auth (Kerberos)
+    :param HashAes128Sha96: (bytes) if provided, used for auth (Kerberos)
     :param ST: if provided, the service ticket to use (Kerberos)
     :param KEY: if provided, the session key associated to the ticket (Kerberos)
     :param cli: CLI mode (default True). False to use for scripting
@@ -1125,9 +1116,10 @@ class smbclient(CLIUtil):
         UPN: str = None,
         password: str = None,
         guest: bool = False,
-        kerberos: bool = True,
         kerberos_required: bool = False,
-        HashNt: str = None,
+        HashNt: bytes = None,
+        HashAes256Sha96: bytes = None,
+        HashAes128Sha96: bytes = None,
         port: int = 445,
         timeout: int = 2,
         debug: int = 0,
@@ -1141,71 +1133,30 @@ class smbclient(CLIUtil):
     ):
         if cli:
             self._depcheck()
-        hostname = None
-        # Check if target is a hostname / Check IP
-        if ":" in target:
-            family = socket.AF_INET6
-            if not valid_ip6(target):
-                hostname = target
-            target = str(Net6(target))
-        else:
-            family = socket.AF_INET
-            if not valid_ip(target):
-                hostname = target
-            target = str(Net(target))
         assert UPN or ssp or guest, "Either UPN, ssp or guest must be provided !"
         # Do we need to build a SSP?
         if ssp is None:
             # Create the SSP (only if not guest mode)
             if not guest:
-                # Check UPN
-                try:
-                    _, realm = _parse_upn(UPN)
-                    if realm == ".":
-                        # Local
-                        kerberos = False
-                except ValueError:
-                    # not a UPN: NTLM
-                    kerberos = False
-                # Do we need to ask the password?
-                if HashNt is None and password is None and ST is None:
-                    # yes.
-                    from prompt_toolkit import prompt
-
-                    password = prompt("Password: ", is_password=True)
-                ssps = []
-                # Kerberos
-                if kerberos and hostname:
-                    if ST is None:
-                        resp = krb_as_and_tgs(
-                            upn=UPN,
-                            spn="cifs/%s" % hostname,
-                            password=password,
-                            debug=debug,
-                        )
-                        if resp is not None:
-                            ST, KEY = resp.tgsrep.ticket, resp.sessionkey
-                    if ST:
-                        ssps.append(KerberosSSP(UPN=UPN, ST=ST, KEY=KEY, debug=debug))
-                    elif kerberos_required:
-                        raise ValueError(
-                            "Kerberos required but target isn't a hostname !"
-                        )
-                elif kerberos_required:
-                    raise ValueError(
-                        "Kerberos required but domain not specified in the UPN, "
-                        "or target isn't a hostname !"
-                    )
-                # NTLM
-                if not kerberos_required:
-                    if HashNt is None and password is not None:
-                        HashNt = MD4le(password)
-                    ssps.append(NTLMSSP(UPN=UPN, HASHNT=HashNt))
-                # Build the SSP
-                ssp = SPNEGOSSP(ssps)
+                ssp = SPNEGOSSP.from_cli_arguments(
+                    UPN=UPN,
+                    target=target,
+                    password=password,
+                    HashNt=HashNt,
+                    HashAes256Sha96=HashAes256Sha96,
+                    HashAes128Sha96=HashAes128Sha96,
+                    ST=ST,
+                    KEY=KEY,
+                    kerberos_required=kerberos_required,
+                )
             else:
                 # Guest mode
                 ssp = None
+        # Check if target is IPv4 or IPv6
+        if ":" in target:
+            family = socket.AF_INET6
+        else:
+            family = socket.AF_INET
         # Open socket
         sock = socket.socket(family, socket.SOCK_STREAM)
         # Configure socket for SMB:

@@ -143,6 +143,12 @@ from scapy.layers.smb import _NV_VERSION
 from scapy.layers.smb2 import STATUS_ERREF
 from scapy.layers.x509 import X509_AlgorithmIdentifier
 
+# Redirect exports from RFC3961
+try:
+    from scapy.libs.rfc3961 import *  # noqa: F401,F403
+except ImportError:
+    pass
+
 # Typing imports
 from typing import (
     Optional,
