@@ -19,6 +19,7 @@ import logging
 import os
 import pathlib
 import pickle
+import shutil
 import sys
 import types
 import warnings
@@ -215,7 +216,9 @@ else:
 
 # https://github.com/scop/bash-completion/blob/main/README.md#faq
 if "BASH_COMPLETION_USER_DIR" in os.environ:
-    BASH_COMPLETION_USER_DIR = pathlib.Path(os.environ["BASH_COMPLETION_USER_DIR"])
+    BASH_COMPLETION_USER_DIR: Optional[pathlib.Path] = pathlib.Path(
+        os.environ["BASH_COMPLETION_USER_DIR"]
+    )
 else:
     BASH_COMPLETION_USER_DIR = _probe_share_folder("bash-completion")
 
@@ -243,6 +246,12 @@ conf.color_theme = DefaultTheme()
 # disable INFO: tags related to dependencies missing
 # log_loading.setLevel(logging.WARNING)
 
+# extensions to load by default
+conf.load_extensions = [
+    # "scapy-red",
+    # "scapy-rpc",
+]
+
 # force-use libpcap
 # conf.use_pcap = True
 """.strip()
@@ -261,23 +270,29 @@ def _usage():
     sys.exit(0)
 
 
-def _get_bash_autocompletion_path() -> Optional[pathlib.Path]:
+def _add_bash_autocompletion(fname: str, script: pathlib.Path) -> None:
     """
-    Util function used most notably in setup.py to add a prepare for a bash
-    autocompletion script.
+    Util function used most notably in setup.py to add a bash autocompletion script.
     """
     try:
+        if BASH_COMPLETION_FOLDER is None:
+            raise OSError()
+
+        # If already defined, exit.
+        dest = BASH_COMPLETION_FOLDER / fname
+        if dest.exists():
+            return
+
         # Check that bash autocompletion folder exists
         if not BASH_COMPLETION_FOLDER.exists():
             BASH_COMPLETION_FOLDER.mkdir(parents=True, exist_ok=True)
             _check_perms(BASH_COMPLETION_FOLDER)
 
         # Copy file
-        return BASH_COMPLETION_FOLDER
+        shutil.copy(script, BASH_COMPLETION_FOLDER)
     except OSError:
-        log_loading.warning("Bash autocompletion folder could not be created.",
+        log_loading.warning("Bash autocompletion script could not be copied.",
                             exc_info=True)
-        return None
 
 
 ######################
@@ -850,6 +865,10 @@ def interact(mydict=None,
             interactive=True,
             _locals=SESSION
         )
+
+    # Load extensions (Python 3.8 Only)
+    if sys.version_info >= (3, 8):
+        conf.exts.loadall()
 
     if conf.fancy_banner:
         banner_text = get_fancy_banner()

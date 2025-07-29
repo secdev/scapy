@@ -3891,7 +3891,10 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                         print("Output processor failed with error: %s" % ex)
 
 
-def AutoArgparse(func: DecoratorCallable, _parseonly=False) -> None:
+def AutoArgparse(
+    func: DecoratorCallable,
+    _parseonly: bool = False,
+) -> Optional[Tuple[List[str], List[str]]]:
     """
     Generate an Argparse call from a function, then call this function.
 
@@ -4006,6 +4009,7 @@ def AutoArgparse(func: DecoratorCallable, _parseonly=False) -> None:
     except AssertionError as ex:
         print("ERROR: " + str(ex))
         parser.print_help()
+    return None
 
 
 #######################

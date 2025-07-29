@@ -7,11 +7,11 @@
 Implementation of the configuration object.
 """
 
-
 import atexit
 import copy
 import functools
 import os
+import pathlib
 import re
 import socket
 import sys
@@ -538,7 +538,7 @@ class NetCache:
 
 
 class ScapyExt:
-    __slots__ = ["specs", "name", "version"]
+    __slots__ = ["specs", "name", "version", "bash_completions"]
 
     class MODE(Enum):
         LAYERS = "layers"
@@ -554,6 +554,7 @@ class ScapyExt:
 
     def __init__(self):
         self.specs: Dict[str, 'ScapyExt.ScapyExtSpec'] = {}
+        self.bash_completions = {}
 
     def config(self, name, version):
         self.name = name
@@ -576,6 +577,9 @@ class ScapyExt:
             spec.default = bool(importlib.util.find_spec(spec.fullname))
         self.specs[fullname] = spec
 
+    def register_bashcompletion(self, script: pathlib.Path):
+        self.bash_completions[script.name] = script
+
     def __repr__(self):
         return "<ScapyExt %s %s (%s specs)>" % (
             self.name,
@@ -585,18 +589,20 @@ class ScapyExt:
 
 
 class ExtsManager(importlib.abc.MetaPathFinder):
-    __slots__ = ["exts", "_loaded", "all_specs"]
+    __slots__ = ["exts", "all_specs"]
 
-    SCAPY_PLUGIN_CLASSIFIER = 'Framework :: Scapy'
-    GPLV2_CLASSIFIERS = [
-        'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
-        'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
+    GPLV2_LICENCES = [
+        "GPL-2.0-only",
+        "GPL-2.0-or-later",
     ]
 
     def __init__(self):
         self.exts: List[ScapyExt] = []
         self.all_specs: Dict[str, ScapyExt.ScapyExtSpec] = {}
         self._loaded = []
+        # Add to meta_path as we are an import provider
+        if self not in sys.meta_path:
+            sys.meta_path.append(self)
 
     def find_spec(self, fullname, path, target=None):
         if fullname in self.all_specs:
@@ -606,7 +612,10 @@ class ExtsManager(importlib.abc.MetaPathFinder):
         pass
 
     def _register_spec(self, spec):
+        # Register to known specs
         self.all_specs[spec.fullname] = spec
+
+        # If default=True, inject it in the currently loaded modules
         if spec.default:
             loader = importlib.util.LazyLoader(spec.spec.loader)
             spec.spec.loader = loader
@@ -614,73 +623,76 @@ class ExtsManager(importlib.abc.MetaPathFinder):
             sys.modules[spec.fullname] = module
             loader.exec_module(module)
 
-    def load(self):
+    def load(self, extension: str):
+        """
+        Load a scapy extension.
+
+        :param extension: the name of the extension, as installed.
+        """
         try:
             import importlib.metadata
         except ImportError:
+            raise ImportError("Cannot import importlib.metadata ! Upgrade Python.")
+
+        # Get extension distribution
+        distr = importlib.metadata.distribution(extension)
+
+        # Check the classifiers
+        if distr.metadata.get('License-Expression', None) not in self.GPLV2_LICENCES:
+            log_loading.warning(
+                "'%s' has no GPLv2 classifier therefore cannot be loaded." % extension
+            )
             return
-        for distr in importlib.metadata.distributions():
-            if any(
-                v == self.SCAPY_PLUGIN_CLASSIFIER
-                for k, v in distr.metadata.items() if k == 'Classifier'
-            ):
-                try:
-                    # Python 3.13 raises an internal warning when calling this
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings("ignore", category=DeprecationWarning)
-                        pkg = next(
-                            k
-                            for k, v in
-                            importlib.metadata.packages_distributions().items()
-                            if distr.name in v
-                        )
-                except KeyError:
-                    pkg = distr.name
-                if pkg in self._loaded:
-                    continue
-                if not any(
-                    v in self.GPLV2_CLASSIFIERS
-                    for k, v in distr.metadata.items() if k == 'Classifier'
-                ):
-                    log_loading.warning(
-                        "'%s' has no GPLv2 classifier therefore cannot be loaded." % pkg  # noqa: E501
+
+        # Create the extension
+        ext = ScapyExt()
+
+        # Get the top-level declared "import packages"
+        # HACK: not available nicely in importlib :/
+        packages = distr.read_text("top_level.txt").split()
+
+        for package in packages:
+            scapy_ext = importlib.import_module(package)
+
+            # We initialize the plugin by calling it's 'scapy_ext' function
+            try:
+                scapy_ext_func = scapy_ext.scapy_ext
+            except AttributeError:
+                log_loading.warning(
+                    "'%s' does not look like a Scapy plugin !" % extension
+                )
+                return
+            try:
+                scapy_ext_func(ext)
+            except Exception as ex:
+                log_loading.warning(
+                    "'%s' failed during initialization with %s" % (
+                        extension,
+                        ex
                     )
-                    continue
-                self._loaded.append(pkg)
-                ext = ScapyExt()
-                try:
-                    scapy_ext = importlib.import_module(pkg)
-                except Exception as ex:
-                    log_loading.warning(
-                        "'%s' failed during import with %s" % (
-                            pkg,
-                            ex
-                        )
-                    )
-                    continue
-                try:
-                    scapy_ext_func = scapy_ext.scapy_ext
-                except AttributeError:
-                    log_loading.info(
-                        "'%s' included the Scapy Framework specifier "
-                        "but did not include a scapy_ext" % pkg
-                    )
-                    continue
-                try:
-                    scapy_ext_func(ext)
-                except Exception as ex:
-                    log_loading.warning(
-                        "'%s' failed during initialization with %s" % (
-                            pkg,
-                            ex
-                        )
-                    )
-                    continue
-                for spec in ext.specs.values():
-                    self._register_spec(spec)
-                self.exts.append(ext)
-        if self not in sys.meta_path:
-            sys.meta_path.append(self)
+                )
+                return
+
+            # Register all the specs provided by this extension
+            for spec in ext.specs.values():
+                self._register_spec(spec)
+
+        # Add to the extension list
+        self.exts.append(ext)
+
+        # If there are bash autocompletions, add them
+        if ext.bash_completions:
+            from scapy.main import _add_bash_autocompletion
+
+            for name, script in ext.bash_completions.items():
+                _add_bash_autocompletion(name, script)
+
+    def loadall(self) -> None:
+        """
+        Load all extensions registered in conf.
+        """
+        for extension in conf.load_extensions:
+            self.load(extension)
 
     def __repr__(self):
         from scapy.utils import pretty_list
@@ -1033,6 +1045,8 @@ class Conf(ConfClass):
     #: netcache holds time-based caches for net operations
     netcache: NetCache = NetCache()
     geoip_city = None
+    #: Scapy extensions that are loaded automatically on load
+    load_extensions: List[str] = []
     # can, tls, http and a few others are not loaded by default
     load_layers: List[str] = [
         'bluetooth',
@@ -1169,10 +1183,6 @@ if not Conf.ipv6_enabled:
             Conf.load_layers.remove(m)
 
 conf = Conf()  # type: Conf
-
-# Python 3.8 Only
-if sys.version_info >= (3, 8):
-    conf.exts.load()
 
 
 def crypto_validator(func):
