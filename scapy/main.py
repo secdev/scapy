@@ -9,20 +9,21 @@ Main module for interactive startup.
 
 
 import builtins
-import pathlib
-import sys
-import os
-import getopt
 import code
-import gzip
+import getopt
 import glob
+import gzip
 import importlib
 import io
-from itertools import zip_longest
 import logging
+import os
+import pathlib
 import pickle
+import sys
 import types
 import warnings
+
+from itertools import zip_longest
 from random import choice
 
 # Never add any global import, in main.py, that would trigger a
@@ -97,6 +98,15 @@ def _probe_cache_folder(*cf):
     return _probe_xdg_folder(
         "XDG_CACHE_HOME",
         os.path.join(os.path.expanduser("~"), ".cache"),
+        *cf
+    )
+
+
+def _probe_share_folder(*cf):
+    # type: (str) -> Optional[pathlib.Path]
+    return _probe_xdg_folder(
+        "XDG_DATA_HOME",
+        os.path.join(os.path.expanduser("~"), ".local", "share"),
         *cf
     )
 
@@ -203,6 +213,20 @@ else:
     DEFAULT_PRESTART_FILE = None
     DEFAULT_STARTUP_FILE = None
 
+# https://github.com/scop/bash-completion/blob/main/README.md#faq
+if "BASH_COMPLETION_USER_DIR" in os.environ:
+    BASH_COMPLETION_USER_DIR = pathlib.Path(os.environ["BASH_COMPLETION_USER_DIR"])
+else:
+    BASH_COMPLETION_USER_DIR = _probe_share_folder("bash-completion")
+
+if BASH_COMPLETION_USER_DIR:
+    BASH_COMPLETION_FOLDER: Optional[pathlib.Path] = (
+        BASH_COMPLETION_USER_DIR / "completions"
+    )
+else:
+    BASH_COMPLETION_FOLDER = None
+
+
 # Default scapy prestart.py config file
 
 DEFAULT_PRESTART = """
@@ -235,6 +259,25 @@ def _usage():
         "\t-P: do not read pre-startup file\n"
     )
     sys.exit(0)
+
+
+def _get_bash_autocompletion_path() -> Optional[pathlib.Path]:
+    """
+    Util function used most notably in setup.py to add a prepare for a bash
+    autocompletion script.
+    """
+    try:
+        # Check that bash autocompletion folder exists
+        if not BASH_COMPLETION_FOLDER.exists():
+            BASH_COMPLETION_FOLDER.mkdir(parents=True, exist_ok=True)
+            _check_perms(BASH_COMPLETION_FOLDER)
+
+        # Copy file
+        return BASH_COMPLETION_FOLDER
+    except OSError:
+        log_loading.warning("Bash autocompletion folder could not be created.",
+                            exc_info=True)
+        return None
 
 
 ######################
