@@ -599,7 +599,6 @@ class ExtsManager(importlib.abc.MetaPathFinder):
     def __init__(self):
         self.exts: List[ScapyExt] = []
         self.all_specs: Dict[str, ScapyExt.ScapyExtSpec] = {}
-        self._loaded = []
         # Add to meta_path as we are an import provider
         if self not in sys.meta_path:
             sys.meta_path.append(self)
