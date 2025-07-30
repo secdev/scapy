@@ -631,10 +631,18 @@ class ExtsManager(importlib.abc.MetaPathFinder):
         try:
             import importlib.metadata
         except ImportError:
-            raise ImportError("Cannot import importlib.metadata ! Upgrade Python.")
+            log_loading.warning(
+                "'%s' not loaded. "
+                "Scapy extensions require at least Python 3.8+ !" % extension
+            )
+            return
 
         # Get extension distribution
-        distr = importlib.metadata.distribution(extension)
+        try:
+            distr = importlib.metadata.distribution(extension)
+        except importlib.metadata.PackageNotFoundError:
+            log_loading.warning("The extension '%s' was not found !" % extension)
+            return
 
         # Check the classifiers
         if distr.metadata.get('License-Expression', None) not in self.GPLV2_LICENCES:
