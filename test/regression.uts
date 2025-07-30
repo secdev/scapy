@@ -1787,6 +1787,15 @@ try:
 except ValueError:
     assert True
 
+try:
+    sniffer = AsyncSniffer(iface="this_interface_does_not_exists")
+    sniffer.start()
+    sniffer.thread.join()
+    sniffer.stop()
+    assert False, "Should have errored by now"
+except ValueError:
+    assert True
+
 = Sending a TCP syn 'forever' at layer 2 and layer 3
 ~ netaccess needs_root IP
 def _test():

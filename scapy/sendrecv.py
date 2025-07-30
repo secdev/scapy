@@ -1401,7 +1401,12 @@ class AsyncSniffer(object):
         """Stops AsyncSniffer if not in async mode"""
         if self.running:
             self.stop_cb()
-            if not hasattr(self, "continue_sniff") or self.continue_sniff:
+            if not hasattr(self, "continue_sniff"):
+                # Never started -> is there an exception?
+                if self.exception is not None:
+                    raise self.exception
+                return None
+            if self.continue_sniff:
                 raise Scapy_Exception(
                     "Unsupported (offline or unsupported socket)"
                 )
