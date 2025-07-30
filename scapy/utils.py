@@ -3895,7 +3895,10 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                         print("Output processor failed with error: %s" % ex)
 
 
-def AutoArgparse(func: DecoratorCallable) -> None:
+def AutoArgparse(
+    func: DecoratorCallable,
+    _parseonly: bool = False,
+) -> Optional[Tuple[List[str], List[str]]]:
     """
     Generate an Argparse call from a function, then call this function.
 
@@ -3933,17 +3936,15 @@ def AutoArgparse(func: DecoratorCallable) -> None:
                     argsdoc[argparam] = argdesc
     else:
         desc = ""
-    # Now build the argparse.ArgumentParser
-    parser = argparse.ArgumentParser(
-        prog=func.__name__,
-        description=desc,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
+
     # Process the parameters
     positional = []
+    noargument = []
+    parameters = {}
     for param in inspect.signature(func).parameters.values():
         if not param.annotation:
             continue
+        noarg = False
         parname = param.name
         paramkwargs = {}
         if param.annotation is bool:
@@ -3952,6 +3953,7 @@ def AutoArgparse(func: DecoratorCallable) -> None:
                 paramkwargs["action"] = "store_false"
             else:
                 paramkwargs["action"] = "store_true"
+            noarg = True
         elif param.annotation in [str, int, float]:
             paramkwargs["type"] = param.annotation
         else:
@@ -3969,9 +3971,32 @@ def AutoArgparse(func: DecoratorCallable) -> None:
             paramkwargs["action"] = "append"
         if param.name in argsdoc:
             paramkwargs["help"] = argsdoc[param.name]
+        # Add to the parameter list
+        parameters[parname] = paramkwargs
+        if noarg:
+            noargument.append(parname)
+
+    if _parseonly:
+        # An internal mode used to generate bash autocompletion, do it then exit.
+        return (
+            [x for x in parameters if x not in positional] + ["--help"],
+            [x for x in noargument if x not in positional] + ["--help"],
+        )
+
+    # Now build the argparse.ArgumentParser
+    parser = argparse.ArgumentParser(
+        prog=func.__name__,
+        description=desc,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    # Add parameters to parser
+    for parname, paramkwargs in parameters.items():
         parser.add_argument(parname, **paramkwargs)  # type: ignore
+
     # Now parse the sys.argv parameters
     params = vars(parser.parse_args())
+
     # Act as in interactive mode
     conf.logLevel = 20
     from scapy.themes import DefaultTheme
@@ -3988,6 +4013,7 @@ def AutoArgparse(func: DecoratorCallable) -> None:
     except AssertionError as ex:
         print("ERROR: " + str(ex))
         parser.print_help()
+    return None
 
 
 #######################
