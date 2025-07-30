@@ -1648,7 +1648,7 @@ class RawPcapNgReader(RawPcapReader):
     PacketMetadata = collections.namedtuple("PacketMetadataNg",  # type: ignore
                                             ["linktype", "tsresol",
                                              "tshigh", "tslow", "wirelen",
-                                             "comment", "ifname", "direction",
+                                             "ifname", "direction",
                                              "process_information", "comments", ])
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
@@ -1901,7 +1901,6 @@ class RawPcapNgReader(RawPcapReader):
                             "(%d/%d) !" % (proc_index, len(self.process_information)))
 
         comments = options.get(1, None)
-        comment = comments[-1] if comments is not None and len(comments) > 0 else None
         epb_flags_raw = options.get(2, None)
         if epb_flags_raw:
             epb_flags_raw = cast(bytes, epb_flags_raw)
@@ -1925,7 +1924,6 @@ class RawPcapNgReader(RawPcapReader):
                                                tshigh=tshigh,
                                                tslow=tslow,
                                                wirelen=wirelen,
-                                               comment=comment,
                                                ifname=ifname,
                                                direction=direction,
                                                process_information=process_information,
@@ -1953,7 +1951,6 @@ class RawPcapNgReader(RawPcapReader):
                                                tshigh=None,
                                                tslow=None,
                                                wirelen=wirelen,
-                                               comment=None,
                                                ifname=None,
                                                direction=None,
                                                process_information={},
@@ -1978,7 +1975,6 @@ class RawPcapNgReader(RawPcapReader):
                                                tshigh=tshigh,
                                                tslow=tslow,
                                                wirelen=wirelen,
-                                               comment=None,
                                                ifname=None,
                                                direction=None,
                                                process_information={},
@@ -2084,7 +2080,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         rp = super(PcapNgReader, self)._read_packet(size=size)
         if rp is None:
             raise EOFError
-        s, (linktype, tsresol, tshigh, tslow, wirelen, comment, ifname, direction, process_information, comments) = rp  # noqa: E501
+        s, (linktype, tsresol, tshigh, tslow, wirelen, ifname, direction, process_information, comments) = rp  # noqa: E501
         try:
             cls = conf.l2types.num2layer[linktype]  # type: Type[Packet]
             p = cls(s, **kwargs)  # type: Packet
@@ -2101,8 +2097,6 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
             p.time = EDecimal((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen
         p.comments = comments
-        if p.comments is None:
-            p.comment = comment
         p.direction = direction
         p.process_information = process_information.copy()
         if ifname is not None:
