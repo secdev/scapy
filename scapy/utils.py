@@ -1802,7 +1802,7 @@ class RawPcapNgReader(RawPcapReader):
                         "%d !" % len(options))
                 raise EOFError
             if code != 0 and 4 + length <= len(options):
-                if code in [1, 2988, 2989, 19372, 19373]:
+                if code in [1, 2988, 2989, 19372, 19373]:  # https://www.ietf.org/archive/id/draft-tuexen-opsawg-pcapng-05.html#name-options-format
                     if code not in opts:
                         opts[code] = []
                     cast(List[bytes], opts[code]).append(options[4:4 + length])
