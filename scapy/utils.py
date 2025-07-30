@@ -1651,7 +1651,7 @@ class RawPcapNgReader(RawPcapReader):
                                              "comment", "ifname", "direction",
                                              "process_information", "comments", ])
 
-    def __init__(self, filename, fdesc=None, magic=None, comments=None):  # type: ignore
+    def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, IO[bytes], bytes, List[bytes]) -> None
         self.filename = filename
         self.f = fdesc
@@ -1675,7 +1675,6 @@ class RawPcapNgReader(RawPcapReader):
         }
         self.endian = "!"  # Will be overwritten by first SHB
         self.process_information = []  # type: List[Dict[str, Any]]
-        self.comments = comments
 
         if magic != b"\x0a\x0d\x0d\x0a":  # PcapNg:
             raise Scapy_Exception(
