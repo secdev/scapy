@@ -1088,7 +1088,7 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
 @conf.commands.register
 class smbclient(CLIUtil):
     r"""
-    A simple smbclient CLI
+    A simple SMB client CLI powered by Scapy
 
     :param target: can be a hostname, the IPv4 or the IPv6 to connect to
     :param UPN: the upn to use (DOMAIN/USER, DOMAIN\USER, USER@DOMAIN or USER)
@@ -1096,10 +1096,10 @@ class smbclient(CLIUtil):
     :param ssp: if provided, use this SSP for auth.
     :param kerberos_required: require kerberos
     :param port: the TCP port. default 445
-    :param password: (string) if provided, used for auth
-    :param HashNt: (bytes) if provided, used for auth (NTLM)
-    :param HashAes256Sha96: (bytes) if provided, used for auth (Kerberos)
-    :param HashAes128Sha96: (bytes) if provided, used for auth (Kerberos)
+    :param password: if provided, used for auth
+    :param HashNt: if provided, used for auth (NTLM)
+    :param HashAes256Sha96: if provided, used for auth (Kerberos)
+    :param HashAes128Sha96: if provided, used for auth (Kerberos)
     :param ST: if provided, the service ticket to use (Kerberos)
     :param KEY: if provided, the session key associated to the ticket (Kerberos)
     :param cli: CLI mode (default True). False to use for scripting
@@ -1169,6 +1169,8 @@ class smbclient(CLIUtil):
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
         # Timeout & connect
         sock.settimeout(timeout)
+        if debug:
+            print("Connecting to %s:%s" % (target, port))
         sock.connect((target, port))
         self.extra_create_options = []
         # Wrap with the automaton

@@ -599,6 +599,7 @@ class ExtsManager(importlib.abc.MetaPathFinder):
     def __init__(self):
         self.exts: List[ScapyExt] = []
         self.all_specs: Dict[str, ScapyExt.ScapyExtSpec] = {}
+        self._loaded: List[str] = []
         # Add to meta_path as we are an import provider
         if self not in sys.meta_path:
             sys.meta_path.append(self)
@@ -628,6 +629,9 @@ class ExtsManager(importlib.abc.MetaPathFinder):
 
         :param extension: the name of the extension, as installed.
         """
+        if extension in self._loaded:
+            return
+
         try:
             import importlib.metadata
         except ImportError:
@@ -686,6 +690,7 @@ class ExtsManager(importlib.abc.MetaPathFinder):
 
         # Add to the extension list
         self.exts.append(ext)
+        self._loaded.append(extension)
 
         # If there are bash autocompletions, add them
         if ext.bash_completions:
