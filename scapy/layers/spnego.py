@@ -838,6 +838,7 @@ class SPNEGOSSP(SSP):
         Context,
         IsClient,
         token=None,
+        target_name: Optional[str] = None,
         req_flags=None,
         chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
     ):
@@ -906,6 +907,7 @@ class SPNEGOSSP(SSP):
                 ) = Context.ssp.GSS_Init_sec_context(
                     Context.sub_context,
                     token=token,
+                    target_name=target_name,
                     req_flags=Context.req_flags,
                     chan_bindings=chan_bindings,
                 )
@@ -1066,6 +1068,7 @@ class SPNEGOSSP(SSP):
         self,
         Context: CONTEXT,
         token=None,
+        target_name: Optional[str] = None,
         req_flags: Optional[GSS_C_FLAGS] = None,
         chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
     ):
@@ -1073,6 +1076,7 @@ class SPNEGOSSP(SSP):
             Context,
             True,
             token=token,
+            target_name=target_name,
             req_flags=req_flags,
             chan_bindings=chan_bindings,
         )

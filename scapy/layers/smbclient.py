@@ -136,7 +136,7 @@ class SMB_Client(Automaton):
         self.REQUIRE_ENCRYPTION = kwargs.pop("REQUIRE_ENCRYPTION", False)
         self.RETRY = kwargs.pop("RETRY", 0)  # optionally: retry n times session setup
         self.SMB2 = kwargs.pop("SMB2", False)  # optionally: start directly in SMB2
-        self.SERVER_NAME = kwargs.pop("SERVER_NAME", "")
+        self.HOST = kwargs.pop("HOST", "")
         # Store supported dialects
         if "DIALECTS" in kwargs:
             self.DIALECTS = kwargs.pop("DIALECTS")
@@ -351,7 +351,7 @@ class SMB_Client(Automaton):
                 # TODO support compression and RDMA
                 SMB2_Negotiate_Context()
                 / SMB2_Netname_Negotiate_Context_ID(
-                    NetName=self.SERVER_NAME,
+                    NetName=self.HOST,
                 ),
                 SMB2_Negotiate_Context()
                 / SMB2_Signing_Capabilities(
@@ -448,6 +448,7 @@ class SMB_Client(Automaton):
         ssp_tuple = self.session.ssp.GSS_Init_sec_context(
             self.session.sspcontext,
             token=ssp_blob,
+            target_name="cifs/" + self.HOST if self.HOST else None,
             req_flags=(
                 GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
                 | (GSS_C_FLAGS.GSS_C_INTEG_FLAG if self.session.SigningRequired else 0)
@@ -608,6 +609,7 @@ class SMB_Client(Automaton):
         self.session.sspcontext, _, status = self.session.ssp.GSS_Init_sec_context(
             self.session.sspcontext,
             token=ssp_blob,
+            target_name="cifs/" + self.HOST if self.HOST else None,
         )
         if status != GSS_S_COMPLETE:
             raise ValueError("Internal error: the SSP completed with an error.")
@@ -1175,7 +1177,7 @@ class smbclient(CLIUtil):
         self.extra_create_options = []
         # Wrap with the automaton
         self.timeout = timeout
-        kwargs.setdefault("SERVER_NAME", target)
+        kwargs.setdefault("HOST", target)
         self.sock = SMB_Client.from_tcpsock(
             sock,
             ssp=ssp,
