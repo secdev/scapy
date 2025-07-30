@@ -1550,21 +1550,21 @@ class SECURITY_DESCRIPTOR(_NTLMPayloadPacket):
                 "SELF_RELATIVE",
             ],
         ),
-        LEIntField("OwnerSidOffset", 0),
-        LEIntField("GroupSidOffset", 0),
-        LEIntField("SACLOffset", 0),
-        LEIntField("DACLOffset", 0),
+        LEIntField("OwnerSidOffset", None),
+        LEIntField("GroupSidOffset", None),
+        LEIntField("SACLOffset", None),
+        LEIntField("DACLOffset", None),
         _NTLMPayloadField(
             "Data",
             OFFSET,
             [
                 ConditionalField(
                     PacketField("OwnerSid", WINNT_SID(), WINNT_SID),
-                    lambda pkt: pkt.OwnerSidOffset,
+                    lambda pkt: pkt.OwnerSidOffset != 0,
                 ),
                 ConditionalField(
                     PacketField("GroupSid", WINNT_SID(), WINNT_SID),
-                    lambda pkt: pkt.GroupSidOffset,
+                    lambda pkt: pkt.GroupSidOffset != 0,
                 ),
                 ConditionalField(
                     PacketField("SACL", WINNT_ACL(), WINNT_ACL),
@@ -1578,6 +1578,26 @@ class SECURITY_DESCRIPTOR(_NTLMPayloadPacket):
             offset_name="Offset",
         ),
     ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        return (
+            _NTLM_post_build(
+                self,
+                pkt,
+                self.OFFSET,
+                {
+                    "OwnerSid": 4,
+                    "GroupSid": 8,
+                    "SACL": 12,
+                    "DACL": 16,
+                },
+                config=[
+                    ("Offset", _NTLM_ENUM.OFFSET),
+                ]
+            )
+            + pay
+        )
 
 
 # [MS-FSCC] 2.4.2 FileAllInformation

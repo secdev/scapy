@@ -1191,6 +1191,12 @@ class LDAPHero:
                 control |= v
         nTSecurityDescriptor.Control = control
 
+        # Offsets need to be recalculated
+        nTSecurityDescriptor.OwnerSidOffset = None
+        nTSecurityDescriptor.GroupSidOffset = None
+        nTSecurityDescriptor.DACLOffset = None
+        nTSecurityDescriptor.SACLOffset = None
+
         # Pfew, we did it. That was some big UI.
 
         # Now update the SD.
