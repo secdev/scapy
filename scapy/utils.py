@@ -3940,13 +3940,14 @@ def AutoArgparse(
     # Process the parameters
     positional = []
     noargument = []
+    hexarguments = []
     parameters = {}
     for param in inspect.signature(func).parameters.values():
         if not param.annotation:
             continue
         noarg = False
-        parname = param.name
-        paramkwargs = {}
+        parname = param.name.replace("_", "-")
+        paramkwargs: Dict[str, Any] = {}
         if param.annotation is bool:
             if param.default is True:
                 parname = "no-" + parname
@@ -3954,6 +3955,9 @@ def AutoArgparse(
             else:
                 paramkwargs["action"] = "store_true"
             noarg = True
+        elif param.annotation is bytes:
+            paramkwargs["type"] = str
+            hexarguments.append(parname)
         elif param.annotation in [str, int, float]:
             paramkwargs["type"] = param.annotation
         else:
@@ -3971,6 +3975,14 @@ def AutoArgparse(
             paramkwargs["action"] = "append"
         if param.name in argsdoc:
             paramkwargs["help"] = argsdoc[param.name]
+            if param.annotation is bytes:
+                paramkwargs["help"] = "(hex) " + paramkwargs["help"]
+            elif param.annotation is bool:
+                paramkwargs["help"] = "(flag) " + paramkwargs["help"]
+            else:
+                paramkwargs["help"] = (
+                    "(%s) " % param.annotation.__name__ + paramkwargs["help"]
+                )
         # Add to the parameter list
         parameters[parname] = paramkwargs
         if noarg:
@@ -3992,10 +4004,24 @@ def AutoArgparse(
 
     # Add parameters to parser
     for parname, paramkwargs in parameters.items():
-        parser.add_argument(parname, **paramkwargs)  # type: ignore
+        parser.add_argument(parname, **paramkwargs)
 
     # Now parse the sys.argv parameters
     params = vars(parser.parse_args())
+
+    # Convert hex parameters if provided
+    for p in hexarguments:
+        if params[p] is not None:
+            try:
+                params[p] = bytes.fromhex(params[p])
+            except ValueError:
+                print(
+                    conf.color_theme.fail(
+                        "ERROR: the value of parameter %s "
+                        "'%s' is not valid hexadecimal !" % (p, params[p])
+                    )
+                )
+                return None
 
     # Act as in interactive mode
     conf.logLevel = 20
@@ -4011,7 +4037,7 @@ def AutoArgparse(
             }
         )
     except AssertionError as ex:
-        print("ERROR: " + str(ex))
+        print(conf.color_theme.fail("ERROR: " + str(ex)))
         parser.print_help()
     return None
 

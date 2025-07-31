@@ -1800,6 +1800,7 @@ class LDAP_Client(object):
         verb=True,
     ):
         self.sock = None
+        self.host = None
         self.verb = verb
         self.ssl = False
         self.sslcontext = None
@@ -1815,7 +1816,7 @@ class LDAP_Client(object):
 
     def connect(
         self,
-        ip,
+        host,
         port=None,
         use_ssl=False,
         sslcontext=None,
@@ -1826,7 +1827,7 @@ class LDAP_Client(object):
         """
         Initiate a connection
 
-        :param ip: the IP or hostname to connect to.
+        :param host: the IP or hostname to connect to.
         :param port: the port to connect to. (Default: 389 or 636)
 
         :param use_ssl: whether to use LDAPS or not. (Default: False)
@@ -1844,17 +1845,18 @@ class LDAP_Client(object):
                 port = 389
         sock = socket.socket()
         self.timeout = timeout
+        self.host = host
         sock.settimeout(timeout)
         if self.verb:
             print(
                 "\u2503 Connecting to %s on port %s%s..."
                 % (
-                    ip,
+                    host,
                     port,
                     " with SSL" if self.ssl else "",
                 )
             )
-        sock.connect((ip, port))
+        sock.connect((host, port))
         if self.verb:
             print(
                 conf.color_theme.green(
@@ -1872,7 +1874,7 @@ class LDAP_Client(object):
                     context = ssl.create_default_context()
             else:
                 context = self.sslcontext
-            sock = context.wrap_socket(sock, server_hostname=sni or ip)
+            sock = context.wrap_socket(sock, server_hostname=sni or host)
         # Wrap the socket in a Scapy socket
         if self.ssl:
             self.sock = SSLStreamSocket(sock, LDAP)
@@ -2042,6 +2044,7 @@ class LDAP_Client(object):
             # 2. First exchange: Negotiate
             self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                 self.sspcontext,
+                target_name="ldap/" + self.host,
                 req_flags=(
                     GSS_C_FLAGS.GSS_C_REPLAY_FLAG
                     | GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG
@@ -2068,6 +2071,7 @@ class LDAP_Client(object):
             self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                 self.sspcontext,
                 GSSAPI_BLOB(val),
+                target_name="ldap/" + self.host,
                 chan_bindings=self.chan_bindings,
             )
             resp = self.sr1(
@@ -2090,6 +2094,7 @@ class LDAP_Client(object):
             # GSSAPI or SPNEGO
             self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                 self.sspcontext,
+                target_name="ldap/" + self.host,
                 req_flags=(
                     # Required flags for GSSAPI: RFC4752 sect 3.1
                     GSS_C_FLAGS.GSS_C_REPLAY_FLAG
@@ -2122,6 +2127,7 @@ class LDAP_Client(object):
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                     self.sspcontext,
                     GSSAPI_BLOB(val),
+                    target_name="ldap/" + self.host,
                     chan_bindings=self.chan_bindings,
                 )
         else:

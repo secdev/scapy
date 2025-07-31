@@ -143,6 +143,12 @@ from scapy.layers.smb import _NV_VERSION
 from scapy.layers.smb2 import STATUS_ERREF
 from scapy.layers.x509 import X509_AlgorithmIdentifier
 
+# Redirect exports from RFC3961
+try:
+    from scapy.libs.rfc3961 import *  # noqa: F401,F403
+except ImportError:
+    pass
+
 # Typing imports
 from typing import (
     Optional,
@@ -4008,7 +4014,8 @@ class KerberosSSP(SSP):
 
     :param ST: the service ticket to use for access.
                If not provided, will be retrieved
-    :param SPN: the SPN of the service to use
+    :param SPN: the SPN of the service to use. If not provided, will use the
+                target_name provided in the GSS_Init_sec_context
     :param UPN: The client UPN
     :param DC_IP: (optional) is ST+KEY are not provided, will need to contact
                   the KDC at this IP. If not provided, will perform dc locator.
@@ -4506,6 +4513,7 @@ class KerberosSSP(SSP):
         self,
         Context: CONTEXT,
         token=None,
+        target_name: Optional[str] = None,
         req_flags: Optional[GSS_C_FLAGS] = None,
         chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
     ):
@@ -4536,8 +4544,8 @@ class KerberosSSP(SSP):
             # Do we have a ST?
             if self.ST is None:
                 # Client sends an AP-req
-                if not self.SPN:
-                    raise ValueError("Missing SPN attribute")
+                if not self.SPN and not target_name:
+                    raise ValueError("Missing SPN/target_name attribute")
                 additional_tickets = []
                 if self.U2U:
                     try:
@@ -4559,7 +4567,7 @@ class KerberosSSP(SSP):
                     # Use TGT
                     res = krb_tgs_req(
                         upn=self.UPN,
-                        spn=self.SPN,
+                        spn=self.SPN or target_name,
                         ip=self.DC_IP,
                         sessionkey=self.KEY,
                         ticket=self.TGT,
@@ -4571,7 +4579,7 @@ class KerberosSSP(SSP):
                     # Ask for TGT then ST
                     res = krb_as_and_tgs(
                         upn=self.UPN,
-                        spn=self.SPN,
+                        spn=self.SPN or target_name,
                         ip=self.DC_IP,
                         key=self.KEY,
                         password=self.PASSWORD,

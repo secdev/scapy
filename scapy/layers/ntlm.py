@@ -1388,6 +1388,7 @@ class NTLMSSP(SSP):
         self,
         Context: CONTEXT,
         token=None,
+        target_name: Optional[str] = None,
         req_flags: Optional[GSS_C_FLAGS] = None,
         chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
     ):
