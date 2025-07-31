@@ -1594,7 +1594,7 @@ class SECURITY_DESCRIPTOR(_NTLMPayloadPacket):
                 },
                 config=[
                     ("Offset", _NTLM_ENUM.OFFSET),
-                ]
+                ],
             )
             + pay
         )

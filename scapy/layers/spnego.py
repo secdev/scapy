@@ -82,7 +82,6 @@ from scapy.layers.gssapi import (
 from scapy.layers.kerberos import (
     Kerberos,
     KerberosSSP,
-    krb_as_and_tgs,
     _parse_upn,
 )
 from scapy.layers.ntlm import (
@@ -692,6 +691,7 @@ class SPNEGOSSP(SSP):
             if ST is None:
                 # In this case, KEY is supposed to be the user's key.
                 from scapy.libs.rfc3961 import Key, EncryptionType
+
                 if KEY is None and HashAes256Sha96:
                     KEY = Key(
                         EncryptionType.AES256_CTS_HMAC_SHA1_96,
@@ -900,11 +900,7 @@ class SPNEGOSSP(SSP):
             # The currently provided token is for this SSP !
             # Pass it to the sub ssp, with its own context
             if IsClient:
-                (
-                    Context.sub_context,
-                    tok,
-                    status,
-                ) = Context.ssp.GSS_Init_sec_context(
+                Context.sub_context, tok, status = Context.ssp.GSS_Init_sec_context(
                     Context.sub_context,
                     token=token,
                     target_name=target_name,
