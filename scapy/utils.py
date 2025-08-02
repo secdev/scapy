@@ -2122,7 +2122,6 @@ class GenericPcapWriter(object):
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
                       wirelen=None,  # type: Optional[int]
-                      comment=None,  # type: Optional[bytes]
                       ifname=None,  # type: Optional[bytes]
                       direction=None,  # type: Optional[int]
                       comments=None,  # type: Optional[List[bytes]]
@@ -2206,7 +2205,6 @@ class GenericPcapWriter(object):
         if wirelen is None:
             wirelen = caplen
 
-        comment = getattr(packet, "comment", None)
         comments = getattr(packet, "comments", None)
         ifname = getattr(packet, "sniffed_on", None)
         direction = getattr(packet, "direction", None)
@@ -2222,7 +2220,6 @@ class GenericPcapWriter(object):
             rawpkt,
             sec=f_sec, usec=usec,
             caplen=caplen, wirelen=wirelen,
-            comment=comment,
             ifname=ifname,
             direction=direction,
             linktype=linktype,
@@ -2378,7 +2375,6 @@ class RawPcapWriter(GenericRawPcapWriter):
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
                       wirelen=None,  # type: Optional[int]
-                      comment=None,  # type: Optional[bytes]
                       ifname=None,  # type: Optional[bytes]
                       direction=None,  # type: Optional[int]
                       comments=None,  # type: Optional[List[bytes]]
@@ -2614,7 +2610,6 @@ class RawPcapNgWriter(GenericRawPcapWriter):
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
                       wirelen=None,  # type: Optional[int]
-                      comment=None,  # type: Optional[bytes]
                       ifname=None,  # type: Optional[bytes]
                       direction=None,  # type: Optional[int]
                       comments=None,  # type: Optional[List[bytes]]
