@@ -1,0 +1,290 @@
+% Regression tests for WiFi BPF Builder
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ WiFi BPF Builder imports and basic functionality
+
+= Import WiFi BPF Builder
+from scapy.utils.bpf import WiFiBPFBuilder, FrameType, ManagementSubtype, ControlSubtype, DataSubtype, WiFiField, DSFlags
+
+= Basic builder instantiation
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+assert builder.target_bssid == "aa:bb:cc:dd:ee:ff"
+
+= Basic BSSID-only filter
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.build()
+assert filter_str == "wlan addr3 aa:bb:cc:dd:ee:ff"
+
+############
+############
++ Management frame filtering
+
+= Beacon frames filter
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.beacon_frames().build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type mgt subtype beacon"
+assert filter_str == expected
+
+= Probe request frames filter
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.probe_request_frames().build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type mgt subtype probe-req"
+assert filter_str == expected
+
+= Probe response frames filter
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.probe_response_frames().build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type mgt subtype probe-resp"
+assert filter_str == expected
+
+= Management frames with from_ap
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.management_frames().from_ap().build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type mgt wlan addr2 aa:bb:cc:dd:ee:ff"
+assert filter_str == expected
+
+= Beacon frames with from_ap
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.beacon_frames().from_ap().build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type mgt subtype beacon wlan addr2 aa:bb:cc:dd:ee:ff"
+assert filter_str == expected
+
+############
+############
++ Data frame filtering
+
+= Basic data frames
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.data_frames().build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type data"
+assert filter_str == expected
+
+= QoS data frames
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.qos_data_frames().build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type data subtype 8"
+assert filter_str == expected
+
+= Data frames with DS flags
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.data_frames().ds_flags(to_ds=False, from_ds=True).build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type data wlan[1] & 0x03 = 0x02"
+assert filter_str == expected
+
+= Data frames with from_ds flag
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.data_frames().from_ds_flag(True).build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type data wlan[1] & 0x02 != 0"
+assert filter_str == expected
+
+= Data frames with to_ds flag
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.data_frames().to_ds_flag(True).build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type data wlan[1] & 0x01 != 0"
+assert filter_str == expected
+
+############
+############
++ Control frame filtering
+
+= Basic control frames
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.control_frames().build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type ctl"
+assert filter_str == expected
+
+= ACK frames
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.ack_frames().build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type ctl subtype ack"
+assert filter_str == expected
+
+############
+############
++ Multiple subtypes and OR conditions
+
+= Multiple management subtypes
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.management_frames().multiple_subtypes([
+    ManagementSubtype.BEACON, 
+    ManagementSubtype.PROBE_RESPONSE
+]).build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type mgt (wlan subtype beacon or wlan subtype probe-resp)"
+assert filter_str == expected
+
+= Single subtype in multiple_subtypes (should work same as subtype)
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.management_frames().multiple_subtypes([ManagementSubtype.BEACON]).build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type mgt subtype beacon"
+assert filter_str == expected
+
+= OR conditions between different filter groups
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = (builder
+              .beacon_frames()
+              .or_()
+              .probe_response_frames()
+              .build())
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and ((wlan type mgt subtype beacon) or (wlan type mgt subtype probe-resp))"
+assert filter_str == expected
+
+############
+############
++ Address filtering
+
+= From AP (addr2 filter)
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.from_ap().build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan addr2 aa:bb:cc:dd:ee:ff"
+assert filter_str == expected
+
+= To AP (addr1 filter)
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.to_ap().build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan addr1 aa:bb:cc:dd:ee:ff"
+assert filter_str == expected
+
+############
+############
++ Flag filtering
+
+= Retry flag enabled
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.retry_flag(True).build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan[1] & 0x08 != 0"
+assert filter_str == expected
+
+= Retry flag disabled
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.retry_flag(False).build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan[1] & 0x08 = 0"
+assert filter_str == expected
+
+= Protected frame flag
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.protected_frame(True).build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan[1] & 0x40 != 0"
+assert filter_str == expected
+
+############
+############
++ Raw frame control filtering
+
+= Raw frame control filter
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.frame_control_raw(0xFC, 0x80).build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan[0] & 0xfc = 0x80"
+assert filter_str == expected
+
+= Direct beacon frame filter
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.beacon_frame_direct().build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan[0] & 0xfc = 0x80"
+assert filter_str == expected
+
+############
+############
++ Raw conditions and escape hatch
+
+= Raw condition addition
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = builder.raw_condition("tcp port 80").build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and (tcp port 80)"
+assert filter_str == expected
+
+############
+############
++ Complex real-world scenarios
+
+= Complex beacon and data filter (like beaconizer)
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = (builder
+              .management_frames()
+              .from_ap()
+              .ds_flags(to_ds=False, from_ds=False)
+              .or_()
+              .data_frames()
+              .from_ds_flag(True)
+              .build())
+expected_parts = [
+    "wlan addr3 aa:bb:cc:dd:ee:ff and",
+    "((wlan type mgt wlan addr2 aa:bb:cc:dd:ee:ff wlan[1] & 0x03 = 0x00)",
+    "or",
+    "(wlan type data wlan[1] & 0x02 != 0))"
+]
+expected = " ".join(expected_parts)
+assert filter_str == expected
+
+= Comprehensive management frame filter
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+filter_str = (builder
+              .management_frames()
+              .multiple_subtypes([
+                  ManagementSubtype.BEACON,
+                  ManagementSubtype.PROBE_RESPONSE,
+                  ManagementSubtype.ASSOCIATION_RESPONSE
+              ])
+              .from_ap()
+              .build())
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff and wlan type mgt (wlan subtype beacon or wlan subtype probe-resp or wlan subtype assoc-resp) wlan addr2 aa:bb:cc:dd:ee:ff"
+assert filter_str == expected
+
+############
+############
++ Edge cases and validation
+
+= Empty conditions list
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+builder.conditions = []
+builder.current_condition = []
+filter_str = builder.build()
+expected = "wlan addr3 aa:bb:cc:dd:ee:ff"
+assert filter_str == expected
+
+= BSSID case normalization
+builder = WiFiBPFBuilder("AA:BB:CC:DD:EE:FF")
+assert builder.target_bssid == "aa:bb:cc:dd:ee:ff"
+
+= Method chaining returns self
+builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+result = builder.beacon_frames()
+assert result is builder
+
+############
+############
++ Integration with compile_filter (if available)
+
+= Test filter compilation (basic syntax check)
+~ libpcap
+from scapy.arch.common import compile_filter
+try:
+    builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+    filter_str = builder.beacon_frames().build()
+    # This will raise an exception if syntax is invalid
+    compile_filter(filter_str, linktype=1)  # DLT_EN10MB
+    compilation_success = True
+except Exception:
+    compilation_success = False
+
+assert compilation_success
+
+= Test complex filter compilation
+~ libpcap
+from scapy.arch.common import compile_filter
+try:
+    builder = WiFiBPFBuilder("aa:bb:cc:dd:ee:ff")
+    filter_str = (builder
+                  .management_frames()
+                  .multiple_subtypes([ManagementSubtype.BEACON, ManagementSubtype.PROBE_RESPONSE])
+                  .from_ap()
+                  .build())
+    # This will raise an exception if syntax is invalid
+    compile_filter(filter_str, linktype=1)  # DLT_EN10MB
+    compilation_success = True
+except Exception:
+    compilation_success = False
+
+assert compilation_success

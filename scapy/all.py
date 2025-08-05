@@ -23,6 +23,7 @@ from scapy.asn1fields import *
 from scapy.asn1packet import *
 
 from scapy.utils import *
+from scapy.utils.bpf import *
 from scapy.route import *
 from scapy.sendrecv import *
 from scapy.sessions import *
