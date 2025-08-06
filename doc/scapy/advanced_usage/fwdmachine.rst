@@ -2,19 +2,18 @@
 Forwarding Machine
 ******************
 
-Scapy's ``ForwardMachine`` is a utility that allows to create server that forwards packets to another server, with the ability
-to modify them on-the-fly. This is similar to a "proxy", but works with any protocols over IP/IPv6. The ``ForwardMachine`` was initially designed to be used with TPROXY,
-a linux feature that allows to bind a socket that received *packets to any IP destination* (in which case it properly forwards the packet to the initially
-intended destination), but it also work as a standalone server.
+Scapy's ``ForwardMachine`` is a utility that allows to create a server that forwards packets to another server, with the ability
+to modify them on-the-fly. This is similar to a "proxy", but works on the layer 4 (rather than 5+). The ``ForwardMachine`` was initially designed to be used with TPROXY,
+a linux feature that allows to bind a socket that receives *packets to any IP destination* (usually, a socket only receives packets whose destination is local), but it also work as a standalone server (that binds a normal socket).
 
 A ``ForwardMachine`` is expected to be used over a normal Python socket, of any kind, and needs to extended with two
-functions: ``xfrmcs`` and ``xfrmsc``. The first one is called whenever data is received from the client side (client-to-server), the other when the data
-is received from the server.
+functions: ``xfrmcs`` and ``xfrmsc``. The first one is called whenever data is received from the client side (client-to-server, "cs"), the other when the data
+is received from the server (server-to-client, "sc")
 
 ``ForwardMachine`` can be used in two modes:
 
-- **TPROXY**
-- **SERVER**, in which case a normal socket is bound. Think of it as a glorified socat
+- **TPROXY**, acts as a transparent proxy that intercepts one or many connections towards multiple servers
+- **SERVER**, acts like a glorified socat that accepts connections towards the local server
 
 Basic usage
 ___________
