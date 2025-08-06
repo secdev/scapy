@@ -1365,7 +1365,6 @@ def _GenNetflowRecordV9(cls, lengths_list):
         if _f_type:
             if issubclass(_f_type, _AdjustableNetflowField):
                 _f_kwargs["length"] = j
-            print(k, _f_kwargs)
             _fields_desc.append(
                 _f_type(
                     NetflowV910TemplateFieldTypes.get(k, "unknown_data"),
