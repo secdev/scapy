@@ -2045,15 +2045,6 @@ class NTLMSSP_DOMAIN(NTLMSSP):
             return bytes(UserSessionKey)
         else:
             # Failed
-            from scapy.layers.smb2 import STATUS_ERREF
-
-            print(
-                conf.color_theme.fail(
-                    "! %s" % STATUS_ERREF.get(resp.status, "Failure !")
-                )
-            )
-            if resp.status not in STATUS_ERREF:
-                resp.show()
             return super(NTLMSSP_DOMAIN, self)._getSessionBaseKey(Context, ntlm)
 
     def _checkLogin(self, Context, auth_tok):

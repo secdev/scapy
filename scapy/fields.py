@@ -1989,6 +1989,13 @@ class StrLenField(StrField):
         self.length_from = length_from
         self.max_length = max_length
 
+    def i2len(self, pkt, x):
+        # type: (Optional[Packet], Any) -> int
+        len_pkt = super(StrLenField, self).i2len(pkt, x)
+        if not self.ON_WIRE_SIZE_UTF16:
+            len_pkt //= 2
+        return len_pkt
+
     def getfield(self, pkt, s):
         # type: (Any, bytes) -> Tuple[bytes, bytes]
         len_pkt = (self.length_from or (lambda x: 0))(pkt)

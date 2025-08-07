@@ -17,22 +17,23 @@ from scapy.data import MTU
 from scapy.volatile import RandShort
 
 from scapy.layers.dcerpc import (
-    DceRpc5,
-    DceRpcSession,
-    DceRpc5Bind,
-    DceRpc5BindAck,
-    DceRpc5BindNak,
-    DceRpc5Auth3,
-    DceRpc5AlterContext,
-    DceRpc5AlterContextResp,
-    DceRpc5Result,
-    DceRpc5Request,
-    DceRpc5Response,
-    DceRpc5TransferSyntax,
-    DceRpc5PortAny,
     CommonAuthVerifier,
     DCE_RPC_INTERFACES,
     DCERPC_Transport,
+    DceRpc5,
+    DceRpc5AlterContext,
+    DceRpc5AlterContextResp,
+    DceRpc5Auth3,
+    DceRpc5Bind,
+    DceRpc5BindAck,
+    DceRpc5BindNak,
+    DceRpc5PortAny,
+    DceRpc5Request,
+    DceRpc5Response,
+    DceRpc5Result,
+    DceRpc5TransferSyntax,
+    DceRpcInterface,
+    DceRpcSession,
     RPC_C_AUTHN_LEVEL,
 )
 
@@ -43,6 +44,12 @@ from scapy.layers.msrpce.ept import (
     twr_p_t,
     protocol_tower_t,
     prot_and_addr_t,
+)
+
+# Typing
+from typing import (
+    Dict,
+    Optional,
 )
 
 
@@ -58,17 +65,19 @@ class _DCERPC_Server_metaclass(type):
 class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
     def __init__(
         self,
-        transport,
-        ndr64=False,
-        verb=True,
-        local_ip=None,
-        port=None,
-        portmap=None,
+        transport: DCERPC_Transport,
+        ndr64: Optional[bool] = None,
+        verb: bool = True,
+        local_ip: str = None,
+        port: int = None,
+        portmap: Dict[DceRpcInterface, int] = None,
         **kwargs,
     ):
         self.transport = transport
         self.session = DceRpcSession(**kwargs)
         self.queue = deque()
+        if ndr64 is None:
+            ndr64 = conf.ndr64
         self.ndr64 = ndr64
         if ndr64:
             self.ndr_name = "NDR64"

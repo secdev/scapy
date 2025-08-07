@@ -603,7 +603,7 @@ class DceRpc5ExtendedErrorInfo(Packet):
         Print stacktrace
         """
         # Get a list of ErrorInfo
-        cur = self.extended_error.value
+        cur = self.extended_error
         errors = [cur]
         while cur and cur.Next:
             cur = cur.Next.value
