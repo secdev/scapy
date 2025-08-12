@@ -460,6 +460,7 @@ def run_tls_native_test_server(post_handshake_auth=False,
     context.verify_mode = ssl.CERT_REQUIRED
     context.load_cert_chain(certfile=certfile, keyfile=keyfile)
     
+    port = [None]
     lock = threading.Lock()
     lock.acquire()
     
@@ -467,8 +468,9 @@ def run_tls_native_test_server(post_handshake_auth=False,
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.settimeout(1)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server.bind(("0.0.0.0", 59000))
+        server.bind(("0.0.0.0", 0))
         server.listen(5)
+        port[0] = server.getsockname()[1]
         # Sync
         lock.release()
         # Accept socket
@@ -498,12 +500,12 @@ def run_tls_native_test_server(post_handshake_auth=False,
     server = threading.Thread(target=ssl_server)
     server.start()
     assert lock.acquire(timeout=5), "Server failed to start in time !"
-    return server
+    return server, port[0]
 
 
 def test_tls_client_native(post_handshake_auth=False,
                            with_hello_retry=False):
-    server = run_tls_native_test_server(
+    server, port = run_tls_native_test_server(
         post_handshake_auth=post_handshake_auth,
         with_hello_retry=with_hello_retry,
     )
@@ -511,7 +513,7 @@ def test_tls_client_native(post_handshake_auth=False,
     a = TLSClientAutomaton.tlslink(
         HTTP,
         server="127.0.0.1",
-        dport=59000,
+        dport=port,
         version="tls13",
         mycert=certfile,
         mykey=keyfile,

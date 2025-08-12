@@ -4,6 +4,7 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
+# Install packages needed for the CI on Linux/MacOS
 # Usage:
 # ./install.sh [install mode]
 
@@ -37,12 +38,7 @@ then
   sudo apt-get -qy install can-utils || exit 1
   sudo apt-get -qy install linux-modules-extra-$(uname -r) || exit 1
   sudo apt-get -qy install samba smbclient
-  # For OpenLDAP, we need to pre-populate some setup questions
-  sudo debconf-set-selections <<< 'slapd slapd/password2 password Bonjour1'
-  sudo debconf-set-selections <<< 'slapd slapd/password1 password Bonjour1'
-  sudo debconf-set-selections <<< 'slapd slapd/domain string scapy.net'
-  sudo apt-get -qy install slapd
-  ldapadd -D "cn=admin,dc=scapy,dc=net" -w Bonjour1 -f $CUR/openldap-testdata.ldif -c
+  sudo bash $CUR/openldap/install.sh
   # Make sure libpcap is installed
   if [ ! -z $SCAPY_USE_LIBPCAP ]
   then

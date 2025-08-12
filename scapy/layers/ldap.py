@@ -84,18 +84,22 @@ from scapy.layers.dns import dns_resolve
 from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.gssapi import (
-    _GSSAPI_Field,
-    GSS_C_FLAGS,
-    GSS_S_COMPLETE,
-    GSSAPI_BLOB_SIGNATURE,
+    ChannelBindingType,
     GSSAPI_BLOB,
+    GSSAPI_BLOB_SIGNATURE,
+    GSS_C_FLAGS,
+    GSS_C_NO_CHANNEL_BINDINGS,
+    GSS_S_COMPLETE,
+    GssChannelBindings,
     SSP,
+    _GSSAPI_Field,
 )
 from scapy.layers.netbios import NBTDatagram
 from scapy.layers.smb import (
     NETLOGON,
     NETLOGON_SAM_LOGON_RESPONSE_EX,
 )
+from scapy.layers.smb2 import STATUS_ERREF
 
 # Typing imports
 from typing import (
@@ -695,9 +699,11 @@ class LDAP_Filter(ASN1_Packet):
                             str=(
                                 LDAP_SubstringFilterFinal
                                 if i == (len(x) - 3)
-                                else LDAP_SubstringFilterInitial
-                                if i == 0
-                                else LDAP_SubstringFilterAny
+                                else (
+                                    LDAP_SubstringFilterInitial
+                                    if i == 0
+                                    else LDAP_SubstringFilterAny
+                                )
                             )(val=ASN1_STRING(y))
                         )
                         for i, y in enumerate(x[2:])
@@ -716,11 +722,11 @@ class LDAP_Filter(ASN1_Packet):
                 return (
                     LDAP_FilterLessOrEqual
                     if "<=" in x
-                    else LDAP_FilterGreaterOrEqual
-                    if ">=" in x
-                    else LDAP_FilterApproxMatch
-                    if "~=" in x
-                    else LDAP_FilterEqual
+                    else (
+                        LDAP_FilterGreaterOrEqual
+                        if ">=" in x
+                        else LDAP_FilterApproxMatch if "~=" in x else LDAP_FilterEqual
+                    )
                 )(
                     attributeType=ASN1_STRING(x[0].strip()),
                     attributeValue=ASN1_STRING(x[2]),
@@ -1718,6 +1724,20 @@ class LDAP_Exception(RuntimeError):
             self.resultCode = kwargs.pop("resultCode", None)
             self.diagnosticMessage = kwargs.pop("diagnosticMessage", None)
         super(LDAP_Exception, self).__init__(*args, **kwargs)
+        # If there's a 'data' string argument, attempt to parse the error code.
+        try:
+            m = re.match(r"(\d+): LdapErr.*", self.diagnosticMessage)
+            if m:
+                errstr = m.group(1)
+                err = int(errstr, 16)
+                if err in STATUS_ERREF:
+                    self.diagnosticMessage = self.diagnosticMessage.replace(
+                        errstr, errstr + " (%s)" % STATUS_ERREF[err], 1
+                    )
+        except ValueError:
+            pass
+        # Add note if this exception is raised
+        self.add_note(self.diagnosticMessage)
 
 
 class LDAP_Client(object):
@@ -1780,6 +1800,7 @@ class LDAP_Client(object):
         verb=True,
     ):
         self.sock = None
+        self.host = None
         self.verb = verb
         self.ssl = False
         self.sslcontext = None
@@ -1789,18 +1810,30 @@ class LDAP_Client(object):
         self.sign = False
         # Session status
         self.sasl_wrap = False
+        self.chan_bindings = GSS_C_NO_CHANNEL_BINDINGS
         self.bound = False
         self.messageID = 0
 
-    def connect(self, ip, port=None, use_ssl=False, sslcontext=None, timeout=5):
+    def connect(
+        self,
+        host,
+        port=None,
+        use_ssl=False,
+        sslcontext=None,
+        sni=None,
+        no_check_certificate=False,
+        timeout=5,
+    ):
         """
         Initiate a connection
 
-        :param ip: the IP to connect to.
+        :param host: the IP or hostname to connect to.
         :param port: the port to connect to. (Default: 389 or 636)
 
         :param use_ssl: whether to use LDAPS or not. (Default: False)
         :param sslcontext: an optional SSLContext to use.
+        :param sni: (optional) specify the SNI to use if LDAPS, otherwise use ip.
+        :param no_check_certificate: with SSL, do not check the certificate
         """
         self.ssl = use_ssl
         self.sslcontext = sslcontext
@@ -1811,34 +1844,45 @@ class LDAP_Client(object):
             else:
                 port = 389
         sock = socket.socket()
+        self.timeout = timeout
+        self.host = host
         sock.settimeout(timeout)
         if self.verb:
             print(
                 "\u2503 Connecting to %s on port %s%s..."
                 % (
-                    ip,
+                    host,
                     port,
                     " with SSL" if self.ssl else "",
                 )
             )
-        sock.connect((ip, port))
+        sock.connect((host, port))
         if self.verb:
             print(
                 conf.color_theme.green(
                     "\u2514 Connected from %s" % repr(sock.getsockname())
                 )
             )
+        # For SSL, build and apply SSLContext
         if self.ssl:
             if self.sslcontext is None:
-                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-                # Hm, this is insecure.
-                context.check_hostname = False
-                context.verify_mode = ssl.CERT_NONE
+                if no_check_certificate:
+                    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                    context.check_hostname = False
+                    context.verify_mode = ssl.CERT_NONE
+                else:
+                    context = ssl.create_default_context()
             else:
                 context = self.sslcontext
-            sock = context.wrap_socket(sock)
+            sock = context.wrap_socket(sock, server_hostname=sni or host)
+        # Wrap the socket in a Scapy socket
         if self.ssl:
             self.sock = SSLStreamSocket(sock, LDAP)
+            # Compute the channel binding token (CBT)
+            self.chan_bindings = GssChannelBindings.fromssl(
+                ChannelBindingType.TLS_SERVER_END_POINT,
+                sslsock=sock,
+            )
         else:
             self.sock = StreamSocket(sock, LDAP)
 
@@ -1978,9 +2022,10 @@ class LDAP_Client(object):
                 or not isinstance(resp.protocolOp, LDAP_BindResponse)
                 or resp.protocolOp.resultCode != 0
             ):
-                if self.verb:
-                    resp.show()
-                raise RuntimeError("LDAP simple bind failed !")
+                raise LDAP_Exception(
+                    "LDAP simple bind failed !",
+                    resp=resp,
+                )
             status = GSS_S_COMPLETE
         elif self.mech == LDAP_BIND_MECHS.SICILY:
             # [MS-ADTS] sect 5.1.1.1.3
@@ -1992,11 +2037,14 @@ class LDAP_Client(object):
                 )
             )
             if resp.protocolOp.resultCode != 0:
-                resp.show()
-                raise RuntimeError("Sicily package discovery failed !")
+                raise LDAP_Exception(
+                    "Sicily package discovery failed !",
+                    resp=resp,
+                )
             # 2. First exchange: Negotiate
             self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                 self.sspcontext,
+                target_name="ldap/" + self.host,
                 req_flags=(
                     GSS_C_FLAGS.GSS_C_REPLAY_FLAG
                     | GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG
@@ -2015,11 +2063,16 @@ class LDAP_Client(object):
             )
             val = resp.protocolOp.serverCreds
             if not val:
-                resp.show()
-                raise RuntimeError("Sicily negotiate failed !")
+                raise LDAP_Exception(
+                    "Sicily negotiate failed !",
+                    resp=resp,
+                )
             # 3. Second exchange: Response
             self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
-                self.sspcontext, GSSAPI_BLOB(val)
+                self.sspcontext,
+                GSSAPI_BLOB(val),
+                target_name="ldap/" + self.host,
+                chan_bindings=self.chan_bindings,
             )
             resp = self.sr1(
                 LDAP_BindRequest(
@@ -2041,6 +2094,7 @@ class LDAP_Client(object):
             # GSSAPI or SPNEGO
             self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                 self.sspcontext,
+                target_name="ldap/" + self.host,
                 req_flags=(
                     # Required flags for GSSAPI: RFC4752 sect 3.1
                     GSS_C_FLAGS.GSS_C_REPLAY_FLAG
@@ -2049,6 +2103,7 @@ class LDAP_Client(object):
                     | (GSS_C_FLAGS.GSS_C_INTEG_FLAG if self.sign else 0)
                     | (GSS_C_FLAGS.GSS_C_CONF_FLAG if self.encrypt else 0)
                 ),
+                chan_bindings=self.chan_bindings,
             )
             while token:
                 resp = self.sr1(
@@ -2070,13 +2125,18 @@ class LDAP_Client(object):
                     status = resp.protocolOp.resultCode
                     break
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
-                    self.sspcontext, GSSAPI_BLOB(val)
+                    self.sspcontext,
+                    GSSAPI_BLOB(val),
+                    target_name="ldap/" + self.host,
+                    chan_bindings=self.chan_bindings,
                 )
         else:
             status = GSS_S_COMPLETE
         if status != GSS_S_COMPLETE:
-            resp.show()
-            raise RuntimeError("%s bind failed !" % self.mech.name)
+            raise LDAP_Exception(
+                "%s bind failed !" % self.mech.name,
+                resp=resp,
+            )
         elif self.mech == LDAP_BIND_MECHS.SASL_GSSAPI:
             # GSSAPI has 2 extra exchanges
             # https://datatracker.ietf.org/doc/html/rfc2222#section-7.2.1
@@ -2105,12 +2165,14 @@ class LDAP_Client(object):
                 raise RuntimeError("GSSAPI SASL failed to negotiate CONFIDENTIALITY !")
             # Announce client-supported layers
             saslOptions = LDAP_SASL_GSSAPI_SsfCap(
-                supported_security_layers="+".join(
-                    (["INTEGRITY"] if self.sign else [])
-                    + (["CONFIDENTIALITY"] if self.encrypt else [])
-                )
-                if (self.sign or self.encrypt)
-                else "NONE",
+                supported_security_layers=(
+                    "+".join(
+                        (["INTEGRITY"] if self.sign else [])
+                        + (["CONFIDENTIALITY"] if self.encrypt else [])
+                    )
+                    if (self.sign or self.encrypt)
+                    else "NONE"
+                ),
                 # Same as server
                 max_output_token_size=saslOptions.max_output_token_size,
             )
@@ -2151,7 +2213,7 @@ class LDAP_Client(object):
         filter: str = "",
         scope=0,
         derefAliases=0,
-        sizeLimit=3000,
+        sizeLimit=300000,
         timeLimit=3000,
         attrsOnly=0,
         attributes: List[str] = [],
@@ -2202,7 +2264,7 @@ class LDAP_Client(object):
                                 controlType="1.2.840.113556.1.4.319",
                                 criticality=True,
                                 controlValue=LDAP_realSearchControlValue(
-                                    size=500,  # paging to 500 per 500
+                                    size=200,  # paging to 200 per 200
                                     cookie=cookie,
                                 ),
                             )
@@ -2211,7 +2273,7 @@ class LDAP_Client(object):
                         else []
                     )
                 ),
-                timeout=3,
+                timeout=self.timeout,
             )
             if LDAP_SearchResponseResultDone not in resp:
                 resp.show()
@@ -2294,7 +2356,7 @@ class LDAP_Client(object):
                 changes=changes,
             ),
             controls=controls,
-            timeout=3,
+            timeout=self.timeout,
         )
         if (
             LDAP_ModifyResponse not in resp.protocolOp
@@ -2341,7 +2403,7 @@ class LDAP_Client(object):
                 attributes=attributes,
             ),
             controls=controls,
-            timeout=3,
+            timeout=self.timeout,
         )
         if LDAP_AddResponse not in resp.protocolOp or resp.protocolOp.resultCode != 0:
             raise LDAP_Exception(
@@ -2382,7 +2444,7 @@ class LDAP_Client(object):
                 deleteoldrdn=deleteoldrdn,
             ),
             controls=controls,
-            timeout=3,
+            timeout=self.timeout,
         )
         if (
             LDAP_ModifyDNResponse not in resp.protocolOp

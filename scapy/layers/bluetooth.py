@@ -56,6 +56,7 @@ from scapy.fields import (
     XLEIntField,
     LEMACField,
     BitEnumField,
+    LEThreeBytesField,
 )
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
@@ -329,7 +330,7 @@ class L2CAP_CmdHdr(Packet):
                                   24: "credit_based_conn_resp",
                                   25: "credit_based_reconf_req",
                                   26: "credit_based_reconf_resp"}),
-        ByteField("id", 0),
+        ByteField("id", 1),
         LEShortField("len", None)]
 
     def post_build(self, p, pay):
@@ -918,6 +919,11 @@ class SM_Signing_Information(Packet):
     fields_desc = [StrFixedLenField("csrk", b'\x00' * 16, 16), ]
 
 
+class SM_Security_Request(Packet):
+    name = "Security Request"
+    fields_desc = [BitField("auth_req", 0, 8), ]
+
+
 class SM_Public_Key(Packet):
     name = "Public Key"
     fields_desc = [StrFixedLenField("key_x", b'\x00' * 32, 32),
@@ -1266,7 +1272,19 @@ class EIR_PublicTargetAddress(EIR_Element):
 class EIR_AdvertisingInterval(EIR_Element):
     name = "Advertising Interval"
     fields_desc = [
-        LEShortField("advertising_interval", 0)
+        MultipleTypeField(
+            [
+                (ByteField("advertising_interval", 0),
+                 lambda p: p.underlayer.len - 1 == 1),
+                (LEShortField("advertising_interval", 0),
+                 lambda p: p.underlayer.len - 1 == 2),
+                (LEThreeBytesField("advertising_interval", 0),
+                 lambda p: p.underlayer.len - 1 == 3),
+                (LEIntField("advertising_interval", 0),
+                 lambda p: p.underlayer.len - 1 == 4),
+            ],
+            LEShortField("advertising_interval", 0)
+        )
     ]
 
 
@@ -2518,6 +2536,69 @@ class HCI_LE_Meta_Long_Term_Key_Request(Packet):
                    XLEShortField("ediv", 0), ]
 
 
+class HCI_LE_Meta_Extended_Advertising_Report(Packet):
+    name = "Extended Advertising Report"
+    fields_desc = [
+        BitField("reserved0", 0, 1),
+        BitEnumField("data_status", 0, 2, {
+            0b00: "complete",
+            0b01: "incomplete",
+            0b10: "incomplete_truncated",
+            0b11: "reserved"
+        }),
+        BitField("legacy", 0, 1),
+        BitField("scan_response", 0, 1),
+        BitField("directed", 0, 1),
+        BitField("scannable", 0, 1),
+        BitField("connectable", 0, 1),
+        ByteField("reserved", 0),
+        ByteEnumField("address_type", 0, {
+            0x00: "public_device_address",
+            0x01: "random_device_address",
+            0x02: "public_identity_address",
+            0x03: "random_identity_address",
+            0xff: "anonymous"
+        }),
+        LEMACField('address', None),
+        ByteEnumField("primary_phy", 0, {
+            0x01: "le_1m",
+            0x03: "le_coded_s8",
+            0x04: "le_coded_s2"
+        }),
+        ByteEnumField("secondary_phy", 0, {
+            0x01: "le_1m",
+            0x02: "le_2m",
+            0x03: "le_coded_s8",
+            0x04: "le_coded_s2"
+        }),
+        ByteField("advertising_sid", 0xff),
+        ByteField("tx_power", 0x7f),
+        SignedByteField("rssi", 0x00),
+        LEShortField("periodic_advertising_interval", 0x0000),
+        ByteEnumField("direct_address_type", 0, {
+            0x00: "public_device_address",
+            0x01: "non_resolvable_private_address",
+            0x02: "resolvable_private_address_resolved_0",
+            0x03: "resolvable_private_address_resolved_1",
+            0xfe: "resolvable_private_address_unable_resolve"}),
+        LEMACField("direct_address", None),
+        FieldLenField("data_length", None, length_of="data", fmt="B"),
+        PacketListField("data", [], EIR_Hdr,
+                        length_from=lambda pkt: pkt.data_length),
+    ]
+
+    def extract_padding(self, s):
+        return '', s
+
+
+class HCI_LE_Meta_Extended_Advertising_Reports(Packet):
+    name = "Extended Advertising Reports"
+    fields_desc = [FieldLenField("num_reports", None, count_of="reports", fmt="B"),
+                   PacketListField("reports", None,
+                                   HCI_LE_Meta_Extended_Advertising_Report,
+                                   count_from=lambda pkt: pkt.num_reports)]
+
+
 bind_layers(HCI_PHDR_Hdr, HCI_Hdr)
 
 bind_layers(HCI_Hdr, HCI_Command_Hdr, type=1)
@@ -2648,6 +2729,7 @@ bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=0x01)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Reports, event=0x02)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=0x03)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=0x05)
+bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Extended_Advertising_Reports, event=0x0d)
 
 bind_layers(EIR_Hdr, EIR_Flags, type=0x01)
 bind_layers(EIR_Hdr, EIR_IncompleteList16BitServiceUUIDs, type=0x02)
@@ -2736,16 +2818,17 @@ bind_layers(ATT_Hdr, ATT_Write_Command, opcode=0x52)
 bind_layers(ATT_Hdr, ATT_Handle_Value_Notification, opcode=0x1b)
 bind_layers(ATT_Hdr, ATT_Handle_Value_Indication, opcode=0x1d)
 bind_layers(L2CAP_Hdr, SM_Hdr, cid=6)
-bind_layers(SM_Hdr, SM_Pairing_Request, sm_command=1)
-bind_layers(SM_Hdr, SM_Pairing_Response, sm_command=2)
-bind_layers(SM_Hdr, SM_Confirm, sm_command=3)
-bind_layers(SM_Hdr, SM_Random, sm_command=4)
-bind_layers(SM_Hdr, SM_Failed, sm_command=5)
-bind_layers(SM_Hdr, SM_Encryption_Information, sm_command=6)
-bind_layers(SM_Hdr, SM_Master_Identification, sm_command=7)
-bind_layers(SM_Hdr, SM_Identity_Information, sm_command=8)
-bind_layers(SM_Hdr, SM_Identity_Address_Information, sm_command=9)
+bind_layers(SM_Hdr, SM_Pairing_Request, sm_command=0x01)
+bind_layers(SM_Hdr, SM_Pairing_Response, sm_command=0x02)
+bind_layers(SM_Hdr, SM_Confirm, sm_command=0x03)
+bind_layers(SM_Hdr, SM_Random, sm_command=0x04)
+bind_layers(SM_Hdr, SM_Failed, sm_command=0x05)
+bind_layers(SM_Hdr, SM_Encryption_Information, sm_command=0x06)
+bind_layers(SM_Hdr, SM_Master_Identification, sm_command=0x07)
+bind_layers(SM_Hdr, SM_Identity_Information, sm_command=0x08)
+bind_layers(SM_Hdr, SM_Identity_Address_Information, sm_command=0x09)
 bind_layers(SM_Hdr, SM_Signing_Information, sm_command=0x0a)
+bind_layers(SM_Hdr, SM_Security_Request, sm_command=0x0b)
 bind_layers(SM_Hdr, SM_Public_Key, sm_command=0x0c)
 bind_layers(SM_Hdr, SM_DHKey_Check, sm_command=0x0d)
 
@@ -3045,7 +3128,7 @@ class BluetoothUserSocket(_BluetoothLibcSocket):
             sock_address=sa)
 
     def send_command(self, cmd):
-        opcode = cmd.opcode
+        opcode = cmd[HCI_Command_Hdr].opcode
         self.send(cmd)
         while True:
             r = self.recv()

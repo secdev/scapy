@@ -585,12 +585,15 @@ def sendpfast(x: _PacketIterable,
         try:
             cmd = subprocess.Popen(argv, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
+            cmd.wait()
         except KeyboardInterrupt:
+            if cmd:
+                cmd.terminate()
             log_interactive.info("Interrupted by user")
         except Exception:
             os.unlink(f)
             raise
-        else:
+        finally:
             stdout, stderr = cmd.communicate()
             if stderr:
                 log_runtime.warning(stderr.decode())
@@ -1397,9 +1400,13 @@ class AsyncSniffer(object):
         # type: (bool) -> Optional[PacketList]
         """Stops AsyncSniffer if not in async mode"""
         if self.running:
-            try:
-                self.stop_cb()
-            except AttributeError:
+            self.stop_cb()
+            if not hasattr(self, "continue_sniff"):
+                # Never started -> is there an exception?
+                if self.exception is not None:
+                    raise self.exception
+                return None
+            if self.continue_sniff:
                 raise Scapy_Exception(
                     "Unsupported (offline or unsupported socket)"
                 )

@@ -731,6 +731,15 @@ class tlsSession(object):
                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["early_exporter_secret"] = ees
 
+        if self.nss_keys:
+            cets_dict = self.nss_keys.get('CLIENT_EARLY_TRAFFIC_SECRET', {})
+            cets = cets_dict.get(self.client_random, cets)
+            self.tls13_derived_secrets["client_early_traffic_secret"] = cets
+
+            ees_dict = self.nss_keys.get('EARLY_EXPORTER_SECRET', {})
+            ees = ees_dict.get(self.client_random, ees)
+            self.tls13_derived_secrets["early_exporter_secret"] = ees
+
         if self.connection_end == "server":
             if self.prcs:
                 self.prcs.tls13_derive_keys(cets)
@@ -768,6 +777,15 @@ class tlsSession(object):
                                   b"".join(self.handshake_messages))
         self.tls13_derived_secrets["server_handshake_traffic_secret"] = shts
 
+        if self.nss_keys:
+            chts_dict = self.nss_keys.get('CLIENT_HANDSHAKE_TRAFFIC_SECRET', {})
+            chts = chts_dict.get(self.client_random, chts)
+            self.tls13_derived_secrets["client_handshake_traffic_secret"] = chts
+
+            shts_dict = self.nss_keys.get('SERVER_HANDSHAKE_TRAFFIC_SECRET', {})
+            shts = shts_dict.get(self.client_random, shts)
+            self.tls13_derived_secrets["server_handshake_traffic_secret"] = shts
+
     def compute_tls13_traffic_secrets(self):
         """
         Ciphers key and IV are updated accordingly for Application data.
@@ -800,6 +818,19 @@ class tlsSession(object):
                                 b"exp master",
                                 b"".join(self.handshake_messages))
         self.tls13_derived_secrets["exporter_secret"] = es
+
+        if self.nss_keys:
+            cts0_dict = self.nss_keys.get('CLIENT_TRAFFIC_SECRET_0', {})
+            cts0 = cts0_dict.get(self.client_random, cts0)
+            self.tls13_derived_secrets["client_traffic_secrets"] = [cts0]
+
+            sts0_dict = self.nss_keys.get('SERVER_TRAFFIC_SECRET_0', {})
+            sts0 = sts0_dict.get(self.client_random, sts0)
+            self.tls13_derived_secrets["server_traffic_secrets"] = [sts0]
+
+            es_dict = self.nss_keys.get('EXPORTER_SECRET', {})
+            es = es_dict.get(self.client_random, es)
+            self.tls13_derived_secrets["exporter_secret"] = es
 
         if self.connection_end == "server":
             # self.prcs.tls13_derive_keys(cts0)

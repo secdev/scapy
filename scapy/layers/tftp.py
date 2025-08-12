@@ -5,19 +5,31 @@
 
 """
 TFTP (Trivial File Transfer Protocol).
+
+This provides TFTP implementation and 4 small automata:
+    - TFTP_read: read a remote file
+    - TFTP_RRQ_server: server that answers to read requests
+    - TFTP_write: write a remote file
+    - TFTP_WRQ_server: server than accepts write requests
 """
 
 import os
 import random
 
 from scapy.packet import Packet, bind_layers, split_bottom_up, bind_bottom_up
-from scapy.fields import PacketListField, ShortEnumField, ShortField, \
-    StrNullField
+from scapy.fields import (
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    StrNullField,
+)
 from scapy.automaton import ATMT, Automaton
-from scapy.layers.inet import UDP, IP
+from scapy.base_classes import Net
 from scapy.config import conf
+from scapy.sessions import IPSession
 from scapy.volatile import RandShort
 
+from scapy.layers.inet import UDP, IP
 
 TFTP_operations = {1: "RRQ", 2: "WRQ", 3: "DATA", 4: "ACK", 5: "ERROR", 6: "OACK"}  # noqa: E501
 
@@ -138,9 +150,17 @@ bind_layers(TFTP_OACK, TFTP_Options)
 class TFTP_read(Automaton):
     """
     TFTP automaton to read a remote file on a TFTP server.
+
+    :param filename: the name of the remote file to read.
+    :param server: the host on which to read (IP or name).
+    :param sport: (optional) the source port to use. (default: random)
+    :param port: (optional) the TFTP port (default: 69)
     """
 
     def parse_args(self, filename, server, sport=None, port=69, **kargs):
+        if "iface" not in kargs:
+            server = str(Net(server))
+            kargs["iface"] = conf.route.route(server)[0]
         Automaton.parse_args(self, **kargs)
         self.filename = filename
         self.server = server
@@ -229,9 +249,18 @@ class TFTP_read(Automaton):
 class TFTP_write(Automaton):
     """
     TFTP automaton to write a local file onto a TFTP server.
+
+    :param filename: the name of the remote file to write.
+    :param data: the bytes data to write.
+    :param server: the host on which to read (IP or name).
+    :param sport: (optional) the source port to use. (default: random)
+    :param port: (optional) the TFTP port (default: 69)
     """
 
     def parse_args(self, filename, data, server, sport=None, port=69, **kargs):
+        if "iface" not in kargs:
+            server = str(Net(server))
+            kargs["iface"] = conf.route.route(server)[0]
         Automaton.parse_args(self, **kargs)
         self.filename = filename
         self.server = server
@@ -313,9 +342,16 @@ class TFTP_write(Automaton):
 class TFTP_WRQ_server(Automaton):
     """
     TFTP automaton to wait for incoming files
+
+    :param ip: (optional) the local IP to listen on.
+    :param sport: (optional) the local port (by default: random)
     """
 
     def parse_args(self, ip=None, sport=None, *args, **kargs):
+        if "iface" not in kargs and ip:
+            ip = str(Net(ip))
+            kargs["iface"] = conf.route.route(ip)[0]
+        kargs.setdefault("session", IPSession())
         Automaton.parse_args(self, *args, **kargs)
         self.ip = ip
         self.sport = sport
@@ -393,9 +429,23 @@ class TFTP_WRQ_server(Automaton):
 class TFTP_RRQ_server(Automaton):
     """
     TFTP automaton to serve local files
+
+    You can't use 'store' and 'dir' at the same time.
+
+    :param store: (optional) a dictionary that contains the file data, like
+                  {"thefile": b"data"}.
+    :param dir: (optional) a folder that contains the data file data.
+    :param joker: (optional) data to return when no file/data is found.
+    :param ip: (optional) the local IP to listen on.
+    :param sport: (optional) the local port (by default: random)
+    :param serve_one: (optional) close after serving one client (default: False)
     """
 
     def parse_args(self, store=None, joker=None, dir=None, ip=None, sport=None, serve_one=False, **kargs):  # noqa: E501
+        if "iface" not in kargs and ip:
+            ip = str(Net(ip))
+            kargs["iface"] = conf.route.route(ip)[0]
+        kargs.setdefault("session", IPSession())
         Automaton.parse_args(self, **kargs)
         if store is None:
             store = {}

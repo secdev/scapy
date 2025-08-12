@@ -288,6 +288,9 @@ pkt = NetflowHeader()/NetflowHeaderV5()/NetflowRecordV5()
 conf.layers.filter([NetflowHeader, NetflowHeaderV5])
 assert NetflowRecordV5 not in NetflowHeader(bytes(pkt))
 
+# Conf.ifaces.reload() should still work (arch/* is exempt)
+conf.ifaces.reload()
+
 conf.layers.unfilter()
 assert NetflowRecordV5 in NetflowHeader(bytes(pkt))
 
@@ -678,7 +681,7 @@ scapy_delete_temp_files()
 tmpfile = get_temp_file(autoext=".ut")
 tmpfile
 if WINDOWS:
-    assert "scapy" in tmpfile and tmpfile.lower().startswith('c:\\users\\appveyor\\appdata\\local\\temp')
+    assert "scapy" in tmpfile and "AppData\\Local\\Temp" in tmpfile
 else:
     import platform
     BYPASS_TMP = platform.python_implementation().lower() == "pypy" or DARWIN
@@ -1784,6 +1787,15 @@ try:
 except ValueError:
     assert True
 
+try:
+    sniffer = AsyncSniffer(iface="this_interface_does_not_exists")
+    sniffer.start()
+    sniffer.thread.join()
+    sniffer.stop()
+    assert False, "Should have errored by now"
+except ValueError:
+    assert True
+
 = Sending a TCP syn 'forever' at layer 2 and layer 3
 ~ netaccess needs_root IP
 def _test():
@@ -1840,7 +1852,7 @@ finally:
     sck.close()
 
 = Sending and receiving an ICMPv6EchoRequest
-~ netaccess ipv6
+~ netaccess ipv6 needs_root
 def _test():
     with no_debug_dissector():
         x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
@@ -2347,6 +2359,11 @@ assert l[0][LDAP].summary() == "LDAP"
 file = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\x01\x00\x00\x00%\xa8\xddfK\x1b\x05\x00\xca\xca\xca\xca*\x00\x00\x00\xff\xff\xff\xff\xff\xff\x86"\x11&\xab3\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01]\x80\x0f\x13*r\n\x00\x02\x0f\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 l = rdpcap(file)
 assert len(l) == 0 or ARP in l[0]
+
+# Read PCAPNG file with tightly packed comment option, no End of Options
+file = BytesIO(b'\n\r\r\n\x1c\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x1c\x00\x00\x00\x01\x00\x00\x00\x14\x00\x00\x00\x01\x00\x00\x00\x00\x00\x04\x00\x14\x00\x00\x00\x06\x00\x00\x00,\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x08\x00Helloooo,\x00\x00\x00')
+l = rdpcap(file)
+assert len(l) == 1 and l[0].comment == b'Helloooo'
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
@@ -3409,13 +3426,13 @@ try:
         (3232235775, 4294967295, '0.0.0.0', 'enp3s0', '2.2.2.2', 281),
         (3232235639, 4294967295, '0.0.0.0', 'enp3s0', '3.3.3.3', 281),
         (3232235520, 4294967040, '0.0.0.0', 'enp3s0', '4.4.4.4', 281),
-        (0, 0, '192.168.0.254', 'enp3s0', '192.168.0.119', 25)
+        (0, 0, '192.168.0.254', 'enp3s0', '0.0.0.0', 25)
     ]
     assert conf.route.route("192.168.0.0-10") == ('enp3s0', '4.4.4.4', '0.0.0.0')
     assert conf.route.route("192.168.0.119") == ('lo', '192.168.0.119', '0.0.0.0')
     assert conf.route.route("224.0.0.0") == ('enp3s0', '1.1.1.1', '0.0.0.0')
     assert conf.route.route("255.255.255.255") == ('enp3s0', '192.168.0.119', '0.0.0.0')
-    assert conf.route.route("*") == ('enp3s0', '192.168.0.119', '192.168.0.254')
+    assert conf.route.route("*") == ('enp3s0', '4.4.4.4', '192.168.0.254')
 finally:
     conf.loopback_name = old_loopback
     conf.iface = old_iface
@@ -4929,3 +4946,34 @@ def _test_fragleak(func, sr1, select, L3socket):
 
 assert _test_fragleak(fragleak)
 assert _test_fragleak(fragleak2)
+
++ CLIUtil
+~ cliutil
+
+= CLIUtil: define and check overlap
+
+from scapy.layers.smbclient import smbclient
+
+class CLI1(CLIUtil):
+    @CLIUtil.addcommand()
+    def shares(self):
+        return 1
+    @CLIUtil.addoutput(shares)
+    def shares_output(self, results):
+        print(results)
+
+
+class CLI2(CLIUtil):
+    @CLIUtil.addcommand()
+    def shares(self):
+        return 2
+    @CLIUtil.addoutput(shares)
+    def shares_output(self, results):
+        print(results)
+
+
+c1 = CLI1(cli=False)
+c2 = CLI2(cli=False)
+
+assert c1.shares() == 1
+assert c2.shares() == 2

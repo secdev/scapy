@@ -10,7 +10,6 @@ Unit testing infrastructure for Scapy
 import builtins
 import bz2
 import copy
-import code
 import getopt
 import glob
 import hashlib
@@ -586,12 +585,14 @@ def run_campaign(test_campaign, get_interactive_session, theme,
         )[0]
 
     # Drop
-    def drop(scapy_ses):
-        code.interact(banner="Test '%s' failed. "
-                             "exit() to stop, Ctrl-D to leave "
-                             "this interpreter and continue "
-                             "with the current test campaign"
-                             % t.name, local=scapy_ses)
+    def drop(t, scapy_ses):
+        from scapy.main import interact
+        interact(
+            mybanner="Test '%s' failed.\n\n%s" % (t.name, t.output),
+            mybanneronly=True,
+            mydict=scapy_ses,
+            argv=[None, "-H"],
+        )
 
     try:
         for i, testset in enumerate(test_campaign):
@@ -602,7 +603,7 @@ def run_campaign(test_campaign, get_interactive_session, theme,
                 else:
                     failed += 1
                     if drop_to_interpreter:
-                        drop(scapy_ses)
+                        drop(t, scapy_ses)
                 test_campaign.duration += t.duration
     except KeyboardInterrupt:
         failed += 1
@@ -611,8 +612,6 @@ def run_campaign(test_campaign, get_interactive_session, theme,
         test_campaign.interrupted = True
         if verb:
             print("Campaign interrupted!")
-            if drop_to_interpreter:
-                drop(scapy_ses)
 
     test_campaign.passed = passed
     test_campaign.failed = failed

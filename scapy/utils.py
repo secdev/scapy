@@ -19,6 +19,7 @@ import base64
 import collections
 import decimal
 import difflib
+import enum
 import gzip
 import inspect
 import locale
@@ -1622,6 +1623,10 @@ class PcapReader(RawPcapReader):
         # type: (int, **Any) -> Packet
         return self.read_packet(size=size, **kwargs)
 
+    def __iter__(self):
+        # type: () -> PcapReader
+        return self
+
     def __next__(self):  # type: ignore
         # type: () -> Packet
         try:
@@ -1786,7 +1791,7 @@ class RawPcapNgReader(RawPcapReader):
 
         """
         while True:
-            res = self._read_block()
+            res = self._read_block(size=size)
             if res is not None:
                 return res
 
@@ -1800,7 +1805,7 @@ class RawPcapNgReader(RawPcapReader):
                 warning("PcapNg: options header is too small "
                         "%d !" % len(options))
                 raise EOFError
-            if code != 0 and 4 + length < len(options):
+            if code != 0 and 4 + length <= len(options):
                 opts[code] = options[4:4 + length]
             if code == 0:
                 if length != 0:
@@ -3566,7 +3571,38 @@ def whois(ip_address):
 ####################
 
 
-class CLIUtil:
+class _CLIUtilMetaclass(type):
+    class TYPE(enum.Enum):
+        COMMAND = 0
+        OUTPUT = 1
+        COMPLETE = 2
+
+    def __new__(cls,  # type: Type[_CLIUtilMetaclass]
+                name,  # type: str
+                bases,  # type: Tuple[type, ...]
+                dct  # type: Dict[str, Any]
+                ):
+        # type: (...) -> Type[CLIUtil]
+        dct["commands"] = {
+            x.__name__: x
+            for x in dct.values()
+            if getattr(x, "cliutil_type", None) == _CLIUtilMetaclass.TYPE.COMMAND
+        }
+        dct["commands_output"] = {
+            x.cliutil_ref.__name__: x
+            for x in dct.values()
+            if getattr(x, "cliutil_type", None) == _CLIUtilMetaclass.TYPE.OUTPUT
+        }
+        dct["commands_complete"] = {
+            x.cliutil_ref.__name__: x
+            for x in dct.values()
+            if getattr(x, "cliutil_type", None) == _CLIUtilMetaclass.TYPE.COMPLETE
+        }
+        newcls = cast(Type['CLIUtil'], type.__new__(cls, name, bases, dct))
+        return newcls
+
+
+class CLIUtil(metaclass=_CLIUtilMetaclass):
     """
     Provides a Util class to easily create simple CLI tools in Scapy,
     that can still be used as an API.
@@ -3593,6 +3629,14 @@ class CLIUtil:
     commands_output: Dict[str, Callable[..., str]] = {}
     # provides completion to command
     commands_complete: Dict[str, Callable[..., List[str]]] = {}
+
+    def __init__(self, cli: bool = True, debug: bool = False) -> None:
+        """
+        DEV: overwrite
+        """
+        if cli:
+            self._depcheck()
+            self.loop(debug=debug)
 
     @staticmethod
     def _inspectkwargs(func: DecoratorCallable) -> None:
@@ -3655,7 +3699,7 @@ class CLIUtil:
         Decorator to register a command
         """
         def func(cmd: DecoratorCallable) -> DecoratorCallable:
-            cls.commands[cmd.__name__] = cmd
+            cmd.cliutil_type = _CLIUtilMetaclass.TYPE.COMMAND  # type: ignore
             cmd._spaces = spaces  # type: ignore
             cmd._globsupport = globsupport  # type: ignore
             cls._inspectkwargs(cmd)
@@ -3670,7 +3714,8 @@ class CLIUtil:
         Decorator to register a command output processor
         """
         def func(processor: DecoratorCallable) -> DecoratorCallable:
-            cls.commands_output[cmd.__name__] = processor
+            processor.cliutil_type = _CLIUtilMetaclass.TYPE.OUTPUT  # type: ignore
+            processor.cliutil_ref = cmd  # type: ignore
             cls._inspectkwargs(processor)
             return processor
         return func
@@ -3681,7 +3726,8 @@ class CLIUtil:
         Decorator to register a command completor
         """
         def func(processor: DecoratorCallable) -> DecoratorCallable:
-            cls.commands_complete[cmd.__name__] = processor
+            processor.cliutil_type = _CLIUtilMetaclass.TYPE.COMPLETE  # type: ignore
+            processor.cliutil_ref = cmd  # type: ignore
             return processor
         return func
 
@@ -3849,7 +3895,10 @@ class CLIUtil:
                         print("Output processor failed with error: %s" % ex)
 
 
-def AutoArgparse(func: DecoratorCallable) -> None:
+def AutoArgparse(
+    func: DecoratorCallable,
+    _parseonly: bool = False,
+) -> Optional[Tuple[List[str], List[str]]]:
     """
     Generate an Argparse call from a function, then call this function.
 
@@ -3887,25 +3936,28 @@ def AutoArgparse(func: DecoratorCallable) -> None:
                     argsdoc[argparam] = argdesc
     else:
         desc = ""
-    # Now build the argparse.ArgumentParser
-    parser = argparse.ArgumentParser(
-        prog=func.__name__,
-        description=desc,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
+
     # Process the parameters
     positional = []
+    noargument = []
+    hexarguments = []
+    parameters = {}
     for param in inspect.signature(func).parameters.values():
         if not param.annotation:
             continue
-        parname = param.name
-        paramkwargs = {}
+        noarg = False
+        parname = param.name.replace("_", "-")
+        paramkwargs: Dict[str, Any] = {}
         if param.annotation is bool:
             if param.default is True:
                 parname = "no-" + parname
                 paramkwargs["action"] = "store_false"
             else:
                 paramkwargs["action"] = "store_true"
+            noarg = True
+        elif param.annotation is bytes:
+            paramkwargs["type"] = str
+            hexarguments.append(parname)
         elif param.annotation in [str, int, float]:
             paramkwargs["type"] = param.annotation
         else:
@@ -3923,9 +3975,54 @@ def AutoArgparse(func: DecoratorCallable) -> None:
             paramkwargs["action"] = "append"
         if param.name in argsdoc:
             paramkwargs["help"] = argsdoc[param.name]
-        parser.add_argument(parname, **paramkwargs)  # type: ignore
+            if param.annotation is bytes:
+                paramkwargs["help"] = "(hex) " + paramkwargs["help"]
+            elif param.annotation is bool:
+                paramkwargs["help"] = "(flag) " + paramkwargs["help"]
+            else:
+                paramkwargs["help"] = (
+                    "(%s) " % param.annotation.__name__ + paramkwargs["help"]
+                )
+        # Add to the parameter list
+        parameters[parname] = paramkwargs
+        if noarg:
+            noargument.append(parname)
+
+    if _parseonly:
+        # An internal mode used to generate bash autocompletion, do it then exit.
+        return (
+            [x for x in parameters if x not in positional] + ["--help"],
+            [x for x in noargument if x not in positional] + ["--help"],
+        )
+
+    # Now build the argparse.ArgumentParser
+    parser = argparse.ArgumentParser(
+        prog=func.__name__,
+        description=desc,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    # Add parameters to parser
+    for parname, paramkwargs in parameters.items():
+        parser.add_argument(parname, **paramkwargs)
+
     # Now parse the sys.argv parameters
     params = vars(parser.parse_args())
+
+    # Convert hex parameters if provided
+    for p in hexarguments:
+        if params[p] is not None:
+            try:
+                params[p] = bytes.fromhex(params[p])
+            except ValueError:
+                print(
+                    conf.color_theme.fail(
+                        "ERROR: the value of parameter %s "
+                        "'%s' is not valid hexadecimal !" % (p, params[p])
+                    )
+                )
+                return None
+
     # Act as in interactive mode
     conf.logLevel = 20
     from scapy.themes import DefaultTheme
@@ -3940,8 +4037,9 @@ def AutoArgparse(func: DecoratorCallable) -> None:
             }
         )
     except AssertionError as ex:
-        print("ERROR: " + str(ex))
+        print(conf.color_theme.fail("ERROR: " + str(ex)))
         parser.print_help()
+    return None
 
 
 #######################
