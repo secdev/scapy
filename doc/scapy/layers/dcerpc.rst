@@ -1,7 +1,7 @@
 DCE/RPC & [MS-RPCE]
 ===================
 
-.. note:: DCE/RPC per `DCE/RPC 1.1 <https://pubs.opengroup.org/onlinepubs/9629399/toc.pdf>`_ with the `[MS-RPCE] <https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rpce/290c38b1-92fe-4229-91e6-4fc376610c15>`_ additions
+.. note:: DCE/RPC per `DCE/RPC 1.1 <https://pubs.opengroup.org/onlinepubs/9629399/toc.pdf>`_ with the `[MS-RPCE] <https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rpce/290c38b1-92fe-4229-91e6-4fc376610c15>`_ additions.
 
 Scapy provides support for dissecting and building Microsoft's Windows DCE/RPC calls.
 
