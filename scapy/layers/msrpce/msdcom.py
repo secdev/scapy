@@ -1128,7 +1128,7 @@ class DCOM_Client(DCERPC_Client):
 
                 # "Next, the client MUST release the object reference unmarshaled from the OBJREF"
                 self.RemRelease(obj.std.ipid)
-            
+
             return obj.std.oid
         else:
             obj.show()
@@ -1224,7 +1224,9 @@ class DCOM_Client(DCERPC_Client):
                 return host, port
         raise ValueError("No valid bindings available !")
 
-    def UnmarshallObjectReference(self, mifaceptr: MInterfacePointer, iid: ComInterface):
+    def UnmarshallObjectReference(
+        self, mifaceptr: MInterfacePointer, iid: ComInterface
+    ):
         """
         [MS-DCOM] 3.2.4.3 Marshaling an Object Reference
 
@@ -1449,7 +1451,8 @@ class DCOM_Client(DCERPC_Client):
         # "When the call returns successfully..."
         for i, remqir in enumerate(resp.valueof("ppQIResults")):
             self._UnmarshallObjref(
-                OBJREF(iid=iids[i].uuid) / OBJREF_STANDARD(std=STDOBJREF(bytes(remqir.std))),
+                OBJREF(iid=iids[i].uuid)
+                / OBJREF_STANDARD(std=STDOBJREF(bytes(remqir.std))),
                 iid=iids[i],
             )
 

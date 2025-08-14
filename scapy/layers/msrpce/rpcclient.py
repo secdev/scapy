@@ -258,9 +258,15 @@ class DCERPC_Client(object):
         if self.verb:
             if "objectuuid" in kwargs:
                 # COM
-                print(conf.color_theme.opening(">> REQUEST (COM): %s" % pkt.payload.__class__.__name__))
+                print(
+                    conf.color_theme.opening(
+                        ">> REQUEST (COM): %s" % pkt.payload.__class__.__name__
+                    )
+                )
             else:
-                print(conf.color_theme.opening(">> REQUEST: %s" % pkt.__class__.__name__))
+                print(
+                    conf.color_theme.opening(">> REQUEST: %s" % pkt.__class__.__name__)
+                )
         # Add sectrailer if first time talking on this interface
         vt_trailer = b""
         if self._first_time_on_interface:
@@ -277,7 +283,7 @@ class DCERPC_Client(object):
                     )
                 ]
             )
-        
+
         # Optional: force opnum
         opnum = {}
         if "opnum" in kwargs:
@@ -288,7 +294,7 @@ class DCERPC_Client(object):
             DceRpc5Request(
                 cont_id=self.session.cont_id,
                 alloc_hint=len(pkt) + len(vt_trailer),
-                **opnum
+                **opnum,
             )
             / pkt,
             vt_trailer=vt_trailer,
@@ -356,7 +362,7 @@ class DCERPC_Client(object):
             ),
         ]
         self.all_cont_id += 1
-            
+
         # NDR64
         if self.ndr64:
             contexts.append(
@@ -376,7 +382,7 @@ class DCERPC_Client(object):
                 )
             )
             self.all_cont_id += 1
-        
+
         # BindTimeFeatureNegotiationBitmask
         contexts.append(
             DceRpc5Context(
@@ -411,8 +417,8 @@ class DCERPC_Client(object):
             )
         # Do we need an authenticated bind
         if not self.ssp or (
-            self.sspcontext is not None or
-            self.transport == DCERPC_Transport.NCACN_NP
+            self.sspcontext is not None
+            or self.transport == DCERPC_Transport.NCACN_NP
             and self.auth_level < DCE_C_AUTHN_LEVEL.PKT_INTEGRITY
         ):
             # NCACN_NP = SMB without INTEGRITY/PRIVACY does not bind the RPC securely,
@@ -561,9 +567,15 @@ class DCERPC_Client(object):
                 elif DceRpc5Fault in resp:
                     if getattr(resp, "status", 0) != 0:
                         if resp.status in _DCE_RPC_ERROR_CODES:
-                            print(conf.color_theme.fail(f"! {_DCE_RPC_ERROR_CODES[resp.status]}"))
+                            print(
+                                conf.color_theme.fail(
+                                    f"! {_DCE_RPC_ERROR_CODES[resp.status]}"
+                                )
+                            )
                         elif resp.status in STATUS_ERREF:
-                            print(conf.color_theme.fail(f"! {STATUS_ERREF[resp.status]}"))
+                            print(
+                                conf.color_theme.fail(f"! {STATUS_ERREF[resp.status]}")
+                            )
                         else:
                             print(conf.color_theme.fail("! Failure"))
                             resp.show()
