@@ -1258,7 +1258,7 @@ class DCOM_Client(DCERPC_Client):
             client.connect(host, port=port)
 
         # Bind IObjectExporter if not already
-        self.bind_or_alter(find_dcerpc_interface("IObjectExporter"))
+        client.bind_or_alter(find_dcerpc_interface("IObjectExporter"))
 
         try:
             # Perform ResolveOxid2
@@ -1272,7 +1272,7 @@ class DCOM_Client(DCERPC_Client):
                 )
             )
         finally:
-            if host == self.host and port == self.port:
+            if host != self.host or port != self.port:
                 client.close()
 
         # Entry

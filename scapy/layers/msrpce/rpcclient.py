@@ -830,6 +830,7 @@ def get_endpoint(
     transport=DCERPC_Transport.NCACN_IP_TCP,
     ndrendian="little",
     verb=True,
+    ssp=None,
     smb_kwargs={},
 ):
     """
@@ -839,6 +840,7 @@ def get_endpoint(
     :param interface:
     :param mode:
     :param verb:
+    :param ssp:
 
     :return: a list of connection tuples for this interface
     """
@@ -847,6 +849,7 @@ def get_endpoint(
         ndr64=False,
         ndrendian=ndrendian,
         verb=verb,
+        ssp=ssp,
     )  # EPM only works with NDR32
     client.connect(ip, smb_kwargs=smb_kwargs)
     if transport == DCERPC_Transport.NCACN_NP:  # SMB
