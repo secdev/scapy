@@ -416,7 +416,7 @@ class _ActivationPropertiesField(NDRSerializeType1PacketListField):
             CLSID_ServerLocationInfo: LocationInfoData,
             CLSID_SpecialSystemProperties: SpecialPropertiesData,
         }[next_uid]
-        return lambda x: ndr_deserialize1(x, cls, ndr64=False)
+        return lambda x: ndr_deserialize1(x, cls)
 
 
 class ActivationPropertiesBlob(Packet):

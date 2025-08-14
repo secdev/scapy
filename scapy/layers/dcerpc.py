@@ -2570,6 +2570,25 @@ class NDRSerialization1Header(Packet):
         XLEIntField("Filler", 0xCCCCCCCC),
     ]
 
+    # Add a bit of goo so that valueof() goes through the header
+
+    def _ndrlayer(self):
+        cur = self
+        while cur and not isinstance(cur, _NDRPacket) and cur.payload:
+            cur = cur.payload
+        if isinstance(cur, NDRPointer):
+            cur = cur.value
+        return cur
+
+    def getfield_and_val(self, attr):
+        try:
+            return Packet.getfield_and_val(self, attr)
+        except ValueError:
+            return self._ndrlayer().getfield_and_val(attr)
+
+    def valueof(self, name):
+        return self._ndrlayer().valueof(name)
+
 
 class NDRSerialization1PrivateHeader(Packet):
     fields_desc = [
@@ -2580,17 +2599,27 @@ class NDRSerialization1PrivateHeader(Packet):
     ]
 
 
-def ndr_deserialize1(b, cls, ndr64=False):
+def ndr_deserialize1(b, cls, ptr_pack=False):
     """
-    Deserialize Type Serialization Version 1 according to [MS-RPCE] sect 2.2.6
+    Deserialize Type Serialization Version 1
+    [MS-RPCE] sect 2.2.6
+
+    :param ptr_pack: pack in a pointer to the structure.
     """
     if issubclass(cls, NDRPacket):
         # We use an intermediary class because it uses NDRPacketField which handles
         # deported conformant fields
-        class _cls(NDRPacket):
-            fields_desc = [
-                NDRPacketField("pkt", None, cls),
-            ]
+        if ptr_pack:
+            hdrlen = 20
+
+            class _cls(NDRPacket):
+                fields_desc = [NDRFullPointerField(NDRPacketField("pkt", None, cls))]
+
+        else:
+            hdrlen = 16
+
+            class _cls(NDRPacket):
+                fields_desc = [NDRPacketField("pkt", None, cls)]
 
         hdr = NDRSerialization1Header(b[:8]) / NDRSerialization1PrivateHeader(b[8:16])
         endian = {0x00: "big", 0x10: "little"}[hdr.Endianness]
@@ -2600,21 +2629,23 @@ def ndr_deserialize1(b, cls, ndr64=False):
         return (
             hdr
             / _cls(
-                b[16 : 16 + hdr.ObjectBufferLength],
-                ndr64=ndr64,
+                b[16 : hdrlen + hdr.ObjectBufferLength],
+                ndr64=False,  # Only NDR32 is supported in Type 1
                 ndrendian=endian,
             ).pkt
-            / conf.padding_layer(b[16 + padlen + hdr.ObjectBufferLength :])
+            / conf.padding_layer(b[hdrlen + padlen + hdr.ObjectBufferLength :])
         )
     return NDRSerialization1Header(b[:8]) / cls(b[8:])
 
 
-def ndr_serialize1(pkt):
+def ndr_serialize1(pkt, ptr_pack=False):
     """
     Serialize Type Serialization Version 1
+    [MS-RPCE] sect 2.2.6
+
+    :param ptr_pack: pack in a pointer to the structure.
     """
     pkt = pkt.copy()
-    ndr64 = getattr(pkt, "ndr64", conf.ndr64)
     endian = getattr(pkt, "ndrendian", "little")
     if not isinstance(pkt, NDRSerialization1Header):
         if not isinstance(pkt, NDRPacket):
@@ -2638,39 +2669,45 @@ def ndr_serialize1(pkt):
         pkt.payload.remove_payload()
 
     # See above about why we need an intermediary class
-    class _cls(NDRPacket):
-        fields_desc = [
-            NDRPacketField("pkt", None, cls),
-        ]
+    if ptr_pack:
 
-    ret = bytes(pkt / _cls(pkt=val, ndr64=ndr64, ndrendian=endian))
+        class _cls(NDRPacket):
+            fields_desc = [NDRFullPointerField(NDRPacketField("pkt", None, cls))]
+
+    else:
+
+        class _cls(NDRPacket):
+            fields_desc = [NDRPacketField("pkt", None, cls)]
+
+    ret = bytes(pkt / _cls(pkt=val, ndr64=False, ndrendian=endian))
     return ret + (-len(ret) % _TYPE1_S_PAD) * b"\x00"
 
 
 class _NDRSerializeType1:
     def __init__(self, *args, **kwargs):
+        self.ptr_pack = kwargs.pop("ptr_pack", False)
         super(_NDRSerializeType1, self).__init__(*args, **kwargs)
 
     def i2m(self, pkt, val):
-        return ndr_serialize1(val)
+        return ndr_serialize1(val, ptr_pack=self.ptr_pack)
 
     def m2i(self, pkt, s):
-        return ndr_deserialize1(s, self.cls, ndr64=False)
+        return ndr_deserialize1(s, self.cls, ptr_pack=self.ptr_pack)
 
     def i2len(self, pkt, val):
         return len(self.i2m(pkt, val))
 
 
 class NDRSerializeType1PacketField(_NDRSerializeType1, PacketField):
-    __slots__ = ["ptr"]
+    __slots__ = ["ptr_pack"]
 
 
 class NDRSerializeType1PacketLenField(_NDRSerializeType1, PacketLenField):
-    __slots__ = ["ptr"]
+    __slots__ = ["ptr_pack"]
 
 
 class NDRSerializeType1PacketListField(_NDRSerializeType1, PacketListField):
-    __slots__ = ["ptr"]
+    __slots__ = ["ptr_pack"]
 
     def i2len(self, pkt, val):
         return sum(len(self.i2m(pkt, p)) for p in val)
