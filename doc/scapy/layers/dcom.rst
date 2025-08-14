@@ -7,21 +7,21 @@ Before reading this, have a look at Scapy's `DCE/RPC <dcerpc.html>`_ documentati
 Terminology
 -----------
 
-- In DCOM one instanciates 'classes' to get 'object references'. A class implements one or several 'interfaces', each of which has methods.
-- ``CLSID``: the UIID of a **class**, used to instanciate it. This is typically chosen by whoever implements the COM object.
+- In DCOM one instantiates 'classes' to get 'object references'. A class implements one or several 'interfaces', each of which has methods.
+- ``CLSID``: the UIID of a **class**, used to instantiate it. This is typically chosen by whoever implements the COM object.
 - ``IID``: the UIID of an **interface**, used to request an IPID. This is chosen by whoever defines the COM interface (mostly Microsoft).
 - ``IPID``: a UIID that uniquely references an **interface on an object**. This allows to tell DCOM on which object to run the request we send.
 
 There are other IDs such as the OID (a 64bit number that uniquely references each object), and the OXID (a 64bit number that uniquely references each object exporter), but we won't get into the details.
 
 Per the spec, a DCOM client is supposed to keep track of the IPID, OID and OXID ids. In this regard, Scapy abstracts their usage.
-On the other hand, the calling application is supposed to know the ``CLSID`` of the class it wishes to instanciate, and the various ``IID`` of the interfaces it wishes to use.
+On the other hand, the calling application is supposed to know the ``CLSID`` of the class it wishes to instantiate, and the various ``IID`` of the interfaces it wishes to use.
 
 General behavior of a DCOM client
 ---------------------------------
 
 1. Setup the DCOM client (endpoint, SSP, etc.)
-2. Get an object reference: Instanciate a class to get an object reference of the instance (``RemoteCreateInstance``), **OR**, get an object reference towards the class itself (``RemoteGetClassObject``).
+2. Get an object reference: Instantiate a class to get an object reference of the instance (``RemoteCreateInstance``), **OR**, get an object reference towards the class itself (``RemoteGetClassObject``).
 3. Acquire the IPID of an interface of the object.
 4. Call a method of that interface.
 5. Release the reference counts on the interface (delete the IPID).
@@ -48,7 +48,7 @@ General usage
 
 .. note:: See the examples in `DCE/RPC <dcerpc.html>`_ to connect with SPNEGO/Kerberos.
 
-2. Instanciate a class to get an object reference
+2. Instantiate a class to get an object reference
 
 .. code:: python
 
@@ -62,7 +62,7 @@ General usage
 
     # Get new object reference
     objref = client.RemoteCreateInstance(
-        # The CLSID we're instanciating
+        # The CLSID we're instantiating
         clsid=CLSID_TraceSessionCollection,
         iids=[
             # An initial list of interfaces to ask for. There must be at least 1.

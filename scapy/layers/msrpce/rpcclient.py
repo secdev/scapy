@@ -77,7 +77,7 @@ class DCERPC_Client(object):
 
     :param transport: the transport to use.
     :param ndr64: should ask for NDR64 when binding (default conf.ndr64)
-    :param ndrendian: the endianess to use (default little)
+    :param ndrendian: the endianness to use (default little)
     :param verb: enable verbose logging (default True)
     :param auth_level: the DCE_C_AUTHN_LEVEL to use
     """

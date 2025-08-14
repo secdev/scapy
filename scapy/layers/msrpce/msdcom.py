@@ -745,7 +745,7 @@ class OXID_Entry:
 
 class ObjectInstance:
     """
-    An reference to an instanciated object.
+    An reference to an instantiated object.
 
     This is a helper to manipulate this object and perform calls over it.
     """
@@ -1022,7 +1022,7 @@ class DCOM_Client(DCERPC_Client):
         abData = OBJREF(resp.valueof("ppActProperties").abData)
         for prop in abData.pObjectData.Property:
             if ScmReplyInfoData in prop:
-                # Informations about the object exporter the server found for us
+                # Information about the object exporter the server found for us
                 remoteReply = prop[ScmReplyInfoData].valueof("remoteReply")
 
                 # Get OXID, IPID, COMVERSION, authentication level hint
@@ -1038,7 +1038,7 @@ class DCOM_Client(DCERPC_Client):
                 entry.bindingInfo = self._ChoseRPCBinding(binds)
 
             if PropsOutInfo in prop:
-                # Informations about the interfaces that the client requested
+                # Information about the interfaces that the client requested
                 info = prop[PropsOutInfo]
 
                 # Check that all interfaces were obtained
@@ -1116,8 +1116,8 @@ class DCOM_Client(DCERPC_Client):
             # "Finally, the client MUST compare the IID in the OBJREF with the
             # IID specified by the application"
             if obj.iid != iid.uuid:
-                # "First, the client SHOULD acquire an object reference of the IID specified by the
-                # application"
+                # "First, the client SHOULD acquire an object reference of the IID
+                # specified by the application"
                 self.AcquireInterface(
                     ipid=obj.std.ipid,
                     iids=[
@@ -1126,7 +1126,8 @@ class DCOM_Client(DCERPC_Client):
                     cPublicRefs=1,
                 )
 
-                # "Next, the client MUST release the object reference unmarshaled from the OBJREF"
+                # "Next, the client MUST release the object reference unmarshaled
+                # from the OBJREF"
                 self.RemRelease(obj.std.ipid)
 
             return obj.std.oid

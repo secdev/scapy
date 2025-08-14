@@ -2359,7 +2359,7 @@ class NDRConfStrLenField(_NDRConfField, _NDRValueOf, StrLenField):
     NDR Conformant StrLenField.
 
     This is not a "string" per NDR, but an a conformant byte array
-    (e.g. tower_octet_string). For ease of use, we implicitely convert
+    (e.g. tower_octet_string). For ease of use, we implicitly convert
     it in specific cases.
     """
 

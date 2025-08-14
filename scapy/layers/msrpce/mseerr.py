@@ -10,16 +10,19 @@
 # Wireshark does not know how to read this !
 
 import uuid
-from enum import IntEnum
 
-from scapy.fields import StrFixedLenField, UTCTimeField
+from scapy.fields import UTCTimeField
 from scapy.packet import Packet, bind_layers
 
 from scapy.layers.dcerpc import (
     DceRpc5Fault,
     DceRpc5BindNak,
+    NDRSerializeType1PacketField,
 )
-from scapy.layers.msrpce.raw.ms_eerr import ExtendedErrorInfo
+from scapy.layers.msrpce.raw.ms_eerr import (
+    ExtendedErrorInfo,
+    EEComputerNamePresent,
+)
 from scapy.layers.smb2 import STATUS_ERREF
 
 # Encapsulation packets
