@@ -930,8 +930,6 @@ class DceRpc5(DceRpc):
             auth_len = self.get_field("auth_len").getfield(self, pkt[10:12])[1] + 8
             auth_verifier, pay = pay[-auth_len:], pay[:-auth_len]
             pdu_len = len(pay)
-            if self.vt_trailer:
-                pdu_len += len(self.vt_trailer)
             if self.payload:
                 pdu_len -= len(self.payload.self_build())
             padlen = (-pdu_len) % _COMMON_AUTH_PAD
@@ -2510,6 +2508,26 @@ class NDRUnionField(NDRConstructedType, _NDRUnionField):
 # Misc
 
 
+class _ProxyArray:
+    # Hack for recursive fields DEPORTED_CONFORMANTS field
+    __slots__ = ["getfld"]
+
+    def __init__(self, getfld):
+        self.getfld = getfld
+
+    def __len__(self):
+        try:
+            return len(self.getfld())
+        except AttributeError:
+            return 0
+
+    def __iter__(self):
+        try:
+            return iter(self.getfld())
+        except AttributeError:
+            return iter([])
+
+
 def NDRRecursiveClass(clsname):
     """
     Return a special class that is used for pointer recursion
@@ -2517,14 +2535,15 @@ def NDRRecursiveClass(clsname):
     # Get module where this is called
     frame = inspect.currentframe().f_back
     mod = frame.f_globals["__loader__"].name
-
+    getcls = lambda: getattr(importlib.import_module(mod), clsname)
+    
     class _REC(NDRPacket):
+        ALIGNMENT = (4, 8)  # Pointer alignment
+        DEPORTED_CONFORMANTS = _ProxyArray(lambda: getattr(getcls(), "DEPORTED_CONFORMANTS"))
+
         @classmethod
         def dispatch_hook(cls, _pkt=None, *args, **kargs):
-            return getattr(
-                importlib.import_module(mod),
-                clsname,
-            )
+            return getcls()
 
     return _REC
 

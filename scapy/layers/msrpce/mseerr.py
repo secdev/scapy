@@ -424,6 +424,7 @@ class DceRpc5ExtendedErrorInfo(Packet):
             "extended_error",
             ExtendedErrorInfo(),
             ExtendedErrorInfo,
+            ptr_pack=True,
         )
     ]
 
