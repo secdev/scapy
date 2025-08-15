@@ -2528,6 +2528,20 @@ class _ProxyArray:
             return iter([])
 
 
+class _ProxyTuple:
+    # Hack for recursive fields ALIGNMENT field
+    __slots__ = ["getfld"]
+
+    def __init__(self, getfld):
+        self.getfld = getfld
+
+    def __getitem__(self, name):
+        try:
+            return self.getfld()[name]
+        except AttributeError:
+            raise KeyError
+
+
 def NDRRecursiveClass(clsname):
     """
     Return a special class that is used for pointer recursion
@@ -2536,10 +2550,12 @@ def NDRRecursiveClass(clsname):
     frame = inspect.currentframe().f_back
     mod = frame.f_globals["__loader__"].name
     getcls = lambda: getattr(importlib.import_module(mod), clsname)
-    
+
     class _REC(NDRPacket):
-        ALIGNMENT = (4, 8)  # Pointer alignment
-        DEPORTED_CONFORMANTS = _ProxyArray(lambda: getattr(getcls(), "DEPORTED_CONFORMANTS"))
+        ALIGNMENT = _ProxyTuple(lambda: getattr(getcls(), "ALIGNMENT"))
+        DEPORTED_CONFORMANTS = _ProxyArray(
+            lambda: getattr(getcls(), "DEPORTED_CONFORMANTS")
+        )
 
         @classmethod
         def dispatch_hook(cls, _pkt=None, *args, **kargs):

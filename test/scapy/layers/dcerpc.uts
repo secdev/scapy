@@ -507,7 +507,7 @@ PID: 960 - 18/09/2023 12:33:50.167234 (1695040430)
  | Status: 1825
  | DetectionLocation: OSF_SCALL__DoSecurityCallbackAndAccessCheck
  | Flags 0
- | Params:  [('eeptiLongVal', 2583494340)]
+ | Params:  [('eeptiLongVal', -1711472956)]
 PID: 960 - 18/09/2023 12:33:50.151428 (1695040430)
  | Generating Component: Security Provider
  | Status: STATUS_SUCCESS
