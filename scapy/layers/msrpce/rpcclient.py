@@ -269,7 +269,10 @@ class DCERPC_Client(object):
                 )
         # Add sectrailer if first time talking on this interface
         vt_trailer = b""
-        if self._first_time_on_interface:
+        if (
+            self._first_time_on_interface
+            and self.transport != DCERPC_Transport.NCACN_NP
+        ):
             # In the first request after a bind, Windows sends a trailer to verify
             # that the negotiated transfer/interface wasn't altered.
             self._first_time_on_interface = False
