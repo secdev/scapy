@@ -128,8 +128,8 @@ assert pkt.target == 0xf4
 pkt = HSFZ(bytes.fromhex("000000020040fff4"))
 assert pkt.length == 2
 assert pkt.control == 0x40
-assert pkt.source == 0xff
-assert pkt.target == 0xf4
+assert pkt.expected == 0xff
+assert pkt.received == 0xf4
 
 
 = Test HSFZSocket
