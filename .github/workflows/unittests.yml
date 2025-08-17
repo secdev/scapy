@@ -116,7 +116,7 @@ jobs:
             mode: both
             flags: " -K scanner"
           # windows tests
-          - os: windows-latest
+          - os: windows-2025
             python: "3.13"
             mode: root
             flags: " -K scanner"
@@ -131,7 +131,7 @@ jobs:
             mode: both
             allow-failure: 'true'
             flags: " -k scanner"
-          - os: windows-latest
+          - os: windows-2025
             python: "3.13"
             mode: both
             allow-failure: 'true'
