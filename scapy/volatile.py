@@ -274,8 +274,15 @@ class RandNum(_RandNumeral[int]):
             return (self.state_pos, self.default[1])
 
         if isinstance(self, RandByte):
-            # We need to return the value, not the length (i.e. bytes not int)
-            return self.state_pos.to_bytes(1, 'big')
+            # We need to return the value, not the length of it which is then
+            #  multiplied by the byte (i.e. bytes not int)
+            if 'expecting_int' in dir(self) and self.expecting_int:
+                # In some cases, the expected value need to be int, such as in
+                #  ByteEnumField, so we need to return the int value - we know this
+                #  only when we try to 'bytes' the value (the error returns)
+                return self.state_pos
+            else:
+                return self.state_pos.to_bytes(1, 'big')
 
         return self.state_pos
 
