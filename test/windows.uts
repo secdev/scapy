@@ -117,6 +117,27 @@ def _test():
 
 retry_test(_test)
 
+= Test L3WinSocket close() with partial initialization
+~ windows
+
+from scapy.arch.windows.native import L3WinSocket
+import socket
+
+# Create partially initialized L3WinSocket
+ws = object.__new__(L3WinSocket)
+ws.closed = False
+ws.promisc = True
+# Note: ws.ins is intentionally not set
+
+# This should not raise AttributeError
+try:
+    ws.close()
+    test_passed = True
+except AttributeError:
+    test_passed = False
+
+assert test_passed, "L3WinSocket.close() raised AttributeError on partially initialized object"
+
 = Leave native mode
 
 conf.use_pcap = True
