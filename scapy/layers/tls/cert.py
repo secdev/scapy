@@ -10,19 +10,30 @@ High-level methods for PKI objects (X.509 certificates, CRLs, asymmetric keys).
 Supports both RSA and ECDSA objects.
 
 The classes below are wrappers for the ASN.1 objects defined in x509.py.
-By collecting their attributes, we bypass the ASN.1 structure, hence
-there is no direct method for exporting a new full DER-encoded version
-of a Cert instance after its serial has been modified (for example).
-If you need to modify an import, just use the corresponding ASN1_Packet.
+For instance, here is what you could do in order to modify the subject public
+key info of a 'cert' and then resign it with whatever 'key'::
 
-For instance, here is what you could do in order to modify the serial of
-'cert' and then resign it with whatever 'key'::
+    from scapy.layers.tls.cert import *
+    cert = Cert("cert.der")
+    k = PrivKeyRSA()  # generate a private key
+    cert.setSubjectPublicKeyFromPrivateKey(k)
+    cert.resignWith(k)
+    cert.export("newcert.pem")
+    k.export("mykey.pem")
 
-    f = open('cert.der')
-    c = X509_Cert(f.read())
+One could also edit arguments like the serial number, as such::
+
+    from scapy.layers.tls.cert import *
+    c = Cert("mycert.pem")
     c.tbsCertificate.serialNumber = 0x4B1D
-    k = PrivKey('key.pem')
-    new_x509_cert = k.resignCert(c)
+    k = PrivKey("mykey.pem")  # import an existing private key
+    c.resignWith(k)
+    c.export("newcert.pem")
+
+To export the public key of a private key::
+
+    k = PrivKey("mykey.pem")
+    k.pubkey.export("mypubkey.pem")
 
 No need for obnoxious openssl tweaking anymore. :)
 """
@@ -89,11 +100,11 @@ _MAX_CRL_SIZE = 10 * 1024 * 1024   # some are that big
 def der2pem(der_string, obj="UNKNOWN"):
     """Convert DER octet string to PEM format (with optional header)"""
     # Encode a byte string in PEM format. Header advertises <obj> type.
-    pem_string = ("-----BEGIN %s-----\n" % obj).encode()
-    base64_string = base64.b64encode(der_string)
+    pem_string = "-----BEGIN %s-----\n" % obj
+    base64_string = base64.b64encode(der_string).decode()
     chunks = [base64_string[i:i + 64] for i in range(0, len(base64_string), 64)]  # noqa: E501
-    pem_string += b'\n'.join(chunks)
-    pem_string += ("\n-----END %s-----\n" % obj).encode()
+    pem_string += '\n'.join(chunks)
+    pem_string += "\n-----END %s-----\n" % obj
     return pem_string
 
 
@@ -134,16 +145,9 @@ def split_pem(s):
 
 
 class _PKIObj(object):
-    def __init__(self, frmt, der, pem):
-        # Note that changing attributes of the _PKIObj does not update these
-        # values (e.g. modifying k.modulus does not change k.der).
-        # XXX use __setattr__ for this
+    def __init__(self, frmt, der):
         self.frmt = frmt
-        self.der = der
-        self.pem = pem
-
-    def __str__(self):
-        return self.der
+        self._der = der
 
 
 class _PKIObjMaker(type):
@@ -176,20 +180,15 @@ class _PKIObjMaker(type):
             if b"-----BEGIN" in _raw:
                 frmt = "PEM"
                 pem = _raw
-                der_list = split_pem(_raw)
+                der_list = split_pem(pem)
                 der = b''.join(map(pem2der, der_list))
             else:
                 frmt = "DER"
                 der = _raw
-                pem = ""
-                if pem_marker is not None:
-                    pem = der2pem(_raw, pem_marker)
-                # type identification may be needed for pem_marker
-                # in such case, the pem attribute has to be updated
         except Exception:
             raise Exception(error_msg)
 
-        p = _PKIObj(frmt, der, pem)
+        p = _PKIObj(frmt, der)
         return p
 
 
@@ -207,7 +206,15 @@ class _PubKeyFactory(_PKIObjMaker):
     It casts the appropriate class on the fly, then fills in
     the appropriate attributes with import_from_asn1pkt() submethod.
     """
-    def __call__(cls, key_path=None):
+    def __call__(cls, key_path=None, cryptography_obj=None):
+        # This allows to import cryptography objects directly
+        if cryptography_obj is not None:
+            obj = type.__call__(cls)
+            obj.__class__ = cls
+            obj.frmt = "original"
+            obj.marker = "PUBLIC KEY"
+            obj.pubkey = cryptography_obj
+            return obj
 
         if key_path is None:
             obj = type.__call__(cls)
@@ -233,41 +240,38 @@ class _PubKeyFactory(_PKIObjMaker):
         # _an EdDSAPublicKey.
         obj = _PKIObjMaker.__call__(cls, key_path, _MAX_KEY_SIZE)
         try:
-            spki = X509_SubjectPublicKeyInfo(obj.der)
+            spki = X509_SubjectPublicKeyInfo(obj._der)
             pubkey = spki.subjectPublicKey
             if isinstance(pubkey, RSAPublicKey):
                 obj.__class__ = PubKeyRSA
                 obj.import_from_asn1pkt(pubkey)
             elif isinstance(pubkey, ECDSAPublicKey):
                 obj.__class__ = PubKeyECDSA
-                obj.import_from_der(obj.der)
+                obj.import_from_der(obj._der)
             elif isinstance(pubkey, EdDSAPublicKey):
                 obj.__class__ = PubKeyEdDSA
-                obj.import_from_der(obj.der)
+                obj.import_from_der(obj._der)
             else:
                 raise
-            marker = b"PUBLIC KEY"
+            obj.marker = "PUBLIC KEY"
         except Exception:
             try:
-                pubkey = RSAPublicKey(obj.der)
+                pubkey = RSAPublicKey(obj._der)
                 obj.__class__ = PubKeyRSA
                 obj.import_from_asn1pkt(pubkey)
-                marker = b"RSA PUBLIC KEY"
+                obj.marker = "RSA PUBLIC KEY"
             except Exception:
                 # We cannot import an ECDSA public key without curve knowledge
                 if conf.debug_dissector:
                     raise
                 raise Exception("Unable to import public key")
-
-        if obj.frmt == "DER":
-            obj.pem = der2pem(obj.der, marker)
         return obj
 
 
 class PubKey(metaclass=_PubKeyFactory):
     """
-    Parent class for both PubKeyRSA and PubKeyECDSA.
-    Provides a common verifyCert() method.
+    Parent class for PubKeyRSA, PubKeyECDSA and PubKeyEdDSA.
+    Provides common verifyCert() and export() methods.
     """
 
     def verifyCert(self, cert):
@@ -277,6 +281,39 @@ class PubKey(metaclass=_PubKeyFactory):
         h = hash_by_oid[sigAlg.algorithm.val]
         sigVal = raw(cert.signatureValue)
         return self.verify(raw(tbsCert), sigVal, h=h, t='pkcs')
+
+    @property
+    def pem(self):
+        return der2pem(self.der, self.marker)
+
+    @property
+    def der(self):
+        return self.pubkey.public_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+
+    def public_numbers(self, *args, **kwargs):
+        return self.pubkey.public_numbers(*args, **kwargs)
+
+    @property
+    def key_size(self):
+        return self.pubkey.key_size
+
+    def export(self, filename, fmt=None):
+        """
+        Export public key in 'fmt' format (DER or PEM) to file 'filename'
+        """
+        if fmt is None:
+            if filename.endswith(".pem"):
+                fmt = "PEM"
+            else:
+                fmt = "DER"
+        with open(filename, "wb") as f:
+            if fmt == "DER":
+                return f.write(self.der)
+            elif fmt == "PEM":
+                return f.write(self.pem.encode())
 
 
 class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
@@ -308,6 +345,9 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
                 warning("modulus and modulusLen do not match!")
             pubNum = rsa.RSAPublicNumbers(n=modulus, e=pubExp)
             self.pubkey = pubNum.public_key(default_backend())
+
+        self.marker = "PUBLIC KEY"
+
         # Lines below are only useful for the legacy part of pkcs1.py
         pubNum = self.pubkey.public_numbers()
         self._modulusLen = real_modulusLen
@@ -323,10 +363,6 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
         if isinstance(e, bytes):
             e = pkcs_os2ip(e)
         self.fill_and_store(modulus=m, pubExp=e)
-        self.pem = self.pubkey.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo)
-        self.der = pem2der(self.pem)
 
     def import_from_asn1pkt(self, pubkey):
         modulus = pubkey.modulus.val
@@ -433,47 +469,38 @@ class _PrivKeyFactory(_PKIObjMaker):
             return obj
 
         obj = _PKIObjMaker.__call__(cls, key_path, _MAX_KEY_SIZE)
-        multiPEM = False
         try:
-            privkey = RSAPrivateKey_OpenSSL(obj.der)
+            privkey = RSAPrivateKey_OpenSSL(obj._der)
             privkey = privkey.privateKey
             obj.__class__ = PrivKeyRSA
-            marker = b"PRIVATE KEY"
+            obj.marker = "PRIVATE KEY"
         except Exception:
             try:
-                privkey = ECDSAPrivateKey_OpenSSL(obj.der)
+                privkey = ECDSAPrivateKey_OpenSSL(obj._der)
                 privkey = privkey.privateKey
                 obj.__class__ = PrivKeyECDSA
-                marker = b"EC PRIVATE KEY"
-                multiPEM = True
+                obj.marker = "EC PRIVATE KEY"
             except Exception:
                 try:
-                    privkey = RSAPrivateKey(obj.der)
+                    privkey = RSAPrivateKey(obj._der)
                     obj.__class__ = PrivKeyRSA
-                    marker = b"RSA PRIVATE KEY"
+                    obj.marker = "RSA PRIVATE KEY"
                 except Exception:
                     try:
-                        privkey = ECDSAPrivateKey(obj.der)
+                        privkey = ECDSAPrivateKey(obj._der)
                         obj.__class__ = PrivKeyECDSA
-                        marker = b"EC PRIVATE KEY"
+                        obj.marker = "EC PRIVATE KEY"
                     except Exception:
                         try:
-                            privkey = EdDSAPrivateKey(obj.der)
+                            privkey = EdDSAPrivateKey(obj._der)
                             obj.__class__ = PrivKeyEdDSA
-                            marker = b"PRIVATE KEY"
+                            obj.marker = "PRIVATE KEY"
                         except Exception:
                             raise Exception("Unable to import private key")
         try:
             obj.import_from_asn1pkt(privkey)
         except ImportError:
             pass
-
-        if obj.frmt == "DER":
-            if multiPEM:
-                # this does not restore the EC PARAMETERS header
-                obj.pem = der2pem(raw(privkey), marker)
-            else:
-                obj.pem = der2pem(obj.der, marker)
         return obj
 
 
@@ -486,8 +513,9 @@ class _Raw_ASN1_BIT_STRING(ASN1_BIT_STRING):
 
 class PrivKey(metaclass=_PrivKeyFactory):
     """
-    Parent class for both PrivKeyRSA and PrivKeyECDSA.
-    Provides common signTBSCert() and resignCert() methods.
+    Parent class for PrivKeyRSA, PrivKeyECDSA and PrivKeyEdDSA.
+    Provides common signTBSCert(), resignCert(), verifyCert()
+    and export() methods.
     """
 
     def signTBSCert(self, tbsCert, h="sha256"):
@@ -525,8 +553,35 @@ class PrivKey(metaclass=_PrivKeyFactory):
         sigVal = raw(cert.signatureValue)
         return self.verify(raw(tbsCert), sigVal, h=h, t='pkcs')
 
+    @property
+    def pem(self):
+        return der2pem(self.der, self.marker)
 
-class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
+    @property
+    def der(self):
+        return self.key.private_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+
+    def export(self, filename, fmt=None):
+        """
+        Export private key in 'fmt' format (DER or PEM) to file 'filename'
+        """
+        if fmt is None:
+            if filename.endswith(".pem"):
+                fmt = "PEM"
+            else:
+                fmt = "DER"
+        with open(filename, "wb") as f:
+            if fmt == "DER":
+                return f.write(self.der)
+            elif fmt == "PEM":
+                return f.write(self.pem.encode())
+
+
+class PrivKeyRSA(PrivKey, _DecryptAndSignRSA):
     """
     Wrapper for RSA keys based on _DecryptAndSignRSA from crypto/pkcs1.py
     Use the 'key' attribute to access original object.
@@ -554,7 +609,7 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
                     key_size=real_modulusLen,
                     backend=default_backend(),
                 )
-            self.pubkey = self.key.public_key()
+            pubkey = self.key.public_key()
         else:
             real_modulusLen = len(binrepr(modulus))
             if modulusLen and real_modulusLen != modulusLen:
@@ -565,13 +620,17 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
                                             iqmp=coefficient, d=privExp,
                                             public_numbers=pubNum)
             self.key = privNum.private_key(default_backend())
-            self.pubkey = self.key.public_key()
+            pubkey = self.key.public_key()
+
+        self.marker = "PRIVATE KEY"
 
         # Lines below are only useful for the legacy part of pkcs1.py
-        pubNum = self.pubkey.public_numbers()
+        pubNum = pubkey.public_numbers()
         self._modulusLen = real_modulusLen
         self._modulus = pubNum.n
         self._pubExp = pubNum.e
+
+        self.pubkey = PubKeyRSA((pubNum.e, pubNum.n, real_modulusLen))
 
     def import_from_asn1pkt(self, privkey):
         modulus = privkey.modulus.val
@@ -588,9 +647,14 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
                             coefficient=coefficient)
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
-        # Let's copy this from PubKeyRSA instead of adding another baseclass :)
-        return _EncryptAndVerifyRSA.verify(
-            self, msg, sig, t=t, h=h, mgf=mgf, L=L)
+        return self.pubkey.verify(
+            msg=msg,
+            sig=sig,
+            t=t,
+            h=h,
+            mgf=mgf,
+            L=L,
+        )
 
     def sign(self, data, t="pkcs", h="sha256", mgf=None, L=None):
         return _DecryptAndSignRSA.sign(self, data, t=t, h=h, mgf=mgf, L=L)
@@ -605,22 +669,19 @@ class PrivKeyECDSA(PrivKey):
     def fill_and_store(self, curve=None):
         curve = curve or ec.SECP256R1
         self.key = ec.generate_private_key(curve(), default_backend())
-        self.pubkey = self.key.public_key()
+        self.pubkey = PubKeyECDSA(cryptography_obj=self.key.public_key())
+        self.marker = "EC PRIVATE KEY"
 
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
         self.key = serialization.load_der_private_key(raw(privkey), None,
                                                       backend=default_backend())  # noqa: E501
-        self.pubkey = self.key.public_key()
+        self.pubkey = PubKeyECDSA(cryptography_obj=self.key.public_key())
+        self.marker = "EC PRIVATE KEY"
 
     @crypto_validator
     def verify(self, msg, sig, h="sha256", **kwargs):
-        # 'sig' should be a DER-encoded signature, as per RFC 3279
-        try:
-            self.pubkey.verify(sig, msg, ec.ECDSA(_get_hash(h)))
-            return True
-        except InvalidSignature:
-            return False
+        return self.pubkey.verify(msg=msg, sig=sig, h=h, **kwargs)
 
     @crypto_validator
     def sign(self, data, h="sha256", **kwargs):
@@ -636,22 +697,19 @@ class PrivKeyEdDSA(PrivKey):
     def fill_and_store(self, curve=None):
         curve = curve or x25519.X25519PrivateKey
         self.key = curve.generate()
-        self.pubkey = self.key.public_key()
+        self.pubkey = PubKeyECDSA(cryptography_obj=self.key.public_key())
+        self.marker = "PRIVATE KEY"
 
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
         self.key = serialization.load_der_private_key(raw(privkey), None,
                                                       backend=default_backend())  # noqa: E501
-        self.pubkey = self.key.public_key()
+        self.pubkey = PubKeyECDSA(cryptography_obj=self.key.public_key())
+        self.marker = "PRIVATE KEY"
 
     @crypto_validator
     def verify(self, msg, sig, **kwargs):
-        # 'sig' should be a DER-encoded signature, as per RFC 3279
-        try:
-            self.pubkey.verify(sig, msg)
-            return True
-        except InvalidSignature:
-            return False
+        return self.pubkey.verify(msg=msg, sig=sig, **kwargs)
 
     @crypto_validator
     def sign(self, data, **kwargs):
@@ -671,8 +729,9 @@ class _CertMaker(_PKIObjMaker):
         obj = _PKIObjMaker.__call__(cls, cert_path,
                                     _MAX_CERT_SIZE, "CERTIFICATE")
         obj.__class__ = Cert
+        obj.marker = "CERTIFICATE"
         try:
-            cert = X509_Cert(obj.der)
+            cert = X509_Cert(obj._der)
         except Exception:
             if conf.debug_dissector:
                 raise
@@ -768,6 +827,37 @@ class Cert(metaclass=_CertMaker):
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
         return self.pubKey.verify(msg, sig, t=t, h=h, mgf=mgf, L=L)
 
+    def getSignatureHash(self):
+        """
+        Return the hash used by the 'signatureAlgorithm'
+        """
+        tbsCert = self.tbsCertificate
+        sigAlg = tbsCert.signature
+        h = hash_by_oid[sigAlg.algorithm.val]
+        return _get_hash(h)
+
+    def setSubjectPublicKeyFromPrivateKey(self, key):
+        """
+        Replace the subjectPublicKeyInfo of this certificate with the one from
+        the provided key.
+        """
+        if isinstance(key, (PubKey, PrivKey)):
+            if isinstance(key, PrivKey):
+                pubkey = key.pubkey
+            else:
+                pubkey = key
+            self.tbsCertificate.subjectPublicKeyInfo = X509_SubjectPublicKeyInfo(
+                pubkey.der
+            )
+        else:
+            raise ValueError("Unknown type 'key', should be PubKey or PrivKey")
+
+    def resignWith(self, key):
+        """
+        Resign a certificate with a specific key
+        """
+        self.import_from_asn1pkt(key.resignCert(self))
+
     def remainingDays(self, now=None):
         """
         Based on the value of notAfter field, returns the number of
@@ -830,15 +920,28 @@ class Cert(metaclass=_CertMaker):
                 return self.serial in (x[0] for x in c.revoked_cert_serials)
         return False
 
-    def export(self, filename, fmt="DER"):
+    @property
+    def pem(self):
+        return der2pem(self.der, self.marker)
+
+    @property
+    def der(self):
+        return bytes(self.x509Cert)
+
+    def export(self, filename, fmt=None):
         """
         Export certificate in 'fmt' format (DER or PEM) to file 'filename'
         """
+        if fmt is None:
+            if filename.endswith(".pem"):
+                fmt = "PEM"
+            else:
+                fmt = "DER"
         with open(filename, "wb") as f:
             if fmt == "DER":
-                f.write(self.der)
+                return f.write(self.der)
             elif fmt == "PEM":
-                f.write(self.pem)
+                return f.write(self.pem.encode())
 
     def show(self):
         print("Serial: %s" % self.serial)
@@ -863,7 +966,7 @@ class _CRLMaker(_PKIObjMaker):
         obj = _PKIObjMaker.__call__(cls, cert_path, _MAX_CRL_SIZE, "X509 CRL")
         obj.__class__ = CRL
         try:
-            crl = X509_CRL(obj.der)
+            crl = X509_CRL(obj._der)
         except Exception:
             raise Exception("Unable to import CRL")
         obj.import_from_asn1pkt(crl)

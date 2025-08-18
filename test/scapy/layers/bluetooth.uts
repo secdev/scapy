@@ -146,14 +146,20 @@ assert hci_cmd_le_read_buffer_size_v1.len == 0
 
 + Bluetooth Transport Layers
 
-= Test HCI_PHDR_Hdr
+= Test HCI_PHDR_Hdr piling up
 
 pkt = HCI_PHDR_Hdr()/HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_InfoReq()
-assert raw(pkt) == b'\x00\x00\x00\x00\x02\x00\x00\n\x00\x06\x00\x05\x00\n\x00\x02\x00\x00\x00'
+assert raw(pkt) == b'\x00\x00\x00\x00\x02\x00\x00\n\x00\x06\x00\x05\x00\n\x01\x02\x00\x00\x00'
 pkt = HCI_PHDR_Hdr(raw(pkt))
 
 assert HCI_Hdr in pkt
 assert L2CAP_InfoReq in pkt
+assert pkt[L2CAP_Hdr].len == 6
+assert pkt[L2CAP_Hdr].cid == 5
+assert pkt[L2CAP_CmdHdr].code == 10
+assert pkt[L2CAP_CmdHdr].id == 1
+assert pkt[L2CAP_CmdHdr].len == 2
+assert len(pkt[L2CAP_InfoReq]) == 2
 
 + HCI Commands
 
@@ -481,6 +487,10 @@ p = HCI_Event_Hdr(hex_bytes('3e23020100002e4961121110170201060f0954656c655361742
 assert EIR_AdvertisingInterval in p
 assert p[EIR_AdvertisingInterval].advertising_interval == 400
 
+p = BTLE(hex_bytes('d6be898e20234fe761e5b754021a1803030a18020ace12fffa07104a2b010000000054b7e561e74f00000000'))
+assert EIR_AdvertisingInterval in p
+assert p[EIR_AdvertisingInterval].advertising_interval == 24
+
 = Parse EIR_LEBluetoothDeviceAddress
 p = HCI_Event_Hdr(hex_bytes("3e2a02010000d93519d7ba4c1e0201020affc4000734151317fd80081b00d93519d7ba4c0303b9fe020ad4ad"))
 assert EIR_LEBluetoothDeviceAddress in p
@@ -603,13 +613,13 @@ a.show()
 
 = Basic HCI_ACL_Hdr build & dissect
 a = HCI_Hdr()/HCI_ACL_Hdr(handle=0xf4c, PB=2, BC=2, len=20)/L2CAP_Hdr(len=16)/L2CAP_CmdHdr(code=8, len=12)/L2CAP_EchoReq(data="AAAAAAAAAAAA")
-assert raw(a) == b'\x02L\xaf\x14\x00\x10\x00\x05\x00\x08\x00\x0c\x00AAAAAAAAAAAA'
+assert raw(a) == b'\x02L\xaf\x14\x00\x10\x00\x05\x00\x08\x01\x0c\x00AAAAAAAAAAAA'
 b = HCI_Hdr(raw(a))
 assert a == b
 
 = Complex HCI - L2CAP build
 a = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_ConnReq(scid=1)
-assert raw(a) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x01\x00'
+assert raw(a) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x01\x04\x00\x00\x00\x01\x00'
 a.show()
 
 = Complex HCI - L2CAP dissect
@@ -620,19 +630,20 @@ assert a[L2CAP_InfoResp].data == b"debug"
 = HCI - L2CAP Echo test
 
 rq = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_EchoReq(data=b"data")
-assert bytes(rq) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x08\x00\x04\x00data'
+assert bytes(rq) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x08\x01\x04\x00data'
 
 rsp = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_EchoResp(data=b"data")
-assert bytes(rsp) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\t\x00\x04\x00data'
+assert bytes(rsp) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\t\x01\x04\x00data'
 assert rsp.answers(rq)
 
 = HCI - L2CAP Create Channel request
 
 p = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_Create_Channel_Request(psm="SDP")
-assert bytes(p) == b'\x02\x00\x00\r\x00\t\x00\x05\x00\x0c\x00\x05\x00\x01\x00\x00\x00\x00'
+assert bytes(p) == b'\x02\x00\x00\r\x00\t\x00\x05\x00\x0c\x01\x05\x00\x01\x00\x00\x00\x00'
 
 p = HCI_Hdr(bytes(p))
 assert p[L2CAP_Create_Channel_Request].psm == 1
+assert p[L2CAP_Create_Channel_Request].scid == 0
 
 = L2CAP Conn Answers
 a = HCI_Hdr(b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x9a;')
@@ -705,6 +716,59 @@ assert b[EIR_CompleteList128BitServiceUUIDs].svc_uuids[0] == UUID("01234567-89ab
 
 assert a.summary() == "HCI Event / HCI_Event_Hdr / HCI_Event_LE_Meta / HCI_LE_Meta_Advertising_Reports"
 
+= EIR_Hdr - HCI_LE_Meta_Extended_Advertising_Report
+a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Extended_Advertising_Reports(reports=[
+   HCI_LE_Meta_Extended_Advertising_Report(
+      #event_type = 0x0012,
+      scannable = 1,
+      legacy = 1,
+      address_type = 0x01,
+      address="a1:b2:c3:d4:e5:f6",
+      primary_phy = 1,
+      rssi = -85,
+      data=[
+         EIR_Hdr()/EIR_CompleteList16BitServiceUUIDs(
+            svc_uuids = [0xffff],
+         ),
+         EIR_Hdr()/EIR_ServiceData16BitUUID(
+             svc_uuid = 0xffff
+         )/Raw(b"scapy\x00\x00\x00")
+      ]
+   ),
+    HCI_LE_Meta_Extended_Advertising_Report(
+      #event_type = 0x001a,
+      scannable = 1,
+      scan_response = 1,
+      legacy = 1,
+      address_type = 0x01,
+      address="a1:b2:c3:d4:e5:f6",
+      primary_phy = 1,
+      rssi = -85,
+      data=[
+         EIR_Hdr()/EIR_Manufacturer_Specific_Data(
+            company_id = 0xffff,
+         ) / Raw(b"scapy\x00\x01\x02\x03\x04")
+      ]
+   ),
+])
+
+assert raw(a) == b"\x04\x3e\x50\x0d\x02\x12\x00\x01\xf6\xe5\xd4\xc3\xb2\xa1\x01\x00\xff\x7f\xab\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10\x03\x03\xff\xff\x0b\x16\xff\xffscapy\x00\x00\x00\x1a\x00\x01\xf6\xe5\xd4\xc3\xb2\xa1\x01\x00\xff\x7f\xab\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x0d\xff\xff\xffscapy\x00\x01\x02\x03\x04"
+
+b = HCI_Hdr(raw(a))
+b.show()
+assert b[HCI_Event_Hdr].len > 0
+assert b[HCI_LE_Meta_Extended_Advertising_Reports].num_reports == 2
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].address == "a1:b2:c3:d4:e5:f6"
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].tx_power == 0x7f
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].rssi == -85
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].data_length > 0
+assert b[EIR_CompleteList16BitServiceUUIDs].svc_uuids == [0xffff]
+assert b[EIR_ServiceData16BitUUID].svc_uuid == 0xffff
+assert raw(b[EIR_ServiceData16BitUUID].payload) == b"scapy\x00\x00\x00"
+assert b[EIR_Manufacturer_Specific_Data].company_id == 0xffff
+assert raw(b[EIR_Manufacturer_Specific_Data].payload) == b"scapy\x00\x01\x02\x03\x04"
+
+
 = ATT_Hdr - misc
 a = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/ATT_Hdr()/ATT_Read_By_Type_Request_128bit(uuid1=0xa14, uuid2=0xa24)
 a = HCI_Hdr(raw(a))
@@ -733,6 +797,12 @@ assert pkt.handles[2].handle == 0x6
 pkt.handles[0].value == b'\x02\x03\x00\x00*'
 pkt.handles[1].value == b'\x02\x05\x00\x01*'
 pkt.handles[2].value == b'\x02\x07\x00\x04*'
+
+= SM_Security_Request
+pkt = HCI_Hdr(hex_bytes('0200260600020006000b0d'))
+assert SM_Security_Request in pkt
+assert pkt[SM_Security_Request].auth_req == 0x0d
+
 
 = SM_Public_Key() tests
 

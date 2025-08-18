@@ -1047,10 +1047,8 @@ class IPv6ExtHdrSegmentRoutingTLVEgressNode(IPv6ExtHdrSegmentRoutingTLV):
 
 class IPv6ExtHdrSegmentRoutingTLVPad1(IPv6ExtHdrSegmentRoutingTLV):
     name = "IPv6 Option Header Segment Routing - Pad1 TLV"
-    # RFC8754 sect 2.1.1.1
-    fields_desc = [ByteEnumField("type", 0, _segment_routing_header_tlvs),
-                   FieldLenField("len", None, length_of="padding", fmt="B"),
-                   StrLenField("padding", b"\x00", length_from=lambda pkt: pkt.len)]  # noqa: E501
+    # RFC8754 sect 2.1.1.1, Pad1 is a single byte
+    fields_desc = [ByteEnumField("type", 0, _segment_routing_header_tlvs)]
 
 
 class IPv6ExtHdrSegmentRoutingTLVPadN(IPv6ExtHdrSegmentRoutingTLV):
@@ -1188,13 +1186,17 @@ def defragment6(packets):
 
     # regenerate the fragmentable part
     fragmentable = b""
+    frag_hdr_len = 8
     for p in res:
         q = p[IPv6ExtHdrFragment]
         offset = 8 * q.offset
         if offset != len(fragmentable):
             warning("Expected an offset of %d. Found %d. Padding with XXXX" % (len(fragmentable), offset))  # noqa: E501
+        frag_data_len = p[IPv6].plen
+        if frag_data_len is not None:
+            frag_data_len -= frag_hdr_len
         fragmentable += b"X" * (offset - len(fragmentable))
-        fragmentable += raw(q.payload)
+        fragmentable += raw(q.payload)[:frag_data_len]
 
     # Regenerate the unfragmentable part.
     q = res[0].copy()

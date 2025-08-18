@@ -333,9 +333,9 @@ def get_usable_tls13_sigalgs(li, key, location="certificateverify"):
     elif isinstance(key, PrivKeyECDSA):
         kx = "ecdsa"
     elif isinstance(key, PrivKeyEdDSA):
-        if isinstance(key.pubkey, ed25519.Ed25519PublicKey):
+        if isinstance(key.pubkey.pubkey, ed25519.Ed25519PublicKey):
             kx = "ed25519"
-        elif isinstance(key.pubkey, ed448.Ed448PublicKey):
+        elif isinstance(key.pubkey.pubkey, ed448.Ed448PublicKey):
             kx = "ed448"
         else:
             kx = "unknown"

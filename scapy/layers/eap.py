@@ -494,7 +494,7 @@ class EAPOL_KEY(Packet):
         """
         if self.key_type == 1:
             if self.key_ack == 1:
-                if self.key_mic == 0:
+                if self.has_key_mic == 0:
                     return 1
                 if self.install == 1:
                     return 3

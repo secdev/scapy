@@ -76,6 +76,7 @@ class DCERPC_Client(object):
         self.ndr64 = ndr64
         self.ndrendian = ndrendian
         self.verb = verb
+        self.host = None
         self.auth_level = kwargs.pop("auth_level", DCE_C_AUTHN_LEVEL.NONE)
         self.auth_context_id = kwargs.pop("auth_context_id", 0)
         self.ssp = kwargs.pop("ssp", None)  # type: SSP
@@ -100,7 +101,7 @@ class DCERPC_Client(object):
         )
         return client
 
-    def connect(self, ip, port=None, timeout=5, smb_kwargs={}):
+    def connect(self, host, port=None, timeout=5, smb_kwargs={}):
         """
         Initiate a connection
         """
@@ -113,14 +114,15 @@ class DCERPC_Client(object):
                 raise ValueError(
                     "Can't guess the port for transport: %s" % self.transport
                 )
+        self.host = host
         sock = socket.socket()
         sock.settimeout(timeout)
         if self.verb:
             print(
                 "\u2503 Connecting to %s on port %s via %s..."
-                % (ip, port, repr(self.transport))
+                % (host, port, repr(self.transport))
             )
-        sock.connect((ip, port))
+        sock.connect((host, port))
         if self.verb:
             print(
                 conf.color_theme.green(
@@ -313,6 +315,7 @@ class DCERPC_Client(object):
                         else 0
                     )
                 ),
+                target_name="host/" + self.host,
             )
             if status not in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
                 # Authentication failed.
@@ -347,10 +350,14 @@ class DCERPC_Client(object):
             else:
                 # Call the underlying SSP
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
-                    self.sspcontext, val=resp.auth_verifier.auth_value
+                    self.sspcontext,
+                    token=resp.auth_verifier.auth_value,
+                    target_name="host/" + self.host,
                 )
             if status in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
-                # Authentication should continue
+                # Authentication should continue, in two ways:
+                # - through DceRpc5Auth3 (e.g. NTLM)
+                # - through DceRpc5AlterContext (e.g. Kerberos)
                 if token and self.ssp.LegsAmount(self.sspcontext) % 2 == 1:
                     # AUTH 3 for certain SSPs (e.g. NTLM)
                     # "The server MUST NOT respond to an rpc_auth_3 PDU"
@@ -365,9 +372,6 @@ class DCERPC_Client(object):
                     )
                     status = GSS_S_COMPLETE
                 else:
-                    # Authentication can continue in two ways:
-                    # - through DceRpc5Auth3 (e.g. NTLM)
-                    # - through DceRpc5AlterContext (e.g. Kerberos)
                     while token:
                         respcls = DceRpc5AlterContextResp
                         resp = self.sr1(
@@ -388,7 +392,9 @@ class DCERPC_Client(object):
                             status = GSS_S_COMPLETE
                             break
                         self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
-                            self.sspcontext, val=resp.auth_verifier.auth_value
+                            self.sspcontext,
+                            token=resp.auth_verifier.auth_value,
+                            target_name="host/" + self.host,
                         )
         # Check context acceptance
         if (

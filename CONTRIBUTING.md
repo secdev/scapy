@@ -136,22 +136,6 @@ make sure logging in Scapy remains helpful.
 -  If you are working on Scapy's core, you may use: `scapy.error.log_loading`
    only while Scapy is loading, to display import errors for instance.
 
-
-### Python 2 and 3 compatibility
-
-The project aims to provide code that works both on Python 2 and Python 3. Therefore, some rules need to be applied to achieve compatibility:
-
--   byte-string must be defined as `b"\x00\x01\x02"`
--   exceptions must comply with the new Python 3 format: `except SomeError as e:`
--   lambdas must be written using a single argument when using tuples: use `lambda x, y: x + f(y)` instead of `lambda (x, y): x + f(y)`.
--   use int instead of long
--   use list comprehension instead of map() and filter()
--   `__bool__ = __nonzero__` must be used when declaring `__nonzero__` methods
--   `__next__ = next` must be used when declaring `next` methods in iterators
--   `StopIteration` must NOT be used in generators (but it can still be used in iterators)
--   `io.BytesIO` must be used instead of `StringIO` when using bytes
--   `__cmp__` must not be used.
-
 ### Code review
 
 Maintainers tend to be picky, and you might feel frustrated that your

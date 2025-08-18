@@ -14,10 +14,11 @@ See https://scapy.readthedocs.io/en/latest/layers/kerberos.html
 from datetime import datetime, timedelta, timezone
 
 import collections
+import enum
 import platform
-import struct
 import random
 import re
+import struct
 
 from scapy.asn1.asn1 import (
     ASN1_BIT_STRING,
@@ -31,10 +32,12 @@ from scapy.config import conf
 from scapy.error import log_interactive
 from scapy.fields import (
     ByteField,
+    ConditionalField,
     FieldLenField,
     FlagsField,
     IntEnumField,
     IntField,
+    MayEnd,
     PacketField,
     PacketListField,
     ShortEnumField,
@@ -57,15 +60,18 @@ from scapy.layers.kerberos import (
     KerberosSSP,
     PrincipalName,
     TransitedEncoding,
-    kpasswd,
-    krb_as_req,
-    krb_tgs_req,
-    _AD_TYPES,
     _ADDR_TYPES,
+    _AD_TYPES,
     _KRB_E_TYPES,
     _KRB_S_TYPES,
     _PRINCIPAL_NAME_TYPES,
     _TICKET_FLAGS,
+    _parse_spn,
+    _parse_upn,
+    kpasswd,
+    krb_as_req,
+    krb_get_salt,
+    krb_tgs_req,
 )
 from scapy.layers.msrpce.mspac import (
     CLAIM_ENTRY,
@@ -275,6 +281,94 @@ class CCache(Packet):
     ]
 
 
+# Keytab
+# https://web.mit.edu/kerberos/krb5-devel/doc/formats/keytab_file_format.html (official but garbage)
+# https://www.gnu.org/software/shishi/manual/html_node/The-Keytab-Binary-File-Format.html (great)
+
+
+class KTCountedOctetString(Packet):
+    fields_desc = [
+        FieldLenField("length", None, length_of="data", fmt="H"),
+        StrLenField("data", b"", length_from=lambda pkt: pkt.length),
+    ]
+
+    def guess_payload_class(self, payload):
+        return conf.padding_layer
+
+
+class KTKeyBlock(Packet):
+    fields_desc = [
+        ShortEnumField("keytype", 0, _KRB_E_TYPES),
+        FieldLenField("keylen", None, length_of="keyvalue"),
+        StrLenField("keyvalue", b"", length_from=lambda pkt: pkt.keylen),
+    ]
+
+    def toKey(self):
+        return Key(self.keytype, key=self.keyvalue)
+
+    def guess_payload_class(self, payload):
+        return conf.padding_layer
+
+
+class KeytabEntry(Packet):
+    fields_desc = [
+        IntField("size", None),
+        FieldLenField("num_components", None, count_of="components"),
+        PacketField("realm", KTCountedOctetString(), KTCountedOctetString),
+        PacketListField(
+            "components",
+            [],
+            KTCountedOctetString,
+            count_from=lambda pkt: pkt.num_components,
+        ),
+        ConditionalField(
+            IntField("name_type", 0),
+            lambda pkt: pkt.parent.file_format_version != 0x501,
+        ),
+        UTCTimeField("timestamp", None),
+        ByteField("vno8", 0),
+        MayEnd(PacketField("key", KTKeyBlock(), KTKeyBlock)),
+        ConditionalField(
+            IntField("vno", None),
+            lambda pkt: "vno" in pkt.fields is not None or pkt.original,
+        ),
+    ]
+
+    def getPrincipal(self):
+        comp = "/".join(x.data.decode() for x in self.components)
+        if self.realm.data:
+            return "%s@%s" % (
+                comp,
+                self.realm.data.decode(),
+            )
+        else:
+            return comp
+
+    @property
+    def versionNumber(self):
+        if self.vno is not None:
+            return self.vno
+        return self.vno8
+
+    def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
+        if self.size is None:
+            p = struct.pack("!I", len(p)) + p[4:]
+        return p + pay
+
+    def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
+        rem = self.size - len(self.original)
+        return s[:rem], s[rem:]
+
+
+class Keytab(Packet):
+    fields_desc = [
+        ShortField("file_format_version", 0x502),
+        PacketListField("entries", [], KeytabEntry),
+    ]
+
+
 # TK scrollFrame (MPL-2.0)
 # Credits to @mp035
 # https://gist.github.com/mp035/9f2027c3ef9172264532fcd6262f3b01
@@ -345,48 +439,71 @@ if tk is not None:
 class Ticketer:
     def __init__(self):
         self._data = collections.defaultdict(dict)
-        self.fname = None
+        self.ccache_fname = None
         self.ccache = CCache()
+        self.keytab_fname = None
+        self.keytab = Keytab()
         self.hashes_cache = collections.defaultdict(dict)
 
-    def open_file(self, fname):
+    def open_ccache(self, fname):
         """
-        Load CCache from file
+        Load from CCache file
         """
-        self.fname = fname
+        self.ccache_fname = fname
         self.hashes_cache = collections.defaultdict(dict)
-        with open(self.fname, "rb") as fd:
+        with open(self.ccache_fname, "rb") as fd:
             self.ccache = CCache(fd.read())
 
-    def save(self, fname=None, i=None):
+    def open_keytab(self, fname):
         """
-        Save opened CCache file
+        Load from Keytab file
+        """
+        self.keytab_fname = fname
+        with open(self.keytab_fname, "rb") as fd:
+            self.keytab = Keytab(fd.read())
+
+    def save_ccache(self, fname=None, i=None):
+        """
+        Save ccache into file
 
         :param fname: if provided, save to a specific file.
         :param i: if provided, only save the ticket n°i.
         """
         if fname:
-            self.fname = fname
-        if not self.fname:
+            self.ccache_fname = fname
+        if not self.ccache_fname:
             raise ValueError("No file opened. Specify the 'fname' argument !")
+
+        # If i is specified, extract single ticket.
         if i is not None:
             ccache = self.ccache.copy()
             ccache.credentials = [ccache.credentials[i]]
-            data = bytes(ccache)
         else:
-            data = bytes(self.ccache)
-        with open(self.fname, "wb") as fd:
-            return fd.write(data)
+            ccache = self.ccache
+
+        # Write
+        with open(self.ccache_fname, "wb") as fd:
+            return fd.write(bytes(ccache))
+
+    def save_keytab(self, fname=None):
+        """
+        Save keytab into file
+
+        :param fname: if provided, save to a specific file.
+        """
+        if fname:
+            self.keytab_fname = fname
+        if not self.keytab_fname:
+            raise ValueError("No file opened. Specify the 'fname' argument !")
+
+        # Write
+        with open(self.keytab_fname, "wb") as fd:
+            return fd.write(bytes(self.keytab))
 
     def show(self, utc=False):
         """
         Show the content of a CCache
         """
-        if not self.ccache.credentials:
-            print("No tickets in CCache !")
-            return
-        else:
-            print("Tickets:")
 
         def _to_str(x):
             if x is None:
@@ -394,6 +511,32 @@ class Ticketer:
             else:
                 x = datetime.fromtimestamp(x, tz=timezone.utc if utc else None)
             return x.strftime("%d/%m/%y %H:%M:%S")
+
+        # Show Keytab
+        if self.keytab.entries:
+            print("Keytab name: %s" % (self.keytab_fname or "UNSAVED"))
+            print(
+                pretty_list(
+                    [
+                        (
+                            entry.getPrincipal(),
+                            _to_str(entry.timestamp),
+                            str(entry.versionNumber),
+                            entry.key.sprintf("%keytype%"),
+                        )
+                        for entry in self.keytab.entries
+                    ],
+                    [("Principal", "Timestamp", "KVNO", "Keytype")],
+                )
+            )
+            print()
+
+        # Show CCache
+        if not self.ccache.credentials:
+            print("No tickets in CCache.")
+            return
+        else:
+            print("CCache tickets:")
 
         for i, cred in enumerate(self.ccache.credentials):
             if cred.keyblock.keytype == 0:
@@ -552,6 +695,21 @@ class Ticketer:
                 rep = res.asrep
             elif isinstance(res, KerberosClient.RES_TGS_MODE):
                 rep = res.tgsrep
+
+                # There could be 171 = KERB_DMSA_KEY_PACKAGE to import
+                for padata in res.kdcrep.encryptedPaData:
+                    if padata.padataType == 171:
+                        # We have keys to import.
+                        key_package = padata.padataValue
+                        for key in key_package.currentKeys:
+                            self.add_cred(
+                                principal=rep.getUPN(),
+                                key=key.toKey(),
+                            )
+                        log_interactive.info(
+                            "%s DMSA keys found and imported !"
+                            % len(key_package.currentKeys)
+                        )
             else:
                 raise ValueError("Unknown type of obj !")
             cred.set_from_krb(
@@ -577,17 +735,145 @@ class Ticketer:
             cred.server.toPN(),
         )
 
+    def add_cred(
+        self,
+        principal,
+        mapupn=None,
+        password=None,
+        salt=None,
+        key=None,
+        etypes=None,
+        kvno=None,
+    ):
+        """
+        Add a credential to the Keytab.
+        """
+        if password and key:
+            raise ValueError("Please provide 'password' OR 'key'.")
+        elif not password and not key:
+            try:
+                from prompt_toolkit import prompt
+
+                password = prompt("Enter password: ", is_password=True)
+            except ImportError:
+                password = input("Enter password: ")
+
+        # If we have a mapupn, use it to retrieve the salt.
+        if salt is None and mapupn is not None:
+            salt = krb_get_salt(mapupn)
+
+        # Detect if principal is a SPN or UPN and parse realm.
+        realm = None
+        component = None
+        try:
+            component, realm = _parse_upn(principal)
+            if salt is None and key is None:
+                salt = krb_get_salt(principal)
+        except ValueError:
+            try:
+                component, realm = _parse_spn(principal)
+            except ValueError:
+                raise ValueError("Invalid principal ! (must be UPN or SPN)")
+
+        if salt is None and key is None:
+            raise ValueError(
+                "Salt could not be guessed. Please provide it, or provide 'mapupn' "
+                "pointing towards the UPN of the user."
+            )
+
+        # If password is provided, derive the keys.
+        if password:
+            from scapy.libs.rfc3961 import Key, EncryptionType
+
+            if etypes is None:
+                etypes = [EncryptionType.AES256_CTS_HMAC_SHA1_96]
+            elif etypes == "all":
+                etypes = [
+                    EncryptionType.AES128_CTS_HMAC_SHA1_96,
+                    EncryptionType.AES256_CTS_HMAC_SHA1_96,
+                    EncryptionType.RC4_HMAC,
+                ]
+
+            # For each etype, recurse.
+            for etype in etypes:
+                self.add_cred(
+                    principal,
+                    key=Key.string_to_key(
+                        etype,
+                        password.encode(),
+                        salt=salt,
+                    ),
+                )
+            return
+
+        # Get available kvno
+        if kvno is None:
+            try:
+                kvno = max(x.versionNumber for x in self.keytab.entries) + 1
+            except ValueError:
+                kvno = 1
+
+        # Just add it.
+        self.keytab.entries.append(
+            KeytabEntry(
+                realm=KTCountedOctetString(
+                    data=realm,
+                ),
+                components=[
+                    KTCountedOctetString(
+                        data=x,
+                    )
+                    for x in component.split("/")
+                ],
+                timestamp=int(datetime.now().timestamp()),
+                vno8=kvno if kvno < 256 else None,
+                key=KTKeyBlock(
+                    keytype=key.etype,
+                    keyvalue=key.key,
+                ),
+                vno=None if kvno < 256 else kvno,
+                _parent=self.keytab,
+            )
+        )
+
+    def get_cred(self, principal, etype=None):
+        """
+        Get credential from the Keytab by principal.
+        """
+        for entry in self.keytab.entries:
+            if entry.getPrincipal() == principal:
+                if etype is not None and etype != entry.key.keytype:
+                    continue
+                return entry.key.toKey()
+        raise ValueError(
+            "Principal not found in keytab ! "
+            "Note principals are case sensitive, as on ktpass.exe"
+        )
+
     def ssp(self, i):
         """
-        Create a KerberosSSP from a ticket
+        Create a KerberosSSP from a ticket or from the keystore.
+
+        :param i: index of the ticket to use from ccache (client)
+                  OR SPN of the key to use from the keystore (server)
         """
-        ticket, sessionkey, upn, spn = self.export_krb(i)
-        return KerberosSSP(
-            ST=ticket,
-            KEY=sessionkey,
-            UPN=upn,
-            SPN=spn,
-        )
+        if isinstance(i, int):
+            ticket, sessionkey, upn, spn = self.export_krb(i)
+            return KerberosSSP(
+                ST=ticket,
+                KEY=sessionkey,
+                UPN=upn,
+                SPN=spn,
+            )
+        elif isinstance(i, str):
+            spn = i
+            key = self.get_cred(spn)
+            return KerberosSSP(
+                SPN=spn,
+                KEY=key,
+            )
+        else:
+            raise ValueError("Invalid 'i' value. Must be int or str")
 
     def _add_cred(self, decTkt, hash=None, kdc_hash=None):
         """
@@ -1007,29 +1293,35 @@ class Ticketer:
                                                     "VI.UserAccountControl"
                                                 ],
                                                 Reserved3=[0, 0, 0, 0, 0, 0, 0],
-                                                ExtraSids=[
-                                                    KERB_SID_AND_ATTRIBUTES(
-                                                        Sid=self._build_sid(x["Sid"]),
-                                                        Attributes=x["Attributes"],
-                                                    )
-                                                    for x in store["VI.ExtraSids"]
-                                                ]
-                                                if store["VI.ExtraSids"]
-                                                else None,
+                                                ExtraSids=(
+                                                    [
+                                                        KERB_SID_AND_ATTRIBUTES(
+                                                            Sid=self._build_sid(
+                                                                x["Sid"]
+                                                            ),
+                                                            Attributes=x["Attributes"],
+                                                        )
+                                                        for x in store["VI.ExtraSids"]
+                                                    ]
+                                                    if store["VI.ExtraSids"]
+                                                    else None
+                                                ),
                                                 ResourceGroupDomainSid=self._build_sid(
                                                     store["VI.ResourceGroupDomainSid"]
                                                 ),
-                                                ResourceGroupIds=[
-                                                    GROUP_MEMBERSHIP(
-                                                        RelativeId=x["RelativeId"],
-                                                        Attributes=x["Attributes"],
-                                                    )
-                                                    for x in store[
-                                                        "VI.ResourceGroupIds"
+                                                ResourceGroupIds=(
+                                                    [
+                                                        GROUP_MEMBERSHIP(
+                                                            RelativeId=x["RelativeId"],
+                                                            Attributes=x["Attributes"],
+                                                        )
+                                                        for x in store[
+                                                            "VI.ResourceGroupIds"
+                                                        ]
                                                     ]
-                                                ]
-                                                if store["VI.ResourceGroupIds"]
-                                                else None,
+                                                    if store["VI.ResourceGroupIds"]
+                                                    else None
+                                                ),
                                             ),
                                         ]
                                         + (
@@ -1169,12 +1461,6 @@ class Ticketer:
                 ]
             ),
         )
-
-    def _getPayloadIfExist(self, pac, ulType):
-        for i, buf in enumerate(pac.Buffers):
-            if buf.ulType == ulType:
-                return pac.Payloads[i]
-        return None
 
     def _make_fields(self, element, fields, datastore=None):
         frm = ttk.Frame(element)
@@ -1346,7 +1632,7 @@ class Ticketer:
         return sid.summary()
 
     def _getLogonInformation(self, pac, element):
-        logonInfo = self._getPayloadIfExist(pac, 0x00000001)
+        logonInfo = pac.getPayload(0x00000001)
         if not logonInfo:
             pac.Buffers.append(PAC_INFO_BUFFER(ulType=0x00000001))
             logonInfo = KERB_VALIDATION_INFO()
@@ -1473,7 +1759,7 @@ class Ticketer:
         )
 
     def _getClientInfo(self, pac, element):
-        clientInfo = self._getPayloadIfExist(pac, 0x0000000A)
+        clientInfo = pac.getPayload(0x0000000A)
         if not clientInfo:
             pac.Buffers.append(PAC_INFO_BUFFER(ulType=0x0000000A))
             clientInfo = PAC_CLIENT_INFO()
@@ -1486,7 +1772,7 @@ class Ticketer:
         )
 
     def _getUPNDnsInfo(self, pac, element):
-        upndnsinfo = self._getPayloadIfExist(pac, 0x0000000C)
+        upndnsinfo = pac.getPayload(0x0000000C)
         if not upndnsinfo:
             pac.Buffers.append(PAC_INFO_BUFFER(ulType=0x0000000C))
             upndnsinfo = UPN_DNS_INFO()
@@ -1497,21 +1783,25 @@ class Ticketer:
                 ("DnsDomainName", upndnsinfo.DnsDomainName),
                 (
                     "SamName",
-                    upndnsinfo.SamName
-                    if upndnsinfo.Flags.S and upndnsinfo.SamNameLen
-                    else "",
+                    (
+                        upndnsinfo.SamName
+                        if upndnsinfo.Flags.S and upndnsinfo.SamNameLen
+                        else ""
+                    ),
                 ),
                 (
                     "UpnDnsSid",
-                    self._pretty_sid(upndnsinfo.Sid)
-                    if upndnsinfo.Flags.S and upndnsinfo.SidLen
-                    else "",
+                    (
+                        self._pretty_sid(upndnsinfo.Sid)
+                        if upndnsinfo.Flags.S and upndnsinfo.SidLen
+                        else ""
+                    ),
                 ),
             ],
         )
 
     def _getClientClaims(self, pac, element):
-        clientClaims = self._getPayloadIfExist(pac, 0x0000000D)
+        clientClaims = pac.getPayload(0x0000000D)
         if not clientClaims or isinstance(clientClaims, conf.padding_layer):
             pac.Buffers.append(PAC_INFO_BUFFER(ulType=0x0000000D))
             claimsArray = []
@@ -1557,7 +1847,7 @@ class Ticketer:
         )
 
     def _getPACAttributes(self, pac, element):
-        pacAttributes = self._getPayloadIfExist(pac, 0x00000011)
+        pacAttributes = pac.getPayload(0x00000011)
         if not pacAttributes:
             pac.Buffers.append(PAC_INFO_BUFFER(ulType=0x00000011))
             pacAttributes = PAC_ATTRIBUTES_INFO(Flags=0)
@@ -1574,7 +1864,7 @@ class Ticketer:
         )
 
     def _getPACRequestor(self, pac, element):
-        pacRequestor = self._getPayloadIfExist(pac, 0x00000012)
+        pacRequestor = pac.getPayload(0x00000012)
         if not pacRequestor:
             pac.Buffers.append(PAC_INFO_BUFFER(ulType=0x00000012))
             pacRequestor = PAC_REQUESTOR()
@@ -1583,7 +1873,7 @@ class Ticketer:
         )
 
     def _getServerChecksum(self, pac, element):
-        serverChecksum = self._getPayloadIfExist(pac, 0x00000006)
+        serverChecksum = pac.getPayload(0x00000006)
         if not serverChecksum:
             pac.Buffers.append(PAC_INFO_BUFFER(ulType=0x00000006))
             serverChecksum = PAC_SIGNATURE_DATA()
@@ -1592,9 +1882,11 @@ class Ticketer:
             [
                 (
                     "SRVSignatureType",
-                    str(serverChecksum.SignatureType)
-                    if serverChecksum.SignatureType is not None
-                    else "",
+                    (
+                        str(serverChecksum.SignatureType)
+                        if serverChecksum.SignatureType is not None
+                        else ""
+                    ),
                 ),
                 ("SRVSignature", bytes_hex(serverChecksum.Signature).decode()),
                 ("SRVRODCIdentifier", serverChecksum.RODCIdentifier.decode()),
@@ -1602,7 +1894,7 @@ class Ticketer:
         )
 
     def _getKDCChecksum(self, pac, element):
-        kdcChecksum = self._getPayloadIfExist(pac, 0x00000007)
+        kdcChecksum = pac.getPayload(0x00000007)
         if not kdcChecksum:
             pac.Buffers.append(PAC_INFO_BUFFER(ulType=0x00000007))
             kdcChecksum = PAC_SIGNATURE_DATA()
@@ -1611,9 +1903,11 @@ class Ticketer:
             [
                 (
                     "KDCSignatureType",
-                    str(kdcChecksum.SignatureType)
-                    if kdcChecksum.SignatureType is not None
-                    else "",
+                    (
+                        str(kdcChecksum.SignatureType)
+                        if kdcChecksum.SignatureType is not None
+                        else ""
+                    ),
                 ),
                 ("KDCSignature", bytes_hex(kdcChecksum.Signature).decode()),
                 ("KDCRODCIdentifier", kdcChecksum.RODCIdentifier.decode()),
@@ -1621,7 +1915,7 @@ class Ticketer:
         )
 
     def _getTicketChecksum(self, pac, element):
-        ticketChecksum = self._getPayloadIfExist(pac, 0x00000010)
+        ticketChecksum = pac.getPayload(0x00000010)
         if not ticketChecksum:
             pac.Buffers.append(PAC_INFO_BUFFER(ulType=0x00000010))
             ticketChecksum = PAC_SIGNATURE_DATA()
@@ -1630,9 +1924,11 @@ class Ticketer:
             [
                 (
                     "TKTSignatureType",
-                    str(ticketChecksum.SignatureType)
-                    if ticketChecksum.SignatureType is not None
-                    else "",
+                    (
+                        str(ticketChecksum.SignatureType)
+                        if ticketChecksum.SignatureType is not None
+                        else ""
+                    ),
                 ),
                 ("TKTSignature", bytes_hex(ticketChecksum.Signature).decode()),
                 ("TKTRODCIdentifier", ticketChecksum.RODCIdentifier.decode()),
@@ -1640,7 +1936,7 @@ class Ticketer:
         )
 
     def _getExtendedKDCChecksum(self, pac, element):
-        exkdcChecksum = self._getPayloadIfExist(pac, 0x00000013)
+        exkdcChecksum = pac.getPayload(0x00000013)
         if not exkdcChecksum:
             pac.Buffers.append(PAC_INFO_BUFFER(ulType=0x00000013))
             exkdcChecksum = PAC_SIGNATURE_DATA()
@@ -1649,9 +1945,11 @@ class Ticketer:
             [
                 (
                     "EXKDCSignatureType",
-                    str(exkdcChecksum.SignatureType)
-                    if exkdcChecksum.SignatureType is not None
-                    else "",
+                    (
+                        str(exkdcChecksum.SignatureType)
+                        if exkdcChecksum.SignatureType is not None
+                        else ""
+                    ),
                 ),
                 ("EXKDCSignature", bytes_hex(exkdcChecksum.Signature).decode()),
                 ("EXKDCRODCIdentifier", exkdcChecksum.RODCIdentifier.decode()),
@@ -2060,46 +2358,45 @@ class Ticketer:
             hash=kdc_hash,
         )
 
-        # NOTE: the doc is very unclear regarding the order of the Signatures.
+        # Doc was updated after feedback ! it's now very clear.
 
-        # "The extended KDC signature is a keyed hash [RFC4757] of the entire PAC
-        # message, with the Signature fields of all other PAC_SIGNATURE_DATA structures
-        # (section 2.8) set to zero."
-        # ==> This is wrong.
-        # The Ticket Signature is present when computing the Extended KDC Signature.
+        # [MS-PAC] sect 2.8.1
+        # Signatures are computed in this order:
+        # - Ticket signature
+        # - Extended KDC signature
+        # - Server signature
+        # - KDC signature
 
-        # sect 2.8.3 - Ticket Signature
+        # sect 2.8.2 - Ticket Signature
 
         if 0x00000010 in sig_i:
             # "The ad-data in the PAC’s AuthorizationData element ([RFC4120]
             # section 5.2.6) is replaced with a single zero byte"
             tmp_tkt.authorizationData.seq[0].adData.seq[0].adData = b"\x00"
-            rpac.Payloads[
-                sig_i[0x00000010]
-            ].Signature = ticket_sig = key_kdc.make_checksum(
-                17, bytes(tmp_tkt)  # KERB_NON_KERB_CKSUM_SALT(17)
+            rpac.Payloads[sig_i[0x00000010]].Signature = ticket_sig = (
+                key_kdc.make_checksum(
+                    17, bytes(tmp_tkt)  # KERB_NON_KERB_CKSUM_SALT(17)
+                )
             )
             # included in the PAC when signing it for Extended Server Signature & Server Signature
             pac.Payloads[sig_i[0x00000010]].Signature = ticket_sig
 
-        # sect 2.8.4 - Extended KDC Signature
+        # sect 2.8.3 - Extended KDC Signature
 
         if 0x00000013 in sig_i:
-            rpac.Payloads[
-                sig_i[0x00000013]
-            ].Signature = extended_kdc_sig = key_kdc.make_checksum(
-                17, bytes(pac)  # KERB_NON_KERB_CKSUM_SALT(17)
+            rpac.Payloads[sig_i[0x00000013]].Signature = extended_kdc_sig = (
+                key_kdc.make_checksum(17, bytes(pac))  # KERB_NON_KERB_CKSUM_SALT(17)
             )
             # included in the PAC when signing it for Server Signature
             pac.Payloads[sig_i[0x00000013]].Signature = extended_kdc_sig
 
-        # sect 2.8.1 - Server Signature
+        # sect 2.8.4 - Server Signature
 
         rpac.Payloads[sig_i[0x00000006]].Signature = server_sig = key_srv.make_checksum(
             17, bytes(pac)  # KERB_NON_KERB_CKSUM_SALT(17)
         )
 
-        # sect 2.8.2 - KDC Signature
+        # sect 2.8.5 - KDC Signature
 
         rpac.Payloads[sig_i[0x00000007]].Signature = key_kdc.make_checksum(
             17, server_sig  # KERB_NON_KERB_CKSUM_SALT(17)
@@ -2126,6 +2423,7 @@ class Ticketer:
         realm=None,
         fast=False,
         armor_with=None,
+        spn=None,
         **kwargs,
     ):
         """
@@ -2133,6 +2431,14 @@ class Ticketer:
 
         See :func:`~scapy.layers.kerberos.krb_as_req` for the full documentation.
         """
+        if key is None and password is None:
+            # Do we have the credential in our Keystore ?
+            try:
+                key = self.get_cred(upn)
+            except ValueError:
+                # It's okay if we don't have the cred. krb_as_req will prompt.
+                pass
+
         # If `armor_with` is specified, get the armor ticket from our store
         armor_ticket, armor_ticket_skey, armor_ticket_upn = None, None, None
         if armor_with is not None:
@@ -2151,6 +2457,7 @@ class Ticketer:
             armor_ticket=armor_ticket,
             armor_ticket_upn=armor_ticket_upn,
             armor_ticket_skey=armor_ticket_skey,
+            spn=spn,
             **kwargs,
         )
         if not res:
@@ -2165,7 +2472,7 @@ class Ticketer:
         ip=None,
         renew=False,
         realm=None,
-        additional_tickets=[],
+        additional_tickets=None,
         fast=False,
         armor_with=None,
         for_user=None,
@@ -2186,6 +2493,9 @@ class Ticketer:
         See :func:`~scapy.layers.kerberos.krb_tgs_req` for the the other parameters.
         """
         ticket, sessionkey, upn, _ = self.export_krb(i)
+
+        if additional_tickets is None:
+            additional_tickets = []
 
         # If `armor_with` is specified, get the armor ticket from our store
         armor_ticket, armor_ticket_skey, armor_ticket_upn = None, None, None
@@ -2208,6 +2518,7 @@ class Ticketer:
             ip=ip,
             renew=renew,
             realm=realm,
+            s4u2proxy=s4u2proxy,
             additional_tickets=additional_tickets,
             fast=fast,
             for_user=for_user,

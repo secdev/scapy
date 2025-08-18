@@ -101,9 +101,12 @@ STATUS_ERREF = {
     0x80000005: "STATUS_BUFFER_OVERFLOW",
     0x80000006: "STATUS_NO_MORE_FILES",
     0x8000002D: "STATUS_STOPPED_ON_SYMLINK",
+    0x80090308: "SEC_E_INVALID_TOKEN",
     0x8009030C: "SEC_E_LOGON_DENIED",
     0x8009030F: "SEC_E_MESSAGE_ALTERED",
     0x80090310: "SEC_E_OUT_OF_SEQUENCE",
+    0x80090346: "SEC_E_BAD_BINDINGS",
+    0x80090351: "SEC_E_SMARTCARD_CERT_REVOKED",
     0xC0000003: "STATUS_INVALID_INFO_CLASS",
     0xC0000004: "STATUS_INFO_LENGTH_MISMATCH",
     0xC000000D: "STATUS_INVALID_PARAMETER",
@@ -117,6 +120,7 @@ STATUS_ERREF = {
     0xC0000064: "STATUS_NO_SUCH_USER",
     0xC000006D: "STATUS_LOGON_FAILURE",
     0xC000006E: "STATUS_ACCOUNT_RESTRICTION",
+    0xC0000070: "STATUS_INVALID_WORKSTATION",
     0xC0000071: "STATUS_PASSWORD_EXPIRED",
     0xC0000072: "STATUS_ACCOUNT_DISABLED",
     0xC000009A: "STATUS_INSUFFICIENT_RESOURCES",
@@ -1546,21 +1550,21 @@ class SECURITY_DESCRIPTOR(_NTLMPayloadPacket):
                 "SELF_RELATIVE",
             ],
         ),
-        LEIntField("OwnerSidOffset", 0),
-        LEIntField("GroupSidOffset", 0),
-        LEIntField("SACLOffset", 0),
-        LEIntField("DACLOffset", 0),
+        LEIntField("OwnerSidOffset", None),
+        LEIntField("GroupSidOffset", None),
+        LEIntField("SACLOffset", None),
+        LEIntField("DACLOffset", None),
         _NTLMPayloadField(
             "Data",
             OFFSET,
             [
                 ConditionalField(
                     PacketField("OwnerSid", WINNT_SID(), WINNT_SID),
-                    lambda pkt: pkt.OwnerSidOffset,
+                    lambda pkt: pkt.OwnerSidOffset != 0,
                 ),
                 ConditionalField(
                     PacketField("GroupSid", WINNT_SID(), WINNT_SID),
-                    lambda pkt: pkt.GroupSidOffset,
+                    lambda pkt: pkt.GroupSidOffset != 0,
                 ),
                 ConditionalField(
                     PacketField("SACL", WINNT_ACL(), WINNT_ACL),
@@ -1574,6 +1578,26 @@ class SECURITY_DESCRIPTOR(_NTLMPayloadPacket):
             offset_name="Offset",
         ),
     ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        return (
+            _NTLM_post_build(
+                self,
+                pkt,
+                self.OFFSET,
+                {
+                    "OwnerSid": 4,
+                    "GroupSid": 8,
+                    "SACL": 12,
+                    "DACL": 16,
+                },
+                config=[
+                    ("Offset", _NTLM_ENUM.OFFSET),
+                ],
+            )
+            + pay
+        )
 
 
 # [MS-FSCC] 2.4.2 FileAllInformation

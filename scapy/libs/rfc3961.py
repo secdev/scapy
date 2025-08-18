@@ -13,15 +13,21 @@ Implementation of cryptographic functions for Kerberos 5
 - RFC 4757: The RC4-HMAC Kerberos Encryption Types Used by Microsoft Windows
 - RFC 6113: A Generalized Framework for Kerberos Pre-Authentication
 - RFC 8009: AES Encryption with HMAC-SHA2 for Kerberos 5
+
+.. note::
+    You will find more complete documentation for Kerberos over at
+    `SMB <https://scapy.readthedocs.io/en/latest/layers/kerberos.html>`_
 """
 
 # TODO: support cipher states...
 
 __all__ = [
-    "EncryptionType",
     "ChecksumType",
-    "Key",
+    "EncryptionType",
     "InvalidChecksum",
+    "KRB_FX_CF2",
+    "Key",
+    "SP800108_KDFCTR",
     "_rfc1964pad",
 ]
 
@@ -149,7 +155,7 @@ class EncryptionType(enum.IntEnum):
 
 class ChecksumType(enum.IntEnum):
     CRC32 = 1
-    # RSA_MD4 = 2
+    RSA_MD4 = 2
     RSA_MD4_DES = 3
     # RSA_MD5 = 7
     RSA_MD5_DES = 8

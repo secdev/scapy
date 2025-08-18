@@ -97,9 +97,11 @@ from scapy.layers.kerberos import (
     Kerberos,
 )
 from scapy.layers.gssapi import (
-    GSS_S_COMPLETE,
-    GSSAPI_BLOB_SIGNATURE,
     GSSAPI_BLOB,
+    GSSAPI_BLOB_SIGNATURE,
+    GSS_S_COMPLETE,
+    GSS_S_FLAGS,
+    GSS_C_FLAGS,
     SSP,
 )
 from scapy.layers.inet import TCP
@@ -211,6 +213,12 @@ class DceRpc(Packet):
             elif ver == 5:
                 return DceRpc5
         return DceRpc5
+
+    @classmethod
+    def tcp_reassemble(cls, data, metadata, session):
+        if data[0:1] == b"\x05":
+            return DceRpc5.tcp_reassemble(data, metadata, session)
+        return DceRpc(data)
 
 
 bind_bottom_up(TCP, DceRpc, sport=135)
@@ -1612,32 +1620,38 @@ class NDRFullPointerField(_FieldContainer):
     """
     A NDR Full/Unique pointer field encapsulation.
 
-    :param deferred: This pointer is deferred. This means that it's representation
-                     will not appear after the pointer.
+    :param EMBEDDED: This pointer is embedded. This means that it's representation
+                     will not appear after the pointer (pointer deferral applies).
                      See [C706] 14.3.12.3 - Algorithm for Deferral of Referents
     """
 
     EMBEDDED = False
+    EMBEDDED_REF = False
 
-    def __init__(self, fld, deferred=False, fmt="I"):
+    def __init__(self, fld, ref=False, fmt="I"):
         self.fld = fld
+        self.ref = ref
         self.default = None
-        self.deferred = deferred
 
     def getfield(self, pkt, s):
         fmt = _e(pkt.ndrendian) + ["I", "Q"][pkt.ndr64]
         remain, referent_id = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).getfield(
             pkt, s
         )
-        if not self.EMBEDDED and referent_id == 0:
+
+        # No value
+        if referent_id == 0 and not self.EMBEDDED_REF:
             return remain, None
-        if self.deferred:
+
+        # With value
+        if self.EMBEDDED:
             # deferred
             ptr = NDRPointer(
                 ndr64=pkt.ndr64, ndrendian=pkt.ndrendian, referent_id=referent_id
             )
             pkt.deferred_pointers.append((ptr, partial(self.fld.getfield, pkt)))
             return remain, ptr
+
         remain, val = self.fld.getfield(pkt, remain)
         return remain, NDRPointer(
             ndr64=pkt.ndr64, ndrendian=pkt.ndrendian, referent_id=referent_id, value=val
@@ -1650,17 +1664,21 @@ class NDRFullPointerField(_FieldContainer):
             )
         fmt = _e(pkt.ndrendian) + ["I", "Q"][pkt.ndr64]
         fld = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8))
-        if not self.EMBEDDED and val is None:
+
+        # No value
+        if val is None and not self.EMBEDDED_REF:
             return fld.addfield(pkt, s, 0)
-        else:
-            _set_ctx_on(val.value, pkt)
-            s = fld.addfield(pkt, s, val.referent_id)
-        if self.deferred:
+
+        # With value
+        _set_ctx_on(val.value, pkt)
+        s = fld.addfield(pkt, s, val.referent_id)
+        if self.EMBEDDED:
             # deferred
             pkt.deferred_pointers.append(
                 ((lambda s: self.fld.addfield(pkt, s, val.value)), val)
             )
             return s
+
         return self.fld.addfield(pkt, s, val.value)
 
     def any2i(self, pkt, x):
@@ -1693,12 +1711,25 @@ class NDRFullPointerField(_FieldContainer):
         return self.fld.valueof(pkt, x.value)
 
 
-class NDRRefEmbPointerField(NDRFullPointerField):
+class NDRFullEmbPointerField(NDRFullPointerField):
     """
-    A NDR Embedded Reference pointer
+    A NDR Embedded Full pointer.
+
+    Same as NDRFullPointerField with EMBEDDED = True.
     """
 
     EMBEDDED = True
+
+
+class NDRRefEmbPointerField(NDRFullPointerField):
+    """
+    A NDR Embedded Reference pointer.
+
+    Same as NDRFullPointerField with EMBEDDED = True and EMBEDDED_REF = True.
+    """
+
+    EMBEDDED = True
+    EMBEDDED_REF = True
 
 
 # Constructed types
@@ -1738,7 +1769,7 @@ class NDRConstructedType(object):
         # If we have a pointer, mark this field as handling deferrance
         # and make all sub-constructed types not.
         for f in self.ndr_fields:
-            if isinstance(f, NDRFullPointerField) and f.deferred:
+            if isinstance(f, NDRFullPointerField) and f.EMBEDDED:
                 self.handles_deferred = True
             if isinstance(f, NDRConstructedType):
                 f.rec_check_deferral()
@@ -1877,9 +1908,7 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
     def __init__(self, name, default, pkt_cls, **kwargs):
         self.ptr_pack = kwargs.pop("ptr_pack", False)
         if self.ptr_pack:
-            self.fld = NDRFullPointerField(
-                NDRPacketField("", None, pkt_cls), deferred=True
-            )
+            self.fld = NDRFullEmbPointerField(NDRPacketField("", None, pkt_cls))
         else:
             self.fld = NDRPacketField("", None, pkt_cls)
         PacketListField.__init__(self, name, default, pkt_cls=pkt_cls, **kwargs)
@@ -1950,7 +1979,7 @@ class NDRVaryingArray(_NDRPacket):
     ]
 
 
-class _NDRVarField(object):
+class _NDRVarField:
     """
     NDR Varying Array / String field
     """
@@ -1959,9 +1988,15 @@ class _NDRVarField(object):
     COUNT_FROM = False
 
     def __init__(self, *args, **kwargs):
-        # size is either from the length_is, if specified, or the "actual_count"
-        self.from_actual = "length_is" not in kwargs
-        length_is = kwargs.pop("length_is", lambda pkt: pkt.actual_count)
+        # We build the length_is function by taking into account both the
+        # actual_count (from the varying field) and a potentially provided
+        # length_is field.
+        if "length_is" in kwargs:
+            _length_is = kwargs.pop("length_is")
+            length_is = lambda pkt: (_length_is(pkt.underlayer) or pkt.actual_count)
+        else:
+            length_is = lambda pkt: pkt.actual_count
+        # Pass it to the sub-field (actually subclass)
         if self.LENGTH_FROM:
             kwargs["length_from"] = length_is
         elif self.COUNT_FROM:
@@ -1979,11 +2014,9 @@ class _NDRVarField(object):
             ndrendian=pkt.ndrendian,
             offset=offset,
             actual_count=actual_count,
+            _underlayer=pkt,
         )
-        if self.from_actual:
-            remain, val = super(_NDRVarField, self).getfield(final, remain)
-        else:
-            remain, val = super(_NDRVarField, self).getfield(pkt, remain)
+        remain, val = super(_NDRVarField, self).getfield(final, remain)
         final.value = super(_NDRVarField, self).i2h(pkt, val)
         return remain, final
 
@@ -2070,7 +2103,7 @@ class NDRConformantString(_NDRPacket):
     ]
 
 
-class _NDRConfField(object):
+class _NDRConfField:
     """
     NDR Conformant Array / String field
     """
@@ -2241,7 +2274,7 @@ class NDRConfStrLenField(_NDRConfField, _NDRValueOf, StrLenField):
 
 class NDRConfStrLenFieldUtf16(_NDRConfField, _NDRValueOf, StrLenFieldUtf16, _NDRUtf16):
     """
-    NDR Conformant StrLenField.
+    NDR Conformant StrLenFieldUtf16.
 
     See NDRConfLenStrField for comment.
     """
@@ -2261,7 +2294,7 @@ class NDRVarStrLenField(_NDRVarField, StrLenField):
 
 class NDRVarStrLenFieldUtf16(_NDRVarField, _NDRValueOf, StrLenFieldUtf16, _NDRUtf16):
     """
-    NDR Varying StrLenField
+    NDR Varying StrLenFieldUtf16
     """
 
     ON_WIRE_SIZE_UTF16 = False
@@ -2280,7 +2313,7 @@ class NDRConfVarStrLenFieldUtf16(
     _NDRConfField, _NDRVarField, _NDRValueOf, StrLenFieldUtf16, _NDRUtf16
 ):
     """
-    NDR Conformant Varying StrLenField
+    NDR Conformant Varying StrLenFieldUtf16
     """
 
     ON_WIRE_SIZE_UTF16 = False
@@ -2391,14 +2424,14 @@ class NDRRecursiveField(Field):
         super(NDRRecursiveField, self).__init__(name, None, fmt=fmt)
 
     def getfield(self, pkt, s):
-        return NDRFullPointerField(
-            NDRPacketField("", None, pkt.__class__), deferred=True
-        ).getfield(pkt, s)
+        return NDRFullEmbPointerField(NDRPacketField("", None, pkt.__class__)).getfield(
+            pkt, s
+        )
 
     def addfield(self, pkt, s, val):
-        return NDRFullPointerField(
-            NDRPacketField("", None, pkt.__class__), deferred=True
-        ).addfield(pkt, s, val)
+        return NDRFullEmbPointerField(NDRPacketField("", None, pkt.__class__)).addfield(
+            pkt, s, val
+        )
 
 
 # The very few NDR-specific structures
@@ -2697,6 +2730,8 @@ class DceRpcSession(DefaultSession):
                     self.sniffsspcontexts[ssp], status = ssp.GSS_Passive(
                         self.sniffsspcontexts[ssp],
                         pkt.auth_verifier.auth_value,
+                        req_flags=GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS
+                        | GSS_C_FLAGS.GSS_C_DCE_STYLE,
                     )
                     if status == GSS_S_COMPLETE:
                         self.auth_level = DCE_C_AUTHN_LEVEL(

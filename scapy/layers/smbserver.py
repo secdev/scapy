@@ -26,6 +26,7 @@ import time
 from scapy.arch import get_if_addr
 from scapy.automaton import ATMT, Automaton
 from scapy.config import conf
+from scapy.consts import WINDOWS
 from scapy.error import log_runtime, log_interactive
 from scapy.volatile import RandUUID
 
@@ -1058,7 +1059,7 @@ class SMB_Server(Automaton):
         # Note: symbolic links are currently unsupported.
         if root not in path.parents and path != root:
             raise FileNotFoundError
-        if path.is_reserved():
+        if WINDOWS and path.is_reserved():
             raise FileNotFoundError
         if not path.exists():
             if create and createOptions:

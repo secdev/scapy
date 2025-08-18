@@ -694,8 +694,6 @@ class Packet(
         # type: () -> bytes
         """
         Create the default layer regarding fields_desc dict
-
-        :param field_pos_list:
         """
         if self.raw_packet_cache is not None and \
                 self.raw_packet_cache_fields is not None:
@@ -2367,7 +2365,7 @@ class Raw(Packet):
 class Padding(Raw):
     name = "Padding"
 
-    def self_build(self, field_pos_list=None):
+    def self_build(self):
         # type: (Optional[Any]) -> bytes
         return b""
 

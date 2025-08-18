@@ -233,7 +233,9 @@ class _ExtcapInterfaceProvider(InterfaceProvider):
 
 def load_extcap() -> None:
     """
-    Load extcap folder from wireshark and populate providers
+    Load extcap folder from wireshark and populate Scapy's providers.
+
+    Additional interfaces should appear in conf.ifaces.
     """
     if WINDOWS:
         pattern = re.compile(r"^[^.]+(?:\.bat|\.exe)?$")
