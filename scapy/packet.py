@@ -3015,13 +3015,16 @@ def fuzz(p,  # type: _P
 
         # Process packets with MultipleTypeFields
         if multiple_type_fields:
+            # We don't want this freeze - 2025-08-18 - we want to fuzz all
+            #  fields, even if they are dependent on something else
             # freeze the other random values
-            new_default_fields = {
-                key: (val._fix() if isinstance(val, VolatileValue) else val)
-                for key, val in new_default_fields.items()
-            }
-            q.default_fields.update(new_default_fields)
-            new_default_fields.clear()
+            # new_default_fields = {
+            #     key: (val._fix() if isinstance(val, VolatileValue) else val)
+            #     for key, val in new_default_fields.items()
+            # }
+            # q.default_fields.update(new_default_fields)
+            # new_default_fields.clear()
+
             # add the random values of the MultipleTypeFields
             for name in multiple_type_fields:
                 fld = cast(MultipleTypeField, q.get_field(name))
