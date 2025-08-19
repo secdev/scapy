@@ -372,7 +372,7 @@ class ForwardMachine:
                     # Load result certificate our SSL server
                     # (this is dumb but we need to store them on disk)
                     certfile = get_temp_file()
-                    with open(certfile, "wb") as fd:
+                    with open(certfile, "w") as fd:
                         for c in certs:
                             fd.write(c.pem)
                     keyfile = get_temp_file()
