@@ -861,6 +861,9 @@ class Packet(
 
             if packet_field in pkt.default_fields:
                 if field_type == "list":
+                    if field_idx >= len(pkt.default_fields[packet_field]):
+                        raise ValueError(f"Shouldn't be None, did we not find the obj? {field_idx=}:{field_in_list=}")
+
                     item_in_list = pkt.default_fields[packet_field][field_idx]
 
                     if item_in_list.default_fields[field_in_list] is None:
