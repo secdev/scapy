@@ -2165,16 +2165,20 @@ class TCP_client(Automaton):
     :param ip: the ip to connect to
     :param port:
     :param src: (optional) use another source IP
+    :param sport: (optional) the TCP source port (default: random)
+    :param seq: (optional) initial TCP sequence number (default: random)
     """
 
-    def parse_args(self, ip, port, srcip=None, **kargs):
+    def parse_args(self, ip, port, srcip=None, sport=None, seq=None, ack=0, **kargs):
         from scapy.sessions import TCPSession
         self.dst = str(Net(ip))
         self.dport = port
-        self.sport = random.randrange(0, 2**16)
+        self.sport = sport if sport is not None else random.randrange(0, 2**16)
         self.l4 = IP(dst=ip, src=srcip) / TCP(
             sport=self.sport, dport=self.dport,
-            flags=0, seq=random.randrange(0, 2**32)
+            flags=0,
+            seq=seq if seq is not None else random.randrange(0, 2**32),
+            ack=ack,
         )
         self.src = self.l4.src
         self.sack = self.l4[TCP].ack
