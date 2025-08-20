@@ -717,7 +717,7 @@ class Packet(
                 except Exception as ex:
                     try:
                         ex.args = (
-                            "While dissecting field '%s': " % f.name +
+                            "While building field '%s': " % f.name +
                             ex.args[0],
                         ) + ex.args[1:]
                     except (AttributeError, IndexError):

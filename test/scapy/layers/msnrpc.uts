@@ -130,7 +130,8 @@ pkt = ept_map_Request(
         referent_id=2,
         value=twr_p_t(tower_octet_string=b'\x05\x00\x13\x00\rxV4\x124\x12\xcd\xab\xef\x00\x01#Eg\xcf\xfb\x01\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0b\x02\x00\x00\x00\x01\x00\x07\x02\x00\x00\x87\x01\x00\t\x04\x00\x00\x00\x00\x00')
     ),
-    max_towers=4
+    max_towers=4,
+    ndr64=False,
 )
 
 output = bytearray(bytes(pkt))
@@ -166,6 +167,7 @@ pkt = ept_map_Response(
         twr_p_t(tower_octet_string=b'\x05\x00\x13\x00\rxV4\x124\x12\xcd\xab\xef\x00\x01#Eg\xcf\xfb\x01\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0b\x02\x00\x00\x00\x01\x00\x07\x02\x00\xc2\x0c\x01\x00\t\x04\x00\xc0\xa8z\x11'),
         twr_p_t(tower_octet_string=b'\x05\x00\x13\x00\rxV4\x124\x12\xcd\xab\xef\x00\x01#Eg\xcf\xfb\x01\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0b\x02\x00\x00\x00\x01\x00\x07\x02\x00\xc2\x03\x01\x00\t\x04\x00\xc0\xa8z\x11')
     ],
+    ndr64=False,
 )
 
 pkt.ITowers.value[0].value[0].referent_id = 0x3
@@ -186,6 +188,7 @@ pkt = NetrServerReqChallenge_Request(
     ComputerName=b'WIN1',
     ClientChallenge=PNETLOGON_CREDENTIAL(data=b'12345678'),
     PrimaryName=None,
+    ndr64=False,
 )
 
 assert bytes(pkt) == bytes(chall_req)
@@ -199,7 +202,8 @@ assert chall_resp.status == 0
 = [EXCH] - Re-build NetrServerReqChallenge_Response from scratch
 
 pkt = NetrServerReqChallenge_Response(
-    ServerChallenge=PNETLOGON_CREDENTIAL(data=b'Zq/\xc4D\xfeRI')
+    ServerChallenge=PNETLOGON_CREDENTIAL(data=b'Zq/\xc4D\xfeRI'),
+    ndr64=False,
 )
 
 assert bytes(pkt) == bytes(chall_resp)
@@ -223,6 +227,7 @@ pkt = NetrServerAuthenticate3_Request(
     PrimaryName=None,
     SecureChannelType="WorkstationSecureChannel",
     NegotiateFlags=1611661311,
+    ndr64=False,
 )
 
 output = bytearray(bytes(pkt))
@@ -242,7 +247,8 @@ pkt = NetrServerAuthenticate3_Response(
     ServerCredential=PNETLOGON_CREDENTIAL(data=b'1h\x8d\xb8\xf4zH\xaf'),
     NegotiateFlags=1611661311,
     AccountRid=1105,
-    status=0
+    status=0,
+    ndr64=False,
 )
 
 assert bytes(pkt) == bytes(auth_resp)
