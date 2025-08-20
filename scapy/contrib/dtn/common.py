@@ -1,3 +1,6 @@
+# scapy.contrib.description = utility functions and classes for DTN module
+# scapy.contrib.status = library
+
 from scapy.packet import Packet, Raw
 from scapy.fields import Field
 from typing import Dict, List
