@@ -227,8 +227,8 @@ class Packet(
     def comment(self):
         # type: () -> Optional[bytes]
         """Get the comment of the packet"""
-        if self.comments is not None and len(self.comments) > 0:
-            return self.comments[-1]
+        if self.comments and len(self.comments):
+            return self.comments[0]
         return None
 
     @comment.setter
