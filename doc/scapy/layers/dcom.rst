@@ -54,7 +54,7 @@ General usage
 
     import uuid
     from scapy.layers.dcerpc import find_com_interface
-    import scapy.layers.msrpce.raw.ms_pla
+    from scapy.layers.msrpce.raw.ms_pla import GetDataCollectorSets_Request
 
     CLSID_TraceSessionCollection = uuid.UUID("03837530-098b-11d8-9414-505054503030")
     # The COM interface must have been compiled by scapy-rpc (midl-to-scapy)
