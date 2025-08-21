@@ -563,9 +563,9 @@ class PrimaryBlock(CBORArray):
         PacketField("creation_timestamp", Timestamp(t=int(time.time())), Timestamp),
         CBORInteger("lifetime", 0),
         ConditionalField(CBORInteger("fragment_offset", 0),
-                        lambda pkt: pkt.flags & PrimaryBlock.CtrlFlags.BUNDLE_IS_FRAGMENT),
+                         lambda pkt: pkt.flags & PrimaryBlock.CtrlFlags.BUNDLE_IS_FRAGMENT),
         ConditionalField(CBORInteger("total_adu_length", 0),
-                        lambda pkt: pkt.flags & PrimaryBlock.CtrlFlags.BUNDLE_IS_FRAGMENT),
+                         lambda pkt: pkt.flags & PrimaryBlock.CtrlFlags.BUNDLE_IS_FRAGMENT),
         ConditionalField(
             MultipleTypeField(
                 [
@@ -574,7 +574,7 @@ class PrimaryBlock(CBORArray):
                 ],
                 CBORNull("crc", None)
             ), lambda pkt: pkt.crc_type != CrcTypes.NONE
-         )
+        )
     ]
 
     def dissect(self, s: bytes):

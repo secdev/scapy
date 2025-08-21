@@ -21,14 +21,14 @@ import flynn
 from typing import Tuple, List, Union
 
 MajorTypes = {
-        0: "unsigned",
-        1: "negative",
-        2: "byte string",
-        3: "text string",
-        4: "array",
-        5: "map",
-        6: "tag",
-        7: "simple/float"
+    0: "unsigned",
+    1: "negative",
+    2: "byte string",
+    3: "text string",
+    4: "array",
+    5: "map",
+    6: "tag",
+    7: "simple/float"
 }
 
 

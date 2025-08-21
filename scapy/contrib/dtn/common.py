@@ -12,7 +12,6 @@ class NoPayloadPacket(Packet):
     def extract_padding(self, s):
         return "", s
 
-
     def post_dissect(self, s):
         try:
             if self[Raw].load is not None:
