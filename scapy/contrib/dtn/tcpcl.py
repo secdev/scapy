@@ -26,6 +26,7 @@ from enum import IntEnum
 from scapy.contrib.dtn.common import ControlPacket, FieldPacket
 import scapy.contrib.dtn.bpv7 as BPv7
 
+
 class MagicValueError(Exception):
     """
     Exception raised when a ContactHeader is dissected and the magic value is incorrect.
@@ -33,16 +34,17 @@ class MagicValueError(Exception):
     def __init__(self, value):
         super().__init__(f"Tried to decode ContactHeader with invalid magic value of {value}")
 
+
 class ContactHeader(ControlPacket):
     MAGIC_VALUE = 0x64746e21
-    
+
     class Flag(IntEnum):
         CAN_TLS = 0x01
-        
+
     fields_desc = [
         BitField("magic", MAGIC_VALUE, 32),
         BitField("version", 4, 8),
-        XByteEnumField("flags", 0, { Flag.CAN_TLS: "can tls" })
+        XByteEnumField("flags", 0, {Flag.CAN_TLS: "can tls"})
     ]
 
     def post_dissect(self, s):
@@ -50,15 +52,16 @@ class ContactHeader(ControlPacket):
             raise MagicValueError(self.magic)
         return super().post_dissect(s)
 
+
 class MsgHeader(Packet):
     class MsgType(IntEnum):
-        SESS_INIT=0x07
-        SESS_TERM=0x05
-        XFER_SEGMENT=0x01
-        XFER_ACK=0x02
-        XFER_REFUSE=0x03
-        KEEPALIVE=0x04
-        MSG_REJECT=0x06
+        SESS_INIT = 0x07
+        SESS_TERM = 0x05
+        XFER_SEGMENT = 0x01
+        XFER_ACK = 0x02
+        XFER_REFUSE = 0x03
+        KEEPALIVE = 0x04
+        MSG_REJECT = 0x06
 
     fields_desc = [
         XByteEnumField("type", MsgType.XFER_SEGMENT, {
@@ -72,6 +75,7 @@ class MsgHeader(Packet):
         })
     ]
 
+
 class Ext(FieldPacket):
     """
     Class definition for an Extension Item in the format of a Type-Length-Value container.
@@ -83,11 +87,12 @@ class Ext(FieldPacket):
         LENGTH = 0x0001
 
     fields_desc = [
-        XByteEnumField("flags", 0, { Flag.CRITICAL: "critical" }),
+        XByteEnumField("flags", 0, {Flag.CRITICAL: "critical"}),
         BitField("type", 0, 16),
         BitFieldLenField("length", default=0, size=16, length_of="data"),
         StrLenField("data", 0, length_from=lambda pkt: pkt.length)
     ]
+
 
 class SessInit(ControlPacket):
     fields_desc = [
@@ -95,7 +100,7 @@ class SessInit(ControlPacket):
         BitField("segment_mru", 0, 64),
         BitField("transfer_mru", 0, 64),
         FieldLenField("id_length", None, length_of="id", fmt="H"),  # Node ID Length (U16)
-        StrLenField("id", b"", length_from=lambda pkt: pkt.id_length), # Node ID Data (variable)
+        StrLenField("id", b"", length_from=lambda pkt: pkt.id_length),  # Node ID Data (variable)
         BitFieldLenField("ext_length", 0, 32, length_of="ext_items"),
         ConditionalField(
             PacketListField("ext_items",
@@ -105,11 +110,13 @@ class SessInit(ControlPacket):
             lambda pkt: pkt.ext_length > 0)
     ]
 
+
 class Keepalive(ControlPacket):
     """
     A keepalive message consists only of a MsgHeader with the type code KEEPALIVE.
     """
-    
+
+
 class MsgReject(ControlPacket):
     class ReasonCode(IntEnum):
         UNKNOWN = 0x01
@@ -124,6 +131,7 @@ class MsgReject(ControlPacket):
         }),
         PacketField("header", MsgHeader(), MsgHeader)
     ]
+
 
 class Xfer(Packet):
     """
@@ -142,13 +150,15 @@ class Xfer(Packet):
         BitField("id", 0, 64)
     ]
 
+
 class InvalidPayloadError(Exception):
     """
-    This error indicates that an XferSegment contains raw bytes instead of 
+    This error indicates that an XferSegment contains raw bytes instead of
     a properly formatted Bundle as its payload.
     """
     def __init__(self, payload_bytes):
         super().__init__(f"Failed to fully parse Bundle from Xfer payload: bundle={payload_bytes}")
+
 
 class XferSegment(Xfer):
     """
@@ -170,25 +180,27 @@ class XferSegment(Xfer):
     def post_build(self, pkt, pay):
         # calculate the length field
         if not self.length:
-            index = len(pkt)-8 # size of length is 8 bytes, thus position=len(pkt)-8
+            index = len(pkt) - 8  # size of length is 8 bytes, thus position=len(pkt)-8
             length = len(pay)
             pkt = pkt[:index] + struct.pack('!Q', length)
         return pkt + pay
-    
+
     def post_dissect(self, s):
         "An XferSegment message should have a Bundle as payload. If it has raw bytes instead, raise an error."
         try:
             if self[Raw].load is not None:
                 raise InvalidPayloadError(self[Raw].load)
-        except IndexError: # Raw layer or load field does not exist
-            pass # no action required
+        except IndexError:  # Raw layer or load field does not exist
+            pass  # no action required
 
         return s
-        
+
+
 class XferAck(ControlPacket):
     fields_desc = Xfer.fields_desc + [
         BitField("length", default=0, size=64)
     ]
+
 
 class XferRefuse(ControlPacket):
     class ReasonCode(IntEnum):
@@ -213,6 +225,7 @@ class XferRefuse(ControlPacket):
         BitField("id", 0, 64)
     ]
 
+
 class SessTerm(ControlPacket):
     class Flag(IntEnum):
         REPLY = 0x01
@@ -226,7 +239,7 @@ class SessTerm(ControlPacket):
         NO_RESOURCES = 0x05
 
     fields_desc = [
-        XByteEnumField("flags", 0, { Flag.REPLY: "reply" }),
+        XByteEnumField("flags", 0, {Flag.REPLY: "reply"}),
         XByteEnumField("reason", ReasonCode.UNKNOWN, {
             ReasonCode.UNKNOWN: "unknown",
             ReasonCode.TIMEOUT: "idle timeout",
@@ -235,8 +248,9 @@ class SessTerm(ControlPacket):
             ReasonCode.CONTACT_FAIL: "failed to process contact header or sess init",
             ReasonCode.NO_RESOURCES: "entity resource exhaustion"
         }),
-        
+
     ]
+
 
 # Bind all TCPCL message headers to TCPCL messages.
 # This way, if `some_bytes` consists of the raw representation of a TCPCL message,
