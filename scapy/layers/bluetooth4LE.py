@@ -214,6 +214,9 @@ class BTLE(Packet):
         X3BytesField("crc", None)
     ]
 
+    # Avoid caching with this layer for data reordering to work properly.
+    no_cache = True
+
     @staticmethod
     def compute_crc(pdu, init=0x555555):
         def swapbits(a):
