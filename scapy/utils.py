@@ -1652,7 +1652,7 @@ class RawPcapNgReader(RawPcapReader):
                                              "process_information", "comments", ])
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
-        # type: (str, IO[bytes], bytes, List[bytes]) -> None
+        # type: (str, IO[bytes], bytes) -> None
         self.filename = filename
         self.f = fdesc
         # A list of (linktype, snaplen, tsresol); will be populated by IDBs.
@@ -1802,10 +1802,11 @@ class RawPcapNgReader(RawPcapReader):
                         "%d !" % len(options))
                 raise EOFError
             if code != 0 and 4 + length <= len(options):
-                if code in [1, 2988, 2989, 19372, 19373]:  # https://www.ietf.org/archive/id/draft-tuexen-opsawg-pcapng-05.html#name-options-format
+                # https://www.ietf.org/archive/id/draft-tuexen-opsawg-pcapng-05.html#name-options-format
+                if code in [1, 2988, 2989, 19372, 19373]:
                     if code not in opts:
                         opts[code] = []
-                    opts[code].append(options[4:4 + length])
+                    opts[code].append(options[4:4 + length])  # type: ignore
                 else:
                     opts[code] = options[4:4 + length]
             if code == 0:
@@ -1827,8 +1828,10 @@ class RawPcapNgReader(RawPcapReader):
         options = self.default_options.copy()  # type: Dict[str, Any]
         for c, v in options_raw.items():
             if isinstance(v, list):
-                # Spec allows multiple occurrences (see https://www.ietf.org/archive/id/draft-tuexen-opsawg-pcapng-05.html#section-4.2-8.6)
-                # but does not define which to use. We take the first for backward compatibility.
+                # Spec allows multiple occurrences (see
+                # https://www.ietf.org/archive/id/draft-tuexen-opsawg-pcapng-05.html#section-4.2-8.6)
+                # but does not define which to use. We take the first for
+                # backward compatibility.
                 v = v[0]
             if c == 9:
                 length = len(v)
@@ -1885,11 +1888,13 @@ class RawPcapNgReader(RawPcapReader):
 
         process_information = {}
         for code, value in options.items():
-            if code in [0x8001, 0x8003]:  # PCAPNG_EPB_PIB_INDEX, PCAPNG_EPB_E_PIB_INDEX
+            # PCAPNG_EPB_PIB_INDEX, PCAPNG_EPB_E_PIB_INDEX
+            if code in [0x8001, 0x8003]:
                 try:
-                    proc_index = struct.unpack(self.endian + "I", value)[0]
+                    proc_index = struct.unpack(
+                        self.endian + "I", value)[0]  # type: ignore
                 except struct.error:
-                    warning("PcapNg: EPB invalid proc index"
+                    warning("PcapNg: EPB invalid proc index "
                             "(expected 4 bytes, got %d) !" % len(value))
                     raise EOFError
                 if proc_index < len(self.process_information):
@@ -1901,7 +1906,7 @@ class RawPcapNgReader(RawPcapReader):
 
         comments = options.get(1, None)
         epb_flags_raw = options.get(2, None)
-        if epb_flags_raw:
+        if epb_flags_raw and isinstance(epb_flags_raw, bytes):
             try:
                 epb_flags, = struct.unpack(self.endian + "I", epb_flags_raw)
             except struct.error:
@@ -2048,10 +2053,11 @@ class RawPcapNgReader(RawPcapReader):
         options = self._read_options(block)
         for code, value in options.items():
             if code == 2:
-                process_information["name"] = value.decode("ascii", "backslashreplace")
+                process_information["name"] = value.decode(  # type: ignore
+                    "ascii", "backslashreplace")
             elif code == 4:
                 if len(value) == 16:
-                    process_information["uuid"] = str(UUID(bytes=value))
+                    process_information["uuid"] = str(UUID(bytes=value))  # type: ignore
                 else:
                     warning("PcapNg: DPEB UUID length is invalid (%d)!",
                             len(value))
