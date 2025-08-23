@@ -649,7 +649,7 @@ look to its building process::
           def post_build(self, p, pay):
             if self.len is None and pay:
                 l = len(pay)
-                p = p[:1] + hex(l)[2:]+ p[2:]
+                p = p[:1] + struct.pack("!B", l) + p[2:]
             return p+pay
 
 When ``post_build()`` is called, ``p``  is the current layer, ``pay`` the payload,

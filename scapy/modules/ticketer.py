@@ -88,7 +88,7 @@ from scapy.layers.msrpce.mspac import (
     PAC_CLIENT_INFO,
     PAC_INFO_BUFFER,
     PAC_INFO_BUFFER,
-    PAC_REQUESTOR,
+    PAC_REQUESTOR_SID,
     PAC_SIGNATURE_DATA,
     PACTYPE,
     RPC_SID_IDENTIFIER_AUTHORITY,
@@ -1414,7 +1414,7 @@ class Ticketer:
                                         )
                                         + (
                                             [
-                                                PAC_REQUESTOR(
+                                                PAC_REQUESTOR_SID(
                                                     Sid=self._build_sid(
                                                         store["REQ.Sid"], msdn=True
                                                     ),
@@ -1867,7 +1867,7 @@ class Ticketer:
         pacRequestor = pac.getPayload(0x00000012)
         if not pacRequestor:
             pac.Buffers.append(PAC_INFO_BUFFER(ulType=0x00000012))
-            pacRequestor = PAC_REQUESTOR()
+            pacRequestor = PAC_REQUESTOR_SID()
         return self._make_fields(
             element, [("ReqSid", self._pretty_sid(pacRequestor.Sid))]
         )

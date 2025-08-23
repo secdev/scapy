@@ -20,8 +20,8 @@ from scapy.fields import (
     FieldListField,
     FlagsField,
     LEIntEnumField,
-    LELongField,
     LEIntField,
+    LELongField,
     LEShortField,
     MultipleTypeField,
     PacketField,
@@ -31,6 +31,7 @@ from scapy.fields import (
     StrFixedLenField,
     StrLenFieldUtf16,
     UTCTimeField,
+    UUIDField,
     XStrField,
     XStrLenField,
 )
@@ -616,7 +617,7 @@ class _CLAIMSClaimSet(_NDRConfField, NDRSerializeType1PacketLenField):
 
     def m2i(self, pkt, s):
         if pkt.usCompressionFormat == CLAIMS_COMPRESSION_FORMAT.COMPRESSION_FORMAT_NONE:
-            return ndr_deserialize1(s, CLAIMS_SET, ndr64=False)
+            return ndr_deserialize1(s, CLAIMS_SET, ptr_pack=True)
         else:
             # TODO: There are 3 funky compression formats... see sect 2.2.18.4
             return NDRConformantString(value=s)
@@ -624,7 +625,7 @@ class _CLAIMSClaimSet(_NDRConfField, NDRSerializeType1PacketLenField):
     def i2m(self, pkt, val):
         val = val[0]
         if pkt.usCompressionFormat == CLAIMS_COMPRESSION_FORMAT.COMPRESSION_FORMAT_NONE:
-            return ndr_serialize1(val)
+            return ndr_serialize1(val, ptr_pack=True)
         else:
             # funky
             return bytes(val)
@@ -755,16 +756,27 @@ class PAC_ATTRIBUTES_INFO(Packet):
 
 _PACTYPES[0x11] = PAC_ATTRIBUTES_INFO
 
-# sect 2.15 - PAC_REQUESTOR
+# sect 2.15 - PAC_REQUESTOR_SID
 
 
-class PAC_REQUESTOR(Packet):
+class PAC_REQUESTOR_SID(Packet):
     fields_desc = [
         PacketField("Sid", WINNT_SID(), WINNT_SID),
     ]
 
 
-_PACTYPES[0x12] = PAC_REQUESTOR
+_PACTYPES[0x12] = PAC_REQUESTOR_SID
+
+# sect 2.16 - PAC_REQUESTOR_GUID
+
+
+class PAC_REQUESTOR_GUID(Packet):
+    fields_desc = [
+        UUIDField("Guid", None),
+    ]
+
+
+_PACTYPES[0x14] = PAC_REQUESTOR_GUID
 
 # sect 2.3
 
@@ -781,7 +793,7 @@ class _PACTYPEBuffers(PacketListField):
             x = self.i2m(pkt, v)
             pay = pkt.Payloads[i]
             if isinstance(pay, NDRPacket) or isinstance(pay, NDRSerialization1Header):
-                lgth = len(ndr_serialize1(pay))
+                lgth = len(ndr_serialize1(pay, ptr_pack=True))
             else:
                 lgth = len(pay)
             if v.cbBufferSize is None:
@@ -797,7 +809,7 @@ class _PACTYPEBuffers(PacketListField):
 class _PACTYPEPayloads(PacketListField):
     def i2m(self, pkt, val):
         if isinstance(val, NDRPacket) or isinstance(val, NDRSerialization1Header):
-            s = ndr_serialize1(val)
+            s = ndr_serialize1(val, ptr_pack=True)
         else:
             s = bytes(val)
         return s + b"\x00" * ((-len(s)) % 8)
@@ -806,8 +818,7 @@ class _PACTYPEPayloads(PacketListField):
         if not pkt or not s:
             return s, []
         result = []
-        for i in range(len(pkt.Buffers)):
-            buf = pkt.Buffers[i]
+        for buf in pkt.Buffers:
             offset = buf.Offset - 16 * len(pkt.Buffers) - 8
             try:
                 cls = _PACTYPES[buf.ulType]
@@ -818,7 +829,7 @@ class _PACTYPEPayloads(PacketListField):
                     val = ndr_deserialize1(
                         s[offset : offset + buf.cbBufferSize],
                         cls,
-                        ndr64=False,
+                        ptr_pack=True,
                     )
                 else:
                     val = cls(s[offset : offset + buf.cbBufferSize])
