@@ -69,7 +69,42 @@ assert isinstance(p.payload, KNXTunnelingRequest)
 p = KNX(b'\x06\x10\x04!\x00\n\x04\x01\x00\x00')
 assert isinstance(p.payload, KNXTunnelingACK)
 
-+ Test layer binding
-= Destination port
++ Test KNX packet parsing
+= KNX Search Request
+pkt = KNX(b'\x06\x10\x02\x01\x00\x0e\x08\x01\x00\x00\x00\x00\x00\x00')
+assert pkt.service_identifier == 0x0201
+assert pkt.discovery_endpoint.ip_address == "0.0.0.0"
 
+= KNX Search response
+pkt = KNX(b'\x06\x10\x02\x02\x00F\x08\x01\x00\x00\x00\x00\x00\x006\x01\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x02')
+assert pkt.service_identifier == 0x0202
+assert pkt.device_info.description_type == 1
 
++ Test KNX packet building
+= KNX Search Request
+pkt = KNX()/KNXSearchRequest()
+pkt.discovery_endpoint.ip_address = "192.168.1.1"
+assert raw(pkt) == b'\x06\x10\x02\x01\x00\x0e\x08\x01\xc0\xa8\x01\x01\x00\x00'
+
+= KNX Search Response
+pkt = KNX()/KNXSearchResponse()
+pkt.control_endpoint.port = 3671
+pkt.device_info.device_multicast_address = "224.0.23.12"
+pkt.device_info.device_mac_address = "ff:ff:ff:ff:ff:ff"
+
+assert raw(pkt) == b'\x06\x10\x02\x02\x00F\x08\x01\x00\x00\x00\x00\x0eW6\x01\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xe0\x00\x17\x0c\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x02'
+
+= KNX Individual address parsing
+test_addr = DIBDeviceInfo()
+test_addr.knx_address = "1.1.1"
+assert test_addr.knx_address == 0x1101
+
+= CEMI individual address in a field that takes multiple types
+test_addr = CEMI(message_code=0x11) # L_Data.req
+test_addr.cemi_data.address_type = 0 # Individual address
+test_addr.cemi_data.destination_address = "1.1.1"
+
+= CEMI group address in a field that takes multiple types
+test_addr = CEMI(message_code=0x11) # L_Data.req
+test_addr.cemi_data.address_type = 1 # Group address
+test_addr.cemi_data.destination_address = "1/1/1"
