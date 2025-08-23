@@ -1652,7 +1652,7 @@ class RawPcapNgReader(RawPcapReader):
     PacketMetadata = collections.namedtuple("PacketMetadataNg",  # type: ignore
                                             ["linktype", "tsresol",
                                              "tshigh", "tslow", "wirelen",
-                                             "comment", "ifname", "direction",
+                                             "comment", "ifname", "intid", "direction",
                                              "process_information"])
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
@@ -1661,6 +1661,7 @@ class RawPcapNgReader(RawPcapReader):
         self.f = fdesc
         # A list of (linktype, snaplen, tsresol); will be populated by IDBs.
         self.interfaces = []  # type: List[Tuple[int, int, Dict[str, Any]]]
+        self.interface_names = []
         self.default_options = {
             "tsresol": 1000000
         }
@@ -1786,7 +1787,7 @@ class RawPcapNgReader(RawPcapReader):
     def _read_packet(self, size=MTU):  # type: ignore
         # type: (int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
         """Read blocks until it reaches either EOF or a packet, and
-        returns None or (packet, (linktype, sec, usec, wirelen)),
+        returns None or (packet, (linktype, sec, usec, wirelen, intid)),
         where packet is a string.
 
         """
@@ -1865,6 +1866,7 @@ class RawPcapNgReader(RawPcapReader):
                 self.endian + "5I",
                 block[:20],
             )
+            ifname = self.interface_names[intid] if intid < len(self.interface_names) else None
         except struct.error:
             warning("PcapNg: EPB is too small %d/20 !" % len(block))
             raise EOFError
@@ -1919,6 +1921,7 @@ class RawPcapNgReader(RawPcapReader):
                                                wirelen=wirelen,
                                                comment=comment,
                                                ifname=ifname,
+                                               intid=intid,
                                                direction=direction,
                                                process_information=process_information))
 
@@ -1957,9 +1960,13 @@ class RawPcapNgReader(RawPcapReader):
                 self.endian + "HH4I",
                 block[:20],
             )
+            ifname = self.interface_names[intid] if intid < len(self.interface_names) else None
         except struct.error:
             warning("PcapNg: PKT is too small %d/20 !" % len(block))
             raise EOFError
+        except KeyError:
+            # Interface ID not present, ignore the error.
+            pass
 
         self._check_interface_id(intid)
         return (block[20:20 + caplen][:size],
@@ -2072,7 +2079,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         rp = super(PcapNgReader, self)._read_packet(size=size)
         if rp is None:
             raise EOFError
-        s, (linktype, tsresol, tshigh, tslow, wirelen, comment, ifname, direction, process_information) = rp  # noqa: E501
+        s, (linktype, tsresol, tshigh, tslow, wirelen, comment, ifname, intid, direction, process_information) = rp  # noqa: E501
         try:
             cls = conf.l2types.num2layer[linktype]  # type: Type[Packet]
             p = cls(s, **kwargs)  # type: Packet
@@ -2093,6 +2100,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         p.process_information = process_information.copy()
         if ifname is not None:
             p.sniffed_on = ifname.decode('utf-8', 'backslashreplace')
+        p.intid = intid
         return p
 
     def recv(self, size: int = MTU, **kwargs: Any) -> 'Packet':  # type: ignore
