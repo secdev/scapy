@@ -33,7 +33,7 @@ class Session:
     def activate(self):
         if not (self.contact_init and self.contact_ack):
             raise Exception("tried to activate a session before initialization and acknowledgement")
-        
+
         self.is_active = self.contact_init and self.contact_ack
 
         Session.bind_messages(self.sport, self.dport)
@@ -41,21 +41,21 @@ class Session:
     def terminate(self):
         if not (self.contact_init and self.contact_ack):
             raise Exception("tried to terminate a session while none was active")
-        
+
         self.is_active = self.contact_ack = self.contact_init = False
 
         Session.split_messages(self.sport, self.dport)
-        
+
     def init_contact(self, sport, dport):
-        self.contact_init=True
+        self.contact_init = True
         self.sport = sport
         self.dport = dport
 
     def init_timeout(self):
-        self.contact_init=False
+        self.contact_init = False
 
     def proc_ack(self):
-        self.contact_ack=True
+        self.contact_ack = True
         self.activate()
 
     def proc_term(self):
@@ -64,6 +64,7 @@ class Session:
     def proc_term_ack(self):
         self.terminate()
 
+
 class TestTcpcl():
 
     @staticmethod
@@ -71,34 +72,34 @@ class TestTcpcl():
         """Asserts that pkt is equal to one of the packets in options (according to the raw representation)"""
         for opt in options:
             assert raw(pkt) in list(map(raw, options)), "Failed to build a properly formatted TCPCL message"
-    
+
     @staticmethod
     def make_prn():
         """Define a function for processing packets that closes over a new Session.
         Return it for use in Scapy.sniff."""
-        
+
         sess = Session()
 
         def process(pkt):
             # Manage session initialization
             if not sess.is_active:
-                try: # try to find a Contact Header
+                try:  # try to find a Contact Header
                     pay = pkt[Raw].load
-                    contact = TCPCL.ContactHeader(pay) # should raise unhandled error if
-                                                   # the TCP payload does not fit ContactHeader
+                    contact = TCPCL.ContactHeader(pay)  # should raise unhandled error if
+                    # the TCP payload does not fit ContactHeader
                     # replace pkt's raw payload with a ContactHeader formatted payload
                     pkt[TCP].remove_payload()
                     pkt = pkt / contact
 
                     # process ContactHeader
-                    if sess.contact_init: # session aready initialized, Header is an ack
+                    if sess.contact_init:  # session aready initialized, Header is an ack
                         sess.proc_ack()
                         print("BEGIN TCPCL SESSION")
                     else:
                         sess.init_contact(pkt[TCP].sport, pkt[TCP].dport)
-                except IndexError: # no TCP payload to process
+                except IndexError:  # no TCP payload to process
                     pass
-            else: # currently in an active session
+            else:  # currently in an active session
                 if TCPCL.SessTerm in pkt:
                     # process SessTerm
                     if sess.term_begun:
@@ -106,7 +107,7 @@ class TestTcpcl():
                         print("END TCPCL SESSION")
                     else:
                         sess.proc_term()
-                        
-            return pkt # end of process
-        
-        return process # end of make_prn    
+
+            return pkt  # end of process
+
+        return process  # end of make_prn
