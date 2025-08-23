@@ -3,7 +3,7 @@
 + Simple BPv7 Tests
 
 = Test decode
-~ bpv7
+~ dtn bpv7
 
 * dissecting valid bundle from string and checking all fields for accuracy
 import scapy.contrib.dtn.bpv7 as BPv7
@@ -47,7 +47,7 @@ assert block2.data == b'\x00' * 100, "Expected 100 bytes of zero as bundle paylo
 assert block2.crc == b'\xdd\x32\x43\xfc', "Wrong crc in second canonical block"
 
 = Test decode invalid bundle
-~ bpv7
+~ dtn bpv7
 
 * attempting to decode a bundle with two primary block elements (should fail to dissect)
 bs = '9f8907040282028202018202820403820105821b000000b700dfc451001a000f424044b3cf0f1d8907040282028202018202820403820105821b000000b700dfc451001a000f424044b3cf0f1dff'
@@ -59,7 +59,7 @@ except:
     assert True
 
 = Test encode
-~ bpv7
+~ dtn bpv7
 
 * building bundle
 block1 = BPv7.HopCountBlock(
@@ -106,7 +106,7 @@ bundle_bytes = bytearray(raw(bundle))
 captured_bytes == bundle_bytes
 
 = Test blocks
-~ bpv7
+~ dtn bpv7
 
 * testing a bundle with default block instances can be built without error
 bundle=BPv7.Bundle(canonical_blocks=[
@@ -128,7 +128,7 @@ b is not None
 + BPv7 with BPSec tests
 
 = Test bpsec bundle integrity block
-~ bpv7 bpsec debug
+~ dtn bpv7 bpsec
 
 * test that a non-default BIB can be created
 b = BPv7.BlockIntegrityBlock(
@@ -153,8 +153,8 @@ b = BPv7.BlockIntegrityBlock(
 b
 b is not None
 
-= Test bpsec bundle confidentiality
-~ bpv7 bpsec debug
+= Test bpsec bundle confidentiality blocks
+~ dtn bpv7 bpsec
 
 * testing confidentiality block
 f = open(scapy_path("test/pcaps/bpv7_bundle_with_con.pcap"), "rb")
