@@ -1,0 +1,63 @@
+% TCP Convergence Layer tests
+
++ Test full TCPCL session
+
+= Test dissect and build
+~ dtn tcpcl
+* testing packet dissection and build for full TCPCL session from pcap
+
+import scapy.contrib.dtn.tcpcl as TCPCL
+from scapy.contrib.dtn.tcpcl_session import TestTcpcl
+
+# Test dissection from pcap
+pkts=sniff(offline=scapy_path("test/pcaps/tcpcl.pcap"),
+           prn=TestTcpcl.make_prn())
+assert len(pkts) == 26, "Failed to dissect some packets"
+
+# Define expected messages
+init1 = TCPCL.SessInit(
+    keepalive=17,
+    segment_mru=200000,
+    transfer_mru=10000000,
+    id=b"ipn:1.0"
+)
+init2 = TCPCL.SessInit(
+    keepalive=15,
+    segment_mru=200000,
+    transfer_mru=10000000,
+    id=b"ipn:10.0"
+)
+bundle0 = bytearray.fromhex('9f8907040282028202018202820101820100821b000000b4e6fc6dae001a000f4240440512dd21860a021002448218640044db675d49860101000258640000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044dd3243fcff')
+bundle1 = bytearray.fromhex('9f8907040282028202018202820101820100821b000000b4e6fc6db8001a000f424044bb1ffd92860a021002448218640044db675d4986010100025864010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004419e13bfbff')
+bundle2 = bytearray.fromhex('9f8907040282028202018202820101820100821b000000b4e6fc6dc2001a000f42404418438afa860a021002448218640044db675d498601010002586402000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000445178c503ff')
+bundle3 = bytearray.fromhex('9f8907040282028202018202820101820100821b000000b4e6fcfb66001a000f4240449fdacc81860a021002448218640044db675d49860101000258642c0e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044b1439f4cff')
+flags = TCPCL.Xfer.Flag.START | TCPCL.Xfer.Flag.END
+xfer0 = TCPCL.XferSegment(flags=flags, id=0) / bundle0
+xfer1 = TCPCL.XferSegment(flags=flags, id=1) / bundle1
+xfer2 = TCPCL.XferSegment(flags=flags, id=2) / bundle2
+xfer3 = TCPCL.XferSegment(flags=flags, id=3628) / bundle3
+ack0 = TCPCL.XferAck(flags=flags, id=0, length=167)
+ack1 = TCPCL.XferAck(flags=flags, id=1, length=167)
+ack2 = TCPCL.XferAck(flags=flags, id=2, length=167)
+ack3 = TCPCL.XferAck(flags=flags, id=3628, length=167)
+term0 = TCPCL.SessTerm()
+term1 = TCPCL.SessTerm(flags=TCPCL.SessTerm.Flag.REPLY)
+
+# Test that built TCPCL messages have the expected value
+# (including auto-computed fields, such as length fields).
+# They should be identical to the packets from the pcap.
+for pkt in pkts:
+    try:
+        msg = pkt[TCPCL.MsgHeader].payload
+        mtype = type(msg)
+        if mtype == TCPCL.SessInit:
+            TestTcpcl.check_pkt(msg, [init1, init2])
+        elif mtype == TCPCL.XferSegment:
+            TestTcpcl.check_pkt(msg, [xfer0, xfer1, xfer2, xfer3])
+        elif mtype == TCPCL.XferAck:
+            TestTcpcl.check_pkt(msg, [ack0, ack1, ack2, ack3])
+        elif mtype == TCPCL.SessTerm:
+            TestTcpcl.check_pkt(msg, [term0, term1])
+    except IndexError: # pkt contains no TCPCL msg
+        continue
+

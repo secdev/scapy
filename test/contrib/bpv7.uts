@@ -4,8 +4,8 @@
 
 = Test decode
 ~ dtn bpv7
-
 * dissecting valid bundle from string and checking all fields for accuracy
+
 import scapy.contrib.dtn.bpv7 as BPv7
 
 bs = '9f8907040282028202018202820101820100821b000000b4e6fc6dae001a000f4240440512dd21860a021002448218640044db675d49860101000258640000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044dd3243fcff'
@@ -48,8 +48,8 @@ assert block2.crc == b'\xdd\x32\x43\xfc', "Wrong crc in second canonical block"
 
 = Test decode invalid bundle
 ~ dtn bpv7
-
 * attempting to decode a bundle with two primary block elements (should fail to dissect)
+
 bs = '9f8907040282028202018202820403820105821b000000b700dfc451001a000f424044b3cf0f1d8907040282028202018202820403820105821b000000b700dfc451001a000f424044b3cf0f1dff'
 
 try:
@@ -60,8 +60,8 @@ except:
 
 = Test encode
 ~ dtn bpv7
+* building a bundle
 
-* building bundle
 block1 = BPv7.HopCountBlock(
     block_number=2,
     flags=BPv7.CanonicalBlock.CtrlFlags.DISCARD_IF_NOT_PROCESSED,
@@ -107,8 +107,8 @@ captured_bytes == bundle_bytes
 
 = Test blocks
 ~ dtn bpv7
-
 * testing a bundle with default block instances can be built without error
+
 bundle=BPv7.Bundle(canonical_blocks=[
     BPv7.PreviousNodeBlock(),
     BPv7.HopCountBlock(),
@@ -129,8 +129,8 @@ b is not None
 
 = Test bpsec bundle integrity block
 ~ dtn bpv7 bpsec
+* testing that a non-default BIB can be created
 
-* test that a non-default BIB can be created
 b = BPv7.BlockIntegrityBlock(
     block_number=3,
     flags=BPv7.CanonicalBlock.CtrlFlags.BLOCK_MUST_BE_REPLICATED,
@@ -155,8 +155,8 @@ b is not None
 
 = Test bpsec bundle confidentiality blocks
 ~ dtn bpv7 bpsec
-
 * testing confidentiality block
+
 f = open(scapy_path("test/pcaps/bpv7_bundle_with_con.pcap"), "rb")
 content = f.read()
 
