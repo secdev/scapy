@@ -668,6 +668,12 @@ class GRE(Packet):
             p = p[:4] + chb((c >> 8) & 0xff) + chb(c & 0xff) + p[6:]
         return p
 
+    def guess_payload_class(self, payload: bytes) -> Type[Packet]:
+        from scapy.contrib.ifa import IFA, IFAMdHdr
+        if isinstance(self.underlayer, IFA):
+            return IFAMdHdr
+        return Packet.guess_payload_class(self, payload)
+
 
 class GRE_PPTP(GRE):
 
