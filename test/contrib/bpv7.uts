@@ -1,0 +1,223 @@
+% Bundle Protocol version 7 tests
+
++ Simple BPv7 Tests
+
+= Test decode
+~ bpv7
+
+* dissecting valid bundle from string and checking all fields for accuracy
+import scapy.contrib.dtn.bpv7 as BPv7
+
+bs = '9f8907040282028202018202820101820100821b000000b4e6fc6dae001a000f4240440512dd21860a021002448218640044db675d49860101000258640000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044dd3243fcff'
+            
+bundle = BPv7.Bundle(bytearray.fromhex(bs))
+bundle
+
+assert bundle.primary_block.version == 7, "Wrong Bundle Protocol version"
+assert bundle.primary_block.flags == BPv7.PrimaryBlock.CtrlFlags.MUST_NOT_BE_FRAGMENTED, "Wrong flags in primary block"
+assert bundle.primary_block.crc_type == 2, "Wrong crc type in primary block"
+assert bundle.primary_block.dest.scheme_code == 2, "Wrong destination EID type"
+assert bundle.primary_block.dest.ssp.node_id == 2, "Wrong destination id"
+assert bundle.primary_block.dest.ssp.service_number == 1, "Wrong destination service number"
+assert bundle.primary_block.src.scheme_code == 2, "Wrong source EID type"
+assert bundle.primary_block.src.ssp.node_id == 1, "Wrong source id"
+assert bundle.primary_block.src.ssp.service_number == 1, "Wrong source service number"
+assert bundle.primary_block.report.scheme_code == 1, "Wrong report-to EID type"
+assert bundle.primary_block.report.ssp.uri == 0, "Wrong report-to id"
+assert bundle.primary_block.creation_timestamp.t == 776969416110, "Wrong timestamp"
+assert bundle.primary_block.creation_timestamp.seq == 0, "Wrong seq"
+assert bundle.primary_block.lifetime == 1000000, "Wrong lifetime"
+assert bundle.primary_block.crc == b'\x05\x12\xdd\x21', "Wrong crc in primary block"
+
+assert len(bundle.canonical_blocks) == 2, "Wrong number of canonical blocks"
+block1 = bundle.canonical_blocks[0]
+assert block1.type_code == 10, "Expected type hop_count in first block"
+assert block1.block_number == 2, "Wrong block number in first canonical block"
+assert block1.flags == BPv7.CanonicalBlock.CtrlFlags.DISCARD_IF_NOT_PROCESSED, "Wrong flags in first canonical block"
+assert block1.crc_type == 2, "Wrong crc type in first canonical block"
+assert block1.data == BPv7.HopCount(limit=100, count=0), "Expected cbor [0x18, 0x00] as hop count data" 
+assert block1.crc == b'\xdb\x67\x5d\x49', "Wrong crc in first canonical block"
+
+block2 = bundle.canonical_blocks[1]
+assert block2.type_code == 1, "Expected type payload in second block"
+assert block2.block_number == 1, "Wrong block number in second canonical block"
+assert block2.flags == 0, "Wrong flags in second canonical block"
+assert block2.crc_type == 2, "Wrong crc type in second canonical block"
+assert block2.data == b'\x00' * 100, "Expected 100 bytes of zero as bundle payload"
+assert block2.crc == b'\xdd\x32\x43\xfc', "Wrong crc in second canonical block"
+
+= Test decode invalid bundle
+~ bpv7
+
+* attempting to decode a bundle with two primary block elements (should fail to dissect)
+bs = '9f8907040282028202018202820403820105821b000000b700dfc451001a000f424044b3cf0f1d8907040282028202018202820403820105821b000000b700dfc451001a000f424044b3cf0f1dff'
+
+try:
+    BPv7.Bundle(bytearray.fromhex(bs))
+    assert False
+except:
+    assert True
+
+= Test encode
+~ bpv7
+
+* building bundle
+block1 = BPv7.HopCountBlock(
+    block_number=2,
+    flags=BPv7.CanonicalBlock.CtrlFlags.DISCARD_IF_NOT_PROCESSED,
+    crc_type=2,
+    data=BPv7.HopCount(limit=100, count=0)
+    # crc=b'\xdb\x67\x5d\x49'
+)
+block2 = BPv7.PayloadBlock(
+    block_number=1,
+    flags=0,
+    crc_type=2,
+    data=b'\x00'*100
+    # crc=b'\xdd\x32\x43\xfc'
+)
+canonical_blocks=[block1, block2]
+destination=BPv7.IPN(node_id=2, service_number=1)
+source=BPv7.IPN(node_id=1, service_number=1)
+report_to=BPv7.DTN(uri=0)
+creation_time=BPv7.Timestamp(t=776969416110, seq=0)
+primary_block = BPv7.PrimaryBlock(
+        version=7,
+        flags=BPv7.PrimaryBlock.CtrlFlags.MUST_NOT_BE_FRAGMENTED,
+        crc_type=2,
+        dest=BPv7.EndpointID(scheme_code=2, ssp=destination),
+        src=BPv7.EndpointID(scheme_code=2, ssp=source),
+        report=BPv7.EndpointID(scheme_code=1, ssp=report_to),
+        creation_timestamp=creation_time,
+        lifetime=1000000,
+        # crc=b'\x05\x12\xdd\x21',
+)
+bundle = BPv7.Bundle(
+    primary_block = primary_block,
+    canonical_blocks=canonical_blocks
+)
+
+bundle
+
+bs = '9f8907040282028202018202820101820100821b000000b4e6fc6dae001a000f4240440512dd21860a021002448218640044db675d49860101000258640000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044dd3243fcff'
+
+captured_bytes = bytearray.fromhex(bs)
+bundle_bytes = bytearray(raw(bundle))
+captured_bytes == bundle_bytes
+
+= Test blocks
+~ bpv7
+
+* testing a bundle with default block instances can be built without error
+bundle=BPv7.Bundle(canonical_blocks=[
+    BPv7.PreviousNodeBlock(),
+    BPv7.HopCountBlock(),
+    BPv7.BundleAgeBlock(),
+    BPv7.BlockIntegrityBlock(),
+    BPv7.BlockConfidentialityBlock(),
+    BPv7.EncryptedHopCountBlock(),
+    BPv7.EncryptedPreviousNodeBlock(),
+    BPv7.EncryptedBundleAgeBlock(),
+    BPv7.EncryptedBlockIntegrityBlock(),
+    BPv7.PayloadBlock(),
+])
+b = bundle.build()
+b
+b is not None
+
++ BPv7 with BPSec tests
+
+= Test bpsec bundle integrity block
+~ bpv7 bpsec debug
+
+* test that a non-default BIB can be created
+b = BPv7.BlockIntegrityBlock(
+    block_number=3,
+    flags=BPv7.CanonicalBlock.CtrlFlags.BLOCK_MUST_BE_REPLICATED,
+    crc_type=BPv7.CrcTypes.NONE,
+    data=BPv7.AbstractSecurityBlock(
+        security_targets=BPv7.SecurityTargets(targets=[1,2,3]),
+        security_context_id=2,
+        security_context_flags=1,
+        security_source=BPv7.EndpointID(scheme_code=2, ssp=BPv7.IPN(node_id=1, service_number=1)),
+        security_context_parameters=BPv7.CBORTupleArray(tuples=[
+            BPv7.CBORTuple(id=1,value=bytes.fromhex('136B229B84CA0200243B0000')),
+            BPv7.CBORTuple(id=2,value=3),
+            BPv7.CBORTuple(id=4,value=7)
+        ]),
+        security_results=BPv7.SecurityResults(results=BPv7.CBORTupleArray(tuples=[
+            BPv7.CBORTuple(id=1,value=bytes.fromhex('CA492BCE6F1B4C7AF3995A985432409F'))
+        ]))
+    )
+).build()
+b
+b is not None
+
+= Test bpsec bundle confidentiality
+~ bpv7 bpsec debug
+
+* testing confidentiality block
+f = open(scapy_path("test/pcaps/bpv7_bundle_with_con.pcap"), "rb")
+content = f.read()
+
+raw_bundle = content[22:]
+
+my_bundle = BPv7.Bundle(
+    primary_block=BPv7.PrimaryBlock(
+        version=7,
+        flags=BPv7.PrimaryBlock.CtrlFlags.MUST_NOT_BE_FRAGMENTED,
+        crc_type=BPv7.CrcTypes.CRC32C,
+        dest=BPv7.EndpointID(scheme_code=2, ssp=BPv7.IPN(node_id=2, service_number=1)),
+        src=BPv7.EndpointID(scheme_code=2, ssp=BPv7.IPN(node_id=1, service_number=1)),
+        report=BPv7.EndpointID(scheme_code=1, ssp=BPv7.DTN(uri=0)),
+        creation_timestamp=BPv7.Timestamp(t=785620852727, seq=0),
+        lifetime=1000000,
+        # crc=b'\xEFA\xC0e'
+    ),
+    canonical_blocks=[
+        BPv7.PreviousNodeBlock(
+            block_number=4,
+            flags=16,
+            crc_type=BPv7.CrcTypes.CRC32C,
+            data=BPv7.EndpointID(scheme_code=2, ssp=BPv7.IPN(node_id=10, service_number=0)),
+            # crc=b'\xED6\x9A\xB2'
+        ),
+        BPv7.BlockConfidentialityBlock(
+            block_number=3,
+            flags=BPv7.CanonicalBlock.CtrlFlags.BLOCK_MUST_BE_REPLICATED,
+            crc_type=BPv7.CrcTypes.NONE,
+            data=BPv7.AbstractSecurityBlock(
+                security_targets=BPv7.SecurityTargets(targets=[1]),
+                security_context_id=2,
+                security_context_flags=1,
+                security_source=BPv7.EndpointID(scheme_code=2, ssp=BPv7.IPN(node_id=1, service_number=1)),
+                security_context_parameters=BPv7.CBORTupleArray(tuples=[
+                    BPv7.CBORTuple(id=1,value=bytes.fromhex('136B229B84CA0200243B0000')),
+                    BPv7.CBORTuple(id=2,value=3),
+                    BPv7.CBORTuple(id=4,value=7)
+                ]),
+                security_results=BPv7.SecurityResults(results=BPv7.CBORTupleArray(tuples=[
+                    BPv7.CBORTuple(id=1,value=bytes.fromhex('CA492BCE6F1B4C7AF3995A985432409F'))
+                ]))
+            )
+        ),
+        BPv7.HopCountBlock(
+            block_number=2,
+            flags=BPv7.CanonicalBlock.CtrlFlags.DISCARD_IF_NOT_PROCESSED,
+            crc_type=BPv7.CrcTypes.CRC32C,
+            data=BPv7.HopCount(limit=100, count=1),
+            # crc=b'\x34\x57\x36\x50'
+        ),
+        BPv7.PayloadBlock(
+            block_number=1,
+            flags=0,
+            crc_type=BPv7.CrcTypes.CRC32C,
+            data=bytes.fromhex("7E4B954DCCEA632B68C0732AE92B067895CAA6676D9556D0F1B28BBDA03DB2B9FB3F4C85EECBB3C00B8104968511F80EEC12FB993ADA63D79AFE368D0780A53713AC50E889303D7B8739CA306DD62AD8533DDCDCFD73BBE1D49CDA182CAB3CB17058DDD0"),
+            # crc=b'\x5\x84\xB5\xF4B'
+        )
+
+    ]
+)
+
+my_bundle
+raw(my_bundle) == raw_bundle
