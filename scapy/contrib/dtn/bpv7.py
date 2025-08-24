@@ -111,7 +111,7 @@ class IPN(CBORArray):
         return self
 
     def __str__(self):
-        return f"ipn:{self.node_id}.{self.service_number}"
+        return f"ipn:{self.node_id}.{self.service_number}"  # noqa: E231
 
     def __eq__(self, other):
         if isinstance(other, IPN):
