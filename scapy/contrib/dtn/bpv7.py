@@ -442,11 +442,11 @@ class EncryptedPreviousNodeBlock(PreviousNodeBlock):
     fields_template = Common.template_replace(
         PreviousNodeBlock.fields_template,
         {
-            # The data field defintion from the parent class cannot be used here.
+            # The data field definition from the parent class cannot be used here.
             # That data is now encrypted and cannot be decrypted to its original bytes
             # (within the scope of this module), so the Packet that it represents
             # cannot be dissected.
-            # Instead, the data field defintion from CanonicalBlock is used.
+            # Instead, the data field definition from CanonicalBlock is used.
             "data": CBORByteString("data", b"\xde\xad\xbe\xef")
         },
     )

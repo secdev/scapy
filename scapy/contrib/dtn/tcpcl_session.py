@@ -19,7 +19,7 @@ class Session:
     TCPCL messages are conventionally, but not necessarily, sent on port 4556.
     Since this cannot be relied upon, especially on a localhost session, the best
     way to bind TCP packets to TCPCL message is to track the state of a TCPCL session.
-    Once Contact Headers are successfuly exchanged, TCP packets can be assumed to
+    Once Contact Headers are successfully exchanged, TCP packets can be assumed to
     carry payloads of TCPCL messages until the session ends.
     """
 
@@ -112,7 +112,7 @@ class TestTcpcl:
                     # process ContactHeader
                     if (
                         sess.contact_init
-                    ):  # session aready initialized, Header is an ack
+                    ):  # session already initialized, Header is an ack
                         sess.proc_ack()
                         print("BEGIN TCPCL SESSION")
                     else:
