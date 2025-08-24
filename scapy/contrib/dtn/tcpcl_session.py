@@ -5,7 +5,9 @@
 # scapy.contrib.description = TCP Convergence Layer version 4 (TCPCLv4)
 # scapy.contrib.status = loads
 
-# These classes support unit testing of the TCPCL scapy layer (scapy.contrib.dtn.tcpcl) and illustrate how the protocol messages may be used to emulate a TCPCL session.
+# These classes support unit testing of the TCPCL scapy layer
+# (scapy.contrib.dtn.tcpcl) and illustrate how the protocol messages may
+# be used to emulate a TCPCL session.
 
 from scapy.all import Raw, raw, TCP, Packet, bind_layers, split_layers
 import scapy.contrib.dtn.tcpcl as TCPCL
@@ -14,7 +16,11 @@ from typing import List
 
 class Session:
     """
-    TCPCL messages are conventionally, but not necessarily, sent on port 4556. Since this cannot be relied upon, especially on a localhost session, the best way to bind TCP packets to TCPCL message is to track the state of a TCPCL session. Once Contact Headers are successfuly exchanged, TCP packets can be assumed to carry payloads of TCPCL messages until the session ends.
+    TCPCL messages are conventionally, but not necessarily, sent on port 4556.
+    Since this cannot be relied upon, especially on a localhost session, the best
+    way to bind TCP packets to TCPCL message is to track the state of a TCPCL session.
+    Once Contact Headers are successfuly exchanged, TCP packets can be assumed to
+    carry payloads of TCPCL messages until the session ends.
     """
 
     def __init__(self):
@@ -76,7 +82,8 @@ class TestTcpcl:
 
     @staticmethod
     def check_pkt(pkt: Packet, options: List[Packet]):
-        """Asserts that pkt is equal to one of the packets in options (according to the raw representation)"""
+        """Asserts that pkt is equal to one of the packets in options
+        (according to the raw representation)"""
         for opt in options:
             assert raw(pkt) in list(
                 map(raw, options)

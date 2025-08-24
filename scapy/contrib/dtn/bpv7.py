@@ -360,12 +360,13 @@ class CanonicalBlock(CBORArray):
 
     def post_dissect(self, s):
         """
-        Because some block elements--such as CRCs and CBOR array headers--are added to the
-        raw representation via overriding the post_build method (and correspondingly removed
-        during pre_dissect), the raw packet cache must be cleared. Otherwise, some important
-        methods will be broken for Blocks built from sniffed packets; for example,
-        `raw(Bundle(raw_bytes_received_from_socket))` will not produce valid bundle bytes.
-        See the comment linked below and the subsequent comment with a solution copied here.
+        Because some block elements--such as CRCs and CBOR array headers--are added to
+        the raw representation via overriding the post_build method (and correspondingly
+        removed during pre_dissect), the raw packet cache must be cleared. Otherwise,
+        some important methods will be broken for Blocks built from sniffed packets;
+        for example, `raw(Bundle(raw_bytes_received_from_socket))` will not produce
+        valid bundle bytes. See the comment linked below and the subsequent comment
+        with a solution copied here.
 
         https://github.com/secdev/scapy/issues/1021#issuecomment-704472941
         """
@@ -441,9 +442,10 @@ class EncryptedPreviousNodeBlock(PreviousNodeBlock):
     fields_template = Common.template_replace(
         PreviousNodeBlock.fields_template,
         {
-            # The data field defintion from the parent class cannot be used here. That data
-            # is now encrypted and cannot be decrypted to its original bytes (within the
-            # scope of this module), so the Packet that it represents cannot be dissected.
+            # The data field defintion from the parent class cannot be used here.
+            # That data is now encrypted and cannot be decrypted to its original bytes
+            # (within the scope of this module), so the Packet that it represents
+            # cannot be dissected.
             # Instead, the data field defintion from CanonicalBlock is used.
             "data": CBORByteString("data", b"\xde\xad\xbe\xef")
         },
@@ -617,7 +619,8 @@ class UnassignedExtensionBlock(CanonicalBlock):
 
 
 class EncryptedUnassignedExtensionBlock(CanonicalBlock):
-    """An extension block with an unassigned type code < 192. The data field is encrypted."""
+    """An extension block with an unassigned type code < 192.
+    The data field is encrypted."""
 
     encrypted = True
 
@@ -801,8 +804,9 @@ class Bundle(CBORArray):
         self, block_type, excluded_block_nums: List[int] = None
     ) -> CanonicalBlock:
         """
-        Find the first canonical block matching the specified type, with a block number not
-        in the excluded list."""
+        Find the first canonical block matching the specified type,
+        with a block number not in the excluded list.
+        """
         if excluded_block_nums is None:
             excluded_block_nums = []
         try:
@@ -865,7 +869,7 @@ class Bundle(CBORArray):
         block_num_to_insert_above=1,
         select_block_number=False,
     ) -> CanonicalBlock:
-        """Insert an extension block just before the block with the specified block number."""
+        """Insert an extension block before the block with specified block number."""
         if select_block_number:
             block.block_number = self.get_new_block_number()
 

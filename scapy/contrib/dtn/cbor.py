@@ -32,11 +32,12 @@ MajorTypes = {
 
 
 class MajorTypeException(Exception):
-    """This exception indicates that a CBOR object has an unexpected value for its Major Type.
+    """This exception indicates that a CBOR object has an unexpected
+    value for its Major Type.
 
     Attributes:
         actual -- the integer value of the actual Major Type
-        expected -- an integer or list of integers indicating the acceptable Major Type values
+        expected -- an integer or list indicating the acceptable Major Type values
     """
 
     def __init__(self, actual: int, expected: Union[int, List[int]]):
@@ -61,7 +62,8 @@ class StopCodeException(Exception):
 
 
 class AdditionalInfoException(Exception):
-    """This exception indicates that a CBOR object has an unexpected value for its Additional Info."""
+    """This exception indicates that a CBOR object has an unexpected value for
+    its Additional Info."""
 
     def __init__(self):
         super().__init__("[Error] Invalid additional info.")
@@ -74,9 +76,9 @@ class UnhandledTypeException(Exception):
 
 # CBOR definitions
 class CBORNull(Field):
-    """This class exists so that it can be used in a MultipleTypeField containing CBOR values.
-    Every option given to a MultipleTypeField must be a field with at least a name.
-    Thus, if one of the MultipleType options should be that no field whatsoever is present,
+    """This class exists so that it can be used in a MultipleTypeField containing CBOR
+    values. Every option given to a MultipleTypeField must be a field with at least a
+    name. Thus, if one of the MultipleType options should be that no field is present,
     you need a field that produces no bytes when added to the packet.
     CBORNull can serve this purpose."""
 
@@ -238,7 +240,8 @@ class CBORArray(Packet):
         return len(self.default_fields) - head_field_count
 
     def set_additional_fields(self, pkt: Packet) -> bytes:
-        """For an, the add field is set to the number of elements minus the two head fields."""
+        """For an array, the add field is set to the number of elements minus
+        the two head fields."""
         # pylint: disable=W0201
         # field (instance variable) initialization is handled via "fields_desc"
         self.add = self.count_additional_fields()

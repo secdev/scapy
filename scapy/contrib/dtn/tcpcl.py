@@ -89,7 +89,7 @@ class MsgHeader(Packet):
 
 class Ext(FieldPacket):
     """
-    Class definition for an Extension Item in the format of a Type-Length-Value container.
+    Definition for an Extension Item in the format of a Type-Length-Value container.
     """
 
     class Flag(IntEnum):
@@ -215,7 +215,8 @@ class XferSegment(Xfer):
         return pkt + pay
 
     def post_dissect(self, s):
-        "An XferSegment message should have a Bundle as payload. If it has raw bytes instead, raise an error."
+        """An XferSegment message should have a Bundle as payload.
+        If it has raw bytes instead, raise an error."""
         try:
             if self[Raw].load is not None:
                 raise InvalidPayloadError(self[Raw].load)
@@ -279,7 +280,7 @@ class SessTerm(ControlPacket):
                 ReasonCode.TIMEOUT: "idle timeout",
                 ReasonCode.MISMATCH: "version mismatch",
                 ReasonCode.BUSY: "entity busy",
-                ReasonCode.CONTACT_FAIL: "failed to process contact header or sess init",
+                ReasonCode.CONTACT_FAIL: "failed to process contact header or sess init",  # noqa: E501
                 ReasonCode.NO_RESOURCES: "entity resource exhaustion",
             },
         ),
@@ -287,8 +288,8 @@ class SessTerm(ControlPacket):
 
 
 # Bind all TCPCL message headers to TCPCL messages.
-# This way, if `some_bytes` consists of the raw representation of a TCPCL message,
-# you can evaluate e.g. `x=MsgHeader(some_bytes)` and `x` will be a Packet consisting of a TCPCL
+# This way, if `some_bytes` consists of a raw TCPCL message, you can evaluate
+# e.g. `x=MsgHeader(some_bytes)` and `x` will be a Packet consisting of a TCPCL
 # MsgHeader with the correct type code plus a payload of the correct TCPCL message type.
 bind_layers(MsgHeader, SessInit, type=MsgHeader.MsgType.SESS_INIT)
 bind_layers(MsgHeader, Keepalive, type=MsgHeader.MsgType.KEEPALIVE)

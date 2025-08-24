@@ -31,8 +31,9 @@ class ControlPacket(NoPayloadPacket):
 
 class FieldPacket(NoPayloadPacket):
     """A packet intended for use as a field (i.e. PacketField or PacketListField)
-    in another Packet, rather than one sent or received on the wire. Useful when you need
-    heterogeneous, compound data similar to a record/struct within another Packet."""
+    in another Packet, rather than one sent or received on the wire. Useful when you
+    need heterogeneous, compound data similar to a record/struct within
+    another Packet."""
 
 
 FieldsTemplate = Dict[str, Field]
