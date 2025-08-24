@@ -6,10 +6,10 @@
 # scapy.contrib.status = loads
 
 """
-    TCP Convergence Layer version 4 (TCPCLv4) layer
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+TCP Convergence Layer version 4 (TCPCLv4) layer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    :author:    Timothy Recker, timothy.recker@nasa.gov
+:author:    Timothy Recker, timothy.recker@nasa.gov
 """
 
 from scapy.packet import Packet, Raw, bind_layers
@@ -21,7 +21,7 @@ from scapy.fields import (
     ConditionalField,
     PacketListField,
     StrLenField,
-    FieldLenField
+    FieldLenField,
 )
 
 import struct
@@ -35,12 +35,15 @@ class MagicValueError(Exception):
     """
     Exception raised when a ContactHeader is dissected and the magic value is incorrect.
     """
+
     def __init__(self, value):
-        super().__init__(f"Tried to decode ContactHeader with invalid magic value of {value}")
+        super().__init__(
+            f"Tried to decode ContactHeader with invalid magic value of {value}"
+        )
 
 
 class ContactHeader(ControlPacket):
-    MAGIC_VALUE = 0x64746e21
+    MAGIC_VALUE = 0x64746E21
 
     class Flag(IntEnum):
         CAN_TLS = 0x01
@@ -48,7 +51,7 @@ class ContactHeader(ControlPacket):
     fields_desc = [
         BitField("magic", MAGIC_VALUE, 32),
         BitField("version", 4, 8),
-        XByteEnumField("flags", 0, {Flag.CAN_TLS: "can tls"})
+        XByteEnumField("flags", 0, {Flag.CAN_TLS: "can tls"}),
     ]
 
     def post_dissect(self, s):
@@ -68,15 +71,19 @@ class MsgHeader(Packet):
         MSG_REJECT = 0x06
 
     fields_desc = [
-        XByteEnumField("type", MsgType.XFER_SEGMENT, {
-            MsgType.SESS_INIT: "sess_init",
-            MsgType.SESS_TERM: "sess_term",
-            MsgType.XFER_SEGMENT: "xfer_segment",
-            MsgType.XFER_ACK: "xfer_ack",
-            MsgType.XFER_REFUSE: "xfer_refuse",
-            MsgType.KEEPALIVE: "keepalive",
-            MsgType.MSG_REJECT: "msg_reject"
-        })
+        XByteEnumField(
+            "type",
+            MsgType.XFER_SEGMENT,
+            {
+                MsgType.SESS_INIT: "sess_init",
+                MsgType.SESS_TERM: "sess_term",
+                MsgType.XFER_SEGMENT: "xfer_segment",
+                MsgType.XFER_ACK: "xfer_ack",
+                MsgType.XFER_REFUSE: "xfer_refuse",
+                MsgType.KEEPALIVE: "keepalive",
+                MsgType.MSG_REJECT: "msg_reject",
+            },
+        )
     ]
 
 
@@ -84,6 +91,7 @@ class Ext(FieldPacket):
     """
     Class definition for an Extension Item in the format of a Type-Length-Value container.
     """
+
     class Flag(IntEnum):
         CRITICAL = 0x01
 
@@ -94,7 +102,7 @@ class Ext(FieldPacket):
         XByteEnumField("flags", 0, {Flag.CRITICAL: "critical"}),
         BitField("type", 0, 16),
         BitFieldLenField("length", default=0, size=16, length_of="data"),
-        StrLenField("data", 0, length_from=lambda pkt: pkt.length)
+        StrLenField("data", 0, length_from=lambda pkt: pkt.length),
     ]
 
 
@@ -103,15 +111,19 @@ class SessInit(ControlPacket):
         BitField("keepalive", 0, 16),
         BitField("segment_mru", 0, 64),
         BitField("transfer_mru", 0, 64),
-        FieldLenField("id_length", None, length_of="id", fmt="H"),  # Node ID Length (U16)
-        StrLenField("id", b"", length_from=lambda pkt: pkt.id_length),  # Node ID Data (variable)
+        FieldLenField(
+            "id_length", None, length_of="id", fmt="H"
+        ),  # Node ID Length (U16)
+        StrLenField(
+            "id", b"", length_from=lambda pkt: pkt.id_length
+        ),  # Node ID Data (variable)
         BitFieldLenField("ext_length", 0, 32, length_of="ext_items"),
         ConditionalField(
-            PacketListField("ext_items",
-                            [],
-                            Ext,
-                            length_from=lambda pkt: pkt.ext_length),
-            lambda pkt: pkt.ext_length > 0)
+            PacketListField(
+                "ext_items", [], Ext, length_from=lambda pkt: pkt.ext_length
+            ),
+            lambda pkt: pkt.ext_length > 0,
+        ),
     ]
 
 
@@ -128,12 +140,16 @@ class MsgReject(ControlPacket):
         UNEXPECTED = 0x03
 
     fields_desc = [
-        XByteEnumField("reason", ReasonCode.UNSUPPORTED, {
-            ReasonCode.UNKNOWN: "message type unknown",
-            ReasonCode.UNSUPPORTED: "message unsupported",
-            ReasonCode.UNEXPECTED: "message unexpected"
-        }),
-        PacketField("header", MsgHeader(), MsgHeader)
+        XByteEnumField(
+            "reason",
+            ReasonCode.UNSUPPORTED,
+            {
+                ReasonCode.UNKNOWN: "message type unknown",
+                ReasonCode.UNSUPPORTED: "message unsupported",
+                ReasonCode.UNEXPECTED: "message unexpected",
+            },
+        ),
+        PacketField("header", MsgHeader(), MsgHeader),
     ]
 
 
@@ -141,17 +157,18 @@ class Xfer(Packet):
     """
     Abstract class containing fields and flags common to Xfer messages
     """
+
     class Flag(IntEnum):
         END = 0x01
         START = 0x02
 
     fields_desc = [
-        XByteEnumField("flags", 0, {
-            Flag.END: "END",
-            Flag.START: "START",
-            Flag.START | Flag.END: "START|END"
-        }),
-        BitField("id", 0, 64)
+        XByteEnumField(
+            "flags",
+            0,
+            {Flag.END: "END", Flag.START: "START", Flag.START | Flag.END: "START|END"},
+        ),
+        BitField("id", 0, 64),
     ]
 
 
@@ -160,25 +177,33 @@ class InvalidPayloadError(Exception):
     This error indicates that an XferSegment contains raw bytes instead of
     a properly formatted Bundle as its payload.
     """
+
     def __init__(self, payload_bytes):
-        super().__init__(f"Failed to fully parse Bundle from Xfer payload: bundle={payload_bytes}")
+        super().__init__(
+            f"Failed to fully parse Bundle from Xfer payload: bundle={payload_bytes}"
+        )
 
 
 class XferSegment(Xfer):
     """
     Packet for transferring a data segment
     """
+
     fields_desc = Xfer.fields_desc + [
         ConditionalField(
             BitFieldLenField("ext_length", default=0, size=32, length_of="ext_items"),
-            lambda pkt: pkt.flags & Xfer.Flag.START),
+            lambda pkt: pkt.flags & Xfer.Flag.START,
+        ),
         ConditionalField(
-            PacketListField("ext_items",
-                            [Ext(type=Ext.Type.LENGTH)],
-                            Ext,
-                            length_from=lambda pkt: pkt.ext_length),
-            lambda pkt: (pkt.flags & Xfer.Flag.START) and (pkt.ext_length > 0)),
-        BitField("length", default=0, size=64)
+            PacketListField(
+                "ext_items",
+                [Ext(type=Ext.Type.LENGTH)],
+                Ext,
+                length_from=lambda pkt: pkt.ext_length,
+            ),
+            lambda pkt: (pkt.flags & Xfer.Flag.START) and (pkt.ext_length > 0),
+        ),
+        BitField("length", default=0, size=64),
     ]
 
     def post_build(self, pkt, pay):
@@ -186,7 +211,7 @@ class XferSegment(Xfer):
         if not self.length:
             index = len(pkt) - 8  # size of length is 8 bytes, thus position=len(pkt)-8
             length = len(pay)
-            pkt = pkt[:index] + struct.pack('!Q', length)
+            pkt = pkt[:index] + struct.pack("!Q", length)
         return pkt + pay
 
     def post_dissect(self, s):
@@ -201,9 +226,7 @@ class XferSegment(Xfer):
 
 
 class XferAck(ControlPacket):
-    fields_desc = Xfer.fields_desc + [
-        BitField("length", default=0, size=64)
-    ]
+    fields_desc = Xfer.fields_desc + [BitField("length", default=0, size=64)]
 
 
 class XferRefuse(ControlPacket):
@@ -217,16 +240,20 @@ class XferRefuse(ControlPacket):
         SESS_TERM = 0x06
 
     fields_desc = [
-        XByteEnumField("reason", ReasonCode.UNKNOWN, {
-            ReasonCode.UNKNOWN: "unknown",
-            ReasonCode.COMPLETED: "complete bundle received",
-            ReasonCode.NO_RESOURCES: "resources exhausted",
-            ReasonCode.RETRANSMIT: "retransmit bundle",
-            ReasonCode.NOT_ACCEPTABLE: "bundle not acceptable",
-            ReasonCode.EXT_FAIL: "failed to process extensions",
-            ReasonCode.SESS_TERM: "session is terminating"
-        }),
-        BitField("id", 0, 64)
+        XByteEnumField(
+            "reason",
+            ReasonCode.UNKNOWN,
+            {
+                ReasonCode.UNKNOWN: "unknown",
+                ReasonCode.COMPLETED: "complete bundle received",
+                ReasonCode.NO_RESOURCES: "resources exhausted",
+                ReasonCode.RETRANSMIT: "retransmit bundle",
+                ReasonCode.NOT_ACCEPTABLE: "bundle not acceptable",
+                ReasonCode.EXT_FAIL: "failed to process extensions",
+                ReasonCode.SESS_TERM: "session is terminating",
+            },
+        ),
+        BitField("id", 0, 64),
     ]
 
 
@@ -244,15 +271,18 @@ class SessTerm(ControlPacket):
 
     fields_desc = [
         XByteEnumField("flags", 0, {Flag.REPLY: "reply"}),
-        XByteEnumField("reason", ReasonCode.UNKNOWN, {
-            ReasonCode.UNKNOWN: "unknown",
-            ReasonCode.TIMEOUT: "idle timeout",
-            ReasonCode.MISMATCH: "version mismatch",
-            ReasonCode.BUSY: "entity busy",
-            ReasonCode.CONTACT_FAIL: "failed to process contact header or sess init",
-            ReasonCode.NO_RESOURCES: "entity resource exhaustion"
-        }),
-
+        XByteEnumField(
+            "reason",
+            ReasonCode.UNKNOWN,
+            {
+                ReasonCode.UNKNOWN: "unknown",
+                ReasonCode.TIMEOUT: "idle timeout",
+                ReasonCode.MISMATCH: "version mismatch",
+                ReasonCode.BUSY: "entity busy",
+                ReasonCode.CONTACT_FAIL: "failed to process contact header or sess init",
+                ReasonCode.NO_RESOURCES: "entity resource exhaustion",
+            },
+        ),
     ]
 
 

@@ -6,11 +6,11 @@
 # scapy.contrib.status = loads
 
 """
-    Bundle Protocol version 7 (BPv7) layer
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Bundle Protocol version 7 (BPv7) layer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    :authors:    Timothy Recker, timothy.recker@nasa.gov
-                 Tad Kollar, tad.kollar@nasa.gov
+:authors:    Timothy Recker, timothy.recker@nasa.gov
+             Tad Kollar, tad.kollar@nasa.gov
 """
 
 from scapy.packet import Packet
@@ -22,7 +22,7 @@ from scapy.fields import (
     ConditionalField,
     FieldListField,
     BitField,
-    BitFieldLenField
+    BitFieldLenField,
 )
 from scapy.all import raw
 from scapy.contrib.dtn.cbor import (
@@ -34,7 +34,7 @@ from scapy.contrib.dtn.cbor import (
     CBORStopCode,
     CBORAny,
     CBORPacketField,
-    CBORPacketFieldWithRemain
+    CBORPacketFieldWithRemain,
 )
 import scapy.contrib.dtn.common as Common
 
@@ -53,18 +53,21 @@ class InvalidCRCType(Exception):
     Attributes:
         type_code: the invalid type code
     """
+
     def __init__(self, type_code):
-        super().__init__(f'Tried to compute a CRC using an invalid type code: {type_code}')
+        super().__init__(
+            f"Tried to compute a CRC using an invalid type code: {type_code}"
+        )
 
 
 def compute_crc(crc_type: int, pkt: bytes, ignore_existing: bool = True):
     # prepare parameters
-    if (crc_type == CrcTypes.CRC32C):
+    if crc_type == CrcTypes.CRC32C:
         size = 4
-        crcfun = crcmod.predefined.mkCrcFun('crc-32c')
-    elif (crc_type == CrcTypes.CRC16):
+        crcfun = crcmod.predefined.mkCrcFun("crc-32c")
+    elif crc_type == CrcTypes.CRC16:
         size = 2
-        crcfun = crcmod.predefined.mkCrcFun('x-25')
+        crcfun = crcmod.predefined.mkCrcFun("x-25")
     else:
         raise InvalidCRCType(crc_type)
 
@@ -72,9 +75,9 @@ def compute_crc(crc_type: int, pkt: bytes, ignore_existing: bool = True):
 
     # Wipe anything in existing crc field
     if ignore_existing:
-        pkt = pkt[:crc_index] + b'\x00' * size
+        pkt = pkt[:crc_index] + b"\x00" * size
 
-    return crcfun(pkt).to_bytes(size, 'big'), crc_index
+    return crcfun(pkt).to_bytes(size, "big"), crc_index
 
 
 class PacketFieldWithRemain(PacketField):
@@ -82,6 +85,7 @@ class PacketFieldWithRemain(PacketField):
     The regular Packet.getfield() never returns the remaining bytes, so the CRC or
     other following fields get lost. This getfield does return the remaining bytes.
     """
+
     def getfield(self, pkt: Packet, s: bytes) -> Tuple[bytes, Packet]:
         i = self.m2i(pkt, s)
         remain_size = len(s) - len(raw(i))
@@ -111,7 +115,9 @@ class IPN(CBORArray):
 
     def __eq__(self, other):
         if isinstance(other, IPN):
-            return (self.node_id == other.node_id) and (self.service_number == other.service_number)
+            return (self.node_id == other.node_id) and (
+                self.service_number == other.service_number
+            )
         return False
 
 
@@ -134,15 +140,21 @@ class EndpointID(CBORArray):
         CBORInteger("scheme_code", 2),
         MultipleTypeField(
             [
-                (PacketFieldWithRemain("ssp", DTN(), DTN), lambda pkt: pkt.scheme_code == 1),
-                (PacketFieldWithRemain("ssp", IPN(), IPN), lambda pkt: pkt.scheme_code == 2)
+                (
+                    PacketFieldWithRemain("ssp", DTN(), DTN),
+                    lambda pkt: pkt.scheme_code == 1,
+                ),
+                (
+                    PacketFieldWithRemain("ssp", IPN(), IPN),
+                    lambda pkt: pkt.scheme_code == 2,
+                ),
             ],
-            PacketFieldWithRemain("ssp", IPN(), IPN)
-        )
+            PacketFieldWithRemain("ssp", IPN(), IPN),
+        ),
     ]
 
     def dissect(self, s: bytes):
-        """ This dissect doesn't process the payload, because there is none. """
+        """This dissect doesn't process the payload, because there is none."""
         s = self.pre_dissect(s)
         s = self.do_dissect(s)
         s = self.post_dissect(s)
@@ -156,10 +168,7 @@ class EndpointID(CBORArray):
 # pylint: disable=R0903
 # Packet types are not intended to have many(any) public functions
 class Timestamp(CBORArray):
-    fields_desc = CBORArray.fields_desc + [
-        CBORInteger("t", 0),
-        CBORInteger("seq", 0)
-    ]
+    fields_desc = CBORArray.fields_desc + [CBORInteger("t", 0), CBORInteger("seq", 0)]
 
     def __ge__(self, other):
         if isinstance(other, Timestamp):
@@ -176,6 +185,7 @@ class BlockTypes:
     """
     Bundle block type codes
     """
+
     PRIMARY = 0
     PAYLOAD = 1
     AUTHENTICATION = 2
@@ -193,6 +203,7 @@ class CrcTypes:
     """
     Bundle CRC type codes
     """
+
     NONE = 0
     CRC16 = 1
     CRC32C = 2
@@ -204,7 +215,9 @@ class SecurityTargets(CBORArray):
     fields_desc = [
         CBORArray._major_type,
         BitFieldLenField("add", 0, 5, count_of="targets"),
-        FieldListField("targets", [0], CBORInteger("tgt", 0), count_from=lambda pkt: pkt.add)
+        FieldListField(
+            "targets", [0], CBORInteger("tgt", 0), count_from=lambda pkt: pkt.add
+        ),
     ]
 
     def count_additional_fields(self):
@@ -215,9 +228,10 @@ class CBORTuple(CBORArray):
     """
     A pair of CBOR integers consisting of [id, value].
     """
+
     fields_desc = CBORArray.fields_desc + [
         CBORInteger("id", 0),
-        CBORAny("value", b'\x00')
+        CBORAny("value", b"\x00"),
     ]
 
 
@@ -225,11 +239,13 @@ class CBORTupleArray(CBORArray):
     fields_desc = [
         CBORArray._major_type,
         BitFieldLenField("add", None, 5, count_of="tuples"),
-        PacketListField("tuples", [CBORTuple()], CBORTuple, count_from=lambda pkt: pkt.add)
+        PacketListField(
+            "tuples", [CBORTuple()], CBORTuple, count_from=lambda pkt: pkt.add
+        ),
     ]
 
     def find_value_with_id(self, target_id: int):
-        """ Find the tuple with the specified id and return the value. """
+        """Find the tuple with the specified id and return the value."""
         try:
             tup = next(x for x in self.tuples if x.id == target_id)
         except StopIteration:
@@ -242,11 +258,17 @@ class CBORTupleArray(CBORArray):
 
 
 class SecurityResults(CBORArray):
-    """ A CBOR array of CBORTupleArrays. """
+    """A CBOR array of CBORTupleArrays."""
+
     fields_desc = [
         CBORArray._major_type,
         BitFieldLenField("add", None, 5, count_of="results"),
-        PacketListField("results", [CBORTupleArray()], CBORTupleArray, count_from=lambda pkt: pkt.add)
+        PacketListField(
+            "results",
+            [CBORTupleArray()],
+            CBORTupleArray,
+            count_from=lambda pkt: pkt.add,
+        ),
     ]
 
     def count_additional_fields(self):
@@ -259,18 +281,23 @@ class AbstractSecurityBlock(Packet):
     and are defined here. This structure will reside in the block-specific data
     field of a BPv7 canonical block.
     """
+
     fields_desc = [
         PacketField("security_targets", SecurityTargets(), SecurityTargets),
         CBORInteger("security_context_id", 0),
         CBORInteger("security_context_flags", 1),
         PacketField("security_source", EndpointID(), EndpointID),
-        ConditionalField(PacketField("security_context_parameters", CBORTupleArray(), CBORTupleArray),
-                         lambda p: (p.security_context_flags & 1)),
-        PacketField("security_results", SecurityResults(), SecurityResults)
+        ConditionalField(
+            PacketField(
+                "security_context_parameters", CBORTupleArray(), CBORTupleArray
+            ),
+            lambda p: (p.security_context_flags & 1),
+        ),
+        PacketField("security_results", SecurityResults(), SecurityResults),
     ]
 
     def dissect(self, s: bytes):
-        """ This dissect doesn't process the payload, because there is none. """
+        """This dissect doesn't process the payload, because there is none."""
         s = self.pre_dissect(s)
         s = self.do_dissect(s)
         s = self.post_dissect(s)
@@ -281,6 +308,7 @@ class CanonicalBlock(CBORArray):
         """
         Block Processing Control Flags
         """
+
         BLOCK_MUST_BE_REPLICATED = 0x01
         REPORT_IF_UNPROCESSABLE = 0x02
         DELETE_BUNDLE_IF_UNPROCESSED = 0x04
@@ -296,24 +324,31 @@ class CanonicalBlock(CBORArray):
         BlockTypes.AGE: "age",
         BlockTypes.HOP_COUNT: "hop_count",
         BlockTypes.BLOCK_INTEGRITY: "block_integrity",
-        BlockTypes.BLOCK_CONFIDENTIALITY: "block_confidentiality"
+        BlockTypes.BLOCK_CONFIDENTIALITY: "block_confidentiality",
     }
 
     fields_template: Common.FieldsTemplate = {
-        'type_code': BitEnumField("type_code", BlockTypes.PAYLOAD, 8, TypeCodes),
-        'block_number': CBORInteger("block_number", 1),
-        'flags': CBORInteger("flags", 0),
-        'crc_type': CBORInteger("crc_type", CrcTypes.CRC32C),
-        'data': CBORByteString("data", b'\xDE\xAD\xBE\xEF'),
-        'crc': ConditionalField(
+        "type_code": BitEnumField("type_code", BlockTypes.PAYLOAD, 8, TypeCodes),
+        "block_number": CBORInteger("block_number", 1),
+        "flags": CBORInteger("flags", 0),
+        "crc_type": CBORInteger("crc_type", CrcTypes.CRC32C),
+        "data": CBORByteString("data", b"\xde\xad\xbe\xef"),
+        "crc": ConditionalField(
             MultipleTypeField(
                 [
-                    (CBORByteString("crc", b"\x00\x00"), lambda pkt: pkt.crc_type == CrcTypes.CRC16),
-                    (CBORByteString("crc", b"\x00\x00\x00\x00"), lambda pkt: pkt.crc_type == CrcTypes.CRC32C)
+                    (
+                        CBORByteString("crc", b"\x00\x00"),
+                        lambda pkt: pkt.crc_type == CrcTypes.CRC16,
+                    ),
+                    (
+                        CBORByteString("crc", b"\x00\x00\x00\x00"),
+                        lambda pkt: pkt.crc_type == CrcTypes.CRC32C,
+                    ),
                 ],
-                CBORNull("crc", None)
-            ), lambda pkt: pkt.crc_type != CrcTypes.NONE
-        )
+                CBORNull("crc", None),
+            ),
+            lambda pkt: pkt.crc_type != CrcTypes.NONE,
+        ),
     }
 
     fields_desc = CBORArray.fields_desc + Common.make_fields_desc(fields_template)
@@ -357,9 +392,15 @@ class PayloadBlock(CanonicalBlock):
     """
     Contains the bundle payload.
     """
-    fields_template = Common.template_replace(CanonicalBlock.fields_template, {
-        'type_code': BitEnumField("type_code", BlockTypes.PAYLOAD, 8, CanonicalBlock.TypeCodes)
-    })
+
+    fields_template = Common.template_replace(
+        CanonicalBlock.fields_template,
+        {
+            "type_code": BitEnumField(
+                "type_code", BlockTypes.PAYLOAD, 8, CanonicalBlock.TypeCodes
+            )
+        },
+    )
 
     fields_desc = CBORArray.fields_desc + Common.make_fields_desc(fields_template)
 
@@ -369,6 +410,7 @@ class EncryptedPayloadBlock(PayloadBlock):
     """
     Contains the bundle payload. The data field is encrypted.
     """
+
     encrypted = True
 
 
@@ -376,10 +418,16 @@ class PreviousNodeBlock(CanonicalBlock):
     """
     Contains the ID of the node that forwarded this bundle.
     """
-    fields_template = Common.template_replace(CanonicalBlock.fields_template, {
-        'type_code': BitEnumField("type_code", BlockTypes.PREV_NODE, 8, CanonicalBlock.TypeCodes),
-        'data': CBORPacketField("data", EndpointID(), EndpointID)
-    })
+
+    fields_template = Common.template_replace(
+        CanonicalBlock.fields_template,
+        {
+            "type_code": BitEnumField(
+                "type_code", BlockTypes.PREV_NODE, 8, CanonicalBlock.TypeCodes
+            ),
+            "data": CBORPacketField("data", EndpointID(), EndpointID),
+        },
+    )
 
     fields_desc = CBORArray.fields_desc + Common.make_fields_desc(fields_template)
 
@@ -389,13 +437,17 @@ class EncryptedPreviousNodeBlock(PreviousNodeBlock):
     """
     Contains the ID of the node that forwarded this bundle. The data field is encrypted.
     """
-    fields_template = Common.template_replace(PreviousNodeBlock.fields_template, {
-        # The data field defintion from the parent class cannot be used here. That data
-        # is now encrypted and cannot be decrypted to its original bytes (within the
-        # scope of this module), so the Packet that it represents cannot be dissected.
-        # Instead, the data field defintion from CanonicalBlock is used.
-        'data': CBORByteString("data", b'\xDE\xAD\xBE\xEF')
-    })
+
+    fields_template = Common.template_replace(
+        PreviousNodeBlock.fields_template,
+        {
+            # The data field defintion from the parent class cannot be used here. That data
+            # is now encrypted and cannot be decrypted to its original bytes (within the
+            # scope of this module), so the Packet that it represents cannot be dissected.
+            # Instead, the data field defintion from CanonicalBlock is used.
+            "data": CBORByteString("data", b"\xde\xad\xbe\xef")
+        },
+    )
 
     fields_desc = CBORArray.fields_desc + Common.make_fields_desc(fields_template)
     encrypted = True
@@ -410,7 +462,7 @@ class BundleAge(Packet):
         return False
 
     def dissect(self, s: bytes):
-        """ This dissect doesn't process the payload, because there is none. """
+        """This dissect doesn't process the payload, because there is none."""
         s = self.pre_dissect(s)
         s = self.do_dissect(s)
         s = self.post_dissect(s)
@@ -421,10 +473,16 @@ class BundleAgeBlock(CanonicalBlock):
     Contains the number of milliseconds that have elapsed between the time the
     bundle was created and the time at which it was most recently forwarded.
     """
-    fields_template = Common.template_replace(CanonicalBlock.fields_template, {
-        'type_code': BitEnumField("type_code", BlockTypes.AGE, 8, CanonicalBlock.TypeCodes),
-        'data': CBORPacketFieldWithRemain("data", BundleAge(), BundleAge)
-    })
+
+    fields_template = Common.template_replace(
+        CanonicalBlock.fields_template,
+        {
+            "type_code": BitEnumField(
+                "type_code", BlockTypes.AGE, 8, CanonicalBlock.TypeCodes
+            ),
+            "data": CBORPacketFieldWithRemain("data", BundleAge(), BundleAge),
+        },
+    )
 
     fields_desc = CBORArray.fields_desc + Common.make_fields_desc(fields_template)
 
@@ -436,9 +494,11 @@ class EncryptedBundleAgeBlock(BundleAgeBlock):
     bundle was created and the time at which it was most recently forwarded.
     The data field is encrypted.
     """
-    fields_template = Common.template_replace(BundleAgeBlock.fields_template, {
-        'data': CBORByteString("data", b'\xDE\xAD\xBE\xEF')
-    })
+
+    fields_template = Common.template_replace(
+        BundleAgeBlock.fields_template,
+        {"data": CBORByteString("data", b"\xde\xad\xbe\xef")},
+    )
 
     fields_desc = CBORArray.fields_desc + Common.make_fields_desc(fields_template)
     encrypted = True
@@ -447,7 +507,7 @@ class EncryptedBundleAgeBlock(BundleAgeBlock):
 class HopCount(CBORArray):
     fields_desc = CBORArray.fields_desc + [
         CBORInteger("limit", 0),
-        CBORInteger("count", 0)
+        CBORInteger("count", 0),
     ]
 
     def __eq__(self, other):
@@ -461,10 +521,16 @@ class HopCountBlock(CanonicalBlock):
     Contains information on the Bundle's allowed number of hops and the hops that
     have already happened.
     """
-    fields_template = Common.template_replace(CanonicalBlock.fields_template, {
-        'type_code': BitEnumField("type_code", BlockTypes.HOP_COUNT, 8, CanonicalBlock.TypeCodes),
-        'data': CBORPacketField("data", HopCount(), HopCount)
-    })
+
+    fields_template = Common.template_replace(
+        CanonicalBlock.fields_template,
+        {
+            "type_code": BitEnumField(
+                "type_code", BlockTypes.HOP_COUNT, 8, CanonicalBlock.TypeCodes
+            ),
+            "data": CBORPacketField("data", HopCount(), HopCount),
+        },
+    )
 
     fields_desc = CBORArray.fields_desc + Common.make_fields_desc(fields_template)
 
@@ -475,9 +541,11 @@ class EncryptedHopCountBlock(HopCountBlock):
     Contains information on the Bundle's allowed number of hops and the hops that
     have already happened. The data field is encrypted.
     """
-    fields_template = Common.template_replace(HopCountBlock.fields_template, {
-        'data': CBORByteString("data", b'\xDE\xAD\xBE\xEF')
-    })
+
+    fields_template = Common.template_replace(
+        HopCountBlock.fields_template,
+        {"data": CBORByteString("data", b"\xde\xad\xbe\xef")},
+    )
 
     fields_desc = CBORArray.fields_desc + Common.make_fields_desc(fields_template)
     encrypted = True
@@ -488,10 +556,18 @@ class BlockIntegrityBlock(CanonicalBlock):
     This defines a CanonicalBlock with its type code as 11 and an
     AbstractSecurityBlock as its data field.
     """
-    fields_template = Common.template_replace(CanonicalBlock.fields_template, {
-        'type_code': BitEnumField("type_code", BlockTypes.BLOCK_INTEGRITY, 8, CanonicalBlock.TypeCodes),
-        'data': CBORPacketFieldWithRemain("data", AbstractSecurityBlock(), AbstractSecurityBlock)
-    })
+
+    fields_template = Common.template_replace(
+        CanonicalBlock.fields_template,
+        {
+            "type_code": BitEnumField(
+                "type_code", BlockTypes.BLOCK_INTEGRITY, 8, CanonicalBlock.TypeCodes
+            ),
+            "data": CBORPacketFieldWithRemain(
+                "data", AbstractSecurityBlock(), AbstractSecurityBlock
+            ),
+        },
+    )
 
     fields_desc = CBORArray.fields_desc + Common.make_fields_desc(fields_template)
 
@@ -502,9 +578,11 @@ class EncryptedBlockIntegrityBlock(BlockIntegrityBlock):
     This defines a CanonicalBlock with its type code as 11 and an encrypted
     AbstractSecurityBlock as its data field.
     """
-    fields_template = Common.template_replace(BlockIntegrityBlock.fields_template, {
-        'data': CBORByteString("data", b'\xDE\xAD\xBE\xEF')
-    })
+
+    fields_template = Common.template_replace(
+        BlockIntegrityBlock.fields_template,
+        {"data": CBORByteString("data", b"\xde\xad\xbe\xef")},
+    )
 
     fields_desc = CBORArray.fields_desc + Common.make_fields_desc(fields_template)
     encrypted = True
@@ -515,29 +593,42 @@ class BlockConfidentialityBlock(CanonicalBlock):
     This defines a CanonicalBlock with its type code as 12 and an
     AbstractSecurityBlock as its data field.
     """
-    fields_template = Common.template_replace(CanonicalBlock.fields_template, {
-        'type_code': BitEnumField("type_code", BlockTypes.BLOCK_CONFIDENTIALITY, 8, CanonicalBlock.TypeCodes),
-        'data': CBORPacketFieldWithRemain("data", AbstractSecurityBlock(), AbstractSecurityBlock)
-    })
+
+    fields_template = Common.template_replace(
+        CanonicalBlock.fields_template,
+        {
+            "type_code": BitEnumField(
+                "type_code",
+                BlockTypes.BLOCK_CONFIDENTIALITY,
+                8,
+                CanonicalBlock.TypeCodes,
+            ),
+            "data": CBORPacketFieldWithRemain(
+                "data", AbstractSecurityBlock(), AbstractSecurityBlock
+            ),
+        },
+    )
 
     fields_desc = CBORArray.fields_desc + Common.make_fields_desc(fields_template)
 
 
 class UnassignedExtensionBlock(CanonicalBlock):
-    """ An extension block with an unassigned type code < 192. """
+    """An extension block with an unassigned type code < 192."""
 
 
 class EncryptedUnassignedExtensionBlock(CanonicalBlock):
-    """ An extension block with an unassigned type code < 192. The data field is encrypted. """
+    """An extension block with an unassigned type code < 192. The data field is encrypted."""
+
     encrypted = True
 
 
 class ReservedExtensionBlock(CanonicalBlock):
-    """ An extension block with a type code 192-255. """
+    """An extension block with a type code 192-255."""
 
 
 class EncryptedReservedExtensionBlock(CanonicalBlock):
-    """ An extension block with a type code 192-255. The data field is encrypted.  """
+    """An extension block with a type code 192-255. The data field is encrypted."""
+
     encrypted = True
 
 
@@ -546,6 +637,7 @@ class PrimaryBlock(CBORArray):
         """
         Bundle Processing Control Flags
         """
+
         BUNDLE_IS_FRAGMENT = 0x01
         ADMIN_RECORD = 0x02
         MUST_NOT_BE_FRAGMENTED = 0x04
@@ -566,23 +658,34 @@ class PrimaryBlock(CBORArray):
         PacketField("report", EndpointID(scheme_code=1), EndpointID),
         PacketField("creation_timestamp", Timestamp(t=int(time.time())), Timestamp),
         CBORInteger("lifetime", 0),
-        ConditionalField(CBORInteger("fragment_offset", 0),
-                         lambda pkt: pkt.flags & PrimaryBlock.CtrlFlags.BUNDLE_IS_FRAGMENT),
-        ConditionalField(CBORInteger("total_adu_length", 0),
-                         lambda pkt: pkt.flags & PrimaryBlock.CtrlFlags.BUNDLE_IS_FRAGMENT),
+        ConditionalField(
+            CBORInteger("fragment_offset", 0),
+            lambda pkt: pkt.flags & PrimaryBlock.CtrlFlags.BUNDLE_IS_FRAGMENT,
+        ),
+        ConditionalField(
+            CBORInteger("total_adu_length", 0),
+            lambda pkt: pkt.flags & PrimaryBlock.CtrlFlags.BUNDLE_IS_FRAGMENT,
+        ),
         ConditionalField(
             MultipleTypeField(
                 [
-                    (CBORByteString("crc", b"\x00\x00"), lambda pkt: pkt.crc_type == CrcTypes.CRC16),
-                    (CBORByteString("crc", b"\x00\x00\x00\x00"), lambda pkt: pkt.crc_type == CrcTypes.CRC32C)
+                    (
+                        CBORByteString("crc", b"\x00\x00"),
+                        lambda pkt: pkt.crc_type == CrcTypes.CRC16,
+                    ),
+                    (
+                        CBORByteString("crc", b"\x00\x00\x00\x00"),
+                        lambda pkt: pkt.crc_type == CrcTypes.CRC32C,
+                    ),
                 ],
-                CBORNull("crc", None)
-            ), lambda pkt: pkt.crc_type != CrcTypes.NONE
-        )
+                CBORNull("crc", None),
+            ),
+            lambda pkt: pkt.crc_type != CrcTypes.NONE,
+        ),
     ]
 
     def dissect(self, s: bytes):
-        """ This dissect doesn't process the payload, because there is none. """
+        """This dissect doesn't process the payload, because there is none."""
         s = self.pre_dissect(s)
         s = self.do_dissect(s)
         s = self.post_dissect(s)
@@ -626,7 +729,7 @@ TYPE_CODE_TO_BLOCK_TYPE_MAP = {
     (BlockTypes.BLOCK_INTEGRITY, False): BlockIntegrityBlock,
     (BlockTypes.BLOCK_INTEGRITY, True): EncryptedBlockIntegrityBlock,
     (BlockTypes.BLOCK_CONFIDENTIALITY, False): BlockConfidentialityBlock,
-    (BlockTypes.BLOCK_CONFIDENTIALITY, True): None  # should not happen
+    (BlockTypes.BLOCK_CONFIDENTIALITY, True): None,  # should not happen
 }
 
 UNENCRYPTED_TO_ENCRYPTED_TYPE_MAP = {
@@ -636,7 +739,7 @@ UNENCRYPTED_TO_ENCRYPTED_TYPE_MAP = {
     HopCountBlock: EncryptedHopCountBlock,
     BlockIntegrityBlock: EncryptedBlockIntegrityBlock,
     UnassignedExtensionBlock: EncryptedUnassignedExtensionBlock,
-    ReservedExtensionBlock: EncryptedReservedExtensionBlock
+    ReservedExtensionBlock: EncryptedReservedExtensionBlock,
 }
 
 ENCRYPTED_TO_UNENCRYPTED_TYPE_MAP = {
@@ -646,20 +749,20 @@ ENCRYPTED_TO_UNENCRYPTED_TYPE_MAP = {
     EncryptedHopCountBlock: HopCountBlock,
     EncryptedBlockIntegrityBlock: BlockIntegrityBlock,
     EncryptedUnassignedExtensionBlock: UnassignedExtensionBlock,
-    EncryptedReservedExtensionBlock: ReservedExtensionBlock
+    EncryptedReservedExtensionBlock: ReservedExtensionBlock,
 }
 
 
 def next_block_type(pkt, lst, cur, remain):
     del pkt, lst, cur  # Not used
-    if remain is None or remain == b'\xff':
+    if remain is None or remain == b"\xff":
         return None
     return Bundle.identify_block(remain)
 
 
 def guess_block_class(block_bytes, pkt):
     del pkt  # Not used
-    if block_bytes is None or block_bytes == b'\xff':
+    if block_bytes is None or block_bytes == b"\xff":
         return None
     return Bundle.identify_block(block_bytes)
 
@@ -672,8 +775,10 @@ class Bundle(CBORArray):
         CBORArray._major_type,
         BitField("add", 31, 5),
         PacketFieldWithRemain("primary_block", PrimaryBlock(), PrimaryBlock),
-        PacketListField("canonical_blocks", [CanonicalBlock()], next_cls_cb=next_block_type),
-        CBORStopCode("stop_code", 31)
+        PacketListField(
+            "canonical_blocks", [CanonicalBlock()], next_cls_cb=next_block_type
+        ),
+        CBORStopCode("stop_code", 31),
     ]
 
     @staticmethod
@@ -692,22 +797,29 @@ class Bundle(CBORArray):
 
         return TYPE_CODE_TO_BLOCK_TYPE_MAP[map_key]
 
-    def find_block_by_type(self, block_type, excluded_block_nums: List[int] = None) -> CanonicalBlock:
+    def find_block_by_type(
+        self, block_type, excluded_block_nums: List[int] = None
+    ) -> CanonicalBlock:
         """
         Find the first canonical block matching the specified type, with a block number not
-        in the excluded list. """
+        in the excluded list."""
         if excluded_block_nums is None:
             excluded_block_nums = []
         try:
-            block = next(x for x in self.canonical_blocks if isinstance(x, block_type) and
-                         x.block_number not in excluded_block_nums)
+            block = next(
+                x
+                for x in self.canonical_blocks
+                if isinstance(x, block_type)
+                and x.block_number not in excluded_block_nums
+            )
         except StopIteration:
             block = None
 
         return block
 
-    def find_block_by_type_code(self, type_code: int,
-                                excluded_block_nums: List[int] = None) -> CanonicalBlock:
+    def find_block_by_type_code(
+        self, type_code: int, excluded_block_nums: List[int] = None
+    ) -> CanonicalBlock:
         """
         Find the first block matching the specified type code, with a block number not
         in the excluded list.
@@ -715,24 +827,30 @@ class Bundle(CBORArray):
         if excluded_block_nums is None:
             excluded_block_nums = []
         try:
-            block = next(x for x in self.canonical_blocks if (x.type_code == type_code) and
-                         (x.block_number not in excluded_block_nums))
+            block = next(
+                x
+                for x in self.canonical_blocks
+                if (x.type_code == type_code)
+                and (x.block_number not in excluded_block_nums)
+            )
         except StopIteration:
             block = None
 
         return block
 
     def find_block_by_number(self, block_num: int) -> CanonicalBlock:
-        """ Find the canonical block with the specified block number. """
+        """Find the canonical block with the specified block number."""
         try:
-            block = next(x for x in self.canonical_blocks if x.block_number == block_num)
+            block = next(
+                x for x in self.canonical_blocks if x.block_number == block_num
+            )
         except StopIteration:
             block = None
 
         return block
 
     def get_new_block_number(self) -> int:
-        """ Return a new canonical block number one higher than the highest in use. """
+        """Return a new canonical block number one higher than the highest in use."""
         new_num = 2
 
         for block in self.canonical_blocks:
@@ -741,9 +859,13 @@ class Bundle(CBORArray):
 
         return new_num
 
-    def add_block(self, block: CanonicalBlock, block_num_to_insert_above=1,
-                  select_block_number=False) -> CanonicalBlock:
-        """ Insert an extension block just before the block with the specified block number. """
+    def add_block(
+        self,
+        block: CanonicalBlock,
+        block_num_to_insert_above=1,
+        select_block_number=False,
+    ) -> CanonicalBlock:
+        """Insert an extension block just before the block with the specified block number."""
         if select_block_number:
             block.block_number = self.get_new_block_number()
 
@@ -753,7 +875,9 @@ class Bundle(CBORArray):
                 insert_pos = idx
 
         if insert_pos == -1:
-            raise ValueError("Could not find block number to insert above", block_num_to_insert_above)
+            raise ValueError(
+                "Could not find block number to insert above", block_num_to_insert_above
+            )
 
         self.canonical_blocks.insert(insert_pos, block)
 
@@ -767,13 +891,13 @@ class Bundle(CBORArray):
 
     @staticmethod
     def identify_block(block_bytes: bytes):
-        """ Determine the type of the canonical block. """
+        """Determine the type of the canonical block."""
         type_code = block_bytes[1]
 
         block_type = Bundle.type_code_to_block_type(type_code)
         encrypted_block_type = Bundle.type_code_to_block_type(type_code, True)
 
-        if (encrypted_block_type is not block_type):
+        if encrypted_block_type is not block_type:
             # Try to construct the block as the unencrypted type. If it
             # doesn't work, specify the encrypted version. If it works due to
             # chance arrangement of bytes but is actually encrypted, it will
@@ -802,7 +926,9 @@ class Bundle(CBORArray):
                         # Found a block originally detected as unencrypted, but the
                         # BCB specifies is encrypted. Replace with an encrypted type.
                         if not block_type.encrypted:
-                            encrypted_type = UNENCRYPTED_TO_ENCRYPTED_TYPE_MAP[block_type]
+                            encrypted_type = UNENCRYPTED_TO_ENCRYPTED_TYPE_MAP[
+                                block_type
+                            ]
                             new_block = encrypted_type(raw(block))
                             self.canonical_blocks[idx] = new_block
 

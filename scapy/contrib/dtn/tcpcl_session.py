@@ -16,6 +16,7 @@ class Session:
     """
     TCPCL messages are conventionally, but not necessarily, sent on port 4556. Since this cannot be relied upon, especially on a localhost session, the best way to bind TCP packets to TCPCL message is to track the state of a TCPCL session. Once Contact Headers are successfuly exchanged, TCP packets can be assumed to carry payloads of TCPCL messages until the session ends.
     """
+
     def __init__(self):
         self.contact_init = False
         self.contact_ack = False
@@ -36,7 +37,9 @@ class Session:
 
     def activate(self):
         if not (self.contact_init and self.contact_ack):
-            raise Exception("tried to activate a session before initialization and acknowledgement")
+            raise Exception(
+                "tried to activate a session before initialization and acknowledgement"
+            )
 
         self.is_active = self.contact_init and self.contact_ack
 
@@ -69,13 +72,15 @@ class Session:
         self.terminate()
 
 
-class TestTcpcl():
+class TestTcpcl:
 
     @staticmethod
     def check_pkt(pkt: Packet, options: List[Packet]):
         """Asserts that pkt is equal to one of the packets in options (according to the raw representation)"""
         for opt in options:
-            assert raw(pkt) in list(map(raw, options)), "Failed to build a properly formatted TCPCL message"
+            assert raw(pkt) in list(
+                map(raw, options)
+            ), "Failed to build a properly formatted TCPCL message"
 
     @staticmethod
     def make_prn():
@@ -89,14 +94,18 @@ class TestTcpcl():
             if not sess.is_active:
                 try:  # try to find a Contact Header
                     pay = pkt[Raw].load
-                    contact = TCPCL.ContactHeader(pay)  # should raise unhandled error if
+                    contact = TCPCL.ContactHeader(
+                        pay
+                    )  # should raise unhandled error if
                     # the TCP payload does not fit ContactHeader
                     # replace pkt's raw payload with a ContactHeader formatted payload
                     pkt[TCP].remove_payload()
                     pkt = pkt / contact
 
                     # process ContactHeader
-                    if sess.contact_init:  # session aready initialized, Header is an ack
+                    if (
+                        sess.contact_init
+                    ):  # session aready initialized, Header is an ack
                         sess.proc_ack()
                         print("BEGIN TCPCL SESSION")
                     else:

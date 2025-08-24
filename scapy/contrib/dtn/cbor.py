@@ -6,19 +6,14 @@
 # scapy.contrib.status = library
 
 """
-    Concise Binary Object Representation (CBOR) utility
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Concise Binary Object Representation (CBOR) utility
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    :authors:    Timothy Recker, timothy.recker@nasa.gov
-                 Tad Kollar, tad.kollar@nasa.gov
+:authors:    Timothy Recker, timothy.recker@nasa.gov
+             Tad Kollar, tad.kollar@nasa.gov
 """
 
-from scapy.fields import (
-    Field,
-    BitField,
-    BitEnumField,
-    PacketField
-)
+from scapy.fields import Field, BitField, BitEnumField, PacketField
 from scapy.packet import Packet
 from scapy.all import raw
 import flynn
@@ -32,7 +27,7 @@ MajorTypes = {
     4: "array",
     5: "map",
     6: "tag",
-    7: "simple/float"
+    7: "simple/float",
 }
 
 
@@ -41,32 +36,35 @@ class MajorTypeException(Exception):
 
     Attributes:
         actual -- the integer value of the actual Major Type
-        expected -- an integer or list of integers indicating the acceptable Major Type values"""
+        expected -- an integer or list of integers indicating the acceptable Major Type values
+    """
+
     def __init__(self, actual: int, expected: Union[int, List[int]]):
 
-        message = f'[Error] Major type {actual} does not refer to a(n)'
+        message = f"[Error] Major type {actual} does not refer to a(n)"
         if isinstance(expected, int):
             typ = MajorTypes[expected]
-            message += f' {typ}.'
+            message += f" {typ}."
         else:
             typ = MajorTypes[expected[0]]
-            message += f' {typ}'
+            message += f" {typ}"
             for val in expected[1:]:
                 typ = MajorTypes[val]
-                message += f' or {typ}'
-            message += '.'
+                message += f" or {typ}"
+            message += "."
         super().__init__(message)
 
 
 class StopCodeException(Exception):
     def __init__(self, value):
-        super().__init__(f'[Error] Major type {value} does not refer to a stop code.')
+        super().__init__(f"[Error] Major type {value} does not refer to a stop code.")
 
 
 class AdditionalInfoException(Exception):
     """This exception indicates that a CBOR object has an unexpected value for its Additional Info."""
+
     def __init__(self):
-        super().__init__('[Error] Invalid additional info.')
+        super().__init__("[Error] Invalid additional info.")
 
 
 class UnhandledTypeException(Exception):
@@ -113,13 +111,13 @@ class CBORInteger(CBORBase):
             val = b[1]
         elif add_info == 25:
             val_length = 3  # 1 byte head + 2 byte argument
-            val = int.from_bytes(b[1:3], byteorder='big')
+            val = int.from_bytes(b[1:3], byteorder="big")
         elif add_info == 26:
             val_length = 5  # 4 byte argument
-            val = int.from_bytes(b[1:5], byteorder='big')
+            val = int.from_bytes(b[1:5], byteorder="big")
         elif add_info == 27:
             val_length = 9  # 8 byte argument
-            val = int.from_bytes(b[1:9], byteorder='big')
+            val = int.from_bytes(b[1:9], byteorder="big")
         else:
             raise AdditionalInfoException()
 
@@ -154,9 +152,9 @@ class CBORStringBase(CBORBase):
 
             # size of argument is known now, so
             # get value of the argument, which contains the size of the data
-            data_size = int.from_bytes(b[1:1 + arg_size], byteorder='big')
+            data_size = int.from_bytes(b[1 : 1 + arg_size], byteorder="big")
         val_length = 1 + arg_size + data_size
-        val = b[1 + arg_size:val_length]
+        val = b[1 + arg_size : val_length]
 
         return b[val_length:], val
 
@@ -195,7 +193,7 @@ class CBORIntOrText(CBORBase):
 
 class CBORStopCode(CBORBase):
     def addfield(self, pkt, s, val):
-        return s + b'\xff'
+        return s + b"\xff"
 
     @staticmethod
     def get_value(add_info, b):
@@ -240,13 +238,13 @@ class CBORArray(Packet):
         return len(self.default_fields) - head_field_count
 
     def set_additional_fields(self, pkt: Packet) -> bytes:
-        """ For an, the add field is set to the number of elements minus the two head fields. """
+        """For an, the add field is set to the number of elements minus the two head fields."""
         # pylint: disable=W0201
         # field (instance variable) initialization is handled via "fields_desc"
         self.add = self.count_additional_fields()
         head = (self.major_type << 5) | self.add
 
-        return head.to_bytes(1, 'big') + pkt[1:]
+        return head.to_bytes(1, "big") + pkt[1:]
 
     def post_build(self, pkt: bytes, pay: bytes) -> bytes:
         return self.set_additional_fields(pkt) + pay
@@ -277,6 +275,7 @@ class CBORPacketFieldWithRemain(CBORPacketField):
     The regular Packet.getfield() never returns the remaining bytes, so the CRC or
     other following fields get lost. This getfield does return the remaining bytes.
     """
+
     def m2i(self, pkt: Packet, m):
         _, add_info = CBORBase.static_get_head_info(m)
         remain, decoded_m = CBORStringBase.get_value(add_info, m)

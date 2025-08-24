@@ -38,7 +38,9 @@ class FieldPacket(NoPayloadPacket):
 FieldsTemplate = Dict[str, Field]
 
 
-def template_replace(template: FieldsTemplate, new_values: FieldsTemplate) -> FieldsTemplate:
+def template_replace(
+    template: FieldsTemplate, new_values: FieldsTemplate
+) -> FieldsTemplate:
     return {**template, **new_values}
 
 
