@@ -484,12 +484,14 @@ def server():
         sock.bind(('127.0.0.1', 13400))
         sock.listen(1)
         server_up.set()
-        connection, address = sock.accept()
-        sniff_up.wait(timeout=1)
-        for i in range(len(buffer)):
-            connection.send(buffer[i:i+1])
-            time.sleep(0.01)
-        connection.close()
+        try:
+            connection, address = sock.accept()
+            sniff_up.wait(timeout=1)
+            for i in range(len(buffer)):
+                connection.send(buffer[i:i+1])
+                time.sleep(0.01)
+        finally:
+            connection.close()
     finally:
         sock.close()
 
@@ -502,6 +504,49 @@ sock = DoIPSocket(activate_routing=False)
 pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
 server_thread.join(timeout=1)
 assert len(pkts) == 2
+
+= Test DoIPSocket 2 enforce protocol_version
+~ linux
+
+server_up = threading.Event()
+sniff_up = threading.Event()
+def server():
+    buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', 13400))
+        sock.listen(1)
+        server_up.set()
+        connection, address = sock.accept()
+        try:
+            sniff_up.wait(timeout=1)
+            connection.send(buffer)
+            doip_sock = DoIPSSLStreamSocket(connection)
+            pkts = doip_sock.sniff(timeout=2, count=1)
+            doip_sock.send(pkts[0])
+        finally:
+            connection.close()
+    finally:
+        sock.close()
+
+
+server_thread = threading.Thread(target=server)
+server_thread.start()
+server_up.wait(timeout=1)
+sock = DoIPSocket(activate_routing=False, doip_version=3, enforce_doip_version=True)
+
+pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
+sock.send(DoIP(payload_type=0x8001, source_address=0xe80, target_address=0xe400) / UDS() / UDS_TP())
+pkts2 = sock.sniff(timeout=1, count=1)
+server_thread.join(timeout=1)
+assert len(pkts) == 2
+assert len(pkts2) == 1
+assert pkts2[0].protocol_version == 0x03
+assert pkts2[0].inverse_version == 0xfc
+assert pkts2[0].payload_type == 0x8001
+assert pkts2[0].service == 0x3E
 
 = Test DoIPSocket 3
 
