@@ -840,8 +840,8 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
             x = pubkey.public_numbers().x
             y = pubkey.public_numbers().y
             self.ecdh_Yc = (b"\x04" +
-                            pkcs_i2osp(x, pubkey.key_size // 8) +
-                            pkcs_i2osp(y, pubkey.key_size // 8))
+                            pkcs_i2osp(x, (pubkey.key_size + 7) // 8) +
+                            pkcs_i2osp(y, (pubkey.key_size + 7) // 8))
             if s.client_kx_privkey and s.server_kx_pubkey:
                 pms = s.client_kx_privkey.exchange(ec.ECDH(),
                                                    s.server_kx_pubkey)
