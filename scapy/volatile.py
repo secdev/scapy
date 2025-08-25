@@ -567,6 +567,7 @@ class RandString(_RandString[str]):
             size = RandNumExpo(0.01)
         self.size = size
         self.chars = chars
+        self.max = len(chars)
 
     def __getitem__(self, start, stop=None, step=None):
         # Missing subscriptable (needed by BOOTP while show calls it, maybe others?)
