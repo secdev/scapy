@@ -142,9 +142,14 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
     ans, _ = srp(p, type=ETH_P_IPV6, iface=iface, timeout=timeout, verbose=0,
                  chainCC=chainCC,
                  stop_filter=lambda pkt: ICMPv6ND_NA in pkt and pkt[IPv6].hlim == 255)
-    res = ans[0][1] if ans else None
 
-    return res
+    if not ans:
+        return None
+
+    for _, res in ans.res:
+        if ICMPv6ND_NA in res and res[IPv6].hlim == 255:
+            return res
+    return None
 
 
 @conf.commands.register
