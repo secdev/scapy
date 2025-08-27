@@ -140,7 +140,7 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
     p /= ICMPv6ND_NS(tgt=addr)
     p /= ICMPv6NDOptSrcLLAddr(lladdr=sm)
     res = srp1(p, type=ETH_P_IPV6, iface=iface, timeout=timeout, verbose=0,
-               chainCC=chainCC)
+               filter="ip6[7] = 255", chainCC=chainCC)
 
     return res
 
