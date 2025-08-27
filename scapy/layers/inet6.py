@@ -147,7 +147,7 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
         return None
 
     for _, res in ans.res:
-        if ICMPv6ND_NA in res and res[IPv6].hlim == 255:
+        if res[IPv6].hlim == 255:
             return res
     return None
 
