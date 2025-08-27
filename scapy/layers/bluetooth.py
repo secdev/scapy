@@ -2918,6 +2918,7 @@ class HCI_Mon_System_Note(Packet):
 bind_layers(HCI_Mon_Hdr, HCI_Mon_New_Index, opcode=0)
 bind_layers(HCI_Mon_Hdr, HCI_Command_Hdr, opcode=2)
 bind_layers(HCI_Mon_Hdr, HCI_Event_Hdr, opcode=3)
+bind_layers(HCI_Mon_Hdr, HCI_ACL_Hdr, opcode=5)
 bind_layers(HCI_Mon_Hdr, HCI_Mon_Index_Info, opcode=10)
 bind_layers(HCI_Mon_Hdr, HCI_Mon_System_Note, opcode=12)
 
