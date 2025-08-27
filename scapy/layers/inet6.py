@@ -82,7 +82,7 @@ from scapy.layers.l2 import (
     SourceMACField,
 )
 from scapy.packet import bind_layers, Packet, Raw
-from scapy.sendrecv import sendp, sniff, sr, srp1
+from scapy.sendrecv import sendp, sniff, sr, srp, srp1
 from scapy.supersocket import SuperSocket
 from scapy.utils import checksum, strxor
 from scapy.pton_ntop import inet_pton, inet_ntop
@@ -139,8 +139,10 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
     p = Ether(dst=dm, src=sm) / IPv6(dst=d, src=src, hlim=255)
     p /= ICMPv6ND_NS(tgt=addr)
     p /= ICMPv6NDOptSrcLLAddr(lladdr=sm)
-    res = srp1(p, type=ETH_P_IPV6, iface=iface, timeout=timeout, verbose=0,
-               filter="ip6[7] == 255", chainCC=chainCC)
+    ans, _ = srp(p, type=ETH_P_IPV6, iface=iface, timeout=timeout, verbose=0,
+                 chainCC=chainCC,
+                 stop_filter=lambda pkt: ICMPv6ND_NA in pkt and pkt[IPv6].hlim == 255)
+    res = ans[0][1] if ans else None
 
     return res
 
