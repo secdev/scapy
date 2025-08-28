@@ -243,7 +243,26 @@ class DoIP(Packet):
 
     def hashret(self):
         # type: () -> bytes
-        return bytes(self)[:3]
+        payload_type_mapping = {
+            0x0000: b"\x01",
+            0x0001: b"\x01",
+            0x0002: b"\x01",
+            0x0003: b"\x01",
+            0x0004: b"\x01",
+            0x0005: b"\x02",
+            0x0006: b"\x02",
+            0x0007: b"\x03",
+            0x0008: b"\x03",
+            0x4001: b"\x04",
+            0x4002: b"\x04",
+            0x4003: b"\x05",
+            0x4004: b"\x05",
+            0x8001: b"\x06",
+            0x8002: b"\x06",
+            0x8003: b"\x06",
+        }
+
+        return payload_type_mapping.get(self.payload_type, b"\xff")
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
@@ -462,9 +481,8 @@ class DoIPSocket(DoIPSSLStreamSocket):
 
     def send(self, x):  # type: (Packet) -> int
         if self.enforce_doip_version and isinstance(x, DoIP):
-            x.protocol_version = self.doip_version
-            x.inverse_version = 0xFF - self.doip_version
-
+            x[DoIP].protocol_version = self.doip_version
+            x[DoIP].inverse_version = 0xFF - self.doip_version
         return super().send(x)
 
 
