@@ -139,16 +139,25 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
     p = Ether(dst=dm, src=sm) / IPv6(dst=d, src=src, hlim=255)
     p /= ICMPv6ND_NS(tgt=addr)
     p /= ICMPv6NDOptSrcLLAddr(lladdr=sm)
-    ans, _ = srp(p, type=ETH_P_IPV6, iface=iface, timeout=timeout, verbose=0,
-                 chainCC=chainCC,
-                 stop_filter=lambda pkt: ICMPv6ND_NA in pkt and pkt[IPv6].hlim == 255)
 
-    if not ans:
-        return None
+    def _match(pkt):
+        return (
+            IPv6 in pkt and ICMPv6ND_NA in pkt and
+            pkt[IPv6].hlim == 255 and
+            pkt[ICMPv6ND_NA].tgt == addr
+        )
 
-    for _, res in ans.res:
-        if res[IPv6].hlim == 255:
-            return res
+    matches = sniff(
+        iface=iface,
+        timeout=timeout,
+        lfilter=_match,
+        started_callback=lambda: sendp(p, type=ETH_P_IPV6, iface=iface, verbose=0),
+        count=1,
+        store=True
+    )
+
+    if matches:
+        return matches[0]
     return None
 
 
