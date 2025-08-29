@@ -82,7 +82,7 @@ from scapy.layers.l2 import (
     SourceMACField,
 )
 from scapy.packet import bind_layers, Packet, Raw
-from scapy.sendrecv import sendp, sniff, sr, srp, srp1
+from scapy.sendrecv import sendp, sniff, sr, srp1
 from scapy.supersocket import SuperSocket
 from scapy.utils import checksum, strxor
 from scapy.pton_ntop import inet_pton, inet_ntop
