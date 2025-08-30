@@ -117,7 +117,7 @@ conf.netcache.new_cache("in6_neighbor", 120)
 
 
 @conf.commands.register
-def neighsol(addr, src, iface, timeout=1, chainCC=False):
+def neighsol(addr, src, iface, timeout=1, chainCC=0):
     """Sends and receive an ICMPv6 Neighbor Solicitation message
 
     This function sends an ICMPv6 Neighbor Solicitation message
@@ -139,26 +139,10 @@ def neighsol(addr, src, iface, timeout=1, chainCC=False):
     p = Ether(dst=dm, src=sm) / IPv6(dst=d, src=src, hlim=255)
     p /= ICMPv6ND_NS(tgt=addr)
     p /= ICMPv6NDOptSrcLLAddr(lladdr=sm)
+    res = srp1(p, type=ETH_P_IPV6, iface=iface, timeout=timeout, verbose=0,
+               filter="ip6[7] == 255", chainCC=chainCC)
 
-    def _match(pkt):
-        return (
-            IPv6 in pkt and ICMPv6ND_NA in pkt and
-            pkt[IPv6].hlim == 255 and
-            pkt[ICMPv6ND_NA].tgt == addr
-        )
-
-    matches = sniff(
-        iface=iface,
-        timeout=timeout,
-        lfilter=_match,
-        started_callback=lambda: sendp(p, type=ETH_P_IPV6, iface=iface, verbose=0),
-        count=1,
-        chainCC=chainCC
-    )
-
-    if matches:
-        return matches[0]
-    return None
+    return res
 
 
 @conf.commands.register
