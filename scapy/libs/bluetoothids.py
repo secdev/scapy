@@ -25,6 +25,7 @@ import gzip
 import json
 from base64 import b85decode
 
+
 def _d(x: str) -> str:
     return {
         int(x): y
