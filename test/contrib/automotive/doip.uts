@@ -484,12 +484,14 @@ def server():
         sock.bind(('127.0.0.1', 13400))
         sock.listen(1)
         server_up.set()
-        connection, address = sock.accept()
-        sniff_up.wait(timeout=1)
-        for i in range(len(buffer)):
-            connection.send(buffer[i:i+1])
-            time.sleep(0.01)
-        connection.close()
+        try:
+            connection, address = sock.accept()
+            sniff_up.wait(timeout=1)
+            for i in range(len(buffer)):
+                connection.send(buffer[i:i+1])
+                time.sleep(0.01)
+        finally:
+            connection.close()
     finally:
         sock.close()
 
@@ -502,6 +504,49 @@ sock = DoIPSocket(activate_routing=False)
 pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
 server_thread.join(timeout=1)
 assert len(pkts) == 2
+
+= Test DoIPSocket 2 enforce protocol_version
+~ linux
+
+server_up = threading.Event()
+sniff_up = threading.Event()
+def server():
+    buffer = b'\x02\xfd\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x02\xfd\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', 13400))
+        sock.listen(1)
+        server_up.set()
+        connection, address = sock.accept()
+        try:
+            sniff_up.wait(timeout=1)
+            connection.send(buffer)
+            doip_sock = DoIPSSLStreamSocket(connection)
+            pkts = doip_sock.sniff(timeout=2, count=1)
+            doip_sock.send(pkts[0])
+        finally:
+            connection.close()
+    finally:
+        sock.close()
+
+
+server_thread = threading.Thread(target=server)
+server_thread.start()
+server_up.wait(timeout=1)
+sock = DoIPSocket(activate_routing=False, doip_version=3, enforce_doip_version=True)
+
+pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
+sock.send(DoIP(payload_type=0x8001, source_address=0xe80, target_address=0xe400) / UDS() / UDS_TP())
+pkts2 = sock.sniff(timeout=1, count=1)
+server_thread.join(timeout=1)
+assert len(pkts) == 2
+assert len(pkts2) == 1
+assert pkts2[0].protocol_version == 0x03
+assert pkts2[0].inverse_version == 0xfc
+assert pkts2[0].payload_type == 0x8001
+assert pkts2[0].service == 0x3E
 
 = Test DoIPSocket 3
 
@@ -808,6 +853,70 @@ context.verify_mode = ssl.CERT_NONE
 
 
 sock = UDS_DoIPSocket(ip="::1", context=context)
+
+pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
+server_tcp_thread.join(timeout=1)
+server_tls_thread.join(timeout=1)
+assert len(pkts) == 2
+
+= Test UDS_DualDoIPSslSocket6 force version 3
+~ broken_windows not_pypy
+
+server_tcp_up = threading.Event()
+server_tls_up = threading.Event()
+sniff_up = threading.Event()
+def server_tls():
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    _load_certificate_chain(context)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    buffer = bytes.fromhex("03fc0006000000090e8011061000000000")
+    buffer += b'\x03\xfc\x80\x02\x00\x00\x00\x05\x00\x00\x00\x00\x00\x03\xfc\x80\x01\x00\x00\x00\n\x10\x10\x0e\x80P\x03\x002\x01\xf4'
+    sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    ssock = context.wrap_socket(sock)
+    try:
+        ssock.bind(('::1', 3496))
+        ssock.listen(1)
+        server_tls_up.set()
+        connection, address = ssock.accept()
+        sniff_up.wait(timeout=1)
+        connection.send(buffer)
+        connection.close()
+    finally:
+        ssock.close()
+
+def server_tcp():
+    buffer = bytes.fromhex("03fc0006000000090e8011060700000000")
+    sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('::1', 13400))
+        sock.listen(1)
+        server_tcp_up.set()
+        connection, address = sock.accept()
+        connection.send(buffer)
+        connection.shutdown(socket.SHUT_RDWR)
+        connection.close()
+    finally:
+        sock.close()
+
+
+server_tcp_thread = threading.Thread(target=server_tcp)
+server_tcp_thread.start()
+server_tcp_up.wait(timeout=1)
+server_tls_thread = threading.Thread(target=server_tls)
+server_tls_thread.start()
+server_tls_up.wait(timeout=1)
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+context.check_hostname = False
+context.verify_mode = ssl.CERT_NONE
+
+conf.debug_dissector = True
+
+sock = UDS_DoIPSocket(ip="::1", context=context, doip_version=3, enforce_doip_version=True)
 
 pkts = sock.sniff(timeout=1, count=2, started_callback=sniff_up.set)
 server_tcp_thread.join(timeout=1)
