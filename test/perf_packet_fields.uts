@@ -1,0 +1,177 @@
+% Packet field performance issue
+
+# See https://github.com/secdev/scapy/issues/4705
+
+
+############
+############
++ Test utils
+
+= 000) Define `NUMBER_OF_I_PER_M` and `NUMBER_OF_F_PER_I` constants, and prepare a base `TestPacket` class.
+
+NUMBER_OF_I_PER_M = 100
+NUMBER_OF_F_PER_I = 100
+
+# Other configurations:
+# - Make `TestPacket.end_case()` check for exact operation counts.
+ASSERT_COUNTS = False
+# - About 1.5s measured with optimizations on Windows / Python 3.8.6 with NUMBER_OF_I_PER_M=100, NUMBER_OF_F_PER_I=100.
+# - About 1.9s measured with optimizations on github ci windows-latest / Python 3.13 with NUMBER_OF_I_PER_M=100, NUMBER_OF_F_PER_I=100.
+MAX_TIME_PER_OP = (2.0 / (100.0 * 100.0)) * 1.10  # 10% margin.
+
+class TestPacket(Packet):
+    """Base class for `M`, `I` and `F`."""
+    inits = {}
+    builds = {}
+    t0 = 0.0
+    @staticmethod
+    def begin_case():
+        """Start a test case."""
+        TestPacket.inits = {M: 0, I: 0, F: 0}
+        TestPacket.builds = {M: 0, I: 0, F: 0}
+        TestPacket.t0 = time.time()
+    def __init__(self, *args, **kwargs):
+        """Count inits."""
+        Packet.__init__(self, *args, **kwargs)
+        TestPacket.inits[type(self)] = TestPacket.inits.get(type(self), 0) + 1
+    def self_build(self):
+        """Count builds."""
+        TestPacket.builds[type(self)] = TestPacket.builds.get(type(self), 0) + 1
+        return Packet.self_build(self)
+    def extract_padding(self, s):
+        """Final packet fields (no payload)."""
+        return (b'', s)
+    @staticmethod
+    def end_case(
+        init_m=0, init_i=0, init_f=0,
+        build_m=0, build_i=0, build_f=0,
+    ):
+        """End a test case."""
+        tf = time.time()
+        operations = 0
+        for cls, expected in [(M, init_m), (I, init_i), (F, init_f)]:
+            print(f"Number of {cls.__name__} inits: {TestPacket.inits[cls]} (expected: {expected})")
+            if ASSERT_COUNTS:
+                assert TestPacket.inits[cls] == expected, f"Number of {cls.__name__} inits FAILED: {TestPacket.inits[cls]} != {expected}"
+            operations += expected
+        for cls, expected in [(M, build_m), (I, build_i), (F, build_f)]:
+            print(f"Number of {cls.__name__} builds: {TestPacket.builds[cls]} (expected: {expected})")
+            if ASSERT_COUNTS:
+                assert TestPacket.builds[cls] == expected, f"Number of {cls.__name__} builds FAILED: {TestPacket.builds[cls]} != {expected}"
+            operations += expected
+        print(f"Total number of operations expected: {operations}")
+        max_time = max(operations * MAX_TIME_PER_OP, 0.010)  # Minimal time of 10 ms.
+        print(f"Execution time: {tf - TestPacket.t0:.3f} seconds (max: {max_time:.3f})")
+        assert tf - TestPacket.t0 <= max_time, f"Execution time FAILED: {tf - TestPacket.t0:.3f} > {max_time:.3f}"
+
+
+############
+############
++ Test data
+
+= 001) Define the `F` final packet class.
+
+class F(TestPacket):
+    fields_desc = [
+        ByteField(name="value", default=0),
+    ]
+
+= 002) Define the `I` intermediate packet class.
+
+class I(TestPacket):
+    fields_desc = [
+        PacketField(name=f"f{i}", pkt_cls=F, default=F(value=(i%256)))
+        for i in range(NUMBER_OF_F_PER_I)
+    ]
+
+= 003) Define the `M` main packet class.
+
+class M(TestPacket):
+    fields_desc = [
+        PacketField(name=f"i{i}", pkt_cls=I, default=I())
+        for i in range(NUMBER_OF_I_PER_M)
+    ]
+
+
+############
+############
++ Default instantiations
+
+= 004) Build a default instance of `F`.
+
+TestPacket.begin_case()
+f = F()
+TestPacket.end_case(
+    init_f=1,
+)
+
+= 005) Build a default instance of `I`.
+
+TestPacket.begin_case()
+i = I()
+TestPacket.end_case(
+    init_i=1,
+    init_f=NUMBER_OF_F_PER_I,
+)
+
+= 006) Build a default instance of `M`.
+
+TestPacket.begin_case()
+m = M()
+TestPacket.end_case(
+    init_m=1,
+    init_i=NUMBER_OF_I_PER_M,
+    init_f=NUMBER_OF_I_PER_M * NUMBER_OF_F_PER_I,
+)
+
+
+############
+############
++ Serialization
+
+= 007) Launch serialization from the latest instance of `M` created.
+
+TestPacket.begin_case()
+buf = m.build()
+TestPacket.end_case(
+    build_m=1,
+    build_i=NUMBER_OF_I_PER_M,
+    build_f=NUMBER_OF_I_PER_M * NUMBER_OF_F_PER_I,
+)
+
+= 008) Launch serialization again from the same instance of `M`.
+
+TestPacket.begin_case()
+buf = m.build()
+TestPacket.end_case(
+    build_m=1,  # `m` is cached, `build()` not spreaded on `i{n}` fields (thus, no `f{n}`).
+    build_i=0,
+    build_f=0,
+)
+
+= 009) Update one `F` from the same instance of `M` and launch serialization again.
+
+m.i0.f0.value += 1
+
+TestPacket.begin_case()
+buf = m.build()
+TestPacket.end_case(
+    build_m=1,
+    build_i=NUMBER_OF_I_PER_M,  # `i0` gets rebuilts, next `i{n}` fields are just asked for their cache.
+    build_f=1 * NUMBER_OF_F_PER_I,  # `i0.f0` gets rebuilt, next `i0.f{n}` fields are just asked for their cache.
+)
+
+
+############
+############
++ Parsing
+
+= 010) Parse the buffer serialized before.
+
+TestPacket.begin_case()
+m = M(buf)
+TestPacket.end_case(
+    init_m=1,
+    init_i=NUMBER_OF_I_PER_M,
+    init_f=NUMBER_OF_I_PER_M * NUMBER_OF_F_PER_I,
+)
