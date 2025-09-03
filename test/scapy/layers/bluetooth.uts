@@ -538,7 +538,8 @@ scan_resp_raw_data = \
 scapy_packet = HCI_Hdr(scan_resp_raw_data)
 
 assert raw(scapy_packet[EIR_Manufacturer_Specific_Data].payload) == b'\x00_B31147D2461\xfc\x00\x03\x0c\x00\x00'
-assert scapy_packet[EIR_Manufacturer_Specific_Data].company_id == 0x154
+assert scapy_packet[EIR_Manufacturer_Specific_Data].company_identifier == 0x154
+assert scapy_packet[EIR_Manufacturer_Specific_Data].sprintf("%company_identifier%") == "Pebble Technology"
 
 = Parse EIR_Manufacturer_Specific_Data with magic
 
@@ -567,13 +568,13 @@ EIR_Manufacturer_Specific_Data.register_magic_payload(ScapyManufacturerPacket2)
 p = EIR_Hdr(b'\x0b\xff\xff\xffSCAPY!\xab\x12')
 
 p.show()
-assert p[EIR_Manufacturer_Specific_Data].company_id == 0xffff
+assert p[EIR_Manufacturer_Specific_Data].company_identifier == 0xffff
 assert p[ScapyManufacturerPacket].x == 0xab12
 
 p = EIR_Hdr(b'\x0b\xff\xff\xff!SCAPY\x12\x34')
 
 p.show()
-assert p[EIR_Manufacturer_Specific_Data].company_id == 0xffff
+assert p[EIR_Manufacturer_Specific_Data].company_identifier == 0xffff
 assert p[ScapyManufacturerPacket2].y == 0x1234
 
 # Test encode
@@ -709,7 +710,7 @@ b.show()
 assert b[HCI_Event_Hdr].len > 0
 assert b[EIR_CompleteLocalName].local_name == b"scapy"
 assert b[HCI_LE_Meta_Advertising_Report].addr == "a1:b2:c3:d4:e5:f6"
-assert b[EIR_Manufacturer_Specific_Data].company_id == 0xffff
+assert b[EIR_Manufacturer_Specific_Data].company_identifier == 0xffff
 assert raw(b[EIR_Manufacturer_Specific_Data].payload) == b"ypacs"
 assert b[EIR_TX_Power_Level].level == 10
 assert b[EIR_CompleteList128BitServiceUUIDs].svc_uuids[0] == UUID("01234567-89ab-cdef-1023-456789abcdfe")
@@ -746,7 +747,7 @@ a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Extended_Advertisi
       rssi = -85,
       data=[
          EIR_Hdr()/EIR_Manufacturer_Specific_Data(
-            company_id = 0xffff,
+            company_identifier = 0xffff,
          ) / Raw(b"scapy\x00\x01\x02\x03\x04")
       ]
    ),
@@ -765,7 +766,7 @@ assert b[HCI_LE_Meta_Extended_Advertising_Report][0].data_length > 0
 assert b[EIR_CompleteList16BitServiceUUIDs].svc_uuids == [0xffff]
 assert b[EIR_ServiceData16BitUUID].svc_uuid == 0xffff
 assert raw(b[EIR_ServiceData16BitUUID].payload) == b"scapy\x00\x00\x00"
-assert b[EIR_Manufacturer_Specific_Data].company_id == 0xffff
+assert b[EIR_Manufacturer_Specific_Data].company_identifier == 0xffff
 assert raw(b[EIR_Manufacturer_Specific_Data].payload) == b"scapy\x00\x01\x02\x03\x04"
 
 

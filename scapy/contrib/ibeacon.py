@@ -102,5 +102,5 @@ class IBeacon_Data(Packet):
 
 
 bind_layers(EIR_Manufacturer_Specific_Data, Apple_BLE_Frame,
-            company_id=APPLE_MFG)
+            company_identifier=APPLE_MFG)
 bind_layers(Apple_BLE_Submessage, IBeacon_Data, subtype=2)
