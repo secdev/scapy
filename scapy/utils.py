@@ -1649,7 +1649,7 @@ class RawPcapNgReader(RawPcapReader):
                                             ["linktype", "tsresol",
                                              "tshigh", "tslow", "wirelen",
                                              "comments", "ifname", "direction",
-                                             "process_information", ])
+                                             "process_information"])
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, IO[bytes], bytes) -> None
