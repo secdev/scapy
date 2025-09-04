@@ -25,7 +25,7 @@ assert isinstance(p.payload, IPv6)
 
 #######
 + Test Darwin-specific protocol headers for utun
-~ darwin utun not_libpcap
+~ osx utun not_libpcap
 
 = Darwin-specific protocol headers
 

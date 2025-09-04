@@ -86,30 +86,30 @@ jobs:
         python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
         mode: [non_root]
         installmode: ['']
-        flags: [" -K scanner -K darwin"]
+        flags: [" -K scanner"]
         allow-failure: ['false']
         include:
           # Python 3.7
           - os: ubuntu-22.04
             python: "3.7"
             mode: non_root
-            flags: " -K scanner -K darwin"
+            flags: " -K scanner"
           # Linux root tests on last version
           - os: ubuntu-latest
             python: "3.13"
             mode: root
-            flags: " -K scanner -K darwin"
+            flags: " -K scanner"
           # PyPy tests: root only
           - os: ubuntu-latest
             python: "pypy3.9"
             mode: root
-            flags: " -K scanner -K darwin"
+            flags: " -K scanner"
           # Libpcap test
           - os: ubuntu-latest
             python: "3.13"
             mode: root
             installmode: 'libpcap'
-            flags: " -K scanner -K darwin"
+            flags: " -K scanner"
           # macOS tests
           - os: macos-14
             python: "3.13"
