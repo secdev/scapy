@@ -2259,6 +2259,12 @@ wrpcapng(tmpfile, p)
 l = rdpcap(tmpfile)
 assert l[0].comment == p.comment
 
+p = Ether() / IPv6() / TCP()
+p.comments = [b"Hello!", b"Scapy!", b"Pcapng!"]
+wrpcapng(tmpfile, p)
+l = rdpcap(tmpfile)
+assert l[0].comments == p.comments
+
 = rdpcap on fifo
 ~ linux
 f = get_temp_file()
