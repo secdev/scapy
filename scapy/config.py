@@ -1146,6 +1146,8 @@ class Conf(ConfClass):
     )
     #: Dictionary containing parsed NSS Keys
     tls_nss_keys: Dict[str, bytes] = None
+    #: Whether to use NDR64 by default instead of NDR 32
+    ndr64: bool = True
     #: When TCPSession is used, parse DCE/RPC sessions automatically.
     #: This should be used for passive sniffing.
     dcerpc_session_enable = False

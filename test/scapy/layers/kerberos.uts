@@ -215,7 +215,7 @@ assert [type(x) for x in pkt.Payloads] == [
     UPN_DNS_INFO,
     NDRSerialization1Header,
     PAC_ATTRIBUTES_INFO,
-    PAC_REQUESTOR,
+    PAC_REQUESTOR_SID,
     PAC_SIGNATURE_DATA,
     PAC_SIGNATURE_DATA,
 ]
@@ -226,10 +226,10 @@ assert pkt.Payloads[2].DnsDomainName == 'DOM1.LOCAL'
 assert pkt.Payloads[2].SamName == 'SRV$'
 assert pkt.Payloads[2].Sid.summary() == 'S-1-5-21-826288890-480667314-1550869521-1104'
 
-assert pkt.Payloads[3].value.Claims.ClaimsSet.value.value[0].value.ClaimsArrays.value.value[0].usClaimsSourceType == 1
-claimentry = pkt.Payloads[3].value.Claims.ClaimsSet.value.value[0].value.ClaimsArrays.value.value[0].ClaimEntries.value.value[0]
-assert claimentry.Id.value.value[0].value == b'ad://ext/AuthenticationSilo'
-assert claimentry.Values.value.StringValues.value.value[0].value.value[0].value == b'T0-silo'
+assert pkt.Payloads[3].valueof("Claims.ClaimsSet.ClaimsArrays")[0].usClaimsSourceType == 1
+claimentry = pkt.Payloads[3].valueof("Claims.ClaimsSet.ClaimsArrays")[0].valueof("ClaimEntries")[0]
+assert claimentry.valueof("Id") == b'ad://ext/AuthenticationSilo'
+assert claimentry.valueof("Values.StringValues")[0] == b"T0-silo"
 
 assert pkt.Payloads[4].Flags[0].PAC_WAS_REQUESTED
 
@@ -252,9 +252,9 @@ pkt = AuthorizationData(data)
 assert isinstance(pkt.seq[0].adData.Payloads[0], NDRSerialization1Header)
 k = pkt.seq[0].adData.Payloads[0].value
 assert isinstance(k, KERB_VALIDATION_INFO)
-assert k.EffectiveName.Buffer.value.value[0].value == b'lzhu'
-assert k.LogonDomainName.Buffer.value.value[0].value == b"NTDEV"
-assert "S%s" % "-".join(str(x) for x in k.LogonDomainId.value.SubAuthority) == 'S21-397955417-626881126-188441444'
+assert k.valueof("EffectiveName.Buffer") == b'lzhu'
+assert k.valueof("LogonDomainName.Buffer") == b"NTDEV"
+assert "S-1-5-%s" % "-".join(str(x) for x in k.LogonDomainId.value.SubAuthority) == 'S-1-5-21-397955417-626881126-188441444'
 assert len(k.ExtraSids.value.value) == 13
 assert [x.RelativeId for x in k.GroupIds.value.value] == [3392609, 2999049, 3322974, 513, 2931095, 3338539, 3354830, 3026599, 3338538, 2931096, 3392610, 3342740, 3392630, 3014318, 2937394, 3278870, 3038018, 3322975, 3513546, 2966661, 3338434, 3271401, 3051245, 3271606, 3026603, 3018354]
 
@@ -840,6 +840,7 @@ claimSet = CLAIMS_SET(
     usReservedType=0,
     ulReservedFieldSize=0,
     ReservedField=None,
+    ndr64=False,
 )
 
 = MSPAC - Check that Pointers, Arrays, etc. were inferred

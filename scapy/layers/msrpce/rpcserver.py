@@ -17,22 +17,23 @@ from scapy.data import MTU
 from scapy.volatile import RandShort
 
 from scapy.layers.dcerpc import (
-    DceRpc5,
-    DceRpcSession,
-    DceRpc5Bind,
-    DceRpc5BindAck,
-    DceRpc5BindNak,
-    DceRpc5Auth3,
-    DceRpc5AlterContext,
-    DceRpc5AlterContextResp,
-    DceRpc5Result,
-    DceRpc5Request,
-    DceRpc5Response,
-    DceRpc5TransferSyntax,
-    DceRpc5PortAny,
     CommonAuthVerifier,
     DCE_RPC_INTERFACES,
     DCERPC_Transport,
+    DceRpc5,
+    DceRpc5AlterContext,
+    DceRpc5AlterContextResp,
+    DceRpc5Auth3,
+    DceRpc5Bind,
+    DceRpc5BindAck,
+    DceRpc5BindNak,
+    DceRpc5PortAny,
+    DceRpc5Request,
+    DceRpc5Response,
+    DceRpc5Result,
+    DceRpc5TransferSyntax,
+    DceRpcInterface,
+    DceRpcSession,
     RPC_C_AUTHN_LEVEL,
 )
 
@@ -43,6 +44,12 @@ from scapy.layers.msrpce.ept import (
     twr_p_t,
     protocol_tower_t,
     prot_and_addr_t,
+)
+
+# Typing
+from typing import (
+    Dict,
+    Optional,
 )
 
 
@@ -58,22 +65,20 @@ class _DCERPC_Server_metaclass(type):
 class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
     def __init__(
         self,
-        transport,
-        ndr64=False,
-        verb=True,
-        local_ip=None,
-        port=None,
-        portmap=None,
+        transport: DCERPC_Transport,
+        ndr64: Optional[bool] = None,
+        verb: bool = True,
+        local_ip: str = None,
+        port: int = None,
+        portmap: Dict[DceRpcInterface, int] = None,
         **kwargs,
     ):
         self.transport = transport
         self.session = DceRpcSession(**kwargs)
         self.queue = deque()
+        if ndr64 is None:
+            ndr64 = conf.ndr64
         self.ndr64 = ndr64
-        if ndr64:
-            self.ndr_name = "NDR64"
-        else:
-            self.ndr_name = "NDR 2.0"
         # For endpoint mapper. TODO: improve separation/handling of SMB/IP etc
         self.local_ip = local_ip
         self.port = port
@@ -130,6 +135,8 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
         :param iface: the interface to spawn it on (default: conf.iface)
         :param port: the port to spawn it on (for IP_TCP or the SMB server)
         :param bg: background mode? (default: False)
+        :param ndr64: whether NDR64 is supported or not (default: conf.ndr64).
+            This attribute will be overwritten if the client doesn't support it.
         """
         if transport == DCERPC_Transport.NCACN_IP_TCP:
             # IP/TCP case
@@ -287,39 +294,60 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                             auth_value=auth_value,
                         )
 
-                def get_result(ctx):
+                # Detect if the client requested NDR64 and the server agrees
+                self.ndr64 = self.ndr64 and any(
+                    ctx.transfer_syntaxes[0].sprintf("%if_uuid%") == "NDR64"
+                    for ctx in req.context_elem
+                )
+
+                # Process bind contexts and answer to them
+                results = []
+                for ctx in req.context_elem:
+                    # Get name
                     name = ctx.transfer_syntaxes[0].sprintf("%if_uuid%")
-                    if name == self.ndr_name:
+                    if (
+                        # NDR64
+                        (name == "NDR64" and self.ndr64)
+                        or
+                        # NDR 2.0
+                        (name == "NDR 2.0" and not self.ndr64)
+                    ):
                         # Acceptance
-                        return DceRpc5Result(
-                            result=0,
-                            reason=0,
-                            transfer_syntax=DceRpc5TransferSyntax(
-                                if_uuid=ctx.transfer_syntaxes[0].if_uuid,
-                                if_version=ctx.transfer_syntaxes[0].if_version,
-                            ),
+                        results.append(
+                            DceRpc5Result(
+                                result=0,
+                                reason=0,
+                                transfer_syntax=DceRpc5TransferSyntax(
+                                    if_uuid=ctx.transfer_syntaxes[0].if_uuid,
+                                    if_version=ctx.transfer_syntaxes[0].if_version,
+                                ),
+                            )
                         )
                     elif name == "Bind Time Feature Negotiation":
-                        return DceRpc5Result(
-                            result=3,
-                            reason=3,
-                            transfer_syntax=DceRpc5TransferSyntax(
-                                if_uuid="NULL",
-                                if_version=0,
-                            ),
+                        # Handle Bind Time Feature
+                        results.append(
+                            DceRpc5Result(
+                                result=3,
+                                reason=3,
+                                transfer_syntax=DceRpc5TransferSyntax(
+                                    if_uuid="NULL",
+                                    if_version=0,
+                                ),
+                            )
                         )
                     else:
                         # Reject
-                        return DceRpc5Result(
-                            result=2,
-                            reason=2,
-                            transfer_syntax=DceRpc5TransferSyntax(
-                                if_uuid="NULL",
-                                if_version=0,
-                            ),
+                        results.append(
+                            DceRpc5Result(
+                                result=2,
+                                reason=2,
+                                transfer_syntax=DceRpc5TransferSyntax(
+                                    if_uuid="NULL",
+                                    if_version=0,
+                                ),
+                            )
                         )
 
-                results = [get_result(x) for x in req.context_elem]
                 if self.port is None:
                     # Piped
                     port_spec = (
@@ -349,7 +377,9 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                     print(
                         conf.color_theme.success(
                             f">> {cls.__name__} {self.session.rpc_bind_interface.name}"
-                            f" is on port '{port_spec.decode()}' using {self.ndr_name}"
+                            f" is on port '{port_spec.decode()}' using " + (
+                                "NDR64" if self.ndr64 else "NDR32"
+                            )
                         )
                     )
         elif DceRpc5Request in req:

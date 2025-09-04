@@ -1216,7 +1216,11 @@ class smbclient(CLIUtil):
         # For some usages, we will also need the RPC wrapper
         from scapy.layers.msrpce.rpcclient import DCERPC_Client
 
-        self.rpcclient = DCERPC_Client.from_smblink(self.sock, ndr64=False, verb=False)
+        self.rpcclient = DCERPC_Client.from_smblink(
+            self.sock,
+            ndr64=False,
+            verb=bool(debug),
+        )
         # We have a valid smb connection !
         print(
             "%s authentication successful using %s%s !"
@@ -1271,7 +1275,7 @@ class smbclient(CLIUtil):
         # Poll cache
         if self.sh_cache:
             return self.sh_cache
-        # One of the 'hardest' considering it's an RPC
+        # It's an RPC
         self.rpcclient.open_smbpipe("srvsvc")
         self.rpcclient.bind(find_dcerpc_interface("srvsvc"))
         req = NetrShareEnum_Request(
@@ -1283,10 +1287,12 @@ class smbclient(CLIUtil):
                 ),
             ),
             PreferedMaximumLength=0xFFFFFFFF,
+            ndr64=self.rpcclient.ndr64,
         )
         resp = self.rpcclient.sr1_req(req, timeout=self.timeout)
         self.rpcclient.close_smbpipe()
         if not isinstance(resp, NetrShareEnum_Response):
+            resp.show()
             raise ValueError("NetrShareEnum_Request failed !")
         results = []
         for share in resp.valueof("InfoStruct.ShareInfo.Buffer"):

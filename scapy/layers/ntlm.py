@@ -1965,7 +1965,7 @@ class NTLMSSP_DOMAIN(NTLMSSP):
             PNETLOGON_NETWORK_INFO,
             PNETLOGON_AUTHENTICATOR,
             NETLOGON_LOGON_IDENTITY_INFO,
-            RPC_UNICODE_STRING,
+            UNICODE_STRING,
             STRING,
         )
 
@@ -2007,14 +2007,14 @@ class NTLMSSP_DOMAIN(NTLMSSP):
                 tag=6,
                 value=PNETLOGON_NETWORK_INFO(
                     Identity=NETLOGON_LOGON_IDENTITY_INFO(
-                        LogonDomainName=RPC_UNICODE_STRING(
+                        LogonDomainName=UNICODE_STRING(
                             Buffer=ntlm.DomainName,
                         ),
                         ParameterControl=0x00002AE0,
-                        UserName=RPC_UNICODE_STRING(
+                        UserName=UNICODE_STRING(
                             Buffer=ntlm.UserName,
                         ),
-                        Workstation=RPC_UNICODE_STRING(
+                        Workstation=UNICODE_STRING(
                             Buffer=ntlm.Workstation,
                         ),
                     ),
@@ -2045,15 +2045,6 @@ class NTLMSSP_DOMAIN(NTLMSSP):
             return bytes(UserSessionKey)
         else:
             # Failed
-            from scapy.layers.smb2 import STATUS_ERREF
-
-            print(
-                conf.color_theme.fail(
-                    "! %s" % STATUS_ERREF.get(resp.status, "Failure !")
-                )
-            )
-            if resp.status not in STATUS_ERREF:
-                resp.show()
             return super(NTLMSSP_DOMAIN, self)._getSessionBaseKey(Context, ntlm)
 
     def _checkLogin(self, Context, auth_tok):

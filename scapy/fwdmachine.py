@@ -86,9 +86,10 @@ class ForwardMachine:
     Methods to override:
 
     :func xfrmcs: a function to call when forwarding a packet from the 'client' to
-        the server. If it returns True, the packet is forwarded as it. If it
-        returns False or None, the packet is discarded. If it returns a
-        packet, this packet is forwarded instead of the original packet.
+        the server. If it raises a FORWARD exception, the packet is forwarded as it. If
+        it raises a DROP Exception, the packet is discarded. If it raises a
+        FORWARD_REPLACE(pkt) exception, then pkt is forwarded instead of the original
+        packet.
     :func xfrmsc: same as xfrmcs for packets forwarded from the 'server' to the
         'client'.
     """
@@ -372,7 +373,7 @@ class ForwardMachine:
                     # Load result certificate our SSL server
                     # (this is dumb but we need to store them on disk)
                     certfile = get_temp_file()
-                    with open(certfile, "wb") as fd:
+                    with open(certfile, "w") as fd:
                         for c in certs:
                             fd.write(c.pem)
                     keyfile = get_temp_file()

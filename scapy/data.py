@@ -574,6 +574,14 @@ def load_manuf(filename=None):
     return manufdb
 
 
+@scapy_data_cache("bluetoothids")
+def load_bluetoothids(filename=None):
+    # type: (Optional[str]) -> Dict[int, str]
+    """Load Bluetooth IDs into the cache"""
+    from scapy.libs.bluetoothids import DATA
+    return cast(Dict[int, str], DATA)
+
+
 def select_path(directories, filename):
     # type: (List[str], str) -> Optional[str]
     """Find filename among several directories"""
@@ -612,6 +620,8 @@ else:
             "share/wireshark/manuf"
         )
     )
+
+BLUETOOTH_CORE_COMPANY_IDENTIFIERS = load_bluetoothids()
 
 
 #####################

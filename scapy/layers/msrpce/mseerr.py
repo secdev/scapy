@@ -10,191 +10,20 @@
 # Wireshark does not know how to read this !
 
 import uuid
-from enum import IntEnum
 
-from scapy.fields import StrFixedLenField, UTCTimeField
+from scapy.fields import UTCTimeField
+from scapy.packet import Packet, bind_layers
+
 from scapy.layers.dcerpc import (
     DceRpc5Fault,
     DceRpc5BindNak,
-    NDRConfPacketListField,
-    NDRConfStrLenField,
-    NDRConfStrLenFieldUtf16,
-    NDRFullEmbPointerField,
-    NDRInt3264EnumField,
-    NDRIntField,
-    NDRPacket,
-    NDRPacketField,
-    NDRRecursiveField,
     NDRSerializeType1PacketField,
-    NDRShortField,
-    NDRSignedShortField,
-    NDRUnionField,
-    NDRLongField,
+)
+from scapy.layers.msrpce.raw.ms_eerr import (
+    ExtendedErrorInfo,
+    EEComputerNamePresent,
 )
 from scapy.layers.smb2 import STATUS_ERREF
-from scapy.packet import Packet, bind_layers
-
-# [MS-EERR] structures
-
-
-class EEAString(NDRPacket):
-    ALIGNMENT = (4, 8)
-    fields_desc = [
-        NDRSignedShortField("nLength", None, size_of="pString"),
-        NDRFullEmbPointerField(
-            NDRConfStrLenField("pString", "", size_is=lambda pkt: pkt.nLength),
-        ),
-    ]
-
-
-class EEUString(NDRPacket):
-    ALIGNMENT = (4, 8)
-    fields_desc = [
-        NDRSignedShortField("nLength", None, size_of="pString"),
-        NDRFullEmbPointerField(
-            NDRConfStrLenFieldUtf16("pString", "", size_is=lambda pkt: pkt.nLength),
-        ),
-    ]
-
-
-class BinaryEEInfo(NDRPacket):
-    ALIGNMENT = (4, 8)
-    fields_desc = [
-        NDRSignedShortField("nSize", None, size_of="pBlob"),
-        NDRFullEmbPointerField(
-            NDRConfStrLenField("pBlob", "", size_is=lambda pkt: pkt.nSize),
-        ),
-    ]
-
-
-class ExtendedErrorParamTypesInternal(IntEnum):
-    eeptiAnsiString = 1
-    eeptiUnicodeString = 2
-    eeptiLongVal = 3
-    eeptiShortValue = 4
-    eeptiPointerValue = 5
-    eeptiNone = 6
-    eeptiBinary = 7
-
-
-class ExtendedErrorParam(NDRPacket):
-    ALIGNMENT = (8, 8)
-    fields_desc = [
-        NDRInt3264EnumField("Type", 0, ExtendedErrorParamTypesInternal),
-        NDRUnionField(
-            [
-                (
-                    NDRPacketField("value", EEAString(), EEAString),
-                    (
-                        (lambda pkt: getattr(pkt, "Type", None) == 1),
-                        (lambda _, val: val.tag == 1),
-                    ),
-                ),
-                (
-                    NDRPacketField("value", EEUString(), EEUString),
-                    (
-                        (lambda pkt: getattr(pkt, "Type", None) == 2),
-                        (lambda _, val: val.tag == 2),
-                    ),
-                ),
-                (
-                    NDRIntField("value", 0),
-                    (
-                        (lambda pkt: getattr(pkt, "Type", None) == 3),
-                        (lambda _, val: val.tag == 3),
-                    ),
-                ),
-                (
-                    NDRSignedShortField("value", 0),
-                    (
-                        (lambda pkt: getattr(pkt, "Type", None) == 4),
-                        (lambda _, val: val.tag == 4),
-                    ),
-                ),
-                (
-                    NDRLongField("value", 0),
-                    (
-                        (lambda pkt: getattr(pkt, "Type", None) == 5),
-                        (lambda _, val: val.tag == 5),
-                    ),
-                ),
-                (
-                    StrFixedLenField("value", "", length=0),
-                    (
-                        (lambda pkt: getattr(pkt, "Type", None) == 6),
-                        (lambda _, val: val.tag == 6),
-                    ),
-                ),
-                (
-                    NDRPacketField("value", BinaryEEInfo(), BinaryEEInfo),
-                    (
-                        (lambda pkt: getattr(pkt, "Type", None) == 7),
-                        (lambda _, val: val.tag == 7),
-                    ),
-                ),
-            ],
-            StrFixedLenField("value", "", length=0),
-            align=(2, 8),
-            switch_fmt=("H", "I"),
-        ),
-    ]
-
-
-class EEComputerNamePresent(IntEnum):
-    eecnpPresent = 1
-    eecnpNotPresent = 2
-
-
-class EEComputerName(NDRPacket):
-    ALIGNMENT = (4, 8)
-    fields_desc = [
-        NDRInt3264EnumField("Type", 0, EEComputerNamePresent),
-        NDRUnionField(
-            [
-                (
-                    NDRPacketField("value", EEUString(), EEUString),
-                    (
-                        (lambda pkt: getattr(pkt, "Type", None) == 1),
-                        (lambda _, val: val.tag == 1),
-                    ),
-                ),
-                (
-                    StrFixedLenField("value", "", length=0),
-                    (
-                        (lambda pkt: getattr(pkt, "Type", None) == 2),
-                        (lambda _, val: val.tag == 2),
-                    ),
-                ),
-            ],
-            StrFixedLenField("value", "", length=0),
-            align=(2, 8),
-            switch_fmt=("H", "I"),
-        ),
-    ]
-
-
-class ExtendedErrorInfo(NDRPacket):
-    ALIGNMENT = (8, 8)
-    DEPORTED_CONFORMANTS = ["Params"]
-    fields_desc = [
-        NDRRecursiveField("Next"),
-        NDRPacketField("ComputerName", EEComputerName(), EEComputerName),
-        NDRIntField("ProcessID", 0),
-        NDRLongField("TimeStamp", 0),
-        NDRIntField("GeneratingComponent", 0),
-        NDRIntField("Status", 0),
-        NDRShortField("DetectionLocation", 0),
-        NDRShortField("Flags", 0),
-        NDRSignedShortField("nLen", None, size_of="Params"),
-        NDRConfPacketListField(
-            "Params",
-            [],
-            ExtendedErrorParam,
-            size_is=lambda pkt: pkt.nLen,
-            conformant_in_struct=True,
-        ),
-    ]
-
 
 # Encapsulation packets
 
@@ -595,6 +424,7 @@ class DceRpc5ExtendedErrorInfo(Packet):
             "extended_error",
             ExtendedErrorInfo(),
             ExtendedErrorInfo,
+            ptr_pack=True,
         )
     ]
 
@@ -603,7 +433,7 @@ class DceRpc5ExtendedErrorInfo(Packet):
         Print stacktrace
         """
         # Get a list of ErrorInfo
-        cur = self.extended_error.value
+        cur = self.extended_error
         errors = [cur]
         while cur and cur.Next:
             cur = cur.Next.value
