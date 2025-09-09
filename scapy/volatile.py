@@ -624,29 +624,66 @@ class RandString(_RandString[str]):
 class RandBin(_RandString[bytes]):
     _DEFAULT_CHARS = b"".join(chb(c) for c in range(256))
 
+    min = 0
+    max = 0
+    state_pos = None
+
     def __init__(self, size=None, chars=_DEFAULT_CHARS):
         # type: (Optional[Union[int, RandNum]], bytes) -> None
         if size is None:
             size = RandNumExpo(0.01)
         self.size = size
         self.chars = chars
+        self.max = len(chars)
+
+    def __getitem__(self, start, stop=None, step=None):
+        # Missing subscriptable (needed by BOOTP while show calls it, maybe others?)
+        #  due to i2repr being called/implemented
+        if stop is not None and step is None:
+            return self.chars[start:stop]
+
+        if stop is not None and step is not None:
+            return self.chars[start:stop:step]
+
+        return self.chars[start]
 
     def _command_args(self):
         # type: () -> str
-        if not isinstance(self.size, VolatileValue):
-            return "size=%r" % self.size
+        ret = ""
+        if isinstance(self.size, VolatileValue):
+            if self.size.lambd != 0.01 or self.size.base != 0:
+                ret += "size=%r" % self.size.command()
+        else:
+            ret += "size=%r" % self.size
 
-        if isinstance(self.size, RandNumExpo) and \
-                self.size.lambd == 0.01 and self.size.base == 0:
-            # Default size for RandString, skip
-            return ""
-        return "size=%r" % self.size.command()
+        if self.chars != self._DEFAULT_CHARS:
+            ret += ", chars=%r" % self.chars
+        return ret
 
     def _fix(self):
         # type: () -> bytes
-        s = b""
-        for _ in range(int(self.size)):
-            s += struct.pack("!B", random.choice(self.chars))
+
+        # Old code:
+        # s = b""
+        # for _ in range(int(self.size)):
+        #   s += struct.pack("!B", random.choice(self.chars))
+        # return s
+
+        # State aware code:
+        if 'state_pos' not in dir(self) or self.state_pos is None:
+            # We need to trim the chars up to the max size of the RandNum (the 'size' property)
+            if isinstance(self.size, VolatileValue):
+                return self.chars[:self.size.max]
+            else:
+                return self.chars[:self.max]
+
+        if len(self.chars) == 0:
+            # If no value was given, don't divide it...
+            return bytes_encode(self.chars)
+
+        pos_adjusted = self.state_pos % len(self.chars)
+        s = bytes_encode(self.chars[0:pos_adjusted]) # Make it change by state_pos
+
         return s
 
 
