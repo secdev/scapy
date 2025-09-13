@@ -24,6 +24,26 @@ assert p.type == 0x86dd
 assert isinstance(p.payload, IPv6)
 
 #######
++ Test Darwin-specific protocol headers for utun
+~ osx utun not_libpcap
+
+= Darwin-specific protocol headers
+
+p = DarwinUtunPacketInfo()/IP()
+assert p.addr_family == 2
+
+p = DarwinUtunPacketInfo(raw(p))
+assert p.addr_family == 2
+assert isinstance(p.payload, IP)
+
+p = DarwinUtunPacketInfo()/IPv6()
+assert p.addr_family == 30
+
+p = DarwinUtunPacketInfo(raw(p))
+assert p.addr_family == 30
+assert isinstance(p.payload, IPv6)
+
+#######
 + Test tun device
 
 ~ tun needs_root not_libpcap

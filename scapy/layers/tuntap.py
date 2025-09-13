@@ -10,24 +10,29 @@ Implementation of TUN/TAP interfaces.
 These allow Scapy to act as the remote side of a virtual network interface.
 """
 
-
 import socket
 import time
 from fcntl import ioctl
 
-from scapy.compat import raw, bytes_encode
+from scapy.compat import bytes_encode, raw
 from scapy.config import conf
-from scapy.consts import BIG_ENDIAN, BSD, LINUX
+from scapy.consts import BIG_ENDIAN, BSD, DARWIN, LINUX
 from scapy.data import ETHER_TYPES, MTU
-from scapy.error import warning, log_runtime
-from scapy.fields import Field, FlagsField, StrFixedLenField, XShortEnumField
+from scapy.error import log_runtime, warning
+from scapy.fields import (
+    BitField,
+    Field,
+    FlagsField,
+    IntField,
+    StrFixedLenField,
+    XShortEnumField,
+)
 from scapy.interfaces import network_name
 from scapy.layers.inet import IP
-from scapy.layers.inet6 import IPv46, IPv6
+from scapy.layers.inet6 import IPv6, IPv46
 from scapy.layers.l2 import Ether
-from scapy.packet import Packet
+from scapy.packet import Packet, bind_layers
 from scapy.supersocket import SimpleSocket
-
 
 # Linux-specific defines (/usr/include/linux/if_tun.h)
 LINUX_TUNSETIFF = 0x400454ca
@@ -35,6 +40,11 @@ LINUX_IFF_TUN = 0x0001
 LINUX_IFF_TAP = 0x0002
 LINUX_IFF_NO_PI = 0x1000
 LINUX_IFNAMSIZ = 16
+
+# Darwin-specific defines (net/if_utun.h and sys/kern_control.h)
+DARWIN_CTLIOCGINFO = 0xc0644e03
+DARWIN_UTUN_CONTROL_NAME = b"com.apple.net.utun_control"
+DARWIN_MAX_KCTL_NAME = 96
 
 
 class NativeShortField(Field):
@@ -61,6 +71,18 @@ class LinuxTunIfReq(Packet):
     ]
 
 
+class DarwinUtunIfReq(Packet):
+    """
+    Structure for issuing Darwin ioctl commands (``struct ctl_info``).
+
+    See net/if_utun.h and sys/kern_control.h for reference.
+    """
+    fields_desc = [
+        BitField("ctl_id", 0, -32),
+        StrFixedLenField("ctl_name", DARWIN_UTUN_CONTROL_NAME, DARWIN_MAX_KCTL_NAME)
+    ]
+
+
 class LinuxTunPacketInfo(TunPacketInfo):
     """
     Base for TUN packets.
@@ -75,6 +97,12 @@ class LinuxTunPacketInfo(TunPacketInfo):
                    ["reserved%d" % x for x in range(1, 16)]),
         # This is always network byte order
         XShortEnumField("type", 0x9000, ETHER_TYPES),
+    ]
+
+
+class DarwinUtunPacketInfo(Packet):
+    fields_desc = [
+        IntField("addr_family", socket.AF_INET)
     ]
 
 
@@ -116,7 +144,7 @@ class TunTapInterface(SimpleSocket):
 
         self.mode_tun = mode_tun
         if self.mode_tun is None:
-            if self.iface.startswith(b"tun"):
+            if self.iface.startswith(b"tun") or self.iface.startswith(b"utun"):
                 self.mode_tun = True
             elif self.iface.startswith(b"tap"):
                 self.mode_tun = False
@@ -152,22 +180,37 @@ class TunTapInterface(SimpleSocket):
                 warning("Linux interface names are limited to %d bytes, "
                         "truncating!" % (LINUX_IFNAMSIZ,))
                 self.iface = self.iface[:LINUX_IFNAMSIZ]
-
+            sock = open(devname, "r+b", buffering=0)
         elif BSD:  # also DARWIN
-            if not (self.iface.startswith(b"tap") or
-                    self.iface.startswith(b"tun")):
+            if self.iface.startswith(b"utun"):  # allowed for Darwin
+                if not DARWIN:
+                    raise ValueError('`utun` iface prefix is only allowed for Darwin')
+                self.kernel_packet_class = DarwinUtunPacketInfo
+                self.mtu_overhead = 4
+                interface_num = int(self.iface[4:])
+
+                utun_socket = socket.socket(
+                    socket.PF_SYSTEM, socket.SOCK_DGRAM, socket.SYSPROTO_CONTROL)
+                ctl_info = ioctl(utun_socket, DARWIN_CTLIOCGINFO,
+                                 raw(DarwinUtunIfReq()))
+                utun_socket.connect(
+                    (DarwinUtunIfReq(ctl_info).getfieldval("ctl_id"), interface_num + 1)
+                )
+
+                sock = utun_socket.makefile(mode="rwb", buffering=0)
+            elif self.iface.startswith(b"tap") or self.iface.startswith(b"tun"):
+                devname = b"/dev/" + self.iface
+                if not self.strip_packet_info:
+                    warning("tun/tap devices on BSD and Darwin never include "
+                            "packet info!")
+                    self.strip_packet_info = True
+                sock = open(devname, "r+b", buffering=0)
+            else:
                 raise ValueError("Interface names must start with `tun` or "
-                                 "`tap` on BSD and Darwin")
-            devname = b"/dev/" + self.iface
-            if not self.strip_packet_info:
-                warning("tun/tap devices on BSD and Darwin never include "
-                        "packet info!")
-                self.strip_packet_info = True
+                                 "`tap` on BSD and Darwin or `utun` on Darwin")
         else:
             raise NotImplementedError("TunTapInterface is not supported on "
                                       "this platform!")
-
-        sock = open(devname, "r+b", buffering=0)
 
         if LINUX:
             if self.mode_tun:
@@ -241,3 +284,8 @@ class TunTapInterface(SimpleSocket):
         except socket.error:
             log_runtime.error("%s send",
                               self.__class__.__name__, exc_info=True)
+
+
+# Bindings #
+bind_layers(DarwinUtunPacketInfo, IP, addr_family=socket.AF_INET)
+bind_layers(DarwinUtunPacketInfo, IPv6, addr_family=socket.AF_INET6)
