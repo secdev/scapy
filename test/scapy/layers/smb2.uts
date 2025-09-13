@@ -575,3 +575,5 @@ assert sd.DACLOffset == 44
 assert sd.OwnerSid.summary() == "S-1-1-0"
 assert sd.GroupSid.summary() == "S-1-1-0"
 assert sd.DACL.toSDDL() == ['(A;;;;;S-1-1-0)']
+
+assert sd.DACL.AclSize == len(sd.DACL)
