@@ -1505,8 +1505,14 @@ class WINNT_ACL(Packet):
     fields_desc = [
         ByteField("AclRevision", 2),
         ByteField("Sbz1", 0x00),
+        # Total size including header:
+        # AclRevision(1) + Sbz1(1) + AclSize(2) + AceCount(2) + Sbz2(2)
         FieldLenField(
-            "AclSize", None, length_of="Aces", adjust=lambda _, x: x + 14, fmt="<H"
+            "AclSize",
+            None,
+            length_of="Aces",
+            adjust=lambda _, x: x + 8,
+            fmt="<H",
         ),
         FieldLenField("AceCount", None, count_of="Aces", fmt="<H"),
         ShortField("Sbz2", 0),
