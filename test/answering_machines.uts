@@ -39,12 +39,23 @@ test_am(BOOTP_am,
 def check_DHCP_am_reply(packet):
     assert DHCP in packet and len(packet[DHCP].options)
     assert ("domain", b"localnet") in packet[DHCP].options
+    assert ('name_server', '192.168.1.1') in packet[DHCP].options
+
+def check_ns_DHCP_am_reply(packet):
+    assert DHCP in packet and len(packet[DHCP].options)
+    assert ("domain", b"localnet") in packet[DHCP].options
+    assert ('name_server', '1.1.1.1', '2.2.2.2') in packet[DHCP].options
 
 test_am(DHCP_am,
         Ether()/IP()/UDP()/BOOTP(op=1)/DHCP(options=[('message-type', 'request')]),
         check_DHCP_am_reply,
         domain="localnet")
 
+test_am(DHCP_am,
+        Ether()/IP()/UDP()/BOOTP(op=1)/DHCP(options=[('message-type', 'request')]),
+        check_ns_DHCP_am_reply,
+        domain="localnet",
+        nameserver=["1.1.1.1", "2.2.2.2"])
 
 = ARP_am
 def check_ARP_am_reply(packet):
