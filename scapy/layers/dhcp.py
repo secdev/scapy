@@ -409,6 +409,9 @@ class RandDHCPOptions(RandField):
                 op.append((o.name, r))
         return op
 
+    def __iter__(self):
+        return iter(self._fix())
+
 
 class DHCPOptionsField(StrField):
     """

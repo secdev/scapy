@@ -54,6 +54,7 @@ assert s5 == b'E\x00\x01&\x00\x01\x00\x00@\x11{\xc4\x7f\x00\x00\x01\x7f\x00\x00\
 
 pkt = fuzz(DHCP())
 assert isinstance(pkt.options, RandDHCPOptions)
+pkt.show()
 pkt = DHCP(bytes(pkt))
 pkt.show()
 
@@ -135,4 +136,3 @@ assert result in [
     '<function scapy.ansmachine.dhcpd(self, pool: Union[scapy.base_classes.Net, List[str]] = Net("192.168.1.128/25"), network: str = \'192.168.1.0/24\', gw: str = \'192.168.1.1\', nameserver: Union[str, List[str]] = None, domain: Union[str, NoneType] = None, renewal_time: int = 60, lease_time: int = 1800, **kwargs)>',
     '<function scapy.ansmachine.dhcpd(self, pool=Net("192.168.1.128/25"), network=\'192.168.1.0/24\', gw=\'192.168.1.1\', nameserver=None, domain=None, renewal_time=60, lease_time=1800, **kwargs)>',
 ]
-
