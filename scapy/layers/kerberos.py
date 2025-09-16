@@ -141,6 +141,7 @@ from scapy.layers.gssapi import (
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.smb import _NV_VERSION
 from scapy.layers.smb2 import STATUS_ERREF
+from scapy.layers.tls.cert import Cert, PrivKey
 from scapy.layers.x509 import X509_AlgorithmIdentifier
 
 # Redirect exports from RFC3961
@@ -2714,21 +2715,25 @@ class KdcProxySocket(SuperSocket):
 
 class KerberosClient(Automaton):
     """
+    Implementation of a Kerberos client.
+
+    Prefer to use the ``krb_as_req`` and ``krb_tgs_req`` functions which
+    wrap this client.
+
+    Common parameters:
+
     :param mode: the mode to use for the client (default: AS_REQ).
     :param ip: the IP of the DC (default: discovered by dclocator)
     :param upn: the UPN of the client.
     :param password: the password of the client.
     :param key: the Key of the client (instead of the password)
     :param realm: the realm of the domain. (default: from the UPN)
-    :param spn: the SPN to request in a TGS-REQ
-    :param ticket: the existing ticket to use in a TGS-REQ
     :param host: the name of the host doing the request
-    :param renew: sets the Renew flag in a TGS-REQ
-    :param additional_tickets: in U2U or S4U2Proxy, the additional tickets
-    :param u2u: sets the U2U flag
-    :param for_user: the UPN of another user in TGS-REQ, to do a S4U2Self
-    :param s4u2proxy: sets the S4U2Proxy flag
-    :param dmsa: sets the 'unconditional delegation' mode for DMSA TGT retrieval
+    :param port: the Kerberos port (default 88)
+    :param timeout: timeout of each request (default 5)
+
+    Advanced common parameters:
+
     :param kdc_proxy: specify a KDC proxy url
     :param kdc_proxy_no_check_certificate: do not check the KDC proxy certificate
     :param fast: use FAST armoring
@@ -2736,8 +2741,24 @@ class KerberosClient(Automaton):
     :param armor_ticket_upn: the UPN of the client of the armoring ticket
     :param armor_ticket_skey: the session Key object of the armoring ticket
     :param etypes: specify the list of encryption types to support
-    :param port: the Kerberos port (default 88)
-    :param timeout: timeout of each request (default 5)
+
+    AS-REQ only:
+
+    :param x509: a X509 certificate to use for PKINIT AS_REQ or S4U2Proxy
+    :param x509key: the private key of the X509 certificate (in an AS_REQ)
+    :param p12: (optional) use a pfx/p12 instead of x509 and x509key. In this case,
+        'password' is the password of the p12.
+
+    TGS-REQ only:
+
+    :param spn: the SPN to request in a TGS-REQ
+    :param ticket: the existing ticket to use in a TGS-REQ
+    :param renew: sets the Renew flag in a TGS-REQ
+    :param additional_tickets: in U2U or S4U2Proxy, the additional tickets
+    :param u2u: sets the U2U flag
+    :param for_user: the UPN of another user in TGS-REQ, to do a S4U2Self
+    :param s4u2proxy: sets the S4U2Proxy flag
+    :param dmsa: sets the 'unconditional delegation' mode for DMSA TGT retrieval
     """
 
     RES_AS_MODE = namedtuple("AS_Result", ["asrep", "sessionkey", "kdcrep"])
@@ -2756,6 +2777,9 @@ class KerberosClient(Automaton):
         password=None,
         key=None,
         realm=None,
+        x509=None,
+        x509key=None,
+        p12=None,
         spn=None,
         ticket=None,
         host=None,
@@ -2796,9 +2820,31 @@ class KerberosClient(Automaton):
             else:
                 raise ValueError("Invalid realm")
 
+        # PKINIT checks
+        if p12 is not None:
+            from cryptography.hazmat.primitives.serialization import pkcs12
+
+            # password should be None or bytes
+            if isinstance(password, str):
+                password = password.encode()
+
+            # Read p12/pfx
+            with open(p12, "rb") as fd:
+                x509key, x509, _ = pkcs12.load_key_and_certificates(
+                    fd.read(),
+                    password=password,
+                )
+                x509 = Cert(cryptography_obj=x509)
+                x509key = PrivKey(cryptography_obj=x509key)
+        elif x509 and x509key:
+            x509 = Cert(x509)
+            x509key = PrivKey(x509key)
+
         if mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
             if not host:
                 raise ValueError("Invalid host")
+            if (x509 is None) ^ (x509key is None):
+                raise ValueError("Must provide both 'x509' and 'x509key' !")
         elif mode == self.MODE.TGS_REQ:
             if not ticket:
                 raise ValueError("Invalid ticket")
@@ -2815,6 +2861,7 @@ class KerberosClient(Automaton):
                 debug=kwargs.get("debug", 0),
             ).ip
 
+        # Armoring checks
         if fast:
             if mode == self.MODE.AS_REQ:
                 # Requires an external ticket
@@ -2867,6 +2914,8 @@ class KerberosClient(Automaton):
         self.spn = spn
         self.upn = upn
         self.realm = realm.upper()
+        self.x509 = x509
+        self.x509key = x509key
         self.ticket = ticket
         self.fast = fast
         self.armor_ticket = armor_ticket
@@ -2902,6 +2951,10 @@ class KerberosClient(Automaton):
         )
 
     def _connect(self):
+        """
+        Internal function to bind a socket to the DC.
+        This also takes care of an eventual KDC proxy.
+        """
         if self.kdc_proxy:
             # If we are using a KDC Proxy, wrap the socket with the KdcProxySocket,
             # that takes our messages and transport them over HTTP.
@@ -2918,9 +2971,15 @@ class KerberosClient(Automaton):
         return sock
 
     def send(self, pkt):
+        """
+        Sends a wrapped Kerberos packet
+        """
         super(KerberosClient, self).send(KerberosTCPHeader() / pkt)
 
     def _base_kdc_req(self, now_time):
+        """
+        Return the KRB_KDC_REQ_BODY used in both AS-REQ and TGS-REQ
+        """
         kdcreq = KRB_KDC_REQ_BODY(
             etype=[ASN1_INTEGER(x) for x in self.etypes],
             additionalTickets=None,
@@ -3112,33 +3171,46 @@ class KerberosClient(Automaton):
 
         # Pre-auth is requested
         if self.pre_auth:
-            if self.fast:
-                # Special FAST factor
-                # RFC6113 sect 5.4.6
-                from scapy.libs.rfc3961 import KRB_FX_CF2
-
-                # Calculate the 'challenge key'
-                ts_key = KRB_FX_CF2(
-                    self.fast_armorkey,
-                    self.key,
-                    b"clientchallengearmor",
-                    b"challengelongterm",
-                )
+            if self.x509:
+                # Special PKINIT (RFC4556) factor
                 pafactor = PADATA(
-                    padataType=138,  # PA-ENCRYPTED-CHALLENGE
-                    padataValue=EncryptedData(),
+                    padataType=16,  # PA-PK-AS-REQ
+                    padataValue=PA_PK_AS_REQ(
+                        
+                    )
                 )
             else:
-                # Usual 'timestamp' factor
-                ts_key = self.key
-                pafactor = PADATA(
-                    padataType=2,  # PA-ENC-TIMESTAMP
-                    padataValue=EncryptedData(),
+                # Key-based factor
+
+                if self.fast:
+                    # Special FAST factor
+                    # RFC6113 sect 5.4.6
+                    from scapy.libs.rfc3961 import KRB_FX_CF2
+
+                    # Calculate the 'challenge key'
+                    ts_key = KRB_FX_CF2(
+                        self.fast_armorkey,
+                        self.key,
+                        b"clientchallengearmor",
+                        b"challengelongterm",
+                    )
+                    pafactor = PADATA(
+                        padataType=138,  # PA-ENCRYPTED-CHALLENGE
+                        padataValue=EncryptedData(),
+                    )
+                else:
+                    # Usual 'timestamp' factor
+                    ts_key = self.key
+                    pafactor = PADATA(
+                        padataType=2,  # PA-ENC-TIMESTAMP
+                        padataValue=EncryptedData(),
+                    )
+                pafactor.padataValue.encrypt(
+                    ts_key,
+                    PA_ENC_TS_ENC(patimestamp=ASN1_GENERALIZED_TIME(now_time)),
                 )
-            pafactor.padataValue.encrypt(
-                ts_key,
-                PA_ENC_TS_ENC(patimestamp=ASN1_GENERALIZED_TIME(now_time)),
-            )
+            
+            # Insert Pre-Authentication data
             padata.insert(
                 0,
                 pafactor,
@@ -3664,7 +3736,17 @@ def _spn_are_equal(spn1, spn2):
 
 
 def krb_as_req(
-    upn, spn=None, ip=None, key=None, password=None, realm=None, host="WIN10", **kwargs
+    upn,
+    spn=None,
+    ip=None,
+    key=None,
+    password=None,
+    realm=None,
+    host="WIN10",
+    p12=None,
+    x509=None,
+    x509key=None,
+    **kwargs,
 ):
     r"""
     Kerberos AS-Req
@@ -3677,6 +3759,10 @@ def krb_as_req(
                _kerberos._tcp.dc._msdcs.domain.local).
     :param key: (optional) pass the Key object.
     :param password: (optional) otherwise, pass the user's password
+    :param x509: (optional) pass a x509 certificate for PKINIT.
+    :param x509key: (optional) pass the key of the x509 certificate for PKINIT.
+    :param p12: (optional) use a pfx/p12 instead of x509 and x509key. In this case,
+        'password' is the password of the p12.
     :param realm: (optional) the realm to use. Otherwise use the one from UPN.
     :param host: (optional) the host performing the AS-Req. WIN10 by default.
 
@@ -3684,19 +3770,23 @@ def krb_as_req(
 
     Example::
 
-        >>> # The KDC is on 192.168.122.17, we ask a TGT for user1
-        >>> krb_as_req("user1@DOMAIN.LOCAL", "192.168.122.17", password="Password1")
+        >>> # The KDC is found via DC Locator, we ask a TGT for user1
+        >>> krb_as_req("user1@DOMAIN.LOCAL", password="Password1")
 
     Equivalent::
 
         >>> from scapy.libs.rfc3961 import Key, EncryptionType
         >>> key = Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=hex_bytes("6d0748c546
         ...: f4e99205e78f8da7681d4ec5520ae4815543720c2a647c1ae814c9"))
-        >>> krb_as_req("user1@DOMAIN.LOCAL", "192.168.122.17", key=key)
+        >>> krb_as_req("user1@DOMAIN.LOCAL", ip="192.168.122.17", key=key)
+
+    Example using PKINIT with a p12::
+
+        >>> krb_as_req("user1@DOMAIN.LOCAL", p12="./store.p12", password="password")
     """
     if realm is None:
         _, realm = _parse_upn(upn)
-    if key is None:
+    if key is None and p12 is None and x509 is None:
         if password is None:
             try:
                 from prompt_toolkit import prompt
@@ -3713,6 +3803,9 @@ def krb_as_req(
         upn=upn,
         password=password,
         key=key,
+        p12=p12,
+        x509=x509,
+        x509key=x509key,
         **kwargs,
     )
     cli.run()

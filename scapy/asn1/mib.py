@@ -267,6 +267,12 @@ thawte_oids = {
     "1.3.101.113": "Ed448",
 }
 
+#       pkcs7       #
+
+pkcs7_oids = {
+    "1.2.840.113549.1.7.2": "id-signedData",
+}
+
 #       pkcs9       #
 
 pkcs9_oids = {
@@ -677,6 +683,7 @@ x509_oids_sets = [
     pkcs1_oids,
     secsig_oids,
     thawte_oids,
+    pkcs7_oids,
     pkcs9_oids,
     attributeType_oids,
     certificateExtension_oids,
