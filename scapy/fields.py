@@ -1478,6 +1478,8 @@ class StrField(_StrField[bytes]):
 class StrFieldUtf16(StrField):
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Optional[str]) -> bytes
+        if isinstance(x, bytes):
+            return x
         if isinstance(x, str):
             return self.h2i(pkt, x)
         return super(StrFieldUtf16, self).any2i(pkt, x)

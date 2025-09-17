@@ -152,6 +152,10 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         # type: (Optional[Packet], bytes) -> List[Tuple[str, str]]
         return self._on_payload(pkt, x, "h2i")
 
+    def any2i(self, pkt, x):
+        # type: (Optional[Packet], bytes) -> List[Tuple[str, str]]
+        return self._on_payload(pkt, x, "any2i")
+
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
         return repr(self._on_payload(pkt, x, "i2repr"))
