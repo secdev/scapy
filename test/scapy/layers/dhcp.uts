@@ -132,6 +132,7 @@ result
 
 # 3 results depending on the Python version
 assert result in [
+    '<function scapy.ansmachine.dhcpd(self, pool: scapy.base_classes.Net | List[str] = Net("192.168.1.128/25"), network: str = \'192.168.1.0/24\', gw: str = \'192.168.1.1\', nameserver: str | List[str] = None, domain: str | None = None, renewal_time: int = 60, lease_time: int = 1800, **kwargs)>',
     '<function scapy.ansmachine.dhcpd(self, pool: Union[scapy.base_classes.Net, List[str]] = Net("192.168.1.128/25"), network: str = \'192.168.1.0/24\', gw: str = \'192.168.1.1\', nameserver: Union[str, List[str]] = None, domain: Optional[str] = None, renewal_time: int = 60, lease_time: int = 1800, **kwargs)>',
     '<function scapy.ansmachine.dhcpd(self, pool: Union[scapy.base_classes.Net, List[str]] = Net("192.168.1.128/25"), network: str = \'192.168.1.0/24\', gw: str = \'192.168.1.1\', nameserver: Union[str, List[str]] = None, domain: Union[str, NoneType] = None, renewal_time: int = 60, lease_time: int = 1800, **kwargs)>',
     '<function scapy.ansmachine.dhcpd(self, pool=Net("192.168.1.128/25"), network=\'192.168.1.0/24\', gw=\'192.168.1.1\', nameserver=None, domain=None, renewal_time=60, lease_time=1800, **kwargs)>',
