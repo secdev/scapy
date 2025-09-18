@@ -52,6 +52,7 @@ from scapy.volatile import (
     RandInt,
     RandNum,
     RandNumExpo,
+    VolatileValue,
 )
 
 from scapy.arch import get_if_hwaddr
@@ -401,6 +402,15 @@ class DHCPOptionsField(StrField):
     islist = 1
 
     def i2repr(self, pkt, x):
+        # `x` may happen to be a `RandDHCPOptions` instance.
+        # Example:
+        # ```python
+        # pkt = fuzz(DHCP())
+        # pkt.show()
+        # ```
+        if isinstance(x, VolatileValue):
+            return repr(x)
+
         s = []
         for v in x:
             if isinstance(v, tuple) and len(v) >= 2:
@@ -471,6 +481,10 @@ class DHCPOptionsField(StrField):
         return opt
 
     def i2m(self, pkt, x):
+        # Ensure the `RandDHCPOptions` instance has been resolved before (see `Packet.self_build()`).
+        #
+        assert not isinstance(x, VolatileValue), f"Bad value {x!r}, should have been resolved before"
+
         if isinstance(x, str):
             return x
         s = b""

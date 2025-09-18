@@ -908,6 +908,15 @@ class Packet(
         p = b""
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
+
+            if isinstance(val, VolatileValue):
+                # Resolve the volatile value.
+                val = val._fix()
+
+                # Disable caching for the current packet.
+                self.no_cache = True
+                self.raw_packet_cache = None
+
             if isinstance(val, RawVal):
                 p += bytes(val)
             else:
