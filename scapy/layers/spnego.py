@@ -669,6 +669,7 @@ class SPNEGOSSP(SSP):
             if not valid_ip(target):
                 hostname = target
             target = str(Net(target))
+
         # Check UPN
         try:
             _, realm = _parse_upn(UPN)
@@ -678,12 +679,23 @@ class SPNEGOSSP(SSP):
         except ValueError:
             # not a UPN: NTLM only
             kerberos = False
+
         # Do we need to ask the password?
-        if HashNt is None and password is None and ST is None:
+        if all(
+            x is None
+            for x in [
+                ST,
+                password,
+                HashNt,
+                HashAes256Sha96,
+                HashAes128Sha96,
+            ]
+        ):
             # yes.
             from prompt_toolkit import prompt
 
             password = prompt("Password: ", is_password=True)
+
         ssps = []
         # Kerberos
         if kerberos and hostname:
@@ -731,11 +743,13 @@ class SPNEGOSSP(SSP):
                 "Kerberos required but domain not specified in the UPN, "
                 "or target isn't a hostname !"
             )
+
         # NTLM
         if not kerberos_required:
             if HashNt is None and password is not None:
                 HashNt = MD4le(password)
             ssps.append(NTLMSSP(UPN=UPN, HASHNT=HashNt))
+
         # Build the SSP
         return cls(ssps)
 
