@@ -260,11 +260,34 @@ secsig_oids = {
     "1.3.14.3.2.29": "sha1RSASign",
 }
 
+#       nist        #
+
+nist_oids = {
+    "2.16.840.1.101.3.4.2.1": "sha256",
+    "2.16.840.1.101.3.4.2.2": "sha384",
+    "2.16.840.1.101.3.4.2.3": "sha512",
+    "2.16.840.1.101.3.4.2.4": "sha224",
+    "2.16.840.1.101.3.4.2.5": "sha512-224",
+    "2.16.840.1.101.3.4.2.6": "sba512-256",
+    "2.16.840.1.101.3.4.2.7": "sha3-224",
+    "2.16.840.1.101.3.4.2.8": "sha3-256",
+    "2.16.840.1.101.3.4.2.9": "sha3-384",
+    "2.16.840.1.101.3.4.2.10": "sha3-512",
+    "2.16.840.1.101.3.4.2.11": "shake128",
+    "2.16.840.1.101.3.4.2.12": "shake256",
+}
+
 #       thawte      #
 
 thawte_oids = {
     "1.3.101.112": "Ed25519",
     "1.3.101.113": "Ed448",
+}
+
+#       pkcs7       #
+
+pkcs7_oids = {
+    "1.2.840.113549.1.7.2": "id-signedData",
 }
 
 #       pkcs9       #
@@ -471,6 +494,7 @@ certificateExtension_oids = {
     "2.5.29.69": "id-ce-holderNameConstraints",
     # [MS-WCCE]
     "1.3.6.1.4.1.311.2.1.14": "CERT_EXTENSIONS",
+    "1.3.6.1.4.1.311.10.3.4": "szOID_EFS_CRYPTO",
     "1.3.6.1.4.1.311.20.2": "ENROLL_CERTTYPE",
     "1.3.6.1.4.1.311.25.1": "NTDS_REPLICATION",
     "1.3.6.1.4.1.311.25.2": "NTDS_CA_SECURITY_EXT",
@@ -558,6 +582,12 @@ x962Signature_oids = {
     "1.2.840.10045.4.3.2": "ecdsa-with-SHA256",
     "1.2.840.10045.4.3.3": "ecdsa-with-SHA384",
     "1.2.840.10045.4.3.4": "ecdsa-with-SHA512"
+}
+
+#       ansi-x942       #
+
+x942KeyType_oids = {
+    "1.2.840.10046.2.1": "dhpublicnumber",  # RFC3770 sect 4.1.1
 }
 
 #       elliptic curves       #
@@ -672,11 +702,29 @@ gssapi_oids = {
     '1.3.6.1.4.1.311.2.2.30': 'NEGOEX - SPNEGO Extended Negotiation Security Mechanism',
 }
 
+#      kerberos      #
+
+kerberos_oids = {
+    "1.3.6.1.5.2.3.1": "id-pkinit-authData",
+    "1.3.6.1.5.2.3.2": "id-pkinit-DHKeyData",
+    "1.3.6.1.5.2.3.3": "id-pkinit-rkeyData",
+    "1.3.6.1.5.2.3.4": "id-pkinit-KPClientAuth",
+    "1.3.6.1.5.2.3.5": "id-pkinit-KPKdc",
+    # RFC8363
+    "1.3.6.1.5.2.3.6": "id-pkinit-kdf",
+    "1.3.6.1.5.2.3.6.1": "id-pkinit-kdf-sha1",
+    "1.3.6.1.5.2.3.6.2": "id-pkinit-kdf-sha256",
+    "1.3.6.1.5.2.3.6.3": "id-pkinit-kdf-sha512",
+    "1.3.6.1.5.2.3.6.4": "id-pkinit-kdf-sha384",
+}
+
 
 x509_oids_sets = [
     pkcs1_oids,
     secsig_oids,
+    nist_oids,
     thawte_oids,
+    pkcs7_oids,
     pkcs9_oids,
     attributeType_oids,
     certificateExtension_oids,
@@ -690,9 +738,11 @@ x509_oids_sets = [
     evPolicy_oids,
     x962KeyType_oids,
     x962Signature_oids,
+    x942KeyType_oids,
     ansiX962Curve_oids,
     certicomCurve_oids,
     gssapi_oids,
+    kerberos_oids,
 ]
 
 x509_oids = {}
