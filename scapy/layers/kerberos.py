@@ -145,7 +145,11 @@ from scapy.layers.gssapi import (
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.smb import _NV_VERSION
 from scapy.layers.smb2 import STATUS_ERREF
-from scapy.layers.tls.cert import Cert, PrivKey
+from scapy.layers.tls.cert import (
+    Cert,
+    PrivKey,
+    CMS_Engine,
+)
 from scapy.layers.x509 import (
     _CMS_ENCAPSULATED,
     CMS_ContentInfo,
@@ -2013,7 +2017,7 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
             # 25: KDC_ERR_PREAUTH_REQUIRED
             # 36: KRB_AP_ERR_BADMATCH
             return MethodData(val[0].val, _underlayer=pkt), val[1]
-        elif pkt.errorCode.val in [6, 7, 12, 13, 18, 29, 41, 60]:
+        elif pkt.errorCode.val in [6, 7, 12, 13, 18, 29, 41, 60, 62]:
             # 6: KDC_ERR_C_PRINCIPAL_UNKNOWN
             # 7: KDC_ERR_S_PRINCIPAL_UNKNOWN
             # 12: KDC_ERR_POLICY
@@ -2022,6 +2026,7 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
             # 29: KDC_ERR_SVC_UNAVAILABLE
             # 41: KRB_AP_ERR_MODIFIED
             # 60: KRB_ERR_GENERIC
+            # 62: KERB_ERR_TYPE_EXTENDED
             try:
                 return KERB_ERROR_DATA(val[0].val, _underlayer=pkt), val[1]
             except BER_Decoding_Error:
@@ -2112,9 +2117,10 @@ class KRB_ERROR(ASN1_Packet):
                     52: "KRB_ERR_RESPONSE_TOO_BIG",
                     60: "KRB_ERR_GENERIC",
                     61: "KRB_ERR_FIELD_TOOLONG",
-                    62: "KDC_ERROR_CLIENT_NOT_TRUSTED",
-                    63: "KDC_ERROR_KDC_NOT_TRUSTED",
-                    64: "KDC_ERROR_INVALID_SIG",
+                    # RFC4556
+                    62: "KDC_ERR_CLIENT_NOT_TRUSTED",
+                    63: "KDC_ERR_KDC_NOT_TRUSTED",
+                    64: "KDC_ERR_INVALID_SIG",
                     65: "KDC_ERR_KEY_TOO_WEAK",
                     66: "KDC_ERR_CERTIFICATE_MISMATCH",
                     67: "KRB_AP_ERR_NO_TGT",
@@ -2127,6 +2133,11 @@ class KRB_ERROR(ASN1_Packet):
                     74: "KDC_ERR_REVOCATION_STATUS_UNAVAILABLE",
                     75: "KDC_ERR_CLIENT_NAME_MISMATCH",
                     76: "KDC_ERR_KDC_NAME_MISMATCH",
+                    77: "KDC_ERR_INCONSISTENT_KEY_PURPOSE",
+                    78: "KDC_ERR_DIGEST_IN_CERT_NOT_ACCEPTED",
+                    79: "KDC_ERR_PA_CHECKSUM_MUST_BE_INCLUDED",
+                    80: "KDC_ERR_DIGEST_IN_SIGNED_DATA_NOT_ACCEPTED",
+                    81: "KDC_ERR_PUBLIC_KEY_ENCRYPTION_NOT_SUPPORTED",
                     # draft-ietf-kitten-iakerb
                     85: "KRB_AP_ERR_IAKERB_KDC_NOT_FOUND",
                     86: "KRB_AP_ERR_IAKERB_KDC_NO_RESPONSE",
@@ -3318,7 +3329,10 @@ class KerberosClient(Automaton):
             if self.x509:
                 # Special PKINIT (RFC4556) factor
                 pafactor = PADATA(
-                    padataType=16, padataValue=PA_PK_AS_REQ()  # PA-PK-AS-REQ
+                    padataType=16,  # PA-PK-AS-REQ
+                    padataValue=PA_PK_AS_REQ(
+                        
+                    ),
                 )
                 raise NotImplementedError("PKINIT isn't implemented yet !")
             else:
