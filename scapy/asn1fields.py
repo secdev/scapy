@@ -606,6 +606,8 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
         # type: (ASN1_Packet, _I) -> str
         if self.holds_packets:
             return super(ASN1F_SEQUENCE_OF, self).i2repr(pkt, x)  # type: ignore
+        elif x is None:
+            return "[]"
         else:
             return "[%s]" % ", ".join(
                 self.fld.i2repr(pkt, x) for x in x  # type: ignore
@@ -987,3 +989,32 @@ class ASN1F_STRING_PacketField(ASN1F_STRING):
         if hasattr(x, "add_underlayer"):
             x.add_underlayer(pkt)
         return super(ASN1F_STRING_PacketField, self).any2i(pkt, x)
+
+
+class ASN1F_STRING_ENCAPS(ASN1F_STRING_PacketField):
+    """
+    ASN1F_STRING that encapsulates a single ASN1 packet.
+    """
+
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: Optional[ASN1_Packet]
+                 cls,  # type: Type[ASN1_Packet]
+                 context=None,  # type: Optional[Any]
+                 implicit_tag=None,  # type: Optional[int]
+                 explicit_tag=None,  # type: Optional[int]
+                 ):
+        # type: (...) -> None
+        self.cls = cls
+        super(ASN1F_STRING_ENCAPS, self).__init__(  # type: ignore
+            name,
+            default and bytes(default),
+            context=context,
+            implicit_tag=implicit_tag,
+            explicit_tag=explicit_tag
+        )
+
+    def m2i(self, pkt, s):
+        # type: (ASN1_Packet, bytes) -> Tuple[Optional[ASN1_Packet], bytes]
+        val = super(ASN1F_STRING_ENCAPS, self).m2i(pkt, s)
+        return self.cls(val[0].val, _underlayer=pkt), val[1]

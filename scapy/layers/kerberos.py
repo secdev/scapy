@@ -13,6 +13,7 @@ Implements parts of:
 - Kerberos Pre-Authentication: RFC6113 (FAST)
 - Kerberos Principal Name Canonicalization and Cross-Realm Referrals: RFC6806
 - Microsoft Windows 2000 Kerberos Change Password and Set Password Protocols: RFC3244
+- PKINIT and its extensions: RFC4556, RFC8070, RFC8636 and [MS-PKCA]
 - User to User Kerberos Authentication: draft-ietf-cat-user2user-03
 - Public Key Cryptography Based User-to-User Authentication (PKU2U): draft-zhu-pku2u-09
 - Initial and Pass Through Authentication Using Kerberos V5 (IAKERB):
@@ -59,6 +60,7 @@ from scapy.error import warning
 import scapy.asn1.mib  # noqa: F401
 from scapy.asn1.ber import BER_id_dec, BER_Decoding_Error
 from scapy.asn1.asn1 import (
+    ASN1_OID,
     ASN1_BIT_STRING,
     ASN1_BOOLEAN,
     ASN1_Class,
@@ -80,6 +82,7 @@ from scapy.asn1fields import (
     ASN1F_SEQUENCE,
     ASN1F_SEQUENCE_OF,
     ASN1F_STRING,
+    ASN1F_STRING_ENCAPS,
     ASN1F_STRING_PacketField,
     ASN1F_enum_INTEGER,
     ASN1F_optional,
@@ -142,7 +145,15 @@ from scapy.layers.inet import TCP, UDP
 from scapy.layers.smb import _NV_VERSION
 from scapy.layers.smb2 import STATUS_ERREF
 from scapy.layers.tls.cert import Cert, PrivKey
-from scapy.layers.x509 import X509_AlgorithmIdentifier
+from scapy.layers.x509 import (
+    _CMS_ENCAPSULATED,
+    CMS_ContentInfo,
+    CMS_IssuerAndSerialNumber,
+    CMS_SignedData,
+    X509_AlgorithmIdentifier,
+    X509_DirectoryName,
+    X509_SubjectPublicKeyInfo,
+)
 
 # Redirect exports from RFC3961
 try:
@@ -1193,7 +1204,8 @@ class KrbFastResponse(ASN1_Packet):
 
 _PADATA_CLASSES[136] = (PA_FX_FAST_REQUEST, PA_FX_FAST_REPLY)
 
-# RFC 4556
+
+# RFC 4556 - PKINIT
 
 
 # sect 3.2.1
@@ -1203,13 +1215,20 @@ class ExternalPrincipalIdentifier(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_optional(
-            ASN1F_STRING("subjectName", "", implicit_tag=0xA0),
+            ASN1F_STRING_ENCAPS(
+                "subjectName", None, X509_DirectoryName, implicit_tag=0x80
+            ),
         ),
         ASN1F_optional(
-            ASN1F_STRING("issuerAndSerialNumber", "", implicit_tag=0xA1),
+            ASN1F_STRING_ENCAPS(
+                "issuerAndSerialNumber",
+                None,
+                CMS_IssuerAndSerialNumber,
+                implicit_tag=0x81,
+            ),
         ),
         ASN1F_optional(
-            ASN1F_STRING("subjectKeyIdentifier", "", implicit_tag=0xA2),
+            ASN1F_STRING("subjectKeyIdentifier", "", implicit_tag=0x82),
         ),
     )
 
@@ -1217,7 +1236,15 @@ class ExternalPrincipalIdentifier(ASN1_Packet):
 class PA_PK_AS_REQ(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_STRING("signedAuthpack", "", implicit_tag=0xA0),
+        ASN1F_STRING_ENCAPS(
+            "signedAuthpack",
+            CMS_ContentInfo(
+                contentType=ASN1_OID("id-signedData"),
+                content=CMS_SignedData(),
+            ),
+            CMS_ContentInfo,
+            implicit_tag=0x80,
+        ),
         ASN1F_optional(
             ASN1F_SEQUENCE_OF(
                 "trustedCertifiers",
@@ -1234,6 +1261,96 @@ class PA_PK_AS_REQ(ASN1_Packet):
 
 _PADATA_CLASSES[16] = PA_PK_AS_REQ
 
+
+# [MS-PKCA] sect 2.2.3
+
+
+class PAChecksum2(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_STRING("checksum", "", explicit_tag=0xA0),
+        ASN1F_PACKET(
+            "algorithmIdentifier",
+            X509_AlgorithmIdentifier(),
+            X509_AlgorithmIdentifier,
+            explicit_tag=0xA1,
+        ),
+    )
+
+
+# still RFC 4556 sect 3.2.1
+
+
+class PKAuthenticator(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        Microseconds("cusec", 0, explicit_tag=0xA0),
+        KerberosTime("ctime", GeneralizedTime(), explicit_tag=0xA1),
+        UInt32("nonce", 0, explicit_tag=0xA2),
+        ASN1F_optional(
+            ASN1F_STRING("paChecksum", "", explicit_tag=0xA3),
+        ),
+        # RFC8070 extension
+        ASN1F_optional(
+            ASN1F_STRING("freshnessToken", "", explicit_tag=0xA4),
+        ),
+        # [MS-PKCA] sect 2.2.3
+        ASN1F_optional(
+            ASN1F_PACKET("paChecksum2", None, PAChecksum2, explicit_tag=0xA5),
+        ),
+    )
+
+
+# RFC8636 sect 6
+
+
+class KDFAlgorithmId(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_OID("kdfId", "", explicit_tag=0xA0),
+    )
+
+
+# still RFC 4556 sect 3.2.1
+
+
+class AuthPack(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_PACKET(
+            "pkAuthenticator",
+            PKAuthenticator(),
+            PKAuthenticator,
+            explicit_tag=0xA0,
+        ),
+        ASN1F_optional(
+            ASN1F_PACKET(
+                "clientPublicValue",
+                X509_SubjectPublicKeyInfo(),
+                X509_SubjectPublicKeyInfo,
+                explicit_tag=0xA1,
+            ),
+        ),
+        ASN1F_optional(
+            ASN1F_SEQUENCE_OF(
+                "supportedCMSTypes",
+                [],
+                X509_AlgorithmIdentifier,
+                explicit_tag=0xA2,
+            ),
+        ),
+        ASN1F_optional(
+            ASN1F_STRING("clientDCNonce", None, explicit_tag=0xA3),
+        ),
+        # RFC8636 extension
+        ASN1F_optional(
+            ASN1F_SEQUENCE_OF("supportedKDFs", None, KDFAlgorithmId, explicit_tag=0xA4),
+        ),
+    )
+
+
+_CMS_ENCAPSULATED["1.3.6.1.5.2.3.1"] = AuthPack
+
 # sect 3.2.3
 
 
@@ -1243,6 +1360,10 @@ class DHRepInfo(ASN1_Packet):
         ASN1F_STRING("dhSignedData", "", implicit_tag=0xA0),
         ASN1F_optional(
             ASN1F_STRING("serverDHNonce", "", explicit_tag=0xA1),
+        ),
+        # RFC8636 extension
+        ASN1F_optional(
+            ASN1F_PACKET("kdf", None, KDFAlgorithmId, explicit_tag=0xA2),
         ),
     )
 
@@ -1993,6 +2114,8 @@ class KRB_ERROR(ASN1_Packet):
                     91: "KDC_ERR_MORE_PREAUTH_DATA_REQUIRED",
                     92: "KDC_ERR_PREAUTH_BAD_AUTHENTICATION_SET",
                     93: "KDC_ERR_UNKNOWN_CRITICAL_FAST_OPTIONS",
+                    # RFC8636
+                    100: "KDC_ERR_NO_ACCEPTABLE_KDF",
                 },
                 explicit_tag=0xA6,
             ),
@@ -3174,11 +3297,9 @@ class KerberosClient(Automaton):
             if self.x509:
                 # Special PKINIT (RFC4556) factor
                 pafactor = PADATA(
-                    padataType=16,  # PA-PK-AS-REQ
-                    padataValue=PA_PK_AS_REQ(
-                        
-                    )
+                    padataType=16, padataValue=PA_PK_AS_REQ()  # PA-PK-AS-REQ
                 )
+                raise NotImplementedError("PKINIT isn't implemented yet !")
             else:
                 # Key-based factor
 
@@ -3209,7 +3330,7 @@ class KerberosClient(Automaton):
                     ts_key,
                     PA_ENC_TS_ENC(patimestamp=ASN1_GENERALIZED_TIME(now_time)),
                 )
-            
+
             # Insert Pre-Authentication data
             padata.insert(
                 0,

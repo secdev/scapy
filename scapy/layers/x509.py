@@ -118,6 +118,33 @@ class RSAPrivateKey(ASN1_Packet):
                               RSAOtherPrimeInfo)))
 
 ####################################
+#    Old Diffie Hellman Packets    #
+####################################
+
+# From X9.42 (or RFC3279)
+
+class ValidationParms(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BIT_STRING("seed", ""),
+        ASN1F_INTEGER("pgenCounter", 0),
+    )
+
+
+class DomainParameters(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("p", 0),
+        ASN1F_INTEGER("g", 0),
+        ASN1F_INTEGER("q", 0),
+        ASN1F_optional(ASN1F_INTEGER("j", 0)),
+        ASN1F_optional(
+            ASN1F_PACKET("validationParms", None, ValidationParms),
+        ),
+    )
+
+
+####################################
 #          ECDSA packets           #
 ####################################
 # based on RFC 3279 & 5480 & 5915
@@ -816,8 +843,14 @@ class X509_AlgorithmIdentifier(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_OID("algorithm", "1.2.840.113549.1.1.11"),
         ASN1F_optional(
-            ASN1F_CHOICE("parameters", ASN1_NULL(0),
-                         ASN1F_NULL, ECParameters)))
+            ASN1F_CHOICE(
+                "parameters", ASN1_NULL(0),
+                ASN1F_NULL,
+                ECParameters,
+                DomainParameters,
+            )
+        )
+    )
 
 
 class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
@@ -1143,38 +1176,60 @@ CMSVersion = ASN1F_INTEGER
 
 # RFC3852 sect 5.2
 
+_CMS_ENCAPSULATED = {}
+
+class _EncapsulatedContent_Field(ASN1F_STRING_PacketField):
+    def m2i(self, pkt, s):
+        val = super(_EncapsulatedContent_Field, self).m2i(pkt, s)
+        if not val[0].val:
+            return val
+        
+        # Get encapsulated value from its type
+        if pkt.eContentType.val in _CMS_ENCAPSULATED:
+            return (
+                _CMS_ENCAPSULATED[pkt.eContentType.val](val[0].val, _underlayer=pkt),
+                val[1],
+            )
+
+        return val
+
+
 class CMS_EncapsulatedContentInfo(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_OID("eContentType", "0"),
         ASN1F_optional(
-            ASN1F_STRING("eContent", None,
-                         explicit_tag=0xA0),
+            _EncapsulatedContent_Field("eContent", None,
+                                       explicit_tag=0xA0),
         )
     )
 
 
 # RFC3852 sect 10.2.1
 
-CMS_RevocationInfoChoice = lambda name: ASN1F_CHOICE(name, None,
-    ASN1F_PACKET("crl", X509_CRL(), X509_Cert),
-    # -- TODO: 1
-)
+class CMS_RevocationInfoChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE("crl", None,
+        ASN1F_PACKET("crl", X509_CRL(), X509_Cert),
+        # -- TODO: 1
+    )
 
 
 # RFC3852 sect 10.2.2
 
-CMS_CertificateChoices = lambda name: ASN1F_CHOICE(name, None,
-    ASN1F_PACKET("certificate", X509_Cert(), X509_Cert),
-    # -- TODO: 0, 1, 2
-)
+class CMS_CertificateChoices(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE("certificate", None,
+        ASN1F_PACKET("certificate", X509_Cert(), X509_Cert),
+        # -- TODO: 0, 1, 2
+    )
 
 # RFC3852 sect 10.2.4
 
 class CMS_IssuerAndSerialNumber(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_PACKET("issuer", X509_GeneralName(), X509_GeneralName),
+        ASN1F_PACKET("issuer", X509_DirectoryName(), X509_DirectoryName),
         ASN1F_INTEGER("serialNumber", 0)
     )
 
@@ -1226,26 +1281,26 @@ class CMS_SignedData(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         CMSVersion("version", 1),
-        ASN1F_SEQUENCE_OF("digestAlgorithms", [], X509_AlgorithmIdentifier),
+        ASN1F_SET_OF("digestAlgorithms", [], X509_AlgorithmIdentifier),
         ASN1F_PACKET("encapContentInfo", CMS_EncapsulatedContentInfo(),
                      CMS_EncapsulatedContentInfo),
         ASN1F_optional(
-            ASN1F_SEQUENCE_OF(
+            ASN1F_SET_OF(
                 "certificates",
                 None,
-                CMS_CertificateChoices("certificate"),
+                CMS_CertificateChoices,
                 implicit_tag=0xA0,
             )
         ),
         ASN1F_optional(
-            ASN1F_SEQUENCE_OF(
+            ASN1F_SET_OF(
                 "crls",
                 None,
-                CMS_RevocationInfoChoice("certificate"),
+                CMS_RevocationInfoChoice,
                 implicit_tag=0xA1,
             )
         ),
-        ASN1F_SEQUENCE_OF(
+        ASN1F_SET_OF(
             "signerInfos",
             [],
             CMS_SignerInfo,
@@ -1261,11 +1316,12 @@ class CMS_ContentInfo(ASN1_Packet):
         MultipleTypeField(
             [
                 (
-                    ASN1F_PACKET("content", None, CMS_SignedData),
+                    ASN1F_PACKET("content", None, CMS_SignedData,
+                                 explicit_tag=0xA0),
                     lambda pkt: pkt.contentType.oidname == "id-signedData"
                 )
             ],
-            ASN1F_BIT_STRING("content", "")
+            ASN1F_BIT_STRING("content", "", explicit_tag=0xA0)
         )
     )
 
