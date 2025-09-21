@@ -60,7 +60,6 @@ from scapy.error import warning
 import scapy.asn1.mib  # noqa: F401
 from scapy.asn1.ber import BER_id_dec, BER_Decoding_Error
 from scapy.asn1.asn1 import (
-    ASN1_OID,
     ASN1_BIT_STRING,
     ASN1_BOOLEAN,
     ASN1_Class,
@@ -71,21 +70,22 @@ from scapy.asn1.asn1 import (
     ASN1_Codecs,
 )
 from scapy.asn1fields import (
+    ASN1F_BIT_STRING_ENCAPS,
     ASN1F_BOOLEAN,
     ASN1F_CHOICE,
+    ASN1F_enum_INTEGER,
     ASN1F_FLAGS,
     ASN1F_GENERAL_STRING,
     ASN1F_GENERALIZED_TIME,
     ASN1F_INTEGER,
     ASN1F_OID,
+    ASN1F_optional,
     ASN1F_PACKET,
-    ASN1F_SEQUENCE,
     ASN1F_SEQUENCE_OF,
-    ASN1F_STRING,
+    ASN1F_SEQUENCE,
     ASN1F_STRING_ENCAPS,
     ASN1F_STRING_PacketField,
-    ASN1F_enum_INTEGER,
-    ASN1F_optional,
+    ASN1F_STRING,
 )
 from scapy.asn1packet import ASN1_Packet
 from scapy.automaton import Automaton, ATMT
@@ -149,7 +149,7 @@ from scapy.layers.x509 import (
     _CMS_ENCAPSULATED,
     CMS_ContentInfo,
     CMS_IssuerAndSerialNumber,
-    CMS_SignedData,
+    DHPublicKey,
     X509_AlgorithmIdentifier,
     X509_DirectoryName,
     X509_SubjectPublicKeyInfo,
@@ -1238,10 +1238,7 @@ class PA_PK_AS_REQ(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_STRING_ENCAPS(
             "signedAuthpack",
-            CMS_ContentInfo(
-                contentType=ASN1_OID("id-signedData"),
-                content=CMS_SignedData(),
-            ),
+            CMS_ContentInfo(),
             CMS_ContentInfo,
             implicit_tag=0x80,
         ),
@@ -1357,7 +1354,12 @@ _CMS_ENCAPSULATED["1.3.6.1.5.2.3.1"] = AuthPack
 class DHRepInfo(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_STRING("dhSignedData", "", implicit_tag=0xA0),
+        ASN1F_STRING_ENCAPS(
+            "dhSignedData",
+            CMS_ContentInfo(),
+            CMS_ContentInfo,
+            implicit_tag=0x80,
+        ),
         ASN1F_optional(
             ASN1F_STRING("serverDHNonce", "", explicit_tag=0xA1),
         ),
@@ -1384,6 +1386,22 @@ class PA_PK_AS_REP(ASN1_Packet):
 
 
 _PADATA_CLASSES[17] = PA_PK_AS_REP
+
+
+class KDCDHKeyInfo(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BIT_STRING_ENCAPS(
+            "subjectPublicKey", DHPublicKey(), DHPublicKey, explicit_tag=0xA0
+        ),
+        UInt32("nonce", 0, explicit_tag=0xA1),
+        ASN1F_optional(
+            KerberosTime("dhKeyExpiration", None, explicit_tag=0xA2),
+        ),
+    )
+
+
+_CMS_ENCAPSULATED["1.3.6.1.5.2.3.2"] = KDCDHKeyInfo
 
 # [MS-SFU]
 

@@ -118,9 +118,8 @@ class RSAPrivateKey(ASN1_Packet):
                               RSAOtherPrimeInfo)))
 
 ####################################
-#    Old Diffie Hellman Packets    #
+#      Diffie Hellman Packets      #
 ####################################
-
 # From X9.42 (or RFC3279)
 
 class ValidationParms(ASN1_Packet):
@@ -142,6 +141,11 @@ class DomainParameters(ASN1_Packet):
             ASN1F_PACKET("validationParms", None, ValidationParms),
         ),
     )
+
+
+class DHPublicKey(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("y", 0)
 
 
 ####################################
@@ -868,6 +872,10 @@ class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
                                      ECDSAPublicKey(),
                                      ECDSAPublicKey),
                         lambda pkt: "ecPublicKey" == pkt.signatureAlgorithm.algorithm.oidname),  # noqa: E501
+                       (ASN1F_BIT_STRING_ENCAPS("subjectPublicKey",
+                                                DHPublicKey(),
+                                                DHPublicKey),
+                        lambda pkt: "dhpublicnumber" == pkt.signatureAlgorithm.algorithm.oidname),  # noqa: E501
                        (ASN1F_PACKET("subjectPublicKey",
                                      EdDSAPublicKey(),
                                      EdDSAPublicKey),

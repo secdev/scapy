@@ -587,7 +587,7 @@ x962Signature_oids = {
 #       ansi-x942       #
 
 x942KeyType_oids = {
-    "1.2.840.10046.2.1": "szOID_ANSI_x942_DH",  # RFC3770 sect 4.1.1
+    "1.2.840.10046.2.1": "dhpublicnumber",  # RFC3770 sect 4.1.1
 }
 
 #       elliptic curves       #
