@@ -1,7 +1,7 @@
 import pytest
 
 from scapy.layers.dot11 import Dot11Auth
-from scapy.modules.wifi_sae import (
+from scapy.contrib.wifi_sae import (
     sae_commit_frame, sae_confirm_frame,
     is_sae_auth, sae_is_commit, sae_is_confirm, get_sae_payload,
 )

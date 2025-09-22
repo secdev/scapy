@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 from scapy.layers.dot11 import Dot11, Dot11Auth, RadioTap
-from scapy.modules.wifi_sae import (
+from scapy.contrib.wifi_sae import (
     sae_commit_frame, sae_confirm_frame,
     is_sae_auth, sae_is_commit, sae_is_confirm, get_sae_payload,
     AUTH_ALGO_SAE
