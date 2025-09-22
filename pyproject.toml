@@ -10,10 +10,10 @@ authors = [
     { name="Gabriel POTTER" },
 ]
 maintainers = [
-    { name="Gabriel POTTER" },
-    { name="Nils WEISS" },
-    { name="Guillaume VALADON" },
     { name="Pierre LALET" },
+    { name="Gabriel POTTER" },
+    { name="Guillaume VALADON" },
+    { name="Nils WEISS" },
 ]
 license = { text="GPL-2.0-only" }
 requires-python = ">=3.7, <4"
