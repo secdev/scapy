@@ -68,7 +68,7 @@ master_doc = 'index'
 # General information about the project.
 project = 'Scapy'
 year = datetime.datetime.now().year
-copyright = '2008-%s Philippe Biondi and the Scapy community' % year
+copyright = '2008-%s The Scapy community' % year
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -168,7 +168,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
   ('index', 'Scapy.tex', 'Scapy Documentation',
-   'Philippe Biondi and the Scapy community', 'manual'),
+   'The Scapy community', 'manual'),
 ]
 
 
@@ -178,7 +178,7 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     (master_doc, 'scapy', 'Scapy Documentation',
-     ['Philippe Biondi and the Scapy community'], 1)
+     ['The Scapy community'], 1)
 ]
 
 
@@ -189,7 +189,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'Scapy', 'Scapy Documentation',
-     'Philippe Biondi and the Scapy community', 'Scapy',
+     'The Scapy community', 'Scapy',
      '',
      'Miscellaneous'),
 ]
