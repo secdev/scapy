@@ -4,10 +4,10 @@ Credits
 *******
 
 The maintainers of Scapy are:
-  - Gabriel Potter (Lead maintainer)
-  - Nils Weiss
-  - Guillaume Valadon
   - Pierre Lalet
+  - Gabriel Potter (Lead maintainer)
+  - Guillaume Valadon
+  - Nils Weiss
 
 Former maintainers include:
   - Philippe Biondi, who was Scapy's original author.
