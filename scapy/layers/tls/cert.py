@@ -4,36 +4,58 @@
 # Copyright (C) 2008 Arnaud Ebalard <arnaud.ebalard@eads.net>
 #                                   <arno@natisbad.org>
 #   2015, 2016, 2017 Maxence Tury   <maxence.tury@ssi.gouv.fr>
+#   2022-2025        Gabriel Potter
 
 """
 High-level methods for PKI objects (X.509 certificates, CRLs, asymmetric keys, CMS).
 Supports both RSA, ECDSA and EDDSA objects.
 
 The classes below are wrappers for the ASN.1 objects defined in x509.py.
+
+Example 1: Certificate & Private key
+____________________________________
+
 For instance, here is what you could do in order to modify the subject public
 key info of a 'cert' and then resign it with whatever 'key'::
 
-    from scapy.layers.tls.cert import *
-    cert = Cert("cert.der")
-    k = PrivKeyRSA()  # generate a private key
-    cert.setSubjectPublicKeyFromPrivateKey(k)
-    cert.resignWith(k)
-    cert.export("newcert.pem")
-    k.export("mykey.pem")
+    >>> from scapy.layers.tls.cert import *
+    >>> cert = Cert("cert.der")
+    >>> k = PrivKeyRSA()  # generate a private key
+    >>> cert.setSubjectPublicKeyFromPrivateKey(k)
+    >>> cert.resignWith(k)
+    >>> cert.export("newcert.pem")
+    >>> k.export("mykey.pem")
 
 One could also edit arguments like the serial number, as such::
 
-    from scapy.layers.tls.cert import *
-    c = Cert("mycert.pem")
-    c.tbsCertificate.serialNumber = 0x4B1D
-    k = PrivKey("mykey.pem")  # import an existing private key
-    c.resignWith(k)
-    c.export("newcert.pem")
+    >>> from scapy.layers.tls.cert import *
+    >>> c = Cert("mycert.pem")
+    >>> c.tbsCertificate.serialNumber = 0x4B1D
+    >>> k = PrivKey("mykey.pem")  # import an existing private key
+    >>> c.resignWith(k)
+    >>> c.export("newcert.pem")
 
 To export the public key of a private key::
 
-    k = PrivKey("mykey.pem")
-    k.pubkey.export("mypubkey.pem")
+    >>> k = PrivKey("mykey.pem")
+    >>> k.pubkey.export("mypubkey.pem")
+
+Example 2: CertList and CertTree
+________________________________
+
+Load a .pem file that contains multiple certificates::
+
+    >>> l = CertList("ca_chain.pem")
+    >>> l.show()
+    0000 [X.509 Cert Subject:/C=FR/OU=Scapy Test PKI/CN=Scapy Test CA...]
+    0001 [X.509 Cert Subject:/C=FR/OU=Scapy Test PKI/CN=Scapy Test Client...]
+
+Use 'CertTree' to organize the certificates in a tree::
+
+    >>> tree = CertTree("ca_chain.pem")  # or tree = CertTree(l)
+    >>> tree.show()
+    /C=Ulaanbaatar/OU=Scapy Test PKI/CN=Scapy Test CA [Self Signed]
+        /C=FR/OU=Scapy Test PKI/CN=Scapy Test Client [Not Self Signed]
 
 No need for obnoxious openssl tweaking anymore. :)
 """
@@ -43,6 +65,7 @@ import os
 import time
 
 from scapy.config import conf, crypto_validator
+from scapy.compat import Self
 from scapy.error import warning
 from scapy.utils import binrepr
 from scapy.asn1.asn1 import (
@@ -1003,6 +1026,12 @@ class Cert(metaclass=_CertMaker):
     def der(self):
         return bytes(self.x509Cert)
 
+    def __eq__(self, other):
+        return self.der == other.der
+    
+    def __hash__(self):
+        return hash(self.der)
+
     def export(self, filename, fmt=None):
         """
         Export certificate in 'fmt' format (DER or PEM) to file 'filename'
@@ -1134,45 +1163,29 @@ class CRL(metaclass=_CRLMaker):
         print("nextUpdate: %s" % self.nextUpdate_str)
 
 
-######################
-# Certificate chains #
-######################
+####################
+# Certificate list #
+####################
 
-class Chain(list):
+class CertList(list):
     """
-    An enhanced array of Cert.
+    An object that can store a list of Cert objects, load them and export them
+    into DER/PEM format.
     """
 
     def __init__(
         self,
-        certList: Union[List[Cert], str],
-        cert0: Union[Cert, str, None] = None,
+        certList: Union[Self, List[Cert], Cert, str],
     ):
         """
-        Construct a chain of certificates that follows issuer/subject matching and
-        respects signature validity.
-
-        If there is exactly one chain to be constructed, it will be,
-        but if there are multiple potential chains, there is no guarantee
-        that the retained one will be the longest one.
-        As Cert and CRL classes both share an isIssuerCert() method,
-        the trailing element of a Chain may alternatively be a CRL.
-
-        Note that we do not check AKID/{SKID/issuer/serial} matching,
-        nor the presence of keyCertSign in keyUsage extension (if present).
-
-        :param certList: either a list of certificates, or a path to a file containing
-            a list of certificates.
-        :param cert0: if provided, force the ROOT CA of the chain.
+        Construct a list of certificates/CRLs to be used as list of ROOT certificates.
         """
-        super(Chain, self).__init__(())
-
         # Parse the certificate list / CA
         if isinstance(certList, str):
             # It's a path. First get the _PKIObj
-            obj = _PKIObjMaker.__call__(Chain, certList, _MAX_CERT_SIZE,
+            obj = _PKIObjMaker.__call__(CertList, certList, _MAX_CERT_SIZE,
                                         "CERTIFICATE")
-            
+
             # Then parse the der until there's nothing left
             certList = []
             payload = obj._der
@@ -1186,112 +1199,17 @@ class Chain(list):
                 certList.append(Cert(cert))
 
             self.frmt = obj.frmt
+        elif isinstance(certList, Cert):
+            certList = [certList]
+            self.frmt = "PEM"
         else:
             self.frmt = "PEM"
-        
-        if isinstance(cert0, str):
-            cert0 = Cert(cert0)
 
-        # Find the ROOT CA
-        if cert0:
-            self.append(cert0)
-        else:
-            for root_candidate in certList:
-                if root_candidate.isSelfSigned():
-                    self.append(root_candidate)
-                    certList.remove(root_candidate)
-                    break
-
-        # Build the chain
-        if self:
-            while certList:
-                tmp_len = len(self)
-                for c in certList:
-                    if c.isIssuerCert(self[-1]):
-                        self.append(c)
-                        certList.remove(c)
-                        break
-                if len(self) == tmp_len:
-                    # no new certificate appended to self
-                    break
-
-    def verifyChain(self, anchors, untrusted=None):
-        """
-        Perform verification of certificate chains for that certificate.
-        A list of anchors is required. The certificates in the optional
-        untrusted list may be used as additional elements to the final chain.
-        On par with chain instantiation, only one chain constructed with the
-        untrusted candidates will be retained. Eventually, dates are checked.
-        """
-        untrusted = untrusted or []
-        for a in anchors:
-            chain = Chain(self + untrusted, a)
-            if len(chain) == 1:             # anchor only
-                continue
-            # check that the chain does not exclusively rely on untrusted
-            if any(c in chain[1:] for c in self):
-                for c in chain:
-                    if c.remainingDays() < 0:
-                        break
-                if c is chain[-1]:      # we got to the end of the chain
-                    return chain
-        return None
-
-    def verifyChainFromCAFile(self, cafile, untrusted_file=None):
-        """
-        Does the same job as .verifyChain() but using the list of anchors
-        from the cafile. As for .verifyChain(), a list of untrusted
-        certificates can be passed (as a file, this time).
-        """
-        try:
-            with open(cafile, "rb") as f:
-                ca_certs = f.read()
-        except Exception:
-            raise Exception("Could not read from cafile")
-
-        anchors = [Cert(c) for c in split_pem(ca_certs)]
-
-        untrusted = None
-        if untrusted_file:
-            try:
-                with open(untrusted_file, "rb") as f:
-                    untrusted_certs = f.read()
-            except Exception:
-                raise Exception("Could not read from untrusted_file")
-            untrusted = [Cert(c) for c in split_pem(untrusted_certs)]
-
-        return self.verifyChain(anchors, untrusted)
-
-    def verifyChainFromCAPath(self, capath, untrusted_file=None):
-        """
-        Does the same job as .verifyChainFromCAFile() but using the list
-        of anchors in capath directory. The directory should (only) contain
-        certificates files in PEM format. As for .verifyChainFromCAFile(),
-        a list of untrusted certificates can be passed as a file
-        (concatenation of the certificates in PEM format).
-        """
-        try:
-            anchors = []
-            for cafile in os.listdir(capath):
-                with open(os.path.join(capath, cafile), "rb") as fd:
-                    anchors.append(Cert(fd.read()))
-        except Exception:
-            raise Exception("capath provided is not a valid cert path")
-
-        untrusted = None
-        if untrusted_file:
-            try:
-                with open(untrusted_file, "rb") as f:
-                    untrusted_certs = f.read()
-            except Exception:
-                raise Exception("Could not read from untrusted_file")
-            untrusted = [Cert(c) for c in split_pem(untrusted_certs)]
-
-        return self.verifyChain(anchors, untrusted)
+        super(CertList, self).__init__(certList)
 
     def findCertByIssuer(self, issuer):
         """
-        Find a certificate in the chain by issuer.
+        Find a certificate in the list by issuer.
         """
         for cert in self:
             if cert.issuer == issuer:
@@ -1300,7 +1218,7 @@ class Chain(list):
 
     def export(self, filename, fmt=None):
         """
-        Export a chain of certificates 'fmt' format (DER or PEM) to file 'filename'
+        Export a list of certificates 'fmt' format (DER or PEM) to file 'filename'
         """
         if fmt is None:
             if filename.endswith(".pem"):
@@ -1322,24 +1240,167 @@ class Chain(list):
         return "".join(x.pem for x in self)
 
     def __repr__(self):
-        llen = len(self) - 1
-        if llen < 0:
-            return ""
-        c = self[0]
-        s = "__ "
-        if not c.isSelfSigned():
-            s += "%s [Not Self Signed]\n" % c.subject_str
-        else:
-            s += "%s [Self Signed]\n" % c.subject_str
-        idx = 1
-        while idx <= llen:
-            c = self[idx]
-            s += "%s_ %s" % (" " * idx * 2, c.subject_str)
-            if idx != llen:
-                s += "\n"
-            idx += 1
-        return s
+        return "<CertList %s certificates>" % (
+            len(self),
+        )
 
+    def show(self):
+        for i, c in enumerate(self):
+            print(conf.color_theme.id(i, fmt="%04i"), end=' ')
+            print(repr(c))
+
+
+######################
+# Certificate chains #
+######################
+
+class CertTree(CertList):
+    """
+    An extension to CertList that additionally has a list of ROOT CAs
+    that are trusted.
+
+    Example::
+
+        >>> tree = CertTree("ca_chain.pem")
+        >>> tree.show()
+        /CN=DOMAIN-DC1-CA/dc=DOMAIN [Self Signed]
+            /CN=Administrator/dc=DOMAIN [Not Self Signed]
+    """
+
+    __slots__ = ["frmt", "rootCAs"]
+
+    def __init__(
+        self,
+        certList: Union[List[Cert], CertList, str],
+        rootCAs: Union[List[Cert], CertList, Cert, str, None] = None,
+    ):
+        """
+        Construct a chain of certificates that follows issuer/subject matching and
+        respects signature validity.
+
+        Note that we do not check AKID/{SKID/issuer/serial} matching,
+        nor the presence of keyCertSign in keyUsage extension (if present).
+
+        :param certList: a list of Cert/CRL objects (or path to PEM/DER file containing
+            multiple certs/CRL) to try to chain.
+        :param rootCAs: (optional) a list of certificates to trust. If not provided,
+            trusts any self-signed certificates from the certList.
+        """
+        # Parse the certificate list
+        certList = CertList(certList)
+
+        # Find the ROOT CAs if store isn't specified
+        if not rootCAs:
+            # Build cert store.
+            self.rootCAs = CertList([
+                x
+                for x in certList
+                if x.isSelfSigned()
+            ])
+            # And remove those certs from the list
+            for cert in self.rootCAs:
+                certList.remove(cert)
+        else:
+            self.rootCAs = CertList(rootCAs)
+
+        # Append our root CAs to the certList
+        certList.extend(self.rootCAs)
+
+        # Super instantiate
+        super(CertTree, self).__init__(certList)
+
+    @property
+    def tree(self):
+        """
+        Get a tree-like object of the certificate list
+        """
+        # We store the tree object as a dictionary that contains children.
+        tree = [
+            (x, [])
+            for x in self.rootCAs
+        ]
+
+        # We'll empty this list eventually
+        certList = list(self)
+
+        # We make a list of certificates we have to search children for, and iterate
+        # through it until it's emtpy.
+        todo = list(tree)
+        
+        # Iterate
+        while todo:
+            cert, children = todo.pop()
+            for c in certList:
+                # Check if this certificate matches the one we're looking at
+                if c.isIssuerCert(cert) and c != cert:
+                    item = (c, [])
+                    children.append(item)
+                    certList.remove(c)
+                    todo.append(item)
+
+        return tree
+
+    def getchain(self, cert):
+        """
+        Return a chain of certificate that points from a ROOT CA to a certificate.
+        """
+        def _rec_getchain(chain, curtree):
+            # See if an element of the current tree signs the cert, if so add it to
+            # the chain, else recurse.
+            for c, subtree in curtree:
+                curchain = chain + [c]
+                if cert.isIssuerCert(c):
+                    return curchain
+                else:
+                    curchain = _rec_getchain(curchain, subtree)
+                    if curchain:
+                        return curchain
+            return None
+        
+        chain = _rec_getchain([], self.tree)
+        if chain is not None:
+            return CertTree(cert, chain)
+        else:
+            return None
+
+    def verify(self, cert):
+        """
+        Verify that a certificate is properly signed.
+        """
+        # Check that we can find a chain to this certificate
+        if not self.getchain(cert):
+            raise ValueError("Certificate verification failed !")
+
+    def show(self, ret: bool = False):
+        """
+        Return the CertTree as a string certificate tree
+        """
+        def _rec_show(c, children, lvl=0):
+            s = ""
+            # Process the current CA
+            if c:
+                if not c.isSelfSigned():
+                    s += "%s [Not Self Signed]\n" % c.subject_str
+                else:
+                    s += "%s [Self Signed]\n" % c.subject_str
+                s = lvl * "  " + s
+                lvl += 1
+            # Process all sub-CAs at a lower level
+            for child, subchildren in children:
+                s += _rec_show(child, subchildren, lvl=lvl)
+            return s
+
+        showed = _rec_show(None, self.tree)
+        if ret:
+            return showed
+        else:
+            print(showed)
+
+    def __repr__(self):
+        return "<CertTree %s certificates (%s ROOT CA)>" % (
+            len(self),
+            len(self.rootCAs),
+        )
 
 #######
 # CMS #
@@ -1352,16 +1413,16 @@ class CMS_Engine:
     """
     A utility class to perform CMS/PKCS7 operations, as specified by RFC3852.
 
-    :param chain: a certificates chain to sign or validate messages against.
+    :param store: a ROOT CA certificate list to trust.
     :param crls: a list of CRLs to include. This is currently not checked.
     """
 
     def __init__(
         self,
-        chain: Chain,
+        store: CertList,
         crls: List[X509_CRL] = [],
     ):
-        self.chain = chain
+        self.store = store
         self.crls = crls
 
     def sign(
@@ -1383,12 +1444,6 @@ class CMS_Engine:
 
         We currently only support X.509 certificates !
         """
-        # RFC3852 sect 5.1 - SignedData Type version
-        if self.chain:
-            version = 3
-        else:
-            version = 1
-
         # RFC3852 - 5.4. Message Digest Calculation Process
         h = h or cert.getSignatureHashName()
         hash = hashes.Hash(_get_hash(h))
@@ -1434,20 +1489,19 @@ class CMS_Engine:
             )
         )
 
-        # Build a list of X509_Cert to ship (no ROOT certificate)
+        # Build a chain of X509_Cert to ship (but skip the ROOT certificate)
+        certTree = CertTree(cert, self.store)
         certificates = [
-            x for x in
-            self.chain
+            x.x509Cert
+            for x in certTree
             if not x.isSelfSigned()
         ]
-        if cert.x509Cert not in certificates:
-            certificates.append(cert.x509Cert)
 
         # Build final structure
         return CMS_ContentInfo(
             contentType=ASN1_OID("id-signedData"),
             content=CMS_SignedData(
-                version=version,
+                version=3 if certificates else 1,
                 digestAlgorithms=X509_AlgorithmIdentifier(
                     algorithm=ASN1_OID(h),
                     parameters=ASN1_NULL(0),
@@ -1500,7 +1554,7 @@ class CMS_Engine:
             Cert(x.certificate)
             for x in signeddata.certificates
         ]
-        chain = Chain(self.chain + certificates)
+        certTree = CertTree(certificates, self.store)
 
         # Check there's at least one signature
         if not signeddata.signerInfos:
@@ -1509,7 +1563,10 @@ class CMS_Engine:
         # Check all signatures
         for signerInfo in signeddata.signerInfos:
             # Find certificate in the chain that did this
-            cert: Cert = chain.findCertByIssuer(signerInfo.sid.get_issuer())
+            cert: Cert = certTree.findCertByIssuer(signerInfo.sid.get_issuer())
+
+            # Verify certificate signature
+            certTree.verify(cert)
 
             # Verify the message hash
             if signerInfo.signedAttrs:

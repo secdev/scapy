@@ -2424,6 +2424,9 @@ class Ticketer:
         fast=False,
         armor_with=None,
         spn=None,
+        x509=None,
+        x509key=None,
+        p12=None,
         **kwargs,
     ):
         """
@@ -2458,6 +2461,9 @@ class Ticketer:
             armor_ticket_upn=armor_ticket_upn,
             armor_ticket_skey=armor_ticket_skey,
             spn=spn,
+            x509=x509,
+            x509key=x509key,
+            p12=p12,
             **kwargs,
         )
         if not res:

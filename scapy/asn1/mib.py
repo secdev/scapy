@@ -284,16 +284,24 @@ thawte_oids = {
     "1.3.101.113": "Ed448",
 }
 
+#       pkcs3       #
+
+pkcs3_oids = {
+    "1.2.840.113549.1.3": "pkcs-3",
+    "1.2.840.113549.1.3.1": "dhKeyAgreement",
+}
+
 #       pkcs7       #
 
 pkcs7_oids = {
+    "1.2.840.113549.1.7": "pkcs-7",
     "1.2.840.113549.1.7.2": "id-signedData",
 }
 
 #       pkcs9       #
 
 pkcs9_oids = {
-    "1.2.840.113549.1.9": "pkcs9",
+    "1.2.840.113549.1.9": "pkcs-9",
     "1.2.840.113549.1.9.0": "modules",
     "1.2.840.113549.1.9.1": "emailAddress",
     "1.2.840.113549.1.9.2": "unstructuredName",
@@ -724,6 +732,7 @@ x509_oids_sets = [
     secsig_oids,
     nist_oids,
     thawte_oids,
+    pkcs3_oids,
     pkcs7_oids,
     pkcs9_oids,
     attributeType_oids,
