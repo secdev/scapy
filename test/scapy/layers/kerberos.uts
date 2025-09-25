@@ -217,17 +217,17 @@ assert authpack.pkAuthenticator.paChecksum2.algorithmIdentifier.algorithm.oidnam
 
 = PKINIT - Verify CMS signature and extract
 
-from scapy.layers.tls.cert import Cert, PrivKey, Chain, CMS_Engine
+from scapy.layers.tls.cert import Cert, PrivKey, CertList, CMS_Engine
 
 # Get root CA
 ca = Cert(bytes.fromhex('3082036930820251a00302010202106b671318bb858b8e437e4229b0d32f12300d06092a864886f70d01010b0500304731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e311630140603550403130d444f4d41494e2d4443312d4341301e170d3235303932303232313034365a170d3330303932303232323034365a304731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e311630140603550403130d444f4d41494e2d4443312d434130820122300d06092a864886f70d01010105000382010f003082010a0282010100d502f47f909c951c87f2e8e6ac1c6f86d555b3311e5ef6086b588fb5eeb66277f63d18f04e65ba07570999bcc7cca3e0fa70914fcfa8acd81d4fbf4bb570a089b1b897cf3e07abc9fa75417bcb7171aaa95e20df12add93fada7df5447210820c1de12e356b248b7fe169019b7cf254c5be50571da26ff4219b8680fa249c14673bf743ef37b46c740353cb88097a099fbc7ca41a79c2cd9bc3a663003edfd12678c88b3970fdc211e38b985d6795d57041de0f3182873670bfee903069f59d3f0ff1634bf57f122ef7d1511775c47fdc574f632c9a1e8af305c81077af542f5499977870d8b0bce0d1fd8088636814d7847e0863ceb0ebe8bb0bd4e47eed01d0203010001a351304f300b0603551d0f040403020186300f0603551d130101ff040530030101ff301d0603551d0e04160414ab14d5ae948281f079726970b3b8f97003aa760c301006092b06010401823715010403020100300d06092a864886f70d01010b05000382010100763c9c93d6f0dd98d6ee5269f1d5f8b83fa14e62a9513806f6f978769208ff65f263f1809743f42b6b70cc77f93f5278e62e4d1da2ae5285e8da155951aa5207cea519d373a202d889e37a9fdde6c79e7a574d2dacd3ea695fde5980d16f91b14cd8f3944cc6a5d3d4c5d95e12f863857fe733285ac04d43fdb0ee52dc8ae5c8d1dd6e32405df2f835bd1681dbf5af9fc523cfe31c31fcde16a07f90733f48cff0392a0a18a1787b91d6b67441d78f507043acfb99c64eebc77717a21cf85ec160411a8f8244f8ef493ad22e5bbdb73d647fc6d911b040d373740b11fa65df5f2a8087ae63f69da5fc14e2e320f6d3e013d319a15762ec6ee2eb3cdf9763a523'))
 
 # Build CMS engine to verify the authpack
-cms = CMS_Engine(Chain([ca]))
+cms = CMS_Engine(CertList([ca]))
 
 # Verify signature
 authpack = cms.verify(signedauthpack, ASN1_OID('id-pkinit-authData'))
-assert isinstance(authpack, AuthPack)
+assert isinstance(authpack, KRB_AuthPack)
 
 = PKINIT - Resign AuthPack and re-verify signature
 
@@ -244,7 +244,7 @@ signed = cms.sign(
 )
 
 authpack = cms.verify(signed, ASN1_OID('id-pkinit-authData'))
-assert isinstance(authpack, AuthPack)
+assert isinstance(authpack, KRB_AuthPack)
 
 = PKINIT - Parse AS-REP with CMS structures (MIT Kerberos)
 
@@ -1388,6 +1388,110 @@ _msgs = ssp.GSS_UnwrapEx(
 )
 
 assert _msgs[0].data.hex() == "112233445566778899aabbccddeeff"
+
++ RFC4556 test vectors
+~ mock
+
+= RFC4556 Test Vectors - octetstring2key - Utils
+
+from scapy.libs.rfc3961 import EncryptionType, octetstring2key
+
+def _strip(x):
+    return bytes.fromhex(x.replace(" ", "").replace("\n", ""))
+
+def _k_truncate_output(etype, input):
+    with mock.patch('scapy.libs.rfc3961.Key.random_to_key', side_effect=Bunch):
+        result = octetstring2key(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT)
+    return result.seed
+
+= RFC4556 Test Vectors - octetstring2key - Set 1
+
+INPUT = _strip("""
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+""")
+
+RESULT = _strip("""
+5e e5 0d 67 5c 80 9f e5 9e 4a 77 62 c5 4b 65 83
+75 47 ea fb 15 9b d8 cd c7 5f fc a5 91 1e 4c 41
+""")
+
+hexdiff(_k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT), RESULT)
+assert _k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT) == RESULT
+
+= RFC4556 Test Vectors - octetstring2key - Set 2
+
+INPUT = _strip("""
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+""")
+
+RESULT = _strip("""
+ac f7 70 7c 08 97 3d df db 27 cd 36 14 42 cc fb
+a3 55 c8 88 4c b4 72 f3 7d a6 36 d0 7d 56 78 7e
+""")
+
+hexdiff(_k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT), RESULT)
+assert _k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT) == RESULT
+
+= RFC4556 Test Vectors - octetstring2key - Set 3
+
+INPUT = _strip("""
+00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f
+10 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e
+0f 10 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d
+0e 0f 10 00 01 02 03 04 05 06 07 08 09 0a 0b 0c
+0d 0e 0f 10 00 01 02 03 04 05 06 07 08 09 0a 0b
+0c 0d 0e 0f 10 00 01 02 03 04 05 06 07 08 09 0a
+0b 0c 0d 0e 0f 10 00 01 02 03 04 05 06 07 08 09
+0a 0b 0c 0d 0e 0f 10 00 01 02 03 04 05 06 07 08
+""")
+
+RESULT = _strip("""
+c4 42 da 58 5f cb 80 e4 3b 47 94 6f 25 40 93 e3
+73 29 d9 90 01 38 0d b7 83 71 db 3a cf 5c 79 7e
+""")
+
+hexdiff(_k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT), RESULT)
+assert _k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT) == RESULT
+
+= RFC4556 Test Vectors - octetstring2key - Set 4
+
+INPUT = _strip("""
+00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f
+10 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e
+0f 10 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d
+0e 0f 10 00 01 02 03 04 05 06 07 08 09 0a 0b 0c
+0d 0e 0f 10 00 01 02 03 04 05 06 07 08
+""")
+
+RESULT = _strip("""
+00 53 95 3b 84 c8 96 f4 eb 38 5c 3f 2e 75 1c 4a
+59 0e d6 ff ad ca 6f f6 4f 47 eb eb 8d 78 0f fc
+""")
+
+hexdiff(_k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT), RESULT)
+assert _k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT) == RESULT
 
 + GSS-API KerberosSSP tests
 ~ mock

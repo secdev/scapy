@@ -136,8 +136,7 @@ class DomainParameters(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("p", 0),
         ASN1F_INTEGER("g", 0),
-        # BUG: 'q' isn't supposed to be optional, yet Windows skipts it sometimes...
-        ASN1F_optional(ASN1F_INTEGER("q", 0)),
+        ASN1F_INTEGER("q", 0),
         ASN1F_optional(ASN1F_INTEGER("j", 0)),
         ASN1F_optional(
             ASN1F_PACKET("validationParms", None, ValidationParms),
@@ -217,6 +216,24 @@ class ECDSASignature(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("r", 0),
         ASN1F_INTEGER("s", 0))
+
+
+####################################
+#  Diffie Hellman Exchange Packets #
+####################################
+# based on PKCS#3
+
+# PKCS#3 sect 9
+
+class DHParameter(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("p", 0),
+        ASN1F_INTEGER("g", 0),
+        ASN1F_optional(
+            ASN1F_INTEGER("l", 0)  # aka. 'privateValueLength'
+        ),
+    )
 
 
 ####################################
@@ -848,13 +865,37 @@ class X509_AlgorithmIdentifier(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_OID("algorithm", "1.2.840.113549.1.1.11"),
-        ASN1F_optional(
-            ASN1F_CHOICE(
-                "parameters", ASN1_NULL(0),
-                ASN1F_NULL,
-                ECParameters,
-                DomainParameters,
-            )
+        MultipleTypeField(
+            [
+                # RFC5480
+                (
+                    ASN1F_PACKET(
+                        "parameters",
+                        ECParameters(),
+                        ECParameters,
+                    ),
+                    lambda pkt: pkt.algorithm.val == "1.2.840.10045.2.1",
+                ),
+                # RFC3279
+                (
+                    ASN1F_PACKET(
+                        "parameters",
+                        DomainParameters(),
+                        DomainParameters,
+                    ),
+                    lambda pkt: pkt.algorithm.val == "1.2.840.10046.2.1",
+                ),
+                # PKCS#3
+                (
+                    ASN1F_PACKET(
+                        "parameters",
+                        DHParameter(),
+                        DHParameter,
+                    ),
+                    lambda pkt: pkt.algorithm.val == "1.2.840.113549.1.3.1",
+                ),
+            ],
+            ASN1F_optional(ASN1F_NULL("parameters", None)),
         )
     )
 
@@ -1192,11 +1233,6 @@ class CMS_EncapsulatedContentInfo(ASN1_Packet):
             _EncapsulatedContent_Field("eContent", None,
                                        explicit_tag=0xA0),
         ),
-        # BUG: some Windows versions incorrectly use an implicit octet string.
-        ASN1F_optional(
-            _EncapsulatedContent_Field("_eContent", None,
-                                       implicit_tag=0xA0),
-        )
     )
 
 

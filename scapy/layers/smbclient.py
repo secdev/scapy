@@ -1123,7 +1123,7 @@ class smbclient(CLIUtil):
         HashAes256Sha96: bytes = None,
         HashAes128Sha96: bytes = None,
         port: int = 445,
-        timeout: int = 2,
+        timeout: int = 5,
         debug: int = 0,
         ssp=None,
         ST=None,

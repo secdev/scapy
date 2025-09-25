@@ -641,6 +641,7 @@ class SPNEGOSSP(SSP):
         kerberos_required: bool = False,
         ST=None,
         KEY=None,
+        ccache: str = None,
         debug: int = 0,
     ):
         """
@@ -657,6 +658,7 @@ class SPNEGOSSP(SSP):
         :param ST: if provided, the service ticket to use (Kerberos)
         :param KEY: if ST provided, the session key associated to the ticket (Kerberos).
                     Else, the user secret key.
+        :param ccache: (str) if provided, a path to a CCACHE (Kerberos)
         """
         kerberos = True
         hostname = None
@@ -700,7 +702,20 @@ class SPNEGOSSP(SSP):
         # Kerberos
         if kerberos and hostname:
             # Get ticket if we don't already have one.
-            if ST is None:
+            if ST is None and ccache is not None:
+                # In this case, load the KerberosSSP from ccache
+                from scapy.modules.ticketer import Ticketer
+                
+                # Import into a Ticketer object
+                t = Ticketer()
+                t.open_ccache(ccache)
+
+                # Look for the ticketer that we'll use
+                raise NotImplementedError
+
+
+                ssps.append(t.ssp())
+            elif ST is None:
                 # In this case, KEY is supposed to be the user's key.
                 from scapy.libs.rfc3961 import Key, EncryptionType
 
