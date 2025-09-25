@@ -94,6 +94,18 @@ from scapy.layers.tls.crypto.h_mac import Hmac_MD5
 ##########
 
 
+# NTLM structures are all in all very complicated. Many fields don't have a fixed
+# position, but are rather referred to with an offset (from the beginning of the
+# structure) and a length. In addition to that, there are variants of the structure
+# with missing fields when running old versions of Windows (sometimes also seen when
+# talking to products that reimplement NTLM, most notably backup applications).
+
+# We add `_NTLMPayloadField` and `_NTLMPayloadPacket` to parse fields that use an
+# offset, and `_NTLM_post_build` to be able to rebuild those offsets.
+# In addition, the `NTLM_VARIANT*` allows to select what flavor of NTLM to use
+# (NT, XP, or Recent). But in real world use only Recent should be used.
+
+
 class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
     """Special field used to dissect NTLM payloads.
     This isn't trivial because the offsets are variable."""
@@ -396,6 +408,41 @@ def _NTLM_post_build(self, p, pay_offset, fields, config=_NTLM_CONFIG):
 ##############
 
 
+# -- Util: VARIANT class
+
+
+class NTLM_VARIANT(IntEnum):
+    """
+    The message variant to use for NTLM.
+    """
+
+    NT_OR_2000 = 0
+    XP_OR_2003 = 1
+    RECENT = 2
+
+
+class _NTLM_VARIANT_Packet(_NTLMPayloadPacket):
+    def __init__(self, *args, **kwargs):
+        self.VARIANT = kwargs.pop("VARIANT", NTLM_VARIANT.RECENT)
+        super(_NTLM_VARIANT_Packet, self).__init__(*args, **kwargs)
+
+    def clone_with(self, *args, **kwargs):
+        pkt = super(_NTLM_VARIANT_Packet, self).clone_with(*args, **kwargs)
+        pkt.VARIANT = self.VARIANT
+        return pkt
+
+    def copy(self):
+        pkt = super(_NTLM_VARIANT_Packet, self).copy()
+        pkt.VARIANT = self.VARIANT
+
+        return pkt
+
+    def show2(self, dump=False, indent=3, lvl="", label_lvl=""):
+        return self.__class__(bytes(self), VARIANT=self.VARIANT).show(
+            dump, indent, lvl, label_lvl
+        )
+
+
 # Sect 2.2
 
 
@@ -488,10 +535,18 @@ class _NTLM_Version(Packet):
 # Sect 2.2.1.1
 
 
-class NTLM_NEGOTIATE(_NTLMPayloadPacket):
+class NTLM_NEGOTIATE(_NTLM_VARIANT_Packet):
     name = "NTLM Negotiate"
+    __slots__ = ["VARIANT"]
     MessageType = 1
-    OFFSET = lambda pkt: (((pkt.DomainNameBufferOffset or 40) > 32) and 40 or 32)
+    OFFSET = lambda pkt: (
+        32
+        if (
+            pkt.VARIANT == NTLM_VARIANT.NT_OR_2000
+            or (pkt.DomainNameBufferOffset or 40) <= 32
+        )
+        else 40
+    )
     fields_desc = (
         [
             NTLM_Header,
@@ -510,15 +565,18 @@ class NTLM_NEGOTIATE(_NTLMPayloadPacket):
             ConditionalField(
                 # (not present on some old Windows versions. We use a heuristic)
                 x,
-                lambda pkt: (
+                lambda pkt: pkt.VARIANT >= NTLM_VARIANT.XP_OR_2003
+                and (
                     (
-                        40
-                        if pkt.DomainNameBufferOffset is None
-                        else pkt.DomainNameBufferOffset or len(pkt.original or b"")
+                        (
+                            40
+                            if pkt.DomainNameBufferOffset is None
+                            else pkt.DomainNameBufferOffset or len(pkt.original or b"")
+                        )
+                        > 32
                     )
-                    > 32
-                )
-                or pkt.fields.get(x.name, b""),
+                    or pkt.fields.get(x.name, b"")
+                ),
             )
             for x in _NTLM_Version.fields_desc
         ]
@@ -628,10 +686,18 @@ class AV_PAIR(Packet):
         return conf.padding_layer
 
 
-class NTLM_CHALLENGE(_NTLMPayloadPacket):
+class NTLM_CHALLENGE(_NTLM_VARIANT_Packet):
     name = "NTLM Challenge"
+    __slots__ = ["VARIANT"]
     MessageType = 2
-    OFFSET = lambda pkt: (((pkt.TargetInfoBufferOffset or 56) > 48) and 56 or 48)
+    OFFSET = lambda pkt: (
+        48
+        if (
+            pkt.VARIANT == NTLM_VARIANT.NT_OR_2000
+            or (pkt.TargetInfoBufferOffset or 56) <= 48
+        )
+        else 56
+    )
     fields_desc = (
         [
             NTLM_Header,
@@ -653,8 +719,11 @@ class NTLM_CHALLENGE(_NTLMPayloadPacket):
             ConditionalField(
                 # (not present on some old Windows versions. We use a heuristic)
                 x,
-                lambda pkt: ((pkt.TargetInfoBufferOffset or 56) > 40)
-                or pkt.fields.get(x.name, b""),
+                lambda pkt: pkt.VARIANT >= NTLM_VARIANT.XP_OR_2003
+                and (
+                    ((pkt.TargetInfoBufferOffset or 56) > 40)
+                    or pkt.fields.get(x.name, b"")
+                ),
             )
             for x in _NTLM_Version.fields_desc
         ]
@@ -770,14 +839,23 @@ class NTLMv2_RESPONSE(NTLMv2_CLIENT_CHALLENGE):
         return HMAC_MD5(ResponseKeyNT, ServerChallenge + temp)
 
 
-class NTLM_AUTHENTICATE(_NTLMPayloadPacket):
+class NTLM_AUTHENTICATE(_NTLM_VARIANT_Packet):
     name = "NTLM Authenticate"
+    __slots__ = ["VARIANT"]
     MessageType = 3
     NTLM_VERSION = 1
     OFFSET = lambda pkt: (
-        ((pkt.DomainNameBufferOffset or 88) <= 64)
-        and 64
-        or (((pkt.DomainNameBufferOffset or 88) > 72) and 88 or 72)
+        64
+        if (
+            pkt.VARIANT == NTLM_VARIANT.NT_OR_2000
+            or (pkt.DomainNameBufferOffset or 88) <= 64
+        )
+        else (
+            72
+            if pkt.VARIANT == NTLM_VARIANT.XP_OR_2003
+            or ((pkt.DomainNameBufferOffset or 88) <= 72)
+            else 88
+        )
     )
     fields_desc = (
         [
@@ -814,8 +892,11 @@ class NTLM_AUTHENTICATE(_NTLMPayloadPacket):
             ConditionalField(
                 # (not present on some old Windows versions. We use a heuristic)
                 x,
-                lambda pkt: ((pkt.DomainNameBufferOffset or 88) > 64)
-                or pkt.fields.get(x.name, b""),
+                lambda pkt: pkt.VARIANT >= NTLM_VARIANT.XP_OR_2003
+                and (
+                    ((pkt.DomainNameBufferOffset or 88) > 64)
+                    or pkt.fields.get(x.name, b"")
+                ),
             )
             for x in _NTLM_Version.fields_desc
         ]
@@ -824,8 +905,11 @@ class NTLM_AUTHENTICATE(_NTLMPayloadPacket):
             ConditionalField(
                 # (not present on some old Windows versions. We use a heuristic)
                 XStrFixedLenField("MIC", b"", length=16),
-                lambda pkt: ((pkt.DomainNameBufferOffset or 88) > 72)
-                or pkt.fields.get("MIC", b""),
+                lambda pkt: pkt.VARIANT >= NTLM_VARIANT.RECENT
+                and (
+                    ((pkt.DomainNameBufferOffset or 88) > 72)
+                    or pkt.fields.get("MIC", b"")
+                ),
             ),
             # Payload
             _NTLMPayloadField(
@@ -1247,6 +1331,7 @@ class NTLMSSP(SSP):
         HASHNT=None,
         PASSWORD=None,
         USE_MIC=True,
+        VARIANT: NTLM_VARIANT = NTLM_VARIANT.RECENT,
         NTLM_VALUES={},
         DOMAIN_FQDN=None,
         DOMAIN_NB_NAME=None,
@@ -1261,7 +1346,14 @@ class NTLMSSP(SSP):
         if HASHNT is None and PASSWORD is not None:
             HASHNT = MD4le(PASSWORD)
         self.HASHNT = HASHNT
-        self.USE_MIC = USE_MIC
+        self.VARIANT = VARIANT
+        if self.VARIANT != NTLM_VARIANT.RECENT:
+            log_runtime.warning(
+                "VARIANT != NTLM_VARIANT.RECENT. You shouldn't touch this !"
+            )
+            self.USE_MIC = False
+        else:
+            self.USE_MIC = USE_MIC
         self.NTLM_VALUES = NTLM_VALUES
         if UPN is not None:
             from scapy.layers.kerberos import _parse_upn
@@ -1399,6 +1491,7 @@ class NTLMSSP(SSP):
             # Client: negotiate
             # Create a default token
             tok = NTLM_NEGOTIATE(
+                VARIANT=self.VARIANT,
                 NegotiateFlags="+".join(
                     [
                         "NEGOTIATE_UNICODE",
@@ -1408,10 +1501,14 @@ class NTLMSSP(SSP):
                         "TARGET_TYPE_DOMAIN",
                         "NEGOTIATE_EXTENDED_SESSIONSECURITY",
                         "NEGOTIATE_TARGET_INFO",
-                        "NEGOTIATE_VERSION",
                         "NEGOTIATE_128",
                         "NEGOTIATE_56",
                     ]
+                    + (
+                        ["NEGOTIATE_VERSION"]
+                        if self.VARIANT >= NTLM_VARIANT.XP_OR_2003
+                        else []
+                    )
                     + (
                         [
                             "NEGOTIATE_KEY_EXCH",
@@ -1466,6 +1563,7 @@ class NTLMSSP(SSP):
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
             # Take a default token
             tok = NTLM_AUTHENTICATE_V2(
+                VARIANT=self.VARIANT,
                 NegotiateFlags=chall_tok.NegotiateFlags,
                 ProductMajorVersion=10,
                 ProductMinorVersion=0,
@@ -1618,6 +1716,7 @@ class NTLMSSP(SSP):
             # Take a default token
             currentTime = (time.time() + 11644473600) * 1e7
             tok = NTLM_CHALLENGE(
+                VARIANT=self.VARIANT,
                 ServerChallenge=self.SERVER_CHALLENGE or os.urandom(8),
                 NegotiateFlags="+".join(
                     [
@@ -1628,11 +1727,15 @@ class NTLMSSP(SSP):
                         "NEGOTIATE_EXTENDED_SESSIONSECURITY",
                         "NEGOTIATE_TARGET_INFO",
                         "TARGET_TYPE_DOMAIN",
-                        "NEGOTIATE_VERSION",
                         "NEGOTIATE_128",
                         "NEGOTIATE_KEY_EXCH",
                         "NEGOTIATE_56",
                     ]
+                    + (
+                        ["NEGOTIATE_VERSION"]
+                        if self.VARIANT >= NTLM_VARIANT.XP_OR_2003
+                        else []
+                    )
                     + (
                         ["NEGOTIATE_SIGN"]
                         if nego_tok.NegotiateFlags.NEGOTIATE_SIGN
