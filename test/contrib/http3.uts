@@ -1,0 +1,30 @@
+% HTTP/3 contrib tests
+
++ Basic round-trip
+
+= DATA frame round-trip
+f = H3Frame(type=0x00, length=3, data=b"abc")
+assert raw(f) == b"\x00\x03abc"
+g = H3Frame(raw(f))
+assert g.type == 0x00 and g.length == 3 and bytes(g.data) == b"abc"
+
+= Length auto-fill when left to 0
+f2 = H3Frame(type=0x01, data=b"\x01\x02")
+assert raw(f2) == b"\x01\x02\x01\x02"
+g2 = H3Frame(raw(f2))
+assert g2.type == 0x01 and g2.length == 2 and bytes(g2.data) == b"\x01\x02"
+
+= Concatenated frames parse
+blob = b"\x00\x03abc" + b"\x01\x01Z"
+frames = h3_parse_frames(blob)
+assert len(frames) == 2
+assert frames[0].type == 0x00 and frames[0].length == 3 and bytes(frames[0].data) == b"abc"
+assert frames[1].type == 0x01 and frames[1].length == 1 and bytes(frames[1].data) == b"Z"
+
++ SETTINGS helper
+
+= Parse SETTINGS payload (two pairs)
+# id=0x1 -> 0x100 (256) encodes as 0x41 0x00 ; id=0x3 -> 0x40 (64) as 0x40 0x40
+settings_payload = b"\x01\x41\x00" + b"\x03\x40\x40"
+pairs = h3_parse_settings(settings_payload)
+assert pairs == [(1, 256), (3, 64)]
