@@ -1292,6 +1292,9 @@ def _e(ndrendian):
 class _NDRPacket(Packet):
     __slots__ = ["ndr64", "ndrendian", "deferred_pointers", "request_packet"]
 
+    # Can't trust the cache due to deferred pointers.
+    no_cache = True
+
     def __init__(self, *args, **kwargs):
         self.ndr64 = kwargs.pop("ndr64", False)
         self.ndrendian = kwargs.pop("ndrendian", "little")
@@ -1312,12 +1315,6 @@ class _NDRPacket(Packet):
                 self, super(_NDRPacket, self).do_dissect(s)
             )
         return super(_NDRPacket, self).do_dissect(s)
-
-    def post_dissect(self, s):
-        if self.deferred_pointers:
-            # Can't trust the cache if there were deferred pointers
-            self.raw_packet_cache = None
-        return s
 
     def do_build(self):
         _up = self.parent or self.underlayer
