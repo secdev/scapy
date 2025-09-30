@@ -1418,7 +1418,7 @@ def dns_resolve(qname, qtype="A", raw=False, tcp=False, verbose=1, timeout=3, **
         return result
 
     kwargs.setdefault("timeout", timeout)
-    kwargs.setdefault("verbose", 0)
+    kwargs.setdefault("verbose", verbose)
     res = None
     for nameserver in conf.nameservers:
         # Try all nameservers
@@ -1455,8 +1455,6 @@ def dns_resolve(qname, qtype="A", raw=False, tcp=False, verbose=1, timeout=3, **
                         qtype=qtype,
                         raw=raw,
                         tcp=True,
-                        verbose=verbose,
-                        timeout=timeout,
                         **kwargs,
                     )
                 elif verbose:
