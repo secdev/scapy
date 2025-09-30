@@ -3,23 +3,33 @@
 + Basic round-trip
 
 = DATA frame round-trip
-f = H3Frame(type=0x00, length=3, data=b"abc")
+f = h3_build_data(b"abc")
 assert raw(f) == b"\x00\x03abc"
 g = H3Frame(raw(f))
-assert g.type == 0x00 and g.length == 3 and bytes(g.data) == b"abc"
+assert g.type == H3_DATA and g.length == 3 and bytes(g.data) == b"abc"
 
-= Length auto-fill when left to 0
-f2 = H3Frame(type=0x01, data=b"\x01\x02")
-assert raw(f2) == b"\x01\x02\x01\x02"
+= Length auto-fill when left to 0 (manual build path)
+f2 = H3Frame(type=H3_HEADERS, data=b"\x82")
+assert raw(f2) == b"\x01\x01\x82"
 g2 = H3Frame(raw(f2))
-assert g2.type == 0x01 and g2.length == 2 and bytes(g2.data) == b"\x01\x02"
+assert g2.type == H3_HEADERS and g2.length == 1 and bytes(g2.data) == b"\x82"
 
 = Concatenated frames parse
-blob = b"\x00\x03abc" + b"\x01\x01Z"
+blob = raw(h3_build_data(b"abc")) + raw(h3_build_headers(b"\x82"))
 frames = h3_parse_frames(blob)
 assert len(frames) == 2
-assert frames[0].type == 0x00 and frames[0].length == 3 and bytes(frames[0].data) == b"abc"
-assert frames[1].type == 0x01 and frames[1].length == 1 and bytes(frames[1].data) == b"Z"
+assert frames[0].type == H3_DATA and frames[0].length == 3 and bytes(frames[0].data) == b"abc"
+assert frames[1].type == H3_HEADERS and frames[1].length == 1 and bytes(frames[1].data) == b"\x82"
+
++ Streaming parser
+
+= h3_iterparse yields frames as chunks arrive
+chunks = [raw(h3_build_data(b"abc"))[:2],
+          raw(h3_build_data(b"abc"))[2:] + raw(h3_build_headers(b"\x82"))]
+out = list(h3_iterparse(chunks))
+assert len(out) == 2
+assert out[0].type == H3_DATA and bytes(out[0].data) == b"abc"
+assert out[1].type == H3_HEADERS and bytes(out[1].data) == b"\x82"
 
 + SETTINGS helper
 
@@ -28,3 +38,43 @@ assert frames[1].type == 0x01 and frames[1].length == 1 and bytes(frames[1].data
 settings_payload = b"\x01\x41\x00" + b"\x03\x40\x40"
 pairs = h3_parse_settings(settings_payload)
 assert pairs == [(1, 256), (3, 64)]
+
+= Build SETTINGS frame from pairs and round-trip
+sf = h3_build_settings([(1, 256), (3, 64)])
+assert sf.type == H3_SETTINGS
+sp = H3Frame(raw(sf))
+assert sp.type == H3_SETTINGS
+assert h3_parse_settings(bytes(sp.data)) == [(1, 256), (3, 64)]
+
++ GOAWAY
+
+= GOAWAY round-trip
+gw = h3_build_goaway(1234)
+gw2 = H3Frame(raw(gw))
+assert gw2.type == H3_GOAWAY
+assert h3_parse_goaway(bytes(gw2.data)) == 1234
+
++ PRIORITY_UPDATE
+
+= PRIORITY_UPDATE (request) round-trip
+pu = h3_build_priority_update_req(5, b"u=1")
+pu2 = H3Frame(raw(pu))
+assert pu2.type == H3_PRIORITY_UPDATE_REQ
+pid, val = h3_parse_priority_update(bytes(pu2.data))
+assert pid == 5 and val == b"u=1"
+
+= PRIORITY_UPDATE (push) round-trip
+pp = h3_build_priority_update_push(9, b"i=2")
+pp2 = H3Frame(raw(pp))
+assert pp2.type == H3_PRIORITY_UPDATE_PUSH
+pid2, val2 = h3_parse_priority_update(bytes(pp2.data))
+assert pid2 == 9 and val2 == b"i=2"
+
++ Unknown frame passthrough
+
+= Build unknown type and ensure it parses cleanly
+unk = H3Frame(type=0x21, data=b"\xDE\xAD\xBE\xEF")
+# 0x21 encodes on 1 byte (prefix 00); length 4 encodes on 1 byte too
+assert raw(unk) == b"\x21\x04\xde\xad\xbe\xef" or raw(unk) == b"\x21\x04\xDE\xAD\xBE\xEF"
+unk2 = H3Frame(raw(unk))
+assert unk2.type == 0x21 and unk2.length == 4 and bytes(unk2.data) == b"\xDE\xAD\xBE\xEF"
