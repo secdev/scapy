@@ -991,24 +991,6 @@ We can reimport the produced binary string by selecting the appropriate first la
     \x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e
     \x1f !"#$%&\'()*+,-./01234567' |>>>>
 
-Sessions
-^^^^^^^^
-
-At last Scapy is capable of saving all session variables using the ``save_session()`` function:
-
->>> dir()
-['__builtins__', 'conf', 'new_pkt', 'pkt', 'pkt_export', 'pkt_hex', 'pkt_raw', 'pkts']
->>> save_session("session.scapy")
-
-Next time you start Scapy you can load the previous saved session using the ``load_session()`` command::
-
-    >>> dir()
-    ['__builtins__', 'conf']
-    >>> load_session("session.scapy")
-    >>> dir()
-    ['__builtins__', 'conf', 'new_pkt', 'pkt', 'pkt_export', 'pkt_hex', 'pkt_raw', 'pkts']
-
-
 Making tables
 -------------
 

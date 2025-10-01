@@ -12,16 +12,13 @@ import builtins
 import code
 import getopt
 import glob
-import gzip
 import importlib
 import io
 import logging
 import os
 import pathlib
-import pickle
 import shutil
 import sys
-import types
 import warnings
 
 from itertools import zip_longest
@@ -260,7 +257,7 @@ conf.load_extensions = [
 def _usage():
     # type: () -> None
     print(
-        "Usage: scapy.py [-s sessionfile] [-c new_startup_file] "
+        "Usage: scapy.py [-c new_startup_file] "
         "[-p new_prestart_file] [-C] [-P] [-H]\n"
         "Args:\n"
         "\t-H: header-less start\n"
@@ -494,116 +491,8 @@ def _scapy_exts():
     return res
 
 
-def save_session(fname="", session=None, pickleProto=-1):
-    # type: (str, Optional[Dict[str, Any]], int) -> None
-    """Save current Scapy session to the file specified in the fname arg.
-
-    params:
-     - fname: file to save the scapy session in
-     - session: scapy session to use. If None, the console one will be used
-     - pickleProto: pickle proto version (default: -1 = latest)"""
-    from scapy import utils
-    from scapy.config import conf, ConfClass
-    if not fname:
-        fname = conf.session
-        if not fname:
-            conf.session = fname = utils.get_temp_file(keep=True)
-    log_interactive.info("Saving session into [%s]", fname)
-
-    if not session:
-        if conf.interactive_shell in ["ipython", "ptipython"]:
-            from IPython import get_ipython
-            session = get_ipython().user_ns
-        else:
-            session = builtins.__dict__["scapy_session"]
-
-    if not session:
-        log_interactive.error("No session found ?!")
-        return
-
-    ignore = session.get("_scpybuiltins", [])
-    hard_ignore = ["scapy_session", "In", "Out", "open"]
-    to_be_saved = session.copy()
-
-    for k in list(to_be_saved):
-        i = to_be_saved[k]
-        if k[0] == "_":
-            del to_be_saved[k]
-        elif hasattr(i, "__module__") and i.__module__.startswith("IPython"):
-            del to_be_saved[k]
-        elif isinstance(i, ConfClass):
-            del to_be_saved[k]
-        elif k in ignore or k in hard_ignore:
-            del to_be_saved[k]
-        elif isinstance(i, (type, types.ModuleType, types.FunctionType)):
-            if k[0] != "_":
-                log_interactive.warning("[%s] (%s) can't be saved.", k, type(i))
-            del to_be_saved[k]
-        else:
-            try:
-                pickle.dumps(i)
-            except Exception:
-                log_interactive.warning("[%s] (%s) can't be saved.", k, type(i))
-
-    try:
-        os.rename(fname, fname + ".bak")
-    except OSError:
-        pass
-
-    f = gzip.open(fname, "wb")
-    pickle.dump(to_be_saved, f, pickleProto)
-    f.close()
-
-
-def load_session(fname=None):
-    # type: (Optional[Union[str, None]]) -> None
-    """Load current Scapy session from the file specified in the fname arg.
-    This will erase any existing session.
-
-    params:
-     - fname: file to load the scapy session from"""
-    from scapy.config import conf
-    if fname is None:
-        fname = conf.session
-    try:
-        s = pickle.load(gzip.open(fname, "rb"))
-    except IOError:
-        try:
-            s = pickle.load(open(fname, "rb"))
-        except IOError:
-            # Raise "No such file exception"
-            raise
-
-    scapy_session = builtins.__dict__["scapy_session"]
-    s.update({k: scapy_session[k] for k in scapy_session["_scpybuiltins"]})
-    scapy_session.clear()
-    scapy_session.update(s)
-    update_ipython_session(scapy_session)
-
-    log_loading.info("Loaded session [%s]", fname)
-
-
-def update_session(fname=None):
-    # type: (Optional[Union[str, None]]) -> None
-    """Update current Scapy session from the file specified in the fname arg.
-
-    params:
-     - fname: file to load the scapy session from"""
-    from scapy.config import conf
-    if fname is None:
-        fname = conf.session
-    try:
-        s = pickle.load(gzip.open(fname, "rb"))
-    except IOError:
-        s = pickle.load(open(fname, "rb"))
-    scapy_session = builtins.__dict__["scapy_session"]
-    scapy_session.update(s)
-    update_ipython_session(scapy_session)
-
-
 @overload
-def init_session(session_name,  # type: Optional[Union[str, None]]
-                 mydict,  # type: Optional[Union[Dict[str, Any], None]]
+def init_session(mydict,  # type: Optional[Union[Dict[str, Any], None]]
                  ret,  # type: Literal[True]
                  ):
     # type: (...) -> Dict[str, Any]
@@ -611,21 +500,18 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
 
 
 @overload
-def init_session(session_name,  # type: Optional[Union[str, None]]
-                 mydict=None,  # type: Optional[Union[Dict[str, Any], None]]
+def init_session(mydict=None,  # type: Optional[Union[Dict[str, Any], None]]
                  ret=False,  # type: Literal[False]
                  ):
     # type: (...) -> None
     pass
 
 
-def init_session(session_name,  # type: Optional[Union[str, None]]
-                 mydict=None,  # type: Optional[Union[Dict[str, Any], None]]
+def init_session(mydict=None,  # type: Optional[Union[Dict[str, Any], None]]
                  ret=False,  # type: bool
                  ):
     # type: (...) -> Union[Dict[str, Any], None]
     from scapy.config import conf
-    SESSION = {}  # type: Optional[Dict[str, Any]]
 
     # Load Scapy
     scapy_builtins = _scapy_builtins()
@@ -633,39 +519,7 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
     # Load exts
     scapy_builtins.update(_scapy_exts())
 
-    if session_name:
-        try:
-            os.stat(session_name)
-        except OSError:
-            log_loading.info("New session [%s]", session_name)
-        else:
-            try:
-                try:
-                    SESSION = pickle.load(gzip.open(session_name, "rb"))
-                except IOError:
-                    SESSION = pickle.load(open(session_name, "rb"))
-                log_loading.info("Using existing session [%s]", session_name)
-            except ValueError:
-                msg = "Error opening Python3 pickled session on Python2 [%s]"
-                log_loading.error(msg, session_name)
-            except EOFError:
-                log_loading.error("Error opening session [%s]", session_name)
-            except AttributeError:
-                log_loading.error("Error opening session [%s]. "
-                                  "Attribute missing", session_name)
-
-        if SESSION:
-            if "conf" in SESSION:
-                conf.configure(SESSION["conf"])
-                conf.session = session_name
-                SESSION["conf"] = conf
-            else:
-                conf.session = session_name
-        else:
-            conf.session = session_name
-            SESSION = {"conf": conf}
-    else:
-        SESSION = {"conf": conf}
+    SESSION = {"conf": conf}  # type: Dict[str, Any]
 
     SESSION.update(scapy_builtins)
     SESSION["_scpybuiltins"] = scapy_builtins.keys()
@@ -677,6 +531,7 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
     if ret:
         return SESSION
     return None
+
 
 ################
 #     Main     #
@@ -810,8 +665,6 @@ def interact(mydict=None,
     STARTUP_FILE = DEFAULT_STARTUP_FILE
     PRESTART_FILE = DEFAULT_PRESTART_FILE
 
-    session_name = None
-
     if argv is None:
         argv = sys.argv
 
@@ -824,8 +677,6 @@ def interact(mydict=None,
                 conf.fancy_banner = False
                 conf.verb = 1
                 conf.logLevel = logging.WARNING
-            elif opt == "-s":
-                session_name = param
             elif opt == "-c":
                 STARTUP_FILE = param
             elif opt == "-C":
@@ -857,7 +708,7 @@ def interact(mydict=None,
             default=DEFAULT_PRESTART,
         )
 
-    SESSION = init_session(session_name, mydict=mydict, ret=True)
+    SESSION = init_session(mydict=mydict, ret=True)
 
     if STARTUP_FILE:
         _read_config_file(
@@ -1093,9 +944,6 @@ def interact(mydict=None,
         code.interact(banner=banner_text, local=SESSION)
     else:
         raise ValueError("Invalid conf.interactive_shell")
-
-    if conf.session:
-        save_session(conf.session, SESSION)
 
 
 if __name__ == "__main__":
