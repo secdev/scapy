@@ -15,7 +15,6 @@ from uuid import UUID
 
 import argparse
 import array
-import base64
 import collections
 import decimal
 import difflib
@@ -25,7 +24,6 @@ import inspect
 import locale
 import math
 import os
-import pickle
 import random
 import re
 import shutil
@@ -1221,39 +1219,9 @@ class Enum_metaclass(type):
         return "<%s>" % self.__dict__.get("name", self.__name__)
 
 
-###################
-#  Object saving  #
-###################
-
-
-def export_object(obj):
-    # type: (Any) -> None
-    import zlib
-    print(base64.b64encode(zlib.compress(pickle.dumps(obj, 2), 9)).decode())
-
-
-def import_object(obj=None):
-    # type: (Optional[str]) -> Any
-    import zlib
-    if obj is None:
-        obj = sys.stdin.read()
-    return pickle.loads(zlib.decompress(base64.b64decode(obj.strip())))
-
-
-def save_object(fname, obj):
-    # type: (str, Any) -> None
-    """Pickle a Python object"""
-
-    fd = gzip.open(fname, "wb")
-    pickle.dump(obj, fd)
-    fd.close()
-
-
-def load_object(fname):
-    # type: (str) -> Any
-    """unpickle a Python object"""
-    return pickle.load(gzip.open(fname, "rb"))
-
+##################
+#  Corrupt data  #
+##################
 
 @conf.commands.register
 def corrupt_bytes(data, p=0.01, n=None):
