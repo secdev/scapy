@@ -17,10 +17,7 @@ arping, tcpdump, tshark, p0f, ...
 .PP
 \fBScapy\fP uses the Python interpreter as a command board. That means that 
 you can use directly Python language (assign variables, use loops, 
-define functions, etc.) If you give a file a parameter when you run 
-\fBScapy\fP, your session (variables, functions, instances, ...) will be saved 
-when you leave the interpreter and restored the next time you launch
-\fBScapy\fP. 
+define functions, etc.)
 .PP
 The idea is simple. Those kinds of tools do two things : sending packets 
 and receiving answers. That's what \fBScapy\fP does : you define a set of 
@@ -47,9 +44,6 @@ header-less mode, also reduces verbosity.
 .TP
 \fB\-d\fR
 increase log verbosity. Can be used many times.
-.TP
-\fB\-s\fR FILE
-use FILE to save/load session values (variables, functions, instances, ...) 
 .TP
 \fB\-p\fR PRESTART_FILE 
 use PRESTART_FILE instead of $HOME/.config/scapy/prestart.py as pre-startup file
