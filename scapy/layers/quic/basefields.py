@@ -33,7 +33,7 @@ from typing import (
 )
 
 # RFC9000 table 3
-_quic_payloads = {
+_quic_frames = {
     0x00: "PADDING",
     0x01: "PING",
     0x02: "ACK",

@@ -1,3 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+# Copyright (C) 2025 Jackson Sippe
+
+
 from cryptography.hazmat.primitives import hashes, hmac
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF, HKDFExpand
 from cryptography.hazmat.primitives.ciphers import (
@@ -133,7 +139,7 @@ class QUICCrypto:
         padded_pn = (b"\x00" * (len(iv) - len(pn_bytes))) + pn_bytes
         return bytes(a ^ b for a, b in zip(iv, padded_pn))
     
-    def header_protect(self, sample: bytes, first_byte: bytes, pn_bytes: bytes) -> (bytes, bytes):
+    def header_protect(self, sample: bytes, first_byte: bytes, pn_bytes: bytes, is_client: bool) -> (bytes, bytes):
         """
         Apply header protection as defined by QUIC.
         
@@ -147,7 +153,8 @@ class QUICCrypto:
         :return: (modified_first_byte, modified_pn_bytes)
         """
         # QUIC header protection uses AES-ECB for generating a mask.
-        cipher = Cipher(algorithms.AES(self.client_hp_key), modes.ECB(), backend=default_backend()).encryptor()
+        hp_key = self.client_hp_key if is_client else self.server_hp_key
+        cipher = Cipher(algorithms.AES(hp_key), modes.ECB(), backend=default_backend()).encryptor()
         mask = cipher.update(sample) + cipher.finalize()
         
         # Mask the first byte (only the lower 5 bits are protected)

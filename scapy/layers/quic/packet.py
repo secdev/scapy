@@ -26,9 +26,8 @@ from scapy.layers.quic.basefields import (
 )
 
 from scapy.layers.quic.crypto import QUICCrypto
-from scapy.packet import (
-    Packet,
-)
+from scapy.layers.quic.frame import Frame
+from scapy.layers.quic.session import _GenericQUICSessionInheritance
 
 from scapy.fields import (
     BitEnumField,
@@ -37,12 +36,20 @@ from scapy.fields import (
     FieldListField,
     IntEnumField,
     IntField,
+    PacketListField,
     StrLenField,
 )
 
 
-class QUIC(Packet):
+class QUIC(_GenericQUICSessionInheritance):
+    name = "QUIC"
     match_subclass = True
+    __slots__ = ["client"]
+
+    def __init__(self, *args, client=True, **kwargs):
+        # TODO: This should be set according to the direction of the packet
+        self.client = client
+        super().__init__(*args, **kwargs)
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -131,6 +138,11 @@ class QUIC_Initial(QUIC_Long):
             StrLenField("Token", "", length_from=lambda pkt: pkt.TokenLen),
             QuicVarIntField("Length", 0),
             QuicPacketNumberField("PacketNumber", 0),
+            PacketListField(
+                "Frames",
+                [],
+                Frame,
+            ),
         ]
     )
 
@@ -141,7 +153,7 @@ class QUIC_Initial(QUIC_Long):
         s, dst_conn_id_len = FieldLenField("", None, fmt="B").getfield(self, s)
         s, dst_conn_id = StrLenField("", None, length_from=lambda pkt: dst_conn_id_len).getfield(self, s)
         s, src_conn_id_len = FieldLenField("", None, length_of="SrcConnID", fmt="B").getfield(self, s)
-        s, _ = StrLenField("", None, length_from=lambda pkt: src_conn_id_len).getfield(self, s)
+        s, src_conn_id = StrLenField("", None, length_from=lambda pkt: src_conn_id_len).getfield(self, s)
         s, token_len = QuicVarLenField("", None).getfield(self, s)
         s, _ = StrLenField("", "", length_from=lambda pkt: token_len).getfield(self, s)
         s, length = QuicVarIntField("", None).getfield(self, s)
@@ -150,8 +162,10 @@ class QUIC_Initial(QUIC_Long):
         _, sample = BitField("", 0, 8*16).getfield(self, s)
         sample = sample.to_bytes(16, 'big')
         protected_packet_number = protected_packet_number.to_bytes(4, 'big')
-        self.crypto = QUICCrypto(dst_conn_id, quic_version)
-        unprotected_header, raw_packet_number = self.crypto.header_protect(sample, protected_header, protected_packet_number)
+        # crypto_conn_id = src_conn_id if self.client else dst_conn_id
+        crypto_conn_id = dst_conn_id if self.client else src_conn_id
+        self.crypto = QUICCrypto(crypto_conn_id, quic_version)
+        unprotected_header, raw_packet_number = self.crypto.header_protect(sample, protected_header, protected_packet_number, self.client)
         unencrypted_packet[0] = unprotected_header[0]
         unprotected_header, _ = BitField("", None, 1).getfield(self, unprotected_header)
         unprotected_header, _ = BitField("", None, 1).getfield(self, unprotected_header)
@@ -162,7 +176,7 @@ class QUIC_Initial(QUIC_Long):
         packet_number = raw_packet_number[:packet_number_len]
         unencrypted_packet[packet_number_offset:packet_number_offset + packet_number_len] = packet_number
         plaintext = self.crypto.decrypt_packet(
-            is_client=True,
+            is_client=self.client,
             pn=int.from_bytes(packet_number, 'big'),
             recdata=bytes(unencrypted_packet[:packet_number_offset+packet_number_len]),
             ciphertext=bytes(unencrypted_packet[packet_number_offset+packet_number_len:packet_number_offset+length])
