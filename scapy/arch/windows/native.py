@@ -222,7 +222,7 @@ class L3WinSocket(SuperSocket):
 
     def close(self):
         # type: () -> None
-        if not self.closed and self.promisc:
+        if not self.closed and self.promisc and hasattr(self, 'ins'):
             self.ins.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
         super(L3WinSocket, self).close()
 

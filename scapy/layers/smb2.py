@@ -92,6 +92,8 @@ SMB_DIALECTS = {
 # SMB2 sect 3.3.5.15 + [MS-ERREF]
 STATUS_ERREF = {
     0x00000000: "STATUS_SUCCESS",
+    0x00000002: "ERROR_FILE_NOT_FOUND",
+    0x00000005: "ERROR_ACCESS_DENIED",
     0x00000103: "STATUS_PENDING",
     0x0000010B: "STATUS_NOTIFY_CLEANUP",
     0x0000010C: "STATUS_NOTIFY_ENUM_DIR",
@@ -101,6 +103,8 @@ STATUS_ERREF = {
     0x80000005: "STATUS_BUFFER_OVERFLOW",
     0x80000006: "STATUS_NO_MORE_FILES",
     0x8000002D: "STATUS_STOPPED_ON_SYMLINK",
+    0x80070005: "E_ACCESSDENIED",
+    0x8007000E: "E_OUTOFMEMORY",
     0x80090308: "SEC_E_INVALID_TOKEN",
     0x8009030C: "SEC_E_LOGON_DENIED",
     0x8009030F: "SEC_E_MESSAGE_ALTERED",
@@ -1501,8 +1505,14 @@ class WINNT_ACL(Packet):
     fields_desc = [
         ByteField("AclRevision", 2),
         ByteField("Sbz1", 0x00),
+        # Total size including header:
+        # AclRevision(1) + Sbz1(1) + AclSize(2) + AceCount(2) + Sbz2(2)
         FieldLenField(
-            "AclSize", None, length_of="Aces", adjust=lambda _, x: x + 14, fmt="<H"
+            "AclSize",
+            None,
+            length_of="Aces",
+            adjust=lambda _, x: x + 8,
+            fmt="<H",
         ),
         FieldLenField("AceCount", None, count_of="Aces", fmt="<H"),
         ShortField("Sbz2", 0),
@@ -1550,21 +1560,21 @@ class SECURITY_DESCRIPTOR(_NTLMPayloadPacket):
                 "SELF_RELATIVE",
             ],
         ),
-        LEIntField("OwnerSidOffset", 0),
-        LEIntField("GroupSidOffset", 0),
-        LEIntField("SACLOffset", 0),
-        LEIntField("DACLOffset", 0),
+        LEIntField("OwnerSidOffset", None),
+        LEIntField("GroupSidOffset", None),
+        LEIntField("SACLOffset", None),
+        LEIntField("DACLOffset", None),
         _NTLMPayloadField(
             "Data",
             OFFSET,
             [
                 ConditionalField(
                     PacketField("OwnerSid", WINNT_SID(), WINNT_SID),
-                    lambda pkt: pkt.OwnerSidOffset,
+                    lambda pkt: pkt.OwnerSidOffset != 0,
                 ),
                 ConditionalField(
                     PacketField("GroupSid", WINNT_SID(), WINNT_SID),
-                    lambda pkt: pkt.GroupSidOffset,
+                    lambda pkt: pkt.GroupSidOffset != 0,
                 ),
                 ConditionalField(
                     PacketField("SACL", WINNT_ACL(), WINNT_ACL),
@@ -1578,6 +1588,26 @@ class SECURITY_DESCRIPTOR(_NTLMPayloadPacket):
             offset_name="Offset",
         ),
     ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        return (
+            _NTLM_post_build(
+                self,
+                pkt,
+                self.OFFSET,
+                {
+                    "OwnerSid": 4,
+                    "GroupSid": 8,
+                    "SACL": 12,
+                    "DACL": 16,
+                },
+                config=[
+                    ("Offset", _NTLM_ENUM.OFFSET),
+                ],
+            )
+            + pay
+        )
 
 
 # [MS-FSCC] 2.4.2 FileAllInformation

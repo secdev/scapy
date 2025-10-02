@@ -475,7 +475,12 @@ class NetlogonSSP(SSP):
         self._unsecure(Context, msgs, signature, False)
 
     def GSS_Init_sec_context(
-        self, Context, token=None, req_flags: Optional[GSS_C_FLAGS] = None
+        self,
+        Context: CONTEXT,
+        token=None,
+        target_name: Optional[str] = None,
+        req_flags: Optional[GSS_C_FLAGS] = None,
+        chan_bindings: bytes = GSS_C_NO_CHANNEL_BINDINGS,
     ):
         if Context is None:
             Context = self.CONTEXT(True, req_flags=req_flags, AES=self.AES)

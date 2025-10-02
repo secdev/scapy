@@ -697,7 +697,8 @@ class LDAPHero:
             IDL_DRSBind_Request(
                 puuidClientDsa=NTDSAPI_CLIENT_GUID,
                 pextClient=DRS_EXTENSIONS(rgb=bytes(DRS_EXTENSIONS_INT(Pid=1234))),
-            )
+                ndr64=client.ndr64,
+            ),
         )
         if bind_resp.status != 0:
             self.tprint("Bind Request failed.")
@@ -719,7 +720,8 @@ class LDAPHero:
                         rpNames=unknowns,
                     ),
                 ),
-            )
+                ndr64=client.ndr64,
+            ),
         )
         if resp.status != 0:
             self.tprint("DsCracknames Request failed.")
@@ -1190,6 +1192,12 @@ class LDAPHero:
             if sdvar.get():
                 control |= v
         nTSecurityDescriptor.Control = control
+
+        # Offsets need to be recalculated
+        nTSecurityDescriptor.OwnerSidOffset = None
+        nTSecurityDescriptor.GroupSidOffset = None
+        nTSecurityDescriptor.DACLOffset = None
+        nTSecurityDescriptor.SACLOffset = None
 
         # Pfew, we did it. That was some big UI.
 

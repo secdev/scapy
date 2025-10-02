@@ -111,8 +111,28 @@ assert pkt.length == 0
 assert pkt.control == 0x11
 
 
-= Test HSFZSocket
+= Dissect alive check
+pkt = HSFZ(bytes.fromhex("000000200012444941474144523130424d5756494e5858585858585858585858585858585858"))
+assert pkt.length == 32
+assert pkt.control == 0x12
+assert b"BMW" in pkt.identification_string
 
+pkt = HSFZ(bytes.fromhex("00000002001200f4"))
+assert pkt.length == 2
+assert pkt.control == 0x12
+assert pkt.source == 0x00
+assert pkt.target == 0xf4
+
+
+= Dissect incorrect tester address
+pkt = HSFZ(bytes.fromhex("000000020040fff4"))
+assert pkt.length == 2
+assert pkt.control == 0x40
+assert pkt.expected == 0xff
+assert pkt.received == 0xf4
+
+
+= Test HSFZSocket
 
 server_up = threading.Event()
 def server():

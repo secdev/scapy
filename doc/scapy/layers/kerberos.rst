@@ -56,6 +56,18 @@ This section tries to give many usage examples, but isn't exhaustive. For more d
    >>> # We use ticket 1 from the above store.
    >>> smbclient("dc1.domain.local", ssp=t.ssp(1))
 
+- **Request a TGT using a hash**: see the docstring of :func:`~scapy.layers.kerberos.krb_as_req`
+
+.. code:: pycon
+
+    >>> from scapy.libs.rfc3961 import EncryptionType
+    >>> load_module("ticketer")
+    >>> t = Ticketer()
+    >>> # Using the HashNT
+    >>> t.request_tgt("Administrator@DOMAIN.LOCAL", key=Key(EncryptionType.RC4_HMAC, bytes.fromhex("2b576acbe6bcfda7294d6bd18041b8fe")))
+    >>> # Using the AES-256-SHA1-96 Kerberos Key
+   >>> t.request_tgt("Administrator@domain.local", key=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, bytes.fromhex("63a2577d8bf6abeba0847cded36b9aed202c23750eb9c56b6155be1cc946bb1d")))
+
 - **Renew a TGT or ST**:
 
 .. code::

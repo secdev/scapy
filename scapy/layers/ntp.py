@@ -19,6 +19,7 @@ from scapy.fields import (
     ByteEnumField,
     ByteField,
     ConditionalField,
+    FieldLenField,
     FieldListField,
     FixedPointField,
     FlagsField,
@@ -28,8 +29,8 @@ from scapy.fields import (
     LEIntField,
     LEShortField,
     MayEnd,
+    MultipleTypeField,
     PacketField,
-    PacketLenField,
     PacketListField,
     PadField,
     ShortField,
@@ -37,6 +38,7 @@ from scapy.fields import (
     StrField,
     StrFixedLenEnumField,
     StrFixedLenField,
+    StrLenField,
     XByteField,
     XStrFixedLenField,
 )
@@ -610,18 +612,6 @@ _error_statuses = {
 }
 
 
-class NTPStatusPacket(Packet):
-    """
-    Packet handling a non specific status word.
-    """
-
-    name = "status"
-    fields_desc = [ShortField("status", 0)]
-
-    def extract_padding(self, s):
-        return b"", s
-
-
 class NTPSystemStatusPacket(Packet):
 
     """
@@ -691,55 +681,6 @@ class NTPErrorStatusPacket(Packet):
         return b"", s
 
 
-class NTPControlStatusField(PacketField):
-    """
-    This field provides better readability for the "status" field.
-    """
-
-    #########################################################################
-    #
-    # RFC 1305
-    #########################################################################
-    #
-    # Appendix B.3. Commands // ntpd source code: ntp_control.h
-    #########################################################################
-    #
-
-    def m2i(self, pkt, m):
-        ret = None
-        association_id = struct.unpack("!H", m[2:4])[0]
-
-        if pkt.err == 1:
-            ret = NTPErrorStatusPacket(m)
-
-        # op_code == CTL_OP_READSTAT
-        elif pkt.op_code == 1:
-            if association_id != 0:
-                ret = NTPPeerStatusPacket(m)
-            else:
-                ret = NTPSystemStatusPacket(m)
-
-        # op_code == CTL_OP_READVAR
-        elif pkt.op_code == 2:
-            if association_id != 0:
-                ret = NTPPeerStatusPacket(m)
-            else:
-                ret = NTPSystemStatusPacket(m)
-
-        # op_code == CTL_OP_WRITEVAR
-        elif pkt.op_code == 3:
-            ret = NTPStatusPacket(m)
-
-        # op_code == CTL_OP_READCLOCK or op_code == CTL_OP_WRITECLOCK
-        elif pkt.op_code == 4 or pkt.op_code == 5:
-            ret = NTPClockStatusPacket(m)
-
-        else:
-            ret = NTPStatusPacket(m)
-
-        return ret
-
-
 class NTPPeerStatusDataPacket(Packet):
     """
     Packet handling the data field when op_code is CTL_OP_READSTAT
@@ -752,71 +693,41 @@ class NTPPeerStatusDataPacket(Packet):
         PacketField("peer_status", NTPPeerStatusPacket(), NTPPeerStatusPacket),
     ]
 
+    def extract_padding(self, s):
+        return b"", s
 
-class NTPControlDataPacketLenField(PacketLenField):
 
+class NTPControlStatusField(PacketField):
     """
-    PacketField handling the "data" field of NTP control messages.
+    The various types of the "status" field.
     """
-
+    # RFC 9327 sect 3
     def m2i(self, pkt, m):
-        ret = None
-        if not m:
-            return ret
+        association_id = struct.unpack("!H", m[2:4])[0]
 
-        # op_code == CTL_OP_READSTAT
-        if pkt.op_code == 1:
-            if pkt.association_id == 0:
-                # Data contains association ID and peer status
-                ret = NTPPeerStatusDataPacket(m)
-            else:
-                ret = conf.raw_layer(m)
+        if pkt.err == 1:
+            return NTPErrorStatusPacket(m)
+        elif pkt.op_code in [4, 5]:  # Read/write clock
+            return NTPClockStatusPacket(m)
         else:
-            ret = conf.raw_layer(m)
-
-        return ret
-
-    def getfield(self, pkt, s):
-        length = self.length_from(pkt)
-        i = None
-        if length > 0:
-            # RFC 1305
-            # The maximum number of data octets is 468.
-            #
-            # include/ntp_control.h
-            # u_char data[480 + MAX_MAC_LEN]; /* data + auth */
-            #
-            # Set the minimum length to 480 - 468
-            length = max(12, length)
-            if length % 4:
-                length += (4 - length % 4)
-        try:
-            i = self.m2i(pkt, s[:length])
-        except Exception:
-            if conf.debug_dissector:
-                raise
-            i = conf.raw_layer(load=s[:length])
-        return s[length:], i
+            if association_id != 0:
+                return NTPPeerStatusPacket(m)
+            else:
+                return NTPSystemStatusPacket(m)
 
 
 class NTPControl(NTP):
     """
     Packet handling NTP mode 6 / "Control" messages.
     """
-
-    #########################################################################
-    #
-    # RFC 1305
-    #########################################################################
-    #
-    # Appendix B.3. Commands // ntpd source code: ntp_control.h
-    #########################################################################
-    #
-
-    name = "Control message"
+    deprecated_fields = {
+        "status_word": ("status", "2.6.2"),
+    }
+    # RFC 9327 sect 2
+    name = "NTP Control message"
     match_subclass = True
     fields_desc = [
-        BitField("zeros", 0, 2),
+        BitEnumField("leap", 0, 2, _leap_indicator),
         BitField("version", 2, 3),
         BitEnumField("mode", 6, 3, _ntp_modes),
         BitField("response", 0, 1),
@@ -824,24 +735,44 @@ class NTPControl(NTP):
         BitField("more", 0, 1),
         BitEnumField("op_code", 0, 5, _op_codes),
         ShortField("sequence", 0),
-        ConditionalField(NTPControlStatusField(
-            "status_word", "", Packet), lambda p: p.response == 1),
-        ConditionalField(ShortField("status", 0), lambda p: p.response == 0),
+        MultipleTypeField(
+            [
+                (
+                    ShortField("status", 0),
+                    lambda pkt: pkt.response == 0 or pkt.op_code in [6, 7]
+                )
+            ],
+            NTPControlStatusField("status", NTPSystemStatusPacket(), None),
+        ),
         ShortField("association_id", 0),
         ShortField("offset", 0),
-        ShortField("count", None),
-        MayEnd(NTPControlDataPacketLenField(
-               "data", "", Packet, length_from=lambda p: p.count)),
+        FieldLenField("count", None, length_of="data"),
+        MayEnd(
+            PadField(
+                MultipleTypeField(
+                    # RFC 1305
+                    [
+                        (
+                            PacketListField(
+                                "data",
+                                "",
+                                NTPPeerStatusDataPacket,
+                                length_from=lambda p: p.count,
+                            ),
+                            lambda pkt: (
+                                pkt.response and
+                                pkt.op_code == 1 and
+                                pkt.association_id == 0
+                            )
+                        ),
+                    ],
+                    StrLenField("data", "", length_from=lambda pkt: pkt.count),
+                ),
+                align=4
+            )
+        ),
         PacketField("authenticator", "", NTPAuthenticator),
     ]
-
-    def post_build(self, p, pay):
-        if self.count is None:
-            length = 0
-            if self.data:
-                length = len(self.data)
-            p = p[:11] + struct.pack("!H", length) + p[13:]
-        return p + pay
 
 
 ##############################################################################

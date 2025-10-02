@@ -1787,6 +1787,15 @@ try:
 except ValueError:
     assert True
 
+try:
+    sniffer = AsyncSniffer(iface="this_interface_does_not_exists")
+    sniffer.start()
+    sniffer.thread.join()
+    sniffer.stop()
+    assert False, "Should have errored by now"
+except ValueError:
+    assert True
+
 = Sending a TCP syn 'forever' at layer 2 and layer 3
 ~ netaccess needs_root IP
 def _test():
@@ -2249,6 +2258,12 @@ p.comment = b"Hello Scapy!"
 wrpcapng(tmpfile, p)
 l = rdpcap(tmpfile)
 assert l[0].comment == p.comment
+
+p = Ether() / IPv6() / TCP()
+p.comments = [b"Hello!", b"Scapy!", b"Pcapng!"]
+wrpcapng(tmpfile, p)
+l = rdpcap(tmpfile)
+assert l[0].comments == p.comments
 
 = rdpcap on fifo
 ~ linux
@@ -3485,16 +3500,11 @@ import socket
 sck = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sck.connect(("8.8.8.8", 53))
 
-class DNSTCP(Packet):
-    name = "DNS over TCP"
-    fields_desc = [ FieldLenField("len", None, fmt="!H", length_of="dns"),
-                    PacketLenField("dns", 0, DNS, length_from=lambda p: p.len)]
-
 ssck = StreamSocket(sck, DNSTCP)
 
-r = ssck.sr1(DNSTCP(dns=DNS(rd=1, qd=DNSQR(qname="www.example.com"))), timeout=3)
+r = ssck.sr1(DNSTCP(rd=1, qd=DNSQR(qname="www.example.com")), timeout=3)
 sck.close()
-assert DNSTCP in r and len(r.dns.an)
+assert DNSTCP in r and len(r.an)
 
 ############
 + Tests of SSLStreamContext

@@ -885,7 +885,13 @@ class HTTP_Client(object):
         self._connect_or_reuse(host, port=port, tls=tls, timeout=timeout)
 
         # Build request
-        headers.setdefault("Host", host)
+        if ((tls and port != 443) or
+                (not tls and port != 80)):
+            host_hdr = "%s:%d" % (host, port)
+        else:
+            host_hdr = host
+
+        headers.setdefault("Host", host_hdr)
         headers.setdefault("Path", path)
 
         if not http_headers:
@@ -936,6 +942,7 @@ class HTTP_Client(object):
                     self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                         self.sspcontext,
                         ssp_blob,
+                        target_name="http/" + host,
                         req_flags=0,
                         chan_bindings=self.chan_bindings,
                     )

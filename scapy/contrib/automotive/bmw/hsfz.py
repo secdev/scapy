@@ -59,18 +59,38 @@ class HSFZ(Packet):
         IntField('length', None),
         ShortEnumField('control', 1, control_words),
         ConditionalField(
-            XByteField('source', 0), lambda p: p._hasaddrs()),
+            XByteField('source', 0), lambda p: p._has_srctgt_addrs()),
         ConditionalField(
-            XByteField('target', 0), lambda p: p._hasaddrs()),
+            XByteField('target', 0), lambda p: p._has_srctgt_addrs()),
+        ConditionalField(
+            XByteField('expected', 0), lambda p: p._has_exprecv_addrs()),
+        ConditionalField(
+            XByteField('received', 0), lambda p: p._has_exprecv_addrs()),
         ConditionalField(
             StrFixedLenField("identification_string",
                              None, None, lambda p: p.length),
-            lambda p: p.control == 0x11 and p.length != 0)
+            lambda p: p._hasidstring())
     ]
 
-    def _hasaddrs(self):
+    def _has_srctgt_addrs(self):
         # type: () -> bool
-        return self.control == 0x01 or self.control == 0x02
+        # Address present in diagnostic_req_res, acknowledge_transfer,
+        # and two byte length alive_check frames.
+        return self.control == 0x01 or \
+            self.control == 0x02 or \
+            (self.control == 0x12 and self.length == 2)
+
+    def _has_exprecv_addrs(self):
+        # type: () -> bool
+        # Address present in incorrect_tester_address frames.
+        return self.control == 0x40
+
+    def _hasidstring(self):
+        # type: () -> bool
+        # ID string is present in some vehicle_ident_data frames and in
+        # long alive_check grames.
+        return (self.control == 0x11 and self.length != 0) or \
+            (self.control == 0x12 and self.length > 2)
 
     def hashret(self):
         # type: () -> bytes
@@ -174,7 +194,7 @@ class UDS_HSFZSocket(HSFZSocket):
     def recv(self, x=MTU, **kwargs):
         # type: (Optional[int], **Any) -> Optional[Packet]
         pkt = super(UDS_HSFZSocket, self).recv(x)
-        if pkt:
+        if pkt and pkt.control == 1:
             return self.outputcls(bytes(pkt.payload), **kwargs)
         else:
             return pkt

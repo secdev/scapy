@@ -150,8 +150,9 @@ assert not a.verify(b"Hello", data)
 
 = PubKeyECDSA verify
 ~ crypto_advanced
-b = PubKeyECDSA()
-b.pubkey = a.pubkey
+assert isinstance(a.pubkey, PubKeyECDSA)
+
+b = PubKeyECDSA(cryptography_obj=a.pubkey.pubkey)
 assert b.verify(msg, data)
 assert not b.verify(b"Hello", data)
 
@@ -400,7 +401,7 @@ with ContextManagerCaptureOutput() as cmco:
     y.show()
     assert cmco.get_output().strip() == awaited.strip()
 
-= Cert: Check split_pem on chained certs with missing end \n
+= Cert class : Check split_pem on chained certs with missing end \n
 from scapy.layers.tls.cert import split_pem
 ks = split_pem(b"""
 -----BEGIN EC PRIVATE KEY-----
@@ -415,7 +416,7 @@ weDU+RsFxcyU/QxD9WYORzYarqxbcA==
 -----END EC PRIVATE KEY-----""")
 assert ks[0][:-1] == ks[1]
 
-= Import PEM-encoded certificate with ed25519 signature
+= Cert class : Import PEM-encoded certificate with ed25519 signature
 x = Cert("""
 -----BEGIN CERTIFICATE-----
 MIICqDCCAZCgAwIBAgIUYYDvh160/Q32Q/MuCGSfIYxTwwEwDQYJKoZIhvcNAQEL
@@ -436,6 +437,30 @@ XwZH9DJ6Ud0s8/j+
 -----END CERTIFICATE-----
 """)
 
+= Cert class : Change subject public key identifier and resign
+c = Cert("""
+-----BEGIN CERTIFICATE-----
+MIICRjCCAc2gAwIBAgIQC6Fa+h3foLVJRK/NJKBs7DAKBggqhkjOPQQDAzBlMQsw
+CQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3d3cu
+ZGlnaWNlcnQuY29tMSQwIgYDVQQDExtEaWdpQ2VydCBBc3N1cmVkIElEIFJvb3Qg
+RzMwHhcNMTMwODAxMTIwMDAwWhcNMzgwMTE1MTIwMDAwWjBlMQswCQYDVQQGEwJV
+UzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3d3cuZGlnaWNlcnQu
+Y29tMSQwIgYDVQQDExtEaWdpQ2VydCBBc3N1cmVkIElEIFJvb3QgRzMwdjAQBgcq
+hkjOPQIBBgUrgQQAIgNiAAQZ57ysRGXtzbg/WPuNsVepRC0FFfLvC/8QdJ+1YlJf
+Zn4f5dwbRXkLzMZTCp2NXQLZqVneAlr2lSoOjThKiknGvMYDOAdfVdp+CW7if17Q
+RSAPWXYQ1qAk8C3eNvJsKTmjQjBAMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/
+BAQDAgGGMB0GA1UdDgQWBBTL0L2p4ZgFUaFNN6KDec6NHSrkhDAKBggqhkjOPQQD
+AwNnADBkAjAlpIFFAmsSS3V0T8gj43DydXLefInwz5FyYZ5eEJJZVrmDxxDnOOlY
+JjZ91eQ0hjkCMHw2U/Aw5WJjOpnitqM7mzT6HtoQknFekROn3aRukswy1vUhZscv
+6pZjamVFkpUBtA==
+-----END CERTIFICATE-----
+""")
+k = PrivKeyECDSA()
+c.setSubjectPublicKeyFromPrivateKey(k)
+c.setSubjectPublicKeyFromPrivateKey(k.pubkey)
+c = Cert(k.resignCert(c))
+
+assert k.verifyCert(c)
 
 ########### CRL class ###############################################
 

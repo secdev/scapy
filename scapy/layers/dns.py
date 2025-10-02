@@ -1271,9 +1271,10 @@ class _DNSPacketListField(PacketListField):
 
 class DNS(DNSCompressedPacket):
     name = "DNS"
+    FORCE_TCP = False
     fields_desc = [
         ConditionalField(ShortField("length", None),
-                         lambda p: isinstance(p.underlayer, TCP)),
+                         lambda p: p.FORCE_TCP or isinstance(p.underlayer, TCP)),
         ShortField("id", 0),
         BitField("qr", 0, 1),
         BitEnumField("opcode", 0, 4, {0: "QUERY", 1: "IQUERY", 2: "STATUS"}),
@@ -1300,7 +1301,7 @@ class DNS(DNSCompressedPacket):
 
     def get_full(self):
         # Required for DNSCompressedPacket
-        if isinstance(self.underlayer, TCP):
+        if isinstance(self.underlayer, TCP) or self.FORCE_TCP:
             return self.original[2:]
         else:
             return self.original
@@ -1332,7 +1333,10 @@ class DNS(DNSCompressedPacket):
         )
 
     def post_build(self, pkt, pay):
-        if isinstance(self.underlayer, TCP) and self.length is None:
+        if (
+            (isinstance(self.underlayer, TCP) or self.FORCE_TCP) and
+            self.length is None
+        ):
             pkt = struct.pack("!H", len(pkt) - 2) + pkt[2:]
         return pkt + pay
 
@@ -1363,6 +1367,14 @@ class DNS(DNSCompressedPacket):
         return s
 
 
+class DNSTCP(DNS):
+    """
+    A DNS packet that is always under TCP
+    """
+    FORCE_TCP = True
+    match_subclass = True
+
+
 bind_layers(UDP, DNS, dport=5353)
 bind_layers(UDP, DNS, sport=5353)
 bind_layers(UDP, DNS, dport=53)
@@ -1380,13 +1392,15 @@ _dns_cache = conf.netcache.new_cache("dns_cache", 300)
 
 
 @conf.commands.register
-def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
+def dns_resolve(qname, qtype="A", raw=False, tcp=False, verbose=1, timeout=3, **kwargs):
     """
     Perform a simple DNS resolution using conf.nameservers with caching
 
     :param qname: the name to query
     :param qtype: the type to query (default A)
     :param raw: return the whole DNS packet (default False)
+    :param tcp: whether to use directly TCP instead of UDP. If truncated is received,
+        UDP automatically retries in TCP. (default: False)
     :param verbose: show verbose errors
     :param timeout: seconds until timeout (per server)
     :raise TimeoutError: if no DNS servers were reached in time.
@@ -1409,15 +1423,20 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
     for nameserver in conf.nameservers:
         # Try all nameservers
         try:
-            # Spawn a UDP socket, connect to the nameserver on port 53
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # Spawn a socket, connect to the nameserver on port 53
+            if tcp:
+                cls = DNSTCP
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            else:
+                cls = DNS
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(kwargs["timeout"])
             sock.connect((nameserver, 53))
             # Connected. Wrap it with DNS
-            sock = StreamSocket(sock, DNS)
+            sock = StreamSocket(sock, cls)
             # I/O
             res = sock.sr1(
-                DNS(qd=[DNSQR(qname=qname, qtype=qtype)], id=RandShort()),
+                cls(qd=[DNSQR(qname=qname, qtype=qtype)], id=RandShort()),
                 **kwargs,
             )
         except IOError as ex:
@@ -1428,6 +1447,21 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
             sock.close()
         if res:
             # We have a response ! Check for failure
+            if res[DNS].tc == 1:  # truncated !
+                if not tcp:
+                    # Retry using TCP
+                    return dns_resolve(
+                        qname=qname,
+                        qtype=qtype,
+                        raw=raw,
+                        tcp=True,
+                        verbose=verbose,
+                        timeout=timeout,
+                        **kwargs,
+                    )
+                elif verbose:
+                    log_runtime.info("DNS answer is truncated !")
+
             if res[DNS].rcode == 2:  # server failure
                 res = None
                 if verbose:

@@ -21,12 +21,15 @@ https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rpce/290c38b1-92
     `DCE/RPC <https://scapy.readthedocs.io/en/latest/layers/dcerpc.html>`_
 """
 
-from functools import partial
-
 import collections
+import importlib
+import inspect
 import struct
+
 from enum import IntEnum
+from functools import partial
 from uuid import UUID
+
 from scapy.base_classes import Packet_metaclass
 
 from scapy.config import conf
@@ -97,9 +100,11 @@ from scapy.layers.kerberos import (
     Kerberos,
 )
 from scapy.layers.gssapi import (
-    GSS_S_COMPLETE,
-    GSSAPI_BLOB_SIGNATURE,
     GSSAPI_BLOB,
+    GSSAPI_BLOB_SIGNATURE,
+    GSS_S_COMPLETE,
+    GSS_S_FLAGS,
+    GSS_C_FLAGS,
     SSP,
 )
 from scapy.layers.inet import TCP
@@ -114,6 +119,7 @@ from scapy.contrib.rtps.common_types import (
 # Typing imports
 from typing import (
     Optional,
+    Union,
 )
 
 # the alignment of auth_pad
@@ -177,9 +183,43 @@ DCE_RPC_INTERFACES_NAMES_rev = {}
 
 
 class DCERPC_Transport(IntEnum):
-    NCACN_IP_TCP = 1
-    NCACN_NP = 2
+    """
+    Protocols identifiers currently supported by Scapy
+    """
+
+    NCACN_IP_TCP = 0x07
+    NCACN_NP = 0x0F
     # TODO: add more.. if people use them?
+
+
+# [C706] Appendix I with names from Appendix B
+DCE_RPC_PROTOCOL_IDENTIFIERS = {
+    0x0: "OSI OID",  # Special
+    0x0D: "UUID",  # Special
+    # Transports
+    # 0x2: "DNA Session Control",
+    # 0x3: "DNA Session Control V3",
+    # 0x4: "DNA NSP Transport",
+    # 0x5: "OSI TP4",
+    0x06: "NCADG_OSI_CLSN",  # [C706]
+    0x07: "NCACN_IP_TCP",  # [C706]
+    0x08: "NCADG_IP_UDP",  # [C706]
+    0x09: "IP",  # [C706]
+    0x0A: "RPC connectionless protocol",  # [C706]
+    0x0B: "RPC connection-oriented protocol",  # [C706]
+    0x0C: "NCALRPC",
+    0x0F: "NCACN_NP",  # [MS-RPCE]
+    0x11: "NCACN_NB",  # [C706]
+    0x12: "NCACN_NB_NB",  # [MS-RPCE]
+    0x13: "NCACN_SPX",  # [C706]
+    0x14: "NCADG_IPX",  # [C706]
+    0x16: "NCACN_AT_DSP",  # [C706]
+    0x17: "NCADG_AT_DSP",  # [C706]
+    0x19: "NCADG_NB",  # [C706]
+    0x1A: "NCACN_VNS_SPP",  # [C706]
+    0x1B: "NCADG_VNS_IPC",  # [C706]
+    0x1F: "NCACN_HTTP",  # [MS-RPCE]
+}
 
 
 def _dce_rpc_endianness(pkt):
@@ -211,6 +251,12 @@ class DceRpc(Packet):
             elif ver == 5:
                 return DceRpc5
         return DceRpc5
+
+    @classmethod
+    def tcp_reassemble(cls, data, metadata, session):
+        if data[0:1] == b"\x05":
+            return DceRpc5.tcp_reassemble(data, metadata, session)
+        return DceRpc(data)
 
 
 bind_bottom_up(TCP, DceRpc, sport=135)
@@ -577,17 +623,8 @@ class DceRpcSecVTCommand(Packet):
             },
             end_tot_size=-2,
         ),
-        LEShortField("Length", None),
+        LenField("Length", None, fmt="<H"),
     ]
-
-    def guess_payload_class(self, payload):
-        if self.Command == 0x0001:
-            return DceRpcSecVTBitmask
-        elif self.Command == 0x0002:
-            return DceRpcSecVTPcontext
-        elif self.Command == 0x0003:
-            return DceRpcSecVTHeader2
-        return conf.raw_payload
 
 
 # [MS-RPCE] sect 2.2.2.13.2
@@ -601,6 +638,9 @@ class DceRpcSecVTBitmask(Packet):
 
     def default_payload_class(self, pkt):
         return conf.padding_layer
+
+
+bind_layers(DceRpcSecVTCommand, DceRpcSecVTBitmask, Command=0x0001)
 
 
 # [MS-RPCE] sect 2.2.2.13.4
@@ -632,6 +672,9 @@ class DceRpcSecVTPcontext(Packet):
         return conf.padding_layer
 
 
+bind_layers(DceRpcSecVTCommand, DceRpcSecVTPcontext, Command=0x0002)
+
+
 # [MS-RPCE] sect 2.2.2.13.3
 
 
@@ -649,6 +692,9 @@ class DceRpcSecVTHeader2(Packet):
 
     def default_payload_class(self, pkt):
         return conf.padding_layer
+
+
+bind_layers(DceRpcSecVTCommand, DceRpcSecVTHeader2, Command=0x0003)
 
 
 class DceRpcSecVT(Packet):
@@ -698,6 +744,10 @@ _DCE_RPC_5_FLAGS_2[0x04] = "PFC_SUPPORT_HEADER_SIGN"
 
 
 _DCE_RPC_ERROR_CODES = {
+    # Win32
+    0x776: "OR_INVALID_OXID",
+    0x777: "OR_INVALID_OID",
+    0x778: "OR_INVALID_SET",
     # Appendix N
     0x1C010001: "nca_s_comm_failure",
     0x1C010002: "nca_s_op_rng_error",
@@ -746,9 +796,28 @@ _DCE_RPC_ERROR_CODES = {
     0x1C000025: "nca_s_fault_no_client_stub",
     # [MS-ERREF]
     0x000006D3: "RPC_S_UNKNOWN_AUTHN_SERVICE",
-    0x000006F7: "RPC_X_BAD_STUB_DATA",
-    # [MS-RPCE]
     0x000006D8: "EPT_S_CANT_PERFORM_OP",
+    0x000006F7: "RPC_X_BAD_STUB_DATA",
+    0x00000719: "RPC_S_NO_INTERFACES",
+    0x0000071A: "RPC_S_CALL_CANCELLED",
+    0x0000071B: "RPC_S_BINDING_INCOMPLETE",
+    0x0000071C: "RPC_S_COMM_FAILURE",
+    0x0000071D: "RPC_S_UNSUPPORTED_AUTHN_LEVEL",
+    0x0000071E: "RPC_S_NO_PRINC_NAME",
+    0x0000071F: "RPC_S_NOT_RPC_ERROR",
+    0x00000720: "RPC_S_UUID_LOCAL_ONLY",
+    0x00000721: "RPC_S_SEC_PKG_ERROR",
+    0x00000722: "RPC_S_NOT_CANCELLED",
+    0x0000076A: "RPC_S_GROUP_MEMBER_NOT_FOUND",
+    0x0000076C: "RPC_S_INVALID_OBJECT",
+    0x80004002: "E_NOINTERFACE",
+    0x80010107: "RPC_E_INVALIDMETHOD",
+    0x80010108: "RPC_E_DISCONNECTED",
+    0x80010109: "RPC_E_RETRY",
+    0x80040153: "REGDB_E_INVALIDVALUE",
+    0x80040154: "REGDB_E_CLASSNOTREG",
+    0x80040155: "REGDB_E_IIDNOTREG",
+    0x800706F7: "COM_X_BAD_STUB_DATA",
 }
 
 _DCE_RPC_REJECTION_REASONS = {
@@ -799,7 +868,7 @@ class DceRpc5(DceRpc):
                     None,
                     fmt="H",
                     length_of="auth_verifier",
-                    adjust=lambda pkt, x: 0 if not x else (x - 8),
+                    adjust=lambda _, x: 0 if not x else (x - 8),
                 )
             ),
             _EField(IntField("call_id", None)),
@@ -1233,7 +1302,7 @@ def register_dcerpc_interface(name, uuid, version, opnums):
         bind_top_down(DceRpc5Request, operations.request, opnum=opnum)
 
 
-def find_dcerpc_interface(name):
+def find_dcerpc_interface(name) -> DceRpcInterface:
     """
     Find an interface object through the name in the IDL
     """
@@ -1247,6 +1316,8 @@ COM_INTERFACES = {}
 
 
 class ComInterface:
+    if_version = 0
+
     def __init__(self, name, uuid, opnums):
         self.name = name
         self.uuid = uuid
@@ -1265,6 +1336,19 @@ def register_com_interface(name, uuid, opnums):
         uuid,
         opnums,
     )
+    # bind for build
+    for opnum, operations in opnums.items():
+        bind_top_down(DceRpc5Request, operations.request, opnum=opnum)
+
+
+def find_com_interface(name) -> ComInterface:
+    """
+    Find an interface object through the name in the IDL
+    """
+    try:
+        return next(x for x in COM_INTERFACES.values() if x.name == name)
+    except StopIteration:
+        raise AttributeError("Unknown interface !")
 
 
 # --- NDR fields - [C706] chap 14
@@ -1289,7 +1373,7 @@ class _NDRPacket(Packet):
     __slots__ = ["ndr64", "ndrendian", "deferred_pointers", "request_packet"]
 
     def __init__(self, *args, **kwargs):
-        self.ndr64 = kwargs.pop("ndr64", False)
+        self.ndr64 = kwargs.pop("ndr64", conf.ndr64)
         self.ndrendian = kwargs.pop("ndrendian", "little")
         # request_packet is used in the session, so that a response packet
         # can resolve union arms if the case parameter is in the request.
@@ -1612,32 +1696,38 @@ class NDRFullPointerField(_FieldContainer):
     """
     A NDR Full/Unique pointer field encapsulation.
 
-    :param deferred: This pointer is deferred. This means that it's representation
-                     will not appear after the pointer.
+    :param EMBEDDED: This pointer is embedded. This means that it's representation
+                     will not appear after the pointer (pointer deferral applies).
                      See [C706] 14.3.12.3 - Algorithm for Deferral of Referents
     """
 
     EMBEDDED = False
+    EMBEDDED_REF = False
 
-    def __init__(self, fld, deferred=False, fmt="I"):
+    def __init__(self, fld, ref=False, fmt="I"):
         self.fld = fld
+        self.ref = ref
         self.default = None
-        self.deferred = deferred
 
     def getfield(self, pkt, s):
         fmt = _e(pkt.ndrendian) + ["I", "Q"][pkt.ndr64]
         remain, referent_id = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).getfield(
             pkt, s
         )
-        if not self.EMBEDDED and referent_id == 0:
+
+        # No value
+        if referent_id == 0 and not self.EMBEDDED_REF:
             return remain, None
-        if self.deferred:
+
+        # With value
+        if self.EMBEDDED:
             # deferred
             ptr = NDRPointer(
                 ndr64=pkt.ndr64, ndrendian=pkt.ndrendian, referent_id=referent_id
             )
             pkt.deferred_pointers.append((ptr, partial(self.fld.getfield, pkt)))
             return remain, ptr
+
         remain, val = self.fld.getfield(pkt, remain)
         return remain, NDRPointer(
             ndr64=pkt.ndr64, ndrendian=pkt.ndrendian, referent_id=referent_id, value=val
@@ -1650,17 +1740,21 @@ class NDRFullPointerField(_FieldContainer):
             )
         fmt = _e(pkt.ndrendian) + ["I", "Q"][pkt.ndr64]
         fld = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8))
-        if not self.EMBEDDED and val is None:
+
+        # No value
+        if val is None and not self.EMBEDDED_REF:
             return fld.addfield(pkt, s, 0)
-        else:
-            _set_ctx_on(val.value, pkt)
-            s = fld.addfield(pkt, s, val.referent_id)
-        if self.deferred:
+
+        # With value
+        _set_ctx_on(val.value, pkt)
+        s = fld.addfield(pkt, s, val.referent_id)
+        if self.EMBEDDED:
             # deferred
             pkt.deferred_pointers.append(
                 ((lambda s: self.fld.addfield(pkt, s, val.value)), val)
             )
             return s
+
         return self.fld.addfield(pkt, s, val.value)
 
     def any2i(self, pkt, x):
@@ -1693,12 +1787,25 @@ class NDRFullPointerField(_FieldContainer):
         return self.fld.valueof(pkt, x.value)
 
 
-class NDRRefEmbPointerField(NDRFullPointerField):
+class NDRFullEmbPointerField(NDRFullPointerField):
     """
-    A NDR Embedded Reference pointer
+    A NDR Embedded Full pointer.
+
+    Same as NDRFullPointerField with EMBEDDED = True.
     """
 
     EMBEDDED = True
+
+
+class NDRRefEmbPointerField(NDRFullPointerField):
+    """
+    A NDR Embedded Reference pointer.
+
+    Same as NDRFullPointerField with EMBEDDED = True and EMBEDDED_REF = True.
+    """
+
+    EMBEDDED = True
+    EMBEDDED_REF = True
 
 
 # Constructed types
@@ -1738,7 +1845,7 @@ class NDRConstructedType(object):
         # If we have a pointer, mark this field as handling deferrance
         # and make all sub-constructed types not.
         for f in self.ndr_fields:
-            if isinstance(f, NDRFullPointerField) and f.deferred:
+            if isinstance(f, NDRFullPointerField) and f.EMBEDDED:
                 self.handles_deferred = True
             if isinstance(f, NDRConstructedType):
                 f.rec_check_deferral()
@@ -1775,7 +1882,16 @@ class NDRConstructedType(object):
         return s
 
     def addfield(self, pkt, s, val):
-        s = super(NDRConstructedType, self).addfield(pkt, s, val)
+        try:
+            s = super(NDRConstructedType, self).addfield(pkt, s, val)
+        except Exception as ex:
+            try:
+                ex.args = (
+                    "While building field '%s': " % self.name + ex.args[0],
+                ) + ex.args[1:]
+            except (AttributeError, IndexError):
+                pass
+            raise ex
         if isinstance(val, _NDRPacket):
             # If a sub-packet we just dissected has deferred pointers,
             # pass it to parent packet to propagate.
@@ -1877,9 +1993,7 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
     def __init__(self, name, default, pkt_cls, **kwargs):
         self.ptr_pack = kwargs.pop("ptr_pack", False)
         if self.ptr_pack:
-            self.fld = NDRFullPointerField(
-                NDRPacketField("", None, pkt_cls), deferred=True
-            )
+            self.fld = NDRFullEmbPointerField(NDRPacketField("", None, pkt_cls))
         else:
             self.fld = NDRPacketField("", None, pkt_cls)
         PacketListField.__init__(self, name, default, pkt_cls=pkt_cls, **kwargs)
@@ -1887,6 +2001,8 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
 
     def m2i(self, pkt, s):
         remain, val = self.fld.getfield(pkt, s)
+        if val is None:
+            val = NDRNone()
         # A mistake here would be to use / instead of add_payload. It adds a copy
         # which breaks pointer defferal. Same applies elsewhere
         val.add_payload(conf.padding_layer(remain))
@@ -1905,7 +2021,9 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
         return len(x)
 
     def valueof(self, pkt, x):
-        return [self.fld.valueof(pkt, y) for y in x]
+        return [
+            self.fld.valueof(pkt, y if not isinstance(y, NDRNone) else None) for y in x
+        ]
 
 
 class NDRFieldListField(NDRConstructedType, FieldListField):
@@ -1950,7 +2068,7 @@ class NDRVaryingArray(_NDRPacket):
     ]
 
 
-class _NDRVarField(object):
+class _NDRVarField:
     """
     NDR Varying Array / String field
     """
@@ -1959,9 +2077,15 @@ class _NDRVarField(object):
     COUNT_FROM = False
 
     def __init__(self, *args, **kwargs):
-        # size is either from the length_is, if specified, or the "actual_count"
-        self.from_actual = "length_is" not in kwargs
-        length_is = kwargs.pop("length_is", lambda pkt: pkt.actual_count)
+        # We build the length_is function by taking into account both the
+        # actual_count (from the varying field) and a potentially provided
+        # length_is field.
+        if "length_is" in kwargs:
+            _length_is = kwargs.pop("length_is")
+            length_is = lambda pkt: (_length_is(pkt.underlayer) or pkt.actual_count)
+        else:
+            length_is = lambda pkt: pkt.actual_count
+        # Pass it to the sub-field (actually subclass)
         if self.LENGTH_FROM:
             kwargs["length_from"] = length_is
         elif self.COUNT_FROM:
@@ -1979,11 +2103,9 @@ class _NDRVarField(object):
             ndrendian=pkt.ndrendian,
             offset=offset,
             actual_count=actual_count,
+            _underlayer=pkt,
         )
-        if self.from_actual:
-            remain, val = super(_NDRVarField, self).getfield(final, remain)
-        else:
-            remain, val = super(_NDRVarField, self).getfield(pkt, remain)
+        remain, val = super(_NDRVarField, self).getfield(final, remain)
         final.value = super(_NDRVarField, self).i2h(pkt, val)
         return remain, final
 
@@ -2070,7 +2192,7 @@ class NDRConformantString(_NDRPacket):
     ]
 
 
-class _NDRConfField(object):
+class _NDRConfField:
     """
     NDR Conformant Array / String field
     """
@@ -2080,6 +2202,9 @@ class _NDRConfField(object):
     COUNT_FROM = False
 
     def __init__(self, *args, **kwargs):
+        # when conformant_in_struct is True, we remove the level of abstraction
+        # provided by NDRConformantString / NDRConformantArray because max_count
+        # is a proper field in the parent packet.
         self.conformant_in_struct = kwargs.pop("conformant_in_struct", False)
         # size_is/max_is end up here, and is what defines a conformant field.
         if "size_is" in kwargs:
@@ -2232,7 +2357,8 @@ class NDRConfStrLenField(_NDRConfField, _NDRValueOf, StrLenField):
     NDR Conformant StrLenField.
 
     This is not a "string" per NDR, but an a conformant byte array
-    (e.g. tower_octet_string)
+    (e.g. tower_octet_string). For ease of use, we implicitly convert
+    it in specific cases.
     """
 
     CONFORMANT_STRING = True
@@ -2241,9 +2367,9 @@ class NDRConfStrLenField(_NDRConfField, _NDRValueOf, StrLenField):
 
 class NDRConfStrLenFieldUtf16(_NDRConfField, _NDRValueOf, StrLenFieldUtf16, _NDRUtf16):
     """
-    NDR Conformant StrLenField.
+    NDR Conformant StrLenFieldUtf16.
 
-    See NDRConfLenStrField for comment.
+    See NDRConfStrLenField for comment.
     """
 
     CONFORMANT_STRING = True
@@ -2261,7 +2387,7 @@ class NDRVarStrLenField(_NDRVarField, StrLenField):
 
 class NDRVarStrLenFieldUtf16(_NDRVarField, _NDRValueOf, StrLenFieldUtf16, _NDRUtf16):
     """
-    NDR Varying StrLenField
+    NDR Varying StrLenFieldUtf16
     """
 
     ON_WIRE_SIZE_UTF16 = False
@@ -2280,7 +2406,7 @@ class NDRConfVarStrLenFieldUtf16(
     _NDRConfField, _NDRVarField, _NDRValueOf, StrLenFieldUtf16, _NDRUtf16
 ):
     """
-    NDR Conformant Varying StrLenField
+    NDR Conformant Varying StrLenFieldUtf16
     """
 
     ON_WIRE_SIZE_UTF16 = False
@@ -2382,23 +2508,60 @@ class NDRUnionField(NDRConstructedType, _NDRUnionField):
 # Misc
 
 
-class NDRRecursiveField(Field):
+class _ProxyArray:
+    # Hack for recursive fields DEPORTED_CONFORMANTS field
+    __slots__ = ["getfld"]
+
+    def __init__(self, getfld):
+        self.getfld = getfld
+
+    def __len__(self):
+        try:
+            return len(self.getfld())
+        except AttributeError:
+            return 0
+
+    def __iter__(self):
+        try:
+            return iter(self.getfld())
+        except AttributeError:
+            return iter([])
+
+
+class _ProxyTuple:
+    # Hack for recursive fields ALIGNMENT field
+    __slots__ = ["getfld"]
+
+    def __init__(self, getfld):
+        self.getfld = getfld
+
+    def __getitem__(self, name):
+        try:
+            return self.getfld()[name]
+        except AttributeError:
+            raise KeyError
+
+
+def NDRRecursiveClass(clsname):
     """
-    A special Field that is used for pointer recursion
+    Return a special class that is used for pointer recursion
     """
+    # Get module where this is called
+    frame = inspect.currentframe().f_back
+    mod = frame.f_globals["__loader__"].name
+    getcls = lambda: getattr(importlib.import_module(mod), clsname)
 
-    def __init__(self, name, fmt="I"):
-        super(NDRRecursiveField, self).__init__(name, None, fmt=fmt)
+    class _REC(NDRPacket):
+        ALIGNMENT = _ProxyTuple(lambda: getattr(getcls(), "ALIGNMENT"))
+        DEPORTED_CONFORMANTS = _ProxyArray(
+            lambda: getattr(getcls(), "DEPORTED_CONFORMANTS")
+        )
 
-    def getfield(self, pkt, s):
-        return NDRFullPointerField(
-            NDRPacketField("", None, pkt.__class__), deferred=True
-        ).getfield(pkt, s)
+        @classmethod
+        def dispatch_hook(cls, _pkt=None, *args, **kargs):
+            return getcls()
 
-    def addfield(self, pkt, s, val):
-        return NDRFullPointerField(
-            NDRPacketField("", None, pkt.__class__), deferred=True
-        ).addfield(pkt, s, val)
+    return _REC
 
 
 # The very few NDR-specific structures
@@ -2413,6 +2576,16 @@ class NDRContextHandle(NDRPacket):
 
     def guess_payload_class(self, payload):
         return conf.padding_layer
+
+
+class NDRNone(NDRPacket):
+    # This is only used in NDRPacketListField to act as a "None" pointer, and is
+    # a workaround because the field doesn't support None as a value in the list.
+    name = "None"
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRInt3264Field("ptr", 0),
+    ]
 
 
 # --- Type Serialization Version 1 - [MSRPCE] sect 2.2.6
@@ -2432,6 +2605,25 @@ class NDRSerialization1Header(Packet):
         XLEIntField("Filler", 0xCCCCCCCC),
     ]
 
+    # Add a bit of goo so that valueof() goes through the header
+
+    def _ndrlayer(self):
+        cur = self
+        while cur and not isinstance(cur, _NDRPacket) and cur.payload:
+            cur = cur.payload
+        if isinstance(cur, NDRPointer):
+            cur = cur.value
+        return cur
+
+    def getfield_and_val(self, attr):
+        try:
+            return Packet.getfield_and_val(self, attr)
+        except ValueError:
+            return self._ndrlayer().getfield_and_val(attr)
+
+    def valueof(self, name):
+        return self._ndrlayer().valueof(name)
+
 
 class NDRSerialization1PrivateHeader(Packet):
     fields_desc = [
@@ -2442,18 +2634,27 @@ class NDRSerialization1PrivateHeader(Packet):
     ]
 
 
-def ndr_deserialize1(b, cls, ndr64=False):
+def ndr_deserialize1(b, cls, ptr_pack=False):
     """
-    Deserialize Type Serialization Version 1 according to [MS-RPCE] sect 2.2.6
+    Deserialize Type Serialization Version 1
+    [MS-RPCE] sect 2.2.6
+
+    :param ptr_pack: pack in a pointer to the structure.
     """
     if issubclass(cls, NDRPacket):
-        # We use an intermediary class for two reasons:
-        # - it properly sets deferred pointers
-        # - it uses NDRPacketField which handles deported conformant fields
-        class _cls(NDRPacket):
-            fields_desc = [
-                NDRFullPointerField(NDRPacketField("pkt", None, cls)),
-            ]
+        # We use an intermediary class because it uses NDRPacketField which handles
+        # deported conformant fields
+        if ptr_pack:
+            hdrlen = 20
+
+            class _cls(NDRPacket):
+                fields_desc = [NDRFullPointerField(NDRPacketField("pkt", None, cls))]
+
+        else:
+            hdrlen = 16
+
+            class _cls(NDRPacket):
+                fields_desc = [NDRPacketField("pkt", None, cls)]
 
         hdr = NDRSerialization1Header(b[:8]) / NDRSerialization1PrivateHeader(b[8:16])
         endian = {0x00: "big", 0x10: "little"}[hdr.Endianness]
@@ -2463,18 +2664,21 @@ def ndr_deserialize1(b, cls, ndr64=False):
         return (
             hdr
             / _cls(
-                b[16 : 20 + hdr.ObjectBufferLength],
-                ndr64=ndr64,
+                b[16 : hdrlen + hdr.ObjectBufferLength],
+                ndr64=False,  # Only NDR32 is supported in Type 1
                 ndrendian=endian,
             ).pkt
-            / conf.padding_layer(b[20 + padlen + hdr.ObjectBufferLength :])
+            / conf.padding_layer(b[hdrlen + padlen + hdr.ObjectBufferLength :])
         )
     return NDRSerialization1Header(b[:8]) / cls(b[8:])
 
 
-def ndr_serialize1(pkt):
+def ndr_serialize1(pkt, ptr_pack=False):
     """
     Serialize Type Serialization Version 1
+    [MS-RPCE] sect 2.2.6
+
+    :param ptr_pack: pack in a pointer to the structure.
     """
     pkt = pkt.copy()
     endian = getattr(pkt, "ndrendian", "little")
@@ -2500,39 +2704,48 @@ def ndr_serialize1(pkt):
         pkt.payload.remove_payload()
 
     # See above about why we need an intermediary class
-    class _cls(NDRPacket):
-        fields_desc = [
-            NDRFullPointerField(NDRPacketField("pkt", None, cls)),
-        ]
+    if ptr_pack:
 
-    ret = bytes(pkt / _cls(pkt=val))
+        class _cls(NDRPacket):
+            fields_desc = [NDRFullPointerField(NDRPacketField("pkt", None, cls))]
+
+    else:
+
+        class _cls(NDRPacket):
+            fields_desc = [NDRPacketField("pkt", None, cls)]
+
+    ret = bytes(pkt / _cls(pkt=val, ndr64=False, ndrendian=endian))
     return ret + (-len(ret) % _TYPE1_S_PAD) * b"\x00"
 
 
 class _NDRSerializeType1:
     def __init__(self, *args, **kwargs):
+        self.ptr_pack = kwargs.pop("ptr_pack", False)
         super(_NDRSerializeType1, self).__init__(*args, **kwargs)
 
     def i2m(self, pkt, val):
-        return ndr_serialize1(val)
+        return ndr_serialize1(val, ptr_pack=self.ptr_pack)
 
     def m2i(self, pkt, s):
-        return ndr_deserialize1(s, self.cls, ndr64=False)
+        return ndr_deserialize1(s, self.cls, ptr_pack=self.ptr_pack)
 
     def i2len(self, pkt, val):
         return len(self.i2m(pkt, val))
 
 
 class NDRSerializeType1PacketField(_NDRSerializeType1, PacketField):
-    __slots__ = ["ptr"]
+    __slots__ = ["ptr_pack"]
 
 
 class NDRSerializeType1PacketLenField(_NDRSerializeType1, PacketLenField):
-    __slots__ = ["ptr"]
+    __slots__ = ["ptr_pack"]
 
 
 class NDRSerializeType1PacketListField(_NDRSerializeType1, PacketListField):
-    __slots__ = ["ptr"]
+    __slots__ = ["ptr_pack"]
+
+    def i2len(self, pkt, val):
+        return sum(len(self.i2m(pkt, p)) for p in val)
 
 
 # --- DCE/RPC session
@@ -2544,7 +2757,8 @@ class DceRpcSession(DefaultSession):
     """
 
     def __init__(self, *args, **kwargs):
-        self.rpc_bind_interface = None
+        self.rpc_bind_interface: Union[DceRpcInterface, ComInterface] = None
+        self.rpc_bind_is_com: bool = False
         self.ndr64 = False
         self.ndrendian = "little"
         self.support_header_signing = kwargs.pop("support_header_signing", True)
@@ -2553,6 +2767,8 @@ class DceRpcSession(DefaultSession):
         self.sspcontext = kwargs.pop("sspcontext", None)
         self.auth_level = kwargs.pop("auth_level", None)
         self.auth_context_id = kwargs.pop("auth_context_id", 0)
+        self.sent_cont_ids = []
+        self.cont_id = 0  # Currently selected context
         self.map_callid_opnum = {}
         self.frags = collections.defaultdict(lambda: b"")
         self.sniffsspcontexts = {}  # Unfinished contexts for passive
@@ -2570,27 +2786,50 @@ class DceRpcSession(DefaultSession):
         opts = {}
         if DceRpc5Bind in pkt or DceRpc5AlterContext in pkt:
             # bind => get which RPC interface
+            self.sent_cont_ids = [x.cont_id for x in pkt.context_elem]
             for ctx in pkt.context_elem:
                 if_uuid = ctx.abstract_syntax.if_uuid
                 if_version = ctx.abstract_syntax.if_version
                 try:
                     self.rpc_bind_interface = DCE_RPC_INTERFACES[(if_uuid, if_version)]
+                    self.rpc_bind_is_com = False
                 except KeyError:
-                    self.rpc_bind_interface = None
-                    log_runtime.warning(
-                        "Unknown RPC interface %s. Try loading the IDL" % if_uuid
-                    )
+                    try:
+                        self.rpc_bind_interface = COM_INTERFACES[if_uuid]
+                        self.rpc_bind_is_com = True
+                    except KeyError:
+                        self.rpc_bind_interface = None
+                        log_runtime.warning(
+                            "Unknown RPC interface %s. Try loading the IDL" % if_uuid
+                        )
         elif DceRpc5BindAck in pkt or DceRpc5AlterContextResp in pkt:
             # bind ack => is it NDR64
-            for res in pkt.results:
+            for i, res in enumerate(pkt.results):
                 if res.result == 0:  # Accepted
+                    # Context
+                    try:
+                        self.cont_id = self.sent_cont_ids[i]
+                    except IndexError:
+                        self.cont_id = 0
+                    finally:
+                        self.sent_cont_ids = []
+
+                    # Endianness
                     self.ndrendian = {0: "big", 1: "little"}[pkt[DceRpc5].endian]
+
+                    # Transfer syntax
                     if res.transfer_syntax.sprintf("%if_uuid%") == "NDR64":
                         self.ndr64 = True
         elif DceRpc5Request in pkt:
             # request => match opnum with callID
             opnum = pkt.opnum
-            self.map_callid_opnum[pkt.call_id] = opnum, pkt[DceRpc5Request].payload
+            if self.rpc_bind_is_com:
+                self.map_callid_opnum[pkt.call_id] = (
+                    opnum,
+                    pkt[DceRpc5Request].payload.payload,
+                )
+            else:
+                self.map_callid_opnum[pkt.call_id] = opnum, pkt[DceRpc5Request].payload
         elif DceRpc5Response in pkt:
             # response => get opnum from table
             try:
@@ -2697,6 +2936,8 @@ class DceRpcSession(DefaultSession):
                     self.sniffsspcontexts[ssp], status = ssp.GSS_Passive(
                         self.sniffsspcontexts[ssp],
                         pkt.auth_verifier.auth_value,
+                        req_flags=GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS
+                        | GSS_C_FLAGS.GSS_C_DCE_STYLE,
                     )
                     if status == GSS_S_COMPLETE:
                         self.auth_level = DCE_C_AUTHN_LEVEL(
@@ -2827,6 +3068,21 @@ class DceRpcSession(DefaultSession):
                 pkt.payload[conf.raw_layer].load = body
                 return pkt
             if body:
+                orpc = None
+                if self.rpc_bind_is_com:
+                    # If interface is a COM interface, start off by dissecting the
+                    # ORPCTHIS / ORPCTHAT argument
+                    from scapy.layers.msrpce.raw.ms_dcom import ORPCTHAT, ORPCTHIS
+
+                    # [MS-DCOM] sect 2.2.13
+                    # "ORPCTHIS and ORPCTHAT structures MUST be marshaled using
+                    # the NDR (32) Transfer Syntax"
+                    if is_response:
+                        orpc = ORPCTHAT(body, ndr64=False)
+                    else:
+                        orpc = ORPCTHIS(body, ndr64=False)
+                    body = orpc.load
+                    orpc.remove_payload()
                 # Dissect payload using class
                 try:
                     payload = cls(
@@ -2846,6 +3102,8 @@ class DceRpcSession(DefaultSession):
                     )
                     pad = payload[conf.padding_layer]
                     pad.underlayer.payload = conf.raw_layer(load=pad.load)
+                if orpc is not None:
+                    pkt /= orpc
                 pkt /= payload
                 # If a request was encrypted, we need to re-register it once re-parsed.
                 if not is_response and self.auth_level == RPC_C_AUTHN_LEVEL.PKT_PRIVACY:
@@ -2882,15 +3140,15 @@ class DceRpcSession(DefaultSession):
                         RPC_C_AUTHN_LEVEL.PKT_INTEGRITY,
                         RPC_C_AUTHN_LEVEL.PKT_PRIVACY,
                     ):
+                        # Remember that vt_trailer is included in the PDU
+                        if pkt.vt_trailer:
+                            body += bytes(pkt.vt_trailer)
                         # Account for padding when computing checksum/encryption
                         if pkt.auth_padding is None:
                             padlen = (-len(body)) % _COMMON_AUTH_PAD  # authdata padding
                             pkt.auth_padding = b"\x00" * padlen
                         else:
                             padlen = len(pkt.auth_padding)
-                        # Remember that vt_trailer is included in the PDU
-                        if pkt.vt_trailer:
-                            body += bytes(pkt.vt_trailer)
                         # Remember that padding IS SIGNED & ENCRYPTED
                         body += pkt.auth_padding
                         # Add the auth_verifier

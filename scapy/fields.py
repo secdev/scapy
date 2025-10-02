@@ -1865,7 +1865,7 @@ class StrFixedLenField(StrField):
             name,  # type: str
             default,  # type: Optional[bytes]
             length=None,  # type: Optional[int]
-            length_from=None,  # type: Optional[Callable[[Packet], int]]  # noqa: E501
+            length_from=None,  # type: Optional[Callable[[Packet], int]]
     ):
         # type: (...) -> None
         super(StrFixedLenField, self).__init__(name, default)
@@ -1879,7 +1879,7 @@ class StrFixedLenField(StrField):
                v,  # type: bytes
                ):
         # type: (...) -> str
-        if isinstance(v, bytes):
+        if isinstance(v, bytes) and not conf.debug_strfixedlenfield:
             v = v.rstrip(b"\0")
         return super(StrFixedLenField, self).i2repr(pkt, v)
 
