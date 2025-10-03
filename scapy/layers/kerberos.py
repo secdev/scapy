@@ -4895,7 +4895,7 @@ class KerberosSSP(SSP):
                                             adData=KERB_AD_RESTRICTION_ENTRY(
                                                 restriction=LSAP_TOKEN_INFO_INTEGRITY(
                                                     MachineID=bytes(RandBin(32)),
-                                                    PermanentMachineID=bytes(RandBin(32)),
+                                                    PermanentMachineID=bytes(RandBin(32)),  # noqa: E501
                                                 )
                                             ),
                                         ),
