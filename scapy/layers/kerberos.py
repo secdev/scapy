@@ -102,6 +102,7 @@ from scapy.fields import (
     LEShortEnumField,
     LEShortField,
     LongField,
+    MayEnd,
     MultipleTypeField,
     PacketField,
     PacketLenField,
@@ -113,12 +114,12 @@ from scapy.fields import (
     StrFieldUtf16,
     StrFixedLenEnumField,
     XByteField,
-    XLEIntField,
     XLEIntEnumField,
+    XLEIntField,
     XLEShortField,
+    XStrField,
     XStrFixedLenField,
     XStrLenField,
-    XStrField,
 )
 from scapy.packet import Packet, bind_bottom_up, bind_top_down, bind_layers
 from scapy.supersocket import StreamSocket, SuperSocket
@@ -905,7 +906,9 @@ class LSAP_TOKEN_INFO_INTEGRITY(Packet):
                 0x00005000: "Protected process",
             },
         ),
-        XStrFixedLenField("MachineID", b"", length=32),
+        MayEnd(XStrFixedLenField("MachineID", b"", length=32)),
+        # KB 5068222 - still waiting for [MS-KILE] update (oct. 2025)
+        XStrFixedLenField("PermanentMachineID", b"", length=32),
     ]
 
 
@@ -4891,7 +4894,8 @@ class KerberosSSP(SSP):
                                             adType="KERB-AUTH-DATA-TOKEN-RESTRICTIONS",
                                             adData=KERB_AD_RESTRICTION_ENTRY(
                                                 restriction=LSAP_TOKEN_INFO_INTEGRITY(
-                                                    MachineID=bytes(RandBin(32))
+                                                    MachineID=bytes(RandBin(32)),
+                                                    PermanentMachineID=bytes(RandBin(32)),
                                                 )
                                             ),
                                         ),
