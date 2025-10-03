@@ -100,7 +100,7 @@ This section tries to give many usage examples, but isn't exhaustive. For more d
     >>> load_module("ticketer")
     >>> t = Ticketer()
     >>> t.request_tgt("Administrator@domain.local", password="ScapyScapy1")
-    >>> t.save("/tmp/krb5cc_1000")
+    >>> t.save_ccache("/tmp/krb5cc_1000")
     >>> exit()
     $ klist
     Ticket cache: FILE:/tmp/krb5cc_1000
@@ -240,7 +240,7 @@ As you can see, DMSA keys were imported in the keytab. You can use those as deta
     >>> t.show()
     Tickets:
     0. Administrator@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
-    >>> t.save(fname="blob.ccache")
+    >>> t.save_ccache(fname="blob.ccache")
 
 - **Edit tickets with the GUI**
   
@@ -294,7 +294,7 @@ This ticket was saved to a ``.ccache`` file, that we'll know try to open.
     >>> t.edit_ticket(0)
     Enter the NT hash (AES-256) for this ticket (as hex): 6df5a9a90cb076f4d232a123d9c24f46ae11590a5430710bc1881dca337989ce
     >>> t.resign_ticket(0)
-    >>> t.save()
+    >>> t.save_ccache()
     1660
     >>> # Other stuff you can do
     >>> tkt = t.dec_ticket(0)
@@ -321,7 +321,7 @@ Cheat sheet
 +---------------------------------------+--------------------------------+
 | ``t.open_ccache("/tmp/krb5cc_1000")`` | Open a ccache file             |
 +---------------------------------------+--------------------------------+
-| ``t.save()``                          | Save a ccache file             |
+| ``t.save_ccache()``                   | Save a ccache file             |
 +---------------------------------------+--------------------------------+
 | ``t.show()``                          | List the tickets               |
 +---------------------------------------+--------------------------------+
