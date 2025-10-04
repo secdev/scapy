@@ -1405,7 +1405,7 @@ def dns_resolve(qname, qtype="A", raw=False, tcp=False, verbose=1, timeout=3, **
     :param timeout: seconds until timeout (per server)
     :raise TimeoutError: if no DNS servers were reached in time.
     """
-    # Unify types
+    # Unify types (for caching)
     qtype = DNSQR.qtype.any2i_one(None, qtype)
     qname = DNSQR.qname.any2i(None, qname)
     # Check cache
