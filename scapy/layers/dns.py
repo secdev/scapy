@@ -1418,7 +1418,7 @@ def dns_resolve(qname, qtype="A", raw=False, tcp=False, verbose=1, timeout=3, **
         return result
 
     kwargs.setdefault("timeout", timeout)
-    kwargs.setdefault("verbose", verbose)
+    kwargs.setdefault("verbose", 0)  # hide sr1() output
     res = None
     for nameserver in conf.nameservers:
         # Try all nameservers
