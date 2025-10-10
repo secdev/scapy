@@ -1817,13 +1817,13 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                 reqopts = query[DHCP6OptOptReq].reqopts
                 for o, opt in self.dhcpv6_options.items():
                     if o in reqopts:
-                        answer /= opt
+                        answer.add_payload(opt.copy())
             else:
                 # advertise everything we have available
                 # Should not happen has clients MUST include
                 # and ORO in requests (sec 18.1.1)   -- arno
                 for o, opt in self.dhcpv6_options.items():
-                    answer /= opt
+                    answer.add_payload(opt.copy())
 
         if msgtype == 1:  # SOLICIT (See Sect 17.1 and 17.2 of RFC 3315)
 
