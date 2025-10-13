@@ -8,7 +8,6 @@ Common customizations for all Unix-like operating systems other than Linux
 """
 
 import os
-import re
 import socket
 import struct
 from fcntl import ioctl
@@ -18,7 +17,6 @@ import scapy.utils
 from scapy.config import conf
 from scapy.consts import FREEBSD, NETBSD, OPENBSD, SOLARIS
 from scapy.error import log_runtime, warning
-from scapy.interfaces import network_name, NetworkInterface
 from scapy.pton_ntop import inet_pton
 from scapy.utils6 import in6_getscope, construct_source_candidate_set
 from scapy.utils6 import in6_isvalid, in6_ismlladdr, in6_ismnladdr
@@ -34,10 +32,9 @@ from typing import (
 
 
 def get_if(iff, cmd):
-    # type: (Union[NetworkInterface, str], int) -> bytes
+    # type: (str, int) -> bytes
     """Ease SIOCGIF* ioctl calls"""
 
-    iff = network_name(iff)
     sck = socket.socket()
     try:
         return ioctl(sck, cmd, struct.pack("16s16x", iff.encode("utf8")))
@@ -45,7 +42,7 @@ def get_if(iff, cmd):
         sck.close()
 
 
-def get_if_raw_hwaddr(iff,  # type: Union[NetworkInterface, str]
+def get_if_raw_hwaddr(iff,  # type: str
                       siocgifhwaddr=None,  # type: Optional[int]
                       ):
     # type: (...) -> Tuple[int, bytes]
@@ -410,18 +407,3 @@ def read_routes6():
 
     fd_netstat.close()
     return routes
-
-
-#######
-# DNS #
-#######
-
-def read_nameservers() -> List[str]:
-    """Return the nameservers configured by the OS
-    """
-    try:
-        with open('/etc/resolv.conf', 'r') as fd:
-            return re.findall(r"nameserver\s+([^\s]+)", fd.read())
-    except FileNotFoundError:
-        warning("Could not retrieve the OS's nameserver !")
-        return []

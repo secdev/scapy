@@ -17,6 +17,40 @@ def _test():
 
 retry_test(_test)
 
+= Arping - interface that has no ip
+~ mock
+
+from unittest import mock
+
+_old_routes = conf.route.routes
+_old_ifaces = conf.ifaces.data.copy()
+
+try:
+    conf.route.routes = [
+        (180996905, 4294967295, '0.0.0.0', 'eth0', '10.201.203.41', 0),
+        (180997119, 4294967295, '0.0.0.0', 'eth0', '10.201.203.41', 0),
+        (0, 0, '10.201.203.254', 'eth0', '0.0.0.0', 0),
+        (180996864, 4294967040, '0.0.0.0', 'eth0', '10.201.203.41', 0),
+        (3758096384, 4026531840, '0.0.0.0', 'eth0', '10.201.203.41', 250)
+    ]
+    conf.ifaces._add_fake_iface("toto", mac="11:22:33:aa:bb:cc", ips=[])
+
+    def dummy_srp(pkts, **kwargs):
+        assert pkts.dst == "ff:ff:ff:ff:ff:ff"
+        assert pkts.src == "11:22:33:aa:bb:cc"
+        assert pkts[ARP].psrc == "0.0.0.0"
+        assert pkts[ARP].pdst == Net("192.168.0.1/24")
+        assert pkts[ARP].hwsrc == "11:22:33:aa:bb:cc"
+        # No results, we don't care.
+        return SndRcvList([]), PacketList(pkts)
+
+    with mock.patch("scapy.layers.l2.srp", side_effect=dummy_srp):
+        arping("192.168.0.1/24", iface="toto")
+
+finally:
+    conf.route.routes = _old_routes
+    conf.ifaces.data = _old_ifaces
+
 = Test ARPingResult output
 ~ manufdb
 
@@ -25,7 +59,7 @@ with ContextManagerCaptureOutput() as cmco:
     ar.show()
     result_ar = cmco.get_output()
 
-assert result_ar.startswith("  70:ee:50:50:ee:70 Netatmo 192.168.0.1")
+assert "70:ee:50:50:ee:70  Netatmo  192.168.0.1" in result_ar
 
 = arp_mitm - IP to IP
 ~ arp_mitm
@@ -65,18 +99,18 @@ def srploop_spoof(x, *args, **kwargs):
 
 def sendp_spoof(x, *args, **kwargs):
     assert len(x) == 2
-    assert x[0].dst == "cc:cc:cc:cc:cc:cc"
+    assert x[0].dst == "ff:ff:ff:ff:ff:ff"
     assert x[0].src == x[0].hwsrc == "bb:bb:bb:bb:bb:bb"
     assert x[0].hwdst == "00:00:00:00:00:00"
     assert x[0].psrc == "192.168.0.2"
     assert x[0].pdst == "192.168.0.1"
-    assert x[1].dst == "bb:bb:bb:bb:bb:bb"
+    assert x[1].dst == "ff:ff:ff:ff:ff:ff"
     assert x[1].src == x[1].hwsrc == "cc:cc:cc:cc:cc:cc"
     assert x[1].hwdst == "00:00:00:00:00:00"
     assert x[1].psrc == "192.168.0.1"
     assert x[1].pdst == "192.168.0.2"
 
-import mock
+from unittest import mock
 with mock.patch('scapy.layers.l2.srp', side_effect=srp_spoof), \
      mock.patch('scapy.layers.l2.srploop', side_effect=srploop_spoof), \
      mock.patch('scapy.layers.l2.sendp', side_effect=sendp_spoof):
@@ -123,7 +157,7 @@ def srploop_spoof(x, *args, **kwargs):
 def sendp_spoof(x, *args, **kwargs):
     pass
 
-import mock
+from unittest import mock
 with mock.patch('scapy.layers.l2.srp', side_effect=srp_spoof), \
      mock.patch('scapy.layers.l2.srploop', side_effect=srploop_spoof), \
      mock.patch('scapy.layers.l2.sendp', side_effect=sendp_spoof):

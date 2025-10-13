@@ -219,7 +219,19 @@ class MockISOTPSocket(SuperSocket):
         return len(sx)
     @staticmethod
     def select(sockets, remain=None):
+        time.sleep(0)
         return sockets
+    def sr(self, *args, **kargs):
+        from scapy import sendrecv
+        return sendrecv.sndrcv(self, *args, threaded=False, **kargs)
+    def sr1(self, *args, **kargs):
+        from scapy import sendrecv
+        ans = sendrecv.sndrcv(self, *args, threaded=False, **kargs)[0]  # type: SndRcvList
+        if len(ans) > 0:
+            pkt = ans[0][1]  # type: Packet
+            return pkt
+        else:
+            return None
 
 sock = MockISOTPSocket()
 sock.rcvd_queue.put(b"\x41")

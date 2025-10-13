@@ -9,7 +9,6 @@
 import time
 import random
 
-from socket import socket
 from threading import Lock
 
 from scapy.config import conf
@@ -25,9 +24,13 @@ from typing import (
     Tuple,
     Any,
     List,
-    cast,
 )
 from scapy.supersocket import SuperSocket
+
+from scapy.plist import (
+    PacketList,
+    SndRcvList,
+)
 
 
 open_test_sockets = list()  # type: List[TestSocket]
@@ -58,6 +61,25 @@ class TestSocket(SuperSocket):
         # type: (Optional[Type[BaseException]], Optional[BaseException], Optional[Any]) -> None  # noqa: E501
         """Close the socket"""
         self.close()
+
+    def sr(self, *args, **kargs):
+        # type: (Any, Any) -> Tuple[SndRcvList, PacketList]
+        """Send and Receive multiple packets
+        """
+        from scapy import sendrecv
+        return sendrecv.sndrcv(self, *args, threaded=False, **kargs)
+
+    def sr1(self, *args, **kargs):
+        # type: (Any, Any) -> Optional[Packet]
+        """Send one packet and receive one answer
+        """
+        from scapy import sendrecv
+        ans = sendrecv.sndrcv(self, *args, threaded=False, **kargs)[0]  # type: SndRcvList
+        if len(ans) > 0:
+            pkt = ans[0][1]  # type: Packet
+            return pkt
+        else:
+            return None
 
     def close(self):
         # type: () -> None

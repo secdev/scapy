@@ -12,11 +12,17 @@ RFC 4511 - LDAP v3
 Note: to mimic Microsoft Windows LDAP packets, you must set::
 
     conf.ASN1_default_long_size = 4
+
+.. note::
+    You will find more complete documentation for this layer over at
+    `LDAP <https://scapy.readthedocs.io/en/latest/layers/ldap.html>`_
 """
 
 import collections
-import ssl
+import re
 import socket
+import ssl
+import string
 import struct
 import uuid
 
@@ -25,28 +31,40 @@ from enum import Enum
 from scapy.arch import get_if_addr
 from scapy.ansmachine import AnsweringMachine
 from scapy.asn1.asn1 import (
-    ASN1_STRING,
+    ASN1_BOOLEAN,
     ASN1_Class,
     ASN1_Codecs,
+    ASN1_ENUMERATED,
+    ASN1_INTEGER,
+    ASN1_STRING,
 )
-from scapy.asn1.ber import BERcodec_STRING
+from scapy.asn1.ber import (
+    BER_Decoding_Error,
+    BER_id_dec,
+    BER_len_dec,
+    BERcodec_STRING,
+)
 from scapy.asn1fields import (
+    ASN1F_badsequence,
     ASN1F_BOOLEAN,
     ASN1F_CHOICE,
     ASN1F_ENUMERATED,
+    ASN1F_FLAGS,
     ASN1F_INTEGER,
     ASN1F_NULL,
-    ASN1F_PACKET,
-    ASN1F_SEQUENCE,
-    ASN1F_SEQUENCE_OF,
-    ASN1F_SET_OF,
-    ASN1F_STRING,
     ASN1F_optional,
+    ASN1F_PACKET,
+    ASN1F_SEQUENCE_OF,
+    ASN1F_SEQUENCE,
+    ASN1F_SET_OF,
+    ASN1F_STRING_PacketField,
+    ASN1F_STRING,
 )
 from scapy.asn1packet import ASN1_Packet
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.fields import (
+    FieldLenField,
     FlagsField,
     ThreeBytesField,
 )
@@ -59,27 +77,37 @@ from scapy.sendrecv import send
 from scapy.supersocket import (
     SimpleSocket,
     StreamSocket,
+    SSLStreamSocket,
 )
 
 from scapy.layers.dns import dns_resolve
 from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.gssapi import (
-    GSS_C_FLAGS,
-    GSS_S_COMPLETE,
+    ChannelBindingType,
     GSSAPI_BLOB,
     GSSAPI_BLOB_SIGNATURE,
+    GSS_C_FLAGS,
+    GSS_C_NO_CHANNEL_BINDINGS,
+    GSS_S_COMPLETE,
+    GssChannelBindings,
     SSP,
-)
-from scapy.layers.kerberos import (
-    _ASN1FString_PacketField,
+    _GSSAPI_Field,
 )
 from scapy.layers.netbios import NBTDatagram
 from scapy.layers.smb import (
     NETLOGON,
     NETLOGON_SAM_LOGON_RESPONSE_EX,
 )
+from scapy.layers.smb2 import STATUS_ERREF
 
+# Typing imports
+from typing import (
+    Any,
+    Dict,
+    List,
+    Union,
+)
 
 # Elements of protocol
 # https://datatracker.ietf.org/doc/html/rfc1777#section-4
@@ -170,24 +198,24 @@ class ASN1_Class_LDAP(ASN1_Class):
     SearchRequest = 0x63
     SearchResultEntry = 0x64
     SearchResultDone = 0x65
-    SearchResultReference = 0x66
-    ModifyRequest = 0x67
-    ModifyResponse = 0x68
-    AddRequest = 0x69
-    AddResponse = 0x6A
-    DelRequest = 0x6B
-    DelResponse = 0x6C
-    ModifyDNRequest = 0x6D
-    ModifyDNResponse = 0x6E
-    CompareRequest = 0x6F
-    CompareResponse = 0x70
-    AbandonRequest = 0x71
-    ExtendedRequest = 0x72
-    ExtendedResponse = 0x73
+    ModifyRequest = 0x66
+    ModifyResponse = 0x67
+    AddRequest = 0x68
+    AddResponse = 0x69
+    DelRequest = 0x4A  # not constructed
+    DelResponse = 0x6B
+    ModifyDNRequest = 0x6C
+    ModifyDNResponse = 0x6D
+    CompareRequest = 0x6E
+    CompareResponse = 0x7F
+    AbandonRequest = 0x50  # application + primitive
+    SearchResultReference = 0x73
+    ExtendedRequest = 0x77
+    ExtendedResponse = 0x78
 
 
 # Bind operation
-# https://datatracker.ietf.org/doc/html/rfc1777#section-4.1
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.2
 
 
 class ASN1_Class_LDAP_Authentication(ASN1_Class):
@@ -284,7 +312,7 @@ class ASN1F_LDAP_Authentication_sicilyResponse(ASN1F_STRING):
 _SASL_MECHANISMS = {b"GSS-SPNEGO": GSSAPI_BLOB, b"GSSAPI": GSSAPI_BLOB}
 
 
-class _SaslCredentialsField(_ASN1FString_PacketField):
+class _SaslCredentialsField(ASN1F_STRING_PacketField):
     def m2i(self, pkt, s):
         val = super(_SaslCredentialsField, self).m2i(pkt, s)
         if not val[0].val:
@@ -336,8 +364,6 @@ class LDAP_BindResponse(ASN1_Packet):
                     # LDAP_Authentication_SaslCredentials
                     ASN1F_STRING("serverSaslCredsWrap", "", implicit_tag=0xA7),
                 ),
-            )
-            + (
                 ASN1F_optional(
                     ASN1F_STRING("serverSaslCreds", "", implicit_tag=0x87),
                 ),
@@ -378,7 +404,7 @@ class LDAP_BindResponse(ASN1_Packet):
 
 
 # Unbind operation
-# https://datatracker.ietf.org/doc/html/rfc1777#section-4.2
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.3
 
 
 class LDAP_UnbindRequest(ASN1_Packet):
@@ -390,22 +416,22 @@ class LDAP_UnbindRequest(ASN1_Packet):
 
 
 # Search operation
-# https://datatracker.ietf.org/doc/html/rfc1777#section-4.3
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.5
 
 
 class LDAP_SubstringFilterInitial(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = LDAPString("initial", "")
+    ASN1_root = LDAPString("val", "")
 
 
 class LDAP_SubstringFilterAny(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = LDAPString("any", "")
+    ASN1_root = LDAPString("val", "")
 
 
 class LDAP_SubstringFilterFinal(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = LDAPString("final", "")
+    ASN1_root = LDAPString("val", "")
 
 
 class LDAP_SubstringFilterStr(ASN1_Packet):
@@ -444,17 +470,24 @@ _LDAP_Filter = lambda *args, **kwargs: LDAP_Filter(*args, **kwargs)
 
 class LDAP_FilterAnd(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SET_OF("and_", [], _LDAP_Filter)
+    ASN1_root = ASN1F_SET_OF("vals", [], _LDAP_Filter)
 
 
 class LDAP_FilterOr(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SET_OF("or_", [], _LDAP_Filter)
+    ASN1_root = ASN1F_SET_OF("vals", [], _LDAP_Filter)
+
+
+class LDAP_FilterNot(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_PACKET("val", None, None, next_cls_cb=lambda *args, **kwargs: LDAP_Filter)
+    )
 
 
 class LDAP_FilterPresent(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = AttributeType("present", "")
+    ASN1_root = AttributeType("present", "objectClass")
 
 
 class LDAP_FilterEqual(ASN1_Packet):
@@ -463,11 +496,6 @@ class LDAP_FilterEqual(ASN1_Packet):
 
 
 class LDAP_FilterGreaterOrEqual(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = AttributeValueAssertion.ASN1_root
-
-
-class LDAP_FilterLesserOrEqual(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = AttributeValueAssertion.ASN1_root
 
@@ -482,6 +510,20 @@ class LDAP_FilterApproxMatch(ASN1_Packet):
     ASN1_root = AttributeValueAssertion.ASN1_root
 
 
+class LDAP_FilterExtensibleMatch(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_optional(
+            LDAPString("matchingRule", "", implicit_tag=0x81),
+        ),
+        ASN1F_optional(
+            LDAPString("type", "", implicit_tag=0x81),
+        ),
+        AttributeValue("matchValue", "", implicit_tag=0x82),
+        ASN1F_BOOLEAN("dnAttributes", False, implicit_tag=0x84),
+    )
+
+
 class ASN1_Class_LDAP_Filter(ASN1_Class):
     name = "LDAP Filter"
     # CONTEXT-SPECIFIC + CONSTRUCTED = 0x80 | 0x20
@@ -494,6 +536,7 @@ class ASN1_Class_LDAP_Filter(ASN1_Class):
     LessOrEqual = 0xA6
     Present = 0x87  # not constructed
     ApproxMatch = 0xA8
+    ExtensibleMatch = 0xA9
 
 
 class LDAP_Filter(ASN1_Packet):
@@ -508,7 +551,7 @@ class LDAP_Filter(ASN1_Packet):
             "or_", None, LDAP_FilterOr, implicit_tag=ASN1_Class_LDAP_Filter.Or
         ),
         ASN1F_PACKET(
-            "not_", None, _LDAP_Filter, implicit_tag=ASN1_Class_LDAP_Filter.Not
+            "not_", None, LDAP_FilterNot, implicit_tag=ASN1_Class_LDAP_Filter.Not
         ),
         ASN1F_PACKET(
             "equalityMatch",
@@ -546,7 +589,152 @@ class LDAP_Filter(ASN1_Packet):
             LDAP_FilterApproxMatch,
             implicit_tag=ASN1_Class_LDAP_Filter.ApproxMatch,
         ),
+        ASN1F_PACKET(
+            "extensibleMatch",
+            None,
+            LDAP_FilterExtensibleMatch,
+            implicit_tag=ASN1_Class_LDAP_Filter.ExtensibleMatch,
+        ),
     )
+
+    @staticmethod
+    def from_rfc2254_string(filter: str):
+        """
+        Convert a RFC-2254 filter to LDAP_Filter
+        """
+        # Note: this code is very dumb to be readable.
+        _lerr = "Invalid LDAP filter string: "
+        if filter.lstrip()[0] != "(":
+            filter = "(%s)" % filter
+
+        # 1. Cheap lexer.
+        tokens = []
+        cur = tokens
+        backtrack = []
+        filterlen = len(filter)
+        i = 0
+        while i < filterlen:
+            c = filter[i]
+            i += 1
+            if c in [" ", "\t", "\n"]:
+                # skip spaces
+                continue
+            elif c == "(":
+                # enclosure
+                cur.append([])
+                backtrack.append(cur)
+                cur = cur[-1]
+            elif c == ")":
+                # end of enclosure
+                if not backtrack:
+                    raise ValueError(_lerr + "parenthesis unmatched.")
+                cur = backtrack.pop(-1)
+            elif c in "&|!":
+                # and / or / not
+                cur.append(c)
+            elif c in "=":
+                # filtertype
+                if cur[-1] in "~><:":
+                    cur[-1] += c
+                    continue
+                cur.append(c)
+            elif c in "~><":
+                # comparisons
+                cur.append(c)
+            elif c == ":":
+                # extensible
+                cur.append(c)
+            elif c == "*":
+                # substring
+                cur.append(c)
+            else:
+                # value
+                v = ""
+                for x in filter[i - 1 :]:
+                    if x in "():!|&~<>=*":
+                        break
+                    v += x
+                if not v:
+                    raise ValueError(_lerr + "critical failure (impossible).")
+                i += len(v) - 1
+                cur.append(v)
+
+        # Check that parenthesis were closed
+        if backtrack:
+            raise ValueError(_lerr + "parenthesis unmatched.")
+
+        # LDAP filters must have an empty enclosure ()
+        tokens = tokens[0]
+
+        # 2. Cheap grammar parser.
+        # Doing it recursively is trivial.
+        def _getfld(x):
+            if not x:
+                raise ValueError(_lerr + "empty enclosure.")
+            elif len(x) == 1 and isinstance(x[0], list):
+                # useless enclosure
+                return _getfld(x[0])
+            elif x[0] in "&|":
+                # multinary operator
+                if len(x) < 3:
+                    raise ValueError(_lerr + "bad use of multinary operator.")
+                return (LDAP_FilterAnd if x[0] == "&" else LDAP_FilterOr)(
+                    vals=[LDAP_Filter(filter=_getfld(y)) for y in x[1:]]
+                )
+            elif x[0] == "!":
+                # unary operator
+                if len(x) != 2:
+                    raise ValueError(_lerr + "bad use of unary operator.")
+                return LDAP_FilterNot(
+                    val=LDAP_Filter(filter=_getfld(x[1])),
+                )
+            elif "=" in x and "*" in x:
+                # substring
+                if len(x) < 3 or x[1] != "=":
+                    raise ValueError(_lerr + "bad use of substring.")
+                return LDAP_SubstringFilter(
+                    type=ASN1_STRING(x[0].strip()),
+                    filters=[
+                        LDAP_SubstringFilterStr(
+                            str=(
+                                LDAP_SubstringFilterFinal
+                                if i == (len(x) - 3)
+                                else (
+                                    LDAP_SubstringFilterInitial
+                                    if i == 0
+                                    else LDAP_SubstringFilterAny
+                                )
+                            )(val=ASN1_STRING(y))
+                        )
+                        for i, y in enumerate(x[2:])
+                        if y != "*"
+                    ],
+                )
+            elif ":=" in x:
+                # extensible
+                raise NotImplementedError("Extensible not implemented.")
+            elif any(y in ["<=", ">=", "~=", "="] for y in x):
+                # simple
+                if len(x) != 3 or "=" not in x[1]:
+                    raise ValueError(_lerr + "bad use of comparison.")
+                if x[2] == "*":
+                    return LDAP_FilterPresent(present=ASN1_STRING(x[0]))
+                return (
+                    LDAP_FilterLessOrEqual
+                    if "<=" in x
+                    else (
+                        LDAP_FilterGreaterOrEqual
+                        if ">=" in x
+                        else LDAP_FilterApproxMatch if "~=" in x else LDAP_FilterEqual
+                    )
+                )(
+                    attributeType=ASN1_STRING(x[0].strip()),
+                    attributeValue=ASN1_STRING(x[2]),
+                )
+            else:
+                raise ValueError(_lerr + "invalid filter.")
+
+        return LDAP_Filter(filter=_getfld(tokens))
 
 
 class LDAP_SearchRequestAttribute(ASN1_Packet):
@@ -580,16 +768,16 @@ class LDAP_SearchRequest(ASN1_Packet):
     )
 
 
-class LDAP_SearchResponseEntryAttributeValue(ASN1_Packet):
+class LDAP_AttributeValue(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = AttributeValue("value", "")
 
 
-class LDAP_SearchResponseEntryAttribute(ASN1_Packet):
+class LDAP_PartialAttribute(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         AttributeType("type", ""),
-        ASN1F_SET_OF("values", [], LDAP_SearchResponseEntryAttributeValue),
+        ASN1F_SET_OF("values", [], LDAP_AttributeValue),
     )
 
 
@@ -599,8 +787,8 @@ class LDAP_SearchResponseEntry(ASN1_Packet):
         LDAPDN("objectName", ""),
         ASN1F_SEQUENCE_OF(
             "attributes",
-            LDAP_SearchResponseEntryAttribute(),
-            LDAP_SearchResponseEntryAttribute,
+            LDAP_PartialAttribute(),
+            LDAP_PartialAttribute,
         ),
         implicit_tag=ASN1_Class_LDAP.SearchResultEntry,
     )
@@ -614,6 +802,131 @@ class LDAP_SearchResponseResultDone(ASN1_Packet):
     )
 
 
+class LDAP_SearchResponseReference(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "uris",
+        [],
+        URI,
+        implicit_tag=ASN1_Class_LDAP.SearchResultReference,
+    )
+
+
+# Modify Operation
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.6
+
+
+class LDAP_ModifyRequestChange(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_ENUMERATED(
+            "operation",
+            0,
+            {
+                0: "add",
+                1: "delete",
+                2: "replace",
+            },
+        ),
+        ASN1F_PACKET("modification", LDAP_PartialAttribute(), LDAP_PartialAttribute),
+    )
+
+
+class LDAP_ModifyRequest(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        LDAPDN("object", ""),
+        ASN1F_SEQUENCE_OF("changes", [], LDAP_ModifyRequestChange),
+        implicit_tag=ASN1_Class_LDAP.ModifyRequest,
+    )
+
+
+class LDAP_ModifyResponse(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        *LDAPResult,
+        implicit_tag=ASN1_Class_LDAP.ModifyResponse,
+    )
+
+
+# Add Operation
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.7
+
+
+class LDAP_Attribute(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = LDAP_PartialAttribute.ASN1_root
+
+
+class LDAP_AddRequest(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        LDAPDN("entry", ""),
+        ASN1F_SEQUENCE_OF(
+            "attributes",
+            LDAP_Attribute(),
+            LDAP_Attribute,
+        ),
+        implicit_tag=ASN1_Class_LDAP.AddRequest,
+    )
+
+
+class LDAP_AddResponse(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        *LDAPResult,
+        implicit_tag=ASN1_Class_LDAP.AddResponse,
+    )
+
+
+# Delete Operation
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.8
+
+
+class LDAP_DelRequest(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = LDAPDN(
+        "entry",
+        "",
+        implicit_tag=ASN1_Class_LDAP.DelRequest,
+    )
+
+
+class LDAP_DelResponse(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        *LDAPResult,
+        implicit_tag=ASN1_Class_LDAP.DelResponse,
+    )
+
+
+# Modify DN Operation
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.9
+
+
+class LDAP_ModifyDNRequest(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        LDAPDN("entry", ""),
+        LDAPDN("newrdn", ""),
+        ASN1F_BOOLEAN("deleteoldrdn", ASN1_BOOLEAN(False)),
+        ASN1F_optional(LDAPDN("newSuperior", None, implicit_tag=0xA0)),
+        implicit_tag=ASN1_Class_LDAP.ModifyDNRequest,
+    )
+
+
+class LDAP_ModifyDNResponse(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        *LDAPResult,
+        implicit_tag=ASN1_Class_LDAP.ModifyDNResponse,
+    )
+
+
+# Abandon Operation
+# https://datatracker.ietf.org/doc/html/rfc4511#section-4.11
+
+
 class LDAP_AbandonRequest(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
@@ -624,6 +937,54 @@ class LDAP_AbandonRequest(ASN1_Packet):
 
 # LDAP v3
 
+# RFC 4511 sect 4.12 - Extended Operation
+
+
+class LDAP_ExtendedResponse(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        *(
+            LDAPResult
+            + (
+                ASN1F_optional(LDAPOID("responseName", None, implicit_tag=0x8A)),
+                ASN1F_optional(ASN1F_STRING("responseValue", None, implicit_tag=0x8B)),
+            )
+        ),
+        implicit_tag=ASN1_Class_LDAP.ExtendedResponse,
+    )
+
+    def do_dissect(self, x):
+        # Note: Windows builds this packet with a buggy sequence size, that does not
+        # include the optional fields. Do another pass of dissection on the optionals.
+        s = super(LDAP_ExtendedResponse, self).do_dissect(x)
+        if not s:
+            return s
+        for obj in self.ASN1_root.seq[-2:]:  # only on the 2 optional fields
+            try:
+                s = obj.dissect(self, s)
+            except ASN1F_badsequence:
+                break
+        return s
+
+
+# RFC 4511 sect 4.1.11
+
+_LDAP_CONTROLS = {}
+
+
+class _ControlValue_Field(ASN1F_STRING_PacketField):
+    def m2i(self, pkt, s):
+        val = super(_ControlValue_Field, self).m2i(pkt, s)
+        if not val[0].val:
+            return val
+        controlType = pkt.controlType.val.decode()
+        if controlType in _LDAP_CONTROLS:
+            return (
+                _LDAP_CONTROLS[controlType](val[0].val, _underlayer=pkt),
+                val[1],
+            )
+        return val
+
 
 class LDAP_Control(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
@@ -632,11 +993,47 @@ class LDAP_Control(ASN1_Packet):
         ASN1F_optional(
             ASN1F_BOOLEAN("criticality", False),
         ),
-        ASN1F_optional(ASN1F_STRING("controlValue", "")),
+        ASN1F_optional(_ControlValue_Field("controlValue", "")),
     )
 
 
-# LDAP
+# RFC 2696 - LDAP Control Extension for Simple Paged Results Manipulation
+
+
+class LDAP_realSearchControlValue(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("size", 0),
+        ASN1F_STRING("cookie", ""),
+    )
+
+
+_LDAP_CONTROLS["1.2.840.113556.1.4.319"] = LDAP_realSearchControlValue
+
+
+# [MS-ADTS]
+
+
+class LDAP_serverSDFlagsControl(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_FLAGS(
+            "flags",
+            None,
+            [
+                "OWNER",
+                "GROUP",
+                "DACL",
+                "SACL",
+            ],
+        )
+    )
+
+
+_LDAP_CONTROLS["1.2.840.113556.1.4.801"] = LDAP_serverSDFlagsControl
+
+
+# LDAP main class
 
 
 class LDAP(ASN1_Packet):
@@ -652,7 +1049,17 @@ class LDAP(ASN1_Packet):
             LDAP_SearchResponseEntry,
             LDAP_SearchResponseResultDone,
             LDAP_AbandonRequest,
+            LDAP_SearchResponseReference,
+            LDAP_ModifyRequest,
+            LDAP_ModifyResponse,
+            LDAP_AddRequest,
+            LDAP_AddResponse,
+            LDAP_DelRequest,
+            LDAP_DelResponse,
+            LDAP_ModifyDNRequest,
+            LDAP_ModifyDNResponse,
             LDAP_UnbindRequest,
+            LDAP_ExtendedResponse,
         ),
         # LDAP v3 only
         ASN1F_optional(
@@ -660,10 +1067,64 @@ class LDAP(ASN1_Packet):
         ),
     )
 
+    show_indent = 0
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 4:
+            # Heuristic to detect SASL_Buffer
+            if _pkt[0] != 0x30:
+                if struct.unpack("!I", _pkt[:4])[0] + 4 == len(_pkt):
+                    return LDAP_SASL_Buffer
+                return conf.raw_layer
+        return cls
+
+    @classmethod
+    def tcp_reassemble(cls, data, *args, **kwargs):
+        if len(data) < 4:
+            return None
+        # For LDAP, we would prefer to have the entire LDAP response
+        # (multiple LDAP concatenated) in one go, to stay consistent with
+        # what you get when using SASL.
+        remaining = data
+        while remaining:
+            try:
+                length, x = BER_len_dec(BER_id_dec(remaining)[1])
+            except (BER_Decoding_Error, IndexError):
+                return None
+            if length and len(x) >= length:
+                remaining = x[length:]
+                if not remaining:
+                    pkt = cls(data)
+                    # Packet can be a whole response yet still miss some content.
+                    if (
+                        LDAP_SearchResponseEntry in pkt
+                        and LDAP_SearchResponseResultDone not in pkt
+                    ):
+                        return None
+                    return pkt
+            else:
+                return None
+        return None
+
+    def hashret(self):
+        return b"ldap"
+
+    @property
+    def unsolicited(self):
+        # RFC4511 sect 4.4. - Unsolicited Notification
+        return self.messageID == 0 and isinstance(
+            self.protocolOp, LDAP_ExtendedResponse
+        )
+
     def answers(self, other):
+        if self.unsolicited:
+            return True
         return isinstance(other, LDAP) and other.messageID == self.messageID
 
     def mysummary(self):
+        if not self.protocolOp or not self.messageID:
+            return ""
         return (
             "%s(%s)"
             % (
@@ -705,6 +1166,132 @@ bind_bottom_up(UDP, CLDAP, dport=389)
 bind_bottom_up(UDP, CLDAP, sport=389)
 bind_layers(UDP, CLDAP, sport=389, dport=389)
 
+# [MS-ADTS] sect 3.1.1.2.3.3
+
+LDAP_PROPERTY_SET = {
+    uuid.UUID(
+        "C7407360-20BF-11D0-A768-00AA006E0529"
+    ): "Domain Password & Lockout Policies",
+    uuid.UUID("59BA2F42-79A2-11D0-9020-00C04FC2D3CF"): "General Information",
+    uuid.UUID("4C164200-20C0-11D0-A768-00AA006E0529"): "Account Restrictions",
+    uuid.UUID("5F202010-79A5-11D0-9020-00C04FC2D4CF"): "Logon Information",
+    uuid.UUID("BC0AC240-79A9-11D0-9020-00C04FC2D4CF"): "Group Membership",
+    uuid.UUID("E45795B2-9455-11D1-AEBD-0000F80367C1"): "Phone and Mail Options",
+    uuid.UUID("77B5B886-944A-11D1-AEBD-0000F80367C1"): "Personal Information",
+    uuid.UUID("E45795B3-9455-11D1-AEBD-0000F80367C1"): "Web Information",
+    uuid.UUID("E48D0154-BCF8-11D1-8702-00C04FB96050"): "Public Information",
+    uuid.UUID("037088F8-0AE1-11D2-B422-00A0C968F939"): "Remote Access Information",
+    uuid.UUID("B8119FD0-04F6-4762-AB7A-4986C76B3F9A"): "Other Domain Parameters",
+    uuid.UUID("72E39547-7B18-11D1-ADEF-00C04FD8D5CD"): "DNS Host Name Attributes",
+    uuid.UUID("FFA6F046-CA4B-4FEB-B40D-04DFEE722543"): "MS-TS-GatewayAccess",
+    uuid.UUID("91E647DE-D96F-4B70-9557-D63FF4F3CCD8"): "Private Information",
+    uuid.UUID("5805BC62-BDC9-4428-A5E2-856A0F4C185E"): "Terminal Server License Server",
+}
+
+# [MS-ADTS] sect 5.1.3.2.1
+
+LDAP_CONTROL_ACCESS_RIGHTS = {
+    uuid.UUID("ee914b82-0a98-11d1-adbb-00c04fd8d5cd"): "Abandon-Replication",
+    uuid.UUID("440820ad-65b4-11d1-a3da-0000f875ae0d"): "Add-GUID",
+    uuid.UUID("1abd7cf8-0a99-11d1-adbb-00c04fd8d5cd"): "Allocate-Rids",
+    uuid.UUID("68b1d179-0d15-4d4f-ab71-46152e79a7bc"): "Allowed-To-Authenticate",
+    uuid.UUID("edacfd8f-ffb3-11d1-b41d-00a0c968f939"): "Apply-Group-Policy",
+    uuid.UUID("0e10c968-78fb-11d2-90d4-00c04f79dc55"): "Certificate-Enrollment",
+    uuid.UUID("a05b8cc2-17bc-4802-a710-e7c15ab866a2"): "Certificate-AutoEnrollment",
+    uuid.UUID("014bf69c-7b3b-11d1-85f6-08002be74fab"): "Change-Domain-Master",
+    uuid.UUID("cc17b1fb-33d9-11d2-97d4-00c04fd8d5cd"): "Change-Infrastructure-Master",
+    uuid.UUID("bae50096-4752-11d1-9052-00c04fc2d4cf"): "Change-PDC",
+    uuid.UUID("d58d5f36-0a98-11d1-adbb-00c04fd8d5cd"): "Change-Rid-Master",
+    uuid.UUID("e12b56b6-0a95-11d1-adbb-00c04fd8d5cd"): "Change-Schema-Master",
+    uuid.UUID("e2a36dc9-ae17-47c3-b58b-be34c55ba633"): "Create-Inbound-Forest-Trust",
+    uuid.UUID("fec364e0-0a98-11d1-adbb-00c04fd8d5cd"): "Do-Garbage-Collection",
+    uuid.UUID("ab721a52-1e2f-11d0-9819-00aa0040529b"): "Domain-Administer-Server",
+    uuid.UUID("69ae6200-7f46-11d2-b9ad-00c04f79f805"): "DS-Check-Stale-Phantoms",
+    uuid.UUID("2f16c4a5-b98e-432c-952a-cb388ba33f2e"): "DS-Execute-Intentions-Script",
+    uuid.UUID("9923a32a-3607-11d2-b9be-0000f87a36b2"): "DS-Install-Replica",
+    uuid.UUID("4ecc03fe-ffc0-4947-b630-eb672a8a9dbc"): "DS-Query-Self-Quota",
+    uuid.UUID("1131f6aa-9c07-11d1-f79f-00c04fc2dcd2"): "DS-Replication-Get-Changes",
+    uuid.UUID("1131f6ad-9c07-11d1-f79f-00c04fc2dcd2"): "DS-Replication-Get-Changes-All",
+    uuid.UUID(
+        "89e95b76-444d-4c62-991a-0facbeda640c"
+    ): "DS-Replication-Get-Changes-In-Filtered-Set",
+    uuid.UUID("1131f6ac-9c07-11d1-f79f-00c04fc2dcd2"): "DS-Replication-Manage-Topology",
+    uuid.UUID(
+        "f98340fb-7c5b-4cdb-a00b-2ebdfa115a96"
+    ): "DS-Replication-Monitor-Topology",
+    uuid.UUID("1131f6ab-9c07-11d1-f79f-00c04fc2dcd2"): "DS-Replication-Synchronize",
+    uuid.UUID(
+        "05c74c5e-4deb-43b4-bd9f-86664c2a7fd5"
+    ): "Enable-Per-User-Reversibly-Encrypted-Password",
+    uuid.UUID("b7b1b3de-ab09-4242-9e30-9980e5d322f7"): "Generate-RSoP-Logging",
+    uuid.UUID("b7b1b3dd-ab09-4242-9e30-9980e5d322f7"): "Generate-RSoP-Planning",
+    uuid.UUID("7c0e2a7c-a419-48e4-a995-10180aad54dd"): "Manage-Optional-Features",
+    uuid.UUID("ba33815a-4f93-4c76-87f3-57574bff8109"): "Migrate-SID-History",
+    uuid.UUID("b4e60130-df3f-11d1-9c86-006008764d0e"): "msmq-Open-Connector",
+    uuid.UUID("06bd3201-df3e-11d1-9c86-006008764d0e"): "msmq-Peek",
+    uuid.UUID("4b6e08c3-df3c-11d1-9c86-006008764d0e"): "msmq-Peek-computer-Journal",
+    uuid.UUID("4b6e08c1-df3c-11d1-9c86-006008764d0e"): "msmq-Peek-Dead-Letter",
+    uuid.UUID("06bd3200-df3e-11d1-9c86-006008764d0e"): "msmq-Receive",
+    uuid.UUID("4b6e08c2-df3c-11d1-9c86-006008764d0e"): "msmq-Receive-computer-Journal",
+    uuid.UUID("4b6e08c0-df3c-11d1-9c86-006008764d0e"): "msmq-Receive-Dead-Letter",
+    uuid.UUID("06bd3203-df3e-11d1-9c86-006008764d0e"): "msmq-Receive-journal",
+    uuid.UUID("06bd3202-df3e-11d1-9c86-006008764d0e"): "msmq-Send",
+    uuid.UUID("a1990816-4298-11d1-ade2-00c04fd8d5cd"): "Open-Address-Book",
+    uuid.UUID(
+        "1131f6ae-9c07-11d1-f79f-00c04fc2dcd2"
+    ): "Read-Only-Replication-Secret-Synchronization",
+    uuid.UUID("45ec5156-db7e-47bb-b53f-dbeb2d03c40f"): "Reanimate-Tombstones",
+    uuid.UUID("0bc1554e-0a99-11d1-adbb-00c04fd8d5cd"): "Recalculate-Hierarchy",
+    uuid.UUID(
+        "62dd28a8-7f46-11d2-b9ad-00c04f79f805"
+    ): "Recalculate-Security-Inheritance",
+    uuid.UUID("ab721a56-1e2f-11d0-9819-00aa0040529b"): "Receive-As",
+    uuid.UUID("9432c620-033c-4db7-8b58-14ef6d0bf477"): "Refresh-Group-Cache",
+    uuid.UUID("1a60ea8d-58a6-4b20-bcdc-fb71eb8a9ff8"): "Reload-SSL-Certificate",
+    uuid.UUID("7726b9d5-a4b4-4288-a6b2-dce952e80a7f"): "Run-Protect_Admin_Groups-Task",
+    uuid.UUID("91d67418-0135-4acc-8d79-c08e857cfbec"): "SAM-Enumerate-Entire-Domain",
+    uuid.UUID("ab721a54-1e2f-11d0-9819-00aa0040529b"): "Send-As",
+    uuid.UUID("ab721a55-1e2f-11d0-9819-00aa0040529b"): "Send-To",
+    uuid.UUID("ccc2dc7d-a6ad-4a7a-8846-c04e3cc53501"): "Unexpire-Password",
+    uuid.UUID(
+        "280f369c-67c7-438e-ae98-1d46f3c6f541"
+    ): "Update-Password-Not-Required-Bit",
+    uuid.UUID("be2bb760-7f46-11d2-b9ad-00c04f79f805"): "Update-Schema-Cache",
+    uuid.UUID("ab721a53-1e2f-11d0-9819-00aa0040529b"): "User-Change-Password",
+    uuid.UUID("00299570-246d-11d0-a768-00aa006e0529"): "User-Force-Change-Password",
+    uuid.UUID("3e0f7e18-2c7a-4c10-ba82-4d926db99a3e"): "DS-Clone-Domain-Controller",
+    uuid.UUID("084c93a2-620d-4879-a836-f0ae47de0e89"): "DS-Read-Partition-Secrets",
+    uuid.UUID("94825a8d-b171-4116-8146-1e34d8f54401"): "DS-Write-Partition-Secrets",
+    uuid.UUID("4125c71f-7fac-4ff0-bcb7-f09a41325286"): "DS-Set-Owner",
+    uuid.UUID("88a9933e-e5c8-4f2a-9dd7-2527416b8092"): "DS-Bypass-Quota",
+    uuid.UUID("9b026da6-0d3c-465c-8bee-5199d7165cba"): "DS-Validated-Write-Computer",
+}
+
+# [MS-ADTS] sect 5.1.3.2 and
+# https://learn.microsoft.com/en-us/windows/win32/secauthz/directory-services-access-rights
+
+LDAP_DS_ACCESS_RIGHTS = {
+    0x00000001: "CREATE_CHILD",
+    0x00000002: "DELETE_CHILD",
+    0x00000004: "LIST_CONTENTS",
+    0x00000008: "WRITE_PROPERTY_EXTENDED",
+    0x00000010: "READ_PROP",
+    0x00000020: "WRITE_PROP",
+    0x00000040: "DELETE_TREE",
+    0x00000080: "LIST_OBJECT",
+    0x00000100: "CONTROL_ACCESS",
+    0x00010000: "DELETE",
+    0x00020000: "READ_CONTROL",
+    0x00040000: "WRITE_DAC",
+    0x00080000: "WRITE_OWNER",
+    0x00100000: "SYNCHRONIZE",
+    0x01000000: "ACCESS_SYSTEM_SECURITY",
+    0x80000000: "GENERIC_READ",
+    0x40000000: "GENERIC_WRITE",
+    0x20000000: "GENERIC_EXECUTE",
+    0x10000000: "GENERIC_ALL",
+}
+
 
 # Small CLDAP Answering machine: [MS-ADTS] 6.3.3 - Ldap ping
 
@@ -744,10 +1331,10 @@ class LdapPing_am(AnsweringMachine):
         if NBTDatagram in req:
             # special case: mailslot ping
             from scapy.layers.smb import SMBMailslot_Write, NETLOGON_SAM_LOGON_REQUEST
+
             try:
                 return (
-                    SMBMailslot_Write in req and
-                    NETLOGON_SAM_LOGON_REQUEST in req.Data
+                    SMBMailslot_Write in req and NETLOGON_SAM_LOGON_REQUEST in req.Data
                 )
             except AttributeError:
                 return False
@@ -760,7 +1347,7 @@ class LdapPing_am(AnsweringMachine):
             and req.filter
             and isinstance(req.filter.filter, LDAP_FilterAnd)
             and any(
-                x.filter.attributeType.val == b"NtVer" for x in req.filter.filter.and_
+                x.filter.attributeType.val == b"NtVer" for x in req.filter.filter.vals
             )
         )
 
@@ -777,7 +1364,7 @@ class LdapPing_am(AnsweringMachine):
         try:
             DnsDomainName = next(
                 x.filter.attributeValue.val
-                for x in req.protocolOp.filter.filter.and_
+                for x in req.protocolOp.filter.filter.vals
                 if x.filter.attributeType.val == b"DnsDomain"
             )
         except StopIteration:
@@ -787,9 +1374,9 @@ class LdapPing_am(AnsweringMachine):
             / CLDAP(
                 protocolOp=LDAP_SearchResponseEntry(
                     attributes=[
-                        LDAP_SearchResponseEntryAttribute(
+                        LDAP_PartialAttribute(
                             values=[
-                                LDAP_SearchResponseEntryAttributeValue(
+                                LDAP_AttributeValue(
                                     value=ASN1_STRING(
                                         val=bytes(
                                             NETLOGON_SAM_LOGON_RESPONSE_EX(
@@ -838,19 +1425,24 @@ class LdapPing_am(AnsweringMachine):
             DcSockAddr,
             NETLOGON_SAM_LOGON_RESPONSE_EX,
         )
+
         resp = IP(dst=req[IP].src) / UDP(
             sport=req.dport,
             dport=req.sport,
         )
         address = self.src_ip or get_if_addr(self.optsniff.get("iface", conf.iface))
-        resp /= NBTDatagram(
-            SourceName=req.DestinationName,
-            SUFFIX1=req.SUFFIX2,
-            DestinationName=req.SourceName,
-            SUFFIX2=req.SUFFIX1,
-            SourceIP=address,
-        ) / SMB_Header() / SMBMailslot_Write(
-            Name=req.Data.MailslotName,
+        resp /= (
+            NBTDatagram(
+                SourceName=req.DestinationName,
+                SUFFIX1=req.SUFFIX2,
+                DestinationName=req.SourceName,
+                SUFFIX2=req.SUFFIX1,
+                SourceIP=address,
+            )
+            / SMB_Header()
+            / SMBMailslot_Write(
+                Name=req.Data.MailslotName,
+            )
         )
         NetbiosDomainName = req.DestinationName.strip()
         resp.Data = NETLOGON_SAM_LOGON_RESPONSE_EX(
@@ -990,7 +1582,7 @@ def dclocator(
                         protocolOp=LDAP_SearchRequest(
                             filter=LDAP_Filter(
                                 filter=LDAP_FilterAnd(
-                                    and_=[
+                                    vals=[
                                         LDAP_Filter(
                                             filter=LDAP_FilterEqual(
                                                 attributeType=ASN1_STRING(b"DnsDomain"),
@@ -1051,7 +1643,7 @@ def dclocator(
 
 
 class LDAP_BIND_MECHS(Enum):
-    NONE = "NONE"
+    NONE = "UNAUTHENTICATED"
     SIMPLE = "SIMPLE"
     SASL_GSSAPI = "GSSAPI"
     SASL_GSS_SPNEGO = "GSS-SPNEGO"
@@ -1082,77 +1674,310 @@ class LDAP_SASL_GSSAPI_SsfCap(Packet):
     ]
 
 
+class LDAP_SASL_Buffer(Packet):
+    """
+    RFC 4422 sect 3.7
+    """
+
+    # "Each buffer of protected data is transferred over the underlying
+    # transport connection as a sequence of octets prepended with a four-
+    # octet field in network byte order that represents the length of the
+    # buffer."
+
+    fields_desc = [
+        FieldLenField("BufferLength", None, fmt="!I", length_of="Buffer"),
+        _GSSAPI_Field("Buffer", LDAP),
+    ]
+
+    def hashret(self):
+        return b"ldap"
+
+    def answers(self, other):
+        return isinstance(other, LDAP_SASL_Buffer)
+
+    @classmethod
+    def tcp_reassemble(cls, data, *args, **kwargs):
+        if len(data) < 4:
+            return None
+        if data[0] == 0x30:
+            # Add a heuristic to detect LDAP errors
+            xlen, x = BER_len_dec(BER_id_dec(data)[1])
+            if xlen and xlen == len(x):
+                return LDAP(data)
+        # Check BufferLength
+        length = struct.unpack("!I", data[:4])[0] + 4
+        if len(data) >= length:
+            return cls(data)
+
+
+class LDAP_Exception(RuntimeError):
+    __slots__ = ["resultCode", "diagnosticMessage"]
+
+    def __init__(self, *args, **kwargs):
+        resp = kwargs.pop("resp", None)
+        if resp:
+            self.resultCode = resp.protocolOp.resultCode
+            self.diagnosticMessage = resp.protocolOp.diagnosticMessage.val.rstrip(
+                b"\x00"
+            ).decode(errors="backslashreplace")
+        else:
+            self.resultCode = kwargs.pop("resultCode", None)
+            self.diagnosticMessage = kwargs.pop("diagnosticMessage", None)
+        super(LDAP_Exception, self).__init__(*args, **kwargs)
+        # If there's a 'data' string argument, attempt to parse the error code.
+        try:
+            m = re.match(r"(\d+): LdapErr.*", self.diagnosticMessage)
+            if m:
+                errstr = m.group(1)
+                err = int(errstr, 16)
+                if err in STATUS_ERREF:
+                    self.diagnosticMessage = self.diagnosticMessage.replace(
+                        errstr, errstr + " (%s)" % STATUS_ERREF[err], 1
+                    )
+        except ValueError:
+            pass
+        # Add note if this exception is raised
+        self.add_note(self.diagnosticMessage)
+
+
 class LDAP_Client(object):
     """
     A basic LDAP client
 
-    :param mech: one of LDAP_BIND_MECHS
-    :param ssl: whether to use LDAPS or not
-    :param ssp: the SSP object to use for binding
+    The complete documentation is available at
+    https://scapy.readthedocs.io/en/latest/layers/ldap.html
 
-    :param sign: request signing when binding
-    :param encrypt: request encryption when binding
+    Example 1 - SICILY - NTLM (with encryption)::
 
-    Example 1 - SICILY - NTLM::
-
+        client = LDAP_Client()
+        client.connect("192.168.0.100")
         ssp = NTLMSSP(UPN="Administrator", PASSWORD="Password1!")
-        client = LDAP_Client(
+        client.bind(
             LDAP_BIND_MECHS.SICILY,
             ssp=ssp,
+            encrypt=True,
         )
+
+    Example 2 - SASL_GSSAPI - Kerberos (with signing)::
+
+        client = LDAP_Client()
         client.connect("192.168.0.100")
-        client.bind()
-
-    Example 2 - SASL_GSSAPI - Kerberos::
-
         ssp = KerberosSSP(UPN="Administrator@domain.local", PASSWORD="Password1!",
                           SPN="ldap/dc1.domain.local")
-        client = LDAP_Client(
+        client.bind(
             LDAP_BIND_MECHS.SASL_GSSAPI,
             ssp=ssp,
+            sign=True,
         )
-        client.connect("192.168.0.100")
-        client.bind()
 
     Example 3 - SASL_GSS_SPNEGO - NTLM / Kerberos::
 
+        client = LDAP_Client()
+        client.connect("192.168.0.100")
         ssp = SPNEGOSSP([
             NTLMSSP(UPN="Administrator", PASSWORD="Password1!"),
             KerberosSSP(UPN="Administrator@domain.local", PASSWORD="Password1!",
-                          SPN="ldap/dc1.domain.local"),
+                        SPN="ldap/dc1.domain.local"),
         ])
-        client = LDAP_Client(
+        client.bind(
             LDAP_BIND_MECHS.SASL_GSS_SPNEGO,
             ssp=ssp,
         )
-        client.connect("192.168.0.100")
-        client.bind()
 
-    Example 4 - Simple bind::
+    Example 4 - Simple bind over TLS::
 
-        client = LDAP_Client(LDAP_BIND_MECHS.SIMPLE)
-        client.connect("192.168.0.100")
-        client.bind(simple_username="Administrator",
-                    simple_password="Password1!")
+        client = LDAP_Client()
+        client.connect("192.168.0.100", use_ssl=True)
+        client.bind(
+            LDAP_BIND_MECHS.SIMPLE,
+            simple_username="Administrator",
+            simple_password="Password1!",
+        )
     """
 
     def __init__(
         self,
-        mech,
         verb=True,
-        ssl=False,
+    ):
+        self.sock = None
+        self.host = None
+        self.verb = verb
+        self.ssl = False
+        self.sslcontext = None
+        self.ssp = None
+        self.sspcontext = None
+        self.encrypt = False
+        self.sign = False
+        # Session status
+        self.sasl_wrap = False
+        self.chan_bindings = GSS_C_NO_CHANNEL_BINDINGS
+        self.bound = False
+        self.messageID = 0
+
+    def connect(
+        self,
+        host,
+        port=None,
+        use_ssl=False,
         sslcontext=None,
+        sni=None,
+        no_check_certificate=False,
+        timeout=5,
+    ):
+        """
+        Initiate a connection
+
+        :param host: the IP or hostname to connect to.
+        :param port: the port to connect to. (Default: 389 or 636)
+
+        :param use_ssl: whether to use LDAPS or not. (Default: False)
+        :param sslcontext: an optional SSLContext to use.
+        :param sni: (optional) specify the SNI to use if LDAPS, otherwise use ip.
+        :param no_check_certificate: with SSL, do not check the certificate
+        """
+        self.ssl = use_ssl
+        self.sslcontext = sslcontext
+
+        if port is None:
+            if self.ssl:
+                port = 636
+            else:
+                port = 389
+        sock = socket.socket()
+        self.timeout = timeout
+        self.host = host
+        sock.settimeout(timeout)
+        if self.verb:
+            print(
+                "\u2503 Connecting to %s on port %s%s..."
+                % (
+                    host,
+                    port,
+                    " with SSL" if self.ssl else "",
+                )
+            )
+        sock.connect((host, port))
+        if self.verb:
+            print(
+                conf.color_theme.green(
+                    "\u2514 Connected from %s" % repr(sock.getsockname())
+                )
+            )
+        # For SSL, build and apply SSLContext
+        if self.ssl:
+            if self.sslcontext is None:
+                if no_check_certificate:
+                    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                    context.check_hostname = False
+                    context.verify_mode = ssl.CERT_NONE
+                else:
+                    context = ssl.create_default_context()
+            else:
+                context = self.sslcontext
+            sock = context.wrap_socket(sock, server_hostname=sni or host)
+        # Wrap the socket in a Scapy socket
+        if self.ssl:
+            self.sock = SSLStreamSocket(sock, LDAP)
+            # Compute the channel binding token (CBT)
+            self.chan_bindings = GssChannelBindings.fromssl(
+                ChannelBindingType.TLS_SERVER_END_POINT,
+                sslsock=sock,
+            )
+        else:
+            self.sock = StreamSocket(sock, LDAP)
+
+    def sr1(self, protocolOp, controls: List[LDAP_Control] = None, **kwargs):
+        self.messageID += 1
+        if self.verb:
+            print(conf.color_theme.opening(">> %s" % protocolOp.__class__.__name__))
+        # Build packet
+        pkt = LDAP(
+            messageID=self.messageID,
+            protocolOp=protocolOp,
+            Controls=controls,
+        )
+        # If signing / encryption is used, apply
+        if self.sasl_wrap:
+            pkt = LDAP_SASL_Buffer(
+                Buffer=self.ssp.GSS_Wrap(
+                    self.sspcontext,
+                    bytes(pkt),
+                    conf_req_flag=self.encrypt,
+                )
+            )
+        # Send / Receive
+        resp = self.sock.sr1(
+            pkt,
+            verbose=0,
+            **kwargs,
+        )
+        # Check for unsolicited notification
+        if resp and LDAP in resp and resp[LDAP].unsolicited:
+            if self.verb:
+                resp.show()
+                print(conf.color_theme.fail("! Got unsolicited notification."))
+            return resp
+        # If signing / encryption is used, unpack
+        if self.sasl_wrap:
+            if resp.Buffer:
+                resp = LDAP(
+                    self.ssp.GSS_Unwrap(
+                        self.sspcontext,
+                        resp.Buffer,
+                    )
+                )
+            else:
+                resp = None
+        if self.verb:
+            if not resp:
+                print(conf.color_theme.fail("! Bad response."))
+                return
+            else:
+                print(
+                    conf.color_theme.success(
+                        "<< %s"
+                        % (
+                            resp.protocolOp.__class__.__name__
+                            if LDAP in resp
+                            else resp.__class__.__name__
+                        )
+                    )
+                )
+        return resp
+
+    def bind(
+        self,
+        mech,
         ssp=None,
         sign=False,
         encrypt=False,
+        simple_username=None,
+        simple_password=None,
     ):
-        self.sock = None
+        """
+        Send Bind request.
+
+        :param mech: one of LDAP_BIND_MECHS
+        :param ssp: the SSP object to use for binding
+
+        :param sign: request signing when binding
+        :param encrypt: request encryption when binding
+
+        :
+        This acts differently based on the :mech: provided during initialization.
+        """
+        # Store and check consistency
         self.mech = mech
-        self.verb = verb
-        self.ssl = ssl
-        self.sslcontext = sslcontext
         self.ssp = ssp  # type: SSP
-        assert isinstance(mech, LDAP_BIND_MECHS)
+        self.sign = sign
+        self.encrypt = encrypt
+        self.sspcontext = None
+
+        if mech is None or not isinstance(mech, LDAP_BIND_MECHS):
+            raise ValueError(
+                "'mech' attribute is required and must be one of LDAP_BIND_MECHS."
+            )
+
         if mech == LDAP_BIND_MECHS.SASL_GSSAPI:
             from scapy.layers.kerberos import KerberosSSP
 
@@ -1168,84 +1993,20 @@ class LDAP_Client(object):
 
             if not isinstance(self.ssp, NTLMSSP):
                 raise ValueError("Only raw NTLMSSP is supported with SICILY !")
+            if self.sign and not self.encrypt:
+                raise ValueError(
+                    "NTLM on LDAP does not support signing without encryption !"
+                )
+        elif mech in [LDAP_BIND_MECHS.NONE, LDAP_BIND_MECHS.SIMPLE]:
+            if self.sign or self.encrypt:
+                raise ValueError("Cannot use 'sign' or 'encrypt' with NONE or SIMPLE !")
         if self.ssp is not None and mech in [
             LDAP_BIND_MECHS.NONE,
             LDAP_BIND_MECHS.SIMPLE,
         ]:
             raise ValueError("%s cannot be used with a ssp !" % mech.value)
-        self.sspcontext = None
-        self.sign = sign
-        self.encrypt = encrypt
-        self.messageID = 0
 
-    def connect(self, ip, port=None, timeout=5):
-        """
-        Initiate a connection
-        """
-        if port is None:
-            if self.ssl:
-                port = 636
-            else:
-                port = 389
-        sock = socket.socket()
-        sock.settimeout(timeout)
-        if self.verb:
-            print(
-                "\u2503 Connecting to %s on port %s%s..."
-                % (
-                    ip,
-                    port,
-                    " with SSL" if self.ssl else "",
-                )
-            )
-        sock.connect((ip, port))
-        if self.verb:
-            print(
-                conf.color_theme.green(
-                    "\u2514 Connected from %s" % repr(sock.getsockname())
-                )
-            )
-        if self.ssl:
-            if self.sslcontext is None:
-                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-                context.check_hostname = False
-                context.verify_mode = ssl.CERT_NONE
-            else:
-                context = self.sslcontext
-            sock = context.wrap_socket(sock)
-        self.sock = StreamSocket(sock, LDAP)
-
-    def sr1(self, protocolOp, controls=None, **kwargs):
-        self.messageID += 1
-        if self.verb:
-            print(conf.color_theme.opening(">> %s" % protocolOp.__class__.__name__))
-        resp = self.sock.sr1(
-            LDAP(
-                messageID=self.messageID,
-                protocolOp=protocolOp,
-                Controls=controls,
-            ),
-            verbose=0,
-            **kwargs,
-        )
-        if self.verb:
-            print(
-                conf.color_theme.success(
-                    "<< %s"
-                    % (
-                        resp.protocolOp.__class__.__name__
-                        if LDAP in resp
-                        else resp.__class__.__name__
-                    )
-                )
-            )
-        return resp
-
-    def bind(self, simple_username=None, simple_password=None):
-        """
-        Send Bind request.
-        This acts differently based on the :mech: provided during initialization.
-        """
+        # Now perform the bind, depending on the mech
         if self.mech == LDAP_BIND_MECHS.SIMPLE:
             # Simple binding
             resp = self.sr1(
@@ -1261,9 +2022,11 @@ class LDAP_Client(object):
                 or not isinstance(resp.protocolOp, LDAP_BindResponse)
                 or resp.protocolOp.resultCode != 0
             ):
-                if self.verb:
-                    resp.show()
-                raise RuntimeError("LDAP simple bind failed !")
+                raise LDAP_Exception(
+                    "LDAP simple bind failed !",
+                    resp=resp,
+                )
+            status = GSS_S_COMPLETE
         elif self.mech == LDAP_BIND_MECHS.SICILY:
             # [MS-ADTS] sect 5.1.1.1.3
             # 1. Package Discovery
@@ -1274,11 +2037,14 @@ class LDAP_Client(object):
                 )
             )
             if resp.protocolOp.resultCode != 0:
-                resp.show()
-                raise RuntimeError("Sicily package discovery failed !")
+                raise LDAP_Exception(
+                    "Sicily package discovery failed !",
+                    resp=resp,
+                )
             # 2. First exchange: Negotiate
             self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                 self.sspcontext,
+                target_name="ldap/" + self.host,
                 req_flags=(
                     GSS_C_FLAGS.GSS_C_REPLAY_FLAG
                     | GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG
@@ -1297,11 +2063,16 @@ class LDAP_Client(object):
             )
             val = resp.protocolOp.serverCreds
             if not val:
-                resp.show()
-                raise RuntimeError("Sicily negotiate failed !")
+                raise LDAP_Exception(
+                    "Sicily negotiate failed !",
+                    resp=resp,
+                )
             # 3. Second exchange: Response
             self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
-                self.sspcontext, GSSAPI_BLOB(val)
+                self.sspcontext,
+                GSSAPI_BLOB(val),
+                target_name="ldap/" + self.host,
+                chan_bindings=self.chan_bindings,
             )
             resp = self.sr1(
                 LDAP_BindRequest(
@@ -1312,8 +2083,10 @@ class LDAP_Client(object):
                 )
             )
             if resp.protocolOp.resultCode != 0:
-                resp.show()
-                raise RuntimeError("Sicily response failed !")
+                raise LDAP_Exception(
+                    "Sicily response failed !",
+                    resp=resp,
+                )
         elif self.mech in [
             LDAP_BIND_MECHS.SASL_GSS_SPNEGO,
             LDAP_BIND_MECHS.SASL_GSSAPI,
@@ -1321,13 +2094,16 @@ class LDAP_Client(object):
             # GSSAPI or SPNEGO
             self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                 self.sspcontext,
+                target_name="ldap/" + self.host,
                 req_flags=(
+                    # Required flags for GSSAPI: RFC4752 sect 3.1
                     GSS_C_FLAGS.GSS_C_REPLAY_FLAG
                     | GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG
                     | GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
                     | (GSS_C_FLAGS.GSS_C_INTEG_FLAG if self.sign else 0)
                     | (GSS_C_FLAGS.GSS_C_CONF_FLAG if self.encrypt else 0)
                 ),
+                chan_bindings=self.chan_bindings,
             )
             while token:
                 resp = self.sr1(
@@ -1349,10 +2125,18 @@ class LDAP_Client(object):
                     status = resp.protocolOp.resultCode
                     break
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
-                    self.sspcontext, GSSAPI_BLOB(val)
+                    self.sspcontext,
+                    GSSAPI_BLOB(val),
+                    target_name="ldap/" + self.host,
+                    chan_bindings=self.chan_bindings,
                 )
+        else:
+            status = GSS_S_COMPLETE
         if status != GSS_S_COMPLETE:
-            raise RuntimeError("%s bind returned %s !" % (self.mech.name, status))
+            raise LDAP_Exception(
+                "%s bind failed !" % self.mech.name,
+                resp=resp,
+            )
         elif self.mech == LDAP_BIND_MECHS.SASL_GSSAPI:
             # GSSAPI has 2 extra exchanges
             # https://datatracker.ietf.org/doc/html/rfc2222#section-7.2.1
@@ -1366,10 +2150,11 @@ class LDAP_Client(object):
                 )
             )
             # Parse server-supported layers
-            saslOptions = GSSAPI_BLOB_SIGNATURE(resp.protocolOp.serverSaslCredsData)
-            saslOptions.show()
             saslOptions = LDAP_SASL_GSSAPI_SsfCap(
-                self.ssp.GSS_Unwrap(self.sspcontext, b"", saslOptions)
+                self.ssp.GSS_Unwrap(
+                    self.sspcontext,
+                    GSSAPI_BLOB_SIGNATURE(resp.protocolOp.serverSaslCredsData),
+                )
             )
             if self.sign and not saslOptions.supported_security_layers.INTEGRITY:
                 raise RuntimeError("GSSAPI SASL failed to negotiate INTEGRITY !")
@@ -1381,11 +2166,15 @@ class LDAP_Client(object):
             # Announce client-supported layers
             saslOptions = LDAP_SASL_GSSAPI_SsfCap(
                 supported_security_layers=(
-                    "NONE"
-                    + ("+INTEGRITY" if self.sign else "")
-                    + ("+CONFIDENTIALITY" if self.encrypt else "")
+                    "+".join(
+                        (["INTEGRITY"] if self.sign else [])
+                        + (["CONFIDENTIALITY"] if self.encrypt else [])
+                    )
+                    if (self.sign or self.encrypt)
+                    else "NONE"
                 ),
-                max_output_token_size=0xA00000,
+                # Same as server
+                max_output_token_size=saslOptions.max_output_token_size,
             )
             resp = self.sr1(
                 LDAP_BindRequest(
@@ -1393,20 +2182,281 @@ class LDAP_Client(object):
                     authentication=LDAP_Authentication_SaslCredentials(
                         mechanism=ASN1_STRING(self.mech.value),
                         credentials=self.ssp.GSS_Wrap(
-                            self.sspcontext, bytes(saslOptions), False
-                        )[1],
+                            self.sspcontext,
+                            bytes(saslOptions),
+                            # We still haven't finished negotiating
+                            conf_req_flag=False,
+                        ),
                     ),
                 )
             )
             if resp.protocolOp.resultCode != 0:
-                resp.show()
-                raise RuntimeError(
-                    "GSSAPI SASL failed to negotiate client security flags !"
+                raise LDAP_Exception(
+                    "GSSAPI SASL failed to negotiate client security flags !",
+                    resp=resp,
                 )
+        # SASL wrapping is now available.
+        self.sasl_wrap = self.encrypt or self.sign
+        if self.sasl_wrap:
+            self.sock.closed = True  # prevent closing by marking it as already closed.
+            self.sock = StreamSocket(self.sock.ins, LDAP_SASL_Buffer)
+        # Success.
         if self.verb:
             print("%s bind succeeded !" % self.mech.name)
+        self.bound = True
+
+    _TEXT_REG = re.compile(b"^[%s]*$" % re.escape(string.printable.encode()))
+
+    def search(
+        self,
+        baseObject: str = "",
+        filter: str = "",
+        scope=0,
+        derefAliases=0,
+        sizeLimit=300000,
+        timeLimit=3000,
+        attrsOnly=0,
+        attributes: List[str] = [],
+        controls: List[LDAP_Control] = [],
+    ) -> Dict[str, List[Any]]:
+        """
+        Perform a LDAP search.
+
+        :param baseObject: the dn of the base object to search in.
+        :param filter: the filter to apply to the search (currently unsupported)
+        :param scope: 0=baseObject, 1=singleLevel, 2=wholeSubtree
+        """
+        if baseObject == "rootDSE":
+            baseObject = ""
+        if filter:
+            filter = LDAP_Filter.from_rfc2254_string(filter)
+        else:
+            # Default filter: (objectClass=*)
+            filter = LDAP_Filter(
+                filter=LDAP_FilterPresent(
+                    present=ASN1_STRING(b"objectClass"),
+                )
+            )
+        # we loop as we might need more than one packet thanks to paging
+        cookie = b""
+        entries = {}
+        while True:
+            resp = self.sr1(
+                LDAP_SearchRequest(
+                    filter=filter,
+                    attributes=[
+                        LDAP_SearchRequestAttribute(type=ASN1_STRING(attr))
+                        for attr in attributes
+                    ],
+                    baseObject=ASN1_STRING(baseObject),
+                    scope=ASN1_ENUMERATED(scope),
+                    derefAliases=ASN1_ENUMERATED(derefAliases),
+                    sizeLimit=ASN1_INTEGER(sizeLimit),
+                    timeLimit=ASN1_INTEGER(timeLimit),
+                    attrsOnly=ASN1_BOOLEAN(attrsOnly),
+                ),
+                controls=(
+                    controls
+                    + (
+                        [
+                            # This control is only usable when bound.
+                            LDAP_Control(
+                                controlType="1.2.840.113556.1.4.319",
+                                criticality=True,
+                                controlValue=LDAP_realSearchControlValue(
+                                    size=200,  # paging to 200 per 200
+                                    cookie=cookie,
+                                ),
+                            )
+                        ]
+                        if self.bound
+                        else []
+                    )
+                ),
+                timeout=self.timeout,
+            )
+            if LDAP_SearchResponseResultDone not in resp:
+                resp.show()
+                raise TimeoutError("Search timed out.")
+            # Now, reassemble the results
+
+            def _s(x):
+                try:
+                    return x.decode()
+                except UnicodeDecodeError:
+                    return x
+
+            def _ssafe(x):
+                if self._TEXT_REG.match(x):
+                    return x.decode()
+                else:
+                    return x
+
+            # For each individual packet response
+            while resp:
+                # Find all 'LDAP' layers
+                if LDAP not in resp:
+                    log_runtime.warning("Invalid response: %s", repr(resp))
+                    break
+                if LDAP_SearchResponseEntry in resp.protocolOp:
+                    attrs = {
+                        _s(attr.type.val): [_ssafe(x.value.val) for x in attr.values]
+                        for attr in resp.protocolOp.attributes
+                    }
+                    entries[_s(resp.protocolOp.objectName.val)] = attrs
+                elif LDAP_SearchResponseResultDone in resp.protocolOp:
+                    resultCode = resp.protocolOp.resultCode
+                    if resultCode != 0x0:  # != success
+                        log_runtime.warning(
+                            resp.protocolOp.sprintf("Got response: %resultCode%")
+                        )
+                        raise LDAP_Exception(
+                            "LDAP search failed !",
+                            resp=resp,
+                        )
+                    else:
+                        # success
+                        if resp.Controls:
+                            # We have controls back
+                            realSearchControlValue = next(
+                                (
+                                    c.controlValue
+                                    for c in resp.Controls
+                                    if isinstance(
+                                        c.controlValue, LDAP_realSearchControlValue
+                                    )
+                                ),
+                                None,
+                            )
+                            if realSearchControlValue is not None:
+                                # has paging !
+                                cookie = realSearchControlValue.cookie.val
+                                break
+                    break
+                resp = resp.payload
+            # If we have a cookie, continue
+            if not cookie:
+                break
+        return entries
+
+    def modify(
+        self,
+        object: str,
+        changes: List[LDAP_ModifyRequestChange],
+        controls: List[LDAP_Control] = [],
+    ) -> None:
+        """
+        Perform a LDAP modify request.
+
+        :returns:
+        """
+        resp = self.sr1(
+            LDAP_ModifyRequest(
+                object=object,
+                changes=changes,
+            ),
+            controls=controls,
+            timeout=self.timeout,
+        )
+        if (
+            LDAP_ModifyResponse not in resp.protocolOp
+            or resp.protocolOp.resultCode != 0
+        ):
+            raise LDAP_Exception(
+                "LDAP modify failed !",
+                resp=resp,
+            )
+
+    def add(
+        self,
+        entry: str,
+        attributes: Union[Dict[str, List[Any]], List[ASN1_Packet]],
+        controls: List[LDAP_Control] = [],
+    ):
+        """
+        Perform a LDAP add request.
+
+        :param attributes: the attributes to add. We support two formats:
+            - a list of LDAP_Attribute (or LDAP_PartialAttribute)
+            - a dict following {attribute: [list of values]}
+
+        :returns:
+        """
+        # We handle the two cases in the type of attributes
+        if isinstance(attributes, dict):
+            attributes = [
+                LDAP_Attribute(
+                    type=ASN1_STRING(k),
+                    values=[
+                        LDAP_AttributeValue(
+                            value=ASN1_STRING(x),
+                        )
+                        for x in v
+                    ],
+                )
+                for k, v in attributes.items()
+            ]
+
+        resp = self.sr1(
+            LDAP_AddRequest(
+                entry=ASN1_STRING(entry),
+                attributes=attributes,
+            ),
+            controls=controls,
+            timeout=self.timeout,
+        )
+        if LDAP_AddResponse not in resp.protocolOp or resp.protocolOp.resultCode != 0:
+            raise LDAP_Exception(
+                "LDAP add failed !",
+                resp=resp,
+            )
+
+    def modifydn(
+        self,
+        entry: str,
+        newdn: str,
+        deleteoldrdn=True,
+        controls: List[LDAP_Control] = [],
+    ):
+        """
+        Perform a LDAP modify DN request.
+
+        ..note:: This functions calculates the relative DN and superior required for
+            LDAP ModifyDN automatically.
+
+        :param entry: the DN of the entry to rename.
+        :param newdn: the new FULL DN of the entry.
+        :returns:
+        """
+        # RFC4511 sect 4.9
+        # Calculate the newrdn (relative DN) and superior
+        newrdn, newSuperior = newdn.split(",", 1)
+        _, cur_superior = entry.split(",", 1)
+        # If the superior hasn't changed, don't update it.
+        if cur_superior == newSuperior:
+            newSuperior = None
+        # Send the request
+        resp = self.sr1(
+            LDAP_ModifyDNRequest(
+                entry=entry,
+                newrdn=newrdn,
+                newSuperior=newSuperior,
+                deleteoldrdn=deleteoldrdn,
+            ),
+            controls=controls,
+            timeout=self.timeout,
+        )
+        if (
+            LDAP_ModifyDNResponse not in resp.protocolOp
+            or resp.protocolOp.resultCode != 0
+        ):
+            raise LDAP_Exception(
+                "LDAP modify failed !",
+                resp=resp,
+            )
 
     def close(self):
         if self.verb:
             print("X Connection closed\n")
         self.sock.close()
+        self.bound = False

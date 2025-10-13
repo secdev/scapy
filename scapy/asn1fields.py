@@ -513,7 +513,12 @@ class ASN1F_SET(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_UNIVERSAL.SET
 
 
-_SEQ_T = Union['ASN1_Packet', Type[ASN1F_field[Any, Any]], 'ASN1F_PACKET']
+_SEQ_T = Union[
+    'ASN1_Packet',
+    Type[ASN1F_field[Any, Any]],
+    'ASN1F_PACKET',
+    ASN1F_field[Any, Any],
+]
 
 
 class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
@@ -533,10 +538,13 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
                  explicit_tag=None,  # type: Optional[Any]
                  ):
         # type: (...) -> None
-        if isinstance(cls, type) and issubclass(cls, ASN1F_field):
-            self.fld = cls
-            self._extract_packet = lambda s, pkt: self.fld(
-                self.name, b"").m2i(pkt, s)
+        if isinstance(cls, type) and issubclass(cls, ASN1F_field) or \
+                isinstance(cls, ASN1F_field):
+            if isinstance(cls, type):
+                self.fld = cls(name, b"")
+            else:
+                self.fld = cls
+            self._extract_packet = lambda s, pkt: self.fld.m2i(pkt, s)
             self.holds_packets = 0
         elif hasattr(cls, "ASN1_root") or callable(cls):
             self.cls = cast("Type[ASN1_Packet]", cls)
@@ -594,12 +602,23 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
             s = b"".join(raw(i) for i in val)
         return self.i2m(pkt, s)
 
+    def i2repr(self, pkt, x):
+        # type: (ASN1_Packet, _I) -> str
+        if self.holds_packets:
+            return super(ASN1F_SEQUENCE_OF, self).i2repr(pkt, x)  # type: ignore
+        elif x is None:
+            return "[]"
+        else:
+            return "[%s]" % ", ".join(
+                self.fld.i2repr(pkt, x) for x in x  # type: ignore
+            )
+
     def randval(self):
         # type: () -> Any
         if self.holds_packets:
             return packet.fuzz(self.cls())
         else:
-            return self.fld(self.name, b"").randval()
+            return self.fld.randval()
 
     def __repr__(self):
         # type: () -> str
@@ -951,3 +970,51 @@ class ASN1F_FLAGS(ASN1F_BIT_STRING):
             pretty_s = ", ".join(self.get_flags(pkt))
             return pretty_s + " " + repr(x)
         return repr(x)
+
+
+class ASN1F_STRING_PacketField(ASN1F_STRING):
+    """
+    ASN1F_STRING that holds packets.
+    """
+    holds_packets = 1
+
+    def i2m(self, pkt, val):
+        # type: (ASN1_Packet, Any) -> bytes
+        if hasattr(val, "ASN1_root"):
+            val = ASN1_STRING(bytes(val))
+        return super(ASN1F_STRING_PacketField, self).i2m(pkt, val)
+
+    def any2i(self, pkt, x):
+        # type: (ASN1_Packet, Any) -> Any
+        if hasattr(x, "add_underlayer"):
+            x.add_underlayer(pkt)
+        return super(ASN1F_STRING_PacketField, self).any2i(pkt, x)
+
+
+class ASN1F_STRING_ENCAPS(ASN1F_STRING_PacketField):
+    """
+    ASN1F_STRING that encapsulates a single ASN1 packet.
+    """
+
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: Optional[ASN1_Packet]
+                 cls,  # type: Type[ASN1_Packet]
+                 context=None,  # type: Optional[Any]
+                 implicit_tag=None,  # type: Optional[int]
+                 explicit_tag=None,  # type: Optional[int]
+                 ):
+        # type: (...) -> None
+        self.cls = cls
+        super(ASN1F_STRING_ENCAPS, self).__init__(
+            name,
+            default and bytes(default),  # type: ignore
+            context=context,
+            implicit_tag=implicit_tag,
+            explicit_tag=explicit_tag
+        )
+
+    def m2i(self, pkt, s):  # type: ignore
+        # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Packet, bytes]
+        val = super(ASN1F_STRING_ENCAPS, self).m2i(pkt, s)
+        return self.cls(val[0].val, _underlayer=pkt), val[1]

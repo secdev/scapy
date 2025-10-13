@@ -35,12 +35,14 @@ from scapy.error import (
 )
 from scapy.interfaces import NetworkInterface, InterfaceProvider, \
     dev_from_index, resolve_iface, network_name
-from scapy.pton_ntop import inet_ntop, inet_pton
-from scapy.utils import atol, itom, mac2str, str2mac
+from scapy.pton_ntop import inet_ntop
+from scapy.utils import atol, itom, str2mac
 from scapy.utils6 import construct_source_candidate_set, in6_getscope
-from scapy.data import ARPHDR_ETHER, load_manuf
 from scapy.compat import plain_str
 from scapy.supersocket import SuperSocket
+
+# re-export
+from scapy.arch.common import get_if_raw_addr  # noqa: F401
 
 # Typing imports
 from typing import (
@@ -68,6 +70,7 @@ from scapy.arch.libpcap import (  # noqa: E402
 
 # Detection happens after libpcap import (NPcap detection)
 NPCAP_LOOPBACK_NAME = r"\Device\NPF_Loopback"
+NPCAP_LOOPBACK_NAME_LEGACY = "Npcap Loopback Adapter"  # before npcap 0.9983
 if conf.use_npcap:
     conf.loopback_name = NPCAP_LOOPBACK_NAME
 else:
@@ -202,20 +205,6 @@ class WinProgPath(ProgPath):
         )
         self.cmd = win_find_exe("cmd", installsubdir="System32",
                                 env="SystemRoot")
-        if self.wireshark:
-            try:
-                new_manuf = load_manuf(
-                    os.path.sep.join(
-                        self.wireshark.split(os.path.sep)[:-1]
-                    ) + os.path.sep + "manuf"
-                )
-            except (IOError, OSError):  # FileNotFoundError not available on Py2 - using OSError  # noqa: E501
-                log_loading.warning("Wireshark is installed, but cannot read manuf !")  # noqa: E501
-                new_manuf = None
-            if new_manuf:
-                # Inject new ManufDB
-                conf.manufdb.__dict__.clear()
-                conf.manufdb.__dict__.update(new_manuf.__dict__)
 
 
 def _exec_cmd(command):
@@ -307,6 +296,7 @@ def get_windows_if_list(extended=False):
             "description": plain_str(x["description"]),
             "guid": plain_str(x["adapter_name"]),
             "mac": _get_mac(x),
+            "type": x["interface_type"],
             "ipv4_metric": 0 if WINDOWS_XP else x["ipv4_metric"],
             "ipv6_metric": 0 if WINDOWS_XP else x["ipv6_metric"],
             "ips": _get_ips(x),
@@ -353,7 +343,7 @@ class NetworkInterface_Win(NetworkInterface):
 
         try:
             # Npcap loopback interface
-            if conf.use_npcap and self.network_name == NPCAP_LOOPBACK_NAME:
+            if conf.use_npcap and self.network_name == conf.loopback_name:
                 # https://nmap.org/npcap/guide/npcap-devguide.html
                 data["mac"] = "00:00:00:00:00:00"
                 data["ip"] = "127.0.0.1"
@@ -613,14 +603,20 @@ class WindowsInterfacesProvider(InterfaceProvider):
             # Try a restart
             WindowsInterfacesProvider._pcap_check()
 
+        legacy_npcap_guid = None
         windows_interfaces = dict()
         for i in get_windows_if_list():
-            # Detect Loopback interface
-            if "Loopback" in i['name']:
-                i['name'] = conf.loopback_name
+            # Only consider interfaces with a GUID
             if i['guid']:
-                if conf.use_npcap and i['name'] == conf.loopback_name:
-                    i['guid'] = NPCAP_LOOPBACK_NAME
+                if conf.use_npcap:
+                    # Detect the legacy Loopback interface
+                    if i['name'] == NPCAP_LOOPBACK_NAME_LEGACY:
+                        # Legacy Npcap (<0.9983)
+                        legacy_npcap_guid = i['guid']
+                    elif "Loopback" in i['name']:
+                        # Newer Npcap
+                        i['guid'] = conf.loopback_name
+                # Map interface
                 windows_interfaces[i['guid']] = i
 
         def iterinterfaces() -> Iterator[
@@ -630,14 +626,18 @@ class WindowsInterfacesProvider(InterfaceProvider):
                 # We have a libpcap provider: enrich pcap interfaces with
                 # Windows data
                 for netw, if_data in conf.cache_pcapiflist.items():
-                    name, ips, flags, _ = if_data
+                    name, ips, flags, _, _ = if_data
                     guid = _pcapname_to_guid(netw)
+                    if guid == legacy_npcap_guid:
+                        # Legacy Npcap detected !
+                        conf.loopback_name = netw
                     data = windows_interfaces.get(guid, None)
                     yield netw, name, ips, flags, guid, data
             else:
                 # We don't have a libpcap provider: only use Windows data
                 for guid, data in windows_interfaces.items():
-                    yield guid, None, [], 0, guid, data
+                    netw = r'\Device\NPF_' + guid if guid[0] != '\\' else guid
+                    yield netw, None, [], 0, guid, data
 
         index = 0
         for netw, name, ips, flags, guid, data in iterinterfaces():
@@ -705,15 +705,6 @@ def get_ips(v6=False):
     return res
 
 
-def get_if_raw_addr(iff):
-    # type: (Union[NetworkInterface, str]) -> bytes
-    """Return the raw IPv4 address of interface"""
-    iff = resolve_iface(iff)
-    if not iff.ip:
-        return b"\x00" * 4
-    return inet_pton(socket.AF_INET, iff.ip)
-
-
 def get_ip_from_name(ifname, v6=False):
     # type: (str, bool) -> str
     """Backward compatibility: indirectly calls get_ips
@@ -766,7 +757,7 @@ def pcap_service_stop(askadmin=True):
 if conf.use_pcap:
     _orig_open_pcap = libpcap.open_pcap
 
-    def open_pcap(iface,  # type: Union[str, NetworkInterface]
+    def open_pcap(device,  # type: Union[str, NetworkInterface]
                   *args,  # type: Any
                   **kargs  # type: Any
                   ):
@@ -774,7 +765,7 @@ if conf.use_pcap:
         """open_pcap: Windows routine for creating a pcap from an interface.
         This function is also responsible for detecting monitor mode.
         """
-        iface = cast(NetworkInterface_Win, resolve_iface(iface))
+        iface = cast(NetworkInterface_Win, resolve_iface(device))
         iface_network_name = iface.network_name
         if not iface:
             raise Scapy_Exception(
@@ -792,12 +783,6 @@ if conf.use_pcap:
                 iface.setmonitor(kw_monitor)
         return _orig_open_pcap(iface_network_name, *args, **kargs)
     libpcap.open_pcap = open_pcap  # type: ignore
-
-
-def get_if_raw_hwaddr(iface):
-    # type: (Union[NetworkInterface, str]) -> Tuple[int, bytes]
-    _iface = resolve_iface(iface)
-    return ARPHDR_ETHER, _iface.mac and mac2str(_iface.mac) or b"\x00" * 6
 
 
 def _read_routes_c_v1():
@@ -1041,7 +1026,7 @@ class _NotAvailableSocket(SuperSocket):
         # type: (*Any, **Any) -> None
         raise RuntimeError(
             "Sniffing and sending packets is not available at layer 2: "
-            "winpcap is not installed. You may use conf.L3socket or"
+            "winpcap is not installed. You may use conf.L3socket or "
             "conf.L3socket6 to access layer 3"
         )
 

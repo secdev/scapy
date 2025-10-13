@@ -126,11 +126,11 @@ class run_smbserver:
 
 # define client
 
-def run_smbclient():
-   return smbclient("localhost", "guest", port=12345, guest=True, cli=False, debug=4)
+def run_smbclient(max_dialect=0x0202):
+   return smbclient("localhost", "guest", port=12345, guest=True, cli=False, debug=4, MAX_DIALECT=max_dialect)
 
 
-= smbclient: connect then list shares
+= smbclient: SMB 2.0.2 - connect then list shares
 
 with run_smbserver():
    try:
@@ -142,7 +142,7 @@ with run_smbserver():
    finally:
       cli.close()
 
-= smbclient: connect to test share and list files
+= smbclient: SMB 2.0.2 - connect to test share and list files
 
 with run_smbserver():
    try:
@@ -154,7 +154,7 @@ with run_smbserver():
    finally:
       cli.close()
 
-= smbclient: connect to test share and get file
+= smbclient: SMB 2.0.2 - connect to test share and get file
 
 LOCALPATH = pathlib.Path(get_temp_dir())
 
@@ -171,7 +171,7 @@ with run_smbserver():
    finally:
       cli.close()
 
-= smbclient: connect to test share, cd, put file and cat it
+= smbclient: SMB 2.0.2 - connect to test share, cd, put file and cat it
 
 LOCALPATH = pathlib.Path(get_temp_dir())
 with (LOCALPATH / "fileC").open("w") as fd:
@@ -197,13 +197,33 @@ with run_smbserver():
       cli.close()
 
 
-= smbclient: connect to test share and recursive get
+= smbclient: SMB 2.0.2 - connect to test share and recursive get
 
 LOCALPATH = pathlib.Path(get_temp_dir())
 
 with run_smbserver():
    try:
       cli = run_smbclient()
+      cli.use("test")
+      cli.lcd(str(LOCALPATH))
+      cli.get(".", r=True)
+      # check on disk
+   finally:
+      cli.close()
+
+assert (LOCALPATH / "fileA").exists()
+assert (LOCALPATH / "fileB").exists()
+assert (LOCALPATH / "fileScapy").exists()
+assert (LOCALPATH / "sub").exists()
+assert (LOCALPATH / "sub" / "secret").exists()
+
+= smbclient: SMB 3.1.1 - connect to test share and recursive get
+
+LOCALPATH = pathlib.Path(get_temp_dir())
+
+with run_smbserver():
+   try:
+      cli = run_smbclient(max_dialect=0x0311)
       cli.use("test")
       cli.lcd(str(LOCALPATH))
       cli.get(".", r=True)
@@ -239,26 +259,31 @@ with (ROOTPATH / "fileScapy").open("w") as fd:
    fd.write("Nice\nData")
 
 class run_smbserver:
-   def __init__(self, guest=False):
+   def __init__(self, guest=False, readonly=True, encryptshare=False, MAX_DIALECT=0x311):
       self.srv = None
       self.guest = guest
+      self.readonly = readonly
+      self.encryptshare = encryptshare
+      self.MAX_DIALECT = MAX_DIALECT
    
    def __enter__(self):
       if self.guest:
-         IDENTITIES = None
+         ssp = None
       else:
-         IDENTITIES = {
+         ssp = SPNEGOSSP([NTLMSSP(IDENTITIES={
             "User1": MD4le("Password1"),
             "Administrator": MD4le("Password2")
-         }
+         })])
       self.srv = smbserver(
-         shares=[SMBShare("Scapy", ROOTPATH), SMBShare("test", ROOTPATH)],
+         shares=[SMBShare("Scapy", ROOTPATH, encryptdata=self.encryptshare),
+                 SMBShare("test",  ROOTPATH, encryptdata=self.encryptshare)],
          iface=conf.loopback_name,
          debug=4,
          port=12345,
          bg=True,
-         # NTLMSSP
-         IDENTITIES=IDENTITIES,
+         readonly=self.readonly,
+         MAX_DIALECT=self.MAX_DIALECT,
+         ssp=ssp,
       )
    
    def __exit__(self, exc_type, exc_value, traceback):
@@ -268,7 +293,7 @@ class run_smbserver:
 # define client
 
 class run_smbclient:
-   def __init__(self, user=None, password=None, share=None, list=False, cwd=None, debug=None, maxversion=None):
+   def __init__(self, user=None, password=None, share=None, list=False, cwd=None, debug=None, maxversion=None, encrypt=False):
       args = [
          "smbclient",
       ] + (["-L"] if list else []) + [
@@ -286,6 +311,8 @@ class run_smbclient:
          args.append("-N")
       if maxversion:
          args.extend(["-m", maxversion])
+      if encrypt:
+         args.extend(["--client-protection", "encrypt"])
       self.args = args
       self.proc = subprocess.Popen(
          args,
@@ -313,6 +340,8 @@ class run_smbclient:
       print("smbclient arguments:", self.args)
       print("smbclient output:")
       print(self.output)
+
+cli = None
 
 = smbserver: SMB 3.1.1 - connect then list shares
 
@@ -374,6 +403,78 @@ with run_smbserver():
       assert (LOCALPATH / "fileScapy").exists(), "file doesn't exist"
       with (LOCALPATH / "fileScapy").open("r") as fd:
          assert fd.read() == "Nice\nData", "invalid data"
+   except Exception:
+      cli.printdebug()
+      raise
+   finally:
+      cli.close()
+
+= smbserver: SMB 3.1.1 - connect then put file
+
+LOCALPATH = pathlib.Path(get_temp_dir())
+
+nicedata = ("A" * 100 + "\n") * 5
+with open(LOCALPATH / "newCustomFile", "w") as fd:
+    fd.write(nicedata)
+
+with run_smbserver(readonly=False):
+   try:
+      cli = run_smbclient(user="Administrator", password="Password2", share="test", cwd=LOCALPATH)
+      cli.cmd("put newCustomFile")
+      output = cli.getoutput()
+      print(output)
+      assert "putting file newCustomFile" in output[0], "strange output"
+      assert (ROOTPATH / "newCustomFile").exists(), "file doesn't exist"
+      with (ROOTPATH / "newCustomFile").open("r") as fd:
+         assert fd.read() == nicedata, "invalid data"
+   except Exception:
+      cli.printdebug()
+      raise
+   finally:
+      cli.close()
+
+= smbserver: SMB 3.0.2 - require global encryption
+
+LOCALPATH = pathlib.Path(get_temp_dir())
+
+nicedata = ("A" * 100 + "\n") * 5
+with open(LOCALPATH / "newCustomFile", "w") as fd:
+    fd.write(nicedata)
+
+with run_smbserver(readonly=False, MAX_DIALECT=0x0302):
+   try:
+      cli = run_smbclient(user="Administrator", password="Password2", share="test", cwd=LOCALPATH, encrypt=True)
+      cli.cmd("put newCustomFile")
+      output = cli.getoutput()
+      print(output)
+      assert "putting file newCustomFile" in output[0], "strange output"
+      assert (ROOTPATH / "newCustomFile").exists(), "file doesn't exist"
+      with (ROOTPATH / "newCustomFile").open("r") as fd:
+         assert fd.read() == nicedata, "invalid data"
+   except Exception:
+      cli.printdebug()
+      raise
+   finally:
+      cli.close()
+
+= smbserver: SMB 3.1.1 - require share encryption
+
+LOCALPATH = pathlib.Path(get_temp_dir())
+
+nicedata = ("A" * 100 + "\n") * 5
+with open(LOCALPATH / "newCustomFile", "w") as fd:
+    fd.write(nicedata)
+
+with run_smbserver(readonly=False, encryptshare=True):
+   try:
+      cli = run_smbclient(user="Administrator", password="Password2", share="test", cwd=LOCALPATH)
+      cli.cmd("put newCustomFile")
+      output = cli.getoutput()
+      print(output)
+      assert "putting file newCustomFile" in output[0], "strange output"
+      assert (ROOTPATH / "newCustomFile").exists(), "file doesn't exist"
+      with (ROOTPATH / "newCustomFile").open("r") as fd:
+         assert fd.read() == nicedata, "invalid data"
    except Exception:
       cli.printdebug()
       raise

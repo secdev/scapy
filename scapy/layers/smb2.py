@@ -11,12 +11,14 @@ SMB (Server Message Block), also known as CIFS - version 2
     `SMB <https://scapy.readthedocs.io/en/latest/layers/smb.html>`_
 """
 
-import os
 import collections
 import functools
 import hashlib
+import os
+import re
 import struct
 
+from scapy.automaton import select_objects
 from scapy.config import conf, crypto_validator
 from scapy.error import log_runtime
 from scapy.packet import Packet, bind_layers, bind_top_down
@@ -30,7 +32,6 @@ from scapy.fields import (
     FlagsField,
     IP6Field,
     IPField,
-    IntEnumField,
     IntField,
     LEIntField,
     LEIntEnumField,
@@ -60,6 +61,7 @@ from scapy.fields import (
     XLEShortField,
     XStrLenField,
     XStrFixedLenField,
+    YesNoByteField,
 )
 from scapy.sessions import DefaultSession
 from scapy.supersocket import StreamSocket
@@ -90,14 +92,25 @@ SMB_DIALECTS = {
 # SMB2 sect 3.3.5.15 + [MS-ERREF]
 STATUS_ERREF = {
     0x00000000: "STATUS_SUCCESS",
+    0x00000002: "ERROR_FILE_NOT_FOUND",
+    0x00000005: "ERROR_ACCESS_DENIED",
     0x00000103: "STATUS_PENDING",
     0x0000010B: "STATUS_NOTIFY_CLEANUP",
     0x0000010C: "STATUS_NOTIFY_ENUM_DIR",
     0x00000532: "ERROR_PASSWORD_EXPIRED",
     0x00000533: "ERROR_ACCOUNT_DISABLED",
+    0x000006FE: "ERROR_TRUST_FAILURE",
     0x80000005: "STATUS_BUFFER_OVERFLOW",
     0x80000006: "STATUS_NO_MORE_FILES",
     0x8000002D: "STATUS_STOPPED_ON_SYMLINK",
+    0x80070005: "E_ACCESSDENIED",
+    0x8007000E: "E_OUTOFMEMORY",
+    0x80090308: "SEC_E_INVALID_TOKEN",
+    0x8009030C: "SEC_E_LOGON_DENIED",
+    0x8009030F: "SEC_E_MESSAGE_ALTERED",
+    0x80090310: "SEC_E_OUT_OF_SEQUENCE",
+    0x80090346: "SEC_E_BAD_BINDINGS",
+    0x80090351: "SEC_E_SMARTCARD_CERT_REVOKED",
     0xC0000003: "STATUS_INVALID_INFO_CLASS",
     0xC0000004: "STATUS_INFO_LENGTH_MISMATCH",
     0xC000000D: "STATUS_INVALID_PARAMETER",
@@ -107,7 +120,11 @@ STATUS_ERREF = {
     0xC0000033: "STATUS_OBJECT_NAME_INVALID",
     0xC0000034: "STATUS_OBJECT_NAME_NOT_FOUND",
     0xC0000043: "STATUS_SHARING_VIOLATION",
+    0xC0000061: "STATUS_PRIVILEGE_NOT_HELD",
+    0xC0000064: "STATUS_NO_SUCH_USER",
     0xC000006D: "STATUS_LOGON_FAILURE",
+    0xC000006E: "STATUS_ACCOUNT_RESTRICTION",
+    0xC0000070: "STATUS_INVALID_WORKSTATION",
     0xC0000071: "STATUS_PASSWORD_EXPIRED",
     0xC0000072: "STATUS_ACCOUNT_DISABLED",
     0xC000009A: "STATUS_INSUFFICIENT_RESOURCES",
@@ -116,8 +133,10 @@ STATUS_ERREF = {
     0xC00000C9: "STATUS_NETWORK_NAME_DELETED",
     0xC00000CC: "STATUS_BAD_NETWORK_NAME",
     0xC0000120: "STATUS_CANCELLED",
+    0xC0000122: "STATUS_INVALID_COMPUTER_NAME",
     0xC0000128: "STATUS_FILE_CLOSED",  # backup error for older Win versions
     0xC000015B: "STATUS_LOGON_TYPE_NOT_GRANTED",
+    0xC000018B: "STATUS_NO_TRUST_SAM_ACCOUNT",
     0xC000019C: "STATUS_FS_DRIVER_REQUIRED",
     0xC0000203: "STATUS_USER_SESSION_DELETED",
     0xC000020C: "STATUS_CONNECTION_DISCONNECTED",
@@ -257,6 +276,11 @@ SMB2_SIGNING_ALGORITHMS = {
     0x0002: "AES-GMAC",
 }
 
+# [MS-SMB2] sect 2.2.3.1.1
+SMB2_HASH_ALGORITHMS = {
+    0x0001: "SHA-512",
+}
+
 # sect [MS-SMB2] 2.2.13.1.1
 SMB2_ACCESS_FLAGS_FILE = {
     0x00000001: "FILE_READ_DATA",
@@ -351,6 +375,7 @@ FileInformationClasses = {
     0x06: "FileInternalInformation",
     0x07: "FileEaInformation",
     0x08: "FileAccessInformation",
+    0x0A: "FileRenameInformation",
     0x0E: "FilePositionInformation",
     0x10: "FileModeInformation",
     0x11: "FileAlignmentInformation",
@@ -362,6 +387,7 @@ FileInformationClasses = {
     0x30: "FileNormalizedNameInformation",
     0x3C: "FileIdExtdDirectoryInformation",
 }
+_FileInformationClasses = {}
 
 
 # [MS-FSCC] 2.1.7 FILE_NAME_INFORMATION
@@ -682,6 +708,33 @@ class FilePositionInformation(Packet):
         return conf.padding_layer
 
 
+# [MS-FSCC] 2.4.37 FileRenameInformation
+
+
+class FileRenameInformation(Packet):
+    fields_desc = [
+        YesNoByteField("ReplaceIfExists", False),
+        XStrFixedLenField("Reserved", b"", length=7),
+        LELongField("RootDirectory", 0),
+        FieldLenField("FileNameLength", 0, length_of="FileName", fmt="<I"),
+        StrLenFieldUtf16("FileName", b"", length_from=lambda pkt: pkt.FileNameLength),
+    ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        if len(pkt) < 24:
+            # 'Length of this field MUST be the number of bytes required to make the
+            # size of this structure at least 24.'
+            pkt += (24 - len(pkt)) * b"\x00"
+        return pkt + pay
+
+    def default_payload_class(self, s):
+        return conf.padding_layer
+
+
+_FileInformationClasses[0x0A] = FileRenameInformation
+
+
 # [MS-FSCC] 2.4.41 FileStandardInformation
 
 
@@ -719,7 +772,7 @@ class FileStreamInformation(Packet):
 
 class WINNT_SID_IDENTIFIER_AUTHORITY(Packet):
     fields_desc = [
-        StrFixedLenField("Value", b"", length=6),
+        StrFixedLenField("Value", b"\x00\x00\x00\x00\x00\x01", length=6),
     ]
 
     def default_payload_class(self, payload):
@@ -740,7 +793,7 @@ class WINNT_SID(Packet):
         ),
         FieldListField(
             "SubAuthority",
-            [],
+            [0],
             LEIntField("", 0),
             count_from=lambda pkt: pkt.SubAuthorityCount,
         ),
@@ -749,14 +802,109 @@ class WINNT_SID(Packet):
     def default_payload_class(self, payload):
         return conf.padding_layer
 
+    _SID_REG = re.compile(r"^S-(\d)-(\d+)((?:-\d+)*)$")
+
+    @staticmethod
+    def fromstr(x):
+        m = WINNT_SID._SID_REG.match(x)
+        if not m:
+            raise ValueError("Invalid SID format !")
+        rev, authority, subauthority = m.groups()
+        return WINNT_SID(
+            Revision=int(rev),
+            IdentifierAuthority=WINNT_SID_IDENTIFIER_AUTHORITY(
+                Value=struct.pack(">Q", int(authority))[2:]
+            ),
+            SubAuthority=[int(x) for x in subauthority[1:].split("-")],
+        )
+
     def summary(self):
         return "S-%s-%s%s" % (
             self.Revision,
             struct.unpack(">Q", b"\x00\x00" + self.IdentifierAuthority.Value)[0],
-            ("-%s" % "-".join(str(x) for x in self.SubAuthority))
-            if self.SubAuthority
-            else "",
+            (
+                ("-%s" % "-".join(str(x) for x in self.SubAuthority))
+                if self.SubAuthority
+                else ""
+            ),
         )
+
+
+# https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-identifiers
+
+WELL_KNOWN_SIDS = {
+    # Universal well-known SID
+    "S-1-0-0": "Null SID",
+    "S-1-1-0": "Everyone",
+    "S-1-2-0": "Local",
+    "S-1-2-1": "Console Logon",
+    "S-1-3-0": "Creator Owner ID",
+    "S-1-3-1": "Creator Group ID",
+    "S-1-3-2": "Owner Server",
+    "S-1-3-3": "Group Server",
+    "S-1-3-4": "Owner Rights",
+    "S-1-4": "Non-unique Authority",
+    "S-1-5": "NT Authority",
+    "S-1-5-80-0": "All Services",
+    # NT well-known SIDs
+    "S-1-5-1": "Dialup",
+    "S-1-5-113": "Local account",
+    "S-1-5-114": "Local account and member of Administrators group",
+    "S-1-5-2": "Network",
+    "S-1-5-3": "Batch",
+    "S-1-5-4": "Interactive",
+    "S-1-5-6": "Service",
+    "S-1-5-7": "Anonymous Logon",
+    "S-1-5-8": "Proxy",
+    "S-1-5-9": "Enterprise Domain Controllers",
+    "S-1-5-10": "Self",
+    "S-1-5-11": "Authenticated Users",
+    "S-1-5-12": "Restricted Code",
+    "S-1-5-13": "Terminal Server User",
+    "S-1-5-14": "Remote Interactive Logon",
+    "S-1-5-15": "This Organization",
+    "S-1-5-17": "IUSR",
+    "S-1-5-18": "System (or LocalSystem)",
+    "S-1-5-19": "NT Authority (LocalService)",
+    "S-1-5-20": "Network Service",
+    "S-1-5-32-544": "Administrators",
+    "S-1-5-32-545": "Users",
+    "S-1-5-32-546": "Guests",
+    "S-1-5-32-547": "Power Users",
+    "S-1-5-32-548": "Account Operators",
+    "S-1-5-32-549": "Server Operators",
+    "S-1-5-32-550": "Print Operators",
+    "S-1-5-32-551": "Backup Operators",
+    "S-1-5-32-552": "Replicators",
+    "S-1-5-32-554": r"Builtin\Pre-Windows 2000 Compatible Access",
+    "S-1-5-32-555": r"Builtin\Remote Desktop Users",
+    "S-1-5-32-556": r"Builtin\Network Configuration Operators",
+    "S-1-5-32-557": r"Builtin\Incoming Forest Trust Builders",
+    "S-1-5-32-558": r"Builtin\Performance Monitor Users",
+    "S-1-5-32-559": r"Builtin\Performance Log Users",
+    "S-1-5-32-560": r"Builtin\Windows Authorization Access Group",
+    "S-1-5-32-561": r"Builtin\Terminal Server License Servers",
+    "S-1-5-32-562": r"Builtin\Distributed COM Users",
+    "S-1-5-32-568": r"Builtin\IIS_IUSRS",
+    "S-1-5-32-569": r"Builtin\Cryptographic Operators",
+    "S-1-5-32-573": r"Builtin\Event Log Readers",
+    "S-1-5-32-574": r"Builtin\Certificate Service DCOM Access",
+    "S-1-5-32-575": r"Builtin\RDS Remote Access Servers",
+    "S-1-5-32-576": r"Builtin\RDS Endpoint Servers",
+    "S-1-5-32-577": r"Builtin\RDS Management Servers",
+    "S-1-5-32-578": r"Builtin\Hyper-V Administrators",
+    "S-1-5-32-579": r"Builtin\Access Control Assistance Operators",
+    "S-1-5-32-580": r"Builtin\Remote Management Users",
+    "S-1-5-32-581": r"Builtin\Default Account",
+    "S-1-5-32-582": r"Builtin\Storage Replica Admins",
+    "S-1-5-32-583": r"Builtin\Device Owners",
+    "S-1-5-64-10": "NTLM Authentication",
+    "S-1-5-64-14": "SChannel Authentication",
+    "S-1-5-64-21": "Digest Authentication",
+    "S-1-5-80": "NT Service",
+    "S-1-5-80-0": "All Services",
+    "S-1-5-83-0": r"NT VIRTUAL MACHINE\Virtual Machines",
+}
 
 
 # [MS-DTYP] sect 2.4.3
@@ -777,6 +925,17 @@ _WINNT_ACCESS_MASK = {
 
 
 # [MS-DTYP] sect 2.4.4.1
+
+
+WINNT_ACE_FLAGS = {
+    0x01: "OBJECT_INHERIT",
+    0x02: "CONTAINER_INHERIT",
+    0x04: "NO_PROPAGATE_INHERIT",
+    0x08: "INHERIT_ONLY",
+    0x10: "INHERITED_ACE",
+    0x40: "SUCCESSFUL_ACCESS",
+    0x80: "FAILED_ACCESS",
+}
 
 
 class WINNT_ACE_HEADER(Packet):
@@ -811,15 +970,7 @@ class WINNT_ACE_HEADER(Packet):
             "AceFlags",
             0,
             8,
-            {
-                0x01: "OBJECT_INHERIT",
-                0x02: "CONTAINER_INHERIT",
-                0x04: "NO_PROPAGATE_INHERIT",
-                0x08: "INHERIT_ONLY",
-                0x10: "INHERITED_ACE",
-                0x40: "SUCCESSFUL_ACCESS",
-                0x80: "FAILED_ACCESS",
-            },
+            WINNT_ACE_FLAGS,
         ),
         LenField("AceSize", None, fmt="<H", adjust=lambda x: x + 4),
     ]
@@ -828,22 +979,23 @@ class WINNT_ACE_HEADER(Packet):
         return p[: self.AceSize - 4], p[self.AceSize - 4 :]
 
     # fmt: off
-    def toSDDL(self):
+    def extractData(self, accessMask=None):
         """
-        Return SDDL
+        Return the ACE data as usable data.
+
+        :param accessMask: context-specific flags for the ACE Mask.
         """
-        sid = self.payload.Sid.summary()
+        sid_string = self.payload.Sid.summary()
+        mask = self.payload.Mask
+        if accessMask is not None:
+            mask = FlagValue(mask, FlagsField("", 0, 32, accessMask).names)
         ace_flag_string = str(
-            FlagValue(
-                self.AceFlags,
-                ["OI", "CI", "NP", "IO", "ID", "SA", "FA"]
-            )
+            FlagValue(self.AceFlags, ["OI", "CI", "NP", "IO", "ID", "SA", "FA"])
         )
-        ace_rights = ""  # TODO
-        object_guid = ""  # TODO
-        inherit_object_guid = ""  # TODO
+        object_guid = getattr(self.payload, "ObjectType", "")
+        inherit_object_guid = getattr(self.payload, "InheritedObjectType", "")
         # ApplicationData -> conditional expression
-        condexpr = ""
+        cond_expr = None
         if hasattr(self.payload, "ApplicationData"):
             # Parse tokens
             res = []
@@ -886,7 +1038,23 @@ class WINNT_ACE_HEADER(Packet):
                     raise ValueError("Unhandled token type %s" % ct.TokenType)
             if len(res) != 1:
                 raise ValueError("Incomplete SDDL !")
-            condexpr = ";(%s)" % res[0]
+            cond_expr = "(%s)" % res[0]
+        return {
+            "ace-flags-string": ace_flag_string,
+            "sid-string": sid_string,
+            "mask": mask,
+            "object-guid": object_guid,
+            "inherited-object-guid": inherit_object_guid,
+            "cond-expr": cond_expr,
+        }
+    # fmt: on
+
+    def toSDDL(self, accessMask=None):
+        """
+        Return SDDL
+        """
+        data = self.extractData(accessMask=accessMask)
+        ace_rights = ""  # TODO
         if self.AceType in [0x9, 0xA, 0xB, 0xD]:  # Conditional ACE
             conditional_ace_type = {
                 0x09: "XA",
@@ -895,14 +1063,19 @@ class WINNT_ACE_HEADER(Packet):
                 0x0D: "ZA",
             }[self.AceType]
             return "D:(%s)" % (
-                ";".join([
-                    conditional_ace_type,
-                    ace_flag_string,
-                    ace_rights,
-                    object_guid,
-                    inherit_object_guid,
-                    sid
-                ]) + condexpr
+                ";".join(
+                    x
+                    for x in [
+                        conditional_ace_type,
+                        data["ace-flags-string"],
+                        ace_rights,
+                        str(data["object-guid"]),
+                        str(data["inherited-object-guid"]),
+                        data["sid-string"],
+                        data["cond-expr"],
+                    ]
+                    if x is not None
+                )
             )
         else:
             ace_type = {
@@ -916,18 +1089,20 @@ class WINNT_ACE_HEADER(Packet):
                 0x13: "SP",
             }[self.AceType]
             return "(%s)" % (
-                ";".join([
-                    ace_type,
-                    ace_flag_string,
-                    ace_rights,
-                    object_guid,
-                    inherit_object_guid,
-                    sid
-                ]) + condexpr
+                ";".join(
+                    x
+                    for x in [
+                        ace_type,
+                        data["ace-flags-string"],
+                        ace_rights,
+                        str(data["object-guid"]),
+                        str(data["inherited-object-guid"]),
+                        data["sid-string"],
+                        data["cond-expr"],
+                    ]
+                    if x is not None
+                )
             )
-
-
-# fmt: on
 
 
 # [MS-DTYP] sect 2.4.4.2
@@ -943,6 +1118,36 @@ class WINNT_ACCESS_ALLOWED_ACE(Packet):
 bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_ALLOWED_ACE, AceType=0x00)
 
 
+# [MS-DTYP] sect 2.4.4.3
+
+
+class WINNT_ACCESS_ALLOWED_OBJECT_ACE(Packet):
+    fields_desc = [
+        FlagsField("Mask", 0, -32, _WINNT_ACCESS_MASK),
+        FlagsField(
+            "Flags",
+            0,
+            -32,
+            {
+                0x00000001: "OBJECT_TYPE_PRESENT",
+                0x00000002: "INHERITED_OBJECT_TYPE_PRESENT",
+            },
+        ),
+        ConditionalField(
+            UUIDField("ObjectType", None, uuid_fmt=UUIDField.FORMAT_LE),
+            lambda pkt: pkt.Flags.OBJECT_TYPE_PRESENT,
+        ),
+        ConditionalField(
+            UUIDField("InheritedObjectType", None, uuid_fmt=UUIDField.FORMAT_LE),
+            lambda pkt: pkt.Flags.INHERITED_OBJECT_TYPE_PRESENT,
+        ),
+        PacketField("Sid", WINNT_SID(), WINNT_SID),
+    ]
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_ALLOWED_OBJECT_ACE, AceType=0x05)
+
+
 # [MS-DTYP] sect 2.4.4.4
 
 
@@ -951,6 +1156,16 @@ class WINNT_ACCESS_DENIED_ACE(Packet):
 
 
 bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_DENIED_ACE, AceType=0x01)
+
+
+# [MS-DTYP] sect 2.4.4.5
+
+
+class WINNT_ACCESS_DENIED_OBJECT_ACE(Packet):
+    fields_desc = WINNT_ACCESS_ALLOWED_OBJECT_ACE.fields_desc
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_DENIED_OBJECT_ACE, AceType=0x06)
 
 
 # [MS-DTYP] sect 2.4.4.17.4+
@@ -1015,7 +1230,7 @@ WINNT_APPLICATION_DATA_LITERAL_TOKEN.fields_desc = [
         lambda pkt: pkt.TokenType in [
             0x10,  # Unicode string
             0x18,  # Octet string
-            0xf8, 0xf8, 0xfa, 0xfb,  # Attribute tokens
+            0xf8, 0xf9, 0xfa, 0xfb,  # Attribute tokens
             0x50,  # Composite
         ]
     ),
@@ -1035,7 +1250,7 @@ WINNT_APPLICATION_DATA_LITERAL_TOKEN.fields_desc = [
                     StrLenFieldUtf16("value", b"", length_from=lambda pkt: pkt.length),
                     lambda pkt: pkt.TokenType in [
                         0x10,  # Unicode string
-                        0xf8, 0xf8, 0xfa, 0xfb,  # Attribute tokens
+                        0xf8, 0xf9, 0xfa, 0xfb,  # Attribute tokens
                     ]
                 ),
                 (
@@ -1052,7 +1267,7 @@ WINNT_APPLICATION_DATA_LITERAL_TOKEN.fields_desc = [
             StrFixedLenField("value", b"", length=0),
         ),
         lambda pkt: pkt.TokenType in [
-            0x01, 0x02, 0x03, 0x04, 0x10, 0x18, 0xf8, 0xf8, 0xfa, 0xfb, 0x50
+            0x01, 0x02, 0x03, 0x04, 0x10, 0x18, 0xf8, 0xf9, 0xfa, 0xfb, 0x50
         ]
     ),
     ConditionalField(
@@ -1115,7 +1330,7 @@ class WINNT_ACCESS_ALLOWED_CALLBACK_ACE(Packet):
 bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_ALLOWED_CALLBACK_ACE, AceType=0x09)
 
 
-# [MS-DTYP] sect 2.4.4.6
+# [MS-DTYP] sect 2.4.4.7
 
 
 class WINNT_ACCESS_DENIED_CALLBACK_ACE(Packet):
@@ -1125,15 +1340,163 @@ class WINNT_ACCESS_DENIED_CALLBACK_ACE(Packet):
 bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_DENIED_CALLBACK_ACE, AceType=0x0A)
 
 
+# [MS-DTYP] sect 2.4.4.8
+
+
+class WINNT_ACCESS_ALLOWED_CALLBACK_OBJECT_ACE(Packet):
+    fields_desc = WINNT_ACCESS_ALLOWED_OBJECT_ACE.fields_desc + [
+        PacketField(
+            "ApplicationData", WINNT_APPLICATION_DATA(), WINNT_APPLICATION_DATA
+        ),
+    ]
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_ALLOWED_CALLBACK_OBJECT_ACE, AceType=0x0B)
+
+
+# [MS-DTYP] sect 2.4.4.9
+
+
+class WINNT_ACCESS_DENIED_CALLBACK_OBJECT_ACE(Packet):
+    fields_desc = WINNT_ACCESS_DENIED_OBJECT_ACE.fields_desc + [
+        PacketField(
+            "ApplicationData", WINNT_APPLICATION_DATA(), WINNT_APPLICATION_DATA
+        ),
+    ]
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_ACCESS_DENIED_CALLBACK_OBJECT_ACE, AceType=0x0C)
+
+
 # [MS-DTYP] sect 2.4.4.10
 
 
-class WINNT_AUDIT_ACE(Packet):
+class WINNT_SYSTEM_AUDIT_ACE(Packet):
     fields_desc = WINNT_ACCESS_ALLOWED_ACE.fields_desc
 
 
-bind_layers(WINNT_ACE_HEADER, WINNT_AUDIT_ACE, AceType=0x02)
+bind_layers(WINNT_ACE_HEADER, WINNT_SYSTEM_AUDIT_ACE, AceType=0x02)
 
+
+# [MS-DTYP] sect 2.4.4.11
+
+
+class WINNT_SYSTEM_AUDIT_OBJECT_ACE(Packet):
+    # doc is wrong.
+    fields_desc = WINNT_ACCESS_ALLOWED_OBJECT_ACE.fields_desc
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_SYSTEM_AUDIT_OBJECT_ACE, AceType=0x07)
+
+
+# [MS-DTYP] sect 2.4.4.12
+
+
+class WINNT_SYSTEM_AUDIT_CALLBACK_ACE(Packet):
+    fields_desc = WINNT_SYSTEM_AUDIT_ACE.fields_desc + [
+        PacketField(
+            "ApplicationData", WINNT_APPLICATION_DATA(), WINNT_APPLICATION_DATA
+        ),
+    ]
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_SYSTEM_AUDIT_CALLBACK_ACE, AceType=0x0D)
+
+
+# [MS-DTYP] sect 2.4.4.13
+
+
+class WINNT_SYSTEM_MANDATORY_LABEL_ACE(Packet):
+    fields_desc = WINNT_SYSTEM_AUDIT_ACE.fields_desc
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_SYSTEM_MANDATORY_LABEL_ACE, AceType=0x11)
+
+
+# [MS-DTYP] sect 2.4.4.14
+
+
+class WINNT_SYSTEM_AUDIT_CALLBACK_OBJECT_ACE(Packet):
+    fields_desc = WINNT_SYSTEM_AUDIT_OBJECT_ACE.fields_desc
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_SYSTEM_AUDIT_CALLBACK_OBJECT_ACE, AceType=0x0F)
+
+# [MS-DTYP] sect 2.4.10.1
+
+
+class CLAIM_SECURITY_ATTRIBUTE_RELATIVE_V1(_NTLMPayloadPacket):
+    _NTLM_PAYLOAD_FIELD_NAME = "Data"
+    fields_desc = [
+        LEIntField("NameOffset", 0),
+        LEShortEnumField(
+            "ValueType",
+            0,
+            {
+                0x0001: "CLAIM_SECURITY_ATTRIBUTE_TYPE_INT64",
+                0x0002: "CLAIM_SECURITY_ATTRIBUTE_TYPE_UINT64",
+                0x0003: "CLAIM_SECURITY_ATTRIBUTE_TYPE_STRING",
+                0x0005: "CLAIM_SECURITY_ATTRIBUTE_TYPE_SID",
+                0x0006: "CLAIM_SECURITY_ATTRIBUTE_TYPE_BOOLEAN",
+                0x0010: "CLAIM_SECURITY_ATTRIBUTE_TYPE_OCTET_STRING",
+            },
+        ),
+        LEShortField("Reserved", 0),
+        FlagsField(
+            "Flags",
+            0,
+            -32,
+            {
+                0x0001: "CLAIM_SECURITY_ATTRIBUTE_NON_INHERITABLE",
+                0x0002: "CLAIM_SECURITY_ATTRIBUTE_VALUE_CASE_SENSITIVE",
+                0x0004: "CLAIM_SECURITY_ATTRIBUTE_USE_FOR_DENY_ONLY",
+                0x0008: "CLAIM_SECURITY_ATTRIBUTE_DISABLED_BY_DEFAULT",
+                0x0010: "CLAIM_SECURITY_ATTRIBUTE_DISABLED",
+                0x0020: "CLAIM_SECURITY_ATTRIBUTE_MANDATORY",
+            },
+        ),
+        LEIntField("ValueCount", 0),
+        FieldListField(
+            "ValueOffsets", [], LEIntField("", 0), count_from=lambda pkt: pkt.ValueCount
+        ),
+        _NTLMPayloadField(
+            "Data",
+            lambda pkt: 16 + pkt.ValueCount * 4,
+            [
+                ConditionalField(
+                    StrFieldUtf16("Name", b""),
+                    lambda pkt: pkt.NameOffset,
+                ),
+                # TODO: Values
+            ],
+            offset_name="Offset",
+        ),
+    ]
+
+
+# [MS-DTYP] sect 2.4.4.15
+
+
+class WINNT_SYSTEM_RESOURCE_ATTRIBUTE_ACE(Packet):
+    fields_desc = WINNT_ACCESS_ALLOWED_ACE.fields_desc + [
+        PacketField(
+            "AttributeData",
+            CLAIM_SECURITY_ATTRIBUTE_RELATIVE_V1(),
+            CLAIM_SECURITY_ATTRIBUTE_RELATIVE_V1,
+        )
+    ]
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_SYSTEM_RESOURCE_ATTRIBUTE_ACE, AceType=0x12)
+
+# [MS-DTYP] sect 2.4.4.16
+
+
+class WINNT_SYSTEM_SCOPED_POLICY_ID_ACE(Packet):
+    fields_desc = WINNT_ACCESS_ALLOWED_ACE.fields_desc
+
+
+bind_layers(WINNT_ACE_HEADER, WINNT_SYSTEM_SCOPED_POLICY_ID_ACE, AceType=0x13)
 
 # [MS-DTYP] sect 2.4.5
 
@@ -1142,8 +1505,14 @@ class WINNT_ACL(Packet):
     fields_desc = [
         ByteField("AclRevision", 2),
         ByteField("Sbz1", 0x00),
+        # Total size including header:
+        # AclRevision(1) + Sbz1(1) + AclSize(2) + AceCount(2) + Sbz2(2)
         FieldLenField(
-            "AclSize", None, length_of="Aces", adjust=lambda _, x: x + 14, fmt="<H"
+            "AclSize",
+            None,
+            length_of="Aces",
+            adjust=lambda _, x: x + 8,
+            fmt="<H",
         ),
         FieldLenField("AceCount", None, count_of="Aces", fmt="<H"),
         ShortField("Sbz2", 0),
@@ -1173,52 +1542,72 @@ class SECURITY_DESCRIPTOR(_NTLMPayloadPacket):
             0x00,
             -16,
             [
-                "OwnerDefaulted",
-                "GroupDefaulted",
-                "DACLPresent",
-                "DACLDefaulted",
-                "SACLPresent",
-                "SACLDefaulted",
-                "DACLTrusted",
-                "ServerSecurity",
-                "DACLComputer",
-                "SACLComputer",
-                "DACLAutoInheriter",
-                "SACLAutoInherited",
-                "DACLProtected",
-                "SACLProtected",
-                "RMControlValid",
-                "SelfRelative",
+                "OWNER_DEFAULTED",
+                "GROUP_DEFAULTED",
+                "DACL_PRESENT",
+                "DACL_DEFAULTED",
+                "SACL_PRESENT",
+                "SACL_DEFAULTED",
+                "DACL_TRUSTED",
+                "SERVER_SECURITY",
+                "DACL_COMPUTED",
+                "SACL_COMPUTED",
+                "DACL_AUTO_INHERITED",
+                "SACL_AUTO_INHERITED",
+                "DACL_PROTECTED",
+                "SACL_PROTECTED",
+                "RM_CONTROL_VALID",
+                "SELF_RELATIVE",
             ],
         ),
-        LEIntField("OwnerSidOffset", 0),
-        LEIntField("GroupSidOffset", 0),
-        LEIntField("SaclOffset", 0),
-        LEIntField("DaclOffset", 0),
+        LEIntField("OwnerSidOffset", None),
+        LEIntField("GroupSidOffset", None),
+        LEIntField("SACLOffset", None),
+        LEIntField("DACLOffset", None),
         _NTLMPayloadField(
             "Data",
             OFFSET,
             [
                 ConditionalField(
                     PacketField("OwnerSid", WINNT_SID(), WINNT_SID),
-                    lambda pkt: pkt.OwnerSidOffset,
+                    lambda pkt: pkt.OwnerSidOffset != 0,
                 ),
                 ConditionalField(
                     PacketField("GroupSid", WINNT_SID(), WINNT_SID),
-                    lambda pkt: pkt.GroupSidOffset,
+                    lambda pkt: pkt.GroupSidOffset != 0,
                 ),
                 ConditionalField(
-                    PacketField("Sacl", WINNT_ACL(), WINNT_ACL),
-                    lambda pkt: pkt.Control.SACLPresent,
+                    PacketField("SACL", WINNT_ACL(), WINNT_ACL),
+                    lambda pkt: pkt.Control.SACL_PRESENT,
                 ),
                 ConditionalField(
-                    PacketField("Dacl", WINNT_ACL(), WINNT_ACL),
-                    lambda pkt: pkt.Control.DACLPresent,
+                    PacketField("DACL", WINNT_ACL(), WINNT_ACL),
+                    lambda pkt: pkt.Control.DACL_PRESENT,
                 ),
             ],
             offset_name="Offset",
         ),
     ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        return (
+            _NTLM_post_build(
+                self,
+                pkt,
+                self.OFFSET,
+                {
+                    "OwnerSid": 4,
+                    "GroupSid": 8,
+                    "SACL": 12,
+                    "DACL": 16,
+                },
+                config=[
+                    ("Offset", _NTLM_ENUM.OFFSET),
+                ],
+            )
+            + pay
+        )
 
 
 # [MS-FSCC] 2.4.2 FileAllInformation
@@ -1392,6 +1781,8 @@ class DirectTCP(NBTSession):
 
 
 class SMB2_Header(Packet):
+    __slots__ = ["_decrypted"]
+
     name = "SMB2 Header"
     fields_desc = [
         StrFixedLenField("Start", b"\xfeSMB", 4),
@@ -1442,6 +1833,11 @@ class SMB2_Header(Packet):
         (0xC000000D, 0x000B),  # STATUS_INVALID_PARAMETER
         (0x0000010C, 0x000F),  # STATUS_NOTIFY_ENUM_DIR
     )
+
+    def __init__(self, *args, **kwargs):
+        # The parent passes whether this packet was decrypted or not.
+        self._decrypted = kwargs.pop("_decrypted", False)
+        super(SMB2_Header, self).__init__(*args, **kwargs)
 
     def guess_payload_class(self, payload):
         if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR and self.Status != 0x00000000:
@@ -1502,23 +1898,32 @@ class SMB2_Header(Packet):
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
                 return SMB2_Query_Info_Response
             return SMB2_Query_Info_Request
+        elif self.Command == 0x0011:  # Set info
+            if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
+                return SMB2_Set_Info_Response
+            return SMB2_Set_Info_Request
         elif self.Command == 0x000B:  # IOCTL
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
                 return SMB2_IOCTL_Response
             return SMB2_IOCTL_Request
         return super(SMB2_Header, self).guess_payload_class(payload)
 
-    def sign(self, dialect, SigningSessionKey, SigningAlgorithmId=None, IsClient=None):
-        # [MS-SMB2] 3.1.4.1
-        self.SecuritySignature = b"\x00" * 16
-        s = bytes(self)
+    def _calc_signature(
+        self, s, dialect, SigningSessionKey, SigningAlgorithmId=None, IsClient=None
+    ):
+        """
+        This function calculates the signature of a SMB2 packet.
+        Detail is from [MS-SMB2] 3.1.4.1
+        """
         if len(s) <= 64:
             log_runtime.warning("Cannot sign invalid SMB packet !")
             return s
         if dialect in [0x0300, 0x0302, 0x0311]:  # SMB 3
             if dialect == 0x0311:  # SMB 3.1.1
-                if SigningAlgorithmId is None or IsClient is None:
-                    raise Exception("SMB 3.1.1 needs a SigningAlgorithmId and IsClient")
+                if IsClient is None:
+                    raise Exception("SMB 3.1.1 needs a IsClient")
+                if SigningAlgorithmId is None:
+                    SigningAlgorithmId = "AES-CMAC"  # AES-128-CMAC
             else:
                 SigningAlgorithmId = "AES-CMAC"  # AES-128-CMAC
             if "GMAC" in SigningAlgorithmId:
@@ -1551,10 +1956,87 @@ class SMB2_Header(Packet):
             sig = sig[:16]
         else:
             log_runtime.warning("Unknown SMB Version %s ! Cannot sign." % dialect)
-            sig = s[:-16] + b"\x00" * 16
-        self.SecuritySignature = sig
+            sig = b"\x00" * 16
+        return sig
+
+    def sign(self, dialect, SigningSessionKey, SigningAlgorithmId=None, IsClient=None):
+        """
+        [MS-SMB2] 3.1.4.1 - Signing An Outgoing Message
+        """
+        # Set the current signature to nul
+        self.SecuritySignature = b"\x00" * 16
+        # Calculate the signature
+        s = bytes(self)
+        self.SecuritySignature = self._calc_signature(
+            s,
+            dialect=dialect,
+            SigningSessionKey=SigningSessionKey,
+            SigningAlgorithmId=SigningAlgorithmId,
+            IsClient=IsClient,
+        )
         # we make sure the payload is static
         self.payload = conf.raw_layer(load=s[64:])
+
+    def verify(
+        self, dialect, SigningSessionKey, SigningAlgorithmId=None, IsClient=None
+    ):
+        """
+        [MS-SMB2] sect 3.2.5.1.3 - Verifying the signature
+        """
+        s = bytes(self)
+        # Set SecuritySignature to nul
+        s = s[:48] + b"\x00" * 16 + s[64:]
+        # Calculate the signature
+        sig = self._calc_signature(
+            s,
+            dialect=dialect,
+            SigningSessionKey=SigningSessionKey,
+            SigningAlgorithmId=SigningAlgorithmId,
+            IsClient=IsClient,
+        )
+        if self.SecuritySignature != sig:
+            log_runtime.error("SMB signature is invalid !")
+            raise Exception("ERROR: SMB signature is invalid !")
+
+    def encrypt(self, dialect, EncryptionKey, CipherId):
+        """
+        [MS-SMB2] sect 3.1.4.3 - Encrypting the Message
+        """
+        if dialect < 0x0300:
+            raise Exception("Encryption is not supported on this SMB dialect !")
+        elif dialect < 0x0311 and CipherId != "AES-128-CCM":
+            raise Exception("CipherId is not supported on this SMB dialect !")
+
+        data = bytes(self)
+        smbt = SMB2_Transform_Header(
+            OriginalMessageSize=len(self),
+            SessionId=self.SessionId,
+            Flags=0x0001,
+        )
+        if "GCM" in CipherId:
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+            nonce = os.urandom(12)
+            cipher = AESGCM(EncryptionKey)
+        elif "CCM" in CipherId:
+            from cryptography.hazmat.primitives.ciphers.aead import AESCCM
+
+            nonce = os.urandom(11)
+            cipher = AESCCM(EncryptionKey)
+        else:
+            raise Exception("Unknown CipherId !")
+
+        # Add nonce to header and build the auth data
+        smbt.Nonce = nonce
+        aad = bytes(smbt)[20:]
+
+        # Perform the actual encryption
+        data = cipher.encrypt(nonce, data, aad)
+
+        # Put the auth tag in the Signature field
+        smbt.Signature, data = data[-16:], data[:-16]
+
+        return smbt / data
 
 
 class _SMB2_Payload(Packet):
@@ -1787,10 +2269,7 @@ class SMB2_Preauth_Integrity_Capabilities(Packet):
             LEShortEnumField(
                 "",
                 0x0,
-                {
-                    # As for today, no other hash algorithm is described by the spec
-                    0x0001: "SHA-512",
-                },
+                SMB2_HASH_ALGORITHMS,
             ),
             count_from=lambda pkt: pkt.HashAlgorithmCount,
         ),
@@ -1845,7 +2324,7 @@ class SMB2_Compression_Capabilities(Packet):
             count_of="CompressionAlgorithms",
         ),
         ShortField("Padding", 0x0),
-        IntEnumField(
+        LEIntEnumField(
             "Flags",
             0x0,
             {
@@ -1872,7 +2351,11 @@ bind_layers(SMB2_Negotiate_Context, SMB2_Compression_Capabilities, ContextType=0
 
 class SMB2_Netname_Negotiate_Context_ID(Packet):
     name = "SMB2 Netname Negotiate Context ID"
-    fields_desc = [StrFieldUtf16("NetName", "")]
+    fields_desc = [
+        StrLenFieldUtf16(
+            "NetName", "", length_from=lambda pkt: pkt.underlayer.DataLength
+        )
+    ]
 
     def default_payload_class(self, payload):
         return conf.padding_layer
@@ -2125,7 +2608,7 @@ class SMB2_Session_Setup_Response(_SMB2_Payload, _NTLMPayloadPacket):
             {
                 0x0001: "IS_GUEST",
                 0x0002: "IS_NULL",
-                0x0004: "ENCRYPT_DATE",
+                0x0004: "ENCRYPT_DATA",
             },
         ),
         XLEShortField("SecurityBufferOffset", None),
@@ -2381,7 +2864,7 @@ class SMB2_CREATE_QUERY_ON_DISK_ID(Packet):
 
 class SMB2_CREATE_RESPONSE_LEASE(Packet):
     fields_desc = [
-        XStrFixedLenField("LeaseKey", b"", length=16),
+        UUIDField("LeaseKey", None),
         FlagsField(
             "LeaseState",
             0x7,
@@ -2408,7 +2891,7 @@ class SMB2_CREATE_RESPONSE_LEASE(Packet):
 class SMB2_CREATE_RESPONSE_LEASE_V2(Packet):
     fields_desc = [
         SMB2_CREATE_RESPONSE_LEASE,
-        XStrFixedLenField("ParentLeaseKey", b"", length=16),
+        UUIDField("ParentLeaseKey", None),
         LEShortField("Epoch", 0),
         LEShortField("Reserved", 0),
     ]
@@ -2544,11 +3027,15 @@ class SMB2_Create_Context(_NTLMPayloadPacket):
             "pad",
             b"",
             length_from=lambda x: (
-                x.Next
-                - max(x.DataBufferOffset + x.DataLen, x.NameBufferOffset + x.NameLen)
-            )
-            if x.Next
-            else 0,
+                (
+                    x.Next
+                    - max(
+                        x.DataBufferOffset + x.DataLen, x.NameBufferOffset + x.NameLen
+                    )
+                )
+                if x.Next
+                else 0
+            ),
         ),
     ]
 
@@ -3180,7 +3667,7 @@ class SMB2_IOCTL_Request(_SMB2_Payload, _NTLMPayloadPacket):
         LEIntField("MaxInputResponse", 0),
         LEIntField("OutputBufferOffset", None),
         LEIntField("OutputLen", None),  # Called OutputCount.
-        LEIntField("MaxOutputResponse", 1024),
+        LEIntField("MaxOutputResponse", 65535),
         FlagsField("Flags", 0, -32, {0x00000001: "SMB2_0_IOCTL_IS_FSCTL"}),
         LEIntField("Reserved2", 0),
         _NTLMPayloadField(
@@ -3663,6 +4150,25 @@ class SMB2_Query_Quota_Info(Packet):
     ]
 
 
+SMB2_INFO_TYPE = {
+    0x01: "SMB2_0_INFO_FILE",
+    0x02: "SMB2_0_INFO_FILESYSTEM",
+    0x03: "SMB2_0_INFO_SECURITY",
+    0x04: "SMB2_0_INFO_QUOTA",
+}
+
+SMB2_ADDITIONAL_INFORMATION = {
+    0x00000001: "OWNER_SECURITY_INFORMATION",
+    0x00000002: "GROUP_SECURITY_INFORMATION",
+    0x00000004: "DACL_SECURITY_INFORMATION",
+    0x00000008: "SACL_SECURITY_INFORMATION",
+    0x00000010: "LABEL_SECURITY_INFORMATION",
+    0x00000020: "ATTRIBUTE_SECURITY_INFORMATION",
+    0x00000040: "SCOPE_SECURITY_INFORMATION",
+    0x00010000: "BACKUP_SECURITY_INFORMATION",
+}
+
+
 class SMB2_Query_Info_Request(_SMB2_Payload, _NTLMPayloadPacket):
     name = "SMB2 QUERY INFO Request"
     Command = 0x0010
@@ -3673,12 +4179,7 @@ class SMB2_Query_Info_Request(_SMB2_Payload, _NTLMPayloadPacket):
         ByteEnumField(
             "InfoType",
             0,
-            {
-                0x01: "SMB2_0_INFO_FILE",
-                0x02: "SMB2_0_INFO_FILESYSTEM",
-                0x03: "SMB2_0_INFO_SECURITY",
-                0x04: "SMB2_0_INFO_QUOTA",
-            },
+            SMB2_INFO_TYPE,
         ),
         ByteEnumField("FileInfoClass", 0, FileInformationClasses),
         LEIntField("OutputBufferLength", 0),
@@ -3688,16 +4189,7 @@ class SMB2_Query_Info_Request(_SMB2_Payload, _NTLMPayloadPacket):
             "AdditionalInformation",
             0,
             -32,
-            {
-                0x00000001: "OWNER_SECURITY_INFORMATION",
-                0x00000002: "GROUP_SECURITY_INFORMATION",
-                0x00000004: "DACL_SECURITY_INFORMATION",
-                0x00000008: "SACL_SECURITY_INFORMATION",
-                0x00000010: "LABEL_SECURITY_INFORMATION",
-                0x00000020: "ATTRIBUTE_SECURITY_INFORMATION",
-                0x00000040: "SCOPE_SECURITY_INFORMATION",
-                0x00010000: "BACKUP_SECURITY_INFORMATION",
-            },
+            SMB2_ADDITIONAL_INFORMATION,
         ),
         FlagsField(
             "Flags",
@@ -3714,11 +4206,20 @@ class SMB2_Query_Info_Request(_SMB2_Payload, _NTLMPayloadPacket):
             "Buffer",
             OFFSET,
             [
-                PacketListField(
-                    "Input",
-                    None,
-                    SMB2_Query_Quota_Info,
-                    length_from=lambda pkt: pkt.InputLen,
+                MultipleTypeField(
+                    [
+                        (
+                            # QUOTA
+                            PacketListField(
+                                "Input",
+                                None,
+                                SMB2_Query_Quota_Info,
+                                length_from=lambda pkt: pkt.InputLen,
+                            ),
+                            lambda pkt: pkt.InfoType == 0x04,
+                        ),
+                    ],
+                    StrLenField("Input", b"", length_from=lambda pkt: pkt.InputLen),
                 ),
             ],
         ),
@@ -3788,6 +4289,158 @@ bind_top_down(
 )
 
 
+# sect 2.2.39
+
+
+class SMB2_Set_Info_Request(_SMB2_Payload, _NTLMPayloadPacket):
+    name = "SMB2 SET INFO Request"
+    Command = 0x0011
+    OFFSET = 32 + 64
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
+    fields_desc = [
+        XLEShortField("StructureSize", 0x21),
+        ByteEnumField(
+            "InfoType",
+            0,
+            SMB2_INFO_TYPE,
+        ),
+        ByteEnumField("FileInfoClass", 0, FileInformationClasses),
+        LEIntField("DataLen", None),
+        XLEIntField("DataBufferOffset", None),  # Short + Reserved = Int
+        FlagsField(
+            "AdditionalInformation",
+            0,
+            -32,
+            SMB2_ADDITIONAL_INFORMATION,
+        ),
+        PacketField("FileId", SMB2_FILEID(), SMB2_FILEID),
+        _NTLMPayloadField(
+            "Buffer",
+            OFFSET,
+            [
+                MultipleTypeField(
+                    [
+                        (
+                            # FILE
+                            PacketLenField(
+                                "Data",
+                                None,
+                                lambda x, _parent: _FileInformationClasses.get(
+                                    _parent.FileInfoClass, conf.raw_layer
+                                )(x),
+                                length_from=lambda pkt: pkt.DataLen,
+                            ),
+                            lambda pkt: pkt.InfoType == 0x01,
+                        ),
+                        (
+                            # QUOTA
+                            PacketListField(
+                                "Data",
+                                None,
+                                SMB2_Query_Quota_Info,
+                                length_from=lambda pkt: pkt.DataLen,
+                            ),
+                            lambda pkt: pkt.InfoType == 0x04,
+                        ),
+                    ],
+                    StrLenField("Data", b"", length_from=lambda pkt: pkt.DataLen),
+                ),
+            ],
+        ),
+    ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        return (
+            _SMB2_post_build(
+                self,
+                pkt,
+                self.OFFSET,
+                {
+                    "Data": 4,
+                },
+            )
+            + pay
+        )
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_Set_Info_Request,
+    Command=0x00011,
+)
+
+
+class SMB2_Set_Info_Response(_SMB2_Payload):
+    name = "SMB2 SET INFO Request"
+    Command = 0x0011
+    fields_desc = [
+        XLEShortField("StructureSize", 0x02),
+    ]
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_Set_Info_Response,
+    Command=0x00011,
+    Flags=1,
+)
+
+
+# sect 2.2.41
+
+
+class SMB2_Transform_Header(Packet):
+    name = "SMB2 Transform Header"
+    fields_desc = [
+        StrFixedLenField("Start", b"\xfdSMB", 4),
+        XStrFixedLenField("Signature", 0, length=16),
+        XStrFixedLenField("Nonce", b"", length=16),
+        LEIntField("OriginalMessageSize", 0x0),
+        LEShortField("Reserved", 0),
+        LEShortEnumField(
+            "Flags",
+            0x1,
+            {
+                0x0001: "ENCRYPTED",
+            },
+        ),
+        LELongField("SessionId", 0),
+    ]
+
+    def decrypt(self, dialect, DecryptionKey, CipherId):
+        """
+        [MS-SMB2] sect 3.2.5.1.1.1 - Decrypting the Message
+        """
+        if not isinstance(self.payload, conf.raw_layer):
+            raise Exception("No payload to decrypt !")
+
+        if "GCM" in CipherId:
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+            nonce = self.Nonce[:12]
+            cipher = AESGCM(DecryptionKey)
+        elif "CCM" in CipherId:
+            from cryptography.hazmat.primitives.ciphers.aead import AESCCM
+
+            nonce = self.Nonce[:11]
+            cipher = AESCCM(DecryptionKey)
+        else:
+            raise Exception("Unknown CipherId !")
+
+        # Decrypt the data
+        aad = self.self_build()[20:]
+        data = cipher.decrypt(
+            nonce,
+            self.payload.load + self.Signature,
+            aad,
+        )
+        return SMB2_Header(data, _decrypted=True)
+
+
+bind_layers(SMB2_Transform_Header, conf.raw_layer)
+
+
 # sect 2.2.42.1
 
 
@@ -3797,7 +4450,7 @@ class SMB2_Compression_Transform_Header(Packet):
         StrFixedLenField("Start", b"\xfcSMB", 4),
         LEIntField("OriginalCompressedSegmentSize", 0x0),
         LEShortEnumField("CompressionAlgorithm", 0, SMB2_COMPRESSION_ALGORITHMS),
-        ShortEnumField(
+        LEShortEnumField(
             "Flags",
             0x0,
             {
@@ -4000,7 +4653,7 @@ class SMB2_IOCTL_RESP_GET_DFS_Referral(Packet):
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
         # Note: Windows is smart and uses some sort of compression in the sense
-        # that it re-uses fields that are used several times across ReferralBuffer.
+        # that it reuses fields that are used several times across ReferralBuffer.
         # But we just do the dumb thing because it's 'easier', and do no compression.
         offsets = {
             # DFS_REFERRAL_ENTRY0
@@ -4061,9 +4714,17 @@ class SMBStreamSocket(StreamSocket):
         # note: normal StreamSocket takes care of NBTSession / DirectTCP fragments.
         # this takes care of splitting compounded requests
         if self.queue:
-            return self.queue.popleft()
-        pkt = super(SMBStreamSocket, self).recv(x)
-        if pkt is not None and SMB2_Header in pkt:
+            pkt = self.queue.popleft()
+        else:
+            pkt = super(SMBStreamSocket, self).recv(x)
+        # If there are multiple SMB2_Header requests (aka. compounded),
+        # take the first and store the rest in a queue.
+        if pkt is not None and (
+            SMB2_Header in pkt
+            or SMB2_Transform_Header in pkt
+            or SMB2_Compression_Transform_Header in pkt
+        ):
+            pkt = self.session.in_pkt(pkt)
             pay = pkt[SMB2_Header].payload
             while SMB2_Header in pay:
                 pay = pay[SMB2_Header]
@@ -4072,17 +4733,43 @@ class SMBStreamSocket(StreamSocket):
                 if not pay.NextCommand:
                     break
                 pay = pay.payload
-        return self.session.in_pkt(pkt)
+        # Verify the signature if required.
+        # This happens here because we must have split compounded requests first.
+        smbh = pkt.getlayer(SMB2_Header)
+        if (
+            smbh
+            and self.session.Dialect
+            and self.session.SigningKey
+            and self.session.SigningRequired
+            # [MS-SMB2] sect 3.2.5.1.3 Verifying the Signature
+            # "The client MUST skip the processing in this section if any of:"
+            # - [...] decryption in section 3.2.5.1.1.1 succeeds
+            and not smbh._decrypted
+            # - MessageId is 0xFFFFFFFFFFFFFFFF
+            and smbh.MID != 0xFFFFFFFFFFFFFFFF
+            # - Status in the SMB2 header is STATUS_PENDING
+            and smbh.Status != 0x00000103
+        ):
+            smbh.verify(
+                self.session.Dialect,
+                self.session.SigningKey,
+                # SMB 3.1.1 parameters:
+                SigningAlgorithmId=self.session.SigningAlgorithmId,
+                IsClient=False,
+            )
+        return pkt
 
-    def send(self, x, Compounded=False, **kwargs):
-        for pkt in self.session.out_pkt(x, Compounded=Compounded):
+    def send(self, x, Compounded=False, ForceSign=False, ForceEncrypt=False, **kwargs):
+        for pkt in self.session.out_pkt(
+            x, Compounded=Compounded, ForceSign=ForceSign, ForceEncrypt=ForceEncrypt
+        ):
             return super(SMBStreamSocket, self).send(pkt, **kwargs)
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
         if any(getattr(x, "queue", None) for x in sockets):
             return [x for x in sockets if isinstance(x, SMBStreamSocket) and x.queue]
-        return StreamSocket.select(sockets, remain=remain)
+        return select_objects(sockets, remain=remain)
 
 
 class SMBSession(DefaultSession):
@@ -4098,12 +4785,32 @@ class SMBSession(DefaultSession):
         # SMB session parameters
         self.CompoundQueue = []
         self.Dialect = 0x0202  # Updated by parent
-        self.SecurityMode = 0
-        # Crypto parameters
-        self.SMBSessionKey = None
+        self.Credits = 0
+        self.IsGuest = False
+        self.MaxTransactionSize = 0
+        self.MaxReadSize = 0
+        self.MaxWriteSize = 0
+        # Crypto parameters. Go read [MS-SMB2] to understand the names.
+        self.SigningRequired = True
+        self.SupportsEncryption = False
+        self.EncryptData = False
+        self.TreeEncryptData = False
+        self.SigningKey = None
+        self.EncryptionKey = None
+        self.DecryptionKey = None
         self.PreauthIntegrityHashId = "SHA-512"
+        self.SupportedCipherIds = [
+            "AES-128-CCM",
+            "AES-128-GCM",
+            "AES-256-CCM",
+            "AES-256-GCM",
+        ]
         self.CipherId = "AES-128-CCM"
-        self.SigningAlgorithmId = "AES-CMAC"
+        self.SupportedSigningAlgorithmIds = [
+            "AES-CMAC",
+            "HMAC-SHA256",
+        ]
+        self.SigningAlgorithmId = None
         self.Salt = os.urandom(32)
         self.ConnectionPreauthIntegrityHashValue = None
         self.SessionPreauthIntegrityHashValue = None
@@ -4117,18 +4824,22 @@ class SMBSession(DefaultSession):
     # SMB crypto functions
 
     @crypto_validator
-    def computeSMBSessionKey(self):
-        if not self.sspcontext.SessionKey:
+    def computeSMBSessionKeys(self, IsClient=None):
+        """
+        Compute the SigningKey and EncryptionKey (for SMB 3+)
+        """
+        if not getattr(self.sspcontext, "SessionKey", None):
             # no signing key, no session key
             return
         # [MS-SMB2] sect 3.3.5.5.3
+        # SigningKey
         if self.Dialect >= 0x0300:
             if self.Dialect == 0x0311:
                 label = b"SMBSigningKey\x00"
-                preauth_hash = self.SessionPreauthIntegrityHashValue
+                context = self.SessionPreauthIntegrityHashValue
             else:
                 label = b"SMB2AESCMAC\x00"
-                preauth_hash = b"SmbSign\x00"
+                context = b"SmbSign\x00"
             # [MS-SMB2] sect 3.1.4.2
             if "256" in self.CipherId:
                 L = 256
@@ -4136,14 +4847,43 @@ class SMBSession(DefaultSession):
                 L = 128
             else:
                 raise ValueError
-            self.SMBSessionKey = SP800108_KDFCTR(
+            self.SigningKey = SP800108_KDFCTR(
                 self.sspcontext.SessionKey[:16],
-                label,  # label
-                preauth_hash,  # context
+                label,
+                context,
+                L,
+            )
+            # EncryptionKey / DecryptionKey
+            if self.Dialect == 0x0311:
+                if IsClient:
+                    label_out = b"SMBC2SCipherKey\x00"
+                    label_in = b"SMBS2CCipherKey\x00"
+                else:
+                    label_out = b"SMBS2CCipherKey\x00"
+                    label_in = b"SMBC2SCipherKey\x00"
+                context_out = context_in = self.SessionPreauthIntegrityHashValue
+            else:
+                label_out = label_in = b"SMB2AESCCM\x00"
+                if IsClient:
+                    context_out = b"ServerIn \x00"  # extra space per spec
+                    context_in = b"ServerOut\x00"
+                else:
+                    context_out = b"ServerOut\x00"
+                    context_in = b"ServerIn \x00"
+            self.EncryptionKey = SP800108_KDFCTR(
+                self.sspcontext.SessionKey[: L // 8],
+                label_out,
+                context_out,
+                L,
+            )
+            self.DecryptionKey = SP800108_KDFCTR(
+                self.sspcontext.SessionKey[: L // 8],
+                label_in,
+                context_in,
                 L,
             )
         elif self.Dialect <= 0x0210:
-            self.SMBSessionKey = self.sspcontext.SessionKey[:16]
+            self.SigningKey = self.sspcontext.SessionKey[:16]
         else:
             raise ValueError("Hmmm ? >:(")
 
@@ -4188,19 +4928,29 @@ class SMBSession(DefaultSession):
         """
         Incoming SMB packet
         """
+        if SMB2_Transform_Header in pkt:
+            # Packet is encrypted
+            pkt = pkt[SMB2_Transform_Header].decrypt(
+                self.Dialect,
+                self.DecryptionKey,
+                CipherId=self.CipherId,
+            )
+        # Signature is verified in SMBStreamSocket
         return pkt
 
-    def out_pkt(self, pkt, Compounded=False):
+    def out_pkt(self, pkt, Compounded=False, ForceSign=False, ForceEncrypt=False):
         """
         Outgoing SMB packet
 
         :param pkt: the packet to send
         :param Compound: if True, will be stack to be send with the next
                          un-compounded packet
+        :param ForceSign: if True, force to sign the packet.
+        :param ForceEncrypt: if True, force to encrypt the packet.
 
         Handles:
          - handle compounded requests (if any): [MS-SMB2] 3.3.5.2.7
-         - handles signing (if required)
+         - handles signing and encryption (if required)
         """
         # Note: impacket and wireshark get crazy on compounded+signature, but
         # windows+samba tells we're right :D
@@ -4222,13 +4972,17 @@ class SMBSession(DefaultSession):
                 if padlen:
                     pkt.add_payload(b"\x00" * padlen)
                 pkt[SMB2_Header].NextCommand = length + padlen
-            if self.Dialect and self.SMBSessionKey and self.SecurityMode != 0:
-                # Sign SMB2 !
+            if (
+                self.Dialect
+                and self.SigningKey
+                and (ForceSign or self.SigningRequired and not ForceEncrypt)
+            ):
+                # [MS-SMB2] sect 3.2.4.1.1 - Signing
                 smb = pkt[SMB2_Header]
                 smb.Flags += "SMB2_FLAGS_SIGNED"
                 smb.sign(
                     self.Dialect,
-                    self.SMBSessionKey,
+                    self.SigningKey,
                     # SMB 3.1.1 parameters:
                     SigningAlgorithmId=self.SigningAlgorithmId,
                     IsClient=False,
@@ -4242,6 +4996,22 @@ class SMBSession(DefaultSession):
                 if self.CompoundQueue:
                     pkt = functools.reduce(lambda x, y: x / y, self.CompoundQueue) / pkt
                     self.CompoundQueue.clear()
+            if self.EncryptionKey and (
+                ForceEncrypt or self.EncryptData or self.TreeEncryptData
+            ):
+                # [MS-SMB2] sect 3.1.4.3 - Encrypting the message
+                smb = pkt[SMB2_Header]
+                assert not smb.Flags.SMB2_FLAGS_SIGNED
+                smbt = smb.encrypt(
+                    self.Dialect,
+                    self.EncryptionKey,
+                    CipherId=self.CipherId,
+                )
+                if smb.underlayer:
+                    # If there's an underlayer, replace current SMB header
+                    smb.underlayer.payload = smbt
+                else:
+                    smb = smbt
         return [pkt]
 
     def process(self, pkt: Packet):

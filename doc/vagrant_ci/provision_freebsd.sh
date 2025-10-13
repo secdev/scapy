@@ -5,7 +5,7 @@
 # See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 
-PACKAGES="git python2 python39 py39-virtualenv py39-pip py27-sqlite3 py39-sqlite3 bash rust sudo"
+PACKAGES="git python39 python311 py39-virtualenv py39-pip py39-sqlite3 py311-sqlite3 bash rust sudo"
 
 pkg update
 pkg install --yes $PACKAGES

@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+
+# Install packages needed for the CI on Linux/MacOS
 # Usage:
 # ./install.sh [install mode]
 
@@ -23,7 +28,9 @@ then
   fi
 fi
 
-# Install wireshark data, ifconfig, vcan, samba
+CUR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+
+# Install wireshark data, ifconfig, vcan, samba, openldap
 if [ "$OSTYPE" = "linux-gnu" ]
 then
   sudo apt-get update
@@ -31,6 +38,7 @@ then
   sudo apt-get -qy install can-utils || exit 1
   sudo apt-get -qy install linux-modules-extra-$(uname -r) || exit 1
   sudo apt-get -qy install samba smbclient
+  sudo bash $CUR/openldap/install.sh
   # Make sure libpcap is installed
   if [ ! -z $SCAPY_USE_LIBPCAP ]
   then

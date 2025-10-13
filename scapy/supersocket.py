@@ -102,6 +102,11 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
     def send(self, x):
         # type: (Packet) -> int
+        """Sends a `Packet` object
+
+        :param x: `Packet` to be send
+        :return: Number of bytes that have been sent
+        """
         sx = raw(x)
         try:
             x.sent_time = time.time()
@@ -116,7 +121,12 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
     if WINDOWS:
         def _recv_raw(self, sock, x):
             # type: (socket.socket, int) -> Tuple[bytes, Any, Optional[float]]
-            """Internal function to receive a Packet"""
+            """Internal function to receive a Packet.
+
+            :param sock: Socket object from which data are received
+            :param x: Number of bytes to be received
+            :return: Received bytes, address information and no timestamp
+            """
             pkt, sa_ll = sock.recvfrom(x)
             return pkt, sa_ll, None
     else:
@@ -124,6 +134,10 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
             # type: (socket.socket, int) -> Tuple[bytes, Any, Optional[float]]
             """Internal function to receive a Packet,
             and process ancillary data.
+
+            :param sock: Socket object from which data are received
+            :param x: Number of bytes to be received
+            :return: Received bytes, address information and an optional timestamp
             """
             timestamp = None
             if not self.auxdata_available:
@@ -172,11 +186,22 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
     def recv_raw(self, x=MTU):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
-        """Returns a tuple containing (cls, pkt_data, time)"""
+        """Returns a tuple containing (cls, pkt_data, time)
+
+
+        :param x: Maximum number of bytes to be received, defaults to MTU
+        :return: A tuple, consisting of a Packet type, the received data,
+                 and a timestamp
+        """
         return conf.raw_layer, self.ins.recv(x), None
 
     def recv(self, x=MTU, **kwargs):
         # type: (int, **Any) -> Optional[Packet]
+        """Receive a Packet according to the `basecls` of this socket
+
+        :param x: Maximum number of bytes to be received, defaults to MTU
+        :return: The received `Packet` object, or None
+        """
         cls, val, ts = self.recv_raw(x)
         if not val or not cls:
             return None
@@ -200,6 +225,8 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
     def close(self):
         # type: () -> None
+        """Gracefully close this socket
+        """
         if self.closed:
             return
         self.closed = True
@@ -213,12 +240,20 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
 
     def sr(self, *args, **kargs):
         # type: (Any, Any) -> Tuple[SndRcvList, PacketList]
+        """Send and Receive multiple packets
+        """
         from scapy import sendrecv
         return sendrecv.sndrcv(self, *args, **kargs)
 
     def sr1(self, *args, **kargs):
         # type: (Any, Any) -> Optional[Packet]
+        """Send one packet and receive one answer
+        """
         from scapy import sendrecv
+        # if not explicitly specified by the user,
+        # set threaded to False in sr1 to remove the overhead
+        # for a Thread creation
+        kargs.setdefault("threaded", False)
         ans = sendrecv.sndrcv(self, *args, **kargs)[0]  # type: SndRcvList
         if len(ans) > 0:
             pkt = ans[0][1]  # type: Packet
@@ -467,16 +502,14 @@ class StreamSocket(SimpleSocket):
         return pkt
 
 
-class SSLStreamSocket(StreamSocket):
-    desc = "similar usage than StreamSocket but specialized for handling SSL-wrapped sockets"  # noqa: E501
-
-    # Basically StreamSocket but we can't PEEK
+class StreamSocketPeekless(StreamSocket):
+    desc = "StreamSocket that doesn't use MSG_PEEK"
 
     def __init__(self, sock, basecls=None):
         # type: (socket.socket, Optional[Type[Packet]]) -> None
         from scapy.sessions import TCPSession
         self.sess = TCPSession(app=True)
-        super(SSLStreamSocket, self).__init__(sock, basecls)
+        super(StreamSocketPeekless, self).__init__(sock, basecls)
 
     # 65535, the default value of x is the maximum length of a TLS record
     def recv(self, x=None, **kwargs):
@@ -484,7 +517,10 @@ class SSLStreamSocket(StreamSocket):
         if x is None:
             x = MTU
         # Block
-        data = self.ins.recv(x)
+        try:
+            data = self.ins.recv(x)
+        except OSError:
+            raise EOFError
         try:
             pkt = self.sess.process(data, cls=self.basecls)  # type: ignore
         except struct.error:
@@ -495,6 +531,25 @@ class SSLStreamSocket(StreamSocket):
         if not pkt:
             return self.recv(x)
         return pkt
+
+    @staticmethod
+    def select(sockets, remain=None):
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+        queued = [
+            x
+            for x in sockets
+            if isinstance(x, StreamSocketPeekless) and x.sess.data
+        ]
+        if queued:
+            return queued  # type: ignore
+        return super(StreamSocketPeekless, StreamSocketPeekless).select(
+            sockets,
+            remain=remain,
+        )
+
+
+# Old name: SSLStreamSocket
+SSLStreamSocket = StreamSocketPeekless
 
 
 class L2ListenTcpdump(SuperSocket):

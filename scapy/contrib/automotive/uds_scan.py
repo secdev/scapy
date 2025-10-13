@@ -2,43 +2,15 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
-
-# scapy.contrib.description = UDS AutomotiveTestCaseExecutor
-# scapy.contrib.status = loads
-
-from abc import ABC
-import struct
-import random
-import time
-import itertools
 import copy
 import inspect
-
+import itertools
+import logging
+import random
+import struct
+import time
+from abc import ABC
 from collections import defaultdict
-
-from scapy.compat import orb
-from scapy.contrib.automotive import log_automotive
-from scapy.packet import Raw, Packet
-from scapy.error import Scapy_Exception
-from scapy.contrib.automotive.uds import UDS, UDS_NR, UDS_DSC, UDS_TP, \
-    UDS_RDBI, UDS_WDBI, UDS_SA, UDS_RC, UDS_IOCBI, UDS_RMBA, UDS_ER, \
-    UDS_TesterPresentSender, UDS_CC, UDS_RDBPI, UDS_RD, UDS_TD
-
-from scapy.contrib.automotive.ecu import EcuState
-from scapy.contrib.automotive.scanner.enumerator import ServiceEnumerator, \
-    _AutomotiveTestCaseScanResult, _AutomotiveTestCaseFilteredScanResult, \
-    StateGeneratingServiceEnumerator
-from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
-    _SocketUnion, _TransitionTuple, StateGenerator
-from scapy.contrib.automotive.scanner.configuration import \
-    AutomotiveTestCaseExecutorConfiguration  # noqa: E501
-from scapy.contrib.automotive.scanner.graph import _Edge
-from scapy.contrib.automotive.scanner.staged_test_case import StagedAutomotiveTestCase  # noqa: E501
-from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor  # noqa: E501
-
-# TODO: Refactor this import
-from scapy.contrib.automotive.uds_ecu_states import *  # noqa: F401, F403
-
 # typing imports
 from typing import (
     Dict,
@@ -54,6 +26,29 @@ from typing import (
     Sequence,
 )
 
+from scapy.compat import orb
+from scapy.contrib.automotive import log_automotive
+from scapy.contrib.automotive.ecu import EcuState
+from scapy.contrib.automotive.scanner.configuration import \
+    AutomotiveTestCaseExecutorConfiguration  # noqa: E501
+from scapy.contrib.automotive.scanner.enumerator import ServiceEnumerator, \
+    _AutomotiveTestCaseScanResult, _AutomotiveTestCaseFilteredScanResult, \
+    StateGeneratingServiceEnumerator
+from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor  # noqa: E501
+from scapy.contrib.automotive.scanner.graph import _Edge
+from scapy.contrib.automotive.scanner.staged_test_case import StagedAutomotiveTestCase  # noqa: E501
+from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
+    _SocketUnion, _TransitionTuple, StateGenerator
+from scapy.contrib.automotive.uds import UDS, UDS_NR, UDS_DSC, UDS_TP, \
+    UDS_RDBI, UDS_WDBI, UDS_SA, UDS_RC, UDS_IOCBI, UDS_RMBA, UDS_ER, \
+    UDS_TesterPresentSender, UDS_CC, UDS_RDBPI, UDS_RD, UDS_TD, UDS_DSCPR
+# TODO: Refactor this import
+from scapy.contrib.automotive.uds_ecu_states import *  # noqa: F401, F403
+from scapy.error import Scapy_Exception
+from scapy.packet import Raw, Packet
+
+# scapy.contrib.description = UDS AutomotiveTestCaseExecutor
+# scapy.contrib.status = loads
 
 # Definition outside the class UDS_RMBASequentialEnumerator
 # to allow pickling
@@ -93,7 +88,9 @@ class UDS_DSCEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
     _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
     _supported_kwargs.update({
         'delay_state_change': (int, lambda x: x >= 0),
-        'overwrite_timeout': (bool, None)
+        'overwrite_timeout': (bool, None),
+        'close_socket_when_entering_session_2': (bool, None),
+        'support_suppress_positive_response': (bool, None)
     })
     _supported_kwargs["scan_range"] = (
         (list, tuple, range), lambda x: max(x) < 0x100 and min(x) >= 0)
@@ -112,7 +109,18 @@ class UDS_DSCEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
                                        unit-test scenarios, this value should
                                        be set to False, in order to use the
                                        timeout specified by the 'timeout'
-                                       argument."""
+                                       argument.
+        :param bool close_socket_when_entering_session_2: False by default.
+                                       This enumerator will close the socket
+                                       if session 2 (ProgrammingSession)
+                                       was entered, if True. This will
+                                       force a reconnect by the executor.
+        :param bool support_suppress_positive_response: False by default.
+                                       If True, this enumerator will treat
+                                       no response for a DSC request with a
+                                       session type > 0x80 as a positive
+                                       response and will therefore create a
+                                       new state with a session value - 0x80."""
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -165,10 +173,44 @@ class UDS_DSCEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
                      config  # type: AutomotiveTestCaseExecutorConfiguration
                      ):  # type: (...) -> Optional[_Edge]
         edge = super(UDS_DSCEnumerator, self).get_new_edge(socket, config)
+
+        try:
+            close_socket = config[UDS_DSCEnumerator.__name__]["close_socket_when_entering_session_2"]  # noqa: E501
+        except KeyError:
+            close_socket = False
+
+        try:
+            support_out_of_spec = config[UDS_DSCEnumerator.__name__]["support_suppress_positive_response"]  # noqa: E501
+        except KeyError:
+            support_out_of_spec = False
+
+        if edge is None:
+            try:
+                state, req, resp, _, _ = cast(ServiceEnumerator, self).results[-1]  # noqa: E501
+            except IndexError:
+                return None
+
+            if support_out_of_spec and resp is None and req.diagnosticSessionType > 0x80:  # noqa: E501
+                resp = UDS() / UDS_DSCPR(diagnosticSessionType=0x80 - req.diagnosticSessionType)   # noqa: E501
+                new_state = EcuState.get_modified_ecu_state(resp, req, state)
+                if new_state == state:
+                    return None
+                else:
+                    edge = (state, new_state)
+                    self._edge_requests[edge] = req
+                    return edge
+            else:
+                return None
+
         if edge:
             state, new_state = edge
             # Force TesterPresent if session is changed
             new_state.tp = 1  # type: ignore
+            try:
+                if close_socket and new_state.session == 2:  # type: ignore
+                    new_state.tp = 0  # type: ignore
+            except (AttributeError, KeyError):
+                pass
             return state, new_state
         return None
 
@@ -184,9 +226,30 @@ class UDS_DSCEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
             delay = conf[UDS_DSCEnumerator.__name__]["delay_state_change"]
         except KeyError:
             delay = 5
+
+        try:
+            close_socket = conf[UDS_DSCEnumerator.__name__]["close_socket_when_entering_session_2"]  # noqa: E501
+        except KeyError:
+            close_socket = False
+
         conf.stop_event.wait(delay)
         state_changed = UDS_DSCEnumerator.enter_state(
             sock, conf, kwargs["req"])
+
+        try:
+            session = kwargs["req"].diagnosticSessionType
+        except AttributeError:
+            session = 0
+
+        if close_socket and session == 2:
+            if not hasattr(sock, "ip"):
+                log_automotive.warning("Likely closing a CAN based socket! "
+                                       "This might be a configuration issue.")
+            log_automotive.info(
+                "Entered Programming Session: Closing socket connection")
+            sock.close()
+            conf.stop_event.wait(delay)
+
         if not state_changed:
             UDS_TPEnumerator.cleanup(sock, conf)
         return state_changed
@@ -292,7 +355,7 @@ class UDS_RDBPIEnumerator(UDS_Enumerator):
     def _get_table_entry_y(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
         resp = tup[2]
-        if resp is not None:
+        if resp is not None and resp.service != 0x7f:
             return "0x%02x %s: %s" % (
                 tup[1].periodicDataIdentifier,
                 tup[1].sprintf("%UDS_RDBPI.periodicDataIdentifier%"),
@@ -872,8 +935,8 @@ class UDS_IOCBIEnumerator(UDS_Enumerator):
         resp = tup[2]
         if resp is not None:
             return "0x%04x: %s" % \
-                   (tup[1].dataIdentifier,
-                    repr(resp.payload))
+                (tup[1].dataIdentifier,
+                 repr(resp.payload))
         else:
             return "0x%04x: No response" % tup[1].dataIdentifier
 
@@ -1177,8 +1240,7 @@ class UDS_RDEnumerator(UDS_Enumerator):
         pkt.memorySizeLen = random.randint(1, 4)
         pkt.memoryAddressLen = addr_len or random.randint(1, 4)
         UDS_RMBARandomEnumerator.set_size(pkt, 0x10)
-        addr = random.randint(0, 2 ** (8 * pkt.memoryAddressLen) - 1) & \
-            (0xffffffff << (4 * pkt.memoryAddressLen))
+        addr = random.randint(0, 2 ** (8 * pkt.memoryAddressLen) - 1) & (0xffffffff << (4 * pkt.memoryAddressLen))   # noqa: E501
         UDS_RMBARandomEnumerator.set_addr(pkt, addr)
         return pkt
 
@@ -1252,3 +1314,27 @@ class UDS_Scanner(AutomotiveTestCaseExecutor):
         return [UDS_ServiceEnumerator, UDS_DSCEnumerator, UDS_TPEnumerator,
                 UDS_SAEnumerator, UDS_WDBISelectiveEnumerator,
                 UDS_RMBAEnumerator, UDS_RCEnumerator, UDS_IOCBIEnumerator]
+
+
+def uds_software_reset(connection,  # type: _SocketUnion
+                       logger=log_automotive,  # type: logging.Logger
+                       timeout=0.5  # type: Union[int, float]
+                       ):  # type: (...) -> None
+    logger.debug("Reset procedure of target started.")
+    resp = connection.sr1(UDS() / UDS_ER(resetType=1),
+                          timeout=timeout,
+                          verbose=False)
+    if resp and resp.service != 0x7f:
+        logger.debug("Reset procedure of target complete")
+        return
+
+    logger.debug("Couldn't reset target with UDS_ER. "
+                 "At least try to set target back to DefaultSession")
+    resp = connection.sr1(UDS() / UDS_DSC(b"\x01"),
+                          verbose=False,
+                          timeout=timeout)
+    if resp and resp.service != 0x7f:
+        logger.debug("Target in DefaultSession")
+        return
+
+    logger.error("Target not in DefaultSession. Software reset failed.")

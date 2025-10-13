@@ -186,6 +186,58 @@ assert krbfastreq.reqBody.addresses[0].address == b'SRV             '
 data = bytes(pkt.root.reqBody)
 fastreq.armoredData.reqChecksum.verify(armorkey, data)
 
+= PKINIT - Parse AS-REQ with CMS structures (MIT Kerberos)
+
+pkt = Kerberos(bytes.fromhex('6a820df230820deea103020105a20302010aa3820d4b30820d4730820d2ba103020110a2820d2204820d1e30820d1a80820c4b30820c4706092a864886f70d010702a0820c3830820c34020103310f300d060960864801650304020105003082041c06072b060105020301a082040f0482040b30820407a0733071a00502030a8eb7a111180f32303235303932313130343332385aa20602045ba497a5a316041467a8b2f1aded7272d4840000331ffbbfc942a304a5353033a02204205aeb03e889e99fcd6c205ef484b9dd7b462b9e94c3fe68b115a71cd287fcd775a10d300b0609608648016503040201a182032a308203263082021906072a8648ce3e02013082020c0282010100ffffffffffffffffc90fdaa22168c234c4c6628b80dc1cd129024e088a67cc74020bbea63b139b22514a08798e3404ddef9519b3cd3a431b302b0a6df25f14374fe1356d6d51c245e485b576625e7ec6f44c42e9a637ed6b0bff5cb6f406b7edee386bfb5a899fa5ae9f24117c4b1fe649286651ece45b3dc2007cb8a163bf0598da48361c55d39a69163fa8fd24cf5f83655d23dca3ad961c62f356208552bb9ed529077096966d670c354e4abc9804f1746c08ca18217c32905e462e36ce3be39e772c180e86039b2783a2ec07a28fb5c55df06f4c52c9de2bcbf6955817183995497cea956ae515d2261898fa051015728e5a8aacaa68ffffffffffffffff020102028201007fffffffffffffffe487ed5110b4611a62633145c06e0e68948127044533e63a0105df531d89cd9128a5043cc71a026ef7ca8cd9e69d218d98158536f92f8a1ba7f09ab6b6a8e122f242dabb312f3f637a262174d31bf6b585ffae5b7a035bf6f71c35fdad44cfd2d74f9208be258ff324943328f6722d9ee1003e5c50b1df82cc6d241b0e2ae9cd348b1fd47e9267afc1b2ae91ee51d6cb0e3179ab1042a95dcf6a9483b84b4b36b3861aa7255e4c0278ba3604650c10be19482f23171b671df1cf3b960c074301cd93c1d17603d147dae2aef837a62964ef15e5fb4aac0b8c1ccaa4be754ab5728ae9130c4c7d02880ab9472d455655347fffffffffffffff0382010500028201007b93ec38a6d3a2e5ea4776f7c942c54f06c334ea637cf45e59c21f6638f6b5baa23420d3229c4a418579db1ce3b956d12ec1bce6883621720f2e596a65dd05881745e7524c88447a5e7a45e149e09f163093088716808e6520a471b53631262a19dc4b3b896717ddca77e15c2d8cf31aa1c03a604834e5f852dc4ac86518f53de4d16101c7f26253973987e1f8c6e8298159ff039646052afe14d634891f57abe5787cb023481aceb65c6ee92b123dfd2ddd15f7dcd733be535d063c4d42a309cb7b84163f8924f88c1b3e400b7f78556ba27d0456b739fe261286cffe7ae404379bc2157bf49fc610e4d46339e0e0a380f8e3b818b0bd4f7a038644f12c77bfa2343032300a06082a8648ce3d040304300a06082a8648ce3d040302300b06092a864886f70d01010d300b06092a864886f70d01010ba42c302a300ca00a06082b06010502030602300ca00a06082b06010502030601300ca00a06082b06010502030603a08206243082062030820508a00302010202131b000000028b4c5c90b3392fca000000000002300d06092a864886f70d01010b0500304731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e311630140603550403130d444f4d41494e2d4443312d4341301e170d3235303932303232313135385a170d3236303932303232313135385a305731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e310e300c060355040313055573657273311630140603550403130d41646d696e6973747261746f7230820122300d06092a864886f70d01010105000382010f003082010a02820101009edc4865105bdbe4843dcb43a1ed273630d4bb84e2c6096cb8ef4d111da3dfc8ad78ff7a02a6ea6da16f2ecd0a7e4a85c7b685b02286298493834f8361a318864bea2f2faa92a3236cd1e373eb2874ff8e09468762de9af0a0881ea098fbeadccb9573e53c90da8398a9992e6e6a46081e23c31527453f9540ab4bca93d7b139a97c3a0392d8c035832005cc1ae2fdbfe098381e62b37cd6b94ea638fd06d2e2dfb4c1c35896d717188fa8c472a42aaf65c04ff1f2a55dbb0b02dcec1f9e07d7dd930ddec43947cf229324bfa5189bfc5a34a59864c95fa2351b506979cf1bc3529a7933be0f2004932490d1a250735bd692af367f5ca326d392c28c99bde1210203010001a38202f3308202ef301706092b0601040182371402040a1e08005500730065007230290603551d2504223020060a2b0601040182370a030406082b0601050507030406082b06010505070302300e0603551d0f0101ff0404030205a0304406092a864886f70d01090f04373035300e06082a864886f70d030202020080300e06082a864886f70d030402020080300706052b0e030207300a06082a864886f70d0307301d0603551d0e041604140a63d8a405fe59c3f3abbef3111f6f6a6a08a973301f0603551d23041830168014ab14d5ae948281f079726970b3b8f97003aa760c3081c80603551d1f0481c03081bd3081baa081b7a081b48681b16c6461703a2f2f2f434e3d444f4d41494e2d4443312d43412c434e3d4443312c434e3d4344502c434e3d5075626c69632532304b657925323053657276696365732c434e3d53657276696365732c434e3d436f6e66696775726174696f6e2c44433d444f4d41494e2c44433d4c4f43414c3f63657274696669636174655265766f636174696f6e4c6973743f626173653f6f626a656374436c6173733d63524c446973747269627574696f6e506f696e743081c006082b060105050701010481b33081b03081ad06082b060105050730028681a06c6461703a2f2f2f434e3d444f4d41494e2d4443312d43412c434e3d4149412c434e3d5075626c69632532304b657925323053657276696365732c434e3d53657276696365732c434e3d436f6e66696775726174696f6e2c44433d444f4d41494e2c44433d4c4f43414c3f634143657274696669636174653f626173653f6f626a656374436c6173733d63657274696669636174696f6e417574686f7269747930350603551d11042e302ca02a060a2b060104018237140203a01c0c1a41646d696e6973747261746f7240444f4d41494e2e4c4f43414c304e06092b06010401823719020441303fa03d060a2b060104018237190201a02f042d532d312d352d32312d313332323235373836362d343033353133333636322d313134303736393232322d353030300d06092a864886f70d01010b050003820101005b76869c48c9e4f28043253b8552a6017dc25f9dc990da86a79210f334c1a7e50b6125ab176bc7bb194b96a02736c9838117071d533e99467bf24219228bb40b6d410c8fb23f129010b68777acb83944842a0af694673206be22c0a0078ee0543962b31bae8d809ef553dbe858cd063a7a06f1ea7d026394ace39f294ad5d8c1b077e58e7d17f86eea918aa88ac09cf55ffcf147aa14a4c64f4216211e45fd8794b2906a29b97bcbd47a0b213768f5403f9aa08fd23ea92664fb9a0246ae75e34f939102fad7c48b8c5bb650203aa48b48bed4635bff4e3386e694d57a4e7e65939c5a5a72997176b5d0e50bd369e78bbf0cda53db204fbf37839223daff3a06318201d4308201d0020101305e304731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e311630140603550403130d444f4d41494e2d4443312d434102131b000000028b4c5c90b3392fca000000000002300d06096086480165030402010500a049301606092a864886f70d010903310906072b060105020301302f06092a864886f70d010904312204200e44063cba7907120ced545618cd365edc5071fdc806e8fdb990a7c858d37ef9300d06092a864886f70d01010b0500048201008c8e52430905bb06e897cb5eda4a466ebc6bf980a997d662b9a6f94b88173bab6e8b76b375454c7e06f2091f1ef43165e378263290a1dae9243f58a0e234ed0a082364afe9529b8e5ffee1df77f67a448f6461fac44562ca919381146d5c73e5e643ef8936765cb45661dcf4cf8b7652eee81712037ab7f007046e62ee98ea5f9d3acf426462591e9726f8a50677d935ebaf2f1fbc046033b6cb601c67d1bfe0b4485ab99fb1862500e861a114a03f1b693dd674a28516a240698c516bf94f09dde7ef80772e5098083bf3916ced80118d8f9f0bc737ec15c3d65cfb85e0d186ab11e9c7ab9383ee8fb4a2b7681c6c97edc8fcd48b7bb2dac49c52d70fab5ec1a181c83081c53081c28049304731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e311630140603550403130d444f4d41494e2d4443312d4341815d305b304731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e311630140603550403130d444f4d41494e2d4443312d434102106b671318bb858b8e437e4229b0d32f1282160414ab14d5ae948281f079726970b3b8f97003aa760c300aa10402020096a2020400300aa10402020095a2020400a4819230818fa00703050050000010a11a3018a003020101a111300f1b0d41646d696e6973747261746f72a20e1b0c646f6d61696e2e6c6f63616ca321301fa003020102a11830161b066b72627467741b0c646f6d61696e2e6c6f63616ca511180f32303235303932323130343332325aa70602045ba497a5a81a301802011202011102011402011302011002011702011902011a'))
+assert isinstance(pkt.root.padata[0].padataValue, PA_PK_AS_REQ)
+
+pk_preauth = pkt.root.padata[0].padataValue
+assert len(pk_preauth.trustedCertifiers) == 1
+assert pk_preauth.trustedCertifiers[0].subjectName.directoryName[0].rdn[0].type.oidname == "dc"
+assert pk_preauth.trustedCertifiers[0].subjectName.directoryName[0].rdn[0].value.val == b"LOCAL"
+assert pk_preauth.trustedCertifiers[0].subjectName.directoryName[1].rdn[0].type.oidname == "dc"
+assert pk_preauth.trustedCertifiers[0].subjectName.directoryName[1].rdn[0].value.val == b"DOMAIN"
+assert pk_preauth.trustedCertifiers[0].subjectName.directoryName[2].rdn[0].type.oidname == "commonName"
+assert pk_preauth.trustedCertifiers[0].subjectName.directoryName[2].rdn[0].value.val == b"DOMAIN-DC1-CA"
+assert  pk_preauth.trustedCertifiers[0].issuerAndSerialNumber.serialNumber.val == 142762589450708598374370602088381230866
+
+authpack = pk_preauth.signedAuthpack.content.encapContentInfo.eContent
+assert [x.algorithm.oidname for x in authpack.supportedCMSTypes] == [
+    'ecdsa-with-SHA512',
+    'ecdsa-with-SHA256',
+    'sha512WithRSAEncryption',
+    'sha256WithRSAEncryption',
+]
+assert [x.kdfId.oidname for x in authpack.supportedKDFs] == ['id-pkinit-kdf-sha256', 'id-pkinit-kdf-sha1', 'id-pkinit-kdf-sha512']
+assert authpack.pkAuthenticator.nonce == 0x5ba497a5
+assert authpack.pkAuthenticator.freshnessToken is None
+assert authpack.pkAuthenticator.paChecksum2.checksum.val.hex() == "5aeb03e889e99fcd6c205ef484b9dd7b462b9e94c3fe68b115a71cd287fcd775"
+assert authpack.pkAuthenticator.paChecksum2.algorithmIdentifier.algorithm.oidname == "sha256"
+
+= PKINIT - Parse AS-REP with CMS structures (MIT Kerberos)
+
+from scapy.layers.tls.cert import Cert
+
+pkt = Kerberos(bytes.fromhex('6b82109730821093a003020105a10302010ba2820987308209833082097fa103020111a282097604820972a082096e3082096a808209663082096206092a864886f70d010702a08209533082094f020103310f300d060960864801650304020105003082012b06072b060105020302a082011e0482011a30820116a082010a03820106000282010100ffb1e474ea4bb6c9248cec29ddf54feac8bf6a3261fd25dfc32e258e0056fb2caf4fb76f90961d706b98c0b16fedadf049aa2c3dda6e5eb42933828b932b8dd10f2e00caa1eb2901df080805fbe8d00cae67e9e35e9c197c362416d09fbfa5ef10e556b7993c7501566156dd431e5ae35eb9d00b86ec529b1af887b7671de382ddf4ec2ce87d71fe1ab3fa6d0338bb9c9d2794feba33356b149bc3d1745f4f2feca0ae97f62aaf3314fa1464c844fc016dd82e3008e2cd3cc762d0cc264981497342820f8c8f4aef29147346aea727cc24c3e64f474a5a2448325123d8d217fb65eaabbb7aab36db0e905e5df46de3686bc94581580924f0226385d2db6c599ca10602044e744899a08206303082062c30820514a00302010202131b00000003b9cb9e577efbe605000000000003300d06092a864886f70d01010b0500304731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e311630140603550403130d444f4d41494e2d4443312d4341301e170d3235303932303232313232395a170d3236303932303232313232395a301b31193017060355040313104443312e444f4d41494e2e4c4f43414c30820122300d06092a864886f70d01010105000382010f003082010a0282010100e6832a3e3ca595057e9f70733d34ea5153e4769dc95eb98d56d7b28e8c0390cdd7bfecf01b5f12931afe8d0a1c2e69b83466b3f8ef88c4b31f2c0a49bcee9fb7b78a7e71c6c69c260e606b96d9d2ba534430c6b5cd3be7ef98110e92a0175b66b0b501d32a39dc17f30033fd0c8fa508e5c781c2d130bc8dfd7cb3a8982bd65c16a15f175e7205337dd17b6f4358644db4e6ad3a0f83a2c605275ef0cf4ca2cf974386283d141f4fb0b1f6d72720b83e4155bd0ac39f6ca7723ca317ae6340f746b4c82195addce715e31928ee0e67cb357d3200ee0b26ee422008c8c3de5c1a5acae88e10c89edff4ccd8543f6eaa551c15ed5d8e756567e39c5d56edb948fd0203010001a382033b30820337302f06092b060104018237140204221e200044006f006d00610069006e0043006f006e00740072006f006c006c00650072301d0603551d250416301406082b0601050507030206082b06010505070301300e0603551d0f0101ff0404030205a0307806092a864886f70d01090f046b3069300e06082a864886f70d030202020080300e06082a864886f70d030402020080300b060960864801650304012a300b060960864801650304012d300b0609608648016503040102300b0609608648016503040105300706052b0e030207300a06082a864886f70d0307301d0603551d0e041604148994b7358e085091a011cd226c9305cdcb6b82a2301f0603551d23041830168014ab14d5ae948281f079726970b3b8f97003aa760c3081c80603551d1f0481c03081bd3081baa081b7a081b48681b16c6461703a2f2f2f434e3d444f4d41494e2d4443312d43412c434e3d4443312c434e3d4344502c434e3d5075626c69632532304b657925323053657276696365732c434e3d53657276696365732c434e3d436f6e66696775726174696f6e2c44433d444f4d41494e2c44433d4c4f43414c3f63657274696669636174655265766f636174696f6e4c6973743f626173653f6f626a656374436c6173733d63524c446973747269627574696f6e506f696e743081c006082b060105050701010481b33081b03081ad06082b060105050730028681a06c6461703a2f2f2f434e3d444f4d41494e2d4443312d43412c434e3d4149412c434e3d5075626c69632532304b657925323053657276696365732c434e3d53657276696365732c434e3d436f6e66696775726174696f6e2c44433d444f4d41494e2c44433d4c4f43414c3f634143657274696669636174653f626173653f6f626a656374436c6173733d63657274696669636174696f6e417574686f72697479303c0603551d1104353033a01f06092b0601040182371901a01204101d9d5575a78e1740b7be50767138da8c82104443312e444f4d41494e2e4c4f43414c304f06092b060104018237190204423040a03e060a2b060104018237190201a030042e532d312d352d32312d313332323235373836362d343033353133333636322d313134303736393232322d31303030300d06092a864886f70d01010b05000382010100205571d8ddc2bbb8cfd56b0fbb8d8b6e38ce376c76135f51f25c3f3a98094d59fee193d678b1ff310effa092985394e84ff033094c1889309e29146d239178e2171e192a7c3ae0ce6c653790f9bef3f3281a238c264c5a944e13fa3e97b7ee21e0c22a74b8ab81f4d0d7dc9a592f55efad413ab5041b123f622537e13733eeda845541e5ff8c9973dc5b482701d579f53c67a5ac3fed6c37b1501154d17661f70a252211e9e320269ab7e468bf3d1f1d65f106818122d05d4e2d4db03f1670f66fd9e711970886c7dae937184256023782771d579795d1c331ecd737d0e9d7bb1b4ca24606302bc9c7c10d8aebcfc8a4a2d6beb3fbd3abf14c2680f665f04e35318201d4308201d0020101305e304731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e311630140603550403130d444f4d41494e2d4443312d434102131b00000003b9cb9e577efbe605000000000003300d06096086480165030402010500a049301606092a864886f70d010903310906072b060105020302302f06092a864886f70d010904312204200916c67ea99156a2738927fc51c6ebee43cdb65d715406d1fb6d40daf49c65ca300d06092a864886f70d0101010500048201007fa8498cf70e6f0f9763eaba1f050dda9ca79d343e93312319a457f157586ea849584da69ae8a3ffe26171a9a8cbd3a4b39fb7c8959ebadf42a69c4c626abcd59aac719042b2b9c90ea81bb7593618641d2b498cd6bd65322ed3dcde8895a68b0889c804ce8526cfee27d664a3cd0cc9f1a74531d029cafe4de15bb14bb4d36659fe276f126cccf421c91db7d5be02fb8185cd0de03bee08f424fc48cb4c3f4294f3225752c09abc33ca358b43b5cf3b7df109e37051f757e08a3caaad1d77d9f310a9bd8ea263a00431b57bf4b37c3b0f998a47209a406531c8fa3ff0fd4aec04e3574b2485bc6ac01d077064b67846a71600b65ff6d417441e034c7bd080eca30e1b0c444f4d41494e2e4c4f43414ca41a3018a003020101a111300f1b0d41646d696e6973747261746f72a58205806182057c30820578a003020105a10e1b0c444f4d41494e2e4c4f43414ca221301fa003020102a11830161b066b72627467741b0c646f6d61696e2e6c6f63616ca382053c30820538a003020112a103020102a282052a04820526690c97f510509c672dac4e1436da9aeb5ac4fde72b75b5c1fcfab03aef11139b30b9d32b62f9c4de8e97bc5148563c5bc5fb031e1b1869c69c2991778190d7f27eeeac2ba5e59b54b1b10af66e526fced04f1dd7edd81da93984962183a50e39f82d6f90c9cc9441fec556432ec776a4b595c459cdcfe45489d360f6c950185af170a24897a4eb1127f9c85772fe0417733b254604cd704a15993b77ac18fb1fd8fddb9e888f8c05ffd4c7a5e519593c9e7588c92345ca6ca2e04f0c83231bcc90adccb189e98c2afd53bdb8e665f91d5c3aafde51c60e9b42e88de76261060090483a8dc2d129b66cc3890524004295b5ba440c0a00b352ce91616df2c9a0153e5fd072a9a356dba5e44d79c032afc4d985a180d8fb1f9bba46be602a73ba7c4098683d6ffac4e456b0e51e9473f8ff40e50b437d370b087e1d41089d9f382a17e212d13244f95ad1fb629769c5d53b2ade80c6690fa845efb590a2c6e81851ea9ca1ba319c3a8f86bc62bbcbabf3ecc39d3f6988157a4c390ada2f42b7c577438bcfdb4136bbff92c3c32eb22213e14c51de330f4df4d493bcaa322a3eea01fe504bd03c18786ed385ca205af4396eb6c7b1cfa0e13bcf3e00452461b5c1f9761ef5edb35cfa79fdea04a5420b9762d6f2cf74d694b35c812ba62620c4e6e90ee6483768e38fa0011706d2c093a22202707c5c90cf3ea4c4f17c017f9d7e85a7cc555bf9c9bd4c1337282b5de0395d123ca25c2a9c9eca5cdc31dfd54db75f43eadadd7c7e3a3611a6c1a806c7ff5b0d0b102155978c745a9b4a022018009641ad9197492de70dee4248d159a2b2c5d6adbf253ac04dbe5713cf2878ef440aa68989b2655687a7b35f6a547a8c5a076004c58baa1b231bec7501f5f5bb9f1c66c8cc22d35641cd4442244f349d0351263bb2f1e11b4f4ec26044c87f93a1a963649f5be7a8d61306fe47a10427ac14ba6b9b09ec69950e5176e933cc1fdce258c62ccae4011e8eccab0a36b9ac1d21d36df38c32d65f438d25defa0eb5c577f5f2458304679a9934796be00d3335b7fee1f7616768f0547bd949b764ed2b4684951b35b57a7168fe79d8cd7580dfecddbc30afb8d47032f12cc5b2ee1c16a731dd977f2476989f465fdf6e08992ba566264d1e0a8f0f7274533293e2aa1c418397dc89f9f48d5d9dc3cd82548327be0ebc9b3edeb00f6cf0df8b339d10daae5bb02e9572881fbc5246d5db408fd9cf16209a4ef6b2fc6765d9d9092054b362494be360847b12927ea2fd73b89d345c22fe662f2096952edb69983f147eee5635f40c0bd7bca09b61f644a9df3ecccd0fd0d9c245b4fb224e415bfd58637d341214bc8b2e962df1e7845da642ee4b7a5343c8cee746f6da89cbe3c89f278c6d42f9a743d97ad2c767f1514458db99ca5f29175609e3a7a704b21de8c3cee0646eb60dfb5ddf6824008232dcbdf81b76b941c8af5c0788384bf61f694d80a00b9dc28ae8b0ff782d0b7fcefd60114518401534974c59b88ca89bb4f4a2a5e6e71d7f08342f830338981f534a1affc8ad28b9ec8c54b64321aaafb1d7f049719fda712def001492d6d404bf1da6043687f82378857453b0539a6cd7f452f4b789944a0ca6f238fd321687ac0685a81c9e77f113b7f5c1de3fba74b88f4e0c6cec90e230f16099f9fdb74c57879a98e4a1a85ad672021afc9199fba18c82a7e57c5655ee8d9e8e9cb6d31bc3920d7dbfe667c315b971f99ce2a3579cd1de9d7bd096dc443a1c0dc92e5f7e83657cf38020495585427720ecac4519162cced74d48c294fdb11086e97585d1a9bfaef4af44691f34341fb5e1f42113f82b597bc3e5f5e877116df8a682014a30820146a003020112a282013d048201396d08189c79793463088601b1497f77742a2980900f4c872aa340d07b36c4ff9f9b97740c6f18a15b2277c9c27f1ae7bad8a5899952ca36d3c2d0aa1e6c3137be54a8db29da9d4af03d72f7b9aea0b9f0a099a2421368e875b3cf6fc85454502e74635dd4683b061914c713cb2c551d8a46fdc47bd784c1d2925374cd0f48d4f917ca073563fe570f55f72d64f2de1776bc38e3aa79f0571ad7c64247d80d83fa3bef9f53dc3454634b78a5f207f01160fdd8a8ff4dbdfe2a2d46ccbf84eaf45299b9379b99a1eec016c143d3dc08dc3d9599e5aa62cdf5dc016fab8deba39d81c4d6c5eea684532bb6697ab61ab88d8ac43c5e36bcadd380b31d19dd8475ee68369ff5d8db5cf7733aafe82d96cc2ab68112216d37c44ddb37b336483d75f0566a713cd508a0c66ab7f13d70541e79e8d2038b42a415416d7d'))
+assert isinstance(pkt.root.padata[0].padataValue, PA_PK_AS_REP)
+
+pk_preauth_resp = pkt.root.padata[0].padataValue
+assert isinstance(pk_preauth_resp.rep, DHRepInfo)
+
+dhrep = pk_preauth_resp.rep
+assert dhrep.kdf is None
+assert dhrep.serverDHNonce is None
+
+dhkeyinfo = dhrep.dhSignedData.content.encapContentInfo.eContent
+assert dhkeyinfo.subjectPublicKey.y.val == 32278489782659599666680674691617740192025480882925125716566496945858046289374524666228146919540757354337943084659625408278197912527087491522001624804516413386428300641892927787473470630419131055568103619174060490124485923206334065346522123445748745649691028061114330596909397680493778434408463632147264526545631660227144914565541288496092534758943967886391259750733078319727386349536272439561387290863606045665780539098807180454586714490639623651326318384483940150461818440884045020628878002871357420738487965588236164888287449564150835059541717449563619851058161535035543798732468578054040817729345202791857657764252
+assert dhkeyinfo.nonce == 0x4e744899
+
+certificates = dhrep.dhSignedData.content.certificates
+assert len(certificates) == 1
+cert = Cert(certificates[0].certificate)
+assert cert.issuer_str == '/CN=DOMAIN-DC1-CA/dc=DOMAIN'
+assert cert.subject_str == '/CN=DC1.DOMAIN.LOCAL'
+
 + Advanced Kerberos tests
 
 = Test Kerberos InnerToken wrapping (ancient RFC1964)
@@ -215,7 +267,7 @@ assert [type(x) for x in pkt.Payloads] == [
     UPN_DNS_INFO,
     NDRSerialization1Header,
     PAC_ATTRIBUTES_INFO,
-    PAC_REQUESTOR,
+    PAC_REQUESTOR_SID,
     PAC_SIGNATURE_DATA,
     PAC_SIGNATURE_DATA,
 ]
@@ -226,10 +278,10 @@ assert pkt.Payloads[2].DnsDomainName == 'DOM1.LOCAL'
 assert pkt.Payloads[2].SamName == 'SRV$'
 assert pkt.Payloads[2].Sid.summary() == 'S-1-5-21-826288890-480667314-1550869521-1104'
 
-assert pkt.Payloads[3].value.Claims.ClaimsSet.value.value[0].value.ClaimsArrays.value.value[0].usClaimsSourceType == 1
-claimentry = pkt.Payloads[3].value.Claims.ClaimsSet.value.value[0].value.ClaimsArrays.value.value[0].ClaimEntries.value.value[0]
-assert claimentry.Id.value.value[0].value == b'ad://ext/AuthenticationSilo'
-assert claimentry.Values.value.StringValues.value.value[0].value.value[0].value == b'T0-silo'
+assert pkt.Payloads[3].valueof("Claims.ClaimsSet.ClaimsArrays")[0].usClaimsSourceType == 1
+claimentry = pkt.Payloads[3].valueof("Claims.ClaimsSet.ClaimsArrays")[0].valueof("ClaimEntries")[0]
+assert claimentry.valueof("Id") == b'ad://ext/AuthenticationSilo'
+assert claimentry.valueof("Values.StringValues")[0] == b"T0-silo"
 
 assert pkt.Payloads[4].Flags[0].PAC_WAS_REQUESTED
 
@@ -252,9 +304,9 @@ pkt = AuthorizationData(data)
 assert isinstance(pkt.seq[0].adData.Payloads[0], NDRSerialization1Header)
 k = pkt.seq[0].adData.Payloads[0].value
 assert isinstance(k, KERB_VALIDATION_INFO)
-assert k.EffectiveName.Buffer.value.value[0].value == b'lzhu'
-assert k.LogonDomainName.Buffer.value.value[0].value == b"NTDEV"
-assert "S%s" % "-".join(str(x) for x in k.LogonDomainId.value.SubAuthority) == 'S21-397955417-626881126-188441444'
+assert k.valueof("EffectiveName.Buffer") == b'lzhu'
+assert k.valueof("LogonDomainName.Buffer") == b"NTDEV"
+assert "S-1-5-%s" % "-".join(str(x) for x in k.LogonDomainId.value.SubAuthority) == 'S-1-5-21-397955417-626881126-188441444'
 assert len(k.ExtraSids.value.value) == 13
 assert [x.RelativeId for x in k.GroupIds.value.value] == [3392609, 2999049, 3322974, 513, 2931095, 3338539, 3354830, 3026599, 3338538, 2931096, 3392610, 3342740, 3392630, 3014318, 2937394, 3278870, 3038018, 3322975, 3513546, 2966661, 3338434, 3271401, 3051245, 3271606, 3026603, 3018354]
 
@@ -840,6 +892,7 @@ claimSet = CLAIMS_SET(
     usReservedType=0,
     ulReservedFieldSize=0,
     ReservedField=None,
+    ndr64=False,
 )
 
 = MSPAC - Check that Pointers, Arrays, etc. were inferred
@@ -894,12 +947,12 @@ with open(TICKETER_TEMPFILE, "wb") as fd:
 = Ticketer++ - Create and load Ticketer object
 
 t = Ticketer()
-t.open_file(TICKETER_TEMPFILE)
+t.open_ccache(TICKETER_TEMPFILE)
 
 = Ticketer++ - Get ticket 0, change it, resign it and set it back
 
 # mock the random to get consistency
-import mock
+from unittest import mock
 
 def fake_random(x):
     # wow, impressive entropy
@@ -911,7 +964,7 @@ with mock.patch('scapy.libs.rfc3961.os.urandom', side_effect=fake_random):
     tkt.renewTill.val = '20220930172927Z'
     t.update_ticket(0, tkt, resign=True, hash=KRBTGT, kdc_hash=KRBTGT)
 
-= Ticketer++ - Call show()
+= Ticketer++ - Call show() with ccache
 
 with ContextManagerCaptureOutput() as cmco:
     t.show(utc=True)
@@ -920,7 +973,7 @@ with ContextManagerCaptureOutput() as cmco:
 print(outp)
 
 assert outp == """
-Tickets:
+CCache tickets:
 0. Administrator@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
    canonicalize+pre-authent+initial+renewable+proxiable+forwardable
 Start time         End time           Renew until        Auth time        
@@ -929,7 +982,7 @@ Start time         End time           Renew until        Auth time
 
 = Ticketer++ - Save to disk
 
-t.save()
+t.save_ccache()
 
 = Ticketer++ - Read and check written ccache
 
@@ -954,6 +1007,64 @@ hexdiff(tkt, TKT)
 assert bytes(tkt) == bytes(TKT)
 assert upn == 'DC1$@DOMAIN.LOCAL'
 assert spn == 'krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL'
+
+= Ticketer++ - Create keytab
+
+t = Ticketer()
+t.add_cred("host/dc.domain.local", password="Scapy1", salt=b"salt")
+
+assert t.get_cred("host/dc.domain.local").key == bytes.fromhex("811f44006ad73972ffec42cc89ce6e79749e6effd8db4db5fb0f38c0f3fa6f4f")
+
+= Ticketer++ - Get SPN ssp
+
+ssp = t.ssp("host/dc.domain.local")
+
+= Ticketer++ - Load keytab
+
+from scapy.utils import get_temp_file
+TICKETER_TEMPFILE = get_temp_file()
+
+KEYTAB_DATA = bytes.fromhex("0502000000440001000c646f6d61696e2e6c6f63616c000d41646d696e6973747261746f720000000067fd666f0100110010de93a48926de94c2feff6abd8e0e763b00000000000000540001000c646f6d61696e2e6c6f63616c000d41646d696e6973747261746f720000000067fd666f0200120020dcd8ce2bb77dfb6cab0e1afb69a9a5713a8818ed502c3625edc7772e6b4c442a00000000000000440001000c646f6d61696e2e6c6f63616c000d41646d696e6973747261746f720000000067fd666f03001700102b576acbe6bcfda7294d6bd18041b8fe00000000")
+
+with open(TICKETER_TEMPFILE, "wb") as fd:
+    fd.write(KEYTAB_DATA)
+
+t = Ticketer()
+t.open_keytab(TICKETER_TEMPFILE)
+
+assert t.get_cred("Administrator@domain.local", EncryptionType.RC4_HMAC).key == b'+Wj\xcb\xe6\xbc\xfd\xa7)Mk\xd1\x80A\xb8\xfe'
+assert t.get_cred("Administrator@domain.local", EncryptionType.AES128_CTS_HMAC_SHA1_96).key == b'\xde\x93\xa4\x89&\xde\x94\xc2\xfe\xffj\xbd\x8e\x0ev;'
+
+= Ticketer++ - Call show() with keytab
+
+with ContextManagerCaptureOutput() as cmco:
+    t.show(utc=True)
+    outp = cmco.get_output().strip()
+
+# crop first line
+outp = outp.split("\n", 1)[1]
+
+print(repr(outp))
+
+assert outp == """
+Principal                   Timestamp          KVNO  Keytype                
+Administrator@domain.local  14/04/25 19:47:59  0     AES128-CTS-HMAC-SHA1-96
+Administrator@domain.local  14/04/25 19:47:59  0     AES256-CTS-HMAC-SHA1-96
+Administrator@domain.local  14/04/25 19:47:59  0     RC4-HMAC               
+
+No tickets in CCache.
+""".strip()
+
+= Ticketer++ - Get UPN ssp
+
+ssp = t.ssp("Administrator@domain.local")
+
+= Ticketer++ - Save keytab
+
+from scapy.utils import get_temp_file
+TICKETER_TEMPFILE = get_temp_file()
+
+t.save_keytab(TICKETER_TEMPFILE)
 
 + Crypto tests
 
@@ -1211,7 +1322,7 @@ ts.pausec == 0x9a4db
 
 = [MS-KILE] RC4 GSS_WrapEx (RFC4757) test vectors (sect 4.5)
 
-import mock
+from unittest import mock
 from scapy.libs.rfc3961 import Key, EncryptionType
 
 ssp = KerberosSSP()
@@ -1252,7 +1363,7 @@ assert _msgs[0].data.hex() == "112233445566778899aabbccddeeff"
 = Create randomness-mock context manager
 
 # mock the random to get consistency
-import mock
+from unittest import mock
 from datetime import datetime
 
 def fake_urandom(x):
@@ -1266,7 +1377,7 @@ def fake_choice(x):
     return x[0]
 
 date_mock = mock.MagicMock()
-date_mock.utcnow.return_value = datetime(2024, 3, 5, 16, 52, 55, 424801)
+date_mock.now.side_effect = lambda tz=None: datetime(2024, 3, 5, 16, 52, 55, 424801, tz)
 
 _patches = [
     # Patch all the random
@@ -1294,7 +1405,7 @@ from scapy.layers.spnego import SPNEGOSSP
 
 client = SPNEGOSSP([
     KerberosSSP(
-        UPN="User1@domain.local",
+        UPN="User1@DOMAIN.LOCAL",
         SPN="cifs/dc1",
         ST=KRB_Ticket(bytes.fromhex("618204a13082049da003020105a10e1b0c444f4d41494e2e4c4f43414ca2163014a003020103a10d300b1b04636966731b03646331a382046c30820468a003020112a10302010da282045a04820456671f6131b38ee6e682d62cb937b8b79c589753182f8dbcb14a91b031052a3c20f7b4c89bf9a41fe9960d112acc73f6bd6527dfe70700a3d3c2e72b4ba6705dfc040fd56f9d7cd60b580ebecec2bfb240baac619690dbd9301ed98cac037cfdff8ff96ac98358969f3532f9c6adc076d136a0ef96ebddef293df879bb42adfbf7670434f340ad673e0303ae186e1a510d7f50dbfee9ebab323c715d6b27a67ffec60dba9f7475e5dbf88eee1fcc95b7d467ab2b4ecef893a92a25c80b8480ac8c12bc10741523a2738a3d7c3d2c438235111188968486cab2934b32cad1b6b4b2cbf343b25d41ad463c0513cf21cf9f77f072f4a49d8042947064e3375a1ae76c355fd48d5fc163cf7f865af91bcb788cffe2e9e1a30a7e3f91be8fb55b0a8b8c0b600ef3e0e88feaad4fbf4fffe76c9302ee2acfa3b64ca28cd006fd4af9c27d2eb45e47e582b87e632aa23475caeb0e3e9d777339f5cb94abc19ebd080ffc78181bf81ff227182de422937675546633bd6ab688258a94d132fb590f8152d3f19bd55a1f336fb7c382140987ac2389134d8033882f923d3d5324a3e9f5437bd70f095e6bb00ee68d8f21912b19b27924c61b4e3bfe68411f9f220de8dace00e767b662313706730d4dc8539b309fc75e6ca4cae470cdf12cc3cfb191486e3e5eb8c80723b2b0473b07e4ea4d385487dd303df2db8d31f8c90d53c4adcf39ad78cf6c85fbb87b4c4ee531a42c2133df2b0362132374df995420e4b2a6d1e19d7879d518652d5101a316962b27b3884cb67d07572f96b9668ca42cca7311a7152ac7c6d492009192fa4a707989e43b2a10f19e535e7cf8afdaf63ce9a2a85ce1bd17d81cfe76d2ce5759a7fdbeff6fb279b8620bc2c5183b24be831c7ee157114f2700da210b36edb7bda7d91a32f7940bef431c76571cd44499f779cc4ebe829fb34eeaa1e442240d5962bdbcbc16c962974b546e9cee380dda49f651acc5c58acae4ad06d57e4b91d8c5557365e8ddda7ee9550963d70d4f56b44fc5a26e29b36cb21d11221825b5a2217cb1f1454d34d94a855cb860f2fe43681e3d302e7e124273dd18b04fddf660b8858e1e78d022cc03f467f3cf1a6e5df53bb831794542b1d08e38d3bfb0bf2e5ba6f75a0f77d56bf2924b144fff3c87ec7a57bff345ee8a4496676d38c9453c38e64521db2de6d6452aa8f3da1675134e8d90cbb0d274ce6189563fd9a56e56a800661e787b083950623035ddeeb2fb84f6fb2507f2c157e74e81a81970e11475ce926e393a55b06b77c444dbd23688e8a77c7f30337874fef787a187fcafd73a5a4837c8e3e60712308597ff72ea2edae69c9402ad7ae81abb3e9100f0c87b99b2564246bd56af8e6d0ecf2928e5151218f7e627c565e15540666f4f7c0e937c2d0e84782fcb1b535e596f6c4e0aed7c1d350e169d045f2eaaa4bb2f94cd149576f835e5eecb4418677d0444e51fafcbed2afac50b1d320bc223d2623601aee6df6a363a24294bfb3b00f2668dfc404e9fa17fe936e6620756a6918f7de2de343f380fab83fde911124be508")),
         KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("4aad1c4c7b5bf02bfd061cfaebf0188d6c4f4642d569ca4ab536cb68adcb0e68")),
@@ -1342,8 +1453,7 @@ assert ap_req.ticket == clicontext.ssp.ST
 
 # Hardcode (yes this will probably require updating this test)
 bytes(tok)
-assert bytes(tok) == b'`\x82\x06@\x06\x06+\x06\x01\x05\x05\x02\xa0\x82\x0640\x82\x060\xa0\x180\x16\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\xa2\x82\x06\x12\x04\x82\x06\x0e`\x82\x06\n\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\x01\x00n\x82\x05\xf90\x82\x05\xf5\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0e\xa2\x04\x03\x02\x05 \xa3\x82\x04\xa5a\x82\x04\xa10\x82\x04\x9d\xa0\x03\x02\x01\x05\xa1\x0e\x1b\x0cDOMAIN.LOCAL\xa2\x160\x14\xa0\x03\x02\x01\x03\xa1\r0\x0b\x1b\x04cifs\x1b\x03dc1\xa3\x82\x04l0\x82\x04h\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\r\xa2\x82\x04Z\x04\x82\x04Vg\x1fa1\xb3\x8e\xe6\xe6\x82\xd6,\xb97\xb8\xb7\x9cX\x97S\x18/\x8d\xbc\xb1J\x91\xb01\x05*< \xf7\xb4\xc8\x9b\xf9\xa4\x1f\xe9\x96\r\x11*\xccs\xf6\xbde\'\xdf\xe7\x07\x00\xa3\xd3\xc2\xe7+K\xa6p]\xfc\x04\x0f\xd5o\x9d|\xd6\x0bX\x0e\xbe\xce\xc2\xbf\xb2@\xba\xaca\x96\x90\xdb\xd90\x1e\xd9\x8c\xac\x03|\xfd\xff\x8f\xf9j\xc9\x83X\x96\x9f52\xf9\xc6\xad\xc0v\xd16\xa0\xef\x96\xeb\xdd\xef)=\xf8y\xbbB\xad\xfb\xf7g\x044\xf3@\xadg>\x03\x03\xae\x18n\x1aQ\r\x7fP\xdb\xfe\xe9\xeb\xab2<q]k\'\xa6\x7f\xfe\xc6\r\xba\x9ftu\xe5\xdb\xf8\x8e\xee\x1f\xcc\x95\xb7\xd4g\xab+N\xce\xf8\x93\xa9*%\xc8\x0b\x84\x80\xac\x8c\x12\xbc\x10t\x15#\xa2s\x8a=|=,C\x825\x11\x11\x88\x96\x84\x86\xca\xb2\x93K2\xca\xd1\xb6\xb4\xb2\xcb\xf3C\xb2]A\xadF<\x05\x13\xcf!\xcf\x9fw\xf0r\xf4\xa4\x9d\x80B\x94pd\xe37Z\x1a\xe7l5_\xd4\x8d_\xc1c\xcf\x7f\x86Z\xf9\x1b\xcbx\x8c\xff\xe2\xe9\xe1\xa3\n~?\x91\xbe\x8f\xb5[\n\x8b\x8c\x0b`\x0e\xf3\xe0\xe8\x8f\xea\xadO\xbfO\xff\xe7l\x93\x02\xee*\xcf\xa3\xb6L\xa2\x8c\xd0\x06\xfdJ\xf9\xc2}.\xb4^G\xe5\x82\xb8~c*\xa24u\xca\xeb\x0e>\x9dws9\xf5\xcb\x94\xab\xc1\x9e\xbd\x08\x0f\xfcx\x18\x1b\xf8\x1f\xf2\'\x18-\xe4"\x93vuTf3\xbdj\xb6\x88%\x8a\x94\xd12\xfbY\x0f\x81R\xd3\xf1\x9b\xd5Z\x1f3o\xb7\xc3\x82\x14\t\x87\xac#\x89\x13M\x803\x88/\x92==S$\xa3\xe9\xf5C{\xd7\x0f\t^k\xb0\x0e\xe6\x8d\x8f!\x91+\x19\xb2y$\xc6\x1bN;\xfehA\x1f\x9f"\r\xe8\xda\xce\x00\xe7g\xb6b17\x06s\rM\xc8S\x9b0\x9f\xc7^l\xa4\xca\xe4p\xcd\xf1,\xc3\xcf\xb1\x91Hn>^\xb8\xc8\x07#\xb2\xb0G;\x07\xe4\xeaM8T\x87\xdd0=\xf2\xdb\x8d1\xf8\xc9\rS\xc4\xad\xcf9\xadx\xcfl\x85\xfb\xb8{LN\xe51\xa4,!3\xdf+\x03b\x13#t\xdf\x99T \xe4\xb2\xa6\xd1\xe1\x9dxy\xd5\x18e-Q\x01\xa3\x16\x96+\'\xb3\x88L\xb6}\x07W/\x96\xb9f\x8c\xa4,\xcas\x11\xa7\x15*\xc7\xc6\xd4\x92\x00\x91\x92\xfaJpy\x89\xe4;*\x10\xf1\x9eS^|\xf8\xaf\xda\xf6<\xe9\xa2\xa8\\\xe1\xbd\x17\xd8\x1c\xfev\xd2\xceWY\xa7\xfd\xbe\xffo\xb2y\xb8b\x0b\xc2\xc5\x18;$\xbe\x83\x1c~\xe1W\x11O\'\x00\xda!\x0b6\xed\xb7\xbd\xa7\xd9\x1a2\xf7\x94\x0b\xefC\x1cvW\x1c\xd4D\x99\xf7y\xccN\xbe\x82\x9f\xb3N\xea\xa1\xe4B$\rYb\xbd\xbc\xbc\x16\xc9b\x97KTn\x9c\xee8\r\xdaI\xf6Q\xac\xc5\xc5\x8a\xca\xe4\xad\x06\xd5~K\x91\xd8\xc5Use\xe8\xdd\xda~\xe9U\tc\xd7\rOV\xb4O\xc5\xa2n)\xb3l\xb2\x1d\x11"\x18%\xb5\xa2!|\xb1\xf1EM4\xd9J\x85\\\xb8`\xf2\xfeCh\x1e=0.~\x12Bs\xdd\x18\xb0O\xdd\xf6`\xb8\x85\x8e\x1ex\xd0"\xcc\x03\xf4g\xf3\xcf\x1an]\xf5;\xb81yEB\xb1\xd0\x8e8\xd3\xbf\xb0\xbf.[\xa6\xf7Z\x0fw\xd5k\xf2\x92K\x14O\xff<\x87\xeczW\xbf\xf3E\xee\x8aD\x96gm8\xc9E<8\xe6E!\xdb-\xe6\xd6E*\xa8\xf3\xda\x16u\x13N\x8d\x90\xcb\xb0\xd2t\xcea\x89V?\xd9\xa5nV\xa8\x00f\x1ex{\x089Pb05\xdd\xee\xb2\xfb\x84\xf6\xfb%\x07\xf2\xc1W\xe7N\x81\xa8\x19p\xe1\x14u\xce\x92n9:U\xb0kw\xc4D\xdb\xd26\x88\xe8\xa7|\x7f03xt\xfe\xf7\x87\xa1\x87\xfc\xaf\xd7:ZH7\xc8\xe3\xe6\x07\x120\x85\x97\xffr\xea.\xda\xe6\x9c\x94\x02\xadz\xe8\x1a\xbb>\x91\x00\xf0\xc8{\x99\xb2VBF\xbdV\xaf\x8em\x0e\xcf)(\xe5\x15\x12\x18\xf7\xe6\'\xc5e\xe1U@foO|\x0e\x93|-\x0e\x84x/\xcb\x1bS^YolN\n\xed|\x1d5\x0e\x16\x9d\x04_.\xaa\xa4\xbb/\x94\xcd\x14\x95v\xf85\xe5\xee\xcbD\x18g}\x04D\xe5\x1f\xaf\xcb\xed*\xfa\xc5\x0b\x1d2\x0b\xc2#\xd2b6\x01\xae\xe6\xdfj6:$)K\xfb;\x00\xf2f\x8d\xfc@N\x9f\xa1\x7f\xe96\xe6b\x07V\xa6\x91\x8f}\xe2\xde4?8\x0f\xab\x83\xfd\xe9\x11\x12K\xe5\x08\xa4\x82\x0180\x82\x014\xa0\x03\x02\x01\x12\xa2\x82\x01+\x04\x82\x01\'\\>\t\xe4\x1d8,a(\x7f\x1e\xd2\x8dHH\x9c\xef\x8d\x1fqW\xbf(\x97S+\rs_zM\xee\xa7\xc2\x1a\x8eh1\xa4\xcb\x06\xed\x8e\xe6\xc0\x9a\xf7\x93g5\xa5vp\x0e~G\xaf:\xbb<\xaa2\x0e\xf8+l \xc5\xdb\x17,\xa9\x99\xae\x80\r\x0f\xdd4\x92\xf1\xa3h\xc3)^*I\x92\x01\x9f\x06jW\x1a\xac=\xa4\xee\xfdo.\xc8\xd5\x9e\xeaNw\x9eu\xc3\x8b0\xc9_S\x1f\x19u\xbap\x1d\\\x88\x0eu\xbek\xa8}\n\xa0>\x85\xcc3\xed\x84\xadi\x0bB\x9ao\xd2lW\x7f+\x16\x1cxU\x99\x90\x92\xfd\x06\x11ij\xdc\xb5\xc6F\xc0P\xf6\\\xbe\x04I\x9aP\x11\xa5\xff=\xd7\x95\'\xaa\x0e\x1c\xbf\xc4O\xf4D\xc8\xb1Fv\x8f\xff\xde*\'\x17\xe1\xcf\x06\xeb\xd7s\xfc\xa4\x0c6\x87\x9f\xa7\x9b\xe6\xddmMb\xc3\xc8\xcfH\x1a\x1a`\x08\t\x83\x01\x01\x81R\x8d\xda\xd7\xebZ\x83\x8eO\x14\x8e\xf7\x1fc\xb0KcC\xba\xf3\x04+L\xe3\xc1\xf5\xadF\xda\xfa\xe6q\xe0\x90&\x93\xffd\x16<q\x04\x81\xb2d\xa67\x12\xb9_\x99\nq\x02fY\x0e\x89\x83X\xf3\xab`\x1b'
-
+assert bytes(tok) == b'`\x82\x06d\x06\x06+\x06\x01\x05\x05\x02\xa0\x82\x06X0\x82\x06T\xa0\x180\x16\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\xa2\x82\x066\x04\x82\x062`\x82\x06.\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\x01\x00n\x82\x06\x1d0\x82\x06\x19\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0e\xa2\x04\x03\x02\x05 \xa3\x82\x04\xa5a\x82\x04\xa10\x82\x04\x9d\xa0\x03\x02\x01\x05\xa1\x0e\x1b\x0cDOMAIN.LOCAL\xa2\x160\x14\xa0\x03\x02\x01\x03\xa1\r0\x0b\x1b\x04cifs\x1b\x03dc1\xa3\x82\x04l0\x82\x04h\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\r\xa2\x82\x04Z\x04\x82\x04Vg\x1fa1\xb3\x8e\xe6\xe6\x82\xd6,\xb97\xb8\xb7\x9cX\x97S\x18/\x8d\xbc\xb1J\x91\xb01\x05*< \xf7\xb4\xc8\x9b\xf9\xa4\x1f\xe9\x96\r\x11*\xccs\xf6\xbde\'\xdf\xe7\x07\x00\xa3\xd3\xc2\xe7+K\xa6p]\xfc\x04\x0f\xd5o\x9d|\xd6\x0bX\x0e\xbe\xce\xc2\xbf\xb2@\xba\xaca\x96\x90\xdb\xd90\x1e\xd9\x8c\xac\x03|\xfd\xff\x8f\xf9j\xc9\x83X\x96\x9f52\xf9\xc6\xad\xc0v\xd16\xa0\xef\x96\xeb\xdd\xef)=\xf8y\xbbB\xad\xfb\xf7g\x044\xf3@\xadg>\x03\x03\xae\x18n\x1aQ\r\x7fP\xdb\xfe\xe9\xeb\xab2<q]k\'\xa6\x7f\xfe\xc6\r\xba\x9ftu\xe5\xdb\xf8\x8e\xee\x1f\xcc\x95\xb7\xd4g\xab+N\xce\xf8\x93\xa9*%\xc8\x0b\x84\x80\xac\x8c\x12\xbc\x10t\x15#\xa2s\x8a=|=,C\x825\x11\x11\x88\x96\x84\x86\xca\xb2\x93K2\xca\xd1\xb6\xb4\xb2\xcb\xf3C\xb2]A\xadF<\x05\x13\xcf!\xcf\x9fw\xf0r\xf4\xa4\x9d\x80B\x94pd\xe37Z\x1a\xe7l5_\xd4\x8d_\xc1c\xcf\x7f\x86Z\xf9\x1b\xcbx\x8c\xff\xe2\xe9\xe1\xa3\n~?\x91\xbe\x8f\xb5[\n\x8b\x8c\x0b`\x0e\xf3\xe0\xe8\x8f\xea\xadO\xbfO\xff\xe7l\x93\x02\xee*\xcf\xa3\xb6L\xa2\x8c\xd0\x06\xfdJ\xf9\xc2}.\xb4^G\xe5\x82\xb8~c*\xa24u\xca\xeb\x0e>\x9dws9\xf5\xcb\x94\xab\xc1\x9e\xbd\x08\x0f\xfcx\x18\x1b\xf8\x1f\xf2\'\x18-\xe4"\x93vuTf3\xbdj\xb6\x88%\x8a\x94\xd12\xfbY\x0f\x81R\xd3\xf1\x9b\xd5Z\x1f3o\xb7\xc3\x82\x14\t\x87\xac#\x89\x13M\x803\x88/\x92==S$\xa3\xe9\xf5C{\xd7\x0f\t^k\xb0\x0e\xe6\x8d\x8f!\x91+\x19\xb2y$\xc6\x1bN;\xfehA\x1f\x9f"\r\xe8\xda\xce\x00\xe7g\xb6b17\x06s\rM\xc8S\x9b0\x9f\xc7^l\xa4\xca\xe4p\xcd\xf1,\xc3\xcf\xb1\x91Hn>^\xb8\xc8\x07#\xb2\xb0G;\x07\xe4\xeaM8T\x87\xdd0=\xf2\xdb\x8d1\xf8\xc9\rS\xc4\xad\xcf9\xadx\xcfl\x85\xfb\xb8{LN\xe51\xa4,!3\xdf+\x03b\x13#t\xdf\x99T \xe4\xb2\xa6\xd1\xe1\x9dxy\xd5\x18e-Q\x01\xa3\x16\x96+\'\xb3\x88L\xb6}\x07W/\x96\xb9f\x8c\xa4,\xcas\x11\xa7\x15*\xc7\xc6\xd4\x92\x00\x91\x92\xfaJpy\x89\xe4;*\x10\xf1\x9eS^|\xf8\xaf\xda\xf6<\xe9\xa2\xa8\\\xe1\xbd\x17\xd8\x1c\xfev\xd2\xceWY\xa7\xfd\xbe\xffo\xb2y\xb8b\x0b\xc2\xc5\x18;$\xbe\x83\x1c~\xe1W\x11O\'\x00\xda!\x0b6\xed\xb7\xbd\xa7\xd9\x1a2\xf7\x94\x0b\xefC\x1cvW\x1c\xd4D\x99\xf7y\xccN\xbe\x82\x9f\xb3N\xea\xa1\xe4B$\rYb\xbd\xbc\xbc\x16\xc9b\x97KTn\x9c\xee8\r\xdaI\xf6Q\xac\xc5\xc5\x8a\xca\xe4\xad\x06\xd5~K\x91\xd8\xc5Use\xe8\xdd\xda~\xe9U\tc\xd7\rOV\xb4O\xc5\xa2n)\xb3l\xb2\x1d\x11"\x18%\xb5\xa2!|\xb1\xf1EM4\xd9J\x85\\\xb8`\xf2\xfeCh\x1e=0.~\x12Bs\xdd\x18\xb0O\xdd\xf6`\xb8\x85\x8e\x1ex\xd0"\xcc\x03\xf4g\xf3\xcf\x1an]\xf5;\xb81yEB\xb1\xd0\x8e8\xd3\xbf\xb0\xbf.[\xa6\xf7Z\x0fw\xd5k\xf2\x92K\x14O\xff<\x87\xeczW\xbf\xf3E\xee\x8aD\x96gm8\xc9E<8\xe6E!\xdb-\xe6\xd6E*\xa8\xf3\xda\x16u\x13N\x8d\x90\xcb\xb0\xd2t\xcea\x89V?\xd9\xa5nV\xa8\x00f\x1ex{\x089Pb05\xdd\xee\xb2\xfb\x84\xf6\xfb%\x07\xf2\xc1W\xe7N\x81\xa8\x19p\xe1\x14u\xce\x92n9:U\xb0kw\xc4D\xdb\xd26\x88\xe8\xa7|\x7f03xt\xfe\xf7\x87\xa1\x87\xfc\xaf\xd7:ZH7\xc8\xe3\xe6\x07\x120\x85\x97\xffr\xea.\xda\xe6\x9c\x94\x02\xadz\xe8\x1a\xbb>\x91\x00\xf0\xc8{\x99\xb2VBF\xbdV\xaf\x8em\x0e\xcf)(\xe5\x15\x12\x18\xf7\xe6\'\xc5e\xe1U@foO|\x0e\x93|-\x0e\x84x/\xcb\x1bS^YolN\n\xed|\x1d5\x0e\x16\x9d\x04_.\xaa\xa4\xbb/\x94\xcd\x14\x95v\xf85\xe5\xee\xcbD\x18g}\x04D\xe5\x1f\xaf\xcb\xed*\xfa\xc5\x0b\x1d2\x0b\xc2#\xd2b6\x01\xae\xe6\xdfj6:$)K\xfb;\x00\xf2f\x8d\xfc@N\x9f\xa1\x7f\xe96\xe6b\x07V\xa6\x91\x8f}\xe2\xde4?8\x0f\xab\x83\xfd\xe9\x11\x12K\xe5\x08\xa4\x82\x01\\0\x82\x01X\xa0\x03\x02\x01\x12\xa2\x82\x01O\x04\x82\x01K\\>\t\xe4\x1d8,a(\x7f\x1e\xd2\x8dHH\x9c\xa3\x03?&\xb9\xf4\xba\xef\xcf\xcf\xb6(8\x91\x0f\xa3lq\xc6 f&Ou\xd8Bk\xe84s\xf1\xec\xf6\x97wY\xc6Un;\xf5\xdeh\xb9J\xd6\xaf\xf4r\x00\x80\x17\x8d\xc4p\x81\xac\x89\xf1\xf6\x98\xef\x1f\xb3\xe5\x91}\xf5m\x1a\xbd\x08\x1d\x0217W0\x81\xddZ\xec,J%\xe2o\x86\xef{"a\xe0\xe2hBc\xeb^\x8b\xa3\x8c\xf7W\xf9F\xc6&\x1a\x041\x0c\xdf\xc3S\xaa>\x04\x90\xd7\x8a\xdd\xf3j\x80#4_\x95u\xaby3\x0f\x878\xe3\',t\xa7\xe9\xba7&\xd6\x82y\x1d9\x06\xf1\xff\xaf\xb33O\xdb\x00\xc5\x19\xd0\xb7\t\xe9\xeb\xe0iv\x08\xaa\xf4\x00\xcaG\xbb7\xb9P\xcd\xcf\xcbC\x9b\xec\xfdH\x1b\xbf\x89\x11\x96L\xa8\xb4\\6\xcf\x9a\xa6\x16\xf0\xfb,\xaf\x06.qj\xf0\x03\xfd\xc0 \x80\xb6\xb84\xcf\xec\tW~5\xad,\x14-\xf05\x04\xb2\xd4[o\xce\xa3\xf9\x06\x08\x0e\xeb\x1e\xbf2\xd7\xe4\xc2\x14\xabn_\x0c8j;#\r\xee\xce\xa6\x1f\xc3+\xed\x0c\xb7\xabdb\xb4\x8b\xb2\xd0\xe97\xa5P\xcd\xf1\x96\x8aT:=\xfc\xd9\x1e\xb6q\xcdM\x16\xead\x81\x84/\xab\xdd\xc8\xe1\xed\x17\xa3\xf5\x1c\xf1\x98\xf1\xf7\xbd\xbc\xc8\xdf'
 = GSS_Accept_sec_context (SPNEGO_negTokenResp: KRB_AP_REQ->KRB_AP_REP)
 
 with KrbRandomPatcher():
@@ -1451,7 +1561,7 @@ except ValueError:
 = Create client and server KerberosSSP (raw)
 
 client = KerberosSSP(
-    UPN="User1@domain.local",
+    UPN="User1@DOMAIN.LOCAL",
     SPN="cifs/dc1",
     ST=KRB_Ticket(bytes.fromhex("618204a13082049da003020105a10e1b0c444f4d41494e2e4c4f43414ca2163014a003020103a10d300b1b04636966731b03646331a382046c30820468a003020112a10302010da282045a04820456671f6131b38ee6e682d62cb937b8b79c589753182f8dbcb14a91b031052a3c20f7b4c89bf9a41fe9960d112acc73f6bd6527dfe70700a3d3c2e72b4ba6705dfc040fd56f9d7cd60b580ebecec2bfb240baac619690dbd9301ed98cac037cfdff8ff96ac98358969f3532f9c6adc076d136a0ef96ebddef293df879bb42adfbf7670434f340ad673e0303ae186e1a510d7f50dbfee9ebab323c715d6b27a67ffec60dba9f7475e5dbf88eee1fcc95b7d467ab2b4ecef893a92a25c80b8480ac8c12bc10741523a2738a3d7c3d2c438235111188968486cab2934b32cad1b6b4b2cbf343b25d41ad463c0513cf21cf9f77f072f4a49d8042947064e3375a1ae76c355fd48d5fc163cf7f865af91bcb788cffe2e9e1a30a7e3f91be8fb55b0a8b8c0b600ef3e0e88feaad4fbf4fffe76c9302ee2acfa3b64ca28cd006fd4af9c27d2eb45e47e582b87e632aa23475caeb0e3e9d777339f5cb94abc19ebd080ffc78181bf81ff227182de422937675546633bd6ab688258a94d132fb590f8152d3f19bd55a1f336fb7c382140987ac2389134d8033882f923d3d5324a3e9f5437bd70f095e6bb00ee68d8f21912b19b27924c61b4e3bfe68411f9f220de8dace00e767b662313706730d4dc8539b309fc75e6ca4cae470cdf12cc3cfb191486e3e5eb8c80723b2b0473b07e4ea4d385487dd303df2db8d31f8c90d53c4adcf39ad78cf6c85fbb87b4c4ee531a42c2133df2b0362132374df995420e4b2a6d1e19d7879d518652d5101a316962b27b3884cb67d07572f96b9668ca42cca7311a7152ac7c6d492009192fa4a707989e43b2a10f19e535e7cf8afdaf63ce9a2a85ce1bd17d81cfe76d2ce5759a7fdbeff6fb279b8620bc2c5183b24be831c7ee157114f2700da210b36edb7bda7d91a32f7940bef431c76571cd44499f779cc4ebe829fb34eeaa1e442240d5962bdbcbc16c962974b546e9cee380dda49f651acc5c58acae4ad06d57e4b91d8c5557365e8ddda7ee9550963d70d4f56b44fc5a26e29b36cb21d11221825b5a2217cb1f1454d34d94a855cb860f2fe43681e3d302e7e124273dd18b04fddf660b8858e1e78d022cc03f467f3cf1a6e5df53bb831794542b1d08e38d3bfb0bf2e5ba6f75a0f77d56bf2924b144fff3c87ec7a57bff345ee8a4496676d38c9453c38e64521db2de6d6452aa8f3da1675134e8d90cbb0d274ce6189563fd9a56e56a800661e787b083950623035ddeeb2fb84f6fb2507f2c157e74e81a81970e11475ce926e393a55b06b77c444dbd23688e8a77c7f30337874fef787a187fcafd73a5a4837c8e3e60712308597ff72ea2edae69c9402ad7ae81abb3e9100f0c87b99b2564246bd56af8e6d0ecf2928e5151218f7e627c565e15540666f4f7c0e937c2d0e84782fcb1b535e596f6c4e0aed7c1d350e169d045f2eaaa4bb2f94cd149576f835e5eecb4418677d0444e51fafcbed2afac50b1d320bc223d2623601aee6df6a363a24294bfb3b00f2668dfc404e9fa17fe936e6620756a6918f7de2de343f380fab83fde911124be508")),
     KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("4aad1c4c7b5bf02bfd061cfaebf0188d6c4f4642d569ca4ab536cb68adcb0e68")),
@@ -1496,7 +1606,7 @@ assert auth.cksum.checksum.Exts[0].sprintf("%type%") == 'GSS_EXTS_CHANNEL_BINDIN
 
 # Hardcode (yes this will probably require updating this test)
 bytes(tok)
-assert bytes(tok) == b'n\x82\x05\xf90\x82\x05\xf5\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0e\xa2\x04\x03\x02\x05 \xa3\x82\x04\xa5a\x82\x04\xa10\x82\x04\x9d\xa0\x03\x02\x01\x05\xa1\x0e\x1b\x0cDOMAIN.LOCAL\xa2\x160\x14\xa0\x03\x02\x01\x03\xa1\r0\x0b\x1b\x04cifs\x1b\x03dc1\xa3\x82\x04l0\x82\x04h\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\r\xa2\x82\x04Z\x04\x82\x04Vg\x1fa1\xb3\x8e\xe6\xe6\x82\xd6,\xb97\xb8\xb7\x9cX\x97S\x18/\x8d\xbc\xb1J\x91\xb01\x05*< \xf7\xb4\xc8\x9b\xf9\xa4\x1f\xe9\x96\r\x11*\xccs\xf6\xbde\'\xdf\xe7\x07\x00\xa3\xd3\xc2\xe7+K\xa6p]\xfc\x04\x0f\xd5o\x9d|\xd6\x0bX\x0e\xbe\xce\xc2\xbf\xb2@\xba\xaca\x96\x90\xdb\xd90\x1e\xd9\x8c\xac\x03|\xfd\xff\x8f\xf9j\xc9\x83X\x96\x9f52\xf9\xc6\xad\xc0v\xd16\xa0\xef\x96\xeb\xdd\xef)=\xf8y\xbbB\xad\xfb\xf7g\x044\xf3@\xadg>\x03\x03\xae\x18n\x1aQ\r\x7fP\xdb\xfe\xe9\xeb\xab2<q]k\'\xa6\x7f\xfe\xc6\r\xba\x9ftu\xe5\xdb\xf8\x8e\xee\x1f\xcc\x95\xb7\xd4g\xab+N\xce\xf8\x93\xa9*%\xc8\x0b\x84\x80\xac\x8c\x12\xbc\x10t\x15#\xa2s\x8a=|=,C\x825\x11\x11\x88\x96\x84\x86\xca\xb2\x93K2\xca\xd1\xb6\xb4\xb2\xcb\xf3C\xb2]A\xadF<\x05\x13\xcf!\xcf\x9fw\xf0r\xf4\xa4\x9d\x80B\x94pd\xe37Z\x1a\xe7l5_\xd4\x8d_\xc1c\xcf\x7f\x86Z\xf9\x1b\xcbx\x8c\xff\xe2\xe9\xe1\xa3\n~?\x91\xbe\x8f\xb5[\n\x8b\x8c\x0b`\x0e\xf3\xe0\xe8\x8f\xea\xadO\xbfO\xff\xe7l\x93\x02\xee*\xcf\xa3\xb6L\xa2\x8c\xd0\x06\xfdJ\xf9\xc2}.\xb4^G\xe5\x82\xb8~c*\xa24u\xca\xeb\x0e>\x9dws9\xf5\xcb\x94\xab\xc1\x9e\xbd\x08\x0f\xfcx\x18\x1b\xf8\x1f\xf2\'\x18-\xe4"\x93vuTf3\xbdj\xb6\x88%\x8a\x94\xd12\xfbY\x0f\x81R\xd3\xf1\x9b\xd5Z\x1f3o\xb7\xc3\x82\x14\t\x87\xac#\x89\x13M\x803\x88/\x92==S$\xa3\xe9\xf5C{\xd7\x0f\t^k\xb0\x0e\xe6\x8d\x8f!\x91+\x19\xb2y$\xc6\x1bN;\xfehA\x1f\x9f"\r\xe8\xda\xce\x00\xe7g\xb6b17\x06s\rM\xc8S\x9b0\x9f\xc7^l\xa4\xca\xe4p\xcd\xf1,\xc3\xcf\xb1\x91Hn>^\xb8\xc8\x07#\xb2\xb0G;\x07\xe4\xeaM8T\x87\xdd0=\xf2\xdb\x8d1\xf8\xc9\rS\xc4\xad\xcf9\xadx\xcfl\x85\xfb\xb8{LN\xe51\xa4,!3\xdf+\x03b\x13#t\xdf\x99T \xe4\xb2\xa6\xd1\xe1\x9dxy\xd5\x18e-Q\x01\xa3\x16\x96+\'\xb3\x88L\xb6}\x07W/\x96\xb9f\x8c\xa4,\xcas\x11\xa7\x15*\xc7\xc6\xd4\x92\x00\x91\x92\xfaJpy\x89\xe4;*\x10\xf1\x9eS^|\xf8\xaf\xda\xf6<\xe9\xa2\xa8\\\xe1\xbd\x17\xd8\x1c\xfev\xd2\xceWY\xa7\xfd\xbe\xffo\xb2y\xb8b\x0b\xc2\xc5\x18;$\xbe\x83\x1c~\xe1W\x11O\'\x00\xda!\x0b6\xed\xb7\xbd\xa7\xd9\x1a2\xf7\x94\x0b\xefC\x1cvW\x1c\xd4D\x99\xf7y\xccN\xbe\x82\x9f\xb3N\xea\xa1\xe4B$\rYb\xbd\xbc\xbc\x16\xc9b\x97KTn\x9c\xee8\r\xdaI\xf6Q\xac\xc5\xc5\x8a\xca\xe4\xad\x06\xd5~K\x91\xd8\xc5Use\xe8\xdd\xda~\xe9U\tc\xd7\rOV\xb4O\xc5\xa2n)\xb3l\xb2\x1d\x11"\x18%\xb5\xa2!|\xb1\xf1EM4\xd9J\x85\\\xb8`\xf2\xfeCh\x1e=0.~\x12Bs\xdd\x18\xb0O\xdd\xf6`\xb8\x85\x8e\x1ex\xd0"\xcc\x03\xf4g\xf3\xcf\x1an]\xf5;\xb81yEB\xb1\xd0\x8e8\xd3\xbf\xb0\xbf.[\xa6\xf7Z\x0fw\xd5k\xf2\x92K\x14O\xff<\x87\xeczW\xbf\xf3E\xee\x8aD\x96gm8\xc9E<8\xe6E!\xdb-\xe6\xd6E*\xa8\xf3\xda\x16u\x13N\x8d\x90\xcb\xb0\xd2t\xcea\x89V?\xd9\xa5nV\xa8\x00f\x1ex{\x089Pb05\xdd\xee\xb2\xfb\x84\xf6\xfb%\x07\xf2\xc1W\xe7N\x81\xa8\x19p\xe1\x14u\xce\x92n9:U\xb0kw\xc4D\xdb\xd26\x88\xe8\xa7|\x7f03xt\xfe\xf7\x87\xa1\x87\xfc\xaf\xd7:ZH7\xc8\xe3\xe6\x07\x120\x85\x97\xffr\xea.\xda\xe6\x9c\x94\x02\xadz\xe8\x1a\xbb>\x91\x00\xf0\xc8{\x99\xb2VBF\xbdV\xaf\x8em\x0e\xcf)(\xe5\x15\x12\x18\xf7\xe6\'\xc5e\xe1U@foO|\x0e\x93|-\x0e\x84x/\xcb\x1bS^YolN\n\xed|\x1d5\x0e\x16\x9d\x04_.\xaa\xa4\xbb/\x94\xcd\x14\x95v\xf85\xe5\xee\xcbD\x18g}\x04D\xe5\x1f\xaf\xcb\xed*\xfa\xc5\x0b\x1d2\x0b\xc2#\xd2b6\x01\xae\xe6\xdfj6:$)K\xfb;\x00\xf2f\x8d\xfc@N\x9f\xa1\x7f\xe96\xe6b\x07V\xa6\x91\x8f}\xe2\xde4?8\x0f\xab\x83\xfd\xe9\x11\x12K\xe5\x08\xa4\x82\x0180\x82\x014\xa0\x03\x02\x01\x12\xa2\x82\x01+\x04\x82\x01\'\\>\t\xe4\x1d8,a(\x7f\x1e\xd2\x8dHH\x9c\xef\x8d\x1fqW\xbf(\x97S+\rs_zM\xee\xa7\xc2\x1a\x8eh1\xa4\xcb\x06\xed\x8e\xe6\xc0\x9a\xf7\x93g5\xa5vp\x0e~G\xaf:\xbb<\xaa2\x0e\xf8+l \xc5\xdb\x17,\xa9\x99\xae\x80\r\x0f\xdd4\x92\xf1\xa3h\xc3)^*I\x92\x01\x9f\x06jW\x1a\xac\x02r\x05\n`d\xd1\xda\xf5i\x9e\x04e\xa9\\,2\xf9\xa55\x16m\x92\x7fI\xe6\x81\x98\xe5V\xa1i\x17\xf0\x10\xf9\x16\x92\x81\x95mJ\xe3\xcc\x0f\x83gW\xca\xc5l\xc2~\x1fFmt~\x81\xd5%{\x87\xe1!\x15\xc4o\x163,\x8eg\xd4\xc5\xdc\xd7\x11at\x87v\x13j\xd0/\x07z/\xee\xd6\xd8b\x0b(\xae*\xd7\x87\xe3\xb7\x1b\xf8d\xd8\xbc\xadL7\x18a0o`\xa7\xd1Q\xe8\xf3\x9a\xf1\x95\xf2\xec\x06\xc0v\xba\x81\xc4\xbc7@8\x08\xd9\xa7{~\x8fz\xeeE\xdc\xc9\x81"\xb6b\x872=.\x19$KP\xcd\xfd\x85\x861@c\x05,\xa9\x98\xe9\x8e\x84A\x9f\n#&\xb2\xf4"\xa5O\x86\xc9\x93\xcb\x97\x0e\x18C\xf5\x00^\xe8De\x94|\xbaf'
+assert bytes(tok) == b'n\x82\x06\x1d0\x82\x06\x19\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0e\xa2\x04\x03\x02\x05 \xa3\x82\x04\xa5a\x82\x04\xa10\x82\x04\x9d\xa0\x03\x02\x01\x05\xa1\x0e\x1b\x0cDOMAIN.LOCAL\xa2\x160\x14\xa0\x03\x02\x01\x03\xa1\r0\x0b\x1b\x04cifs\x1b\x03dc1\xa3\x82\x04l0\x82\x04h\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\r\xa2\x82\x04Z\x04\x82\x04Vg\x1fa1\xb3\x8e\xe6\xe6\x82\xd6,\xb97\xb8\xb7\x9cX\x97S\x18/\x8d\xbc\xb1J\x91\xb01\x05*< \xf7\xb4\xc8\x9b\xf9\xa4\x1f\xe9\x96\r\x11*\xccs\xf6\xbde\'\xdf\xe7\x07\x00\xa3\xd3\xc2\xe7+K\xa6p]\xfc\x04\x0f\xd5o\x9d|\xd6\x0bX\x0e\xbe\xce\xc2\xbf\xb2@\xba\xaca\x96\x90\xdb\xd90\x1e\xd9\x8c\xac\x03|\xfd\xff\x8f\xf9j\xc9\x83X\x96\x9f52\xf9\xc6\xad\xc0v\xd16\xa0\xef\x96\xeb\xdd\xef)=\xf8y\xbbB\xad\xfb\xf7g\x044\xf3@\xadg>\x03\x03\xae\x18n\x1aQ\r\x7fP\xdb\xfe\xe9\xeb\xab2<q]k\'\xa6\x7f\xfe\xc6\r\xba\x9ftu\xe5\xdb\xf8\x8e\xee\x1f\xcc\x95\xb7\xd4g\xab+N\xce\xf8\x93\xa9*%\xc8\x0b\x84\x80\xac\x8c\x12\xbc\x10t\x15#\xa2s\x8a=|=,C\x825\x11\x11\x88\x96\x84\x86\xca\xb2\x93K2\xca\xd1\xb6\xb4\xb2\xcb\xf3C\xb2]A\xadF<\x05\x13\xcf!\xcf\x9fw\xf0r\xf4\xa4\x9d\x80B\x94pd\xe37Z\x1a\xe7l5_\xd4\x8d_\xc1c\xcf\x7f\x86Z\xf9\x1b\xcbx\x8c\xff\xe2\xe9\xe1\xa3\n~?\x91\xbe\x8f\xb5[\n\x8b\x8c\x0b`\x0e\xf3\xe0\xe8\x8f\xea\xadO\xbfO\xff\xe7l\x93\x02\xee*\xcf\xa3\xb6L\xa2\x8c\xd0\x06\xfdJ\xf9\xc2}.\xb4^G\xe5\x82\xb8~c*\xa24u\xca\xeb\x0e>\x9dws9\xf5\xcb\x94\xab\xc1\x9e\xbd\x08\x0f\xfcx\x18\x1b\xf8\x1f\xf2\'\x18-\xe4"\x93vuTf3\xbdj\xb6\x88%\x8a\x94\xd12\xfbY\x0f\x81R\xd3\xf1\x9b\xd5Z\x1f3o\xb7\xc3\x82\x14\t\x87\xac#\x89\x13M\x803\x88/\x92==S$\xa3\xe9\xf5C{\xd7\x0f\t^k\xb0\x0e\xe6\x8d\x8f!\x91+\x19\xb2y$\xc6\x1bN;\xfehA\x1f\x9f"\r\xe8\xda\xce\x00\xe7g\xb6b17\x06s\rM\xc8S\x9b0\x9f\xc7^l\xa4\xca\xe4p\xcd\xf1,\xc3\xcf\xb1\x91Hn>^\xb8\xc8\x07#\xb2\xb0G;\x07\xe4\xeaM8T\x87\xdd0=\xf2\xdb\x8d1\xf8\xc9\rS\xc4\xad\xcf9\xadx\xcfl\x85\xfb\xb8{LN\xe51\xa4,!3\xdf+\x03b\x13#t\xdf\x99T \xe4\xb2\xa6\xd1\xe1\x9dxy\xd5\x18e-Q\x01\xa3\x16\x96+\'\xb3\x88L\xb6}\x07W/\x96\xb9f\x8c\xa4,\xcas\x11\xa7\x15*\xc7\xc6\xd4\x92\x00\x91\x92\xfaJpy\x89\xe4;*\x10\xf1\x9eS^|\xf8\xaf\xda\xf6<\xe9\xa2\xa8\\\xe1\xbd\x17\xd8\x1c\xfev\xd2\xceWY\xa7\xfd\xbe\xffo\xb2y\xb8b\x0b\xc2\xc5\x18;$\xbe\x83\x1c~\xe1W\x11O\'\x00\xda!\x0b6\xed\xb7\xbd\xa7\xd9\x1a2\xf7\x94\x0b\xefC\x1cvW\x1c\xd4D\x99\xf7y\xccN\xbe\x82\x9f\xb3N\xea\xa1\xe4B$\rYb\xbd\xbc\xbc\x16\xc9b\x97KTn\x9c\xee8\r\xdaI\xf6Q\xac\xc5\xc5\x8a\xca\xe4\xad\x06\xd5~K\x91\xd8\xc5Use\xe8\xdd\xda~\xe9U\tc\xd7\rOV\xb4O\xc5\xa2n)\xb3l\xb2\x1d\x11"\x18%\xb5\xa2!|\xb1\xf1EM4\xd9J\x85\\\xb8`\xf2\xfeCh\x1e=0.~\x12Bs\xdd\x18\xb0O\xdd\xf6`\xb8\x85\x8e\x1ex\xd0"\xcc\x03\xf4g\xf3\xcf\x1an]\xf5;\xb81yEB\xb1\xd0\x8e8\xd3\xbf\xb0\xbf.[\xa6\xf7Z\x0fw\xd5k\xf2\x92K\x14O\xff<\x87\xeczW\xbf\xf3E\xee\x8aD\x96gm8\xc9E<8\xe6E!\xdb-\xe6\xd6E*\xa8\xf3\xda\x16u\x13N\x8d\x90\xcb\xb0\xd2t\xcea\x89V?\xd9\xa5nV\xa8\x00f\x1ex{\x089Pb05\xdd\xee\xb2\xfb\x84\xf6\xfb%\x07\xf2\xc1W\xe7N\x81\xa8\x19p\xe1\x14u\xce\x92n9:U\xb0kw\xc4D\xdb\xd26\x88\xe8\xa7|\x7f03xt\xfe\xf7\x87\xa1\x87\xfc\xaf\xd7:ZH7\xc8\xe3\xe6\x07\x120\x85\x97\xffr\xea.\xda\xe6\x9c\x94\x02\xadz\xe8\x1a\xbb>\x91\x00\xf0\xc8{\x99\xb2VBF\xbdV\xaf\x8em\x0e\xcf)(\xe5\x15\x12\x18\xf7\xe6\'\xc5e\xe1U@foO|\x0e\x93|-\x0e\x84x/\xcb\x1bS^YolN\n\xed|\x1d5\x0e\x16\x9d\x04_.\xaa\xa4\xbb/\x94\xcd\x14\x95v\xf85\xe5\xee\xcbD\x18g}\x04D\xe5\x1f\xaf\xcb\xed*\xfa\xc5\x0b\x1d2\x0b\xc2#\xd2b6\x01\xae\xe6\xdfj6:$)K\xfb;\x00\xf2f\x8d\xfc@N\x9f\xa1\x7f\xe96\xe6b\x07V\xa6\x91\x8f}\xe2\xde4?8\x0f\xab\x83\xfd\xe9\x11\x12K\xe5\x08\xa4\x82\x01\\0\x82\x01X\xa0\x03\x02\x01\x12\xa2\x82\x01O\x04\x82\x01K\\>\t\xe4\x1d8,a(\x7f\x1e\xd2\x8dHH\x9c\xa3\x03?&\xb9\xf4\xba\xef\xcf\xcf\xb6(8\x91\x0f\xa3lq\xc6 f&Ou\xd8Bk\xe84s\xf1\xec\xf6\x97wY\xc6Un;\xf5\xdeh\xb9J\xd6\xaf\xf4r\x00\x80\x17\x8d\xc4p\x81\xac\x89\xf1\xf6\x98\xef\x1f\xb3\xe5\x91}\xf5m\x1a\xbd\x08\x1d\x0217W0\x81\xdd\x10O\xda\x97\xf1qo\xa9\xdcT\xe4_\xfaxt\xdf\xcb*\x95L\xd3\x85\xdf\xf04\x14\xb3\x14\x9c1cU\xe5\x18H\xf3^\x86\xd4\xd2\xe39-Y\x0b\x80\x92\xf0\x08\x03\xc5\x99{;z\xc0\xdd\x08\x1d\x94\xd4\xa4\xda,9\x00\xa7\x87I\x01\x9b\xb7\xf0\x01ITC\xcdJr\xd7+\x95\xadI\xf0\x14\xfc7t\xa2\x9a\xa7\xe0mA\x8c\'\xf0\x9c\xbc\x97\xaa\xd6\xec\x82.\xfa^\x08\xa7\x1b\xef\xa8\x979\x93\x8f\x80.i\x05\xf3jj\xef2\xf4B`Q\xed_\xde\x00\x14\xee\xae \xd1\xbc6\x8b;\xf19\x1fikM\xadf\x15\xc9\xb7G\xf6\xa9,\x9cJ\xe9e\xa8\xcc\x8e.b\x86\x88\xb3!p\x04\xe6\x03/\x17\xae\x03\x13:\xe4\xedG%\x98$\x9d\x13<\x92\x16\x80:\x94\x8f\x87jb\xa6.\xc2\n\xbe\xdb\x9d3\x8d\xf5\xb2\\\x8b\xd6\xcb\xc0\xa6%\xc7\xb1\xe3m\x86\x1fsXj\x19\xad\xe7\x06\xfc\x0b\xf1\xcf'
 
 = GSS_Accept_sec_context (KRB_AP_REQ->KRB_AP_REP) - DCE_STYLE
 
@@ -1545,12 +1655,11 @@ assert tok is None
 
 data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"
 
-edata, sig = client.GSS_Wrap(
+sig = client.GSS_Wrap(
     clicontext,
     data,
     conf_req_flag=False,
 )
-assert edata == b""
 assert sig.TOK_ID == b"\x05\x04"
 assert sig.root.Flags == 4
 assert sig.root.EC == 12
@@ -1559,7 +1668,6 @@ assert bytes(sig) == b'\x05\x04\x04\xff\x00\x0c\x00\x0c\x00\x00\x00\x00@\x00\x00
 
 ddata = server.GSS_Unwrap(
     srvcontext,
-    edata,
     sig,
 )
 assert ddata == data
@@ -1568,12 +1676,11 @@ assert ddata == data
 
 data = b"testAAAAAAAAAABBBBBBBBBCCCCCCCCCDDDDDDDDDEEEEEEEEE"
 
-edata, sig = server.GSS_Wrap(
+sig = server.GSS_Wrap(
     srvcontext,
     data,
     conf_req_flag=False,
 )
-assert edata == b""
 assert sig.TOK_ID == b"\x05\x04"
 assert sig.root.Flags == 5
 assert sig.root.EC == 12
@@ -1583,14 +1690,13 @@ assert bytes(sig) == b"\x05\x04\x05\xff\x00\x0c\x00\x0c\x00\x00\x00\x00\x00\x00\
 
 ddata = client.GSS_Unwrap(
     clicontext,
-    edata,
     sig,
 )
 assert ddata == data
 
 = GSS_WrapEx/GSS_UnwrapEx: client sends wrapped payload with confidentiality
 
-import mock
+from unittest import mock
 from scapy.libs.rfc3961 import Key, EncryptionType
 
 # Data

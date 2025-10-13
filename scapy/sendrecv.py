@@ -14,6 +14,7 @@ import re
 import socket
 import subprocess
 import time
+import warnings
 
 from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL
@@ -90,7 +91,8 @@ _DOC_SNDRCV_PARAMS = """
     :param prebuild: pre-build the packets before starting to send them.
         Automatically enabled when a generator is passed as the packet
     :param _flood:
-    :param threaded: if True, packets will be sent in an individual thread
+    :param threaded: if True, packets are sent in a thread and received in another.
+        Defaults to True.
     :param session: a flow decoder used to handle stream of packets
     :param chainEX: if True, exceptions during send will be forwarded
     :param stop_filter: Python function applied to each packet to determine if
@@ -109,9 +111,8 @@ class SndRcvHandler(object):
     This matches the requests and answers.
 
     Notes::
-      - threaded mode: enabling threaded mode will likely
-        break packet timestamps, but might result in a speedup
-        when sending a big amount of packets. Disabled by default
+      - threaded: if you're planning to send/receive many packets, it's likely
+        a good idea to use threaded mode.
       - DEVS: store the outgoing timestamp right BEFORE sending the packet
         to avoid races that could result in negative latency. We aren't Stadia
     """
@@ -127,7 +128,7 @@ class SndRcvHandler(object):
                  rcv_pks=None,  # type: Optional[SuperSocket]
                  prebuild=False,  # type: bool
                  _flood=None,  # type: Optional[_FloodGenerator]
-                 threaded=False,  # type: bool
+                 threaded=True,  # type: bool
                  session=None,  # type: Optional[_GlobSessionType]
                  chainEX=False,  # type: bool
                  stop_filter=None  # type: Optional[Callable[[Packet], bool]]
@@ -156,6 +157,8 @@ class SndRcvHandler(object):
         self.notans = 0
         self.noans = 0
         self._flood = _flood
+        self.threaded = threaded
+        self.breakout = Event()
         # Instantiate packet holders
         if prebuild and not self._flood:
             self.tobesent = list(pkt)  # type: _PacketIterable
@@ -171,26 +174,40 @@ class SndRcvHandler(object):
             self.timeout = None
 
         while retry >= 0:
+            self.breakout.clear()
             self.hsent = {}  # type: Dict[bytes, List[Packet]]
 
             if threaded or self._flood:
                 # Send packets in thread.
-                # https://github.com/secdev/scapy/issues/1791
                 snd_thread = Thread(
                     target=self._sndrcv_snd
                 )
                 snd_thread.daemon = True
 
                 # Start routine with callback
-                self._sndrcv_rcv(snd_thread.start)
+                interrupted = None
+                try:
+                    self._sndrcv_rcv(snd_thread.start)
+                except KeyboardInterrupt as ex:
+                    interrupted = ex
+
+                self.breakout.set()
 
                 # Ended. Let's close gracefully
                 if self._flood:
                     # Flood: stop send thread
                     self._flood.stop()
                 snd_thread.join()
+
+                if interrupted and self.chainCC:
+                    raise interrupted
             else:
-                self._sndrcv_rcv(self._sndrcv_snd)
+                # Send packets, then receive.
+                try:
+                    self._sndrcv_rcv(self._sndrcv_snd)
+                except KeyboardInterrupt:
+                    if self.chainCC:
+                        raise
 
             if multi:
                 remain = [
@@ -235,6 +252,12 @@ class SndRcvHandler(object):
         # type: () -> Tuple[SndRcvList, PacketList]
         return self.ans_result, self.unans_result
 
+    def _stop_sniffer_if_done(self) -> None:
+        """Close the sniffer if all expected answers have been received"""
+        if self._send_done and self.noans >= self.notans and not self.multi:
+            if self.sniffer and self.sniffer.running:
+                self.sniffer.stop(join=False)
+
     def _sndrcv_snd(self):
         # type: () -> None
         """Function used in the sending thread of sndrcv()"""
@@ -242,7 +265,7 @@ class SndRcvHandler(object):
         p = None
         try:
             if self.verbose:
-                print("Begin emission:")
+                os.write(1, b"Begin emission\n")
             for p in self.tobesent:
                 # Populate the dictionary of _sndrcv_rcv
                 # _sndrcv_rcv won't miss the answer of a packet that
@@ -250,11 +273,12 @@ class SndRcvHandler(object):
                 self.hsent.setdefault(p.hashret(), []).append(p)
                 # Send packet
                 self.pks.send(p)
-                if self.inter:
-                    time.sleep(self.inter)
+                time.sleep(self.inter)
+                if self.breakout.is_set():
+                    break
                 i += 1
             if self.verbose:
-                print("Finished sending %i packets." % i)
+                os.write(1, b"\nFinished sending %i packets\n" % i)
         except SystemExit:
             pass
         except Exception:
@@ -273,6 +297,12 @@ class SndRcvHandler(object):
             elif not self._send_done:
                 self.notans = i
             self._send_done = True
+        self._stop_sniffer_if_done()
+        # In threaded mode, timeout
+        if self.threaded and self.timeout is not None and not self.breakout.is_set():
+            self.breakout.wait(timeout=self.timeout)
+            if self.sniffer and self.sniffer.running:
+                self.sniffer.stop()
 
     def _process_packet(self, r):
         # type: (Packet) -> None
@@ -297,9 +327,7 @@ class SndRcvHandler(object):
                             self.noans += 1
                         sentpkt._answered = 1
                     break
-        if self._send_done and self.noans >= self.notans and not self.multi:
-            if self.sniffer and self.sniffer.running:
-                self.sniffer.stop(join=False)
+        self._stop_sniffer_if_done()
         if not ok:
             if self.verbose > 1:
                 os.write(1, b".")
@@ -310,22 +338,19 @@ class SndRcvHandler(object):
     def _sndrcv_rcv(self, callback):
         # type: (Callable[[], None]) -> None
         """Function used to receive packets and check their hashret"""
+        # This is blocking.
         self.sniffer = None  # type: Optional[AsyncSniffer]
-        try:
-            self.sniffer = AsyncSniffer()
-            self.sniffer._run(
-                prn=self._process_packet,
-                timeout=self.timeout,
-                store=False,
-                opened_socket=self.rcv_pks,
-                session=self.session,
-                stop_filter=self.stop_filter,
-                started_callback=callback,
-                chainCC=self.chainCC,
-            )
-        except KeyboardInterrupt:
-            if self.chainCC:
-                raise
+        self.sniffer = AsyncSniffer()
+        self.sniffer._run(
+            prn=self._process_packet,
+            timeout=None if self.threaded and not self._flood else self.timeout,
+            store=False,
+            opened_socket=self.rcv_pks,
+            session=self.session,
+            stop_filter=self.stop_filter,
+            started_callback=callback,
+            chainCC=True,
+        )
 
 
 def sndrcv(*args, **kwargs):
@@ -429,12 +454,14 @@ def _send(x,  # type: _PacketIterable
 
 @conf.commands.register
 def send(x,  # type: _PacketIterable
-         iface=None,  # type: Optional[_GlobInterfaceType]
          **kargs  # type: Any
          ):
     # type: (...) -> Optional[PacketList]
     """
     Send packets at layer 3
+
+    This determines the interface (or L2 source to use) based on the routing
+    table: conf.route / conf.route6
 
     :param x: the packets
     :param inter: time (in s) between two packets (default 0)
@@ -444,11 +471,18 @@ def send(x,  # type: _PacketIterable
     :param realtime: check that a packet was sent before sending the next one
     :param return_packets: return the sent packets
     :param socket: the socket to use (default is conf.L3socket(kargs))
-    :param iface: the interface to send the packets on
     :param monitor: (not on linux) send in monitor mode
     :returns: None
     """
-    iface, ipv6 = _interface_selection(iface, x)
+    if "iface" in kargs:
+        # Warn that it isn't used.
+        warnings.warn(
+            "'iface' has no effect on L3 I/O send(). For multicast/link-local "
+            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
+            SyntaxWarning,
+        )
+        del kargs["iface"]
+    iface, ipv6 = _interface_selection(x)
     return _send(
         x,
         lambda iface: iface.l3socket(ipv6),
@@ -551,12 +585,15 @@ def sendpfast(x: _PacketIterable,
         try:
             cmd = subprocess.Popen(argv, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
+            cmd.wait()
         except KeyboardInterrupt:
+            if cmd:
+                cmd.terminate()
             log_interactive.info("Interrupted by user")
         except Exception:
             os.unlink(f)
             raise
-        else:
+        finally:
             stdout, stderr = cmd.communicate()
             if stderr:
                 log_runtime.warning(stderr.decode())
@@ -626,10 +663,7 @@ def _parse_tcpreplay_result(stdout_b, stderr_b, argv):
         return {}
 
 
-def _interface_selection(iface,  # type: Optional[_GlobInterfaceType]
-                         packet  # type: _PacketIterable
-                         ):
-    # type: (...) -> Tuple[NetworkInterface, bool]
+def _interface_selection(packet: _PacketIterable) -> Tuple[NetworkInterface, bool]:
     """
     Select the network interface according to the layer 3 destination
     """
@@ -641,21 +675,17 @@ def _interface_selection(iface,  # type: Optional[_GlobInterfaceType]
             ipv6 = True
         except (ValueError, OSError):
             pass
-    if iface is None:
-        try:
-            iff = resolve_iface(_iff or conf.iface)
-        except AttributeError:
-            iff = None
-        return iff or conf.iface, ipv6
-
-    return resolve_iface(iface), ipv6
+    try:
+        iff = resolve_iface(_iff or conf.iface)
+    except AttributeError:
+        iff = None
+    return iff or conf.iface, ipv6
 
 
 @conf.commands.register
 def sr(x,  # type: _PacketIterable
        promisc=None,  # type: Optional[bool]
        filter=None,  # type: Optional[str]
-       iface=None,  # type: Optional[_GlobInterfaceType]
        nofilter=0,  # type: int
        *args,  # type: Any
        **kargs  # type: Any
@@ -663,8 +693,19 @@ def sr(x,  # type: _PacketIterable
     # type: (...) -> Tuple[SndRcvList, PacketList]
     """
     Send and receive packets at layer 3
+
+    This determines the interface (or L2 source to use) based on the routing
+    table: conf.route / conf.route6
     """
-    iface, ipv6 = _interface_selection(iface, x)
+    if "iface" in kargs:
+        # Warn that it isn't used.
+        warnings.warn(
+            "'iface' has no effect on L3 I/O sr(). For multicast/link-local "
+            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
+            SyntaxWarning,
+        )
+        del kargs["iface"]
+    iface, ipv6 = _interface_selection(x)
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         iface=iface, nofilter=nofilter,
@@ -679,7 +720,18 @@ def sr1(*args, **kargs):
     # type: (*Any, **Any) -> Optional[Packet]
     """
     Send packets at layer 3 and return only the first answer
+
+    This determines the interface (or L2 source to use) based on the routing
+    table: conf.route / conf.route6
     """
+    if "iface" in kargs:
+        # Warn that it isn't used.
+        warnings.warn(
+            "'iface' has no effect on L3 I/O sr1(). For multicast/link-local "
+            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
+            SyntaxWarning,
+        )
+        del kargs["iface"]
     ans, _ = sr(*args, **kargs)
     if ans:
         return cast(Packet, ans[0][1])
@@ -903,13 +955,23 @@ def srflood(x,  # type: _PacketIterable
     # type: (...) -> Tuple[SndRcvList, PacketList]
     """Flood and receive packets at layer 3
 
+    This determines the interface (or L2 source to use) based on the routing
+    table: conf.route / conf.route6
+
     :param prn:      function applied to packets received
     :param unique:   only consider packets whose print
     :param nofilter: put 1 to avoid use of BPF filters
     :param filter:   provide a BPF filter
-    :param iface:    listen answers only on the given interface
     """
-    iface, ipv6 = _interface_selection(iface, x)
+    if "iface" in kargs:
+        # Warn that it isn't used.
+        warnings.warn(
+            "'iface' has no effect on L3 I/O srflood(). For multicast/link-local "
+            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
+            SyntaxWarning,
+        )
+        del kargs["iface"]
+    iface, ipv6 = _interface_selection(x)
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         iface=iface, nofilter=nofilter,
@@ -923,7 +985,6 @@ def srflood(x,  # type: _PacketIterable
 def sr1flood(x,  # type: _PacketIterable
              promisc=None,  # type: Optional[bool]
              filter=None,  # type: Optional[str]
-             iface=None,  # type: Optional[_GlobInterfaceType]
              nofilter=0,  # type: int
              *args,  # type: Any
              **kargs  # type: Any
@@ -931,13 +992,24 @@ def sr1flood(x,  # type: _PacketIterable
     # type: (...) -> Optional[Packet]
     """Flood and receive packets at layer 3 and return only the first answer
 
+    This determines the interface (or L2 source to use) based on the routing
+    table: conf.route / conf.route6
+
     :param prn:      function applied to packets received
     :param verbose:  set verbosity level
     :param nofilter: put 1 to avoid use of BPF filters
     :param filter:   provide a BPF filter
     :param iface:    listen answers only on the given interface
     """
-    iface, ipv6 = _interface_selection(iface, x)
+    if "iface" in kargs:
+        # Warn that it isn't used.
+        warnings.warn(
+            "'iface' has no effect on L3 I/O sr1flood(). For multicast/link-local "
+            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
+            SyntaxWarning,
+        )
+        del kargs["iface"]
+    iface, ipv6 = _interface_selection(x)
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         nofilter=nofilter, iface=iface,
@@ -1078,6 +1150,7 @@ class AsyncSniffer(object):
         self.thread = None  # type: Optional[Thread]
         self.results = None  # type: Optional[PacketList]
         self.exception = None  # type: Optional[Exception]
+        self.stop_cb = lambda: None  # type: Callable[[], None]
 
     def _setup_thread(self):
         # type: () -> None
@@ -1262,7 +1335,7 @@ class AsyncSniffer(object):
                         for p in packets:
                             if lfilter and not lfilter(p):
                                 continue
-                            p.sniffed_on = sniff_sockets[s]
+                            p.sniffed_on = sniff_sockets.get(s, None)
                             # post-processing
                             self.count += 1
                             if store:
@@ -1327,9 +1400,13 @@ class AsyncSniffer(object):
         # type: (bool) -> Optional[PacketList]
         """Stops AsyncSniffer if not in async mode"""
         if self.running:
-            try:
-                self.stop_cb()
-            except AttributeError:
+            self.stop_cb()
+            if not hasattr(self, "continue_sniff"):
+                # Never started -> is there an exception?
+                if self.exception is not None:
+                    raise self.exception
+                return None
+            if self.continue_sniff:
                 raise Scapy_Exception(
                     "Unsupported (offline or unsupported socket)"
                 )

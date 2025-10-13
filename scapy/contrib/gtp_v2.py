@@ -591,8 +591,7 @@ class IE_FQDN(gtp.IE_Base):
                    ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   ByteField("fqdn_tr_bit", 0),
-                   StrLenField("fqdn", "", length_from=lambda x: x.length - 1)]
+                   gtp.FQDNField("fqdn", b"", length_from=lambda x: x.length)]
 
 
 class IE_NotImplementedTLV(gtp.IE_Base):

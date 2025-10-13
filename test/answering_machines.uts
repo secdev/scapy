@@ -8,7 +8,7 @@
 + Answering Machines
 
 = Generic answering machine mocker
-import mock
+from unittest import mock
 @mock.patch("scapy.ansmachine.sniff")
 def test_am(cls_name, packet_query, check_reply, mock_sniff, **kargs):
     packet_query = packet_query.__class__(bytes(packet_query))
@@ -39,12 +39,23 @@ test_am(BOOTP_am,
 def check_DHCP_am_reply(packet):
     assert DHCP in packet and len(packet[DHCP].options)
     assert ("domain", b"localnet") in packet[DHCP].options
+    assert ('name_server', '192.168.1.1') in packet[DHCP].options
+
+def check_ns_DHCP_am_reply(packet):
+    assert DHCP in packet and len(packet[DHCP].options)
+    assert ("domain", b"localnet") in packet[DHCP].options
+    assert ('name_server', '1.1.1.1', '2.2.2.2') in packet[DHCP].options
 
 test_am(DHCP_am,
         Ether()/IP()/UDP()/BOOTP(op=1)/DHCP(options=[('message-type', 'request')]),
         check_DHCP_am_reply,
         domain="localnet")
 
+test_am(DHCP_am,
+        Ether()/IP()/UDP()/BOOTP(op=1)/DHCP(options=[('message-type', 'request')]),
+        check_ns_DHCP_am_reply,
+        domain="localnet",
+        nameserver=["1.1.1.1", "2.2.2.2"])
 
 = ARP_am
 def check_ARP_am_reply(packet):
@@ -119,6 +130,78 @@ test_am(DNS_am,
         match={"google.com": ("127.0.0.1", "::1"), "gaagle.com": "128.0.0.1"},
         joker=False)
 
+assert DNS_am().make_reply(Ether()) is None
+assert DNS_am().make_reply(Ether()/IP()) is None
+assert DNS_am().make_reply(Ether()/IP()/UDP()) is None
+assert DNS_am().make_reply(
+    Ether()/IP()/UDP()/DNS(b'q\xa04\x00\x00\xa0\x01\x00\xf3\x00\x01\x04\x01y')
+) is None
+
+= LLMNR_am
+def check_LLMNR_am_am_reply(packet):
+    # assert packet[Ether].src == get_if_hwaddr(conf.iface)
+    assert packet[Ether].dst == "aa:aa:aa:aa:aa:aa"
+    # assert packet[IP].src == get_if_addr(conf.iface)
+    assert packet[IP].dst == "192.168.0.1"
+    assert packet[UDP].dport == 51938
+    assert packet[UDP].sport == 5355
+    assert LLMNRResponse in packet and packet[LLMNRResponse].ancount == 1 and packet[LLMNRResponse].qdcount == 1
+    assert packet[LLMNRResponse].qd[0].qname == b"TEST."
+    assert packet[LLMNRResponse].an[0].rdata == "192.168.1.1"
+    assert packet[LLMNRResponse].an[0].rrname == b"TEST."
+    assert packet[LLMNRResponse].an[0].ttl == 60
+
+test_am(LLMNR_am,
+        Ether(src="aa:aa:aa:aa:aa:aa", dst="01:00:5e:00:00:fc")/IP(src="192.168.0.1", dst="224.0.0.252")/UDP(dport=5355, sport=51938)/LLMNRQuery(qd=DNSQR(qname=b"TEST.", qtype="A")),
+        check_LLMNR_am_am_reply,
+        ttl=60,
+        match={"TEST": "192.168.1.1"})
+
+= mDNS_am
+def check_mDNS_am_reply(packet):
+    packet.show()
+    # assert packet[Ether].src == get_if_hwaddr(conf.iface)
+    assert packet[Ether].dst == "01:00:5e:00:00:fb"
+    # assert packet[IP].src == get_if_addr(conf.iface)
+    assert packet[IP].dst == "224.0.0.251"
+    assert packet[IP].ttl == 255
+    assert packet[UDP].dport == 5353
+    assert packet[UDP].sport == 5353
+    assert DNS in packet and packet[DNS].ancount == 1 and packet[DNS].qdcount == 0
+    assert packet[DNS].an[0].rdata == "192.168.1.1"
+    assert packet[DNS].an[0].rrname == b"TEST.local."
+    assert packet[DNS].an[0].ttl == 10
+
+test_am(mDNS_am,
+        Ether(src="aa:aa:aa:aa:aa:aa", dst="01:00:5e:00:00:fb")/IP(src="192.168.0.1", dst="224.0.0.251", ttl=1)/UDP(dport=5353, sport=5353)/DNS(qd=DNSQR(qname=b"TEST.local.", qtype="A")),
+        check_mDNS_am_reply,
+        joker="192.168.1.1")
+
+
+def check_mDNS_am_reply2(packet):
+    # $ avahi-resolve -n bonjour.local
+    packet.show()
+    # assert packet[Ether].src == get_if_hwaddr(conf.iface)
+    assert packet[Ether].dst == "01:00:5e:00:00:fb"
+    # assert packet[IP].src == get_if_addr(conf.iface)
+    assert packet[IP].dst == "224.0.0.251"
+    assert packet[IP].ttl == 255
+    assert packet[UDP].dport == 5353
+    assert packet[UDP].sport == 5353
+    assert DNS in packet and packet[DNS].ancount == 2 and packet[DNS].qdcount == 0
+    assert packet[DNS].an[0].rdata == "192.168.1.1"
+    assert packet[DNS].an[0].rrname == b"bonjour.local."
+    assert packet[DNS].an[0].ttl == 120
+    assert packet[DNS].an[1].type == 47
+    assert packet[DNS].an[1].rrname == b"bonjour.local."
+    assert packet[DNS].an[1].ttl == 120
+
+test_am(mDNS_am,
+        Ether(b'\x01\x00^\x00\x00\xfb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00A\xce}@\x00\xff\x11\x0b\x89\xc0\xa8\x00\x01\xe0\x00\x00\xfb\x14\xe9\x14\xe9\x00-\xdbl\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x07bonjour\x05local\x00\x00\x01\x00\x01\xc0\x0c\x00\x1c\x00\x01'),
+        check_mDNS_am_reply2,
+        joker="192.168.1.1",
+        ttl=120)
+
 = DHCPv6_am - Basic Instantiaion
 ~ osx netaccess
 a = DHCPv6_am()
@@ -160,11 +243,11 @@ assert a.is_request(req)
 res = a.make_reply(req)
 assert not a.is_request(res)
 assert res[UDP].dport == 546
-assert res[DHCP6_Solicit]
+assert res[DHCP6_Reply]
 a.print_reply(req, res)
 
 = WiFi_am
-import mock
+from unittest import mock
 @mock.patch("scapy.layers.dot11.sniff")
 def test_WiFi_am(packet_query, check_reply, mock_sniff, **kargs):
     def sniff(*args,**kargs):
@@ -189,13 +272,13 @@ def check_NBNS_am_reply(name):
         packet.show()
         assert packet[Ether].src != "ff:ff:ff:ff:ff:ff"
         assert packet[Ether].dst == "aa:aa:aa:aa:aa:aa"
-        assert NBNSQueryResponse in packet and packet[NBNSQueryResponse].RR_NAME.strip() == bytes_encode(name)
+        assert NBNSQueryResponse in packet and packet[NBNSQueryResponse].RR_NAME == name
     return check
 
 for server_name in (None, "", b"test", "test"):
     test_am(NBNS_am,
             Ether(src="aa:aa:aa:aa:aa:aa", dst="ff:ff:ff:ff:ff:ff")/IP()/UDP()/NBNSHeader()/NBNSQueryRequest(QUESTION_NAME="test"),
-            check_NBNS_am_reply("test"),
+            check_NBNS_am_reply(b"test"),
             server_name=server_name)
 
 test_am(NBNS_am,
@@ -254,3 +337,88 @@ test_am(LdapPing_am,
         NetbiosComputerName="DC",
         NetbiosDomainName="SCAPY",
         DnsForestName="scapy.fr")
+
++ Radius_am
+~ crypto
+
+= Radius_am PAP - Test Access-Success
+
+def check_radius_pap_reply_success(x):
+    x.show()
+    assert x[Radius].code == 2
+    assert len(x.attributes) == 1
+    assert isinstance(x.attributes[0], RadiusAttr_Message_Authenticator)
+    assert x.attributes[0].value == bytes.fromhex("75c0da1e492f6f51771a7a49b9136a6d")
+    assert x.authenticator == bytes.fromhex("3dd94c06bc90accfab8168437821ded4")
+
+test_am(
+    Radius_am,
+    Ether(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00Z\x00\x8e\x00\x00@\x11|\x03\x7f\x00\x00\x01\x7f\x00\x00\x01\x9f<\x07\x14\x00F\xfeY\x01\xfb\x00>s0\x00\x13\x86x\xd7\x11\xc4\x9e\xe1=\xce&r<P\x12\xbfL!\xb2\xd5WP!\xa8)}\tYZ&*\x01\x06user\x02\x12\x8f\x00\x8e\xdb4\xb1\x1a\xaf\x1f\xc7[\x9aD\xfff\xbd'),
+    check_radius_pap_reply_success,
+    secret="SECRET",
+    IDENTITIES={"user": "password"}
+)
+
+= Radius_am PAP - Test Access-Reject
+
+def check_radius_pap_reply_fail(x):
+    x.show()
+    assert x[Radius].code == 3
+    assert len(x.attributes) == 1
+    assert isinstance(x.attributes[0], RadiusAttr_Message_Authenticator)
+    assert x.attributes[0].value == bytes.fromhex("9a0efbce86998e53fc9228293ebad3d0")
+    assert x.authenticator == bytes.fromhex("cce9bcadab26e276f8c6513ad4ee5d87")
+
+test_am(
+    Radius_am,
+    Ether(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00ZH$\x00\x00@\x114m\x7f\x00\x00\x01\x7f\x00\x00\x01\xb4F\x07\x14\x00F\xfeY\x01V\x00>\x15\xa7J\x8an+\xe2\x8a\xe9Lx\xa0h\x0e\r\xbaP\x12%\x87Sg;\xab\x93\x95\xb5o\x925\xc7h\x88\x01\x01\x06user\x02\x12\x99\xbc\x970\x847\x95L\x86JeD\xf8\xea\x87\x00'),
+    check_radius_pap_reply_fail,
+    secret="SECRET",
+    IDENTITIES={"user": "password"}
+)
+
+= Radius_am MS-CHAP2 - Test Access-Success
+
+def check_radius_mschap2_reply_success(x):
+    x.show()
+    assert x[Radius].code == 2
+    assert len(x.attributes) == 2
+    assert isinstance(x.attributes[0], RadiusAttr_Message_Authenticator)
+    assert x.attributes[0].value == bytes.fromhex("5ab34c3b0554fb14f2d5bf7f521914eb")
+    assert x.authenticator == bytes.fromhex("c40000ef60fb3c413e2112afb3c7c7d5")
+    assert isinstance(x.attributes[1], RadiusAttr_Vendor_Specific)
+    chap2_success = x.attributes[1].value
+    assert isinstance(chap2_success, MS_CHAP2_Success)
+    assert chap2_success.String == b'S=46317A3248777BF4D9FAFF4BF4034DC996B740D9'
+    assert bytes(x[Radius]) == b'\x02\x01\x00Y\xc4\x00\x00\xef`\xfb<A>!\x12\xaf\xb3\xc7\xc7\xd5P\x12Z\xb3L;\x05T\xfb\x14\xf2\xd5\xbf\x7fR\x19\x14\xeb\x1a3\x00\x00\x017\x1a-\x00S=46317A3248777BF4D9FAFF4BF4034DC996B740D9'
+
+test_am(
+    Radius_am,
+    Ether(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00\xado\x90@\x00@\x11\xcc\xad\x7f\x00\x00\x01\x7f\x00\x00\x01\xe1\xea\x07\x14\x00\x99\xfe\xac\x01\x01\x00\x91\xe3\x99\x1b\xec\x1e\x82\x8a\xfcb\xf6\xbf\x824\x13\xc8\x1d\x04\x06\x7f\x00\x01\x01 \x07mynas\x01\x06user\x06\x06\x00\x00\x00\x01\x1a\x18\x00\x00\x017\x0b\x12(\xa0\x18u\x0c\x13\x8c~@\xb71\xa1\xe9\xfd\x1e\xdc\x1a:\x00\x00\x017\x194\x00\x00\xe2\x1fY\xd4O8\x8b\xc6\xf3\x07\xd6\xe5?:3!\x00\x00\x00\x00\x00\x00\x00\x00g-\xd8%\x03\x04\xed\xa7\xc6O\x83"\xdc\xe2\x07\xaa\xf8\x15\xed\xc3~\x08GHP\x12/)\xa2\t\x9dA8\xf9>\xa7V\xba\xf6\xf0LG'),
+    check_radius_mschap2_reply_success,
+    secret="SECRET",
+    IDENTITIES={"user": "password"}
+)
+
+= Radius_am MS-CHAP2 - Test Access-Reject
+
+def check_radius_mschap2_reply_fail(x):
+    x.show()
+    assert x[Radius].code == 3
+    assert len(x.attributes) == 2
+    assert isinstance(x.attributes[0], RadiusAttr_Message_Authenticator)
+    assert x.attributes[0].value == bytes.fromhex("df430d94a4992ca0d38acf02a1fa94f0")
+    assert x.authenticator == bytes.fromhex("e0d5cf468ffdf714ed4a40aea1a5715f")
+    assert isinstance(x.attributes[1], RadiusAttr_Vendor_Specific)
+    chap2_error = x.attributes[1].value
+    assert isinstance(chap2_error, MS_CHAP_Error)
+    assert chap2_error.String == b'E=691 R=0 V=3'
+    assert bytes(x[Radius]) == b'\x03\x01\x00<\xe0\xd5\xcfF\x8f\xfd\xf7\x14\xedJ@\xae\xa1\xa5q_P\x12\xdfC\r\x94\xa4\x99,\xa0\xd3\x8a\xcf\x02\xa1\xfa\x94\xf0\x1a\x16\x00\x00\x017\x02\x10\x00E=691 R=0 V=3'
+
+test_am(
+    Radius_am,
+    Ether(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00\xad\xca\xd1@\x00@\x11ql\x7f\x00\x00\x01\x7f\x00\x00\x01\xe9\x1b\x07\x14\x00\x99\xfe\xac\x01\x01\x00\x91\xc0{%t\xdd\x8eQC\xda\x861\x11\xf9\xd0\xb2j\x04\x06\x7f\x00\x01\x01 \x07mynas\x01\x06user\x06\x06\x00\x00\x00\x01\x1a\x18\x00\x00\x017\x0b\x12\xd8\x07\xbf\x15N\xfb\x9a;\x0f\xd8\x14\x7f\xae\xe2\xe3e\x1a:\x00\x00\x017\x194\x00\x00\x8e\x8d\xe0\x81\x15]8\xb5j\x7f`\x14\xe0f]\xa6\x00\x00\x00\x00\x00\x00\x00\x00\x88\x07\xfb\xf9\x08H\xb5\x81\x87\xdc\x02\x90\x04\xb0\xaf\x11\x0c\x9a\rwQ\xd4\xcaiP\x12\x85\xfeMzd\xaf\x00\xaa\x12\xe2\x910\xea\xea\xb6\xf3'),
+    check_radius_mschap2_reply_fail,
+    secret="SECRET",
+    IDENTITIES={"user": "password"}
+)

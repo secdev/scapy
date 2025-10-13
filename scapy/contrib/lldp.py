@@ -42,10 +42,11 @@ from scapy.fields import MACField, IPField, IP6Field, BitField, \
     StrLenField, ByteEnumField, BitEnumField, \
     EnumField, ThreeBytesField, BitFieldLenField, \
     ShortField, XStrLenField, ByteField, ConditionalField, \
-    MultipleTypeField
+    MultipleTypeField, FlagsField, ShortEnumField, ScalingField, \
+    BitScalingField
 from scapy.packet import Packet, bind_layers
 from scapy.data import ETHER_TYPES
-from scapy.compat import orb
+from scapy.compat import orb, bytes_int
 
 LLDP_NEAREST_BRIDGE_MAC = '01:80:c2:00:00:0e'
 LLDP_NEAREST_NON_TPMR_BRIDGE_MAC = '01:80:c2:00:00:03'
@@ -53,6 +54,13 @@ LLDP_NEAREST_CUSTOMER_BRIDGE_MAC = '01:80:c2:00:00:00'
 
 LLDP_ETHER_TYPE = 0x88cc
 ETHER_TYPES[LLDP_ETHER_TYPE] = 'LLDP'
+
+
+class LLDPInvalidFieldValue(Scapy_Exception):
+    """
+    field value is out of allowed range
+    """
+    pass
 
 
 class LLDPInvalidFrameStructure(Scapy_Exception):
@@ -147,7 +155,13 @@ class LLDPDU(Packet):
         # type is a 7-bit bitfield spanning bits 1..7 -> div 2
         try:
             lldpdu_tlv_type = orb(payload[0]) // 2
-            return LLDPDU_CLASS_TYPES.get(lldpdu_tlv_type, conf.raw_layer)
+            class_type = LLDPDU_CLASS_TYPES.get(lldpdu_tlv_type, conf.raw_layer)
+            if isinstance(class_type, list):
+                for cls in class_type:
+                    if cls._match_organization_specific(payload):
+                        return cls
+            else:
+                return class_type
         except IndexError:
             return conf.raw_layer
 
@@ -698,6 +712,515 @@ class LLDPDUGenericOrganisationSpecific(LLDPDU):
                      pkt._length - 4)
     ]
 
+    @staticmethod
+    def _match_organization_specific(payload):
+        return True
+
+
+class LLDPDUPowerViaMDI(LLDPDUGenericOrganisationSpecific):
+    """
+    Legacy PoE TLV originally defined in IEEE Std 802.1AB-2005 Annex G.3.
+
+    IEEE802.3bt-2018 - sec. 79.3.2.
+    """
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.1
+    MDI_POWER_SUPPORT = {
+        (1 << 3): 'PSE pairs controlled',
+        (1 << 2): 'PSE MDI power enabled',
+        (1 << 1): 'PSE MDI power supported',
+        (1 << 0): 'port class PSE',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.2
+    PSE_POWER_PAIR = {
+        1: 'alt A',
+        2: 'alt B',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.3
+    POWER_CLASS = {
+        1: 'class 0',
+        2: 'class 1',
+        3: 'class 2',
+        4: 'class 3',
+        5: 'class 4 and above',
+    }
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 7, 9),
+        ThreeBytesField('org_code', LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3),  # noqa: E501
+        ByteField('subtype', 2),
+        FlagsField('MDI_power_support', 0, 8, MDI_POWER_SUPPORT),
+        ByteEnumField('PSE_power_pair', 1, PSE_POWER_PAIR),
+        ByteEnumField('power_class', 1, POWER_CLASS),
+    ]
+
+    @staticmethod
+    def _match_organization_specific(payload):
+        """
+        match organization specific TLV
+        """
+        return (orb(payload[5]) == 2 and orb(payload[1]) == 7
+                and bytes_int(payload[2:5]) ==
+                LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3)
+
+    def _check(self):
+        """
+        run layer specific checks
+        """
+        if conf.contribs['LLDP'].strict_mode() and self._length != 7:
+            raise LLDPInvalidLengthField('length must be 7 - got '
+                                         '{}'.format(self._length))
+
+
+class LLDPDUPowerViaMDIDDL(LLDPDUPowerViaMDI):
+    """
+    PoE TLV with DLL classification extension specified in IEEE802.3at-2009
+
+    Note: power values are expressed in units of Watts,
+    converted to tenth of Watts internally
+
+    IEEE802.3bt-2018 - sec. 79.3.2
+    """
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.4
+    POWER_TYPE_NO = {
+        1: 'type 1',
+        0: 'type 2',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.4
+    POWER_TYPE_DIR = {
+        1: 'PD',
+        0: 'PSE',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.4
+    POWER_SOURCE_PD = {
+        0b11: 'PSE and local',
+        0b10: 'reserved',
+        0b01: 'PSE',
+        0b00: 'unknown',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.4
+    POWER_SOURCE_PSE = {
+        0b11: 'reserved',
+        0b10: 'backup source',
+        0b01: 'primary source',
+        0b00: 'unknown',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.4
+    PD_4PID_SUP = {
+        0: 'not supported',
+        1: 'supported',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.4
+    POWER_PRIO = {
+        0b11: 'low',
+        0b10: 'high',
+        0b01: 'critical',
+        0b00: 'unknown',
+    }
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 12, 9),
+        ThreeBytesField('org_code', LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3),  # noqa: E501
+        ByteField('subtype', 2),
+        FlagsField('MDI_power_support', 0, 8, LLDPDUPowerViaMDI.MDI_POWER_SUPPORT),
+        ByteEnumField('PSE_power_pair', 1, LLDPDUPowerViaMDI.PSE_POWER_PAIR),
+        ByteEnumField('power_class', 1, LLDPDUPowerViaMDI.POWER_CLASS),
+        BitEnumField('power_type_no', 1, 1, POWER_TYPE_NO),
+        BitEnumField('power_type_dir', 1, 1, POWER_TYPE_DIR),
+        MultipleTypeField([
+            (
+                BitEnumField('power_source', 0b01, 2, POWER_SOURCE_PD),
+                lambda pkt: pkt.power_type_dir == 1
+            ),
+        ], BitEnumField('power_source', 0b01, 2, POWER_SOURCE_PSE)),
+        MultipleTypeField([
+            (
+                BitEnumField('PD_4PID', 0, 2, PD_4PID_SUP),
+                lambda pkt: pkt.power_type_dir == 1
+            ),
+        ], BitField('PD_4PID', 0, 2)),
+        BitEnumField('power_prio', 0, 2, POWER_PRIO),
+        ScalingField('PD_requested_power', 0, scaling=0.1,
+                     unit='W', ndigits=1, fmt='H'),
+        ScalingField('PSE_allocated_power', 0, scaling=0.1,
+                     unit='W', ndigits=1, fmt='H'),
+    ]
+
+    @staticmethod
+    def _match_organization_specific(payload):
+        """
+        match organization specific TLV
+        """
+        return (orb(payload[5]) == 2 and orb(payload[1]) == 12
+                and bytes_int(payload[2:5]) ==
+                LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3)
+
+    def _check(self):
+        """
+        run layer specific checks
+        """
+        if conf.contribs['LLDP'].strict_mode() and self._length != 12:
+            raise LLDPInvalidLengthField('length must be 12 - got '
+                                         '{}'.format(self._length))
+        # IEEE802.3bt-2018 - sec. 79.3.2.{5,6}
+        for field, description, max_value in [('PD_requested_power',
+                                               'PSE requested power',
+                                               99.9),
+                                              ('PSE_allocated_power',
+                                               'PSE allocated power',
+                                               99.9)]:
+            val = getattr(self, field)
+            if (conf.contribs['LLDP'].strict_mode() and val > max_value):
+                raise LLDPInvalidFieldValue(
+                    'exceeded maximum {} of {} - got '
+                    '{}'.format(description, max_value, val))
+
+
+class LLDPDUPowerViaMDIType34(LLDPDUPowerViaMDIDDL):
+    """
+    PoE TLV with DLL classification and type 3 and 4 extensions
+    specified in IEEE802.3bt-2018
+
+    Note: power values are expressed in units of Watts,
+    converted to tenth of Watts internally
+
+    IEEE802.3bt-2018 - sec. 79.3.2
+    """
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.6e
+    PSE_POWERING_STATUS = {
+        0b11: '4-pair powering dual-signature PD',
+        0b10: '4-pair powering single-signature PD',
+        0b01: '2-pair powering',
+        0b00: 'ignore',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.6e
+    PD_POWERED_STATUS = {
+        0b11: '4-pair powered dual-signature PD',
+        0b10: '2-pair powered dual-signature PD',
+        0b01: 'powered single-signature PD',
+        0b00: 'ignore',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.6e
+    PSE_POWER_PAIRS_EXT = {
+        0b11: 'both alts',
+        0b10: 'alt A',
+        0b01: 'alt B',
+        0b00: 'ignore',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.6e
+    DUAL_SIGNATURE_POWER_CLASS = {
+        0b111: 'single-signature PD or 2-pair only PSE',
+        0b110: 'ignore',
+        0b101: 'class 5',
+        0b100: 'class 4',
+        0b011: 'class 3',
+        0b010: 'class 2',
+        0b001: 'class 1',
+        0b000: 'ignore',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.6e
+    POWER_CLASS_EXT = {
+        0b1111: 'dual-signature pd',
+        0b1110: 'ignore',
+        0b1101: 'ignore',
+        0b1100: 'ignore',
+        0b1011: 'ignore',
+        0b1010: 'ignore',
+        0b1001: 'ignore',
+        0b1000: 'class 8',
+        0b0111: 'class 7',
+        0b0110: 'class 6',
+        0b0101: 'class 5',
+        0b0100: 'class 4',
+        0b0011: 'class 3',
+        0b0010: 'class 2',
+        0b0001: 'class 1',
+        0b0000: 'ignore',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.6d
+    POWER_TYPE_EXT = {
+        0b111: 'ignore',
+        0b110: 'ignore',
+        0b101: 'type 4 dual-signature PD',
+        0b100: 'type 4 single-signature PD',
+        0b011: 'type 3 dual-signature PD',
+        0b010: 'type 3 single-signature PD',
+        0b001: 'type 4 PSE',
+        0b000: 'type 3 PSE',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.6d
+    PD_LOAD = {
+        1: 'dual-signature and electrically isolated',
+        0: 'single-signature or not electrically isolated',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.6h
+    AUTOCLASS = {
+        (1 << 2): 'PSE autoclass support',
+        (1 << 1): 'autoclass completed',
+        (1 << 0): 'autoclass request',
+    }
+
+    # IEEE802.3bt-2018 - sec. 79.3.2.6i
+    POWER_DOWN_REQ = {
+        0x1d: 'power down',
+        0: 'ignore',
+    }
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 29, 9),
+        ThreeBytesField('org_code', LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3),  # noqa: E501
+        ByteField('subtype', 2),
+        FlagsField('MDI_power_support', 0, 8, LLDPDUPowerViaMDI.MDI_POWER_SUPPORT),
+        ByteEnumField('PSE_power_pair', 1, LLDPDUPowerViaMDI.PSE_POWER_PAIR),
+        ByteEnumField('power_class', 1, LLDPDUPowerViaMDI.POWER_CLASS),
+        BitEnumField('power_type_no', 1, 1, LLDPDUPowerViaMDIDDL.POWER_TYPE_NO),
+        BitEnumField('power_type_dir', 1, 1, LLDPDUPowerViaMDIDDL.POWER_TYPE_DIR),
+        MultipleTypeField([
+            (
+                BitEnumField('power_source', 0b01, 2, LLDPDUPowerViaMDIDDL.POWER_SOURCE_PD),  # noqa: E501
+                lambda pkt: pkt.power_type_dir == 1
+            ),
+        ], BitEnumField('power_source', 0b01, 2, LLDPDUPowerViaMDIDDL.POWER_SOURCE_PSE)),  # noqa: E501
+        MultipleTypeField([
+            (
+                BitEnumField('PD_4PID', 0, 2, LLDPDUPowerViaMDIDDL.PD_4PID_SUP),
+                lambda pkt: pkt.power_type_dir == 1
+            ),
+        ], BitField('PD_4PID', 0, 2)),
+        BitEnumField('power_prio', 0, 2, LLDPDUPowerViaMDIDDL.POWER_PRIO),
+        ScalingField('PD_requested_power', 0, scaling=0.1,
+                     unit='W', ndigits=1, fmt='H'),
+        ScalingField('PSE_allocated_power', 0, scaling=0.1,
+                     unit='W', ndigits=1, fmt='H'),
+        ScalingField('PD_requested_power_mode_A', 0, scaling=0.1,
+                     unit='W', ndigits=1, fmt='H'),
+        ScalingField('PD_requested_power_mode_B', 0, scaling=0.1,
+                     unit='W', ndigits=1, fmt='H'),
+        ScalingField('PD_allocated_power_alt_A', 0, scaling=0.1,
+                     unit='W', ndigits=1, fmt='H'),
+        ScalingField('PD_allocated_power_alt_B', 0, scaling=0.1,
+                     unit='W', ndigits=1, fmt='H'),
+        BitEnumField('PSE_powering_status', 0, 2, PSE_POWERING_STATUS),
+        BitEnumField('PD_powered_status', 0, 2, PD_POWERED_STATUS),
+        BitEnumField('PD_power_pair_ext', 0, 2, PSE_POWER_PAIRS_EXT),
+        BitEnumField('dual_signature_class_mode_A',
+                     0b111, 3, DUAL_SIGNATURE_POWER_CLASS),
+        BitEnumField('dual_signature_class_mode_B',
+                     0b111, 3, DUAL_SIGNATURE_POWER_CLASS),
+        BitEnumField('power_class_ext', 0, 4, POWER_CLASS_EXT),
+        BitEnumField('power_type_ext', 0, 7, POWER_TYPE_EXT),
+        BitEnumField('PD_load', 0, 1, PD_LOAD),
+        ScalingField('PSE_max_available_power', 0, scaling=0.1,
+                     unit='W', ndigits=1, fmt='H'),
+        FlagsField('autoclass', 0, 8, AUTOCLASS),
+        BitEnumField('power_down_req', 0, 6, POWER_DOWN_REQ),
+        BitScalingField('power_down_time', 0, 18, unit='s'),
+    ]
+
+    @staticmethod
+    def _match_organization_specific(payload):
+        '''
+        match organization specific TLV
+        '''
+        return (orb(payload[5]) == 2 and orb(payload[1]) == 29
+                and bytes_int(payload[2:5]) ==
+                LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3)
+
+    def _check(self):
+        """
+        run layer specific checks
+        """
+        if conf.contribs['LLDP'].strict_mode() and self._length != 29:
+            raise LLDPInvalidLengthField('length must be 29 - got '
+                                         '{}'.format(self._length))
+        # IEEE802.3bt-2018 - sec. 79.3.2.6{a..b,e,g}
+        for field, description, max_value in [('PD_requested_power',
+                                               'PSE requested power',
+                                               99.9),
+                                              ('PSE_allocated_power',
+                                               'PSE allocated power',
+                                               99.9),
+                                              ('PD_requested_power_mode_A',
+                                               'PD requested power mode A',
+                                               49.9),
+                                              ('PD_requested_power_mode_B',
+                                               'PD requested power mode B',
+                                               49.9),
+                                              ('PD_allocated_power_alt_A',
+                                               'PD allocated power alt A',
+                                               49.9),
+                                              ('PD_allocated_power_alt_B',
+                                               'PD allocated power alt B',
+                                               49.9),
+                                              ('PSE_max_available_power',
+                                               'PSE maximum available power',
+                                               99.9),
+                                              ('power_down_time',
+                                               'power down time',
+                                               262143)]:
+            val = getattr(self, field) or 0
+            if (conf.contribs['LLDP'].strict_mode() and val > max_value):
+                raise LLDPInvalidFieldValue(
+                    'exceeded maximum {} of {} - got '
+                    '{}'.format(description, max_value, val))
+
+
+class LLDPDUPowerViaMDIMeasure(LLDPDUGenericOrganisationSpecific):
+    """
+    PoE TLV measurements in IEEE802.3bt-2018
+
+    Note: power values are expressed in units of Watts,
+    converted to hundredths of Watts internally;
+    energy values are expressed in units of Joules,
+    converted to tenths of kilo-Joules internally;
+    voltage values are expressed in units of Volts,
+    converted to milli-Volts internally;
+    current values are expressed in units of Amperes,
+    converted to tenths of milli-Amperes internally.
+    PSE price index is converted internally.
+
+    IEEE802.3bt-2018 - sec. 79.3.8
+    """
+
+    MEASURE_TYPE = {
+        (1 << 3): 'voltage',
+        (1 << 2): 'current',
+        (1 << 1): 'power',
+        (1 << 0): 'energy',
+    }
+
+    MEASURE_SOURCE = {
+        0b00: 'no request',
+        0b01: 'mode A',
+        0b10: 'mode B',
+        0b11: 'port total',
+    }
+
+    POWER_PRICE_INDEX = {
+        0xffff: 'not available',
+    }
+
+    @staticmethod
+    def _encode_ppi(val):
+        # IEEE802.3bt-2018 - sec. 79.3.8
+        return int(75046 / 2.512 * (val ** (1 / 5)) - 10046)
+
+    @staticmethod
+    def _decode_ppi(val):
+        # IEEE802.3bt-2018 - sec. 79.3.8
+        return ((val + 10046) * 2.512 / 75046) ** 5
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 26, 9),
+        ThreeBytesField('org_code', LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3),  # noqa: E501
+        ByteField('subtype', 8),
+        FlagsField('support', 0, 4, MEASURE_TYPE),
+        BitEnumField('source', 0, 4, MEASURE_SOURCE),
+        FlagsField('request', 0, 4, MEASURE_TYPE),
+        FlagsField('valid', 0, 4, MEASURE_TYPE),
+        ScalingField('voltage_uncertainty', 0, scaling=0.001,
+                     unit='V', ndigits=3, fmt='H'),
+        ScalingField('current_uncertainty', 0, scaling=0.0001,
+                     unit='A', ndigits=4, fmt='H'),
+        ScalingField('power_uncertainty', 0, scaling=0.01,
+                     unit='W', ndigits=2, fmt='H'),
+        ScalingField('energy_uncertainty', 0, scaling=100,
+                     unit='J', ndigits=0, fmt='H'),
+        ScalingField('voltage_measurement', 0, scaling=0.001,
+                     unit='V', ndigits=3, fmt='H'),
+        ScalingField('current_measurement', 0, scaling=0.0001,
+                     unit='A', ndigits=4, fmt='H'),
+        ScalingField('power_measurement', 0, scaling=0.01,
+                     unit='W', ndigits=2, fmt='H'),
+        ScalingField('energy_measurement', 0, scaling=100,
+                     unit='J', ndigits=0, fmt='I'),
+        ShortEnumField('power_price_index', 0xffff, POWER_PRICE_INDEX),
+    ]
+
+    def do_build(self):
+        backup_ppi = self.power_price_index
+        self.power_price_index = 0xffff if self.power_price_index == 0xffff \
+            else LLDPDUPowerViaMDIMeasure._encode_ppi(self.power_price_index)
+        s = super(LLDPDUPowerViaMDIMeasure, self).do_build()
+        self.power_price_index = backup_ppi
+        return s
+
+    def post_dissect(self, s):
+        s = super(LLDPDUPowerViaMDIMeasure, self).post_dissect(s)
+        self.power_price_index = 0xffff if self.power_price_index == 0xffff \
+            else LLDPDUPowerViaMDIMeasure._decode_ppi(self.power_price_index)
+        return s
+
+    @staticmethod
+    def _match_organization_specific(payload):
+        '''
+        match organization specific TLV
+        '''
+        return (orb(payload[5]) == 8 and orb(payload[1]) == 26
+                and bytes_int(payload[2:5]) ==
+                LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3)
+
+    def _check(self):
+        """
+        run layer specific checks
+        """
+        if conf.contribs['LLDP'].strict_mode() and self._length != 26:
+            raise LLDPInvalidLengthField('length must be 26 - got '
+                                         '{}'.format(self._length))
+        # IEEE802.3bt-2018 - sec. 79.3.8
+        for field, description, max_value in [('voltage_uncertainty',
+                                               'voltage uncertainty',
+                                               65),
+                                              ('voltage_measurement',
+                                               'voltage measurement',
+                                               65),
+                                              ('current_uncertainty',
+                                               'current uncertainty',
+                                               6.5),
+                                              ('current_measurement',
+                                               'current measurement',
+                                               6.5),
+                                              ('energy_uncertainty',
+                                               'energy uncertainty',
+                                               6500000),
+                                              ('power_uncertainty',
+                                               'power uncertainty',
+                                               650),
+                                              ('power_measurement',
+                                               'power measurement',
+                                               650)]:
+            val = getattr(self, field) or 0
+            if (conf.contribs['LLDP'].strict_mode() and val > max_value):
+                raise LLDPInvalidFieldValue(
+                    'exceeded maximum {} of {} - got '
+                    '{}'.format(description, max_value, val))
+            val = self.power_price_index or 0xffff
+            if val > 65000 and val != 0xffff:
+                raise LLDPInvalidFieldValue(
+                    'exceeded maximum power price index of {} - got '
+                    '{}'.format(LLDPDUPowerViaMDIMeasure._decode_ppi(65000),
+                                LLDPDUPowerViaMDIMeasure._decode_ppi(val)))
+
 
 # 0x09 .. 0x7e is reserved for future standardization and for now treated as Raw() data  # noqa: E501
 LLDPDU_CLASS_TYPES = {
@@ -710,7 +1233,13 @@ LLDPDU_CLASS_TYPES = {
     0x06: LLDPDUSystemDescription,
     0x07: LLDPDUSystemCapabilities,
     0x08: LLDPDUManagementAddress,
-    127: LLDPDUGenericOrganisationSpecific
+    127: [
+        LLDPDUPowerViaMDI,
+        LLDPDUPowerViaMDIDDL,
+        LLDPDUPowerViaMDIType34,
+        LLDPDUPowerViaMDIMeasure,
+        LLDPDUGenericOrganisationSpecific,
+    ]
 }
 
 

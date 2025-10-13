@@ -12,7 +12,7 @@ import struct
 
 from scapy.compat import orb
 from scapy.config import conf
-from scapy.packet import NoPayload, Packet
+from scapy.packet import Packet
 from scapy.pton_ntop import inet_pton
 
 # Typing imports
@@ -104,6 +104,8 @@ class StringBuffer(object):
         self.incomplete = []  # type: List[Tuple[int, int]]
 
     def append(self, data: bytes, seq: Optional[int] = None) -> None:
+        if not data:
+            return
         data_len = len(data)
         if seq is None:
             seq = self.content_len
@@ -136,7 +138,7 @@ class StringBuffer(object):
         # type: () -> bool
         # Should only be true when all missing data was filled up,
         # (or there never was missing data)
-        return True  # XXX
+        return bool(self)
 
     def clear(self):
         # type: () -> None
@@ -248,6 +250,8 @@ class TCPSession(IPSession):
     def _strip_padding(self, pkt: Packet) -> Optional[bytes]:
         """Strip the packet of any padding, and return the padding.
         """
+        if isinstance(pkt, conf.padding_layer):
+            return cast(bytes, pkt.load)
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
             # strip padding
@@ -273,16 +277,20 @@ class TCPSession(IPSession):
                 self.metadata["tcp_reassemble"] = tcp_reassemble = streamcls(cls)
             else:
                 return None
-            packet = tcp_reassemble(
-                bytes(self.data),
-                self.metadata,
-                self.session,
-            )
+            if self.data.full():
+                packet = tcp_reassemble(
+                    bytes(self.data),
+                    self.metadata,
+                    self.session,
+                )
             if packet:
                 padding = self._strip_padding(packet)
                 if padding:
                     # There is remaining data for the next payload.
                     self.data.shiftleft(len(self.data) - len(padding))
+                    # Skip full-padding
+                    if isinstance(packet, conf.padding_layer):
+                        return None
                 else:
                     # No padding (data) left. Clear
                     self.data.clear()
@@ -302,33 +310,43 @@ class TCPSession(IPSession):
         if TCP not in pkt:
             return pkt
         pay = pkt[TCP].payload
-        if isinstance(pay, (NoPayload, conf.padding_layer)):
-            return pkt
         new_data = pay.original
         # Match packets by a unique TCP identifier
-        seq = pkt[TCP].seq
         ident = self._get_ident(pkt)
         data, metadata = self.tcp_frags[ident]
         tcp_session = self.tcp_sessions[self._get_ident(pkt, True)]
+        # Handle TCP sequence numbers
+        seq = pkt[TCP].seq
+        if "seq" not in metadata:
+            metadata["seq"] = seq
+        if "next_seq" in metadata and seq < metadata["next_seq"]:
+            # Retransmitted data (that we already returned)
+            new_data = new_data[metadata["next_seq"] - seq:]
+            if not new_data:
+                return None
+            seq = metadata["next_seq"]
         # Let's guess which class is going to be used
         if "pay_class" not in metadata:
             metadata["pay_class"] = pay_class = pkt[TCP].guess_payload_class(new_data)
             metadata["tcp_reassemble"] = tcp_reassemble = streamcls(pay_class)
         else:
             tcp_reassemble = metadata["tcp_reassemble"]
-        if "seq" not in metadata:
-            metadata["seq"] = seq
-        # Get a relative sequence number for a storage purpose
-        relative_seq = metadata.get("relative_seq", None)
-        if relative_seq is None:
-            relative_seq = metadata["relative_seq"] = seq - 1
-        seq = seq - relative_seq
-        # Add the data to the buffer
-        # Note that this take care of retransmission packets.
-        data.append(new_data, seq)
+
+        if pay:
+            # Get a relative sequence number for a storage purpose
+            relative_seq = metadata.get("relative_seq", None)
+            if relative_seq is None:
+                relative_seq = metadata["relative_seq"] = seq - 1
+            seq = seq - relative_seq
+            # Add the data to the buffer
+            data.append(new_data, seq)
+
         # Check TCP FIN or TCP RESET
         if pkt[TCP].flags.F or pkt[TCP].flags.R:
             metadata["tcp_end"] = True
+        elif not pay:
+            # If there's no payload and the stream isn't ending, ignore.
+            return pkt
 
         # In case any app layer protocol requires it,
         # allow the parser to inspect TCP PSH flag
@@ -339,6 +357,7 @@ class TCPSession(IPSession):
         if data.full():
             # Reassemble using all previous packets
             metadata["original"] = pkt
+            metadata["ident"] = ident
             packet = tcp_reassemble(
                 bytes(data),
                 metadata,
@@ -352,17 +371,34 @@ class TCPSession(IPSession):
             metadata.clear()
             # Check for padding
             padding = self._strip_padding(packet)
-            if padding:
+            while padding:
                 # There is remaining data for the next payload.
                 full_length = data.content_len - len(padding)
                 metadata["relative_seq"] = relative_seq + full_length
                 data.shiftleft(full_length)
+                # There might be a sub-payload hidden in the padding
+                sub_packet = tcp_reassemble(
+                    bytes(data),
+                    metadata,
+                    tcp_session
+                )
+                if sub_packet:
+                    packet /= sub_packet
+                    padding = self._strip_padding(sub_packet)
+                else:
+                    break
             else:
                 # No padding (data) left. Clear
                 data.clear()
                 del self.tcp_frags[ident]
+            # Minimum next seq
+            metadata["next_seq"] = pkt[TCP].seq + len(new_data)
+            # Skip full-padding
+            if isinstance(packet, conf.padding_layer):
+                return None
             # Rebuild resulting packet
-            pay.underlayer.remove_payload()
+            if pay:
+                pay.underlayer.remove_payload()
             if IP in pkt:
                 pkt[IP].len = None
                 pkt[IP].chksum = None
@@ -377,10 +413,15 @@ class TCPSession(IPSession):
         """
         pkt = sock.recv(stop_dissection_after=self.stop_dissection_after)
         # Now handle TCP reassembly
-        while pkt is not None:
-            pkt = self.process(pkt)
+        if self.app:
+            while pkt is not None:
+                pkt = self.process(pkt)
+                if pkt:
+                    yield pkt
+                    # keep calling process as there might be more
+                    pkt = b""  # type: ignore
+        else:
+            pkt = self.process(pkt)  # type: ignore
             if pkt:
                 yield pkt
-                # keep calling process as there might be more
-                pkt = b""  # type: ignore
         return None

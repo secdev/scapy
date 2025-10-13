@@ -38,6 +38,7 @@ from scapy.asn1fields import (
     ASN1F_optional,
 )
 from scapy.asn1packet import ASN1_Packet
+from scapy.base_classes import Net
 from scapy.fields import (
     FieldListField,
     LEIntEnumField,
@@ -56,14 +57,22 @@ from scapy.fields import (
     XStrLenField,
 )
 from scapy.packet import Packet, bind_layers
+from scapy.utils import (
+    valid_ip,
+    valid_ip6,
+)
 
+from scapy.layers.inet6 import Net6
 from scapy.layers.gssapi import (
     GSSAPI_BLOB,
     GSSAPI_BLOB_SIGNATURE,
     GSS_C_FLAGS,
+    GSS_C_NO_CHANNEL_BINDINGS,
     GSS_S_BAD_MECH,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
+    GSS_S_FLAGS,
+    GssChannelBindings,
     SSP,
     _GSSAPI_OIDS,
     _GSSAPI_SIGNATURE_OIDS,
@@ -72,8 +81,12 @@ from scapy.layers.gssapi import (
 # SSP Providers
 from scapy.layers.kerberos import (
     Kerberos,
+    KerberosSSP,
+    _parse_upn,
 )
 from scapy.layers.ntlm import (
+    NTLMSSP,
+    MD4le,
     NEGOEX_EXCHANGE_NTLM,
     NTLM_Header,
     _NTLMPayloadField,
@@ -529,8 +542,8 @@ class SPNEGOSSP(SSP):
         __slots__ = [
             "supported_mechtypes",
             "requested_mechtypes",
+            "req_flags",
             "negotiated_mechtype",
-            "first_reply",
             "first_choice",
             "sub_context",
             "ssp",
@@ -541,8 +554,8 @@ class SPNEGOSSP(SSP):
         ):
             self.state = SPNEGOSSP.STATE.FIRST
             self.requested_mechtypes = None
+            self.req_flags = req_flags
             self.first_choice = True
-            self.first_reply = True
             self.negotiated_mechtype = None
             self.sub_context = None
             self.ssp = None
@@ -555,7 +568,12 @@ class SPNEGOSSP(SSP):
                 )
             else:
                 self.supported_mechtypes = force_supported_mechtypes
-            super(SPNEGOSSP.CONTEXT, self).__init__(req_flags=req_flags)
+            super(SPNEGOSSP.CONTEXT, self).__init__()
+
+        # Passthrough attributes and functions
+
+        def clifailure(self):
+            self.sub_context.clifailure()
 
         def __getattr__(self, attr):
             try:
@@ -568,6 +586,20 @@ class SPNEGOSSP(SSP):
                 return object.__setattr__(self, attr, val)
             except AttributeError:
                 return setattr(self.sub_context, attr, val)
+
+        # Passthrough the flags property
+
+        @property
+        def flags(self):
+            if self.sub_context:
+                return self.sub_context.flags
+            return GSS_C_FLAGS(0)
+
+        @flags.setter
+        def flags(self, x):
+            if not self.sub_context:
+                return
+            self.sub_context.flags = x
 
         def __repr__(self):
             return "SPNEGOSSP[%s]" % repr(self.sub_context)
@@ -596,6 +628,130 @@ class SPNEGOSSP(SSP):
                 ]
         self.force_supported_mechtypes = kwargs.pop("force_supported_mechtypes", None)
         super(SPNEGOSSP, self).__init__(**kwargs)
+
+    @classmethod
+    def from_cli_arguments(
+        cls,
+        UPN: str,
+        target: str,
+        password: str = None,
+        HashNt: bytes = None,
+        HashAes256Sha96: bytes = None,
+        HashAes128Sha96: bytes = None,
+        kerberos_required: bool = False,
+        ST=None,
+        KEY=None,
+        debug: int = 0,
+    ):
+        """
+        Initialize a SPNEGOSSP from a list of many arguments.
+        This is useful in a CLI, with NTLM and Kerberos supported by default.
+
+        :param UPN: the UPN of the user to use.
+        :param target: the target IP/hostname entered by the user.
+        :param kerberos_required: require kerberos
+        :param password: (string) if provided, used for auth
+        :param HashNt: (bytes) if provided, used for auth (NTLM)
+        :param HashAes256Sha96: (bytes) if provided, used for auth (Kerberos)
+        :param HashAes128Sha96: (bytes) if provided, used for auth (Kerberos)
+        :param ST: if provided, the service ticket to use (Kerberos)
+        :param KEY: if ST provided, the session key associated to the ticket (Kerberos).
+                    Else, the user secret key.
+        """
+        kerberos = True
+        hostname = None
+        # Check if target is a hostname / Check IP
+        if ":" in target:
+            if not valid_ip6(target):
+                hostname = target
+            target = str(Net6(target))
+        else:
+            if not valid_ip(target):
+                hostname = target
+            target = str(Net(target))
+
+        # Check UPN
+        try:
+            _, realm = _parse_upn(UPN)
+            if realm == ".":
+                # Local
+                kerberos = False
+        except ValueError:
+            # not a UPN: NTLM only
+            kerberos = False
+
+        # Do we need to ask the password?
+        if all(
+            x is None
+            for x in [
+                ST,
+                password,
+                HashNt,
+                HashAes256Sha96,
+                HashAes128Sha96,
+            ]
+        ):
+            # yes.
+            from prompt_toolkit import prompt
+
+            password = prompt("Password: ", is_password=True)
+
+        ssps = []
+        # Kerberos
+        if kerberos and hostname:
+            # Get ticket if we don't already have one.
+            if ST is None:
+                # In this case, KEY is supposed to be the user's key.
+                from scapy.libs.rfc3961 import Key, EncryptionType
+
+                if KEY is None and HashAes256Sha96:
+                    KEY = Key(
+                        EncryptionType.AES256_CTS_HMAC_SHA1_96,
+                        HashAes256Sha96,
+                    )
+                elif KEY is None and HashAes128Sha96:
+                    KEY = Key(
+                        EncryptionType.AES128_CTS_HMAC_SHA1_96,
+                        HashAes128Sha96,
+                    )
+                elif KEY is None and HashNt:
+                    KEY = Key(
+                        EncryptionType.RC4_HMAC,
+                        HashNt,
+                    )
+                # Make a SSP that only has a UPN and secret.
+                ssps.append(
+                    KerberosSSP(
+                        UPN=UPN,
+                        PASSWORD=password,
+                        KEY=KEY,
+                        debug=debug,
+                    )
+                )
+            else:
+                # We have a ST, use it with the key.
+                ssps.append(
+                    KerberosSSP(
+                        UPN=UPN,
+                        ST=ST,
+                        KEY=KEY,
+                        debug=debug,
+                    )
+                )
+        elif kerberos_required:
+            raise ValueError(
+                "Kerberos required but domain not specified in the UPN, "
+                "or target isn't a hostname !"
+            )
+
+        # NTLM
+        if not kerberos_required:
+            if HashNt is None and password is not None:
+                HashNt = MD4le(password)
+            ssps.append(NTLMSSP(UPN=UPN, HASHNT=HashNt))
+
+        # Build the SSP
+        return cls(ssps)
 
     def _extract_gssapi(self, Context, x):
         status, otherMIC, rawToken = None, None, False
@@ -691,7 +847,18 @@ class SPNEGOSSP(SSP):
     def LegsAmount(self, Context: CONTEXT):
         return 4
 
-    def _common_spnego_handler(self, Context, IsClient, val=None, req_flags=None):
+    def _common_spnego_handler(
+        self,
+        Context,
+        IsClient,
+        token=None,
+        target_name: Optional[str] = None,
+        req_flags=None,
+        chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
+    ):
+        """
+        Common code shared across both GSS_sec_Init_Context and GSS_sec_Accept_Context
+        """
         if Context is None:
             # New Context
             Context = SPNEGOSSP.CONTEXT(
@@ -704,8 +871,8 @@ class SPNEGOSSP(SSP):
 
         # Extract values from GSSAPI token
         status, MIC, otherMIC, rawToken = 0, None, None, False
-        if val:
-            val, status, otherMIC, rawToken = self._extract_gssapi(Context, val)
+        if token:
+            token, status, otherMIC, rawToken = self._extract_gssapi(Context, token)
 
         # If we don't have a SSP already negotiated, check for requested and available
         # SSPs and find a common one.
@@ -725,7 +892,7 @@ class SPNEGOSSP(SSP):
                     # Check whether the selected SSP was the one preferred by the client
                     if (
                         Context.negotiated_mechtype != Context.requested_mechtypes[0]
-                        and val
+                        and token
                     ):
                         Context.first_choice = False
                 # No SSPs were requested. Use the first available SSP we know.
@@ -747,18 +914,19 @@ class SPNEGOSSP(SSP):
             # The currently provided token is for this SSP !
             # Pass it to the sub ssp, with its own context
             if IsClient:
-                (
+                Context.sub_context, tok, status = Context.ssp.GSS_Init_sec_context(
                     Context.sub_context,
-                    tok,
-                    status,
-                ) = Context.ssp.GSS_Init_sec_context(
-                    Context.sub_context,
-                    val=val,
-                    req_flags=Context.flags,
+                    token=token,
+                    target_name=target_name,
+                    req_flags=Context.req_flags,
+                    chan_bindings=chan_bindings,
                 )
             else:
                 Context.sub_context, tok, status = Context.ssp.GSS_Accept_sec_context(
-                    Context.sub_context, val=val
+                    Context.sub_context,
+                    token=token,
+                    req_flags=Context.req_flags,
+                    chan_bindings=chan_bindings,
                 )
             # Check whether client or server says the specified mechanism is not valid
             if status == GSS_S_BAD_MECH:
@@ -773,6 +941,7 @@ class SPNEGOSSP(SSP):
                 for x in list(Context.supported_mechtypes):
                     if x.oid.val in to_remove:
                         Context.supported_mechtypes.remove(x)
+                        break
                 # Re-calculate negotiated mechtype
                 try:
                     Context.negotiated_mechtype = next(
@@ -789,7 +958,13 @@ class SPNEGOSSP(SSP):
                 Context.sub_context = None  # Reset the SSP context
                 if IsClient:
                     # Call ourselves again for the client to generate a token
-                    return self._common_spnego_handler(Context, True, None)
+                    return self._common_spnego_handler(
+                        Context,
+                        IsClient=True,
+                        token=None,
+                        req_flags=req_flags,
+                        chan_bindings=chan_bindings,
+                    )
                 else:
                     # Return nothing but the supported SSP list
                     tok, status = None, GSS_S_CONTINUE_NEEDED
@@ -900,23 +1075,47 @@ class SPNEGOSSP(SSP):
         return Context, spnego_tok, status
 
     def GSS_Init_sec_context(
-        self, Context: CONTEXT, val=None, req_flags: Optional[GSS_C_FLAGS] = None
+        self,
+        Context: CONTEXT,
+        token=None,
+        target_name: Optional[str] = None,
+        req_flags: Optional[GSS_C_FLAGS] = None,
+        chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
     ):
-        return self._common_spnego_handler(Context, True, val=val, req_flags=req_flags)
+        return self._common_spnego_handler(
+            Context,
+            True,
+            token=token,
+            target_name=target_name,
+            req_flags=req_flags,
+            chan_bindings=chan_bindings,
+        )
 
-    def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
-        return self._common_spnego_handler(Context, False, val=val, req_flags=0)
+    def GSS_Accept_sec_context(
+        self,
+        Context: CONTEXT,
+        token=None,
+        req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
+        chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
+    ):
+        return self._common_spnego_handler(
+            Context,
+            False,
+            token=token,
+            req_flags=req_flags,
+            chan_bindings=chan_bindings,
+        )
 
-    def GSS_Passive(self, Context: CONTEXT, val=None):
+    def GSS_Passive(self, Context: CONTEXT, token=None, req_flags=None):
         if Context is None:
             # New Context
             Context = SPNEGOSSP.CONTEXT(self.supported_ssps)
             Context.passive = True
 
         # Extraction
-        val, status, _, rawToken = self._extract_gssapi(Context, val)
+        token, status, _, rawToken = self._extract_gssapi(Context, token)
 
-        if val is None and status == GSS_S_COMPLETE:
+        if token is None and status == GSS_S_COMPLETE:
             return Context, None
 
         # Just get the negotiated SSP
@@ -928,7 +1127,10 @@ class SPNEGOSSP(SSP):
             mechtype = Context.supported_mechtypes[0]
         else:
             return None, GSS_S_BAD_MECH
-        ssp = self.supported_ssps[mechtype.oid.val]
+        try:
+            ssp = self.supported_ssps[mechtype.oid.val]
+        except KeyError:
+            return None, GSS_S_BAD_MECH
 
         if Context.ssp is not None:
             # Detect resets
@@ -939,7 +1141,11 @@ class SPNEGOSSP(SSP):
             Context.ssp = ssp
 
         # Passthrough
-        Context.sub_context, status = Context.ssp.GSS_Passive(Context.sub_context, val)
+        Context.sub_context, status = Context.ssp.GSS_Passive(
+            Context.sub_context,
+            token,
+            req_flags=req_flags,
+        )
 
         return Context, status
 

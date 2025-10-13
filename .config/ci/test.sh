@@ -1,8 +1,12 @@
 #!/bin/bash
 
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+
 # test.sh
 # Usage:
-#   ./test.sh [tox version] [both/root/non_root (default root)]
+#   ./test.sh [python version] [both/root/non_root (default root)]
 # Examples:
 #   ./test.sh 3.7 both
 #   ./test.sh 3.9 non_root
@@ -113,7 +117,8 @@ then
 fi
 
 # Launch Scapy unit tests
-TOX_PARALLEL_NO_SPINNER=1 tox -- ${UT_FLAGS} || exit 1
+# export TOX_PARALLEL_NO_SPINNER=1
+tox -- ${UT_FLAGS} || exit 1
 
 # Stop if NO_BASH_TESTS is set
 if [ ! -z "$SIMPLE_TESTS" ]

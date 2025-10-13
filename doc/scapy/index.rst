@@ -24,7 +24,7 @@ Scapy's documentation is under a `Creative Commons Attribution - Non-Commercial
    installation
    
    usage
-   advanced_usage
+   advanced_usage/index.rst
    routing
 
 .. toctree::

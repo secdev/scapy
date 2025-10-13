@@ -1,0 +1,155 @@
+% MS-NRTP tests
+
++ [MS-NRTP]
+
+= [MS-NRBF] parse .NET Binary Format
+
+from scapy.layers.ms_nrtp import *
+
+data = b'\x00\x01\x00\x00\x00\xff\xff\xff\xff\x01\x00\x00\x00\x00\x00\x00\x00\x0c\x02\x00\x00\x00NSystem.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089\x05\x01\x00\x00\x00\x13System.Data.DataSet\n\x00\x00\x00\x16DataSet.RemotingFormat\x13DataSet.DataSetName\x11DataSet.Namespace\x0eDataSet.Prefix\x15DataSet.CaseSensitive\x12DataSet.LocaleLCID\x1aDataSet.EnforceConstraints\x1aDataSet.ExtendedProperties\x14DataSet.Tables.Count\x10DataSet.Tables_0\x04\x01\x01\x01\x00\x00\x00\x02\x00\x07\x1fSystem.Data.SerializationFormat\x02\x00\x00\x00\x01\x08\x01\x08\x02\x02\x00\x00\x00\x05\xfd\xff\xff\xff\x1fSystem.Data.SerializationFormat\x01\x00\x00\x00\x07value__\x00\x08\x02\x00\x00\x00\x01\x00\x00\x00\x06\x04\x00\x00\x00\x00\t\x04\x00\x00\x00\t\x04\x00\x00\x00\x00\t\x04\x00\x00\x00\n\x01\x00\x00\x00\t\x05\x00\x00\x00\x0f\x05\x00\x00\x00\x07\x00\x00\x00\x02TRIMMED\x0b'
+
+pkt = NRBF(data)
+assert len(pkt.records) == 5
+
+assert isinstance(pkt.records[0], NRBFSerializationHeader)
+assert pkt.records[0].RootID == 1
+assert pkt.records[0].HeaderId == -1
+
+assert pkt.records[1].LibraryId == 2
+assert pkt.records[1].LibraryName.String == b'System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
+
+assert pkt.records[2].ObjectId == 1
+assert pkt.records[2].MemberCount == 10
+assert len(pkt.records[2].MemberNames) == 10
+assert pkt.records[2].MemberNames[9].String == b"DataSet.Tables_0"
+assert pkt.records[2].AdditionalInfos[0].Value.TypeName.String == b"System.Data.SerializationFormat"
+assert pkt.records[2].AdditionalInfos[1].Value == PrimitiveTypeEnum.Boolean
+assert pkt.records[2].AdditionalInfos[5].Value == PrimitiveTypeEnum.Byte
+assert pkt.records[2].Members[0].Members[0].Value == 1
+assert isinstance(pkt.records[2].Members[1], NRBFBinaryObjectString)
+assert isinstance(pkt.records[2].Members[2], NRBFMemberReference)
+assert isinstance(pkt.records[2].Members[3], NRBFMemberReference)
+assert isinstance(pkt.records[2].Members[4], NRBFMemberPrimitiveUnTyped)
+assert isinstance(pkt.records[2].Members[7], NRBFObjectNull)
+assert isinstance(pkt.records[2].Members[9], NRBFMemberReference)
+assert pkt.records[2].Members[9].IdRef == 5
+
+assert pkt.records[3].ObjectId == 5
+assert pkt.records[3].Values == b"TRIMMED"
+
+assert isinstance(pkt.records[4], NRBFMessageEnd)
+
+= [MS-NRBF] build .NET Binary Format
+
+pkt = NRBF(
+    records=[
+        NRBFSerializationHeader(HeaderId=-1),
+        NRBFBinaryLibrary(
+            LibraryId=2,
+            LibraryName=NRBFLengthPrefixedString(
+                String=b"System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089",
+            ),
+        ),
+        NRBFClassWithMembersAndTypes(
+            ObjectId=1,
+            Name=NRBFLengthPrefixedString(String=b"System.Data.DataSet"),
+            MemberCount=10,
+            MemberNames=[
+                NRBFLengthPrefixedString(String=b"DataSet.RemotingFormat"),
+                NRBFLengthPrefixedString(String=b"DataSet.DataSetName"),
+                NRBFLengthPrefixedString(String=b"DataSet.Namespace"),
+                NRBFLengthPrefixedString(String=b"DataSet.Prefix"),
+                NRBFLengthPrefixedString(String=b"DataSet.CaseSensitive"),
+                NRBFLengthPrefixedString(String=b"DataSet.LocaleLCID"),
+                NRBFLengthPrefixedString(String=b"DataSet.EnforceConstraints"),
+                NRBFLengthPrefixedString(String=b"DataSet.ExtendedProperties"),
+                NRBFLengthPrefixedString(String=b"DataSet.Tables.Count"),
+                NRBFLengthPrefixedString(String=b"DataSet.Tables_0"),
+            ],
+            BinaryTypeEnums=[
+                BinaryTypeEnum.Class,
+                BinaryTypeEnum.String,
+                BinaryTypeEnum.String,
+                BinaryTypeEnum.String,
+                BinaryTypeEnum.Primitive,
+                BinaryTypeEnum.Primitive,
+                BinaryTypeEnum.Primitive,
+                BinaryTypeEnum.Object,
+                BinaryTypeEnum.Primitive,
+                BinaryTypeEnum.PrimitiveArray,
+            ],
+            AdditionalInfos=[
+                NRBFAdditionalInfo(
+                    type=BinaryTypeEnum.SystemClass,
+                    Value=NRBFClassTypeInfo(
+                        TypeName=NRBFLengthPrefixedString(
+                            String=b"System.Data.SerializationFormat"
+                        ),
+                        LibraryId=2,
+                    )
+                ),
+                NRBFAdditionalInfo(
+                    type=BinaryTypeEnum.Primitive,
+                    Value=PrimitiveTypeEnum.Boolean,
+                ),
+                NRBFAdditionalInfo(
+                    type=BinaryTypeEnum.Primitive,
+                    Value=PrimitiveTypeEnum.Int32,
+                ),
+                NRBFAdditionalInfo(
+                    type=BinaryTypeEnum.Primitive,
+                    Value=PrimitiveTypeEnum.Boolean,
+                ),
+                NRBFAdditionalInfo(
+                    type=BinaryTypeEnum.Primitive,
+                    Value=PrimitiveTypeEnum.Int32,
+                ),
+                NRBFAdditionalInfo(
+                    type=BinaryTypeEnum.PrimitiveArray,
+                    Value=PrimitiveTypeEnum.Byte,
+                ),
+            ],
+            LibraryId=2,
+            Members=[
+                NRBFClassWithMembersAndTypes(
+                    ObjectId=-3,
+                    Name=NRBFLengthPrefixedString(
+                        String=b"System.Data.SerializationFormat"
+                    ),
+                    MemberNames=[
+                        NRBFLengthPrefixedString(String=b"value__"),
+                    ],
+                    BinaryTypeEnums=[BinaryTypeEnum.Primitive],
+                    AdditionalInfos=[
+                        NRBFAdditionalInfo(type=BinaryTypeEnum.Primitive,
+                                           Value=PrimitiveTypeEnum.Int32),
+                    ],
+                    LibraryId=2,
+                    Members=[
+                        NRBFMemberPrimitiveUnTyped(type=PrimitiveTypeEnum.Int32, Value=1)
+                    ],
+                ),
+                NRBFBinaryObjectString(
+                    ObjectId=4,
+                    Value=NRBFLengthPrefixedString(String=b""),
+                ),
+                NRBFMemberReference(IdRef=4),
+                NRBFMemberReference(IdRef=4),
+                NRBFMemberPrimitiveUnTyped(type=PrimitiveTypeEnum.Boolean, Value=0),
+                NRBFMemberPrimitiveUnTyped(type=PrimitiveTypeEnum.Int32, Value=1033),
+                NRBFMemberPrimitiveUnTyped(type=PrimitiveTypeEnum.Boolean, Value=0),
+                NRBFObjectNull(),
+                NRBFMemberPrimitiveUnTyped(type=PrimitiveTypeEnum.Int32, Value=1),
+                NRBFMemberReference(IdRef=5),
+            ],
+        ),
+        NRBFArraySinglePrimitive(
+            ObjectId=5,
+            PrimitiveTypeEnum=PrimitiveTypeEnum.Byte,
+            Values=b"TRIMMED",
+        ),
+        NRBFMessageEnd(),
+    ]
+)
+
+assert bytes(pkt) == data

@@ -1,0 +1,87 @@
+% MS-DRSR tests
+
++ [MS-DRSR] test vectors
+
++ Dissect DRSR Crack_Names exchange
+
+= [EXCH] - Load MSDRSR exchange and decrypt (SPNEGOSSP/NTLMSSP)
+
+load_layer("msrpce")
+bind_layers(TCP, DceRpc5, sport=49685)  # the DCE/RPC port
+bind_layers(TCP, DceRpc5, dport=49685)
+
+conf.dcerpc_session_enable = True
+conf.winssps_passive = [
+    SPNEGOSSP(
+        [
+            NTLMSSP(
+                IDENTITIES={
+                    "Administrator": MD4le("Password123!"),
+                },
+            )
+        ]
+    )
+]
+pkts = sniff(offline=scapy_path('test/pcaps/dcerpc_msdrsr_cracknames.pcapng.gz'), session=TCPSession)
+conf.dcerpc_session_enable = False
+
+= [EXCH] - Check IDL_DRSBind_Request
+
+from scapy.layers.msrpce.msdrsr import DRS_EXTENSIONS_INT
+
+bindreq = pkts[7]
+assert IDL_DRSBind_Request in bindreq
+ext = DRS_EXTENSIONS_INT(bindreq[IDL_DRSBind_Request].valueof("pextClient").rgb)
+assert ext.Pid == 1234
+assert ext.dwReplEpoch == 1729468809
+
+= [EXCH] - Check IDL_DRSBind_Response
+
+import uuid
+
+bindresp = pkts[8]
+assert IDL_DRSBind_Response in bindresp
+assert bindresp[IDL_DRSBind_Response].phDrs.uuid == b'\xf4$I\xf5\xde\x0c\xfcO\x8b\xfa\xb0Y\x87\xf4\x11i'
+ext = DRS_EXTENSIONS_INT(bindresp[IDL_DRSBind_Response].valueof("ppextServer").rgb)
+assert ext.dwFlags.GETCHGREQ_V10
+assert ext.dwFlags == 0x3fffff7f
+assert ext.Pid == 696
+assert ext.ConfigObjGuid == uuid.UUID('14ea64e0-3470-48e6-9ace-77012d8d474f')
+
+= [EXCH] - Check IDL_DRSCrackNames_Request
+
+cnreq = pkts[9]
+assert IDL_DRSCrackNames_Request in cnreq
+
+crackreq = cnreq[IDL_DRSCrackNames_Request].valueof("pmsgIn")
+assert crackreq.formatOffered == 11
+assert crackreq.formatDesired == 0xfffffff2
+
+assert crackreq.valueof("rpNames") == [
+    b'S-1-5-21-1924137214-3718646274-40215721-522',
+    b'S-1-5-21-1924137214-3718646274-40215721-498',
+    b'S-1-5-21-1924137214-3718646274-40215721-516',
+    b'S-1-5-21-1924137214-3718646274-40215721-526',
+    b'S-1-5-21-1924137214-3718646274-40215721-527',
+    b'S-1-5-21-1924137214-3718646274-40215721-512',
+    b'S-1-5-21-1924137214-3718646274-40215721-519',
+    b'S-1-5-21-1924137214-3718646274-40215721-513',
+]
+
+= [EXCH] - Check IDL_DRSCrackNames_Response
+
+cnresp = pkts[10]
+assert IDL_DRSCrackNames_Response in cnresp
+
+crackresp =  cnresp[IDL_DRSCrackNames_Response].valueof("pmsgOut")
+assert [x.valueof("pName") for x in crackresp.valueof("pResult").valueof("rItems")] == [
+    b'Cloneable Domain Controllers@DOMAIN',
+    b'Enterprise Read-only Domain Controllers@DOMAIN',
+    b'Domain Controllers@DOMAIN',
+    b'Key Admins@DOMAIN',
+    b'Enterprise Key Admins@DOMAIN',
+    b'Domain Admins@DOMAIN',
+    b'Enterprise Admins@DOMAIN',
+    b'Domain Users@DOMAIN',
+]
+

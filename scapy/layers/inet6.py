@@ -20,7 +20,7 @@ from time import gmtime, strftime
 
 from scapy.arch import get_if_hwaddr
 from scapy.as_resolvers import AS_resolver_riswhois
-from scapy.base_classes import Gen
+from scapy.base_classes import Gen, _ScopedIP
 from scapy.compat import chb, orb, raw, plain_str, bytes_encode
 from scapy.consts import WINDOWS
 from scapy.config import conf
@@ -73,7 +73,14 @@ from scapy.layers.inet import (
     UDP,
     UDPerror,
 )
-from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
+from scapy.layers.l2 import (
+    CookedLinux,
+    Ether,
+    GRE,
+    Loopback,
+    SNAP,
+    SourceMACField,
+)
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.sendrecv import sendp, sniff, sr, srp1
 from scapy.supersocket import SuperSocket
@@ -83,6 +90,11 @@ from scapy.utils6 import in6_getnsma, in6_getnsmac, in6_isaddr6to4, \
     in6_isaddrllallnodes, in6_isaddrllallservers, in6_isaddrTeredo, \
     in6_isllsnmaddr, in6_ismaddr, Net6, teredoAddrExtractInfo
 from scapy.volatile import RandInt, RandShort
+
+# Typing
+from typing import (
+    Optional,
+)
 
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
@@ -135,19 +147,24 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
 
 @conf.commands.register
 def getmacbyip6(ip6, chainCC=0):
-    """Returns the MAC address corresponding to an IPv6 address
+    # type: (str, int) -> Optional[str]
+    """
+    Returns the MAC address of the next hop used to reach a given IPv6 address.
 
     neighborCache.get() method is used on instantiated neighbor cache.
     Resolution mechanism is described in associated doc string.
 
     (chainCC parameter value ends up being passed to sending function
      used to perform the resolution, if needed)
-    """
 
+    .. seealso:: :func:`~scapy.layers.l2.getmacbyip` for IPv4.
+    """
+    # Sanitize the IP
     if isinstance(ip6, Net6):
         ip6 = str(ip6)
 
-    if in6_ismaddr(ip6):  # Multicast
+    # Multicast
+    if in6_ismaddr(ip6):  # mcast @
         mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
         return mac
 
@@ -302,15 +319,18 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                    ShortField("plen", None),
                    ByteEnumField("nh", 59, ipv6nh),
                    ByteField("hlim", 64),
-                   SourceIP6Field("src", "dst"),  # dst is for src @ selection
+                   SourceIP6Field("src"),
                    DestIP6Field("dst", "::1")]
 
     def route(self):
         """Used to select the L2 address"""
         dst = self.dst
-        if isinstance(dst, Gen):
+        scope = None
+        if isinstance(dst, (Net6, _ScopedIP)):
+            scope = dst.scope
+        if isinstance(dst, (Gen, list)):
             dst = next(iter(dst))
-        return conf.route6.route(dst)
+        return conf.route6.route(dst, dev=scope)
 
     def mysummary(self):
         return "%s > %s (%i)" % (self.src, self.dst, self.nh)
@@ -470,11 +490,13 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             return self.payload.answers(other.payload)
 
 
-class IPv46(IP):
+class IPv46(IP, IPv6):
     """
     This class implements a dispatcher that is used to detect the IP version
     while parsing Raw IP pcap files.
     """
+    name = "IPv4/6"
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
@@ -1025,10 +1047,8 @@ class IPv6ExtHdrSegmentRoutingTLVEgressNode(IPv6ExtHdrSegmentRoutingTLV):
 
 class IPv6ExtHdrSegmentRoutingTLVPad1(IPv6ExtHdrSegmentRoutingTLV):
     name = "IPv6 Option Header Segment Routing - Pad1 TLV"
-    # RFC8754 sect 2.1.1.1
-    fields_desc = [ByteEnumField("type", 0, _segment_routing_header_tlvs),
-                   FieldLenField("len", None, length_of="padding", fmt="B"),
-                   StrLenField("padding", b"\x00", length_from=lambda pkt: pkt.len)]  # noqa: E501
+    # RFC8754 sect 2.1.1.1, Pad1 is a single byte
+    fields_desc = [ByteEnumField("type", 0, _segment_routing_header_tlvs)]
 
 
 class IPv6ExtHdrSegmentRoutingTLVPadN(IPv6ExtHdrSegmentRoutingTLV):
@@ -1166,13 +1186,17 @@ def defragment6(packets):
 
     # regenerate the fragmentable part
     fragmentable = b""
+    frag_hdr_len = 8
     for p in res:
         q = p[IPv6ExtHdrFragment]
         offset = 8 * q.offset
         if offset != len(fragmentable):
             warning("Expected an offset of %d. Found %d. Padding with XXXX" % (len(fragmentable), offset))  # noqa: E501
+        frag_data_len = p[IPv6].plen
+        if frag_data_len is not None:
+            frag_data_len -= frag_hdr_len
         fragmentable += b"X" * (offset - len(fragmentable))
-        fragmentable += raw(q.payload)
+        fragmentable += raw(q.payload)[:frag_data_len]
 
     # Regenerate the unfragmentable part.
     q = res[0].copy()
@@ -1821,7 +1845,7 @@ class ICMPv6NDOptSrcLLAddr(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Source Link-Layer Address"
     fields_desc = [ByteField("type", 1),
                    ByteField("len", 1),
-                   MACField("lladdr", ETHER_ANY)]
+                   SourceMACField("lladdr")]
 
     def mysummary(self):
         return self.sprintf("%name% %lladdr%")

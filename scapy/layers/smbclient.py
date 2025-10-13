@@ -20,7 +20,6 @@ import time
 import threading
 
 from scapy.automaton import ATMT, Automaton, ObjectPipe
-from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.error import Scapy_Exception
 from scapy.fields import UTCTimeField
@@ -29,8 +28,6 @@ from scapy.utils import (
     CLIUtil,
     pretty_list,
     human_size,
-    valid_ip,
-    valid_ip6,
 )
 from scapy.volatile import RandUUID
 
@@ -40,12 +37,6 @@ from scapy.layers.gssapi import (
     GSS_S_CONTINUE_NEEDED,
     GSS_C_FLAGS,
 )
-from scapy.layers.inet6 import Net6
-from scapy.layers.kerberos import (
-    KerberosSSP,
-    krb_as_and_tgs,
-    _parse_upn,
-)
 from scapy.layers.msrpce.raw.ms_srvs import (
     LPSHARE_ENUM_STRUCT,
     NetrShareEnum_Request,
@@ -54,7 +45,6 @@ from scapy.layers.msrpce.raw.ms_srvs import (
 )
 from scapy.layers.ntlm import (
     NTLMSSP,
-    MD4le,
 )
 from scapy.layers.smb import (
     SMBNegotiate_Request,
@@ -72,17 +62,19 @@ from scapy.layers.smb2 import (
     DirectTCP,
     FileAllInformation,
     FileIdBothDirectoryInformation,
+    SECURITY_DESCRIPTOR,
+    SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2,
+    SMB2_CREATE_REQUEST_LEASE,
+    SMB2_CREATE_REQUEST_LEASE_V2,
     SMB2_Change_Notify_Request,
     SMB2_Change_Notify_Response,
     SMB2_Close_Request,
     SMB2_Close_Response,
     SMB2_Create_Context,
-    SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2,
-    SMB2_CREATE_REQUEST_LEASE_V2,
     SMB2_Create_Request,
     SMB2_Create_Response,
-    SMB2_Encryption_Capabilities,
     SMB2_ENCRYPTION_CIPHERS,
+    SMB2_Encryption_Capabilities,
     SMB2_Error_Response,
     SMB2_Header,
     SMB2_IOCTL_Request,
@@ -98,9 +90,9 @@ from scapy.layers.smb2 import (
     SMB2_Query_Info_Response,
     SMB2_Read_Request,
     SMB2_Read_Response,
+    SMB2_SIGNING_ALGORITHMS,
     SMB2_Session_Setup_Request,
     SMB2_Session_Setup_Response,
-    SMB2_SIGNING_ALGORITHMS,
     SMB2_Signing_Capabilities,
     SMB2_Tree_Connect_Request,
     SMB2_Tree_Connect_Response,
@@ -109,6 +101,7 @@ from scapy.layers.smb2 import (
     SMB2_Write_Request,
     SMB2_Write_Response,
     SMBStreamSocket,
+    SMB_DIALECTS,
     SRVSVC_SHARE_TYPES,
     STATUS_ERREF,
 )
@@ -125,8 +118,9 @@ class SMB_Client(Automaton):
     All other options (in caps) are optional, and SMB specific:
 
     :param REQUIRE_SIGNATURE: set 'Require Signature'
+    :param REQUIRE_ENCRYPTION: set 'Requite Encryption'
     :param MIN_DIALECT: minimum SMB dialect. Defaults to 0x0202 (2.0.2)
-    :param MAX_DIALECT: maximum SMB dialect. Defaults to 0x0210 (2.1.0)
+    :param MAX_DIALECT: maximum SMB dialect. Defaults to 0x0311 (3.1.1)
     :param DIALECTS: list of supported SMB2 dialects.
                      Constructed from MIN_DIALECT, MAX_DIALECT otherwise.
     """
@@ -138,17 +132,17 @@ class SMB_Client(Automaton):
         # Various SMB client arguments
         self.EXTENDED_SECURITY = kwargs.pop("EXTENDED_SECURITY", True)
         self.USE_SMB1 = kwargs.pop("USE_SMB1", False)
-        self.REQUIRE_SIGNATURE = kwargs.pop("REQUIRE_SIGNATURE", False)
+        self.REQUIRE_SIGNATURE = kwargs.pop("REQUIRE_SIGNATURE", None)
+        self.REQUIRE_ENCRYPTION = kwargs.pop("REQUIRE_ENCRYPTION", False)
         self.RETRY = kwargs.pop("RETRY", 0)  # optionally: retry n times session setup
         self.SMB2 = kwargs.pop("SMB2", False)  # optionally: start directly in SMB2
-        self.SERVER_NAME = kwargs.pop("SERVER_NAME", "")
+        self.HOST = kwargs.pop("HOST", "")
         # Store supported dialects
         if "DIALECTS" in kwargs:
             self.DIALECTS = kwargs.pop("DIALECTS")
         else:
             MIN_DIALECT = kwargs.pop("MIN_DIALECT", 0x0202)
-            # MAX_DIALECT is currently SMB 2.0.2. 3.1.1 support is unfinished
-            self.MAX_DIALECT = kwargs.pop("MAX_DIALECT", 0x0202)
+            self.MAX_DIALECT = kwargs.pop("MAX_DIALECT", 0x0311)
             self.DIALECTS = sorted(
                 [
                     x
@@ -157,13 +151,10 @@ class SMB_Client(Automaton):
                 ]
             )
         # Internal Session information
-        self.IsGuest = False
         self.ErrorStatus = None
         self.NegotiateCapabilities = None
         self.GUID = RandUUID()._fix()
-        self.MaxTransactionSize = 0
-        self.MaxReadSize = 0
-        self.MaxWriteSize = 0
+        self.SequenceWindow = (0, 0)  # keep track of allowed MIDs
         if ssp is None:
             # We got no SSP. Assuming the server allows anonymous
             ssp = SPNEGOSSP(
@@ -185,9 +176,8 @@ class SMB_Client(Automaton):
             self.smb_sock_ready = threading.Event()
         # Set session options
         self.session.ssp = ssp
-        self.session.SecurityMode = kwargs.pop(
-            "SECURITY_MODE",
-            3 if self.REQUIRE_SIGNATURE else int(bool(ssp)),
+        self.session.SigningRequired = (
+            self.REQUIRE_SIGNATURE if self.REQUIRE_SIGNATURE is not None else bool(ssp)
         )
         self.session.Dialect = self.MAX_DIALECT
 
@@ -242,6 +232,10 @@ class SMB_Client(Automaton):
             else:
                 # "For all other requests, the client MUST set CreditCharge to 1"
                 pkt.CreditCharge = 1
+            # [MS-SMB2] 3.2.4.1.2
+            pkt.CreditRequest = pkt.CreditCharge + 1  # this code is a bit lazy
+        # Get first available message ID: [MS-SMB2] 3.2.4.1.3 and 3.2.4.1.5
+        pkt.MID = self.SequenceWindow[0]
         return super(SMB_Client, self).send(pkt)
 
     @ATMT.state(initial=1)
@@ -313,7 +307,11 @@ class SMB_Client(Automaton):
         # [MS-SMB2] sect 3.2.4.2.2.2 - SMB2-Only Negotiate
         pkt = self.smb_header.copy() / SMB2_Negotiate_Protocol_Request(
             Dialects=self.DIALECTS,
-            SecurityMode=self.session.SecurityMode,
+            SecurityMode=(
+                "SIGNING_ENABLED+SIGNING_REQUIRED"
+                if self.session.SigningRequired
+                else "SIGNING_ENABLED"
+            ),
         )
         if self.MAX_DIALECT >= 0x0210:
             # "If the client implements the SMB 2.1 or SMB 3.x dialect, ClientGuid
@@ -334,35 +332,30 @@ class SMB_Client(Automaton):
                     "MULTI_CHANNEL",
                     "PERSISTENT_HANDLES",
                     "DIRECTORY_LEASING",
+                    "ENCRYPTION",
                 ]
             )
-        if self.MAX_DIALECT >= 0x0300:
-            # "If the client implements the SMB 3.x dialect family, the client MUST
-            # set the Capabilities field as follows"
-            self.NegotiateCapabilities += "+ENCRYPTION"
         if self.MAX_DIALECT >= 0x0311:
             # "If the client implements the SMB 3.1.1 dialect, it MUST do"
             pkt.NegotiateContexts = [
                 SMB2_Negotiate_Context()
                 / SMB2_Preauth_Integrity_Capabilities(
-                    # SHA-512 by default
-                    HashAlgorithms=[self.session.PreauthIntegrityHashId],
+                    # As for today, no other hash algorithm is described by the spec
+                    HashAlgorithms=["SHA-512"],
                     Salt=self.session.Salt,
                 ),
                 SMB2_Negotiate_Context()
                 / SMB2_Encryption_Capabilities(
-                    # AES-128-CCM by default
-                    Ciphers=[self.session.CipherId],
+                    Ciphers=self.session.SupportedCipherIds,
                 ),
                 # TODO support compression and RDMA
                 SMB2_Negotiate_Context()
                 / SMB2_Netname_Negotiate_Context_ID(
-                    NetName=self.SERVER_NAME,
+                    NetName=self.HOST,
                 ),
                 SMB2_Negotiate_Context()
                 / SMB2_Signing_Capabilities(
-                    # AES-128-CCM by default
-                    SigningAlgorithms=[self.session.SigningAlgorithmId],
+                    SigningAlgorithms=self.session.SupportedSigningAlgorithmIds,
                 ),
             ]
         pkt.Capabilities = self.NegotiateCapabilities
@@ -376,15 +369,6 @@ class SMB_Client(Automaton):
     @ATMT.receive_condition(SENT_NEGOTIATE)
     def receive_negotiate_response(self, pkt):
         if (
-            SMBNegotiate_Response_Security in pkt
-            or SMBNegotiate_Response_Extended_Security in pkt
-            or SMB2_Negotiate_Protocol_Response in pkt
-        ):
-            if SMB2_Negotiate_Protocol_Response in pkt:
-                # SMB2
-                self.SMB2 = True  # We are using SMB2 to talk to the server
-                self.smb_header = DirectTCP() / SMB2_Header(PID=0xFEFF)
-        if (
             SMBNegotiate_Response_Extended_Security in pkt
             or SMB2_Negotiate_Protocol_Response in pkt
         ):
@@ -393,13 +377,19 @@ class SMB_Client(Automaton):
                 ssp_blob = pkt.SecurityBlob  # eventually SPNEGO server initiation
             except AttributeError:
                 ssp_blob = None
-            if self.SMB2:
-                self.smb_header.MID += 1
             if (
                 SMB2_Negotiate_Protocol_Response in pkt
                 and pkt.DialectRevision & 0xFF == 0xFF
             ):
                 # Version is SMB X.???
+                # [MS-SMB2] 3.2.5.2
+                # If the DialectRevision field in the SMB2 NEGOTIATE Response is
+                # 0x02FF ... the client MUST allocate sequence number 1 from
+                # Connection.SequenceWindow, and MUST set MessageId field of the
+                # SMB2 header to 1.
+                self.SequenceWindow = (1, 1)
+                self.smb_header = DirectTCP() / SMB2_Header(PID=0xFEFF, MID=1)
+                self.SMB2 = True  # We're now using SMB2 to talk to the server
                 raise self.SMB2_NEGOTIATE()
             else:
                 if SMB2_Negotiate_Protocol_Response in pkt:
@@ -410,28 +400,43 @@ class SMB_Client(Automaton):
                         bytes(pkt[SMB2_Header]),  # nego response
                     )
                     # Process max sizes
-                    self.MaxReadSize = pkt.MaxReadSize
-                    self.MaxTransactionSize = pkt.MaxTransactionSize
-                    self.MaxWriteSize = pkt.MaxWriteSize
+                    self.session.MaxReadSize = pkt.MaxReadSize
+                    self.session.MaxTransactionSize = pkt.MaxTransactionSize
+                    self.session.MaxWriteSize = pkt.MaxWriteSize
+                    # Process SecurityMode
+                    if pkt.SecurityMode.SIGNING_REQUIRED:
+                        self.session.SigningRequired = True
+                    # Process capabilities
+                    if self.session.Dialect >= 0x0300:
+                        self.session.SupportsEncryption = pkt.Capabilities.ENCRYPTION
                     # Process NegotiateContext
                     if self.session.Dialect >= 0x0311 and pkt.NegotiateContextsCount:
                         for ngctx in pkt.NegotiateContexts:
                             if ngctx.ContextType == 0x0002:
                                 # SMB2_ENCRYPTION_CAPABILITIES
-                                self.session.CipherId = SMB2_ENCRYPTION_CIPHERS[
-                                    ngctx.Ciphers[0]
-                                ]
+                                if ngctx.Ciphers[0] != 0:
+                                    self.session.CipherId = SMB2_ENCRYPTION_CIPHERS[
+                                        ngctx.Ciphers[0]
+                                    ]
+                                    self.session.SupportsEncryption = True
                             elif ngctx.ContextType == 0x0008:
                                 # SMB2_SIGNING_CAPABILITIES
                                 self.session.SigningAlgorithmId = (
                                     SMB2_SIGNING_ALGORITHMS[ngctx.SigningAlgorithms[0]]
                                 )
+                    if self.REQUIRE_ENCRYPTION and not self.session.SupportsEncryption:
+                        self.ErrorStatus = "NEGOTIATE FAILURE: encryption."
+                        raise self.NEGO_FAILED()
                 self.update_smbheader(pkt)
                 raise self.NEGOTIATED(ssp_blob)
         elif SMBNegotiate_Response_Security in pkt:
             # Non-extended SMB1
             # Never tested. FIXME. probably broken
             raise self.NEGOTIATED(pkt.Challenge)
+
+    @ATMT.state(final=1)
+    def NEGO_FAILED(self):
+        self.smb_sock_ready.set()
 
     @ATMT.state()
     def NEGOTIATED(self, ssp_blob=None):
@@ -442,14 +447,11 @@ class SMB_Client(Automaton):
         # Begin session establishment
         ssp_tuple = self.session.ssp.GSS_Init_sec_context(
             self.session.sspcontext,
-            ssp_blob,
+            token=ssp_blob,
+            target_name="cifs/" + self.HOST if self.HOST else None,
             req_flags=(
                 GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
-                | (
-                    GSS_C_FLAGS.GSS_C_INTEG_FLAG
-                    if self.session.SecurityMode != 0
-                    else 0
-                )
+                | (GSS_C_FLAGS.GSS_C_INTEG_FLAG if self.session.SigningRequired else 0)
             ),
         )
         return ssp_tuple
@@ -464,24 +466,28 @@ class SMB_Client(Automaton):
             self.smb_header.SessionId = pkt.SessionId
             self.smb_header.TID = pkt.TID
             self.smb_header.PID = pkt.PID
+        # [MS-SMB2] 3.2.5.1.4
+        self.SequenceWindow = (
+            self.SequenceWindow[0] + max(pkt.CreditCharge, 1),
+            self.SequenceWindow[1] + pkt.CreditRequest,
+        )
 
     # DEV: add a condition on NEGOTIATED with prio=0
 
     @ATMT.condition(NEGOTIATED, prio=1)
-    def should_send_setup_andx_request(self, ssp_tuple):
+    def should_send_session_setup_request(self, ssp_tuple):
         _, _, negResult = ssp_tuple
         if negResult not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
             raise ValueError("Internal error: the SSP completed with an error.")
-        raise self.SENT_SETUP_ANDX_REQUEST().action_parameters(ssp_tuple)
+        raise self.SENT_SESSION_REQUEST().action_parameters(ssp_tuple)
 
     @ATMT.state()
-    def SENT_SETUP_ANDX_REQUEST(self):
+    def SENT_SESSION_REQUEST(self):
         pass
 
-    @ATMT.action(should_send_setup_andx_request)
-    def send_setup_andx_request(self, ssp_tuple):
+    @ATMT.action(should_send_session_setup_request)
+    def send_setup_session_request(self, ssp_tuple):
         self.session.sspcontext, token, negResult = ssp_tuple
-        self.smb_header.MID += 1
         if self.SMB2 and negResult == GSS_S_CONTINUE_NEEDED:
             # New session: force 0
             self.SessionId = 0
@@ -491,7 +497,11 @@ class SMB_Client(Automaton):
                 # SMB2
                 pkt = self.smb_header.copy() / SMB2_Session_Setup_Request(
                     Capabilities="DFS",
-                    SecurityMode=self.session.SecurityMode,
+                    SecurityMode=(
+                        "SIGNING_ENABLED+SIGNING_REQUIRED"
+                        if self.session.SigningRequired
+                        else "SIGNING_ENABLED"
+                    ),
                 )
             else:
                 # SMB1 extended
@@ -523,8 +533,8 @@ class SMB_Client(Automaton):
                 bytes(pkt[SMB2_Header]),  # session request
             )
 
-    @ATMT.receive_condition(SENT_SETUP_ANDX_REQUEST)
-    def receive_setup_andx_response(self, pkt):
+    @ATMT.receive_condition(SENT_SESSION_REQUEST)
+    def receive_session_setup_response(self, pkt):
         if (
             SMBSession_Null in pkt
             or SMBSession_Setup_AndX_Response_Extended_Security in pkt
@@ -544,6 +554,8 @@ class SMB_Client(Automaton):
                     pkt.sprintf("SMB Session Setup Response: %SMB2_Header.Status%")
                 ),
             )
+        if self.SMB2:
+            self.update_smbheader(pkt)
         # Cases depending on the response packet
         if (
             SMBSession_Setup_AndX_Response_Extended_Security in pkt
@@ -553,9 +565,18 @@ class SMB_Client(Automaton):
             self.smb_header.SessionId = pkt.SessionId
             # SMB1 extended / SMB2
             if pkt.Status == 0:  # Authenticated
-                if SMB2_Session_Setup_Response in pkt and pkt.SessionFlags.IS_GUEST:
-                    # We were 'authenticated' in GUEST
-                    self.IsGuest = True
+                if SMB2_Session_Setup_Response in pkt:
+                    # [MS-SMB2] sect 3.2.5.3.1
+                    if pkt.SessionFlags.IS_GUEST:
+                        # "If the security subsystem indicates that the session
+                        # was established by a guest user, Session.SigningRequired
+                        # MUST be set to FALSE and Session.IsGuest MUST be set to TRUE."
+                        self.session.IsGuest = True
+                        self.session.SigningRequired = False
+                    elif self.session.Dialect >= 0x0300:
+                        if pkt.SessionFlags.ENCRYPT_DATA or self.REQUIRE_ENCRYPTION:
+                            self.session.EncryptData = True
+                            self.session.SigningRequired = False
                 raise self.AUTHENTICATED(pkt.SecurityBlob)
             else:
                 if SMB2_Header in pkt:
@@ -570,7 +591,7 @@ class SMB_Client(Automaton):
             pass
         elif SMB2_Error_Response in pkt:
             # Authentication failure
-            self.session.sspcontext = None
+            self.session.sspcontext.clifailure()
             # Reset Session preauth (SMB 3.1.1)
             self.session.SessionPreauthIntegrityHashValue = None
             if not self.RETRY:
@@ -586,15 +607,14 @@ class SMB_Client(Automaton):
     @ATMT.state()
     def AUTHENTICATED(self, ssp_blob=None):
         self.session.sspcontext, _, status = self.session.ssp.GSS_Init_sec_context(
-            self.session.sspcontext, ssp_blob
+            self.session.sspcontext,
+            token=ssp_blob,
+            target_name="cifs/" + self.HOST if self.HOST else None,
         )
         if status != GSS_S_COMPLETE:
             raise ValueError("Internal error: the SSP completed with an error.")
         # Authentication was successful
-        self.session.computeSMBSessionKey()
-        if self.IsGuest:
-            # When authenticated in Guest, the sessionkey the client has is invalid
-            self.session.SMBSessionKey = None
+        self.session.computeSMBSessionKeys(IsClient=True)
 
     # DEV: add a condition on AUTHENTICATED with prio=0
 
@@ -622,7 +642,6 @@ class SMB_Client(Automaton):
 
     @ATMT.action(incoming_data_received_smb)
     def receive_data_smb(self, pkt):
-        self.update_smbheader(pkt)
         resp = pkt[SMB2_Header].payload
         if isinstance(resp, SMB2_Error_Response):
             if pkt.Status == 0x00000103:  # STATUS_PENDING
@@ -631,6 +650,7 @@ class SMB_Client(Automaton):
             if pkt.Status == 0x0000010B:  # STATUS_NOTIFY_CLEANUP
                 # this is a notify cleanup. ignore
                 return
+        self.update_smbheader(pkt)
         # Add the status to the response as metadata
         resp.NTStatus = pkt.sprintf("%SMB2_Header.Status%")
         self.oi.smbpipe.send(resp)
@@ -641,7 +661,6 @@ class SMB_Client(Automaton):
 
     @ATMT.action(outgoing_data_received_smb)
     def send_data(self, d):
-        self.smb_header.MID += 1
         self.send(self.smb_header.copy() / d)
 
 
@@ -655,6 +674,9 @@ class SMB_SOCKET(SuperSocket):
         self.ins = smbsock
         self.timeout = timeout
         if not self.ins.atmt.smb_sock_ready.wait(timeout=timeout):
+            # If we have a SSP, tell it we failed.
+            if self.ins.atmt.session.sspcontext:
+                self.ins.atmt.session.sspcontext.clifailure()
             raise TimeoutError(
                 "The SMB handshake timed out ! (enable debug=1 for logs)"
             )
@@ -674,6 +696,10 @@ class SMB_SOCKET(SuperSocket):
             timeout=kwargs.pop("timeout", 3),
             smbsock=SMB_Client.from_tcpsock(sock, **kwargs),
         )
+
+    @property
+    def session(self):
+        return self.ins.atmt.session
 
     def set_TID(self, TID):
         """
@@ -699,7 +725,7 @@ class SMB_SOCKET(SuperSocket):
                         "Path",
                         "\\\\%s\\%s"
                         % (
-                            self.ins.atmt.session.sspcontext.ServerHostname,
+                            self.session.sspcontext.ServerHostname,
                             name,
                         ),
                     )
@@ -712,6 +738,12 @@ class SMB_SOCKET(SuperSocket):
             raise ValueError("TreeConnect timed out !")
         if SMB2_Tree_Connect_Response not in resp:
             raise ValueError("Failed TreeConnect ! %s" % resp.NTStatus)
+        # [MS-SMB2] sect 3.2.5.5
+        if self.session.Dialect >= 0x0300:
+            if resp.ShareFlags.ENCRYPT_DATA and self.session.SupportsEncryption:
+                self.session.TreeEncryptData = True
+            else:
+                self.session.TreeEncryptData = False
         return self.get_TID()
 
     def tree_disconnect(self):
@@ -774,8 +806,14 @@ class SMB_SOCKET(SuperSocket):
                 FileAttributes.append("FILE_ATTRIBUTE_NORMAL")
         elif type:
             raise ValueError("Unknown type: %s" % type)
-        # SMB 3.11
-        if self.ins.atmt.session.Dialect >= 0x0311 and type in ["file", "folder"]:
+        # [MS-SMB2] 3.2.4.3.8
+        RequestedOplockLevel = 0
+        if self.session.Dialect >= 0x0300:
+            RequestedOplockLevel = "SMB2_OPLOCK_LEVEL_LEASE"
+        elif self.session.Dialect >= 0x0210 and type == "file":
+            RequestedOplockLevel = "SMB2_OPLOCK_LEVEL_LEASE"
+        # SMB 3.X
+        if self.session.Dialect >= 0x0300 and type in ["file", "folder"]:
             CreateContexts.extend(
                 [
                     # [SMB2] sect 3.2.4.3.5
@@ -795,7 +833,18 @@ class SMB_SOCKET(SuperSocket):
                     ),
                     # [SMB2] sect 3.2.4.3.8
                     SMB2_Create_Context(
-                        Name=b"RqLs", Data=SMB2_CREATE_REQUEST_LEASE_V2()
+                        Name=b"RqLs",
+                        Data=SMB2_CREATE_REQUEST_LEASE_V2(LeaseKey=RandUUID()._fix()),
+                    ),
+                ]
+            )
+        elif self.session.Dialect == 0x0210 and type == "file":
+            CreateContexts.extend(
+                [
+                    # [SMB2] sect 3.2.4.3.8
+                    SMB2_Create_Context(
+                        Name=b"RqLs",
+                        Data=SMB2_CREATE_REQUEST_LEASE(LeaseKey=RandUUID()._fix()),
                     ),
                 ]
             )
@@ -814,6 +863,7 @@ class SMB_SOCKET(SuperSocket):
                 ShareAccess="+".join(ShareAccess),
                 FileAttributes="+".join(FileAttributes),
                 CreateContexts=CreateContexts,
+                RequestedOplockLevel=RequestedOplockLevel,
                 Name=name,
             ),
             verbose=0,
@@ -969,8 +1019,12 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
         """
         Internal ObjectPipe function.
         """
-        # Reminder: this class is an ObjectPipe, it's just a queue
-        if self.use_ioctl:
+        # Reminder: this class is an ObjectPipe, it's just a queue.
+
+        # Detect if DCE/RPC is fragmented. Then we must use Read/Write
+        is_frag = x.pfc_flags & 3 != 3
+
+        if self.use_ioctl and not is_frag:
             # Use IOCTLRequest
             pkt = SMB2_IOCTL_Request(
                 FileId=self.PipeFileId,
@@ -982,8 +1036,9 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
             if SMB2_IOCTL_Response not in resp:
                 raise ValueError("Failed reading IOCTL_Response ! %s" % resp.NTStatus)
             data = bytes(resp.Output)
+            super(SMB_RPC_SOCKET, self).send(data)
             # Handle BUFFER_OVERFLOW (big DCE/RPC response)
-            while resp.NTStatus == "STATUS_BUFFER_OVERFLOW":
+            while resp.NTStatus == "STATUS_BUFFER_OVERFLOW" or data[3] & 2 != 2:
                 # Retrieve DCE/RPC full size
                 resp = self.ins.sr1(
                     SMB2_Read_Request(
@@ -991,8 +1046,8 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
                     ),
                     verbose=0,
                 )
-                data += resp.Data
-            super(SMB_RPC_SOCKET, self).send(data)
+                data = resp.Data
+                super(SMB_RPC_SOCKET, self).send(data)
         else:
             # Use WriteRequest/ReadRequest
             pkt = SMB2_Write_Request(
@@ -1003,6 +1058,9 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
             resp = self.ins.sr1(pkt, verbose=0)
             if SMB2_Write_Response not in resp:
                 raise ValueError("Failed sending WriteResponse ! %s" % resp.NTStatus)
+            # If fragmented, only read if it's the last.
+            if is_frag and not x.pfc_flags.PFC_LAST_FRAG:
+                return
             # We send a Read Request afterwards
             resp = self.ins.sr1(
                 SMB2_Read_Request(
@@ -1012,9 +1070,9 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
             )
             if SMB2_Read_Response not in resp:
                 raise ValueError("Failed reading ReadResponse ! %s" % resp.NTStatus)
-            data = bytes(resp.Data)
-            # Handle BUFFER_OVERFLOW (big DCE/RPC response)
-            while resp.NTStatus == "STATUS_BUFFER_OVERFLOW":
+            super(SMB_RPC_SOCKET, self).send(resp.Data)
+            # Handle fragmented response
+            while resp.Data[3] & 2 != 2:  # PFC_LAST_FRAG not set
                 # Retrieve DCE/RPC full size
                 resp = self.ins.sr1(
                     SMB2_Read_Request(
@@ -1022,8 +1080,7 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
                     ),
                     verbose=0,
                 )
-                data += resp.Data
-            super(SMB_RPC_SOCKET, self).send(data)
+                super(SMB_RPC_SOCKET, self).send(resp.Data)
 
     def close(self):
         SMB_SOCKET.close(self)
@@ -1033,20 +1090,26 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
 @conf.commands.register
 class smbclient(CLIUtil):
     r"""
-    A simple smbclient CLI
+    A simple SMB client CLI powered by Scapy
 
     :param target: can be a hostname, the IPv4 or the IPv6 to connect to
     :param UPN: the upn to use (DOMAIN/USER, DOMAIN\USER, USER@DOMAIN or USER)
     :param guest: use guest mode (over NTLM)
     :param ssp: if provided, use this SSP for auth.
-    :param kerberos: if available, whether to use Kerberos or not
     :param kerberos_required: require kerberos
     :param port: the TCP port. default 445
-    :param password: (string) if provided, used for auth
-    :param HashNt: (bytes) if provided, used for auth (NTLM)
+    :param password: if provided, used for auth
+    :param HashNt: if provided, used for auth (NTLM)
+    :param HashAes256Sha96: if provided, used for auth (Kerberos)
+    :param HashAes128Sha96: if provided, used for auth (Kerberos)
     :param ST: if provided, the service ticket to use (Kerberos)
     :param KEY: if provided, the session key associated to the ticket (Kerberos)
     :param cli: CLI mode (default True). False to use for scripting
+
+    Some additional SMB parameters are available under help(SMB_Client). Some of
+    them include the following:
+
+    :param REQUIRE_ENCRYPTION: requires encryption.
     """
 
     def __init__(
@@ -1055,9 +1118,10 @@ class smbclient(CLIUtil):
         UPN: str = None,
         password: str = None,
         guest: bool = False,
-        kerberos: bool = True,
         kerberos_required: bool = False,
-        HashNt: str = None,
+        HashNt: bytes = None,
+        HashAes256Sha96: bytes = None,
+        HashAes128Sha96: bytes = None,
         port: int = 445,
         timeout: int = 2,
         debug: int = 0,
@@ -1066,92 +1130,65 @@ class smbclient(CLIUtil):
         KEY=None,
         cli=True,
         # SMB arguments
+        REQUIRE_ENCRYPTION=False,
         **kwargs,
     ):
         if cli:
             self._depcheck()
-        hostname = None
-        # Check if target is a hostname / Check IP
-        if ":" in target:
-            family = socket.AF_INET6
-            if not valid_ip6(target):
-                hostname = target
-            target = str(Net6(target))
-        else:
-            family = socket.AF_INET
-            if not valid_ip(target):
-                hostname = target
-            target = str(Net(target))
         assert UPN or ssp or guest, "Either UPN, ssp or guest must be provided !"
         # Do we need to build a SSP?
         if ssp is None:
             # Create the SSP (only if not guest mode)
             if not guest:
-                # Check UPN
-                try:
-                    _, realm = _parse_upn(UPN)
-                    if realm == ".":
-                        # Local
-                        kerberos = False
-                except ValueError:
-                    # not a UPN: NTLM
-                    kerberos = False
-                # Do we need to ask the password?
-                if HashNt is None and password is None and ST is None:
-                    # yes.
-                    from prompt_toolkit import prompt
-
-                    password = prompt("Password: ", is_password=True)
-                ssps = []
-                # Kerberos
-                if kerberos and hostname:
-                    if ST is None:
-                        resp = krb_as_and_tgs(
-                            upn=UPN,
-                            spn="cifs/%s" % hostname,
-                            password=password,
-                            debug=debug,
-                        )
-                        if resp is not None:
-                            ST, KEY = resp.tgsrep.ticket, resp.sessionkey
-                    if ST:
-                        ssps.append(KerberosSSP(UPN=UPN, ST=ST, KEY=KEY, debug=debug))
-                    elif kerberos_required:
-                        raise ValueError(
-                            "Kerberos required but target isn't a hostname !"
-                        )
-                elif kerberos_required:
-                    raise ValueError(
-                        "Kerberos required but domain not specified in the UPN, "
-                        "or target isn't a hostname !"
-                    )
-                # NTLM
-                if not kerberos_required:
-                    if HashNt is None and password is not None:
-                        HashNt = MD4le(password)
-                    ssps.append(NTLMSSP(UPN=UPN, HASHNT=HashNt))
-                # Build the SSP
-                ssp = SPNEGOSSP(ssps)
+                ssp = SPNEGOSSP.from_cli_arguments(
+                    UPN=UPN,
+                    target=target,
+                    password=password,
+                    HashNt=HashNt,
+                    HashAes256Sha96=HashAes256Sha96,
+                    HashAes128Sha96=HashAes128Sha96,
+                    ST=ST,
+                    KEY=KEY,
+                    kerberos_required=kerberos_required,
+                )
             else:
                 # Guest mode
                 ssp = None
+        # Check if target is IPv4 or IPv6
+        if ":" in target:
+            family = socket.AF_INET6
+        else:
+            family = socket.AF_INET
         # Open socket
         sock = socket.socket(family, socket.SOCK_STREAM)
+        # Configure socket for SMB:
+        # - TCP KEEPALIVE, TCP_KEEPIDLE and TCP_KEEPINTVL. Against a Windows server this
+        #   isn't necessary, but samba kills the socket VERY fast otherwise.
+        # - set TCP_NODELAY to disable Nagle's algorithm (we're streaming data)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 10)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+        # Timeout & connect
         sock.settimeout(timeout)
+        if debug:
+            print("Connecting to %s:%s" % (target, port))
         sock.connect((target, port))
         self.extra_create_options = []
         # Wrap with the automaton
         self.timeout = timeout
-        kwargs.setdefault("SERVER_NAME", target)
+        kwargs.setdefault("HOST", target)
         self.sock = SMB_Client.from_tcpsock(
             sock,
             ssp=ssp,
             debug=debug,
+            REQUIRE_ENCRYPTION=REQUIRE_ENCRYPTION,
+            timeout=timeout,
             **kwargs,
         )
         try:
             # Wrap with SMB_SOCKET
-            self.smbsock = SMB_SOCKET(self.sock)
+            self.smbsock = SMB_SOCKET(self.sock, timeout=self.timeout)
             # Wait for either the atmt to fail, or the smb_sock_ready to timeout
             _t = time.time()
             while True:
@@ -1179,13 +1216,21 @@ class smbclient(CLIUtil):
         # For some usages, we will also need the RPC wrapper
         from scapy.layers.msrpce.rpcclient import DCERPC_Client
 
-        self.rpcclient = DCERPC_Client.from_smblink(self.sock, ndr64=False, verb=False)
+        self.rpcclient = DCERPC_Client.from_smblink(
+            self.sock,
+            ndr64=False,
+            verb=bool(debug),
+        )
         # We have a valid smb connection !
         print(
-            "SMB authentication successful using %s%s !"
+            "%s authentication successful using %s%s !"
             % (
-                repr(self.sock.atmt.session.sspcontext),
-                " as GUEST" if self.sock.atmt.IsGuest else "",
+                SMB_DIALECTS.get(
+                    self.smbsock.session.Dialect,
+                    "SMB %s" % self.smbsock.session.Dialect,
+                ),
+                repr(self.smbsock.session.sspcontext),
+                " as GUEST" if self.smbsock.session.IsGuest else "",
             )
         )
         # Now define some variables for our CLI
@@ -1193,6 +1238,7 @@ class smbclient(CLIUtil):
         self.localpwd = pathlib.Path(".").resolve()
         self.current_tree = None
         self.ls_cache = {}  # cache the listing of the current directory
+        self.sh_cache = []  # cache the shares
         # Start CLI
         if cli:
             self.loop(debug=debug)
@@ -1226,7 +1272,10 @@ class smbclient(CLIUtil):
         """
         List the shares available
         """
-        # One of the 'hardest' considering it's an RPC
+        # Poll cache
+        if self.sh_cache:
+            return self.sh_cache
+        # It's an RPC
         self.rpcclient.open_smbpipe("srvsvc")
         self.rpcclient.bind(find_dcerpc_interface("srvsvc"))
         req = NetrShareEnum_Request(
@@ -1238,10 +1287,12 @@ class smbclient(CLIUtil):
                 ),
             ),
             PreferedMaximumLength=0xFFFFFFFF,
+            ndr64=self.rpcclient.ndr64,
         )
         resp = self.rpcclient.sr1_req(req, timeout=self.timeout)
         self.rpcclient.close_smbpipe()
         if not isinstance(resp, NetrShareEnum_Response):
+            resp.show()
             raise ValueError("NetrShareEnum_Request failed !")
         results = []
         for share in resp.valueof("InfoStruct.ShareInfo.Buffer"):
@@ -1253,6 +1304,7 @@ class smbclient(CLIUtil):
                     share.valueof("shi1_remark").decode(),
                 )
             )
+        self.sh_cache = results  # cache
         return results
 
     @CLIUtil.addoutput(shares)
@@ -1271,6 +1323,15 @@ class smbclient(CLIUtil):
         self.pwd = pathlib.PureWindowsPath("/")
         self.ls_cache.clear()
 
+    @CLIUtil.addcomplete(use)
+    def use_complete(self, share):
+        """
+        Auto-complete 'use'
+        """
+        return [
+            x[0] for x in self.shares() if x[0].startswith(share) and x[0] != "IPC$"
+        ]
+
     def _parsepath(self, arg, remote=True):
         """
         Parse a path. Returns the parent folder and file name
@@ -1282,7 +1343,7 @@ class smbclient(CLIUtil):
         if arg.endswith("/") or arg.endswith("\\"):
             eltpar = elt
             eltname = ""
-        elif elt.parent and elt.parent.name:
+        elif elt.parent and elt.parent.name or elt.is_absolute():
             eltpar = elt.parent
         return eltpar, eltname
 
@@ -1426,8 +1487,9 @@ class smbclient(CLIUtil):
         eltpar, eltname = self._parsepath(arg, remote=False)
         eltpar = self.localpwd / eltpar
         return [
-            str(x.relative_to(self.localpwd))
-            for x in eltpar.glob("*")
+            # trickery so that ../<TAB> works
+            str(eltpar / x.name)
+            for x in eltpar.resolve().glob("*")
             if (x.name.lower().startswith(eltname.lower()) and cond(x))
         ]
 
@@ -1517,7 +1579,7 @@ class smbclient(CLIUtil):
         offset = 0
         # Read the file
         while length:
-            lengthRead = min(self.sock.atmt.MaxReadSize, length)
+            lengthRead = min(self.smbsock.session.MaxReadSize, length)
             fd.write(
                 self.smbsock.read_request(fileId, Length=lengthRead, Offset=offset)
             )
@@ -1544,7 +1606,7 @@ class smbclient(CLIUtil):
         # Send the file
         offset = 0
         while True:
-            data = fd.read(self.sock.atmt.MaxWriteSize)
+            data = fd.read(self.smbsock.session.MaxWriteSize)
             if not data:
                 # end of file
                 break
@@ -1723,6 +1785,96 @@ class smbclient(CLIUtil):
         else:
             print("Backup Intent: On")
             self.extra_create_options.append("FILE_OPEN_FOR_BACKUP_INTENT")
+
+    @CLIUtil.addcommand(spaces=True)
+    def watch(self, folder):
+        """
+        Watch file changes in folder (recursively)
+        """
+        if self._require_share():
+            return
+        # Get pwd of the ls
+        fpath = self.pwd / folder
+        self.smbsock.set_TID(self.current_tree)
+        # Open file
+        fileId = self.smbsock.create_request(
+            self.normalize_path(fpath),
+            type="folder",
+            extra_create_options=self.extra_create_options,
+        )
+        print("Watching '%s'" % fpath)
+        # Watch for changes
+        try:
+            while True:
+                changes = self.smbsock.changenotify(fileId)
+                for chg in changes:
+                    print(chg.sprintf("%.time%: %Action% %FileName%"))
+        except KeyboardInterrupt:
+            pass
+        # Close the file
+        self.smbsock.close_request(fileId)
+        print("Cancelled.")
+
+    @CLIUtil.addcommand(spaces=True)
+    def getsd(self, file):
+        """
+        Get the Security Descriptor
+        """
+        if self._require_share():
+            return
+        fpath = self.pwd / file
+        self.smbsock.set_TID(self.current_tree)
+        # Open file
+        fileId = self.smbsock.create_request(
+            self.normalize_path(fpath),
+            type="",
+            mode="",
+            extra_desired_access=["READ_CONTROL", "ACCESS_SYSTEM_SECURITY"],
+        )
+        # Get the file size
+        info = self.smbsock.query_info(
+            FileId=fileId,
+            InfoType="SMB2_0_INFO_SECURITY",
+            FileInfoClass=0,
+            AdditionalInformation=(
+                0x00000001
+                | 0x00000002
+                | 0x00000004
+                | 0x00000008
+                | 0x00000010
+                | 0x00000020
+                | 0x00000040
+                | 0x00010000
+            ),
+        )
+        self.smbsock.close_request(fileId)
+        return info
+
+    @CLIUtil.addcomplete(getsd)
+    def getsd_complete(self, file):
+        """
+        Auto-complete getsd
+        """
+        if self._require_share(silent=True):
+            return []
+        return self._fs_complete(file)
+
+    @CLIUtil.addoutput(getsd)
+    def getsd_output(self, results):
+        """
+        Print the output of 'getsd'
+        """
+        sd = SECURITY_DESCRIPTOR(results)
+        print("Owner:", sd.OwnerSid.summary())
+        print("Group:", sd.GroupSid.summary())
+        if getattr(sd, "DACL", None):
+            print("DACL:")
+            for ace in sd.DACL.Aces:
+                print(" - ", ace.toSDDL())
+        if getattr(sd, "SACL", None):
+            print("SACL:")
+            for ace in sd.SACL.Aces:
+                print(" - ", ace.toSDDL())
 
 
 if __name__ == "__main__":

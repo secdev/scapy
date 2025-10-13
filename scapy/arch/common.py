@@ -8,16 +8,21 @@ Functions common to different architectures
 """
 
 import ctypes
+import re
+import socket
+
 from scapy.config import conf
-from scapy.data import MTU, ARPHDR_ETHER, ARPHRD_TO_DLT
-from scapy.error import Scapy_Exception
-from scapy.interfaces import network_name
+from scapy.data import MTU, ARPHRD_TO_DLT, DLT_RAW_ALT, DLT_RAW
+from scapy.error import Scapy_Exception, warning
+from scapy.interfaces import network_name, resolve_iface, NetworkInterface
 from scapy.libs.structures import bpf_program
+from scapy.pton_ntop import inet_pton
 from scapy.utils import decode_locale_str
 
 # Type imports
 import scapy
 from typing import (
+    List,
     Optional,
     Union,
 )
@@ -33,7 +38,6 @@ _iff_flags = [
     "RUNNING",
     "NOARP",
     "PROMISC",
-    "NOTRAILERS",
     "ALLMULTI",
     "MASTER",
     "SLAVE",
@@ -45,6 +49,15 @@ _iff_flags = [
     "DORMANT",
     "ECHO"
 ]
+
+
+def get_if_raw_addr(iff):
+    # type: (Union[NetworkInterface, str]) -> bytes
+    """Return the raw IPv4 address of interface"""
+    iff = resolve_iface(iff)
+    if not iff.ip:
+        return b"\x00" * 4
+    return inet_pton(socket.AF_INET, iff.ip)
 
 
 # BPF HANDLERS
@@ -86,16 +99,16 @@ def compile_filter(filter_exp,  # type: str
                 )
             iface = conf.iface
         # Try to guess linktype to avoid requiring root
-        from scapy.arch import get_if_raw_hwaddr
         try:
-            arphd = get_if_raw_hwaddr(iface)[0]
+            arphd = resolve_iface(iface).type
             linktype = ARPHRD_TO_DLT.get(arphd)
         except Exception:
             # Failed to use linktype: use the interface
             pass
-        if not linktype and conf.use_bpf:
-            linktype = ARPHDR_ETHER
     if linktype is not None:
+        # Some conversion aliases (e.g. linktype_to_dlt in libpcap)
+        if linktype == DLT_RAW_ALT:
+            linktype = DLT_RAW
         ret = pcap_compile_nopcap(
             MTU, linktype, ctypes.byref(bpf), bpf_filter, 1, -1
         )
@@ -117,3 +130,18 @@ def compile_filter(filter_exp,  # type: str
             "Failed to compile filter expression %s (%s)" % (filter_exp, ret)
         )
     return bpf
+
+
+#######
+# DNS #
+#######
+
+def read_nameservers() -> List[str]:
+    """Return the nameservers configured by the OS
+    """
+    try:
+        with open('/etc/resolv.conf', 'r') as fd:
+            return re.findall(r"nameserver\s+([^\s]+)", fd.read())
+    except FileNotFoundError:
+        warning("Could not retrieve the OS's nameserver !")
+        return []

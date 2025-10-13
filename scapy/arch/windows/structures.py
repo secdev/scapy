@@ -205,52 +205,6 @@ class SOCKADDR_INET(ctypes.Union):
                 ("Ipv6", sockaddr_in6),
                 ("si_family", USHORT)]
 
-##############################
-######### ICMP stats #########
-##############################
-
-
-class MIBICMPSTATS(Structure):
-    _fields_ = [("dwMsgs", DWORD),
-                ("dwErrors", DWORD),
-                ("dwDestUnreachs", DWORD),
-                ("dwTimeExcds", DWORD),
-                ("dwParmProbs", DWORD),
-                ("dwSrcQuenchs", DWORD),
-                ("dwRedirects", DWORD),
-                ("dwEchos", DWORD),
-                ("dwEchoReps", DWORD),
-                ("dwTimestamps", DWORD),
-                ("dwTimestampReps", DWORD),
-                ("dwAddrMasks", DWORD),
-                ("dwAddrMaskReps", DWORD)]
-
-
-class MIBICMPINFO(Structure):
-    _fields_ = [("icmpInStats", MIBICMPSTATS),
-                ("icmpOutStats", MIBICMPSTATS)]
-
-
-class MIB_ICMP(Structure):
-    _fields_ = [("stats", MIBICMPINFO)]
-
-
-PMIB_ICMP = POINTER(MIB_ICMP)
-
-# Func
-
-_GetIcmpStatistics = WINFUNCTYPE(ULONG, PMIB_ICMP)(
-    ('GetIcmpStatistics', iphlpapi))
-
-
-def GetIcmpStatistics():
-    # type: () -> Dict[str, Dict[str, Dict[str, int]]]
-    """Return all Windows ICMP stats from iphlpapi"""
-    statistics = MIB_ICMP()
-    _GetIcmpStatistics(byref(statistics))
-    results = _struct_to_dict(statistics)
-    del statistics
-    return results
 
 ##############################
 ##### Adapters Addresses #####

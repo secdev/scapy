@@ -171,13 +171,6 @@ class LTP(Packet):
                                        15, _ltp_cancel_reasons),
                          lambda x: x.flags == 14),
         #
-        # Cancellation Acknowldgements
-        #
-        ConditionalField(SDNV2("CancelAckToBlockSender", 0),
-                         lambda x: x.flags == 13),
-        ConditionalField(SDNV2("CancelAckToBlockReceiver", 0),
-                         lambda x: x.flags == 15),
-        #
         # Finally, trailing extensions
         #
         PacketListField("TrailerExtensions", [], LTPex, count_from=lambda x: x.TrailerExtensionCount)  # noqa: E501

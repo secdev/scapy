@@ -228,7 +228,7 @@ p.wait_and_stop()
 
 = Test SniffSource
 
-import mock
+from unittest import mock
 fd = ObjectPipe("sniffsource")
 fd.write("test")
 
@@ -295,7 +295,7 @@ else:
 
 = Test exhausted AutoSource and SniffSource
 
-import mock
+from unittest import mock
 from scapy.error import Scapy_Exception
 
 def _fail():
@@ -323,7 +323,7 @@ except:
 q = ObjectPipe("wiresharksink")
 pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
-import mock
+from unittest import mock
 with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=q)) as popen:
     sink = WiresharkSink()
     sink.start()
@@ -345,7 +345,7 @@ linktype = scapy.data.DLT_EN3MB
 q = ObjectPipe("wiresharksink_linktype")
 pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
-import mock
+from unittest import mock
 with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=q)) as popen:
     sink = WiresharkSink(linktype=linktype)
     sink.start()
@@ -363,7 +363,7 @@ linktype = scapy.data.DLT_EN3MB
 q = ObjectPipe("wiresharksink_args")
 pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
-import mock
+from unittest import mock
 with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=q)) as popen:
     sink = WiresharkSink(args=['-c', '1'])
     sink.start()
@@ -404,7 +404,7 @@ os.unlink(os.path.join(dname, "t2.pcap.gz"))
 = Test InjectSink and Inject3Sink
 ~ needs_root
 
-import mock
+from unittest import mock
 
 a = IP(dst="192.168.0.1")/ICMP()
 msgs = []

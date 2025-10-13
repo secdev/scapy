@@ -9,7 +9,7 @@
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteField, ShortField, ByteEnumField, X3BytesField, \
-    StrField, StrFixedLenField, LEIntField, LEThreeBytesField, \
+    StrField, StrFixedLenField, LEThreeBytesField, \
     PacketListField, IntField, IPField, ThreeBytesField, ShortEnumField, \
     XStrFixedLenField
 from scapy.contrib.automotive.uds import UDS, UDS_RDBI, UDS_DSC, UDS_IOCBI, \
@@ -321,14 +321,16 @@ class SVK(Packet):
         3: "software entry incompatible to hardware entry",
         4: "software entry incompatible with other software entry"}
 
+    @staticmethod
+    def get_length(p: Packet):
+        return len(p.original) - (8 * p.entries_count + 7)
+
     fields_desc = [
         ByteEnumField("prog_status1", 0, prog_status_enum),
         ByteEnumField("prog_status2", 0, prog_status_enum),
         ShortField("entries_count", 0),
         SVK_DateField("prog_date", 0),
-        ByteField("pad1", 0),
-        LEIntField("prog_milage", 0),
-        StrFixedLenField("pad2", b'\x00\x00\x00\x00\x00', length=5),
+        StrFixedLenField("pad", b'\x00', length_from=get_length),
         PacketListField("entries", [], SVK_Entry,
                         count_from=lambda x: x.entries_count)]
 

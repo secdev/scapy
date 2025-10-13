@@ -18,7 +18,7 @@ from collections import defaultdict
 from scapy.utils import checksum, do_graph, incremental_label, \
     linehexdump, strxor, whois, colgen
 from scapy.ansmachine import AnsweringMachine
-from scapy.base_classes import Gen, Net
+from scapy.base_classes import Gen, Net, _ScopedIP
 from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
     IP_PROTOS, TCP_SERVICES, UDP_SERVICES
 from scapy.layers.l2 import (
@@ -47,6 +47,7 @@ from scapy.fields import (
     IPField,
     IP6Field,
     IntField,
+    MayEnd,
     MultiEnumField,
     MultipleTypeField,
     PacketField,
@@ -542,7 +543,7 @@ class IP(Packet, IPTools):
                    ByteEnumField("proto", 0, IP_PROTOS),
                    XShortField("chksum", None),
                    # IPField("src", "127.0.0.1"),
-                   Emph(SourceIPField("src", "dst")),
+                   Emph(SourceIPField("src")),
                    Emph(DestIPField("dst", "127.0.0.1")),
                    PacketListField("options", [], IPOption, length_from=lambda p:p.ihl * 4 - 20)]  # noqa: E501
 
@@ -568,12 +569,15 @@ class IP(Packet, IPTools):
 
     def route(self):
         dst = self.dst
-        if isinstance(dst, Gen):
+        scope = None
+        if isinstance(dst, (Net, _ScopedIP)):
+            scope = dst.scope
+        if isinstance(dst, (Gen, list)):
             dst = next(iter(dst))
         if conf.route is None:
             # unused import, only to initialize conf.route
             import scapy.route  # noqa: F401
-        return conf.route.route(dst)
+        return conf.route.route(dst, dev=scope)
 
     def hashret(self):
         if ((self.proto == socket.IPPROTO_ICMP) and
@@ -1269,6 +1273,12 @@ class IPerror(IP):
 
 class TCPerror(TCP):
     name = "TCP in ICMP"
+    fields_desc = (
+        TCP.fields_desc[:2] +
+        # MayEnd after the 8 first octets.
+        [MayEnd(TCP.fields_desc[2])] +
+        TCP.fields_desc[3:]
+    )
 
     def answers(self, other):
         if not isinstance(other, TCP):
@@ -2155,16 +2165,20 @@ class TCP_client(Automaton):
     :param ip: the ip to connect to
     :param port:
     :param src: (optional) use another source IP
+    :param sport: (optional) the TCP source port (default: random)
+    :param seq: (optional) initial TCP sequence number (default: random)
     """
 
-    def parse_args(self, ip, port, srcip=None, **kargs):
+    def parse_args(self, ip, port, srcip=None, sport=None, seq=None, ack=0, **kargs):
         from scapy.sessions import TCPSession
         self.dst = str(Net(ip))
         self.dport = port
-        self.sport = random.randrange(0, 2**16)
+        self.sport = sport if sport is not None else random.randrange(0, 2**16)
         self.l4 = IP(dst=ip, src=srcip) / TCP(
             sport=self.sport, dport=self.dport,
-            flags=0, seq=random.randrange(0, 2**32)
+            flags=0,
+            seq=seq if seq is not None else random.randrange(0, 2**32),
+            ack=ack,
         )
         self.src = self.l4.src
         self.sack = self.l4[TCP].ack

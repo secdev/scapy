@@ -34,6 +34,7 @@ from scapy.fields import (
     FlagsField,
     IntField,
     IPField,
+    MACField,
     ShortField,
     StrEnumField,
     StrField,
@@ -43,7 +44,7 @@ from scapy.fields import (
 from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether, HARDWARE_TYPES
 from scapy.packet import bind_layers, bind_bottom_up, Packet
-from scapy.utils import atol, itom, ltoa, sane, str2mac
+from scapy.utils import atol, itom, ltoa, sane, str2mac, mac2str
 from scapy.volatile import (
     RandBin,
     RandByte,
@@ -52,18 +53,33 @@ from scapy.volatile import (
     RandInt,
     RandNum,
     RandNumExpo,
+    VolatileValue,
 )
 
-from scapy.arch import get_if_raw_hwaddr
+from scapy.arch import get_if_hwaddr
 from scapy.sendrecv import srp1
 from scapy.error import warning
 from scapy.config import conf
+
+# Typing imports
+from typing import (
+    List,
+    Optional,
+    Union,
+)
 
 dhcpmagic = b"c\x82Sc"
 
 
 class _BOOTP_chaddr(StrFixedLenField):
+    def i2m(self, pkt, x):
+        if isinstance(x, VolatileValue):
+            x = x._fix()
+        return MACField.i2m(self, pkt, x)
+
     def i2repr(self, pkt, v):
+        if isinstance(v, VolatileValue):
+            return repr(v)
         if pkt.htype == 1:  # Ethernet
             if v[6:] == b"\x00" * 10:  # Default padding
                 return "%s (+ 10 nul pad)" % str2mac(v[:6])
@@ -115,12 +131,12 @@ class BOOTP(Packet):
         return self.xid == other.xid
 
 
-class _DHCPParamReqFieldListField(FieldListField):
+class _DHCPByteFieldListField(FieldListField):
     def randval(self):
-        class _RandReqFieldList(RandField):
+        class _RandByteFieldList(RandField):
             def _fix(self):
                 return [RandByte()] * int(RandByte())
-        return _RandReqFieldList()
+        return _RandByteFieldList()
 
 
 class RandClasslessStaticRoutesField(RandField):
@@ -277,7 +293,7 @@ DHCPOptions = {
     52: ByteField("dhcp-option-overload", 100),
     53: ByteEnumField("message-type", 1, DHCPTypes),
     54: IPField("server_id", "0.0.0.0"),
-    55: _DHCPParamReqFieldListField(
+    55: _DHCPByteFieldListField(
         "param_req_list", [],
         ByteField("opcode", 0)),
     56: "error_message",
@@ -337,6 +353,9 @@ DHCPOptions = {
     137: "v4-lost",
     138: IPField("capwap-ac-v4", "0.0.0.0"),
     141: "sip_ua_service_domains",
+    145: _DHCPByteFieldListField(
+         "forcerenew_nonce_capable", [],
+         ByteEnumField("algorithm", 1, {1: "HMAC-MD5"})),
     146: "rdnss-selection",
     150: IPField("tftp_server_address", "0.0.0.0"),
     159: "v4-portparams",
@@ -389,6 +408,9 @@ class RandDHCPOptions(RandField):
                     r = r[:255]
                 op.append((o.name, r))
         return op
+
+    def __iter__(self):
+        return iter(self._fix())
 
 
 class DHCPOptionsField(StrField):
@@ -551,10 +573,10 @@ def dhcp_request(hw=None,
     if hw is None:
         if iface is None:
             iface = conf.iface
-        _, hw = get_if_raw_hwaddr(iface)
+        hw = get_if_hwaddr(iface)
     dhcp_options = [
         ('message-type', req_type),
-        ('client_id', b'\x01' + hw),
+        ('client_id', b'\x01' + mac2str(hw)),
     ]
     if requested_addr is not None:
         dhcp_options.append(('requested_addr', requested_addr))
@@ -589,20 +611,21 @@ class BOOTP_am(AnsweringMachine):
     filter = "udp and port 68 and port 67"
 
     def parse_options(self,
-                      pool=Net("192.168.1.128/25"),
-                      network="192.168.1.0/24",
-                      gw="192.168.1.1",
-                      nameserver=None,
-                      domain=None,
-                      renewal_time=60,
-                      lease_time=1800,
+                      pool: Union[Net, List[str]] = Net("192.168.1.128/25"),
+                      network: str = "192.168.1.0/24",
+                      gw: str = "192.168.1.1",
+                      nameserver: Union[str, List[str]] = None,
+                      domain: Optional[str] = None,
+                      renewal_time: int = 60,
+                      lease_time: int = 1800,
                       **kwargs):
         """
         :param pool: the range of addresses to distribute. Can be a Net,
                      a list of IPs or a string (always gives the same IP).
         :param network: the subnet range
         :param gw: the gateway IP (can be None)
-        :param nameserver: the DNS server IP (by default, same than gw)
+        :param nameserver: the DNS server IP (by default, same than gw).
+            This can also be a list.
         :param domain: the domain to advertise (can be None)
 
         Other DHCP parameters can be passed as kwargs. See DHCPOptions in dhcp.py.
@@ -610,6 +633,11 @@ class BOOTP_am(AnsweringMachine):
 
             dhcpd(pool=Net("10.0.10.0/24"), network="10.0.0.0/8", gw="10.0.10.1",
                   classless_static_routes=["1.2.3.4/32:9.8.7.6"])
+
+        Other example with different options::
+
+            dhcpd(pool=Net("10.0.10.0/24"), network="10.0.0.0/8", gw="10.0.10.1",
+                  nameserver=["8.8.8.8", "4.4.4.4"], domain="DOMAIN.LOCAL")
         """
         self.domain = domain
         netw, msk = (network.split("/") + ["32"])[:2]
@@ -618,7 +646,13 @@ class BOOTP_am(AnsweringMachine):
         self.network = ltoa(atol(netw) & msk)
         self.broadcast = ltoa(atol(self.network) | (0xffffffff & ~msk))
         self.gw = gw
-        self.nameserver = nameserver or gw
+        if nameserver is None:
+            self.nameserver = (gw,)
+        elif isinstance(nameserver, str):
+            self.nameserver = (nameserver,)
+        else:
+            self.nameserver = tuple(nameserver)
+
         if isinstance(pool, str):
             pool = Net(pool)
         if isinstance(pool, Iterable):
@@ -679,7 +713,7 @@ class DHCP_am(BOOTP_am):
                     ("server_id", self.gw),
                     ("domain", self.domain),
                     ("router", self.gw),
-                    ("name_server", self.nameserver),
+                    ("name_server", *self.nameserver),
                     ("broadcast_address", self.broadcast),
                     ("subnet_mask", self.netmask),
                     ("renewal_time", self.renewal_time),

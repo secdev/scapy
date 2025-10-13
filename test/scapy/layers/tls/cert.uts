@@ -132,6 +132,13 @@ weDU+RsFxcyU/QxD9WYORzYarqxbcA==
 """)
 type(y) is PrivKeyECDSA
 
+= PrivKey class : Checking public attributes
+assert y.key.curve.name == "secp256k1"
+y.key.public_key().public_numbers().y == 86290575637772818452062569410092503179882738810918951913926481113065456425840
+
+= PrivKey class : Checking private attributes
+y.key.private_numbers().private_value == 90719786431263082134670936670180839782031078050773732489701961692235185651857
+
 = PrivKeyECDSA sign & verify
 ~ crypto_advanced
 a = PrivKeyECDSA()
@@ -143,8 +150,9 @@ assert not a.verify(b"Hello", data)
 
 = PubKeyECDSA verify
 ~ crypto_advanced
-b = PubKeyECDSA()
-b.pubkey = a.pubkey
+assert isinstance(a.pubkey, PubKeyECDSA)
+
+b = PubKeyECDSA(cryptography_obj=a.pubkey.pubkey)
 assert b.verify(msg, data)
 assert not b.verify(b"Hello", data)
 
@@ -162,12 +170,12 @@ assert x_privNum.dmp1 == a_privNum.dmp1
 assert x_privNum.dmq1 == a_privNum.dmq1
 assert x_privNum.d == a_privNum.d
 
-= PrivKey class : Checking public attributes
-assert y.key.curve.name == "secp256k1"
-y.key.public_key().public_numbers().y == 86290575637772818452062569410092503179882738810918951913926481113065456425840
-
-= PrivKey class : Checking private attributes
-y.key.private_numbers().private_value == 90719786431263082134670936670180839782031078050773732489701961692235185651857
+= PrivKey class: Importing PEM-encoded EdDSA private key
+y = PrivKey("""
+-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIGu36oadjA6raCmwtImfAWI/DSCENM/uQCsUaClVoUTZ
+-----END PRIVATE KEY-----
+""")
 
 + PrivKey/Pubkey test signatures
 
@@ -393,7 +401,7 @@ with ContextManagerCaptureOutput() as cmco:
     y.show()
     assert cmco.get_output().strip() == awaited.strip()
 
-= Cert: Check split_pem on chained certs with missing end \n
+= Cert class : Check split_pem on chained certs with missing end \n
 from scapy.layers.tls.cert import split_pem
 ks = split_pem(b"""
 -----BEGIN EC PRIVATE KEY-----
@@ -408,6 +416,51 @@ weDU+RsFxcyU/QxD9WYORzYarqxbcA==
 -----END EC PRIVATE KEY-----""")
 assert ks[0][:-1] == ks[1]
 
+= Cert class : Import PEM-encoded certificate with ed25519 signature
+x = Cert("""
+-----BEGIN CERTIFICATE-----
+MIICqDCCAZCgAwIBAgIUYYDvh160/Q32Q/MuCGSfIYxTwwEwDQYJKoZIhvcNAQEL
+BQAwVDELMAkGA1UEBhMCTU4xFDASBgNVBAcMC1VsYWFuYmFhdGFyMRcwFQYDVQQL
+DA5TY2FweSBUZXN0IFBLSTEWMBQGA1UEAwwNU2NhcHkgVGVzdCBDQTAeFw0yNDA3
+MTQxOTU4MzNaFw0zNDA3MTUxOTU4MzNaMFgxCzAJBgNVBAYTAk1OMRQwEgYDVQQH
+DAtVbGFhbmJhYXRhcjEXMBUGA1UECwwOU2NhcHkgVGVzdCBQS0kxGjAYBgNVBAMM
+EVNjYXB5IFRlc3QgU2VydmVyMCowBQYDK2VwAyEAB8exZcGWUFeio0aPES732u5l
+GXRUuaktLmSIQB8PoPejaDBmMA8GA1UdEwEB/wQFMAMCAQEwEwYDVR0lBAwwCgYI
+KwYBBQUHAwEwHQYDVR0OBBYEFJOzQR0udLrz7IiLP3q+FehLxijkMB8GA1UdIwQY
+MBaAFGZTlPQV0b1naLBRNzI14aSq3gd8MA0GCSqGSIb3DQEBCwUAA4IBAQCRk6TP
+XKfSy2fwodsYe1bedhL9mlm9xDDOu6ILkDZtCpbOwrjeSf+U7VQYvdlI8QCeQyEK
+ZE/S3S5UzOjEv7fQpyqfG9aJJbH7OQwG25ShiX86Kt/RAkgtjyCmKevhT6uSs5fa
+BsdYWnS9WHWH5ZkWkjZt1K2xYJP4Lqg9VpHy/YNz4b5swXEWf+MdayVSgzPxoviG
+zXnsTrxiTcGvelGFm/lYc42u6cSqrHoLtfniyaGNvPwrfBsiY/cypN4GZLNgEk80
+/tcAg2TeUGNbMbT4Rko1OMLxMT9zRzgJyjd/XyW/5fCE/Xm0q7VYo1EF1ScywU1B
+XwZH9DJ6Ud0s8/j+
+-----END CERTIFICATE-----
+""")
+
+= Cert class : Change subject public key identifier and resign
+c = Cert("""
+-----BEGIN CERTIFICATE-----
+MIICRjCCAc2gAwIBAgIQC6Fa+h3foLVJRK/NJKBs7DAKBggqhkjOPQQDAzBlMQsw
+CQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3d3cu
+ZGlnaWNlcnQuY29tMSQwIgYDVQQDExtEaWdpQ2VydCBBc3N1cmVkIElEIFJvb3Qg
+RzMwHhcNMTMwODAxMTIwMDAwWhcNMzgwMTE1MTIwMDAwWjBlMQswCQYDVQQGEwJV
+UzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3d3cuZGlnaWNlcnQu
+Y29tMSQwIgYDVQQDExtEaWdpQ2VydCBBc3N1cmVkIElEIFJvb3QgRzMwdjAQBgcq
+hkjOPQIBBgUrgQQAIgNiAAQZ57ysRGXtzbg/WPuNsVepRC0FFfLvC/8QdJ+1YlJf
+Zn4f5dwbRXkLzMZTCp2NXQLZqVneAlr2lSoOjThKiknGvMYDOAdfVdp+CW7if17Q
+RSAPWXYQ1qAk8C3eNvJsKTmjQjBAMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/
+BAQDAgGGMB0GA1UdDgQWBBTL0L2p4ZgFUaFNN6KDec6NHSrkhDAKBggqhkjOPQQD
+AwNnADBkAjAlpIFFAmsSS3V0T8gj43DydXLefInwz5FyYZ5eEJJZVrmDxxDnOOlY
+JjZ91eQ0hjkCMHw2U/Aw5WJjOpnitqM7mzT6HtoQknFekROn3aRukswy1vUhZscv
+6pZjamVFkpUBtA==
+-----END CERTIFICATE-----
+""")
+k = PrivKeyECDSA()
+c.setSubjectPublicKeyFromPrivateKey(k)
+c.setSubjectPublicKeyFromPrivateKey(k.pubkey)
+c = Cert(k.resignCert(c))
+
+assert k.verifyCert(c)
 
 ########### CRL class ###############################################
 

@@ -16,8 +16,13 @@ import time
 from scapy.automaton import select_objects
 from scapy.compat import raw, plain_str
 from scapy.config import conf
-from scapy.consts import WINDOWS
-from scapy.data import MTU, ETH_P_ALL
+from scapy.consts import WINDOWS, LINUX, BSD, SOLARIS
+from scapy.data import (
+    DLT_RAW_ALT,
+    DLT_RAW,
+    ETH_P_ALL,
+    MTU,
+)
 from scapy.error import (
     Scapy_Exception,
     log_loading,
@@ -78,20 +83,27 @@ _pcap_if_flags = [
 
 
 class _L2libpcapSocket(SuperSocket):
-    __slots__ = ["pcap_fd"]
+    __slots__ = ["pcap_fd", "lvl"]
 
     def __init__(self, fd):
         # type: (_PcapWrapper_libpcap) -> None
         self.pcap_fd = fd
         ll = self.pcap_fd.datalink()
         if ll in conf.l2types:
-            self.cls = conf.l2types[ll]
+            self.LL = conf.l2types[ll]
+            if ll in [
+                DLT_RAW,
+                DLT_RAW_ALT,
+            ]:
+                self.lvl = 3
+            else:
+                self.lvl = 2
         else:
-            self.cls = conf.default_l2
+            self.LL = conf.default_l2
             warning(
                 "Unable to guess datalink type "
                 "(interface=%s linktype=%i). Using %s",
-                self.iface, ll, self.cls.name
+                self.iface, ll, self.LL.name
             )
 
     def recv_raw(self, x=MTU):
@@ -103,7 +115,7 @@ class _L2libpcapSocket(SuperSocket):
         ts, pkt = self.pcap_fd.next()
         if pkt is None:
             return None, None, None
-        return self.cls, pkt, ts
+        return self.LL, pkt, ts
 
     def nonblock_recv(self, x=MTU):
         # type: (int) -> Optional[Packet]
@@ -205,6 +217,7 @@ if conf.use_pcap:
                     flags = p.contents.flags  # FLAGS
                     ips = []
                     mac = ""
+                    itype = -1
                     a = p.contents.addresses
                     while a:
                         # IPv4 address
@@ -232,7 +245,7 @@ if conf.use_pcap:
                             ips.append(addr)
                         a = a.contents.next
                     flags = FlagValue(flags, _pcap_if_flags)
-                    if_list[name] = (description, ips, flags, mac)
+                    if_list[name] = (description, ips, flags, mac, itype)
                     p = p.contents.next
                 conf.cache_pcapiflist = if_list
             except Exception:
@@ -285,24 +298,44 @@ if conf.use_pcap:
                 network_name(device).encode("utf8")
             )
             self.dtl = -1
-            if monitor:
-                if WINDOWS and not conf.use_npcap:
-                    raise OSError("On Windows, this feature requires NPcap !")
-                # Npcap-only functions
-                from scapy.libs.winpcapy import pcap_create, \
-                    pcap_set_snaplen, pcap_set_promisc, \
-                    pcap_set_timeout, pcap_set_rfmon, pcap_activate, \
-                    pcap_statustostr, pcap_geterr
+            if not WINDOWS or conf.use_npcap:
+                from scapy.libs.winpcapy import pcap_create
                 self.pcap = pcap_create(self.iface, self.errbuf)
                 if not self.pcap:
                     error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
                     if error:
                         raise OSError(error)
-                pcap_set_snaplen(self.pcap, snaplen)
-                pcap_set_promisc(self.pcap, promisc)
-                pcap_set_timeout(self.pcap, to_ms)
-                if pcap_set_rfmon(self.pcap, 1) != 0:
-                    log_runtime.error("Could not set monitor mode")
+                # Non-winpcap functions
+                from scapy.libs.winpcapy import (
+                    pcap_set_snaplen,
+                    pcap_set_promisc,
+                    pcap_set_timeout,
+                    pcap_set_rfmon,
+                    pcap_activate,
+                    pcap_statustostr,
+                    pcap_geterr,
+                )
+                if pcap_set_snaplen(self.pcap, snaplen) != 0:
+                    error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
+                    if error:
+                        raise OSError(error)
+                    log_runtime.error("Could not set snaplen")
+                if pcap_set_promisc(self.pcap, promisc) != 0:
+                    error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
+                    if error:
+                        raise OSError(error)
+                    log_runtime.error("Could not set promisc")
+                if pcap_set_timeout(self.pcap, to_ms) != 0:
+                    error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
+                    if error:
+                        raise OSError(error)
+                    log_runtime.error("Could not set timeout")
+                if monitor:
+                    if pcap_set_rfmon(self.pcap, 1) != 0:
+                        error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
+                        if error:
+                            raise OSError(error)
+                        log_runtime.error("Could not set monitor mode")
                 status = pcap_activate(self.pcap)
                 # status == 0 means success
                 # status < 0 means error
@@ -332,6 +365,8 @@ if conf.use_pcap:
                         errmsg = "%s: %s" % (iface, statusstr)
                     raise OSError(errmsg)
             else:
+                if WINDOWS and monitor:
+                    raise OSError("On Windows, this feature requires NPcap !")
                 self.pcap = pcap_open_live(self.iface,
                                            snaplen, promisc, to_ms,
                                            self.errbuf)
@@ -340,6 +375,9 @@ if conf.use_pcap:
                     raise OSError(error)
 
             if WINDOWS:
+                # On Windows, we need to cache whether there are still packets in the
+                # queue or not. When they aren't, then we select normally like on linux.
+                self.remaining = True
                 # Winpcap/Npcap exclusive: make every packet to be instantly
                 # returned, and not buffered within Winpcap/Npcap
                 pcap_setmintocopy(self.pcap, 0)
@@ -360,7 +398,10 @@ if conf.use_pcap:
                 byref(self.pkt_data)
             )
             if not c > 0:
+                self.remaining = False  # we emptied the queue
                 return None, None
+            else:
+                self.remaining = True
             ts = (
                 self.header.contents.ts.tv_sec +
                 float(self.header.contents.ts.tv_usec) / 1e6
@@ -381,6 +422,9 @@ if conf.use_pcap:
         def fileno(self):
             # type: () -> int
             if WINDOWS:
+                if self.remaining:
+                    # Still packets in the queue. Don't select
+                    return -1
                 return cast(int, pcap_getevent(self.pcap))
             else:
                 # This does not exist under Windows
@@ -427,27 +471,23 @@ if conf.use_pcap:
             data = {}
             i = 0
             for ifname, dat in conf.cache_pcapiflist.items():
-                description, ips, flags, mac = dat
+                description, ips, flags, mac, itype = dat
                 i += 1
-                if not mac:
-                    from scapy.arch import get_if_hwaddr
+                if LINUX or BSD or SOLARIS and not mac:
+                    from scapy.arch.unix import get_if_raw_hwaddr
                     try:
-                        mac = get_if_hwaddr(ifname)
-                    except Exception as ex:
+                        itype, _mac = get_if_raw_hwaddr(ifname)
+                        mac = str2mac(_mac)
+                    except Exception:
                         # There are at least 3 different possible exceptions
-                        log_loading.warning(
-                            "Could not get MAC address of interface '%s': %s." % (
-                                ifname,
-                                ex,
-                            )
-                        )
-                        continue
+                        mac = "00:00:00:00:00:00"
                 if_data = {
                     'name': ifname,
                     'description': description or ifname,
                     'network_name': ifname,
                     'index': i,
                     'mac': mac,
+                    'type': itype,
                     'ips': ips,
                     'flags': flags
                 }
@@ -486,9 +526,13 @@ if conf.use_pcap:
                 self.promisc = promisc
             else:
                 self.promisc = conf.sniff_promisc
+            self.monitor = monitor
             fd = open_pcap(
-                iface, MTU, self.promisc, 100,
-                monitor=monitor
+                device=iface,
+                snaplen=MTU,
+                promisc=self.promisc,
+                to_ms=100,
+                monitor=self.monitor,
             )
             super(L2pcapListenSocket, self).__init__(fd)
             try:
@@ -530,12 +574,19 @@ if conf.use_pcap:
             if iface is None:
                 iface = conf.iface
             self.iface = iface
+            self.type = type
             if promisc is not None:
                 self.promisc = promisc
             else:
                 self.promisc = conf.sniff_promisc
-            fd = open_pcap(iface, MTU, self.promisc, 100,
-                           monitor=monitor)
+            self.monitor = monitor
+            fd = open_pcap(
+                device=iface,
+                snaplen=MTU,
+                promisc=self.promisc,
+                to_ms=100,
+                monitor=self.monitor,
+            )
             super(L2pcapSocket, self).__init__(fd)
             try:
                 if not WINDOWS:
@@ -564,6 +615,7 @@ if conf.use_pcap:
                         filter = "(ether proto %i) and (%s)" % (type, filter)
                     else:
                         filter = "ether proto %i" % type
+            self.filter = filter
             if filter:
                 self.pcap_fd.setfilter(filter)
 
@@ -579,21 +631,68 @@ if conf.use_pcap:
     class L3pcapSocket(L2pcapSocket):
         desc = "read/write packets at layer 3 using only libpcap"
 
+        def __init__(self, *args, **kwargs):
+            # type: (*Any, **Any) -> None
+            super(L3pcapSocket, self).__init__(*args, **kwargs)
+            self.send_socks = {network_name(self.iface): self}
+
         def recv(self, x=MTU, **kwargs):
             # type: (int, **Any) -> Optional[Packet]
             r = L2pcapSocket.recv(self, x, **kwargs)
-            if r:
+            if r and self.lvl == 2:
                 r.payload.time = r.time
                 return r.payload
             return r
 
         def send(self, x):
             # type: (Packet) -> int
-            # Makes send detects when it should add
-            # Loopback(), Dot11... instead of Ether()
-            sx = raw(self.cls() / x)
+            # Select the file descriptor to send the packet on.
+            iff = x.route()[0]
+            if iff is None:
+                iff = network_name(conf.iface)
+            type_x = type(x)
+            if iff not in self.send_socks:
+                self.send_socks[iff] = L3pcapSocket(
+                    iface=iff,
+                    type=self.type,
+                    filter=self.filter,
+                    promisc=self.promisc,
+                    monitor=self.monitor,
+                )
+            sock = self.send_socks[iff]
+            fd = sock.pcap_fd
+            if sock.lvl == 3:
+                if not issubclass(sock.LL, type_x):
+                    warning("Incompatible L3 types detected using %s instead of %s !",
+                            type_x, sock.LL)
+                    sock.LL = type_x
+            if sock.lvl == 2:
+                sx = bytes(sock.LL() / x)
+            else:
+                sx = bytes(x)
+            # Now send.
             try:
                 x.sent_time = time.time()
             except AttributeError:
                 pass
-            return self.pcap_fd.send(sx)
+            return fd.send(sx)
+
+        @staticmethod
+        def select(sockets, remain=None):
+            # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+            socks = []  # type: List[SuperSocket]
+            for sock in sockets:
+                if isinstance(sock, L3pcapSocket):
+                    socks += sock.send_socks.values()
+                else:
+                    socks.append(sock)
+            return L2pcapSocket.select(socks, remain=remain)
+
+        def close(self):
+            # type: () -> None
+            if self.closed:
+                return
+            super(L3pcapSocket, self).close()
+            for fd in self.send_socks.values():
+                if fd is not self:
+                    fd.close()

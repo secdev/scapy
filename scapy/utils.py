@@ -11,12 +11,15 @@ General utility functions.
 from decimal import Decimal
 from io import StringIO
 from itertools import zip_longest
+from uuid import UUID
 
-import array
 import argparse
+import array
+import base64
 import collections
 import decimal
 import difflib
+import enum
 import gzip
 import inspect
 import locale
@@ -43,8 +46,6 @@ from scapy.compat import (
     orb,
     plain_str,
     chb,
-    bytes_base64,
-    base64_bytes,
     hex_bytes,
     bytes_encode,
 )
@@ -150,19 +151,10 @@ class EDecimal(Decimal):
         # type: (_Decimal) -> EDecimal
         return EDecimal(Decimal.__floordiv__(self, Decimal(other)))
 
-    if sys.version_info >= (3,):
-        def __divmod__(self, other):
-            # type: (_Decimal) -> Tuple[EDecimal, EDecimal]
-            r = Decimal.__divmod__(self, Decimal(other))
-            return EDecimal(r[0]), EDecimal(r[1])
-    else:
-        def __div__(self, other):
-            # type: (_Decimal) -> EDecimal
-            return EDecimal(Decimal.__div__(self, Decimal(other)))
-
-        def __rdiv__(self, other):
-            # type: (_Decimal) -> EDecimal
-            return EDecimal(Decimal.__rdiv__(self, Decimal(other)))
+    def __divmod__(self, other):
+        # type: (_Decimal) -> Tuple[EDecimal, EDecimal]
+        r = Decimal.__divmod__(self, Decimal(other))
+        return EDecimal(r[0]), EDecimal(r[1])
 
     def __mod__(self, other):
         # type: (_Decimal) -> EDecimal
@@ -178,7 +170,10 @@ class EDecimal(Decimal):
 
     def __eq__(self, other):
         # type: (Any) -> bool
-        return super(EDecimal, self).__eq__(other) or float(self) == other
+        if isinstance(other, Decimal):
+            return super(EDecimal, self).__eq__(other)
+        else:
+            return bool(float(self) == other)
 
     def normalize(self, precision):  # type: ignore
         # type: (int) -> EDecimal
@@ -704,13 +699,22 @@ def zerofree_randstring(length):
                     for _ in range(length))
 
 
+def stror(s1, s2):
+    # type: (bytes, bytes) -> bytes
+    """
+    Returns the binary OR of the 2 provided strings s1 and s2. s1 and s2
+    must be of same length.
+    """
+    return b"".join(map(lambda x, y: struct.pack("!B", x | y), s1, s2))
+
+
 def strxor(s1, s2):
     # type: (bytes, bytes) -> bytes
     """
     Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return b"".join(map(lambda x, y: chb(orb(x) ^ orb(y)), s1, s2))
+    return b"".join(map(lambda x, y: struct.pack("!B", x ^ y), s1, s2))
 
 
 def strand(s1, s2):
@@ -719,7 +723,7 @@ def strand(s1, s2):
     Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return b"".join(map(lambda x, y: chb(orb(x) & orb(y)), s1, s2))
+    return b"".join(map(lambda x, y: struct.pack("!B", x & y), s1, s2))
 
 
 def strrot(s1, count, right=True):
@@ -819,6 +823,93 @@ def itom(x):
     return (0xffffffff00000000 >> x) & 0xffffffff
 
 
+def in4_cidr2mask(m):
+    # type: (int) -> bytes
+    """
+    Return the mask (bitstring) associated with provided length
+    value. For instance if function is called on 20, return value is
+    b'\xff\xff\xf0\x00'.
+    """
+    if m > 32 or m < 0:
+        raise Scapy_Exception("value provided to in4_cidr2mask outside [0, 32] domain (%d)" % m)  # noqa: E501
+
+    return strxor(
+        b"\xff" * 4,
+        struct.pack(">I", 2**(32 - m) - 1)
+    )
+
+
+def in4_isincluded(addr, prefix, mask):
+    # type: (str, str, int) -> bool
+    """
+    Returns True when 'addr' belongs to prefix/mask. False otherwise.
+    """
+    temp = inet_pton(socket.AF_INET, addr)
+    pref = in4_cidr2mask(mask)
+    zero = inet_pton(socket.AF_INET, prefix)
+    return zero == strand(temp, pref)
+
+
+def in4_ismaddr(str):
+    # type: (str) -> bool
+    """
+    Returns True if provided address in printable format belongs to
+    allocated Multicast address space (224.0.0.0/4).
+    """
+    return in4_isincluded(str, "224.0.0.0", 4)
+
+
+def in4_ismlladdr(str):
+    # type: (str) -> bool
+    """
+    Returns True if address belongs to link-local multicast address
+    space (224.0.0.0/24)
+    """
+    return in4_isincluded(str, "224.0.0.0", 24)
+
+
+def in4_ismgladdr(str):
+    # type: (str) -> bool
+    """
+    Returns True if address belongs to global multicast address
+    space (224.0.1.0-238.255.255.255).
+    """
+    return (
+        in4_isincluded(str, "224.0.0.0", 4) and
+        not in4_isincluded(str, "224.0.0.0", 24) and
+        not in4_isincluded(str, "239.0.0.0", 8)
+    )
+
+
+def in4_ismlsaddr(str):
+    # type: (str) -> bool
+    """
+    Returns True if address belongs to limited scope multicast address
+    space (239.0.0.0/8).
+    """
+    return in4_isincluded(str, "239.0.0.0", 8)
+
+
+def in4_isaddrllallnodes(str):
+    # type: (str) -> bool
+    """
+    Returns True if address is the link-local all-nodes multicast
+    address (224.0.0.1).
+    """
+    return (inet_pton(socket.AF_INET, "224.0.0.1") ==
+            inet_pton(socket.AF_INET, str))
+
+
+def in4_getnsmac(a):
+    # type: (bytes) -> str
+    """
+    Return the multicast mac address associated with provided
+    IPv4 address. Passed address must be in network format.
+    """
+
+    return "01:00:5e:%.2x:%.2x:%.2x" % (a[1] & 0x7f, a[2], a[3])
+
+
 def decode_locale_str(x):
     # type: (bytes) -> str
     """
@@ -884,14 +975,10 @@ class ContextManagerCaptureOutput(object):
     def __init__(self):
         # type: () -> None
         self.result_export_object = ""
-        try:
-            import mock  # noqa: F401
-        except Exception:
-            raise ImportError("The mock module needs to be installed !")
 
     def __enter__(self):
         # type: () -> ContextManagerCaptureOutput
-        import mock
+        from unittest import mock
 
         def write(s, decorator=self):
             # type: (str, ContextManagerCaptureOutput) -> None
@@ -1142,7 +1229,7 @@ class Enum_metaclass(type):
 def export_object(obj):
     # type: (Any) -> None
     import zlib
-    print(bytes_base64(zlib.compress(pickle.dumps(obj, 2), 9)))
+    print(base64.b64encode(zlib.compress(pickle.dumps(obj, 2), 9)).decode())
 
 
 def import_object(obj=None):
@@ -1150,7 +1237,7 @@ def import_object(obj=None):
     import zlib
     if obj is None:
         obj = sys.stdin.read()
-    return pickle.loads(zlib.decompress(base64_bytes(obj.strip())))  # noqa: E501
+    return pickle.loads(zlib.decompress(base64.b64decode(obj.strip())))
 
 
 def save_object(fname, obj):
@@ -1330,12 +1417,14 @@ class PcapReader_metaclass(type):
         """Open (if necessary) filename, and read the magic."""
         if isinstance(fname, str):
             filename = fname
-            try:
-                fdesc = gzip.open(filename, "rb")  # type: _ByteStream
-                magic = fdesc.read(4)
-            except IOError:
-                fdesc = open(filename, "rb")
-                magic = fdesc.read(4)
+            fdesc = open(filename, "rb")  # type: _ByteStream
+            magic = fdesc.read(2)
+            if magic == b"\x1f\x8b":
+                # GZIP header detected.
+                fdesc.seek(0)
+                fdesc = gzip.GzipFile(fileobj=fdesc)
+                magic = fdesc.read(2)
+            magic += fdesc.read(2)
         else:
             fdesc = fname
             filename = getattr(fdesc, "name", "No name")
@@ -1412,7 +1501,14 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
         if len(hdr) < 16:
             raise EOFError
         sec, usec, caplen, wirelen = struct.unpack(self.endian + "IIII", hdr)
-        return (self.f.read(caplen)[:size],
+
+        try:
+            data = self.f.read(caplen)[:size]
+        except OverflowError as e:
+            warning(f"Pcap: {e}")
+            raise EOFError
+
+        return (data,
                 RawPcapReader.PacketMetadata(sec=sec, usec=usec,
                                              wirelen=wirelen, caplen=caplen))
 
@@ -1461,8 +1557,10 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
         return -1 if WINDOWS else self.f.fileno()
 
     def close(self):
-        # type: () -> Optional[Any]
-        return self.f.close()
+        # type: () -> None
+        if isinstance(self.f, gzip.GzipFile):
+            self.f.fileobj.close()  # type: ignore
+        self.f.close()
 
     def __exit__(self, exc_type, exc_value, tracback):
         # type: (Optional[Any], Optional[Any], Optional[Any]) -> None
@@ -1525,6 +1623,10 @@ class PcapReader(RawPcapReader):
         # type: (int, **Any) -> Packet
         return self.read_packet(size=size, **kwargs)
 
+    def __iter__(self):
+        # type: () -> PcapReader
+        return self
+
     def __next__(self):  # type: ignore
         # type: () -> Packet
         try:
@@ -1550,7 +1652,8 @@ class RawPcapNgReader(RawPcapReader):
     PacketMetadata = collections.namedtuple("PacketMetadataNg",  # type: ignore
                                             ["linktype", "tsresol",
                                              "tshigh", "tslow", "wirelen",
-                                             "comment", "ifname", "direction"])
+                                             "comments", "ifname", "direction",
+                                             "process_information"])
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, IO[bytes], bytes) -> None
@@ -1572,8 +1675,10 @@ class RawPcapNgReader(RawPcapReader):
                 3: self._read_block_spb,
                 6: self._read_block_epb,
                 10: self._read_block_dsb,
+                0x80000001: self._read_block_pib,
         }
         self.endian = "!"  # Will be overwritten by first SHB
+        self.process_information = []  # type: List[Dict[str, Any]]
 
         if magic != b"\x0a\x0d\x0d\x0a":  # PcapNg:
             raise Scapy_Exception(
@@ -1603,9 +1708,14 @@ class RawPcapNgReader(RawPcapReader):
             warning("PcapNg: Error reading blocklen before block body")
             raise EOFError
         if blocklen < 12:
-            warning("Invalid block length !")
+            warning("PcapNg: Invalid block length !")
             raise EOFError
-        block = self.f.read(blocklen - 12)
+
+        _block_body_length = blocklen - 12
+        block = self.f.read(_block_body_length)
+        if len(block) != _block_body_length:
+            raise Scapy_Exception("PcapNg: Invalid Block body length "
+                                  "(too short)")
         self._read_block_tail(blocklen)
         if blocktype in self.blocktypes:
             return self.blocktypes[blocktype](block, size)
@@ -1635,25 +1745,41 @@ class RawPcapNgReader(RawPcapReader):
         elif endian == b"\x4d\x3c\x2b\x1a":
             self.endian = "<"
         else:
-            warning("Bad magic in Section Header block (not a pcapng file?)")
+            warning("PcapNg: Bad magic in Section Header Block"
+                    " (not a pcapng file?)")
             raise EOFError
 
-        blocklen = struct.unpack(self.endian + "I", _blocklen)[0]
+        try:
+            blocklen = struct.unpack(self.endian + "I", _blocklen)[0]
+        except struct.error:
+            warning("PcapNg: Could not read blocklen")
+            raise EOFError
         if blocklen < 28:
-            warning(f"Invalid SHB block length ({blocklen})!")
+            warning(f"PcapNg: Invalid Section Header Block length ({blocklen})!")  # noqa: E501
             raise EOFError
 
         # Major version must be 1
         _major = self.f.read(2)
-        major = struct.unpack(self.endian + "H", _major)[0]
+        try:
+            major = struct.unpack(self.endian + "H", _major)[0]
+        except struct.error:
+            warning("PcapNg: Could not read major value")
+            raise EOFError
         if major != 1:
-            warning(f"SHB Major version {major} unsupported !")
+            warning(f"PcapNg: SHB Major version {major} unsupported !")
             raise EOFError
 
         # Skip minor version & section length
-        self.f.read(10)
+        skipped = self.f.read(10)
+        if len(skipped) != 10:
+            warning("PcapNg: Could not read minor value & section length")
+            raise EOFError
 
-        options = self.f.read(blocklen - 28)
+        _options_len = blocklen - 28
+        options = self.f.read(_options_len)
+        if len(options) != _options_len:
+            raise Scapy_Exception("PcapNg: Invalid Section Header Block "
+                                  " options (too short)")
         self._read_block_tail(blocklen)
         self._read_options(options)
 
@@ -1665,17 +1791,28 @@ class RawPcapNgReader(RawPcapReader):
 
         """
         while True:
-            res = self._read_block()
+            res = self._read_block(size=size)
             if res is not None:
                 return res
 
     def _read_options(self, options):
-        # type: (bytes) -> Dict[int, bytes]
-        opts = dict()
+        # type: (bytes) -> Dict[int, Union[bytes, List[bytes]]]
+        opts = dict()  # type: Dict[int, Union[bytes, List[bytes]]]
         while len(options) >= 4:
-            code, length = struct.unpack(self.endian + "HH", options[:4])
-            if code != 0 and 4 + length < len(options):
-                opts[code] = options[4:4 + length]
+            try:
+                code, length = struct.unpack(self.endian + "HH", options[:4])
+            except struct.error:
+                warning("PcapNg: options header is too small "
+                        "%d !" % len(options))
+                raise EOFError
+            if code != 0 and 4 + length <= len(options):
+                # https://www.ietf.org/archive/id/draft-tuexen-opsawg-pcapng-05.html#name-options-format
+                if code in [1, 2988, 2989, 19372, 19373]:
+                    if code not in opts:
+                        opts[code] = []
+                    opts[code].append(options[4:4 + length])  # type: ignore
+                else:
+                    opts[code] = options[4:4 + length]
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option "
@@ -1694,6 +1831,12 @@ class RawPcapNgReader(RawPcapReader):
         options_raw = self._read_options(block[8:])
         options = self.default_options.copy()  # type: Dict[str, Any]
         for c, v in options_raw.items():
+            if isinstance(v, list):
+                # Spec allows multiple occurrences (see
+                # https://www.ietf.org/archive/id/draft-tuexen-opsawg-pcapng-05.html#section-4.2-8.6)
+                # but does not define which to use. We take the first for
+                # backward compatibility.
+                v = v[0]
             if c == 9:
                 length = len(v)
                 if length == 1:
@@ -1746,9 +1889,28 @@ class RawPcapNgReader(RawPcapReader):
 
         # Parse options
         options = self._read_options(block[opt_offset:])
-        comment = options.get(1, None)
+
+        process_information = {}
+        for code, value in options.items():
+            # PCAPNG_EPB_PIB_INDEX, PCAPNG_EPB_E_PIB_INDEX
+            if code in [0x8001, 0x8003]:
+                try:
+                    proc_index = struct.unpack(
+                        self.endian + "I", value)[0]  # type: ignore
+                except struct.error:
+                    warning("PcapNg: EPB invalid proc index "
+                            "(expected 4 bytes, got %d) !" % len(value))
+                    raise EOFError
+                if proc_index < len(self.process_information):
+                    key = "proc" if code == 0x8001 else "eproc"
+                    process_information[key] = self.process_information[proc_index]
+                else:
+                    warning("PcapNg: EPB invalid process information index "
+                            "(%d/%d) !" % (proc_index, len(self.process_information)))
+
+        comments = options.get(1, None)
         epb_flags_raw = options.get(2, None)
-        if epb_flags_raw:
+        if epb_flags_raw and isinstance(epb_flags_raw, bytes):
             try:
                 epb_flags, = struct.unpack(self.endian + "I", epb_flags_raw)
             except struct.error:
@@ -1762,15 +1924,17 @@ class RawPcapNgReader(RawPcapReader):
 
         self._check_interface_id(intid)
         ifname = self.interfaces[intid][2].get('name', None)
+
         return (block[20:20 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
                                                tsresol=self.interfaces[intid][2]['tsresol'],  # noqa: E501
                                                tshigh=tshigh,
                                                tslow=tslow,
                                                wirelen=wirelen,
-                                               comment=comment,
                                                ifname=ifname,
-                                               direction=direction))
+                                               direction=direction,
+                                               process_information=process_information,
+                                               comments=comments))
 
     def _read_block_spb(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -1794,9 +1958,10 @@ class RawPcapNgReader(RawPcapReader):
                                                tshigh=None,
                                                tslow=None,
                                                wirelen=wirelen,
-                                               comment=None,
                                                ifname=None,
-                                               direction=None))
+                                               direction=None,
+                                               process_information={},
+                                               comments=None))
 
     def _read_block_pkt(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -1817,9 +1982,10 @@ class RawPcapNgReader(RawPcapReader):
                                                tshigh=tshigh,
                                                tslow=tslow,
                                                wirelen=wirelen,
-                                               comment=None,
                                                ifname=None,
-                                               direction=None))
+                                               direction=None,
+                                               process_information={},
+                                               comments=None))
 
     def _read_block_dsb(self, block, size):
         # type: (bytes, int) -> None
@@ -1873,6 +2039,36 @@ class RawPcapNgReader(RawPcapReader):
         else:
             warning("PcapNg: Unknown DSB secrets type (0x%x)!", secrets_type)
 
+    def _read_block_pib(self, block, _):
+        # type: (bytes, int) -> None
+        """Apple Process Information Block"""
+
+        # Get the Process ID
+        try:
+            dpeb_pid = struct.unpack(self.endian + "I", block[:4])[0]
+            process_information = {"id": dpeb_pid}
+            block = block[4:]
+        except struct.error:
+            warning("PcapNg: DPEB is too small (%d). Cannot get PID!",
+                    len(block))
+            raise EOFError
+
+        # Get Options
+        options = self._read_options(block)
+        for code, value in options.items():
+            if code == 2:
+                process_information["name"] = value.decode(  # type: ignore
+                    "ascii", "backslashreplace")
+            elif code == 4:
+                if len(value) == 16:
+                    process_information["uuid"] = str(UUID(bytes=value))  # type: ignore
+                else:
+                    warning("PcapNg: DPEB UUID length is invalid (%d)!",
+                            len(value))
+
+        # Store process information
+        self.process_information.append(process_information)
+
 
 class PcapNgReader(RawPcapNgReader, PcapReader):
 
@@ -1891,7 +2087,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         rp = super(PcapNgReader, self)._read_packet(size=size)
         if rp is None:
             raise EOFError
-        s, (linktype, tsresol, tshigh, tslow, wirelen, comment, ifname, direction) = rp
+        s, (linktype, tsresol, tshigh, tslow, wirelen, comments, ifname, direction, process_information) = rp  # noqa: E501
         try:
             cls = conf.l2types.num2layer[linktype]  # type: Type[Packet]
             p = cls(s, **kwargs)  # type: Packet
@@ -1907,10 +2103,11 @@ class PcapNgReader(RawPcapNgReader, PcapReader):
         if tshigh is not None:
             p.time = EDecimal((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen
-        p.comment = comment
+        p.comments = comments
         p.direction = direction
+        p.process_information = process_information.copy()
         if ifname is not None:
-            p.sniffed_on = ifname.decode('utf-8')
+            p.sniffed_on = ifname.decode('utf-8', 'backslashreplace')
         return p
 
     def recv(self, size: int = MTU, **kwargs: Any) -> 'Packet':  # type: ignore
@@ -1932,9 +2129,9 @@ class GenericPcapWriter(object):
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
                       wirelen=None,  # type: Optional[int]
-                      comment=None,  # type: Optional[bytes]
                       ifname=None,  # type: Optional[bytes]
                       direction=None,  # type: Optional[int]
+                      comments=None,  # type: Optional[List[bytes]]
                       ):
         # type: (...) -> None
         raise NotImplementedError
@@ -2015,7 +2212,7 @@ class GenericPcapWriter(object):
         if wirelen is None:
             wirelen = caplen
 
-        comment = getattr(packet, "comment", None)
+        comments = getattr(packet, "comments", None)
         ifname = getattr(packet, "sniffed_on", None)
         direction = getattr(packet, "direction", None)
         if not isinstance(packet, bytes):
@@ -2030,10 +2227,10 @@ class GenericPcapWriter(object):
             rawpkt,
             sec=f_sec, usec=usec,
             caplen=caplen, wirelen=wirelen,
-            comment=comment,
             ifname=ifname,
             direction=direction,
-            linktype=linktype
+            linktype=linktype,
+            comments=comments,
         )
 
 
@@ -2185,9 +2382,9 @@ class RawPcapWriter(GenericRawPcapWriter):
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
                       wirelen=None,  # type: Optional[int]
-                      comment=None,  # type: Optional[bytes]
                       ifname=None,  # type: Optional[bytes]
                       direction=None,  # type: Optional[int]
+                      comments=None,  # type: Optional[List[bytes]]
                       ):
         # type: (...) -> None
         """
@@ -2363,7 +2560,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
                          timestamp=None,  # type: Optional[Union[EDecimal, float]]  # noqa: E501
                          caplen=None,  # type: Optional[int]
                          orglen=None,  # type: Optional[int]
-                         comment=None,  # type: Optional[bytes]
+                         comments=None,  # type: Optional[List[bytes]]
                          flags=None,  # type: Optional[int]
                          ):
         # type: (...) -> None
@@ -2398,11 +2595,12 @@ class RawPcapNgWriter(GenericRawPcapWriter):
 
         # Options
         opts = b''
-        if comment is not None:
-            comment = bytes_encode(comment)
-            opts += struct.pack(self.endian + "HH", 1, len(comment))
-            # Pad Option Value to 32 bits
-            opts += self._add_padding(comment)
+        if comments and len(comments):
+            for c in comments:
+                comment = bytes_encode(c)
+                opts += struct.pack(self.endian + "HH", 1, len(comment))
+                # Pad Option Value to 32 bits
+                opts += self._add_padding(comment)
         if type(flags) == int:
             opts += struct.pack(self.endian + "HH", 2, 4)
             opts += struct.pack(self.endian + "I", flags)
@@ -2419,9 +2617,9 @@ class RawPcapNgWriter(GenericRawPcapWriter):
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
                       wirelen=None,  # type: Optional[int]
-                      comment=None,  # type: Optional[bytes]
                       ifname=None,  # type: Optional[bytes]
                       direction=None,  # type: Optional[int]
+                      comments=None,  # type: Optional[List[bytes]]
                       ):
         # type: (...) -> None
         """
@@ -2477,7 +2675,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
             flags = None
 
         self._write_block_epb(packet, timestamp=sec, caplen=caplen,
-                              orglen=wirelen, comment=comment, ifid=ifid, flags=flags)
+                              orglen=wirelen, comments=comments, ifid=ifid, flags=flags)
         if self.sync:
             self.f.flush()
 
@@ -3389,7 +3587,38 @@ def whois(ip_address):
 ####################
 
 
-class CLIUtil:
+class _CLIUtilMetaclass(type):
+    class TYPE(enum.Enum):
+        COMMAND = 0
+        OUTPUT = 1
+        COMPLETE = 2
+
+    def __new__(cls,  # type: Type[_CLIUtilMetaclass]
+                name,  # type: str
+                bases,  # type: Tuple[type, ...]
+                dct  # type: Dict[str, Any]
+                ):
+        # type: (...) -> Type[CLIUtil]
+        dct["commands"] = {
+            x.__name__: x
+            for x in dct.values()
+            if getattr(x, "cliutil_type", None) == _CLIUtilMetaclass.TYPE.COMMAND
+        }
+        dct["commands_output"] = {
+            x.cliutil_ref.__name__: x
+            for x in dct.values()
+            if getattr(x, "cliutil_type", None) == _CLIUtilMetaclass.TYPE.OUTPUT
+        }
+        dct["commands_complete"] = {
+            x.cliutil_ref.__name__: x
+            for x in dct.values()
+            if getattr(x, "cliutil_type", None) == _CLIUtilMetaclass.TYPE.COMPLETE
+        }
+        newcls = cast(Type['CLIUtil'], type.__new__(cls, name, bases, dct))
+        return newcls
+
+
+class CLIUtil(metaclass=_CLIUtilMetaclass):
     """
     Provides a Util class to easily create simple CLI tools in Scapy,
     that can still be used as an API.
@@ -3416,6 +3645,14 @@ class CLIUtil:
     commands_output: Dict[str, Callable[..., str]] = {}
     # provides completion to command
     commands_complete: Dict[str, Callable[..., List[str]]] = {}
+
+    def __init__(self, cli: bool = True, debug: bool = False) -> None:
+        """
+        DEV: overwrite
+        """
+        if cli:
+            self._depcheck()
+            self.loop(debug=debug)
 
     @staticmethod
     def _inspectkwargs(func: DecoratorCallable) -> None:
@@ -3478,7 +3715,7 @@ class CLIUtil:
         Decorator to register a command
         """
         def func(cmd: DecoratorCallable) -> DecoratorCallable:
-            cls.commands[cmd.__name__] = cmd
+            cmd.cliutil_type = _CLIUtilMetaclass.TYPE.COMMAND  # type: ignore
             cmd._spaces = spaces  # type: ignore
             cmd._globsupport = globsupport  # type: ignore
             cls._inspectkwargs(cmd)
@@ -3493,7 +3730,8 @@ class CLIUtil:
         Decorator to register a command output processor
         """
         def func(processor: DecoratorCallable) -> DecoratorCallable:
-            cls.commands_output[cmd.__name__] = processor
+            processor.cliutil_type = _CLIUtilMetaclass.TYPE.OUTPUT  # type: ignore
+            processor.cliutil_ref = cmd  # type: ignore
             cls._inspectkwargs(processor)
             return processor
         return func
@@ -3504,7 +3742,8 @@ class CLIUtil:
         Decorator to register a command completor
         """
         def func(processor: DecoratorCallable) -> DecoratorCallable:
-            cls.commands_complete[cmd.__name__] = processor
+            processor.cliutil_type = _CLIUtilMetaclass.TYPE.COMPLETE  # type: ignore
+            processor.cliutil_ref = cmd  # type: ignore
             return processor
         return func
 
@@ -3672,7 +3911,10 @@ class CLIUtil:
                         print("Output processor failed with error: %s" % ex)
 
 
-def AutoArgparse(func: DecoratorCallable) -> None:
+def AutoArgparse(
+    func: DecoratorCallable,
+    _parseonly: bool = False,
+) -> Optional[Tuple[List[str], List[str]]]:
     """
     Generate an Argparse call from a function, then call this function.
 
@@ -3710,25 +3952,28 @@ def AutoArgparse(func: DecoratorCallable) -> None:
                     argsdoc[argparam] = argdesc
     else:
         desc = ""
-    # Now build the argparse.ArgumentParser
-    parser = argparse.ArgumentParser(
-        prog=func.__name__,
-        description=desc,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
+
     # Process the parameters
     positional = []
+    noargument = []
+    hexarguments = []
+    parameters = {}
     for param in inspect.signature(func).parameters.values():
         if not param.annotation:
             continue
-        parname = param.name
-        paramkwargs = {}
+        noarg = False
+        parname = param.name.replace("_", "-")
+        paramkwargs: Dict[str, Any] = {}
         if param.annotation is bool:
             if param.default is True:
                 parname = "no-" + parname
                 paramkwargs["action"] = "store_false"
             else:
                 paramkwargs["action"] = "store_true"
+            noarg = True
+        elif param.annotation is bytes:
+            paramkwargs["type"] = str
+            hexarguments.append(parname)
         elif param.annotation in [str, int, float]:
             paramkwargs["type"] = param.annotation
         else:
@@ -3746,9 +3991,54 @@ def AutoArgparse(func: DecoratorCallable) -> None:
             paramkwargs["action"] = "append"
         if param.name in argsdoc:
             paramkwargs["help"] = argsdoc[param.name]
-        parser.add_argument(parname, **paramkwargs)  # type: ignore
+            if param.annotation is bytes:
+                paramkwargs["help"] = "(hex) " + paramkwargs["help"]
+            elif param.annotation is bool:
+                paramkwargs["help"] = "(flag) " + paramkwargs["help"]
+            else:
+                paramkwargs["help"] = (
+                    "(%s) " % param.annotation.__name__ + paramkwargs["help"]
+                )
+        # Add to the parameter list
+        parameters[parname] = paramkwargs
+        if noarg:
+            noargument.append(parname)
+
+    if _parseonly:
+        # An internal mode used to generate bash autocompletion, do it then exit.
+        return (
+            [x for x in parameters if x not in positional] + ["--help"],
+            [x for x in noargument if x not in positional] + ["--help"],
+        )
+
+    # Now build the argparse.ArgumentParser
+    parser = argparse.ArgumentParser(
+        prog=func.__name__,
+        description=desc,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    # Add parameters to parser
+    for parname, paramkwargs in parameters.items():
+        parser.add_argument(parname, **paramkwargs)
+
     # Now parse the sys.argv parameters
     params = vars(parser.parse_args())
+
+    # Convert hex parameters if provided
+    for p in hexarguments:
+        if params[p] is not None:
+            try:
+                params[p] = bytes.fromhex(params[p])
+            except ValueError:
+                print(
+                    conf.color_theme.fail(
+                        "ERROR: the value of parameter %s "
+                        "'%s' is not valid hexadecimal !" % (p, params[p])
+                    )
+                )
+                return None
+
     # Act as in interactive mode
     conf.logLevel = 20
     from scapy.themes import DefaultTheme
@@ -3763,8 +4053,9 @@ def AutoArgparse(func: DecoratorCallable) -> None:
             }
         )
     except AssertionError as ex:
-        print("ERROR: " + str(ex))
+        print(conf.color_theme.fail("ERROR: " + str(ex)))
         parser.print_help()
+    return None
 
 
 #######################

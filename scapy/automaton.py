@@ -57,6 +57,10 @@ from typing import (
 from scapy.compat import DecoratorCallable
 
 
+# winsock.h
+FD_READ = 0x00000001
+
+
 def select_objects(inputs, remain):
     # type: (Iterable[Any], Union[float, int, None]) -> List[Any]
     """
@@ -83,31 +87,41 @@ def select_objects(inputs, remain):
     """
     if not WINDOWS:
         return select.select(inputs, [], [], remain)[0]
-    natives = []
+    inputs = list(inputs)
     events = []
+    created = []
     results = set()
-    for i in list(inputs):
+    for i in inputs:
         if getattr(i, "__selectable_force_select__", False):
-            natives.append(i)
+            # Native socket.socket object. We would normally use select.select.
+            evt = ctypes.windll.ws2_32.WSACreateEvent()
+            created.append(evt)
+            res = ctypes.windll.ws2_32.WSAEventSelect(
+                ctypes.c_void_p(i.fileno()),
+                evt,
+                FD_READ
+            )
+            if res == 0:
+                # Was a socket
+                events.append(evt)
+            else:
+                # Fallback to normal event
+                events.append(i.fileno())
         elif i.fileno() < 0:
             # Special case: On Windows, we consider that an object that returns
             # a negative fileno (impossible), is always readable. This is used
             # in very few places but important (e.g. PcapReader), where we have
             # no valid fileno (and will stop on EOFError).
             results.add(i)
-        else:
-            events.append(i)
-    if natives:
-        results = results.union(set(select.select(natives, [], [], remain)[0]))
-        if results:
-            # We have native results, poll.
             remain = 0
+        else:
+            events.append(i.fileno())
     if events:
         # 0xFFFFFFFF = INFINITE
         remainms = int(remain * 1000 if remain is not None else 0xFFFFFFFF)
         if len(events) == 1:
             res = ctypes.windll.kernel32.WaitForSingleObject(
-                ctypes.c_void_p(events[0].fileno()),
+                ctypes.c_void_p(events[0]),
                 remainms
             )
         else:
@@ -117,22 +131,25 @@ def select_objects(inputs, remain):
             res = ctypes.windll.kernel32.WaitForMultipleObjects(
                 len(events),
                 (ctypes.c_void_p * len(events))(
-                    *[x.fileno() for x in events]
+                    *events
                 ),
                 False,
                 remainms
             )
         if res != 0xFFFFFFFF and res != 0x00000102:  # Failed or Timeout
-            results.add(events[res])
+            results.add(inputs[res])
             if len(events) > 1:
                 # Now poll the others, if any
-                for evt in events:
+                for i, evt in enumerate(events):
                     res = ctypes.windll.kernel32.WaitForSingleObject(
-                        ctypes.c_void_p(evt.fileno()),
+                        ctypes.c_void_p(evt),
                         0  # poll: don't wait
                     )
                     if res == 0:
-                        results.add(evt)
+                        results.add(inputs[i])
+    # Cleanup created events, if any
+    for evt in created:
+        ctypes.windll.ws2_32.WSACloseEvent(evt)
     return list(results)
 
 
@@ -912,6 +929,7 @@ class Automaton(metaclass=Automaton_metaclass):
         self.ioin = {}
         self.ioout = {}
         self.packets = PacketList()                 # type: PacketList
+        self.atmt_session = kargs.pop("session", None)
         for n in self.__class__.ionames:
             extfd = external_fd.get(n)
             if not isinstance(extfd, tuple):
@@ -939,11 +957,12 @@ class Automaton(metaclass=Automaton_metaclass):
 
         self.start()
 
-    def parse_args(self, debug=0, store=0, **kargs):
-        # type: (int, int, Any) -> None
+    def parse_args(self, debug=0, store=0, session=None, **kargs):
+        # type: (int, int, Any, Any) -> None
         self.debug_level = debug
         if debug:
             conf.logLevel = logging.DEBUG
+        self.atmt_session = session
         self.socket_kargs = kargs
         self.store_packets = store
 
@@ -951,6 +970,7 @@ class Automaton(metaclass=Automaton_metaclass):
     def spawn(cls,
               port: int,
               iface: Optional[_GlobInterfaceType] = None,
+              local_ip: Optional[str] = None,
               bg: bool = False,
               **kwargs: Any) -> Optional[socket.socket]:
         """
@@ -959,11 +979,18 @@ class Automaton(metaclass=Automaton_metaclass):
 
         :param port: the port to listen to
         :param bg: background mode? (default: False)
+
+        Note that in background mode, you shall close the TCP server as such::
+
+            srv = MyAutomaton.spawn(8080, bg=True)
+            srv.shutdown(socket.SHUT_RDWR)  # important
+            srv.close()
         """
         from scapy.arch import get_if_addr
         # create server sock and bind it
         ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        local_ip = get_if_addr(iface or conf.iface)
+        if local_ip is None:
+            local_ip = get_if_addr(iface or conf.iface)
         try:
             ssock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         except OSError:
@@ -983,29 +1010,49 @@ class Automaton(metaclass=Automaton_metaclass):
             # Wait for clients forever
             try:
                 while True:
+                    atmt_server = None
                     clientsocket, address = ssock.accept()
                     if kwargs.get("verb", True):
                         print(conf.color_theme.gold(
                             "\u2503 Connection received from %s" % repr(address)
                         ))
-                    # Start atmt class with socket
-                    sock = cls.socketcls(clientsocket, cls.pkt_cls)
-                    atmt_server = cls(
-                        sock=sock,
-                        iface=iface, **kwargs
-                    )
+                    try:
+                        # Start atmt class with socket
+                        if cls.socketcls is not None:
+                            sock = cls.socketcls(clientsocket, cls.pkt_cls)
+                        else:
+                            sock = clientsocket
+                        atmt_server = cls(
+                            sock=sock,
+                            iface=iface, **kwargs
+                        )
+                    except OSError:
+                        if atmt_server is not None:
+                            atmt_server.destroy()
+                        if kwargs.get("verb", True):
+                            print("X Connection aborted.")
+                        if kwargs.get("debug", 0) > 0:
+                            traceback.print_exc()
+                        continue
                     clients.append((atmt_server, clientsocket))
                     # start atmt
                     atmt_server.runbg()
+                    # housekeeping
+                    for atmt, clientsocket in clients:
+                        if not atmt.isrunning():
+                            atmt.destroy()
             except KeyboardInterrupt:
                 print("X Exiting.")
                 ssock.shutdown(socket.SHUT_RDWR)
             except OSError:
                 print("X Server closed.")
+                if kwargs.get("debug", 0) > 0:
+                    traceback.print_exc()
             finally:
                 for atmt, clientsocket in clients:
                     try:
                         atmt.forcestop(wait=False)
+                        atmt.destroy()
                     except Exception:
                         pass
                     try:
@@ -1406,6 +1453,9 @@ class Automaton(metaclass=Automaton_metaclass):
                                 else:
                                     # There isn't. Therefore, it's a closing condition.
                                     raise EOFError("Socket ended arbruptly.")
+                            if self.atmt_session is not None:
+                                # Apply session if provided
+                                pkt = self.atmt_session.process(pkt)
                             if pkt is not None:
                                 if self.master_filter(pkt):
                                     self.debug(3, "RECVD: %s" % pkt.summary())  # noqa: E501
@@ -1520,6 +1570,8 @@ class Automaton(metaclass=Automaton_metaclass):
         Destroys a stopped Automaton: this cleanups all opened file descriptors.
         Required on PyPy for instance where the garbage collector behaves differently.
         """
+        if not hasattr(self, "started"):
+            return  # was never started.
         if self.isrunning():
             raise ValueError("Can't close running Automaton ! Call stop() beforehand")
         # Close command pipes

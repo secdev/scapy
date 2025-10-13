@@ -83,6 +83,7 @@ class BuildPy(build_py):
 
 setup(
     cmdclass={'sdist': SDist, 'build_py': BuildPy},
+    data_files=[('share/man/man1', ["doc/scapy.1"])],
     long_description=get_long_description(),
     long_description_content_type='text/markdown',
 )

@@ -11,18 +11,57 @@ To disable Radius-EAP defragmentation (True by default), you can use::
     conf.contribs.setdefault("radius", {}).setdefault("auto-defrag", False)
 """
 
-import struct
+import collections
+import enum
 import hashlib
 import hmac
-from scapy.compat import orb, raw
-from scapy.packet import Packet, Padding, bind_layers, bind_bottom_up
-from scapy.fields import ByteField, ByteEnumField, IntField, StrLenField,\
-    XStrLenField, XStrFixedLenField, FieldLenField, PacketLenField,\
-    PacketListField, IPField, MultiEnumField
-from scapy.layers.inet import UDP
+import struct
+
+from scapy.ansmachine import AnsweringMachine
+from scapy.compat import bytes_encode
+from scapy.config import conf, crypto_validator
+from scapy.error import log_runtime, Scapy_Exception
+from scapy.packet import (
+    Packet,
+    Padding,
+    bind_layers,
+    bind_bottom_up,
+)
+from scapy.fields import (
+    ByteEnumField,
+    ByteField,
+    FieldLenField,
+    IPField,
+    IntEnumField,
+    IntField,
+    MultiEnumField,
+    MultipleTypeField,
+    PacketLenField,
+    PacketListField,
+    StrField,
+    StrFixedLenField,
+    StrLenField,
+    XStrFixedLenField,
+    XStrLenField,
+)
+from scapy.sendrecv import send
+from scapy.utils import strxor
+
 from scapy.layers.eap import EAP
-from scapy.config import conf
-from scapy.error import Scapy_Exception
+from scapy.layers.inet import UDP, IP
+from scapy.layers.ntlm import MD4le
+
+if conf.crypto_valid:
+    from scapy.layers.tls.crypto.cipher_block import Cipher_DES_ECB
+    from scapy.layers.tls.crypto.hash import (
+        Hash_MD4,
+        Hash_MD5,
+        Hash_SHA,
+    )
+else:
+    Cipher_DES_ECB = None
+    Hash_MD4 = Hash_MD5 = Hash_SHA = None
+
 
 # https://www.iana.org/assignments/radius-types/radius-types.xhtml
 _radius_attribute_types = {
@@ -254,7 +293,7 @@ class RadiusAttribute(Packet):
         """
 
         if _pkt:
-            attr_type = orb(_pkt[0])
+            attr_type = _pkt[0]
             return cls.registered_attributes.get(attr_type, cls)
         return cls
 
@@ -396,6 +435,11 @@ class RadiusAttr_Acct_Output_Gigawords(_RadiusAttrIntValue):
     val = 53
 
 
+class RadiusAttr_Event_Timestamp(_RadiusAttrIntValue):
+    """RFC 2869"""
+    val = 55
+
+
 class RadiusAttr_Egress_VLANID(_RadiusAttrIntValue):
     """RFC 4675"""
     val = 56
@@ -526,26 +570,56 @@ class RadiusAttr_User_Password(_RadiusAttrHexStringVal):
     """RFC 2865"""
     val = 2
 
+    def decrypt(self, radius_packet, secret):
+        """
+        Return the decrypted value of the User-Password field
+        RFC2865 sect 5.2
+        """
+        password = b""
+
+        encrypted = self.value
+        ci = radius_packet.authenticator
+        while encrypted:
+            bi = Hash_MD5().digest(secret + ci)
+            ci, encrypted = encrypted[:16], encrypted[16:]
+            password += strxor(ci, bi)
+
+        return password.rstrip(b"\x00")
+
+    @staticmethod
+    def encrypt(radius_packet, password, secret):
+        """
+        Create a User-Password attribute from a secret
+        RFC2865 sect 5.2
+        """
+        password = bytes_encode(password)
+
+        # Pad to 16 octets boundary
+        password += (-len(password) % 16) * b"\x00"
+
+        encrypted = b""
+        ci = radius_packet.authenticator
+        while password:
+            bi = Hash_MD5().digest(secret + ci)
+            ci = strxor(password[:16], bi)
+            password = password[16:]
+
+        return RadiusAttr_User_Password(value=encrypted)
+
 
 class RadiusAttr_State(_RadiusAttrHexStringVal):
     """RFC 2865"""
     val = 24
 
 
-def prepare_packed_data(radius_packet, packed_req_authenticator):
+def prepare_packed_data(radius_packet, RequestAuth):
     """
     Pack RADIUS data prior computing the authentication MAC
     """
-
-    packed_hdr = struct.pack("!B", radius_packet.code)
-    packed_hdr += struct.pack("!B", radius_packet.id)
-    packed_hdr += struct.pack("!H", radius_packet.len)
-
-    packed_attrs = b''
-    for attr in radius_packet.attributes:
-        packed_attrs += raw(attr)
-
-    return packed_hdr + packed_req_authenticator + packed_attrs
+    s = bytes(radius_packet)
+    Code_Id_Length = s[:4]
+    Attributes = s[4 + 16:]
+    return Code_Id_Length + RequestAuth + Attributes
 
 
 class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
@@ -571,8 +645,10 @@ class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
         (RFC 2869 - Page 33)
         """
 
+        # Make sure the current auth is empty
         attr = radius_packet[RadiusAttr_Message_Authenticator]
-        attr.value = bytearray(attr.len - 2)
+        attr.value = b"\x00" * (attr.len - 2)
+
         data = prepare_packed_data(radius_packet, packed_req_authenticator)
         radius_hmac = hmac.new(shared_secret, data, hashlib.md5)
 
@@ -1010,6 +1086,10 @@ class RadiusAttr_NAS_Port_Type(_RadiusAttrIntEnumVal):
     """RFC 2865"""
     val = 61
 
+#
+# RADIUS attributes that are complex structures
+#
+
 
 class _EAPPacketField(PacketLenField):
     """
@@ -1065,6 +1145,75 @@ class RadiusAttr_EAP_Message(RadiusAttribute):
         return s
 
 
+_radius_vendor_types = {
+    # Microsoft (RFC 2548)
+    311: {
+        1: "MS-CHAP-Response",
+        2: "MS-CHAP-Error",
+        3: "MS-CHAP-CPW-1",
+        4: "MS-CHAP-CPW-2",
+        5: "MS-CHAP-LM-Enc-PW",
+        6: "MS-CHAP-NT-Enc-PW",
+        7: "MS-MPPE-Encryption-Policy",
+        8: "MS-MPPE-Encryption-Type",
+        9: "MS-RAS-Vendor",
+        10: "MS-CHAP-Domain",
+        11: "MS-CHAP-Challenge",
+        12: "MS-CHAP-MPPE-Keys",
+        13: "MS-BAP-Usage",
+        14: "MS-Link-Utilization-Threshold",
+        15: "MS-Link-Drop-Time-Limit",
+        16: "MS-MPPE-Send-Key",
+        17: "MS-MPPE-Recv-Key",
+        18: "MS-RAS-Version",
+        19: "MS-Old-ARAP-Password",
+        20: "MS-New-ARAP-Password",
+        21: "MS-ARAP-PW-Change-Reason",
+        22: "MS-Filter",
+        23: "MS-Acct-Auth-Type",
+        24: "MS-Acct-EAP-Type",
+        25: "MS-CHAP2-Response",
+        26: "MS-CHAP2-Success",
+        27: "MS-CHAP2-CPW",
+        28: "MS-Primary-DNS-Server",
+        29: "MS-Secondary-DNS-Server",
+        30: "MS-Primary-NBNS-Server",
+        31: "MS-Secondary-NBNS-Server",
+        33: "MS-ARAP-Challenge",
+    }
+}
+
+
+class _RadiusAttrVendorValue(Packet):
+    """
+    Used to register a 'value' vendor-specific
+    """
+    registered_vendor_value = collections.defaultdict(dict)
+    VENDOR_ID = 0
+    VENDOR_TYPE = 0
+
+    @classmethod
+    def register_variant(cls):
+        cls.registered_vendor_value[cls.VENDOR_ID][cls.VENDOR_TYPE] = cls
+
+
+def _radius_vendor_cls(pkt):
+    """
+    Return the class that makes for a 'value' in the vendor attribute, or None.
+    """
+    if pkt.vendor_id not in _RadiusAttrVendorValue.registered_vendor_value:
+        return None
+    return _RadiusAttrVendorValue.registered_vendor_value[pkt.vendor_id].get(
+        pkt.vendor_type,
+        None,
+    )
+
+
+class _RadiusVendorValueField(PacketLenField):
+    def m2i(self, pkt, s):
+        return _radius_vendor_cls(pkt)(s, _parent=pkt)
+
+
 class RadiusAttr_Vendor_Specific(RadiusAttribute):
     """
     Implements the "Vendor-Specific" attribute, as described in RFC 2865.
@@ -1081,8 +1230,16 @@ class RadiusAttr_Vendor_Specific(RadiusAttribute):
             "B",
             adjust=lambda pkt, x: len(pkt.value) + 8
         ),
-        IntField("vendor_id", 0),
-        ByteField("vendor_type", 0),
+        IntEnumField("vendor_id", 0, {
+            311: "Microsoft",
+        }),
+        MultiEnumField(
+            "vendor_type",
+            0,
+            _radius_vendor_types,
+            depends_on=lambda p: p.vendor_id,
+            fmt="B"
+        ),
         FieldLenField(
             "vendor_len",
             None,
@@ -1090,7 +1247,16 @@ class RadiusAttr_Vendor_Specific(RadiusAttribute):
             "B",
             adjust=lambda p, x: len(p.value) + 2
         ),
-        StrLenField("value", "", length_from=lambda p: p.vendor_len - 2)
+        MultipleTypeField(
+            [
+                (
+                    _RadiusVendorValueField("value", None, None,
+                                            length_from=lambda p: p.vendor_len - 2),
+                    lambda pkt: _radius_vendor_cls(pkt) is not None
+                )
+            ],
+            StrLenField("value", "", length_from=lambda p: p.vendor_len - 2),
+        )
     ]
 
 
@@ -1183,6 +1349,37 @@ class Radius(Packet):
             p = p[:2] + struct.pack("!H", length) + p[4:]
         return p
 
+    def mysummary(self):
+        extra = ""
+        if self.code == 1:
+            # Access-Request
+            attrs = {
+                (
+                    (x.vendor_id, x.vendor_type)
+                    if RadiusAttr_Vendor_Specific in x else
+                    x.type
+                ): x
+                for x in self.attributes
+                if isinstance(x, RadiusAttribute)
+            }
+            # Log additional attributes
+            if 1 in attrs:
+                extra += "User:'%s' " % attrs[1].value.decode(errors="ignore")
+            # Try to detect the logon algo
+            if 2 in attrs:
+                extra += "PAP"
+            elif 3 in attrs:
+                extra += "CHAP"
+            elif 79 in attrs:
+                extra += "EAP"
+            elif (311, 1) in attrs:
+                extra += "MS-CHAP"
+            elif (311, 25) in attrs:
+                extra += "MS-CHAP2"
+        if extra:
+            extra = " (%s)" % extra.strip()
+        return self.sprintf("RADIUS %code%") + extra
+
 
 bind_bottom_up(UDP, Radius, sport=1812)
 bind_bottom_up(UDP, Radius, dport=1812)
@@ -1191,3 +1388,353 @@ bind_bottom_up(UDP, Radius, dport=1813)
 bind_bottom_up(UDP, Radius, sport=3799)
 bind_bottom_up(UDP, Radius, dport=3799)
 bind_layers(UDP, Radius, sport=1812, dport=1812)
+
+
+# MS-CHAP2
+
+# RFC 2548 sect 2.3.2
+
+class MS_CHAP2_Response(_RadiusAttrVendorValue):
+    VENDOR_ID = 311
+    VENDOR_TYPE = 25
+    fields_desc = [
+        ByteField("Ident", 0),
+        ByteField("Flags", 0),
+        XStrFixedLenField("PeerChallenge", b"", length=16),
+        XStrFixedLenField("Reserved", b"", length=8),
+        XStrFixedLenField("Response", b"", length=24),
+    ]
+
+
+# RFC 2548 sect 2.3.3
+
+class MS_CHAP2_Success(_RadiusAttrVendorValue):
+    VENDOR_ID = 311
+    VENDOR_TYPE = 26
+    fields_desc = [
+        ByteField("Ident", 0),
+        StrFixedLenField("String", b"", length=42),
+    ]
+
+
+# RFC 2548 sect 2.1.5
+
+class MS_CHAP_Error(_RadiusAttrVendorValue):
+    VENDOR_ID = 311
+    VENDOR_TYPE = 2
+    fields_desc = [
+        ByteField("Ident", 0),
+        StrField("String", b""),
+    ]
+
+
+# RFC 2548 sect 2.1.4
+
+class MS_CHAP_Domain(_RadiusAttrVendorValue):
+    VENDOR_ID = 311
+    VENDOR_TYPE = 10
+    fields_desc = [
+        ByteField("Ident", 0),
+        StrField("String", b""),
+    ]
+
+
+def MS_CHAP2_GenerateNTResponse(AuthenticatorChallenge, PeerChallenge,
+                                UserName, HashNT):
+    """
+    RFC2759 sect 8.1
+    """
+    Challenge = MS_CHAP2_ChallengeHash(PeerChallenge, AuthenticatorChallenge, UserName)
+    PasswordHash = HashNT
+    return MS_CHAP2_ChallengeResponse(Challenge, PasswordHash)
+
+
+def MS_CHAP2_ChallengeHash(PeerChallenge, AuthenticatorChallenge, UserName):
+    """
+    rfc 2759 sect 8.2
+    """
+    UserName = UserName.split(b"\\")[-1]  # Strip domain if present
+    return Hash_SHA().digest(PeerChallenge + AuthenticatorChallenge + UserName)[:8]
+
+
+def MS_CHAP2_ChallengeResponse(Challenge, PasswordHash):
+    """
+    rfc 2759 sect 8.5
+    """
+    ZPasswordHash = int.from_bytes(
+        PasswordHash + b"\x00" * (-len(PasswordHash) % 21),
+        "big",
+    )
+
+    # Add !FAKE! DES parity bits because cryptography requires them (then drops them)
+    ZPasswordHashParity = b""
+    for _ in range(24):
+        val, ZPasswordHash = (ZPasswordHash & 0x7F), (ZPasswordHash >> 7)
+        ZPasswordHashParity = struct.pack("B", val << 1) + ZPasswordHashParity
+
+    return (
+        Cipher_DES_ECB(ZPasswordHashParity[0:8]).encrypt(Challenge) +
+        Cipher_DES_ECB(ZPasswordHashParity[8:16]).encrypt(Challenge) +
+        Cipher_DES_ECB(ZPasswordHashParity[16:24]).encrypt(Challenge)
+    )
+
+
+def MS_CHAP2_GenerateAuthenticatorResponse(HashNT,
+                                           NTResponse,
+                                           PeerChallenge,
+                                           AuthenticatorChallenge,
+                                           UserName):
+    """
+    rfc 2759 sect 8.7
+    """
+    Magic1 = bytes(bytearray([
+        0x4D, 0x61, 0x67, 0x69, 0x63, 0x20, 0x73, 0x65, 0x72, 0x76,
+        0x65, 0x72, 0x20, 0x74, 0x6F, 0x20, 0x63, 0x6C, 0x69, 0x65,
+        0x6E, 0x74, 0x20, 0x73, 0x69, 0x67, 0x6E, 0x69, 0x6E, 0x67,
+        0x20, 0x63, 0x6F, 0x6E, 0x73, 0x74, 0x61, 0x6E, 0x74,
+    ]))
+    Magic2 = bytes(bytearray([
+        0x50, 0x61, 0x64, 0x20, 0x74, 0x6F, 0x20, 0x6D, 0x61, 0x6B,
+        0x65, 0x20, 0x69, 0x74, 0x20, 0x64, 0x6F, 0x20, 0x6D, 0x6F,
+        0x72, 0x65, 0x20, 0x74, 0x68, 0x61, 0x6E, 0x20, 0x6F, 0x6E,
+        0x65, 0x20, 0x69, 0x74, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6F,
+        0x6E
+    ]))
+    PasswordHash = HashNT
+    PasswordHashHash = Hash_MD4().digest(PasswordHash)
+
+    Digest = Hash_SHA().digest(PasswordHashHash + NTResponse + Magic1)
+
+    Challenge = MS_CHAP2_ChallengeHash(
+        PeerChallenge,
+        AuthenticatorChallenge,
+        UserName,
+    )
+
+    return Hash_SHA().digest(Digest + Challenge + Magic2)
+
+
+# Answering machine
+
+class RadiusAuthType(enum.Enum):
+    MS_CHAP_V2 = enum.auto()
+    EAP = enum.auto()
+
+
+@crypto_validator
+class Radius_am(AnsweringMachine):
+    function_name = "radiusd"
+    filter = "udp and port 1812"
+    send_function = staticmethod(send)
+    send_options_list = ["inter", "verbose"]
+
+    def parse_options(self,
+                      secret,
+                      IDENTITIES=None,
+                      IDENTITIES_MSCHAPv2=None,
+                      servicetype=None,
+                      mschapdomain=None,
+                      extra_attributes=[]):
+        """
+        This provides a tiny RADIUS daemon that answers Access-Request messages.
+        This can be used while setting up a Cisco switch for instance.
+
+        Demo::
+
+            >>> radiusd(secret="SECRET", iface="lo", IDENTITIES={"user": "password"})
+            $ echo "Message-Authenticator=0x00,User-Name=user,\\
+                    User-Password=password" | radclient -P udp 127.0.0.1 auth -F SECRET
+
+        :param secret: the server's secret
+        :param IDENTITIES: the identities in format {"username": b"password"}
+        :param IDENTITIES_MSCHAPv2: the MsCHAPv2 identities in format
+            {"username": b"HashNT"}. The HashNT can be obtained
+            using MD4le(). If IDENTITIES is provided, this will be calculated.
+        :param servicetype: the Service-Type to answer.
+        :param mschapdomain: the MS-CHAP-DOMAIN to answer if MS-CHAP* is used.
+        :param extra_attributes: a list of extra Radius attributes
+        """
+        self.secret = bytes_encode(secret)
+        self.servicetype = servicetype
+        self.mschapdomain = mschapdomain
+        self.extra_attributes = extra_attributes
+        if not IDENTITIES:
+            IDENTITIES = {}
+        if IDENTITIES_MSCHAPv2 is None and IDENTITIES:
+            IDENTITIES_MSCHAPv2 = {
+                user: MD4le(pwd)
+                for user, pwd in IDENTITIES.items()
+            }
+        self.IDENTITIES = {
+            user: bytes_encode(pwd)
+            for user, pwd in IDENTITIES.items()
+        }
+        self.IDENTITIES_MSCHAPv2 = IDENTITIES_MSCHAPv2
+
+    def is_request(self, req):
+        # Only match Access-Request
+        return Radius in req and req[Radius].code == 1
+
+    def print_reply(self, req, reply):
+        print("%s / %s -> %s" % (
+            reply[IP].dst,
+            req[Radius].summary(),
+            (
+                conf.color_theme.fail
+                if reply.code != 2 else
+                conf.color_theme.success
+            )(reply.sprintf("%Radius.code%")),
+        ))
+
+    def make_reply(self, req):
+        resp = req
+
+        # Basic response
+        resp = (
+            IP(src=req[IP].dst, dst=req[IP].src) /
+            UDP(sport=req[UDP].dport, dport=req[UDP].sport)
+        )
+
+        # Sort attributes for quick access
+        attrs = {
+            (
+                (x.vendor_id, x.vendor_type)
+                if RadiusAttr_Vendor_Specific in x else
+                x.type
+            ): x
+            for x in req.attributes
+        }
+
+        # Build Radius response
+        rad = Radius(code=2, id=req[Radius].id)
+
+        # Process various authentication methods
+        try:
+            if 2 in attrs:
+                # PAP
+                if not self.IDENTITIES:
+                    raise Scapy_Exception(
+                        "Missing IDENTITIES for User-Password auth ! Assuming OK."
+                    )
+
+                UserName = attrs[1].value
+                KnownPassword = self.IDENTITIES.get(UserName.decode(), None)
+                UserPassword = attrs[2].decrypt(
+                    req,
+                    self.secret,
+                )
+
+                if KnownPassword is None:
+                    log_runtime.warning("Couldn't find user '%s'" % UserName.decode())
+                    rad.code = 3
+                elif UserPassword != KnownPassword:
+                    log_runtime.warning(
+                        "Bad password for user '%s'" % UserName.decode()
+                    )
+                    rad.code = 3
+            elif 79 in attrs:
+                # EAP-Message is used
+                raise Scapy_Exception(
+                    "EAP as a Radius auth method is not implemented !"
+                )
+            elif (311, 25) in attrs:
+                # MS-CHAP2
+                if not self.IDENTITIES_MSCHAPv2:
+                    raise Scapy_Exception("Missing IDENTITIES_MSCHAPv2 for MsChapV2 !")
+
+                response = attrs[(311, 25)].value
+                try:
+                    AuthenticatorChallenge = attrs[(311, 11)].value  # CHAP-Challenge
+                except KeyError:
+                    raise Scapy_Exception("Missing CHAP-Challenge !")
+
+                UserName = attrs[1].value
+                HashNT = self.IDENTITIES_MSCHAPv2.get(UserName.decode(), None)
+
+                # 1. Check the client-provided NTResponse
+                if HashNT is None:
+                    log_runtime.warning("Couldn't find user '%s'" % UserName.decode())
+                    rad.code = 3
+                elif MS_CHAP2_GenerateNTResponse(
+                        AuthenticatorChallenge,
+                        response.PeerChallenge,
+                        UserName,
+                        HashNT) != response.Response:
+                    log_runtime.warning(
+                        "Bad MS-CHAP2-NTResponse for user '%s' !" % UserName.decode()
+                    )
+                    rad.code = 3
+
+                # Did the auth failed?
+                if rad.code == 3:
+                    rad.attributes.append(
+                        RadiusAttr_Vendor_Specific(
+                            vendor_id="Microsoft",
+                            vendor_type=2,
+                            value=MS_CHAP_Error(
+                                Ident=response.Ident,
+                                String="E=691 R=0 V=3",
+                            ),
+                        )
+                    )
+                else:
+                    # 2. Build the response 'success' response
+                    auth_string = MS_CHAP2_GenerateAuthenticatorResponse(
+                        HashNT,
+                        response.Response,
+                        response.PeerChallenge,
+                        AuthenticatorChallenge,
+                        UserName,
+                    )
+                    rad.attributes.append(
+                        RadiusAttr_Vendor_Specific(
+                            vendor_id=311,
+                            vendor_type="MS-CHAP2-Success",
+                            value=MS_CHAP2_Success(
+                                Ident=response.Ident,
+                                String="S=%s" % auth_string.hex().upper()
+                            )
+                        )
+                    )
+                    if self.mschapdomain is not None:
+                        rad.attributes.append(
+                            RadiusAttr_Vendor_Specific(
+                                vendor_id=311,
+                                vendor_type="MS-CHAP-Domain",
+                                value=MS_CHAP_Domain(
+                                    Ident=response.Ident,
+                                    String=self.mschapdomain,
+                                )
+                            )
+                        )
+            else:
+                raise Scapy_Exception(
+                    "Authentication method not provided or unsupported !"
+                )
+        except Scapy_Exception as ex:
+            # display a warning
+            log_runtime.warning(str(ex))
+
+        # Add additional records if it's an accept
+        if rad.code == 2:
+            if self.servicetype is not None:
+                rad.attributes.append(
+                    RadiusAttr_Service_Type(value=self.servicetype)
+                )
+
+            rad.attributes.extend(self.extra_attributes)
+
+        # Add and compute message authenticator
+        mauth = RadiusAttr_Message_Authenticator()
+        rad.attributes.insert(0, mauth)
+        mauth.value = mauth.compute_message_authenticator(
+            rad,
+            req.authenticator,
+            self.secret,
+        )
+
+        # Add global authenticator
+        rad.authenticator = rad.compute_authenticator(req.authenticator, self.secret)
+
+        # Final packet
+        return resp / rad

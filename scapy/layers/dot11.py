@@ -63,8 +63,16 @@ from scapy.sendrecv import sniff, sendp
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+
+    try:
+        # cryptography > 43.0
+        from cryptography.hazmat.decrepit.ciphers import (
+            algorithms as decrepit_algorithms,
+        )
+    except ImportError:
+        decrepit_algorithms = algorithms
 else:
-    default_backend = Ciphers = algorithms = None
+    default_backend = Ciphers = algorithms = decrepit_algorithms = None
     log_loading.info("Can't import python-cryptography v1.7+. Disabled WEP decryption/encryption. (Dot11)")  # noqa: E501
 
 
@@ -683,7 +691,7 @@ class _Dot11MacField(MACField):
         return s
 
 
-# 802.11-2016 9.2.4.1.1
+# 802.11-2020 9.2.4.1.1
 class Dot11(Packet):
     name = "802.11"
     fields_desc = [
@@ -702,17 +710,31 @@ class Dot11(Packet):
                     FlagsField("FCfield", 0, 4,
                                ["pw-mgt", "MD", "protected", "order"]),
                     lambda pkt: (pkt.type, pkt.subtype) == (1, 6)
+                ),
+                (
+                    FlagsField("FCfield", 0, 2,
+                               ["security", "AP_PM"]),
+                    lambda pkt: (pkt.type, pkt.subtype) == (3, 1)
                 )
             ],
             FlagsField("FCfield", 0, 8,
                        ["to-DS", "from-DS", "MF", "retry",
                         "pw-mgt", "MD", "protected", "order"])
         ),
-        ShortField("ID", 0),
+        ConditionalField(
+            BitField("FCfield_bw", 0, 3),
+            lambda pkt: (pkt.type, pkt.subtype) == (3, 1)
+        ),
+        ConditionalField(
+            FlagsField("FCfield2", 0, 3,
+                       ["next_tbtt", "comp_ssid", "ano"]),
+            lambda pkt: (pkt.type, pkt.subtype) == (3, 1)
+        ),
+        LEShortField("ID", 0),
         _Dot11MacField("addr1", ETHER_ANY, 1),
         ConditionalField(
             _Dot11MacField("addr2", ETHER_ANY, 2),
-            lambda pkt: (pkt.type != 1 or
+            lambda pkt: (pkt.type not in {1, 3} or
                          pkt.subtype in [0x4, 0x5, 0x6, 0x8, 0x9, 0xa, 0xb, 0xe, 0xf]),
         ),
         ConditionalField(
@@ -720,7 +742,7 @@ class Dot11(Packet):
             lambda pkt: (pkt.type in [0, 2] or
                          ((pkt.type, pkt.subtype) == (1, 6) and pkt.cfe == 6)),
         ),
-        ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type != 1),
+        ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type not in {1, 3}),
         ConditionalField(
             _Dot11MacField("addr4", ETHER_ANY, 4),
             lambda pkt: (pkt.type == 2 and
@@ -736,7 +758,7 @@ class Dot11(Packet):
         if self.type == 0x02 and (
                 0x08 <= self.subtype <= 0xF and self.subtype != 0xD):
             return Dot11QoS
-        elif self.FCfield.protected:
+        elif hasattr(self.FCfield, "protected") and self.FCfield.protected:
             # When a frame is handled by encryption, the Protected Frame bit
             # (previously called WEP bit) is set to 1, and the Frame Body
             # begins with the appropriate cryptographic header.
@@ -1417,21 +1439,24 @@ class Dot11EltVendorSpecific(Dot11Elt):
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
             oui = struct.unpack("!I", b"\x00" + _pkt[2:5])[0]
-            if oui == 0x0050f2:  # Microsoft
-                type_ = orb(_pkt[5])
-                if type_ == 0x01:
-                    # MS WPA IE
-                    return Dot11EltMicrosoftWPA
-                elif type_ == 0x02:
-                    # MS WME IE TODO
-                    # return Dot11EltMicrosoftWME
-                    pass
-                elif type_ == 0x04:
-                    # MS WPS IE TODO
-                    # return Dot11EltWPS
-                    pass
-                return Dot11EltVendorSpecific
+            ouicls = cls.registered_ouis.get(oui, cls)
+            if ouicls.dispatch_hook != cls.dispatch_hook:
+                # Sub-classes can have their own dispatch_hook
+                return ouicls.dispatch_hook(_pkt=_pkt, *args, **kargs)
+            cls = ouicls
         return cls
+
+    registered_ouis = {}
+
+    @classmethod
+    def register_variant(cls):
+        oui = cls.oui.default
+        if not oui:
+            # This is Dot11EltVendorSpecific, register it in the super-class.
+            super().register_variant()
+        elif oui not in cls.registered_ouis:
+            # Sub-Vendor (e.g. Dot11EltMicrosoftWPA)
+            cls.registered_ouis[oui] = cls
 
 
 class Dot11EltMicrosoftWPA(Dot11EltVendorSpecific):
@@ -1445,11 +1470,30 @@ class Dot11EltMicrosoftWPA(Dot11EltVendorSpecific):
         XByteField("type", 0x01)
     ] + Dot11EltRSN.fields_desc[2:8]
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            type_ = orb(_pkt[5])
+            if type_ == 0x01:
+                # MS WPA IE
+                return Dot11EltMicrosoftWPA
+            elif type_ == 0x02:
+                # MS WME IE TODO
+                # return Dot11EltMicrosoftWME
+                pass
+            elif type_ == 0x04:
+                # MS WPS IE TODO
+                # return Dot11EltWPS
+                pass
+            return Dot11EltVendorSpecific
+        return cls
+
 
 # 802.11-2016 9.4.2.19
 
 class Dot11EltCSA(Dot11Elt):
     name = "802.11 CSA Element"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("ID", 37, _dot11_id_enum),
         ByteField("len", 3),
@@ -1463,6 +1507,7 @@ class Dot11EltCSA(Dot11Elt):
 
 class Dot11EltOBSS(Dot11Elt):
     name = "802.11 OBSS Scan Parameters Element"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("ID", 74, _dot11_id_enum),
         ByteField("len", 14),
@@ -1492,6 +1537,7 @@ class Dot11VHTOperationInfo(Packet):
 
 class Dot11EltVHTOperation(Dot11Elt):
     name = "802.11 VHT Operation Element"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("ID", 192, _dot11_id_enum),
         ByteField("len", 5),
@@ -1829,6 +1875,12 @@ class Dot11CSA(Packet):
     ]
 
 
+class Dot11S1GBeacon(_Dot11EltUtils):
+    name = "802.11 S1G Beacon"
+    fields_desc = [LEIntField("timestamp", 0),
+                   ByteField("change_seq", 0)]
+
+
 ###################
 # 802.11 Security #
 ###################
@@ -1873,7 +1925,7 @@ class Dot11WEP(Dot11Encrypted):
             key = conf.wepkey
         if key and conf.crypto_valid:
             d = Cipher(
-                algorithms.ARC4(self.iv + key.encode("utf8")),
+                decrepit_algorithms.ARC4(self.iv + key.encode("utf8")),
                 None,
                 default_backend(),
             ).decryptor()
@@ -1898,7 +1950,7 @@ class Dot11WEP(Dot11Encrypted):
             else:
                 icv = p[4:8]
             e = Cipher(
-                algorithms.ARC4(self.iv + key.encode("utf8")),
+                decrepit_algorithms.ARC4(self.iv + key.encode("utf8")),
                 None,
                 default_backend(),
             ).encryptor()
@@ -1978,6 +2030,7 @@ bind_layers(Dot11, Dot11ReassoResp, subtype=3, type=0)
 bind_layers(Dot11, Dot11ProbeReq, subtype=4, type=0)
 bind_layers(Dot11, Dot11ProbeResp, subtype=5, type=0)
 bind_layers(Dot11, Dot11Beacon, subtype=8, type=0)
+bind_layers(Dot11, Dot11S1GBeacon, subtype=1, type=3)
 bind_layers(Dot11, Dot11ATIM, subtype=9, type=0)
 bind_layers(Dot11, Dot11Disas, subtype=10, type=0)
 bind_layers(Dot11, Dot11Auth, subtype=11, type=0)
@@ -1985,6 +2038,7 @@ bind_layers(Dot11, Dot11Deauth, subtype=12, type=0)
 bind_layers(Dot11, Dot11Action, subtype=13, type=0)
 bind_layers(Dot11, Dot11Ack, subtype=13, type=1)
 bind_layers(Dot11Beacon, Dot11Elt,)
+bind_layers(Dot11S1GBeacon, Dot11Elt,)
 bind_layers(Dot11AssoReq, Dot11Elt,)
 bind_layers(Dot11AssoResp, Dot11Elt,)
 bind_layers(Dot11ReassoReq, Dot11Elt,)

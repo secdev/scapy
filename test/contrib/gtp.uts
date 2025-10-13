@@ -22,17 +22,17 @@ a = GTPHeader(raw(GTP_U_Header()/GTPPDUSessionContainer(QFI=3)))
 assert isinstance(a, GTP_U_Header)
 assert a[GTP_U_Header].E == 1 and a[GTP_U_Header].next_ex == 0x85
 assert a[GTPPDUSessionContainer].ExtHdrLen == 1
-assert a[GTPPDUSessionContainer].P == 0 and a[GTPPDUSessionContainer].R == 0
+assert a[GTPPDUSessionContainer].PPP == 0 and a[GTPPDUSessionContainer].RQI == 0
 assert a[GTPPDUSessionContainer].QFI == 3
 assert a[GTPPDUSessionContainer].NextExtHdr == 0
 
 = GTP_U_Header with PDU Session Container with QFI/PPI
 
-a = GTPHeader(raw(GTP_U_Header()/GTPPDUSessionContainer(type=0, QFI=3, P=1, PPI=6)))
+a = GTPHeader(raw(GTP_U_Header()/GTPPDUSessionContainer(type=0, QFI=3, PPP=1, PPI=6)))
 assert isinstance(a, GTP_U_Header)
 assert a[GTP_U_Header].E == 1 and a[GTP_U_Header].next_ex == 0x85
 assert a[GTPPDUSessionContainer].ExtHdrLen == 2
-assert a[GTPPDUSessionContainer].P == 1 and a[GTPPDUSessionContainer].R == 0
+assert a[GTPPDUSessionContainer].PPP == 1 and a[GTPPDUSessionContainer].RQI == 0
 assert a[GTPPDUSessionContainer].QFI == 3 and a[GTPPDUSessionContainer].PPI == 6
 assert a[GTPPDUSessionContainer].NextExtHdr == 0
 assert a[GTPPDUSessionContainer].type == 0
@@ -55,7 +55,7 @@ assert isinstance(a[GTP_U_Header].payload, PPP)
 = GTPPDUSessionContainer(), dissect
 h = 'fa163ed6de7bfa163ed82b9408004500008400000000fe114b560a0a2e010a0a2efe086808680070000034ff006000000001fa163e850200ff800000000045000054074d00004001fb490a0a31fe0a0a32010000325600930001c444ca5f00000000759e0a0000000000101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031323334353637'
 gtp = Ether(hex_bytes(h))
-gtp[GTP_U_Header].ExtHdrLen == 2 and gtp[GTP_U_Header].padding == b'\x00\x00\x00' and gtp[GTP_U_Header][IP].src == '10.10.49.254' and gtp[GTP_U_Header][IP][ICMP].type == 0 and gtp[GTP_U_Header].type == 0 and gtp[GTP_U_Header].qmp == 0 and gtp[GTP_U_Header].P == 1 and gtp[GTP_U_Header].R == 1 and gtp[GTP_U_Header].QFI == 63 and gtp[GTP_U_Header].PPI == 4
+gtp[GTP_U_Header].ExtHdrLen == 2 and gtp[GTP_U_Header].padding == b'\x00\x00\x00' and gtp[GTP_U_Header][IP].src == '10.10.49.254' and gtp[GTP_U_Header][IP][ICMP].type == 0 and gtp[GTP_U_Header].type == 0 and gtp[GTP_U_Header].QMP == 0 and gtp[GTP_U_Header].PPP == 1 and gtp[GTP_U_Header].RQI == 1 and gtp[GTP_U_Header].QFI == 63 and gtp[GTP_U_Header].PPI == 4
 
 = GTPPDUSessionContainer with padding
 data = b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00^\x00\x01\x00\x00@\x11|\x8c\x7f\x00\x00\x01\x7f\x00\x00\x01\x08h\x08h\x00J\xed^4\xff\x00:\x00\x00\x00\x00\x00\x00\x00\x85\x04\x08\xbf\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00E\x00\x00&\x00\x01\x00\x00@\x11|\xc4\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x12\x01^ffffffffff000'

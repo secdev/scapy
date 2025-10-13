@@ -17,7 +17,11 @@ from scapy.base_classes import Net
 from scapy.data import IPV6_ADDR_GLOBAL, IPV6_ADDR_LINKLOCAL, \
     IPV6_ADDR_SITELOCAL, IPV6_ADDR_LOOPBACK, IPV6_ADDR_UNICAST,\
     IPV6_ADDR_MULTICAST, IPV6_ADDR_6TO4, IPV6_ADDR_UNSPECIFIED
-from scapy.utils import strxor
+from scapy.utils import (
+    strxor,
+    stror,
+    strand,
+)
 from scapy.compat import orb, chb
 from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.volatile import RandMAC, RandBin
@@ -85,6 +89,8 @@ def construct_source_candidate_set(
             cset = (x for x in laddr if x[1] == IPV6_ADDR_SITELOCAL)
     elif addr == '::' and plen == 0:
         cset = (x for x in laddr if x[1] == IPV6_ADDR_GLOBAL)
+    elif addr == '::1':
+        cset = (x for x in laddr if x[1] == IPV6_ADDR_LOOPBACK)
     addrs = [x[0] for x in cset]
     # TODO convert the cmd use into a key
     addrs.sort(key=cmp_to_key(cset_sort))  # Sort with global addresses first
@@ -589,18 +595,6 @@ def in6_isanycast(x):  # RFC 2526
         return False
 
 
-def _in6_bitops(xa1, xa2, operator=0):
-    # type: (bytes, bytes, int) -> bytes
-    a1 = struct.unpack('4I', xa1)
-    a2 = struct.unpack('4I', xa2)
-    fop = [lambda x, y: x | y,
-           lambda x, y: x & y,
-           lambda x, y: x ^ y
-           ]
-    ret = map(fop[operator % len(fop)], a1, a2)
-    return b"".join(struct.pack('I', x) for x in ret)
-
-
 def in6_or(a1, a2):
     # type: (bytes, bytes) -> bytes
     """
@@ -608,7 +602,7 @@ def in6_or(a1, a2):
     passed in network format. Return value is also an IPv6 address
     in network format.
     """
-    return _in6_bitops(a1, a2, 0)
+    return stror(a1, a2)
 
 
 def in6_and(a1, a2):
@@ -618,7 +612,7 @@ def in6_and(a1, a2):
     passed in network format. Return value is also an IPv6 address
     in network format.
     """
-    return _in6_bitops(a1, a2, 1)
+    return strand(a1, a2)
 
 
 def in6_xor(a1, a2):
@@ -628,7 +622,7 @@ def in6_xor(a1, a2):
     passed in network format. Return value is also an IPv6 address
     in network format.
     """
-    return _in6_bitops(a1, a2, 2)
+    return strxor(a1, a2)
 
 
 def in6_cidr2mask(m):
@@ -648,6 +642,22 @@ def in6_cidr2mask(m):
         m -= 32
 
     return b"".join(struct.pack('!I', x) for x in t)
+
+
+def in6_mask2cidr(m):
+    # type: (bytes) -> int
+    """
+    Opposite of in6_cidr2mask
+    """
+    if len(m) != 16:
+        raise Scapy_Exception("value must be 16 octets long")
+
+    for i in range(0, 4):
+        s = struct.unpack('!I', m[i * 4:(i + 1) * 4])[0]
+        for j in range(32):
+            if not s & (1 << (31 - j)):
+                return i * 32 + j
+    return 128
 
 
 def in6_getnsma(a):

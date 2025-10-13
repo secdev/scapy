@@ -35,6 +35,7 @@ from scapy.fields import (
     MayEnd,
     MultiEnumField,
     MultipleTypeField,
+    PadField,
     PacketListField,
     RawVal,
     StrField,
@@ -100,7 +101,8 @@ class Packet(
         "direction", "sniffed_on",
         # handle snaplen Vs real length
         "wirelen",
-        "comment"
+        "comments",
+        "process_information"
     ]
     name = None
     fields_desc = []  # type: List[AnyField]
@@ -165,7 +167,7 @@ class Packet(
         self.fieldtype = {}  # type: Dict[str, AnyField]
         self.packetfields = []  # type: List[AnyField]
         self.payload = NoPayload()  # type: Packet
-        self.init_fields()
+        self.init_fields(bool(_pkt))
         self.underlayer = _underlayer
         self.parent = _parent
         if isinstance(_pkt, bytearray):
@@ -177,7 +179,8 @@ class Packet(
         self.wirelen = None  # type: Optional[int]
         self.direction = None  # type: Optional[int]
         self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
-        self.comment = None  # type: Optional[bytes]
+        self.comments = None  # type: Optional[List[bytes]]
+        self.process_information = None  # type: Optional[Dict[str, Any]]
         self.stop_dissection_after = stop_dissection_after
         if _pkt:
             self.dissect(_pkt)
@@ -220,6 +223,26 @@ class Packet(
         Optional[bytes],
     ]
 
+    @property
+    def comment(self):
+        # type: () -> Optional[bytes]
+        """Get the comment of the packet"""
+        if self.comments and len(self.comments):
+            return self.comments[0]
+        return None
+
+    @comment.setter
+    def comment(self, value):
+        # type: (Optional[bytes]) -> None
+        """
+        Set the comment of the packet.
+        If value is None, it will clear the comments.
+        """
+        if value is not None:
+            self.comments = [value]
+        else:
+            self.comments = None
+
     def __reduce__(self):
         # type: () -> Tuple[Type[Packet], Tuple[bytes], Packet._PickleType]
         """Used by pickling methods"""
@@ -250,8 +273,8 @@ class Packet(
         """Used by copy.deepcopy"""
         return self.copy()
 
-    def init_fields(self):
-        # type: () -> None
+    def init_fields(self, for_dissect_only=False):
+        # type: (bool) -> None
         """
         Initialize each fields of the fields_desc dict
         """
@@ -259,7 +282,7 @@ class Packet(
         if self.class_dont_cache.get(self.__class__, False):
             self.do_init_fields(self.fields_desc)
         else:
-            self.do_init_cached_fields()
+            self.do_init_cached_fields(for_dissect_only=for_dissect_only)
 
     def do_init_fields(self,
                        flist,  # type: Sequence[AnyField]
@@ -277,8 +300,8 @@ class Packet(
         # We set default_fields last to avoid race issues
         self.default_fields = default_fields
 
-    def do_init_cached_fields(self):
-        # type: () -> None
+    def do_init_cached_fields(self, for_dissect_only=False):
+        # type: (bool) -> None
         """
         Initialize each fields of the fields_desc dict, or use the cached
         fields information
@@ -296,6 +319,10 @@ class Packet(
             self.default_fields = default_fields
             self.fieldtype = Packet.class_fieldtype[cls_name]
             self.packetfields = Packet.class_packetfields[cls_name]
+
+            # Optimization: no need for references when only dissecting.
+            if for_dissect_only:
+                return
 
             # Deepcopy default references
             for fname in Packet.class_default_fields_ref[cls_name]:
@@ -331,8 +358,7 @@ class Packet(
                 self.do_init_fields(self.fields_desc)
                 return
 
-            tmp_copy = copy.deepcopy(f.default)
-            class_default_fields[f.name] = tmp_copy
+            class_default_fields[f.name] = copy.deepcopy(f.default)
             class_fieldtype[f.name] = f
             if f.holds_packets:
                 class_packetfields.append(f)
@@ -429,7 +455,7 @@ class Packet(
         clone.payload = self.payload.copy()
         clone.payload.add_underlayer(clone)
         clone.time = self.time
-        clone.comment = self.comment
+        clone.comments = self.comments
         clone.direction = self.direction
         clone.sniffed_on = self.sniffed_on
         return clone
@@ -662,10 +688,10 @@ class Packet(
             # avoid copying whole packets (perf: #GH3894)
             if fld.islist:
                 return [
-                    _cpy(x.fields) for x in val
+                    (_cpy(x.fields), x.payload.raw_packet_cache) for x in val
                 ]
             else:
-                return _cpy(val.fields)
+                return (_cpy(val.fields), val.payload.raw_packet_cache)
         elif fld.islist or fld.ismutable:
             return _cpy(val)
         return None
@@ -688,8 +714,6 @@ class Packet(
         # type: () -> bytes
         """
         Create the default layer regarding fields_desc dict
-
-        :param field_pos_list:
         """
         if self.raw_packet_cache is not None and \
                 self.raw_packet_cache_fields is not None:
@@ -713,7 +737,7 @@ class Packet(
                 except Exception as ex:
                     try:
                         ex.args = (
-                            "While dissecting field '%s': " % f.name +
+                            "While building field '%s': " % f.name +
                             ex.args[0],
                         ) + ex.args[1:]
                     except (AttributeError, IndexError):
@@ -1141,7 +1165,7 @@ class Packet(
             self.raw_packet_cache_fields
         )
         pkt.wirelen = self.wirelen
-        pkt.comment = self.comment
+        pkt.comments = self.comments
         pkt.sniffed_on = self.sniffed_on
         pkt.direction = self.direction
         if payload is not None:
@@ -2002,7 +2026,7 @@ class Raw(Packet):
 class Padding(Raw):
     name = "Padding"
 
-    def self_build(self, field_pos_list=None):
+    def self_build(self):
         # type: (Optional[Any]) -> bytes
         return b""
 
@@ -2511,13 +2535,25 @@ def rfc(cls, ret=False, legend=True):
     # when formatted, from its length in bits
     clsize = lambda x: 2 * x - 1  # type: Callable[[int], int]
     ident = 0  # Fields UUID
+
     # Generate packet groups
-    for f in cls.fields_desc:
-        flen = int(f.sz * 8)
+    def _iterfields() -> Iterator[Tuple[str, int]]:
+        for f in cls.fields_desc:
+            # Fancy field name
+            fname = f.name.upper().replace("_", " ")
+            fsize = int(f.sz * 8)
+            yield fname, fsize
+            # Add padding optionally
+            if isinstance(f, PadField):
+                if isinstance(f._align, tuple):
+                    pad = - cur_len % (f._align[0] * 8)
+                else:
+                    pad = - cur_len % (f._align * 8)
+                if pad:
+                    yield "padding", pad
+    for fname, flen in _iterfields():
         cur_len += flen
         ident += 1
-        # Fancy field name
-        fname = f.name.upper().replace("_", " ")
         # The field might exceed the current line or
         # take more than one line. Copy it as required
         while True:

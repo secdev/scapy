@@ -1904,6 +1904,11 @@ pkts = fragment6(IPv6()/IPv6ExtHdrFragment()/UDP(dport=42, sport=42)/Raw(load="A
 pkts = [IPv6(raw(p)) for p in pkts]
 assert defragment6(pkts).plen == 1508
 
+= defragment6 - discard payload
+pkt = Ether() / IPv6() / ICMPv6EchoRequest(data='b'*100)
+frags = fragment6(pkt, 100)
+pkt = defragment6(Ether(raw(frag / Padding(b'a' * 8))) for frag in frags)
+assert b'a' not in pkt.data
 
 ############
 ############
@@ -1970,7 +1975,7 @@ r6.ifdel("scapy0")
 
 = IPv6 - utils
 
-import mock
+from unittest import mock
 @mock.patch("scapy.layers.inet6.get_if_hwaddr")
 @mock.patch("scapy.layers.inet6.srp1")
 def test_neighsol(mock_srp1, mock_get_if_hwaddr):
@@ -2002,7 +2007,9 @@ from scapy.layers.inet6 import _ICMPv6Error
 assert _ICMPv6Error().guess_payload_class(None) == IPerror6
 assert _ICMPv6Error().hashret() == b''
 
-= Windows: reset routes properly
+= reset routes properly
+
+conf.ifaces.reload()
 
 if WINDOWS:
     from scapy.arch.windows import _route_add_loopback
@@ -2069,7 +2076,7 @@ assert a.answers(q)
 
 = Define test utilities
 
-import mock
+from unittest import mock
 
 @mock.patch("scapy.layers.inet6.sniff")
 @mock.patch("scapy.layers.inet6.sendp")

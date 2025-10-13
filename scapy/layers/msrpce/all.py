@@ -24,6 +24,7 @@ __all__ = []
 _LAYERS = [
     # High-level classes
     "msrpce.msdcom",
+    "msrpce.mseerr",
     "msrpce.msnrpc",
     "msrpce.mspac",
     # Client / Server
@@ -32,6 +33,7 @@ _LAYERS = [
     # Low-level RPC definitions
     "msrpce.raw.ept",
     "msrpce.raw.ms_dcom",
+    "msrpce.raw.ms_drsr",
     "msrpce.raw.ms_nrpc",
     "msrpce.raw.ms_samr",
     "msrpce.raw.ms_srvs",

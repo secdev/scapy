@@ -72,7 +72,7 @@ class RTSPRequest(_HTTPContent):
     def do_dissect(self, s):
         first_line, body = _dissect_headers(self, s)
         try:
-            method, uri, version = re.split(rb"\s+", first_line, 2)
+            method, uri, version = re.split(rb"\s+", first_line, maxsplit=2)
             self.setfieldval("Method", method)
             self.setfieldval("Request_Uri", uri)
             self.setfieldval("Version", version)
@@ -116,7 +116,7 @@ class RTSPResponse(_HTTPContent):
     def do_dissect(self, s):
         first_line, body = _dissect_headers(self, s)
         try:
-            Version, Status, Reason = re.split(rb"\s+", first_line, 2)
+            Version, Status, Reason = re.split(rb"\s+", first_line, maxsplit=2)
             self.setfieldval("Version", Version)
             self.setfieldval("Status_Code", Status)
             self.setfieldval("Reason_Phrase", Reason)

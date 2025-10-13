@@ -14,14 +14,18 @@ import time
 
 from scapy.ansmachine import AnsweringMachine
 from scapy.arch import get_if_addr, get_if_hwaddr
-from scapy.base_classes import Gen, Net
-from scapy.compat import chb, orb
+from scapy.base_classes import Gen, Net, _ScopedIP
+from scapy.compat import chb
 from scapy.config import conf
 from scapy import consts
 from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
     DLT_ETHERNET_MPACKET, DLT_LINUX_IRDA, DLT_LINUX_SLL, DLT_LINUX_SLL2, \
     DLT_LOOP, DLT_NULL, ETHER_ANY, ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, ETH_P_MACSEC
-from scapy.error import warning, ScapyNoDstMacException, log_runtime
+from scapy.error import (
+    ScapyNoDstMacException,
+    log_runtime,
+    warning,
+)
 from scapy.fields import (
     BCDFloatField,
     BitField,
@@ -59,8 +63,20 @@ from scapy.plist import (
     _PacketList,
 )
 from scapy.sendrecv import sendp, srp, srp1, srploop
-from scapy.utils import checksum, hexdump, hexstr, inet_ntoa, inet_aton, \
-    mac2str, valid_mac, valid_net, valid_net6
+from scapy.utils import (
+    checksum,
+    hexdump,
+    hexstr,
+    in4_getnsmac,
+    in4_ismaddr,
+    inet_aton,
+    inet_ntoa,
+    mac2str,
+    pretty_list,
+    valid_mac,
+    valid_net,
+    valid_net6,
+)
 
 # Typing imports
 from typing import (
@@ -121,19 +137,40 @@ _arp_cache = conf.netcache.new_cache("arp_cache", 120)
 @conf.commands.register
 def getmacbyip(ip, chainCC=0):
     # type: (str, int) -> Optional[str]
-    """Return MAC address corresponding to a given IP address"""
+    """
+    Returns the destination MAC address used to reach a given IP address.
+
+    This will follow the routing table and will issue an ARP request if
+    necessary. Special cases (multicast, etc.) are also handled.
+
+    .. seealso:: :func:`~scapy.layers.inet6.getmacbyip6` for IPv6.
+    """
+    # Sanitize the IP
     if isinstance(ip, Net):
         ip = next(iter(ip))
     ip = inet_ntoa(inet_aton(ip or "0.0.0.0"))
-    tmp = [orb(e) for e in inet_aton(ip)]
-    if (tmp[0] & 0xf0) == 0xe0:  # mcast @
-        return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1] & 0x7f, tmp[2], tmp[3])
+
+    # Multicast
+    if in4_ismaddr(ip):  # mcast @
+        mac = in4_getnsmac(inet_aton(ip))
+        return mac
+
+    # Check the routing table
     iff, _, gw = conf.route.route(ip)
+
+    # Limited broadcast
+    if ip == "255.255.255.255":
+        return "ff:ff:ff:ff:ff:ff"
+
+    # Directed broadcast
     if (iff == conf.loopback_name) or (ip in conf.route.get_if_bcast(iff)):
         return "ff:ff:ff:ff:ff:ff"
+
+    # An ARP request is necessary
     if gw != "0.0.0.0":
         ip = gw
 
+    # Check the cache
     mac = _arp_cache.get(ip)
     if mac:
         return mac
@@ -166,7 +203,7 @@ class DestMACField(MACField):
     def i2h(self, pkt, x):
         # type: (Optional[Packet], Optional[str]) -> str
         if x is None and pkt is not None:
-            x = "None (resolved on build)"
+            x = None
         return super(DestMACField, self).i2h(pkt, x)
 
     def i2m(self, pkt, x):
@@ -199,8 +236,6 @@ class SourceMACField(MACField):
         # type: (Optional[Packet], Optional[str]) -> str
         if x is None:
             iff = self.getif(pkt)
-            if iff is None:
-                iff = conf.iface
             if iff:
                 x = resolve_iface(iff).mac
             if x is None:
@@ -465,13 +500,13 @@ class ARP(Packet):
         ),
         MultipleTypeField(
             [
-                (SourceIPField("psrc", "pdst"),
+                (SourceIPField("psrc"),
                  (lambda pkt: pkt.ptype == 0x0800 and pkt.plen == 4,
                   lambda pkt, val: pkt.ptype == 0x0800 and (
                       pkt.plen == 4 or (pkt.plen is None and
                                         (val is None or valid_net(val)))
                   ))),
-                (SourceIP6Field("psrc", "pdst"),
+                (SourceIP6Field("psrc"),
                  (lambda pkt: pkt.ptype == 0x86dd and pkt.plen == 16,
                   lambda pkt, val: pkt.ptype == 0x86dd and (
                       pkt.plen == 16 or (pkt.plen is None and
@@ -534,12 +569,15 @@ class ARP(Packet):
         fld, dst = cast(Tuple[MultipleTypeField, str],
                         self.getfield_and_val("pdst"))
         fld_inner, dst = fld._find_fld_pkt_val(self, dst)
+        scope = None
+        if isinstance(dst, (Net, _ScopedIP)):
+            scope = dst.scope
         if isinstance(dst, Gen):
             dst = next(iter(dst))
         if isinstance(fld_inner, IP6Field):
-            return conf.route6.route(dst)
+            return conf.route6.route(dst, dev=scope)
         elif isinstance(fld_inner, IPField):
-            return conf.route.route(dst)
+            return conf.route.route(dst, dev=scope)
         else:
             return None, None, None
 
@@ -881,6 +919,7 @@ def arp_mitm(
 
         $ sysctl net.ipv4.conf.virbr0.send_redirects=0  # virbr0 = interface
         $ sysctl net.ipv4.ip_forward=1
+        $ sudo iptables -t mangle -A PREROUTING -j TTL --ttl-inc 1
         $ sudo scapy
         >>> arp_mitm("192.168.122.156", "192.168.122.17")
 
@@ -907,7 +946,7 @@ def arp_mitm(
                 # ip can be a Net/list/etc and will be iterated upon while sending
                 return [(ip, "ff:ff:ff:ff:ff:ff")]
             return [(x.query.pdst, x.answer.hwsrc)
-                    for x in arping(ip, verbose=0)[0]]
+                    for x in arping(ip, verbose=0, iface=iface)[0]]
         elif isinstance(mac, list):
             return [(ip, x) for x in mac]
         else:
@@ -929,6 +968,7 @@ def arp_mitm(
             (x
              for ipa, maca in tup1
              for ipb, _ in tup2
+             if ipb != ipa
              for x in
              Ether(dst=maca, src=target_mac) /
              ARP(op="who-has", psrc=ipb, pdst=ipa,
@@ -937,6 +977,7 @@ def arp_mitm(
             (x
              for ipb, macb in tup2
              for ipa, _ in tup1
+             if ipb != ipa
              for x in
              Ether(dst=macb, src=target_mac) /
              ARP(op="who-has", psrc=ipa, pdst=ipb,
@@ -956,16 +997,18 @@ def arp_mitm(
             (x
              for ipa, maca in tup1
              for ipb, macb in tup2
+             if ipb != ipa
              for x in
-             Ether(dst=maca, src=macb) /
+             Ether(dst="ff:ff:ff:ff:ff:ff", src=macb) /
              ARP(op="who-has", psrc=ipb, pdst=ipa,
                  hwsrc=macb, hwdst="00:00:00:00:00:00")
              ),
             (x
              for ipb, macb in tup2
              for ipa, maca in tup1
+             if ipb != ipa
              for x in
-             Ether(dst=macb, src=maca) /
+             Ether(dst="ff:ff:ff:ff:ff:ff", src=maca) /
              ARP(op="who-has", psrc=ipa, pdst=ipb,
                  hwsrc=maca, hwdst="00:00:00:00:00:00")
              ),
@@ -987,23 +1030,30 @@ class ARPingResult(SndRcvList):
         """
         Print the list of discovered MAC addresses.
         """
-
-        data = list()
-        padding = 0
+        data = list()  # type: List[Tuple[str | List[str], ...]]
 
         for s, r in self.res:
             manuf = conf.manufdb._get_short_manuf(r.src)
             manuf = "unknown" if manuf == r.src else manuf
-            padding = max(padding, len(manuf))
             data.append((r[Ether].src, manuf, r[ARP].psrc))
 
-        for src, manuf, psrc in data:
-            print("  %-17s %-*s %s" % (src, padding, manuf, psrc))
+        print(
+            pretty_list(
+                data,
+                [("src", "manuf", "psrc")],
+                sortBy=2,
+            )
+        )
 
 
 @conf.commands.register
-def arping(net, timeout=2, cache=0, verbose=None, **kargs):
-    # type: (str, int, int, Optional[int], **Any) -> Tuple[ARPingResult, PacketList] # noqa: E501
+def arping(net: str,
+           timeout: int = 2,
+           cache: int = 0,
+           verbose: Optional[int] = None,
+           threaded: bool = True,
+           **kargs: Any,
+           ) -> Tuple[ARPingResult, PacketList]:
     """
     Send ARP who-has requests to determine which hosts are up::
 
@@ -1017,18 +1067,33 @@ def arping(net, timeout=2, cache=0, verbose=None, **kargs):
     hwaddr = None
     if "iface" in kargs:
         hwaddr = get_if_hwaddr(kargs["iface"])
-    r = conf.route.route(str(net), verbose=False)
+    if isinstance(net, list):
+        hint = net[0]
+    else:
+        hint = str(net)
+    psrc = conf.route.route(
+        hint,
+        dev=kargs.get("iface", None),
+        verbose=False,
+        _internal=True,  # Do not follow default routes.
+    )[1]
+    if psrc == "0.0.0.0" and "iface" not in kargs:
+        warning(
+            "Could not find the interface for destination %s based on the routes. "
+            "Using conf.iface. Please provide an 'iface' !" % hint
+        )
 
     ans, unans = srp(
         Ether(dst="ff:ff:ff:ff:ff:ff", src=hwaddr) / ARP(
             pdst=net,
-            psrc=r[1],
+            psrc=psrc,
             hwsrc=hwaddr
         ),
         verbose=verbose,
         filter="arp and arp[7] = 2",
         timeout=timeout,
-        iface_hint=net,
+        threaded=threaded,
+        iface_hint=hint,
         **kargs,
     )
     ans = ARPingResult(ans.res)
