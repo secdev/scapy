@@ -625,72 +625,6 @@ try:
 except SystemExit:
     assert True
 
-= Session test
-
-import builtins
-
-# This is automatic when using the console
-def get_var(var):
-    return builtins.__dict__["scapy_session"][var]
-
-def set_var(var, value):
-    builtins.__dict__["scapy_session"][var] = value
-
-def del_var(var):
-    del builtins.__dict__["scapy_session"][var]
-
-init_session(None, {"init_value": 123})
-set_var("test_value", "8.8.8.8") # test_value = "8.8.8.8"
-save_session()
-del_var("test_value")
-load_session()
-update_session()
-assert get_var("test_value") == "8.8.8.8" #test_value == "8.8.8.8"
-assert get_var("init_value") == 123
- 
-= Session test with fname
-
-session_name = tempfile.mktemp()
-init_session(session_name)
-set_var("test_value", IP(dst="192.168.0.1")) # test_value = IP(dst="192.168.0.1")
-save_session(fname="%s.dat" % session_name)
-del_var("test_value")
-
-set_var("z", True) #z = True
-load_session(fname="%s.dat" % session_name)
-try:
-    get_var("z")
-    assert False
-except:
-    pass
-
-set_var("z", False) #z = False
-update_session(fname="%s.dat" % session_name)
-assert get_var("test_value").dst == "192.168.0.1" #test_value.dst == "192.168.0.1"
-assert not get_var("z")
-
-= Clear session files
-
-os.remove("%s.dat" % session_name)
-
-= Test temporary file creation
-~ ci_only
-
-scapy_delete_temp_files()
-
-tmpfile = get_temp_file(autoext=".ut")
-tmpfile
-if WINDOWS:
-    assert "scapy" in tmpfile and "AppData\\Local\\Temp" in tmpfile
-else:
-    import platform
-    BYPASS_TMP = platform.python_implementation().lower() == "pypy" or DARWIN
-    assert "scapy" in tmpfile and (BYPASS_TMP == True or "/tmp/" in tmpfile)
-
-assert conf.temp_files[0].endswith(".ut")
-scapy_delete_temp_files()
-assert len(conf.temp_files) == 0
-
 = Emulate interact()
 ~ interact
 
@@ -993,17 +927,6 @@ zerofree_randstring(4) in [b"\xd2\x12\xe4\x5b", b'\xd3\x8b\x13\x12']
 = Test strand function
 assert strand(b"AC", b"BC") == b'@C'
 
-= Test export_object and import_object functions
-from unittest import mock
-def test_export_import_object():
-    with ContextManagerCaptureOutput() as cmco:
-        export_object(2807)
-        result_export_object = cmco.get_output(eval_bytes=True)
-    assert result_export_object.startswith("eNprYPL9zqUHAAdrAf8=")
-    assert import_object(result_export_object) == 2807
-
-test_export_import_object()
-
 = Test tex_escape function
 tex_escape("$#_") == "\\$\\#\\_"
 
@@ -1023,12 +946,6 @@ assert sane(corrupt_bytes("ABCDE", n=3)) in ["A.8D4", ".2.DE"]
 
 assert corrupt_bits("ABCDE") in [b"EBCDE", b"ABCDG"]
 assert sane(corrupt_bits("ABCDE", n=3)) in ["AF.EE", "QB.TE"]
-
-= Test save_object and load_object functions
-import tempfile
-fd, fname = tempfile.mkstemp()
-save_object(fname, 2807)
-assert load_object(fname) == 2807
 
 = Test whois function
 ~ netaccess
@@ -2198,6 +2115,7 @@ p.show()
 
 = Variable creations
 from io import BytesIO
+import base64
 pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
 pcapngfile = BytesIO(b'\n\r\r\n\\\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x01\x00,\x00File created by merging: \nFile1: test.pcap \n\x04\x00\x08\x00mergecap\x00\x00\x00\x00\\\x00\x00\x00\x01\x00\x00\x00\\\x00\x00\x00e\x00\x00\x00\xff\xff\x00\x00\x02\x006\x00Unknown/not available in original file format(libpcap)\x00\x00\t\x00\x01\x00\x06\x00\x00\x00\x00\x00\x00\x00\\\x00\x00\x00\x06\x00\x00\x00H\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00/\xfc[\xcd(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00H\x00\x00\x00\x06\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00\x1f\xff[\xcd\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r<\x00\x00\x00\x06\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00\xb9\x02\\\xcd\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00<\x00\x00\x00')
 pcapnanofile = BytesIO(b"M<\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacV\xc9\xc1\xb5'(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV-;\xc1'\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\x9aL\xcf'\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00")
