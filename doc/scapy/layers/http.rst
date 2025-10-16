@@ -149,7 +149,7 @@ Start an unauthenticated HTTP server automaton:
                     "<!doctype html><html><body><h1>404 - Not Found</h1></body></html>"
                 )
 
-    server = HTTP_Server.spawn(
+    server = Custom_HTTP_Server.spawn(
         port=8080,
         iface="eth0",
     )
