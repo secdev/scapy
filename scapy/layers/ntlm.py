@@ -1356,6 +1356,7 @@ class NTLMSSP(SSP):
             self.USE_MIC = USE_MIC
         self.NTLM_VALUES = NTLM_VALUES
         if UPN is not None:
+            # Populate values used only in server mode.
             from scapy.layers.kerberos import _parse_upn
 
             try:
@@ -2001,8 +2002,9 @@ class NTLMSSP_DOMAIN(NTLMSSP):
     mode:
 
     :param UPN: the UPN of the machine account to login for Netlogon.
-    :param HASHNT: the HASHNT of the machine account to use for Netlogon.
-    :param PASSWORD: the PASSWORD of the machine acconut to use for Netlogon.
+    :param HASHNT: the HASHNT of the machine account (use Netlogon secure channel).
+    :param ssp: a KerberosSSP to use (use Kerberos secure channel).
+    :param PASSWORD: the PASSWORD of the machine account to use for Netlogon.
     :param DC_IP: (optional) specify the IP of the DC.
 
     Examples::
@@ -2035,16 +2037,21 @@ class NTLMSSP_DOMAIN(NTLMSSP):
         )
 
         # Treat specific parameters
-        self.DC_IP = kwargs.pop("DC_IP", None)
-        if self.DC_IP is None:
+        self.DC_HOST = kwargs.pop("DC_HOST", None)
+        self.DC_NB_NAME = kwargs.pop("DC_NB_NAME", None)
+        if self.DC_HOST is None:
             # Get DC_IP from dclocator
             from scapy.layers.ldap import dclocator
 
-            self.DC_IP = dclocator(
+            dc = dclocator(
                 self.DOMAIN_FQDN,
                 timeout=timeout,
                 debug=kwargs.get("debug", 0),
-            ).ip
+            )
+            self.DC_HOST = dc.ip
+            self.DC_FQDN = dc.samlogon.DnsHostName.decode().rstrip(".")
+        elif self.DC_NB_NAME is None:
+            raise ValueError("When providing DC_HOST, must provide DC_NB_NAME !")
 
         # If logging in via Kerberos
         self.ssp = ssp
@@ -2074,7 +2081,7 @@ class NTLMSSP_DOMAIN(NTLMSSP):
 
         # Create NetlogonClient with PRIVACY
         client = NetlogonClient()
-        client.connect_and_bind(self.DC_IP)
+        client.connect(self.DC_HOST)
 
         # Establish the Netlogon secure channel (this will bind)
         try:
@@ -2082,15 +2089,17 @@ class NTLMSSP_DOMAIN(NTLMSSP):
                 # Login via classic NetlogonSSP
                 client.establish_secure_channel(
                     mode=NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticate3,
-                    computername=self.COMPUTER_NB_NAME,
-                    domainname=self.DOMAIN_NB_NAME,
+                    UPN=f"{self.COMPUTER_NB_NAME}@{self.DOMAIN_NB_NAME}",
+                    DC_FQDN=self.DC_FQDN,
                     HashNt=self.HASHNT,
                 )
             else:
                 # Login via KerberosSSP (Windows 2025)
-                # TODO
                 client.establish_secure_channel(
                     mode=NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticateKerberos,
+                    UPN=self.UPN,
+                    DC_FQDN=self.DC_FQDN,
+                    ssp=self.ssp,
                 )
         except ValueError:
             log_runtime.warning(
