@@ -390,6 +390,9 @@ class EncryptedData(ASN1_Packet):
             elif isinstance(self.underlayer, KRB_AS_REP):
                 # AS-REP encrypted part
                 return 3, EncASRepPart
+            elif isinstance(self.underlayer, KRB_KDC_REQ_BODY):
+                # KDC-REQ enc-authorization-data
+                return 4, AuthorizationData
             elif isinstance(self.underlayer, KRB_AP_REQ) and isinstance(
                 self.underlayer.underlayer, PADATA
             ):
@@ -982,9 +985,10 @@ _AUTHORIZATIONDATA_VALUES[141] = KERB_AD_RESTRICTION_ENTRY
 class KERB_AUTH_DATA_AP_OPTIONS(Packet):
     name = "KERB-AUTH-DATA-AP-OPTIONS"
     fields_desc = [
-        LEIntEnumField(
+        FlagsField(
             "apOptions",
             0x4000,
+            -32,
             {
                 0x4000: "KERB_AP_OPTIONS_CBT",
                 0x8000: "KERB_AP_OPTIONS_UNVERIFIED_TARGET_NAME",
@@ -1809,6 +1813,12 @@ class KRB_AS_REP(ASN1_Packet):
         implicit_tag=ASN1_Class_KRB.AS_REP,
     )
 
+    def getUPN(self):
+        return "%s@%s" % (
+            self.cname.toString(),
+            self.crealm.val.decode(),
+        )
+
 
 class KRB_TGS_REP(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
@@ -2420,11 +2430,11 @@ class KRB_AuthenticatorChecksum(Packet):
             },
         ),
         ConditionalField(
-            LEShortField("DlgOpt", 0),
+            LEShortField("DlgOpt", 1),
             lambda pkt: pkt.Flags.GSS_C_DELEG_FLAG,
         ),
         ConditionalField(
-            FieldLenField("Dlgth", None, length_of="Deleg"),
+            FieldLenField("Dlgth", None, length_of="Deleg", fmt="<H"),
             lambda pkt: pkt.Flags.GSS_C_DELEG_FLAG,
         ),
         ConditionalField(
@@ -3021,8 +3031,8 @@ class KerberosClient(Automaton):
     :param dmsa: sets the 'unconditional delegation' mode for DMSA TGT retrieval
     """
 
-    RES_AS_MODE = namedtuple("AS_Result", ["asrep", "sessionkey", "kdcrep"])
-    RES_TGS_MODE = namedtuple("TGS_Result", ["tgsrep", "sessionkey", "kdcrep"])
+    RES_AS_MODE = namedtuple("AS_Result", ["asrep", "sessionkey", "kdcrep", "upn"])
+    RES_TGS_MODE = namedtuple("TGS_Result", ["tgsrep", "sessionkey", "kdcrep", "upn"])
 
     class MODE(IntEnum):
         AS_REQ = 0
@@ -3120,7 +3130,7 @@ class KerberosClient(Automaton):
                 x509 = Cert(x509)
             if not isinstance(x509key, PrivKey):
                 x509key = PrivKey(x509key)
-        if not isinstance(ca, CertList):
+        if ca and not isinstance(ca, CertList):
             ca = CertList(ca)
 
         if mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
@@ -4037,7 +4047,12 @@ class KerberosClient(Automaton):
         # Decrypt AS-REP response
         enc = pkt.root.encPart
         res = enc.decrypt(self.replykey)
-        self.result = self.RES_AS_MODE(pkt.root, res.key.toKey(), res)
+        self.result = self.RES_AS_MODE(
+            pkt.root,
+            res.key.toKey(),
+            res,
+            pkt.root.getUPN(),
+        )
 
     @ATMT.receive_condition(SENT_TGS_REQ)
     def receive_krb_error_tgs_req(self, pkt):
@@ -4108,7 +4123,12 @@ class KerberosClient(Automaton):
             res = enc.decrypt(self.replykey)
 
         # Store result
-        self.result = self.RES_TGS_MODE(pkt.root, res.key.toKey(), res)
+        self.result = self.RES_TGS_MODE(
+            pkt.root,
+            res.key.toKey(),
+            res,
+            self.upn,
+        )
 
     @ATMT.state(final=1)
     def FINAL(self):
@@ -4315,8 +4335,9 @@ def krb_as_and_tgs(upn, spn, ip=None, key=None, password=None, **kwargs):
     res = krb_as_req(upn=upn, ip=ip, key=key, password=password, **kwargs)
     if not res:
         return
+
     return krb_tgs_req(
-        upn=upn,
+        upn=res.upn,  # UPN might get canonicalized
         spn=spn,
         sessionkey=res.sessionkey,
         ticket=res.asrep.ticket,
@@ -4640,6 +4661,7 @@ class KerberosSSP(SSP):
         self.KEY = KEY
         self.SPN = SPN
         self.TGT = TGT
+        self.TGTSessionKey = None
         self.PASSWORD = PASSWORD
         self.U2U = U2U
         self.DC_IP = DC_IP
@@ -5043,12 +5065,14 @@ class KerberosSSP(SSP):
         if Context.state in [self.STATE.INIT, self.STATE.CLI_SENT_TGTREQ]:
             if not self.UPN:
                 raise ValueError("Missing UPN attribute")
+
             # Do we have a ST?
             if self.ST is None:
                 # Client sends an AP-req
                 if not self.SPN and not target_name:
                     raise ValueError("Missing SPN/target_name attribute")
                 additional_tickets = []
+
                 if self.U2U:
                     try:
                         # GSSAPI / Kerberos
@@ -5063,39 +5087,54 @@ class KerberosSSP(SSP):
                         tgt_rep.show()
                         raise ValueError("KerberosSSP: Unexpected token !")
                     additional_tickets = [tgt_rep.ticket]
-                if self.TGT is not None:
-                    if not self.KEY:
-                        raise ValueError("Cannot use TGT without the KEY")
-                    # Use TGT
-                    res = krb_tgs_req(
+
+                if self.TGT is None:
+                    # Get TGT. We were passed a kerberos key
+                    res = krb_as_req(
                         upn=self.UPN,
-                        spn=self.SPN or target_name,
-                        ip=self.DC_IP,
-                        sessionkey=self.KEY,
-                        ticket=self.TGT,
-                        additional_tickets=additional_tickets,
-                        u2u=self.U2U,
-                        debug=self.debug,
-                    )
-                else:
-                    # Ask for TGT then ST
-                    res = krb_as_and_tgs(
-                        upn=self.UPN,
-                        spn=self.SPN or target_name,
                         ip=self.DC_IP,
                         key=self.KEY,
                         password=self.PASSWORD,
-                        additional_tickets=additional_tickets,
-                        u2u=self.U2U,
                         debug=self.debug,
                     )
+                    # Update UPN (could have been canonicalized)
+                    self.UPN = res.upn
+
+                    # Store TGT, 
+                    self.TGT = res.asrep.ticket
+                    self.TGTSessionKey = res.sessionkey
+                else:
+                    # We have a TGT and were passed its key
+                    self.TGTSessionKey = self.KEY
+
+                # Get ST
+                if not self.TGTSessionKey:
+                    raise ValueError("Cannot use TGT without the KEY")
+
+                res = krb_tgs_req(
+                    upn=self.UPN,
+                    spn=self.SPN or target_name,
+                    ip=self.DC_IP,
+                    sessionkey=self.TGTSessionKey,
+                    ticket=self.TGT,
+                    additional_tickets=additional_tickets,
+                    u2u=self.U2U,
+                    debug=self.debug,
+                )
                 if not res:
                     # Failed to retrieve the ticket
                     return Context, None, GSS_S_FAILURE
-                self.ST, self.KEY = res.tgsrep.ticket, res.sessionkey
+
+                # Store the service ticket and associated key
+                self.ST, Context.STSessionKey = res.tgsrep.ticket, res.sessionkey
             elif not self.KEY:
                 raise ValueError("Must provide KEY with ST")
-            Context.STSessionKey = self.KEY
+            else:
+                # We were passed a ST and its key
+                Context.STSessionKey = self.KEY
+
+                if Context.flags & GSS_C_FLAGS.GSS_C_DELEG_FLAG:
+                    raise ValueError("Cannot use GSS_C_DELEG_FLAG when passed a service ticket !")
 
             # Save ServerHostname
             if len(self.ST.sname.nameString) == 2:
@@ -5127,25 +5166,49 @@ class KerberosSSP(SSP):
             # Get the realm of the client
             _, crealm = _parse_upn(self.UPN)
 
+            # Build the RFC4121 authenticator checksum
+            authenticator_checksum = KRB_AuthenticatorChecksum(
+                # RFC 4121 sect 4.1.1.2
+                # "The Bnd field contains the MD5 hash of channel bindings"
+                Bnd=(
+                    chan_bindings.digestMD5()
+                    if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS
+                    else (b"\x00" * 16)
+                ),
+                Flags=int(Context.flags),
+            )
+
+            if Context.flags & GSS_C_FLAGS.GSS_C_DELEG_FLAG:
+                # Delegate TGT
+                raise NotImplementedError("GSS_C_DELEG_FLAG is not implemented !")
+                # authenticator_checksum.Deleg = KRB_CRED(
+                #     tickets=[self.TGT],
+                #     encPart=EncryptedData()
+                # )
+                # authenticator_checksum.encPart.encrypt(
+                #     Context.STSessionKey,
+                #     EncKrbCredPart(
+                #         ticketInfo=KrbCredInfo(
+                #             key=EncryptionKey.fromKey(self.TGTSessionKey),
+                #             prealm=ASN1_GENERAL_STRING(crealm),
+                #             pname=PrincipalName.fromUPN(self.UPN),
+                #             # TODO: rework API to pass starttime... here.
+                #             sreralm=self.TGT.realm,
+                #             sname=self.TGT.sname,
+                #         )
+                #     )
+                # )
+
+
             # Build and encrypt the full KRB_Authenticator
             ap_req.authenticator.encrypt(
                 Context.STSessionKey,
                 KRB_Authenticator(
                     crealm=crealm,
                     cname=PrincipalName.fromUPN(self.UPN),
-                    # RFC 4121 checksum
                     cksum=Checksum(
                         cksumtype="KRB-AUTHENTICATOR",
-                        checksum=KRB_AuthenticatorChecksum(
-                            # RFC 4121 sect 4.1.1.2
-                            # "The Bnd field contains the MD5 hash of channel bindings"
-                            Bnd=(
-                                chan_bindings.digestMD5()
-                                if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS
-                                else (b"\x00" * 16)
-                            ),
-                            Flags=int(Context.flags),
-                        ),
+                        checksum=authenticator_checksum
                     ),
                     ctime=ASN1_GENERALIZED_TIME(now_time),
                     cusec=ASN1_INTEGER(0),
@@ -5510,19 +5573,21 @@ class KerberosSSP(SSP):
                 Context.state = self.STATE.CLI_SENT_APREQ
             else:
                 Context.state = self.STATE.FAILED
-            return Context, status
         elif Context.state == self.STATE.CLI_SENT_APREQ:
             Context, _, status = self.GSS_Init_sec_context(
                 Context, token, req_flags=req_flags
             )
             if status == GSS_S_COMPLETE:
+                if req_flags & GSS_C_FLAGS.GSS_C_DCE_STYLE:
+                    status = GSS_S_CONTINUE_NEEDED
                 Context.state = self.STATE.SRV_SENT_APREP
             else:
                 Context.state == self.STATE.FAILED
-            return Context, status
+        else:
+            # Unknown state. Don't crash though.
+            status = GSS_S_FAILURE
 
-        # Unknown state. Don't crash though.
-        return Context, GSS_S_FAILURE
+        return Context, status
 
     def GSS_Passive_set_Direction(self, Context: CONTEXT, IsAcceptor=False):
         if Context.IsAcceptor is not IsAcceptor:
