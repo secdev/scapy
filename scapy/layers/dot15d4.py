@@ -91,7 +91,7 @@ class dot15d4AddressField(Field):
                 if pkttop.underlayer is None:
                     break
                 pkttop = pkttop.underlayer
-        # print "Underlayer field value of", x, "is", addrmode
+        # print("Underlayer field value of", x, "is", addrmode)
         if addrmode == 2:
             return 2
         elif addrmode == 3:

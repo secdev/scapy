@@ -124,13 +124,13 @@ BASE = 65521 # largest prime smaller than 65536
 def update_adler32(adler, buf):
     s1 = adler & 0xffff
     s2 = (adler >> 16) & 0xffff
-    print s1,s2
+    print(s1, s2)
 
     for c in buf:
-        print orb(c)
+        print(orb(c))
         s1 = (s1 + orb(c)) % BASE
         s2 = (s2 + s1) % BASE
-        print s1,s2
+        print(s1, s2)
     return (s2 << 16) + s1
 
 def sctp_checksum(buf):

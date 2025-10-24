@@ -502,8 +502,8 @@ A TCP traceroute::
     ***......
     Received 33 packets, got 21 answers, remaining 1 packets
     >>> for snd,rcv in ans:
-    ...     print snd.ttl, rcv.src, isinstance(rcv.payload, TCP)
-    ... 
+    ...     print(snd.ttl, rcv.src, isinstance(rcv.payload, TCP))
+    ...
     5 194.51.159.65 0
     6 194.51.159.49 0
     4 194.250.107.181 0
@@ -1644,7 +1644,7 @@ In this case we got 2 replies, so there were two active DHCP servers on the test
 
 We are only interested in the MAC and IP addresses of the replies: 
 
-    >>> for p in ans: print p[1][Ether].src, p[1][IP].src
+    >>> for p in ans: print(p[1][Ether].src, p[1][IP].src)
     ...
     00:de:ad:be:ef:00 192.168.1.1
     00:11:11:22:22:33 192.168.1.11
@@ -1670,16 +1670,16 @@ Firewalking
 TTL decrementation after a filtering operation 
 only not filtered packets generate an ICMP TTL exceeded 
 
-    >>> ans, unans = sr(IP(dst="172.16.4.27", ttl=16)/TCP(dport=(1,1024))) 
-    >>> for s,r in ans: 
-            if r.haslayer(ICMP) and r.payload.type == 11: 
-                print s.dport 
+    >>> ans, unans = sr(IP(dst="172.16.4.27", ttl=16)/TCP(dport=(1,1024)))
+    >>> for s,r in ans:
+    ...     if r.haslayer(ICMP) and r.payload.type == 11:
+    ...         print(s.dport)
 
 Find subnets on a multi-NIC firewall 
 only his own NIC’s IP are reachable with this TTL:: 
 
-    >>> ans, unans = sr(IP(dst="172.16.5/24", ttl=15)/TCP()) 
-    >>> for i in unans: print i.dst
+    >>> ans, unans = sr(IP(dst="172.16.5/24", ttl=15)/TCP())
+    >>> for i in unans: print(i.dst)
 
 
 TCP Timestamp Filtering
