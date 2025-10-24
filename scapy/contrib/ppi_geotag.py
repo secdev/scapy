@@ -198,7 +198,7 @@ class VectorFlags_Field(XLEIntField):
                     pass
         else:
             y = x
-        # print "any2i: %s --> %s" % (str(x), str(y))
+        # print("any2i: %s --> %s" % (str(x), str(y)))
         return y
 
 
