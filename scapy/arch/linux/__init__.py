@@ -21,7 +21,7 @@ import time
 
 from scapy.compat import raw
 from scapy.consts import LINUX
-from scapy.arch.common import compile_filter
+from scapy.arch.common import compile_filter, free_filter
 from scapy.config import conf
 from scapy.data import MTU, ETH_P_ALL, SOL_PACKET, SO_ATTACH_FILTER, \
     SO_TIMESTAMPNS
@@ -130,13 +130,14 @@ def attach_filter(sock, bpf_filter, iface):
     if conf.use_pypy and sys.pypy_version_info <= (7, 3, 2):  # type: ignore
         # PyPy < 7.3.2 has a broken behavior
         # https://foss.heptapod.net/pypy/pypy/-/issues/3298
-        bp = struct.pack(  # type: ignore
+        fp = struct.pack(
             'HL',
             bp.bf_len, ctypes.addressof(bp.bf_insns.contents)
         )
     else:
-        bp = sock_fprog(bp.bf_len, bp.bf_insns)  # type: ignore
-    sock.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, bp)
+        fp = sock_fprog(bp.bf_len, bp.bf_insns)  # type: ignore
+    sock.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, fp)
+    free_filter(bp)
 
 
 def set_promisc(s, iff, val=1):

@@ -14,7 +14,7 @@ import socket
 import struct
 
 from scapy.arch.bpf.consts import BIOCSETF, BIOCSETIF
-from scapy.arch.common import compile_filter
+from scapy.arch.common import compile_filter, free_filter
 from scapy.config import conf
 from scapy.consts import LINUX
 from scapy.error import Scapy_Exception
@@ -76,6 +76,8 @@ def attach_filter(fd, bpf_filter, iface):
     ret = fcntl.ioctl(fd, BIOCSETF, bp)
     if ret < 0:
         raise Scapy_Exception("Can't attach the BPF filter !")
+    # Free
+    free_filter(bp)
 
 
 def in6_getifaddr():
