@@ -261,7 +261,7 @@ def check_WiFi_am_reply(packet):
     assert isinstance(packet, list) and len(packet) == 2
     assert TCP in packet[0] and Raw in packet[0] and raw(packet[0][Raw]) == b"5c4pY"
 
-test_WiFi_am(Dot11(FCfield="to-DS")/IP()/TCP()/"Scapy",
+test_WiFi_am(Dot11(FCfield="to_DS")/IP()/TCP()/"Scapy",
              check_WiFi_am_reply,
              iffrom="scapy0", ifto="scapy1", replace="5c4pY", pattern="Scapy")
 
