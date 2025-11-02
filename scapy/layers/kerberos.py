@@ -3136,7 +3136,7 @@ class KerberosClient(Automaton):
         if mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
             if not host:
                 raise ValueError("Invalid host")
-            if x509 is None and (not x509key or not ca):
+            if x509 is not None and (not x509key or not ca):
                 raise ValueError("Must provide both 'x509', 'x509key' and 'ca' !")
         elif mode == self.MODE.TGS_REQ:
             if not ticket:
