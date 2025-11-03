@@ -146,7 +146,6 @@ from scapy.layers.gssapi import (
 )
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.smb import _NV_VERSION
-from scapy.layers.smb2 import STATUS_ERREF
 from scapy.layers.tls.cert import (
     Cert,
     CertList,
@@ -161,6 +160,7 @@ from scapy.layers.tls.crypto.hash import (
     Hash_SHA512,
 )
 from scapy.layers.tls.crypto.groups import _ffdh_groups
+from scapy.layers.windows.erref import STATUS_ERREF
 from scapy.layers.x509 import (
     _CMS_ENCAPSULATED,
     CMS_ContentInfo,

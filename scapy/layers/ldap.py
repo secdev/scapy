@@ -99,7 +99,7 @@ from scapy.layers.smb import (
     NETLOGON,
     NETLOGON_SAM_LOGON_RESPONSE_EX,
 )
-from scapy.layers.smb2 import STATUS_ERREF
+from scapy.layers.windows.erref import STATUS_ERREF
 
 # Typing imports
 from typing import (

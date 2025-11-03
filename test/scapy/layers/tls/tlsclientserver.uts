@@ -102,7 +102,7 @@ def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=
 def wait_tls_test_server_online():
     t = time.time()
     while True:
-        if time.time() - t > 1:
+        if time.time() - t > 3:
             raise RuntimeError("Server socket failed to start in time")
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -116,6 +116,7 @@ def wait_tls_test_server_online():
                 s.close()
             except:
                 pass
+            time.sleep(0.1)
             continue
 
 
@@ -176,7 +177,11 @@ def test_tls_server(suite="", version="", tls13=False, client_auth=False, psk=No
     atmtsrv = q_.get(timeout=5)
     if not atmtsrv:
         raise RuntimeError("Server hanged on startup")
-    wait_tls_test_server_online()
+    try:
+        wait_tls_test_server_online()
+    except Exception as ex:
+        atmtsrv.stop()
+        raise ex
     print("Thread synchronised")
     # Run openssl client
     run_openssl_client(msg, suite=suite, version=version, tls13=tls13, client_auth=client_auth, psk=psk)
@@ -297,7 +302,11 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
     atmtsrv = q_.get(timeout=5)
     if not atmtsrv:
         raise RuntimeError("Server hanged on startup")
-    wait_tls_test_server_online()
+    try:
+        wait_tls_test_server_online()
+    except Exception as ex:
+        atmtsrv.stop()
+        raise ex
     print("Thread synchronised")
     # Run client
     if sess_in_out:
