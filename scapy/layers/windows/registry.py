@@ -5,8 +5,9 @@
 """
 This file implements Windows Registry related high level functions.
 It provides easy to use functions to manipulate the registry.
-If you want to tweak low level fields see directly scapy.layers.msrpce.raw.ms_rrp.
-Otherwise, this module should hopefully provide everything you need.
+If you want to tweak low level fields see directly
+scapy.layers.msrpce.raw.ms_rrp. Otherwise, this module should
+hopefully provide everything you need.
 """
 
 from enum import StrEnum, IntEnum, IntFlag
@@ -16,10 +17,7 @@ from scapy.packet import Packet
 from scapy.error import log_runtime
 
 from scapy.layers.windows.security import (
-    RegKeySpecificAccessRights,
-    GenericAccessRights,
     SECURITY_DESCRIPTOR,
-    Windows_Access_Rights,
 )
 from scapy.layers.msrpce.rpcclient import DCERPC_Client
 from scapy.layers.dcerpc import (
@@ -236,20 +234,21 @@ class RegType(IntEnum):
         :param value: The string representation of the registry type.
         :return: The corresponding RegType enum member.
         """
-
         if isinstance(value, int):
             try:
                 return cls(value)
             except ValueError:
                 log_runtime.info(f"Unknown registry type: {value}, using UNK")
                 return cls.UNK
-
-        value = value.strip().upper()
-        try:
-            return cls(int(value))
-        except (ValueError, KeyError):
-            log_runtime.info(f"Unknown registry type: {value}, using UNK")
-        return cls.UNK
+        else:
+            value = value.strip().upper()
+            if "_" not in value:
+                value = "REG_" + value.lstrip("REG")
+            try:
+                return cls[value]
+            except (ValueError, KeyError):
+                log_runtime.info(f"Unknown registry type: {value}, using UNK")
+            return cls.UNK
 
 
 class RegEntry:
@@ -387,19 +386,6 @@ class RegEntry:
         )
 
 
-class RegAccessRights(Windows_Access_Rights):
-    """
-    Registry specific access rights.
-    These access rights are used to specify the
-    desired access rights for registry keys.
-    They are used in combination with standard access
-    rights defined in Windows_Access_Rights.
-    """
-
-    def __init__(self, value: int = 0):
-        super().__init__(specific_access_rights=RegKeySpecificAccessRights, value=value)
-
-
 class RegApi:
     """
     High level Windows Registry API functions.
@@ -434,7 +420,7 @@ class RegApi:
     def get_root_key_handle(
         client: DCERPC_Client,
         root_key_name: RootKeys,
-        sam_desired: RegAccessRights | int = GenericAccessRights.MAXIMUM_ALLOWED,
+        sam_desired: int = 0x2000000,  # Maximum Allowed
         ndr64: bool = True,
         timeout: int = 5,
     ) -> Optional[NDRContextHandle]:
@@ -532,9 +518,7 @@ class RegApi:
         client: DCERPC_Client,
         root_key_handle: NDRContextHandle,
         subkey_path: str,
-        desired_access_rights: (
-            RegAccessRights | int
-        ) = GenericAccessRights.MAXIMUM_ALLOWED,
+        desired_access_rights: int = 0x2000000,  # Maximum Allowed
         options: RegOptions = RegOptions.REG_OPTION_NON_VOLATILE,
         ndr64: bool = True,
         timeout: int = 5,
@@ -991,9 +975,7 @@ class RegApi:
         client: DCERPC_Client,
         root_key_handle: NDRContextHandle,
         subkey_path: str,
-        desired_access_rights: (
-            RegAccessRights | int
-        ) = GenericAccessRights.MAXIMUM_ALLOWED,
+        desired_access_rights: int = 0x2000000,  # Maximum allowed
         options: RegOptions = RegOptions.REG_OPTION_NON_VOLATILE,
         security_attributes: PRPC_SECURITY_ATTRIBUTES = None,
         ndr64: bool = True,
