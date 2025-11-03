@@ -68,7 +68,7 @@ from scapy.layers.ntlm import (
     _NTLMPayloadField,
     _NTLMPayloadPacket,
 )
-from scapy.layers.smb2 import WINNT_SID
+from scapy.layers.windows.win_security import WINNT_SID
 
 # sect 2.4
 
