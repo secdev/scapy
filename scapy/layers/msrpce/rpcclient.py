@@ -50,10 +50,10 @@ from scapy.layers.gssapi import (
     GSS_S_CONTINUE_NEEDED,
     GSS_C_FLAGS,
 )
-from scapy.layers.smb2 import STATUS_ERREF
 from scapy.layers.smbclient import (
     SMB_RPC_SOCKET,
 )
+from scapy.layers.windows.erref import STATUS_ERREF
 
 # RPC
 from scapy.layers.msrpce.ept import (
@@ -331,6 +331,7 @@ class DCERPC_Client(object):
                 print(
                     conf.color_theme.opening(">> REQUEST: %s" % pkt.__class__.__name__)
                 )
+
         # Add sectrailer if first time talking on this interface
         vt_trailer = b""
         if (
@@ -400,6 +401,7 @@ class DCERPC_Client(object):
                 ):
                     resp[DceRpc5Fault].payload.show()
             result = resp
+
         if self.verb and getattr(resp, "status", 0) != 0:
             if resp.status in _DCE_RPC_ERROR_CODES:
                 print(conf.color_theme.fail(f"! {_DCE_RPC_ERROR_CODES[resp.status]}"))

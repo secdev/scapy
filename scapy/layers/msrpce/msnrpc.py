@@ -37,8 +37,8 @@ from scapy.layers.ntlm import RC4, RC4K, RC4Init, MD4le
 from scapy.layers.msrpce.rpcclient import (
     DCERPC_Client,
     DCERPC_Transport,
-    STATUS_ERREF,
 )
+from scapy.layers.windows.erref import STATUS_ERREF
 from scapy.layers.msrpce.raw.ms_nrpc import (
     NetrServerAuthenticate3_Request,
     NetrServerAuthenticate3_Response,
@@ -610,7 +610,7 @@ class NetlogonClient(DCERPC_Client):
 
     def connect(self, host, **kwargs):
         """
-        This calls DCERPC_Client's connect_and_bind to bind the 'logon' interface.
+        This calls DCERPC_Client's connect to bind the 'logon' interface.
         """
         super(NetlogonClient, self).connect(
             host=host,

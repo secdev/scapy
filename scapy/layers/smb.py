@@ -66,11 +66,11 @@ from scapy.layers.gssapi import (
     GSSAPI_BLOB,
 )
 from scapy.layers.smb2 import (
-    STATUS_ERREF,
     SMB2_Compression_Transform_Header,
     SMB2_Header,
     SMB2_Transform_Header,
 )
+from scapy.layers.windows.erref import STATUS_ERREF
 
 
 SMB_COM = {

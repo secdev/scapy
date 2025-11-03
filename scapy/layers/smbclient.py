@@ -57,11 +57,11 @@ from scapy.layers.smb import (
     SMB_Dialect,
     SMB_Header,
 )
+from scapy.layers.windows.security import SECURITY_DESCRIPTOR
 from scapy.layers.smb2 import (
     DirectTCP,
     FileAllInformation,
     FileIdBothDirectoryInformation,
-    SECURITY_DESCRIPTOR,
     SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2,
     SMB2_CREATE_REQUEST_LEASE,
     SMB2_CREATE_REQUEST_LEASE_V2,
@@ -1876,16 +1876,7 @@ class smbclient(CLIUtil):
         Print the output of 'getsd'
         """
         sd = SECURITY_DESCRIPTOR(results)
-        print("Owner:", sd.OwnerSid.summary())
-        print("Group:", sd.GroupSid.summary())
-        if getattr(sd, "DACL", None):
-            print("DACL:")
-            for ace in sd.DACL.Aces:
-                print(" - ", ace.toSDDL())
-        if getattr(sd, "SACL", None):
-            print("SACL:")
-            for ace in sd.SACL.Aces:
-                print(" - ", ace.toSDDL())
+        sd.show_print()
 
 
 if __name__ == "__main__":

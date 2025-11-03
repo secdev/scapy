@@ -55,6 +55,7 @@ from scapy.layers.smb import (
     SMBTree_Connect_AndX,
     SMB_Header,
 )
+from scapy.layers.windows.security import SECURITY_DESCRIPTOR
 from scapy.layers.smb2 import (
     DFS_REFERRAL_ENTRY1,
     DFS_REFERRAL_V3,
@@ -76,7 +77,6 @@ from scapy.layers.smb2 import (
     FileStandardInformation,
     FileStreamInformation,
     NETWORK_INTERFACE_INFO,
-    SECURITY_DESCRIPTOR,
     SMB2_CREATE_DURABLE_HANDLE_RESPONSE_V2,
     SMB2_CREATE_QUERY_MAXIMAL_ACCESS_RESPONSE,
     SMB2_CREATE_QUERY_ON_DISK_ID,
