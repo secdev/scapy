@@ -132,6 +132,14 @@ def compile_filter(filter_exp,  # type: str
     return bpf
 
 
+def free_filter(bp: bpf_program) -> None:
+    """
+    Free a bpf_program created with compile_filter
+    """
+    from scapy.libs.winpcapy import pcap_freecode
+    pcap_freecode(ctypes.byref(bp))
+
+
 #######
 # DNS #
 #######
