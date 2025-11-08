@@ -396,13 +396,17 @@ class OSPF_AS_Scope_Opaque_LSA(OSPF_Link_Scope_Opaque_LSA):
 
 class OSPF_DBDesc(Packet):
     name = "OSPF Database Description"
-    fields_desc = [ShortField("mtu", 1500),
-                   OSPFOptionsField(),
-                   FlagsField("dbdescr", 0, 8, ["MS", "M", "I", "R", "4", "3", "2", "1"]),  # noqa: E501
-                   IntField("ddseq", 1),
-                   PacketListField("lsaheaders", None, OSPF_LSA_Hdr,
-                                   count_from=lambda pkt: None,
-                                   length_from=lambda pkt: pkt.underlayer.len - 24 - 8)]  # noqa: E501
+    fields_desc = [
+        ShortField("mtu", 1500),
+        OSPFOptionsField(),
+        FlagsField("dbdescr", 0, 8, ["MS", "M", "I", "R", "4", "3", "2", "1"]),
+        IntField("ddseq", 1),
+        PacketListField(
+            "lsaheaders", None, OSPF_LSA_Hdr,
+            count_from=lambda pkt: None,
+            length_from=lambda pkt: pkt.underlayer and pkt.underlayer.len - 24 - 8,
+        )
+    ]
 
     def guess_payload_class(self, payload):
         # check presence of LLS data block flag
@@ -424,24 +428,36 @@ class OSPF_LSReq_Item(Packet):
 
 class OSPF_LSReq(Packet):
     name = "OSPF Link State Request (container)"
-    fields_desc = [PacketListField("requests", None, OSPF_LSReq_Item,
-                                   count_from=lambda pkt:None,
-                                   length_from=lambda pkt:pkt.underlayer.len - 24)]  # noqa: E501
+    fields_desc = [
+        PacketListField(
+            "requests", None, OSPF_LSReq_Item,
+            count_from=lambda pkt: None,
+            length_from=lambda pkt: pkt.underlayer and pkt.underlayer.len - 24,
+        )
+    ]
 
 
 class OSPF_LSUpd(Packet):
     name = "OSPF Link State Update"
-    fields_desc = [FieldLenField("lsacount", None, fmt="!I", count_of="lsalist"),  # noqa: E501
-                   PacketListField("lsalist", None, _LSAGuessPayloadClass,
-                                   count_from=lambda pkt: pkt.lsacount,
-                                   length_from=lambda pkt: pkt.underlayer.len - 24)]  # noqa: E501
+    fields_desc = [
+        FieldLenField("lsacount", None, fmt="!I", count_of="lsalist"),
+        PacketListField(
+            "lsalist", None, _LSAGuessPayloadClass,
+            count_from=lambda pkt: pkt.lsacount,
+            length_from=lambda pkt: pkt.underlayer and pkt.underlayer.len - 24,
+        )
+    ]
 
 
 class OSPF_LSAck(Packet):
     name = "OSPF Link State Acknowledgement"
-    fields_desc = [PacketListField("lsaheaders", None, OSPF_LSA_Hdr,
-                                   count_from=lambda pkt: None,
-                                   length_from=lambda pkt: pkt.underlayer.len - 24)]  # noqa: E501
+    fields_desc = [
+        PacketListField(
+            "lsaheaders", None, OSPF_LSA_Hdr,
+            count_from=lambda pkt: None,
+            length_from=lambda pkt: pkt.underlayer and pkt.underlayer.len - 24,
+        )
+    ]
 
     def answers(self, other):
         if isinstance(other, OSPF_LSUpd):
