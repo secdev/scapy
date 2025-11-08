@@ -332,7 +332,7 @@ class KrackAP(Automaton):
         ])
 
     def send_wpa_enc(self, data, iv, seqnum, dest, mic_key,
-                     key_idx=0, additionnal_flag=["from-DS"],
+                     key_idx=0, additionnal_flag=["from_DS"],
                      encrypt_key=None):
         """Send an encrypted packet with content @data, using IV @iv,
         sequence number @seqnum, MIC key @mic_key
@@ -551,7 +551,7 @@ class KrackAP(Automaton):
             addr1=self.client,
             addr2=self.mac,
             addr3=self.mac,
-            FCfield='from-DS',
+            FCfield='from_DS',
             SC=(next(self.seq_num) << 4),
         )
         rep /= LLC(dsap=0xaa, ssap=0xaa, ctrl=3)
@@ -595,7 +595,7 @@ class KrackAP(Automaton):
             addr1=self.client,
             addr2=self.mac,
             addr3=self.mac,
-            FCfield='from-DS',
+            FCfield='from_DS',
             SC=(next(self.seq_num) << 4),
         )
 
@@ -652,7 +652,7 @@ class KrackAP(Automaton):
                 addr1=self.client,
                 addr2=self.mac,
                 addr3=self.mac,
-                FCfield='from-DS',
+                FCfield='from_DS',
                 SC=(next(self.seq_num) << 4),
                 subtype=0,
                 type="Data",
