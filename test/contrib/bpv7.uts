@@ -1,0 +1,100 @@
+% Bundle Protocol Version 7 tests for Scapy
+
++ BPv7 EID
+
+= decode human DTN
+
+from scapy.contrib.bpv7 import *
+fld = BundleEidField('eid')
+ival = fld.h2i(None, 'dtn://node/pa/th')
+data = fld.addfield(None, b'', fld.i2m(None, ival))
+print(data.hex())
+assert data == bytes.fromhex('82016C2F2F6E6F64652F70612F7468')
+
+= decode human IPN 2-element
+
+from scapy.contrib.bpv7 import *
+fld = BundleEidField('eid')
+ival = fld.h2i(None, 'ipn:4294967298.3')
+data = fld.addfield(None, b'', fld.i2m(None, ival))
+print(data.hex())
+assert data == bytes.fromhex('8202821B000000010000000203')
+
+= decode human IPN 3-element
+
+from scapy.contrib.bpv7 import *
+fld = BundleEidField('eid')
+ival = fld.h2i(None, 'ipn:1.2.3')
+data = fld.addfield(None, b'', fld.i2m(None, ival))
+print(data.hex())
+assert data == bytes.fromhex('820283010203')
+
++ BPv7 CODEC
+
+= construction
+
+from scapy.contrib.bpv7 import *
+pkt = BundleV7()
+
+= decoding example from Appendix A.1.1.3 of RFC 9173
+
+from scapy.contrib.bpv7 import *
+data = bytes.fromhex('9f88070000820282010282028202018202820201820018281a000f424085010100005823526561647920746f2067656e657261746520612033322d62797465207061796c6f6164ff')
+pkt = BundleV7(data)
+print(repr(pkt))
+pkt.show()
+assert pkt.primary.source == 'ipn:2.1'
+assert pkt.primary.destination == 'ipn:1.2'
+
+pkt.clear_cache()
+outdata = bytes(pkt)
+print(outdata.hex())
+assert outdata == data
+
+= decoding example from Appendix A.1.1.4 of RFC 9173
+
+from scapy.contrib.bpv7 import *
+data = bytes.fromhex('9f88070000820282010282028202018202820201820018281a000f424085070200004319012c85010100005823526561647920746f2067656e657261746520612033322d62797465207061796c6f6164ff')
+pkt = BundleV7(data)
+print(repr(pkt))
+pkt.show()
+assert pkt.primary.source == 'ipn:2.1'
+assert pkt.primary.destination == 'ipn:1.2'
+
+pkt.clear_cache()
+outdata = bytes(pkt)
+print(outdata.hex())
+assert outdata == data
+
+= decoding example from Appendix A.1.4 of RFC 9173
+
+from scapy.contrib.bpv7 import *
+data = bytes.fromhex('9f88070000820282010282028202018202820201820018281a000f4240850b0200005856810101018202820201828201078203008181820158403bdc69b3a34a2b5d3a8554368bd1e808f606219d2a10a846eae3886ae4ecc83c4ee550fdfb1cc636b904e2f1a73e303dcd4b6ccece003e95e8164dcc89a156e185010100005823526561647920746f2067656e657261746520612033322d62797465207061796c6f6164ff')
+pkt = BundleV7(data)
+print(repr(pkt))
+pkt.show()
+assert pkt.blocks[0].type_code == 11
+assert pkt.blocks[0].payload.targets == [1]
+assert pkt.blocks[0].payload.context_id == 1
+assert pkt.blocks[0].payload.source == 'ipn:2.1'
+
+pkt.clear_cache()
+outdata = bytes(pkt)
+print(outdata.hex())
+assert outdata == data
+
+
+= decoding example from Appendix A of draft-dtn-bpsec-cose
+
+from scapy.contrib.bpv7 import *
+data = bytes.fromhex('9f880700008201692f2f6473742f7376638201692f2f7372632f7376638201662f2f7372632f821b000000bd51281400001a000f42408501010000466568656c6c6fff')
+pkt = BundleV7(data)
+print(repr(pkt))
+pkt.show()
+assert pkt.primary.source == 'dtn://src/svc'
+assert pkt.primary.destination == 'dtn://dst/svc'
+
+pkt.clear_cache()
+outdata = bytes(pkt)
+print(outdata.hex())
+assert outdata == data
