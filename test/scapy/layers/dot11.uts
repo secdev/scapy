@@ -99,6 +99,7 @@ assert raw(PPI()/Dot11(type=2, subtype=8, FCfield=0x40)/Dot11QoS()/Dot11WEP()) =
 conf.wepkey = "test123"
 a = PPI(b'\x00\x00\x08\x00i\x00\x00\x00\x88@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x008(^a')
 assert a[Dot11QoS][Dot11WEP].icv == 942169697
+assert not a[Dot11].FCfield.to_DS
 
 = Dot11TKIP - dissection
 
