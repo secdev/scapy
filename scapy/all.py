@@ -43,6 +43,10 @@ from scapy.asn1.asn1 import *
 from scapy.asn1.ber import *
 from scapy.asn1.mib import *
 
+from scapy.cbor import *
+from scapy.cborfields import *
+from scapy.cborpacket import *
+
 from scapy.pipetool import *
 from scapy.scapypipes import *
 
