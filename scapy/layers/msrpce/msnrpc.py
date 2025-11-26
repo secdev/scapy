@@ -676,7 +676,7 @@ class NetlogonClient(DCERPC_Client):
         :param mode: one of NETLOGON_SECURE_CHANNEL_METHOD. This defines which method
                      to use to establish the secure channel.
         :param UPN: the UPN of the computer account name that is used to establish
-                    the secure channel. (e.g. WIN10@domain.local)
+                    the secure channel. (e.g. WIN10$@domain.local)
         :param DC_FQDN: the FQDN name of the DC.
 
         The function then requires one of the following:
@@ -687,6 +687,10 @@ class NetlogonClient(DCERPC_Client):
         :param ssp: a KerberosSSP to use (in Kerberos mode)
         """
         computername, domainname = _parse_upn(UPN)
+        # We need to normalize here, since the functions require both the accountname
+        # and the normal (no dollar) computer name.
+        if computername.endswith("$"):
+            computername = computername[:-1]
 
         if mode == NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticate3:
             if ssp or KEY:
@@ -858,7 +862,11 @@ class NetlogonClient(DCERPC_Client):
                     ndrendian=self.ndrendian,
                 )
             )
-            if netr_server_authkerb_response.status != 0:
+            if (
+                NetrServerAuthenticateKerberos_Response
+                not in netr_server_authkerb_response
+                or netr_server_authkerb_response.status != 0
+            ):
                 # An error occured
                 netr_server_authkerb_response.show()
                 raise ValueError("NetrServerAuthenticateKerberos failed !")

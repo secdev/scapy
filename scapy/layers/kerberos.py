@@ -5100,7 +5100,7 @@ class KerberosSSP(SSP):
                     # Update UPN (could have been canonicalized)
                     self.UPN = res.upn
 
-                    # Store TGT, 
+                    # Store TGT,
                     self.TGT = res.asrep.ticket
                     self.TGTSessionKey = res.sessionkey
                 else:
@@ -5134,7 +5134,9 @@ class KerberosSSP(SSP):
                 Context.STSessionKey = self.KEY
 
                 if Context.flags & GSS_C_FLAGS.GSS_C_DELEG_FLAG:
-                    raise ValueError("Cannot use GSS_C_DELEG_FLAG when passed a service ticket !")
+                    raise ValueError(
+                        "Cannot use GSS_C_DELEG_FLAG when passed a service ticket !"
+                    )
 
             # Save ServerHostname
             if len(self.ST.sname.nameString) == 2:
@@ -5199,7 +5201,6 @@ class KerberosSSP(SSP):
                 #     )
                 # )
 
-
             # Build and encrypt the full KRB_Authenticator
             ap_req.authenticator.encrypt(
                 Context.STSessionKey,
@@ -5207,8 +5208,7 @@ class KerberosSSP(SSP):
                     crealm=crealm,
                     cname=PrincipalName.fromUPN(self.UPN),
                     cksum=Checksum(
-                        cksumtype="KRB-AUTHENTICATOR",
-                        checksum=authenticator_checksum
+                        cksumtype="KRB-AUTHENTICATOR", checksum=authenticator_checksum
                     ),
                     ctime=ASN1_GENERALIZED_TIME(now_time),
                     cusec=ASN1_INTEGER(0),

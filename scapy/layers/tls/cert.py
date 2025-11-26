@@ -140,12 +140,13 @@ if conf.crypto_valid:
 # loading huge file when importing a cert
 _MAX_KEY_SIZE = 50 * 1024
 _MAX_CERT_SIZE = 50 * 1024
-_MAX_CRL_SIZE = 10 * 1024 * 1024   # some are that big
+_MAX_CRL_SIZE = 10 * 1024 * 1024  # some are that big
 
 
 #####################################################################
 # Some helpers
 #####################################################################
+
 
 @conf.commands.register
 def der2pem(der_string, obj="UNKNOWN"):
@@ -153,8 +154,10 @@ def der2pem(der_string, obj="UNKNOWN"):
     # Encode a byte string in PEM format. Header advertises <obj> type.
     pem_string = "-----BEGIN %s-----\n" % obj
     base64_string = base64.b64encode(der_string).decode()
-    chunks = [base64_string[i:i + 64] for i in range(0, len(base64_string), 64)]  # noqa: E501
-    pem_string += '\n'.join(chunks)
+    chunks = [
+        base64_string[i : i + 64] for i in range(0, len(base64_string), 64)
+    ]  # noqa: E501
+    pem_string += "\n".join(chunks)
     pem_string += "\n-----END %s-----\n" % obj
     return pem_string
 
@@ -215,7 +218,7 @@ class _PKIObjMaker(type):
             raise Exception(error_msg)
         obj_path = bytes_encode(obj_path)
 
-        if (b'\x00' not in obj_path) and os.path.isfile(obj_path):
+        if (b"\x00" not in obj_path) and os.path.isfile(obj_path):
             _size = os.path.getsize(obj_path)
             if _size > obj_max_size:
                 raise Exception(error_msg)
@@ -232,7 +235,7 @@ class _PKIObjMaker(type):
                 frmt = "PEM"
                 pem = _raw
                 der_list = split_pem(pem)
-                der = b''.join(map(pem2der, der_list))
+                der = b"".join(map(pem2der, der_list))
             else:
                 frmt = "DER"
                 der = _raw
@@ -251,12 +254,14 @@ class _PKIObjMaker(type):
 # Public Keys #
 ###############
 
+
 class _PubKeyFactory(_PKIObjMaker):
     """
     Metaclass for PubKey creation.
     It casts the appropriate class on the fly, then fills in
     the appropriate attributes with import_from_asn1pkt() submethod.
     """
+
     def __call__(cls, key_path=None, cryptography_obj=None):
         # This allows to import cryptography objects directly
         if cryptography_obj is not None:
@@ -326,11 +331,11 @@ class PubKey(metaclass=_PubKeyFactory):
     """
 
     def verifyCert(self, cert):
-        """ Verifies either a Cert or an X509_Cert. """
+        """Verifies either a Cert or an X509_Cert."""
         h = cert.getSignatureHashName()
         tbsCert = cert.tbsCertificate
         sigVal = bytes(cert.signatureValue)
-        return self.verify(bytes(tbsCert), sigVal, h=h, t='pkcs')
+        return self.verify(bytes(tbsCert), sigVal, h=h, t="pkcs")
 
     @property
     def pem(self):
@@ -378,6 +383,7 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
     Wrapper for RSA keys based on _EncryptAndVerifyRSA from crypto/pkcs1.py
     Use the 'key' attribute to access original object.
     """
+
     @crypto_validator
     def fill_and_store(self, modulus=None, modulusLen=None, pubExp=None):
         pubExp = pubExp or 65537
@@ -431,8 +437,7 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
         return _EncryptAndVerifyRSA.encrypt(self, msg, t=t, h=h, mgf=mgf, L=L)
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
-        return _EncryptAndVerifyRSA.verify(
-            self, msg, sig, t=t, h=h, mgf=mgf, L=L)
+        return _EncryptAndVerifyRSA.verify(self, msg, sig, t=t, h=h, mgf=mgf, L=L)
 
 
 class PubKeyECDSA(PubKey):
@@ -440,6 +445,7 @@ class PubKeyECDSA(PubKey):
     Wrapper for ECDSA keys based on the cryptography library.
     Use the 'key' attribute to access original object.
     """
+
     @crypto_validator
     def fill_and_store(self, curve=None):
         curve = curve or ec.SECP256R1
@@ -472,6 +478,7 @@ class PubKeyEdDSA(PubKey):
     Wrapper for EdDSA keys based on the cryptography library.
     Use the 'key' attribute to access original object.
     """
+
     @crypto_validator
     def fill_and_store(self, curve=None):
         curve = curve or x25519.X25519PrivateKey
@@ -502,12 +509,14 @@ class PubKeyEdDSA(PubKey):
 # Private Keys #
 ################
 
+
 class _PrivKeyFactory(_PKIObjMaker):
     """
     Metaclass for PrivKey creation.
     It casts the appropriate class on the fly, then fills in
     the appropriate attributes with import_from_asn1pkt() submethod.
     """
+
     def __call__(cls, key_path=None, cryptography_obj=None):
         """
         key_path may be the path to either:
@@ -529,11 +538,14 @@ class _PrivKeyFactory(_PKIObjMaker):
         if cryptography_obj is not None:
             # We (stupidly) need to go through the whole import process because RSA
             # does more than just importing the cryptography objects...
-            obj = _PKIObj("DER", cryptography_obj.private_bytes(
-                encoding=serialization.Encoding.DER,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption()
-            ))
+            obj = _PKIObj(
+                "DER",
+                cryptography_obj.private_bytes(
+                    encoding=serialization.Encoding.DER,
+                    format=serialization.PrivateFormat.PKCS8,
+                    encryption_algorithm=serialization.NoEncryption(),
+                ),
+            )
         else:
             # Load from file
             obj = _PKIObjMaker.__call__(cls, key_path, _MAX_KEY_SIZE)
@@ -575,8 +587,10 @@ class _PrivKeyFactory(_PKIObjMaker):
 
 class _Raw_ASN1_BIT_STRING(ASN1_BIT_STRING):
     """A ASN1_BIT_STRING that ignores BER encoding"""
+
     def __bytes__(self):
         return self.val_readable
+
     __str__ = __bytes__
 
 
@@ -603,7 +617,7 @@ class PrivKey(metaclass=_PrivKeyFactory):
         """
         sigAlg = tbsCert.signature
         h = h or hash_by_oid[sigAlg.algorithm.val]
-        sigVal = self.sign(bytes(tbsCert), h=h, t='pkcs')
+        sigVal = self.sign(bytes(tbsCert), h=h, t="pkcs")
         c = X509_Cert()
         c.tbsCertificate = tbsCert
         c.signatureAlgorithm = sigAlg
@@ -611,16 +625,16 @@ class PrivKey(metaclass=_PrivKeyFactory):
         return c
 
     def resignCert(self, cert):
-        """ Rewrite the signature of either a Cert or an X509_Cert. """
+        """Rewrite the signature of either a Cert or an X509_Cert."""
         return self.signTBSCert(cert.tbsCertificate, h=None)
 
     def verifyCert(self, cert):
-        """ Verifies either a Cert or an X509_Cert. """
+        """Verifies either a Cert or an X509_Cert."""
         tbsCert = cert.tbsCertificate
         sigAlg = tbsCert.signature
         h = hash_by_oid[sigAlg.algorithm.val]
         sigVal = bytes(cert.signatureValue)
-        return self.verify(bytes(tbsCert), sigVal, h=h, t='pkcs')
+        return self.verify(bytes(tbsCert), sigVal, h=h, t="pkcs")
 
     @property
     def pem(self):
@@ -631,7 +645,7 @@ class PrivKey(metaclass=_PrivKeyFactory):
         return self.key.private_bytes(
             encoding=serialization.Encoding.DER,
             format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
+            encryption_algorithm=serialization.NoEncryption(),
         )
 
     def export(self, filename, fmt=None):
@@ -655,7 +669,7 @@ class PrivKey(metaclass=_PrivKeyFactory):
         Sign data.
         """
         raise NotImplementedError
-    
+
     @crypto_validator
     def verify(self, msg, sig, h="sha256", **kwargs):
         """
@@ -669,13 +683,30 @@ class PrivKeyRSA(PrivKey, _DecryptAndSignRSA):
     Wrapper for RSA keys based on _DecryptAndSignRSA from crypto/pkcs1.py
     Use the 'key' attribute to access original object.
     """
+
     @crypto_validator
-    def fill_and_store(self, modulus=None, modulusLen=None, pubExp=None,
-                       prime1=None, prime2=None, coefficient=None,
-                       exponent1=None, exponent2=None, privExp=None):
+    def fill_and_store(
+        self,
+        modulus=None,
+        modulusLen=None,
+        pubExp=None,
+        prime1=None,
+        prime2=None,
+        coefficient=None,
+        exponent1=None,
+        exponent2=None,
+        privExp=None,
+    ):
         pubExp = pubExp or 65537
-        if None in [modulus, prime1, prime2, coefficient, privExp,
-                    exponent1, exponent2]:
+        if None in [
+            modulus,
+            prime1,
+            prime2,
+            coefficient,
+            privExp,
+            exponent1,
+            exponent2,
+        ]:
             # note that the library requires every parameter
             # in order to call RSAPrivateNumbers(...)
             # if one of these is missing, we generate a whole new key
@@ -698,10 +729,15 @@ class PrivKeyRSA(PrivKey, _DecryptAndSignRSA):
             if modulusLen and real_modulusLen != modulusLen:
                 warning("modulus and modulusLen do not match!")
             pubNum = rsa.RSAPublicNumbers(n=modulus, e=pubExp)
-            privNum = rsa.RSAPrivateNumbers(p=prime1, q=prime2,
-                                            dmp1=exponent1, dmq1=exponent2,
-                                            iqmp=coefficient, d=privExp,
-                                            public_numbers=pubNum)
+            privNum = rsa.RSAPrivateNumbers(
+                p=prime1,
+                q=prime2,
+                dmp1=exponent1,
+                dmq1=exponent2,
+                iqmp=coefficient,
+                d=privExp,
+                public_numbers=pubNum,
+            )
             self.key = privNum.private_key(default_backend())
             pubkey = self.key.public_key()
 
@@ -724,10 +760,16 @@ class PrivKeyRSA(PrivKey, _DecryptAndSignRSA):
         exponent1 = privkey.exponent1.val
         exponent2 = privkey.exponent2.val
         coefficient = privkey.coefficient.val
-        self.fill_and_store(modulus=modulus, pubExp=pubExp,
-                            privExp=privExp, prime1=prime1, prime2=prime2,
-                            exponent1=exponent1, exponent2=exponent2,
-                            coefficient=coefficient)
+        self.fill_and_store(
+            modulus=modulus,
+            pubExp=pubExp,
+            privExp=privExp,
+            prime1=prime1,
+            prime2=prime2,
+            exponent1=exponent1,
+            exponent2=exponent2,
+            coefficient=coefficient,
+        )
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
         return self.pubkey.verify(
@@ -748,6 +790,7 @@ class PrivKeyECDSA(PrivKey):
     Wrapper for ECDSA keys based on SigningKey from ecdsa library.
     Use the 'key' attribute to access original object.
     """
+
     @crypto_validator
     def fill_and_store(self, curve=None):
         curve = curve or ec.SECP256R1
@@ -757,8 +800,9 @@ class PrivKeyECDSA(PrivKey):
 
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
-        self.key = serialization.load_der_private_key(bytes(privkey), None,
-                                                      backend=default_backend())  # noqa: E501
+        self.key = serialization.load_der_private_key(
+            bytes(privkey), None, backend=default_backend()
+        )  # noqa: E501
         self.pubkey = PubKeyECDSA(cryptography_obj=self.key.public_key())
         self.marker = "EC PRIVATE KEY"
 
@@ -776,6 +820,7 @@ class PrivKeyEdDSA(PrivKey):
     Wrapper for EdDSA keys
     Use the 'key' attribute to access original object.
     """
+
     @crypto_validator
     def fill_and_store(self, curve=None):
         curve = curve or x25519.X25519PrivateKey
@@ -785,8 +830,9 @@ class PrivKeyEdDSA(PrivKey):
 
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
-        self.key = serialization.load_der_private_key(bytes(privkey), None,
-                                                      backend=default_backend())  # noqa: E501
+        self.key = serialization.load_der_private_key(
+            bytes(privkey), None, backend=default_backend()
+        )  # noqa: E501
         self.pubkey = PubKeyECDSA(cryptography_obj=self.key.public_key())
         self.marker = "PRIVATE KEY"
 
@@ -803,21 +849,25 @@ class PrivKeyEdDSA(PrivKey):
 # Certificates #
 ################
 
+
 class _CertMaker(_PKIObjMaker):
     """
     Metaclass for Cert creation. It is not necessary as it was for the keys,
     but we reuse the model instead of creating redundant constructors.
     """
+
     def __call__(cls, cert_path=None, cryptography_obj=None):
         # This allows to import cryptography objects directly
         if cryptography_obj is not None:
-            obj = _PKIObj("DER", cryptography_obj.public_bytes(
-                encoding=serialization.Encoding.DER,
-            ))
+            obj = _PKIObj(
+                "DER",
+                cryptography_obj.public_bytes(
+                    encoding=serialization.Encoding.DER,
+                ),
+            )
         else:
             # Load from file
-            obj = _PKIObjMaker.__call__(cls, cert_path,
-                                        _MAX_CERT_SIZE, "CERTIFICATE")
+            obj = _PKIObjMaker.__call__(cls, cert_path, _MAX_CERT_SIZE, "CERTIFICATE")
         obj.__class__ = Cert
         obj.marker = "CERTIFICATE"
         try:
@@ -976,17 +1026,19 @@ class Cert(metaclass=_CertMaker):
             now = time.localtime()
         elif isinstance(now, str):
             try:
-                if '/' in now:
-                    now = time.strptime(now, '%m/%d/%y')
+                if "/" in now:
+                    now = time.strptime(now, "%m/%d/%y")
                 else:
-                    now = time.strptime(now, '%b %d %H:%M:%S %Y %Z')
+                    now = time.strptime(now, "%b %d %H:%M:%S %Y %Z")
             except Exception:
-                warning("Bad time string provided, will use localtime() instead.")  # noqa: E501
+                warning(
+                    "Bad time string provided, will use localtime() instead."
+                )  # noqa: E501
                 now = time.localtime()
 
         now = time.mktime(now)
         nft = time.mktime(self.notAfter)
-        diff = (nft - now) / (24. * 3600)
+        diff = (nft - now) / (24.0 * 3600)
         return diff
 
     def isRevoked(self, crl_list):
@@ -1006,9 +1058,11 @@ class Cert(metaclass=_CertMaker):
         Cert. Otherwise, the issuers are simply compared.
         """
         for c in crl_list:
-            if (self.authorityKeyID is not None and
-                c.authorityKeyID is not None and
-                    self.authorityKeyID == c.authorityKeyID):
+            if (
+                self.authorityKeyID is not None
+                and c.authorityKeyID is not None
+                and self.authorityKeyID == c.authorityKeyID
+            ):
                 return self.serial in (x[0] for x in c.revoked_cert_serials)
             elif self.issuer == c.issuer:
                 return self.serial in (x[0] for x in c.revoked_cert_serials)
@@ -1028,7 +1082,7 @@ class Cert(metaclass=_CertMaker):
 
     def __eq__(self, other):
         return self.der == other.der
-    
+
     def __hash__(self):
         return hash(self.der)
 
@@ -1054,18 +1108,23 @@ class Cert(metaclass=_CertMaker):
         print("Validity: %s to %s" % (self.notBefore_str, self.notAfter_str))
 
     def __repr__(self):
-        return "[X.509 Cert. Subject:%s, Issuer:%s]" % (self.subject_str, self.issuer_str)  # noqa: E501
+        return "[X.509 Cert. Subject:%s, Issuer:%s]" % (
+            self.subject_str,
+            self.issuer_str,
+        )  # noqa: E501
 
 
 ################################
 # Certificate Revocation Lists #
 ################################
 
+
 class _CRLMaker(_PKIObjMaker):
     """
     Metaclass for CRL creation. It is not necessary as it was for the keys,
     but we reuse the model instead of creating redundant constructors.
     """
+
     def __call__(cls, cert_path):
         obj = _PKIObjMaker.__call__(cls, cert_path, _MAX_CRL_SIZE, "X509 CRL")
         obj.__class__ = CRL
@@ -1167,6 +1226,7 @@ class CRL(metaclass=_CRLMaker):
 # Certificate list #
 ####################
 
+
 class CertList(list):
     """
     An object that can store a list of Cert objects, load them and export them
@@ -1183,8 +1243,9 @@ class CertList(list):
         # Parse the certificate list / CA
         if isinstance(certList, str):
             # It's a path. First get the _PKIObj
-            obj = _PKIObjMaker.__call__(CertList, certList, _MAX_CERT_SIZE,
-                                        "CERTIFICATE")
+            obj = _PKIObjMaker.__call__(
+                CertList, certList, _MAX_CERT_SIZE, "CERTIFICATE"
+            )
 
             # Then parse the der until there's nothing left
             certList = []
@@ -1234,25 +1295,24 @@ class CertList(list):
     @property
     def der(self):
         return b"".join(x.der for x in self)
-    
+
     @property
     def pem(self):
         return "".join(x.pem for x in self)
 
     def __repr__(self):
-        return "<CertList %s certificates>" % (
-            len(self),
-        )
+        return "<CertList %s certificates>" % (len(self),)
 
     def show(self):
         for i, c in enumerate(self):
-            print(conf.color_theme.id(i, fmt="%04i"), end=' ')
+            print(conf.color_theme.id(i, fmt="%04i"), end=" ")
             print(repr(c))
 
 
 ######################
 # Certificate chains #
 ######################
+
 
 class CertTree(CertList):
     """
@@ -1292,11 +1352,7 @@ class CertTree(CertList):
         # Find the ROOT CAs if store isn't specified
         if not rootCAs:
             # Build cert store.
-            self.rootCAs = CertList([
-                x
-                for x in certList
-                if x.isSelfSigned()
-            ])
+            self.rootCAs = CertList([x for x in certList if x.isSelfSigned()])
             # And remove those certs from the list
             for cert in self.rootCAs:
                 certList.remove(cert)
@@ -1315,10 +1371,7 @@ class CertTree(CertList):
         Get a tree-like object of the certificate list
         """
         # We store the tree object as a dictionary that contains children.
-        tree = [
-            (x, [])
-            for x in self.rootCAs
-        ]
+        tree = [(x, []) for x in self.rootCAs]
 
         # We'll empty this list eventually
         certList = list(self)
@@ -1326,7 +1379,7 @@ class CertTree(CertList):
         # We make a list of certificates we have to search children for, and iterate
         # through it until it's emtpy.
         todo = list(tree)
-        
+
         # Iterate
         while todo:
             cert, children = todo.pop()
@@ -1344,6 +1397,7 @@ class CertTree(CertList):
         """
         Return a chain of certificate that points from a ROOT CA to a certificate.
         """
+
         def _rec_getchain(chain, curtree):
             # See if an element of the current tree signs the cert, if so add it to
             # the chain, else recurse.
@@ -1356,7 +1410,7 @@ class CertTree(CertList):
                     if curchain:
                         return curchain
             return None
-        
+
         chain = _rec_getchain([], self.tree)
         if chain is not None:
             return CertTree(cert, chain)
@@ -1375,6 +1429,7 @@ class CertTree(CertList):
         """
         Return the CertTree as a string certificate tree
         """
+
         def _rec_show(c, children, lvl=0):
             s = ""
             # Process the current CA
@@ -1401,6 +1456,7 @@ class CertTree(CertList):
             len(self),
             len(self.rootCAs),
         )
+
 
 #######
 # CMS #
@@ -1466,15 +1522,15 @@ class CMS_Engine:
                     attrType=ASN1_OID("contentType"),
                     attrValues=[
                         eContentType,
-                    ]
+                    ],
                 ),
                 CMS_Attribute(
                     attrType=ASN1_OID("messageDigest"),
                     # "A message-digest attribute MUST have a single attribute value"
                     attrValues=[
                         ASN1_STRING(hashed_message),
-                    ]
-                )
+                    ],
+                ),
             ],
             signatureAlgorithm=cert.tbsCertificate.signature,
         )
@@ -1491,11 +1547,7 @@ class CMS_Engine:
 
         # Build a chain of X509_Cert to ship (but skip the ROOT certificate)
         certTree = CertTree(cert, self.store)
-        certificates = [
-            x.x509Cert
-            for x in certTree
-            if not x.isSelfSigned()
-        ]
+        certificates = [x.x509Cert for x in certTree if not x.isSelfSigned()]
 
         # Build final structure
         return CMS_ContentInfo(
@@ -1511,27 +1563,21 @@ class CMS_Engine:
                     eContent=message,
                 ),
                 certificates=(
-                    [
-                        CMS_CertificateChoices(
-                            certificate=cert
-                        )
-                        for cert in certificates
-                    ] if certificates else None
+                    [CMS_CertificateChoices(certificate=cert) for cert in certificates]
+                    if certificates
+                    else None
                 ),
                 crls=(
-                    [
-                        CMS_RevocationInfoChoice(
-                            crl=crl
-                        )
-                        for crl in self.crls
-                    ] if self.crls else None
+                    [CMS_RevocationInfoChoice(crl=crl) for crl in self.crls]
+                    if self.crls
+                    else None
                 ),
                 signerInfos=[
                     signerInfo,
                 ],
-            )
+            ),
         )
-    
+
     def verify(
         self,
         contentInfo: CMS_ContentInfo,
@@ -1550,10 +1596,7 @@ class CMS_Engine:
         signeddata = contentInfo.content
 
         # Build the certificate chain
-        certificates = [
-            Cert(x.certificate)
-            for x in signeddata.certificates
-        ]
+        certificates = [Cert(x.certificate) for x in signeddata.certificates]
         certTree = CertTree(certificates, self.store)
 
         # Check there's at least one signature
@@ -1579,13 +1622,18 @@ class CMS_Engine:
                     )
 
                     if contentType != signeddata.encapContentInfo.eContentType:
-                        raise ValueError("Inconsistent 'contentType' was detected in packet !")
+                        raise ValueError(
+                            "Inconsistent 'contentType' was detected in packet !"
+                        )
 
                     if eContentType is not None and eContentType != contentType:
-                        raise ValueError("Expected '%s' but got '%s' contentType !" % (
-                            eContentType,
-                            contentType,
-                        ))
+                        raise ValueError(
+                            "Expected '%s' but got '%s' contentType !"
+                            % (
+                                eContentType,
+                                contentType,
+                            )
+                        )
                 except StopIteration:
                     raise ValueError("Missing contentType in signedAttrs !")
 
