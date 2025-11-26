@@ -705,14 +705,13 @@ class SPNEGOSSP(SSP):
             if ST is None and ccache is not None:
                 # In this case, load the KerberosSSP from ccache
                 from scapy.modules.ticketer import Ticketer
-                
+
                 # Import into a Ticketer object
                 t = Ticketer()
                 t.open_ccache(ccache)
 
                 # Look for the ticketer that we'll use
                 raise NotImplementedError
-
 
                 ssps.append(t.ssp())
             elif ST is None:
