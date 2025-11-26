@@ -14,7 +14,6 @@ from scapy.asn1.mib import conf  # loads conf.mib
 from scapy.asn1.asn1 import (
     ASN1_Codecs,
     ASN1_IA5_STRING,
-    ASN1_NULL,
     ASN1_OID,
     ASN1_PRINTABLE_STRING,
     ASN1_UTC_TIME,

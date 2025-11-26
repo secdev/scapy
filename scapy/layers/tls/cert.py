@@ -1357,7 +1357,12 @@ class CertTree(CertList):
             for cert in self.rootCAs:
                 certList.remove(cert)
         else:
+            # Store cert store.
             self.rootCAs = CertList(rootCAs)
+            # And remove those certs from the list if present (remove dups)
+            for cert in self.rootCAs:
+                if cert in certList:
+                    certList.remove(cert)
 
         # Append our root CAs to the certList
         certList.extend(self.rootCAs)
@@ -1403,9 +1408,15 @@ class CertTree(CertList):
             # the chain, else recurse.
             for c, subtree in curtree:
                 curchain = chain + [c]
+                # If 'cert' is issued by c
                 if cert.isIssuerCert(c):
+                    # Final node of the chain !
+                    # (add the final cert if not self signed)
+                    if c != cert:
+                        curchain += [cert]
                     return curchain
                 else:
+                    # Not the final node of the chain ! Recurse.
                     curchain = _rec_getchain(curchain, subtree)
                     if curchain:
                         return curchain
@@ -1413,7 +1424,7 @@ class CertTree(CertList):
 
         chain = _rec_getchain([], self.tree)
         if chain is not None:
-            return CertTree(cert, chain)
+            return CertTree(chain)
         else:
             return None
 

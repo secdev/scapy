@@ -614,30 +614,53 @@ pL/QlwVKvOoYKAKQvVR4CSFx09F9HdkWsKlhPdAKACL8x3vLCWRFCztAgfd9fDL1
 mMpYjn0q7pBZc2T5NnReJaH1ZgUufzkVqSr7UIuOhWn0
 -----END CERTIFICATE-----
 """)
-c0.isIssuerCert(c1) and c1.isIssuerCert(c2) and not c0.isIssuerCert(c2)
+assert c0.isIssuerCert(c1) and c1.isIssuerCert(c2) and not c0.isIssuerCert(c2)
 
 = Cert class : Checking isSelfSigned()
-c2.isSelfSigned() and not c1.isSelfSigned() and not c0.isSelfSigned()
+assert c2.isSelfSigned() and not c1.isSelfSigned() and not c0.isSelfSigned()
 
 = PubKey class : Checking verifyCert()
-c2.pubKey.verifyCert(c2) and c1.pubKey.verifyCert(c0)
+assert c2.pubKey.verifyCert(c2) and c1.pubKey.verifyCert(c0)
 
-= Chain class : Checking chain construction
-assert len(Chain([c0, c1, c2])) == 3
-assert len(Chain([c0], c1)) == 2
-len(Chain([c0], c2)) == 1
+= CertTree class : Checking verification of chain
+chain0 = CertTree([c0, c1, c2]).getchain(c0)
+assert len(chain0) == 3
+assert chain0[0] == c1
+assert chain0[1] == c0
+assert chain0[2] == c2
+chain1 = CertTree([c2, c1, c0]).getchain(c1)
+assert len(chain1) == 2
+assert chain1[0] == c1
+assert chain1[1] == c2
+chain2 = CertTree([c0, c2, c1]).getchain(c2)
+assert len(chain2) == 1
+assert chain2[0] == c2
 
-= Chain class : repr
+= CertTree class : show()
 
-expected_repr = """__ /C=US/ST=Arizona/L=Scottsdale/O=Starfield Technologies, Inc./CN=Starfield Root Certificate Authority - G2 [Self Signed]
-  _ /C=US/ST=Arizona/L=Scottsdale/O=Starfield Technologies, Inc./OU=http://certs.starfieldtech.com/repository//CN=Starfield Secure Certificate Authority - G2
-    _ /OU=Domain Control Validated/CN=*.tools.ietf.org"""
-assert str(Chain([c0, c1, c2])) == expected_repr
+expected_repr = '/C=US/ST=Arizona/L=Scottsdale/O=Starfield Technologies, Inc./CN=Starfield Root Certificate Authority - G2 [Self Signed]\n  /C=US/ST=Arizona/L=Scottsdale/O=Starfield Technologies, Inc./OU=http://certs.starfieldtech.com/repository//CN=Starfield Secure Certificate Authority - G2 [Not Self Signed]\n    /OU=Domain Control Validated/CN=*.tools.ietf.org [Not Self Signed]\n'
+assert CertTree([c0, c1, c2]).show(ret=True) == expected_repr
 
-= Test __repr__
+repr_str = CertTree([], c0).show(ret=True)
+assert repr_str == '/OU=Domain Control Validated/CN=*.tools.ietf.org [Not Self Signed]\n'
 
-repr_str = Chain([], c0).__repr__()
-assert repr_str == '__ /OU=Domain Control Validated/CN=*.tools.ietf.org [Not Self Signed]\n'
+= CertTree class : verify
+
+CertTree([c1, c2]).verify(c0)
+CertTree([c2]).verify(c1)
+
+try:
+    CertTree([c1]).verify(c0)
+    assert False
+except ValueError:
+    pass
+
+try:
+    CertTree([c2]).verify(c0)
+    assert False
+except ValueError:
+    pass
+
 
 = Test GeneralizedTime
 
