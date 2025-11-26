@@ -12,6 +12,7 @@ import re
 import struct
 
 from typing import Self
+from enum import IntFlag
 
 from scapy.config import conf
 from scapy.error import log_runtime
@@ -932,3 +933,134 @@ class SECURITY_DESCRIPTOR(_NTLMPayloadPacket):
             )
             + pay
         )
+
+
+# High level access rights definitions
+
+
+class GenericAccessRights(IntFlag):
+    """
+    Generic access rights:
+    https://learn.microsoft.com/en-us/windows/win32/secauthz/generic-access-rights
+    """
+
+    GENERIC_READ = 0x80000000
+    GENERIC_WRITE = 0x40000000
+    GENERIC_EXECUTE = 0x20000000
+    GENERIC_ALL = 0x10000000
+    MAXIMUM_ALLOWED = 0x02000000
+    ACCESS_SACL = 0x01000000
+
+
+class StandardAccessRights(IntFlag):
+    """
+    Standard access rights:
+    https://learn.microsoft.com/en-us/windows/win32/secauthz/standard-access-rights
+    """
+
+    DELETE = 0x00010000
+    READ_CONTROL = 0x00020000
+    WRITE_DAC = 0x00040000
+    WRITE_OWNER = 0x00080000
+    SYNCHRONIZE = 0x00100000
+
+    STANDARD_RIGHTS_REQUIRED = DELETE | READ_CONTROL | WRITE_DAC | WRITE_OWNER
+    STANDARD_RIGHTS_ALL = STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE
+
+    STANDARD_RIGHTS_READ = READ_CONTROL
+    STANDARD_RIGHTS_WRITE = READ_CONTROL
+    STANDARD_RIGHTS_EXECUTE = READ_CONTROL
+    SPECIFIC_RIGHTS_ALL = 0x0000FFFF
+
+
+class SpecificAccessRights(IntFlag):
+    """
+    Access rights for registry keys:
+    https://learn.microsoft.com/en-us/windows/win32/sysinfo/registry-key-security-and-access-rights
+    """
+
+    KEY_QUERY_VALUE = 0x00000001
+    KEY_SET_VALUE = 0x00000002
+    KEY_CREATE_SUB_KEY = 0x00000004
+    KEY_ENUMERATE_SUB_KEYS = 0x00000008
+    KEY_NOTIFY = 0x00000010
+    KEY_CREATE_LINK = 0x00000020
+    KEY_WOW64_64KEY = 0x0100
+    KEY_WOW64_32KEY = 0x0200
+    KEY_READ = (
+        StandardAccessRights.STANDARD_RIGHTS_READ
+        | KEY_QUERY_VALUE
+        | KEY_ENUMERATE_SUB_KEYS
+        | KEY_NOTIFY
+    )
+    KEY_EXECUTE = KEY_READ
+
+
+class AccessRights(IntFlag):
+    """
+    Combines generic, standard, and specific access rights for registry keys.
+    """
+
+    # Generic
+    GENERIC_READ = GenericAccessRights.GENERIC_READ
+    GENERIC_WRITE = GenericAccessRights.GENERIC_WRITE
+    GENERIC_EXECUTE = GenericAccessRights.GENERIC_EXECUTE
+    GENERIC_ALL = GenericAccessRights.GENERIC_ALL
+    MAXIMUM_ALLOWED = GenericAccessRights.MAXIMUM_ALLOWED
+    ACCESS_SACL = GenericAccessRights.ACCESS_SACL
+
+    # Standard
+    DELETE = StandardAccessRights.DELETE
+    READ_CONTROL = StandardAccessRights.READ_CONTROL
+    WRITE_DAC = StandardAccessRights.WRITE_DAC
+    WRITE_OWNER = StandardAccessRights.WRITE_OWNER
+    SYNCHRONIZE = StandardAccessRights.SYNCHRONIZE
+    STANDARD_RIGHTS_REQUIRED = (
+        StandardAccessRights.DELETE
+        | StandardAccessRights.READ_CONTROL
+        | StandardAccessRights.WRITE_DAC
+        | StandardAccessRights.WRITE_OWNER
+    )
+    STANDARD_RIGHTS_READ = StandardAccessRights.READ_CONTROL
+    STANDARD_RIGHTS_WRITE = StandardAccessRights.READ_CONTROL
+    STANDARD_RIGHTS_EXECUTE = StandardAccessRights.READ_CONTROL
+    STANDARD_RIGHTS_ALL = (
+        StandardAccessRights.DELETE
+        | StandardAccessRights.READ_CONTROL
+        | StandardAccessRights.WRITE_DAC
+        | StandardAccessRights.WRITE_OWNER
+        | StandardAccessRights.SYNCHRONIZE
+    )
+    SPECIFIC_RIGHTS_ALL = StandardAccessRights.SPECIFIC_RIGHTS_ALL
+
+    # Specific
+    KEY_QUERY_VALUE = SpecificAccessRights.KEY_QUERY_VALUE
+    KEY_SET_VALUE = SpecificAccessRights.KEY_SET_VALUE
+    KEY_CREATE_SUB_KEY = SpecificAccessRights.KEY_CREATE_SUB_KEY
+    KEY_ENUMERATE_SUB_KEYS = SpecificAccessRights.KEY_ENUMERATE_SUB_KEYS
+    KEY_NOTIFY = SpecificAccessRights.KEY_NOTIFY
+    KEY_CREATE_LINK = SpecificAccessRights.KEY_CREATE_LINK
+    KEY_WOW64_64KEY = SpecificAccessRights.KEY_WOW64_64KEY
+    KEY_WOW64_32KEY = SpecificAccessRights.KEY_WOW64_32KEY
+
+    KEY_READ = (
+        StandardAccessRights.READ_CONTROL
+        | SpecificAccessRights.KEY_QUERY_VALUE
+        | SpecificAccessRights.KEY_ENUMERATE_SUB_KEYS
+        | SpecificAccessRights.KEY_NOTIFY
+    )
+    KEY_EXECUTE = KEY_READ
+    KEY_WRITE = (
+        STANDARD_RIGHTS_ALL
+        | SpecificAccessRights.KEY_SET_VALUE
+        | SpecificAccessRights.KEY_CREATE_SUB_KEY
+    )
+    KEY_ALL_ACCESS = (
+        STANDARD_RIGHTS_REQUIRED
+        | SpecificAccessRights.KEY_QUERY_VALUE
+        | SpecificAccessRights.KEY_SET_VALUE
+        | SpecificAccessRights.KEY_CREATE_SUB_KEY
+        | SpecificAccessRights.KEY_ENUMERATE_SUB_KEYS
+        | SpecificAccessRights.KEY_NOTIFY
+        | SpecificAccessRights.KEY_CREATE_LINK
+    )

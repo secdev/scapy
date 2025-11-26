@@ -1,12 +1,16 @@
-# SPDX-License-Identifier: GPL-2.0-only
-# This file is part of Scapy
-# See https://scapy.net/ for more information
-# Copyright (C) Gabriel Potter
-
 """
-This package implements Windows-specific layers helpers.
+This package implements Windows-specific high level helpers.
 It makes it easier to use Scapy Windows related objects.
+
+It currently contains helpers for the Windows Registry.
+
+Note that if you want to tweak specific fields of the underlying
+protocols, you will have to use the lower level objects directly.
 """
 
 # Make sure config is loaded
-import scapy.config  # noqa: F401
+from scapy.config import conf
+
+# Import the Windows RPC extension
+# pylint: disable-next=too-many-function-args
+conf.exts.load("scapy-rpc")
