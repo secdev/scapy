@@ -83,6 +83,7 @@ from scapy.layers.gssapi import (
 from scapy.layers.kerberos import (
     Kerberos,
     KerberosSSP,
+    _parse_spn,
     _parse_upn,
 )
 from scapy.layers.ntlm import (
@@ -672,11 +673,9 @@ class SPNEGOSSP(SSP):
         if ":" in target:
             if not valid_ip6(target):
                 hostname = target
-            target = str(Net6(target))
         else:
             if not valid_ip(target):
                 hostname = target
-            target = str(Net(target))
 
         # Check UPN
         try:
@@ -726,13 +725,15 @@ class SPNEGOSSP(SSP):
                 # - else a TGT if we got nothing better
                 tgts = []
                 for i, (tkt, key, upn, spn) in enumerate(t.iter_tickets()):
+                    spn, _ = _parse_spn(spn)
+                    spn_host = spn.split("/")[-1]
                     # Check that it's for the correct user
                     if upn.lower() == UPN.lower():
                         # Check that it's either a TGT or a ST to the correct service
                         if spn.lower().startswith("krbtgt/"):
                             # TGT. Keep it, and see if we don't have a better ST.
                             tgts.append(t.ssp(i))
-                        elif hostname in spn:
+                        elif hostname.lower() == spn_host.lower():
                             # ST. We're done !
                             ssps.append(t.ssp(i))
                             break
@@ -797,7 +798,11 @@ class SPNEGOSSP(SSP):
         if not kerberos_required:
             if HashNt is None and password is not None:
                 HashNt = MD4le(password)
-            ssps.append(NTLMSSP(UPN=UPN, HASHNT=HashNt))
+            if HashNt is not None:
+                ssps.append(NTLMSSP(UPN=UPN, HASHNT=HashNt))
+
+        if not ssps:
+            raise ValueError("Unexpected case ! Please report.")
 
         # Build the SSP
         return cls(ssps)

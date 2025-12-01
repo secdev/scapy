@@ -1451,7 +1451,7 @@ def KRB_FX_CF2(key1, key2, pepper1, pepper2):
 # RFC 4556 #
 ############
 
-def octetstring2key(etype: EncryptionType, x: bytes) -> bytes:
+def octetstring2key(etype: EncryptionType, x: bytes) -> Key:
     """
     RFC4556 octetstring2key::
 
