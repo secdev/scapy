@@ -859,12 +859,22 @@ class Ticketer:
         """
         if isinstance(i, int):
             ticket, sessionkey, upn, spn = self.export_krb(i)
-            return KerberosSSP(
-                ST=ticket,
-                KEY=sessionkey,
-                UPN=upn,
-                SPN=spn,
-            )
+            if spn.startswith("krbtgt/"):
+                # It's a TGT
+                return KerberosSSP(
+                    TGT=ticket,
+                    KEY=sessionkey,
+                    UPN=upn,
+                    SPN=None,  # Use target_name only
+                )
+            else:
+                # It's a ST
+                return KerberosSSP(
+                    ST=ticket,
+                    KEY=sessionkey,
+                    UPN=upn,
+                    SPN=spn,
+                )
         elif isinstance(i, str):
             spn = i
             key = self.get_cred(spn)
@@ -2576,3 +2586,10 @@ class Ticketer:
             return
 
         self.import_krb(res, _inplace=i)
+
+    def iter_tickets(self):
+        """
+        Iterate through the tickets in the ccache
+        """
+        for i in range(len(self.ccache.credentials)):
+            yield self.export_krb(i)
