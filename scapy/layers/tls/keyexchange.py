@@ -170,7 +170,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
 
     def __init__(self, *args, **kargs):
         super(_TLSSignature, self).__init__(*args, **kargs)
-        if "sig_alg" not in kargs:
+        if self.sig_alg is None and "sig_alg" not in kargs:
             # Default sig_alg
             self.sig_alg = 0x0804
             if self.tls_session and self.tls_session.tls_version:
