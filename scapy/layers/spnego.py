@@ -16,6 +16,7 @@ Implements parts of:
     `GSSAPI <https://scapy.readthedocs.io/en/latest/layers/gssapi.html#spnego>`_
 """
 
+import os
 import struct
 from uuid import UUID
 
@@ -82,6 +83,7 @@ from scapy.layers.gssapi import (
 from scapy.layers.kerberos import (
     Kerberos,
     KerberosSSP,
+    _parse_spn,
     _parse_upn,
 )
 from scapy.layers.ntlm import (
@@ -640,8 +642,11 @@ class SPNEGOSSP(SSP):
         HashAes128Sha96: bytes = None,
         kerberos_required: bool = False,
         ST=None,
+        TGT=None,
         KEY=None,
+        ccache: str = None,
         debug: int = 0,
+        use_krb5ccname: bool = False,
     ):
         """
         Initialize a SPNEGOSSP from a list of many arguments.
@@ -655,8 +660,12 @@ class SPNEGOSSP(SSP):
         :param HashAes256Sha96: (bytes) if provided, used for auth (Kerberos)
         :param HashAes128Sha96: (bytes) if provided, used for auth (Kerberos)
         :param ST: if provided, the service ticket to use (Kerberos)
+        :param TGT: if provided, the TGT to use (Kerberos)
         :param KEY: if ST provided, the session key associated to the ticket (Kerberos).
-                    Else, the user secret key.
+                    This can be either for the ST or TGT. Else, the user secret key.
+        :param ccache: (str) if provided, a path to a CCACHE (Kerberos)
+        :param use_krb5ccname: (bool) if true, the KRB5CCNAME environment variable will
+                               be used if available.
         """
         kerberos = True
         hostname = None
@@ -664,11 +673,9 @@ class SPNEGOSSP(SSP):
         if ":" in target:
             if not valid_ip6(target):
                 hostname = target
-            target = str(Net6(target))
         else:
             if not valid_ip(target):
                 hostname = target
-            target = str(Net(target))
 
         # Check UPN
         try:
@@ -680,6 +687,10 @@ class SPNEGOSSP(SSP):
             # not a UPN: NTLM only
             kerberos = False
 
+        # If we're asked, check the environment for KRB5CCNAME
+        if use_krb5ccname and ccache is None and "KRB5CCNAME" in os.environ:
+            ccache = os.environ["KRB5CCNAME"]
+
         # Do we need to ask the password?
         if all(
             x is None
@@ -689,6 +700,7 @@ class SPNEGOSSP(SSP):
                 HashNt,
                 HashAes256Sha96,
                 HashAes128Sha96,
+                ccache,
             ]
         ):
             # yes.
@@ -700,7 +712,44 @@ class SPNEGOSSP(SSP):
         # Kerberos
         if kerberos and hostname:
             # Get ticket if we don't already have one.
-            if ST is None:
+            if ST is None and TGT is None and ccache is not None:
+                # In this case, load the KerberosSSP from ccache
+                from scapy.modules.ticketer import Ticketer
+
+                # Import into a Ticketer object
+                t = Ticketer()
+                t.open_ccache(ccache)
+
+                # Look for the ticket that we'll use. We chose:
+                # - either a ST if the SPN matches our target
+                # - else a TGT if we got nothing better
+                tgts = []
+                for i, (tkt, key, upn, spn) in enumerate(t.iter_tickets()):
+                    spn, _ = _parse_spn(spn)
+                    spn_host = spn.split("/")[-1]
+                    # Check that it's for the correct user
+                    if upn.lower() == UPN.lower():
+                        # Check that it's either a TGT or a ST to the correct service
+                        if spn.lower().startswith("krbtgt/"):
+                            # TGT. Keep it, and see if we don't have a better ST.
+                            tgts.append(t.ssp(i))
+                        elif hostname.lower() == spn_host.lower():
+                            # ST. We're done !
+                            ssps.append(t.ssp(i))
+                            break
+                else:
+                    # No ST found
+                    if tgts:
+                        # Using a TGT !
+                        ssps.append(tgts[0])
+                    else:
+                        # Nothing found
+                        t.show()
+                        raise ValueError(
+                            f"Could not find a ticket for {upn}, either a "
+                            f"TGT or towards {hostname}"
+                        )
+            elif ST is None and TGT is None:
                 # In this case, KEY is supposed to be the user's key.
                 from scapy.libs.rfc3961 import Key, EncryptionType
 
@@ -734,6 +783,7 @@ class SPNEGOSSP(SSP):
                     KerberosSSP(
                         UPN=UPN,
                         ST=ST,
+                        TGT=TGT,
                         KEY=KEY,
                         debug=debug,
                     )
@@ -748,7 +798,11 @@ class SPNEGOSSP(SSP):
         if not kerberos_required:
             if HashNt is None and password is not None:
                 HashNt = MD4le(password)
-            ssps.append(NTLMSSP(UPN=UPN, HASHNT=HashNt))
+            if HashNt is not None:
+                ssps.append(NTLMSSP(UPN=UPN, HASHNT=HashNt))
+
+        if not ssps:
+            raise ValueError("Unexpected case ! Please report.")
 
         # Build the SSP
         return cls(ssps)

@@ -7,14 +7,13 @@
 # Cool history about this file: http://natisbad.org/scapy/index.html
 
 """
-X.509 certificates and other crypto-related ASN.1 structures
+X.509 certificates, OCSP, CRL, CMS and other crypto-related ASN.1 structures
 """
 
 from scapy.asn1.mib import conf  # loads conf.mib
 from scapy.asn1.asn1 import (
     ASN1_Codecs,
     ASN1_IA5_STRING,
-    ASN1_NULL,
     ASN1_OID,
     ASN1_PRINTABLE_STRING,
     ASN1_UTC_TIME,
@@ -216,6 +215,24 @@ class ECDSASignature(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("r", 0),
         ASN1F_INTEGER("s", 0))
+
+
+####################################
+#  Diffie Hellman Exchange Packets #
+####################################
+# based on PKCS#3
+
+# PKCS#3 sect 9
+
+class DHParameter(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("p", 0),
+        ASN1F_INTEGER("g", 0),
+        ASN1F_optional(
+            ASN1F_INTEGER("l", 0)  # aka. 'privateValueLength'
+        ),
+    )
 
 
 ####################################
@@ -847,13 +864,37 @@ class X509_AlgorithmIdentifier(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_OID("algorithm", "1.2.840.113549.1.1.11"),
-        ASN1F_optional(
-            ASN1F_CHOICE(
-                "parameters", ASN1_NULL(0),
-                ASN1F_NULL,
-                ECParameters,
-                DomainParameters,
-            )
+        MultipleTypeField(
+            [
+                # RFC5480
+                (
+                    ASN1F_PACKET(
+                        "parameters",
+                        ECParameters(),
+                        ECParameters,
+                    ),
+                    lambda pkt: pkt.algorithm.val == "1.2.840.10045.2.1",
+                ),
+                # RFC3279
+                (
+                    ASN1F_PACKET(
+                        "parameters",
+                        DomainParameters(),
+                        DomainParameters,
+                    ),
+                    lambda pkt: pkt.algorithm.val == "1.2.840.10046.2.1",
+                ),
+                # PKCS#3
+                (
+                    ASN1F_PACKET(
+                        "parameters",
+                        DHParameter(),
+                        DHParameter,
+                    ),
+                    lambda pkt: pkt.algorithm.val == "1.2.840.113549.1.3.1",
+                ),
+            ],
+            ASN1F_optional(ASN1F_NULL("parameters", None)),
         )
     )
 
@@ -969,6 +1010,33 @@ _default_subject = [
 ]
 
 
+class _IssuerUtils:
+    def get_issuer(self):
+        attrs = self.issuer
+        attrsDict = {}
+        for attr in attrs:
+            # we assume there is only one name in each rdn ASN1_SET
+            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)  # noqa: E501
+        return attrsDict
+
+    def get_issuer_str(self):
+        """
+        Returns a one-line string containing every type/value
+        in a rather specific order. sorted() built-in ensures unicity.
+        """
+        name_str = ""
+        attrsDict = self.get_issuer()
+        for attrType, attrSymbol in _attrName_mapping:
+            if attrType in attrsDict:
+                name_str += "/" + attrSymbol + "="
+                name_str += attrsDict[attrType]
+        for attrType in sorted(attrsDict):
+            if attrType not in _attrName_specials:
+                name_str += "/" + attrType + "="
+                name_str += attrsDict[attrType]
+        return name_str
+
+
 class X509_Validity(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
@@ -991,7 +1059,7 @@ _attrName_mapping = [
 _attrName_specials = [name for name, symbol in _attrName_mapping]
 
 
-class X509_TBSCertificate(ASN1_Packet):
+class X509_TBSCertificate(ASN1_Packet, _IssuerUtils):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_optional(
@@ -1020,31 +1088,6 @@ class X509_TBSCertificate(ASN1_Packet):
                               [X509_Extension()],
                               X509_Extension,
                               explicit_tag=0xa3)))
-
-    def get_issuer(self):
-        attrs = self.issuer
-        attrsDict = {}
-        for attr in attrs:
-            # we assume there is only one name in each rdn ASN1_SET
-            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)  # noqa: E501
-        return attrsDict
-
-    def get_issuer_str(self):
-        """
-        Returns a one-line string containing every type/value
-        in a rather specific order. sorted() built-in ensures unicity.
-        """
-        name_str = ""
-        attrsDict = self.get_issuer()
-        for attrType, attrSymbol in _attrName_mapping:
-            if attrType in attrsDict:
-                name_str += "/" + attrSymbol + "="
-                name_str += attrsDict[attrType]
-        for attrType in sorted(attrsDict):
-            if attrType not in _attrName_specials:
-                name_str += "/" + attrType + "="
-                name_str += attrsDict[attrType]
-        return name_str
 
     def get_subject(self):
         attrs = self.subject
@@ -1105,7 +1148,7 @@ class X509_RevokedCertificate(ASN1_Packet):
                                                      None, X509_Extension)))
 
 
-class X509_TBSCertList(ASN1_Packet):
+class X509_TBSCertList(ASN1_Packet, _IssuerUtils):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_optional(
@@ -1124,31 +1167,6 @@ class X509_TBSCertList(ASN1_Packet):
             ASN1F_SEQUENCE_OF("crlExtensions", None,
                               X509_Extension,
                               explicit_tag=0xa0)))
-
-    def get_issuer(self):
-        attrs = self.issuer
-        attrsDict = {}
-        for attr in attrs:
-            # we assume there is only one name in each rdn ASN1_SET
-            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)  # noqa: E501
-        return attrsDict
-
-    def get_issuer_str(self):
-        """
-        Returns a one-line string containing every type/value
-        in a rather specific order. sorted() built-in ensures unicity.
-        """
-        name_str = ""
-        attrsDict = self.get_issuer()
-        for attrType, attrSymbol in _attrName_mapping:
-            if attrType in attrsDict:
-                name_str += "/" + attrSymbol + "="
-                name_str += attrsDict[attrType]
-        for attrType in sorted(attrsDict):
-            if attrType not in _attrName_specials:
-                name_str += "/" + attrType + "="
-                name_str += attrsDict[attrType]
-        return name_str
 
 
 class ASN1F_X509_CRL(ASN1F_SEQUENCE):
@@ -1213,7 +1231,7 @@ class CMS_EncapsulatedContentInfo(ASN1_Packet):
         ASN1F_optional(
             _EncapsulatedContent_Field("eContent", None,
                                        explicit_tag=0xA0),
-        )
+        ),
     )
 
 
@@ -1241,10 +1259,10 @@ class CMS_CertificateChoices(ASN1_Packet):
 
 # RFC3852 sect 10.2.4
 
-class CMS_IssuerAndSerialNumber(ASN1_Packet):
+class CMS_IssuerAndSerialNumber(ASN1_Packet, _IssuerUtils):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_PACKET("issuer", X509_DirectoryName(), X509_DirectoryName),
+        ASN1F_SEQUENCE_OF("issuer", _default_issuer, X509_RDN),
         ASN1F_INTEGER("serialNumber", 0)
     )
 
@@ -1286,6 +1304,17 @@ class CMS_SignerInfo(ASN1_Packet):
                 implicit_tag=0xA1,
             )
         )
+    )
+
+
+# RFC3852 sect 5.4
+
+class CMS_SignedAttrsForSignature(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SET_OF(
+        "signedAttrs",
+        None,
+        CMS_Attribute,
     )
 
 

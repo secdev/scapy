@@ -68,6 +68,18 @@ This section tries to give many usage examples, but isn't exhaustive. For more d
     >>> # Using the AES-256-SHA1-96 Kerberos Key
    >>> t.request_tgt("Administrator@domain.local", key=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, bytes.fromhex("63a2577d8bf6abeba0847cded36b9aed202c23750eb9c56b6155be1cc946bb1d")))
 
+- **Request a TGT using PKINIT**:
+
+.. code:: pycon
+
+    >>> from scapy.libs.rfc3961 import EncryptionType
+    >>> load_module("ticketer")
+    >>> t = Ticketer()
+    >>> # If P12:
+    >>> t.request_tgt("Administrator@DOMAIN.LOCAL", p12="admin.pfx", ca="ca.pem")
+    >>> # One could also have used a different cert and key file:
+    >>> t.request_tgt("Administrator@DOMAIN.LOCAL", x509="admin.cert", x509key="admin.key", ca="ca.pem")
+
 - **Renew a TGT or ST**:
 
 .. code::
