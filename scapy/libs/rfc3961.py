@@ -97,8 +97,9 @@ except ImportError:
     raise ImportError("To use kerberos cryptography, you need to install cryptography.")
 
 
-# cryptography's TripleDES allow the usage of a 56bit key, which thus behaves like DES
-DES = decrepit_algorithms.TripleDES
+# cryptography's TripleDES can be used to simulate DES behavior
+def DES(key: bytes) -> decrepit_algorithms.TripleDES:
+    return decrepit_algorithms.TripleDES(key * 3)
 
 
 # https://go.microsoft.com/fwlink/?LinkId=186039
