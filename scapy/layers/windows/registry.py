@@ -238,40 +238,20 @@ class RegEntry:
         :param reg_data: the data of the registry value (str)
     """
 
-    def __init__(self, reg_value: str, reg_type: int, reg_data: bytes):
+    def __init__(self, reg_value: str, reg_type: int, reg_data: bytes, from_str=False):
         self.reg_value = reg_value
         try:
             self.reg_type = RegType(reg_type)
         except ValueError:
             self.reg_type = RegType.UNK
 
-        match self.reg_type:
-            case RegType.REG_MULTI_SZ | RegType.REG_SZ | RegType.REG_EXPAND_SZ:
-                if self.reg_type == RegType.REG_MULTI_SZ:
-                    # decode multiple null terminated strings
-                    self.reg_data = reg_data.decode("utf-16le")[:-1].replace(
-                        "\x00", "\n"
-                    )
-                else:
-                    self.reg_data = reg_data.decode("utf-16le")
-
-            case RegType.REG_BINARY:
-                self.reg_data = reg_data
-
-            case RegType.REG_DWORD | RegType.REG_QWORD:
-                self.reg_data = int.from_bytes(reg_data, byteorder="little")
-
-            case RegType.REG_DWORD_BIG_ENDIAN:
-                self.reg_data = int.from_bytes(reg_data, byteorder="big")
-
-            case RegType.REG_LINK:
-                self.reg_data = reg_data.decode("utf-16le")
-
-            case _:
-                self.reg_data = reg_data
+        if from_str:
+            self.reg_data = RegEntry.encode_data(self.reg_type, reg_data)
+        else:
+            self.reg_data = reg_data
 
     @staticmethod
-    def encode_data(reg_type: RegType, data: str) -> bytes:
+    def encode_data(reg_type: RegType, data: str | list[str]) -> bytes:
         """
         Encode data based on the type.
         """
@@ -279,12 +259,29 @@ class RegEntry:
         match reg_type:
             case RegType.REG_MULTI_SZ | RegType.REG_SZ | RegType.REG_EXPAND_SZ:
                 if reg_type == RegType.REG_MULTI_SZ:
-                    # decode multiple null terminated strings
-                    return data.replace("\\n", "\x00").encode("utf-16le") + b"\x00\x00"
+                    # encode to multiple null terminated strings
+                    if isinstance(data, str):
+                        encoded_data = (
+                            b"\x00\x00".join(
+                                [x.strip().encode("utf-16le") for x in data.split()]
+                            )
+                            + b"\x00\x00"  # end of the final word
+                            + b"\x00\x00"  # final null word
+                        )
+                    elif isinstance(data, list):
+                        encoded_data = (
+                            b"\x00\x00".join(
+                                [x.strip().encode("utf-16le") for x in data]
+                            )
+                            + b"\x00\x00"  # end of the final word
+                            + b"\x00\x00"  # final null word
+                        )
                 else:
                     return data.encode("utf-16le")
 
             case RegType.REG_BINARY:
+                if isinstance(data, bytes):
+                    return data
                 return data.encode("utf-8").decode("unicode_escape").encode("latin1")
 
             case RegType.REG_DWORD | RegType.REG_QWORD:
@@ -300,6 +297,35 @@ class RegEntry:
 
             case _:
                 return data.encode("utf-8").decode("unicode_escape").encode("latin1")
+
+    @staticmethod
+    def decode_data(reg_type: RegType, data: bytes) -> str:
+        """
+        Decode data based on the type.
+        """
+        match reg_type:
+            case RegType.REG_MULTI_SZ | RegType.REG_SZ | RegType.REG_EXPAND_SZ:
+                if reg_type == RegType.REG_MULTI_SZ:
+                    # decode multiple null terminated strings
+                    breakpoint()
+                    return data.decode("utf-16le")[:-1].split("\x00")
+                else:
+                    return data.decode("utf-16le")
+
+            case RegType.REG_BINARY:
+                return data
+
+            case RegType.REG_DWORD | RegType.REG_QWORD:
+                return int.from_bytes(data, byteorder="little")
+
+            case RegType.REG_DWORD_BIG_ENDIAN:
+                return int.from_bytes(data, byteorder="big")
+
+            case RegType.REG_LINK:
+                return data.decode("utf-16le")
+
+            case _:
+                return data
 
     def __str__(self) -> str:
         if self.reg_type == RegType.UNK:
@@ -781,7 +807,7 @@ class RegApi:
         :param client: The DCERPC client.
         :param hKey: The handle to the registry key (root key or subkey).
         :param file_path: The path to the file where the key will be saved.
-            Default path is %WINDIR%\System32, which is readable by all users.
+            Default path is %WINDIR%\\System32, which is readable by all users.
         :param security_attributes: Security attributes for the saved key.
         :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
