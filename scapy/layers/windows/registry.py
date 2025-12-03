@@ -261,21 +261,40 @@ class RegEntry:
                 if reg_type == RegType.REG_MULTI_SZ:
                     # encode to multiple null terminated strings
                     if isinstance(data, str):
+                        # if it was previously encoded, we remove the
+                        # final \x00 and the final empty string
+                        data = data.strip(b"\x00\x00\x00\x00")
                         encoded_data = (
                             b"\x00\x00".join(
                                 [x.strip().encode("utf-16le") for x in data.split()]
                             )
-                            + b"\x00\x00"  # end of the final word
-                            + b"\x00\x00"  # final null word
+                            + b"\x00\x00"  # final \x00
+                            + b"\x00\x00"  # final empty string
                         )
                     elif isinstance(data, list):
+                        # if it was previously encoded, we remove the
+                        # final \x00 and the final empty string
+                        if data[-1] == "":
+                            data = data[:-1]
                         encoded_data = (
                             b"\x00\x00".join(
-                                [x.strip().encode("utf-16le") for x in data]
+                                [
+                                    x.strip().strip("\x00\x00").encode("utf-16le")
+                                    for x in data
+                                ]
                             )
-                            + b"\x00\x00"  # end of the final word
-                            + b"\x00\x00"  # final null word
+                            + b"\x00\x00"  # final \x00
+                            + b"\x00\x00"  # final empty string
                         )
+                    else:
+                        log_runtime.error(
+                            "Expected str or list[str] instance for data, got %s",
+                            type(data),
+                        )
+                        raise TypeError
+
+                    return encoded_data
+
                 else:
                     return data.encode("utf-16le")
 
@@ -285,11 +304,12 @@ class RegEntry:
                 return data.encode("utf-8").decode("unicode_escape").encode("latin1")
 
             case RegType.REG_DWORD | RegType.REG_QWORD:
-                bit_length = (int(data).bit_length() + 7) // 8
+                # Use fixed sizes: 4 bytes for DWORD, 8 bytes for QWORD.
+                bit_length = 4 if reg_type == RegType.REG_DWORD else 8
                 return int(data).to_bytes(bit_length, byteorder="little")
 
             case RegType.REG_DWORD_BIG_ENDIAN:
-                bit_length = (int(data).bit_length() + 7) // 8
+                bit_length = 4
                 return int(data).to_bytes(bit_length, byteorder="big")
 
             case RegType.REG_LINK:
@@ -307,7 +327,6 @@ class RegEntry:
             case RegType.REG_MULTI_SZ | RegType.REG_SZ | RegType.REG_EXPAND_SZ:
                 if reg_type == RegType.REG_MULTI_SZ:
                     # decode multiple null terminated strings
-                    breakpoint()
                     return data.decode("utf-16le")[:-1].split("\x00")
                 else:
                     return data.decode("utf-16le")
@@ -334,6 +353,15 @@ class RegEntry:
 
     def __repr__(self) -> str:
         return f"RegEntry({self.reg_value}, {self.reg_type}, {self.reg_data})"
+
+    def __eq__(self, value):
+        return isinstance(value, RegEntry) and all(
+            [
+                self.reg_data == value.reg_data,
+                self.reg_type == value.reg_type,
+                self.reg_data == value.reg_data,
+            ]
+        )
 
 
 class RegApi:
