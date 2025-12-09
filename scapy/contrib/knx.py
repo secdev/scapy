@@ -23,6 +23,7 @@ Currently, the module (partially) supports the following services :
 # scapy.contrib.description = KNX Protocol
 # scapy.contrib.status = loads
 
+import struct
 from scapy.fields import PacketField, MultipleTypeField, ByteField, XByteField, \
     ShortEnumField, ShortField, \
     ByteEnumField, IPField, StrFixedLenField, MACField, XBitField, \
@@ -204,7 +205,7 @@ class HPAI(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -236,7 +237,7 @@ class DIBDeviceInfo(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -253,7 +254,7 @@ class DIBSuppSvcFamilies(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -285,7 +286,7 @@ class CRI(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -300,7 +301,7 @@ class CRD(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -513,7 +514,7 @@ class KNXConfigurationRequest(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p[:4])).to_bytes(1, byteorder='big') + p[1:]
+        p = struct.pack("!B", len(p[:4])) + p[1:]
         return p + pay
 
 
@@ -528,7 +529,7 @@ class KNXConfigurationACK(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -544,7 +545,7 @@ class KNXTunnelingRequest(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p[:4])).to_bytes(1, byteorder='big') + p[1:]
+        p = struct.pack("!B", len(p[:4])) + p[1:]
         return p + pay
 
 
@@ -559,7 +560,7 @@ class KNXTunnelingACK(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -570,7 +571,7 @@ class KNXRoutingIndication(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p[:4])).to_bytes(1, byteorder='big') + p[1:]
+        p = struct.pack("!B", len(p[:4])) + p[1:]
         return p + pay
 
 
@@ -591,9 +592,9 @@ class KNX(Packet):
 
     def post_build(self, p, pay):
         # computes header_length
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        p = struct.pack("!B", len(p)) + p[1:]
         # computes total_length
-        p = p[:-2] + (len(p) + len(pay)).to_bytes(2, byteorder='big')
+        p = p[:-2] + struct.pack("!H", len(p) + len(pay))
         return p + pay
 
 
