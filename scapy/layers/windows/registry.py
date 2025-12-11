@@ -36,6 +36,7 @@ from scapy.layers.msrpce.raw.ms_rrp import (
     BaseRegQueryValue_Request,
     BaseRegGetVersion_Request,
     BaseRegQueryInfoKey_Request,
+    BaseRegQueryInfoKey_Response,
     BaseRegGetKeySecurity_Request,
     BaseRegSaveKey_Request,
     BaseRegSetValue_Request,
@@ -494,6 +495,7 @@ class RegApi:
         root_key_handle: NDRContextHandle,
         subkey_path: str,
         desired_access_rights: AccessRights | int = AccessRights.MAXIMUM_ALLOWED,
+        options: RegOptions = RegOptions.REG_OPTION_NON_VOLATILE,
         ndr64: bool = True,
         timeout: int = 5,
     ) -> NDRContextHandle:
@@ -520,6 +522,7 @@ class RegApi:
                 hKey=root_key_handle,
                 lpSubKey=RPC_UNICODE_STRING(Buffer=subkey_path),
                 samDesired=desired_access_rights,
+                dwOptions=options,
                 ndr64=ndr64,
             ),
             timeout=timeout,
@@ -531,6 +534,7 @@ class RegApi:
                 hex(response.status),
                 subkey_path,
             )
+            raise ValueError(response.status)
 
         return response.phkResult
 
@@ -571,7 +575,7 @@ class RegApi:
         key_handle: NDRContextHandle,
         ndr64: bool = True,
         timeout: int = 5,
-    ) -> Packet:
+    ) -> Optional[BaseRegQueryInfoKey_Response]:
         """
         Get information about a given registry key.
 
@@ -595,6 +599,7 @@ class RegApi:
             log_runtime.error(
                 "Got status %s while querying key info", hex(response.status)
             )
+            raise ValueError(response.status)
 
         return response
 
@@ -687,16 +692,16 @@ class RegApi:
                 timeout=timeout,
             )
 
+            # Send request
             if response.status == ErrorCodes.ERROR_NO_MORE_ITEMS:
-                yield response
                 break
 
+            # Check the response status
             elif not RegApi.is_status_ok(response.status):
                 log_runtime.error(
                     "Got status %s while enumerating keys", hex(response.status)
                 )
-                yield response
-                break
+                raise ValueError(response.status)
 
             index += 1
             yield response
@@ -720,6 +725,7 @@ class RegApi:
         index = 0
 
         while True:
+            # Get the name and value at index `index`
             response = client.sr1_req(
                 BaseRegEnumValue_Request(
                     hKey=key_handle,
@@ -742,18 +748,47 @@ class RegApi:
             )
 
             if response.status == ErrorCodes.ERROR_NO_MORE_ITEMS:
-                yield response
                 break
 
             elif not RegApi.is_status_ok(response.status):
                 log_runtime.error(
                     "Got status %s while enumerating values", hex(response.status)
                 )
-                yield response
-                break
+                raise ValueError(response.status)
+
+            # Get the value name and type
+            # for the name we got earlier
+            req = BaseRegQueryValue_Request(
+                hKey=key_handle,
+                lpValueName=response.valueof("lpValueNameOut"),
+                lpType=0,
+                lpcbData=1024,
+                lpcbLen=0,
+                lpData=NDRPointer(
+                    value=NDRConformantArray(
+                        max_count=1024, value=NDRVaryingArray(actual_count=0, value=b"")
+                    )
+                ),
+                ndr64=ndr64,
+            )
+
+            # Send request
+            response2 = client.sr1_req(req, timeout=timeout)
+            if response2.status == ErrorCodes.ERROR_MORE_DATA:
+                # The buffer was too small, we need to retry with a larger one
+                req.lpcbData = response2.lpcbData
+                req.lpData.value.max_count = response2.lpcbData.value
+                response2 = client.sr1_req(req, timeout=timeout)
+
+            # Check the response status
+            if not RegApi.is_status_ok(response2.status):
+                log_runtime.error(
+                    "got status %s while querying value", hex(response2.status)
+                )
+                raise ValueError(response2.status)
 
             index += 1
-            yield response
+            yield response, response2
 
     @staticmethod
     def get_value(
@@ -907,7 +942,7 @@ class RegApi:
                 hex(response.status),
                 value_name,
             )
-            return False
+            raise ValueError(response.status)
 
         return True
 
@@ -998,7 +1033,7 @@ class RegApi:
                 hex(response.status),
                 subkey_path,
             )
-            return False
+            raise ValueError(response.status)
 
         return True
 
@@ -1039,7 +1074,7 @@ class RegApi:
                 hex(response.status),
                 value_name,
             )
-            return False
+            raise ValueError(response.status)
 
         return True
 
@@ -1070,6 +1105,6 @@ class RegApi:
 
         if not RegApi.is_status_ok(response.status):
             log_runtime.error("Got status %s while closing key", hex(response.status))
-            return False
+            raise ValueError(response.status)
 
         return True
