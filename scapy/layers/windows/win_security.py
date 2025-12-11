@@ -943,10 +943,14 @@ class AccessRight:
     """
     Access right simple dataclass
 
-    Attributes:
-        value (int): Access right value
-        fullname (str): Full name of the access right
-        sddl (str): SDDL representation of the access right
+    :param value: Access right value
+    :type value: int
+
+    :param fullname: Full name of the access right
+    :type fullname: str
+
+    :param sddl: SDDL representation of the access right
+    :type sddl: str
     """
 
     value: int
