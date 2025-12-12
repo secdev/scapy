@@ -686,7 +686,7 @@ class ASN1F_optional(ASN1F_element):
 
 class ASN1F_omit(ASN1F_field[None, None]):
     """
-    ASN.1 field that is not specified. This is simply ommited on the network.
+    ASN.1 field that is not specified. This is simply omitted on the network.
     This is different from ASN1F_NULL which has a network representation.
     """
     def m2i(self, pkt, s):
@@ -695,7 +695,7 @@ class ASN1F_omit(ASN1F_field[None, None]):
 
     def i2m(self, pkt, x):
         # type: (ASN1_Packet, Optional[bytes]) -> bytes
-        return x
+        return b""
 
 
 _CHOICE_T = Union['ASN1_Packet', Type[ASN1F_field[Any, Any]], 'ASN1F_PACKET']

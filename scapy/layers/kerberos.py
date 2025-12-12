@@ -1397,7 +1397,7 @@ class KRB_PKAuthenticator(ASN1_Packet):
 
     def verify_checksum(self, text):
         """
-        Verifiy paChecksum and paChecksum2
+        Verify paChecksum and paChecksum2
         """
         if self.paChecksum.val != Hash_SHA().digest(text):
             raise ValueError("Bad paChecksum checksum !")
@@ -1438,7 +1438,7 @@ class KRB_AuthPack(ASN1_Packet):
         ASN1F_optional(
             ASN1F_SEQUENCE_OF(
                 "supportedCMSTypes",
-                [],
+                None,
                 X509_AlgorithmIdentifier,
                 explicit_tag=0xA2,
             ),

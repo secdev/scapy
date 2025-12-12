@@ -1382,7 +1382,7 @@ class CertTree(CertList):
         certList = list(self)
 
         # We make a list of certificates we have to search children for, and iterate
-        # through it until it's emtpy.
+        # through it until it's empty.
         todo = list(tree)
 
         # Iterate

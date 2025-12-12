@@ -867,7 +867,7 @@ class NetlogonClient(DCERPC_Client):
                 not in netr_server_authkerb_response
                 or netr_server_authkerb_response.status != 0
             ):
-                # An error occured
+                # An error occurred
                 netr_server_authkerb_response.show()
                 raise ValueError("NetrServerAuthenticateKerberos failed !")
 

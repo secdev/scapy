@@ -407,7 +407,7 @@ class DCERPC_Client(object):
         """
         if interface in self.contexts:
             # We have already found acceptable contexts for this interface,
-            # re-use that.
+            # reuse that.
             return self.contexts[interface]
 
         # NDR 2.0
