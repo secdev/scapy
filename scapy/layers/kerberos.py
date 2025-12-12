@@ -3045,7 +3045,7 @@ class KerberosClient(Automaton):
         ip: Optional[str] = None,
         upn: Optional[str] = None,
         password: Optional[str] = None,
-        key: Optional[Key] = None,
+        key: Optional["Key"] = None,
         realm: Optional[str] = None,
         x509: Optional[Union[Cert, str]] = None,
         x509key: Optional[Union[PrivKey, str]] = None,
@@ -3065,9 +3065,9 @@ class KerberosClient(Automaton):
         fast: bool = False,
         armor_ticket: KRB_Ticket = None,
         armor_ticket_upn: Optional[str] = None,
-        armor_ticket_skey: Optional[Key] = None,
-        key_list_req: List[EncryptionType] = [],
-        etypes: Optional[List[EncryptionType]] = None,
+        armor_ticket_skey: Optional['Key'] = None,
+        key_list_req: List['EncryptionType'] = [],
+        etypes: Optional[List['EncryptionType']] = None,
         pkinit_kex_method: PKINIT_KEX_METHOD = PKINIT_KEX_METHOD.DIFFIE_HELLMAN,
         port: int = 88,
         timeout: int = 5,
@@ -3831,7 +3831,7 @@ class KerberosClient(Automaton):
     def SENT_TGS_REQ(self):
         pass
 
-    def _process_padatas_and_key(self, padatas, etype: EncryptionType = None):
+    def _process_padatas_and_key(self, padatas, etype: "EncryptionType" = None):
         """
         Process the PADATA, and generate missing keys if required.
 
@@ -4184,7 +4184,7 @@ def krb_as_req(
     upn: str,
     spn: Optional[str] = None,
     ip: Optional[str] = None,
-    key: Optional[Key] = None,
+    key: Optional["Key"] = None,
     password: Optional[str] = None,
     realm: Optional[str] = None,
     host: str = "WIN10",
