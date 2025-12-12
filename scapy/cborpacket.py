@@ -19,7 +19,8 @@ from .cborfields import CborIntField
 
 class CborSequencePacket(Packet):
     ''' A sequence of items, one item for each field in the packet.
-    This packet does not include any head framing (e.g. an array).
+    This packet does not include any head framing (e.g. an array) or
+    any payload data.
     '''
 
 
@@ -56,15 +57,20 @@ class CborArrayPacket(CborSequencePacket):
         if self.raw_packet_cache is not None:
             return self.raw_packet_cache
 
+        self.array_head_arg = None
+        self.array_seen_items = 0
+
         seqdata = super().self_build()
         # notify parent of this array item
         self._inc_seen(self.parent)
+        print('self_build', self.name, self.parent, getattr(self.parent, 'array_seen_items', None))
 
         # define prepended array framing
         if self.cbor_use_indefinite:
             head = bytes(cbor_encode_head(CborHead(CborMajorType.ARRAY, None)))
             tail = bytes(cbor_encode_head(CborHead(CborMajorType.OTHERS, None)))
         else:
+            print('FIN', self.array_seen_items)
             head = bytes(cbor_encode_head(CborHead(CborMajorType.ARRAY,
                                                    self.array_seen_items)))
             tail = b''
@@ -85,13 +91,13 @@ class CborArrayPacket(CborSequencePacket):
             raise ValueError(f'Must have array head, got {chunk.head.major}')
 
         self.array_head_arg = chunk.head.argument
-        start_indefinite = chunk.head.argument is None
+        self.array_seen_items = 0
         # notify parent of this array item
         self._inc_seen(self.parent)
 
         res = super().do_dissect(bytes(buf))
 
-        if start_indefinite:
+        if self.array_head_arg is None:
             # match an indefinite break with an indefinite array head
             try:
                 nextres = res[0]
@@ -99,7 +105,11 @@ class CborArrayPacket(CborSequencePacket):
             except IndexError:
                 nextres = None
             if nextres != 0xff:
-                raise ValueError(f'Need an indefinite break, have {nextres}')
+                raise ValueError(f'Array needs an indefinite break, have {nextres}')
+        else:
+            if self.array_seen_items != self.array_head_arg:
+                raise ValueError(f'Array needs {self.array_head_arg} items, '
+                                 f'have {self.array_seen_items}')
 
         # ensure the cache is the full original data
         self.raw_packet_cache = x
@@ -133,6 +143,7 @@ def cbor_array_item_cb(pkt_cls: Type[Packet]) -> Callable:
             else:
                 # indefinite length until break
                 if remain and not remain.startswith(CBOR_INDEF_BREAK):
+                    print('REM', pkt.array_head_arg, remain.hex())
                     return pkt_cls
         return None
 

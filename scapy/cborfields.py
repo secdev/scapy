@@ -7,9 +7,9 @@
 Classes that implement CBOR leaf data structures.
 """
 
-from typing import Any, Optional, List, Tuple
+from typing import Any, Optional, List, Tuple, Type
 from .fields import I, M, Field, AnyField
-from .packet import Packet
+from .packet import Packet, Raw
 from .volatile import RandNum, RandBin
 from .cbor import (
     CborMajorType, CborSimpleValue, CborHead, CborChunk,
@@ -17,7 +17,7 @@ from .cbor import (
 )
 
 
-class CborItemBase:
+class _CborItemBase:
     ''' Mixin class to decode and encode CBOR items into a CBOR packet. '''
 
     decode_recurse = False
@@ -48,7 +48,7 @@ class CborItemBase:
             pkt.array_seen_items += 1
 
 
-class CborAnyField(CborItemBase, Field[CborChunk, CborChunk]):
+class CborAnyField(_CborItemBase, Field[CborChunk, CborChunk]):
     ''' Special case to handle sequences of chunks recursively. '''
 
     decode_recurse = True
@@ -62,7 +62,7 @@ class CborAnyField(CborItemBase, Field[CborChunk, CborChunk]):
         return str(x)
 
 
-class CborBoolField(CborItemBase, Field[bool, CborChunk]):
+class CborBoolField(_CborItemBase, Field[bool, CborChunk]):
     def __init__(self, name, default=None):
         # type: (str, Optional[int]) -> None
         Field.__init__(self, name, default, "H")
@@ -82,7 +82,7 @@ class CborBoolField(CborItemBase, Field[bool, CborChunk]):
         return cbor_chunk_int(int(x))
 
 
-class CborUintField(CborItemBase, Field[int, CborChunk]):
+class CborUintField(_CborItemBase, Field[int, CborChunk]):
     ''' Allow non-negative integer values. '''
 
     def __init__(self, name, default=None, maxval=None):
@@ -168,7 +168,7 @@ class CborFlagsField(CborUintField):
         return x
 
 
-class CborIntField(CborItemBase, Field[int, CborChunk]):
+class CborIntField(_CborItemBase, Field[int, CborChunk]):
     ''' Allow non-negative and negative integer values. '''
 
     def __init__(self, name, default=None):
@@ -206,26 +206,11 @@ class CborIntField(CborItemBase, Field[int, CborChunk]):
         return RandNum(-2**64, 2**64 - 1)
 
 
-class CborBstrField(CborItemBase, Field[bytes, CborChunk]):
-    ''' Allow byte string values.
-
-    The human form of this field is as a hex-encoded text.
-    '''
+class _CborBstrBase(_CborItemBase):
+    ''' Common byte string handling funcitons. '''
 
     decode_recurse = True
     ''' By default include the actual string content '''
-
-    def __init__(self, name, default=None, maxlen=None):
-        # type: (str, Optional[bytes], Optional[int]) -> None
-        Field.__init__(self, name, default, "H")
-        self.maxlen = maxlen
-
-    def i2repr(self, pkt, x):
-        # type: (Optional[Packet], I) -> str
-        if x is None:
-            return None
-
-        return x.hex()
 
     def m2i(self, _pkt, x):
         # type: (Optional[Packet], M) -> I
@@ -246,6 +231,24 @@ class CborBstrField(CborItemBase, Field[bytes, CborChunk]):
 
         return cbor_chunk_bstr(x)
 
+
+class CborBstrField(_CborBstrBase, Field[bytes, CborChunk]):
+    ''' Allow byte string values.
+
+    The human form of this field is as a hex-encoded text.
+    '''
+
+    def __init__(self, name, default=None, maxlen=None):
+        Field.__init__(self, name, default, "H")
+        self.maxlen = maxlen
+
+    def i2repr(self, pkt, x):
+        # type: (Optional[Packet], I) -> str
+        if x is None:
+            return None
+
+        return x.hex()
+
     def i2h(self, _pkt, x):
         if x is None:
             return None
@@ -257,10 +260,56 @@ class CborBstrField(CborItemBase, Field[bytes, CborChunk]):
         return RandBin(RandNum(0, self.maxlen or 256))
 
 
-class CborFieldArrayField(CborItemBase, Field[List[Any], List[CborChunk]]):
+class CborPacketBstrField(_CborBstrBase, Field[Packet, CborChunk]):
+    ''' Allow byte string values which are decoded as packet values.
+
+    The internal and human forms are taken from the contained packet class.
+    '''
+
+    holds_packets = True
+
+    @staticmethod
+    def default_packet_cls(_pkt, _x):
+        # type: (Optional[Packet], bytes) -> Type[Packet]
+        return Raw
+
+    def __init__(self, name, default=None, pkt_cls=None, maxlen=None):
+        Field.__init__(self, name, default, "H")
+        self.maxlen = maxlen
+        self.pkt_cls = pkt_cls or CborPacketBstrField.default_packet_cls
+    #
+    # def i2repr(self, pkt, x):
+    #     # type: (Optional[Packet], I) -> str
+    #     if x is None:
+    #         return None
+    #
+    #     if self._repr_size:
+    #         return "{} byte content".format(len(x))
+    #     else:
+    #         return x.hex()
+
+    def m2i(self, pkt, x):
+        # type: (Optional[Packet], M) -> I
+        if x is None:
+            return None
+
+        data = _CborBstrBase.m2i(self, pkt, x)
+        return self.pkt_cls(pkt, data)(data)
+
+    def i2m(self, pkt, x):
+        # type: (Optional[Packet], Optional[I]) -> M
+        if x is None:
+            return None
+
+        data = bytes(x)
+        return _CborBstrBase.i2m(self, pkt, data)
+
+
+class CborFieldArrayField(_CborItemBase, Field[List[Any], List[CborChunk]]):
     ''' A field which manages a list of sub-field values encoded in a
     definite-length array.
     '''
+    islist = 1
 
     def __init__(
             self,

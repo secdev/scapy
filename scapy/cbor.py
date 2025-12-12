@@ -358,7 +358,7 @@ def cbor_encode_chunk(chunk: CborChunk) -> bytearray:
     buf = cbor_encode_head(chunk.head)
 
     # all other types than these are not encoded content but internal semantic use
-    if isinstance(content, bytes):
+    if isinstance(content, (bytes, bytearray)):
         buf += content
     elif isinstance(content, (list, tuple)):
         # recurse where possible
@@ -437,72 +437,70 @@ def cbor_decode_chunk(data: bytearray,
 
     # Handle content when requested
     cnt = None
-    match head.major:
-        case CborMajorType.UINT:
-            cnt = head.argument
-        case CborMajorType.NINT:
-            cnt = -1 - head.argument
-
-        case CborMajorType.BSTR:
-            if recurse:
-                if head.argument is None:
-                    cnt = []
-                    used += cbor_decode_sequence(cnt, data, None, head.major)
-                else:
-                    cnt = data[:head.argument]
-                    del data[:head.argument]
-                    used += head.argument
-
-        case CborMajorType.TSTR:
-            if recurse:
-                if head.argument is None:
-                    cnt = []
-                    used += cbor_decode_sequence(cnt, data, None, head.major)
-                else:
-                    cnt = data[:head.argument].decode('utf8')
-                    del data[:head.argument]
-                    used += head.argument
-
-        case CborMajorType.ARRAY:
-            if recurse:
+    if head.major == CborMajorType.UINT:
+        cnt = head.argument
+    elif head.major == CborMajorType.NINT:
+        cnt = -1 - head.argument
+    elif head.major == CborMajorType.BSTR:
+        if recurse:
+            if head.argument is None:
                 cnt = []
-                used += cbor_decode_sequence(cnt, data, head.argument)
-
-        case CborMajorType.MAP:
-            if recurse:
-                # the map size is number of pairs, not items
-                count = 2 * head.argument if head.argument is not None else None
-
-                tmp = []
-                used += cbor_decode_sequence(tmp, data, count)
-
-                tmpit = iter(tmp)
-                cnt = {}
-                for key, sval in zip(tmpit, tmpit):
-                    cnt[key] = sval
-
-        case CborMajorType.OTHERS:
-            if isinstance(head.argument, int):
-                cnt = CborSimpleValue(head.argument)
-
-            elif isinstance(head.argument, bytes):
-                # float values decoded from the raw data
-                arglen = len(head.argument)
-                if arglen == 2:
-                    fmt = 'e'
-                elif arglen == 4:
-                    fmt = 'f'
-                elif arglen == 8:
-                    fmt = 'd'
-                else:
-                    raise ValueError(f'invalid float length {arglen}')
-                cnt = struct.unpack('!' + fmt, head.argument)[0]
-
-            elif head.argument is None:
-                cnt = None
-
+                used += cbor_decode_sequence(cnt, data, None, head.major)
             else:
-                raise ValueError(f'invalid other argument type {type(head.argument)}')
+                cnt = bytes(data[:head.argument])
+                del data[:head.argument]
+                used += head.argument
+
+    elif head.major == CborMajorType.TSTR:
+        if recurse:
+            if head.argument is None:
+                cnt = []
+                used += cbor_decode_sequence(cnt, data, None, head.major)
+            else:
+                cnt = data[:head.argument].decode('utf8')
+                del data[:head.argument]
+                used += head.argument
+
+    elif head.major == CborMajorType.ARRAY:
+        if recurse:
+            cnt = []
+            used += cbor_decode_sequence(cnt, data, head.argument)
+
+    elif head.major == CborMajorType.MAP:
+        if recurse:
+            # the map size is number of pairs, not items
+            count = 2 * head.argument if head.argument is not None else None
+
+            tmp = []
+            used += cbor_decode_sequence(tmp, data, count)
+
+            tmpit = iter(tmp)
+            cnt = {}
+            for key, sval in zip(tmpit, tmpit):
+                cnt[key] = sval
+
+    elif head.major == CborMajorType.OTHERS:
+        if isinstance(head.argument, int):
+            cnt = CborSimpleValue(head.argument)
+
+        elif isinstance(head.argument, bytes):
+            # float values decoded from the raw data
+            arglen = len(head.argument)
+            if arglen == 2:
+                fmt = 'e'
+            elif arglen == 4:
+                fmt = 'f'
+            elif arglen == 8:
+                fmt = 'd'
+            else:
+                raise ValueError(f'invalid float length {arglen}')
+            cnt = struct.unpack('!' + fmt, head.argument)[0]
+
+        elif head.argument is None:
+            cnt = None
+
+        else:
+            raise ValueError(f'invalid other argument type {type(head.argument)}')
 
     chunk = CborChunk(tags=tuple(tags), head=head, content=cnt)
     return used, chunk

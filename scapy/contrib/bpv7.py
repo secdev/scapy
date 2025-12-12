@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+# Copyright (C) Brian Sipos <brian.sipos@gmail.com>
+
+# scapy.contrib.description = Bundle Protocol Version 7 (BPv7)
+# scapy.contrib.status = loads
 
 import crcmod
 import datetime
@@ -8,18 +15,19 @@ from typing import Any, Optional
 from scapy import volatile
 from scapy.config import conf
 from scapy.fields import I, ConditionalField, PacketField, PacketListField
-from scapy.packet import Packet, NoPayload, Raw, bind_layers
+from scapy.packet import Packet, bind_layers
 from scapy.cbor import (
     CborMajorType, cbor_chunk_int, cbor_chunk_tstr, cbor_chunk_array
 )
 from scapy.cborfields import (
     CborAnyField, CborUintField, CborIntField, CborEnumField,
-    CborFlagsField, CborBstrField, CborFieldArrayField
+    CborFlagsField, CborBstrField, CborPacketBstrField, CborFieldArrayField
 )
 from scapy.cborpacket import (
     CborArrayPacket, CborSequencePacket,
     cbor_array_item_cb
 )
+from magic.compat import NONE
 
 LOG_RUNTIME = logging.getLogger("scapy.runtime")
 
@@ -109,6 +117,13 @@ class BundleEidField(CborAnyField):
     The EID is a two-item array of (scheme ID, scheme-specific part).
     '''
 
+    DTN_NONE = cbor_chunk_array([cbor_chunk_int(1), cbor_chunk_int(0)])
+    ''' Internal value for the EID dtn:none '''
+
+    WELL_KNOWN_SSP = {
+        0: 'none',
+    }
+
     def i2h(self, _pkt, x):
         # Translate to text form for known schemes
         if x is None:
@@ -118,16 +133,17 @@ class BundleEidField(CborAnyField):
 
         scheme_id = x.content[0].head.argument
         ssp_items = x.content[1].content
-        match scheme_id:
-            case 1:
-                # DTN scheme
-                return 'dtn:' + ssp_items
-            case 2:
-                # IPN scheme, 2 or 3 element forms
-                parts = [chunk.head.argument for chunk in ssp_items]
-                return 'ipn:' + '.'.join(['{:d}'.format(part) for part in parts])
-            case _:
-                raise ValueError(f'BP EID scheme {scheme_id} not understood')
+        if scheme_id == 1:
+            # DTN scheme
+            if isinstance(ssp_items, int):
+                ssp_items = self.WELL_KNOWN_SSP[ssp_items]
+            return 'dtn:' + ssp_items
+        elif scheme_id == 2:
+            # IPN scheme, 2 or 3 element forms
+            parts = [chunk.head.argument for chunk in ssp_items]
+            return 'ipn:' + '.'.join(['{:d}'.format(part) for part in parts])
+        else:
+            raise ValueError(f'BP EID scheme {scheme_id} not understood')
 
     def h2i(self, _pkt, x):
         # type: (Optional[Packet], Any) -> I
@@ -138,26 +154,38 @@ class BundleEidField(CborAnyField):
         scheme = scheme.lower()
         scheme_id = None
         ssp_item = None
-        match scheme:
-            case 'dtn':
-                scheme_id = 1
+        if scheme == 'dtn':
+            scheme_id = 1
+            for key, val in self.WELL_KNOWN_SSP.items():
+                if ssp == val:
+                    ssp_item = cbor_chunk_int(key)
+                    break
+            if ssp_item is None:
                 ssp_item = cbor_chunk_tstr(ssp)
-            case 'ipn':
-                # force handling as decimal
-                parts = [int(part, 10) for part in ssp.split('.')]
+        elif scheme == 'ipn':
+            # force handling as decimal
+            parts = [int(part, 10) for part in ssp.split('.')]
 
-                scheme_id = 2
-                ssp_item = cbor_chunk_array([
-                    cbor_chunk_int(part)
-                    for part in parts
-                ])
-            case _:
-                raise ValueError(f'BP EID scheme {scheme} not understood')
+            scheme_id = 2
+            ssp_item = cbor_chunk_array([
+                cbor_chunk_int(part)
+                for part in parts
+            ])
+        else:
+            raise ValueError(f'BP EID scheme {scheme} not understood')
 
         return cbor_chunk_array([
             cbor_chunk_int(scheme_id),
             ssp_item
         ])
+
+    def any2i(self, pkt, x):
+        if x is None:
+            return NONE
+
+        if isinstance(x, str):
+            return self.h2i(pkt, x)
+        return x
 
     def i2repr(self, pkt, x):
         return self.i2h(pkt, x)
@@ -192,63 +220,66 @@ class AbstractBlock(CborArrayPacket):
         },
     }
 
-    crc_type_name = 'crc_type'
-    crc_value_name = 'crc_value'
+    _crc_type_name = 'crc_type'
+    ''' Field name of the CRC Type in the leaf packet class. '''
+    _crc_value_name = 'crc_value'
+    ''' Field name of the CRC Value in the leaf packet class. '''
 
     def fill_fields(self):
         ''' Fill all fields so that the block is the full size it needs
         to be for encoding encoding with build().
         Derived classes should populate their block-type-specific-data also.
         '''
-        crc_type = self.getfieldval(self.crc_type_name)
-        crc_value = self.fields.get(self.crc_value_name)
+        crc_type = self.getfieldval(self._crc_type_name)
+        crc_value = self.fields.get(self._crc_value_name)
         if crc_type and not crc_value:
             defn = AbstractBlock.CRC_DEFN[crc_type]
             # Encode with a zero-valued CRC field
-            self.fields[self.crc_value_name] = defn['encode'](0)
+            self.fields[self._crc_value_name] = defn['encode'](0)
 
-    def update_crc(self, keep_existing=False):
+    def update_crc(self, keep_existing=True):
         ''' Update this block's CRC field from the current field data
         only if the current CRC (field not default) value is None.
         '''
-        if self.crc_type_name is None or self.crc_value_name is None:
+        # class-level configuration
+        if self._crc_type_name is None or self._crc_value_name is None:
             return
 
-        crc_type = self.getfieldval(self.crc_type_name)
+        crc_type = self.getfieldval(self._crc_type_name)
         if crc_type == 0:
             crc_value = None
         else:
-            crc_value = self.fields.get(self.crc_value_name)
+            crc_value = self.fields.get(self._crc_value_name)
             if not keep_existing or crc_value is None:
                 defn = AbstractBlock.CRC_DEFN[crc_type]
                 # Encode with a zero-valued CRC field
-                self.fields[self.crc_value_name] = defn['encode'](0)
+                self.fields[self._crc_value_name] = defn['encode'](0)
                 pre_crc = self.build()
                 crc_int = defn['func'](pre_crc)
                 crc_value = defn['encode'](crc_int)
 
-        self.fields[self.crc_value_name] = crc_value
+        self.fields[self._crc_value_name] = crc_value
 
     def check_crc(self):
         ''' Check the current CRC value, if enabled.
         :return: True if the CRC is disabled or it is valid.
         '''
-        if self.crc_type_name is None or self.crc_value_name is None:
+        if self._crc_type_name is None or self._crc_value_name is None:
             return True
 
-        crc_type = self.getfieldval(self.crc_type_name)
-        crc_value = self.fields.get(self.crc_value_name)
+        crc_type = self.getfieldval(self._crc_type_name)
+        crc_value = self.fields.get(self._crc_value_name)
         if crc_type == 0:
             valid = crc_value is None
         else:
             defn = AbstractBlock.CRC_DEFN[crc_type]
             # Encode with a zero-valued CRC field
-            self.fields[self.crc_value_name] = defn['encode'](0)
+            self.fields[self._crc_value_name] = defn['encode'](0)
             pre_crc = self.build()
             crc_int = defn['func'](pre_crc)
             valid = crc_value == defn['encode'](crc_int)
             # Restore old value
-            self.fields[self.crc_value_name] = crc_value
+            self.fields[self._crc_value_name] = crc_value
 
         return valid
 
@@ -284,10 +315,10 @@ class PrimaryBlock(AbstractBlock):
         CborFlagsField('bundle_flags', default=0, flags=Flag),
         CborEnumField('crc_type', default=AbstractBlock.CrcType.NONE,
                       enum=AbstractBlock.CrcType),
-        BundleEidField('destination', default=None),
-        BundleEidField('source', default=None),
-        BundleEidField('report_to', default=None),
-        PacketField('create_ts', default=BundleTimestamp(),
+        BundleEidField('destination', default=BundleEidField.DTN_NONE),
+        BundleEidField('source', default=BundleEidField.DTN_NONE),
+        BundleEidField('report_to', default=BundleEidField.DTN_NONE),
+        PacketField('create_ts', default=None,
                     pkt_cls=BundleTimestamp),
         CborUintField('lifetime', default=0),
         ConditionalField(
@@ -308,10 +339,8 @@ class PrimaryBlock(AbstractBlock):
 
 
 class CanonicalBlock(AbstractBlock):
-    ''' The canonical block definition with a type-specific payload.
-
-    Any payload of this block is encoded as the "data" field when building
-    and decoded from the "data" field when dissecting.
+    ''' The canonical block definition with a block-type-specific data (BTSD)
+    field containing a dissected Packet.
     '''
 
     @enum.unique
@@ -333,59 +362,24 @@ class CanonicalBlock(AbstractBlock):
         CborFlagsField('block_flags', default=0, flags=Flag),
         CborEnumField('crc_type', default=AbstractBlock.CrcType.NONE,
                       enum=AbstractBlock.CrcType),
-        CborBstrField('btsd', default=None),  # block-type-specific data here
+        CborPacketBstrField('btsd', default=None,
+                            pkt_cls=AbstractBlock.guess_payload_class),
         ConditionalField(
             CborBstrField('crc_value'),
             lambda block: block.crc_type != 0
         ),
     )
 
-    def ensure_block_type_specific_data(self):
-        ''' Embed payload as BTSD if not already present.
-        '''
-        if isinstance(self.payload, NoPayload):
-            return
-        if self.fields.get('btsd') is not None:
-            # already present
-            return
-
-        pay_data = self.payload.do_build()
-        self.fields['btsd'] = pay_data
-
-    def fill_fields(self):
-        self.ensure_block_type_specific_data()
-        super().fill_fields()
-
     def self_build(self, *args, **kwargs):
-        self.ensure_block_type_specific_data()
+        # derive the block type from BTSD packet class
+        if 'block_type' not in self.fields and 'btsd' in self.fields:
+            fval = self.fields['btsd']._overload_fields.get(CanonicalBlock)
+            if fval and 'block_type' in fval:
+                self.fields['block_type'] = fval['block_type']
+
+        self.update_crc(keep_existing=True)
+
         return super().self_build(*args, **kwargs)
-
-    def do_build_payload(self):
-        # Payload is handled by self_build()
-        return b''
-
-    def post_dissect(self, s):
-        # Extract payload from fields
-        blk_type = self.fields.get('type_code')
-        blk_data = self.fields.get('btsd')
-
-        cls = None
-        if blk_data is not None and blk_type is not None:
-            try:
-                cls = self.guess_payload_class(None)
-            except KeyError:
-                pass
-
-        if cls is not None and cls is not Raw:
-            try:
-                pay = cls(blk_data)
-                self.add_payload(pay)
-            except Exception as err:
-                if conf.debug_dissector:
-                    raise
-                LOG_RUNTIME.warning('Failed to decode BPv7 BTSD: %s', err)
-
-        return super().post_dissect(s)
 
 
 class PreviousNodeBlock(CborSequencePacket):
@@ -482,8 +476,12 @@ class BundleV7(CborArrayPacket):
 
     cbor_use_indefinite = True
     ''' The bundle PDU used indefinite length. '''
+
     fields_desc = (
-        PacketField('primary', default=None, pkt_cls=PrimaryBlock),
+        PacketField('primary', default=PrimaryBlock(), pkt_cls=PrimaryBlock),
         PacketListField('blocks', default=[],
                         next_cls_cb=cbor_array_item_cb(CanonicalBlock)),
     )
+
+
+conf.debug_dissector = True

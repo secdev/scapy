@@ -6,6 +6,15 @@
 
 from scapy.contrib.bpv7 import *
 fld = BundleEidField('eid')
+ival = fld.h2i(None, 'dtn:none')
+data = fld.addfield(None, b'', fld.i2m(None, ival))
+print(data.hex())
+assert data == bytes.fromhex('820100')
+
+= decode human DTN
+
+from scapy.contrib.bpv7 import *
+fld = BundleEidField('eid')
 ival = fld.h2i(None, 'dtn://node/pa/th')
 data = fld.addfield(None, b'', fld.i2m(None, ival))
 print(data.hex())
@@ -31,10 +40,49 @@ assert data == bytes.fromhex('820283010203')
 
 + BPv7 CODEC
 
-= construction
+= construct default
 
 from scapy.contrib.bpv7 import *
 pkt = BundleV7()
+pkt.show()
+outdata = bytes(pkt)
+print(outdata.hex())
+
+= construct and encode
+
+from scapy.contrib.bpv7 import *
+pkt = BundleV7(
+  primary=PrimaryBlock(
+    crc_type=2,
+    destination='ipn:1.2.3',
+    create_ts=BundleTimestamp(
+      dtntime='2025-11-26T15:00:00Z',
+      seqno=1,
+    ),
+    lifetime=3600000,
+  ),
+  blocks=[
+    CanonicalBlock(
+      block_num=2,
+      crc_type=2,
+      btsd=PreviousNodeBlock(node='ipn:3.2.0'),
+    ),
+    CanonicalBlock(
+      type_code=1,
+      block_num=1,
+      crc_type=2,
+      btsd=Raw(b'hi'),
+    ),
+  ]
+)
+pkt.show()
+outdata = bytes(pkt)
+print(outdata.hex())
+assert len(outdata) > 5
+assert outdata[:1] == b'\x9f'
+assert outdata[-1:] == b'\xff'
+wrpcap('/tmp/foo.pcap', Ether()/IP()/UDP(sport=4556,dport=4556)/pkt)
+
 
 = decoding example from Appendix A.1.1.3 of RFC 9173
 
@@ -74,9 +122,9 @@ pkt = BundleV7(data)
 print(repr(pkt))
 pkt.show()
 assert pkt.blocks[0].type_code == 11
-assert pkt.blocks[0].payload.targets == [1]
-assert pkt.blocks[0].payload.context_id == 1
-assert pkt.blocks[0].payload.source == 'ipn:2.1'
+assert pkt.blocks[0].btsd.targets == [1]
+assert pkt.blocks[0].btsd.context_id == 1
+assert pkt.blocks[0].btsd.source == 'ipn:2.1'
 
 pkt.clear_cache()
 outdata = bytes(pkt)
