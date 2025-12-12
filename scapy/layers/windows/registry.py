@@ -15,7 +15,7 @@ from typing import Generator, Optional
 from scapy.packet import Packet
 from scapy.error import log_runtime
 
-from scapy.scapy.layers.windows.security import (
+from scapy.layers.windows.security import (
     RegKeySpecificAccessRights,
     GenericAccessRights,
     SECURITY_DESCRIPTOR,

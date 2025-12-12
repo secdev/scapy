@@ -98,7 +98,7 @@ from scapy.layers.msrpce.mspac import (
     USER_SESSION_KEY,
     CLAIM_ENTRY_sub2,
 )
-from scapy.scapy.layers.windows.security import (
+from scapy.layers.windows.security import (
     WINNT_SID,
     WINNT_SID_IDENTIFIER_AUTHORITY,
 )

@@ -43,7 +43,7 @@ from scapy.layers.msrpce.msdrsr import (
 from scapy.layers.ntlm import NTLMSSP
 from scapy.layers.kerberos import KerberosSSP
 from scapy.layers.spnego import SPNEGOSSP
-from scapy.scapy.layers.windows.security import (
+from scapy.layers.windows.security import (
     SECURITY_DESCRIPTOR,
     WELL_KNOWN_SIDS,
     WINNT_ACE_FLAGS,
