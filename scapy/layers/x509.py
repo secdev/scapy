@@ -893,8 +893,10 @@ class X509_AlgorithmIdentifier(ASN1_Packet):
                     ),
                     lambda pkt: pkt.algorithm.val == "1.2.840.113549.1.3.1",
                 ),
+
             ],
-            ASN1F_optional(ASN1F_NULL("parameters", None)),
+            # RFC4055 (=1.2.840.113549.1.1.11) / Default
+            ASN1F_optional(ASN1F_NULL("parameters", 0)),
         )
     )
 

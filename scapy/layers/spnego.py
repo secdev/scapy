@@ -39,7 +39,6 @@ from scapy.asn1fields import (
     ASN1F_optional,
 )
 from scapy.asn1packet import ASN1_Packet
-from scapy.base_classes import Net
 from scapy.fields import (
     FieldListField,
     LEIntEnumField,
@@ -63,7 +62,6 @@ from scapy.utils import (
     valid_ip6,
 )
 
-from scapy.layers.inet6 import Net6
 from scapy.layers.gssapi import (
     GSSAPI_BLOB,
     GSSAPI_BLOB_SIGNATURE,
