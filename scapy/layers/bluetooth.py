@@ -2490,8 +2490,10 @@ class HCI_Cmd_LE_Set_Extended_Advertising_Parameters(Packet):
                 "Reserved15",  # Bit 15
             ],
         ),
-        LEThreeBytesField("pri_interval_min", 160),  # 100ms (3 bytes per BT spec)
-        LEThreeBytesField("pri_interval_max", 160),  # 100ms (3 bytes per BT spec)
+        # 100ms (3 bytes per BT spec)
+        LEThreeBytesField("pri_interval_min", 160),
+        # 100ms (3 bytes per BT spec)
+        LEThreeBytesField("pri_interval_max", 160),
         ByteField("pri_channel_map", 7),  # 37, 38, 39
         ByteEnumField("own_addr_type", 0, {0: "public", 1: "random"}),
         ByteEnumField("peer_addr_type", 0, {0: "public", 1: "random"}),
@@ -2501,7 +2503,8 @@ class HCI_Cmd_LE_Set_Extended_Advertising_Parameters(Packet):
         # PHY Configuration
         ByteEnumField("pri_phy", 1, {1: "1M", 3: "Coded"}),  # Primary PHY
         ByteField("sec_max_skip", 0),
-        ByteEnumField("sec_phy", 1, {1: "1M", 2: "2M", 3: "Coded"}),  # Secondary PHY
+        # Secondary PHY
+        ByteEnumField("sec_phy", 1, {1: "1M", 2: "2M", 3: "Coded"}),
         ByteField("sid", 0),
         ByteField("scan_req_notify_enable", 0),
     ]
