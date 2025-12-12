@@ -36,6 +36,7 @@ from scapy.asn1fields import (
     ASN1F_ISO646_STRING,
     ASN1F_NULL,
     ASN1F_OID,
+    ASN1F_omit,
     ASN1F_optional,
     ASN1F_PACKET,
     ASN1F_PRINTABLE_STRING,
@@ -866,6 +867,33 @@ class X509_AlgorithmIdentifier(ASN1_Packet):
         ASN1F_OID("algorithm", "1.2.840.113549.1.1.11"),
         MultipleTypeField(
             [
+                (
+                    # RFC4055:
+                    # "The correct encoding is to omit the parameters field"
+                    # "All implementations MUST accept both NULL and absent
+                    # parameters as legal and equivalent encodings."
+
+                    # RFC8017:
+                    # "should generally be omitted, but if present, it shall have a
+                    # value of type NULL."
+                    ASN1F_optional(ASN1F_NULL("parameters", None)),
+                    lambda pkt: (
+                        pkt.algorithm.val[:19] == "1.2.840.113549.1.1." or
+                        pkt.algorithm.val[:21] == "2.16.840.1.101.3.4.2."
+                    )
+                ),
+                (
+                    # RFC5758:
+                    # "the encoding MUST omit the parameters field"
+
+                    # RFC8410:
+                    # "For all of the OIDs, the parameters MUST be absent."
+                    ASN1F_omit("parameters", None),
+                    lambda pkt: (
+                        pkt.algorithm.val[:16] == "1.2.840.10045.4." or
+                        pkt.algorithm.val in ["1.3.101.112", "1.3.101.113"]
+                    )
+                ),
                 # RFC5480
                 (
                     ASN1F_PACKET(
@@ -893,10 +921,9 @@ class X509_AlgorithmIdentifier(ASN1_Packet):
                     ),
                     lambda pkt: pkt.algorithm.val == "1.2.840.113549.1.3.1",
                 ),
-
             ],
-            # RFC4055 (=1.2.840.113549.1.1.11) / Default
-            ASN1F_optional(ASN1F_NULL("parameters", 0)),
+            # Default: fail, probably. This is most likely unimplemented.
+            ASN1F_NULL("parameters", 0),
         )
     )
 

@@ -488,7 +488,6 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
                 obj.set_val(pkt, None)
         else:
             for obj in self.seq:
-                # DEBUG: print(repr(obj), repr)
                 try:
                     s = obj.dissect(pkt, s)
                 except ASN1F_badsequence:
@@ -642,6 +641,9 @@ class ASN1F_TIME_TICKS(ASN1F_INTEGER):
 #############################
 
 class ASN1F_optional(ASN1F_element):
+    """
+    ASN.1 field that is optional.
+    """
     def __init__(self, field):
         # type: (ASN1F_field[Any, Any]) -> None
         field.flexible_tag = False
@@ -680,6 +682,20 @@ class ASN1F_optional(ASN1F_element):
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, Any) -> str
         return self._field.i2repr(pkt, x)
+
+
+class ASN1F_omit(ASN1F_field[None, None]):
+    """
+    ASN.1 field that is not specified. This is simply ommited on the network.
+    This is different from ASN1F_NULL which has a network representation.
+    """
+    def m2i(self, pkt, s):
+        # type: (ASN1_Packet, bytes) -> Tuple[None, bytes]
+        return None, s
+
+    def i2m(self, pkt, x):
+        # type: (ASN1_Packet, Optional[bytes]) -> bytes
+        return x
 
 
 _CHOICE_T = Union['ASN1_Packet', Type[ASN1F_field[Any, Any]], 'ASN1F_PACKET']
