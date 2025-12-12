@@ -258,7 +258,8 @@ class WINNT_ACE_HEADER(Packet):
     It is composed of 3 fields, followed by ACE-specific data:
         - AceType (1 byte): see below for standard values
         - AceFlags (1 byte): see WINNT_ACE_FLAGS
-        - AceSize (2 bytes): total size of the ACE, including the header and the ACE-specific data.
+        - AceSize (2 bytes): total size of the ACE, including the header
+                             and the ACE-specific data.
     """
 
     fields_desc = [
@@ -1324,8 +1325,10 @@ class Windows_Access_Rights:
 
         .. code-block:: python
 
-            >>> tmp = Windows_Access_Rights(specific_access_rights=RegKeySpecificAccessRights,
-                value=0xFFFFFFFFFFFFFFFF)
+            >>> tmp = Windows_Access_Rights(
+                specific_access_rights=RegKeySpecificAccessRights,
+                value=0xFFFFFFFFFFFFFFFF
+                )
             >>> tmp.to_fullname()
             'GENERIC_READ,GENERIC_WRITE,GENERIC_EXECUTE,GENERIC_ALL,STANDARD_RIGHTS_ALL,
              KEY_WOW64_64KEY,KEY_WOW64_32KEY,KEY_ALL_ACCESS 0xfe0ffc0'

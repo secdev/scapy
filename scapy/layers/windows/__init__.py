@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: YOLO
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+
+
 """
 This package implements Windows-specific high level helpers.
 It makes it easier to use Scapy Windows related objects.

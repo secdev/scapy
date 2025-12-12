@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: YOLO
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+
 """
 This file implements Windows Registry related high level functions.
 It provides easy to use functions to manipulate the registry.
@@ -64,40 +68,53 @@ class RootKeys(StrEnum):
     # These constants are used to specify the root keys of the Windows registry.
     # The root keys are the top-level keys in the registry hierarchy.
 
-    # Registry entries subordinate to this key define types (or classes) of documents and the
+    # Registry entries subordinate to this key define types
+    # (or classes) of documents and the
     # properties associated with those types.
-    # The subkeys of the HKEY_CLASSES_ROOT key are a merged view of the following two subkeys:
+    # The subkeys of the HKEY_CLASSES_ROOT key are a merged
+    # view of the following two subkeys:
     HKEY_CLASSES_ROOT = "HKCR"
 
-    # Registry entries subordinate to this key define the preferences of the current user.
-    # These preferences include the settings of environment variables, data on program groups,
+    # Registry entries subordinate to this key define the
+    # preferences of the current user.
+    # These preferences include the settings of environment
+    # variables, data on program groups,
     # colors, printers, network connections, and application preferences.
-    # The HKEY_CURRENT_USER root key is a subkey of the HKEY_USERS root key, as described in
+    # The HKEY_CURRENT_USER root key is a subkey of the
+    # HKEY_USERS root key, as described in
     # section 3.1.1.8.
     HKEY_CURRENT_USER = "HKCU"
 
-    # Registry entries subordinate to this key define the physical state of the computer,
-    # including data on the bus type, system memory, and installed hardware and software.
+    # Registry entries subordinate to this key define the
+    # physical state of the computer,
+    # including data on the bus type, system memory, and
+    # installed hardware and software.
     HKEY_LOCAL_MACHINE = "HKLM"
 
-    # This key contains information on the current hardware profile of the local computer.
+    # This key contains information on the current
+    # hardware profile of the local computer.
     # HKEY_CURRENT_CONFIG is an alias for
     # HKEY_LOCAL_MACHINE\System\CurrentControlSet\Hardware Profiles\Current
     HKEY_CURRENT_CONFIG = "HKCC"
 
-    # This key define the default user configuration for new users on the local computer and the
+    # This key define the default user configuration for
+    # new users on the local computer and the
     # user configuration for the current user.
     HKEY_USERS = "HKU"
 
-    # Registry entries subordinate to this key allow access to performance data.
+    # Registry entries subordinate to this key allow
+    # access to performance data.
     HKEY_PERFORMANCE_DATA = "HKPD"
 
-    # Registry entries subordinate to this key reference the text strings that describe counters
+    # Registry entries subordinate to this key reference
+    # the text strings that describe counters
     # in U.S. English.
     HKEY_PERFORMANCE_TEXT = "HKPT"
 
-    # Registry entries subordinate to this key reference the text strings that describe
-    # counters in the local language of the area in which the computer is running.
+    # Registry entries subordinate to this key
+    # reference the text strings that describe
+    # counters in the local language of the area in
+    # which the computer is running.
     HKEY_PERFORMANCE_NLSTEXT = "HKPN"
 
     def __new__(cls, value):
@@ -354,8 +371,8 @@ class RegEntry:
 
     def __str__(self) -> str:
         if self.reg_type == RegType.UNK:
-            return f"{self.reg_value} ({self.reg_type.name}:{self.reg_type.real_value}) {self.reg_data}"
-        return f"{self.reg_value} ({self.reg_type.name}:{self.reg_type.value}) {self.reg_data}"
+            return f"{self.reg_value} ({self.reg_type.name}: {self.reg_type.real_value}) {self.reg_data}"  # noqa: E501
+        return f"{self.reg_value} ({self.reg_type.name}: {self.reg_type.value}) {self.reg_data}"  # noqa: E501
 
     def __repr__(self) -> str:
         return f"RegEntry({self.reg_value}, {self.reg_type}, {self.reg_data})"
@@ -373,8 +390,10 @@ class RegEntry:
 class RegAccessRights(Windows_Access_Rights):
     """
     Registry specific access rights.
-    These access rights are used to specify the desired access rights for registry keys.
-    They are used in combination with standard access rights defined in Windows_Access_Rights.
+    These access rights are used to specify the
+    desired access rights for registry keys.
+    They are used in combination with standard access
+    rights defined in Windows_Access_Rights.
     """
 
     def __init__(self, value: int = 0):
@@ -422,11 +441,14 @@ class RegApi:
         """
         Get a handle to a root key.
 
-        :param root_key_name: The name of the root key to open. Must be one of the RootKeys enum values.
+        :param root_key_name: The name of the root key to open.
+                              Must be one of the RootKeys enum values.
         :param sam_desired: The desired access rights for the key.
         :param ndr64: Whether to use NDR64 encoding.
-        :param ServerName: The server name. The ServerName SHOULD be sent as NULL, and MUST be ignored
-                when it is received because binding to the server is already complete at this stage
+        :param ServerName: The server name. The ServerName SHOULD be
+                           sent as NULL, and MUST be ignored
+                           when it is received because binding to the server
+                           is already complete at this stage
         :return: The handle to the opened root key.
         """
 
