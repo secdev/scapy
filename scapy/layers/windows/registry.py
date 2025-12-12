@@ -11,7 +11,12 @@ from typing import Generator, Optional
 from scapy.packet import Packet
 from scapy.error import log_runtime
 
-from scapy.layers.windows.win_security import AccessRights, SECURITY_DESCRIPTOR
+from scapy.scapy.layers.windows.security import (
+    RegKeySpecificAccessRights,
+    GenericAccessRights,
+    SECURITY_DESCRIPTOR,
+    Windows_Access_Rights,
+)
 from scapy.layers.msrpce.rpcclient import DCERPC_Client
 from scapy.layers.dcerpc import (
     NDRConformantArray,
@@ -365,6 +370,17 @@ class RegEntry:
         )
 
 
+class RegAccessRights(Windows_Access_Rights):
+    """
+    Registry specific access rights.
+    These access rights are used to specify the desired access rights for registry keys.
+    They are used in combination with standard access rights defined in Windows_Access_Rights.
+    """
+
+    def __init__(self, value: int = 0):
+        super().__init__(specific_access_rights=RegKeySpecificAccessRights, value=value)
+
+
 class RegApi:
     """
     High level Windows Registry API functions.
@@ -399,7 +415,7 @@ class RegApi:
     def get_root_key_handle(
         client: DCERPC_Client,
         root_key_name: RootKeys,
-        sam_desired: AccessRights | int = AccessRights.MAXIMUM_ALLOWED,
+        sam_desired: RegAccessRights | int = GenericAccessRights.MAXIMUM_ALLOWED,
         ndr64: bool = True,
         timeout: int = 5,
     ) -> Optional[NDRContextHandle]:
@@ -494,7 +510,9 @@ class RegApi:
         client: DCERPC_Client,
         root_key_handle: NDRContextHandle,
         subkey_path: str,
-        desired_access_rights: AccessRights | int = AccessRights.MAXIMUM_ALLOWED,
+        desired_access_rights: (
+            RegAccessRights | int
+        ) = GenericAccessRights.MAXIMUM_ALLOWED,
         options: RegOptions = RegOptions.REG_OPTION_NON_VOLATILE,
         ndr64: bool = True,
         timeout: int = 5,
@@ -951,7 +969,9 @@ class RegApi:
         client: DCERPC_Client,
         root_key_handle: NDRContextHandle,
         subkey_path: str,
-        desired_access_rights: AccessRights | int = AccessRights.MAXIMUM_ALLOWED,
+        desired_access_rights: (
+            RegAccessRights | int
+        ) = GenericAccessRights.MAXIMUM_ALLOWED,
         options: RegOptions = RegOptions.REG_OPTION_NON_VOLATILE,
         security_attributes: PRPC_SECURITY_ATTRIBUTES = None,
         ndr64: bool = True,

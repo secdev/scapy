@@ -55,7 +55,7 @@ from scapy.layers.smb import (
     SMBTree_Connect_AndX,
     SMB_Header,
 )
-from scapy.layers.windows.win_security import SECURITY_DESCRIPTOR
+from scapy.scapy.layers.windows.security import SECURITY_DESCRIPTOR
 from scapy.layers.smb2 import (
     DFS_REFERRAL_ENTRY1,
     DFS_REFERRAL_V3,

@@ -57,7 +57,7 @@ from scapy.layers.smb import (
     SMB_Dialect,
     SMB_Header,
 )
-from scapy.layers.windows.win_security import SECURITY_DESCRIPTOR
+from scapy.scapy.layers.windows.security import SECURITY_DESCRIPTOR
 from scapy.layers.smb2 import (
     DirectTCP,
     FileAllInformation,

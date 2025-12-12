@@ -12,9 +12,6 @@ from dataclasses import dataclass
 import re
 import struct
 
-from typing import Self
-from enum import IntFlag
-
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers
 from scapy.fields import (
@@ -103,7 +100,7 @@ class WINNT_SID(Packet):
     _SID_REG = re.compile(r"^S-(\d)-(\d+)((?:-\d+)*)$")
 
     @staticmethod
-    def fromstr(x: str) -> Self:
+    def fromstr(x: str):
         """
         Helper to create a SID from its string representation.
 
@@ -1163,6 +1160,10 @@ class RegKeySpecificAccessRights:
     )
 
     def __init__(self, value: int = 0):
+        # In this particular cas we need both full value and specific rights value
+        # As standard rights are included in specific rights for registry keys
+        # e.g. KEY_READ includes STANDARD_RIGHTS_READ
+        # boring but true
         self.value = value
         self.specific_rights_value = self.value & 0x0000FFFF
 
@@ -1267,15 +1268,13 @@ class Windows_Access_Rights:
     """
 
     def __init__(self, specific_access_rights=None, value: int = 0):
-        super().__init__()
         if specific_access_rights is not None:
-            self.SpecificAccessRights = specific_access_rights()
+            self.SpecificAccessRights = specific_access_rights(value)
         else:
-            self.SpecificAccessRights = specific_access_rights()
+            self.SpecificAccessRights = specific_access_rights
 
         self.GenericAccessRights = GenericAccessRights(value)
         self.StandardAccessRights = StandardAccessRights(value)
-        self.SpecificAccessRights = specific_access_rights(value)
         self.value = value
 
     def toSDDL(self) -> str:
