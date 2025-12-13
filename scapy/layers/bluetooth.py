@@ -31,6 +31,7 @@ from scapy.fields import (
     BitField,
     ByteEnumField,
     ByteField,
+    ConditionalField,
     FieldLenField,
     FieldListField,
     FlagsField,
@@ -2505,30 +2506,8 @@ class HCI_Cmd_LE_Set_Extended_Advertising_Parameters(Packet):
     name = "HCI_LE_Set_Extended_Advertising_Parameters"
     fields_desc = [
         ByteField("handle", 0),
-        # Properties default "Connectable+Scannable+Legacy"
-        FlagsField(
-            "properties",
-            0x0013,
-            16,
-            [
-                "Connectable",  # Bit 0
-                "Scannable",  # Bit 1
-                "Directed",  # Bit 2
-                "HighDutyCycle",  # Bit 3
-                "Legacy",  # Bit 4
-                "Anonymous",  # Bit 5
-                "IncludeTxPower",  # Bit 6
-                "Reserved7",  # Bit 7
-                "Reserved8",  # Bit 8
-                "Reserved9",  # Bit 9
-                "Reserved10",  # Bit 10
-                "Reserved11",  # Bit 11
-                "Reserved12",  # Bit 12
-                "Reserved13",  # Bit 13
-                "Reserved14",  # Bit 14
-                "Reserved15",  # Bit 15
-            ],
-        ),
+        # Properties default 0x0013 is "Connectable+Scannable+Legacy"
+        LEShortField("properties", 0x0013),
         # 100ms (3 bytes per BT spec)
         LEThreeBytesField("pri_interval_min", 160),
         # 100ms (3 bytes per BT spec)
