@@ -5,7 +5,6 @@
 # Copyright (C) Mike Ryan <mikeryan@lacklustre.net>
 # Copyright (C) Michael Farrell <micolous+git@gmail.com>
 # Copyright (C) Haram Park <freehr94@korea.ac.kr>
-
 """
 Bluetooth layers, sockets and send/receive functions.
 """
@@ -77,7 +76,6 @@ HCI_CHANNEL_CONTROL = 3
 HCI_CHANNEL_LOGGING = 4
 
 HCI_DEV_NONE = 0xFFFF
-
 
 ##########
 # Layers #
@@ -314,7 +312,10 @@ class L2CAP_Hdr(Packet):
     name = "L2CAP header"
     fields_desc = [
         LEShortField("len", None),
-        LEShortEnumField("cid", 0, {1: "control", 4: "attribute"}),
+        LEShortEnumField("cid", 0, {
+            1: "control",
+            4: "attribute"
+        }),
     ]  # noqa: E501
 
     def post_build(self, p, pay):
@@ -373,7 +374,8 @@ class L2CAP_CmdHdr(Packet):
         if other.id == self.id:
             if self.code == 1:
                 return 1
-            if other.code in [2, 4, 6, 8, 10, 18] and self.code == other.code + 1:  # noqa: E501
+            if other.code in [2, 4, 6, 8, 10, 18
+                              ] and self.code == other.code + 1:  # noqa: E501
                 if other.code == 8:
                     return 1
                 return self.payload.answers(other.payload)
@@ -428,9 +430,9 @@ class L2CAP_ConnResp(Packet):
                 "cr_scid_in_use",
             ],
         ),  # noqa: E501
-        LEShortEnumField(
-            "status", 0, ["no_info", "authen_pend", "author_pend", "reserved"]
-        ),  # noqa: E501
+        LEShortEnumField("status", 0,
+                         ["no_info", "authen_pend", "author_pend", "reserved"
+                          ]),  # noqa: E501
     ]
 
     def answers(self, other):
@@ -458,7 +460,9 @@ class L2CAP_ConfResp(Packet):
     fields_desc = [
         LEShortField("scid", 0),
         LEShortField("flags", 0),
-        LEShortEnumField("result", 0, ["success", "unaccept", "reject", "unknown"]),  # noqa: E501
+        LEShortEnumField(
+            "result", 0,
+            ["success", "unaccept", "reject", "unknown"]),  # noqa: E501
     ]
 
     def answers(self, other):
@@ -502,7 +506,10 @@ class L2CAP_EchoResp(Packet):
 class L2CAP_InfoReq(Packet):
     name = "L2CAP Info Req"
     fields_desc = [
-        LEShortEnumField("type", 0, {1: "CL_MTU", 2: "FEAT_MASK"}),
+        LEShortEnumField("type", 0, {
+            1: "CL_MTU",
+            2: "FEAT_MASK"
+        }),
         StrField("data", ""),
     ]
 
@@ -612,7 +619,10 @@ class L2CAP_Move_Channel_Confirmation_Request(Packet):
     name = "L2CAP Move Channel Confirmation Request"
     fields_desc = [
         LEShortField("icid", 0),
-        LEShortEnumField("result", 0, {0: "Move success", 1: "Move failure"}),
+        LEShortEnumField("result", 0, {
+            0: "Move success",
+            1: "Move failure"
+        }),
     ]
 
 
@@ -885,15 +895,16 @@ class ATT_Read_By_Type_Response(Packet):
     name = "Read By Type Response"
     fields_desc = [
         ByteField("len", 4),
-        PacketListField(
-            "handles", [], next_cls_cb=lambda pkt, *args: (pkt._next_cls_cb(pkt, *args))
-        ),
+        PacketListField("handles", [],
+                        next_cls_cb=lambda pkt, *args:
+                        (pkt._next_cls_cb(pkt, *args))),
     ]
 
     @classmethod
     def _next_cls_cb(cls, pkt, lst, p, remain):
         if len(remain) >= pkt.len:
-            return functools.partial(ATT_Handle_Variable, val_length=pkt.len - 2)
+            return functools.partial(ATT_Handle_Variable,
+                                     val_length=pkt.len - 2)
         return None
 
 
@@ -1032,7 +1043,10 @@ class SM_Pairing_Request(Packet):
                 4: "KeyboardDisplay",
             },
         ),  # noqa: E501
-        ByteEnumField("oob", 0, {0: "Not Present", 1: "Present (from remote device)"}),  # noqa: E501
+        ByteEnumField("oob", 0, {
+            0: "Not Present",
+            1: "Present (from remote device)"
+        }),  # noqa: E501
         BitField("authentication", 0, 8),
         ByteField("max_key_size", 16),
         ByteField("initiator_key_distribution", 0),
@@ -1054,7 +1068,10 @@ class SM_Pairing_Response(Packet):
                 4: "KeyboardDisplay",
             },
         ),  # noqa: E501
-        ByteEnumField("oob", 0, {0: "Not Present", 1: "Present (from remote device)"}),  # noqa: E501
+        ByteEnumField("oob", 0, {
+            0: "Not Present",
+            1: "Present (from remote device)"
+        }),  # noqa: E501
         BitField("authentication", 0, 8),
         ByteField("max_key_size", 16),
         ByteField("initiator_key_distribution", 0),
@@ -1102,8 +1119,8 @@ class SM_Identity_Information(Packet):
 class SM_Identity_Address_Information(Packet):
     name = "Identity Address Information"
     fields_desc = [
-        ByteEnumField("atype", 0, {0: "public"}),
-        LEMACField("address", None),
+        ByteEnumField("addr_type", 0, {0: "public"}),
+        LEMACField("addr", None),
     ]
 
 
@@ -1139,9 +1156,8 @@ class SM_DHKey_Check(Packet):
 class EIR_Hdr(Packet):
     name = "EIR Header"
     fields_desc = [
-        LenField(
-            "len", None, fmt="B", adjust=lambda x: x + 1
-        ),  # Add bytes mark  # noqa: E501
+        LenField("len", None, fmt="B",
+                 adjust=lambda x: x + 1),  # Add bytes mark  # noqa: E501
         # https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile
         ByteEnumField(
             "type",
@@ -1221,7 +1237,9 @@ class EIR_Element(Packet):
 
 class EIR_Raw(EIR_Element):
     name = "EIR Raw"
-    fields_desc = [StrLenField("data", "", length_from=EIR_Element.length_from)]
+    fields_desc = [
+        StrLenField("data", "", length_from=EIR_Element.length_from)
+    ]
 
 
 class EIR_Flags(EIR_Element):
@@ -1237,8 +1255,7 @@ class EIR_Flags(EIR_Element):
                 "br_edr_not_supported",
                 "simul_le_br_edr_ctrl",
                 "simul_le_br_edr_host",
-            ]
-            + 3 * ["reserved"],
+            ] + 3 * ["reserved"],
         )
     ]
 
@@ -1295,7 +1312,9 @@ class EIR_IncompleteList128BitServiceUUIDs(EIR_CompleteList128BitServiceUUIDs):
 
 class EIR_CompleteLocalName(EIR_Element):
     name = "Complete Local Name"
-    fields_desc = [StrLenField("local_name", "", length_from=EIR_Element.length_from)]
+    fields_desc = [
+        StrLenField("local_name", "", length_from=EIR_Element.length_from)
+    ]
 
 
 class EIR_ShortenedLocalName(EIR_CompleteLocalName):
@@ -1388,9 +1407,8 @@ class EIR_Manufacturer_Specific_Data(EIR_Element):
     }
     fields_desc = [
         # https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers
-        LEShortEnumField(
-            "company_identifier", None, BLUETOOTH_CORE_COMPANY_IDENTIFIERS
-        ),
+        LEShortEnumField("company_identifier", None,
+                         BLUETOOTH_CORE_COMPANY_IDENTIFIERS),
     ]
 
     registered_magic_payloads = {}
@@ -1430,17 +1448,15 @@ class EIR_Manufacturer_Specific_Data(EIR_Element):
             if hasattr(payload_cls, "magic_check"):
                 magic_check = payload_cls.magic_check
             else:
-                raise TypeError(
-                    "magic_check not specified, and {} has no "
-                    "attribute magic_check".format(payload_cls)
-                )
+                raise TypeError("magic_check not specified, and {} has no "
+                                "attribute magic_check".format(payload_cls))
 
         cls.registered_magic_payloads[payload_cls] = magic_check
 
     def default_payload_class(self, payload):
         for (
-            cls,
-            check,
+                cls,
+                check,
         ) in EIR_Manufacturer_Specific_Data.registered_magic_payloads.items():
             if check(payload):
                 return cls
@@ -1532,9 +1548,14 @@ class EIR_LEBluetoothDeviceAddress(EIR_Element):
     name = "LE Bluetooth Device Address"
     fields_desc = [
         XBitField("reserved", 0, 7, tot_size=-1),
-        BitEnumField(
-            "addr_type", 0, 1, end_tot_size=-1, enum={0x0: "Public", 0x1: "Random"}
-        ),
+        BitEnumField("addr_type",
+                     0,
+                     1,
+                     end_tot_size=-1,
+                     enum={
+                         0x0: "Public",
+                         0x1: "Random"
+                     }),
         LEMACField("bd_addr", None),
     ]
 
@@ -1827,12 +1848,14 @@ class EIR_URI(EIR_Element):
                 0xBA: "mssettingscloudstorage:",
             },
         ),
-        StrLenField("uri_hier_part", None, length_from=EIR_Element.length_from),
+        StrLenField("uri_hier_part", None,
+                    length_from=EIR_Element.length_from),
     ]
 
     @property
     def uri(self):
-        return EIR_URI.scheme.i2s[self.scheme] + self.uri_hier_part.decode("utf-8")
+        return EIR_URI.scheme.i2s[self.scheme] + self.uri_hier_part.decode(
+            "utf-8")
 
 
 class HCI_Command_Hdr(Packet):
@@ -1867,9 +1890,8 @@ class HCI_Extended_Inquiry_Response(Packet):
             PacketListField(
                 "eir_data",
                 [],
-                next_cls_cb=lambda *args: (
-                    (not args[2] or args[2].len != 0) and EIR_Hdr or conf.raw_layer
-                ),
+                next_cls_cb=lambda *args: ((not args[2] or args[2].len != 0)
+                                           and EIR_Hdr or conf.raw_layer),
             ),
             align=31,
             padwith=b"\0",
@@ -2063,7 +2085,10 @@ class HCI_Cmd_Set_Connection_Encryption(Packet):
     """
 
     name = "HCI_Set_Connection_Encryption"
-    fields_desc = [LEShortField("handle", 0), ByteField("encryption_enable", 0)]
+    fields_desc = [
+        LEShortField("handle", 0),
+        ByteField("encryption_enable", 0)
+    ]
 
 
 class HCI_Cmd_Change_Connection_Link_Key(Packet):
@@ -2276,7 +2301,9 @@ class HCI_Cmd_Set_Event_Mask(Packet):
     """
 
     name = "HCI_Set_Event_Mask"
-    fields_desc = [StrFixedLenField("mask", b"\xff\xff\xfb\xff\x07\xf8\xbf\x3d", 8)]  # noqa: E501
+    fields_desc = [
+        StrFixedLenField("mask", b"\xff\xff\xfb\xff\x07\xf8\xbf\x3d", 8)
+    ]  # noqa: E501
 
 
 class HCI_Cmd_Reset(Packet):
@@ -2391,7 +2418,11 @@ class HCI_Cmd_Write_Loopback_Mode(Packet):
         ByteEnumField(
             "loopback_mode",
             0,
-            {0: "no loopback", 1: "enable local loopback", 2: "enable remote loopback"},
+            {
+                0: "no loopback",
+                1: "enable local loopback",
+                2: "enable remote loopback"
+            },
         )
     ]
 
@@ -2401,7 +2432,9 @@ class HCI_Cmd_Write_Loopback_Mode(Packet):
 
 class HCI_Cmd_LE_Set_Event_Mask(Packet):
     name = "HCI_LE_Set_Event_Mask"
-    fields_desc = [StrFixedLenField("mask", b"\xff\x1f\x0a\x03\x00\x00\x00\x00", 8)]  # noqa: E501
+    fields_desc = [
+        StrFixedLenField("mask", b"\xff\x1f\x0a\x03\x00\x00\x00\x00", 8)
+    ]  # noqa: E501
 
 
 class HCI_Cmd_LE_Read_Buffer_Size_V1(Packet):
@@ -2418,7 +2451,7 @@ class HCI_Cmd_LE_Read_Local_Supported_Features(Packet):
 
 class HCI_Cmd_LE_Set_Random_Address(Packet):
     name = "HCI_LE_Set_Random_Address"
-    fields_desc = [LEMACField("address", None)]
+    fields_desc = [LEMACField("addr", None)]
 
 
 class HCI_Cmd_LE_Set_Advertising_Parameters(Packet):
@@ -2437,9 +2470,15 @@ class HCI_Cmd_LE_Set_Advertising_Parameters(Packet):
                 4: "ADV_DIRECT_IND_LOW",
             },
         ),  # noqa: E501
-        ByteEnumField("oatype", 0, {0: "public", 1: "random"}),
-        ByteEnumField("datype", 0, {0: "public", 1: "random"}),
-        LEMACField("daddr", None),
+        ByteEnumField("own_addr_type", 0, {
+            0: "public",
+            1: "random"
+        }),
+        ByteEnumField("peer_addr_type", 0, {
+            0: "public",
+            1: "random"
+        }),
+        LEMACField("peer_addr", None),
         ByteField("channel_map", 7),
         ByteEnumField(
             "filter_policy",
@@ -2495,16 +2534,29 @@ class HCI_Cmd_LE_Set_Extended_Advertising_Parameters(Packet):
         # 100ms (3 bytes per BT spec)
         LEThreeBytesField("pri_interval_max", 160),
         ByteField("pri_channel_map", 7),  # 37, 38, 39
-        ByteEnumField("own_addr_type", 0, {0: "public", 1: "random"}),
-        ByteEnumField("peer_addr_type", 0, {0: "public", 1: "random"}),
+        ByteEnumField("own_addr_type", 0, {
+            0: "public",
+            1: "random"
+        }),
+        ByteEnumField("peer_addr_type", 0, {
+            0: "public",
+            1: "random"
+        }),
         LEMACField("peer_addr", None),
         ByteEnumField("filter_policy", 0, {0: "all"}),
         SignedByteField("tx_power", 127),  # 127 = No preference
         # PHY Configuration
-        ByteEnumField("pri_phy", 1, {1: "1M", 3: "Coded"}),  # Primary PHY
+        ByteEnumField("pri_phy", 1, {
+            1: "1M",
+            3: "Coded"
+        }),  # Primary PHY
         ByteField("sec_max_skip", 0),
         # Secondary PHY
-        ByteEnumField("sec_phy", 1, {1: "1M", 2: "2M", 3: "Coded"}),
+        ByteEnumField("sec_phy", 1, {
+            1: "1M",
+            2: "2M",
+            3: "Coded"
+        }),
         ByteField("sid", 0),
         ByteField("scan_req_notify_enable", 0),
     ]
@@ -2515,7 +2567,9 @@ class HCI_Cmd_LE_Set_Advertising_Data(Packet):
     fields_desc = [
         FieldLenField("len", None, length_of="data", fmt="B"),
         PadField(
-            PacketListField("data", [], EIR_Hdr, length_from=lambda pkt: pkt.len),
+            PacketListField("data", [],
+                            EIR_Hdr,
+                            length_from=lambda pkt: pkt.len),
             align=31,
             padwith=b"\0",
         ),
@@ -2537,7 +2591,10 @@ class HCI_Cmd_LE_Set_Extended_Advertising_Data(Packet):
                 4: "unchanged_data",
             },
         ),
-        ByteEnumField("frag_pref", 1, {0: "allow_frag", 1: "no_frag"}),
+        ByteEnumField("frag_pref", 1, {
+            0: "allow_frag",
+            1: "no_frag"
+        }),
         FieldLenField("len", None, length_of="data", fmt="B"),
         PacketListField("data", [], EIR_Hdr, length_from=lambda pkt: pkt.len),
     ]
@@ -2568,24 +2625,36 @@ class HCI_Ext_Adv_Set(Packet):
 class HCI_Cmd_LE_Set_Extended_Advertise_Enable(Packet):
     name = "HCI_LE_Set_Extended_Advertising_Enable"
     fields_desc = [
-        ByteEnumField("enable", 1, {0: "disable", 1: "enable"}),
+        ByteEnumField("enable", 1, {
+            0: "disable",
+            1: "enable"
+        }),
         FieldLenField("num_sets", None, count_of="sets", fmt="B"),
-        PacketListField(
-            "sets", [], HCI_Ext_Adv_Set, count_from=lambda pkt: pkt.num_sets
-        ),
+        PacketListField("sets", [],
+                        HCI_Ext_Adv_Set,
+                        count_from=lambda pkt: pkt.num_sets),
     ]
 
 
 class HCI_Cmd_LE_Set_Scan_Parameters(Packet):
     name = "HCI_LE_Set_Scan_Parameters"
     fields_desc = [
-        ByteEnumField("type", 0, {0: "passive", 1: "active"}),
+        ByteEnumField("type", 0, {
+            0: "passive",
+            1: "active"
+        }),
         XLEShortField("interval", 16),
         XLEShortField("window", 16),
-        ByteEnumField(
-            "atype", 0, {0: "public", 1: "random", 2: "rpa (pub)", 3: "rpa (random)"}
-        ),
-        ByteEnumField("policy", 0, {0: "all", 1: "whitelist"}),
+        ByteEnumField("addr_type", 0, {
+            0: "public",
+            1: "random",
+            2: "rpa (pub)",
+            3: "rpa (random)"
+        }),
+        ByteEnumField("policy", 0, {
+            0: "all",
+            1: "whitelist"
+        }),
     ]
 
 
@@ -2595,30 +2664,45 @@ class HCI_Cmd_LE_Set_Extended_Scan_Parameters(Packet):
         ByteEnumField(
             "own_address_type",
             0,
-            {0: "public", 1: "random", 2: "rpa_pub", 3: "rpa_rand"},
+            {
+                0: "public",
+                1: "random",
+                2: "rpa_pub",
+                3: "rpa_rand"
+            },
         ),
         ByteEnumField(
             "scanning_filter_policy",
             0,
-            {0: "basic", 1: "whitelist", 2: "basic_rpa", 3: "whitelist_rpa"},
+            {
+                0: "basic",
+                1: "whitelist",
+                2: "basic_rpa",
+                3: "whitelist_rpa"
+            },
         ),
         # This field controls which of the following blocks appear
         ByteField("scanning_phys", 0x01),  # Default 0x01 (1M only)
         # --- LE 1M PHY (Bit 0) ---
         ConditionalField(
-            ByteEnumField("scan_type_1m", 1, {0: "passive", 1: "active"}),
+            ByteEnumField("scan_type_1m", 1, {
+                0: "passive",
+                1: "active"
+            }),
             lambda pkt: pkt.scanning_phys & 0x01,
         ),
         ConditionalField(
             LEShortField("scan_interval_1m", 0x0010),
             lambda pkt: pkt.scanning_phys & 0x01,
         ),
-        ConditionalField(
-            LEShortField("scan_window_1m", 0x0010), lambda pkt: pkt.scanning_phys & 0x01
-        ),
+        ConditionalField(LEShortField("scan_window_1m", 0x0010),
+                         lambda pkt: pkt.scanning_phys & 0x01),
         # --- LE Coded PHY (Bit 2) ---
         ConditionalField(
-            ByteEnumField("scan_type_coded", 1, {0: "passive", 1: "active"}),
+            ByteEnumField("scan_type_coded", 1, {
+                0: "passive",
+                1: "active"
+            }),
             lambda pkt: pkt.scanning_phys & 0x04,
         ),
         ConditionalField(
@@ -2643,10 +2727,15 @@ class HCI_Cmd_LE_Set_Scan_Enable(Packet):
 class HCI_Cmd_LE_Set_Extended_Scan_Enable(Packet):
     name = "HCI_LE_Set_Extended_Scan_Enable"
     fields_desc = [
-        ByteEnumField("enable", 1, {0: "disabled", 1: "enabled"}),
-        ByteEnumField(
-            "filter_dups", 1, {0: "disabled", 1: "enabled", 2: "reset_period"}
-        ),
+        ByteEnumField("enable", 1, {
+            0: "disabled",
+            1: "enabled"
+        }),
+        ByteEnumField("filter_dups", 1, {
+            0: "disabled",
+            1: "enabled",
+            2: "reset_period"
+        }),
         # 0x0000: Continuous scan until explicitly disabled.
         LEShortField("duration", 500),  # Default: scan for 5 seconds
         # 0x0000: No periodic scanning (Standard behavior).
@@ -2661,9 +2750,15 @@ class HCI_Cmd_LE_Create_Connection(Packet):
         LEShortField("interval", 96),
         LEShortField("window", 48),
         ByteEnumField("filter", 0, {0: "address"}),
-        ByteEnumField("patype", 0, {0: "public", 1: "random"}),
-        LEMACField("paddr", None),
-        ByteEnumField("atype", 0, {0: "public", 1: "random"}),
+        ByteEnumField("peer_addr_type", 0, {
+            0: "public",
+            1: "random"
+        }),
+        LEMACField("peer_addr", None),
+        ByteEnumField("addr_type", 0, {
+            0: "public",
+            1: "random"
+        }),
         LEShortField("min_interval", 40),
         LEShortField("max_interval", 56),
         LEShortField("latency", 0),
@@ -2676,24 +2771,31 @@ class HCI_Cmd_LE_Create_Connection(Packet):
 class HCI_Cmd_LE_Extended_Create_Connection(Packet):
     name = "HCI_LE_Extended_Create_Connection"
     fields_desc = [
-        ByteEnumField("filter_policy", 0, {0: "peer_addr", 1: "accept_list"}),
-        ByteEnumField(
-            "atype", 0, {0: "public", 1: "random", 2: "rpa_pub", 3: "rpa_rand"}
-        ),
-        ByteEnumField(
-            "patype", 0, {0: "public", 1: "random", 2: "rpa_pub", 3: "rpa_rand"}
-        ),
+        ByteEnumField("filter_policy", 0, {
+            0: "peer_addr",
+            1: "accept_list"
+        }),
+        ByteEnumField("address_type", 0, {
+            0: "public",
+            1: "random",
+            2: "rpa_pub",
+            3: "rpa_rand"
+        }),
+        ByteEnumField("peer_addr_type", 0, {
+            0: "public",
+            1: "random",
+            2: "rpa_pub",
+            3: "rpa_rand"
+        }),
         # 4. Peer Address
-        LEMACField("paddr", None),
+        LEMACField("peer_addr", None),
         # Bit 0: 1M, Bit 1: 2M, Bit 2: Coded
         ByteField("phys", 1),
         # --- PHY 1M Parameters (Bit 0) ---
-        ConditionalField(
-            LEShortField("interval_1m", 96), lambda pkt: pkt.initiating_phys & 1
-        ),
-        ConditionalField(
-            LEShortField("window_1m", 96), lambda pkt: pkt.initiating_phys & 1
-        ),
+        ConditionalField(LEShortField("interval_1m", 96),
+                         lambda pkt: pkt.initiating_phys & 1),
+        ConditionalField(LEShortField("window_1m", 96),
+                         lambda pkt: pkt.initiating_phys & 1),
         ConditionalField(
             LEShortField("min_interval_1m", 40),
             lambda pkt: pkt.initiating_phys & 1,
@@ -2702,25 +2804,19 @@ class HCI_Cmd_LE_Extended_Create_Connection(Packet):
             LEShortField("max_interval_1m", 56),
             lambda pkt: pkt.initiating_phys & 1,
         ),
-        ConditionalField(
-            LEShortField("latency_1m", 0), lambda pkt: pkt.initiating_phys & 1
-        ),
-        ConditionalField(
-            LEShortField("timeout_1m", 42), lambda pkt: pkt.initiating_phys & 1
-        ),  # 420ms
-        ConditionalField(
-            LEShortField("min_ce_1m", 0), lambda pkt: pkt.initiating_phys & 1
-        ),
-        ConditionalField(
-            LEShortField("max_ce_1m", 0), lambda pkt: pkt.initiating_phys & 1
-        ),
+        ConditionalField(LEShortField("latency_1m", 0),
+                         lambda pkt: pkt.initiating_phys & 1),
+        ConditionalField(LEShortField("timeout_1m", 42),
+                         lambda pkt: pkt.initiating_phys & 1),  # 420ms
+        ConditionalField(LEShortField("min_ce_1m", 0),
+                         lambda pkt: pkt.initiating_phys & 1),
+        ConditionalField(LEShortField("max_ce_1m", 0),
+                         lambda pkt: pkt.initiating_phys & 1),
         # --- PHY Coded Parameters (Bit 2) ---
-        ConditionalField(
-            LEShortField("interval_coded", 96), lambda pkt: pkt.initiating_phys & 4
-        ),
-        ConditionalField(
-            LEShortField("window_coded", 96), lambda pkt: pkt.initiating_phys & 4
-        ),
+        ConditionalField(LEShortField("interval_coded", 96),
+                         lambda pkt: pkt.initiating_phys & 4),
+        ConditionalField(LEShortField("window_coded", 96),
+                         lambda pkt: pkt.initiating_phys & 4),
         ConditionalField(
             LEShortField("min_interval_coded", 40),
             lambda pkt: pkt.initiating_phys & 4,
@@ -2729,18 +2825,14 @@ class HCI_Cmd_LE_Extended_Create_Connection(Packet):
             LEShortField("max_interval_coded", 56),
             lambda pkt: pkt.initiating_phys & 4,
         ),
-        ConditionalField(
-            LEShortField("latency_coded", 0), lambda pkt: pkt.initiating_phys & 4
-        ),
-        ConditionalField(
-            LEShortField("timeout_coded", 42), lambda pkt: pkt.initiating_phys & 4
-        ),
-        ConditionalField(
-            LEShortField("min_ce_coded", 0), lambda pkt: pkt.initiating_phys & 4
-        ),
-        ConditionalField(
-            LEShortField("max_ce_coded", 0), lambda pkt: pkt.initiating_phys & 4
-        ),
+        ConditionalField(LEShortField("latency_coded", 0),
+                         lambda pkt: pkt.initiating_phys & 4),
+        ConditionalField(LEShortField("timeout_coded", 42),
+                         lambda pkt: pkt.initiating_phys & 4),
+        ConditionalField(LEShortField("min_ce_coded", 0),
+                         lambda pkt: pkt.initiating_phys & 4),
+        ConditionalField(LEShortField("max_ce_coded", 0),
+                         lambda pkt: pkt.initiating_phys & 4),
     ]
 
 
@@ -2759,14 +2851,17 @@ class HCI_Cmd_LE_Clear_Filter_Accept_List(Packet):
 class HCI_Cmd_LE_Add_Device_To_Filter_Accept_List(Packet):
     name = "HCI_LE_Add_Device_To_Filter_Accept_List"
     fields_desc = [
-        ByteEnumField("address_type", 0, {0: "public", 1: "random", 0xFF: "anonymous"}),
-        LEMACField("address", None),
+        ByteEnumField("addr_type", 0, {
+            0: "public",
+            1: "random",
+            0xFF: "anonymous"
+        }),
+        LEMACField("addr", None),
     ]
 
 
 class HCI_Cmd_LE_Remove_Device_From_Filter_Accept_List(
-    HCI_Cmd_LE_Add_Device_To_Filter_Accept_List
-):  # noqa: E501
+        HCI_Cmd_LE_Add_Device_To_Filter_Accept_List):  # noqa: E501
     name = "HCI_LE_Remove_Device_From_Filter_Accept_List"
 
 
@@ -2845,9 +2940,10 @@ class HCI_Event_Inquiry_Result(Packet):
     name = "HCI_Inquiry_Result"
     fields_desc = [
         ByteField("num_response", 0x00),
-        FieldListField(
-            "addr", None, LEMACField("addr", None), count_from=lambda p: p.num_response
-        ),
+        FieldListField("addr",
+                       None,
+                       LEMACField("addr", None),
+                       count_from=lambda p: p.num_response),
         FieldListField(
             "page_scan_repetition_mode",
             None,
@@ -2939,7 +3035,11 @@ class HCI_Event_Encryption_Change(Packet):
     fields_desc = [
         ByteEnumField("status", 0, {0: "change has occurred"}),
         LEShortField("handle", 0),
-        ByteEnumField("enabled", 0, {0: "OFF", 1: "ON (LE)", 2: "ON (BR/EDR)"}),
+        ByteEnumField("enabled", 0, {
+            0: "OFF",
+            1: "ON (LE)",
+            2: "ON (BR/EDR)"
+        }),
     ]  # noqa: E501
 
 
@@ -3049,27 +3149,32 @@ class HCI_Event_Inquiry_Result_With_Rssi(Packet):
     name = "HCI_Inquiry_Result_with_RSSI"
     fields_desc = [
         ByteField("num_response", 0x00),
-        FieldListField(
-            "bd_addr", None, LEMACField, count_from=lambda p: p.num_response
-        ),
+        FieldListField("bd_addr",
+                       None,
+                       LEMACField,
+                       count_from=lambda p: p.num_response),
         FieldListField(
             "page_scan_repetition_mode",
             None,
             ByteField,
             count_from=lambda p: p.num_response,
         ),
-        FieldListField(
-            "reserved", None, LEShortField, count_from=lambda p: p.num_response
-        ),
-        FieldListField(
-            "device_class", None, XLE3BytesField, count_from=lambda p: p.num_response
-        ),
-        FieldListField(
-            "clock_offset", None, LEShortField, count_from=lambda p: p.num_response
-        ),
-        FieldListField(
-            "rssi", None, SignedByteField, count_from=lambda p: p.num_response
-        ),
+        FieldListField("reserved",
+                       None,
+                       LEShortField,
+                       count_from=lambda p: p.num_response),
+        FieldListField("device_class",
+                       None,
+                       XLE3BytesField,
+                       count_from=lambda p: p.num_response),
+        FieldListField("clock_offset",
+                       None,
+                       LEShortField,
+                       count_from=lambda p: p.num_response),
+        FieldListField("rssi",
+                       None,
+                       SignedByteField,
+                       count_from=lambda p: p.num_response),
     ]
 
 
@@ -3173,10 +3278,13 @@ class HCI_Cmd_Complete_Read_Local_Version_Information(Packet):
 
     name = "Read Local Version Information"
     fields_desc = [
-        ByteEnumField("hci_version", 0, _bluetooth_core_specification_versions),
+        ByteEnumField("hci_version", 0,
+                      _bluetooth_core_specification_versions),
         LEShortField("hci_subversion", 0),
-        ByteEnumField("lmp_version", 0, _bluetooth_core_specification_versions),
-        LEShortEnumField("company_identifier", 0, BLUETOOTH_CORE_COMPANY_IDENTIFIERS),
+        ByteEnumField("lmp_version", 0,
+                      _bluetooth_core_specification_versions),
+        LEShortEnumField("company_identifier", 0,
+                         BLUETOOTH_CORE_COMPANY_IDENTIFIERS),
         LEShortField("lmp_subversion", 0),
     ]
 
@@ -3219,8 +3327,11 @@ class HCI_LE_Meta_Connection_Complete(Packet):
         ByteEnumField("status", 0, {0: "success"}),
         LEShortField("handle", 0),
         ByteEnumField("role", 0, {0: "master"}),
-        ByteEnumField("patype", 0, {0: "public", 1: "random"}),
-        LEMACField("paddr", None),
+        ByteEnumField("peer_addr_type", 0, {
+            0: "public",
+            1: "random"
+        }),
+        LEMACField("peer_addr", None),
         LEShortField("interval", 54),
         LEShortField("latency", 0),
         LEShortField("supervision", 42),
@@ -3244,10 +3355,8 @@ class HCI_LE_Meta_Connection_Complete(Packet):
         if HCI_Cmd_LE_Create_Connection not in other:
             return False
 
-        return (
-            other[HCI_Cmd_LE_Create_Connection].patype == self.patype
-            and other[HCI_Cmd_LE_Create_Connection].paddr == self.paddr
-        )
+        return (other[HCI_Cmd_LE_Create_Connection].peer_addr_type == self.peer_addr_type
+                and other[HCI_Cmd_LE_Create_Connection].peer_addr == self.peer_addr)
 
 
 class HCI_LE_Meta_Enhanced_Connection_Complete(Packet):
@@ -3255,13 +3364,21 @@ class HCI_LE_Meta_Enhanced_Connection_Complete(Packet):
     fields_desc = [
         ByteEnumField("status", 0, {0: "success"}),
         LEShortField("handle", 0),
-        ByteEnumField("role", 0, {0: "master", 1: "slave"}),
+        ByteEnumField("role", 0, {
+            0: "master",
+            1: "slave"
+        }),
         ByteEnumField(
-            "patype",
+            "peer_addr_type",
             0,
-            {0: "public", 1: "random", 2: "public_identity", 3: "random_identity"},
+            {
+                0: "public",
+                1: "random",
+                2: "public_identity",
+                3: "random_identity"
+            },
         ),
-        LEMACField("paddr", None),
+        LEMACField("peer_addr", None),
         LEMACField("local_rpa", None),
         LEMACField("peer_rpa", None),
         LEShortField("interval", 54),
@@ -3289,7 +3406,7 @@ class HCI_LE_Meta_Enhanced_Connection_Complete(Packet):
 
         cmd = other[HCI_Cmd_LE_Extended_Create_Connection]
 
-        return cmd.peer_addr_type == self.patype and cmd.peer_addr == self.paddr
+        return cmd.peer_addr_type == self.peer_addr_type and cmd.peer_addr == self.peer_addr
 
 
 class HCI_LE_Meta_Connection_Update_Complete(Packet):
@@ -3306,8 +3423,14 @@ class HCI_LE_Meta_Connection_Update_Complete(Packet):
 class HCI_LE_Meta_Advertising_Report(Packet):
     name = "Advertising Report"
     fields_desc = [
-        ByteEnumField("type", 0, {0: "conn_und", 4: "scan_rsp"}),
-        ByteEnumField("atype", 0, {0: "public", 1: "random"}),
+        ByteEnumField("type", 0, {
+            0: "conn_und",
+            4: "scan_rsp"
+        }),
+        ByteEnumField("addr_type", 0, {
+            0: "public",
+            1: "random"
+        }),
         LEMACField("addr", None),
         FieldLenField("len", None, length_of="data", fmt="B"),
         PacketListField("data", [], EIR_Hdr, length_from=lambda pkt: pkt.len),
@@ -3362,7 +3485,7 @@ class HCI_LE_Meta_Extended_Advertising_Report(Packet):
         BitField("connectable", 0, 1),
         ByteField("reserved", 0),
         ByteEnumField(
-            "address_type",
+            "addr_type",
             0,
             {
                 0x00: "public_device_address",
@@ -3372,14 +3495,21 @@ class HCI_LE_Meta_Extended_Advertising_Report(Packet):
                 0xFF: "anonymous",
             },
         ),
-        LEMACField("address", None),
-        ByteEnumField(
-            "primary_phy", 0, {0x01: "le_1m", 0x03: "le_coded_s8", 0x04: "le_coded_s2"}
-        ),
+        LEMACField("addr", None),
+        ByteEnumField("primary_phy", 0, {
+            0x01: "le_1m",
+            0x03: "le_coded_s8",
+            0x04: "le_coded_s2"
+        }),
         ByteEnumField(
             "secondary_phy",
             0,
-            {0x01: "le_1m", 0x02: "le_2m", 0x03: "le_coded_s8", 0x04: "le_coded_s2"},
+            {
+                0x01: "le_1m",
+                0x02: "le_2m",
+                0x03: "le_coded_s8",
+                0x04: "le_coded_s2"
+            },
         ),
         ByteField("advertising_sid", 0xFF),
         ByteField("tx_power", 0x7F),
@@ -3398,7 +3528,9 @@ class HCI_LE_Meta_Extended_Advertising_Report(Packet):
         ),
         LEMACField("direct_address", None),
         FieldLenField("data_length", None, length_of="data", fmt="B"),
-        PacketListField("data", [], EIR_Hdr, length_from=lambda pkt: pkt.data_length),
+        PacketListField("data", [],
+                        EIR_Hdr,
+                        length_from=lambda pkt: pkt.data_length),
     ]
 
     def extract_padding(self, s):
@@ -3431,53 +3563,98 @@ bind_layers(
 conf.l2types.register(DLT_BLUETOOTH_HCI_H4, HCI_Hdr)
 conf.l2types.register(DLT_BLUETOOTH_HCI_H4_WITH_PHDR, HCI_PHDR_Hdr)
 
-
 # 7.1 LINK CONTROL COMMANDS, the OGF is defined as 0x01
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Inquiry, ogf=0x01, ocf=0x0001)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Inquiry_Cancel, ogf=0x01, ocf=0x0002)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Periodic_Inquiry_Mode, ogf=0x01, ocf=0x0003)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Exit_Peiodic_Inquiry_Mode, ogf=0x01, ocf=0x0004)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Periodic_Inquiry_Mode,
+            ogf=0x01,
+            ocf=0x0003)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Exit_Peiodic_Inquiry_Mode,
+            ogf=0x01,
+            ocf=0x0004)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Create_Connection, ogf=0x01, ocf=0x0005)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Disconnect, ogf=0x01, ocf=0x0006)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Create_Connection_Cancel, ogf=0x01, ocf=0x0008)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Accept_Connection_Request, ogf=0x01, ocf=0x0009)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Reject_Connection_Response, ogf=0x01, ocf=0x000A)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Link_Key_Request_Reply, ogf=0x01, ocf=0x000B)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_Link_Key_Request_Negative_Reply, ogf=0x01, ocf=0x000C
-)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_PIN_Code_Request_Reply, ogf=0x01, ocf=0x000D)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_Change_Connection_Packet_Type, ogf=0x01, ocf=0x000F
-)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Authentication_Requested, ogf=0x01, ocf=0x0011)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Connection_Encryption, ogf=0x01, ocf=0x0013)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Change_Connection_Link_Key, ogf=0x01, ocf=0x0017)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Create_Connection_Cancel,
+            ogf=0x01,
+            ocf=0x0008)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Accept_Connection_Request,
+            ogf=0x01,
+            ocf=0x0009)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Reject_Connection_Response,
+            ogf=0x01,
+            ocf=0x000A)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Link_Key_Request_Reply,
+            ogf=0x01,
+            ocf=0x000B)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Link_Key_Request_Negative_Reply,
+            ogf=0x01,
+            ocf=0x000C)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_PIN_Code_Request_Reply,
+            ogf=0x01,
+            ocf=0x000D)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Change_Connection_Packet_Type,
+            ogf=0x01,
+            ocf=0x000F)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Authentication_Requested,
+            ogf=0x01,
+            ocf=0x0011)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Set_Connection_Encryption,
+            ogf=0x01,
+            ocf=0x0013)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Change_Connection_Link_Key,
+            ogf=0x01,
+            ocf=0x0017)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Remote_Name_Request, ogf=0x01, ocf=0x0019)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Remote_Name_Request_Cancel, ogf=0x01, ocf=0x001A)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_Read_Remote_Supported_Features, ogf=0x01, ocf=0x001B
-)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_Read_Remote_Extended_Features, ogf=0x01, ocf=0x001C
-)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_IO_Capability_Request_Reply, ogf=0x01, ocf=0x002B)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_User_Confirmation_Request_Reply, ogf=0x01, ocf=0x002C
-)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Remote_Name_Request_Cancel,
+            ogf=0x01,
+            ocf=0x001A)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Read_Remote_Supported_Features,
+            ogf=0x01,
+            ocf=0x001B)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Read_Remote_Extended_Features,
+            ogf=0x01,
+            ocf=0x001C)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_IO_Capability_Request_Reply,
+            ogf=0x01,
+            ocf=0x002B)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_User_Confirmation_Request_Reply,
+            ogf=0x01,
+            ocf=0x002C)
 bind_layers(
     HCI_Command_Hdr,
     HCI_Cmd_User_Confirmation_Request_Negative_Reply,
     ogf=0x01,
     ocf=0x002D,
 )
-bind_layers(HCI_Command_Hdr, HCI_Cmd_User_Passkey_Request_Reply, ogf=0x01, ocf=0x002E)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_User_Passkey_Request_Negative_Reply, ogf=0x01, ocf=0x002F
-)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_Remote_OOB_Data_Request_Reply, ogf=0x01, ocf=0x0030
-)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_User_Passkey_Request_Reply,
+            ogf=0x01,
+            ocf=0x002E)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_User_Passkey_Request_Negative_Reply,
+            ogf=0x01,
+            ocf=0x002F)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Remote_OOB_Data_Request_Reply,
+            ogf=0x01,
+            ocf=0x0030)
 bind_layers(
     HCI_Command_Hdr,
     HCI_Cmd_Remote_OOB_Data_Request_Negative_Reply,
@@ -3494,18 +3671,32 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Reset, ogf=0x03, ocf=0x0003)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Filter, ogf=0x03, ocf=0x0005)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Local_Name, ogf=0x03, ocf=0x0013)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Local_Name, ogf=0x03, ocf=0x0014)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Connect_Accept_Timeout, ogf=0x03, ocf=0x0016)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_Write_Extended_Inquiry_Response, ogf=0x03, ocf=0x0052
-)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_LE_Host_Support, ogf=0x03, ocf=0x006C)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_LE_Host_Support, ogf=0x03, ocf=0x006D)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Write_Connect_Accept_Timeout,
+            ogf=0x03,
+            ocf=0x0016)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Write_Extended_Inquiry_Response,
+            ogf=0x03,
+            ocf=0x0052)  # noqa: E501
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Read_LE_Host_Support,
+            ogf=0x03,
+            ocf=0x006C)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Write_LE_Host_Support,
+            ogf=0x03,
+            ocf=0x006D)
 
 # 7.4 INFORMATIONAL PARAMETERS, the OGF is defined as 0x04
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_Read_Local_Version_Information, ogf=0x04, ocf=0x0001
-)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Local_Extended_Features, ogf=0x04, ocf=0x0004)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Read_Local_Version_Information,
+            ogf=0x04,
+            ocf=0x0001)  # noqa: E501
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_Read_Local_Extended_Features,
+            ogf=0x04,
+            ocf=0x0004)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_BD_Addr, ogf=0x04, ocf=0x0009)
 
 # 7.5 STATUS PARAMETERS, the OGF is defined as 0x05
@@ -3518,15 +3709,26 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Loopback_Mode, ogf=0x06, ocf=0x0002)
 
 # 7.8 LE CONTROLLER COMMANDS, the OGF code is defined as 0x08
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Event_Mask, ogf=0x08, ocf=0x0001)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Buffer_Size_V1, ogf=0x08, ocf=0x0002)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Buffer_Size_V2, ogf=0x08, ocf=0x0060)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_LE_Read_Local_Supported_Features, ogf=0x08, ocf=0x0003
-)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Random_Address, ogf=0x08, ocf=0x0005)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Parameters, ogf=0x08, ocf=0x0006
-)  # noqa: E501
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Read_Buffer_Size_V1,
+            ogf=0x08,
+            ocf=0x0002)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Read_Buffer_Size_V2,
+            ogf=0x08,
+            ocf=0x0060)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Read_Local_Supported_Features,
+            ogf=0x08,
+            ocf=0x0003)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Set_Random_Address,
+            ogf=0x08,
+            ocf=0x0005)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Set_Advertising_Parameters,
+            ogf=0x08,
+            ocf=0x0006)  # noqa: E501
 bind_layers(
     HCI_Command_Hdr,
     HCI_Cmd_LE_Set_Advertising_Set_Random_Address,
@@ -3539,46 +3741,86 @@ bind_layers(
     ogf=0x08,
     ocf=0x0036,
 )
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Data, ogf=0x08, ocf=0x0008)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_LE_Set_Extended_Advertising_Data, ogf=0x08, ocf=0x0037
-)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Response_Data, ogf=0x08, ocf=0x0009)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertise_Enable, ogf=0x08, ocf=0x000A)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_LE_Set_Extended_Advertise_Enable, ogf=0x08, ocf=0x0039
-)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Parameters, ogf=0x08, ocf=0x000B)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_LE_Set_Extended_Scan_Parameters, ogf=0x08, ocf=0x0041
-)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Set_Advertising_Data,
+            ogf=0x08,
+            ocf=0x0008)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Set_Extended_Advertising_Data,
+            ogf=0x08,
+            ocf=0x0037)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Set_Scan_Response_Data,
+            ogf=0x08,
+            ocf=0x0009)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Set_Advertise_Enable,
+            ogf=0x08,
+            ocf=0x000A)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Set_Extended_Advertise_Enable,
+            ogf=0x08,
+            ocf=0x0039)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Set_Scan_Parameters,
+            ogf=0x08,
+            ocf=0x000B)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Set_Extended_Scan_Parameters,
+            ogf=0x08,
+            ocf=0x0041)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, ogf=0x08, ocf=0x000C)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Extended_Scan_Enable, ogf=0x08, ocf=0x0042)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Set_Extended_Scan_Enable,
+            ogf=0x08,
+            ocf=0x0042)
 
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection, ogf=0x08, ocf=0x000D)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_LE_Extended_Create_Connection, ogf=0x08, ocf=0x0043
-)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, ogf=0x08, ocf=0x000E)  # noqa: E501
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_LE_Read_Filter_Accept_List_Size, ogf=0x08, ocf=0x000F
-)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Clear_Filter_Accept_List, ogf=0x08, ocf=0x0010)
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_LE_Add_Device_To_Filter_Accept_List, ogf=0x08, ocf=0x0011
-)  # noqa: E501
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Create_Connection,
+            ogf=0x08,
+            ocf=0x000D)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Extended_Create_Connection,
+            ogf=0x08,
+            ocf=0x0043)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Create_Connection_Cancel,
+            ogf=0x08,
+            ocf=0x000E)  # noqa: E501
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Read_Filter_Accept_List_Size,
+            ogf=0x08,
+            ocf=0x000F)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Clear_Filter_Accept_List,
+            ogf=0x08,
+            ocf=0x0010)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Add_Device_To_Filter_Accept_List,
+            ogf=0x08,
+            ocf=0x0011)  # noqa: E501
 bind_layers(
     HCI_Command_Hdr,
     HCI_Cmd_LE_Remove_Device_From_Filter_Accept_List,
     ogf=0x08,
     ocf=0x0012,
 )  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Connection_Update, ogf=0x08, ocf=0x0013)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Remote_Features, ogf=0x08, ocf=0x0016)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Enable_Encryption, ogf=0x08, ocf=0x0019)  # noqa: E501
-bind_layers(
-    HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, ogf=0x08, ocf=0x001A
-)  # noqa: E501
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Connection_Update,
+            ogf=0x08,
+            ocf=0x0013)
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Read_Remote_Features,
+            ogf=0x08,
+            ocf=0x0016)  # noqa: E501
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Enable_Encryption,
+            ogf=0x08,
+            ocf=0x0019)  # noqa: E501
+bind_layers(HCI_Command_Hdr,
+            HCI_Cmd_LE_Long_Term_Key_Request_Reply,
+            ogf=0x08,
+            ocf=0x001A)  # noqa: E501
 bind_layers(
     HCI_Command_Hdr,
     HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply,
@@ -3593,21 +3835,27 @@ bind_layers(HCI_Event_Hdr, HCI_Event_Connection_Complete, code=0x03)
 bind_layers(HCI_Event_Hdr, HCI_Event_Disconnection_Complete, code=0x05)
 bind_layers(HCI_Event_Hdr, HCI_Event_Remote_Name_Request_Complete, code=0x07)
 bind_layers(HCI_Event_Hdr, HCI_Event_Encryption_Change, code=0x08)
-bind_layers(HCI_Event_Hdr, HCI_Event_Read_Remote_Supported_Features_Complete, code=0x0B)
-bind_layers(
-    HCI_Event_Hdr, HCI_Event_Read_Remote_Version_Information_Complete, code=0x0C
-)  # noqa: E501
+bind_layers(HCI_Event_Hdr,
+            HCI_Event_Read_Remote_Supported_Features_Complete,
+            code=0x0B)
+bind_layers(HCI_Event_Hdr,
+            HCI_Event_Read_Remote_Version_Information_Complete,
+            code=0x0C)  # noqa: E501
 bind_layers(HCI_Event_Hdr, HCI_Event_Command_Complete, code=0x0E)
 bind_layers(HCI_Event_Hdr, HCI_Event_Command_Status, code=0x0F)
 bind_layers(HCI_Event_Hdr, HCI_Event_Number_Of_Completed_Packets, code=0x13)
 bind_layers(HCI_Event_Hdr, HCI_Event_Link_Key_Request, code=0x17)
 bind_layers(HCI_Event_Hdr, HCI_Event_Inquiry_Result_With_Rssi, code=0x22)
-bind_layers(HCI_Event_Hdr, HCI_Event_Read_Remote_Extended_Features_Complete, code=0x23)
+bind_layers(HCI_Event_Hdr,
+            HCI_Event_Read_Remote_Extended_Features_Complete,
+            code=0x23)
 bind_layers(HCI_Event_Hdr, HCI_Event_Extended_Inquiry_Result, code=0x2F)
 bind_layers(HCI_Event_Hdr, HCI_Event_IO_Capability_Response, code=0x32)
 bind_layers(HCI_Event_Hdr, HCI_Event_LE_Meta, code=0x3E)
 
-bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_Local_Name, opcode=0x0C14)  # noqa: E501
+bind_layers(HCI_Event_Command_Complete,
+            HCI_Cmd_Complete_Read_Local_Name,
+            opcode=0x0C14)  # noqa: E501
 bind_layers(
     HCI_Event_Command_Complete,
     HCI_Cmd_Complete_Read_Local_Version_Information,
@@ -3618,18 +3866,26 @@ bind_layers(
     HCI_Cmd_Complete_Read_Local_Extended_Features,
     opcode=0x1004,
 )  # noqa: E501
-bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_BD_Addr, opcode=0x1009)  # noqa: E501
-bind_layers(
-    HCI_Event_Command_Complete, HCI_Cmd_Complete_LE_Read_White_List_Size, opcode=0x200F
-)  # noqa: E501
+bind_layers(HCI_Event_Command_Complete,
+            HCI_Cmd_Complete_Read_BD_Addr,
+            opcode=0x1009)  # noqa: E501
+bind_layers(HCI_Event_Command_Complete,
+            HCI_Cmd_Complete_LE_Read_White_List_Size,
+            opcode=0x200F)  # noqa: E501
 
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=0x01)
-bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Enhanced_Connection_Complete, event=0x0A)
+bind_layers(HCI_Event_LE_Meta,
+            HCI_LE_Meta_Enhanced_Connection_Complete,
+            event=0x0A)
 
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Reports, event=0x02)
-bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=0x03)
+bind_layers(HCI_Event_LE_Meta,
+            HCI_LE_Meta_Connection_Update_Complete,
+            event=0x03)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=0x05)
-bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Extended_Advertising_Reports, event=0x0D)
+bind_layers(HCI_Event_LE_Meta,
+            HCI_LE_Meta_Extended_Advertising_Reports,
+            event=0x0D)
 
 bind_layers(EIR_Hdr, EIR_Flags, type=0x01)
 bind_layers(EIR_Hdr, EIR_IncompleteList16BitServiceUUIDs, type=0x02)
@@ -3735,7 +3991,6 @@ bind_layers(SM_Hdr, SM_Security_Request, sm_command=0x0B)
 bind_layers(SM_Hdr, SM_Public_Key, sm_command=0x0C)
 bind_layers(SM_Hdr, SM_DHKey_Check, sm_command=0x0D)
 
-
 ###############
 # HCI Monitor #
 ###############
@@ -3785,7 +4040,10 @@ class HCI_Mon_Pcap_Hdr(HCI_Mon_Hdr):
 class HCI_Mon_New_Index(Packet):
     name = "Bluetooth Linux Monitor Transport New Index Packet"
     fields_desc = [
-        ByteEnumField("bus", 0, {0x00: "BR/EDR", 0x01: "AMP"}),
+        ByteEnumField("bus", 0, {
+            0x00: "BR/EDR",
+            0x01: "AMP"
+        }),
         ByteEnumField(
             "type",
             0,
@@ -3806,7 +4064,10 @@ class HCI_Mon_New_Index(Packet):
 
 class HCI_Mon_Index_Info(Packet):
     name = "Bluetooth Linux Monitor Transport Index Info Packet"
-    fields_desc = [LEMACField("addr", None), XLEShortField("manufacturer", None)]
+    fields_desc = [
+        LEMACField("addr", None),
+        XLEShortField("manufacturer", None)
+    ]
 
 
 class HCI_Mon_System_Note(Packet):
@@ -3823,7 +4084,6 @@ bind_layers(HCI_Mon_Hdr, HCI_Mon_Index_Info, opcode=10)
 bind_layers(HCI_Mon_Hdr, HCI_Mon_System_Note, opcode=12)
 
 conf.l2types.register(DLT_BLUETOOTH_LINUX_MONITOR, HCI_Mon_Pcap_Hdr)
-
 
 ###########
 # Helpers #
@@ -3842,7 +4102,8 @@ class LowEnergyBeaconHelper:
 
     # Basic flags that should be used by most beacons.
     base_eir = [
-        EIR_Hdr() / EIR_Flags(flags=["general_disc_mode", "br_edr_not_supported"]),
+        EIR_Hdr() /
+        EIR_Flags(flags=["general_disc_mode", "br_edr_not_supported"]),
     ]
 
     def build_eir(self):
@@ -3865,7 +4126,7 @@ class LowEnergyBeaconHelper:
 
         return HCI_LE_Meta_Advertising_Report(
             type=0,  # Undirected
-            atype=1,  # Random address
+            addr_type=1,  # Random address
             data=self.build_eir(),
         )
 
@@ -3877,11 +4138,8 @@ class LowEnergyBeaconHelper:
         :rtype: scapy.bluetooth.HCI_Hdr
         """
 
-        return (
-            HCI_Hdr()
-            / HCI_Command_Hdr()
-            / HCI_Cmd_LE_Set_Advertising_Data(data=self.build_eir())
-        )
+        return (HCI_Hdr() / HCI_Command_Hdr() /
+                HCI_Cmd_LE_Set_Advertising_Data(data=self.build_eir()))
 
 
 ###########
@@ -3904,7 +4162,8 @@ class BluetoothL2CAPSocket(SuperSocket):
         if WINDOWS:
             warning("Not available on Windows")
             return
-        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_L2CAP)
+        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
+                          socket.BTPROTO_L2CAP)
         s.connect((bt_address, 0))
         self.ins = self.outs = s
 
@@ -3916,7 +4175,8 @@ class BluetoothRFCommSocket(BluetoothL2CAPSocket):
     """read/write packets on a connected RFCOMM socket"""
 
     def __init__(self, bt_address, port=0):
-        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_RFCOMM)
+        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
+                          socket.BTPROTO_RFCOMM)
         s.connect((bt_address, port))
         self.ins = self.outs = s
 
@@ -3928,7 +4188,8 @@ class BluetoothHCISocket(SuperSocket):
         if WINDOWS:
             warning("Not available on Windows")
             return
-        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)  # noqa: E501
+        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
+                          socket.BTPROTO_HCI)  # noqa: E501
         s.setsockopt(socket.SOL_HCI, socket.HCI_DATA_DIR, 1)
         s.setsockopt(socket.SOL_HCI, socket.HCI_TIME_STAMP, 1)
         s.setsockopt(
@@ -3936,7 +4197,7 @@ class BluetoothHCISocket(SuperSocket):
             socket.HCI_FILTER,
             struct.pack("IIIh2x", 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0),
         )  # type mask, event mask, event mask, opcode  # noqa: E501
-        s.bind((iface,))
+        s.bind((iface, ))
         self.ins = self.outs = s
 
     #        s.connect((peer,0))
@@ -3954,7 +4215,9 @@ class sockaddr_hci(ctypes.Structure):
 
 
 class _BluetoothLibcSocket(SuperSocket):
-    def __init__(self, socket_domain, socket_type, socket_protocol, sock_address):
+
+    def __init__(self, socket_domain, socket_type, socket_protocol,
+                 sock_address):
         # type: (int, int, int, sockaddr_hci) -> None
         if WINDOWS:
             warning("Not available on Windows")
@@ -3972,7 +4235,8 @@ class _BluetoothLibcSocket(SuperSocket):
         socket_c.restype = ctypes.c_int
 
         bind = libc.bind
-        bind.argtypes = (ctypes.c_int, ctypes.POINTER(sockaddr_hci), ctypes.c_int)
+        bind.argtypes = (ctypes.c_int, ctypes.POINTER(sockaddr_hci),
+                         ctypes.c_int)
         bind.restype = ctypes.c_int
 
         # Socket
@@ -3980,8 +4244,7 @@ class _BluetoothLibcSocket(SuperSocket):
         if s < 0:
             raise BluetoothSocketError(
                 f"Unable to open socket({socket_domain}, {socket_type}, "
-                f"{socket_protocol})"
-            )
+                f"{socket_protocol})")
 
         # Bind
         r = bind(s, sockaddr_hcip(sock_address), sizeof(sock_address))
@@ -3989,9 +4252,8 @@ class _BluetoothLibcSocket(SuperSocket):
             raise BluetoothSocketError("Unable to bind")
 
         self.hci_fd = s
-        self.ins = self.outs = socket.fromfd(
-            s, socket_domain, socket_type, socket_protocol
-        )
+        self.ins = self.outs = socket.fromfd(s, socket_domain, socket_type,
+                                             socket_protocol)
 
     def readable(self, timeout=0):
         (ins, _, _) = select.select([self.ins], [], [], timeout)
@@ -4044,11 +4306,12 @@ class BluetoothUserSocket(_BluetoothLibcSocket):
         self.send(cmd)
         while True:
             r = self.recv()
-            if r.type == 0x04 and r.code in (0x0E, 0x0F) and r.opcode == opcode:
+            if r.type == 0x04 and r.code in (0x0E,
+                                             0x0F) and r.opcode == opcode:
                 if hasattr(r, "status") and r.status != 0:
                     raise BluetoothCommandError(
-                        "Command %x failed with %x" % (opcode, r.status)
-                    )  # noqa: E501
+                        "Command %x failed with %x" %
+                        (opcode, r.status))  # noqa: E501
                 return r
 
     def recv(self, x=MTU):
