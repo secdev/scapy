@@ -2772,46 +2772,46 @@ class HCI_Cmd_LE_Extended_Create_Connection(Packet):
         ByteField("phys", 1),
         # --- PHY 1M Parameters (Bit 0) ---
         ConditionalField(LEShortField("interval_1m", 96),
-                         lambda pkt: pkt.initiating_phys & 1),
+                         lambda pkt: pkt.phys & 1),
         ConditionalField(LEShortField("window_1m", 96),
-                         lambda pkt: pkt.initiating_phys & 1),
+                         lambda pkt: pkt.phys & 1),
         ConditionalField(
             LEShortField("min_interval_1m", 40),
-            lambda pkt: pkt.initiating_phys & 1,
+            lambda pkt: pkt.phys & 1,
         ),
         ConditionalField(
             LEShortField("max_interval_1m", 56),
-            lambda pkt: pkt.initiating_phys & 1,
+            lambda pkt: pkt.phys & 1,
         ),
         ConditionalField(LEShortField("latency_1m", 0),
-                         lambda pkt: pkt.initiating_phys & 1),
+                         lambda pkt: pkt.phys & 1),
         ConditionalField(LEShortField("timeout_1m", 42),
-                         lambda pkt: pkt.initiating_phys & 1),  # 420ms
+                         lambda pkt: pkt.phys & 1),  # 420ms
         ConditionalField(LEShortField("min_ce_1m", 0),
-                         lambda pkt: pkt.initiating_phys & 1),
+                         lambda pkt: pkt.phys & 1),
         ConditionalField(LEShortField("max_ce_1m", 0),
-                         lambda pkt: pkt.initiating_phys & 1),
+                         lambda pkt: pkt.phys & 1),
         # --- PHY Coded Parameters (Bit 2) ---
         ConditionalField(LEShortField("interval_coded", 96),
-                         lambda pkt: pkt.initiating_phys & 4),
+                         lambda pkt: pkt.phys & 4),
         ConditionalField(LEShortField("window_coded", 96),
-                         lambda pkt: pkt.initiating_phys & 4),
+                         lambda pkt: pkt.phys & 4),
         ConditionalField(
             LEShortField("min_interval_coded", 40),
-            lambda pkt: pkt.initiating_phys & 4,
+            lambda pkt: pkt.phys & 4,
         ),
         ConditionalField(
             LEShortField("max_interval_coded", 56),
-            lambda pkt: pkt.initiating_phys & 4,
+            lambda pkt: pkt.phys & 4,
         ),
         ConditionalField(LEShortField("latency_coded", 0),
-                         lambda pkt: pkt.initiating_phys & 4),
+                         lambda pkt: pkt.phys & 4),
         ConditionalField(LEShortField("timeout_coded", 42),
-                         lambda pkt: pkt.initiating_phys & 4),
+                         lambda pkt: pkt.phys & 4),
         ConditionalField(LEShortField("min_ce_coded", 0),
-                         lambda pkt: pkt.initiating_phys & 4),
+                         lambda pkt: pkt.phys & 4),
         ConditionalField(LEShortField("max_ce_coded", 0),
-                         lambda pkt: pkt.initiating_phys & 4),
+                         lambda pkt: pkt.phys & 4),
     ]
 
 
