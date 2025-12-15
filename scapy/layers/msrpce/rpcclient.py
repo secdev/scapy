@@ -585,7 +585,7 @@ class DCERPC_Client(object):
                 # Call the underlying SSP
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                     self.sspcontext,
-                    token=resp.auth_verifier.auth_value,
+                    input_token=resp.auth_verifier.auth_value,
                     target_name="host/" + self.host,
                 )
 
@@ -628,7 +628,7 @@ class DCERPC_Client(object):
                             break
                         self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                             self.sspcontext,
-                            token=resp.auth_verifier.auth_value,
+                            input_token=resp.auth_verifier.auth_value,
                             target_name="host/" + self.host,
                         )
             else:

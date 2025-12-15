@@ -158,7 +158,7 @@ server = SPNEGOSSP([
 
 = GSS_Init_sec_context (negTokenInit: NTLM_NEGOTIATE)
 
-clicontext, tok, negResult = client.GSS_Init_sec_context(
+clicontext, tok, negState = client.GSS_Init_sec_context(
     None,
     req_flags=(
         GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
@@ -166,7 +166,7 @@ clicontext, tok, negResult = client.GSS_Init_sec_context(
         GSS_C_FLAGS.GSS_C_CONF_FLAG
     )
 )
-assert negResult == 1
+assert negState == 1
 assert isinstance(tok, GSSAPI_BLOB)
 tok = GSSAPI_BLOB(bytes(tok))
 assert tok.MechType.val == '1.3.6.1.5.5.2'
@@ -192,13 +192,13 @@ assert bytes(ntlm_nego) == b'NTLMSSP\x00\x01\x00\x00\x005\x82\x89\xe2\x00\x00\x0
 = GSS_Accept_sec_context (SPNEGO_negTokenResp: NTLM_NEGOTIATE->NTLM_CHALLENGE)
 
 with NTLMRandomPatcher():
-    srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+    srvcontext, tok, negState = server.GSS_Accept_sec_context(None, tok)
 
-assert negResult == 1
+assert negState == 1
 assert isinstance(tok, SPNEGO_negToken)
 tok = SPNEGO_negToken(bytes(tok))
 assert isinstance(tok.token, SPNEGO_negTokenResp)
-assert tok.token.negResult == 1
+assert tok.token.negState == 1
 assert tok.token.supportedMech.oid == '1.3.6.1.4.1.311.2.2.10'
 assert isinstance(tok.token.responseToken, SPNEGO_Token)
 assert tok.token.mechListMIC is None
@@ -216,41 +216,42 @@ assert ntlm_chall.getAv(0)
 = GSS_Init_sec_context (SPNEGO_negToken: NTLM_CHALLENGE->NTLM_AUTHENTICATE)
 
 with NTLMRandomPatcher():
-    clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+    clicontext, tok, negState = client.GSS_Init_sec_context(clicontext, tok)
 
 assert isinstance(tok, SPNEGO_negToken)
 tok = SPNEGO_negToken(bytes(tok))
 assert isinstance(tok.token, SPNEGO_negTokenResp)
-assert tok.token.negResult is None
+assert tok.token.negState is None
 assert tok.token.supportedMech is None
 assert isinstance(tok.token.mechListMIC, SPNEGO_MechListMIC)
-sig = NTLMSSP_MESSAGE_SIGNATURE(tok.token.mechListMIC.value.val)
+sig = tok.token.mechListMIC.value
+assert isinstance(sig, NTLMSSP_MESSAGE_SIGNATURE)
 assert sig.Version == 1
 assert sig.SeqNum == 0
 assert isinstance(tok.token.responseToken, SPNEGO_Token)
 
-ntlm_auth = NTLM_Header(tok.token.responseToken.value.val)
+ntlm_auth = tok.token.responseToken.value
 assert isinstance(ntlm_auth, NTLM_AUTHENTICATE_V2)
 assert ntlm_auth.NegotiateFlags == 0xe2898235
 assert ntlm_auth.UserName == "User1"
 assert ntlm_auth.DomainName == "DOMAIN"
 assert ntlm_auth.Workstation == "WIN10"
 assert ntlm_chall.TargetInfo[:6] ==  ntlm_auth.NtChallengeResponse.AvPairs[:6]
-assert ntlm_auth.NtChallengeResponse.TimeStamp == ntlm_chall.getAv(7).Value
 assert ntlm_auth.NtChallengeResponse.getAv(6).Value == 2
 assert ntlm_auth.NtChallengeResponse.getAv(9).Value == "host/WIN10"
 
 = GSS_Accept_sec_context (SPNEGO_negToken: NTLM_AUTHENTICATE->OK)
 
-srvcontext, tok, negResult = server.GSS_Accept_sec_context(srvcontext, tok)
-assert negResult == 0  # success :p
+srvcontext, tok, negState = server.GSS_Accept_sec_context(srvcontext, tok)
+assert negState == 0, negState  # success :p
 assert isinstance(tok, SPNEGO_negToken)
 assert isinstance(tok.token, SPNEGO_negTokenResp)
-assert tok.token.negResult == 0
+assert tok.token.negState == 0
 assert tok.token.supportedMech is None
 assert tok.token.responseToken is None
 assert isinstance(tok.token.mechListMIC, SPNEGO_MechListMIC)
-sig = NTLMSSP_MESSAGE_SIGNATURE(tok.token.mechListMIC.value.val)
+sig = tok.token.mechListMIC.value
+assert isinstance(sig, NTLMSSP_MESSAGE_SIGNATURE)
 assert sig.Version == 1
 assert sig.SeqNum == 0
 
@@ -390,7 +391,6 @@ server = SPNEGOSSP(
             },
         ),
     ],
-    force_supported_mechtypes=tok0.innerToken.token.mechTypes
 )
 
 = Real exchange - Parse token 1 from client
@@ -402,8 +402,8 @@ b"\x04\x28\x4e\x54\x4c\x4d\x53\x53\x50\x00\x01\x00\x00\x00\x97\x82" \
 b"\x08\xe2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" \
 b"\x00\x00\x0a\x00\x61\x4a\x00\x00\x00\x0f")
 
-srvcontext, _, negResult = server.GSS_Accept_sec_context(None, tok1)
-assert negResult == 1
+srvcontext, _, negState = server.GSS_Accept_sec_context(None, tok1)
+assert negState == 1
 
 = Real exchange - Inject token 2 from server
 
@@ -425,7 +425,7 @@ b"\x00\x02\xea\x8e\xe8\xd2\x8d\xd9\x01\x00\x00\x00\x00")
 tok2.token.responseToken.value.show()
 
 # Inject challenge token
-srvcontext.sub_context.chall_tok = tok2.token.responseToken.value
+srvcontext.ssp_context.chall_tok = tok2.token.responseToken.value
 
 = Real exchange - Parse token 3 from client
 
@@ -462,8 +462,8 @@ b"\x47\xdc\xcd\xb5\x5e\x13\x62\xa3\x12\x04\x10\x01\x00\x00\x00\x0f" \
 b"\x96\x54\xbb\x55\xd0\x6c\xcb\x00\x00\x00\x00")
 
 # Parse auth
-srvcontext, tok, negResult = server.GSS_Accept_sec_context(srvcontext, tok3)
-assert negResult == 0
+srvcontext, tok, negState = server.GSS_Accept_sec_context(srvcontext, tok3)
+assert negState == 0
 
 = Real exchange - Check mechListMIC against token 4 from server
 

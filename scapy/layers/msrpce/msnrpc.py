@@ -56,8 +56,14 @@ if conf.crypto_valid:
     from cryptography.hazmat.primitives import hashes, hmac
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
     from scapy.libs.rfc3961 import DES
+
+    try:
+        # cryptography > 47.0
+        from cryptography.hazmat.decrepit.ciphers.modes import CFB8
+    except ImportError:
+        from cryptography.hazmat.primitives.ciphers.modes import CFB8
 else:
-    hashes = hmac = Cipher = algorithms = modes = DES = None
+    hashes = hmac = Cipher = algorithms = modes = DES = CFB8 = None
 
 
 # Typing imports
@@ -156,7 +162,7 @@ def ComputeSessionKeyStrongKey(HashNt, ClientChallenge, ServerChallenge):
 # [MS-NRPC] sect 3.1.4.4.1
 @crypto_validator
 def ComputeNetlogonCredentialAES(Input, Sk):
-    cipher = Cipher(algorithms.AES(Sk), mode=modes.CFB8(b"\x00" * 16))
+    cipher = Cipher(algorithms.AES(Sk), mode=CFB8(b"\x00" * 16))
     encryptor = cipher.encryptor()
     return encryptor.update(Input)
 
@@ -287,6 +293,9 @@ class NetlogonSSP(SSP):
         self.domainname = domainname
         super(NetlogonSSP, self).__init__(**kwargs)
 
+    def GSS_Inquire_names_for_mech(self):
+        raise NotImplementedError("Netlogon cannot be used with SPNEGO !")
+
     def _secure(self, Context, msgs, Seal):
         """
         Internal function used by GSS_WrapEx and GSS_GetMICEx
@@ -342,7 +351,7 @@ class NetlogonSSP(SSP):
             if Context.AES:
                 IV = SequenceNumber * 2
                 encryptor = Cipher(
-                    algorithms.AES(EncryptionKey), mode=modes.CFB8(IV)
+                    algorithms.AES(EncryptionKey), mode=CFB8(IV)
                 ).encryptor()
                 # Confounder
                 signature.Confounder = encryptor.update(Confounder)
@@ -369,7 +378,7 @@ class NetlogonSSP(SSP):
         if Context.AES:
             EncryptionKey = self.SessionKey
             IV = signature.Checksum * 2
-            cipher = Cipher(algorithms.AES(EncryptionKey), mode=modes.CFB8(IV))
+            cipher = Cipher(algorithms.AES(EncryptionKey), mode=CFB8(IV))
             encryptor = cipher.encryptor()
             signature.SequenceNumber = encryptor.update(SequenceNumber)
         else:
@@ -401,7 +410,7 @@ class NetlogonSSP(SSP):
         if Context.AES:
             EncryptionKey = self.SessionKey
             IV = signature.Checksum * 2
-            cipher = Cipher(algorithms.AES(EncryptionKey), mode=modes.CFB8(IV))
+            cipher = Cipher(algorithms.AES(EncryptionKey), mode=CFB8(IV))
             decryptor = cipher.decryptor()
             SequenceNumber = decryptor.update(signature.SequenceNumber)
         else:
@@ -432,7 +441,7 @@ class NetlogonSSP(SSP):
             if Context.AES:
                 IV = SequenceNumber * 2
                 decryptor = Cipher(
-                    algorithms.AES(EncryptionKey), mode=modes.CFB8(IV)
+                    algorithms.AES(EncryptionKey), mode=CFB8(IV)
                 ).decryptor()
                 # Confounder
                 Confounder = decryptor.update(signature.Confounder)
@@ -483,7 +492,7 @@ class NetlogonSSP(SSP):
     def GSS_Init_sec_context(
         self,
         Context: CONTEXT,
-        token=None,
+        input_token=None,
         target_name: Optional[str] = None,
         req_flags: Optional[GSS_C_FLAGS] = None,
         chan_bindings: bytes = GSS_C_NO_CHANNEL_BINDINGS,
@@ -509,7 +518,7 @@ class NetlogonSSP(SSP):
     def GSS_Accept_sec_context(
         self,
         Context: CONTEXT,
-        token=None,
+        input_token=None,
         req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
         chan_bindings: bytes = GSS_C_NO_CHANNEL_BINDINGS,
     ):
@@ -670,8 +679,9 @@ class NetlogonClient(DCERPC_Client):
         """
         Function to establish the Netlogon Secure Channel.
 
-        This uses NetrServerAuthenticate3 to negotiate the session key, then creates a
-        NetlogonSSP that uses that session key and alters the DCE/RPC session to use it.
+        This uses NetrServerAuthenticate3 or NetrServerAuthenticateKerberos to
+        negotiate the session key, then creates a NetlogonSSP that uses that session
+        key and alters the DCE/RPC session to use it.
 
         :param mode: one of NETLOGON_SECURE_CHANNEL_METHOD. This defines which method
                      to use to establish the secure channel.

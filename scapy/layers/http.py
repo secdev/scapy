@@ -944,7 +944,7 @@ class HTTP_Client(object):
                     # SPNEGO / Kerberos / NTLM
                     self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                         self.sspcontext,
-                        ssp_blob,
+                        input_token=ssp_blob,
                         target_name="http/" + host,
                         req_flags=0,
                         chan_bindings=self.chan_bindings,

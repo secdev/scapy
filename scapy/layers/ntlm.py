@@ -60,6 +60,8 @@ from scapy.packet import Packet
 from scapy.sessions import StringBuffer
 
 from scapy.layers.gssapi import (
+    _GSSAPI_OIDS,
+    _GSSAPI_SIGNATURE_OIDS,
     GSS_C_FLAGS,
     GSS_C_NO_CHANNEL_BINDINGS,
     GSS_S_BAD_BINDINGS,
@@ -70,8 +72,6 @@ from scapy.layers.gssapi import (
     GSS_S_FLAGS,
     GssChannelBindings,
     SSP,
-    _GSSAPI_OIDS,
-    _GSSAPI_SIGNATURE_OIDS,
 )
 
 # Typing imports
@@ -453,13 +453,17 @@ class NTLM_Header(Packet):
         LEIntEnumField(
             "MessageType",
             3,
-            {1: "NEGOTIATE_MESSAGE", 2: "CHALLENGE_MESSAGE", 3: "AUTHENTICATE_MESSAGE"},
+            {
+                1: "NEGOTIATE_MESSAGE",
+                2: "CHALLENGE_MESSAGE",
+                3: "AUTHENTICATE_MESSAGE",
+            },
         ),
     ]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if _pkt and len(_pkt) >= 10:
+        if cls is NTLM_Header and _pkt and len(_pkt) >= 10:
             MessageType = struct.unpack("<H", _pkt[8:10])[0]
             if MessageType == 1:
                 return NTLM_NEGOTIATE
@@ -535,7 +539,7 @@ class _NTLM_Version(Packet):
 # Sect 2.2.1.1
 
 
-class NTLM_NEGOTIATE(_NTLM_VARIANT_Packet):
+class NTLM_NEGOTIATE(_NTLM_VARIANT_Packet, NTLM_Header):
     name = "NTLM Negotiate"
     __slots__ = ["VARIANT"]
     MessageType = 1
@@ -614,11 +618,41 @@ class NTLM_NEGOTIATE(_NTLM_VARIANT_Packet):
 
 class Single_Host_Data(Packet):
     fields_desc = [
-        LEIntField("Size", 48),
+        LEIntField("Size", None),
         LEIntField("Z4", 0),
-        XStrFixedLenField("CustomData", b"", length=8),
+        # "CustomData" guessed using LSAP_TOKEN_INFO_INTEGRITY.
+        FlagsField(
+            "Flags",
+            0,
+            -32,
+            {
+                0x00000001: "UAC-Restricted",
+            },
+        ),
+        LEIntEnumField(
+            "TokenIL",
+            0x00002000,
+            {
+                0x00000000: "Untrusted",
+                0x00001000: "Low",
+                0x00002000: "Medium",
+                0x00003000: "High",
+                0x00004000: "System",
+                0x00005000: "Protected process",
+            },
+        ),
         XStrFixedLenField("MachineID", b"", length=32),
+        # KB 5068222 - still waiting for [MS-KILE] update (oct. 2025)
+        ConditionalField(
+            XStrFixedLenField("PermanentMachineID", None, length=32),
+            lambda pkt: pkt.Size is None or pkt.Size > 48,
+        ),
     ]
+
+    def post_build(self, pkt, pay):
+        if self.Size is None:
+            pkt = struct.pack("<I", len(pkt)) + pkt[4:]
+        return pkt + pay
 
     def default_payload_class(self, payload):
         return conf.padding_layer
@@ -686,7 +720,7 @@ class AV_PAIR(Packet):
         return conf.padding_layer
 
 
-class NTLM_CHALLENGE(_NTLM_VARIANT_Packet):
+class NTLM_CHALLENGE(_NTLM_VARIANT_Packet, NTLM_Header):
     name = "NTLM Challenge"
     __slots__ = ["VARIANT"]
     MessageType = 2
@@ -839,7 +873,7 @@ class NTLMv2_RESPONSE(NTLMv2_CLIENT_CHALLENGE):
         return HMAC_MD5(ResponseKeyNT, ServerChallenge + temp)
 
 
-class NTLM_AUTHENTICATE(_NTLM_VARIANT_Packet):
+class NTLM_AUTHENTICATE(_NTLM_VARIANT_Packet, NTLM_Header):
     name = "NTLM Authenticate"
     __slots__ = ["VARIANT"]
     MessageType = 3
@@ -1274,7 +1308,6 @@ class NTLMSSP(SSP):
                         authenticates inbound users.
     """
 
-    oid = "1.3.6.1.4.1.311.2.2.10"
     auth_type = 0x0A
 
     class STATE(SSP.STATE):
@@ -1299,6 +1332,7 @@ class NTLMSSP(SSP):
             "neg_tok",
             "chall_tok",
             "ServerHostname",
+            "ServerDomain",
         ]
 
         def __init__(self, IsAcceptor, req_flags=None):
@@ -1316,6 +1350,7 @@ class NTLMSSP(SSP):
             self.neg_tok = None
             self.chall_tok = None
             self.ServerHostname = None
+            self.ServerDomain = None
             self.IsAcceptor = IsAcceptor
             super(NTLMSSP.CONTEXT, self).__init__(req_flags=req_flags)
 
@@ -1324,6 +1359,9 @@ class NTLMSSP(SSP):
 
         def __repr__(self):
             return "NTLMSSP"
+
+    # [MS-NLMP] note <36>: "the maximum lifetime is 36 hours" (lol, Kerberos has 5min)
+    NTLM_MaxLifetime = 36 * 3600
 
     def __init__(
         self,
@@ -1367,14 +1405,17 @@ class NTLMSSP(SSP):
                     COMPUTER_NB_NAME = user
             except ValueError:
                 pass
+
+        # Compute various netbios/fqdn names
         self.DOMAIN_FQDN = DOMAIN_FQDN or "domain.local"
         self.DOMAIN_NB_NAME = (
             DOMAIN_NB_NAME or self.DOMAIN_FQDN.split(".")[0].upper()[:15]
         )
-        self.COMPUTER_NB_NAME = COMPUTER_NB_NAME or "SRV"
+        self.COMPUTER_NB_NAME = COMPUTER_NB_NAME or "WIN10"
         self.COMPUTER_FQDN = COMPUTER_FQDN or (
             self.COMPUTER_NB_NAME.lower() + "." + self.DOMAIN_FQDN
         )
+
         self.IDENTITIES = IDENTITIES
         self.DO_NOT_CHECK_LOGIN = DO_NOT_CHECK_LOGIN
         self.SERVER_CHALLENGE = SERVER_CHALLENGE
@@ -1382,6 +1423,9 @@ class NTLMSSP(SSP):
 
     def LegsAmount(self, Context: CONTEXT):
         return 3
+
+    def GSS_Inquire_names_for_mech(self):
+        return ["1.3.6.1.4.1.311.2.2.10"]
 
     def GSS_GetMICEx(self, Context, msgs, qop_req=0):
         """
@@ -1442,18 +1486,18 @@ class NTLMSSP(SSP):
         self.GSS_VerifyMICEx(Context, msgs, signature)
         return msgs
 
-    def canMechListMIC(self, Context):
+    def SupportsMechListMIC(self):
         if not self.USE_MIC:
             # RFC 4178
             # "If the mechanism selected by the negotiation does not support integrity
             # protection, then no mechlistMIC token is used."
             return False
-        if not Context or not Context.SessionKey:
-            # Not available yet
+        if self.DO_NOT_CHECK_LOGIN:
+            # In this mode, we won't negotiate any credentials.
             return False
         return True
 
-    def getMechListMIC(self, Context, input):
+    def GetMechListMIC(self, Context, input):
         # [MS-SPNG]
         # "When NTLM is negotiated, the SPNG server MUST set OriginalHandle to
         # ServerHandle before generating the mechListMIC, then set ServerHandle to
@@ -1461,11 +1505,11 @@ class NTLMSSP(SSP):
         OriginalHandle = Context.SendSealHandle
         Context.SendSealHandle = RC4Init(Context.SendSealKey)
         try:
-            return super(NTLMSSP, self).getMechListMIC(Context, input)
+            return super(NTLMSSP, self).GetMechListMIC(Context, input)
         finally:
             Context.SendSealHandle = OriginalHandle
 
-    def verifyMechListMIC(self, Context, otherMIC, input):
+    def VerifyMechListMIC(self, Context, otherMIC, input):
         # [MS-SPNG]
         # "the SPNEGO Extension server MUST set OriginalHandle to ClientHandle before
         # validating the mechListMIC and then set ClientHandle to OriginalHandle after
@@ -1473,14 +1517,14 @@ class NTLMSSP(SSP):
         OriginalHandle = Context.RecvSealHandle
         Context.RecvSealHandle = RC4Init(Context.RecvSealKey)
         try:
-            return super(NTLMSSP, self).verifyMechListMIC(Context, otherMIC, input)
+            return super(NTLMSSP, self).VerifyMechListMIC(Context, otherMIC, input)
         finally:
             Context.RecvSealHandle = OriginalHandle
 
     def GSS_Init_sec_context(
         self,
         Context: CONTEXT,
-        token=None,
+        input_token=None,
         target_name: Optional[str] = None,
         req_flags: Optional[GSS_C_FLAGS] = None,
         chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
@@ -1553,16 +1597,43 @@ class NTLMSSP(SSP):
             return Context, tok, GSS_S_CONTINUE_NEEDED
         elif Context.state == self.STATE.CLI_SENT_NEGO:
             # Client: auth (token=challenge)
-            chall_tok = token
+            chall_tok = input_token
             if self.UPN is None or self.HASHNT is None:
                 raise ValueError(
                     "Must provide a 'UPN' and a 'HASHNT' or 'PASSWORD' when "
                     "running in standalone !"
                 )
+
+            from scapy.layers.kerberos import _parse_upn
+
+            # Check token sanity
             if not chall_tok or NTLM_CHALLENGE not in chall_tok:
                 log_runtime.debug("NTLMSSP: Unexpected token. Expected NTLM Challenge")
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
-            # Take a default token
+
+            # Some information from the CHALLENGE are stored
+            try:
+                Context.ServerHostname = chall_tok.getAv(0x0001).Value
+            except IndexError:
+                pass
+            try:
+                Context.ServerDomain = chall_tok.getAv(0x0002).Value
+            except IndexError:
+                pass
+            try:
+                # the server SHOULD set the timestamp in the CHALLENGE_MESSAGE
+                ServerTimestamp = chall_tok.getAv(0x0007).Value
+                ServerTime = (ServerTimestamp / 1e7) - 11644473600
+
+                if abs(ServerTime - time.time()) >= NTLMSSP.NTLM_MaxLifetime:
+                    log_runtime.warning(
+                        "Server and Client times are off by more than 36h !"
+                    )
+                    # We could error here, but we don't.
+            except IndexError:
+                pass
+
+            # Initialize a default token
             tok = NTLM_AUTHENTICATE_V2(
                 VARIANT=self.VARIANT,
                 NegotiateFlags=chall_tok.NegotiateFlags,
@@ -1571,37 +1642,34 @@ class NTLMSSP(SSP):
                 ProductBuild=19041,
             )
             tok.LmChallengeResponse = LMv2_RESPONSE()
-            from scapy.layers.kerberos import _parse_upn
 
+            # Populate the token
+            # 1. Set username
             try:
                 tok.UserName, realm = _parse_upn(self.UPN)
             except ValueError:
-                tok.UserName, realm = self.UPN, None
+                tok.UserName, realm = self.UPN, Context.ServerDomain
+
+            # 2. Set domain name
             if realm is None:
-                try:
-                    tok.DomainName = chall_tok.getAv(0x0002).Value
-                except IndexError:
-                    log_runtime.warning(
-                        "No realm specified in UPN, nor provided by server"
-                    )
-                    tok.DomainName = self.DOMAIN_NB_NAME.encode()
+                log_runtime.warning(
+                    "No realm specified in UPN, nor provided by server."
+                )
+                tok.DomainName = self.DOMAIN_FQDN
             else:
                 tok.DomainName = realm
-            try:
-                tok.Workstation = Context.ServerHostname = chall_tok.getAv(
-                    0x0001
-                ).Value  # noqa: E501
-            except IndexError:
-                tok.Workstation = "WIN"
+
+            # 3. Set workstation name
+            tok.Workstation = self.COMPUTER_NB_NAME
+
+            # 4. Create and calculate the ChallengeResponse
+            # 4.1 Build the payload
             cr = tok.NtChallengeResponse = NTLMv2_RESPONSE(
                 ChallengeFromClient=os.urandom(8),
             )
-            try:
-                # the server SHOULD set the timestamp in the CHALLENGE_MESSAGE
-                cr.TimeStamp = chall_tok.getAv(0x0007).Value
-            except IndexError:
-                cr.TimeStamp = int((time.time() + 11644473600) * 1e7)
+            cr.TimeStamp = int((time.time() + 11644473600) * 1e7)
             cr.AvPairs = (
+                # Repeat AvPairs from the server
                 chall_tok.TargetInfo[:-1]
                 + (
                     [
@@ -1629,7 +1697,10 @@ class NTLMSSP(SSP):
                     else []
                 )
                 + [
-                    AV_PAIR(AvId="MsvAvTargetName", Value="host/" + tok.Workstation),
+                    AV_PAIR(
+                        AvId="MsvAvTargetName",
+                        Value=target_name or ("host/" + Context.ServerHostname),
+                    ),
                     AV_PAIR(AvId="MsvAvEOL"),
                 ]
             )
@@ -1643,19 +1714,22 @@ class NTLMSSP(SSP):
                 ]:
                     if key in self.NTLM_VALUES:
                         setattr(tok, key, self.NTLM_VALUES[key])
-            # Compute the ResponseKeyNT
+
+            # 4.2 Compute the ResponseKeyNT
             ResponseKeyNT = NTOWFv2(
                 None,
                 tok.UserName,
                 tok.DomainName,
                 HashNt=self.HASHNT,
             )
-            # Compute the NTProofStr
+
+            # 4.3 Compute the NTProofStr
             cr.NTProofStr = cr.computeNTProofStr(
                 ResponseKeyNT,
                 chall_tok.ServerChallenge,
             )
-            # Compute the Session Key
+
+            # 4.4 Compute the Session Key
             SessionBaseKey = NTLMv2_ComputeSessionBaseKey(ResponseKeyNT, cr.NTProofStr)
             KeyExchangeKey = SessionBaseKey  # Only true for NTLMv2
             if chall_tok.NegotiateFlags.NEGOTIATE_KEY_EXCH:
@@ -1666,8 +1740,12 @@ class NTLMSSP(SSP):
                 )
             else:
                 ExportedSessionKey = KeyExchangeKey
+
+            # 4.5 Compute the MIC
             if self.USE_MIC:
                 tok.compute_mic(ExportedSessionKey, Context.neg_tok, chall_tok)
+
+            # 5. Perform key computations
             Context.ExportedSessionKey = ExportedSessionKey
             # [MS-SMB] 3.2.5.3
             Context.SessionKey = Context.ExportedSessionKey
@@ -1686,12 +1764,15 @@ class NTLMSSP(SSP):
                 tok.NegotiateFlags, ExportedSessionKey, "Server"
             )
             Context.RecvSealHandle = RC4Init(Context.RecvSealKey)
+
+            # Update the state
             Context.state = self.STATE.CLI_SENT_AUTH
+
             return Context, tok, GSS_S_COMPLETE
         elif Context.state == self.STATE.CLI_SENT_AUTH:
-            if token:
+            if input_token:
                 # what is that?
-                status = GSS_S_DEFECTIVE_CREDENTIAL
+                status = GSS_S_DEFECTIVE_TOKEN
             else:
                 status = GSS_S_COMPLETE
             return Context, None, status
@@ -1701,7 +1782,7 @@ class NTLMSSP(SSP):
     def GSS_Accept_sec_context(
         self,
         Context: CONTEXT,
-        token=None,
+        input_token=None,
         req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
         chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
     ):
@@ -1709,12 +1790,13 @@ class NTLMSSP(SSP):
             Context = self.CONTEXT(IsAcceptor=True, req_flags=req_flags)
 
         if Context.state == self.STATE.INIT:
-            # Server: challenge (token=negotiate)
-            nego_tok = token
+            # Server: challenge (input_token=negotiate)
+            nego_tok = input_token
             if not nego_tok or NTLM_NEGOTIATE not in nego_tok:
                 log_runtime.debug("NTLMSSP: Unexpected token. Expected NTLM Negotiate")
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
-            # Take a default token
+
+            # Build the challenge token
             currentTime = (time.time() + 11644473600) * 1e7
             tok = NTLM_CHALLENGE(
                 VARIANT=self.VARIANT,
@@ -1800,12 +1882,17 @@ class NTLMSSP(SSP):
                     if ((x in self.NTLM_VALUES) or (i in avpairs))
                     and self.NTLM_VALUES.get(x, True) is not None
                 ]
+
+            # Store for next step
             Context.chall_tok = tok
+
+            # Update the state
             Context.state = self.STATE.SRV_SENT_CHAL
+
             return Context, tok, GSS_S_CONTINUE_NEEDED
         elif Context.state == self.STATE.SRV_SENT_CHAL:
-            # server: OK or challenge again (token=auth)
-            auth_tok = token
+            # server: OK or challenge again (input_token=auth)
+            auth_tok = input_token
 
             if not auth_tok or NTLM_AUTHENTICATE_V2 not in auth_tok:
                 log_runtime.debug(
@@ -1814,7 +1901,7 @@ class NTLMSSP(SSP):
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
 
             if self.DO_NOT_CHECK_LOGIN:
-                # Just trust me bro
+                # Just trust me bro. Typically used in "guest" mode.
                 return Context, None, GSS_S_COMPLETE
 
             # Compute the session key
@@ -1823,18 +1910,31 @@ class NTLMSSP(SSP):
                 # [MS-NLMP] sect 3.2.5.1.2
                 KeyExchangeKey = SessionBaseKey  # Only true for NTLMv2
                 if auth_tok.NegotiateFlags.NEGOTIATE_KEY_EXCH:
-                    if not auth_tok.EncryptedRandomSessionKeyLen:
+                    try:
+                        EncryptedRandomSessionKey = auth_tok.EncryptedRandomSessionKey
+                    except AttributeError:
                         # No EncryptedRandomSessionKey. libcurl for instance
                         # hmm. this looks bad
                         EncryptedRandomSessionKey = b"\x00" * 16
-                    else:
-                        EncryptedRandomSessionKey = auth_tok.EncryptedRandomSessionKey
                     ExportedSessionKey = RC4K(KeyExchangeKey, EncryptedRandomSessionKey)
                 else:
                     ExportedSessionKey = KeyExchangeKey
                 Context.ExportedSessionKey = ExportedSessionKey
                 # [MS-SMB] 3.2.5.3
                 Context.SessionKey = Context.ExportedSessionKey
+
+            # Check the timestamp
+            try:
+                ClientTimestamp = auth_tok.NtChallengeResponse.getAv(0x0007).Value
+                ClientTime = (ClientTimestamp / 1e7) - 11644473600
+
+                if abs(ClientTime - time.time()) >= NTLMSSP.NTLM_MaxLifetime:
+                    log_runtime.warning(
+                        "Server and Client times are off by more than 36h !"
+                    )
+                    # We could error here, but we don't.
+            except IndexError:
+                pass
 
             # Check the channel bindings
             if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS:
@@ -1848,7 +1948,6 @@ class NTLMSSP(SSP):
                         # Uhoh, we required channel bindings
                         return Context, None, GSS_S_BAD_BINDINGS
 
-            # Check the NTProofStr
             if Context.SessionKey:
                 # Compute NTLM keys
                 Context.SendSignKey = SIGNKEY(
@@ -1865,6 +1964,8 @@ class NTLMSSP(SSP):
                     auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
                 )
                 Context.RecvSealHandle = RC4Init(Context.RecvSealKey)
+
+                # Check the NTProofStr
                 if self._checkLogin(Context, auth_tok):
                     # Set negotiated flags
                     if auth_tok.NegotiateFlags.NEGOTIATE_SIGN:
@@ -1946,20 +2047,24 @@ class NTLMSSP(SSP):
         """
         Function that returns the SessionBaseKey from the ntlm Authenticate.
         """
-        if auth_tok.UserNameLen:
+        try:
             username = auth_tok.UserName
-        else:
+        except AttributeError:
             username = None
-        if auth_tok.DomainNameLen:
+        try:
             domain = auth_tok.DomainName
-        else:
+        except AttributeError:
             domain = ""
         if self.IDENTITIES and username in self.IDENTITIES:
             ResponseKeyNT = NTOWFv2(
-                None, username, domain, HashNt=self.IDENTITIES[username]
+                None,
+                username,
+                domain,
+                HashNt=self.IDENTITIES[username],
             )
             return NTLMv2_ComputeSessionBaseKey(
-                ResponseKeyNT, auth_tok.NtChallengeResponse.NTProofStr
+                ResponseKeyNT,
+                auth_tok.NtChallengeResponse.NTProofStr,
             )
         elif self.IDENTITIES:
             log_runtime.debug("NTLMSSP: Bad credentials for %s" % username)
@@ -1972,17 +2077,20 @@ class NTLMSSP(SSP):
         Overwrite and return True to bypass.
         """
         # Create the NTLM AUTH
-        if auth_tok.UserNameLen:
+        try:
             username = auth_tok.UserName
-        else:
+        except AttributeError:
             username = None
-        if auth_tok.DomainNameLen:
+        try:
             domain = auth_tok.DomainName
-        else:
+        except AttributeError:
             domain = ""
         if username in self.IDENTITIES:
             ResponseKeyNT = NTOWFv2(
-                None, username, domain, HashNt=self.IDENTITIES[username]
+                None,
+                username,
+                domain,
+                HashNt=self.IDENTITIES[username],
             )
             NTProofStr = auth_tok.NtChallengeResponse.computeNTProofStr(
                 ResponseKeyNT,
@@ -2007,28 +2115,52 @@ class NTLMSSP_DOMAIN(NTLMSSP):
     :param PASSWORD: the PASSWORD of the machine account to use for Netlogon.
     :param DC_IP: (optional) specify the IP of the DC.
 
-    Examples::
+    Netlogon example::
 
         >>> mySSP = NTLMSSP_DOMAIN(
         ...     UPN="Server1@domain.local",
         ...     HASHNT=bytes.fromhex("8846f7eaee8fb117ad06bdd830b7586c"),
         ... )
+
+    Kerberos example::
+
+        >>> mySSP = NTLMSSP_DOMAIN(
+        ...     UPN="Server1@domain.local",
+        ...     KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96,
+        ...         key=bytes.fromhex(
+        ...             "85abb9b61dc2fa49d4cc04317bbd108f8f79df28"
+        ...             "239155ed7b144c5d2ebcf016"
+        ...         )
+        ...     ),
+        ... )
     """
 
-    def __init__(self, UPN, *args, timeout=3, ssp=None, **kwargs):
+    def __init__(self, UPN=None, *args, timeout=3, ssp=None, **kwargs):
         from scapy.layers.kerberos import KerberosSSP
 
-        # UPN is mandatory
-        kwargs["UPN"] = UPN
-
         # Either PASSWORD or HASHNT or ssp
-        if "HASHNT" not in kwargs and "PASSWORD" not in kwargs and ssp is None:
+        if (
+            "HASHNT" not in kwargs
+            and "PASSWORD" not in kwargs
+            and "KEY" not in kwargs
+            and ssp is None
+        ):
             raise ValueError(
                 "Must specify either 'HASHNT', 'PASSWORD' or "
                 "provide a ssp=KerberosSSP()"
             )
         elif ssp is not None and not isinstance(ssp, KerberosSSP):
             raise ValueError("'ssp' can only be None or a KerberosSSP !")
+
+        self.KEY = kwargs.pop("KEY", None)
+        self.PASSWORD = kwargs.get("PASSWORD", None)
+
+        # UPN is mandatory
+        if UPN is None and ssp is not None and ssp.UPN:
+            UPN = ssp.UPN
+        elif UPN is None:
+            raise ValueError("Must specify a 'UPN' !")
+        kwargs["UPN"] = UPN
 
         # Call parent
         super(NTLMSSP_DOMAIN, self).__init__(
@@ -2037,10 +2169,9 @@ class NTLMSSP_DOMAIN(NTLMSSP):
         )
 
         # Treat specific parameters
-        self.DC_HOST = kwargs.pop("DC_HOST", None)
-        self.DC_NB_NAME = kwargs.pop("DC_NB_NAME", None)
-        if self.DC_HOST is None:
-            # Get DC_IP from dclocator
+        self.DC_FQDN = kwargs.pop("DC_FQDN", None)
+        if self.DC_FQDN is None:
+            # Get DC_FQDN from dclocator
             from scapy.layers.ldap import dclocator
 
             dc = dclocator(
@@ -2048,10 +2179,7 @@ class NTLMSSP_DOMAIN(NTLMSSP):
                 timeout=timeout,
                 debug=kwargs.get("debug", 0),
             )
-            self.DC_HOST = dc.ip
             self.DC_FQDN = dc.samlogon.DnsHostName.decode().rstrip(".")
-        elif self.DC_NB_NAME is None:
-            raise ValueError("When providing DC_HOST, must provide DC_NB_NAME !")
 
         # If logging in via Kerberos
         self.ssp = ssp
@@ -2067,31 +2195,31 @@ class NTLMSSP_DOMAIN(NTLMSSP):
         # Import RPC stuff
         from scapy.layers.dcerpc import NDRUnion
         from scapy.layers.msrpce.msnrpc import (
-            NetlogonClient,
             NETLOGON_SECURE_CHANNEL_METHOD,
+            NetlogonClient,
         )
         from scapy.layers.msrpce.raw.ms_nrpc import (
-            NetrLogonSamLogonWithFlags_Request,
-            PNETLOGON_NETWORK_INFO,
-            PNETLOGON_AUTHENTICATOR,
             NETLOGON_LOGON_IDENTITY_INFO,
-            UNICODE_STRING,
+            NetrLogonSamLogonWithFlags_Request,
+            PNETLOGON_AUTHENTICATOR,
+            PNETLOGON_NETWORK_INFO,
             STRING,
+            UNICODE_STRING,
         )
 
         # Create NetlogonClient with PRIVACY
         client = NetlogonClient()
-        client.connect(self.DC_HOST)
+        client.connect(self.DC_FQDN)
 
         # Establish the Netlogon secure channel (this will bind)
         try:
-            if self.ssp is None:
+            if self.ssp is None and self.KEY is None:
                 # Login via classic NetlogonSSP
                 client.establish_secure_channel(
                     mode=NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticate3,
                     UPN=f"{self.COMPUTER_NB_NAME}@{self.DOMAIN_NB_NAME}",
                     DC_FQDN=self.DC_FQDN,
-                    HashNt=self.HASHNT,
+                    HASHNT=self.HASHNT,
                 )
             else:
                 # Login via KerberosSSP (Windows 2025)
@@ -2099,6 +2227,8 @@ class NTLMSSP_DOMAIN(NTLMSSP):
                     mode=NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticateKerberos,
                     UPN=self.UPN,
                     DC_FQDN=self.DC_FQDN,
+                    PASSWORD=self.PASSWORD,
+                    KEY=self.KEY,
                     ssp=self.ssp,
                 )
         except ValueError:

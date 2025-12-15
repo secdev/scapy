@@ -34,7 +34,7 @@ from scapy.asn1.asn1 import (
     ASN1_Class_UNIVERSAL,
     ASN1_Codecs,
 )
-from scapy.asn1.ber import BERcodec_SEQUENCE
+from scapy.asn1.ber import BERcodec_SEQUENCE, BER_id_dec
 from scapy.asn1.mib import conf  # loads conf.mib
 from scapy.asn1fields import (
     ASN1F_OID,
@@ -104,19 +104,25 @@ class GSSAPI_BLOB(ASN1_Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 1:
-            if ord(_pkt[:1]) & 0xA0 >= 0xA0:
+            if _pkt[0] & 0xA0 >= 0xA0:
                 from scapy.layers.spnego import SPNEGO_negToken
 
                 # XXX: sometimes the token is raw, we should look from
                 # the session what to use here. For now: hardcode SPNEGO
                 # (THIS IS A VERY STRONG ASSUMPTION)
                 return SPNEGO_negToken
-            if _pkt[:7] == b"NTLMSSP":
+            elif _pkt[:7] == b"NTLMSSP":
                 from scapy.layers.ntlm import NTLM_Header
 
                 # XXX: if no mechTypes are provided during SPNEGO exchange,
                 # Windows falls back to a plain NTLM_Header.
                 return NTLM_Header.dispatch_hook(_pkt=_pkt, *args, **kargs)
+            elif BER_id_dec(_pkt)[0] & 0x7F > 0x60:
+                from scapy.layers.kerberos import Kerberos
+
+                # XXX: Heuristic to detect raw Kerberos packets, when Windows
+                # fallsback or when the parent data hasn't got any mechtype specified.
+                return Kerberos
         return cls
 
 
@@ -454,7 +460,7 @@ class SSP:
     def GSS_Init_sec_context(
         self,
         Context: CONTEXT,
-        token=None,
+        input_token=None,
         target_name: Optional[str] = None,
         req_flags: Optional[GSS_C_FLAGS] = None,
         chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
@@ -468,7 +474,7 @@ class SSP:
     def GSS_Accept_sec_context(
         self,
         Context: CONTEXT,
-        token=None,
+        input_token=None,
         req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
         chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
     ):
@@ -477,10 +483,21 @@ class SSP:
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def GSS_Inquire_names_for_mech(self) -> List[str]:
+        """
+        Get the available OIDs for this mech, in order of preference.
+        """
+        raise NotImplementedError
+
     # Passive
 
     @abc.abstractmethod
-    def GSS_Passive(self, Context: CONTEXT, token=None):
+    def GSS_Passive(
+        self,
+        Context: CONTEXT,
+        input_token=None,
+    ):
         """
         GSS_Passive: client/server call for the SSP in passive mode
         """
@@ -591,6 +608,9 @@ class SSP:
         message: bytes,
         qop_req: int = GSS_C_QOP_DEFAULT,
     ):
+        """
+        See GSS_GetMICEx
+        """
         return self.GSS_GetMICEx(
             Context,
             [
@@ -609,7 +629,10 @@ class SSP:
         Context: CONTEXT,
         message: bytes,
         signature,
-    ):
+    ) -> None:
+        """
+        See GSS_VerifyMICEx
+        """
         self.GSS_VerifyMICEx(
             Context,
             [
@@ -630,6 +653,9 @@ class SSP:
         conf_req_flag: bool,
         qop_req: int = GSS_C_QOP_DEFAULT,
     ):
+        """
+        See GSS_WrapEx
+        """
         _msgs, signature = self.GSS_WrapEx(
             Context,
             [
@@ -647,7 +673,14 @@ class SSP:
 
     # sect 2.3.4
 
-    def GSS_Unwrap(self, Context: CONTEXT, signature):
+    def GSS_Unwrap(
+        self,
+        Context: CONTEXT,
+        signature,
+    ):
+        """
+        See GSS_UnwrapEx
+        """
         data = b""
         if signature.payload:
             # signature has a payload that is the data. Let's get that payload
@@ -679,19 +712,19 @@ class SSP:
         """
         return None, None
 
-    def canMechListMIC(self, Context: CONTEXT):
+    def SupportsMechListMIC(self):
         """
-        Returns whether or not mechListMIC can be computed
+        Returns whether mechListMIC is supported or not
         """
-        return False
+        return True
 
-    def getMechListMIC(self, Context, input):
+    def GetMechListMIC(self, Context, input):
         """
         Compute mechListMIC
         """
-        return bytes(self.GSS_GetMIC(Context, input))
+        return self.GSS_GetMIC(Context, input)
 
-    def verifyMechListMIC(self, Context, otherMIC, input):
+    def VerifyMechListMIC(self, Context, otherMIC, input):
         """
         Verify mechListMIC
         """

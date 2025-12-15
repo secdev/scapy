@@ -2,12 +2,134 @@
 
 + Special SPNEGO tests
 
+= SPNEGOSSP - test raw fallback
+
+% A SPNEGOSSP server talking to a non SPNEGOSSP client should work.
+
+srvssp = SPNEGOSSP([KerberosSSP(), NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})])
+clissp = NTLMSSP(UPN="User1", PASSWORD="Password123!")
+
+clictx, tok, status = clissp.GSS_Init_sec_context(None)
+assert status == GSS_S_CONTINUE_NEEDED, status
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(None, tok)
+assert status == GSS_S_CONTINUE_NEEDED, status
+clictx, tok, status = clissp.GSS_Init_sec_context(clictx, tok)
+assert status == GSS_S_COMPLETE, status
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(srvctx, tok)
+assert status == GSS_S_COMPLETE, status
+assert tok is None, repr(tok)
+
+= SPNEGOSSP - SSP negotiation + mechListMIC
+
+% Two SPNEGOSSPs with different preferred mechanisms should work,
+% and mechListMIC should be used.
+
+srvssp = SPNEGOSSP([
+    KerberosSSP(),
+    NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})
+])
+clissp = SPNEGOSSP([
+    NTLMSSP(UPN="User1", PASSWORD="Password123!"),
+])
+
+clictx, tok, status = clissp.GSS_Init_sec_context(None)
+assert clictx.require_mic
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert len(tok.innerToken.token.mechTypes) == 1
+assert tok.innerToken.token.mechTypes[0].oid.val == '1.3.6.1.4.1.311.2.2.10'
+assert tok.innerToken.token.mechListMIC is None
+assert tok.innerToken.token._mechListMIC is None
+assert isinstance(tok.innerToken.token.mechToken.value, NTLM_NEGOTIATE)
+
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(None, tok)
+assert srvctx.require_mic
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert tok.token.mechListMIC is None
+assert tok.token.negState == 1
+assert tok.token.supportedMech.oid.val == '1.3.6.1.4.1.311.2.2.10'
+assert isinstance(tok.token.responseToken.value, NTLM_CHALLENGE)
+
+clictx, tok, status = clissp.GSS_Init_sec_context(clictx, tok)
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert tok.token.negState is None
+assert tok.token.supportedMech is None
+assert isinstance(tok.token.responseToken.value, NTLM_AUTHENTICATE)
+assert isinstance(tok.token.mechListMIC.value, NTLMSSP_MESSAGE_SIGNATURE)
+assert tok.token.mechListMIC.value.SeqNum == 0
+assert tok.token.mechListMIC.value.Version == 1
+
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(srvctx, tok)
+assert status == GSS_S_COMPLETE, status
+assert tok is not None
+assert isinstance(tok.token, SPNEGO_negTokenResp)
+assert isinstance(tok.token.mechListMIC.value, NTLMSSP_MESSAGE_SIGNATURE)
+assert tok.token.mechListMIC.value.Version == 1
+assert tok.token.mechListMIC.value.SeqNum == 0
+
+clictx, tok, status = clissp.GSS_Init_sec_context(clictx, tok)
+assert status == GSS_S_COMPLETE, status
+assert tok is None
+
+= SPNEGOSSP - SSP negotiation + mechListMIC - NegTokenInit2
+
+% Same but with NegTokenInit2
+
+srvssp = SPNEGOSSP([
+    KerberosSSP(),
+    NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})
+])
+clissp = SPNEGOSSP([
+    NTLMSSP(UPN="User1", PASSWORD="Password123!"),
+])
+
+srvctx, tok = srvssp.NegTokenInit2()
+assert tok.MechType.val == '1.3.6.1.5.5.2'
+assert [x.oid.val for x in tok.innerToken.token.mechTypes] == [
+    '1.2.840.48018.1.2.2',
+    '1.2.840.113554.1.2.2',
+    '1.3.6.1.4.1.311.2.2.10',
+]
+assert tok.innerToken.token.reqFlags is None
+assert tok.innerToken.token.mechToken is None
+assert tok.innerToken.token.negHints.hintName.val == "not_defined_in_RFC4178@please_ignore"
+assert tok.innerToken.token.mechListMIC is None
+assert tok.innerToken.token._mechListMIC is None
+
+clictx, tok, status = clissp.GSS_Init_sec_context(None, tok)
+assert clictx.require_mic
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert len(tok.innerToken.token.mechTypes) == 1
+assert tok.innerToken.token.mechTypes[0].oid.val == '1.3.6.1.4.1.311.2.2.10'
+assert tok.innerToken.token.mechListMIC is None
+assert tok.innerToken.token._mechListMIC is None
+assert isinstance(tok.innerToken.token.mechToken.value, NTLM_NEGOTIATE)
+
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(srvctx, tok)
+assert srvctx.require_mic
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert tok.token.mechListMIC is None
+assert tok.token.negState == 1
+assert tok.token.supportedMech.oid.val == '1.3.6.1.4.1.311.2.2.10'
+assert isinstance(tok.token.responseToken.value, NTLM_CHALLENGE)
+
+clictx, tok, status = clissp.GSS_Init_sec_context(clictx, tok)
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert tok.token.negState is None
+assert tok.token.supportedMech is None
+assert isinstance(tok.token.responseToken.value, NTLM_AUTHENTICATE)
+assert isinstance(tok.token.mechListMIC.value, NTLMSSP_MESSAGE_SIGNATURE)
+assert tok.token.mechListMIC.value.SeqNum == 0
+assert tok.token.mechListMIC.value.Version == 1
+
+# INJECT FAULT: drop mechListMIC here, and make sure that the server doesn't let it go through.
+tok.token.mechListMIC = None
+
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(srvctx, tok)
+assert status == GSS_S_CONTINUE_NEEDED, status  # Should now be CONTINUE instead of COMPLETE !
+
 = SPNEGOSSP.from_cli_arguments - Utils
 
 from unittest import mock
-
-NTLM = '1.3.6.1.4.1.311.2.2.10'
-KERBEROS = '1.2.840.113554.1.2.2'
 
 # Detect password prompts
 def password_failure(*args, **kwargs):
@@ -35,8 +157,8 @@ ssp = test_pwinput(
     target="machine.domain.local",
 )
 assert isinstance(ssp, SPNEGOSSP)
-assert len(ssp.supported_ssps) == 1
-assert ssp.supported_ssps[NTLM].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
+assert len(ssp.ssps) == 1
+assert ssp.ssps[0].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
 
 = SPNEGOSSP.from_cli_arguments - Username + Password - With prompt
 
@@ -57,8 +179,8 @@ ssp = test_pwfail(
     password="Password",
 )
 assert isinstance(ssp, SPNEGOSSP)
-assert len(ssp.supported_ssps) == 1
-assert ssp.supported_ssps[NTLM].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
+assert len(ssp.ssps) == 1
+assert ssp.ssps[0].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
 
 = SPNEGOSSP.from_cli_arguments - UPN + Password - With input
 
@@ -67,9 +189,11 @@ ssp = test_pwinput(
     target="machine.domain.local",
 )
 assert isinstance(ssp, SPNEGOSSP)
-assert len(ssp.supported_ssps) == 3
-assert ssp.supported_ssps[NTLM].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
-assert ssp.supported_ssps[KERBEROS].UPN == "Administrator@domain.local"
+assert len(ssp.ssps) == 2
+assert isinstance(ssp.ssps[0], KerberosSSP)
+assert ssp.ssps[0].UPN == "Administrator@domain.local"
+assert isinstance(ssp.ssps[1], NTLMSSP)
+assert ssp.ssps[1].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
 
 = SPNEGOSSP.from_cli_arguments - UPN + CCache - Prepare
 
@@ -143,9 +267,9 @@ ssp = test_pwfail(
     target="machine.domain.local",
     use_krb5ccname=True,
 )
-assert len(ssp.supported_ssps) == 2
-assert ssp.supported_ssps[KERBEROS].TGT
-assert not ssp.supported_ssps[KERBEROS].ST
+assert len(ssp.ssps) == 1
+assert ssp.ssps[0].TGT
+assert not ssp.ssps[0].ST
 
 = SPNEGOSSP.from_cli_arguments - UPN + CCache - TGT from ccache
 
@@ -154,9 +278,9 @@ ssp = test_pwfail(
     target="machine.domain.local",
     ccache=ccache_file
 )
-assert len(ssp.supported_ssps) == 2
-assert ssp.supported_ssps[KERBEROS].TGT
-assert not ssp.supported_ssps[KERBEROS].ST
+assert len(ssp.ssps) == 1
+assert ssp.ssps[0].TGT
+assert not ssp.ssps[0].ST
 
 = SPNEGOSSP.from_cli_arguments - UPN + CCache - ST from ccache
 
@@ -165,9 +289,9 @@ ssp = test_pwfail(
     target="dc1.domain.local",
     ccache=ccache_file
 )
-assert len(ssp.supported_ssps) == 2
-assert ssp.supported_ssps[KERBEROS].ST
-assert not ssp.supported_ssps[KERBEROS].TGT
+assert len(ssp.ssps) == 1
+assert ssp.ssps[0].ST
+assert not ssp.ssps[0].TGT
 
 = SPNEGOSSP.from_cli_arguments - UPN + CCache - Failure
 

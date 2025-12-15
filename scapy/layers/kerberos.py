@@ -136,6 +136,7 @@ from scapy.layers.gssapi import (
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
     GSS_S_DEFECTIVE_TOKEN,
+    GSS_S_DEFECTIVE_CREDENTIAL,
     GSS_S_FAILURE,
     GSS_S_FLAGS,
     GssChannelBindings,
@@ -2123,13 +2124,14 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
             # 25: KDC_ERR_PREAUTH_REQUIRED
             # 36: KRB_AP_ERR_BADMATCH
             return MethodData(val[0].val, _underlayer=pkt), val[1]
-        elif pkt.errorCode.val in [6, 7, 12, 13, 18, 29, 41, 60, 62]:
+        elif pkt.errorCode.val in [6, 7, 12, 13, 18, 29, 32, 41, 60, 62]:
             # 6: KDC_ERR_C_PRINCIPAL_UNKNOWN
             # 7: KDC_ERR_S_PRINCIPAL_UNKNOWN
             # 12: KDC_ERR_POLICY
             # 13: KDC_ERR_BADOPTION
             # 18: KDC_ERR_CLIENT_REVOKED
             # 29: KDC_ERR_SVC_UNAVAILABLE
+            # 32: KRB_AP_ERR_TKT_EXPIRED
             # 41: KRB_AP_ERR_MODIFIED
             # 60: KRB_ERR_GENERIC
             # 62: KERB_ERR_TYPE_EXTENDED
@@ -3065,12 +3067,13 @@ class KerberosClient(Automaton):
         fast: bool = False,
         armor_ticket: KRB_Ticket = None,
         armor_ticket_upn: Optional[str] = None,
-        armor_ticket_skey: Optional['Key'] = None,
-        key_list_req: List['EncryptionType'] = [],
-        etypes: Optional[List['EncryptionType']] = None,
+        armor_ticket_skey: Optional["Key"] = None,
+        key_list_req: List["EncryptionType"] = [],
+        etypes: Optional[List["EncryptionType"]] = None,
         pkinit_kex_method: PKINIT_KEX_METHOD = PKINIT_KEX_METHOD.DIFFIE_HELLMAN,
         port: int = 88,
         timeout: int = 5,
+        verbose: bool = True,
         **kwargs,
     ):
         import scapy.libs.rfc3961  # Trigger error if any  # noqa: F401
@@ -3192,6 +3195,7 @@ class KerberosClient(Automaton):
         self.result = None  # Result
 
         self._timeout = timeout
+        self._verbose = verbose
         self._ip = ip
         self._port = port
         self.kdc_proxy = kdc_proxy
@@ -3270,6 +3274,29 @@ class KerberosClient(Automaton):
         Sends a wrapped Kerberos packet
         """
         super(KerberosClient, self).send(KerberosTCPHeader() / pkt)
+
+    def _show_krb_error(self, error):
+        """
+        Displays a Kerberos error
+        """
+        if error.root.errorCode == 0x07:
+            # KDC_ERR_S_PRINCIPAL_UNKNOWN
+            if (
+                isinstance(error.root.eData, KERB_ERROR_UNK)
+                and error.root.eData.dataType == -128
+            ):
+                log_runtime.error(
+                    "KerberosSSP: KDC requires U2U for SPN '%s' !" % error.root.getSPN()
+                )
+            else:
+                log_runtime.error(
+                    "KerberosSSP: KDC_ERR_S_PRINCIPAL_UNKNOWN for SPN '%s'"
+                    % error.root.getSPN()
+                )
+        else:
+            log_runtime.error(error.root.sprintf("KerberosSSP: Received %errorCode% !"))
+            if self._verbose:
+                error.show()
 
     def _base_kdc_req(self, now_time):
         """
@@ -3998,8 +4025,7 @@ class KerberosClient(Automaton):
                 self.pre_auth = True
                 raise self.BEGIN()
             else:
-                log_runtime.error("Received KRB_ERROR")
-                pkt.show()
+                self._show_krb_error(pkt)
                 raise self.FINAL()
 
     @ATMT.receive_condition(SENT_AS_REQ, prio=2)
@@ -4073,17 +4099,7 @@ class KerberosClient(Automaton):
                 self.receive_krb_error_tgs_req(ferr)
                 return
 
-            if (
-                pkt.root.errorCode == 0x07
-                and isinstance(pkt.root.eData, KERB_ERROR_UNK)
-                and pkt.root.eData.dataType == -128
-            ):
-                log_runtime.warning(
-                    "KDC requires U2U for SPN '%s' !" % pkt.root.getSPN()
-                )
-            else:
-                log_runtime.warning("Received KRB_ERROR")
-            pkt.show()
+            self._show_krb_error(pkt)
             raise self.FINAL()
 
     @ATMT.receive_condition(SENT_TGS_REQ)
@@ -4463,11 +4479,11 @@ def kpasswd(
             debug=debug,
             **kwargs,
         )
-    Context, tok, negResult = ssp.GSS_Init_sec_context(
+    Context, tok, status = ssp.GSS_Init_sec_context(
         None,
         req_flags=0,  # No GSS_C_MUTUAL_FLAG
     )
-    if negResult != GSS_S_CONTINUE_NEEDED:
+    if status != GSS_S_CONTINUE_NEEDED:
         warning("SSP failed on initial GSS_Init_sec_context !")
         if tok:
             tok.show()
@@ -4526,8 +4542,11 @@ def kpasswd(
     if KPASSWD_REP not in resp:
         resp.show()
         raise ValueError("Invalid response to KPASSWD_REQ !")
-    Context, tok, negResult = ssp.GSS_Init_sec_context(Context, resp.aprep)
-    if negResult != GSS_S_COMPLETE:
+    Context, tok, status = ssp.GSS_Init_sec_context(
+        Context,
+        input_token=resp.aprep,
+    )
+    if status != GSS_S_COMPLETE:
         warning("SSP failed on subsequent GSS_Init_sec_context !")
         if tok:
             tok.show()
@@ -4576,7 +4595,6 @@ class KerberosSSP(SSP):
                   this IP using using the KEY when using U2U.
     """
 
-    oid = "1.2.840.113554.1.2.2"
     auth_type = 0x10
 
     class STATE(SSP.STATE):
@@ -4670,6 +4688,15 @@ class KerberosSSP(SSP):
             SKEY_TYPE = EncryptionType.AES128_CTS_HMAC_SHA1_96
         self.SKEY_TYPE = SKEY_TYPE
         super(KerberosSSP, self).__init__(**kwargs)
+
+    def GSS_Inquire_names_for_mech(self):
+        mechs = [
+            "1.2.840.48018.1.2.2",  # MS KRB5 - Microsoft Kerberos 5
+            "1.2.840.113554.1.2.2",  # Kerberos 5
+        ]
+        if self.U2U:
+            mechs.append("1.2.840.113554.1.2.2.3")  # Kerberos 5 - User to User
+        return mechs
 
     def GSS_GetMICEx(self, Context, msgs, qop_req=0):
         """
@@ -5038,7 +5065,7 @@ class KerberosSSP(SSP):
     def GSS_Init_sec_context(
         self,
         Context: CONTEXT,
-        token=None,
+        input_token=None,
         target_name: Optional[str] = None,
         req_flags: Optional[GSS_C_FLAGS] = None,
         chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
@@ -5076,16 +5103,16 @@ class KerberosSSP(SSP):
                 if self.U2U:
                     try:
                         # GSSAPI / Kerberos
-                        tgt_rep = token.root.innerToken.root
+                        tgt_rep = input_token.root.innerToken.root
                     except AttributeError:
                         try:
                             # Kerberos
-                            tgt_rep = token.innerToken.root
+                            tgt_rep = input_token.innerToken.root
                         except AttributeError:
                             return Context, None, GSS_S_DEFECTIVE_TOKEN
                     if not isinstance(tgt_rep, KRB_TGT_REP):
                         tgt_rep.show()
-                        raise ValueError("KerberosSSP: Unexpected token !")
+                        raise ValueError("KerberosSSP: Unexpected input_token !")
                     additional_tickets = [tgt_rep.ticket]
 
                 if self.TGT is None:
@@ -5096,7 +5123,12 @@ class KerberosSSP(SSP):
                         key=self.KEY,
                         password=self.PASSWORD,
                         debug=self.debug,
+                        verbose=bool(self.debug),
                     )
+                    if res is None:
+                        # Failed to retrieve the ticket
+                        return Context, None, GSS_S_FAILURE
+
                     # Update UPN (could have been canonicalized)
                     self.UPN = res.upn
 
@@ -5120,6 +5152,7 @@ class KerberosSSP(SSP):
                     additional_tickets=additional_tickets,
                     u2u=self.U2U,
                     debug=self.debug,
+                    verbose=bool(self.debug),
                 )
                 if not res:
                     # Failed to retrieve the ticket
@@ -5273,30 +5306,32 @@ class KerberosSSP(SSP):
                 )
 
         elif Context.state == self.STATE.CLI_SENT_APREQ:
-            if isinstance(token, KRB_AP_REP):
+            if isinstance(input_token, KRB_AP_REP):
                 # Raw AP_REP was passed
-                ap_rep = token
+                ap_rep = input_token
             else:
                 try:
                     # GSSAPI / Kerberos
-                    ap_rep = token.root.innerToken.root
+                    ap_rep = input_token.root.innerToken.root
                 except AttributeError:
                     try:
                         # Kerberos
-                        ap_rep = token.innerToken.root
+                        ap_rep = input_token.innerToken.root
                     except AttributeError:
                         try:
                             # Raw kerberos DCE-STYLE
-                            ap_rep = token.root
+                            ap_rep = input_token.root
                         except AttributeError:
                             return Context, None, GSS_S_DEFECTIVE_TOKEN
             if not isinstance(ap_rep, KRB_AP_REP):
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
+
             # Retrieve SessionKey
             repPart = ap_rep.encPart.decrypt(Context.STSessionKey)
             if repPart.subkey is not None:
                 Context.SessionKey = repPart.subkey.keyvalue.val
                 Context.KrbSessionKey = repPart.subkey.toKey()
+
             # OK !
             Context.state = self.STATE.CLI_RCVD_APREP
             if Context.flags & GSS_C_FLAGS.GSS_C_DCE_STYLE:
@@ -5328,7 +5363,7 @@ class KerberosSSP(SSP):
     def GSS_Accept_sec_context(
         self,
         Context: CONTEXT,
-        token=None,
+        input_token=None,
         req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
         chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
     ):
@@ -5354,21 +5389,21 @@ class KerberosSSP(SSP):
                 self.TGT, self.KEY = res.asrep.ticket, res.sessionkey
 
             # Server receives AP-req, sends AP-rep
-            if isinstance(token, KRB_AP_REQ):
+            if isinstance(input_token, KRB_AP_REQ):
                 # Raw AP_REQ was passed
-                ap_req = token
+                ap_req = input_token
             else:
                 try:
                     # GSSAPI/Kerberos
-                    ap_req = token.root.innerToken.root
+                    ap_req = input_token.root.innerToken.root
                 except AttributeError:
                     try:
                         # Kerberos
-                        ap_req = token.innerToken.root
+                        ap_req = input_token.innerToken.root
                     except AttributeError:
                         try:
                             # Raw kerberos
-                            ap_req = token.root
+                            ap_req = input_token.root
                         except AttributeError:
                             return Context, None, GSS_S_DEFECTIVE_TOKEN
 
@@ -5452,7 +5487,7 @@ class KerberosSSP(SSP):
                         ),
                     )
                 )
-                return Context, err, GSS_S_DEFECTIVE_TOKEN
+                return Context, err, GSS_S_DEFECTIVE_CREDENTIAL
 
             # Store information about the user in the Context
             if tkt.authorizationData and tkt.authorizationData.seq:
@@ -5525,20 +5560,20 @@ class KerberosSSP(SSP):
             # [MS-KILE] sect 3.4.5.1
             # The server MUST receive the additional AP exchange reply message and
             # verify that the message is constructed correctly.
-            if not token:
+            if not input_token:
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
             # Server receives AP-req, sends AP-rep
-            if isinstance(token, KRB_AP_REP):
+            if isinstance(input_token, KRB_AP_REP):
                 # Raw AP_REP was passed
-                ap_rep = token
+                ap_rep = input_token
             else:
                 try:
                     # GSSAPI/Kerberos
-                    ap_rep = token.root.innerToken.root
+                    ap_rep = input_token.root.innerToken.root
                 except AttributeError:
                     try:
                         # Raw Kerberos
-                        ap_rep = token.root
+                        ap_rep = input_token.root
                     except AttributeError:
                         return Context, None, GSS_S_DEFECTIVE_TOKEN
             # Decrypt the AP-REP
@@ -5554,7 +5589,7 @@ class KerberosSSP(SSP):
     def GSS_Passive(
         self,
         Context: CONTEXT,
-        token=None,
+        input_token=None,
         req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
     ):
         if Context is None:
@@ -5567,7 +5602,9 @@ class KerberosSSP(SSP):
             and req_flags & GSS_C_FLAGS.GSS_C_DCE_STYLE
         ):
             Context, _, status = self.GSS_Accept_sec_context(
-                Context, token, req_flags=req_flags
+                Context,
+                input_token=input_token,
+                req_flags=req_flags,
             )
             if status in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
                 Context.state = self.STATE.CLI_SENT_APREQ
@@ -5575,7 +5612,9 @@ class KerberosSSP(SSP):
                 Context.state = self.STATE.FAILED
         elif Context.state == self.STATE.CLI_SENT_APREQ:
             Context, _, status = self.GSS_Init_sec_context(
-                Context, token, req_flags=req_flags
+                Context,
+                input_token=input_token,
+                req_flags=req_flags,
             )
             if status == GSS_S_COMPLETE:
                 if req_flags & GSS_C_FLAGS.GSS_C_DCE_STYLE:
@@ -5620,6 +5659,3 @@ class KerberosSSP(SSP):
                 raise NotImplementedError
         else:
             return 28
-
-    def canMechListMIC(self, Context: CONTEXT):
-        return bool(Context.KrbSessionKey)

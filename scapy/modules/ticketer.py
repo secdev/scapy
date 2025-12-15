@@ -850,7 +850,7 @@ class Ticketer:
             "Note principals are case sensitive, as on ktpass.exe"
         )
 
-    def ssp(self, i):
+    def ssp(self, i, **kwargs):
         """
         Create a KerberosSSP from a ticket or from the keystore.
 
@@ -861,11 +861,12 @@ class Ticketer:
             ticket, sessionkey, upn, spn = self.export_krb(i)
             if spn.startswith("krbtgt/"):
                 # It's a TGT
+                kwargs.setdefault("SPN", None)  # Use target_name only
                 return KerberosSSP(
                     TGT=ticket,
                     KEY=sessionkey,
                     UPN=upn,
-                    SPN=None,  # Use target_name only
+                    **kwargs,
                 )
             else:
                 # It's a ST
@@ -874,6 +875,7 @@ class Ticketer:
                     KEY=sessionkey,
                     UPN=upn,
                     SPN=spn,
+                    **kwargs,
                 )
         elif isinstance(i, str):
             spn = i
@@ -881,6 +883,7 @@ class Ticketer:
             return KerberosSSP(
                 SPN=spn,
                 KEY=key,
+                **kwargs,
             )
         else:
             raise ValueError("Invalid 'i' value. Must be int or str")

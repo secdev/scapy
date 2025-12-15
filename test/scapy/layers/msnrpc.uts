@@ -40,7 +40,7 @@ EncryptedMessage = bytes.fromhex("c930c9a079d95c78bea6a3150908c11f4b68e41219bcb9
 # Perform the same operation using NetlogonSSP:
 
 client = NetlogonSSP(SessionKey=SessionKey, computername="DC1", domainname="DOMAIN", AES=True)
-clicontext, tok, negResult = client.GSS_Init_sec_context(None)
+clicontext, tok, negState = client.GSS_Init_sec_context(None)
 
 with mock.patch('scapy.layers.msrpce.msnrpc.os.urandom', side_effect=lambda x: Confounder):
     _msgs, sig = client.GSS_WrapEx(
@@ -67,7 +67,7 @@ FullNetlogonSignatureHeader = bytes.fromhex("13001a00ffff00005d69950dfde45ae9f09
 # Perform the same operation using NetlogonSSP:
 
 client = NetlogonSSP(SessionKey=SessionKey, computername="DC1", domainname="DOMAIN", AES=True)
-clicontext, tok, negResult = client.GSS_Init_sec_context(None)
+clicontext, tok, negState = client.GSS_Init_sec_context(None)
 
 with mock.patch('scapy.layers.msrpce.msnrpc.os.urandom', side_effect=lambda x: Confounder):
     _msgs, sig = client.GSS_WrapEx(
@@ -287,9 +287,9 @@ server = NetlogonSSP(SessionKey=b"\x00\x00\x00\x00\x00\x00\x00\x00", computernam
 
 = [NetlogonSSP] - RC4 - GSS_Init_sec_context (NL_AUTH_MESSAGE)
 
-clicontext, tok, negResult = client.GSS_Init_sec_context(None)
+clicontext, tok, negState = client.GSS_Init_sec_context(None)
 
-assert negResult == 1
+assert negState == 1
 assert isinstance(tok, NL_AUTH_MESSAGE)
 assert tok.MessageType == 0
 assert tok.Flags == 3
@@ -299,9 +299,9 @@ assert bytes(tok) == b'\x00\x00\x00\x00\x03\x00\x00\x00DOMAIN\x00DC1\x00'
 
 = [NetlogonSSP] - RC4 - GSS_Accept_sec_context (NL_AUTH_MESSAGE->NL_AUTH_MESSAGE)
 
-srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+srvcontext, tok, negState = server.GSS_Accept_sec_context(None, tok)
 
-assert negResult == 0
+assert negState == 0
 assert tok.MessageType == 1
 
 bytes(tok)
@@ -309,9 +309,9 @@ assert bytes(tok) == b'\x01\x00\x00\x00\x00\x00\x00\x00'
 
 = [NetlogonSSP] - RC4 - GSS_Init_sec_context (NL_AUTH_MESSAGE->OK)
 
-clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+clicontext, tok, negState = client.GSS_Init_sec_context(clicontext, tok)
 
-assert negResult == 0
+assert negState == 0
 assert tok is None
 
 = [NetlogonSSP] - RC4 - GSS_WrapEx/GSS_UnwrapEx: client sends a encrypted payload
@@ -400,9 +400,9 @@ server = NetlogonSSP(SessionKey=b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x
 
 = [NetlogonSSP] - AES - GSS_Init_sec_context (NL_AUTH_MESSAGE)
 
-clicontext, tok, negResult = client.GSS_Init_sec_context(None)
+clicontext, tok, negState = client.GSS_Init_sec_context(None)
 
-assert negResult == 1
+assert negState == 1
 assert isinstance(tok, NL_AUTH_MESSAGE)
 assert tok.MessageType == 0
 assert tok.Flags == 3
@@ -412,9 +412,9 @@ assert bytes(tok) == b'\x00\x00\x00\x00\x03\x00\x00\x00DOMAIN\x00DC1\x00'
 
 = [NetlogonSSP] - AES - GSS_Accept_sec_context (NL_AUTH_MESSAGE->NL_AUTH_MESSAGE)
 
-srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+srvcontext, tok, negState = server.GSS_Accept_sec_context(None, tok)
 
-assert negResult == 0
+assert negState == 0
 assert tok.MessageType == 1
 
 bytes(tok)
@@ -422,9 +422,9 @@ assert bytes(tok) == b'\x01\x00\x00\x00\x00\x00\x00\x00'
 
 = [NetlogonSSP] - AES - GSS_Init_sec_context (NL_AUTH_MESSAGE->OK)
 
-clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+clicontext, tok, negState = client.GSS_Init_sec_context(clicontext, tok)
 
-assert negResult == 0
+assert negState == 0
 assert tok is None
 
 = [NetlogonSSP] - AES - GSS_WrapEx/GSS_UnwrapEx: client sends a encrypted payload

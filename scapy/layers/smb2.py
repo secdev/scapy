@@ -4717,6 +4717,7 @@ class SMBStreamSocket(StreamSocket):
             pkt = self.queue.popleft()
         else:
             pkt = super(SMBStreamSocket, self).recv(x)
+
         # If there are multiple SMB2_Header requests (aka. compounded),
         # take the first and store the rest in a queue.
         if pkt is not None and (
@@ -4725,14 +4726,17 @@ class SMBStreamSocket(StreamSocket):
             or SMB2_Compression_Transform_Header in pkt
         ):
             pkt = self.session.in_pkt(pkt)
-            pay = pkt[SMB2_Header].payload
+            smbh = pkt[SMB2_Header]
+            pay = smbh.payload
             while SMB2_Header in pay:
                 pay = pay[SMB2_Header]
+                pay._decrypted = smbh._decrypted  # Keep the _decrypted flag
                 pay.underlayer.remove_payload()
                 self.queue.append(pay)
                 if not pay.NextCommand:
                     break
                 pay = pay.payload
+
         # Verify the signature if required.
         # This happens here because we must have split compounded requests first.
         smbh = pkt.getlayer(SMB2_Header)

@@ -879,7 +879,8 @@ class X509_AlgorithmIdentifier(ASN1_Packet):
                     ASN1F_optional(ASN1F_NULL("parameters", None)),
                     lambda pkt: (
                         pkt.algorithm.val[:19] == "1.2.840.113549.1.1." or
-                        pkt.algorithm.val[:21] == "2.16.840.1.101.3.4.2."
+                        pkt.algorithm.val[:21] == "2.16.840.1.101.3.4.2." or
+                        pkt.algorithm.val[:11] == "1.3.14.3.2."
                     )
                 ),
                 (
