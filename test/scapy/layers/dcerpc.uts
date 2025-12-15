@@ -878,6 +878,7 @@ rpcserver = MyRPCServer.spawn(
     iface=conf.loopback_name,
     port=12345,
     bg=True,
+    debug=4,
 )
 
 = Functional: Connect to it with DCERPC_Client over NCACN_NP
@@ -886,7 +887,7 @@ client = DCERPC_Client(
     DCERPC_Transport.NCACN_NP,
     ndr64=False,
 )
-client.connect(get_if_addr(conf.loopback_name), port=12345)
+client.connect(get_if_addr(conf.loopback_name), port=12345, smb_kwargs={"debug": 4})
 client.open_smbpipe("wkssvc")
 client.bind(find_dcerpc_interface("wkssvc"))
 
@@ -931,6 +932,7 @@ rpcserver = MyRPCServer.spawn(
     ssp=ssp,
     port=12345,
     bg=True,
+    debug=4,
 )
 
 = Functional: Connect to it with DCERPC_Client over NCACN_NP with NTLMSSP
@@ -940,7 +942,7 @@ client = DCERPC_Client(
     ssp=ssp,
     ndr64=False,
 )
-client.connect(get_if_addr(conf.loopback_name), port=12345, smb_kwargs={"debug": 5})
+client.connect(get_if_addr(conf.loopback_name), port=12345, smb_kwargs={"debug": 4})
 client.open_smbpipe("wkssvc")
 client.bind(find_dcerpc_interface("wkssvc"))
 
