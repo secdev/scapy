@@ -31,7 +31,6 @@ from scapy.asn1.ber import (
     BER_tagging_enc,
 )
 from scapy.base_classes import BasePacket
-from scapy.compat import raw
 from scapy.volatile import (
     GeneralizedTime,
     RandChoice,
@@ -599,7 +598,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
         elif val is None:
             s = b""
         else:
-            s = b"".join(raw(i) for i in val)
+            s = b"".join(bytes(i) for i in val)
         return self.i2m(pkt, s)
 
     def i2repr(self, pkt, x):
@@ -642,6 +641,9 @@ class ASN1F_TIME_TICKS(ASN1F_INTEGER):
 #############################
 
 class ASN1F_optional(ASN1F_element):
+    """
+    ASN.1 field that is optional.
+    """
     def __init__(self, field):
         # type: (ASN1F_field[Any, Any]) -> None
         field.flexible_tag = False
@@ -680,6 +682,20 @@ class ASN1F_optional(ASN1F_element):
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, Any) -> str
         return self._field.i2repr(pkt, x)
+
+
+class ASN1F_omit(ASN1F_field[None, None]):
+    """
+    ASN.1 field that is not specified. This is simply omitted on the network.
+    This is different from ASN1F_NULL which has a network representation.
+    """
+    def m2i(self, pkt, s):
+        # type: (ASN1_Packet, bytes) -> Tuple[None, bytes]
+        return None, s
+
+    def i2m(self, pkt, x):
+        # type: (ASN1_Packet, Optional[bytes]) -> bytes
+        return b""
 
 
 _CHOICE_T = Union['ASN1_Packet', Type[ASN1F_field[Any, Any]], 'ASN1F_PACKET']
@@ -769,7 +785,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         if x is None:
             s = b""
         else:
-            s = raw(x)
+            s = bytes(x)
             if hash(type(x)) in self.pktchoices:
                 imp, exp = self.pktchoices[hash(type(x))]
                 s = BER_tagging_enc(s,
@@ -852,11 +868,11 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
             s = x
         elif isinstance(x, ASN1_Object):
             if x.val:
-                s = raw(x.val)
+                s = bytes(x.val)
             else:
                 s = b""
         else:
-            s = raw(x)
+            s = bytes(x)
             if not hasattr(x, "ASN1_root"):
                 # A normal Packet (!= ASN1)
                 return s
@@ -897,7 +913,7 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
         self.cls = cls
         super(ASN1F_BIT_STRING_ENCAPS, self).__init__(  # type: ignore
             name,
-            default and raw(default),
+            default and bytes(default),
             context=context,
             implicit_tag=implicit_tag,
             explicit_tag=explicit_tag

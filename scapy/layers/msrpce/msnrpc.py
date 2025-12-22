@@ -22,6 +22,7 @@ from scapy.layers.dcerpc import (
     NL_AUTH_MESSAGE,
     NL_AUTH_SIGNATURE,
 )
+from scapy.layers.kerberos import KerberosSSP, _parse_upn
 from scapy.layers.gssapi import (
     GSS_C_FLAGS,
     GSS_C_NO_CHANNEL_BINDINGS,
@@ -29,8 +30,9 @@ from scapy.layers.gssapi import (
     GSS_S_CONTINUE_NEEDED,
     GSS_S_FAILURE,
     GSS_S_FLAGS,
+    SSP,
 )
-from scapy.layers.ntlm import RC4, RC4K, RC4Init, SSP
+from scapy.layers.ntlm import RC4, RC4K, RC4Init, MD4le
 
 from scapy.layers.msrpce.rpcclient import (
     DCERPC_Client,
@@ -40,6 +42,8 @@ from scapy.layers.msrpce.rpcclient import (
 from scapy.layers.msrpce.raw.ms_nrpc import (
     NetrServerAuthenticate3_Request,
     NetrServerAuthenticate3_Response,
+    NetrServerAuthenticateKerberos_Request,
+    NetrServerAuthenticateKerberos_Response,
     NetrServerReqChallenge_Request,
     NetrServerReqChallenge_Response,
     NETLOGON_SECURE_CHANNEL_TYPE,
@@ -52,8 +56,14 @@ if conf.crypto_valid:
     from cryptography.hazmat.primitives import hashes, hmac
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
     from scapy.libs.rfc3961 import DES
+
+    try:
+        # cryptography > 47.0
+        from cryptography.hazmat.decrepit.ciphers.modes import CFB8
+    except ImportError:
+        from cryptography.hazmat.primitives.ciphers.modes import CFB8
 else:
-    hashes = hmac = Cipher = algorithms = modes = DES = None
+    hashes = hmac = Cipher = algorithms = modes = DES = CFB8 = None
 
 
 # Typing imports
@@ -114,14 +124,16 @@ _negotiateFlags = {
     0x00200000: "RODC-passthrough",
     # W: Supports Advanced Encryption Standard (AES) encryption and SHA2 hashing.
     0x01000000: "AES",
-    # Supports Kerberos as the security support provider for secure channel setup.
-    0x20000000: "Kerberos",
+    # Not used. MUST be ignored on receipt.
+    0x20000000: "X",
     # Y: Supports Secure RPC.
     0x40000000: "SecureRPC",
-    # Not used. MUST be ignored on receipt.
-    0x80000000: "Z",
+    # Supports Kerberos as the security support provider for secure channel setup.
+    0x80000000: "Kerberos",
 }
 _negotiateFlags = FlagsField("", 0, -32, _negotiateFlags).names
+
+# -- CRYPTO
 
 
 # [MS-NRPC] sect 3.1.4.3.1
@@ -150,7 +162,7 @@ def ComputeSessionKeyStrongKey(HashNt, ClientChallenge, ServerChallenge):
 # [MS-NRPC] sect 3.1.4.4.1
 @crypto_validator
 def ComputeNetlogonCredentialAES(Input, Sk):
-    cipher = Cipher(algorithms.AES(Sk), mode=modes.CFB8(b"\x00" * 16))
+    cipher = Cipher(algorithms.AES(Sk), mode=CFB8(b"\x00" * 16))
     encryptor = cipher.encryptor()
     return encryptor.update(Input)
 
@@ -281,6 +293,9 @@ class NetlogonSSP(SSP):
         self.domainname = domainname
         super(NetlogonSSP, self).__init__(**kwargs)
 
+    def GSS_Inquire_names_for_mech(self):
+        raise NotImplementedError("Netlogon cannot be used with SPNEGO !")
+
     def _secure(self, Context, msgs, Seal):
         """
         Internal function used by GSS_WrapEx and GSS_GetMICEx
@@ -336,7 +351,7 @@ class NetlogonSSP(SSP):
             if Context.AES:
                 IV = SequenceNumber * 2
                 encryptor = Cipher(
-                    algorithms.AES(EncryptionKey), mode=modes.CFB8(IV)
+                    algorithms.AES(EncryptionKey), mode=CFB8(IV)
                 ).encryptor()
                 # Confounder
                 signature.Confounder = encryptor.update(Confounder)
@@ -363,7 +378,7 @@ class NetlogonSSP(SSP):
         if Context.AES:
             EncryptionKey = self.SessionKey
             IV = signature.Checksum * 2
-            cipher = Cipher(algorithms.AES(EncryptionKey), mode=modes.CFB8(IV))
+            cipher = Cipher(algorithms.AES(EncryptionKey), mode=CFB8(IV))
             encryptor = cipher.encryptor()
             signature.SequenceNumber = encryptor.update(SequenceNumber)
         else:
@@ -395,7 +410,7 @@ class NetlogonSSP(SSP):
         if Context.AES:
             EncryptionKey = self.SessionKey
             IV = signature.Checksum * 2
-            cipher = Cipher(algorithms.AES(EncryptionKey), mode=modes.CFB8(IV))
+            cipher = Cipher(algorithms.AES(EncryptionKey), mode=CFB8(IV))
             decryptor = cipher.decryptor()
             SequenceNumber = decryptor.update(signature.SequenceNumber)
         else:
@@ -426,7 +441,7 @@ class NetlogonSSP(SSP):
             if Context.AES:
                 IV = SequenceNumber * 2
                 decryptor = Cipher(
-                    algorithms.AES(EncryptionKey), mode=modes.CFB8(IV)
+                    algorithms.AES(EncryptionKey), mode=CFB8(IV)
                 ).decryptor()
                 # Confounder
                 Confounder = decryptor.update(signature.Confounder)
@@ -477,7 +492,7 @@ class NetlogonSSP(SSP):
     def GSS_Init_sec_context(
         self,
         Context: CONTEXT,
-        token=None,
+        input_token=None,
         target_name: Optional[str] = None,
         req_flags: Optional[GSS_C_FLAGS] = None,
         chan_bindings: bytes = GSS_C_NO_CHANNEL_BINDINGS,
@@ -503,7 +518,7 @@ class NetlogonSSP(SSP):
     def GSS_Accept_sec_context(
         self,
         Context: CONTEXT,
-        token=None,
+        input_token=None,
         req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
         chan_bindings: bytes = GSS_C_NO_CHANNEL_BINDINGS,
     ):
@@ -569,8 +584,8 @@ class NetlogonClient(DCERPC_Client):
         >>> cli = NetlogonClient()
         >>> cli.connect_and_bind("192.168.0.100")
         >>> cli.establish_secure_channel(
-        ...     domainname="DOMAIN", computername="WIN10",
-        ...     HashNT=bytes.fromhex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+        ...     UPN="WIN10@DOMAIN",
+        ...     HASHNT=bytes.fromhex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
         ... )
     """
 
@@ -583,26 +598,25 @@ class NetlogonClient(DCERPC_Client):
         **kwargs,
     ):
         self.interface = find_dcerpc_interface("logon")
-        self.ndr64 = False  # Netlogon doesn't work with NDR64
         self.SessionKey = None
         self.ClientStoredCredential = None
         self.supportAES = supportAES
         super(NetlogonClient, self).__init__(
             DCERPC_Transport.NCACN_IP_TCP,
             auth_level=auth_level,
-            ndr64=self.ndr64,
             verb=verb,
             **kwargs,
         )
 
-    def connect_and_bind(self, remoteIP):
+    def connect(self, host, **kwargs):
         """
         This calls DCERPC_Client's connect_and_bind to bind the 'logon' interface.
         """
-        super(NetlogonClient, self).connect_and_bind(remoteIP, self.interface)
-
-    def alter_context(self):
-        return super(NetlogonClient, self).alter_context(self.interface)
+        super(NetlogonClient, self).connect(
+            host=host,
+            interface=self.interface,
+            **kwargs,
+        )
 
     def create_authenticator(self):
         """
@@ -653,53 +667,56 @@ class NetlogonClient(DCERPC_Client):
 
     def establish_secure_channel(
         self,
-        computername: str,
-        domainname: str,
-        HashNt: bytes,
+        UPN: str,
+        DC_FQDN: str,
+        HASHNT: Optional[bytes] = None,
+        PASSWORD: Optional[str] = None,
+        KEY=None,
+        ssp: Optional[KerberosSSP] = None,
         mode=NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticate3,
         secureChannelType=NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
     ):
         """
         Function to establish the Netlogon Secure Channel.
 
-        This uses NetrServerAuthenticate3 to negotiate the session key, then creates a
-        NetlogonSSP that uses that session key and alters the DCE/RPC session to use it.
+        This uses NetrServerAuthenticate3 or NetrServerAuthenticateKerberos to
+        negotiate the session key, then creates a NetlogonSSP that uses that session
+        key and alters the DCE/RPC session to use it.
 
         :param mode: one of NETLOGON_SECURE_CHANNEL_METHOD. This defines which method
                      to use to establish the secure channel.
-        :param computername: the netbios computer account name that is used to establish
-                             the secure channel. (e.g. WIN10)
-        :param domainname: the netbios domain name to connect to (e.g. DOMAIN)
-        :param HashNt: the HashNT of the computer account.
-        """
-        # Flow documented in 3.1.4 Session-Key Negotiation
-        # and sect 3.4.5.2 for specific calls
-        clientChall = os.urandom(8)
+        :param UPN: the UPN of the computer account name that is used to establish
+                    the secure channel. (e.g. WIN10$@domain.local)
+        :param DC_FQDN: the FQDN name of the DC.
 
-        # Step 1: NetrServerReqChallenge
-        netr_server_req_chall_response = self.sr1_req(
-            NetrServerReqChallenge_Request(
-                PrimaryName=None,
-                ComputerName=computername,
-                ClientChallenge=PNETLOGON_CREDENTIAL(
-                    data=clientChall,
-                ),
-                ndr64=self.ndr64,
-                ndrendian=self.ndrendian,
-            )
-        )
-        if (
-            NetrServerReqChallenge_Response not in netr_server_req_chall_response
-            or netr_server_req_chall_response.status != 0
-        ):
-            print(
-                conf.color_theme.fail(
-                    "! %s"
-                    % STATUS_ERREF.get(netr_server_req_chall_response.status, "Failure")
+        The function then requires one of the following:
+
+        :param HASHNT: the HashNT of the computer account (in Authenticate3 mode).
+        :param KEY: a Kerberos key to use (in Kerberos mode)
+        :param PASSWORD: the password of the computer account (any mode).
+        :param ssp: a KerberosSSP to use (in Kerberos mode)
+        """
+        computername, domainname = _parse_upn(UPN)
+        # We need to normalize here, since the functions require both the accountname
+        # and the normal (no dollar) computer name.
+        if computername.endswith("$"):
+            computername = computername[:-1]
+
+        if mode == NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticate3:
+            if ssp or KEY:
+                raise ValueError("Cannot use 'ssp' on 'KEY' in Authenticate3 mode !")
+            if not HASHNT:
+                if PASSWORD:
+                    HASHNT = MD4le(PASSWORD)
+                else:
+                    raise ValueError("Missing either 'PASSWORD' or 'HASHNT' !")
+            if "." in domainname:
+                raise ValueError(
+                    "The UPN in Authenticate3 must have a NETBIOS domain name !"
                 )
-            )
-            netr_server_req_chall_response.show()
-            raise ValueError
+        else:
+            if HASHNT:
+                raise ValueError("Cannot use 'HASHNT' in Kerberos mode !")
 
         # Calc NegotiateFlags
         NegotiateFlags = FlagValue(
@@ -712,23 +729,61 @@ class NetlogonClient(DCERPC_Client):
         # We are either using NetrServerAuthenticate3 or NetrServerAuthenticateKerberos
         if mode == NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticate3:
             # We use the legacy NetrServerAuthenticate3 function (NetlogonSSP)
-            # Step 2: Build the session key
+
+            # Make sure the interface is bound
+            if not self.bind_or_alter(self.interface):
+                raise ValueError("Bind failed !")
+
+            # Flow documented in 3.1.4 Session-Key Negotiation
+            # and sect 3.4.5.2 for specific calls
+            clientChall = os.urandom(8)
+
+            # Perform NetrServerReqChallenge request
+            netr_server_req_chall_response = self.sr1_req(
+                NetrServerReqChallenge_Request(
+                    PrimaryName=None,
+                    ComputerName=computername,
+                    ClientChallenge=PNETLOGON_CREDENTIAL(
+                        data=clientChall,
+                    ),
+                    ndr64=self.ndr64,
+                    ndrendian=self.ndrendian,
+                )
+            )
+            if (
+                NetrServerReqChallenge_Response not in netr_server_req_chall_response
+                or netr_server_req_chall_response.status != 0
+            ):
+                print(
+                    conf.color_theme.fail(
+                        "! %s"
+                        % STATUS_ERREF.get(
+                            netr_server_req_chall_response.status, "Failure"
+                        )
+                    )
+                )
+                netr_server_req_chall_response.show()
+                raise ValueError("NetrServerReqChallenge failed !")
+
+            # Build the session key
             serverChall = netr_server_req_chall_response.ServerChallenge.data
             if self.supportAES:
-                SessionKey = ComputeSessionKeyAES(HashNt, clientChall, serverChall)
+                SessionKey = ComputeSessionKeyAES(HASHNT, clientChall, serverChall)
                 self.ClientStoredCredential = ComputeNetlogonCredentialAES(
                     clientChall, SessionKey
                 )
             else:
                 SessionKey = ComputeSessionKeyStrongKey(
-                    HashNt, clientChall, serverChall
+                    HASHNT, clientChall, serverChall
                 )
                 self.ClientStoredCredential = ComputeNetlogonCredentialDES(
                     clientChall, SessionKey
                 )
+
+            # Perform Authenticate3 request
             netr_server_auth3_response = self.sr1_req(
                 NetrServerAuthenticate3_Request(
-                    PrimaryName=None,
+                    PrimaryName="\\\\" + DC_FQDN,
                     AccountName=computername + "$",
                     SecureChannelType=secureChannelType,
                     ComputerName=computername,
@@ -740,10 +795,7 @@ class NetlogonClient(DCERPC_Client):
                     ndrendian=self.ndrendian,
                 )
             )
-            if (
-                NetrServerAuthenticate3_Response not in netr_server_auth3_response
-                or netr_server_auth3_response.status != 0
-            ):
+            if netr_server_auth3_response.status != 0:
                 # An error occurred.
                 NegotiatedFlags = None
                 if NetrServerAuthenticate3_Response in netr_server_auth3_response:
@@ -758,20 +810,8 @@ class NetlogonClient(DCERPC_Client):
                                 % (NegotiatedFlags ^ NegotiateFlags)
                             )
                         )
+                raise ValueError("NetrServerAuthenticate3 failed !")
 
-                # Show the error
-                print(
-                    conf.color_theme.fail(
-                        "! %s"
-                        % STATUS_ERREF.get(netr_server_auth3_response.status, "Failure")
-                    )
-                )
-
-                # If error is unknown, show the packet entirely
-                if netr_server_auth3_response.status not in STATUS_ERREF:
-                    netr_server_auth3_response.show()
-
-                raise ValueError
             # Check Server Credential
             if self.supportAES:
                 if (
@@ -798,10 +838,48 @@ class NetlogonClient(DCERPC_Client):
                 domainname=domainname,
                 computername=computername,
             )
-        elif mode == NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticateKerberos:
-            NegotiateFlags += "Kerberos"
-            # TODO
-            raise NotImplementedError
 
-        # Finally alter context (to use the SSP)
-        self.alter_context()
+            # Finally alter context (to use the SSP)
+            if not self.alter_context(self.interface):
+                raise ValueError("Bind failed !")
+
+        elif mode == NETLOGON_SECURE_CHANNEL_METHOD.NetrServerAuthenticateKerberos:
+            # We use the brand new NetrServerAuthenticateKerberos function
+            NegotiateFlags += "Kerberos"
+
+            # Set KerberosSSP and alter context
+            if ssp:
+                self.ssp = self.sock.session.ssp = ssp
+            else:
+                self.ssp = self.sock.session.ssp = KerberosSSP(
+                    UPN=UPN,
+                    SPN="netlogon/" + DC_FQDN,
+                    PASSWORD=PASSWORD,
+                    KEY=KEY,
+                )
+            if not self.bind_or_alter(self.interface):
+                raise ValueError("Bind failed !")
+
+            # Send AuthenticateKerberos request
+            netr_server_authkerb_response = self.sr1_req(
+                NetrServerAuthenticateKerberos_Request(
+                    PrimaryName="\\\\" + DC_FQDN,
+                    AccountName=computername + "$",
+                    AccountType=secureChannelType,
+                    ComputerName=computername,
+                    NegotiateFlags=int(NegotiateFlags),
+                    ndr64=self.ndr64,
+                    ndrendian=self.ndrendian,
+                )
+            )
+            if (
+                NetrServerAuthenticateKerberos_Response
+                not in netr_server_authkerb_response
+                or netr_server_authkerb_response.status != 0
+            ):
+                # An error occurred
+                netr_server_authkerb_response.show()
+                raise ValueError("NetrServerAuthenticateKerberos failed !")
+
+            # The NRPC session key is in this case the kerberos one
+            self.SessionKey = self.sspcontext.SessionKey

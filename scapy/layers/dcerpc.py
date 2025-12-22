@@ -451,6 +451,14 @@ class RPC_C_AUTHN_LEVEL(IntEnum):
 DCE_C_AUTHN_LEVEL = RPC_C_AUTHN_LEVEL  # C706 name
 
 
+class RPC_C_IMP_LEVEL(IntEnum):
+    DEFAULT = 0x0
+    ANONYMOUS = 0x1
+    IDENTIFY = 0x2
+    IMPERSONATE = 0x3
+    DELEGATE = 0x4
+
+
 # C706 sect 13.2.6.1
 
 
@@ -2766,9 +2774,9 @@ class DceRpcSession(DefaultSession):
         self.ssp = kwargs.pop("ssp", None)
         self.sspcontext = kwargs.pop("sspcontext", None)
         self.auth_level = kwargs.pop("auth_level", None)
-        self.auth_context_id = kwargs.pop("auth_context_id", 0)
         self.sent_cont_ids = []
         self.cont_id = 0  # Currently selected context
+        self.auth_context_id = 0  # Currently selected authentication context
         self.map_callid_opnum = {}
         self.frags = collections.defaultdict(lambda: b"")
         self.sniffsspcontexts = {}  # Unfinished contexts for passive
@@ -3283,7 +3291,6 @@ class DceRpcSocket(StreamSocket):
         self.session = DceRpcSession(
             ssp=kwargs.pop("ssp", None),
             auth_level=kwargs.pop("auth_level", None),
-            auth_context_id=kwargs.pop("auth_context_id", None),
             support_header_signing=kwargs.pop("support_header_signing", True),
         )
         super(DceRpcSocket, self).__init__(*args, **kwargs)

@@ -2070,7 +2070,7 @@ class LDAP_Client(object):
             # 3. Second exchange: Response
             self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                 self.sspcontext,
-                GSSAPI_BLOB(val),
+                input_token=GSSAPI_BLOB(val),
                 target_name="ldap/" + self.host,
                 chan_bindings=self.chan_bindings,
             )
@@ -2126,7 +2126,7 @@ class LDAP_Client(object):
                     break
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                     self.sspcontext,
-                    GSSAPI_BLOB(val),
+                    input_token=GSSAPI_BLOB(val),
                     target_name="ldap/" + self.host,
                     chan_bindings=self.chan_bindings,
                 )

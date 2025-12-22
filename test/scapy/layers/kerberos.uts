@@ -32,6 +32,38 @@ assert pkt.root.eData.seq[3].padataValue == b"MIT"
 etype_info2 = pkt.root.eData.seq[1]
 assert etype_info2.padataValue.seq[0].salt == b'SAMBA.EXAMPLE.COMhostlocaldc.samba.example.com'
 
+= Parse KRB-ERROR (2)
+
+# This one is a preauth one
+
+pkt = KerberosTCPHeader(b'\x00\x00\x01A~\x82\x01=0\x82\x019\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x1e\xa4\x11\x18\x0f20251213001046Z\xa5\x05\x02\x03\x05F\x1f\xa6\x03\x02\x01\x19\xa9\x0e\x1b\x0cDOMAIN.LOCAL\xaa!0\x1f\xa0\x03\x02\x01\x02\xa1\x180\x16\x1b\x06krbtgt\x1b\x0cdomain.local\xac\x81\xda\x04\x81\xd70\x81\xd40t\xa1\x03\x02\x01\x13\xa2m\x04k0i0/\xa0\x03\x02\x01\x12\xa1(\x1b&DOMAIN.LOCALhostcomputer1.domain.local0/\xa0\x03\x02\x01\x11\xa1(\x1b&DOMAIN.LOCALhostcomputer1.domain.local0\x05\xa0\x03\x02\x01\x170;\xa1\x03\x02\x01o\xa24\x042000\x0b\x06\t`\x86H\x01e\x03\x04\x02\x030\x0b\x06\t`\x86H\x01e\x03\x04\x02\x020\x0b\x06\t`\x86H\x01e\x03\x04\x02\x010\x07\x06\x05+\x0e\x03\x02\x1a0\t\xa1\x03\x02\x01\x02\xa2\x02\x04\x000\t\xa1\x03\x02\x01\x10\xa2\x02\x04\x000\t\xa1\x03\x02\x01\x0f\xa2\x02\x04\x00')
+
+assert Kerberos in pkt
+assert len(pkt.root.eData.seq) == 5
+assert isinstance(pkt.root.eData.seq[0].padataValue, ETYPE_INFO2)
+assert pkt.root.eData.seq[0].padataValue.seq[0].salt.val == b"DOMAIN.LOCALhostcomputer1.domain.local"
+assert isinstance(pkt.root.eData.seq[1].padataValue, TD_CMS_DIGEST_ALGORITHMS)
+assert [x.algorithm.oidname for x in pkt.root.eData.seq[1].padataValue.seq] == [
+    "sha512",
+    "sha384",
+    "sha256",
+    "sha1",
+]
+assert pkt.root.eData.seq[2].padataType == 2
+
+= Parse KRB-ERROR (3)
+
+# This is a TKT EXPIRED
+
+pkt = KerberosTCPHeader(b'\x00\x00\x00{~y0w\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x1e\xa4\x11\x18\x0f20251213001312Z\xa5\x05\x02\x03\r\xae\x86\xa6\x03\x02\x01 \xa9\x0e\x1b\x0cDOMAIN.LOCAL\xaa!0\x1f\xa0\x03\x02\x01\x02\xa1\x180\x16\x1b\x06krbtgt\x1b\x0cDOMAIN.LOCAL\xac\x19\x04\x170\x15\xa1\x03\x02\x01\x03\xa2\x0e\x04\x0c3\x01\x00\xc0\x00\x00\x00\x00\x01\x00\x00\x00')
+
+assert Kerberos in pkt
+assert pkt.root.errorCode == 0x20
+assert pkt.root.sname.nameString == [b"krbtgt", b"DOMAIN.LOCAL"]
+assert isinstance(pkt.root.eData, KERB_ERROR_DATA)
+assert pkt.root.eData.dataValue.status == 0xc0000133
+assert pkt.root.eData.dataValue.flags == 1
+
 = Parse AS-REP
 
 pkt = IP(b'E\x00\x05\x95\xff\xff@\x00\xff\x11\x00\x00\x7f\x00\x00\x15\x7f\x00\x00\x15\x00X;p\x05\x81\x00\x00k\x82\x05u0\x82\x05q\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0b\xa2H0F0D\xa1\x03\x02\x01\x13\xa2=\x04;0907\xa0\x03\x02\x01\x12\xa10\x1b.SAMBA.EXAMPLE.COMhostlocaldc.samba.example.com\xa3\x13\x1b\x11SAMBA.EXAMPLE.COM\xa4\x150\x13\xa0\x03\x02\x01\x00\xa1\x0c0\n\x1b\x08LOCALDC$\xa5\x82\x03\xafa\x82\x03\xab0\x82\x03\xa7\xa0\x03\x02\x01\x05\xa1\x13\x1b\x11SAMBA.EXAMPLE.COM\xa2&0$\xa0\x03\x02\x01\x02\xa1\x1d0\x1b\x1b\x06krbtgt\x1b\x11SAMBA.EXAMPLE.COM\xa3\x82\x03a0\x82\x03]\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\x01\xa2\x82\x03O\x04\x82\x03K\t\x05\xd7\x91\xdc\x14\xaa\xe2\xfb\xcc\x85\x1f*?\xbau\xbc0\x0f\x80\x8bc\x87\xe5z\x1a4i\xa3\x9bL[-\xb1\xb7\xaa\xd9-\x01\xc2\xf2\xdfs\x17<\xf3&\x99\'1\xfa\x80\xd9\x02\xae\xf5\xb3S\x14\xc2L\xc3e\xc9\x94\x03dH\xe2\xa9\xfd\x9a\xc6\xffs\x10\xf3er\xbd\xa0\xfep[~\x82+\xde0\x91%tc\xdcx\xfe\xd0\xd8\xc4\xb6u\x91\xe7\xe1C\x00y\xb8\x15\xd9\x91j\x0f\xe7\xa0\xe24m\xd94\xe5.I\xc51\x8f\x1do\t\xe9\x98\xb8\xad\xa6\x92\xf3\x15f\xc98o\x92\x0ch\x08\\\x8f\xab\xfau\xaf\x19v\xcc\xcb!v\xb5v2\xeb(h\x1c+o\xea\xc3\x0b\xcf\x81\xc8\x89\xe8i\xdd?\xd1\xaa\x0f3\xc9\xe9\xf2\xd7\x8a\x93`\x02\x9d\xb2 LV\xda\x0f&>,~\xb3\xecK\xe76v\x9a\xc3\x88\xe3\rj\\/\xd6\x9e_X\x14z\xc2w\x1d.|\xbf\x18\x01\xc8`].\xd2\xc2\x1e\xd0\x89\x8f\xd2\x18\xb9U\xaf\x98\xe9V\xe2\x19\xa1\xbb\xc45\xd9\x16\x08c\xaf$\xef\xf2\xf4S\xeco\xa1\xa1\xe5)\x99\xc9b#[\xd1:O\xbej\xb91\xb3i\xbepb\x06\xd8\x14\xc3\xdf\xbb\x18\xbf]\xf1\x82+\x18*\x85D\xecy\x0eu_\xe2\xfa\xbcd\x82A>\x88p\xa2\xc1\xf6\x9c\x89Qj\xfdM\x99\xd1\x84r\x0fp\x06$\xab\xc2\xb5\xae4\xe8\xf1\xbb}\x98\xedWX\xe2*uB\x93\x11\x1c\xc7f\x1c\xce\xc9\xff\t\x88\x94\xddN\xcf\xa68O\x0c^I\x9ew\x81\xba\xc3\xbc\xa8\x07\x8b\xd4\xdf\x7f(\xc2\x15gX\xd0oN\x00u\x1aU@\xbd\xb8\xa9)Ur\x94\xc1\xcf\xa1\xd8k\xc1F\x19\xd3rR\xaa\x93\xe2\x06D#\x12\x07M\xe3\x15\xd6\xd0\xb3\xa6\x89\x0c\xfeLO6\xe6\xf0w\x1a\x80\x0f\xffO\xf2N\xf4(\n\xdb-\x96`\xa4\xb7\xd3g\x16\xbfY\xff\xad\x95\x19\xd9\x9cS\xaa\xe3\x06W\xf3\xc2\x18it5\xda\x1c\x99\x8a\xaf\xfa"MT\xc7$#j,P\x9b\xf9\r\xbbA\xd0w\x15.\xc3PC\xc4\xe7vL/\xca0h7\x1c4z\x8bS@\x0ej\xb4q\xde\x19\xd8so\x9c\xea\x8f^w7\x1e\x92\x1c\xcc\xe2\xa60\xe8\xce}\xee\xb1\x87F!n\x80\xe4l"\xed\xc2fI \xb9\t\x14\t\x8d\xect\xa4\xb48\xe0\xfd\xf3\xe5\x8es\xd2\x08;\x9f\xb2\xb8q\x1bX\xadd\xbb\x07z\x16\tZ\xb0z1+h\x0e\xf7\x98w\x0bX\xf0W\t\xa6\x86.\x1e\x9c\xc2\x9d\xac+\xca\xdf&\xa9\xf3\xcb\xa7\xca\x1fn\xe8\x8a]h\xf6\xeb\xe9\xd4\xa0\x16\x1b\xb4\x8d\xc7\xaf\xe3\xf0.\x85\x1e\xc2\xa5\xf2DhhgQ\xe0\xb8y\xb8\xbd\x98\xf8\xa0\rW\x93/\x07>0\xf5\x92Y\x15Y\x0bD\xdb\xd6\xac#\xd8z\xbdeY\x87\xf2\x97\xfdZ\x0c\x1d\xbc\xefXONv\xc9\xfdp\xdd^\x16\x83\xc3\xeb\x9e\x96+\xe8\xed\x0c<$\x83A\xeb\xc6e\x94\x0c\x11\x19\xb4\x99\xcd\x17\xeb\xcb.\x0b}\x01i\x88\x03R\xde\x1a\xea\x03\x10\xa9Z\x8e\xf7\x87\r\xa6\x08@\xf7\x96\xc8\xa5g\xde\x8dE\xf8\xb0\xe8\xe6T\x80=\x0cm\xe0z\xa5\x03\xa2X\xed\'\x17\x001O\xee\xfb\x87\xbe\xf7\xbbS\xc1p\xaeZ\x17\x92}\xc2\x07\x01\x81\xaew\xd9\xc5\x9c\xe5k\x8d+\x13\xd2\x00Q\xd4\xe5M\x9d\x06\xc7)\xac\x06\xb2+\xd1\x83\xcb\xfe\xb9\xf9\x0bbRN\x04\xe7\xd8\xa0\xf9\xe3\xc3m\x18\xc4\x108\xfa\xa6\x82\x01:0\x82\x016\xa0\x03\x02\x01\x12\xa2\x82\x01-\x04\x82\x01)/pDi\x13\xee\x0b\x8ehN2\x01P\x19|\xda\x1a\xde\xec\xde\rt\xcbe7\x00-sG&\x8b\xfc\xa4\x92~~[,\xd5\rAj\xd6[\xbe\xeeB\xf8X\\x\xa6$Z\x83\xf6\x1bq\xc5\x8fm\\\x94\xd7l\xc5\x89#\xcb\xcd\xaf\xff\x15\x1b\x8f;7\xb0\xc8u\x19\xb1\xd0\xb0\x93\xa7z\x9cz\x14\x0b\x86q\x01\xb8<\xa7\xa4\xceb\x1f\x88\x14\xe3S0\xe3]\xa5\x9b\xa0\x0e\x97#\x87\x9a\xe0\x90a\xdfj.\x1e6x\x87GV\xc0/\xa4\xab}\xdbS\xd5\xff<t\xb4}\x05~\xf3\x08\xef\xde\xb8\xea\xb2$\xf8\x12rPcE1;\x1a]\xa5\xa9\\\'\xc1a~\x05\xd5\xa0~\x91\xfe\x8e3\xfa\x1c\xa1\xa8\xba\xfa\x1f\xeeA\x9a\xd5\x17\xab\xbd\xe4\x82.\x13\xa2"\x87\x1b\x0c\xd8\xd0\xdd\xa0\x7f\xa8\x9e\x86\x0b\xe5\x94\xcdk/\xd1\x1e\xb4\xa7\xc5\xd5x\x81\xe7\xe2\xdav\x1a\xb2\xa6\xc5Ma\xe5\xb6\x8b\xa3\xfck\x9c\x7fG\x08\xcc\x07X\xd50a\xa14\xd7;P\xe6[4\x98\xdbR\x87\xad^U3\x1ao\xcb\xaf\x01\x95\xa1Osnt\xd7_\x87A\x9b$\x9d{V\xf5~\x91\x13\xa8J1\xd4\xcb\xb4\xcb\xc2Pe')
@@ -201,7 +233,8 @@ assert pk_preauth.trustedCertifiers[0].subjectName.directoryName[2].rdn[0].type.
 assert pk_preauth.trustedCertifiers[0].subjectName.directoryName[2].rdn[0].value.val == b"DOMAIN-DC1-CA"
 assert  pk_preauth.trustedCertifiers[0].issuerAndSerialNumber.serialNumber.val == 142762589450708598374370602088381230866
 
-authpack = pk_preauth.signedAuthpack.content.encapContentInfo.eContent
+signedauthpack = pk_preauth.signedAuthpack
+authpack = signedauthpack.content.encapContentInfo.eContent
 assert [x.algorithm.oidname for x in authpack.supportedCMSTypes] == [
     'ecdsa-with-SHA512',
     'ecdsa-with-SHA256',
@@ -213,6 +246,37 @@ assert authpack.pkAuthenticator.nonce == 0x5ba497a5
 assert authpack.pkAuthenticator.freshnessToken is None
 assert authpack.pkAuthenticator.paChecksum2.checksum.val.hex() == "5aeb03e889e99fcd6c205ef484b9dd7b462b9e94c3fe68b115a71cd287fcd775"
 assert authpack.pkAuthenticator.paChecksum2.algorithmIdentifier.algorithm.oidname == "sha256"
+
+= PKINIT - Verify CMS signature and extract
+
+from scapy.layers.tls.cert import Cert, PrivKey, CertList, CMS_Engine
+
+# Get root CA
+ca = Cert(bytes.fromhex('3082036930820251a00302010202106b671318bb858b8e437e4229b0d32f12300d06092a864886f70d01010b0500304731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e311630140603550403130d444f4d41494e2d4443312d4341301e170d3235303932303232313034365a170d3330303932303232323034365a304731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e311630140603550403130d444f4d41494e2d4443312d434130820122300d06092a864886f70d01010105000382010f003082010a0282010100d502f47f909c951c87f2e8e6ac1c6f86d555b3311e5ef6086b588fb5eeb66277f63d18f04e65ba07570999bcc7cca3e0fa70914fcfa8acd81d4fbf4bb570a089b1b897cf3e07abc9fa75417bcb7171aaa95e20df12add93fada7df5447210820c1de12e356b248b7fe169019b7cf254c5be50571da26ff4219b8680fa249c14673bf743ef37b46c740353cb88097a099fbc7ca41a79c2cd9bc3a663003edfd12678c88b3970fdc211e38b985d6795d57041de0f3182873670bfee903069f59d3f0ff1634bf57f122ef7d1511775c47fdc574f632c9a1e8af305c81077af542f5499977870d8b0bce0d1fd8088636814d7847e0863ceb0ebe8bb0bd4e47eed01d0203010001a351304f300b0603551d0f040403020186300f0603551d130101ff040530030101ff301d0603551d0e04160414ab14d5ae948281f079726970b3b8f97003aa760c301006092b06010401823715010403020100300d06092a864886f70d01010b05000382010100763c9c93d6f0dd98d6ee5269f1d5f8b83fa14e62a9513806f6f978769208ff65f263f1809743f42b6b70cc77f93f5278e62e4d1da2ae5285e8da155951aa5207cea519d373a202d889e37a9fdde6c79e7a574d2dacd3ea695fde5980d16f91b14cd8f3944cc6a5d3d4c5d95e12f863857fe733285ac04d43fdb0ee52dc8ae5c8d1dd6e32405df2f835bd1681dbf5af9fc523cfe31c31fcde16a07f90733f48cff0392a0a18a1787b91d6b67441d78f507043acfb99c64eebc77717a21cf85ec160411a8f8244f8ef493ad22e5bbdb73d647fc6d911b040d373740b11fa65df5f2a8087ae63f69da5fc14e2e320f6d3e013d319a15762ec6ee2eb3cdf9763a523'))
+
+# Build CMS engine to verify the authpack
+cms = CMS_Engine(CertList([ca]))
+
+# Verify signature
+authpack = cms.verify(signedauthpack, ASN1_OID('id-pkinit-authData'))
+assert isinstance(authpack, KRB_AuthPack)
+
+= PKINIT - Resign AuthPack and re-verify signature
+
+# Get cert/key
+cert = Cert(bytes.fromhex('3082062030820508a00302010202131b000000028b4c5c90b3392fca000000000002300d06092a864886f70d01010b0500304731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e311630140603550403130d444f4d41494e2d4443312d4341301e170d3235303932303232313135385a170d3236303932303232313135385a305731153013060a0992268993f22c64011916054c4f43414c31163014060a0992268993f22c6401191606444f4d41494e310e300c060355040313055573657273311630140603550403130d41646d696e6973747261746f7230820122300d06092a864886f70d01010105000382010f003082010a02820101009edc4865105bdbe4843dcb43a1ed273630d4bb84e2c6096cb8ef4d111da3dfc8ad78ff7a02a6ea6da16f2ecd0a7e4a85c7b685b02286298493834f8361a318864bea2f2faa92a3236cd1e373eb2874ff8e09468762de9af0a0881ea098fbeadccb9573e53c90da8398a9992e6e6a46081e23c31527453f9540ab4bca93d7b139a97c3a0392d8c035832005cc1ae2fdbfe098381e62b37cd6b94ea638fd06d2e2dfb4c1c35896d717188fa8c472a42aaf65c04ff1f2a55dbb0b02dcec1f9e07d7dd930ddec43947cf229324bfa5189bfc5a34a59864c95fa2351b506979cf1bc3529a7933be0f2004932490d1a250735bd692af367f5ca326d392c28c99bde1210203010001a38202f3308202ef301706092b0601040182371402040a1e08005500730065007230290603551d2504223020060a2b0601040182370a030406082b0601050507030406082b06010505070302300e0603551d0f0101ff0404030205a0304406092a864886f70d01090f04373035300e06082a864886f70d030202020080300e06082a864886f70d030402020080300706052b0e030207300a06082a864886f70d0307301d0603551d0e041604140a63d8a405fe59c3f3abbef3111f6f6a6a08a973301f0603551d23041830168014ab14d5ae948281f079726970b3b8f97003aa760c3081c80603551d1f0481c03081bd3081baa081b7a081b48681b16c6461703a2f2f2f434e3d444f4d41494e2d4443312d43412c434e3d4443312c434e3d4344502c434e3d5075626c69632532304b657925323053657276696365732c434e3d53657276696365732c434e3d436f6e66696775726174696f6e2c44433d444f4d41494e2c44433d4c4f43414c3f63657274696669636174655265766f636174696f6e4c6973743f626173653f6f626a656374436c6173733d63524c446973747269627574696f6e506f696e743081c006082b060105050701010481b33081b03081ad06082b060105050730028681a06c6461703a2f2f2f434e3d444f4d41494e2d4443312d43412c434e3d4149412c434e3d5075626c69632532304b657925323053657276696365732c434e3d53657276696365732c434e3d436f6e66696775726174696f6e2c44433d444f4d41494e2c44433d4c4f43414c3f634143657274696669636174653f626173653f6f626a656374436c6173733d63657274696669636174696f6e417574686f7269747930350603551d11042e302ca02a060a2b060104018237140203a01c0c1a41646d696e6973747261746f7240444f4d41494e2e4c4f43414c304e06092b06010401823719020441303fa03d060a2b060104018237190201a02f042d532d312d352d32312d313332323235373836362d343033353133333636322d313134303736393232322d353030300d06092a864886f70d01010b050003820101005b76869c48c9e4f28043253b8552a6017dc25f9dc990da86a79210f334c1a7e50b6125ab176bc7bb194b96a02736c9838117071d533e99467bf24219228bb40b6d410c8fb23f129010b68777acb83944842a0af694673206be22c0a0078ee0543962b31bae8d809ef553dbe858cd063a7a06f1ea7d026394ace39f294ad5d8c1b077e58e7d17f86eea918aa88ac09cf55ffcf147aa14a4c64f4216211e45fd8794b2906a29b97bcbd47a0b213768f5403f9aa08fd23ea92664fb9a0246ae75e34f939102fad7c48b8c5bb650203aa48b48bed4635bff4e3386e694d57a4e7e65939c5a5a72997176b5d0e50bd369e78bbf0cda53db204fbf37839223daff3a06'))
+key = PrivKey(bytes.fromhex('308204bd020100300d06092a864886f70d0101010500048204a7308204a302010002820101009edc4865105bdbe4843dcb43a1ed273630d4bb84e2c6096cb8ef4d111da3dfc8ad78ff7a02a6ea6da16f2ecd0a7e4a85c7b685b02286298493834f8361a318864bea2f2faa92a3236cd1e373eb2874ff8e09468762de9af0a0881ea098fbeadccb9573e53c90da8398a9992e6e6a46081e23c31527453f9540ab4bca93d7b139a97c3a0392d8c035832005cc1ae2fdbfe098381e62b37cd6b94ea638fd06d2e2dfb4c1c35896d717188fa8c472a42aaf65c04ff1f2a55dbb0b02dcec1f9e07d7dd930ddec43947cf229324bfa5189bfc5a34a59864c95fa2351b506979cf1bc3529a7933be0f2004932490d1a250735bd692af367f5ca326d392c28c99bde12102030100010282010075a71d72c407d4364cfe5b010ef6cdb8a3b799dd93fa2956bd2c75be3c5e76c9703891b5322b9ea96d0b23f535554d2a013c1b8cd434daa0d68344ab3fef83a54aa9f9226b48c8cbdeb71fa6653e045094482854f2937cdac379ac7d3270388427bedb23a6947d51430a3069a3dacf5d09bd60a8d4f9c35a6d97afbd2b7b6e43e46458433c45c75b87d85830547fd8bfe5ba9119be096833c660b3f4395296a10d2bcdb17ac22d9566aeb602656b715ece5401ef3f4f4731bcbb5316b38a881531a94e36807cc2ef6311e876b41c4fc1053c0d221ad5150ac52b1645aeb6a89861dcbb7faff3350cfa2027a6042681c692ffa3a3a54ef45dc51dadeb132086a502818100d1969cbf231b1e1a73d611fc6d6c60504ccf8c161c49b63b3d40adaeee6540d402c29dfa7f0538a2a4d8870b8bb3e04066423dbdefadf8eadcc9d4bfc2d30654d382eaa70be32fa108ff1bb816abb224d99fffc21cae781fd1637045b7e533614691f42b026ee83dc492e21271bf2fd65e34b4fb31ad522f1e64dc8eaa62b59f02818100c209f373b928c87ae60089f258ee4710983cfcd5586df3aa3bdbb46bf7357681c293328500fafb7daf9ad0c41cf17d3801136424cdee252f036a8033755959f6ba4d5207402619e35f8bc1cd41956d1f921b5b814ffbe4571a1da43007e9ab34b38224cbe98b713a968755e7b956a93dd9ee335888b79a9d4ef9ee2711b8713f0281807a131ba148b556c75988ea58f8f312f6328700b5302ccef39a2dbdfc11e6efe78ce406580cfbe18cfa2f141969798fb872d74a5702ef75f8763928adb8b06913a74ead96369a50f79ee1d827552d1449da6812f3e0f8ce06da52ece5eec29536a7800393b98b17c24268bb3cbafbfcc50381f79807cb47ff21d8e58e4337d3490281803c8da66fe2c49b6bdf032409813f3ae62edc397acad1e54ca6c975908be11f4e774e4061c96089c33b5df0f082a7ca100425ed069f4d464559a78ec28048960ead2d1c002f40b4ab8451b4f53d1648aba588ec117ac87d05c19ca67466c3c12dfd270c1ca69161908b1148f9bb9913cfbd86dc7730933ba903d07345b5fdfd3902818100852917f4d9244d06f54572f7c837069bfb3541e420444315cf3759d65d038d45135869c3bd97ab02c9697cdc971eaef6d5089adce124d69862d6040dbffb13d08b97f2b2ba74a673c6a3d327e07aeece4c72de22844ffdc5d989308552ca0d324c381fbdb8675f8408f26200dcd8c756778b46a80fcea2b60ba3017380871ba4'))
+
+# Resign
+signed = cms.sign(
+    authpack,
+    ASN1_OID('id-pkinit-authData'),
+    cert,
+    key,
+)
+
+authpack = cms.verify(signed, ASN1_OID('id-pkinit-authData'))
+assert isinstance(authpack, KRB_AuthPack)
 
 = PKINIT - Parse AS-REP with CMS structures (MIT Kerberos)
 
@@ -1357,6 +1421,110 @@ _msgs = ssp.GSS_UnwrapEx(
 
 assert _msgs[0].data.hex() == "112233445566778899aabbccddeeff"
 
++ RFC4556 test vectors
+~ mock
+
+= RFC4556 Test Vectors - octetstring2key - Utils
+
+from scapy.libs.rfc3961 import EncryptionType, octetstring2key
+
+def _strip(x):
+    return bytes.fromhex(x.replace(" ", "").replace("\n", ""))
+
+def _k_truncate_output(etype, input):
+    with mock.patch('scapy.libs.rfc3961.Key.random_to_key', side_effect=Bunch):
+        result = octetstring2key(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT)
+    return result.seed
+
+= RFC4556 Test Vectors - octetstring2key - Set 1
+
+INPUT = _strip("""
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+""")
+
+RESULT = _strip("""
+5e e5 0d 67 5c 80 9f e5 9e 4a 77 62 c5 4b 65 83
+75 47 ea fb 15 9b d8 cd c7 5f fc a5 91 1e 4c 41
+""")
+
+hexdiff(_k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT), RESULT)
+assert _k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT) == RESULT
+
+= RFC4556 Test Vectors - octetstring2key - Set 2
+
+INPUT = _strip("""
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+""")
+
+RESULT = _strip("""
+ac f7 70 7c 08 97 3d df db 27 cd 36 14 42 cc fb
+a3 55 c8 88 4c b4 72 f3 7d a6 36 d0 7d 56 78 7e
+""")
+
+hexdiff(_k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT), RESULT)
+assert _k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT) == RESULT
+
+= RFC4556 Test Vectors - octetstring2key - Set 3
+
+INPUT = _strip("""
+00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f
+10 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e
+0f 10 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d
+0e 0f 10 00 01 02 03 04 05 06 07 08 09 0a 0b 0c
+0d 0e 0f 10 00 01 02 03 04 05 06 07 08 09 0a 0b
+0c 0d 0e 0f 10 00 01 02 03 04 05 06 07 08 09 0a
+0b 0c 0d 0e 0f 10 00 01 02 03 04 05 06 07 08 09
+0a 0b 0c 0d 0e 0f 10 00 01 02 03 04 05 06 07 08
+""")
+
+RESULT = _strip("""
+c4 42 da 58 5f cb 80 e4 3b 47 94 6f 25 40 93 e3
+73 29 d9 90 01 38 0d b7 83 71 db 3a cf 5c 79 7e
+""")
+
+hexdiff(_k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT), RESULT)
+assert _k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT) == RESULT
+
+= RFC4556 Test Vectors - octetstring2key - Set 4
+
+INPUT = _strip("""
+00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f
+10 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e
+0f 10 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d
+0e 0f 10 00 01 02 03 04 05 06 07 08 09 0a 0b 0c
+0d 0e 0f 10 00 01 02 03 04 05 06 07 08
+""")
+
+RESULT = _strip("""
+00 53 95 3b 84 c8 96 f4 eb 38 5c 3f 2e 75 1c 4a
+59 0e d6 ff ad ca 6f f6 4f 47 eb eb 8d 78 0f fc
+""")
+
+hexdiff(_k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT), RESULT)
+assert _k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT) == RESULT
+
 + GSS-API KerberosSSP tests
 ~ mock
 
@@ -1422,7 +1590,7 @@ server = SPNEGOSSP([
 = GSS_Init_sec_context (negTokenInit: KRB_AP_REQ)
 
 with KrbRandomPatcher():
-    clicontext, tok, negResult = client.GSS_Init_sec_context(
+    clicontext, tok, negState = client.GSS_Init_sec_context(
         None,
         req_flags=(
             GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
@@ -1431,7 +1599,7 @@ with KrbRandomPatcher():
         )
     )
 
-assert negResult == 1
+assert negState == 1
 assert isinstance(tok, GSSAPI_BLOB)
 tok = GSSAPI_BLOB(bytes(tok))
 assert tok.MechType.val == '1.3.6.1.5.5.2'
@@ -1454,19 +1622,20 @@ assert ap_req.ticket == clicontext.ssp.ST
 # Hardcode (yes this will probably require updating this test)
 bytes(tok)
 assert bytes(tok) == b'`\x82\x06d\x06\x06+\x06\x01\x05\x05\x02\xa0\x82\x06X0\x82\x06T\xa0\x180\x16\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\xa2\x82\x066\x04\x82\x062`\x82\x06.\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\x01\x00n\x82\x06\x1d0\x82\x06\x19\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0e\xa2\x04\x03\x02\x05 \xa3\x82\x04\xa5a\x82\x04\xa10\x82\x04\x9d\xa0\x03\x02\x01\x05\xa1\x0e\x1b\x0cDOMAIN.LOCAL\xa2\x160\x14\xa0\x03\x02\x01\x03\xa1\r0\x0b\x1b\x04cifs\x1b\x03dc1\xa3\x82\x04l0\x82\x04h\xa0\x03\x02\x01\x12\xa1\x03\x02\x01\r\xa2\x82\x04Z\x04\x82\x04Vg\x1fa1\xb3\x8e\xe6\xe6\x82\xd6,\xb97\xb8\xb7\x9cX\x97S\x18/\x8d\xbc\xb1J\x91\xb01\x05*< \xf7\xb4\xc8\x9b\xf9\xa4\x1f\xe9\x96\r\x11*\xccs\xf6\xbde\'\xdf\xe7\x07\x00\xa3\xd3\xc2\xe7+K\xa6p]\xfc\x04\x0f\xd5o\x9d|\xd6\x0bX\x0e\xbe\xce\xc2\xbf\xb2@\xba\xaca\x96\x90\xdb\xd90\x1e\xd9\x8c\xac\x03|\xfd\xff\x8f\xf9j\xc9\x83X\x96\x9f52\xf9\xc6\xad\xc0v\xd16\xa0\xef\x96\xeb\xdd\xef)=\xf8y\xbbB\xad\xfb\xf7g\x044\xf3@\xadg>\x03\x03\xae\x18n\x1aQ\r\x7fP\xdb\xfe\xe9\xeb\xab2<q]k\'\xa6\x7f\xfe\xc6\r\xba\x9ftu\xe5\xdb\xf8\x8e\xee\x1f\xcc\x95\xb7\xd4g\xab+N\xce\xf8\x93\xa9*%\xc8\x0b\x84\x80\xac\x8c\x12\xbc\x10t\x15#\xa2s\x8a=|=,C\x825\x11\x11\x88\x96\x84\x86\xca\xb2\x93K2\xca\xd1\xb6\xb4\xb2\xcb\xf3C\xb2]A\xadF<\x05\x13\xcf!\xcf\x9fw\xf0r\xf4\xa4\x9d\x80B\x94pd\xe37Z\x1a\xe7l5_\xd4\x8d_\xc1c\xcf\x7f\x86Z\xf9\x1b\xcbx\x8c\xff\xe2\xe9\xe1\xa3\n~?\x91\xbe\x8f\xb5[\n\x8b\x8c\x0b`\x0e\xf3\xe0\xe8\x8f\xea\xadO\xbfO\xff\xe7l\x93\x02\xee*\xcf\xa3\xb6L\xa2\x8c\xd0\x06\xfdJ\xf9\xc2}.\xb4^G\xe5\x82\xb8~c*\xa24u\xca\xeb\x0e>\x9dws9\xf5\xcb\x94\xab\xc1\x9e\xbd\x08\x0f\xfcx\x18\x1b\xf8\x1f\xf2\'\x18-\xe4"\x93vuTf3\xbdj\xb6\x88%\x8a\x94\xd12\xfbY\x0f\x81R\xd3\xf1\x9b\xd5Z\x1f3o\xb7\xc3\x82\x14\t\x87\xac#\x89\x13M\x803\x88/\x92==S$\xa3\xe9\xf5C{\xd7\x0f\t^k\xb0\x0e\xe6\x8d\x8f!\x91+\x19\xb2y$\xc6\x1bN;\xfehA\x1f\x9f"\r\xe8\xda\xce\x00\xe7g\xb6b17\x06s\rM\xc8S\x9b0\x9f\xc7^l\xa4\xca\xe4p\xcd\xf1,\xc3\xcf\xb1\x91Hn>^\xb8\xc8\x07#\xb2\xb0G;\x07\xe4\xeaM8T\x87\xdd0=\xf2\xdb\x8d1\xf8\xc9\rS\xc4\xad\xcf9\xadx\xcfl\x85\xfb\xb8{LN\xe51\xa4,!3\xdf+\x03b\x13#t\xdf\x99T \xe4\xb2\xa6\xd1\xe1\x9dxy\xd5\x18e-Q\x01\xa3\x16\x96+\'\xb3\x88L\xb6}\x07W/\x96\xb9f\x8c\xa4,\xcas\x11\xa7\x15*\xc7\xc6\xd4\x92\x00\x91\x92\xfaJpy\x89\xe4;*\x10\xf1\x9eS^|\xf8\xaf\xda\xf6<\xe9\xa2\xa8\\\xe1\xbd\x17\xd8\x1c\xfev\xd2\xceWY\xa7\xfd\xbe\xffo\xb2y\xb8b\x0b\xc2\xc5\x18;$\xbe\x83\x1c~\xe1W\x11O\'\x00\xda!\x0b6\xed\xb7\xbd\xa7\xd9\x1a2\xf7\x94\x0b\xefC\x1cvW\x1c\xd4D\x99\xf7y\xccN\xbe\x82\x9f\xb3N\xea\xa1\xe4B$\rYb\xbd\xbc\xbc\x16\xc9b\x97KTn\x9c\xee8\r\xdaI\xf6Q\xac\xc5\xc5\x8a\xca\xe4\xad\x06\xd5~K\x91\xd8\xc5Use\xe8\xdd\xda~\xe9U\tc\xd7\rOV\xb4O\xc5\xa2n)\xb3l\xb2\x1d\x11"\x18%\xb5\xa2!|\xb1\xf1EM4\xd9J\x85\\\xb8`\xf2\xfeCh\x1e=0.~\x12Bs\xdd\x18\xb0O\xdd\xf6`\xb8\x85\x8e\x1ex\xd0"\xcc\x03\xf4g\xf3\xcf\x1an]\xf5;\xb81yEB\xb1\xd0\x8e8\xd3\xbf\xb0\xbf.[\xa6\xf7Z\x0fw\xd5k\xf2\x92K\x14O\xff<\x87\xeczW\xbf\xf3E\xee\x8aD\x96gm8\xc9E<8\xe6E!\xdb-\xe6\xd6E*\xa8\xf3\xda\x16u\x13N\x8d\x90\xcb\xb0\xd2t\xcea\x89V?\xd9\xa5nV\xa8\x00f\x1ex{\x089Pb05\xdd\xee\xb2\xfb\x84\xf6\xfb%\x07\xf2\xc1W\xe7N\x81\xa8\x19p\xe1\x14u\xce\x92n9:U\xb0kw\xc4D\xdb\xd26\x88\xe8\xa7|\x7f03xt\xfe\xf7\x87\xa1\x87\xfc\xaf\xd7:ZH7\xc8\xe3\xe6\x07\x120\x85\x97\xffr\xea.\xda\xe6\x9c\x94\x02\xadz\xe8\x1a\xbb>\x91\x00\xf0\xc8{\x99\xb2VBF\xbdV\xaf\x8em\x0e\xcf)(\xe5\x15\x12\x18\xf7\xe6\'\xc5e\xe1U@foO|\x0e\x93|-\x0e\x84x/\xcb\x1bS^YolN\n\xed|\x1d5\x0e\x16\x9d\x04_.\xaa\xa4\xbb/\x94\xcd\x14\x95v\xf85\xe5\xee\xcbD\x18g}\x04D\xe5\x1f\xaf\xcb\xed*\xfa\xc5\x0b\x1d2\x0b\xc2#\xd2b6\x01\xae\xe6\xdfj6:$)K\xfb;\x00\xf2f\x8d\xfc@N\x9f\xa1\x7f\xe96\xe6b\x07V\xa6\x91\x8f}\xe2\xde4?8\x0f\xab\x83\xfd\xe9\x11\x12K\xe5\x08\xa4\x82\x01\\0\x82\x01X\xa0\x03\x02\x01\x12\xa2\x82\x01O\x04\x82\x01K\\>\t\xe4\x1d8,a(\x7f\x1e\xd2\x8dHH\x9c\xa3\x03?&\xb9\xf4\xba\xef\xcf\xcf\xb6(8\x91\x0f\xa3lq\xc6 f&Ou\xd8Bk\xe84s\xf1\xec\xf6\x97wY\xc6Un;\xf5\xdeh\xb9J\xd6\xaf\xf4r\x00\x80\x17\x8d\xc4p\x81\xac\x89\xf1\xf6\x98\xef\x1f\xb3\xe5\x91}\xf5m\x1a\xbd\x08\x1d\x0217W0\x81\xddZ\xec,J%\xe2o\x86\xef{"a\xe0\xe2hBc\xeb^\x8b\xa3\x8c\xf7W\xf9F\xc6&\x1a\x041\x0c\xdf\xc3S\xaa>\x04\x90\xd7\x8a\xdd\xf3j\x80#4_\x95u\xaby3\x0f\x878\xe3\',t\xa7\xe9\xba7&\xd6\x82y\x1d9\x06\xf1\xff\xaf\xb33O\xdb\x00\xc5\x19\xd0\xb7\t\xe9\xeb\xe0iv\x08\xaa\xf4\x00\xcaG\xbb7\xb9P\xcd\xcf\xcbC\x9b\xec\xfdH\x1b\xbf\x89\x11\x96L\xa8\xb4\\6\xcf\x9a\xa6\x16\xf0\xfb,\xaf\x06.qj\xf0\x03\xfd\xc0 \x80\xb6\xb84\xcf\xec\tW~5\xad,\x14-\xf05\x04\xb2\xd4[o\xce\xa3\xf9\x06\x08\x0e\xeb\x1e\xbf2\xd7\xe4\xc2\x14\xabn_\x0c8j;#\r\xee\xce\xa6\x1f\xc3+\xed\x0c\xb7\xabdb\xb4\x8b\xb2\xd0\xe97\xa5P\xcd\xf1\x96\x8aT:=\xfc\xd9\x1e\xb6q\xcdM\x16\xead\x81\x84/\xab\xdd\xc8\xe1\xed\x17\xa3\xf5\x1c\xf1\x98\xf1\xf7\xbd\xbc\xc8\xdf'
+
 = GSS_Accept_sec_context (SPNEGO_negTokenResp: KRB_AP_REQ->KRB_AP_REP)
 
 with KrbRandomPatcher():
-    srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+    srvcontext, tok, negState = server.GSS_Accept_sec_context(None, tok)
 
-assert negResult == 0
+assert negState == 0
 assert isinstance(tok, SPNEGO_negToken)
 tok = SPNEGO_negToken(bytes(tok))
 assert isinstance(tok.token, SPNEGO_negTokenResp)
-assert tok.token.negResult == 0
+assert tok.token.negState == 0
 assert tok.token.supportedMech.oid == '1.2.840.48018.1.2.2'
 assert isinstance(tok.token.responseToken, SPNEGO_Token)
-assert tok.token.mechListMIC is not None
+assert tok.token.mechListMIC is None
 
 ap_rep = tok.token.responseToken.value.root
 assert isinstance(ap_rep, KRB_AP_REP)
@@ -1478,15 +1647,15 @@ assert apreppart.subkey.keytype == 17
 
 # Hardcode (yes this will probably require updating this test)
 bytes(tok)
-assert bytes(tok) == b'\xa1\x81\xa90\x81\xa6\xa0\x03\n\x01\x00\xa1\x0b\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\xa2r\x04pon0l\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0f\xa2`0^\xa0\x03\x02\x01\x12\xa2W\x04UaS\xeck\xcc\xad~\xfa^\x8d\xca\xbb\xc5\xd2/\xfd\xd3\xc3\xd9\xadN`\xd2;\xd7{\xb7\xf4p.\xa9\x9a\xb1}D\xc6|_t\n\r"M\xcd\xe2\t\xf0Ri\xc7\xcf\xb5\xefr9\xf0`iS7N\x06qKP\x06\xde\xc4\x18\xd5_\xcb\x0ct\x03k\xbc\xb9\x1adT\x03\xc1\x8bM\xa3\x1e\x04\x1c\x04\x04\x05\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x17F\x8al\x01c\x00\xcf4\x12oI'
+assert bytes(tok) == b'\xa1\x81\x890\x81\x86\xa0\x03\n\x01\x00\xa1\x0b\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\xa2r\x04pon0l\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0f\xa2`0^\xa0\x03\x02\x01\x12\xa2W\x04UaS\xeck\xcc\xad~\xfa^\x8d\xca\xbb\xc5\xd2/\xfd\xd3\xc3\xd9\xadN`\xd2;\xd7{\xb7\xf4p.\xa9\x9a\xb1}D\xc6|_t\n\r"M\xcd\xe2\t\xf0Ri\xc7\xcf\xb5\xefr9\xf0`iS7N\x06qKP\x06\xde\xc4\x18\xd5_\xcb\x0ct\x03k\xbc\xb9\x1adT\x03\xc1\x8bM'
 
 = GSS_Init_sec_context (SPNEGO_negToken: KRB_AP_REP->OK)
 
 with KrbRandomPatcher():
-    clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+    clicontext, tok, negState = client.GSS_Init_sec_context(clicontext, tok)
 
 assert tok is None
-assert negResult == 0
+assert negState == 0
 assert clicontext.KrbSessionKey.key == srvcontext.KrbSessionKey.key
 assert srvcontext.KrbSessionKey.key == b'0000000000000000'
 
@@ -1524,8 +1693,8 @@ sig = server.GSS_GetMICEx(
     ]
 )
 assert isinstance(sig, KRB_InnerToken) and sig.TOK_ID == b"\x04\x04"
-assert sig.root.SND_SEQ == 1
-assert bytes(sig) == b'\x04\x04\x05\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x01G\x81\x93\xb9\x92\xd0NvHH\xf6\x9c'
+assert sig.root.SND_SEQ == 0
+assert bytes(sig) == b'\x04\x04\x05\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x98\xdeb<\x14\x1c\x9fe%{\x0e\xf7'
 client.GSS_VerifyMICEx(
     clicontext,
     [
@@ -1575,7 +1744,7 @@ server = KerberosSSP(
 = GSS_Init_sec_context (KRB_AP_REQ) - DCE_STYLE
 
 with KrbRandomPatcher():
-    clicontext, tok, negResult = client.GSS_Init_sec_context(
+    clicontext, tok, negState = client.GSS_Init_sec_context(
         None,
         req_flags=(
             GSS_C_FLAGS.GSS_C_DCE_STYLE |
@@ -1586,7 +1755,7 @@ with KrbRandomPatcher():
         )
     )
 
-assert negResult == 1
+assert negState == 1
 assert isinstance(tok, KRB_AP_REQ)
 ap_req = KRB_AP_REQ(bytes(tok))
 assert isinstance(ap_req, KRB_AP_REQ)
@@ -1611,9 +1780,9 @@ assert bytes(tok) == b'n\x82\x06\x1d0\x82\x06\x19\xa0\x03\x02\x01\x05\xa1\x03\x0
 = GSS_Accept_sec_context (KRB_AP_REQ->KRB_AP_REP) - DCE_STYLE
 
 with KrbRandomPatcher():
-    srvcontext, tok, negResult = server.GSS_Accept_sec_context(None, tok)
+    srvcontext, tok, negState = server.GSS_Accept_sec_context(None, tok)
 
-assert negResult == 1
+assert negState == 1
 assert isinstance(tok, KRB_AP_REP)
 ap_rep = KRB_AP_REP(bytes(tok))
 
@@ -1629,9 +1798,9 @@ assert bytes(tok) == b'on0l\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0f\xa2`0^\xa0\x
 = GSS_Init_sec_context (SPNEGO_negToken: KRB_AP_REP->KRB_AP_REP) - DCE_STYLE
 
 with KrbRandomPatcher():
-    clicontext, tok, negResult = client.GSS_Init_sec_context(clicontext, tok)
+    clicontext, tok, negState = client.GSS_Init_sec_context(clicontext, tok)
 
-assert negResult == 0
+assert negState == 0
 assert isinstance(tok, KRB_AP_REP)
 ap_rep = KRB_AP_REP(bytes(tok))
 
@@ -1645,9 +1814,9 @@ assert bytes(tok) == b'oQ0O\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0f\xa2C0A\xa0\x
 = GSS_Accept_sec_context (KRB_AP_REP->OK) - DCE_STYLE
 
 with KrbRandomPatcher():
-    srvcontext, tok, negResult = server.GSS_Accept_sec_context(srvcontext, tok)
+    srvcontext, tok, negState = server.GSS_Accept_sec_context(srvcontext, tok)
 
-assert negResult == 0
+assert negState == 0
 assert tok is None
 
 

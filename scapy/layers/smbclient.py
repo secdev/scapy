@@ -447,7 +447,7 @@ class SMB_Client(Automaton):
         # Begin session establishment
         ssp_tuple = self.session.ssp.GSS_Init_sec_context(
             self.session.sspcontext,
-            token=ssp_blob,
+            input_token=ssp_blob,
             target_name="cifs/" + self.HOST if self.HOST else None,
             req_flags=(
                 GSS_C_FLAGS.GSS_C_MUTUAL_FLAG
@@ -476,8 +476,8 @@ class SMB_Client(Automaton):
 
     @ATMT.condition(NEGOTIATED, prio=1)
     def should_send_session_setup_request(self, ssp_tuple):
-        _, _, negResult = ssp_tuple
-        if negResult not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
+        _, _, status = ssp_tuple
+        if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
             raise ValueError("Internal error: the SSP completed with an error.")
         raise self.SENT_SESSION_REQUEST().action_parameters(ssp_tuple)
 
@@ -487,8 +487,8 @@ class SMB_Client(Automaton):
 
     @ATMT.action(should_send_session_setup_request)
     def send_setup_session_request(self, ssp_tuple):
-        self.session.sspcontext, token, negResult = ssp_tuple
-        if self.SMB2 and negResult == GSS_S_CONTINUE_NEEDED:
+        self.session.sspcontext, token, status = ssp_tuple
+        if self.SMB2 and status == GSS_S_CONTINUE_NEEDED:
             # New session: force 0
             self.SessionId = 0
         if self.SMB2 or self.EXTENDED_SECURITY:
@@ -608,7 +608,7 @@ class SMB_Client(Automaton):
     def AUTHENTICATED(self, ssp_blob=None):
         self.session.sspcontext, _, status = self.session.ssp.GSS_Init_sec_context(
             self.session.sspcontext,
-            token=ssp_blob,
+            input_token=ssp_blob,
             target_name="cifs/" + self.HOST if self.HOST else None,
         )
         if status != GSS_S_COMPLETE:
@@ -1123,7 +1123,7 @@ class smbclient(CLIUtil):
         HashAes256Sha96: bytes = None,
         HashAes128Sha96: bytes = None,
         port: int = 445,
-        timeout: int = 2,
+        timeout: int = 5,
         debug: int = 0,
         ssp=None,
         ST=None,

@@ -377,9 +377,8 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                     print(
                         conf.color_theme.success(
                             f">> {cls.__name__} {self.session.rpc_bind_interface.name}"
-                            f" is on port '{port_spec.decode()}' using " + (
-                                "NDR64" if self.ndr64 else "NDR32"
-                            )
+                            f" is on port '{port_spec.decode()}' using "
+                            + ("NDR64" if self.ndr64 else "NDR32")
                         )
                     )
         elif DceRpc5Request in req:

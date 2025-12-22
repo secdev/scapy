@@ -662,7 +662,8 @@ class SMB_Server(Automaton):
     @ATMT.action(receive_setup_andx_request)
     def on_setup_andx_request(self, pkt, ssp_blob):
         self.session.sspcontext, tok, status = self.session.ssp.GSS_Accept_sec_context(
-            self.session.sspcontext, ssp_blob
+            self.session.sspcontext,
+            ssp_blob,
         )
         self.update_smbheader(pkt)
         if SMB2_Session_Setup_Request in pkt:
