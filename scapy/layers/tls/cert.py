@@ -6,9 +6,9 @@
 #   2015, 2016, 2017 Maxence Tury   <maxence.tury@ssi.gouv.fr>
 #   2022-2025        Gabriel Potter
 
-"""
-High-level methods for PKI objects (X.509 certificates, CRLs, asymmetric keys, CMS).
-Supports both RSA, ECDSA and EDDSA objects.
+r"""
+High-level methods for PKI objects (X.509 certificates, CRLs, CSR, Keys, CMS).
+Supported keys include RSA, ECDSA and EdDSA.
 
 The classes below are wrappers for the ASN.1 objects defined in x509.py.
 
@@ -57,12 +57,45 @@ Use 'CertTree' to organize the certificates in a tree::
     /C=Ulaanbaatar/OU=Scapy Test PKI/CN=Scapy Test CA [Self Signed]
         /C=FR/OU=Scapy Test PKI/CN=Scapy Test Client [Not Self Signed]
 
+Example 3: Certificate Signing Request (CSR)
+____________________________________________
+
+Scapy's :py:class:`~scapy.layers.tls.cert.CSR` class supports both PKCS#10 and CMC
+formats.
+
+Load and display a CSR::
+
+    >>> csr = CSR("cert.req")
+    >>> csr
+    [CSR Format: CMC, Subject:/O=TestOrg/CN=TestCN, Verified: True]
+    >>> csr.certReq.show()
+    ###[ PKCS10_CertificationRequest ]###
+       \certificationRequestInfo\
+        |###[ PKCS10_CertificationRequestInfo ]###
+        |  version   = 0x0 <ASN1_INTEGER[0]
+        |  \subject   \
+        |   |###[ X509_RDN ]###
+        |   |  \rdn       \
+        |   |   |###[ X509_AttributeTypeAndValue ]###
+        |   |   |  type      = <ASN1_OID['organizationName']>
+        |   |   |  value     = <ASN1_UTF8_STRING[b'TestOrg']>
+        [...]
+
+Get its public key and verify its signature::
+
+    >>> csr.pubkey
+    <scapy.layers.tls.cert.PubKeyRSA at 0x7f3481149310>
+    >>> csr.verifySelf()
+    True
+
 No need for obnoxious openssl tweaking anymore. :)
 """
 
 import base64
+import enum
 import os
 import time
+import warnings
 
 from scapy.config import conf, crypto_validator
 from scapy.compat import Self
@@ -77,7 +110,6 @@ from scapy.asn1.asn1 import (
 from scapy.asn1.mib import hash_by_oid
 from scapy.packet import Packet
 from scapy.layers.x509 import (
-    CMS_Attribute,
     CMS_CertificateChoices,
     CMS_ContentInfo,
     CMS_EncapsulatedContentInfo,
@@ -86,15 +118,19 @@ from scapy.layers.x509 import (
     CMS_SignedAttrsForSignature,
     CMS_SignedData,
     CMS_SignerInfo,
+    CMS_SubjectKeyIdentifier,
     ECDSAPrivateKey_OpenSSL,
     ECDSAPrivateKey,
     ECDSAPublicKey,
     EdDSAPrivateKey,
     EdDSAPublicKey,
+    PKCS10_CertificationRequest,
     RSAPrivateKey_OpenSSL,
     RSAPrivateKey,
     RSAPublicKey,
     X509_AlgorithmIdentifier,
+    X509_Attribute,
+    X509_AttributeValue,
     X509_Cert,
     X509_CRL,
     X509_SubjectPublicKeyInfo,
@@ -141,6 +177,7 @@ if conf.crypto_valid:
 _MAX_KEY_SIZE = 50 * 1024
 _MAX_CERT_SIZE = 50 * 1024
 _MAX_CRL_SIZE = 10 * 1024 * 1024  # some are that big
+_MAX_CSR_SIZE = 50 * 1024
 
 
 #####################################################################
@@ -154,9 +191,7 @@ def der2pem(der_string, obj="UNKNOWN"):
     # Encode a byte string in PEM format. Header advertises <obj> type.
     pem_string = "-----BEGIN %s-----\n" % obj
     base64_string = base64.b64encode(der_string).decode()
-    chunks = [
-        base64_string[i : i + 64] for i in range(0, len(base64_string), 64)
-    ]  # noqa: E501
+    chunks = [base64_string[i : i + 64] for i in range(0, len(base64_string), 64)]
     pem_string += "\n".join(chunks)
     pem_string += "\n-----END %s-----\n" % obj
     return pem_string
@@ -332,10 +367,17 @@ class PubKey(metaclass=_PubKeyFactory):
 
     def verifyCert(self, cert):
         """Verifies either a Cert or an X509_Cert."""
-        h = cert.getSignatureHashName()
+        h = _get_cert_sig_hashname(cert)
         tbsCert = cert.tbsCertificate
         sigVal = bytes(cert.signatureValue)
         return self.verify(bytes(tbsCert), sigVal, h=h, t="pkcs")
+
+    def verifyCsr(self, csr):
+        """Verifies a CSR."""
+        h = _get_csr_sig_hashname(csr)
+        certReqInfo = csr.certReq.certificationRequestInfo
+        sigVal = bytes(csr.certReq.signature)
+        return self.verify(bytes(certReqInfo), sigVal, h=h, t="pkcs")
 
     @property
     def pem(self):
@@ -630,11 +672,11 @@ class PrivKey(metaclass=_PrivKeyFactory):
 
     def verifyCert(self, cert):
         """Verifies either a Cert or an X509_Cert."""
-        tbsCert = cert.tbsCertificate
-        sigAlg = tbsCert.signature
-        h = hash_by_oid[sigAlg.algorithm.val]
-        sigVal = bytes(cert.signatureValue)
-        return self.verify(bytes(tbsCert), sigVal, h=h, t="pkcs")
+        return self.pubkey.verifyCert(cert)
+
+    def verifyCsr(self, cert):
+        """Verifies either a CSR."""
+        return self.pubkey.verifyCsr(cert)
 
     @property
     def pem(self):
@@ -802,7 +844,7 @@ class PrivKeyECDSA(PrivKey):
     def import_from_asn1pkt(self, privkey):
         self.key = serialization.load_der_private_key(
             bytes(privkey), None, backend=default_backend()
-        )  # noqa: E501
+        )
         self.pubkey = PubKeyECDSA(cryptography_obj=self.key.public_key())
         self.marker = "EC PRIVATE KEY"
 
@@ -832,7 +874,7 @@ class PrivKeyEdDSA(PrivKey):
     def import_from_asn1pkt(self, privkey):
         self.key = serialization.load_der_private_key(
             bytes(privkey), None, backend=default_backend()
-        )  # noqa: E501
+        )
         self.pubkey = PubKeyECDSA(cryptography_obj=self.key.public_key())
         self.marker = "PRIVATE KEY"
 
@@ -880,6 +922,24 @@ class _CertMaker(_PKIObjMaker):
         return obj
 
 
+def _get_cert_sig_hashname(cert):
+    """
+    Return the hash associated with the signature algorithm of a certificate.
+    """
+    tbsCert = cert.tbsCertificate
+    sigAlg = tbsCert.signature
+    return hash_by_oid[sigAlg.algorithm.val]
+
+
+def _get_csr_sig_hashname(csr):
+    """
+    Return the hash associated with the signature algorithm of a CSR.
+    """
+    certReq = csr.certReq
+    sigAlg = certReq.signatureAlgorithm
+    return hash_by_oid[sigAlg.algorithm.val]
+
+
 class Cert(metaclass=_CertMaker):
     """
     Wrapper for the X509_Cert from layers/x509.py.
@@ -921,7 +981,7 @@ class Cert(metaclass=_CertMaker):
             raise Exception(error_msg)
         self.notAfter_str_simple = time.strftime("%x", self.notAfter)
 
-        self.pubKey = PubKey(bytes(tbsCert.subjectPublicKeyInfo))
+        self.pubkey = PubKey(bytes(tbsCert.subjectPublicKeyInfo))
 
         if tbsCert.extensions:
             for extn in tbsCert.extensions:
@@ -939,7 +999,7 @@ class Cert(metaclass=_CertMaker):
         self.signatureValue = bytes(cert.signatureValue)
         self.signatureLen = len(self.signatureValue)
 
-    def isIssuerCert(self, other):
+    def isIssuer(self, other):
         """
         True if 'other' issued 'self', i.e.:
           - self.issuer == other.subject
@@ -947,7 +1007,10 @@ class Cert(metaclass=_CertMaker):
         """
         if self.issuer_hash != other.subject_hash:
             return False
-        return other.pubKey.verifyCert(self)
+        return other.pubkey.verifyCert(self)
+
+    def isIssuerCert(self, other):
+        return self.isIssuer(other)
 
     def isSelfSigned(self):
         """
@@ -956,29 +1019,21 @@ class Cert(metaclass=_CertMaker):
           - the signature of the certificate is valid.
         """
         if self.issuer_hash == self.subject_hash:
-            return self.isIssuerCert(self)
+            return self.isIssuer(self)
         return False
 
     def encrypt(self, msg, t="pkcs", h="sha256", mgf=None, L=None):
         # no ECDSA *encryption* support, hence only RSA specific keywords here
-        return self.pubKey.encrypt(msg, t=t, h=h, mgf=mgf, L=L)
+        return self.pubkey.encrypt(msg, t=t, h=h, mgf=mgf, L=L)
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
-        return self.pubKey.verify(msg, sig, t=t, h=h, mgf=mgf, L=L)
-
-    def getSignatureHashName(self):
-        """
-        Return the hash name used by the 'signatureAlgorithm'.
-        """
-        tbsCert = self.tbsCertificate
-        sigAlg = tbsCert.signature
-        return hash_by_oid[sigAlg.algorithm.val]
+        return self.pubkey.verify(msg, sig, t=t, h=h, mgf=mgf, L=L)
 
     def getSignatureHash(self):
         """
         Return the hash cryptography object used by the 'signatureAlgorithm'
         """
-        return _get_hash(self.getSignatureHashName())
+        return _get_hash(_get_cert_sig_hashname(self))
 
     def setSubjectPublicKeyFromPrivateKey(self, key):
         """
@@ -1031,9 +1086,7 @@ class Cert(metaclass=_CertMaker):
                 else:
                     now = time.strptime(now, "%b %d %H:%M:%S %Y %Z")
             except Exception:
-                warning(
-                    "Bad time string provided, will use localtime() instead."
-                )  # noqa: E501
+                warning("Bad time string provided, will use localtime() instead.")
                 now = time.localtime()
 
         now = time.mktime(now)
@@ -1080,6 +1133,15 @@ class Cert(metaclass=_CertMaker):
     def der(self):
         return bytes(self.x509Cert)
 
+    @property
+    def pubKey(self):
+        warnings.warn(
+            "Cert.pubKey is deprecated and will be removed in a future version. "
+            "Use Cert.pubkey",
+            DeprecationWarning,
+        )
+        return self.pubkey
+
     def __eq__(self, other):
         return self.der == other.der
 
@@ -1111,7 +1173,7 @@ class Cert(metaclass=_CertMaker):
         return "[X.509 Cert. Subject:%s, Issuer:%s]" % (
             self.subject_str,
             self.issuer_str,
-        )  # noqa: E501
+        )
 
 
 ################################
@@ -1204,15 +1266,15 @@ class CRL(metaclass=_CRLMaker):
         self.signatureValue = bytes(crl.signatureValue)
         self.signatureLen = len(self.signatureValue)
 
-    def isIssuerCert(self, other):
+    def isIssuer(self, other):
         # This is exactly the same thing as in Cert method.
         if self.issuer_hash != other.subject_hash:
             return False
-        return other.pubKey.verifyCert(self)
+        return other.pubkey.verifyCert(self)
 
     def verify(self, anchors):
         # Return True iff the CRL is signed by one of the provided anchors.
-        return any(self.isIssuerCert(a) for a in anchors)
+        return any(self.isIssuer(a) for a in anchors)
 
     def show(self):
         print("Version: %d" % self.version)
@@ -1220,6 +1282,166 @@ class CRL(metaclass=_CRLMaker):
         print("Issuer: " + self.issuer_str)
         print("lastUpdate: %s" % self.lastUpdate_str)
         print("nextUpdate: %s" % self.nextUpdate_str)
+
+
+###############################
+# Certificate Signing Request #
+###############################
+
+
+class _CSRMaker(_PKIObjMaker):
+    """
+    Metaclass for CSR creation. It is not necessary as it was for the keys,
+    but we reuse the model instead of creating redundant constructors.
+    """
+
+    def __call__(cls, cert_path):
+        obj = _PKIObjMaker.__call__(cls, cert_path, _MAX_CSR_SIZE)
+        obj.__class__ = CSR
+        try:
+            # PKCS#10 format
+            csr = PKCS10_CertificationRequest(obj._der)
+            obj.marker = "NEW CERTIFICATE REQUEST"
+            obj.fmt = CSR.FORMAT.PKCS10
+        except Exception:
+            try:
+                # CMC format
+                csr = CMS_ContentInfo(obj._der)
+                obj.marker = "NEW CERTIFICATE REQUEST"
+                obj.fmt = CSR.FORMAT.CMC
+            except Exception:
+                raise Exception("Unable to import CSR")
+
+        obj.import_from_asn1pkt(csr)
+        return obj
+
+
+class CSR(metaclass=_CSRMaker):
+    """
+    Wrapper for the CSR formats.
+    This can handle both PKCS#10 and CMC formats.
+    """
+
+    class FORMAT(enum.Enum):
+        """
+        The format used by the CSR.
+        """
+
+        PKCS10 = "PKCS#10"
+        CMC = "CMC"
+
+    def import_from_asn1pkt(self, csr):
+        self.csr = csr
+        certReqInfo = self.certReq.certificationRequestInfo
+
+        # Subject
+        self.subject = certReqInfo.get_subject()
+        self.subject_str = certReqInfo.get_subject_str()
+        self.subject_hash = hash(self.subject_str)
+
+        # pubkey
+        self.pubkey = PubKey(bytes(certReqInfo.subjectPublicKeyInfo))
+
+        # Get the "subjectKeyIdentifier" from the "extensionRequest" attribute
+        try:
+            extReq = next(
+                x.values[0].value
+                for x in certReqInfo.attributes
+                if x.type.val == "1.2.840.113549.1.9.14"  # extKeyUsage
+            )
+            self.sid = next(
+                x.extnValue.keyIdentifier
+                for x in extReq.extensions
+                if x.extnID.val == "2.5.29.14"  # subjectKeyIdentifier
+            )
+        except StopIteration:
+            self.sid = None
+
+    @property
+    def certReq(self):
+        csr = self.csr
+
+        if self.fmt == CSR.FORMAT.PKCS10:
+            return csr
+        elif self.fmt == CSR.FORMAT.CMC:
+            if (
+                csr.contentType.oidname != "id-signedData"
+                or csr.content.encapContentInfo.eContentType.oidname != "id-cct-PKIData"
+            ):
+                raise ValueError("Invalid CMC wrapping !")
+            req = csr.content.encapContentInfo.eContent.reqSequence[0]
+            return req.request.certificationRequest
+        else:
+            raise ValueError("Invalid CSR format !")
+
+    @property
+    def pem(self):
+        return der2pem(self.der, self.marker)
+
+    @property
+    def der(self):
+        return bytes(self.csr)
+
+    def __eq__(self, other):
+        return self.der == other.der
+
+    def __hash__(self):
+        return hash(self.der)
+
+    def isIssuer(self, other):
+        return other.sid == self.sid
+
+    def isSelfSigned(self):
+        return True
+
+    def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
+        return self.pubkey.verify(msg, sig, t=t, h=h, mgf=mgf, L=L)
+
+    def export(self, filename, fmt=None):
+        """
+        Export certificate in 'fmt' format (DER or PEM) to file 'filename'
+        """
+        if fmt is None:
+            if filename.endswith(".pem"):
+                fmt = "PEM"
+            else:
+                fmt = "DER"
+        with open(filename, "wb") as f:
+            if fmt == "DER":
+                return f.write(self.der)
+            elif fmt == "PEM":
+                return f.write(self.pem.encode())
+
+    def show(self):
+        certReqInfo = self.certReq.certificationRequestInfo
+
+        print("Subject: " + self.subject_str)
+        print("Attributes:")
+        for attr in certReqInfo.attributes:
+            print("  - %s" % attr.type.oidname)
+
+    def verifySelf(self) -> bool:
+        """
+        Verify the signatures of the CSR
+        """
+        if self.fmt == self.FORMAT.CMC:
+            try:
+                cms_engine = CMS_Engine([self])
+                cms_engine.verify(self.csr)
+                return self.pubkey.verifyCsr(self)
+            except ValueError:
+                return False
+        elif self.fmt == self.FORMAT.PKCS10:
+            return self.pubkey.verifyCsr(self)
+        else:
+            return False
+
+    def __repr__(self):
+        return "[CSR Format: %s, Subject:%s, Verified: %s]" % (
+            self.fmt.value,
+            self.subject_str,
+            self.verifySelf(),
+        )
 
 
 ####################
@@ -1235,7 +1457,7 @@ class CertList(list):
 
     def __init__(
         self,
-        certList: Union[Self, List[Cert], Cert, str],
+        certList: Union[Self, List[Cert], List[CSR], Cert, str],
     ):
         """
         Construct a list of certificates/CRLs to be used as list of ROOT certificates.
@@ -1268,13 +1490,17 @@ class CertList(list):
 
         super(CertList, self).__init__(certList)
 
-    def findCertByIssuer(self, issuer):
+    def findCertBySid(self, sid):
         """
-        Find a certificate in the list by issuer.
+        Find a certificate in the list by SubjectIDentifier.
         """
         for cert in self:
-            if cert.issuer == issuer:
-                return cert
+            if isinstance(cert, Cert) and isinstance(sid, CMS_IssuerAndSerialNumber):
+                if cert.issuer == sid.get_issuer():
+                    return cert
+            elif isinstance(cert, CSR) and isinstance(sid, CMS_SubjectKeyIdentifier):
+                if cert.sid == sid.sid:
+                    return cert
         raise KeyError("Certificate not found !")
 
     def export(self, filename, fmt=None):
@@ -1390,7 +1616,7 @@ class CertTree(CertList):
             cert, children = todo.pop()
             for c in certList:
                 # Check if this certificate matches the one we're looking at
-                if c.isIssuerCert(cert) and c != cert:
+                if c.isIssuer(cert) and c != cert:
                     item = (c, [])
                     children.append(item)
                     certList.remove(c)
@@ -1409,7 +1635,7 @@ class CertTree(CertList):
             for c, subtree in curtree:
                 curchain = chain + [c]
                 # If 'cert' is issued by c
-                if cert.isIssuerCert(c):
+                if cert.isIssuer(c):
                     # Final node of the chain !
                     # (add the final cert if not self signed)
                     if c != cert:
@@ -1512,7 +1738,7 @@ class CMS_Engine:
         We currently only support X.509 certificates !
         """
         # RFC3852 - 5.4. Message Digest Calculation Process
-        h = h or cert.getSignatureHashName()
+        h = h or _get_cert_sig_hashname(cert)
         hash = hashes.Hash(_get_hash(h))
         hash.update(bytes(message))
         hashed_message = hash.finalize()
@@ -1529,17 +1755,17 @@ class CMS_Engine:
                 parameters=ASN1_NULL(0),
             ),
             signedAttrs=[
-                CMS_Attribute(
-                    attrType=ASN1_OID("contentType"),
-                    attrValues=[
-                        eContentType,
+                X509_Attribute(
+                    type=ASN1_OID("contentType"),
+                    values=[
+                        X509_AttributeValue(value=eContentType),
                     ],
                 ),
-                CMS_Attribute(
-                    attrType=ASN1_OID("messageDigest"),
+                X509_Attribute(
+                    type=ASN1_OID("messageDigest"),
                     # "A message-digest attribute MUST have a single attribute value"
-                    attrValues=[
-                        ASN1_STRING(hashed_message),
+                    values=[
+                        X509_AttributeValue(value=ASN1_STRING(hashed_message)),
                     ],
                 ),
             ],
@@ -1607,7 +1833,9 @@ class CMS_Engine:
         signeddata = contentInfo.content
 
         # Build the certificate chain
-        certificates = [Cert(x.certificate) for x in signeddata.certificates]
+        certificates = []
+        if signeddata.certificates:
+            certificates = [Cert(x.certificate) for x in signeddata.certificates]
         certTree = CertTree(certificates, self.store)
 
         # Check there's at least one signature
@@ -1617,7 +1845,7 @@ class CMS_Engine:
         # Check all signatures
         for signerInfo in signeddata.signerInfos:
             # Find certificate in the chain that did this
-            cert: Cert = certTree.findCertByIssuer(signerInfo.sid.get_issuer())
+            cert: Cert = certTree.findCertBySid(signerInfo.sid)
 
             # Verify certificate signature
             certTree.verify(cert)
@@ -1627,9 +1855,9 @@ class CMS_Engine:
                 # Verify the contentType
                 try:
                     contentType = next(
-                        x.attrValues[0]
+                        x.values[0].value
                         for x in signerInfo.signedAttrs
-                        if x.attrType.oidname == "contentType"
+                        if x.type.oidname == "contentType"
                     )
 
                     if contentType != signeddata.encapContentInfo.eContentType:
@@ -1652,9 +1880,9 @@ class CMS_Engine:
                 try:
                     # "A message-digest attribute MUST have a single attribute value"
                     messageDigest = next(
-                        x.attrValues[0].val
+                        x.values[0].value
                         for x in signerInfo.signedAttrs
-                        if x.attrType.oidname == "messageDigest"
+                        if x.type.oidname == "messageDigest"
                     )
 
                     # Re-calculate hash
