@@ -4,6 +4,8 @@
     "test/scapy/layers/dot11.uts",
     "test/scapy/layers/ipsec.uts",
     "test/scapy/layers/kerberos.uts",
+    "test/scapy/layers/ntlm.uts",
+    "test/scapy/layers/spnego.uts",
     "test/scapy/layers/msnrpc.uts",
     "test/scapy/layers/tls/cert.uts",
     "test/scapy/layers/tls/tls*.uts"
