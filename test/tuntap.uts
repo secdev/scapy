@@ -37,10 +37,10 @@ assert p.addr_family == 2
 assert isinstance(p.payload, IP)
 
 p = DarwinUtunPacketInfo()/IPv6()
-assert p.addr_family == 30
+assert p.addr_family == socket.AF_INET6
 
 p = DarwinUtunPacketInfo(raw(p))
-assert p.addr_family == 30
+assert p.addr_family == socket.AF_INET6
 assert isinstance(p.payload, IPv6)
 
 #######
