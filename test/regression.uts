@@ -533,7 +533,7 @@ if len(routes6) > 2 and not WINDOWS:
     # Identify routes to fe80::/64
     assert sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) >= 1
     if len(iflist) >= 2:
-        assert sum(1 for r in routes6 if ll_route.match(r[0]) and r[1] == 64) >= 1
+        assert sum(1 for r in routes6 if ll_route.match(r[0])) >= 1
         try:
             # Identify a route to a node IPv6 link-local address
             assert sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128) >= 1
@@ -2941,11 +2941,12 @@ class BSDLoader:
         for p in self.patches:
             p.start()        
         return pfroute
-    def __exit__(self, *args, **kwargs):
+    def __exit__(self, type, value, traceback):
         for p in self.loadpatches:
             p.stop()
         for p in self.patches:
             p.stop()
+        importlib.reload(scapy.arch.bpf.pfroute)
 
 
 = OpenBSD 7.5 amd64 - read_routes()

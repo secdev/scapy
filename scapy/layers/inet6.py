@@ -22,7 +22,7 @@ from scapy.arch import get_if_hwaddr
 from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.base_classes import Gen, _ScopedIP
 from scapy.compat import chb, orb, raw, plain_str, bytes_encode
-from scapy.consts import WINDOWS
+from scapy.consts import WINDOWS, OPENBSD
 from scapy.config import conf
 from scapy.data import (
     DLT_IPV6,
@@ -4213,6 +4213,8 @@ conf.l2types.register(31, IPv6)
 conf.l2types.register(DLT_IPV6, IPv6)
 conf.l2types.register(DLT_RAW, IPv46)
 conf.l2types.register_num2layer(DLT_RAW_ALT, IPv46)
+if OPENBSD:
+    conf.l2types.register_num2layer(229, IPv6)
 
 bind_layers(Ether, IPv6, type=0x86dd)
 bind_layers(CookedLinux, IPv6, proto=0x86dd)

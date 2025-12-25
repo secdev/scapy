@@ -16,7 +16,7 @@ if conf.crypto_valid:
     from cryptography.hazmat.primitives import cmac
     from cryptography.hazmat.primitives.ciphers import algorithms
 else:
-    log_loading.info("Can't import python-cryptography v1.7+. "
+    log_loading.info("Can't import python-cryptography v2.0+. "
                      "Disabled SecOC calculate_cmac.")
 
 from scapy.config import conf
