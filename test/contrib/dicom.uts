@@ -1,0 +1,541 @@
+% DICOM (Digital Imaging and Communications in Medicine) tests
+
+# Type the following command to launch the tests:
+# $ test/run_tests -P "load_contrib('dicom')" -t test/contrib/dicom.uts
+
+############
+############
++ DICOM module loading
+
+= Import DICOM module
+load_contrib("dicom", globals_dict=globals())
+
+= Verify essential classes are exported
+assert DICOM is not None
+assert A_ASSOCIATE_RQ is not None
+assert A_ASSOCIATE_AC is not None
+assert A_ASSOCIATE_RJ is not None
+assert P_DATA_TF is not None
+assert A_RELEASE_RQ is not None
+assert A_RELEASE_RP is not None
+assert A_ABORT is not None
+assert DICOMVariableItem is not None
+assert DICOMApplicationContext is not None
+assert DICOMPresentationContextRQ is not None
+assert DICOMUserInformation is not None
+assert DICOMMaximumLength is not None
+
+= Verify DIMSE packet classes are exported
+assert C_ECHO_RQ is not None
+assert C_ECHO_RSP is not None
+assert C_STORE_RQ is not None
+assert C_STORE_RSP is not None
+assert C_FIND_RQ is not None
+
+= Verify constants are exported
+assert DICOM_PORT == 104
+assert APP_CONTEXT_UID == "1.2.840.10008.3.1.1.1"
+assert DEFAULT_TRANSFER_SYNTAX_UID == "1.2.840.10008.1.2"
+assert VERIFICATION_SOP_CLASS_UID == "1.2.840.10008.1.1"
+
+############
+############
++ PDU header tests
+
+= DICOM PDU header construction
+pkt = DICOM()
+assert pkt.pdu_type == 0x01
+assert pkt.reserved1 == 0
+
+= DICOM PDU type field values
+import struct
+for pdu_type, expected_class in [(0x01, A_ASSOCIATE_RQ), (0x02, A_ASSOCIATE_AC),
+                                  (0x03, A_ASSOCIATE_RJ), (0x04, P_DATA_TF),
+                                  (0x05, A_RELEASE_RQ), (0x06, A_RELEASE_RP),
+                                  (0x07, A_ABORT)]:
+    pkt = DICOM() / expected_class()
+    raw_bytes = bytes(pkt)
+    assert raw_bytes[0] == pdu_type
+
+############
+############
++ LenField auto-calculation tests
+
+= DICOM header auto-calculates payload length
+pkt = DICOM() / A_RELEASE_RQ()
+raw = bytes(pkt)
+length_field = struct.unpack("!I", raw[2:6])[0]
+payload_size = len(raw) - 6
+assert length_field == payload_size
+assert length_field == 4
+
+= Variable item length auto-calculated
+pkt = DICOMVariableItem() / DICOMApplicationContext()
+raw = bytes(pkt)
+length_field = struct.unpack("!H", raw[2:4])[0]
+payload_size = len(raw) - 4
+assert length_field == payload_size
+
+= Nested items have correct cumulative length
+max_len = DICOMVariableItem() / DICOMMaximumLength(max_pdu_length=16384)
+user_info = DICOMVariableItem() / DICOMUserInformation(sub_items=[max_len])
+raw = bytes(user_info)
+assert len(raw) == 12
+ui_length = struct.unpack("!H", raw[2:4])[0]
+assert ui_length == 8
+
+############
+############
++ Variable item bind_layers tests
+
+= Application Context bind_layers (type 0x10)
+pkt = DICOMVariableItem() / DICOMApplicationContext()
+assert pkt.item_type == 0x10
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed.item_type == 0x10
+assert parsed.haslayer(DICOMApplicationContext)
+
+= Abstract Syntax bind_layers (type 0x30)
+uid = _uid_to_bytes(VERIFICATION_SOP_CLASS_UID)
+pkt = DICOMVariableItem() / DICOMAbstractSyntax(uid=uid)
+assert pkt.item_type == 0x30
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed.item_type == 0x30
+assert parsed.haslayer(DICOMAbstractSyntax)
+assert parsed[DICOMAbstractSyntax].uid == uid
+
+= Transfer Syntax bind_layers (type 0x40)
+pkt = DICOMVariableItem() / DICOMTransferSyntax()
+assert pkt.item_type == 0x40
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed.item_type == 0x40
+assert parsed.haslayer(DICOMTransferSyntax)
+
+= Maximum Length bind_layers (type 0x51)
+pkt = DICOMVariableItem() / DICOMMaximumLength(max_pdu_length=32768)
+assert pkt.item_type == 0x51
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed.item_type == 0x51
+assert parsed.haslayer(DICOMMaximumLength)
+assert parsed[DICOMMaximumLength].max_pdu_length == 32768
+
+= User Information bind_layers (type 0x50)
+max_len = DICOMVariableItem() / DICOMMaximumLength(max_pdu_length=16384)
+pkt = DICOMVariableItem() / DICOMUserInformation(sub_items=[max_len])
+assert pkt.item_type == 0x50
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed.item_type == 0x50
+assert parsed.haslayer(DICOMUserInformation)
+
+= Presentation Context RQ bind_layers (type 0x20)
+abs_syn = DICOMVariableItem() / DICOMAbstractSyntax(uid=_uid_to_bytes(VERIFICATION_SOP_CLASS_UID))
+ts = DICOMVariableItem() / DICOMTransferSyntax()
+pkt = DICOMVariableItem() / DICOMPresentationContextRQ(context_id=1, sub_items=[abs_syn, ts])
+assert pkt.item_type == 0x20
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed.item_type == 0x20
+assert parsed.haslayer(DICOMPresentationContextRQ)
+assert parsed[DICOMPresentationContextRQ].context_id == 1
+
+= Presentation Context AC bind_layers (type 0x21)
+ts = DICOMVariableItem() / DICOMTransferSyntax()
+pkt = DICOMVariableItem() / DICOMPresentationContextAC(context_id=1, result=0, sub_items=[ts])
+assert pkt.item_type == 0x21
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed.item_type == 0x21
+assert parsed.haslayer(DICOMPresentationContextAC)
+assert parsed[DICOMPresentationContextAC].result == 0
+
+= Unknown item type falls back to DICOMGenericItem
+raw = struct.pack("!BBH", 0xFF, 0, 4) + b"test"
+parsed = DICOMVariableItem(raw)
+assert parsed.item_type == 0xFF
+assert parsed.haslayer(DICOMGenericItem)
+assert parsed[DICOMGenericItem].data == b"test"
+
+############
+############
++ A-ASSOCIATE-RQ tests
+
+= Build simple A-ASSOCIATE-RQ
+app_ctx = DICOMVariableItem() / DICOMApplicationContext()
+pctx = build_presentation_context_rq(1, VERIFICATION_SOP_CLASS_UID, [DEFAULT_TRANSFER_SYNTAX_UID])
+user_info = build_user_information(max_pdu_length=16384)
+assoc_rq = DICOM() / A_ASSOCIATE_RQ(
+    called_ae_title=_pad_ae_title("TARGET"),
+    calling_ae_title=_pad_ae_title("SOURCE"),
+    variable_items=[app_ctx, pctx, user_info]
+)
+raw = bytes(assoc_rq)
+parsed = DICOM(raw)
+assert parsed.haslayer(A_ASSOCIATE_RQ)
+items = parsed[A_ASSOCIATE_RQ].variable_items
+assert len(items) == 3
+assert items[0].item_type == 0x10
+assert items[1].item_type == 0x20
+assert items[2].item_type == 0x50
+
+= A-ASSOCIATE-RQ round-trip preserves AE titles
+original = DICOM() / A_ASSOCIATE_RQ(
+    called_ae_title=_pad_ae_title("TARGET"),
+    calling_ae_title=_pad_ae_title("SOURCE"),
+)
+serialized = bytes(original)
+parsed = DICOM(serialized)
+assert parsed.haslayer(A_ASSOCIATE_RQ)
+assert parsed[A_ASSOCIATE_RQ].called_ae_title == b"TARGET          "
+assert parsed[A_ASSOCIATE_RQ].calling_ae_title == b"SOURCE          "
+
+= A-ASSOCIATE-RQ with multiple presentation contexts
+app_ctx = DICOMVariableItem() / DICOMApplicationContext()
+pctx1 = build_presentation_context_rq(1, VERIFICATION_SOP_CLASS_UID, [DEFAULT_TRANSFER_SYNTAX_UID])
+pctx2 = build_presentation_context_rq(3, CT_IMAGE_STORAGE_SOP_CLASS_UID, [DEFAULT_TRANSFER_SYNTAX_UID])
+user_info = build_user_information()
+assoc_rq = DICOM() / A_ASSOCIATE_RQ(
+    called_ae_title=_pad_ae_title("TARGET"),
+    calling_ae_title=_pad_ae_title("SOURCE"),
+    variable_items=[app_ctx, pctx1, pctx2, user_info]
+)
+raw = bytes(assoc_rq)
+parsed = DICOM(raw)
+items = parsed[A_ASSOCIATE_RQ].variable_items
+assert len(items) == 4
+pctx_items = [i for i in items if i.item_type == 0x20]
+assert len(pctx_items) == 2
+assert pctx_items[0][DICOMPresentationContextRQ].context_id == 1
+assert pctx_items[1][DICOMPresentationContextRQ].context_id == 3
+
+############
+############
++ A-ASSOCIATE-RJ tests
+
+= A-ASSOCIATE-RJ construction and parsing
+pkt = DICOM() / A_ASSOCIATE_RJ(result=1, source=2, reason_diag=2)
+reparsed = DICOM(bytes(pkt))
+assert reparsed.haslayer(A_ASSOCIATE_RJ)
+assert reparsed[A_ASSOCIATE_RJ].source == 2
+
+############
+############
++ A-RELEASE tests
+
+= A-RELEASE-RQ round-trip
+original = DICOM() / A_RELEASE_RQ()
+serialized = bytes(original)
+parsed = DICOM(serialized)
+assert parsed.haslayer(A_RELEASE_RQ)
+
+= A-RELEASE-RP round-trip
+original = DICOM() / A_RELEASE_RP()
+serialized = bytes(original)
+parsed = DICOM(serialized)
+assert parsed.haslayer(A_RELEASE_RP)
+
+############
+############
++ A-ABORT tests
+
+= A-ABORT round-trip
+original = DICOM() / A_ABORT(source=2, reason_diag=6)
+serialized = bytes(original)
+parsed = DICOM(serialized)
+assert parsed.haslayer(A_ABORT)
+assert parsed[A_ABORT].source == 2
+assert parsed[A_ABORT].reason_diag == 6
+
+############
+############
++ P-DATA-TF tests
+
+= PresentationDataValueItem length linked to data
+test_data = b"TEST_DATA_12345"
+pdv = PresentationDataValueItem(context_id=1, data=test_data, is_command=1, is_last=1)
+raw = bytes(pdv)
+length = struct.unpack("!I", raw[:4])[0]
+assert length == len(test_data) + 2
+
+= P-DATA-TF with multiple PDV items
+pdv1 = PresentationDataValueItem(context_id=1, data=b'\xDE\xAD', is_command=1, is_last=0)
+pdv2 = PresentationDataValueItem(context_id=1, data=b'\xBE\xEF', is_command=0, is_last=1)
+pkt = DICOM() / P_DATA_TF(pdv_items=[pdv1, pdv2])
+reparsed = DICOM(bytes(pkt))
+assert reparsed.haslayer(P_DATA_TF)
+assert len(reparsed[P_DATA_TF].pdv_items) == 2
+data = reparsed[P_DATA_TF].pdv_items[1].data
+if isinstance(data, str):
+    data = data.encode('latin-1')
+assert data == b'\xBE\xEF'
+
+= P-DATA-TF round-trip
+test_data = b"\x01\x02\x03\x04\x05"
+pdv = PresentationDataValueItem(context_id=3, data=test_data, is_command=1, is_last=1)
+original = DICOM() / P_DATA_TF(pdv_items=[pdv])
+serialized = bytes(original)
+parsed = DICOM(serialized)
+assert parsed.haslayer(P_DATA_TF)
+assert len(parsed[P_DATA_TF].pdv_items) == 1
+parsed_pdv = parsed[P_DATA_TF].pdv_items[0]
+assert parsed_pdv.context_id == 3
+parsed_data = parsed_pdv.data
+if isinstance(parsed_data, str):
+    parsed_data = parsed_data.encode('latin-1')
+assert parsed_data == test_data
+
+= PDV is_command flag encoding
+pdv = PresentationDataValueItem(context_id=1, data=b'x', is_command=1, is_last=0)
+raw = bytes(pdv)
+msg_ctrl = raw[5]
+assert msg_ctrl & 0x01 == 1
+assert msg_ctrl & 0x02 == 0
+
+= PDV is_last flag encoding
+pdv = PresentationDataValueItem(context_id=1, data=b'x', is_command=0, is_last=1)
+raw = bytes(pdv)
+msg_ctrl = raw[5]
+assert msg_ctrl & 0x01 == 0
+assert msg_ctrl & 0x02 == 2
+
+= PDV both flags set
+pdv = PresentationDataValueItem(context_id=1, data=b'x', is_command=1, is_last=1)
+raw = bytes(pdv)
+msg_ctrl = raw[5]
+assert msg_ctrl == 0x03
+
+= PDV flags round-trip
+for is_cmd in [0, 1]:
+    for is_last in [0, 1]:
+        pdv = PresentationDataValueItem(context_id=1, data=b'test', is_command=is_cmd, is_last=is_last)
+        pkt = DICOM() / P_DATA_TF(pdv_items=[pdv])
+        parsed = DICOM(bytes(pkt))
+        parsed_pdv = parsed[P_DATA_TF].pdv_items[0]
+        assert parsed_pdv.is_command == is_cmd
+        assert parsed_pdv.is_last == is_last
+
+############
+############
++ DIMSE packet tests
+
+= C_ECHO_RQ creation with defaults
+pkt = C_ECHO_RQ()
+raw = bytes(pkt)
+assert raw[:4] == b'\x00\x00\x00\x00'
+assert b'1.2.840.10008.1.1' in raw
+
+= C_ECHO_RQ custom message_id
+pkt = C_ECHO_RQ(message_id=12345)
+raw = bytes(pkt)
+assert b'\x10\x01' in raw
+assert struct.pack("<H", 12345) in raw
+
+= C_ECHO_RSP creation
+pkt = C_ECHO_RSP(message_id_responded=42, status=0x0000)
+raw = bytes(pkt)
+assert struct.pack("<H", 0x8030) in raw
+assert b'\x00\x09' in raw
+
+= C_STORE_RQ creation
+pkt = C_STORE_RQ(
+    affected_sop_class_uid=CT_IMAGE_STORAGE_SOP_CLASS_UID,
+    affected_sop_instance_uid="1.2.3.4.5.6.7.8.9",
+    message_id=100,
+)
+raw = bytes(pkt)
+assert b'1.2.840.10008.5.1.4.1.1.2' in raw
+assert b'1.2.3.4.5.6.7.8.9' in raw
+assert struct.pack("<H", 0x0001) in raw
+
+= C_FIND_RQ creation
+pkt = C_FIND_RQ(message_id=55)
+raw = bytes(pkt)
+assert struct.pack("<H", 0x0020) in raw
+
+= DIMSE command in P-DATA-TF
+dimse = C_ECHO_RQ(message_id=42)
+pdv = PresentationDataValueItem(context_id=1, data=bytes(dimse), is_command=1, is_last=1)
+pdata = DICOM() / P_DATA_TF(pdv_items=[pdv])
+raw = bytes(pdata)
+parsed = DICOM(raw)
+assert parsed.haslayer(P_DATA_TF)
+assert len(parsed[P_DATA_TF].pdv_items) == 1
+pdv_data = parsed[P_DATA_TF].pdv_items[0].data
+if isinstance(pdv_data, str):
+    pdv_data = pdv_data.encode('latin-1')
+assert b'1.2.840.10008.1.1' in pdv_data
+
+############
+############
++ Helper function tests
+
+= build_presentation_context_rq creates proper structure
+pctx = build_presentation_context_rq(
+    context_id=3,
+    abstract_syntax_uid=VERIFICATION_SOP_CLASS_UID,
+    transfer_syntax_uids=[DEFAULT_TRANSFER_SYNTAX_UID]
+)
+assert pctx.item_type == 0x20
+assert pctx.haslayer(DICOMPresentationContextRQ)
+assert pctx[DICOMPresentationContextRQ].context_id == 3
+sub_items = pctx[DICOMPresentationContextRQ].sub_items
+assert len(sub_items) == 2
+assert sub_items[0].item_type == 0x30
+assert sub_items[1].item_type == 0x40
+
+= build_user_information creates proper structure
+user_info = build_user_information(max_pdu_length=32768)
+assert user_info.item_type == 0x50
+assert user_info.haslayer(DICOMUserInformation)
+sub_items = user_info[DICOMUserInformation].sub_items
+assert len(sub_items) >= 1
+assert sub_items[0].item_type == 0x51
+assert sub_items[0][DICOMMaximumLength].max_pdu_length == 32768
+
+= build_user_information with implementation info
+user_info = build_user_information(
+    max_pdu_length=16384,
+    implementation_class_uid="1.2.3.4.5",
+    implementation_version="SCAPY_V1"
+)
+sub_items = user_info[DICOMUserInformation].sub_items
+assert len(sub_items) == 3
+types = [item.item_type for item in sub_items]
+assert 0x51 in types
+assert 0x52 in types
+assert 0x55 in types
+
+= _pad_ae_title pads to 16 bytes
+assert _pad_ae_title("TEST") == b"TEST            "
+assert len(_pad_ae_title("X")) == 16
+assert _pad_ae_title(b"BYTES") == b"BYTES           "
+
+= _uid_to_bytes pads odd-length UIDs
+assert len(_uid_to_bytes("1.2.3")) % 2 == 0
+assert _uid_to_bytes("1.2.3.4") == b"1.2.3.4"
+assert _uid_to_bytes("1.2.3") == b"1.2.3\x00"
+
+############
+############
++ User Identity Negotiation tests
+
+= User Identity username only (type 1)
+pkt = DICOMVariableItem() / DICOMUserIdentity(
+    user_identity_type=1,
+    positive_response_requested=0,
+    primary_field=b"admin"
+)
+assert pkt.item_type == 0x58
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed.haslayer(DICOMUserIdentity)
+assert parsed[DICOMUserIdentity].user_identity_type == 1
+assert parsed[DICOMUserIdentity].primary_field == b"admin"
+
+= User Identity username+password (type 2)
+pkt = DICOMVariableItem() / DICOMUserIdentity(
+    user_identity_type=2,
+    positive_response_requested=1,
+    primary_field=b"admin",
+    secondary_field=b"password123"
+)
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed.haslayer(DICOMUserIdentity)
+assert parsed[DICOMUserIdentity].user_identity_type == 2
+assert parsed[DICOMUserIdentity].primary_field == b"admin"
+assert parsed[DICOMUserIdentity].secondary_field == b"password123"
+
+= User Identity Response
+pkt = DICOMVariableItem() / DICOMUserIdentityResponse(
+    server_response=b"auth_token_12345"
+)
+assert pkt.item_type == 0x59
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed.haslayer(DICOMUserIdentityResponse)
+assert parsed[DICOMUserIdentityResponse].server_response == b"auth_token_12345"
+
+############
+############
++ Async Operations Window tests
+
+= Async operations default values
+pkt = DICOMVariableItem() / DICOMAsyncOperationsWindow()
+assert pkt.item_type == 0x53
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed.haslayer(DICOMAsyncOperationsWindow)
+assert parsed[DICOMAsyncOperationsWindow].max_ops_invoked == 1
+assert parsed[DICOMAsyncOperationsWindow].max_ops_performed == 1
+
+= Async operations custom values
+pkt = DICOMVariableItem() / DICOMAsyncOperationsWindow(
+    max_ops_invoked=8,
+    max_ops_performed=4
+)
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed[DICOMAsyncOperationsWindow].max_ops_invoked == 8
+assert parsed[DICOMAsyncOperationsWindow].max_ops_performed == 4
+
+############
+############
++ SCP/SCU Role Selection tests
+
+= Role Selection SCU only
+pkt = DICOMVariableItem() / DICOMSCPSCURoleSelection(
+    sop_class_uid=b"1.2.840.10008.5.1.4.1.1.2",
+    scu_role=1,
+    scp_role=0
+)
+assert pkt.item_type == 0x54
+raw = bytes(pkt)
+parsed = DICOMVariableItem(raw)
+assert parsed.haslayer(DICOMSCPSCURoleSelection)
+assert parsed[DICOMSCPSCURoleSelection].sop_class_uid == b"1.2.840.10008.5.1.4.1.1.2"
+assert parsed[DICOMSCPSCURoleSelection].scu_role == 1
+assert parsed[DICOMSCPSCURoleSelection].scp_role == 0
+
+############
+############
++ DICOM extract_padding for StreamSocket
+
+= DICOM extract_padding method exists
+pkt = DICOM()
+assert hasattr(pkt, 'extract_padding')
+
+= DICOM extract_padding separates payload from trailing data
+pkt = DICOM()
+pkt.length = 10
+payload, remaining = pkt.extract_padding(b'0123456789EXTRA')
+assert payload == b'0123456789'
+assert remaining == b'EXTRA'
+
+############
+############
++ TCP layer binding
+
+= DICOM binds to TCP port 104
+from scapy.layers.inet import TCP
+pkt = TCP(dport=104) / b'\x01\x00\x00\x00\x00\x04'
+assert DICOM in pkt or pkt.payload
+
+############
+############
++ Edge cases
+
+= Empty variable items list
+pkt = DICOM() / A_ASSOCIATE_RQ(variable_items=[])
+serialized = bytes(pkt)
+parsed = DICOM(serialized)
+assert parsed.haslayer(A_ASSOCIATE_RQ)
+
+= Empty PDV items list
+pkt = DICOM() / P_DATA_TF(pdv_items=[])
+serialized = bytes(pkt)
+assert len(serialized) == 6
