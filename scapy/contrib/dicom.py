@@ -8,6 +8,8 @@
 
 """
 DICOM (Digital Imaging and Communications in Medicine) Protocol
+Reference: DICOM PS3.8 - Network Communication Support for Message Exchange
+https://dicom.nema.org/medical/dicom/current/output/html/part08.html
 """
 
 import logging

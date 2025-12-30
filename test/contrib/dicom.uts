@@ -31,12 +31,25 @@ assert C_ECHO_RSP is not None
 assert C_STORE_RQ is not None
 assert C_STORE_RSP is not None
 assert C_FIND_RQ is not None
+assert C_FIND_RSP is not None
+assert C_MOVE_RQ is not None
+assert C_MOVE_RSP is not None
+assert C_GET_RQ is not None
+assert C_GET_RSP is not None
 
 = Verify constants are exported
 assert DICOM_PORT == 104
 assert APP_CONTEXT_UID == "1.2.840.10008.3.1.1.1"
 assert DEFAULT_TRANSFER_SYNTAX_UID == "1.2.840.10008.1.2"
 assert VERIFICATION_SOP_CLASS_UID == "1.2.840.10008.1.1"
+
+= Verify Query/Retrieve SOP Class UIDs are exported
+assert PATIENT_ROOT_QR_FIND_SOP_CLASS_UID == "1.2.840.10008.5.1.4.1.2.1.1"
+assert PATIENT_ROOT_QR_MOVE_SOP_CLASS_UID == "1.2.840.10008.5.1.4.1.2.1.2"
+assert PATIENT_ROOT_QR_GET_SOP_CLASS_UID == "1.2.840.10008.5.1.4.1.2.1.3"
+assert STUDY_ROOT_QR_FIND_SOP_CLASS_UID == "1.2.840.10008.5.1.4.1.2.2.1"
+assert STUDY_ROOT_QR_MOVE_SOP_CLASS_UID == "1.2.840.10008.5.1.4.1.2.2.2"
+assert STUDY_ROOT_QR_GET_SOP_CLASS_UID == "1.2.840.10008.5.1.4.1.2.2.3"
 
 ############
 ############
@@ -158,7 +171,6 @@ raw = struct.pack("!BBH", 0xFF, 0, 4) + b"test"
 parsed = DICOMVariableItem(raw)
 assert parsed.item_type == 0xFF
 assert parsed.length == 4
-# Fallback handled by guess_payload_class returning DICOMGenericItem
 assert parsed.payload is not None
 
 ############
@@ -267,7 +279,6 @@ pdv1 = PresentationDataValueItem(context_id=1, data=b'\xDE\xAD', is_command=1, i
 pdv2 = PresentationDataValueItem(context_id=1, data=b'\xBE\xEF', is_command=0, is_last=1)
 pkt = DICOM() / P_DATA_TF(pdv_items=[pdv1, pdv2])
 raw = bytes(pkt)
-# Verify PDU type and structure
 assert raw[0] == 0x04
 assert len(raw) > 6
 
@@ -276,8 +287,7 @@ test_data = b"\x01\x02\x03\x04\x05"
 pdv = PresentationDataValueItem(context_id=3, data=test_data, is_command=1, is_last=1)
 original = DICOM() / P_DATA_TF(pdv_items=[pdv])
 serialized = bytes(original)
-# Verify structure
-assert serialized[0] == 0x04  # P-DATA-TF type
+assert serialized[0] == 0x04
 length = struct.unpack("!I", serialized[2:6])[0]
 assert length > 0
 assert test_data in serialized
@@ -349,14 +359,55 @@ pkt = C_FIND_RQ(message_id=55)
 raw = bytes(pkt)
 assert struct.pack("<H", 0x0020) in raw
 
+= C_FIND_RSP creation
+pkt = C_FIND_RSP(message_id_responded=55, status=0x0000)
+raw = bytes(pkt)
+assert struct.pack("<H", 0x8020) in raw
+assert struct.pack("<H", 0x0000) in raw
+
+= C_MOVE_RQ creation with move_destination
+pkt = C_MOVE_RQ(message_id=100, move_destination=b"DEST_AE")
+raw = bytes(pkt)
+assert struct.pack("<H", 0x0021) in raw
+assert b'DEST_AE' in raw
+
+= C_MOVE_RSP creation with sub-operation counters
+pkt = C_MOVE_RSP(
+    message_id_responded=100,
+    status=0xFF00,
+    num_remaining=5,
+    num_completed=3,
+    num_failed=1,
+    num_warning=0
+)
+raw = bytes(pkt)
+assert struct.pack("<H", 0x8021) in raw
+assert struct.pack("<H", 0xFF00) in raw
+
+= C_GET_RQ creation
+pkt = C_GET_RQ(message_id=200)
+raw = bytes(pkt)
+assert struct.pack("<H", 0x0010) in raw
+
+= C_GET_RSP creation with sub-operation counters
+pkt = C_GET_RSP(
+    message_id_responded=200,
+    status=0x0000,
+    num_remaining=0,
+    num_completed=10,
+    num_failed=0,
+    num_warning=0
+)
+raw = bytes(pkt)
+assert struct.pack("<H", 0x8010) in raw
+
 = DIMSE command in P-DATA-TF - build verification
 dimse = C_ECHO_RQ(message_id=42)
 pdv = PresentationDataValueItem(context_id=1, data=bytes(dimse), is_command=1, is_last=1)
 pdata = DICOM() / P_DATA_TF(pdv_items=[pdv])
 raw = bytes(pdata)
-# Verify structure
-assert raw[0] == 0x04  # P-DATA-TF type
-assert b'1.2.840.10008.1.1' in raw  # Verification SOP Class UID in the payload
+assert raw[0] == 0x04
+assert b'1.2.840.10008.1.1' in raw
 
 ############
 ############
