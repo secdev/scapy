@@ -16,6 +16,7 @@ import logging
 import socket
 import struct
 import time
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from scapy.packet import Packet, bind_layers
 from scapy.error import Scapy_Exception
@@ -73,11 +74,12 @@ __all__ = [
     "DICOMUserIdentity",
     "DICOMUserIdentityResponse",
     "DICOMElementField",
+    "DICOMAETitleField",
     "DICOMUIDField",
     "DICOMUIDFieldRaw",
     "DICOMUSField",
     "DICOMULField",
-    "DICOMAEField",
+    "DICOMAEDIMSEField",
     "DIMSEPacket",
     "C_ECHO_RQ",
     "C_ECHO_RSP",
@@ -89,9 +91,8 @@ __all__ = [
     "C_MOVE_RSP",
     "C_GET_RQ",
     "C_GET_RSP",
-    "DICOMSession",
+    "DICOMSocket",
     "parse_dimse_status",
-    "_pad_ae_title",
     "_uid_to_bytes",
     "_uid_to_bytes_raw",
     "build_c_echo_rq_dimse_raw",
@@ -108,7 +109,6 @@ DEFAULT_TRANSFER_SYNTAX_UID = "1.2.840.10008.1.2"
 VERIFICATION_SOP_CLASS_UID = "1.2.840.10008.1.1"
 CT_IMAGE_STORAGE_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.1.2"
 
-# Query/Retrieve SOP Class UIDs
 PATIENT_ROOT_QR_FIND_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.2.1.1"
 PATIENT_ROOT_QR_MOVE_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.2.1.2"
 PATIENT_ROOT_QR_GET_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.2.1.3"
@@ -142,12 +142,9 @@ ITEM_TYPES = {
     0x59: "User Identity Server Response",
 }
 
-def _pad_ae_title(title):
-    if isinstance(title, bytes):
-        return title.ljust(16, b" ")
-    return title.ljust(16).encode("ascii")
 
-def _uid_to_bytes(uid):
+def _uid_to_bytes(uid: Union[str, bytes]) -> bytes:
+    """Convert UID to bytes with even-length padding (null byte if needed)."""
     if isinstance(uid, bytes):
         b_uid = uid
     elif isinstance(uid, str):
@@ -158,7 +155,9 @@ def _uid_to_bytes(uid):
         b_uid += b"\x00"
     return b_uid
 
-def _uid_to_bytes_raw(uid):
+
+def _uid_to_bytes_raw(uid: Union[str, bytes]) -> bytes:
+    """Convert UID to bytes without padding."""
     if isinstance(uid, bytes):
         return uid
     elif isinstance(uid, str):
@@ -166,50 +165,80 @@ def _uid_to_bytes_raw(uid):
     else:
         return b""
 
-class DICOMElementField(Field):
-    __slots__ = ["tag_group", "tag_elem"]
-    
-    def __init__(self, name, default, tag_group, tag_elem):
-        self.tag_group = tag_group
-        self.tag_elem = tag_elem
-        Field.__init__(self, name, default)
-    
-    def addfield(self, pkt, s, val):
+
+class DICOMAETitleField(StrFixedLenField):
+    """DICOM AE Title field - 16 bytes, space-padded per PS3.5 Section 6.2."""
+
+    def __init__(self, name: str, default: bytes = b"") -> None:
+        super(DICOMAETitleField, self).__init__(name, default, length=16)
+
+    def i2m(self, pkt: Optional[Packet], val: Any) -> bytes:
         if val is None:
             val = b""
         if isinstance(val, str):
             val = val.encode("ascii")
-        return s + struct.pack("<HHI", self.tag_group, self.tag_elem, len(val)) + val
-    
-    def getfield(self, pkt, s):
+        return val.ljust(16, b" ")[:16]
+
+    def m2i(self, pkt: Optional[Packet], val: bytes) -> bytes:
+        return val
+
+    def i2repr(self, pkt: Optional[Packet], val: Any) -> str:
+        if isinstance(val, bytes):
+            return val.decode("ascii", errors="replace").rstrip()
+        return str(val).rstrip()
+
+
+class DICOMElementField(Field[bytes, bytes]):
+    """DICOM data element field with explicit tag and length encoding."""
+
+    __slots__ = ["tag_group", "tag_elem"]
+
+    def __init__(self, name: str, default: Any, tag_group: int,
+                 tag_elem: int) -> None:
+        self.tag_group = tag_group
+        self.tag_elem = tag_elem
+        Field.__init__(self, name, default)
+
+    def addfield(self, pkt: Optional[Packet], s: bytes, val: Any) -> bytes:
+        if val is None:
+            val = b""
+        if isinstance(val, str):
+            val = val.encode("ascii")
+        hdr = struct.pack("<HHI", self.tag_group, self.tag_elem, len(val))
+        return s + hdr + val
+
+    def getfield(self, pkt: Optional[Packet], s: bytes) -> Tuple[bytes, bytes]:
         if len(s) < 8:
             return s, b""
         tag_g, tag_e, length = struct.unpack("<HHI", s[:8])
         value = s[8:8 + length]
         return s[8 + length:], value
-    
-    def i2repr(self, pkt, val):
+
+    def i2repr(self, pkt: Optional[Packet], val: Any) -> str:
         if isinstance(val, bytes):
             try:
                 return val.decode("ascii").rstrip("\x00")
             except UnicodeDecodeError:
                 return val.hex()
         return repr(val)
-    
-    def randval(self):
+
+    def randval(self) -> RandString:
         return RandString(8)
 
+
 class DICOMUIDField(DICOMElementField):
-    def addfield(self, pkt, s, val):
-        val = _uid_to_bytes(val)
-        return super().addfield(pkt, s, val)
-    
-    def i2repr(self, pkt, val):
+    """DICOM UID element field with automatic even-length padding."""
+
+    def addfield(self, pkt: Optional[Packet], s: bytes, val: Any) -> bytes:
+        val = _uid_to_bytes(val) if val else b""
+        return DICOMElementField.addfield(self, pkt, s, val)
+
+    def i2repr(self, pkt: Optional[Packet], val: Any) -> str:
         if isinstance(val, bytes):
             return val.decode("ascii").rstrip("\x00")
         return str(val)
-    
-    def randval(self):
+
+    def randval(self) -> str:
         from scapy.volatile import RandNum
         return "1.2.3.%d.%d.%d" % (
             RandNum(1, 99999)._fix(),
@@ -217,49 +246,80 @@ class DICOMUIDField(DICOMElementField):
             RandNum(1, 99999)._fix()
         )
 
+
 class DICOMUIDFieldRaw(DICOMElementField):
-    def addfield(self, pkt, s, val):
-        val = _uid_to_bytes_raw(val)
-        return super().addfield(pkt, s, val)
+    """DICOM UID element field without automatic padding."""
+
+    def addfield(self, pkt: Optional[Packet], s: bytes, val: Any) -> bytes:
+        val = _uid_to_bytes_raw(val) if val else b""
+        return DICOMElementField.addfield(self, pkt, s, val)
+
 
 class DICOMUSField(DICOMElementField):
-    def addfield(self, pkt, s, val):
+    """DICOM Unsigned Short (US) element field."""
+
+    def addfield(self, pkt: Optional[Packet], s: bytes, val: int) -> bytes:
         val_bytes = struct.pack("<H", val)
-        return super().addfield(pkt, s, val_bytes)
-    
-    def getfield(self, pkt, s):
-        remain, val_bytes = super().getfield(pkt, s)
+        return DICOMElementField.addfield(self, pkt, s, val_bytes)
+
+    def getfield(self, pkt: Optional[Packet], s: bytes) -> Tuple[bytes, int]:
+        remain, val_bytes = DICOMElementField.getfield(self, pkt, s)
         if len(val_bytes) >= 2:
             return remain, struct.unpack("<H", val_bytes[:2])[0]
         return remain, 0
-    
-    def i2repr(self, pkt, val):
-        return f"0x{val:04X}"
-    
-    def randval(self):
+
+    def i2repr(self, pkt: Optional[Packet], val: Any) -> str:
+        return "0x%04X" % val
+
+    def randval(self) -> RandShort:
         return RandShort()
 
+
 class DICOMULField(DICOMElementField):
-    def addfield(self, pkt, s, val):
+    """DICOM Unsigned Long (UL) element field."""
+
+    def addfield(self, pkt: Optional[Packet], s: bytes, val: int) -> bytes:
         val_bytes = struct.pack("<I", val)
-        return super().addfield(pkt, s, val_bytes)
-    
-    def getfield(self, pkt, s):
-        remain, val_bytes = super().getfield(pkt, s)
+        return DICOMElementField.addfield(self, pkt, s, val_bytes)
+
+    def getfield(self, pkt: Optional[Packet], s: bytes) -> Tuple[bytes, int]:
+        remain, val_bytes = DICOMElementField.getfield(self, pkt, s)
         if len(val_bytes) >= 4:
             return remain, struct.unpack("<I", val_bytes[:4])[0]
         return remain, 0
-    
-    def randval(self):
+
+    def randval(self) -> RandInt:
         return RandInt()
 
+
+class DICOMAEDIMSEField(DICOMElementField):
+    """DICOM AE element field for DIMSE - 16 bytes, space-padded."""
+
+    def addfield(self, pkt: Optional[Packet], s: bytes, val: Any) -> bytes:
+        if val is None:
+            val = b""
+        if isinstance(val, str):
+            val = val.encode("ascii")
+        val = val.ljust(16, b" ")[:16]
+        return DICOMElementField.addfield(self, pkt, s, val)
+
+    def i2repr(self, pkt: Optional[Packet], val: Any) -> str:
+        if isinstance(val, bytes):
+            return val.decode("ascii", errors="replace").strip()
+        return str(val).strip()
+
+
 class DIMSEPacket(Packet):
+    """Base class for DIMSE command packets with automatic group length."""
+
     GROUP_LENGTH_ELEMENT_SIZE = 12
-    
-    def post_build(self, pkt, pay):
+
+    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
         group_len = len(pkt)
-        header = struct.pack("<HHI", 0x0000, 0x0000, 4) + struct.pack("<I", group_len)
+        header = struct.pack("<HHI", 0x0000, 0x0000, 4)
+        header += struct.pack("<I", group_len)
         return header + pkt + pay
+
 
 DIMSE_COMMAND_FIELDS = {
     0x0001: "C-STORE-RQ",
@@ -299,162 +359,173 @@ PRIORITY_VALUES = {
     0x0002: "LOW",
 }
 
+
 class C_ECHO_RQ(DIMSEPacket):
+    """C-ECHO-RQ DIMSE Command for verification."""
+
     name = "C-ECHO-RQ"
     fields_desc = [
-        DICOMUIDField("affected_sop_class_uid", VERIFICATION_SOP_CLASS_UID, 0x0000, 0x0002),
+        DICOMUIDField("affected_sop_class_uid",
+                      VERIFICATION_SOP_CLASS_UID, 0x0000, 0x0002),
         DICOMUSField("command_field", 0x0030, 0x0000, 0x0100),
         DICOMUSField("message_id", 1, 0x0000, 0x0110),
         DICOMUSField("data_set_type", 0x0101, 0x0000, 0x0800),
     ]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("C-ECHO-RQ msg_id=%message_id%")
-    
-    def hashret(self):
+
+    def hashret(self) -> bytes:
         return struct.pack("<H", self.message_id)
 
+
 class C_ECHO_RSP(DIMSEPacket):
+    """C-ECHO-RSP DIMSE Response."""
+
     name = "C-ECHO-RSP"
     fields_desc = [
-        DICOMUIDField("affected_sop_class_uid", VERIFICATION_SOP_CLASS_UID, 0x0000, 0x0002),
+        DICOMUIDField("affected_sop_class_uid",
+                      VERIFICATION_SOP_CLASS_UID, 0x0000, 0x0002),
         DICOMUSField("command_field", 0x8030, 0x0000, 0x0100),
         DICOMUSField("message_id_responded", 1, 0x0000, 0x0120),
         DICOMUSField("data_set_type", 0x0101, 0x0000, 0x0800),
         DICOMUSField("status", 0x0000, 0x0000, 0x0900),
     ]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("C-ECHO-RSP status=%status%")
-    
-    def hashret(self):
+
+    def hashret(self) -> bytes:
         return struct.pack("<H", self.message_id_responded)
-    
-    def answers(self, other):
+
+    def answers(self, other: Packet) -> int:
         if isinstance(other, C_ECHO_RQ):
             return self.message_id_responded == other.message_id
         return 0
 
+
 class C_STORE_RQ(DIMSEPacket):
+    """C-STORE-RQ DIMSE Command for storing DICOM objects."""
+
     name = "C-STORE-RQ"
     fields_desc = [
-        DICOMUIDField("affected_sop_class_uid", CT_IMAGE_STORAGE_SOP_CLASS_UID, 0x0000, 0x0002),
+        DICOMUIDField("affected_sop_class_uid",
+                      CT_IMAGE_STORAGE_SOP_CLASS_UID, 0x0000, 0x0002),
         DICOMUSField("command_field", 0x0001, 0x0000, 0x0100),
         DICOMUSField("message_id", 1, 0x0000, 0x0110),
         DICOMUSField("priority", 0x0002, 0x0000, 0x0700),
         DICOMUSField("data_set_type", 0x0000, 0x0000, 0x0800),
-        DICOMUIDField("affected_sop_instance_uid", "1.2.3.4.5.6.7.8.9", 0x0000, 0x1000),
+        DICOMUIDField("affected_sop_instance_uid",
+                      "1.2.3.4.5.6.7.8.9", 0x0000, 0x1000),
     ]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("C-STORE-RQ msg_id=%message_id%")
-    
-    def hashret(self):
+
+    def hashret(self) -> bytes:
         return struct.pack("<H", self.message_id)
 
+
 class C_STORE_RSP(DIMSEPacket):
+    """C-STORE-RSP DIMSE Response."""
+
     name = "C-STORE-RSP"
     fields_desc = [
-        DICOMUIDField("affected_sop_class_uid", CT_IMAGE_STORAGE_SOP_CLASS_UID, 0x0000, 0x0002),
+        DICOMUIDField("affected_sop_class_uid",
+                      CT_IMAGE_STORAGE_SOP_CLASS_UID, 0x0000, 0x0002),
         DICOMUSField("command_field", 0x8001, 0x0000, 0x0100),
         DICOMUSField("message_id_responded", 1, 0x0000, 0x0120),
         DICOMUSField("data_set_type", 0x0101, 0x0000, 0x0800),
         DICOMUSField("status", 0x0000, 0x0000, 0x0900),
-        DICOMUIDField("affected_sop_instance_uid", "1.2.3.4.5.6.7.8.9", 0x0000, 0x1000),
+        DICOMUIDField("affected_sop_instance_uid",
+                      "1.2.3.4.5.6.7.8.9", 0x0000, 0x1000),
     ]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("C-STORE-RSP status=%status%")
-    
-    def hashret(self):
+
+    def hashret(self) -> bytes:
         return struct.pack("<H", self.message_id_responded)
-    
-    def answers(self, other):
+
+    def answers(self, other: Packet) -> int:
         if isinstance(other, C_STORE_RQ):
             return self.message_id_responded == other.message_id
         return 0
 
+
 class C_FIND_RQ(DIMSEPacket):
+    """C-FIND-RQ DIMSE Command for querying DICOM objects."""
+
     name = "C-FIND-RQ"
     fields_desc = [
-        DICOMUIDField("affected_sop_class_uid", "1.2.840.10008.5.1.4.1.2.1.1", 0x0000, 0x0002),
+        DICOMUIDField("affected_sop_class_uid",
+                      PATIENT_ROOT_QR_FIND_SOP_CLASS_UID, 0x0000, 0x0002),
         DICOMUSField("command_field", 0x0020, 0x0000, 0x0100),
         DICOMUSField("message_id", 1, 0x0000, 0x0110),
         DICOMUSField("priority", 0x0002, 0x0000, 0x0700),
         DICOMUSField("data_set_type", 0x0000, 0x0000, 0x0800),
     ]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("C-FIND-RQ msg_id=%message_id%")
-    
-    def hashret(self):
+
+    def hashret(self) -> bytes:
         return struct.pack("<H", self.message_id)
 
 
 class C_FIND_RSP(DIMSEPacket):
     """C-FIND-RSP DIMSE Response."""
+
     name = "C-FIND-RSP"
     fields_desc = [
-        DICOMUIDField("affected_sop_class_uid", "1.2.840.10008.5.1.4.1.2.1.1", 0x0000, 0x0002),
+        DICOMUIDField("affected_sop_class_uid",
+                      PATIENT_ROOT_QR_FIND_SOP_CLASS_UID, 0x0000, 0x0002),
         DICOMUSField("command_field", 0x8020, 0x0000, 0x0100),
         DICOMUSField("message_id_responded", 1, 0x0000, 0x0120),
         DICOMUSField("data_set_type", 0x0101, 0x0000, 0x0800),
         DICOMUSField("status", 0x0000, 0x0000, 0x0900),
     ]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("C-FIND-RSP status=%status%")
-    
-    def hashret(self):
+
+    def hashret(self) -> bytes:
         return struct.pack("<H", self.message_id_responded)
-    
-    def answers(self, other):
+
+    def answers(self, other: Packet) -> int:
         if isinstance(other, C_FIND_RQ):
             return self.message_id_responded == other.message_id
         return 0
 
 
-class DICOMAEField(DICOMElementField):
-    """DICOM AE (Application Entity) element field - 16 bytes, space-padded."""
-    
-    def addfield(self, pkt, s, val):
-        if val is None:
-            val = b""
-        if isinstance(val, str):
-            val = val.encode("ascii")
-        val = val.ljust(16, b" ")[:16]
-        return super().addfield(pkt, s, val)
-    
-    def i2repr(self, pkt, val):
-        if isinstance(val, bytes):
-            return val.decode("ascii", errors="replace").strip()
-        return str(val).strip()
-
-
 class C_MOVE_RQ(DIMSEPacket):
     """C-MOVE-RQ DIMSE Command for retrieving DICOM objects."""
+
     name = "C-MOVE-RQ"
     fields_desc = [
-        DICOMUIDField("affected_sop_class_uid", "1.2.840.10008.5.1.4.1.2.1.2", 0x0000, 0x0002),
+        DICOMUIDField("affected_sop_class_uid",
+                      PATIENT_ROOT_QR_MOVE_SOP_CLASS_UID, 0x0000, 0x0002),
         DICOMUSField("command_field", 0x0021, 0x0000, 0x0100),
         DICOMUSField("message_id", 1, 0x0000, 0x0110),
         DICOMUSField("priority", 0x0002, 0x0000, 0x0700),
         DICOMUSField("data_set_type", 0x0000, 0x0000, 0x0800),
-        DICOMAEField("move_destination", b"", 0x0000, 0x0600),
+        DICOMAEDIMSEField("move_destination", b"", 0x0000, 0x0600),
     ]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("C-MOVE-RQ msg_id=%message_id%")
-    
-    def hashret(self):
+
+    def hashret(self) -> bytes:
         return struct.pack("<H", self.message_id)
 
 
 class C_MOVE_RSP(DIMSEPacket):
     """C-MOVE-RSP DIMSE Response."""
+
     name = "C-MOVE-RSP"
     fields_desc = [
-        DICOMUIDField("affected_sop_class_uid", "1.2.840.10008.5.1.4.1.2.1.2", 0x0000, 0x0002),
+        DICOMUIDField("affected_sop_class_uid",
+                      PATIENT_ROOT_QR_MOVE_SOP_CLASS_UID, 0x0000, 0x0002),
         DICOMUSField("command_field", 0x8021, 0x0000, 0x0100),
         DICOMUSField("message_id_responded", 1, 0x0000, 0x0120),
         DICOMUSField("data_set_type", 0x0101, 0x0000, 0x0800),
@@ -464,42 +535,46 @@ class C_MOVE_RSP(DIMSEPacket):
         DICOMUSField("num_failed", 0, 0x0000, 0x1022),
         DICOMUSField("num_warning", 0, 0x0000, 0x1023),
     ]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("C-MOVE-RSP status=%status%")
-    
-    def hashret(self):
+
+    def hashret(self) -> bytes:
         return struct.pack("<H", self.message_id_responded)
-    
-    def answers(self, other):
+
+    def answers(self, other: Packet) -> int:
         if isinstance(other, C_MOVE_RQ):
             return self.message_id_responded == other.message_id
         return 0
 
 
 class C_GET_RQ(DIMSEPacket):
-    """C-GET-RQ DIMSE Command for retrieving DICOM objects (on same association)."""
+    """C-GET-RQ DIMSE Command for retrieving objects on same association."""
+
     name = "C-GET-RQ"
     fields_desc = [
-        DICOMUIDField("affected_sop_class_uid", "1.2.840.10008.5.1.4.1.2.1.3", 0x0000, 0x0002),
+        DICOMUIDField("affected_sop_class_uid",
+                      PATIENT_ROOT_QR_GET_SOP_CLASS_UID, 0x0000, 0x0002),
         DICOMUSField("command_field", 0x0010, 0x0000, 0x0100),
         DICOMUSField("message_id", 1, 0x0000, 0x0110),
         DICOMUSField("priority", 0x0002, 0x0000, 0x0700),
         DICOMUSField("data_set_type", 0x0000, 0x0000, 0x0800),
     ]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("C-GET-RQ msg_id=%message_id%")
-    
-    def hashret(self):
+
+    def hashret(self) -> bytes:
         return struct.pack("<H", self.message_id)
 
 
 class C_GET_RSP(DIMSEPacket):
     """C-GET-RSP DIMSE Response."""
+
     name = "C-GET-RSP"
     fields_desc = [
-        DICOMUIDField("affected_sop_class_uid", "1.2.840.10008.5.1.4.1.2.1.3", 0x0000, 0x0002),
+        DICOMUIDField("affected_sop_class_uid",
+                      PATIENT_ROOT_QR_GET_SOP_CLASS_UID, 0x0000, 0x0002),
         DICOMUSField("command_field", 0x8010, 0x0000, 0x0100),
         DICOMUSField("message_id_responded", 1, 0x0000, 0x0120),
         DICOMUSField("data_set_type", 0x0101, 0x0000, 0x0800),
@@ -509,26 +584,30 @@ class C_GET_RSP(DIMSEPacket):
         DICOMUSField("num_failed", 0, 0x0000, 0x1022),
         DICOMUSField("num_warning", 0, 0x0000, 0x1023),
     ]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("C-GET-RSP status=%status%")
-    
-    def hashret(self):
+
+    def hashret(self) -> bytes:
         return struct.pack("<H", self.message_id_responded)
-    
-    def answers(self, other):
+
+    def answers(self, other: Packet) -> int:
         if isinstance(other, C_GET_RQ):
             return self.message_id_responded == other.message_id
         return 0
 
-def build_c_echo_rq_dimse_raw(message_id=1, sop_class_uid=None):
+
+def build_c_echo_rq_dimse_raw(message_id: int = 1,
+                              sop_class_uid: Optional[Union[str, bytes]] = None
+                              ) -> bytes:
+    """Build raw C-ECHO-RQ DIMSE bytes without using packet classes."""
     if sop_class_uid is None:
         sop_uid_bytes = _uid_to_bytes_raw(VERIFICATION_SOP_CLASS_UID)
     elif isinstance(sop_class_uid, bytes):
         sop_uid_bytes = sop_class_uid
     else:
         sop_uid_bytes = _uid_to_bytes_raw(sop_class_uid)
-    
+
     elements = [
         (0x0000, 0x0002, sop_uid_bytes),
         (0x0000, 0x0100, struct.pack("<H", 0x0030)),
@@ -546,10 +625,20 @@ def build_c_echo_rq_dimse_raw(message_id=1, sop_class_uid=None):
         + payload
     )
 
-def build_c_store_rq_dimse_raw(sop_class_uid, sop_instance_uid, message_id=1):
-    sop_class_bytes = sop_class_uid if isinstance(sop_class_uid, bytes) else _uid_to_bytes_raw(sop_class_uid)
-    sop_inst_bytes = sop_instance_uid if isinstance(sop_instance_uid, bytes) else _uid_to_bytes_raw(sop_instance_uid)
-    
+
+def build_c_store_rq_dimse_raw(sop_class_uid: Union[str, bytes],
+                               sop_instance_uid: Union[str, bytes],
+                               message_id: int = 1) -> bytes:
+    """Build raw C-STORE-RQ DIMSE bytes without using packet classes."""
+    if isinstance(sop_class_uid, bytes):
+        sop_class_bytes = sop_class_uid
+    else:
+        sop_class_bytes = _uid_to_bytes_raw(sop_class_uid)
+    if isinstance(sop_instance_uid, bytes):
+        sop_inst_bytes = sop_instance_uid
+    else:
+        sop_inst_bytes = _uid_to_bytes_raw(sop_instance_uid)
+
     elements = [
         (0x0000, 0x0002, sop_class_bytes),
         (0x0000, 0x0100, struct.pack("<H", 0x0001)),
@@ -569,7 +658,9 @@ def build_c_store_rq_dimse_raw(sop_class_uid, sop_instance_uid, message_id=1):
         + payload
     )
 
-def parse_dimse_status(dimse_bytes):
+
+def parse_dimse_status(dimse_bytes: bytes) -> Optional[int]:
+    """Extract status code from DIMSE response bytes."""
     try:
         if len(dimse_bytes) < 12:
             return None
@@ -577,28 +668,44 @@ def parse_dimse_status(dimse_bytes):
         offset = 12
         group_end_offset = offset + cmd_group_len
         while offset < group_end_offset and offset + 8 <= len(dimse_bytes):
-            tag_group, tag_elem = struct.unpack("<HH", dimse_bytes[offset:offset + 4])
-            value_len = struct.unpack("<I", dimse_bytes[offset + 4:offset + 8])[0]
+            tag_group, tag_elem = struct.unpack(
+                "<HH", dimse_bytes[offset:offset + 4]
+            )
+            value_len = struct.unpack(
+                "<I", dimse_bytes[offset + 4:offset + 8]
+            )[0]
             if tag_group == 0x0000 and tag_elem == 0x0900 and value_len == 2:
-                return struct.unpack("<H", dimse_bytes[offset + 8:offset + 10])[0]
+                return struct.unpack(
+                    "<H", dimse_bytes[offset + 8:offset + 10]
+                )[0]
             offset += 8 + value_len
-    except Exception:
+    except struct.error:
         return None
     return None
 
+
 class DICOMGenericItem(Packet):
+    """Generic fallback for unrecognized DICOM variable items."""
+
     name = "DICOM Generic Item"
     fields_desc = [
-        StrLenField("data", b"",
-                    length_from=lambda pkt: (pkt.underlayer.length
-                                             if pkt.underlayer and pkt.underlayer.length
-                                             else len(pkt.data))),
+        StrLenField(
+            "data", b"",
+            length_from=lambda pkt: (
+                pkt.underlayer.length
+                if pkt.underlayer and pkt.underlayer.length
+                else len(pkt.data)
+            )
+        ),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
 
+
 class DICOMVariableItem(Packet):
+    """DICOM variable item header with type and length fields."""
+
     name = "DICOM Variable Item"
     fields_desc = [
         ByteEnumField("item_type", 0x10, ITEM_TYPES),
@@ -606,14 +713,14 @@ class DICOMVariableItem(Packet):
         LenField("length", None, fmt="!H"),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         if self.length is not None:
             if len(s) < self.length:
                 raise Scapy_Exception("PDU payload incomplete")
             return s[:self.length], s[self.length:]
         return s, b""
-    
-    def guess_payload_class(self, payload):
+
+    def guess_payload_class(self, payload: bytes) -> type:
         type_to_class = {
             0x10: DICOMApplicationContext,
             0x20: DICOMPresentationContextRQ,
@@ -630,82 +737,122 @@ class DICOMVariableItem(Packet):
             0x59: DICOMUserIdentityResponse,
         }
         return type_to_class.get(self.item_type, DICOMGenericItem)
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("Item %item_type%")
 
+
 class DICOMApplicationContext(Packet):
+    """DICOM Application Context item."""
+
     name = "DICOM Application Context"
     fields_desc = [
-        StrLenField("uid", _uid_to_bytes(APP_CONTEXT_UID),
-                    length_from=lambda pkt: (pkt.underlayer.length
-                                             if pkt.underlayer and pkt.underlayer.length
-                                             else len(pkt.uid))),
+        StrLenField(
+            "uid", _uid_to_bytes(APP_CONTEXT_UID),
+            length_from=lambda pkt: (
+                pkt.underlayer.length
+                if pkt.underlayer and pkt.underlayer.length
+                else len(pkt.uid)
+            )
+        ),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
-        uid = self.uid.decode("ascii").rstrip("\x00") if isinstance(self.uid, bytes) else self.uid
-        return f"AppContext {uid}"
+
+    def mysummary(self) -> str:
+        if isinstance(self.uid, bytes):
+            uid = self.uid.decode("ascii").rstrip("\x00")
+        else:
+            uid = self.uid
+        return "AppContext %s" % uid
+
 
 class DICOMAbstractSyntax(Packet):
+    """DICOM Abstract Syntax item."""
+
     name = "DICOM Abstract Syntax"
     fields_desc = [
-        StrLenField("uid", b"",
-                    length_from=lambda pkt: (pkt.underlayer.length
-                                             if pkt.underlayer and pkt.underlayer.length
-                                             else len(pkt.uid))),
+        StrLenField(
+            "uid", b"",
+            length_from=lambda pkt: (
+                pkt.underlayer.length
+                if pkt.underlayer and pkt.underlayer.length
+                else len(pkt.uid)
+            )
+        ),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
-        uid = self.uid.decode("ascii").rstrip("\x00") if isinstance(self.uid, bytes) else self.uid
-        return f"AbstractSyntax {uid}"
+
+    def mysummary(self) -> str:
+        if isinstance(self.uid, bytes):
+            uid = self.uid.decode("ascii").rstrip("\x00")
+        else:
+            uid = self.uid
+        return "AbstractSyntax %s" % uid
+
 
 class DICOMTransferSyntax(Packet):
+    """DICOM Transfer Syntax item."""
+
     name = "DICOM Transfer Syntax"
     fields_desc = [
-        StrLenField("uid", _uid_to_bytes(DEFAULT_TRANSFER_SYNTAX_UID),
-                    length_from=lambda pkt: (pkt.underlayer.length
-                                             if pkt.underlayer and pkt.underlayer.length
-                                             else len(pkt.uid))),
+        StrLenField(
+            "uid", _uid_to_bytes(DEFAULT_TRANSFER_SYNTAX_UID),
+            length_from=lambda pkt: (
+                pkt.underlayer.length
+                if pkt.underlayer and pkt.underlayer.length
+                else len(pkt.uid)
+            )
+        ),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
-        uid = self.uid.decode("ascii").rstrip("\x00") if isinstance(self.uid, bytes) else self.uid
-        return f"TransferSyntax {uid}"
+
+    def mysummary(self) -> str:
+        if isinstance(self.uid, bytes):
+            uid = self.uid.decode("ascii").rstrip("\x00")
+        else:
+            uid = self.uid
+        return "TransferSyntax %s" % uid
+
 
 class DICOMPresentationContextRQ(Packet):
+    """DICOM Presentation Context item for association requests."""
+
     name = "DICOM Presentation Context RQ"
     fields_desc = [
         ByteField("context_id", 1),
         ByteField("reserved1", 0),
         ByteField("reserved2", 0),
         ByteField("reserved3", 0),
-        PacketListField("sub_items", [],
-                        DICOMVariableItem,
-                        max_count=64,
-                        length_from=lambda pkt: (pkt.underlayer.length - 4
-                                                  if pkt.underlayer and pkt.underlayer.length
-                                                  else 0)),
+        PacketListField(
+            "sub_items", [],
+            DICOMVariableItem,
+            max_count=64,
+            length_from=lambda pkt: (
+                pkt.underlayer.length - 4
+                if pkt.underlayer and pkt.underlayer.length
+                else 0
+            )
+        ),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
-        return f"PresentationContext-RQ ctx_id={self.context_id}"
+
+    def mysummary(self) -> str:
+        return "PresentationContext-RQ ctx_id=%d" % self.context_id
+
 
 class DICOMPresentationContextAC(Packet):
+    """DICOM Presentation Context item for association accepts."""
+
     name = "DICOM Presentation Context AC"
-    
+
     RESULT_CODES = {
         0: "acceptance",
         1: "user-rejection",
@@ -713,84 +860,121 @@ class DICOMPresentationContextAC(Packet):
         3: "abstract-syntax-not-supported",
         4: "transfer-syntaxes-not-supported",
     }
-    
+
     fields_desc = [
         ByteField("context_id", 1),
         ByteField("reserved1", 0),
         ByteEnumField("result", 0, RESULT_CODES),
         ByteField("reserved2", 0),
-        PacketListField("sub_items", [],
-                        DICOMVariableItem,
-                        max_count=8,
-                        length_from=lambda pkt: (pkt.underlayer.length - 4
-                                                  if pkt.underlayer and pkt.underlayer.length
-                                                  else 0)),
+        PacketListField(
+            "sub_items", [],
+            DICOMVariableItem,
+            max_count=8,
+            length_from=lambda pkt: (
+                pkt.underlayer.length - 4
+                if pkt.underlayer and pkt.underlayer.length
+                else 0
+            )
+        ),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
-        return self.sprintf("PresentationContext-AC ctx_id=%context_id% result=%result%")
+
+    def mysummary(self) -> str:
+        return self.sprintf(
+            "PresentationContext-AC ctx_id=%context_id% result=%result%"
+        )
+
 
 class DICOMMaximumLength(Packet):
+    """DICOM Maximum Length sub-item."""
+
     name = "DICOM Maximum Length"
     fields_desc = [
         IntField("max_pdu_length", 16384),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
-        return f"MaxLength {self.max_pdu_length}"
+
+    def mysummary(self) -> str:
+        return "MaxLength %d" % self.max_pdu_length
+
 
 class DICOMImplementationClassUID(Packet):
+    """DICOM Implementation Class UID sub-item."""
+
     name = "DICOM Implementation Class UID"
     fields_desc = [
-        StrLenField("uid", b"",
-                    length_from=lambda pkt: (pkt.underlayer.length
-                                             if pkt.underlayer and pkt.underlayer.length
-                                             else len(pkt.uid))),
+        StrLenField(
+            "uid", b"",
+            length_from=lambda pkt: (
+                pkt.underlayer.length
+                if pkt.underlayer and pkt.underlayer.length
+                else len(pkt.uid)
+            )
+        ),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
-        uid = self.uid.decode("ascii").rstrip("\x00") if isinstance(self.uid, bytes) else self.uid
-        return f"ImplClassUID {uid}"
+
+    def mysummary(self) -> str:
+        if isinstance(self.uid, bytes):
+            uid = self.uid.decode("ascii").rstrip("\x00")
+        else:
+            uid = self.uid
+        return "ImplClassUID %s" % uid
+
 
 class DICOMImplementationVersionName(Packet):
+    """DICOM Implementation Version Name sub-item."""
+
     name = "DICOM Implementation Version Name"
     fields_desc = [
-        StrLenField("name", b"",
-                    length_from=lambda pkt: (pkt.underlayer.length
-                                             if pkt.underlayer and pkt.underlayer.length
-                                             else len(pkt.name))),
+        StrLenField(
+            "name", b"",
+            length_from=lambda pkt: (
+                pkt.underlayer.length
+                if pkt.underlayer and pkt.underlayer.length
+                else len(pkt.name)
+            )
+        ),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
-        name = self.name.decode("ascii").rstrip("\x00") if isinstance(self.name, bytes) else self.name
-        return f"ImplVersion {name}"
+
+    def mysummary(self) -> str:
+        if isinstance(self.name, bytes):
+            name = self.name.decode("ascii").rstrip("\x00")
+        else:
+            name = self.name
+        return "ImplVersion %s" % name
+
 
 class DICOMAsyncOperationsWindow(Packet):
+    """DICOM Asynchronous Operations Window sub-item."""
+
     name = "DICOM Async Operations Window"
     fields_desc = [
         ShortField("max_ops_invoked", 1),
         ShortField("max_ops_performed", 1),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
-        return f"AsyncOps inv={self.max_ops_invoked} perf={self.max_ops_performed}"
+
+    def mysummary(self) -> str:
+        return "AsyncOps inv=%d perf=%d" % (
+            self.max_ops_invoked, self.max_ops_performed
+        )
+
 
 class DICOMSCPSCURoleSelection(Packet):
+    """DICOM SCP/SCU Role Selection sub-item."""
+
     name = "DICOM SCP/SCU Role Selection"
     fields_desc = [
         FieldLenField("uid_length", None, length_of="sop_class_uid", fmt="!H"),
@@ -800,11 +984,12 @@ class DICOMSCPSCURoleSelection(Packet):
         ByteField("scp_role", 0),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
-        return f"RoleSelection SCU={self.scu_role} SCP={self.scp_role}"
+
+    def mysummary(self) -> str:
+        return "RoleSelection SCU=%d SCP=%d" % (self.scu_role, self.scp_role)
+
 
 USER_IDENTITY_TYPES = {
     1: "Username",
@@ -814,16 +999,21 @@ USER_IDENTITY_TYPES = {
     5: "JSON Web Token (JWT)",
 }
 
+
 class DICOMUserIdentity(Packet):
+    """DICOM User Identity sub-item."""
+
     name = "DICOM User Identity"
     fields_desc = [
         ByteEnumField("user_identity_type", 1, USER_IDENTITY_TYPES),
         ByteField("positive_response_requested", 0),
-        FieldLenField("primary_field_length", None, length_of="primary_field", fmt="!H"),
+        FieldLenField("primary_field_length", None,
+                      length_of="primary_field", fmt="!H"),
         StrLenField("primary_field", b"",
                     length_from=lambda pkt: pkt.primary_field_length),
         ConditionalField(
-            FieldLenField("secondary_field_length", None, length_of="secondary_field", fmt="!H"),
+            FieldLenField("secondary_field_length", None,
+                          length_of="secondary_field", fmt="!H"),
             lambda pkt: pkt.user_identity_type == 2
         ),
         ConditionalField(
@@ -833,42 +1023,54 @@ class DICOMUserIdentity(Packet):
         ),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("UserIdentity %user_identity_type%")
 
+
 class DICOMUserIdentityResponse(Packet):
+    """DICOM User Identity Server Response sub-item."""
+
     name = "DICOM User Identity Response"
     fields_desc = [
-        FieldLenField("response_length", None, length_of="server_response", fmt="!H"),
+        FieldLenField("response_length", None,
+                      length_of="server_response", fmt="!H"),
         StrLenField("server_response", b"",
                     length_from=lambda pkt: pkt.response_length),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return "UserIdentityResponse"
 
+
 class DICOMUserInformation(Packet):
+    """DICOM User Information item."""
+
     name = "DICOM User Information"
     fields_desc = [
-        PacketListField("sub_items", [],
-                        DICOMVariableItem,
-                        max_count=32,
-                        length_from=lambda pkt: (pkt.underlayer.length
-                                                  if pkt.underlayer and pkt.underlayer.length
-                                                  else 0)),
+        PacketListField(
+            "sub_items", [],
+            DICOMVariableItem,
+            max_count=32,
+            length_from=lambda pkt: (
+                pkt.underlayer.length
+                if pkt.underlayer and pkt.underlayer.length
+                else 0
+            )
+        ),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
-        return f"UserInfo ({len(self.sub_items)} items)"
+
+    def mysummary(self) -> str:
+        return "UserInfo (%d items)" % len(self.sub_items)
+
 
 bind_layers(DICOMVariableItem, DICOMApplicationContext, item_type=0x10)
 bind_layers(DICOMVariableItem, DICOMPresentationContextRQ, item_type=0x20)
@@ -885,7 +1087,10 @@ bind_layers(DICOMVariableItem, DICOMUserIdentity, item_type=0x58)
 bind_layers(DICOMVariableItem, DICOMUserIdentityResponse, item_type=0x59)
 bind_layers(DICOMVariableItem, DICOMGenericItem)
 
+
 class DICOM(Packet):
+    """DICOM Upper Layer (UL) PDU header."""
+
     name = "DICOM UL"
     fields_desc = [
         ByteEnumField("pdu_type", 0x01, PDU_TYPES),
@@ -893,15 +1098,18 @@ class DICOM(Packet):
         LenField("length", None, fmt="!I"),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         if self.length is not None:
             return s[:self.length], s[self.length:]
         return s, b""
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("DICOM %pdu_type%")
 
+
 class PresentationDataValueItem(Packet):
+    """Presentation Data Value (PDV) item within P-DATA-TF PDU."""
+
     name = "PresentationDataValueItem"
     fields_desc = [
         FieldLenField("length", None, length_of="data", fmt="!I",
@@ -914,148 +1122,208 @@ class PresentationDataValueItem(Packet):
                     length_from=lambda pkt: max(0, (pkt.length or 2) - 2)),
     ]
 
-    def extract_padding(self, s):
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
         return b"", s
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         cmd_or_data = "CMD" if self.is_command else "DATA"
         last = " LAST" if self.is_last else ""
-        return f"PDV ctx={self.context_id} {cmd_or_data}{last} len={len(self.data)}"
+        return "PDV ctx=%d %s%s len=%d" % (
+            self.context_id, cmd_or_data, last, len(self.data)
+        )
+
 
 class A_ASSOCIATE_RQ(Packet):
+    """A-ASSOCIATE-RQ PDU for initiating DICOM associations."""
+
     name = "A-ASSOCIATE-RQ"
     fields_desc = [
         ShortField("protocol_version", 1),
         ShortField("reserved1", 0),
-        StrFixedLenField("called_ae_title", b"", 16),
-        StrFixedLenField("calling_ae_title", b"", 16),
+        DICOMAETitleField("called_ae_title", b""),
+        DICOMAETitleField("calling_ae_title", b""),
         StrFixedLenField("reserved2", b"\x00" * 32, 32),
-        PacketListField("variable_items", [],
-                        DICOMVariableItem,
-                        max_count=256,
-                        length_from=lambda pkt: (pkt.underlayer.length - 68
-                                                  if pkt.underlayer and pkt.underlayer.length
-                                                  else 0)),
+        PacketListField(
+            "variable_items", [],
+            DICOMVariableItem,
+            max_count=256,
+            length_from=lambda pkt: (
+                pkt.underlayer.length - 68
+                if pkt.underlayer and pkt.underlayer.length
+                else 0
+            )
+        ),
     ]
-    
-    def mysummary(self):
-        called = self.called_ae_title.strip() if isinstance(self.called_ae_title, bytes) else self.called_ae_title
-        calling = self.calling_ae_title.strip() if isinstance(self.calling_ae_title, bytes) else self.calling_ae_title
-        if isinstance(called, bytes):
+
+    def mysummary(self) -> str:
+        if isinstance(self.called_ae_title, bytes):
+            called = self.called_ae_title.strip()
             called = called.decode("ascii", errors="replace")
-        if isinstance(calling, bytes):
+        else:
+            called = self.called_ae_title
+        if isinstance(self.calling_ae_title, bytes):
+            calling = self.calling_ae_title.strip()
             calling = calling.decode("ascii", errors="replace")
-        return f"A-ASSOCIATE-RQ {calling} -> {called}"
-    
-    def hashret(self):
-        return self.called_ae_title + self.calling_ae_title
+        else:
+            calling = self.calling_ae_title
+        return "A-ASSOCIATE-RQ %s -> %s" % (calling, called)
+
+    def hashret(self) -> bytes:
+        if isinstance(self.called_ae_title, bytes):
+            called = self.called_ae_title
+        else:
+            called = self.called_ae_title.encode()
+        if isinstance(self.calling_ae_title, bytes):
+            calling = self.calling_ae_title
+        else:
+            calling = self.calling_ae_title.encode()
+        return called + calling
+
 
 class A_ASSOCIATE_AC(Packet):
+    """A-ASSOCIATE-AC PDU for accepting DICOM associations."""
+
     name = "A-ASSOCIATE-AC"
     fields_desc = [
         ShortField("protocol_version", 1),
         ShortField("reserved1", 0),
-        StrFixedLenField("called_ae_title", b"", 16),
-        StrFixedLenField("calling_ae_title", b"", 16),
+        DICOMAETitleField("called_ae_title", b""),
+        DICOMAETitleField("calling_ae_title", b""),
         StrFixedLenField("reserved2", b"\x00" * 32, 32),
-        PacketListField("variable_items", [],
-                        DICOMVariableItem,
-                        max_count=256,
-                        length_from=lambda pkt: (pkt.underlayer.length - 68
-                                                  if pkt.underlayer and pkt.underlayer.length
-                                                  else 0)),
+        PacketListField(
+            "variable_items", [],
+            DICOMVariableItem,
+            max_count=256,
+            length_from=lambda pkt: (
+                pkt.underlayer.length - 68
+                if pkt.underlayer and pkt.underlayer.length
+                else 0
+            )
+        ),
     ]
-    
-    def mysummary(self):
-        called = self.called_ae_title.strip() if isinstance(self.called_ae_title, bytes) else self.called_ae_title
-        calling = self.calling_ae_title.strip() if isinstance(self.calling_ae_title, bytes) else self.calling_ae_title
-        if isinstance(called, bytes):
-            called = called.decode("ascii", errors="replace")
-        if isinstance(calling, bytes):
-            calling = calling.decode("ascii", errors="replace")
-        return f"A-ASSOCIATE-AC {calling} <- {called}"
-    
-    def hashret(self):
-        return self.called_ae_title + self.calling_ae_title
 
-    def answers(self, other):
+    def mysummary(self) -> str:
+        if isinstance(self.called_ae_title, bytes):
+            called = self.called_ae_title.strip()
+            called = called.decode("ascii", errors="replace")
+        else:
+            called = self.called_ae_title
+        if isinstance(self.calling_ae_title, bytes):
+            calling = self.calling_ae_title.strip()
+            calling = calling.decode("ascii", errors="replace")
+        else:
+            calling = self.calling_ae_title
+        return "A-ASSOCIATE-AC %s <- %s" % (calling, called)
+
+    def hashret(self) -> bytes:
+        if isinstance(self.called_ae_title, bytes):
+            called = self.called_ae_title
+        else:
+            called = self.called_ae_title.encode()
+        if isinstance(self.calling_ae_title, bytes):
+            calling = self.calling_ae_title
+        else:
+            calling = self.calling_ae_title.encode()
+        return called + calling
+
+    def answers(self, other: Packet) -> bool:
         return isinstance(other, A_ASSOCIATE_RQ)
 
+
 class A_ASSOCIATE_RJ(Packet):
+    """A-ASSOCIATE-RJ PDU for rejecting DICOM associations."""
+
     name = "A-ASSOCIATE-RJ"
-    
+
     RESULT_CODES = {
         1: "rejected-permanent",
         2: "rejected-transient",
     }
-    
+
     SOURCE_CODES = {
         1: "DICOM UL service-user",
         2: "DICOM UL service-provider (ACSE)",
         3: "DICOM UL service-provider (Presentation)",
     }
-    
+
     fields_desc = [
         ByteField("reserved1", 0),
         ByteEnumField("result", 1, RESULT_CODES),
         ByteEnumField("source", 1, SOURCE_CODES),
         ByteField("reason_diag", 1),
     ]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("A-ASSOCIATE-RJ %result% %source%")
-    
-    def answers(self, other):
+
+    def answers(self, other: Packet) -> bool:
         return isinstance(other, A_ASSOCIATE_RQ)
 
+
 class P_DATA_TF(Packet):
+    """P-DATA-TF PDU for transferring DICOM data."""
+
     name = "P-DATA-TF"
     fields_desc = [
-        PacketListField("pdv_items", [],
-                        PresentationDataValueItem,
-                        max_count=256,
-                        length_from=lambda pkt: (pkt.underlayer.length
-                                                  if pkt.underlayer and pkt.underlayer.length
-                                                  else 0)),
+        PacketListField(
+            "pdv_items", [],
+            PresentationDataValueItem,
+            max_count=256,
+            length_from=lambda pkt: (
+                pkt.underlayer.length
+                if pkt.underlayer and pkt.underlayer.length
+                else 0
+            )
+        ),
     ]
-    
-    def mysummary(self):
-        return f"P-DATA-TF ({len(self.pdv_items)} PDVs)"
+
+    def mysummary(self) -> str:
+        return "P-DATA-TF (%d PDVs)" % len(self.pdv_items)
+
 
 class A_RELEASE_RQ(Packet):
+    """A-RELEASE-RQ PDU for requesting association release."""
+
     name = "A-RELEASE-RQ"
     fields_desc = [IntField("reserved1", 0)]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return "A-RELEASE-RQ"
 
+
 class A_RELEASE_RP(Packet):
+    """A-RELEASE-RP PDU for confirming association release."""
+
     name = "A-RELEASE-RP"
     fields_desc = [IntField("reserved1", 0)]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return "A-RELEASE-RP"
 
-    def answers(self, other):
+    def answers(self, other: Packet) -> bool:
         return isinstance(other, A_RELEASE_RQ)
 
+
 class A_ABORT(Packet):
+    """A-ABORT PDU for aborting DICOM associations."""
+
     name = "A-ABORT"
-    
+
     SOURCE_CODES = {
         0: "DICOM UL service-user",
         2: "DICOM UL service-provider",
     }
-    
+
     fields_desc = [
         ByteField("reserved1", 0),
         ByteField("reserved2", 0),
         ByteEnumField("source", 0, SOURCE_CODES),
         ByteField("reason_diag", 0),
     ]
-    
-    def mysummary(self):
+
+    def mysummary(self) -> str:
         return self.sprintf("A-ABORT %source%")
+
 
 bind_layers(TCP, DICOM, dport=DICOM_PORT)
 bind_layers(TCP, DICOM, sport=DICOM_PORT)
@@ -1067,68 +1335,90 @@ bind_layers(DICOM, A_RELEASE_RQ, pdu_type=0x05)
 bind_layers(DICOM, A_RELEASE_RP, pdu_type=0x06)
 bind_layers(DICOM, A_ABORT, pdu_type=0x07)
 
-def build_presentation_context_rq(context_id, abstract_syntax_uid, transfer_syntax_uids):
-    abs_syn = DICOMVariableItem() / DICOMAbstractSyntax(uid=_uid_to_bytes(abstract_syntax_uid))
-    
+
+def build_presentation_context_rq(context_id: int,
+                                  abstract_syntax_uid: str,
+                                  transfer_syntax_uids: List[str]) -> Packet:
+    """Build a Presentation Context RQ item."""
+    abs_uid = _uid_to_bytes(abstract_syntax_uid)
+    abs_syn = DICOMVariableItem() / DICOMAbstractSyntax(uid=abs_uid)
+
     sub_items = [abs_syn]
     for ts_uid in transfer_syntax_uids:
         ts = DICOMVariableItem() / DICOMTransferSyntax(uid=_uid_to_bytes(ts_uid))
         sub_items.append(ts)
-    
+
     return DICOMVariableItem() / DICOMPresentationContextRQ(
         context_id=context_id,
         sub_items=sub_items,
     )
 
-def build_user_information(max_pdu_length=16384, implementation_class_uid=None, implementation_version=None):
+
+def build_user_information(max_pdu_length: int = 16384,
+                           implementation_class_uid: Optional[str] = None,
+                           implementation_version: Optional[str] = None
+                           ) -> Packet:
+    """Build a User Information item."""
     sub_items = [
         DICOMVariableItem() / DICOMMaximumLength(max_pdu_length=max_pdu_length)
     ]
-    
+
     if implementation_class_uid:
+        uid = _uid_to_bytes(implementation_class_uid)
         sub_items.append(
-            DICOMVariableItem() / DICOMImplementationClassUID(uid=_uid_to_bytes(implementation_class_uid))
+            DICOMVariableItem() / DICOMImplementationClassUID(uid=uid)
         )
-    
+
     if implementation_version:
-        ver_bytes = implementation_version if isinstance(implementation_version, bytes) else implementation_version.encode('ascii')
+        if isinstance(implementation_version, bytes):
+            ver_bytes = implementation_version
+        else:
+            ver_bytes = implementation_version.encode('ascii')
         sub_items.append(
             DICOMVariableItem() / DICOMImplementationVersionName(name=ver_bytes)
         )
-    
+
     return DICOMVariableItem() / DICOMUserInformation(sub_items=sub_items)
 
-class DICOMSession:
-    def __init__(self, dst_ip, dst_port, dst_ae, src_ae="SCAPY_SCU", 
-                 read_timeout=10, raw_mode=False):
+
+    """DICOM application-layer socket for associations and DIMSE operations."""
+
+    def __init__(self, dst_ip: str, dst_port: int, dst_ae: str,
+                 src_ae: str = "SCAPY_SCU", read_timeout: int = 10,
+                 raw_mode: bool = False) -> None:
         self.dst_ip = dst_ip
         self.dst_port = dst_port
-        self.dst_ae = _pad_ae_title(dst_ae)
-        self.src_ae = _pad_ae_title(src_ae)
-        self.sock = None
-        self.stream = None
+        self.dst_ae = self._normalize_ae_title(dst_ae)
+        self.src_ae = self._normalize_ae_title(src_ae)
+        self.sock: Optional[socket.socket] = None
+        self.stream: Optional[StreamSocket] = None
         self.assoc_established = False
-        self.accepted_contexts = {}
+        self.accepted_contexts: Dict[int, Tuple[str, str]] = {}
         self.read_timeout = read_timeout
         self._current_message_id_counter = int(time.time()) % 50000
         self._proposed_max_pdu = 16384
         self.max_pdu_length = 16384
         self.raw_mode = raw_mode
-        self._proposed_context_map = {}
+        self._proposed_context_map: Dict[int, str] = {}
 
-    def __enter__(self):
+    @staticmethod
+    def _normalize_ae_title(title: Union[str, bytes]) -> bytes:
+        if isinstance(title, bytes):
+            return title.ljust(16, b" ")[:16]
+        return title.encode("ascii").ljust(16, b" ")[:16]
+    def __enter__(self) -> "DICOMSocket":
         return self
-    
-    def __exit__(self, exc_type, exc_val, exc_tb):
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
         if self.assoc_established:
             try:
                 self.release()
-            except Exception:
+            except (socket.error, socket.timeout, OSError):
                 pass
         self.close()
         return False
 
-    def connect(self):
+    def connect(self) -> bool:
         try:
             self.sock = socket.create_connection(
                 (self.dst_ip, self.dst_port),
@@ -1136,35 +1426,36 @@ class DICOMSession:
             )
             self.stream = StreamSocket(self.sock, basecls=DICOM)
             return True
-        except Exception as e:
+        except (socket.error, socket.timeout, OSError) as e:
             log.error("Connection failed: %s", e)
             return False
 
-    def send(self, pkt):
+    def send(self, pkt: Packet) -> None:
         self.stream.send(pkt)
-    
-    def recv(self):
+
+    def recv(self) -> Optional[Packet]:
         try:
             return self.stream.recv()
         except socket.timeout:
             return None
-        except Exception as e:
+        except (socket.error, OSError) as e:
             log.error("Error receiving PDU: %s", e)
             return None
-    
-    def sr1(self, pkt):
+
+    def sr1(self, pkt: Packet) -> Optional[Packet]:
         try:
             return self.stream.sr1(pkt, timeout=self.read_timeout)
         except socket.timeout:
             return None
-        except Exception as e:
+        except (socket.error, OSError) as e:
             log.error("Error in sr1: %s", e)
             return None
-    
-    def send_raw_bytes(self, raw_bytes):
+
+    def send_raw_bytes(self, raw_bytes: bytes) -> None:
         self.sock.sendall(raw_bytes)
 
-    def associate(self, requested_contexts=None):
+    def associate(self, requested_contexts: Optional[Dict[str, List[str]]] = None
+                  ) -> bool:
         if not self.stream and not self.connect():
             return False
 
@@ -1175,7 +1466,7 @@ class DICOMSession:
 
         self._proposed_context_map = {}
 
-        variable_items = [
+        variable_items: List[Packet] = [
             DICOMVariableItem() / DICOMApplicationContext()
         ]
 
@@ -1218,61 +1509,51 @@ class DICOMSession:
     def _parse_max_pdu_length(self, response):
         try:
             for item in response[A_ASSOCIATE_AC].variable_items:
-                if item.item_type == 0x50 and item.haslayer(DICOMUserInformation):
-                    user_info = item[DICOMUserInformation]
-                    for sub_item in user_info.sub_items:
-                        if sub_item.item_type == 0x51 and sub_item.haslayer(DICOMMaximumLength):
-                            server_max = sub_item[DICOMMaximumLength].max_pdu_length
-                            self.max_pdu_length = min(self._proposed_max_pdu, server_max)
-                            log.debug("Negotiated max PDU length: %d", self.max_pdu_length)
-                            return
-        except Exception as e:
-            log.debug("Could not parse max PDU length: %s", e)
+                if item.item_type == 0x50:
+                    if item.haslayer(DICOMUserInformation):
+                        user_info = item[DICOMUserInformation]
+                        for sub_item in user_info.sub_items:
+            pass
         self.max_pdu_length = self._proposed_max_pdu
 
-    def _parse_accepted_contexts(self, response):
+    def _parse_accepted_contexts(self, response: Packet) -> None:
         for item in response[A_ASSOCIATE_AC].variable_items:
-            if item.item_type == 0x21 and item.haslayer(DICOMPresentationContextAC):
                 pctx = item[DICOMPresentationContextAC]
                 ctx_id = pctx.context_id
-                result = pctx.result
-                
-                if result != 0:
-                    log.debug("Presentation context %d rejected (result=%d)", ctx_id, result)
-                    continue
-                
-                abs_syntax = self._proposed_context_map.get(ctx_id)
-                if abs_syntax is None:
-                    log.warning(
                         "Server accepted context ID %d which we didn't propose!",
                         ctx_id
                     )
                     continue
-                
-                for sub_item in pctx.sub_items:
-                    if sub_item.item_type == 0x40 and sub_item.haslayer(DICOMTransferSyntax):
-                        ts_uid = sub_item[DICOMTransferSyntax].uid
-                        if isinstance(ts_uid, bytes):
-                            ts_uid = ts_uid.rstrip(b"\x00").decode("ascii")
-                        self.accepted_contexts[ctx_id] = (abs_syntax, ts_uid)
-                        log.debug(
-                            "Accepted context %d: %s with transfer syntax %s",
-                            ctx_id, abs_syntax, ts_uid
-                        )
                         break
 
     def _get_next_message_id(self):
+                        continue
+
+                    abs_syntax = self._proposed_context_map.get(ctx_id)
+                    if abs_syntax is None:
+                        continue
+
+                    for sub_item in pctx.sub_items:
+                        if sub_item.item_type == 0x40:
+                                    ts_uid = ts_uid.decode("ascii")
+                                self.accepted_contexts[ctx_id] = (
+                                    abs_syntax, ts_uid
+                                )
+                                break
+
+    def _get_next_message_id(self) -> int:
         self._current_message_id_counter += 1
         return self._current_message_id_counter & 0xFFFF
 
-    def _find_accepted_context_id(self, sop_class_uid, transfer_syntax_uid=None):
+    def _find_accepted_context_id(self, sop_class_uid: str,
+                                  transfer_syntax_uid: Optional[str] = None
         for ctx_id, (abs_syntax, ts_syntax) in self.accepted_contexts.items():
             if abs_syntax == sop_class_uid:
                 if transfer_syntax_uid is None or transfer_syntax_uid == ts_syntax:
                     return ctx_id
         return None
 
-    def c_echo(self):
+    def c_echo(self) -> Optional[int]:
         if not self.assoc_established:
             log.error("Association not established")
             return None
@@ -1284,7 +1565,7 @@ class DICOMSession:
 
         msg_id = self._get_next_message_id()
         dimse_rq = bytes(C_ECHO_RQ(message_id=msg_id))
-        
+
         pdv_rq = PresentationDataValueItem(
             context_id=echo_ctx_id,
             data=dimse_rq,
@@ -1305,8 +1586,9 @@ class DICOMSession:
                 return parse_dimse_status(data)
         return None
 
-    def c_store(self, dataset_bytes, sop_class_uid, sop_instance_uid,
-                transfer_syntax_uid):
+    def c_store(self, dataset_bytes: bytes, sop_class_uid: str,
+                sop_instance_uid: str, transfer_syntax_uid: str
+                ) -> Optional[int]:
         if not self.assoc_established:
             log.error("Association not established")
             return None
@@ -1317,16 +1599,18 @@ class DICOMSession:
         )
         if store_ctx_id is None:
             log.error(
-                "No accepted context for SOP Class %s with Transfer Syntax %s",
+                "No accepted context for SOP %s with TS %s",
                 sop_class_uid,
                 transfer_syntax_uid,
             )
             return None
 
         msg_id = self._get_next_message_id()
-        
+
         if self.raw_mode:
-            dimse_rq = build_c_store_rq_dimse_raw(sop_class_uid, sop_instance_uid, msg_id)
+            dimse_rq = build_c_store_rq_dimse_raw(
+                sop_class_uid, sop_instance_uid, msg_id
+            )
         else:
             dimse_rq = bytes(C_STORE_RQ(
                 affected_sop_class_uid=sop_class_uid,
@@ -1368,11 +1652,6 @@ class DICOMSession:
                 pdata_data = DICOM() / P_DATA_TF(pdv_items=[data_pdv])
                 self.send(pdata_data)
                 offset += len(chunk)
-            log.debug(
-                "Fragmented %d bytes into %d PDUs",
-                len(dataset_bytes),
-                (len(dataset_bytes) + max_pdv_data - 1) // max_pdv_data,
-            )
 
         response = self.recv()
 
@@ -1385,17 +1664,22 @@ class DICOMSession:
                     data = data.encode("latin-1")
                 return parse_dimse_status(data)
         return None
-    
-    def c_store_raw(self, dataset_bytes, sop_class_uid, sop_instance_uid,
-                    context_id, skip_padding=True):
+
+    def c_store_raw(self, dataset_bytes: bytes,
+                    sop_class_uid: Union[str, bytes],
+                    sop_instance_uid: Union[str, bytes],
+                    context_id: int, skip_padding: bool = True
+                    ) -> Optional[int]:
         if not self.assoc_established:
             log.error("Association not established")
             return None
 
         msg_id = self._get_next_message_id()
-        
+
         if skip_padding:
-            dimse_rq = build_c_store_rq_dimse_raw(sop_class_uid, sop_instance_uid, msg_id)
+            dimse_rq = build_c_store_rq_dimse_raw(
+                sop_class_uid, sop_instance_uid, msg_id
+            )
         else:
             dimse_rq = bytes(C_STORE_RQ(
                 affected_sop_class_uid=sop_class_uid,
@@ -1433,11 +1717,11 @@ class DICOMSession:
                         data = data.encode("latin-1")
                     return parse_dimse_status(data)
             elif response.haslayer(A_ABORT):
-                log.info("Server aborted connection (expected for malformed data)")
+                log.info("Server aborted (expected for malformed data)")
                 return None
         return None
 
-    def release(self):
+    def release(self) -> bool:
         if not self.assoc_established:
             return True
 
@@ -1449,11 +1733,11 @@ class DICOMSession:
             return response.haslayer(A_RELEASE_RP)
         return False
 
-    def close(self):
+    def close(self) -> None:
         if self.stream:
             try:
                 self.stream.close()
-            except Exception:
+            except (socket.error, OSError):
                 pass
         self.sock = None
         self.stream = None

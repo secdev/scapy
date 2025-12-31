@@ -182,8 +182,8 @@ app_ctx = DICOMVariableItem() / DICOMApplicationContext()
 pctx = build_presentation_context_rq(1, VERIFICATION_SOP_CLASS_UID, [DEFAULT_TRANSFER_SYNTAX_UID])
 user_info = build_user_information(max_pdu_length=16384)
 assoc_rq = DICOM() / A_ASSOCIATE_RQ(
-    called_ae_title=_pad_ae_title("TARGET"),
-    calling_ae_title=_pad_ae_title("SOURCE"),
+    called_ae_title=b"TARGET",
+    calling_ae_title=b"SOURCE",
     variable_items=[app_ctx, pctx, user_info]
 )
 raw = bytes(assoc_rq)
@@ -195,10 +195,10 @@ assert items[0].item_type == 0x10
 assert items[1].item_type == 0x20
 assert items[2].item_type == 0x50
 
-= A-ASSOCIATE-RQ round-trip preserves AE titles
+= A-ASSOCIATE-RQ AE titles are space-padded by DICOMAETitleField
 original = DICOM() / A_ASSOCIATE_RQ(
-    called_ae_title=_pad_ae_title("TARGET"),
-    calling_ae_title=_pad_ae_title("SOURCE"),
+    called_ae_title=b"TARGET",
+    calling_ae_title=b"SOURCE",
 )
 serialized = bytes(original)
 parsed = DICOM(serialized)
@@ -212,8 +212,8 @@ pctx1 = build_presentation_context_rq(1, VERIFICATION_SOP_CLASS_UID, [DEFAULT_TR
 pctx2 = build_presentation_context_rq(3, CT_IMAGE_STORAGE_SOP_CLASS_UID, [DEFAULT_TRANSFER_SYNTAX_UID])
 user_info = build_user_information()
 assoc_rq = DICOM() / A_ASSOCIATE_RQ(
-    called_ae_title=_pad_ae_title("TARGET"),
-    calling_ae_title=_pad_ae_title("SOURCE"),
+    called_ae_title=b"TARGET",
+    calling_ae_title=b"SOURCE",
     variable_items=[app_ctx, pctx1, pctx2, user_info]
 )
 raw = bytes(assoc_rq)
@@ -448,11 +448,6 @@ types = [item.item_type for item in sub_items]
 assert 0x51 in types
 assert 0x52 in types
 assert 0x55 in types
-
-= _pad_ae_title pads to 16 bytes
-assert _pad_ae_title("TEST") == b"TEST            "
-assert len(_pad_ae_title("X")) == 16
-assert _pad_ae_title(b"BYTES") == b"BYTES           "
 
 = _uid_to_bytes pads odd-length UIDs
 assert len(_uid_to_bytes("1.2.3")) % 2 == 0
