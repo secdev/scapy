@@ -1381,6 +1381,7 @@ def build_user_information(max_pdu_length: int = 16384,
     return DICOMVariableItem() / DICOMUserInformation(sub_items=sub_items)
 
 
+class DICOMSocket:
     """DICOM application-layer socket for associations and DIMSE operations."""
 
     def __init__(self, dst_ip: str, dst_port: int, dst_ae: str,
@@ -1406,6 +1407,7 @@ def build_user_information(max_pdu_length: int = 16384,
         if isinstance(title, bytes):
             return title.ljust(16, b" ")[:16]
         return title.encode("ascii").ljust(16, b" ")[:16]
+
     def __enter__(self) -> "DICOMSocket":
         return self
 
@@ -1506,27 +1508,34 @@ def build_user_information(max_pdu_length: int = 16384,
         log.error("Association failed: no valid response received")
         return False
 
-    def _parse_max_pdu_length(self, response):
+    def _parse_max_pdu_length(self, response: Packet) -> None:
         try:
             for item in response[A_ASSOCIATE_AC].variable_items:
                 if item.item_type == 0x50:
                     if item.haslayer(DICOMUserInformation):
                         user_info = item[DICOMUserInformation]
                         for sub_item in user_info.sub_items:
+                            if sub_item.item_type == 0x51:
+                                if sub_item.haslayer(DICOMMaximumLength):
+                                    max_len = sub_item[DICOMMaximumLength]
+                                    server_max = max_len.max_pdu_length
+                                    self.max_pdu_length = min(
+                                        self._proposed_max_pdu, server_max
+                                    )
+                                    return
+        except (KeyError, IndexError, AttributeError):
             pass
         self.max_pdu_length = self._proposed_max_pdu
 
     def _parse_accepted_contexts(self, response: Packet) -> None:
         for item in response[A_ASSOCIATE_AC].variable_items:
-                pctx = item[DICOMPresentationContextAC]
-                ctx_id = pctx.context_id
-                        "Server accepted context ID %d which we didn't propose!",
-                        ctx_id
-                    )
-                    continue
-                        break
+            if item.item_type == 0x21:
+                if item.haslayer(DICOMPresentationContextAC):
+                    pctx = item[DICOMPresentationContextAC]
+                    ctx_id = pctx.context_id
+                    result = pctx.result
 
-    def _get_next_message_id(self):
+                    if result != 0:
                         continue
 
                     abs_syntax = self._proposed_context_map.get(ctx_id)
@@ -1535,6 +1544,10 @@ def build_user_information(max_pdu_length: int = 16384,
 
                     for sub_item in pctx.sub_items:
                         if sub_item.item_type == 0x40:
+                            if sub_item.haslayer(DICOMTransferSyntax):
+                                ts_uid = sub_item[DICOMTransferSyntax].uid
+                                if isinstance(ts_uid, bytes):
+                                    ts_uid = ts_uid.rstrip(b"\x00")
                                     ts_uid = ts_uid.decode("ascii")
                                 self.accepted_contexts[ctx_id] = (
                                     abs_syntax, ts_uid
@@ -1547,6 +1560,7 @@ def build_user_information(max_pdu_length: int = 16384,
 
     def _find_accepted_context_id(self, sop_class_uid: str,
                                   transfer_syntax_uid: Optional[str] = None
+                                  ) -> Optional[int]:
         for ctx_id, (abs_syntax, ts_syntax) in self.accepted_contexts.items():
             if abs_syntax == sop_class_uid:
                 if transfer_syntax_uid is None or transfer_syntax_uid == ts_syntax:
