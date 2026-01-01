@@ -935,8 +935,6 @@ class pfmsghdrs(Packet):
             "msgs",
             [],
             pfmsghdr,
-            # 65535 / len(pfmsghdr)
-            max_count=4096,
         ),
     ]
 
