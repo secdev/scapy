@@ -95,8 +95,6 @@ __all__ = [
     "parse_dimse_status",
     "_uid_to_bytes",
     "_uid_to_bytes_raw",
-    "build_c_echo_rq_dimse_raw",
-    "build_c_store_rq_dimse_raw",
     "build_presentation_context_rq",
     "build_user_information",
 ]
@@ -595,68 +593,6 @@ class C_GET_RSP(DIMSEPacket):
         if isinstance(other, C_GET_RQ):
             return self.message_id_responded == other.message_id
         return 0
-
-
-def build_c_echo_rq_dimse_raw(message_id: int = 1,
-                              sop_class_uid: Optional[Union[str, bytes]] = None
-                              ) -> bytes:
-    """Build raw C-ECHO-RQ DIMSE bytes without using packet classes."""
-    if sop_class_uid is None:
-        sop_uid_bytes = _uid_to_bytes_raw(VERIFICATION_SOP_CLASS_UID)
-    elif isinstance(sop_class_uid, bytes):
-        sop_uid_bytes = sop_class_uid
-    else:
-        sop_uid_bytes = _uid_to_bytes_raw(sop_class_uid)
-
-    elements = [
-        (0x0000, 0x0002, sop_uid_bytes),
-        (0x0000, 0x0100, struct.pack("<H", 0x0030)),
-        (0x0000, 0x0110, struct.pack("<H", message_id)),
-        (0x0000, 0x0800, struct.pack("<H", 0x0101)),
-    ]
-    payload = b"".join(
-        struct.pack("<HH", g, e) + struct.pack("<I", len(v)) + v
-        for g, e, v in elements
-    )
-    group_len = len(payload)
-    return (
-        struct.pack("<HHI", 0x0000, 0x0000, 4)
-        + struct.pack("<I", group_len)
-        + payload
-    )
-
-
-def build_c_store_rq_dimse_raw(sop_class_uid: Union[str, bytes],
-                               sop_instance_uid: Union[str, bytes],
-                               message_id: int = 1) -> bytes:
-    """Build raw C-STORE-RQ DIMSE bytes without using packet classes."""
-    if isinstance(sop_class_uid, bytes):
-        sop_class_bytes = sop_class_uid
-    else:
-        sop_class_bytes = _uid_to_bytes_raw(sop_class_uid)
-    if isinstance(sop_instance_uid, bytes):
-        sop_inst_bytes = sop_instance_uid
-    else:
-        sop_inst_bytes = _uid_to_bytes_raw(sop_instance_uid)
-
-    elements = [
-        (0x0000, 0x0002, sop_class_bytes),
-        (0x0000, 0x0100, struct.pack("<H", 0x0001)),
-        (0x0000, 0x0110, struct.pack("<H", message_id)),
-        (0x0000, 0x0700, struct.pack("<H", 0x0002)),
-        (0x0000, 0x0800, struct.pack("<H", 0x0000)),
-        (0x0000, 0x1000, sop_inst_bytes),
-    ]
-    payload = b"".join(
-        struct.pack("<HH", g, e) + struct.pack("<I", len(v)) + v
-        for g, e, v in elements
-    )
-    group_len = len(payload)
-    return (
-        struct.pack("<HHI", 0x0000, 0x0000, 4)
-        + struct.pack("<I", group_len)
-        + payload
-    )
 
 
 def parse_dimse_status(dimse_bytes: bytes) -> Optional[int]:
@@ -1385,12 +1321,11 @@ class DICOMSocket:
     """DICOM application-layer socket for associations and DIMSE operations."""
 
     def __init__(self, dst_ip: str, dst_port: int, dst_ae: str,
-                 src_ae: str = "SCAPY_SCU", read_timeout: int = 10,
-                 raw_mode: bool = False) -> None:
+                 src_ae: str = "SCAPY_SCU", read_timeout: int = 10) -> None:
         self.dst_ip = dst_ip
         self.dst_port = dst_port
-        self.dst_ae = self._normalize_ae_title(dst_ae)
-        self.src_ae = self._normalize_ae_title(src_ae)
+        self.dst_ae = dst_ae
+        self.src_ae = src_ae
         self.sock: Optional[socket.socket] = None
         self.stream: Optional[StreamSocket] = None
         self.assoc_established = False
@@ -1399,14 +1334,7 @@ class DICOMSocket:
         self._current_message_id_counter = int(time.time()) % 50000
         self._proposed_max_pdu = 16384
         self.max_pdu_length = 16384
-        self.raw_mode = raw_mode
         self._proposed_context_map: Dict[int, str] = {}
-
-    @staticmethod
-    def _normalize_ae_title(title: Union[str, bytes]) -> bytes:
-        if isinstance(title, bytes):
-            return title.ljust(16, b" ")[:16]
-        return title.encode("ascii").ljust(16, b" ")[:16]
 
     def __enter__(self) -> "DICOMSocket":
         return self
@@ -1511,48 +1439,54 @@ class DICOMSocket:
     def _parse_max_pdu_length(self, response: Packet) -> None:
         try:
             for item in response[A_ASSOCIATE_AC].variable_items:
-                if item.item_type == 0x50:
-                    if item.haslayer(DICOMUserInformation):
-                        user_info = item[DICOMUserInformation]
-                        for sub_item in user_info.sub_items:
-                            if sub_item.item_type == 0x51:
-                                if sub_item.haslayer(DICOMMaximumLength):
-                                    max_len = sub_item[DICOMMaximumLength]
-                                    server_max = max_len.max_pdu_length
-                                    self.max_pdu_length = min(
-                                        self._proposed_max_pdu, server_max
-                                    )
-                                    return
+                if item.item_type != 0x50:
+                    continue
+                if not item.haslayer(DICOMUserInformation):
+                    continue
+                user_info = item[DICOMUserInformation]
+                for sub_item in user_info.sub_items:
+                    if sub_item.item_type != 0x51:
+                        continue
+                    if not sub_item.haslayer(DICOMMaximumLength):
+                        continue
+                    max_len = sub_item[DICOMMaximumLength]
+                    server_max = max_len.max_pdu_length
+                    self.max_pdu_length = min(
+                        self._proposed_max_pdu, server_max
+                    )
+                    return
         except (KeyError, IndexError, AttributeError):
             pass
         self.max_pdu_length = self._proposed_max_pdu
 
     def _parse_accepted_contexts(self, response: Packet) -> None:
         for item in response[A_ASSOCIATE_AC].variable_items:
-            if item.item_type == 0x21:
-                if item.haslayer(DICOMPresentationContextAC):
-                    pctx = item[DICOMPresentationContextAC]
-                    ctx_id = pctx.context_id
-                    result = pctx.result
+            if item.item_type != 0x21:
+                continue
+            if not item.haslayer(DICOMPresentationContextAC):
+                continue
+            pctx = item[DICOMPresentationContextAC]
+            ctx_id = pctx.context_id
+            result = pctx.result
 
-                    if result != 0:
-                        continue
+            if result != 0:
+                continue
 
-                    abs_syntax = self._proposed_context_map.get(ctx_id)
-                    if abs_syntax is None:
-                        continue
+            abs_syntax = self._proposed_context_map.get(ctx_id)
+            if abs_syntax is None:
+                continue
 
-                    for sub_item in pctx.sub_items:
-                        if sub_item.item_type == 0x40:
-                            if sub_item.haslayer(DICOMTransferSyntax):
-                                ts_uid = sub_item[DICOMTransferSyntax].uid
-                                if isinstance(ts_uid, bytes):
-                                    ts_uid = ts_uid.rstrip(b"\x00")
-                                    ts_uid = ts_uid.decode("ascii")
-                                self.accepted_contexts[ctx_id] = (
-                                    abs_syntax, ts_uid
-                                )
-                                break
+            for sub_item in pctx.sub_items:
+                if sub_item.item_type != 0x40:
+                    continue
+                if not sub_item.haslayer(DICOMTransferSyntax):
+                    continue
+                ts_uid = sub_item[DICOMTransferSyntax].uid
+                if isinstance(ts_uid, bytes):
+                    ts_uid = ts_uid.rstrip(b"\x00")
+                    ts_uid = ts_uid.decode("ascii")
+                self.accepted_contexts[ctx_id] = (abs_syntax, ts_uid)
+                break
 
     def _get_next_message_id(self) -> int:
         self._current_message_id_counter += 1
@@ -1621,16 +1555,11 @@ class DICOMSocket:
 
         msg_id = self._get_next_message_id()
 
-        if self.raw_mode:
-            dimse_rq = build_c_store_rq_dimse_raw(
-                sop_class_uid, sop_instance_uid, msg_id
-            )
-        else:
-            dimse_rq = bytes(C_STORE_RQ(
-                affected_sop_class_uid=sop_class_uid,
-                affected_sop_instance_uid=sop_instance_uid,
-                message_id=msg_id,
-            ))
+        dimse_rq = bytes(C_STORE_RQ(
+            affected_sop_class_uid=sop_class_uid,
+            affected_sop_instance_uid=sop_instance_uid,
+            message_id=msg_id,
+        ))
 
         cmd_pdv = PresentationDataValueItem(
             context_id=store_ctx_id,
@@ -1677,62 +1606,6 @@ class DICOMSocket:
                 if isinstance(data, str):
                     data = data.encode("latin-1")
                 return parse_dimse_status(data)
-        return None
-
-    def c_store_raw(self, dataset_bytes: bytes,
-                    sop_class_uid: Union[str, bytes],
-                    sop_instance_uid: Union[str, bytes],
-                    context_id: int, skip_padding: bool = True
-                    ) -> Optional[int]:
-        if not self.assoc_established:
-            log.error("Association not established")
-            return None
-
-        msg_id = self._get_next_message_id()
-
-        if skip_padding:
-            dimse_rq = build_c_store_rq_dimse_raw(
-                sop_class_uid, sop_instance_uid, msg_id
-            )
-        else:
-            dimse_rq = bytes(C_STORE_RQ(
-                affected_sop_class_uid=sop_class_uid,
-                affected_sop_instance_uid=sop_instance_uid,
-                message_id=msg_id,
-            ))
-
-        cmd_pdv = PresentationDataValueItem(
-            context_id=context_id,
-            data=dimse_rq,
-            is_command=1,
-            is_last=1,
-        )
-        pdata_cmd = DICOM() / P_DATA_TF(pdv_items=[cmd_pdv])
-        self.send(pdata_cmd)
-
-        data_pdv = PresentationDataValueItem(
-            context_id=context_id,
-            data=dataset_bytes,
-            is_command=0,
-            is_last=1,
-        )
-        pdata_data = DICOM() / P_DATA_TF(pdv_items=[data_pdv])
-        self.send(pdata_data)
-
-        response = self.recv()
-
-        if response:
-            if response.haslayer(P_DATA_TF):
-                pdv_items = response[P_DATA_TF].pdv_items
-                if pdv_items:
-                    pdv_rsp = pdv_items[0]
-                    data = pdv_rsp.data
-                    if isinstance(data, str):
-                        data = data.encode("latin-1")
-                    return parse_dimse_status(data)
-            elif response.haslayer(A_ABORT):
-                log.info("Server aborted (expected for malformed data)")
-                return None
         return None
 
     def release(self) -> bool:
