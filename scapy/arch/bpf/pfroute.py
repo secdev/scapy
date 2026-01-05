@@ -406,7 +406,10 @@ class sockaddr(Packet):
             XStrLenField(
                 "sa_data",
                 "",
-                length_from=lambda pkt: pkt.sa_len - 2 if pkt.sa_len >= 2 else 0,
+                # NOTE: Darwin right-justifies netmask on 4 byte word alignment
+                length_from=lambda pkt:
+                   ((pkt.sa_len+3)//4*4 - 2 if pkt.sa_len >= 2 else 0) if DARWIN else
+                     (pkt.sa_len - 2 if pkt.sa_len >= 2 else 0),
             ),
             lambda pkt: pkt.sa_family
             not in [
@@ -1023,6 +1026,9 @@ def read_routes():
         if DARWIN and flags.RTF_WASCLONED and msg.rtm_parentflags.RTF_PRCLONING:
             # OSX needs filtering
             continue
+        if DARWIN and flags.RTF_HOST and not flags.RTF_BROADCAST:
+            # DARWIN includes the entire ARP table in the route response.  Remove it.
+            continue
         addrs = msg.rtm_addrs
         net = 0
         mask = 0xFFFFFFFF
@@ -1046,7 +1052,10 @@ def read_routes():
                 if nm.sa_family == socket.AF_INET:
                     mask = atol(nm.sin_addr)
                 elif nm.sa_family in [0x00, 0xFF]:  # NetBSD
-                    mask = struct.unpack("<I", nm.sa_data[:4].rjust(4, b"\x00"))[0]
+                    if DARWIN:
+                        mask = struct.unpack(">I", nm.sa_data[-4:].rjust(4, b"\x00"))[0]
+                    else:
+                        mask = struct.unpack("<I", nm.sa_data[:4].rjust(4, b"\x00"))[0]
                 else:
                     mask = int.from_bytes(nm.sa_data[:4], "big")
                 i += 1
