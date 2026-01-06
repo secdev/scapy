@@ -72,6 +72,8 @@ __all__ = [
     "DICOMAsyncOperationsWindow",
     "DICOMSCPSCURoleSelection",
     "DICOMImplementationVersionName",
+    "DICOMSOPClassExtendedNegotiation",
+    "DICOMSOPClassCommonExtendedNegotiation",
     "DICOMUserIdentity",
     "DICOMUserIdentityResponse",
     "DICOMElementField",
@@ -137,6 +139,8 @@ ITEM_TYPES = {
     0x53: "Asynchronous Operations Window",
     0x54: "SCP/SCU Role Selection",
     0x55: "Implementation Version Name",
+    0x56: "SOP Class Extended Negotiation", 
+    0x57: "SOP Class Common Extended Negotiation",
     0x58: "User Identity",
     0x59: "User Identity Server Response",
 }
@@ -670,6 +674,8 @@ class DICOMVariableItem(Packet):
             0x53: DICOMAsyncOperationsWindow,
             0x54: DICOMSCPSCURoleSelection,
             0x55: DICOMImplementationVersionName,
+            0x56: DICOMSOPClassExtendedNegotiation,
+            0x57: DICOMSOPClassCommonExtendedNegotiation,
             0x58: DICOMUserIdentity,
             0x59: DICOMUserIdentityResponse,
         }
@@ -927,6 +933,62 @@ class DICOMSCPSCURoleSelection(Packet):
     def mysummary(self) -> str:
         return "RoleSelection SCU=%d SCP=%d" % (self.scu_role, self.scp_role)
 
+class DICOMSOPClassExtendedNegotiation(Packet):
+    """DICOM SOP Class Extended Negotiation sub-item (PS3.7 D.3.3.5)."""
+
+    name = "DICOM SOP Class Extended Negotiation"
+    fields_desc = [
+        FieldLenField("sop_class_uid_length", None,
+                      length_of="sop_class_uid", fmt="!H"),
+        StrLenField("sop_class_uid", b"",
+                    length_from=lambda pkt: pkt.sop_class_uid_length),
+        StrLenField("service_class_application_information", b"",
+                    length_from=lambda pkt: (
+                        pkt.underlayer.length - 2 - pkt.sop_class_uid_length
+                        if pkt.underlayer and pkt.underlayer.length
+                        else 0
+                    )),
+    ]
+
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
+        return b"", s
+
+    def mysummary(self) -> str:
+        if isinstance(self.sop_class_uid, bytes):
+            uid = self.sop_class_uid.decode("ascii").rstrip("\x00")
+        else:
+            uid = self.sop_class_uid
+        return "SOPClassExtNeg %s" % uid
+
+
+class DICOMSOPClassCommonExtendedNegotiation(Packet):
+    """DICOM SOP Class Common Extended Negotiation sub-item (PS3.7 D.3.3.6)."""
+
+    name = "DICOM SOP Class Common Extended Negotiation"
+    fields_desc = [
+        FieldLenField("sop_class_uid_length", None,
+                      length_of="sop_class_uid", fmt="!H"),
+        StrLenField("sop_class_uid", b"",
+                    length_from=lambda pkt: pkt.sop_class_uid_length),
+        FieldLenField("service_class_uid_length", None,
+                      length_of="service_class_uid", fmt="!H"),
+        StrLenField("service_class_uid", b"",
+                    length_from=lambda pkt: pkt.service_class_uid_length),
+        FieldLenField("related_sop_class_uid_length", None,
+                      length_of="related_sop_class_uids", fmt="!H"),
+        StrLenField("related_sop_class_uids", b"",
+                    length_from=lambda pkt: pkt.related_sop_class_uid_length),
+    ]
+
+    def extract_padding(self, s: bytes) -> Tuple[bytes, bytes]:
+        return b"", s
+
+    def mysummary(self) -> str:
+        if isinstance(self.sop_class_uid, bytes):
+            uid = self.sop_class_uid.decode("ascii").rstrip("\x00")
+        else:
+            uid = self.sop_class_uid
+        return "SOPClassCommonExtNeg %s" % uid
 
 USER_IDENTITY_TYPES = {
     1: "Username",
@@ -1020,6 +1082,8 @@ bind_layers(DICOMVariableItem, DICOMImplementationClassUID, item_type=0x52)
 bind_layers(DICOMVariableItem, DICOMAsyncOperationsWindow, item_type=0x53)
 bind_layers(DICOMVariableItem, DICOMSCPSCURoleSelection, item_type=0x54)
 bind_layers(DICOMVariableItem, DICOMImplementationVersionName, item_type=0x55)
+bind_layers(DICOMVariableItem, DICOMSOPClassExtendedNegotiation, item_type=0x56)
+bind_layers(DICOMVariableItem, DICOMSOPClassCommonExtendedNegotiation, item_type=0x57)
 bind_layers(DICOMVariableItem, DICOMUserIdentity, item_type=0x58)
 bind_layers(DICOMVariableItem, DICOMUserIdentityResponse, item_type=0x59)
 bind_layers(DICOMVariableItem, DICOMGenericItem)
