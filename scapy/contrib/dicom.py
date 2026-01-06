@@ -18,6 +18,7 @@ import struct
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from scapy.compat import Self
 from scapy.packet import Packet, bind_layers
 from scapy.error import Scapy_Exception
 from scapy.fields import (
@@ -1336,7 +1337,7 @@ class DICOMSocket:
         self.max_pdu_length = 16384
         self._proposed_context_map: Dict[int, str] = {}
 
-    def __enter__(self) -> "DICOMSocket":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
