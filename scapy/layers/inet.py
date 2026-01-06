@@ -586,6 +586,8 @@ class IP(Packet, IPTools):
         if conf.route is None:
             # unused import, only to initialize conf.route
             import scapy.route  # noqa: F401
+        if not isinstance(dst, (str, bytes, int)):
+            dst = str(dst)
         return conf.route.route(dst, dev=scope)
 
     def hashret(self):
