@@ -1630,3 +1630,4 @@ class DICOMSocket:
         self.sock = None
         self.stream = None
         self.assoc_established = False
+        
