@@ -139,7 +139,7 @@ ITEM_TYPES = {
     0x53: "Asynchronous Operations Window",
     0x54: "SCP/SCU Role Selection",
     0x55: "Implementation Version Name",
-    0x56: "SOP Class Extended Negotiation", 
+    0x56: "SOP Class Extended Negotiation",
     0x57: "SOP Class Common Extended Negotiation",
     0x58: "User Identity",
     0x59: "User Identity Server Response",
@@ -933,6 +933,7 @@ class DICOMSCPSCURoleSelection(Packet):
     def mysummary(self) -> str:
         return "RoleSelection SCU=%d SCP=%d" % (self.scu_role, self.scp_role)
 
+
 class DICOMSOPClassExtendedNegotiation(Packet):
     """DICOM SOP Class Extended Negotiation sub-item (PS3.7 D.3.3.5)."""
 
@@ -990,6 +991,7 @@ class DICOMSOPClassCommonExtendedNegotiation(Packet):
             uid = self.sop_class_uid
         return "SOPClassCommonExtNeg %s" % uid
 
+        
 USER_IDENTITY_TYPES = {
     1: "Username",
     2: "Username and Passcode",
@@ -1694,4 +1696,3 @@ class DICOMSocket:
         self.sock = None
         self.stream = None
         self.assoc_established = False
-        
