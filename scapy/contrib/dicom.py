@@ -991,7 +991,7 @@ class DICOMSOPClassCommonExtendedNegotiation(Packet):
             uid = self.sop_class_uid
         return "SOPClassCommonExtNeg %s" % uid
 
-        
+
 USER_IDENTITY_TYPES = {
     1: "Username",
     2: "Username and Passcode",
@@ -1159,28 +1159,12 @@ class A_ASSOCIATE_RQ(Packet):
     ]
 
     def mysummary(self) -> str:
-        if isinstance(self.called_ae_title, bytes):
-            called = self.called_ae_title.strip()
-            called = called.decode("ascii", errors="replace")
-        else:
-            called = self.called_ae_title
-        if isinstance(self.calling_ae_title, bytes):
-            calling = self.calling_ae_title.strip()
-            calling = calling.decode("ascii", errors="replace")
-        else:
-            calling = self.calling_ae_title
+        called = self.called_ae_title.strip().decode("ascii", errors="replace")
+        calling = self.calling_ae_title.strip().decode("ascii", errors="replace")
         return "A-ASSOCIATE-RQ %s -> %s" % (calling, called)
 
     def hashret(self) -> bytes:
-        if isinstance(self.called_ae_title, bytes):
-            called = self.called_ae_title
-        else:
-            called = self.called_ae_title.encode()
-        if isinstance(self.calling_ae_title, bytes):
-            calling = self.calling_ae_title
-        else:
-            calling = self.calling_ae_title.encode()
-        return called + calling
+        return self.called_ae_title + self.calling_ae_title
 
 
 class A_ASSOCIATE_AC(Packet):
@@ -1206,28 +1190,12 @@ class A_ASSOCIATE_AC(Packet):
     ]
 
     def mysummary(self) -> str:
-        if isinstance(self.called_ae_title, bytes):
-            called = self.called_ae_title.strip()
-            called = called.decode("ascii", errors="replace")
-        else:
-            called = self.called_ae_title
-        if isinstance(self.calling_ae_title, bytes):
-            calling = self.calling_ae_title.strip()
-            calling = calling.decode("ascii", errors="replace")
-        else:
-            calling = self.calling_ae_title
+        called = self.called_ae_title.strip().decode("ascii", errors="replace")
+        calling = self.calling_ae_title.strip().decode("ascii", errors="replace")
         return "A-ASSOCIATE-AC %s <- %s" % (calling, called)
 
     def hashret(self) -> bytes:
-        if isinstance(self.called_ae_title, bytes):
-            called = self.called_ae_title
-        else:
-            called = self.called_ae_title.encode()
-        if isinstance(self.calling_ae_title, bytes):
-            calling = self.calling_ae_title
-        else:
-            calling = self.calling_ae_title.encode()
-        return called + calling
+        return self.called_ae_title + self.calling_ae_title
 
     def answers(self, other: Packet) -> bool:
         return isinstance(other, A_ASSOCIATE_RQ)
@@ -1359,7 +1327,7 @@ def build_presentation_context_rq(context_id: int,
 
 def build_user_information(max_pdu_length: int = 16384,
                            implementation_class_uid: Optional[str] = None,
-                           implementation_version: Optional[str] = None
+                           implementation_version: Optional[Union[str, bytes]] = None
                            ) -> Packet:
     """Build a User Information item."""
     sub_items = [
@@ -1442,8 +1410,6 @@ class DICOMSocket:
     def sr1(self, pkt: Packet) -> Optional[Packet]:
         try:
             return self.stream.sr1(pkt, timeout=self.read_timeout)
-        except socket.timeout:
-            return None
         except (socket.error, OSError) as e:
             log.error("Error in sr1: %s", e)
             return None
@@ -1549,9 +1515,7 @@ class DICOMSocket:
                 if not sub_item.haslayer(DICOMTransferSyntax):
                     continue
                 ts_uid = sub_item[DICOMTransferSyntax].uid
-                if isinstance(ts_uid, bytes):
-                    ts_uid = ts_uid.rstrip(b"\x00")
-                    ts_uid = ts_uid.decode("ascii")
+                ts_uid = ts_uid.rstrip(b"\x00").decode("ascii")
                 self.accepted_contexts[ctx_id] = (abs_syntax, ts_uid)
                 break
 
@@ -1595,10 +1559,7 @@ class DICOMSocket:
             pdv_items = response[P_DATA_TF].pdv_items
             if pdv_items:
                 pdv_rsp = pdv_items[0]
-                data = pdv_rsp.data
-                if isinstance(data, str):
-                    data = data.encode("latin-1")
-                return parse_dimse_status(data)
+                return parse_dimse_status(pdv_rsp.data)
         return None
 
     def c_store(self, dataset_bytes: bytes, sop_class_uid: str,
@@ -1669,10 +1630,7 @@ class DICOMSocket:
             pdv_items = response[P_DATA_TF].pdv_items
             if pdv_items:
                 pdv_rsp = pdv_items[0]
-                data = pdv_rsp.data
-                if isinstance(data, str):
-                    data = data.encode("latin-1")
-                return parse_dimse_status(data)
+                return parse_dimse_status(pdv_rsp.data)
         return None
 
     def release(self) -> bool:
