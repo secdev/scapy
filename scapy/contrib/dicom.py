@@ -854,6 +854,7 @@ class DICOMImplementationClassUID(Packet):
     def mysummary(self) -> str:
         return "ImplClassUID %s" % self.uid.decode("ascii").rstrip("\x00")
 
+
 class DICOMImplementationVersionName(Packet):
     """DICOM Implementation Version Name sub-item."""
 
@@ -960,8 +961,8 @@ class DICOMSOPClassCommonExtendedNegotiation(Packet):
         return b"", s
 
     def mysummary(self) -> str:
-        return "SOPClassCommonExtNeg %s" % self.sop_class_uid.decode("ascii").rstrip("\x00")
-
+        uid = self.sop_class_uid.decode("ascii").rstrip("\x00")
+        return "SOPClassCommonExtNeg %s" % uid
 
 USER_IDENTITY_TYPES = {
     1: "Username",
@@ -1378,12 +1379,15 @@ class DICOMSocket:
             log.error("Error receiving PDU: %s", e)
             return None
 
-    def sr1(self, pkt: Packet) -> Optional[Packet]:
-        try:
-            return self.stream.sr1(pkt, timeout=self.read_timeout)
-        except (socket.error, OSError) as e:
-            log.error("Error in sr1: %s", e)
-            return None
+    def sr1(self, *args, **kargs):
+            # type: (*Any, **Any) -> Optional[Packet]
+            """Send one packet and receive one answer."""
+            timeout = kargs.pop("timeout", self.read_timeout)
+            try:
+                return self.stream.sr1(*args, timeout=timeout, **kargs)
+            except (socket.error, OSError) as e:
+                log.error("Error in sr1: %s", e)
+                return None
 
     def send_raw_bytes(self, raw_bytes: bytes) -> None:
         self.sock.sendall(raw_bytes)
