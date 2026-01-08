@@ -41,6 +41,7 @@ from scapy.volatile import RandShort, RandInt, RandString
 
 __all__ = [
     "DICOM_PORT",
+    "DICOM_PORT_ALT",
     "APP_CONTEXT_UID",
     "DEFAULT_TRANSFER_SYNTAX_UID",
     "VERIFICATION_SOP_CLASS_UID",
@@ -105,6 +106,7 @@ __all__ = [
 log = logging.getLogger("scapy.contrib.dicom")
 
 DICOM_PORT = 104
+DICOM_PORT_ALT = 11112
 APP_CONTEXT_UID = "1.2.840.10008.3.1.1.1"
 DEFAULT_TRANSFER_SYNTAX_UID = "1.2.840.10008.1.2"
 VERIFICATION_SOP_CLASS_UID = "1.2.840.10008.1.1"
@@ -1270,6 +1272,8 @@ class A_ABORT(Packet):
 
 bind_layers(TCP, DICOM, dport=DICOM_PORT)
 bind_layers(TCP, DICOM, sport=DICOM_PORT)
+bind_layers(TCP, DICOM, dport=DICOM_PORT_ALT)
+bind_layers(TCP, DICOM, sport=DICOM_PORT_ALT)
 bind_layers(DICOM, A_ASSOCIATE_RQ, pdu_type=0x01)
 bind_layers(DICOM, A_ASSOCIATE_AC, pdu_type=0x02)
 bind_layers(DICOM, A_ASSOCIATE_RJ, pdu_type=0x03)
