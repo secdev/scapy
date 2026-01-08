@@ -704,11 +704,7 @@ class DICOMApplicationContext(Packet):
         return b"", s
 
     def mysummary(self) -> str:
-        if isinstance(self.uid, bytes):
-            uid = self.uid.decode("ascii").rstrip("\x00")
-        else:
-            uid = self.uid
-        return "AppContext %s" % uid
+        return "AppContext %s" % self.uid.decode("ascii").rstrip("\x00")
 
 
 class DICOMAbstractSyntax(Packet):
@@ -730,11 +726,7 @@ class DICOMAbstractSyntax(Packet):
         return b"", s
 
     def mysummary(self) -> str:
-        if isinstance(self.uid, bytes):
-            uid = self.uid.decode("ascii").rstrip("\x00")
-        else:
-            uid = self.uid
-        return "AbstractSyntax %s" % uid
+        return "AbstractSyntax %s" % self.uid.decode("ascii").rstrip("\x00")
 
 
 class DICOMTransferSyntax(Packet):
@@ -756,11 +748,7 @@ class DICOMTransferSyntax(Packet):
         return b"", s
 
     def mysummary(self) -> str:
-        if isinstance(self.uid, bytes):
-            uid = self.uid.decode("ascii").rstrip("\x00")
-        else:
-            uid = self.uid
-        return "TransferSyntax %s" % uid
+        return "TransferSyntax %s" % self.uid.decode("ascii").rstrip("\x00")
 
 
 class DICOMPresentationContextRQ(Packet):
@@ -864,12 +852,7 @@ class DICOMImplementationClassUID(Packet):
         return b"", s
 
     def mysummary(self) -> str:
-        if isinstance(self.uid, bytes):
-            uid = self.uid.decode("ascii").rstrip("\x00")
-        else:
-            uid = self.uid
-        return "ImplClassUID %s" % uid
-
+        return "ImplClassUID %s" % self.uid.decode("ascii").rstrip("\x00")
 
 class DICOMImplementationVersionName(Packet):
     """DICOM Implementation Version Name sub-item."""
@@ -890,11 +873,7 @@ class DICOMImplementationVersionName(Packet):
         return b"", s
 
     def mysummary(self) -> str:
-        if isinstance(self.name, bytes):
-            name = self.name.decode("ascii").rstrip("\x00")
-        else:
-            name = self.name
-        return "ImplVersion %s" % name
+        return "ImplVersion %s" % self.name.decode("ascii").rstrip("\x00")
 
 
 class DICOMAsyncOperationsWindow(Packet):
@@ -955,11 +934,7 @@ class DICOMSOPClassExtendedNegotiation(Packet):
         return b"", s
 
     def mysummary(self) -> str:
-        if isinstance(self.sop_class_uid, bytes):
-            uid = self.sop_class_uid.decode("ascii").rstrip("\x00")
-        else:
-            uid = self.sop_class_uid
-        return "SOPClassExtNeg %s" % uid
+        return "SOPClassExtNeg %s" % self.sop_class_uid.decode("ascii").rstrip("\x00")
 
 
 class DICOMSOPClassCommonExtendedNegotiation(Packet):
@@ -985,11 +960,7 @@ class DICOMSOPClassCommonExtendedNegotiation(Packet):
         return b"", s
 
     def mysummary(self) -> str:
-        if isinstance(self.sop_class_uid, bytes):
-            uid = self.sop_class_uid.decode("ascii").rstrip("\x00")
-        else:
-            uid = self.sop_class_uid
-        return "SOPClassCommonExtNeg %s" % uid
+        return "SOPClassCommonExtNeg %s" % self.sop_class_uid.decode("ascii").rstrip("\x00")
 
 
 USER_IDENTITY_TYPES = {
