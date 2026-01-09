@@ -966,6 +966,7 @@ class DICOMSOPClassCommonExtendedNegotiation(Packet):
         uid = self.sop_class_uid.decode("ascii").rstrip("\x00")
         return "SOPClassCommonExtNeg %s" % uid
 
+
 USER_IDENTITY_TYPES = {
     1: "Username",
     2: "Username and Passcode",
@@ -1384,14 +1385,14 @@ class DICOMSocket:
             return None
 
     def sr1(self, *args, **kargs):
-            # type: (*Any, **Any) -> Optional[Packet]
-            """Send one packet and receive one answer."""
-            timeout = kargs.pop("timeout", self.read_timeout)
-            try:
-                return self.stream.sr1(*args, timeout=timeout, **kargs)
-            except (socket.error, OSError) as e:
-                log.error("Error in sr1: %s", e)
-                return None
+        # type: (*Any, **Any) -> Optional[Packet]
+        """Send one packet and receive one answer."""
+        timeout = kargs.pop("timeout", self.read_timeout)
+        try:
+            return self.stream.sr1(*args, timeout=timeout, **kargs)
+        except (socket.error, OSError) as e:
+            log.error("Error in sr1: %s", e)
+            return None
 
     def send_raw_bytes(self, raw_bytes: bytes) -> None:
         self.sock.sendall(raw_bytes)
