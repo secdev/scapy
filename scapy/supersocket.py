@@ -14,6 +14,7 @@ import socket
 import struct
 import time
 
+from scapy.ansmachine import AnsweringMachine
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
 from scapy.data import (
@@ -44,14 +45,16 @@ from typing import (
     Optional,
     Tuple,
     Type,
+    TypeVar,
     cast,
 )
+from scapy.compat import Self
 
 # Utils
 
 
 class _SuperSocket_metaclass(type):
-    desc = None   # type: Optional[str]
+    desc = None  # type: Optional[str]
 
     def __repr__(self):
         # type: () -> str
@@ -82,10 +85,13 @@ class tpacket_auxdata(ctypes.Structure):
 
 # SuperSocket
 
+_T = TypeVar("_T", Packet, PacketList)
+
+
 class SuperSocket(metaclass=_SuperSocket_metaclass):
     closed = False  # type: bool
     nonblocking_socket = False  # type: bool
-    auxdata_available = False   # type: bool
+    auxdata_available = False  # type: bool
 
     def __init__(self,
                  family=socket.AF_INET,  # type: int
@@ -271,19 +277,17 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
         from scapy import sendrecv
         sendrecv.tshark(opened_socket=self, *args, **kargs)
 
-    # TODO: use 'scapy.ansmachine.AnsweringMachine' when typed
     def am(self,
-           cls,  # type: Type[Any]
-           *args,  # type: Any
+           cls,  # type: Type[AnsweringMachine[_T]]
            **kwargs  # type: Any
            ):
-        # type: (...) -> Any
+        # type: (...) -> AnsweringMachine[_T]
         """
         Creates an AnsweringMachine associated with this socket.
 
         :param cls: A subclass of AnsweringMachine to instantiate
         """
-        return cls(*args, opened_socket=self, socket=self, **kwargs)
+        return cls(opened_socket=self, socket=self, **kwargs)
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
@@ -295,6 +299,7 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
         :returns: an array of sockets that were selected and
             the function to be called next to get the packets (i.g. recv)
         """
+        inp = []  # type: List[SuperSocket]
         try:
             inp, _, _ = select(sockets, [], [], remain)
         except (IOError, select_error) as exc:
@@ -309,7 +314,7 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
         self.close()
 
     def __enter__(self):
-        # type: () -> SuperSocket
+        # type: () -> Self
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -627,6 +632,7 @@ class IterSocket(SuperSocket):
                         s.time = s.sent_time
                     yield s
                     yield r
+
             self.iter = _iter()
         elif isinstance(obj, (list, PacketList)):
             if isinstance(obj[0], bytes):
