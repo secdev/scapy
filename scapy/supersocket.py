@@ -14,7 +14,6 @@ import socket
 import struct
 import time
 
-from scapy.ansmachine import AnsweringMachine
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
 from scapy.data import (
@@ -47,8 +46,13 @@ from typing import (
     Type,
     TypeVar,
     cast,
+    TYPE_CHECKING,
 )
 from scapy.compat import Self
+
+if TYPE_CHECKING:
+    from scapy.ansmachine import AnsweringMachine
+
 
 # Utils
 
