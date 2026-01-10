@@ -2208,7 +2208,7 @@ class ICMPv6ND_RA(_ICMPv6NDGuessPayload, _ICMPv6):
                    BitField("H", 0, 1),
                    BitEnumField("prf", 1, 2, icmp6ndraprefs),  # RFC 4191
                    BitField("P", 0, 1),
-                   BitField("S", 0, 1),
+                   BitField("S", 0, 1), # draft-ietf-6man-snac-router-ra-flag-03
                    BitField("res", 0, 1),
                    ShortField("routerlifetime", 1800),
                    IntField("reachabletime", 0),
