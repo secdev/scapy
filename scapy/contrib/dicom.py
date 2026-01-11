@@ -617,7 +617,14 @@ def parse_dimse_status(dimse_bytes: bytes) -> Optional[int]:
             value_len = struct.unpack(
                 "<I", dimse_bytes[offset + 4:offset + 8]
             )[0]
-            if tag_group == 0x0000 and tag_elem == 0x0900 and value_len == 2:
+            if (
+                tag_group == 0x0000
+                and tag_elem == 0x0900
+                and value_len == 2
+            ):
+                # Ensure there are at least 2 bytes available for the status
+                if offset + 10 > len(dimse_bytes) or offset + 10 > group_end_offset:
+                    break
                 return struct.unpack(
                     "<H", dimse_bytes[offset + 8:offset + 10]
                 )[0]
