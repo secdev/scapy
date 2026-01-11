@@ -216,6 +216,12 @@ class DICOMElementField(Field[bytes, bytes]):
         if len(s) < 8:
             return s, b""
         tag_g, tag_e, length = struct.unpack("<HHI", s[:8])
+        # Ensure the buffer contains the full value as declared by the length
+        if len(s) < 8 + length:
+            raise Scapy_Exception(
+                "Not enough bytes to decode DICOM element value: "
+                f"expected {length} bytes, only {len(s) - 8} available"
+            )
         value = s[8:8 + length]
         return s[8 + length:], value
 
