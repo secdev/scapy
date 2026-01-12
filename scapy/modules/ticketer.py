@@ -850,7 +850,7 @@ class Ticketer:
             "Note principals are case sensitive, as on ktpass.exe"
         )
 
-    def ssp(self, i):
+    def ssp(self, i, **kwargs):
         """
         Create a KerberosSSP from a ticket or from the keystore.
 
@@ -859,18 +859,31 @@ class Ticketer:
         """
         if isinstance(i, int):
             ticket, sessionkey, upn, spn = self.export_krb(i)
-            return KerberosSSP(
-                ST=ticket,
-                KEY=sessionkey,
-                UPN=upn,
-                SPN=spn,
-            )
+            if spn.startswith("krbtgt/"):
+                # It's a TGT
+                kwargs.setdefault("SPN", None)  # Use target_name only
+                return KerberosSSP(
+                    TGT=ticket,
+                    KEY=sessionkey,
+                    UPN=upn,
+                    **kwargs,
+                )
+            else:
+                # It's a ST
+                return KerberosSSP(
+                    ST=ticket,
+                    KEY=sessionkey,
+                    UPN=upn,
+                    SPN=spn,
+                    **kwargs,
+                )
         elif isinstance(i, str):
             spn = i
             key = self.get_cred(spn)
             return KerberosSSP(
                 SPN=spn,
                 KEY=key,
+                **kwargs,
             )
         else:
             raise ValueError("Invalid 'i' value. Must be int or str")
@@ -2424,6 +2437,9 @@ class Ticketer:
         fast=False,
         armor_with=None,
         spn=None,
+        x509=None,
+        x509key=None,
+        p12=None,
         **kwargs,
     ):
         """
@@ -2458,6 +2474,9 @@ class Ticketer:
             armor_ticket_upn=armor_ticket_upn,
             armor_ticket_skey=armor_ticket_skey,
             spn=spn,
+            x509=x509,
+            x509key=x509key,
+            p12=p12,
             **kwargs,
         )
         if not res:
@@ -2570,3 +2589,10 @@ class Ticketer:
             return
 
         self.import_krb(res, _inplace=i)
+
+    def iter_tickets(self):
+        """
+        Iterate through the tickets in the ccache
+        """
+        for i in range(len(self.ccache.credentials)):
+            yield self.export_krb(i)

@@ -763,6 +763,7 @@ class HTTP_Client(object):
     :param ssl: whether to use HTTPS or not
     :param ssp: the SSP object to use for binding
     :param no_check_certificate: with SSL, do not check the certificate
+    :param no_chan_bindings: force disable sending the channel bindings
     """
 
     def __init__(
@@ -772,6 +773,7 @@ class HTTP_Client(object):
         sslcontext=None,
         ssp=None,
         no_check_certificate=False,
+        no_chan_bindings=False,
     ):
         self.sock = None
         self._sockinfo = None
@@ -781,6 +783,7 @@ class HTTP_Client(object):
         self.ssp = ssp
         self.sspcontext = None
         self.no_check_certificate = no_check_certificate
+        self.no_chan_bindings = no_chan_bindings
         self.chan_bindings = GSS_C_NO_CHANNEL_BINDINGS
 
     def _connect_or_reuse(self, host, port=None, tls=False, timeout=5):
@@ -823,7 +826,7 @@ class HTTP_Client(object):
             else:
                 context = self.sslcontext
             sock = context.wrap_socket(sock, server_hostname=host)
-            if self.ssp:
+            if self.ssp and not self.no_chan_bindings:
                 # Compute the channel binding token (CBT)
                 self.chan_bindings = GssChannelBindings.fromssl(
                     ChannelBindingType.TLS_SERVER_END_POINT,
@@ -941,7 +944,7 @@ class HTTP_Client(object):
                     # SPNEGO / Kerberos / NTLM
                     self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                         self.sspcontext,
-                        ssp_blob,
+                        input_token=ssp_blob,
                         target_name="http/" + host,
                         req_flags=0,
                         chan_bindings=self.chan_bindings,

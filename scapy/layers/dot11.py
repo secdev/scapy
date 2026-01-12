@@ -73,7 +73,7 @@ if conf.crypto_valid:
         decrepit_algorithms = algorithms
 else:
     default_backend = Ciphers = algorithms = decrepit_algorithms = None
-    log_loading.info("Can't import python-cryptography v1.7+. Disabled WEP decryption/encryption. (Dot11)")  # noqa: E501
+    log_loading.info("Can't import python-cryptography v2.0+. Disabled WEP decryption/encryption. (Dot11)")  # noqa: E501
 
 
 #########

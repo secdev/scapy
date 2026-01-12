@@ -41,11 +41,11 @@ This section tries to give many usage examples, but isn't exhaustive. For more d
     >>> t.show()
     Tickets:
     0. Administrator@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
-    Start time         End time           Renew until        Auth time        
+    Start time         End time           Renew until        Auth time
     31/08/23 11:38:34  31/08/23 21:38:34  31/08/23 21:38:35  31/08/23 01:38:34
 
     1. Administrator@DOMAIN.LOCAL -> host/dc1.domain.local@DOMAIN.LOCAL
-    Start time         End time           Renew until        Auth time        
+    Start time         End time           Renew until        Auth time
     31/08/23 11:39:07  31/08/23 21:38:34  31/08/23 21:38:35  31/08/23 01:38:34
 
 
@@ -68,12 +68,41 @@ This section tries to give many usage examples, but isn't exhaustive. For more d
     >>> # Using the AES-256-SHA1-96 Kerberos Key
    >>> t.request_tgt("Administrator@domain.local", key=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, bytes.fromhex("63a2577d8bf6abeba0847cded36b9aed202c23750eb9c56b6155be1cc946bb1d")))
 
+- **Request a TGT using PKINIT**:
+
+.. code:: pycon
+
+    >>> from scapy.libs.rfc3961 import EncryptionType
+    >>> load_module("ticketer")
+    >>> t = Ticketer()
+    >>> # If P12:
+    >>> t.request_tgt("Administrator@DOMAIN.LOCAL", p12="admin.pfx", ca="ca.pem")
+    >>> # One could also have used a different cert and key file:
+    >>> t.request_tgt("Administrator@DOMAIN.LOCAL", x509="admin.cert", x509key="admin.key", ca="ca.pem")
+
+- **Request a user TGT with Kerberos armoring (FAST)**
+
+The ``armor_with`` keyword allows to select a ticket to armor the request with.
+
+.. code:: pycon
+
+    >>> load_module("ticketer")
+    >>> t = Ticketer()
+    >>> t.request_tgt("Machine01$@DOMAIN.LOCAL", key=Key(EncryptionType.RC4_HMAC, bytes.fromhex("2b576acbe6bcfda7294d6bd18041b8fe")))
+    >>> t.show()
+    Tickets:
+    0. Machine01$@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
+    Start time         End time           Renew until        Auth time
+    31/08/23 11:38:34  31/08/23 21:38:34  31/08/23 21:38:35  31/08/23 01:38:34
+    >>> t.request_tgt("Administrator@domain.local", armor_with=0)  # Armor with ticket n°0
+
 - **Renew a TGT or ST**:
 
 .. code::
 
     >>> t.renew(0)  # renew TGT
     >>> t.renew(1)  # renew ST. Works only with 'host/' SPNs
+    >>> t.renew(1, armor_with=0)  # renew something with armoring
 
 - **Import tickets from a ccache**:
 

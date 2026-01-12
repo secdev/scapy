@@ -332,8 +332,8 @@ assert abs(x.remainingDays("02/12/11")) > 5000
 assert abs(x.remainingDays("Feb 12 10:00:00 2011 Paris, Madrid")) > 1
 
 = Cert class : Checking RSA public key
-assert type(x.pubKey) is PubKeyRSA
-x_pubNum = x.pubKey.pubkey.public_numbers()
+assert type(x.pubkey) is PubKeyRSA
+x_pubNum = x.pubkey.pubkey.public_numbers()
 assert x_pubNum.n == 19231328316532061413420367242571475005688288081144416166988378525696075445024135424022026378563116068168327239354659928492979285632474448448624869172454076124150405352043642781483254546569202103296262513098482624188672299255268092629150366527784294463900039290024710152521604731213565912934889752122898104556895316819303096201441834849255370122572613047779766933573375974464479123135292080801384304131606933504677232323037116557327478512106367095125103346134248056463878553619525193565824925835325216545121044922690971718737998420984924512388011040969150550056783451476150234324593710633552558175109683813482739004163
 x_pubNum.e == 0x10001
 
@@ -357,9 +357,9 @@ fstat = os.stat(filename)
 assert fstat.st_size == 1302
 os.remove(filename)
 
-= Cert class : isIssuerCert
+= Cert class : isIssuer
 
-assert x.isIssuerCert(x)
+assert x.isIssuer(x)
 
 = Cert class : Importing another PEM-encoded X.509 Certificate
 y = Cert("""
@@ -381,8 +381,8 @@ JjZ91eQ0hjkCMHw2U/Aw5WJjOpnitqM7mzT6HtoQknFekROn3aRukswy1vUhZscv
 """)
 
 = Cert class : Checking ECDSA public key
-assert type(y.pubKey) is PubKeyECDSA
-pubkey = y.pubKey.pubkey
+assert type(y.pubkey) is PubKeyECDSA
+pubkey = y.pubkey.pubkey
 assert pubkey.curve.name == 'secp384r1'
 pubkey.public_numbers().x == 3987178688175281746349180015490646948656137448666005327832107126183726641822596270780616285891030558662603987311874
 
@@ -524,7 +524,7 @@ with ContextManagerCaptureOutput() as cmco:
 
 ########### High-level methods ###############################################
 
-= Cert class : Checking isIssuerCert()
+= Cert class : Checking isIssuer()
 c0 = Cert("""
 -----BEGIN CERTIFICATE-----
 MIIFVjCCBD6gAwIBAgIJAJmDv7HOC+iUMA0GCSqGSIb3DQEBCwUAMIHGMQswCQYD
@@ -614,130 +614,53 @@ pL/QlwVKvOoYKAKQvVR4CSFx09F9HdkWsKlhPdAKACL8x3vLCWRFCztAgfd9fDL1
 mMpYjn0q7pBZc2T5NnReJaH1ZgUufzkVqSr7UIuOhWn0
 -----END CERTIFICATE-----
 """)
-c0.isIssuerCert(c1) and c1.isIssuerCert(c2) and not c0.isIssuerCert(c2)
+assert c0.isIssuer(c1) and c1.isIssuer(c2) and not c0.isIssuer(c2)
 
 = Cert class : Checking isSelfSigned()
-c2.isSelfSigned() and not c1.isSelfSigned() and not c0.isSelfSigned()
+assert c2.isSelfSigned() and not c1.isSelfSigned() and not c0.isSelfSigned()
 
 = PubKey class : Checking verifyCert()
-c2.pubKey.verifyCert(c2) and c1.pubKey.verifyCert(c0)
+assert c2.pubkey.verifyCert(c2) and c1.pubkey.verifyCert(c0)
 
-= Chain class : Checking chain construction
-assert len(Chain([c0, c1, c2])) == 3
-assert len(Chain([c0], c1)) == 2
-len(Chain([c0], c2)) == 1
+= CertTree class : Checking verification of chain
+chain0 = CertTree([c0, c1, c2]).getchain(c0)
+assert len(chain0) == 3
+assert chain0[0] == c1
+assert chain0[1] == c0
+assert chain0[2] == c2
+chain1 = CertTree([c2, c1, c0]).getchain(c1)
+assert len(chain1) == 2
+assert chain1[0] == c1
+assert chain1[1] == c2
+chain2 = CertTree([c0, c2, c1]).getchain(c2)
+assert len(chain2) == 1
+assert chain2[0] == c2
 
-= Chain class : repr
+= CertTree class : show()
 
-expected_repr = """__ /C=US/ST=Arizona/L=Scottsdale/O=Starfield Technologies, Inc./CN=Starfield Root Certificate Authority - G2 [Self Signed]
-  _ /C=US/ST=Arizona/L=Scottsdale/O=Starfield Technologies, Inc./OU=http://certs.starfieldtech.com/repository//CN=Starfield Secure Certificate Authority - G2
-    _ /OU=Domain Control Validated/CN=*.tools.ietf.org"""
-assert str(Chain([c0, c1, c2])) == expected_repr
+expected_repr = '/C=US/ST=Arizona/L=Scottsdale/O=Starfield Technologies, Inc./CN=Starfield Root Certificate Authority - G2 [Self Signed]\n  /C=US/ST=Arizona/L=Scottsdale/O=Starfield Technologies, Inc./OU=http://certs.starfieldtech.com/repository//CN=Starfield Secure Certificate Authority - G2 [Not Self Signed]\n    /OU=Domain Control Validated/CN=*.tools.ietf.org [Not Self Signed]\n'
+assert CertTree([c0, c1, c2]).show(ret=True) == expected_repr
 
-= Chain class : Checking chain verification
-assert Chain([], c0).verifyChain([c2], [c1])
-not Chain([c1]).verifyChain([c0])
+repr_str = CertTree([], c0).show(ret=True)
+assert repr_str == '/OU=Domain Control Validated/CN=*.tools.ietf.org [Not Self Signed]\n'
 
-= Chain class: Checking chain verification with file
+= CertTree class : verify
 
-import tempfile
-
-tf_folder = tempfile.mkdtemp()
-
-try:
-    os.makedirs(tf_folder)
-except:
-    pass
-
-tf = os.path.join(tf_folder, "trusted")
-utf = os.path.join(tf_folder, "untrusted")
-
-tf
-utf
-
-# Create files
-trusted = open(tf, "w")
-trusted.write("""
------BEGIN CERTIFICATE-----
-MIIFADCCA+igAwIBAgIBBzANBgkqhkiG9w0BAQsFADCBjzELMAkGA1UEBhMCVVMx
-EDAOBgNVBAgTB0FyaXpvbmExEzARBgNVBAcTClNjb3R0c2RhbGUxJTAjBgNVBAoT
-HFN0YXJmaWVsZCBUZWNobm9sb2dpZXMsIEluYy4xMjAwBgNVBAMTKVN0YXJmaWVs
-ZCBSb290IENlcnRpZmljYXRlIEF1dGhvcml0eSAtIEcyMB4XDTExMDUwMzA3MDAw
-MFoXDTMxMDUwMzA3MDAwMFowgcYxCzAJBgNVBAYTAlVTMRAwDgYDVQQIEwdBcml6
-b25hMRMwEQYDVQQHEwpTY290dHNkYWxlMSUwIwYDVQQKExxTdGFyZmllbGQgVGVj
-aG5vbG9naWVzLCBJbmMuMTMwMQYDVQQLEypodHRwOi8vY2VydHMuc3RhcmZpZWxk
-dGVjaC5jb20vcmVwb3NpdG9yeS8xNDAyBgNVBAMTK1N0YXJmaWVsZCBTZWN1cmUg
-Q2VydGlmaWNhdGUgQXV0aG9yaXR5IC0gRzIwggEiMA0GCSqGSIb3DQEBAQUAA4IB
-DwAwggEKAoIBAQDlkGZL7PlGcakgg77pbL9KyUhpgXVObST2yxcT+LBxWYR6ayuF
-pDS1FuXLzOlBcCykLtb6Mn3hqN6UEKwxwcDYav9ZJ6t21vwLdGu4p64/xFT0tDFE
-3ZNWjKRMXpuJyySDm+JXfbfYEh/JhW300YDxUJuHrtQLEAX7J7oobRfpDtZNuTlV
-Bv8KJAV+L8YdcmzUiymMV33a2etmGtNPp99/UsQwxaXJDgLFU793OGgGJMNmyDd+
-MB5FcSM1/5DYKp2N57CSTTx/KgqT3M0WRmX3YISLdkuRJ3MUkuDq7o8W6o0OPnYX
-v32JgIBEQ+ct4EMJddo26K3biTr1XRKOIwSDAgMBAAGjggEsMIIBKDAPBgNVHRMB
-Af8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUJUWBaFAmOD07LSy+
-zWrZtj2zZmMwHwYDVR0jBBgwFoAUfAwyH6fZMH/EfWijYqihzqsHWycwOgYIKwYB
-BQUHAQEELjAsMCoGCCsGAQUFBzABhh5odHRwOi8vb2NzcC5zdGFyZmllbGR0ZWNo
-LmNvbS8wOwYDVR0fBDQwMjAwoC6gLIYqaHR0cDovL2NybC5zdGFyZmllbGR0ZWNo
-LmNvbS9zZnJvb3QtZzIuY3JsMEwGA1UdIARFMEMwQQYEVR0gADA5MDcGCCsGAQUF
-BwIBFitodHRwczovL2NlcnRzLnN0YXJmaWVsZHRlY2guY29tL3JlcG9zaXRvcnkv
-MA0GCSqGSIb3DQEBCwUAA4IBAQBWZcr+8z8KqJOLGMfeQ2kTNCC+Tl94qGuc22pN
-QdvBE+zcMQAiXvcAngzgNGU0+bE6TkjIEoGIXFs+CFN69xpk37hQYcxTUUApS8L0
-rjpf5MqtJsxOYUPl/VemN3DOQyuwlMOS6eFfqhBJt2nk4NAfZKQrzR9voPiEJBjO
-eT2pkb9UGBOJmVQRDVXFJgt5T1ocbvlj2xSApAer+rKluYjdkf5lO6Sjeb6JTeHQ
-sPTIFwwKlhR8Cbds4cLYVdQYoKpBaXAko7nv6VrcPuuUSvC33l8Odvr7+2kDRUBQ
-7nIMpBKGgc0T0U7EPMpODdIm8QC3tKai4W56gf0wrHofx1l7
------END CERTIFICATE-----
-""")
-trusted.close()
-
-untrusted = open(utf, "w")
-untrusted.write("""
------BEGIN CERTIFICATE-----
-MIID3TCCAsWgAwIBAgIBADANBgkqhkiG9w0BAQsFADCBjzELMAkGA1UEBhMCVVMx
-EDAOBgNVBAgTB0FyaXpvbmExEzARBgNVBAcTClNjb3R0c2RhbGUxJTAjBgNVBAoT
-HFN0YXJmaWVsZCBUZWNobm9sb2dpZXMsIEluYy4xMjAwBgNVBAMTKVN0YXJmaWVs
-ZCBSb290IENlcnRpZmljYXRlIEF1dGhvcml0eSAtIEcyMB4XDTA5MDkwMTAwMDAw
-MFoXDTM3MTIzMTIzNTk1OVowgY8xCzAJBgNVBAYTAlVTMRAwDgYDVQQIEwdBcml6
-b25hMRMwEQYDVQQHEwpTY290dHNkYWxlMSUwIwYDVQQKExxTdGFyZmllbGQgVGVj
-aG5vbG9naWVzLCBJbmMuMTIwMAYDVQQDEylTdGFyZmllbGQgUm9vdCBDZXJ0aWZp
-Y2F0ZSBBdXRob3JpdHkgLSBHMjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC
-ggEBAL3twQP89o/8ArFvW59I2Z154qK3A2FWGMNHttfKPTUuiUP3oWmb3ooa/RMg
-nLRJdzIpVv257IzdIvpy3Cdhl+72WoTsbhm5iSzchFvVdPtrX8WJpRBSiUZV9Lh1
-HOZ/5FSuS/hVclcCGfgXcVnrHigHdMWdSL5stPSksPNkN3mSwOxGXn/hbVNMYq/N
-Hwtjuzqd+/x5AJhhdM8mgkBj87JyahkNmcrUDnXMN/uLicFZ8WJ/X7NfZTD4p7dN
-dloedl40wOiWVpmKs/B/pM293DIxfJHP4F8R+GuqSVzRmZTRouNjWwl2tVZi4Ut0
-HZbUJtQIBFnQmA4O5t78w+wfkPECAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAO
-BgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFHwMMh+n2TB/xH1oo2Kooc6rB1snMA0G
-CSqGSIb3DQEBCwUAA4IBAQARWfolTwNvlJk7mh+ChTnUdgWUXuEok21iXQnCoKjU
-sHU48TRqneSfioYmUeYs0cYtbpUgSpIB7LiKZ3sx4mcujJUDJi5DnUox9g61DLu3
-4jd/IroAow57UvtruzvE03lRTs2Q9GcHGcg8RnoNAX3FWOdt5oUwF5okxBDgBPfg
-8n/Uqgr/Qh037ZTlZFkSIHc40zI+OIF1lnP6aI+xy84fxez6nH7PfrHxBy22/L/K
-pL/QlwVKvOoYKAKQvVR4CSFx09F9HdkWsKlhPdAKACL8x3vLCWRFCztAgfd9fDL1
-mMpYjn0q7pBZc2T5NnReJaH1ZgUufzkVqSr7UIuOhWn0
------END CERTIFICATE-----
-""")
-untrusted.close()
-
-assert Chain([], c0).verifyChainFromCAFile(tf, untrusted_file=utf)
-assert Chain([], c0).verifyChainFromCAPath(tf_folder, untrusted_file=utf)
-
-= Clear files
+CertTree([c1, c2]).verify(c0)
+CertTree([c2]).verify(c1)
 
 try:
-    os.remove("./certs_test_ca/trusted")
-    os.remove("./certs_test_ca/untrusted")
-except:
+    CertTree([c1]).verify(c0)
+    assert False
+except ValueError:
     pass
 
 try:
-    os.rmdir("././certs_test_ca")
-except:
+    CertTree([c2]).verify(c0)
+    assert False
+except ValueError:
     pass
 
-= Test __repr__
-
-repr_str = Chain([], c0).__repr__()
-assert repr_str == '__ /OU=Domain Control Validated/CN=*.tools.ietf.org [Not Self Signed]\n'
 
 = Test GeneralizedTime
 
@@ -751,3 +674,434 @@ fd.write(b"-----END CERTIFICATE-----\n")
 fd.close()
 cert = Cert(filename)
 assert "2011" in cert.notBefore_str and "2046" in cert.notAfter_str
+
++ CSR
+
+= CSR class - Parse CSR in PKCS#10 format - Normal
+
+from scapy.layers.tls.cert import CSR
+
+csr = CSR("""
+-----BEGIN NEW CERTIFICATE REQUEST-----
+MIIEEDCCAvgCAQAwIzEQMA4GA1UECgwHVGVzdE9yZzEPMA0GA1UEAwwGVGVzdENO
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7QfRs3mjYec2JJDiFJkA
+Sq0hfCdWo9hbX75FfWAh2Pid4NsCu/8vsfHwezFoQehpzIJq7tXH6mip8fiIEtzA
+3WsXq7AknJmoaSIGu/g85zoypgqUfKvvrsof6h8avg16unm/LiDe7GGUh135L61W
+XjQRQZcb/J+e4NDe4vO1qKauviB8N29tarMgtWCN29xdP2MmWsKG7OdKoCkeCUBv
+T8J6TwtOtgcnz88cg5TpNZd9DeloqQVO+Y6mB3F7Moup1RMzNNfvXX7VwJs19quH
+QVvpGMqMdKvBOcFMWBzkp5yz8rz906Up6IMtJ5lebnZiM78qMASce09XXUoQeRa2
+yQIDAQABoIIBpjAcBgorBgEEAYI3DQIDMQ4WDDEwLjAuMjYxMDAuMjBCBgorBgEE
+AYI3DQIBMTQwMh4mAEMAZQByAHQAaQBmAGkAYwBhAHQAZQBUAGUAbQBwAGwAYQB0
+AGUeCABVAHMAZQByMEcGCSsGAQQBgjcVFDE6MDgCAQkMEERDMS5ET01BSU4uTE9D
+QUwMFERPTUFJTlxBZG1pbmlzdHJhdG9yDAtjZXJ0cmVxLmV4ZTB0BgorBgEEAYI3
+DQICMWYwZAIBAR5cAE0AaQBjAHIAbwBzAG8AZgB0ACAARQBuAGgAYQBuAGMAZQBk
+ACAAQwByAHkAcAB0AG8AZwByAGEAcABoAGkAYwAgAFAAcgBvAHYAaQBkAGUAcgAg
+AHYAMQAuADADAQAwgYIGCSqGSIb3DQEJDjF1MHMwFwYJKwYBBAGCNxQCBAoeCABV
+AHMAZQByMCkGA1UdJQQiMCAGCisGAQQBgjcKAwQGCCsGAQUFBwMEBggrBgEFBQcD
+AjAOBgNVHQ8BAf8EBAMCBaAwHQYDVR0OBBYEFHTYQp8vpznjtd/YUFReYLZ3KkGL
+MA0GCSqGSIb3DQEBBQUAA4IBAQDB2DQqAlezF5kf5m7LQ46nacqmhi7UCKbAV4kV
+REkBdOqLLac50rerzCbSLFD8py0dVtqzD8+ccsm/jmadIwIiGLy/4YLfFiSyA4CK
+MiHpDb5iVCPlhA7uod9w0/tvtjDRvoipog1VA2B9GL2vDn2RAMa4BOnI2dM1OZdH
+V7UC9kRspJrzO0wMl68VQU6t7cGi+jfxEO735OEfRGkRRUuBXq6azBswlelA4+Ha
+997g/CwZmlIUB4D1vZrXZkIvLWybkGtlP369LePN91jUBJr2rDw4nyfulSZEDKwb
+L8SaD6ZFk+ZchJPx0UhG13GHdUJZb2brHV+gYZRusX8LOauO
+-----END NEW CERTIFICATE REQUEST-----
+""")
+
+assert csr.verifySelf()
+csr
+
+assert isinstance(csr.csr, PKCS10_CertificationRequest)
+pkcs10 = csr.csr
+
+assert pkcs10.certificationRequestInfo.get_subject() == {'organizationName': 'TestOrg', 'commonName': 'TestCN'}
+
+assert pkcs10.certificationRequestInfo.attributes[0].type.oidname == 'OID_OS_VERSION'
+assert pkcs10.certificationRequestInfo.attributes[0].values[0].value == b'10.0.26100.2'
+
+assert pkcs10.certificationRequestInfo.attributes[3].type.oidname == 'OID_ENROLLMENT_CSP_PROVIDER'
+assert pkcs10.certificationRequestInfo.attributes[3].values[0].value.ProviderName.val.decode("utf-16be") == 'Microsoft Enhanced Cryptographic Provider v1.0'
+
+assert pkcs10.certificationRequestInfo.attributes[4].values[0].value.extensions[0].extnID.oidname == "ENROLL_CERTTYPE"
+assert pkcs10.certificationRequestInfo.attributes[4].values[0].value.extensions[0].extnValue.Name.val == b'\x00U\x00s\x00e\x00r'
+
+
+= CSR class - Parse CSR in CMC format - Normal (sha1)
+
+from scapy.layers.tls.cert import CSR
+
+csr = CSR("""
+-----BEGIN NEW CERTIFICATE REQUEST-----
+MIIGuwYJKoZIhvcNAQcCoIIGrDCCBqgCAQMxCzAJBgUrDgMCGgUAMIIFFQYIKwYB
+BQUHDAKgggUHBIIFAzCCBP8wgdkwZgIBAgYKKwYBBAGCNwoKATFVMFMCAQAwAwIB
+ATFJMEcGCSsGAQQBgjcVFDE6MDgCAQkMEERDMS5ET01BSU4uTE9DQUwMFERPTUFJ
+TlxBZG1pbmlzdHJhdG9yDAtjZXJ0cmVxLmV4ZTBvAgEDBggrBgEFBQcHCDFgMF4C
+AQAwAwIBATBUMBcGCSsGAQQBgjcUAgQKHggAVQBzAGUAcjApBgNVHSUEIjAgBgor
+BgEEAYI3CgMEBggrBgEFBQcDBAYIKwYBBQUHAwIwDgYDVR0PAQH/BAQDAgWgMIIE
+G6CCBBcCAQEwggQQMIIC+AIBADAjMRAwDgYDVQQKDAdUZXN0T3JnMQ8wDQYDVQQD
+DAZUZXN0Q04wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDDmuBEjKaX
+ETewhcD5qoa4Qx+6H7YWColwCukmf6Bg8lwq3nHXEXHZjBfZaLHcev1xEgKd25L9
+kZtMUYeMK/zxX2C0x5xbsJR18/sJ9GZ5YqzUhlGW8PaLaql6g2e+jpzd9m1kU+IK
+3Wx/bwZ2TmMjZoikHPym4Kzieyimqty8FxU1fBNkcNopLxaFVlclprwXqrdHXALC
+/OWZIzUNcjAaTnVU4qFx7Mb65ik4klVsRiO1nR1dVeJWbMa8gvUhcglsZyH/wRwD
+lHwpYGY1LO27Z9baBJojraTr0z0YiOWj6BjWfRy9FsbI+sFwLzskaUbcjdvI+UmL
+P7Nji0zGrksZAgMBAAGgggGmMBwGCisGAQQBgjcNAgMxDhYMMTAuMC4yNjEwMC4y
+MEIGCisGAQQBgjcNAgExNDAyHiYAQwBlAHIAdABpAGYAaQBjAGEAdABlAFQAZQBt
+AHAAbABhAHQAZR4IAFUAcwBlAHIwRwYJKwYBBAGCNxUUMTowOAIBCQwQREMxLkRP
+TUFJTi5MT0NBTAwURE9NQUlOXEFkbWluaXN0cmF0b3IMC2NlcnRyZXEuZXhlMHQG
+CisGAQQBgjcNAgIxZjBkAgEBHlwATQBpAGMAcgBvAHMAbwBmAHQAIABFAG4AaABh
+AG4AYwBlAGQAIABDAHIAeQBwAHQAbwBnAHIAYQBwAGgAaQBjACAAUAByAG8AdgBp
+AGQAZQByACAAdgAxAC4AMAMBADCBggYJKoZIhvcNAQkOMXUwczAXBgkrBgEEAYI3
+FAIECh4IAFUAcwBlAHIwKQYDVR0lBCIwIAYKKwYBBAGCNwoDBAYIKwYBBQUHAwQG
+CCsGAQUFBwMCMA4GA1UdDwEB/wQEAwIFoDAdBgNVHQ4EFgQUJm+5vprbywwUFsNc
+npQt/zP+3BEwDQYJKoZIhvcNAQEFBQADggEBAHbi+2oaM9oRugYC6lfmRJHOKJ62
+DP/A41KZEe+7tZfrLSeOra6hNg10LZCJXE3Sg8rzE26/ZU/raJjxNytHH4NuhyxV
+gZddYbekxRMey3ou2qSbotRATWYVEt7eW3+eJxunpEiuAZ4+Q0l5OcoT2XY85m+V
+0goQFs3VHDDhbiDdm2TFikNA6Soi0H3Fe9Fdy36N9ua7Z5EwPhNCkorVU4C+XA+u
+qJu2P18+W2p0NjQz96QfmBB0QXc2b0bCRpcsuQG9T3h0S1nrWXKjoymJL4SZPZ3F
+Za/zNAPTPHd4UlX3fC5vPV1tw/sGfqn5ICRiqbNFIRPixol0UJmP/t0IMoowADAA
+MYIBezCCAXcCAQOAFCZvub6a28sMFBbDXJ6ULf8z/twRMAkGBSsOAwIaBQCgPjAX
+BgkqhkiG9w0BCQMxCgYIKwYBBQUHDAIwIwYJKoZIhvcNAQkEMRYEFCYLXDzJ+xwT
+oNgEnqjniydkGdJkMA0GCSqGSIb3DQEBAQUABIIBAHgMd4MCpLOlR+Z12ATKYfgc
+EeA/npahMiXIC97vn24xRDz9gXvQAvw9mSrhwc3kHPF45fQ4eQcoyaYHIt2G93sf
+5rF8g9qKsNkzqvpVHPD1CUImUBxW92n1NwYwdL711x22wehaabWxybS5L3BLdLqr
+B86oxjQ582eGXqj4OncPesPBJud4AnD4ObZseDFk3sNfJmiz3e7BUkOhcfPgePZv
+P4xCVfb5QBV4Jv6xem/0QxkpuQNyTrEK7g3qE0DZaOj97YEPOtqKeOcSddueTPjy
+u7F+oKWjUdO6P903GzjyeI5D3pV3WPgkz2a2lzdB2+B1Zw4MyXvUpfeg9CkkbCs=
+-----END NEW CERTIFICATE REQUEST-----
+""")
+
+assert csr.verifySelf()
+
+assert isinstance(csr.csr, CMS_ContentInfo)
+cms = csr.csr
+
+assert cms.content.signerInfos[0].version == 3
+assert cms.content.signerInfos[0].sid.sid == b'&o\xb9\xbe\x9a\xdb\xcb\x0c\x14\x16\xc3\\\x9e\x94-\xff3\xfe\xdc\x11'
+assert cms.content.signerInfos[0].digestAlgorithm.algorithm.oidname == "sha1"
+assert cms.content.signerInfos[0].signatureAlgorithm.algorithm.oidname == "rsaEncryption"
+
+= CSR class - Parse CSR in CMC format - Normal (sha1) - Unpack and verify
+
+cms_engine = CMS_Engine([csr])
+pkidata = cms_engine.verify(cms)
+
+assert isinstance(pkidata, CMC_PKIData)
+
+assert len(pkidata.controlSequence) == 2
+assert pkidata.controlSequence[0].type.oidname == "OID_CMC_ADD_ATTRIBUTES"
+assert pkidata.controlSequence[0].attrValues[0].value.pkiDataReference == 0
+assert pkidata.controlSequence[0].attrValues[0].value.certReferences == [1]
+assert pkidata.controlSequence[0].attrValues[0].value.attributes[0].values[0].value.MachineName == b"DC1.DOMAIN.LOCAL"
+assert pkidata.controlSequence[0].attrValues[0].value.attributes[0].values[0].value.UserName == b"DOMAIN\\Administrator"
+assert pkidata.controlSequence[0].attrValues[0].value.attributes[0].values[0].value.ProcessName == b"certreq.exe"
+
+assert pkidata.controlSequence[1].type.oidname == "id-cmc-addExtensions"
+assert isinstance(pkidata.controlSequence[1].attrValues[0].value.extensions[0].extensions[0].extnValue, X509_ExtCertificateTemplateName)
+assert pkidata.controlSequence[1].attrValues[0].value.extensions[0].extensions[0].extnValue.Name == b'\x00U\x00s\x00e\x00r'
+assert isinstance(pkidata.controlSequence[1].attrValues[0].value.extensions[0].extensions[1].extnValue, X509_ExtExtendedKeyUsage)
+assert [x.oid.oidname for x in pkidata.controlSequence[1].attrValues[0].value.extensions[0].extensions[1].extnValue.extendedKeyUsage] == ['OID_EFS_CRYPTO', 'emailProtection', 'clientAuth']
+assert isinstance(pkidata.controlSequence[1].attrValues[0].value.extensions[0].extensions[2].extnValue, X509_ExtKeyUsage)
+assert pkidata.controlSequence[1].attrValues[0].value.extensions[0].extensions[2].extnValue.keyUsage == "101"
+
+assert isinstance(pkidata.reqSequence[0], CMC_TaggedRequest)
+certReqInfo = pkidata.reqSequence[0].request.certificationRequest.certificationRequestInfo
+assert certReqInfo.version == 0
+assert certReqInfo.get_subject() == {'organizationName': 'TestOrg', 'commonName': 'TestCN'}
+assert certReqInfo.get_subject_str() == '/O=TestOrg/CN=TestCN'
+
+assert certReqInfo.attributes[0].type.oidname == "OID_OS_VERSION"
+assert certReqInfo.attributes[0].values[0].value == b'10.0.26100.2'
+
+assert certReqInfo.attributes[1].type.oidname == "OID_ENROLLMENT_NAME_VALUE_PAIR"
+assert certReqInfo.attributes[1].values[0].value.Name.val.decode("utf-16be") == "CertificateTemplate"
+assert certReqInfo.attributes[1].values[0].value.Value.val.decode("utf-16be") == "User"
+
+assert certReqInfo.attributes[2].values[0].value.MachineName == b'DC1.DOMAIN.LOCAL'
+assert certReqInfo.attributes[2].values[0].value.UserName == b'DOMAIN\\Administrator'
+assert certReqInfo.attributes[2].values[0].value.ProcessName == b'certreq.exe'
+
+assert certReqInfo.attributes[3].values[0].value.KeySpec == 1
+assert certReqInfo.attributes[3].values[0].value.ProviderName.val.decode("utf-16be") == 'Microsoft Enhanced Cryptographic Provider v1.0'
+
+assert certReqInfo.attributes[4].values[0].value.extensions[0].extnValue.Name == b"\x00U\x00s\x00e\x00r"
+assert [x.oid.oidname for x in certReqInfo.attributes[4].values[0].value.extensions[1].extnValue.extendedKeyUsage] == ['OID_EFS_CRYPTO', 'emailProtection', 'clientAuth']
+assert isinstance(certReqInfo.attributes[4].values[0].value.extensions[3].extnValue, X509_ExtSubjectKeyIdentifier)
+assert certReqInfo.attributes[4].values[0].value.extensions[3].extnValue.keyIdentifier == b'&o\xb9\xbe\x9a\xdb\xcb\x0c\x14\x16\xc3\\\x9e\x94-\xff3\xfe\xdc\x11'
+
+= CSR class - Parse CSR in CMC format - Advanced (KeyAttestation + sha256)
+
+from scapy.layers.tls.cert import CSR
+
+csr = CSR("""
+    -----BEGIN NEW CERTIFICATE REQUEST-----
+    MIIdrAYJKoZIhvcNAQcCoIIdnTCCHZkCAQMxDzANBglghkgBZQMEAgEFADCCG/IG
+    CCsGAQUFBwwCoIIb5ASCG+AwghvcMGUwYwIBAgYKKwYBBAGCNwoKATFSMFACAQAw
+    AwIBATFGMEQGCSsGAQQBgjcVFDE3MDUCAQUMEldLUzAxLkRPTUFJTi5MT0NBTAwN
+    RE9NQUlOXFdLUzAxJAwNdGFza2hvc3R3LmV4ZTCCG22gghtpAgEBMIIbYjCCGkoC
+    AQAwADCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALBtO+wrGSWT7QVn
+    6dfFxKs/Yy2PRXZTzfd6770wcCZNPT/NzaN2QqVVwm1LMLTwgiHJQR2iUW8mfYLu
+    uVWRBvNi5DVAaB7LwNQxfb1XjaoDz5mmopISJPwjSZWkBlTj3V243f78GnR4kxXj
+    Df8Aw8Soggi2ijlvYuBtmDK/lwLhxg9Q0o477yBsjZRWp0VrB/QFL612ajN7t3EF
+    sLwSovMws+a1dAJQnzQozCmTFUiiAJCfulvqqXo73Lf9piYldIR2PQ93vNLK7PEv
+    1h6PkiBQnkHEp2WxY0fCx8+hr44o2+fnZ789zKtVU8Hl7tVn9l+m80nfX69rYZDO
+    XnvNd2cCAwEAAaCCGRswHAYKKwYBBAGCNw0CAzEOFgwxMC4wLjI2MjAwLjIwRAYJ
+    KwYBBAGCNxUUMTcwNQIBBQwSV0tTMDEuRE9NQUlOLkxPQ0FMDA1ET01BSU5cV0tT
+    MDEkDA10YXNraG9zdHcuZXhlMFMGCSsGAQQBgjcVGTFGHkQATQBpAGMAcgBvAHMA
+    bwBmAHQAIABQAGwAYQB0AGYAbwByAG0AIABDAHIAeQBwAHQAbwAgAFAAcgBvAHYA
+    aQBkAGUAcjBcBgorBgEEAYI3DQICMU4wTAIBAB5EAE0AaQBjAHIAbwBzAG8AZgB0
+    ACAAUABsAGEAdABmAG8AcgBtACAAQwByAHkAcAB0AG8AIABQAHIAbwB2AGkAZABl
+    AHIDAQAwgbAGCSqGSIb3DQEJDjGBojCBnzA8BgkrBgEEAYI3FQcELzAtBiUrBgEE
+    AYI3FQjWsQSC2qUvhJmLPoL2iwyCzYNAa4bp+RyCq/F7AgFkAgEHMBMGA1UdJQQM
+    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
+    tDcJu1pwwhhwrsR9l8iKGw==
+    -----END NEW CERTIFICATE REQUEST-----
+""".replace("    ", ""))
+
+assert csr.verifySelf()
+
+assert isinstance(csr.csr, CMS_ContentInfo)
+cms = csr.csr
+
+assert cms.content.signerInfos[0].version == 3
+assert cms.content.signerInfos[0].sid.sid == b'\x17\xad/(\x94]\x19e]\x8c\xaa\xda~\x85-\xd6i\x11\xef\xb5'
+assert cms.content.signerInfos[0].digestAlgorithm.algorithm.oidname == "sha256"
+assert cms.content.signerInfos[0].signatureAlgorithm.algorithm.oidname == "rsaEncryption"
+
+= CSR class - Parse CSR in CMC format - Advanced (KeyAttestation + sha256) - Unpack and verify
+
+from scapy.layers.tpm import *
+
+cms_engine = CMS_Engine([csr])
+pkidata = cms_engine.verify(cms)
+
+assert isinstance(pkidata, CMC_PKIData)
+
+assert isinstance(pkidata.reqSequence[0], CMC_TaggedRequest)
+certReqInfo = pkidata.reqSequence[0].request.certificationRequest.certificationRequestInfo
+assert certReqInfo.version == 0
+assert certReqInfo.attributes[0].type.oidname == "OID_OS_VERSION"
+assert certReqInfo.attributes[0].values[0].value == b'10.0.26200.2'
+
+assert certReqInfo.attributes[2].type.oidname == 'OID_ENROLL_KSP_NAME'
+assert certReqInfo.attributes[2].values[0].value.val.decode("utf-16be") == 'Microsoft Platform Crypto Provider'
+
+assert certReqInfo.attributes[3].type.oidname == "OID_ENROLLMENT_CSP_PROVIDER"
+assert certReqInfo.attributes[3].values[0].value.ProviderName.val.decode("utf-16be") == 'Microsoft Platform Crypto Provider'
+
+assert certReqInfo.attributes[4].type.oidname == "extensionRequest"
+exts = certReqInfo.attributes[4].values[0].value.extensions
+
+assert exts[0].extnID.oidname == "OID_CERTIFICATE_TEMPLATE"
+assert exts[0].extnValue.templateID.val == '1.3.6.1.4.1.311.21.8.1415300.5673647.8799678.6129036.5456320.107.14318748.4913403'
+assert exts[0].extnValue.templateMajorVersion == 100
+assert exts[0].extnValue.templateMinorVersion == 7
+
+assert exts[1].extnID.oidname == "extKeyUsage"
+assert exts[1].extnValue.extendedKeyUsage[0].oid.oidname == 'iKEIntermediate'
+
+assert exts[2].extnID.oidname == "keyUsage"
+assert bool(exts[2].critical) is True
+assert exts[2].extnValue.keyUsage == "101"
+
+assert exts[3].extnID.oidname == "OID_APPLICATION_CERT_POLICIES"
+assert isinstance(exts[3].extnValue, X509_ExtCertificatePolicies)
+assert exts[3].extnValue.certificatePolicies[0].policyIdentifier.oidname == 'iKEIntermediate'
+
+assert exts[4].extnID.oidname == "subjectKeyIdentifier"
+assert exts[4].extnValue.keyIdentifier == b"\x17\xad/(\x94]\x19e]\x8c\xaa\xda~\x85-\xd6i\x11\xef\xb5"
+
+assert certReqInfo.attributes[5].type.oidname == "OID_ENROLL_EK_INFO"
+cms_enveloppe = certReqInfo.attributes[5].values[0].value
+assert cms_enveloppe.contentType.oidname == "id-envelopedData"
+assert isinstance(cms_enveloppe.content.recipientInfos[0].recipientInfo, CMS_KeyTransRecipientInfo)
+assert cms_enveloppe.content.encryptedContentInfo.contentType.oidname == 'pkcs-7.1'
+
+assert certReqInfo.attributes[6].type.oidname == "OID_ENROLL_ATTESTATION_STATEMENT"
+cmc_enrollment = certReqInfo.attributes[6].values[0].value
+assert isinstance(cmc_enrollment.kas, KeyAttestationStatement)
+assert cmc_enrollment.kas.Version == 1
+
+idBinding = cmc_enrollment.kas.idBinding
+assert isinstance(idBinding, PCP_IDBinding20)
+assert idBinding.PublicKey.publicArea.objectAttributes == 328818
+assert idBinding.PublicKey.publicArea.authPolicy.buffer == b'\x9d\xff\xcb\xf3l8:\xe6\x99\xfb\x98h\xdcm\xcb\x89\xd7\x158\x84\xbe(\x03\x92,\x12AX\xbf\xad"\xae'
+assert idBinding.CreationData.creationData.pcrSelect.count == 0
+assert idBinding.CreationData.creationData.pcrDigest.buffer == b"\xe3\xb0\xc4B\x98\xfc\x1c\x14\x9a\xfb\xf4\xc8\x99o\xb9$'\xaeA\xe4d\x9b\x93L\xa4\x95\x99\x1bxR\xb8U"
+assert idBinding.CreationData.creationData.locality.Extended == 1
+assert idBinding.CreationData.creationData.sprintf("%parentNameAlg%") == 'TPM_ALG_SHA256'
+assert idBinding.CreationData.creationData.parentName.Name == b'\x00\x0b\x0e\xa7[\x12x5\xe3_\x10\xc7\xfc\xcd3Za\xe3.\xde\xf6\xbc\x0b\xd9Y\xbamn\x87I\xb6b\x8b\xa8'
+assert idBinding.Attest.attestationData.qualifiedSigned.Name == b'\x00\x0b\xb5\xb4e\x88\xdbDN\x9c\xf0ICV\xd7\xc5]n\x91\r|\xd5\x89D\x9a]\xebL\x04\x90\xbb$\xd7\x0f'
+assert idBinding.Attest.attestationData.extraData.buffer == b'w\x06\xa2\x0f*\xef2\xd8\x00C\x85X$\n\xed\x1c\xectlT'
+assert idBinding.Attest.attestationData.attested.objectName.Name == b"\x00\x0b'\x82s(\n\x07\x19\x99Wo\\\xac\xe3ZMiUr\xe9\x0fZ2\x8b\xb5{\xb1C\xff-\xccz\xa3"
+assert idBinding.Attest.attestationData.attested.creationHash.buffer == b'.\xd0\xb6\ns\xf1\x0b\x8a\xdb\x08Z\x0c\xfe(\xec\xe3\xf6C\x1dp\xf3\xe6\x07\x9c879\x83~\x824f'
+assert idBinding.Signature.sprintf("%sigAlg%") == "TPM_ALG_RSASSA"
+assert idBinding.Signature.signature.sprintf("%hash%") == "TPM_ALG_SHA1"
+
+keyAttestation = cmc_enrollment.kas.keyAttestation
+assert isinstance(keyAttestation, KeyAttestation)
+assert keyAttestation.sprintf("%Platform%") == "TPM 2.0"
+assert keyAttestation.keyBlob.flags & 2
+assert keyAttestation.keyBlob.public.publicArea.objectAttributes.fixedTPM
+assert keyAttestation.keyBlob.public.publicArea.objectAttributes.userWithAuth
+assert keyAttestation.keyBlob.public.publicArea.parameters.symmetric.sprintf("%algorithm%") == 'TPM_ALG_NULL'
+assert keyAttestation.keyBlob.public.publicArea.parameters.scheme.sprintf("%scheme%") == 'TPM_ALG_NULL'
+assert [x.buffer for x in keyAttestation.keyBlob.policyDigestList.digests] == [
+    b'\x8f\xcd!i\xab\x92iN\x0cc?\x1a\xb7r\x84+\x82A\xbb\xc2\x02\x88\x98\x1f\xc7\xac\x1e\xdd\xc1\xfd\xdb\x0e',
+    b'\xe5)\xf5\xd6\x11(r\x95N\x8e\xd6`Q\x17\xb7W\xe27\xc6\xe1\x95\x13\xa9I\xfe\xe1\xf2\x04\xc4X\x02:',
+    b'\xaf,\xa5ii\x9cCj!\x00o\x1c\xb8\xa2ul\x98\xbc\x1cvZ5Y\xc5\xfe\x1c?^r(\xa7\xe7',
+    b'\xc4\x13\xa8G\xb1\x11\x12\xb1\xcb\xdd\xd4\xec\xa4\xda\xaa\x15\xa1\x85,\x1c;\xbaWF\x1d%v\x05\xf3\xd5\xafS',
+    b'',
+    b'\x04\x8e\x9a:\xce\x08X?y\xf3D\xffx[\xbe\xa9\xf0z\xc7\xfa3%\xb3\xd4\x9a!\xddQ\x94\xc6XP',
+]
+
+aikOpaque = cmc_enrollment.kas.aikOpaque
+assert isinstance(aikOpaque, PCP_20_KEY_BLOB)
+assert aikOpaque.public.publicArea.unique.buffer == b'\xc6\x1c\x7f\xc4KC\xc2 \x9b;a/\x888\x84\x0e4w5\xb4\x01\'\xb8/\x1c\xc2\xe9\xc3;v\x8dUb4\x8c\xde\xd09\xd9\x1dSPC\xaa\xcb\xcc[N6Z\xedK\\\xa8\xe3\x94h:\x04(|\xc1\x08\x15\x12]Z\xf7\xc6,\x94\x9c\xe1\x145e\xee\x8c\x89/\xd0\xea>\x91\xc1\xb4\x1cl\xc5\xaa\x9c\xca)\t\xbb\nhv\xdb3\xf3\xbe\xdcLYj\xc8g.VN\xdc\xbd\x95\xfc\x05"\xc7\xc7\xf2{w\x1b\x18\xba\xf6\xa4\x93\x00V?\x87 \xa5U\x96\x807\xa5\xa5\x0b\x11O\x7f\x1br\x96H\x1e1\xf7z\xcc\xd7\x1e\x132SD\xc1F\x9d|Ud9]\xa3[\xff6\xa9\xc0\xa7\x9e]\xf4\xdc=1\xe7\xa9i\xc9\xcaI\xd9\x80\x84\xa3\xe7f\x0f\n\xb2\xe9o\x13\x12Vg}\x85\xbd\x14^<\xe6\x10WQ3\x0e\xcci\x99(\xc60\x87\xa4+\xbdw\x03RD\xef\x87/[\x9f\x04C}\xf2\x18]\x8f\xb4x\x04\xb2\xe6\xd8h\xf9\xad\xef\x88?\xea\x88\x07\xecu'
+assert [x.buffer for x in aikOpaque.policyDigestList.digests] == [
+    b'\x8f\xcd!i\xab\x92iN\x0cc?\x1a\xb7r\x84+\x82A\xbb\xc2\x02\x88\x98\x1f\xc7\xac\x1e\xdd\xc1\xfd\xdb\x0e',
+    b'\xe5)\xf5\xd6\x11(r\x95N\x8e\xd6`Q\x17\xb7W\xe27\xc6\xe1\x95\x13\xa9I\xfe\xe1\xf2\x04\xc4X\x02:',
+    b'\xaf,\xa5ii\x9cCj!\x00o\x1c\xb8\xa2ul\x98\xbc\x1cvZ5Y\xc5\xfe\x1c?^r(\xa7\xe7',
+    b'\xc4\x13\xa8G\xb1\x11\x12\xb1\xcb\xdd\xd4\xec\xa4\xda\xaa\x15\xa1\x85,\x1c;\xbaWF\x1d%v\x05\xf3\xd5\xafS',
+    b'',
+    b'\x04\x8e\x9a:\xce\x08X?y\xf3D\xffx[\xbe\xa9\xf0z\xc7\xfa3%\xb3\xd4\x9a!\xddQ\x94\xc6XP',
+]

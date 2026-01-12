@@ -745,10 +745,13 @@ def isCryptographyValid():
     Check if the cryptography module >= 2.0.0 is present. This is the minimum
     version for most usages in Scapy.
     """
+    # Check import
     try:
         import cryptography
     except ImportError:
         return False
+
+    # Check minimum version
     return _version_checker(cryptography, (2, 0, 0))
 
 
@@ -768,6 +771,23 @@ def isCryptographyAdvanced():
     except Exception:
         return False
     else:
+        return True
+
+
+def isCryptographyBackendCompatible() -> bool:
+    """
+    Check if the cryptography backend is compatible
+    """
+    # Check for LibreSSL
+    try:
+        from cryptography.hazmat.backends import default_backend
+        if "LibreSSL" in default_backend().openssl_version_text():
+            # BUG: LibreSSL - https://marc.info/?l=libressl&m=173846028619304&w=2
+            # It takes 5 whole minutes to import RFC3526's modp parameters. This is
+            # not okay.
+            return False
+        return True
+    except Exception:
         return True
 
 
@@ -1199,6 +1219,17 @@ if not Conf.ipv6_enabled:
 conf = Conf()  # type: Conf
 
 
+if not isCryptographyBackendCompatible():
+    conf.crypto_valid = False
+    conf.crypto_valid_advanced = False
+    log_scapy.error(
+        "Scapy does not support LibreSSL as a backend to cryptography ! "
+        "See https://cryptography.io/en/latest/installation/#static-wheels "
+        "for instructions on how to recompile cryptography with another "
+        "backend."
+    )
+
+
 def crypto_validator(func):
     # type: (DecoratorCallable) -> DecoratorCallable
     """
@@ -1209,7 +1240,7 @@ def crypto_validator(func):
         # type: (*Any, **Any) -> Any
         if not conf.crypto_valid:
             raise ImportError("Cannot execute crypto-related method! "
-                              "Please install python-cryptography v1.7 or later.")  # noqa: E501
+                              "Please install python-cryptography v2.0 or later.")  # noqa: E501
         return func(*args, **kwargs)
     return func_in
 
