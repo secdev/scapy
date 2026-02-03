@@ -2727,11 +2727,8 @@ class HCI_Cmd_LE_Set_Extended_Scan_Enable(Packet):
             1: "enabled",
             2: "reset_period"
         }),
-        # 0x0000: Continuous scan until explicitly disabled.
         LEShortField("duration", 500),  # Default: scan for 5 seconds
-        # 0x0000: No periodic scanning (Standard behavior).
-        # If Duration is 0, this MUST be 0. Unit: 1.28s.
-        LEShortField("period", 0),
+        LEShortField("period", 0), # If Duration is 0, this MUST be 0
     ]
 
 
@@ -2758,7 +2755,6 @@ class HCI_Cmd_LE_Create_Connection(Packet):
         LEShortField("max_ce", 0),
     ]
 
-
 class HCI_Cmd_LE_Extended_Create_Connection(Packet):
     name = "HCI_LE_Extended_Create_Connection"
     fields_desc = [
@@ -2778,7 +2774,6 @@ class HCI_Cmd_LE_Extended_Create_Connection(Packet):
             2: "rpa_pub",
             3: "rpa_rand"
         }),
-        # 4. Peer Address
         LEMACField("peer_addr", None),
         # Bit 0: 1M, Bit 1: 2M, Bit 2: Coded
         ByteField("phys", 1),
@@ -2803,6 +2798,27 @@ class HCI_Cmd_LE_Extended_Create_Connection(Packet):
                          lambda pkt: pkt.phys & 1),
         ConditionalField(LEShortField("max_ce_1m", 0),
                          lambda pkt: pkt.phys & 1),
+        # --- PHY 2M Parameters (Bit 1) ---
+        ConditionalField(LEShortField("interval_2m", 96),
+                         lambda pkt: pkt.phys & 2),
+        ConditionalField(LEShortField("window_2m", 96),
+                         lambda pkt: pkt.phys & 2),
+        ConditionalField(
+            LEShortField("min_interval_2m", 40),
+            lambda pkt: pkt.phys & 2,
+        ),
+        ConditionalField(
+            LEShortField("max_interval_2m", 56),
+            lambda pkt: pkt.phys & 2,
+        ),
+        ConditionalField(LEShortField("latency_2m", 0),
+                         lambda pkt: pkt.phys & 2), 
+        ConditionalField(LEShortField("timeout_2m", 42),
+                         lambda pkt: pkt.phys & 2),
+        ConditionalField(LEShortField("min_ce_2m", 0),
+                         lambda pkt: pkt.phys & 2),
+        ConditionalField(LEShortField("max_ce_2m", 0),
+                         lambda pkt: pkt.phys & 2),
         # --- PHY Coded Parameters (Bit 2) ---
         ConditionalField(LEShortField("interval_coded", 96),
                          lambda pkt: pkt.phys & 4),
