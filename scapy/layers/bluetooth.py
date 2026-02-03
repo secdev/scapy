@@ -2660,7 +2660,6 @@ class HCI_Cmd_LE_Set_Extended_Scan_Parameters(Packet):
                 3: "whitelist_rpa"
             },
         ),
-        # This field controls which of the following blocks appear
         ByteField("scanning_phys", 0x01),  # Default 0x01 (1M only)
         # --- LE 1M PHY (Bit 0) ---
         ConditionalField(
@@ -2676,6 +2675,22 @@ class HCI_Cmd_LE_Set_Extended_Scan_Parameters(Packet):
         ),
         ConditionalField(LEShortField("scan_window_1m", 0x0010),
                          lambda pkt: pkt.scanning_phys & 0x01),
+        # --- LE 2M PHY (Bit 1) ---
+        ConditionalField(
+            ByteEnumField("scan_type_2m", 1, {
+                0: "passive",
+                1: "active"
+            }),
+            lambda pkt: pkt.scanning_phys & 0x02,
+        ),
+        ConditionalField(
+            LEShortField("scan_interval_2m", 0x0010),
+            lambda pkt: pkt.scanning_phys & 0x02,
+        ),
+        ConditionalField(
+            LEShortField("scan_window_2m", 0x0010),
+            lambda pkt: pkt.scanning_phys & 0x02,
+        ),
         # --- LE Coded PHY (Bit 2) ---
         ConditionalField(
             ByteEnumField("scan_type_coded", 1, {
@@ -2688,12 +2703,9 @@ class HCI_Cmd_LE_Set_Extended_Scan_Parameters(Packet):
             LEShortField("scan_interval_coded", 0x0010),
             lambda pkt: pkt.scanning_phys & 0x04,
         ),
-        ConditionalField(
-            LEShortField("scan_window_coded", 0x0010),
-            lambda pkt: pkt.scanning_phys & 0x04,
-        ),
+        ConditionalField(LEShortField("scan_window_coded", 0x0010),
+                         lambda pkt: pkt.scanning_phys & 0x04),
     ]
-
 
 class HCI_Cmd_LE_Set_Scan_Enable(Packet):
     name = "HCI_LE_Set_Scan_Enable"
