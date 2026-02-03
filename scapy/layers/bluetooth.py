@@ -3487,16 +3487,16 @@ class HCI_LE_Meta_Long_Term_Key_Request(Packet):
 class HCI_LE_Meta_Extended_Advertising_Report(Packet):
     name = "Extended Advertising Report"
     fields_desc = [
-        BitField("reserved0", 0, 1),
+        BitField("reserved", 0, 9),
         BitEnumField(
             "data_status",
             0,
             2,
             {
-                0b00: "complete",
-                0b01: "incomplete",
-                0b10: "incomplete_truncated",
-                0b11: "reserved",
+                0: "complete",
+                1: "incomplete",
+                2: "truncated",
+                3: "reserved",
             },
         ),
         BitField("legacy", 0, 1),
@@ -3504,54 +3504,49 @@ class HCI_LE_Meta_Extended_Advertising_Report(Packet):
         BitField("directed", 0, 1),
         BitField("scannable", 0, 1),
         BitField("connectable", 0, 1),
-        ByteField("reserved", 0),
         ByteEnumField(
             "addr_type",
             0,
             {
-                0x00: "public_device_address",
-                0x01: "random_device_address",
-                0x02: "public_identity_address",
-                0x03: "random_identity_address",
+                0: "public",
+                1: "random",
+                2: "public_identity",
+                3: "random_identity",
                 0xFF: "anonymous",
             },
         ),
         LEMACField("addr", None),
         ByteEnumField("primary_phy", 0, {
-            0x01: "le_1m",
-            0x03: "le_coded_s8",
-            0x04: "le_coded_s2"
+            1: "1M",
+            3: "Coded",
         }),
         ByteEnumField(
             "secondary_phy",
             0,
             {
-                0x01: "le_1m",
-                0x02: "le_2m",
-                0x03: "le_coded_s8",
-                0x04: "le_coded_s2"
+                0: "none",
+                1: "1M",
+                2: "2M",
+                3: "Coded",
             },
         ),
-        ByteField("advertising_sid", 0xFF),
-        ByteField("tx_power", 0x7F),
-        SignedByteField("rssi", 0x00),
-        LEShortField("periodic_advertising_interval", 0x0000),
+        ByteField("sid", 0xFF),
+        ByteField("tx_power", 127),
+        SignedByteField("rssi", 127),
+        LEShortField("periodic_adv_interval", 0),
         ByteEnumField(
             "direct_address_type",
             0,
             {
-                0x00: "public_device_address",
-                0x01: "non_resolvable_private_address",
-                0x02: "resolvable_private_address_resolved_0",
-                0x03: "resolvable_private_address_resolved_1",
-                0xFE: "resolvable_private_address_unable_resolve",
+                0: "public",
+                1: "random",
             },
         ),
-        LEMACField("direct_address", None),
-        FieldLenField("data_length", None, length_of="data", fmt="B"),
+        LEMACField("direct_addr", None),
+        FieldLenField("data_lenght", None, length_of="data", fmt="B"),
         PacketListField("data", [],
                         EIR_Hdr,
-                        length_from=lambda pkt: pkt.data_length),
+                        length_from=lambda pkt: pkt.data_lenght),
     ]
 
     def extract_padding(self, s):
