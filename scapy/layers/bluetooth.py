@@ -2434,7 +2434,7 @@ class HCI_Cmd_Write_Loopback_Mode(Packet):
 class HCI_Cmd_LE_Set_Event_Mask(Packet):
     name = "HCI_LE_Set_Event_Mask"
     fields_desc = [
-        StrFixedLenField("mask", b"\xff\x1f\x0a\x03\x00\x00\x00\x00", 8)
+        StrFixedLenField("mask", 0x00001FFFFFFFFFFF.to_bytes(8, 'little'), 8) # BT 5.0+
     ]  # noqa: E501
 
 
@@ -2515,16 +2515,24 @@ class HCI_Cmd_LE_Set_Extended_Advertising_Parameters(Packet):
         ByteField("pri_channel_map", 7),  # 37, 38, 39
         ByteEnumField("own_addr_type", 0, {
             0: "public",
-            1: "random"
+            1: "random",
+            2: "rpa_pub",
+            3: "rpa_rand"
         }),
         ByteEnumField("peer_addr_type", 0, {
             0: "public",
-            1: "random"
+            1: "random",
+            2: "rpa_pub",
+            3: "rpa_rand"
         }),
         LEMACField("peer_addr", None),
-        ByteEnumField("filter_policy", 0, {0: "all"}),
+        ByteEnumField("filter_policy", 0, {
+            0: "all",
+            1: "scan_whitelist_conn_all",
+            2: "scan_all_conn_whitelist",
+            3: "whitelist"
+        }),
         SignedByteField("tx_power", 127),  # 127 = No preference
-        # PHY Configuration
         ByteEnumField("pri_phy", 1, {
             1: "1M",
             3: "Coded"
@@ -3359,12 +3367,15 @@ class HCI_LE_Meta_Connection_Complete(Packet):
     ]
 
     def answers(self, other):
-        if HCI_Cmd_LE_Create_Connection not in other:
+        if HCI_Cmd_LE_Create_Connection in other:
+            cmd = other[HCI_Cmd_LE_Create_Connection]
+        elif HCI_Cmd_LE_Extended_Create_Connection in other:
+            cmd = other[HCI_Cmd_LE_Extended_Create_Connection]
+        else:
             return False
 
-        return (other[HCI_Cmd_LE_Create_Connection].peer_addr_type == self.peer_addr_type
-                and other[HCI_Cmd_LE_Create_Connection].peer_addr == self.peer_addr)
-
+        return (cmd.peer_addr_type == self.peer_addr_type
+                and cmd.peer_addr == self.peer_addr)
 
 class HCI_LE_Meta_Enhanced_Connection_Complete(Packet):
     name = "LE Enhanced Connection Complete"
@@ -3408,12 +3419,15 @@ class HCI_LE_Meta_Enhanced_Connection_Complete(Packet):
     ]
 
     def answers(self, other):
-        if HCI_Cmd_LE_Extended_Create_Connection not in other:
+        if HCI_Cmd_LE_Create_Connection in other:
+            cmd = other[HCI_Cmd_LE_Create_Connection]
+        elif HCI_Cmd_LE_Extended_Create_Connection in other:
+            cmd = other[HCI_Cmd_LE_Extended_Create_Connection]
+        else:
             return False
 
-        cmd = other[HCI_Cmd_LE_Extended_Create_Connection]
-
-        return cmd.peer_addr_type == self.peer_addr_type and cmd.peer_addr == self.peer_addr
+        return (cmd.peer_addr_type == self.peer_addr_type
+                and cmd.peer_addr == self.peer_addr)
 
 
 class HCI_LE_Meta_Connection_Update_Complete(Packet):
