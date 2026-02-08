@@ -602,7 +602,7 @@ def _members_cb(pkt, lst, cur, remain):
                 ].Value
                 return functools.partial(
                     NRBFMemberPrimitiveUnTyped,
-                    type=PrimitiveTypeEnum(primitiveType),
+                    primtype=PrimitiveTypeEnum(primitiveType),
                 )
     return NRBFRecord
 
@@ -639,14 +639,14 @@ class NRBFClassInfo(Packet):
 
 
 class NRBFAdditionalInfo(Packet):
-    __slots__ = ["type"]
+    __slots__ = ["bintype"]
 
     fields_desc = [
         MultipleTypeField(
             [
                 (
                     ByteEnumField("Value", 0, PrimitiveTypeEnum),
-                    lambda pkt: pkt.type
+                    lambda pkt: pkt.bintype
                     in [
                         BinaryTypeEnum.Primitive,
                         BinaryTypeEnum.PrimitiveArray,
@@ -656,11 +656,11 @@ class NRBFAdditionalInfo(Packet):
                     PacketField(
                         "Value", NRBFLengthPrefixedString(), NRBFLengthPrefixedString
                     ),
-                    lambda pkt: pkt.type == BinaryTypeEnum.SystemClass,
+                    lambda pkt: pkt.bintype == BinaryTypeEnum.SystemClass,
                 ),
                 (
                     PacketField("Value", NRBFClassTypeInfo(), NRBFClassTypeInfo),
-                    lambda pkt: pkt.type == BinaryTypeEnum.Class,
+                    lambda pkt: pkt.bintype == BinaryTypeEnum.Class,
                 ),
             ],
             StrFixedLenField("Value", b"", length=0),
@@ -668,18 +668,18 @@ class NRBFAdditionalInfo(Packet):
     ]
 
     def __init__(self, _pkt=None, **kwargs):
-        self.type = kwargs.pop("type", BinaryTypeEnum.Primitive)
-        assert isinstance(self.type, BinaryTypeEnum)
+        self.bintype = kwargs.pop("bintype", BinaryTypeEnum.Primitive)
+        assert isinstance(self.bintype, BinaryTypeEnum)
         super(NRBFAdditionalInfo, self).__init__(_pkt, **kwargs)
 
     def clone_with(self, *args, **kwargs):
         pkt = super(NRBFAdditionalInfo, self).clone_with(*args, **kwargs)
-        pkt.type = self.type
+        pkt.bintype = self.bintype
         return pkt
 
     def copy(self):
         pkt = super(NRBFAdditionalInfo, self).copy()
-        pkt.type = self.type
+        pkt.bintype = self.bintype
         return pkt
 
     def default_payload_class(self, payload):
@@ -715,7 +715,7 @@ def _member_type_infos_cb(pkt, lst, cur, remain):
     # Return BinaryTypeEnum tainted with a pre-selected type.
     return functools.partial(
         NRBFAdditionalInfo,
-        type=typeEnum,
+        bintype=typeEnum,
     )
 
 
@@ -752,30 +752,30 @@ class NRBFClassWithId(NRBFRecord):
 
 
 class NRBFMemberPrimitiveUnTyped(Packet):
-    __slots__ = ["type"]
+    __slots__ = ["primtype"]
 
     fields_desc = [
         NRBFValueWithCode.fields_desc[1],
     ]
 
     def __init__(self, _pkt=None, **kwargs):
-        self.type = kwargs.pop("type", PrimitiveTypeEnum.Byte)
-        assert isinstance(self.type, PrimitiveTypeEnum)
+        self.primtype = kwargs.pop("primtype", PrimitiveTypeEnum.Byte)
+        assert isinstance(self.primtype, PrimitiveTypeEnum)
         super(NRBFMemberPrimitiveUnTyped, self).__init__(_pkt, **kwargs)
 
     def clone_with(self, *args, **kwargs):
         pkt = super(NRBFMemberPrimitiveUnTyped, self).clone_with(*args, **kwargs)
-        pkt.type = self.type
+        pkt.primtype = self.primtype
         return pkt
 
     def copy(self):
         pkt = super(NRBFMemberPrimitiveUnTyped, self).copy()
-        pkt.type = self.type
+        pkt.primtype = self.primtype
         return pkt
 
     @property
     def PrimitiveType(self):
-        return self.type
+        return self.primtype
 
     def default_payload_class(self, payload):
         return conf.padding_layer
@@ -848,7 +848,7 @@ def _values_singleprim_cb(pkt, lst, cur, remain):
         return None
     return functools.partial(
         NRBFMemberPrimitiveUnTyped,
-        type=PrimitiveTypeEnum(pkt.PrimitiveTypeEnum),
+        primtype=PrimitiveTypeEnum(pkt.PrimitiveTypeEnum),
     )
 
 
