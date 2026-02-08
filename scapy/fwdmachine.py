@@ -414,6 +414,7 @@ class ForwardMachine:
         # Wrap the sockets
         sock = self.sockcls(sock, self.cls)
         ss = self.sockcls(ss, self.cls)
+        sock.streamsession = ss.streamsession
         try:
             while True:
                 # Listen on both ends of the connection
