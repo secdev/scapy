@@ -751,7 +751,7 @@ class LDAPHero:
             results = self.client.search(
                 baseObject=item,
                 scope=0,
-                attributes=["ntSecurityDescriptor"],
+                attributes=["nTSecurityDescriptor"],
                 controls=[
                     LDAP_Control(
                         controlType="1.2.840.113556.1.4.801",
@@ -776,6 +776,12 @@ class LDAPHero:
             nTSecurityDescriptor = SECURITY_DESCRIPTOR(
                 results[item]["nTSecurityDescriptor"][0]
             )
+        except KeyError:
+            self.tprint(
+                "Security Descriptor could NOT be read ! (Access denied?)",
+                tags=["error"],
+            )
+            return
         except LDAP_Exception as ex:
             self.tprint(
                 "Error parsing the Security Descriptor: " + str(ex),

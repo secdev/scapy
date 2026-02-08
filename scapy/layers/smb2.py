@@ -4751,6 +4751,8 @@ class SMBStreamSocket(StreamSocket):
             and not smbh._decrypted
             # - MessageId is 0xFFFFFFFFFFFFFFFF
             and smbh.MID != 0xFFFFFFFFFFFFFFFF
+            # - Message is not ECHO request
+            and smbh.Command != 0x000D
             # - Status in the SMB2 header is STATUS_PENDING
             and smbh.Status != 0x00000103
         ):
