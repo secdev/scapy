@@ -5,7 +5,7 @@
     "test/scapy/layers/ipsec.uts",
     "test/scapy/layers/kerberos.uts",
     "test/scapy/layers/ntlm.uts",
-    "test/scapy/layers/msnrpc.uts",
+    "test/scapy/layers/msrpce/msnrpc.uts",
     "test/scapy/layers/tls/cert.uts",
     "test/scapy/layers/tls/tls*.uts"
   ],
