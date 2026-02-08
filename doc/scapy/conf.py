@@ -193,3 +193,5 @@ texinfo_documents = [
      '',
      'Miscellaneous'),
 ]
+
+suppress_warnings = ["app.add_directive"]
