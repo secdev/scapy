@@ -2,7 +2,7 @@
 
 + [MS-LSAD] build and dissection tests
 
-% This files are stored in the scapy-rpc extension, but included as part of Scapy's main testing suite for consistency.
+* This files are stored in the scapy-rpc extension, but included as part of Scapy's main testing suite for consistency.
 
 = [MS-LSAD] - Import [MS-LSAD]
 ~ disabled
