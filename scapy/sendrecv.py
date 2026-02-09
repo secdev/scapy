@@ -1314,9 +1314,9 @@ class AsyncSniffer(object):
             self.stop_cb = stop_cb
 
         try:
+            self.continue_sniff = True
             if started_callback:
                 started_callback()
-            self.continue_sniff = True
 
             # Start timeout
             if timeout is not None:
