@@ -38,6 +38,204 @@ Application_Rsp_summary = "Response %DNP3ApplicationResponse.FUNC_CODE% "
 Application_Req_summary = "Request %DNP3ApplicationRequest.FUNC_CODE% "
 DNP3_summary = "From %DNP3.SOURCE% to %DNP3.DESTINATION% "
 
+_codeTemplate = '''// Automatically generated CRC function
+// %(poly)s
+%(crcType)s
+%(name)s(%(dataType)s *data, int len, %(crcType)s crc)
+{
+    static const %(crcType)s table[256] = {%(crcTable)s
+    };
+    %(preCondition)s
+    while (len > 0)
+    {
+        crc = %(crcAlgor)s;
+        data++;
+        len--;
+    }%(postCondition)s
+    return crc;
+}
+'''
+
+class Crc:
+    def __init__(self, poly, initCrc=~0, rev=True, xorOut=0, initialize=True):
+        if not initialize:
+            # Don't want to perform the initialization when using new or copy
+            # to create a new instance.
+            return
+
+        (sizeBits, initCrc, xorOut) = _verifyParams(poly, initCrc, xorOut)
+        self.digest_size = sizeBits//8
+        self.initCrc = initCrc
+        self.xorOut = xorOut
+
+        self.poly = poly
+        self.reverse = rev
+
+        (crcfun, table) = _mkCrcFun(poly, sizeBits, initCrc, rev, xorOut)
+        self._crc = crcfun
+        self.table = table
+
+        self.crcValue = self.initCrc
+
+
+    def __str__(self):
+        lst = []
+        lst.append('poly = 0x%X' % self.poly)
+        lst.append('reverse = %s' % self.reverse)
+        fmt = '0x%%0%dX' % (self.digest_size*2)
+        lst.append('initCrc  = %s' % (fmt % self.initCrc))
+        lst.append('xorOut   = %s' % (fmt % self.xorOut))
+        lst.append('crcValue = %s' % (fmt % self.crcValue))
+        return '\n'.join(lst)
+
+    def new(self, arg=None):
+        '''Create a new instance of the Crc class initialized to the same
+        values as the original instance.  The current CRC is set to the initial
+        value.  If a string is provided in the optional arg parameter, it is
+        passed to the update method.
+        '''
+        n = Crc(poly=None, initialize=False)
+        n._crc = self._crc
+        n.digest_size = self.digest_size
+        n.initCrc = self.initCrc
+        n.xorOut = self.xorOut
+        n.table = self.table
+        n.crcValue = self.initCrc
+        n.reverse = self.reverse
+        n.poly = self.poly
+        if arg is not None:
+            n.update(arg)
+        return n
+
+    def copy(self):
+        '''Create a new instance of the Crc class initialized to the same
+        values as the original instance.  The current CRC is set to the current
+        value.  This allows multiple CRC calculations using a common initial
+        string.
+        '''
+        c = self.new()
+        c.crcValue = self.crcValue
+        return c
+
+    def update(self, data):
+        '''Update the current CRC value using the string specified as the data
+        parameter.
+        '''
+        self.crcValue = self._crc(data, self.crcValue)
+
+    def digest(self):
+        '''Return the current CRC value as a string of bytes.  The length of
+        this string is specified in the digest_size attribute.
+        '''
+        n = self.digest_size
+        crc = self.crcValue
+        lst = []
+        while n > 0:
+            lst.append(chr(crc & 0xFF))
+            crc = crc >> 8
+            n -= 1
+        lst.reverse()
+        return ''.join(lst)
+
+    def hexdigest(self):
+        '''Return the current CRC value as a string of hex digits.  The length
+        of this string is twice the digest_size attribute.
+        '''
+        n = self.digest_size
+        crc = self.crcValue
+        lst = []
+        while n > 0:
+            lst.append('%02X' % (crc & 0xFF))
+            crc = crc >> 8
+            n -= 1
+        lst.reverse()
+        return ''.join(lst)
+
+    def generateCode(self, functionName, out, dataType=None, crcType=None):
+        '''Generate a C/C++ function.
+
+        functionName -- String specifying the name of the function.
+
+        out -- An open file-like object with a write method.  This specifies
+        where the generated code is written.
+
+        dataType -- An optional parameter specifying the data type of the input
+        data to the function.  Defaults to UINT8.
+
+        crcType -- An optional parameter specifying the data type of the CRC
+        value.  Defaults to one of UINT8, UINT16, UINT32, or UINT64 depending
+        on the size of the CRC value.
+        '''
+        if dataType is None:
+            dataType = 'UINT8'
+
+        if crcType is None:
+            size = 8*self.digest_size
+            if size == 24:
+                size = 32
+            crcType = 'UINT%d' % size
+
+        if self.digest_size == 1:
+            # Both 8-bit CRC algorithms are the same
+            crcAlgor = 'table[*data ^ (%s)crc]'
+        elif self.reverse:
+            # The bit reverse algorithms are all the same except for the data
+            # type of the crc variable which is specified elsewhere.
+            crcAlgor = 'table[*data ^ (%s)crc] ^ (crc >> 8)'
+        else:
+            # The forward CRC algorithms larger than 8 bits have an extra shift
+            # operation to get the high byte.
+            shift = 8*(self.digest_size - 1)
+            crcAlgor = 'table[*data ^ (%%s)(crc >> %d)] ^ (crc << 8)' % shift
+
+        fmt = '0x%%0%dX' % (2*self.digest_size)
+        if self.digest_size <= 4:
+            fmt = fmt + 'U,'
+        else:
+            # Need the long long type identifier to keep gcc from complaining.
+            fmt = fmt + 'ULL,'
+
+        # Select the number of entries per row in the output code.
+        n = {1:8, 2:8, 3:4, 4:4, 8:2}[self.digest_size]
+
+        lst = []
+        for i, val in enumerate(self.table):
+            if (i % n) == 0:
+                lst.append('\n    ')
+            lst.append(fmt % val)
+
+        poly = 'polynomial: 0x%X' % self.poly
+        if self.reverse:
+            poly = poly + ', bit reverse algorithm'
+
+        if self.xorOut:
+            # Need to remove the comma from the format.
+            preCondition = '\n    crc = crc ^ %s;' % (fmt[:-1] % self.xorOut)
+            postCondition = preCondition
+        else:
+            preCondition = ''
+            postCondition = ''
+
+        if self.digest_size == 3:
+            # The 24-bit CRC needs to be conditioned so that only 24-bits are
+            # used from the 32-bit variable.
+            if self.reverse:
+                preCondition += '\n    crc = crc & 0xFFFFFFU;'
+            else:
+                postCondition += '\n    crc = crc & 0xFFFFFFU;'
+                
+
+        parms = {
+            'dataType' : dataType,
+            'crcType' : crcType,
+            'name' : functionName,
+            'crcAlgor' : crcAlgor % dataType,
+            'crcTable' : ''.join(lst),
+            'poly' : poly,
+            'preCondition' : preCondition,
+            'postCondition' : postCondition,
+        }
+        out.write(_codeTemplate % parms) 
 
 def _verifyPoly(poly):
     """
@@ -119,14 +317,16 @@ def _mkTable_r(poly, n):
 
 def _crc16r(data, crc, table):
     crc = crc & 0xFFFF
+
     for x in data:
-        crc = table[ord(x) ^ (crc & 0xFF)] ^ (crc >> 8)
+        crc = table[x ^ (crc & 0xFF)] ^ (crc >> 8)
+
     return crc
 
 def _crc16(data, crc, table):
     crc = crc & 0xFFFF
     for x in data:
-        crc = table[ord(x) ^ ((crc>>8) & 0xFF)] ^ ((crc << 8) & 0xFF00)
+        crc = table[x ^ ((crc>>8) & 0xFF)] ^ ((crc << 8) & 0xFF00)
 
     return crc
 
@@ -217,7 +417,7 @@ def mkCrcFun(poly, initCrc=~0, rev=True, xorOut=0):
     return _mkCrcFun(poly, sizeBits, initCrc, rev, xorOut)[0]
 
 def crcDNP(data):
-    crc16DNP = mkCrcFun('crc-16-dnp')
+    crc16DNP = mkCrcFun(0x13D65) # 'crc-16-dnp'
     return crc16DNP(data)
 
 
@@ -518,7 +718,7 @@ class DNP3(Packet):
                 self.add_data_chunk(pay[index:index + cnk_len])
                 remaining_pay -= cnk_len
 
-        payload = ''
+        payload = b''
         for chunk, data_chunk in enumerate(self.data_chunks):
             payload = payload + data_chunk + self.data_chunks_crc[chunk]
         #  self.show_data_chunks()  # --DEBUGGING
