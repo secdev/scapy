@@ -3,6 +3,7 @@
     "test/*.uts",
     "test/scapy/layers/*.uts",
     "test/scapy/layers/tls/*.uts",
+    "test/scapy/layers/msrpce/*.uts",
     "test/contrib/*.uts",
     "test/tools/*.uts",
     "test/contrib/automotive/*.uts",

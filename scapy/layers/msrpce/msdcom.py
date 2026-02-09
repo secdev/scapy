@@ -358,7 +358,7 @@ class PropsOutInfo(NDRPacket):
                 [],
                 MInterfacePointer,
                 size_is=lambda pkt: pkt.cIfs,
-                ptr_pack=True,
+                ptr_lvl=1,
             )
         ),
     ]
