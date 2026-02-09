@@ -1,6 +1,12 @@
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import XShortField,  LEShortField, \
+    BitField, BitEnumField, PacketField, ConditionalField, \
+    ByteField
+from scapy.layers.inet import TCP, UDP
+
 __author__ = 'Nicholas Rodofile'
-from scapy.all import *
-# import crcmod.predefined
 
 '''
 # Copyright 2014-2016 N.R Rodofile
@@ -17,6 +23,7 @@ the GNU General Public License along with this program. If not, see
 http://www.gnu.org/licenses/.
 '''
 
+
 bitState = {1: "SET", 0: "UNSET"}
 stations = {1: "MASTER", 0: "OUTSTATION"}
 
@@ -30,11 +37,6 @@ Transport_summary = "Seq:%DNP3Transport.SEQUENCE% "
 Application_Rsp_summary = "Response %DNP3ApplicationResponse.FUNC_CODE% "
 Application_Req_summary = "Request %DNP3ApplicationRequest.FUNC_CODE% "
 DNP3_summary = "From %DNP3.SOURCE% to %DNP3.DESTINATION% "
-
-'''
-Initalise a predefined crc object for DNP3 Cyclic Redundancy Check
-Info : http://crcmod.sourceforge.net/crcmod.predefined.html
-'''
 
 
 def _verifyPoly(poly):
@@ -57,9 +59,8 @@ def _bitrev(x, n):
     """
     Bit reverse the input value.
     """
-    x = x
     y = 0
-    for i in range(n):
+    for _ in range(n):
         y = (y << 1) | (x & 1)
         x = x >> 1
 
@@ -72,8 +73,6 @@ def _bitrev(x, n):
 
 
 def _bytecrc(crc, poly, n):
-    crc = crc
-    poly = poly
     mask = 1<<(n-1)
     for i in range(8):
         if crc & mask:
@@ -86,9 +85,7 @@ def _bytecrc(crc, poly, n):
     return crc
 
 def _bytecrc_r(crc, poly, n):
-    crc = crc
-    poly = poly
-    for i in range(8):
+    for _ in range(8):
         if crc & 1:
             crc = (crc >> 1) ^ poly
         else:
@@ -301,8 +298,8 @@ class DNP3RequestDataObjects(Packet):
         BitEnumField("QualfierCode", 1, 4, bitState),
     ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return b"", s
 
 class DNP3Application(Packet):
     def guess_payload_class(self, payload):
@@ -318,8 +315,8 @@ class DNP3ApplicationControl(Packet):
         BitField("SEQ", 1, 4),
     ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return b"", s
 
 
 class DNP3ApplicationIIN(Packet):
@@ -343,8 +340,8 @@ class DNP3ApplicationIIN(Packet):
         BitEnumField("NO_FUNC_CODE_SUPPORT", UNSET, 1, bitState),
     ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return b"", s
 
 class DNP3ApplicationResponse(DNP3Application):
     name = "DNP3_Application_response"
@@ -355,8 +352,8 @@ class DNP3ApplicationResponse(DNP3Application):
     ]
 
     def mysummary(self):
-        if isinstance(self.underlayer.underlayer, DNP3):
-            print self.FUNC_CODE.SEQ, "Hello"
+        if self.underlayer is not None and isinstance(self.underlayer.underlayer, DNP3):
+            print(self.FUNC_CODE.SEQ, "Hello")
             return self.underlayer.underlayer.sprintf(DNP3_summary + Transport_summary + Application_Rsp_summary)
         if isinstance(self.underlayer, DNP3Transport):
             return self.underlayer.sprintf(Transport_summary + Application_Rsp_summary)
@@ -371,8 +368,10 @@ class DNP3ApplicationRequest(DNP3Application):
     ]
 
     def mysummary(self):
-        if isinstance(self.underlayer.underlayer, DNP3):
-            return self.underlayer.underlayer.sprintf(DNP3_summary + Transport_summary + Application_Req_summary)
+        if self.underlayer is not None and isinstance(self.underlayer.underlayer, DNP3):
+            return self.underlayer.underlayer.sprintf(
+                DNP3_summary + Transport_summary + Application_Req_summary
+            )
         if isinstance(self.underlayer, DNP3Transport):
             return self.underlayer.sprintf(Transport_summary + Application_Req_summary)
         else:
@@ -388,7 +387,6 @@ class DNP3Transport(Packet):
     ]
 
     def guess_payload_class(self, payload):
-
         if isinstance(self.underlayer, DNP3):
             DIR = self.underlayer.CONTROL.DIR
 
@@ -397,8 +395,8 @@ class DNP3Transport(Packet):
 
             if DIR == OUTSTATION:
                 return DNP3ApplicationResponse
-        else:
-            return Packet.guess_payload_class(self, payload)
+
+        return Packet.guess_payload_class(self, payload)
 
 
 class DNP3HeaderControl(Packet):
@@ -439,8 +437,8 @@ class DNP3HeaderControl(Packet):
         ConditionalField(cond_field[5], lambda x:x.PRM == OUTSTATION),
     ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return b"", s
 
 
 class DNP3(Packet):
@@ -460,9 +458,9 @@ class DNP3(Packet):
     data_chunk_len = 16
 
     def show_data_chunks(self):
-        for i in range(len(self.data_chunks)):
-            print "\tData Chunk", i, "Len", len(self.data_chunks[i]),\
-                "CRC (", hex(struct.unpack('<H', self.data_chunks_crc[i])[0]), ")"
+        for i, data_chunk in enumerate(self.data_chunks):
+            print(f"\tData Chunk {i}, Len {len(data_chunk)}, "
+                  "CRC (", hex(struct.unpack('<H', self.data_chunks_crc[i])[0]), ")")
 
 
     def add_data_chunk(self, chunk):
@@ -473,27 +471,24 @@ class DNP3(Packet):
     def post_build(self, pkt, pay):
         cnk_len = self.chunk_len
         pay_len = len(pay)
-        pkt_len = len(pkt)
-        total = pkt_len + pay_len
-        chunks = pay_len / cnk_len  # chunk size
-        #chunks = total / cnk_len  # chunk size
+        # pkt_len = len(pkt)
+        # total = pkt_len + pay_len
+        chunks = int(pay_len / cnk_len)  # chunk size
+        # chunks = total / cnk_len  # chunk size
         last_chunk = pay_len % cnk_len
 
         if last_chunk > 0:
-                chunks += 1
+            chunks += 1
 
         if pay_len == 3 and self.CONTROL.DIR == MASTER:
-
             # No IIN in Application layer and empty Payload
             pay = pay + struct.pack('H', crcDNP(pay))
 
         if pay_len == 5 and self.CONTROL.DIR == OUTSTATION:
-
             # IIN in Application layer and empty Payload
             pay = pay + struct.pack('H', crcDNP(pay))
 
         if self.LENGTH is None:
-
              # Remove length , crc, start octets as part of length
             length = (len(pkt+pay) - ((chunks * 2) + 1 + 2 + 2))
             pkt = pkt[:2] + struct.pack('<B', length) + pkt[3:]
@@ -522,8 +517,8 @@ class DNP3(Packet):
                 remaining_pay -= cnk_len
 
         payload = ''
-        for chunk in range(len(self.data_chunks)):
-            payload = payload + self.data_chunks[chunk] + self.data_chunks_crc[chunk]
+        for chunk, data_chunk in enumerate(self.data_chunks):
+            payload = payload + data_chunk + self.data_chunks_crc[chunk]
         #  self.show_data_chunks()  # --DEBUGGING
         return pkt+payload
 
