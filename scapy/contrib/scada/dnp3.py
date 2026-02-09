@@ -354,7 +354,9 @@ class DNP3ApplicationResponse(DNP3Application):
     def mysummary(self):
         if self.underlayer is not None and isinstance(self.underlayer.underlayer, DNP3):
             print(self.FUNC_CODE.SEQ, "Hello")
-            return self.underlayer.underlayer.sprintf(DNP3_summary + Transport_summary + Application_Rsp_summary)
+            return self.underlayer.underlayer.sprintf(
+                DNP3_summary + Transport_summary + Application_Rsp_summary
+            )
         if isinstance(self.underlayer, DNP3Transport):
             return self.underlayer.sprintf(Transport_summary + Application_Rsp_summary)
         else:
@@ -490,7 +492,7 @@ class DNP3(Packet):
 
         if self.LENGTH is None:
              # Remove length , crc, start octets as part of length
-            length = (len(pkt+pay) - ((chunks * 2) + 1 + 2 + 2))
+            length = len(pkt+pay) - ((chunks * 2) + 1 + 2 + 2)
             pkt = pkt[:2] + struct.pack('<B', length) + pkt[3:]
 
         CRC = crcDNP(pkt[:8])  # use only the first 8 octets
