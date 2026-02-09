@@ -2006,11 +2006,12 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
     islist = 1
     holds_packets = 1
 
-    __slots__ = ["ptr_pack", "fld"]
+    __slots__ = ["ptr_lvl", "fld"]
 
     def __init__(self, name, default, pkt_cls, **kwargs):
-        self.ptr_pack = kwargs.pop("ptr_pack", False)
-        if self.ptr_pack:
+        self.ptr_lvl = kwargs.pop("ptr_lvl", False)
+        if self.ptr_lvl:
+            # TODO: support more than 1 level ?
             self.fld = NDRFullEmbPointerField(NDRPacketField("", None, pkt_cls))
         else:
             self.fld = NDRPacketField("", None, pkt_cls)
@@ -2052,7 +2053,6 @@ class NDRFieldListField(NDRConstructedType, FieldListField):
     islist = 1
 
     def __init__(self, *args, **kwargs):
-        kwargs.pop("ptr_pack", None)  # TODO: unimplemented
         if "length_is" in kwargs:
             kwargs["count_from"] = kwargs.pop("length_is")
         elif "size_is" in kwargs:
