@@ -36,7 +36,7 @@ from scapy.fields import (
 )
 from scapy.data import SCTP_SERVICES
 from scapy.layers.inet import IP, IPerror
-from scapy.layers.inet6 import IP6Field, IPv6, IPerror6
+from scapy.layers.inet6 import IP6Field, IPv6, IPerror6, nh_clserror
 
 IPPROTO_SCTP = 132
 
@@ -302,6 +302,8 @@ class SCTPerror(SCTP):
     def mysummary(self):
         return Packet.mysummary(self)
 
+
+nh_clserror[IPPROTO_SCTP] = SCTPerror
 
 # SCTP Chunk variable params
 

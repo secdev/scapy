@@ -693,11 +693,23 @@ def in6_chksum(nh, u, p):
 #############################################################################
 #############################################################################
 
+nh_clserror = {socket.IPPROTO_TCP: TCPerror,
+               socket.IPPROTO_UDP: UDPerror}
+
 
 # Inherited by all extension header classes
 class _IPv6ExtHdr(_IPv6GuessPayload, Packet):
     name = 'Abstract IPv6 Option Header'
-    aliastypes = [IPv6, IPerror6]  # TODO ...
+    aliastypes = [IPv6]
+
+    def guess_payload_class(self, payload):
+        if self.nh in nh_clserror:
+            underlayer = self.underlayer
+            while underlayer:
+                if isinstance(underlayer, IPerror6):
+                    return nh_clserror[self.nh]
+                underlayer = underlayer.underlayer
+        return super(_IPv6ExtHdr, self).guess_payload_class(payload)
 
 
 #                    IPv6 options for Extension Headers                     #
