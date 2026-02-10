@@ -401,12 +401,23 @@ class sockaddr(Packet):
             XStrLenField("sdl_pad", b"", length_from=lambda pkt: 16 - pkt.sa_len),
             lambda pkt: pkt.sa_len < 16 and pkt.sa_family == socket.AF_LINK,
         ),
-        # others
+        # others - only used for netmask, make alignment match sockaddr_in
+        ConditionalField(
+            StrFixedLenField("_sa_pad1", "", 2),
+            lambda pkt: pkt.sa_family
+            not in [
+                socket.AF_INET,
+                socket.AF_INET6,
+                socket.AF_LINK,
+            ],
+        ),
         ConditionalField(
             XStrLenField(
                 "sa_data",
                 "",
-                length_from=lambda pkt: pkt.sa_len - 2 if pkt.sa_len >= 2 else 0,
+                # NOTE: Adjust length to 4 byte alignment.  Darwin sa_len is not always correct for simple math.
+                length_from=lambda pkt:
+                   ((pkt.sa_len+3)//4*4 - 4 if pkt.sa_len >= 2 else 0)
             ),
             lambda pkt: pkt.sa_family
             not in [
@@ -1020,9 +1031,13 @@ def read_routes():
         flags = msg.rtm_flags
         if not flags.RTF_UP:
             continue
-        if DARWIN and flags.RTF_WASCLONED and msg.rtm_parentflags.RTF_PRCLONING:
-            # OSX needs filtering
-            continue
+        if DARWIN:
+            if flags.RTF_WASCLONED and msg.rtm_parentflags.RTF_PRCLONING:
+                # OSX needs filtering
+                continue
+            if flags.RTF_HOST and not flags.RTF_BROADCAST:
+                # DARWIN includes the entire ARP table in the route response.  Remove it.
+                continue
         addrs = msg.rtm_addrs
         net = 0
         mask = 0xFFFFFFFF
@@ -1046,7 +1061,7 @@ def read_routes():
                 if nm.sa_family == socket.AF_INET:
                     mask = atol(nm.sin_addr)
                 elif nm.sa_family in [0x00, 0xFF]:  # NetBSD
-                    mask = struct.unpack("<I", nm.sa_data[:4].rjust(4, b"\x00"))[0]
+                    mask = struct.unpack(">I", nm.sa_data[:4].rjust(4, b"\x00"))[0]
                 else:
                     mask = int.from_bytes(nm.sa_data[:4], "big")
                 i += 1
