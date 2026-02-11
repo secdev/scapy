@@ -7,10 +7,6 @@ CBOR (Concise Binary Object Representation) - RFC 8949
 Following the ASN.1 paradigm
 """
 
-from scapy.error import Scapy_Exception
-from scapy.compat import plain_str
-from scapy.utils import Enum_metaclass, EnumElement
-
 from typing import (
     Any,
     Dict,
@@ -25,8 +21,13 @@ from typing import (
     TYPE_CHECKING,
 )
 
+from scapy.compat import plain_str
+from scapy.error import Scapy_Exception
+from scapy.utils import Enum_metaclass, EnumElement
+
 if TYPE_CHECKING:
     from scapy.cbor.cborcodec import CBORcodec_Object
+
 
 ##############
 #    CBOR    #
@@ -77,7 +78,7 @@ class CBOR_Codecs(metaclass=CBOR_Codecs_metaclass):
 
 class CBORTag(EnumElement):
     """Represents a CBOR major type"""
-    
+
     def __init__(self,
                  key,  # type: str
                  value,  # type: int
@@ -336,7 +337,7 @@ class _CBOR_ERROR(CBOR_Object[Union[bytes, CBOR_Object[Any]]]):
 
 class CBOR_DECODING_ERROR(_CBOR_ERROR):
     """CBOR decoding error object"""
-    
+
     def __init__(self, val, exc=None):
         # type: (Union[bytes, CBOR_Object[Any]], Optional[Exception]) -> None
         CBOR_Object.__init__(self, val)
