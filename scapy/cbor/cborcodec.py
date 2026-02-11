@@ -8,19 +8,6 @@ Following the BER paradigm for ASN.1
 """
 
 import struct
-from scapy.compat import chb, orb
-from scapy.cbor.cbor import (
-    CBORTag,
-    CBOR_Codecs,
-    CBOR_DECODING_ERROR,
-    CBOR_Decoding_Error,
-    CBOR_Encoding_Error,
-    CBOR_Error,
-    CBOR_MajorTypes,
-    CBOR_Object,
-    _CBOR_ERROR,
-)
-
 from typing import (
     Any,
     Dict,
@@ -33,6 +20,19 @@ from typing import (
     Union,
     cast,
 )
+
+from scapy.cbor.cbor import (
+    CBOR_Codecs,
+    CBOR_DECODING_ERROR,
+    CBOR_Decoding_Error,
+    CBOR_Encoding_Error,
+    CBOR_Error,
+    CBOR_MajorTypes,
+    CBOR_Object,
+    _CBOR_ERROR,
+)
+from scapy.compat import chb, orb
+
 
 ##################
 #  CBOR encoding #
@@ -98,11 +98,11 @@ def CBOR_decode_head(s):
     """
     if not s:
         raise CBOR_Codec_Decoding_Error("Empty CBOR data", remaining=s)
-    
+
     initial_byte = orb(s[0])
     major_type = initial_byte >> 5
     additional_info = initial_byte & 0x1f
-    
+
     if additional_info < 24:
         # Value is in the additional info
         return major_type, additional_info, s[1:]
@@ -391,7 +391,7 @@ class CBORcodec_ARRAY(CBORcodec_Object[List[Any]]):
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 4 (array), got %d" % major_type,
                 remaining=s)
-        
+
         items = []
         for _ in range(length):
             if not remainder:
@@ -400,7 +400,7 @@ class CBORcodec_ARRAY(CBORcodec_Object[List[Any]]):
             item, remainder = CBORcodec_Object.decode_cbor_item(
                 remainder, safe=safe)
             items.append(item)
-        
+
         return cls.cbor_object(items), remainder
 
 
@@ -432,7 +432,7 @@ class CBORcodec_MAP(CBORcodec_Object[Dict[Any, Any]]):
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 5 (map), got %d" % major_type,
                 remaining=s)
-        
+
         mapping = {}
         for _ in range(length):
             if not remainder:
@@ -451,7 +451,7 @@ class CBORcodec_MAP(CBORcodec_Object[Dict[Any, Any]]):
             else:
                 key_val = key
             mapping[key_val] = value
-        
+
         return cls.cbor_object(mapping), remainder
 
 
@@ -482,11 +482,11 @@ class CBORcodec_SEMANTIC_TAG(CBORcodec_Object[Tuple[int, Any]]):
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 6 (tag), got %d" % major_type,
                 remaining=s)
-        
+
         if not remainder:
             raise CBOR_Codec_Decoding_Error(
                 "Tag without following item", remaining=s)
-        
+
         item, remainder = CBORcodec_Object.decode_cbor_item(
             remainder, safe=safe)
         return cls.cbor_object((tag_num, item)), remainder
@@ -502,7 +502,7 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
         from scapy.cbor.cbor import (
             CBOR_FALSE, CBOR_TRUE, CBOR_NULL, CBOR_UNDEFINED, CBOR_Object
         )
-        
+
         # Check if obj is a CBOR object instance (for special cases like UNDEFINED)
         if isinstance(obj, CBOR_UNDEFINED):
             return chb(0xf7)  # undefined
@@ -517,7 +517,7 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
             val = obj.val
         else:
             val = obj
-        
+
         if val is False:
             return chb(0xf4)  # false
         elif val is True:
@@ -545,20 +545,20 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
             CBOR_FALSE, CBOR_TRUE, CBOR_NULL, CBOR_UNDEFINED,
             CBOR_FLOAT, CBOR_SIMPLE_VALUE
         )
-        
+
         cls.check_string(s)
-        
+
         # For major type 7, we need special handling because additional_info
         # encodes different things (simple values vs float sizes)
         initial_byte = orb(s[0])
         major_type = initial_byte >> 5
         additional_info = initial_byte & 0x1f
-        
+
         if major_type != 7:
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 7 (simple/float), got %d" % major_type,
                 remaining=s)
-        
+
         # Check for special simple values (encoded directly in additional_info)
         if additional_info == 20:
             return CBOR_FALSE(), s[1:]
@@ -580,7 +580,7 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
             sign = (half_int >> 15) & 0x1
             exponent = (half_int >> 10) & 0x1f
             fraction = half_int & 0x3ff
-            
+
             # Handle special cases
             if exponent == 0:
                 if fraction == 0:
@@ -598,8 +598,11 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
                     float_val = float('nan')
             else:
                 # Normalized number
-                float_val = ((-1) ** sign) * (1 + fraction / 1024.0) * (2 ** (exponent - 15))
-            
+                float_val = (
+                    ((-1) ** sign) *
+                    (1 + fraction / 1024.0) *
+                    (2 ** (exponent - 15)))
+
             return CBOR_FLOAT(float_val), remainder
         elif additional_info == 26:
             # Single precision float (4 bytes)
@@ -638,7 +641,7 @@ def _encode_cbor_item(item):
     # type: (Any) -> bytes
     """Encode a Python value to CBOR bytes"""
     from scapy.cbor.cbor import CBOR_Object
-    
+
     if isinstance(item, CBOR_Object):
         return item.enc()
     elif isinstance(item, bool):
@@ -671,10 +674,10 @@ def _decode_cbor_item(s, safe=False):
     """Decode CBOR bytes to a CBOR_Object"""
     if not s:
         raise CBOR_Codec_Decoding_Error("Empty CBOR data", remaining=s)
-    
+
     initial_byte = orb(s[0])
     major_type = initial_byte >> 5
-    
+
     # Dispatch to appropriate codec based on major type
     if major_type == 0:
         return CBORcodec_UNSIGNED_INTEGER.dec(s, safe=safe)
