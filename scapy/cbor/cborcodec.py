@@ -32,6 +32,7 @@ from scapy.cbor.cbor import (
     _CBOR_ERROR,
 )
 from scapy.compat import chb, orb
+from scapy.error import log_runtime
 
 
 ##################
@@ -153,7 +154,7 @@ class CBORcodec_metaclass(type):
         try:
             c.tag.register(c.codec, c)
         except Exception:
-            pass  # Some codecs may not have tags yet
+            log_runtime.error("Failed to register codec for tag")
         return c
 
 

@@ -21,6 +21,7 @@ from typing import (
     TYPE_CHECKING,
 )
 
+from build.lib.scapy.error import log_runtime
 from scapy.compat import plain_str
 from scapy.error import Scapy_Exception
 from scapy.utils import Enum_metaclass, EnumElement
@@ -169,7 +170,7 @@ class CBOR_Object_metaclass(type):
         try:
             c.tag.register_cbor_object(c)
         except Exception:
-            pass  # Some objects may not have tags yet
+            log_runtime.error("Failed to register codec for tag")
         return c
 
 
