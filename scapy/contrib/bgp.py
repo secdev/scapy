@@ -1070,7 +1070,7 @@ attributes_flags = {
     2: 0x40,    # AS_PATH
     3: 0x40,    # NEXT_HOP
     4: 0x80,    # MULTI_EXIT_DISC
-    5: 0x40,    # LOCAL_PREF
+    5: 0x00,    # LOCAL_PREF
     6: 0x40,    # ATOMIC_AGGREGATE
     7: 0xc0,    # AGGREGATOR
     8: 0xc0,    # COMMUNITIES (RFC 1997)
