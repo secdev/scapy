@@ -1,0 +1,357 @@
+% CBOR regression tests for Scapy
+
+
++ CBOR CODEC uint
+
+= uint encoding size0
+
+chunk = CborChunk(head=CborHead(major=CborMajorType.UINT, argument=0x12))
+data = cbor_encode_chunk(chunk)
+assert data == bytearray.fromhex('12')
+
+= uint encoding size1
+
+chunk = CborChunk(head=CborHead(major=CborMajorType.UINT, argument=0x34))
+data = cbor_encode_chunk(chunk)
+assert data == bytearray.fromhex('1834')
+
+= uint encoding size2
+
+chunk = CborChunk(head=CborHead(major=CborMajorType.UINT, argument=0x1234))
+data = cbor_encode_chunk(chunk)
+assert data == bytearray.fromhex('191234')
+
+= uint encoding size4
+
+chunk = CborChunk(head=CborHead(major=CborMajorType.UINT, argument=0x12345678))
+data = cbor_encode_chunk(chunk)
+assert data == bytearray.fromhex('1a12345678')
+
+= uint encoding size8
+
+chunk = CborChunk(head=CborHead(major=CborMajorType.UINT, argument=0x1234567812345678))
+data = cbor_encode_chunk(chunk)
+assert data == bytearray.fromhex('1b1234567812345678')
+
+= uint decoding size0
+
+data = bytearray.fromhex('12')
+used,chunk = cbor_decode_chunk(data)
+assert used == 1
+assert chunk.head.major == CborMajorType.UINT
+assert chunk.head.argument == 18
+
+= uint decoding size1
+
+data = bytearray.fromhex('1834')
+used,chunk = cbor_decode_chunk(data)
+assert used == 2
+assert chunk.head.major == CborMajorType.UINT
+assert chunk.head.argument == 0x34
+
+= uint decoding size2
+
+data = bytearray.fromhex('191234')
+used,chunk = cbor_decode_chunk(data)
+assert used == 3
+assert chunk.head.major == CborMajorType.UINT
+assert chunk.head.argument == 0x1234
+
+= uint decoding size4
+
+data = bytearray.fromhex('1a12345678')
+used,chunk = cbor_decode_chunk(data)
+assert used == 5
+assert chunk.head.major == CborMajorType.UINT
+assert chunk.head.argument == 0x12345678
+
+= uint decoding size8
+
+data = bytearray.fromhex('1b1234567812345678')
+used,chunk = cbor_decode_chunk(data)
+assert used == 9
+assert chunk.head.major == CborMajorType.UINT
+assert chunk.head.argument == 0x1234567812345678
+
++ CBOR CODEC nint
+
+= nint encoding size0
+
+chunk = cbor_chunk_int(-0x13)
+data = cbor_encode_chunk(chunk)
+assert data == bytearray.fromhex('32')
+
+= nint decoding size0
+
+data = bytearray.fromhex('32')
+used,chunk = cbor_decode_chunk(data)
+assert used == 1
+assert chunk.head.major == CborMajorType.NINT
+assert chunk.head.argument == 0x12
+
+= nint decoding size2
+
+data = bytearray.fromhex('391234')
+used,chunk = cbor_decode_chunk(data)
+assert used == 3
+assert chunk.head.major == CborMajorType.NINT
+assert chunk.head.argument == 0x1234
+
++ CBOR CODEC bstr
+
+= bstr encode size0
+
+chunk = cbor_chunk_bstr(b'hi')
+data = cbor_encode_chunk(chunk)
+assert data == bytearray.fromhex('426869')
+
+= bstr decode size0
+hexdata = '426869'
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, False)
+assert used == 1
+assert chunk.head.major == CborMajorType.BSTR
+assert chunk.head.argument == 2
+assert chunk.content is None
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, True)
+assert used == 3
+assert chunk.head.major == CborMajorType.BSTR
+assert chunk.head.argument == 2
+assert chunk.content == b"hi"
+
+= bstr decode size1
+hexdata = '58186c6f6e676c6f6e676c6f6e676c6f6e676c6f6e676c6f6e67'
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, False)
+assert used == 2
+assert chunk.head.major == CborMajorType.BSTR
+assert chunk.head.argument == 24
+assert chunk.content is None
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, True)
+assert used == 26
+assert chunk.head.major == CborMajorType.BSTR
+assert chunk.head.argument == 24
+assert chunk.content == b"longlonglonglonglonglong"
+
+= bstr encode size-indefinite content
+chunk = cbor_chunk_indef(CborMajorType.BSTR, [cbor_chunk_bstr(b'hi'), cbor_chunk_bstr(b'oh')])
+data = cbor_encode_chunk(chunk)
+print(data.hex())
+assert data == bytearray.fromhex('5F426869426F68FF')
+
+= bstr encode size-indefinite parts
+chunks = [
+    cbor_chunk_indef(CborMajorType.BSTR),
+    cbor_chunk_bstr(b'hi'),
+    cbor_chunk_bstr(b'oh'),
+    cbor_chunk_break(),
+]
+data = b''.join(cbor_encode_chunk(chunk) for chunk in chunks)
+print(data.hex())
+assert data == bytearray.fromhex('5F426869426F68FF')
+
+= bstr decode size-indefinite
+hexdata = '5F426869426F68FF'
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, False)
+assert used == 1
+assert chunk.head.major == CborMajorType.BSTR
+assert chunk.head.argument is None
+assert chunk.content is None
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, True)
+assert used == 8
+assert chunk.head.major == CborMajorType.BSTR
+assert chunk.head.argument is None
+assert chunk.content == [cbor_chunk_bstr(b'hi'), cbor_chunk_bstr(b'oh'), cbor_chunk_break()]
+
++ CBOR CODEC tstr
+
+= tstr encode size0
+
+chunk = cbor_chunk_tstr('hi')
+data = cbor_encode_chunk(chunk)
+assert data == bytearray.fromhex('626869')
+
+= tstr decode size0
+hexdata = '626869'
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, False)
+assert used == 1
+assert chunk.head.major == CborMajorType.TSTR
+assert chunk.head.argument == 2
+assert chunk.content is None
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, True)
+assert used == 3
+assert chunk.head.major == CborMajorType.TSTR
+assert chunk.head.argument == 2
+assert chunk.content == "hi"
+
+= tstr decode size1
+hexdata = '78186c6f6e676c6f6e676c6f6e676c6f6e676c6f6e676c6f6e67'
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, False)
+assert used == 2
+assert chunk.head.major == CborMajorType.TSTR
+assert chunk.head.argument == 24
+assert chunk.content is None
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, True)
+assert used == 26
+assert chunk.head.major == CborMajorType.TSTR
+assert chunk.head.argument == 24
+assert chunk.content == "longlonglonglonglonglong"
+
+
++ CBOR CODEC array
+
+= array encode size0
+
+chunk = cbor_chunk_array([cbor_chunk_int(10), cbor_chunk_int(-20)])
+data = cbor_encode_chunk(chunk)
+assert data == bytearray.fromhex('820A33')
+
+= array decode size0
+hexdata = '820A33'
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, False)
+assert used == 1
+assert chunk.head.major == CborMajorType.ARRAY
+assert chunk.head.argument == 2
+assert chunk.content is None
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, True)
+assert used == 3
+assert chunk.head.major == CborMajorType.ARRAY
+assert chunk.head.argument == 2
+assert chunk.content == [cbor_chunk_int(10), cbor_chunk_int(-20)]
+
+
++ CBOR CODEC map
+
+= map encode size0
+
+chunk = cbor_chunk_map({cbor_chunk_int(10): cbor_chunk_int(-20)})
+data = cbor_encode_chunk(chunk)
+assert data == bytearray.fromhex('A10A33')
+
+= map decode size0
+hexdata = 'A10A33'
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, False)
+assert used == 1
+assert chunk.head.major == CborMajorType.MAP
+assert chunk.head.argument == 1
+assert chunk.content is None
+
+data = bytearray.fromhex(hexdata)
+used,chunk = cbor_decode_chunk(data, True)
+assert used == 3
+assert chunk.head.major == CborMajorType.MAP
+assert chunk.head.argument == 1
+print(chunk.content)
+assert chunk.content == {cbor_chunk_int(10): cbor_chunk_int(-20)}
+
+
++ CBOR CODEC special
+
+= special decoding false
+
+data = bytearray.fromhex('f4')
+used,chunk = cbor_decode_chunk(data)
+assert used == 1
+assert chunk.tags == tuple()
+assert chunk.head.major == CborMajorType.OTHERS
+assert chunk.content == CborSimpleValue.FALSE
+
+= special decoding true
+
+data = bytearray.fromhex('f5')
+used,chunk = cbor_decode_chunk(data)
+assert used == 1
+assert chunk.tags == tuple()
+assert chunk.head.major == CborMajorType.OTHERS
+assert chunk.content == CborSimpleValue.TRUE
+
+= special encoding null
+
+chunk = cbor_chunk_simple(CborSimpleValue.NULL)
+data = cbor_encode_chunk(chunk)
+assert data == bytearray.fromhex('f6')
+
+= special decoding null
+
+data = bytearray.fromhex('f6')
+used,chunk = cbor_decode_chunk(data)
+assert used == 1
+assert chunk.tags == tuple()
+assert chunk.head.major == CborMajorType.OTHERS
+assert chunk.content == CborSimpleValue.NULL
+
+= special encoding undefined
+
+chunk = cbor_chunk_simple(CborSimpleValue.UNDEFINED)
+data = cbor_encode_chunk(chunk)
+assert data == bytearray.fromhex('f7')
+
+= special decoding undefined
+
+data = bytearray.fromhex('f6')
+used,chunk = cbor_decode_chunk(data)
+assert used == 1
+assert chunk.tags == tuple()
+assert chunk.head.major == CborMajorType.OTHERS
+assert chunk.content == CborSimpleValue.NULL
+
+= special encoding float64
+
+chunk = cbor_chunk_float(1.5e20)
+assert chunk.content == 1.5e20
+data = cbor_encode_chunk(chunk)
+print(data.hex())
+assert data == bytearray.fromhex('FB442043561A882930')
+
+= special decoding float64
+
+data = bytearray.fromhex('FB442043561A882930')
+used,chunk = cbor_decode_chunk(data)
+assert used == 9
+assert chunk.tags == tuple()
+assert chunk.head.major == CborMajorType.OTHERS
+assert chunk.head.argument == bytes.fromhex('442043561A882930')
+assert chunk.content == 1.5e20
+
+
++ CBOR fields and packets
+
+= array packets
+
+pkt = CborTestPkt(bytearray.fromhex('820102'))
+print(pkt.show())
+data = bytes(pkt)
+assert len(data) == 3
+pkt2 = CborTestPkt(data)
+assert pkt2 == pkt
+
+= default None
+
+pkt = CborTestPkt()
+print(pkt.show())
+data = bytes(pkt)
+assert len(data) == 2
