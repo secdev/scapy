@@ -649,7 +649,7 @@ class HTTP(Packet):
 
     # tcp_reassemble is used by TCPSession in session.py
     @classmethod
-    def tcp_reassemble(cls, data, metadata, _):
+    def tcp_reassemble(cls, data, metadata, session):
         detect_end = metadata.get("detect_end", None)
         is_unknown = metadata.get("detect_unknown", True)
         # General idea of the following is explained at
@@ -674,8 +674,12 @@ class HTTP(Packet):
                 # use it. When the total size of the frags is high enough,
                 # we have the packet
 
+                if session.pop("head_request", False):
+                    # Answer to a HEAD request.
+                    detect_end = lambda dat: dat.find(b"\r\n\r\n")
+
                 # Subtract the length of the "HTTP*" layer
-                if http_packet.payload.payload or length == 0:
+                elif http_packet.payload.payload or length == 0:
                     http_length = len(data) - http_packet.payload._original_len
                     detect_end = lambda dat: len(dat) - http_length >= length
                 else:
@@ -693,13 +697,18 @@ class HTTP(Packet):
                 if chunked:
                     detect_end = lambda dat: dat.endswith(b"0\r\n\r\n")
                 # HTTP Requests that do not have any content,
-                # end with a double CRLF. Same for HEAD responses
+                # end with a double CRLF.
                 elif isinstance(http_packet.payload, cls.clsreq):
                     detect_end = lambda dat: dat.endswith(b"\r\n\r\n")
                     # In case we are handling a HTTP Request,
                     # we want to continue assessing the data,
                     # to handle requests with a body (POST)
                     metadata["detect_unknown"] = True
+                    if (
+                        isinstance(http_packet.payload, cls.clsreq)
+                        and http_packet.Method == b"HEAD"
+                    ):
+                        session["head_request"] = True
                 elif is_response and http_packet.Status_Code == b"101":
                     # If it's an upgrade response, it may also hold a
                     # different protocol data.
@@ -888,8 +897,7 @@ class HTTP_Client(object):
         self._connect_or_reuse(host, port=port, tls=tls, timeout=timeout)
 
         # Build request
-        if ((tls and port != 443) or
-                (not tls and port != 80)):
+        if (tls and port != 443) or (not tls and port != 80):
             host_hdr = "%s:%d" % (host, port)
         else:
             host_hdr = host

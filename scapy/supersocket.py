@@ -488,15 +488,19 @@ class StreamSocket(SimpleSocket):
         # type: (Optional[int], Any) -> Optional[Packet]
         if x is None:
             x = MTU
-        # Block but in PEEK mode
-        data = self.ins.recv(x, socket.MSG_PEEK)
-        if data == b"":
-            raise EOFError
-        x = len(data)
-        pkt = self.rcvcls(self._buf + data, self.metadata, self.streamsession)
-        if pkt is None:  # Incomplete packet.
-            self._buf += self.ins.recv(x)
-            return self.recv(x)
+
+        while True:
+            # Block but in PEEK mode
+            data = self.ins.recv(x, socket.MSG_PEEK)
+            if data == b"":
+                raise EOFError
+            x = len(data)
+            pkt = self.rcvcls(self._buf + data, self.metadata, self.streamsession)
+            if pkt is None:  # Incomplete packet.
+                self._buf += self.ins.recv(x)
+            else:
+                break
+
         self.metadata.clear()
         # Strip any madding
         pad = pkt.getlayer(conf.padding_layer)

@@ -3,8 +3,8 @@
 # See https://scapy.net/ for more information
 # Copyright (C) Gabriel Potter
 
-# ept.idl compiled on 06/07/2025
-# This file is a stripped version ! Use scapy-rpc for the full.
+# This is from [MS-RPCE] and [C706] Appendix O
+
 """
 RPC definitions for the following interfaces:
 - ept (v3.0): e1af8308-5d1f-11c9-91a4-08002b14a0fa
@@ -17,6 +17,8 @@ from scapy.fields import PacketListField, StrFixedLenField
 from scapy.layers.dcerpc import (
     NDRPacket,
     DceRpcOp,
+    NDRByteField,
+    NDRConfPacketListField,
     NDRConfStrLenField,
     NDRConfVarPacketListField,
     NDRContextHandle,
@@ -40,17 +42,8 @@ class UUID(NDRPacket):
     ]
 
 
-class RPC_IF_ID(NDRPacket):
-    ALIGNMENT = (4, 4)
-    fields_desc = [
-        NDRPacketField("Uuid", UUID(), UUID),
-        NDRShortField("VersMajor", 0),
-        NDRShortField("VersMinor", 0),
-    ]
-
-
 class twr_p_t(NDRPacket):
-    ALIGNMENT = (4, 8)
+    ALIGNMENT = (4, 4)
     DEPORTED_CONFORMANTS = ["tower_octet_string"]
     fields_desc = [
         NDRIntField("tower_length", None, size_of="tower_octet_string"),
@@ -69,6 +62,42 @@ class ept_entry_t(NDRPacket):
         NDRPacketField("object", UUID(), UUID),
         NDRFullEmbPointerField(NDRPacketField("tower", twr_p_t(), twr_p_t)),
         NDRVarStrLenField("annotation", ""),
+    ]
+
+
+class ept_insert_Request(NDRPacket):
+    fields_desc = [
+        NDRIntField("num_ents", None, size_of="entries"),
+        NDRConfPacketListField(
+            "entries", [], ept_entry_t, size_is=lambda pkt: pkt.num_ents
+        ),
+        NDRIntField("replace", 0),
+    ]
+
+
+class ept_insert_Response(NDRPacket):
+    fields_desc = [NDRIntField("status", 0)]
+
+
+class ept_delete_Request(NDRPacket):
+    fields_desc = [
+        NDRIntField("num_ents", None, size_of="entries"),
+        NDRConfPacketListField(
+            "entries", [], ept_entry_t, size_is=lambda pkt: pkt.num_ents
+        ),
+    ]
+
+
+class ept_delete_Response(NDRPacket):
+    fields_desc = [NDRIntField("status", 0)]
+
+
+class RPC_IF_ID(NDRPacket):
+    ALIGNMENT = (4, 4)
+    fields_desc = [
+        NDRPacketField("Uuid", UUID(), UUID),
+        NDRShortField("VersMajor", 0),
+        NDRShortField("VersMinor", 0),
     ]
 
 
@@ -117,15 +146,78 @@ class ept_map_Response(NDRPacket):
             twr_p_t,
             size_is=lambda pkt: pkt.max_towers,
             length_is=lambda pkt: pkt.num_towers,
-            ptr_pack=True,
+            ptr_lvl=1,
         ),
         NDRIntField("status", 0),
     ]
 
 
+class ept_lookup_handle_free_Request(NDRPacket):
+    fields_desc = [NDRPacketField("entry_handle", NDRContextHandle(), NDRContextHandle)]
+
+
+class ept_lookup_handle_free_Response(NDRPacket):
+    fields_desc = [
+        NDRPacketField("entry_handle", NDRContextHandle(), NDRContextHandle),
+        NDRIntField("status", 0),
+    ]
+
+
+class uuid_t(NDRPacket):
+    ALIGNMENT = (4, 4)
+    fields_desc = [
+        NDRIntField("time_low", 0),
+        NDRShortField("time_mid", 0),
+        NDRShortField("time_hi_and_version", 0),
+        NDRByteField("clock_seq_hi_and_reserved", 0),
+        NDRByteField("clock_seq_low", 0),
+        StrFixedLenField("node", "", length=6),
+    ]
+
+
+class ept_inq_object_Request(NDRPacket):
+    fields_desc = []
+
+
+class ept_inq_object_Response(NDRPacket):
+    fields_desc = [
+        NDRPacketField("ept_object", uuid_t(), uuid_t),
+        NDRIntField("status", 0),
+    ]
+
+
+class uuid_p_t(NDRPacket):
+    ALIGNMENT = (4, 4)
+    fields_desc = [
+        NDRIntField("time_low", 0),
+        NDRShortField("time_mid", 0),
+        NDRShortField("time_hi_and_version", 0),
+        NDRByteField("clock_seq_hi_and_reserved", 0),
+        NDRByteField("clock_seq_low", 0),
+        StrFixedLenField("node", "", length=6),
+    ]
+
+
+class ept_mgmt_delete_Request(NDRPacket):
+    fields_desc = [
+        NDRIntField("object_speced", 0),
+        NDRPacketField("object", uuid_p_t(), uuid_p_t),
+        NDRPacketField("tower", twr_p_t(), twr_p_t),
+    ]
+
+
+class ept_mgmt_delete_Response(NDRPacket):
+    fields_desc = [NDRIntField("status", 0)]
+
+
 EPT_OPNUMS = {
+    0: DceRpcOp(ept_insert_Request, ept_insert_Response),
+    1: DceRpcOp(ept_delete_Request, ept_delete_Response),
     2: DceRpcOp(ept_lookup_Request, ept_lookup_Response),
     3: DceRpcOp(ept_map_Request, ept_map_Response),
+    4: DceRpcOp(ept_lookup_handle_free_Request, ept_lookup_handle_free_Response),
+    5: DceRpcOp(ept_inq_object_Request, ept_inq_object_Response),
+    6: DceRpcOp(ept_mgmt_delete_Request, ept_mgmt_delete_Response),
 }
 register_dcerpc_interface(
     name="ept",

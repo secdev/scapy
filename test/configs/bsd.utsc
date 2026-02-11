@@ -2,6 +2,8 @@
   "testfiles": [
     "test/*.uts",
     "test/scapy/layers/*.uts",
+    "test/scapy/layers/tls/*.uts",
+    "test/scapy/layers/msrpce/*.uts",
     "test/contrib/automotive/*.uts",
     "test/contrib/automotive/obd/*.uts",
     "test/contrib/automotive/scanner/*.uts",
@@ -25,7 +27,7 @@
     "test/contrib/*.uts": "load_contrib(\"%name%\")",
     "test/cert.uts": "load_layer(\"tls\")",
     "test/sslv2.uts": "load_layer(\"tls\")",
-    "test/tls*.uts": "load_layer(\"tls\")"
+    "test/scapy/layers/tls/*.uts": "load_layer(\"tls\")"
   },
   "kw_ko": [
     "linux",

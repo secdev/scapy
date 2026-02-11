@@ -1819,6 +1819,7 @@ class CMS_Engine:
         self,
         contentInfo: CMS_ContentInfo,
         eContentType: Optional[ASN1_OID] = None,
+        eContent: Optional[bytes] = None,
     ):
         """
         Verify a CMS message against the list of trusted certificates,
@@ -1826,6 +1827,7 @@ class CMS_Engine:
 
         :param contentInfo: the ContentInfo whose signature to verify
         :param eContentType: if provided, verifies that the content type is valid
+        :param eContent: in PKCS 7.1, provide the content to verify
         """
         if contentInfo.contentType.oidname != "id-signedData":
             raise ValueError("ContentInfo isn't signed !")
@@ -1885,10 +1887,15 @@ class CMS_Engine:
                         if x.type.oidname == "messageDigest"
                     )
 
+                    if signeddata.encapContentInfo.eContent is not None:
+                        eContent = bytes(signeddata.encapContentInfo.eContent)
+                    elif eContent is None:
+                        raise ValueError("No eContent was provided !")
+
                     # Re-calculate hash
                     h = signerInfo.digestAlgorithm.algorithm.oidname
                     hash = hashes.Hash(_get_hash(h))
-                    hash.update(bytes(signeddata.encapContentInfo.eContent))
+                    hash.update(eContent)
                     hashed_message = hash.finalize()
 
                     if hashed_message != messageDigest:

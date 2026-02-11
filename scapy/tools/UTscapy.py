@@ -323,6 +323,7 @@ def parse_config_file(config_path, verb=3):
       "local": true,
       "format": "ansi",
       "num": null,
+      "extensions": [],
       "modules": [],
       "kw_ok": [],
       "kw_ko": []
@@ -349,6 +350,7 @@ def parse_config_file(config_path, verb=3):
                  local=get_if_exist("local", False),
                  num=get_if_exist("num", None),
                  modules=get_if_exist("modules", []),
+                 extensions=get_if_exist("extensions", []),
                  kw_ok=get_if_exist("kw_ok", []),
                  kw_ko=get_if_exist("kw_ko", []),
                  format=get_if_exist("format", "ansi"))
@@ -996,6 +998,7 @@ def main():
     GLOB_PREEXEC = ""
     PREEXEC_DICT = {}
     MODULES = []
+    EXTENSIONS = []
     TESTFILES = []
     ANNOTATIONS_MODE = False
     INTERPRETER = False
@@ -1048,6 +1051,7 @@ def main():
                 LOCAL = 1 if data.local else 0
                 NUM = data.num
                 MODULES = data.modules
+                EXTENSIONS = data.extensions
                 KW_OK.extend(data.kw_ok)
                 KW_KO.extend(data.kw_ko)
                 try:
@@ -1137,6 +1141,9 @@ def main():
             builtins.__dict__.update(mod.__dict__)
         except ImportError as e:
             raise getopt.GetoptError("cannot import [%s]: %s" % (m, e))
+
+    for ext in EXTENSIONS:
+        conf.exts.load(ext)
 
     autorun_func = {
         Format.TEXT: scapy.autorun_get_text_interactive_session,
