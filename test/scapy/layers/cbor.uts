@@ -555,3 +555,227 @@ zero_float = cbor2.dumps(0.0)
 obj1, _ = CBOR_Codecs.CBOR.dec(zero_int)
 obj2, _ = CBOR_Codecs.CBOR.dec(zero_float)
 obj1.val == 0 and obj2.val == 0.0
+
+########### Additional Tests Adapted from PR #4875 ###################
+# These tests verify specific encoding sizes and edge cases
+
++ CBOR Encoding Sizes - Unsigned Integers
+
+= uint encoding size 0 (argument in initial byte)
+obj = CBOR_UNSIGNED_INTEGER(0x12)
+data = bytes(obj)
+data == bytes.fromhex('12')
+
+= uint encoding size 1 (1-byte argument follows)
+obj = CBOR_UNSIGNED_INTEGER(0x34)
+data = bytes(obj)
+data == bytes.fromhex('1834')
+
+= uint encoding size 2 (2-byte argument follows)
+obj = CBOR_UNSIGNED_INTEGER(0x1234)
+data = bytes(obj)
+data == bytes.fromhex('191234')
+
+= uint encoding size 4 (4-byte argument follows)
+obj = CBOR_UNSIGNED_INTEGER(0x12345678)
+data = bytes(obj)
+data == bytes.fromhex('1a12345678')
+
+= uint encoding size 8 (8-byte argument follows)
+obj = CBOR_UNSIGNED_INTEGER(0x1234567812345678)
+data = bytes(obj)
+data == bytes.fromhex('1b1234567812345678')
+
+= uint decoding size 0
+data = bytes.fromhex('12')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 18 and remainder == b''
+
+= uint decoding size 1
+data = bytes.fromhex('1834')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 0x34 and remainder == b''
+
+= uint decoding size 2
+data = bytes.fromhex('191234')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 0x1234 and remainder == b''
+
+= uint decoding size 4
+data = bytes.fromhex('1a12345678')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 0x12345678 and remainder == b''
+
+= uint decoding size 8
+data = bytes.fromhex('1b1234567812345678')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 0x1234567812345678 and remainder == b''
+
++ CBOR Encoding Sizes - Negative Integers
+
+= nint encoding size 0
+obj = CBOR_NEGATIVE_INTEGER(-0x13)
+data = bytes(obj)
+data == bytes.fromhex('32')
+
+= nint decoding size 0
+data = bytes.fromhex('32')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == -0x13 and isinstance(obj, CBOR_NEGATIVE_INTEGER) and remainder == b''
+
+= nint decoding size 2
+data = bytes.fromhex('391234')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == (-0x1234 - 1) and isinstance(obj, CBOR_NEGATIVE_INTEGER) and remainder == b''
+
++ CBOR Byte String Edge Cases
+
+= bstr encoding with specific content
+obj = CBOR_BYTE_STRING(b'hi')
+data = bytes(obj)
+data == bytes.fromhex('426869')
+
+= bstr decoding with specific content
+data = bytes.fromhex('426869')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == b'hi' and isinstance(obj, CBOR_BYTE_STRING) and remainder == b''
+
+= bstr longer content (24 bytes)
+content = b'longlonglonglonglonglong'
+obj = CBOR_BYTE_STRING(content)
+data = bytes(obj)
+# Should use 1-byte length encoding (0x58 = major type 2, additional info 24)
+data[:2] == bytes.fromhex('5818') and data[2:] == content
+
+= bstr decoding longer content
+data = bytes.fromhex('58186c6f6e676c6f6e676c6f6e676c6f6e676c6f6e676c6f6e67')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == b'longlonglonglonglonglong' and remainder == b''
+
++ CBOR Text String Edge Cases
+
+= tstr encoding with specific content
+obj = CBOR_TEXT_STRING('hi')
+data = bytes(obj)
+data == bytes.fromhex('626869')
+
+= tstr decoding with specific content
+data = bytes.fromhex('626869')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 'hi' and isinstance(obj, CBOR_TEXT_STRING) and remainder == b''
+
+= tstr longer content (24 chars)
+content = 'longlonglonglonglonglong'
+obj = CBOR_TEXT_STRING(content)
+data = bytes(obj)
+# Should use 1-byte length encoding (0x78 = major type 3, additional info 24)
+data[:2] == bytes.fromhex('7818') and data[2:] == content.encode('utf8')
+
+= tstr decoding longer content
+data = bytes.fromhex('78186c6f6e676c6f6e676c6f6e676c6f6e676c6f6e676c6f6e67')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 'longlonglonglonglonglong' and remainder == b''
+
++ CBOR Array Specific Encodings
+
+= array encoding with mixed integer types
+from scapy.cbor.cborcodec import CBORcodec_ARRAY
+# Array with positive 10 and negative 20
+encoded = CBORcodec_ARRAY.enc([10, -20])
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_ARRAY) and len(decoded.val) == 2
+
+= array decoding specific encoding
+data = bytes.fromhex('820A33')  # array(2): [10, -20]
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 2 and remainder == b''
+
++ CBOR Map Specific Encodings
+
+= map encoding with integer keys
+from scapy.cbor.cborcodec import CBORcodec_MAP
+encoded = CBORcodec_MAP.enc({10: -20})
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_MAP) and len(decoded.val) == 1
+
+= map decoding specific encoding
+data = bytes.fromhex('A10A33')  # map(1): {10: -20}
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_MAP) and len(obj.val) == 1 and remainder == b''
+
++ CBOR Float Specific Encodings
+
+= float64 encoding specific value
+obj = CBOR_FLOAT(1.5e20)
+data = bytes(obj)
+data == bytes.fromhex('FB442043561A882930')
+
+= float64 decoding specific value
+data = bytes.fromhex('FB442043561A882930')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and obj.val == 1.5e20 and remainder == b''
+
++ CBOR Multiple Item Decoding
+
+= decode multiple items in sequence
+data = bytes.fromhex('010203')  # Three unsigned integers: 1, 2, 3
+obj1, remainder1 = CBOR_Codecs.CBOR.dec(data)
+obj2, remainder2 = CBOR_Codecs.CBOR.dec(remainder1)
+obj3, remainder3 = CBOR_Codecs.CBOR.dec(remainder2)
+obj1.val == 1 and obj2.val == 2 and obj3.val == 3 and remainder3 == b''
+
+= decode nested array with specific encoding
+data = bytes.fromhex('8201820203')  # array(2): [1, array(2): [2, 3]]
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 2 and remainder == b'' and isinstance(obj.val[1], CBOR_ARRAY)
+
++ CBOR Boundary Value Tests
+
+= encode maximum value that fits in each size
+# Maximum for size 0 (0-23)
+obj = CBOR_UNSIGNED_INTEGER(23)
+bytes(obj) == bytes.fromhex('17')
+
+= encode minimum value needing size 1
+obj = CBOR_UNSIGNED_INTEGER(24)
+bytes(obj) == bytes.fromhex('1818')
+
+= encode maximum value for size 1
+obj = CBOR_UNSIGNED_INTEGER(255)
+bytes(obj) == bytes.fromhex('18ff')
+
+= encode minimum value needing size 2
+obj = CBOR_UNSIGNED_INTEGER(256)
+bytes(obj) == bytes.fromhex('190100')
+
+= negative integer boundary at -24
+obj = CBOR_NEGATIVE_INTEGER(-24)
+bytes(obj) == bytes.fromhex('37')
+
+= negative integer boundary at -25
+obj = CBOR_NEGATIVE_INTEGER(-25)
+bytes(obj) == bytes.fromhex('3818')
+
++ CBOR Empty Container Tests
+
+= encode empty array
+from scapy.cbor.cborcodec import CBORcodec_ARRAY
+encoded = CBORcodec_ARRAY.enc([])
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_ARRAY) and len(decoded.val) == 0
+
+= encode empty map
+from scapy.cbor.cborcodec import CBORcodec_MAP
+encoded = CBORcodec_MAP.enc({})
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_MAP) and len(decoded.val) == 0
+
+= encode empty byte string
+obj = CBOR_BYTE_STRING(b'')
+data = bytes(obj)
+data == bytes.fromhex('40')
+
+= encode empty text string
+obj = CBOR_TEXT_STRING('')
+data = bytes(obj)
+data == bytes.fromhex('60')
