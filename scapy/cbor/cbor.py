@@ -21,9 +21,8 @@ from typing import (
     TYPE_CHECKING,
 )
 
-from build.lib.scapy.error import log_runtime
 from scapy.compat import plain_str
-from scapy.error import Scapy_Exception
+from scapy.error import Scapy_Exception, log_runtime
 from scapy.utils import Enum_metaclass, EnumElement
 
 if TYPE_CHECKING:
