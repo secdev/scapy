@@ -29,6 +29,7 @@ from scapy.cbor.cbor import (
     CBOR_UNDEFINED,
     CBOR_FLOAT,
     CBOR_DECODING_ERROR,
+    RandCBORObject,
 )
 
 from scapy.cbor.cborcodec import (
@@ -68,6 +69,8 @@ __all__ = [
     "CBOR_UNDEFINED",
     "CBOR_FLOAT",
     "CBOR_DECODING_ERROR",
+    # Random/Fuzzing
+    "RandCBORObject",
     # Codec classes
     "CBORcodec_Object",
     "CBORcodec_UNSIGNED_INTEGER",
