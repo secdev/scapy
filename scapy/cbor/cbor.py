@@ -93,13 +93,33 @@ class RandCBORObject(RandField["CBOR_Object[Any]"]):
             return o("".join(random.choice(self.chars) for _ in range(length)))
         elif o == CBOR_ARRAY:
             # Random array with random elements (limit recursion depth)
-            size = min(int(random.expovariate(0.08) + 1), 5)  # Limit array size
-            return o([self.__class__(objlist=self._get_objlist())._fix(n + 1)
+            # Use smaller size and limit depth more aggressively for performance
+            size = min(int(random.expovariate(0.2) + 1), 3)  # Smaller arrays
+            
+            # Get child objlist - use simple types if current list only has recursive types
+            child_objlist = self._get_objlist()
+            non_recursive = [t for t in child_objlist if t not in [CBOR_ARRAY, CBOR_MAP]]
+            
+            # If objlist only contains recursive types or we're deep, use simple types for children
+            if not non_recursive or n >= 3:
+                child_objlist = [CBOR_UNSIGNED_INTEGER, CBOR_TEXT_STRING, CBOR_NULL]
+            
+            return o([self.__class__(objlist=child_objlist)._fix(n + 1)
                       for _ in range(size)])
         elif o == CBOR_MAP:
             # Random map with random key-value pairs (limit recursion depth)
             # CBOR maps use raw Python values as keys, CBOR objects as values
-            size = min(int(random.expovariate(0.08) + 1), 5)  # Limit map size
+            # Use smaller size and limit depth more aggressively for performance
+            size = min(int(random.expovariate(0.2) + 1), 3)  # Smaller maps
+            
+            # Get child objlist - use simple types if current list only has recursive types
+            child_objlist = self._get_objlist()
+            non_recursive = [t for t in child_objlist if t not in [CBOR_ARRAY, CBOR_MAP]]
+            
+            # If objlist only contains recursive types or we're deep, use simple types for children
+            if not non_recursive or n >= 3:
+                child_objlist = [CBOR_UNSIGNED_INTEGER, CBOR_TEXT_STRING, CBOR_NULL]
+            
             map_dict = {}
             for _ in range(size):
                 # Use simple hashable types for keys (int or str)
@@ -108,7 +128,7 @@ class RandCBORObject(RandField["CBOR_Object[Any]"]):
                 else:
                     key_len = int(random.expovariate(0.1) + 1)
                     key = "".join(random.choice(self.chars) for _ in range(key_len))
-                val_obj = self.__class__(objlist=self._get_objlist())._fix(n + 1)
+                val_obj = self.__class__(objlist=child_objlist)._fix(n + 1)
                 map_dict[key] = val_obj
             return o(map_dict)
         elif o == CBOR_FALSE:
