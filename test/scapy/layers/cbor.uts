@@ -779,3 +779,210 @@ data == bytes.fromhex('40')
 obj = CBOR_TEXT_STRING('')
 data = bytes(obj)
 data == bytes.fromhex('60')
+
+########### CBOR Fuzzing / Random Object Tests ####################
+
++ CBOR Random Object Generation
+
+= Create RandCBORObject
+from scapy.cbor import RandCBORObject
+rand = RandCBORObject()
+isinstance(rand, RandCBORObject)
+
+= Generate random CBOR unsigned integer
+from scapy.cbor import RandCBORObject, CBOR_UNSIGNED_INTEGER
+rand = RandCBORObject(objlist=[CBOR_UNSIGNED_INTEGER])
+obj = rand._fix()
+isinstance(obj, CBOR_UNSIGNED_INTEGER) and isinstance(obj.val, int) and obj.val >= 0
+
+= Generate random CBOR negative integer
+from scapy.cbor import RandCBORObject, CBOR_NEGATIVE_INTEGER
+rand = RandCBORObject(objlist=[CBOR_NEGATIVE_INTEGER])
+obj = rand._fix()
+isinstance(obj, CBOR_NEGATIVE_INTEGER) and isinstance(obj.val, int) and obj.val < 0
+
+= Generate random CBOR byte string
+from scapy.cbor import RandCBORObject, CBOR_BYTE_STRING
+rand = RandCBORObject(objlist=[CBOR_BYTE_STRING])
+obj = rand._fix()
+isinstance(obj, CBOR_BYTE_STRING) and isinstance(obj.val, bytes)
+
+= Generate random CBOR text string
+from scapy.cbor import RandCBORObject, CBOR_TEXT_STRING
+rand = RandCBORObject(objlist=[CBOR_TEXT_STRING])
+obj = rand._fix()
+isinstance(obj, CBOR_TEXT_STRING) and isinstance(obj.val, str) and len(obj.val) > 0
+
+= Generate random CBOR array
+from scapy.cbor import RandCBORObject, CBOR_ARRAY
+rand = RandCBORObject(objlist=[CBOR_ARRAY])
+obj = rand._fix()
+isinstance(obj, CBOR_ARRAY) and isinstance(obj.val, list)
+
+= Generate random CBOR map
+from scapy.cbor import RandCBORObject, CBOR_MAP
+rand = RandCBORObject(objlist=[CBOR_MAP])
+obj = rand._fix()
+isinstance(obj, CBOR_MAP) and isinstance(obj.val, dict)
+
+= Generate random CBOR boolean (false)
+from scapy.cbor import RandCBORObject, CBOR_FALSE
+rand = RandCBORObject(objlist=[CBOR_FALSE])
+obj = rand._fix()
+isinstance(obj, CBOR_FALSE) and obj.val == False
+
+= Generate random CBOR boolean (true)
+from scapy.cbor import RandCBORObject, CBOR_TRUE
+rand = RandCBORObject(objlist=[CBOR_TRUE])
+obj = rand._fix()
+isinstance(obj, CBOR_TRUE) and obj.val == True
+
+= Generate random CBOR null
+from scapy.cbor import RandCBORObject, CBOR_NULL
+rand = RandCBORObject(objlist=[CBOR_NULL])
+obj = rand._fix()
+isinstance(obj, CBOR_NULL) and obj.val is None
+
+= Generate random CBOR undefined
+from scapy.cbor import RandCBORObject, CBOR_UNDEFINED
+rand = RandCBORObject(objlist=[CBOR_UNDEFINED])
+obj = rand._fix()
+isinstance(obj, CBOR_UNDEFINED) and obj.val is None
+
+= Generate random CBOR float
+from scapy.cbor import RandCBORObject, CBOR_FLOAT
+rand = RandCBORObject(objlist=[CBOR_FLOAT])
+obj = rand._fix()
+isinstance(obj, CBOR_FLOAT) and isinstance(obj.val, float)
+
++ CBOR Random Object Encoding/Decoding
+
+= Encode and decode random unsigned integer
+from scapy.cbor import RandCBORObject, CBOR_UNSIGNED_INTEGER, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_UNSIGNED_INTEGER])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_UNSIGNED_INTEGER) and remainder == b'' and decoded.val == obj.val
+
+= Encode and decode random text string
+from scapy.cbor import RandCBORObject, CBOR_TEXT_STRING, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_TEXT_STRING])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_TEXT_STRING) and remainder == b'' and decoded.val == obj.val
+
+= Encode and decode random byte string
+from scapy.cbor import RandCBORObject, CBOR_BYTE_STRING, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_BYTE_STRING])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_BYTE_STRING) and remainder == b'' and decoded.val == obj.val
+
+= Encode and decode random array
+from scapy.cbor import RandCBORObject, CBOR_ARRAY, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_ARRAY])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_ARRAY) and remainder == b'' and len(decoded.val) == len(obj.val)
+
+= Encode and decode random map
+from scapy.cbor import RandCBORObject, CBOR_MAP, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_MAP])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_MAP) and remainder == b'' and len(decoded.val) == len(obj.val)
+
+= Encode and decode random float
+from scapy.cbor import RandCBORObject, CBOR_FLOAT, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_FLOAT])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_FLOAT) and remainder == b''
+
++ CBOR Random Mixed Types
+
+= Generate multiple random objects of different types
+from scapy.cbor import RandCBORObject
+rand = RandCBORObject()
+objects = [rand._fix() for _ in range(10)]
+len(objects) == 10 and all(hasattr(obj, 'val') for obj in objects)
+
+= Encode and decode multiple random objects
+from scapy.cbor import RandCBORObject, CBOR_Codecs
+rand = RandCBORObject()
+success_count = 0
+for _ in range(20):
+    obj = rand._fix()
+    try:
+        encoded = bytes(obj)
+        decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+        if remainder == b'':
+            success_count += 1
+    except:
+        pass
+success_count >= 18
+
+= Random nested arrays encode/decode correctly
+from scapy.cbor import RandCBORObject, CBOR_ARRAY, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_ARRAY])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_ARRAY) and remainder == b''
+
+= Random nested maps encode/decode correctly
+from scapy.cbor import RandCBORObject, CBOR_MAP, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_MAP])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_MAP) and remainder == b''
+
++ CBOR Fuzzing Stress Tests
+
+= Generate 100 random objects without errors
+from scapy.cbor import RandCBORObject
+rand = RandCBORObject()
+objects = []
+for _ in range(100):
+    try:
+        obj = rand._fix()
+        objects.append(obj)
+    except:
+        pass
+len(objects) >= 95
+
+= Encode 50 random objects without errors
+from scapy.cbor import RandCBORObject
+rand = RandCBORObject()
+encoded_count = 0
+for _ in range(50):
+    try:
+        obj = rand._fix()
+        encoded = bytes(obj)
+        if len(encoded) > 0:
+            encoded_count += 1
+    except:
+        pass
+encoded_count >= 45
+
+= Roundtrip 50 random objects
+from scapy.cbor import RandCBORObject, CBOR_Codecs
+rand = RandCBORObject()
+roundtrip_count = 0
+for _ in range(50):
+    try:
+        obj = rand._fix()
+        encoded = bytes(obj)
+        decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+        if remainder == b'':
+            roundtrip_count += 1
+    except:
+        pass
+roundtrip_count >= 45

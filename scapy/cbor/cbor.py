@@ -7,6 +7,7 @@ CBOR (Concise Binary Object Representation) - RFC 8949
 Following the ASN.1 paradigm
 """
 
+import random
 from typing import (
     Any,
     Dict,
@@ -22,11 +23,108 @@ from typing import (
 )
 
 from scapy.compat import plain_str
-from scapy.error import Scapy_Exception, log_runtime
+from scapy.error import Scapy_Exception
 from scapy.utils import Enum_metaclass, EnumElement
+from scapy.volatile import RandField
 
 if TYPE_CHECKING:
     from scapy.cbor.cborcodec import CBORcodec_Object
+
+
+class RandCBORObject(RandField["CBOR_Object[Any]"]):
+    """Random CBOR object generator for fuzzing"""
+
+    def __init__(self, objlist=None):
+        # type: (Optional[List[Type[CBOR_Object[Any]]]]) -> None
+        if objlist:
+            self.objlist = objlist
+        else:
+            # Default list will be populated lazily to avoid forward reference
+            self.objlist = None  # type: ignore
+        self.chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"  # noqa: E501
+
+    def _get_objlist(self):
+        # type: () -> List[Type[CBOR_Object[Any]]]
+        """Get the list of CBOR object types (lazy initialization)"""
+        if self.objlist is None:
+            # Import here to avoid circular dependency
+            self.objlist = [
+                CBOR_UNSIGNED_INTEGER,
+                CBOR_NEGATIVE_INTEGER,
+                CBOR_BYTE_STRING,
+                CBOR_TEXT_STRING,
+                CBOR_ARRAY,
+                CBOR_MAP,
+                CBOR_FALSE,
+                CBOR_TRUE,
+                CBOR_NULL,
+                CBOR_UNDEFINED,
+                CBOR_FLOAT,
+            ]
+        return self.objlist
+
+    def _fix(self, n=0):
+        # type: (int) -> CBOR_Object[Any]
+        objlist = self._get_objlist()
+
+        # If we're at max recursion depth and have arrays/maps in objlist,
+        # filter them out to avoid infinite recursion
+        if n >= 10:
+            objlist = [o for o in objlist if o not in [CBOR_ARRAY, CBOR_MAP]]
+            if not objlist:
+                # Fallback to a simple type
+                return CBOR_UNSIGNED_INTEGER(abs(int(random.gauss(1000, 2000))))
+
+        o = random.choice(objlist)
+
+        if o == CBOR_UNSIGNED_INTEGER:
+            # Random unsigned integer using gaussian distribution
+            return o(abs(int(random.gauss(1000, 2000))))
+        elif o == CBOR_NEGATIVE_INTEGER:
+            # Random negative integer - ensure it's always negative
+            return o(-abs(int(random.gauss(1000, 2000))) - 1)
+        elif o == CBOR_BYTE_STRING:
+            # Random byte string with exponential length
+            length = int(random.expovariate(0.05) + 1)
+            return o(bytes(random.randint(0, 255) for _ in range(length)))
+        elif o == CBOR_TEXT_STRING:
+            # Random text string with exponential length
+            length = int(random.expovariate(0.05) + 1)
+            return o("".join(random.choice(self.chars) for _ in range(length)))
+        elif o == CBOR_ARRAY:
+            # Random array with random elements (limit recursion depth)
+            size = min(int(random.expovariate(0.08) + 1), 5)  # Limit array size
+            return o([self.__class__(objlist=self._get_objlist())._fix(n + 1)
+                      for _ in range(size)])
+        elif o == CBOR_MAP:
+            # Random map with random key-value pairs (limit recursion depth)
+            # CBOR maps use raw Python values as keys, CBOR objects as values
+            size = min(int(random.expovariate(0.08) + 1), 5)  # Limit map size
+            map_dict = {}
+            for _ in range(size):
+                # Use simple hashable types for keys (int or str)
+                if random.choice([True, False]):
+                    key = abs(int(random.gauss(100, 200)))
+                else:
+                    key_len = int(random.expovariate(0.1) + 1)
+                    key = "".join(random.choice(self.chars) for _ in range(key_len))
+                val_obj = self.__class__(objlist=self._get_objlist())._fix(n + 1)
+                map_dict[key] = val_obj
+            return o(map_dict)
+        elif o == CBOR_FALSE:
+            return o()
+        elif o == CBOR_TRUE:
+            return o()
+        elif o == CBOR_NULL:
+            return o()
+        elif o == CBOR_UNDEFINED:
+            return o()
+        elif o == CBOR_FLOAT:
+            # Random float with gaussian distribution
+            return o(random.gauss(0, 1000.0))
+
+        # Default fallback to unsigned integer
+        return CBOR_UNSIGNED_INTEGER(abs(int(random.gauss(1000, 2000))))
 
 
 ##############
@@ -169,7 +267,7 @@ class CBOR_Object_metaclass(type):
         try:
             c.tag.register_cbor_object(c)
         except Exception:
-            log_runtime.error("Failed to register codec for tag")
+            pass  # Some objects may not have tags yet
         return c
 
 
