@@ -926,6 +926,7 @@ for _ in range(20):
             success_count += 1
     except:
         pass
+
 success_count >= 18
 
 = Random nested arrays encode/decode correctly
@@ -951,11 +952,14 @@ from scapy.cbor import RandCBORObject
 rand = RandCBORObject()
 objects = []
 for _ in range(100):
+    obj = None
     try:
         obj = rand._fix()
-        objects.append(obj)
     except:
         pass
+    if obj is not None:
+        objects.append(obj)
+
 len(objects) >= 95
 
 = Encode 50 random objects without errors
@@ -963,13 +967,14 @@ from scapy.cbor import RandCBORObject
 rand = RandCBORObject()
 encoded_count = 0
 for _ in range(50):
+    obj = rand._fix()
     try:
-        obj = rand._fix()
         encoded = bytes(obj)
         if len(encoded) > 0:
             encoded_count += 1
     except:
         pass
+
 encoded_count >= 45
 
 = Roundtrip 50 random objects
@@ -977,12 +982,13 @@ from scapy.cbor import RandCBORObject, CBOR_Codecs
 rand = RandCBORObject()
 roundtrip_count = 0
 for _ in range(50):
+    obj = rand._fix()
     try:
-        obj = rand._fix()
         encoded = bytes(obj)
         decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
         if remainder == b'':
             roundtrip_count += 1
     except:
         pass
+
 roundtrip_count >= 45
