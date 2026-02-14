@@ -40,6 +40,7 @@ from scapy.fields import (
     StrFixedLenField,
     StrLenField,
     XByteField,
+    XStrField,
     XStrFixedLenField,
 )
 from scapy.layers.inet import UDP
@@ -75,6 +76,27 @@ _NTP_HASH_SIZE = 128
 #############################################################################
 #     Fields and utilities
 #############################################################################
+
+
+def _ntp_auth_tail_size(length):
+    """
+    Dynamically compute the NTP authenticator tail size (key_id + digest).
+    
+    Valid MAC sizes are: 20, 24, 36, 52, 68 bytes (4-byte key_id + digest)
+    - 20 bytes: MD5 (4 + 16)
+    - 24 bytes: SHA1 (4 + 20)
+    - 36 bytes: SHA256 (4 + 32)
+    - 52 bytes: SHA384 (4 + 48)
+    - 68 bytes: SHA512 (4 + 64)
+    
+    Returns the tail size if it matches a known valid size, otherwise 
+    returns _NTP_AUTH_MD5_TAIL_SIZE as a fallback.
+    """
+    valid_mac_sizes = [20, 24, 36, 52, 68]
+    for mac_size in valid_mac_sizes:
+        if length >= mac_size:
+            return mac_size
+    return _NTP_AUTH_MD5_TAIL_SIZE
 
 class XLEShortField(LEShortField):
     """
@@ -246,8 +268,9 @@ class _NTPAuthenticatorPaddingField(StrField):
         remain = s
         length = len(s)
 
-        if length > _NTP_AUTH_MD5_TAIL_SIZE:
-            start = length - _NTP_AUTH_MD5_TAIL_SIZE
+        tail_size = _ntp_auth_tail_size(length)
+        if length > tail_size:
+            start = length - tail_size
             ret = s[:start]
             remain = s[start:]
         return remain, ret
@@ -263,7 +286,7 @@ class NTPAuthenticator(Packet):
     fields_desc = [
         _NTPAuthenticatorPaddingField("padding", ""),
         IntField("key_id", 0),
-        XStrFixedLenField("dgst", "", length_from=lambda x: 16)
+        XStrField("dgst", "")
     ]
 
     def extract_padding(self, s):
@@ -335,8 +358,9 @@ class NTPExtPacketListField(PacketListField):
         lst = []
         remain = s
         length = len(s)
-        if length > _NTP_AUTH_MD5_TAIL_SIZE:
-            end = length - _NTP_AUTH_MD5_TAIL_SIZE
+        tail_size = _ntp_auth_tail_size(length)
+        if length > tail_size:
+            end = length - tail_size
             extensions = s[:end]
             remain = s[end:]
 
@@ -476,7 +500,7 @@ class NTPHeader(NTP):
         """
         plen = len(payload)
 
-        if plen - 4 in [16, 20, 32, 64]:  # length of MD5, SHA1, SHA256, SHA512
+        if plen - 4 in [16, 20, 32, 48, 64]:  # length of MD5, SHA1, SHA256, SHA384, SHA512
             return NTPAuthenticator
         elif plen > _NTP_AUTH_MD5_TAIL_SIZE:
             return NTPExtensions
