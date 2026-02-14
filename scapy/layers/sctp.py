@@ -24,6 +24,7 @@ from scapy.fields import (
     IntEnumField,
     IntField,
     MultipleTypeField,
+    PacketLenField,
     PacketListField,
     PadField,
     ShortEnumField,
@@ -624,6 +625,23 @@ SCTP_PAYLOAD_PROTOCOL_INDENTIFIERS = {
 }
 
 
+class _SCTPChunkDataField(PacketLenField):
+    """PacketLenField that dispatches using bind_layers bindings."""
+
+    def m2i(self, pkt, m):
+        # Only dissect complete messages
+        if pkt.beginning != 1 or pkt.ending != 1:
+            return conf.raw_layer(load=m)
+        # Check bind_layers bindings
+        for fval, cls in pkt.payload_guess:
+            if all(
+                hasattr(pkt, k) and v == pkt.getfieldval(k)
+                for k, v in fval.items()
+            ):
+                return cls(m)
+        return conf.raw_layer(load=m)
+
+
 class SCTPChunkData(_SCTPChunkGuessPayload, Packet):
     # TODO : add a padding function in post build if this layer is used to generate SCTP chunk data  # noqa: E501
     fields_desc = [ByteEnumField("type", 0, sctpchunktypes),
@@ -637,7 +655,8 @@ class SCTPChunkData(_SCTPChunkGuessPayload, Packet):
                    XShortField("stream_id", None),
                    XShortField("stream_seq", None),
                    IntEnumField("proto_id", None, SCTP_PAYLOAD_PROTOCOL_INDENTIFIERS),  # noqa: E501
-                   PadField(StrLenField("data", None, length_from=lambda pkt: pkt.len - 16),  # noqa: E501
+                   PadField(_SCTPChunkDataField("data", None, conf.raw_layer,
+                                                length_from=lambda pkt: pkt.len - 16),  # noqa: E501
                             4, padwith=b"\x00"),
                    ]
 
