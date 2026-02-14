@@ -106,8 +106,10 @@ assert p.stratum == 2
 = NTPAuthenticator - MD5 with padding (old test, updated for correct parsing)
 
 # This packet has 24 bytes of authenticator data
-# With the old (broken) code, it was parsed as: 4 padding + 4 key_id + 16 MD5 digest
-# With the new (correct) code, it should be parsed as: 4 key_id + 20 SHA1 digest  
+# The old (incorrect) code interpreted this as: 4 padding + 4 key_id + 16 MD5 digest  
+# The new (correct) code interprets 24 bytes as SHA1 MAC: 4 key_id + 20 SHA1 digest
+# Note: This test packet may have been created with MD5 intent, but with 24 bytes
+# total, it's now correctly parsed as SHA1 according to RFC 5905 standards
 s = hex_bytes("000c2962f268d094666d23750800450000640db640004011a519c0a80364c0a80305a51e007b0050731a2300072000000000000000000000000000000000000000000000000000000000000000000000000052c7bc1dda64b97d0000000bcdc3825dbf6b7ad02886ff45aa8b2eaf7ac78bc1")
 p = Ether(s)
 assert NTPAuthenticator in p
