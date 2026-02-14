@@ -93,9 +93,10 @@ def _ntp_auth_tail_size(length):
     returns _NTP_AUTH_MD5_TAIL_SIZE as a fallback.
     """
     valid_mac_sizes = [20, 24, 36, 52, 68]
-    for mac_size in valid_mac_sizes:
-        if length >= mac_size:
-            return mac_size
+    # Check for exact match with a known MAC size
+    if length in valid_mac_sizes:
+        return length
+    # Otherwise, default to MD5 size (backward compatibility)
     return _NTP_AUTH_MD5_TAIL_SIZE
 
 class XLEShortField(LEShortField):

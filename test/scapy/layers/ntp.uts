@@ -103,11 +103,54 @@ assert p.version == 4
 assert p.mode == 3
 assert p.stratum == 2
 
-= NTPAuthenticator
+= NTPAuthenticator - MD5 with padding (old test, updated for correct parsing)
 
+# This packet has 24 bytes of authenticator data
+# With the old (broken) code, it was parsed as: 4 padding + 4 key_id + 16 MD5 digest
+# With the new (correct) code, it should be parsed as: 4 key_id + 20 SHA1 digest  
 s = hex_bytes("000c2962f268d094666d23750800450000640db640004011a519c0a80364c0a80305a51e007b0050731a2300072000000000000000000000000000000000000000000000000000000000000000000000000052c7bc1dda64b97d0000000bcdc3825dbf6b7ad02886ff45aa8b2eaf7ac78bc1")
 p = Ether(s)
-assert NTPAuthenticator in p and p[NTPAuthenticator].key_id == 3452142173
+assert NTPAuthenticator in p
+# With 24 bytes, this is now interpreted as SHA1 (4 + 20), not MD5 with padding
+assert p[NTPAuthenticator].key_id == 11  # First 4 bytes: 0000000b
+assert len(p[NTPAuthenticator].dgst) == 20  # SHA1 digest
+assert bytes_hex(p[NTPAuthenticator].dgst) == b'cdc3825dbf6b7ad02886ff45aa8b2eaf7ac78bc1'
+
+= NTPAuthenticator - SHA1 (24 bytes: 4 key_id + 20 digest)
+# Create an NTP packet with SHA1 authenticator
+ntp_header = b"!\x0b\x06\xea\x00\x00\x00\x00\x00\x00\xf2\xc1\x7f\x7f\x01\x00\xdb9\xe8\xa21\x02\xe6\xbc\xdb9\xe8\x81\x02U8\xef\xdb9\xe8\x80\xdcl+\x06\xdb9\xe8\xa91\xcbI\xbf"
+sha1_key_id = b"\x00\x00\x00\x02"  # key_id = 2
+sha1_digest = b"\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\xcc\xdd\xee\xff\x00\x01\x02\x03\x04"  # 20 bytes
+s = ntp_header + sha1_key_id + sha1_digest
+p = NTP(s)
+assert isinstance(p, NTPHeader)
+assert NTPAuthenticator in p
+assert p[NTPAuthenticator].key_id == 2
+assert len(p[NTPAuthenticator].dgst) == 20
+assert bytes_hex(p[NTPAuthenticator].dgst) == b'112233445566778899aabbccddeeff0001020304'
+# Test round-trip (build and parse)
+rebuilt = NTP(raw(p))
+assert rebuilt[NTPAuthenticator].key_id == 2
+assert len(rebuilt[NTPAuthenticator].dgst) == 20
+assert bytes_hex(rebuilt[NTPAuthenticator].dgst) == b'112233445566778899aabbccddeeff0001020304'
+
+= NTPAuthenticator - SHA256 (36 bytes: 4 key_id + 32 digest)
+# Create an NTP packet with SHA256 authenticator
+ntp_header = b"!\x0b\x06\xea\x00\x00\x00\x00\x00\x00\xf2\xc1\x7f\x7f\x01\x00\xdb9\xe8\xa21\x02\xe6\xbc\xdb9\xe8\x81\x02U8\xef\xdb9\xe8\x80\xdcl+\x06\xdb9\xe8\xa91\xcbI\xbf"
+sha256_key_id = b"\x00\x00\x00\x03"  # key_id = 3
+sha256_digest = b"\xaa\xbb\xcc\xdd\xee\xff\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\xcc\xdd\xee\xff\x00"  # 32 bytes
+s = ntp_header + sha256_key_id + sha256_digest
+p = NTP(s)
+assert isinstance(p, NTPHeader)
+assert NTPAuthenticator in p
+assert p[NTPAuthenticator].key_id == 3
+assert len(p[NTPAuthenticator].dgst) == 32
+assert bytes_hex(p[NTPAuthenticator].dgst) == b'aabbccddeeff00112233445566778899112233445566778899aabbccddeeff00'
+# Test round-trip (build and parse)
+rebuilt = NTP(raw(p))
+assert rebuilt[NTPAuthenticator].key_id == 3
+assert len(rebuilt[NTPAuthenticator].dgst) == 32
+assert bytes_hex(rebuilt[NTPAuthenticator].dgst) == b'aabbccddeeff00112233445566778899112233445566778899aabbccddeeff00'
 
 
 ############
@@ -343,8 +386,11 @@ assert p.more == 0
 assert p.op_code == 9
 assert p.count == 15
 assert p.data == b'ntp.test.2.conf'
-assert p.authenticator.key_id == 1
-assert bytes_hex(p.authenticator.dgst) == b'c9fb8abe3c605ffa36d218c3b7648923'
+# After data padding to 4-byte alignment, there are 24 bytes for authenticator
+# With dynamic parsing, 24 bytes = SHA1 (4 key_id + 20 digest)
+assert p.authenticator.key_id == 0
+assert len(p.authenticator.dgst) == 20
+assert bytes_hex(p.authenticator.dgst) == b'00000001c9fb8abe3c605ffa36d218c3b7648923'
 
 
 = NTP Control (mode 6) - CTL_OP_SAVECONFIG (2) - response
