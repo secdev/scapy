@@ -481,12 +481,12 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         elif other.nh == 43 and isinstance(other.payload, IPv6ExtHdrSegmentRouting):  # noqa: E501
             return self.payload.answers(other.payload.payload)  # Buggy if self.payload is a IPv6ExtHdrRouting  # noqa: E501
         elif other.nh == 60 and isinstance(other.payload, IPv6ExtHdrDestOpt):
-            # Extension Headers can show weird behavious.
+            # Extension Headers can show weird behavior.
             # Linux's sk_buff considers the IPv6 Payload
             # to be either TCP, UDP or ICMP. It does not
             # consider Extension Headers to be the payload.
-            # Following similar architecture, This small 
-            # modification let's packet flow with Destination
+            # Following similar architecture, this small 
+            # modification lets packet flow with Destination
             # Option on both, request and response packets
             # be captured as well.
             if UDP in self and UDP in other:
