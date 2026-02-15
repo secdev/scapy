@@ -1732,7 +1732,7 @@ class smbclient(CLIUtil):
             return []
         return self._fs_complete(file)
 
-    @CLIUtil.addcommand(spaces=True)
+    @CLIUtil.addcommand(spaces=True, globsupport=True)
     def put(self, file):
         """
         Upload a file
