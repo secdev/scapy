@@ -17,6 +17,7 @@
   ],
   "breakfailed": true,
   "onlyfailed": true,
+  "extensions": ["scapy-rpc"],
   "preexec": {
     "contrib\\*.uts": "load_contrib(\"%name%\")",
     "scapy\\layers\\tls\\*.uts": "load_layer(\"tls\")"

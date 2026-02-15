@@ -23,6 +23,7 @@
     "test/contrib/isotp_soft_socket.uts"
   ],
   "onlyfailed": true,
+  "extensions": ["scapy-rpc"],
   "preexec": {
     "test/contrib/*.uts": "load_contrib(\"%name%\")",
     "test/cert.uts": "load_layer(\"tls\")",
