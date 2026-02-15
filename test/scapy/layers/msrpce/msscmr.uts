@@ -1,0 +1,121 @@
+% MS-SCMR tests
+
++ [MS-SCMR] build and dissection tests
+
+* This files are stored in the scapy-rpc extension, but included as part of Scapy's main testing suite for consistency.
+
+= [MS-SCMR] - Import [MS-SCMR]
+
+from scapy.layers.msrpce.raw.ms_scmr import *
+
+= [MS-SCMR] - Dissect ROpenServiceW_Request
+
+DATA = bytes.fromhex('00000000053914c3f0543646af7317818dbee820160000000000000016000000530065006300750072006900740079004800650061006c00740068005300650072007600690063006500000005000000')
+
+pkt = ROpenServiceW_Request(DATA, ndr64=False)
+assert pkt.valueof("lpServiceName") == b"SecurityHealthService"
+assert pkt.hSCManager.uuid == b'\x059\x14\xc3\xf0T6F\xafs\x17\x81\x8d\xbe\xe8 '
+
+= [MS-SCMR] - Re-Build ROpenServiceW_Request
+
+pkt = ROpenServiceW_Request(
+    hSCManager=NDRContextHandle(uuid=b'\x059\x14\xc3\xf0T6F\xafs\x17\x81\x8d\xbe\xe8 '),
+    lpServiceName=b"SecurityHealthService",
+    dwDesiredAccess=5,
+    ndr64=False,
+)
+assert bytes(pkt) == DATA
+
+= [MS-SCMR] - Dissect RQueryServiceConfigW_Request
+
+DATA = bytes.fromhex('00000000d76d93463d7e9047856bbc0839ef836910100000')
+
+pkt = RQueryServiceConfigW_Request(DATA, ndr64=False)
+assert pkt.cbBufSize == 4112
+
+= [MS-SCMR] - Dissect RQueryServiceConfig2W_Request
+
+DATA = bytes.fromhex('00000000d76d93463d7e9047856bbc0839ef83690100000010100000')
+
+pkt = RQueryServiceConfig2W_Request(DATA, ndr64=False)
+assert pkt.dwInfoLevel == 1
+assert pkt.cbBufSize == 4112
+
+= [MS-SCMR] - Dissect RQueryServiceConfig2W_Response
+
+import zlib
+DATA = zlib.decompress(bytes.fromhex('789ced8f4b0ec2300c05078903e408d9711d368875092d204a8b4805d7e7a5286c10127bde5876fc89ed240458026b6e8cdc39b1a72513e968488a7be924add9513723175507e941954136b261ab2951b9ab24cf5e9294be124deaacd5a87cf11a761f1b9ad93e14f5921a278eca24ceef7d657f9db7faba2fabdaceffe8a4e9871718638c31c618638c31ff4158bcce27d9e630e0'))
+
+pkt = RQueryServiceConfig2W_Response(DATA, ndr64=False, request_packet=pkt)
+assert pkt.lpBuffer.max_count == 4112
+assert pkt.pcbBytesNeeded == 272
+assert pkt.status == 0
+assert pkt.lpBuffer.value[4:].decode("utf-16le").rstrip("\x00") == "Provides facilities for managing UWP apps access to app capabilities as well as checking an app's access to specific app capabilities"
+
+= [MS-SCMR] - Dissect RQueryServiceConfigW_Response
+
+DATA = bytes.fromhex('200000000200000001000000000002000400020000000000080002000c0002001000020030000000000000003000000043003a005c00570049004e0044004f00570053005c00730079007300740065006d00330032005c0073007600630068006f00730074002e0065007800650020002d006b0020006f007300700072006900760061006300790020002d0070000000010000000000000001000000000000002e000000000000002e000000720070006300730073002f00730074006100740065007200650070006f007300690074006f00720079002f0043006f00720065004d006500730073006100670069006e0067005200650067006900730074007200610072002f0000000c000000000000000c0000004c006f00630061006c00530079007300740065006d0000002200000000000000220000004300610070006100620069006c00690074007900200041006300630065007300730020004d0061006e0061006700650072002000530065007200760069006300650000007e01000000000000')
+pkt = RQueryServiceConfigW_Response(DATA, ndr64=False)
+assert pkt.status == 0
+assert pkt.pcbBytesNeeded == 389
+assert pkt.lpServiceConfig.dwServiceType == 32
+assert pkt.lpServiceConfig.dwErrorControl == 1
+assert pkt.lpServiceConfig.valueof("lpBinaryPathName") == b'C:\\WINDOWS\\system32\\svchost.exe -k osprivacy -p'
+assert pkt.lpServiceConfig.valueof("lpDependencies") == b'rpcss/staterepository/CoreMessagingRegistrar/'
+assert pkt.lpServiceConfig.valueof("lpDisplayName") == b'Capability Access Manager Service'
+
+= [MS-SCMR] - Dissect RCreateServiceW_Request
+
+DATA = bytes.fromhex('00000000dea1de2e22144844a5f5ea3948e8add905000000000000000500000074006500730074000000000000000000ff010f001000000003000000010000001c000000000000001c00000043003a005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c0063006d0064002e00650078006500000000000000000000000000000000000000000000000000000000000000')
+pkt = RCreateServiceW_Request(DATA, ndr64=False)
+assert pkt.valueof("lpServiceName") == b"test"
+assert pkt.dwDesiredAccess == 983551
+assert pkt.dwStartType == 3
+assert pkt.dwServiceType == 16
+assert pkt.dwErrorControl == 1
+assert pkt.valueof("lpBinaryPathName") == b"C:\\Windows\\System32\\cmd.exe"
+assert pkt.lpDisplayName is None
+assert pkt.dwPwSize == 0
+
+= [MS-SCMR] - Re-Build RCreateServiceW_Request
+
+pkt = RCreateServiceW_Request(
+    hSCManager=NDRContextHandle(uuid=b'\xde\xa1\xde."\x14HD\xa5\xf5\xea9H\xe8\xad\xd9'),
+    lpServiceName=b"test",
+    dwDesiredAccess=983551,
+    dwServiceType=16,
+    dwStartType=3,
+    dwErrorControl=1,
+    lpBinaryPathName=b"C:\\Windows\\System32\\cmd.exe",
+    ndr64=False,
+)
+assert bytes(pkt) == DATA
+
+= [MS-SCMR] - Dissect RCreateServiceW_Request - with lpDisplayName
+
+DATA = bytes.fromhex('00000000dcf903ed9e7b604ca9971ce8d0938b2405000000000000000500000074006500730074000000000000000200050000000000000005000000740065007300740000000000ff010f001000000003000000010000001c000000000000001c00000043003a005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c0063006d0064002e00650078006500000000000000000000000000000000000000000000000000000000000000')
+pkt = RCreateServiceW_Request(DATA, ndr64=False)
+assert pkt.valueof("lpServiceName") == b"test"
+assert pkt.dwDesiredAccess == 983551
+assert pkt.dwStartType == 3
+assert pkt.dwServiceType == 16
+assert pkt.dwErrorControl == 1
+assert pkt.valueof("lpBinaryPathName") == b"C:\\Windows\\System32\\cmd.exe"
+assert pkt.lpDisplayName.referent_id == 0x20000
+assert pkt.valueof("lpDisplayName") == b"test"
+assert pkt.dwPwSize == 0
+
+= [MS-SCMR] - Build RCreateServiceW_Request - with lpDisplayName
+
+pkt = RCreateServiceW_Request(
+    hSCManager=NDRContextHandle(uuid=b'\xdc\xf9\x03\xed\x9e{`L\xa9\x97\x1c\xe8\xd0\x93\x8b$'),
+    lpServiceName=b"test",
+    lpDisplayName=b"test",
+    dwDesiredAccess=983551,
+    dwServiceType=16,
+    dwStartType=3,
+    dwErrorControl=1,
+    lpBinaryPathName=b"C:\\Windows\\System32\\cmd.exe",
+    ndr64=False,
+)
+assert bytes(pkt) == DATA
