@@ -1416,7 +1416,15 @@ class NTLMSSP(SSP):
             self.COMPUTER_NB_NAME.lower() + "." + self.DOMAIN_FQDN
         )
 
-        self.IDENTITIES = IDENTITIES
+        if IDENTITIES:
+            self.IDENTITIES = {
+                # Windows usernames are case insensitive
+                user.upper(): hashnt
+                for user, hashnt in IDENTITIES.items()
+            }
+        else:
+            self.IDENTITIES = IDENTITIES
+
         self.DO_NOT_CHECK_LOGIN = DO_NOT_CHECK_LOGIN
         self.SERVER_CHALLENGE = SERVER_CHALLENGE
         super(NTLMSSP, self).__init__(**kwargs)
@@ -1681,7 +1689,10 @@ class NTLMSSP(SSP):
                 + [
                     AV_PAIR(
                         AvId="MsvAvSingleHost",
-                        Value=Single_Host_Data(MachineID=os.urandom(32)),
+                        Value=Single_Host_Data(
+                            MachineID=os.urandom(32),
+                            PermanentMachineID=os.urandom(32),
+                        ),
                     ),
                 ]
                 + (
@@ -2048,7 +2059,8 @@ class NTLMSSP(SSP):
         Function that returns the SessionBaseKey from the ntlm Authenticate.
         """
         try:
-            username = auth_tok.UserName
+            # Windows usernames are case insensitive
+            username = auth_tok.UserName.upper()
         except AttributeError:
             username = None
         try:
@@ -2076,9 +2088,9 @@ class NTLMSSP(SSP):
 
         Overwrite and return True to bypass.
         """
-        # Create the NTLM AUTH
         try:
-            username = auth_tok.UserName
+            # Windows usernames are case insensitive
+            username = auth_tok.UserName.upper()
         except AttributeError:
             username = None
         try:
