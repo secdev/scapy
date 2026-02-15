@@ -825,6 +825,15 @@ class TCP(Packet):
         else:
             return self.sprintf("TCP %TCP.sport% > %TCP.dport% %TCP.flags%")
 
+    def guess_payload_class(self, payload):
+        from scapy.contrib.int import INTShimTcpUdp, INT_PRI_MASK
+        if ((isinstance(self.underlayer, IP) and
+             ((self.underlayer.tos & INT_PRI_MASK) == INT_PRI_MASK)) or
+            (isinstance(self.underlayer, scapy.layers.inet6.IPv6) and
+             ((self.underlayer.tc & INT_PRI_MASK) == INT_PRI_MASK))):
+            return INTShimTcpUdp
+        return Packet.guess_payload_class(self, payload)
+
 
 class UDP(Packet):
     name = "UDP"
@@ -880,6 +889,15 @@ class UDP(Packet):
             return self.underlayer.sprintf("UDP %IPv6.src%:%UDP.sport% > %IPv6.dst%:%UDP.dport%")  # noqa: E501
         else:
             return self.sprintf("UDP %UDP.sport% > %UDP.dport%")
+
+    def guess_payload_class(self, payload):
+        from scapy.contrib.int import INTShimTcpUdp, INT_PRI_MASK
+        if ((isinstance(self.underlayer, IP) and
+             ((self.underlayer.tos & INT_PRI_MASK) == INT_PRI_MASK)) or
+            (isinstance(self.underlayer, scapy.layers.inet6.IPv6) and
+             ((self.underlayer.tc & INT_PRI_MASK) == INT_PRI_MASK))):
+            return INTShimTcpUdp
+        return Packet.guess_payload_class(self, payload)
 
 
 # RFC 4884 ICMP extensions
