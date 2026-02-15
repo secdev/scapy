@@ -616,6 +616,43 @@ c = pickle.loads(b)
 assert c[IP].dst == "192.168.0.1"
 assert raw(c) == raw(a)
 
+= Pickle preserves field values, payload and metadata
+
+import pickle
+
+p = IP(src='1.2.3.4', dst='5.6.7.8')/TCP(sport=1234, dport=80, flags='S')
+p.time = 12345.0
+p.sent_time = 12346.0
+p.direction = 1
+p.sniffed_on = 'eth0'
+p.wirelen = 100
+p.comment = b'test comment'
+p2 = pickle.loads(pickle.dumps(p))
+assert p2[IP].src == '1.2.3.4'
+assert p2[IP].dst == '5.6.7.8'
+assert p2[TCP].sport == 1234
+assert p2[TCP].dport == 80
+assert p2[TCP].flags == 'S'
+assert p2[IP].len is None
+assert p2[IP].chksum is None
+assert p2[TCP].chksum is None
+assert p2.time == 12345.0
+assert p2.sent_time == 12346.0
+assert p2.direction == 1
+assert p2.sniffed_on == 'eth0'
+assert p2.wirelen == 100
+assert p2.comment == b'test comment'
+assert raw(p2) == raw(p)
+
+= Pickle a bare packet without payload
+
+import pickle
+
+p = IP(src='10.0.0.1')
+p2 = pickle.loads(pickle.dumps(p))
+assert p2.src == '10.0.0.1'
+assert raw(p2) == raw(p)
+
 = Usage test
 
 from scapy.main import _usage
