@@ -314,7 +314,10 @@ class LayersList(List[Type['scapy.packet.Packet']]):
         except ImportError:
             import __builtin__  # noqa: F401
         for lay in self.ldict:
-            doc = eval(lay).__doc__
+            try:
+                doc = eval(lay).__doc__
+            except AttributeError:
+                continue
             result.append((lay, doc.strip().split("\n")[0] if doc else lay))
         return result
 
