@@ -735,7 +735,7 @@ class CoAPSocketImpl:
         Starts a new client interaction. This function is meant to be called internally.
         :param request: a CoAPRequest instance.
         """
-        if request.indexing() not in self.pending_requests.keys():
+        if request.indexing() not in self.pending_requests:
             log_coap_sock.debug("New client request: msg_id=%s; token=0x%x",
                                 request.message_id, request.token)
             self.pending_requests[request.indexing()] = request
