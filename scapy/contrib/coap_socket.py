@@ -263,7 +263,7 @@ class CoAPResource:
         self.url = url
         if self.url[0] != "/":
             self.url = "/" + self.url
-        self.description = description  # if
+        self.description = description  # interface description ("if" in CoRE link-format)
         self.content_format = content_format  # ct
         self.resource_type = resource_type  # rt
         self.title = title  # title
