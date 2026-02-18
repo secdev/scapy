@@ -351,31 +351,6 @@ class BTH(Packet):
             p = p[:-4] + self.compute_icrc(p)
         return p
 
-    # def guess_opcode(self):
-    #     # type: () -> Optional[int]
-    #     'Guess the opcode based on the following layers.'
-    #     if isinstance(self.payload, DETH):
-    #         if isinstance(self.payload.payload, ImmDt):
-    #             return UD_SEND_ONLY_IMM
-    #         return UD_SEND_ONLY
-
-    # def guess_payload_class(self, payload):
-    #     # type: (bytes) -> Type[Packet]
-    #     # opcode = self.opcode
-    #     # if transport(opcode) == _transports['RC'] or \
-    #     #    transport(opcode) == _transports['UC']:
-    #     #     cur_op = op(opcode)
-    #     #     if cur_op in (_ops['SEND_LAST_WITH_IMMEDIATE'],
-    #     #                   _ops['SEND_ONLY_WITH_IMMEDIATE']):
-    #     #         return ImmDt
-    #     # if transport(self.opcode) == _transports['UD']:
-    #     #     return DETH
-    #     return Packet.guess_payload_class(self, payload)
-
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(*args, **kwargs)
-    #     print(f'__init__({args}, {kwargs})')
-
 
 def cnp(dqpn):
     # type: (int) -> BTH
