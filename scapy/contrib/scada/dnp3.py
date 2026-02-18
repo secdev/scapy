@@ -303,13 +303,13 @@ class DNP3(Packet):
     chunk_len = 18
     data_chunk_len = 16
 
-    def show_data_chunks(self):
-        for i, data_chunk in enumerate(self.data_chunks):
-            print(
-                f"\tData Chunk {i}, Len {len(data_chunk)}, " "CRC (",
-                hex(struct.unpack("<H", self.data_chunks_crc[i])[0]),
-                ")",
-            )
+    # def show_data_chunks(self):
+    #     for i, data_chunk in enumerate(self.data_chunks):
+    #         print(
+    #             f"\tData Chunk {i}, Len {len(data_chunk)}, " "CRC (",
+    #             hex(struct.unpack("<H", self.data_chunks_crc[i])[0]),
+    #             ")",
+    #         )
 
     def add_data_chunk(self, chunk):
         chunk = update_data_chunk_crc(chunk)
@@ -367,7 +367,9 @@ class DNP3(Packet):
         payload = b""
         for chunk, data_chunk in enumerate(self.data_chunks):
             payload = payload + data_chunk + self.data_chunks_crc[chunk]
+
         #  self.show_data_chunks()  # --DEBUGGING
+
         return pkt + payload
 
     def guess_payload_class(self, payload):
