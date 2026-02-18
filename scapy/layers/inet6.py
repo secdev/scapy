@@ -140,7 +140,7 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
     p /= ICMPv6ND_NS(tgt=addr)
     p /= ICMPv6NDOptSrcLLAddr(lladdr=sm)
     res = srp1(p, type=ETH_P_IPV6, iface=iface, timeout=timeout, verbose=0,
-               filter="ip6[7] == 255", chainCC=chainCC)
+               chainCC=chainCC)
 
     return res
 
@@ -2258,6 +2258,10 @@ class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
         return bytes_encode(self.tgt) + self.payload.hashret()
 
     def answers(self, other):
+        if not isinstance(self.underlayer, IPv6):
+            return False
+        if self.underlayer.hlim != 255:
+            return False
         return isinstance(other, ICMPv6ND_NS) and self.tgt == other.tgt
 
 # associated possible options : target link-layer option, Redirected header
