@@ -2158,15 +2158,18 @@ l = rdpcap(tmpfile)
 assert b"Scapy" in l[0][Raw].load
 assert l[0].time == ts
 
-= Write a pcapng with SHB options
+= Write and read back a pcapng with SHB options
 
 tmpfile = get_temp_file(autoext=".pcapng")
 r = RawPcapNgWriter(tmpfile, shb_hardware="hardware", shb_os="os", shb_userapp="userapp")
 r._write_block_shb()
 r.f.close()
 
-# without a reader not much we can check
-assert os.stat(tmpfile).st_size == 60
+reader = RawPcapNgReader(tmpfile)
+assert reader.shb_options.get(2) == b"hardware"
+assert reader.shb_options.get(3) == b"os"
+assert reader.shb_options.get(4) == b"userapp"
+reader.close()
 
 = Check wrpcapng()
 

@@ -1749,7 +1749,7 @@ class RawPcapNgReader(RawPcapReader):
             raise Scapy_Exception("PcapNg: Invalid Section Header Block "
                                   " options (too short)")
         self._read_block_tail(blocklen)
-        self._read_options(options)
+        self.shb_options = self._read_options(options)
 
     def _read_packet(self, size=MTU):  # type: ignore
         # type: (int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -2506,7 +2506,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         if self.shb_userapp is not None:
             block_shb += struct.pack(self.endian + "HH", 0x0004, len(self.shb_userapp))
             block_shb += self.shb_userapp.encode()
-            #block_shb = self._add_padding(block_shb)
+            block_shb = self._add_padding(block_shb)
 
         self.f.write(self.build_block(block_type, block_shb))
 
