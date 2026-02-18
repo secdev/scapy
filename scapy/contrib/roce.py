@@ -10,7 +10,6 @@
 RoCE: RDMA over Converged Ethernet
 """
 
-import enum
 from scapy.packet import Packet, bind_layers, Raw
 from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
     PacketField, XByteField, ShortField, XIntField, XShortField, XLongField, \
@@ -21,6 +20,7 @@ from scapy.layers.l2 import Ether
 from scapy.compat import raw
 from scapy.error import warning
 from zlib import crc32
+import enum
 import struct
 
 from typing import (
@@ -42,7 +42,7 @@ TRANSPORT_MASK = 0xe0
 
 def transport(opcode):
     # type: (Optional[int]) -> Optional[int]
-    return opcode is not None and opcode & TRANSPORT_MASK
+    return opcode & TRANSPORT_MASK if opcode is not None else None
 
 
 def op(opcode):
@@ -84,7 +84,7 @@ UD_SEND_ONLY_IMM = _transports['UD'] | _ops['SEND_ONLY_WITH_IMMEDIATE']
 
 
 class _ETH(enum.Flag):
-    '''Enum of RDMA extended transport headers'''
+    """Enum of RDMA extended transport headers"""
 
     RDETH = enum.auto()
     DETH = enum.auto()
