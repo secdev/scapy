@@ -63,7 +63,7 @@ class WINNT_SID_IDENTIFIER_AUTHORITY(Packet):
         - SECURITY_AUTHENTICATION_AUTHORITY     18	S-1-18
     """
 
-    fields_desc: list[StrFixedLenField] = [
+    fields_desc = [
         StrFixedLenField("Value", b"\x00\x00\x00\x00\x00\x01", length=6),
     ]
 
