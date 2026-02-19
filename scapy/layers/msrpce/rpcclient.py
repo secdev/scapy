@@ -148,7 +148,10 @@ class DCERPC_Client(object):
 
     @property
     def session(self) -> DceRpcSession:
-        return self.sock.session
+        try:
+            return self.sock.session
+        except AttributeError:
+            raise ValueError("Client is not connected ! Please connect()")
 
     def connect(
         self,
@@ -485,7 +488,8 @@ class DCERPC_Client(object):
         for i, ctx in enumerate(contexts):
             if ctx.result == 0:
                 # Context was accepted. Remove all others from cache
-                self.contexts[interface] = [self.contexts[interface][i]]
+                if len(self.contexts[interface]) != 1:
+                    self.contexts[interface] = [self.contexts[interface][i]]
                 return True
 
         return False
