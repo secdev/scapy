@@ -50,6 +50,7 @@ class WINNT_SID_IDENTIFIER_AUTHORITY(Packet):
     """
     Security Identifier (SID) Identifier Authority
     Standard values are:
+
         - SECURITY_NULL_SID_AUTHORITY	        0	S-1-0
         - SECURITY_WORLD_SID_AUTHORITY  	    1	S-1-1
         - SECURITY_LOCAL_SID_AUTHORITY  	    2	S-1-2
@@ -255,6 +256,7 @@ class WINNT_ACE_HEADER(Packet):
     """
     Access Control Entry (ACE) Header
     It is composed of 3 fields, followed by ACE-specific data:
+        
         - AceType (1 byte): see below for standard values
         - AceFlags (1 byte): see WINNT_ACE_FLAGS
         - AceSize (2 bytes): total size of the ACE, including the header
