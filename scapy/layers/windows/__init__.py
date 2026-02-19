@@ -15,7 +15,3 @@ protocols, you will have to use the lower level objects directly.
 
 # Make sure config is loaded
 from scapy.config import conf
-
-# Import the Windows RPC extension
-# pylint: disable-next=too-many-function-args
-conf.exts.load("scapy-rpc")
