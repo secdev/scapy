@@ -2,13 +2,11 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) Gabriel Potter
-# pylint: disable=invalid-name
 
 """
 Python objects for Microsoft Windows security structures.
 """
 
-from dataclasses import dataclass
 import re
 import struct
 
@@ -931,5 +929,3 @@ class SECURITY_DESCRIPTOR(_NTLMPayloadPacket):
             )
             + pay
         )
-
-
