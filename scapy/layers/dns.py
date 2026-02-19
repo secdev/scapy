@@ -546,7 +546,7 @@ class ClientSubnetv4(StrLenField):
 
     def getfield(self, pkt, s):
         # type: (Packet, bytes) -> Tuple[bytes, I]
-        sz = operator.floordiv(self.length_from(pkt), 8)
+        sz = operator.floordiv(self.length_from(pkt) + 7, 8)
         sz = min(sz, operator.floordiv(self.af_length, 8))
         return s[sz:], self.m2i(pkt, s[:sz])
 
