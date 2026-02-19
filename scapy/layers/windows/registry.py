@@ -127,23 +127,22 @@ class RootKeys(StrEnum):
     def from_value(cls, value: str):
         """Convert a string to a RootKeys enum member."""
         value = value.strip().upper()
-        match value:
-            case "HKEY_CLASSES_ROOT":
-                value = RootKeys.HKEY_CLASSES_ROOT.value
-            case "HKEY_CURRENT_USER":
-                value = RootKeys.HKEY_CURRENT_USER.value
-            case "HKEY_LOCAL_MACHINE":
-                value = RootKeys.HKEY_LOCAL_MACHINE.value
-            case "HKEY_CURRENT_CONFIG":
-                value = RootKeys.HKEY_CURRENT_CONFIG.value
-            case "HKEY_USERS":
-                value = RootKeys.HKEY_USERS.value
-            case "HKEY_PERFORMANCE_DATA":
-                value = RootKeys.HKEY_PERFORMANCE_DATA.value
-            case "HKEY_PERFORMANCE_TEXT":
-                value = RootKeys.HKEY_PERFORMANCE_TEXT.value
-            case "HKEY_PERFORMANCE_NLSTEXT":
-                value = RootKeys.HKEY_PERFORMANCE_NLSTEXT.value
+        if value == "HKEY_CLASSES_ROOT":
+            value = RootKeys.HKEY_CLASSES_ROOT.value
+        elif value == "HKEY_CURRENT_USER":
+            value = RootKeys.HKEY_CURRENT_USER.value
+        elif value == "HKEY_LOCAL_MACHINE":
+            value = RootKeys.HKEY_LOCAL_MACHINE.value
+        elif value == "HKEY_CURRENT_CONFIG":
+            value = RootKeys.HKEY_CURRENT_CONFIG.value
+        elif value == "HKEY_USERS":
+            value = RootKeys.HKEY_USERS.value
+        elif value == "HKEY_PERFORMANCE_DATA":
+            value = RootKeys.HKEY_PERFORMANCE_DATA.value
+        elif value == "HKEY_PERFORMANCE_TEXT":
+            value = RootKeys.HKEY_PERFORMANCE_TEXT.value
+        elif value == "HKEY_PERFORMANCE_NLSTEXT":
+            value = RootKeys.HKEY_PERFORMANCE_NLSTEXT.value
 
         try:
             return cls(value)
@@ -278,95 +277,94 @@ class RegEntry:
         Encode data based on the type.
         """
 
-        match reg_type:
-            case RegType.REG_MULTI_SZ | RegType.REG_SZ | RegType.REG_EXPAND_SZ:
-                if reg_type == RegType.REG_MULTI_SZ:
-                    # encode to multiple null terminated strings
-                    if isinstance(data, str):
-                        # if it was previously encoded, we remove the
-                        # final \x00 and the final empty string
-                        data = data.strip(b"\x00\x00\x00\x00")
-                        encoded_data = (
-                            b"\x00\x00".join(
-                                [x.strip().encode("utf-16le") for x in data.split()]
-                            )
-                            + b"\x00\x00"  # final \x00
-                            + b"\x00\x00"  # final empty string
+        if reg_type in [RegType.REG_MULTI_SZ, RegType.REG_SZ, RegType.REG_EXPAND_SZ]:
+            if reg_type == RegType.REG_MULTI_SZ:
+                # encode to multiple null terminated strings
+                if isinstance(data, str):
+                    # if it was previously encoded, we remove the
+                    # final \x00 and the final empty string
+                    data = data.strip(b"\x00\x00\x00\x00")
+                    encoded_data = (
+                        b"\x00\x00".join(
+                            [x.strip().encode("utf-16le") for x in data.split()]
                         )
-                    elif isinstance(data, list):
-                        # if it was previously encoded, we remove the
-                        # final \x00 and the final empty string
-                        if data[-1] == "":
-                            data = data[:-1]
-                        encoded_data = (
-                            b"\x00\x00".join(
-                                [
-                                    x.strip().strip("\x00\x00").encode("utf-16le")
-                                    for x in data
-                                ]
-                            )
-                            + b"\x00\x00"  # final \x00
-                            + b"\x00\x00"  # final empty string
+                        + b"\x00\x00"  # final \x00
+                        + b"\x00\x00"  # final empty string
+                    )
+                elif isinstance(data, list):
+                    # if it was previously encoded, we remove the
+                    # final \x00 and the final empty string
+                    if data[-1] == "":
+                        data = data[:-1]
+                    encoded_data = (
+                        b"\x00\x00".join(
+                            [
+                                x.strip().strip("\x00\x00").encode("utf-16le")
+                                for x in data
+                            ]
                         )
-                    else:
-                        log_runtime.error(
-                            "Expected str or list[str] instance for data, got %s",
-                            type(data),
-                        )
-                        raise TypeError
-
-                    return encoded_data
-
+                        + b"\x00\x00"  # final \x00
+                        + b"\x00\x00"  # final empty string
+                    )
                 else:
-                    return data.encode("utf-16le")
+                    log_runtime.error(
+                        "Expected str or list[str] instance for data, got %s",
+                        type(data),
+                    )
+                    raise TypeError
 
-            case RegType.REG_BINARY:
-                if isinstance(data, bytes):
-                    return data
-                return data.encode("utf-8").decode("unicode_escape").encode("latin1")
+                return encoded_data
 
-            case RegType.REG_DWORD | RegType.REG_QWORD:
-                # Use fixed sizes: 4 bytes for DWORD, 8 bytes for QWORD.
-                bit_length = 4 if reg_type == RegType.REG_DWORD else 8
-                return int(data).to_bytes(bit_length, byteorder="little")
-
-            case RegType.REG_DWORD_BIG_ENDIAN:
-                bit_length = 4
-                return int(data).to_bytes(bit_length, byteorder="big")
-
-            case RegType.REG_LINK:
+            else:
                 return data.encode("utf-16le")
 
-            case _:
-                return data.encode("utf-8").decode("unicode_escape").encode("latin1")
+        elif reg_type == RegType.REG_BINARY:
+            if isinstance(data, bytes):
+                return data
+            return data.encode("utf-8").decode("unicode_escape").encode("latin1")
+
+        elif reg_type == RegType.REG_DWORD | RegType.REG_QWORD:
+            # Use fixed sizes: 4 bytes for DWORD, 8 bytes for QWORD.
+            bit_length = 4 if reg_type == RegType.REG_DWORD else 8
+            return int(data).to_bytes(bit_length, byteorder="little")
+
+        elif reg_type == RegType.REG_DWORD_BIG_ENDIAN:
+            bit_length = 4
+            return int(data).to_bytes(bit_length, byteorder="big")
+
+        elif reg_type == RegType.REG_LINK:
+            return data.encode("utf-16le")
+
+        else:
+            return data.encode("utf-8").decode("unicode_escape").encode("latin1")
 
     @staticmethod
     def decode_data(reg_type: RegType, data: bytes) -> str:
         """
         Decode data based on the type.
         """
-        match reg_type:
-            case RegType.REG_MULTI_SZ | RegType.REG_SZ | RegType.REG_EXPAND_SZ:
-                if reg_type == RegType.REG_MULTI_SZ:
-                    # decode multiple null terminated strings
-                    return data.decode("utf-16le")[:-1].split("\x00")
-                else:
-                    return data.decode("utf-16le")
-
-            case RegType.REG_BINARY:
-                return data
-
-            case RegType.REG_DWORD | RegType.REG_QWORD:
-                return int.from_bytes(data, byteorder="little")
-
-            case RegType.REG_DWORD_BIG_ENDIAN:
-                return int.from_bytes(data, byteorder="big")
-
-            case RegType.REG_LINK:
+        
+        if reg_type in [RegType.REG_MULTI_SZ | RegType.REG_SZ | RegType.REG_EXPAND_SZ]:
+            if reg_type == RegType.REG_MULTI_SZ:
+                # decode multiple null terminated strings
+                return data.decode("utf-16le")[:-1].split("\x00")
+            else:
                 return data.decode("utf-16le")
 
-            case _:
-                return data
+        elif reg_type == RegType.REG_BINARY:
+            return data
+
+        elif reg_type == RegType.REG_DWORD | RegType.REG_QWORD:
+            return int.from_bytes(data, byteorder="little")
+
+        elif reg_type == RegType.REG_DWORD_BIG_ENDIAN:
+            return int.from_bytes(data, byteorder="big")
+
+        elif reg_type == RegType.REG_LINK:
+            return data.decode("utf-16le")
+
+        else:
+            return data
 
     def __str__(self) -> str:
         if self.reg_type == RegType.UNK:

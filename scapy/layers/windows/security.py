@@ -107,7 +107,7 @@ class WINNT_SID(Packet):
         :type x: str
 
         Example:
-        
+
             >>> from scapy.layers.win_security import WINNT_SID
             >>> WINNT_SID.fromstr("S-1-5-18")
             <WINNT_SID  Revision=1 IdentifierAuthority=<WINNT_SID_IDENTIFIER_AUTHORITY
@@ -256,7 +256,7 @@ class WINNT_ACE_HEADER(Packet):
     """
     Access Control Entry (ACE) Header
     It is composed of 3 fields, followed by ACE-specific data:
-        
+
         - AceType (1 byte): see below for standard values
         - AceFlags (1 byte): see WINNT_ACE_FLAGS
         - AceSize (2 bytes): total size of the ACE, including the header
