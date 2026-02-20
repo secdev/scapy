@@ -87,31 +87,8 @@ _NTP_HASH_SIZE = 128
 
 
 def _ntp_auth_tail_size(length):
-    """
-    Dynamically compute the NTP authenticator tail size (key_id + digest).
-
-    Valid MAC sizes are defined as constants:
-    - _NTP_AUTH_MD5_SIZE (20): MD5 (4 + 16)
-    - _NTP_AUTH_SHA1_SIZE (24): SHA1 (4 + 20)
-    - _NTP_AUTH_SHA256_SIZE (36): SHA256 (4 + 32)
-    - _NTP_AUTH_SHA384_SIZE (52): SHA384 (4 + 48)
-    - _NTP_AUTH_SHA512_SIZE (68): SHA512 (4 + 64)
-
-    Returns the tail size if it matches a known valid size, otherwise
-    returns _NTP_AUTH_MD5_TAIL_SIZE as a fallback.
-    """
-    valid_mac_sizes = [
-        _NTP_AUTH_MD5_SIZE,
-        _NTP_AUTH_SHA1_SIZE,
-        _NTP_AUTH_SHA256_SIZE,
-        _NTP_AUTH_SHA384_SIZE,
-        _NTP_AUTH_SHA512_SIZE
-    ]
-    # Check for exact match with a known MAC size
-    if length in valid_mac_sizes:
-        return length
-    # Otherwise, default to MD5 size (backward compatibility)
-    return _NTP_AUTH_MD5_TAIL_SIZE
+    """Return the NTP authenticator tail size (allows any size)."""
+    return length
 
 
 class XLEShortField(LEShortField):

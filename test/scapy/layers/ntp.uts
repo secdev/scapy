@@ -105,17 +105,11 @@ assert p.stratum == 2
 
 = NTPAuthenticator - MD5 with padding (old test, updated for correct parsing)
 
-# This packet has 24 bytes of authenticator data
-# The old (incorrect) code interpreted this as: 4 padding + 4 key_id + 16 MD5 digest  
-# The new (correct) code interprets 24 bytes as SHA1 MAC: 4 key_id + 20 SHA1 digest
-# Note: This test packet may have been created with MD5 intent, but with 24 bytes
-# total, it's now correctly parsed as SHA1 according to RFC 5905 standards
 s = hex_bytes("000c2962f268d094666d23750800450000640db640004011a519c0a80364c0a80305a51e007b0050731a2300072000000000000000000000000000000000000000000000000000000000000000000000000052c7bc1dda64b97d0000000bcdc3825dbf6b7ad02886ff45aa8b2eaf7ac78bc1")
 p = Ether(s)
 assert NTPAuthenticator in p
-# With 24 bytes, this is now interpreted as SHA1 (4 + 20), not MD5 with padding
-assert p[NTPAuthenticator].key_id == 11  # First 4 bytes: 0000000b
-assert len(p[NTPAuthenticator].dgst) == 20  # SHA1 digest
+assert p[NTPAuthenticator].key_id == 11
+assert len(p[NTPAuthenticator].dgst) == 20
 assert bytes_hex(p[NTPAuthenticator].dgst) == b'cdc3825dbf6b7ad02886ff45aa8b2eaf7ac78bc1'
 
 = NTPAuthenticator - SHA1 (24 bytes: 4 key_id + 20 digest)
@@ -388,8 +382,6 @@ assert p.more == 0
 assert p.op_code == 9
 assert p.count == 15
 assert p.data == b'ntp.test.2.conf'
-# After data padding to 4-byte alignment, there are 24 bytes for authenticator
-# With dynamic parsing, 24 bytes = SHA1 (4 key_id + 20 digest)
 assert p.authenticator.key_id == 0
 assert len(p.authenticator.dgst) == 20
 assert bytes_hex(p.authenticator.dgst) == b'00000001c9fb8abe3c605ffa36d218c3b7648923'
