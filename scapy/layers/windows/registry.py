@@ -10,7 +10,7 @@ scapy.layers.msrpce.raw.ms_rrp. Otherwise, this module should
 hopefully provide everything you need.
 """
 
-from enum import StrEnum, IntEnum, IntFlag
+from enum import Enum, IntEnum, IntFlag
 from typing import Generator, Optional
 
 from scapy.packet import Packet
@@ -57,7 +57,7 @@ from scapy.layers.msrpce.raw.ms_rrp import (
 )
 
 
-class RootKeys(StrEnum):
+class RootKeys(str, Enum):
     """
     Standard root keys for the Windows registry
     """
@@ -276,7 +276,6 @@ class RegEntry:
         """
         Encode data based on the type.
         """
-
         if reg_type in [RegType.REG_MULTI_SZ, RegType.REG_SZ, RegType.REG_EXPAND_SZ]:
             if reg_type == RegType.REG_MULTI_SZ:
                 # encode to multiple null terminated strings
@@ -343,8 +342,7 @@ class RegEntry:
         """
         Decode data based on the type.
         """
-        
-        if reg_type in [RegType.REG_MULTI_SZ | RegType.REG_SZ | RegType.REG_EXPAND_SZ]:
+        if reg_type in [RegType.REG_MULTI_SZ, RegType.REG_SZ, RegType.REG_EXPAND_SZ]:
             if reg_type == RegType.REG_MULTI_SZ:
                 # decode multiple null terminated strings
                 return data.decode("utf-16le")[:-1].split("\x00")
