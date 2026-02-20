@@ -86,11 +86,6 @@ _NTP_HASH_SIZE = 128
 #############################################################################
 
 
-def _ntp_auth_tail_size(length):
-    """Return the NTP authenticator tail size (allows any size)."""
-    return length
-
-
 class XLEShortField(LEShortField):
     """
     XShortField which value is encoded in little endian.
@@ -257,16 +252,7 @@ class _NTPAuthenticatorPaddingField(StrField):
     """
 
     def getfield(self, pkt, s):
-        ret = None
-        remain = s
-        length = len(s)
-
-        tail_size = _ntp_auth_tail_size(length)
-        if length > tail_size:
-            start = length - tail_size
-            ret = s[:start]
-            remain = s[start:]
-        return remain, ret
+        return s, None
 
 
 class NTPAuthenticator(Packet):
@@ -351,9 +337,8 @@ class NTPExtPacketListField(PacketListField):
         lst = []
         remain = s
         length = len(s)
-        tail_size = _ntp_auth_tail_size(length)
-        if length > tail_size:
-            end = length - tail_size
+        if length > _NTP_AUTH_MD5_TAIL_SIZE:
+            end = length - _NTP_AUTH_MD5_TAIL_SIZE
             extensions = s[:end]
             remain = s[end:]
 
