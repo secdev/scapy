@@ -58,14 +58,6 @@ _NTP_EXT_MIN_SIZE = 16
 _NTP_HDR_WITH_EXT_MIN_SIZE = _NTP_AUTH_MD5_MIN_SIZE + _NTP_EXT_MIN_SIZE
 _NTP_AUTH_MD5_TAIL_SIZE = 20
 _NTP_AUTH_MD5_DGST_SIZE = 16
-
-# Valid NTP MAC sizes (key_id + digest)
-_NTP_AUTH_MD5_SIZE = 20      # 4 + 16
-_NTP_AUTH_SHA1_SIZE = 24     # 4 + 20
-_NTP_AUTH_SHA256_SIZE = 36   # 4 + 32
-_NTP_AUTH_SHA384_SIZE = 52   # 4 + 48
-_NTP_AUTH_SHA512_SIZE = 68   # 4 + 64
-
 _NTP_PRIVATE_PACKET_MIN_SIZE = 8
 
 # ntpd "Private" messages are the shortest
@@ -84,7 +76,6 @@ _NTP_HASH_SIZE = 128
 #############################################################################
 #     Fields and utilities
 #############################################################################
-
 
 class XLEShortField(LEShortField):
     """
@@ -245,16 +236,6 @@ class NTP(Packet):
         )
 
 
-class _NTPAuthenticatorPaddingField(StrField):
-    """
-    StrField handling the padding that may be found before the
-    "authenticator" field.
-    """
-
-    def getfield(self, pkt, s):
-        return s, None
-
-
 class NTPAuthenticator(Packet):
     """
     Packet handling the "authenticator" part of a NTP packet, as
@@ -263,7 +244,6 @@ class NTPAuthenticator(Packet):
 
     name = "Authenticator"
     fields_desc = [
-        _NTPAuthenticatorPaddingField("padding", ""),
         IntField("key_id", 0),
         XStrField("dgst", "")
     ]
