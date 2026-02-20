@@ -197,6 +197,7 @@ class DCERPC_Client(object):
                     transport=self.transport,
                     ndrendian=self.ndrendian,
                     verb=self.verb,
+                    ssp=self.ssp,
                     smb_kwargs=smb_kwargs,
                 )
                 if endpoints:
@@ -234,14 +235,15 @@ class DCERPC_Client(object):
             )
 
         if self.transport == DCERPC_Transport.NCACN_NP:  # SMB
-            # If the endpoint is provided, connect to it.
-            if endpoint is not None:
-                self.open_smbpipe(endpoint)
-
             # We pack the socket into a SMB_RPC_SOCKET
             sock = self.smbrpcsock = SMB_RPC_SOCKET.from_tcpsock(
                 sock, ssp=self.ssp, **smb_kwargs
             )
+
+            # If the endpoint is provided, connect to it.
+            if endpoint is not None:
+                self.open_smbpipe(endpoint)
+
             self.sock = DceRpcSocket(sock, DceRpc5, **self.dcesockargs)
         elif self.transport == DCERPC_Transport.NCACN_IP_TCP:
             self.sock = DceRpcSocket(
@@ -350,6 +352,9 @@ class DCERPC_Client(object):
         opnum = {}
         if "opnum" in kwargs:
             opnum["opnum"] = kwargs.pop("opnum")
+
+        # Set NDR64
+        pkt.ndr64 = self.ndr64
 
         # Send/receive
         resp = self.sr1(
@@ -486,7 +491,10 @@ class DCERPC_Client(object):
         return False
 
     def _bind(
-        self, interface: Union[DceRpcInterface, ComInterface], reqcls, respcls
+        self,
+        interface: Union[DceRpcInterface, ComInterface],
+        reqcls,
+        respcls,
     ) -> bool:
         """
         Internal: used to send a bind/alter request
@@ -681,11 +689,10 @@ class DCERPC_Client(object):
                         else:
                             print(conf.color_theme.fail("! Failure"))
                             resp.show()
-                    if DceRpc5Fault in resp:
-                        if resp[DceRpc5Fault].payload and not isinstance(
-                            resp[DceRpc5Fault].payload, conf.raw_layer
-                        ):
-                            resp[DceRpc5Fault].payload.show()
+                    if resp[DceRpc5Fault].payload and not isinstance(
+                        resp[DceRpc5Fault].payload, conf.raw_layer
+                    ):
+                        resp[DceRpc5Fault].payload.show()
                 else:
                     print(conf.color_theme.fail("! Failure"))
                     resp.show()
@@ -900,7 +907,6 @@ class DCERPC_Client(object):
                 return endpoints
             elif status == 0x16C9A0D6:
                 if self.verb:
-                    pkt.show()
                     print(
                         conf.color_theme.fail(
                             "! Server errored: 'There are no elements that satisfy"
@@ -953,7 +959,9 @@ def get_endpoint(
     client.connect(ip, endpoint=endpoint, smb_kwargs=smb_kwargs)
 
     client.bind(find_dcerpc_interface("ept"))
-    endpoints = client.epm_map(interface)
+    try:
+        endpoints = client.epm_map(interface)
+    finally:
+        client.close()
 
-    client.close()
     return endpoints
