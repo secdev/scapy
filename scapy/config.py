@@ -1015,6 +1015,9 @@ class Conf(ConfClass):
     #: When 1, print some TLS session secrets when they are computed, and
     #: warn about the session recognition.
     debug_tls = False
+    #: When 1, print some QUIC secrets when they are computed, and
+    #: warn about the session recognition.
+    debug_quic = False
     wepkey = ""
     #: holds the Scapy interface list and manager
     ifaces = None  # type: 'scapy.interfaces.NetworkInterfaceDict'
@@ -1158,6 +1161,8 @@ class Conf(ConfClass):
     max_list_count = 100
     #: When the TLS module is loaded (not by default), the following turns on sessions
     tls_session_enable = False
+    #: When the QUIC module is loaded (not by default), the following turns on sessions
+    quic_session_enable = False
     #: Filename containing NSS Keys Log
     tls_nss_filename = Interceptor(
         "tls_nss_filename",
