@@ -1,0 +1,99 @@
+% Regression tests for CRC utils
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ Test vectors
+
+= test all CRC with their test vector
+
+CRC.autotest()
+
+p1 = CRCParam(poly=0x589, size=16, init_crc=0xffff, xor=0xffff, reflect_input=False, reflect_output=False)
+p2 = CRCParam(name="test", poly=0x91a0, size=16, init_crc=0xffff, xor=0xffff, reflect_input=False, reflect_output=True)
+p3 = CRCParam(**dict(p1))
+
+
+
+
+############
+############
++ Operations
+
+
+= CRC parameters
+
+p1 = CRCParam(poly=0x589, size=16, init_crc=0xffff, xor=0xffff, reflect_input=False, reflect_output=False)
+p2 = CRCParam(name="test", poly=0x91a0, size=16, init_crc=0xffff, xor=0xffff, reflect_input=False, reflect_output=True)
+p3 = CRCParam(**dict(p1))
+
+p1 == p3 and p2 != p3 and p1 != p2
+
+
+= toto
+
+True
+
+
+= CRC from parameters
+
+c1 = CRC.from_parameters(p1, do_not_register=True)
+c2 = CRC.from_parameters(p2, do_not_register=True)
+c3 = CRC.from_parameters(**dict(p3), do_not_register=True)
+
+c1 == c3 and c1 != c2 and c2 != c3
+
+
+
+
+
+
+
+############
+############
++ CRC finding
+
+= init
+
+s1 = b"ABCDEFGHIJKL"
+s2 = b"MNOPQURSTUV"
+s3 = b"WXYZ012345678"
+
+= find CRC 32 - test 1
+
+m = s1
+c = CRC_32(m)
+m += struct.pack("!I", c)
+r = CRC.search(m, only_registry=True)
+len(r) == 1 and r[0] == ((0,len(m)-4),c, CRC_32)
+
+= find CRC 32 - test 2
+
+m = s1
+c = CRC_32(m)
+m = struct.pack("!I", c) + m
+r = CRC.search(m, only_registry=True)
+len(r) == 1 and r[0] == ((4,len(m)),c, CRC_32)
+
+= find CRC 32 - test 3
+
+m = s3
+c = CRC_32(m)
+m = s1+struct.pack("!I", c) + s1 + m + s2
+r = CRC.search(m, only_registry=True)
+r
+
+((len(s1)*2+4,len(m)-len(s2)),c,CRC_32) in r
+
+
+= search CRC
+
+
+t=struct.pack("<I",CRC_16(b"12345678"))
+u=struct.pack(">I",CRC_32_AUTOSAR(b"12345678"))
+v=struct.pack(">I",CRC_32(b"12345678"))
+r = CRC.search(v+b"123"+t+b"xx12345678ttt"+v+u+b"sdsef12345678fsf", only_registry=True)
+len(r)
+len(r) >= 9 and ((5,29),29752,CRC_16_CCITT) in r and ((13,21),2598427311,CRC_32) in r and ((37,45),2948878546,CRC_32_AUTOSAR) in r
