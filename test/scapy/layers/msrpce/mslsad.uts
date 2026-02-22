@@ -6,6 +6,8 @@
 
 = [MS-LSAD] - Import [MS-LSAD]
 
+from scapy.config import conf
+conf.exts.load("scapy-rpc")
 from scapy.layers.msrpce.raw.ms_lsad import *
 
 = [MS-LSAD] - Build LsarEnumerateAccountsWithUserRight_Request
