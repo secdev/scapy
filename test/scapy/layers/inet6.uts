@@ -616,6 +616,10 @@ raw(Jumbo(optlen=6, jumboplen=0xffffffff)) == b'\xc2\x06\xff\xff\xff\xff'
 a=Jumbo(b'\xc2\x06\xff\xff\xff\xff')
 a.otype == 0xc2 and a.optlen == 6 and a.jumboplen == 0xffffffff
 
+= Jumbo - Network byte order length
+a = Jumbo(b'\xc2\x04\x00\x01\x00\x00')
+assert a.jumboplen == 0x00010000
+assert raw(Jumbo(jumboplen=65536)) == b'\xc2\x04\x00\x01\x00\x00'
 
 ############
 ############
@@ -690,6 +694,13 @@ raw(IPv6ExtHdrHopByHop(options=[RouterAlert(), HAO(), Jumbo()])) == b';\x03\x05\
 = IPv6ExtHdrHopByHop - Basic Dissection
 a=IPv6ExtHdrHopByHop(b';\x00\x01\x04\x00\x00\x00\x00')
 a.nh == 59 and a.len == 0 and len(a.options) == 1 and isinstance(a.options[0], PadN) and a.options[0].otype == 1 and a.options[0].optlen == 4 and a.options[0].optdata == b'\x00'*4
+
+= IPv6ExtHdrHopByHop - Dissection with the Jumbo option
+p = IPv6(raw(IPv6(nh=0, plen=0)/IPv6ExtHdrHopByHop(options=[Jumbo(jumboplen=65536)])/IPv6ExtHdrRouting()/(b'\x01' * 65520)/b'junk'))
+assert IPv6ExtHdrHopByHop in p and IPv6ExtHdrRouting in p
+assert len(p.payload) == 65540
+assert p[Raw].load == b'\x01' * 65520
+assert p[Padding].load == b'junk'
 
 #= IPv6ExtHdrHopByHop - Automatic length computation
 #raw(IPv6ExtHdrHopByHop(options=["toto"])) == b'\x00\x00toto'
