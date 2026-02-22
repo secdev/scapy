@@ -40,7 +40,6 @@ from scapy.layers.gssapi import (
 from scapy.layers.msrpce.raw.ms_srvs import (
     LPSHARE_ENUM_STRUCT,
     NetrShareEnum_Request,
-    NetrShareEnum_Response,
     SHARE_INFO_1_CONTAINER,
 )
 from scapy.layers.ntlm import (
@@ -1301,7 +1300,7 @@ class smbclient(CLIUtil):
         )
         resp = self.rpcclient.sr1_req(req, timeout=self.timeout)
         self.rpcclient.close_smbpipe()
-        if not isinstance(resp, NetrShareEnum_Response):
+        if resp.status != 0:
             resp.show()
             raise ValueError("NetrShareEnum_Request failed !")
         results = []
