@@ -393,8 +393,6 @@ To start an endpoint mapper (this should be a separate process from your RPC ser
     )
 
 
-.. note:: Currently, a DCERPC_Server will let a client bind on all interfaces that Scapy has registered (imported). Supposedly though, you know which RPCs are going to be queried.
-
 Debugging with extended error information (eerr)
 ------------------------------------------------
 

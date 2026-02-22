@@ -1305,9 +1305,12 @@ def register_dcerpc_interface(name, uuid, version, opnums):
             if_version,
             opnums,
         )
+
     # bind for build
     for opnum, operations in opnums.items():
         bind_top_down(DceRpc5Request, operations.request, opnum=opnum)
+        operations.request.opnum = opnum
+        operations.request.intf = uuid
 
 
 def find_dcerpc_interface(name) -> DceRpcInterface:
