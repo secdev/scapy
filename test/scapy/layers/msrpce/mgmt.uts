@@ -1,4 +1,5 @@
 % C706 MGMT tests
+~ needs_py38plus
 
 + C706 MGMT test vectors
 
