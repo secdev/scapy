@@ -6,6 +6,8 @@
 
 = [MS-SCMR] - Import [MS-SCMR]
 
+from scapy.config import conf
+conf.exts.load("scapy-rpc")
 from scapy.layers.msrpce.raw.ms_scmr import *
 
 = [MS-SCMR] - Dissect ROpenServiceW_Request
