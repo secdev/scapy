@@ -652,7 +652,10 @@ class ExtsManager(importlib.abc.MetaPathFinder):
             return
 
         # Check the classifiers
-        if distr.metadata.get('License-Expression', None) not in self.GPLV2_LICENCES:
+        if (
+            distr.metadata.get('License-Expression', None) not in self.GPLV2_LICENCES
+            and distr.metadata.get('License', None) not in self.GPLV2_LICENCES
+        ):
             log_loading.warning(
                 "'%s' has no GPLv2 classifier therefore cannot be loaded." % extension
             )
