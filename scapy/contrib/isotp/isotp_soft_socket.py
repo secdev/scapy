@@ -202,8 +202,8 @@ class ISOTPSoftSocket(SuperSocket):
         return msg
 
     @staticmethod
-    def select(sockets, remain=None):
-        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+    def select(sockets, remain=None):  # type: ignore[override]
+        # type: (List[Union[SuperSocket, ObjectPipe[Any]]], Optional[float]) -> List[Union[SuperSocket, ObjectPipe[Any]]]  # noqa: E501
         """This function is called during sendrecv() routine to wait for
         sockets to be ready to receive
         """
@@ -214,8 +214,12 @@ class ISOTPSoftSocket(SuperSocket):
 
         ready_pipes = select_objects(obj_pipes, remain)
 
-        return [x for x in sockets if isinstance(x, ISOTPSoftSocket) and
-                not x.closed and x.impl.rx_queue in ready_pipes]
+        result: List[Union[SuperSocket, ObjectPipe[Any]]] = [
+            x for x in sockets if isinstance(x, ISOTPSoftSocket) and
+            not x.closed and x.impl.rx_queue in ready_pipes]
+        result += [x for x in sockets if isinstance(x, ObjectPipe) and
+                   x in ready_pipes]
+        return result
 
 
 class TimeoutScheduler:
