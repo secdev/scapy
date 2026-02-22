@@ -8,6 +8,7 @@ DCE/RPC server as per [MS-RPCE]
 """
 
 import socket
+import uuid
 import threading
 from collections import deque
 
@@ -27,6 +28,7 @@ from scapy.layers.dcerpc import (
     DceRpc5Bind,
     DceRpc5BindAck,
     DceRpc5BindNak,
+    DceRpc5Fault,
     DceRpc5PortAny,
     DceRpc5Request,
     DceRpc5Response,
@@ -34,6 +36,7 @@ from scapy.layers.dcerpc import (
     DceRpc5TransferSyntax,
     DceRpcInterface,
     DceRpcSession,
+    NDRPacket,
     RPC_C_AUTHN_LEVEL,
 )
 
@@ -49,11 +52,17 @@ from scapy.layers.msrpce.ept import (
 # Typing
 from typing import (
     Dict,
+    Callable,
     Optional,
+    Tuple,
 )
 
 
 class _DCERPC_Server_metaclass(type):
+    # This value is calculated for each DCE/RPC server, and contains
+    # the callables sorted by interface+opnum
+    dcerpc_commands: Dict[Tuple[uuid.UUID, int], Callable] = {}
+
     def __new__(cls, name, bases, dct):
         dct.setdefault(
             "dcerpc_commands",
@@ -108,7 +117,14 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
         """
 
         def deco(func):
-            func.dcerpc_command = reqcls
+            if not issubclass(reqcls, NDRPacket):
+                raise ValueError("Cannot answer a non NDRPacket class !")
+            try:
+                func.dcerpc_command = reqcls.intf, reqcls.opnum
+            except AttributeError:
+                raise ValueError(
+                    "NDRPacket class isn't registered or isn't a request !"
+                )
             return func
 
         return deco
@@ -120,10 +136,17 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
         self.dcerpc_commands.update(server_cls.dcerpc_commands)
 
     def make_reply(self, req):
-        cls = req[DceRpc5Request].payload.__class__
-        if cls in self.dcerpc_commands:
+        """
+        Make a response to the DCE/RPC request.
+
+        This finds whether a callback has been registered for this particular packet,
+        and call it if available.
+        """
+        opnum = req[DceRpc5Request].opnum
+        intf = self.session.rpc_bind_interface.uuid
+        if (intf, opnum) in self.dcerpc_commands:
             # call handler
-            return self.dcerpc_commands[cls](self, req)
+            return self.dcerpc_commands[(intf, opnum)](self, req)
         return None
 
     @classmethod
@@ -408,6 +431,26 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                             ">> RESPONSE: %s" % (resp.__class__.__name__)
                         )
                     )
+            else:
+                # Unimplemented request !
+                if self.verb:
+                    print(
+                        conf.color_theme.fail(
+                            "! RPC request not implemented by server."
+                        )
+                    )
+                    req.show()
+
+                # Return a Fault
+                hdr.pfc_flags += "PFC_DID_NOT_EXECUTE"
+                self.queue.extend(
+                    hdr
+                    / DceRpc5Fault(
+                        # nca_s_op_rng_error
+                        status=0x1C010002,
+                        cont_id=req.cont_id,
+                    )
+                )
         # If there was padding, process the second frag
         if pad is not None:
             self.recv(pad)
