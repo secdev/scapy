@@ -1,6 +1,8 @@
 % MS-WMI Tests
+~ needs_py38plus
 
 + [MS-WMI] build and dissection tests
+
 * To work scapy-rpc extension must be installed
 
 = [MS-WMI] - Import [MS-WMI]

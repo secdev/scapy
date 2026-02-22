@@ -1,4 +1,5 @@
 % MS-SCMR tests
+~ needs_py38plus
 
 + [MS-SCMR] build and dissection tests
 
