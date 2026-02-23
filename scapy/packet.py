@@ -84,6 +84,7 @@ def _rebuild_pkt(
     fields,  # type: Dict[str, Any]
     payload,  # type: Optional[Packet]
     metadata,  # type: Dict[str, Any]
+    extra_slots={},  # type: Dict[str, Any]
 ):
     # type: (...) -> Packet
     """Helper for unpickling Packet instances via field values."""
@@ -98,6 +99,9 @@ def _rebuild_pkt(
     pkt.sniffed_on = metadata['sniffed_on']
     pkt.wirelen = metadata['wirelen']
     pkt.comments = metadata['comments']
+    # Restore any extra __slots__ defined by subclasses
+    for attr, value in extra_slots.items():
+        setattr(pkt, attr, value)
     return pkt
 
 
@@ -279,9 +283,14 @@ class Packet(
             'wirelen': self.wirelen,
             'comments': self.comments,
         }
+        # Collect any extra __slots__ defined by subclasses
+        extra_slots = {}
+        for attr in type(self).__all_slots__ - set(Packet.__slots__):
+            if hasattr(self, attr):
+                extra_slots[attr] = getattr(self, attr)
         return (
             _rebuild_pkt,
-            (self.__class__, fields, payload, metadata),
+            (self.__class__, fields, payload, metadata, extra_slots),
         )
 
     def __deepcopy__(self,

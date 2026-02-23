@@ -653,6 +653,37 @@ p2 = pickle.loads(pickle.dumps(p))
 assert p2.src == '10.0.0.1'
 assert raw(p2) == raw(p)
 
+= Pickle preserves custom __slots__ from subclasses
+
+import pickle
+import scapy.packet as _pkt_mod
+
+class _PickleTestPacket(Packet):
+    __slots__ = ["custom_id", "custom_tag"]
+    name = "PickleTestPacket"
+    fields_desc = [ByteField("val", 0)]
+
+# Make the class discoverable by pickle
+_pkt_mod._PickleTestPacket = _PickleTestPacket
+_PickleTestPacket.__module__ = 'scapy.packet'
+
+p = _PickleTestPacket(val=42)
+p.custom_id = 0x123
+p.custom_tag = "hello"
+p2 = pickle.loads(pickle.dumps(p))
+assert p2.val == 42
+assert p2.custom_id == 0x123
+assert p2.custom_tag == "hello"
+
+# Slots not explicitly set are not serialized
+p3 = _PickleTestPacket(val=7)
+assert not hasattr(p3, 'custom_id')
+p4 = pickle.loads(pickle.dumps(p3))
+assert p4.val == 7
+assert not hasattr(p4, 'custom_id')
+
+del _pkt_mod._PickleTestPacket
+
 = Usage test
 
 from scapy.main import _usage
