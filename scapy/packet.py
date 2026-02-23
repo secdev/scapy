@@ -79,28 +79,6 @@ except ImportError:
 _T = TypeVar("_T", Dict[str, Any], Optional[Dict[str, Any]])
 
 
-def _rebuild_pkt(
-    cls,  # type: Type[Packet]
-    fields,  # type: Dict[str, Any]
-    payload,  # type: Optional[Packet]
-    metadata,  # type: Dict[str, Any]
-):
-    # type: (...) -> Packet
-    """Helper for unpickling Packet instances via field values."""
-    # Create the instance using the field values
-    pkt = cls(**fields)
-    if payload is not None:
-        pkt.add_payload(payload)
-    # Restore metadata
-    pkt.time = metadata['time']
-    pkt.sent_time = metadata['sent_time']
-    pkt.direction = metadata['direction']
-    pkt.sniffed_on = metadata['sniffed_on']
-    pkt.wirelen = metadata['wirelen']
-    pkt.comments = metadata['comments']
-    return pkt
-
-
 class Packet(
     BasePacket,
     _CanvasDumpExtended,
@@ -256,6 +234,32 @@ class Packet(
         else:
             self.comments = None
 
+    @classmethod
+    def _rebuild_pkt(
+        cls,  # type: Type[Packet]
+        fields,  # type: Dict[str, Any]
+        payload,  # type: Optional[Packet]
+        metadata,  # type: Dict[str, Any]
+        extra_slots={},  # type: Dict[str, Any]
+    ):
+        # type: (...) -> Packet
+        """Helper for unpickling Packet instances via field values."""
+        # Create the instance using the field values
+        pkt = cls(**fields)
+        if payload is not None:
+            pkt.add_payload(payload)
+        # Restore metadata
+        pkt.time = metadata['time']
+        pkt.sent_time = metadata['sent_time']
+        pkt.direction = metadata['direction']
+        pkt.sniffed_on = metadata['sniffed_on']
+        pkt.wirelen = metadata['wirelen']
+        pkt.comments = metadata['comments']
+        # Restore any extra __slots__ defined by subclasses
+        for attr, value in extra_slots.items():
+            setattr(pkt, attr, value)
+        return pkt
+
     def __reduce__(self):
         # type: () -> Tuple[Any, ...]
         """Used by pickling methods.
@@ -279,9 +283,14 @@ class Packet(
             'wirelen': self.wirelen,
             'comments': self.comments,
         }
+        # Collect any extra __slots__ defined by subclasses
+        extra_slots = {}
+        for attr in type(self).__all_slots__ - set(Packet.__slots__):
+            if hasattr(self, attr):
+                extra_slots[attr] = getattr(self, attr)
         return (
-            _rebuild_pkt,
-            (self.__class__, fields, payload, metadata),
+            type(self)._rebuild_pkt,
+            (fields, payload, metadata, extra_slots),
         )
 
     def __deepcopy__(self,
