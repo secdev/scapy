@@ -793,10 +793,12 @@ class SPNEGOSSP(SSP):
                 t.open_ccache(ccache)
 
                 # Look for the ticket that we'll use. We chose:
-                # - either a ST if the SPN matches our target
+                # - either a ST if the UPN and SPN matches our target
+                # - or a ST that matches the UPN
                 # - else a TGT if we got nothing better
                 tgts = []
-                for i, (tkt, key, upn, spn) in enumerate(t.iter_tickets()):
+                sts = []
+                for i, (tkt, key, upn, spn) in t.enumerate_tickets():
                     spn, _ = _parse_spn(spn)
                     spn_host = spn.split("/")[-1]
                     # Check that it's for the correct user
@@ -806,14 +808,20 @@ class SPNEGOSSP(SSP):
                             # TGT. Keep it, and see if we don't have a better ST.
                             tgts.append(t.ssp(i))
                         elif hostname.lower() == spn_host.lower():
-                            # ST. We're done !
+                            # ST. UPN and SPN match. We're done !
                             ssps.append(t.ssp(i))
                             break
+                        else:
+                            # ST. UPN matches, Keep it
+                            sts.append(t.ssp(i))
                 else:
-                    # No ST found
+                    # No perfect ticket found
                     if tgts:
                         # Using a TGT !
                         ssps.append(tgts[0])
+                    elif sts:
+                        # Using a ST where at least the UPN matched !
+                        ssps.append(sts[0])
                     else:
                         # Nothing found
                         t.show()
