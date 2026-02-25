@@ -2258,6 +2258,10 @@ class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
         return bytes_encode(self.tgt) + self.payload.hashret()
 
     def answers(self, other):
+        if not isinstance(self.underlayer, IPv6):
+            return False
+        if self.underlayer.hlim != 255:
+            return False
         return isinstance(other, ICMPv6ND_NS) and self.tgt == other.tgt
 
 # associated possible options : target link-layer option, Redirected header
