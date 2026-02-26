@@ -11,7 +11,7 @@ hopefully provide everything you need.
 """
 
 from enum import Enum, IntEnum, IntFlag
-from typing import Generator, Optional, Union
+from typing import Generator, Optional, Union, List
 
 from scapy.packet import Packet
 from scapy.error import log_runtime
@@ -272,7 +272,7 @@ class RegEntry:
             self.reg_data = reg_data
 
     @staticmethod
-    def encode_data(reg_type: RegType, data: Union[str, list[str]]) -> bytes:
+    def encode_data(reg_type: RegType, data: Union[str, List[str]]) -> bytes:
         """
         Encode data based on the type.
         """
@@ -307,7 +307,7 @@ class RegEntry:
                     )
                 else:
                     log_runtime.error(
-                        "Expected str or list[str] instance for data, got %s",
+                        "Expected str or List[str] instance for data, got %s",
                         type(data),
                     )
                     raise TypeError
