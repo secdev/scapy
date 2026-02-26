@@ -108,7 +108,7 @@ class WINNT_SID(Packet):
 
         Example:
 
-            >>> from scapy.layers.win_security import WINNT_SID
+            >>> from scapy.layers.windows.security import WINNT_SID
             >>> WINNT_SID.fromstr("S-1-5-18")
             <WINNT_SID  Revision=1 IdentifierAuthority=<WINNT_SID_IDENTIFIER_AUTHORITY
             Value=b'\x00\x00\x00\x00\x00\x05' |> SubAuthority=[18] |>
