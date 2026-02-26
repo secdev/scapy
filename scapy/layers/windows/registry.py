@@ -11,7 +11,7 @@ hopefully provide everything you need.
 """
 
 from enum import Enum, IntEnum, IntFlag
-from typing import Generator, Optional
+from typing import Generator, Optional, Union
 
 from scapy.packet import Packet
 from scapy.error import log_runtime
@@ -228,7 +228,7 @@ class RegType(IntEnum):
         return obj
 
     @classmethod
-    def fromvalue(cls, value: str | int) -> "RegType":
+    def fromvalue(cls, value: Union[str, int]) -> "RegType":
         """Convert a string to a RegType enum member.
         :param value: The string representation of the registry type.
         :return: The corresponding RegType enum member.
@@ -272,7 +272,7 @@ class RegEntry:
             self.reg_data = reg_data
 
     @staticmethod
-    def encode_data(reg_type: RegType, data: str | list[str]) -> bytes:
+    def encode_data(reg_type: RegType, data: Union[str, list[str]]) -> bytes:
         """
         Encode data based on the type.
         """
@@ -322,7 +322,7 @@ class RegEntry:
                 return data
             return data.encode("utf-8").decode("unicode_escape").encode("latin1")
 
-        elif reg_type == RegType.REG_DWORD | RegType.REG_QWORD:
+        elif reg_type in [RegType.REG_DWORD, RegType.REG_QWORD]:
             # Use fixed sizes: 4 bytes for DWORD, 8 bytes for QWORD.
             bit_length = 4 if reg_type == RegType.REG_DWORD else 8
             return int(data).to_bytes(bit_length, byteorder="little")
@@ -352,7 +352,7 @@ class RegEntry:
         elif reg_type == RegType.REG_BINARY:
             return data
 
-        elif reg_type == RegType.REG_DWORD | RegType.REG_QWORD:
+        elif reg_type in [RegType.REG_DWORD, RegType.REG_QWORD]:
             return int.from_bytes(data, byteorder="little")
 
         elif reg_type == RegType.REG_DWORD_BIG_ENDIAN:
@@ -919,7 +919,7 @@ class RegApi:
         key_handle: NDRContextHandle,
         value_name: str,
         value_type: RegType,
-        value_data: str | bytes,
+        value_data: Union[str, bytes],
         ndr64: bool = True,
         timeout: int = 5,
     ) -> bool:

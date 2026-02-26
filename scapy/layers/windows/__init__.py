@@ -14,4 +14,4 @@ protocols, you will have to use the lower level objects directly.
 """
 
 # Make sure config is loaded
-from scapy.config import conf
+from scapy.config import conf # noqa: F401
