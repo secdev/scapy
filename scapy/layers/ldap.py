@@ -62,6 +62,7 @@ from scapy.asn1fields import (
 )
 from scapy.asn1packet import ASN1_Packet
 from scapy.config import conf
+from scapy.compat import StrEnum
 from scapy.error import log_runtime
 from scapy.fields import (
     FieldLenField,
@@ -90,6 +91,7 @@ from scapy.layers.gssapi import (
     GSS_C_FLAGS,
     GSS_C_NO_CHANNEL_BINDINGS,
     GSS_S_COMPLETE,
+    GSS_S_CONTINUE_NEEDED,
     GssChannelBindings,
     SSP,
     _GSSAPI_Field,
@@ -106,6 +108,7 @@ from typing import (
     Any,
     Dict,
     List,
+    Optional,
     Union,
 )
 
@@ -1642,8 +1645,8 @@ def dclocator(
 #####################
 
 
-class LDAP_BIND_MECHS(Enum):
-    NONE = "UNAUTHENTICATED"
+class LDAP_BIND_MECHS(StrEnum):
+    NONE = "ANONYMOUS"
     SIMPLE = "SIMPLE"
     SASL_GSSAPI = "GSSAPI"
     SASL_GSS_SPNEGO = "GSS-SPNEGO"
@@ -1949,8 +1952,8 @@ class LDAP_Client(object):
         self,
         mech,
         ssp=None,
-        sign=False,
-        encrypt=False,
+        sign: Optional[bool] = None,
+        encrypt: Optional[bool] = None,
         simple_username=None,
         simple_password=None,
     ):
@@ -1966,6 +1969,12 @@ class LDAP_Client(object):
         :
         This acts differently based on the :mech: provided during initialization.
         """
+        # Bind default values: if NTLM then encrypt, else sign unless anonymous/simple
+        if encrypt is None:
+            encrypt = mech == LDAP_BIND_MECHS.SICILY
+        if sign is None and not encrypt:
+            sign = mech not in [LDAP_BIND_MECHS.NONE, LDAP_BIND_MECHS.SIMPLE]
+
         # Store and check consistency
         self.mech = mech
         self.ssp = ssp  # type: SSP
@@ -2000,6 +2009,9 @@ class LDAP_Client(object):
         elif mech in [LDAP_BIND_MECHS.NONE, LDAP_BIND_MECHS.SIMPLE]:
             if self.sign or self.encrypt:
                 raise ValueError("Cannot use 'sign' or 'encrypt' with NONE or SIMPLE !")
+        else:
+            raise ValueError("Mech %s is still unimplemented !" % mech)
+
         if self.ssp is not None and mech in [
             LDAP_BIND_MECHS.NONE,
             LDAP_BIND_MECHS.SIMPLE,
@@ -2105,6 +2117,10 @@ class LDAP_Client(object):
                 ),
                 chan_bindings=self.chan_bindings,
             )
+            if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
+                raise RuntimeError(
+                    "%s: GSS_Init_sec_context failed !" % self.mech.name,
+                )
             while token:
                 resp = self.sr1(
                     LDAP_BindRequest(
@@ -2116,10 +2132,10 @@ class LDAP_Client(object):
                     )
                 )
                 if not isinstance(resp.protocolOp, LDAP_BindResponse):
-                    if self.verb:
-                        print("%s bind failed !" % self.mech.name)
-                        resp.show()
-                    return
+                    raise LDAP_Exception(
+                        "%s bind failed !" % self.mech.name,
+                        resp=resp,
+                    )
                 val = resp.protocolOp.serverSaslCredsData
                 if not val:
                     status = resp.protocolOp.resultCode
@@ -2195,11 +2211,20 @@ class LDAP_Client(object):
                     "GSSAPI SASL failed to negotiate client security flags !",
                     resp=resp,
                 )
+
+        # If we use SPNEGO and NTLMSSP was used, understand we can't use sign
+        if self.mech == LDAP_BIND_MECHS.SASL_GSS_SPNEGO:
+            from scapy.layers.ntlm import NTLMSSP
+
+            if isinstance(self.sspcontext.ssp, NTLMSSP):
+                self.sign = False
+
         # SASL wrapping is now available.
         self.sasl_wrap = self.encrypt or self.sign
         if self.sasl_wrap:
             self.sock.closed = True  # prevent closing by marking it as already closed.
             self.sock = StreamSocket(self.sock.ins, LDAP_SASL_Buffer)
+
         # Success.
         if self.verb:
             print("%s bind succeeded !" % self.mech.name)
@@ -2460,3 +2485,4 @@ class LDAP_Client(object):
             print("X Connection closed\n")
         self.sock.close()
         self.bound = False
+        self.sspcontext = None

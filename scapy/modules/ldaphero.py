@@ -123,37 +123,75 @@ class BasePopup:
 
 
 class LDAPHero:
-    """
+    r"""
     LDAP Hero - LDAP GUI browser over Scapy's LDAP_Client
 
-    :param ssp: the SSP object to use when binding.
+    :param ssp: if provided, use this SSP for auth.
     :param mech: the LDAP_BIND_MECHS to use when binding.
-    :param simple_username: if provided, used for Simple binding (instead of the 'ssp')
-    :param simple_password:
-    :param encrypt: request encryption by default (useful when using 'ssp')
+    :param sign: request signature by default
+    :param encrypt: request encryption by default
     :param host: auto-connect to a specific host
     :param port: the port to connect to (default: 389/636)
                  (This is only in use when using 'host')
     :param ssl: whether to use SSL to connect or not
                 (This is only in use when using 'host')
+
+    Authentication parameters:
+
+    :param UPN: the upn to use (DOMAIN/USER, DOMAIN\USER, USER@DOMAIN or USER)
+    :param kerberos_required: require kerberos
+    :param password: if provided, used for auth
+    :param HashNt: if provided, used for auth (NTLM)
+    :param HashAes256Sha96: if provided, used for auth (Kerberos)
+    :param HashAes128Sha96: if provided, used for auth (Kerberos)
     """
 
     def __init__(
         self,
         ssp: SSP = None,
         mech: LDAP_BIND_MECHS = None,
-        simple_username: str = None,
-        simple_password: str = None,
+        sign: bool = True,
         encrypt: bool = False,
         host: str = None,
         port: int = None,
         ssl: bool = False,
+        # Authentication
+        UPN: str = None,
+        password: str = None,
+        kerberos_required: bool = False,
+        HashNt: bytes = None,
+        HashAes256Sha96: bytes = None,
+        HashAes128Sha96: bytes = None,
+        use_krb5ccname: bool = False,
     ):
         self.client = LDAP_Client()
+        if (
+            ssp is None
+            and mech in [None, LDAP_BIND_MECHS.SASL_GSS_SPNEGO]
+            and UPN
+            and host
+        ):
+            # We allow the SSP to be provided through arguments.
+            # In that case, use SPNEGO
+            mech = LDAP_BIND_MECHS.SASL_GSS_SPNEGO
+            ssp = SPNEGOSSP.from_cli_arguments(
+                UPN=UPN,
+                target=host,
+                password=password,
+                HashNt=HashNt,
+                HashAes256Sha96=HashAes256Sha96,
+                HashAes128Sha96=HashAes128Sha96,
+                kerberos_required=kerberos_required,
+                use_krb5ccname=use_krb5ccname,
+            )
         self.ssp = ssp
         self.mech = mech
-        self.simple_username = simple_username
-        self.simple_password = simple_password
+        if mech == LDAP_BIND_MECHS.SIMPLE:
+            self.simple_username = UPN
+            self.simple_password = password
+        else:
+            self.simple_username = self.simple_password = None
+        self.sign = sign
         self.encrypt = encrypt
         # Session parameters
         self.connected = False
@@ -317,6 +355,7 @@ class LDAPHero:
                     ssp=self.ssp,
                     simple_username=self.simple_username,
                     simple_password=self.simple_password,
+                    sign=self.sign,
                     encrypt=self.encrypt,
                 )
             except LDAP_Exception as ex:
@@ -352,45 +391,66 @@ class LDAPHero:
         domentry = tk.Entry(dlg, textvariable=domainv)
         domentry.grid(row=2, column=1)
 
+        # The "Bind Type" radio list
         bindtypefrm = ttk.LabelFrame(
             dlg,
             text="Bind type",
         )
         bindtypev = tk.StringVar()
-        ttk.Radiobutton(
+        sicilybtn = ttk.Radiobutton(
             bindtypefrm,
             variable=bindtypev,
             text="Sicily bind (NTLM)",
             value=LDAP_BIND_MECHS.SICILY.value,
-        ).pack(anchor=tk.W)
-        ttk.Radiobutton(
+        )
+        sicilybtn.pack(anchor=tk.W)
+        gssapibtn = ttk.Radiobutton(
             bindtypefrm,
             variable=bindtypev,
             text="GSSAPI bind (Kerberos)",
             value=LDAP_BIND_MECHS.SASL_GSSAPI.value,
-        ).pack(anchor=tk.W)
-        ttk.Radiobutton(
+        )
+        gssapibtn.pack(anchor=tk.W)
+        spnegobtn = ttk.Radiobutton(
             bindtypefrm,
             variable=bindtypev,
             text="SPNEGO bind (NTLM/Kerberos)",
             value=LDAP_BIND_MECHS.SASL_GSS_SPNEGO.value,
-        ).pack(anchor=tk.W)
-        ttk.Radiobutton(
+        )
+        spnegobtn.pack(anchor=tk.W)
+        simplebtn = ttk.Radiobutton(
             bindtypefrm,
             variable=bindtypev,
             text="Simple bind",
             value=LDAP_BIND_MECHS.SIMPLE.value,
-        ).pack(anchor=tk.W)
+        )
+        simplebtn.pack(anchor=tk.W)
         bindtypefrm.grid(row=3, column=0, columnspan=2)
 
+        if "supportedSASLMechanisms" in self.rootDSE:
+            # Some algorithms might be unavailable
+            algs = self.rootDSE["supportedSASLMechanisms"]
+            if "GSSAPI" not in algs:
+                gssapibtn.config(state=tk.DISABLED)
+            if "GSS-SPNEGO" not in algs:
+                spnegobtn.config(state=tk.DISABLED)
+
+        # Sign button
+        signv = tk.BooleanVar()
+        signv.set(self.sign)
+        ttk.Label(dlg, text="Sign traffic after bind").grid(row=4, column=0)
+        signbtn = ttk.Checkbutton(dlg, variable=signv)
+        signbtn.grid(row=4, column=1)
+
+        # Encrypt button
         encryptv = tk.BooleanVar()
         encryptv.set(self.encrypt)
-        ttk.Label(dlg, text="Encrypt traffic after bind").grid(row=4, column=0)
+        ttk.Label(dlg, text="Encrypt traffic after bind").grid(row=5, column=0)
         encrbtn = ttk.Checkbutton(dlg, variable=encryptv)
-        encrbtn.grid(row=4, column=1)
+        encrbtn.grid(row=5, column=1)
 
-        ttk.Button(dlg, text="OK", command=popup.dismiss).grid(row=5, column=0)
-        ttk.Button(dlg, text="Cancel", command=popup.cancel).grid(row=5, column=1)
+        ttk.Button(dlg, text="OK", command=popup.dismiss).grid(row=6, column=0)
+        ttk.Button(dlg, text="Cancel", command=popup.cancel).grid(row=6, column=1)
 
         # Default state
         if self.dns_domain_name and not valid_ip(self.host):
@@ -404,16 +464,20 @@ class LDAPHero:
             bindtype = LDAP_BIND_MECHS(bindtypev.get())
             if bindtype == LDAP_BIND_MECHS.SIMPLE:
                 domentry.config(state=tk.DISABLED)
+                signbtn.config(state=tk.DISABLED)
                 encrbtn.config(state=tk.DISABLED)
                 encryptv.set(False)
             elif bindtype == LDAP_BIND_MECHS.SICILY:
                 domentry.config(state=tk.DISABLED)
+                signbtn.config(state=tk.DISABLED)
                 encrbtn.config(state=tk.NORMAL)
             else:
                 domentry.config(state=tk.NORMAL, textvariable=domainv)
+                signbtn.config(state=tk.NORMAL)
                 encrbtn.config(state=tk.NORMAL)
 
-        bindtypev.trace("w", bindtypechange)
+        bindtypev.trace_add("write", bindtypechange)
+
         userf.focus()
 
         # Setup
@@ -426,7 +490,8 @@ class LDAPHero:
         password = passwordv.get()
         domain = domainv.get()
         bindtype = LDAP_BIND_MECHS(bindtypev.get())
-        encrypt = encryptv.get()
+        self.sign = signv.get()
+        self.encrypt = encryptv.get()
 
         # Bind !
         self.tprint("client.bind(%s, ...)" % bindtype)
@@ -437,8 +502,9 @@ class LDAPHero:
                 self.ssp = None
                 simple_username = username
                 simple_password = password
-                encrypt = False
+                self.encrypt = False
             elif bindtype == LDAP_BIND_MECHS.SICILY:
+                self.sign = False
                 self.ssp = NTLMSSP(
                     UPN=username,
                     PASSWORD=password,
@@ -468,7 +534,8 @@ class LDAPHero:
                 ssp=self.ssp,
                 simple_username=simple_username,
                 simple_password=simple_password,
-                encrypt=encrypt,
+                sign=self.sign,
+                encrypt=self.encrypt,
             )
         except LDAP_Exception as ex:
             self.tprint(
@@ -536,7 +603,11 @@ class LDAPHero:
         Action done on tree double-click.
         """
         # Get clicked item
-        item = self.tk_tree.selection()[0]
+        try:
+            item = self.tk_tree.selection()[0]
+        except IndexError:
+            # Nothing is selected
+            return
 
         # Unclickable
         if self.tk_tree.tag_has("unclickable", item):
