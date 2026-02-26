@@ -799,8 +799,10 @@ class Ticketer:
 
         # Append to ccache
         if _inplace is None:
-            self.ccache.credentials.append(cred)
-            _inplace = len(self.ccache.credentials) - 1
+            _inplace = sum(
+                1 for xcred in self.ccache.credentials if not xcred.is_xcacheconf()
+            )
+            self.ccache.credentials.insert(_inplace, cred)
 
         # If this is the first credential, set it to primary
         if len(self.ccache.credentials) == 1:
