@@ -75,6 +75,7 @@ from typing import (
 from scapy.compat import (
     DecoratorCallable,
     Literal,
+    StrEnum,
 )
 
 if TYPE_CHECKING:
@@ -3944,6 +3945,9 @@ def AutoArgparse(
             hexarguments.append(parname)
         elif param.annotation in [str, int, float]:
             paramkwargs["type"] = param.annotation
+        elif isinstance(param.annotation, type) and issubclass(param.annotation, StrEnum):
+            paramkwargs["type"] = param.annotation
+            paramkwargs["choices"] = list(param.annotation)
         else:
             continue
         if param.default != inspect.Parameter.empty:
