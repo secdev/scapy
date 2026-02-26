@@ -610,10 +610,15 @@ class SPNEGOSSP(SSP):
             for ssp in self.ssps:
                 mechs.extend(ssp.GSS_Inquire_names_for_mech())
 
-            # 2. Sort according to the preference order.
-            mechs.sort(key=lambda x: self._PREF_ORDER.index(x))
+            # 2. Sort according to the selected SSP, then the preference order
+            selected_mech_oids = (
+                self.ssp.GSS_Inquire_names_for_mech() if self.ssp else []
+            )
+            mechs.sort(
+                key=lambda x: (x not in selected_mech_oids, self._PREF_ORDER.index(x))
+            )
 
-            # 3. Return wrapped in MechType
+            # 4. Return wrapped in MechType
             return [SPNEGO_MechType(oid=ASN1_OID(oid)) for oid in mechs]
 
         def negotiate_ssp(self) -> None:

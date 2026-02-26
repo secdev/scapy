@@ -286,7 +286,7 @@ class SMBNegotiate_Request(Packet):
 
 bind_layers(SMB_Header, SMBNegotiate_Request, Command=0x72)
 
-# SMBNegociate Protocol Response
+# SMBNegotiate Protocol Response
 
 
 def _SMBStrNullField(name, default):

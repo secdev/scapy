@@ -57,25 +57,24 @@ from scapy.pton_ntop import inet_pton
 
 # Typing imports
 from typing import (
-    cast,
     Any,
     AnyStr,
     Callable,
+    cast,
     Dict,
     IO,
     Iterator,
     List,
     Optional,
-    TYPE_CHECKING,
+    overload,
     Tuple,
+    TYPE_CHECKING,
     Type,
     Union,
-    overload,
 )
 from scapy.compat import (
     DecoratorCallable,
     Literal,
-    StrEnum,
 )
 
 if TYPE_CHECKING:
@@ -3677,19 +3676,21 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
     @classmethod
     def addcommand(
         cls,
-        spaces: bool = False,
+        mono: bool = False,
         globsupport: bool = False,
     ) -> Callable[[DecoratorCallable], DecoratorCallable]:
         """
         Decorator to register a command
+
+        :param mono: if True, the command takes a single argument even if there are spaces
         """
         def func(cmd: DecoratorCallable) -> DecoratorCallable:
             cmd.cliutil_type = _CLIUtilMetaclass.TYPE.COMMAND  # type: ignore
-            cmd._spaces = spaces  # type: ignore
+            cmd._mono = mono  # type: ignore
             cmd._globsupport = globsupport  # type: ignore
             cls._inspectkwargs(cmd)
-            if cmd._globsupport and not cmd._spaces:  # type: ignore
-                raise ValueError("Cannot use globsupport without spaces.")
+            if cmd._globsupport and not cmd._mono:  # type: ignore
+                raise ValueError("Cannot use globsupport without mono.")
             return cmd
         return func
 
@@ -3706,13 +3707,17 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
         return func
 
     @classmethod
-    def addcomplete(cls, cmd: DecoratorCallable) -> Callable[[DecoratorCallable], DecoratorCallable]:  # noqa: E501
+    def addcomplete(
+        cls,
+        cmd: DecoratorCallable,
+    ) -> Callable[[DecoratorCallable], DecoratorCallable]:
         """
         Decorator to register a command completor
         """
         def func(processor: DecoratorCallable) -> DecoratorCallable:
             processor.cliutil_type = _CLIUtilMetaclass.TYPE.COMPLETE  # type: ignore
             processor.cliutil_ref = cmd  # type: ignore
+            processor._mono = cmd._mono  # type: ignore
             return processor
         return func
 
@@ -3783,6 +3788,40 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                 )
             )
 
+    def _split_cmd(self, cmd: str):
+        """
+        Split the command in multiple arguments
+        """
+        quoted = None
+        queue = [""]
+        offsets = [0]
+        for i, c in enumerate(cmd):
+            if c == "'" or c == '"':
+                # This is a quote.
+                if quoted is not None and quoted == c:
+                    # We are closing the last quote
+                    quoted = None
+                elif quoted:
+                    queue[-1] += c
+                else:
+                    quoted = c
+            elif c == " ":
+                # This is a space.
+                if quoted is not None:
+                    # We're in a quote, append it
+                    queue[-1] += c
+                elif queue[-1]:
+                    # Not in a quote, this splits the argument.
+                    queue += [""]
+                    offsets.append(i)
+                else:
+                    # Padding space, advance offset
+                    offsets[-1] += 1
+            else:
+                # This is a char
+                queue[-1] += c
+        return queue, offsets
+
     def _completer(self) -> 'prompt_toolkit.completion.Completer':
         """
         Returns a prompt_toolkit custom completer
@@ -3794,7 +3833,7 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                 if not complete_event.completion_requested:
                     # Only activate when the user does <TAB>
                     return
-                parts = document.text.split(" ")
+                parts, offsets = self._split_cmd(document.text)
                 cmd = parts[0].lower()
                 if cmd not in self.commands:
                     # We are trying to complete the command
@@ -3805,10 +3844,29 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                     if len(parts) == 1:
                         return
                     args, _, _ = self._parseallargs(self.commands[cmd], cmd, parts[1:])
-                    arg = " ".join(args)
                     if cmd in self.commands_complete:
-                        for possible_arg in self.commands_complete[cmd](self, arg):
-                            yield Completion(possible_arg, start_position=-len(arg))
+                        completer = self.commands_complete[cmd]
+                        # If the completion is 'mono', it's a single argument with spaces.
+                        # Else we pass the list of arguments to complete, and we only complete
+                        # the last argument.
+                        if completer._mono:
+                            arg = " ".join(args)
+                            completions = completer(self, arg)
+                            startpos = offsets[1]
+                        else:
+                            completions = completer(self, args)
+                            startpos = offsets[-1]
+
+                        # For each possible completion
+                        for possible_arg in completions:
+                            # If there's a space in the completion, and we're not in mono mode, add quotes
+                            if " " in possible_arg and not completer._mono:
+                                possible_arg = '"%s"' % possible_arg
+
+                            yield Completion(
+                                possible_arg,
+                                start_position=startpos - len(document.text) + 1
+                            )
                 return
         return CLICompleter()
 
@@ -3827,8 +3885,9 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
             except EOFError:
                 self.close()
                 break
-            args = cmd.split(" ")[1:]
-            cmd = cmd.split(" ")[0].strip().lower()
+            parts, _ = self._split_cmd(cmd)
+            args = parts[1:]
+            cmd = parts[0].strip().lower()
             if not cmd:
                 continue
             if cmd in ["help", "h", "?"]:
@@ -3842,7 +3901,7 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                 # check the number of arguments
                 func = self.commands[cmd]
                 args, kwargs, outkwargs = self._parseallargs(func, cmd, args)
-                if func._spaces:  # type: ignore
+                if func._mono:  # type: ignore
                     args = [" ".join(args)]
                     # if globsupport is set, we might need to do several calls
                     if func._globsupport and "*" in args[0]:  # type: ignore
@@ -3945,7 +4004,10 @@ def AutoArgparse(
             hexarguments.append(parname)
         elif param.annotation in [str, int, float]:
             paramkwargs["type"] = param.annotation
-        elif isinstance(param.annotation, type) and issubclass(param.annotation, StrEnum):
+        elif (
+            isinstance(param.annotation, type) and
+            issubclass(param.annotation, enum.Enum)
+        ):
             paramkwargs["type"] = param.annotation
             paramkwargs["choices"] = list(param.annotation)
         else:

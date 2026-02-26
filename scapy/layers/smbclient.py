@@ -1323,7 +1323,7 @@ class smbclient(CLIUtil):
         """
         print(pretty_list(results, [("ShareName", "ShareType", "Comment")]))
 
-    @CLIUtil.addcommand(spaces=True)
+    @CLIUtil.addcommand(mono=True)
     def use(self, share):
         """
         Open a share
@@ -1391,7 +1391,7 @@ class smbclient(CLIUtil):
             return [results[0] + "\\"]
         return results
 
-    @CLIUtil.addcommand(spaces=True)
+    @CLIUtil.addcommand(mono=True)
     def ls(self, parent=None):
         """
         List the files in the remote directory
@@ -1466,7 +1466,7 @@ class smbclient(CLIUtil):
             return []
         return self._dir_complete(folder)
 
-    @CLIUtil.addcommand(spaces=True)
+    @CLIUtil.addcommand(mono=True)
     def cd(self, folder):
         """
         Change the remote current directory
@@ -1534,7 +1534,7 @@ class smbclient(CLIUtil):
             pretty_list(results, [("FileName", "File Size", "Last Modification Time")])
         )
 
-    @CLIUtil.addcommand(spaces=True)
+    @CLIUtil.addcommand(mono=True)
     def lcd(self, folder):
         """
         Change the local current directory
@@ -1663,7 +1663,7 @@ class smbclient(CLIUtil):
                     print(conf.color_theme.red(remote), "->", str(ex))
         return size
 
-    @CLIUtil.addcommand(spaces=True, globsupport=True)
+    @CLIUtil.addcommand(mono=True, globsupport=True)
     def get(self, file, _dest=None, _verb=True, *, r=False):
         """
         Retrieve a file
@@ -1703,7 +1703,7 @@ class smbclient(CLIUtil):
             return []
         return self._fs_complete(file)
 
-    @CLIUtil.addcommand(spaces=True, globsupport=True)
+    @CLIUtil.addcommand(mono=True, globsupport=True)
     def cat(self, file):
         """
         Print a file
@@ -1731,7 +1731,7 @@ class smbclient(CLIUtil):
             return []
         return self._fs_complete(file)
 
-    @CLIUtil.addcommand(spaces=True, globsupport=True)
+    @CLIUtil.addcommand(mono=True, globsupport=True)
     def put(self, file):
         """
         Upload a file
@@ -1756,7 +1756,7 @@ class smbclient(CLIUtil):
         """
         return self._lfs_complete(folder, lambda x: not x.is_dir())
 
-    @CLIUtil.addcommand(spaces=True)
+    @CLIUtil.addcommand(mono=True)
     def rm(self, file):
         """
         Delete a file
@@ -1799,7 +1799,7 @@ class smbclient(CLIUtil):
             print("Backup Intent: On")
             self.extra_create_options.append("FILE_OPEN_FOR_BACKUP_INTENT")
 
-    @CLIUtil.addcommand(spaces=True)
+    @CLIUtil.addcommand(mono=True)
     def watch(self, folder):
         """
         Watch file changes in folder (recursively)
@@ -1826,7 +1826,7 @@ class smbclient(CLIUtil):
             pass
         print("Cancelled.")
 
-    @CLIUtil.addcommand(spaces=True)
+    @CLIUtil.addcommand(mono=True)
     def getsd(self, file):
         """
         Get the Security Descriptor
