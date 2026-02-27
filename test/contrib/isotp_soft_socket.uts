@@ -10,7 +10,7 @@ from io import BytesIO
 from scapy.layers.can import *
 from scapy.contrib.isotp import *
 from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
-from test.testsocket import TestSocket, cleanup_testsockets
+from test.testsocket import TestSocket, SlowTestSocket, cleanup_testsockets
 with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
     exec(f.read())
 
@@ -1067,6 +1067,90 @@ with TestSocket(CAN) as isocan_tx, ISOTPSoftSocket(isocan_tx, 0x123, 0x321) as s
 
 assert rx2 is None
 assert elapsed < 5
+
+= ISOTPSoftSocket sr1 SF request with MF response threaded and background traffic on slow interface
+
+from threading import Thread, Event
+
+response_data = b'\x62\xF1\x90' + b'\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4A\x4B\x4C\x4D\x4E\x4F\x50'
+
+stim = TestSocket(CAN)
+isocan = TestSocket(CAN)
+stim.pair(isocan)
+
+bg_frame = CAN(identifier=0x456, data=dhex("01 02 03"))
+ff_frame = CAN(identifier=0x241, data=dhex("10 13 62 F1 90 41 42 43"))
+cf1_frame = CAN(identifier=0x241, data=dhex("21 44 45 46 47 48 49 4A"))
+cf2_frame = CAN(identifier=0x241, data=dhex("22 4B 4C 4D 4E 4F 50 00"))
+
+bg_count = 2000 # Large number of frames to stress the ISOTPSoftSocket implementation
+
+for _ in range(100):
+    _ = stim.send(bg_frame)
+
+stim.send(ff_frame)
+
+for _ in range(bg_count):
+    _ = stim.send(bg_frame)
+
+stim.send(cf1_frame)
+stim.send(cf2_frame)
+
+with isocan, stim, ISOTPSoftSocket(isocan, 0x641, 0x241) as sock:
+    pkts = sock.sniff(count=1, timeout=10)
+    # Stop TimeoutScheduler while sockets are still open.
+    _ts = TimeoutScheduler._thread
+    TimeoutScheduler.clear()
+    if _ts is not None:
+        _ts.join(timeout=5)
+
+assert len(pkts) == 1, "MF response not received due to background traffic"
+assert pkts[0].data == response_data
+
+= ISOTPSoftSocket MF response with delayed CFs and background traffic
+
+from threading import Thread, Event
+
+response_data = b'\x62\xF1\x90' + b'\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4A\x4B\x4C\x4D\x4E\x4F\x50'
+
+with TestSocket(CAN) as stim, TestSocket(CAN) as isocan, \
+     ISOTPSoftSocket(isocan, 0x641, 0x241) as sock:
+    stim.pair(isocan)
+    stop_traffic = Event()
+    def bg_traffic():
+        bg_frame = CAN(identifier=0x456, data=dhex("01 02 03"))
+        while not stop_traffic.is_set():
+            try:
+                stim.send(bg_frame)
+            except Exception:
+                break
+            time.sleep(0.001)
+    def delayed_response():
+        time.sleep(0.05)
+        sock.impl.rx_tx_poll_rate = 10
+        stim.send(CAN(identifier=0x241, data=dhex("10 13 62 F1 90 41 42 43")))
+        time.sleep(0.01)
+        stim.send(CAN(identifier=0x241, data=dhex("21 44 45 46 47 48 49 4A")))
+        time.sleep(0.01)
+        stim.send(CAN(identifier=0x241, data=dhex("22 4B 4C 4D 4E 4F 50 00")))
+    traffic_thread = Thread(target=bg_traffic)
+    traffic_thread.start()
+    resp_thread = Thread(target=delayed_response)
+    resp_thread.start()
+    pkts = sock.sniff(count=1, timeout=5)
+    stop_traffic.set()
+    traffic_thread.join(timeout=5)
+    resp_thread.join(timeout=5)
+    assert not traffic_thread.is_alive(), "traffic_thread still alive"
+    assert not resp_thread.is_alive(), "resp_thread still alive"
+    # Stop TimeoutScheduler while sockets are still open.
+    _ts = TimeoutScheduler._thread
+    TimeoutScheduler.clear()
+    if _ts is not None:
+        _ts.join(timeout=5)
+
+assert len(pkts) == 1, "MF response not received with delayed CFs and slow poll rate"
+assert pkts[0].data == response_data
 
 = ISOTPSoftSocket sniff
 
