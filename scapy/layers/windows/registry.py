@@ -3,12 +3,16 @@
 # See https://scapy.net/ for more information
 
 """
+Windows registry: high level helpers
+
 This file implements Windows Registry related high level functions.
 It provides easy to use functions to manipulate the registry.
 If you want to tweak low level fields see directly
 scapy.layers.msrpce.raw.ms_rrp. Otherwise, this module should
 hopefully provide everything you need.
 """
+
+import struct
 
 from enum import Enum, IntEnum, IntFlag
 from typing import Generator, Optional, Union, List
@@ -26,7 +30,6 @@ from scapy.layers.dcerpc import (
     NDRVaryingArray,
 )
 
-# pylint: disable-next=import-error, no-name-in-module
 from scapy.layers.msrpce.raw.ms_rrp import (
     OpenClassesRoot_Request,
     OpenLocalMachine_Request,
@@ -123,32 +126,6 @@ class RootKeys(str, Enum):
         obj._value_ = normalized
         return obj
 
-    @classmethod
-    def from_value(cls, value: str):
-        """Convert a string to a RootKeys enum member."""
-        value = value.strip().upper()
-        if value == "HKEY_CLASSES_ROOT":
-            value = RootKeys.HKEY_CLASSES_ROOT.value
-        elif value == "HKEY_CURRENT_USER":
-            value = RootKeys.HKEY_CURRENT_USER.value
-        elif value == "HKEY_LOCAL_MACHINE":
-            value = RootKeys.HKEY_LOCAL_MACHINE.value
-        elif value == "HKEY_CURRENT_CONFIG":
-            value = RootKeys.HKEY_CURRENT_CONFIG.value
-        elif value == "HKEY_USERS":
-            value = RootKeys.HKEY_USERS.value
-        elif value == "HKEY_PERFORMANCE_DATA":
-            value = RootKeys.HKEY_PERFORMANCE_DATA.value
-        elif value == "HKEY_PERFORMANCE_TEXT":
-            value = RootKeys.HKEY_PERFORMANCE_TEXT.value
-        elif value == "HKEY_PERFORMANCE_NLSTEXT":
-            value = RootKeys.HKEY_PERFORMANCE_NLSTEXT.value
-
-        try:
-            return cls(value)
-        except ValueError:
-            print(f"Unknown root key: {value}.")
-
 
 class ErrorCodes(IntEnum):
     """
@@ -172,14 +149,6 @@ class ErrorCodes(IntEnum):
     ERROR_SUBKEY_NOT_FOUND = 0x000006F7
     ERROR_INSUFFICIENT_BUFFER = 0x0000007A
     ERROR_MORE_DATA = 0x000000EA
-
-    def __str__(self) -> str:
-        """
-        Return the string representation of the error code.
-        :return: The string representation of the error code.
-        """
-
-        return self.name
 
 
 class RegOptions(IntFlag):
@@ -240,9 +209,13 @@ class RegType(IntEnum):
                 log_runtime.info(f"Unknown registry type: {value}, using UNK")
                 return cls.UNK
         else:
+            # we want to make sure that regdword, reg_dword, dword and upper
+            # case equivalents are all properly parsed
             value = value.strip().upper()
             if "_" not in value:
-                value = "REG_" + value.lstrip("REG")
+                if value[:3] == "REG":
+                    value = value[3:]
+                value = "REG_" + value.replace("REG", "", 1)
             try:
                 return cls[value]
             except (ValueError, KeyError):
@@ -259,104 +232,102 @@ class RegEntry:
         :param reg_data: the data of the registry value (str)
     """
 
-    def __init__(self, reg_value: str, reg_type: int, reg_data: bytes, from_str=False):
+    def __init__(self, reg_value: str, reg_type: int, reg_data: bytes):
         self.reg_value = reg_value
         try:
             self.reg_type = RegType(reg_type)
         except ValueError:
             self.reg_type = RegType.UNK
 
-        if from_str:
-            self.reg_data = RegEntry.encode_data(self.reg_type, reg_data)
-        else:
-            self.reg_data = reg_data
+        self.reg_data = reg_data
+
+    def encode(self):
+        """Non static methode to encode the data"""
+        return self.encode_data(self.reg_type, self.reg_data)
 
     @staticmethod
     def encode_data(reg_type: RegType, data: Union[str, List[str]]) -> bytes:
         """
         Encode data based on the type.
         """
-        if reg_type in [RegType.REG_MULTI_SZ, RegType.REG_SZ, RegType.REG_EXPAND_SZ]:
-            if reg_type == RegType.REG_MULTI_SZ:
-                # encode to multiple null terminated strings
-                if isinstance(data, str):
-                    # if it was previously encoded, we remove the
-                    # final \x00 and the final empty string
-                    data = data.strip(b"\x00\x00\x00\x00")
-                    encoded_data = (
-                        b"\x00\x00".join(
-                            [x.strip().encode("utf-16le") for x in data.split()]
-                        )
-                        + b"\x00\x00"  # final \x00
-                        + b"\x00\x00"  # final empty string
+        if reg_type == RegType.REG_MULTI_SZ:
+            # encode to multiple null terminated strings
+            if isinstance(data, str):
+                # if it was previously encoded, we remove the
+                # final \x00 and the final empty string
+                data = data.strip(b"\x00\x00\x00\x00")
+                encoded_data = (
+                    b"\x00\x00".join(
+                        [x.strip().encode("utf-16le") for x in data.split()]
                     )
-                elif isinstance(data, list):
-                    # if it was previously encoded, we remove the
-                    # final \x00 and the final empty string
-                    if data[-1] == "":
-                        data = data[:-1]
-                    encoded_data = (
-                        b"\x00\x00".join(
-                            [
-                                x.strip().strip("\x00\x00").encode("utf-16le")
-                                for x in data
-                            ]
-                        )
-                        + b"\x00\x00"  # final \x00
-                        + b"\x00\x00"  # final empty string
+                    + b"\x00\x00"  # final \x00
+                    + b"\x00\x00"  # final empty string
+                )
+            elif isinstance(data, list):
+                # if it was previously encoded, we remove the
+                # final \x00 and the final empty string
+                if data[-1] == "":
+                    data = data[:-1]
+                encoded_data = (
+                    b"\x00\x00".join(
+                        [x.strip().strip("\x00\x00").encode("utf-16le") for x in data]
                     )
-                else:
-                    log_runtime.error(
-                        "Expected str or List[str] instance for data, got %s",
-                        type(data),
-                    )
-                    raise TypeError
-
-                return encoded_data
-
+                    + b"\x00\x00"  # final \x00
+                    + b"\x00\x00"  # final empty string
+                )
             else:
-                return data.encode("utf-16le")
+                log_runtime.error(
+                    "Expected str or List[str] instance for data, got %s",
+                    type(data),
+                )
+                raise TypeError
+
+            return encoded_data
+
+        elif reg_type in [RegType.REG_MULTI_SZ, RegType.REG_SZ, RegType.REG_EXPAND_SZ]:
+            return data.encode("utf-16le")
 
         elif reg_type == RegType.REG_BINARY:
             if isinstance(data, bytes):
                 return data
-            return data.encode("utf-8").decode("unicode_escape").encode("latin1")
+            return data.encode("latin1")
 
         elif reg_type in [RegType.REG_DWORD, RegType.REG_QWORD]:
-            # Use fixed sizes: 4 bytes for DWORD, 8 bytes for QWORD.
-            bit_length = 4 if reg_type == RegType.REG_DWORD else 8
-            return int(data).to_bytes(bit_length, byteorder="little")
+            return struct.pack(
+                "<I" if reg_type == RegType.REG_DWORD else "<Q", int(data)
+            )
 
         elif reg_type == RegType.REG_DWORD_BIG_ENDIAN:
-            bit_length = 4
-            return int(data).to_bytes(bit_length, byteorder="big")
+            return struct.pack("!I", int(data))
 
         elif reg_type == RegType.REG_LINK:
             return data.encode("utf-16le")
 
         else:
-            return data.encode("utf-8").decode("unicode_escape").encode("latin1")
+            return data.encode("utf-8")
 
     @staticmethod
     def decode_data(reg_type: RegType, data: bytes) -> str:
         """
         Decode data based on the type.
         """
-        if reg_type in [RegType.REG_MULTI_SZ, RegType.REG_SZ, RegType.REG_EXPAND_SZ]:
-            if reg_type == RegType.REG_MULTI_SZ:
-                # decode multiple null terminated strings
-                return data.decode("utf-16le")[:-1].split("\x00")
-            else:
-                return data.decode("utf-16le")
+        if reg_type == RegType.REG_MULTI_SZ:
+            # decode multiple null terminated strings
+            return data.decode("utf-16le")[:-2].split("\x00")
+
+        elif reg_type in [RegType.REG_SZ, RegType.REG_EXPAND_SZ]:
+            return data.decode("utf-16le")
 
         elif reg_type == RegType.REG_BINARY:
             return data
 
         elif reg_type in [RegType.REG_DWORD, RegType.REG_QWORD]:
-            return int.from_bytes(data, byteorder="little")
+            return struct.unpack("<I" if reg_type == RegType.REG_DWORD else "<Q", data)[
+                0
+            ]
 
         elif reg_type == RegType.REG_DWORD_BIG_ENDIAN:
-            return int.from_bytes(data, byteorder="big")
+            return struct.unpack("!I", data)[0]
 
         elif reg_type == RegType.REG_LINK:
             return data.decode("utf-16le")
@@ -365,9 +336,11 @@ class RegEntry:
             return data
 
     def __str__(self) -> str:
-        if self.reg_type == RegType.UNK:
-            return f"{self.reg_value} ({self.reg_type.name}: {self.reg_type.real_value}) {self.reg_data}"  # noqa: E501
-        return f"{self.reg_value} ({self.reg_type.name}: {self.reg_type.value}) {self.reg_data}"  # noqa: E501
+        return f"{self.reg_value} ({self.reg_type.name}: " + \
+               f"{self.reg_type.real_value
+                  if self.reg_type == RegType.UNK
+                  else self.reg_type.value}" + \
+               f") {self.reg_data}"
 
     def __repr__(self) -> str:
         return f"RegEntry({self.reg_value}, {self.reg_type}, {self.reg_data})"
@@ -417,7 +390,6 @@ class RegApi:
         client: DCERPC_Client,
         root_key_name: RootKeys,
         sam_desired: int = 0x2000000,  # Maximum Allowed
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> Optional[NDRContextHandle]:
         """
@@ -426,7 +398,6 @@ class RegApi:
         :param root_key_name: The name of the root key to open.
                               Must be one of the RootKeys enum values.
         :param sam_desired: The desired access rights for the key.
-        :param ndr64: Whether to use NDR64 encoding.
         :param ServerName: The server name. The ServerName SHOULD be
                            sent as NULL, and MUST be ignored
                            when it is received because binding to the server
@@ -439,7 +410,6 @@ class RegApi:
                 OpenClassesRoot_Request(
                     ServerName=None,
                     samDesired=sam_desired,
-                    ndr64=ndr64,
                 ),
                 timeout=timeout,
             ).phKey
@@ -448,7 +418,6 @@ class RegApi:
                 OpenCurrentUser_Request(
                     ServerName=None,
                     samDesired=sam_desired,
-                    ndr64=ndr64,
                 ),
                 timeout=timeout,
             ).phKey
@@ -457,7 +426,6 @@ class RegApi:
                 OpenLocalMachine_Request(
                     ServerName=None,
                     samDesired=sam_desired,
-                    ndr64=ndr64,
                 ),
                 timeout=timeout,
             ).phKey
@@ -466,7 +434,6 @@ class RegApi:
                 OpenUsers_Request(
                     ServerName=None,
                     samDesired=sam_desired,
-                    ndr64=ndr64,
                 ),
                 timeout=timeout,
             ).phKey
@@ -475,7 +442,6 @@ class RegApi:
                 OpenCurrentConfig_Request(
                     ServerName=None,
                     samDesired=sam_desired,
-                    ndr64=ndr64,
                 ),
                 timeout=timeout,
             ).phKey
@@ -484,7 +450,6 @@ class RegApi:
                 OpenPerformanceData_Request(
                     ServerName=None,
                     samDesired=sam_desired,
-                    ndr64=ndr64,
                 ),
                 timeout=timeout,
             ).phKey
@@ -493,7 +458,6 @@ class RegApi:
                 OpenPerformanceText_Request(
                     ServerName=None,
                     samDesired=sam_desired,
-                    ndr64=ndr64,
                 ),
                 timeout=timeout,
             ).phKey
@@ -502,7 +466,6 @@ class RegApi:
                 OpenPerformanceNlsText_Request(
                     ServerName=None,
                     samDesired=sam_desired,
-                    ndr64=ndr64,
                 ),
                 timeout=timeout,
             ).phKey
@@ -516,7 +479,6 @@ class RegApi:
         subkey_path: str,
         desired_access_rights: int = 0x2000000,  # Maximum Allowed
         options: RegOptions = RegOptions.REG_OPTION_NON_VOLATILE,
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> NDRContextHandle:
         """
@@ -526,7 +488,6 @@ class RegApi:
         :param root_key_handle: The handle to the root key.
         :param subkey_path: The name of the subkey to open.
         :param desired_access_rights: The desired access rights for the subkey.
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: The handle to the opened subkey.
         """
@@ -543,7 +504,6 @@ class RegApi:
                 lpSubKey=RPC_UNICODE_STRING(Buffer=subkey_path),
                 samDesired=desired_access_rights,
                 dwOptions=options,
-                ndr64=ndr64,
             ),
             timeout=timeout,
         )
@@ -562,14 +522,12 @@ class RegApi:
     def get_version(
         client: DCERPC_Client,
         key_handle: NDRContextHandle,
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> Packet:
         """
         Get the version of the registry server.
 
         :param client: The DCERPC client.
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: The response packet containing the version information.
         """
@@ -577,7 +535,6 @@ class RegApi:
         response = client.sr1_req(
             BaseRegGetVersion_Request(
                 hKey=key_handle,
-                ndr64=ndr64,
             ),
             timeout=timeout,
         )
@@ -593,7 +550,6 @@ class RegApi:
     def get_key_info(
         client: DCERPC_Client,
         key_handle: NDRContextHandle,
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> Optional[BaseRegQueryInfoKey_Response]:
         """
@@ -601,7 +557,6 @@ class RegApi:
 
         :param client: The DCERPC client.
         :param hKey: The handle to the registry key (root key or subkey).
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: The response packet containing the key information.
         """
@@ -610,7 +565,6 @@ class RegApi:
             BaseRegQueryInfoKey_Request(
                 hKey=key_handle,
                 lpClassIn=RPC_UNICODE_STRING(),
-                ndr64=ndr64,
             ),
             timeout=timeout,
         )
@@ -628,7 +582,6 @@ class RegApi:
         client: DCERPC_Client,
         key_handle: NDRContextHandle,
         security_information: int = None,
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> SECURITY_DESCRIPTOR:
         """
@@ -637,7 +590,6 @@ class RegApi:
         :param client: The DCERPC client.
         :param hKey: The handle to the registry key (root key or subkey).
         :param security_information: The security information to retrieve.
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: The response packet containing the security descriptor.
         """
@@ -656,7 +608,6 @@ class RegApi:
             pRpcSecurityDescriptorIn=PRPC_SECURITY_DESCRIPTOR(
                 cbInSecurityDescriptor=512,  # Initial size of the buffer
             ),
-            ndr64=ndr64,
         )
 
         # Send request
@@ -685,7 +636,6 @@ class RegApi:
     def enum_subkeys(
         client: DCERPC_Client,
         key_handle: NDRContextHandle,
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> Generator[Packet, None, None]:
         """
@@ -693,7 +643,6 @@ class RegApi:
 
         :param client: The DCERPC client.
         :param hKey: The handle to the registry key (root key or subkey).
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: A generator yielding the responses for each enumerated subkey.
         """
@@ -707,7 +656,6 @@ class RegApi:
                     lpNameIn=RPC_UNICODE_STRING(MaximumLength=1024),
                     lpClassIn=RPC_UNICODE_STRING(),
                     lpftLastWriteTime=None,
-                    ndr64=ndr64,
                 ),
                 timeout=timeout,
             )
@@ -730,7 +678,6 @@ class RegApi:
     def enum_values(
         client: DCERPC_Client,
         key_handle: NDRContextHandle,
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> Generator[Packet, None, None]:
         """
@@ -738,7 +685,6 @@ class RegApi:
 
         :param client: The DCERPC client.
         :param hKey: The handle to the registry key (root key or subkey).
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: A generator yielding the responses for each enumerated value.
         """
@@ -762,7 +708,6 @@ class RegApi:
                     lpData=None,  # pointer to buffer
                     lpcbData=0,  # pointer to buffer size
                     lpcbLen=0,  # pointer to length
-                    ndr64=ndr64,
                 ),
                 timeout=timeout,
             )
@@ -789,7 +734,6 @@ class RegApi:
                         max_count=1024, value=NDRVaryingArray(actual_count=0, value=b"")
                     )
                 ),
-                ndr64=ndr64,
             )
 
             # Send request
@@ -815,7 +759,6 @@ class RegApi:
         client: DCERPC_Client,
         key_handle: NDRContextHandle,
         value_name: str,
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> Packet:
         """
@@ -824,7 +767,6 @@ class RegApi:
         :param client: The DCERPC client.
         :param hKey: The handle to the registry key (root key or subkey).
         :param value_name: The name of the value to retrieve.
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: The response packet containing the value data.
         """
@@ -841,7 +783,6 @@ class RegApi:
                         max_count=1024, value=NDRVaryingArray(actual_count=0, value=b"")
                     )
                 ),
-                ndr64=ndr64,
             ),
             timeout=timeout,
         )
@@ -861,7 +802,6 @@ class RegApi:
                             value=NDRVaryingArray(actual_count=0, value=b""),
                         )
                     ),
-                    ndr64=ndr64,
                 ),
                 timeout=timeout,
             )
@@ -881,7 +821,6 @@ class RegApi:
         key_handle: NDRContextHandle,
         file_path: str,
         security_attributes: PRPC_SECURITY_ATTRIBUTES = None,
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> bool:
         """
@@ -892,7 +831,6 @@ class RegApi:
         :param file_path: The path to the file where the key will be saved.
             Default path is %WINDIR%\\System32, which is readable by all users.
         :param security_attributes: Security attributes for the saved key.
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: True if the key was saved successfully, False otherwise.
         """
@@ -902,7 +840,6 @@ class RegApi:
                 hKey=key_handle,
                 lpFile=RPC_UNICODE_STRING(Buffer=file_path),
                 pSecurityAttributes=security_attributes,
-                ndr64=ndr64,
             ),
             timeout=timeout,
         )
@@ -920,7 +857,6 @@ class RegApi:
         value_name: str,
         value_type: RegType,
         value_data: Union[str, bytes],
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> bool:
         """
@@ -931,7 +867,6 @@ class RegApi:
         :param value_name: The name of the value to set.
         :param value_type: The type of the value to set.
         :param value_data: The data of the value to set.
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: True if the value was set successfully, False otherwise.
         """
@@ -951,7 +886,6 @@ class RegApi:
                 dwType=value_type.value,
                 cbData=len(data),
                 lpData=data,
-                ndr64=ndr64,
             ),
             timeout=timeout,
         )
@@ -974,7 +908,6 @@ class RegApi:
         desired_access_rights: int = 0x2000000,  # Maximum allowed
         options: RegOptions = RegOptions.REG_OPTION_NON_VOLATILE,
         security_attributes: PRPC_SECURITY_ATTRIBUTES = None,
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> Packet:
         """
@@ -986,7 +919,6 @@ class RegApi:
         :param desired_access_rights: The desired access rights for the subkey.
         :param options: The options for the subkey.
         :param security_attributes: Security attributes for the created key.
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: The handle to the created subkey.
         """
@@ -1001,7 +933,6 @@ class RegApi:
                 samDesired=desired_access_rights,
                 dwOptions=options,
                 lpSecurityAttributes=security_attributes,
-                ndr64=ndr64,
             ),
             timeout=timeout,
         )
@@ -1021,7 +952,6 @@ class RegApi:
         client: DCERPC_Client,
         root_key_handle: NDRContextHandle,
         subkey_path: str,
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> bool:
         """
@@ -1030,7 +960,6 @@ class RegApi:
         :param client: The DCERPC client.
         :param hKey: The handle to the root key.
         :param subkey_path: The name of the subkey to remove.
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: True if the subkey was deleted successfully, False otherwise.
         """
@@ -1042,7 +971,6 @@ class RegApi:
             BaseRegDeleteKey_Request(
                 hKey=root_key_handle,
                 lpSubKey=RPC_UNICODE_STRING(Buffer=subkey_path),
-                ndr64=ndr64,
             ),
             timeout=timeout,
         )
@@ -1062,7 +990,6 @@ class RegApi:
         client: DCERPC_Client,
         key_handle: NDRContextHandle,
         value_name: str,
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> bool:
         """
@@ -1071,7 +998,6 @@ class RegApi:
         :param client: The DCERPC client.
         :param hKey: The handle to the subkey to remove.
         :param value_name: The name of the value to delete.
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: True if the value was deleted successfully, False otherwise.
         """
@@ -1083,7 +1009,6 @@ class RegApi:
             BaseRegDeleteValue_Request(
                 hKey=key_handle,
                 lpValueName=RPC_UNICODE_STRING(Buffer=value_name),
-                ndr64=ndr64,
             ),
             timeout=timeout,
         )
@@ -1102,7 +1027,6 @@ class RegApi:
     def close_key(
         client: DCERPC_Client,
         key_handle: NDRContextHandle,
-        ndr64: bool = True,
         timeout: int = 5,
     ) -> bool:
         """
@@ -1110,7 +1034,6 @@ class RegApi:
 
         :param client: The DCERPC client.
         :param hKey: The handle to the registry key (root key or subkey).
-        :param ndr64: Whether to use NDR64 encoding.
         :param timeout: The timeout for the request.
         :return: True if the key was closed successfully, False otherwise.
         """
@@ -1118,7 +1041,6 @@ class RegApi:
         response = client.sr1_req(
             BaseRegCloseKey_Request(
                 hKey=key_handle,
-                ndr64=ndr64,
             ),
             timeout=timeout,
         )

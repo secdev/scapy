@@ -47,21 +47,6 @@ from scapy.layers.ntlm import (
 
 
 class WINNT_SID_IDENTIFIER_AUTHORITY(Packet):
-    """
-    Security Identifier (SID) Identifier Authority
-    Standard values are:
-
-        - SECURITY_NULL_SID_AUTHORITY	        0	S-1-0
-        - SECURITY_WORLD_SID_AUTHORITY  	    1	S-1-1
-        - SECURITY_LOCAL_SID_AUTHORITY  	    2	S-1-2
-        - SECURITY_CREATOR_SID_AUTHORITY        3	S-1-3
-        - NON_UNIQUE_AUTHORITY        	        4	S-1-4
-        - SECURITY_NT_AUTHORITY 	            5	S-1-5
-        - SECURITY_APP_PACKAGE_AUTHORITY	    15	S-1-15
-        - SECURITY_MANDATORY_LABEL_AUTHORITY    16	S-1-16
-        - SECURITY_SCOPED_POLICY_ID_AUTHORITY   17	S-1-17
-        - SECURITY_AUTHENTICATION_AUTHORITY     18	S-1-18
-    """
 
     fields_desc = [
         StrFixedLenField("Value", b"\x00\x00\x00\x00\x00\x01", length=6),
@@ -75,8 +60,6 @@ class WINNT_SID_IDENTIFIER_AUTHORITY(Packet):
 
 
 class WINNT_SID(Packet):
-    """Complete Security Identifier (SID) structure"""
-
     fields_desc = [
         ByteField("Revision", 1),
         FieldLenField("SubAuthorityCount", None, count_of="SubAuthority", fmt="B"),
@@ -145,7 +128,6 @@ class WINNT_SID(Packet):
 
 # https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-identifiers
 
-# pylint: disable-next=duplicate-key
 WELL_KNOWN_SIDS = {
     # Universal well-known SID
     "S-1-0-0": "Null SID",
