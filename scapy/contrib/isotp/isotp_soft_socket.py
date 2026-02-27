@@ -256,6 +256,7 @@ class TimeoutScheduler:
             # Start the scheduling thread if it is not started already
             if cls._thread is None:
                 t = Thread(target=cls._task, name="TimeoutScheduler._task")
+                t.daemon = True
                 must_interrupt = False
                 cls._thread = t
                 cls._event.clear()
