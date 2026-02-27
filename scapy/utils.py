@@ -3682,7 +3682,8 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
         """
         Decorator to register a command
 
-        :param mono: if True, the command takes a single argument even if there are spaces
+        :param mono: if True, the command takes a single argument even
+            if there are spaces.
         """
         def func(cmd: DecoratorCallable) -> DecoratorCallable:
             cmd.cliutil_type = _CLIUtilMetaclass.TYPE.COMMAND  # type: ignore
@@ -3788,7 +3789,7 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                 )
             )
 
-    def _split_cmd(self, cmd: str):
+    def _split_cmd(self, cmd: str) -> Tuple[List[str], List[int]]:
         """
         Split the command in multiple arguments
         """
@@ -3846,10 +3847,10 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                     args, _, _ = self._parseallargs(self.commands[cmd], cmd, parts[1:])
                     if cmd in self.commands_complete:
                         completer = self.commands_complete[cmd]
-                        # If the completion is 'mono', it's a single argument with spaces.
-                        # Else we pass the list of arguments to complete, and we only complete
-                        # the last argument.
-                        if completer._mono:
+                        # If the completion is 'mono', it's a single argument with
+                        # spaces. Else we pass the list of arguments to complete,
+                        # and we only complete the last argument.
+                        if completer._mono:  # type: ignore
                             arg = " ".join(args)
                             completions = completer(self, arg)
                             startpos = offsets[1]
@@ -3859,8 +3860,9 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
 
                         # For each possible completion
                         for possible_arg in completions:
-                            # If there's a space in the completion, and we're not in mono mode, add quotes
-                            if " " in possible_arg and not completer._mono:
+                            # If there's a space in the completion, and we're
+                            # not in mono mode, add quotes.
+                            if " " in possible_arg and not completer._mono:  # type: ignore  # noqa: E501
                                 possible_arg = '"%s"' % possible_arg
 
                             yield Completion(

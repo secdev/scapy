@@ -26,8 +26,6 @@ import string
 import struct
 import uuid
 
-from enum import Enum
-
 from scapy.arch import get_if_addr
 from scapy.ansmachine import AnsweringMachine
 from scapy.asn1.asn1 import (
