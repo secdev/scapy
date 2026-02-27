@@ -1003,7 +1003,14 @@ with TestSocket(CAN) as isocan_tx, ISOTPSoftSocket(isocan_tx, 0x641, 0x241) as s
     resp_thread.start()
     time.sleep(0.1)
     rx = sock_tx.sr1(request, timeout=5, verbose=False, threaded=True)
-    resp_thread.join(timeout=3)
+    resp_thread.join(timeout=5)
+    assert not resp_thread.is_alive(), "resp_thread still alive"
+    # Stop TimeoutScheduler while sockets are still open to avoid
+    # callbacks crashing on closed sockets and writing to stderr.
+    _ts = TimeoutScheduler._thread
+    TimeoutScheduler.clear()
+    if _ts is not None:
+        _ts.join(timeout=5)
 
 assert rx is not None
 assert rx.data == response_data
@@ -1019,6 +1026,11 @@ with TestSocket(CAN) as isocan_tx, ISOTPSoftSocket(isocan_tx, 0x123, 0x321) as s
     start = time.time()
     rx2 = sock_tx.sr1(msg, timeout=3, verbose=False, threaded=True)
     elapsed = time.time() - start
+    # Stop TimeoutScheduler while sockets are still open.
+    _ts = TimeoutScheduler._thread
+    TimeoutScheduler.clear()
+    if _ts is not None:
+        _ts.join(timeout=5)
 
 assert rx2 is None
 assert elapsed < 5
@@ -1045,7 +1057,13 @@ with TestSocket(CAN) as isocan_tx, ISOTPSoftSocket(isocan_tx, 0x123, 0x321) as s
     rx2 = sock_tx.sr1(msg, timeout=3, verbose=False, threaded=True)
     elapsed = time.time() - start
     stop_traffic.set()
-    traffic_thread.join(timeout=2)
+    traffic_thread.join(timeout=5)
+    assert not traffic_thread.is_alive(), "traffic_thread still alive"
+    # Stop TimeoutScheduler while sockets are still open.
+    _ts = TimeoutScheduler._thread
+    TimeoutScheduler.clear()
+    if _ts is not None:
+        _ts.join(timeout=5)
 
 assert rx2 is None
 assert elapsed < 5
@@ -1357,12 +1375,214 @@ with TestSocket(CAN) as isocan, ISOTPSoftSocket(isocan, tx_id=0x641, rx_id=0x241
         res.show()
         assert res.data == dhex("01 02 03 04 05 06 07 08 09")
 
+
++ MF response via sr1() cartesian product tests
+# Background traffic from pcap: 3 periodic IDs (0x062, 0x024, 0x039) every
+# 10ms, plus a burst of 9 additional IDs every 100ms.
+# ECU response latency: ~0.6ms after SF request (from pcap frame 385).
+# CF timing after FC: CF1 +8ms, CF2 +10ms, CF3 +10ms (from pcap).
+# Expected ISOTP data: "62 00 01 flag{UDS_DATA_READ}" (22 bytes).
+#
+# Cartesian product dimensions:
+#   threaded:   {False, True} - sr1() threading mode
+#   can_filters: {[0x7eb], None} - per-socket filtering vs. no filtering
+#   adapter:    {limited (slcan-like), unlimited (candle-like)}
+#
+# slcan model parameters (from real hardware testing):
+#   frame_delay=0.0025: ~2.5ms per serial read at 115200 baud
+#   serial_timeout=0.1: python-can slcan Serial(timeout=0.1) blocks 100ms
+#                        when serial buffer is empty
+#   read_time_limit=0.02: SocketMapper.READ_BUS_TIME_LIMIT = 20ms caps
+#                          total read time per mux call
+#   prefill_frames=200: OS serial buffer backlog from busy CAN bus
+#
+# All tests use retry=0, timeout=1.0. All should PASS with the fix
+# (can_filters stripped from raw Bus, per-socket filtering in mux,
+# read_bus time-limited to avoid TimeoutScheduler thread starvation).
+
+= MF response helper setup for cartesian product tests
+
+from threading import Thread, Event
+
+def run_mf_response_test(frame_delay, mux_throttle, filters_kwarg, threaded,
+                         prefill_frames=0, serial_timeout=0.0,
+                         read_time_limit=0.0, interface_name="slcan"):
+    import time as _time
+    from threading import Thread as _Thread, Event as _Event
+    from scapy.layers.can import CAN as _CAN
+    from scapy.contrib.isotp import ISOTP as _ISOTP
+    from scapy.contrib.isotp.isotp_soft_socket import ISOTPSoftSocket as _ISOTPSoftSocket
+    from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler as _TimeoutScheduler
+    from test.testsocket import TestSocket as _TestSocket, SlowTestSocket as _SlowTestSocket
+    _dhex = bytes.fromhex
+    response_data = _dhex("620001666c61677b5544535f444154415f524541447d")
+    bg_periodic = [0x062, 0x024, 0x039]
+    bg_burst = [0x1d3, 0x024, 0x039, 0x077, 0x098, 0x150, 0x1a7, 0x1b8, 0x1bb]
+    if frame_delay > 0:
+        sock_cls = _SlowTestSocket
+        sock_kwargs = dict(frame_delay=frame_delay, mux_throttle=mux_throttle,
+                           serial_timeout=serial_timeout,
+                           read_time_limit=read_time_limit,
+                           interface_name=interface_name,
+                           **filters_kwarg)
+    else:
+        sock_cls = _TestSocket
+        sock_kwargs = {}
+    with sock_cls(_CAN, **sock_kwargs) as isocan, \
+            _TestSocket(_CAN) as ecu_mon, \
+            _ISOTPSoftSocket(isocan, tx_id=0x7e3, rx_id=0x7eb) as sock:
+        with _TestSocket(_CAN) as stim:
+            stim.pair(isocan)
+            isocan.pair(ecu_mon)
+            # Pre-fill the serial buffer with background frames to
+            # simulate a real slcan adapter that has been connected to
+            # a busy CAN bus.  On real hardware the OS serial buffer
+            # accumulates hundreds of frames before the ISOTP exchange.
+            for _ in range(prefill_frames):
+                bid = bg_periodic[_ % len(bg_periodic)]
+                stim.send(_CAN(identifier=bid, data=bytes(8)))
+            fc_received = _Event()
+            stop = _Event()
+            bg_cycle = [0]
+            def bg_generator():
+                while not stop.is_set():
+                    for bid in bg_periodic:
+                        if stop.is_set():
+                            return
+                        stim.send(_CAN(identifier=bid, data=bytes(8)))
+                    bg_cycle[0] += 1
+                    if bg_cycle[0] % 10 == 0:
+                        for bid in bg_burst:
+                            if stop.is_set():
+                                return
+                            stim.send(_CAN(identifier=bid, data=bytes(8)))
+                    _time.sleep(0.010)
+            def ecu_simulation():
+                _time.sleep(0.05)
+                stim.send(_CAN(identifier=0x7eb, data=_dhex("1016620001666c61")))
+                fc_received.wait(timeout=10.0)
+                if not fc_received.is_set():
+                    return
+                _time.sleep(0.008)
+                stim.send(_CAN(identifier=0x7eb, data=_dhex("21677b5544535f44")))
+                _time.sleep(0.010)
+                stim.send(_CAN(identifier=0x7eb, data=_dhex("224154415f524541")))
+                _time.sleep(0.010)
+                stim.send(_CAN(identifier=0x7eb, data=_dhex("23447d")))
+            def fc_watcher():
+                while not stop.is_set():
+                    if _TestSocket.select([ecu_mon], 0.1):
+                        pkt = ecu_mon.recv()
+                        if pkt is not None and pkt.identifier == 0x7e3 and \
+                           len(pkt.data) >= 1 and bytes(pkt.data)[0] == 0x30:
+                            fc_received.set()
+                            return
+            bg_thread = _Thread(target=bg_generator)
+            ecu_thread = _Thread(target=ecu_simulation)
+            fc_thread = _Thread(target=fc_watcher)
+            bg_thread.start()
+            ecu_thread.start()
+            fc_thread.start()
+            result = sock.sr1(_ISOTP(data=_dhex("220001")),
+                              retry=0, timeout=10.0,
+                              threaded=threaded, verbose=0)
+            stop.set()
+            fc_received.set()
+            bg_thread.join(timeout=5)
+            ecu_thread.join(timeout=5)
+            fc_thread.join(timeout=5)
+            assert not bg_thread.is_alive(), "bg_thread still alive"
+            assert not ecu_thread.is_alive(), "ecu_thread still alive"
+            assert not fc_thread.is_alive(), "fc_thread still alive"
+            # Stop TimeoutScheduler while sockets are still open to
+            # avoid callbacks crashing on closed sockets and writing
+            # to stderr (causes fatal error on Python 3.13 Windows).
+            _ts_thread = _TimeoutScheduler._thread
+            _TimeoutScheduler.clear()
+            if _ts_thread is not None:
+                _ts_thread.join(timeout=5)
+    return result, response_data
+
+= MF response: candle-like unlimited, no can_filters, threaded=False
+
+result, expected = run_mf_response_test(
+    frame_delay=0, mux_throttle=0,
+    filters_kwarg={}, threaded=False, interface_name="candle")
+assert result is not None, "MF response not received (candle, no filters, threaded=False)"
+assert result.data == expected
+
+= MF response: candle-like unlimited, no can_filters, threaded=True
+
+result, expected = run_mf_response_test(
+    frame_delay=0, mux_throttle=0,
+    filters_kwarg={}, threaded=True, interface_name="candle")
+assert result is not None, "MF response not received (candle, no filters, threaded=True)"
+assert result.data == expected
+
+= MF response: candle-like unlimited, can_filters=[0x7eb], threaded=False
+
+result, expected = run_mf_response_test(
+    frame_delay=0, mux_throttle=0,
+    filters_kwarg=dict(can_filters=[0x7eb]), threaded=False,
+    interface_name="candle")
+assert result is not None, "MF response not received (candle, can_filters, threaded=False)"
+assert result.data == expected
+
+= MF response: candle-like unlimited, can_filters=[0x7eb], threaded=True
+
+result, expected = run_mf_response_test(
+    frame_delay=0, mux_throttle=0,
+    filters_kwarg=dict(can_filters=[0x7eb]), threaded=True,
+    interface_name="candle")
+assert result is not None, "MF response not received (candle, can_filters, threaded=True)"
+assert result.data == expected
+
+= MF response: slcan-like limited, no can_filters, threaded=False
+
+result, expected = run_mf_response_test(
+    frame_delay=0.0025, mux_throttle=0.001, serial_timeout=0.1,
+    read_time_limit=0.02, filters_kwarg={}, threaded=False,
+    prefill_frames=200)
+assert result is not None, "MF response not received (slcan, no filters, threaded=False)"
+assert result.data == expected
+
+= MF response: slcan-like limited, no can_filters, threaded=True
+
+result, expected = run_mf_response_test(
+    frame_delay=0.0025, mux_throttle=0.001, serial_timeout=0.1,
+    read_time_limit=0.02, filters_kwarg={}, threaded=True,
+    prefill_frames=200)
+assert result is not None, "MF response not received (slcan, no filters, threaded=True)"
+assert result.data == expected
+
+= MF response: slcan-like limited, can_filters=[0x7eb], threaded=False
+
+result, expected = run_mf_response_test(
+    frame_delay=0.0025, mux_throttle=0.001, serial_timeout=0.1,
+    read_time_limit=0.02, filters_kwarg=dict(can_filters=[0x7eb]),
+    threaded=False, prefill_frames=200)
+assert result is not None, "MF response not received (slcan, can_filters, threaded=False)"
+assert result.data == expected
+
+= MF response: slcan-like limited, can_filters=[0x7eb], threaded=True
+
+result, expected = run_mf_response_test(
+    frame_delay=0.0025, mux_throttle=0.001, serial_timeout=0.1,
+    read_time_limit=0.02, filters_kwarg=dict(can_filters=[0x7eb]),
+    threaded=True, prefill_frames=200)
+assert result is not None, "MF response not received (slcan, can_filters, threaded=True)"
+assert result.data == expected
+
+
 + Cleanup
 
 = Delete testsockets
 
 cleanup_testsockets()
 
+_ts = TimeoutScheduler._thread
 TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
 
 log_runtime.removeHandler(handler)
