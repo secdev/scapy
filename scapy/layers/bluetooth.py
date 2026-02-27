@@ -58,6 +58,7 @@ from scapy.fields import (
     LEMACField,
     BitEnumField,
     LEThreeBytesField,
+    ConditionalField
 )
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
@@ -929,8 +930,8 @@ class SM_Identity_Information(Packet):
 
 class SM_Identity_Address_Information(Packet):
     name = "Identity Address Information"
-    fields_desc = [ByteEnumField("atype", 0, {0: "public"}),
-                   LEMACField("address", None), ]
+    fields_desc = [ByteEnumField("addr_type", 0, {0: "public"}),
+                   LEMACField("addr", None), ]
 
 
 class SM_Signing_Information(Packet):
@@ -2045,6 +2046,10 @@ class HCI_Cmd_Write_Loopback_Mode(Packet):
 
 # 7.8 LE CONTROLLER COMMANDS, the OGF code is defined as 0x08
 
+class HCI_Cmd_LE_Set_Event_Mask(Packet):
+    name = 'HCI_LE_Set_Event_Mask'
+    fields_desc = [StrFixedLenField('mask', b'\xff\xff\xff\xff\xff\x1f\x00\x00', 8)]
+
 class HCI_Cmd_LE_Read_Buffer_Size_V1(Packet):
     name = "HCI_LE_Read_Buffer_Size [v1]"
 
@@ -2059,7 +2064,7 @@ class HCI_Cmd_LE_Read_Local_Supported_Features(Packet):
 
 class HCI_Cmd_LE_Set_Random_Address(Packet):
     name = "HCI_LE_Set_Random_Address"
-    fields_desc = [LEMACField("address", None)]
+    fields_desc = [LEMACField("addr", None)]
 
 
 class HCI_Cmd_LE_Set_Advertising_Parameters(Packet):
@@ -2067,12 +2072,33 @@ class HCI_Cmd_LE_Set_Advertising_Parameters(Packet):
     fields_desc = [LEShortField("interval_min", 0x0800),
                    LEShortField("interval_max", 0x0800),
                    ByteEnumField("adv_type", 0, {0: "ADV_IND", 1: "ADV_DIRECT_IND", 2: "ADV_SCAN_IND", 3: "ADV_NONCONN_IND", 4: "ADV_DIRECT_IND_LOW"}),  # noqa: E501
-                   ByteEnumField("oatype", 0, {0: "public", 1: "random"}),
-                   ByteEnumField("datype", 0, {0: "public", 1: "random"}),
-                   LEMACField("daddr", None),
+                   ByteEnumField("own_addr_type", 0, {0: "public", 1: "random"}),
+                   ByteEnumField("peer_addr_type", 0, {0: "public", 1: "random"}),
+                   LEMACField("peer_addr", None),
                    ByteField("channel_map", 7),
                    ByteEnumField("filter_policy", 0, {0: "all:all", 1: "connect:all scan:whitelist", 2: "connect:whitelist scan:all", 3: "all:whitelist"}), ]  # noqa: E501
 
+class HCI_Cmd_LE_Set_Extended_Advertising_Parameters(Packet):
+    name = 'HCI_LE_Set_Extended_Advertising_Parameters'
+    fields_desc = [ByteField('handle', 0), 
+                   LEShortField('properties', 19), 
+                   LEThreeBytesField('pri_interval_min', 160), 
+                   LEThreeBytesField('pri_interval_max', 160), 
+                   ByteField('pri_channel_map', 7), 
+                   ByteEnumField('own_addr_type', 0, {0: 'public', 1: 'random', 2: 'rpa_pub', 3: 'rpa_rand'}), 
+                   ByteEnumField('peer_addr_type', 0, {0: 'public', 1: 'random', 2: 'rpa_pub', 3: 'rpa_rand'}), 
+                   LEMACField('peer_addr', None), 
+                   ByteEnumField("filter_policy", 0, {0: "all:all", 1: "connect:all scan:whitelist", 2: "connect:whitelist scan:all", 3: "all:whitelist"}),
+                   SignedByteField('tx_power', 127), 
+                   ByteEnumField('pri_phy', 1, {1: '1M', 3: 'Coded'}), 
+                   ByteField('sec_max_skip', 0), 
+                   ByteEnumField('sec_phy', 1, {1: '1M', 2: '2M', 3: 'Coded'}), 
+                   ByteField('sid', 0), 
+                   ByteField('scan_req_notify_enable', 0)]
+
+class HCI_Cmd_LE_Set_Advertising_Set_Random_Address(Packet):
+    name = 'HCI_LE_Set_Advertising_Set_Random_Address'
+    fields_desc = [ByteField('handle', 0), LEMACField('addr', None)]
 
 class HCI_Cmd_LE_Set_Advertising_Data(Packet):
     name = "HCI_LE_Set_Advertising_Data"
@@ -2081,6 +2107,14 @@ class HCI_Cmd_LE_Set_Advertising_Data(Packet):
                        PacketListField("data", [], EIR_Hdr,
                                        length_from=lambda pkt: pkt.len),
                        align=31, padwith=b"\0"), ]
+
+class HCI_Cmd_LE_Set_Extended_Advertising_Data(Packet):
+    name = 'HCI_LE_Set_Extended_Advertising_Data'
+    fields_desc = [ByteField('handle', 0), 
+                   ByteEnumField('operation', 3, {0: 'intermediate_frag', 1: 'first_frag', 2: 'last_frag', 3: 'complete', 4: 'unchanged_data'}), 
+                   ByteEnumField('frag_pref', 1, {0: 'allow_frag', 1: 'no_frag'}), 
+                   FieldLenField('len', None, length_of='data', fmt='B'), 
+                   PacketListField('data', [], EIR_Hdr, length_from=lambda pkt: pkt.len)]
 
 
 class HCI_Cmd_LE_Set_Scan_Response_Data(Packet):
@@ -2093,33 +2127,64 @@ class HCI_Cmd_LE_Set_Advertise_Enable(Packet):
     name = "HCI_LE_Set_Advertising_Enable"
     fields_desc = [ByteField("enable", 0)]
 
+class HCI_Ext_Adv_Set(Packet):
+    name = 'Extended Advertising Set'
+    fields_desc = [ByteField('handle', 0), 
+                   LEShortField('duration', 0), 
+                   ByteField('max_events', 0)]
+
+class HCI_Cmd_LE_Set_Extended_Advertise_Enable(Packet):
+    name = 'HCI_LE_Set_Extended_Advertising_Enable'
+    fields_desc = [ByteEnumField('enable', 1, {0: 'disable', 1: 'enable'}), 
+                   FieldLenField('num_sets', None, count_of='sets', fmt='B'), 
+                   PacketListField('sets', [], HCI_Ext_Adv_Set, count_from=lambda pkt: pkt.num_sets)]
 
 class HCI_Cmd_LE_Set_Scan_Parameters(Packet):
     name = "HCI_LE_Set_Scan_Parameters"
     fields_desc = [ByteEnumField("type", 0, {0: "passive", 1: "active"}),
                    XLEShortField("interval", 16),
                    XLEShortField("window", 16),
-                   ByteEnumField("atype", 0, {0: "public",
+                   ByteEnumField("addr_type", 0, {0: "public",
                                               1: "random",
                                               2: "rpa (pub)",
                                               3: "rpa (random)"}),
                    ByteEnumField("policy", 0, {0: "all", 1: "whitelist"})]
 
+class HCI_Cmd_LE_Set_Extended_Scan_Parameters(Packet):
+    name = 'HCI_LE_Set_Extended_Scan_Parameters'
+    fields_desc = [ByteEnumField('own_address_type', 0, {0: 'public', 1: 'random', 2: 'rpa_pub', 3: 'rpa_rand'}), 
+                   ByteEnumField('scanning_filter_policy', 0, {0: 'basic', 1: 'whitelist', 2: 'basic_rpa', 3: 'whitelist_rpa'}), 
+                   ByteField('scanning_phys', 1), 
+                   ConditionalField(ByteEnumField('scan_type_1m', 1, {0: 'passive', 1: 'active'}), lambda pkt: pkt.scanning_phys & 1), 
+                   ConditionalField(LEShortField('scan_interval_1m', 16), lambda pkt: pkt.scanning_phys & 1), 
+                   ConditionalField(LEShortField('scan_window_1m', 16), lambda pkt: pkt.scanning_phys & 1), 
+                   ConditionalField(ByteEnumField('scan_type_2m', 1, {0: 'passive', 1: 'active'}), lambda pkt: pkt.scanning_phys & 2), 
+                   ConditionalField(LEShortField('scan_interval_2m', 16), lambda pkt: pkt.scanning_phys & 2), 
+                   ConditionalField(LEShortField('scan_window_2m', 16), lambda pkt: pkt.scanning_phys & 2), 
+                   ConditionalField(ByteEnumField('scan_type_coded', 1, {0: 'passive', 1: 'active'}), lambda pkt: pkt.scanning_phys & 4), 
+                   ConditionalField(LEShortField('scan_interval_coded', 16), lambda pkt: pkt.scanning_phys & 4), 
+                   ConditionalField(LEShortField('scan_window_coded', 16), lambda pkt: pkt.scanning_phys & 4)]
 
 class HCI_Cmd_LE_Set_Scan_Enable(Packet):
     name = "HCI_LE_Set_Scan_Enable"
     fields_desc = [ByteField("enable", 1),
                    ByteField("filter_dups", 1), ]
 
+class HCI_Cmd_LE_Set_Extended_Scan_Enable(Packet):
+    name = 'HCI_LE_Set_Extended_Scan_Enable'
+    fields_desc = [ByteEnumField('enable', 1, {0: 'disabled', 1: 'enabled'}), 
+                   ByteEnumField('filter_dups', 1, {0: 'disabled', 1: 'enabled', 2: 'reset_period'}), 
+                   LEShortField('duration', 500), 
+                   LEShortField('period', 0)]
 
 class HCI_Cmd_LE_Create_Connection(Packet):
     name = "HCI_LE_Create_Connection"
     fields_desc = [LEShortField("interval", 96),
                    LEShortField("window", 48),
                    ByteEnumField("filter", 0, {0: "address"}),
-                   ByteEnumField("patype", 0, {0: "public", 1: "random"}),
-                   LEMACField("paddr", None),
-                   ByteEnumField("atype", 0, {0: "public", 1: "random"}),
+                   ByteEnumField("peer_addr_type", 0, {0: "public", 1: "random"}),
+                   LEMACField("peer_addr", None),
+                   ByteEnumField("own_addr_type", 0, {0: "public", 1: "random"}),
                    LEShortField("min_interval", 40),
                    LEShortField("max_interval", 56),
                    LEShortField("latency", 0),
@@ -2127,6 +2192,37 @@ class HCI_Cmd_LE_Create_Connection(Packet):
                    LEShortField("min_ce", 0),
                    LEShortField("max_ce", 0), ]
 
+class HCI_Cmd_LE_Extended_Create_Connection(Packet):
+    name = 'HCI_LE_Extended_Create_Connection'
+    fields_desc = [ByteEnumField('filter_policy', 0, {0: 'peer_addr', 1: 'accept_list'}), 
+                   ByteEnumField('address_type', 0, {0: 'public', 1: 'random', 2: 'rpa_pub', 3: 'rpa_rand'}), 
+                   ByteEnumField('peer_addr_type', 0, {0: 'public', 1: 'random', 2: 'rpa_pub', 3: 'rpa_rand'}), 
+                   LEMACField('peer_addr', None), 
+                   ByteField('phys', 1), 
+                   ConditionalField(LEShortField('interval_1m', 96), lambda pkt: pkt.phys & 1), 
+                   ConditionalField(LEShortField('window_1m', 96), lambda pkt: pkt.phys & 1), 
+                   ConditionalField(LEShortField('min_interval_1m', 40), lambda pkt: pkt.phys & 1), 
+                   ConditionalField(LEShortField('max_interval_1m', 56), lambda pkt: pkt.phys & 1), 
+                   ConditionalField(LEShortField('latency_1m', 0), lambda pkt: pkt.phys & 1), 
+                   ConditionalField(LEShortField('timeout_1m', 42), lambda pkt: pkt.phys & 1), 
+                   ConditionalField(LEShortField('min_ce_1m', 0), lambda pkt: pkt.phys & 1), 
+                   ConditionalField(LEShortField('max_ce_1m', 0), lambda pkt: pkt.phys & 1), 
+                   ConditionalField(LEShortField('interval_2m', 96), lambda pkt: pkt.phys & 2), 
+                   ConditionalField(LEShortField('window_2m', 96), lambda pkt: pkt.phys & 2), 
+                   ConditionalField(LEShortField('min_interval_2m', 40), lambda pkt: pkt.phys & 2), 
+                   ConditionalField(LEShortField('max_interval_2m', 56), lambda pkt: pkt.phys & 2), 
+                   ConditionalField(LEShortField('latency_2m', 0), lambda pkt: pkt.phys & 2), 
+                   ConditionalField(LEShortField('timeout_2m', 42), lambda pkt: pkt.phys & 2), 
+                   ConditionalField(LEShortField('min_ce_2m', 0), lambda pkt: pkt.phys & 2), 
+                   ConditionalField(LEShortField('max_ce_2m', 0), lambda pkt: pkt.phys & 2), 
+                   ConditionalField(LEShortField('interval_coded', 96), lambda pkt: pkt.phys & 4), 
+                   ConditionalField(LEShortField('window_coded', 96), lambda pkt: pkt.phys & 4), 
+                   ConditionalField(LEShortField('min_interval_coded', 40), lambda pkt: pkt.phys & 4), 
+                   ConditionalField(LEShortField('max_interval_coded', 56), lambda pkt: pkt.phys & 4), 
+                   ConditionalField(LEShortField('latency_coded', 0), lambda pkt: pkt.phys & 4), 
+                   ConditionalField(LEShortField('timeout_coded', 42), lambda pkt: pkt.phys & 4), 
+                   ConditionalField(LEShortField('min_ce_coded', 0), lambda pkt: pkt.phys & 4), 
+                   ConditionalField(LEShortField('max_ce_coded', 0), lambda pkt: pkt.phys & 4)]
 
 class HCI_Cmd_LE_Create_Connection_Cancel(Packet):
     name = "HCI_LE_Create_Connection_Cancel"
@@ -2142,10 +2238,10 @@ class HCI_Cmd_LE_Clear_Filter_Accept_List(Packet):
 
 class HCI_Cmd_LE_Add_Device_To_Filter_Accept_List(Packet):
     name = "HCI_LE_Add_Device_To_Filter_Accept_List"
-    fields_desc = [ByteEnumField("address_type", 0, {0: "public",
+    fields_desc = [ByteEnumField("addr_type", 0, {0: "public",
                                                      1: "random",
                                                      0xff: "anonymous"}),
-                   LEMACField("address", None)]
+                   LEMACField("addr", None)]
 
 
 class HCI_Cmd_LE_Remove_Device_From_Filter_Accept_List(HCI_Cmd_LE_Add_Device_To_Filter_Accept_List):  # noqa: E501
@@ -2506,20 +2602,49 @@ class HCI_LE_Meta_Connection_Complete(Packet):
     fields_desc = [ByteEnumField("status", 0, {0: "success"}),
                    LEShortField("handle", 0),
                    ByteEnumField("role", 0, {0: "master"}),
-                   ByteEnumField("patype", 0, {0: "public", 1: "random"}),
-                   LEMACField("paddr", None),
+                   ByteEnumField("peer_addr_type", 0, {0: "public", 1: "random"}),
+                   LEMACField("peer_addr", None),
                    LEShortField("interval", 54),
                    LEShortField("latency", 0),
                    LEShortField("supervision", 42),
-                   XByteField("clock_latency", 5), ]
+                   XByteField("master_clock_accuracy", 5)]
 
     def answers(self, other):
-        if HCI_Cmd_LE_Create_Connection not in other:
+        if HCI_Cmd_LE_Create_Connection in other:
+            cmd = other[HCI_Cmd_LE_Create_Connection]
+        elif HCI_Cmd_LE_Extended_Create_Connection in other:
+            cmd = other[HCI_Cmd_LE_Extended_Create_Connection]
+        else:
             return False
 
-        return (other[HCI_Cmd_LE_Create_Connection].patype == self.patype and
-                other[HCI_Cmd_LE_Create_Connection].paddr == self.paddr)
 
+        return (cmd.peer_addr_type == self.peer_addr_type and
+                cmd.peer_addr == self.peer_addr)
+
+class HCI_LE_Meta_Enhanced_Connection_Complete(Packet):
+    name = 'LE Enhanced Connection Complete'
+    fields_desc = [ByteEnumField('status', 0, {0: 'success'}), 
+                   LEShortField('handle', 0), 
+                   ByteEnumField('role', 0, {0: 'master', 1: 'slave'}), 
+                   ByteEnumField('peer_addr_type', 0, {0: 'public', 1: 'random', 2: 'public_identity', 3: 'random_identity'}), 
+                   LEMACField('peer_addr', None), 
+                   LEMACField('local_rpa', None), 
+                   LEMACField('peer_rpa', None), 
+                   LEShortField('interval', 54), 
+                   LEShortField('latency', 0), 
+                   LEShortField('supervision', 42), 
+                   XByteField('master_clock_accuracy', 5)]
+
+    def answers(self, other):
+        if HCI_Cmd_LE_Create_Connection in other:
+            cmd = other[HCI_Cmd_LE_Create_Connection]
+        elif HCI_Cmd_LE_Extended_Create_Connection in other:
+            cmd = other[HCI_Cmd_LE_Extended_Create_Connection]
+        else:
+            return False
+        
+        return cmd.peer_addr_type == self.peer_addr_type and cmd.peer_addr == self.peer_addr
+ 
 
 class HCI_LE_Meta_Connection_Update_Complete(Packet):
     name = "Connection Update Complete"
@@ -2533,7 +2658,7 @@ class HCI_LE_Meta_Connection_Update_Complete(Packet):
 class HCI_LE_Meta_Advertising_Report(Packet):
     name = "Advertising Report"
     fields_desc = [ByteEnumField("type", 0, {0: "conn_und", 4: "scan_rsp"}),
-                   ByteEnumField("atype", 0, {0: "public", 1: "random"}),
+                   ByteEnumField("addr_type", 0, {0: "public", 1: "random"}),
                    LEMACField("addr", None),
                    FieldLenField("len", None, length_of="data", fmt="B"),
                    PacketListField("data", [], EIR_Hdr,
@@ -2575,14 +2700,14 @@ class HCI_LE_Meta_Extended_Advertising_Report(Packet):
         BitField("scannable", 0, 1),
         BitField("connectable", 0, 1),
         ByteField("reserved", 0),
-        ByteEnumField("address_type", 0, {
+        ByteEnumField("addr_type", 0, {
             0x00: "public_device_address",
             0x01: "random_device_address",
             0x02: "public_identity_address",
             0x03: "random_identity_address",
             0xff: "anonymous"
         }),
-        LEMACField('address', None),
+        LEMACField('addr', None),
         ByteEnumField("primary_phy", 0, {
             0x01: "le_1m",
             0x03: "le_coded_s8",
@@ -2598,13 +2723,13 @@ class HCI_LE_Meta_Extended_Advertising_Report(Packet):
         ByteField("tx_power", 0x7f),
         SignedByteField("rssi", 0x00),
         LEShortField("periodic_advertising_interval", 0x0000),
-        ByteEnumField("direct_address_type", 0, {
+        ByteEnumField("direct_addr_type", 0, {
             0x00: "public_device_address",
             0x01: "non_resolvable_private_address",
             0x02: "resolvable_private_address_resolved_0",
             0x03: "resolvable_private_address_resolved_1",
             0xfe: "resolvable_private_address_unable_resolve"}),
-        LEMACField("direct_address", None),
+        LEMACField("direct_addr", None),
         FieldLenField("data_length", None, length_of="data", fmt="B"),
         PacketListField("data", [], EIR_Hdr,
                         length_from=lambda pkt: pkt.data_length),
@@ -2699,18 +2824,26 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Loopback_Mode, ogf=0x06, ocf=0x0001)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Loopback_Mode, ogf=0x06, ocf=0x0002)
 
 # 7.8 LE CONTROLLER COMMANDS, the OGF code is defined as 0x08
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Event_Mask, ogf=0x08, ocf=0x0001)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Buffer_Size_V1, ogf=0x08, ocf=0x0002)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Buffer_Size_V2, ogf=0x08, ocf=0x0060)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Local_Supported_Features,
             ogf=0x08, ocf=0x0003)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Random_Address, ogf=0x08, ocf=0x0005)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Parameters, ogf=0x08, ocf=0x0006)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Set_Random_Address, ogf=0x08, ocf=0x0035)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Extended_Advertising_Parameters, ogf=0x08, ocf=0x0036)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Data, ogf=0x08, ocf=0x0008)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Extended_Advertising_Data, ogf=0x08, ocf=0x0037)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Response_Data, ogf=0x08, ocf=0x0009)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertise_Enable, ogf=0x08, ocf=0x000a)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Extended_Advertise_Enable, ogf=0x08, ocf=0x0039)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Parameters, ogf=0x08, ocf=0x000b)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Extended_Scan_Parameters, ogf=0x08, ocf=0x0041)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, ogf=0x08, ocf=0x000c)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Extended_Scan_Enable, ogf=0x08, ocf=0x0042)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection, ogf=0x08, ocf=0x000d)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Extended_Create_Connection, ogf=0x08, ocf=0x0043)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, ogf=0x08, ocf=0x000e)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Filter_Accept_List_Size,
             ogf=0x08, ocf=0x000f)
@@ -2749,6 +2882,7 @@ bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_BD_Addr, opcode=0x
 bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_LE_Read_White_List_Size, opcode=0x200f)  # noqa: E501
 
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=0x01)
+bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Enhanced_Connection_Complete, event=0x0a)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Reports, event=0x02)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=0x03)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=0x05)
@@ -2986,7 +3120,7 @@ class LowEnergyBeaconHelper:
 
         return HCI_LE_Meta_Advertising_Report(
             type=0,   # Undirected
-            atype=1,  # Random address
+            addr_type=1,  # Random address
             data=self.build_eir()
         )
 
@@ -3156,8 +3290,8 @@ class BluetoothUserSocket(_BluetoothLibcSocket):
         self.send(cmd)
         while True:
             r = self.recv()
-            if r.type == 0x04 and r.code == 0xe and r.opcode == opcode:
-                if r.status != 0:
+            if r.type == 0x04 and r.code in (0xe,0xf) and r.opcode == opcode:
+                if hasattr(r, 'status') and r.status != 0:
                     raise BluetoothCommandError("Command %x failed with %x" % (opcode, r.status))  # noqa: E501
                 return r
 
