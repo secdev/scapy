@@ -32,11 +32,11 @@ assert TCP in pkt
 assert NBTSession in pkt
 assert pkt[NBTSession].LENGTH == 47
 assert _SMBGeneric in pkt
-# Should not have a proper SMBNegociate header as magic is \xf0SMB, not \xffSMB
+# Should not have a proper SMBNegotiate header as magic is \xf0SMB, not \xffSMB
 assert SMB_Header not in pkt
 
 
-= test SMB Negociate Header - assemble
+= test SMB Negotiate Header - assemble
 
 pkt = IP() / TCP() / NBTSession() / SMB_Header() / SMBNegotiate_Request()
 pkt = IP(raw(pkt))

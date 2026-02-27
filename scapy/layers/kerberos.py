@@ -3033,7 +3033,9 @@ class KerberosClient(Automaton):
     :param dmsa: sets the 'unconditional delegation' mode for DMSA TGT retrieval
     """
 
-    RES_AS_MODE = namedtuple("AS_Result", ["asrep", "sessionkey", "kdcrep", "upn"])
+    RES_AS_MODE = namedtuple(
+        "AS_Result", ["asrep", "sessionkey", "kdcrep", "upn", "pa_type"]
+    )
     RES_TGS_MODE = namedtuple("TGS_Result", ["tgsrep", "sessionkey", "kdcrep", "upn"])
 
     class MODE(IntEnum):
@@ -3232,6 +3234,7 @@ class KerberosClient(Automaton):
         self.fast_req_sent = False
         # Session parameters
         self.pre_auth = False
+        self.pa_type = None  # preauth-type that's used
         self.fast_rep = None
         self.fast_error = None
         self.fast_skey = None  # The random subkey used for fast
@@ -3574,8 +3577,9 @@ class KerberosClient(Automaton):
                 )
 
                 # Build PA-DATA
+                self.pa_type = 16  # PA-PK-AS-REQ
                 pafactor = PADATA(
-                    padataType=16,  # PA-PK-AS-REQ
+                    padataType=self.pa_type,
                     padataValue=PA_PK_AS_REQ(
                         signedAuthpack=signedAuthpack,
                         trustedCertifiers=None,
@@ -3596,15 +3600,17 @@ class KerberosClient(Automaton):
                         b"clientchallengearmor",
                         b"challengelongterm",
                     )
+                    self.pa_type = 138  # PA-ENCRYPTED-CHALLENGE
                     pafactor = PADATA(
-                        padataType=138,  # PA-ENCRYPTED-CHALLENGE
+                        padataType=self.pa_type,
                         padataValue=EncryptedData(),
                     )
                 else:
                     # Usual 'timestamp' factor
                     ts_key = self.key
+                    self.pa_type = 2  # PA-ENC-TIMESTAMP
                     pafactor = PADATA(
-                        padataType=2,  # PA-ENC-TIMESTAMP
+                        padataType=self.pa_type,
                         padataValue=EncryptedData(),
                     )
                 pafactor.padataValue.encrypt(
@@ -4078,6 +4084,7 @@ class KerberosClient(Automaton):
             res.key.toKey(),
             res,
             pkt.root.getUPN(),
+            self.pa_type,
         )
 
     @ATMT.receive_condition(SENT_TGS_REQ)

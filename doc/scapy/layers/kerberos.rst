@@ -238,6 +238,23 @@ As you can see, DMSA keys were imported in the keytab. You can use those as deta
     
     No tickets in CCache.
 
+- **Create server keytab:**
+
+The following is equivalent to Windows' ``ktpass.exe /out kt.keytab /mapuser WKS02$@domain.local /princ host/WKS02.domain.local@domain.local /pass ScapyIsNice``.
+
+.. code:: pycon
+
+    >>> t = Ticketer()
+    >>> t.add_cred("host/WKS02.domain.local@domain.local", etypes="all", mapupn="WKS02$@domain.local", password="ScapyIsNice")
+    Enter password: ************
+    >>> t.show()
+    Keytab name: UNSAVED
+    Principal                              Timestamp          KVNO  Keytype
+    host/WKS02$.domain.local@domain.local  25/02/26 15:40:27  1     AES256-CTS-HMAC-SHA1-96
+
+    No tickets in CCache.
+    >>> t.save_keytab("kt.keytab")
+
 - **Change password using kpasswd in 'set' mode:**
 
 .. code:: pycon
@@ -369,6 +386,10 @@ Cheat sheet
 | ``t.request_st(i, spn, [...])``       | Request a ST using ticket i    |
 +---------------------------------------+--------------------------------+
 | ``t.renew(i, [...])``                 | Renew a TGT/ST                 |
++---------------------------------------+--------------------------------+
+| ``t.remove_krb(i)``                   | Remove a TGT/ST                |
++---------------------------------------+--------------------------------+
+| ``t.set_primary(i)``                  | Set the primary ticket         |
 +---------------------------------------+--------------------------------+
 
 Other useful commands

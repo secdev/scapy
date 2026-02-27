@@ -270,6 +270,9 @@ class CCCredential(Packet):
         # Set flags
         self.ticket_flags = int(kdcrep.flags.val, 2)
 
+    def is_xcacheconf(self):
+        return self.server.realm.data == b"X-CACHECONF:"
+
 
 class CCache(Packet):
     fields_desc = [
@@ -330,7 +333,7 @@ class KeytabEntry(Packet):
         MayEnd(PacketField("key", KTKeyBlock(), KTKeyBlock)),
         ConditionalField(
             IntField("vno", None),
-            lambda pkt: "vno" in pkt.fields is not None or pkt.original,
+            lambda pkt: pkt.fields.get("vno", None) or pkt.original,
         ),
     ]
 
@@ -536,20 +539,66 @@ class Ticketer:
             print("No tickets in CCache.")
             return
         else:
+            if self.ccache.primary_principal.components:
+                print("Default principal: %s\n" % self.ccache.primary_principal.toPN())
+
             print("CCache tickets:")
 
-        for i, cred in enumerate(self.ccache.credentials):
-            if cred.keyblock.keytype == 0:
+        # 1. Read configuration entries
+        configuration = collections.defaultdict(dict)
+        for cred in self.ccache.credentials:
+            if not cred.is_xcacheconf():
+                # Skip non-configuration entries
                 continue
+
+            if (
+                len(cred.server.components) not in [2, 3]
+                or cred.server.components[0].data != b"krb5_ccache_conf_data"
+            ):
+                print("Skipping invalid X-CACHECONF !")
+                continue
+
+            # Get all the values from this weird format
+            cname = cred.client.toPN()
+            key = cred.server.components[1].data.decode()
+            if len(cred.server.components) == 3:
+                sname = cred.server.components[2].data.decode()
+            else:
+                sname = None
+            value = cred.ticket.data.decode()
+
+            # Store for this cname -> sname, the following 'key' setting.
+            configuration[(cname, sname)][key] = value
+
+        # 2. Read credentials
+        for i, cred in enumerate(self.ccache.credentials):
+            if cred.is_xcacheconf():
+                # Skip configuration entries
+                continue
+
+            # Get client and server principals
+            cname = cred.client.toPN()
+            sname = cred.server.toPN()
+
             print(
                 "%s. %s -> %s"
                 % (
                     i,
-                    cred.client.toPN(),
-                    cred.server.toPN(),
+                    cname,
+                    sname,
                 )
             )
             print(cred.sprintf("   %ticket_flags%"))
+            # If configuration entries match, show the settings here
+            print(
+                "   "
+                + " ".join(
+                    "%s=%s" % (key, value)
+                    for _sname in [sname, None]
+                    for key, value in configuration[(cname, _sname)].items()
+                    if (cname, _sname) in configuration
+                )
+            )
             print(
                 pretty_list(
                     [
@@ -660,7 +709,29 @@ class Ticketer:
 
         :param i: the ticket to remove.
         """
+        cred = self.ccache.credentials[i]
+        xcacheconfs = self.get_krb_xcacheopts(i)
+
+        # Delete from the store
         del self.ccache.credentials[i]
+
+        # Among the remaining, do we have an option that's identical in name?
+        if any(
+            not xcred.is_xcacheconf()
+            and xcred.client.toPN() == cred.client.toPN()
+            and xcred.server.toPN() == cred.server.toPN()
+            for xcred in self.ccache.credentials
+        ):
+            # There is another ticket with the same client and server names. Stop here
+            return
+
+        # There isno ticket exactly the same, remove all the xcacheconf that match
+        for xcred in xcacheconfs:
+            self.ccache.credentials.remove(xcred)
+
+        # If this was the primary principal, remove from there
+        if cred.client.toPN() == self.ccache.primary_principal.toPN():
+            self.ccache.primary_principal = CCPrincipal()
 
     def import_krb(self, res, key=None, hash=None, _inplace=None):
         """
@@ -676,6 +747,7 @@ class Ticketer:
             cred = CCCredential()
 
         # Update the cred
+        xcacheconfs = {}
         if isinstance(res, KRB_Ticket):
             if key is None:
                 key = self._prompt_hash(
@@ -693,6 +765,11 @@ class Ticketer:
         else:
             if isinstance(res, KerberosClient.RES_AS_MODE):
                 rep = res.asrep
+                pa_type = res.pa_type
+                if pa_type is not None:
+                    xcacheconfs["pa_type"] = str(pa_type)
+                if pa_type in [138]:
+                    xcacheconfs["fast_avail"] = "yes"
             elif isinstance(res, KerberosClient.RES_TGS_MODE):
                 rep = res.tgsrep
 
@@ -712,6 +789,7 @@ class Ticketer:
                         )
             else:
                 raise ValueError("Unknown type of obj !")
+
             cred.set_from_krb(
                 rep.ticket,
                 rep,
@@ -721,7 +799,78 @@ class Ticketer:
 
         # Append to ccache
         if _inplace is None:
-            self.ccache.credentials.append(cred)
+            _inplace = sum(
+                1 for xcred in self.ccache.credentials if not xcred.is_xcacheconf()
+            )
+            self.ccache.credentials.insert(_inplace, cred)
+
+        # If this is the first credential, set it to primary
+        if len(self.ccache.credentials) == 1:
+            self.set_primary(_inplace)
+
+        # For MIT kinit to be happy, we must provide extra options for the credential
+        for key, value in xcacheconfs.items():
+            self.set_krb_xcacheconf(_inplace, key, value)
+
+    def set_primary(self, i):
+        """
+        Set the primary (=default) credential to the credential n°1
+        """
+        self.ccache.primary_principal = self.ccache.credentials[i].client
+
+    def get_krb_xcacheopts(self, i: int):
+        """
+        Get the X-CACHECONF config for a credential
+        """
+        cred = self.ccache.credentials[i]
+        cname = cred.client.toPN()
+        sname = cred.server.toPN().encode()
+        return [
+            xcred
+            for xcred in self.ccache.credentials
+            if (
+                xcred.is_xcacheconf()
+                and xcred.client.toPN() == cname
+                and (
+                    len(xcred.server.components) == 2
+                    or xcred.server.components[2].data == sname
+                )
+            )
+        ]
+
+    def set_krb_xcacheconf(self, i: int, key: str, value: str):
+        """
+        Set a X-CACHECONF config for a credential
+        """
+        key = key.encode()
+        value = value.encode()
+        cred = self.ccache.credentials[i]
+        sname = cred.server.toPN().encode()
+
+        # First we look for a potential credential, if present
+        try:
+            conf_cred = next(
+                xcred
+                for xcred in self.get_krb_xcacheopts(i)
+                if xcred.server.components[1].data == key
+            )
+        except StopIteration:
+            conf_cred = CCCredential(
+                client=cred.client,
+                server=CCPrincipal(
+                    name_type=1,
+                    realm=CCCountedOctetString(data=b"X-CACHECONF:"),
+                    components=[
+                        CCCountedOctetString(data=b"krb5_ccache_conf_data"),
+                        CCCountedOctetString(data=key),
+                        CCCountedOctetString(data=sname),
+                    ],
+                ),
+            )
+            self.ccache.credentials.append(conf_cred)
+
+        # Set value
+        conf_cred.ticket = CCCountedOctetString(data=value)
 
     def export_krb(self, i):
         """
@@ -764,16 +913,21 @@ class Ticketer:
 
         # Detect if principal is a SPN or UPN and parse realm.
         realm = None
-        component = None
+        princname = None
         try:
-            component, realm = _parse_upn(principal)
+            _, realm = _parse_upn(principal)
             if salt is None and key is None:
                 salt = krb_get_salt(principal)
+            princname = PrincipalName.fromSPN(principal)
         except ValueError:
             try:
-                component, realm = _parse_spn(principal)
+                _, realm = _parse_spn(principal)
+                princname = PrincipalName.fromSPN(principal)
             except ValueError:
                 raise ValueError("Invalid principal ! (must be UPN or SPN)")
+
+        if not realm:
+            raise ValueError("Must provide the realm in the principal ! (with @DOMAIN)")
 
         if salt is None and key is None:
             raise ValueError(
@@ -821,17 +975,18 @@ class Ticketer:
                 ),
                 components=[
                     KTCountedOctetString(
-                        data=x,
+                        data=x.val,
                     )
-                    for x in component.split("/")
+                    for x in princname.nameString
                 ],
                 timestamp=int(datetime.now().timestamp()),
-                vno8=kvno if kvno < 256 else None,
+                name_type=princname.nameType.val,
+                vno8=kvno,
                 key=KTKeyBlock(
                     keytype=key.etype,
                     keyvalue=key.key,
                 ),
-                vno=None if kvno < 256 else kvno,
+                vno=kvno,
                 _parent=self.keytab,
             )
         )
@@ -849,6 +1004,16 @@ class Ticketer:
             "Principal not found in keytab ! "
             "Note principals are case sensitive, as on ktpass.exe"
         )
+
+    def remove_cred(self, principal, etype=None):
+        """
+        Remove a credential from the Keytab by principal.
+        """
+        for i, entry in enumerate(self.keytab.entries):
+            if entry.getPrincipal() == principal:
+                if etype is not None and etype != entry.key.keytype:
+                    continue
+                del self.keytab.entries[i]
 
     def ssp(self, i, **kwargs):
         """
@@ -2590,9 +2755,18 @@ class Ticketer:
 
         self.import_krb(res, _inplace=i)
 
+    def enumerate_tickets(self):
+        """
+        Enumerate through the tickets in the ccache
+        """
+        for i, cred in enumerate(self.ccache.credentials):
+            if cred.is_xcacheconf():
+                continue
+            yield i, self.export_krb(i)
+
     def iter_tickets(self):
         """
         Iterate through the tickets in the ccache
         """
-        for i in range(len(self.ccache.credentials)):
-            yield self.export_krb(i)
+        for _, tkt in self.enumerate_tickets():
+            yield tkt
