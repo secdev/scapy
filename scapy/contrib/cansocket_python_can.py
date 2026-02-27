@@ -56,14 +56,33 @@ class SocketMapper(object):
         """
         self.bus = bus
         self.sockets = sockets
+        self.closing = False
 
-    def mux(self):
-        # type: () -> None
-        """Multiplexer function. Tries to receive from its python-can bus
-        object. If a message is received, this message gets forwarded to
-        all receive queues of the SocketWrapper objects.
+    # Maximum time (seconds) to spend reading frames in one read_bus()
+    # call.  On serial interfaces (slcan) the final bus.recv(timeout=0)
+    # when the buffer is empty blocks for the serial port's read timeout
+    # (typically 100ms in python-can's slcan driver).  During that block
+    # the TimeoutScheduler thread cannot run any other callbacks.  By
+    # capping total read time, we ensure the scheduler stays responsive
+    # even on slow serial interfaces with heavy background traffic.
+    READ_BUS_TIME_LIMIT = 0.020  # 20 ms
+
+    def read_bus(self):
+        # type: () -> List[can_Message]
+        """Read available frames from the bus, up to READ_BUS_TIME_LIMIT.
+
+        On slow serial interfaces (slcan), bus.recv(timeout=0) can
+        block for ~100ms when the serial buffer is empty (python-can's
+        slcan serial timeout).  This method limits total time spent
+        reading so the TimeoutScheduler thread stays responsive.
+
+        This method intentionally does NOT hold pool_mutex so that
+        concurrent send() calls are not blocked during the serial I/O.
         """
+        if self.closing:
+            return []
         msgs = []
+        deadline = time.monotonic() + self.READ_BUS_TIME_LIMIT
         while True:
             try:
                 msg = self.bus.recv(timeout=0)
@@ -71,9 +90,17 @@ class SocketMapper(object):
                     break
                 else:
                     msgs.append(msg)
+                if time.monotonic() >= deadline:
+                    break
             except Exception as e:
-                warning("[MUX] python-can exception caught: %s" % e)
+                if not self.closing:
+                    warning("[MUX] python-can exception caught: %s" % e)
+                break
+        return msgs
 
+    def distribute(self, msgs):
+        # type: (List[can_Message]) -> None
+        """Distribute received messages to all subscribed sockets."""
         for sock in self.sockets:
             with sock.lock:
                 for msg in msgs:
@@ -133,9 +160,17 @@ class _SocketsPool(object):
             # this object is singleton and all python-CAN sockets are using
             # the same instance and locking the same locks.
             return
+        # Snapshot pool entries under the lock, then read from each bus
+        # WITHOUT holding pool_mutex.  On slow serial interfaces (slcan)
+        # bus.recv(timeout=0) can take ~2-3ms per frame; holding the
+        # mutex during those reads would block send() for the entire
+        # duration.
         with self.pool_mutex:
-            for t in self.pool.values():
-                t.mux()
+            mappers = list(self.pool.values())
+        for mapper in mappers:
+            msgs = mapper.read_bus()
+            if msgs:
+                mapper.distribute(msgs)
         self.last_call = time.monotonic()
 
     def register(self, socket, *args, **kwargs):
@@ -212,6 +247,7 @@ class _SocketsPool(object):
                 t = self.pool[socket.name]
                 t.sockets.remove(socket)
                 if not t.sockets:
+                    t.closing = True
                     t.bus.shutdown()
                     del self.pool[socket.name]
             except KeyError:
@@ -346,6 +382,7 @@ class PythonCANSocket(SuperSocket):
         :returns: an array of sockets that were selected and
             the function to be called next to get the packets (i.g. recv)
         """
+        SocketsPool.multiplex_rx_packets()
         ready_sockets = \
             [s for s in sockets if isinstance(s, PythonCANSocket) and
              len(s.can_iface.rx_queue)]
@@ -357,7 +394,6 @@ class PythonCANSocket(SuperSocket):
             # yield this thread to avoid starvation
             time.sleep(0)
 
-        SocketsPool.multiplex_rx_packets()
         return cast(List[SuperSocket], ready_sockets)
 
     def close(self):
