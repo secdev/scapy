@@ -166,7 +166,8 @@ class ISOTPSoftSocket(SuperSocket):
     def close(self):
         # type: () -> None
         if not self.closed:
-            self.impl.close()
+            if hasattr(self, "impl"):
+                self.impl.close()
             self.closed = True
 
     def failure_analysis(self):
