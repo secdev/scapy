@@ -1749,7 +1749,7 @@ class RawPcapNgReader(RawPcapReader):
             raise Scapy_Exception("PcapNg: Invalid Section Header Block "
                                   " options (too short)")
         self._read_block_tail(blocklen)
-        self._read_options(options)
+        self.shb_options = self._read_options(options)
 
     def _read_packet(self, size=MTU):  # type: ignore
         # type: (int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -2403,6 +2403,9 @@ class RawPcapNgWriter(GenericRawPcapWriter):
 
     def __init__(self,
                  filename,  # type: str
+                 shb_hardware=None,  # type: Optional[str]
+                 shb_os=None,  # type: Optional[str]
+                 shb_userapp=None,  # type: Optional[str]
                  ):
         # type: (...) -> None
 
@@ -2415,6 +2418,10 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         # tcpdump only support little-endian in PCAPng files
         self.endian = "<"
         self.endian_magic = b"\x4d\x3c\x2b\x1a"
+
+        self.shb_hardware = shb_hardware
+        self.shb_os = shb_os
+        self.shb_userapp = shb_userapp
 
         self.filename = filename
         self.f = open(filename, "wb", 4096)
@@ -2482,6 +2489,24 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         block_shb += struct.pack(self.endian + "H", 0)
         # Section Length
         block_shb += struct.pack(self.endian + "q", -1)
+
+        # Add Hardware Name Option (2), if exists
+        if self.shb_hardware is not None:
+            block_shb += struct.pack(self.endian + "HH", 0x0002, len(self.shb_hardware))
+            block_shb += self.shb_hardware.encode()
+            block_shb = self._add_padding(block_shb)
+
+        # Add OS Name Option (3), if exists
+        if self.shb_os is not None:
+            block_shb += struct.pack(self.endian + "HH", 0x0003, len(self.shb_os))
+            block_shb += self.shb_os.encode()
+            block_shb = self._add_padding(block_shb)
+
+        # Add User Application Name Option (4), if exists
+        if self.shb_userapp is not None:
+            block_shb += struct.pack(self.endian + "HH", 0x0004, len(self.shb_userapp))
+            block_shb += self.shb_userapp.encode()
+            block_shb = self._add_padding(block_shb)
 
         self.f.write(self.build_block(block_type, block_shb))
 
