@@ -31,32 +31,32 @@ from scapy.layers.dcerpc import (
 )
 
 from scapy.layers.msrpce.raw.ms_rrp import (
-    OpenClassesRoot_Request,
-    OpenLocalMachine_Request,
-    OpenCurrentUser_Request,
-    OpenUsers_Request,
-    OpenCurrentConfig_Request,
-    OpenPerformanceData_Request,
-    OpenPerformanceText_Request,
-    OpenPerformanceNlsText_Request,
-    BaseRegOpenKey_Request,
-    BaseRegEnumKey_Request,
-    BaseRegEnumValue_Request,
     BaseRegCloseKey_Request,
-    BaseRegQueryValue_Request,
-    BaseRegGetVersion_Request,
-    BaseRegQueryInfoKey_Request,
-    BaseRegQueryInfoKey_Response,
-    BaseRegGetKeySecurity_Request,
-    BaseRegSaveKey_Request,
-    BaseRegSetValue_Request,
     BaseRegCreateKey_Request,
     BaseRegDeleteKey_Request,
     BaseRegDeleteValue_Request,
-    PRPC_SECURITY_DESCRIPTOR,
-    PRPC_SECURITY_ATTRIBUTES,
-    RPC_UNICODE_STRING,
+    BaseRegEnumKey_Request,
+    BaseRegEnumValue_Request,
+    BaseRegGetKeySecurity_Request,
+    BaseRegGetVersion_Request,
+    BaseRegOpenKey_Request,
+    BaseRegQueryInfoKey_Request,
+    BaseRegQueryInfoKey_Response,
+    BaseRegQueryValue_Request,
+    BaseRegSaveKey_Request,
+    BaseRegSetValue_Request,
     NDRContextHandle,
+    OpenClassesRoot_Request,
+    OpenCurrentConfig_Request,
+    OpenCurrentUser_Request,
+    OpenLocalMachine_Request,
+    OpenPerformanceData_Request,
+    OpenPerformanceNlsText_Request,
+    OpenPerformanceText_Request,
+    OpenUsers_Request,
+    PRPC_SECURITY_ATTRIBUTES,
+    PRPC_SECURITY_DESCRIPTOR,
+    RPC_UNICODE_STRING,
 )
 
 
@@ -336,11 +336,13 @@ class RegEntry:
             return data
 
     def __str__(self) -> str:
-        return f"{self.reg_value} ({self.reg_type.name}: " + \
-               f"{self.reg_type.real_value
+        return (
+            f"{self.reg_value} ({self.reg_type.name}: "
+            + f"{self.reg_type.real_value
                   if self.reg_type == RegType.UNK
-                  else self.reg_type.value}" + \
-               f") {self.reg_data}"
+                  else self.reg_type.value}"
+            + f") {self.reg_data}"
+        )
 
     def __repr__(self) -> str:
         return f"RegEntry({self.reg_value}, {self.reg_type}, {self.reg_data})"

@@ -18,8 +18,8 @@ from scapy.fields import (
     ConditionalField,
     FieldLenField,
     FieldListField,
-    FlagValue,
     FlagsField,
+    FlagValue,
     LEIntField,
     LELongField,
     LenField,
@@ -37,10 +37,10 @@ from scapy.fields import (
 )
 
 from scapy.layers.ntlm import (
-    _NTLMPayloadField,
-    _NTLMPayloadPacket,
     _NTLM_ENUM,
     _NTLM_post_build,
+    _NTLMPayloadField,
+    _NTLMPayloadPacket,
 )
 
 # [MS-DTYP] sect 2.4.1
