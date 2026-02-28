@@ -338,9 +338,7 @@ class RegEntry:
     def __str__(self) -> str:
         return (
             f"{self.reg_value} ({self.reg_type.name}: "
-            + f"{self.reg_type.real_value
-                 if self.reg_type == RegType.UNK
-                 else self.reg_type.value}"
+            + f"{self.reg_type.real_value if self.reg_type == RegType.UNK else self.reg_type.value}"  # noqa E501
             + f") {self.reg_data}"
         )
 
