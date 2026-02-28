@@ -242,7 +242,7 @@ class RegEntry:
         self.reg_data = reg_data
 
     def encode(self):
-        """Non static methode to encode the data"""
+        """Non static method to encode the data"""
         return self.encode_data(self.reg_type, self.reg_data)
 
     @staticmethod
