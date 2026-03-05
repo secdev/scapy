@@ -250,7 +250,7 @@ class RegEntry:
         """
         if reg_type == RegType.REG_MULTI_SZ:
             # encode to multiple null terminated strings
-            reg_data = [x.decode("utf-16le") for x in data.split(b"\x00\x00")[:-1]]
+            reg_data = data.decode("utf-16le")[:-2].split("\x00")
         elif reg_type in [
             RegType.REG_SZ,
             RegType.REG_EXPAND_SZ,
@@ -311,13 +311,13 @@ class RegEntry:
 
     def __str__(self) -> str:
         return (
-            f"{self.reg_value} ({self.reg_type.name}: "
+            f"{self.reg_name} ({self.reg_type.name}: "
             + f"{self.reg_type.real_value if self.reg_type == RegType.UNK else self.reg_type.value}"  # noqa E501
             + f") {self.reg_data}"
         )
 
     def __repr__(self) -> str:
-        return f"RegEntry({self.reg_value}, {self.reg_type}, {self.reg_data})"
+        return f"RegEntry({self.reg_name}, {self.reg_type}, {self.reg_data})"
 
     def __eq__(self, value):
         return isinstance(value, RegEntry) and all(
