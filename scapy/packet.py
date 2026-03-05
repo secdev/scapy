@@ -79,6 +79,32 @@ except ImportError:
 _T = TypeVar("_T", Dict[str, Any], Optional[Dict[str, Any]])
 
 
+def _rebuild_pkt(
+    cls,  # type: Type[Packet]
+    fields,  # type: Dict[str, Any]
+    payload,  # type: Optional[Packet]
+    metadata,  # type: Dict[str, Any]
+    extra_slots={},  # type: Dict[str, Any]
+):
+    # type: (...) -> Packet
+    """Helper for unpickling Packet instances via field values."""
+    # Create the instance using the field values
+    pkt = cls(**fields)
+    if payload is not None:
+        pkt.add_payload(payload)
+    # Restore metadata
+    pkt.time = metadata['time']
+    pkt.sent_time = metadata['sent_time']
+    pkt.direction = metadata['direction']
+    pkt.sniffed_on = metadata['sniffed_on']
+    pkt.wirelen = metadata['wirelen']
+    pkt.comments = metadata['comments']
+    # Restore any extra __slots__ defined by subclasses
+    for attr, value in extra_slots.items():
+        setattr(pkt, attr, value)
+    return pkt
+
+
 class Packet(
     BasePacket,
     _CanvasDumpExtended,
@@ -214,15 +240,6 @@ class Packet(
         else:
             self.post_transforms = [post_transform]
 
-    _PickleType = Tuple[
-        Union[EDecimal, float],
-        Optional[Union[EDecimal, float, None]],
-        Optional[int],
-        Optional[_GlobInterfaceType],
-        Optional[int],
-        Optional[bytes],
-    ]
-
     @property
     def comment(self):
         # type: () -> Optional[bytes]
@@ -244,27 +261,37 @@ class Packet(
             self.comments = None
 
     def __reduce__(self):
-        # type: () -> Tuple[Type[Packet], Tuple[bytes], Packet._PickleType]
-        """Used by pickling methods"""
-        return (self.__class__, (self.build(),), (
-            self.time,
-            self.sent_time,
-            self.direction,
-            self.sniffed_on,
-            self.wirelen,
-            self.comment
-        ))
+        # type: () -> Tuple[Any, ...]
+        """Used by pickling methods.
 
-    def __setstate__(self, state):
-        # type: (Packet._PickleType) -> Packet
-        """Rebuild state using pickable methods"""
-        self.time = state[0]
-        self.sent_time = state[1]
-        self.direction = state[2]
-        self.sniffed_on = state[3]
-        self.wirelen = state[4]
-        self.comment = state[5]
-        return self
+        Reconstructs the packet from field values, payload, and metadata.
+        """
+        # Store field values for unpickling
+        fields = {}
+        for f in self.fields_desc:
+            if f.name in self.fields:
+                fields[f.name] = self.fields[f.name]
+        payload = self.payload  # type: Optional[Packet]
+        if isinstance(payload, NoPayload):
+            payload = None
+        # Store metadata for unpickling
+        metadata = {
+            'time': self.time,
+            'sent_time': self.sent_time,
+            'direction': self.direction,
+            'sniffed_on': self.sniffed_on,
+            'wirelen': self.wirelen,
+            'comments': self.comments,
+        }
+        # Collect any extra __slots__ defined by subclasses
+        extra_slots = {}
+        for attr in type(self).__all_slots__ - set(Packet.__slots__):
+            if hasattr(self, attr):
+                extra_slots[attr] = getattr(self, attr)
+        return (
+            _rebuild_pkt,
+            (self.__class__, fields, payload, metadata, extra_slots),
+        )
 
     def __deepcopy__(self,
                      memo,  # type: Any
