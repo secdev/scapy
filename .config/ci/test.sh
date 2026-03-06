@@ -6,7 +6,7 @@
 
 # test.sh
 # Usage:
-#   ./test.sh [tox version] [both/root/non_root (default root)]
+#   ./test.sh [python version] [both/root/non_root (default root)]
 # Examples:
 #   ./test.sh 3.7 both
 #   ./test.sh 3.9 non_root

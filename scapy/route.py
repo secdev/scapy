@@ -203,7 +203,7 @@ class Route:
             if dev is not None and i != dev:
                 continue
             aa = atol(a)
-            if aa == atol_dst:
+            if aa == atol_dst and aa != 0:
                 paths.append(
                     (0xffffffff, 1, (conf.loopback_name, a, "0.0.0.0"))  # noqa: E501
                 )
@@ -229,8 +229,11 @@ class Route:
 
     def get_if_bcast(self, iff):
         # type: (str) -> List[str]
+        """
+        Return the list of broadcast addresses of an interface.
+        """
         bcast_list = []
-        for net, msk, gw, iface, addr, metric in self.routes:
+        for net, msk, _, iface, _, _ in self.routes:
             if net == 0:
                 continue    # Ignore default route "0.0.0.0"
             elif msk == 0xffffffff:

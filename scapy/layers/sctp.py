@@ -24,6 +24,7 @@ from scapy.fields import (
     IntEnumField,
     IntField,
     MultipleTypeField,
+    PacketLenField,
     PacketListField,
     PadField,
     ShortEnumField,
@@ -36,7 +37,7 @@ from scapy.fields import (
 )
 from scapy.data import SCTP_SERVICES
 from scapy.layers.inet import IP, IPerror
-from scapy.layers.inet6 import IP6Field, IPv6, IPerror6
+from scapy.layers.inet6 import IP6Field, IPv6, IPerror6, nh_clserror
 
 IPPROTO_SCTP = 132
 
@@ -124,13 +125,13 @@ BASE = 65521 # largest prime smaller than 65536
 def update_adler32(adler, buf):
     s1 = adler & 0xffff
     s2 = (adler >> 16) & 0xffff
-    print s1,s2
+    print(s1, s2)
 
     for c in buf:
-        print orb(c)
+        print(orb(c))
         s1 = (s1 + orb(c)) % BASE
         s2 = (s2 + s1) % BASE
-        print s1,s2
+        print(s1, s2)
     return (s2 << 16) + s1
 
 def sctp_checksum(buf):
@@ -302,6 +303,8 @@ class SCTPerror(SCTP):
     def mysummary(self):
         return Packet.mysummary(self)
 
+
+nh_clserror[IPPROTO_SCTP] = SCTPerror
 
 # SCTP Chunk variable params
 
@@ -624,6 +627,23 @@ SCTP_PAYLOAD_PROTOCOL_INDENTIFIERS = {
 }
 
 
+class _SCTPChunkDataField(PacketLenField):
+    """PacketLenField that dispatches using bind_layers bindings."""
+
+    def m2i(self, pkt, m):
+        # Only dissect complete messages
+        if pkt.beginning != 1 or pkt.ending != 1:
+            return conf.raw_layer(load=m)
+        # Check bind_layers bindings
+        for fval, cls in pkt.payload_guess:
+            if all(
+                hasattr(pkt, k) and v == pkt.getfieldval(k)
+                for k, v in fval.items()
+            ):
+                return cls(m)
+        return conf.raw_layer(load=m)
+
+
 class SCTPChunkData(_SCTPChunkGuessPayload, Packet):
     # TODO : add a padding function in post build if this layer is used to generate SCTP chunk data  # noqa: E501
     fields_desc = [ByteEnumField("type", 0, sctpchunktypes),
@@ -637,7 +657,8 @@ class SCTPChunkData(_SCTPChunkGuessPayload, Packet):
                    XShortField("stream_id", None),
                    XShortField("stream_seq", None),
                    IntEnumField("proto_id", None, SCTP_PAYLOAD_PROTOCOL_INDENTIFIERS),  # noqa: E501
-                   PadField(StrLenField("data", None, length_from=lambda pkt: pkt.len - 16),  # noqa: E501
+                   PadField(_SCTPChunkDataField("data", None, conf.raw_layer,
+                                                length_from=lambda pkt: pkt.len - 16),  # noqa: E501
                             4, padwith=b"\x00"),
                    ]
 

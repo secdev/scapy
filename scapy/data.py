@@ -302,7 +302,7 @@ def scapy_data_cache(name):
     if SCAPY_CACHE_FOLDER is None:
         # Cannot cache.
         return lambda x: x
-    cachepath = SCAPY_CACHE_FOLDER / name
+    cachepath = SCAPY_CACHE_FOLDER / (name + ".pickle")
 
     def _cached_loader(func, name=name):
         # type: (DecoratorCallable, str) -> DecoratorCallable
@@ -574,6 +574,14 @@ def load_manuf(filename=None):
     return manufdb
 
 
+@scapy_data_cache("bluetoothids")
+def load_bluetoothids(filename=None):
+    # type: (Optional[str]) -> Dict[int, str]
+    """Load Bluetooth IDs into the cache"""
+    from scapy.libs.bluetoothids import DATA
+    return cast(Dict[int, str], DATA)
+
+
 def select_path(directories, filename):
     # type: (List[str], str) -> Optional[str]
     """Find filename among several directories"""
@@ -612,6 +620,8 @@ else:
             "share/wireshark/manuf"
         )
     )
+
+BLUETOOTH_CORE_COMPANY_IDENTIFIERS = load_bluetoothids()
 
 
 #####################

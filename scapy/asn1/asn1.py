@@ -93,7 +93,7 @@ class RandASN1Object(RandField["ASN1_Object[Any]"]):
             return o(GeneralizedTime()._fix())
         elif issubclass(o, ASN1_STRING):
             z1 = int(random.expovariate(0.05) + 1)
-            return o("".join(random.choice(self.chars) for _ in range(z1)))
+            return o("".join(random.choice(self.chars) for _ in range(z1)).encode())
         elif issubclass(o, ASN1_SEQUENCE) and (n < 10):
             z2 = int(random.expovariate(0.08) + 1)
             return o([self.__class__(objlist=self.objlist)._fix(n + 1)
@@ -520,7 +520,7 @@ class ASN1_BIT_STRING(ASN1_Object[str]):
         )
 
 
-class ASN1_STRING(ASN1_Object[str]):
+class ASN1_STRING(ASN1_Object[bytes]):
     tag = ASN1_Class_UNIVERSAL.STRING
 
 
@@ -555,11 +555,11 @@ class ASN1_UTF8_STRING(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.UTF8_STRING
 
 
-class ASN1_NUMERIC_STRING(ASN1_STRING):
+class ASN1_NUMERIC_STRING(ASN1_Object[str]):
     tag = ASN1_Class_UNIVERSAL.NUMERIC_STRING
 
 
-class ASN1_PRINTABLE_STRING(ASN1_STRING):
+class ASN1_PRINTABLE_STRING(ASN1_Object[str]):
     tag = ASN1_Class_UNIVERSAL.PRINTABLE_STRING
 
 
@@ -579,7 +579,7 @@ class ASN1_GENERAL_STRING(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.GENERAL_STRING
 
 
-class ASN1_GENERALIZED_TIME(ASN1_STRING):
+class ASN1_GENERALIZED_TIME(ASN1_Object[str]):
     """
     Improved version of ASN1_GENERALIZED_TIME, properly handling time zones and
     all string representation formats defined by ASN.1. These are:
@@ -723,7 +723,7 @@ class ASN1_BMP_STRING(ASN1_STRING):
         # type: () -> str
         return "<%s[%r]>" % (
             self.__dict__.get("name", self.__class__.__name__),
-            self.val.decode("utf-16be"),  # type: ignore
+            self.val.decode("utf-16be"),
         )
 
 
@@ -742,7 +742,7 @@ class ASN1_SET(ASN1_SEQUENCE):
     tag = ASN1_Class_UNIVERSAL.SET
 
 
-class ASN1_IPADDRESS(ASN1_STRING):
+class ASN1_IPADDRESS(ASN1_Object[str]):
     tag = ASN1_Class_UNIVERSAL.IPADDRESS
 
 

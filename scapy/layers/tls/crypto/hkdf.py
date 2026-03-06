@@ -27,10 +27,14 @@ class TLS13_HKDF(object):
     @crypto_validator
     def extract(self, salt, ikm):
         h = self.hash
-        hkdf = HKDF(h, h.digest_size, salt, None, default_backend())
         if ikm is None:
             ikm = b"\x00" * h.digest_size
-        return hkdf._extract(ikm)
+        # cryptography 47.0.0 added this as a public API
+        if getattr(HKDF, "extract", None) is not None:
+            return HKDF.extract(h, salt, ikm)
+        else:
+            hkdf = HKDF(h, h.digest_size, salt, None, default_backend())
+            return hkdf._extract(ikm)
 
     @crypto_validator
     def expand(self, prk, info, L):

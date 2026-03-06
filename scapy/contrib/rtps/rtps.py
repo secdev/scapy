@@ -197,7 +197,8 @@ class DataPacket(EPacket):
         writer_entity_id_key = kwargs.pop("writer_entity_id_key", None)
         writer_entity_id_kind = kwargs.pop("writer_entity_id_kind", None)
         pl_len = kwargs.pop("pl_len", 0)
-        if writer_entity_id_key == 0x200 and writer_entity_id_kind == 0xC2:
+        if (writer_entity_id_key == 0x200 or writer_entity_id_key == 0x100) and \
+                writer_entity_id_kind == 0xC2:
             DataPacket._pl_type = "ParticipantMessageData"
         else:
             DataPacket._pl_type = "SerializedData"

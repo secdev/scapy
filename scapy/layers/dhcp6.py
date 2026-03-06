@@ -57,7 +57,10 @@ dhcp6_cls_by_type = {1: "DHCP6_Solicit",
                      10: "DHCP6_Reconf",
                      11: "DHCP6_InfoRequest",
                      12: "DHCP6_RelayForward",
-                     13: "DHCP6_RelayReply"}
+                     13: "DHCP6_RelayReply",
+                     36: "DHCP6_AddrRegInform",
+                     37: "DHCP6_AddrRegReply",
+                     }
 
 
 def _dhcp6_dispatcher(x, *args, **kargs):
@@ -128,6 +131,7 @@ dhcp6opts = {1: "CLIENTID",
              79: "OPTION_CLIENT_LINKLAYER_ADDR",  # RFC6939
              103: "OPTION_CAPTIVE_PORTAL",  # RFC8910
              112: "OPTION_MUD_URL",  # RFC8520
+             148: "OPTION_ADDR_REG_ENABLE",  # RFC9686
              }
 
 dhcp6opts_by_code = {1: "DHCP6OptClientId",
@@ -187,10 +191,12 @@ dhcp6opts_by_code = {1: "DHCP6OptClientId",
                      79: "DHCP6OptClientLinkLayerAddr",  # RFC6939
                      103: "DHCP6OptCaptivePortal",  # RFC8910
                      112: "DHCP6OptMudUrl",  # RFC8520
+                     148: "DHCP6OptAddrRegEnable",  # RFC9686
                      }
 
 
 # sect 7.3 RFC 8415 : DHCP6 Messages types
+# also RFC 9686
 dhcp6types = {1: "SOLICIT",
                  2: "ADVERTISE",
                  3: "REQUEST",
@@ -203,7 +209,10 @@ dhcp6types = {1: "SOLICIT",
               10: "RECONFIGURE",
               11: "INFORMATION-REQUEST",
               12: "RELAY-FORW",
-              13: "RELAY-REPL"}
+              13: "RELAY-REPL",
+              36: "ADDR-REG-INFORM",
+              37: "ADDR-REG-REPLY",
+              }
 
 
 #####################################################################
@@ -1103,6 +1112,12 @@ class DHCP6OptMudUrl(_DHCP6OptGuessPayload):  # RFC8520
                                )]
 
 
+class DHCP6OptAddrRegEnable(_DHCP6OptGuessPayload):   # RFC 9686 sect 4.1
+    name = "DHCP6 Address Registration Option"
+    fields_desc = [ShortEnumField("optcode", 148, dhcp6opts),
+                   ShortField("optlen", 0)]
+
+
 #####################################################################
 #                          DHCPv6 messages                          #
 #####################################################################
@@ -1435,6 +1450,24 @@ class DHCP6_RelayReply(DHCP6_RelayForward):
                 self.hopcount == other.hopcount and
                 self.linkaddr == other.linkaddr and
                 self.peeraddr == other.peeraddr)
+
+
+#####################################################################
+# Address Registration-Inform Message (RFC 9686)
+# - sent by clients who generated their own address and need it registered
+
+class DHCP6_AddrRegInform(DHCP6):
+    name = "DHCPv6 Information Request Message"
+    msgtype = 36
+
+#####################################################################
+# Address Registration-Reply Message (RFC 9686)
+# - sent by servers who respond to the address registration-inform message
+
+
+class DHCP6_AddrRegReply(DHCP6):
+    name = "DHCPv6 Information Reply Message"
+    msgtype = 37
 
 
 bind_bottom_up(UDP, _dhcp6_dispatcher, {"dport": 547})
@@ -1842,7 +1875,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             client_duid = p[DHCP6OptClientId].duid
             resp = IPv6(src=self.src_addr, dst=req_src)
             resp /= UDP(sport=547, dport=546)
-            resp /= DHCP6_Solicit(trid=trid)
+            resp /= DHCP6_Reply(trid=trid)
             resp /= DHCP6OptServerId(duid=self.duid)
             resp /= DHCP6OptClientId(duid=client_duid)
 

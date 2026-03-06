@@ -1071,17 +1071,17 @@ def arping(net: str,
         hint = net[0]
     else:
         hint = str(net)
-    psrc = conf.route.route(hint, verbose=False)[1]
-    if psrc == "0.0.0.0":
-        if "iface" in kargs:
-            psrc = get_if_addr(kargs["iface"])
-        else:
-            warning(
-                "No route found for IPv4 destination %s. "
-                "Using conf.iface. Please provide an 'iface' !" % hint)
-            psrc = get_if_addr(conf.iface)
-            hwaddr = get_if_hwaddr(conf.iface)
-            kargs["iface"] = conf.iface
+    psrc = conf.route.route(
+        hint,
+        dev=kargs.get("iface", None),
+        verbose=False,
+        _internal=True,  # Do not follow default routes.
+    )[1]
+    if psrc == "0.0.0.0" and "iface" not in kargs:
+        warning(
+            "Could not find the interface for destination %s based on the routes. "
+            "Using conf.iface. Please provide an 'iface' !" % hint
+        )
 
     ans, unans = srp(
         Ether(dst="ff:ff:ff:ff:ff:ff", src=hwaddr) / ARP(

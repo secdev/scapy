@@ -19,8 +19,17 @@ from scapy.utils import checksum, do_graph, incremental_label, \
     linehexdump, strxor, whois, colgen
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Gen, Net, _ScopedIP
-from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
-    IP_PROTOS, TCP_SERVICES, UDP_SERVICES
+from scapy.consts import OPENBSD
+from scapy.data import (
+    ETH_P_IP,
+    ETH_P_ALL,
+    DLT_RAW,
+    DLT_RAW_ALT,
+    DLT_IPV4,
+    IP_PROTOS,
+    TCP_SERVICES,
+    UDP_SERVICES,
+)
 from scapy.layers.l2 import (
     CookedLinux,
     Dot3,
@@ -577,6 +586,8 @@ class IP(Packet, IPTools):
         if conf.route is None:
             # unused import, only to initialize conf.route
             import scapy.route  # noqa: F401
+        if not isinstance(dst, (str, bytes, int)):
+            dst = str(dst)
         return conf.route.route(dst, dev=scope)
 
     def hashret(self):
@@ -1358,6 +1369,8 @@ bind_layers(UDP, GRE, dport=4754)
 conf.l2types.register(DLT_RAW, IP)
 conf.l2types.register_num2layer(DLT_RAW_ALT, IP)
 conf.l2types.register(DLT_IPV4, IP)
+if OPENBSD:
+    conf.l2types.register_num2layer(228, IP)
 
 conf.l3types.register(ETH_P_IP, IP)
 conf.l3types.register_num2layer(ETH_P_ALL, IP)
@@ -2165,16 +2178,20 @@ class TCP_client(Automaton):
     :param ip: the ip to connect to
     :param port:
     :param src: (optional) use another source IP
+    :param sport: (optional) the TCP source port (default: random)
+    :param seq: (optional) initial TCP sequence number (default: random)
     """
 
-    def parse_args(self, ip, port, srcip=None, **kargs):
+    def parse_args(self, ip, port, srcip=None, sport=None, seq=None, ack=0, **kargs):
         from scapy.sessions import TCPSession
         self.dst = str(Net(ip))
         self.dport = port
-        self.sport = random.randrange(0, 2**16)
+        self.sport = sport if sport is not None else random.randrange(0, 2**16)
         self.l4 = IP(dst=ip, src=srcip) / TCP(
             sport=self.sport, dport=self.dport,
-            flags=0, seq=random.randrange(0, 2**32)
+            flags=0,
+            seq=seq if seq is not None else random.randrange(0, 2**32),
+            ack=ack,
         )
         self.src = self.l4.src
         self.sack = self.l4[TCP].ack

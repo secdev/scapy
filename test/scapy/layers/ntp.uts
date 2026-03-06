@@ -129,7 +129,7 @@ assert p.status == 0
 assert p.association_id == 0
 assert p.offset == 0
 assert p.count == 0
-assert p.data is None
+assert p.data == b""
 
 
 = NTP Control (mode 6) - CTL_OP_READSTAT (2) - response
@@ -143,26 +143,41 @@ assert p.err == 0
 assert p.more == 0
 assert p.op_code == 1
 assert p.sequence == 12
-assert isinstance(p.status_word, NTPSystemStatusPacket)
-assert p.status_word.leap_indicator == 0
-assert p.status_word.clock_source == 6
-assert p.status_word.system_event_counter == 6
-assert p.status_word.system_event_code == 4
+assert isinstance(p.status, NTPSystemStatusPacket)
+assert p.status.leap_indicator == 0
+assert p.status.clock_source == 6
+assert p.status.system_event_counter == 6
+assert p.status.system_event_code == 4
 assert p.association_id == 0
 assert p.offset == 0
 assert p.count == 4
-assert isinstance(p.data, NTPPeerStatusDataPacket)
-assert p.data.association_id == 58876
-assert isinstance(p.data.peer_status, NTPPeerStatusPacket)
-assert p.data.peer_status.configured == 1
-assert p.data.peer_status.auth_enabled == 1
-assert p.data.peer_status.authentic == 1
-assert p.data.peer_status.reachability == 1
-assert p.data.peer_status.reserved == 0
-assert p.data.peer_status.peer_sel == 6
-assert p.data.peer_status.peer_event_counter == 2
-assert p.data.peer_status.peer_event_code == 4
+assert isinstance(p.data[0], NTPPeerStatusDataPacket)
+assert p.data[0].association_id == 58876
+assert isinstance(p.data[0].peer_status, NTPPeerStatusPacket)
+assert p.data[0].peer_status.configured == 1
+assert p.data[0].peer_status.auth_enabled == 1
+assert p.data[0].peer_status.authentic == 1
+assert p.data[0].peer_status.reachability == 1
+assert p.data[0].peer_status.reserved == 0
+assert p.data[0].peer_status.peer_sel == 6
+assert p.data[0].peer_status.peer_event_counter == 2
+assert p.data[0].peer_status.peer_event_code == 4
 
+= NTP Control (mode 6) - CTL_OP_READSTAT (3) - multi
+s = b'\x16\x81\x00\x0f\x00\x14\x00\x00\x00\x00\x008Et\x00\x11Es\x00\x11Er\x00\x11Eq\x00\x11Ep6\x1aEo4\x14En3\x14Em4\x14El4\x1aEk4\x14Ej\x88\x11Ei\x88\x11Eh\x88\x11Eg\x88\x11'
+p = NTP(s)
+assert isinstance(p, NTPControl)
+assert p.version == 2
+assert p.response == 1
+assert isinstance(p.status, NTPSystemStatusPacket)
+assert p.count == 56
+assert len(p.data) == 14
+assert all(isinstance(x, NTPPeerStatusDataPacket) for x in p.data)
+assert p.data[0].association_id == 17780
+assert p.data[10].association_id == 17770
+assert p.data[13].association_id == 17767
+assert p.data[13].peer_status.peer_event_counter == 1
+assert not p.authenticator
 
 = NTP Control (mode 6) - CTL_OP_READVAR (1) - request
 s = b'\x16\x02\x00\x12\x00\x00\xfc\x8f\x00\x00\x00\x00'
@@ -175,7 +190,7 @@ assert p.op_code == 2
 assert p.sequence == 18
 assert p.status == 0
 assert p.association_id == 64655
-assert p.data is None
+assert p.data == b""
 
 
 = NTP Control (mode 6) - CTL_OP_READVAR (2) - response (1st packet)
@@ -189,22 +204,22 @@ assert p.err == 0
 assert p.more == 1
 assert p.op_code == 2
 assert p.sequence == 18
-assert isinstance(p.status_word, NTPPeerStatusPacket)
-assert p.status_word.configured == 1
-assert p.status_word.auth_enabled == 1
-assert p.status_word.authentic == 0
-assert p.status_word.reachability == 0
-assert p.status_word.peer_sel == 0
-assert p.status_word.peer_event_counter == 1
-assert p.status_word.peer_event_code == 1
+assert isinstance(p.status, NTPPeerStatusPacket)
+assert p.status.configured == 1
+assert p.status.auth_enabled == 1
+assert p.status.authentic == 0
+assert p.status.reachability == 0
+assert p.status.peer_sel == 0
+assert p.status.peer_event_counter == 1
+assert p.status.peer_event_code == 1
 assert p.association_id == 64655
 assert p.offset == 0
 assert p.count == 468
-assert p.data.load == b'srcadr=192.168.122.1, srcport=123, dstadr=192.168.122.100, dstport=123,\r\nleap=3, stratum=16, precision=-24, rootdelay=0.000, rootdisp=0.000,\r\nrefid=INIT, reftime=0x00000000.00000000, rec=0x00000000.00000000,\r\nreach=0x0, unreach=5, hmode=1, pmode=0, hpoll=6, ppoll=10, headway=62,\r\nflash=0x1200, keyid=1, offset=0.000, delay=0.000, dispersion=15937.500,\r\njitter=0.000, xleave=0.240,\r\nfiltdelay= 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00,\r\nfiltoffset= 0.00 0.00 0.00 0.00 '
+assert p.data == b'srcadr=192.168.122.1, srcport=123, dstadr=192.168.122.100, dstport=123,\r\nleap=3, stratum=16, precision=-24, rootdelay=0.000, rootdisp=0.000,\r\nrefid=INIT, reftime=0x00000000.00000000, rec=0x00000000.00000000,\r\nreach=0x0, unreach=5, hmode=1, pmode=0, hpoll=6, ppoll=10, headway=62,\r\nflash=0x1200, keyid=1, offset=0.000, delay=0.000, dispersion=15937.500,\r\njitter=0.000, xleave=0.240,\r\nfiltdelay= 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00,\r\nfiltoffset= 0.00 0.00 0.00 0.00 '
 
 
 = NTP Control (mode 6) - CTL_OP_READVAR (3) - response (2nd packet)
-s = b'\xd6\x82\x00\x12\xc0\x11\xfc\x8f\x01\xd4\x00i0.00 0.00 0.00 0.00,\r\nfiltdisp= 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00\r\n\x00\x00\x00'
+s = b'\xd6\x82\x00\x12\xc0\x11\xfc\x8f\x01\xd4\x00i0.00 0.00 0.00 0.00,\r\nfiltdisp= 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00\r\n'
 p = NTP(s)
 assert isinstance(p, NTPControl)
 assert p.version == 2
@@ -214,11 +229,11 @@ assert p.err == 0
 assert p.more == 0
 assert p.op_code == 2
 assert p.sequence == 18
-assert isinstance(p.status_word, NTPPeerStatusPacket)
+assert isinstance(p.status, NTPPeerStatusPacket)
 assert p.association_id == 64655
 assert p.offset == 468
 assert p.count == 105
-assert p.data.load == b'0.00 0.00 0.00 0.00,\r\nfiltdisp= 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00\r\n\x00\x00\x00'
+assert p.data == b'0.00 0.00 0.00 0.00,\r\nfiltdisp= 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00\r\n'
 
 
 = NTP Control (mode 6) - CTL_OP_READVAR (4) - request
@@ -231,7 +246,7 @@ assert p.response == 0
 assert p.err == 0
 assert p.more == 0
 assert p.op_code == 2
-assert len(p.data.load) == 12
+assert p.data == b"test1,test2"
 assert p.authenticator.key_id == 1
 assert bytes_hex(p.authenticator.dgst) == b'3dc23bc7edb9555339d68908c8afa612'
 
@@ -261,7 +276,7 @@ assert p.response == 0
 assert p.err == 0
 assert p.more == 0
 assert p.op_code == 3
-assert len(p.data.load) == 12
+assert p.data == b"test1,test2"
 assert p.authenticator.key_id == 1
 assert bytes_hex(p.authenticator.dgst) == b'aff10cb4c9946dfc4d90094aa170944a'
 
@@ -276,9 +291,9 @@ assert p.response == 1
 assert p.err == 1
 assert p.more == 0
 assert p.op_code == 3
-assert hasattr(p, 'status_word')
-assert isinstance(p.status_word, NTPErrorStatusPacket)
-assert p.status_word.error_code == 5
+assert hasattr(p, 'status')
+assert isinstance(p.status, NTPErrorStatusPacket)
+assert p.status.error_code == 5
 assert not p.data
 assert p.authenticator.key_id == 1
 assert bytes_hex(p.authenticator.dgst) == b'807a80fbafc470679853a8e57865811c'
@@ -295,7 +310,7 @@ assert p.err == 0
 assert p.more == 0
 assert p.op_code == 8
 assert p.count == 12
-assert p.data.load == b'controlkey 1'
+assert p.data == b'controlkey 1'
 assert p.authenticator.key_id == 1
 assert bytes_hex(p.authenticator.dgst) == b'eaa7aca81b6a9cdb58e1530d36fbefa4'
 
@@ -311,7 +326,7 @@ assert p.err == 0
 assert p.more == 0
 assert p.op_code == 8
 assert p.count == 18
-assert p.data.load == b'Config Succeeded\r\n\x00\x00'
+assert p.data == b'Config Succeeded\r\n'
 assert p.authenticator.key_id == 1
 assert bytes_hex(p.authenticator.dgst) == b'bfa6d85ff96d1e326c293caceec2a539'
 
@@ -327,7 +342,7 @@ assert p.err == 0
 assert p.more == 0
 assert p.op_code == 9
 assert p.count == 15
-assert p.data.load == b'ntp.test.2.conf\x00'
+assert p.data == b'ntp.test.2.conf'
 assert p.authenticator.key_id == 1
 assert bytes_hex(p.authenticator.dgst) == b'c9fb8abe3c605ffa36d218c3b7648923'
 
@@ -343,7 +358,7 @@ assert p.err == 0
 assert p.more == 0
 assert p.op_code == 9
 assert p.count == 42
-assert p.data.load == b"Configuration saved to 'ntp.test.2.conf'\r\n\x00\x00"
+assert p.data == b"Configuration saved to 'ntp.test.2.conf'\r\n"
 assert p.authenticator.key_id == 1
 assert bytes_hex(p.authenticator.dgst) == b'32c2ba59c533fe28f550e5a0860295d9'
 
@@ -358,7 +373,7 @@ assert p.response == 0
 assert p.err == 0
 assert p.more == 0
 assert p.op_code == 12
-assert p.data is None
+assert p.data == b''
 assert not p.authenticator
 
 
@@ -372,7 +387,7 @@ assert p.response == 1
 assert p.err == 0
 assert p.more == 0
 assert p.op_code == 12
-assert p.data.load == b'nonce=db4186a2e1d9022472e24bc9\r\n'
+assert p.data == b'nonce=db4186a2e1d9022472e24bc9\r\n'
 assert not p.authenticator
 
 
@@ -386,7 +401,7 @@ assert p.response == 0
 assert p.err == 0
 assert p.op_code == 10
 assert p.count == 40
-assert p.data.load == b'nonce=db4186a2e1d9022472e24bc9, frags=32'
+assert p.data == b'nonce=db4186a2e1d9022472e24bc9, frags=32'
 assert not p.authenticator
 
 = NTP Control (mode 6) - CTL_OP_READ_MRU (2) - response
@@ -399,9 +414,8 @@ assert p.response == 1
 assert p.err == 0
 assert p.op_code == 10
 assert p.count == 233
-assert p.data.load == b'nonce=db4186a2e2073198b93c6419, addr.0=192.168.122.100:123,\r\nfirst.0=0xdb418673.323e1a89, last.0=0xdb418673.323e1a89, ct.0=1,\r\nmv.0=36, rs.0=0x0, WWQ.0=18446744073709509383, now=0xdb4186a2.e20ff8f4,\r\nlast.newest=0xdb418673.323e1a89\r\n\x00\x00\x00'
+assert p.data == b'nonce=db4186a2e2073198b93c6419, addr.0=192.168.122.100:123,\r\nfirst.0=0xdb418673.323e1a89, last.0=0xdb418673.323e1a89, ct.0=1,\r\nmv.0=36, rs.0=0x0, WWQ.0=18446744073709509383, now=0xdb4186a2.e20ff8f4,\r\nlast.newest=0xdb418673.323e1a89\r\n'
 assert not p.authenticator
-
 
 ############
 ############

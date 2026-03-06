@@ -178,6 +178,172 @@ class UnstableSocket(TestSocket):
         return super(UnstableSocket, self).recv(x, **kwargs)
 
 
+class SlowTestSocket(TestSocket):
+    """A TestSocket that simulates the mux/throttle behavior of
+    PythonCANSocket on a slow serial interface (like slcan).
+
+    Frames sent to this socket go into an intermediate serial buffer.
+    They only become visible to recv()/select() after mux() moves
+    them to the rx ObjectPipe.
+
+    Key parameters model the real slcan timing bottleneck:
+    - frame_delay: per-frame serial read time (~2-3ms on real slcan)
+    - serial_timeout: blocking wait when serial buffer is empty.
+      Real python-can slcan uses serial.Serial(timeout=0.1), so
+      bus.recv(timeout=0) blocks for 100ms when buffer is empty.
+    - read_time_limit: max time spent reading per mux call, matching
+      SocketMapper.READ_BUS_TIME_LIMIT in production code.
+
+    can_filters: Optional list of CAN identifiers for per-socket
+    filtering.  When set, mux reads all frames but only delivers
+    matching ones, like SocketMapper.distribute() + _matches_filters.
+    """
+
+    def __init__(self, basecls=None, frame_delay=0.0002,
+                 mux_throttle=0.001, can_filters=None,
+                 serial_timeout=0.0, read_time_limit=0.0,
+                 interface_name="slcan"):
+        # type: (Optional[Type[Packet]], float, float, Optional[List[int]], float, float, str) -> None  # noqa: E501
+        """
+        :param frame_delay: Simulated per-frame serial read time (seconds).
+        :param mux_throttle: Minimum time between mux calls (default 1ms).
+        :param can_filters: Optional list of CAN identifiers for filtering.
+        :param serial_timeout: Time to block when serial buffer is empty
+            (models python-can slcan serial.Serial(timeout=0.1)).
+            Set to 0.1 to reproduce real slcan behavior.
+        :param read_time_limit: Max time per mux read pass (seconds).
+            Set to 0.02 to match SocketMapper.READ_BUS_TIME_LIMIT.
+            When 0 (default), no time limit is applied.
+        :param interface_name: Simulated interface name (default "slcan").
+            Used in test descriptions to identify the adapter type.
+        """
+        super(SlowTestSocket, self).__init__(basecls)
+        self.interface_name = interface_name
+        from collections import deque
+        self._serial_buffer = deque()  # type: deque[bytes]
+        self._serial_lock = Lock()
+        self._last_mux = 0.0
+        self._frame_delay = frame_delay
+        self._mux_throttle = mux_throttle
+        self._can_filters = can_filters
+        self._serial_timeout = serial_timeout
+        self._read_time_limit = read_time_limit
+        self._real_ins = self.ins
+        self.ins = _SlowPipeWrapper(self)  # type: ignore[assignment]
+
+    @staticmethod
+    def _extract_can_id(frame):
+        # type: (bytes) -> int
+        """Extract CAN identifier from raw CAN frame bytes."""
+        import struct
+        if len(frame) < 4:
+            return -1
+        return int(struct.unpack('!I', frame[:4])[0] & 0x1FFFFFFF)
+
+    def _mux(self):
+        # type: () -> None
+        """Move frames from serial buffer to rx ObjectPipe.
+
+        Models the real PythonCANSocket read path:
+        1. read_bus(): loop calling bus.recv(timeout=0) — each call
+           takes frame_delay when data is available, or serial_timeout
+           when the buffer is empty (modeling slcan serial timeout).
+        2. distribute(): deliver matching frames to the ObjectPipe.
+
+        With read_time_limit > 0, the read loop stops after that many
+        seconds (matching SocketMapper.READ_BUS_TIME_LIMIT).
+        """
+        now = time.monotonic()
+        if now - self._last_mux < self._mux_throttle:
+            return
+
+        # Phase 1: read_bus — read frames from serial buffer
+        msgs = []
+        deadline = time.monotonic() + self._read_time_limit \
+            if self._read_time_limit > 0 else None
+        while True:
+            if self.closed:
+                break
+            with self._serial_lock:
+                if self._serial_buffer:
+                    frame = self._serial_buffer.popleft()
+                else:
+                    frame = None
+            if frame is None:
+                # Empty buffer: model the serial timeout blocking
+                if self._serial_timeout > 0:
+                    time.sleep(self._serial_timeout)
+                break
+            if self._frame_delay > 0:
+                time.sleep(self._frame_delay)
+            msgs.append(frame)
+            if deadline and time.monotonic() >= deadline:
+                break
+
+        # Phase 2: distribute — apply per-socket filtering
+        for frame in msgs:
+            if self._can_filters is not None:
+                can_id = self._extract_can_id(frame)
+                if can_id not in self._can_filters:
+                    continue
+            self._real_ins.send(frame)
+
+        self._last_mux = time.monotonic()
+
+    def recv_raw(self, x=MTU):
+        # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
+        """Read from the rx ObjectPipe (populated by mux via select)."""
+        return self.basecls, self._real_ins.recv(0), time.time()
+
+    def send(self, x):
+        # type: (Packet) -> int
+        if self._frame_delay > 0:
+            time.sleep(self._frame_delay)
+        return super(SlowTestSocket, self).send(x)
+
+    @staticmethod
+    def select(sockets, remain=conf.recv_poll_rate):
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+        for s in sockets:
+            if isinstance(s, SlowTestSocket):
+                s._mux()
+        return select_objects(sockets, remain)
+
+    def close(self):
+        # type: () -> None
+        self.ins = self._real_ins
+        super(SlowTestSocket, self).close()
+
+
+class _SlowPipeWrapper:
+    """Wrapper that intercepts send() to route into serial buffer."""
+    def __init__(self, owner):
+        # type: (SlowTestSocket) -> None
+        self._owner = owner
+
+    def send(self, data):
+        # type: (bytes) -> None
+        with self._owner._serial_lock:
+            self._owner._serial_buffer.append(data)
+
+    def recv(self, timeout=0):
+        # type: (int) -> Optional[bytes]
+        return self._owner._real_ins.recv(timeout)
+
+    def fileno(self):
+        # type: () -> int
+        return self._owner._real_ins.fileno()
+
+    def close(self):
+        # type: () -> None
+        self._owner._real_ins.close()
+
+    @property
+    def closed(self):
+        # type: () -> bool
+        return bool(self._owner._real_ins.closed)  # type: ignore[attr-defined]
+
+
 def cleanup_testsockets():
     # type: () -> None
     """

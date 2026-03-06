@@ -44,14 +44,21 @@ from typing import (
     Optional,
     Tuple,
     Type,
+    TypeVar,
     cast,
+    TYPE_CHECKING,
 )
+from scapy.compat import Self
+
+if TYPE_CHECKING:
+    from scapy.ansmachine import AnsweringMachine
+
 
 # Utils
 
 
 class _SuperSocket_metaclass(type):
-    desc = None   # type: Optional[str]
+    desc = None  # type: Optional[str]
 
     def __repr__(self):
         # type: () -> str
@@ -82,10 +89,13 @@ class tpacket_auxdata(ctypes.Structure):
 
 # SuperSocket
 
+_T = TypeVar("_T", Packet, PacketList)
+
+
 class SuperSocket(metaclass=_SuperSocket_metaclass):
     closed = False  # type: bool
     nonblocking_socket = False  # type: bool
-    auxdata_available = False   # type: bool
+    auxdata_available = False  # type: bool
 
     def __init__(self,
                  family=socket.AF_INET,  # type: int
@@ -271,19 +281,17 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
         from scapy import sendrecv
         sendrecv.tshark(opened_socket=self, *args, **kargs)
 
-    # TODO: use 'scapy.ansmachine.AnsweringMachine' when typed
     def am(self,
-           cls,  # type: Type[Any]
-           *args,  # type: Any
+           cls,  # type: Type[AnsweringMachine[_T]]
            **kwargs  # type: Any
            ):
-        # type: (...) -> Any
+        # type: (...) -> AnsweringMachine[_T]
         """
         Creates an AnsweringMachine associated with this socket.
 
         :param cls: A subclass of AnsweringMachine to instantiate
         """
-        return cls(*args, opened_socket=self, socket=self, **kwargs)
+        return cls(opened_socket=self, socket=self, **kwargs)
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
@@ -295,6 +303,7 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
         :returns: an array of sockets that were selected and
             the function to be called next to get the packets (i.g. recv)
         """
+        inp = []  # type: List[SuperSocket]
         try:
             inp, _, _ = select(sockets, [], [], remain)
         except (IOError, select_error) as exc:
@@ -309,7 +318,7 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
         self.close()
 
     def __enter__(self):
-        # type: () -> SuperSocket
+        # type: () -> Self
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -479,15 +488,19 @@ class StreamSocket(SimpleSocket):
         # type: (Optional[int], Any) -> Optional[Packet]
         if x is None:
             x = MTU
-        # Block but in PEEK mode
-        data = self.ins.recv(x, socket.MSG_PEEK)
-        if data == b"":
-            raise EOFError
-        x = len(data)
-        pkt = self.rcvcls(self._buf + data, self.metadata, self.streamsession)
-        if pkt is None:  # Incomplete packet.
-            self._buf += self.ins.recv(x)
-            return self.recv(x)
+
+        while True:
+            # Block but in PEEK mode
+            data = self.ins.recv(x, socket.MSG_PEEK)
+            if data == b"":
+                raise EOFError
+            x = len(data)
+            pkt = self.rcvcls(self._buf + data, self.metadata, self.streamsession)
+            if pkt is None:  # Incomplete packet.
+                self._buf += self.ins.recv(x)
+            else:
+                break
+
         self.metadata.clear()
         # Strip any madding
         pad = pkt.getlayer(conf.padding_layer)
@@ -502,16 +515,14 @@ class StreamSocket(SimpleSocket):
         return pkt
 
 
-class SSLStreamSocket(StreamSocket):
-    desc = "similar usage than StreamSocket but specialized for handling SSL-wrapped sockets"  # noqa: E501
-
-    # Basically StreamSocket but we can't PEEK
+class StreamSocketPeekless(StreamSocket):
+    desc = "StreamSocket that doesn't use MSG_PEEK"
 
     def __init__(self, sock, basecls=None):
         # type: (socket.socket, Optional[Type[Packet]]) -> None
         from scapy.sessions import TCPSession
         self.sess = TCPSession(app=True)
-        super(SSLStreamSocket, self).__init__(sock, basecls)
+        super(StreamSocketPeekless, self).__init__(sock, basecls)
 
     # 65535, the default value of x is the maximum length of a TLS record
     def recv(self, x=None, **kwargs):
@@ -540,11 +551,18 @@ class SSLStreamSocket(StreamSocket):
         queued = [
             x
             for x in sockets
-            if isinstance(x, SSLStreamSocket) and x.sess.data
+            if isinstance(x, StreamSocketPeekless) and x.sess.data
         ]
         if queued:
             return queued  # type: ignore
-        return super(SSLStreamSocket, SSLStreamSocket).select(sockets, remain=remain)
+        return super(StreamSocketPeekless, StreamSocketPeekless).select(
+            sockets,
+            remain=remain,
+        )
+
+
+# Old name: SSLStreamSocket
+SSLStreamSocket = StreamSocketPeekless
 
 
 class L2ListenTcpdump(SuperSocket):
@@ -622,6 +640,7 @@ class IterSocket(SuperSocket):
                         s.time = s.sent_time
                     yield s
                     yield r
+
             self.iter = _iter()
         elif isinstance(obj, (list, PacketList)):
             if isinstance(obj[0], bytes):

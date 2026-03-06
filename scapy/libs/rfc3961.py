@@ -13,15 +13,21 @@ Implementation of cryptographic functions for Kerberos 5
 - RFC 4757: The RC4-HMAC Kerberos Encryption Types Used by Microsoft Windows
 - RFC 6113: A Generalized Framework for Kerberos Pre-Authentication
 - RFC 8009: AES Encryption with HMAC-SHA2 for Kerberos 5
+
+.. note::
+    You will find more complete documentation for Kerberos over at
+    `SMB <https://scapy.readthedocs.io/en/latest/layers/kerberos.html>`_
 """
 
 # TODO: support cipher states...
 
 __all__ = [
-    "EncryptionType",
     "ChecksumType",
-    "Key",
+    "EncryptionType",
     "InvalidChecksum",
+    "KRB_FX_CF2",
+    "Key",
+    "SP800108_KDFCTR",
     "_rfc1964pad",
 ]
 
@@ -91,8 +97,9 @@ except ImportError:
     raise ImportError("To use kerberos cryptography, you need to install cryptography.")
 
 
-# cryptography's TripleDES allow the usage of a 56bit key, which thus behaves like DES
-DES = decrepit_algorithms.TripleDES
+# cryptography's TripleDES can be used to simulate DES behavior
+def DES(key: bytes) -> decrepit_algorithms.TripleDES:
+    return decrepit_algorithms.TripleDES(key * 3)
 
 
 # https://go.microsoft.com/fwlink/?LinkId=186039
@@ -149,7 +156,7 @@ class EncryptionType(enum.IntEnum):
 
 class ChecksumType(enum.IntEnum):
     CRC32 = 1
-    # RSA_MD4 = 2
+    RSA_MD4 = 2
     RSA_MD4_DES = 3
     # RSA_MD5 = 7
     RSA_MD5_DES = 8
@@ -1437,4 +1444,36 @@ def KRB_FX_CF2(key1, key2, pepper1, pepper2):
                 bytearray(prfplus(key1, pepper1)), bytearray(prfplus(key2, pepper2))
             )
         ),
+    )
+
+
+############
+# RFC 4556 #
+############
+
+def octetstring2key(etype: EncryptionType, x: bytes) -> Key:
+    """
+    RFC4556 octetstring2key::
+
+        octetstring2key(x) == random-to-key(K-truncate(
+                            SHA1(0x00 | x) |
+                            SHA1(0x01 | x) |
+                            SHA1(0x02 | x) |
+                            ...
+                            ))
+    """
+    try:
+        ep = _enctypes[etype]
+    except ValueError:
+        raise ValueError("Unknown etype '%s'" % etype)
+
+    out = b""
+    count = 0
+    while len(out) < ep.keysize:
+        out += Hash_SHA().digest(struct.pack("!B", count) + x)
+        count += 1
+
+    return Key.random_to_key(
+        etype=etype,
+        seed=out[:ep.keysize],
     )

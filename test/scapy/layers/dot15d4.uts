@@ -375,6 +375,16 @@ packet.show2()
 assert packet[LoWPAN_IPHC].src == 'fe80::ff:fe00:0'
 assert packet[LoWPAN_IPHC].dst == 'fe80::ff:fe00:ffff'
 
+= SixLoWPAN - Advanced 4 - SAM=3/SAC=0 decompression
+
+packet = Dot15d4(b'A\xc8t\xcd\xab\xff\xff\xcf\r\xa4\xfe\xffn\x95\xe4z;:\x1a\x9b\x01\xd4^\x1e\xdc\x02\xba\x95\x7f\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\xe6\x95n\xff\xfe\xaf\xff\xfd\x08\x1e@@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x16\x80\x10\xff\xff\xff\xff\x00\x01\x00\x00\x00\x00\x00\x00\xe6\x95n\xff\xfe\xa4\x05O')
+assert packet[LoWPAN_IPHC].sac == 0
+assert packet[LoWPAN_IPHC].sam == 3
+assert packet[LoWPAN_IPHC].dac == 0
+assert packet[LoWPAN_IPHC].dam == 3
+assert packet[LoWPAN_IPHC].src == "fe80::e695:6eff:fea4:dcf"
+assert packet[LoWPAN_IPHC].dst == "ff02::1a"
+
 = SixLoWPAN - Using ICMP
 
 #ICMP: Neighbour Solicitation

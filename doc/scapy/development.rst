@@ -120,7 +120,7 @@ The generic format for a test campaign is shown in the following table::
     * Comments for unit test 1
     # Python statements follow
     a = 1
-    print a
+    print(a)
     a == 1
 
 
@@ -196,7 +196,7 @@ Table 5 shows a simple test campaign with multiple tests set definitions. Additi
     = Unit Test 1
     ~ test_set_1 simple
     a = 1
-    print a
+    print(a)
     
     = Unit test 2
     ~ test_set_1 simple
@@ -234,7 +234,7 @@ Table 5 shows a simple test campaign with multiple tests set definitions. Additi
     
     = Unit Test 6
     ~ test_set_2 hardest
-    print e
+    print(e)
     e == 1296
 
 To see an example that is targeted to Scapy, go to http://www.secdev.org/projects/UTscapy. Cut and paste the example at the bottom of the page to the file ``demo_campaign.txt`` and run UTScapy against it::

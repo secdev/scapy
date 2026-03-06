@@ -26,6 +26,7 @@ import time
 from scapy.arch import get_if_addr
 from scapy.automaton import ATMT, Automaton
 from scapy.config import conf
+from scapy.consts import WINDOWS
 from scapy.error import log_runtime, log_interactive
 from scapy.volatile import RandUUID
 
@@ -54,6 +55,7 @@ from scapy.layers.smb import (
     SMBTree_Connect_AndX,
     SMB_Header,
 )
+from scapy.layers.windows.security import SECURITY_DESCRIPTOR
 from scapy.layers.smb2 import (
     DFS_REFERRAL_ENTRY1,
     DFS_REFERRAL_V3,
@@ -75,7 +77,6 @@ from scapy.layers.smb2 import (
     FileStandardInformation,
     FileStreamInformation,
     NETWORK_INTERFACE_INFO,
-    SECURITY_DESCRIPTOR,
     SMB2_CREATE_DURABLE_HANDLE_RESPONSE_V2,
     SMB2_CREATE_QUERY_MAXIMAL_ACCESS_RESPONSE,
     SMB2_CREATE_QUERY_ON_DISK_ID,
@@ -661,7 +662,8 @@ class SMB_Server(Automaton):
     @ATMT.action(receive_setup_andx_request)
     def on_setup_andx_request(self, pkt, ssp_blob):
         self.session.sspcontext, tok, status = self.session.ssp.GSS_Accept_sec_context(
-            self.session.sspcontext, ssp_blob
+            self.session.sspcontext,
+            ssp_blob,
         )
         self.update_smbheader(pkt)
         if SMB2_Session_Setup_Request in pkt:
@@ -1058,7 +1060,7 @@ class SMB_Server(Automaton):
         # Note: symbolic links are currently unsupported.
         if root not in path.parents and path != root:
             raise FileNotFoundError
-        if path.is_reserved():
+        if WINDOWS and path.is_reserved():
             raise FileNotFoundError
         if not path.exists():
             if create and createOptions:

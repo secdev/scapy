@@ -87,6 +87,13 @@ h = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x
 assert h.type == BGP.OPEN_TYPE
 assert h.len == 19
 
+= BGP - Test TCP reassembly
+pkts = sniff(offline=scapy_path("/test/pcaps/bgp_fragmented.pcap.gz"), session=TCPSession)
+assert len(pkts) == 1
+assert BGPUpdate in pkts[0]
+assert len(pkts[0].nlri) == 512
+assert pkts[0].nlri[511].prefix == '91.0.177.0/24'
+
 ############################### BGPKeepAlive  #################################
 + BGPKeepAlive class tests
 

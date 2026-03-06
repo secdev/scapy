@@ -55,7 +55,7 @@ print(get_if_list())
 assert all(x.startswith(r"\Device\NPF_") for x in get_if_list())
 
 = test pcap_service_stop
-~ appveyor_only require_gui npcap_service
+~ ci_only require_gui npcap_service
 
 from scapy.arch.windows import pcap_service_stop
 
@@ -63,7 +63,7 @@ pcap_service_stop()
 assert pcap_service_status() == False
 
 = test pcap_service_start
-~ appveyor_only require_gui npcap_service
+~ ci_only require_gui npcap_service
 
 from scapy.arch.windows import pcap_service_start
 
@@ -96,7 +96,7 @@ conf.ifaces.reload()
 assert conf.use_pcap == False
 
 = Ping
-~ netaccess needs_root
+~ netaccess needs_root icmp_firewall
 
 def _test():
     with conf.L3socket() as a:
@@ -116,6 +116,27 @@ def _test():
     assert answer.qd.qname == b'www.google.com.'
 
 retry_test(_test)
+
+= Test L3WinSocket close() with partial initialization
+~ windows
+
+from scapy.arch.windows.native import L3WinSocket
+import socket
+
+# Create partially initialized L3WinSocket
+ws = object.__new__(L3WinSocket)
+ws.closed = False
+ws.promisc = True
+# Note: ws.ins is intentionally not set
+
+# This should not raise AttributeError
+try:
+    ws.close()
+    test_passed = True
+except AttributeError:
+    test_passed = False
+
+assert test_passed, "L3WinSocket.close() raised AttributeError on partially initialized object"
 
 = Leave native mode
 

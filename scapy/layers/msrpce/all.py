@@ -24,6 +24,7 @@ __all__ = []
 _LAYERS = [
     # High-level classes
     "msrpce.msdcom",
+    "msrpce.mseerr",
     "msrpce.msnrpc",
     "msrpce.mspac",
     # Client / Server

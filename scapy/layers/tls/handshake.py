@@ -35,7 +35,7 @@ from scapy.fields import (
 )
 
 from scapy.compat import hex_bytes, orb, raw
-from scapy.config import conf
+from scapy.config import conf, crypto_validator
 from scapy.packet import Packet, Raw, Padding
 from scapy.utils import randstring, repr_hex
 from scapy.layers.x509 import OCSP_Response
@@ -716,6 +716,7 @@ class TLS13HelloRetryRequest(_TLSHandshake):
             self.sid = self.tls_session.sid
         return _TLSHandshake.build(self)
 
+    @crypto_validator
     def tls_session_update(self, msg_str):
         s = self.tls_session
         s.tls13_retry = True

@@ -166,7 +166,8 @@ class ISOTPSoftSocket(SuperSocket):
     def close(self):
         # type: () -> None
         if not self.closed:
-            self.impl.close()
+            if hasattr(self, "impl"):
+                self.impl.close()
             self.closed = True
 
     def failure_analysis(self):
@@ -202,8 +203,8 @@ class ISOTPSoftSocket(SuperSocket):
         return msg
 
     @staticmethod
-    def select(sockets, remain=None):
-        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+    def select(sockets, remain=None):  # type: ignore[override]
+        # type: (List[Union[SuperSocket, ObjectPipe[Any]]], Optional[float]) -> List[Union[SuperSocket, ObjectPipe[Any]]]  # noqa: E501
         """This function is called during sendrecv() routine to wait for
         sockets to be ready to receive
         """
@@ -214,8 +215,12 @@ class ISOTPSoftSocket(SuperSocket):
 
         ready_pipes = select_objects(obj_pipes, remain)
 
-        return [x for x in sockets if isinstance(x, ISOTPSoftSocket) and
-                not x.closed and x.impl.rx_queue in ready_pipes]
+        result: List[Union[SuperSocket, ObjectPipe[Any]]] = [
+            x for x in sockets if isinstance(x, ISOTPSoftSocket) and
+            not x.closed and x.impl.rx_queue in ready_pipes]
+        result += [x for x in sockets if isinstance(x, ObjectPipe) and
+                   x in ready_pipes]
+        return result
 
 
 class TimeoutScheduler:
@@ -251,6 +256,7 @@ class TimeoutScheduler:
             # Start the scheduling thread if it is not started already
             if cls._thread is None:
                 t = Thread(target=cls._task, name="TimeoutScheduler._task")
+                t.daemon = True
                 must_interrupt = False
                 cls._thread = t
                 cls._event.clear()
@@ -550,6 +556,7 @@ class ISOTPSocketImplementation:
         self.tx_handle = TimeoutScheduler.schedule(
             self.rx_tx_poll_rate, self._send)
         self.last_rx_call = 0.0
+        self.rx_start_time = 0.0
 
     def failure_analysis(self):
         # type: () -> None
@@ -592,12 +599,26 @@ class ISOTPSocketImplementation:
     def can_recv(self):
         # type: () -> None
         self.last_rx_call = TimeoutScheduler._time()
-        if self.can_socket.select([self.can_socket], 0):
-            pkt = self.can_socket.recv()
-            if pkt:
-                self.on_can_recv(pkt)
+        try:
+            while self.can_socket.select([self.can_socket], 0):
+                pkt = self.can_socket.recv()
+                if pkt:
+                    self.on_can_recv(pkt)
+                else:
+                    break
+        except Exception:
+            if not self.closed:
+                log_isotp.warning("Error in can_recv: %s",
+                                  traceback.format_exc())
         if not self.closed and not self.can_socket.closed:
-            if self.can_socket.select([self.can_socket], 0):
+            # Determine poll_time from ISOTP state only.
+            # Avoid calling select() here — on slow serial interfaces
+            # (slcan), each select() triggers a mux() call that reads
+            # N frames at ~2.5ms each, wasting time that could be spent
+            # processing frames already in the rx_queue.
+            if self.rx_state == ISOTP_WAIT_DATA or \
+                    self.tx_state == ISOTP_WAIT_FC or \
+                    self.tx_state == ISOTP_WAIT_FIRST_FC:
                 poll_time = 0.0
             else:
                 poll_time = self.rx_tx_poll_rate
@@ -643,13 +664,46 @@ class ISOTPSocketImplementation:
             self.tx_handle.cancel()
         except Scapy_Exception:
             pass
+        if self.rx_timeout_handle is not None:
+            try:
+                self.rx_timeout_handle.cancel()
+            except Scapy_Exception:
+                pass
+        if self.tx_timeout_handle is not None:
+            try:
+                self.tx_timeout_handle.cancel()
+            except Scapy_Exception:
+                pass
+        try:
+            self.rx_queue.close()
+        except (OSError, EOFError):
+            pass
+        try:
+            self.tx_queue.close()
+        except (OSError, EOFError):
+            pass
 
     def _rx_timer_handler(self):
         # type: () -> None
         """Method called every time the rx_timer times out, due to the peer not
         sending a consecutive frame within the expected time window"""
 
+        if self.closed:
+            return
+
         if self.rx_state == ISOTP_WAIT_DATA:
+            # On slow serial interfaces (slcan), the mux reads frames
+            # from an OS serial buffer that may contain hundreds of
+            # background CAN frames.  Consecutive Frames from the ECU
+            # are queued behind this backlog and can take several
+            # seconds to reach the ISOTP state machine.  Extend the
+            # timeout up to 10 × cf_timeout to give the mux enough
+            # time to drain the backlog.
+            total_wait = TimeoutScheduler._time() - self.rx_start_time
+            if total_wait < self.cf_timeout * 10:
+                self.rx_timeout_handle = TimeoutScheduler.schedule(
+                    self.cf_timeout, self._rx_timer_handler)
+                return
             # we did not get new data frames in time.
             # reset rx state
             self.rx_state = ISOTP_IDLE
@@ -661,6 +715,9 @@ class ISOTPSocketImplementation:
         """Method called every time the tx_timer times out, which can happen in
         two situations: either a Flow Control frame was not received in time,
         or the Separation Time Min is expired and a new frame must be sent."""
+
+        if self.closed:
+            return
 
         if (self.tx_state == ISOTP_WAIT_FC or
                 self.tx_state == ISOTP_WAIT_FIRST_FC):
@@ -866,6 +923,7 @@ class ISOTPSocketImplementation:
         # initial setup for this pdu reception
         self.rx_sn = 1
         self.rx_state = ISOTP_WAIT_DATA
+        self.rx_start_time = TimeoutScheduler._time()
 
         # no creation of flow control frames
         if not self.listen_only:
@@ -994,11 +1052,16 @@ class ISOTPSocketImplementation:
 
     def _send(self):
         # type: () -> None
-        if self.tx_state == ISOTP_IDLE:
-            if select_objects([self.tx_queue], 0):
-                pkt = self.tx_queue.recv()
-                if pkt:
-                    self.begin_send(pkt)
+        try:
+            if self.tx_state == ISOTP_IDLE:
+                if select_objects([self.tx_queue], 0):
+                    pkt = self.tx_queue.recv()
+                    if pkt:
+                        self.begin_send(pkt)
+        except Exception:
+            if not self.closed:
+                log_isotp.warning("Error in _send: %s",
+                                  traceback.format_exc())
 
         if not self.closed:
             self.tx_handle = TimeoutScheduler.schedule(

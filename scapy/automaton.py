@@ -929,6 +929,7 @@ class Automaton(metaclass=Automaton_metaclass):
         self.ioin = {}
         self.ioout = {}
         self.packets = PacketList()                 # type: PacketList
+        self.atmt_session = kargs.pop("session", None)
         for n in self.__class__.ionames:
             extfd = external_fd.get(n)
             if not isinstance(extfd, tuple):
@@ -956,11 +957,12 @@ class Automaton(metaclass=Automaton_metaclass):
 
         self.start()
 
-    def parse_args(self, debug=0, store=0, **kargs):
-        # type: (int, int, Any) -> None
+    def parse_args(self, debug=0, store=0, session=None, **kargs):
+        # type: (int, int, Any, Any) -> None
         self.debug_level = debug
         if debug:
             conf.logLevel = logging.DEBUG
+        self.atmt_session = session
         self.socket_kargs = kargs
         self.store_packets = store
 
@@ -1451,6 +1453,9 @@ class Automaton(metaclass=Automaton_metaclass):
                                 else:
                                     # There isn't. Therefore, it's a closing condition.
                                     raise EOFError("Socket ended arbruptly.")
+                            if self.atmt_session is not None:
+                                # Apply session if provided
+                                pkt = self.atmt_session.process(pkt)
                             if pkt is not None:
                                 if self.master_filter(pkt):
                                     self.debug(3, "RECVD: %s" % pkt.summary())  # noqa: E501

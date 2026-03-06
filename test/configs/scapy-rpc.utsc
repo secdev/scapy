@@ -1,0 +1,9 @@
+{
+  "testfiles": [
+    "test/scapy/layers/dcerpc.uts",
+    "test/scapy/layers/msrpce/*.uts"
+  ],
+  "extensions": ["scapy-rpc"],
+  "breakfailed": true,
+  "onlyfailed": true
+}

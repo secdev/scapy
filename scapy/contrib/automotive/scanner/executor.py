@@ -162,20 +162,20 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
 
     def reconnect(self):
         # type: () -> None
-        if self.reconnect_handler:
-            try:
-                if self.socket:
-                    self.socket.close()
-            except Exception as e:
-                log_automotive.exception(
-                    "Exception '%s' during socket.close", e)
+        if not self.reconnect_handler:
+            return
 
-            log_automotive.info("Target reconnect")
-            socket = self.reconnect_handler()
-            if not isinstance(socket, SingleConversationSocket):
-                self.socket = SingleConversationSocket(socket)
-            else:
-                self.socket = socket
+        try:
+            if self.socket:
+                self.socket.close()
+        except Exception as e:
+            log_automotive.exception(
+                "Exception '%s' during socket.close", e)
+
+        log_automotive.info("Target reconnect")
+        socket = self.reconnect_handler()
+        self.socket = socket if isinstance(socket, SingleConversationSocket) \
+            else SingleConversationSocket(socket)
 
         if self.socket and self.socket.closed:
             raise Scapy_Exception(
@@ -290,7 +290,12 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
             kill_time = None
         else:
             kill_time = time.monotonic() + timeout
-        while kill_time is None or kill_time > time.monotonic():
+        while True:
+            terminate = kill_time and kill_time <= time.monotonic()
+            if terminate:
+                log_automotive.debug(
+                    "Execution time exceeded. Terminating scan!")
+                return
             test_case_executed = False
             log_automotive.info("[i] Scan progress %0.2f", self.progress())
             log_automotive.debug("[i] Scan paths %s", self.state_paths)
@@ -400,6 +405,20 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         trans_func, trans_kwargs, clean_func = funcs
         state_changed = trans_func(
             self.socket, self.configuration, trans_kwargs)
+
+        if self.socket.closed:
+            for i in range(5):
+                try:
+                    self.reconnect()
+                    break
+                except Exception:
+                    if i == 4:
+                        raise
+                    if self.configuration.stop_event:
+                        self.configuration.stop_event.wait(1)
+                    else:
+                        time.sleep(1)
+
         if state_changed:
             self.target_state = next_state
 
@@ -416,15 +435,11 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         Executes all collected cleanup functions from a traversed path
         :return: None
         """
-        if not self.socket:
-            log_automotive.warning("Socket is None! Leaving cleanup_state")
-            return
-
         for f in self.cleanup_functions:
             if not callable(f):
                 continue
             try:
-                if not f(self.socket, self.configuration):
+                if not f(self.socket, self.configuration):  # type: ignore
                     log_automotive.info(
                         "Cleanup function %s failed", repr(f))
             except (OSError, ValueError, Scapy_Exception) as e:

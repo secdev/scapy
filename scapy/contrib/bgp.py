@@ -461,6 +461,17 @@ class BGPHeader(Packet):
 
         return _bgp_dispatcher(_pkt)
 
+    @classmethod
+    def tcp_reassemble(cls, data, *args, **kwargs):
+        if len(data) < 18:
+            return None
+        if data[:16] == _BGP_HEADER_MARKER:
+            length = struct.unpack("!H", data[16:18])[0]
+            if len(data) >= length:
+                return cls(data[:length]) / conf.padding_layer(data[length:])
+        else:
+            return cls(data)
+
     def post_build(self, p, pay):
         if self.len is None:
             length = len(p)
@@ -519,6 +530,8 @@ class BGP(Packet):
         """
 
         return _bgp_dispatcher(_pkt)
+
+    tcp_reassemble = BGPHeader.tcp_reassemble
 
     def guess_payload_class(self, p):
         cls = None
@@ -755,7 +768,8 @@ class BGPCapORFBlock(Packet):
             "entries",
             [],
             ORFTuple,
-            count_from=lambda p: p.orf_number
+            count_from=lambda p: p.orf_number,
+            max_count=20000,
         )
     ]
 
@@ -811,7 +825,8 @@ class BGPCapORF(BGPCapability):
             "orf",
             [],
             BGPCapORFBlock,
-            length_from=lambda p: p.length
+            length_from=lambda p: p.length,
+            max_count=20000,
         )
     ]
 
@@ -1741,6 +1756,9 @@ class _ExtCommValuePacketField(PacketField):
             elif type_low == 0x09:
                 ret = BGPPAExtCommTrafficMarking(m)
 
+            else:
+                ret = conf.raw_layer(m)
+
         elif type_high == 0x81:
             # FlowSpec
             if type_low == 0x08:
@@ -1907,7 +1925,8 @@ class BGPPAMPReachNLRI(Packet):
         ConditionalField(IP6Field("nh_v6_link_local", "::"),
                          lambda x: x.afi == 2 and x.nh_addr_len == 32),
         ByteField("reserved", 0),
-        MPReachNLRIPacketListField("nlri", [], BGPNLRI_IPv6)]
+        MPReachNLRIPacketListField("nlri", [], BGPNLRI_IPv6,
+                                   max_count=20000)]
 
     def post_build(self, p, pay):
         if self.nlri is None:
@@ -2213,7 +2232,8 @@ class BGPUpdate(BGP):
             BGPPathAttr,
             length_from=lambda p: p.path_attr_len
         ),
-        BGPNLRIPacketListField("nlri", [], "IPv4")
+        BGPNLRIPacketListField("nlri", [], "IPv4",
+                               max_count=20000)
     ]
 
     def post_build(self, p, pay):
@@ -2571,6 +2591,7 @@ class BGPORF(Packet):
             [],
             Packet,
             length_from=lambda p: p.orf_len,
+            max_count=20000,
         )
     ]
 

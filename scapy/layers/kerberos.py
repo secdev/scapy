@@ -13,6 +13,7 @@ Implements parts of:
 - Kerberos Pre-Authentication: RFC6113 (FAST)
 - Kerberos Principal Name Canonicalization and Cross-Realm Referrals: RFC6806
 - Microsoft Windows 2000 Kerberos Change Password and Set Password Protocols: RFC3244
+- PKINIT and its extensions: RFC4556, RFC8070, RFC8636 and [MS-PKCA]
 - User to User Kerberos Authentication: draft-ietf-cat-user2user-03
 - Public Key Cryptography Based User-to-User Authentication (PKU2U): draft-zhu-pku2u-09
 - Initial and Pass Through Authentication Using Kerberos V5 (IAKERB):
@@ -62,27 +63,30 @@ from scapy.asn1.asn1 import (
     ASN1_BIT_STRING,
     ASN1_BOOLEAN,
     ASN1_Class,
+    ASN1_Codecs,
     ASN1_GENERAL_STRING,
     ASN1_GENERALIZED_TIME,
     ASN1_INTEGER,
+    ASN1_OID,
     ASN1_STRING,
-    ASN1_Codecs,
 )
 from scapy.asn1fields import (
+    ASN1F_BIT_STRING_ENCAPS,
     ASN1F_BOOLEAN,
     ASN1F_CHOICE,
+    ASN1F_enum_INTEGER,
     ASN1F_FLAGS,
     ASN1F_GENERAL_STRING,
     ASN1F_GENERALIZED_TIME,
     ASN1F_INTEGER,
     ASN1F_OID,
-    ASN1F_PACKET,
-    ASN1F_SEQUENCE,
-    ASN1F_SEQUENCE_OF,
-    ASN1F_STRING,
-    ASN1F_STRING_PacketField,
-    ASN1F_enum_INTEGER,
     ASN1F_optional,
+    ASN1F_PACKET,
+    ASN1F_SEQUENCE_OF,
+    ASN1F_SEQUENCE,
+    ASN1F_STRING_ENCAPS,
+    ASN1F_STRING_PacketField,
+    ASN1F_STRING,
 )
 from scapy.asn1packet import ASN1_Packet
 from scapy.automaton import Automaton, ATMT
@@ -99,6 +103,7 @@ from scapy.fields import (
     LEShortEnumField,
     LEShortField,
     LongField,
+    MayEnd,
     MultipleTypeField,
     PacketField,
     PacketLenField,
@@ -110,11 +115,12 @@ from scapy.fields import (
     StrFieldUtf16,
     StrFixedLenEnumField,
     XByteField,
+    XLEIntEnumField,
     XLEIntField,
     XLEShortField,
+    XStrField,
     XStrFixedLenField,
     XStrLenField,
-    XStrField,
 )
 from scapy.packet import Packet, bind_bottom_up, bind_top_down, bind_layers
 from scapy.supersocket import StreamSocket, SuperSocket
@@ -124,11 +130,15 @@ from scapy.volatile import GeneralizedTime, RandNum, RandBin
 from scapy.layers.gssapi import (
     GSSAPI_BLOB,
     GSS_C_FLAGS,
+    GSS_C_NO_CHANNEL_BINDINGS,
+    GSS_S_BAD_BINDINGS,
     GSS_S_BAD_MECH,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
     GSS_S_DEFECTIVE_TOKEN,
+    GSS_S_DEFECTIVE_CREDENTIAL,
     GSS_S_FAILURE,
+    GSS_S_FLAGS,
     GssChannelBindings,
     SSP,
     _GSSAPI_OIDS,
@@ -136,10 +146,60 @@ from scapy.layers.gssapi import (
 )
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.smb import _NV_VERSION
+from scapy.layers.tls.cert import (
+    Cert,
+    CertList,
+    CertTree,
+    CMS_Engine,
+    PrivKey,
+)
+from scapy.layers.tls.crypto.hash import (
+    Hash_SHA,
+    Hash_SHA256,
+    Hash_SHA384,
+    Hash_SHA512,
+)
+from scapy.layers.tls.crypto.groups import _ffdh_groups
+from scapy.layers.windows.erref import STATUS_ERREF
+from scapy.layers.x509 import (
+    _CMS_ENCAPSULATED,
+    CMS_ContentInfo,
+    CMS_IssuerAndSerialNumber,
+    DHPublicKey,
+    X509_AlgorithmIdentifier,
+    X509_DirectoryName,
+    X509_SubjectPublicKeyInfo,
+    DomainParameters,
+)
+
+# Redirect exports from RFC3961
+try:
+    from scapy.libs.rfc3961 import *  # noqa: F401,F403
+    from scapy.libs.rfc3961 import (
+        _rfc1964pad,
+        ChecksumType,
+        Cipher,
+        decrepit_algorithms,
+        EncryptionType,
+        Hmac_MD5,
+        Key,
+        KRB_FX_CF2,
+        octetstring2key,
+    )
+except ImportError:
+    pass
+
+
+# Crypto imports
+if conf.crypto_valid:
+    from cryptography.hazmat.primitives.serialization import pkcs12
+    from cryptography.hazmat.primitives.asymmetric import dh
 
 # Typing imports
 from typing import (
+    List,
     Optional,
+    Union,
 )
 
 
@@ -202,8 +262,17 @@ class PrincipalName(ASN1_Packet):
         ASN1F_SEQUENCE_OF("nameString", [], KerberosString, explicit_tag=0xA1),
     )
 
+    def toString(self):
+        """
+        Convert a PrincipalName back into its string representation.
+        """
+        return "/".join(x.val.decode() for x in self.nameString)
+
     @staticmethod
     def fromUPN(upn: str):
+        """
+        Create a PrincipalName from a UPN string.
+        """
         user, _ = _parse_upn(upn)
         return PrincipalName(
             nameString=[ASN1_GENERAL_STRING(user)],
@@ -211,17 +280,26 @@ class PrincipalName(ASN1_Packet):
         )
 
     @staticmethod
-    def fromSPN(spn: bytes):
+    def fromSPN(spn: str):
+        """
+        Create a PrincipalName from a SPN string.
+        """
         spn, _ = _parse_spn(spn)
         if spn.startswith("krbtgt"):
             return PrincipalName(
                 nameString=[ASN1_GENERAL_STRING(x) for x in spn.split("/")],
                 nameType=ASN1_INTEGER(2),  # NT-SRV-INST
             )
-        else:
+        elif "/" in spn:
             return PrincipalName(
                 nameString=[ASN1_GENERAL_STRING(x) for x in spn.split("/")],
                 nameType=ASN1_INTEGER(3),  # NT-SRV-HST
+            )
+        else:
+            # In case of U2U
+            return PrincipalName(
+                nameString=[ASN1_GENERAL_STRING(spn)],
+                nameType=ASN1_INTEGER(1),  # NT-PRINCIPAL
             )
 
 
@@ -281,6 +359,7 @@ _KRB_S_TYPES = {
     0x8003: "KRB-AUTHENTICATOR",
     # [MS-KILE]
     0xFFFFFF76: "MD5",
+    -138: "MD5",
 }
 
 
@@ -312,6 +391,9 @@ class EncryptedData(ASN1_Packet):
             elif isinstance(self.underlayer, KRB_AS_REP):
                 # AS-REP encrypted part
                 return 3, EncASRepPart
+            elif isinstance(self.underlayer, KRB_KDC_REQ_BODY):
+                # KDC-REQ enc-authorization-data
+                return 4, AuthorizationData
             elif isinstance(self.underlayer, KRB_AP_REQ) and isinstance(
                 self.underlayer.underlayer, PADATA
             ):
@@ -406,8 +488,6 @@ class EncryptionKey(ASN1_Packet):
     )
 
     def toKey(self):
-        from scapy.libs.rfc3961 import Key
-
         return Key(
             etype=self.keytype.val,
             key=self.keyvalue.val,
@@ -458,8 +538,8 @@ class Checksum(ASN1_Packet):
                 # [MS-SFU] sect 2.2.1
                 return 17
             elif isinstance(self.underlayer, PA_S4U_X509_USER):
-                # [MS-SFU] sect 2.2.1
-                return 17
+                # [MS-SFU] sect 2.2.2
+                return 26
             elif isinstance(self.underlayer, AD_KDCIssued):
                 # AD-KDC-ISSUED checksum
                 return 19
@@ -475,7 +555,7 @@ class Checksum(ASN1_Packet):
 
     def verify(self, key, text, key_usage_number=None):
         """
-        Decrypt and return the data contained in cipher.
+        Verify a signature of text using a key.
 
         :param key: the key to use to check the checksum
         :param text: the bytes to verify
@@ -488,7 +568,7 @@ class Checksum(ASN1_Packet):
 
     def make(self, key, text, key_usage_number=None, cksumtype=None):
         """
-        Encrypt text and set it into cipher.
+        Make a signature.
 
         :param key: the key to use to make the checksum
         :param text: the bytes to make a checksum of
@@ -601,6 +681,9 @@ class AuthorizationData(ASN1_Packet):
         "seq", [AuthorizationDataItem()], AuthorizationDataItem
     )
 
+    def getAuthData(self, adType):
+        return next((x.adData for x in self.seq if x.adType == adType), None)
+
 
 AD_IF_RELEVANT = AuthorizationData
 _AUTHORIZATIONDATA_VALUES[1] = AD_IF_RELEVANT
@@ -647,6 +730,7 @@ _PADATA_TYPES = {
     17: "PA-PK-AS-REP",
     19: "PA-ETYPE-INFO2",
     20: "PA-SVR-REFERRAL-INFO",
+    111: "TD-CMS-DIGEST-ALGORITHMS",
     128: "PA-PAC-REQUEST",
     129: "PA-FOR-USER",
     130: "PA-FOR-X509-USER",
@@ -674,6 +758,8 @@ _PADATA_TYPES = {
     165: "PA-SUPPORTED-ENCTYPES",
     166: "PA-EXTENDED-ERROR",
     167: "PA-PAC-OPTIONS",
+    170: "KERB-SUPERSEDED-BY-USER",
+    171: "KERB-DMSA-KEY-PACKAGE",
 }
 
 _PADATA_CLASSES = {
@@ -695,10 +781,14 @@ class _PADATA_value_Field(ASN1F_STRING_PacketField):
         if pkt.padataType.val in _PADATA_CLASSES:
             cls = _PADATA_CLASSES[pkt.padataType.val]
             if isinstance(cls, tuple):
-                is_reply = (
-                    pkt.underlayer.underlayer is not None
-                    and isinstance(pkt.underlayer.underlayer, KRB_ERROR)
-                ) or isinstance(pkt.underlayer, (KRB_AS_REP, KRB_TGS_REP))
+                parent = pkt.underlayer or pkt.parent
+                is_reply = False
+                if parent is not None:
+                    if isinstance(parent, (KRB_AS_REP, KRB_TGS_REP)):
+                        is_reply = True
+                    else:
+                        parent = parent.underlayer or parent.parent
+                        is_reply = isinstance(parent, KRB_ERROR)
                 cls = cls[is_reply]
             if not val[0].val:
                 return val
@@ -776,6 +866,18 @@ class ETYPE_INFO2(ASN1_Packet):
 
 _PADATA_CLASSES[19] = ETYPE_INFO2
 
+
+# RFC8636 - PKINIT Algorithm Agility
+
+
+class TD_CMS_DIGEST_ALGORITHMS(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF("seq", [], X509_AlgorithmIdentifier)
+
+
+_PADATA_CLASSES[111] = TD_CMS_DIGEST_ALGORITHMS
+
+
 # PADATA Extended with RFC6113
 
 
@@ -840,7 +942,9 @@ class LSAP_TOKEN_INFO_INTEGRITY(Packet):
                 0x00005000: "Protected process",
             },
         ),
-        XStrFixedLenField("MachineID", b"", length=32),
+        MayEnd(XStrFixedLenField("MachineID", b"", length=32)),
+        # KB 5068222 - still waiting for [MS-KILE] update (oct. 2025)
+        XStrFixedLenField("PermanentMachineID", b"", length=32),
     ]
 
 
@@ -882,9 +986,10 @@ _AUTHORIZATIONDATA_VALUES[141] = KERB_AD_RESTRICTION_ENTRY
 class KERB_AUTH_DATA_AP_OPTIONS(Packet):
     name = "KERB-AUTH-DATA-AP-OPTIONS"
     fields_desc = [
-        LEIntEnumField(
+        FlagsField(
             "apOptions",
             0x4000,
+            -32,
             {
                 0x4000: "KERB_AP_OPTIONS_CBT",
                 0x8000: "KERB_AP_OPTIONS_UNVERIFIED_TARGET_NAME",
@@ -1010,6 +1115,9 @@ class KERB_SUPERSEDED_BY_USER(ASN1_Packet):
     )
 
 
+_PADATA_CLASSES[170] = KERB_SUPERSEDED_BY_USER
+
+
 # [MS-KILE] sect 2.2.14
 
 
@@ -1027,12 +1135,15 @@ class KERB_DMSA_KEY_PACKAGE(ASN1_Packet):
                 "previousKeys",
                 [],
                 ASN1F_PACKET("", None, EncryptionKey),
-                explicit_tag=0xA0,
+                explicit_tag=0xA1,
             ),
         ),
         KerberosTime("expirationInterval", GeneralizedTime(), explicit_tag=0xA2),
         KerberosTime("fetchInterval", GeneralizedTime(), explicit_tag=0xA4),
     )
+
+
+_PADATA_CLASSES[171] = KERB_DMSA_KEY_PACKAGE
 
 
 # RFC6113 sect 5.4.1
@@ -1133,7 +1244,8 @@ class KrbFastResponse(ASN1_Packet):
 
 _PADATA_CLASSES[136] = (PA_FX_FAST_REQUEST, PA_FX_FAST_REPLY)
 
-# RFC 4556
+
+# RFC 4556 - PKINIT
 
 
 # sect 3.2.1
@@ -1143,13 +1255,20 @@ class ExternalPrincipalIdentifier(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_optional(
-            ASN1F_STRING("subjectName", "", implicit_tag=0xA0),
+            ASN1F_STRING_ENCAPS(
+                "subjectName", None, X509_DirectoryName, implicit_tag=0x80
+            ),
         ),
         ASN1F_optional(
-            ASN1F_STRING("issuerAndSerialNumber", "", implicit_tag=0xA1),
+            ASN1F_STRING_ENCAPS(
+                "issuerAndSerialNumber",
+                None,
+                CMS_IssuerAndSerialNumber,
+                implicit_tag=0x81,
+            ),
         ),
         ASN1F_optional(
-            ASN1F_STRING("subjectKeyIdentifier", "", implicit_tag=0xA2),
+            ASN1F_STRING("subjectKeyIdentifier", "", implicit_tag=0x82),
         ),
     )
 
@@ -1157,11 +1276,16 @@ class ExternalPrincipalIdentifier(ASN1_Packet):
 class PA_PK_AS_REQ(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_STRING("signedAuthpack", "", implicit_tag=0xA0),
+        ASN1F_STRING_ENCAPS(
+            "signedAuthpack",
+            CMS_ContentInfo(),
+            CMS_ContentInfo,
+            implicit_tag=0x80,
+        ),
         ASN1F_optional(
             ASN1F_SEQUENCE_OF(
                 "trustedCertifiers",
-                [ExternalPrincipalIdentifier()],
+                None,
                 ExternalPrincipalIdentifier,
                 explicit_tag=0xA1,
             ),
@@ -1174,15 +1298,182 @@ class PA_PK_AS_REQ(ASN1_Packet):
 
 _PADATA_CLASSES[16] = PA_PK_AS_REQ
 
+
+# [MS-PKCA] sect 2.2.3
+
+
+class PAChecksum2(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_STRING("checksum", "", explicit_tag=0xA0),
+        ASN1F_PACKET(
+            "algorithmIdentifier",
+            X509_AlgorithmIdentifier(),
+            X509_AlgorithmIdentifier,
+            explicit_tag=0xA1,
+        ),
+    )
+
+    def verify(self, text):
+        """
+        Verify a checksum of text.
+
+        :param text: the bytes to verify
+        """
+        # [MS-PKCA] 2.2.3 - PAChecksum2
+
+        # Only some OIDs are supported. Dumb but readable code.
+        oid = self.algorithmIdentifier.algorithm.val
+        if oid == "1.3.14.3.2.26":
+            hashcls = Hash_SHA
+        elif oid == "2.16.840.1.101.3.4.2.1":
+            hashcls = Hash_SHA256
+        elif oid == "2.16.840.1.101.3.4.2.2":
+            hashcls = Hash_SHA384
+        elif oid == "2.16.840.1.101.3.4.2.3":
+            hashcls = Hash_SHA512
+        else:
+            raise ValueError("Bad PAChecksum2 checksum !")
+
+        if hashcls().digest(text) != self.checksum.val:
+            raise ValueError("Bad PAChecksum2 checksum !")
+
+    def make(self, text, h="sha256"):
+        """
+        Make a checksum.
+
+        :param text: the bytes to make a checksum of
+        """
+        # Only some OIDs are supported. Dumb but readable code.
+        if h == "sha1":
+            hashcls = Hash_SHA
+            self.algorithmIdentifier.algorithm = ASN1_OID("1.3.14.3.2.26")
+        elif h == "sha256":
+            hashcls = Hash_SHA256
+            self.algorithmIdentifier.algorithm = ASN1_OID("2.16.840.1.101.3.4.2.1")
+        elif h == "sha384":
+            hashcls = Hash_SHA384
+            self.algorithmIdentifier.algorithm = ASN1_OID("2.16.840.1.101.3.4.2.2")
+        elif h == "sha512":
+            hashcls = Hash_SHA512
+            self.algorithmIdentifier.algorithm = ASN1_OID("2.16.840.1.101.3.4.2.3")
+        else:
+            raise ValueError("Bad PAChecksum2 checksum !")
+
+        self.checksum = ASN1_STRING(hashcls().digest(text))
+
+
+# still RFC 4556 sect 3.2.1
+
+
+class KRB_PKAuthenticator(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        Microseconds("cusec", 0, explicit_tag=0xA0),
+        KerberosTime("ctime", GeneralizedTime(), explicit_tag=0xA1),
+        UInt32("nonce", 0, explicit_tag=0xA2),
+        ASN1F_optional(
+            ASN1F_STRING("paChecksum", "", explicit_tag=0xA3),
+        ),
+        # RFC8070 extension
+        ASN1F_optional(
+            ASN1F_STRING("freshnessToken", None, explicit_tag=0xA4),
+        ),
+        # [MS-PKCA] sect 2.2.3
+        ASN1F_optional(
+            ASN1F_PACKET("paChecksum2", PAChecksum2(), PAChecksum2, explicit_tag=0xA5),
+        ),
+    )
+
+    def make_checksum(self, text, h="sha256"):
+        """
+        Populate paChecksum and paChecksum2
+        """
+        # paChecksum (always sha-1)
+        self.paChecksum = ASN1_STRING(Hash_SHA().digest(text))
+
+        # paChecksum2
+        self.paChecksum2 = PAChecksum2()
+        self.paChecksum2.make(text, h=h)
+
+    def verify_checksum(self, text):
+        """
+        Verify paChecksum and paChecksum2
+        """
+        if self.paChecksum.val != Hash_SHA().digest(text):
+            raise ValueError("Bad paChecksum checksum !")
+
+        self.paChecksum2.verify(text)
+
+
+# RFC8636 sect 6
+
+
+class KDFAlgorithmId(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_OID("kdfId", "", explicit_tag=0xA0),
+    )
+
+
+# still RFC 4556 sect 3.2.1
+
+
+class KRB_AuthPack(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_PACKET(
+            "pkAuthenticator",
+            KRB_PKAuthenticator(),
+            KRB_PKAuthenticator,
+            explicit_tag=0xA0,
+        ),
+        ASN1F_optional(
+            ASN1F_PACKET(
+                "clientPublicValue",
+                X509_SubjectPublicKeyInfo(),
+                X509_SubjectPublicKeyInfo,
+                explicit_tag=0xA1,
+            ),
+        ),
+        ASN1F_optional(
+            ASN1F_SEQUENCE_OF(
+                "supportedCMSTypes",
+                None,
+                X509_AlgorithmIdentifier,
+                explicit_tag=0xA2,
+            ),
+        ),
+        ASN1F_optional(
+            ASN1F_STRING("clientDHNonce", None, explicit_tag=0xA3),
+        ),
+        # RFC8636 extension
+        ASN1F_optional(
+            ASN1F_SEQUENCE_OF("supportedKDFs", None, KDFAlgorithmId, explicit_tag=0xA4),
+        ),
+    )
+
+
+_CMS_ENCAPSULATED["1.3.6.1.5.2.3.1"] = KRB_AuthPack
+
 # sect 3.2.3
 
 
 class DHRepInfo(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_STRING("dhSignedData", "", implicit_tag=0xA0),
+        ASN1F_STRING_ENCAPS(
+            "dhSignedData",
+            CMS_ContentInfo(),
+            CMS_ContentInfo,
+            implicit_tag=0x80,
+        ),
         ASN1F_optional(
             ASN1F_STRING("serverDHNonce", "", explicit_tag=0xA1),
+        ),
+        # RFC8636 extension
+        ASN1F_optional(
+            ASN1F_PACKET("kdf", None, KDFAlgorithmId, explicit_tag=0xA2),
         ),
     )
 
@@ -1203,6 +1494,22 @@ class PA_PK_AS_REP(ASN1_Packet):
 
 
 _PADATA_CLASSES[17] = PA_PK_AS_REP
+
+
+class KDCDHKeyInfo(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BIT_STRING_ENCAPS(
+            "subjectPublicKey", DHPublicKey(), DHPublicKey, explicit_tag=0xA0
+        ),
+        UInt32("nonce", 0, explicit_tag=0xA1),
+        ASN1F_optional(
+            KerberosTime("dhKeyExpiration", None, explicit_tag=0xA2),
+        ),
+    )
+
+
+_CMS_ENCAPSULATED["1.3.6.1.5.2.3.2"] = KDCDHKeyInfo
 
 # [MS-SFU]
 
@@ -1242,7 +1549,9 @@ class S4UUserID(ASN1_Packet):
                 [
                     "reserved",
                     "KDC_CHECK_LOGON_HOUR_RESTRICTIONS",
-                    "KDC_KEY_USAGE_27",
+                    "USE_REPLY_KEY_USAGE",
+                    "NT_AUTH_POLICY_NOT_REQUIRED",
+                    "UNCONDITIONAL_DELEGATION",
                 ],
                 explicit_tag=0xA4,
             )
@@ -1304,7 +1613,7 @@ class KRB_Ticket(ASN1_Packet):
 
     def getSPN(self):
         return "%s@%s" % (
-            "/".join(x.val.decode() for x in self.sname.nameString),
+            self.sname.toString(),
             self.realm.val.decode(),
         )
 
@@ -1505,6 +1814,12 @@ class KRB_AS_REP(ASN1_Packet):
         implicit_tag=ASN1_Class_KRB.AS_REP,
     )
 
+    def getUPN(self):
+        return "%s@%s" % (
+            self.cname.toString(),
+            self.crealm.val.decode(),
+        )
+
 
 class KRB_TGS_REP(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
@@ -1512,6 +1827,12 @@ class KRB_TGS_REP(ASN1_Packet):
         KRB_KDC_REP,
         implicit_tag=ASN1_Class_KRB.TGS_REP,
     )
+
+    def getUPN(self):
+        return "%s@%s" % (
+            self.cname.toString(),
+            self.crealm.val.decode(),
+        )
 
 
 class LastReqItem(ASN1_Packet):
@@ -1803,15 +2124,29 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
             # 25: KDC_ERR_PREAUTH_REQUIRED
             # 36: KRB_AP_ERR_BADMATCH
             return MethodData(val[0].val, _underlayer=pkt), val[1]
-        elif pkt.errorCode.val in [6, 7, 13, 18, 29, 41, 60]:
+        elif pkt.errorCode.val in [6, 7, 12, 13, 18, 29, 32, 41, 60, 62]:
             # 6: KDC_ERR_C_PRINCIPAL_UNKNOWN
             # 7: KDC_ERR_S_PRINCIPAL_UNKNOWN
+            # 12: KDC_ERR_POLICY
             # 13: KDC_ERR_BADOPTION
             # 18: KDC_ERR_CLIENT_REVOKED
             # 29: KDC_ERR_SVC_UNAVAILABLE
+            # 32: KRB_AP_ERR_TKT_EXPIRED
             # 41: KRB_AP_ERR_MODIFIED
             # 60: KRB_ERR_GENERIC
-            return KERB_ERROR_DATA(val[0].val, _underlayer=pkt), val[1]
+            # 62: KERB_ERR_TYPE_EXTENDED
+            try:
+                return KERB_ERROR_DATA(val[0].val, _underlayer=pkt), val[1]
+            except BER_Decoding_Error:
+                if pkt.errorCode.val in [18, 12]:
+                    # Some types can also happen in FAST sessions
+                    # 18: KDC_ERR_CLIENT_REVOKED
+                    return MethodData(val[0].val, _underlayer=pkt), val[1]
+                elif pkt.errorCode.val == 7:
+                    # This looks like an undocumented structure.
+                    # 7: KDC_ERR_S_PRINCIPAL_UNKNOWN
+                    return KERB_ERROR_UNK(val[0].val, _underlayer=pkt), val[1]
+                raise
         elif pkt.errorCode.val == 69:
             # KRB_AP_ERR_USER_TO_USER_REQUIRED
             return KRB_TGT_REP(val[0].val, _underlayer=pkt), val[1]
@@ -1890,9 +2225,10 @@ class KRB_ERROR(ASN1_Packet):
                     52: "KRB_ERR_RESPONSE_TOO_BIG",
                     60: "KRB_ERR_GENERIC",
                     61: "KRB_ERR_FIELD_TOOLONG",
-                    62: "KDC_ERROR_CLIENT_NOT_TRUSTED",
-                    63: "KDC_ERROR_KDC_NOT_TRUSTED",
-                    64: "KDC_ERROR_INVALID_SIG",
+                    # RFC4556
+                    62: "KDC_ERR_CLIENT_NOT_TRUSTED",
+                    63: "KDC_ERR_KDC_NOT_TRUSTED",
+                    64: "KDC_ERR_INVALID_SIG",
                     65: "KDC_ERR_KEY_TOO_WEAK",
                     66: "KDC_ERR_CERTIFICATE_MISMATCH",
                     67: "KRB_AP_ERR_NO_TGT",
@@ -1905,6 +2241,11 @@ class KRB_ERROR(ASN1_Packet):
                     74: "KDC_ERR_REVOCATION_STATUS_UNAVAILABLE",
                     75: "KDC_ERR_CLIENT_NAME_MISMATCH",
                     76: "KDC_ERR_KDC_NAME_MISMATCH",
+                    77: "KDC_ERR_INCONSISTENT_KEY_PURPOSE",
+                    78: "KDC_ERR_DIGEST_IN_CERT_NOT_ACCEPTED",
+                    79: "KDC_ERR_PA_CHECKSUM_MUST_BE_INCLUDED",
+                    80: "KDC_ERR_DIGEST_IN_SIGNED_DATA_NOT_ACCEPTED",
+                    81: "KDC_ERR_PUBLIC_KEY_ENCRYPTION_NOT_SUPPORTED",
                     # draft-ietf-kitten-iakerb
                     85: "KRB_AP_ERR_IAKERB_KDC_NOT_FOUND",
                     86: "KRB_AP_ERR_IAKERB_KDC_NO_RESPONSE",
@@ -1913,6 +2254,8 @@ class KRB_ERROR(ASN1_Packet):
                     91: "KDC_ERR_MORE_PREAUTH_DATA_REQUIRED",
                     92: "KDC_ERR_PREAUTH_BAD_AUTHENTICATION_SET",
                     93: "KDC_ERR_UNKNOWN_CRITICAL_FAST_OPTIONS",
+                    # RFC8636
+                    100: "KDC_ERR_NO_ACCEPTABLE_KDF",
                 },
                 explicit_tag=0xA6,
             ),
@@ -1928,6 +2271,12 @@ class KRB_ERROR(ASN1_Packet):
         implicit_tag=ASN1_Class_KRB.ERROR,
     )
 
+    def getSPN(self):
+        return "%s@%s" % (
+            self.sname.toString(),
+            self.realm.val.decode(),
+        )
+
 
 # PA-FX-ERROR
 _PADATA_CLASSES[137] = KRB_ERROR
@@ -1938,7 +2287,7 @@ _PADATA_CLASSES[137] = KRB_ERROR
 
 class KERB_EXT_ERROR(Packet):
     fields_desc = [
-        XLEIntField("status", 0),
+        XLEIntEnumField("status", 0, STATUS_ERREF),
         XLEIntField("reserved", 0),
         XLEIntField("flags", 0x00000001),
     ]
@@ -1971,6 +2320,26 @@ class KERB_ERROR_DATA(ASN1_Packet):
             explicit_tag=0xA1,
         ),
         ASN1F_optional(_Error_Field("dataValue", None, explicit_tag=0xA2)),
+    )
+
+
+# This looks like an undocumented structure.
+
+
+class KERB_ERROR_UNK(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE(
+            ASN1F_enum_INTEGER(
+                "dataType",
+                0,
+                {
+                    -128: "KDC_ERR_MUST_USE_USER2USER",
+                },
+                explicit_tag=0xA0,
+            ),
+            ASN1F_STRING("dataValue", None, explicit_tag=0xA1),
+        )
     )
 
 
@@ -2044,12 +2413,7 @@ class KRB_GSS_EXT(Packet):
 class KRB_AuthenticatorChecksum(Packet):
     fields_desc = [
         FieldLenField("Lgth", None, length_of="Bnd", fmt="<I"),
-        PacketLenField(
-            "Bnd",
-            GssChannelBindings(),
-            GssChannelBindings,
-            length_from=lambda pkt: pkt.Lgth,
-        ),
+        XStrLenField("Bnd", b"\x00" * 16, length_from=lambda pkt: pkt.Lgth),
         FlagsField(
             "Flags",
             0,
@@ -2068,11 +2432,11 @@ class KRB_AuthenticatorChecksum(Packet):
             },
         ),
         ConditionalField(
-            LEShortField("DlgOpt", 0),
+            LEShortField("DlgOpt", 1),
             lambda pkt: pkt.Flags.GSS_C_DELEG_FLAG,
         ),
         ConditionalField(
-            FieldLenField("Dlgth", None, length_of="Deleg"),
+            FieldLenField("Dlgth", None, length_of="Deleg", fmt="<H"),
             lambda pkt: pkt.Flags.GSS_C_DELEG_FLAG,
         ),
         ConditionalField(
@@ -2612,22 +2976,32 @@ class KdcProxySocket(SuperSocket):
 # Util functions
 
 
+class PKINIT_KEX_METHOD(IntEnum):
+    DIFFIE_HELLMAN = 1
+    PUBLIC_KEY = 2
+
+
 class KerberosClient(Automaton):
     """
+    Implementation of a Kerberos client.
+
+    Prefer to use the ``krb_as_req`` and ``krb_tgs_req`` functions which
+    wrap this client.
+
+    Common parameters:
+
     :param mode: the mode to use for the client (default: AS_REQ).
     :param ip: the IP of the DC (default: discovered by dclocator)
     :param upn: the UPN of the client.
     :param password: the password of the client.
     :param key: the Key of the client (instead of the password)
     :param realm: the realm of the domain. (default: from the UPN)
-    :param spn: the SPN to request in a TGS-REQ
-    :param ticket: the existing ticket to use in a TGS-REQ
     :param host: the name of the host doing the request
-    :param renew: sets the Renew flag in a TGS-REQ
-    :param additional_tickets: in U2U or S4U2Proxy, the additional tickets
-    :param u2u: sets the U2U flag
-    :param for_user: the UPN of another user in TGS-REQ, to do a S4U2Self
-    :param s4u2proxy: sets the S4U2Proxy flag
+    :param port: the Kerberos port (default 88)
+    :param timeout: timeout of each request (default 5)
+
+    Advanced common parameters:
+
     :param kdc_proxy: specify a KDC proxy url
     :param kdc_proxy_no_check_certificate: do not check the KDC proxy certificate
     :param fast: use FAST armoring
@@ -2635,12 +3009,34 @@ class KerberosClient(Automaton):
     :param armor_ticket_upn: the UPN of the client of the armoring ticket
     :param armor_ticket_skey: the session Key object of the armoring ticket
     :param etypes: specify the list of encryption types to support
-    :param port: the Kerberos port (default 88)
-    :param timeout: timeout of each request (default 5)
+
+    AS-REQ only:
+
+    :param x509: a X509 certificate to use for PKINIT AS_REQ or S4U2Proxy
+    :param x509key: the private key of the X509 certificate (in an AS_REQ)
+    :param ca: the CA list that verifies the peer (KDC) certificate. Typically
+        only the ROOT CA is required.
+    :param p12: (optional) use a pfx/p12 instead of x509 and x509key. In this case,
+        'password' is the password of the p12.
+    :param pkinit_kex_method: (advanced) whether to use the DIFFIE-HELLMAN method or the
+        Certificate based one for PKINIT.
+
+    TGS-REQ only:
+
+    :param spn: the SPN to request in a TGS-REQ
+    :param ticket: the existing ticket to use in a TGS-REQ
+    :param renew: sets the Renew flag in a TGS-REQ
+    :param additional_tickets: in U2U or S4U2Proxy, the additional tickets
+    :param u2u: sets the U2U flag
+    :param for_user: the UPN of another user in TGS-REQ, to do a S4U2Self
+    :param s4u2proxy: sets the S4U2Proxy flag
+    :param dmsa: sets the 'unconditional delegation' mode for DMSA TGT retrieval
     """
 
-    RES_AS_MODE = namedtuple("AS_Result", ["asrep", "sessionkey", "kdcrep"])
-    RES_TGS_MODE = namedtuple("TGS_Result", ["tgsrep", "sessionkey", "kdcrep"])
+    RES_AS_MODE = namedtuple(
+        "AS_Result", ["asrep", "sessionkey", "kdcrep", "upn", "pa_type"]
+    )
+    RES_TGS_MODE = namedtuple("TGS_Result", ["tgsrep", "sessionkey", "kdcrep", "upn"])
 
     class MODE(IntEnum):
         AS_REQ = 0
@@ -2650,28 +3046,36 @@ class KerberosClient(Automaton):
     def __init__(
         self,
         mode=MODE.AS_REQ,
-        ip=None,
-        upn=None,
-        password=None,
-        key=None,
-        realm=None,
-        spn=None,
-        ticket=None,
-        host=None,
-        renew=False,
-        additional_tickets=[],
-        u2u=False,
-        for_user=None,
-        s4u2proxy=False,
-        kdc_proxy=None,
-        kdc_proxy_no_check_certificate=False,
-        fast=False,
-        armor_ticket=None,
-        armor_ticket_upn=None,
-        armor_ticket_skey=None,
-        etypes=None,
-        port=88,
-        timeout=5,
+        ip: Optional[str] = None,
+        upn: Optional[str] = None,
+        password: Optional[str] = None,
+        key: Optional["Key"] = None,
+        realm: Optional[str] = None,
+        x509: Optional[Union[Cert, str]] = None,
+        x509key: Optional[Union[PrivKey, str]] = None,
+        ca: Optional[Union[CertTree, str]] = None,
+        p12: Optional[str] = None,
+        spn: Optional[str] = None,
+        ticket: Optional[KRB_Ticket] = None,
+        host: Optional[str] = None,
+        renew: bool = False,
+        additional_tickets: List[KRB_Ticket] = [],
+        u2u: bool = False,
+        for_user: Optional[str] = None,
+        s4u2proxy: bool = False,
+        dmsa: bool = False,
+        kdc_proxy: Optional[str] = None,
+        kdc_proxy_no_check_certificate: bool = False,
+        fast: bool = False,
+        armor_ticket: KRB_Ticket = None,
+        armor_ticket_upn: Optional[str] = None,
+        armor_ticket_skey: Optional["Key"] = None,
+        key_list_req: List["EncryptionType"] = [],
+        etypes: Optional[List["EncryptionType"]] = None,
+        pkinit_kex_method: PKINIT_KEX_METHOD = PKINIT_KEX_METHOD.DIFFIE_HELLMAN,
+        port: int = 88,
+        timeout: int = 5,
+        verbose: bool = True,
         **kwargs,
     ):
         import scapy.libs.rfc3961  # Trigger error if any  # noqa: F401
@@ -2693,9 +3097,52 @@ class KerberosClient(Automaton):
             else:
                 raise ValueError("Invalid realm")
 
+        # PKINIT checks
+        if p12 is not None:
+            # password should be None or bytes
+            if isinstance(password, str):
+                password = password.encode()
+
+            # Read p12/pfx. If it fails and no password was provided, prompt and
+            # retry once.
+            while True:
+                try:
+                    with open(p12, "rb") as fd:
+                        x509key, x509, _ = pkcs12.load_key_and_certificates(
+                            fd.read(),
+                            password=password,
+                        )
+                        break
+                except ValueError as ex:
+                    if password is None:
+                        # We don't have a password. Prompt and retry.
+                        try:
+                            from prompt_toolkit import prompt
+
+                            password = prompt(
+                                "Enter PKCS12 password: ", is_password=True
+                            )
+                        except ImportError:
+                            password = input("Enter PKCS12 password: ")
+                        password = password.encode()
+                    else:
+                        raise ex
+
+            x509 = Cert(cryptography_obj=x509)
+            x509key = PrivKey(cryptography_obj=x509key)
+        elif x509 and x509key:
+            if not isinstance(x509, Cert):
+                x509 = Cert(x509)
+            if not isinstance(x509key, PrivKey):
+                x509key = PrivKey(x509key)
+        if ca and not isinstance(ca, CertList):
+            ca = CertList(ca)
+
         if mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
             if not host:
                 raise ValueError("Invalid host")
+            if x509 is not None and (not x509key or not ca):
+                raise ValueError("Must provide both 'x509', 'x509key' and 'ca' !")
         elif mode == self.MODE.TGS_REQ:
             if not ticket:
                 raise ValueError("Invalid ticket")
@@ -2712,6 +3159,7 @@ class KerberosClient(Automaton):
                 debug=kwargs.get("debug", 0),
             ).ip
 
+        # Armoring checks
         if fast:
             if mode == self.MODE.AS_REQ:
                 # Requires an external ticket
@@ -2730,15 +3178,11 @@ class KerberosClient(Automaton):
             if etypes is not None:
                 raise ValueError("Cannot specify etypes in GET_SALT mode !")
 
-            from scapy.libs.rfc3961 import EncryptionType
-
             etypes = [
                 EncryptionType.AES256_CTS_HMAC_SHA1_96,
                 EncryptionType.AES128_CTS_HMAC_SHA1_96,
             ]
         elif etypes is None:
-            from scapy.libs.rfc3961 import EncryptionType
-
             etypes = [
                 EncryptionType.AES256_CTS_HMAC_SHA1_96,
                 EncryptionType.AES128_CTS_HMAC_SHA1_96,
@@ -2753,6 +3197,7 @@ class KerberosClient(Automaton):
         self.result = None  # Result
 
         self._timeout = timeout
+        self._verbose = verbose
         self._ip = ip
         self._port = port
         self.kdc_proxy = kdc_proxy
@@ -2764,16 +3209,21 @@ class KerberosClient(Automaton):
         self.spn = spn
         self.upn = upn
         self.realm = realm.upper()
+        self.x509 = x509
+        self.x509key = x509key
+        self.pkinit_kex_method = pkinit_kex_method
         self.ticket = ticket
         self.fast = fast
         self.armor_ticket = armor_ticket
         self.armor_ticket_upn = armor_ticket_upn
         self.armor_ticket_skey = armor_ticket_skey
+        self.key_list_req = key_list_req
         self.renew = renew
         self.additional_tickets = additional_tickets  # U2U + S4U2Proxy
         self.u2u = u2u  # U2U
         self.for_user = for_user  # FOR-USER
         self.s4u2proxy = s4u2proxy  # S4U2Proxy
+        self.dmsa = dmsa  # DMSA
         self.key = key
         self.subkey = None  # In the AP-REQ authenticator
         self.replykey = None  # Key used for reply
@@ -2784,11 +3234,17 @@ class KerberosClient(Automaton):
         self.fast_req_sent = False
         # Session parameters
         self.pre_auth = False
+        self.pa_type = None  # preauth-type that's used
         self.fast_rep = None
         self.fast_error = None
         self.fast_skey = None  # The random subkey used for fast
         self.fast_armorkey = None  # The armor key
         self.fxcookie = None
+        self.pkinit_dh_key = None
+        if ca is not None:
+            self.pkinit_cms = CMS_Engine(ca)
+        else:
+            self.pkinit_cms = None
 
         sock = self._connect()
         super(KerberosClient, self).__init__(
@@ -2797,6 +3253,10 @@ class KerberosClient(Automaton):
         )
 
     def _connect(self):
+        """
+        Internal function to bind a socket to the DC.
+        This also takes care of an eventual KDC proxy.
+        """
         if self.kdc_proxy:
             # If we are using a KDC Proxy, wrap the socket with the KdcProxySocket,
             # that takes our messages and transport them over HTTP.
@@ -2813,9 +3273,38 @@ class KerberosClient(Automaton):
         return sock
 
     def send(self, pkt):
+        """
+        Sends a wrapped Kerberos packet
+        """
         super(KerberosClient, self).send(KerberosTCPHeader() / pkt)
 
+    def _show_krb_error(self, error):
+        """
+        Displays a Kerberos error
+        """
+        if error.root.errorCode == 0x07:
+            # KDC_ERR_S_PRINCIPAL_UNKNOWN
+            if (
+                isinstance(error.root.eData, KERB_ERROR_UNK)
+                and error.root.eData.dataType == -128
+            ):
+                log_runtime.error(
+                    "KerberosSSP: KDC requires U2U for SPN '%s' !" % error.root.getSPN()
+                )
+            else:
+                log_runtime.error(
+                    "KerberosSSP: KDC_ERR_S_PRINCIPAL_UNKNOWN for SPN '%s'"
+                    % error.root.getSPN()
+                )
+        else:
+            log_runtime.error(error.root.sprintf("KerberosSSP: Received %errorCode% !"))
+            if self._verbose:
+                error.show()
+
     def _base_kdc_req(self, now_time):
+        """
+        Return the KRB_KDC_REQ_BODY used in both AS-REQ and TGS-REQ
+        """
         kdcreq = KRB_KDC_REQ_BODY(
             etype=[ASN1_INTEGER(x) for x in self.etypes],
             additionalTickets=None,
@@ -2836,8 +3325,6 @@ class KerberosClient(Automaton):
         Calculate and return the FAST armorkey
         """
         # Generate a random key of the same type than ticket_skey
-        from scapy.libs.rfc3961 import Key, KRB_FX_CF2
-
         if self.mode == self.MODE.AS_REQ:
             # AS-REQ mode
             self.fast_skey = Key.new_random_key(self.armor_ticket_skey.etype)
@@ -3007,33 +3494,131 @@ class KerberosClient(Automaton):
 
         # Pre-auth is requested
         if self.pre_auth:
-            if self.fast:
-                # Special FAST factor
-                # RFC6113 sect 5.4.6
-                from scapy.libs.rfc3961 import KRB_FX_CF2
+            if self.x509:
+                # Special PKINIT (RFC4556) factor
 
-                # Calculate the 'challenge key'
-                ts_key = KRB_FX_CF2(
-                    self.fast_armorkey,
-                    self.key,
-                    b"clientchallengearmor",
-                    b"challengelongterm",
+                # RFC4556 - 3.2.1. Generation of Client Request
+
+                # RFC4556 - 3.2.1 - (5) AuthPack
+                authpack = KRB_AuthPack(
+                    pkAuthenticator=KRB_PKAuthenticator(
+                        ctime=ASN1_GENERALIZED_TIME(now_time),
+                        cusec=ASN1_INTEGER(0),
+                        nonce=ASN1_INTEGER(RandNum(0, 0x7FFFFFFF)._fix()),
+                    ),
+                    clientPublicValue=None,  # Used only in DH mode
+                    supportedCMSTypes=None,
+                    clientDHNonce=None,
+                    supportedKDFs=None,
                 )
+
+                if self.pkinit_kex_method == PKINIT_KEX_METHOD.DIFFIE_HELLMAN:
+                    # RFC4556 - 3.2.3.1. Diffie-Hellman Key Exchange
+
+                    # We use modp2048
+                    dh_parameters = _ffdh_groups["modp2048"][0]
+                    self.pkinit_dh_key = dh_parameters.generate_private_key()
+                    numbers = dh_parameters.parameter_numbers()
+
+                    # We can't use 'public_bytes' because it's the PKCS#3 format,
+                    # and we want the DomainParameters format.
+                    authpack.clientPublicValue = X509_SubjectPublicKeyInfo(
+                        signatureAlgorithm=X509_AlgorithmIdentifier(
+                            algorithm=ASN1_OID("dhpublicnumber"),
+                            parameters=DomainParameters(
+                                p=ASN1_INTEGER(numbers.p),
+                                g=ASN1_INTEGER(numbers.g),
+                                # q: see ERRATA 1 of RFC4556
+                                q=ASN1_INTEGER(numbers.q or (numbers.p - 1) // 2),
+                            ),
+                        ),
+                        subjectPublicKey=DHPublicKey(
+                            y=ASN1_INTEGER(
+                                self.pkinit_dh_key.public_key().public_numbers().y
+                            ),
+                        ),
+                    )
+                elif self.pkinit_kex_method == PKINIT_KEX_METHOD.PUBLIC_KEY:
+                    # RFC4556 - 3.2.3.2. - Public Key Encryption
+
+                    # Set supportedCMSTypes, supportedKDFs
+                    authpack.supportedCMSTypes = [
+                        X509_AlgorithmIdentifier(algorithm=ASN1_OID(x))
+                        for x in [
+                            "ecdsa-with-SHA512",
+                            "ecdsa-with-SHA256",
+                            "sha512WithRSAEncryption",
+                            "sha256WithRSAEncryption",
+                        ]
+                    ]
+                    authpack.supportedKDFs = [
+                        KDFAlgorithmId(kdfId=ASN1_OID(x))
+                        for x in [
+                            "id-pkinit-kdf-sha256",
+                            "id-pkinit-kdf-sha1",
+                            "id-pkinit-kdf-sha512",
+                        ]
+                    ]
+
+                    # XXX UNFINISHED
+                    raise NotImplementedError
+                else:
+                    raise ValueError
+
+                # Populate paChecksum and PAChecksum2
+                authpack.pkAuthenticator.make_checksum(bytes(kdc_req))
+
+                # Sign the AuthPack
+                signedAuthpack = self.pkinit_cms.sign(
+                    authpack,
+                    ASN1_OID("id-pkinit-authData"),
+                    self.x509,
+                    self.x509key,
+                )
+
+                # Build PA-DATA
+                self.pa_type = 16  # PA-PK-AS-REQ
                 pafactor = PADATA(
-                    padataType=138,  # PA-ENCRYPTED-CHALLENGE
-                    padataValue=EncryptedData(),
+                    padataType=self.pa_type,
+                    padataValue=PA_PK_AS_REQ(
+                        signedAuthpack=signedAuthpack,
+                        trustedCertifiers=None,
+                        kdcPkId=None,
+                    ),
                 )
             else:
-                # Usual 'timestamp' factor
-                ts_key = self.key
-                pafactor = PADATA(
-                    padataType=2,  # PA-ENC-TIMESTAMP
-                    padataValue=EncryptedData(),
+                # Key-based factor
+
+                if self.fast:
+                    # Special FAST factor
+                    # RFC6113 sect 5.4.6
+
+                    # Calculate the 'challenge key'
+                    ts_key = KRB_FX_CF2(
+                        self.fast_armorkey,
+                        self.key,
+                        b"clientchallengearmor",
+                        b"challengelongterm",
+                    )
+                    self.pa_type = 138  # PA-ENCRYPTED-CHALLENGE
+                    pafactor = PADATA(
+                        padataType=self.pa_type,
+                        padataValue=EncryptedData(),
+                    )
+                else:
+                    # Usual 'timestamp' factor
+                    ts_key = self.key
+                    self.pa_type = 2  # PA-ENC-TIMESTAMP
+                    pafactor = PADATA(
+                        padataType=self.pa_type,
+                        padataValue=EncryptedData(),
+                    )
+                pafactor.padataValue.encrypt(
+                    ts_key,
+                    PA_ENC_TS_ENC(patimestamp=ASN1_GENERALIZED_TIME(now_time)),
                 )
-            pafactor.padataValue.encrypt(
-                ts_key,
-                PA_ENC_TS_ENC(patimestamp=ASN1_GENERALIZED_TIME(now_time)),
-            )
+
+            # Insert Pre-Authentication data
             padata.insert(
                 0,
                 pafactor,
@@ -3088,33 +3673,80 @@ class KerberosClient(Automaton):
 
         # [MS-SFU] FOR-USER extension
         if self.for_user is not None:
-            from scapy.libs.rfc3961 import ChecksumType
+            # [MS-SFU] note 4:
+            # "Windows Vista, Windows Server 2008, Windows 7, and Windows Server
+            # 2008 R2 send the PA-S4U-X509-USER padata type alone if the user's
+            # certificate is available.
+            # If the user's certificate is not available, it sends both the
+            # PA-S4U-X509-USER padata type and the PA-FOR-USER padata type.
+            # When the PA-S4U-X509-USER padata type is used without the user's
+            # certificate, the certificate field is not present."
 
-            paforuser = PA_FOR_USER(
-                userName=PrincipalName.fromUPN(self.for_user),
-                userRealm=ASN1_GENERAL_STRING(_parse_upn(self.for_user)[1]),
-                cksum=Checksum(),
+            # 1. Add PA_S4U_X509_USER
+            pasfux509 = PA_S4U_X509_USER(
+                userId=S4UUserID(
+                    nonce=kdc_req.nonce,
+                    # [MS-SFU] note 5:
+                    # "Windows S4U clients always set this option."
+                    options="USE_REPLY_KEY_USAGE",
+                    cname=PrincipalName.fromUPN(self.for_user),
+                    crealm=ASN1_GENERAL_STRING(_parse_upn(self.for_user)[1]),
+                    subjectCertificate=None,  # TODO
+                ),
+                checksum=Checksum(),
             )
-            S4UByteArray = struct.pack(  # [MS-SFU] sect 2.2.1
-                "<I", paforuser.userName.nameType.val
-            ) + (
-                (
-                    "".join(x.val for x in paforuser.userName.nameString)
-                    + paforuser.userRealm.val
-                    + paforuser.authPackage.val
-                ).encode()
-            )
-            paforuser.cksum.make(
-                self.key,
-                S4UByteArray,
-                cksumtype=ChecksumType.HMAC_MD5,
-            )
+
+            if self.dmsa:
+                # DMSA = set UNCONDITIONAL_DELEGATION to 1
+                pasfux509.userId.options.set(4, 1)
+
+            if self.key.etype in [EncryptionType.RC4_HMAC, EncryptionType.RC4_HMAC_EXP]:
+                # "if the key's encryption type is RC4_HMAC_NT (23) the checksum type
+                # is rsa-md4 (2) as defined in section 6.2.6 of [RFC3961]."
+                pasfux509.checksum.make(
+                    self.key,
+                    bytes(pasfux509.userId),
+                    cksumtype=ChecksumType.RSA_MD4,
+                )
+            else:
+                pasfux509.checksum.make(
+                    self.key,
+                    bytes(pasfux509.userId),
+                )
             padata.append(
                 PADATA(
-                    padataType=ASN1_INTEGER(129),  # PA-FOR-USER
-                    padataValue=paforuser,
+                    padataType=ASN1_INTEGER(130),  # PA-FOR-X509-USER
+                    padataValue=pasfux509,
                 )
             )
+
+            # 2. Add PA_FOR_USER
+            if True:  # XXX user's certificate is not available.
+                paforuser = PA_FOR_USER(
+                    userName=PrincipalName.fromUPN(self.for_user),
+                    userRealm=ASN1_GENERAL_STRING(_parse_upn(self.for_user)[1]),
+                    cksum=Checksum(),
+                )
+                S4UByteArray = struct.pack(  # [MS-SFU] sect 2.2.1
+                    "<I", paforuser.userName.nameType.val
+                ) + (
+                    (
+                        "".join(x.val for x in paforuser.userName.nameString)
+                        + paforuser.userRealm.val
+                        + paforuser.authPackage.val
+                    ).encode()
+                )
+                paforuser.cksum.make(
+                    self.key,
+                    S4UByteArray,
+                    cksumtype=ChecksumType.HMAC_MD5,
+                )
+                padata.append(
+                    PADATA(
+                        padataType=ASN1_INTEGER(129),  # PA-FOR-USER
+                        padataValue=paforuser,
+                    )
+                )
 
         # [MS-SFU] S4U2proxy - sect 3.1.5.2.1
         if self.s4u2proxy:
@@ -3129,6 +3761,17 @@ class KerberosClient(Automaton):
             )
             # "kdc-options field: MUST include the new cname-in-addl-tkt options flag"
             kdc_req.kdcOptions.set(14, 1)
+
+        # [MS-KILE] 2.2.11 KERB-KEY-LIST-REQ
+        if self.key_list_req:
+            padata.append(
+                PADATA(
+                    padataType=ASN1_INTEGER(161),  # KERB-KEY-LIST-REQ
+                    padataValue=KERB_KEY_LIST_REQ(
+                        keytypes=[ASN1_INTEGER(x) for x in self.key_list_req]
+                    ),
+                )
+            )
 
         # 3. Build the AP-req inside a PA
         apreq = KRB_AP_REQ(ticket=self.ticket, authenticator=EncryptedData())
@@ -3221,43 +3864,109 @@ class KerberosClient(Automaton):
     def SENT_TGS_REQ(self):
         pass
 
-    def _process_padatas_and_key(self, padatas):
-        from scapy.libs.rfc3961 import EncryptionType, Key, KRB_FX_CF2
+    def _process_padatas_and_key(self, padatas, etype: "EncryptionType" = None):
+        """
+        Process the PADATA, and generate missing keys if required.
 
-        etype = None
+        :param etype: (optional) If provided, the EncryptionType to use.
+        """
         salt = b""
+
+        if etype is not None and etype not in self.etypes:
+            raise ValueError("The answered 'etype' key isn't supported by us !")
+
         # 1. Process pa-data
         if padatas is not None:
             for padata in padatas:
                 if padata.padataType == 0x13 and etype is None:  # PA-ETYPE-INFO2
+                    # We obtain the salt for hash types that need it
                     elt = padata.padataValue.seq[0]
                     if elt.etype.val in self.etypes:
                         etype = elt.etype.val
                         if etype != EncryptionType.RC4_HMAC:
                             salt = elt.salt.val
+
+                elif padata.padataType == 0x11:  # PA-PK-AS-REP
+                    # PKINIT handling
+
+                    # The steps are as follows:
+                    # 1. Verify and extract the CMS response. The expected type
+                    #    is different depending on the used method.
+                    # 2. Compute the replykey
+
+                    if self.pkinit_kex_method == PKINIT_KEX_METHOD.DIFFIE_HELLMAN:
+                        # Unpack KDCDHKeyInfo
+                        keyinfo = self.pkinit_cms.verify(
+                            padata.padataValue.rep.dhSignedData,
+                            eContentType=ASN1_OID("id-pkinit-DHKeyData"),
+                        )
+
+                        # If 'etype' is None, we're in an error. Since we verified
+                        # the CMS successfully, end here.
+                        if etype is None:
+                            continue
+
+                        # Extract crypto parameters
+                        y = keyinfo.subjectPublicKey.y.val
+
+                        # Import into cryptography
+                        params = self.pkinit_dh_key.parameters().parameter_numbers()
+                        pubkey = dh.DHPublicNumbers(y, params).public_key()
+
+                        # Calculate DHSharedSecret
+                        DHSharedSecret = self.pkinit_dh_key.exchange(pubkey)
+
+                        # RFC4556 3.2.3.1 - AS reply key is derived as follows
+                        self.replykey = octetstring2key(
+                            etype,
+                            DHSharedSecret,
+                        )
+
+                    else:
+                        raise ValueError
+
                 elif padata.padataType == 133:  # PA-FX-COOKIE
+                    # Get cookie and store it
                     self.fxcookie = padata.padataValue
+
                 elif padata.padataType == 136:  # PA-FX-FAST
+                    # FAST handling: get the actual inner message and decrypt it
                     if isinstance(padata.padataValue, PA_FX_FAST_REPLY):
                         self.fast_rep = (
                             padata.padataValue.armoredData.encFastRep.decrypt(
                                 self.fast_armorkey,
                             )
                         )
+
                 elif padata.padataType == 137:  # PA-FX-ERROR
+                    # Get error and store it
                     self.fast_error = padata.padataValue
 
-        # 2. Update the current key if necessary
+                elif padata.padataType == 130:  # PA-FOR-X509-USER
+                    # Verify S4U checksum
+                    key_usage_number = None
+                    pasfux509 = padata.padataValue
+                    # [MS-SFU] sect 2.2.2
+                    # "In a reply, indicates that it was signed with key usage 27"
+                    if pasfux509.userId.options.val[2] == "1":  # USE_REPLY_KEY_USAGE
+                        key_usage_number = 27
+                    pasfux509.checksum.verify(
+                        self.key,
+                        bytes(pasfux509.userId),
+                        key_usage_number=key_usage_number,
+                    )
 
-        # Compute key if not already provided
-        if self.key is None and etype is not None:
+        # 2. Update the current keys if necessary
+
+        # Compute client key if not already provided
+        if self.key is None and etype is not None and self.x509 is None:
             self.key = Key.string_to_key(
                 etype,
                 self.password,
                 salt,
             )
 
-        # Update the key with the fast reply, if necessary
+        # Strengthen the reply key with the fast reply, if necessary
         if self.fast_rep and self.fast_rep.strengthenKey:
             # "The strengthen-key field MAY be set in an AS reply"
             self.replykey = KRB_FX_CF2(
@@ -3312,18 +4021,17 @@ class KerberosClient(Automaton):
                 return
 
             if pkt.root.errorCode == 25:  # KDC_ERR_PREAUTH_REQUIRED
-                if not self.key and (not self.upn or not self.password):
+                if not self.key and not self.x509:
                     log_runtime.error(
                         "Got 'KDC_ERR_PREAUTH_REQUIRED', "
-                        "but no key, nor upn+pass was passed."
+                        "but no possible key could be computed."
                     )
                     raise self.FINAL()
                 self.should_followup = True
                 self.pre_auth = True
                 raise self.BEGIN()
             else:
-                log_runtime.error("Received KRB_ERROR")
-                pkt.show()
+                self._show_krb_error(pkt)
                 raise self.FINAL()
 
     @ATMT.receive_condition(SENT_AS_REQ, prio=2)
@@ -3344,7 +4052,12 @@ class KerberosClient(Automaton):
 
     @ATMT.action(receive_as_rep)
     def decrypt_as_rep(self, pkt):
-        self._process_padatas_and_key(pkt.root.padata)
+        # Process PADATAs. This is important for FAST and PKINIT
+        self._process_padatas_and_key(
+            pkt.root.padata,
+            etype=pkt.root.encPart.etype.val,
+        )
+
         if not self.pre_auth:
             log_runtime.warning("Pre-authentication was disabled for this account !")
 
@@ -3359,10 +4072,20 @@ class KerberosClient(Automaton):
         elif self.fast:
             raise ValueError("Answer was not FAST ! Is it supported?")
 
+        # Check for PKINIT
+        if self.x509 and self.replykey is None:
+            raise ValueError("PKINIT was used but no valid PA-PK-AS-REP was found !")
+
         # Decrypt AS-REP response
         enc = pkt.root.encPart
         res = enc.decrypt(self.replykey)
-        self.result = self.RES_AS_MODE(pkt.root, res.key.toKey(), res)
+        self.result = self.RES_AS_MODE(
+            pkt.root,
+            res.key.toKey(),
+            res,
+            pkt.root.getUPN(),
+            self.pa_type,
+        )
 
     @ATMT.receive_condition(SENT_TGS_REQ)
     def receive_krb_error_tgs_req(self, pkt):
@@ -3383,14 +4106,17 @@ class KerberosClient(Automaton):
                 self.receive_krb_error_tgs_req(ferr)
                 return
 
-            log_runtime.warning("Received KRB_ERROR")
-            pkt.show()
+            self._show_krb_error(pkt)
             raise self.FINAL()
 
     @ATMT.receive_condition(SENT_TGS_REQ)
     def receive_tgs_rep(self, pkt):
         if Kerberos in pkt and isinstance(pkt.root, KRB_TGS_REP):
-            if not self.renew and pkt.root.ticket.sname.nameString[0].val == b"krbtgt":
+            if (
+                not self.renew
+                and not self.dmsa
+                and pkt.root.ticket.sname.nameString[0].val == b"krbtgt"
+            ):
                 log_runtime.warning("Received a cross-realm referral ticket !")
             raise self.FINAL().action_parameters(pkt)
 
@@ -3418,7 +4144,14 @@ class KerberosClient(Automaton):
             res = enc.decrypt(self.replykey, key_usage_number=9, cls=EncTGSRepPart)
         else:
             res = enc.decrypt(self.replykey)
-        self.result = self.RES_TGS_MODE(pkt.root, res.key.toKey(), res)
+
+        # Store result
+        self.result = self.RES_TGS_MODE(
+            pkt.root,
+            res.key.toKey(),
+            res,
+            self.upn,
+        )
 
     @ATMT.state(final=1)
     def FINAL(self):
@@ -3426,9 +4159,17 @@ class KerberosClient(Automaton):
 
 
 def _parse_upn(upn):
-    m = re.match(r"^([^@\\/]+)(@|\\|/)([^@\\/]+)$", upn)
+    """
+    Extract the username and realm from full UPN
+    """
+    m = re.match(r"^([^@\\/]+)(@|\\)([^@\\/]+)$", upn)
     if not m:
-        raise ValueError("Invalid UPN: '%s'" % upn)
+        err = "Invalid UPN: '%s'" % upn
+        if "/" in upn:
+            err += ". Did you mean '%s' ?" % upn.replace("/", "\\")
+        elif "@" not in upn and "\\" not in upn:
+            err += ". Provide domain as so: '%s@domain.local'" % upn
+        raise ValueError(err)
     if m.group(2) == "@":
         user = m.group(1)
         domain = m.group(3)
@@ -3439,14 +4180,41 @@ def _parse_upn(upn):
 
 
 def _parse_spn(spn):
-    m = re.match(r"^((?:[^@\\/]+)/(?:[^@\\/]+))(?:@([^@\\/]+))?$", spn)
+    """
+    Extract ServiceName and realm from full SPN
+    """
+    # See [MS-ADTS] sect 2.2.21 for SPN format. We discard the servicename.
+    m = re.match(r"^((?:[^@\\/]+)/(?:[^@\\/]+))(?:/[^@\\/]+)?(?:@([^@\\/]+))?$", spn)
     if not m:
-        raise ValueError("Invalid SPN: '%s'" % spn)
+        try:
+            # If SPN is a UPN, we are doing U2U :D
+            return _parse_upn(spn)
+        except ValueError:
+            raise ValueError("Invalid SPN: '%s'" % spn)
     return m.group(1), m.group(2)
 
 
+def _spn_are_equal(spn1, spn2):
+    """
+    Check that two SPNs are equal.
+    """
+    spn1, _ = _parse_spn(spn1)
+    spn2, _ = _parse_spn(spn2)
+    return spn1.lower() == spn2.lower()
+
+
 def krb_as_req(
-    upn, spn=None, ip=None, key=None, password=None, realm=None, host="WIN10", **kwargs
+    upn: str,
+    spn: Optional[str] = None,
+    ip: Optional[str] = None,
+    key: Optional["Key"] = None,
+    password: Optional[str] = None,
+    realm: Optional[str] = None,
+    host: str = "WIN10",
+    p12: Optional[str] = None,
+    x509: Optional[Union[str, Cert]] = None,
+    x509key: Optional[Union[str, PrivKey]] = None,
+    **kwargs,
 ):
     r"""
     Kerberos AS-Req
@@ -3459,6 +4227,10 @@ def krb_as_req(
                _kerberos._tcp.dc._msdcs.domain.local).
     :param key: (optional) pass the Key object.
     :param password: (optional) otherwise, pass the user's password
+    :param x509: (optional) pass a x509 certificate for PKINIT.
+    :param x509key: (optional) pass the private key of the x509 certificate for PKINIT.
+    :param p12: (optional) use a pfx/p12 instead of x509 and x509key. In this case,
+        'password' is the password of the p12.
     :param realm: (optional) the realm to use. Otherwise use the one from UPN.
     :param host: (optional) the host performing the AS-Req. WIN10 by default.
 
@@ -3466,19 +4238,23 @@ def krb_as_req(
 
     Example::
 
-        >>> # The KDC is on 192.168.122.17, we ask a TGT for user1
-        >>> krb_as_req("user1@DOMAIN.LOCAL", "192.168.122.17", password="Password1")
+        >>> # The KDC is found via DC Locator, we ask a TGT for user1
+        >>> krb_as_req("user1@DOMAIN.LOCAL", password="Password1")
 
     Equivalent::
 
         >>> from scapy.libs.rfc3961 import Key, EncryptionType
         >>> key = Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=hex_bytes("6d0748c546
         ...: f4e99205e78f8da7681d4ec5520ae4815543720c2a647c1ae814c9"))
-        >>> krb_as_req("user1@DOMAIN.LOCAL", "192.168.122.17", key=key)
+        >>> krb_as_req("user1@DOMAIN.LOCAL", ip="192.168.122.17", key=key)
+
+    Example using PKINIT with a p12::
+
+        >>> krb_as_req("user1@DOMAIN.LOCAL", p12="./store.p12", password="password")
     """
     if realm is None:
         _, realm = _parse_upn(upn)
-    if key is None:
+    if key is None and p12 is None and x509 is None:
         if password is None:
             try:
                 from prompt_toolkit import prompt
@@ -3495,6 +4271,9 @@ def krb_as_req(
         upn=upn,
         password=password,
         key=key,
+        p12=p12,
+        x509=x509,
+        x509key=x509key,
         **kwargs,
     )
     cli.run()
@@ -3579,8 +4358,9 @@ def krb_as_and_tgs(upn, spn, ip=None, key=None, password=None, **kwargs):
     res = krb_as_req(upn=upn, ip=ip, key=key, password=password, **kwargs)
     if not res:
         return
+
     return krb_tgs_req(
-        upn=upn,
+        upn=res.upn,  # UPN might get canonicalized
         spn=spn,
         sessionkey=res.sessionkey,
         ticket=res.asrep.ticket,
@@ -3706,11 +4486,11 @@ def kpasswd(
             debug=debug,
             **kwargs,
         )
-    Context, tok, negResult = ssp.GSS_Init_sec_context(
+    Context, tok, status = ssp.GSS_Init_sec_context(
         None,
         req_flags=0,  # No GSS_C_MUTUAL_FLAG
     )
-    if negResult != GSS_S_CONTINUE_NEEDED:
+    if status != GSS_S_CONTINUE_NEEDED:
         warning("SSP failed on initial GSS_Init_sec_context !")
         if tok:
             tok.show()
@@ -3769,8 +4549,11 @@ def kpasswd(
     if KPASSWD_REP not in resp:
         resp.show()
         raise ValueError("Invalid response to KPASSWD_REQ !")
-    Context, tok, negResult = ssp.GSS_Init_sec_context(Context, resp.aprep)
-    if negResult != GSS_S_COMPLETE:
+    Context, tok, status = ssp.GSS_Init_sec_context(
+        Context,
+        input_token=resp.aprep,
+    )
+    if status != GSS_S_COMPLETE:
         warning("SSP failed on subsequent GSS_Init_sec_context !")
         if tok:
             tok.show()
@@ -3796,7 +4579,8 @@ class KerberosSSP(SSP):
 
     :param ST: the service ticket to use for access.
                If not provided, will be retrieved
-    :param SPN: the SPN of the service to use
+    :param SPN: the SPN of the service to use. If not provided, will use the
+                target_name provided in the GSS_Init_sec_context
     :param UPN: The client UPN
     :param DC_IP: (optional) is ST+KEY are not provided, will need to contact
                   the KDC at this IP. If not provided, will perform dc locator.
@@ -3810,15 +4594,14 @@ class KerberosSSP(SSP):
 
     Server settings:
 
-    :param SPN: the SPN of the service to use
+    :param SPN: the SPN of the service to use.
     :param KEY: the kerberos key to use to decrypt the AP-req
-    :param TGT: (optional) pass a TGT to use for U2U
+    :param UPN: (optional) the UPN, if used in U2U mode.
+    :param TGT: (optional) pass a TGT to use for U2U.
     :param DC_IP: (optional) if TGT is not provided, request one on the KDC at
                   this IP using using the KEY when using U2U.
-    :param REQUIRE_U2U: (optional, default False) require U2U
     """
 
-    oid = "1.2.840.113554.1.2.2"
     auth_type = 0x10
 
     class STATE(SSP.STATE):
@@ -3827,6 +4610,7 @@ class KerberosSSP(SSP):
         CLI_SENT_APREQ = 3
         CLI_RCVD_APREP = 4
         SRV_SENT_APREP = 5
+        FAILED = -1
 
     class CONTEXT(SSP.CONTEXT):
         __slots__ = [
@@ -3843,6 +4627,9 @@ class KerberosSSP(SSP):
             "SendSignKeyUsage",
             "RecvSealKeyUsage",
             "RecvSignKeyUsage",
+            # server-only
+            "UPN",
+            "PAC",
         ]
 
         def __init__(self, IsAcceptor, req_flags=None):
@@ -3855,6 +4642,8 @@ class KerberosSSP(SSP):
             self.KrbSessionKey = None
             self.STSessionKey = None
             self.IsAcceptor = IsAcceptor
+            self.UPN = None
+            self.PAC = None
             # [RFC 4121] sect 2
             if IsAcceptor:
                 self.SendSealKeyUsage = 22
@@ -3886,27 +4675,35 @@ class KerberosSSP(SSP):
         SPN=None,
         TGT=None,
         DC_IP=None,
-        REQUIRE_U2U=False,
         SKEY_TYPE=None,
         debug=0,
         **kwargs,
     ):
+        import scapy.libs.rfc3961  # Trigger error if any  # noqa: F401
+
         self.ST = ST
         self.UPN = UPN
         self.KEY = KEY
         self.SPN = SPN
         self.TGT = TGT
+        self.TGTSessionKey = None
         self.PASSWORD = PASSWORD
         self.U2U = U2U
         self.DC_IP = DC_IP
-        self.REQUIRE_U2U = REQUIRE_U2U
         self.debug = debug
         if SKEY_TYPE is None:
-            from scapy.libs.rfc3961 import EncryptionType
-
             SKEY_TYPE = EncryptionType.AES128_CTS_HMAC_SHA1_96
         self.SKEY_TYPE = SKEY_TYPE
         super(KerberosSSP, self).__init__(**kwargs)
+
+    def GSS_Inquire_names_for_mech(self):
+        mechs = [
+            "1.2.840.48018.1.2.2",  # MS KRB5 - Microsoft Kerberos 5
+            "1.2.840.113554.1.2.2",  # Kerberos 5
+        ]
+        if self.U2U:
+            mechs.append("1.2.840.113554.1.2.2.3")  # Kerberos 5 - User to User
+        return mechs
 
     def GSS_GetMICEx(self, Context, msgs, qop_req=0):
         """
@@ -3989,6 +4786,8 @@ class KerberosSSP(SSP):
                 Data = b"".join(x.data for x in msgs if x.conf_req_flag)
                 DataLen = len(Data)
                 # 2. Add filler
+                # [MS-KILE] sect 3.4.5.4.1 - "For AES-SHA1 ciphers, the EC must not
+                # be zero"
                 tok.root.EC = ((-DataLen) % Context.KrbSessionKey.ep.blocksize) or 16
                 Filler = b"\x00" * tok.root.EC
                 Data += Filler
@@ -4053,13 +4852,6 @@ class KerberosSSP(SSP):
                 tok.root.Data = strrot(Data, tok.root.RRC)
                 return msgs, tok
         elif Context.KrbSessionKey.etype in [23, 24]:  # RC4
-            from scapy.libs.rfc3961 import (
-                Cipher,
-                Hmac_MD5,
-                _rfc1964pad,
-                decrepit_algorithms,
-            )
-
             # Build token
             seq = struct.pack(">I", Context.SendSeqNum)
             tok = KRB_InnerToken(
@@ -4223,13 +5015,6 @@ class KerberosSSP(SSP):
                     msgs[0].data = Data
                 return msgs
         elif Context.KrbSessionKey.etype in [23, 24]:  # RC4
-            from scapy.libs.rfc3961 import (
-                Cipher,
-                Hmac_MD5,
-                _rfc1964pad,
-                decrepit_algorithms,
-            )
-
             # Drop wrapping
             tok = signature.innerToken
 
@@ -4285,13 +5070,16 @@ class KerberosSSP(SSP):
             raise NotImplementedError
 
     def GSS_Init_sec_context(
-        self, Context: CONTEXT, val=None, req_flags: Optional[GSS_C_FLAGS] = None
+        self,
+        Context: CONTEXT,
+        input_token=None,
+        target_name: Optional[str] = None,
+        req_flags: Optional[GSS_C_FLAGS] = None,
+        chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
     ):
         if Context is None:
             # New context
             Context = self.CONTEXT(IsAcceptor=False, req_flags=req_flags)
-
-        from scapy.libs.rfc3961 import Key
 
         if Context.state == self.STATE.INIT and self.U2U:
             # U2U - Get TGT
@@ -4311,62 +5099,89 @@ class KerberosSSP(SSP):
         if Context.state in [self.STATE.INIT, self.STATE.CLI_SENT_TGTREQ]:
             if not self.UPN:
                 raise ValueError("Missing UPN attribute")
+
             # Do we have a ST?
             if self.ST is None:
                 # Client sends an AP-req
-                if not self.SPN:
-                    raise ValueError("Missing SPN attribute")
+                if not self.SPN and not target_name:
+                    raise ValueError("Missing SPN/target_name attribute")
                 additional_tickets = []
+
                 if self.U2U:
                     try:
                         # GSSAPI / Kerberos
-                        tgt_rep = val.root.innerToken.root
+                        tgt_rep = input_token.root.innerToken.root
                     except AttributeError:
                         try:
                             # Kerberos
-                            tgt_rep = val.innerToken.root
+                            tgt_rep = input_token.innerToken.root
                         except AttributeError:
                             return Context, None, GSS_S_DEFECTIVE_TOKEN
                     if not isinstance(tgt_rep, KRB_TGT_REP):
                         tgt_rep.show()
-                        raise ValueError("KerberosSSP: Unexpected token !")
+                        raise ValueError("KerberosSSP: Unexpected input_token !")
                     additional_tickets = [tgt_rep.ticket]
-                if self.TGT is not None:
-                    if not self.KEY:
-                        raise ValueError("Cannot use TGT without the KEY")
-                    # Use TGT
-                    res = krb_tgs_req(
+
+                if self.TGT is None:
+                    # Get TGT. We were passed a kerberos key
+                    res = krb_as_req(
                         upn=self.UPN,
-                        spn=self.SPN,
-                        ip=self.DC_IP,
-                        sessionkey=self.KEY,
-                        ticket=self.TGT,
-                        additional_tickets=additional_tickets,
-                        u2u=self.U2U,
-                        debug=self.debug,
-                    )
-                else:
-                    # Ask for TGT then ST
-                    res = krb_as_and_tgs(
-                        upn=self.UPN,
-                        spn=self.SPN,
                         ip=self.DC_IP,
                         key=self.KEY,
                         password=self.PASSWORD,
-                        additional_tickets=additional_tickets,
-                        u2u=self.U2U,
                         debug=self.debug,
+                        verbose=bool(self.debug),
                     )
+                    if res is None:
+                        # Failed to retrieve the ticket
+                        return Context, None, GSS_S_FAILURE
+
+                    # Update UPN (could have been canonicalized)
+                    self.UPN = res.upn
+
+                    # Store TGT,
+                    self.TGT = res.asrep.ticket
+                    self.TGTSessionKey = res.sessionkey
+                else:
+                    # We have a TGT and were passed its key
+                    self.TGTSessionKey = self.KEY
+
+                # Get ST
+                if not self.TGTSessionKey:
+                    raise ValueError("Cannot use TGT without the KEY")
+
+                res = krb_tgs_req(
+                    upn=self.UPN,
+                    spn=self.SPN or target_name,
+                    ip=self.DC_IP,
+                    sessionkey=self.TGTSessionKey,
+                    ticket=self.TGT,
+                    additional_tickets=additional_tickets,
+                    u2u=self.U2U,
+                    debug=self.debug,
+                    verbose=bool(self.debug),
+                )
                 if not res:
                     # Failed to retrieve the ticket
                     return Context, None, GSS_S_FAILURE
-                self.ST, self.KEY = res.tgsrep.ticket, res.sessionkey
+
+                # Store the service ticket and associated key
+                self.ST, Context.STSessionKey = res.tgsrep.ticket, res.sessionkey
             elif not self.KEY:
                 raise ValueError("Must provide KEY with ST")
-            Context.STSessionKey = self.KEY
+            else:
+                # We were passed a ST and its key
+                Context.STSessionKey = self.KEY
+
+                if Context.flags & GSS_C_FLAGS.GSS_C_DELEG_FLAG:
+                    raise ValueError(
+                        "Cannot use GSS_C_DELEG_FLAG when passed a service ticket !"
+                    )
+
             # Save ServerHostname
             if len(self.ST.sname.nameString) == 2:
                 Context.ServerHostname = self.ST.sname.nameString[1].val.decode()
+
             # Build the KRB-AP
             apOptions = ASN1_BIT_STRING("000")
             if Context.flags & GSS_C_FLAGS.GSS_C_MUTUAL_FLAG:
@@ -4379,22 +5194,61 @@ class KerberosSSP(SSP):
                 ticket=self.ST,
                 authenticator=EncryptedData(),
             )
-            # Build the authenticator
+
+            # Get the current time
             now_time = datetime.now(timezone.utc).replace(microsecond=0)
+            # Pick a random session key
             Context.KrbSessionKey = Key.new_random_key(
                 self.SKEY_TYPE,
             )
+
+            # We use a random SendSeqNum
             Context.SendSeqNum = RandNum(0, 0x7FFFFFFF)._fix()
+
+            # Get the realm of the client
             _, crealm = _parse_upn(self.UPN)
+
+            # Build the RFC4121 authenticator checksum
+            authenticator_checksum = KRB_AuthenticatorChecksum(
+                # RFC 4121 sect 4.1.1.2
+                # "The Bnd field contains the MD5 hash of channel bindings"
+                Bnd=(
+                    chan_bindings.digestMD5()
+                    if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS
+                    else (b"\x00" * 16)
+                ),
+                Flags=int(Context.flags),
+            )
+
+            if Context.flags & GSS_C_FLAGS.GSS_C_DELEG_FLAG:
+                # Delegate TGT
+                raise NotImplementedError("GSS_C_DELEG_FLAG is not implemented !")
+                # authenticator_checksum.Deleg = KRB_CRED(
+                #     tickets=[self.TGT],
+                #     encPart=EncryptedData()
+                # )
+                # authenticator_checksum.encPart.encrypt(
+                #     Context.STSessionKey,
+                #     EncKrbCredPart(
+                #         ticketInfo=KrbCredInfo(
+                #             key=EncryptionKey.fromKey(self.TGTSessionKey),
+                #             prealm=ASN1_GENERAL_STRING(crealm),
+                #             pname=PrincipalName.fromUPN(self.UPN),
+                #             # TODO: rework API to pass starttime... here.
+                #             sreralm=self.TGT.realm,
+                #             sname=self.TGT.sname,
+                #         )
+                #     )
+                # )
+
+            # Build and encrypt the full KRB_Authenticator
             ap_req.authenticator.encrypt(
                 Context.STSessionKey,
                 KRB_Authenticator(
                     crealm=crealm,
                     cname=PrincipalName.fromUPN(self.UPN),
-                    # RFC 4121 checksum
                     cksum=Checksum(
-                        cksumtype="KRB-AUTHENTICATOR",
-                        checksum=KRB_AuthenticatorChecksum(Flags=int(Context.flags)),
+                        cksumtype="KRB-AUTHENTICATOR", checksum=authenticator_checksum
                     ),
                     ctime=ASN1_GENERALIZED_TIME(now_time),
                     cusec=ASN1_INTEGER(0),
@@ -4410,15 +5264,32 @@ class KerberosSSP(SSP):
                                             adType="KERB-AUTH-DATA-TOKEN-RESTRICTIONS",
                                             adData=KERB_AD_RESTRICTION_ENTRY(
                                                 restriction=LSAP_TOKEN_INFO_INTEGRITY(
-                                                    MachineID=bytes(RandBin(32))
+                                                    MachineID=bytes(RandBin(32)),
+                                                    PermanentMachineID=bytes(
+                                                        RandBin(32)
+                                                    ),
                                                 )
                                             ),
                                         ),
+                                        # This isn't documented, but sent on Windows :/
                                         AuthorizationDataItem(
                                             adType="KERB-LOCAL",
                                             adData=b"\x00" * 16,
                                         ),
                                     ]
+                                    + (
+                                        # Channel bindings
+                                        [
+                                            AuthorizationDataItem(
+                                                adType="AD-AUTH-DATA-AP-OPTIONS",
+                                                adData=KERB_AUTH_DATA_AP_OPTIONS(
+                                                    apOptions="KERB_AP_OPTIONS_CBT"
+                                                ),
+                                            )
+                                        ]
+                                        if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS
+                                        else []
+                                    )
                                 ),
                             )
                         ]
@@ -4442,30 +5313,32 @@ class KerberosSSP(SSP):
                 )
 
         elif Context.state == self.STATE.CLI_SENT_APREQ:
-            if isinstance(val, KRB_AP_REP):
+            if isinstance(input_token, KRB_AP_REP):
                 # Raw AP_REP was passed
-                ap_rep = val
+                ap_rep = input_token
             else:
                 try:
                     # GSSAPI / Kerberos
-                    ap_rep = val.root.innerToken.root
+                    ap_rep = input_token.root.innerToken.root
                 except AttributeError:
                     try:
                         # Kerberos
-                        ap_rep = val.innerToken.root
+                        ap_rep = input_token.innerToken.root
                     except AttributeError:
                         try:
                             # Raw kerberos DCE-STYLE
-                            ap_rep = val.root
+                            ap_rep = input_token.root
                         except AttributeError:
                             return Context, None, GSS_S_DEFECTIVE_TOKEN
             if not isinstance(ap_rep, KRB_AP_REP):
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
+
             # Retrieve SessionKey
             repPart = ap_rep.encPart.decrypt(Context.STSessionKey)
             if repPart.subkey is not None:
                 Context.SessionKey = repPart.subkey.keyvalue.val
                 Context.KrbSessionKey = repPart.subkey.toKey()
+
             # OK !
             Context.state = self.STATE.CLI_RCVD_APREP
             if Context.flags & GSS_C_FLAGS.GSS_C_DCE_STYLE:
@@ -4494,43 +5367,55 @@ class KerberosSSP(SSP):
         else:
             raise ValueError("KerberosSSP: Unknown state")
 
-    def _setup_u2u(self):
-        if not self.TGT:
-            # Get a TGT for ourselves
-            try:
-                upn = "@".join(self.SPN.split("/")[1].split(".", 1))
-            except KeyError:
-                raise ValueError("Couldn't transform the SPN into a valid UPN")
-            res = krb_as_req(upn, self.DC_IP, key=self.KEY)
-            self.TGT, self.KEY = res.asrep.ticket, res.sessionkey
-
-    def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
+    def GSS_Accept_sec_context(
+        self,
+        Context: CONTEXT,
+        input_token=None,
+        req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
+        chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
+    ):
         if Context is None:
             # New context
-            Context = self.CONTEXT(IsAcceptor=True, req_flags=0)
+            Context = self.CONTEXT(IsAcceptor=True, req_flags=req_flags)
 
-        from scapy.libs.rfc3961 import Key
+        import scapy.layers.msrpce.mspac  # noqa: F401
 
         if Context.state == self.STATE.INIT:
-            if not self.SPN:
-                raise ValueError("Missing SPN attribute")
+            if self.UPN and self.SPN:
+                raise ValueError("Cannot use SPN and UPN at the same time !")
+            if self.SPN and self.TGT:
+                raise ValueError("Cannot use TGT with SPN.")
+            if self.UPN and not self.TGT:
+                # UPN is provided: use U2U
+                res = krb_as_req(
+                    self.UPN,
+                    self.DC_IP,
+                    key=self.KEY,
+                    password=self.PASSWORD,
+                )
+                self.TGT, self.KEY = res.asrep.ticket, res.sessionkey
+
             # Server receives AP-req, sends AP-rep
-            if isinstance(val, KRB_AP_REQ):
+            if isinstance(input_token, KRB_AP_REQ):
                 # Raw AP_REQ was passed
-                ap_req = val
+                ap_req = input_token
             else:
                 try:
                     # GSSAPI/Kerberos
-                    ap_req = val.root.innerToken.root
+                    ap_req = input_token.root.innerToken.root
                 except AttributeError:
                     try:
-                        # Raw Kerberos
-                        ap_req = val.root
+                        # Kerberos
+                        ap_req = input_token.innerToken.root
                     except AttributeError:
-                        return Context, None, GSS_S_DEFECTIVE_TOKEN
+                        try:
+                            # Raw kerberos
+                            ap_req = input_token.root
+                        except AttributeError:
+                            return Context, None, GSS_S_DEFECTIVE_TOKEN
+
             if isinstance(ap_req, KRB_TGT_REQ):
                 # Special U2U case
-                self._setup_u2u()
                 Context.U2U = True
                 return (
                     None,
@@ -4550,19 +5435,13 @@ class KerberosSSP(SSP):
                 raise ValueError("Unexpected type in KerberosSSP")
             if not self.KEY:
                 raise ValueError("Missing KEY attribute")
-            # Validate SPN
-            tkt_spn = "/".join(
-                x.val.decode() for x in ap_req.ticket.sname.nameString[:2]
-            ).lower()
-            if tkt_spn not in [self.SPN.lower(), self.SPN.lower().split(".", 1)[0]]:
-                warning("KerberosSSP: bad SPN: %s != %s" % (tkt_spn, self.SPN))
-                return Context, None, GSS_S_BAD_MECH
-            # Enforce U2U if required
-            if self.REQUIRE_U2U and ap_req.apOptions.val[1] != "1":  # use-session-key
+
+            now_time = datetime.now(timezone.utc).replace(microsecond=0)
+
+            # If using a UPN, require U2U
+            if self.UPN and ap_req.apOptions.val[1] != "1":  # use-session-key
                 # Required but not provided. Return an error
-                self._setup_u2u()
                 Context.U2U = True
-                now_time = datetime.now(timezone.utc).replace(microsecond=0)
                 err = KRB_GSSAPI_Token(
                     innerToken=KRB_InnerToken(
                         TOK_ID=b"\x03\x00",
@@ -4578,12 +5457,31 @@ class KerberosSSP(SSP):
                     )
                 )
                 return Context, err, GSS_S_CONTINUE_NEEDED
+
+            # Validate the 'serverName' of the ticket.
+            sname = ap_req.ticket.getSPN()
+            our_sname = self.SPN or self.UPN
+            if not _spn_are_equal(our_sname, sname):
+                warning("KerberosSSP: bad server name: %s != %s" % (sname, our_sname))
+                err = KRB_GSSAPI_Token(
+                    innerToken=KRB_InnerToken(
+                        TOK_ID=b"\x03\x00",
+                        root=KRB_ERROR(
+                            errorCode="KRB_AP_ERR_BADMATCH",
+                            stime=ASN1_GENERALIZED_TIME(now_time),
+                            realm=ap_req.ticket.realm,
+                            sname=ap_req.ticket.sname,
+                            eData=None,
+                        ),
+                    )
+                )
+                return Context, err, GSS_S_BAD_MECH
+
             # Decrypt the ticket
             try:
                 tkt = ap_req.ticket.encPart.decrypt(self.KEY)
             except ValueError as ex:
                 warning("KerberosSSP: %s (bad KEY?)" % ex)
-                now_time = datetime.now(timezone.utc).replace(microsecond=0)
                 err = KRB_GSSAPI_Token(
                     innerToken=KRB_InnerToken(
                         TOK_ID=b"\x03\x00",
@@ -4596,10 +5494,20 @@ class KerberosSSP(SSP):
                         ),
                     )
                 )
-                return Context, err, GSS_S_DEFECTIVE_TOKEN
-            # Get AP-REP session key
+                return Context, err, GSS_S_DEFECTIVE_CREDENTIAL
+
+            # Store information about the user in the Context
+            if tkt.authorizationData and tkt.authorizationData.seq:
+                # Get AD-IF-RELEVANT
+                adIfRelevant = tkt.authorizationData.getAuthData(0x1)
+                if adIfRelevant:
+                    # Get AD-WIN2K-PAC
+                    Context.PAC = adIfRelevant.getAuthData(0x80)
+
+            # Get AP-REQ session key
             Context.STSessionKey = tkt.key.toKey()
             authenticator = ap_req.authenticator.decrypt(Context.STSessionKey)
+
             # Compute an application session key ([MS-KILE] sect 3.1.1.2)
             subkey = None
             if ap_req.apOptions.val[2] == "1":  # mutual-required
@@ -4612,11 +5520,30 @@ class KerberosSSP(SSP):
             else:
                 Context.KrbSessionKey = self.KEY
                 Context.SessionKey = self.KEY.key
+
             # Eventually process the "checksum"
-            if authenticator.cksum:
-                if authenticator.cksum.cksumtype == 0x8003:
-                    # KRB-Authenticator
-                    Context.flags = authenticator.cksum.checksum.Flags
+            if authenticator.cksum and authenticator.cksum.cksumtype == 0x8003:
+                # KRB-Authenticator
+                authcksum = authenticator.cksum.checksum
+                Context.flags = authcksum.Flags
+                # Check channel bindings
+                if (
+                    chan_bindings != GSS_C_NO_CHANNEL_BINDINGS
+                    and chan_bindings.digestMD5() != authcksum.Bnd
+                    and not (
+                        GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS in req_flags
+                        and authcksum.Bnd == GSS_C_NO_CHANNEL_BINDINGS
+                    )
+                ):
+                    # Channel binding checks failed.
+                    return Context, None, GSS_S_BAD_BINDINGS
+            elif (
+                chan_bindings != GSS_C_NO_CHANNEL_BINDINGS
+                and GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS not in req_flags
+            ):
+                # Uhoh, we required channel bindings
+                return Context, None, GSS_S_BAD_BINDINGS
+
             # Build response (RFC4120 sect 3.2.4)
             ap_rep = KRB_AP_REP(encPart=EncryptedData())
             ap_rep.encPart.encrypt(
@@ -4640,20 +5567,20 @@ class KerberosSSP(SSP):
             # [MS-KILE] sect 3.4.5.1
             # The server MUST receive the additional AP exchange reply message and
             # verify that the message is constructed correctly.
-            if not val:
+            if not input_token:
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
             # Server receives AP-req, sends AP-rep
-            if isinstance(val, KRB_AP_REP):
+            if isinstance(input_token, KRB_AP_REP):
                 # Raw AP_REP was passed
-                ap_rep = val
+                ap_rep = input_token
             else:
                 try:
                     # GSSAPI/Kerberos
-                    ap_rep = val.root.innerToken.root
+                    ap_rep = input_token.root.innerToken.root
                 except AttributeError:
                     try:
                         # Raw Kerberos
-                        ap_rep = val.root
+                        ap_rep = input_token.root
                     except AttributeError:
                         return Context, None, GSS_S_DEFECTIVE_TOKEN
             # Decrypt the AP-REP
@@ -4666,18 +5593,47 @@ class KerberosSSP(SSP):
         else:
             raise ValueError("KerberosSSP: Unknown state %s" % repr(Context.state))
 
-    def GSS_Passive(self, Context: CONTEXT, val=None):
+    def GSS_Passive(
+        self,
+        Context: CONTEXT,
+        input_token=None,
+        req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
+    ):
         if Context is None:
             Context = self.CONTEXT(True)
             Context.passive = True
 
-        if Context.state == self.STATE.INIT:
-            Context, _, status = self.GSS_Accept_sec_context(Context, val)
-            Context.state = self.STATE.CLI_SENT_APREQ
-            return Context, GSS_S_CONTINUE_NEEDED
+        if Context.state == self.STATE.INIT or (
+            # In DCE/RPC, there's an extra AP-REP sent from the client.
+            Context.state == self.STATE.SRV_SENT_APREP
+            and req_flags & GSS_C_FLAGS.GSS_C_DCE_STYLE
+        ):
+            Context, _, status = self.GSS_Accept_sec_context(
+                Context,
+                input_token=input_token,
+                req_flags=req_flags,
+            )
+            if status in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
+                Context.state = self.STATE.CLI_SENT_APREQ
+            else:
+                Context.state = self.STATE.FAILED
         elif Context.state == self.STATE.CLI_SENT_APREQ:
-            Context, _, status = self.GSS_Init_sec_context(Context, val)
-            return Context, status
+            Context, _, status = self.GSS_Init_sec_context(
+                Context,
+                input_token=input_token,
+                req_flags=req_flags,
+            )
+            if status == GSS_S_COMPLETE:
+                if req_flags & GSS_C_FLAGS.GSS_C_DCE_STYLE:
+                    status = GSS_S_CONTINUE_NEEDED
+                Context.state = self.STATE.SRV_SENT_APREP
+            else:
+                Context.state == self.STATE.FAILED
+        else:
+            # Unknown state. Don't crash though.
+            status = GSS_S_FAILURE
+
+        return Context, status
 
     def GSS_Passive_set_Direction(self, Context: CONTEXT, IsAcceptor=False):
         if Context.IsAcceptor is not IsAcceptor:
@@ -4693,6 +5649,12 @@ class KerberosSSP(SSP):
         )
         Context.IsAcceptor = not Context.IsAcceptor
 
+    def LegsAmount(self, Context: CONTEXT):
+        if Context.flags & GSS_C_FLAGS.GSS_C_DCE_STYLE:
+            return 4
+        else:
+            return 2
+
     def MaximumSignatureLength(self, Context: CONTEXT):
         if Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG:
             # TODO: support DES
@@ -4704,6 +5666,3 @@ class KerberosSSP(SSP):
                 raise NotImplementedError
         else:
             return 28
-
-    def canMechListMIC(self, Context: CONTEXT):
-        return bool(Context.KrbSessionKey)

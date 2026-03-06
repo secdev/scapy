@@ -24,8 +24,9 @@ from scapy.fields import (
 )
 from scapy.packet import Packet
 from scapy.layers.dcerpc import (
-    DCE_RPC_INTERFACES_NAMES,
     DCE_RPC_INTERFACES_NAMES_rev,
+    DCE_RPC_INTERFACES_NAMES,
+    DCE_RPC_PROTOCOL_IDENTIFIERS,
     DCE_RPC_TRANSFER_SYNTAXES,
 )
 
@@ -70,37 +71,10 @@ class prot_and_addr_t(Packet):
             "lhs_length",
             0,
         ),
-        # [C706] Appendix I with names from Appendix B
         ByteEnumField(
             "protocol_identifier",
             0,
-            {
-                0x0: "OSI OID",  # Special
-                0x0D: "UUID",  # Special
-                # Transports
-                # 0x2: "DNA Session Control",
-                # 0x3: "DNA Session Control V3",
-                # 0x4: "DNA NSP Transport",
-                # 0x5: "OSI TP4",
-                0x06: "NCADG_OSI_CLSN",  # [C706]
-                0x07: "NCACN_IP_TCP",  # [C706]
-                0x08: "NCADG_IP_UDP",  # [C706]
-                0x09: "IP",  # [C706]
-                0x0A: "RPC connectionless protocol",  # [C706]
-                0x0B: "RPC connection-oriented protocol",  # [C706]
-                0x0C: "NCALRPC",
-                0x0F: "NCACN_NP",  # [MS-RPCE]
-                0x11: "NCACN_NB",  # [C706]
-                0x12: "NCACN_NB_NB",  # [MS-RPCE]
-                0x13: "NCACN_SPX",  # [C706]
-                0x14: "NCADG_IPX",  # [C706]
-                0x16: "NCACN_AT_DSP",  # [C706]
-                0x17: "NCADG_AT_DSP",  # [C706]
-                0x19: "NCADG_NB",  # [C706]
-                0x1A: "NCACN_VNS_SPP",  # [C706]
-                0x1B: "NCADG_VNS_IPC",  # [C706]
-                0x1F: "NCACN_HTTP",  # [MS-RPCE]
-            },
+            DCE_RPC_PROTOCOL_IDENTIFIERS,
         ),
         # 0x0
         ConditionalField(

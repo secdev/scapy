@@ -10,6 +10,7 @@ Implements parts of:
 
     - GSSAPI: RFC4121 / RFC2743
     - GSSAPI C bindings: RFC2744
+    - Channel Bindings for TLS: RFC5929
 
 This is implemented in the following SSPs:
 
@@ -26,14 +27,14 @@ This is implemented in the following SSPs:
 import abc
 
 from dataclasses import dataclass
-from enum import IntEnum, IntFlag
+from enum import Enum, IntEnum, IntFlag
 
 from scapy.asn1.asn1 import (
     ASN1_SEQUENCE,
     ASN1_Class_UNIVERSAL,
     ASN1_Codecs,
 )
-from scapy.asn1.ber import BERcodec_SEQUENCE
+from scapy.asn1.ber import BERcodec_SEQUENCE, BER_id_dec
 from scapy.asn1.mib import conf  # loads conf.mib
 from scapy.asn1fields import (
     ASN1F_OID,
@@ -41,6 +42,7 @@ from scapy.asn1fields import (
     ASN1F_SEQUENCE,
 )
 from scapy.asn1packet import ASN1_Packet
+from scapy.error import log_runtime
 from scapy.fields import (
     FieldLenField,
     LEIntEnumField,
@@ -102,19 +104,25 @@ class GSSAPI_BLOB(ASN1_Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 1:
-            if ord(_pkt[:1]) & 0xA0 >= 0xA0:
+            if _pkt[0] & 0xA0 >= 0xA0:
                 from scapy.layers.spnego import SPNEGO_negToken
 
                 # XXX: sometimes the token is raw, we should look from
                 # the session what to use here. For now: hardcode SPNEGO
                 # (THIS IS A VERY STRONG ASSUMPTION)
                 return SPNEGO_negToken
-            if _pkt[:7] == b"NTLMSSP":
+            elif _pkt[:7] == b"NTLMSSP":
                 from scapy.layers.ntlm import NTLM_Header
 
                 # XXX: if no mechTypes are provided during SPNEGO exchange,
                 # Windows falls back to a plain NTLM_Header.
                 return NTLM_Header.dispatch_hook(_pkt=_pkt, *args, **kargs)
+            elif BER_id_dec(_pkt)[0] & 0x7F > 0x60:
+                from scapy.layers.kerberos import Kerberos
+
+                # XXX: Heuristic to detect raw Kerberos packets, when Windows
+                # fallsback or when the parent data hasn't got any mechtype specified.
+                return Kerberos
         return cls
 
 
@@ -156,6 +164,7 @@ class _GSSAPI_Field(PacketField):
     PacketField that contains a GSSAPI_BLOB_SIGNATURE, but one that can
     have a payload when not encrypted.
     """
+
     __slots__ = ["pay_cls"]
 
     def __init__(self, name, pay_cls):
@@ -172,6 +181,12 @@ class _GSSAPI_Field(PacketField):
             val.payload = self.pay_cls(remain)
             return b"", val
         return remain, val
+
+
+# RFC2744 Annex A, Null values
+
+GSS_C_QOP_DEFAULT = 0
+GSS_C_NO_CHANNEL_BINDINGS = b"\x00"
 
 
 # RFC2744 sect 3.9 - Status Values
@@ -256,6 +271,18 @@ _GSS_ADDRTYPE = {
 # GSS Structures
 
 
+class ChannelBindingType(Enum):
+    """
+    Channel Binding Application Data types, per:
+    RFC 5929 / RFC 9266
+    """
+
+    TLS_UNIQUE = "unique"
+    TLS_SERVER_END_POINT = "tls-server-end-point"
+    TLS_UNIQUE_FOR_TELNET = "tls-unique-for-telnet"
+    TLS_EXPORTER = "tls-exporter"  # RFC9266
+
+
 class GssBufferDesc(Packet):
     name = "gss_buffer_desc"
     fields_desc = [
@@ -277,6 +304,76 @@ class GssChannelBindings(Packet):
         PacketField("application_data", None, GssBufferDesc),
     ]
 
+    def digestMD5(self):
+        """
+        Calculate a MD5 hash of the channel binding
+        """
+        from scapy.layers.tls.crypto.hash import Hash_MD5
+
+        return Hash_MD5().digest(bytes(self))
+
+    @classmethod
+    def fromssl(
+        cls,
+        token_type: ChannelBindingType,
+        sslsock=None,
+        certfile=None,
+    ) -> "GssChannelBindings":
+        """
+        Build a GssChannelBindings struct from a socket
+
+        :param token_type: the type from ChannelBindingType, per RFC5929
+        :param sslsock: take the certificate from the the socket.socket object
+        :param certfile: take the certificate from a file
+        """
+        from scapy.layers.tls.cert import Cert
+        from cryptography.hazmat.primitives import hashes
+
+        if token_type == ChannelBindingType.TLS_SERVER_END_POINT:
+            # RFC5929 sect 4
+            try:
+                # Parse certificate
+                if certfile is not None:
+                    cert = Cert(certfile)
+                else:
+                    cert = Cert(sslsock.getpeercert(binary_form=True))
+            except Exception:
+                # We failed to parse the certificate.
+                log_runtime.warning("Failed to parse the SSL Certificate. CBT not used")
+                return GSS_C_NO_CHANNEL_BINDINGS
+            try:
+                h = cert.getSignatureHash()
+            except Exception:
+                # We failed to get the signature algorithm.
+                log_runtime.warning(
+                    "Failed to get the Certificate signature algorithm. CBT not used"
+                )
+                return GSS_C_NO_CHANNEL_BINDINGS
+            # RFC5929 sect 4.1
+            if h == hashes.MD5 or h == hashes.SHA1:
+                h = hashes.SHA256
+            # Get bytes of first certificate if there are multiple
+            c = cert.x509Cert.copy()
+            c.remove_payload()
+            cdata = bytes(c)
+            # Calc hash of certificate
+            digest = hashes.Hash(h)
+            digest.update(cdata)
+            cbdata = digest.finalize()
+        elif token_type == ChannelBindingType.TLS_UNIQUE:
+            # RFC5929 sect 3
+            cbdata = sslsock.get_channel_binding(cb_type="tls-unique")
+        else:
+            raise NotImplementedError
+        # RFC5056 sect 2.1
+        # "channel bindings MUST start with the channel binding unique prefix followed
+        # by a colon (ASCII 0x3A)."
+        return GssChannelBindings(
+            application_data=GssBufferDesc(
+                value=token_type.value.encode() + b":" + cbdata
+            )
+        )
+
 
 # --- The base GSSAPI SSP base class
 
@@ -296,6 +393,14 @@ class GSS_C_FLAGS(IntFlag):
     GSS_C_DCE_STYLE = 0x1000
     GSS_C_IDENTIFY_FLAG = 0x2000
     GSS_C_EXTENDED_ERROR_FLAG = 0x4000
+
+
+class GSS_S_FLAGS(IntFlag):
+    """
+    Equivalent to Microsoft's ASC_REQ* Flags in AcceptSecurityContext
+    """
+
+    GSS_S_ALLOW_MISSING_BINDINGS = 0x10000000
 
 
 class SSP:
@@ -319,7 +424,7 @@ class SSP:
 
         __slots__ = ["state", "_flags", "passive"]
 
-        def __init__(self, req_flags: Optional[GSS_C_FLAGS] = None):
+        def __init__(self, req_flags: Optional["GSS_C_FLAGS | GSS_S_FLAGS"] = None):
             if req_flags is None:
                 # Default
                 req_flags = (
@@ -353,7 +458,12 @@ class SSP:
 
     @abc.abstractmethod
     def GSS_Init_sec_context(
-        self, Context: CONTEXT, val=None, req_flags: Optional[GSS_C_FLAGS] = None
+        self,
+        Context: CONTEXT,
+        input_token=None,
+        target_name: Optional[str] = None,
+        req_flags: Optional[GSS_C_FLAGS] = None,
+        chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
     ):
         """
         GSS_Init_sec_context: client-side call for the SSP
@@ -361,16 +471,33 @@ class SSP:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def GSS_Accept_sec_context(self, Context: CONTEXT, val=None):
+    def GSS_Accept_sec_context(
+        self,
+        Context: CONTEXT,
+        input_token=None,
+        req_flags: Optional[GSS_S_FLAGS] = GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS,
+        chan_bindings: GssChannelBindings = GSS_C_NO_CHANNEL_BINDINGS,
+    ):
         """
         GSS_Accept_sec_context: server-side call for the SSP
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def GSS_Inquire_names_for_mech(self) -> List[str]:
+        """
+        Get the available OIDs for this mech, in order of preference.
         """
         raise NotImplementedError
 
     # Passive
 
     @abc.abstractmethod
-    def GSS_Passive(self, Context: CONTEXT, val=None):
+    def GSS_Passive(
+        self,
+        Context: CONTEXT,
+        input_token=None,
+    ):
         """
         GSS_Passive: client/server call for the SSP in passive mode
         """
@@ -392,7 +519,10 @@ class SSP:
 
     @abc.abstractmethod
     def GSS_WrapEx(
-        self, Context: CONTEXT, msgs: List[WRAP_MSG], qop_req: int = 0
+        self,
+        Context: CONTEXT,
+        msgs: List[WRAP_MSG],
+        qop_req: int = GSS_C_QOP_DEFAULT,
     ) -> Tuple[List[WRAP_MSG], Any]:
         """
         GSS_WrapEx
@@ -426,7 +556,10 @@ class SSP:
 
     @abc.abstractmethod
     def GSS_GetMICEx(
-        self, Context: CONTEXT, msgs: List[MIC_MSG], qop_req: int = 0
+        self,
+        Context: CONTEXT,
+        msgs: List[MIC_MSG],
+        qop_req: int = GSS_C_QOP_DEFAULT,
     ) -> Any:
         """
         GSS_GetMICEx
@@ -440,7 +573,12 @@ class SSP:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def GSS_VerifyMICEx(self, Context: CONTEXT, msgs: List[MIC_MSG], signature) -> None:
+    def GSS_VerifyMICEx(
+        self,
+        Context: CONTEXT,
+        msgs: List[MIC_MSG],
+        signature,
+    ) -> None:
         """
         :param Context: the SSP context
         :param msgs: list of VERIF_MSG
@@ -464,7 +602,15 @@ class SSP:
 
     # sect 2.3.1
 
-    def GSS_GetMIC(self, Context: CONTEXT, message: bytes, qop_req: int = 0):
+    def GSS_GetMIC(
+        self,
+        Context: CONTEXT,
+        message: bytes,
+        qop_req: int = GSS_C_QOP_DEFAULT,
+    ):
+        """
+        See GSS_GetMICEx
+        """
         return self.GSS_GetMICEx(
             Context,
             [
@@ -478,7 +624,15 @@ class SSP:
 
     # sect 2.3.2
 
-    def GSS_VerifyMIC(self, Context: CONTEXT, message: bytes, signature):
+    def GSS_VerifyMIC(
+        self,
+        Context: CONTEXT,
+        message: bytes,
+        signature,
+    ) -> None:
+        """
+        See GSS_VerifyMICEx
+        """
         self.GSS_VerifyMICEx(
             Context,
             [
@@ -497,8 +651,11 @@ class SSP:
         Context: CONTEXT,
         input_message: bytes,
         conf_req_flag: bool,
-        qop_req: int = 0,
+        qop_req: int = GSS_C_QOP_DEFAULT,
     ):
+        """
+        See GSS_WrapEx
+        """
         _msgs, signature = self.GSS_WrapEx(
             Context,
             [
@@ -516,7 +673,14 @@ class SSP:
 
     # sect 2.3.4
 
-    def GSS_Unwrap(self, Context: CONTEXT, signature):
+    def GSS_Unwrap(
+        self,
+        Context: CONTEXT,
+        signature,
+    ):
+        """
+        See GSS_UnwrapEx
+        """
         data = b""
         if signature.payload:
             # signature has a payload that is the data. Let's get that payload
@@ -548,19 +712,19 @@ class SSP:
         """
         return None, None
 
-    def canMechListMIC(self, Context: CONTEXT):
+    def SupportsMechListMIC(self):
         """
-        Returns whether or not mechListMIC can be computed
+        Returns whether mechListMIC is supported or not
         """
-        return False
+        return True
 
-    def getMechListMIC(self, Context, input):
+    def GetMechListMIC(self, Context, input):
         """
         Compute mechListMIC
         """
-        return bytes(self.GSS_GetMIC(Context, input))
+        return self.GSS_GetMIC(Context, input)
 
-    def verifyMechListMIC(self, Context, otherMIC, input):
+    def VerifyMechListMIC(self, Context, otherMIC, input):
         """
         Verify mechListMIC
         """

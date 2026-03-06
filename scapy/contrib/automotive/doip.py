@@ -120,8 +120,12 @@ class DoIP(Packet):
         0x8003: "Diagnostic message NACK"}
     name = 'DoIP'
     fields_desc = [
-        XByteField("protocol_version", 0x02),
-        XByteField("inverse_version", 0xFD),
+        XByteEnumField("protocol_version", 0x02, {
+            0x01: "ISO13400_2010", 0x02: "ISO13400_2012",
+            0x03: "ISO13400_2019", 0x04: "ISO13400_2019_AMD1"}),
+        XByteEnumField("inverse_version", 0xFD, {
+            0xFE: "ISO13400_2010", 0xFD: "ISO13400_2012",
+            0xFC: "ISO13400_2019", 0xFB: "ISO13400_2019_AMD1"}),
         XShortEnumField("payload_type", 0, payload_types),
         IntField("payload_length", None),
         ConditionalField(ByteEnumField("nack", 0, {
@@ -239,7 +243,26 @@ class DoIP(Packet):
 
     def hashret(self):
         # type: () -> bytes
-        return bytes(self)[:3]
+        payload_type_mapping = {
+            0x0000: b"\x01",
+            0x0001: b"\x01",
+            0x0002: b"\x01",
+            0x0003: b"\x01",
+            0x0004: b"\x01",
+            0x0005: b"\x02",
+            0x0006: b"\x02",
+            0x0007: b"\x03",
+            0x0008: b"\x03",
+            0x4001: b"\x04",
+            0x4002: b"\x04",
+            0x4003: b"\x05",
+            0x4004: b"\x05",
+            0x8001: b"\x06",
+            0x8002: b"\x06",
+            0x8003: b"\x06",
+        }
+
+        return payload_type_mapping.get(self.payload_type, b"\xff")
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
@@ -328,6 +351,10 @@ class DoIPSocket(DoIPSSLStreamSocket):
                       connect via SSL/TLS
     :param context: Optional ssl.SSLContext object for initialization of ssl socket
                     connections.
+    :param doip_version: DoIP protocol version to use, default is 2 (ISO 13400-2012)
+    :param enforce_doip_version: If true, the protocol_version field in each DoIP
+                                 packet to be sent, is always set to the value of
+                                 doip_version.
 
     Example:
         >>> socket = DoIPSocket("169.254.0.131")
@@ -345,7 +372,9 @@ class DoIPSocket(DoIPSSLStreamSocket):
                  activation_type=0,  # type: int
                  reserved_oem=b"",  # type: bytes
                  force_tls=False,  # type: bool
-                 context=None  # type: Optional[ssl.SSLContext]
+                 context=None,  # type: Optional[ssl.SSLContext]
+                 doip_version=2,  # type: int
+                 enforce_doip_version=False,  # type: bool
                  ):  # type: (...) -> None
         self.ip = ip
         self.port = port
@@ -357,6 +386,8 @@ class DoIPSocket(DoIPSSLStreamSocket):
         self.reserved_oem = reserved_oem
         self.force_tls = force_tls
         self.context = context
+        self.doip_version = doip_version
+        self.enforce_doip_version = enforce_doip_version
         try:
             self._init_socket()
         except Exception:
@@ -447,6 +478,12 @@ class DoIPSocket(DoIPSSLStreamSocket):
             return resp.routing_activation_response
         else:
             return -1
+
+    def send(self, x):  # type: (Packet) -> int
+        if self.enforce_doip_version and isinstance(x, DoIP):
+            x[DoIP].protocol_version = self.doip_version
+            x[DoIP].inverse_version = 0xFF - self.doip_version
+        return super().send(x)
 
 
 class UDS_DoIPSocket(DoIPSocket):

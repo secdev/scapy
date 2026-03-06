@@ -76,6 +76,24 @@ assert pkt.control == 1
 assert pkt.securitySeed == b"0" * 0xfff00
 
 
+= Dissect diagnostic request
+
+pkt = HSFZ(hex_bytes("000000050001f41022f150"))
+assert pkt.length == 5
+assert pkt.control == 0x01
+assert pkt.source == 0xf4
+assert pkt.target == 0x10
+
+
+= Dissect acknowledgment transfer
+
+pkt = HSFZ(hex_bytes("000000050002f41022f150"))
+assert pkt.length == 5
+assert pkt.control == 0x02
+assert pkt.source == 0xf4
+assert pkt.target == 0x10
+
+
 = Dissect identification
 
 pkt = HSFZ(bytes.fromhex("000000320011444941474144523130424d574d4143374346436343463837393343424d5756494e5742413558373333333246483735373334"))
@@ -88,8 +106,33 @@ assert pkt.length == 50
 assert pkt.control == 0x11
 assert b"BMW" in pkt.identification_string
 
-= Test HSFZSocket
+pkt = UDP(hex_bytes("e9811a9b000ea98f000000000011"))
+assert pkt.length == 0
+assert pkt.control == 0x11
 
+
+= Dissect alive check
+pkt = HSFZ(bytes.fromhex("000000200012444941474144523130424d5756494e5858585858585858585858585858585858"))
+assert pkt.length == 32
+assert pkt.control == 0x12
+assert b"BMW" in pkt.identification_string
+
+pkt = HSFZ(bytes.fromhex("00000002001200f4"))
+assert pkt.length == 2
+assert pkt.control == 0x12
+assert pkt.source == 0x00
+assert pkt.target == 0xf4
+
+
+= Dissect incorrect tester address
+pkt = HSFZ(bytes.fromhex("000000020040fff4"))
+assert pkt.length == 2
+assert pkt.control == 0x40
+assert pkt.expected == 0xff
+assert pkt.received == 0xf4
+
+
+= Test HSFZSocket
 
 server_up = threading.Event()
 def server():

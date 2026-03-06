@@ -86,6 +86,7 @@ _DOC_SNDRCV_PARAMS = """
         if negative, how many times to retry when no more packets
         are answered
     :param multi: whether to accept multiple answers for the same stimulus
+    :param first: stop after receiving the first response of any sent packet
     :param rcv_pks: if set, will be used instead of pks to receive packets.
         packets will still be sent through pks
     :param prebuild: pre-build the packets before starting to send them.
@@ -125,6 +126,7 @@ class SndRcvHandler(object):
                  chainCC=False,  # type: bool
                  retry=0,  # type: int
                  multi=False,  # type: bool
+                 first=False,  # type: bool
                  rcv_pks=None,  # type: Optional[SuperSocket]
                  prebuild=False,  # type: bool
                  _flood=None,  # type: Optional[_FloodGenerator]
@@ -150,6 +152,7 @@ class SndRcvHandler(object):
         self.chainCC = chainCC
         self.multi = multi
         self.timeout = timeout
+        self.first = first
         self.session = session
         self.chainEX = chainEX
         self.stop_filter = stop_filter
@@ -254,7 +257,10 @@ class SndRcvHandler(object):
 
     def _stop_sniffer_if_done(self) -> None:
         """Close the sniffer if all expected answers have been received"""
-        if self._send_done and self.noans >= self.notans and not self.multi:
+        if (
+            self._send_done and self.noans >= self.notans and not self.multi or
+            self.first and self.noans
+        ):
             if self.sniffer and self.sniffer.running:
                 self.sniffer.stop(join=False)
 
@@ -585,12 +591,15 @@ def sendpfast(x: _PacketIterable,
         try:
             cmd = subprocess.Popen(argv, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
+            cmd.wait()
         except KeyboardInterrupt:
+            if cmd:
+                cmd.terminate()
             log_interactive.info("Interrupted by user")
         except Exception:
             os.unlink(f)
             raise
-        else:
+        finally:
             stdout, stderr = cmd.communicate()
             if stderr:
                 log_runtime.warning(stderr.decode())
@@ -1305,9 +1314,9 @@ class AsyncSniffer(object):
             self.stop_cb = stop_cb
 
         try:
+            self.continue_sniff = True
             if started_callback:
                 started_callback()
-            self.continue_sniff = True
 
             # Start timeout
             if timeout is not None:
@@ -1397,9 +1406,13 @@ class AsyncSniffer(object):
         # type: (bool) -> Optional[PacketList]
         """Stops AsyncSniffer if not in async mode"""
         if self.running:
-            try:
-                self.stop_cb()
-            except AttributeError:
+            self.stop_cb()
+            if not hasattr(self, "continue_sniff"):
+                # Never started -> is there an exception?
+                if self.exception is not None:
+                    raise self.exception
+                return None
+            if self.continue_sniff:
                 raise Scapy_Exception(
                     "Unsupported (offline or unsupported socket)"
                 )

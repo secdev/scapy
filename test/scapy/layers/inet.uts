@@ -92,6 +92,12 @@ pkts = sniff(offline=pkts, session=IPSession)
 assert len(pkts) == 2
 assert pkts[1].load == b"X" * 1500
 
+= IPSession - summary with RandIP() does not crash
+
+pkt = IP(dst=RandIP())
+s = pkt.summary()
+assert isinstance(s, str)
+
 = StringBuffer
 
 buffer = StringBuffer()

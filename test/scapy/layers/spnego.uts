@@ -1,0 +1,317 @@
+% SPNEGO unit tests
+
++ Special SPNEGO tests
+
+= SPNEGOSSP - test raw fallback
+
+% A SPNEGOSSP server talking to a non SPNEGOSSP client should work.
+
+srvssp = SPNEGOSSP([KerberosSSP(), NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})])
+clissp = NTLMSSP(UPN="User1", PASSWORD="Password123!")
+
+clictx, tok, status = clissp.GSS_Init_sec_context(None)
+assert status == GSS_S_CONTINUE_NEEDED, status
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(None, tok)
+assert status == GSS_S_CONTINUE_NEEDED, status
+clictx, tok, status = clissp.GSS_Init_sec_context(clictx, tok)
+assert status == GSS_S_COMPLETE, status
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(srvctx, tok)
+assert status == GSS_S_COMPLETE, status
+assert tok is None, repr(tok)
+
+= SPNEGOSSP - SSP negotiation + mechListMIC
+
+% Two SPNEGOSSPs with different preferred mechanisms should work,
+% and mechListMIC should be used.
+
+srvssp = SPNEGOSSP([
+    KerberosSSP(),
+    NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})
+])
+clissp = SPNEGOSSP([
+    NTLMSSP(UPN="User1", PASSWORD="Password123!"),
+])
+
+clictx, tok, status = clissp.GSS_Init_sec_context(None)
+assert clictx.require_mic
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert len(tok.innerToken.token.mechTypes) == 1
+assert tok.innerToken.token.mechTypes[0].oid.val == '1.3.6.1.4.1.311.2.2.10'
+assert tok.innerToken.token.mechListMIC is None
+assert tok.innerToken.token._mechListMIC is None
+assert isinstance(tok.innerToken.token.mechToken.value, NTLM_NEGOTIATE)
+
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(None, tok)
+assert srvctx.require_mic
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert tok.token.mechListMIC is None
+assert tok.token.negState == 1
+assert tok.token.supportedMech.oid.val == '1.3.6.1.4.1.311.2.2.10'
+assert isinstance(tok.token.responseToken.value, NTLM_CHALLENGE)
+
+clictx, tok, status = clissp.GSS_Init_sec_context(clictx, tok)
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert tok.token.negState is None
+assert tok.token.supportedMech is None
+assert isinstance(tok.token.responseToken.value, NTLM_AUTHENTICATE)
+assert isinstance(tok.token.mechListMIC.value, NTLMSSP_MESSAGE_SIGNATURE)
+assert tok.token.mechListMIC.value.SeqNum == 0
+assert tok.token.mechListMIC.value.Version == 1
+
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(srvctx, tok)
+assert status == GSS_S_COMPLETE, status
+assert tok is not None
+assert isinstance(tok.token, SPNEGO_negTokenResp)
+assert isinstance(tok.token.mechListMIC.value, NTLMSSP_MESSAGE_SIGNATURE)
+assert tok.token.mechListMIC.value.Version == 1
+assert tok.token.mechListMIC.value.SeqNum == 0
+
+clictx, tok, status = clissp.GSS_Init_sec_context(clictx, tok)
+assert status == GSS_S_COMPLETE, status
+assert tok is None
+
+= SPNEGOSSP - SSP negotiation + mechListMIC - NegTokenInit2
+
+% Same but with NegTokenInit2
+
+srvssp = SPNEGOSSP([
+    KerberosSSP(),
+    NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})
+])
+clissp = SPNEGOSSP([
+    NTLMSSP(UPN="User1", PASSWORD="Password123!"),
+])
+
+srvctx, tok = srvssp.NegTokenInit2()
+assert tok.MechType.val == '1.3.6.1.5.5.2'
+assert [x.oid.val for x in tok.innerToken.token.mechTypes] == [
+    '1.2.840.48018.1.2.2',
+    '1.2.840.113554.1.2.2',
+    '1.3.6.1.4.1.311.2.2.10',
+]
+assert tok.innerToken.token.reqFlags is None
+assert tok.innerToken.token.mechToken is None
+assert tok.innerToken.token.negHints.hintName.val == "not_defined_in_RFC4178@please_ignore"
+assert tok.innerToken.token.mechListMIC is None
+assert tok.innerToken.token._mechListMIC is None
+
+clictx, tok, status = clissp.GSS_Init_sec_context(None, tok)
+assert clictx.require_mic
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert len(tok.innerToken.token.mechTypes) == 1
+assert tok.innerToken.token.mechTypes[0].oid.val == '1.3.6.1.4.1.311.2.2.10'
+assert tok.innerToken.token.mechListMIC is None
+assert tok.innerToken.token._mechListMIC is None
+assert isinstance(tok.innerToken.token.mechToken.value, NTLM_NEGOTIATE)
+
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(srvctx, tok)
+assert srvctx.require_mic
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert tok.token.mechListMIC is None
+assert tok.token.negState == 1
+assert tok.token.supportedMech.oid.val == '1.3.6.1.4.1.311.2.2.10'
+assert isinstance(tok.token.responseToken.value, NTLM_CHALLENGE)
+
+clictx, tok, status = clissp.GSS_Init_sec_context(clictx, tok)
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert tok.token.negState is None
+assert tok.token.supportedMech is None
+assert isinstance(tok.token.responseToken.value, NTLM_AUTHENTICATE)
+assert isinstance(tok.token.mechListMIC.value, NTLMSSP_MESSAGE_SIGNATURE)
+assert tok.token.mechListMIC.value.SeqNum == 0
+assert tok.token.mechListMIC.value.Version == 1
+
+# INJECT FAULT: drop mechListMIC here, and make sure that the server doesn't let it go through.
+tok.token.mechListMIC = None
+
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(srvctx, tok)
+assert status == GSS_S_CONTINUE_NEEDED, status  # Should now be CONTINUE instead of COMPLETE !
+
+= SPNEGOSSP.from_cli_arguments - Utils
+
+from unittest import mock
+
+# Detect password prompts
+def password_failure(*args, **kwargs):
+    raise ValueError("Password was prompted unexpectedly !")
+
+def password_input(*args, **kwargs):
+    return "Password"
+
+
+def test_pwfail(**kwargs):
+    """Password means failure"""
+    with mock.patch('prompt_toolkit.prompt', side_effect=password_failure):
+        return SPNEGOSSP.from_cli_arguments(**kwargs)
+
+
+def test_pwinput(**kwargs):
+    """Password is entered"""
+    with mock.patch('prompt_toolkit.prompt', side_effect=password_input):
+        return SPNEGOSSP.from_cli_arguments(**kwargs)
+
+= SPNEGOSSP.from_cli_arguments - Username + Password - With input
+
+ssp = test_pwinput(
+    UPN="Administrator",
+    target="machine.domain.local",
+)
+assert isinstance(ssp, SPNEGOSSP)
+assert len(ssp.ssps) == 1
+assert ssp.ssps[0].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
+
+= SPNEGOSSP.from_cli_arguments - Username + Password - With prompt
+
+try:
+    test_pwfail(
+        UPN="Administrator",
+        target="machine.domain.local",
+    )
+    assert False, "Should have prompted for password !"
+except ValueError:
+    pass
+
+= SPNEGOSSP.from_cli_arguments - Username + Password - No input
+
+ssp = test_pwfail(
+    UPN="Administrator",
+    target="machine.domain.local",
+    password="Password",
+)
+assert isinstance(ssp, SPNEGOSSP)
+assert len(ssp.ssps) == 1
+assert ssp.ssps[0].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
+
+= SPNEGOSSP.from_cli_arguments - UPN + Password - With input
+
+ssp = test_pwinput(
+    UPN="Administrator@domain.local",
+    target="machine.domain.local",
+)
+assert isinstance(ssp, SPNEGOSSP)
+assert len(ssp.ssps) == 2
+assert isinstance(ssp.ssps[0], KerberosSSP)
+assert ssp.ssps[0].UPN == "Administrator@domain.local"
+assert isinstance(ssp.ssps[1], NTLMSSP)
+assert ssp.ssps[1].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
+
+= SPNEGOSSP.from_cli_arguments - UPN + CCache - Prepare
+
+import os, base64
+from scapy.utils import get_temp_file
+
+# Create CCACHE
+DATA = """
+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
+UJ8RjD9bppHbawAAAAA=
+"""
+ccache_file = get_temp_file()
+with open(ccache_file, "wb") as fd:
+    fd.write(base64.b64decode(DATA.strip()))
+
+os.environ["KRB5CCNAME"] = ccache_file
+
+= SPNEGOSSP.from_cli_arguments - UPN + CCache - TGT from KRB5CCNAME
+
+ssp = test_pwfail(
+    UPN="Administrator@domain.local",
+    target="machine.domain.local",
+    use_krb5ccname=True,
+)
+assert len(ssp.ssps) == 1
+assert ssp.ssps[0].TGT
+assert not ssp.ssps[0].ST
+
+= SPNEGOSSP.from_cli_arguments - UPN + CCache - TGT from ccache
+
+ssp = test_pwfail(
+    UPN="Administrator@domain.local",
+    target="machine.domain.local",
+    ccache=ccache_file
+)
+assert len(ssp.ssps) == 1
+assert ssp.ssps[0].TGT
+assert not ssp.ssps[0].ST
+
+= SPNEGOSSP.from_cli_arguments - UPN + CCache - ST from ccache
+
+ssp = test_pwfail(
+    UPN="Administrator@domain.local",
+    target="dc1.domain.local",
+    ccache=ccache_file
+)
+assert len(ssp.ssps) == 1
+assert ssp.ssps[0].ST
+assert not ssp.ssps[0].TGT
+
+= SPNEGOSSP.from_cli_arguments - UPN + CCache - Failure
+
+try:
+    test_pwfail(
+        UPN="Administrator@domain.local",
+        target="machine.domain.local",
+    )
+    assert False, "Should have prompted for password !"
+except ValueError:
+    pass
+
+= SPNEGOSSP.from_cli_arguments - UPN + CCache - Bad UPN
+
+try:
+    test_pwfail(
+        UPN="toto@domain.local",
+        target="machine.domain.local",
+        ccache=ccache_file
+    )
+    assert False, "Should have failed !"
+except ValueError:
+    pass

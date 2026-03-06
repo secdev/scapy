@@ -76,7 +76,7 @@ You might be wondering if you can pass the ``HashNT`` of the password of the use
 
 .. code:: python
 
-    >>> smbclient("server1.domain.local", ssp=KerberosSSP(SPN="cifs/server1", UPN="Administrator@domain.local", PASSWORD="password"))
+    >>> smbclient("server1.domain.local", ssp=KerberosSSP(UPN="Administrator@domain.local", PASSWORD="password"))
 
 **smbclient using a** :class:`~scapy.layers.ntlm.KerberosSSP` **created by** `Ticketer++ <kerberos.html#ticketer>`_:
 
@@ -155,7 +155,6 @@ Let's write a script that connects to a share and list the files in the root fol
         KerberosSSP(
             UPN="Administrator@domain.local",
             PASSWORD=password,
-            SPN="cifs/server1",
         )
     ])
     # Connect to the server
@@ -245,6 +244,14 @@ A share is identified by a ``name`` and a ``path`` (+ an optional description ca
             },
         )
     )
+
+**Start a SMB server with NTLM auth in an AD, using machine credentials:**
+
+.. note:: This requires an active account with ``WORKSTATION_TRUST_ACCOUNT`` in its ``userAccountControl``. (otherwise you might get ``STATUS_NO_TRUST_SAM_ACCOUNT``)
+
+.. code:: python
+
+    smbserver(ssp=NTLMSSP_DOMAIN(UPN="Computer1@domain.local", HASHNT=bytes.fromhex("7facdc498ed1680c4fd1448319a8c04f")))
 
 **Start a SMB server with Kerberos auth:**
 

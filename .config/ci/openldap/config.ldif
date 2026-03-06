@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+
+# Contains the configuration of our OpenLDAP test server
+
+# Configure LDAPS
+dn: cn=config
+changetype: modify
+add: olcTLSCACertificateFile
+olcTLSCACertificateFile: {{CAFILE}}
+
+dn: cn=config
+changetype: modify
+replace: olcTLSCertificateKeyFile
+olcTLSCertificateKeyFile: {{KEYFILE}}
+
+dn: cn=config
+changetype: modify
+replace: olcTLSCertificateFile
+olcTLSCertificateFile: {{CRTFILE}}
+
+dn: cn=config
+changetype: modify
+add: olcTLSVerifyClient
+olcTLSVerifyClient: never
+
+# Set channel bindings to 'tls-endpoint', like it would be on Windows
+dn: cn=config
+changetype: modify
+replace: olcSaslCbinding
+olcSaslCbinding: tls-endpoint

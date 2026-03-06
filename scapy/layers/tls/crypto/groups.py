@@ -408,9 +408,19 @@ _tls_named_curves = {1: "sect163k1", 2: "sect163r1", 3: "sect163r2",
                      0xff01: "arbitrary_explicit_prime_curves",
                      0xff02: "arbitrary_explicit_char2_curves"}
 
+_tls_post_quantum_hybrid = {
+    # https://www.ietf.org/archive/id/draft-kwiatkowski-tls-ecdhe-mlkem-02.html#name-secp256r1mlkem768
+    0x11EB: "SecP256r1MLKEM768",
+    # https://www.ietf.org/archive/id/draft-kwiatkowski-tls-ecdhe-mlkem-02.html#name-x25519mlkem768
+    0x11EC: "X25519MLKEM768",
+    # https://www.ietf.org/archive/id/draft-tls-westerbaan-xyber768d00-03.html#name-iana-considerations
+    0x6399: "X25519Kyber768Draft00",
+}
+
 _tls_named_groups = {}
 _tls_named_groups.update(_tls_named_ffdh_groups)
 _tls_named_groups.update(_tls_named_curves)
+_tls_named_groups.update(_tls_post_quantum_hybrid)
 
 
 def _tls_named_groups_import(group, pubbytes):

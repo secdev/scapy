@@ -66,11 +66,11 @@ from scapy.layers.gssapi import (
     GSSAPI_BLOB,
 )
 from scapy.layers.smb2 import (
-    STATUS_ERREF,
     SMB2_Compression_Transform_Header,
     SMB2_Header,
     SMB2_Transform_Header,
 )
+from scapy.layers.windows.erref import STATUS_ERREF
 
 
 SMB_COM = {
@@ -286,7 +286,7 @@ class SMBNegotiate_Request(Packet):
 
 bind_layers(SMB_Header, SMBNegotiate_Request, Command=0x72)
 
-# SMBNegociate Protocol Response
+# SMBNegotiate Protocol Response
 
 
 def _SMBStrNullField(name, default):
@@ -1001,10 +1001,11 @@ _NETLOGON_FLAGS = {
     0x00000800: "SELECT_SECRET_DOMAIN_6",
     0x00001000: "FULL_SECRET_DOMAIN_6",
     0x00002000: "WS",
-    0x00004000: "DS_8",
-    0x00008000: "DS_9",
-    0x00010000: "DS_10",  # guess
-    0x00020000: "DS_11",  # guess
+    0x00004000: "DS_8",  # >=2008R2
+    0x00008000: "DS_9",  # >=2012
+    0x00010000: "DS_10",  # >=2016
+    0x00020000: "DS_11",  # >=2019
+    0x00040000: "DS_12",  # >=2025
     0x20000000: "DNS_CONTROLLER",
     0x40000000: "DNS_DOMAIN",
     0x80000000: "DNS_FOREST",

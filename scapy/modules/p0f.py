@@ -333,13 +333,16 @@ class HTTP_Record(object):
 
 class p0fKnowledgeBase(KnowledgeBase):
     """
-    self.base = {
-        "mtu" (str): [sig(tuple), ...]
-        "tcp"/"http" (str): {
-            direction (str): [sig(tuple), ...]
+    .. code::
+
+        self.base = {
+            "mtu" (str): [sig(tuple), ...]
+            "tcp"/"http" (str): {
+                direction (str): [sig(tuple), ...]
             }
-    }
-    self.labels = (label(tuple), ...)
+        }
+        self.labels = (label(tuple), ...)
+
     """
     def lazy_init(self):
         try:
@@ -753,10 +756,12 @@ def prnp0f(pkt):
 
 def p0f_impersonate(pkt, osgenre=None, osdetails=None, signature=None,
                     extrahops=0, mtu=1500, uptime=None):
-    """Modifies pkt so that p0f will think it has been sent by a
+    """
+    Modifies pkt so that p0f will think it has been sent by a
     specific OS. Either osgenre or signature is required to impersonate.
     If signature is specified (as a raw string), we use the signature.
-    signature format:
+    signature format::
+
         "ip_ver:ttl:ip_opt_len:mss:window,wscale:opt_layout:quirks:pay_class"
 
     If osgenre is specified, we randomly pick a signature with a label
@@ -765,7 +770,8 @@ def p0f_impersonate(pkt, osgenre=None, osdetails=None, signature=None,
     is a substring of a label flavor ("7", "8" and "7 or 8" will
     all match the label "s:win:Windows:7 or 8")
 
-    For now, only TCP SYN/SYN+ACK packets are supported."""
+    For now, only TCP SYN/SYN+ACK packets are supported.
+    """
     pkt = validate_packet(pkt)
 
     if not osgenre and not signature:

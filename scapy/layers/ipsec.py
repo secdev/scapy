@@ -215,12 +215,17 @@ if conf.crypto_valid:
         )
     except ImportError:
         decrepit_algorithms = algorithms
+
+    # cryptography's TripleDES can be used to simulate DES behavior
+    DES = lambda key: decrepit_algorithms.TripleDES(key * 3)
+    DES.key_sizes = decrepit_algorithms.TripleDES.key_sizes
+    DES.block_size = decrepit_algorithms.TripleDES.block_size
 else:
-    log_loading.info("Can't import python-cryptography v1.7+. "
+    log_loading.info("Can't import python-cryptography v2.0+. "
                      "Disabled IPsec encryption/authentication.")
     default_backend = None
     InvalidTag = Exception
-    Cipher = algorithms = modes = None
+    Cipher = algorithms = modes = DES = None
 
 ###############################################################################
 
@@ -573,9 +578,9 @@ if algorithms:
                                                  format_mode_iv=_salt_format_mode_iv)  # noqa: E501
 
     # Using a TripleDES cipher algorithm for DES is done by using the same 64
-    # bits key 3 times (done by cryptography when given a 64 bits key)
+    # bits key 3 times
     CRYPT_ALGOS['DES'] = CryptAlgo('DES',
-                                   cipher=decrepit_algorithms.TripleDES,
+                                   cipher=DES,
                                    mode=modes.CBC,
                                    key_size=(8,))
     CRYPT_ALGOS['3DES'] = CryptAlgo('3DES',

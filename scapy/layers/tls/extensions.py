@@ -576,7 +576,7 @@ class TLS_Ext_EarlyDataIndication(TLS_Ext_Unknown):
 
 
 class TLS_Ext_EarlyDataIndicationTicket(TLS_Ext_Unknown):
-    name = "TLS Extension - Ticket Early Data Info"
+    name = "TLS Extension - Early Data Indication Ticket"
     fields_desc = [ShortEnumField("type", 0x2a, _tls_ext),
                    MayEnd(ShortField("len", None)),
                    IntField("max_early_data_size", 0)]

@@ -7,20 +7,9 @@
 # scapy.contrib.status = library
 
 import ctypes
-from ctypes.util import find_library
-import struct
 import socket
-
-from scapy.contrib.isotp import log_isotp
-from scapy.packet import Packet
-from scapy.error import Scapy_Exception
-from scapy.supersocket import SuperSocket
-from scapy.data import SO_TIMESTAMPNS
-from scapy.config import conf
-from scapy.arch.linux import get_last_packet_timestamp, SIOCGIFINDEX
-from scapy.contrib.isotp.isotp_packet import ISOTP
-from scapy.layers.can import CAN_MTU, CAN_FD_MTU, CAN_MAX_DLEN, CAN_FD_MAX_DLEN
-
+import struct
+from ctypes.util import find_library
 # Typing imports
 from typing import (
     Any,
@@ -30,6 +19,16 @@ from typing import (
     Type,
     cast,
 )
+
+from scapy.arch.linux import get_last_packet_timestamp, SIOCGIFINDEX
+from scapy.config import conf
+from scapy.contrib.isotp import log_isotp
+from scapy.contrib.isotp.isotp_packet import ISOTP
+from scapy.data import SO_TIMESTAMPNS
+from scapy.error import Scapy_Exception
+from scapy.layers.can import CAN_MTU, CAN_FD_MTU, CAN_MAX_DLEN, CAN_FD_MAX_DLEN
+from scapy.packet import Packet
+from scapy.supersocket import SuperSocket
 
 LIBC = ctypes.cdll.LoadLibrary(find_library("c"))  # type: ignore
 
@@ -70,6 +69,10 @@ CAN_ISOTP_CANFD_MTU = CAN_FD_MTU
 CAN_ISOTP_DEFAULT_LL_TX_DL = CAN_MAX_DLEN
 CAN_FD_ISOTP_DEFAULT_LL_TX_DL = CAN_FD_MAX_DLEN
 CAN_ISOTP_DEFAULT_LL_TX_FLAGS = 0
+
+CANFD_BRS = 1  # /* CAN FD Bit Rate Switch */
+CANFD_ESI = 2  # /* CAN FD Error State Indicator */
+CANFD_FDF = 4  # /* CAN FD FD Flag */
 
 
 class tp(ctypes.Structure):
@@ -301,6 +304,7 @@ class ISOTPNativeSocket(SuperSocket):
                  listen_only=False,  # type: bool
                  frame_txtime=CAN_ISOTP_DEFAULT_FRAME_TXTIME,  # type: int
                  fd=False,  # type: bool
+                 brs=False,  # type: bool
                  basecls=ISOTP  # type: Type[Packet]
                  ):
         # type: (...) -> None
@@ -331,32 +335,40 @@ class ISOTPNativeSocket(SuperSocket):
         self.listen_only = listen_only
         self.frame_txtime = frame_txtime
         self.fd = fd
+        self.brs = brs
         if basecls is None:
             log_isotp.warning('Provide a basecls ')
         self.basecls = basecls
         self._init_socket()
 
     def _init_socket(self) -> None:
-        can_socket = socket.socket(socket.PF_CAN, socket.SOCK_DGRAM,
-                                   CAN_ISOTP)
-        self.__set_option_flags(can_socket,
-                                self.ext_address,
-                                self.rx_ext_address,
-                                self.listen_only,
-                                self.padding,
-                                self.frame_txtime)
+        can_socket = socket.socket(
+            socket.PF_CAN, socket.SOCK_DGRAM, CAN_ISOTP)
 
-        can_socket.setsockopt(SOL_CAN_ISOTP,
-                              CAN_ISOTP_RECV_FC,
-                              self.__build_can_isotp_fc_options(
-                                  stmin=self.stmin, bs=self.bs))
-        can_socket.setsockopt(SOL_CAN_ISOTP,
-                              CAN_ISOTP_LL_OPTS,
-                              self.__build_can_isotp_ll_options(
-                                  mtu=CAN_ISOTP_CANFD_MTU if self.fd
-                                  else CAN_ISOTP_DEFAULT_LL_MTU,
-                                  tx_dl=CAN_FD_ISOTP_DEFAULT_LL_TX_DL if self.fd
-                                  else CAN_ISOTP_DEFAULT_LL_TX_DL))
+        self.__set_option_flags(
+            can_socket,
+            self.ext_address,
+            self.rx_ext_address,
+            self.listen_only,
+            self.padding,
+            self.frame_txtime)
+
+        can_socket.setsockopt(
+            SOL_CAN_ISOTP,
+            CAN_ISOTP_RECV_FC,
+            self.__build_can_isotp_fc_options(stmin=self.stmin, bs=self.bs))
+
+        tx_flags = ((CANFD_FDF if self.fd else 0) +
+                    (CANFD_BRS if (self.brs + self.fd) else 0))
+        tx_dl = CAN_FD_ISOTP_DEFAULT_LL_TX_DL if self.fd else CAN_ISOTP_DEFAULT_LL_TX_DL
+
+        can_socket.setsockopt(
+            SOL_CAN_ISOTP,
+            CAN_ISOTP_LL_OPTS,
+            self.__build_can_isotp_ll_options(
+                mtu=CAN_ISOTP_CANFD_MTU if self.fd else CAN_ISOTP_DEFAULT_LL_MTU,
+                tx_dl=tx_dl,
+                tx_flags=tx_flags))
         can_socket.setsockopt(
             socket.SOL_SOCKET,
             SO_TIMESTAMPNS,
@@ -366,8 +378,13 @@ class ISOTPNativeSocket(SuperSocket):
         self.__bind_socket(can_socket, self.iface, self.tx_id, self.rx_id)
         # make sure existing sockets are closed,
         # required in case of a reconnect.
-        self.closed = False
-        self.close()
+        if getattr(self, "outs", None):
+            if getattr(self, "ins", None) != self.outs:
+                if self.outs and self.outs.fileno() != -1:
+                    self.outs.close()
+        if getattr(self, "ins", None):
+            if self.ins.fileno() != -1:
+                self.ins.close()
 
         self.ins = can_socket
         self.outs = can_socket

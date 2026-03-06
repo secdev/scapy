@@ -80,3 +80,11 @@ p = OSPF_AS_Scope_Opaque_LSA(seq=0x80000005,data=opaque_data)
 assert (p.type == 11)
 assert (p.seq == 0x80000005)
 assert (len(p) == 132)
+
+= OSPF - build/dissect without header
+
+OSPF_DBDesc().show2()
+OSPF_LSReq().show2()
+OSPF_LSUpd().show2()
+OSPF_LSAck().show2()
+

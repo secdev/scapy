@@ -3,6 +3,7 @@
     "*.uts",
     "scapy\\layers\\*.uts",
     "scapy\\layers\\tls\\*.uts",
+    "scapy\\layers\\msrpce\\*.uts",
     "contrib\\automotive\\obd\\*.uts",
     "contrib\\automotive\\gm\\*.uts",
     "contrib\\automotive\\bmw\\*.uts",
@@ -16,6 +17,7 @@
   ],
   "breakfailed": true,
   "onlyfailed": true,
+  "extensions": ["scapy-rpc"],
   "preexec": {
     "contrib\\*.uts": "load_contrib(\"%name%\")",
     "scapy\\layers\\tls\\*.uts": "load_layer(\"tls\")"
@@ -27,7 +29,7 @@
     "broken_windows",
     "crypto_advanced",
     "mock_read_routes_bsd",
-    "appveyor_only",
+    "ci_only",
     "open_ssl_client",
     "vcan_socket",
     "ipv6",

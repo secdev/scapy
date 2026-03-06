@@ -80,7 +80,7 @@ pkt = NRBF(
             ],
             AdditionalInfos=[
                 NRBFAdditionalInfo(
-                    type=BinaryTypeEnum.SystemClass,
+                    bintype=BinaryTypeEnum.SystemClass,
                     Value=NRBFClassTypeInfo(
                         TypeName=NRBFLengthPrefixedString(
                             String=b"System.Data.SerializationFormat"
@@ -89,23 +89,23 @@ pkt = NRBF(
                     )
                 ),
                 NRBFAdditionalInfo(
-                    type=BinaryTypeEnum.Primitive,
+                    bintype=BinaryTypeEnum.Primitive,
                     Value=PrimitiveTypeEnum.Boolean,
                 ),
                 NRBFAdditionalInfo(
-                    type=BinaryTypeEnum.Primitive,
+                    bintype=BinaryTypeEnum.Primitive,
                     Value=PrimitiveTypeEnum.Int32,
                 ),
                 NRBFAdditionalInfo(
-                    type=BinaryTypeEnum.Primitive,
+                    bintype=BinaryTypeEnum.Primitive,
                     Value=PrimitiveTypeEnum.Boolean,
                 ),
                 NRBFAdditionalInfo(
-                    type=BinaryTypeEnum.Primitive,
+                    bintype=BinaryTypeEnum.Primitive,
                     Value=PrimitiveTypeEnum.Int32,
                 ),
                 NRBFAdditionalInfo(
-                    type=BinaryTypeEnum.PrimitiveArray,
+                    bintype=BinaryTypeEnum.PrimitiveArray,
                     Value=PrimitiveTypeEnum.Byte,
                 ),
             ],
@@ -121,12 +121,12 @@ pkt = NRBF(
                     ],
                     BinaryTypeEnums=[BinaryTypeEnum.Primitive],
                     AdditionalInfos=[
-                        NRBFAdditionalInfo(type=BinaryTypeEnum.Primitive,
+                        NRBFAdditionalInfo(bintype=BinaryTypeEnum.Primitive,
                                            Value=PrimitiveTypeEnum.Int32),
                     ],
                     LibraryId=2,
                     Members=[
-                        NRBFMemberPrimitiveUnTyped(type=PrimitiveTypeEnum.Int32, Value=1)
+                        NRBFMemberPrimitiveUnTyped(primtype=PrimitiveTypeEnum.Int32, Value=1)
                     ],
                 ),
                 NRBFBinaryObjectString(
@@ -135,11 +135,11 @@ pkt = NRBF(
                 ),
                 NRBFMemberReference(IdRef=4),
                 NRBFMemberReference(IdRef=4),
-                NRBFMemberPrimitiveUnTyped(type=PrimitiveTypeEnum.Boolean, Value=0),
-                NRBFMemberPrimitiveUnTyped(type=PrimitiveTypeEnum.Int32, Value=1033),
-                NRBFMemberPrimitiveUnTyped(type=PrimitiveTypeEnum.Boolean, Value=0),
+                NRBFMemberPrimitiveUnTyped(primtype=PrimitiveTypeEnum.Boolean, Value=0),
+                NRBFMemberPrimitiveUnTyped(primtype=PrimitiveTypeEnum.Int32, Value=1033),
+                NRBFMemberPrimitiveUnTyped(primtype=PrimitiveTypeEnum.Boolean, Value=0),
                 NRBFObjectNull(),
-                NRBFMemberPrimitiveUnTyped(type=PrimitiveTypeEnum.Int32, Value=1),
+                NRBFMemberPrimitiveUnTyped(primtype=PrimitiveTypeEnum.Int32, Value=1),
                 NRBFMemberReference(IdRef=5),
             ],
         ),

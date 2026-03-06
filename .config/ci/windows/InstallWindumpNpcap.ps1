@@ -5,7 +5,7 @@ $checksum = "4253cbc494416c4917920e1f2424cdf039af8bc39f839a47aa4337bd28f4eb7e"
 ############
 ############
 # Download the file
-wget $urlPath -UseBasicParsing -OutFile $PSScriptRoot"\npcap.zip"
+Invoke-WebRequest $urlPath -UseBasicParsing -OutFile $PSScriptRoot"\npcap.zip"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 function Unzip
 {

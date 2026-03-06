@@ -252,3 +252,29 @@ The following issues a ``Modify Request`` that replaces the ``displayName`` attr
             )
         ]
     )
+
+LDAPHero
+--------
+
+LDAPHero (LDAPéro in French) is a graphical wrapper around Scapy's :class:`~scapy.layers.ldap.LDAP_Client`, that works on all plateforms.
+It can be used with:
+
+.. code:: python
+
+   >>> load_module("ticketer")
+   >>> LDAPHero()
+
+It's possible to pass it a SSP, which will be used when clicking the "Bind" button:
+
+.. code:: python
+
+   >>> LDAPHero(mech=LDAP_BIND_MECHS.SICILY,
+   ...          ssp=NTLMSSP(UPN="Administrator@domain.local", PASSWORD="test"))
+
+You can use the same examples as in `Binding <#binding>`_.
+
+It's also possible to pass some connection parameters, for instance to connect to a specific host, you could use:
+
+.. code:: python
+
+   >>> LDAPHero(host="192.168.0.100")

@@ -73,7 +73,7 @@ if conf.crypto_valid:
         decrepit_algorithms = algorithms
 else:
     default_backend = Ciphers = algorithms = decrepit_algorithms = None
-    log_loading.info("Can't import python-cryptography v1.7+. Disabled WEP decryption/encryption. (Dot11)")  # noqa: E501
+    log_loading.info("Can't import python-cryptography v2.0+. Disabled WEP decryption/encryption. (Dot11)")  # noqa: E501
 
 
 #########
@@ -708,7 +708,7 @@ class Dot11(Packet):
             [
                 (
                     FlagsField("FCfield", 0, 4,
-                               ["pw-mgt", "MD", "protected", "order"]),
+                               ["pw_mgt", "MD", "protected", "order"]),
                     lambda pkt: (pkt.type, pkt.subtype) == (1, 6)
                 ),
                 (
@@ -718,8 +718,8 @@ class Dot11(Packet):
                 )
             ],
             FlagsField("FCfield", 0, 8,
-                       ["to-DS", "from-DS", "MF", "retry",
-                        "pw-mgt", "MD", "protected", "order"])
+                       ["to_DS", "from_DS", "MF", "retry",
+                        "pw_mgt", "MD", "protected", "order"])
         ),
         ConditionalField(
             BitField("FCfield_bw", 0, 3),
@@ -746,7 +746,7 @@ class Dot11(Packet):
         ConditionalField(
             _Dot11MacField("addr4", ETHER_ANY, 4),
             lambda pkt: (pkt.type == 2 and
-                         pkt.FCfield & 3 == 3),  # from-DS+to-DS
+                         pkt.FCfield & 3 == 3),  # from_DS+to_DS
         )
     ]
 
@@ -1439,21 +1439,24 @@ class Dot11EltVendorSpecific(Dot11Elt):
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
             oui = struct.unpack("!I", b"\x00" + _pkt[2:5])[0]
-            if oui == 0x0050f2:  # Microsoft
-                type_ = orb(_pkt[5])
-                if type_ == 0x01:
-                    # MS WPA IE
-                    return Dot11EltMicrosoftWPA
-                elif type_ == 0x02:
-                    # MS WME IE TODO
-                    # return Dot11EltMicrosoftWME
-                    pass
-                elif type_ == 0x04:
-                    # MS WPS IE TODO
-                    # return Dot11EltWPS
-                    pass
-                return Dot11EltVendorSpecific
+            ouicls = cls.registered_ouis.get(oui, cls)
+            if ouicls.dispatch_hook != cls.dispatch_hook:
+                # Sub-classes can have their own dispatch_hook
+                return ouicls.dispatch_hook(_pkt=_pkt, *args, **kargs)
+            cls = ouicls
         return cls
+
+    registered_ouis = {}
+
+    @classmethod
+    def register_variant(cls):
+        oui = cls.oui.default
+        if not oui:
+            # This is Dot11EltVendorSpecific, register it in the super-class.
+            super().register_variant()
+        elif oui not in cls.registered_ouis:
+            # Sub-Vendor (e.g. Dot11EltMicrosoftWPA)
+            cls.registered_ouis[oui] = cls
 
 
 class Dot11EltMicrosoftWPA(Dot11EltVendorSpecific):
@@ -1466,6 +1469,24 @@ class Dot11EltMicrosoftWPA(Dot11EltVendorSpecific):
     fields_desc = Dot11EltVendorSpecific.fields_desc[:3] + [
         XByteField("type", 0x01)
     ] + Dot11EltRSN.fields_desc[2:8]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            type_ = orb(_pkt[5])
+            if type_ == 0x01:
+                # MS WPA IE
+                return Dot11EltMicrosoftWPA
+            elif type_ == 0x02:
+                # MS WME IE TODO
+                # return Dot11EltMicrosoftWME
+                pass
+            elif type_ == 0x04:
+                # MS WPS IE TODO
+                # return Dot11EltWPS
+                pass
+            return Dot11EltVendorSpecific
+        return cls
 
 
 # 802.11-2016 9.4.2.19
@@ -2095,7 +2116,7 @@ iwconfig wlan0 mode managed
         tcp = p.getlayer(TCP)
         pay = raw(tcp.payload)
         p[IP].underlayer.remove_payload()
-        p.FCfield = "from-DS"
+        p.FCfield = "from_DS"
         p.addr1, p.addr2 = p.addr2, p.addr1
         p /= IP(src=ip.dst, dst=ip.src)
         p /= TCP(sport=tcp.dport, dport=tcp.sport,
