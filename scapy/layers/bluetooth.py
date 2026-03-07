@@ -932,6 +932,10 @@ class SM_Identity_Address_Information(Packet):
     name = "Identity Address Information"
     fields_desc = [ByteEnumField("addr_type", 0, {0: "public"}),
                    LEMACField("addr", None), ]
+    deprecated_fields = {
+        "atype": ("addr_type", "2.7.0"),
+        "address": ("addr", "2.7.0"),
+    }
 
 
 class SM_Signing_Information(Packet):
@@ -2065,6 +2069,7 @@ class HCI_Cmd_LE_Read_Local_Supported_Features(Packet):
 class HCI_Cmd_LE_Set_Random_Address(Packet):
     name = "HCI_LE_Set_Random_Address"
     fields_desc = [LEMACField("addr", None)]
+    deprecated_fields = {"address": ("addr", "2.7.0")}
 
 
 class HCI_Cmd_LE_Set_Advertising_Parameters(Packet):
@@ -2077,6 +2082,11 @@ class HCI_Cmd_LE_Set_Advertising_Parameters(Packet):
                    LEMACField("peer_addr", None),
                    ByteField("channel_map", 7),
                    ByteEnumField("filter_policy", 0, {0: "all:all", 1: "connect:all scan:whitelist", 2: "connect:whitelist scan:all", 3: "all:whitelist"}), ]  # noqa: E501
+    deprecated_fields = {
+        "oatype": ("own_addr_type", "2.7.0"),
+        "datype": ("peer_addr_type", "2.7.0"),
+        "daddr": ("peer_addr", "2.7.0"),
+    }
 
 class HCI_Cmd_LE_Set_Extended_Advertising_Parameters(Packet):
     name = 'HCI_LE_Set_Extended_Advertising_Parameters'
@@ -2127,7 +2137,7 @@ class HCI_Cmd_LE_Set_Advertise_Enable(Packet):
     name = "HCI_LE_Set_Advertising_Enable"
     fields_desc = [ByteField("enable", 0)]
 
-class HCI_Ext_Adv_Set(Packet):
+class Extended_Advertise_Set(Packet):
     name = 'Extended Advertising Set'
     fields_desc = [ByteField('handle', 0), 
                    LEShortField('duration', 0), 
@@ -2137,7 +2147,7 @@ class HCI_Cmd_LE_Set_Extended_Advertise_Enable(Packet):
     name = 'HCI_LE_Set_Extended_Advertising_Enable'
     fields_desc = [ByteEnumField('enable', 1, {0: 'disable', 1: 'enable'}), 
                    FieldLenField('num_sets', None, count_of='sets', fmt='B'), 
-                   PacketListField('sets', [], HCI_Ext_Adv_Set, count_from=lambda pkt: pkt.num_sets)]
+                   PacketListField('sets', [], Extended_Advertise_Set, count_from=lambda pkt: pkt.num_sets)]
 
 class HCI_Cmd_LE_Set_Scan_Parameters(Packet):
     name = "HCI_LE_Set_Scan_Parameters"
@@ -2149,6 +2159,8 @@ class HCI_Cmd_LE_Set_Scan_Parameters(Packet):
                                               2: "rpa (pub)",
                                               3: "rpa (random)"}),
                    ByteEnumField("policy", 0, {0: "all", 1: "whitelist"})]
+    deprecated_fields = {"atype": ("addr_type", "2.7.0")}
+
 
 class HCI_Cmd_LE_Set_Extended_Scan_Parameters(Packet):
     name = 'HCI_LE_Set_Extended_Scan_Parameters'
@@ -2191,6 +2203,12 @@ class HCI_Cmd_LE_Create_Connection(Packet):
                    LEShortField("timeout", 42),
                    LEShortField("min_ce", 0),
                    LEShortField("max_ce", 0), ]
+    deprecated_fields = {
+        "patype": ("peer_addr_type", "2.7.0"),
+        "paddr": ("peer_addr", "2.7.0"),
+        "atype": ("own_addr_type", "2.7.0"),
+    }
+
 
 class HCI_Cmd_LE_Extended_Create_Connection(Packet):
     name = 'HCI_LE_Extended_Create_Connection'
@@ -2608,6 +2626,11 @@ class HCI_LE_Meta_Connection_Complete(Packet):
                    LEShortField("latency", 0),
                    LEShortField("supervision", 42),
                    XByteField("master_clock_accuracy", 5)]
+    deprecated_fields = {
+        "patype": ("peer_addr_type", "2.7.0"),
+        "paddr": ("peer_addr", "2.7.0"),
+        "clock_latency": ("master_clock_accuracy", "2.7.0"),
+    }
 
     def answers(self, other):
         if HCI_Cmd_LE_Create_Connection in other:
@@ -2664,6 +2687,7 @@ class HCI_LE_Meta_Advertising_Report(Packet):
                    PacketListField("data", [], EIR_Hdr,
                                    length_from=lambda pkt: pkt.len),
                    SignedByteField("rssi", 0)]
+    deprecated_fields = {"atype": ("addr_type", "2.7.0")}
 
     def extract_padding(self, s):
         return '', s
@@ -2734,6 +2758,12 @@ class HCI_LE_Meta_Extended_Advertising_Report(Packet):
         PacketListField("data", [], EIR_Hdr,
                         length_from=lambda pkt: pkt.data_length),
     ]
+    deprecated_fields = {
+        "address_type": ("addr_type", "2.7.0"),
+        "address": ("addr", "2.7.0"),
+        "direct_address_type": ("direct_addr_type", "2.7.0"),
+        "direct_address": ("direct_addr", "2.7.0"),
+    }
 
     def extract_padding(self, s):
         return '', s
