@@ -51,7 +51,6 @@ from scapy.layers.msrpce.raw.ms_nrpc import (
     PNETLOGON_CREDENTIAL,
 )
 
-
 if conf.crypto_valid:
     from cryptography.hazmat.primitives import hashes, hmac
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -70,7 +69,6 @@ else:
 from typing import (
     Optional,
 )
-
 
 # --- RFC
 
@@ -853,11 +851,12 @@ class NetlogonClient(DCERPC_Client):
             else:
                 self.ssp = self.sock.session.ssp = KerberosSSP(
                     UPN=UPN,
-                    SPN="netlogon/" + DC_FQDN,
                     PASSWORD=PASSWORD,
                     KEY=KEY,
                 )
-            if not self.bind_or_alter(self.interface):
+            # [MS-NRPC] note <185> "Windows uses netlogon/<hostname>"
+            target_name = "netlogon/" + DC_FQDN
+            if not self.bind_or_alter(self.interface, target_name=target_name):
                 raise ValueError("Bind failed !")
 
             # Send AuthenticateKerberos request

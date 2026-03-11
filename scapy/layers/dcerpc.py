@@ -180,6 +180,8 @@ DCE_RPC_TRANSFER_SYNTAXES = {
 }
 DCE_RPC_INTERFACES_NAMES = {}
 DCE_RPC_INTERFACES_NAMES_rev = {}
+COM_INTERFACES_NAMES = {}
+COM_INTERFACES_NAMES_rev = {}
 
 
 class DCERPC_Transport(IntEnum):
@@ -1350,6 +1352,8 @@ def register_com_interface(name, uuid, opnums):
     # bind for build
     for opnum, operations in opnums.items():
         bind_top_down(DceRpc5Request, operations.request, opnum=opnum)
+    COM_INTERFACES_NAMES[uuid] = name
+    COM_INTERFACES_NAMES_rev[name.lower()] = uuid
 
 
 def find_com_interface(name) -> ComInterface:
@@ -2824,6 +2828,7 @@ class DceRpcSession(DefaultSession):
         self.sent_cont_ids = []
         self.cont_id = 0  # Currently selected context
         self.auth_context_id = 0  # Currently selected authentication context
+        self.assoc_group_id = 0  # Currently selected association group
         self.map_callid_opnum = {}
         self.frags = collections.defaultdict(lambda: b"")
         self.sniffsspcontexts = {}  # Unfinished contexts for passive
@@ -2869,6 +2874,8 @@ class DceRpcSession(DefaultSession):
                     finally:
                         self.sent_cont_ids = []
 
+                    self.assoc_group_id = pkt.assoc_group_id
+
                     # Endianness
                     self.ndrendian = {0: "big", 1: "little"}[pkt[DceRpc5].endian]
 
@@ -2878,18 +2885,20 @@ class DceRpcSession(DefaultSession):
         elif DceRpc5Request in pkt:
             # request => match opnum with callID
             opnum = pkt.opnum
+            uid = (self.assoc_group_id, pkt.call_id)
             if self.rpc_bind_is_com:
-                self.map_callid_opnum[pkt.call_id] = (
+                self.map_callid_opnum[uid] = (
                     opnum,
                     pkt[DceRpc5Request].payload.payload,
                 )
             else:
-                self.map_callid_opnum[pkt.call_id] = opnum, pkt[DceRpc5Request].payload
+                self.map_callid_opnum[uid] = opnum, pkt[DceRpc5Request].payload
         elif DceRpc5Response in pkt:
             # response => get opnum from table
+            uid = (self.assoc_group_id, pkt.call_id)
             try:
-                opnum, opts["request_packet"] = self.map_callid_opnum[pkt.call_id]
-                del self.map_callid_opnum[pkt.call_id]
+                opnum, opts["request_packet"] = self.map_callid_opnum[uid]
+                del self.map_callid_opnum[uid]
             except KeyError:
                 log_runtime.info("Unknown call_id %s in DCE/RPC session" % pkt.call_id)
         # Bind / Alter request/response specific
@@ -2912,7 +2921,7 @@ class DceRpcSession(DefaultSession):
         """
         Function to defragment DCE/RPC packets.
         """
-        uid = pkt.call_id
+        uid = (self.assoc_group_id, pkt.call_id)
         if pkt.pfc_flags.PFC_FIRST_FRAG and pkt.pfc_flags.PFC_LAST_FRAG:
             # Not fragmented
             return body

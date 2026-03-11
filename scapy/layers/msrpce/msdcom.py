@@ -30,6 +30,7 @@ from scapy.fields import (
     PadField,
     StrLenField,
     StrNullFieldUtf16,
+    UUIDEnumField,
     UUIDField,
     XShortField,
     XStrFixedLenField,
@@ -37,6 +38,8 @@ from scapy.fields import (
 from scapy.volatile import RandUUID
 
 from scapy.layers.dcerpc import (
+    COM_INTERFACES_NAMES_rev,
+    COM_INTERFACES_NAMES,
     ComInterface,
     DCE_C_AUTHN_LEVEL,
     DCE_RPC_PROTOCOL_IDENTIFIERS,
@@ -60,6 +63,7 @@ from scapy.layers.dcerpc import (
     NDRShortField,
     NDRSignedIntField,
     RPC_C_AUTHN,
+    RPC_C_IMP_LEVEL,
 )
 from scapy.utils import valid_ip6, valid_ip
 from scapy.layers.msrpce.rpcclient import DCERPC_Client, DCERPC_Transport
@@ -445,7 +449,15 @@ class OBJREF(Packet):
     fields_desc = [
         XStrFixedLenField("signature", b"MEOW", length=4),  # :3
         LEIntField("flags", 0x04),
-        UUIDField("iid", IID_IActivationPropertiesIn, uuid_fmt=UUIDField.FORMAT_LE),
+        UUIDEnumField(
+            "iid",
+            IID_IActivationPropertiesIn,
+            (
+                COM_INTERFACES_NAMES.get,
+                lambda x: COM_INTERFACES_NAMES_rev.get(x.lower()),
+            ),
+            uuid_fmt=UUIDField.FORMAT_LE,
+        ),
     ]
 
 
@@ -735,6 +747,7 @@ class OXID_Entry:
     def __init__(self):
         self.oxid: Optional[int] = None
         self.bindingInfo: Optional[Tuple[str, int]] = None
+        self.target_name: str = None
         self.authnHint: DCE_C_AUTHN_LEVEL = DCE_C_AUTHN_LEVEL.CONNECT
         self.version: Optional[COMVERSION] = None
         self.ipid_IRemUnknown: Optional[uuid.UUID] = None
@@ -777,6 +790,7 @@ class ObjectInstance:
         iface: ComInterface,
         ssp=None,
         auth_level=None,
+        impersonation_type=None,
         timeout=None,
         **kwargs,
     ):
@@ -788,6 +802,7 @@ class ObjectInstance:
 
         :param ssp: (optional) non default SSP to use to connect to the object exporter
         :param auth_level: (optional) non default authn level to use
+        :param impersonation_type: (optional) non default impersonation type to use
         :param timeout: (optional) timeout for the connection
         """
         # Look for this object's entry
@@ -817,6 +832,7 @@ class ObjectInstance:
             pkt=pkt,
             ssp=ssp,
             auth_level=auth_level,
+            impersonation_type=impersonation_type,
             timeout=timeout,
             **kwargs,
         )
@@ -857,6 +873,12 @@ class DCOM_Client(DCERPC_Client):
         # DCOM defaults to at least PKT_INTEGRITY
         if "auth_level" not in kwargs and "ssp" in kwargs:
             kwargs["auth_level"] = DCE_C_AUTHN_LEVEL.PKT_INTEGRITY
+
+        # DCOM_Client handles the activations.
+        # [MS-RPCE] sect 3.2.4.1.1.2 : "it MUST specify a default impersonation
+        # level of at leastRPC_C_IMPL_LEVEL_IMPERSONATE"
+        if "impersonation_type" not in kwargs and "ssp" in kwargs:
+            kwargs["impersonation_type"] = RPC_C_IMP_LEVEL.IMPERSONATE
 
         super(DCOM_Client, self).__init__(
             DCERPC_Transport.NCACN_IP_TCP,
@@ -908,7 +930,10 @@ class DCOM_Client(DCERPC_Client):
             raise ValueError("Must specify at least one interface !")
 
         # Bind IObjectExporter if not already
-        self.bind_or_alter(find_dcerpc_interface("IRemoteSCMActivator"))
+        self.bind_or_alter(
+            find_dcerpc_interface("IRemoteSCMActivator"),
+            target_name="rpcss/" + self.host,
+        )
 
         # [MS-DCOM] sect 3.1.2.5.2.3.3 - Issuing the Activation Request
 
@@ -1034,8 +1059,9 @@ class DCOM_Client(DCERPC_Client):
                 )
 
                 # Set RPC bindings from the activation request
-                binds, _ = _ParseStringArray(remoteReply.valueof("pdsaOxidBindings"))
+                binds, secs = _ParseStringArray(remoteReply.valueof("pdsaOxidBindings"))
                 entry.bindingInfo = self._ChoseRPCBinding(binds)
+                entry.target_name = self._CalculateTargetName(secs)
 
             if PropsOutInfo in prop:
                 # Information about the interfaces that the client requested
@@ -1225,6 +1251,21 @@ class DCOM_Client(DCERPC_Client):
                 return host, port
         raise ValueError("No valid bindings available !")
 
+    def _CalculateTargetName(self, secs: List[SECURITYBINDING]):
+        """
+        3.2.4.2 ORPC Invocations - Find SPN from aPrincName
+        """
+        if self.ssp is None or not secs:
+            return None
+
+        for sec in secs:
+            # "if the aPrincName field is nonempty"
+            if sec.wAuthnSvc == self.ssp.auth_type and sec.aPrincName:
+                return sec.aPrincName
+
+        # "if the aPrincName field is empty, the client MUST NOT specify an SPN"
+        return None
+
     def UnmarshallObjectReference(
         self, mifaceptr: MInterfacePointer, iid: ComInterface
     ):
@@ -1261,7 +1302,10 @@ class DCOM_Client(DCERPC_Client):
             client.connect(host, port=port)
 
         # Bind IObjectExporter if not already
-        client.bind_or_alter(find_dcerpc_interface("IObjectExporter"))
+        client.bind_or_alter(
+            find_dcerpc_interface("IObjectExporter"),
+            target_name="rpcss/" + self.host,
+        )
 
         try:
             # Perform ResolveOxid2
@@ -1293,8 +1337,9 @@ class DCOM_Client(DCERPC_Client):
         )
 
         # Set RPC bindings from the oxid request
-        binds, _ = _ParseStringArray(resp.valueof("ppdsaOxidBindings"))
+        binds, secs = _ParseStringArray(resp.valueof("ppdsaOxidBindings"))
         entry.bindingInfo = self._ChoseRPCBinding(binds)
+        entry.target_name = self._CalculateTargetName(secs)
 
         # Update the OXID table
         if entry.oxid not in self.OXID_table:
@@ -1342,6 +1387,7 @@ class DCOM_Client(DCERPC_Client):
         ipid: uuid.UUID,
         ssp=None,
         auth_level=None,
+        impersonation_type=None,
         timeout=5,
         **kwargs,
     ):
@@ -1353,6 +1399,7 @@ class DCOM_Client(DCERPC_Client):
 
         :param ssp: (optional) non default SSP to use to connect to the object exporter
         :param auth_level: (optional) non default authn level to use
+        :param impersonation_type: (optional) non default impersonation type to use
         :param timeout: (optional) timeout for the connection
         """
         # [MS-DCOM] sect 3.2.4.2
@@ -1385,6 +1432,7 @@ class DCOM_Client(DCERPC_Client):
                 DCERPC_Transport.NCACN_IP_TCP,
                 ssp=ssp or self.ssp,
                 auth_level=auth_level or oxid_entry.authnHint,
+                impersonation_type=impersonation_type or self.impersonation_type,
                 verb=self.verb,
             )
 
@@ -1395,7 +1443,10 @@ class DCOM_Client(DCERPC_Client):
             )
 
         # Bind the COM interface
-        resolver_entry.client.bind_or_alter(ipid_entry.iface)
+        resolver_entry.client.bind_or_alter(
+            ipid_entry.iface,
+            target_name=oxid_entry.target_name,
+        )
 
         # We need to set the NDR very late, after the bind
         pkt.ndr64 = resolver_entry.client.ndr64
