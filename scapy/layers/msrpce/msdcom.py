@@ -30,6 +30,7 @@ from scapy.fields import (
     PadField,
     StrLenField,
     StrNullFieldUtf16,
+    UUIDEnumField,
     UUIDField,
     XShortField,
     XStrFixedLenField,
@@ -37,6 +38,8 @@ from scapy.fields import (
 from scapy.volatile import RandUUID
 
 from scapy.layers.dcerpc import (
+    COM_INTERFACES_NAMES_rev,
+    COM_INTERFACES_NAMES,
     ComInterface,
     DCE_C_AUTHN_LEVEL,
     DCE_RPC_PROTOCOL_IDENTIFIERS,
@@ -445,7 +448,15 @@ class OBJREF(Packet):
     fields_desc = [
         XStrFixedLenField("signature", b"MEOW", length=4),  # :3
         LEIntField("flags", 0x04),
-        UUIDField("iid", IID_IActivationPropertiesIn, uuid_fmt=UUIDField.FORMAT_LE),
+        UUIDEnumField(
+            "iid",
+            IID_IActivationPropertiesIn,
+            (
+                COM_INTERFACES_NAMES.get,
+                lambda x: COM_INTERFACES_NAMES_rev.get(x.lower()),
+            ),
+            uuid_fmt=UUIDField.FORMAT_LE,
+        ),
     ]
 
 

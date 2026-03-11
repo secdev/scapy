@@ -7,6 +7,7 @@
 DCE/RPC client as per [MS-RPCE]
 """
 
+import collections
 import uuid
 import socket
 
@@ -101,7 +102,7 @@ class DCERPC_Client(object):
         ), "transport must be from DCERPC_Transport"
 
         # Counters
-        self.call_id = 0
+        self.call_ids = collections.defaultdict(lambda: 0)  # by assoc_group_id
         self.next_cont_id = 0  # next available context id
         self.next_auth_contex_id = 0  # next available auth context id
 
@@ -271,10 +272,10 @@ class DCERPC_Client(object):
 
         The DCE/RPC header is added automatically.
         """
-        self.call_id += 1
+        self.call_ids[self.session.assoc_group_id] += 1
         pkt = (
             DceRpc5(
-                call_id=self.call_id,
+                call_id=self.call_ids[self.session.assoc_group_id],
                 pfc_flags="PFC_FIRST_FRAG+PFC_LAST_FRAG",
                 endian=self.ndrendian,
                 auth_verifier=kwargs.pop("auth_verifier", None),
@@ -295,10 +296,10 @@ class DCERPC_Client(object):
 
         The DCE/RPC header is added automatically.
         """
-        self.call_id += 1
+        self.call_ids[self.session.assoc_group_id] += 1
         pkt = (
             DceRpc5(
-                call_id=self.call_id,
+                call_id=self.call_ids[self.session.assoc_group_id],
                 pfc_flags="PFC_FIRST_FRAG+PFC_LAST_FRAG",
                 endian=self.ndrendian,
                 auth_verifier=kwargs.pop("auth_verifier", None),
@@ -655,7 +656,6 @@ class DCERPC_Client(object):
             and respcls in resp
             and self._check_bind_context(interface, resp.results)
         ):
-            self.call_id = 0  # reset call id
             port = resp.sec_addr.port_spec.decode()
             ndr = self.session.ndr64 and "NDR64" or "NDR32"
             self.ndr64 = self.session.ndr64
