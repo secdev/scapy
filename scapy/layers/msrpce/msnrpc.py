@@ -620,27 +620,33 @@ class NetlogonClient(DCERPC_Client):
         """
         Create a NETLOGON_AUTHENTICATOR
         """
-        # [MS-NRPC] sect 3.1.4.5
-        ts = int(time.time())
-        self.ClientStoredCredential = _credentialAddition(
-            self.ClientStoredCredential, ts
-        )
-        return PNETLOGON_AUTHENTICATOR(
-            Credential=PNETLOGON_CREDENTIAL(
-                data=(
-                    ComputeNetlogonCredentialAES(
-                        self.ClientStoredCredential,
-                        self.SessionKey,
-                    )
-                    if self.supportAES
-                    else ComputeNetlogonCredentialDES(
-                        self.ClientStoredCredential,
-                        self.SessionKey,
-                    )
+        if isinstance(self.ssp, NetlogonSSP):
+            # [MS-NRPC] sect 3.1.4.5
+            ts = int(time.time())
+            self.ClientStoredCredential = _credentialAddition(
+                self.ClientStoredCredential, ts
+            )
+            return PNETLOGON_AUTHENTICATOR(
+                Credential=PNETLOGON_CREDENTIAL(
+                    data=(
+                        ComputeNetlogonCredentialAES(
+                            self.ClientStoredCredential,
+                            self.SessionKey,
+                        )
+                        if self.supportAES
+                        else ComputeNetlogonCredentialDES(
+                            self.ClientStoredCredential,
+                            self.SessionKey,
+                        )
+                    ),
                 ),
-            ),
-            Timestamp=ts,
-        )
+                Timestamp=ts,
+            )
+        elif isinstance(self.ssp, KerberosSSP):
+            # Kerberos.
+            return PNETLOGON_AUTHENTICATOR()
+        else:
+            raise ValueError("Invalid ssp case !")
 
     def validate_authenticator(self, auth):
         """
@@ -648,20 +654,26 @@ class NetlogonClient(DCERPC_Client):
 
         :param auth: the NETLOGON_AUTHENTICATOR object
         """
-        # [MS-NRPC] sect 3.1.4.5
-        self.ClientStoredCredential = _credentialAddition(
-            self.ClientStoredCredential, 1
-        )
-        if self.supportAES:
-            tempcred = ComputeNetlogonCredentialAES(
-                self.ClientStoredCredential, self.SessionKey
+        if isinstance(self.ssp, NetlogonSSP):
+            # [MS-NRPC] sect 3.1.4.5
+            self.ClientStoredCredential = _credentialAddition(
+                self.ClientStoredCredential, 1
             )
+            if self.supportAES:
+                tempcred = ComputeNetlogonCredentialAES(
+                    self.ClientStoredCredential, self.SessionKey
+                )
+            else:
+                tempcred = ComputeNetlogonCredentialDES(
+                    self.ClientStoredCredential, self.SessionKey
+                )
+            if tempcred != auth.Credential.data:
+                raise ValueError("Server netlogon authenticator is wrong !")
+        elif isinstance(self.ssp, KerberosSSP):
+            # Kerberos. Ignore
+            pass
         else:
-            tempcred = ComputeNetlogonCredentialDES(
-                self.ClientStoredCredential, self.SessionKey
-            )
-        if tempcred != auth.Credential.data:
-            raise ValueError("Server netlogon authenticator is wrong !")
+            raise ValueError("Invalid ssp case !")
 
     def establish_secure_channel(
         self,
@@ -879,6 +891,3 @@ class NetlogonClient(DCERPC_Client):
                 # An error occurred
                 netr_server_authkerb_response.show()
                 raise ValueError("NetrServerAuthenticateKerberos failed !")
-
-            # The NRPC session key is in this case the kerberos one
-            self.SessionKey = self.sspcontext.SessionKey
