@@ -502,6 +502,7 @@ class DCERPC_Client(object):
         interface: Union[DceRpcInterface, ComInterface],
         reqcls,
         respcls,
+        target_name: Optional[str] = None,
     ) -> bool:
         """
         Internal: used to send a bind/alter request
@@ -560,7 +561,7 @@ class DCERPC_Client(object):
                         else 0
                     )
                 ),
-                target_name="host/" + self.host,
+                target_name=target_name or ("host/" + self.host),
             )
 
             if status not in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
@@ -602,7 +603,7 @@ class DCERPC_Client(object):
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                     self.sspcontext,
                     input_token=resp.auth_verifier.auth_value,
-                    target_name="host/" + self.host,
+                    target_name=target_name or ("host/" + self.host),
                 )
 
             if status in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
@@ -645,7 +646,7 @@ class DCERPC_Client(object):
                         self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                             self.sspcontext,
                             input_token=resp.auth_verifier.auth_value,
-                            target_name="host/" + self.host,
+                            target_name=target_name or ("host/" + self.host),
                         )
             else:
                 log_runtime.error("GSS_Init_sec_context failed with %s !" % status)
@@ -704,23 +705,45 @@ class DCERPC_Client(object):
                     resp.show()
             return False
 
-    def bind(self, interface: Union[DceRpcInterface, ComInterface]) -> bool:
+    def bind(
+        self,
+        interface: Union[DceRpcInterface, ComInterface],
+        target_name: Optional[str] = None,
+    ) -> bool:
         """
         Bind the client to an interface
 
         :param interface: the DceRpcInterface object
         """
-        return self._bind(interface, DceRpc5Bind, DceRpc5BindAck)
+        return self._bind(
+            interface,
+            DceRpc5Bind,
+            DceRpc5BindAck,
+            target_name=target_name,
+        )
 
-    def alter_context(self, interface: Union[DceRpcInterface, ComInterface]) -> bool:
+    def alter_context(
+        self,
+        interface: Union[DceRpcInterface, ComInterface],
+        target_name: Optional[str] = None,
+    ) -> bool:
         """
         Alter context: post-bind context negotiation
 
         :param interface: the DceRpcInterface object
         """
-        return self._bind(interface, DceRpc5AlterContext, DceRpc5AlterContextResp)
+        return self._bind(
+            interface,
+            DceRpc5AlterContext,
+            DceRpc5AlterContextResp,
+            target_name=target_name,
+        )
 
-    def bind_or_alter(self, interface: Union[DceRpcInterface, ComInterface]) -> bool:
+    def bind_or_alter(
+        self,
+        interface: Union[DceRpcInterface, ComInterface],
+        target_name: Optional[str] = None,
+    ) -> bool:
         """
         Bind the client to an interface or alter the context if already bound
 
@@ -728,10 +751,10 @@ class DCERPC_Client(object):
         """
         if not self.session.rpc_bind_interface:
             # No interface is bound
-            return self.bind(interface)
+            return self.bind(interface, target_name=target_name)
         elif self.session.rpc_bind_interface != interface:
             # An interface is already bound
-            return self.alter_context(interface)
+            return self.alter_context(interface, target_name=target_name)
         return True
 
     def open_smbpipe(self, name: str):

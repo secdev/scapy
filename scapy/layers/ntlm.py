@@ -1584,6 +1584,13 @@ class NTLMSSP(SSP):
                         if Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
                         else []
                     )
+                    + (
+                        [
+                            "NEGOTIATE_IDENTIFY",
+                        ]
+                        if Context.flags & GSS_C_FLAGS.GSS_C_IDENTIFY_FLAG
+                        else []
+                    )
                 ),
                 ProductMajorVersion=10,
                 ProductMinorVersion=0,
