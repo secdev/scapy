@@ -347,6 +347,7 @@ class DCERPC_Client(object):
                     DceRpcSecVTCommand(SEC_VT_COMMAND_END=1)
                     / DceRpcSecVTPcontext(
                         InterfaceId=self.session.rpc_bind_interface.uuid,
+                        Version=self.session.rpc_bind_interface.if_version,
                         TransferSyntax="NDR64" if self.ndr64 else "NDR 2.0",
                         TransferVersion=1 if self.ndr64 else 2,
                     )
