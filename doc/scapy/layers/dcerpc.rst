@@ -313,7 +313,7 @@ There are extensions to the :class:`~scapy.layers.msrpce.rpcclient.DCERPC_Client
     client.negotiate_sessionkey(bytes.fromhex("77777777777777777777777777777777"))
     client.close()
 
-- the :class:`~scapy.layers.msrpce.msdcom.DCOM_Client` (unfinished)
+- the :class:`~scapy.layers.msrpce.msdcom.DCOM_Client`. More details are available in `DCOM <dcom.html>`_
 
 Server
 ------
