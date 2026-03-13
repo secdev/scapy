@@ -403,6 +403,19 @@ class GSS_S_FLAGS(IntFlag):
     GSS_S_ALLOW_MISSING_BINDINGS = 0x10000000
 
 
+class GSS_QOP_REQ_FLAGS(IntFlag):
+    """
+    Used for qop_flags
+    """
+
+    # Windows' API requires requesters to add an extra buffer of type
+    # 'SECBUFFER_PADDING' to receive the padding. The GSS_WrapEx API
+    # does not provide such a mechanism and always uses it. However
+    # some implementations like LDAP actually require NO padding, which
+    # therefore can't be achieved with GSS_WrapEx.
+    GSS_S_NO_SECBUFFER_PADDING = 0x10000000
+
+
 class SSP:
     """
     The general SSP class

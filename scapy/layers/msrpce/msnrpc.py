@@ -643,7 +643,7 @@ class NetlogonClient(DCERPC_Client):
                 Timestamp=ts,
             )
         elif isinstance(self.ssp, KerberosSSP):
-            # Kerberos.
+            # Kerberos. This is off spec :(
             return PNETLOGON_AUTHENTICATOR()
         else:
             raise ValueError("Invalid ssp case !")
@@ -670,8 +670,9 @@ class NetlogonClient(DCERPC_Client):
             if tempcred != auth.Credential.data:
                 raise ValueError("Server netlogon authenticator is wrong !")
         elif isinstance(self.ssp, KerberosSSP):
-            # Kerberos. Ignore
-            pass
+            # Kerberos. This is off spec :(
+            if bytes(auth) != b"\x00" * 12:
+                raise ValueError("Server netlogon authenticator is wrong !")
         else:
             raise ValueError("Invalid ssp case !")
 
