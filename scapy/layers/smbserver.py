@@ -33,6 +33,7 @@ from scapy.volatile import RandUUID
 from scapy.layers.dcerpc import (
     DCERPC_Transport,
     NDRUnion,
+    NDRPointer,
 )
 from scapy.layers.gssapi import (
     GSS_S_COMPLETE,
@@ -1658,29 +1659,43 @@ class SMB_DCERPC_Server(DCERPC_Server):
         NetrShareEnum [MS-SRVS]
         "retrieves information about each shared resource on a server."
         """
-        nbEntries = len(self.shares)
-        return NetrShareEnum_Response(
+        level = req.InfoStruct.Level
+
+        # Create response
+        resp = NetrShareEnum_Response(
             InfoStruct=LPSHARE_ENUM_STRUCT(
-                Level=1,
+                Level=level,
                 ShareInfo=NDRUnion(
-                    tag=1,
-                    value=SHARE_INFO_1_CONTAINER(
-                        Buffer=[
-                            # Add shares
-                            LPSHARE_INFO_1(
-                                shi1_netname=x.name,
-                                shi1_type=x.type,
-                                shi1_remark=x.remark,
-                            )
-                            for x in self.shares
-                        ],
-                        EntriesRead=nbEntries,
-                    ),
+                    tag=level,
+                    value=None,
                 ),
             ),
-            TotalEntries=nbEntries,
             ndr64=self.ndr64,
         )
+
+        if level == 1:
+            nbEntries = len(self.shares)
+            resp.InfoStruct.ShareInfo.value = NDRPointer(
+                referent_id=0x20000,
+                value=SHARE_INFO_1_CONTAINER(
+                    Buffer=[
+                        # Add shares
+                        LPSHARE_INFO_1(
+                            shi1_netname=x.name,
+                            shi1_type=x.type,
+                            shi1_remark=x.remark,
+                        )
+                        for x in self.shares
+                    ],
+                    EntriesRead=nbEntries,
+                ),
+            )
+            resp.TotalEntries = nbEntries
+        else:
+            # We only support level 1 :(
+            resp.status = 0x0000007C  # ERROR_INVALID_LEVEL
+
+        return resp
 
     @DCERPC_Server.answer(NetrWkstaGetInfo_Request)
     def netr_wksta_getinfo(self, req):
@@ -1688,16 +1703,30 @@ class SMB_DCERPC_Server(DCERPC_Server):
         NetrWkstaGetInfo [MS-SRVS]
         "returns information about the configuration of a workstation."
         """
-        return NetrWkstaGetInfo_Response(
+        level = req.Level
+
+        # Create response
+        resp = NetrWkstaGetInfo_Response(
             WkstaInfo=NDRUnion(
-                tag=100,
+                tag=level,
+                value=None,
+            ),
+            ndr64=self.ndr64,
+        )
+
+        if level == 100:
+            resp.WkstaInfo.value = NDRPointer(
+                referent_id=0x20000,
                 value=LPWKSTA_INFO_100(
                     wki100_platform_id=500,  # NT
                     wki100_ver_major=5,
                 ),
-            ),
-            ndr64=self.ndr64,
-        )
+            )
+        else:
+            # We only support level 101 :(
+            resp.status = 0x0000007C  # ERROR_INVALID_LEVEL
+
+        return resp
 
     @DCERPC_Server.answer(NetrServerGetInfo_Request)
     def netr_server_getinfo(self, req):
@@ -1706,19 +1735,33 @@ class SMB_DCERPC_Server(DCERPC_Server):
         "retrieves current configuration information for CIFS and
         SMB Version 1.0 servers."
         """
-        return NetrServerGetInfo_Response(
-            ServerInfo=NDRUnion(
-                tag=101,
-                value=LPSERVER_INFO_101(
-                    sv101_platform_id=500,  # NT
-                    sv101_name=req.ServerName.value.value[0].value,
-                    sv101_version_major=6,
-                    sv101_version_minor=1,
-                    sv101_type=1,  # Workstation
-                ),
+        level = req.Level
+
+        # Create response
+        resp = NetrServerGetInfo_Response(
+            InfoStruct=NDRUnion(
+                tag=level,
+                value=None,
             ),
             ndr64=self.ndr64,
         )
+
+        if level == 101:
+            resp.InfoStruct.value = NDRPointer(
+                referent_id=0x20000,
+                value=LPSERVER_INFO_101(
+                    sv101_platform_id=500,  # NT
+                    sv101_name="WORKSTATION",
+                    sv101_version_major=10,
+                    sv101_version_minor=0,
+                    sv101_version_type=1,  # Workstation
+                ),
+            )
+        else:
+            # We only support level 101 :(
+            resp.status = 0x0000007C  # ERROR_INVALID_LEVEL
+
+        return resp
 
     @DCERPC_Server.answer(NetrShareGetInfo_Request)
     def netr_share_getinfo(self, req):
@@ -1726,17 +1769,40 @@ class SMB_DCERPC_Server(DCERPC_Server):
         NetrShareGetInfo [MS-SRVS]
         "retrieves information about a particular shared resource on a server."
         """
-        return NetrShareGetInfo_Response(
-            ShareInfo=NDRUnion(
-                tag=1,
-                value=LPSHARE_INFO_1(
-                    shi1_netname=req.NetName.value[0].value,
-                    shi1_type=0,
-                    shi1_remark=b"",
-                ),
+        level = req.Level
+        share_netname = req.payload.payload.valueof("NetName").decode()
+
+        # Create response
+        resp = NetrShareGetInfo_Response(
+            InfoStruct=NDRUnion(
+                tag=level,
+                value=None,
             ),
             ndr64=self.ndr64,
         )
+
+        # Find the share the client is asking details for
+        try:
+            share = next(x for x in self.shares if x.name == share_netname)
+        except StopIteration:
+            # Share doesn't exist !
+            resp.status = 0x00000906  # NERR_NetNameNotFound
+            return resp
+
+        if level == 1:
+            resp.InfoStruct.value = NDRPointer(
+                referent_id=0x20000,
+                value=LPSHARE_INFO_1(
+                    shi1_netname=share.name,
+                    shi1_type=share.type,
+                    shi1_remark=share.remark,
+                ),
+            )
+        else:
+            # We only support level 1 :(
+            resp.status = 0x0000007C  # ERROR_INVALID_LEVEL
+
+        return resp
 
 
 # Util

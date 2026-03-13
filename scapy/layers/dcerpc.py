@@ -1461,7 +1461,7 @@ class _NDRPacket(Packet):
                     pass
             raise
 
-    def valueof(self, request):
+    def valueof(self, request: str):
         """
         Util to get the value of a NDRField, ignoring arrays, pointers, etc.
         """
