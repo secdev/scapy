@@ -558,34 +558,31 @@ class ClientSubnetv4(StrLenField):
         x = x[: operator.floordiv(self.af_length, 8)]
         return inet_ntop(self.af_familly, x)
 
-    def _pack_subnet(self, subnet):
-        # type: (bytes) -> bytes
+    def _pack_subnet(self, subnet, pkt):
+        # type: (bytes, Packet) -> bytes
         packed_subnet = inet_pton(self.af_familly, plain_str(subnet))
-        for i in list(range(operator.floordiv(self.af_length, 8)))[::-1]:
-            if packed_subnet[i] != 0:
-                i += 1
-                break
-        return packed_subnet[:i]
+        sz = operator.floordiv(self.length_from(pkt) + 7, 8)
+        return packed_subnet[:sz]
 
     def i2m(self, pkt, x):
         # type: (Optional[Packet], Optional[Union[str, Net]]) -> bytes
         if x is None:
             return self.af_default
         try:
-            return self._pack_subnet(x)
+            return self._pack_subnet(x, pkt)
         except (OSError, socket.error):
             pkt.family = 2
-            return ClientSubnetv6("", "")._pack_subnet(x)
+            return ClientSubnetv6("", "")._pack_subnet(x, pkt)
 
     def i2len(self, pkt, x):
         # type: (Packet, Any) -> int
         if x is None:
             return 1
         try:
-            return len(self._pack_subnet(x))
+            return len(self._pack_subnet(x, pkt))
         except (OSError, socket.error):
             pkt.family = 2
-            return len(ClientSubnetv6("", "")._pack_subnet(x))
+            return len(ClientSubnetv6("", "")._pack_subnet(x, pkt))
 
 
 class ClientSubnetv6(ClientSubnetv4):
