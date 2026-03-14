@@ -28,7 +28,8 @@ Using the netflowv9_defragment/ipfix_defragment commands:
 
     >>> sniff(session=NetflowSession, prn=[...])
 
-.. note:: You will find more examples over https://scapy.readthedocs.io/en/latest/layers/netflow.html
+.. note:: You will find more examples over
+    https://scapy.readthedocs.io/en/latest/layers/netflow.html
 """
 
 import dataclasses
