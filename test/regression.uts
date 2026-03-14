@@ -952,6 +952,7 @@ assert sane(corrupt_bits("ABCDE", n=3)) in ["AF.EE", "QB.TE"]
 
 if not WINDOWS:
     result = whois("193.0.6.139")
+    print(result)
     assert b"inetnum" in result and b"Amsterdam" in result
 
 = Test manuf DB methods
