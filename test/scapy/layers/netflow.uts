@@ -64,7 +64,7 @@ assert nfv9_options_fl[NetflowOptionsFlowsetV9].options[0].optionFieldType == 36
 nfv9_options_ds = a[4]
 assert NetflowDataflowsetV9 in nfv9_options_ds
 assert isinstance(nfv9_options_ds.records[0], NetflowOptionsRecordScopeV9)
-assert nfv9_options_ds.records[0].IN_BYTES == b'\x01\x00\x00\x00'
+assert nfv9_options_ds.records[0].IN_BYTES == 0x01000000
 assert nfv9_options_ds.records[1].SAMPLING_INTERVAL == 12
 assert nfv9_options_ds.records[1].SAMPLING_ALGORITHM == 0x2
 
@@ -114,8 +114,8 @@ dataFS = NetflowDataflowsetV9(
     templateID=256,
     records=[ # Some random data.
         recordClass(
-            IN_BYTES=b"\x12",
-            IN_PKTS=b"\0\0\0\0",
+            IN_BYTES=0x12,
+            IN_PKTS=0,
             PROTOCOL=6,
             IPV4_SRC_ADDR="192.168.0.10",
             IPV4_DST_ADDR="192.168.0.11"
@@ -210,36 +210,36 @@ dataFlowset_1 = NetflowDataflowsetV9(
     templateID=256,
     records=[
         Record256(
-            IN_BYTES=b"\x12",
-            IN_PKTS=b"\0\0\0\0",
+            IN_BYTES=0x12,
+            IN_PKTS=0,
             PROTOCOL=1,
             IPV4_SRC_ADDR="192.168.0.10",
             IPV4_DST_ADDR="192.168.0.11"
         ),
         Record256(
-            IN_BYTES=b"\x0c",
-            IN_PKTS=b"\1\1\1\1",
+            IN_BYTES=0x0c,
+            IN_PKTS=0x01010101,
             PROTOCOL=2,
             IPV4_SRC_ADDR="172.0.0.10",
             IPV4_DST_ADDR="172.0.0.11"
         ),
         Record256(
-            IN_BYTES=b"\x0c",
-            IN_PKTS=b"\1\1\1\1",
+            IN_BYTES=0x0c,
+            IN_PKTS=0x01010101,
             PROTOCOL=3,
             IPV4_SRC_ADDR="172.0.0.10",
             IPV4_DST_ADDR="172.0.0.11"
         ),
         Record256(
-            IN_BYTES=b"\x0c",
-            IN_PKTS=b"\1\1\1\1",
+            IN_BYTES=0x0c,
+            IN_PKTS=0x01010101,
             PROTOCOL=4,
             IPV4_SRC_ADDR="172.0.0.10",
             IPV4_DST_ADDR="172.0.0.11"
         ),
         Record256(
-            IN_BYTES=b"\x0c",
-            IN_PKTS=b"\1\1\1\1",
+            IN_BYTES=0x0c,
+            IN_PKTS=0x01010101,
             PROTOCOL=5,
             IPV4_SRC_ADDR="172.0.0.10",
             IPV4_DST_ADDR="172.0.0.11"
@@ -251,15 +251,15 @@ dataFlowset_2 = NetflowDataflowsetV9(
     templateID=257,
     records=[
         Record257(
-            IN_BYTES=b"\x12",
-            IN_PKTS=b"\0\0\0\0",
+            IN_BYTES=0x12,
+            IN_PKTS=0,
             PROTOCOL=1,
             IPV6_SRC_ADDR="2001:db8:3333:4444:5555:6666:7777:8888",
             IPV6_DST_ADDR="2001:db8::"
         ),
         Record257(
-            IN_BYTES=b"\x0c",
-            IN_PKTS=b"\1\1\1\1",
+            IN_BYTES=0x0c,
+            IN_PKTS=0x01010101,
             PROTOCOL=2,
             IPV6_SRC_ADDR="2001:db8:3333:4444:CCCC:DDDD:EEEE:FFFF",
             IPV6_DST_ADDR="2001:db8::"
@@ -400,7 +400,7 @@ pkt = netflowv9_defragment(Ether(s))[0]
 
 for i in range(1,3):
     assert pkt.getlayer(NetflowDataflowsetV9, i).templateID == 257
-    assert pkt.getlayer(NetflowDataflowsetV9, i).records[0].IN_PKTS == b'\x00\x00\x00\x00'
+    assert pkt.getlayer(NetflowDataflowsetV9, i).records[0].IN_PKTS == 0
     assert pkt.getlayer(NetflowDataflowsetV9, i).records[0].PROTOCOL == 6
     assert pkt.getlayer(NetflowDataflowsetV9, i).records[0].IPV4_SRC_ADDR == "192.168.0.10"
     assert pkt.getlayer(NetflowDataflowsetV9, i).records[0].IPV4_DST_ADDR == "192.168.0.11"
@@ -430,8 +430,8 @@ dataFS = NetflowDataflowsetV9(
     templateID=256,
     records=[ # Some random data.
         recordClass(
-            IN_BYTES=b"\x12",
-            IN_PKTS=b"\0\0\0\0",
+            IN_BYTES=0x12,
+            IN_PKTS=0,
             PROTOCOL=6,
             IPV4_SRC_ADDR="192.168.0.10",
             IPV4_DST_ADDR="192.168.0.11"
@@ -441,6 +441,43 @@ dataFS = NetflowDataflowsetV9(
 
 pkt = netflow_header / flowset / dataFS
 assert raw(pkt) == b'\x00\n\x00>\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x01\x00\x00\x05\x00\x01\x00\x01\x00\x02\x00\x04\x00\x04\x00\x01\x00\x08\x00\x04\x00\x0c\x00\x04\x01\x00\x00\x14\x12\x00\x00\x00\x00\x06\xc0\xa8\x00\n\xc0\xa8\x00\x0b\x00\x00'
+
+= NetflowV9 - integer counter fields serialize correctly (GH4810)
+~ netflow
+
+template_flowset_gh4810 = NetflowFlowsetV9(
+    flowSetID=0,
+    templates=[
+        NetflowTemplateV9(
+            templateID=300,
+            template_fields=[
+                NetflowTemplateFieldV9(fieldType="IN_BYTES", fieldLength=4),
+                NetflowTemplateFieldV9(fieldType="IN_PKTS", fieldLength=4),
+                NetflowTemplateFieldV9(fieldType="OUT_BYTES", fieldLength=4),
+                NetflowTemplateFieldV9(fieldType="OUT_PKTS", fieldLength=4),
+                NetflowTemplateFieldV9(fieldType="IPV4_SRC_ADDR", fieldLength=4),
+            ]
+        )
+    ]
+)
+recordClass_gh4810 = GetNetflowRecordV9(template_flowset_gh4810)
+dataflowset_gh4810 = NetflowDataflowsetV9(
+    templateID=300,
+    records=[
+        recordClass_gh4810(
+            IN_BYTES=0x1234,
+            IN_PKTS=0xABC,
+            OUT_BYTES=100,
+            OUT_PKTS=1,
+            IPV4_SRC_ADDR="10.0.0.1",
+        ),
+    ],
+)
+raw_gh4810 = raw(dataflowset_gh4810)
+assert raw_gh4810[4:8] == b'\x00\x00\x124', "IN_BYTES not serialized correctly"
+assert raw_gh4810[8:12] == b'\x00\x00\n\xbc', "IN_PKTS not serialized correctly"
+assert raw_gh4810[12:16] == b'\x00\x00\x00d', "OUT_BYTES not serialized correctly"
+assert raw_gh4810[16:20] == b'\x00\x00\x00\x01', "OUT_PKTS not serialized correctly"
 
 = NetflowSession - dissect packet NetflowV9 packets on-the-flow
 
