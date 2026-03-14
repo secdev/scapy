@@ -442,6 +442,47 @@ dataFS = NetflowDataflowsetV9(
 pkt = netflow_header / flowset / dataFS
 assert raw(pkt) == b'\x00\n\x00>\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x01\x00\x00\x05\x00\x01\x00\x01\x00\x02\x00\x04\x00\x04\x00\x01\x00\x08\x00\x04\x00\x0c\x00\x04\x01\x00\x00\x14\x12\x00\x00\x00\x00\x06\xc0\xa8\x00\n\xc0\xa8\x00\x0b\x00\x00'
 
+= Netflow9 - Build and dissect more int fields
+
+template_flowset = NetflowFlowsetV9(
+    flowSetID=0,
+    templates=[
+        NetflowTemplateV9(
+            templateID=256,
+            fieldCount=5,
+            template_fields=[
+                NetflowTemplateFieldV9(fieldType="IN_BYTES", fieldLength=4),
+                NetflowTemplateFieldV9(fieldType="IN_PKTS", fieldLength=4),
+                NetflowTemplateFieldV9(fieldType="PROTOCOL", fieldLength=1),
+                NetflowTemplateFieldV9(fieldType="IPV4_SRC_ADDR", fieldLength=4),
+                NetflowTemplateFieldV9(fieldType="IPV4_DST_ADDR", fieldLength=4),
+            ]
+        )
+    ]
+)
+recordClass = GetNetflowRecordV9(template_flowset)
+dataflowset = NetflowDataflowsetV9(
+    templateID=256,
+    records=[
+        recordClass(
+            IN_BYTES=0x1234,
+            IN_PKTS=0xABC,
+            PROTOCOL=6,
+            IPV4_SRC_ADDR="192.168.0.10",
+            IPV4_DST_ADDR="192.168.0.11"
+        ),
+    ],
+)
+
+assert bytes(dataflowset) == b'\x01\x00\x00\x18\x00\x00\x124\x00\x00\n\xbc\x06\xc0\xa8\x00\n\xc0\xa8\x00\x0b\x00\x00\x00'
+
+# Re-dissect after build
+dataflowset = NetflowDataflowsetV9(bytes(dataflowset))
+rec = recordClass(dataflowset.records[0].fieldValue)
+assert rec.IN_BYTES == 0x1234
+assert rec.IN_PKTS == 0xABC
+assert rec.IPV4_SRC_ADDR == "192.168.0.10"
+
 = NetflowSession - dissect packet NetflowV9 packets on-the-flow
 
 import os
