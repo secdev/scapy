@@ -218,13 +218,16 @@ class _AdjustableNetflowField(IntField, LongField):
     """Fields that can receive a length kwarg, even though they normally can't.
     Netflow usage only."""
     def __init__(self, name, default, length):
-        if length == 4:
+        if length == 1:
+            ByteField.__init__(self, name, default)
+        elif length == 2:
+            ShortField.__init__(self, name, default)
+        elif length == 4:
             IntField.__init__(self, name, default)
-            return
         elif length == 8:
             LongField.__init__(self, name, default)
-            return
-        LongField.__init__(self, name, default)
+        else:
+            LongField.__init__(self, name, default)
 
 
 class N9SecondsIntField(SecondsIntField, _AdjustableNetflowField):
@@ -260,9 +263,9 @@ class N9UTCTimeField(UTCTimeField, _AdjustableNetflowField):
 
 NTOP_BASE = 57472
 NetflowV910TemplateFields = {
-    1: _N910F("IN_BYTES", length=4),
-    2: _N910F("IN_PKTS", length=4),
-    3: _N910F("FLOWS", length=4),
+    1: _N910F("IN_BYTES", length=4, field=_AdjustableNetflowField),
+    2: _N910F("IN_PKTS", length=4, field=_AdjustableNetflowField),
+    3: _N910F("FLOWS", length=4, field=_AdjustableNetflowField),
     4: _N910F("PROTOCOL", length=1,
               field=ByteEnumField, kwargs={"enum": IP_PROTOS}),
     5: _N910F("TOS", length=1,
@@ -291,16 +294,16 @@ NetflowV910TemplateFields = {
                field=ShortOrInt),
     18: _N910F("BGP_IPV4_NEXT_HOP", length=4,
                field=IPField),
-    19: _N910F("MUL_DST_PKTS", length=4),
-    20: _N910F("MUL_DST_BYTES", length=4),
+    19: _N910F("MUL_DST_PKTS", length=4, field=_AdjustableNetflowField),
+    20: _N910F("MUL_DST_BYTES", length=4, field=_AdjustableNetflowField),
     21: _N910F("LAST_SWITCHED", length=4,
                field=SecondsIntField,
                kwargs={"use_msec": True}),
     22: _N910F("FIRST_SWITCHED", length=4,
                field=SecondsIntField,
                kwargs={"use_msec": True}),
-    23: _N910F("OUT_BYTES", length=4),
-    24: _N910F("OUT_PKTS", length=4),
+    23: _N910F("OUT_BYTES", length=4, field=_AdjustableNetflowField),
+    24: _N910F("OUT_PKTS", length=4, field=_AdjustableNetflowField),
     25: _N910F("IP_LENGTH_MINIMUM"),
     26: _N910F("IP_LENGTH_MAXIMUM"),
     27: _N910F("IPV6_SRC_ADDR", length=16,
@@ -329,9 +332,9 @@ NetflowV910TemplateFields = {
                field=ByteField),
     39: _N910F("ENGINE_ID", length=1,
                field=ByteField),
-    40: _N910F("TOTAL_BYTES_EXP", length=4),
-    41: _N910F("TOTAL_PKTS_EXP", length=4),
-    42: _N910F("TOTAL_FLOWS_EXP", length=4),
+    40: _N910F("TOTAL_BYTES_EXP", length=4, field=_AdjustableNetflowField),
+    41: _N910F("TOTAL_PKTS_EXP", length=4, field=_AdjustableNetflowField),
+    42: _N910F("TOTAL_FLOWS_EXP", length=4, field=_AdjustableNetflowField),
     43: _N910F("IPV4_ROUTER_SC"),
     44: _N910F("IP_SRC_PREFIX"),
     45: _N910F("IP_DST_PREFIX"),
@@ -1344,7 +1347,6 @@ def _GenNetflowRecordV9(cls, lengths_list):
         if _f_type:
             if issubclass(_f_type, _AdjustableNetflowField):
                 _f_kwargs["length"] = j
-            print(k, _f_kwargs)
             _fields_desc.append(
                 _f_type(
                     NetflowV910TemplateFieldTypes.get(k, "unknown_data"),
