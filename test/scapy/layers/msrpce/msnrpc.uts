@@ -503,3 +503,39 @@ try:
     assert False, "No error was reported, but there should have been one"
 except ValueError:
     pass
+
+= [NetlogonClient] - Build and validate authenticator - Netlogon SSP
+
+from unittest import mock
+from scapy.layers.msrpce.msnrpc import NetlogonClient, NetlogonSSP
+
+client = NetlogonClient()
+client.SessionKey = b'\xec\xee\xda\xb70\xdeQ\x98\xa4\xceDErt\xcem'
+client.ssp = NetlogonSSP(client.SessionKey, "WKS01", "DOMAIN")
+client.ClientStoredCredential = b'\xf8\x890D\x1b_\xf2x'
+
+# Build
+with mock.patch('scapy.layers.msrpce.msnrpc.time.time', side_effect=lambda: 1773509346):
+    authenticator = client.create_authenticator()
+    assert authenticator.Timestamp == 1773509346
+    assert bytes(authenticator) == b'a\x18\xa3\xebu`3\x84\xe2\x9a\xb5i'
+
+# Verify
+authenticator = PNETLOGON_AUTHENTICATOR(b'`6n\xd0\x80\x91"\x06\x00\x00\x00\x00')
+client.validate_authenticator(authenticator)
+
+= [NetlogonClient] - Build and validate authenticator - Kerberos SSP
+
+from scapy.layers.msrpce.msnrpc import NetlogonClient, PNETLOGON_AUTHENTICATOR
+from scapy.layers.kerberos import KerberosSSP
+
+client = NetlogonClient()
+client.ssp = KerberosSSP(UPN="WKS01@DOMAIN", PASSWORD="Password")
+
+# Build
+authenticator = client.create_authenticator()
+assert bytes(authenticator) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+# Verify
+authenticator = PNETLOGON_AUTHENTICATOR(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+client.validate_authenticator(authenticator)

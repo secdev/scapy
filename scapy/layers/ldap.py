@@ -83,16 +83,17 @@ from scapy.layers.dns import dns_resolve
 from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.gssapi import (
+    _GSSAPI_Field,
     ChannelBindingType,
-    GSSAPI_BLOB,
-    GSSAPI_BLOB_SIGNATURE,
     GSS_C_FLAGS,
     GSS_C_NO_CHANNEL_BINDINGS,
+    GSS_QOP_REQ_FLAGS,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
+    GSSAPI_BLOB_SIGNATURE,
+    GSSAPI_BLOB,
     GssChannelBindings,
     SSP,
-    _GSSAPI_Field,
 )
 from scapy.layers.netbios import NBTDatagram
 from scapy.layers.smb import (
@@ -1838,16 +1839,21 @@ class LDAP_Client(object):
         """
         self.ssl = use_ssl
         self.sslcontext = sslcontext
+        self.timeout = timeout
+        self.host = host
 
         if port is None:
             if self.ssl:
                 port = 636
             else:
                 port = 389
+
+        # Create and configure socket
         sock = socket.socket()
-        self.timeout = timeout
-        self.host = host
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         sock.settimeout(timeout)
+
+        # Connect
         if self.verb:
             print(
                 "\u2503 Connecting to %s on port %s%s..."
@@ -1864,6 +1870,7 @@ class LDAP_Client(object):
                     "\u2514 Connected from %s" % repr(sock.getsockname())
                 )
             )
+
         # For SSL, build and apply SSLContext
         if self.ssl:
             if self.sslcontext is None:
@@ -1876,14 +1883,16 @@ class LDAP_Client(object):
             else:
                 context = self.sslcontext
             sock = context.wrap_socket(sock, server_hostname=sni or host)
+
         # Wrap the socket in a Scapy socket
         if self.ssl:
-            self.sock = SSLStreamSocket(sock, LDAP)
             # Compute the channel binding token (CBT)
             self.chan_bindings = GssChannelBindings.fromssl(
                 ChannelBindingType.TLS_SERVER_END_POINT,
                 sslsock=sock,
             )
+
+            self.sock = SSLStreamSocket(sock, LDAP)
         else:
             self.sock = StreamSocket(sock, LDAP)
 
@@ -1891,12 +1900,14 @@ class LDAP_Client(object):
         self.messageID += 1
         if self.verb:
             print(conf.color_theme.opening(">> %s" % protocolOp.__class__.__name__))
+
         # Build packet
         pkt = LDAP(
             messageID=self.messageID,
             protocolOp=protocolOp,
             Controls=controls,
         )
+
         # If signing / encryption is used, apply
         if self.sasl_wrap:
             pkt = LDAP_SASL_Buffer(
@@ -1904,8 +1915,13 @@ class LDAP_Client(object):
                     self.sspcontext,
                     bytes(pkt),
                     conf_req_flag=self.encrypt,
+                    # LDAP on Windows doesn't use SECBUFFER_PADDING, which
+                    # isn't supported by GSS_WrapEx. We add our own flag to
+                    # tell it.
+                    qop_req=GSS_QOP_REQ_FLAGS.GSS_S_NO_SECBUFFER_PADDING,
                 )
             )
+
         # Send / Receive
         resp = self.sock.sr1(
             pkt,
@@ -1918,6 +1934,7 @@ class LDAP_Client(object):
                 resp.show()
                 print(conf.color_theme.fail("! Got unsolicited notification."))
             return resp
+
         # If signing / encryption is used, unpack
         if self.sasl_wrap:
             if resp.Buffer:
@@ -1929,6 +1946,8 @@ class LDAP_Client(object):
                 )
             else:
                 resp = None
+
+        # Verbose display
         if self.verb:
             if not resp:
                 print(conf.color_theme.fail("! Bad response."))
@@ -2287,7 +2306,7 @@ class LDAP_Client(object):
                                 controlType="1.2.840.113556.1.4.319",
                                 criticality=True,
                                 controlValue=LDAP_realSearchControlValue(
-                                    size=200,  # paging to 200 per 200
+                                    size=100,  # paging to 100 per 100
                                     cookie=cookie,
                                 ),
                             )

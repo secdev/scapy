@@ -16,6 +16,7 @@ import socket
 import uuid
 
 from scapy.config import conf
+from scapy.error import log_runtime
 from scapy.packet import Packet, bind_layers
 from scapy.fields import (
     ConditionalField,
@@ -1245,6 +1246,11 @@ class DCOM_Client(DCERPC_Client):
                         socket.gethostbyname(host)
                     except Exception:
                         # Resolution failed. Skip.
+                        log_runtime.warning(
+                            "Resolution of '%s' failed, check your DNS and default "
+                            "DNS prefix. Kerberos authentication will likely not work."
+                            % host
+                        )
                         continue
 
                 # Success

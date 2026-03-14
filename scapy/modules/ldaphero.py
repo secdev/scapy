@@ -149,7 +149,7 @@ class LDAPHero:
     def __init__(
         self,
         ssp: SSP = None,
-        mech: LDAP_BIND_MECHS = None,
+        mech: LDAP_BIND_MECHS = LDAP_BIND_MECHS.SASL_GSS_SPNEGO,
         sign: bool = True,
         encrypt: bool = False,
         host: str = None,
@@ -165,15 +165,9 @@ class LDAPHero:
         use_krb5ccname: bool = False,
     ):
         self.client = LDAP_Client()
-        if (
-            ssp is None
-            and mech in [None, LDAP_BIND_MECHS.SASL_GSS_SPNEGO]
-            and UPN
-            and host
-        ):
+        if ssp is None and mech == LDAP_BIND_MECHS.SASL_GSS_SPNEGO and UPN and host:
             # We allow the SSP to be provided through arguments.
             # In that case, use SPNEGO
-            mech = LDAP_BIND_MECHS.SASL_GSS_SPNEGO
             ssp = SPNEGOSSP.from_cli_arguments(
                 UPN=UPN,
                 target=host,
@@ -470,6 +464,7 @@ class LDAPHero:
             elif bindtype == LDAP_BIND_MECHS.SICILY:
                 domentry.config(state=tk.DISABLED)
                 signbtn.config(state=tk.DISABLED)
+                signv.set(False)
                 encrbtn.config(state=tk.NORMAL)
             else:
                 domentry.config(state=tk.NORMAL, textvariable=domainv)

@@ -128,21 +128,22 @@ from scapy.utils import strrot, strxor
 from scapy.volatile import GeneralizedTime, RandNum, RandBin
 
 from scapy.layers.gssapi import (
-    GSSAPI_BLOB,
+    _GSSAPI_OIDS,
+    _GSSAPI_SIGNATURE_OIDS,
     GSS_C_FLAGS,
     GSS_C_NO_CHANNEL_BINDINGS,
+    GSS_QOP_REQ_FLAGS,
     GSS_S_BAD_BINDINGS,
     GSS_S_BAD_MECH,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
-    GSS_S_DEFECTIVE_TOKEN,
     GSS_S_DEFECTIVE_CREDENTIAL,
+    GSS_S_DEFECTIVE_TOKEN,
     GSS_S_FAILURE,
     GSS_S_FLAGS,
+    GSSAPI_BLOB,
     GssChannelBindings,
     SSP,
-    _GSSAPI_OIDS,
-    _GSSAPI_SIGNATURE_OIDS,
 )
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.smb import _NV_VERSION
@@ -201,7 +202,6 @@ from typing import (
     Optional,
     Union,
 )
-
 
 # kerberos APPLICATION
 
@@ -4618,6 +4618,7 @@ class KerberosSSP(SSP):
             "ServerHostname",
             "U2U",
             "KrbSessionKey",  # raw Key object
+            "ST",  # the service ticket
             "STSessionKey",  # raw ST Key object (for DCE_STYLE)
             "SeqNum",  # for AP
             "SendSeqNum",  # for MIC
@@ -4640,6 +4641,7 @@ class KerberosSSP(SSP):
             self.SendSeqNum = 0
             self.RecvSeqNum = 0
             self.KrbSessionKey = None
+            self.ST = None
             self.STSessionKey = None
             self.IsAcceptor = IsAcceptor
             self.UPN = None
@@ -4752,7 +4754,7 @@ class KerberosSSP(SSP):
         if sig != signature.root.SGN_CKSUM:
             raise ValueError("ERROR: Checksums don't match")
 
-    def GSS_WrapEx(self, Context, msgs, qop_req=0):
+    def GSS_WrapEx(self, Context, msgs, qop_req: GSS_QOP_REQ_FLAGS = 0):
         """
         [MS-KILE] sect 3.4.5.4
 
@@ -4786,9 +4788,16 @@ class KerberosSSP(SSP):
                 Data = b"".join(x.data for x in msgs if x.conf_req_flag)
                 DataLen = len(Data)
                 # 2. Add filler
-                # [MS-KILE] sect 3.4.5.4.1 - "For AES-SHA1 ciphers, the EC must not
-                # be zero"
-                tok.root.EC = ((-DataLen) % Context.KrbSessionKey.ep.blocksize) or 16
+                if qop_req & GSS_QOP_REQ_FLAGS.GSS_S_NO_SECBUFFER_PADDING:
+                    # Special case for compatibility with Windows API. See
+                    # GSS_QOP_REQ_FLAGS.
+                    tok.root.EC = 0
+                else:
+                    # [MS-KILE] sect 3.4.5.4.1 - "For AES-SHA1 ciphers, the EC must not
+                    # be zero"
+                    tok.root.EC = (
+                        (-DataLen) % Context.KrbSessionKey.ep.blocksize
+                    ) or 16
                 Filler = b"\x00" * tok.root.EC
                 Data += Filler
                 # 3. Add first 16 octets of the Wrap token "header"
@@ -5142,7 +5151,7 @@ class KerberosSSP(SSP):
                     # Store TGT,
                     self.TGT = res.asrep.ticket
                     self.TGTSessionKey = res.sessionkey
-                else:
+                elif self.TGTSessionKey is None:
                     # We have a TGT and were passed its key
                     self.TGTSessionKey = self.KEY
 
@@ -5166,11 +5175,12 @@ class KerberosSSP(SSP):
                     return Context, None, GSS_S_FAILURE
 
                 # Store the service ticket and associated key
-                self.ST, Context.STSessionKey = res.tgsrep.ticket, res.sessionkey
+                Context.ST, Context.STSessionKey = res.tgsrep.ticket, res.sessionkey
             elif not self.KEY:
                 raise ValueError("Must provide KEY with ST")
             else:
                 # We were passed a ST and its key
+                Context.ST = self.ST
                 Context.STSessionKey = self.KEY
 
                 if Context.flags & GSS_C_FLAGS.GSS_C_DELEG_FLAG:
@@ -5179,8 +5189,8 @@ class KerberosSSP(SSP):
                     )
 
             # Save ServerHostname
-            if len(self.ST.sname.nameString) == 2:
-                Context.ServerHostname = self.ST.sname.nameString[1].val.decode()
+            if len(Context.ST.sname.nameString) == 2:
+                Context.ServerHostname = Context.ST.sname.nameString[1].val.decode()
 
             # Build the KRB-AP
             apOptions = ASN1_BIT_STRING("000")
@@ -5191,7 +5201,7 @@ class KerberosSSP(SSP):
                 Context.U2U = True
             ap_req = KRB_AP_REQ(
                 apOptions=apOptions,
-                ticket=self.ST,
+                ticket=Context.ST,
                 authenticator=EncryptedData(),
             )
 
@@ -5393,7 +5403,7 @@ class KerberosSSP(SSP):
                     key=self.KEY,
                     password=self.PASSWORD,
                 )
-                self.TGT, self.KEY = res.asrep.ticket, res.sessionkey
+                self.TGT, self.TGTSessionKey = res.asrep.ticket, res.sessionkey
 
             # Server receives AP-req, sends AP-rep
             if isinstance(input_token, KRB_AP_REQ):
