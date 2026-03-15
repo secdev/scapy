@@ -4,6 +4,9 @@
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # Copyright (C) Satveer Brar
 
+# scapy.contrib.description = Precision Time Protocol v2
+# scapy.contrib.status = loads
+
 """
 PTP (Precision Time Protocol).
 References : IEEE 1588-2008

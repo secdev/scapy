@@ -1,5 +1,9 @@
 % PTP regression tests for Scapy
 
+#
+# Type the following command to launch the tests:
+# $ test/run_tests -P "load_contrib('ptp_v2')" -t test/contrib/ptp_v2.uts
+
 + Basic tests
 
 = specific haslayer and getlayer implementations for PTP
