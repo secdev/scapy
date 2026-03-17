@@ -95,15 +95,15 @@ class RandCBORObject(RandField["CBOR_Object[Any]"]):
             # Random array with random elements (limit recursion depth)
             # Use smaller size and limit depth more aggressively for performance
             size = min(int(random.expovariate(0.2) + 1), 3)  # Smaller arrays
-            
+
             # Get child objlist - use simple types if current list only has recursive types
             child_objlist = self._get_objlist()
             non_recursive = [t for t in child_objlist if t not in [CBOR_ARRAY, CBOR_MAP]]
-            
+
             # If objlist only contains recursive types or we're deep, use simple types for children
             if not non_recursive or n >= 3:
                 child_objlist = [CBOR_UNSIGNED_INTEGER, CBOR_TEXT_STRING, CBOR_NULL]
-            
+
             return o([self.__class__(objlist=child_objlist)._fix(n + 1)
                       for _ in range(size)])
         elif o == CBOR_MAP:
@@ -111,15 +111,15 @@ class RandCBORObject(RandField["CBOR_Object[Any]"]):
             # CBOR maps use raw Python values as keys, CBOR objects as values
             # Use smaller size and limit depth more aggressively for performance
             size = min(int(random.expovariate(0.2) + 1), 3)  # Smaller maps
-            
+
             # Get child objlist - use simple types if current list only has recursive types
             child_objlist = self._get_objlist()
             non_recursive = [t for t in child_objlist if t not in [CBOR_ARRAY, CBOR_MAP]]
-            
+
             # If objlist only contains recursive types or we're deep, use simple types for children
             if not non_recursive or n >= 3:
                 child_objlist = [CBOR_UNSIGNED_INTEGER, CBOR_TEXT_STRING, CBOR_NULL]
-            
+
             map_dict = {}
             for _ in range(size):
                 # Use simple hashable types for keys (int or str)
