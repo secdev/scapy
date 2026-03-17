@@ -300,7 +300,7 @@ class CBOR_Object_metaclass(type):
             c.tag.register_cbor_object(c)
         except Exception:
             # Some objects may not have tags yet
-            log_runtime.error("Failed to register CBOR object %r" % c)
+            log_runtime.warning("Failed to register CBOR object %r" % c)
         return c
 
 
