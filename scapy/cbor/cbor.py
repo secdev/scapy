@@ -23,7 +23,7 @@ from typing import (
 )
 
 from scapy.compat import plain_str
-from scapy.error import Scapy_Exception
+from scapy.error import Scapy_Exception, log_runtime
 from scapy.utils import Enum_metaclass, EnumElement
 from scapy.volatile import RandField
 
@@ -287,7 +287,8 @@ class CBOR_Object_metaclass(type):
         try:
             c.tag.register_cbor_object(c)
         except Exception:
-            pass  # Some objects may not have tags yet
+            # Some objects may not have tags yet
+            log_runtime.error("Failed to register CBOR object %r" % c)
         return c
 
 

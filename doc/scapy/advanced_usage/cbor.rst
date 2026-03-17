@@ -32,7 +32,7 @@ Creating CBOR objects
 
 CBOR objects can be easily created and composed::
 
-    >>> from scapy.cbor import *
+    >>> from scapy.cbor import CBOR_UNSIGNED_INTEGER, CBOR_TEXT_STRING, CBOR_BYTE_STRING, CBOR_ARRAY
     >>> # Create basic types
     >>> num = CBOR_UNSIGNED_INTEGER(42)
     >>> text = CBOR_TEXT_STRING("Hello, CBOR!")
