@@ -194,4 +194,4 @@ texinfo_documents = [
      'Miscellaneous'),
 ]
 
-suppress_warnings = ["app.add_directive"]
+suppress_warnings = ["app.add_directive", "ref.python"]
