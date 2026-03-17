@@ -28,7 +28,7 @@ from scapy.utils import Enum_metaclass, EnumElement
 from scapy.volatile import RandField
 
 if TYPE_CHECKING:
-    from scapy.cbor.cborcodec import CBORcodec_Object
+    from scapy.cbor import CBORcodec_Object
 
 
 class RandCBORObject(RandField["CBOR_Object[Any]"]):
