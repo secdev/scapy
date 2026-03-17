@@ -68,7 +68,7 @@ CBOR objects are encoded using their ``.enc()`` method. All codecs are reference
 
 Encoding collections::
 
-    >>> from scapy.cbor.cborcodec import CBORcodec_ARRAY, CBORcodec_MAP
+    >>> from scapy.cbor import CBORcodec_ARRAY, CBORcodec_MAP
     >>> # Encode an array
     >>> encoded = CBORcodec_ARRAY.enc([1, 2, 3, 4, 5])
     >>> encoded.hex()
