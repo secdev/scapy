@@ -26,40 +26,6 @@ Each CBOR data item begins with an initial byte that encodes the major type (in 
 Scapy and CBOR
 --------------
 
-Scapy provides a complete CBOR encoder and decoder following the same architectural pattern as the ASN.1 implementation. The CBOR engine can encode Python objects to CBOR binary format and decode CBOR data back to Python objects. It has been designed to be RFC 8949 compliant and interoperable with other CBOR implementations.
-
-CBOR engine
-^^^^^^^^^^^
-
-Scapy's CBOR engine provides classes to represent CBOR data items. The main components are:
-
-* ``CBOR_MajorTypes``: Defines the 8 major types (0-7) used in CBOR encoding
-* ``CBOR_Object``: Base class for all CBOR value objects
-* ``CBOR_Codecs``: Registry for encoding/decoding rules
-
-The ``CBOR_MajorTypes`` class defines tags for all major types::
-
-    class CBOR_MajorTypes:
-        name = "CBOR_MAJOR_TYPES"
-        UNSIGNED_INTEGER = 0
-        NEGATIVE_INTEGER = 1
-        BYTE_STRING = 2
-        TEXT_STRING = 3
-        ARRAY = 4
-        MAP = 5
-        TAG = 6
-        SIMPLE_AND_FLOAT = 7
-
-All CBOR objects are represented by Python instances that wrap raw values. They inherit from ``CBOR_Object``::
-
-    class CBOR_UNSIGNED_INTEGER(CBOR_Object):
-        tag = CBOR_MajorTypes.UNSIGNED_INTEGER
-    
-    class CBOR_TEXT_STRING(CBOR_Object):
-        tag = CBOR_MajorTypes.TEXT_STRING
-    
-    class CBOR_ARRAY(CBOR_Object):
-        tag = CBOR_MajorTypes.ARRAY
 
 Creating CBOR objects
 ^^^^^^^^^^^^^^^^^^^^^
@@ -187,23 +153,6 @@ CBOR supports semantic tags (major type 6) for providing additional meaning to d
     >>> decoded.val[0]  # Tag number
     1
 
-Interoperability
-^^^^^^^^^^^^^^^^
-
-Scapy's CBOR implementation is fully interoperable with other CBOR libraries. The implementation has been tested with the ``cbor2`` Python library to ensure RFC 8949 compliance::
-
-    >>> import cbor2
-    >>> # Encode with Scapy, decode with cbor2
-    >>> scapy_obj = CBOR_UNSIGNED_INTEGER(12345)
-    >>> scapy_encoded = bytes(scapy_obj)
-    >>> cbor2.loads(scapy_encoded)
-    12345
-    >>> 
-    >>> # Encode with cbor2, decode with Scapy
-    >>> cbor2_encoded = cbor2.dumps([1, "test", True])
-    >>> scapy_decoded, _ = CBOR_Codecs.CBOR.dec(cbor2_encoded)
-    >>> isinstance(scapy_decoded, CBOR_ARRAY)
-    True
 
 Error handling
 ^^^^^^^^^^^^^^
