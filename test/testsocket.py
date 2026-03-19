@@ -183,7 +183,8 @@ class SlowTestSocket(TestSocket):
     PythonCANSocket on a slow serial interface (like slcan).
 
     Frames sent to this socket go into an intermediate serial buffer.
-    They only become visible to recv()/select() after mux() moves
+    They only become visible to recv()/select() after _mux() moves
+
     them to the rx ObjectPipe.
 
     Key parameters model the real slcan timing bottleneck:
@@ -221,6 +222,7 @@ class SlowTestSocket(TestSocket):
         self.interface_name = interface_name
         from collections import deque
         self._serial_buffer = deque()  # type: deque[bytes]
+
         self._serial_lock = Lock()
         self._last_mux = 0.0
         self._frame_delay = frame_delay
@@ -258,6 +260,7 @@ class SlowTestSocket(TestSocket):
             return
 
         # Phase 1: read_bus — read frames from serial buffer
+
         msgs = []
         deadline = time.monotonic() + self._read_time_limit \
             if self._read_time_limit > 0 else None
@@ -281,6 +284,7 @@ class SlowTestSocket(TestSocket):
                 break
 
         # Phase 2: distribute — apply per-socket filtering
+
         for frame in msgs:
             if self._can_filters is not None:
                 can_id = self._extract_can_id(frame)
@@ -292,7 +296,8 @@ class SlowTestSocket(TestSocket):
 
     def recv_raw(self, x=MTU):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
-        """Read from the rx ObjectPipe (populated by mux via select)."""
+        """Read from the rx ObjectPipe (populated by _mux via select)."""
+
         return self.basecls, self._real_ins.recv(0), time.time()
 
     def send(self, x):
