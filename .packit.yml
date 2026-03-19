@@ -28,6 +28,7 @@ actions:
     - "sed -i '/^BuildArch/aBuildRequires: python3-ipython' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: python3-brotli' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: python3-can' .packit_rpm/scapy.spec"
+    - "sed -i '/^BuildArch/aBuildRequires: python3-cbor2' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: python3-coverage' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: python3-cryptography' .packit_rpm/scapy.spec"
     - "sed -i '/^BuildArch/aBuildRequires: python3-tkinter' .packit_rpm/scapy.spec"
