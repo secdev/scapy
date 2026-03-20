@@ -572,7 +572,8 @@ class ClientSubnetv4(StrLenField):
             return self._pack_subnet(x, pkt)
         except (OSError, socket.error):
             pkt.family = 2
-            return ClientSubnetv6("", "")._pack_subnet(x, pkt)
+            return ClientSubnetv6("", "", lambda p: p.source_plen or 32). \
+                _pack_subnet(x, pkt)
 
     def i2len(self, pkt, x):
         # type: (Packet, Any) -> int
@@ -582,7 +583,10 @@ class ClientSubnetv4(StrLenField):
             return len(self._pack_subnet(x, pkt))
         except (OSError, socket.error):
             pkt.family = 2
-            return len(ClientSubnetv6("", "")._pack_subnet(x, pkt))
+            return len(
+                ClientSubnetv6(
+                    "", "", lambda p: p.source_plen or 32
+                )._pack_subnet(x, pkt))
 
 
 class ClientSubnetv6(ClientSubnetv4):
@@ -604,13 +608,13 @@ class EDNS0ClientSubnet(_EDNS0Dummy):
                    ByteField("scope_plen", 0),
                    MultipleTypeField(
                        [(ClientSubnetv4("address", "192.168.0.0",
-                         length_from=lambda p: p.source_plen),
+                         length_from=lambda p: p.source_plen or 16),
                          lambda pkt: pkt.family == 1),
                         (ClientSubnetv6("address", "2001:db8::",
-                         length_from=lambda p: p.source_plen),
+                         length_from=lambda p: p.source_plen or 32),
                          lambda pkt: pkt.family == 2)],
                        ClientSubnetv4("address", "192.168.0.0",
-                                      length_from=lambda p: p.source_plen))]
+                                      length_from=lambda p: p.source_plen or 32))]
 
 
 class EDNS0COOKIE(_EDNS0Dummy):
