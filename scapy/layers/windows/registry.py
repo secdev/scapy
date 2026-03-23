@@ -499,6 +499,26 @@ class RRP_Client(DCERPC_Client):
             )
             raise ValueError(response.status)
 
+        if response.lpClassOut.Length > 2:
+            # There is a Class info stored. We need to
+            # get it by specifying the proper MaximumLength.
+            # By default the size is "2".
+            response = self.sr1_req(
+                BaseRegQueryInfoKey_Request(
+                    hKey=key_handle,
+                    lpClassIn=RPC_UNICODE_STRING(
+                        MaximumLength=response.lpClassOut.Length
+                    ),
+                ),
+                timeout=timeout,
+            )
+
+        if response.status != 0:
+            log_runtime.error(
+                "Got status %s while querying key info", hex(response.status)
+            )
+            raise ValueError(response.status)
+
         return response
 
     def get_key_security(
@@ -588,7 +608,6 @@ class RRP_Client(DCERPC_Client):
 
             index += 1
             results.append(response.lpNameOut.valueof("Buffer")[:-1].decode())
-
         return results
 
     def enum_values(
