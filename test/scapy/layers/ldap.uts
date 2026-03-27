@@ -215,3 +215,12 @@ pkt = NETLOGON(b'\x13\x00\\\x00\\\x00D\x00C\x001\x00\x00\x00\x00\x00D\x00O\x00M\
 assert pkt.NtVersion == 1
 assert pkt.UnicodeLogonServer == r"\\DC1"
 assert pkt.UnicodeDomainName == "DOMAIN"
+
+= Dissect NETLOGON_LOGON_QUERY - V1+V5+V5EX_WITH_IP
+
+pkt = NETLOGON(b'\x07\x00PC-001\x00\\MAILSLOT\\NET\\GETDC362\x00P\x00C\x00-\x000\x000\x001\x00\x00\x00\x0b\x00\x00\x00\xff\xff\xff\xff')
+
+assert pkt.ComputerName == b"PC-001"
+assert pkt.MailslotName == b"\\MAILSLOT\\NET\\GETDC362"
+assert pkt.NtVersion == 0x0b
+assert pkt.UnicodeComputerName == "PC-001"

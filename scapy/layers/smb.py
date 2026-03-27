@@ -942,7 +942,11 @@ class NETLOGON_LOGON_QUERY(NETLOGON):
     fields_desc = [
         LEShortEnumField("OpCode", 0x7, _NETLOGON_opcodes),
         StrNullField("ComputerName", ""),
-        PadField(StrNullField("MailslotName", ""), 2),
+        StrNullField("MailslotName", ""),
+        ConditionalField(
+            ByteField("MailslotPad", default=0x00),
+            lambda pkt: len(pkt.MailslotName) % 2 != 0
+        ),
         StrNullFieldUtf16("UnicodeComputerName", ""),
         FlagsField("NtVersion", 0xB, -32, _NV_VERSION),
         XLEShortField("LmNtToken", 0xFFFF),
