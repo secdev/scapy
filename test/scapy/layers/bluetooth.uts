@@ -239,13 +239,55 @@ assert response[HCI_Cmd_Complete_Read_Local_Extended_Features].max_page == 2
 assert response[HCI_Cmd_Complete_Read_Local_Extended_Features].extended_features == 0
 assert response.answers(cmd)
 
+= LE Set Extended Scan Parameters
+
+cmd = HCI_Hdr(hex_bytes("0141200d00010500600060000020012001"))
+assert HCI_Command_Hdr in cmd
+assert cmd[HCI_Command_Hdr].ogf == 0x08
+assert cmd[HCI_Command_Hdr].ocf == 0x41
+assert cmd[HCI_Command_Hdr].len == 13
+assert HCI_Cmd_LE_Set_Extended_Scan_Parameters in cmd
+scan = cmd[HCI_Cmd_LE_Set_Extended_Scan_Parameters]
+assert scan.own_address_type == 0
+assert scan.scanning_filter_policy == 1
+assert scan.scanning_phys == 5
+assert scan.scan_type_1m == 0
+assert scan.scan_interval_1m == 96
+assert scan.scan_window_1m == 96
+assert scan.scan_type_coded == 0
+assert scan.scan_interval_coded == 288
+assert scan.scan_window_coded == 288
+
+= LE Extended Create Connection
+
+cmd = HCI_Hdr(hex_bytes("0143201a000001AABBCCDDEEFF01600060001800280000002a0000000000"))
+assert HCI_Command_Hdr in cmd
+assert cmd[HCI_Command_Hdr].ogf == 0x08
+assert cmd[HCI_Command_Hdr].ocf == 0x43
+assert cmd[HCI_Command_Hdr].len == 26
+assert HCI_Cmd_LE_Extended_Create_Connection in cmd
+conn = cmd[HCI_Cmd_LE_Extended_Create_Connection]
+assert conn.filter_policy == 0
+assert conn.address_type == 0
+assert conn.peer_addr_type == 1
+assert conn.peer_addr == "ff:ee:dd:cc:bb:aa"
+assert conn.phys == 1
+assert conn.interval_1m == 96
+assert conn.window_1m == 96
+assert conn.min_interval_1m == 24
+assert conn.max_interval_1m == 40
+assert conn.latency_1m == 0
+assert conn.timeout_1m == 42
+assert conn.min_ce_1m == 0
+assert conn.max_ce_1m == 0
+
 = LE Create Connection
 
 # Request data
 cmd = HCI_Hdr(hex_bytes("010d2019600060000001123456677890001800280000002a0000000000"))
 assert HCI_Cmd_LE_Create_Connection in cmd
-assert cmd[HCI_Cmd_LE_Create_Connection].paddr == '90:78:67:56:34:12'
-assert cmd[HCI_Cmd_LE_Create_Connection].patype == 1
+assert cmd[HCI_Cmd_LE_Create_Connection].peer_addr == '90:78:67:56:34:12'
+assert cmd[HCI_Cmd_LE_Create_Connection].peer_addr_type == 1
 
 # Response data
 pending = HCI_Hdr(hex_bytes("040f0400020d20"))
@@ -253,7 +295,7 @@ assert pending.answers(cmd)
 
 complete = HCI_Hdr(hex_bytes("043e1301020000000112345667789000000000000000"))
 assert HCI_LE_Meta_Connection_Complete in complete
-assert complete[HCI_LE_Meta_Connection_Complete].paddr == '90:78:67:56:34:12'
+assert complete[HCI_LE_Meta_Connection_Complete].peer_addr == '90:78:67:56:34:12'
 assert complete.answers(cmd)
 
 # Invalid combinations
@@ -375,6 +417,18 @@ assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].version == 0x
 assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].manufacturer_name == 0x02b0
 assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].subversion == 1068
 
+= Command Complete LE Set Extended Scan Enable
+evt_raw_data = hex_bytes("040e0402422000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Hdr in evt_pkt
+assert evt_pkt[HCI_Event_Hdr].code == 0x0E
+assert evt_pkt[HCI_Event_Hdr].len == 4
+assert HCI_Event_Command_Complete in evt_pkt
+evt = evt_pkt[HCI_Event_Command_Complete]
+assert evt.number == 2
+assert evt.opcode == 0x2042
+assert evt.status == 0
+
 = Command Complete
 evt_raw_data = hex_bytes("040e0a010b04002587ceedd668")
 evt_pkt = HCI_Hdr(evt_raw_data)
@@ -446,6 +500,55 @@ evt_raw_data = hex_bytes("043e0414400000")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_LE_Meta in evt_pkt
 assert evt_pkt[HCI_Event_LE_Meta].event == 0x14
+
+= LE Meta Extended Advertising Report
+evt_raw_data = hex_bytes("043e390d01100001AABBCCDDEEFF0100ff7fa60000000000000000001f1eff06000100000031")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Hdr in evt_pkt
+assert evt_pkt[HCI_Event_Hdr].code == 0x3E
+assert evt_pkt[HCI_Event_Hdr].len == 57
+assert HCI_LE_Meta_Extended_Advertising_Report in evt_pkt
+assert evt_pkt.num_reports == 1
+report = evt_pkt[HCI_LE_Meta_Extended_Advertising_Report]
+assert report.reserved0 == 0
+assert report.data_status == 0
+assert report.legacy == 1
+assert report.scan_response == 0
+assert report.directed == 0
+assert report.scannable == 0
+assert report.connectable == 0
+assert report.reserved == 0
+assert report.addr_type == 1
+assert report.addr == "ff:ee:dd:cc:bb:aa"
+assert report.primary_phy == 1
+assert report.secondary_phy == 0
+assert report.advertising_sid == 255
+assert report.tx_power == 127
+assert report.rssi == -90
+assert report.periodic_advertising_interval == 0
+assert report.direct_addr_type == 0
+assert report.direct_addr == "00:00:00:00:00:00"
+assert report.data_length == 31
+
+= LE Meta Enhanced Connection Complete
+evt_raw_data = hex_bytes("043e1f0a0010000001AABBCCDDEEFF000000000000000000000000240000002a0000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Hdr in evt_pkt
+assert evt_pkt[HCI_Event_Hdr].code == 0x3E
+assert evt_pkt[HCI_Event_Hdr].len == 31
+assert HCI_LE_Meta_Enhanced_Connection_Complete in evt_pkt
+evt = evt_pkt[HCI_LE_Meta_Enhanced_Connection_Complete]
+assert evt.status == 0
+assert evt.handle == 16
+assert evt.role == 0
+assert evt.peer_addr_type == 1
+assert evt.peer_addr == "ff:ee:dd:cc:bb:aa"
+assert evt.local_rpa == "00:00:00:00:00:00"
+assert evt.peer_rpa == "00:00:00:00:00:00"
+assert evt.interval == 36
+assert evt.latency == 0
+assert evt.supervision == 42
+assert evt.master_clock_accuracy == 0x0
 
 = LE Connection Update Event
 evt_raw_data = hex_bytes("043e0a03004800140001003c00")
@@ -608,8 +711,8 @@ assert raw(p[EIR_ServiceData16BitUUID].payload) == hex_bytes("e6c2")
 
 = Basic L2CAP dissect
 a = L2CAP_Hdr(b'\x08\x00\x06\x00\t\x00\xf6\xe5\xd4\xc3\xb2\xa1')
-assert a[SM_Identity_Address_Information].address == 'a1:b2:c3:d4:e5:f6'
-assert a[SM_Identity_Address_Information].atype == 0
+assert a[SM_Identity_Address_Information].addr == 'a1:b2:c3:d4:e5:f6'
+assert a[SM_Identity_Address_Information].addr_type == 0
 a.show()
 
 = Basic HCI_ACL_Hdr build & dissect
@@ -723,8 +826,8 @@ a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Extended_Advertisi
       #event_type = 0x0012,
       scannable = 1,
       legacy = 1,
-      address_type = 0x01,
-      address="a1:b2:c3:d4:e5:f6",
+      addr_type = 0x01,
+      addr="a1:b2:c3:d4:e5:f6",
       primary_phy = 1,
       rssi = -85,
       data=[
@@ -741,8 +844,8 @@ a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Extended_Advertisi
       scannable = 1,
       scan_response = 1,
       legacy = 1,
-      address_type = 0x01,
-      address="a1:b2:c3:d4:e5:f6",
+      addr_type = 0x01,
+      addr="a1:b2:c3:d4:e5:f6",
       primary_phy = 1,
       rssi = -85,
       data=[
@@ -759,7 +862,7 @@ b = HCI_Hdr(raw(a))
 b.show()
 assert b[HCI_Event_Hdr].len > 0
 assert b[HCI_LE_Meta_Extended_Advertising_Reports].num_reports == 2
-assert b[HCI_LE_Meta_Extended_Advertising_Report][0].address == "a1:b2:c3:d4:e5:f6"
+assert b[HCI_LE_Meta_Extended_Advertising_Report][0].addr == "a1:b2:c3:d4:e5:f6"
 assert b[HCI_LE_Meta_Extended_Advertising_Report][0].tx_power == 0x7f
 assert b[HCI_LE_Meta_Extended_Advertising_Report][0].rssi == -85
 assert b[HCI_LE_Meta_Extended_Advertising_Report][0].data_length > 0
