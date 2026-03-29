@@ -494,11 +494,11 @@ class EDNS0OWN(_EDNS0Dummy):
                    MACField("primary_mac", "00:00:00:00:00:00"),
                    ConditionalField(
                        MACField("wakeup_mac", "00:00:00:00:00:00"),
-                       lambda pkt: (pkt.optlen or 0) >= 18),
+                       lambda pkt: (pkt.optlen or 0) >= 14),
                    ConditionalField(
                        StrLenField("password", "",
-                                   length_from=lambda pkt: pkt.optlen - 18),
-                       lambda pkt: (pkt.optlen or 0) >= 22)]
+                                   length_from=lambda pkt: pkt.optlen - 14),
+                       lambda pkt: (pkt.optlen or 0) >= 18)]
 
     def post_build(self, pkt, pay):
         pkt += pay
