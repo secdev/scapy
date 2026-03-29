@@ -329,7 +329,13 @@ x.notAfter == (2026, 3, 30, 7, 38, 59, 0, 89, -1)
 
 = Cert class : test remainingDays
 assert abs(x.remainingDays("02/12/11")) > 5000
-assert abs(x.remainingDays("Feb 12 10:00:00 2011 Paris, Madrid")) > 1
+assert abs(x.remainingDays("Feb 12 10:00:00 2011 UTC")) > 5000
+
+from unittest.mock import patch
+import time
+
+with patch('time.localtime', return_value=time.struct_time((2026, 3, 1, 0, 0, 0, 6, 60, 0))):
+    assert abs(x.remainingDays("Feb 12 10:00:00 2011 Paris, Madrid")) > 1
 
 = Cert class : Checking RSA public key
 assert type(x.pubkey) is PubKeyRSA
