@@ -20,8 +20,6 @@ from scapy.cbor.cbor import (
     CBOR_NEGATIVE_INTEGER,
     CBOR_BYTE_STRING,
     CBOR_TEXT_STRING,
-    CBOR_ARRAY,
-    CBOR_MAP,
     CBOR_SEMANTIC_TAG,
     CBOR_FALSE,
     CBOR_TRUE,
@@ -38,7 +36,6 @@ from scapy.cbor.cborcodec import (
     CBORcodec_NEGATIVE_INTEGER,
     CBORcodec_BYTE_STRING,
     CBORcodec_TEXT_STRING,
-    CBORcodec_SEMANTIC_TAG,
     CBORcodec_SIMPLE_AND_FLOAT,
 )
 from scapy.base_classes import BasePacket
