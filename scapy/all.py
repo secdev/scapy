@@ -51,3 +51,5 @@ if conf.ipv6_enabled:  # noqa: F405
     from scapy.route6 import *  # noqa: F401
 
 from scapy.ansmachine import *
+
+from scapy.crc import *
