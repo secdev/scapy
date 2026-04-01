@@ -182,6 +182,31 @@ assert p.client_cookie == b'\x01' * 8
 assert p.server_cookie == b'\x02' * 16
 
 
++ EDNS0 - Padding
+
+= Basic instantiation & dissection
+
+b = b'\x00\x0c\x00\x00'
+
+p = EDNS0PADDING()
+assert raw(p) == b
+
+p = EDNS0PADDING(b)
+assert p.optcode == 12
+assert p.optlen == 0
+assert p.padding == b''
+
+b = b'\x00\x0c\x00\x03\x00\x01\x02'
+
+p = EDNS0PADDING(padding=b'\x00\x01\x02')
+assert raw(p) == b
+
+p = EDNS0PADDING(b)
+assert p.optcode == 12
+assert p.optlen == 3
+assert p.padding == b'\x00\x01\x02'
+
+
 + EDNS0 - Extended DNS Error
 
 = Basic instantiation & dissection
