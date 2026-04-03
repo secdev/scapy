@@ -642,17 +642,32 @@ class ISOTPSocketImplementation:
 
     def close(self):
         # type: () -> None
+        if self.closed:
+            return
+
+        # Final poll to ensure any pending frames are distributed to the
+        # background state machines before we check for emptiness.
+        try:
+            self.can_socket.select([self.can_socket], 0)
+        except Exception:
+            pass
+
         try:
             if select_objects([self.tx_queue], 0):
-                log_isotp.warning("TX queue not empty")
-                time.sleep(0.1)
-        except OSError:
+                # Wait briefly for background thread to finish current cycle
+                time.sleep(0.01)
+                if select_objects([self.tx_queue], 0):
+                    log_isotp.warning("TX queue not empty")
+        except (OSError, Scapy_Exception):
             pass
 
         try:
             if select_objects([self.rx_queue], 0):
-                log_isotp.warning("RX queue not empty")
-        except OSError:
+                # Final chance to fetch frames multiplexed by another thread
+                time.sleep(0.01)
+                if select_objects([self.rx_queue], 0):
+                    log_isotp.warning("RX queue not empty")
+        except (OSError, Scapy_Exception):
             pass
 
         self.closed = True

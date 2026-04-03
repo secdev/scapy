@@ -155,11 +155,14 @@ class _SocketsPool(object):
         """This calls the mux() function of all SocketMapper
         objects in this SocketPool
         """
-        if time.monotonic() - self.last_call < 0.001:
+        now = time.monotonic()
+        if now - self.last_call < 0.001:
             # Avoid starvation if multiple threads are doing selects, since
             # this object is singleton and all python-CAN sockets are using
             # the same instance and locking the same locks.
             return
+        self.last_call = now
+
         # Snapshot pool entries under the lock, then read from each bus
         # WITHOUT holding pool_mutex.  On slow serial interfaces (slcan)
         # bus.recv(timeout=0) can take ~2-3ms per frame; holding the
@@ -171,7 +174,6 @@ class _SocketsPool(object):
             msgs = mapper.read_bus()
             if msgs:
                 mapper.distribute(msgs)
-        self.last_call = time.monotonic()
 
     def register(self, socket, *args, **kwargs):
         # type: (SocketWrapper, Tuple[Any, ...], Dict[str, Any]) -> None
@@ -407,6 +409,12 @@ class PythonCANSocket(SuperSocket):
         """Closes this socket"""
         if self.closed:
             return
+        # Final poll to ensure all kernel-buffered frames are distributed
+        # to any shared socket instances before we unregister.
+        try:
+            SocketsPool.multiplex_rx_packets()
+        except Exception:
+            pass
         super(PythonCANSocket, self).close()
         self.can_iface.shutdown()
 
