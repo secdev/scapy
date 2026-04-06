@@ -218,9 +218,20 @@ assert pkt.UnicodeDomainName == "DOMAIN"
 
 = Dissect NETLOGON_LOGON_QUERY - V1+V5+V5EX_WITH_IP
 
-pkt = NETLOGON(b'\x07\x00PC-001\x00\\MAILSLOT\\NET\\GETDC362\x00P\x00C\x00-\x000\x000\x001\x00\x00\x00\x0b\x00\x00\x00\xff\xff\xff\xff')
+pkt = NETLOGON(b'\x07\x00PC\x00\\MAILSLOT\\NET\\GETDC598\x00P\x00C\x00\x00\x00\x0b\x00\x00 \xff\xff\xff\xff')
 
-assert pkt.ComputerName == b"PC-001"
-assert pkt.MailslotName == b"\\MAILSLOT\\NET\\GETDC362"
-assert pkt.NtVersion == 0x0b
-assert pkt.UnicodeComputerName == "PC-001"
+print(pkt.show())
+assert pkt.ComputerName == b"PC"
+assert pkt.MailslotName == b"\\MAILSLOT\\NET\\GETDC598"
+assert pkt.NtVersion == 0x2000000b
+assert pkt.UnicodeComputerName == "PC"
+
+= Dissect NETLOGON_LOGON_QUERY - V1+V5+V5EX_WITH_IP - with Padding
+
+pkt = NETLOGON(b'\x07\x00USER-PC\x00\\MAILSLOT\\NET\\GETDC725\x00\x00U\x00S\x00E\x00R\x00-\x00P\x00C\x00\x00\x00\x0b\x00\x00 \xff\xff\xff\xff')
+
+print(pkt.show())
+assert pkt.ComputerName == b"USER-PC"
+assert pkt.MailslotName == b"\\MAILSLOT\\NET\\GETDC725"
+assert pkt.NtVersion == 0x2000000b
+assert pkt.UnicodeComputerName == "USER-PC"

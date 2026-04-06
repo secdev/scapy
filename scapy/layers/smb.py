@@ -945,7 +945,7 @@ class NETLOGON_LOGON_QUERY(NETLOGON):
         StrNullField("MailslotName", ""),
         ConditionalField(
             ByteField("MailslotPad", default=0x00),
-            lambda pkt: len(pkt.MailslotName) % 2 != 0
+            lambda pkt: len(pkt.ComputerName) % 2 != 0
         ),
         StrNullFieldUtf16("UnicodeComputerName", ""),
         FlagsField("NtVersion", 0xB, -32, _NV_VERSION),
