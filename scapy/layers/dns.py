@@ -564,9 +564,14 @@ class ClientSubnetv4(StrLenField):
         if plen is not None:
             # RFC 7871: ADDRESS MUST be truncated to the number of bits
             # indicated by SOURCE PREFIX-LENGTH, padded with 0 bits to the
-            # end of the last octet needed.  Use ceil(plen / 8) bytes.
+            # end of the last octet needed.  Use ceil(plen / 8) bytes and
+            # zero out any host bits in the last partial byte.
             num_bytes = operator.floordiv(plen + 7, 8)
-            return packed_subnet[:num_bytes]
+            result = bytearray(packed_subnet[:num_bytes])
+            rem = plen % 8
+            if rem and result:
+                result[-1] &= (0xff << (8 - rem)) & 0xff
+            return bytes(result)
         # When prefix length is not known, strip trailing zero bytes.
         for i in list(range(operator.floordiv(self.af_length, 8)))[::-1]:
             if packed_subnet[i] != 0:

@@ -183,6 +183,26 @@ raw_b = raw(b)
 # optlen == 4 (no address bytes), source_plen=0
 assert raw_b == b'\x00\x08\x00\x04\x00\x01\x00\x00', repr(raw_b)
 
+= host bits in partial last byte are zeroed out (IPv4)
+# source_plen=23 means bits 0-22 are significant; bit 23 (LSB of byte 3)
+# must be cleared.  101.132.255.0 has byte 3 = 0xff -> should become 0xfe.
+b = EDNS0ClientSubnet(source_plen=23, address='101.132.255.0')
+raw_b = raw(b)
+assert raw_b == b'\x00\x08\x00\x07\x00\x01\x17\x00\x65\x84\xfe', repr(raw_b)
+b2 = EDNS0ClientSubnet(raw_b)
+assert b2.source_plen == 23
+assert b2.address == '101.132.254.0'
+
+= host bits in partial last byte are zeroed out (IPv6)
+# source_plen=33 means 5 bytes needed, last byte has 1 significant bit.
+# 2001:db8:ffff:: -> byte 5 = 0xff -> masked to 0x80
+b = EDNS0ClientSubnet(family=2, source_plen=33, address='2001:db8:ffff::')
+raw_b = raw(b)
+# 4 fixed + 5 address bytes = optlen 9
+assert raw_b[2:4] == b'\x00\x09', repr(raw_b)  # optlen=9
+assert raw_b[6] == 33                            # source_plen
+assert raw_b[-1] == 0x80, repr(raw_b)            # last byte masked
+
 
 + EDNS0 - Cookie
 
