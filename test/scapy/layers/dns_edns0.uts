@@ -154,6 +154,35 @@ assert raw(d) == raw_d
 d = DNSRROPT(raw_d)
 assert EDNS0ClientSubnet in d.rdata[0] and d.rdata[0].family == 2 and d.rdata[0].address == "2001:db8::"
 
+= source_plen with trailing-zero address byte (GH #4942)
+# RFC 7871: ADDRESS must be truncated to ceil(source_plen/8) bytes.
+# For source_plen=23, ceil(23/8)=3 bytes are required even when the
+# 3rd byte is 0x00 (101.132.0.0 -> 0x65 0x84 0x00).
+
+b = EDNS0ClientSubnet(source_plen=23, address='101.132.0.0')
+raw_b = raw(b)
+# optlen must be 7 (4 fixed bytes + 3 address bytes)
+assert raw_b == b'\x00\x08\x00\x07\x00\x01\x17\x00\x65\x84\x00', repr(raw_b)
+
+b2 = EDNS0ClientSubnet(raw_b)
+assert b2.source_plen == 23
+assert b2.address == '101.132.0.0'
+
+= source_plen with non-zero last byte (sanity check)
+# For source_plen=24 on 10.20.30.0, exactly 3 bytes are needed.
+b = EDNS0ClientSubnet(source_plen=24, address='10.20.30.0')
+raw_b = raw(b)
+assert raw_b == b'\x00\x08\x00\x07\x00\x01\x18\x00\x0a\x14\x1e', repr(raw_b)
+b2 = EDNS0ClientSubnet(raw_b)
+assert b2.source_plen == 24
+assert b2.address == '10.20.30.0'
+
+= source_plen=0 produces empty address
+b = EDNS0ClientSubnet(source_plen=0, address='0.0.0.0')
+raw_b = raw(b)
+# optlen == 4 (no address bytes), source_plen=0
+assert raw_b == b'\x00\x08\x00\x04\x00\x01\x00\x00', repr(raw_b)
+
 
 + EDNS0 - Cookie
 

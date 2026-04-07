@@ -558,9 +558,16 @@ class ClientSubnetv4(StrLenField):
         x = x[: operator.floordiv(self.af_length, 8)]
         return inet_ntop(self.af_familly, x)
 
-    def _pack_subnet(self, subnet):
-        # type: (bytes) -> bytes
+    def _pack_subnet(self, subnet, plen=None):
+        # type: (bytes, Optional[int]) -> bytes
         packed_subnet = inet_pton(self.af_familly, plain_str(subnet))
+        if plen is not None:
+            # RFC 7871: ADDRESS MUST be truncated to the number of bits
+            # indicated by SOURCE PREFIX-LENGTH, padded with 0 bits to the
+            # end of the last octet needed.  Use ceil(plen / 8) bytes.
+            num_bytes = operator.floordiv(plen + 7, 8)
+            return packed_subnet[:num_bytes]
+        # When prefix length is not known, strip trailing zero bytes.
         for i in list(range(operator.floordiv(self.af_length, 8)))[::-1]:
             if packed_subnet[i] != 0:
                 i += 1
@@ -571,21 +578,23 @@ class ClientSubnetv4(StrLenField):
         # type: (Optional[Packet], Optional[Union[str, Net]]) -> bytes
         if x is None:
             return self.af_default
+        plen = getattr(pkt, 'source_plen', None)
         try:
-            return self._pack_subnet(x)
+            return self._pack_subnet(x, plen)
         except (OSError, socket.error):
             pkt.family = 2
-            return ClientSubnetv6("", "")._pack_subnet(x)
+            return ClientSubnetv6("", "")._pack_subnet(x, plen)
 
     def i2len(self, pkt, x):
         # type: (Packet, Any) -> int
         if x is None:
             return 1
+        plen = getattr(pkt, 'source_plen', None)
         try:
-            return len(self._pack_subnet(x))
+            return len(self._pack_subnet(x, plen))
         except (OSError, socket.error):
             pkt.family = 2
-            return len(ClientSubnetv6("", "")._pack_subnet(x))
+            return len(ClientSubnetv6("", "")._pack_subnet(x, plen))
 
 
 class ClientSubnetv6(ClientSubnetv4):
