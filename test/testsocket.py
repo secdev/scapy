@@ -349,6 +349,114 @@ class _SlowPipeWrapper:
         return bool(self._owner._real_ins.closed)  # type: ignore[attr-defined]
 
 
+class USBTestSocket(TestSocket):
+    """A TestSocket that simulates the hardware RX FIFO of USB CAN
+    adapters like candle (gs_usb) and cantact.
+
+    USB adapters have a small hardware endpoint buffer (typically
+    32-128 frames).  Frames that arrive when the buffer is full
+    are silently dropped by the adapter firmware.
+
+    Frames sent to this socket go into a capacity-limited deque
+    (the "hardware FIFO").  They only become visible to recv()/select()
+    after _mux() moves them to the rx ObjectPipe — which happens when
+    ISOTPSocketImplementation calls can_socket.select() in its
+    can_recv callback, or in the drain calls in __init__/close.
+
+    When nobody calls select/recv (e.g., between ISOTP socket close
+    and reopen), frames accumulate in the FIFO.  Once the FIFO is
+    full, new frames are silently dropped, simulating hardware
+    overflow.
+    """
+
+    def __init__(self, basecls=None, hw_fifo_size=32):
+        # type: (Optional[Type[Packet]], int) -> None
+        """
+        :param hw_fifo_size: Maximum number of frames in the simulated
+            hardware RX FIFO.  Default 32 models a typical USB endpoint
+            buffer.  Frames beyond this limit are silently dropped.
+        """
+        super(USBTestSocket, self).__init__(basecls)
+        from collections import deque
+        self._hw_fifo = deque(maxlen=hw_fifo_size)  # type: deque[bytes]
+        self._hw_lock = Lock()
+        self._real_ins = self.ins
+        self.ins = _USBPipeWrapper(self)  # type: ignore[assignment]
+        self.dropped_count = 0
+
+    def _mux(self):
+        # type: () -> None
+        """Move frames from hardware FIFO to the rx ObjectPipe.
+
+        This models the read path of PythonCANSocket.select() →
+        multiplex_rx_packets() → read_bus().  On real hardware this
+        is the USB bulk transfer that moves frames from the adapter
+        endpoint buffer into the host-side python-can rx_queue.
+        """
+        with self._hw_lock:
+            while self._hw_fifo:
+                frame = self._hw_fifo.popleft()
+                self._real_ins.send(frame)
+
+    def recv_raw(self, x=MTU):
+        # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
+        return self.basecls, self._real_ins.recv(0), time.time()
+
+    @staticmethod
+    def select(sockets, remain=conf.recv_poll_rate):
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+        for s in sockets:
+            if isinstance(s, USBTestSocket):
+                s._mux()
+        return select_objects(sockets, remain)
+
+    def close(self):
+        # type: () -> None
+        self.ins = self._real_ins
+        super(USBTestSocket, self).close()
+
+
+class _USBPipeWrapper:
+    """Wrapper that routes incoming frames into the hardware FIFO.
+
+    When the FIFO is full (maxlen reached), deque silently drops the
+    oldest frame — but real USB adapters drop the *newest* frame.
+    We track drops via owner.dropped_count so the test can verify
+    overflow occurred.
+    """
+    def __init__(self, owner):
+        # type: (USBTestSocket) -> None
+        self._owner = owner
+
+    def send(self, data):
+        # type: (bytes) -> None
+        with self._owner._hw_lock:
+            was_full = len(self._owner._hw_fifo) >= \
+                (self._owner._hw_fifo.maxlen or 0)
+            if was_full:
+                # Drop the incoming frame (newest) like real hardware
+                self._owner.dropped_count += 1
+                return
+            self._owner._hw_fifo.append(data)
+
+    def recv(self, timeout=0):
+        # type: (int) -> Optional[bytes]
+        return self._owner._real_ins.recv(timeout)
+
+    def fileno(self):
+        # type: () -> int
+        return self._owner._real_ins.fileno()
+
+    def close(self):
+        # type: () -> None
+        self._owner._real_ins.close()
+
+    @property
+    def closed(self):
+        # type: () -> bool
+        return bool(self._owner._real_ins.closed)  # type: ignore[attr-defined]
+
+
 def cleanup_testsockets():
     # type: () -> None
     """
