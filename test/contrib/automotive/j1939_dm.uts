@@ -5,6 +5,9 @@
 ~ conf
 
 = Imports
+import sys
+sys.path.append(".")
+sys.path.append("test")
 import struct
 from scapy.layers.can import CAN
 from scapy.contrib.automotive.j1939 import (
@@ -258,3 +261,23 @@ try:
     assert False, "Expected Scapy_Exception for dst_addr=0xFF"
 except Scapy_Exception:
     pass  # expected
+
+
++ J1939 DM Extra Coverage
+
+= J1939_DTC do_dissect short data
+assert J1939_DTC(b"\x01\x02\x03").SPN == 0
+
+= J1939_DM1 do_dissect with trailing padding
+dm1 = J1939_DM1(b"\x00\x00\x64\x00\x10\x0A\xFF\xFF")
+assert len(dm1.dtcs) == 1
+
+= sniff_dm1 (mocked call)
+import scapy.sendrecv
+orig_sniff = scapy.sendrecv.sniff
+scapy.sendrecv.sniff = lambda **kwargs: [J1939(data=b"\x00\x00\x64\x00\x10\x0A", pgn=PGN_DM1)]
+try:
+    res = sniff_dm1(TestSocket(CAN), timeout=0.1)
+    assert len(res) == 1
+finally:
+    scapy.sendrecv.sniff = orig_sniff

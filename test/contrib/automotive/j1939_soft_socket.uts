@@ -5,9 +5,13 @@
 ~ conf
 
 = Imports
+import sys
+sys.path.append(".")
+sys.path.append("test")
 import struct
 import time
 from scapy.layers.can import CAN
+from scapy.packet import Packet
 from scapy.contrib.automotive.j1939 import J1939, J1939SoftSocket, J1939Socket, J1939SocketImplementation, J1939_GLOBAL_ADDRESS, J1939_TP_MAX_DLEN, J1939_MAX_SF_DLEN, TP_CM_BAM, TP_CM_RTS, TP_CM_CTS, TP_CM_EndOfMsgACK, TP_Conn_Abort, TimeoutScheduler, USE_J1939_KERNEL_MODULE
 from scapy.contrib.automotive.j1939 import PGN_ADDRESS_CLAIMED, PGN_REQUEST, J1939_PF_ADDRESS_CLAIMED, J1939_PF_REQUEST, J1939_NULL_ADDRESS, J1939_ADDR_CLAIM_TIMEOUT, J1939_ADDR_STATE_UNCLAIMED, J1939_ADDR_STATE_CLAIMING, J1939_ADDR_STATE_CLAIMED, J1939_ADDR_STATE_CANNOT_CLAIM
 from scapy.contrib.automotive.j1939.j1939_soft_socket import _j1939_can_id, _j1939_decode_can_id, _pgn_from_can_id, J1939_TP_CM_PF, J1939_TP_DT_PF, J1939_TP_DT_PAYLOAD
@@ -971,6 +975,118 @@ def test_recv_no_data():
     cleanup_testsockets()
 
 test_recv_no_data()
+
+
++ J1939SoftSocket Extra Coverage
+
+= J1939SoftSocket.recv stashes metadata even for unknown packet types
+class DummyPacket(Packet):
+    pass
+
+with J1939SoftSocket(TestSocket(CAN), basecls=DummyPacket) as s:
+    s.impl.rx_queue.send((b"data", 1.23, 0xFECA, 0x11, 0xFF))
+    pkt = s.recv()
+    assert isinstance(pkt, DummyPacket)
+    assert s._last_rx_pgn == 0xFECA
+
+= TimeoutScheduler.cancel raises Scapy_Exception for unknown handle
+try:
+    TimeoutScheduler.cancel("not a handle")
+    assert False, "Expected Scapy_Exception"
+except Scapy_Exception:
+    pass
+
+= TimeoutScheduler.Handle.cancel raises Scapy_Exception if already cancelled
+h = TimeoutScheduler.schedule(10, lambda: None)
+h.cancel()
+try:
+    h.cancel()
+    assert False, "Expected Scapy_Exception"
+except Scapy_Exception:
+    pass
+
+= _on_address_claimed edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, name=1) as s:
+    # len(data) < 8
+    s.impl._on_address_claimed(b"\x00"*7, 0x11, 0xFF)
+    # sa == J1939_NULL_ADDRESS
+    s.impl._on_address_claimed(b"\x00"*8, J1939_NULL_ADDRESS, 0xFF)
+    # received_name == self.name (emits warning)
+    s.impl._on_address_claimed(struct.pack("<Q", 1), 0x11, 0xFF)
+
+= _on_request_pgn edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, name=1) as s:
+    # len(data) < 3
+    s.impl._on_request_pgn(b"\x00"*2, 0x11, 0xFF)
+    # requested_pgn != PGN_ADDRESS_CLAIMED
+    s.impl._on_request_pgn(b"\x00\x00\x00", 0x11, 0xFF)
+
+= TP receive BAM edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    pgn_bytes = struct.pack("<I", 0xFECA)[:3]
+    # _recv_bam with invalid total_size
+    s.impl._on_tp_cm(struct.pack("B", TP_CM_BAM) + struct.pack("<H", 8) + struct.pack("B", 1) + b"\xFF" + pgn_bytes, 0x80, 0xFF, 0)
+    assert s.impl.rx_state == 0
+
+= TP receive RTS edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    pgn_bytes = struct.pack("<I", 0xFECA)[:3]
+    # _recv_rts with wrong DA
+    s.impl._on_tp_cm(struct.pack("B", TP_CM_RTS) + struct.pack("<H", 9) + struct.pack("B", 2) + b"\xFF" + pgn_bytes, 0x80, 0x22, 0)
+    assert s.impl.rx_state == 0
+
+= TP receive CTS edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    pgn_bytes = struct.pack("<I", 0xFECA)[:3]
+    # _recv_cts with wrong state
+    s.impl._on_tp_cm(struct.pack("B", TP_CM_CTS) + struct.pack("BB", 1, 1) + b"\xFF\xFF" + pgn_bytes, 0x80, 0x11, 0)
+    # _recv_cts with packets_to_send == 0 (Hold)
+    s.impl.tx_state = 2 # J1939_TX_CMDT_WAIT_CTS
+    s.impl.tx_pgn = 0xFECA
+    s.impl._on_tp_cm(struct.pack("B", TP_CM_CTS) + struct.pack("BB", 0, 1) + b"\xFF\xFF" + pgn_bytes, 0x80, 0x11, 0)
+    assert s.impl.tx_state == 2
+
+= TP receive EOM edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    pgn_bytes = struct.pack("<I", 0xFECA)[:3]
+    # _recv_eom_ack with wrong PGN
+    s.impl.tx_state = 4 # J1939_TX_CMDT_WAIT_ACK
+    s.impl.tx_pgn = 0xFECA
+    wrong_pgn_bytes = struct.pack("<I", 0xFECB)[:3]
+    s.impl._on_tp_cm(struct.pack("B", TP_CM_EndOfMsgACK) + struct.pack("<H", 9) + struct.pack("B", 2) + b"\xFF" + wrong_pgn_bytes, 0x80, 0x11, 0)
+    assert s.impl.tx_state == 4
+
+= TP receive Abort edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    # _recv_abort with len(data) == 1
+    s.impl._on_tp_cm(struct.pack("B", TP_Conn_Abort), 0x80, 0x11, 0)
+    assert s.impl.tx_state == 0
+
+= _on_tp_dt edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    s.impl.rx_state = 1 # J1939_RX_BAM_WAIT_DATA
+    s.impl.rx_src_addr = 0x80
+    # wrong SA
+    s.impl._on_tp_dt(b"\x01\xAA", 0x81, 0x11)
+    # short data
+    s.impl._on_tp_dt(b"", 0x80, 0x11)
+
+= begin_send edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    # length > J1939_TP_MAX_DLEN
+    s.impl.begin_send(b"A" * 2000, 0xFECA, 0xFF)
+    # tx_state != J1939_TX_IDLE
+    s.impl.tx_state = 1
+    s.impl.begin_send(b"A" * 10, 0xFECA, 0xFF)
+
+= on_can_recv edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, pgn=0xFECA) as s:
+    # unexpected PGN (emits warning once)
+    s.impl.on_can_recv(CAN(identifier=_j1939_can_id(6, 0xFE, 0xCB, 0x80), flags="extended", data=b"\x00"))
+    assert s.impl.filter_warning_emitted
+    # DA mismatch (PDU1)
+    s.impl.on_can_recv(CAN(identifier=_j1939_can_id(6, 0x01, 0x22, 0x80), flags="extended", data=b"\x00"))
+
 
 = Delete test sockets
 cleanup_testsockets()

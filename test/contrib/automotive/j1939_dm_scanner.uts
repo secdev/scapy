@@ -5,6 +5,9 @@
 ~ conf
 
 = Imports
+import sys
+sys.path.append(".")
+sys.path.append("test")
 import struct
 from threading import Event
 from scapy.layers.can import CAN
@@ -647,3 +650,13 @@ def test_reconnect_retry_uses_stop_event():
     cleanup_testsockets()
 
 test_reconnect_retry_uses_stop_event()
+
+
++ J1939 DM Scanner Extra Coverage
+
+= j1939_scan_dm unknown DM
+try:
+    j1939_scan_dm(TestSocket(CAN), target_da=0x00, dms=["INVALID"])
+    assert False
+except ValueError:
+    pass

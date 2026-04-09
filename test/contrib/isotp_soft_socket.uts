@@ -2922,8 +2922,71 @@ def cleanup_leaked(socks):
 cleanup_leaked(leaked)
 cans_isotp.close()
 stim_isotp.close()
-
 assert len(failures) == 0, "UDS scanner had %d/%d timeouts (leaked reset_handler socket): first=%s" % (len(failures), len(enum.results), [(hex(r[1].service),) for r in failures[:5]])
+
+
++ ISOTPSoftSocket Extra Coverage
+
+= ISOTPSocketImplementation.can_send FD padding
+with ISOTPSoftSocket(TestSocket(CAN), fd=True, padding=True) as s:
+    s.impl.can_send(b"\x00"*10) # Should pad to 12
+
+= ISOTPSocketImplementation.on_can_recv identifier mismatch
+with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123) as s:
+    s.impl.on_can_recv(CAN(identifier=0x124, data=b"\x00"))
+    assert s.impl.filter_warning_emitted
+
+= _rx_timer_handler timeout reset
+with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123) as s:
+    s.impl.rx_state = 2 # ISOTP_WAIT_DATA
+    s.impl.rx_start_time = TimeoutScheduler._time()
+    s.impl._rx_timer_handler()
+    assert s.impl.rx_state == 2 # Still waiting due to extension
+
+= _tx_timer_handler edge cases
+with ISOTPSoftSocket(TestSocket(CAN), tx_id=0x123) as s:
+    s.impl.tx_state = 1 # ISOTP_SENDING
+    s.impl.tx_buf = None
+    s.impl._tx_timer_handler()
+    assert s.impl.tx_state == 0 # ISOTP_IDLE
+
+= _recv_fc / _recv_sf / _recv_ff / _recv_cf edge cases
+with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123) as s:
+    # _recv_fc short
+    s.impl.tx_state = 3 # ISOTP_WAIT_FC
+    s.impl._recv_fc(b"\x30\x00")
+    assert s.impl.tx_state == 0
+    # _recv_fc unknown
+    s.impl.tx_state = 3
+    s.impl._recv_fc(b"\x3F\x00\x00")
+    assert s.impl.tx_state == 0
+    # _recv_sf FD
+    s.impl.fd = True
+    s.impl._recv_sf(b"\x00\x01\xAA", 1.23)
+    # _recv_ff short
+    s.impl._recv_ff(b"\x10\x00\x00\x00\x00\x00", 1.23)
+    assert s.impl.rx_state == 0
+    # _recv_ff 32-bit length
+    s.impl._recv_ff(b"\x10\x00\x00\x00\x00\x0A\xAA\xBB\xCC\xDD", 1.23)
+    assert s.impl.rx_len == 10
+    # _recv_cf various
+    s.impl.rx_state = 2
+    s.impl.rx_ll_dl = 8
+    s.impl._recv_cf(b"\x21\xAA\xBB\xCC\xDD\xEE\xFF\x00\x11") # Too long
+    assert s.impl.rx_state == 2
+    s.impl.rx_sn = 2
+    s.impl._recv_cf(b"\x21\xAA") # Wrong SN
+    assert s.impl.rx_state == 0
+
+= begin_send busy / too much data
+with ISOTPSoftSocket(TestSocket(CAN), tx_id=0x123) as s:
+    s.impl.tx_state = 1
+    s.impl.begin_send(b"data") # Busy
+    s.impl.tx_state = 0
+    s.impl.begin_send(b"A" * 5000) # Too much data
+
+
+= Delete testsockets
 
 _ts = TimeoutScheduler._thread
 TimeoutScheduler.clear()
