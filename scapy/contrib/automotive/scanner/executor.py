@@ -167,7 +167,8 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
                 try:
                     result.close()
                 except Exception:
-                    pass
+                    log_automotive.debug("Exception while closing leaked socket",
+                                         exc_info=True)
         elif self.software_reset_handler:
             if self.socket and self.socket.closed:
                 self.reconnect()

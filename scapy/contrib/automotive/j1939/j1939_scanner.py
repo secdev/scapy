@@ -288,7 +288,8 @@ def _pre_probe_flush(sock):
     try:
         sock.select([sock], 0)
     except Exception:
-        pass
+        log_j1939.debug("Exception during _pre_probe_flush select",
+                        exc_info=True)
 
 
 # --- Socketcan filter helpers
@@ -354,6 +355,8 @@ def _open_sa_filtered_sock(sock, target_sa):
         )
         return rx, True
     except Exception:
+        log_j1939.debug("Exception during _open_sa_filtered_sock",
+                        exc_info=True)
         return sock, False
 
 
@@ -399,6 +402,8 @@ def _resolve_probe_sock(sock_or_factory, target_sa):
                     )
                     return filtered, filtered, True
             except Exception:
+                log_j1939.debug("Exception during callable",
+                                exc_info=True)
                 pass
         return probe, probe, True
     rx_sock, close_rx = _open_sa_filtered_sock(sock_or_factory, target_sa)
@@ -1282,6 +1287,8 @@ def j1939_scan(
             try:
                 _probe.close()
             except Exception:
+                log_j1939.debug("Exception during j1939_scan",
+                                exc_info=True)
                 pass
 
     # Step 0: passive pre-scan to detect background noise unless disabled.

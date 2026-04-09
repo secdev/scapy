@@ -491,7 +491,8 @@ class PythonCANSocket(SuperSocket):
         try:
             SocketsPool.multiplex_rx_packets()
         except Exception:
-            pass
+            log_runtime.debug("Exception during SocketsPool multiplex in close",
+                              exc_info=True)
         super(PythonCANSocket, self).close()
         self.can_iface.shutdown()
 

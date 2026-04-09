@@ -422,6 +422,7 @@ def j1939_scan_dm(
                             "retrying in 1 s",
                             attempt + 1,
                             reconnect_retries,
+                            exc_info=True,
                         )
                         if stop_event is not None:
                             stop_event.wait(1)

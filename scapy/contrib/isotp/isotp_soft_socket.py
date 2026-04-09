@@ -591,7 +591,8 @@ class ISOTPSocketImplementation:
         try:
             self.can_socket.select([self.can_socket], 0)
         except Exception:
-            pass
+            log_isotp.debug("Exception during ISOTP socket drain select",
+                            exc_info=True)
 
         # Schedule initial callbacks with timeout=0 so they fire on
         # the very next TimeoutScheduler._poll() cycle, minimising
@@ -754,7 +755,8 @@ class ISOTPSocketImplementation:
         try:
             self.can_socket.select([self.can_socket], 0)
         except Exception:
-            pass
+            log_isotp.debug("Exception during ISOTP socket drain select",
+                            exc_info=True)
 
         try:
             self.rx_queue.close()
