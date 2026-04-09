@@ -69,12 +69,12 @@ response it expects from an active CA in order to detect it.
 +------------+-----------------------------------------+------------------------------------------+
 | rts_probe  | TP.CM_RTS (PF=0xEC, DA=ECU-SA)          | TP.CM_CTS (ctrl=0x11) **or**             |
 |            | sent to each DA                         | TP_Conn_Abort (ctrl=0xFF) **or**         |
-|            |                                         | NACK on ACK PGN (PF=0xE8) from probed DA|
+|            |                                         | NACK on ACK PGN (PF=0xE8) from probed DA |
 +------------+-----------------------------------------+------------------------------------------+
-| uds        | Physical (PF=diag_pgn, DA=ECU-SA) AND   | UDS response (positive 02 7E xx  |
-|            | Functional (PF=diag_pgn+1, DA=0xFF)     | or negative 03 7F 3E xx)         |
-|            | payload 02 3E {00,01} padded            | from responding DA               |
-|            | once per SA in src_addrs                |                                  |
+| uds        | Physical (PF=diag_pgn, DA=ECU-SA) AND   | UDS response (positive 02 7E xx)         |
+|            | Functional (PF=diag_pgn+1, DA=0xFF)     | or negative 03 7F 3E xx)                 |
+|            | payload 02 3E {00,01} padded            | from responding DA                       |
+|            | once per SA in src_addrs                |                                          |
 +------------+-----------------------------------------+------------------------------------------+
 | xcp        | Physical (PF=diag_pgn, DA=ECU-SA)       | XCP positive response (byte 0 == 0xFF)   |
 |            | payload FF 00 FF FF FF FF FF FF         | from responding DA                       |
