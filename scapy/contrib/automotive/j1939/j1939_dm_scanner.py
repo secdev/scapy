@@ -49,7 +49,6 @@ from scapy.layers.can import CAN
 from scapy.supersocket import SuperSocket
 
 from scapy.contrib.automotive.j1939.j1939_soft_socket import (
-    J1939_NULL_ADDRESS,
     J1939_PF_REQUEST,
     _j1939_can_id,
     _j1939_decode_can_id,
