@@ -152,7 +152,22 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         # type: () -> None
         log_automotive.info("Target reset")
         if self.reset_handler:
-            self.reset_handler()
+            result = self.reset_handler()
+            # If the reset_handler returned a socket (e.g. because
+            # the user passed a socket factory), close it immediately
+            # to prevent leaked sockets whose background callbacks
+            # steal CAN frames from the active session.
+            if result is not None and hasattr(result, 'close'):
+                log_automotive.warning(
+                    "reset_handler returned a socket-like object "
+                    "(%s). This is probably a misconfiguration "
+                    "(socket factory passed as reset_handler). "
+                    "Closing the leaked socket to prevent frame "
+                    "theft.", type(result).__name__)
+                try:
+                    result.close()
+                except Exception:
+                    pass
         elif self.software_reset_handler:
             if self.socket and self.socket.closed:
                 self.reconnect()
