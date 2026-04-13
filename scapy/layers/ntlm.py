@@ -2132,7 +2132,7 @@ class NTLMSSP_DOMAIN(NTLMSSP):
     :param HASHNT: the HASHNT of the machine account (use Netlogon secure channel).
     :param ssp: a KerberosSSP to use (use Kerberos secure channel).
     :param PASSWORD: the PASSWORD of the machine account to use for Netlogon.
-    :param DC_IP: (optional) specify the IP of the DC.
+    :param DC_FQDN: (optional) specify the FQDN of the DC.
 
     Netlogon example::
 
