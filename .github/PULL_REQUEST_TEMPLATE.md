@@ -7,6 +7,9 @@
 -   [ ] I added unit tests or explained why they are not relevant
 -   [ ] I executed the regression tests (using `tox`)
 -   [ ] If the PR is still not finished, please create a [Draft Pull Request](https://github.blog/2019-02-14-introducing-draft-pull-requests/)
+-   [ ] This PR uses (partially) AI-generated code: Yes/No
+
+**Failing to mention the use of AI may result in a ban. We do not forbid it, but you must play fair. Be warned !**
 
 <!-- brief description what this PR will do, e.g. fixes broken dissection of XXX -->
 
