@@ -6,11 +6,14 @@
 
 # scapy.contrib.status = skip
 
-from scapy.fields import FieldLenField, FieldListField, StrFixedLenField, \
-    ByteField, ShortField, FlagsField, XByteField, PacketListField
+from scapy.fields import (
+    ConditionalField, FieldLenField, FieldListField, StrFixedLenField,
+    ByteField, ShortField, FlagsField, XByteEnumField, XByteField,
+    PacketListField
+)
 from scapy.packet import Packet, bind_layers
 from scapy.contrib.automotive.obd.packet import OBD_Packet
-from scapy.contrib.automotive.obd.services import OBD_S09
+from scapy.contrib.automotive.obd.services import OBD_S09, _OBD_SERVICES, _obd_slm
 
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs#Service_09
@@ -26,6 +29,7 @@ class OBD_S09_PR_Record(Packet):
 class OBD_S09_PR(Packet):
     name = "Infotype IDs"
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x49, _OBD_SERVICES), _obd_slm),
         PacketListField("data_records", [], OBD_S09_PR_Record)
     ]
 
