@@ -337,9 +337,10 @@ assert p[Padding].load == b"\xAA\xBB"
 = Dot15d4 Beacon with aux_sec_header (issue #4928)
 
 # Given: raw bytes for a Dot15d4 Beacon frame with fcf_security=1
-pkt = Dot15d4(b'\x08\xD0\x84\x21\x43\x01\x00\x00\x00\x00\x48\xDE\xAC\x02\x05\x00\x00\x00\x55\xCF\x00\x00\x51\x52\x53\x54\x22\x3B\xC1\xEC\x84\x1A\xB5\x53')
-# When: packet is dissected
-# Then: fcf_security is set and aux_sec_header is correctly parsed
+# Note: remaining bytes are encrypted data, so ZigBeeBeacon dissection is expected to fail
+with no_debug_dissector():
+    pkt = Dot15d4(b'\x08\xD0\x84\x21\x43\x01\x00\x00\x00\x00\x48\xDE\xAC\x02\x05\x00\x00\x00\x55\xCF\x00\x00\x51\x52\x53\x54\x22\x3B\xC1\xEC\x84\x1A\xB5\x53')
+
 assert pkt.fcf_frametype == 0
 assert pkt.fcf_security == 1
 assert Dot15d4Beacon in pkt
