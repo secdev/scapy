@@ -41,8 +41,6 @@ except KeyError:
     #                 "The default value is False.")
     conf.contribs['UDS'] = {'treat-response-pending-as-answer': False}
 
-conf.debug_dissector = True
-
 
 class UDS(ISOTP):
     services = ObservableDict(
