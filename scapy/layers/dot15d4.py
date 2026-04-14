@@ -240,6 +240,10 @@ class Dot15d4Data(Packet):
     ]
 
     def guess_payload_class(self, payload):
+        # Encrypted payloads (sec_sc_seclevel >= 4) cannot be dissected further
+        if self.aux_sec_header is not None and \
+                self.aux_sec_header.sec_sc_seclevel >= 4:
+            return conf.raw_layer
         # TODO: See how it's done in wireshark:
         # https://github.com/wireshark/wireshark/blob/93c60b3b7c801dddd11d8c7f2a0ea4b7d02d700a/epan/dissectors/packet-ieee802154.c#L2061  # noqa: E501
         # it's too magic to me
@@ -309,6 +313,13 @@ class Dot15d4Beacon(Packet):
         # TODO beacon payload
     ]
 
+    def guess_payload_class(self, payload):
+        # Encrypted payloads (sec_sc_seclevel >= 4) cannot be dissected further
+        if self.aux_sec_header is not None and \
+                self.aux_sec_header.sec_sc_seclevel >= 4:
+            return conf.raw_layer
+        return Packet.guess_payload_class(self, payload)
+
     def mysummary(self):
         return self.sprintf("802.15.4 Beacon ( %Dot15d4Beacon.src_panid%:%Dot15d4Beacon.src_addr% ) assocPermit(%Dot15d4Beacon.sf_assocpermit%) panCoord(%Dot15d4Beacon.sf_pancoord%)")  # noqa: E501
 
@@ -348,6 +359,10 @@ class Dot15d4Cmd(Packet):
     # command frame payloads are complete: DataReq, PANIDConflictNotify, OrphanNotify, BeaconReq don't have any payload  # noqa: E501
     # Although BeaconReq can have an optional ZigBee Beacon payload (implemented in ZigBeeBeacon)  # noqa: E501
     def guess_payload_class(self, payload):
+        # Encrypted payloads (sec_sc_seclevel >= 4) cannot be dissected further
+        if self.aux_sec_header is not None and \
+                self.aux_sec_header.sec_sc_seclevel >= 4:
+            return conf.raw_layer
         if self.cmd_id == 1:
             return Dot15d4CmdAssocReq
         elif self.cmd_id == 2:

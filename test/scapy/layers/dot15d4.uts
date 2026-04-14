@@ -377,6 +377,18 @@ assert pkt2[Dot15d4Cmd].aux_sec_header is not None
 assert pkt2[Dot15d4Cmd].aux_sec_header.sec_sc_seclevel == 5
 assert pkt2[Dot15d4Cmd].aux_sec_header.sec_sc_keyidmode == 1
 
+= Dot15d4 Data with encrypted payload (seclevel >= 4) stays Raw
+
+# Given: a Data frame with seclevel=4 (ENC) and trailing encrypted bytes
+pkt = Dot15d4(fcf_frametype=1, fcf_security=1, fcf_destaddrmode=2, fcf_srcaddrmode=2) / Dot15d4Data(dest_panid=0x1234, dest_addr=0xFFFF, src_panid=0x1234, src_addr=0x0001, aux_sec_header=Dot15d4AuxSecurityHeader(sec_sc_seclevel=4, sec_sc_keyidmode=1, sec_keyid_keyindex=0x01)) / Raw(b'\xaa\xbb\xcc\xdd')
+# When: packet is serialized and re-dissected
+pkt2 = Dot15d4(raw(pkt))
+# Then: encrypted payload must not be dissected as SixLoWPAN/ZigBee
+assert pkt2[Dot15d4Data].aux_sec_header.sec_sc_seclevel == 4
+assert Raw in pkt2
+from scapy.layers.sixlowpan import SixLoWPAN
+assert SixLoWPAN not in pkt2
+
 = Dot15d4 Beacon without aux_sec_header (fcf_security=0)
 
 # Given: raw bytes for a Dot15d4 Beacon frame with fcf_security=0
