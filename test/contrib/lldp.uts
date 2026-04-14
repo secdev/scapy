@@ -315,34 +315,13 @@ assert frm[LLDPDUPortDescription].description == b'always!'
 
 + organisation specific layers
 
-= ThreeBytesEnumField tests
-
-three_b_enum_field = ThreeBytesEnumField('test', 0x00,
-                                         {
-                                             0x0e: 'fourteen',
-                                             0x00: 'zero',
-                                             0x5566: 'five-six',
-                                             0x0e0000: 'fourteen-zero-zero',
-                                             0x0e0100: 'fourteen-one-zero',
-                                             0x112233: '1#2#3'
-                                         })
-
-assert three_b_enum_field.i2repr(None, 0) == 'zero'
-assert three_b_enum_field.i2repr(None, 0x0e) == 'fourteen'
-assert three_b_enum_field.i2repr(None, 0x5566) == 'five-six'
-assert three_b_enum_field.i2repr(None, 0x112233) == '1#2#3'
-assert three_b_enum_field.i2repr(None, 0x0e0000) == 'fourteen-zero-zero'
-assert three_b_enum_field.i2repr(None, 0x0e0100) == 'fourteen-one-zero'
-assert three_b_enum_field.i2repr(None, 0x01) == '1'
-assert three_b_enum_field.i2repr(None, 0x49763) == '300899'
-
 = LLDPDUGenericOrganisationSpecific tests
 
 frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/\
       LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01')/\
       LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
       LLDPDUTimeToLive()/\
-      LLDPDUGenericOrganisationSpecific(org_code=LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO,
+      LLDPDUGenericOrganisationSpecific(org_code=ORG_UNIQUE_CODE_PNO,
                                         subtype=0x42,
                                         data=b'FooBar'*5
                                         )/\
@@ -353,7 +332,7 @@ frm = Ether(frm)
 org_spec_layer = frm[LLDPDUGenericOrganisationSpecific]
 assert org_spec_layer
 assert org_spec_layer._type == 127
-assert org_spec_layer.org_code == LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO
+assert org_spec_layer.org_code == ORG_UNIQUE_CODE_PNO
 assert org_spec_layer.subtype == 0x42
 assert org_spec_layer._length == 34
 
@@ -392,7 +371,7 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/\
       LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01')/\
       LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
       LLDPDUTimeToLive()/\
-      LLDPDUGenericOrganisationSpecific(org_code=LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO,
+      LLDPDUGenericOrganisationSpecific(org_code=ORG_UNIQUE_CODE_PNO,
                                         subtype=0x42,
                                         data=b'FooBar'*5
                                         )/\
@@ -408,7 +387,7 @@ poe_layer = frm[LLDPDUPowerViaMDI]
 assert poe_layer
 assert poe_layer._type == 127
 assert int(check_tshark(frm, "lldp", "lldp.tlv.type").split(',')[-2], 0) == 127
-assert poe_layer.org_code == LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3
+assert poe_layer.org_code == ORG_UNIQUE_CODE_IEEE_802_3
 assert int(check_tshark(frm, "lldp", "lldp.orgtlv.oui").split(',')[-1], 0) == 4623
 assert poe_layer.subtype == 2
 assert int(check_tshark(frm, "lldp", "lldp.ieee.802_3.subtype"), 0) == 0x02
@@ -426,7 +405,7 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/\
             LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01')/\
             LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
             LLDPDUTimeToLive()/\
-            LLDPDUGenericOrganisationSpecific(org_code=LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO,
+            LLDPDUGenericOrganisationSpecific(org_code=ORG_UNIQUE_CODE_PNO,
                                               subtype=0x42,
                                               data=b'FooBar'*5
                                               )
@@ -445,7 +424,7 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/\
       LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01')/\
       LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
       LLDPDUTimeToLive()/\
-      LLDPDUGenericOrganisationSpecific(org_code=LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO,
+      LLDPDUGenericOrganisationSpecific(org_code=ORG_UNIQUE_CODE_PNO,
                                         subtype=0x42,
                                         data=b'FooBar'*5
                                         )/\
@@ -466,7 +445,7 @@ poe_layer = frm[LLDPDUPowerViaMDIDDL]
 assert poe_layer
 assert poe_layer._type == 127
 assert int(check_tshark(frm, "lldp", "lldp.tlv.type").split(',')[-2], 0) == 127
-assert poe_layer.org_code == LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3
+assert poe_layer.org_code == ORG_UNIQUE_CODE_IEEE_802_3
 assert int(check_tshark(frm, "lldp", "lldp.orgtlv.oui").split(',')[-1], 0) == 4623
 assert poe_layer.subtype == 2
 assert int(check_tshark(frm, "lldp", "lldp.ieee.802_3.subtype"), 0) == 0x02
@@ -496,7 +475,7 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/\
             LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01')/\
             LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
             LLDPDUTimeToLive()/\
-            LLDPDUGenericOrganisationSpecific(org_code=LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO,
+            LLDPDUGenericOrganisationSpecific(org_code=ORG_UNIQUE_CODE_PNO,
                                               subtype=0x42,
                                               data=b'FooBar'*5
                                               )
@@ -532,7 +511,7 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/\
       LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01')/\
       LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
       LLDPDUTimeToLive()/\
-      LLDPDUGenericOrganisationSpecific(org_code=LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO,
+      LLDPDUGenericOrganisationSpecific(org_code=ORG_UNIQUE_CODE_PNO,
                                         subtype=0x42,
                                         data=b'FooBar'*5
                                         )/\
@@ -570,7 +549,7 @@ poe_layer = frm[LLDPDUPowerViaMDIType34]
 assert poe_layer
 assert poe_layer._type == 127
 assert int(check_tshark(frm, "lldp", "lldp.tlv.type").split(',')[-2], 0) == 127
-assert poe_layer.org_code == LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3
+assert poe_layer.org_code == ORG_UNIQUE_CODE_IEEE_802_3
 assert int(check_tshark(frm, "lldp", "lldp.orgtlv.oui").split(',')[-1], 0) == 4623
 assert poe_layer.subtype == 2
 assert int(check_tshark(frm, "lldp", "lldp.ieee.802_3.subtype"), 0) == 0x02
@@ -632,7 +611,7 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/\
             LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01')/\
             LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
             LLDPDUTimeToLive()/\
-            LLDPDUGenericOrganisationSpecific(org_code=LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO,
+            LLDPDUGenericOrganisationSpecific(org_code=ORG_UNIQUE_CODE_PNO,
                                               subtype=0x42,
                                               data=b'FooBar'*5
                                               )
@@ -719,7 +698,7 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/\
     LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01')/\
     LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
     LLDPDUTimeToLive()/\
-    LLDPDUGenericOrganisationSpecific(org_code=LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO,
+    LLDPDUGenericOrganisationSpecific(org_code=ORG_UNIQUE_CODE_PNO,
                                       subtype=0x42,
                                       data=b'FooBar'*5
                                       )/\
@@ -747,7 +726,7 @@ poe_layer_raw = raw(poe_layer)
 
 assert poe_layer
 assert poe_layer._type == 127
-assert poe_layer.org_code == LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3
+assert poe_layer.org_code == ORG_UNIQUE_CODE_IEEE_802_3
 assert poe_layer.subtype == 8
 assert poe_layer._length == 26
 assert poe_layer.support == 0b0110
@@ -776,7 +755,7 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/\
             LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01')/\
             LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
             LLDPDUTimeToLive()/\
-            LLDPDUGenericOrganisationSpecific(org_code=LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO,
+            LLDPDUGenericOrganisationSpecific(org_code=ORG_UNIQUE_CODE_PNO,
                                               subtype=0x42,
                                               data=b'FooBar'*5
                                               )
@@ -857,3 +836,907 @@ try:
     assert False
 except LLDPInvalidFieldValue:
     pass
+
++ IEEE 802.1 org-specific TLVs (PVID and VLAN Name)
+
+= PVID: build produces correct wire bytes
+
+frm_pvid = Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) / \
+    LLDPDUChassisID(subtype=4, id=b'router') / \
+    LLDPDUPortID(subtype=5, id=b'eth0') / \
+    LLDPDUTimeToLive(ttl=120) / \
+    LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID(pvid=100) / \
+    LLDPDUEndOfLLDPDU()
+raw_frm = bytes(frm_pvid)
+pvid_start = 34
+assert raw_frm[pvid_start:pvid_start + 8] == bytes.fromhex('fe060080c2010064'), \
+    'PVID wire bytes: {}'.format(raw_frm[pvid_start:pvid_start + 8].hex())
+
+= PVID: dissect recovers pvid field
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID(pvid=100) /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID), 'PVID TLV not dissected'
+assert p[LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID].pvid == 100
+assert p[LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID]._length == 6
+
+= PVID: boundary values (pvid=0 and pvid=4094) build without error
+
+conf.contribs['LLDP'].strict_mode_disable()
+for boundary in (0, 4094):
+    raw_b = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+        LLDPDUChassisID(subtype=4, id=b'router') /
+        LLDPDUPortID(subtype=5, id=b'eth0') /
+        LLDPDUTimeToLive(ttl=120) /
+        LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID(pvid=boundary) /
+        LLDPDUEndOfLLDPDU())
+    assert Ether(raw_b)[LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID].pvid == boundary
+
+= PVID: strict mode rejects wrong TLV length
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID(pvid=1)
+tlv_obj._length = 5
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+
+= PVID: not matched as generic LLDPDUGenericOrganisationSpecific
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID(pvid=77) /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+
+pvid_layer = p.getlayer(LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID)
+assert pvid_layer is not None, 'LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID layer not found'
+assert not p.haslayer(LLDPDUGenericOrganisationSpecific), \
+    'should not be dissected as plain LLDPDUGenericOrganisationSpecific'
+
+= VLAN Name: build produces correct wire bytes
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_VLAN_Name(vlan_id=200, vlan_name=b'mgmt') /
+    LLDPDUEndOfLLDPDU())
+vn_start = 34
+assert raw_frm[vn_start:vn_start + 13] == bytes.fromhex('fe0b0080c20300c8046d676d74'), \
+    'VLANName wire bytes: {}'.format(raw_frm[vn_start:vn_start + 13].hex())
+
+= VLAN Name: dissect recovers vlan_id and vlan_name
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_VLAN_Name(vlan_id=200, vlan_name=b'mgmt') /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_VLAN_Name), 'VLANName TLV not dissected'
+assert p[LLDPDUOrgSpecific_IEEE8021_VLAN_Name].vlan_id == 200
+assert p[LLDPDUOrgSpecific_IEEE8021_VLAN_Name].vlan_name == b'mgmt'
+assert p[LLDPDUOrgSpecific_IEEE8021_VLAN_Name]._length == 11
+assert p[LLDPDUOrgSpecific_IEEE8021_VLAN_Name].vlan_name_length == 4
+
+= VLAN Name: empty vlan_name (length field = 7)
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_VLAN_Name(vlan_id=1, vlan_name=b'') /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+tlv = p[LLDPDUOrgSpecific_IEEE8021_VLAN_Name]
+assert tlv._length == 7
+assert tlv.vlan_name == b''
+assert tlv.vlan_name_length == 0
+
+= VLAN Name: strict mode rejects TLV length < 7
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_VLAN_Name(vlan_id=1, vlan_name=b'x')
+tlv_obj._length = 6
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+tlv_obj._length = None
+tlv_obj._check()
+conf.contribs['LLDP'].strict_mode_disable()
+
+= VLAN Name: build and dissect
+
+tlv = LLDPDUOrgSpecific_IEEE8021_VLAN_Name(vlan_id=200, vlan_name=b'mgmt')
+assert bytes(tlv) == bytes(LLDPDUOrgSpecific_IEEE8021_VLAN_Name(bytes(tlv))), \
+    'VLAN Name build and dissect failed'
+
+= multiple TLVs in one frame: PVID + two VLAN Name TLVs
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID(pvid=10) /
+    LLDPDUOrgSpecific_IEEE8021_VLAN_Name(vlan_id=10, vlan_name=b'data') /
+    LLDPDUOrgSpecific_IEEE8021_VLAN_Name(vlan_id=20, vlan_name=b'voice') /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID)
+assert p[LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID].pvid == 10
+vn1 = p.getlayer(LLDPDUOrgSpecific_IEEE8021_VLAN_Name, nb=1)
+vn2 = p.getlayer(LLDPDUOrgSpecific_IEEE8021_VLAN_Name, nb=2)
+assert vn1 is not None and vn2 is not None, 'expected 2 VLANName TLVs'
+assert vn1.vlan_id == 10 and vn1.vlan_name == b'data'
+assert vn2.vlan_id == 20 and vn2.vlan_name == b'voice'
+
+= VLAN Name: strict mode rejects duplicate VID+name pair
+
+conf.contribs['LLDP'].strict_mode_enable()
+pkt = (Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_VLAN_Name(vlan_id=10, vlan_name=b'data') /
+    LLDPDUOrgSpecific_IEEE8021_VLAN_Name(vlan_id=10, vlan_name=b'data') /
+    LLDPDUEndOfLLDPDU())
+try:
+    bytes(pkt)
+    assert False, 'should have raised LLDPInvalidFrameStructure'
+except LLDPInvalidFrameStructure:
+    pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+
++ IEEE 802.1 org-specific TLVs (subtypes 2, 4, 5, 6, 7)
+
+= PPVID: build produces correct wire bytes
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Port_And_Protocol_VLAN_ID(ppvid_supported=1, ppvid_enabled=1, ppvid=10) /
+    LLDPDUEndOfLLDPDU())
+ppvid_start = 34
+assert raw_frm[ppvid_start:ppvid_start + 9] == bytes.fromhex('fe070080c20206000a'), \
+    'PPVID wire bytes: {}'.format(raw_frm[ppvid_start:ppvid_start + 9].hex())
+
+= PPVID: dissect recovers flags and ppvid
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Port_And_Protocol_VLAN_ID(ppvid_supported=1, ppvid_enabled=1, ppvid=10) /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_Port_And_Protocol_VLAN_ID), 'PPVID TLV not dissected'
+tlv = p[LLDPDUOrgSpecific_IEEE8021_Port_And_Protocol_VLAN_ID]
+assert tlv.ppvid == 10
+assert tlv.ppvid_supported == 1
+assert tlv.ppvid_enabled == 1
+assert tlv._length == 7
+
+= PPVID: strict mode rejects wrong TLV length
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_Port_And_Protocol_VLAN_ID(ppvid=1)
+tlv_obj._length = 6
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+
+= PPVID: individual flag bits map to correct wire positions
+
+tlv = LLDPDUOrgSpecific_IEEE8021_Port_And_Protocol_VLAN_ID(ppvid_enabled=1, ppvid_supported=0, ppvid=0)
+flags_byte = bytes(tlv)[6]
+assert flags_byte == 0x04, \
+    'ppvid_enabled=1 alone must set bit 2 (0x04), got 0x{:02x}'.format(flags_byte)
+
+tlv = LLDPDUOrgSpecific_IEEE8021_Port_And_Protocol_VLAN_ID(ppvid_enabled=0, ppvid_supported=1, ppvid=0)
+flags_byte = bytes(tlv)[6]
+assert flags_byte == 0x02, \
+    'ppvid_supported=1 alone must set bit 1 (0x02), got 0x{:02x}'.format(flags_byte)
+
+tlv = LLDPDUOrgSpecific_IEEE8021_Port_And_Protocol_VLAN_ID(bytes.fromhex('fe070080c20204000a'))
+assert tlv.ppvid_enabled == 1 and tlv.ppvid_supported == 0, \
+    'flags byte 0x04 must dissect as ppvid_enabled=1, ppvid_supported=0'
+
+tlv = LLDPDUOrgSpecific_IEEE8021_Port_And_Protocol_VLAN_ID(bytes.fromhex('fe070080c20202000a'))
+assert tlv.ppvid_enabled == 0 and tlv.ppvid_supported == 1, \
+    'flags byte 0x02 must dissect as ppvid_enabled=0, ppvid_supported=1'
+
+= Protocol Identity: build produces correct wire bytes
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Protocol_Identity(protocol_identity=b'\xaa\xbb\xcc') /
+    LLDPDUEndOfLLDPDU())
+pi_start = 34
+assert raw_frm[pi_start:pi_start + 10] == bytes.fromhex('fe080080c20403aabbcc'), \
+    'ProtocolIdentity wire bytes: {}'.format(raw_frm[pi_start:pi_start + 10].hex())
+
+= Protocol Identity: dissect recovers protocol_identity
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Protocol_Identity(protocol_identity=b'\xaa\xbb\xcc') /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_Protocol_Identity), 'Protocol Identity TLV not dissected'
+tlv = p[LLDPDUOrgSpecific_IEEE8021_Protocol_Identity]
+assert tlv.protocol_identity == b'\xaa\xbb\xcc'
+assert tlv.protocol_identity_length == 3
+assert tlv._length == 8
+
+= Protocol Identity: build and dissect
+
+tlv = LLDPDUOrgSpecific_IEEE8021_Protocol_Identity(protocol_identity=b'\xaa\xbb\xcc')
+assert bytes(tlv) == bytes(LLDPDUOrgSpecific_IEEE8021_Protocol_Identity(bytes(tlv))), \
+    'Protocol Identity build and dissect failed'
+
+= Protocol Identity: strict mode enforces length >= 5
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_Protocol_Identity(protocol_identity=b'\xaa')
+tlv_obj._length = 4
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+tlv_obj._length = 5
+tlv_obj._check()
+conf.contribs['LLDP'].strict_mode_disable()
+
+= Protocol Identity: strict mode rejects protocol_identity longer than 255 bytes
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_Protocol_Identity(protocol_identity=b'\xaa' * 256)
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+
+= VID Usage Digest: build produces correct wire bytes
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_VID_Usage_Digest(vid_usage_digest=0xdeadbeef) /
+    LLDPDUEndOfLLDPDU())
+vud_start = 34
+assert raw_frm[vud_start:vud_start + 10] == bytes.fromhex('fe080080c205deadbeef'), \
+    'VIDUsageDigest wire bytes: {}'.format(raw_frm[vud_start:vud_start + 10].hex())
+
+= VID Usage Digest: dissect recovers vid_usage_digest
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_VID_Usage_Digest(vid_usage_digest=0xdeadbeef) /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_VID_Usage_Digest), 'VID Usage Digest TLV not dissected'
+tlv = p[LLDPDUOrgSpecific_IEEE8021_VID_Usage_Digest]
+assert tlv.vid_usage_digest == 0xdeadbeef
+assert tlv._length == 8
+
+= VID Usage Digest: strict mode rejects length != 8
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_VID_Usage_Digest()
+tlv_obj._length = 9
+try:
+    tlv_obj._check()
+    assert False, 'expected LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+tlv_obj._length = 8
+tlv_obj._check()
+conf.contribs['LLDP'].strict_mode_disable()
+
+= Management VID: build produces correct wire bytes
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Management_VID(management_vid=15) /
+    LLDPDUEndOfLLDPDU())
+mvid_start = 34
+assert raw_frm[mvid_start:mvid_start + 8] == bytes.fromhex('fe060080c206000f'), \
+    'Management VID wire bytes: {}'.format(raw_frm[mvid_start:mvid_start + 8].hex())
+
+= Management VID: dissect recovers management_vid
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Management_VID(management_vid=15) /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_Management_VID), 'Management VID TLV not dissected'
+tlv = p[LLDPDUOrgSpecific_IEEE8021_Management_VID]
+assert tlv.management_vid == 15
+assert tlv._length == 6
+
+= Link Aggregation: build produces correct wire bytes
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Link_Aggregation(aggregation_status=0x03, aggregated_port_id=2) /
+    LLDPDUEndOfLLDPDU())
+la_start = 34
+assert raw_frm[la_start:la_start + 11] == bytes.fromhex('fe090080c2070300000002'), \
+    'LinkAggregation wire bytes: {}'.format(raw_frm[la_start:la_start + 11].hex())
+
+= Link Aggregation: dissect recovers aggregation_status and aggregated_port_id
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Link_Aggregation(aggregation_status=0x03, aggregated_port_id=2) /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_Link_Aggregation), 'Link Aggregation TLV not dissected'
+tlv = p[LLDPDUOrgSpecific_IEEE8021_Link_Aggregation]
+assert int(tlv.aggregation_status) == 0x03
+assert tlv.aggregated_port_id == 2
+assert tlv._length == 9
+
++ IEEE 802.1 org-specific TLVs (subtypes 8, 9, 10, 11, 12)
+
+= Congestion Notification: build produces correct wire bytes
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Congestion_Notification(cnpv_indicators=0x05, ready_indicators=0x03) /
+    LLDPDUEndOfLLDPDU())
+cn_start = 34
+assert raw_frm[cn_start:cn_start + 8] == bytes.fromhex('fe060080c2080503'), \
+    'CN wire bytes: {}'.format(raw_frm[cn_start:cn_start + 8].hex())
+
+= Congestion Notification: dissect recovers cnpv and ready indicators
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Congestion_Notification(cnpv_indicators=0x05, ready_indicators=0x03) /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_Congestion_Notification), 'CN TLV not dissected'
+tlv = p[LLDPDUOrgSpecific_IEEE8021_Congestion_Notification]
+assert int(tlv.cnpv_indicators) == 0x05
+assert int(tlv.ready_indicators) == 0x03
+assert tlv._length == 6
+
+= Congestion Notification: strict mode rejects wrong TLV length
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_Congestion_Notification()
+tlv_obj._length = 7
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+
+= ETS Configuration: build produces correct wire bytes
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_ETS_Configuration(
+        willing=1, cbs=0, max_tcs=0,
+        prio0_tc=0, prio1_tc=0, prio2_tc=0, prio3_tc=0,
+        prio4_tc=0, prio5_tc=0, prio6_tc=0, prio7_tc=0,
+        tc0_bw=100, tc1_bw=0, tc2_bw=0, tc3_bw=0,
+        tc4_bw=0, tc5_bw=0, tc6_bw=0, tc7_bw=0,
+        tc0_tsa=2, tc1_tsa=0, tc2_tsa=0, tc3_tsa=0,
+        tc4_tsa=0, tc5_tsa=0, tc6_tsa=0, tc7_tsa=0) /
+    LLDPDUEndOfLLDPDU())
+ets_start = 34
+raw = raw_frm[ets_start:ets_start + 27]
+assert raw[:6] == bytes.fromhex('fe190080c209'), \
+    'ETS Config header: {}'.format(raw[:6].hex())
+assert raw[6] == 0x80, 'byte 4 (willing bit set): got 0x{:02x}'.format(raw[6])
+assert len(raw) == 27, 'ETS Config total length: {}'.format(len(raw))
+
+= ETS Configuration: dissect recovers fields
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_ETS_Configuration(
+        willing=1, max_tcs=4,
+        prio0_tc=0, prio1_tc=1, prio2_tc=2, prio3_tc=3,
+        prio4_tc=0, prio5_tc=1, prio6_tc=2, prio7_tc=3,
+        tc0_bw=25, tc1_bw=25, tc2_bw=25, tc3_bw=25,
+        tc4_bw=0, tc5_bw=0, tc6_bw=0, tc7_bw=0,
+        tc0_tsa=2, tc1_tsa=2, tc2_tsa=2, tc3_tsa=2,
+        tc4_tsa=0, tc5_tsa=0, tc6_tsa=0, tc7_tsa=0) /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_ETS_Configuration), 'ETS Config TLV not dissected'
+tlv = p[LLDPDUOrgSpecific_IEEE8021_ETS_Configuration]
+assert tlv.willing == 1
+assert tlv.max_tcs == 4
+assert tlv.prio1_tc == 1
+assert tlv.tc0_bw == 25
+assert tlv.tc0_tsa == 2
+assert tlv._length == 25
+
+= ETS Configuration: strict mode rejects wrong TLV length
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_ETS_Configuration()
+tlv_obj._length = 24
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+
+= ETS Recommendation: build produces correct wire bytes
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_ETS_Recommendation(
+        prio0_tc=0, prio1_tc=1, prio2_tc=2, prio3_tc=3,
+        prio4_tc=0, prio5_tc=1, prio6_tc=2, prio7_tc=3,
+        tc0_bw=25, tc1_bw=25, tc2_bw=25, tc3_bw=25,
+        tc4_bw=0, tc5_bw=0, tc6_bw=0, tc7_bw=0,
+        tc0_tsa=2, tc1_tsa=2, tc2_tsa=2, tc3_tsa=2,
+        tc4_tsa=0, tc5_tsa=0, tc6_tsa=0, tc7_tsa=0) /
+    LLDPDUEndOfLLDPDU())
+ets_start = 34
+raw = raw_frm[ets_start:ets_start + 27]
+assert raw[:6] == bytes.fromhex('fe190080c20a'), \
+    'ETS Rec header: {}'.format(raw[:6].hex())
+assert raw[6] == 0x00, 'reserved byte must be 0: got 0x{:02x}'.format(raw[6])
+assert len(raw) == 27, 'ETS Rec total length: {}'.format(len(raw))
+
+= ETS Recommendation: dissect recovers fields
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_ETS_Recommendation(
+        prio0_tc=0, prio1_tc=1, prio2_tc=0, prio3_tc=1,
+        prio4_tc=0, prio5_tc=1, prio6_tc=0, prio7_tc=1,
+        tc0_bw=50, tc1_bw=50, tc2_bw=0, tc3_bw=0,
+        tc4_bw=0, tc5_bw=0, tc6_bw=0, tc7_bw=0,
+        tc0_tsa=2, tc1_tsa=2, tc2_tsa=0, tc3_tsa=0,
+        tc4_tsa=0, tc5_tsa=0, tc6_tsa=0, tc7_tsa=0) /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_ETS_Recommendation), 'ETS Rec TLV not dissected'
+tlv = p[LLDPDUOrgSpecific_IEEE8021_ETS_Recommendation]
+assert tlv.reserved == 0
+assert tlv.prio1_tc == 1
+assert tlv.tc0_bw == 50
+assert tlv.tc0_tsa == 2
+assert tlv._length == 25
+
+= PFC Configuration: build produces correct wire bytes
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_PFC_Configuration(willing=1, mbc=0, pfc_cap=8, pfc_enable=0x0f) /
+    LLDPDUEndOfLLDPDU())
+pfc_start = 34
+assert raw_frm[pfc_start:pfc_start + 8] == bytes.fromhex('fe060080c20b880f'), \
+    'PFC wire bytes: {}'.format(raw_frm[pfc_start:pfc_start + 8].hex())
+
+= PFC Configuration: dissect recovers fields
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_PFC_Configuration(willing=1, mbc=0, pfc_cap=8, pfc_enable=0x0f) /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_PFC_Configuration), 'PFC Config TLV not dissected'
+tlv = p[LLDPDUOrgSpecific_IEEE8021_PFC_Configuration]
+assert tlv.willing == 1
+assert tlv.mbc == 0
+assert tlv.pfc_cap == 8
+assert int(tlv.pfc_enable) == 0x0f
+assert tlv._length == 6
+
+= PFC Configuration: strict mode rejects wrong TLV length
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_PFC_Configuration()
+tlv_obj._length = 7
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+
+= Application Priority: build produces correct wire bytes
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Application_Priority(app_priority_table=[
+        LLDPDUOrgSpecific_IEEE8021_AppPriority_Entry(priority=5, sel=1, protocol=0x8906),
+        LLDPDUOrgSpecific_IEEE8021_AppPriority_Entry(priority=3, sel=2, protocol=0x0cbc),
+    ]) /
+    LLDPDUEndOfLLDPDU()
+)
+ap_start = 34
+assert raw_frm[ap_start:ap_start + 13] == bytes.fromhex('fe0b0080c20c00a18906620cbc'), \
+    'AppPriority wire bytes: {}'.format(raw_frm[ap_start:ap_start + 13].hex())
+
+= Application Priority: dissect recovers entries
+
+raw_frm = bytes(Ether(dst='01:80:c2:00:00:0e', src='aa:bb:cc:dd:ee:ff', type=0x88cc) /
+    LLDPDUChassisID(subtype=4, id=b'router') /
+    LLDPDUPortID(subtype=5, id=b'eth0') /
+    LLDPDUTimeToLive(ttl=120) /
+    LLDPDUOrgSpecific_IEEE8021_Application_Priority(app_priority_table=[
+        LLDPDUOrgSpecific_IEEE8021_AppPriority_Entry(priority=5, sel=1, protocol=0x8906),
+        LLDPDUOrgSpecific_IEEE8021_AppPriority_Entry(priority=3, sel=2, protocol=0x0cbc),
+    ]) /
+    LLDPDUEndOfLLDPDU())
+p = Ether(raw_frm)
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_Application_Priority), 'AppPriority TLV not dissected'
+tlv = p[LLDPDUOrgSpecific_IEEE8021_Application_Priority]
+assert tlv._length == 11
+assert len(tlv.app_priority_table) == 2
+assert tlv.app_priority_table[0].priority == 5
+assert tlv.app_priority_table[0].sel == 1
+assert tlv.app_priority_table[0].protocol == 0x8906
+assert tlv.app_priority_table[1].priority == 3
+assert tlv.app_priority_table[1].sel == 2
+assert tlv.app_priority_table[1].protocol == 0x0cbc
+
+= Application Priority: build and dissect
+
+tlv = LLDPDUOrgSpecific_IEEE8021_Application_Priority(app_priority_table=[
+    LLDPDUOrgSpecific_IEEE8021_AppPriority_Entry(priority=5, sel=1, protocol=0x8906),
+])
+assert bytes(tlv) == bytes(LLDPDUOrgSpecific_IEEE8021_Application_Priority(bytes(tlv))), \
+    'AppPriority build and dissect failed'
+
+= Application Priority: strict mode rejects TLV length < 5
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_Application_Priority()
+tlv_obj._length = 4
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+
+= Application Priority: strict mode rejects length not 5 + 3N
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_Application_Priority()
+tlv_obj._length = 7
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+tlv_obj._length = 8
+tlv_obj._check()
+conf.contribs['LLDP'].strict_mode_disable()
+
++ EVB TLV (IEEE 802.1Q D.2.12)
+
+= EVB TLV: build produces correct wire bytes
+
+tlv = LLDPDUOrgSpecific_IEEE8021_EVB()
+wire = bytes(tlv)
+assert wire == bytes.fromhex('fe090080c20d0000000000'), \
+    'EVB default wire bytes: {}'.format(wire.hex())
+
+= EVB TLV: build with mixed-width bit fields
+
+tlv = LLDPDUOrgSpecific_IEEE8021_EVB(
+    bgid=1, rrcap=1,
+    sgid=1, rrreq=1, rrstat=0b10,
+    r=3, rte=10,
+    evb_mode=1, rwd_rol=1, rwd=7,
+    rka_rol=1, rka=3,
+)
+wire = bytes(tlv)
+assert wire == bytes.fromhex('fe090080c20d060e6a6723'), \
+    'EVB wire bytes: {}'.format(wire.hex())
+
+= EVB TLV: dissect recovers fields
+
+tlv = LLDPDUOrgSpecific_IEEE8021_EVB(bytes.fromhex('fe090080c20d060e6a6723'))
+assert tlv._length == 9
+assert tlv.bgid == 1
+assert tlv.rrcap == 1
+assert tlv.rrctr == 0
+assert tlv.sgid == 1
+assert tlv.rrreq == 1
+assert tlv.rrstat == 0b10
+assert tlv.r == 3
+assert tlv.rte == 10
+assert tlv.evb_mode == 1
+assert tlv.rwd_rol == 1
+assert tlv.rwd == 7
+assert tlv.rka_rol == 1
+assert tlv.rka == 3
+
+= EVB TLV: build and dissect
+
+tlv = LLDPDUOrgSpecific_IEEE8021_EVB(bgid=1, sgid=1, evb_mode=2, rwd=5, rka=3)
+assert bytes(tlv) == bytes(LLDPDUOrgSpecific_IEEE8021_EVB(bytes(tlv))), \
+    'EVB build and dissect failed'
+
+= EVB TLV: strict mode rejects length != 9
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_EVB()
+tlv_obj._length = 8
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+
+= EVB TLV: _match_organization_specific requires length == 9
+
+assert LLDPDUOrgSpecific_IEEE8021_EVB._match_organization_specific(
+    bytes.fromhex('fe090080c20d0000000000')), \
+    'EVB matcher should accept length == 9'
+assert not LLDPDUOrgSpecific_IEEE8021_EVB._match_organization_specific(
+    bytes.fromhex('fe0a0080c20d000000000000')), \
+    'EVB matcher must reject length != 9'
+
++ CDCP TLV (IEEE 802.1Q D.2.13)
+
+= CDCP TLV: build default (no entries)
+
+tlv = LLDPDUOrgSpecific_IEEE8021_CDCP()
+wire = bytes(tlv)
+assert wire == bytes.fromhex('fe080080c20e00000000'), \
+    'CDCP default wire bytes: {}'.format(wire.hex())
+
+= CDCP TLV: build with fields and two entries
+
+tlv = LLDPDUOrgSpecific_IEEE8021_CDCP(
+    role=1,
+    scomp=1,
+    chncap=10,
+    scid_svid_list=[
+        LLDPDUOrgSpecific_IEEE8021_SCID_SVID_Pair(scid=1, svid=2),
+        LLDPDUOrgSpecific_IEEE8021_SCID_SVID_Pair(scid=0x123, svid=0x456),
+    ],
+)
+wire = bytes(tlv)
+assert wire == bytes.fromhex('fe0e0080c20e8800000a001002123456'), \
+    'CDCP wire bytes: {}'.format(wire.hex())
+
+= CDCP TLV: dissect recovers fields and entries
+
+tlv = LLDPDUOrgSpecific_IEEE8021_CDCP(bytes.fromhex('fe0e0080c20e8800000a001002123456'))
+assert tlv._length == 14
+assert tlv.role == 1
+assert tlv.scomp == 1
+assert tlv.chncap == 10
+assert len(tlv.scid_svid_list) == 2
+assert tlv.scid_svid_list[0].scid == 1
+assert tlv.scid_svid_list[0].svid == 2
+assert tlv.scid_svid_list[1].scid == 0x123
+assert tlv.scid_svid_list[1].svid == 0x456
+
+= CDCP TLV: build and dissect
+
+tlv = LLDPDUOrgSpecific_IEEE8021_CDCP(
+    role=1,
+    chncap=10,
+    scid_svid_list=[LLDPDUOrgSpecific_IEEE8021_SCID_SVID_Pair(scid=5, svid=100)],
+)
+assert bytes(tlv) == bytes(LLDPDUOrgSpecific_IEEE8021_CDCP(bytes(tlv))), \
+    'CDCP build and dissect failed'
+
+= CDCP TLV: strict mode rejects length < 8
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_CDCP()
+tlv_obj._length = 7
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+
++ Application VLAN TLV (IEEE 802.1Q D.2.14)
+
+= Application VLAN TLV: build default (no entries)
+
+tlv = LLDPDUOrgSpecific_IEEE8021_Application_VLAN()
+wire = bytes(tlv)
+assert wire == bytes.fromhex('fe040080c210'), \
+    'AppVLAN default wire bytes: {}'.format(wire.hex())
+
+= Application VLAN TLV: build with two entries
+
+tlv = LLDPDUOrgSpecific_IEEE8021_Application_VLAN(app_vlan_table=[
+    LLDPDUOrgSpecific_IEEE8021_AppVLANEntry(vid=100, sel=1, protocol=0x8100),
+    LLDPDUOrgSpecific_IEEE8021_AppVLANEntry(vid=200, sel=2, protocol=0x0050),
+])
+wire = bytes(tlv)
+assert wire == bytes.fromhex('fe0c0080c210064181000c820050'), \
+    'AppVLAN wire bytes: {}'.format(wire.hex())
+
+= Application VLAN TLV: dissect recovers entries
+
+tlv = LLDPDUOrgSpecific_IEEE8021_Application_VLAN(
+    bytes.fromhex('fe0c0080c210064181000c820050')
+)
+assert tlv._length == 12
+assert len(tlv.app_vlan_table) == 2
+assert tlv.app_vlan_table[0].vid == 100
+assert tlv.app_vlan_table[0].sel == 1
+assert tlv.app_vlan_table[0].protocol == 0x8100
+assert tlv.app_vlan_table[1].vid == 200
+assert tlv.app_vlan_table[1].sel == 2
+assert tlv.app_vlan_table[1].protocol == 0x0050
+
+= Application VLAN TLV: build and dissect
+
+tlv = LLDPDUOrgSpecific_IEEE8021_Application_VLAN(app_vlan_table=[
+    LLDPDUOrgSpecific_IEEE8021_AppVLANEntry(vid=100, sel=1, protocol=0x8100),
+])
+assert bytes(tlv) == bytes(LLDPDUOrgSpecific_IEEE8021_Application_VLAN(bytes(tlv))), \
+    'AppVLAN build and dissect failed'
+
+= Application VLAN TLV: strict mode rejects invalid length
+
+conf.contribs['LLDP'].strict_mode_enable()
+tlv_obj = LLDPDUOrgSpecific_IEEE8021_Application_VLAN()
+tlv_obj._length = 5
+try:
+    tlv_obj._check()
+    assert False, 'should have raised LLDPInvalidLengthField'
+except LLDPInvalidLengthField:
+    pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+
++ _lldp_tlv_length helper
+
+= _lldp_tlv_length: correct 9-bit extraction for length >= 256
+
+from scapy.contrib.lldp import _lldp_tlv_length
+# Craft a raw TLV header where the 9-bit length field is 263 (0x107):
+# type=127 (0x7f), length=263 (0x107)
+# byte0 = (0x7f << 1) | (263 >> 8) = 0xfe | 0x01 = 0xff
+# byte1 = 263 & 0xff = 0x07
+payload_high_bit = bytes([0xff, 0x07])
+assert _lldp_tlv_length(payload_high_bit) == 263, \
+    'expected 263, got {}'.format(_lldp_tlv_length(payload_high_bit))
+
+# Sanity check: normal case length=7 (PPVID)
+# byte0 = (0x7f << 1) | (7 >> 8) = 0xfe, byte1 = 0x07
+payload_normal = bytes([0xfe, 0x07])
+assert _lldp_tlv_length(payload_normal) == 7
+
++ real-world packet dissection
+
+= Wireshark sample: Summit300-48
+
+# Source: https://wiki.wireshark.org/LinkLayerDiscoveryProtocol (look for lldp.detailed.pcap)
+raw = bytes.fromhex(
+    '020704000130f9ada0040405312f31'
+    '06020078'
+    '081753756d6d69743330302d34382d506f72742031303031'
+    '000a0d53756d6d69743330302d3438'
+    '000c4c53756d6d69743330302d3438202d2056657273696f6e20372e34652e3120284275696c642035292062792052656c656173655f4d61737465722030352f32372f30352030343a35333a3131'
+    '000e0400140014'
+    '100e0706000130f9ada002000003e9'
+    '00fe0700120f02070100'
+    'fe0900120f01036c000010'
+    'fe0900120f030100000000'
+    'fe0600120f0405f2'
+    'fe060080c20101e8'
+    'fe070080c202010000'
+    'fe170080c20301e81076322d303438382d30332d3035303500'
+    'fe050080c204000000'
+)
+p = LLDPDU(raw)
+
+assert p.haslayer(LLDPDUChassisID)
+assert p[LLDPDUChassisID].subtype == 4  # MAC address
+assert p[LLDPDUChassisID].id == '00:01:30:f9:ad:a0'
+
+assert p.haslayer(LLDPDUPortID)
+assert p[LLDPDUPortID].id == b'1/1'
+
+assert p.haslayer(LLDPDUTimeToLive)
+assert p[LLDPDUTimeToLive].ttl == 120
+
+assert p.haslayer(LLDPDUSystemName)
+assert p[LLDPDUSystemName].system_name == b'Summit300-48\x00'
+
+assert p.haslayer(LLDPDUManagementAddress)
+assert p[LLDPDUManagementAddress].interface_number == 1001
+
+assert p.haslayer(LLDPDUPowerViaMDI)
+assert p[LLDPDUPowerViaMDI].org_code == ORG_UNIQUE_CODE_IEEE_802_3
+
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID)
+assert p[LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID].pvid == 488
+
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_VLAN_Name)
+assert p[LLDPDUOrgSpecific_IEEE8021_VLAN_Name].vlan_id == 488
+assert p[LLDPDUOrgSpecific_IEEE8021_VLAN_Name].vlan_name == b'v2-0488-03-0505\x00'
+
+assert p.haslayer(LLDPDUOrgSpecific_IEEE8021_Protocol_Identity)
+assert p[LLDPDUOrgSpecific_IEEE8021_Protocol_Identity].protocol_identity_length == 0
+assert p[LLDPDUOrgSpecific_IEEE8021_Protocol_Identity]._length == 5
+
+assert p.haslayer(LLDPDUEndOfLLDPDU)
+assert not p.haslayer(Raw), 'unexpected Raw remainder'

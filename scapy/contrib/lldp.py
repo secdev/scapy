@@ -20,7 +20,8 @@
 
     :TODO:
         - | organization specific TLV e.g. ProfiNet
-          | (see LLDPDUGenericOrganisationSpecific for a starting point)
+          | (see LLDPDUGenericOrganisationSpecific for a starting point;
+          |  IEEE 802.1Q and IEEE 802.1AX org-specific TLVs are implemented)
         - Ignore everything after EndofLLDPDUTLV
 
     :NOTES:
@@ -40,13 +41,12 @@ from scapy.error import Scapy_Exception
 from scapy.layers.l2 import Ether, Dot1Q
 from scapy.fields import MACField, IPField, IP6Field, BitField, \
     StrLenField, ByteEnumField, BitEnumField, \
-    EnumField, ThreeBytesField, BitFieldLenField, \
+    BitFieldLenField, \
     ShortField, XStrLenField, ByteField, ConditionalField, \
     MultipleTypeField, FlagsField, ShortEnumField, ScalingField, \
-    BitScalingField
-from scapy.packet import Packet, bind_layers
+    BitScalingField, FieldLenField, IntField, XIntField, PacketListField, OUIField
+from scapy.packet import NoPayload, Packet, bind_layers
 from scapy.data import ETHER_TYPES
-from scapy.compat import orb, bytes_int
 
 LLDP_NEAREST_BRIDGE_MAC = '01:80:c2:00:00:0e'
 LLDP_NEAREST_NON_TPMR_BRIDGE_MAC = '01:80:c2:00:00:03'
@@ -54,6 +54,40 @@ LLDP_NEAREST_CUSTOMER_BRIDGE_MAC = '01:80:c2:00:00:00'
 
 LLDP_ETHER_TYPE = 0x88cc
 ETHER_TYPES[LLDP_ETHER_TYPE] = 'LLDP'
+
+_LLDP_ETS_TSA_ALGORITHMS = {
+    0: 'Strict Priority',
+    1: 'Credit-Based Shaper',
+    2: 'Enhanced Transmission Selection',
+    3: 'ATS Transmission Selection',
+    # 4-254: Reserved for future standardization
+    255: 'Vendor Specific',  # used with DCBX
+}
+
+ORG_UNIQUE_CODES = {
+    0x000ecf: "PROFIBUS International (PNO)",
+    0x0080c2: "IEEE 802.1",
+    0x00120f: "IEEE 802.3",
+    0x0012bb: "TIA TR-41 Committee - Media Endpoint Discovery",
+    0x30b216: "Hytec Geraetebau GmbH",
+}
+
+ORG_UNIQUE_CODE_PNO = 0x000ecf
+ORG_UNIQUE_CODE_IEEE_802_1 = 0x0080c2
+ORG_UNIQUE_CODE_IEEE_802_3 = 0x00120f
+ORG_UNIQUE_CODE_TIA_TR_41_MED = 0x0012bb
+ORG_UNIQUE_CODE_HYTEC = 0x30b216
+
+_LLDP_SEL_FIELD_VALUES = {
+    0: 'Reserved',
+    1: 'Default or Ethertype',
+    2: 'TCP/SCTP port',
+    3: 'UDP/DCCP port',
+    4: 'TCP/SCTP/UDP/DCCP port',
+    5: 'DSCP',
+    6: 'Reserved',
+    7: 'Reserved',
+}
 
 
 class LLDPInvalidFieldValue(Scapy_Exception):
@@ -154,7 +188,7 @@ class LLDPDU(Packet):
     def guess_payload_class(self, payload):
         # type is a 7-bit bitfield spanning bits 1..7 -> div 2
         try:
-            lldpdu_tlv_type = orb(payload[0]) // 2
+            lldpdu_tlv_type = payload[0] // 2
             class_type = LLDPDU_CLASS_TYPES.get(lldpdu_tlv_type, conf.raw_layer)
             if isinstance(class_type, list):
                 for cls in class_type:
@@ -650,9 +684,13 @@ class LLDPDUManagementAddress(LLDPDU):
         BitFieldLenField('_length', None, 9, length_of='management_address',
                          adjust=lambda pkt, x:
                          8 + len(pkt.management_address) + len(pkt.object_id)),
-        BitFieldLenField('_management_address_string_length', None, 8,
-                         length_of='management_address',
-                         adjust=lambda pkt, x: len(pkt.management_address) + 1),  # noqa: E501
+        BitFieldLenField(
+            '_management_address_string_length',
+            None,
+            8,
+            length_of='management_address',
+            adjust=lambda pkt, x: len(pkt.management_address) + 1
+        ),
         ByteEnumField('management_address_subtype', 0x00,
                       LLDPDU.IANA_ADDRESS_FAMILY_NUMBERS),
         XStrLenField('management_address', '',
@@ -680,41 +718,830 @@ class LLDPDUManagementAddress(LLDPDU):
                     'got string of size {}'.format(management_address_len))
 
 
-class ThreeBytesEnumField(EnumField, ThreeBytesField):
-
-    def __init__(self, name, default, enum):
-        EnumField.__init__(self, name, default, enum, "!I")
-
-
 class LLDPDUGenericOrganisationSpecific(LLDPDU):
+    SUBTYPE = None          # type: int | None
+    ORG_CODE = None         # type: int | None
+    EXPECTED_LENGTH = None  # type: int | None
 
-    ORG_UNIQUE_CODE_PNO = 0x000ecf
-    ORG_UNIQUE_CODE_IEEE_802_1 = 0x0080c2
-    ORG_UNIQUE_CODE_IEEE_802_3 = 0x00120f
-    ORG_UNIQUE_CODE_TIA_TR_41_MED = 0x0012bb
-    ORG_UNIQUE_CODE_HYTEC = 0x30b216
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitFieldLenField(
+            '_length',
+            None,
+            9,
+            length_of='data',
+            adjust=lambda pkt, x: len(pkt.data) + 4
+        ),
+        OUIField('org_code', 0),
+        ByteField('subtype', 0x00),
+        XStrLenField(
+            'data',
+            '',
+            length_from=lambda pkt: 0 if pkt._length is None else
+            pkt._length - 4
+        )
+    ]
 
-    ORG_UNIQUE_CODES = {
-        ORG_UNIQUE_CODE_PNO: "PROFIBUS International (PNO)",
-        ORG_UNIQUE_CODE_IEEE_802_1: "IEEE 802.1",
-        ORG_UNIQUE_CODE_IEEE_802_3: "IEEE 802.3",
-        ORG_UNIQUE_CODE_TIA_TR_41_MED: "TIA TR-41 Committee . Media Endpoint Discovery",  # noqa: E501
-        ORG_UNIQUE_CODE_HYTEC: "Hytec Geraetebau GmbH"
+    @classmethod
+    def _match_organization_specific(cls, payload):
+        if cls.SUBTYPE is None or cls.ORG_CODE is None:
+            return True  # base class: accept anything
+        if payload[5] != cls.SUBTYPE:
+            return False
+        if int.from_bytes(payload[2:5], 'big') != cls.ORG_CODE:
+            return False
+        if cls.EXPECTED_LENGTH is not None:
+            return _lldp_tlv_length(payload) == cls.EXPECTED_LENGTH
+        return True
+
+    def _check(self):
+        if (self.EXPECTED_LENGTH is not None
+                and conf.contribs['LLDP'].strict_mode()
+                and self._length is not None
+                and self._length != self.EXPECTED_LENGTH):
+            raise LLDPInvalidLengthField(
+                '{} TLV length must be {}, got {}'.format(
+                    type(self).__name__, self.EXPECTED_LENGTH, self._length))
+
+
+def _lldp_tlv_length(payload):
+    """Extract the 9-bit TLV length from the two-byte LLDP TLV header.
+
+    The LLDP TLV header is 16 bits: bits 15-9 carry the 7-bit type and
+    bits 8-0 carry the 9-bit length (IEEE 802.1AB-2016 section 9.2).
+    In wire bytes: bit 8 of the length sits in the LSB of payload[0],
+    and bits 7-0 sit in payload[1].
+    """
+    return ((payload[0] & 0x01) << 8) | payload[1]
+
+
+class LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID(LLDPDUGenericOrganisationSpecific):
+    """
+    IEEE 802.1 organizationally specific TLV: Port VLAN ID (PVID).
+
+    Carries the native (untagged) VLAN ID of the port (the VLAN ID that
+    802.1Q Dot1Q sniffing cannot observe, because frames on the native VLAN
+    carry no 802.1Q header).
+
+    IEEE 802.1Q D.2.1.
+
+    Payload layout (6 bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x01
+        bytes 4-5   PVID (big-endian)
+    """
+
+    SUBTYPE = 0x01
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+    EXPECTED_LENGTH = 6
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 6, 9),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x01),
+        ShortField('pvid', 0),
+    ]
+
+
+class LLDPDUOrgSpecific_IEEE8021_Port_And_Protocol_VLAN_ID(
+        LLDPDUGenericOrganisationSpecific
+):
+    """
+    IEEE 802.1 organizationally specific TLV: Port and Protocol VLAN ID.
+
+    Advertises the Port and Protocol VLAN ID (PPVID) together with flags
+    indicating whether the port supports and has enabled the protocol VLAN.
+    Multiple instances may appear in one LLDPDU, one per protocol VLAN.
+
+    IEEE 802.1Q D.2.2.
+
+    Payload layout (7 bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x02
+        byte  4     flags: bits 7-3: reserved, bit 2: ppvid_enabled,
+                           bit 1: ppvid_supported, bit 0: reserved
+        bytes 5-6   PPVID (big-endian, 0 if unknown)
+    """
+
+    SUBTYPE = 0x02
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+    EXPECTED_LENGTH = 7
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 7, 9),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x02),
+        BitField('reserved', 0, 5),
+        BitField('ppvid_enabled', 0, 1),
+        BitField('ppvid_supported', 0, 1),
+        BitField('reserved0', 0, 1),
+        ShortField('ppvid', 0),
+    ]
+
+
+class LLDPDUOrgSpecific_IEEE8021_VLAN_Name(LLDPDUGenericOrganisationSpecific):
+    """
+    IEEE 802.1 organizationally specific TLV: VLAN Name.
+
+    Carries a VLAN ID together with its human-readable name.  One TLV is
+    emitted per VLAN, so a single LLDP frame from a trunk port can enumerate
+    the switch's complete VLAN table.
+
+    IEEE 802.1Q D.2.3.
+
+    Payload layout (7 + len(vlan_name) bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x03
+        bytes 4-5   VLAN ID (big-endian)
+        byte  6     vlan_name_length (0-32)
+        bytes 7..N  vlan_name
+    """
+
+    SUBTYPE = 0x03
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitFieldLenField('_length', None, 9, length_of='vlan_name',
+                         adjust=lambda pkt, x: x + 7),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x03),
+        ShortField('vlan_id', 0),
+        FieldLenField('vlan_name_length', None, length_of='vlan_name', fmt='B'),
+        StrLenField('vlan_name', b'', length_from=lambda pkt: pkt.vlan_name_length),
+    ]
+
+    def _check(self):
+        if not conf.contribs['LLDP'].strict_mode():
+            return
+        if self._length is not None:
+            if self._length < 7:
+                raise LLDPInvalidLengthField(
+                    'IEEE 802.1 VLAN Name TLV length must be >= 7, '
+                    'got {}'.format(self._length))
+            if self._length > 39:
+                raise LLDPInvalidLengthField(
+                    'IEEE 802.1 VLAN Name TLV length must be <= 39 '
+                    '(vlan_name max 32 bytes), got {}'.format(self._length))
+        # D.2.3.5: each VID+name combination must be unique in the frame
+        root = self
+        while root.underlayer is not None:
+            root = root.underlayer
+        layer = root
+        while layer is not None and not isinstance(layer, NoPayload):
+            if (layer is not self
+                    and isinstance(layer,
+                                   LLDPDUOrgSpecific_IEEE8021_VLAN_Name)
+                    and layer.vlan_id == self.vlan_id
+                    and layer.vlan_name == self.vlan_name):
+                raise LLDPInvalidFrameStructure(
+                    'Duplicate VLAN Name TLV: VID={} name={!r}'.format(
+                        self.vlan_id, self.vlan_name))
+            layer = layer.payload
+
+
+class LLDPDUOrgSpecific_IEEE8021_Protocol_Identity(LLDPDUGenericOrganisationSpecific):
+    """
+    IEEE 802.1 organizationally specific TLV: Protocol Identity.
+
+    Identifies a protocol accessible through the port by carrying its raw
+    protocol-identity octets (e.g. the first few bytes of a PDU header).
+    Multiple instances may appear in one LLDPDU, one per protocol.
+
+    IEEE 802.1Q D.2.4.
+
+    Payload layout (5 to 260 bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x04
+        byte  4     protocol_identity_length
+        bytes 5..N  protocol_identity (0-255 bytes)
+    """
+
+    SUBTYPE = 0x04
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitFieldLenField('_length', None, 9, length_of='protocol_identity',
+                         adjust=lambda pkt, x: x + 5),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x04),
+        FieldLenField('protocol_identity_length', None,
+                      length_of='protocol_identity', fmt='B'),
+        XStrLenField('protocol_identity', b'',
+                     length_from=lambda pkt: pkt.protocol_identity_length),
+    ]
+
+    @classmethod
+    def _match_organization_specific(cls, payload):
+        length = _lldp_tlv_length(payload)
+        return (payload[5] == cls.SUBTYPE
+                and 5 <= length <= 260
+                and int.from_bytes(payload[2:5], 'big') == cls.ORG_CODE)
+
+    def _check(self):
+        if conf.contribs['LLDP'].strict_mode():
+            if (self._length is not None
+                    and not (5 <= self._length <= 260)):
+                raise LLDPInvalidLengthField(
+                    'IEEE 802.1 Protocol Identity TLV length must be between 5 and 260,'
+                    ' got {}'.format(self._length))
+            if len(self.protocol_identity) > 255:
+                raise LLDPInvalidLengthField(
+                    'protocol_identity max 255 bytes (got {})'.format(
+                        len(self.protocol_identity)))
+
+
+class LLDPDUOrgSpecific_IEEE8021_VID_Usage_Digest(LLDPDUGenericOrganisationSpecific):
+    """
+    IEEE 802.1 organizationally specific TLV: VID Usage Digest.
+
+    Advertises the VID Usage Digest associated with the port. The digest is
+    the CRC32 of the 512-octet VID Usage Table (128 entries x 4 bytes).
+
+    IEEE 802.1Q D.2.5.
+
+    Payload layout (8 bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x05
+        bytes 4-7   vid_usage_digest (CRC32, big-endian)
+    """
+
+    SUBTYPE = 0x05
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+    EXPECTED_LENGTH = 8
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 8, 9),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x05),
+        XIntField('vid_usage_digest', 0),
+    ]
+
+
+class LLDPDUOrgSpecific_IEEE8021_Management_VID(LLDPDUGenericOrganisationSpecific):
+    """
+    IEEE 802.1 organizationally specific TLV: Management VID.
+
+    Advertises the VLAN ID associated with the management address of the
+    device.  A value of 0 means the device has no management VID.
+
+    IEEE 802.1Q D.2.6.
+
+    Payload layout (6 bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x06
+        bytes 4-5   management_vid (big-endian, 0 if none)
+    """
+
+    SUBTYPE = 0x06
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+    EXPECTED_LENGTH = 6
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 6, 9),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x06),
+        ShortField('management_vid', 0),
+    ]
+
+
+class LLDPDUOrgSpecific_IEEE8021_Link_Aggregation(LLDPDUGenericOrganisationSpecific):
+    """
+    IEEE 802.1 organizationally specific TLV: Link Aggregation.
+
+    Advertises whether the port supports link aggregation, whether it is
+    currently aggregated, and the ID of the aggregated port (0 if not
+    aggregated).
+
+    IEEE 802.1AX.
+
+    Payload layout (9 bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x07
+        byte  4     aggregation status (bit 0: capable, bit 1: enabled)
+        bytes 5-8   aggregated_port_id (big-endian, 0 if not aggregated)
+    """
+
+    AGG_STATUS = {
+        (1 << 0): 'capable',
+        (1 << 1): 'enabled',
+    }
+
+    SUBTYPE = 0x07
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+    EXPECTED_LENGTH = 9
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 9, 9),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x07),
+        FlagsField('aggregation_status', 0, 8, AGG_STATUS),
+        IntField('aggregated_port_id', 0),
+    ]
+
+
+class LLDPDUOrgSpecific_IEEE8021_Congestion_Notification(
+        LLDPDUGenericOrganisationSpecific
+):
+    """
+    IEEE 802.1 organizationally specific TLV: Congestion Notification.
+
+    Advertises per-priority Congestion Notification Point Variable (CNPV)
+    and Ready indicators for all 8 802.1p priorities on the port.
+
+    IEEE 802.1Q D.2.7.
+
+    Payload layout (6 bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x08
+        byte  4     CNPV indicators (bit 0: prio 0, ..., bit 7: prio 7)
+        byte  5     ready indicators (bit 0: prio 0, ..., bit 7: prio 7)
+    """
+
+    PRIORITY_BITS = {
+        (1 << 0): 'prio0', (1 << 1): 'prio1',
+        (1 << 2): 'prio2', (1 << 3): 'prio3',
+        (1 << 4): 'prio4', (1 << 5): 'prio5',
+        (1 << 6): 'prio6', (1 << 7): 'prio7',
+    }
+
+    SUBTYPE = 0x08
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+    EXPECTED_LENGTH = 6
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 6, 9),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x08),
+        FlagsField('cnpv_indicators', 0, 8, PRIORITY_BITS),
+        FlagsField('ready_indicators', 0, 8, PRIORITY_BITS),
+    ]
+
+
+class LLDPDUOrgSpecific_IEEE8021_ETS_Configuration(LLDPDUGenericOrganisationSpecific):
+    """
+    IEEE 802.1 organizationally specific TLV: ETS Configuration.
+
+    Advertises the Enhanced Transmission Selection configuration for the port:
+    the priority-to-traffic-class mapping, per-TC bandwidth allocation, and
+    the Transmission Selection Algorithm (TSA) for each TC.
+
+    IEEE 802.1Q D.2.8.
+
+    Payload layout (25 bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x09
+        byte  4     flags: bit 7: willing, bit 6: CBS, bits 5-3: reserved,
+                           bits 2-0: max_tcs
+        bytes 5-8   priority assignment table (4 bits per priority, prio 0-7)
+        bytes 9-16  TC bandwidth table (1 byte per TC, TC 0-7)
+        bytes 17-24 TSA assignment table (1 byte per TC, TC 0-7)
+    """
+
+    SUBTYPE = 0x09
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+    EXPECTED_LENGTH = 25
+
+    TSA_ALGORITHMS = _LLDP_ETS_TSA_ALGORITHMS
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 25, 9),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x09),
+        # flags byte: bit7=willing, bit6=CBS, bits5-3=reserved, bits2-0=maxTCs
+        BitField('willing', 0, 1),
+        BitField('cbs', 0, 1),
+        BitField('reserved', 0, 3),
+        BitField('max_tcs', 0, 3),
+        # priority assignment table: 4 bits per priority, MSB=prio0
+        BitField('prio0_tc', 0, 4),
+        BitField('prio1_tc', 0, 4),
+        BitField('prio2_tc', 0, 4),
+        BitField('prio3_tc', 0, 4),
+        BitField('prio4_tc', 0, 4),
+        BitField('prio5_tc', 0, 4),
+        BitField('prio6_tc', 0, 4),
+        BitField('prio7_tc', 0, 4),
+        # TC bandwidth table: percentage per TC
+        ByteField('tc0_bw', 0),
+        ByteField('tc1_bw', 0),
+        ByteField('tc2_bw', 0),
+        ByteField('tc3_bw', 0),
+        ByteField('tc4_bw', 0),
+        ByteField('tc5_bw', 0),
+        ByteField('tc6_bw', 0),
+        ByteField('tc7_bw', 0),
+        # TSA assignment table: algorithm per TC
+        ByteEnumField('tc0_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc1_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc2_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc3_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc4_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc5_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc6_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc7_tsa', 0, TSA_ALGORITHMS),
+    ]
+
+
+class LLDPDUOrgSpecific_IEEE8021_ETS_Recommendation(LLDPDUGenericOrganisationSpecific):
+    """
+    IEEE 802.1 organizationally specific TLV: ETS Recommendation.
+
+    Carries the recommended ETS configuration (priority-to-TC mapping, per-TC
+    bandwidth, and TSA per TC) that the sender would prefer the remote bridge
+    to apply.  Unlike the ETS Configuration TLV this TLV has no flags byte.
+
+    IEEE 802.1Q D.2.9.
+
+    Payload layout (25 bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x0A
+        byte  4     reserved
+        bytes 5-8   priority assignment table (4 bits per priority, prio 0-7)
+        bytes 9-16  TC bandwidth table (1 byte per TC, TC 0-7)
+        bytes 17-24 TSA assignment table (1 byte per TC, TC 0-7)
+    """
+
+    SUBTYPE = 0x0A
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+    EXPECTED_LENGTH = 25
+
+    TSA_ALGORITHMS = _LLDP_ETS_TSA_ALGORITHMS
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 25, 9),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x0A),
+        ByteField('reserved', 0),
+        # priority assignment table: 4 bits per priority, MSB=prio0
+        BitField('prio0_tc', 0, 4),
+        BitField('prio1_tc', 0, 4),
+        BitField('prio2_tc', 0, 4),
+        BitField('prio3_tc', 0, 4),
+        BitField('prio4_tc', 0, 4),
+        BitField('prio5_tc', 0, 4),
+        BitField('prio6_tc', 0, 4),
+        BitField('prio7_tc', 0, 4),
+        # TC bandwidth table: percentage per TC
+        ByteField('tc0_bw', 0),
+        ByteField('tc1_bw', 0),
+        ByteField('tc2_bw', 0),
+        ByteField('tc3_bw', 0),
+        ByteField('tc4_bw', 0),
+        ByteField('tc5_bw', 0),
+        ByteField('tc6_bw', 0),
+        ByteField('tc7_bw', 0),
+        # TSA assignment table: algorithm per TC
+        ByteEnumField('tc0_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc1_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc2_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc3_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc4_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc5_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc6_tsa', 0, TSA_ALGORITHMS),
+        ByteEnumField('tc7_tsa', 0, TSA_ALGORITHMS),
+    ]
+
+
+class LLDPDUOrgSpecific_IEEE8021_PFC_Configuration(LLDPDUGenericOrganisationSpecific):
+    """
+    IEEE 802.1 organizationally specific TLV: PFC Configuration.
+
+    Advertises the Priority-based Flow Control (PFC) configuration for the port:
+    willingness to negotiate, MACsec bypass capability, PFC cap (number of TCs
+    that can simultaneously have PFC enabled), and the per-priority PFC enable bitmap.
+
+    IEEE 802.1Q D.2.10.
+
+    Payload layout (6 bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x0B
+        byte  4     flags: bit 7: willing, bit 6: MBC,
+                           bits 5-4: reserved, bits 3-0: PFC cap
+        byte  5     PFC enable bitmap (bit 0: prio 0, ..., bit 7: prio 7)
+    """
+
+    PFC_ENABLE_BITS = {
+        (1 << 0): 'prio0', (1 << 1): 'prio1',
+        (1 << 2): 'prio2', (1 << 3): 'prio3',
+        (1 << 4): 'prio4', (1 << 5): 'prio5',
+        (1 << 6): 'prio6', (1 << 7): 'prio7',
+    }
+
+    SUBTYPE = 0x0B
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+    EXPECTED_LENGTH = 6
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitField('_length', 6, 9),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x0B),
+        # flags byte: bit7=willing, bit6=MBC, bits5-4=reserved, bits3-0=PFC cap
+        BitField('willing', 0, 1),
+        BitField('mbc', 0, 1),
+        BitField('reserved', 0, 2),
+        BitField('pfc_cap', 0, 4),
+        FlagsField('pfc_enable', 0, 8, PFC_ENABLE_BITS),
+    ]
+
+
+class LLDPDUOrgSpecific_IEEE8021_AppPriority_Entry(Packet):
+    """
+    Single application priority entry in an Application Priority TLV.
+
+    IEEE 802.1Q D.2.11.
+
+    Payload layout (3 bytes):
+        byte 0    bits 7-5: priority (3 bits)
+                  bits 4-3: reserved (2 bits)
+                  bits 2-0: sel (3 bits)
+        bytes 1-2 protocol (big-endian)
+    """
+
+    fields_desc = [
+        BitField('priority', 0, 3),
+        BitField('reserved', 0, 2),
+        BitEnumField('sel', 0, 3, _LLDP_SEL_FIELD_VALUES),
+        ShortField('protocol', 0),
+    ]
+
+    def extract_padding(self, s):
+        return b'', s
+
+
+class LLDPDUOrgSpecific_IEEE8021_Application_Priority(
+        LLDPDUGenericOrganisationSpecific
+):
+    """
+    IEEE 802.1 organizationally specific TLV: Application Priority.
+
+    Maps application protocols (identified by Ethertype, TCP/UDP port, etc.)
+    to 802.1p priority values. Zero or more 3-byte application entries may
+    appear in a single TLV.
+
+    IEEE 802.1Q D.2.11.
+
+    Payload layout (5 + 3N bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x0C
+        byte  4     reserved
+        N x 3 bytes application entries, each:
+            byte 0    bits 7-5: priority (3 bits)
+                      bits 4-3: reserved (2 bits)
+                      bits 2-0: sel (3 bits)
+            bytes 1-2 protocol (big-endian)
+    """
+
+    SUBTYPE = 0x0C
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitFieldLenField('_length', None, 9, length_of='app_priority_table',
+                         adjust=lambda pkt, x: x + 5),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x0C),
+        ByteField('reserved', 0),
+        PacketListField('app_priority_table', [],
+                        LLDPDUOrgSpecific_IEEE8021_AppPriority_Entry,
+                        length_from=lambda pkt: 0 if pkt._length is None
+                        else pkt._length - 5),
+    ]
+
+    def _check(self):
+        if conf.contribs['LLDP'].strict_mode() and self._length is not None:
+            if self._length < 5 or (self._length - 5) % 3 != 0:
+                raise LLDPInvalidLengthField(
+                    'IEEE 802.1 Application Priority TLV length must be '
+                    '5 + 3N (got {})'.format(self._length))
+
+
+class LLDPDUOrgSpecific_IEEE8021_EVB(LLDPDUGenericOrganisationSpecific):
+    """
+    IEEE 802.1 organizationally specific TLV: EVB (Edge Virtual Bridging).
+
+    Negotiates EVB capabilities between a station (hypervisor) and bridge.
+
+    IEEE 802.1Q D.2.12.
+
+    Payload layout (9 bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x0D
+        byte  4     EVB bridge status
+                      bits 7-3: reserved
+                      bit 2: BGID
+                      bit 1: RRCAP
+                      bit 0: RRCTR
+        byte  5     EVB station status
+                      bits 7-4: reserved
+                      bit 3: SGID
+                      bit 2: RRREQ
+                      bits 1-0: RRSTAT
+        byte  6     bits 7-5: R (ECP max retries)
+                    bits 4-0: RTE
+        byte  7     bits 7-6: EVB mode
+                    bit 5: rwd_rol (ROL for resource wait delay)
+                    bits 4-0: RWD
+        byte  8     bits 7-6: rka_reserved
+                    bit 5: rka_rol (ROL for reinit keep alive)
+                    bits 4-0: RKA
+    """
+
+    SUBTYPE = 0x0D
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+    EXPECTED_LENGTH = 9
+
+    EVB_MODES = {
+        0: 'Not Supported',
+        1: 'EVB Bridge',
+        2: 'EVB station',
+        3: 'NVO3',
     }
 
     fields_desc = [
         BitEnumField('_type', 127, 7, LLDPDU.TYPES),
-        BitFieldLenField('_length', None, 9, length_of='data', adjust=lambda pkt, x: len(pkt.data) + 4),  # noqa: E501
-        ThreeBytesEnumField('org_code', 0, ORG_UNIQUE_CODES),
-        ByteField('subtype', 0x00),
-        XStrLenField('data', '',
-                     length_from=lambda pkt: 0 if pkt._length is None else
-                     pkt._length - 4)
+        BitField('_length', 9, 9),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x0D),
+        # EVB bridge status (byte 4)
+        BitField('bridge_reserved', 0, 5),
+        BitField('bgid', 0, 1),
+        BitField('rrcap', 0, 1),
+        BitField('rrctr', 0, 1),
+        # EVB station status (byte 5)
+        BitField('station_reserved', 0, 4),
+        BitField('sgid', 0, 1),
+        BitField('rrreq', 0, 1),
+        BitField('rrstat', 0, 2),
+        # R (ECP max retries) and RTE (retransmit timer exponent)
+        BitField('r', 0, 3),
+        BitField('rte', 0, 5),
+        # Byte 7: EVB mode, ROL for RWD, resource wait delay
+        BitEnumField('evb_mode', 0, 2, EVB_MODES),
+        BitField('rwd_rol', 0, 1),
+        BitField('rwd', 0, 5),
+        # Byte 8: reserved, ROL for RKA, reinit keep alive
+        BitField('rka_reserved', 0, 2),
+        BitField('rka_rol', 0, 1),
+        BitField('rka', 0, 5),
     ]
 
-    @staticmethod
-    def _match_organization_specific(payload):
-        return True
+
+class LLDPDUOrgSpecific_IEEE8021_SCID_SVID_Pair(Packet):
+    """
+    Single S-channel entry in a CDCP TLV.
+
+    IEEE 802.1Q D.2.13.
+
+    Payload layout (3 bytes):
+        bits 23-12: scid (S-channel identifier, 12 bits)
+        bits 11-0:  svid (S-channel VLAN identifier, 12 bits)
+    """
+
+    fields_desc = [
+        BitField('scid', 0, 12),
+        BitField('svid', 0, 12),
+    ]
+
+    def extract_padding(self, s):
+        return b'', s
+
+
+class LLDPDUOrgSpecific_IEEE8021_CDCP(LLDPDUGenericOrganisationSpecific):
+    """
+    IEEE 802.1 organizationally specific TLV: CDCP
+    (Channel Discovery and Configuration Protocol).
+
+    Advertises S-channel assignments between EVB stations and bridges.
+
+    IEEE 802.1Q D.2.13.
+
+    Payload layout (8 + 3N bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x0E
+        byte  4     bit 7: role (0=EVB station, 1=EVB bridge)
+                    bits 6-4: res1
+                    bit 3: scomp (short channel compression)
+                    bits 2-0: res2[14:12]
+        byte  5     bits 7-0: res2[11:4]
+        byte  6     bits 7-4: res2[3:0]
+                    bits 3-0: chncap[11:8]
+        byte  7     bits 7-0: chncap[7:0]
+        bytes 8..N  N x 3-octet SCID/SVID entries
+    """
+
+    ROLE_VALUES = {
+        0: 'EVB station',
+        1: 'EVB bridge',
+    }
+
+    SUBTYPE = 0x0E
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitFieldLenField('_length', None, 9, length_of='scid_svid_list',
+                         adjust=lambda pkt, x: x + 8),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x0E),
+        # Byte 4
+        BitEnumField('role', 0, 1, ROLE_VALUES),
+        BitField('res1', 0, 3),
+        BitField('scomp', 0, 1),
+        # res2: 15 bits spanning bytes 4-6
+        BitField('res2', 0, 15),
+        # chncap: 12 bits spanning bytes 6-7
+        BitField('chncap', 0, 12),
+        # N x 3-octet S-channel entries
+        PacketListField('scid_svid_list', [],
+                        LLDPDUOrgSpecific_IEEE8021_SCID_SVID_Pair,
+                        length_from=lambda pkt: 0 if pkt._length is None
+                        else pkt._length - 8),
+    ]
+
+    def _check(self):
+        if (conf.contribs['LLDP'].strict_mode()
+                and self._length is not None
+                and self._length < 8):
+            raise LLDPInvalidLengthField(
+                'IEEE 802.1 CDCP TLV length must be >= 8, '
+                'got {}'.format(self._length))
+
+
+class LLDPDUOrgSpecific_IEEE8021_AppVLANEntry(Packet):
+    """
+    Single entry in an Application VLAN TLV.
+
+    IEEE 802.1Q D.2.14, Table D-12.
+
+    Payload layout (4 bytes):
+        bytes 0-1   bits 15-4: vid (VLAN ID, 12 bits)
+                    bit 3: reserved
+                    bits 2-0: sel (protocol ID type, 3 bits)
+        bytes 2-3   protocol (meaning determined by sel, big-endian)
+    """
+
+    fields_desc = [
+        BitField('vid', 0, 12),
+        BitField('reserved', 0, 1),
+        BitEnumField('sel', 0, 3, _LLDP_SEL_FIELD_VALUES),
+        ShortField('protocol', 0),
+    ]
+
+    def extract_padding(self, s):
+        return b'', s
+
+
+class LLDPDUOrgSpecific_IEEE8021_Application_VLAN(LLDPDUGenericOrganisationSpecific):
+    """
+    IEEE 802.1 organizationally specific TLV: Application VLAN.
+
+    Advertises the local Application VLAN Table, mapping protocols to VLAN IDs,
+    to indicate local configuration to peer stations.
+
+    IEEE 802.1Q D.2.14.
+
+    Payload layout (4 + 4N bytes):
+        bytes 0-2   OUI  0x0080c2
+        byte  3     subtype 0x10
+        N x 4 bytes Application VLAN Table entries:
+            bytes 0-1   bits 15-4: vid (12 bits)
+                        bit 3: reserved
+                        bits 2-0: sel (3 bits)
+            bytes 2-3   protocol (big-endian)
+    """
+
+    SUBTYPE = 0x10
+    ORG_CODE = ORG_UNIQUE_CODE_IEEE_802_1
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitFieldLenField('_length', None, 9, length_of='app_vlan_table',
+                         adjust=lambda pkt, x: x + 4),
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_1),
+        ByteField('subtype', 0x10),
+        PacketListField('app_vlan_table', [],
+                        LLDPDUOrgSpecific_IEEE8021_AppVLANEntry,
+                        length_from=lambda pkt: 0 if pkt._length is None
+                        else pkt._length - 4),
+    ]
+
+    def _check(self):
+        if conf.contribs['LLDP'].strict_mode() and self._length is not None:
+            if self._length < 4 or (self._length - 4) % 4 != 0:
+                raise LLDPInvalidLengthField(
+                    'IEEE 802.1 Application VLAN TLV length must be 4 + 4N, '
+                    'got {}'.format(self._length))
 
 
 class LLDPDUPowerViaMDI(LLDPDUGenericOrganisationSpecific):
@@ -750,7 +1577,7 @@ class LLDPDUPowerViaMDI(LLDPDUGenericOrganisationSpecific):
     fields_desc = [
         BitEnumField('_type', 127, 7, LLDPDU.TYPES),
         BitField('_length', 7, 9),
-        ThreeBytesField('org_code', LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3),  # noqa: E501
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_3),
         ByteField('subtype', 2),
         FlagsField('MDI_power_support', 0, 8, MDI_POWER_SUPPORT),
         ByteEnumField('PSE_power_pair', 1, PSE_POWER_PAIR),
@@ -762,9 +1589,9 @@ class LLDPDUPowerViaMDI(LLDPDUGenericOrganisationSpecific):
         """
         match organization specific TLV
         """
-        return (orb(payload[5]) == 2 and orb(payload[1]) == 7
-                and bytes_int(payload[2:5]) ==
-                LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3)
+        return (payload[5] == 2 and _lldp_tlv_length(payload) == 7
+                and int.from_bytes(payload[2:5], 'big') ==
+                ORG_UNIQUE_CODE_IEEE_802_3)
 
     def _check(self):
         """
@@ -830,7 +1657,7 @@ class LLDPDUPowerViaMDIDDL(LLDPDUPowerViaMDI):
     fields_desc = [
         BitEnumField('_type', 127, 7, LLDPDU.TYPES),
         BitField('_length', 12, 9),
-        ThreeBytesField('org_code', LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3),  # noqa: E501
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_3),
         ByteField('subtype', 2),
         FlagsField('MDI_power_support', 0, 8, LLDPDUPowerViaMDI.MDI_POWER_SUPPORT),
         ByteEnumField('PSE_power_pair', 1, LLDPDUPowerViaMDI.PSE_POWER_PAIR),
@@ -861,9 +1688,9 @@ class LLDPDUPowerViaMDIDDL(LLDPDUPowerViaMDI):
         """
         match organization specific TLV
         """
-        return (orb(payload[5]) == 2 and orb(payload[1]) == 12
-                and bytes_int(payload[2:5]) ==
-                LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3)
+        return (payload[5] == 2 and _lldp_tlv_length(payload) == 12
+                and int.from_bytes(payload[2:5], 'big') ==
+                ORG_UNIQUE_CODE_IEEE_802_3)
 
     def _check(self):
         """
@@ -987,19 +1814,32 @@ class LLDPDUPowerViaMDIType34(LLDPDUPowerViaMDIDDL):
     fields_desc = [
         BitEnumField('_type', 127, 7, LLDPDU.TYPES),
         BitField('_length', 29, 9),
-        ThreeBytesField('org_code', LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3),  # noqa: E501
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_3),
         ByteField('subtype', 2),
         FlagsField('MDI_power_support', 0, 8, LLDPDUPowerViaMDI.MDI_POWER_SUPPORT),
         ByteEnumField('PSE_power_pair', 1, LLDPDUPowerViaMDI.PSE_POWER_PAIR),
         ByteEnumField('power_class', 1, LLDPDUPowerViaMDI.POWER_CLASS),
         BitEnumField('power_type_no', 1, 1, LLDPDUPowerViaMDIDDL.POWER_TYPE_NO),
         BitEnumField('power_type_dir', 1, 1, LLDPDUPowerViaMDIDDL.POWER_TYPE_DIR),
-        MultipleTypeField([
-            (
-                BitEnumField('power_source', 0b01, 2, LLDPDUPowerViaMDIDDL.POWER_SOURCE_PD),  # noqa: E501
-                lambda pkt: pkt.power_type_dir == 1
-            ),
-        ], BitEnumField('power_source', 0b01, 2, LLDPDUPowerViaMDIDDL.POWER_SOURCE_PSE)),  # noqa: E501
+        MultipleTypeField(
+            [
+                (
+                    BitEnumField(
+                        'power_source',
+                        0b01,
+                        2,
+                        LLDPDUPowerViaMDIDDL.POWER_SOURCE_PD
+                    ),
+                    lambda pkt: pkt.power_type_dir == 1
+                )
+            ],
+            BitEnumField(
+                'power_source',
+                0b01,
+                2,
+                LLDPDUPowerViaMDIDDL.POWER_SOURCE_PSE
+            )
+        ),
         MultipleTypeField([
             (
                 BitEnumField('PD_4PID', 0, 2, LLDPDUPowerViaMDIDDL.PD_4PID_SUP),
@@ -1041,9 +1881,9 @@ class LLDPDUPowerViaMDIType34(LLDPDUPowerViaMDIDDL):
         '''
         match organization specific TLV
         '''
-        return (orb(payload[5]) == 2 and orb(payload[1]) == 29
-                and bytes_int(payload[2:5]) ==
-                LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3)
+        return (payload[5] == 2 and _lldp_tlv_length(payload) == 29
+                and int.from_bytes(payload[2:5], 'big') ==
+                ORG_UNIQUE_CODE_IEEE_802_3)
 
     def _check(self):
         """
@@ -1132,7 +1972,7 @@ class LLDPDUPowerViaMDIMeasure(LLDPDUGenericOrganisationSpecific):
     fields_desc = [
         BitEnumField('_type', 127, 7, LLDPDU.TYPES),
         BitField('_length', 26, 9),
-        ThreeBytesField('org_code', LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3),  # noqa: E501
+        OUIField('org_code', ORG_UNIQUE_CODE_IEEE_802_3),
         ByteField('subtype', 8),
         FlagsField('support', 0, 4, MEASURE_TYPE),
         BitEnumField('source', 0, 4, MEASURE_SOURCE),
@@ -1176,9 +2016,9 @@ class LLDPDUPowerViaMDIMeasure(LLDPDUGenericOrganisationSpecific):
         '''
         match organization specific TLV
         '''
-        return (orb(payload[5]) == 8 and orb(payload[1]) == 26
-                and bytes_int(payload[2:5]) ==
-                LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3)
+        return (payload[5] == 8 and _lldp_tlv_length(payload) == 26
+                and int.from_bytes(payload[2:5], 'big') ==
+                ORG_UNIQUE_CODE_IEEE_802_3)
 
     def _check(self):
         """
@@ -1234,6 +2074,21 @@ LLDPDU_CLASS_TYPES = {
     0x07: LLDPDUSystemCapabilities,
     0x08: LLDPDUManagementAddress,
     127: [
+        LLDPDUOrgSpecific_IEEE8021_Port_VLAN_ID,
+        LLDPDUOrgSpecific_IEEE8021_Port_And_Protocol_VLAN_ID,
+        LLDPDUOrgSpecific_IEEE8021_VLAN_Name,
+        LLDPDUOrgSpecific_IEEE8021_Protocol_Identity,
+        LLDPDUOrgSpecific_IEEE8021_VID_Usage_Digest,
+        LLDPDUOrgSpecific_IEEE8021_Management_VID,
+        LLDPDUOrgSpecific_IEEE8021_Link_Aggregation,
+        LLDPDUOrgSpecific_IEEE8021_Congestion_Notification,
+        LLDPDUOrgSpecific_IEEE8021_ETS_Configuration,
+        LLDPDUOrgSpecific_IEEE8021_ETS_Recommendation,
+        LLDPDUOrgSpecific_IEEE8021_PFC_Configuration,
+        LLDPDUOrgSpecific_IEEE8021_Application_Priority,
+        LLDPDUOrgSpecific_IEEE8021_EVB,
+        LLDPDUOrgSpecific_IEEE8021_CDCP,
+        LLDPDUOrgSpecific_IEEE8021_Application_VLAN,
         LLDPDUPowerViaMDI,
         LLDPDUPowerViaMDIDDL,
         LLDPDUPowerViaMDIType34,
