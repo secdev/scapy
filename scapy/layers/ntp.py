@@ -40,6 +40,7 @@ from scapy.fields import (
     StrFixedLenField,
     StrLenField,
     XByteField,
+    XStrField,
     XStrFixedLenField,
 )
 from scapy.layers.inet import UDP
@@ -235,24 +236,6 @@ class NTP(Packet):
         )
 
 
-class _NTPAuthenticatorPaddingField(StrField):
-    """
-    StrField handling the padding that may be found before the
-    "authenticator" field.
-    """
-
-    def getfield(self, pkt, s):
-        ret = None
-        remain = s
-        length = len(s)
-
-        if length > _NTP_AUTH_MD5_TAIL_SIZE:
-            start = length - _NTP_AUTH_MD5_TAIL_SIZE
-            ret = s[:start]
-            remain = s[start:]
-        return remain, ret
-
-
 class NTPAuthenticator(Packet):
     """
     Packet handling the "authenticator" part of a NTP packet, as
@@ -261,9 +244,8 @@ class NTPAuthenticator(Packet):
 
     name = "Authenticator"
     fields_desc = [
-        _NTPAuthenticatorPaddingField("padding", ""),
         IntField("key_id", 0),
-        XStrFixedLenField("dgst", "", length_from=lambda x: 16)
+        XStrField("dgst", "")
     ]
 
     def extract_padding(self, s):
@@ -476,7 +458,8 @@ class NTPHeader(NTP):
         """
         plen = len(payload)
 
-        if plen - 4 in [16, 20, 32, 64]:  # length of MD5, SHA1, SHA256, SHA512
+        # length of MD5, SHA1, SHA256, SHA384, SHA512
+        if plen - 4 in [16, 20, 32, 48, 64]:
             return NTPAuthenticator
         elif plen > _NTP_AUTH_MD5_TAIL_SIZE:
             return NTPExtensions
