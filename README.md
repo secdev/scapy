@@ -2,6 +2,9 @@
 
 # <img src="https://github.com/secdev/scapy/raw/master/doc/scapy/graphics/scapy_logo.png" width="64" valign="middle" alt="Scapy" />&nbsp;&nbsp; Scapy
 
+This repository contains a modified version of Scapy (GPLv2).
+Modifications by We-Fuzz are also licensed under GPLv2.
+
 [![Scapy unit tests](https://github.com/secdev/scapy/actions/workflows/unittests.yml/badge.svg?branch=master&event=push)](https://github.com/secdev/scapy/actions/workflows/unittests.yml?query=event%3Apush) <!-- ignore_ppi -->
 [![Codecov Status](https://codecov.io/gh/secdev/scapy/branch/master/graph/badge.svg)](https://codecov.io/gh/secdev/scapy) <!-- ignore_ppi -->
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/30ee6772bb264a689a2604f5cdb0437b)](https://app.codacy.com/gh/secdev/scapy/dashboard) <!-- ignore_ppi -->
