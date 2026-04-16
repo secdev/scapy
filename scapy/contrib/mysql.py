@@ -47,6 +47,7 @@ from scapy.fields import (
     LEShortEnumField,
     LEShortField,
     LEThreeBytesField,
+    MultipleTypeField,
     PacketListField,
     StrField,
     StrFixedLenField,
@@ -342,15 +343,7 @@ class MySQLLenEncStrField(Field[Any, Any]):
         return repr(val)
 
 
-class MySQLAuthResponseField(Field[Any, Any]):
-    """
-    Authentication response encoding depends on client capabilities.
-
-    - CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA: string<lenenc>
-    - CLIENT_SECURE_CONNECTION: int<1> + string<length>
-    - otherwise: string<NUL>
-    """
-
+class MySQLByteLenStrField(Field[Any, Any]):
     def __init__(self, name: str, default: Any = b"") -> None:
         Field.__init__(self, name, default)
 
@@ -359,29 +352,13 @@ class MySQLAuthResponseField(Field[Any, Any]):
             val = b""
         if isinstance(val, str):
             val = val.encode("utf-8")
-        flags = getattr(pkt, "client_flags", 0)
-        if _capability(flags, CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA):
-            return s + _build_lenenc_int(len(val)) + val
-        if _capability(flags, CLIENT_SECURE_CONNECTION):
-            return s + struct.pack("B", len(val)) + val
-        return s + val + b"\x00"
+        return s + struct.pack("B", len(val)) + val
 
     def getfield(self, pkt: Packet, s: bytes) -> Tuple[bytes, Any]:
-        flags = getattr(pkt, "client_flags", 0)
-        if _capability(flags, CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA):
-            length, size = _read_lenenc_int(s)
-            start = size
-            end = size + length
-            return s[end:], s[start:end]
-        if _capability(flags, CLIENT_SECURE_CONNECTION):
-            if not s:
-                return s, b""
-            length = orb(s[0])
-            return s[1 + length:], s[1:1 + length]
-        end = s.find(b"\x00")
-        if end < 0:
-            return b"", s
-        return s[end + 1:], s[:end]
+        if not s:
+            return s, b""
+        length = orb(s[0])
+        return s[1 + length:], s[1:1 + length]
 
     def i2repr(self, pkt: Optional[Packet], val: Any) -> str:
         return repr(val)
@@ -498,7 +475,25 @@ class MySQLHandshakeResponse41(Packet):
         MySQLCharsetField("character_set", 0),
         StrFixedLenField("filler", b"\x00" * 23, length=23),
         StrNullField("username", b""),
-        MySQLAuthResponseField("auth_response", b""),
+        MultipleTypeField(
+            [
+                (
+                    MySQLLenEncStrField("auth_response", b""),
+                    lambda pkt: _capability(
+                        pkt.client_flags,
+                        CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA,
+                    ),
+                ),
+                (
+                    MySQLByteLenStrField("auth_response", b""),
+                    lambda pkt: _capability(
+                        pkt.client_flags,
+                        CLIENT_SECURE_CONNECTION,
+                    ),
+                ),
+            ],
+            StrNullField("auth_response", b""),
+        ),
         ConditionalField(
             StrNullField("database", b""),
             lambda pkt: _capability(pkt.client_flags, CLIENT_CONNECT_WITH_DB),

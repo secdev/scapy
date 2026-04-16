@@ -543,15 +543,13 @@ empty_secure_auth_raw = bytes(empty_secure_auth_pkt)
 empty_secure_auth_stream = MySQLClient(empty_secure_auth_raw)
 assert empty_secure_auth_stream.contents[0].payload.auth_response == b""
 
-assert mysql.MySQLAuthResponseField("auth").i2repr(None, b"abc") == "b'abc'"
-assert mysql.MySQLAuthResponseField("auth").getfield(
-    MySQLHandshakeResponse41(client_flags=CLIENT_PROTOCOL_41),
-    b"abc",
+assert mysql.MySQLByteLenStrField("auth").i2repr(None, b"abc") == "b'abc'"
+assert mysql.MySQLByteLenStrField("auth").getfield(
+    None,
+    b"\x03abc",
 ) == (b"", b"abc")
-assert mysql.MySQLAuthResponseField("auth").getfield(
-    MySQLHandshakeResponse41(
-        client_flags=CLIENT_PROTOCOL_41 | CLIENT_SECURE_CONNECTION
-    ),
+assert mysql.MySQLByteLenStrField("auth").getfield(
+    None,
     b"",
 ) == (b"", b"")
 
