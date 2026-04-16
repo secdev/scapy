@@ -5,6 +5,9 @@
 
 = Load contribution layer
 
+import sys
+sys.path.append(".")
+sys.path.append("test")
 from scapy.contrib.automotive.scanner.enumerator import _AutomotiveTestCaseScanResult, ServiceEnumerator, StateGenerator, StateGeneratingServiceEnumerator
 from scapy.contrib.automotive.scanner.test_case import TestCaseGenerator, AutomotiveTestCase
 from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor
@@ -1089,3 +1092,56 @@ assert args["req"] == UDS()/UDS_DSC(b"\x03")
 assert "diagnosticSessionType" in args["desc"] and "extendedDiagnosticSession" in args["desc"]
 
 assert not tce.enter_state(EcuState(session=1), EcuState(session=3))
+
+
++ AutomotiveTestCaseExecutor Extra Coverage
+
+= Executor additional properties and reduce
+class DummyExecutor6(AutomotiveTestCaseExecutor):
+    @property
+    def default_test_case_clss(self): return []
+
+s_conv = SingleConversationSocket(MockSock())
+exec_test = DummyExecutor6(s_conv)
+assert isinstance(exec_test.socket, SingleConversationSocket)
+assert exec_test.final_states == [EcuState(session=1)]
+assert exec_test.scan_completed
+assert exec_test.progress() == 0.0
+# __reduce__ test
+res = exec_test.__reduce__()
+assert "socket" not in res[2]
+
+= Executor state generator / test case generator
+from scapy.contrib.automotive.scanner.test_case import StateGenerator, TestCaseGenerator, AutomotiveTestCaseABC
+
+class DummyGen(AutomotiveTestCaseABC, StateGenerator, TestCaseGenerator):
+    def pre_execute(self, s, st, c): pass
+    def execute(self, s, st, **k): pass
+    def post_execute(self, s, st, c): pass
+    def get_new_edge(self, s, c): return (EcuState(session=1), EcuState(session=2))
+    def get_transition_function(self, s, e): return lambda s,c,k: True
+    def get_generated_test_case(self): return None
+    def has_completed(self, s): return True
+    def completed(self, s): return True
+    def show(self): pass
+    @property
+    def supported_responses(self): return []
+
+class DummyExecutor7(AutomotiveTestCaseExecutor):
+    @property
+    def default_test_case_clss(self): return [DummyGen]
+
+exec_test = DummyExecutor7(MockSock())
+exec_test.check_new_states(exec_test.configuration.test_cases[0])
+exec_test.check_new_testcases(exec_test.configuration.test_cases[0])
+assert EcuState(session=2) in exec_test.state_graph.nodes
+
+= Executor cleanup robust
+class DummyExecutor8(AutomotiveTestCaseExecutor):
+    @property
+    def default_test_case_clss(self): return []
+
+def bad_cleanup(s, c): raise Scapy_Exception("bad")
+exec_test = DummyExecutor8(MockSock())
+exec_test.cleanup_functions = [bad_cleanup, "not callable"]
+exec_test.cleanup_state()
