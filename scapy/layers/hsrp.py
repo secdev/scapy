@@ -54,10 +54,10 @@ class HSRP(Packet):
         ConditionalField(ShortEnumField("adv_type", 1, {1: "HSRP interface state"}), _is_advertise),
         ConditionalField(ShortField("adv_length", 10), _is_advertise),
         ConditionalField(ByteEnumField("adv_state", 1, {1: "Active", 2: "Passive"}), _is_advertise),
-        ConditionalField(ByteField("adv_reserved", 0), _is_advertise),
-        ConditionalField(ShortField("activegroups", 0), _is_advertise),
-        ConditionalField(ShortField("passivegroups", 0), _is_advertise),
-        ConditionalField(IntField("reserved2", 0), _is_advertise)
+        ConditionalField(ByteField("adv_reserved1", 0), _is_advertise),
+        ConditionalField(ShortField("adv_active_grps", 0), _is_advertise),
+        ConditionalField(ShortField("adv_passive_grps", 0), _is_advertise),
+        ConditionalField(IntField("adv_reserved2", 0), _is_advertise)
     ]
 
     def guess_payload_class(self, payload):
