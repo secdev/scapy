@@ -13,10 +13,19 @@ A proprietary redundancy protocol for Cisco routers.
 """
 
 from scapy.config import conf
-from scapy.fields import ByteEnumField, ByteField, IPField, SourceIPField, \
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    IntField, IPField, ShortEnumField, ShortField, SourceIPField, \
     StrFixedLenField, XIntField, XShortField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.layers.inet import DestIPField, UDP
+
+
+def _is_advertise(pkt) -> bool:
+    return pkt.opcode == 3
+
+
+def _is_not_advertise(pkt) -> bool:
+    return pkt.opcode != 3
 
 
 class HSRP(Packet):
@@ -24,14 +33,32 @@ class HSRP(Packet):
     fields_desc = [
         ByteField("version", 0),
         ByteEnumField("opcode", 0, {0: "Hello", 1: "Coup", 2: "Resign", 3: "Advertise"}),  # noqa: E501
-        ByteEnumField("state", 16, {0: "Initial", 1: "Learn", 2: "Listen", 4: "Speak", 8: "Standby", 16: "Active"}),  # noqa: E501
-        ByteField("hellotime", 3),
-        ByteField("holdtime", 10),
-        ByteField("priority", 120),
-        ByteField("group", 1),
-        ByteField("reserved", 0),
-        StrFixedLenField("auth", b"cisco" + b"\00" * 3, 8),
-        IPField("virtualIP", "192.168.1.1")]
+        ConditionalField(
+            ByteEnumField("state", 16, {
+                0: "Initial",
+                1: "Learn",
+                2: "Listen",
+                4: "Speak",
+                8: "Standby",
+                16: "Active",
+            }),
+            _is_not_advertise
+        ),
+        ConditionalField(ByteField("hellotime", 3), _is_not_advertise),
+        ConditionalField(ByteField("holdtime", 10), _is_not_advertise),
+        ConditionalField(ByteField("priority", 120), _is_not_advertise),
+        ConditionalField(ByteField("group", 1), _is_not_advertise),
+        ConditionalField(ByteField("reserved", 0), _is_not_advertise),
+        ConditionalField(StrFixedLenField("auth", b"cisco" + b"\00" * 3, 8), _is_not_advertise),
+        ConditionalField(IPField("virtualIP", "192.168.1.1"), _is_not_advertise),
+        ConditionalField(ShortEnumField("adv_type", 1, {1: "HSRP interface state"}), _is_advertise),
+        ConditionalField(ShortField("adv_length", 10), _is_advertise),
+        ConditionalField(ByteEnumField("adv_state", 1, {1: "Active", 2: "Passive"}), _is_advertise),
+        ConditionalField(ByteField("adv_reserved1", 0), _is_advertise),
+        ConditionalField(ShortField("adv_active_grps", 0), _is_advertise),
+        ConditionalField(ShortField("adv_passive_grps", 0), _is_advertise),
+        ConditionalField(IntField("adv_reserved2", 0), _is_advertise)
+    ]
 
     def guess_payload_class(self, payload):
         if self.underlayer.len > 28:
