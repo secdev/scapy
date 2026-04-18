@@ -500,3 +500,143 @@ assert pkt.UserName == "BANANANA"
 
 pkt.clear_cache()
 assert bytes(pkt) == data
+
+
++ NTLM_VALUES byte-patching
+
+= NTLM_VALUES: TargetNameLen/MaxLen/BufferOffset byte-patching in CHALLENGE
+
+import struct
+
+server_ssp = NTLMSSP(
+    IDENTITIES={"User1": MD4le("Password1")},
+    NTLM_VALUES={
+        "TargetNameLen": 0x4141,
+        "TargetNameMaxLen": 0x4242,
+        "TargetNameBufferOffset": 0xDEAD,
+    },
+)
+
+nego = NTLM_NEGOTIATE(
+    NegotiateFlags=(
+        "NEGOTIATE_UNICODE+REQUEST_TARGET+NEGOTIATE_NTLM+"
+        "NEGOTIATE_ALWAYS_SIGN+NEGOTIATE_EXTENDED_SESSIONSECURITY+"
+        "NEGOTIATE_TARGET_INFO+NEGOTIATE_128+NEGOTIATE_56+"
+        "NEGOTIATE_VERSION"
+    ),
+    ProductMajorVersion=10,
+)
+
+ctx = NTLMSSP.CONTEXT(IsAcceptor=True)
+ctx, tok, status = server_ssp.GSS_Accept_sec_context(ctx, nego)
+assert status == 1
+
+tok_bytes = bytes(tok)
+
+# Token must be a normal size — byte-patching, not layout-driven padding
+assert len(tok_bytes) < 1024
+
+# Spoofed values are at the correct byte offsets
+assert struct.unpack_from("<H", tok_bytes, 12)[0] == 0x4141
+assert struct.unpack_from("<H", tok_bytes, 14)[0] == 0x4242
+assert struct.unpack_from("<I", tok_bytes, 16)[0] == 0xDEAD
+
+# NTLM header is intact
+assert tok_bytes[:8] == b"NTLMSSP\x00"
+assert struct.unpack_from("<I", tok_bytes, 8)[0] == 2
+
+
+= NTLM_VALUES: partial TargetName field override (only Len)
+
+server_ssp = NTLMSSP(
+    IDENTITIES={"User1": MD4le("Password1")},
+    NTLM_VALUES={
+        "TargetNameLen": 0x1337,
+        "TargetName": "DOMAIN",
+    },
+)
+
+ctx = NTLMSSP.CONTEXT(IsAcceptor=True)
+ctx, tok, status = server_ssp.GSS_Accept_sec_context(ctx, nego)
+assert status == 1
+
+tok_bytes = bytes(tok)
+
+# Only TargetNameLen is spoofed
+assert struct.unpack_from("<H", tok_bytes, 12)[0] == 0x1337
+
+# TargetNameMaxLen is auto-computed: len("DOMAIN".encode("utf-16-le")) == 12
+assert struct.unpack_from("<H", tok_bytes, 14)[0] == 12
+
+# TargetNameBufferOffset is auto-computed (56 for RECENT variant)
+assert struct.unpack_from("<I", tok_bytes, 16)[0] == 56
+
+
+= NTLM_VALUES: large TargetNameBufferOffset doesn't cause excessive allocation
+
+server_ssp = NTLMSSP(
+    IDENTITIES={"User1": MD4le("Password1")},
+    NTLM_VALUES={
+        "TargetNameBufferOffset": 0x7FFFFFFF,
+    },
+)
+
+ctx = NTLMSSP.CONTEXT(IsAcceptor=True)
+ctx, tok, status = server_ssp.GSS_Accept_sec_context(ctx, nego)
+assert status == 1
+
+tok_bytes = bytes(tok)
+
+# If the offset were used as a layout instruction, _NTLMPayloadField.addfield()
+# would allocate ~2 GB of zero-padding and OOM.
+assert len(tok_bytes) < 1024
+
+# The spoofed offset is in the output bytes
+assert struct.unpack_from("<I", tok_bytes, 16)[0] == 0x7FFFFFFF
+
+
+= NTLM_VALUES: byte-patched CHALLENGE survives SPNEGO encoding
+
+from scapy.layers.spnego import SPNEGOSSP
+
+spnego_server = SPNEGOSSP([
+    NTLMSSP(
+        IDENTITIES={"User1": MD4le("Password1")},
+        NTLM_VALUES={
+            "TargetNameLen": 0xBEEF,
+            "TargetNameMaxLen": 0xCAFE,
+            "TargetNameBufferOffset": 0xF00D,
+        },
+    ),
+])
+
+spnego_client = SPNEGOSSP([
+    NTLMSSP(UPN="User1", PASSWORD="Password1"),
+])
+
+clicontext, cli_tok, neg = spnego_client.GSS_Init_sec_context(
+    None,
+    req_flags=(
+        GSS_C_FLAGS.GSS_C_MUTUAL_FLAG |
+        GSS_C_FLAGS.GSS_C_INTEG_FLAG |
+        GSS_C_FLAGS.GSS_C_CONF_FLAG
+    ),
+)
+assert neg == 1
+
+srvcontext, srv_tok, neg = spnego_server.GSS_Accept_sec_context(None, cli_tok)
+assert neg == 1
+
+# Serialize the full SPNEGO token (_PatchedTok.__bytes__ is exercised through
+# the ASN.1 encoding path in _SPNEGO_Token_Field.i2m)
+spnego_bytes = bytes(srv_tok)
+assert len(spnego_bytes) < 2048
+
+# Find the NTLM challenge inside the SPNEGO envelope
+ntlm_off = spnego_bytes.find(b"NTLMSSP\x00")
+assert ntlm_off >= 0
+
+# The spoofed values survive the ASN.1/SPNEGO re-encoding
+assert struct.unpack_from("<H", spnego_bytes, ntlm_off + 12)[0] == 0xBEEF
+assert struct.unpack_from("<H", spnego_bytes, ntlm_off + 14)[0] == 0xCAFE
+assert struct.unpack_from("<I", spnego_bytes, ntlm_off + 16)[0] == 0xF00D

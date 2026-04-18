@@ -1874,7 +1874,7 @@ class NTLMSSP(SSP):
                 ],
             )
             if self.NTLM_VALUES:
-                # Update that token with the customs one
+                # Update the token with custom values.
                 for key in [
                     "ServerChallenge",
                     "NegotiateFlags",
@@ -1900,6 +1900,40 @@ class NTLMSSP(SSP):
                     if ((x in self.NTLM_VALUES) or (i in avpairs))
                     and self.NTLM_VALUES.get(x, True) is not None
                 ]
+                # Target{Name,Info}{Len,MaxLen,BufferOffset} must be
+                # patched into the already-built bytes. Setting them
+                # as field values before serialization would cause
+                # _NTLMPayloadField to use them as layout offsets,
+                # potentially allocating gigabytes of padding for a
+                # spoofed offset value.
+                _byte_patches = [
+                    (off, fmt, self.NTLM_VALUES[key])
+                    for key, off, fmt in [
+                        ("TargetNameLen", 12, "<H"),
+                        ("TargetNameMaxLen", 14, "<H"),
+                        ("TargetNameBufferOffset", 16, "<I"),
+                        ("TargetInfoLen", 40, "<H"),
+                        ("TargetInfoMaxLen", 42, "<H"),
+                        ("TargetInfoBufferOffset", 44, "<I"),
+                    ]
+                    if key in self.NTLM_VALUES
+                ]
+                if _byte_patches:
+                    # Serialize now, patch the bytes, then replace tok with a
+                    # thin wrapper whose bytes() returns the patched bytes
+                    # directly — this survives re-encoding in SPNEGO/ASN.1.
+                    _tok_bytes = bytearray(bytes(tok))
+                    for off, fmt, val in _byte_patches:
+                        sz = struct.calcsize(fmt)
+                        _tok_bytes[off : off + sz] = struct.pack(fmt, val)
+
+                    class _PatchedTok(object):
+                        """Wrapper: bytes() returns pre-built patched NTLM bytes."""
+
+                        def __bytes__(self_inner):
+                            return bytes(_tok_bytes)
+
+                    tok = _PatchedTok()
 
             # Store for next step
             Context.chall_tok = tok
