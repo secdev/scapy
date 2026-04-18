@@ -43,6 +43,7 @@ from scapy.fields import (
     ByteField,
     ConditionalField,
     Field,
+    FlagsField,
     LEIntField,
     LEShortEnumField,
     LEShortField,
@@ -216,14 +217,7 @@ MYSQL_COLUMN_FLAGS = {
 
 
 def _capability(flags: int, mask: int) -> bool:
-    return bool(flags & mask)
-
-
-def _flag_repr(value: int, mapping: Any) -> str:
-    names = [name for mask, name in mapping.items() if value & mask]
-    if names:
-        return "%d (%s)" % (value, "|".join(names))
-    return repr(value)
+    return bool(int(flags) & mask)
 
 
 def _read_lenenc_int(data: bytes) -> Tuple[int, int]:
@@ -295,31 +289,6 @@ class MySQLLenEncIntField(Field[Any, Any]):
 
     def i2repr(self, pkt: Optional[Packet], val: Any) -> str:
         return repr(val)
-
-
-class MySQLCapabilityFlagsField(LEIntField):
-    def i2repr(self, pkt: Optional[Packet], val: Any) -> str:
-        return _flag_repr(int(val), MYSQL_CLIENT_FLAGS)
-
-
-class MySQLStatusFlagsField(LEShortField):
-    def i2repr(self, pkt: Optional[Packet], val: Any) -> str:
-        return _flag_repr(int(val), MYSQL_STATUS_FLAGS)
-
-
-class MySQLCharsetField(ByteEnumField):
-    def __init__(self, name: str, default: int = 0) -> None:
-        ByteEnumField.__init__(self, name, default, MYSQL_CHARACTER_SETS)
-
-
-class MySQLShortCharsetField(LEShortEnumField):
-    def __init__(self, name: str, default: int = 0) -> None:
-        LEShortEnumField.__init__(self, name, default, MYSQL_CHARACTER_SETS)
-
-
-class MySQLColumnFlagsField(LEShortField):
-    def i2repr(self, pkt: Optional[Packet], val: Any) -> str:
-        return _flag_repr(int(val), MYSQL_COLUMN_FLAGS)
 
 
 class MySQLLenEncStrField(Field[Any, Any]):
@@ -431,8 +400,8 @@ class MySQLHandshakeV10(Packet):
         StrFixedLenField("auth_plugin_data_part_1", b"", length=8),
         ByteField("filler", 0),
         LEShortField("capability_flags_lower", 0),
-        MySQLCharsetField("character_set", 0),
-        MySQLStatusFlagsField("status_flags", 0),
+        ByteEnumField("character_set", 0, MYSQL_CHARACTER_SETS),
+        FlagsField("status_flags", 0, -16, MYSQL_STATUS_FLAGS),
         LEShortField("capability_flags_upper", 0),
         ByteField("auth_plugin_data_len", 0),
         StrFixedLenField("reserved", b"\x00" * 10, length=10),
@@ -457,12 +426,14 @@ class MySQLHandshakeV10(Packet):
 class MySQLSSLRequest(Packet):
     name = "MySQL SSLRequest"
     fields_desc = [
-        MySQLCapabilityFlagsField(
+        FlagsField(
             "client_flags",
             CLIENT_PROTOCOL_41 | CLIENT_SSL,
+            -32,
+            MYSQL_CLIENT_FLAGS,
         ),
         LEIntField("max_packet_size", 0),
-        MySQLCharsetField("character_set", 0),
+        ByteEnumField("character_set", 0, MYSQL_CHARACTER_SETS),
         StrFixedLenField("filler", b"\x00" * 23, length=23),
     ]
 
@@ -470,9 +441,14 @@ class MySQLSSLRequest(Packet):
 class MySQLHandshakeResponse41(Packet):
     name = "MySQL HandshakeResponse41"
     fields_desc = [
-        MySQLCapabilityFlagsField("client_flags", CLIENT_PROTOCOL_41),
+        FlagsField(
+            "client_flags",
+            CLIENT_PROTOCOL_41,
+            -32,
+            MYSQL_CLIENT_FLAGS,
+        ),
         LEIntField("max_packet_size", 0),
-        MySQLCharsetField("character_set", 0),
+        ByteEnumField("character_set", 0, MYSQL_CHARACTER_SETS),
         StrFixedLenField("filler", b"\x00" * 23, length=23),
         StrNullField("username", b""),
         MultipleTypeField(
@@ -576,10 +552,10 @@ class MySQLColumnDefinition41(Packet):
         MySQLLenEncStrField("column_name", b""),
         MySQLLenEncStrField("org_column_name", b""),
         MySQLLenEncIntField("fixed_length_fields_len", 0x0C),
-        MySQLShortCharsetField("character_set", 0),
+        LEShortEnumField("character_set", 0, MYSQL_CHARACTER_SETS),
         LEIntField("column_length", 0),
         ByteEnumField("column_type", 0xFD, MYSQL_COLUMN_TYPES),
-        MySQLColumnFlagsField("flags", 0),
+        FlagsField("flags", 0, -16, MYSQL_COLUMN_FLAGS),
         ByteField("decimals", 0),
         LEShortField("filler", 0),
     ]
@@ -603,7 +579,7 @@ class MySQLOKPacket(Packet):
         ByteField("header", 0x00),
         MySQLLenEncIntField("affected_rows", 0),
         MySQLLenEncIntField("last_insert_id", 0),
-        MySQLStatusFlagsField("status_flags", 0),
+        FlagsField("status_flags", 0, -16, MYSQL_STATUS_FLAGS),
         LEShortField("warnings", 0),
         StrField("info", b""),
     ]
@@ -633,7 +609,7 @@ class MySQLEOFPacket(Packet):
             ) != 1,
         ),
         ConditionalField(
-            MySQLStatusFlagsField("status_flags", 0),
+            FlagsField("status_flags", 0, -16, MYSQL_STATUS_FLAGS),
             lambda pkt: getattr(
                 getattr(pkt, "underlayer", None),
                 "payload_length",

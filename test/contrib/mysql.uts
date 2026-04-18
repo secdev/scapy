@@ -63,7 +63,7 @@ ssl_request_pkt = MySQLClientPacket(sequence_id=1) / MySQLSSLRequest(
 ssl_request_raw = bytes(ssl_request_pkt)
 ssl_request = MySQLClient(ssl_request_raw)
 assert isinstance(ssl_request.contents[0].payload, MySQLSSLRequest)
-assert ssl_request.contents[0].payload.client_flags == (
+assert int(ssl_request.contents[0].payload.client_flags) == (
     CLIENT_PROTOCOL_41 | CLIENT_SSL
 )
 assert ssl_request.contents[0].payload.max_packet_size == 0x01000000
@@ -221,7 +221,7 @@ ok_packet = ok_stream.contents[0].payload
 assert isinstance(ok_packet, MySQLOKPacket)
 assert ok_packet.affected_rows == 0
 assert ok_packet.last_insert_id == 0
-assert ok_packet.status_flags == 0x0002
+assert int(ok_packet.status_flags) == 0x0002
 assert ok_packet.warnings == 0
 
 err_raw = bytes.fromhex(
@@ -242,7 +242,7 @@ eof_stream = MySQLServer(eof_raw)
 eof_packet = eof_stream.contents[0].payload
 assert isinstance(eof_packet, MySQLEOFPacket)
 assert eof_packet.warnings == 0
-assert eof_packet.status_flags == 0x0002
+assert int(eof_packet.status_flags) == 0x0002
 
 short_eof_raw = bytes.fromhex("01000003fe")
 short_eof_stream = MySQLServer(short_eof_raw)
@@ -467,18 +467,17 @@ assert mysql._build_lenenc_int(0x123456) == b"\xfd\x56\x34\x12"
 assert mysql._build_lenenc_int(0x0102030405060708) == (
     b"\xfe\x08\x07\x06\x05\x04\x03\x02\x01"
 )
-assert mysql._flag_repr(0x0002, mysql.MYSQL_STATUS_FLAGS) == "2 (AUTOCOMMIT)"
-assert mysql._flag_repr(0, mysql.MYSQL_STATUS_FLAGS) == "0"
 
 lenenc_none = mysql.MySQLLenEncIntField("x").addfield(None, b"", None)
 assert lenenc_none == b"\x00"
 assert mysql.MySQLLenEncIntField("x").i2repr(None, 7) == "7"
-assert mysql.MySQLCapabilityFlagsField("flags", 0).i2repr(
-    None,
-    CLIENT_PROTOCOL_41 | CLIENT_SSL,
-) == "2560 (PROTOCOL_41|SSL)"
-assert mysql.MySQLStatusFlagsField("status", 0).i2repr(None, 0x0002) == "2 (AUTOCOMMIT)"
-assert mysql.MySQLColumnFlagsField("flags", 0).i2repr(None, 0x0080) == "128 (BINARY)"
+assert mysql._capability(
+    ssl_request.contents[0].payload.client_flags,
+    CLIENT_SSL,
+)
+assert bytes(ssl_request.contents[0].payload)[:4] == b"\x00\x0a\x00\x00"
+assert int(ok_packet.status_flags) == 0x0002
+assert int(param_def_1_pkt.payload.flags) == 0x0080
 
 lenenc_str_field = mysql.MySQLLenEncStrField("s")
 assert lenenc_str_field.addfield(None, b"", None) == b"\x00"
