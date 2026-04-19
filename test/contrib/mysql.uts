@@ -563,7 +563,7 @@ unknown_client_raw = bytes.fromhex("010000007f")
 unknown_client_stream = MySQLClient(unknown_client_raw)
 assert isinstance(unknown_client_stream.contents[0].payload, Raw)
 
-unknown_server_raw = bytes.fromhex("02000001fe00")
+unknown_server_raw = bytes.fromhex("01000001fb")
 unknown_server_stream = MySQLServer(unknown_server_raw)
 assert isinstance(unknown_server_stream.contents[0].payload, Raw)
 
