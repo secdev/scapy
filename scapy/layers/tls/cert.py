@@ -135,10 +135,10 @@ from scapy.layers.x509 import (
     X509_CRL,
     X509_SubjectPublicKeyInfo,
 )
+from scapy.layers.tls.crypto.hash import _get_hash
 from scapy.layers.tls.crypto.pkcs1 import (
     _DecryptAndSignRSA,
     _EncryptAndVerifyRSA,
-    _get_hash,
     pkcs_os2ip,
 )
 from scapy.compat import bytes_encode
@@ -155,7 +155,7 @@ if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import rsa, ec, x25519
+    from cryptography.hazmat.primitives.asymmetric import rsa, ec, x25519, x448
 
     # cryptography raised the minimum RSA key length to 1024 in 43.0+
     # https://github.com/pyca/cryptography/pull/10278
@@ -567,15 +567,6 @@ class _PrivKeyFactory(_PKIObjMaker):
             _an RSAPrivateKey;
             _an ECDSAPrivateKey.
         """
-        if key_path is None:
-            obj = type.__call__(cls)
-            if cls is PrivKey:
-                cls = PrivKeyECDSA
-            obj.__class__ = cls
-            obj.frmt = "original"
-            obj.fill_and_store()
-            return obj
-
         # This allows to import cryptography objects directly
         if cryptography_obj is not None:
             # We (stupidly) need to go through the whole import process because RSA
@@ -588,6 +579,14 @@ class _PrivKeyFactory(_PKIObjMaker):
                     encryption_algorithm=serialization.NoEncryption(),
                 ),
             )
+        elif key_path is None:
+            obj = type.__call__(cls)
+            if cls is PrivKey:
+                cls = PrivKeyECDSA
+            obj.__class__ = cls
+            obj.frmt = "original"
+            obj.fill_and_store()
+            return obj
         else:
             # Load from file
             obj = _PKIObjMaker.__call__(cls, key_path, _MAX_KEY_SIZE)
@@ -1029,7 +1028,7 @@ class Cert(metaclass=_CertMaker):
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
         return self.pubkey.verify(msg, sig, t=t, h=h, mgf=mgf, L=L)
 
-    def getSignatureHash(self):
+    def getCertSignatureHash(self):
         """
         Return the hash cryptography object used by the 'signatureAlgorithm'
         """
@@ -1141,6 +1140,10 @@ class Cert(metaclass=_CertMaker):
             DeprecationWarning,
         )
         return self.pubkey
+
+    @property
+    def extensions(self):
+        return self.tbsCertificate.extensions
 
     def __eq__(self, other):
         return self.der == other.der
@@ -1635,7 +1638,7 @@ class CertTree(CertList):
             for c, subtree in curtree:
                 curchain = chain + [c]
                 # If 'cert' is issued by c
-                if cert.isIssuer(c):
+                if cert.isIssuer(c) or c == cert:
                     # Final node of the chain !
                     # (add the final cert if not self signed)
                     if c != cert:
@@ -1650,7 +1653,8 @@ class CertTree(CertList):
 
         chain = _rec_getchain([], self.tree)
         if chain is not None:
-            return CertTree(chain)
+            # We add the first certificate to the ROOT in all cases
+            return CertTree(chain, [chain[0]])
         else:
             return None
 
@@ -1718,13 +1722,75 @@ class CMS_Engine:
         self.store = store
         self.crls = crls
 
+    def _get_algorithms(self, key: PrivKey, h="sha256") -> ASN1_OID:
+        """
+        Get the algorithms matching a private key
+        """
+        if isinstance(key, PrivKeyRSA):
+            # RFC3370 sect 3.2
+            return (
+                ASN1_OID("rsaEncryption"),
+                _get_hash(h),
+                h,
+            )
+        elif isinstance(key, PrivKeyECDSA):
+            # RFC5753 sect 2.1.1
+            if h == "sha1":
+                return (
+                    ASN1_OID("ecdsa-with-SHA1"),
+                    hashes.SHA1(),
+                    "sha1",
+                )
+            elif h == "sha224":
+                return (
+                    ASN1_OID("ecdsa-with-SHA224"),
+                    hashes.SHA224(),
+                    "sha224",
+                )
+            elif h == "sha256":
+                return (
+                    ASN1_OID("ecdsa-with-SHA256"),
+                    hashes.SHA256(),
+                    "sha256",
+                )
+            elif h == "sha384":
+                return (
+                    ASN1_OID("ecdsa-with-SHA384"),
+                    hashes.SHA384(),
+                    "sha384",
+                )
+            elif h == "sha512":
+                return (
+                    ASN1_OID("ecdsa-with-SHA512"),
+                    hashes.SHA512(),
+                    "sha512",
+                )
+            else:
+                raise ValueError("Unknown hash for private key !")
+        elif isinstance(key, PrivKeyEdDSA):
+            # RFC8419 sect 2.3
+            if isinstance(key.key, x25519.X25519PrivateKey):
+                return (
+                    ASN1_OID("Ed25519"),
+                    hashes.SHA512(),
+                    "sha512",
+                )
+            elif isinstance(key.key, x448.X448PrivateKey):
+                return (
+                    ASN1_OID("Ed448"),
+                    hashes.SHAKE256(64),
+                    "shake256",
+                )
+        else:
+            raise ValueError("Unknown private key type !")
+
     def sign(
         self,
         message: Union[bytes, Packet],
         eContentType: ASN1_OID,
         cert: Cert,
         key: PrivKey,
-        h: Optional[str] = None,
+        dhash: Optional[str] = "sha256",
     ):
         """
         Sign a message using CMS.
@@ -1733,17 +1799,18 @@ class CMS_Engine:
         :param eContentType: the OID of the inner content.
         :param cert: the certificate whose key to use use for signing.
         :param key: the private key to use for signing.
-        :param h: the hash to use (default: same as the certificate's signature)
+        :param dhash: the hash to use for message digest (ECDSA only).
 
         We currently only support X.509 certificates !
         """
-        # RFC3852 - 5.4. Message Digest Calculation Process
-        h = h or _get_cert_sig_hashname(cert)
-        hash = hashes.Hash(_get_hash(h))
+        sigalg, cdhash, dhash = self._get_algorithms(key, h=dhash)
+
+        # RFC3852 5.4. Message Digest Calculation Process
+        hash = hashes.Hash(cdhash)
         hash.update(bytes(message))
         hashed_message = hash.finalize()
 
-        # 5.5. Signature Generation Process
+        # RFC3852 5.5. Signature Generation Process
         signerInfo = CMS_SignerInfo(
             version=1,
             sid=CMS_IssuerAndSerialNumber(
@@ -1751,7 +1818,7 @@ class CMS_Engine:
                 serialNumber=cert.tbsCertificate.serialNumber,
             ),
             digestAlgorithm=X509_AlgorithmIdentifier(
-                algorithm=ASN1_OID(h),
+                algorithm=ASN1_OID(dhash),
                 parameters=ASN1_NULL(0),
             ),
             signedAttrs=[
@@ -1769,7 +1836,10 @@ class CMS_Engine:
                     ],
                 ),
             ],
-            signatureAlgorithm=cert.tbsCertificate.signature,
+            signatureAlgorithm=X509_AlgorithmIdentifier(
+                algorithm=sigalg,
+                parameters=ASN1_NULL(0),
+            ),
         )
         signerInfo.signature = ASN1_STRING(
             key.sign(
@@ -1778,7 +1848,7 @@ class CMS_Engine:
                         signedAttrs=signerInfo.signedAttrs,
                     )
                 ),
-                h=h,
+                h=dhash,
             )
         )
 
@@ -1792,7 +1862,7 @@ class CMS_Engine:
             content=CMS_SignedData(
                 version=3 if certificates else 1,
                 digestAlgorithms=X509_AlgorithmIdentifier(
-                    algorithm=ASN1_OID(h),
+                    algorithm=ASN1_OID(dhash),
                     parameters=ASN1_NULL(0),
                 ),
                 encapContentInfo=CMS_EncapsulatedContentInfo(
@@ -1820,6 +1890,7 @@ class CMS_Engine:
         contentInfo: CMS_ContentInfo,
         eContentType: Optional[ASN1_OID] = None,
         eContent: Optional[bytes] = None,
+        no_verify_cert: bool = False,
     ):
         """
         Verify a CMS message against the list of trusted certificates,
@@ -1828,6 +1899,7 @@ class CMS_Engine:
         :param contentInfo: the ContentInfo whose signature to verify
         :param eContentType: if provided, verifies that the content type is valid
         :param eContent: in PKCS 7.1, provide the content to verify
+        :param no_verify_cert: do not check the remote certificate (unsafe)
         """
         if contentInfo.contentType.oidname != "id-signedData":
             raise ValueError("ContentInfo isn't signed !")
@@ -1846,11 +1918,14 @@ class CMS_Engine:
 
         # Check all signatures
         for signerInfo in signeddata.signerInfos:
+            sigh = hash_by_oid[signerInfo.signatureAlgorithm.algorithm.val]
+
             # Find certificate in the chain that did this
             cert: Cert = certTree.findCertBySid(signerInfo.sid)
 
             # Verify certificate signature
-            certTree.verify(cert)
+            if not no_verify_cert:
+                certTree.verify(cert)
 
             # Verify the message hash
             if signerInfo.signedAttrs:
@@ -1911,11 +1986,13 @@ class CMS_Engine:
                         )
                     ),
                     sig=signerInfo.signature.val,
+                    h=sigh,
                 )
             else:
                 cert.verify(
                     msg=bytes(signeddata.encapContentInfo),
                     sig=signerInfo.signature.val,
+                    h=sigh,
                 )
 
         # Return the content
