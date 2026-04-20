@@ -269,15 +269,21 @@ class PrincipalName(ASN1_Packet):
         return "/".join(x.val.decode() for x in self.nameString)
 
     @staticmethod
-    def fromUPN(upn: str):
+    def fromUPN(upn: str, canonicalize: bool = False):
         """
         Create a PrincipalName from a UPN string.
         """
-        user, _ = _parse_upn(upn)
-        return PrincipalName(
-            nameString=[ASN1_GENERAL_STRING(user)],
-            nameType=ASN1_INTEGER(1),  # NT-PRINCIPAL
-        )
+        if canonicalize:
+            return PrincipalName(
+                nameString=[ASN1_GENERAL_STRING(upn)],
+                nameType=ASN1_INTEGER(10),  # NT-ENTERPRISE
+            )
+        else:
+            user, _ = _parse_upn(upn)
+            return PrincipalName(
+                nameString=[ASN1_GENERAL_STRING(user)],
+                nameType=ASN1_INTEGER(1),  # NT-PRINCIPAL
+            )
 
     @staticmethod
     def fromSPN(spn: str):
@@ -728,6 +734,7 @@ _PADATA_TYPES = {
     15: "PA-PK-AS-REP-OLD",
     16: "PA-PK-AS-REQ",
     17: "PA-PK-AS-REP",
+    18: "PA-PK-OCSP-RESPONSE",
     19: "PA-ETYPE-INFO2",
     20: "PA-SVR-REFERRAL-INFO",
     111: "TD-CMS-DIGEST-ALGORITHMS",
@@ -1381,20 +1388,21 @@ class KRB_PKAuthenticator(ASN1_Packet):
         ),
         # [MS-PKCA] sect 2.2.3
         ASN1F_optional(
-            ASN1F_PACKET("paChecksum2", PAChecksum2(), PAChecksum2, explicit_tag=0xA5),
+            ASN1F_PACKET("paChecksum2", None, PAChecksum2, explicit_tag=0xA5),
         ),
     )
 
-    def make_checksum(self, text, h="sha256"):
+    def make_checksum(self, text, h: str = "sha256"):
         """
-        Populate paChecksum and paChecksum2
+        Populate paChecksum
         """
         # paChecksum (always sha-1)
         self.paChecksum = ASN1_STRING(Hash_SHA().digest(text))
 
         # paChecksum2
-        self.paChecksum2 = PAChecksum2()
-        self.paChecksum2.make(text, h=h)
+        if h != "sha1":
+            self.paChecksum2 = PAChecksum2()
+            self.paChecksum2.make(text, h=h)
 
     def verify_checksum(self, text):
         """
@@ -1403,7 +1411,8 @@ class KRB_PKAuthenticator(ASN1_Packet):
         if self.paChecksum.val != Hash_SHA().digest(text):
             raise ValueError("Bad paChecksum checksum !")
 
-        self.paChecksum2.verify(text)
+        if self.paChecksum2 is not None:
+            self.paChecksum2.verify(text)
 
 
 # RFC8636 sect 6
@@ -2118,11 +2127,12 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
         val = super(_KRBERROR_data_Field, self).m2i(pkt, s)
         if not val[0].val:
             return val
-        if pkt.errorCode.val in [14, 24, 25, 36]:
+        if pkt.errorCode.val in [14, 24, 25, 36, 80]:
             # 14: KDC_ERR_ETYPE_NOSUPP
             # 24: KDC_ERR_PREAUTH_FAILED
             # 25: KDC_ERR_PREAUTH_REQUIRED
             # 36: KRB_AP_ERR_BADMATCH
+            # 80: KDC_ERR_DIGEST_IN_SIGNED_DATA_NOT_ACCEPTED
             return MethodData(val[0].val, _underlayer=pkt), val[1]
         elif pkt.errorCode.val in [6, 7, 12, 13, 18, 29, 32, 41, 60, 62]:
             # 6: KDC_ERR_C_PRINCIPAL_UNKNOWN
@@ -2993,6 +3003,7 @@ class KerberosClient(Automaton):
     :param mode: the mode to use for the client (default: AS_REQ).
     :param ip: the IP of the DC (default: discovered by dclocator)
     :param upn: the UPN of the client.
+    :param canonicalize: request the UPN to be canonicalized.
     :param password: the password of the client.
     :param key: the Key of the client (instead of the password)
     :param realm: the realm of the domain. (default: from the UPN)
@@ -3009,6 +3020,8 @@ class KerberosClient(Automaton):
     :param armor_ticket_upn: the UPN of the client of the armoring ticket
     :param armor_ticket_skey: the session Key object of the armoring ticket
     :param etypes: specify the list of encryption types to support
+    :param dhashes: specify the list of supported digest algorithms for PKINIT
+        (defaults to ["sha1", "sha256", "sha384", "sha512"])
 
     AS-REQ only:
 
@@ -3048,12 +3061,14 @@ class KerberosClient(Automaton):
         mode=MODE.AS_REQ,
         ip: Optional[str] = None,
         upn: Optional[str] = None,
+        canonicalize: bool = False,
         password: Optional[str] = None,
         key: Optional["Key"] = None,
         realm: Optional[str] = None,
         x509: Optional[Union[Cert, str]] = None,
         x509key: Optional[Union[PrivKey, str]] = None,
         ca: Optional[Union[CertTree, str]] = None,
+        no_verify_cert: bool = False,
         p12: Optional[str] = None,
         spn: Optional[str] = None,
         ticket: Optional[KRB_Ticket] = None,
@@ -3072,6 +3087,7 @@ class KerberosClient(Automaton):
         armor_ticket_skey: Optional["Key"] = None,
         key_list_req: List["EncryptionType"] = [],
         etypes: Optional[List["EncryptionType"]] = None,
+        dhashes: Optional[List[str]] = None,
         pkinit_kex_method: PKINIT_KEX_METHOD = PKINIT_KEX_METHOD.DIFFIE_HELLMAN,
         port: int = 88,
         timeout: int = 5,
@@ -3080,22 +3096,6 @@ class KerberosClient(Automaton):
     ):
         import scapy.libs.rfc3961  # Trigger error if any  # noqa: F401
         from scapy.layers.ldap import dclocator
-
-        if not upn:
-            raise ValueError("Invalid upn")
-        if not spn:
-            raise ValueError("Invalid spn")
-        if realm is None:
-            if mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
-                _, realm = _parse_upn(upn)
-            elif mode == self.MODE.TGS_REQ:
-                _, realm = _parse_spn(spn)
-                if not realm and ticket:
-                    # if no realm is specified, but there's a ticket, take the realm
-                    # of the ticket.
-                    realm = ticket.realm.val.decode()
-            else:
-                raise ValueError("Invalid realm")
 
         # PKINIT checks
         if p12 is not None:
@@ -3137,12 +3137,58 @@ class KerberosClient(Automaton):
                 x509key = PrivKey(x509key)
         if ca and not isinstance(ca, CertList):
             ca = CertList(ca)
+        if upn is None and x509:
+            # For PKINIT, get the UPN from the SAN, if possible and present
+            if realm is None:
+                raise ValueError(
+                    "When using PKINIT, you must at least specify the realm= !"
+                )
+            for ext in x509.extensions:
+                if ext.extnID.val == "2.5.29.17":  # subjectAltName
+                    generalName = ext.extnValue.subjectAltName[0].generalName
+                    upn = generalName.value.val.decode("utf-8")
+                    break
+            if upn is None:
+                raise ValueError(
+                    "Could not find subjectAltName in certificate !"
+                    " Please provide a UPN."
+                )
+            canonicalize = True
 
+        # UPN, SPN and realm calculation
+        if not upn:
+            raise ValueError("Invalid upn")
+        if realm is None:
+            if mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
+                _, realm = _parse_upn(upn)
+            elif mode == self.MODE.TGS_REQ:
+                _, realm = _parse_spn(spn)
+                if not realm and ticket:
+                    # if no realm is specified, but there's a ticket, take the realm
+                    # of the ticket.
+                    realm = ticket.realm.val.decode()
+            else:
+                raise ValueError("Invalid realm")
+        if not spn and mode == self.MODE.AS_REQ and realm:
+            spn = "krbtgt/" + realm
+        elif not spn:
+            raise ValueError("Invalid spn")
+
+        # Extra checks for specific requests
         if mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
             if not host:
                 raise ValueError("Invalid host")
-            if x509 is not None and (not x509key or not ca):
-                raise ValueError("Must provide both 'x509', 'x509key' and 'ca' !")
+            if x509 is not None:
+                if x509key and not ca:
+                    if not no_verify_cert:
+                        raise ValueError(
+                            "Using PKINIT without specifying the remote CA is unsafe !"
+                            " Set no_verify_cert=True to bypass this check."
+                        )
+                    else:
+                        ca = []
+                elif not x509key or not ca:
+                    raise ValueError("Must provide both 'x509', 'x509key' and 'ca' !")
         elif mode == self.MODE.TGS_REQ:
             if not ticket:
                 raise ValueError("Invalid ticket")
@@ -3174,6 +3220,8 @@ class KerberosClient(Automaton):
                         "Cannot specify armor_ticket without armor_ticket_{upn,skey}"
                     )
 
+        # Provide default supported encryption types. For SALT mode, we discard
+        # the encryption types that don't have a salt.
         if mode == self.MODE.GET_SALT:
             if etypes is not None:
                 raise ValueError("Cannot specify etypes in GET_SALT mode !")
@@ -3187,7 +3235,6 @@ class KerberosClient(Automaton):
                 EncryptionType.AES256_CTS_HMAC_SHA1_96,
                 EncryptionType.AES128_CTS_HMAC_SHA1_96,
                 EncryptionType.RC4_HMAC,
-                EncryptionType.RC4_HMAC_EXP,
                 EncryptionType.DES_CBC_MD5,
             ]
         self.etypes = etypes
@@ -3208,6 +3255,7 @@ class KerberosClient(Automaton):
             self.password = password and bytes_encode(password)
         self.spn = spn
         self.upn = upn
+        self.canonicalize = canonicalize  # Whether we request canonicalization
         self.realm = realm.upper()
         self.x509 = x509
         self.x509key = x509key
@@ -3233,7 +3281,12 @@ class KerberosClient(Automaton):
         # This marks that we sent a FAST-req and are awaiting for an answer
         self.fast_req_sent = False
         # Session parameters
-        self.pre_auth = False
+        if self.x509:
+            # Windows only assumes it needs a pre-auth when PKINIT is used,
+            # otherwise it waits to have a PREAUTH_REQUIRED error first.
+            self.pre_auth = True
+        else:
+            self.pre_auth = False
         self.pa_type = None  # preauth-type that's used
         self.fast_rep = None
         self.fast_error = None
@@ -3241,11 +3294,17 @@ class KerberosClient(Automaton):
         self.fast_armorkey = None  # The armor key
         self.fxcookie = None
         self.pkinit_dh_key = None
+        self.no_verify_cert = no_verify_cert
         if ca is not None:
             self.pkinit_cms = CMS_Engine(ca)
         else:
             self.pkinit_cms = None
+        if dhashes is None:
+            self.dhashes = ["sha1", "sha256", "sha384", "sha512"]
+        else:
+            self.dhashes = dhashes
 
+        # Launch the client
         sock = self._connect()
         super(KerberosClient, self).__init__(
             sock=sock,
@@ -3455,7 +3514,8 @@ class KerberosClient(Automaton):
                 address=ASN1_STRING(self.host.ljust(16, " ")),
             )
         ]
-        kdc_req.cname = PrincipalName.fromUPN(self.upn)
+        kdc_req.addresses = None
+        kdc_req.cname = PrincipalName.fromUPN(self.upn, canonicalize=self.canonicalize)
         kdc_req.sname = PrincipalName.fromSPN(self.spn)
 
         # 2. Build the list of PADATA
@@ -3507,7 +3567,7 @@ class KerberosClient(Automaton):
                         nonce=ASN1_INTEGER(RandNum(0, 0x7FFFFFFF)._fix()),
                     ),
                     clientPublicValue=None,  # Used only in DH mode
-                    supportedCMSTypes=None,
+                    supportedCMSTypes=[],
                     clientDHNonce=None,
                     supportedKDFs=None,
                 )
@@ -3515,7 +3575,7 @@ class KerberosClient(Automaton):
                 if self.pkinit_kex_method == PKINIT_KEX_METHOD.DIFFIE_HELLMAN:
                     # RFC4556 - 3.2.3.1. Diffie-Hellman Key Exchange
 
-                    # We use modp2048
+                    # We (and Windows) use modp2048
                     dh_parameters = _ffdh_groups["modp2048"][0]
                     self.pkinit_dh_key = dh_parameters.generate_private_key()
                     numbers = dh_parameters.parameter_numbers()
@@ -3530,6 +3590,7 @@ class KerberosClient(Automaton):
                                 g=ASN1_INTEGER(numbers.g),
                                 # q: see ERRATA 1 of RFC4556
                                 q=ASN1_INTEGER(numbers.q or (numbers.p - 1) // 2),
+                                j=None,
                             ),
                         ),
                         subjectPublicKey=DHPublicKey(
@@ -3565,8 +3626,15 @@ class KerberosClient(Automaton):
                 else:
                     raise ValueError
 
-                # Populate paChecksum and PAChecksum2
-                authpack.pkAuthenticator.make_checksum(bytes(kdc_req))
+                # Find a supported digest hash. Windows 25H2 still defaults
+                # to SHA1 unless a client policy has been applied.
+                dhash = next(iter(self.dhashes))
+
+                # Populate paChecksum
+                authpack.pkAuthenticator.make_checksum(
+                    bytes(kdc_req),
+                    h=dhash,
+                )
 
                 # Sign the AuthPack
                 signedAuthpack = self.pkinit_cms.sign(
@@ -3574,6 +3642,7 @@ class KerberosClient(Automaton):
                     ASN1_OID("id-pkinit-authData"),
                     self.x509,
                     self.x509key,
+                    dhash=dhash,
                 )
 
                 # Build PA-DATA
@@ -3584,6 +3653,14 @@ class KerberosClient(Automaton):
                         signedAuthpack=signedAuthpack,
                         trustedCertifiers=None,
                         kdcPkId=None,
+                    ),
+                )
+
+                # RFC 4557 extension - OCSP
+                padata.insert(
+                    0,
+                    PADATA(
+                        padataType=18,  # PA-PK-OCSP-RESPONSE
                     ),
                 )
             else:
@@ -3784,7 +3861,7 @@ class KerberosClient(Automaton):
         _, crealm = _parse_upn(self.upn)
         authenticator = KRB_Authenticator(
             crealm=ASN1_GENERAL_STRING(crealm),
-            cname=PrincipalName.fromUPN(self.upn),
+            cname=PrincipalName.fromUPN(self.upn, canonicalize=self.canonicalize),
             cksum=None,
             ctime=ASN1_GENERALIZED_TIME(now_time),
             cusec=ASN1_INTEGER(0),
@@ -3899,6 +3976,7 @@ class KerberosClient(Automaton):
                         keyinfo = self.pkinit_cms.verify(
                             padata.padataValue.rep.dhSignedData,
                             eContentType=ASN1_OID("id-pkinit-DHKeyData"),
+                            no_verify_cert=self.no_verify_cert,
                         )
 
                         # If 'etype' is None, we're in an error. Since we verified
@@ -3924,6 +4002,9 @@ class KerberosClient(Automaton):
 
                     else:
                         raise ValueError
+
+                elif padata.padataType == 111:  # TD-CMS-DIGEST-ALGORITHMS
+                    self.dhashes = [x.algorithm.oidname for x in padata.padataValue.seq]
 
                 elif padata.padataType == 133:  # PA-FX-COOKIE
                     # Get cookie and store it
@@ -4021,7 +4102,7 @@ class KerberosClient(Automaton):
                 return
 
             if pkt.root.errorCode == 25:  # KDC_ERR_PREAUTH_REQUIRED
-                if not self.key and not self.x509:
+                if not self.key:
                     log_runtime.error(
                         "Got 'KDC_ERR_PREAUTH_REQUIRED', "
                         "but no possible key could be computed."
@@ -4029,6 +4110,9 @@ class KerberosClient(Automaton):
                     raise self.FINAL()
                 self.should_followup = True
                 self.pre_auth = True
+                raise self.BEGIN()
+            elif pkt.root.errorCode == 80:  # KDC_ERR_DIGEST_IN_SIGNED_DATA_NOT_ACCEPTED
+                self.should_followup = True
                 raise self.BEGIN()
             else:
                 self._show_krb_error(pkt)
@@ -4067,6 +4151,11 @@ class KerberosClient(Automaton):
             self.fast_rep.finished.ticketChecksum.verify(
                 self.fast_armorkey,
                 bytes(pkt.root.ticket),
+            )
+            # Process pa of FAST response
+            self._process_padatas_and_key(
+                self.fast_rep.padata,
+                etype=pkt.root.encPart.etype.val,
             )
             self.fast_rep = None
         elif self.fast:
@@ -4204,7 +4293,7 @@ def _spn_are_equal(spn1, spn2):
 
 
 def krb_as_req(
-    upn: str,
+    upn: Optional[str] = None,
     spn: Optional[str] = None,
     ip: Optional[str] = None,
     key: Optional["Key"] = None,
@@ -4248,12 +4337,10 @@ def krb_as_req(
         ...: f4e99205e78f8da7681d4ec5520ae4815543720c2a647c1ae814c9"))
         >>> krb_as_req("user1@DOMAIN.LOCAL", ip="192.168.122.17", key=key)
 
-    Example using PKINIT with a p12::
+    Example using PKINIT with a p12 ("password" is the password of the p12)::
 
-        >>> krb_as_req("user1@DOMAIN.LOCAL", p12="./store.p12", password="password")
+        >>> krb_as_req(p12="./store.p12", realm="DOMAIN.LOCAL", password="password")
     """
-    if realm is None:
-        _, realm = _parse_upn(upn)
     if key is None and p12 is None and x509 is None:
         if password is None:
             try:
@@ -4266,7 +4353,7 @@ def krb_as_req(
         mode=KerberosClient.MODE.AS_REQ,
         realm=realm,
         ip=ip,
-        spn=spn or "krbtgt/" + realm,
+        spn=spn,
         host=host,
         upn=upn,
         password=password,

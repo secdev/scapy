@@ -29,7 +29,7 @@ def get_algs_from_ciphersuite_name(ciphersuite_name):
         if s.endswith("CCM") or s.endswith("CCM_8"):
             kx_name, s = s.split("_WITH_")
             kx_alg = _tls_kx_algs.get(kx_name)
-            hash_alg = _tls_hash_algs.get("SHA256")
+            hash_alg = _tls_hash_algs.get("sha256")
             cipher_alg = _tls_cipher_algs.get(s)
             hmac_alg = None
 
@@ -42,7 +42,7 @@ def get_algs_from_ciphersuite_name(ciphersuite_name):
                 kx_alg = _tls_kx_algs.get("TLS13")
 
             hash_name = s.split('_')[-1]
-            hash_alg = _tls_hash_algs.get(hash_name)
+            hash_alg = _tls_hash_algs.get(hash_name.lower())
 
             cipher_name = s[:-(len(hash_name) + 1)]
             if tls1_3:
@@ -61,7 +61,7 @@ def get_algs_from_ciphersuite_name(ciphersuite_name):
         cipher_alg = _tls_cipher_algs.get(cipher_name.rstrip("_EXPORT40"))
         kx_alg.export = cipher_name.endswith("_EXPORT40")
         hmac_alg = _tls_hmac_algs.get("HMAC-NULL")
-        hash_alg = _tls_hash_algs.get(hash_name)
+        hash_alg = _tls_hash_algs.get(hash_name.lower())
 
     return kx_alg, cipher_alg, hmac_alg, hash_alg, tls1_3
 

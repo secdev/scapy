@@ -16,12 +16,12 @@ from scapy.compat import bytes_encode, hex_bytes, bytes_hex
 
 from scapy.config import conf, crypto_validator
 from scapy.error import warning
+from scapy.layers.tls.crypto.hash import _get_hash
 if conf.crypto_valid:
     from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import padding
-    from cryptography.hazmat.primitives.hashes import HashAlgorithm
 
 
 #####################################################################
@@ -89,31 +89,7 @@ def _legacy_pkcs1_v1_5_encode_md5_sha1(M, emLen):
 # Hash and padding helpers
 #####################################################################
 
-_get_hash = None
 if conf.crypto_valid:
-
-    # first, we add the "md5-sha1" hash from openssl to python-cryptography
-    class MD5_SHA1(HashAlgorithm):
-        name = "md5-sha1"
-        digest_size = 36
-        block_size = 64
-
-    _hashes = {
-        "md5": hashes.MD5,
-        "sha1": hashes.SHA1,
-        "sha224": hashes.SHA224,
-        "sha256": hashes.SHA256,
-        "sha384": hashes.SHA384,
-        "sha512": hashes.SHA512,
-        "md5-sha1": MD5_SHA1
-    }
-
-    def _get_hash(hashStr):
-        try:
-            return _hashes[hashStr]()
-        except KeyError:
-            raise KeyError("Unknown hash function %s" % hashStr)
-
     def _get_padding(padStr, mgf=padding.MGF1, h=hashes.SHA256, label=None):
         if padStr == "pkcs":
             return padding.PKCS1v15()

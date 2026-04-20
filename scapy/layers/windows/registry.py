@@ -105,6 +105,7 @@ class RegType(IntEnum):
 
     # These constants are used to specify the type of a registry value.
 
+    REG_NONE = 0  # No defined value type
     REG_SZ = 1  # Unicode string
     REG_EXPAND_SZ = 2  # Unicode string with environment variable expansion
     REG_BINARY = 3  # Binary data
@@ -194,7 +195,7 @@ class RegEntry:
         ]:
             if not isinstance(reg_data, str):
                 raise ValueError("Data must be a 'str' for this type.")
-        elif reg_type == RegType.REG_BINARY:
+        elif reg_type in [RegType.REG_NONE, RegType.REG_BINARY]:
             if not isinstance(reg_data, bytes):
                 raise ValueError("Data must be a 'bytes' for this type.")
         elif reg_type in [
@@ -227,7 +228,7 @@ class RegEntry:
             RegType.REG_LINK,
         ]:
             return self.reg_data.encode("utf-16le")
-        elif self.reg_type == RegType.REG_BINARY:
+        elif self.reg_type in [RegType.REG_NONE, RegType.REG_BINARY]:
             return self.reg_data
         elif self.reg_type in [
             RegType.REG_DWORD,
@@ -257,7 +258,7 @@ class RegEntry:
             RegType.REG_LINK,
         ]:
             reg_data = data.decode("utf-16le")
-        elif reg_type == RegType.REG_BINARY:
+        elif reg_type in [RegType.REG_NONE, RegType.REG_BINARY]:
             reg_data = data
         elif reg_type in [
             RegType.REG_DWORD,
@@ -292,7 +293,7 @@ class RegEntry:
             RegType.REG_LINK,
         ]:
             reg_data = data
-        elif reg_type == RegType.REG_BINARY:
+        elif reg_type in [RegType.REG_NONE, RegType.REG_BINARY]:
             reg_data = bytes.fromhex(data)
         elif reg_type in [
             RegType.REG_DWORD,

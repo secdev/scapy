@@ -342,7 +342,7 @@ class GssChannelBindings(Packet):
                 log_runtime.warning("Failed to parse the SSL Certificate. CBT not used")
                 return GSS_C_NO_CHANNEL_BINDINGS
             try:
-                h = cert.getSignatureHash()
+                h = cert.getCertSignatureHash()
             except Exception:
                 # We failed to get the signature algorithm.
                 log_runtime.warning(

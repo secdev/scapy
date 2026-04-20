@@ -807,6 +807,7 @@ conf.mib = MIBDict(_name="MIB", **x509_oids)
 # of some algorithms from pkcs1_oids and x962Signature_oids.
 
 hash_by_oid = {
+    "1.2.840.113549.1.1.1": "sha1",
     "1.2.840.113549.1.1.2": "md2",
     "1.2.840.113549.1.1.3": "md4",
     "1.2.840.113549.1.1.4": "md5",
