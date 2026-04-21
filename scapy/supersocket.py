@@ -48,7 +48,6 @@ from typing import (
     cast,
     TYPE_CHECKING,
 )
-from scapy.compat import Self
 
 if TYPE_CHECKING:
     from scapy.ansmachine import AnsweringMachine
