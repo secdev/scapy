@@ -33,9 +33,10 @@ from scapy.volatile import RandUUID
 
 from scapy.layers.dcerpc import NDRUnion, find_dcerpc_interface
 from scapy.layers.gssapi import (
+    GSS_C_FLAGS,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
-    GSS_C_FLAGS,
+    GSS_S_DEFECTIVE_TOKEN,
 )
 from scapy.layers.msrpce.raw.ms_srvs import (
     LPSHARE_ENUM_STRUCT,
@@ -482,10 +483,20 @@ class SMB_Client(Automaton):
     # DEV: add a condition on NEGOTIATED with prio=0
 
     @ATMT.condition(NEGOTIATED, prio=1)
+    def should_retry_without_blob(self, ssp_tuple):
+        _, _, status = ssp_tuple
+        if status == GSS_S_DEFECTIVE_TOKEN:
+            # Token was defective. This could be that we passed a SPNEGO initial token
+            # to a NTLM SSP (not using SPNEGO). Retry using no input blob
+            raise self.NEGOTIATED()
+
+    @ATMT.condition(NEGOTIATED, prio=2)
     def should_send_session_setup_request(self, ssp_tuple):
         _, _, status = ssp_tuple
         if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
-            raise ValueError("Internal error: the SSP completed with an error.")
+            raise ValueError(
+                "Internal error: the SSP completed with error: %s" % status
+            )
         raise self.SENT_SESSION_REQUEST().action_parameters(ssp_tuple)
 
     @ATMT.state()
@@ -619,7 +630,9 @@ class SMB_Client(Automaton):
             target_name="cifs/" + self.HOST if self.HOST else None,
         )
         if status != GSS_S_COMPLETE:
-            raise ValueError("Internal error: the SSP completed with an error.")
+            raise ValueError(
+                "Internal error: the SSP completed with error: %s" % status
+            )
         # Authentication was successful
         self.session.computeSMBSessionKeys(IsClient=True)
 
