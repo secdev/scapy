@@ -984,6 +984,7 @@ def main():
 
     FORMAT = Format.ANSI
     OUTPUTFILE = sys.stdout
+    OUTPUTFILE.reconfigure(encoding='utf-8')
     LOCAL = 0
     NUM = None
     NON_ROOT = False
