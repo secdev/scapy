@@ -3351,13 +3351,17 @@ class DceRpcSocket(StreamSocket):
         )
         super(DceRpcSocket, self).__init__(*args, **kwargs)
 
-    def send(self, x, **kwargs):
+    def send(self, x, is_sr1=False, **kwargs):
         for pkt in self.session.out_pkt(x):
             if self.transport == DCERPC_Transport.NCACN_NP:
                 # In this case DceRpcSocket wraps a SMB_RPC_SOCKET, call it directly.
-                self.ins.send(pkt, **kwargs)
+                self.ins.send(pkt, is_sr1=is_sr1, **kwargs)
             else:
                 super(DceRpcSocket, self).send(pkt, **kwargs)
+
+    def sr1(self, *args, **kwargs):
+        # We allow to use IOCTL only when sr1() is used, as we expect an answer.
+        return super(DceRpcSocket, self).sr1(*args, is_sr1=True, **kwargs)
 
     def recv(self, x=None):
         pkt = super(DceRpcSocket, self).recv(x)

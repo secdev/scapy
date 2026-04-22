@@ -165,7 +165,7 @@ class LDAPHero:
         use_krb5ccname: bool = False,
     ):
         self.client = LDAP_Client()
-        if ssp is None and mech == LDAP_BIND_MECHS.SASL_GSS_SPNEGO and UPN and host:
+        if ssp is None and mech == LDAP_BIND_MECHS.SASL_GSS_SPNEGO and (UPN and host or use_winssp):
             # We allow the SSP to be provided through arguments.
             # In that case, use SPNEGO
             ssp = SPNEGOSSP.from_cli_arguments(
