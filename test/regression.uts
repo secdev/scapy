@@ -32,7 +32,7 @@ class FakeModule2(object):
     __version__ = "5.143.3.12"
 
 class FakeModule3(object):
-    __version__ = "v2.4.2.dev42"
+    __version__ = "v2.4.2.post42"
 
 from scapy.config import _version_checker
 
@@ -67,7 +67,7 @@ with mock.patch('scapy.subprocess.Popen', return_value=b):
         except ValueError:
             pass
 
-assert GitModuleScapy.__version__ == '2.4.5rc1.dev261'
+assert GitModuleScapy.__version__ == '2.4.5rc1.post261'
 assert _version_checker(GitModuleScapy, (2, 4, 5))
 
 = List layers
