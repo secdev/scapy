@@ -14,7 +14,19 @@ from scapy.layers.tls.crypto.md4 import MD4 as md4
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.hashes import (
+        MD5,
+        SHA1,
+        SHA224,
+        SHA256,
+        SHA384,
+        SHA512,
+        SHAKE256,
+    )
     from cryptography.hazmat.primitives.hashes import HashAlgorithm
+else:
+    MD5 = SHA1 = SHA224 = SHA256 = SHA384 = SHA512 = SHAKE256 = None
+    HashAlgorithm = object
 
 _tls_hash_algs = {}
 
@@ -59,12 +71,12 @@ class Hash_MD4(_GenericHash):
 
 
 class Hash_MD5(_GenericHash):
-    hash_cls = hashes.MD5
+    hash_cls = MD5
     hash_len = 16
 
 
 class Hash_SHA(_GenericHash):
-    hash_cls = hashes.SHA1
+    hash_cls = SHA1
     hash_len = 20
 
 
@@ -72,22 +84,22 @@ _tls_hash_algs["sha1"] = Hash_SHA
 
 
 class Hash_SHA224(_GenericHash):
-    hash_cls = hashes.SHA224
+    hash_cls = SHA224
     hash_len = 28
 
 
 class Hash_SHA256(_GenericHash):
-    hash_cls = hashes.SHA256
+    hash_cls = SHA256
     hash_len = 32
 
 
 class Hash_SHA384(_GenericHash):
-    hash_cls = hashes.SHA384
+    hash_cls = SHA384
     hash_len = 48
 
 
 class Hash_SHA512(_GenericHash):
-    hash_cls = hashes.SHA512
+    hash_cls = SHA512
     hash_len = 64
 
 
@@ -107,7 +119,7 @@ _tls_hash_algs["md5-sha1"] = Hash_MD5SHA1
 
 
 class Hash_SHAKE256(_GenericHash):
-    hash_cls = hashes.SHAKE256
+    hash_cls = SHAKE256
 
     def __init__(self, digest_size: int):
         self.hash_len = digest_size
