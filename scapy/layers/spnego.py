@@ -40,6 +40,7 @@ from scapy.asn1fields import (
     ASN1F_STRING,
 )
 from scapy.asn1packet import ASN1_Packet
+from scapy.consts import WINDOWS
 from scapy.fields import (
     FieldListField,
     LEIntEnumField,
@@ -724,10 +725,13 @@ class SPNEGOSSP(SSP):
         ccache: str = None,
         debug: int = 0,
         use_krb5ccname: bool = False,
+        use_winssp: bool = False,
     ):
         """
         Initialize a SPNEGOSSP from a list of many arguments.
-        This is useful in a CLI, with NTLM and Kerberos supported by default.
+
+        This is useful in a CLI, as it will try to build the best SPNEGOSSP
+        with NTLM and Kerberos based on the various parameters.
 
         :param UPN: the UPN of the user to use.
         :param target: the target IP/hostname entered by the user.
@@ -743,6 +747,8 @@ class SPNEGOSSP(SSP):
         :param ccache: (str) if provided, a path to a CCACHE (Kerberos)
         :param use_krb5ccname: (bool) if true, the KRB5CCNAME environment variable will
                                be used if available.
+        :param use_winssp: (bool) (only works on Windows). Use implicit authentication
+                           through WinSSP.
         """
         kerberos = True
         hostname = None
@@ -763,6 +769,14 @@ class SPNEGOSSP(SSP):
         except ValueError:
             # not a UPN: NTLM only
             kerberos = False
+
+        # If using WinSSP, this goes fast.
+        if use_winssp:
+            if not WINDOWS:
+                raise OSError("Cannot use WinSSP on a non-Windows computer !")
+            from scapy.arch.windows.sspi import WinSSP
+
+            return WinSSP()
 
         # If we're asked, check the environment for KRB5CCNAME
         if use_krb5ccname and ccache is None and "KRB5CCNAME" in os.environ:

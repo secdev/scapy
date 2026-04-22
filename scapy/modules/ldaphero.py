@@ -163,6 +163,7 @@ class LDAPHero:
         HashAes256Sha96: bytes = None,
         HashAes128Sha96: bytes = None,
         use_krb5ccname: bool = False,
+        use_winssp: bool = False,
     ):
         self.client = LDAP_Client()
         if ssp is None and mech == LDAP_BIND_MECHS.SASL_GSS_SPNEGO and (UPN and host or use_winssp):
@@ -177,6 +178,7 @@ class LDAPHero:
                 HashAes128Sha96=HashAes128Sha96,
                 kerberos_required=kerberos_required,
                 use_krb5ccname=use_krb5ccname,
+                use_winssp=use_winssp,
             )
         self.ssp = ssp
         self.mech = mech

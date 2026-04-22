@@ -1129,6 +1129,10 @@ class smbclient(CLIUtil):
     :param HashNt: if provided, used for auth (NTLM)
     :param HashAes256Sha96: if provided, used for auth (Kerberos)
     :param HashAes128Sha96: if provided, used for auth (Kerberos)
+    :param use_krb5ccname: (bool) if true, the KRB5CCNAME environment variable will
+                            be used if available.
+    :param use_winssp: (bool) (only works on Windows). Use implicit authentication
+                        through WinSSP.
     :param ST: if provided, the service ticket to use (Kerberos)
     :param KEY: if provided, the session key associated to the ticket (Kerberos)
     :param cli: CLI mode (default True). False to use for scripting
@@ -1150,6 +1154,7 @@ class smbclient(CLIUtil):
         HashAes256Sha96: bytes = None,
         HashAes128Sha96: bytes = None,
         use_krb5ccname: bool = False,
+        use_winssp: bool = False,
         port: int = 445,
         timeout: int = 5,
         debug: int = 0,
@@ -1181,6 +1186,7 @@ class smbclient(CLIUtil):
                     KEY=KEY,
                     kerberos_required=kerberos_required,
                     use_krb5ccname=use_krb5ccname,
+                    use_winssp=use_winssp,
                 )
             else:
                 # Guest mode
