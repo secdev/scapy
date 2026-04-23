@@ -3926,8 +3926,10 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                 for args in calls:
                     try:
                         res = func(self, *args, **kwargs)
-                    except TypeError:
+                    except TypeError as ex:
                         print("Bad number of arguments !")
+                        if debug:
+                            traceback.print_exception(ex)
                         self.help(cmd=cmd)
                         continue
                     except Exception as ex:

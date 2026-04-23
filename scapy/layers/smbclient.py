@@ -1035,16 +1035,16 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
         self.close_request(self.PipeFileId)
         self.PipeFileId = None
 
-    def send(self, x):
-        """
-        Internal ObjectPipe function.
-        """
-        # Reminder: this class is an ObjectPipe, it's just a queue.
+    def send(self, x, is_sr1=True):
+        # Reminder: this class is an ObjectPipe ! It doesn't act as a real socket
+        # but just a queue. When someone calls the "send" function, they pipe
+        # some data that we must send, and tell us if they expect an answer through
+        # the is_sr1 flag.
 
         # Detect if DCE/RPC is fragmented. Then we must use Read/Write
         is_frag = x.pfc_flags & 3 != 3
 
-        if self.use_ioctl and not is_frag and self.session.Dialect >= 0x0210:
+        if self.use_ioctl and is_sr1 and not is_frag and self.session.Dialect >= 0x0210:
             # Use IOCTLRequest
             pkt = SMB2_IOCTL_Request(
                 FileId=self.PipeFileId,
@@ -1057,6 +1057,7 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
                 raise ValueError("Failed reading IOCTL_Response ! %s" % resp.NTStatus)
             data = bytes(resp.Output)
             super(SMB_RPC_SOCKET, self).send(data)
+
             # Handle BUFFER_OVERFLOW (big DCE/RPC response)
             while resp.NTStatus == "STATUS_BUFFER_OVERFLOW" or data[3] & 2 != 2:
                 # Retrieve DCE/RPC full size
@@ -1078,9 +1079,15 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
             resp = self.ins.sr1(pkt, verbose=0)
             if SMB2_Write_Response not in resp:
                 raise ValueError("Failed sending WriteResponse ! %s" % resp.NTStatus)
+
+            # We may not be expecting an answer
+            if not is_sr1:
+                return
+
             # If fragmented, only read if it's the last.
             if is_frag and not x.pfc_flags.PFC_LAST_FRAG:
                 return
+
             # We send a Read Request afterwards
             resp = self.ins.sr1(
                 SMB2_Read_Request(
@@ -1122,6 +1129,10 @@ class smbclient(CLIUtil):
     :param HashNt: if provided, used for auth (NTLM)
     :param HashAes256Sha96: if provided, used for auth (Kerberos)
     :param HashAes128Sha96: if provided, used for auth (Kerberos)
+    :param use_krb5ccname: (bool) if true, the KRB5CCNAME environment variable will
+                            be used if available.
+    :param use_winssp: (bool) (only works on Windows). Use implicit authentication
+                        through WinSSP.
     :param ST: if provided, the service ticket to use (Kerberos)
     :param KEY: if provided, the session key associated to the ticket (Kerberos)
     :param cli: CLI mode (default True). False to use for scripting
@@ -1143,6 +1154,7 @@ class smbclient(CLIUtil):
         HashAes256Sha96: bytes = None,
         HashAes128Sha96: bytes = None,
         use_krb5ccname: bool = False,
+        use_winssp: bool = False,
         port: int = 445,
         timeout: int = 5,
         debug: int = 0,
@@ -1156,7 +1168,9 @@ class smbclient(CLIUtil):
     ):
         if cli:
             self._depcheck()
-        assert UPN or ssp or guest, "Either UPN, ssp or guest must be provided !"
+        assert (
+            UPN or ssp or guest or use_winssp
+        ), "Either UPN, ssp or guest must be provided !"
         # Do we need to build a SSP?
         if ssp is None:
             # Create the SSP (only if not guest mode)
@@ -1172,6 +1186,7 @@ class smbclient(CLIUtil):
                     KEY=KEY,
                     kerberos_required=kerberos_required,
                     use_krb5ccname=use_krb5ccname,
+                    use_winssp=use_winssp,
                 )
             else:
                 # Guest mode

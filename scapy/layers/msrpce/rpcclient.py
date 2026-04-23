@@ -239,16 +239,27 @@ class DCERPC_Client(object):
             )
 
         if self.transport == DCERPC_Transport.NCACN_NP:  # SMB
+            if self.auth_level >= DCE_C_AUTHN_LEVEL.PKT_PRIVACY:
+                smb_kwargs.setdefault("REQUIRE_ENCRYPTION", True)
+            elif self.auth_level >= DCE_C_AUTHN_LEVEL.PKT_INTEGRITY:
+                smb_kwargs.setdefault("REQUIRE_SIGNATURE", True)
+
             # We pack the socket into a SMB_RPC_SOCKET
             sock = self.smbrpcsock = SMB_RPC_SOCKET.from_tcpsock(
-                sock, ssp=self.ssp, **smb_kwargs
+                sock,
+                ssp=self.ssp,
+                **smb_kwargs,
             )
 
             # If the endpoint is provided, connect to it.
             if endpoint is not None:
                 self.open_smbpipe(endpoint)
 
-            self.sock = DceRpcSocket(sock, DceRpc5, **self.dcesockargs)
+            self.sock = DceRpcSocket(
+                sock,
+                DceRpc5,
+                **self.dcesockargs,
+            )
         elif self.transport == DCERPC_Transport.NCACN_IP_TCP:
             self.sock = DceRpcSocket(
                 sock,

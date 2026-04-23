@@ -163,9 +163,14 @@ class LDAPHero:
         HashAes256Sha96: bytes = None,
         HashAes128Sha96: bytes = None,
         use_krb5ccname: bool = False,
+        use_winssp: bool = False,
     ):
         self.client = LDAP_Client()
-        if ssp is None and mech == LDAP_BIND_MECHS.SASL_GSS_SPNEGO and UPN and host:
+        if (
+            ssp is None
+            and mech == LDAP_BIND_MECHS.SASL_GSS_SPNEGO
+            and (UPN and host or use_winssp)
+        ):
             # We allow the SSP to be provided through arguments.
             # In that case, use SPNEGO
             ssp = SPNEGOSSP.from_cli_arguments(
@@ -177,6 +182,7 @@ class LDAPHero:
                 HashAes128Sha96=HashAes128Sha96,
                 kerberos_required=kerberos_required,
                 use_krb5ccname=use_krb5ccname,
+                use_winssp=use_winssp,
             )
         self.ssp = ssp
         self.mech = mech
@@ -261,6 +267,7 @@ class LDAPHero:
             self.client.connect(self.host, port=self.port, use_ssl=self.ssl)
         except Exception as ex:
             self.tprint(str(ex))
+            self.host = None
             raise
         self.tprint("Established connection to %s." % self.host)
         self.connected = True
