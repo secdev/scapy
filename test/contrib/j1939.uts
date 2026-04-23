@@ -839,7 +839,7 @@ def _send():
 
 t = threading.Thread(target=_send)
 
-pkts = receiver.sniff(timeout=3, started_callback=t.start)
+pkts = receiver.sniff(timeout=3, started_callback=t.start, count=1)
 t.join(timeout=5)
 rx = pkts[0]
 
@@ -875,13 +875,16 @@ t_long.start()
 
 try:
     for _ in range(4):   # 1 BAM + 3 DT
-        f = can_receiver_long.recv()
+        f = can_receiver_long.sniff(timeout=0.5, count=1)[0]
         if f is not None:
             collected_frames.append(f)
+            print(repr(f))
+            if bytes(f)[1] == 0x14:
+                print("FF recv")
 except Exception:
     pass
 
-t_long.join()
+t_long.join(timeout=5)
 j1939_sender_long.close()
 can_receiver_long.close()
 
@@ -946,8 +949,9 @@ def _send_bam_sequence():
 t_bam = threading.Thread(target=_send_bam_sequence)
 t_bam.start()
 
-rx_bam = j1939_receiver_bam.recv()
-t_bam.join()
+rx_bam = j1939_receiver_bam.sniff(timeout=3.0, count=1)[0]
+
+t_bam.join(timeout=5)
 can_sender_bam.close()
 j1939_receiver_bam.close()
 
@@ -957,5 +961,401 @@ assert rx_bam.data == tx_bam_payload, \
 assert rx_bam.pgn == tx_bam_pgn, "PGN mismatch: 0x%X != 0x%X" % (rx_bam.pgn, tx_bam_pgn)
 assert rx_bam.src == tx_bam_src, "SA mismatch: %d != %d" % (rx_bam.src, tx_bam_src)
 
-= Teardown
-pass  # vcan0 is managed by the test infrastructure; do not delete it here
+############
+############
++ J1939 interoperability tests with j1939cat and j1939sr
+~ vcan_socket needs_root
+
+= Setup interoperability tools
+import subprocess
+import shutil
+import threading
+from time import sleep
+
+_j1939cat = shutil.which("j1939cat")
+_j1939sr = shutil.which("j1939sr")
+
+= j1939cat sends broadcast; NativeJ1939Socket receives (promisc)
+# j1939cat (SA=0x40) broadcasts PGN 0xFECA → NativeJ1939Socket (promisc) receives.
+
+_cat_tx = b'\x01\x02\x03\x04\x05\x06\x07'
+_cat_sa = 0x40
+_cat_pgn = 0xFECA  # PDU2 broadcast (PF=0xFE >= 240)
+
+_cat_receiver = NativeJ1939Socket("vcan0", promisc=True)
+_cat_receiver.ins.settimeout(3.0)
+
+def _cat_send_bcast():
+    sleep(0.2)
+    subprocess.Popen(
+        [_j1939cat, '-B',
+         'vcan0:0x%02x' % _cat_sa,
+         ':0xff,0x%x' % _cat_pgn],
+        stdin=subprocess.PIPE,
+    ).communicate(input=_cat_tx)
+
+_t_cat = threading.Thread(target=_cat_send_bcast)
+_t_cat.start()
+_cat_rx = _cat_receiver.sniff(timeout=3.0, count=1)[0]
+_t_cat.join(timeout=5)
+_cat_receiver.close()
+
+assert _cat_rx is not None, "No packet received from j1939cat"
+assert _cat_rx.data == _cat_tx, \
+    "Payload mismatch: %r != %r" % (_cat_rx.data, _cat_tx)
+assert _cat_rx.pgn == _cat_pgn, "PGN mismatch: 0x%X" % _cat_rx.pgn
+assert _cat_rx.src == _cat_sa, "SA mismatch: 0x%X" % _cat_rx.src
+
+= NativeJ1939Socket sends unicast; j1939cat receives
+# NativeJ1939Socket (SA=0x41) sends PDU1 unicast (PGN 0xEF00, DA=0x50).
+# j1939cat bound at SA=0x50 receives the payload.
+
+
+_cat2_sa = 0x50    # j1939cat receiver source address
+_scapy_sa2 = 0x41  # NativeJ1939Socket sender source address
+_cat2_pgn = 0xEF00  # PDU1 (PF=0xEF=239 < 240), unicast
+
+_p_cat2 = subprocess.Popen(
+    [_j1939cat, 'vcan0:0x%02x' % _cat2_sa, '-r'],
+    stdout=subprocess.PIPE,
+)
+sleep(0.2)  # give j1939cat time to bind
+
+_cat2_tx = b'\x0a\x0b\x0c\x0d\x0e\x0f\x10'
+_cat2_sock = NativeJ1939Socket("vcan0", src_addr=_scapy_sa2, promisc=False)
+_cat2_sock.send(
+    J1939(_cat2_tx, pgn=_cat2_pgn, src=_scapy_sa2, dst=_cat2_sa)
+)
+_cat2_sock.close()
+
+try:
+    _cat2_out, _ = _p_cat2.communicate(timeout=3.0)
+except subprocess.TimeoutExpired:
+    _p_cat2.terminate()
+    _cat2_out = _p_cat2.stdout.read()
+    _p_cat2.kill()
+
+assert _cat2_out == _cat2_tx, \
+    "j1939cat received: %r != expected: %r" % (_cat2_out, _cat2_tx)
+
+= j1939sr sends unicast; NativeJ1939Socket receives
+# j1939sr (SA=0x60, PGN 0xEF00) sends to SA=0x71 → NativeJ1939Socket at SA=0x71 receives.
+
+
+_sr_src_sa = 0x60
+_sr_dst_sa = 0x71  # NativeJ1939Socket receiver source address
+_sr_pgn = 0xEF00   # PDU1 (unicast)
+
+_sr_receiver = NativeJ1939Socket(
+    "vcan0", src_addr=_sr_dst_sa, pgn=_sr_pgn, promisc=False
+)
+_sr_receiver.ins.settimeout(3.0)
+
+_sr_tx = b'\xaa\xbb\xcc\xdd\xee\xff'
+
+def _j1939sr_send():
+    sleep(0.2)
+    subprocess.Popen(
+        [_j1939sr,
+         'vcan0:0x%02x,0x%04x' % (_sr_src_sa, _sr_pgn),
+         '0x%02x' % _sr_dst_sa],
+        stdin=subprocess.PIPE,
+    ).communicate(input=_sr_tx)
+
+_t_sr = threading.Thread(target=_j1939sr_send)
+_t_sr.start()
+_sr_rx = _sr_receiver.sniff(timeout=3.0, count=1)[0]
+_t_sr.join(timeout=5)
+_sr_receiver.close()
+
+assert _sr_rx is not None, "No packet received from j1939sr"
+assert _sr_rx.data == _sr_tx, \
+    "Payload mismatch: %r != %r" % (_sr_rx.data, _sr_tx)
+assert _sr_rx.src == _sr_src_sa, "SA mismatch: 0x%X" % _sr_rx.src
+
+= NativeJ1939Socket sends unicast; j1939sr receives
+# NativeJ1939Socket (SA=0x61) sends PDU1 unicast (PGN 0xEF00, DA=0x80).
+# j1939sr bound at SA=0x80 receives and writes payload to stdout.
+
+
+_sr2_dst_sa = 0x80  # j1939sr receiver source address
+_scapy_sa4 = 0x61   # NativeJ1939Socket sender source address
+_sr2_pgn = 0xEF00   # PDU1 (unicast)
+
+_p_sr2 = subprocess.Popen(
+    [_j1939sr,
+     'vcan0:0x%02x,0x%04x' % (_sr2_dst_sa, _sr2_pgn)],
+    stdout=subprocess.PIPE,
+)
+sleep(0.2)  # give j1939sr time to bind
+
+_sr2_tx = b'\x11\x22\x33\x44\x55\x66'
+_sr2_sock = NativeJ1939Socket("vcan0", src_addr=_scapy_sa4, promisc=False)
+_sr2_sock.send(
+    J1939(_sr2_tx, pgn=_sr2_pgn, src=_scapy_sa4, dst=_sr2_dst_sa)
+)
+_sr2_sock.close()
+
+try:
+    _sr2_out, _ = _p_sr2.communicate(timeout=3.0)
+except subprocess.TimeoutExpired:
+    _p_sr2.terminate()
+    _sr2_out = _p_sr2.stdout.read()
+
+assert _sr2_out == _sr2_tx, \
+    "j1939sr received: %r != expected: %r" % (_sr2_out, _sr2_tx)
+
+
+############
+############
++ NativeJ1939Socket ↔ NativeCANSocket – short single-frame message tests
+~ vcan_socket needs_root
+
+= NativeJ1939Socket short PDU2 broadcast → NativeCANSocket receives single CAN frame
+# For payloads ≤8 bytes the kernel J1939 stack does NOT use TP; a single CAN
+# frame is emitted.  NativeCANSocket (basecls=J1939_CAN) captures that frame
+# and the J1939 CAN ID fields should match the sent PGN and source address.
+from scapy.contrib.cansocket_native import NativeCANSocket
+
+_sf_sa = 0x01
+_sf_pgn = 0xFECA  # PDU2 broadcast (PF=0xFE >= 240)
+_sf_data = b'\x11\x22\x33\x44'
+
+_sf_j1939_tx = NativeJ1939Socket("vcan0", src_addr=_sf_sa, promisc=False)
+_sf_can_rx = NativeCANSocket("vcan0", basecls=J1939_CAN)
+_sf_can_rx.ins.settimeout(3.0)
+
+
+def _sf_send():
+    sleep(0.1)
+    _sf_j1939_tx.send(J1939(_sf_data, pgn=_sf_pgn, src=_sf_sa, dst=0xFF))
+
+
+_sf_t = threading.Thread(target=_sf_send)
+_sf_t.start()
+
+_sf_rx_frame = _sf_can_rx.sniff(timeout=3.0, count=1)[0]
+_sf_t.join(timeout=5)
+_sf_j1939_tx.close()
+_sf_can_rx.close()
+
+assert _sf_rx_frame is not None, \
+    "NativeCANSocket did not receive the J1939 single-frame"
+assert isinstance(_sf_rx_frame, J1939_CAN), \
+    "Received packet type mismatch: %s" % type(_sf_rx_frame).__name__
+assert _sf_rx_frame.pgn == _sf_pgn, \
+    "PGN mismatch: 0x%05X != 0x%05X" % (_sf_rx_frame.pgn, _sf_pgn)
+assert _sf_rx_frame.src == _sf_sa, \
+    "SA mismatch: 0x%02X != 0x%02X" % (_sf_rx_frame.src, _sf_sa)
+assert _sf_rx_frame.data == _sf_data, \
+    "Data mismatch: %r != %r" % (_sf_rx_frame.data, _sf_data)
+
+= NativeCANSocket single J1939-format CAN frame → NativeJ1939Socket (promisc) receives
+# NativeCANSocket injects a J1939-format 29-bit extended CAN frame directly.
+# The J1939 kernel module in promisc mode sees it identically to a frame
+# emitted by another CAN_J1939 socket.
+from scapy.contrib.cansocket_native import NativeCANSocket
+
+_sc_sa = 0x05
+_sc_pgn = 0xFECA
+_sc_data = b'\xAA\xBB\xCC'
+# PDU2 broadcast: PF=0xFE (≥240), PS=0xCA → PGN 0xFECA
+_sc_frame = J1939_CAN(priority=6, data_page=0, pdu_format=0xFE,
+                       pdu_specific=0xCA, src=_sc_sa, data=_sc_data)
+
+_sc_can_tx = NativeCANSocket("vcan0")
+_sc_j1939_rx = NativeJ1939Socket("vcan0", promisc=True)
+_sc_j1939_rx.ins.settimeout(3.0)
+
+
+def _sc_send():
+    sleep(0.1)
+    _sc_can_tx.send(_sc_frame)
+
+
+_sc_t = threading.Thread(target=_sc_send)
+_sc_t.start()
+
+_sc_rx = _sc_j1939_rx.sniff(timeout=3.0, count=1)[0]
+_sc_t.join(timeout=5)
+_sc_can_tx.close()
+_sc_j1939_rx.close()
+
+assert _sc_rx is not None, \
+    "NativeJ1939Socket did not receive the single CAN frame"
+assert _sc_rx.pgn == _sc_pgn, \
+    "PGN mismatch: 0x%05X != 0x%05X" % (_sc_rx.pgn, _sc_pgn)
+assert _sc_rx.src == _sc_sa, \
+    "SA mismatch: 0x%02X != 0x%02X" % (_sc_rx.src, _sc_sa)
+assert _sc_rx.data == _sc_data, \
+    "Data mismatch: %r != %r" % (_sc_rx.data, _sc_data)
+
+############
+############
++ NativeJ1939Socket ↔ ISOTPSoftSocket cross-layer interoperability
+~ vcan_socket needs_root
+
+# J1939 (ISO 11783) and ISOTP (ISO 15765-2) are orthogonal transport protocols
+# that coexist on the same CAN bus.  ISOTPSoftSocket operates at the raw CAN
+# frame level (via NativeCANSocket) and may be configured with J1939-formatted
+# 29-bit CAN identifiers as tx_id / rx_id.  The tests below verify:
+#   1. Both stacks coexist without mutual interference (spy captures both).
+#   2. ISOTPSoftSocket frames emitted with a J1939-format tx_id are received
+#      by a promiscuous NativeJ1939Socket as valid J1939 payloads (the ISOTP
+#      single-frame header byte is visible in the J1939 payload).
+#   3. A J1939 payload whose first byte is a valid ISOTP single-frame length
+#      marker is correctly decoded by ISOTPSoftSocket as an ISOTP SF.
+
+= Setup ISOTPSoftSocket interoperability imports
+from scapy.contrib.isotp import ISOTPSoftSocket, ISOTP
+from scapy.contrib.cansocket_native import NativeCANSocket
+from scapy.sendrecv import sniff
+
+= J1939 and ISOTPSoftSocket coexist without interference on shared vcan0 (spy observes both)
+# Both sockets are active simultaneously.  A NativeCANSocket spy captures all
+# frames from the bus and confirms that neither protocol prevents the other
+# from reaching the CAN medium.
+_coex_j1939_sa = 0x10
+_coex_j1939_pgn = 0xFECA
+_coex_j1939_data = b'\xDE\xAD\xBE\xEF'
+_coex_j1939_can_id = j1939_to_can_id(6, 0, 0, 0xFE, 0xCA, _coex_j1939_sa)
+
+_coex_isotp_tx_id = 0x7E0   # 11-bit standard-frame ISOTP CAN ID
+_coex_isotp_data = b'\xCA\xFE\xBA\xBE'
+
+_coex_j1939_tx = NativeJ1939Socket("vcan0", src_addr=_coex_j1939_sa, promisc=False)
+# ISOTPSoftSocket accepts an interface name string directly on Linux.
+_coex_isotp_tx = ISOTPSoftSocket("vcan0", tx_id=_coex_isotp_tx_id, rx_id=0x7E8)
+_coex_spy = NativeCANSocket("vcan0")
+
+
+def _coex_send():
+    sleep(0.1)
+    _coex_j1939_tx.send(
+        J1939(_coex_j1939_data, pgn=_coex_j1939_pgn,
+              src=_coex_j1939_sa, dst=0xFF)
+    )
+    _coex_isotp_tx.send(ISOTP(data=_coex_isotp_data))
+
+
+_coex_t = threading.Thread(target=_coex_send)
+_coex_t.start()
+
+_coex_captured = sniff(opened_socket=_coex_spy, count=5, timeout=3)
+
+_coex_t.join(timeout=5)
+_coex_j1939_tx.close()
+_coex_isotp_tx.close()
+_coex_spy.close()
+
+_coex_j1939_seen = any(
+    getattr(f, 'identifier', None) == _coex_j1939_can_id
+    for f in _coex_captured
+)
+_coex_isotp_seen = any(
+    getattr(f, 'identifier', None) == _coex_isotp_tx_id
+    for f in _coex_captured
+)
+assert _coex_j1939_seen, \
+    "J1939 frame (CAN ID 0x%08X) not found in CAN spy capture" % _coex_j1939_can_id
+assert _coex_isotp_seen, \
+    "ISOTP frame (CAN ID 0x%03X) not found in CAN spy capture" % _coex_isotp_tx_id
+
+= ISOTPSoftSocket sends using J1939-format CAN ID; NativeJ1939Socket (promisc) receives raw ISOTP frame
+# ISOTPSoftSocket is configured with tx_id equal to the J1939 CAN ID for
+# SA=0x20, PGN=0xFECA.  When it sends a 4-byte ISOTP message the kernel
+# produces a single CAN frame (ISOTP SF): [0x04, payload…].  A promiscuous
+# NativeJ1939Socket receives that frame and sees the ISOTP SF bytes verbatim
+# as the J1939 payload (ISOTP header byte is NOT stripped by J1939).
+_iso2j_sa = 0x20
+_iso2j_pgn = 0xFECA
+_iso2j_can_id = j1939_to_can_id(6, 0, 0, 0xFE, 0xCA, _iso2j_sa)
+
+_iso2j_isotp_payload = b'\xAA\xBB\xCC\xDD'   # 4 bytes delivered by ISOTP
+
+# ISOTPSoftSocket: tx_id = J1939 CAN ID; rx_id is a different (unused) CAN ID.
+_iso2j_isotp_tx = ISOTPSoftSocket(
+    "vcan0",
+    tx_id=_iso2j_can_id,
+    rx_id=j1939_to_can_id(6, 0, 0, 0xFE, 0xCB, _iso2j_sa),
+)
+_iso2j_j1939_rx = NativeJ1939Socket("vcan0", promisc=True)
+_iso2j_j1939_rx.ins.settimeout(3.0)
+
+
+def _iso2j_send():
+    sleep(0.1)
+    _iso2j_isotp_tx.send(ISOTP(data=_iso2j_isotp_payload))
+
+
+_iso2j_t = threading.Thread(target=_iso2j_send)
+_iso2j_t.start()
+
+_iso2j_rx = _iso2j_j1939_rx.sniff(timeout=3.0, count=1)[0]
+_iso2j_t.join(timeout=5)
+_iso2j_isotp_tx.close()
+_iso2j_j1939_rx.close()
+
+# ISOTP single frame: data[0] = payload_length, data[1:] = actual_payload
+_iso2j_expected = bytes([len(_iso2j_isotp_payload)]) + _iso2j_isotp_payload
+
+assert _iso2j_rx is not None, \
+    "NativeJ1939Socket did not receive the ISOTP single frame"
+assert _iso2j_rx.pgn == _iso2j_pgn, \
+    "PGN mismatch: 0x%05X != 0x%05X" % (_iso2j_rx.pgn, _iso2j_pgn)
+assert _iso2j_rx.src == _iso2j_sa, \
+    "SA mismatch: 0x%02X != 0x%02X" % (_iso2j_rx.src, _iso2j_sa)
+assert _iso2j_rx.data == _iso2j_expected, \
+    "J1939 payload mismatch (expected raw ISOTP SF): %r != %r" % (
+        _iso2j_rx.data, _iso2j_expected)
+
+= NativeJ1939Socket sends ISOTP-SF-compatible PDU2; ISOTPSoftSocket (listen_only) receives decoded payload
+# When a J1939 payload starts with an ISOTP single-frame length byte (0x0N
+# where N = number of following bytes, 1–7), ISOTPSoftSocket bound to the
+# same J1939 CAN ID (in listen_only mode so it never sends ISOTP flow-control
+# frames) decodes the CAN frame as ISOTP SF and delivers the N data bytes.
+_j2iso_sa = 0x21
+_j2iso_pgn = 0xFECA
+_j2iso_can_id = j1939_to_can_id(6, 0, 0, 0xFE, 0xCA, _j2iso_sa)
+
+_j2iso_isotp_payload = b'\x11\x22\x33\x44'  # 4 bytes the ISOTP layer delivers
+# Craft J1939 data: ISOTP SF marker (len byte) followed by the payload
+_j2iso_j1939_data = bytes([len(_j2iso_isotp_payload)]) + _j2iso_isotp_payload
+
+_j2iso_j1939_tx = NativeJ1939Socket("vcan0", src_addr=_j2iso_sa, promisc=False)
+_j2iso_isotp_rx = ISOTPSoftSocket(
+    "vcan0",
+    tx_id=j1939_to_can_id(6, 0, 0, 0xFE, 0xCB, _j2iso_sa),  # unused tx side
+    rx_id=_j2iso_can_id,
+    listen_only=True,  # do not send ISOTP flow-control frames back to J1939
+)
+
+_j2iso_result = [None]
+_j2iso_done = threading.Event()
+
+
+def _j2iso_recv():
+    _j2iso_result[0] = _j2iso_isotp_rx.sniff(timeout=3.0, count=1)[0]
+    _j2iso_done.set()
+
+
+_j2iso_recv_t = threading.Thread(target=_j2iso_recv, daemon=True)
+_j2iso_recv_t.start()
+
+sleep(0.2)
+_j2iso_j1939_tx.send(
+    J1939(_j2iso_j1939_data, pgn=_j2iso_pgn, src=_j2iso_sa, dst=0xFF)
+)
+
+_j2iso_done.wait(timeout=3.0)
+_j2iso_j1939_tx.close()
+_j2iso_isotp_rx.close()
+
+_j2iso_rx = _j2iso_result[0]
+assert _j2iso_rx is not None, \
+    "ISOTPSoftSocket did not receive the J1939 frame as ISOTP single frame"
+assert _j2iso_rx.data == _j2iso_isotp_payload, \
+    "ISOTP payload mismatch: %r != %r" % (_j2iso_rx.data, _j2iso_isotp_payload)
+
+= Teardown cross-layer interop section
+pass

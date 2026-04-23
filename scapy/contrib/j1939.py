@@ -582,9 +582,13 @@ class NativeJ1939Socket(SuperSocket):
 
     desc = "read/write J1939 messages using Linux kernel PF_CAN/CAN_J1939 sockets"
 
-    # struct j1939_filter: name(Q) name_mask(Q) pgn(I) pgn_mask(I) addr(B) addr_mask(B)
+    # struct j1939_filter: name(Q=8) name_mask(Q=8) pgn(I=4) pgn_mask(I=4) addr(B=1) addr_mask(B=1)
+    # Packed size of the 6 fields = 8+8+4+4+1+1 = 26 bytes.
+    # sizeof(struct j1939_filter) = 32 bytes on 64-bit Linux: the compiler adds 6 bytes of
+    # trailing padding so that the struct size is a multiple of the largest member alignment
+    # (__u64, 8 bytes).  The padding must be included when passing an array to setsockopt(2).
     _J1939_FILTER_FMT = "=QQIIBB"
-    _J1939_FILTER_PAD = b'\x00' * 4  # 4 bytes padding to reach 28-byte alignment
+    _J1939_FILTER_PAD = b'\x00' * 6  # 6 bytes padding to reach 32-byte alignment
 
     def __init__(
             self,
@@ -619,6 +623,20 @@ class NativeJ1939Socket(SuperSocket):
                 raise Scapy_Exception(
                     "Could not enable J1939 promiscuous mode: %s" % exc
                 )
+
+        # Allow sending and receiving broadcast (global address 0xFF / J1939_NO_ADDR).
+        # The Linux kernel J1939 stack refuses sendto() calls with addr=J1939_NO_ADDR
+        # unless SO_BROADCAST is set, returning EACCES.
+        try:
+            self.ins.setsockopt(
+                socket.SOL_SOCKET,
+                socket.SO_BROADCAST,
+                struct.pack('i', 1),
+            )
+        except OSError as exc:
+            raise Scapy_Exception(
+                "Could not enable SO_BROADCAST on J1939 socket: %s" % exc
+            )
 
         # Enable ancillary data so we can read destination address and priority
         try:
@@ -710,12 +728,13 @@ class NativeJ1939Socket(SuperSocket):
         ts = None
 
         for cmsg_level, cmsg_type, cmsg_data in ancdata:
-            if cmsg_type == SCM_J1939_DEST_ADDR:
-                if cmsg_data:
-                    dst_addr = struct.unpack('B', cmsg_data[:1])[0]
-            elif cmsg_type == SCM_J1939_PRIO:
-                if cmsg_data:
-                    priority = struct.unpack('B', cmsg_data[:1])[0]
+            if cmsg_level == SOL_CAN_J1939:
+                if cmsg_type == SCM_J1939_DEST_ADDR:
+                    if cmsg_data:
+                        dst_addr = struct.unpack('B', cmsg_data[:1])[0]
+                elif cmsg_type == SCM_J1939_PRIO:
+                    if cmsg_data:
+                        priority = struct.unpack('B', cmsg_data[:1])[0]
 
         if ts is None:
             ts = time.time()
