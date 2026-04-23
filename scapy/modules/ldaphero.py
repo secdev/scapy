@@ -267,6 +267,7 @@ class LDAPHero:
             self.client.connect(self.host, port=self.port, use_ssl=self.ssl)
         except Exception as ex:
             self.tprint(str(ex))
+            self.host = None
             raise
         self.tprint("Established connection to %s." % self.host)
         self.connected = True

@@ -753,12 +753,20 @@ class SPNEGOSSP(SSP):
         kerberos = True
         hostname = None
         # Check if target is a hostname / Check IP
-        if ":" in target:
+        if target and ":" in target:
             if not valid_ip6(target):
                 hostname = target
         else:
             if not valid_ip(target):
                 hostname = target
+
+        # If using WinSSP, this goes fast.
+        if use_winssp:
+            if not WINDOWS:
+                raise OSError("Cannot use WinSSP on a non-Windows computer !")
+            from scapy.arch.windows.sspi import WinSSP
+
+            return WinSSP()
 
         # Check UPN
         try:
@@ -769,14 +777,6 @@ class SPNEGOSSP(SSP):
         except ValueError:
             # not a UPN: NTLM only
             kerberos = False
-
-        # If using WinSSP, this goes fast.
-        if use_winssp:
-            if not WINDOWS:
-                raise OSError("Cannot use WinSSP on a non-Windows computer !")
-            from scapy.arch.windows.sspi import WinSSP
-
-            return WinSSP()
 
         # If we're asked, check the environment for KRB5CCNAME
         if use_krb5ccname and ccache is None and "KRB5CCNAME" in os.environ:

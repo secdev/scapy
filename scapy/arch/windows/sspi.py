@@ -68,6 +68,61 @@ class SecPkgContext_Sizes(ctypes.Structure):
     ]
 
 
+class SEC_CHANNEL_BINDINGS(ctypes.Structure):
+    _fields_ = [
+        ("dwInitiatorAddrType", ctypes.wintypes.ULONG),
+        ("cbInitiatorLength", ctypes.wintypes.ULONG),
+        ("dwInitiatorOffset", ctypes.wintypes.ULONG),
+        ("dwAcceptorAddrType", ctypes.wintypes.ULONG),
+        ("cbAcceptorLength", ctypes.wintypes.ULONG),
+        ("dwAcceptorOffset", ctypes.wintypes.ULONG),
+        ("cbApplicationDataLength", ctypes.wintypes.ULONG),
+        ("dwApplicationDataOffset", ctypes.wintypes.ULONG),
+    ]
+
+    @classmethod
+    def from_GSS(cls, bindings: GssChannelBindings):
+        """
+        Convert a GssChannelBindings to SecPkgContext_Bindings
+        """
+        # Initialize structure
+        buffer = ctypes.create_string_buffer(
+            ctypes.sizeof(SEC_CHANNEL_BINDINGS)
+            + len(bindings.initiator_address.value)
+            + len(bindings.acceptor_address.value)
+            + len(bindings.application_data.value)
+        )
+        Bindings = ctypes.cast(
+            ctypes.byref(buffer),
+            ctypes.POINTER(SEC_CHANNEL_BINDINGS),
+        )
+
+        # Populate values with the offsets and lengths
+        offset = ctypes.sizeof(SEC_CHANNEL_BINDINGS)
+        Bindings.contents.dwInitiatorAddrType = bindings.initiator_addrtype
+        if bindings.initiator_address.value:
+            lgth = len(bindings.initiator_address.value)
+            Bindings.contents.cbInitiatorLength = lgth
+            Bindings.contents.dwInitiatorOffset = offset
+            buffer[offset : offset + lgth] = bindings.initiator_address.value
+            offset += lgth
+        Bindings.contents.dwAcceptorAddrType = bindings.acceptor_addrtype
+        if bindings.acceptor_address.value:
+            lgth = len(bindings.acceptor_address.value)
+            Bindings.contents.cbAcceptorLength = lgth
+            Bindings.contents.dwAcceptorOffset = offset
+            buffer[offset : offset + lgth] = bindings.acceptor_address.value
+            offset += lgth
+        if bindings.application_data.value:
+            lgth = len(bindings.application_data.value)
+            Bindings.contents.cbApplicationDataLength = lgth
+            Bindings.contents.dwApplicationDataOffset = offset
+            buffer[offset : offset + lgth] = bindings.application_data.value
+            offset += lgth
+
+        return buffer, offset
+
+
 SECURITY_NETWORK_DREP = 0
 
 
@@ -593,7 +648,14 @@ class WinSSP(SSP):
                 )
             )
         if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS:
-            raise NotImplementedError("Channel bindings !")
+            chan_bindings, lgth = SEC_CHANNEL_BINDINGS.from_GSS(chan_bindings)
+            InputBuffers.append(
+                SecBuffer(
+                    lgth,
+                    SECBUFFER_CHANNEL_BINDINGS,
+                    ctypes.cast(chan_bindings, ctypes.c_void_p),
+                )
+            )
         if InputBuffers:
             InputBuffers, Input = SecBufferDesc.Create(InputBuffers)
         else:
@@ -703,7 +765,14 @@ class WinSSP(SSP):
                 )
             )
         if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS:
-            raise NotImplementedError("Channel bindings !")
+            chan_bindings, lgth = SEC_CHANNEL_BINDINGS.from_GSS(chan_bindings)
+            InputBuffers.append(
+                SecBuffer(
+                    lgth,
+                    SECBUFFER_CHANNEL_BINDINGS,
+                    ctypes.cast(chan_bindings, ctypes.c_void_p),
+                )
+            )
         if InputBuffers:
             InputBuffers, Input = SecBufferDesc.Create(InputBuffers)
         else:
