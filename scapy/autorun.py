@@ -87,10 +87,7 @@ def autorun_commands(_cmds, my_globals=None, verb=None):
                     traceback.print_exception(
                         sys.last_type,
                         sys.last_value,
-                        (
-                            sys.last_traceback.tb_next
-                            if sys.last_traceback is not None else None
-                        ),
+                        sys.last_traceback.tb_next,
                         file=sys.stdout,
                     )
                     sys.last_value = None
