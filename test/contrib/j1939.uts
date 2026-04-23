@@ -826,7 +826,6 @@ sock = NativeJ1939Socket("vcan0", promisc=True)
 sock.close()
 
 = NativeJ1939Socket send and recv
-import socket as _socket
 
 sender = NativeJ1939Socket("vcan0", src_addr=J1939_IDLE_ADDR, pgn=J1939_NO_PGN, promisc=False)
 receiver = NativeJ1939Socket("vcan0", promisc=True)
@@ -835,16 +834,14 @@ tx_data = b'\x01\x02\x03\x04'
 tx_pgn = 0xFECA
 
 def _send():
-    sleep(0.1)
     msg = J1939(tx_data, pgn=tx_pgn, src=J1939_IDLE_ADDR, dst=0xFF)
     sender.send(msg)
 
 t = threading.Thread(target=_send)
-t.start()
 
-receiver.ins.settimeout(3.0)
-rx = receiver.recv()
-t.join()
+pkts = receiver.sniff(timeout=3, started_callback=t.start)
+t.join(timeout=5)
+rx = pkts[0]
 
 sender.close()
 receiver.close()
