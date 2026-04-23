@@ -6,8 +6,6 @@
 # scapy.contrib.description = Graph library for AutomotiveTestCaseExecutor
 # scapy.contrib.status = library
 
-import threading
-
 from collections import defaultdict
 
 from scapy.contrib.automotive import log_automotive
@@ -43,16 +41,11 @@ class Graph(object):
     two nodes, with the two nodes as a tuple as the key
     e.g. {('X', 'A'): 7, ('X', 'B'): 2, ...}
     """
-    _locks: Dict[int, threading.Lock] = defaultdict(lambda: threading.Lock())
-
     def __init__(self):
         # type: () -> None
         self.edges = defaultdict(list)  # type: Dict[EcuState, List[EcuState]]
         self.__transition_functions = {}  # type: Dict[_Edge, Optional["_TransitionTuple"]]  # noqa: E501
         self.weights = {}  # type: Dict[_Edge, int]
-
-    def __del__(self) -> None:
-        del self._locks[id(self)]
 
     def add_edge(self, edge, transition_function=None):
         # type: (_Edge, Optional["_TransitionTuple"]) -> None
@@ -68,10 +61,9 @@ class Graph(object):
         except KeyError:
             pass
 
-        with self._locks[id(self)]:
-            self.edges.setdefault(edge[0], list()).append(edge[1])
-            self.weights[edge] = 1
-            self.__transition_functions[edge] = transition_function
+        self.edges[edge[0]].append(edge[1])
+        self.weights[edge] = 1
+        self.__transition_functions[edge] = transition_function
 
     def get_transition_tuple_for_edge(self, edge):
         # type: (_Edge) -> Optional["_TransitionTuple"]  # noqa: E501
