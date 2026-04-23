@@ -144,6 +144,10 @@ class LDAPHero:
     :param HashNt: if provided, used for auth (NTLM)
     :param HashAes256Sha96: if provided, used for auth (Kerberos)
     :param HashAes128Sha96: if provided, used for auth (Kerberos)
+    :param use_krb5ccname: (bool) if true, the KRB5CCNAME environment variable will
+                            be used if available.
+    :param use_winssp: (bool) (only works on Windows). Use implicit authentication
+                        through WinSSP.
     """
 
     def __init__(
