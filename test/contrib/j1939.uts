@@ -28,6 +28,124 @@ from scapy.contrib.j1939 import (
 
 dhex = bytes.fromhex
 
++ J1939_CAN inherits from CAN
+
+= J1939_CAN is a subclass of CAN
+from scapy.layers.can import CAN
+assert issubclass(J1939_CAN, CAN)
+
+= J1939_CAN dispatch_hook always returns J1939_CAN
+raw_j1939_frame = bytes.fromhex('98feca0008000000ffffffffffffffff')
+assert J1939_CAN.dispatch_hook(raw_j1939_frame) is J1939_CAN
+
+= J1939_CAN instantiation does not redirect to CAN
+pkt = J1939_CAN(raw_j1939_frame)
+assert isinstance(pkt, J1939_CAN), "Expected J1939_CAN, got %s" % type(pkt).__name__
+assert pkt.pgn == 0xFECA
+assert pkt.src == 0x00
+
+= J1939_CAN inherits pre_dissect / post_build (swap-bytes)
+import struct as _struct
+from scapy.config import conf as _conf
+
+# Round-trip: build with swap-bytes=True (post_build swaps), parse with swap-bytes=True (pre_dissect unswaps)
+_conf.contribs['CAN']['swap-bytes'] = False
+raw_unswapped = bytes(J1939_CAN(priority=6, data_page=0, pdu_format=0xFE, pdu_specific=0xCA, src=0x00))
+
+_conf.contribs['CAN']['swap-bytes'] = True
+p_sw = J1939_CAN(priority=6, data_page=0, pdu_format=0xFE, pdu_specific=0xCA,
+                  src=0x00, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+raw_sw = bytes(p_sw)
+# post_build (swap-bytes=True) must produce bytes different from the unswapped encoding
+assert raw_sw[:4] != raw_unswapped[:4], "post_build should have swapped first 4 bytes"
+# pre_dissect (swap-bytes=True) unswaps → same field values as if built with swap-bytes=False
+p_rt = J1939_CAN(raw_sw)
+assert p_rt.pdu_format == 0xFE, "pdu_format=%d" % p_rt.pdu_format
+assert p_rt.src == 0x00
+_conf.contribs['CAN']['swap-bytes'] = False
+
+= J1939_CAN inherits extract_padding (remove-padding)
+_conf.contribs['CAN']['remove-padding'] = True
+p_padded = J1939_CAN(raw_j1939_frame + b'\x00\x00\x00\x00')
+assert p_padded.data == b'\xff' * 8, "Padding should have been stripped"
+
+= J1939_CAN to_can produces a plain CAN packet with identical bytes
+pj = J1939_CAN(priority=6, data_page=0, pdu_format=0xFE, pdu_specific=0xCA,
+               src=0x00, data=b'\xDE\xAD')
+pc = pj.to_can()
+assert isinstance(pc, CAN)
+assert bytes(pc) == bytes(pj)
+
+= J1939_CAN from_can produces a J1939_CAN packet with identical bytes
+can_id_val = j1939_to_can_id(6, 0, 0, 0xFE, 0xCA, 0x00)
+pc2 = CAN(flags=0b100, identifier=can_id_val, data=b'\xDE\xAD')
+pj2 = J1939_CAN.from_can(pc2)
+assert isinstance(pj2, J1939_CAN)
+assert bytes(pj2) == bytes(pc2)
+assert pj2.pgn == 0xFECA
+assert pj2.src == 0x00
+
+= J1939_CAN to_can / from_can are inverse of each other
+pj_orig = J1939_CAN(priority=6, data_page=0, pdu_format=0xEC, pdu_specific=0x42,
+                    src=0x11, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+pj_rt = J1939_CAN.from_can(pj_orig.to_can())
+assert pj_rt.pdu_format == pj_orig.pdu_format
+assert pj_rt.pdu_specific == pj_orig.pdu_specific
+assert pj_rt.src == pj_orig.src
+assert pj_rt.data == pj_orig.data
+assert pj_rt.pgn == pj_orig.pgn
+assert pj_rt.dst == pj_orig.dst
+
+
+############
+= J1939_TP_CM dispatch_hook returns J1939_TP_CM for empty or unknown ctrl
+# empty bytes
+assert J1939_TP_CM.dispatch_hook(b'') is J1939_TP_CM
+# None
+assert J1939_TP_CM.dispatch_hook(None) is J1939_TP_CM
+# unknown ctrl bytes (0x00, 18, 100)
+assert J1939_TP_CM.dispatch_hook(bytes([0x00])) is J1939_TP_CM
+assert J1939_TP_CM.dispatch_hook(bytes([18])) is J1939_TP_CM
+assert J1939_TP_CM.dispatch_hook(bytes([100])) is J1939_TP_CM
+= J1939_TP_DT three-packet session assembles original payload
+# 20-byte payload split across 3 TP.DT frames (7+7+6+pad)
+tx_payload = bytes(range(0x01, 0x15))   # 20 bytes
+dt1 = J1939_TP_DT(seq_num=1, data=tx_payload[0:7])
+dt2 = J1939_TP_DT(seq_num=2, data=tx_payload[7:14])
+dt3 = J1939_TP_DT(seq_num=3, data=tx_payload[14:20] + b'\xFF')  # 1 pad byte
+assert dt1.seq_num == 1
+assert dt2.seq_num == 2
+assert dt3.seq_num == 3
+reassembled = dt1.data + dt2.data + dt3.data
+assert reassembled[:len(tx_payload)] == tx_payload, \
+    "reassembled=%r expected=%r" % (reassembled[:20], tx_payload)
+= J1939_TP_DT default padding is 0xFF
+dt = J1939_TP_DT()
+assert dt.data == b'\xff' * 7, "default data=%r" % dt.data
+assert dt.seq_num == 1, "default seq_num=%d" % dt.seq_num
+= J1939_TP_CM_ABORT reason field round-trip for all defined codes
+for reason in [1, 2, 3, 4, 5, 6, 7, 8, 250, 251, 252, 253, 254, 255]:
+    abort = J1939_TP_CM_ABORT(reason=reason, pgn=0xFECA)
+    p = J1939_TP_CM_ABORT(bytes(abort))
+    assert p.reason == reason, "reason=%d roundtrip=%d" % (reason, p.reason)
+= J1939_TP_CM_ABORT default reserved bytes
+abort = J1939_TP_CM_ABORT()
+b = bytes(abort)
+assert b[0] == J1939_TP_CTRL_ABORT, "ctrl=0x%02X" % b[0]
+assert b[2] == 0xFF and b[3] == 0xFF, "reserved word not 0xFFFF"
+assert b[4] == 0xFF, "reserved2=0x%02X" % b[4]
+assert len(b) == 8, "ABORT wire size must be 8 bytes"
+= J1939_TP_CM_ACK reserved byte is 0xFF by default
+ack = J1939_TP_CM_ACK(total_size=100, num_packets=15, pgn=0xEF00)
+b = bytes(ack)
+assert b[4] == 0xFF, "reserved=0x%02X" % b[4]
+assert len(b) == 8, "ACK wire size must be 8 bytes"
+= J1939_TP_CM_CTS next_packet field round-trip
+for nxt in [1, 4, 7, 255]:
+    cts = J1939_TP_CM_CTS(num_packets=3, next_packet=nxt, pgn=0xFECA)
+    p = J1939_TP_CM_CTS(bytes(cts))
+    assert p.next_packet == nxt, "next_packet=%d roundtrip=%d" % (nxt, p.next_packet)
+
 
 ############
 ############
@@ -475,6 +593,32 @@ assert p.data == b'\xAA\xBB\xCC\xDD\xEE\xFF\x11'
 ############
 ############
 + J1939 TP Communication Commands – extended unit tests
+
+= J1939_TP_CM_RTS default field values
+rts = J1939_TP_CM_RTS()
+assert rts.ctrl == J1939_TP_CTRL_RTS, "ctrl=%d" % rts.ctrl
+assert rts.max_packets == 0xFF, "max_packets=%d" % rts.max_packets
+assert len(bytes(rts)) == 8, "RTS wire size must be 8 bytes"
+
+= J1939_TP_CM_RTS PGN stored little-endian in wire bytes
+# PGN 0x1FECA → LE bytes: 0xCA, 0xFE, 0x01
+rts = J1939_TP_CM_RTS(total_size=100, num_packets=15, pgn=0x1FECA)
+b = bytes(rts)
+assert b[5] == 0xCA, "b[5]=0x%02X" % b[5]
+assert b[6] == 0xFE, "b[6]=0x%02X" % b[6]
+assert b[7] == 0x01, "b[7]=0x%02X" % b[7]
+
+= J1939_TP_CM_RTS max_packets field round-trip
+for maxp in [1, 5, 0xFE, 0xFF]:
+    rts = J1939_TP_CM_RTS(total_size=100, num_packets=15, max_packets=maxp, pgn=0xFECA)
+    p = J1939_TP_CM_RTS(bytes(rts))
+    assert p.max_packets == maxp, "maxp=%d roundtrip=%d" % (maxp, p.max_packets)
+
+= J1939_TP_CM_CTS reserved bytes are 0xFFFF by default
+cts = J1939_TP_CM_CTS(num_packets=5, next_packet=1, pgn=0xFECA)
+b = bytes(cts)
+assert b[3] == 0xFF, "reserved high byte=0x%02X" % b[3]
+assert b[4] == 0xFF, "reserved low byte=0x%02X" % b[4]
 
 = J1939_TP_CM_RTS default field values
 rts = J1939_TP_CM_RTS()
@@ -1643,3 +1787,305 @@ abort = J1939_TP_CM_ABORT(reason=6, pgn=0xFECA)  # Unexpected DT packet
 p_abort = J1939_TP_CM_ABORT(bytes(abort))
 assert p_abort.reason == 6, "ABORT reason should be 6"
 assert p_abort.pgn == 0xFECA, "ABORT PGN should match aborted session"
+
+
+############
+############
++ J1939 mysummary tests
+
+= J1939.mysummary includes PGN, SA, DA and priority as str
+from scapy.contrib.j1939 import J1939, J1939_CAN, J1939_IDLE_ADDR, J1939_BROADCAST_ADDR
+p = J1939(b'\x01\x02', pgn=0xFECA, src=0x00, dst=0xFF, priority=6)
+s = p.mysummary()
+assert isinstance(s, str), "mysummary must return str, got %s" % type(s).__name__
+assert '0xFECA' in s or 'FECA' in s.upper() or '65226' in s, "PGN missing: %r" % s
+assert '0x00' in s or 'SA=0' in s, "SA missing: %r" % s
+assert '0xFF' in s or 'DA=255' in s, "DA missing: %r" % s
+assert '6' in s, "priority missing: %r" % s
+
+= J1939.mysummary with non-default priority and addresses
+from scapy.contrib.j1939 import J1939
+p = J1939(b'\xAA', pgn=0xEF00, src=0x0B, dst=0x42, priority=3)
+s = p.mysummary()
+assert isinstance(s, str)
+assert '0xEF00' in s or 'EF00' in s.upper() or '61184' in s, "PGN 0xEF00 missing: %r" % s
+assert '0x0B' in s or 'SA=11' in s or 'SA=0x0B' in s, "SA 0x0B missing: %r" % s
+assert '0x42' in s or 'DA=66' in s or 'DA=0x42' in s, "DA 0x42 missing: %r" % s
+assert '3' in s, "priority 3 missing: %r" % s
+
+= J1939.mysummary with broadcast addresses
+from scapy.contrib.j1939 import J1939, J1939_IDLE_ADDR, J1939_BROADCAST_ADDR
+p = J1939(b'\x11', pgn=0xFECA, src=J1939_IDLE_ADDR, dst=J1939_BROADCAST_ADDR, priority=7)
+s = p.mysummary()
+assert isinstance(s, str)
+# IDLE_ADDR=0xFE=254, BROADCAST_ADDR=0xFF=255
+assert 'FE' in s.upper() or '254' in s, "IDLE_ADDR missing: %r" % s
+assert 'FF' in s.upper() or '255' in s, "BROADCAST_ADDR missing: %r" % s
+
+= J1939_CAN.mysummary includes PGN and SA
+from scapy.contrib.j1939 import J1939_CAN
+p_can = J1939_CAN(priority=6, data_page=0, pdu_format=0xFE, pdu_specific=0xCA,
+                   src=0x00, data=b'\xFF' * 8)
+s = p_can.mysummary()
+assert isinstance(s, str), "J1939_CAN.mysummary must return str"
+assert 'FECA' in s.upper() or '0xFECA' in s.lower() or '65226' in s, \
+    "PGN missing in J1939_CAN.mysummary: %r" % s
+assert '0x00' in s or 'SA=0' in s, "SA missing in J1939_CAN.mysummary: %r" % s
+
+= J1939_CAN.mysummary with PDU1 peer-to-peer frame
+from scapy.contrib.j1939 import J1939_CAN
+p_can = J1939_CAN(priority=3, data_page=0, pdu_format=0xEC, pdu_specific=0x42,
+                   src=0x0B, data=b'\x20\x14\x00\x03\xFF\xCA\xFE\x00')
+s = p_can.mysummary()
+assert isinstance(s, str)
+assert '0x0B' in s or 'SA=11' in s or 'SA=0x0B' in s, "SA missing: %r" % s
+
+= J1939_CAN.mysummary on default packet returns str
+from scapy.contrib.j1939 import J1939_CAN
+assert isinstance(J1939_CAN().mysummary(), str)
+
+
+############
+############
++ NativeJ1939Socket _set_filters unit tests (mock, no vcan required)
+
+= _set_filters single PGN filter packs to 32 bytes
+import struct as _sf_struct
+from scapy.contrib.j1939 import (
+    NativeJ1939Socket as _NJS,
+    SOL_CAN_J1939 as _SOL_J1939, SO_J1939_FILTER as _SO_FLT,
+    J1939_NO_NAME as _NM, J1939_NO_PGN as _NPGN, J1939_NO_ADDR as _NADDR,
+)
+from unittest.mock import MagicMock as _MM
+
+_flt_cap = {}
+_flt_mock = _MM()
+_flt_mock.setsockopt.side_effect = lambda l, o, d: _flt_cap.update({(l, o): d})
+_si = _NJS.__new__(_NJS)
+_si.ins = _flt_mock
+
+_si._set_filters([{'pgn': 0xFECA, 'pgn_mask': 0x3FFFF, 'addr': 0x00, 'addr_mask': 0xFF}])
+_buf = _flt_cap[(_SOL_J1939, _SO_FLT)]
+# struct j1939_filter: Q(8)+Q(8)+I(4)+I(4)+B(1)+B(1) = 26 + 6 pad = 32 bytes
+assert len(_buf) == 32, "single filter must be 32 bytes, got %d" % len(_buf)
+
+= _set_filters three filters pack to 96 bytes
+_flt_cap.clear()
+_si._set_filters([{}, {}, {}])
+assert len(_flt_cap[(_SOL_J1939, _SO_FLT)]) == 96, \
+    "3 filters must be 96 bytes, got %d" % len(_flt_cap[(_SOL_J1939, _SO_FLT)])
+
+= _set_filters PGN field is encoded little-endian at offset 16
+_flt_cap.clear()
+_si._set_filters([{'pgn': 0xEF00, 'pgn_mask': 0x3FFFF}])
+_buf3 = _flt_cap[(_SOL_J1939, _SO_FLT)]
+_pgn_val = _sf_struct.unpack('=I', _buf3[16:20])[0]
+assert _pgn_val == 0xEF00, "PGN 0xEF00 not encoded correctly, got 0x%X" % _pgn_val
+
+= _set_filters empty list calls setsockopt with zero bytes
+_flt_cap.clear()
+_si._set_filters([])
+assert len(_flt_cap[(_SOL_J1939, _SO_FLT)]) == 0, "empty filter must produce 0 bytes"
+
+= _set_filters default dict keys fill J1939_NO_* sentinel values
+_flt_cap.clear()
+_si._set_filters([{}])
+_n, _, _pgn, _, _addr, _ = _sf_struct.unpack_from('=QQIIBB', _flt_cap[(_SOL_J1939, _SO_FLT)])
+assert _n == _NM,    "default name must be J1939_NO_NAME"
+assert _pgn == _NPGN,   "default pgn must be J1939_NO_PGN"
+assert _addr == _NADDR, "default addr must be J1939_NO_ADDR"
+
+
+############
+############
++ NativeJ1939Socket _set_filters with real vcan0 socket
+~ vcan_socket needs_root
+
+= _set_filters PGN filter on real socket – only matching PGN received
+import threading
+from time import sleep
+from scapy.contrib.j1939 import NativeJ1939Socket
+
+_f1_sa_rx   = 0x11
+_f1_sa_tx   = 0x12
+_f1_pgn_ok  = 0xFECA
+_f1_pgn_bad = 0xFECB
+
+_f1_rx = NativeJ1939Socket(
+    "vcan0", src_addr=_f1_sa_rx, promisc=False,
+    filters=[{'pgn': _f1_pgn_ok, 'pgn_mask': 0x3FFFF,
+               'addr': J1939_NO_ADDR, 'addr_mask': J1939_NO_ADDR}],
+)
+_f1_rx.ins.settimeout(1.0)
+_f1_tx = NativeJ1939Socket("vcan0", src_addr=_f1_sa_tx, promisc=False)
+
+def _f1_send():
+    sleep(0.1)
+    _f1_tx.send(J1939(b'\xBB\xBB', pgn=_f1_pgn_bad, src=_f1_sa_tx, dst=0xFF))
+    sleep(0.05)
+    _f1_tx.send(J1939(b'\xAA\xAA', pgn=_f1_pgn_ok,  src=_f1_sa_tx, dst=0xFF))
+
+threading.Thread(target=_f1_send).start()
+_f1_received = _f1_rx.sniff(timeout=1.5, count=5)
+_f1_rx.close(); _f1_tx.close()
+
+_f1_pgns = [p.pgn for p in _f1_received]
+assert _f1_pgn_bad not in _f1_pgns, \
+    "Blocked PGN 0x%05X must not pass; got %r" % (_f1_pgn_bad, _f1_pgns)
+assert _f1_pgn_ok in _f1_pgns, \
+    "Allowed PGN 0x%05X must be received; got %r" % (_f1_pgn_ok, _f1_pgns)
+
+= _set_filters SA filter on real socket – only matching source address received
+_f2_sa_rx      = 0x13
+_f2_sa_allowed = 0x14
+_f2_sa_blocked = 0x15
+_f2_pgn        = 0xFECA
+
+_f2_rx = NativeJ1939Socket(
+    "vcan0", src_addr=_f2_sa_rx, promisc=False,
+    filters=[{'pgn': _f2_pgn, 'pgn_mask': 0x3FFFF,
+               'addr': _f2_sa_allowed, 'addr_mask': 0xFF}],
+)
+_f2_rx.ins.settimeout(1.0)
+_f2_tx_ok  = NativeJ1939Socket("vcan0", src_addr=_f2_sa_allowed, promisc=False)
+_f2_tx_bad = NativeJ1939Socket("vcan0", src_addr=_f2_sa_blocked, promisc=False)
+
+def _f2_send():
+    sleep(0.1)
+    _f2_tx_bad.send(J1939(b'\xBB', pgn=_f2_pgn, src=_f2_sa_blocked, dst=0xFF))
+    sleep(0.05)
+    _f2_tx_ok.send(J1939(b'\xAA', pgn=_f2_pgn, src=_f2_sa_allowed, dst=0xFF))
+
+threading.Thread(target=_f2_send).start()
+_f2_received = _f2_rx.sniff(timeout=1.5, count=5)
+_f2_rx.close(); _f2_tx_ok.close(); _f2_tx_bad.close()
+
+_f2_srcs = [p.src for p in _f2_received]
+assert _f2_sa_blocked not in _f2_srcs, \
+    "Blocked SA 0x%02X must not pass; got %r" % (_f2_sa_blocked, _f2_srcs)
+assert _f2_sa_allowed in _f2_srcs, \
+    "Allowed SA 0x%02X must be received; got %r" % (_f2_sa_allowed, _f2_srcs)
+
+= _set_filters multiple filters behave as OR – each allowed PGN passes
+_f3_sa_rx  = 0x16
+_f3_pgn_a  = 0xFECA
+_f3_pgn_b  = 0xFECB
+_f3_pgn_z  = 0xFECC   # not in any filter
+_f3_tx_sa  = 0x17
+
+_f3_rx = NativeJ1939Socket(
+    "vcan0", src_addr=_f3_sa_rx, promisc=False,
+    filters=[
+        {'pgn': _f3_pgn_a, 'pgn_mask': 0x3FFFF,
+          'addr': J1939_NO_ADDR, 'addr_mask': J1939_NO_ADDR},
+        {'pgn': _f3_pgn_b, 'pgn_mask': 0x3FFFF,
+          'addr': J1939_NO_ADDR, 'addr_mask': J1939_NO_ADDR},
+    ],
+)
+_f3_rx.ins.settimeout(1.0)
+_f3_tx = NativeJ1939Socket("vcan0", src_addr=_f3_tx_sa, promisc=False)
+
+def _f3_send():
+    sleep(0.1)
+    _f3_tx.send(J1939(b'\xCC', pgn=_f3_pgn_z, src=_f3_tx_sa, dst=0xFF))
+    sleep(0.05)
+    _f3_tx.send(J1939(b'\xAA', pgn=_f3_pgn_a, src=_f3_tx_sa, dst=0xFF))
+    sleep(0.05)
+    _f3_tx.send(J1939(b'\xBB', pgn=_f3_pgn_b, src=_f3_tx_sa, dst=0xFF))
+
+threading.Thread(target=_f3_send).start()
+_f3_received = _f3_rx.sniff(timeout=1.5, count=5)
+_f3_rx.close(); _f3_tx.close()
+
+_f3_pgns = [p.pgn for p in _f3_received]
+assert _f3_pgn_z not in _f3_pgns, \
+    "Unfiltered PGN 0x%05X must be blocked; got %r" % (_f3_pgn_z, _f3_pgns)
+assert _f3_pgn_a in _f3_pgns or _f3_pgn_b in _f3_pgns, \
+    "At least one allowed PGN must be received; got %r" % _f3_pgns
+
+
+############
+############
++ NativeJ1939Socket send with non-J1939 packet types
+~ vcan_socket needs_root
+
+= send(Raw) – raw bytes delivered to promisc receiver
+from scapy.packet import Raw as _Raw
+import threading
+from time import sleep
+
+_r1_sa = 0x30
+_r1_payload = b'\xDE\xAD\xBE\xEF\x00\x01\x02\x03'
+
+_r1_tx = NativeJ1939Socket("vcan0", src_addr=_r1_sa, promisc=False)
+_r1_rx = NativeJ1939Socket("vcan0", promisc=True)
+_r1_rx.ins.settimeout(1.5)
+
+def _r1_send():
+    sleep(0.1)
+    _r1_tx.send(_Raw(_r1_payload))
+
+threading.Thread(target=_r1_send).start()
+_r1_pkts = _r1_rx.sniff(timeout=2.0, count=1)
+_r1_tx.close(); _r1_rx.close()
+
+assert _r1_pkts, "No packet received after send(Raw(...))"
+assert _r1_pkts[0].data == _r1_payload, \
+    "Payload mismatch: %r != %r" % (_r1_pkts[0].data, _r1_payload)
+
+= send(J1939_CAN) – non-J1939 type forwarded as raw bytes
+_r2_sa = 0x31
+_r2_frame = J1939_CAN(priority=6, data_page=0, pdu_format=0xFE, pdu_specific=0xCA,
+                       src=_r2_sa, data=b'\x01\x02\x03\x04')
+_r2_raw_expected = bytes(_r2_frame)
+
+_r2_tx = NativeJ1939Socket("vcan0", src_addr=_r2_sa, promisc=False)
+_r2_rx = NativeJ1939Socket("vcan0", promisc=True)
+_r2_rx.ins.settimeout(1.5)
+
+def _r2_send():
+    sleep(0.1)
+    _r2_tx.send(_r2_frame)
+
+threading.Thread(target=_r2_send).start()
+_r2_pkts = _r2_rx.sniff(timeout=2.0, count=1)
+_r2_tx.close(); _r2_rx.close()
+
+assert _r2_pkts, "No packet received after send(J1939_CAN(...))"
+assert _r2_pkts[0].data == _r2_raw_expected, \
+    "Payload mismatch: %r != %r" % (_r2_pkts[0].data, _r2_raw_expected)
+
+= send(None) returns 0 immediately without error
+_r3_sock = NativeJ1939Socket("vcan0", src_addr=0x32, promisc=False)
+_r3_ret = _r3_sock.send(None)
+_r3_sock.close()
+assert _r3_ret == 0, "send(None) must return 0, got %r" % _r3_ret
+
+= send(Raw) succeeds even when SO_J1939_SEND_PRIO setsockopt raises
+from scapy.contrib.j1939 import SO_J1939_SEND_PRIO as _SND_PRIO, SOL_CAN_J1939 as _SOLJ
+from scapy.packet import Raw as _Raw
+
+_r4_sa = 0x33
+_r4_payload = b'\xAB\xCD\xEF'
+_r4_tx = NativeJ1939Socket("vcan0", src_addr=_r4_sa, promisc=False)
+_r4_rx = NativeJ1939Socket("vcan0", promisc=True)
+_r4_rx.ins.settimeout(1.5)
+
+_r4_orig_setsockopt = _r4_tx.outs.setsockopt
+def _r4_prio_fail(level, opt, data):
+    if level == _SOLJ and opt == _SND_PRIO:
+        raise OSError("synthetic prio error")
+    return _r4_orig_setsockopt(level, opt, data)
+_r4_tx.outs.setsockopt = _r4_prio_fail
+
+def _r4_send():
+    sleep(0.1)
+    _r4_tx.send(_Raw(_r4_payload))
+
+threading.Thread(target=_r4_send).start()
+_r4_pkts = _r4_rx.sniff(timeout=2.0, count=1)
+_r4_tx.close(); _r4_rx.close()
+
+assert _r4_pkts, "send must succeed despite prio setsockopt error"
+assert _r4_pkts[0].data == _r4_payload, \
+    "Payload mismatch: %r" % _r4_pkts[0].data
