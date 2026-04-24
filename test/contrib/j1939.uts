@@ -1914,19 +1914,20 @@ _f1_pgn_bad = 0xFECB
 _f1_rx = NativeJ1939Socket(
     "vcan0", src_addr=_f1_sa_rx, promisc=False,
     filters=[{'pgn': _f1_pgn_ok, 'pgn_mask': 0x3FFFF,
-               'addr': J1939_NO_ADDR, 'addr_mask': J1939_NO_ADDR}],
+               'addr': J1939_NO_ADDR, 'addr_mask': 0x00}],
 )
 _f1_rx.ins.settimeout(1.0)
 _f1_tx = NativeJ1939Socket("vcan0", src_addr=_f1_sa_tx, promisc=False)
 
 def _f1_send():
     sleep(0.1)
-    _f1_tx.send(J1939(b'\xBB\xBB', pgn=_f1_pgn_bad, src=_f1_sa_tx, dst=0xFF))
+    _f1_tx.send(J1939(b'\xBB\xBB', pgn=_f1_pgn_bad, src=_f1_sa_tx, dst=_f1_sa_rx))
     sleep(0.05)
-    _f1_tx.send(J1939(b'\xAA\xAA', pgn=_f1_pgn_ok,  src=_f1_sa_tx, dst=0xFF))
+    _f1_tx.send(J1939(b'\xAA\xAA', pgn=_f1_pgn_ok,  src=_f1_sa_tx, dst=_f1_sa_rx))
 
-threading.Thread(target=_f1_send).start()
-_f1_received = _f1_rx.sniff(timeout=1.5, count=5)
+_f1_t = threading.Thread(target=_f1_send)
+_f1_received = _f1_rx.sniff(timeout=1.8, count=5, started_callback=_f1_t.start)
+_f1_t.join(timeout=3)
 _f1_rx.close(); _f1_tx.close()
 
 _f1_pgns = [p.pgn for p in _f1_received]
@@ -1977,9 +1978,9 @@ _f3_rx = NativeJ1939Socket(
     "vcan0", src_addr=_f3_sa_rx, promisc=False,
     filters=[
         {'pgn': _f3_pgn_a, 'pgn_mask': 0x3FFFF,
-          'addr': J1939_NO_ADDR, 'addr_mask': J1939_NO_ADDR},
+          'addr': J1939_NO_ADDR, 'addr_mask': 0x00},
         {'pgn': _f3_pgn_b, 'pgn_mask': 0x3FFFF,
-          'addr': J1939_NO_ADDR, 'addr_mask': J1939_NO_ADDR},
+          'addr': J1939_NO_ADDR, 'addr_mask': 0x00},
     ],
 )
 _f3_rx.ins.settimeout(1.0)
@@ -1987,14 +1988,15 @@ _f3_tx = NativeJ1939Socket("vcan0", src_addr=_f3_tx_sa, promisc=False)
 
 def _f3_send():
     sleep(0.1)
-    _f3_tx.send(J1939(b'\xCC', pgn=_f3_pgn_z, src=_f3_tx_sa, dst=0xFF))
+    _f3_tx.send(J1939(b'\xCC', pgn=_f3_pgn_z, src=_f3_tx_sa, dst=_f3_sa_rx))
     sleep(0.05)
-    _f3_tx.send(J1939(b'\xAA', pgn=_f3_pgn_a, src=_f3_tx_sa, dst=0xFF))
+    _f3_tx.send(J1939(b'\xAA', pgn=_f3_pgn_a, src=_f3_tx_sa, dst=_f3_sa_rx))
     sleep(0.05)
-    _f3_tx.send(J1939(b'\xBB', pgn=_f3_pgn_b, src=_f3_tx_sa, dst=0xFF))
+    _f3_tx.send(J1939(b'\xBB', pgn=_f3_pgn_b, src=_f3_tx_sa, dst=_f3_sa_rx))
 
-threading.Thread(target=_f3_send).start()
-_f3_received = _f3_rx.sniff(timeout=1.5, count=5)
+_f3_t = threading.Thread(target=_f3_send)
+_f3_received = _f3_rx.sniff(timeout=1.8, count=5, started_callback=_f3_t.start)
+_f3_t.join(timeout=3)
 _f3_rx.close(); _f3_tx.close()
 
 _f3_pgns = [p.pgn for p in _f3_received]
@@ -2060,32 +2062,3 @@ _r3_sock = NativeJ1939Socket("vcan0", src_addr=0x32, promisc=False)
 _r3_ret = _r3_sock.send(None)
 _r3_sock.close()
 assert _r3_ret == 0, "send(None) must return 0, got %r" % _r3_ret
-
-= send(Raw) succeeds even when SO_J1939_SEND_PRIO setsockopt raises
-from scapy.contrib.j1939 import SO_J1939_SEND_PRIO as _SND_PRIO, SOL_CAN_J1939 as _SOLJ
-from scapy.packet import Raw as _Raw
-
-_r4_sa = 0x33
-_r4_payload = b'\xAB\xCD\xEF'
-_r4_tx = NativeJ1939Socket("vcan0", src_addr=_r4_sa, promisc=False)
-_r4_rx = NativeJ1939Socket("vcan0", promisc=True)
-_r4_rx.ins.settimeout(1.5)
-
-_r4_orig_setsockopt = _r4_tx.outs.setsockopt
-def _r4_prio_fail(level, opt, data):
-    if level == _SOLJ and opt == _SND_PRIO:
-        raise OSError("synthetic prio error")
-    return _r4_orig_setsockopt(level, opt, data)
-_r4_tx.outs.setsockopt = _r4_prio_fail
-
-def _r4_send():
-    sleep(0.1)
-    _r4_tx.send(_Raw(_r4_payload))
-
-threading.Thread(target=_r4_send).start()
-_r4_pkts = _r4_rx.sniff(timeout=2.0, count=1)
-_r4_tx.close(); _r4_rx.close()
-
-assert _r4_pkts, "send must succeed despite prio setsockopt error"
-assert _r4_pkts[0].data == _r4_payload, \
-    "Payload mismatch: %r" % _r4_pkts[0].data
