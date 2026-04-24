@@ -19,14 +19,16 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     ShortField, ObservableDict, XShortEnumField, XByteEnumField, StrLenField, \
     FieldLenField, XStrFixedLenField, XStrLenField, FlagsField, PacketListField, \
     PacketField
-from scapy.packet import Packet, bind_layers, NoPayload, Raw
+from scapy.packet import Packet, NoPayload, Raw, bind_layers
+from scapy.compat import orb
 from scapy.config import conf
 from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
 
 # Typing imports
-from typing import (
+from typing import (  # noqa: F401
     Dict,
+    Type,
     Union,
 )
 
@@ -39,9 +41,39 @@ except KeyError:
     #                 "a negative response 'requestCorrectlyReceived-"
     #                 "ResponsePending' as answer of a request. \n"
     #                 "The default value is False.")
-    conf.contribs['UDS'] = {'treat-response-pending-as-answer': False}
+    conf.contribs['UDS'] = {'treat-response-pending-as-answer': False,
+                            'single_layer_mode': False,
+                            'compatibility_mode': True}
 
 conf.debug_dissector = True
+
+
+def _uds_slm(pkt):
+    # type: (Packet) -> bool
+    """Return True when the service ConditionalField should be present.
+
+    Two configuration keys in ``conf.contribs['UDS']`` control the behaviour:
+
+    ``single_layer_mode`` (bool, default ``False``):
+        When *True*, :class:`UDS` acts as a dispatch layer and returns the
+        matching service sub-packet directly (e.g.
+        ``UDS(b'\\x10\\x01')`` → ``UDS_DSC``).  Each sub-packet gains its
+        own ``service`` field so that it can be built and dissected
+        stand-alone.
+
+    ``compatibility_mode`` (bool, default ``True``):
+        Only relevant when ``single_layer_mode`` is *True*.  When *True* the
+        ``service`` field is **suppressed** in a sub-packet whose immediate
+        underlayer is already a :class:`UDS` packet.  This prevents a
+        duplicate service byte when a sub-packet is stacked on top of a UDS
+        base layer (``UDS()/UDS_DSC()``).  Set to *False* to always emit the
+        ``service`` byte from the sub-packet regardless of stacking.
+    """
+    if not conf.contribs['UDS'].get('single_layer_mode', False):
+        return False
+    if conf.contribs['UDS'].get('compatibility_mode', True):
+        return pkt.underlayer is None or not isinstance(pkt.underlayer, UDS)
+    return True
 
 
 class UDS(ISOTP):
@@ -111,13 +143,13 @@ class UDS(ISOTP):
         if other.__class__ != self.__class__:
             return False
         if self.service == 0x7f:
-            return self.payload.answers(other)
+            return bool(self.payload.answers(other))
         if self.service == (other.service + 0x40):
             if isinstance(self.payload, NoPayload) or \
                     isinstance(other.payload, NoPayload):
                 return len(self) <= len(other)
             else:
-                return self.payload.answers(other.payload)
+                return bool(self.payload.answers(other.payload))
         return False
 
     def hashret(self):
@@ -125,6 +157,17 @@ class UDS(ISOTP):
         if self.service == 0x7f and len(self) >= 3:
             return struct.pack('B', bytes(self)[1] & ~0x40)
         return struct.pack('B', self.service & ~0x40)
+
+    _service_cls = {}  # type: Dict[int, Type[Packet]]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=b"", *args, **kwargs):
+        # type: (...) -> type
+        """Dispatch to the correct UDS service class in single layer mode."""
+        if conf.contribs['UDS'].get('single_layer_mode', False) and len(_pkt) >= 1:
+            service = orb(_pkt[0])
+            return cls._service_cls.get(service, cls)
+        return cls
 
 
 # ########################DSC###################################
@@ -138,16 +181,19 @@ class UDS_DSC(Packet):
         0x7F: 'ISOSAEReserved'})
     name = 'DiagnosticSessionControl'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x10, UDS.services), _uds_slm),
         ByteEnumField('diagnosticSessionType', 0, diagnosticSessionTypes)
     ]
 
 
 bind_layers(UDS, UDS_DSC, service=0x10)
+UDS._service_cls[0x10] = UDS_DSC
 
 
 class UDS_DSCPR(Packet):
     name = 'DiagnosticSessionControlPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x50, UDS.services), _uds_slm),
         ByteEnumField('diagnosticSessionType', 0,
                       UDS_DSC.diagnosticSessionTypes),
         StrField('sessionParameterRecord', b"")
@@ -159,6 +205,7 @@ class UDS_DSCPR(Packet):
 
 
 bind_layers(UDS, UDS_DSCPR, service=0x50)
+UDS._service_cls[0x50] = UDS_DSCPR
 
 
 # #########################ER###################################
@@ -174,16 +221,19 @@ class UDS_ER(Packet):
         0x7F: 'ISOSAEReserved'}
     name = 'ECUReset'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x11, UDS.services), _uds_slm),
         ByteEnumField('resetType', 0, resetTypes)
     ]
 
 
 bind_layers(UDS, UDS_ER, service=0x11)
+UDS._service_cls[0x11] = UDS_ER
 
 
 class UDS_ERPR(Packet):
     name = 'ECUResetPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x51, UDS.services), _uds_slm),
         ByteEnumField('resetType', 0, UDS_ER.resetTypes),
         ConditionalField(ByteField('powerDownTime', 0),
                          lambda pkt: pkt.resetType == 0x04)
@@ -194,12 +244,14 @@ class UDS_ERPR(Packet):
 
 
 bind_layers(UDS, UDS_ERPR, service=0x51)
+UDS._service_cls[0x51] = UDS_ERPR
 
 
 # #########################SA###################################
 class UDS_SA(Packet):
     name = 'SecurityAccess'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x27, UDS.services), _uds_slm),
         ByteField('securityAccessType', 0),
         ConditionalField(StrField('securityAccessDataRecord', b""),
                          lambda pkt: pkt.securityAccessType % 2 == 1),
@@ -209,11 +261,13 @@ class UDS_SA(Packet):
 
 
 bind_layers(UDS, UDS_SA, service=0x27)
+UDS._service_cls[0x27] = UDS_SA
 
 
 class UDS_SAPR(Packet):
     name = 'SecurityAccessPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x67, UDS.services), _uds_slm),
         ByteField('securityAccessType', 0),
         ConditionalField(StrField('securitySeed', b""),
                          lambda pkt: pkt.securityAccessType % 2 == 1),
@@ -225,6 +279,7 @@ class UDS_SAPR(Packet):
 
 
 bind_layers(UDS, UDS_SAPR, service=0x67)
+UDS._service_cls[0x67] = UDS_SAPR
 
 
 # #########################CC###################################
@@ -237,6 +292,7 @@ class UDS_CC(Packet):
     }
     name = 'CommunicationControl'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x28, UDS.services), _uds_slm),
         ByteEnumField('controlType', 0, controlTypes),
         BitEnumField('communicationType0', 0, 2,
                      {0: 'ISOSAEReserved',
@@ -266,11 +322,13 @@ class UDS_CC(Packet):
 
 
 bind_layers(UDS, UDS_CC, service=0x28)
+UDS._service_cls[0x28] = UDS_CC
 
 
 class UDS_CCPR(Packet):
     name = 'CommunicationControlPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x68, UDS.services), _uds_slm),
         ByteEnumField('controlType', 0, UDS_CC.controlTypes)
     ]
 
@@ -280,6 +338,7 @@ class UDS_CCPR(Packet):
 
 
 bind_layers(UDS, UDS_CCPR, service=0x68)
+UDS._service_cls[0x68] = UDS_CCPR
 
 
 # #########################AUTH###################################
@@ -298,13 +357,15 @@ class UDS_AUTH(Packet):
     }
     name = "Authentication"
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x29, UDS.services), _uds_slm),
         ByteEnumField('subFunction', 0, subFunctions),
         ConditionalField(XByteField('communicationConfiguration', 0),
                          lambda pkt: pkt.subFunction in [0x01, 0x02, 0x5]),
         ConditionalField(XShortField('certificateEvaluationId', 0),
                          lambda pkt: pkt.subFunction == 0x04),
-        ConditionalField(XStrFixedLenField('algorithmIndicator', 0, length=16),
-                         lambda pkt: pkt.subFunction in [0x05, 0x06, 0x07]),
+        ConditionalField(
+            XStrFixedLenField('algorithmIndicator', b'\x00' * 16, length=16),
+            lambda pkt: pkt.subFunction in [0x05, 0x06, 0x07]),
         ConditionalField(FieldLenField('lengthOfCertificateClient', None,
                                        fmt="H", length_of='certificateClient'),
                          lambda pkt: pkt.subFunction in [0x01, 0x02]),
@@ -356,6 +417,7 @@ class UDS_AUTH(Packet):
 
 
 bind_layers(UDS, UDS_AUTH, service=0x29)
+UDS._service_cls[0x29] = UDS_AUTH
 
 
 class UDS_AUTHPR(Packet):
@@ -379,10 +441,12 @@ class UDS_AUTHPR(Packet):
     }
     name = 'AuthenticationPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x69, UDS.services), _uds_slm),
         ByteEnumField('subFunction', 0, UDS_AUTH.subFunctions),
         ByteEnumField('returnValue', 0, authenticationReturnParameterTypes),
-        ConditionalField(XStrFixedLenField('algorithmIndicator', 0, length=16),
-                         lambda pkt: pkt.subFunction in [0x05, 0x06, 0x07]),
+        ConditionalField(
+            XStrFixedLenField('algorithmIndicator', b'\x00' * 16, length=16),
+            lambda pkt: pkt.subFunction in [0x05, 0x06, 0x07]),
         ConditionalField(FieldLenField('lengthOfChallengeServer', None,
                                        fmt="H", length_of='challengeServer'),
                          lambda pkt: pkt.subFunction in [0x01, 0x02, 0x05]),
@@ -436,22 +500,26 @@ class UDS_AUTHPR(Packet):
 
 
 bind_layers(UDS, UDS_AUTHPR, service=0x69)
+UDS._service_cls[0x69] = UDS_AUTHPR
 
 
 # #########################TP###################################
 class UDS_TP(Packet):
     name = 'TesterPresent'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x3e, UDS.services), _uds_slm),
         ByteField('subFunction', 0)
     ]
 
 
-bind_layers(UDS, UDS_TP, service=0x3E)
+bind_layers(UDS, UDS_TP, service=0x3e)
+UDS._service_cls[0x3e] = UDS_TP
 
 
 class UDS_TPPR(Packet):
     name = 'TesterPresentPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x7e, UDS.services), _uds_slm),
         ByteField('zeroSubFunction', 0)
     ]
 
@@ -459,7 +527,8 @@ class UDS_TPPR(Packet):
         return isinstance(other, UDS_TP)
 
 
-bind_layers(UDS, UDS_TPPR, service=0x7E)
+bind_layers(UDS, UDS_TPPR, service=0x7e)
+UDS._service_cls[0x7e] = UDS_TPPR
 
 
 # #########################ATP###################################
@@ -473,6 +542,7 @@ class UDS_ATP(Packet):
     }
     name = 'AccessTimingParameter'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x83, UDS.services), _uds_slm),
         ByteEnumField('timingParameterAccessType', 0,
                       timingParameterAccessTypes),
         ConditionalField(StrField('timingParameterRequestRecord', b""),
@@ -481,11 +551,13 @@ class UDS_ATP(Packet):
 
 
 bind_layers(UDS, UDS_ATP, service=0x83)
+UDS._service_cls[0x83] = UDS_ATP
 
 
 class UDS_ATPPR(Packet):
     name = 'AccessTimingParameterPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0xc3, UDS.services), _uds_slm),
         ByteEnumField('timingParameterAccessType', 0,
                       UDS_ATP.timingParameterAccessTypes),
         ConditionalField(StrField('timingParameterResponseRecord', b""),
@@ -498,7 +570,8 @@ class UDS_ATPPR(Packet):
             self.timingParameterAccessType
 
 
-bind_layers(UDS, UDS_ATPPR, service=0xC3)
+bind_layers(UDS, UDS_ATPPR, service=0xc3)
+UDS._service_cls[0xc3] = UDS_ATPPR
 
 
 # #########################SDT###################################
@@ -507,6 +580,7 @@ bind_layers(UDS, UDS_ATPPR, service=0xC3)
 class UDS_SDT(Packet):
     name = 'SecuredDataTransmission'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x84, UDS.services), _uds_slm),
         BitField('requestMessage', 0, 1),
         BitField('ISOSAEReservedBackwardsCompatibility', 0, 2),
         BitField('preEstablishedKeyUsed', 0, 1),
@@ -523,11 +597,13 @@ class UDS_SDT(Packet):
 
 
 bind_layers(UDS, UDS_SDT, service=0x84)
+UDS._service_cls[0x84] = UDS_SDT
 
 
 class UDS_SDTPR(Packet):
     name = 'SecuredDataTransmissionPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0xc4, UDS.services), _uds_slm),
         BitField('requestMessage', 0, 1),
         BitField('ISOSAEReservedBackwardsCompatibility', 0, 2),
         BitField('preEstablishedKeyUsed', 0, 1),
@@ -546,7 +622,8 @@ class UDS_SDTPR(Packet):
         return isinstance(other, UDS_SDT)
 
 
-bind_layers(UDS, UDS_SDTPR, service=0xC4)
+bind_layers(UDS, UDS_SDTPR, service=0xc4)
+UDS._service_cls[0xc4] = UDS_SDTPR
 
 
 # #########################CDTCS###################################
@@ -558,17 +635,20 @@ class UDS_CDTCS(Packet):
     }
     name = 'ControlDTCSetting'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x85, UDS.services), _uds_slm),
         ByteEnumField('DTCSettingType', 0, DTCSettingTypes),
         StrField('DTCSettingControlOptionRecord', b"")
     ]
 
 
 bind_layers(UDS, UDS_CDTCS, service=0x85)
+UDS._service_cls[0x85] = UDS_CDTCS
 
 
 class UDS_CDTCSPR(Packet):
     name = 'ControlDTCSettingPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0xc5, UDS.services), _uds_slm),
         ByteEnumField('DTCSettingType', 0, UDS_CDTCS.DTCSettingTypes)
     ]
 
@@ -576,7 +656,8 @@ class UDS_CDTCSPR(Packet):
         return isinstance(other, UDS_CDTCS)
 
 
-bind_layers(UDS, UDS_CDTCSPR, service=0xC5)
+bind_layers(UDS, UDS_CDTCSPR, service=0xc5)
+UDS._service_cls[0xc5] = UDS_CDTCSPR
 
 
 # #########################ROE###################################
@@ -588,6 +669,7 @@ class UDS_ROE(Packet):
     }
     name = 'ResponseOnEvent'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x86, UDS.services), _uds_slm),
         ByteEnumField('eventType', 0, eventTypes),
         ByteField('eventWindowTime', 0),
         StrField('eventTypeRecord', b"")
@@ -595,11 +677,13 @@ class UDS_ROE(Packet):
 
 
 bind_layers(UDS, UDS_ROE, service=0x86)
+UDS._service_cls[0x86] = UDS_ROE
 
 
 class UDS_ROEPR(Packet):
     name = 'ResponseOnEventPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0xc6, UDS.services), _uds_slm),
         ByteEnumField('eventType', 0, UDS_ROE.eventTypes),
         ByteField('numberOfIdentifiedEvents', 0),
         ByteField('eventWindowTime', 0),
@@ -611,7 +695,8 @@ class UDS_ROEPR(Packet):
             and other.eventType == self.eventType
 
 
-bind_layers(UDS, UDS_ROEPR, service=0xC6)
+bind_layers(UDS, UDS_ROEPR, service=0xc6)
+UDS._service_cls[0xc6] = UDS_ROEPR
 
 
 # #########################LC###################################
@@ -624,6 +709,7 @@ class UDS_LC(Packet):
     }
     name = 'LinkControl'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x87, UDS.services), _uds_slm),
         ByteEnumField('linkControlType', 0, linkControlTypes),
         ConditionalField(ByteField('baudrateIdentifier', 0),
                          lambda pkt: pkt.linkControlType == 0x1),
@@ -637,11 +723,13 @@ class UDS_LC(Packet):
 
 
 bind_layers(UDS, UDS_LC, service=0x87)
+UDS._service_cls[0x87] = UDS_LC
 
 
 class UDS_LCPR(Packet):
     name = 'LinkControlPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0xc7, UDS.services), _uds_slm),
         ByteEnumField('linkControlType', 0, UDS_LC.linkControlTypes)
     ]
 
@@ -650,7 +738,8 @@ class UDS_LCPR(Packet):
             and other.linkControlType == self.linkControlType
 
 
-bind_layers(UDS, UDS_LCPR, service=0xC7)
+bind_layers(UDS, UDS_LCPR, service=0xc7)
+UDS._service_cls[0xc7] = UDS_LCPR
 
 
 # #########################RDBI###################################
@@ -658,6 +747,7 @@ class UDS_RDBI(Packet):
     dataIdentifiers = ObservableDict()
     name = 'ReadDataByIdentifier'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x22, UDS.services), _uds_slm),
         FieldListField("identifiers", None,
                        XShortEnumField('dataIdentifier', 0,
                                        dataIdentifiers))
@@ -665,11 +755,13 @@ class UDS_RDBI(Packet):
 
 
 bind_layers(UDS, UDS_RDBI, service=0x22)
+UDS._service_cls[0x22] = UDS_RDBI
 
 
 class UDS_RDBIPR(Packet):
     name = 'ReadDataByIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x62, UDS.services), _uds_slm),
         XShortEnumField('dataIdentifier', 0,
                         UDS_RDBI.dataIdentifiers),
     ]
@@ -680,12 +772,14 @@ class UDS_RDBIPR(Packet):
 
 
 bind_layers(UDS, UDS_RDBIPR, service=0x62)
+UDS._service_cls[0x62] = UDS_RDBIPR
 
 
 # #########################RMBA###################################
 class UDS_RMBA(Packet):
     name = 'ReadMemoryByAddress'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x23, UDS.services), _uds_slm),
         BitField('memorySizeLen', 0, 4),
         BitField('memoryAddressLen', 0, 4),
         ConditionalField(XByteField('memoryAddress1', 0),
@@ -708,11 +802,13 @@ class UDS_RMBA(Packet):
 
 
 bind_layers(UDS, UDS_RMBA, service=0x23)
+UDS._service_cls[0x23] = UDS_RMBA
 
 
 class UDS_RMBAPR(Packet):
     name = 'ReadMemoryByAddressPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x63, UDS.services), _uds_slm),
         StrField('dataRecord', b"", fmt="B")
     ]
 
@@ -721,6 +817,7 @@ class UDS_RMBAPR(Packet):
 
 
 bind_layers(UDS, UDS_RMBAPR, service=0x63)
+UDS._service_cls[0x63] = UDS_RMBAPR
 
 
 # #########################RSDBI###################################
@@ -728,17 +825,20 @@ class UDS_RSDBI(Packet):
     name = 'ReadScalingDataByIdentifier'
     dataIdentifiers = ObservableDict()
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x24, UDS.services), _uds_slm),
         XShortEnumField('dataIdentifier', 0, dataIdentifiers)
     ]
 
 
 bind_layers(UDS, UDS_RSDBI, service=0x24)
+UDS._service_cls[0x24] = UDS_RSDBI
 
 
 # TODO: Implement correct scaling here, instead of using just the dataRecord
 class UDS_RSDBIPR(Packet):
     name = 'ReadScalingDataByIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x64, UDS.services), _uds_slm),
         XShortEnumField('dataIdentifier', 0, UDS_RSDBI.dataIdentifiers),
         ByteField('scalingByte', 0),
         StrField('dataRecord', b"", fmt="B")
@@ -750,6 +850,7 @@ class UDS_RSDBIPR(Packet):
 
 
 bind_layers(UDS, UDS_RSDBIPR, service=0x64)
+UDS._service_cls[0x64] = UDS_RSDBIPR
 
 
 # #########################RDBPI###################################
@@ -764,19 +865,22 @@ class UDS_RDBPI(Packet):
     }
     name = 'ReadDataByPeriodicIdentifier'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x2a, UDS.services), _uds_slm),
         ByteEnumField('transmissionMode', 0, transmissionModes),
         ByteEnumField('periodicDataIdentifier', 0, periodicDataIdentifiers),
         StrField('furtherPeriodicDataIdentifier', b"", fmt="B")
     ]
 
 
-bind_layers(UDS, UDS_RDBPI, service=0x2A)
+bind_layers(UDS, UDS_RDBPI, service=0x2a)
+UDS._service_cls[0x2a] = UDS_RDBPI
 
 
 # TODO: Implement correct scaling here, instead of using just the dataRecord
 class UDS_RDBPIPR(Packet):
     name = 'ReadDataByPeriodicIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x6a, UDS.services), _uds_slm),
         ByteField('periodicDataIdentifier', 0),
         StrField('dataRecord', b"", fmt="B")
     ]
@@ -786,7 +890,8 @@ class UDS_RDBPIPR(Packet):
             and other.periodicDataIdentifier == self.periodicDataIdentifier
 
 
-bind_layers(UDS, UDS_RDBPIPR, service=0x6A)
+bind_layers(UDS, UDS_RDBPIPR, service=0x6a)
+UDS._service_cls[0x6a] = UDS_RDBPIPR
 
 
 # #########################DDDI###################################
@@ -798,17 +903,20 @@ class UDS_DDDI(Packet):
                     0x2: "defineByMemoryAddress",
                     0x3: "clearDynamicallyDefinedDataIdentifier"}
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x2c, UDS.services), _uds_slm),
         ByteEnumField('subFunction', 0, subFunctions),
         StrField('dataRecord', b"", fmt="B")
     ]
 
 
-bind_layers(UDS, UDS_DDDI, service=0x2C)
+bind_layers(UDS, UDS_DDDI, service=0x2c)
+UDS._service_cls[0x2c] = UDS_DDDI
 
 
 class UDS_DDDIPR(Packet):
     name = 'DynamicallyDefineDataIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x6c, UDS.services), _uds_slm),
         ByteEnumField('subFunction', 0, UDS_DDDI.subFunctions),
         XShortField('dynamicallyDefinedDataIdentifier', 0)
     ]
@@ -818,24 +926,28 @@ class UDS_DDDIPR(Packet):
             and other.subFunction == self.subFunction
 
 
-bind_layers(UDS, UDS_DDDIPR, service=0x6C)
+bind_layers(UDS, UDS_DDDIPR, service=0x6c)
+UDS._service_cls[0x6c] = UDS_DDDIPR
 
 
 # #########################WDBI###################################
 class UDS_WDBI(Packet):
     name = 'WriteDataByIdentifier'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x2e, UDS.services), _uds_slm),
         XShortEnumField('dataIdentifier', 0,
                         UDS_RDBI.dataIdentifiers)
     ]
 
 
-bind_layers(UDS, UDS_WDBI, service=0x2E)
+bind_layers(UDS, UDS_WDBI, service=0x2e)
+UDS._service_cls[0x2e] = UDS_WDBI
 
 
 class UDS_WDBIPR(Packet):
     name = 'WriteDataByIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x6e, UDS.services), _uds_slm),
         XShortEnumField('dataIdentifier', 0,
                         UDS_RDBI.dataIdentifiers),
     ]
@@ -845,13 +957,15 @@ class UDS_WDBIPR(Packet):
             and other.dataIdentifier == self.dataIdentifier
 
 
-bind_layers(UDS, UDS_WDBIPR, service=0x6E)
+bind_layers(UDS, UDS_WDBIPR, service=0x6e)
+UDS._service_cls[0x6e] = UDS_WDBIPR
 
 
 # #########################WMBA###################################
 class UDS_WMBA(Packet):
     name = 'WriteMemoryByAddress'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x3d, UDS.services), _uds_slm),
         BitField('memorySizeLen', 0, 4),
         BitField('memoryAddressLen', 0, 4),
         ConditionalField(XByteField('memoryAddress1', 0),
@@ -875,12 +989,14 @@ class UDS_WMBA(Packet):
     ]
 
 
-bind_layers(UDS, UDS_WMBA, service=0x3D)
+bind_layers(UDS, UDS_WMBA, service=0x3d)
+UDS._service_cls[0x3d] = UDS_WMBA
 
 
 class UDS_WMBAPR(Packet):
     name = 'WriteMemoryByAddressPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x7d, UDS.services), _uds_slm),
         BitField('memorySizeLen', 0, 4),
         BitField('memoryAddressLen', 0, 4),
         ConditionalField(XByteField('memoryAddress1', 0),
@@ -907,13 +1023,14 @@ class UDS_WMBAPR(Packet):
             and other.memoryAddressLen == self.memoryAddressLen
 
 
-bind_layers(UDS, UDS_WMBAPR, service=0x7D)
+bind_layers(UDS, UDS_WMBAPR, service=0x7d)
+UDS._service_cls[0x7d] = UDS_WMBAPR
 
 
 # ##########################DTC#####################################
 class DTC(Packet):
     name = 'Diagnostic Trouble Code'
-    dtc_descriptions = {}  # Customize this dictionary for each individual ECU / OEM
+    dtc_descriptions = {}  # type: Dict[int, str]
 
     fields_desc = [
         BitEnumField("system", 0, 2, {
@@ -938,6 +1055,7 @@ class DTC(Packet):
 class UDS_CDTCI(Packet):
     name = 'ClearDiagnosticInformation'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x14, UDS.services), _uds_slm),
         ByteField('groupOfDTCHighByte', 0),
         ByteField('groupOfDTCMiddleByte', 0),
         ByteField('groupOfDTCLowByte', 0),
@@ -945,9 +1063,13 @@ class UDS_CDTCI(Packet):
 
 
 bind_layers(UDS, UDS_CDTCI, service=0x14)
+UDS._service_cls[0x14] = UDS_CDTCI
 
 
 class UDS_CDTCIPR(Packet):
+    fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x54, UDS.services), _uds_slm),
+    ]
     name = 'ClearDiagnosticInformationPositiveResponse'
 
     def answers(self, other):
@@ -955,6 +1077,7 @@ class UDS_CDTCIPR(Packet):
 
 
 bind_layers(UDS, UDS_CDTCIPR, service=0x54)
+UDS._service_cls[0x54] = UDS_CDTCIPR
 
 
 # #########################RDTCI###################################
@@ -1012,6 +1135,7 @@ class UDS_RDTCI(Packet):
     }
     name = 'ReadDTCInformation'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x19, UDS.services), _uds_slm),
         ByteEnumField('reportType', 0, reportTypes),
         ConditionalField(FlagsField('DTCSeverityMask', 0, 8, dtcSeverityMask),
                          lambda pkt: pkt.reportType in [0x07, 0x08]),
@@ -1029,6 +1153,7 @@ class UDS_RDTCI(Packet):
 
 
 bind_layers(UDS, UDS_RDTCI, service=0x19)
+UDS._service_cls[0x19] = UDS_RDTCI
 
 
 class DTCAndStatusRecord(Packet):
@@ -1062,7 +1187,7 @@ class DTCExtendedDataRecord(Packet):
 
 
 class DTCSnapshot(Packet):
-    identifiers = defaultdict(list)  # for later extension
+    identifiers = defaultdict(list)  # type: Dict[int, list]  # for later extension
 
     @staticmethod
     def next_identifier_cb(pkt, lst, cur, remain):
@@ -1091,6 +1216,7 @@ class DTCSnapshotRecord(Packet):
 class UDS_RDTCIPR(Packet):
     name = 'ReadDTCInformationPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x59, UDS.services), _uds_slm),
         ByteEnumField('reportType', 0, UDS_RDTCI.reportTypes),
         ConditionalField(
             FlagsField('DTCStatusAvailabilityMask', 0, 8, UDS_RDTCI.dtcStatus),
@@ -1140,6 +1266,7 @@ class UDS_RDTCIPR(Packet):
 
 
 bind_layers(UDS, UDS_RDTCIPR, service=0x59)
+UDS._service_cls[0x59] = UDS_RDTCIPR
 
 
 # #########################RC###################################
@@ -1153,17 +1280,20 @@ class UDS_RC(Packet):
     routineControlIdentifiers = ObservableDict()
     name = 'RoutineControl'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x31, UDS.services), _uds_slm),
         ByteEnumField('routineControlType', 0, routineControlTypes),
         XShortEnumField('routineIdentifier', 0, routineControlIdentifiers)
     ]
 
 
 bind_layers(UDS, UDS_RC, service=0x31)
+UDS._service_cls[0x31] = UDS_RC
 
 
 class UDS_RCPR(Packet):
     name = 'RoutineControlPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x71, UDS.services), _uds_slm),
         ByteEnumField('routineControlType', 0, UDS_RC.routineControlTypes),
         XShortEnumField('routineIdentifier', 0,
                         UDS_RC.routineControlIdentifiers),
@@ -1181,6 +1311,7 @@ class UDS_RCPR(Packet):
 
 
 bind_layers(UDS, UDS_RCPR, service=0x71)
+UDS._service_cls[0x71] = UDS_RCPR
 
 
 # #########################RD###################################
@@ -1190,6 +1321,7 @@ class UDS_RD(Packet):
     })
     name = 'RequestDownload'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x34, UDS.services), _uds_slm),
         ByteEnumField('dataFormatIdentifier', 0, dataFormatIdentifiers),
         BitField('memorySizeLen', 0, 4),
         BitField('memoryAddressLen', 0, 4),
@@ -1213,11 +1345,13 @@ class UDS_RD(Packet):
 
 
 bind_layers(UDS, UDS_RD, service=0x34)
+UDS._service_cls[0x34] = UDS_RD
 
 
 class UDS_RDPR(Packet):
     name = 'RequestDownloadPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x74, UDS.services), _uds_slm),
         BitField('memorySizeLen', 0, 4),
         BitField('reserved', 0, 4),
         StrField('maxNumberOfBlockLength', b"", fmt="B"),
@@ -1228,12 +1362,14 @@ class UDS_RDPR(Packet):
 
 
 bind_layers(UDS, UDS_RDPR, service=0x74)
+UDS._service_cls[0x74] = UDS_RDPR
 
 
 # #########################RU###################################
 class UDS_RU(Packet):
     name = 'RequestUpload'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x35, UDS.services), _uds_slm),
         ByteEnumField('dataFormatIdentifier', 0,
                       UDS_RD.dataFormatIdentifiers),
         BitField('memorySizeLen', 0, 4),
@@ -1258,11 +1394,13 @@ class UDS_RU(Packet):
 
 
 bind_layers(UDS, UDS_RU, service=0x35)
+UDS._service_cls[0x35] = UDS_RU
 
 
 class UDS_RUPR(Packet):
     name = 'RequestUploadPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x75, UDS.services), _uds_slm),
         BitField('memorySizeLen', 0, 4),
         BitField('reserved', 0, 4),
         StrField('maxNumberOfBlockLength', b"", fmt="B"),
@@ -1273,23 +1411,27 @@ class UDS_RUPR(Packet):
 
 
 bind_layers(UDS, UDS_RUPR, service=0x75)
+UDS._service_cls[0x75] = UDS_RUPR
 
 
 # #########################TD###################################
 class UDS_TD(Packet):
     name = 'TransferData'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x36, UDS.services), _uds_slm),
         ByteField('blockSequenceCounter', 0),
         StrField('transferRequestParameterRecord', b"", fmt="B")
     ]
 
 
 bind_layers(UDS, UDS_TD, service=0x36)
+UDS._service_cls[0x36] = UDS_TD
 
 
 class UDS_TDPR(Packet):
     name = 'TransferDataPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x76, UDS.services), _uds_slm),
         ByteField('blockSequenceCounter', 0),
         StrField('transferResponseParameterRecord', b"", fmt="B")
     ]
@@ -1300,22 +1442,26 @@ class UDS_TDPR(Packet):
 
 
 bind_layers(UDS, UDS_TDPR, service=0x76)
+UDS._service_cls[0x76] = UDS_TDPR
 
 
 # #########################RTE###################################
 class UDS_RTE(Packet):
     name = 'RequestTransferExit'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x37, UDS.services), _uds_slm),
         StrField('transferRequestParameterRecord', b"", fmt="B")
     ]
 
 
 bind_layers(UDS, UDS_RTE, service=0x37)
+UDS._service_cls[0x37] = UDS_RTE
 
 
 class UDS_RTEPR(Packet):
     name = 'RequestTransferExitPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x77, UDS.services), _uds_slm),
         StrField('transferResponseParameterRecord', b"", fmt="B")
     ]
 
@@ -1324,6 +1470,7 @@ class UDS_RTEPR(Packet):
 
 
 bind_layers(UDS, UDS_RTEPR, service=0x77)
+UDS._service_cls[0x77] = UDS_RTEPR
 
 
 # #########################RFT###################################
@@ -1344,6 +1491,7 @@ class UDS_RFT(Packet):
         return packet.modeOfOperation not in [2, 4, 5]
 
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x38, UDS.services), _uds_slm),
         XByteEnumField('modeOfOperation', 0, modeOfOperations),
         FieldLenField('filePathAndNameLength', None,
                       length_of='filePathAndName', fmt='H'),
@@ -1369,6 +1517,7 @@ class UDS_RFT(Packet):
 
 
 bind_layers(UDS, UDS_RFT, service=0x38)
+UDS._service_cls[0x38] = UDS_RFT
 
 
 class UDS_RFTPR(Packet):
@@ -1379,6 +1528,7 @@ class UDS_RFTPR(Packet):
         return packet.modeOfOperation != 0x02
 
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x78, UDS.services), _uds_slm),
         XByteEnumField('modeOfOperation', 0, UDS_RFT.modeOfOperations),
         ConditionalField(FieldLenField('lengthFormatIdentifier', None,
                                        length_of='maxNumberOfBlockLength',
@@ -1411,22 +1561,26 @@ class UDS_RFTPR(Packet):
 
 
 bind_layers(UDS, UDS_RFTPR, service=0x78)
+UDS._service_cls[0x78] = UDS_RFTPR
 
 
 # #########################IOCBI###################################
 class UDS_IOCBI(Packet):
     name = 'InputOutputControlByIdentifier'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x2f, UDS.services), _uds_slm),
         XShortEnumField('dataIdentifier', 0, UDS_RDBI.dataIdentifiers),
     ]
 
 
-bind_layers(UDS, UDS_IOCBI, service=0x2F)
+bind_layers(UDS, UDS_IOCBI, service=0x2f)
+UDS._service_cls[0x2f] = UDS_IOCBI
 
 
 class UDS_IOCBIPR(Packet):
     name = 'InputOutputControlByIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x6f, UDS.services), _uds_slm),
         XShortEnumField('dataIdentifier', 0, UDS_RDBI.dataIdentifiers),
     ]
 
@@ -1435,7 +1589,8 @@ class UDS_IOCBIPR(Packet):
             and other.dataIdentifier == self.dataIdentifier
 
 
-bind_layers(UDS, UDS_IOCBIPR, service=0x6F)
+bind_layers(UDS, UDS_IOCBIPR, service=0x6f)
+UDS._service_cls[0x6f] = UDS_IOCBIPR
 
 
 # #########################NR###################################
@@ -1505,6 +1660,7 @@ class UDS_NR(Packet):
     }
     name = 'NegativeResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x7f, UDS.services), _uds_slm),
         XByteEnumField('requestServiceId', 0, UDS.services),
         ByteEnumField('negativeResponseCode', 0, negativeResponseCodes)
     ]
@@ -1516,6 +1672,7 @@ class UDS_NR(Packet):
 
 
 bind_layers(UDS, UDS_NR, service=0x7f)
+UDS._service_cls[0x7f] = UDS_NR
 
 
 # ##################################################################
