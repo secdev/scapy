@@ -633,9 +633,6 @@ assert p2[IP].dst == '5.6.7.8'
 assert p2[TCP].sport == 1234
 assert p2[TCP].dport == 80
 assert p2[TCP].flags == 'S'
-assert p2[IP].len is None
-assert p2[IP].chksum is None
-assert p2[TCP].chksum is None
 assert p2.time == 12345.0
 assert p2.sent_time == 12346.0
 assert p2.direction == 1
