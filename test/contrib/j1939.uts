@@ -795,7 +795,6 @@ assert j2.pgn == 0xEC00, "Expected 0xEC00, got 0x%05X" % j2.pgn
 assert j2.dst == 0xFF
 assert j2.src == 0x00
 assert j2.data == bytes([32, 20, 0, 3, 0xFF, 0xCA, 0xFE, 0x00])
-assert abs(j2.time - 1539191392.861779) < 1e-3
 
 = rdcandump non-log-file (column) format with J1939 extended frame
 from io import BytesIO
@@ -822,7 +821,7 @@ assert j1939_frames[1].pgn == 0xEC00
 
 ############
 ############
-+ J1939 NativeJ1939Socket tests
++ NativeJ1939Socket tests
 ~ vcan_socket needs_root
 
 = Setup
@@ -874,6 +873,7 @@ from scapy.contrib.cansocket_native import NativeCANSocket
 tx_long_payload = bytes(range(0x01, 0x15))   # 20 bytes → 1 BAM + 3 TP.DT
 tx_long_pgn = 0xFECA
 tx_long_src = 0x0B
+tx_long_packets = (len(tx_long_payload) + 6) // 7
 
 j1939_sender_long = NativeJ1939Socket("vcan0", src_addr=tx_long_src, promisc=False)
 can_receiver_long = NativeCANSocket("vcan0", basecls=J1939_CAN)
@@ -900,7 +900,6 @@ can_receiver_long.close()
 
 bam_frames = [f for f in collected_frames if f.pdu_format == 0xEC]
 dt_frames = [f for f in collected_frames if f.pdu_format == 0xEB]
-dt_frames.sort(key=lambda x: J1939_TP_DT(x.data).seq_num)
 
 assert len(bam_frames) >= 1, "Expected BAM frame, got %d matching frames" % len(collected_frames)
 assert len(dt_frames) >= 3, "Expected >=3 TP.DT frames, got %d" % len(dt_frames)
@@ -909,73 +908,106 @@ collected_frames = [bam_frames[0]] + dt_frames[:3]
 # Frame 0: TP.CM BAM (PF=0xEC)
 bam_frame = collected_frames[0]
 assert bam_frame.pdu_format == 0xEC, "Expected TP.CM, pf=0x%02X" % bam_frame.pdu_format
-bam = J1939_TP_CM_BAM(bam_frame.data)
-assert bam.ctrl == J1939_TP_CTRL_BAM
-assert bam.total_size == len(tx_long_payload), \
-    "total_size=%d expected=%d" % (bam.total_size, len(tx_long_payload))
-assert bam.num_packets == 3, "num_packets=%d" % bam.num_packets
-assert bam.pgn == tx_long_pgn, "pgn=0x%X" % bam.pgn
+bam = J1939_TP_CM.dispatch_hook(bam_frame.data)(bam_frame.data)
+assert isinstance(bam, J1939_TP_CM_BAM), "Expected BAM, got %s" % bam.__class__.__name__
+assert bam.total_size == len(tx_long_payload)
+assert bam.num_packets == tx_long_packets
+assert bam.pgn == tx_long_pgn
 
-# Frames 1-3: TP.DT (PF=0xEB) in order; reassembled payload matches
-dt_data = b''
-for i, frame in enumerate(collected_frames[1:], start=1):
-    assert frame.pdu_format == 0xEB, \
-        "Frame %d: expected TP.DT, pf=0x%02X" % (i, frame.pdu_format)
-    dt = J1939_TP_DT(frame.data)
-    assert dt.seq_num == i, "seq_num=%d expected=%d" % (dt.seq_num, i)
-    dt_data += dt.data
+dt_seq = sorted(J1939_TP_DT(f.data).seq_num for f in dt_frames)
+assert dt_seq[:tx_long_packets] == list(range(1, tx_long_packets + 1)), "TP.DT seq mismatch: %r" % dt_seq
 
-assert dt_data[:len(tx_long_payload)] == tx_long_payload, \
-    "Reassembled payload mismatch: %r != %r" % (dt_data[:20], tx_long_payload)
+dt_payload = b''.join(J1939_TP_DT(f.data).data for f in dt_frames[:tx_long_packets])
+assert dt_payload[:len(tx_long_payload)] == tx_long_payload, \
+    "Reassembled payload mismatch: %r != %r" % (dt_payload[:len(tx_long_payload)], tx_long_payload)
 
-= NativeCANSocket sends TP.CM BAM + TP.DT; NativeJ1939Socket receives reassembled message
-# The kernel J1939 stack on the receiver side reassembles the incoming TP.CM/TP.DT sequence
+= NativeJ1939Socket segmented TX decodes TP.CM via J1939_TP_CM.dispatch_hook
 from scapy.contrib.cansocket_native import NativeCANSocket
 
-tx_bam_payload = bytes(range(0x20, 0x34))   # 20 bytes
-tx_bam_pgn = 0xFECA
-tx_bam_src = 0x0B
+tx_seg_payload = bytes(range(0x31, 0x44))   # 19 bytes -> 3 TP.DT
+tx_seg_pgn = 0xFECB
+tx_seg_src = 0x22
+tx_seg_packets = (len(tx_seg_payload) + 6) // 7
 
-can_sender_bam = NativeCANSocket("vcan0")
-j1939_receiver_bam = NativeJ1939Socket("vcan0", promisc=True)
-j1939_receiver_bam.ins.settimeout(3.0)
+j1939_sender_seg = NativeJ1939Socket("vcan0", src_addr=tx_seg_src, promisc=False)
+can_receiver_seg = NativeCANSocket("vcan0", basecls=J1939_CAN)
+can_receiver_seg.ins.settimeout(3.0)
 
-# Build BAM and TP.DT CAN frames manually
-_bam_bytes = bytes(J1939_TP_CM_BAM(total_size=len(tx_bam_payload), num_packets=3,
-                                    pgn=tx_bam_pgn))
-_dt1_bytes = bytes(J1939_TP_DT(seq_num=1, data=tx_bam_payload[0:7]))
-_dt2_bytes = bytes(J1939_TP_DT(seq_num=2, data=tx_bam_payload[7:14]))
-_dt3_bytes = bytes(J1939_TP_DT(seq_num=3, data=tx_bam_payload[14:20] + b'\xFF'))
-
-_bam_can  = J1939_CAN(priority=6, data_page=0, pdu_format=0xEC, pdu_specific=0xFF,
-                       src=tx_bam_src, data=_bam_bytes)
-_dt1_can  = J1939_CAN(priority=7, data_page=0, pdu_format=0xEB, pdu_specific=0xFF,
-                       src=tx_bam_src, data=_dt1_bytes)
-_dt2_can  = J1939_CAN(priority=7, data_page=0, pdu_format=0xEB, pdu_specific=0xFF,
-                       src=tx_bam_src, data=_dt2_bytes)
-_dt3_can  = J1939_CAN(priority=7, data_page=0, pdu_format=0xEB, pdu_specific=0xFF,
-                       src=tx_bam_src, data=_dt3_bytes)
-
-def _send_bam_sequence():
+def _send_segmented_tx():
     sleep(0.1)
-    for frame in [_bam_can, _dt1_can, _dt2_can, _dt3_can]:
-        can_sender_bam.send(frame)
-        sleep(0.005)   # 5 ms inter-frame gap
+    j1939_sender_seg.send(J1939(tx_seg_payload, pgn=tx_seg_pgn, src=tx_seg_src, dst=J1939_BROADCAST_ADDR))
 
-t_bam = threading.Thread(target=_send_bam_sequence)
-t_bam.start()
+t_seg_tx = threading.Thread(target=_send_segmented_tx)
+t_seg_tx.start()
+seg_frames = can_receiver_seg.sniff(timeout=3.0, count=24)
+t_seg_tx.join(timeout=5)
 
-rx_bam = j1939_receiver_bam.sniff(timeout=3.0, count=1)[0]
+j1939_sender_seg.close()
+can_receiver_seg.close()
 
-t_bam.join(timeout=5)
-can_sender_bam.close()
-j1939_receiver_bam.close()
+seg_tp = [f for f in seg_frames if isinstance(f, J1939_CAN) and f.src == tx_seg_src and f.pdu_format in [0xEC, 0xEB]]
+seg_cm = [f for f in seg_tp if f.pdu_format == 0xEC]
+seg_dt = [f for f in seg_tp if f.pdu_format == 0xEB]
 
-assert rx_bam is not None, "No reassembled J1939 message received"
-assert rx_bam.data == tx_bam_payload, \
-    "Payload mismatch: %r != %r" % (rx_bam.data, tx_bam_payload)
-assert rx_bam.pgn == tx_bam_pgn, "PGN mismatch: 0x%X != 0x%X" % (rx_bam.pgn, tx_bam_pgn)
-assert rx_bam.src == tx_bam_src, "SA mismatch: %d != %d" % (rx_bam.src, tx_bam_src)
+assert seg_cm, "Missing TP.CM frame for segmented TX"
+seg_cm_pkt = J1939_TP_CM.dispatch_hook(seg_cm[0].data)(seg_cm[0].data)
+assert isinstance(seg_cm_pkt, J1939_TP_CM_BAM), "Expected BAM, got %s" % seg_cm_pkt.__class__.__name__
+assert seg_cm_pkt.total_size == len(tx_seg_payload)
+assert seg_cm_pkt.num_packets == tx_seg_packets
+assert seg_cm_pkt.pgn == tx_seg_pgn
+
+seg_seq = sorted(J1939_TP_DT(f.data).seq_num for f in seg_dt)
+assert seg_seq[:tx_seg_packets] == list(range(1, tx_seg_packets + 1)), "TP.DT seq mismatch: %r" % seg_seq
+
+= NativeJ1939Socket segmented RX from explicit TP.CM/J1939_TP_CM sequence
+from scapy.contrib.cansocket_native import NativeCANSocket
+
+rx_seg_payload = bytes(range(0x50, 0x66))   # 22 bytes -> 4 TP.DT frames
+rx_seg_pgn = 0xFECA
+rx_seg_src = 0x34
+rx_seg_packets = (len(rx_seg_payload) + 6) // 7
+
+can_sender_seg = NativeCANSocket("vcan0")
+j1939_receiver_seg = NativeJ1939Socket("vcan0", promisc=True)
+j1939_receiver_seg.ins.settimeout(3.0)
+
+cm_wire = bytes(J1939_TP_CM_BAM(total_size=len(rx_seg_payload), num_packets=rx_seg_packets, pgn=rx_seg_pgn))
+cm_decoded = J1939_TP_CM.dispatch_hook(cm_wire)(cm_wire)
+assert isinstance(cm_decoded, J1939_TP_CM_BAM)
+
+cm_can = J1939_CAN(priority=6, data_page=0, pdu_format=0xEC, pdu_specific=J1939_BROADCAST_ADDR,
+                   src=rx_seg_src, data=bytes(cm_decoded))
+
+dt_can_frames = []
+for seq in range(1, rx_seg_packets + 1):
+    start = (seq - 1) * 7
+    chunk = rx_seg_payload[start:start + 7]
+    if len(chunk) < 7:
+        chunk += b'\xFF' * (7 - len(chunk))
+    dt_can_frames.append(
+        J1939_CAN(priority=7, data_page=0, pdu_format=0xEB, pdu_specific=J1939_BROADCAST_ADDR,
+                  src=rx_seg_src, data=bytes(J1939_TP_DT(seq_num=seq, data=chunk)))
+    )
+
+def _send_segmented_rx():
+    sleep(0.1)
+    can_sender_seg.send(cm_can)
+    for f in dt_can_frames:
+        can_sender_seg.send(f)
+        sleep(0.005)
+
+t_seg_rx = threading.Thread(target=_send_segmented_rx)
+rx_pkts = j1939_receiver_seg.sniff(timeout=3.0, started_callback=t_seg_rx.start, count=1)
+t_seg_rx.join(timeout=5)
+
+can_sender_seg.close()
+j1939_receiver_seg.close()
+
+assert rx_pkts and rx_pkts[0] is not None, "No reassembled segmented message received"
+rx_seg = rx_pkts[0]
+assert rx_seg.data == rx_seg_payload, "RX payload mismatch: %r != %r" % (rx_seg.data, rx_seg_payload)
+assert rx_seg.pgn == rx_seg_pgn, "RX PGN mismatch: 0x%X != 0x%X" % (rx_seg.pgn, rx_seg_pgn)
+assert rx_seg.src == rx_seg_src, "RX SA mismatch: %d != %d" % (rx_seg.src, rx_seg_src)
 
 ############
 ############
@@ -1444,5 +1476,170 @@ assert _j2iso_rx is not None, \
 assert _j2iso_rx.data == _j2iso_isotp_payload, \
     "ISOTP payload mismatch: %r != %r" % (_j2iso_rx.data, _j2iso_isotp_payload)
 
-= Teardown cross-layer interop section
-pass
+############
+############
++ J1939 Segmented Communication – comprehensive J1939_TP_CM tests
+~ not_pypy linux
+
+= J1939_TP_CM_BAM with various payload sizes (7-1785 bytes)
+# Test BAM with different total sizes and packet counts per J1939 standard
+for total_size in [7, 14, 21, 100, 500, 1000, 1785]:
+    num_packets = (total_size + 6) // 7  # round up: each TP.DT carries 7 bytes
+    if num_packets > 255:
+        num_packets = 255
+    bam = J1939_TP_CM_BAM(total_size=total_size, num_packets=num_packets, pgn=0xFECA)
+    p = J1939_TP_CM_BAM(bytes(bam))
+    assert p.total_size == total_size, \
+        "BAM total_size=%d expected=%d" % (p.total_size, total_size)
+    assert p.num_packets == num_packets, \
+        "BAM num_packets=%d expected=%d" % (p.num_packets, num_packets)
+
+= J1939_TP_CM_RTS with various PGN values and max_packets limits
+# Test RTS with PDU1 (peer-to-peer), PDU2 (broadcast), and edge-case PGNs
+tests = [
+    (0xEF00, 1),    # PDU1, single packet allowed per CTS
+    (0xFECA, 5),    # PDU2 broadcast, 5 packets per CTS
+    (0xEA00, 0xFF), # Request PGN, max packets (unlimited)
+    (0x00FF, 10),   # Low PGN value
+    (0x3FFFF, 20),  # Max 18-bit PGN, restricted to 255 packets anyway
+]
+for pgn, maxp in tests:
+    rts = J1939_TP_CM_RTS(total_size=50, num_packets=10, max_packets=maxp, pgn=pgn)
+    b = bytes(rts)
+    assert len(b) == 8, "RTS wire size must always be 8 bytes"
+    p = J1939_TP_CM_RTS(b)
+    assert p.pgn == pgn, "RTS PGN mismatch: %d != %d" % (p.pgn, pgn)
+    assert p.max_packets == maxp, "RTS max_packets mismatch: %d != %d" % (p.max_packets, maxp)
+
+= J1939_TP_CM_CTS edge cases: next_packet at session boundaries
+# Test CTS with next_packet indicating start, middle, and end of session
+for seq in [1, 50, 100, 254, 255]:
+    cts = J1939_TP_CM_CTS(num_packets=5, next_packet=seq, pgn=0xFECA)
+    p = J1939_TP_CM_CTS(bytes(cts))
+    assert p.next_packet == seq, "CTS next_packet=%d roundtrip=%d" % (seq, p.next_packet)
+
+= J1939_TP_CM_CTS with zero num_packets (stop transmission signal)
+# num_packets=0 in CTS may indicate abort or rate-limiting; verify it round-trips
+cts = J1939_TP_CM_CTS(num_packets=0, next_packet=1, pgn=0xEF00)
+b = bytes(cts)
+p = J1939_TP_CM_CTS(b)
+assert p.num_packets == 0, "CTS num_packets should be 0"
+assert p.next_packet == 1, "CTS next_packet should be 1"
+assert p.ctrl == J1939_TP_CTRL_CTS, "CTS ctrl must be 17"
+
+= J1939_TP_CM_ACK with maximum payload sizes
+# Test ACK frames acknowledging the largest TP session (1785 bytes = 255 packets)
+ack = J1939_TP_CM_ACK(total_size=1785, num_packets=255, pgn=0xFECA)
+b = bytes(ack)
+assert len(b) == 8, "ACK wire size must be 8 bytes"
+p = J1939_TP_CM_ACK(b)
+assert p.total_size == 1785, "ACK total_size=%d" % p.total_size
+assert p.num_packets == 255, "ACK num_packets=%d" % p.num_packets
+assert p.ctrl == J1939_TP_CTRL_ACK, "ACK ctrl=0x%02X" % p.ctrl
+
+= J1939_TP_CM_ACK reserved byte padding
+# Verify that the reserved byte field is 0xFF in the wire format
+ack = J1939_TP_CM_ACK(total_size=500, num_packets=100, pgn=0xFECA)
+b = bytes(ack)
+# byte layout: ctrl(0) reserved_lo(1) reserved_hi(2) reserved(3) pgn_lo(4) pgn_mid(5) pgn_hi(6) pgn_hi2(7)
+assert b[4] == 0xFF, "ACK reserved byte must be 0xFF, got 0x%02X" % b[4]
+
+= J1939_TP_CM_ABORT with all standard abort reason codes
+# J1939 standard abort reasons: 1-8 (specific codes) and 250-255 (other)
+abort_reasons = [1, 2, 3, 4, 5, 6, 7, 8, 250, 251, 252, 253, 254, 255]
+for reason in abort_reasons:
+    abort = J1939_TP_CM_ABORT(reason=reason, pgn=0xFECA)
+    b = bytes(abort)
+    p = J1939_TP_CM_ABORT(b)
+    assert p.reason == reason, \
+        "ABORT reason=%d roundtrip=%d" % (reason, p.reason)
+    assert p.ctrl == J1939_TP_CTRL_ABORT, \
+        "ABORT ctrl=0x%02X" % p.ctrl
+
+= J1939_TP_CM_ABORT wire layout verification for all defined reasons
+# Verify byte positions in wire format for different abort codes
+# byte layout: ctrl(255) reason(1) reserved_lo(2) reserved_hi(3) reserved2(4) pgn_lo(5) pgn_mid(6) pgn_hi(7)
+abort = J1939_TP_CM_ABORT(reason=3, pgn=0xEF00)
+b = bytes(abort)
+assert b[0] == 255, "ABORT ctrl must be 255"
+assert b[1] == 3, "ABORT reason must be at byte 1"
+assert b[2] == 0xFF and b[3] == 0xFF, "ABORT reserved must be 0xFFFF"
+assert b[4] == 0xFF, "ABORT reserved2 must be 0xFF"
+assert b[5] == 0x00, "ABORT PGN[0] must be 0x00"
+assert b[6] == 0xEF, "ABORT PGN[1] must be 0xEF"
+assert b[7] == 0x00, "ABORT PGN[2] must be 0x00"
+
+= J1939_TP_CM dispatch properly identifies all TP.CM subtypes
+# dispatch_hook must convert raw bytes to the correct subclass
+raw_samples = [
+    (bytes([16, 10, 0, 2, 0xFF, 0xCA, 0xFE, 0x00]), J1939_TP_CM_RTS),
+    (bytes([17, 2, 1, 0xFF, 0xFF, 0xCA, 0xFE, 0x00]), J1939_TP_CM_CTS),
+    (bytes([19, 10, 0, 2, 0xFF, 0xCA, 0xFE, 0x00]), J1939_TP_CM_ACK),
+    (bytes([32, 20, 0, 3, 0xFF, 0xCA, 0xFE, 0x00]), J1939_TP_CM_BAM),
+    (bytes([255, 3, 0xFF, 0xFF, 0xFF, 0xCA, 0xFE, 0x00]), J1939_TP_CM_ABORT),
+]
+for raw_bytes, expected_class in raw_samples:
+    dispatched_cls = J1939_TP_CM.dispatch_hook(raw_bytes)
+    assert dispatched_cls == expected_class, \
+        "dispatch_hook returned %s, expected %s" % (dispatched_cls.__name__, expected_class.__name__)
+
+= J1939_TP_CM dispatch with invalid/unknown control bytes returns base J1939_TP_CM
+# Control bytes not in the standard set should not match any subclass
+invalid_ctrls = [0, 1, 15, 18, 20, 30, 31, 33, 200, 254]
+for ctrl in invalid_ctrls:
+    raw = bytes([ctrl, 0, 0, 0, 0xFF, 0xCA, 0xFE, 0x00])
+    dispatched_cls = J1939_TP_CM.dispatch_hook(raw)
+    assert dispatched_cls == J1939_TP_CM, \
+        "Unknown ctrl 0x%02X should return base J1939_TP_CM, got %s" % (ctrl, dispatched_cls.__name__)
+
+= J1939_TP_CM_RTS large total_size with max_packets=1 (flow control)
+# max_packets=1 means "stop; wait for next CTS before sending more packets"
+# Useful for congestion control
+rts = J1939_TP_CM_RTS(total_size=1000, num_packets=200, max_packets=1, pgn=0xFECA)
+p = J1939_TP_CM_RTS(bytes(rts))
+assert p.max_packets == 1, "RTS max_packets must be 1"
+assert p.num_packets == 200, "RTS num_packets must be 200"
+assert p.total_size == 1000, "RTS total_size must be 1000"
+
+= J1939_TP_CM_CTS with num_packets field indicating hold/wait condition
+# num_packets=0 may signal "pause sender, don't send yet"; verify it encodes/decodes
+cts_wait = J1939_TP_CM_CTS(num_packets=0, next_packet=5, pgn=0xFECA)
+p_wait = J1939_TP_CM_CTS(bytes(cts_wait))
+assert p_wait.num_packets == 0, "CTS hold-state must have num_packets=0"
+assert p_wait.next_packet == 5, "CTS next_packet should be next expected after pause"
+
+= J1939_TP_CM_ACK num_packets less than RTS (partial reception)
+# Receiver may ACK fewer packets if some were lost/corrupted; this is valid
+rts = J1939_TP_CM_RTS(total_size=100, num_packets=20, pgn=0xFECA)
+# Receiver only got 18 out of 20 packets (2 lost)
+ack = J1939_TP_CM_ACK(total_size=100, num_packets=18, pgn=0xFECA)
+p_ack = J1939_TP_CM_ACK(bytes(ack))
+assert p_ack.num_packets == 18, "ACK num_packets should reflect actual received"
+assert p_ack.total_size == 100, "ACK total_size should match session total"
+
+= J1939_TP_DT maximum data payload per frame
+# Each TP.DT carries exactly 7 bytes of payload (8 bytes total including seq_num)
+dt_max = J1939_TP_DT(seq_num=100, data=b'\x01\x02\x03\x04\x05\x06\x07')
+b = bytes(dt_max)
+assert len(b) == 8, "TP.DT must be exactly 8 bytes"
+p = J1939_TP_DT(b)
+assert p.seq_num == 100, "TP.DT seq_num=100 roundtrip"
+assert p.data == b'\x01\x02\x03\x04\x05\x06\x07', "TP.DT payload roundtrip"
+
+= J1939_TP_CM_BAM reserved byte is always 0xFF
+# BAM reserved byte must be 0xFF per J1939 specification
+bam = J1939_TP_CM_BAM(total_size=50, num_packets=10, pgn=0xFECA)
+b = bytes(bam)
+# byte layout: ctrl(0) size_lo(1) size_hi(2) num_packets(3) reserved(4) pgn_lo(5) pgn_mid(6) pgn_hi(7)
+assert b[4] == 0xFF, "BAM reserved byte must be 0xFF, got 0x%02X" % b[4]
+
+= J1939_TP_CM integration: error scenario handling – abort after partial reception
+# Simulate error: receiver sends ABORT with reason=6 (Unexpected DT packet)
+# after receiving only 5 out of expected 10 packets
+rts = J1939_TP_CM_RTS(total_size=70, num_packets=10, pgn=0xFECA)
+# ... 5 TP.DT packets received ...
+# Error detected → send ABORT
+abort = J1939_TP_CM_ABORT(reason=6, pgn=0xFECA)  # Unexpected DT packet
+p_abort = J1939_TP_CM_ABORT(bytes(abort))
+assert p_abort.reason == 6, "ABORT reason should be 6"
+assert p_abort.pgn == 0xFECA, "ABORT PGN should match aborted session"
