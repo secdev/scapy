@@ -269,7 +269,7 @@ class Packet(
             if hasattr(self, attr):
                 extra_slots[attr] = getattr(self, attr)
         if extra_slots:
-            state["extra_slots"] = extra_slots
+            state["extra_slots"] = extra_slots  # type: ignore
         return (type(self)._rebuild_pkt, (self.build(),), state)
 
     def __setstate__(self, state):
