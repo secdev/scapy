@@ -84,10 +84,12 @@ def autorun_commands(_cmds, my_globals=None, verb=None):
                 if interp.runsource(cmd):
                     continue
                 if sys.last_value:  # An error occurred
-                    traceback.print_exception(sys.last_type,
-                                              sys.last_value,
-                                              sys.last_traceback.tb_next,
-                                              file=sys.stdout)
+                    traceback.print_exception(
+                        sys.last_type,
+                        sys.last_value,
+                        sys.last_traceback.tb_next,
+                        file=sys.stdout,
+                    )
                     sys.last_value = None
                     return False
                 cmd = ""

@@ -523,8 +523,8 @@ def _run_test_timeout(test, get_interactive_session, verb=3, my_globals=None):
                                        timeout=5 * 60,  # 5 min
                                        verb=verb,
                                        my_globals=my_globals)
-    except StopAutorunTimeout:
-        return "-- Test timed out ! --", False
+    except StopAutorunTimeout as ex:
+        return "@@@@@@@@@@@@@@@@@ Test timed out ! @@@@@@@@@@@@@@@@@\n" + ex.code_run, False
 
 
 def run_test(test, get_interactive_session, theme, verb=3,

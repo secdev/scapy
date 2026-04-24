@@ -17,6 +17,7 @@ from scapy.layers.gssapi import (
     GSS_C_NO_CHANNEL_BINDINGS,
     GssChannelBindings,
     GSSAPI_BLOB,
+    GSSAPI_BLOB_SIGNATURE,
     SSP,
     GSS_S_BAD_NAME,
     GSS_S_COMPLETE,
@@ -31,6 +32,7 @@ from scapy.layers.gssapi import (
 # Typing imports
 from typing import (
     Optional,
+    List,
 )
 
 # Windows bindings
@@ -39,6 +41,7 @@ SECPKG_CRED_INBOUND = 0x00000001
 SECPKG_CRED_OUTBOUND = 0x00000002
 SECPKG_CRED_BOTH = 0x00000003
 
+SECPKG_ATTR_SIZES = 0
 SECPKG_ATTR_SESSION_KEY = 9
 SECPKG_ATTR_SERVER_FLAGS = 14
 
@@ -54,6 +57,70 @@ class SecPkgContext_Flags(ctypes.Structure):
     _fields_ = [
         ("Flags", ctypes.wintypes.ULONG),
     ]
+
+
+class SecPkgContext_Sizes(ctypes.Structure):
+    _fields_ = [
+        ("cbMaxToken", ctypes.wintypes.ULONG),
+        ("cbMaxSignature", ctypes.wintypes.ULONG),
+        ("cbBlockSize", ctypes.wintypes.ULONG),
+        ("cbSecurityTrailer", ctypes.wintypes.ULONG),
+    ]
+
+
+class SEC_CHANNEL_BINDINGS(ctypes.Structure):
+    _fields_ = [
+        ("dwInitiatorAddrType", ctypes.wintypes.ULONG),
+        ("cbInitiatorLength", ctypes.wintypes.ULONG),
+        ("dwInitiatorOffset", ctypes.wintypes.ULONG),
+        ("dwAcceptorAddrType", ctypes.wintypes.ULONG),
+        ("cbAcceptorLength", ctypes.wintypes.ULONG),
+        ("dwAcceptorOffset", ctypes.wintypes.ULONG),
+        ("cbApplicationDataLength", ctypes.wintypes.ULONG),
+        ("dwApplicationDataOffset", ctypes.wintypes.ULONG),
+    ]
+
+    @classmethod
+    def from_GSS(cls, bindings: GssChannelBindings):
+        """
+        Convert a GssChannelBindings to SecPkgContext_Bindings
+        """
+        # Initialize structure
+        buffer = ctypes.create_string_buffer(
+            ctypes.sizeof(SEC_CHANNEL_BINDINGS)
+            + len(bindings.initiator_address.value)
+            + len(bindings.acceptor_address.value)
+            + len(bindings.application_data.value)
+        )
+        Bindings = ctypes.cast(
+            ctypes.byref(buffer),
+            ctypes.POINTER(SEC_CHANNEL_BINDINGS),
+        )
+
+        # Populate values with the offsets and lengths
+        offset = ctypes.sizeof(SEC_CHANNEL_BINDINGS)
+        Bindings.contents.dwInitiatorAddrType = bindings.initiator_addrtype
+        if bindings.initiator_address.value:
+            lgth = len(bindings.initiator_address.value)
+            Bindings.contents.cbInitiatorLength = lgth
+            Bindings.contents.dwInitiatorOffset = offset
+            buffer[offset : offset + lgth] = bindings.initiator_address.value
+            offset += lgth
+        Bindings.contents.dwAcceptorAddrType = bindings.acceptor_addrtype
+        if bindings.acceptor_address.value:
+            lgth = len(bindings.acceptor_address.value)
+            Bindings.contents.cbAcceptorLength = lgth
+            Bindings.contents.dwAcceptorOffset = offset
+            buffer[offset : offset + lgth] = bindings.acceptor_address.value
+            offset += lgth
+        if bindings.application_data.value:
+            lgth = len(bindings.application_data.value)
+            Bindings.contents.cbApplicationDataLength = lgth
+            Bindings.contents.dwApplicationDataOffset = offset
+            buffer[offset : offset + lgth] = bindings.application_data.value
+            offset += lgth
+
+        return buffer, offset
 
 
 SECURITY_NETWORK_DREP = 0
@@ -139,9 +206,20 @@ class SecBuffer(ctypes.Structure):
         ("pvBuffer", ctypes.c_void_p),
     ]
 
+    def GetData(self):
+        if self.cbBuffer == 0:
+            return b""
+        buf = ctypes.cast(
+            self.pvBuffer,
+            ctypes.POINTER(ctypes.wintypes.BYTE * self.cbBuffer),
+        )
+        return bytes(buf.contents)
+
 
 SECBUFFER_VERSION = 0
+SECBUFFER_DATA = 1
 SECBUFFER_TOKEN = 2
+SECBUFFER_READONLY = 0x80000000
 SECBUFFER_CHANNEL_BINDINGS = 14
 
 
@@ -151,6 +229,25 @@ class SecBufferDesc(ctypes.Structure):
         ("cBuffers", ctypes.wintypes.ULONG),
         ("pBuffers", ctypes.POINTER(ctypes.POINTER(SecBuffer))),
     ]
+
+    @staticmethod
+    def Create(Buffers: List[SecBuffer]):
+        Buffers = ctypes.ARRAY(SecBuffer, len(Buffers))(*Buffers)
+        Output = SecBufferDesc(
+            SECBUFFER_VERSION,
+            len(Buffers),
+            ctypes.cast(
+                ctypes.byref(Buffers), ctypes.POINTER(ctypes.POINTER(SecBuffer))
+            ),
+        )
+        return Buffers, Output
+
+    @staticmethod
+    def ParseBuffer(Buffers: ctypes.ARRAY, BufferType: int, cls):
+        for Buffer in Buffers:
+            if Buffer.BufferType == BufferType:
+                return cls(Buffer.GetData())
+        return None
 
 
 _winapi_InitializeSecurityContext = ctypes.windll.secur32.InitializeSecurityContextW
@@ -182,6 +279,51 @@ _winapi_AcceptSecurityContext.argtypes = [
     ctypes.POINTER(SecBufferDesc),  # pOutput
     ctypes.POINTER(ctypes.wintypes.ULONG),  # pfContextAttr
     ctypes.POINTER(SECURITY_INTEGER),  # ptsExpiry
+]
+
+_winapi_MakeSignature = ctypes.windll.secur32.MakeSignature
+_winapi_MakeSignature.restype = ctypes.wintypes.DWORD
+_winapi_MakeSignature.argtypes = [
+    ctypes.POINTER(SecHandle),  # phContext
+    ctypes.wintypes.ULONG,  # fQOP
+    ctypes.POINTER(SecBufferDesc),  # pMessage
+    ctypes.wintypes.ULONG,  # MessageSeqNo
+]
+
+_winapi_VerifySignature = ctypes.windll.secur32.VerifySignature
+_winapi_VerifySignature.restype = ctypes.wintypes.DWORD
+_winapi_VerifySignature.argtypes = [
+    ctypes.POINTER(SecHandle),  # phContext
+    ctypes.POINTER(SecBufferDesc),  # pMessage
+    ctypes.wintypes.ULONG,  # MessageSeqNo
+    ctypes.POINTER(ctypes.wintypes.ULONG),  # pfQOP
+]
+
+_winapi_DecryptMessage = ctypes.windll.secur32.DecryptMessage
+_winapi_DecryptMessage.restype = ctypes.wintypes.DWORD
+_winapi_DecryptMessage.argtypes = [
+    ctypes.POINTER(SecHandle),  # phContext
+    ctypes.POINTER(SecBufferDesc),  # pMessage
+    ctypes.wintypes.ULONG,  # MessageSeqNo
+    ctypes.POINTER(ctypes.wintypes.ULONG),  # pfQOP
+]
+
+_winapi_EncryptMessage = ctypes.windll.secur32.EncryptMessage
+_winapi_EncryptMessage.restype = ctypes.wintypes.DWORD
+_winapi_EncryptMessage.argtypes = [
+    ctypes.POINTER(SecHandle),  # phContext
+    ctypes.wintypes.ULONG,  # fQOP
+    ctypes.POINTER(SecBufferDesc),  # pMessage
+    ctypes.wintypes.ULONG,  # MessageSeqNo
+]
+
+_winapi_DecryptMessage = ctypes.windll.secur32.DecryptMessage
+_winapi_DecryptMessage.restype = ctypes.wintypes.DWORD
+_winapi_DecryptMessage.argtypes = [
+    ctypes.POINTER(SecHandle),  # phContext
+    ctypes.POINTER(SecBufferDesc),  # pMessage
+    ctypes.wintypes.ULONG,  # MessageSeqNo
+    ctypes.POINTER(ctypes.wintypes.ULONG),  # pfQOP
 ]
 
 _winapi_FreeContextBuffer = ctypes.windll.secur32.FreeContextBuffer
@@ -368,6 +510,10 @@ class WinSSP(SSP):
             "ptsExpiry",
             "SessionKey",
             "ServerHostname",
+            "SendSeqNum",
+            "RecvSeqNum",
+            "cbMaxSignature",
+            "cbSecurityTrailer",
         ]
 
         def __init__(
@@ -437,11 +583,34 @@ class WinSSP(SSP):
 
             self.flags = ISC_REQ_FLAGS.to_GSS(Buffer.Flags)
 
+        def QueryPkgContextSizes(self):
+            """
+            Query the package context sizes
+            """
+            Buffer = SecPkgContext_Sizes()
+
+            status = _winapi_QueryContextAttributesW(
+                self.phContext,
+                SECPKG_ATTR_SIZES,
+                ctypes.byref(Buffer),
+            )
+            if status != SEC_CODES.SEC_E_OK:
+                raise ValueError(f"QueryContextAttributesW failed with: {hex(status)}")
+
+            self.cbMaxSignature = Buffer.cbMaxSignature
+            self.cbSecurityTrailer = Buffer.cbSecurityTrailer
+
         def __repr__(self):
             return "[Native SSP: %s]" % self.Package
 
     def __init__(self, Package: str = "Negotiate"):
         self.Package = Package
+        if self.Package == "Negotiate":
+            self.auth_type = 0x09
+        elif self.Package == "NTLM":
+            self.auth_type = 0x0A
+        elif self.Package == "Kerberos":
+            self.auth_type = 0x10
         super(WinSSP, self).__init__()
 
     def GSS_Init_sec_context(
@@ -479,36 +648,28 @@ class WinSSP(SSP):
                 )
             )
         if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS:
-            raise NotImplementedError("Channel bindings !")
-        if InputBuffers:
-            InputBuffers = ctypes.ARRAY(SecBuffer, len(InputBuffers))(*InputBuffers)
-            Input = SecBufferDesc(
-                SECBUFFER_VERSION,
-                len(InputBuffers),
-                ctypes.cast(
-                    ctypes.byref(InputBuffers),
-                    ctypes.POINTER(ctypes.POINTER(SecBuffer)),
-                ),
+            chan_bindings, lgth = SEC_CHANNEL_BINDINGS.from_GSS(chan_bindings)
+            InputBuffers.append(
+                SecBuffer(
+                    lgth,
+                    SECBUFFER_CHANNEL_BINDINGS,
+                    ctypes.cast(chan_bindings, ctypes.c_void_p),
+                )
             )
+        if InputBuffers:
+            InputBuffers, Input = SecBufferDesc.Create(InputBuffers)
         else:
             Input = None
 
         # Create the output buffers (empty for now)
-        OutputBuffers = ctypes.ARRAY(SecBuffer, 1)(
-            *[
+        OutputBuffers, Output = SecBufferDesc.Create(
+            [
                 SecBuffer(
                     ctypes.wintypes.ULONG(0),
                     ctypes.wintypes.ULONG(SECBUFFER_TOKEN),
                     ctypes.c_void_p(),
                 )
             ]
-        )
-        Output = SecBufferDesc(
-            SECBUFFER_VERSION,
-            len(OutputBuffers),
-            ctypes.cast(
-                ctypes.byref(OutputBuffers), ctypes.POINTER(ctypes.POINTER(SecBuffer))
-            ),
         )
 
         # Prepare other arguments
@@ -556,22 +717,16 @@ class WinSSP(SSP):
             if Context.phContext is None:
                 Context.phContext = phNewContext
 
-            for OutputBuffer in OutputBuffers:
-                if (
-                    OutputBuffer.BufferType == SECBUFFER_TOKEN
-                    and OutputBuffer.cbBuffer != 0
-                ):
-                    buf = ctypes.cast(
-                        OutputBuffer.pvBuffer,
-                        ctypes.POINTER(ctypes.wintypes.BYTE * OutputBuffer.cbBuffer),
-                    )
-                    output_token = GSSAPI_BLOB(bytes(buf.contents))
-                    break
+            # Extract output token
+            output_token = SecBufferDesc.ParseBuffer(
+                OutputBuffers, SECBUFFER_TOKEN, GSSAPI_BLOB
+            )
 
         # If we succeeded, query the session key
         if status in [SEC_CODES.SEC_E_OK, SEC_CODES.SEC_I_COMPLETE_AND_CONTINUE]:
             Context.QuerySessionKey()
             Context.QueryNegotiatedFlags()
+            Context.QueryPkgContextSizes()
             Context.state = self.STATE.COMPLETED
 
         # Free things we did not create (won't be freed by GC)
@@ -610,36 +765,28 @@ class WinSSP(SSP):
                 )
             )
         if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS:
-            raise NotImplementedError("Channel bindings !")
-        if InputBuffers:
-            InputBuffers = ctypes.ARRAY(SecBuffer, len(InputBuffers))(*InputBuffers)
-            Input = SecBufferDesc(
-                SECBUFFER_VERSION,
-                len(InputBuffers),
-                ctypes.cast(
-                    ctypes.byref(InputBuffers),
-                    ctypes.POINTER(ctypes.POINTER(SecBuffer)),
-                ),
+            chan_bindings, lgth = SEC_CHANNEL_BINDINGS.from_GSS(chan_bindings)
+            InputBuffers.append(
+                SecBuffer(
+                    lgth,
+                    SECBUFFER_CHANNEL_BINDINGS,
+                    ctypes.cast(chan_bindings, ctypes.c_void_p),
+                )
             )
+        if InputBuffers:
+            InputBuffers, Input = SecBufferDesc.Create(InputBuffers)
         else:
             Input = None
 
         # Create the output buffers (empty for now)
-        OutputBuffers = ctypes.ARRAY(SecBuffer, 1)(
-            *[
+        OutputBuffers, Output = SecBufferDesc.Create(
+            [
                 SecBuffer(
                     ctypes.wintypes.ULONG(0),
                     ctypes.wintypes.ULONG(SECBUFFER_TOKEN),
                     ctypes.c_void_p(),
                 )
             ]
-        )
-        Output = SecBufferDesc(
-            SECBUFFER_VERSION,
-            len(OutputBuffers),
-            ctypes.cast(
-                ctypes.byref(OutputBuffers), ctypes.POINTER(ctypes.POINTER(SecBuffer))
-            ),
         )
 
         # Prepare other arguments
@@ -670,22 +817,16 @@ class WinSSP(SSP):
             if Context.phContext is None:
                 Context.phContext = phNewContext
 
-            for OutputBuffer in OutputBuffers:
-                if (
-                    OutputBuffer.BufferType == SECBUFFER_TOKEN
-                    and OutputBuffer.cbBuffer != 0
-                ):
-                    buf = ctypes.cast(
-                        OutputBuffer.pvBuffer,
-                        ctypes.POINTER(ctypes.wintypes.BYTE * OutputBuffer.cbBuffer),
-                    )
-                    output_token = GSSAPI_BLOB(bytes(buf.contents))
-                    break
+            # Extract output token
+            output_token = SecBufferDesc.ParseBuffer(
+                OutputBuffers, SECBUFFER_TOKEN, GSSAPI_BLOB
+            )
 
         # If we succeeded, query the session key
         if status in [SEC_CODES.SEC_E_OK, SEC_CODES.SEC_I_COMPLETE_AND_CONTINUE]:
             Context.QuerySessionKey()
             Context.QueryNegotiatedFlags()
+            Context.QueryPkgContextSizes()
             Context.state = self.STATE.COMPLETED
 
         # Free things we did not create (won't be freed by GC)
@@ -694,3 +835,166 @@ class WinSSP(SSP):
                 _winapi_FreeContextBuffer(OutputBuffer.pvBuffer)
 
         return Context, output_token, SEC_CODES.to_GSS(status)
+
+    def LegsAmount(self, Context: CONTEXT):
+        if self.Package == "NTLM":
+            return 3
+        else:
+            return 2
+
+    def MaximumSignatureLength(self, Context: CONTEXT):
+        return Context.cbMaxSignature
+
+    def GSS_GetMICEx(self, Context, msgs, qop_req=0):
+        MessageBuffers, Message = SecBufferDesc.Create(
+            [
+                SecBuffer(
+                    ctypes.wintypes.ULONG(len(x.data)),
+                    ctypes.wintypes.ULONG(SECBUFFER_DATA | SECBUFFER_READONLY),
+                    ctypes.cast(ctypes.create_string_buffer(x.data), ctypes.c_void_p),
+                )
+                for x in msgs
+                if x.sign
+            ]
+            + [
+                SecBuffer(
+                    ctypes.wintypes.ULONG(Context.cbMaxSignature),
+                    ctypes.wintypes.ULONG(SECBUFFER_TOKEN),
+                    ctypes.cast(
+                        ctypes.create_string_buffer(Context.cbMaxSignature),
+                        ctypes.c_void_p,
+                    ),
+                )
+            ]
+        )
+        # Call MakeSignature
+        status = _winapi_MakeSignature(
+            Context.phContext,
+            ctypes.wintypes.ULONG(qop_req),
+            ctypes.byref(Message),
+            0,
+        )
+        if status != SEC_CODES.SEC_E_OK:
+            raise ValueError(f"MakeSignature failed with: {hex(status)}")
+        # Extract output token
+        sig = SecBufferDesc.ParseBuffer(
+            MessageBuffers, SECBUFFER_TOKEN, GSSAPI_BLOB_SIGNATURE
+        )
+        return sig
+
+    def GSS_VerifyMICEx(self, Context, msgs, signature):
+        fQOP = ctypes.wintypes.ULONG(0)
+        MessageBuffers, Message = SecBufferDesc.Create(
+            [
+                SecBuffer(
+                    ctypes.wintypes.ULONG(len(x.data)),
+                    ctypes.wintypes.ULONG(SECBUFFER_DATA | SECBUFFER_READONLY),
+                    ctypes.cast(ctypes.create_string_buffer(x.data), ctypes.c_void_p),
+                )
+                for x in msgs
+                if x.sign
+            ]
+            + [
+                SecBuffer(
+                    ctypes.wintypes.ULONG(len(signature)),
+                    ctypes.wintypes.ULONG(SECBUFFER_TOKEN),
+                    ctypes.cast(
+                        ctypes.create_string_buffer(bytes(signature)), ctypes.c_void_p
+                    ),
+                )
+            ]
+        )
+        # Call VerifySignature
+        status = _winapi_VerifySignature(
+            Context.phContext,
+            ctypes.byref(Message),
+            0,
+            ctypes.byref(fQOP),
+        )
+        if status != SEC_CODES.SEC_E_OK:
+            raise ValueError(f"VerifySignature failed with: {hex(status)}")
+
+    def GSS_WrapEx(self, Context, msgs, qop_req=0):
+        MessageBuffers, Message = SecBufferDesc.Create(
+            [
+                SecBuffer(
+                    ctypes.wintypes.ULONG(len(x.data)),
+                    ctypes.wintypes.ULONG(
+                        SECBUFFER_DATA
+                        | (SECBUFFER_READONLY if not x.conf_req_flag else 0)
+                    ),
+                    ctypes.cast(ctypes.create_string_buffer(x.data), ctypes.c_void_p),
+                )
+                for x in msgs
+                if x.sign
+            ]
+            + [
+                SecBuffer(
+                    ctypes.wintypes.ULONG(Context.cbSecurityTrailer),
+                    ctypes.wintypes.ULONG(SECBUFFER_TOKEN),
+                    ctypes.cast(
+                        ctypes.create_string_buffer(Context.cbSecurityTrailer),
+                        ctypes.c_void_p,
+                    ),
+                )
+            ]
+        )
+        # Call EncryptMessage
+        status = _winapi_EncryptMessage(
+            Context.phContext,
+            ctypes.wintypes.ULONG(qop_req),
+            ctypes.byref(Message),
+            0,
+        )
+        if status != SEC_CODES.SEC_E_OK:
+            raise ValueError(f"EncryptMessage failed with: {hex(status)}")
+        # Update messages
+        for i in range(len(msgs)):
+            msgs[i].data = MessageBuffers[i].GetData()
+        # Extract signature
+        sig = SecBufferDesc.ParseBuffer(
+            MessageBuffers, SECBUFFER_TOKEN, GSSAPI_BLOB_SIGNATURE
+        )
+        return (
+            msgs,
+            sig,
+        )
+
+    def GSS_UnwrapEx(self, Context, msgs, signature):
+        fQOP = ctypes.wintypes.ULONG(0)
+        MessageBuffers, Message = SecBufferDesc.Create(
+            [
+                SecBuffer(
+                    ctypes.wintypes.ULONG(len(x.data)),
+                    ctypes.wintypes.ULONG(
+                        SECBUFFER_DATA
+                        | (SECBUFFER_READONLY if not x.conf_req_flag else 0)
+                    ),
+                    ctypes.cast(ctypes.create_string_buffer(x.data), ctypes.c_void_p),
+                )
+                for x in msgs
+                if x.sign
+            ]
+            + [
+                SecBuffer(
+                    ctypes.wintypes.ULONG(len(signature)),
+                    ctypes.wintypes.ULONG(SECBUFFER_TOKEN),
+                    ctypes.cast(
+                        ctypes.create_string_buffer(bytes(signature)), ctypes.c_void_p
+                    ),
+                )
+            ]
+        )
+        # Call DecryptMessage
+        status = _winapi_DecryptMessage(
+            Context.phContext,
+            ctypes.byref(Message),
+            0,
+            ctypes.byref(fQOP),
+        )
+        if status != SEC_CODES.SEC_E_OK:
+            raise ValueError(f"DecryptMessage failed with: {hex(status)}")
+        # Update messages
+        for i in range(len(msgs)):
+            msgs[i].data = MessageBuffers[i].GetData()
+        return msgs

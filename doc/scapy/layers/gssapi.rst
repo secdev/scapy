@@ -141,7 +141,7 @@ WinSSP
 ~~~~~~
 
 WinSSP is a special SSP that is only available on Windows, which calls the actual Windows SSPs local to the machine it's running on.
-It allows to use the implicit authentication of the logged-in user with Scapy and its various clients, and is also improves support of loopback connections.
+It allows to use the implicit authentication of the logged-in user with Scapy and its various clients, and is also sometimes necessary if you get unexpected ACCESS_DENIED on loopback connections.
 
 For instance using SPNEGO:
 

@@ -178,7 +178,8 @@ class SndRcvHandler(object):
                  threaded=True,  # type: bool
                  session=None,  # type: Optional[_GlobSessionType]
                  chainEX=False,  # type: bool
-                 stop_filter=None  # type: Optional[Callable[[Packet], bool]]
+                 stop_filter=None,  # type: Optional[Callable[[Packet], bool]]
+                 **send_kwargs,  # type: Any
                  ):
         # type: (...) -> None
         # Instantiate all arguments
@@ -207,6 +208,7 @@ class SndRcvHandler(object):
         self._flood = _flood
         self.threaded = threaded
         self.breakout = Event()
+        self.send_kwargs = send_kwargs
         # Instantiate packet holders
         if prebuild and not self._flood:
             self.tobesent = list(pkt)  # type: _PacketIterable
@@ -323,7 +325,7 @@ class SndRcvHandler(object):
                 # has not been sent
                 self.hsent.setdefault(p.hashret(), []).append(p)
                 # Send packet
-                self.pks.send(p)
+                self.pks.send(p, **self.send_kwargs)
                 time.sleep(self.inter)
                 if self.breakout.is_set():
                     break
