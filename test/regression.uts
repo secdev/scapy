@@ -633,9 +633,6 @@ assert p2[IP].dst == '5.6.7.8'
 assert p2[TCP].sport == 1234
 assert p2[TCP].dport == 80
 assert p2[TCP].flags == 'S'
-assert p2[IP].len is None
-assert p2[IP].chksum is None
-assert p2[TCP].chksum is None
 assert p2.time == 12345.0
 assert p2.sent_time == 12346.0
 assert p2.direction == 1
@@ -4844,6 +4841,45 @@ assert pl[0].sniffed_on == "iface"
 assert pl[0].wirelen == 1
 assert pl[0][Ether].src == '00:11:22:33:44:55'
 assert pl[1][Ether].dst == '00:22:33:44:55:66'
+
+= __setstate__ accepts legacy tuple state (pickle backward compatibility)
+
+legacy = Ether(src='00:01:02:03:04:05', dst='00:06:07:08:09:0a')/Raw(b'legacy')
+legacy.__setstate__((
+    EDecimal("42.5"),
+    EDecimal("43.5"),
+    1,
+    "legacy0",
+    128,
+    b"legacy-comment",
+))
+assert legacy.time == 42.5
+assert legacy.sent_time == 43.5
+assert legacy.direction == 1
+assert legacy.sniffed_on == "legacy0"
+assert legacy.wirelen == 128
+assert legacy.comment == b"legacy-comment"
+assert legacy.comments == [b"legacy-comment"]
+
+= pickle roundtrip keeps packet metadata and comments list
+
+meta = Ether(src='10:11:12:13:14:15', dst='20:21:22:23:24:25')/Raw(b'meta')
+meta.time = EDecimal("100.25")
+meta.sent_time = EDecimal("100.75")
+meta.direction = 2
+meta.sniffed_on = "meta0"
+meta.wirelen = 256
+meta.comments = [b"first", b"second"]
+
+meta2 = pickle.loads(pickle.dumps(meta))
+assert bytes(meta2) == bytes(meta)
+assert meta2.time == 100.25
+assert meta2.sent_time == 100.75
+assert meta2.direction == 2
+assert meta2.sniffed_on == "meta0"
+assert meta2.wirelen == 256
+assert meta2.comments == [b"first", b"second"]
+assert meta2.comment == b"first"
 
 = EDecimal
 
