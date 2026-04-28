@@ -45,8 +45,6 @@ except KeyError:
                             'single_layer_mode': False,
                             'compatibility_mode': True}
 
-conf.debug_dissector = True
-
 
 def _uds_slm(pkt):
     # type: (Packet) -> bool
