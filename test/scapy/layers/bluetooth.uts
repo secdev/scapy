@@ -375,6 +375,29 @@ assert evt_pkt[HCI_Event_Connection_Complete].bd_addr == "54:b7:e5:91:34:09"
 assert evt_pkt[HCI_Event_Connection_Complete].link_type == 1
 assert evt_pkt[HCI_Event_Connection_Complete].encryption_enabled == 0
 
+= Connection Request
+# Sample from a real BR/EDR controller HCI snoop log. Event 0x04 is sent by
+# the controller when a remote BR/EDR/SCO device tries to connect.
+# Layout: HCI_Hdr type=0x04, event code 0x04, len 0x0a, BD_ADDR (6 LE bytes),
+# device_class (3 LE bytes), link_type (1 byte).
+evt_raw_data = hex_bytes("04" "04" "0a" "8c5b6fd28330" "0c025a" "01")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Connection_Request in evt_pkt
+assert evt_pkt[HCI_Event_Connection_Request].bd_addr == "30:83:d2:6f:5b:8c"
+assert evt_pkt[HCI_Event_Connection_Request].device_class == 0x5a020c
+assert evt_pkt[HCI_Event_Connection_Request].link_type == 1  # ACL connection
+assert raw(evt_pkt) == evt_raw_data
+
+# Roundtrip build
+built = HCI_Hdr() / HCI_Event_Hdr() / HCI_Event_Connection_Request(
+    bd_addr="aa:bb:cc:dd:ee:ff", device_class=0x240404, link_type=2)
+parsed = HCI_Hdr(raw(built))
+assert parsed[HCI_Event_Hdr].code == 0x04
+assert parsed[HCI_Event_Hdr].len == 10
+assert parsed[HCI_Event_Connection_Request].bd_addr == "aa:bb:cc:dd:ee:ff"
+assert parsed[HCI_Event_Connection_Request].device_class == 0x240404
+assert parsed[HCI_Event_Connection_Request].link_type == 2
+
 = Disconnection Complete
 evt_raw_data = hex_bytes("04050400400016")
 evt_pkt = HCI_Hdr(evt_raw_data)
@@ -406,6 +429,18 @@ assert HCI_Event_Read_Remote_Supported_Features_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].status == 0
 assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].handle == 0x000b
 assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].lmp_features == 0x875bffdbfe8ffeff
+
+= Remote Host Supported Features Notification
+# Sample from a real BR/EDR controller HCI snoop log. Event code 0x3d is
+# emitted after the controller learns the remote host's LMP features page.
+evt_raw_data = hex_bytes("04" "3d" "0e" "f472de5c0530" "0f00000000000000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Remote_Host_Supported_Features_Notification in evt_pkt
+notif = evt_pkt[HCI_Event_Remote_Host_Supported_Features_Notification]
+assert notif.bd_addr == "30:05:5c:de:72:f4"
+assert notif.host_supported_features == 0x000000000000000f
+# 0x0f -> first four LMP features set
+assert raw(evt_pkt) == evt_raw_data
 
 = Read Remote Version Information Complete
 evt_raw_data = hex_bytes("040c080002000bb0022c04")
@@ -558,6 +593,35 @@ assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].interval == 20
 assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].latency == 1
 assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].timeout == 60
 
+= LE Meta LE Read Remote Features Complete
+# Sample from a real BLE HCI snoop log: subevent 0x04 (LE Read Remote
+# Features [Page 0] Complete) returns the remote peer's LE feature mask.
+evt_raw_data = hex_bytes("04" "3e" "0c" "04" "00" "4000" "1f00000000000000")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_LE_Meta_LE_Read_Remote_Features_Complete in evt_pkt
+evt = evt_pkt[HCI_LE_Meta_LE_Read_Remote_Features_Complete]
+assert evt.status == 0
+assert evt.handle == 0x0040
+assert evt.le_features == 0x000000000000001f
+assert raw(evt_pkt) == evt_raw_data
+
+= HCI Event Vendor (vendor-specific debug event)
+# Sample from a real HCI snoop log. Event code 0xff is reserved by the
+# Bluetooth Core spec for vendor-specific debugging events; the body is an
+# opaque, vendor-defined byte string.
+evt_raw_data = hex_bytes("04" "ff" "04" "26000101")
+evt_pkt = HCI_Hdr(evt_raw_data)
+assert HCI_Event_Vendor in evt_pkt
+assert evt_pkt[HCI_Event_Vendor].data == b"\x26\x00\x01\x01"
+assert raw(evt_pkt) == evt_raw_data
+
+# Roundtrip with arbitrary payload
+built = HCI_Hdr() / HCI_Event_Hdr() / HCI_Event_Vendor(data=b"\xde\xad\xbe\xef")
+parsed = HCI_Hdr(raw(built))
+assert parsed[HCI_Event_Hdr].code == 0xff
+assert parsed[HCI_Event_Hdr].len == 4
+assert parsed[HCI_Event_Vendor].data == b"\xde\xad\xbe\xef"
+
 
 + Bluetooth LE Advertising / Scan Response Data Parsing
 = Parse EIR_IncompleteList32BitServiceUUIDs
@@ -599,6 +663,56 @@ p = HCI_Event_Hdr(hex_bytes("3e2a02010000d93519d7ba4c1e0201020affc4000734151317f
 assert EIR_LEBluetoothDeviceAddress in p
 assert p[EIR_LEBluetoothDeviceAddress].addr_type == 0x0
 assert p[EIR_LEBluetoothDeviceAddress].bd_addr == '4c:ba:d7:19:35:d9'
+
+= Parse EIR_RandomTargetAddress
+# Type 0x18 (Random Target Address) — six little-endian BD_ADDR bytes
+p = EIR_Hdr(hex_bytes("0718aabbccddeeff"))
+assert EIR_RandomTargetAddress in p
+assert p[EIR_RandomTargetAddress].bd_addr == "ff:ee:dd:cc:bb:aa"
+assert raw(p) == hex_bytes("0718aabbccddeeff")
+# Roundtrip build
+built = EIR_Hdr() / EIR_RandomTargetAddress(bd_addr="11:22:33:44:55:66")
+assert raw(built) == hex_bytes("0718665544332211")
+
+= Parse EIR_LERole
+# Type 0x1c (LE Role) — single byte selecting one of four GAP roles.
+for role in (0, 1, 2, 3):
+    p = EIR_Hdr(hex_bytes("021c%02x" % role))
+    assert EIR_LERole in p
+    assert p[EIR_LERole].role == role
+    assert raw(p) == hex_bytes("021c%02x" % role)
+
+= Parse EIR_BroadcastName
+# Type 0x30 (Broadcast Name) — sample observed in a real scan response from
+# a Sony BRAVIA TV advertising for LE Audio broadcast assistant clients.
+raw_data = hex_bytes("0a30" "416e746520526f6f6d")  # "Ante Room"
+p = EIR_Hdr(raw_data)
+assert EIR_BroadcastName in p
+assert p[EIR_BroadcastName].broadcast_name == b"Ante Room"
+assert raw(p) == raw_data
+# Roundtrip build
+built = EIR_Hdr() / EIR_BroadcastName(broadcast_name=b"Speaker 1")
+assert raw(built) == hex_bytes("0a30") + b"Speaker 1"
+
+= Parse EIR_3DInformation
+# Type 0x3d (3D Information) — sample from a real BR/EDR Extended Inquiry
+# Response (Sony XBR-65X850F display, observed in an HCI snoop log).
+raw_data = hex_bytes("033d0764")
+p = EIR_Hdr(raw_data)
+assert EIR_3DInformation in p
+info = p[EIR_3DInformation]
+assert info.factory_test_mode == 0
+assert info.send_battery_level_on_startup == 1
+assert info.battery_level_reporting == 1
+assert info.association_notification == 1
+assert info.path_loss_threshold == 100
+assert raw(p) == raw_data
+# Roundtrip build with factory_test_mode bit set
+built = EIR_Hdr() / EIR_3DInformation(factory_test_mode=1, path_loss_threshold=0x80)
+assert raw(built) == hex_bytes("033d8080")
+parsed = EIR_Hdr(raw(built))
+assert parsed[EIR_3DInformation].factory_test_mode == 1
+assert parsed[EIR_3DInformation].path_loss_threshold == 0x80
 
 = Parse EIR_Appearance
 p = BTLE(hex_bytes("d6be898e201660d4d3cebffb0201050319420c0303e7fe040948393850c27c"))
@@ -923,6 +1037,22 @@ assert r == b'\rscapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 p = SM_Hdr(r)
 assert SM_DHKey_Check in p and p.dhkey_check[:5] == b"scapy"
+
+= SM_Keypress_Notification() tests
+# SMP opcode 0x0e (Keypress Notification) is used during passkey entry to
+# echo each keypress event from one peer to the other. The body is a single
+# byte selecting which keypress phase the notification represents.
+for nt in range(5):
+    r = raw(SM_Hdr() / SM_Keypress_Notification(notification_type=nt))
+    assert r == bytes([0x0e, nt])
+    p = SM_Hdr(r)
+    assert SM_Keypress_Notification in p
+    assert p[SM_Keypress_Notification].notification_type == nt
+
+# Wrapping in L2CAP on the SMP fixed channel (cid=0x0006) parses too.
+pkt = HCI_Hdr(hex_bytes('0200260600020006000e02'))
+assert SM_Keypress_Notification in pkt
+assert pkt[SM_Keypress_Notification].notification_type == 0x02
 
 
 + HCIMon tests
