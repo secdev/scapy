@@ -11,18 +11,23 @@
 = Load J1939 module
 
 load_contrib("j1939", globals_dict=globals())
+import socket
 from scapy.contrib.j1939 import (
     J1939, J1939_CAN,
     J1939_TP_CM, J1939_TP_CM_RTS, J1939_TP_CM_CTS, J1939_TP_CM_ACK,
     J1939_TP_CM_BAM, J1939_TP_CM_ABORT, J1939_TP_DT,
-    J1939_NO_ADDR, J1939_NO_PGN, J1939_NO_NAME,
-    J1939_IDLE_ADDR, J1939_BROADCAST_ADDR,
+    J1939_BROADCAST_ADDR,
     J1939_PGN_TP_CM, J1939_PGN_TP_DT,
     J1939_TP_CTRL_RTS, J1939_TP_CTRL_CTS, J1939_TP_CTRL_ACK,
     J1939_TP_CTRL_BAM, J1939_TP_CTRL_ABORT,
     can_id_to_j1939, j1939_to_can_id, pgn_from_fields, dst_from_fields,
     pgn_is_pdu1,
 )
+
+J1939_NO_ADDR = socket.J1939_NO_ADDR
+J1939_NO_PGN = socket.J1939_NO_PGN
+J1939_NO_NAME = socket.J1939_NO_NAME
+J1939_IDLE_ADDR = socket.J1939_IDLE_ADDR
 
 = hexadecimal helper
 
@@ -1794,7 +1799,7 @@ assert p_abort.pgn == 0xFECA, "ABORT PGN should match aborted session"
 + J1939 mysummary tests
 
 = J1939.mysummary includes PGN, SA, DA and priority as str
-from scapy.contrib.j1939 import J1939, J1939_CAN, J1939_IDLE_ADDR, J1939_BROADCAST_ADDR
+from scapy.contrib.j1939 import J1939, J1939_CAN
 p = J1939(b'\x01\x02', pgn=0xFECA, src=0x00, dst=0xFF, priority=6)
 s = p.mysummary()
 assert isinstance(s, str), "mysummary must return str, got %s" % type(s).__name__
@@ -1814,7 +1819,7 @@ assert '0x42' in s or 'DA=66' in s or 'DA=0x42' in s, "DA 0x42 missing: %r" % s
 assert '3' in s, "priority 3 missing: %r" % s
 
 = J1939.mysummary with broadcast addresses
-from scapy.contrib.j1939 import J1939, J1939_IDLE_ADDR, J1939_BROADCAST_ADDR
+from scapy.contrib.j1939 import J1939
 p = J1939(b'\x11', pgn=0xFECA, src=J1939_IDLE_ADDR, dst=J1939_BROADCAST_ADDR, priority=7)
 s = p.mysummary()
 assert isinstance(s, str)
@@ -1851,12 +1856,17 @@ assert isinstance(J1939_CAN().mysummary(), str)
 
 = _set_filters single PGN filter packs to 32 bytes
 import struct as _sf_struct
+import socket as _socket
 from scapy.contrib.j1939 import (
     NativeJ1939Socket as _NJS,
-    SOL_CAN_J1939 as _SOL_J1939, SO_J1939_FILTER as _SO_FLT,
-    J1939_NO_NAME as _NM, J1939_NO_PGN as _NPGN, J1939_NO_ADDR as _NADDR,
 )
 from unittest.mock import MagicMock as _MM
+
+_SOL_J1939 = _socket.SOL_CAN_J1939
+_SO_FLT = _socket.SO_J1939_FILTER
+_NM = _socket.J1939_NO_NAME
+_NPGN = _socket.J1939_NO_PGN
+_NADDR = _socket.J1939_NO_ADDR
 
 _flt_cap = {}
 _flt_mock = _MM()
