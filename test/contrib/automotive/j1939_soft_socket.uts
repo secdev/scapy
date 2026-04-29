@@ -1,0 +1,1098 @@
+% Regression tests for J1939SoftSocket
+~ automotive_comm
+
++ Configuration
+~ conf
+
+= Imports
+import sys
+sys.path.append(".")
+sys.path.append("test")
+import struct
+import time
+from scapy.layers.can import CAN
+from scapy.packet import Packet
+from scapy.contrib.automotive.j1939 import J1939, J1939SoftSocket, J1939Socket, J1939SocketImplementation, J1939_GLOBAL_ADDRESS, J1939_TP_MAX_DLEN, J1939_MAX_SF_DLEN, TP_CM_BAM, TP_CM_RTS, TP_CM_CTS, TP_CM_EndOfMsgACK, TP_Conn_Abort, TimeoutScheduler, USE_J1939_KERNEL_MODULE
+from scapy.contrib.automotive.j1939 import PGN_ADDRESS_CLAIMED, PGN_REQUEST, J1939_PF_ADDRESS_CLAIMED, J1939_PF_REQUEST, J1939_NULL_ADDRESS, J1939_ADDR_CLAIM_TIMEOUT, J1939_ADDR_STATE_UNCLAIMED, J1939_ADDR_STATE_CLAIMING, J1939_ADDR_STATE_CLAIMED, J1939_ADDR_STATE_CANNOT_CLAIM
+from scapy.contrib.automotive.j1939.j1939_soft_socket import _j1939_can_id, _j1939_decode_can_id, _pgn_from_can_id, J1939_TP_CM_PF, J1939_TP_DT_PF, J1939_TP_DT_PAYLOAD
+from scapy.error import Scapy_Exception
+from test.testsocket import TestSocket, SlowTestSocket, cleanup_testsockets
+
+dhex = bytes.fromhex
+
+= Redirect logging
+import logging
+from scapy.error import log_runtime
+from io import StringIO
+log_stream = StringIO()
+handler = logging.StreamHandler(log_stream)
+log_runtime.addHandler(handler)
+log_j1939_logger = logging.getLogger("scapy.contrib.automotive.j1939")
+log_j1939_logger.addHandler(handler)
+
+
++ J1939 constants and helpers
+
+= J1939_GLOBAL_ADDRESS is 0xFF
+assert J1939_GLOBAL_ADDRESS == 0xFF
+
+= J1939_MAX_SF_DLEN is 8
+assert J1939_MAX_SF_DLEN == 8
+
+= J1939_TP_MAX_DLEN is 1785 (255 packets * 7 bytes)
+assert J1939_TP_MAX_DLEN == 1785
+
+= TP_CM control byte constants
+assert TP_CM_RTS == 0x10
+assert TP_CM_CTS == 0x11
+assert TP_CM_EndOfMsgACK == 0x13
+assert TP_CM_BAM == 0x20
+assert TP_Conn_Abort == 0xFF
+
+= _j1939_can_id builds 29-bit identifiers correctly
+can_id = _j1939_can_id(7, 0xEC, 0xFF, 0x11)
+assert can_id == 0x1CECFF11, "Expected 0x1CECFF11, got 0x{:08X}".format(can_id)
+can_id = _j1939_can_id(6, 0xEC, 0x22, 0x11)
+assert can_id == 0x18EC2211, "Expected 0x18EC2211, got 0x{:08X}".format(can_id)
+can_id = _j1939_can_id(6, 0xEB, 0xFF, 0x11)
+assert can_id == 0x18EBFF11, "Expected 0x18EBFF11, got 0x{:08X}".format(can_id)
+
+= _j1939_decode_can_id round-trips correctly
+for prio, pf, ps, sa in [(7, 0xEC, 0xFF, 0x11), (6, 0xEB, 0x22, 0xFE), (3, 0xFE, 0xCA, 0x80)]:
+    can_id = _j1939_can_id(prio, pf, ps, sa)
+    decoded = _j1939_decode_can_id(can_id)
+    assert decoded == (prio, pf, ps, sa), "Round-trip failed: in=({},{},{},{}) out={}".format(prio, pf, ps, sa, decoded)
+
+= _pgn_from_can_id extracts PGN correctly
+can_id = _j1939_can_id(7, 0xEC, 0x22, 0x11)
+assert _pgn_from_can_id(can_id) == 0xEC00
+can_id = _j1939_can_id(7, 0xEB, 0x22, 0x11)
+assert _pgn_from_can_id(can_id) == 0xEB00
+can_id = _j1939_can_id(6, 0xFE, 0xCA, 0x11)
+assert _pgn_from_can_id(can_id) == 0xFECA
+
+
++ J1939 Packet
+
+= J1939 packet construction
+p = J1939(pgn=0xFECA, src_addr=0x11, dst_addr=0xFF, data=b"\x01\x02\x03")
+assert p.pgn == 0xFECA
+assert p.src_addr == 0x11
+assert p.dst_addr == 0xFF
+assert p.data == b"\x01\x02\x03"
+
+= J1939 packet default destination is global address
+p = J1939(pgn=0xFECA, src_addr=0x11, data=b"\x01")
+assert p.dst_addr == J1939_GLOBAL_ADDRESS
+
+= J1939 packet equality
+p1 = J1939(pgn=0xFECA, src_addr=0x11, dst_addr=0xFF, data=b"\xAB\xCD")
+p2 = J1939(pgn=0xFECA, src_addr=0x11, dst_addr=0xFF, data=b"\xAB\xCD")
+assert p1 == p2
+p3 = J1939(pgn=0xFECA, src_addr=0x11, dst_addr=0xFF, data=b"\xAB\xCE")
+assert p1 != p3
+
+
++ J1939SocketImplementation -- BAM receive (direct injection via on_can_recv)
+
+= BAM receive of a 9-byte message (2 TP.DT packets)
+def test_bam_rx_9bytes():
+    pgn = 0xFECA
+    pgn_bytes = struct.pack("<I", pgn)[:3]
+    bam_data = struct.pack("B", TP_CM_BAM) + struct.pack("<H", 9) + struct.pack("B", 2) + b"\xFF" + pgn_bytes
+    bam_can_id = _j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    dt1_data = b"\x01" + b"\x01\x02\x03\x04\x05\x06\x07"
+    dt2_data = b"\x02" + b"\x08\x09\xFF\xFF\xFF\xFF\xFF"
+    dt_can_id = _j1939_can_id(7, J1939_TP_DT_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=pgn) as s:
+        s.impl.on_can_recv(CAN(identifier=bam_can_id, flags="extended", data=bam_data))
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=dt1_data))
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=dt2_data))
+        result = s.impl.rx_queue.recv()
+        assert result is not None
+        msg, ts, rx_pgn, rx_sa, rx_da = result
+        assert msg == b"\x01\x02\x03\x04\x05\x06\x07\x08\x09", "Got: {}".format(msg.hex())
+
+test_bam_rx_9bytes()
+
+= BAM receive of a 14-byte message (2 full TP.DT packets)
+def test_bam_rx_14bytes():
+    pgn = 0xFECA
+    pgn_bytes = struct.pack("<I", pgn)[:3]
+    total_size = 14
+    num_packets = 2
+    bam_data = struct.pack("B", TP_CM_BAM) + struct.pack("<H", total_size) + struct.pack("B", num_packets) + b"\xFF" + pgn_bytes
+    bam_can_id = _j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    dt_can_id = _j1939_can_id(7, J1939_TP_DT_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    payload = bytes(range(1, 15))
+    dt1_data = b"\x01" + payload[0:7]
+    dt2_data = b"\x02" + payload[7:14]
+    with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=pgn) as s:
+        s.impl.on_can_recv(CAN(identifier=bam_can_id, flags="extended", data=bam_data))
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=dt1_data))
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=dt2_data))
+        result = s.impl.rx_queue.recv()
+        assert result is not None
+        msg, ts, rx_pgn, rx_sa, rx_da = result
+        assert msg == payload, "Got: {}".format(msg.hex())
+
+test_bam_rx_14bytes()
+
+= BAM receive -- wrong PGN is ignored
+def test_bam_rx_wrong_pgn():
+    pgn = 0xFECA
+    other_pgn = 0xFECB
+    pgn_bytes = struct.pack("<I", other_pgn)[:3]
+    bam_data = struct.pack("B", TP_CM_BAM) + struct.pack("<H", 9) + struct.pack("B", 2) + b"\xFF" + pgn_bytes
+    bam_can_id = _j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=pgn) as s:
+        s.impl.on_can_recv(CAN(identifier=bam_can_id, flags="extended", data=bam_data))
+        assert s.impl.rx_state == 0, "Expected IDLE state, got {}".format(s.impl.rx_state)
+        assert s.impl.rx_queue.empty()
+
+test_bam_rx_wrong_pgn()
+
+= BAM receive -- rx_pgn=0 accepts any PGN and propagates actual PGN
+def test_bam_rx_any_pgn():
+    pgn_to_send = 0xFECA
+    pgn_bytes = struct.pack("<I", pgn_to_send)[:3]
+    bam_data = struct.pack("B", TP_CM_BAM) + struct.pack("<H", 9) + struct.pack("B", 2) + b"\xFF" + pgn_bytes
+    bam_can_id = _j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    dt_can_id = _j1939_can_id(7, J1939_TP_DT_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    dt1_data = b"\x01" + b"\xAA" * 7
+    dt2_data = b"\x02" + b"\xBB\xCC\xFF\xFF\xFF\xFF\xFF"
+    with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0) as s:
+        s.impl.on_can_recv(CAN(identifier=bam_can_id, flags="extended", data=bam_data))
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=dt1_data))
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=dt2_data))
+        result = s.impl.rx_queue.recv()
+        assert result is not None
+        msg, ts, rx_pgn, rx_sa, rx_da = result
+        assert rx_pgn == 0xFECA, "BAM PGN should be 0xFECA, got 0x{:05X}".format(rx_pgn)
+        assert rx_sa == 0x80, "BAM SA should be 0x80, got 0x{:02X}".format(rx_sa)
+
+test_bam_rx_any_pgn()
+
+= BAM receive -- sequence number error resets state machine
+def test_bam_rx_sn_error():
+    pgn = 0xFECA
+    pgn_bytes = struct.pack("<I", pgn)[:3]
+    bam_data = struct.pack("B", TP_CM_BAM) + struct.pack("<H", 9) + struct.pack("B", 2) + b"\xFF" + pgn_bytes
+    bam_can_id = _j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    dt_can_id = _j1939_can_id(7, J1939_TP_DT_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    dt1_data = b"\x01" + b"\x01\x02\x03\x04\x05\x06\x07"
+    dt_wrong = b"\x03" + b"\x08\x09\xFF\xFF\xFF\xFF\xFF"
+    with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=pgn) as s:
+        s.impl.on_can_recv(CAN(identifier=bam_can_id, flags="extended", data=bam_data))
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=dt1_data))
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=dt_wrong))
+        assert s.impl.rx_state == 0, "Expected IDLE after SN error, got {}".format(s.impl.rx_state)
+        assert s.impl.rx_queue.empty()
+
+test_bam_rx_sn_error()
+
+= BAM receive -- inactivity timeout resets state machine after 10x extension
+def test_bam_rx_timeout():
+    pgn = 0xFECA
+    pgn_bytes = struct.pack("<I", pgn)[:3]
+    bam_data = struct.pack("B", TP_CM_BAM) + struct.pack("<H", 9) + struct.pack("B", 2) + b"\xFF" + pgn_bytes
+    bam_can_id = _j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=pgn) as s:
+        s.impl.tp_dt_timeout = 0.05
+        s.impl.on_can_recv(CAN(identifier=bam_can_id, flags="extended", data=bam_data))
+        # The timeout extension allows up to 10x tp_dt_timeout before resetting.
+        # Wait long enough for the full extension period to expire (10 * 0.05 + buffer).
+        time.sleep(0.7)
+        assert s.impl.rx_state == 0, "Expected IDLE after timeout, got {}".format(s.impl.rx_state)
+
+test_bam_rx_timeout()
+
+
++ J1939SocketImplementation -- BAM transmit
+
+= BAM send of a 9-byte message via TestSocket
+def test_bam_tx_9bytes():
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor, J1939SoftSocket(can_sock, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0xFECA) as s:
+        can_sock.pair(monitor)
+        payload = bytes(range(1, 10))
+        s.impl.begin_send(payload, 0xFECA, J1939_GLOBAL_ADDRESS)
+        pkts = monitor.sniff(count=1, timeout=1)
+        assert len(pkts) == 1, "Expected TP.CM_BAM"
+        bam = pkts[0]
+        assert bam.flags & 0x4, "Expected extended CAN frame"
+        _, pf, ps, sa = _j1939_decode_can_id(bam.identifier)
+        assert pf == J1939_TP_CM_PF, "PF should be TP.CM"
+        assert ps == J1939_GLOBAL_ADDRESS
+        assert sa == 0x11
+        assert bam.data[0] == TP_CM_BAM
+        size = struct.unpack_from("<H", bam.data, 1)[0]
+        assert size == 9
+        assert bam.data[3] == 2
+        pkts = monitor.sniff(count=2, timeout=1)
+        assert len(pkts) == 2, "Expected 2 TP.DT frames, got {}".format(len(pkts))
+        dt1, dt2 = pkts
+        _, pf1, _, _ = _j1939_decode_can_id(dt1.identifier)
+        _, pf2, _, _ = _j1939_decode_can_id(dt2.identifier)
+        assert pf1 == J1939_TP_DT_PF
+        assert pf2 == J1939_TP_DT_PF
+        assert dt1.data[0] == 1
+        assert dt2.data[0] == 2
+        assert dt1.data[1:8] == payload[0:7]
+        assert dt2.data[1:3] == payload[7:9]
+        assert dt2.data[3:8] == b"\xFF\xFF\xFF\xFF\xFF"
+
+test_bam_tx_9bytes()
+
+= BAM send of a single-frame message (8 bytes or fewer) -- sends direct CAN frame
+def test_bam_tx_direct():
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor, J1939SoftSocket(can_sock, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0xFECA) as s:
+        can_sock.pair(monitor)
+        payload = b"\x01\x02\x03\x04\x05"
+        s.impl.begin_send(payload, 0xFECA, J1939_GLOBAL_ADDRESS)
+        pkts = monitor.sniff(count=1, timeout=1)
+        assert len(pkts) == 1, "Expected direct CAN frame"
+        pkt = pkts[0]
+        assert pkt.flags & 0x4, "Expected extended frame"
+        assert pkt.data == payload
+
+test_bam_tx_direct()
+
+= BAM send of a 1785-byte message (max TP size: 255 packets)
+def test_bam_tx_1785bytes():
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor, J1939SoftSocket(can_sock, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0xFECA) as s:
+        can_sock.pair(monitor)
+        s.impl.bam_dt_gap = 0.0
+        payload = bytes(range(256)) * 6 + bytes(range(249))
+        s.impl.begin_send(payload, 0xFECA, J1939_GLOBAL_ADDRESS)
+        pkts = monitor.sniff(count=256, timeout=10)
+        assert len(pkts) == 256, "Expected 256 CAN frames, got {}".format(len(pkts))
+        assert pkts[0].data[0] == TP_CM_BAM
+        assert struct.unpack_from("<H", pkts[0].data, 1)[0] == 1785
+        assert pkts[0].data[3] == 255
+        for i, dt in enumerate(pkts[1:], start=1):
+            _, pf, _, _ = _j1939_decode_can_id(dt.identifier)
+            assert pf == J1939_TP_DT_PF, "Expected TP.DT at index {}".format(i)
+            assert dt.data[0] == i, "Expected SN={}, got {}".format(i, dt.data[0])
+        reassembled = b""
+        for dt in pkts[1:]:
+            reassembled += dt.data[1:]
+        assert reassembled[:1785] == payload
+
+test_bam_tx_1785bytes()
+
+= send() queues message and background thread sends it
+def test_send_queued():
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor, J1939SoftSocket(can_sock, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0xFECA) as s:
+        can_sock.pair(monitor)
+        s.impl.bam_dt_gap = 0.0
+        payload = b"\xDE\xAD\xBE\xEF"
+        s.impl.send(payload)
+        pkts = monitor.sniff(count=1, timeout=2)
+        assert len(pkts) == 1
+        assert pkts[0].data == payload
+
+test_send_queued()
+
+
++ J1939SocketImplementation -- CMDT (peer-to-peer) transmit/receive
+
+= CMDT receive: RTS -> CTS -> DT -> EndOfMsgACK
+def test_cmdt_rx_rts_cts_dt_ack():
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor, J1939SoftSocket(can_sock, src_addr=0x22, dst_addr=0x11, pgn=0xFECA) as s:
+        can_sock.pair(monitor)
+        pgn = 0xFECA
+        pgn_bytes = struct.pack("<I", pgn)[:3]
+        rts_data = struct.pack("B", TP_CM_RTS) + struct.pack("<H", 9) + struct.pack("B", 2) + b"\xFF" + pgn_bytes
+        rts_can_id = _j1939_can_id(7, J1939_TP_CM_PF, 0x22, 0x11)
+        s.impl.on_can_recv(CAN(identifier=rts_can_id, flags="extended", data=rts_data))
+        pkts = monitor.sniff(count=1, timeout=1)
+        assert len(pkts) == 1, "Expected CTS frame"
+        cts = pkts[0]
+        _, pf, ps, sa = _j1939_decode_can_id(cts.identifier)
+        assert pf == J1939_TP_CM_PF
+        assert ps == 0x11
+        assert sa == 0x22
+        assert cts.data[0] == TP_CM_CTS
+        assert cts.data[1] == 2
+        assert cts.data[2] == 1
+        dt1_data = b"\x01" + b"\x01\x02\x03\x04\x05\x06\x07"
+        dt2_data = b"\x02" + b"\x08\x09\xFF\xFF\xFF\xFF\xFF"
+        dt_can_id = _j1939_can_id(7, J1939_TP_DT_PF, 0x22, 0x11)
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=dt1_data))
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=dt2_data))
+        pkts = monitor.sniff(count=1, timeout=1)
+        assert len(pkts) == 1, "Expected EndOfMsgACK"
+        eom = pkts[0]
+        _, pf, ps, _ = _j1939_decode_can_id(eom.identifier)
+        assert pf == J1939_TP_CM_PF
+        assert ps == 0x11
+        assert eom.data[0] == TP_CM_EndOfMsgACK
+        result = s.impl.rx_queue.recv()
+        assert result is not None
+        msg, ts, rx_pgn, rx_sa, rx_da = result
+        assert msg == b"\x01\x02\x03\x04\x05\x06\x07\x08\x09"
+
+test_cmdt_rx_rts_cts_dt_ack()
+
+= CMDT receive with block size: RTS -> CTS (block 1) -> DT * bs -> CTS (block 2) -> DT
+def test_cmdt_rx_block_size():
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor, J1939SoftSocket(can_sock, src_addr=0x22, dst_addr=0x11, pgn=0xFECA, bs=2) as s:
+        can_sock.pair(monitor)
+        pgn = 0xFECA
+        pgn_bytes = struct.pack("<I", pgn)[:3]
+        total_size = 21
+        num_packets = 3
+        rts_data = struct.pack("B", TP_CM_RTS) + struct.pack("<H", total_size) + struct.pack("B", num_packets) + b"\xFF" + pgn_bytes
+        rts_can_id = _j1939_can_id(7, J1939_TP_CM_PF, 0x22, 0x11)
+        dt_can_id = _j1939_can_id(7, J1939_TP_DT_PF, 0x22, 0x11)
+        s.impl.on_can_recv(CAN(identifier=rts_can_id, flags="extended", data=rts_data))
+        pkts = monitor.sniff(count=1, timeout=1)
+        assert pkts[0].data[0] == TP_CM_CTS
+        assert pkts[0].data[1] == 2
+        assert pkts[0].data[2] == 1
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=b"\x01" + b"\xAA" * 7))
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=b"\x02" + b"\xBB" * 7))
+        pkts = monitor.sniff(count=1, timeout=1)
+        assert pkts[0].data[0] == TP_CM_CTS
+        assert pkts[0].data[1] == 1
+        assert pkts[0].data[2] == 3
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=b"\x03" + b"\xCC" * 7))
+        pkts = monitor.sniff(count=1, timeout=1)
+        assert pkts[0].data[0] == TP_CM_EndOfMsgACK
+        result = s.impl.rx_queue.recv()
+        assert result is not None
+        msg, _, rx_pgn, rx_sa, rx_da = result
+        assert msg == b"\xAA" * 7 + b"\xBB" * 7 + b"\xCC" * 7
+
+test_cmdt_rx_block_size()
+
+= CMDT transmit: RTS from us -> CTS from peer -> DT -> EndOfMsgACK
+def test_cmdt_tx():
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor, J1939SoftSocket(can_sock, src_addr=0x11, dst_addr=0x22, pgn=0xFECA) as s:
+        can_sock.pair(monitor)
+        s.impl.tp_cm_timeout = 2.0
+        payload = bytes(range(1, 10))
+        s.impl.begin_send(payload, 0xFECA, 0x22)
+        pkts = monitor.sniff(count=1, timeout=1)
+        assert len(pkts) == 1, "Expected TP.CM_RTS"
+        rts = pkts[0]
+        _, pf, ps, sa = _j1939_decode_can_id(rts.identifier)
+        assert pf == J1939_TP_CM_PF
+        assert ps == 0x22
+        assert sa == 0x11
+        assert rts.data[0] == TP_CM_RTS
+        assert struct.unpack_from("<H", rts.data, 1)[0] == 9
+        assert rts.data[3] == 2
+        pgn_bytes = struct.pack("<I", 0xFECA)[:3]
+        cts_data = struct.pack("B", TP_CM_CTS) + struct.pack("B", 2) + struct.pack("B", 1) + b"\xFF\xFF" + pgn_bytes
+        cts_can_id = _j1939_can_id(7, J1939_TP_CM_PF, 0x11, 0x22)
+        s.impl.on_can_recv(CAN(identifier=cts_can_id, flags="extended", data=cts_data))
+        pkts = monitor.sniff(count=2, timeout=2)
+        assert len(pkts) == 2, "Expected 2 TP.DT frames, got {}".format(len(pkts))
+        dt1, dt2 = pkts
+        _, pf1, ps1, _ = _j1939_decode_can_id(dt1.identifier)
+        assert pf1 == J1939_TP_DT_PF
+        assert ps1 == 0x22
+        assert dt1.data[0] == 1
+        assert dt1.data[1:8] == payload[0:7]
+        assert dt2.data[0] == 2
+        eom_data = struct.pack("B", TP_CM_EndOfMsgACK) + struct.pack("<H", 9) + struct.pack("B", 2) + b"\xFF" + pgn_bytes
+        eom_can_id = _j1939_can_id(7, J1939_TP_CM_PF, 0x11, 0x22)
+        s.impl.on_can_recv(CAN(identifier=eom_can_id, flags="extended", data=eom_data))
+        time.sleep(0.1)
+        assert s.impl.tx_state == 0, "Expected TX IDLE after ACK"
+
+test_cmdt_tx()
+
+= CMDT receive -- listen_only does not send CTS or EndOfMsgACK
+def test_cmdt_rx_listen_only():
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor, J1939SoftSocket(can_sock, src_addr=0x22, dst_addr=0x11, pgn=0xFECA, listen_only=True) as s:
+        can_sock.pair(monitor)
+        pgn = 0xFECA
+        pgn_bytes = struct.pack("<I", pgn)[:3]
+        rts_data = struct.pack("B", TP_CM_RTS) + struct.pack("<H", 9) + struct.pack("B", 2) + b"\xFF" + pgn_bytes
+        rts_can_id = _j1939_can_id(7, J1939_TP_CM_PF, 0x22, 0x11)
+        s.impl.on_can_recv(CAN(identifier=rts_can_id, flags="extended", data=rts_data))
+        pkts = monitor.sniff(count=1, timeout=0.2)
+        assert len(pkts) == 0, "listen_only: expected no CTS"
+        dt_can_id = _j1939_can_id(7, J1939_TP_DT_PF, 0x22, 0x11)
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=b"\x01" + b"\x01\x02\x03\x04\x05\x06\x07"))
+        s.impl.on_can_recv(CAN(identifier=dt_can_id, flags="extended", data=b"\x02" + b"\x08\x09\xFF\xFF\xFF\xFF\xFF"))
+        pkts = monitor.sniff(count=1, timeout=0.2)
+        assert len(pkts) == 0, "listen_only: expected no EndOfMsgACK"
+        result = s.impl.rx_queue.recv()
+        assert result is not None
+        msg, _, rx_pgn, rx_sa, rx_da = result
+        assert msg == b"\x01\x02\x03\x04\x05\x06\x07\x08\x09"
+
+test_cmdt_rx_listen_only()
+
+= Single-frame receive: actual PGN propagated through rx_queue (not socket filter)
+def test_sf_pgn_propagation():
+    """When rx_pgn=0 (accept all), the received PGN must reflect the actual
+    CAN frame, not the socket's filter value."""
+    from scapy.contrib.automotive.j1939.j1939_soft_socket import _j1939_can_id, _pgn_from_can_id
+    pgn_a = 0xFECA  # PDU2 (PF=0xFE, GE=0xCA)
+    pgn_b = 0xF004  # PDU2 (PF=0xF0, GE=0x04)
+    can_id_a = _j1939_can_id(6, 0xFE, 0xCA, 0x33)  # SA=0x33
+    can_id_b = _j1939_can_id(6, 0xF0, 0x04, 0x44)  # SA=0x44
+    with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0) as s:
+        s.impl.on_can_recv(CAN(identifier=can_id_a, flags="extended", data=b"\x01\x02\x03"))
+        s.impl.on_can_recv(CAN(identifier=can_id_b, flags="extended", data=b"\x04\x05\x06"))
+        result_a = s.impl.rx_queue.recv()
+        assert result_a is not None
+        msg_a, _, pgn_a_rx, sa_a, da_a = result_a
+        assert pgn_a_rx == 0xFECA, "Expected PGN 0xFECA, got 0x{:05X}".format(pgn_a_rx)
+        assert sa_a == 0x33, "Expected SA 0x33, got 0x{:02X}".format(sa_a)
+        assert da_a == J1939_GLOBAL_ADDRESS, "PDU2 DA should be broadcast"
+        result_b = s.impl.rx_queue.recv()
+        assert result_b is not None
+        msg_b, _, pgn_b_rx, sa_b, da_b = result_b
+        assert pgn_b_rx == 0xF004, "Expected PGN 0xF004, got 0x{:05X}".format(pgn_b_rx)
+        assert sa_b == 0x44, "Expected SA 0x44, got 0x{:02X}".format(sa_b)
+
+test_sf_pgn_propagation()
+
+= End-to-end: recv() returns actual PGN, SA, DA for single-frame messages
+def test_e2e_recv_pgn():
+    """Verify that J1939SoftSocket.recv() propagates the actual PGN and
+    addressing from the CAN frame, not the socket's fixed configuration."""
+    pgn_val = 0xFECA
+    can_id = _j1939_can_id(6, 0xFE, 0xCA, 0x33)
+    with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0) as s:
+        s.impl.on_can_recv(CAN(identifier=can_id, flags="extended", data=b"\xDE\xAD"))
+        pkt = s.recv()
+        assert pkt is not None
+        assert pkt.pgn == 0xFECA, "recv() PGN should be 0xFECA, got 0x{:05X}".format(pkt.pgn)
+        assert pkt.src_addr == 0x33, "recv() src_addr should be 0x33, got 0x{:02X}".format(pkt.src_addr)
+        assert pkt.dst_addr == J1939_GLOBAL_ADDRESS
+
+test_e2e_recv_pgn()
+
+
++ J1939SoftSocket -- end-to-end via TestSocket
+
+= End-to-end: BAM send + receive via paired TestSockets
+def test_e2e_bam():
+    with TestSocket(CAN) as tx_can, TestSocket(CAN) as rx_can, J1939SoftSocket(tx_can, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0xFECA) as tx_sock, J1939SoftSocket(rx_can, src_addr=0x22, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0xFECA) as rx_sock:
+        tx_can.pair(rx_can)
+        tx_sock.impl.bam_dt_gap = 0.0
+        payload = bytes(range(1, 20))
+        tx_sock.impl.begin_send(payload, 0xFECA, J1939_GLOBAL_ADDRESS)
+        pkts = rx_sock.sniff(count=1, timeout=3)
+        assert len(pkts) == 1, "Expected reassembled J1939 message"
+        msg = pkts[0]
+        assert msg.data == payload, "Got: {}".format(msg.data.hex())
+
+test_e2e_bam()
+
+= End-to-end: J1939SoftSocket.send() + recv() for a multi-packet BAM
+def test_e2e_bam_send_recv():
+    with TestSocket(CAN) as tx_can, TestSocket(CAN) as rx_can, J1939SoftSocket(tx_can, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0xFECA) as tx_sock, J1939SoftSocket(rx_can, src_addr=0x22, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0xFECA) as rx_sock:
+        tx_can.pair(rx_can)
+        tx_sock.impl.bam_dt_gap = 0.0
+        payload = bytes(range(1, 36))
+        pkts = rx_sock.sniff(count=1, timeout=3, started_callback=lambda: tx_sock.impl.send(payload))
+        assert len(pkts) == 1
+        assert pkts[0].data == payload
+
+test_e2e_bam_send_recv()
+
+
++ J1939SoftSocket -- close and resource management
+
+= Close J1939SoftSocket
+with TestSocket(CAN) as cans, J1939SoftSocket(cans, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0xFECA) as s:
+    s.close()
+    assert s.closed
+
+= J1939SoftSocket used as context manager
+with TestSocket(CAN) as cans:
+    with J1939SoftSocket(cans, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0xFECA) as s:
+        pass
+    assert s.closed
+
+
++ J1939SoftSocket -- slow socket (slcan-like) timing tests
+# These tests verify that J1939SoftSocket correctly reassembles multi-packet
+# BAM messages even when the underlying CAN socket behaves like a slow
+# serial interface (slcan), where:
+#   - Each frame read takes ~2.5ms (serial I/O)
+#   - The TimeoutScheduler thread stalls per read during heavy traffic
+#   - A large backlog of background frames precedes the TP.DT frames
+#
+# Modelled after the SlowTestSocket cartesian product tests in
+#   test/contrib/isotp_soft_socket.uts (from PR #2 in BenGardiner/scapy)
+
+= J1939 BAM receive with background traffic on a fast (candle-like) socket
+def test_j1939_bam_slow_candle():
+    from threading import Thread, Event
+    pgn = 0xFECA
+    pgn_bytes = struct.pack("<I", pgn)[:3]
+    total_size = 9
+    num_packets = 2
+    bam_data = struct.pack("B", TP_CM_BAM) + struct.pack("<H", total_size) + struct.pack("B", num_packets) + b"\xFF" + pgn_bytes
+    bam_can_id = _j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    dt1_data = b"\x01" + b"\x01\x02\x03\x04\x05\x06\x07"
+    dt2_data = b"\x02" + b"\x08\x09\xFF\xFF\xFF\xFF\xFF"
+    dt_can_id = _j1939_can_id(7, J1939_TP_DT_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    bg_can_id = _j1939_can_id(6, 0xFE, 0xEB, 0x99)  # PGN 0xFEEB -- different from socket listen PGN 0xFECA
+    stop_evt = Event()
+    with TestSocket(CAN) as stim, TestSocket(CAN) as isocan, J1939SoftSocket(isocan, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=pgn) as s:
+        stim.pair(isocan)
+        def send_traffic():
+            while not stop_evt.is_set():
+                try:
+                    stim.send(CAN(identifier=bg_can_id, flags="extended", data=b"\xAA" * 8))
+                except Exception:
+                    break
+                time.sleep(0.001)
+        bg_thread = Thread(target=send_traffic)
+        bg_thread.start()
+        time.sleep(0.05)
+        stim.send(CAN(identifier=bam_can_id, flags="extended", data=bam_data))
+        time.sleep(0.01)
+        stim.send(CAN(identifier=dt_can_id, flags="extended", data=dt1_data))
+        time.sleep(0.01)
+        stim.send(CAN(identifier=dt_can_id, flags="extended", data=dt2_data))
+        pkts = s.sniff(count=1, timeout=5)
+        stop_evt.set()
+        bg_thread.join(timeout=3)
+        _ts_t = TimeoutScheduler._thread
+        TimeoutScheduler.clear()
+        if _ts_t is not None:
+            _ts_t.join(timeout=5)
+    assert len(pkts) == 1, "BAM message not received with background traffic"
+    assert pkts[0].data == b"\x01\x02\x03\x04\x05\x06\x07\x08\x09"
+
+test_j1939_bam_slow_candle()
+
+= J1939 BAM receive on slow (slcan-like) socket with prefill and background traffic
+def test_j1939_bam_slow_slcan():
+    from threading import Thread, Event
+    pgn = 0xFECA
+    pgn_bytes = struct.pack("<I", pgn)[:3]
+    total_size = 9
+    num_packets = 2
+    bam_data = struct.pack("B", TP_CM_BAM) + struct.pack("<H", total_size) + struct.pack("B", num_packets) + b"\xFF" + pgn_bytes
+    bam_can_id = _j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    dt1_data = b"\x01" + b"\x01\x02\x03\x04\x05\x06\x07"
+    dt2_data = b"\x02" + b"\x08\x09\xFF\xFF\xFF\xFF\xFF"
+    dt_can_id = _j1939_can_id(7, J1939_TP_DT_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    bg_can_id = _j1939_can_id(6, 0xFE, 0xEB, 0x99)  # PGN 0xFEEB -- different from socket listen PGN 0xFECA
+    # Use SlowTestSocket to simulate slcan adapter:
+    #   frame_delay=0.0025: ~2.5ms per serial read
+    #   mux_throttle=0.001: 1ms minimum between mux calls
+    #   read_time_limit=0.02: 20ms cap on read loop (like SocketMapper.READ_BUS_TIME_LIMIT)
+    with TestSocket(CAN) as stim, SlowTestSocket(CAN, frame_delay=0.0025, mux_throttle=0.001, read_time_limit=0.02) as slow_can, J1939SoftSocket(slow_can, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=pgn) as s:
+        stim.pair(slow_can)
+        # Prefill the serial buffer with 50 background frames to simulate backlog
+        for _ in range(50):
+            stim.send(CAN(identifier=bg_can_id, flags="extended", data=b"\xAA" * 8))
+        stim.send(CAN(identifier=bam_can_id, flags="extended", data=bam_data))
+        for _ in range(50):
+            stim.send(CAN(identifier=bg_can_id, flags="extended", data=b"\xBB" * 8))
+        stim.send(CAN(identifier=dt_can_id, flags="extended", data=dt1_data))
+        stim.send(CAN(identifier=dt_can_id, flags="extended", data=dt2_data))
+        pkts = s.sniff(count=1, timeout=15)
+        _ts_t = TimeoutScheduler._thread
+        TimeoutScheduler.clear()
+        if _ts_t is not None:
+            _ts_t.join(timeout=5)
+    assert len(pkts) == 1, "BAM message not received on slow socket with prefill"
+    assert pkts[0].data == b"\x01\x02\x03\x04\x05\x06\x07\x08\x09"
+
+test_j1939_bam_slow_slcan()
+
+= J1939 BAM receive: delayed TP.DT frames with slow poll rate (exercises timeout extension)
+def test_j1939_bam_slow_poll():
+    from threading import Thread
+    pgn = 0xFECA
+    pgn_bytes = struct.pack("<I", pgn)[:3]
+    total_size = 9
+    num_packets = 2
+    bam_data = struct.pack("B", TP_CM_BAM) + struct.pack("<H", total_size) + struct.pack("B", num_packets) + b"\xFF" + pgn_bytes
+    bam_can_id = _j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    dt1_data = b"\x01" + b"\x01\x02\x03\x04\x05\x06\x07"
+    dt2_data = b"\x02" + b"\x08\x09\xFF\xFF\xFF\xFF\xFF"
+    dt_can_id = _j1939_can_id(7, J1939_TP_DT_PF, J1939_GLOBAL_ADDRESS, 0x80)
+    with TestSocket(CAN) as stim, TestSocket(CAN) as isocan, J1939SoftSocket(isocan, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=pgn) as s:
+        stim.pair(isocan)
+        # Slow down the poll rate to stress the timeout extension logic
+        s.impl.rx_tx_poll_rate = 10
+        def delayed_send():
+            stim.send(CAN(identifier=bam_can_id, flags="extended", data=bam_data))
+            time.sleep(0.8)  # delay within 10x timeout window
+            stim.send(CAN(identifier=dt_can_id, flags="extended", data=dt1_data))
+            time.sleep(0.01)
+            stim.send(CAN(identifier=dt_can_id, flags="extended", data=dt2_data))
+        send_thread = Thread(target=delayed_send)
+        pkts = s.sniff(count=1, timeout=15, started_callback=lambda: send_thread.start())
+        send_thread.join(timeout=5)
+        _ts_t = TimeoutScheduler._thread
+        TimeoutScheduler.clear()
+        if _ts_t is not None:
+            _ts_t.join(timeout=5)
+    assert len(pkts) == 1, "BAM message not received with delayed TP.DT and slow poll"
+    assert pkts[0].data == b"\x01\x02\x03\x04\x05\x06\x07\x08\x09"
+
+test_j1939_bam_slow_poll()
+
+
++ J1939SoftSocket -- close and resource management
+
+= Close J1939SoftSocket
+with TestSocket(CAN) as cans, J1939SoftSocket(cans, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0xFECA) as s:
+    s.close()
+    assert s.closed
+
+= J1939SoftSocket used as context manager
+with TestSocket(CAN) as cans:
+    with J1939SoftSocket(cans, src_addr=0x11, dst_addr=J1939_GLOBAL_ADDRESS, pgn=0xFECA) as s:
+        pass
+    assert s.closed
+
+
++ J1939-81 Address Claiming
+
+= Address claiming constants are correct
+assert PGN_ADDRESS_CLAIMED == 0xEE00, "PGN_ADDRESS_CLAIMED should be 0xEE00"
+assert PGN_REQUEST == 0xEA00, "PGN_REQUEST should be 0xEA00"
+assert J1939_NULL_ADDRESS == 0xFE, "J1939_NULL_ADDRESS should be 0xFE"
+assert J1939_ADDR_STATE_UNCLAIMED == 0
+assert J1939_ADDR_STATE_CLAIMING == 1
+assert J1939_ADDR_STATE_CLAIMED == 2
+assert J1939_ADDR_STATE_CANNOT_CLAIM == 3
+
+= Test 1: 64-bit NAME serialization (pack and unpack)
+for name_val in [0x0000000000000001, 0xFFFFFFFFFFFFFFFF, 0x0102030405060708, 0]:
+    packed = struct.pack("<Q", name_val)
+    assert len(packed) == 8, "NAME must be exactly 8 bytes"
+    unpacked = struct.unpack("<Q", packed)[0]
+    assert unpacked == name_val, "Round-trip failed for NAME=0x{:016X}".format(name_val)
+
+= Test 2: Initial Address Claim Broadcast
+def test_address_claim_initial_broadcast():
+    my_name = 0x0000000000000001
+    my_addr = 0x80
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor:
+        can_sock.pair(monitor)
+        with J1939SoftSocket(can_sock, src_addr=my_addr, pgn=0xFECA, name=my_name) as s:
+            # Address Claimed frame should be sent synchronously in __init__
+            pkt = monitor.recv()
+            assert pkt is not None, "No Address Claimed frame broadcast on init"
+            assert pkt.flags & 0x4, "Frame must be extended (29-bit) CAN"
+            _, pf, ps, sa = _j1939_decode_can_id(pkt.identifier)
+            assert pf == J1939_PF_ADDRESS_CLAIMED, \
+                "Expected PF=0x{:02X} (Address Claimed), got 0x{:02X}".format(
+                    J1939_PF_ADDRESS_CLAIMED, pf)
+            assert ps == J1939_GLOBAL_ADDRESS, \
+                "Expected DA=0xFF (broadcast), got 0x{:02X}".format(ps)
+            assert sa == my_addr, \
+                "Expected SA=0x{:02X}, got 0x{:02X}".format(my_addr, sa)
+            assert len(pkt.data) == 8, "NAME payload must be 8 bytes"
+            assert struct.unpack("<Q", bytes(pkt.data)[:8])[0] == my_name, \
+                "NAME payload mismatch"
+            assert s.impl.address_state == J1939_ADDR_STATE_CLAIMING, \
+                "Expected CLAIMING state on init"
+
+test_address_claim_initial_broadcast()
+
+= Test 3: 250ms Blocking State
+def test_address_claim_blocking_send():
+    my_name = 0x0000000000000001
+    with TestSocket(CAN) as can_sock:
+        with J1939SoftSocket(can_sock, src_addr=0x80, pgn=0xFECA, name=my_name) as s:
+            assert s.impl.address_state == J1939_ADDR_STATE_CLAIMING, \
+                "Expected CLAIMING state immediately after init"
+            try:
+                s.impl.send(b'\x01\x02\x03')
+                assert False, "Expected Scapy_Exception was not raised"
+            except Scapy_Exception as e:
+                assert "address" in str(e).lower() or "claim" in str(e).lower(), \
+                    "Exception message should mention address or claim: {}".format(e)
+
+test_address_claim_blocking_send()
+
+= Test 4: Winning Arbitration (our NAME is lower — we win)
+def test_address_claim_win_arbitration():
+    my_name = 0x0000000000000001    # lower = higher priority
+    their_name = 0x0000000000000002  # higher = lower priority
+    my_addr = 0x80
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor:
+        can_sock.pair(monitor)
+        with J1939SoftSocket(can_sock, src_addr=my_addr, pgn=0xFECA, name=my_name) as s:
+            # Consume the initial Address Claimed frame
+            _ = monitor.recv()
+            # Inject a conflicting Address Claimed from another node at
+            # our address with a HIGHER NAME (they lose, we win)
+            conflict_id = _j1939_can_id(6, J1939_PF_ADDRESS_CLAIMED,
+                                        J1939_GLOBAL_ADDRESS, my_addr)
+            conflict_frame = CAN(identifier=conflict_id, flags="extended",
+                                 data=struct.pack("<Q", their_name))
+            s.impl.on_can_recv(conflict_frame)
+            # We should re-broadcast our Address Claimed to defend the address
+            pkt = monitor.recv()
+            assert pkt is not None, "Expected re-broadcast of Address Claimed"
+            _, pf, ps, sa = _j1939_decode_can_id(pkt.identifier)
+            assert pf == J1939_PF_ADDRESS_CLAIMED, \
+                "Re-broadcast must be an Address Claimed frame"
+            assert sa == my_addr, "Re-broadcast must use our SA"
+            assert ps == J1939_GLOBAL_ADDRESS, "Re-broadcast must be to global address"
+            # Address state should still be CLAIMING (250ms window not expired)
+            assert s.impl.address_state == J1939_ADDR_STATE_CLAIMING, \
+                "Expected CLAIMING state after winning arbitration"
+
+test_address_claim_win_arbitration()
+
+= Test 5: Losing Arbitration (our NAME is higher — we lose)
+def test_address_claim_lose_arbitration():
+    my_name = 0x0000000000000002    # higher = lower priority
+    their_name = 0x0000000000000001  # lower = higher priority
+    my_addr = 0x80
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor:
+        can_sock.pair(monitor)
+        with J1939SoftSocket(can_sock, src_addr=my_addr, pgn=0xFECA, name=my_name) as s:
+            # Consume the initial Address Claimed frame
+            _ = monitor.recv()
+            # Inject a conflicting Address Claimed from another node at
+            # our address with a LOWER NAME (they win, we lose)
+            conflict_id = _j1939_can_id(6, J1939_PF_ADDRESS_CLAIMED,
+                                        J1939_GLOBAL_ADDRESS, my_addr)
+            conflict_frame = CAN(identifier=conflict_id, flags="extended",
+                                 data=struct.pack("<Q", their_name))
+            s.impl.on_can_recv(conflict_frame)
+            # We lose: should broadcast Cannot Claim from SA=0xFE
+            pkt = monitor.recv()
+            assert pkt is not None, "Expected Cannot Claim message"
+            _, pf, ps, sa = _j1939_decode_can_id(pkt.identifier)
+            assert pf == J1939_PF_ADDRESS_CLAIMED, \
+                "Cannot Claim must use PGN 0xEE00"
+            assert sa == J1939_NULL_ADDRESS, \
+                "Cannot Claim must use SA=0xFE (null address), got SA=0x{:02X}".format(sa)
+            assert ps == J1939_GLOBAL_ADDRESS, \
+                "Cannot Claim must be to global address"
+            assert struct.unpack("<Q", bytes(pkt.data)[:8])[0] == my_name, \
+                "Cannot Claim must carry our NAME"
+            assert s.impl.address_state == J1939_ADDR_STATE_CANNOT_CLAIM, \
+                "Expected CANNOT_CLAIM state after losing arbitration"
+
+test_address_claim_lose_arbitration()
+
+= Test 6: Request Response -- CLAIMED socket responds with Address Claimed
+def test_address_claim_request_response():
+    my_name = 0x0000000000000001
+    my_addr = 0x80
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor:
+        can_sock.pair(monitor)
+        with J1939SoftSocket(can_sock, src_addr=my_addr, pgn=0xFECA, name=my_name) as s:
+            # Consume the initial Address Claimed frame
+            _ = monitor.recv()
+            # Manually transition to CLAIMED state (skip the 250ms wait)
+            s.impl.address_state = J1939_ADDR_STATE_CLAIMED
+            # Inject a Request for PGN_ADDRESS_CLAIMED broadcast to global address
+            req_pgn_bytes = struct.pack("<I", PGN_ADDRESS_CLAIMED)[:3]
+            req_id = _j1939_can_id(6, J1939_PF_REQUEST,
+                                   J1939_GLOBAL_ADDRESS, 0x20)
+            req_frame = CAN(identifier=req_id, flags="extended",
+                            data=req_pgn_bytes + b'\xFF\xFF\xFF\xFF\xFF')
+            s.impl.on_can_recv(req_frame)
+            # Should respond with an Address Claimed broadcast
+            pkt = monitor.recv()
+            assert pkt is not None, "Expected Address Claimed response to Request"
+            _, pf, ps, sa = _j1939_decode_can_id(pkt.identifier)
+            assert pf == J1939_PF_ADDRESS_CLAIMED, \
+                "Response must be an Address Claimed frame"
+            assert sa == my_addr, "Response must use our claimed SA"
+            assert ps == J1939_GLOBAL_ADDRESS, "Response must be broadcast"
+            assert struct.unpack("<Q", bytes(pkt.data)[:8])[0] == my_name, \
+                "Response must carry our NAME"
+
+test_address_claim_request_response()
+
+= Test: cannot-claim socket responds to Request with Cannot Claim
+def test_address_claim_cannot_claim_request_response():
+    my_name = 0x0000000000000001
+    my_addr = 0x80
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor:
+        can_sock.pair(monitor)
+        with J1939SoftSocket(can_sock, src_addr=my_addr, pgn=0xFECA, name=my_name) as s:
+            # Consume the initial Address Claimed frame
+            _ = monitor.recv()
+            # Manually force CANNOT_CLAIM state
+            s.impl.address_state = J1939_ADDR_STATE_CANNOT_CLAIM
+            # Inject a Request for PGN_ADDRESS_CLAIMED
+            req_pgn_bytes = struct.pack("<I", PGN_ADDRESS_CLAIMED)[:3]
+            req_id = _j1939_can_id(6, J1939_PF_REQUEST, J1939_GLOBAL_ADDRESS, 0x20)
+            req_frame = CAN(identifier=req_id, flags="extended",
+                            data=req_pgn_bytes + b'\xFF\xFF\xFF\xFF\xFF')
+            s.impl.on_can_recv(req_frame)
+            # Should respond with a Cannot Claim (SA=0xFE)
+            pkt = monitor.recv()
+            assert pkt is not None, "Expected Cannot Claim response to Request"
+            _, pf, ps, sa = _j1939_decode_can_id(pkt.identifier)
+            assert pf == J1939_PF_ADDRESS_CLAIMED
+            assert sa == J1939_NULL_ADDRESS, \
+                "Cannot Claim response must use SA=0xFE, got 0x{:02X}".format(sa)
+
+test_address_claim_cannot_claim_request_response()
+
+= Test: 250ms timer transitions state from CLAIMING to CLAIMED
+def test_address_claim_timer_transition():
+    my_name = 0x0000000000000001
+    my_addr = 0x80
+    with TestSocket(CAN) as can_sock:
+        with J1939SoftSocket(can_sock, src_addr=my_addr, pgn=0xFECA, name=my_name) as s:
+            assert s.impl.address_state == J1939_ADDR_STATE_CLAIMING
+            # Wait for the 250ms claiming window to expire
+            time.sleep(J1939_ADDR_CLAIM_TIMEOUT + 0.1)
+            assert s.impl.address_state == J1939_ADDR_STATE_CLAIMED, \
+                "Expected CLAIMED after 250ms, got state={}".format(
+                    s.impl.address_state)
+
+test_address_claim_timer_transition()
+
+= Test: socket without name has UNCLAIMED state and sends freely
+def test_no_address_claim_unclaimed():
+    with TestSocket(CAN) as can_sock:
+        with J1939SoftSocket(can_sock, src_addr=0x11, pgn=0xFECA) as s:
+            assert s.impl.address_state == J1939_ADDR_STATE_UNCLAIMED, \
+                "Socket without name should be UNCLAIMED"
+            # send() should not raise when name is None
+            s.impl.send(b'\x01\x02\x03\x04\x05\x06\x07\x08')
+
+test_no_address_claim_unclaimed()
+
+= Test: CANNOT_CLAIM socket blocks application sends
+def test_address_claim_cannot_claim_blocks_send():
+    my_name = 0x0000000000000001
+    with TestSocket(CAN) as can_sock:
+        with J1939SoftSocket(can_sock, src_addr=0x80, pgn=0xFECA, name=my_name) as s:
+            s.impl.address_state = J1939_ADDR_STATE_CANNOT_CLAIM
+            try:
+                s.impl.send(b'\x01\x02\x03')
+                assert False, "Expected Scapy_Exception was not raised for CANNOT_CLAIM"
+            except Scapy_Exception:
+                pass
+
+test_address_claim_cannot_claim_blocks_send()
+
+= Test: address claiming ignored when name is not set
+def test_address_claim_ignored_without_name():
+    # Even if address claimed / request frames arrive, they should not crash
+    # and should not alter the address_state (which stays UNCLAIMED)
+    with TestSocket(CAN) as can_sock:
+        with J1939SoftSocket(can_sock, src_addr=0x80, pgn=0) as s:
+            assert s.impl.name is None
+            claim_id = _j1939_can_id(6, J1939_PF_ADDRESS_CLAIMED, J1939_GLOBAL_ADDRESS, 0x80)
+            claim_frame = CAN(identifier=claim_id, flags="extended",
+                              data=struct.pack("<Q", 0x0000000000000001))
+            s.impl.on_can_recv(claim_frame)
+            assert s.impl.address_state == J1939_ADDR_STATE_UNCLAIMED
+
+test_address_claim_ignored_without_name()
+
+= Test: _on_tp_cm short data
+def test_tp_cm_short_data():
+    with TestSocket(CAN) as can_sock:
+        with J1939SoftSocket(can_sock, src_addr=0x22, dst_addr=0x11, pgn=0) as s:
+            cm_id = _j1939_can_id(7, J1939_TP_CM_PF, 0x22, 0x11)
+            s.impl.on_can_recv(CAN(identifier=cm_id, flags="extended", data=b'\x20\x00'))
+            assert s.impl.rx_queue.empty(), "Short TP.CM should be dropped"
+    cleanup_testsockets()
+
+test_tp_cm_short_data()
+
+= Test: _send_abort sends correct abort frame
+def test_send_abort_frame():
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor:
+        can_sock.pair(monitor)
+        with J1939SoftSocket(can_sock, src_addr=0x22, dst_addr=0xFF, pgn=0) as s:
+            s.impl.address_state = J1939_ADDR_STATE_CLAIMED
+            s.impl._send_abort(0x11, 0xFECA, 0x01)
+            pkts = monitor.sniff(count=1, timeout=1)
+            assert len(pkts) == 1, "Expected abort frame"
+            _, pf, ps, sa = _j1939_decode_can_id(pkts[0].identifier)
+            assert pf == J1939_TP_CM_PF
+            assert ps == 0x11
+            assert sa == 0x22
+            assert pkts[0].data[0] == TP_Conn_Abort
+            assert pkts[0].data[1] == 0x01
+    cleanup_testsockets()
+
+test_send_abort_frame()
+
+= Test: on_can_recv ignores non-extended frames
+def test_non_extended_frame_ignored():
+    with TestSocket(CAN) as can_sock:
+        with J1939SoftSocket(can_sock, src_addr=0x22, dst_addr=0xFF, pgn=0) as s:
+            s.impl.on_can_recv(CAN(identifier=0x123, flags=0, data=b'\x01\x02\x03'))
+            assert s.impl.rx_queue.empty(), "Non-extended frames should be ignored"
+    cleanup_testsockets()
+
+test_non_extended_frame_ignored()
+
+= Test: _on_request_pgn with short data
+def test_request_pgn_short_data():
+    with TestSocket(CAN) as can_sock:
+        with J1939SoftSocket(can_sock, src_addr=0x80, pgn=0) as s:
+            req_id = _j1939_can_id(6, J1939_PF_REQUEST, 0x80, 0x10)
+            s.impl.on_can_recv(CAN(identifier=req_id, flags="extended", data=b'\x01\x02'))
+            # Should not crash; short data ignored
+    cleanup_testsockets()
+
+test_request_pgn_short_data()
+
+= Test: close() is idempotent
+def test_close_idempotent():
+    with TestSocket(CAN) as can_sock:
+        s = J1939SoftSocket(can_sock, src_addr=0x10, pgn=0)
+        s.close()
+        assert s.closed
+        s.close()
+        assert s.closed
+    cleanup_testsockets()
+
+test_close_idempotent()
+
+= Test: recv_raw returns None when socket is closed
+def test_recv_raw_closed():
+    with TestSocket(CAN) as can_sock:
+        s = J1939SoftSocket(can_sock, src_addr=0x10, pgn=0)
+        s.close()
+        cls, data, ts = s.recv_raw()
+        assert data is None
+        assert ts is None
+    cleanup_testsockets()
+
+test_recv_raw_closed()
+
+= Test: recv returns None when queue is empty
+def test_recv_no_data():
+    with TestSocket(CAN) as can_sock:
+        with J1939SoftSocket(can_sock, src_addr=0x10, pgn=0) as s:
+            assert s.impl.rx_queue.empty()
+    cleanup_testsockets()
+
+test_recv_no_data()
+
+
++ J1939SoftSocket Extra Coverage
+
+= J1939SoftSocket.recv stashes metadata even for unknown packet types
+class DummyPacket(Packet):
+    pass
+
+with J1939SoftSocket(TestSocket(CAN), basecls=DummyPacket) as s:
+    s.impl.rx_queue.send((b"data", 1.23, 0xFECA, 0x11, 0xFF))
+    pkt = s.recv()
+    assert isinstance(pkt, DummyPacket)
+    assert s._last_rx_pgn == 0xFECA
+
+= TimeoutScheduler.cancel raises Scapy_Exception for unknown handle
+try:
+    TimeoutScheduler.cancel("not a handle")
+    assert False, "Expected Scapy_Exception"
+except Scapy_Exception:
+    pass
+
+= TimeoutScheduler.Handle.cancel raises Scapy_Exception if already cancelled
+h = TimeoutScheduler.schedule(10, lambda: None)
+h.cancel()
+try:
+    h.cancel()
+    assert False, "Expected Scapy_Exception"
+except Scapy_Exception:
+    pass
+
+= _on_address_claimed edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, name=1) as s:
+    # len(data) < 8
+    s.impl._on_address_claimed(b"\x00"*7, 0x11, 0xFF)
+    # sa == J1939_NULL_ADDRESS
+    s.impl._on_address_claimed(b"\x00"*8, J1939_NULL_ADDRESS, 0xFF)
+    # received_name == self.name (emits warning)
+    s.impl._on_address_claimed(struct.pack("<Q", 1), 0x11, 0xFF)
+
+= _on_request_pgn edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, name=1) as s:
+    # len(data) < 3
+    s.impl._on_request_pgn(b"\x00"*2, 0x11, 0xFF)
+    # requested_pgn != PGN_ADDRESS_CLAIMED
+    s.impl._on_request_pgn(b"\x00\x00\x00", 0x11, 0xFF)
+
+= TP receive BAM edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    pgn_bytes = struct.pack("<I", 0xFECA)[:3]
+    # _recv_bam with invalid total_size
+    s.impl._on_tp_cm(struct.pack("B", TP_CM_BAM) + struct.pack("<H", 8) + struct.pack("B", 1) + b"\xFF" + pgn_bytes, 0x80, 0xFF, 0)
+    assert s.impl.rx_state == 0
+
+= TP receive RTS edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    pgn_bytes = struct.pack("<I", 0xFECA)[:3]
+    # _recv_rts with wrong DA
+    s.impl._on_tp_cm(struct.pack("B", TP_CM_RTS) + struct.pack("<H", 9) + struct.pack("B", 2) + b"\xFF" + pgn_bytes, 0x80, 0x22, 0)
+    assert s.impl.rx_state == 0
+
+= TP receive CTS edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    pgn_bytes = struct.pack("<I", 0xFECA)[:3]
+    # _recv_cts with wrong state
+    s.impl._on_tp_cm(struct.pack("B", TP_CM_CTS) + struct.pack("BB", 1, 1) + b"\xFF\xFF" + pgn_bytes, 0x80, 0x11, 0)
+    # _recv_cts with packets_to_send == 0 (Hold)
+    s.impl.tx_state = 2 # J1939_TX_CMDT_WAIT_CTS
+    s.impl.tx_pgn = 0xFECA
+    s.impl._on_tp_cm(struct.pack("B", TP_CM_CTS) + struct.pack("BB", 0, 1) + b"\xFF\xFF" + pgn_bytes, 0x80, 0x11, 0)
+    assert s.impl.tx_state == 2
+
+= TP receive EOM edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    pgn_bytes = struct.pack("<I", 0xFECA)[:3]
+    # _recv_eom_ack with wrong PGN
+    s.impl.tx_state = 4 # J1939_TX_CMDT_WAIT_ACK
+    s.impl.tx_pgn = 0xFECA
+    wrong_pgn_bytes = struct.pack("<I", 0xFECB)[:3]
+    s.impl._on_tp_cm(struct.pack("B", TP_CM_EndOfMsgACK) + struct.pack("<H", 9) + struct.pack("B", 2) + b"\xFF" + wrong_pgn_bytes, 0x80, 0x11, 0)
+    assert s.impl.tx_state == 4
+
+= TP receive Abort edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    # _recv_abort with len(data) == 1
+    s.impl._on_tp_cm(struct.pack("B", TP_Conn_Abort), 0x80, 0x11, 0)
+    assert s.impl.tx_state == 0
+
+= _on_tp_dt edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    s.impl.rx_state = 1 # J1939_RX_BAM_WAIT_DATA
+    s.impl.rx_src_addr = 0x80
+    # wrong SA
+    s.impl._on_tp_dt(b"\x01\xAA", 0x81, 0x11)
+    # short data
+    s.impl._on_tp_dt(b"", 0x80, 0x11)
+
+= begin_send edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11) as s:
+    # length > J1939_TP_MAX_DLEN
+    s.impl.begin_send(b"A" * 2000, 0xFECA, 0xFF)
+    # tx_state != J1939_TX_IDLE
+    s.impl.tx_state = 1
+    s.impl.begin_send(b"A" * 10, 0xFECA, 0xFF)
+
+= on_can_recv edge cases
+with J1939SoftSocket(TestSocket(CAN), src_addr=0x11, pgn=0xFECA) as s:
+    # unexpected PGN (emits warning once)
+    s.impl.on_can_recv(CAN(identifier=_j1939_can_id(6, 0xFE, 0xCB, 0x80), flags="extended", data=b"\x00"))
+    assert s.impl.filter_warning_emitted
+    # DA mismatch (PDU1)
+    s.impl.on_can_recv(CAN(identifier=_j1939_can_id(6, 0x01, 0x22, 0x80), flags="extended", data=b"\x00"))
+
+
+= Delete test sockets
+cleanup_testsockets()
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+log_runtime.removeHandler(handler)

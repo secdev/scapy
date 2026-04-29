@@ -1,0 +1,283 @@
+% Regression tests for J1939 Diagnostic Messages (DM1, DM13, DM14)
+~ automotive_comm
+
++ Configuration
+~ conf
+
+= Imports
+import sys
+sys.path.append(".")
+sys.path.append("test")
+import struct
+from scapy.layers.can import CAN
+from scapy.contrib.automotive.j1939 import (
+    J1939, J1939SoftSocket, J1939_GLOBAL_ADDRESS,
+)
+from scapy.contrib.automotive.j1939.j1939_dm import (
+    J1939_DTC, J1939_DM1, J1939_DM13, J1939_DM14,
+    PGN_DM1, PGN_DM13, PGN_DM14, sniff_dm1, send_dm14_request,
+)
+from scapy.error import Scapy_Exception
+from test.testsocket import TestSocket, cleanup_testsockets
+
+= Redirect logging
+import logging
+from scapy.error import log_runtime
+from io import StringIO
+log_stream = StringIO()
+handler = logging.StreamHandler(log_stream)
+log_runtime.addHandler(handler)
+
+
++ J1939_DTC — Bit-boundary and packing tests
+
+= DTC size is exactly 4 bytes (bit-boundary checkpoint)
+assert len(J1939_DTC()) == 4, \
+    "J1939_DTC must be exactly 4 bytes (32 bits); got {}".format(len(J1939_DTC()))
+
+= DTC packing: known raw bytes produce correct field values
+# SPN=100 (0x64), FMI=2, CM=0, OC=5
+# LE bytes: [SPN[7:0], SPN[15:8], FMI|SPN[18:16], OC|CM]
+#          = [0x64,    0x00,       0x10,             0x0A]
+raw = b'\x64\x00\x10\x0a'
+dtc = J1939_DTC(raw)
+assert dtc.SPN == 100, "SPN: expected 100, got {}".format(dtc.SPN)
+assert dtc.FMI == 2,   "FMI: expected 2, got {}".format(dtc.FMI)
+assert dtc.CM  == 0,   "CM: expected 0, got {}".format(dtc.CM)
+assert dtc.OC  == 5,   "OC: expected 5, got {}".format(dtc.OC)
+
+= DTC unpacking: field values produce correct raw bytes
+dtc = J1939_DTC(SPN=100, FMI=2, CM=0, OC=5)
+assert bytes(dtc) == b'\x64\x00\x10\x0a', \
+    "Expected 64 00 10 0a, got {}".format(bytes(dtc).hex())
+
+= DTC round-trip: build then parse recovers all fields
+for spn, fmi, cm, oc in [
+    (100, 2, 0, 5),
+    (0x7FFFF, 0x1F, 1, 0x7F),   # all-ones (max values)
+    (0, 0, 0, 0),                # all-zeros (min values)
+    (512, 7, 0, 10),
+]:
+    built = bytes(J1939_DTC(SPN=spn, FMI=fmi, CM=cm, OC=oc))
+    parsed = J1939_DTC(built)
+    assert parsed.SPN == spn, "SPN round-trip failed: {} != {}".format(parsed.SPN, spn)
+    assert parsed.FMI == fmi, "FMI round-trip failed: {} != {}".format(parsed.FMI, fmi)
+    assert parsed.CM  == cm,  "CM round-trip failed: {} != {}".format(parsed.CM, cm)
+    assert parsed.OC  == oc,  "OC round-trip failed: {} != {}".format(parsed.OC, oc)
+
+= DTC: little-endian byte order is correct (SPN LSB in byte 0)
+dtc = J1939_DTC(SPN=0x100, FMI=0, CM=0, OC=0)
+raw = bytes(dtc)
+# SPN=0x100=256: byte0=0x00 (SPN[7:0]), byte1=0x01 (SPN[15:8]), rest=0x00
+assert raw[0] == 0x00, "byte0 should be SPN[7:0]=0x00, got 0x{:02X}".format(raw[0])
+assert raw[1] == 0x01, "byte1 should be SPN[15:8]=0x01, got 0x{:02X}".format(raw[1])
+
+
++ J1939_DM1 — Single-frame tests
+
+= DM1 PGN is 65226 (0xFECA)
+assert J1939_DM1.PGN == 65226, "PGN: {}".format(J1939_DM1.PGN)
+assert PGN_DM1 == 65226
+
+= DM1 single-frame: 1 DTC is padded to exactly 8 bytes
+dtc = J1939_DTC(SPN=100, FMI=2, CM=0, OC=5)
+dm1 = J1939_DM1(dtcs=[dtc])
+raw = bytes(dm1)
+assert len(raw) == 8, \
+    "DM1 with 1 DTC must be 8 bytes; got {}".format(len(raw))
+
+= DM1 single-frame: padding bytes are 0xFF
+dtc = J1939_DTC(SPN=100, FMI=2, CM=0, OC=5)
+dm1 = J1939_DM1(dtcs=[dtc])
+raw = bytes(dm1)
+assert raw[-2:] == b'\xff\xff', \
+    "Trailing padding must be 0xFF 0xFF, got {}".format(raw[-2:].hex())
+
+= DM1 single-frame: lamp status fields are parsed correctly
+dm1 = J1939_DM1(
+    mil_status=1, rsl_status=0, awl_status=0, pl_status=0,
+    dtcs=[J1939_DTC(SPN=100, FMI=2, CM=0, OC=5)],
+)
+assert dm1.mil_status == 1, "MIL: expected 1, got {}".format(dm1.mil_status)
+assert dm1.rsl_status == 0, "RSL: expected 0, got {}".format(dm1.rsl_status)
+assert dm1.awl_status == 0, "AWL: expected 0, got {}".format(dm1.awl_status)
+assert dm1.pl_status  == 0, "PL: expected 0, got {}".format(dm1.pl_status)
+
+
++ J1939_DM1 — Multi-frame tests
+
+= DM1 multi-frame: 5 DTCs produce 22 bytes (no padding)
+dtcs = [J1939_DTC(SPN=i * 100, FMI=2, CM=0, OC=1) for i in range(5)]
+dm1 = J1939_DM1(dtcs=dtcs)
+raw = bytes(dm1)
+assert len(raw) == 22, \
+    "DM1 with 5 DTCs must be 22 bytes; got {}".format(len(raw))
+
+= DM1 multi-frame: payload is not truncated
+dtcs = [J1939_DTC(SPN=i * 100, FMI=2, CM=0, OC=1) for i in range(5)]
+dm1 = J1939_DM1(dtcs=dtcs)
+raw = bytes(dm1)
+# Verify each DTC survives the round-trip through the raw byte string
+parsed = J1939_DM1(raw)
+assert len(parsed.dtcs) == 5, \
+    "Expected 5 DTCs after dissection, got {}".format(len(parsed.dtcs))
+for i, dtc in enumerate(parsed.dtcs):
+    assert dtc.SPN == i * 100, \
+        "DTC[{}] SPN: expected {}, got {}".format(i, i * 100, dtc.SPN)
+
+
++ J1939_DM1 — Dissection round-trip tests
+
+= DM1 dissection round-trip with 2 DTCs preserves lamp status and DTC values
+dtcs_in = [
+    J1939_DTC(SPN=100, FMI=2, CM=0, OC=5),
+    J1939_DTC(SPN=200, FMI=3, CM=1, OC=10),
+]
+dm1_orig = J1939_DM1(mil_status=1, awl_status=1, dtcs=dtcs_in)
+raw = bytes(dm1_orig)
+dm1_p = J1939_DM1(raw)
+assert dm1_p.mil_status == 1, "mil_status: {}".format(dm1_p.mil_status)
+assert dm1_p.awl_status == 1, "awl_status: {}".format(dm1_p.awl_status)
+assert len(dm1_p.dtcs) == 2
+assert dm1_p.dtcs[0].SPN == 100
+assert dm1_p.dtcs[1].SPN == 200
+assert dm1_p.dtcs[1].CM  == 1
+
+= DM1 dissection: trailing 0xFF padding bytes are not parsed as DTCs
+dtc = J1939_DTC(SPN=100, FMI=2, CM=0, OC=5)
+dm1 = J1939_DM1(dtcs=[dtc])
+raw = bytes(dm1)          # 8 bytes: 2 lamp + 4 DTC + 2 padding
+dm1_p = J1939_DM1(raw)
+assert len(dm1_p.dtcs) == 1, \
+    "Expected 1 DTC (not 2), got {}".format(len(dm1_p.dtcs))
+
+
++ J1939_DM13 — Creation and PGN tests
+
+= DM13 PGN is 57344 (0xE000)
+assert J1939_DM13.PGN == 57344, "PGN: {}".format(J1939_DM13.PGN)
+assert PGN_DM13 == 57344
+
+= DM13 instantiation with default values
+dm13 = J1939_DM13()
+assert dm13.PGN == 57344
+assert dm13.hold_signal == 0xFF
+
+= DM13 instantiation with custom hold_signal
+dm13 = J1939_DM13(hold_signal=0xFE)
+assert dm13.hold_signal == 0xFE
+
+= DM13 with dummy payload data (8 bytes total)
+dm13 = J1939_DM13(hold_signal=0xFF, data=b'\xfe\xff\xff\xff\xff\xff\xff')
+assert len(bytes(dm13)) == 8
+
+
++ J1939_DM14 — Creation and PGN tests
+
+= DM14 PGN is 55552 (0xD900)
+assert J1939_DM14.PGN == 55552, "PGN: {}".format(J1939_DM14.PGN)
+assert PGN_DM14 == 55552
+
+= DM14 size is exactly 8 bytes
+assert len(J1939_DM14()) == 8, \
+    "J1939_DM14 must be 8 bytes; got {}".format(len(J1939_DM14()))
+
+= DM14 instantiation with dummy data verifies PGN default
+dm14 = J1939_DM14(address=0x1000, length=4, command_type=1)
+assert dm14.PGN == 55552
+assert dm14.address == 0x1000
+assert dm14.length == 4
+assert dm14.command_type == 1
+
+= DM14 command_type field values
+dm14_read  = J1939_DM14(command_type=1)
+dm14_write = J1939_DM14(command_type=2)
+dm14_erase = J1939_DM14(command_type=0)
+assert dm14_read.command_type  == 1
+assert dm14_write.command_type == 2
+assert dm14_erase.command_type == 0
+
+= DM14 address is stored in little-endian byte order
+dm14 = J1939_DM14(address=0x00001234)
+raw = bytes(dm14)
+# XLEIntField: byte1=0x34, byte2=0x12, byte3=0x00, byte4=0x00
+assert raw[1] == 0x34, "LE address byte1=0x{:02X}".format(raw[1])
+assert raw[2] == 0x12, "LE address byte2=0x{:02X}".format(raw[2])
+
+
++ Socket integration — DM routing via J1939 base class
+
+= Socket integration: wrap DM1 in J1939 frame then re-dissect
+# Build a DM1 payload, wrap in a J1939 frame, and verify the
+# DM1 Scapy class correctly dissects the payload.
+from scapy.contrib.automotive.j1939.j1939_soft_socket import _j1939_can_id
+dtc = J1939_DTC(SPN=100, FMI=2, CM=0, OC=5)
+dm1_orig = J1939_DM1(mil_status=1, dtcs=[dtc])
+j1939_frame = J1939(pgn=PGN_DM1, data=bytes(dm1_orig))
+# Dissect payload into DM1 class
+dm1_parsed = J1939_DM1(j1939_frame.data)
+assert dm1_parsed.mil_status == 1
+assert len(dm1_parsed.dtcs) == 1
+assert dm1_parsed.dtcs[0].SPN == 100
+
+= Socket integration: receive DM1 via J1939SoftSocket
+from scapy.contrib.automotive.j1939.j1939_soft_socket import _j1939_can_id
+
+# Build DM1 payload
+dtc = J1939_DTC(SPN=100, FMI=2, CM=0, OC=5)
+dm1_data = bytes(J1939_DM1(mil_status=1, dtcs=[dtc]))
+
+# PGN 0xFECA: PF=0xFE >= 0xF0 (PDU2), PS=0xCA, SA=0x80
+can_id = _j1939_can_id(6, 0xFE, 0xCA, 0x80)
+
+with J1939SoftSocket(TestSocket(CAN), pgn=0xFECA, src_addr=0x11) as s:
+    # Inject CAN frame directly (bypasses background polling thread)
+    s.impl.on_can_recv(
+        CAN(identifier=can_id, flags="extended", data=dm1_data)
+    )
+    result = s.impl.rx_queue.recv()
+
+assert result is not None, "rx_queue.recv() returned None"
+raw_data, _ts, _pgn, _sa, _da = result
+dm1_rx = J1939_DM1(raw_data)
+assert dm1_rx.mil_status == 1, "mil_status: {}".format(dm1_rx.mil_status)
+assert len(dm1_rx.dtcs) == 1
+assert dm1_rx.dtcs[0].SPN == 100
+cleanup_testsockets()
+
+
++ DM14 destination address validation
+
+= send_dm14_request raises Scapy_Exception for broadcast destination
+try:
+    send_dm14_request("can0", J1939_GLOBAL_ADDRESS, 0x1000)
+    assert False, "Expected Scapy_Exception for broadcast dst_addr"
+except Scapy_Exception as e:
+    assert "broadcast" in str(e).lower() or "peer" in str(e).lower(), str(e)
+
+= send_dm14_request raises Scapy_Exception for dst_addr 0xFF
+try:
+    send_dm14_request("can0", 0xFF, 0x2000)
+    assert False, "Expected Scapy_Exception for dst_addr=0xFF"
+except Scapy_Exception:
+    pass  # expected
+
+
++ J1939 DM Extra Coverage
+
+= J1939_DTC do_dissect short data
+assert J1939_DTC(b"\x01\x02\x03").SPN == 0
+
+= J1939_DM1 do_dissect with trailing padding
+dm1 = J1939_DM1(b"\x00\x00\x64\x00\x10\x0A\xFF\xFF")
+assert len(dm1.dtcs) == 1
+
+= sniff_dm1 (mocked call)
+import scapy.sendrecv
+orig_sniff = scapy.sendrecv.sniff
+scapy.sendrecv.sniff = lambda **kwargs: [J1939(data=b"\x00\x00\x64\x00\x10\x0A", pgn=PGN_DM1)]
+try:
+    res = sniff_dm1(TestSocket(CAN), timeout=0.1)
+    assert len(res) == 1
+finally:
+    scapy.sendrecv.sniff = orig_sniff
