@@ -364,7 +364,7 @@ class J1939_CAN(CAN):
     @property
     def dst(self):
         # type: () -> int
-        """Destination address for PDU1 frames; :data:`socket.J1939_NO_ADDR` for PDU2."""
+        """Destination address for PDU1 frames; :data:`socket.J1939_NO_ADDR` for PDU2."""  # noqa: E501
         return dst_from_fields(self.pdu_format, self.pdu_specific)
 
     def to_can(self):
@@ -637,8 +637,8 @@ class NativeJ1939Socket(SuperSocket):
                     "Could not enable J1939 promiscuous mode: %s" % exc
                 )
 
-        # Allow sending and receiving broadcast (global address 0xFF / socket.J1939_NO_ADDR).
-        # The Linux kernel J1939 stack refuses sendto() calls with addr=socket.J1939_NO_ADDR
+        # Allow sending and receiving broadcast (global address 0xFF / socket.J1939_NO_ADDR).  # noqa: E501
+        # The Linux kernel J1939 stack refuses sendto() calls with addr=socket.J1939_NO_ADDR  # noqa: E501
         # unless SO_BROADCAST is set, returning EACCES.
         try:
             self.ins.setsockopt(
