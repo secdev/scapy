@@ -612,10 +612,10 @@ assert isinstance(stmt_prepare_err_stream.contents[3].payload, MySQLErrPacket)
 
 = stream completeness and reassembly
 
-assert mysql._mysql_client_cls(None, [], None, b"\x01\x00\x00") is None
-assert mysql._mysql_server_cls(None, [], None, b"\x01\x00\x00") is None
 assert mysql._mysql_stream_complete(b"\x01\x00\x00\x00\x0e")
 assert not mysql._mysql_stream_complete(b"\x01\x00\x00")
 assert not mysql._mysql_stream_complete(b"\x05\x00\x00\x00abc")
 assert MySQLClient.tcp_reassemble(b"\x01\x00\x00", {}, None) is None
 assert isinstance(MySQLClient.tcp_reassemble(b"\x01\x00\x00\x00\x0e", {}, None), MySQLClient)
+assert MySQLServer.tcp_reassemble(b"\x01\x00\x00", {}, None) is None
+assert isinstance(MySQLServer.tcp_reassemble(b"\x01\x00\x00\x00\x0e", {}, None), MySQLServer)

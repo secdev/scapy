@@ -635,66 +635,52 @@ class MySQLComQuery(Packet):
     ]
 
 
-def _guess_mysql_client_payload(
-    pkt: _MySQLPacket,
-    payload: bytes,
-) -> type:
-    if len(payload) >= 32 and pkt.sequence_id == 1:
-        flags = struct.unpack("<I", payload[:4])[0]
-        if _capability(flags, CLIENT_SSL) and len(payload) == 32:
-            return MySQLSSLRequest
-        if _capability(flags, CLIENT_PROTOCOL_41):
-            return MySQLHandshakeResponse41
-    if payload:
-        command = orb(payload[0])
-        if command == 0x03:
-            return MySQLComQuery
-        if command in MYSQL_COMMANDS:
-            return MySQLCommand
-        if pkt.sequence_id > 1:
-            return MySQLAuthSwitchResponse
-    return Raw
-
-
-def _guess_mysql_server_payload(
-    pkt: _MySQLPacket,
-    payload: bytes,
-) -> type:
-    if payload and pkt.sequence_id == 0 and orb(payload[0]) == 0x0A:
-        return MySQLHandshakeV10
-    if payload:
-        header = orb(payload[0])
-        if header == 0x00:
-            if pkt.sequence_id == 1 and len(payload) == 12:
-                return MySQLStmtPrepareOK
-            return MySQLOKPacket
-        if header == 0x01 and len(payload) > 1 and pkt.sequence_id > 0:
-            return MySQLAuthMoreData
-        if header == 0xFF:
-            return MySQLErrPacket
-        if header == 0xFE and len(payload) >= 9:
-            return MySQLAuthSwitchRequest
-        if header == 0xFE and len(payload) == 1:
-            if pkt.sequence_id == 2:
-                return MySQLOldAuthSwitchRequest
-            return MySQLEOFPacket
-        if header == 0xFE and len(payload) < 9:
-            return MySQLEOFPacket
-    return Raw
-
-
 class MySQLClientPacket(_MySQLPacket):
     name = "MySQL Client Packet"
 
     def guess_payload_class(self, payload: bytes) -> type:
-        return _guess_mysql_client_payload(self, payload)
+        if len(payload) >= 32 and self.sequence_id == 1:
+            flags = struct.unpack("<I", payload[:4])[0]
+            if _capability(flags, CLIENT_SSL) and len(payload) == 32:
+                return MySQLSSLRequest
+            if _capability(flags, CLIENT_PROTOCOL_41):
+                return MySQLHandshakeResponse41
+        if payload:
+            command = orb(payload[0])
+            if command == 0x03:
+                return MySQLComQuery
+            if command in MYSQL_COMMANDS:
+                return MySQLCommand
+            if self.sequence_id > 1:
+                return MySQLAuthSwitchResponse
+        return Raw
 
 
 class MySQLServerPacket(_MySQLPacket):
     name = "MySQL Server Packet"
 
     def guess_payload_class(self, payload: bytes) -> type:
-        return _guess_mysql_server_payload(self, payload)
+        if payload and self.sequence_id == 0 and orb(payload[0]) == 0x0A:
+            return MySQLHandshakeV10
+        if payload:
+            header = orb(payload[0])
+            if header == 0x00:
+                if self.sequence_id == 1 and len(payload) == 12:
+                    return MySQLStmtPrepareOK
+                return MySQLOKPacket
+            if header == 0x01 and len(payload) > 1 and self.sequence_id > 0:
+                return MySQLAuthMoreData
+            if header == 0xFF:
+                return MySQLErrPacket
+            if header == 0xFE and len(payload) >= 9:
+                return MySQLAuthSwitchRequest
+            if header == 0xFE and len(payload) == 1:
+                if self.sequence_id == 2:
+                    return MySQLOldAuthSwitchRequest
+                return MySQLEOFPacket
+            if header == 0xFE and len(payload) < 9:
+                return MySQLEOFPacket
+        return Raw
 
 
 class _MySQLServerResultSetColumnCountPacket(MySQLServerPacket):
@@ -717,7 +703,7 @@ class _MySQLServerEOFPacket(MySQLServerPacket):
         return MySQLEOFPacket
 
 
-def _mysql_client_cls(
+def _next_mysql_client_packet(
     pkt: Packet,
     lst: Any,
     cur: bytes,
@@ -728,111 +714,8 @@ def _mysql_client_cls(
     return MySQLClientPacket
 
 
-def _mysql_server_resultset_state(lst: Any) -> Optional[Any]:
-    state = None
-    for item in lst:
-        payload = getattr(item, "payload", None)
-        if isinstance(payload, MySQLResultSetColumnCount):
-            state = {
-                "column_count": payload.column_count,
-                "column_defs": 0,
-                "metadata_done": False,
-            }
-            continue
-        if state is None:
-            continue
-        if isinstance(payload, MySQLColumnDefinition41):
-            state["column_defs"] += 1
-            continue
-        if isinstance(payload, MySQLEOFPacket):
-            if not state["metadata_done"] and (
-                state["column_defs"] >= state["column_count"]
-            ):
-                state["metadata_done"] = True
-            elif state["metadata_done"]:
-                state = None
-            continue
-        if isinstance(payload, MySQLOKPacket):
-            if not state["metadata_done"] and (
-                state["column_defs"] >= state["column_count"]
-            ):
-                state["metadata_done"] = True
-            elif state["metadata_done"]:
-                state = None
-            continue
-        if isinstance(payload, MySQLErrPacket):
-            state = None
-            continue
-    return state
-
-
-def _mysql_server_stmt_prepare_state(lst: Any) -> Optional[Any]:
-    state = None
-    for item in lst:
-        payload = getattr(item, "payload", None)
-        if isinstance(payload, MySQLStmtPrepareOK):
-            phase = None
-            if payload.num_params:
-                phase = "params"
-            elif payload.num_columns:
-                phase = "columns"
-            state = {
-                "params_remaining": payload.num_params,
-                "columns_remaining": payload.num_columns,
-                "phase": phase,
-            }
-            continue
-        if state is None:
-            continue
-        if isinstance(payload, MySQLColumnDefinition41):
-            if state["phase"] == "params" and state["params_remaining"] > 0:
-                state["params_remaining"] -= 1
-                if state["params_remaining"] == 0:
-                    state["phase"] = "params_eof"
-            elif (
-                state["phase"] == "columns"
-                and state["columns_remaining"] > 0
-            ):
-                state["columns_remaining"] -= 1
-                if state["columns_remaining"] == 0:
-                    state["phase"] = "columns_eof"
-            continue
-        if isinstance(payload, MySQLEOFPacket):
-            if state["phase"] == "params_eof":
-                if state["columns_remaining"] > 0:
-                    state["phase"] = "columns"
-                else:
-                    state = None
-            elif state["phase"] == "columns_eof":
-                state = None
-            continue
-        if isinstance(payload, MySQLErrPacket):
-            state = None
-            continue
-    return state
-
-
-def _mysql_server_field_list_state(lst: Any) -> Optional[Any]:
-    state = None
-    for item in lst:
-        payload = getattr(item, "payload", None)
-        if isinstance(payload, MySQLColumnDefinition41):
-            if state is None:
-                state = {"metadata_done": False}
-            continue
-        if state is None:
-            continue
-        if isinstance(payload, MySQLEOFPacket):
-            state["metadata_done"] = True
-            state = None
-            continue
-        if isinstance(payload, MySQLErrPacket):
-            state = None
-            continue
-        state = None
-    return state
-
-
+# Track enough server-side state to force metadata/resultset packet types
+# during TCP stream reassembly.
 def _mysql_server_cls(
     pkt: Packet,
     lst: Any,
@@ -846,35 +729,101 @@ def _mysql_server_cls(
     state_items = list(lst)
     if cur is not None:
         state_items.append(cur)
-    field_list_state = _mysql_server_field_list_state(state_items)
-    if field_list_state is not None:
+
+    in_field_list = False
+    prepare_phase = None
+    prepare_params_remaining = 0
+    prepare_columns_remaining = 0
+    resultset_column_count = None
+    resultset_column_defs = 0
+    resultset_metadata_done = False
+
+    for item in state_items:
+        item_payload = getattr(item, "payload", None)
+
+        if isinstance(item_payload, MySQLColumnDefinition41):
+            if not in_field_list:
+                in_field_list = True
+        elif in_field_list:
+            in_field_list = False
+
+        if isinstance(item_payload, MySQLStmtPrepareOK):
+            if item_payload.num_params:
+                prepare_phase = "params"
+            elif item_payload.num_columns:
+                prepare_phase = "columns"
+            else:
+                prepare_phase = None
+            prepare_params_remaining = item_payload.num_params
+            prepare_columns_remaining = item_payload.num_columns
+            continue
+        if prepare_phase is not None:
+            if isinstance(item_payload, MySQLColumnDefinition41):
+                if prepare_phase == "params" and prepare_params_remaining > 0:
+                    prepare_params_remaining -= 1
+                    if prepare_params_remaining == 0:
+                        prepare_phase = "params_eof"
+                elif (
+                    prepare_phase == "columns"
+                    and prepare_columns_remaining > 0
+                ):
+                    prepare_columns_remaining -= 1
+                    if prepare_columns_remaining == 0:
+                        prepare_phase = "columns_eof"
+            elif isinstance(item_payload, MySQLEOFPacket):
+                if prepare_phase == "params_eof":
+                    if prepare_columns_remaining > 0:
+                        prepare_phase = "columns"
+                    else:
+                        prepare_phase = None
+                elif prepare_phase == "columns_eof":
+                    prepare_phase = None
+            elif isinstance(item_payload, MySQLErrPacket):
+                prepare_phase = None
+
+        if isinstance(item_payload, MySQLResultSetColumnCount):
+            resultset_column_count = item_payload.column_count
+            resultset_column_defs = 0
+            resultset_metadata_done = False
+            continue
+        if resultset_column_count is not None:
+            if isinstance(item_payload, MySQLColumnDefinition41):
+                resultset_column_defs += 1
+            elif isinstance(item_payload, (MySQLEOFPacket, MySQLOKPacket)):
+                if not resultset_metadata_done and (
+                    resultset_column_defs >= resultset_column_count
+                ):
+                    resultset_metadata_done = True
+                elif resultset_metadata_done:
+                    resultset_column_count = None
+            elif isinstance(item_payload, MySQLErrPacket):
+                resultset_column_count = None
+
+    if in_field_list:
         if payload[:1] == b"\xFE":
             return _MySQLServerEOFPacket
         if _can_parse_column_definition(payload):
             return _MySQLServerColumnDefinitionPacket
-    prepare_state = _mysql_server_stmt_prepare_state(state_items)
-    if prepare_state is not None:
-        if prepare_state["phase"] in ("params", "columns"):
+    if prepare_phase is not None:
+        if prepare_phase in ("params", "columns"):
             return _MySQLServerColumnDefinitionPacket
-        if prepare_state["phase"] in ("params_eof", "columns_eof"):
+        if prepare_phase in ("params_eof", "columns_eof"):
             return _MySQLServerEOFPacket
-    state = _mysql_server_resultset_state(state_items)
-    if state is not None:
-        if not state["metadata_done"] and state["column_defs"] < state["column_count"]:
+    if resultset_column_count is not None:
+        if (
+            not resultset_metadata_done
+            and resultset_column_defs < resultset_column_count
+        ):
             return _MySQLServerColumnDefinitionPacket
         if not payload:
             return MySQLServerPacket
         header = orb(payload[0])
-        if not state["metadata_done"]:
+        if not resultset_metadata_done:
             return MySQLServerPacket
-        if _can_parse_text_row(payload, state["column_count"]):
+        if _can_parse_text_row(payload, resultset_column_count):
             return _MySQLServerTextResultSetRowPacket
-        if header == 0xFF:
-            return MySQLServerPacket
         if header == 0xFE and len(payload) < 9:
             return _MySQLServerEOFPacket
-        if header == 0x00 and len(payload) >= 7:
-            return MySQLServerPacket
         return MySQLServerPacket
     if payload:
         header = orb(payload[0])
@@ -921,7 +870,7 @@ class _MySQLStream(Packet, TCPSession):
 class MySQLClient(_MySQLStream):
     name = "MySQL Client Stream"
     fields_desc = [
-        PacketListField("contents", [], next_cls_cb=_mysql_client_cls),
+        PacketListField("contents", [], next_cls_cb=_next_mysql_client_packet),
     ]
 
 
