@@ -1,0 +1,51 @@
+% netutils contrib tests
+
++ Netutils tests
+
+= Test ip_scan_packet
+load_contrib("netutils")
+pkt = ip_scan_packet("192.168.1.1")
+assert IP in pkt
+assert ICMP in pkt
+assert pkt[IP].dst == "192.168.1.1"
+
+= Test arp_query_packet
+pkt = arp_query_packet("192.168.1.1")
+assert Ether in pkt
+assert ARP in pkt
+assert pkt[ARP].pdst == "192.168.1.1"
+assert pkt[Ether].dst == "ff:ff:ff:ff:ff:ff"
+
+= Test tcp_syn_packet
+pkt = tcp_syn_packet("10.0.0.1", 80)
+assert IP in pkt
+assert TCP in pkt
+assert pkt[IP].dst == "10.0.0.1"
+assert pkt[TCP].dport == 80
+assert pkt[TCP].flags == "S"
+
+= Test get_layer_fields_desc
+fields = get_layer_fields_desc(IP)
+field_names = [f[0] for f in fields]
+assert "version" in field_names
+assert "src" in field_names
+assert "dst" in field_names
+
+= Test is_ipv4_multicast
+assert is_ipv4_multicast("224.0.0.5") == True
+assert is_ipv4_multicast("224.0.0.1") == True
+assert is_ipv4_multicast("239.255.255.255") == True
+assert is_ipv4_multicast("192.168.1.1") == False
+assert is_ipv4_multicast("10.0.0.1") == False
+
+= Test well_known_ports
+ports = well_known_ports()
+assert ports[80] == "HTTP"
+assert ports[443] == "HTTPS"
+assert ports[53] == "DNS"
+assert ports[22] == "SSH"
+
+= Test packet_summary_table
+pkt = IP(dst="8.8.8.8")/TCP(dport=53, sport=12345)
+# just make sure it doesnt crash
+packet_summary_table(pkt)
