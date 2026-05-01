@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See https://scapy.net/ for more information
+# See https://scapy.net for more information
 # Copyright (C)  Mathieu RENARD <mathieu.renard(at)gmail.com>
 
 """
@@ -12,32 +12,91 @@ A proprietary redundancy protocol for Cisco routers.
     http://www.smartnetworks.jp/2006/02/hsrp_8_hsrp_version_2.html
 """
 
+import struct
+
 from scapy.config import conf
-from scapy.fields import ByteEnumField, ByteField, IPField, SourceIPField, \
-    StrFixedLenField, XIntField, XShortField
+from scapy.fields import ByteEnumField, ByteField, IPField, ShortField, \
+    SourceIPField, StrFixedLenField, XIntField, XShortField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.layers.inet import DestIPField, UDP
+from scapy.compat import orb
+
+_hsrp_opcodes = {0: "Hello", 1: "Coup", 2: "Resign", 3: "Advertise"}
+
+_hsrp_states = {
+    0: "Initial",
+    1: "Learn",
+    2: "Listen",
+    4: "Speak",
+    8: "Standby",
+    16: "Active",
+}
 
 
 class HSRP(Packet):
-    name = "HSRP"
+    name = "HSRPv1"
     fields_desc = [
         ByteField("version", 0),
-        ByteEnumField("opcode", 0, {0: "Hello", 1: "Coup", 2: "Resign", 3: "Advertise"}),  # noqa: E501
-        ByteEnumField("state", 16, {0: "Initial", 1: "Learn", 2: "Listen", 4: "Speak", 8: "Standby", 16: "Active"}),  # noqa: E501
+        ByteEnumField("opcode", 0, _hsrp_opcodes),
+        ByteEnumField("state", 16, _hsrp_states),
         ByteField("hellotime", 3),
         ByteField("holdtime", 10),
         ByteField("priority", 120),
         ByteField("group", 1),
         ByteField("reserved", 0),
         StrFixedLenField("auth", b"cisco" + b"\00" * 3, 8),
-        IPField("virtualIP", "192.168.1.1")]
+        IPField("virtualIP", "192.168.1.1"),
+    ]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 1:
+            ver = orb(_pkt[0])
+            if ver == 1:
+                return HSRPv2
+        return HSRP
 
     def guess_payload_class(self, payload):
-        if self.underlayer.len > 28:
+        if self.underlayer and self.underlayer.len > 28:
             return HSRPmd5
         else:
             return Packet.guess_payload_class(self, payload)
+
+    def mysummary(self):
+        return self.sprintf(
+            "HSRPv1 group=%group% state=%state% "
+            "virtualIP=%virtualIP%"
+        )
+
+
+class HSRPv2(Packet):
+    name = "HSRPv2"
+    fields_desc = [
+        ByteField("version", 1),
+        ByteEnumField("opcode", 0, _hsrp_opcodes),
+        ByteEnumField("state", 16, _hsrp_states),
+        ByteField("reserved", 0),
+        ShortField("hellotime", 3000),
+        ShortField("holdtime", 10000),
+        ByteField("priority", 120),
+        ByteField("group", 1),
+        ShortField("identifier", 0),
+        IPField("virtualIP", "192.168.1.1"),
+    ]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 1:
+            ver = orb(_pkt[0])
+            if ver == 0:
+                return HSRP
+        return HSRPv2
+
+    def mysummary(self):
+        return self.sprintf(
+            "HSRPv2 group=%group% state=%state% "
+            "virtualIP=%virtualIP%"
+        )
 
 
 class HSRPmd5(Packet):
@@ -50,13 +109,14 @@ class HSRPmd5(Packet):
         XShortField("flags", 0x00),
         SourceIPField("sourceip"),
         XIntField("keyid", 0x00),
-        StrFixedLenField("authdigest", b"\00" * 16, 16)]
+        StrFixedLenField("authdigest", b"\00" * 16, 16),
+    ]
 
     def post_build(self, p, pay):
-        if self.len is None and pay:
-            tmp_len = len(pay)
-            p = p[:1] + hex(tmp_len)[30:] + p[30:]
-        return p
+        if self.len is None:
+            tmp_len = len(p) + len(pay)
+            p = p[:1] + struct.pack("B", tmp_len) + p[2:]
+        return p + pay
 
 
 bind_bottom_up(UDP, HSRP, dport=1985)
@@ -66,6 +126,7 @@ bind_bottom_up(UDP, HSRP, sport=2029)
 bind_layers(UDP, HSRP, dport=1985, sport=1985)
 bind_layers(UDP, HSRP, dport=2029, sport=2029)
 DestIPField.bind_addr(UDP, "224.0.0.2", dport=1985)
+DestIPField.bind_addr(UDP, "224.0.0.102", dport=2029)
 if conf.ipv6_enabled:
     from scapy.layers.inet6 import DestIP6Field
     DestIP6Field.bind_addr(UDP, "ff02::66", dport=2029)
