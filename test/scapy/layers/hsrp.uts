@@ -5,11 +5,31 @@
 ############
 + HSRP tests
 
-= HSRP - build & dissection
+= HSRPv1 - build & dissection
 defaddr = conf.route.route('0.0.0.0')[1]
 pkt = IP(raw(IP()/UDP(dport=1985, sport=1985)/HSRP()/HSRPmd5()))
 assert pkt[IP].dst == "224.0.0.2" and pkt[UDP].sport == pkt[UDP].dport == 1985
 assert pkt[HSRP].opcode == 0 and pkt[HSRP].state == 16
 assert pkt[HSRPmd5].type == 4 and pkt[HSRPmd5].sourceip == defaddr
 
+= HSRPv2 - build & dissection
+pkt = IP(raw(IP()/UDP(dport=2029, sport=2029)/HSRPv2()))
+assert pkt[IP].dst == "224.0.0.102" and pkt[UDP].sport == pkt[UDP].dport == 2029
+assert pkt[HSRPv2].version == 1 and pkt[HSRPv2].opcode == 0
+assert pkt[HSRPv2].state == 16 and pkt[HSRPv2].group == 1
+assert pkt[HSRPv2].hellotime == 3000 and pkt[HSRPv2].holdtime == 10000
 
+= HSRPv2 - dispatch_hook routes v1 correctly
+raw_v1 = b'\x00\x00\x10\x03\x0a\x78\x01\x00cisco\x00\x00\x00\xc0\xa8\x01\x01'
+pkt = HSRP.dispatch_hook(raw_v1)
+assert pkt == HSRP
+
+= HSRPv1 - dispatch_hook routes v2 correctly
+raw_v2 = b'\x01\x00\x10\x00\x0b\xb8\x27\x10\x78\x01\x00\x00\xc0\xa8\x01\x01'
+pkt = HSRP.dispatch_hook(raw_v2)
+assert pkt == HSRPv2
+
+= HSRPmd5 - post_build sets len correctly
+hsrpmd5 = HSRPmd5()
+built = bytes(hsrpmd5)
+assert built[1] == len(built)
