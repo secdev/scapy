@@ -57,7 +57,10 @@ def arp_query_packet(target_ip, src_ip=None, src_mac=None):
     if src_ip is None:
         src_ip = conf.route.route(target_ip)[1]
     if src_mac is None:
-        src_mac = conf.iface.mac if hasattr(conf.iface, 'mac') else None
+        if hasattr(conf, 'iface') and hasattr(conf.iface, 'mac'):
+            src_mac = conf.iface.mac
+        else:
+            src_mac = "00:00:00:00:00:00"
     return Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(
         op="who-has", pdst=target_ip, psrc=src_ip, hwsrc=src_mac
     )
