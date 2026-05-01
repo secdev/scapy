@@ -8,8 +8,9 @@ HSRP (Hot Standby Router Protocol)
 A proprietary redundancy protocol for Cisco routers.
 
 - HSRP Version 1: RFC 2281
-- HSRP Version 2:
-    http://www.smartnetworks.jp/2006/02/hsrp_8_hsrp_version_2.html
+- HSRP Version 2 uses different packet format with 16-bit timers
+  and an identifier field. Uses UDP port 2029 and multicast
+  224.0.0.102 (ff02::66 for IPv6).
 """
 
 import struct
