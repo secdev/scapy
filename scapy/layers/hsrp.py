@@ -13,31 +13,74 @@ A proprietary redundancy protocol for Cisco routers.
 """
 
 from scapy.config import conf
-from scapy.fields import ByteEnumField, ByteField, IPField, SourceIPField, \
-    StrFixedLenField, XIntField, XShortField
+from scapy.compat import orb
+from scapy.fields import ByteEnumField, ByteField, IntField, IPField, \
+    ShortEnumField, ShortField, SourceIPField, StrFixedLenField, \
+    XIntField, XShortField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.layers.inet import DestIPField, UDP
+
+
+_HSRP_OPCODES = {0: "Hello", 1: "Coup", 2: "Resign", 3: "Advertise"}
+_HSRP_STATES = {
+    0: "Initial",
+    1: "Learn",
+    2: "Listen",
+    4: "Speak",
+    8: "Standby",
+    16: "Active",
+}
+_HSRP_ADVERTISE_TYPES = {1: "HSRP interface state"}
+_HSRP_ADVERTISE_STATES = {1: "Active", 2: "Passive"}
 
 
 class HSRP(Packet):
     name = "HSRP"
     fields_desc = [
         ByteField("version", 0),
-        ByteEnumField("opcode", 0, {0: "Hello", 1: "Coup", 2: "Resign", 3: "Advertise"}),  # noqa: E501
-        ByteEnumField("state", 16, {0: "Initial", 1: "Learn", 2: "Listen", 4: "Speak", 8: "Standby", 16: "Active"}),  # noqa: E501
+        ByteEnumField("opcode", 0, _HSRP_OPCODES),
+        ByteEnumField("state", 16, _HSRP_STATES),
         ByteField("hellotime", 3),
         ByteField("holdtime", 10),
         ByteField("priority", 120),
         ByteField("group", 1),
         ByteField("reserved", 0),
         StrFixedLenField("auth", b"cisco" + b"\00" * 3, 8),
-        IPField("virtualIP", "192.168.1.1")]
+        IPField("virtualIP", "192.168.1.1")
+    ]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 2 and orb(_pkt[1:2]) == 3:
+            return HSRPAdvertise
+        return cls
 
     def guess_payload_class(self, payload):
         if self.underlayer.len > 28:
             return HSRPmd5
         else:
             return Packet.guess_payload_class(self, payload)
+
+
+class HSRPAdvertise(Packet):
+    name = "HSRP Advertise"
+    fields_desc = [
+        ByteField("version", 0),
+        ByteEnumField("opcode", 3, _HSRP_OPCODES),
+        ShortEnumField("type", 1, _HSRP_ADVERTISE_TYPES),
+        ShortField("length", 10),
+        ByteEnumField("state", 1, _HSRP_ADVERTISE_STATES),
+        ByteField("reserved1", 0),
+        ShortField("activegroups", 0),
+        ShortField("passivegroups", 0),
+        IntField("reserved2", 0),
+    ]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 2 and orb(_pkt[1:2]) != 3:
+            return HSRP
+        return cls
 
 
 class HSRPmd5(Packet):
