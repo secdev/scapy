@@ -137,3 +137,55 @@ assert result in [
     '<function scapy.ansmachine.dhcpd(self, pool: Union[scapy.base_classes.Net, List[str]] = Net("192.168.1.128/25"), network: str = \'192.168.1.0/24\', gw: str = \'192.168.1.1\', nameserver: Union[str, List[str]] = None, domain: Union[str, NoneType] = None, renewal_time: int = 60, lease_time: int = 1800, **kwargs)>',
     '<function scapy.ansmachine.dhcpd(self, pool=Net("192.168.1.128/25"), network=\'192.168.1.0/24\', gw=\'192.168.1.1\', nameserver=None, domain=None, renewal_time=60, lease_time=1800, **kwargs)>',
 ]
+
+= RFC 3396 - Encoding long DHCPv4 options (fixes #4642, #4343)
+# i2m: option > 255 bytes is split into fragments
+# i2m: zero-length option is preserved
+# m2i (rfc3396=True): all options with same code are concatenated globally
+# m2i (rfc3396=True): concatenation works for unknown option codes
+# m2i (rfc3396=False): options with same code are NOT concatenated (legacy)
+# roundtrip: long option survives encode/decode with rfc3396=True
+# getfield (rfc3396=True): sname/file not aggregated without overload
+# getfield (rfc3396=True): overload=1 aggregates file field
+
+import struct
+
+r = raw(DHCP(options=[('captive-portal', 'a'*256), 'end']))
+assert r[:2] == b'\x72\xff' and r[2:257] == b'a'*255
+assert r[257:260] == b'\x72\x01a' and r[260:261] == b'\xff'
+
+assert raw(DHCP(options=[('rapid_commit', b''), 'end'])) == b'\x50\x00\xff'
+
+old_rfc3396 = conf.contribs.get("dhcp", {}).get("rfc3396", True)
+conf.contribs["dhcp"]["rfc3396"] = True
+
+assert DHCP(b'\x06\x02\x01\x02\x06\x02\x03\x04').options == DHCP(b'\x06\x04\x01\x02\x03\x04').options
+
+p = DHCP(b'\x0c\x02sc\x06\x04\x01\x02\x03\x04\x0c\x02py')
+assert p.options[0] == ('hostname', b'scpy')
+assert p.options[1] == ('name_server', '1.2.3.4')
+
+assert DHCP(b'\xfe\x02AB\xfe\x02CD').options[0] == (254, b'ABCD')
+
+conf.contribs["dhcp"]["rfc3396"] = False
+
+p = DHCP(b'\x0c\x02sc\x06\x04\x01\x02\x03\x04\x0c\x02py')
+assert p.options == [('hostname', b'sc'), ('name_server', '1.2.3.4'), ('hostname', b'py')]
+
+conf.contribs["dhcp"]["rfc3396"] = True
+
+pkt2 = DHCP(raw(DHCP(options=[('captive-portal', 'a'*400), 'end'])))
+assert pkt2.options[0] == ('captive-portal', b'a'*400) and pkt2.options[-1] == 'end'
+
+bootp_pkt = BOOTP(chaddr="00:01:02:03:04:05", sname=b'myserver'+b'\x00'*56, file=b'bootfile'+b'\x00'*120, options=b'c\x82Sc') / DHCP(options=[('message-type', 'discover'), 'end'])
+p = BOOTP(raw(bootp_pkt))
+assert p[DHCP].options[0] == ('message-type', 1) and p[BOOTP].sname[:8] == b'myserver'
+
+magic = b'\x63\x82\x53\x63'
+opts = b'\x34\x01\x01' + b'\x35\x01\x01' + b'\xff'
+file_field = (b'\x0c\x05scapy' + b'\xff' + b'\x00'*120)[:128]
+bootp_raw = struct.pack("!4B", 1, 1, 6, 0) + b'\x00'*4 + b'\x00'*4 + b'\x00'*16 + b'\x00'*16 + b'\x00'*64 + file_field + magic + opts
+p = BOOTP(bootp_raw)
+assert DHCP in p and ('hostname', b'scapy') in p[DHCP].options
+
+conf.contribs["dhcp"]["rfc3396"] = old_rfc3396
