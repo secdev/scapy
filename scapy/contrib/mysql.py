@@ -43,6 +43,7 @@ from scapy.fields import (
     ByteField,
     ConditionalField,
     Field,
+    FieldListField,
     FlagsField,
     LEIntField,
     LEShortEnumField,
@@ -333,41 +334,46 @@ class MySQLByteLenStrField(Field[Any, Any]):
         return repr(val)
 
 
-class MySQLTextRowValuesField(Field[Any, Any]):
-    def __init__(self, name: str, default: Any = None) -> None:
-        Field.__init__(self, name, [] if default is None else default)
+class MySQLTextRowValueField(Field[Any, Any]):
+    def __init__(self, name: str, default: Any = b"") -> None:
+        Field.__init__(self, name, default)
+
+    def any2i(self, pkt: Optional[Packet], val: Any) -> Any:
+        if isinstance(val, str):
+            return val.encode("utf-8")
+        return val
 
     def addfield(self, pkt: Packet, s: bytes, val: Any) -> bytes:
         if val is None:
-            val = []
-        elif isinstance(val, (bytes, str)):
-            val = [val]
-        for item in val:
-            if item is None:
-                s += b"\xFB"
-                continue
-            if isinstance(item, str):
-                item = item.encode("utf-8")
-            s += _build_lenenc_int(len(item)) + item
-        return s
+            return s + b"\xFB"
+        if isinstance(val, str):
+            val = val.encode("utf-8")
+        return s + _build_lenenc_int(len(val)) + val
 
     def getfield(self, pkt: Packet, s: bytes) -> Tuple[bytes, Any]:
-        values = []
-        remain = s
-        while remain:
-            if remain[:1] == b"\xFB":
-                values.append(None)
-                remain = remain[1:]
-                continue
-            length, size = _read_lenenc_int(remain)
-            start = size
-            end = size + length
-            values.append(remain[start:end])
-            remain = remain[end:]
-        return b"", values
+        if s[:1] == b"\xFB":
+            return s[1:], None
+        length, size = _read_lenenc_int(s)
+        start = size
+        end = size + length
+        return s[end:], s[start:end]
 
-    def i2repr(self, pkt: Optional[Packet], val: Any) -> str:
-        return repr(val)
+
+class MySQLTextRowValuesField(FieldListField):
+    def __init__(self, name: str, default: Any = None) -> None:
+        super().__init__(
+            name,
+            [] if default is None else default,
+            MySQLTextRowValueField("value"),
+        )
+
+    def any2i(self, pkt: Optional[Packet], val: Any) -> Any:
+        if val is None:
+            return []
+        return super().any2i(pkt, val)
+
+    def i2m(self, pkt: Optional[Packet], val: Any) -> Any:
+        return self.any2i(pkt, val)
 
 
 class _MySQLPacket(Packet):
