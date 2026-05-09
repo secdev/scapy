@@ -660,6 +660,14 @@ class MySQLServerPacket(_MySQLPacket):
     name = "MySQL Server Packet"
 
     def guess_payload_class(self, payload: bytes) -> type:
+        forced_payload_cls = getattr(
+            self.parent,
+            "_mysql_forced_payload_cls",
+            None,
+        )
+        if forced_payload_cls is not None:
+            self.parent._mysql_forced_payload_cls = None
+            return forced_payload_cls
         if payload and self.sequence_id == 0 and orb(payload[0]) == 0x0A:
             return MySQLHandshakeV10
         if payload:
@@ -683,26 +691,6 @@ class MySQLServerPacket(_MySQLPacket):
         return Raw
 
 
-class _MySQLServerResultSetColumnCountPacket(MySQLServerPacket):
-    def guess_payload_class(self, payload: bytes) -> type:
-        return MySQLResultSetColumnCount
-
-
-class _MySQLServerColumnDefinitionPacket(MySQLServerPacket):
-    def guess_payload_class(self, payload: bytes) -> type:
-        return MySQLColumnDefinition41
-
-
-class _MySQLServerTextResultSetRowPacket(MySQLServerPacket):
-    def guess_payload_class(self, payload: bytes) -> type:
-        return MySQLTextResultSetRow
-
-
-class _MySQLServerEOFPacket(MySQLServerPacket):
-    def guess_payload_class(self, payload: bytes) -> type:
-        return MySQLEOFPacket
-
-
 def _next_mysql_client_packet(
     pkt: Packet,
     lst: Any,
@@ -724,6 +712,7 @@ def _mysql_server_cls(
 ) -> Optional[type]:
     if len(remain) < 4:
         return None
+    pkt._mysql_forced_payload_cls = None
     payload_length = struct.unpack("<I", remain[:3] + b"\x00")[0]
     payload = remain[4:4 + payload_length]
     state_items = list(lst)
@@ -801,29 +790,36 @@ def _mysql_server_cls(
 
     if in_field_list:
         if payload[:1] == b"\xFE":
-            return _MySQLServerEOFPacket
+            pkt._mysql_forced_payload_cls = MySQLEOFPacket
+            return MySQLServerPacket
         if _can_parse_column_definition(payload):
-            return _MySQLServerColumnDefinitionPacket
+            pkt._mysql_forced_payload_cls = MySQLColumnDefinition41
+            return MySQLServerPacket
     if prepare_phase is not None:
         if prepare_phase in ("params", "columns"):
-            return _MySQLServerColumnDefinitionPacket
+            pkt._mysql_forced_payload_cls = MySQLColumnDefinition41
+            return MySQLServerPacket
         if prepare_phase in ("params_eof", "columns_eof"):
-            return _MySQLServerEOFPacket
+            pkt._mysql_forced_payload_cls = MySQLEOFPacket
+            return MySQLServerPacket
     if resultset_column_count is not None:
         if (
             not resultset_metadata_done
             and resultset_column_defs < resultset_column_count
         ):
-            return _MySQLServerColumnDefinitionPacket
+            pkt._mysql_forced_payload_cls = MySQLColumnDefinition41
+            return MySQLServerPacket
         if not payload:
             return MySQLServerPacket
         header = orb(payload[0])
         if not resultset_metadata_done:
             return MySQLServerPacket
         if _can_parse_text_row(payload, resultset_column_count):
-            return _MySQLServerTextResultSetRowPacket
+            pkt._mysql_forced_payload_cls = MySQLTextResultSetRow
+            return MySQLServerPacket
         if header == 0xFE and len(payload) < 9:
-            return _MySQLServerEOFPacket
+            pkt._mysql_forced_payload_cls = MySQLEOFPacket
+            return MySQLServerPacket
         return MySQLServerPacket
     if payload:
         header = orb(payload[0])
@@ -832,26 +828,12 @@ def _mysql_server_cls(
         if header == 0x01 and payload_length > 1:
             return MySQLServerPacket
         if _can_parse_column_definition(payload):
-            return _MySQLServerColumnDefinitionPacket
+            pkt._mysql_forced_payload_cls = MySQLColumnDefinition41
+            return MySQLServerPacket
         if header != 0xFB:
-            return _MySQLServerResultSetColumnCountPacket
+            pkt._mysql_forced_payload_cls = MySQLResultSetColumnCount
+            return MySQLServerPacket
     return MySQLServerPacket
-
-
-def _mysql_stream_complete(data: bytes) -> bool:
-    offset = 0
-    while offset < len(data):
-        if len(data) - offset < 4:
-            return False
-        payload_length = struct.unpack(
-            "<I",
-            data[offset:offset + 3] + b"\x00",
-        )[0]
-        offset += 4
-        if len(data) - offset < payload_length:
-            return False
-        offset += payload_length
-    return True
 
 
 class _MySQLStream(Packet, TCPSession):
@@ -862,7 +844,19 @@ class _MySQLStream(Packet, TCPSession):
         metadata: Any,
         session: Any = None,
     ) -> Optional[Packet]:
-        if data and _mysql_stream_complete(data):
+        offset = 0
+        while offset < len(data):
+            if len(data) - offset < 4:
+                return None
+            payload_length = struct.unpack(
+                "<I",
+                data[offset:offset + 3] + b"\x00",
+            )[0]
+            offset += 4
+            if len(data) - offset < payload_length:
+                return None
+            offset += payload_length
+        if data:
             return cls(data)
         return None
 
