@@ -2574,7 +2574,7 @@ class HCI_Event_Remote_Host_Supported_Features_Notification(Packet):
     name = "HCI_Remote_Host_Supported_Features_Notification"
     fields_desc = [
         LEMACField('bd_addr', None),
-        FlagsField('host_supported_features', 0, -64, _bluetooth_features)
+        XLELongField('host_supported_features', 0)
     ]
 
 
