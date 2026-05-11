@@ -24,6 +24,7 @@ Scapy's documentation is under a `Creative Commons Attribution - Non-Commercial
    installation
    
    usage
+   gui_application_design
    advanced_usage/index.rst
    routing
 
