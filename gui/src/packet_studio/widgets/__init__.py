@@ -1,0 +1,1 @@
+"""UI widgets for Scapy Studio."""

@@ -17,3 +17,4 @@ __pycache__/
 doc/scapy/_build
 doc/scapy/api
 .idea
+gui/release
