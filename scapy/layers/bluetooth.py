@@ -959,6 +959,17 @@ class SM_DHKey_Check(Packet):
     fields_desc = [StrFixedLenField("dhkey_check", b'\x00' * 16, 16), ]
 
 
+class SM_Keypress_Notification(Packet):
+    name = "Keypress Notification"
+    fields_desc = [ByteEnumField("notification_type", 0, {
+        0: "Passkey entry started",
+        1: "Passkey digit entered",
+        2: "Passkey digit erased",
+        3: "Passkey cleared",
+        4: "Passkey entry completed",
+    })]
+
+
 class EIR_Hdr(Packet):
     name = "EIR Header"
     fields_desc = [
@@ -1007,6 +1018,8 @@ class EIR_Hdr(Packet):
             0x29: "mesh_pb_adv",
             0x2a: "mesh_message",
             0x2b: "mesh_beacon",
+
+            0x30: "broadcast_name",
 
             0x3d: "3d_information",
 
@@ -1297,6 +1310,13 @@ class EIR_PublicTargetAddress(EIR_Element):
     ]
 
 
+class EIR_RandomTargetAddress(EIR_Element):
+    name = "Random Target Address"
+    fields_desc = [
+        LEMACField('bd_addr', None)
+    ]
+
+
 class EIR_AdvertisingInterval(EIR_Element):
     name = "Advertising Interval"
     fields_desc = [
@@ -1325,6 +1345,40 @@ class EIR_LEBluetoothDeviceAddress(EIR_Element):
             0x1: 'Random'
         }),
         LEMACField('bd_addr', None)
+    ]
+
+
+class EIR_LERole(EIR_Element):
+    name = "LE Role"
+    fields_desc = [
+        ByteEnumField("role", 0, {
+            0: "Only Peripheral Role supported",
+            1: "Only Central Role supported",
+            2: "Peripheral and Central Role supported, "
+               "Peripheral Role preferred for connection establishment",
+            3: "Peripheral and Central Role supported, "
+               "Central Role preferred for connection establishment",
+        }),
+    ]
+
+
+class EIR_BroadcastName(EIR_Element):
+    name = "Broadcast Name"
+    fields_desc = [
+        StrLenField("broadcast_name", "",
+                    length_from=EIR_Element.length_from)
+    ]
+
+
+class EIR_3DInformation(EIR_Element):
+    name = "3D Information"
+    fields_desc = [
+        BitField("factory_test_mode", 0, 1, tot_size=-1),
+        BitField("reserved", 0, 4),
+        BitField("send_battery_level_on_startup", 0, 1),
+        BitField("battery_level_reporting", 0, 1),
+        BitField("association_notification", 0, 1, end_tot_size=-1),
+        ByteField("path_loss_threshold", 0),
     ]
 
 
@@ -2459,6 +2513,18 @@ class HCI_Event_Connection_Complete(Packet):
                                   1: "link level encryption enabled", }), ]
 
 
+class HCI_Event_Connection_Request(Packet):
+    """
+    7.7.4 Connection Request event
+    """
+    name = "HCI_Connection_Request"
+    fields_desc = [LEMACField("bd_addr", None),
+                   XLE3BytesField("device_class", 0),
+                   ByteEnumField("link_type", 0, {0: "SCO connection",
+                                                  1: "ACL connection",
+                                                  2: "eSCO connection", }), ]
+
+
 class HCI_Event_Disconnection_Complete(Packet):
     """
     7.7.5 Disconnection Complete event
@@ -2498,6 +2564,17 @@ class HCI_Event_Read_Remote_Supported_Features_Complete(Packet):
         ByteEnumField('status', 0, _bluetooth_error_codes),
         LEShortField('handle', 0),
         FlagsField('lmp_features', 0, -64, _bluetooth_features)
+    ]
+
+
+class HCI_Event_Remote_Host_Supported_Features_Notification(Packet):
+    """
+    7.7.50 Remote Host Supported Features Notification event
+    """
+    name = "HCI_Remote_Host_Supported_Features_Notification"
+    fields_desc = [
+        LEMACField('bd_addr', None),
+        XLELongField('host_supported_features', 0)
     ]
 
 
@@ -2635,6 +2712,19 @@ class HCI_Event_IO_Capability_Response(Packet):
         ByteField('oob_data_present', 0x00),
         ByteField('authentication_requirements', 0x00)
     ]
+
+
+class HCI_Event_Vendor(Packet):
+    """
+    Vendor-Specific Debug event (event code 0xFF).
+
+    Bluetooth Core 5.4, Vol 4, Part E, section 5.4.4 reserves 0xFF for
+    vendor-specific debugging events; the format of the parameters is
+    vendor-defined, so the data is exposed as a raw byte string.
+    """
+    name = "HCI_Vendor_Specific"
+    fields_desc = [StrLenField("data", b"",
+                               length_from=lambda pkt: pkt.underlayer.len)]
 
 
 class HCI_Event_LE_Meta(Packet):
@@ -2779,6 +2869,13 @@ class HCI_LE_Meta_Connection_Update_Complete(Packet):
                    LEShortField("interval", 54),
                    LEShortField("latency", 0),
                    LEShortField("timeout", 42), ]
+
+
+class HCI_LE_Meta_LE_Read_Remote_Features_Complete(Packet):
+    name = "LE Read Remote Features Complete"
+    fields_desc = [ByteEnumField("status", 0, _bluetooth_error_codes),
+                   LEShortField("handle", 0),
+                   XLELongField("le_features", 0)]
 
 
 class HCI_LE_Meta_Advertising_Report(Packet):
@@ -2993,6 +3090,7 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, og
 bind_layers(HCI_Event_Hdr, HCI_Event_Inquiry_Complete, code=0x01)
 bind_layers(HCI_Event_Hdr, HCI_Event_Inquiry_Result, code=0x02)
 bind_layers(HCI_Event_Hdr, HCI_Event_Connection_Complete, code=0x03)
+bind_layers(HCI_Event_Hdr, HCI_Event_Connection_Request, code=0x04)
 bind_layers(HCI_Event_Hdr, HCI_Event_Disconnection_Complete, code=0x05)
 bind_layers(HCI_Event_Hdr, HCI_Event_Remote_Name_Request_Complete, code=0x07)
 bind_layers(HCI_Event_Hdr, HCI_Event_Encryption_Change, code=0x08)
@@ -3006,7 +3104,9 @@ bind_layers(HCI_Event_Hdr, HCI_Event_Inquiry_Result_With_Rssi, code=0x22)
 bind_layers(HCI_Event_Hdr, HCI_Event_Read_Remote_Extended_Features_Complete, code=0x23)
 bind_layers(HCI_Event_Hdr, HCI_Event_Extended_Inquiry_Result, code=0x2f)
 bind_layers(HCI_Event_Hdr, HCI_Event_IO_Capability_Response, code=0x32)
+bind_layers(HCI_Event_Hdr, HCI_Event_Remote_Host_Supported_Features_Notification, code=0x3d)  # noqa: E501
 bind_layers(HCI_Event_Hdr, HCI_Event_LE_Meta, code=0x3e)
+bind_layers(HCI_Event_Hdr, HCI_Event_Vendor, code=0xff)
 
 bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_Local_Name, opcode=0x0c14)  # noqa: E501
 bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_Local_Version_Information, opcode=0x1001)  # noqa: E501
@@ -3018,6 +3118,7 @@ bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=0x01)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Enhanced_Connection_Complete, event=0x0a)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Reports, event=0x02)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=0x03)
+bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_LE_Read_Remote_Features_Complete, event=0x04)  # noqa: E501
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=0x05)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Extended_Advertising_Reports, event=0x0d)
 
@@ -3041,12 +3142,16 @@ bind_layers(EIR_Hdr, EIR_ServiceSolicitation16BitUUID, type=0x14)
 bind_layers(EIR_Hdr, EIR_ServiceSolicitation128BitUUID, type=0x15)
 bind_layers(EIR_Hdr, EIR_ServiceData16BitUUID, type=0x16)
 bind_layers(EIR_Hdr, EIR_PublicTargetAddress, type=0x17)
+bind_layers(EIR_Hdr, EIR_RandomTargetAddress, type=0x18)
 bind_layers(EIR_Hdr, EIR_Appearance, type=0x19)
 bind_layers(EIR_Hdr, EIR_AdvertisingInterval, type=0x1a)
 bind_layers(EIR_Hdr, EIR_LEBluetoothDeviceAddress, type=0x1b)
+bind_layers(EIR_Hdr, EIR_LERole, type=0x1c)
 bind_layers(EIR_Hdr, EIR_ServiceData32BitUUID, type=0x20)
 bind_layers(EIR_Hdr, EIR_ServiceData128BitUUID, type=0x21)
 bind_layers(EIR_Hdr, EIR_URI, type=0x24)
+bind_layers(EIR_Hdr, EIR_BroadcastName, type=0x30)
+bind_layers(EIR_Hdr, EIR_3DInformation, type=0x3d)
 bind_layers(EIR_Hdr, EIR_Manufacturer_Specific_Data, type=0xff)
 bind_layers(EIR_Hdr, EIR_Raw)
 
@@ -3121,6 +3226,7 @@ bind_layers(SM_Hdr, SM_Signing_Information, sm_command=0x0a)
 bind_layers(SM_Hdr, SM_Security_Request, sm_command=0x0b)
 bind_layers(SM_Hdr, SM_Public_Key, sm_command=0x0c)
 bind_layers(SM_Hdr, SM_DHKey_Check, sm_command=0x0d)
+bind_layers(SM_Hdr, SM_Keypress_Notification, sm_command=0x0e)
 
 
 ###############
