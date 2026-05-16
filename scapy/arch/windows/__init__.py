@@ -8,6 +8,7 @@ Customizations needed to support Microsoft Windows.
 """
 
 from glob import glob
+import shlex
 import os
 import platform as platform_lib
 import socket
@@ -207,15 +208,16 @@ class WinProgPath(ProgPath):
                                 env="SystemRoot")
 
 
-def _exec_cmd(command):
-    # type: (str) -> Tuple[bytes, int]
-    """Call a CMD command and return the output and returncode"""
-    proc = sp.Popen(command,
-                    stdout=sp.PIPE,
-                    shell=True)
-    res = proc.communicate()[0]
-    return res, proc.returncode
-
+    def _exec_cmd(command):
+        # type: (str) -> Tuple[bytes, int]
+        """Call a CMD command and return the output and returncode"""
+        proc = sp.Popen(
+            shlex.split(command) if isinstance(command, str) else command,
+            stdout=sp.PIPE,
+            shell=False
+        )
+        res = proc.communicate()[0]
+        return res, proc.returncode
 
 conf.prog = WinProgPath()
 
@@ -363,15 +365,16 @@ class NetworkInterface_Win(NetworkInterface):
         if not self.raw80211:
             raise Scapy_Exception("Npcap 802.11 support is NOT enabled !")
 
+
     def _npcap_set(self, key, val):
         # type: (str, str) -> bool
         """Internal function. Set a [key] parameter to [value]"""
         if self.guid is None:
             raise OSError("Interface not setup")
-        res, code = _exec_cmd(_encapsulate_admin(
-            " ".join([_WlanHelper, self.guid[1:-1], key, val])
-        ))
-        _windows_title()  # Reset title of the window
+        res, code = _exec_cmd(
+            [_WlanHelper, self.guid[1:-1], key, val]
+        )
+        _windows_title()
         if code != 0:
             raise OSError(res.decode("utf8", errors="ignore"))
         return True
@@ -380,7 +383,7 @@ class NetworkInterface_Win(NetworkInterface):
         # type: (str) -> str
         if self.guid is None:
             raise OSError("Interface not setup")
-        res, code = _exec_cmd(" ".join([_WlanHelper, self.guid[1:-1], key]))
+        res, code = _exec_cmd([_WlanHelper, self.guid[1:-1], key])
         _windows_title()  # Reset title of the window
         if code != 0:
             raise OSError(res.decode("utf8", errors="ignore"))
