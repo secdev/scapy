@@ -1,0 +1,620 @@
+# MySQL related regression tests
+# Author: Pablo Gonzalez <pablo.gonzalezpe@gmail.com>
+#
+# Type the following command to launch the tests:
+# $ test/run_tests -P "load_contrib('mysql')" -t test/contrib/mysql.uts
+
++ mysql
+
+= mysql initialization
+
+from scapy.contrib.mysql import *
+import scapy.contrib.mysql as mysql
+
+= handshakev10 build and parse
+
+handshake_pkt = MySQLServerPacket(sequence_id=0) / MySQLHandshakeV10(
+    server_version=b"8.0.36",
+    connection_id=1337,
+    auth_plugin_data_part_1=b"12345678",
+    capability_flags_lower=0xFFFF,
+    character_set=0x21,
+    status_flags=0x0002,
+    capability_flags_upper=0x0018,
+    auth_plugin_data_len=21,
+    auth_plugin_data_part_2=b"ABCDEFGHIJKL\x00",
+    auth_plugin_name=b"mysql_native_password",
+)
+
+handshake_raw = bytes(handshake_pkt)
+assert handshake_raw == bytes.fromhex(
+    "4a000000"
+    "0a382e302e333600"
+    "39050000"
+    "3132333435363738"
+    "00"
+    "ffff"
+    "21"
+    "0200"
+    "1800"
+    "15"
+    "00000000000000000000"
+    "4142434445464748494a4b4c00"
+    "6d7973716c5f6e61746976655f70617373776f726400"
+)
+
+handshake_stream = MySQLServer(handshake_raw)
+assert len(handshake_stream.contents) == 1
+handshake = handshake_stream.contents[0].payload
+assert isinstance(handshake, MySQLHandshakeV10)
+assert handshake.server_version == b"8.0.36"
+assert handshake.connection_id == 1337
+assert handshake.capability_flags == 0x0018FFFF
+assert handshake.auth_plugin_name == b"mysql_native_password"
+
+= sslrequest build and parse
+
+ssl_request_pkt = MySQLClientPacket(sequence_id=1) / MySQLSSLRequest(
+    client_flags=CLIENT_PROTOCOL_41 | CLIENT_SSL,
+    max_packet_size=0x01000000,
+    character_set=0x21,
+)
+
+ssl_request_raw = bytes(ssl_request_pkt)
+ssl_request = MySQLClient(ssl_request_raw)
+assert isinstance(ssl_request.contents[0].payload, MySQLSSLRequest)
+assert int(ssl_request.contents[0].payload.client_flags) == (
+    CLIENT_PROTOCOL_41 | CLIENT_SSL
+)
+assert ssl_request.contents[0].payload.max_packet_size == 0x01000000
+
+= handshake response official example
+
+handshake_response_raw = bytes.fromhex(
+    "54000001"
+    "8da60f00"
+    "00000001"
+    "08"
+    "0000000000000000000000000000000000000000000000"
+    "70616d00"
+    "14"
+    "ab09eef6bcb1323e61143865c0991d957d75d447"
+    "7465737400"
+    "6d7973716c5f6e61746976655f70617373776f726400"
+)
+
+handshake_response_stream = MySQLClient(handshake_response_raw)
+assert len(handshake_response_stream.contents) == 1
+handshake_response = handshake_response_stream.contents[0].payload
+assert isinstance(handshake_response, MySQLHandshakeResponse41)
+assert handshake_response.username == b"pam"
+assert len(handshake_response.auth_response) == 20
+assert handshake_response.database == b"test"
+assert handshake_response.auth_plugin_name == b"mysql_native_password"
+
+= auth switch packets
+
+auth_switch_request_pkt = MySQLServerPacket(sequence_id=2) / MySQLAuthSwitchRequest(
+    plugin_name=b"mysql_native_password",
+    plugin_data=b"1234567890abcdefghij",
+)
+
+auth_switch_request_raw = bytes(auth_switch_request_pkt)
+auth_switch_request_stream = MySQLServer(auth_switch_request_raw)
+auth_switch_request = auth_switch_request_stream.contents[0].payload
+assert isinstance(auth_switch_request, MySQLAuthSwitchRequest)
+assert auth_switch_request.header == 0xFE
+assert auth_switch_request.plugin_name == b"mysql_native_password"
+assert auth_switch_request.plugin_data == b"1234567890abcdefghij"
+
+auth_switch_response_raw = bytes.fromhex(
+    "14000003"
+    "f417961f79f3ac100bdaa6b3b5c20eab5985ffb8"
+)
+auth_switch_response_stream = MySQLClient(auth_switch_response_raw)
+auth_switch_response = auth_switch_response_stream.contents[0].payload
+assert isinstance(auth_switch_response, MySQLAuthSwitchResponse)
+assert auth_switch_response.data == bytes.fromhex(
+    "f417961f79f3ac100bdaa6b3b5c20eab5985ffb8"
+)
+
+= old auth switch request packet
+
+old_auth_switch_raw = bytes.fromhex("01000002fe")
+old_auth_switch_stream = MySQLServer(old_auth_switch_raw)
+old_auth_switch = old_auth_switch_stream.contents[0].payload
+assert isinstance(old_auth_switch, MySQLOldAuthSwitchRequest)
+assert old_auth_switch.header == 0xFE
+
+= auth more data packet
+
+auth_more_data_pkt = MySQLServerPacket(sequence_id=4) / MySQLAuthMoreData(
+    data=b"\x03"
+)
+auth_more_data_raw = bytes(auth_more_data_pkt)
+assert auth_more_data_raw == bytes.fromhex("020000040103")
+auth_more_data_stream = MySQLServer(auth_more_data_raw)
+auth_more_data = auth_more_data_stream.contents[0].payload
+assert isinstance(auth_more_data, MySQLAuthMoreData)
+assert auth_more_data.header == 0x01
+assert auth_more_data.data == b"\x03"
+
+= stmt prepare ok and metadata packets
+
+stmt_prepare_ok_pkt = MySQLServerPacket(sequence_id=1) / MySQLStmtPrepareOK(
+    statement_id=1,
+    num_columns=1,
+    num_params=2,
+    warning_count=0,
+)
+param_def_1_pkt = MySQLServerPacket(sequence_id=2) / MySQLColumnDefinition41(
+    catalog=b"def",
+    schema=b"",
+    table=b"",
+    org_table=b"",
+    column_name=b"?",
+    org_column_name=b"?",
+    fixed_length_fields_len=0x0C,
+    character_set=0x3F,
+    column_length=0,
+    column_type=0xFD,
+    flags=0x0080,
+    decimals=0,
+    filler=0,
+)
+param_def_2_pkt = MySQLServerPacket(sequence_id=3) / MySQLColumnDefinition41(
+    catalog=b"def",
+    schema=b"",
+    table=b"",
+    org_table=b"",
+    column_name=b"?",
+    org_column_name=b"?",
+    fixed_length_fields_len=0x0C,
+    character_set=0x3F,
+    column_length=0,
+    column_type=0xFD,
+    flags=0x0080,
+    decimals=0,
+    filler=0,
+)
+column_def_prepare_pkt = MySQLServerPacket(sequence_id=5) / MySQLColumnDefinition41(
+    catalog=b"def",
+    schema=b"demo",
+    table=b"lots",
+    org_table=b"lots",
+    column_name=b"id",
+    org_column_name=b"id",
+    fixed_length_fields_len=0x0C,
+    character_set=0x3F,
+    column_length=11,
+    column_type=0x03,
+    flags=0x4203,
+    decimals=0,
+    filler=0,
+)
+stmt_prepare_stream_raw = (
+    bytes(stmt_prepare_ok_pkt)
+    + bytes(param_def_1_pkt)
+    + bytes(param_def_2_pkt)
+    + bytes(MySQLServerPacket(sequence_id=4) / MySQLEOFPacket(warnings=0, status_flags=0x0002))
+    + bytes(column_def_prepare_pkt)
+    + bytes(MySQLServerPacket(sequence_id=6) / MySQLEOFPacket(warnings=0, status_flags=0x0002))
+)
+stmt_prepare_stream = MySQLServer(stmt_prepare_stream_raw)
+assert len(stmt_prepare_stream.contents) == 6
+assert isinstance(stmt_prepare_stream.contents[0].payload, MySQLStmtPrepareOK)
+assert stmt_prepare_stream.contents[0].payload.statement_id == 1
+assert stmt_prepare_stream.contents[0].payload.num_columns == 1
+assert stmt_prepare_stream.contents[0].payload.num_params == 2
+assert isinstance(stmt_prepare_stream.contents[1].payload, MySQLColumnDefinition41)
+assert isinstance(stmt_prepare_stream.contents[2].payload, MySQLColumnDefinition41)
+assert isinstance(stmt_prepare_stream.contents[3].payload, MySQLEOFPacket)
+assert isinstance(stmt_prepare_stream.contents[4].payload, MySQLColumnDefinition41)
+assert stmt_prepare_stream.contents[4].payload.column_name == b"id"
+assert isinstance(stmt_prepare_stream.contents[5].payload, MySQLEOFPacket)
+
+= generic response packets official examples
+
+ok_raw = bytes.fromhex("0700000200000002000000")
+ok_stream = MySQLServer(ok_raw)
+ok_packet = ok_stream.contents[0].payload
+assert isinstance(ok_packet, MySQLOKPacket)
+assert ok_packet.affected_rows == 0
+assert ok_packet.last_insert_id == 0
+assert int(ok_packet.status_flags) == 0x0002
+assert ok_packet.warnings == 0
+
+err_raw = bytes.fromhex(
+    "17000001"
+    "ff4804"
+    "234859303030"
+    "4e6f207461626c65732075736564"
+)
+err_stream = MySQLServer(err_raw)
+err_packet = err_stream.contents[0].payload
+assert isinstance(err_packet, MySQLErrPacket)
+assert err_packet.error_code == 1096
+assert err_packet.sql_state == b"HY000"
+assert err_packet.error_message == b"No tables used"
+
+eof_raw = bytes.fromhex("05000005fe00000200")
+eof_stream = MySQLServer(eof_raw)
+eof_packet = eof_stream.contents[0].payload
+assert isinstance(eof_packet, MySQLEOFPacket)
+assert eof_packet.warnings == 0
+assert int(eof_packet.status_flags) == 0x0002
+
+short_eof_raw = bytes.fromhex("01000003fe")
+short_eof_stream = MySQLServer(short_eof_raw)
+short_eof_packet = short_eof_stream.contents[0].payload
+assert isinstance(short_eof_packet, MySQLEOFPacket)
+assert short_eof_packet.header == 0xFE
+
+= text resultset response
+
+column_count_pkt = MySQLServerPacket(sequence_id=1) / MySQLResultSetColumnCount(
+    column_count=1
+)
+column_def_pkt = MySQLServerPacket(sequence_id=2) / MySQLColumnDefinition41(
+    catalog=b"def",
+    schema=b"",
+    table=b"",
+    org_table=b"",
+    column_name=b"version",
+    org_column_name=b"version",
+    fixed_length_fields_len=0x0C,
+    character_set=0x21,
+    column_length=28,
+    column_type=0xFD,
+    flags=0,
+    decimals=0,
+    filler=0,
+)
+row_pkt = MySQLServerPacket(sequence_id=4) / MySQLTextResultSetRow(
+    values=[b"8.0.36"]
+)
+
+resultset_raw = (
+    bytes(column_count_pkt)
+    + bytes(column_def_pkt)
+    + eof_raw[:3] + b"\x03" + eof_raw[4:]
+    + bytes(row_pkt)
+    + eof_raw
+)
+resultset_stream = MySQLServer(resultset_raw)
+assert len(resultset_stream.contents) == 5
+assert isinstance(resultset_stream.contents[0].payload, MySQLResultSetColumnCount)
+assert resultset_stream.contents[0].payload.column_count == 1
+assert isinstance(resultset_stream.contents[1].payload, MySQLColumnDefinition41)
+assert resultset_stream.contents[1].payload.column_name == b"version"
+assert resultset_stream.contents[1].payload.column_type == 0xFD
+assert isinstance(resultset_stream.contents[2].payload, MySQLEOFPacket)
+assert isinstance(resultset_stream.contents[3].payload, MySQLTextResultSetRow)
+assert resultset_stream.contents[3].payload.values == [b"8.0.36"]
+assert isinstance(resultset_stream.contents[4].payload, MySQLEOFPacket)
+
+= field list style response
+
+field_list_column_1 = MySQLServerPacket(sequence_id=1) / MySQLColumnDefinition41(
+    catalog=b"def",
+    schema=b"test",
+    table=b"test_table",
+    org_table=b"test_table",
+    column_name=b"id",
+    org_column_name=b"id",
+    fixed_length_fields_len=0x0C,
+    character_set=0x3F,
+    column_length=11,
+    column_type=0x03,
+    flags=0,
+    decimals=0,
+    filler=0,
+)
+field_list_column_2 = MySQLServerPacket(sequence_id=2) / MySQLColumnDefinition41(
+    catalog=b"def",
+    schema=b"test",
+    table=b"test_table",
+    org_table=b"test_table",
+    column_name=b"name",
+    org_column_name=b"name",
+    fixed_length_fields_len=0x0C,
+    character_set=0x08,
+    column_length=255,
+    column_type=0xFC,
+    flags=0x0010,
+    decimals=0,
+    filler=0,
+)
+field_list_raw = (
+    bytes(field_list_column_1)
+    + bytes(field_list_column_2)
+    + bytes(MySQLServerPacket(sequence_id=3) / MySQLEOFPacket(header=0xFE))
+)
+field_list_stream = MySQLServer(field_list_raw)
+assert len(field_list_stream.contents) == 3
+assert isinstance(field_list_stream.contents[0].payload, MySQLColumnDefinition41)
+assert field_list_stream.contents[0].payload.column_name == b"id"
+assert isinstance(field_list_stream.contents[1].payload, MySQLColumnDefinition41)
+assert field_list_stream.contents[1].payload.column_name == b"name"
+assert isinstance(field_list_stream.contents[2].payload, MySQLEOFPacket)
+
+= text resultset with nulls and multiple columns
+
+multi_column_count_pkt = MySQLServerPacket(sequence_id=1) / MySQLResultSetColumnCount(
+    column_count=2
+)
+multi_column_def_1_pkt = MySQLServerPacket(sequence_id=2) / MySQLColumnDefinition41(
+    catalog=b"def",
+    schema=b"",
+    table=b"users",
+    org_table=b"users",
+    column_name=b"name",
+    org_column_name=b"name",
+    fixed_length_fields_len=0x0C,
+    character_set=0x21,
+    column_length=64,
+    column_type=0xFD,
+    flags=0,
+    decimals=0,
+    filler=0,
+)
+multi_column_def_2_pkt = MySQLServerPacket(sequence_id=3) / MySQLColumnDefinition41(
+    catalog=b"def",
+    schema=b"",
+    table=b"users",
+    org_table=b"users",
+    column_name=b"nickname",
+    org_column_name=b"nickname",
+    fixed_length_fields_len=0x0C,
+    character_set=0x21,
+    column_length=64,
+    column_type=0xFD,
+    flags=0,
+    decimals=0,
+    filler=0,
+)
+multi_row_pkt = MySQLServerPacket(sequence_id=5) / MySQLTextResultSetRow(
+    values=[b"alice", None]
+)
+
+multi_resultset_raw = (
+    bytes(multi_column_count_pkt)
+    + bytes(multi_column_def_1_pkt)
+    + bytes(multi_column_def_2_pkt)
+    + bytes(MySQLServerPacket(sequence_id=4) / MySQLEOFPacket(warnings=0, status_flags=0x0002))
+    + bytes(multi_row_pkt)
+    + bytes(MySQLServerPacket(sequence_id=6) / MySQLEOFPacket(warnings=0, status_flags=0x0002))
+)
+multi_resultset_stream = MySQLServer(multi_resultset_raw)
+assert len(multi_resultset_stream.contents) == 6
+assert isinstance(multi_resultset_stream.contents[0].payload, MySQLResultSetColumnCount)
+assert multi_resultset_stream.contents[0].payload.column_count == 2
+assert isinstance(multi_resultset_stream.contents[1].payload, MySQLColumnDefinition41)
+assert multi_resultset_stream.contents[1].payload.column_name == b"name"
+assert isinstance(multi_resultset_stream.contents[2].payload, MySQLColumnDefinition41)
+assert multi_resultset_stream.contents[2].payload.column_name == b"nickname"
+assert isinstance(multi_resultset_stream.contents[4].payload, MySQLTextResultSetRow)
+assert multi_resultset_stream.contents[4].payload.values == [b"alice", None]
+assert isinstance(multi_resultset_stream.contents[5].payload, MySQLEOFPacket)
+
+= text resultset with deprecate eof ok terminators
+
+ok_terminator_pkt = MySQLServerPacket(sequence_id=3) / MySQLOKPacket(
+    affected_rows=0,
+    last_insert_id=0,
+    status_flags=CLIENT_DEPRECATE_EOF >> 16,
+    warnings=0,
+)
+ok_final_pkt = MySQLServerPacket(sequence_id=5) / MySQLOKPacket(
+    affected_rows=0,
+    last_insert_id=0,
+    status_flags=0x0002,
+    warnings=0,
+)
+
+ok_terminated_resultset_raw = (
+    bytes(column_count_pkt)
+    + bytes(column_def_pkt)
+    + bytes(ok_terminator_pkt)
+    + bytes(row_pkt)
+    + bytes(ok_final_pkt)
+)
+ok_terminated_resultset_stream = MySQLServer(ok_terminated_resultset_raw)
+assert len(ok_terminated_resultset_stream.contents) == 5
+assert isinstance(ok_terminated_resultset_stream.contents[0].payload, MySQLResultSetColumnCount)
+assert isinstance(ok_terminated_resultset_stream.contents[1].payload, MySQLColumnDefinition41)
+assert isinstance(ok_terminated_resultset_stream.contents[2].payload, MySQLOKPacket)
+assert isinstance(ok_terminated_resultset_stream.contents[3].payload, MySQLTextResultSetRow)
+assert ok_terminated_resultset_stream.contents[3].payload.values == [b"8.0.36"]
+assert isinstance(ok_terminated_resultset_stream.contents[4].payload, MySQLOKPacket)
+
+= simple query build and parse
+
+query_pkt = MySQLClientPacket(sequence_id=0) / MySQLComQuery(
+    query=b"SELECT VERSION()"
+)
+query_raw = bytes(query_pkt)
+assert query_raw == bytes.fromhex(
+    "11000000"
+    "0353454c4543542056455253494f4e2829"
+)
+
+query_stream = MySQLClient(query_raw)
+query_packet = query_stream.contents[0].payload
+assert isinstance(query_packet, MySQLComQuery)
+assert query_packet.cmd == 0x03
+assert query_packet.query == b"SELECT VERSION()"
+
+= multi packet stream
+
+combined_server_stream = MySQLServer(handshake_raw + ok_raw + eof_raw)
+assert len(combined_server_stream.contents) == 3
+assert isinstance(combined_server_stream.contents[0].payload, MySQLHandshakeV10)
+assert isinstance(combined_server_stream.contents[1].payload, MySQLOKPacket)
+assert isinstance(combined_server_stream.contents[2].payload, MySQLEOFPacket)
+
+= field and helper edge cases
+
+assert mysql._read_lenenc_int(b"\xfc\x34\x12") == (0x1234, 3)
+assert mysql._read_lenenc_int(b"\xfd\x56\x34\x12") == (0x123456, 4)
+assert mysql._read_lenenc_int(b"\xfe\x08\x07\x06\x05\x04\x03\x02\x01") == (
+    0x0102030405060708,
+    9,
+)
+assert mysql._read_lenenc_int(b"\xff") == (0, 1)
+assert mysql._build_lenenc_int(0x1234) == b"\xfc\x34\x12"
+assert mysql._build_lenenc_int(0x123456) == b"\xfd\x56\x34\x12"
+assert mysql._build_lenenc_int(0x0102030405060708) == (
+    b"\xfe\x08\x07\x06\x05\x04\x03\x02\x01"
+)
+
+lenenc_none = mysql.MySQLLenEncIntField("x").addfield(None, b"", None)
+assert lenenc_none == b"\x00"
+assert mysql.MySQLLenEncIntField("x").i2repr(None, 7) == "7"
+assert mysql._capability(
+    ssl_request.contents[0].payload.client_flags,
+    CLIENT_SSL,
+)
+assert bytes(ssl_request.contents[0].payload)[:4] == b"\x00\x0a\x00\x00"
+assert int(ok_packet.status_flags) == 0x0002
+assert int(param_def_1_pkt.payload.flags) == 0x0080
+
+lenenc_str_field = mysql.MySQLLenEncStrField("s")
+assert lenenc_str_field.addfield(None, b"", None) == b"\x00"
+assert lenenc_str_field.addfield(None, b"", "abc") == b"\x03abc"
+assert lenenc_str_field.i2repr(None, b"abc") == "b'abc'"
+
+text_values_field = mysql.MySQLTextRowValuesField("values")
+assert text_values_field.addfield(None, b"", None) == b""
+assert text_values_field.addfield(None, b"", "alice") == b"\x05alice"
+assert text_values_field.addfield(None, b"", ["alice", None]) == b"\x05alice\xfb"
+assert text_values_field.i2repr(None, [b"alice"]) == "[b'alice']"
+
+= auth response encoding variants
+
+lenenc_auth_pkt = MySQLClientPacket(sequence_id=1) / MySQLHandshakeResponse41(
+    client_flags=CLIENT_PROTOCOL_41 | CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA,
+    max_packet_size=0,
+    character_set=0x21,
+    username=b"user",
+    auth_response=b"abc",
+)
+lenenc_auth_raw = bytes(lenenc_auth_pkt)
+lenenc_auth_stream = MySQLClient(lenenc_auth_raw)
+lenenc_auth = lenenc_auth_stream.contents[0].payload
+assert isinstance(lenenc_auth, MySQLHandshakeResponse41)
+assert lenenc_auth.auth_response == b"abc"
+
+secure_auth_pkt = MySQLClientPacket(sequence_id=1) / MySQLHandshakeResponse41(
+    client_flags=CLIENT_PROTOCOL_41 | CLIENT_SECURE_CONNECTION,
+    max_packet_size=0,
+    character_set=0x21,
+    username=b"user",
+    auth_response="abc",
+)
+secure_auth_raw = bytes(secure_auth_pkt)
+secure_auth_stream = MySQLClient(secure_auth_raw)
+secure_auth = secure_auth_stream.contents[0].payload
+assert isinstance(secure_auth, MySQLHandshakeResponse41)
+assert secure_auth.auth_response == b"abc"
+
+old_auth_pkt = MySQLClientPacket(sequence_id=1) / MySQLHandshakeResponse41(
+    client_flags=CLIENT_PROTOCOL_41,
+    max_packet_size=0,
+    character_set=0x21,
+    username=b"user",
+    auth_response="abc",
+)
+old_auth_raw = bytes(old_auth_pkt)
+old_auth_stream = MySQLClient(old_auth_raw)
+old_auth = old_auth_stream.contents[0].payload
+assert isinstance(old_auth, MySQLHandshakeResponse41)
+assert old_auth.auth_response == b"abc"
+
+empty_secure_auth_pkt = MySQLClientPacket(sequence_id=1) / MySQLHandshakeResponse41(
+    client_flags=CLIENT_PROTOCOL_41 | CLIENT_SECURE_CONNECTION,
+    max_packet_size=0,
+    character_set=0x21,
+    username=b"user",
+    auth_response=b"",
+)
+empty_secure_auth_raw = bytes(empty_secure_auth_pkt)
+empty_secure_auth_stream = MySQLClient(empty_secure_auth_raw)
+assert empty_secure_auth_stream.contents[0].payload.auth_response == b""
+
+assert mysql.MySQLByteLenStrField("auth").i2repr(None, b"abc") == "b'abc'"
+assert mysql.MySQLByteLenStrField("auth").getfield(
+    None,
+    b"\x03abc",
+) == (b"", b"abc")
+assert mysql.MySQLByteLenStrField("auth").getfield(
+    None,
+    b"",
+) == (b"", b"")
+
+= dispatcher fallbacks and error transitions
+
+ping_raw = bytes.fromhex("010000000e")
+ping_stream = MySQLClient(ping_raw)
+assert isinstance(ping_stream.contents[0].payload, MySQLCommand)
+assert ping_stream.contents[0].payload.cmd == 0x0E
+
+unknown_client_raw = bytes.fromhex("010000007f")
+unknown_client_stream = MySQLClient(unknown_client_raw)
+assert isinstance(unknown_client_stream.contents[0].payload, Raw)
+
+unknown_server_raw = bytes.fromhex("01000001fb")
+unknown_server_stream = MySQLServer(unknown_server_raw)
+assert isinstance(unknown_server_stream.contents[0].payload, Raw)
+
+resultset_err_raw = (
+    bytes(column_count_pkt)
+    + bytes(column_def_pkt)
+    + bytes(MySQLServerPacket(sequence_id=3) / MySQLEOFPacket(warnings=0, status_flags=0x0002))
+    + bytes(MySQLServerPacket(sequence_id=4) / MySQLErrPacket(error_code=1064, sql_state=b"42000", error_message=b"syntax error"))
+)
+resultset_err_stream = MySQLServer(resultset_err_raw)
+assert len(resultset_err_stream.contents) == 4
+assert isinstance(resultset_err_stream.contents[3].payload, MySQLErrPacket)
+
+field_list_err_raw = (
+    bytes(field_list_column_1)
+    + bytes(MySQLServerPacket(sequence_id=2) / MySQLErrPacket(error_code=1091, sql_state=b"42000", error_message=b"bad field list"))
+)
+field_list_err_stream = MySQLServer(field_list_err_raw)
+assert len(field_list_err_stream.contents) == 2
+assert isinstance(field_list_err_stream.contents[0].payload, MySQLColumnDefinition41)
+assert isinstance(field_list_err_stream.contents[1].payload, MySQLErrPacket)
+
+stmt_prepare_columns_only_raw = (
+    bytes(MySQLServerPacket(sequence_id=1) / MySQLStmtPrepareOK(statement_id=2, num_columns=1, num_params=0, warning_count=0))
+    + bytes(column_def_prepare_pkt)
+    + bytes(MySQLServerPacket(sequence_id=3) / MySQLEOFPacket(warnings=0, status_flags=0x0002))
+)
+stmt_prepare_columns_only_stream = MySQLServer(stmt_prepare_columns_only_raw)
+assert len(stmt_prepare_columns_only_stream.contents) == 3
+assert isinstance(stmt_prepare_columns_only_stream.contents[0].payload, MySQLStmtPrepareOK)
+assert isinstance(stmt_prepare_columns_only_stream.contents[1].payload, MySQLColumnDefinition41)
+assert isinstance(stmt_prepare_columns_only_stream.contents[2].payload, MySQLEOFPacket)
+
+stmt_prepare_err_raw = (
+    bytes(MySQLServerPacket(sequence_id=1) / MySQLStmtPrepareOK(statement_id=3, num_columns=0, num_params=1, warning_count=0))
+    + bytes(param_def_1_pkt)
+    + bytes(MySQLServerPacket(sequence_id=3) / MySQLEOFPacket(warnings=0, status_flags=0x0002))
+    + bytes(MySQLServerPacket(sequence_id=4) / MySQLErrPacket(error_code=1243, sql_state=b"HY000", error_message=b"unknown statement"))
+)
+stmt_prepare_err_stream = MySQLServer(stmt_prepare_err_raw)
+assert len(stmt_prepare_err_stream.contents) == 4
+assert isinstance(stmt_prepare_err_stream.contents[0].payload, MySQLStmtPrepareOK)
+assert isinstance(stmt_prepare_err_stream.contents[1].payload, MySQLColumnDefinition41)
+assert isinstance(stmt_prepare_err_stream.contents[2].payload, MySQLEOFPacket)
+assert isinstance(stmt_prepare_err_stream.contents[3].payload, MySQLErrPacket)
+
+= stream completeness and reassembly
+
+assert MySQLClient.tcp_reassemble(b"\x01\x00\x00", {}, None) is None
+assert isinstance(MySQLClient.tcp_reassemble(b"\x01\x00\x00\x00\x0e", {}, None), MySQLClient)
+assert MySQLClient.tcp_reassemble(b"\x05\x00\x00\x00abc", {}, None) is None
+assert MySQLServer.tcp_reassemble(b"\x01\x00\x00", {}, None) is None
+assert isinstance(MySQLServer.tcp_reassemble(b"\x01\x00\x00\x00\x0e", {}, None), MySQLServer)
+assert MySQLServer.tcp_reassemble(b"\x05\x00\x00\x00abc", {}, None) is None
