@@ -1,0 +1,152 @@
+% Regression tests for CoAPSocket
+
++ Configuration
+~ conf
+
+= Imports
+from scapy.contrib.coap_socket import *
+
+= Redirect logging
+import logging
+from scapy.error import log_runtime
+
+from io import StringIO
+
+log_stream = StringIO()
+handler = logging.StreamHandler(log_stream)
+log_runtime.addHandler(handler)
+log_coap_sock.addHandler(handler)
+
++ Testing client -> server interactions
+
+= Setup dummy resources
+
+responses = [b'dummy response', b'delayed response']
+
+class DummyResource(CoAPResource):
+    def get(self, payload, options, token, sa_ll):
+        return {"type": ACK, "code": CONTENT_205, "options": [(CONTENT_FORMAT, CF_TEXT_PLAIN)], "payload": responses[0]}
+
+
+class DelayedResource(CoAPResource):
+    def __init__(self, url):
+        CoAPResource.__init__(self, url=url)
+        self.delayed_tokens = []
+    def delayed_message(self):
+        token, address = self.delayed_tokens.pop(0)
+        pkt = CoAPSocket.make_delayed_resp_packet(token, [(CONTENT_FORMAT, CF_TEXT_PLAIN)], responses[1])
+        self._send_separate_response(pkt, address)
+    def get(self, payload, options, token, sa_ll):
+        # We know that this can take a while, so we return an empty ACK now and wait for whatever resource to be available.
+        TimeoutScheduler.schedule(1, self.delayed_message)
+        self.delayed_tokens.append((token, sa_ll))
+        return CoAPSocket.empty_ack_params()
+
+lst_resources = [DummyResource("/dummy"), DelayedResource("delayed")]
+
+= Send and receive package [.well-known/core]
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri=".well-known/core", payload=b"")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.payload.load == b'</dummy>;ct=0,</delayed>;ct=0'
+    assert res.type == ACK
+    assert res.code == CONTENT_205
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= Send and receive package [dummy]
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri="dummy", payload=b"")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.payload.load == responses[0]
+    assert res.type == ACK
+    assert res.code == CONTENT_205
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= Send and receive package [/dummy]
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri="/dummy", payload=b"")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.payload.load == responses[0]
+    assert res.type == ACK
+    assert res.code == CONTENT_205
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= Incorrect endpoint [dummy/]
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri="dummy/", payload=b"")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.type == ACK
+    assert res.code == NOT_FOUND_404
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= Invalid method
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(method=PUT, uri="dummy", payload=b"a payload")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.type == ACK
+    assert res.code == NOT_ALLOWED_405
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= Retransmission
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    coap_server.impl._enable_debug = True
+    req = CoAPSocket.make_coap_req_packet(uri="/dummy", payload=b"")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.payload.load == responses[0]
+    assert res.type == ACK
+    assert res.code == CONTENT_205
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= Delayed response
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri="/delayed", payload=b"")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.payload.load == responses[1]
+    assert res.type == CON
+    assert res.code == CONTENT_205
+    # assert res.msg_id == req.msg_id - This assert doesn't make sense because it will send with another msg_id
+    assert res.token == req.token
+    assert res.payload.load == responses[1]
+
+= SR1
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri="/dummy", payload=b"")
+    res = coap_client.sr1(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    assert res.payload.load == responses[0]
+    assert res.type == ACK
+    assert res.code == CONTENT_205
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= SR
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    pkt = CoAPSocket.make_coap_req_packet(uri="/dummy", payload=b"")
+    ans, _ = coap_client.sr(IP(dst="127.0.0.1")/UDP(dport=5683)/pkt)
+    for _, rcv in ans:
+        assert rcv.payload.load == responses[0]
+        assert rcv.type == ACK
+        assert rcv.code == CONTENT_205
+        assert rcv.msg_id == pkt.msg_id
+        assert rcv.token == pkt.token
