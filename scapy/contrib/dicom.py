@@ -97,6 +97,7 @@ __all__ = [
     # SOP Class UIDs (PS3.4)
     "SOP_CLASS_NAMES",
     "VERIFICATION_SOP_CLASS_UID", "CT_IMAGE_STORAGE_SOP_CLASS_UID",
+    "MR_IMAGE_STORAGE_SOP_CLASS_UID", "SECONDARY_CAPTURE_SOP_CLASS_UID",
     "PATIENT_ROOT_QR_FIND_SOP_CLASS_UID",
     "PATIENT_ROOT_QR_MOVE_SOP_CLASS_UID",
     "PATIENT_ROOT_QR_GET_SOP_CLASS_UID",
@@ -232,6 +233,8 @@ SMPTE_ST_2110_30_PCM_AUDIO_UID = "1.2.840.10008.1.2.7.3"
 # SOP Class UIDs (PS3.4)
 VERIFICATION_SOP_CLASS_UID = "1.2.840.10008.1.1"
 CT_IMAGE_STORAGE_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.1.2"
+MR_IMAGE_STORAGE_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.1.4"
+SECONDARY_CAPTURE_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.1.7"
 PATIENT_ROOT_QR_FIND_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.2.1.1"
 PATIENT_ROOT_QR_MOVE_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.2.1.2"
 PATIENT_ROOT_QR_GET_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.2.1.3"
@@ -505,7 +508,7 @@ class DICOMElementField(Field[bytes, bytes]):
         if len(s) < 8 + length:
             raise Scapy_Exception(
                 "Not enough bytes to decode DICOM element value: "
-                f"expected {length} bytes, only {len(s) - 8} available"
+                "expected %d bytes, only %d available" % (length, len(s) - 8)
             )
         value = s[8:8 + length]
         return s[8 + length:], value
@@ -1479,7 +1482,7 @@ class C_GET_RSP(DIMSEPacket):
 
 
 class C_MOVE_RQ(DIMSEPacket):
-    """Move Destination (0000,0600) must precede Priority (0000,0700) per Section 6.3.1."""
+    """Move Destination (0000,0600) precedes Priority (0000,0700) per §6.3.1."""
     name = "C-MOVE-RQ"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid",
