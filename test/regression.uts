@@ -32,7 +32,7 @@ class FakeModule2(object):
     __version__ = "5.143.3.12"
 
 class FakeModule3(object):
-    __version__ = "v2.4.2.dev42"
+    __version__ = "v2.4.2.post42"
 
 from scapy.config import _version_checker
 
@@ -67,7 +67,7 @@ with mock.patch('scapy.subprocess.Popen', return_value=b):
         except ValueError:
             pass
 
-assert GitModuleScapy.__version__ == '2.4.5rc1.dev261'
+assert GitModuleScapy.__version__ == '2.4.5rc1.post261'
 assert _version_checker(GitModuleScapy, (2, 4, 5))
 
 = List layers
@@ -615,6 +615,71 @@ c = pickle.loads(b)
 
 assert c[IP].dst == "192.168.0.1"
 assert raw(c) == raw(a)
+
+= Pickle preserves field values, payload and metadata
+
+import pickle
+
+p = IP(src='1.2.3.4', dst='5.6.7.8')/TCP(sport=1234, dport=80, flags='S')
+p.time = 12345.0
+p.sent_time = 12346.0
+p.direction = 1
+p.sniffed_on = 'eth0'
+p.wirelen = 100
+p.comment = b'test comment'
+p2 = pickle.loads(pickle.dumps(p))
+assert p2[IP].src == '1.2.3.4'
+assert p2[IP].dst == '5.6.7.8'
+assert p2[TCP].sport == 1234
+assert p2[TCP].dport == 80
+assert p2[TCP].flags == 'S'
+assert p2.time == 12345.0
+assert p2.sent_time == 12346.0
+assert p2.direction == 1
+assert p2.sniffed_on == 'eth0'
+assert p2.wirelen == 100
+assert p2.comment == b'test comment'
+assert raw(p2) == raw(p)
+
+= Pickle a bare packet without payload
+
+import pickle
+
+p = IP(src='10.0.0.1')
+p2 = pickle.loads(pickle.dumps(p))
+assert p2.src == '10.0.0.1'
+assert raw(p2) == raw(p)
+
+= Pickle preserves custom __slots__ from subclasses
+
+import pickle
+import scapy.packet as _pkt_mod
+
+class _PickleTestPacket(Packet):
+    __slots__ = ["custom_id", "custom_tag"]
+    name = "PickleTestPacket"
+    fields_desc = [ByteField("val", 0)]
+
+# Make the class discoverable by pickle
+_pkt_mod._PickleTestPacket = _PickleTestPacket
+_PickleTestPacket.__module__ = 'scapy.packet'
+
+p = _PickleTestPacket(val=42)
+p.custom_id = 0x123
+p.custom_tag = "hello"
+p2 = pickle.loads(pickle.dumps(p))
+assert p2.val == 42
+assert p2.custom_id == 0x123
+assert p2.custom_tag == "hello"
+
+# Slots not explicitly set are not serialized
+p3 = _PickleTestPacket(val=7)
+assert not hasattr(p3, 'custom_id')
+p4 = pickle.loads(pickle.dumps(p3))
+assert p4.val == 7
+assert not hasattr(p4, 'custom_id')
+
+del _pkt_mod._PickleTestPacket
 
 = Usage test
 
@@ -4776,6 +4841,45 @@ assert pl[0].sniffed_on == "iface"
 assert pl[0].wirelen == 1
 assert pl[0][Ether].src == '00:11:22:33:44:55'
 assert pl[1][Ether].dst == '00:22:33:44:55:66'
+
+= __setstate__ accepts legacy tuple state (pickle backward compatibility)
+
+legacy = Ether(src='00:01:02:03:04:05', dst='00:06:07:08:09:0a')/Raw(b'legacy')
+legacy.__setstate__((
+    EDecimal("42.5"),
+    EDecimal("43.5"),
+    1,
+    "legacy0",
+    128,
+    b"legacy-comment",
+))
+assert legacy.time == 42.5
+assert legacy.sent_time == 43.5
+assert legacy.direction == 1
+assert legacy.sniffed_on == "legacy0"
+assert legacy.wirelen == 128
+assert legacy.comment == b"legacy-comment"
+assert legacy.comments == [b"legacy-comment"]
+
+= pickle roundtrip keeps packet metadata and comments list
+
+meta = Ether(src='10:11:12:13:14:15', dst='20:21:22:23:24:25')/Raw(b'meta')
+meta.time = EDecimal("100.25")
+meta.sent_time = EDecimal("100.75")
+meta.direction = 2
+meta.sniffed_on = "meta0"
+meta.wirelen = 256
+meta.comments = [b"first", b"second"]
+
+meta2 = pickle.loads(pickle.dumps(meta))
+assert bytes(meta2) == bytes(meta)
+assert meta2.time == 100.25
+assert meta2.sent_time == 100.75
+assert meta2.direction == 2
+assert meta2.sniffed_on == "meta0"
+assert meta2.wirelen == 256
+assert meta2.comments == [b"first", b"second"]
+assert meta2.comment == b"first"
 
 = EDecimal
 

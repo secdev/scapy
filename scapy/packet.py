@@ -222,6 +222,7 @@ class Packet(
         Optional[int],
         Optional[bytes],
     ]
+    _PickleStateType = Union[_PickleType, Dict[str, Any]]
 
     @property
     def comment(self):
@@ -243,27 +244,68 @@ class Packet(
         else:
             self.comments = None
 
+    @classmethod
+    def _rebuild_pkt(cls, raw_packet):
+        # type: (Type[Packet], bytes) -> Packet
+        """Helper used by pickle to reconstruct Packet from raw bytes."""
+        return cls(raw_packet)
+
     def __reduce__(self):
-        # type: () -> Tuple[Type[Packet], Tuple[bytes], Packet._PickleType]
+        # type: () -> Tuple[Any, ...]
         """Used by pickling methods"""
-        return (self.__class__, (self.build(),), (
-            self.time,
-            self.sent_time,
-            self.direction,
-            self.sniffed_on,
-            self.wirelen,
-            self.comment
-        ))
+        state = {
+            "pickle_state_version": 2,
+            "time": self.time,
+            "sent_time": self.sent_time,
+            "direction": self.direction,
+            "sniffed_on": self.sniffed_on,
+            "wirelen": self.wirelen,
+            # Keep both keys for compatibility with historical/transition code.
+            "comment": self.comment,
+            "comments": self.comments,
+        }
+        extra_slots = {}
+        for attr in type(self).__all_slots__ - set(Packet.__slots__):
+            if hasattr(self, attr):
+                extra_slots[attr] = getattr(self, attr)
+        if extra_slots:
+            state["extra_slots"] = extra_slots  # type: ignore
+        return (type(self)._rebuild_pkt, (self.build(),), state)
 
     def __setstate__(self, state):
-        # type: (Packet._PickleType) -> Packet
+        # type: (Packet._PickleStateType) -> Packet
         """Rebuild state using pickable methods"""
-        self.time = state[0]
-        self.sent_time = state[1]
-        self.direction = state[2]
-        self.sniffed_on = state[3]
-        self.wirelen = state[4]
-        self.comment = state[5]
+        # Legacy format: tuple produced by older Packet.__reduce__.
+        if isinstance(state, tuple):
+            self.time = state[0]
+            self.sent_time = state[1]
+            self.direction = state[2]
+            self.sniffed_on = state[3]
+            self.wirelen = state[4]
+            self.comment = state[5]
+            return self
+
+        # New format: versioned dict metadata.
+        self.time = state.get("time", self.time)
+        self.sent_time = state.get("sent_time", self.sent_time)
+        self.direction = state.get("direction", self.direction)
+        self.sniffed_on = state.get("sniffed_on", self.sniffed_on)
+        self.wirelen = state.get("wirelen", self.wirelen)
+
+        if "comments" in state:
+            self.comments = state["comments"]
+        elif "comment" in state:
+            self.comment = state["comment"]
+
+        extra_slots = state.get("extra_slots", {})
+        if isinstance(extra_slots, dict):
+            for attr, value in extra_slots.items():
+                # Only restore known subclass slots; ignore stale/unknown entries.
+                if attr in type(self).__all_slots__ and attr not in Packet.__slots__:
+                    try:
+                        setattr(self, attr, value)
+                    except AttributeError:
+                        pass
         return self
 
     def __deepcopy__(self,

@@ -12,4 +12,23 @@ assert pkt[IP].dst == "224.0.0.2" and pkt[UDP].sport == pkt[UDP].dport == 1985
 assert pkt[HSRP].opcode == 0 and pkt[HSRP].state == 16
 assert pkt[HSRPmd5].type == 4 and pkt[HSRPmd5].sourceip == defaddr
 
-
+= HSRP - Advertise build & dissection
+advertise_raw = b"\x00\x03\x00\x01\x00\x0e\x02\x00\x00\x00\x00\x01o\x00\x00\x00"
+pkt = HSRP(advertise_raw)
+assert isinstance(pkt, HSRPAdvertise)
+assert pkt.opcode == 3
+assert pkt.type == 1 and pkt.length == 14
+assert pkt.state == 2 and pkt.reserved1 == 0
+assert pkt.activegroups == 0 and pkt.passivegroups == 1
+assert pkt.reserved2 == 0x6f000000
+assert raw(
+    HSRPAdvertise(
+        type=1,
+        length=14,
+        state=2,
+        reserved1=0,
+        activegroups=0,
+        passivegroups=1,
+        reserved2=0x6f000000,
+    )
+) == advertise_raw

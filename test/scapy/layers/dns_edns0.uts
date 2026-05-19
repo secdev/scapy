@@ -212,3 +212,32 @@ for opt_class in EDNS0OPT_DISPATCHER.values():
     p = DNSRROPT(raw(DNSRROPT(rdata=[EDNS0TLV(), opt_class(), opt_class()])))
     assert len(p.rdata) == 3
     assert all(Raw not in opt for opt in p.rdata)
+
+
++ EDNS0 - Owner
+
+= Dissection
+
+p = EDNS0OWN(b'\x00\x04\x00\x08\x00\x9b\x11"3DUf')
+assert p.optcode == 4
+assert p.optlen == 8
+assert p.v == 0
+assert p.s == 155
+assert p.primary_mac == '11:22:33:44:55:66'
+
+p = EDNS0OWN(b'\x00\x04\x00\x0e\x00\x9b\x11"3DUffUD3"\x11')
+assert p.optcode == 4
+assert p.optlen == 14
+assert p.v == 0
+assert p.s == 155
+assert p.primary_mac == '11:22:33:44:55:66'
+assert p.wakeup_mac == '66:55:44:33:22:11'
+
+p = EDNS0OWN(b'\x00\x04\x00\x12\x00\x9b\x11"3DUffUD3"\x11abcd')
+assert p.optcode == 4
+assert p.optlen == 18
+assert p.v == 0
+assert p.s == 155
+assert p.primary_mac == '11:22:33:44:55:66'
+assert p.wakeup_mac == '66:55:44:33:22:11'
+assert p.password == b'abcd'

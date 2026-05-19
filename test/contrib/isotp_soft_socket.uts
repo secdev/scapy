@@ -10,7 +10,7 @@ from io import BytesIO
 from scapy.layers.can import *
 from scapy.contrib.isotp import *
 from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
-from test.testsocket import TestSocket, SlowTestSocket, cleanup_testsockets
+from test.testsocket import TestSocket, SlowTestSocket, USBTestSocket, cleanup_testsockets
 with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
     exec(f.read())
 
@@ -1658,7 +1658,1274 @@ assert result is not None, "MF response not received (slcan, can_filters, thread
 assert result.data == expected
 
 
-+ Cleanup
++ ISOTP socket reuse tests (TimeoutScheduler race fix verification)
+# These tests verify the fix for a race condition in TimeoutScheduler
+# that caused sr1() timeouts when reusing CAN adapters across multiple
+# ISOTP socket open/close cycles (Python 3.12+ on Windows with slcan/candle).
+#
+# The root cause was a race window in _task(): between _peek_next()
+# returning None (GRACE expired) and the `return` statement, schedule()
+# could see _thread as not-None and skip starting a new thread.  The old
+# thread then died, orphaning the newly pushed handles.
+#
+# The fix: _task() now holds _mutex when deciding to die, atomically
+# checking _handles one more time.  If schedule() pushed a new handle,
+# _task() sees it and stays alive instead of dying.
+
+= TimeoutScheduler race fix: schedule() during GRACE-expiry is handled
+
+# Verifies the fix for the race condition where schedule() could run
+# while _task() was about to die after GRACE expiration.
+#
+# The fix: _task() now holds _mutex when deciding to die and checks
+# _handles one more time.  If schedule() pushed a new handle while
+# the thread was in the GRACE countdown, _task() sees it and stays
+# alive instead of dying.
+#
+# This test exercises the real (fixed) code path:
+# 1. Schedule a handle, let it fire, clear all handles
+# 2. Wait for GRACE to expire (thread enters shutdown path)
+# 3. Schedule a new handle — with the fix, the thread stays alive
+#    or schedule() starts a fresh thread
+# 4. Assert the callback fires
+
+import time as _time
+from threading import Thread as _Thread, Event as _Event
+
+# Clean slate
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+callback_fired = _Event()
+
+# Schedule a dummy handle to start the thread, let it fire
+TimeoutScheduler.schedule(0.001, lambda: None)
+_time.sleep(0.02)
+# Clear all handles — thread enters GRACE countdown
+TimeoutScheduler.clear()
+# Wait past GRACE so thread is in the process of dying or already dead
+_time.sleep(TimeoutScheduler.GRACE + 0.05)
+
+# Now schedule a real callback — with the fix, this must succeed
+TimeoutScheduler.schedule(0.01, callback_fired.set)
+
+# The callback MUST fire — this is the fix verification
+assert callback_fired.wait(timeout=5.0), \
+    "TimeoutScheduler race fix failed: callback did not fire " \
+    "after scheduling during GRACE expiry"
+
+# Cleanup
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= TimeoutScheduler race fix: rapid schedule after close/reopen cycle
+
+# Verifies that rapidly closing and reopening ISOTP sockets doesn't
+# orphan TimeoutScheduler handles.  Schedules handles, cancels them
+# (simulating socket close), then immediately schedules new ones
+# (simulating socket reopen).  All new callbacks must fire.
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+for trial in range(5):
+    fired = _Event()
+    # Simulate socket open: schedule handles
+    h1 = TimeoutScheduler.schedule(0.005, lambda: None)
+    h2 = TimeoutScheduler.schedule(0.005, lambda: None)
+    _time.sleep(0.02)  # let them fire
+    # Simulate socket close: cancel remaining
+    try:
+        h1.cancel()
+    except Exception:
+        pass
+    try:
+        h2.cancel()
+    except Exception:
+        pass
+    # Simulate socket reopen: schedule new handle immediately
+    TimeoutScheduler.schedule(0.01, fired.set)
+    assert fired.wait(timeout=5.0), \
+        "Trial %d: callback did not fire after cancel/reschedule" % trial
+
+# Cleanup
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= TimeoutScheduler race fix: ISOTP close/reopen with GRACE expiry
+
+# End-to-end test: open an ISOTPSoftSocket, close it, wait for GRACE
+# to expire, then open a new one.  With the fix, the second socket's
+# callbacks (can_recv, _send) must be executed by the scheduler.
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+    cans.pair(stim)
+    # Iteration 1: works fine
+    with ISOTPSoftSocket(cans, tx_id=0x7e3, rx_id=0x7eb) as isock:
+        stop = _Event()
+        def ecu_r1(_stim=stim, _stop=stop):
+            while not _stop.is_set():
+                if TestSocket.select([_stim], 0.05):
+                    try:
+                        pkt = _stim.recv()
+                    except Exception:
+                        break
+                    if pkt is not None and hasattr(pkt, 'identifier'):
+                        if pkt.identifier == 0x7e3:
+                            _stim.send(CAN(identifier=0x7eb,
+                                           data=dhex("02 50 03")))
+        t1 = _Thread(target=ecu_r1)
+        t1.start()
+        resp1 = isock.sr1(ISOTP(b'\x10\x03'), timeout=5, verbose=0)
+        stop.set()
+        t1.join(timeout=5)
+    assert resp1 is not None, "Iteration 1 should succeed"
+    # Wait past GRACE so thread fully enters shutdown path
+    _time.sleep(TimeoutScheduler.GRACE + 0.05)
+    # Iteration 2: open a new ISOTPSocket — scheduler must handle it
+    with ISOTPSoftSocket(cans, tx_id=0x7e3, rx_id=0x7eb) as isock2:
+        stop2 = _Event()
+        def ecu_r2(_stim=stim, _stop=stop2):
+            while not _stop.is_set():
+                if TestSocket.select([_stim], 0.05):
+                    try:
+                        pkt = _stim.recv()
+                    except Exception:
+                        break
+                    if pkt is not None and hasattr(pkt, 'identifier'):
+                        if pkt.identifier == 0x7e3:
+                            _stim.send(CAN(identifier=0x7eb,
+                                           data=dhex("02 50 03")))
+        t2 = _Thread(target=ecu_r2)
+        t2.start()
+        resp2 = isock2.sr1(ISOTP(b'\x10\x03'), timeout=5, verbose=0)
+        stop2.set()
+        t2.join(timeout=5)
+    assert resp2 is not None, \
+        "Iteration 2 timed out — TimeoutScheduler race fix failed"
+
+# Cleanup
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= TimeoutScheduler race fix: stress test across GRACE boundaries
+
+# Stress test: rapidly schedule/wait/clear across many iterations to
+# exercise the GRACE-expiry atomic check under real thread scheduling.
+# Each iteration lets the thread die (or nearly die), then schedules
+# a new callback.  All callbacks must fire.
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+_missed = []
+for trial in range(20):
+    fired = _Event()
+    # Schedule and immediately let it fire
+    TimeoutScheduler.schedule(0.001, lambda: None)
+    _time.sleep(0.005)
+    # Clear handles — thread begins GRACE countdown
+    TimeoutScheduler.clear()
+    # Wait approximately GRACE time (sometimes under, sometimes over)
+    # to exercise both the "thread still alive" and "thread dead" paths
+    if trial % 2 == 0:
+        _time.sleep(TimeoutScheduler.GRACE + 0.02)
+    else:
+        _time.sleep(TimeoutScheduler.GRACE * 0.8)
+    # Schedule a new callback — must fire regardless of thread state
+    TimeoutScheduler.schedule(0.01, fired.set)
+    if not fired.wait(timeout=5.0):
+        _missed.append(trial)
+
+assert not _missed, \
+    "Callbacks failed to fire on trials: %s" % _missed
+
+# Cleanup
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= ISOTP socket reuse: both CANSocket and ISOTPSocket recreated each iteration
+
+# Reproduces the user's exact bug pattern:
+#   for m in messages:
+#     with CANSocket() as csock:
+#       with ISOTPSocket(csock) as isock:
+#         resp = isock.sr1(...)
+#
+# On Python 3.12+ on Windows, the 2nd/3rd iteration times out because
+# the TimeoutScheduler thread dies during the close/reopen gap.
+# On Linux, the race window is small so this test exercises the code
+# path without deterministically triggering the race.
+
+def run_isotp_reuse_both_sockets_recreated(num_iterations=3):
+    """Run sr1 in a loop, recreating both sockets each time."""
+    results = []
+    for i in range(num_iterations):
+        with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+            cans.pair(stim)
+            with ISOTPSoftSocket(cans, tx_id=0x7e3, rx_id=0x7eb) as isock:
+                stop = _Event()
+                def ecu_responder(_stim=stim, _stop=stop):
+                    """Echo back a SF response for any received request."""
+                    while not _stop.is_set():
+                        if TestSocket.select([_stim], 0.05):
+                            try:
+                                pkt = _stim.recv()
+                            except Exception:
+                                break
+                            if pkt is not None and hasattr(pkt, 'identifier'):
+                                if pkt.identifier == 0x7e3:
+                                    _stim.send(CAN(identifier=0x7eb,
+                                                   data=dhex("02 50 03")))
+                ecu_thread = _Thread(target=ecu_responder)
+                ecu_thread.start()
+                try:
+                    resp = isock.sr1(ISOTP(b'\x10\x03'), timeout=5, verbose=0)
+                    results.append(resp)
+                finally:
+                    stop.set()
+                    ecu_thread.join(timeout=5)
+        # Brief pause between iterations — on 3.11.9 this works fine,
+        # on 3.12+ the TimeoutScheduler thread may die here
+        _time.sleep(0.05)
+    return results
+
+results = run_isotp_reuse_both_sockets_recreated(3)
+for i, r in enumerate(results):
+    assert r is not None, \
+        "Iteration %d timed out (both sockets recreated)" % (i + 1)
+
+# Cleanup scheduler
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= ISOTP socket reuse: CANSocket kept open, only ISOTPSocket recreated
+
+# Same bug but with the CANSocket kept across iterations.
+# This proves the bug is in the ISOTP/TimeoutScheduler layer,
+# not in the SocketsPool/CANSocket layer.
+
+def run_isotp_reuse_can_socket_kept(num_iterations=3):
+    """Run sr1 in a loop, keeping the CANSocket and recreating ISOTPSocket."""
+    results = []
+    with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+        cans.pair(stim)
+        for i in range(num_iterations):
+            with ISOTPSoftSocket(cans, tx_id=0x7e3, rx_id=0x7eb) as isock:
+                stop = _Event()
+                def ecu_responder(_stim=stim, _stop=stop):
+                    while not _stop.is_set():
+                        if TestSocket.select([_stim], 0.05):
+                            try:
+                                pkt = _stim.recv()
+                            except Exception:
+                                break
+                            if pkt is not None and hasattr(pkt, 'identifier'):
+                                if pkt.identifier == 0x7e3:
+                                    _stim.send(CAN(identifier=0x7eb,
+                                                   data=dhex("02 50 03")))
+                ecu_thread = _Thread(target=ecu_responder)
+                ecu_thread.start()
+                try:
+                    resp = isock.sr1(ISOTP(b'\x10\x03'), timeout=5, verbose=0)
+                    results.append(resp)
+                finally:
+                    stop.set()
+                    ecu_thread.join(timeout=5)
+            # Brief pause — TimeoutScheduler thread may die here
+            _time.sleep(0.05)
+    return results
+
+results = run_isotp_reuse_can_socket_kept(3)
+for i, r in enumerate(results):
+    assert r is not None, \
+        "Iteration %d timed out (CANSocket kept, ISOTPSocket recreated)" % (i + 1)
+
+# Cleanup scheduler
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= ISOTP socket reuse: rapid open/close/reopen without GRACE delay
+
+# Variant where we do NOT wait between iterations.  This tests the case
+# where the TimeoutScheduler thread is still in the GRACE wait when new
+# handles are scheduled.
+
+def run_isotp_reuse_rapid(num_iterations=3):
+    """Run sr1 in a loop with no delay between close and reopen."""
+    results = []
+    with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+        cans.pair(stim)
+        for i in range(num_iterations):
+            with ISOTPSoftSocket(cans, tx_id=0x7e3, rx_id=0x7eb) as isock:
+                stop = _Event()
+                def ecu_responder(_stim=stim, _stop=stop):
+                    while not _stop.is_set():
+                        if TestSocket.select([_stim], 0.05):
+                            try:
+                                pkt = _stim.recv()
+                            except Exception:
+                                break
+                            if pkt is not None and hasattr(pkt, 'identifier'):
+                                if pkt.identifier == 0x7e3:
+                                    _stim.send(CAN(identifier=0x7eb,
+                                                   data=dhex("02 50 03")))
+                ecu_thread = _Thread(target=ecu_responder)
+                ecu_thread.start()
+                try:
+                    resp = isock.sr1(ISOTP(b'\x10\x03'), timeout=5, verbose=0)
+                    results.append(resp)
+                finally:
+                    stop.set()
+                    ecu_thread.join(timeout=5)
+            # NO delay — immediate reopen
+    return results
+
+results = run_isotp_reuse_rapid(3)
+for i, r in enumerate(results):
+    assert r is not None, \
+        "Iteration %d timed out (rapid reopen, no delay)" % (i + 1)
+
+# Cleanup scheduler
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= ISOTP socket reuse: CANSocket recreated with delay past GRACE period
+
+# Variant where we wait longer than GRACE (100ms) between iterations,
+# ensuring the TimeoutScheduler thread has fully died.  schedule() must
+# reliably start a new thread.
+
+def run_isotp_reuse_post_grace(num_iterations=3):
+    """Run sr1 in a loop, waiting past GRACE between iterations."""
+    results = []
+    for i in range(num_iterations):
+        with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+            cans.pair(stim)
+            with ISOTPSoftSocket(cans, tx_id=0x7e3, rx_id=0x7eb) as isock:
+                stop = _Event()
+                def ecu_responder(_stim=stim, _stop=stop):
+                    while not _stop.is_set():
+                        if TestSocket.select([_stim], 0.05):
+                            try:
+                                pkt = _stim.recv()
+                            except Exception:
+                                break
+                            if pkt is not None and hasattr(pkt, 'identifier'):
+                                if pkt.identifier == 0x7e3:
+                                    _stim.send(CAN(identifier=0x7eb,
+                                                   data=dhex("02 50 03")))
+                ecu_thread = _Thread(target=ecu_responder)
+                ecu_thread.start()
+                try:
+                    resp = isock.sr1(ISOTP(b'\x10\x03'), timeout=5, verbose=0)
+                    results.append(resp)
+                finally:
+                    stop.set()
+                    ecu_thread.join(timeout=5)
+        # Wait past GRACE so thread is fully dead
+        _time.sleep(TimeoutScheduler.GRACE + 0.05)
+    return results
+
+results = run_isotp_reuse_post_grace(3)
+for i, r in enumerate(results):
+    assert r is not None, \
+        "Iteration %d timed out (post-GRACE delay)" % (i + 1)
+
+# Cleanup scheduler
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= ISOTP socket reuse: MF (multi-frame) response across iterations
+
+# The original bug report uses UDS 0x1003 (DiagnosticSessionControl)
+# which returns a multi-frame response.  This test verifies that MF
+# responses work across multiple open/close cycles, using the same
+# ECU simulation pattern as the cartesian product tests above.
+
+def run_isotp_mf_reuse(num_iterations=3, keep_can_socket=True):
+    """Run MF sr1 exchange in a loop."""
+    response_data = dhex("620001666c61677b5544535f444154415f524541447d")
+    results = []
+    cans_ctx = None
+    stim_ctx = None
+    if keep_can_socket:
+        cans_ctx = TestSocket(CAN)
+        stim_ctx = TestSocket(CAN)
+        cans_ctx.pair(stim_ctx)
+    for i in range(num_iterations):
+        if not keep_can_socket:
+            cans_ctx = TestSocket(CAN)
+            stim_ctx = TestSocket(CAN)
+            cans_ctx.pair(stim_ctx)
+        cans = cans_ctx
+        stim = stim_ctx
+        with ISOTPSoftSocket(cans, tx_id=0x7e3, rx_id=0x7eb) as isock:
+            fc_received = _Event()
+            stop = _Event()
+            def ecu_mf_responder(_stim=stim, _fc=fc_received, _stop=stop):
+                """Send a multi-frame response after receiving FC."""
+                _time.sleep(0.05)
+                _stim.send(CAN(identifier=0x7eb,
+                               data=dhex("1016620001666c61")))
+                _fc.wait(timeout=10.0)
+                if not _fc.is_set():
+                    return
+                _time.sleep(0.008)
+                _stim.send(CAN(identifier=0x7eb,
+                               data=dhex("21677b5544535f44")))
+                _time.sleep(0.010)
+                _stim.send(CAN(identifier=0x7eb,
+                               data=dhex("224154415f524541")))
+                _time.sleep(0.010)
+                _stim.send(CAN(identifier=0x7eb,
+                               data=dhex("23447d")))
+            with TestSocket(CAN) as ecu_mon:
+                cans.pair(ecu_mon)
+                def fc_watcher(_mon=ecu_mon, _fc=fc_received, _stop=stop):
+                    while not _stop.is_set():
+                        if TestSocket.select([_mon], 0.1):
+                            pkt = _mon.recv()
+                            if pkt is not None and \
+                               pkt.identifier == 0x7e3 and \
+                               len(pkt.data) >= 1 and \
+                               bytes(pkt.data)[0] == 0x30:
+                                _fc.set()
+                                return
+                ecu_thread = _Thread(target=ecu_mf_responder)
+                fc_thread = _Thread(target=fc_watcher)
+                ecu_thread.start()
+                fc_thread.start()
+                try:
+                    resp = isock.sr1(ISOTP(data=dhex("220001")),
+                                     retry=0, timeout=10.0, verbose=0)
+                    results.append(resp)
+                finally:
+                    stop.set()
+                    fc_received.set()
+                    ecu_thread.join(timeout=5)
+                    fc_thread.join(timeout=5)
+                # Unpair ecu_mon before its context manager closes it;
+                # otherwise stim would try to send to a closed pipe
+                # on the next iteration since pair() is bidirectional.
+                try:
+                    cans.paired_sockets.remove(ecu_mon)
+                except ValueError:
+                    pass
+        # Cleanup scheduler between iterations to match real-world
+        # pattern where user code doesn't explicitly manage the scheduler
+        _time.sleep(0.05)
+        if not keep_can_socket:
+            cans_ctx.close()
+            stim_ctx.close()
+    if keep_can_socket:
+        cans_ctx.close()
+        stim_ctx.close()
+    return results, response_data
+
+results, expected = run_isotp_mf_reuse(3, keep_can_socket=True)
+for i, r in enumerate(results):
+    assert r is not None, \
+        "MF iteration %d timed out (CANSocket kept)" % (i + 1)
+    assert r.data == expected, \
+        "MF iteration %d data mismatch (CANSocket kept)" % (i + 1)
+
+# Cleanup scheduler
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= ISOTP socket reuse: MF response, both sockets recreated each iteration
+
+results, expected = run_isotp_mf_reuse(3, keep_can_socket=False)
+for i, r in enumerate(results):
+    assert r is not None, \
+        "MF iteration %d timed out (both recreated)" % (i + 1)
+    assert r.data == expected, \
+        "MF iteration %d data mismatch (both recreated)" % (i + 1)
+
+# Cleanup scheduler
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+
+= Orphan can_recv guard: closed ISOTP socket must not consume bus frames
+
+# Verifies the fix for the orphan-callback bug:
+#   When close() races with can_recv() on the TimeoutScheduler thread,
+#   the old handle can fire one last time after self.closed is set.
+#   Without the guard at the top of can_recv(), the orphan callback
+#   would call select() → multiplex_rx_packets() → recv() and
+#   consume response frames from the shared CAN bus that belong to
+#   the NEXT ISOTPSocket session.  This causes the next sr1() to
+#   time out.
+#
+# This test deterministically reproduces the race:
+# 1. Create an ISOTP socket, get its ISOTPSocketImplementation
+# 2. Close the ISOTP socket (sets impl.closed = True)
+# 3. Inject a response frame on the shared CAN bus
+# 4. Call impl.can_recv() as if it were an orphan callback
+# 5. Assert the CAN bus frame was NOT consumed
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+    cans.pair(stim)
+    isock = ISOTPSoftSocket(cans, tx_id=0x7e3, rx_id=0x7eb)
+    impl = isock.impl
+    # Stop the background callbacks so we control timing
+    _ts = TimeoutScheduler._thread
+    TimeoutScheduler.clear()
+    if _ts is not None:
+        _ts.join(timeout=5)
+    # Close the ISOTP socket (simulates normal close)
+    isock.close()
+    assert impl.closed is True
+    # Now inject a response frame on the CAN bus
+    stim.send(CAN(identifier=0x7eb, data=dhex("02 50 03")))
+    # Simulate the orphan callback firing after close
+    impl.can_recv()
+    # The CAN frame must still be on the bus (not consumed by orphan)
+    assert TestSocket.select([cans], 0.1), \
+        "Frame was consumed by orphan can_recv — not available on bus"
+    pkt = cans.recv()
+    assert pkt is not None, "Frame was consumed by orphan can_recv"
+    assert pkt.identifier == 0x7eb
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= Adapter buffer overflow: shared CANSocket, USB adapter FIFO fills between sessions
+
+# Reproduces the USB adapter hardware buffer overflow bug:
+#
+# Pattern:  with CANSocket(): for msg: with ISOTPSocket():
+#
+# Between close() of one ISOTPSocket and __init__() of the next,
+# nobody calls select() on the CANSocket.  On USB adapters (candle,
+# cantact) the hardware endpoint FIFO is small (32-128 frames).
+# Background CAN traffic fills it while no ISOTP socket is active.
+# When the next ISOTPSocket sends a request, the ECU's response
+# frame arrives but the FIFO is already full → silently dropped.
+# slcan doesn't have this issue because the OS serial buffer is
+# much larger (4096+ bytes).
+#
+# The fix: __init__() drains the adapter buffer via select() before
+# scheduling callbacks, and close() drains again after setting
+# self.closed.  Both drains call multiplex_rx_packets() which
+# moves frames from hardware FIFO to the software rx_queue,
+# freeing space for the ECU's response.
+#
+# This test uses USBTestSocket with a small hw_fifo_size to make
+# the overflow deterministic even without real hardware.
+
+def run_usb_buffer_overflow_test(num_iterations=5, hw_fifo_size=8,
+                                  bg_frames_per_gap=12,
+                                  disable_drain=False):
+    """Run sr1 in a loop with a shared USB-like CANSocket.
+    Between iterations, inject bg_frames_per_gap background frames
+    to fill/overflow the USB adapter's hardware FIFO.
+    If disable_drain is True, re-fill the FIFO after __init__ drains
+    it, reproducing the pre-fix behavior where no drain occurred.
+    """
+    import time as _time
+    from threading import Thread as _Thread, Event as _Event
+    from scapy.layers.can import CAN as _CAN
+    from scapy.contrib.isotp import ISOTP as _ISOTP
+    from scapy.contrib.isotp.isotp_soft_socket import ISOTPSoftSocket as _ISOTPSoftSocket
+    from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler as _TS
+    from test.testsocket import TestSocket as _TestSocket, USBTestSocket as _USBTestSocket
+    _dhex = bytes.fromhex
+    results = []
+    bg_ids = [0x062, 0x024, 0x039, 0x077, 0x098, 0x150]
+    with _USBTestSocket(_CAN, hw_fifo_size=hw_fifo_size) as cans, \
+            _TestSocket(_CAN) as stim:
+        cans.pair(stim)
+        for iteration in range(num_iterations):
+            # Inject background traffic between sessions.
+            # On real hardware this comes from other ECUs on the bus.
+            # The frames go into the USB adapter's hardware FIFO.
+            # If nobody drains it, the FIFO overflows.
+            if iteration > 0:
+                for j in range(bg_frames_per_gap):
+                    bid = bg_ids[j % len(bg_ids)]
+                    stim.send(_CAN(identifier=bid, data=bytes(8)))
+            with _ISOTPSoftSocket(cans, tx_id=0x7e3, rx_id=0x7eb) as isock:
+                if disable_drain and iteration > 0:
+                    # Undo the drain that __init__ performed by
+                    # re-injecting the same amount of background
+                    # frames back into the FIFO.  This simulates
+                    # the old code that didn't drain at all.
+                    for j in range(bg_frames_per_gap):
+                        bid = bg_ids[j % len(bg_ids)]
+                        stim.send(_CAN(identifier=bid, data=bytes(8)))
+                stop = _Event()
+                def ecu_responder(_stim=stim, _stop=stop, _it=iteration):
+                    while not _stop.is_set():
+                        if _TestSocket.select([_stim], 0.05):
+                            try:
+                                pkt = _stim.recv()
+                            except Exception:
+                                break
+                            if pkt is not None and hasattr(pkt, 'identifier'):
+                                if pkt.identifier == 0x7e3:
+                                    _stim.send(_CAN(identifier=0x7eb,
+                                                    data=_dhex("02 50 03")))
+                ecu_thread = _Thread(target=ecu_responder)
+                ecu_thread.start()
+                try:
+                    resp = isock.sr1(_ISOTP(b'\x10\x03'), timeout=2, verbose=0)
+                    results.append(resp)
+                finally:
+                    stop.set()
+                    ecu_thread.join(timeout=5)
+            _time.sleep(0.02)
+        dropped = cans.dropped_count
+    return results, dropped
+
+# Test 1: With the fix (current code), all iterations should succeed.
+# The drains in __init__/close() keep the FIFO from overflowing.
+results, dropped = run_usb_buffer_overflow_test(
+    num_iterations=5, hw_fifo_size=8, bg_frames_per_gap=12,
+    disable_drain=False)
+for i, r in enumerate(results):
+    assert r is not None, \
+        "Iteration %d timed out (USB buffer overflow, drain enabled)" % (i + 1)
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= Adapter buffer overflow: without drain, USB FIFO overflows and responses are lost
+
+# Test 2: Simulate the pre-fix behavior by re-filling the FIFO after
+# __init__ drains it.  This proves that without the drain, the USB
+# adapter FIFO overflows and ECU responses are dropped.
+results, dropped = run_usb_buffer_overflow_test(
+    num_iterations=5, hw_fifo_size=8, bg_frames_per_gap=12,
+    disable_drain=True)
+# With the drain disabled (simulated), at least one iteration should
+# fail due to FIFO overflow.  On real hardware this is the 50-50
+# failure pattern seen with candle/cantact adapters.
+failures = sum(1 for r in results if r is None)
+assert failures > 0 or dropped > 0, \
+    "Expected at least one timeout or FIFO drop when drain is disabled, " \
+    "got %d failures, %d drops" % (failures, dropped)
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+
+= Stress test: hundreds of SF exchanges on persistent ISOTPSoftSocket
+
+# Exercises a single ISOTPSoftSocket for many request-response cycles
+# without closing/reopening.  The socket must reliably dispatch all
+# exchanges via the same TimeoutScheduler callbacks.
+# Uses short timeout (2s) per exchange to surface any timing bugs.
+
+import time as _time
+from threading import Thread as _Thread, Event as _Event
+
+NUM_SF_EXCHANGES = 200
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+    cans.pair(stim)
+    stop = _Event()
+    exchange_count = [0]
+    def sf_ecu(_stim=stim, _stop=stop, _count=exchange_count):
+        """Auto-respond to any SF request with a SF response."""
+        while not _stop.is_set():
+            if TestSocket.select([_stim], 0.05):
+                try:
+                    pkt = _stim.recv()
+                except Exception:
+                    break
+                if pkt is not None and hasattr(pkt, 'identifier'):
+                    if pkt.identifier == 0x7e3:
+                        raw = bytes(pkt.data)
+                        # Echo back the service ID + 0x40
+                        if len(raw) >= 2:
+                            sid = raw[1]
+                            _stim.send(CAN(identifier=0x7eb,
+                                           data=bytes([0x02, sid + 0x40, 0x03])))
+                            _count[0] += 1
+    ecu_thread = _Thread(target=sf_ecu)
+    ecu_thread.start()
+    with ISOTPSoftSocket(cans, tx_id=0x7e3, rx_id=0x7eb) as isock:
+        failures = []
+        for i in range(NUM_SF_EXCHANGES):
+            resp = isock.sr1(ISOTP(b'\x10\x03'), timeout=2, verbose=0)
+            if resp is None:
+                failures.append(i)
+    stop.set()
+    ecu_thread.join(timeout=10)
+
+assert len(failures) == 0, \
+    "SF stress test: %d/%d timed out, first failures: %s" % (
+        len(failures), NUM_SF_EXCHANGES, failures[:10])
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= Stress test: hundreds of MF exchanges on persistent ISOTPSoftSocket
+
+# Same pattern but with multi-frame responses (4 CF).  This exercises
+# the full ISOTP state machine (FF → FC → CF×3) across many cycles
+# on the same socket instance.
+
+NUM_MF_EXCHANGES = 100
+
+def run_mf_stress(num_exchanges):
+    """Run num_exchanges MF request/response cycles on one ISOTPSoftSocket."""
+    expected_data = dhex("620001666c61677b5544535f444154415f524541447d")
+    with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+        cans.pair(stim)
+        stop = _Event()
+        with TestSocket(CAN) as ecu_mon:
+            cans.pair(ecu_mon)
+            def mf_ecu(_stim=stim, _mon=ecu_mon, _stop=stop):
+                """For each request, send an MF response (FF + 3 CF)."""
+                while not _stop.is_set():
+                    if TestSocket.select([_stim], 0.05):
+                        try:
+                            pkt = _stim.recv()
+                        except Exception:
+                            break
+                        if pkt is not None and hasattr(pkt, 'identifier'):
+                            if pkt.identifier == 0x7e3:
+                                # Send FF
+                                _stim.send(CAN(identifier=0x7eb,
+                                               data=dhex("1016620001666c61")))
+                                # Wait for FC from tester
+                                fc_seen = False
+                                deadline = _time.monotonic() + 5.0
+                                while not _stop.is_set() and _time.monotonic() < deadline:
+                                    if TestSocket.select([_mon], 0.05):
+                                        fp = _mon.recv()
+                                        if fp is not None and \
+                                           fp.identifier == 0x7e3 and \
+                                           len(fp.data) >= 1 and \
+                                           bytes(fp.data)[0] == 0x30:
+                                            fc_seen = True
+                                            break
+                                if not fc_seen:
+                                    continue
+                                _time.sleep(0.002)
+                                _stim.send(CAN(identifier=0x7eb,
+                                               data=dhex("21677b5544535f44")))
+                                _time.sleep(0.002)
+                                _stim.send(CAN(identifier=0x7eb,
+                                               data=dhex("224154415f524541")))
+                                _time.sleep(0.002)
+                                _stim.send(CAN(identifier=0x7eb,
+                                               data=dhex("23447d")))
+            ecu_thread = _Thread(target=mf_ecu)
+            ecu_thread.start()
+            with ISOTPSoftSocket(cans, tx_id=0x7e3, rx_id=0x7eb) as isock:
+                failures = []
+                mismatches = []
+                for i in range(num_exchanges):
+                    resp = isock.sr1(ISOTP(data=dhex("220001")),
+                                     retry=0, timeout=5, verbose=0)
+                    if resp is None:
+                        failures.append(i)
+                    elif resp.data != expected_data:
+                        mismatches.append(i)
+            stop.set()
+            ecu_thread.join(timeout=10)
+            # Unpair ecu_mon to avoid stale references
+            try:
+                cans.paired_sockets.remove(ecu_mon)
+            except ValueError:
+                pass
+    return failures, mismatches
+
+failures, mismatches = run_mf_stress(NUM_MF_EXCHANGES)
+assert len(failures) == 0, \
+    "MF stress test: %d/%d timed out, first failures: %s" % (
+        len(failures), NUM_MF_EXCHANGES, failures[:10])
+assert len(mismatches) == 0, \
+    "MF stress test: %d/%d data mismatch, first: %s" % (
+        len(mismatches), NUM_MF_EXCHANGES, mismatches[:10])
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= Stress test: UDS-scanner-style varying service IDs on persistent socket (SF)
+
+# Mimics UDS_ServiceEnumerator: iterates through different service IDs
+# on the SAME ISOTPSoftSocket without closing/reopening.  Each sr1()
+# sends a different UDS service request and the ECU simulator replies
+# with the matching positive response.  This exercises the rx_queue
+# across varying hashret/answers pairs — a late response from service
+# N could confuse service N+1 if state isn't handled properly.
+
+import time as _time
+from threading import Thread as _Thread, Event as _Event
+
+SCAN_RANGE = list(range(0x10, 0x3F))  # 47 services
+NUM_SCAN_CYCLES = 5  # Repeat the scan range 5 times = 235 total exchanges
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+    cans.pair(stim)
+    stop = _Event()
+    def uds_ecu_sf(_stim=stim, _stop=stop):
+        """ECU that responds to each UDS service with positive response."""
+        while not _stop.is_set():
+            if TestSocket.select([_stim], 0.05):
+                try:
+                    pkt = _stim.recv()
+                except Exception:
+                    break
+                if pkt is not None and hasattr(pkt, 'identifier'):
+                    if pkt.identifier == 0x7e0:
+                        raw = bytes(pkt.data)
+                        if len(raw) >= 2:
+                            pci_len = raw[0]
+                            sid = raw[1]
+                            # Positive response: SID + 0x40
+                            resp_sid = (sid + 0x40) & 0xFF
+                            _stim.send(CAN(identifier=0x7e8,
+                                           data=bytes([0x02, resp_sid, 0x00])))
+    ecu_thread = _Thread(target=uds_ecu_sf)
+    ecu_thread.start()
+    with ISOTPSoftSocket(cans, tx_id=0x7e0, rx_id=0x7e8) as isock:
+        failures = []
+        wrong_resp = []
+        total = 0
+        for cycle in range(NUM_SCAN_CYCLES):
+            for sid in SCAN_RANGE:
+                req = ISOTP(data=bytes([sid, 0x00]))
+                resp = isock.sr1(req, timeout=2, verbose=0)
+                if resp is None:
+                    failures.append((cycle, sid, total))
+                elif len(resp.data) < 1 or resp.data[0] != ((sid + 0x40) & 0xFF):
+                    wrong_resp.append((cycle, sid, total, bytes(resp.data)))
+                total += 1
+    stop.set()
+    ecu_thread.join(timeout=10)
+
+assert len(failures) == 0, \
+    "UDS SF scan stress: %d/%d timed out, first: %s" % (
+        len(failures), total, failures[:5])
+assert len(wrong_resp) == 0, \
+    "UDS SF scan stress: %d/%d wrong response, first: %s" % (
+        len(wrong_resp), total, wrong_resp[:5])
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= Stress test: UDS-scanner-style varying service IDs on persistent socket (MF)
+
+# Same pattern but some services return multi-frame responses.
+# Services 0x22 (ReadDataByIdentifier) and 0x19 (ReadDTCInformation)
+# return long MF responses; all others return SF.  This tests the
+# ISOTP state machine transitioning between SF and MF responses across
+# many consecutive sr1() calls on the same socket.
+
+MF_SIDS = {0x22, 0x19}  # Services that return multi-frame responses
+NUM_MF_SCAN_CYCLES = 3
+MF_SCAN_RANGE = [0x10, 0x11, 0x19, 0x22, 0x27, 0x2E, 0x31, 0x3E]
+
+def run_uds_mf_scan_stress(num_cycles, scan_range, mf_sids):
+    """Scan with mixed SF/MF responses on a persistent socket."""
+    mf_payload = dhex("0001AABBCCDD112233445566778899")  # 15 bytes
+    with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+        cans.pair(stim)
+        stop = _Event()
+        with TestSocket(CAN) as ecu_mon:
+            cans.pair(ecu_mon)
+            def uds_ecu_mf(_stim=stim, _mon=ecu_mon, _stop=stop):
+                """ECU with mixed SF/MF responses per service ID."""
+                while not _stop.is_set():
+                    if TestSocket.select([_stim], 0.05):
+                        try:
+                            pkt = _stim.recv()
+                        except Exception:
+                            break
+                        if pkt is None or not hasattr(pkt, 'identifier'):
+                            continue
+                        if pkt.identifier != 0x7e0:
+                            continue
+                        raw = bytes(pkt.data)
+                        if len(raw) < 2:
+                            continue
+                        # Only process Single Frame requests (PCI type 0).
+                        # Ignore FC frames (PCI type 3 = 0x3X) that the
+                        # tester sends back during MF exchanges.
+                        pci_type = (raw[0] >> 4) & 0x0F
+                        if pci_type != 0:
+                            continue
+                        sid = raw[1]
+                        resp_sid = (sid + 0x40) & 0xFF
+                        if sid in mf_sids:
+                            # Multi-frame response: FF + CFs
+                            # Build 16-byte payload: resp_sid + 15 bytes
+                            resp_data = bytes([resp_sid]) + mf_payload
+                            ff_data = bytes([0x10, len(resp_data)]) + resp_data[:6]
+                            _stim.send(CAN(identifier=0x7e8, data=ff_data))
+                            # Wait for FC
+                            fc_seen = False
+                            deadline = _time.monotonic() + 5.0
+                            while not _stop.is_set() and _time.monotonic() < deadline:
+                                if TestSocket.select([_mon], 0.05):
+                                    fp = _mon.recv()
+                                    if fp is not None and \
+                                       fp.identifier == 0x7e0 and \
+                                       len(fp.data) >= 1 and \
+                                       (bytes(fp.data)[0] >> 4) == 3:
+                                        fc_seen = True
+                                        break
+                            if not fc_seen:
+                                continue
+                            _time.sleep(0.002)
+                            cf1 = bytes([0x21]) + resp_data[6:13]
+                            _stim.send(CAN(identifier=0x7e8, data=cf1))
+                            _time.sleep(0.002)
+                            cf2 = bytes([0x22]) + resp_data[13:16]
+                            _stim.send(CAN(identifier=0x7e8, data=cf2))
+                        else:
+                            # Single-frame response
+                            _stim.send(CAN(identifier=0x7e8,
+                                           data=bytes([0x02, resp_sid, 0x00])))
+            ecu_thread = _Thread(target=uds_ecu_mf)
+            ecu_thread.start()
+            with ISOTPSoftSocket(cans, tx_id=0x7e0, rx_id=0x7e8) as isock:
+                failures = []
+                wrong_resp = []
+                total = 0
+                for cycle in range(num_cycles):
+                    for sid in scan_range:
+                        req = ISOTP(data=bytes([sid, 0x00]))
+                        resp = isock.sr1(req, timeout=5, verbose=0)
+                        expected_sid = (sid + 0x40) & 0xFF
+                        if resp is None:
+                            failures.append((cycle, sid, total))
+                        elif len(resp.data) < 1 or resp.data[0] != expected_sid:
+                            wrong_resp.append((cycle, sid, total, bytes(resp.data)))
+                        total += 1
+            stop.set()
+            ecu_thread.join(timeout=10)
+            try:
+                cans.paired_sockets.remove(ecu_mon)
+            except ValueError:
+                pass
+    return failures, wrong_resp, total
+
+failures, wrong_resp, total = run_uds_mf_scan_stress(
+    NUM_MF_SCAN_CYCLES, MF_SCAN_RANGE, MF_SIDS)
+assert len(failures) == 0, \
+    "UDS MF scan stress: %d/%d timed out, first: %s" % (
+        len(failures), total, failures[:5])
+assert len(wrong_resp) == 0, \
+    "UDS MF scan stress: %d/%d wrong response, first: %s" % (
+        len(wrong_resp), total, wrong_resp[:5])
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= Stress test: close/reopen cycles between service groups (scanner reconnect pattern)
+
+# Mimics UDS_Scanner reconnect_handler: after scanning one ECU state,
+# close the ISOTPSoftSocket and create a new one (same CANSocket).
+# This is the pattern that triggers the TimeoutScheduler race and
+# orphan-callback bugs at scale.  Each group does 10 service probes,
+# then close/reopen.
+
+NUM_GROUPS = 20
+PROBES_PER_GROUP = 10
+GROUP_SCAN_RANGE = list(range(0x10, 0x10 + PROBES_PER_GROUP))
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+    cans.pair(stim)
+    stop = _Event()
+    def group_ecu(_stim=stim, _stop=stop):
+        """ECU that responds to any service probe."""
+        while not _stop.is_set():
+            if TestSocket.select([_stim], 0.05):
+                try:
+                    pkt = _stim.recv()
+                except Exception:
+                    break
+                if pkt is not None and hasattr(pkt, 'identifier'):
+                    if pkt.identifier == 0x7e0:
+                        raw = bytes(pkt.data)
+                        if len(raw) >= 2:
+                            sid = raw[1]
+                            resp_sid = (sid + 0x40) & 0xFF
+                            _stim.send(CAN(identifier=0x7e8,
+                                           data=bytes([0x02, resp_sid, 0x00])))
+    ecu_thread = _Thread(target=group_ecu)
+    ecu_thread.start()
+    failures = []
+    total = 0
+    for group in range(NUM_GROUPS):
+        with ISOTPSoftSocket(cans, tx_id=0x7e0, rx_id=0x7e8) as isock:
+            for sid in GROUP_SCAN_RANGE:
+                req = ISOTP(data=bytes([sid, 0x00]))
+                resp = isock.sr1(req, timeout=2, verbose=0)
+                if resp is None:
+                    failures.append((group, sid, total))
+                total += 1
+        # Brief pause between groups — mimics scanner state transition
+        _time.sleep(0.02)
+    stop.set()
+    ecu_thread.join(timeout=10)
+
+assert len(failures) == 0, \
+    "Reconnect stress: %d/%d timed out, first: %s" % (
+        len(failures), total, failures[:10])
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+= Stress test: rapid close/reopen with no delay (worst-case reconnect)
+
+# Same as above but with ZERO delay between groups.  This maximises
+# the race window where the TimeoutScheduler thread may die during
+# close and the next ISOTPSocket.__init__ needs it alive.
+
+NUM_RAPID_GROUPS = 30
+RAPID_PROBES = 5
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+    cans.pair(stim)
+    stop = _Event()
+    def rapid_ecu(_stim=stim, _stop=stop):
+        """ECU for rapid reconnect test."""
+        while not _stop.is_set():
+            if TestSocket.select([_stim], 0.05):
+                try:
+                    pkt = _stim.recv()
+                except Exception:
+                    break
+                if pkt is not None and hasattr(pkt, 'identifier'):
+                    if pkt.identifier == 0x7e0:
+                        raw = bytes(pkt.data)
+                        if len(raw) >= 2:
+                            sid = raw[1]
+                            _stim.send(CAN(identifier=0x7e8,
+                                           data=bytes([0x02, (sid + 0x40) & 0xFF, 0x00])))
+    ecu_thread = _Thread(target=rapid_ecu)
+    ecu_thread.start()
+    failures = []
+    total = 0
+    for group in range(NUM_RAPID_GROUPS):
+        with ISOTPSoftSocket(cans, tx_id=0x7e0, rx_id=0x7e8) as isock:
+            for probe in range(RAPID_PROBES):
+                sid = 0x10 + (probe % 0x30)
+                req = ISOTP(data=bytes([sid, 0x00]))
+                resp = isock.sr1(req, timeout=2, verbose=0)
+                if resp is None:
+                    failures.append((group, sid, total))
+                total += 1
+        # NO delay — immediate close/reopen
+    stop.set()
+    ecu_thread.join(timeout=10)
+
+assert len(failures) == 0, \
+    "Rapid reconnect stress: %d/%d timed out, first: %s" % (
+        len(failures), total, failures[:10])
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+if _ts is not None:
+    _ts.join(timeout=5)
+
+
+= TimeoutScheduler thread death recovery: stale _thread reference must not block new threads
+
+# Simulates the scenario where the TimeoutScheduler thread dies from a
+# BaseException (or any unexpected exit) that leaves _thread as a stale
+# reference.  The schedule() fix detects the dead thread via is_alive()
+# and starts a fresh one, so ISOTP callbacks resume normally.
+
+import time as _time
+from threading import Thread as _Thread, Event as _Event
+
+# Clean slate
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+_ts and _ts.join(timeout=5)
+
+# Schedule a simple callback to get the thread running
+_fired = _Event()
+def _dummy_cb(_e=_fired):
+    _e.set()
+
+TimeoutScheduler.schedule(0, _dummy_cb)
+_fired.wait(timeout=2)
+assert _fired.is_set(), "Initial callback did not fire"
+
+# Wait for the thread to go idle and die (GRACE = 0.1s)
+_time.sleep(0.3)
+
+# Now simulate a stale _thread: set _thread to a dead Thread object.
+# This mimics what would happen if _task() exited without clearing
+# _thread (the bug that the finally block fixes).
+with TimeoutScheduler._mutex:
+    _dead = _Thread(target=lambda: None)
+    _dead.start()
+    _dead.join()
+    assert not _dead.is_alive()
+    TimeoutScheduler._thread = _dead
+
+# schedule() should detect the dead thread and start a new one
+_fired2 = _Event()
+def _recovery_cb(_e=_fired2):
+    _e.set()
+
+TimeoutScheduler.schedule(0, _recovery_cb)
+_fired2.wait(timeout=2)
+assert _fired2.is_set(), \
+    "Recovery callback did not fire — schedule() failed to detect dead thread"
+
+# Verify ISOTP sockets still work after thread recovery
+def run_isotp_after_recovery():
+    with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+        cans.pair(stim)
+        stop = _Event()
+        def recovery_ecu(_stim=stim, _stop=stop):
+            while not _stop.is_set():
+                if TestSocket.select([_stim], 0.05):
+                    try:
+                        pkt = _stim.recv()
+                    except Exception:
+                        break
+                    if pkt is not None and hasattr(pkt, 'identifier'):
+                        if pkt.identifier == 0x7e0:
+                            raw = bytes(pkt.data)
+                            if len(raw) >= 2:
+                                sid = raw[1]
+                                _stim.send(CAN(identifier=0x7e8,
+                                               data=bytes([0x02, (sid + 0x40) & 0xFF, 0x00])))
+        ecu_thread = _Thread(target=recovery_ecu)
+        ecu_thread.start()
+        with ISOTPSoftSocket(cans, tx_id=0x7e0, rx_id=0x7e8) as isock:
+            for sid in [0x10, 0x11, 0x22]:
+                req = ISOTP(data=bytes([sid, 0x00]))
+                resp = isock.sr1(req, timeout=2, verbose=0)
+                assert resp is not None, \
+                    "ISOTP sr1 failed for SID 0x%02x after thread recovery" % sid
+        stop.set()
+        ecu_thread.join(timeout=10)
+
+run_isotp_after_recovery()
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+_ts and _ts.join(timeout=5)
+
+
++ ISOTPSoftSocket Extra Coverage
+
+= ISOTPSocketImplementation.can_send FD padding
+with ISOTPSoftSocket(TestSocket(CAN), fd=True, padding=True) as s:
+    s.impl.can_send(b"\x00"*10) # Should pad to 12
+
+= ISOTPSocketImplementation.on_can_recv identifier mismatch
+with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123) as s:
+    s.impl.on_can_recv(CAN(identifier=0x124, data=b"\x00"))
+    assert s.impl.filter_warning_emitted
+
+= _rx_timer_handler timeout reset
+with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123) as s:
+    s.impl.rx_state = 2 # ISOTP_WAIT_DATA
+    s.impl.rx_start_time = TimeoutScheduler._time()
+    s.impl._rx_timer_handler()
+    assert s.impl.rx_state == 2 # Still waiting due to extension
+
+= _tx_timer_handler edge cases
+with ISOTPSoftSocket(TestSocket(CAN), tx_id=0x123) as s:
+    s.impl.tx_state = 1 # ISOTP_SENDING
+    s.impl.tx_buf = None
+    s.impl._tx_timer_handler()
+    assert s.impl.tx_state == 0 # ISOTP_IDLE
+
+= _recv_fc / _recv_sf / _recv_ff / _recv_cf edge cases
+with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123) as s:
+    # _recv_fc short
+    s.impl.tx_state = 2 # ISOTP_WAIT_FC
+    s.impl._recv_fc(b"\x30\x00")
+    assert s.impl.tx_state == 0
+    # _recv_fc unknown
+    s.impl.tx_state = 2
+    s.impl._recv_fc(b"\x3F\x00\x00")
+    assert s.impl.tx_state == 0
+    # _recv_sf FD
+    s.impl.fd = True
+    s.impl._recv_sf(b"\x00\x01\xAA", 1.23)
+    # _recv_ff short
+    s.impl._recv_ff(b"\x10\x00\x00\x00\x00\x00", 1.23)
+    assert s.impl.rx_state == 0
+    # _recv_ff 32-bit length
+    s.impl._recv_ff(b"\x10\x00\x00\x00\x00\x0A\xAA\xBB\xCC\xDD", 1.23)
+    assert s.impl.rx_len == 10
+    # _recv_cf various
+    s.impl.rx_state = 3  # ISOTP_WAIT_DATA
+    s.impl.rx_ll_dl = 8
+    s.impl._recv_cf(b"\x21\xAA\xBB\xCC\xDD\xEE\xFF\x00\x11") # Too long
+    assert s.impl.rx_state == 3
+    s.impl.rx_sn = 2
+    s.impl._recv_cf(b"\x21\xAA") # Wrong SN
+    assert s.impl.rx_state == 0
+
+= begin_send busy / too much data
+with ISOTPSoftSocket(TestSocket(CAN), tx_id=0x123) as s:
+    s.impl.tx_state = 1
+    s.impl.begin_send(b"data") # Busy
+    s.impl.tx_state = 0
+    s.impl.begin_send(b"A" * 5000) # Too much data
+
+
+= Delete testsockets
+
+_ts = TimeoutScheduler._thread
+TimeoutScheduler.clear()
+_ts and _ts.join(timeout=5)
 
 = Delete testsockets
 

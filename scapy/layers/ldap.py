@@ -61,6 +61,7 @@ from scapy.asn1fields import (
 from scapy.asn1packet import ASN1_Packet
 from scapy.config import conf
 from scapy.compat import StrEnum
+from scapy.consts import WINDOWS
 from scapy.error import log_runtime
 from scapy.fields import (
     FieldLenField,
@@ -1718,7 +1719,7 @@ class LDAP_Exception(RuntimeError):
     def __init__(self, *args, **kwargs):
         resp = kwargs.pop("resp", None)
         if resp:
-            self.resultCode = resp.protocolOp.resultCode
+            self.resultCode = resp.protocolOp.sprintf("%resultCode%")
             self.diagnosticMessage = resp.protocolOp.diagnosticMessage.val.rstrip(
                 b"\x00"
             ).decode(errors="backslashreplace")
@@ -2013,7 +2014,17 @@ class LDAP_Client(object):
             from scapy.layers.spnego import SPNEGOSSP
 
             if not isinstance(self.ssp, SPNEGOSSP):
-                raise ValueError("Only SPNEGOSSP is supported with SASL_GSS_SPNEGO !")
+                if WINDOWS:
+                    from scapy.arch.windows.sspi import WinSSP
+
+                    if not isinstance(self.ssp, WinSSP):
+                        raise ValueError(
+                            "Only SPNEGOSSP is supported with SASL_GSS_SPNEGO !"
+                        )
+                else:
+                    raise ValueError(
+                        "Only SPNEGOSSP is supported with SASL_GSS_SPNEGO !"
+                    )
         elif mech == LDAP_BIND_MECHS.SICILY:
             from scapy.layers.ntlm import NTLMSSP
 
@@ -2136,7 +2147,8 @@ class LDAP_Client(object):
             )
             if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
                 raise RuntimeError(
-                    "%s: GSS_Init_sec_context failed !" % self.mech.name,
+                    "%s: GSS_Init_sec_context failed with %s !"
+                    % (self.mech.name, repr(status)),
                 )
             while token:
                 resp = self.sr1(
@@ -2154,9 +2166,11 @@ class LDAP_Client(object):
                         resp=resp,
                     )
                 val = resp.protocolOp.serverSaslCredsData
-                if not val:
-                    status = resp.protocolOp.resultCode
-                    break
+                if resp.protocolOp.resultCode not in [0, 14]:
+                    raise LDAP_Exception(
+                        "SASL authentication failed !",
+                        resp=resp,
+                    )
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                     self.sspcontext,
                     input_token=GSSAPI_BLOB(val),
@@ -2166,9 +2180,9 @@ class LDAP_Client(object):
         else:
             status = GSS_S_COMPLETE
         if status != GSS_S_COMPLETE:
-            raise LDAP_Exception(
-                "%s bind failed !" % self.mech.name,
-                resp=resp,
+            raise RuntimeError(
+                "%s: GSS_Init_sec_context failed with %s !"
+                % (self.mech.name, repr(status)),
             )
         elif self.mech == LDAP_BIND_MECHS.SASL_GSSAPI:
             # GSSAPI has 2 extra exchanges

@@ -309,6 +309,7 @@ class run_httpserver:
             iface=conf.loopback_name,
             mech=self.mech, ssp=self.ssp,
             bg=True,
+            debug=4,
             **self.kwargs,
         )
         # wait for it to start

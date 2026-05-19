@@ -2594,7 +2594,7 @@ class Ticketer:
 
     def request_tgt(
         self,
-        upn,
+        upn=None,
         ip=None,
         key=None,
         password=None,

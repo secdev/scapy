@@ -105,6 +105,7 @@ class RegType(IntEnum):
 
     # These constants are used to specify the type of a registry value.
 
+    REG_NONE = 0  # No defined value type
     REG_SZ = 1  # Unicode string
     REG_EXPAND_SZ = 2  # Unicode string with environment variable expansion
     REG_BINARY = 3  # Binary data
@@ -194,7 +195,7 @@ class RegEntry:
         ]:
             if not isinstance(reg_data, str):
                 raise ValueError("Data must be a 'str' for this type.")
-        elif reg_type == RegType.REG_BINARY:
+        elif reg_type in [RegType.REG_NONE, RegType.REG_BINARY]:
             if not isinstance(reg_data, bytes):
                 raise ValueError("Data must be a 'bytes' for this type.")
         elif reg_type in [
@@ -227,7 +228,7 @@ class RegEntry:
             RegType.REG_LINK,
         ]:
             return self.reg_data.encode("utf-16le")
-        elif self.reg_type == RegType.REG_BINARY:
+        elif self.reg_type in [RegType.REG_NONE, RegType.REG_BINARY]:
             return self.reg_data
         elif self.reg_type in [
             RegType.REG_DWORD,
@@ -257,7 +258,7 @@ class RegEntry:
             RegType.REG_LINK,
         ]:
             reg_data = data.decode("utf-16le")
-        elif reg_type == RegType.REG_BINARY:
+        elif reg_type in [RegType.REG_NONE, RegType.REG_BINARY]:
             reg_data = data
         elif reg_type in [
             RegType.REG_DWORD,
@@ -292,7 +293,7 @@ class RegEntry:
             RegType.REG_LINK,
         ]:
             reg_data = data
-        elif reg_type == RegType.REG_BINARY:
+        elif reg_type in [RegType.REG_NONE, RegType.REG_BINARY]:
             reg_data = bytes.fromhex(data)
         elif reg_type in [
             RegType.REG_DWORD,
@@ -499,6 +500,26 @@ class RRP_Client(DCERPC_Client):
             )
             raise ValueError(response.status)
 
+        if response.lpClassOut.Length > 2:
+            # There is a Class info stored. We need to
+            # get it by specifying the proper MaximumLength.
+            # By default the size is "2".
+            response = self.sr1_req(
+                BaseRegQueryInfoKey_Request(
+                    hKey=key_handle,
+                    lpClassIn=RPC_UNICODE_STRING(
+                        MaximumLength=response.lpClassOut.Length
+                    ),
+                ),
+                timeout=timeout,
+            )
+
+        if response.status != 0:
+            log_runtime.error(
+                "Got status %s while querying key info", hex(response.status)
+            )
+            raise ValueError(response.status)
+
         return response
 
     def get_key_security(
@@ -588,7 +609,6 @@ class RRP_Client(DCERPC_Client):
 
             index += 1
             results.append(response.lpNameOut.valueof("Buffer")[:-1].decode())
-
         return results
 
     def enum_values(
