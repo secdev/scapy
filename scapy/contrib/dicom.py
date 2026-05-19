@@ -8,29 +8,9 @@
 
 """
 DICOM (Digital Imaging and Communications in Medicine) Protocol
-
-Upper Layer PDUs (PS3.8), DIMSE-C/N commands (PS3.7), association
-negotiation sub-items (PS3.7 D.3.3), and Transfer Syntax constants (PS3.5).
-
-The DICOM protocol stack::
-
-    +---------------------------+
-    |  DIMSE Messages (PS3.7)   |  C-ECHO, C-STORE, N-GET, ...
-    +---------------------------+
-    |  P-DATA-TF PDV payload    |
-    +---------------------------+
-    |  Upper Layer PDUs (PS3.8) |  A-ASSOCIATE, P-DATA-TF, A-RELEASE
-    +---------------------------+
-    |          TCP              |
-    +---------------------------+
-
-DIMSE Command Sets are always Implicit VR Little Endian (PS3.7 §9.3);
-the negotiated Transfer Syntax applies only to Data Sets in P-DATA-TF PDVs.
-
-References:
-    https://dicom.nema.org/medical/dicom/current/output/html/part05.html
-    https://dicom.nema.org/medical/dicom/current/output/html/part07.html
-    https://dicom.nema.org/medical/dicom/current/output/html/part08.html
+Upper Layer PDUs (PS3.8), DIMSE commands (PS3.7), and Transfer Syntax constants
+(PS3.5). DIMSE Command Sets always use Implicit VR Little Endian (PS3.7 §9.3).
+https://dicom.nema.org/medical/dicom/current/output/html/part08.html
 """
 
 import logging
@@ -61,31 +41,46 @@ from scapy.supersocket import StreamSocket
 from scapy.volatile import RandShort, RandInt, RandString
 
 __all__ = [
-    # Constants
-    "DICOM_PORT", "DICOM_PORT_ALT", "APP_CONTEXT_UID",
-    # Transfer Syntax UIDs (PS3.5 Annex A)
-    "DEFAULT_TRANSFER_SYNTAX_UID", "IMPLICIT_VR_LITTLE_ENDIAN_UID",
+    "DICOM_PORT",
+    "DICOM_PORT_ALT",
+    "APP_CONTEXT_UID",
+    "DEFAULT_TRANSFER_SYNTAX_UID",
+    "IMPLICIT_VR_LITTLE_ENDIAN_UID",
     "EXPLICIT_VR_LITTLE_ENDIAN_UID",
     "ENCAPSULATED_UNCOMPRESSED_EXPLICIT_VR_LITTLE_ENDIAN_UID",
     "DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN_UID",
     "EXPLICIT_VR_BIG_ENDIAN_UID",
-    "JPEG_BASELINE_UID", "JPEG_EXTENDED_UID", "JPEG_LOSSLESS_UID",
-    "JPEG_LS_LOSSLESS_UID", "JPEG_LS_LOSSY_UID",
-    "JPEG_2000_LOSSLESS_UID", "JPEG_2000_UID",
-    "JPEG_2000_PART2_MC_LOSSLESS_UID", "JPEG_2000_PART2_MC_UID",
-    "MPEG2_MPML_UID", "MPEG2_MPHL_UID",
+    "JPEG_BASELINE_UID",
+    "JPEG_EXTENDED_UID",
+    "JPEG_LOSSLESS_UID",
+    "JPEG_LS_LOSSLESS_UID",
+    "JPEG_LS_LOSSY_UID",
+    "JPEG_2000_LOSSLESS_UID",
+    "JPEG_2000_UID",
+    "JPEG_2000_PART2_MC_LOSSLESS_UID",
+    "JPEG_2000_PART2_MC_UID",
+    "MPEG2_MPML_UID",
+    "MPEG2_MPHL_UID",
     "MPEG4_AVC_H264_HP_LEVEL_4_1_UID",
     "MPEG4_AVC_H264_BD_COMPATIBLE_HP_LEVEL_4_1_UID",
     "MPEG4_AVC_H264_HP_LEVEL_4_2_2D_UID",
     "MPEG4_AVC_H264_HP_LEVEL_4_2_3D_UID",
     "MPEG4_AVC_H264_STEREO_HP_LEVEL_2_UID",
-    "HEVC_H265_MP_LEVEL_5_1_UID", "HEVC_H265_10P_LEVEL_5_1_UID",
-    "JPEGXL_LOSSLESS_UID", "JPEGXL_RECOMPRESSION_UID", "JPEGXL_UID",
+    "HEVC_H265_MP_LEVEL_5_1_UID",
+    "HEVC_H265_10P_LEVEL_5_1_UID",
+    "JPEGXL_LOSSLESS_UID",
+    "JPEGXL_RECOMPRESSION_UID",
+    "JPEGXL_UID",
     "RLE_LOSSLESS_UID",
-    "HTJP2K_LOSSLESS_UID", "HTJP2K_LOSSLESS_RPCL_UID", "HTJP2K_UID",
-    "JPIP_REFERENCED_UID", "JPIP_REFERENCED_DEFLATE_UID",
-    "JPIP_HTJ2K_REFERENCED_UID", "JPIP_HTJ2K_REFERENCED_DEFLATE_UID",
-    "MPEG2_MPML_FRAG_UID", "MPEG2_MPHL_FRAG_UID",
+    "HTJP2K_LOSSLESS_UID",
+    "HTJP2K_LOSSLESS_RPCL_UID",
+    "HTJP2K_UID",
+    "JPIP_REFERENCED_UID",
+    "JPIP_REFERENCED_DEFLATE_UID",
+    "JPIP_HTJ2K_REFERENCED_UID",
+    "JPIP_HTJ2K_REFERENCED_DEFLATE_UID",
+    "MPEG2_MPML_FRAG_UID",
+    "MPEG2_MPHL_FRAG_UID",
     "MPEG4_AVC_H264_HP_LEVEL_4_1_FRAG_UID",
     "MPEG4_AVC_H264_BD_COMPATIBLE_HP_LEVEL_4_1_FRAG_UID",
     "MPEG4_AVC_H264_HP_LEVEL_4_2_2D_FRAG_UID",
@@ -94,67 +89,110 @@ __all__ = [
     "SMPTE_ST_2110_20_UNCOMPRESSED_PROGRESSIVE_UID",
     "SMPTE_ST_2110_20_UNCOMPRESSED_INTERLACED_UID",
     "SMPTE_ST_2110_30_PCM_AUDIO_UID",
-    # SOP Class UIDs (PS3.4)
     "SOP_CLASS_NAMES",
-    "VERIFICATION_SOP_CLASS_UID", "CT_IMAGE_STORAGE_SOP_CLASS_UID",
+    "VERIFICATION_SOP_CLASS_UID",
+    "CT_IMAGE_STORAGE_SOP_CLASS_UID",
+    "MR_IMAGE_STORAGE_SOP_CLASS_UID",
+    "SECONDARY_CAPTURE_SOP_CLASS_UID",
     "PATIENT_ROOT_QR_FIND_SOP_CLASS_UID",
     "PATIENT_ROOT_QR_MOVE_SOP_CLASS_UID",
     "PATIENT_ROOT_QR_GET_SOP_CLASS_UID",
     "STUDY_ROOT_QR_FIND_SOP_CLASS_UID",
     "STUDY_ROOT_QR_MOVE_SOP_CLASS_UID",
     "STUDY_ROOT_QR_GET_SOP_CLASS_UID",
-    # PDU Classes (PS3.8 Section 9.3)
-    "DICOM", "A_ASSOCIATE_RQ", "A_ASSOCIATE_AC", "A_ASSOCIATE_RJ",
-    "P_DATA_TF", "A_RELEASE_RQ", "A_RELEASE_RP", "A_ABORT",
+    "DICOM",
+    "A_ASSOCIATE_RQ",
+    "A_ASSOCIATE_AC",
+    "A_ASSOCIATE_RJ",
+    "P_DATA_TF",
+    "A_RELEASE_RQ",
+    "A_RELEASE_RP",
+    "A_ABORT",
     "PresentationDataValueItem",
-    # Variable Items (PS3.8 Section 9.3.2)
-    "DICOMVariableItem", "DICOMApplicationContext",
-    "DICOMPresentationContextRQ", "DICOMPresentationContextAC",
-    "DICOMAbstractSyntax", "DICOMTransferSyntax",
-    "DICOMUserInformation", "DICOMMaximumLength", "DICOMGenericItem",
-    # Extended User Info Sub-Items (PS3.7 D.3.3)
-    "DICOMImplementationClassUID", "DICOMAsyncOperationsWindow",
-    "DICOMSCPSCURoleSelection", "DICOMImplementationVersionName",
+    "DICOMVariableItem",
+    "DICOMApplicationContext",
+    "DICOMPresentationContextRQ",
+    "DICOMPresentationContextAC",
+    "DICOMAbstractSyntax",
+    "DICOMTransferSyntax",
+    "DICOMUserInformation",
+    "DICOMMaximumLength",
+    "DICOMGenericItem",
+    "DICOMImplementationClassUID",
+    "DICOMAsyncOperationsWindow",
+    "DICOMSCPSCURoleSelection",
+    "DICOMImplementationVersionName",
     "DICOMSOPClassExtendedNegotiation",
     "DICOMSOPClassCommonExtendedNegotiation",
-    "DICOMUserIdentity", "DICOMUserIdentityResponse",
-    # DIMSE Field Classes
-    "DICOMAETitleField", "DICOMElementField",
-    "DICOMUIDField", "DICOMUIDFieldRaw",
-    "DICOMUSField", "DICOMULField", "DICOMStatusField",
-    "DICOMAEDIMSEField", "DICOMATField",
-    # DIMSE Base Class
+    "DICOMUserIdentity",
+    "DICOMUserIdentityResponse",
+    "DICOMAETitleField",
+    "DICOMElementField",
+    "DICOMUIDField",
+    "DICOMUIDFieldRaw",
+    "DICOMUSField",
+    "DICOMULField",
+    "DICOMStatusField",
+    "DICOMAEDIMSEField",
+    "DICOMATField",
     "DIMSEPacket",
-    # DIMSE-C Commands (PS3.7 Section 9.3)
-    "C_ECHO_RQ", "C_ECHO_RSP", "C_STORE_RQ", "C_STORE_RSP",
-    "C_FIND_RQ", "C_FIND_RSP", "C_MOVE_RQ", "C_MOVE_RSP",
-    "C_GET_RQ", "C_GET_RSP", "C_CANCEL_RQ",
-    # DIMSE-N Commands (PS3.7 Section 10.3)
-    "N_EVENT_REPORT_RQ", "N_EVENT_REPORT_RSP",
-    "N_GET_RQ", "N_GET_RSP", "N_SET_RQ", "N_SET_RSP",
-    "N_ACTION_RQ", "N_ACTION_RSP", "N_CREATE_RQ", "N_CREATE_RSP",
-    "N_DELETE_RQ", "N_DELETE_RSP",
-    # Utilities
-    "DICOMSocket", "parse_dimse_status", "dimse_status_repr",
-    "_uid_to_bytes", "_uid_to_bytes_raw",
-    "build_presentation_context_rq", "build_user_information",
-    # DIMSE Status Codes (PS3.7 Annex C)
+    "C_ECHO_RQ",
+    "C_ECHO_RSP",
+    "C_STORE_RQ",
+    "C_STORE_RSP",
+    "C_FIND_RQ",
+    "C_FIND_RSP",
+    "C_MOVE_RQ",
+    "C_MOVE_RSP",
+    "C_GET_RQ",
+    "C_GET_RSP",
+    "C_CANCEL_RQ",
+    "N_EVENT_REPORT_RQ",
+    "N_EVENT_REPORT_RSP",
+    "N_GET_RQ",
+    "N_GET_RSP",
+    "N_SET_RQ",
+    "N_SET_RSP",
+    "N_ACTION_RQ",
+    "N_ACTION_RSP",
+    "N_CREATE_RQ",
+    "N_CREATE_RSP",
+    "N_DELETE_RQ",
+    "N_DELETE_RSP",
+    "DICOMSocket",
+    "parse_dimse_status",
+    "dimse_status_repr",
+    "_uid_to_bytes",
+    "_uid_to_bytes_raw",
+    "build_presentation_context_rq",
+    "build_user_information",
     "DIMSE_STATUS_CODES",
-    "STATUS_SUCCESS", "STATUS_CANCEL",
-    "STATUS_PENDING", "STATUS_PENDING_WARNINGS",
-    "STATUS_WARNING_ATTRIBUTE_LIST", "STATUS_WARNING_ATTR_OUT_OF_RANGE",
+    "STATUS_SUCCESS",
+    "STATUS_CANCEL",
+    "STATUS_PENDING",
+    "STATUS_PENDING_WARNINGS",
+    "STATUS_WARNING_ATTRIBUTE_LIST",
+    "STATUS_WARNING_ATTR_OUT_OF_RANGE",
     "STATUS_ERR_SOP_CLASS_NOT_SUPPORTED",
     "STATUS_ERR_CLASS_INSTANCE_CONFLICT",
     "STATUS_ERR_DUPLICATE_SOP_INSTANCE",
     "STATUS_ERR_DUPLICATE_INVOCATION",
-    "STATUS_ERR_INVALID_ARGUMENT", "STATUS_ERR_INVALID_ATTRIBUTE_VALUE",
-    "STATUS_ERR_INVALID_SOP_INSTANCE", "STATUS_ERR_MISSING_ATTRIBUTE",
-    "STATUS_ERR_MISSING_ATTRIBUTE_VALUE", "STATUS_ERR_MISTYPED_ARGUMENT",
-    "STATUS_ERR_NO_SUCH_ARGUMENT", "STATUS_ERR_NO_SUCH_ATTRIBUTE",
-    "STATUS_ERR_NO_SUCH_EVENT_TYPE", "STATUS_ERR_NO_SUCH_SOP_INSTANCE",
-    "STATUS_ERR_NO_SUCH_SOP_CLASS", "STATUS_ERR_PROCESSING_FAILURE",
-    "STATUS_ERR_RESOURCE_LIMITATION", "STATUS_ERR_UNRECOGNIZED_OPERATION",
-    "STATUS_ERR_NO_SUCH_ACTION_TYPE", "STATUS_ERR_NOT_AUTHORIZED",
+    "STATUS_ERR_INVALID_ARGUMENT",
+    "STATUS_ERR_INVALID_ATTRIBUTE_VALUE",
+    "STATUS_ERR_INVALID_SOP_INSTANCE",
+    "STATUS_ERR_MISSING_ATTRIBUTE",
+    "STATUS_ERR_MISSING_ATTRIBUTE_VALUE",
+    "STATUS_ERR_MISTYPED_ARGUMENT",
+    "STATUS_ERR_NO_SUCH_ARGUMENT",
+    "STATUS_ERR_NO_SUCH_ATTRIBUTE",
+    "STATUS_ERR_NO_SUCH_EVENT_TYPE",
+    "STATUS_ERR_NO_SUCH_SOP_INSTANCE",
+    "STATUS_ERR_NO_SUCH_SOP_CLASS",
+    "STATUS_ERR_PROCESSING_FAILURE",
+    "STATUS_ERR_RESOURCE_LIMITATION",
+    "STATUS_ERR_UNRECOGNIZED_OPERATION",
+    "STATUS_ERR_NO_SUCH_ACTION_TYPE",
+    "STATUS_ERR_NOT_AUTHORIZED",
     "STATUS_ERR_REFUSED_OUT_OF_RESOURCES",
     "STATUS_ERR_REFUSED_OUT_OF_RESOURCES_MOVE",
     "STATUS_ERR_REFUSED_MOVE_DESTINATION_UNKNOWN",
@@ -167,55 +205,42 @@ DICOM_PORT = 104
 DICOM_PORT_ALT = 11112
 APP_CONTEXT_UID = "1.2.840.10008.3.1.1.1"
 
-# Transfer Syntax UIDs (PS3.5 Annex A)
-# -- Core --
 DEFAULT_TRANSFER_SYNTAX_UID = "1.2.840.10008.1.2"
 IMPLICIT_VR_LITTLE_ENDIAN_UID = "1.2.840.10008.1.2"
 EXPLICIT_VR_LITTLE_ENDIAN_UID = "1.2.840.10008.1.2.1"
 ENCAPSULATED_UNCOMPRESSED_EXPLICIT_VR_LITTLE_ENDIAN_UID = \
     "1.2.840.10008.1.2.1.98"
 DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN_UID = "1.2.840.10008.1.2.1.99"
-EXPLICIT_VR_BIG_ENDIAN_UID = "1.2.840.10008.1.2.2"  # retired
-# -- JPEG --
+EXPLICIT_VR_BIG_ENDIAN_UID = "1.2.840.10008.1.2.2"
 JPEG_BASELINE_UID = "1.2.840.10008.1.2.4.50"
 JPEG_EXTENDED_UID = "1.2.840.10008.1.2.4.51"
 JPEG_LOSSLESS_UID = "1.2.840.10008.1.2.4.70"
-# -- JPEG-LS --
 JPEG_LS_LOSSLESS_UID = "1.2.840.10008.1.2.4.80"
 JPEG_LS_LOSSY_UID = "1.2.840.10008.1.2.4.81"
-# -- JPEG 2000 --
 JPEG_2000_LOSSLESS_UID = "1.2.840.10008.1.2.4.90"
 JPEG_2000_UID = "1.2.840.10008.1.2.4.91"
 JPEG_2000_PART2_MC_LOSSLESS_UID = "1.2.840.10008.1.2.4.92"
 JPEG_2000_PART2_MC_UID = "1.2.840.10008.1.2.4.93"
-# -- MPEG-2 (PS3.5 A.4.4) --
 MPEG2_MPML_UID = "1.2.840.10008.1.2.4.100"
 MPEG2_MPHL_UID = "1.2.840.10008.1.2.4.101"
-# -- MPEG-4 / H.264 (PS3.5 A.4.5–A.4.9) --
 MPEG4_AVC_H264_HP_LEVEL_4_1_UID = "1.2.840.10008.1.2.4.102"
 MPEG4_AVC_H264_BD_COMPATIBLE_HP_LEVEL_4_1_UID = "1.2.840.10008.1.2.4.103"
 MPEG4_AVC_H264_HP_LEVEL_4_2_2D_UID = "1.2.840.10008.1.2.4.104"
 MPEG4_AVC_H264_HP_LEVEL_4_2_3D_UID = "1.2.840.10008.1.2.4.105"
 MPEG4_AVC_H264_STEREO_HP_LEVEL_2_UID = "1.2.840.10008.1.2.4.106"
-# -- HEVC / H.265 (PS3.5 A.4.10–A.4.11) --
 HEVC_H265_MP_LEVEL_5_1_UID = "1.2.840.10008.1.2.4.107"
 HEVC_H265_10P_LEVEL_5_1_UID = "1.2.840.10008.1.2.4.108"
-# -- JPEG XL (PS3.5 A.4.12–A.4.14) --
 JPEGXL_LOSSLESS_UID = "1.2.840.10008.1.2.4.110"
 JPEGXL_RECOMPRESSION_UID = "1.2.840.10008.1.2.4.111"
 JPEGXL_UID = "1.2.840.10008.1.2.4.112"
-# -- RLE --
 RLE_LOSSLESS_UID = "1.2.840.10008.1.2.5"
-# -- HTJ2K (PS3.5 A.4.15–A.4.17) --
 HTJP2K_LOSSLESS_UID = "1.2.840.10008.1.2.4.201"
 HTJP2K_LOSSLESS_RPCL_UID = "1.2.840.10008.1.2.4.202"
 HTJP2K_UID = "1.2.840.10008.1.2.4.203"
-# -- JPIP Referenced (PS3.5 A.6) --
 JPIP_REFERENCED_UID = "1.2.840.10008.1.2.4.94"
 JPIP_REFERENCED_DEFLATE_UID = "1.2.840.10008.1.2.4.95"
 JPIP_HTJ2K_REFERENCED_UID = "1.2.840.10008.1.2.4.204"
 JPIP_HTJ2K_REFERENCED_DEFLATE_UID = "1.2.840.10008.1.2.4.205"
-# -- Fragmentable video variants --
 MPEG2_MPML_FRAG_UID = "1.2.840.10008.1.2.4.100.1"
 MPEG2_MPHL_FRAG_UID = "1.2.840.10008.1.2.4.101.1"
 MPEG4_AVC_H264_HP_LEVEL_4_1_FRAG_UID = "1.2.840.10008.1.2.4.102.1"
@@ -224,14 +249,14 @@ MPEG4_AVC_H264_BD_COMPATIBLE_HP_LEVEL_4_1_FRAG_UID = \
 MPEG4_AVC_H264_HP_LEVEL_4_2_2D_FRAG_UID = "1.2.840.10008.1.2.4.104.1"
 MPEG4_AVC_H264_HP_LEVEL_4_2_3D_FRAG_UID = "1.2.840.10008.1.2.4.105.1"
 MPEG4_AVC_H264_STEREO_HP_LEVEL_2_FRAG_UID = "1.2.840.10008.1.2.4.106.1"
-# -- SMPTE ST 2110 (PS3.5 A.7) --
 SMPTE_ST_2110_20_UNCOMPRESSED_PROGRESSIVE_UID = "1.2.840.10008.1.2.7.1"
 SMPTE_ST_2110_20_UNCOMPRESSED_INTERLACED_UID = "1.2.840.10008.1.2.7.2"
 SMPTE_ST_2110_30_PCM_AUDIO_UID = "1.2.840.10008.1.2.7.3"
 
-# SOP Class UIDs (PS3.4)
 VERIFICATION_SOP_CLASS_UID = "1.2.840.10008.1.1"
 CT_IMAGE_STORAGE_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.1.2"
+MR_IMAGE_STORAGE_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.1.4"
+SECONDARY_CAPTURE_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.1.7"
 PATIENT_ROOT_QR_FIND_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.2.1.1"
 PATIENT_ROOT_QR_MOVE_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.2.1.2"
 PATIENT_ROOT_QR_GET_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.2.1.3"
@@ -239,7 +264,6 @@ STUDY_ROOT_QR_FIND_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.2.2.1"
 STUDY_ROOT_QR_MOVE_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.2.2.2"
 STUDY_ROOT_QR_GET_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.2.2.3"
 
-# Display-only lookup for commonly negotiated SOP Classes (PS3.4).
 SOP_CLASS_NAMES = {
     "1.2.840.10008.1.1": "Verification",
     # Storage — imaging
@@ -297,51 +321,79 @@ SOP_CLASS_NAMES = {
 }
 
 PDU_TYPES = {
-    0x01: "A-ASSOCIATE-RQ", 0x02: "A-ASSOCIATE-AC",
-    0x03: "A-ASSOCIATE-RJ", 0x04: "P-DATA-TF",
-    0x05: "A-RELEASE-RQ", 0x06: "A-RELEASE-RP", 0x07: "A-ABORT",
+    0x01: "A-ASSOCIATE-RQ",
+    0x02: "A-ASSOCIATE-AC",
+    0x03: "A-ASSOCIATE-RJ",
+    0x04: "P-DATA-TF",
+    0x05: "A-RELEASE-RQ",
+    0x06: "A-RELEASE-RP",
+    0x07: "A-ABORT",
 }
 
 ITEM_TYPES = {
-    0x10: "Application Context", 0x20: "Presentation Context RQ",
-    0x21: "Presentation Context AC", 0x30: "Abstract Syntax",
-    0x40: "Transfer Syntax", 0x50: "User Information",
-    0x51: "Maximum Length", 0x52: "Implementation Class UID",
+    0x10: "Application Context",
+    0x20: "Presentation Context RQ",
+    0x21: "Presentation Context AC",
+    0x30: "Abstract Syntax",
+    0x40: "Transfer Syntax",
+    0x50: "User Information",
+    0x51: "Maximum Length",
+    0x52: "Implementation Class UID",
     0x53: "Asynchronous Operations Window",
-    0x54: "SCP/SCU Role Selection", 0x55: "Implementation Version Name",
+    0x54: "SCP/SCU Role Selection",
+    0x55: "Implementation Version Name",
     0x56: "SOP Class Extended Negotiation",
     0x57: "SOP Class Common Extended Negotiation",
-    0x58: "User Identity", 0x59: "User Identity Server Response",
+    0x58: "User Identity",
+    0x59: "User Identity Server Response",
 }
 
 DIMSE_COMMAND_FIELDS = {
-    0x0001: "C-STORE-RQ", 0x8001: "C-STORE-RSP",
-    0x0010: "C-GET-RQ", 0x8010: "C-GET-RSP",
-    0x0020: "C-FIND-RQ", 0x8020: "C-FIND-RSP",
-    0x0021: "C-MOVE-RQ", 0x8021: "C-MOVE-RSP",
-    0x0030: "C-ECHO-RQ", 0x8030: "C-ECHO-RSP", 0x0FFF: "C-CANCEL-RQ",
-    0x0100: "N-EVENT-REPORT-RQ", 0x8100: "N-EVENT-REPORT-RSP",
-    0x0110: "N-GET-RQ", 0x8110: "N-GET-RSP",
-    0x0120: "N-SET-RQ", 0x8120: "N-SET-RSP",
-    0x0130: "N-ACTION-RQ", 0x8130: "N-ACTION-RSP",
-    0x0140: "N-CREATE-RQ", 0x8140: "N-CREATE-RSP",
-    0x0150: "N-DELETE-RQ", 0x8150: "N-DELETE-RSP",
+    0x0001: "C-STORE-RQ",
+    0x8001: "C-STORE-RSP",
+    0x0010: "C-GET-RQ",
+    0x8010: "C-GET-RSP",
+    0x0020: "C-FIND-RQ",
+    0x8020: "C-FIND-RSP",
+    0x0021: "C-MOVE-RQ",
+    0x8021: "C-MOVE-RSP",
+    0x0030: "C-ECHO-RQ",
+    0x8030: "C-ECHO-RSP",
+    0x0FFF: "C-CANCEL-RQ",
+    0x0100: "N-EVENT-REPORT-RQ",
+    0x8100: "N-EVENT-REPORT-RSP",
+    0x0110: "N-GET-RQ",
+    0x8110: "N-GET-RSP",
+    0x0120: "N-SET-RQ",
+    0x8120: "N-SET-RSP",
+    0x0130: "N-ACTION-RQ",
+    0x8130: "N-ACTION-RSP",
+    0x0140: "N-CREATE-RQ",
+    0x8140: "N-CREATE-RSP",
+    0x0150: "N-DELETE-RQ",
+    0x8150: "N-DELETE-RSP",
 }
 
 DATA_SET_TYPES = {
-    0x0000: "Data Set Present", 0x0001: "Data Set Present",
+    0x0000: "Data Set Present",
+    0x0001: "Data Set Present",
     0x0101: "No Data Set",
 }
 
-PRIORITY_VALUES = {0x0000: "MEDIUM", 0x0001: "HIGH", 0x0002: "LOW"}
+PRIORITY_VALUES = {
+    0x0000: "MEDIUM",
+    0x0001: "HIGH",
+    0x0002: "LOW",
+}
 
 USER_IDENTITY_TYPES = {
-    1: "Username", 2: "Username and Passcode",
-    3: "Kerberos Service Ticket", 4: "SAML Assertion",
+    1: "Username",
+    2: "Username and Passcode",
+    3: "Kerberos Service Ticket",
+    4: "SAML Assertion",
     5: "JSON Web Token (JWT)",
 }
 
-# DIMSE Status Codes (PS3.7 Annex C)
 STATUS_SUCCESS = 0x0000
 STATUS_CANCEL = 0xFE00
 STATUS_PENDING = 0xFF00
@@ -373,7 +425,6 @@ STATUS_ERR_REFUSED_OUT_OF_RESOURCES_MOVE = 0xA701
 STATUS_ERR_REFUSED_MOVE_DESTINATION_UNKNOWN = 0xA801
 STATUS_ERR_REFUSED_SOP_CLASS_NOT_SUPPORTED = 0xA900
 
-# Combined lookup dict for display purposes.
 DIMSE_STATUS_CODES = {
     0x0000: "Success",
     0x0001: "Warning: Requested optional attributes not supported",
@@ -505,7 +556,7 @@ class DICOMElementField(Field[bytes, bytes]):
         if len(s) < 8 + length:
             raise Scapy_Exception(
                 "Not enough bytes to decode DICOM element value: "
-                f"expected {length} bytes, only {len(s) - 8} available"
+                "expected %d bytes, only %d available" % (length, len(s) - 8)
             )
         value = s[8:8 + length]
         return s[8 + length:], value
@@ -713,6 +764,8 @@ class DICOMVariableItem(Packet):
 
 
 class DICOMApplicationContext(Packet):
+    """DICOM Application Context item."""
+
     name = "DICOM Application Context"
     fields_desc = [
         StrLenField(
@@ -733,6 +786,8 @@ class DICOMApplicationContext(Packet):
 
 
 class DICOMAbstractSyntax(Packet):
+    """DICOM Abstract Syntax item."""
+
     name = "DICOM Abstract Syntax"
     fields_desc = [
         StrLenField(
@@ -757,6 +812,8 @@ class DICOMAbstractSyntax(Packet):
 
 
 class DICOMTransferSyntax(Packet):
+    """DICOM Transfer Syntax item."""
+
     name = "DICOM Transfer Syntax"
     fields_desc = [
         StrLenField(
@@ -777,6 +834,8 @@ class DICOMTransferSyntax(Packet):
 
 
 class DICOMPresentationContextRQ(Packet):
+    """DICOM Presentation Context item for association requests."""
+
     name = "DICOM Presentation Context RQ"
     fields_desc = [
         ByteField("context_id", 1),
@@ -803,13 +862,18 @@ class DICOMPresentationContextRQ(Packet):
 
 
 class DICOMPresentationContextAC(Packet):
+    """DICOM Presentation Context item for association accepts."""
+
     name = "DICOM Presentation Context AC"
+
     RESULT_CODES = {
-        0: "acceptance", 1: "user-rejection",
+        0: "acceptance",
+        1: "user-rejection",
         2: "no-reason (provider rejection)",
         3: "abstract-syntax-not-supported (provider rejection)",
         4: "transfer-syntaxes-not-supported (provider rejection)",
     }
+
     fields_desc = [
         ByteField("context_id", 1),
         ByteField("reserved1", 0),
@@ -837,7 +901,7 @@ class DICOMPresentationContextAC(Packet):
 
 
 class DICOMMaximumLength(Packet):
-    """Value of 0 indicates no maximum length specified."""
+    """DICOM Maximum Length sub-item (0 = no maximum)."""
     name = "DICOM Maximum Length"
     fields_desc = [IntField("max_pdu_length", 16384)]
 
@@ -851,6 +915,8 @@ class DICOMMaximumLength(Packet):
 
 
 class DICOMImplementationClassUID(Packet):
+    """DICOM Implementation Class UID sub-item."""
+
     name = "DICOM Implementation Class UID"
     fields_desc = [
         StrLenField(
@@ -871,6 +937,8 @@ class DICOMImplementationClassUID(Packet):
 
 
 class DICOMImplementationVersionName(Packet):
+    """DICOM Implementation Version Name sub-item."""
+
     name = "DICOM Implementation Version Name"
     fields_desc = [
         StrLenField(
@@ -891,6 +959,8 @@ class DICOMImplementationVersionName(Packet):
 
 
 class DICOMAsyncOperationsWindow(Packet):
+    """DICOM Asynchronous Operations Window sub-item."""
+
     name = "DICOM Async Operations Window"
     fields_desc = [
         ShortField("max_ops_invoked", 1),
@@ -907,6 +977,8 @@ class DICOMAsyncOperationsWindow(Packet):
 
 
 class DICOMSCPSCURoleSelection(Packet):
+    """DICOM SCP/SCU Role Selection sub-item."""
+
     name = "DICOM SCP/SCU Role Selection"
     fields_desc = [
         FieldLenField("uid_length", None, length_of="sop_class_uid", fmt="!H"),
@@ -924,6 +996,8 @@ class DICOMSCPSCURoleSelection(Packet):
 
 
 class DICOMSOPClassExtendedNegotiation(Packet):
+    """DICOM SOP Class Extended Negotiation sub-item (PS3.7 D.3.3.5)."""
+
     name = "DICOM SOP Class Extended Negotiation"
     fields_desc = [
         FieldLenField("sop_class_uid_length", None,
@@ -947,7 +1021,12 @@ class DICOMSOPClassExtendedNegotiation(Packet):
 
 
 class DICOMSOPClassCommonExtendedNegotiation(Packet):
-    """Item 0x57 — header byte 2 is Sub-Item-Version (PS3.7 D.3.3.6), not reserved."""
+    """DICOM SOP Class Common Extended Negotiation sub-item (PS3.7 D.3.3.6).
+
+    For item type 0x57 the second header byte is the Sub-Item-Version,
+    not a reserved byte; see :attr:`sub_item_version`.
+    """
+
     name = "DICOM SOP Class Common Extended Negotiation"
     fields_desc = [
         FieldLenField("sop_class_uid_length", None,
@@ -980,6 +1059,8 @@ class DICOMSOPClassCommonExtendedNegotiation(Packet):
 
 
 class DICOMUserIdentity(Packet):
+    """DICOM User Identity sub-item."""
+
     name = "DICOM User Identity"
     fields_desc = [
         ByteEnumField("user_identity_type", 1, USER_IDENTITY_TYPES),
@@ -1008,6 +1089,8 @@ class DICOMUserIdentity(Packet):
 
 
 class DICOMUserIdentityResponse(Packet):
+    """DICOM User Identity Server Response sub-item."""
+
     name = "DICOM User Identity Response"
     fields_desc = [
         FieldLenField("response_length", None,
@@ -1024,6 +1107,8 @@ class DICOMUserIdentityResponse(Packet):
 
 
 class DICOMUserInformation(Packet):
+    """DICOM User Information item."""
+
     name = "DICOM User Information"
     fields_desc = [
         PacketListField(
@@ -1045,7 +1130,6 @@ class DICOMUserInformation(Packet):
         return "UserInfo (%d items)" % len(self.sub_items)
 
 
-# Layer Bindings for Variable Items
 bind_layers(DICOMVariableItem, DICOMApplicationContext, item_type=0x10)
 bind_layers(DICOMVariableItem, DICOMPresentationContextRQ, item_type=0x20)
 bind_layers(DICOMVariableItem, DICOMPresentationContextAC, item_type=0x21)
@@ -1084,7 +1168,11 @@ class DICOM(Packet):
 
 
 class PresentationDataValueItem(Packet):
-    # PDV header is BE (PS3.8); DIMSE payload inside data is LE (PS3.7 §9.3).
+    """Presentation Data Value (PDV) item within P-DATA-TF PDU.
+
+    Header is big-endian (PS3.8); DIMSE payload inside ``data`` is
+    little-endian (PS3.7 §9.3).
+    """
 
     name = "PresentationDataValueItem"
     fields_desc = [
@@ -1110,6 +1198,8 @@ class PresentationDataValueItem(Packet):
 
 
 class A_ASSOCIATE_RQ(Packet):
+    """A-ASSOCIATE-RQ PDU for initiating DICOM associations."""
+
     name = "A-ASSOCIATE-RQ"
     fields_desc = [
         ShortField("protocol_version", 1),
@@ -1143,7 +1233,12 @@ class A_ASSOCIATE_RQ(Packet):
 
 
 class A_ASSOCIATE_AC(Packet):
-    # Bytes 11-42 / 43-74 are reserved but echo the AE titles from A-ASSOCIATE-RQ.
+    """A-ASSOCIATE-AC PDU for accepting DICOM associations.
+
+    The reserved AE-title bytes (offsets 10-41/42-73) echo the values from
+    the corresponding A-ASSOCIATE-RQ.
+    """
+
     name = "A-ASSOCIATE-AC"
     fields_desc = [
         ShortField("protocol_version", 1),
@@ -1180,22 +1275,39 @@ class A_ASSOCIATE_AC(Packet):
 
 
 class A_ASSOCIATE_RJ(Packet):
+    """A-ASSOCIATE-RJ PDU for rejecting DICOM associations."""
+
     name = "A-ASSOCIATE-RJ"
-    RESULT_CODES = {1: "rejected-permanent", 2: "rejected-transient"}
+
+    RESULT_CODES = {
+        1: "rejected-permanent",
+        2: "rejected-transient",
+    }
+
     SOURCE_CODES = {
         1: "DICOM UL service-user",
         2: "DICOM UL service-provider (ACSE related function)",
         3: "DICOM UL service-provider (Presentation related function)",
     }
+
     REASON_USER = {
-        1: "no-reason-given", 2: "application-context-name-not-supported",
+        1: "no-reason-given",
+        2: "application-context-name-not-supported",
         3: "calling-AE-title-not-recognized",
         7: "called-AE-title-not-recognized",
     }
-    REASON_ACSE = {1: "no-reason-given", 2: "protocol-version-not-supported"}
-    REASON_PRESENTATION = {
-        0: "reserved", 1: "temporary-congestion", 2: "local-limit-exceeded",
+
+    REASON_ACSE = {
+        1: "no-reason-given",
+        2: "protocol-version-not-supported",
     }
+
+    REASON_PRESENTATION = {
+        0: "reserved",
+        1: "temporary-congestion",
+        2: "local-limit-exceeded",
+    }
+
     fields_desc = [
         ByteField("reserved1", 0),
         ByteEnumField("result", 1, RESULT_CODES),
@@ -1211,6 +1323,8 @@ class A_ASSOCIATE_RJ(Packet):
 
 
 class P_DATA_TF(Packet):
+    """P-DATA-TF PDU for transferring DICOM data."""
+
     name = "P-DATA-TF"
     fields_desc = [
         PacketListField(
@@ -1230,6 +1344,8 @@ class P_DATA_TF(Packet):
 
 
 class A_RELEASE_RQ(Packet):
+    """A-RELEASE-RQ PDU for requesting association release."""
+
     name = "A-RELEASE-RQ"
     fields_desc = [IntField("reserved1", 0)]
 
@@ -1238,6 +1354,8 @@ class A_RELEASE_RQ(Packet):
 
 
 class A_RELEASE_RP(Packet):
+    """A-RELEASE-RP PDU for confirming association release."""
+
     name = "A-RELEASE-RP"
     fields_desc = [IntField("reserved1", 0)]
 
@@ -1249,18 +1367,26 @@ class A_RELEASE_RP(Packet):
 
 
 class A_ABORT(Packet):
+    """A-ABORT PDU for aborting DICOM associations."""
+
     name = "A-ABORT"
+
     SOURCE_CODES = {
         0: "DICOM UL service-user (initiated abort)",
         1: "reserved",
         2: "DICOM UL service-provider (initiated abort)",
     }
+
     REASON_PROVIDER = {
-        0: "reason-not-specified", 1: "unrecognized-PDU",
-        2: "unexpected-PDU", 3: "reserved",
-        4: "unrecognized-PDU-parameter", 5: "unexpected-PDU-parameter",
+        0: "reason-not-specified",
+        1: "unrecognized-PDU",
+        2: "unexpected-PDU",
+        3: "reserved",
+        4: "unrecognized-PDU-parameter",
+        5: "unexpected-PDU-parameter",
         6: "invalid-PDU-parameter-value",
     }
+
     fields_desc = [
         ByteField("reserved1", 0),
         ByteField("reserved2", 0),
@@ -1272,7 +1398,6 @@ class A_ABORT(Packet):
         return self.sprintf("A-ABORT %source%")
 
 
-# TCP Port and PDU Type Bindings
 bind_layers(TCP, DICOM, dport=DICOM_PORT)
 bind_layers(TCP, DICOM, sport=DICOM_PORT)
 bind_layers(TCP, DICOM, dport=DICOM_PORT_ALT)
@@ -1298,6 +1423,8 @@ class DIMSEPacket(Packet):
 
 
 class C_ECHO_RQ(DIMSEPacket):
+    """C-ECHO-RQ DIMSE Command for verification."""
+
     name = "C-ECHO-RQ"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid",
@@ -1315,6 +1442,8 @@ class C_ECHO_RQ(DIMSEPacket):
 
 
 class C_ECHO_RSP(DIMSEPacket):
+    """C-ECHO-RSP DIMSE Response."""
+
     name = "C-ECHO-RSP"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid",
@@ -1338,6 +1467,8 @@ class C_ECHO_RSP(DIMSEPacket):
 
 
 class C_STORE_RQ(DIMSEPacket):
+    """C-STORE-RQ DIMSE Command for storing DICOM objects."""
+
     name = "C-STORE-RQ"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid",
@@ -1368,6 +1499,8 @@ class C_STORE_RQ(DIMSEPacket):
 
 
 class C_STORE_RSP(DIMSEPacket):
+    """C-STORE-RSP DIMSE Response."""
+
     name = "C-STORE-RSP"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid",
@@ -1393,6 +1526,8 @@ class C_STORE_RSP(DIMSEPacket):
 
 
 class C_FIND_RQ(DIMSEPacket):
+    """C-FIND-RQ DIMSE Command for querying DICOM objects."""
+
     name = "C-FIND-RQ"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid",
@@ -1411,6 +1546,8 @@ class C_FIND_RQ(DIMSEPacket):
 
 
 class C_FIND_RSP(DIMSEPacket):
+    """C-FIND-RSP DIMSE Response."""
+
     name = "C-FIND-RSP"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid",
@@ -1434,6 +1571,8 @@ class C_FIND_RSP(DIMSEPacket):
 
 
 class C_GET_RQ(DIMSEPacket):
+    """C-GET-RQ DIMSE Command for retrieving objects on same association."""
+
     name = "C-GET-RQ"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid",
@@ -1452,6 +1591,8 @@ class C_GET_RQ(DIMSEPacket):
 
 
 class C_GET_RSP(DIMSEPacket):
+    """C-GET-RSP DIMSE Response."""
+
     name = "C-GET-RSP"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid",
@@ -1479,7 +1620,7 @@ class C_GET_RSP(DIMSEPacket):
 
 
 class C_MOVE_RQ(DIMSEPacket):
-    """Move Destination (0000,0600) must precede Priority (0000,0700) per Section 6.3.1."""
+    """C-MOVE-RQ DIMSE Command for retrieving DICOM objects to a peer AE."""
     name = "C-MOVE-RQ"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid",
@@ -1499,6 +1640,8 @@ class C_MOVE_RQ(DIMSEPacket):
 
 
 class C_MOVE_RSP(DIMSEPacket):
+    """C-MOVE-RSP DIMSE Response."""
+
     name = "C-MOVE-RSP"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid",
@@ -1526,6 +1669,8 @@ class C_MOVE_RSP(DIMSEPacket):
 
 
 class C_CANCEL_RQ(DIMSEPacket):
+    """C-CANCEL-RQ DIMSE Command for cancelling outstanding sub-operations."""
+
     name = "C-CANCEL-RQ"
     fields_desc = [
         DICOMUSField("command_field", 0x0FFF, 0x0000, 0x0100),
@@ -1540,6 +1685,8 @@ class C_CANCEL_RQ(DIMSEPacket):
 
 
 class N_EVENT_REPORT_RQ(DIMSEPacket):
+    """N-EVENT-REPORT-RQ DIMSE Command for reporting an event."""
+
     name = "N-EVENT-REPORT-RQ"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid", "", 0x0000, 0x0002),
@@ -1558,6 +1705,8 @@ class N_EVENT_REPORT_RQ(DIMSEPacket):
 
 
 class N_EVENT_REPORT_RSP(DIMSEPacket):
+    """N-EVENT-REPORT-RSP DIMSE Response."""
+
     name = "N-EVENT-REPORT-RSP"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid", "", 0x0000, 0x0002),
@@ -1582,6 +1731,8 @@ class N_EVENT_REPORT_RSP(DIMSEPacket):
 
 
 class N_GET_RQ(DIMSEPacket):
+    """N-GET-RQ DIMSE Command for retrieving attribute values."""
+
     name = "N-GET-RQ"
     fields_desc = [
         DICOMUIDField("requested_sop_class_uid", "", 0x0000, 0x0003),
@@ -1600,6 +1751,8 @@ class N_GET_RQ(DIMSEPacket):
 
 
 class N_GET_RSP(DIMSEPacket):
+    """N-GET-RSP DIMSE Response."""
+
     name = "N-GET-RSP"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid", "", 0x0000, 0x0002),
@@ -1623,6 +1776,8 @@ class N_GET_RSP(DIMSEPacket):
 
 
 class N_SET_RQ(DIMSEPacket):
+    """N-SET-RQ DIMSE Command for modifying attribute values."""
+
     name = "N-SET-RQ"
     fields_desc = [
         DICOMUIDField("requested_sop_class_uid", "", 0x0000, 0x0003),
@@ -1640,6 +1795,8 @@ class N_SET_RQ(DIMSEPacket):
 
 
 class N_SET_RSP(DIMSEPacket):
+    """N-SET-RSP DIMSE Response."""
+
     name = "N-SET-RSP"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid", "", 0x0000, 0x0002),
@@ -1663,6 +1820,8 @@ class N_SET_RSP(DIMSEPacket):
 
 
 class N_ACTION_RQ(DIMSEPacket):
+    """N-ACTION-RQ DIMSE Command for performing an action."""
+
     name = "N-ACTION-RQ"
     fields_desc = [
         DICOMUIDField("requested_sop_class_uid", "", 0x0000, 0x0003),
@@ -1681,6 +1840,8 @@ class N_ACTION_RQ(DIMSEPacket):
 
 
 class N_ACTION_RSP(DIMSEPacket):
+    """N-ACTION-RSP DIMSE Response."""
+
     name = "N-ACTION-RSP"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid", "", 0x0000, 0x0002),
@@ -1705,6 +1866,8 @@ class N_ACTION_RSP(DIMSEPacket):
 
 
 class N_CREATE_RQ(DIMSEPacket):
+    """N-CREATE-RQ DIMSE Command for creating a SOP Instance."""
+
     name = "N-CREATE-RQ"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid", "", 0x0000, 0x0002),
@@ -1722,6 +1885,8 @@ class N_CREATE_RQ(DIMSEPacket):
 
 
 class N_CREATE_RSP(DIMSEPacket):
+    """N-CREATE-RSP DIMSE Response."""
+
     name = "N-CREATE-RSP"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid", "", 0x0000, 0x0002),
@@ -1745,6 +1910,8 @@ class N_CREATE_RSP(DIMSEPacket):
 
 
 class N_DELETE_RQ(DIMSEPacket):
+    """N-DELETE-RQ DIMSE Command for deleting a SOP Instance."""
+
     name = "N-DELETE-RQ"
     fields_desc = [
         DICOMUIDField("requested_sop_class_uid", "", 0x0000, 0x0003),
@@ -1762,6 +1929,8 @@ class N_DELETE_RQ(DIMSEPacket):
 
 
 class N_DELETE_RSP(DIMSEPacket):
+    """N-DELETE-RSP DIMSE Response."""
+
     name = "N-DELETE-RSP"
     fields_desc = [
         DICOMUIDField("affected_sop_class_uid", "", 0x0000, 0x0002),
@@ -1921,6 +2090,7 @@ class DICOMSocket:
             return None
 
     def sr1(self, *args: Any, **kargs: Any) -> Optional[Packet]:
+        """Send one packet and receive one answer."""
         timeout = kargs.pop("timeout", self.read_timeout)
         try:
             return self.stream.sr1(*args, timeout=timeout, **kargs)
@@ -1933,14 +2103,7 @@ class DICOMSocket:
 
     def associate(self, requested_contexts: Optional[
                   Dict[str, List[str]]] = None) -> bool:
-        """
-        Perform DICOM association negotiation.
-
-        :param requested_contexts: Dict mapping SOP Class UIDs to lists
-            of Transfer Syntax UIDs. Defaults to Verification SOP Class
-            with Implicit VR Little Endian.
-        :returns: True if association accepted, False otherwise.
-        """
+        """Negotiate a DICOM association; return True if accepted."""
         if not self.stream and not self.connect():
             return False
 
@@ -2057,11 +2220,7 @@ class DICOMSocket:
         return None
 
     def c_echo(self) -> Optional[int]:
-        """
-        Send C-ECHO-RQ and return the status code from the response.
-
-        :returns: DIMSE status code (0x0000 = success), or None on failure.
-        """
+        """Send C-ECHO-RQ; return the DIMSE status code (0x0000 = success)."""
         if not self.assoc_established:
             log.error("Association not established")
             return None
@@ -2096,14 +2255,7 @@ class DICOMSocket:
     def c_store(self, dataset_bytes: bytes, sop_class_uid: str,
                 sop_instance_uid: str, transfer_syntax_uid: str
                 ) -> Optional[int]:
-        """
-        Send C-STORE-RQ with dataset and return the status code.
-
-        Large datasets are automatically fragmented into multiple
-        P-DATA-TF PDUs respecting the negotiated maximum PDU length.
-
-        :returns: DIMSE status code (0x0000 = success), or None on failure.
-        """
+        """Send C-STORE-RQ + fragmented dataset; return DIMSE status code."""
         if not self.assoc_established:
             log.error("Association not established")
             return None
