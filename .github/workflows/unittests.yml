@@ -34,12 +34,12 @@ jobs:
         run: bash ./.config/ci/check_commits.sh
         if: github.event_name == 'pull_request'
   spdx:
-    name: Check SPDX identifiers (Licensing)
+    name: Check SPDX identifiers
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Scapy
         uses: actions/checkout@v6
-      - name: Launch script
+      - name: All files should have a SPDX identifier
         run: bash scapy/tools/check_spdx.sh
   health:
     name: Code health check
