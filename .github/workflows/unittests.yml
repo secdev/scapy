@@ -19,18 +19,20 @@ jobs:
   commit:
     name: Check the validity of the commits
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     # We follow the same contributing patterns as Wireshark. Thanks to
     # https://gitlab.com/wireshark/wireshark/-/blob/master/.gitlab-ci.yml
     steps:
       - name: Get the number of commits in the PR
         run: echo "PR_FETCH_DEPTH=$(( ${{ github.event.pull_request.commits }} + 1 ))" >> "${GITHUB_ENV}"
+        if: github.event_name == 'pull_request'
       - name: Checkout Scapy
         uses: actions/checkout@v6
         with:
           fetch-depth: ${{ env.PR_FETCH_DEPTH }}
+        if: github.event_name == 'pull_request'
       - name: AI trailer reminder
         run: bash ./.config/ci/check_commits.sh
+        if: github.event_name == 'pull_request'
   spdx:
     name: Check SPDX identifiers (Licensing)
     runs-on: ubuntu-latest
