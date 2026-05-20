@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Launch script
         run: bash scapy/tools/check_spdx.sh
   health:
@@ -45,9 +45,9 @@ jobs:
     needs: [commit, spdx]
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install tox
@@ -63,15 +63,15 @@ jobs:
   docs:
     # 'runs-on' and 'python-version' should match the ones defined in .readthedocs.yml
     name: Build doc
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [commit, spdx]
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - name: Install tox
         run: pip install tox
       - name: Build docs
@@ -82,9 +82,9 @@ jobs:
     needs: [commit, spdx]
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install tox
@@ -102,7 +102,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python: ["3.8", "3.9", "3.10", "3.11", "3.13"]
         mode: [non_root]
         installmode: ['']
         flags: [" -K scanner"]
@@ -115,7 +115,7 @@ jobs:
             flags: " -K scanner"
           # Linux root tests on last version
           - os: ubuntu-latest
-            python: "3.13"
+            python: "3.14"
             mode: root
             flags: " -K scanner"
           # PyPy tests: root only
@@ -125,23 +125,23 @@ jobs:
             flags: " -K scanner"
           # Libpcap test
           - os: ubuntu-latest
-            python: "3.13"
+            python: "3.14"
             mode: root
             installmode: 'libpcap'
             flags: " -K scanner"
           # macOS tests
           - os: macos-14
-            python: "3.13"
+            python: "3.14"
             mode: both
             flags: " -K scanner"
           # windows tests
           - os: windows-latest
-            python: "3.13"
+            python: "3.14"
             mode: root
             flags: " -K scanner"
           # Scanner tests
           - os: ubuntu-latest
-            python: "3.13"
+            python: "3.14"
             mode: root
             allow-failure: 'true'
             flags: " -k scanner"
@@ -150,23 +150,23 @@ jobs:
             mode: root
             flags: " -k scanner"
           - os: macos-14
-            python: "3.13"
+            python: "3.14"
             mode: both
             allow-failure: 'true'
             flags: " -k scanner"
           - os: windows-latest
-            python: "3.13"
+            python: "3.14"
             mode: both
             allow-failure: 'true'
             flags: " -k scanner"
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         # Codecov requires a fetch-depth > 1
         with:
           fetch-depth: 2
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
       - name: Install Tox and any other packages (linux/osx)
@@ -197,11 +197,11 @@ jobs:
     needs: [commit, spdx]
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
-        python-version: "3.12"
+        python-version: "3.14"
     - name: Install tox
       run: pip install tox
     # pyca/cryptography's CI installs cryptography
@@ -220,12 +220,12 @@ jobs:
       security-events: write
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 2
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
+      uses: github/codeql-action/init@v4
       with:
          languages: 'python'
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      uses: github/codeql-action/analyze@v4
