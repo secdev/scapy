@@ -84,12 +84,33 @@ class NetBIOS_DS(Packet):
 
 
 _NETBIOS_SUFFIXES = {
-    0x4141: "workstation",
-    0x4141 + 0x03: "messenger service",
-    0x4141 + 0x200: "file server service",
-    0x4141 + 0x10b: "domain master browser",
-    0x4141 + 0x10c: "domain controller",
-    0x4141 + 0x10e: "browser election service"
+    0x4141 + 0x00: "Workstation Service",
+    0x4141 + 0x01: "Messenger Service",
+    0x4141 + 0x03: "Messenger service",
+    0x4141 + 0x06: "RAS Server Service",
+    0x4141 + 0x1B: "Exchange MTA",
+    0x4141 + 0x1F: "NetDDE Service",
+    0x4141 + 0x20: "File Server Service",
+    0x4141 + 0x21: "RAS Client Service",
+    0x4141 + 0x22: "Exchange Interchange Service",
+    0x4141 + 0x23: "Exchange Store",
+    0x4141 + 0x24: "Exchange Directory",
+    0x4141 + 0x30: "Modern Sharing Server Service",
+    0x4141 + 0x31: "Modern Sharing Client Service",
+    0x4141 + 0x43: "SMS Client Remote Control",
+    0x4141 + 0x44: "SMS Admin Remote Control Tool",
+    0x4141 + 0x45: "SMS Client Remote Chat",
+    0x4141 + 0x46: "SMS Client Remote Transfer",
+    0x4141 + 0x4C: "DEC Pathworks TCP/IP Service",
+    0x4141 + 0x52: "DEC Pathworks TCP/IP Service",
+    0x4141 + 0x6A: "Exchange IMC",
+    0x4141 + 0x87: "Exchange MTA",
+    0x4141 + 0xBE: "Network Monitor Agent",
+    0x4141 + 0xBF: "Network Monitor Apps",
+    0x4141 + 0x10b: "Domain Master Browser",
+    0x4141 + 0x10c: "Domain Controller",
+    0x4141 + 0x10e: "Browser Election Service",
+    0x4141 + 0x200: "File Server Service",
 }
 
 _NETBIOS_QRTYPES = {
