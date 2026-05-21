@@ -3926,6 +3926,8 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                 for args in calls:
                     try:
                         res = func(self, *args, **kwargs)
+                    except KeyboardInterrupt:
+                        print("Aborted.")
                     except TypeError as ex:
                         print("Bad number of arguments !")
                         if debug:
@@ -3939,6 +3941,8 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                     try:
                         if res and cmd in self.commands_output:
                             self.commands_output[cmd](self, res, **outkwargs)
+                    except KeyboardInterrupt:
+                        print("Aborted.")
                     except Exception as ex:
                         print("Output processor failed with error: %s" % ex)
 
@@ -4018,13 +4022,13 @@ def AutoArgparse(
             continue
         if param.default != inspect.Parameter.empty:
             if param.kind == inspect.Parameter.POSITIONAL_ONLY:
-                positional.append(param.name)
+                positional.append(parname)
                 paramkwargs["nargs"] = '?'
             else:
                 parname = "--" + parname
             paramkwargs["default"] = param.default
         else:
-            positional.append(param.name)
+            positional.append(parname)
         if param.kind == inspect.Parameter.VAR_POSITIONAL:
             paramkwargs["action"] = "append"
         if param.name in argsdoc:
