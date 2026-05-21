@@ -341,7 +341,7 @@ class ForwardMachine:
         # Wrap both server and peer sockets in SSL
         if self.tls:
             # Build client SSL context
-            clisslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+            clisslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS)
             clisslcontext.load_default_certs()
             clisslcontext.check_hostname = False
             clisslcontext.verify_mode = ssl.CERT_NONE
