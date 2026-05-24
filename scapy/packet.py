@@ -55,6 +55,7 @@ from scapy.libs.test_pyx import PYX
 from typing import (
     Any,
     Callable,
+    ClassVar,
     Dict,
     Iterator,
     List,
@@ -105,7 +106,7 @@ class Packet(
         "process_information"
     ]
     name = None
-    fields_desc = []  # type: List[AnyField]
+    fields_desc = []  # type: ClassVar[List[AnyField]]
     deprecated_fields = {}  # type: Dict[str, Tuple[str, str]]
     overload_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     payload_guess = []  # type: List[Tuple[Dict[str, Any], Type[Packet]]]
