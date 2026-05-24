@@ -23,7 +23,7 @@ from scapy.data import (
     SOL_PACKET,
     SO_TIMESTAMPNS,
 )
-from scapy.compat import raw
+from scapy.compat import raw, Self
 from scapy.error import warning, log_runtime
 from scapy.interfaces import network_name
 from scapy.packet import Packet, NoPayload
@@ -48,7 +48,6 @@ from typing import (
     cast,
     TYPE_CHECKING,
 )
-from scapy.compat import Self
 
 if TYPE_CHECKING:
     from scapy.ansmachine import AnsweringMachine

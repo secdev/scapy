@@ -1,0 +1,55 @@
+
+.default:
+  image: python:3.11
+  tags:
+    - docker-ipv6
+  before_script:
+    - pip install tox
+
+health:
+  extends: .default
+  script:
+    - tox -e flake8
+    - tox -e spell
+    - tox -e twine
+
+mypy:
+  extends: .default
+  script:
+    - tox -e mypy
+
+py311:
+  image: dissecto/scapy-tests:latest
+  tags:
+    - docker-ipv6
+  script:
+    - ./.config/ci/test.sh 3.11 non_root
+
+pypy3:
+  image: dissecto/scapy-tests-pypy:latest
+  tags:
+    - docker-ipv6
+  script:
+    - ./.config/ci/test.sh pypy3 non_root
+
+.publish:
+  image: python:latest
+  needs:
+    - pypy3
+    - py311
+    - mypy
+    - health
+  tags:
+    - docker
+  script:
+    - pip install build twine
+    - python -m build
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --verbose --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
+
+deploy:
+  extends: .publish
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: always
+    - when: never
+  allow_failure: true

@@ -54,9 +54,13 @@ class Graph(object):
         :param edge: edge from node to node
         :param transition_function: tuple with enter and cleanup function
         """
-        if edge[1] in self.edges[edge[0]]:
-            # Edge already exists
-            return
+        try:
+            if edge[1] in self.edges[edge[0]]:
+                # Edge already exists
+                return
+        except KeyError:
+            pass
+
         self.edges[edge[0]].append(edge[1])
         self.weights[edge] = 1
         self.__transition_functions[edge] = transition_function

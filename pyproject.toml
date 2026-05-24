@@ -1,10 +1,11 @@
 [build-system]
-requires = [ "setuptools>=62.0.0" ]
+requires = ["setuptools>=64.0", "setuptools-scm>=8.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "scapy"
-dynamic = [ "version", "readme" ]
+dynamic = [ "version"]
+readme = "README.md"
 authors = [
     { name="Philippe BIONDI" },
     { name="Gabriel POTTER" },
@@ -81,8 +82,7 @@ exclude = [
     "doc*",
 ]
 
-[tool.setuptools.dynamic]
-version = { attr="scapy.VERSION" }
+[tool.setuptools_scm]
 
 # coverage
 
