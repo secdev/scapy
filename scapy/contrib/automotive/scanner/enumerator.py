@@ -76,6 +76,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         'exit_if_service_not_supported': (bool, None),
         'exit_scan_on_first_negative_response': (bool, None),
         'retry_if_busy_returncode': (bool, None),
+        'retry_if_busy_returncode_count': (int, lambda x: x >= 0),
         'stop_event': (threading.Event, None),
         'debug': (bool, None),
         'scan_range': ((list, tuple, range), None),
@@ -118,6 +119,10 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         :param bool retry_if_busy_returncode: Specifies to retry a request, if
                                               the 'busyRepeatRequest' negative
                                               response code is received.
+        :param int retry_if_busy_returncode_count: Number of retries if a
+                                                   'busyRepeatRequest' negative
+                                                   response code is received.
+                                                   Default is 3.
         :param bool debug: Enables debug functions during execute.
         :param Event stop_event: Signals immediate stop of the execution.
         :param scan_range: Specifies the identifiers to be scanned.
@@ -135,6 +140,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         self._results = list()  # type: List[_AutomotiveTestCaseScanResult]
         self._request_iterators = dict()  # type: Dict[EcuState, Iterable[Packet]]  # noqa: E501
         self._retry_pkt = defaultdict(list)  # type: Dict[EcuState, Union[Packet, Iterable[Packet]]]  # noqa: E501
+        self._busy_repeat_request_count = defaultdict(int)  # type: Dict[EcuState, int]  # noqa: E501
         self._negative_response_blacklist = [0x10, 0x11]  # type: List[int]
         self._requests_per_state_estimated = None  # type: Optional[int]
         self._tester_present_sender = None  # type: Optional[PeriodicSenderThread]
@@ -507,13 +513,27 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
                         ):  # type: (...) -> bool
         retry_if_busy_returncode = \
             kwargs.pop("retry_if_busy_returncode", True)
+        retry_if_busy_returncode_count = \
+            kwargs.pop("retry_if_busy_returncode_count", 3)
 
         if retry_if_busy_returncode and response.service == 0x7f \
                 and self._get_negative_response_code(response) == 0x21:
-            log_automotive.debug(
-                "Retry %s because retry_if_busy_returncode received",
-                repr(request))
-            return self._populate_retry(state, request)
+            if self._busy_repeat_request_count[state] < \
+                    retry_if_busy_returncode_count:
+                self._busy_repeat_request_count[state] += 1
+                self._retry_pkt[state] = request
+                log_automotive.debug(
+                    "Retry %s because retry_if_busy_returncode received",
+                    repr(request))
+                return True
+            else:
+                log_automotive.debug(
+                    "Max busy repeat retries (%d) exceeded for %s",
+                    retry_if_busy_returncode_count, repr(request))
+                self._busy_repeat_request_count[state] = 0
+                return False
+
+        self._busy_repeat_request_count[state] = 0
         return False
 
     def _compute_statistics(self):
