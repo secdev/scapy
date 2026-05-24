@@ -79,7 +79,7 @@ class CoAPSocket(SuperSocket):
     >>>         return CoAPSocket.empty_ack_params()
     >>> # Doesn't matter if it starts with "/dummy" or "dummy",
     >>> # but it is an error if it is in the end
-    >>> lst_resources = [DummyResource("dummy"), DelayedResource("/delayed")].
+    >>> lst_resources = [DummyResource("dummy"), DelayedResource("/delayed")]
     >>> with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_socket:
     >>>     while True:
     >>>         pkg = coap_socket.recv()
@@ -263,7 +263,8 @@ class CoAPResource:
         self.url = url
         if self.url[0] != "/":
             self.url = "/" + self.url
-        self.description = description  # interface description ("if" in CoRE link-format)
+        # interface description ("if" in CoRE link-format)
+        self.description = description
         self.content_format = content_format  # ct
         self.resource_type = resource_type  # rt
         self.title = title  # title
