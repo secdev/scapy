@@ -514,7 +514,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         retry_if_busy_returncode = \
             kwargs.pop("retry_if_busy_returncode", True)
         retry_if_busy_returncode_count = \
-            kwargs.pop("retry_if_busy_returncode_count", 3)
+            cast(int, kwargs.pop("retry_if_busy_returncode_count", 3))
 
         if retry_if_busy_returncode and response.service == 0x7f \
                 and self._get_negative_response_code(response) == 0x21:
