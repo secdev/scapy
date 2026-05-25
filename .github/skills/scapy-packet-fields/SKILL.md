@@ -147,6 +147,43 @@ Examples:
 - `scapy/layers/inet.py`: `IP.options` (`PacketListField`), ICMP conditional/enum usage
 - `scapy/layers/l2.py`: ARP `MultipleTypeField` usage, GRE conditional/checksum fields
 
+### 7) Additional protocol implementation patterns (from Scapy implementation slides)
+
+- **Layer navigation while debugging/building packets**
+  - `pkt[Layer]` selects a specific layer instance.
+  - `.underlayer` accesses the previous (encapsulating) layer.
+  - `.payload` accesses the next layer.
+  - Useful to validate binding/dispatch behavior in quick REPL checks.
+- **Field-family naming shortcuts**
+  - `X*` variants: hex-oriented display.
+  - `LE*` variants: little-endian integer encoding.
+  - `Signed*` variants: signed integer representation.
+  - `*Enum*` variants: symbolic names via mapping tables.
+- **`PacketField` / `PacketListField` dynamic decoding**
+  - `PacketField` decodes one embedded packet object.
+  - `PacketListField` decodes repeated embedded packets; dispatcher may be a class or a function returning a class.
+  - Common with TLV/IE lists where element type depends on runtime bytes.
+- **Post-dissection mutation hooks**
+  - `post_dissect(self, s)` can adjust decoded state after full layer parsing (e.g., decrypting payload-dependent content).
+  - Use only when mutation is required after field extraction.
+- **Explicit payload vs. extra-bytes control**
+  - `extract_padding` can intentionally discard/redirect trailing bytes when they are not protocol padding. This is important when parsing variable-length lists of embedded packets where trailing bytes should not be interpreted as padding.
+- **Custom field implementation workflow**
+  - Model field states explicitly:
+    - internal (`i`): Scapy runtime value
+    - machine (`m`): serialized bytes representation
+    - human (`h`): display representation
+  - Override conversion/encoding points as needed:
+    - `i2h`, `i2m`, `m2i` for state conversion
+    - `addfield` / `getfield` for custom serialization and parsing behavior
+
+References:
+- `scapy/contrib/mpls.py` (`guess_payload_class` dispatch pattern)
+- `scapy/layers/inet6.py` (`IPv46.dispatch_hook`)
+- `scapy/contrib/automotive/doip.py` (`tcp_reassemble`)
+- `scapy/layers/dot11.py` (`Dot11WEP.post_dissect`)
+- `scapy/layers/tftp.py` (`TFTP_Option.extract_padding`)
+
 ## UTScapy integration patterns
 
 Use UTScapy for regression coverage of layer behavior.
