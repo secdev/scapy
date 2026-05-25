@@ -54,9 +54,13 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
 
 def autorun_commands(_cmds, my_globals=None, verb=None):
     # type: (str, Optional[Dict[str, Any]], Optional[int]) -> Any
+    """
+    Run a bunch of commands in a CLI-like environment tuned for Scapy.
+    """
     sv = conf.verb
     try:
         try:
+            # Prepare the interpreter
             if my_globals is None:
                 from scapy.main import _scapy_builtins
                 my_globals = _scapy_builtins()
@@ -67,6 +71,8 @@ def autorun_commands(_cmds, my_globals=None, verb=None):
                 pass
             if verb is not None:
                 conf.verb = verb
+
+            # Process each line on by one.
             cmd = ""
             cmds = _cmds.splitlines()
             cmds.append("")  # ensure we finish multi-line commands
@@ -80,16 +86,24 @@ def autorun_commands(_cmds, my_globals=None, verb=None):
                 line = cmds.pop()
                 print(line)
                 cmd += "\n" + line
+
+                sys.last_exc = None  # type: ignore  # Python 3.12+
                 sys.last_value = None
                 if interp.runsource(cmd):
+                    # If runsource() returns True, the line is unfinished.
                     continue
-                if sys.last_value:  # An error occurred
-                    traceback.print_exception(
-                        sys.last_type,
-                        sys.last_value,
-                        sys.last_traceback.tb_next,
-                        file=sys.stdout,
-                    )
+
+                if sys.last_exc or sys.last_value:  # type: ignore  # An error occurred
+                    if sys.version_info >= (3, 12):
+                        traceback.print_last(file=sys.stdout)
+                    else:
+                        traceback.print_exception(
+                            sys.last_type,
+                            sys.last_value,
+                            sys.last_traceback.tb_next,
+                            file=sys.stdout,
+                        )
+                    sys.last_exc = None  # Python 3.12+
                     sys.last_value = None
                     return False
                 cmd = ""
