@@ -511,10 +511,12 @@ class CoAPSocketImpl:
         """Check CoAPSocket for the documentation"""
 
         # Parse the uri as options
-        if uri[0] == "/":
-            uri = uri[1:]
-        parsed_opt = [(URI_PATH, x) for x in uri.split("/")]
-
+        if uri in ("", "/"):
+            parsed_opt = []
+        else:
+            if uri[0] == "/":
+                uri = uri[1:]
+            parsed_opt = [(URI_PATH, x) for x in uri.split("/")]
         if options is not None:
             parsed_opt.extend(options)
 
