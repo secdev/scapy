@@ -56,7 +56,6 @@ from scapy import packet
 from typing import (
     Any,
     Dict,
-    Generic,
     List,
     Optional,
     Tuple,
