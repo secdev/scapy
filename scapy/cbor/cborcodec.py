@@ -11,14 +11,12 @@ import struct
 from typing import (
     Any,
     Dict,
-    Generic,
     List,
     Optional,
     Tuple,
     Type,
     TypeVar,
     Union,
-    cast,
 )
 
 from scapy.cbor.cbor import (
@@ -29,7 +27,6 @@ from scapy.cbor.cbor import (
     CBOR_Error,
     CBOR_MajorTypes,
     CBOR_Object,
-    _CBOR_ERROR,
 )
 from scapy.compat import chb, orb
 from scapy.error import log_runtime

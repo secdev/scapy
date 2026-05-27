@@ -33,8 +33,6 @@ from scapy.libs.codec import GenericCodec_metaclass, GenericCodecObject
 from typing import (
     Any,
     AnyStr,
-    Dict,
-    Generic,
     List,
     Optional,
     Tuple,
