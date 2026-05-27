@@ -32,7 +32,6 @@ from scapy.fields import (
     Field,
     FlagsField,
     FlagValue,
-    MayEnd,
     MultiEnumField,
     MultipleTypeField,
     PadField,
@@ -1106,7 +1105,7 @@ class Packet(
             # Nothing left to dissect
             if not s and (f._may_end or
                           (fval is not None and f._is_conditional and
-                           f.fld._may_end)):
+                           f.fld._may_end)):  # type: ignore
                 break
         self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
