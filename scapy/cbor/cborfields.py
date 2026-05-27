@@ -11,6 +11,7 @@ import copy
 
 from functools import reduce
 
+from scapy.base_classes import BasePacket
 from scapy.cbor.cbor import (
     CBOR_Decoding_Error,
     CBOR_Error,
