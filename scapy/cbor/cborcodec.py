@@ -33,6 +33,7 @@ from scapy.cbor.cbor import (
 )
 from scapy.compat import chb, orb
 from scapy.error import log_runtime
+from scapy.libs.codec import GenericCodec_metaclass, GenericCodecObject
 
 
 ##################
@@ -142,43 +143,36 @@ def CBOR_decode_head(s):
 #    [ CBOR codec classes ]    #
 
 
-class CBORcodec_metaclass(type):
-    def __new__(cls,
-                name,  # type: str
-                bases,  # type: Tuple[type, ...]
-                dct  # type: Dict[str, Any]
-                ):
-        # type: (...) -> Type[CBORcodec_Object[Any]]
-        c = cast('Type[CBORcodec_Object[Any]]',
-                 super(CBORcodec_metaclass, cls).__new__(cls, name, bases, dct))
-        try:
-            c.tag.register(c.codec, c)
-        except Exception:
-            log_runtime.error("Failed to register codec for tag")
-        return c
+class CBORcodec_metaclass(GenericCodec_metaclass):
+    """Metaclass for CBOR codec objects.
+
+    Inherits the tag registration logic from ``GenericCodec_metaclass`` and
+    adds a CBOR-specific log message when registration fails.
+    """
+
+    @classmethod
+    def _handle_registration_error(cls, c, exc):
+        # type: (Type[Any], Exception) -> None
+        log_runtime.error("Failed to register codec for tag")
 
 
 _K = TypeVar('_K')
 
 
-class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
+class CBORcodec_Object(GenericCodecObject[_K], metaclass=CBORcodec_metaclass):
     """Base CBOR codec class"""
     codec = CBOR_Codecs.CBOR
     tag = CBOR_MajorTypes.UNSIGNED_INTEGER
+
+    # Attributes consumed by GenericCodecObject.check_string and .dec
+    _decoding_error_class = CBOR_Codec_Decoding_Error
+    _generic_error_classes = (CBOR_Codec_Decoding_Error, CBOR_Error)  # type: ignore
+    _decoding_error_object_class = CBOR_DECODING_ERROR
 
     @classmethod
     def cbor_object(cls, val):
         # type: (_K) -> CBOR_Object[_K]
         return cls.tag.cbor_object(val)
-
-    @classmethod
-    def check_string(cls, s):
-        # type: (bytes) -> None
-        if not s:
-            raise CBOR_Codec_Decoding_Error(
-                "%s: Got empty object while expecting tag %r" %
-                (cls.__name__, cls.tag), remaining=s
-            )
 
     @classmethod
     def do_dec(cls,
@@ -189,30 +183,6 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
         # type: (...) -> Tuple[CBOR_Object[Any], bytes]
         """Decode CBOR data using automatic dispatch based on major type."""
         return _decode_cbor_item(s, safe=safe)
-
-    @classmethod
-    def dec(cls,
-            s,  # type: bytes
-            context=None,  # type: Optional[Any]
-            safe=False,  # type: bool
-            ):
-        # type: (...) -> Tuple[Union[_CBOR_ERROR, CBOR_Object[_K]], bytes]
-        if not safe:
-            return cls.do_dec(s, context, safe)
-        try:
-            return cls.do_dec(s, context, safe)
-        except CBOR_Codec_Decoding_Error as e:
-            return CBOR_DECODING_ERROR(s, exc=e), b""
-        except CBOR_Error as e:
-            return CBOR_DECODING_ERROR(s, exc=e), b""
-
-    @classmethod
-    def safedec(cls,
-                s,  # type: bytes
-                context=None,  # type: Optional[Any]
-                ):
-        # type: (...) -> Tuple[Union[_CBOR_ERROR, CBOR_Object[_K]], bytes]
-        return cls.dec(s, context, safe=True)
 
     @classmethod
     def enc(cls, s):
