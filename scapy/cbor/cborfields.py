@@ -38,7 +38,11 @@ from scapy.cbor.cborcodec import (
     CBORcodec_TEXT_STRING,
     CBORcodec_SIMPLE_AND_FLOAT,
 )
-from scapy.base_classes import BasePacket
+from scapy.libs.codec import (
+    GenericCodecField,
+    GenericCodecField_element,
+    GenericCodecOptionalField,
+)
 from scapy.volatile import (
     RandChoice,
     RandFloat,
@@ -71,7 +75,7 @@ class CBORF_badsequence(Exception):
     pass
 
 
-class CBORF_element(object):
+class CBORF_element(GenericCodecField_element):
     pass
 
 
@@ -83,10 +87,9 @@ _I = TypeVar('_I')  # Internal storage
 _A = TypeVar('_A')  # CBOR object
 
 
-class CBORF_field(CBORF_element, Generic[_I, _A]):
-    holds_packets = 0
-    islist = 0
+class CBORF_field(GenericCodecField[_I, _A], CBORF_element):
     CBOR_tag = None  # type: Optional[Any]
+    _badsequence_error_class = CBORF_badsequence
 
     def __init__(self,
                  name,  # type: str
@@ -814,13 +817,16 @@ class CBORF_SEMANTIC_TAG(CBORF_field[Tuple[int, Any],
 #    Complex CBOR Fields     #
 ##############################
 
-class CBORF_optional(CBORF_element):
+class CBORF_optional(GenericCodecOptionalField, CBORF_element):
     """
     Wrapper making a :class:`CBORF_field` optional.
 
     During decoding, if the next CBOR item does not match the expected major
     type, the field value is set to ``None`` and the stream is left unchanged.
     """
+    _optional_error_classes = (  # type: ignore
+        CBOR_Error, CBORF_badsequence, CBOR_Codec_Decoding_Error
+    )
 
     def __init__(self, field):
         # type: (CBORF_field[Any, Any]) -> None
