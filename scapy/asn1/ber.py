@@ -28,6 +28,7 @@ from scapy.asn1.asn1 import (
     ASN1_Object,
     _ASN1_ERROR,
 )
+from scapy.libs.codec import GenericCodec_metaclass, GenericCodecObject
 
 from typing import (
     Any,
@@ -267,42 +268,35 @@ def BER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
 #    [ BER classes ]    #
 
 
-class BERcodec_metaclass(type):
-    def __new__(cls,
-                name,  # type: str
-                bases,  # type: Tuple[type, ...]
-                dct  # type: Dict[str, Any]
-                ):
-        # type: (...) -> Type[BERcodec_Object[Any]]
-        c = cast('Type[BERcodec_Object[Any]]',
-                 super(BERcodec_metaclass, cls).__new__(cls, name, bases, dct))
-        try:
-            c.tag.register(c.codec, c)
-        except Exception:
-            warning("Error registering %r for %r" % (c.tag, c.codec))
-        return c
+class BERcodec_metaclass(GenericCodec_metaclass):
+    """Metaclass for BER codec objects.
+
+    Inherits the tag registration logic from ``GenericCodec_metaclass`` and
+    adds a BER-specific warning when registration fails.
+    """
+
+    @classmethod
+    def _handle_registration_error(cls, c, exc):
+        # type: (Type[Any], Exception) -> None
+        warning("Error registering %r for %r" % (c.tag, c.codec))
 
 
 _K = TypeVar('_K')
 
 
-class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
+class BERcodec_Object(GenericCodecObject[_K], metaclass=BERcodec_metaclass):
     codec = ASN1_Codecs.BER
     tag = ASN1_Class_UNIVERSAL.ANY
+
+    # Attributes consumed by GenericCodecObject.check_string and .dec
+    _decoding_error_class = BER_Decoding_Error
+    _generic_error_classes = (BER_Decoding_Error, ASN1_Error)  # type: ignore
+    _decoding_error_object_class = ASN1_DECODING_ERROR
 
     @classmethod
     def asn1_object(cls, val):
         # type: (_K) -> ASN1_Object[_K]
         return cls.tag.asn1_object(val)
-
-    @classmethod
-    def check_string(cls, s):
-        # type: (bytes) -> None
-        if not s:
-            raise BER_Decoding_Error(
-                "%s: Got empty object while expecting tag %r" %
-                (cls.__name__, cls.tag), remaining=s
-            )
 
     @classmethod
     def check_type(cls, s):
@@ -369,6 +363,12 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
             safe=False,  # type: bool
             ):
         # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
+        # BER overrides dec from GenericCodecObject to add special recovery for
+        # BER_BadTag_Decoding_Error: instead of wrapping the error in a
+        # DECODING_ERROR object, it recursively tries to decode from the
+        # remaining bytes and wraps the result in ASN1_BADTAG.
+        # Other BER/ASN1 errors are handled inline (same semantics as the
+        # generic dec, but with BER-specific exception types).
         if not safe:
             return cls.do_dec(s, context, safe)
         try:
@@ -382,14 +382,6 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
             return ASN1_DECODING_ERROR(s, exc=e), b""
         except ASN1_Error as e:
             return ASN1_DECODING_ERROR(s, exc=e), b""
-
-    @classmethod
-    def safedec(cls,
-                s,  # type: bytes
-                context=None,  # type: Optional[Type[ASN1_Class]]
-                ):
-        # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
-        return cls.dec(s, context, safe=True)
 
     @classmethod
     def enc(cls, s, size_len=0):
