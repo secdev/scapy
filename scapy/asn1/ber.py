@@ -290,7 +290,7 @@ class BERcodec_Object(GenericCodecObject[_K], metaclass=BERcodec_metaclass):
 
     # Attributes consumed by GenericCodecObject.check_string and .dec
     _decoding_error_class = BER_Decoding_Error
-    _generic_error_classes = (BER_Decoding_Error, ASN1_Error)  # type: ignore
+    _generic_error_classes = (BER_Decoding_Error, ASN1_Error)
     _decoding_error_object_class = ASN1_DECODING_ERROR
 
     @classmethod
