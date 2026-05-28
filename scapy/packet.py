@@ -1178,16 +1178,20 @@ class Packet(
                     fields = self.fields
                     overloaded = self.overloaded_fields
                     default = self.default_fields
+                    deprecated_fields = self.deprecated_fields
                     matched = True
                     for k, v in fval.items():
-                        # Inline getfieldval for speed: avoid method call
-                        # and deprecated_fields check per iteration
-                        if k in fields:
-                            fv = fields[k]
-                        elif k in overloaded:
-                            fv = overloaded[k]
+                        if deprecated_fields:
+                            fv = self.getfieldval(k)
                         else:
-                            fv = default[k]
+                            # Inline getfieldval for speed when there are no
+                            # deprecated field aliases to resolve.
+                            if k in fields:
+                                fv = fields[k]
+                            elif k in overloaded:
+                                fv = overloaded[k]
+                            else:
+                                fv = default[k]
                         if v != fv:
                             matched = False
                             break
