@@ -1,0 +1,301 @@
+% Regression tests for CoAPSocket
+
++ Configuration
+~ conf
+
+= Imports
+from scapy.contrib.coap_socket import *
+
+= Redirect logging
+import logging
+import shutil
+import socket
+import subprocess
+import time
+from scapy.error import log_runtime
+
+from io import StringIO
+
+log_stream = StringIO()
+handler = logging.StreamHandler(log_stream)
+log_runtime.addHandler(handler)
+log_coap_sock.addHandler(handler)
+
+coap_client_bin = shutil.which("coap-client")
+coap_server_bin = shutil.which("coap-server")
+libcoap_available = coap_client_bin is not None and coap_server_bin is not None
+
+
+def _pick_port():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    s.bind(("127.0.0.1", 0))
+    p = s.getsockname()[1]
+    s.close()
+    return p
+
+
+def _run_coap_client(uri, timeout=5):
+    p = subprocess.Popen(
+        [coap_client_bin, "-m", "get", "-B", "2", uri],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    try:
+        out, err = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        out, err = p.communicate()
+    return p.returncode, out, err
+
+
+def _start_coap_server(port):
+    p = subprocess.Popen(
+        [coap_server_bin, "-A", "127.0.0.1", "-p", str(port), "-v", "0"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    time.sleep(0.4)
+    return p
+
+
+def _cleanup_process(p):
+    if p is None or p.poll() is not None:
+        return
+    p.terminate()
+    try:
+        p.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        p.wait(timeout=2)
+
+
+class InteropResource(CoAPResource):
+    def get(self, payload, options, token, sa_ll):
+        return {
+            "type": ACK,
+            "code": CONTENT_205,
+            "options": [(CONTENT_FORMAT, CF_TEXT_PLAIN)],
+            "payload": b"scapy-libcoap-interop",
+        }
+
+
+class StressResource(CoAPResource):
+    def get(self, payload, options, token, sa_ll):
+        return {
+            "type": ACK,
+            "code": CONTENT_205,
+            "options": [(CONTENT_FORMAT, CF_TEXT_PLAIN)],
+            "payload": b"scapy-stress",
+        }
+
++ Testing client -> server interactions
+
+= Setup dummy resources
+
+responses = [b'dummy response', b'delayed response']
+
+class DummyResource(CoAPResource):
+    def get(self, payload, options, token, sa_ll):
+        return {"type": ACK, "code": CONTENT_205, "options": [(CONTENT_FORMAT, CF_TEXT_PLAIN)], "payload": responses[0]}
+
+
+class DelayedResource(CoAPResource):
+    def __init__(self, url):
+        CoAPResource.__init__(self, url=url)
+        self.delayed_tokens = []
+    def delayed_message(self):
+        token, address = self.delayed_tokens.pop(0)
+        pkt = CoAPSocket.make_delayed_resp_packet(token, [(CONTENT_FORMAT, CF_TEXT_PLAIN)], responses[1])
+        self._send_separate_response(pkt, address)
+    def get(self, payload, options, token, sa_ll):
+        # We know that this can take a while, so we return an empty ACK now and wait for whatever resource to be available.
+        TimeoutScheduler.schedule(1, self.delayed_message)
+        self.delayed_tokens.append((token, sa_ll))
+        return CoAPSocket.empty_ack_params()
+
+lst_resources = [DummyResource("/dummy"), DelayedResource("delayed")]
+
+= Send and receive package [.well-known/core]
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri=".well-known/core", payload=b"")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.payload.load == b'</dummy>;ct=0,</delayed>;ct=0'
+    assert res.type == ACK
+    assert res.code == CONTENT_205
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= Send and receive package [dummy]
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri="dummy", payload=b"")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.payload.load == responses[0]
+    assert res.type == ACK
+    assert res.code == CONTENT_205
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= Send and receive package [/dummy]
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri="/dummy", payload=b"")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.payload.load == responses[0]
+    assert res.type == ACK
+    assert res.code == CONTENT_205
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= Incorrect endpoint [dummy/]
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri="dummy/", payload=b"")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.type == ACK
+    assert res.code == NOT_FOUND_404
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= Invalid method
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(method=PUT, uri="dummy", payload=b"a payload")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.type == ACK
+    assert res.code == NOT_ALLOWED_405
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= Retransmission
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    coap_server.impl._enable_debug = True
+    req = CoAPSocket.make_coap_req_packet(uri="/dummy", payload=b"")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.payload.load == responses[0]
+    assert res.type == ACK
+    assert res.code == CONTENT_205
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= Delayed response
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri="/delayed", payload=b"")
+    coap_client.send(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    res = coap_client.recv()
+    assert res.payload.load == responses[1]
+    assert res.type == CON
+    assert res.code == CONTENT_205
+    # assert res.msg_id == req.msg_id - This assert doesn't make sense because it will send with another msg_id
+    assert res.token == req.token
+    assert res.payload.load == responses[1]
+
+= SR1
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    req = CoAPSocket.make_coap_req_packet(uri="/dummy", payload=b"")
+    res = coap_client.sr1(IP(dst="127.0.0.1")/UDP(dport=5683)/req)
+    assert res.payload.load == responses[0]
+    assert res.type == ACK
+    assert res.code == CONTENT_205
+    assert res.msg_id == req.msg_id
+    assert res.token == req.token
+
+= SR
+
+with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:
+    pkt = CoAPSocket.make_coap_req_packet(uri="/dummy", payload=b"")
+    ans, _ = coap_client.sr(IP(dst="127.0.0.1")/UDP(dport=5683)/pkt)
+    for _, rcv in ans:
+        assert rcv.payload.load == responses[0]
+        assert rcv.type == ACK
+        assert rcv.code == CONTENT_205
+        assert rcv.msg_id == pkt.msg_id
+        assert rcv.token == pkt.token
+
++ Testing interoperability with libcoap
+
+= libcoap client -> CoAPSocket server
+
+if not libcoap_available:
+    print("Skipping libcoap interoperability tests: coap-client/coap-server not found")
+    assert True
+else:
+    interop_port = _pick_port()
+    with CoAPSocket(
+        "127.0.0.1",
+        interop_port,
+        lst_resources=[InteropResource("/interop")]
+    ) as coap_server:
+        rc, out, err = _run_coap_client("coap://127.0.0.1:%d/interop" % interop_port)
+        assert rc == 0, "coap-client failed rc=%s stderr=%r" % (rc, err)
+        assert b"scapy-libcoap-interop" in out, "Unexpected payload: %r" % out
+
+= CoAPSocket client -> libcoap server
+
+if not libcoap_available:
+    print("Skipping libcoap interoperability tests: coap-client/coap-server not found")
+    assert True
+else:
+    libcoap_port = _pick_port()
+    libcoap_server = _start_coap_server(libcoap_port)
+    try:
+        with CoAPSocket("127.0.0.1", _pick_port()) as coap_client:
+            req = CoAPSocket.make_coap_req_packet(uri=".well-known/core", payload=b"")
+            coap_client.send(IP(dst="127.0.0.1")/UDP(dport=libcoap_port)/req)
+            res = coap_client.recv()
+            assert res is not None
+            assert res.code == CONTENT_205
+            assert b"</" in res.payload.load
+            assert res.token == req.token
+    finally:
+        _cleanup_process(libcoap_server)
+
++ Stress tests
+
+= Stress: libcoap client -> CoAPSocket server
+
+if not libcoap_available:
+    print("Skipping libcoap interoperability tests: coap-client/coap-server not found")
+    assert True
+else:
+    stress_port = _pick_port()
+    with CoAPSocket("127.0.0.1", stress_port, lst_resources=[StressResource("/stress")]):
+        for i in range(25):
+            rc, out, err = _run_coap_client("coap://127.0.0.1:%d/stress" % stress_port)
+            assert rc == 0, "coap-client stress failed #%d rc=%s stderr=%r" % (
+                i, rc, err
+            )
+            assert b"scapy-stress" in out
+
+= Stress: CoAPSocket client -> libcoap server
+
+if not libcoap_available:
+    print("Skipping libcoap interoperability tests: coap-client/coap-server not found")
+    assert True
+else:
+    stress_libcoap_port = _pick_port()
+    stress_libcoap_server = _start_coap_server(stress_libcoap_port)
+    try:
+        with CoAPSocket("127.0.0.1", _pick_port()) as coap_client:
+            for _ in range(25):
+                req = CoAPSocket.make_coap_req_packet(uri=".well-known/core", payload=b"")
+                coap_client.send(
+                    IP(dst="127.0.0.1") / UDP(dport=stress_libcoap_port) / req
+                )
+                res = coap_client.recv()
+                assert res is not None
+                assert res.code == CONTENT_205
+                assert b"</" in res.payload.load
+                assert res.token == req.token
+    finally:
+        _cleanup_process(stress_libcoap_server)
