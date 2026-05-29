@@ -439,7 +439,7 @@ class DNSTextField(StrLenField):
 
 edns0types = {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Owner",
               5: "DAU", 6: "DHU", 7: "N3U", 8: "edns-client-subnet", 10: "COOKIE",
-              15: "Extended DNS Error"}
+              12: "Padding", 15: "Extended DNS Error"}
 
 
 class _EDNS0Dummy(Packet):
@@ -626,6 +626,16 @@ class EDNS0COOKIE(_EDNS0Dummy):
                                 length_from=lambda pkt: max(0, pkt.optlen - 8))]
 
 
+# RFC 7830 - EDNS0 Padding Option
+
+class EDNS0PADDING(_EDNS0Dummy):
+    name = "DNS EDNS0 Padding"
+    fields_desc = [ShortEnumField("optcode", 12, edns0types),
+                   FieldLenField("optlen", None, length_of="padding", fmt="!H"),
+                   StrLenField("padding", "",
+                               length_from=lambda pkt: pkt.optlen)]
+
+
 # RFC 8914 - Extended DNS Errors
 
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#extended-dns-error-codes
@@ -681,6 +691,7 @@ EDNS0OPT_DISPATCHER = {
     7: EDNS0N3U,
     8: EDNS0ClientSubnet,
     10: EDNS0COOKIE,
+    12: EDNS0PADDING,
     15: EDNS0ExtendedDNSError,
 }
 
