@@ -32,7 +32,6 @@ from scapy.fields import (
     Field,
     FlagsField,
     FlagValue,
-    MayEnd,
     MultiEnumField,
     MultipleTypeField,
     PadField,
@@ -155,7 +154,7 @@ class Packet(
                  **fields  # type: Any
                  ):
         # type: (...) -> None
-        self.time = time.time()  # type: Union[EDecimal, float]
+        self.time = 0.0 if _internal else time.time()  # type: Union[EDecimal, float]
         self.sent_time = None  # type: Union[EDecimal, float, None]
         self.name = (self.__class__.__name__
                      if self._name is None else
@@ -352,11 +351,12 @@ class Packet(
         cls_name = self.__class__
 
         # Build the fields information
-        if Packet.class_default_fields.get(cls_name, None) is None:
+        default_fields = Packet.class_default_fields.get(cls_name)
+        if default_fields is None:
             self.prepare_cached_fields(self.fields_desc)
+            default_fields = Packet.class_default_fields.get(cls_name)
 
         # Use fields information from cache
-        default_fields = Packet.class_default_fields.get(cls_name, None)
         if default_fields:
             self.default_fields = default_fields
             self.fieldtype = Packet.class_fieldtype[cls_name]
@@ -516,13 +516,18 @@ class Packet(
         # type: (str) -> Any
         if self.deprecated_fields and attr in self.deprecated_fields:
             attr = self._resolve_alias(attr)
-        if attr in self.fields:
+        try:
             return self.fields[attr]
-        if attr in self.overloaded_fields:
+        except KeyError:
+            pass
+        try:
             return self.overloaded_fields[attr]
-        if attr in self.default_fields:
+        except KeyError:
+            pass
+        try:
             return self.default_fields[attr]
-        return self.payload.getfieldval(attr)
+        except KeyError:
+            return self.payload.getfieldval(attr)
 
     def getfield_and_val(self, attr):
         # type: (str) -> Tuple[AnyField, Any]
@@ -725,17 +730,24 @@ class Packet(
     def _raw_packet_cache_field_value(self, fld, val, copy=False):
         # type: (AnyField, Any, bool) -> Optional[Any]
         """Get a value representative of a mutable field to detect changes"""
-        _cpy = lambda x: fld.do_copy(x) if copy else x  # type: Callable[[Any], Any]
         if fld.holds_packets:
             # avoid copying whole packets (perf: #GH3894)
             if fld.islist:
+                if copy:
+                    return [
+                        (fld.do_copy(x.fields), x.payload.raw_packet_cache)
+                        for x in val
+                    ]
                 return [
-                    (_cpy(x.fields), x.payload.raw_packet_cache) for x in val
+                    (x.fields, x.payload.raw_packet_cache) for x in val
                 ]
             else:
-                return (_cpy(val.fields), val.payload.raw_packet_cache)
+                if copy:
+                    return (fld.do_copy(val.fields),
+                            val.payload.raw_packet_cache)
+                return (val.fields, val.payload.raw_packet_cache)
         elif fld.islist or fld.ismutable:
-            return _cpy(val)
+            return fld.do_copy(val) if copy else val
         return None
 
     def clear_cache(self):
@@ -1081,7 +1093,7 @@ class Packet(
         for f in self.fields_desc:
             s, fval = f.getfield(self, s)
             # Skip unused ConditionalField
-            if isinstance(f, ConditionalField) and fval is None:
+            if f._is_conditional and fval is None:
                 continue
             # We need to track fields with mutable values to discard
             # .raw_packet_cache when needed.
@@ -1090,9 +1102,9 @@ class Packet(
                     self._raw_packet_cache_field_value(f, fval, copy=True)
             self.fields[f.name] = fval
             # Nothing left to dissect
-            if not s and (isinstance(f, MayEnd) or
-                          (fval is not None and isinstance(f, ConditionalField) and
-                           isinstance(f.fld, MayEnd))):
+            if not s and (f._may_end or
+                          (fval is not None and f._is_conditional and
+                           f.fld._may_end)):  # type: ignore
                 break
         self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
@@ -1162,10 +1174,29 @@ class Packet(
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
                 try:
-                    if all(v == self.getfieldval(k)
-                           for k, v in fval.items()):
+                    fields = self.fields
+                    overloaded = self.overloaded_fields
+                    default = self.default_fields
+                    deprecated_fields = self.deprecated_fields
+                    matched = True
+                    for k, v in fval.items():
+                        if deprecated_fields:
+                            fv = self.getfieldval(k)
+                        else:
+                            # Inline getfieldval for speed when there are no
+                            # deprecated field aliases to resolve.
+                            if k in fields:
+                                fv = fields[k]
+                            elif k in overloaded:
+                                fv = overloaded[k]
+                            else:
+                                fv = default[k]
+                        if v != fv:
+                            matched = False
+                            break
+                    if matched:
                         return cls  # type: ignore
-                except AttributeError:
+                except (AttributeError, KeyError):
                     pass
         return self.default_payload_class(payload)
 
@@ -1858,7 +1889,7 @@ class NoPayload(Packet):
         if singl is None:
             cls.__singl__ = singl = Packet.__new__(cls)
             Packet.__init__(singl)
-        return cast(NoPayload, singl)
+        return singl  # type: ignore
 
     def __init__(self, *args, **kargs):
         # type: (*Any, **Any) -> None
