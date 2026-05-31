@@ -9,20 +9,21 @@
 
 = Generic answering machine mocker
 from unittest import mock
-@mock.patch("scapy.ansmachine.sniff")
-def test_am(cls_name, packet_query, check_reply, mock_sniff, **kargs):
-    packet_query = packet_query.__class__(bytes(packet_query))
-    def sniff(*args,**kargs):
-        kargs["prn"](packet_query)
-    mock_sniff.side_effect = sniff
-    am = cls_name(**kargs)
-    called = [False]
-    def _sndrpl(x):
-        called[0] = True
-        check_reply(x.__class__(bytes(x)))
-    am.send_reply = _sndrpl
-    am()
-    assert called[0], "Filter never passed for AnsweringMachine !"
+
+def test_am(cls_name, packet_query, check_reply, **kargs):
+    with mock.patch("scapy.ansmachine.sniff") as mock_sniff:
+        packet_query = packet_query.__class__(bytes(packet_query))
+        def sniff(*args,**kargs):
+            kargs["prn"](packet_query)
+        mock_sniff.side_effect = sniff
+        am = cls_name(**kargs)
+        called = [False]
+        def _sndrpl(x):
+            called[0] = True
+            check_reply(x.__class__(bytes(x)))
+        am.send_reply = _sndrpl
+        am()
+        assert called[0], "Filter never passed for AnsweringMachine !"
 
 
 = BOOT_am
@@ -248,14 +249,15 @@ a.print_reply(req, res)
 
 = WiFi_am
 from unittest import mock
-@mock.patch("scapy.layers.dot11.sniff")
-def test_WiFi_am(packet_query, check_reply, mock_sniff, **kargs):
-    def sniff(*args,**kargs):
-        kargs["prn"](packet_query)
-    mock_sniff.side_effect = sniff
-    am = WiFi_am(**kargs)
-    am.send_reply = check_reply
-    am()
+
+def test_WiFi_am(packet_query, check_reply, **kargs):
+    with mock.patch("scapy.layers.dot11.sniff") as mock_sniff:
+        def sniff(*args,**kargs):
+            kargs["prn"](packet_query)
+        mock_sniff.side_effect = sniff
+        am = WiFi_am(**kargs)
+        am.send_reply = check_reply
+        am()
 
 def check_WiFi_am_reply(packet):
     assert isinstance(packet, list) and len(packet) == 2

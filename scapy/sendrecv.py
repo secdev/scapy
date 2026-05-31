@@ -1296,8 +1296,10 @@ class AsyncSniffer(object):
                     "will be the one of the first socket")
 
         close_pipe = None  # type: Optional[ObjectPipe[None]]
-        if not nonblocking_socket:
-            # select is blocking: Add special control socket
+        if not nonblocking_socket or timeout is not None:
+            # Blocking select needs a control socket to wake up select().
+            # Nonblocking sockets with a timeout also need it so that stop()
+            # does not wait for the remaining timeout (#4890).
             from scapy.automaton import ObjectPipe
             close_pipe = ObjectPipe[None]("control_socket")
             sniff_sockets[close_pipe] = "control_socket"  # type: ignore
@@ -1309,7 +1311,6 @@ class AsyncSniffer(object):
                 self.continue_sniff = False
             self.stop_cb = stop_cb
         else:
-            # select is non blocking
             def stop_cb():
                 # type: () -> None
                 self.continue_sniff = False
