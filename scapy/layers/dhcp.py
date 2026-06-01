@@ -10,6 +10,14 @@ Implements:
 - rfc951 - BOOTSTRAP PROTOCOL (BOOTP)
 - rfc1542 - Clarifications and Extensions for the Bootstrap Protocol
 - rfc1533 - DHCP Options and BOOTP Vendor Extensions
+- rfc3396 - Encoding Long Options in DHCPv4
+
+You can disable concatenation on DHCP options holding the same code
+while decoding DHCP packets with::
+
+    >>> conf.contribs["dhcp"]["rfc3396"] = False
+
+(Defaults to True)
 """
 
 try:
@@ -69,6 +77,9 @@ from typing import (
 )
 
 dhcpmagic = b"c\x82Sc"
+if "dhcp" not in conf.contribs:
+    conf.contribs["dhcp"] = {}
+    conf.contribs["dhcp"]["rfc3396"] = True
 
 
 class _BOOTP_chaddr(StrFixedLenField):
@@ -436,60 +447,145 @@ class DHCPOptionsField(StrField):
                 s.append(sane(v))
         return "[%s]" % (" ".join(s))
 
+    def _extract_raw_entries(self, x):
+        """
+        Extract raw TLV entries from the options buffer without interpreting them.
+        Returns a list where each entry is either:
+        - A string ('pad'/'end').
+        - A tuple (code, raw_bytes).
+        - Raw bytes for malformed trailing data.
+        """
+        entries = []
+        while x:
+            o = orb(x[0])
+            if o == 255:
+                entries.append("end")
+                x = x[1:]
+                continue
+            if o == 0:
+                entries.append("pad")
+                x = x[1:]
+                continue
+            if len(x) < 2 or len(x) < orb(x[1]) + 2:
+                entries.append(x)
+                break
+            olen = orb(x[1])
+            entries.append((o, x[2:olen + 2]))
+            x = x[olen + 2:]
+        return entries
+
+    def _merge_entries(self, entries):
+        """
+        RFC 3396: merge all entries sharing the same option code.
+        Preserves order of first appearance.
+        Pads, ends and malformed entries are kept in place.
+        """
+        merged = {}
+        order = []
+        for entry in entries:
+            if isinstance(entry, tuple) and len(entry) == 2:
+                code, value = entry
+                if code in merged:
+                    merged[code] += value
+                else:
+                    merged[code] = bytearray(value)
+                    order.append(('option', code))
+            else:
+                order.append(('special', entry))
+        result = []
+        for kind, data in order:
+            if kind == 'special':
+                result.append(data)
+            else:
+                result.append((data, bytes(merged[data])))
+        return result
+
+    def _entries_to_raw(self, entries):
+        """
+        Reconstruct raw bytes from a list of extracted entries.
+        """
+        s = b""
+        for entry in entries:
+            if isinstance(entry, tuple) and len(entry) == 2:
+                code, value = entry
+                s += struct.pack("!BB", code, len(value)) + value
+            elif entry == "end":
+                s += b'\xff'
+            elif entry == "pad":
+                s += b'\x00'
+            elif isinstance(entry, bytes):
+                s += entry
+        return s
+
     def getfield(self, pkt, s):
         return b"", self.m2i(pkt, s)
 
     def m2i(self, pkt, x):
+        rfc3396 = conf.contribs.get("dhcp", {}).get("rfc3396", True)
+
+        entries = self._extract_raw_entries(x)
+
+        if rfc3396:
+            # RFC 3396 section 5: check for option overload
+            overload = 0
+            for entry in entries:
+                if (isinstance(entry, tuple) and len(entry) == 2
+                        and entry[0] == 52 and len(entry[1]) == 1):
+                    overload = orb(entry[1][0])
+                    break
+
+            # Build aggregate entries from file/sname if needed
+            if (overload
+                    and pkt.underlayer is not None
+                    and isinstance(pkt.underlayer, BOOTP)):
+                if overload in (1, 3):
+                    entries += self._extract_raw_entries(
+                        pkt.underlayer.file
+                    )
+                if overload in (2, 3):
+                    entries += self._extract_raw_entries(
+                        pkt.underlayer.sname
+                    )
+
+            # Merge all entries with same code
+            entries = self._merge_entries(entries)
+
+        # Interpret entries
         opt = []
-        while x:
-            o = orb(x[0])
-            if o == 255:
-                opt.append("end")
-                x = x[1:]
-                continue
-            if o == 0:
-                opt.append("pad")
-                x = x[1:]
-                continue
-            if len(x) < 2 or len(x) < orb(x[1]) + 2:
-                opt.append(x)
-                break
-            elif o in DHCPOptions:
-                f = DHCPOptions[o]
-
-                if isinstance(f, str):
-                    olen = orb(x[1])
-                    opt.append((f, x[2:olen + 2]))
-                    x = x[olen + 2:]
-                else:
-                    olen = orb(x[1])
+        for i, entry in enumerate(entries):
+            if isinstance(entry, tuple) and len(entry) == 2:
+                code, raw_value = entry
+                if code in DHCPOptions:
+                    f = DHCPOptions[code]
+                    if isinstance(f, str):
+                        opt.append((f, raw_value))
+                        continue
                     lval = [f.name]
-
-                    if olen == 0:
+                    if len(raw_value) == 0:
                         try:
                             _, val = f.getfield(pkt, b'')
                         except Exception:
-                            opt.append(x)
+                            opt.append(
+                                self._entries_to_raw(entries[i:])
+                            )
                             break
                         else:
                             lval.append(val)
-
                     try:
-                        left = x[2:olen + 2]
+                        left = raw_value
                         while left:
                             left, val = f.getfield(pkt, left)
                             lval.append(val)
                     except Exception:
-                        opt.append(x)
+                        opt.append(
+                            self._entries_to_raw(entries[i:])
+                        )
                         break
-                    else:
-                        otuple = tuple(lval)
-                    opt.append(otuple)
-                    x = x[olen + 2:]
+                    opt.append(tuple(lval))
+                else:
+                    opt.append((code, raw_value))
             else:
-                olen = orb(x[1])
-                opt.append((o, x[2:olen + 2]))
-                x = x[olen + 2:]
+                opt.append(entry)
         return opt
 
     def i2m(self, pkt, x):
@@ -514,8 +610,15 @@ class DHCPOptionsField(StrField):
                     warning("Unknown field option %s", name)
                     continue
 
-                s += struct.pack("!BB", onum, len(oval))
-                s += oval
+                # RFC 3396: split options longer than 255 bytes
+                if not oval:
+                    s += struct.pack("!BB", onum, 0)
+                else:
+                    while oval:
+                        chunk = oval[:255]
+                        oval = oval[255:]
+                        s += struct.pack("!BB", onum, len(chunk))
+                        s += chunk
 
             elif (isinstance(o, str) and o in DHCPRevOptions and
                   DHCPRevOptions[o][1] is None):
