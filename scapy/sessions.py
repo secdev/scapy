@@ -51,11 +51,14 @@ class DefaultSession(object):
             return self.supersession.process(pkt)
         return pkt
 
-    def recv(self, sock: 'SuperSocket') -> Iterator[Packet]:
+    def recv(self, sock: 'SuperSocket', nonblock: bool = False) -> Iterator[Packet]:
         """
         Will be called by sniff() to ask for a packet
         """
-        pkt = sock.recv()
+        if nonblock and hasattr(sock, "nonblock_recv"):
+            pkt = sock.nonblock_recv()
+        else:
+            pkt = sock.recv()
         if not pkt:
             return
         pkt = self.process(pkt)
@@ -407,11 +410,14 @@ class TCPSession(IPSession):
             return pkt
         return None
 
-    def recv(self, sock: 'SuperSocket') -> Iterator[Packet]:
+    def recv(self, sock: 'SuperSocket', nonblock: bool = False) -> Iterator[Packet]:
         """
         Will be called by sniff() to ask for a packet
         """
-        pkt = sock.recv(stop_dissection_after=self.stop_dissection_after)
+        if nonblock and hasattr(sock, "nonblock_recv"):
+            pkt = sock.nonblock_recv()
+        else:
+            pkt = sock.recv(stop_dissection_after=self.stop_dissection_after)
         # Now handle TCP reassembly
         if self.app:
             while pkt is not None:
