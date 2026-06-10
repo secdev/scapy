@@ -1886,6 +1886,49 @@ except IPSecIntegrityError as err:
     err
 
 #######################################
+= IPv4 / ESP - Transport - AES-GCM - Truncated ICV (12 bytes)
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
+                         crypt_icv_size=12,
+                         auth_algo='NULL', auth_key=None)
+
+e = sa.encrypt(p)
+e
+
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+* after encryption the original packet payload should NOT be readable
+assert b'testdata' not in e[ESP].data
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert d[TCP] == p[TCP]
+
+* test with altered packet - integrity verification should fail
+e2 = sa.encrypt(p)
+e2[ESP].data = e2[ESP].data[:-1] + b'\xff'
+try:
+    d = sa.decrypt(e2)
+    assert False, "Integrity check should have failed"
+except IPSecIntegrityError as err:
+    err
+
+#######################################
 = IPv4 / ESP - Transport - AES-CCM - NULL
 ~ crypto_advanced
 
