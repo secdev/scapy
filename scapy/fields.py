@@ -312,6 +312,54 @@ class _FieldContainer(object):
     """
     __slots__ = ["fld"]
 
+    def copy(self):
+        # type: () -> Any
+        def _copy_attr(attr):
+            # type: (Any) -> Any
+            if hasattr(attr, "copy"):
+                return attr.copy()
+            return attr
+
+        cls = self.__class__
+        other = cls.__new__(cls)
+
+        if hasattr(self, "__dict__"):
+            other.__dict__ = {
+                key: _copy_attr(value)
+                for key, value in self.__dict__.items()
+            }
+
+        copied_slots = set()
+        for base in cls.__mro__:
+            slots = base.__dict__.get("__slots__", ())
+            if isinstance(slots, str):
+                slots = (slots,)
+            for slot in slots:
+                if slot in ("__dict__", "__weakref__") or slot in copied_slots:
+                    continue
+                slot_descriptor = base.__dict__.get(slot)
+                if getattr(cls, slot, None) is not slot_descriptor:
+                    continue
+                copied_slots.add(slot)
+                try:
+                    value = getattr(self, slot)
+                except AttributeError:
+                    continue
+                setattr(other, slot, _copy_attr(value))
+
+        return other
+
+    def __setattr__(self, attr, value):
+        # type: (str, Any) -> None
+        try:
+            object.__setattr__(self, attr, value)
+        except AttributeError as ex:
+            try:
+                fld = object.__getattribute__(self, "fld")
+            except AttributeError:
+                raise ex
+            setattr(fld, attr, value)
+
     def __getattr__(self, attr):
         # type: (str) -> Any
         return getattr(self.fld, attr)
