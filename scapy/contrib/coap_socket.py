@@ -20,6 +20,7 @@ from typing import (
     Type
 )
 
+from scapy.consts import LINUX
 from scapy.error import Scapy_Exception
 from scapy.packet import Packet
 from scapy.contrib.coap import CoAP, coap_options, coap_codes, EMPTY_MESSAGE, GET, \
@@ -444,7 +445,8 @@ class CoAPSocketImpl:
         if sock is None:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            if LINUX:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             s.bind((self.ip, self.port))
             self.sock = SimpleSocket(s)
         else:
