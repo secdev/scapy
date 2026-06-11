@@ -11,8 +11,7 @@ MySQL client/server protocol.
 
 This contrib module implements support for the MySQL classic protocol over TCP,
 including packet framing, common handshake/authentication messages, query
-packets, text resultsets, prepared statement metadata, and some legacy flows
-seen in real captures.
+packets, and common OK/ERR/EOF server responses.
 
 Currently supported messages include:
 
@@ -28,10 +27,13 @@ Currently supported messages include:
 - EOF_Packet
 - COM_QUERY
 - COM_STMT_PREPARE_OK
-- text resultset column counts, column definitions, and rows
+
+Packet definitions for text resultset metadata and rows are available for
+explicit use, but automatic server-side stream inference for them is limited.
 
 This module does not currently implement TLS-encrypted MySQL payloads,
-compression, binary resultsets, or full command/authentication coverage.
+compression, binary resultsets, advanced server-side stream inference for
+resultset metadata/rows, or full command/authentication coverage.
 """
 
 import struct
@@ -245,34 +247,6 @@ def _build_lenenc_int(value: int) -> bytes:
     if value < (1 << 24):
         return b"\xFD" + struct.pack("<I", value)[:3]
     return b"\xFE" + struct.pack("<Q", value)
-
-
-def _can_parse_text_row(payload: bytes, column_count: int) -> bool:
-    remain = payload
-    parsed = 0
-    while remain and parsed < column_count:
-        if remain[:1] == b"\xFB":
-            remain = remain[1:]
-            parsed += 1
-            continue
-        try:
-            length, size = _read_lenenc_int(remain)
-        except struct.error:
-            return False
-        end = size + length
-        if end > len(remain):
-            return False
-        remain = remain[end:]
-        parsed += 1
-    return parsed == column_count and not remain
-
-
-def _can_parse_column_definition(payload: bytes) -> bool:
-    try:
-        pkt = MySQLColumnDefinition41(payload)
-        return bytes(pkt) == payload
-    except Exception:
-        return False
 
 
 class MySQLLenEncIntField(Field[Any, Any]):
@@ -666,14 +640,6 @@ class MySQLServerPacket(_MySQLPacket):
     name = "MySQL Server Packet"
 
     def guess_payload_class(self, payload: bytes) -> type:
-        forced_payload_cls = getattr(
-            self.parent,
-            "_mysql_forced_payload_cls",
-            None,
-        )
-        if forced_payload_cls is not None:
-            self.parent._mysql_forced_payload_cls = None
-            return forced_payload_cls
         if payload and self.sequence_id == 0 and orb(payload[0]) == 0x0A:
             return MySQLHandshakeV10
         if payload:
@@ -695,151 +661,6 @@ class MySQLServerPacket(_MySQLPacket):
             if header == 0xFE and len(payload) < 9:
                 return MySQLEOFPacket
         return Raw
-
-
-def _next_mysql_client_packet(
-    pkt: Packet,
-    lst: Any,
-    cur: bytes,
-    remain: bytes,
-) -> Optional[type]:
-    if len(remain) < 4:
-        return None
-    return MySQLClientPacket
-
-
-# Track enough server-side state to force metadata/resultset packet types
-# during TCP stream reassembly.
-def _mysql_server_cls(
-    pkt: Packet,
-    lst: Any,
-    cur: bytes,
-    remain: bytes,
-) -> Optional[type]:
-    if len(remain) < 4:
-        return None
-    pkt._mysql_forced_payload_cls = None
-    payload_length = struct.unpack("<I", remain[:3] + b"\x00")[0]
-    payload = remain[4:4 + payload_length]
-    state_items = list(lst)
-    if cur is not None:
-        state_items.append(cur)
-
-    in_field_list = False
-    prepare_phase = None
-    prepare_params_remaining = 0
-    prepare_columns_remaining = 0
-    resultset_column_count = None
-    resultset_column_defs = 0
-    resultset_metadata_done = False
-
-    for item in state_items:
-        item_payload = getattr(item, "payload", None)
-
-        if isinstance(item_payload, MySQLColumnDefinition41):
-            if not in_field_list:
-                in_field_list = True
-        elif in_field_list:
-            in_field_list = False
-
-        if isinstance(item_payload, MySQLStmtPrepareOK):
-            if item_payload.num_params:
-                prepare_phase = "params"
-            elif item_payload.num_columns:
-                prepare_phase = "columns"
-            else:
-                prepare_phase = None
-            prepare_params_remaining = item_payload.num_params
-            prepare_columns_remaining = item_payload.num_columns
-            continue
-        if prepare_phase is not None:
-            if isinstance(item_payload, MySQLColumnDefinition41):
-                if prepare_phase == "params" and prepare_params_remaining > 0:
-                    prepare_params_remaining -= 1
-                    if prepare_params_remaining == 0:
-                        prepare_phase = "params_eof"
-                elif (
-                    prepare_phase == "columns"
-                    and prepare_columns_remaining > 0
-                ):
-                    prepare_columns_remaining -= 1
-                    if prepare_columns_remaining == 0:
-                        prepare_phase = "columns_eof"
-            elif isinstance(item_payload, MySQLEOFPacket):
-                if prepare_phase == "params_eof":
-                    if prepare_columns_remaining > 0:
-                        prepare_phase = "columns"
-                    else:
-                        prepare_phase = None
-                elif prepare_phase == "columns_eof":
-                    prepare_phase = None
-            elif isinstance(item_payload, MySQLErrPacket):
-                prepare_phase = None
-
-        if isinstance(item_payload, MySQLResultSetColumnCount):
-            resultset_column_count = item_payload.column_count
-            resultset_column_defs = 0
-            resultset_metadata_done = False
-            continue
-        if resultset_column_count is not None:
-            if isinstance(item_payload, MySQLColumnDefinition41):
-                resultset_column_defs += 1
-            elif isinstance(item_payload, (MySQLEOFPacket, MySQLOKPacket)):
-                if not resultset_metadata_done and (
-                    resultset_column_defs >= resultset_column_count
-                ):
-                    resultset_metadata_done = True
-                elif resultset_metadata_done:
-                    resultset_column_count = None
-            elif isinstance(item_payload, MySQLErrPacket):
-                resultset_column_count = None
-
-    if in_field_list:
-        if payload[:1] == b"\xFE":
-            pkt._mysql_forced_payload_cls = MySQLEOFPacket
-            return MySQLServerPacket
-        if _can_parse_column_definition(payload):
-            pkt._mysql_forced_payload_cls = MySQLColumnDefinition41
-            return MySQLServerPacket
-    if prepare_phase is not None:
-        if prepare_phase in ("params", "columns"):
-            pkt._mysql_forced_payload_cls = MySQLColumnDefinition41
-            return MySQLServerPacket
-        if prepare_phase in ("params_eof", "columns_eof"):
-            pkt._mysql_forced_payload_cls = MySQLEOFPacket
-            return MySQLServerPacket
-    if resultset_column_count is not None:
-        if (
-            not resultset_metadata_done
-            and resultset_column_defs < resultset_column_count
-        ):
-            pkt._mysql_forced_payload_cls = MySQLColumnDefinition41
-            return MySQLServerPacket
-        if not payload:
-            return MySQLServerPacket
-        header = orb(payload[0])
-        if not resultset_metadata_done:
-            return MySQLServerPacket
-        if _can_parse_text_row(payload, resultset_column_count):
-            pkt._mysql_forced_payload_cls = MySQLTextResultSetRow
-            return MySQLServerPacket
-        if header == 0xFE and len(payload) < 9:
-            pkt._mysql_forced_payload_cls = MySQLEOFPacket
-            return MySQLServerPacket
-        return MySQLServerPacket
-    if payload:
-        header = orb(payload[0])
-        if header in (0x00, 0x0A, 0xFE, 0xFF):
-            return MySQLServerPacket
-        if header == 0x01 and payload_length > 1:
-            return MySQLServerPacket
-        if _can_parse_column_definition(payload):
-            pkt._mysql_forced_payload_cls = MySQLColumnDefinition41
-            return MySQLServerPacket
-        if header != 0xFB:
-            pkt._mysql_forced_payload_cls = MySQLResultSetColumnCount
-            return MySQLServerPacket
-    return MySQLServerPacket
 
 
 class _MySQLStream(Packet, TCPSession):
@@ -870,14 +691,26 @@ class _MySQLStream(Packet, TCPSession):
 class MySQLClient(_MySQLStream):
     name = "MySQL Client Stream"
     fields_desc = [
-        PacketListField("contents", [], next_cls_cb=_next_mysql_client_packet),
+        PacketListField(
+            "contents",
+            [],
+            next_cls_cb=lambda pkt, lst, cur, remain: (
+                MySQLClientPacket if len(remain) >= 4 else None
+            ),
+        ),
     ]
 
 
 class MySQLServer(_MySQLStream):
     name = "MySQL Server Stream"
     fields_desc = [
-        PacketListField("contents", [], next_cls_cb=_mysql_server_cls),
+        PacketListField(
+            "contents",
+            [],
+            next_cls_cb=lambda pkt, lst, cur, remain: (
+                MySQLServerPacket if len(remain) >= 4 else None
+            ),
+        ),
     ]
 
 

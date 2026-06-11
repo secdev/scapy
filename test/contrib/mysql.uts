@@ -139,7 +139,7 @@ assert isinstance(auth_more_data, MySQLAuthMoreData)
 assert auth_more_data.header == 0x01
 assert auth_more_data.data == b"\x03"
 
-= stmt prepare ok and metadata packets
+= stmt prepare ok packet
 
 stmt_prepare_ok_pkt = MySQLServerPacket(sequence_id=1) / MySQLStmtPrepareOK(
     statement_id=1,
@@ -206,11 +206,10 @@ assert isinstance(stmt_prepare_stream.contents[0].payload, MySQLStmtPrepareOK)
 assert stmt_prepare_stream.contents[0].payload.statement_id == 1
 assert stmt_prepare_stream.contents[0].payload.num_columns == 1
 assert stmt_prepare_stream.contents[0].payload.num_params == 2
-assert isinstance(stmt_prepare_stream.contents[1].payload, MySQLColumnDefinition41)
-assert isinstance(stmt_prepare_stream.contents[2].payload, MySQLColumnDefinition41)
+assert isinstance(stmt_prepare_stream.contents[1].payload, Raw)
+assert isinstance(stmt_prepare_stream.contents[2].payload, Raw)
 assert isinstance(stmt_prepare_stream.contents[3].payload, MySQLEOFPacket)
-assert isinstance(stmt_prepare_stream.contents[4].payload, MySQLColumnDefinition41)
-assert stmt_prepare_stream.contents[4].payload.column_name == b"id"
+assert isinstance(stmt_prepare_stream.contents[4].payload, Raw)
 assert isinstance(stmt_prepare_stream.contents[5].payload, MySQLEOFPacket)
 
 = generic response packets official examples
@@ -250,7 +249,7 @@ short_eof_packet = short_eof_stream.contents[0].payload
 assert isinstance(short_eof_packet, MySQLEOFPacket)
 assert short_eof_packet.header == 0xFE
 
-= text resultset response
+= explicit resultset packet definitions
 
 column_count_pkt = MySQLServerPacket(sequence_id=1) / MySQLResultSetColumnCount(
     column_count=1
@@ -283,17 +282,23 @@ resultset_raw = (
 )
 resultset_stream = MySQLServer(resultset_raw)
 assert len(resultset_stream.contents) == 5
-assert isinstance(resultset_stream.contents[0].payload, MySQLResultSetColumnCount)
-assert resultset_stream.contents[0].payload.column_count == 1
-assert isinstance(resultset_stream.contents[1].payload, MySQLColumnDefinition41)
-assert resultset_stream.contents[1].payload.column_name == b"version"
-assert resultset_stream.contents[1].payload.column_type == 0xFD
+assert isinstance(resultset_stream.contents[0].payload, Raw)
+assert isinstance(resultset_stream.contents[1].payload, Raw)
 assert isinstance(resultset_stream.contents[2].payload, MySQLEOFPacket)
-assert isinstance(resultset_stream.contents[3].payload, MySQLTextResultSetRow)
-assert resultset_stream.contents[3].payload.values == [b"8.0.36"]
+assert isinstance(resultset_stream.contents[3].payload, Raw)
 assert isinstance(resultset_stream.contents[4].payload, MySQLEOFPacket)
 
-= field list style response
+column_count = MySQLResultSetColumnCount(bytes(column_count_pkt.payload))
+assert column_count.column_count == 1
+
+column_def = MySQLColumnDefinition41(bytes(column_def_pkt.payload))
+assert column_def.column_name == b"version"
+assert column_def.column_type == 0xFD
+
+row = MySQLTextResultSetRow(bytes(row_pkt.payload))
+assert row.values == [b"8.0.36"]
+
+= field list response framing
 
 field_list_column_1 = MySQLServerPacket(sequence_id=1) / MySQLColumnDefinition41(
     catalog=b"def",
@@ -332,13 +337,11 @@ field_list_raw = (
 )
 field_list_stream = MySQLServer(field_list_raw)
 assert len(field_list_stream.contents) == 3
-assert isinstance(field_list_stream.contents[0].payload, MySQLColumnDefinition41)
-assert field_list_stream.contents[0].payload.column_name == b"id"
-assert isinstance(field_list_stream.contents[1].payload, MySQLColumnDefinition41)
-assert field_list_stream.contents[1].payload.column_name == b"name"
+assert isinstance(field_list_stream.contents[0].payload, Raw)
+assert isinstance(field_list_stream.contents[1].payload, Raw)
 assert isinstance(field_list_stream.contents[2].payload, MySQLEOFPacket)
 
-= text resultset with nulls and multiple columns
+= explicit text row with nulls
 
 multi_column_count_pkt = MySQLServerPacket(sequence_id=1) / MySQLResultSetColumnCount(
     column_count=2
@@ -387,17 +390,16 @@ multi_resultset_raw = (
 )
 multi_resultset_stream = MySQLServer(multi_resultset_raw)
 assert len(multi_resultset_stream.contents) == 6
-assert isinstance(multi_resultset_stream.contents[0].payload, MySQLResultSetColumnCount)
-assert multi_resultset_stream.contents[0].payload.column_count == 2
-assert isinstance(multi_resultset_stream.contents[1].payload, MySQLColumnDefinition41)
-assert multi_resultset_stream.contents[1].payload.column_name == b"name"
-assert isinstance(multi_resultset_stream.contents[2].payload, MySQLColumnDefinition41)
-assert multi_resultset_stream.contents[2].payload.column_name == b"nickname"
-assert isinstance(multi_resultset_stream.contents[4].payload, MySQLTextResultSetRow)
-assert multi_resultset_stream.contents[4].payload.values == [b"alice", None]
+assert isinstance(multi_resultset_stream.contents[0].payload, Raw)
+assert isinstance(multi_resultset_stream.contents[1].payload, Raw)
+assert isinstance(multi_resultset_stream.contents[2].payload, Raw)
+assert isinstance(multi_resultset_stream.contents[4].payload, Raw)
 assert isinstance(multi_resultset_stream.contents[5].payload, MySQLEOFPacket)
 
-= text resultset with deprecate eof ok terminators
+multi_row = MySQLTextResultSetRow(bytes(multi_row_pkt.payload))
+assert multi_row.values == [b"alice", None]
+
+= text resultset framing with deprecated eof ok terminators
 
 ok_terminator_pkt = MySQLServerPacket(sequence_id=3) / MySQLOKPacket(
     affected_rows=0,
@@ -421,11 +423,10 @@ ok_terminated_resultset_raw = (
 )
 ok_terminated_resultset_stream = MySQLServer(ok_terminated_resultset_raw)
 assert len(ok_terminated_resultset_stream.contents) == 5
-assert isinstance(ok_terminated_resultset_stream.contents[0].payload, MySQLResultSetColumnCount)
-assert isinstance(ok_terminated_resultset_stream.contents[1].payload, MySQLColumnDefinition41)
+assert isinstance(ok_terminated_resultset_stream.contents[0].payload, Raw)
+assert isinstance(ok_terminated_resultset_stream.contents[1].payload, Raw)
 assert isinstance(ok_terminated_resultset_stream.contents[2].payload, MySQLOKPacket)
-assert isinstance(ok_terminated_resultset_stream.contents[3].payload, MySQLTextResultSetRow)
-assert ok_terminated_resultset_stream.contents[3].payload.values == [b"8.0.36"]
+assert isinstance(ok_terminated_resultset_stream.contents[3].payload, Raw)
 assert isinstance(ok_terminated_resultset_stream.contents[4].payload, MySQLOKPacket)
 
 = simple query build and parse
@@ -583,7 +584,7 @@ field_list_err_raw = (
 )
 field_list_err_stream = MySQLServer(field_list_err_raw)
 assert len(field_list_err_stream.contents) == 2
-assert isinstance(field_list_err_stream.contents[0].payload, MySQLColumnDefinition41)
+assert isinstance(field_list_err_stream.contents[0].payload, Raw)
 assert isinstance(field_list_err_stream.contents[1].payload, MySQLErrPacket)
 
 stmt_prepare_columns_only_raw = (
@@ -594,7 +595,7 @@ stmt_prepare_columns_only_raw = (
 stmt_prepare_columns_only_stream = MySQLServer(stmt_prepare_columns_only_raw)
 assert len(stmt_prepare_columns_only_stream.contents) == 3
 assert isinstance(stmt_prepare_columns_only_stream.contents[0].payload, MySQLStmtPrepareOK)
-assert isinstance(stmt_prepare_columns_only_stream.contents[1].payload, MySQLColumnDefinition41)
+assert isinstance(stmt_prepare_columns_only_stream.contents[1].payload, Raw)
 assert isinstance(stmt_prepare_columns_only_stream.contents[2].payload, MySQLEOFPacket)
 
 stmt_prepare_err_raw = (
@@ -606,7 +607,7 @@ stmt_prepare_err_raw = (
 stmt_prepare_err_stream = MySQLServer(stmt_prepare_err_raw)
 assert len(stmt_prepare_err_stream.contents) == 4
 assert isinstance(stmt_prepare_err_stream.contents[0].payload, MySQLStmtPrepareOK)
-assert isinstance(stmt_prepare_err_stream.contents[1].payload, MySQLColumnDefinition41)
+assert isinstance(stmt_prepare_err_stream.contents[1].payload, Raw)
 assert isinstance(stmt_prepare_err_stream.contents[2].payload, MySQLEOFPacket)
 assert isinstance(stmt_prepare_err_stream.contents[3].payload, MySQLErrPacket)
 
