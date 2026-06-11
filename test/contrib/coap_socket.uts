@@ -21,10 +21,6 @@ handler = logging.StreamHandler(log_stream)
 log_runtime.addHandler(handler)
 log_coap_sock.addHandler(handler)
 
-coap_client_bin = shutil.which("coap-client")
-coap_server_bin = shutil.which("coap-server")
-libcoap_available = coap_client_bin is not None and coap_server_bin is not None
-
 
 def _pick_port():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -223,6 +219,13 @@ with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, 
         assert rcv.token == pkt.token
 
 + Testing interoperability with libcoap
+~ linux
+
+= prepare coap-client and coap-server binaries
+
+coap_client_bin = shutil.which("coap-client")
+coap_server_bin = shutil.which("coap-server")
+libcoap_available = coap_client_bin is not None and coap_server_bin is not None
 
 = libcoap client -> CoAPSocket server
 
@@ -261,6 +264,7 @@ else:
         _cleanup_process(libcoap_server)
 
 + Stress tests
+~ linux
 
 = Stress: libcoap client -> CoAPSocket server
 
