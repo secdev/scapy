@@ -2428,6 +2428,7 @@ _iop1_t.join(timeout=5)
 print("[iop1] sniff done; received %d packet(s); sender exc=%r" % (len(_iop1_pkts), _iop1_send_exc[0]))
 for _i, _p in enumerate(_iop1_pkts):
     print("[iop1] pkt[%d]: pgn=0x%X src=0x%X dst=0x%X data=%r" % (_i, getattr(_p, 'pgn', None), getattr(_p, 'src', None), getattr(_p, 'dst', None), getattr(_p, 'data', None)))
+
 _iop1_native_rx.close()
 
 assert _iop1_pkts, "NativeJ1939Socket received no packet from J1939SoftSocket"
@@ -2470,6 +2471,7 @@ _iop2_t.join(timeout=5)
 print("[iop2] sniff done; received %d packet(s); sender exc=%r" % (len(_iop2_pkts), _iop2_send_exc[0]))
 for _i, _p in enumerate(_iop2_pkts):
     print("[iop2] pkt[%d]: pgn=0x%X src=0x%X dst=0x%X data=%r" % (_i, getattr(_p, 'pgn', None), getattr(_p, 'src', None), getattr(_p, 'dst', None), getattr(_p, 'data', None)))
+
 _iop2_native_tx.close()
 _iop2_soft_rx.close()
 
@@ -2518,6 +2520,7 @@ print("[iop3] sniff done; received %d packet(s); sender exc=%r" % (len(_iop3_pkt
 
 for _i, _p in enumerate(_iop3_pkts):
     print("[iop3] pkt[%d]: pgn=0x%X src=0x%X dst=0x%X data_len=%d data=%r" % (_i, getattr(_p, 'pgn', None), getattr(_p, 'src', None), getattr(_p, 'dst', None), len(getattr(_p, 'data', b'')), getattr(_p, 'data', None)))
+
 _iop3_native_rx.close()
 
 assert _iop3_pkts, "NativeJ1939Socket received no BAM message from J1939SoftSocket"
