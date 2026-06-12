@@ -31,12 +31,11 @@ References:
       https://www.kernel.org/doc/html/latest/networking/j1939.html
 """
 
+import logging
 import socket
 import struct
-import logging
 import time
 import traceback
-
 from typing import (
     Any,
     Dict,
@@ -50,6 +49,7 @@ from typing import (
 )
 
 from scapy.automaton import ObjectPipe, select_objects
+from scapy.compat import raw
 from scapy.config import conf
 from scapy.consts import LINUX
 from scapy.data import SO_TIMESTAMPNS
@@ -70,11 +70,10 @@ from scapy.fields import (
 from scapy.layers.can import CAN
 from scapy.packet import Packet
 from scapy.supersocket import SuperSocket
-from scapy.compat import raw
 from scapy.utils import EDecimal
 
 if TYPE_CHECKING:
-    from scapy.contrib.cansocket import CANSocket
+    pass
 
 log_j1939 = logging.getLogger("scapy.contrib.j1939")
 
@@ -130,17 +129,17 @@ if not hasattr(socket, 'SCM_J1939_ERRQUEUE'):
     socket.SCM_J1939_ERRQUEUE = 4
 
 #: Global broadcast address
-J1939_BROADCAST_ADDR = socket.J1939_NO_ADDR                    # 0xFF
+J1939_BROADCAST_ADDR = socket.J1939_NO_ADDR  # 0xFF
 #: Transport Protocol – Connection Management
 J1939_PGN_TP_CM = 0xEC00
 #: Transport Protocol – Data Transfer
 J1939_PGN_TP_DT = 0xEB00
 
 # TP control byte values (integer constants; the classes share the prefix name)
-J1939_TP_CTRL_RTS = 16     # Request To Send
-J1939_TP_CTRL_CTS = 17     # Clear To Send
-J1939_TP_CTRL_ACK = 19     # End of Message Acknowledge
-J1939_TP_CTRL_BAM = 32     # Broadcast Announce Message
+J1939_TP_CTRL_RTS = 16  # Request To Send
+J1939_TP_CTRL_CTS = 17  # Clear To Send
+J1939_TP_CTRL_ACK = 19  # End of Message Acknowledge
+J1939_TP_CTRL_BAM = 32  # Broadcast Announce Message
 J1939_TP_CTRL_ABORT = 255  # Connection Abort
 
 # PDU format threshold: PF < 240 → PDU1 (peer-to-peer), PF ≥ 240 → PDU2 (broadcast)
@@ -206,12 +205,12 @@ def j1939_to_can_id(priority, reserved, data_page, pdu_format, pdu_specific, src
     :returns: 29-bit CAN identifier value
     """
     return (
-        (priority & 0x7) << 26 |
-        (reserved & 0x1) << 25 |
-        (data_page & 0x1) << 24 |
-        (pdu_format & 0xFF) << 16 |
-        (pdu_specific & 0xFF) << 8 |
-        (src & 0xFF)
+            (priority & 0x7) << 26 |
+            (reserved & 0x1) << 25 |
+            (data_page & 0x1) << 24 |
+            (pdu_format & 0xFF) << 16 |
+            (pdu_specific & 0xFF) << 8 |
+            (src & 0xFF)
     )
 
 
@@ -279,8 +278,8 @@ class J1939(Packet):
 
     def __init__(self, *args, **kwargs):
         # type: (*Any, **Any) -> None
-        self.priority = kwargs.pop('priority', 6)    # type: int
-        self.pgn = kwargs.pop('pgn', 0)              # type: int
+        self.priority = kwargs.pop('priority', 6)  # type: int
+        self.pgn = kwargs.pop('pgn', 0)  # type: int
         self.src = kwargs.pop('src', socket.J1939_NO_ADDR)  # type: int
         self.dst = kwargs.pop('dst', socket.J1939_NO_ADDR)  # type: int
         Packet.__init__(self, *args, **kwargs)
@@ -346,12 +345,12 @@ class J1939_CAN(CAN):
         # ── first 32 bits: CAN flags(3) + J1939 identifier fields(29) ──────
         FlagsField('flags', 0b100, 3,
                    ['error', 'remote_transmission_request', 'extended']),
-        BitField('priority', 6, 3),       # J1939 priority
-        BitField('reserved', 0, 1),       # Reserved bit
-        BitField('data_page', 0, 1),      # Data Page (DP)
-        ByteField('pdu_format', 0xFE),    # PDU Format (PF)
+        BitField('priority', 6, 3),  # J1939 priority
+        BitField('reserved', 0, 1),  # Reserved bit
+        BitField('data_page', 0, 1),  # Data Page (DP)
+        ByteField('pdu_format', 0xFE),  # PDU Format (PF)
         ByteField('pdu_specific', 0xFF),  # PDU Specific (PS): DA or GE
-        ByteField('src', 0xFE),           # Source Address (SA)
+        ByteField('src', 0xFE),  # Source Address (SA)
         # ── standard CAN data-length + padding ────────────────────────────
         FieldLenField('length', None, length_of='data', fmt='B'),
         ThreeBytesField('reserved2', 0),
@@ -442,11 +441,11 @@ class J1939_TP_CM_RTS(Packet):
     """
     name = 'J1939_TP_CM_RTS'
     fields_desc = [
-        ByteField('ctrl', J1939_TP_CTRL_RTS),         # 16
-        LEShortField('total_size', 0),                # total message size (bytes)
-        ByteField('num_packets', 0),                  # total number of TP.DT packets
-        ByteField('max_packets', 0xFF),         # max packets per CTS (0xFF = no limit)
-        XLE3BytesField('pgn', 0),               # PGN of the message being transferred
+        ByteField('ctrl', J1939_TP_CTRL_RTS),  # 16
+        LEShortField('total_size', 0),  # total message size (bytes)
+        ByteField('num_packets', 0),  # total number of TP.DT packets
+        ByteField('max_packets', 0xFF),  # max packets per CTS (0xFF = no limit)
+        XLE3BytesField('pgn', 0),  # PGN of the message being transferred
     ]
 
 
@@ -458,11 +457,11 @@ class J1939_TP_CM_CTS(Packet):
     """
     name = 'J1939_TP_CM_CTS'
     fields_desc = [
-        ByteField('ctrl', J1939_TP_CTRL_CTS),         # 17
-        ByteField('num_packets', 0),                  # number of packets to send now
-        ByteField('next_packet', 1),                  # next expected sequence number
+        ByteField('ctrl', J1939_TP_CTRL_CTS),  # 17
+        ByteField('num_packets', 0),  # number of packets to send now
+        ByteField('next_packet', 1),  # next expected sequence number
         ShortField('reserved', 0xFFFF),
-        XLE3BytesField('pgn', 0),                    # PGN of the message
+        XLE3BytesField('pgn', 0),  # PGN of the message
     ]
 
 
@@ -473,11 +472,11 @@ class J1939_TP_CM_ACK(Packet):
     """
     name = 'J1939_TP_CM_ACK'
     fields_desc = [
-        ByteField('ctrl', J1939_TP_CTRL_ACK),         # 19
-        LEShortField('total_size', 0),                # total message size
-        ByteField('num_packets', 0),                  # total TP.DT packets received
+        ByteField('ctrl', J1939_TP_CTRL_ACK),  # 19
+        LEShortField('total_size', 0),  # total message size
+        ByteField('num_packets', 0),  # total TP.DT packets received
         ByteField('reserved', 0xFF),
-        XLE3BytesField('pgn', 0),                    # PGN of the message
+        XLE3BytesField('pgn', 0),  # PGN of the message
     ]
 
 
@@ -488,11 +487,11 @@ class J1939_TP_CM_BAM(Packet):
     """
     name = 'J1939_TP_CM_BAM'
     fields_desc = [
-        ByteField('ctrl', J1939_TP_CTRL_BAM),         # 32
-        LEShortField('total_size', 0),                # total message size (bytes)
-        ByteField('num_packets', 0),                  # total number of TP.DT packets
+        ByteField('ctrl', J1939_TP_CTRL_BAM),  # 32
+        LEShortField('total_size', 0),  # total message size (bytes)
+        ByteField('num_packets', 0),  # total number of TP.DT packets
         ByteField('reserved', 0xFF),
-        XLE3BytesField('pgn', 0),                    # PGN of the message
+        XLE3BytesField('pgn', 0),  # PGN of the message
     ]
 
 
@@ -500,11 +499,11 @@ class J1939_TP_CM_ABORT(Packet):
     """J1939 TP Connection Management – Connection Abort."""
     name = 'J1939_TP_CM_ABORT'
     fields_desc = [
-        ByteField('ctrl', J1939_TP_CTRL_ABORT),       # 255
-        ByteField('reason', 0),                       # abort reason
+        ByteField('ctrl', J1939_TP_CTRL_ABORT),  # 255
+        ByteField('reason', 0),  # abort reason
         ShortField('reserved', 0xFFFF),
         ByteField('reserved2', 0xFF),
-        XLE3BytesField('pgn', 0),                    # PGN of the aborted message
+        XLE3BytesField('pgn', 0),  # PGN of the aborted message
     ]
 
 
@@ -550,8 +549,8 @@ class J1939_TP_DT(Packet):
     """
     name = 'J1939_TP_DT'
     fields_desc = [
-        ByteField('seq_num', 1),                      # sequence number 1-255
-        StrFixedLenField('data', b'\xff' * 7, 7),     # 7 data bytes (0xFF = unused)
+        ByteField('seq_num', 1),  # sequence number 1-255
+        StrFixedLenField('data', b'\xff' * 7, 7),  # 7 data bytes (0xFF = unused)
     ]
 
 
@@ -615,14 +614,14 @@ class NativeJ1939Socket(SuperSocket):
 
     def __init__(
             self,
-            channel=None,           # type: Optional[str]
+            channel=None,  # type: Optional[str]
             src_name=socket.J1939_NO_NAME,  # type: int
             src_addr=socket.J1939_NO_ADDR,  # type: int
-            pgn=socket.J1939_NO_PGN,        # type: int
-            promisc=True,            # type: bool
-            filters=None,            # type: Optional[List[Dict[str, int]]]
-            basecls=J1939,           # type: Type[Packet]
-            **kwargs                 # type: Any
+            pgn=socket.J1939_NO_PGN,  # type: int
+            promisc=True,  # type: bool
+            filters=None,  # type: Optional[List[Dict[str, int]]]
+            basecls=J1939,  # type: Type[Packet]
+            **kwargs  # type: Any
     ):
         # type: (...) -> None
         self.channel = channel or conf.contribs['J1939']['channel']
@@ -831,11 +830,11 @@ class NativeJ1939Socket(SuperSocket):
 # scapy.contrib.isotp.isotp_soft_socket.
 
 # J1939-21 transport-protocol timing constants (seconds)
-_J1939_TP_BAM_DELAY = 0.050   # minimum inter-packet gap for BAM sender (50 ms)
-_J1939_TP_T1 = 0.750          # receiver timeout for first DT after BAM/RTS
-_J1939_TP_T2 = 1.250          # receiver timeout between consecutive DT frames
-_J1939_TP_T3 = 1.250          # sender timeout waiting for CTS after RTS/block
-_J1939_TP_T4 = 1.050          # sender timeout waiting for End-of-Message ACK
+_J1939_TP_BAM_DELAY = 0.050  # minimum inter-packet gap for BAM sender (50 ms)
+_J1939_TP_T1 = 0.750  # receiver timeout for first DT after BAM/RTS
+_J1939_TP_T2 = 1.250  # receiver timeout between consecutive DT frames
+_J1939_TP_T3 = 1.250  # sender timeout waiting for CTS after RTS/block
+_J1939_TP_T4 = 1.050  # sender timeout waiting for End-of-Message ACK
 
 # On slow serial interfaces (slcan) the OS serial buffer may hold hundreds of
 # background CAN frames that the mux must drain before the TP.DT frames
@@ -847,18 +846,18 @@ _J1939_TP_T4 = 1.050          # sender timeout waiting for End-of-Message ACK
 _J1939_TP_DT_TIMEOUT_EXTENSION = 10
 
 # Maximum payload / per-frame data constants
-_J1939_TP_DT_DATA = 7         # usable data bytes per TP.DT packet
-_J1939_TP_MAX_DATA = 1785     # maximum J1939 TP payload (255 × 7 bytes)
+_J1939_TP_DT_DATA = 7  # usable data bytes per TP.DT packet
+_J1939_TP_MAX_DATA = 1785  # maximum J1939 TP payload (255 × 7 bytes)
 
 # Internal RX state codes
 _J1939_RX_IDLE = 0
-_J1939_RX_WAIT_DT = 1         # waiting for TP.DT frames
+_J1939_RX_WAIT_DT = 1  # waiting for TP.DT frames
 
 # Internal TX state codes
 _J1939_TX_IDLE = 0
-_J1939_TX_BAM = 1             # BAM TP.DT frames are being sent
-_J1939_TX_RTS_WAIT_CTS = 2   # RTS sent; waiting for CTS
-_J1939_TX_RTS_SENDING = 3    # CTS received; sending TP.DT block
+_J1939_TX_BAM = 1  # BAM TP.DT frames are being sent
+_J1939_TX_RTS_WAIT_CTS = 2  # RTS sent; waiting for CTS
+_J1939_TX_RTS_SENDING = 3  # CTS received; sending TP.DT block
 
 
 class J1939TPImplementation:
@@ -883,10 +882,10 @@ class J1939TPImplementation:
 
     def __init__(
             self,
-            can_socket,           # type: "CANSocket"
-            src_addr,             # type: int
-            listen_only=False,    # type: bool
-            pgn_filter=0,         # type: int
+            can_socket,  # type: "CANSocket"
+            src_addr,  # type: int
+            listen_only=False,  # type: bool
+            pgn_filter=0,  # type: int
     ):
         # type: (...) -> None
         from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
@@ -902,37 +901,37 @@ class J1939TPImplementation:
         # ── receive path ──────────────────────────────────────────────────────
         self.rx_state = _J1939_RX_IDLE  # type: int
         # Active RX session fields (valid when rx_state == _J1939_RX_WAIT_DT)
-        self.rx_pgn = 0                          # PGN being received
-        self.rx_peer_sa = socket.J1939_NO_ADDR   # SA of the sending node
-        self.rx_dst = socket.J1939_NO_ADDR       # DA (our SA or 0xFF broadcast)
-        self.rx_total = 0                         # total payload size (bytes)
-        self.rx_npkts = 0                         # total TP.DT packets expected
-        self.rx_buf = b''                         # accumulated payload bytes
-        self.rx_seq = 1                           # next expected DT seq number
-        self.rx_ts = 0.0                          # type: Union[float, EDecimal]
-        self.rx_is_bam = True                     # True=BAM; False=RTS/CTS
-        self.rx_start_time = 0.0                  # wall-clock start of current TP rx
-        self.rx_timeout_handle = None   # type: Optional[Any]
+        self.rx_pgn = 0  # PGN being received
+        self.rx_peer_sa = socket.J1939_NO_ADDR  # SA of the sending node
+        self.rx_dst = socket.J1939_NO_ADDR  # DA (our SA or 0xFF broadcast)
+        self.rx_total = 0  # total payload size (bytes)
+        self.rx_npkts = 0  # total TP.DT packets expected
+        self.rx_buf = b''  # accumulated payload bytes
+        self.rx_seq = 1  # next expected DT seq number
+        self.rx_ts = 0.0  # type: Union[float, EDecimal]
+        self.rx_is_bam = True  # True=BAM; False=RTS/CTS
+        self.rx_start_time = 0.0  # wall-clock start of current TP rx
+        self.rx_timeout_handle = None  # type: Optional[Any]
 
         # Delivered received messages: each item is (J1939, timestamp)
-        self.rx_queue = ObjectPipe()   # type: ignore
+        self.rx_queue = ObjectPipe()  # type: ignore
 
         # ── transmit path ─────────────────────────────────────────────────────
         self.tx_state = _J1939_TX_IDLE  # type: int
-        self.tx_buf = None              # type: Optional[bytes]
+        self.tx_buf = None  # type: Optional[bytes]
         self.tx_pgn = 0
         self.tx_dst = socket.J1939_NO_ADDR
         self.tx_priority = 6
         self.tx_data_page = 0
-        self.tx_npkts = 0               # total TP.DT packets to send
-        self.tx_seq = 1                 # next TP.DT sequence number to send
+        self.tx_npkts = 0  # total TP.DT packets to send
+        self.tx_seq = 1  # next TP.DT sequence number to send
         self.tx_peer_sa = socket.J1939_NO_ADDR  # peer SA for RTS/CTS sessions
         # CTS block management
-        self.tx_cts_count = 0           # DTs still to send in current CTS block
-        self.tx_timeout_handle = None   # type: Optional[Any]
+        self.tx_cts_count = 0  # DTs still to send in current CTS block
+        self.tx_timeout_handle = None  # type: Optional[Any]
 
         # Enqueued outgoing messages: each item is a J1939 packet
-        self.tx_queue = ObjectPipe()   # type: ignore
+        self.tx_queue = ObjectPipe()  # type: ignore
 
         # ── background polling ────────────────────────────────────────────────
         self.rx_handle = TimeoutScheduler.schedule(0, self.can_recv)
@@ -966,17 +965,17 @@ class J1939TPImplementation:
             if handle is not None:
                 try:
                     handle.cancel()
-                except Exception:
-                    pass
+                except Exception as e:
+                    log_runtime.debug(str(e))
 
         try:
             self.rx_queue.close()
-        except Exception:
-            pass
+        except Exception as e:
+            log_runtime.debug(str(e))
         try:
             self.tx_queue.close()
-        except Exception:
-            pass
+        except Exception as e:
+            log_runtime.debug(str(e))
 
     # ── CAN receive loop ─────────────────────────────────────────────────────
 
@@ -1021,7 +1020,7 @@ class J1939TPImplementation:
             return
 
         # ── TP.CM (PF = 0xEC) ────────────────────────────────────────────────
-        if pf == (J1939_PGN_TP_CM >> 8):          # 0xEC
+        if pf == (J1939_PGN_TP_CM >> 8):  # 0xEC
             # PS must address us or be broadcast.
             if ps != self.src_addr and ps != socket.J1939_NO_ADDR:
                 return
@@ -1029,7 +1028,7 @@ class J1939TPImplementation:
             return
 
         # ── TP.DT (PF = 0xEB) ────────────────────────────────────────────────
-        if pf == (J1939_PGN_TP_DT >> 8):          # 0xEB
+        if pf == (J1939_PGN_TP_DT >> 8):  # 0xEB
             if ps != self.src_addr and ps != socket.J1939_NO_ADDR:
                 return
             self._on_tp_dt(j)
@@ -1235,7 +1234,7 @@ class J1939TPImplementation:
         # type: (int, bytes) -> None
         pkt = J1939_CAN(
             priority=6, data_page=0,
-            pdu_format=J1939_PGN_TP_CM >> 8,   # 0xEC
+            pdu_format=J1939_PGN_TP_CM >> 8,  # 0xEC
             pdu_specific=dst_sa,
             src=self.src_addr,
             data=data,
@@ -1248,7 +1247,7 @@ class J1939TPImplementation:
         dt = J1939_TP_DT(seq_num=seq_num, data=padded[:_J1939_TP_DT_DATA])
         pkt = J1939_CAN(
             priority=7, data_page=0,
-            pdu_format=J1939_PGN_TP_DT >> 8,   # 0xEB
+            pdu_format=J1939_PGN_TP_DT >> 8,  # 0xEB
             pdu_specific=dst_sa,
             src=self.src_addr,
             data=bytes(dt),
@@ -1519,11 +1518,11 @@ class J1939SoftSocket(SuperSocket):
 
     def __init__(
             self,
-            can_socket=None,                        # type: Optional["CANSocket"]
-            src_addr=socket.J1939_NO_ADDR,          # type: int
-            basecls=J1939,                          # type: Type[Packet]
-            listen_only=False,                      # type: bool
-            pgn=0,                                  # type: int
+            can_socket=None,  # type: Optional["CANSocket"]
+            src_addr=socket.J1939_NO_ADDR,  # type: int
+            basecls=J1939,  # type: Type[Packet]
+            listen_only=False,  # type: bool
+            pgn=0,  # type: int
     ):
         # type: (...) -> None
         if LINUX and isinstance(can_socket, str):
@@ -1617,7 +1616,7 @@ class J1939SoftSocket(SuperSocket):
         result = [
             x for x in sockets
             if isinstance(x, J1939SoftSocket) and not x.closed
-            and x.impl.rx_queue in ready_pipes
+               and x.impl.rx_queue in ready_pipes
         ]
         result += [
             x for x in sockets
