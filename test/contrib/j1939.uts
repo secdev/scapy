@@ -2382,10 +2382,17 @@ from time import sleep
 from subprocess import call
 
 _iop_setup_cmd = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan 2>/dev/null; sudo ip link set dev vcan0 up'"
-os.system(_iop_setup_cmd)  # best-effort; vcan0 may already be up
+_iop_setup_rc = os.system(_iop_setup_cmd)
+print("[iop-setup] vcan modprobe+up rc=%d" % _iop_setup_rc)
+
+# Show vcan0 link state for debugging
+_iop_link_rc = os.system("ip link show vcan0")
+print("[iop-setup] ip link show vcan0 rc=%d" % _iop_link_rc)
 
 from scapy.contrib.cansocket_native import NativeCANSocket
 from scapy.contrib.j1939 import NativeJ1939Socket
+
+print("[iop-setup] NativeCANSocket and NativeJ1939Socket imported OK")
 
 = J1939SoftSocket TX (broadcast) → NativeJ1939Socket RX
 # Soft socket sends a short broadcast; native socket receives it.
@@ -2394,19 +2401,39 @@ _iop1_payload = b'\x01\x02\x03\x04'
 _iop1_pgn = 0xFECA
 _iop1_sa = 0x30
 
+print("[iop1] creating NativeCANSocket and NativeJ1939Socket(promisc=True)")
 _iop1_cansock = NativeCANSocket("vcan0")
 _iop1_native_rx = NativeJ1939Socket("vcan0", promisc=True)
 _iop1_native_rx.ins.settimeout(3.0)
+print("[iop1] sockets created; NativeCANSocket fd=%r, NativeJ1939Socket fd=%r" % (
+    getattr(_iop1_cansock, 'ins', None), getattr(_iop1_native_rx, 'ins', None)))
+
+_iop1_send_exc = [None]
 
 def _iop1_send():
     sleep(0.1)
-    with J1939SoftSocket(_iop1_cansock, src_addr=_iop1_sa) as s:
-        s.send(J1939(_iop1_payload, pgn=_iop1_pgn,
-                     dst=_socket.J1939_NO_ADDR, priority=6))
+    try:
+        print("[iop1-tx] J1939SoftSocket opening on NativeCANSocket")
+        with J1939SoftSocket(_iop1_cansock, src_addr=_iop1_sa) as s:
+            print("[iop1-tx] sending J1939 pgn=0x%X sa=0x%X dst=0xFF data=%r" % (
+                _iop1_pgn, _iop1_sa, _iop1_payload))
+            s.send(J1939(_iop1_payload, pgn=_iop1_pgn,
+                         dst=_socket.J1939_NO_ADDR, priority=6))
+            print("[iop1-tx] send() returned")
+    except Exception as _e:
+        _iop1_send_exc[0] = _e
+        print("[iop1-tx] EXCEPTION in sender: %r" % _e)
 
 _iop1_t = threading.Thread(target=_iop1_send)
+print("[iop1] starting sniff (timeout=3.0, count=1) and sender thread")
 _iop1_pkts = _iop1_native_rx.sniff(timeout=3.0, started_callback=_iop1_t.start, count=1)
 _iop1_t.join(timeout=5)
+print("[iop1] sniff done; received %d packet(s); sender exc=%r" % (
+    len(_iop1_pkts), _iop1_send_exc[0]))
+for _i, _p in enumerate(_iop1_pkts):
+    print("[iop1] pkt[%d]: pgn=0x%X src=0x%X dst=0x%X data=%r" % (
+        _i, getattr(_p, 'pgn', None), getattr(_p, 'src', None),
+        getattr(_p, 'dst', None), getattr(_p, 'data', None)))
 _iop1_native_rx.close()
 
 assert _iop1_pkts, "NativeJ1939Socket received no packet from J1939SoftSocket"
@@ -2423,19 +2450,38 @@ _iop2_payload = b'\x05\x06\x07\x08'
 _iop2_pgn = 0xFECA
 _iop2_sa = 0x31
 
+print("[iop2] creating NativeCANSocket, J1939SoftSocket, NativeJ1939Socket")
 _iop2_cansock = NativeCANSocket("vcan0")
 _iop2_soft_rx = J1939SoftSocket(_iop2_cansock, src_addr=0x00)
 _iop2_native_tx = NativeJ1939Socket("vcan0", src_addr=_iop2_sa, promisc=False)
+print("[iop2] sockets created; NativeCANSocket fd=%r, NativeJ1939Socket fd=%r" % (
+    getattr(_iop2_cansock, 'ins', None), getattr(_iop2_native_tx, 'ins', None)))
+
+_iop2_send_exc = [None]
 
 def _iop2_send():
     sleep(0.1)
-    _iop2_native_tx.send(
-        J1939(_iop2_payload, pgn=_iop2_pgn,
-              src=_iop2_sa, dst=_socket.J1939_NO_ADDR))
+    try:
+        print("[iop2-tx] sending J1939 pgn=0x%X sa=0x%X dst=NO_ADDR data=%r" % (
+            _iop2_pgn, _iop2_sa, _iop2_payload))
+        _iop2_native_tx.send(
+            J1939(_iop2_payload, pgn=_iop2_pgn,
+                  src=_iop2_sa, dst=_socket.J1939_NO_ADDR))
+        print("[iop2-tx] send() returned")
+    except Exception as _e:
+        _iop2_send_exc[0] = _e
+        print("[iop2-tx] EXCEPTION in sender: %r" % _e)
 
 _iop2_t = threading.Thread(target=_iop2_send)
+print("[iop2] starting sniff (timeout=3.0, count=1) and sender thread")
 _iop2_pkts = _iop2_soft_rx.sniff(timeout=3.0, started_callback=_iop2_t.start, count=1)
 _iop2_t.join(timeout=5)
+print("[iop2] sniff done; received %d packet(s); sender exc=%r" % (
+    len(_iop2_pkts), _iop2_send_exc[0]))
+for _i, _p in enumerate(_iop2_pkts):
+    print("[iop2] pkt[%d]: pgn=0x%X src=0x%X dst=0x%X data=%r" % (
+        _i, getattr(_p, 'pgn', None), getattr(_p, 'src', None),
+        getattr(_p, 'dst', None), getattr(_p, 'data', None)))
 _iop2_native_tx.close()
 _iop2_soft_rx.close()
 
@@ -2454,20 +2500,42 @@ _iop3_payload = bytes(range(0x01, 0x15))   # 20 bytes -> BAM + 3 TP.DT
 _iop3_pgn = 0xFECA
 _iop3_sa = 0x32
 
+print("[iop3] creating NativeCANSocket and NativeJ1939Socket(promisc=True)")
 _iop3_cansock = NativeCANSocket("vcan0")
 _iop3_native_rx = NativeJ1939Socket("vcan0", promisc=True)
 _iop3_native_rx.ins.settimeout(5.0)
+print("[iop3] sockets created; NativeCANSocket fd=%r, NativeJ1939Socket fd=%r" % (
+    getattr(_iop3_cansock, 'ins', None), getattr(_iop3_native_rx, 'ins', None)))
+
+_iop3_send_exc = [None]
+_iop3_bam_frames = []
 
 def _iop3_send():
     sleep(0.1)
-    with J1939SoftSocket(_iop3_cansock, src_addr=_iop3_sa) as s:
-        s.send(J1939(_iop3_payload, pgn=_iop3_pgn,
-                     dst=_socket.J1939_NO_ADDR, priority=6))
+    try:
+        print("[iop3-tx] J1939SoftSocket opening; will send %d bytes via BAM" % len(_iop3_payload))
+        with J1939SoftSocket(_iop3_cansock, src_addr=_iop3_sa) as s:
+            print("[iop3-tx] sending J1939 pgn=0x%X sa=0x%X payload_len=%d" % (
+                _iop3_pgn, _iop3_sa, len(_iop3_payload)))
+            s.send(J1939(_iop3_payload, pgn=_iop3_pgn,
+                         dst=_socket.J1939_NO_ADDR, priority=6))
+            print("[iop3-tx] send() returned")
+    except Exception as _e:
+        _iop3_send_exc[0] = _e
+        print("[iop3-tx] EXCEPTION in sender: %r" % _e)
 
 _iop3_t = threading.Thread(target=_iop3_send)
 # The kernel reassembles BAM; snap until we see the full message.
+print("[iop3] starting sniff (timeout=5.0, count=1) and sender thread")
 _iop3_pkts = _iop3_native_rx.sniff(timeout=5.0, started_callback=_iop3_t.start, count=1)
 _iop3_t.join(timeout=10)
+print("[iop3] sniff done; received %d packet(s); sender exc=%r" % (
+    len(_iop3_pkts), _iop3_send_exc[0]))
+for _i, _p in enumerate(_iop3_pkts):
+    print("[iop3] pkt[%d]: pgn=0x%X src=0x%X dst=0x%X data_len=%d data=%r" % (
+        _i, getattr(_p, 'pgn', None), getattr(_p, 'src', None),
+        getattr(_p, 'dst', None), len(getattr(_p, 'data', b'')),
+        getattr(_p, 'data', None)))
 _iop3_native_rx.close()
 
 assert _iop3_pkts, "NativeJ1939Socket received no BAM message from J1939SoftSocket"
@@ -2485,19 +2553,39 @@ _iop4_payload = bytes(range(0x14, 0x28))   # 20 bytes
 _iop4_pgn = 0xFECA
 _iop4_sa = 0x33
 
+print("[iop4] creating NativeCANSocket, J1939SoftSocket(src=0x00), NativeJ1939Socket")
 _iop4_cansock = NativeCANSocket("vcan0")
 _iop4_soft_rx = J1939SoftSocket(_iop4_cansock, src_addr=0x00)
 _iop4_native_tx = NativeJ1939Socket("vcan0", src_addr=_iop4_sa, promisc=False)
+print("[iop4] sockets created; NativeCANSocket fd=%r, NativeJ1939Socket fd=%r" % (
+    getattr(_iop4_cansock, 'ins', None), getattr(_iop4_native_tx, 'ins', None)))
+
+_iop4_send_exc = [None]
 
 def _iop4_send():
     sleep(0.1)
-    _iop4_native_tx.send(
-        J1939(_iop4_payload, pgn=_iop4_pgn,
-              src=_iop4_sa, dst=_socket.J1939_NO_ADDR))
+    try:
+        print("[iop4-tx] sending J1939 pgn=0x%X sa=0x%X payload_len=%d via native socket" % (
+            _iop4_pgn, _iop4_sa, len(_iop4_payload)))
+        _iop4_native_tx.send(
+            J1939(_iop4_payload, pgn=_iop4_pgn,
+                  src=_iop4_sa, dst=_socket.J1939_NO_ADDR))
+        print("[iop4-tx] send() returned")
+    except Exception as _e:
+        _iop4_send_exc[0] = _e
+        print("[iop4-tx] EXCEPTION in sender: %r" % _e)
 
 _iop4_t = threading.Thread(target=_iop4_send)
+print("[iop4] starting sniff (timeout=5.0, count=1) and sender thread")
 _iop4_pkts = _iop4_soft_rx.sniff(timeout=5.0, started_callback=_iop4_t.start, count=1)
 _iop4_t.join(timeout=10)
+print("[iop4] sniff done; received %d packet(s); sender exc=%r" % (
+    len(_iop4_pkts), _iop4_send_exc[0]))
+for _i, _p in enumerate(_iop4_pkts):
+    print("[iop4] pkt[%d]: pgn=0x%X src=0x%X dst=0x%X data_len=%d data=%r" % (
+        _i, getattr(_p, 'pgn', None), getattr(_p, 'src', None),
+        getattr(_p, 'dst', None), len(getattr(_p, 'data', b'')),
+        getattr(_p, 'data', None)))
 _iop4_native_tx.close()
 _iop4_soft_rx.close()
 
