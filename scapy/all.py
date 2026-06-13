@@ -19,6 +19,7 @@ from scapy.interfaces import *
 from scapy.plist import *
 from scapy.fields import *
 from scapy.packet import *
+from scapy.diff import *
 from scapy.asn1fields import *
 from scapy.asn1packet import *
 
