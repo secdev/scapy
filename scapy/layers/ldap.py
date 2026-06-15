@@ -1476,12 +1476,20 @@ _dclocatorcache = conf.netcache.new_cache("dclocator", 600)
 
 @conf.commands.register
 def dclocator(
-    realm, qtype="A", mode="ldap", port=None, timeout=1, NtVersion=None, debug=0
+    realm: str,
+    site: str = "",
+    qtype: str = "A",
+    mode: str = "ldap",
+    port: int = None,
+    timeout: int = 1,
+    NtVersion: int = None,
+    debug: int = 0,
 ):
     """
     Perform a DC Locator as per [MS-ADTS] sect 6.3.6 or RFC4120.
 
     :param realm: the kerberos realm to locate
+    :param site: if provided, a Site name
     :param mode: Detect if a server is up and joinable thanks to one of:
 
     - 'nocheck': Do not check that servers are online.
@@ -1504,12 +1512,15 @@ def dclocator(
             | 0x20000000  # IP
         )
     # Check cache
-    cache_ident = ";".join([realm, qtype, mode, str(NtVersion)]).lower()
+    cache_ident = ";".join([realm, qtype, mode, str(NtVersion), site]).lower()
     if cache_ident in _dclocatorcache:
         return _dclocatorcache[cache_ident]
     # Perform DNS-Based discovery (6.3.6.1)
     # 1. SRV records
-    qname = "_kerberos._tcp.dc._msdcs.%s" % realm.lower()
+    if site:
+        qname = ("_kerberos._tcp.%s._sites.dc._msdcs.%s" % (site, realm)).lower()
+    else:
+        qname = "_kerberos._tcp.dc._msdcs.%s" % realm.lower()
     if debug:
         log_runtime.info("DC Locator: requesting SRV for '%s' ..." % qname)
     try:
