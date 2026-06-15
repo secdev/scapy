@@ -2040,6 +2040,11 @@ def dnssd(service="_services._dns-sd._udp.local",
     :param af: the transport to use. socket.AF_INET or socket.AF_INET6
     :param qtype: the type to use in the mDNS. Either TXT, PTR or SRV.
     :param iface: the interface to do this discovery on.
+
+    Examples::
+
+        >>> dnssd(service='_companion-link._tcp.local.').show()
+        >>> dnssd(service='_spotify-connect._tcp.local.').show()
     """
     if af == socket.AF_INET:
         pkt = IP(dst=ScopedIP("224.0.0.251", iface), ttl=255)
