@@ -782,7 +782,10 @@ class DestField(Field[str, bytes]):
             try:
                 if all(pkt.payload.getfieldval(field) == value
                        for field, value in condition.items()):
-                    return addr  # type: ignore
+                    if callable(addr):
+                        return addr(pkt)  # type: ignore
+                    else:
+                        return addr  # type: ignore
             except AttributeError:
                 pass
         return self.defaultdst
@@ -3666,11 +3669,11 @@ class _ScalingField(object):
         return x
 
     def any2i(self, pkt, x):
-        # type: (Optional[Packet], Any) -> Union[int, float]
+        # type: (Optional[Packet], Any) -> Union[int, float, None]
         if isinstance(x, (str, bytes)):
             x = struct.unpack(self.fmt, bytes_encode(x))[0]  # type: ignore
             x = self.m2i(pkt, x)
-        if not isinstance(x, (int, float)):
+        if not isinstance(x, (int, float)) and x is not None:
             raise ValueError("Unknown type")
         return x
 

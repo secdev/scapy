@@ -1,0 +1,118 @@
+############
+% IGMP tests
+############
+
++ Basic IGMP tests
+
+= Build IGMP - Basic
+
+a=Ether(src="00:01:02:03:04:05")
+b=IP(src="1.2.3.4")
+c=IGMP(gaddr="0.0.0.0")
+x = a/b/c
+assert x.mrcode == 20
+assert x[IP].dst == "224.0.0.1"
+
+= Build IGMP - Custom membership
+
+a=Ether(src="00:01:02:03:04:05")
+b=IP(src="1.2.3.4")
+c=IGMP(gaddr="224.0.1.2")
+x = a/b/c
+assert x.mrcode == 20
+assert x[IP].dst == "224.0.1.2"
+
+= Build IGMP - LG
+
+a=Ether(src="00:01:02:03:04:05")
+b=IP(src="1.2.3.4")
+c=IGMP(type=0x17, gaddr="224.2.3.4")
+x = a/b/c
+x = Ether(bytes(x))
+assert x.dst == "01:00:5e:00:00:02"
+assert x.mrcode == 0
+assert x[IP].dst == "224.0.0.2"
+
+= Change IGMP params
+
+x = Ether(src="00:01:02:03:04:05")/IP()/IGMP()
+assert x.mrcode == 20
+assert x[IP].dst == "224.0.0.1"
+
+x = Ether(src="00:01:02:03:04:05")/IP()/IGMP(gaddr="224.2.3.4", type=0x12)
+x.mrcode = 1
+x = Ether(raw(x))
+assert x.mrcode == 1
+
+x.gaddr = "224.3.2.4"
+x[Ether].dst = None
+x[IP].dst = None
+x = Ether(bytes(x))
+assert x.dst == "01:00:5e:03:02:04"
+
+= Test mysummary
+
+x = Ether(src="00:01:02:03:04:05")/IP(src="192.168.0.1")/IGMP(gaddr="224.0.0.2", type=0x17)
+assert x[IGMP].mysummary() == "IGMP: 192.168.0.1 > 224.0.0.2 Leave Group 224.0.0.2"
+
+assert IGMP().mysummary() == "IGMP Group Membership Query 0.0.0.0"
+
+= IGMP - misc
+
+x = Ether(src="00:01:02:03:04:05")/IP(dst="192.168.0.1")/IGMP(gaddr="224.1.2.3", type=0x11)
+x = Ether(raw(x))
+assert x[IP].dst == "192.168.0.1"
+
+x = Ether(src="00:01:02:03:04:05")/IP(dst="192.168.0.1")/IGMP(gaddr="124.0.2.1", type=0x00)
+assert x[IP].dst == "192.168.0.1"
+
++ Basic IGMPv3 tests
+
+= Build IGMPv3 - Basic
+
+a=Ether(src="00:01:02:03:04:05")
+b=IP(src="1.2.3.4")
+c=IGMPv3_MQ(mrcode=154)
+x = a/b/c
+assert x.mrcode == 131
+assert x[IP].dst == "224.0.0.1"
+assert isinstance(IGMP(raw(x[IGMPv3])), IGMPv3)
+
+= Dissect IGMPv3 - IGMPv3_MQ
+
+x = Ether(b'\x14\x0cv\x8f\xfe(\x00\x01\x02\x03\x04\x05\x08\x00F\xc0\x00$\x00\x01\x00\x00\x01\x02\xe4h\xc0\xa8\x00\x01\xe0\x00\x00\x16\x94\x04\x00\x00\x11\x14\x0e\xe9\xe6\x00\x00\x02\x00\x00\x00\x00')
+assert IGMPv3_MQ in x
+assert x[IGMPv3_MQ].gaddr == "230.0.0.2"
+assert x.summary() == "Ether / IP / IGMPv3: 192.168.0.1 > 224.0.0.22 Membership Query"
+assert isinstance(IGMP(raw(x[IGMPv3])), IGMPv3)
+
+= Dissect IGMPv3 - IGMPv3_MR
+
+x = Ether(b'\x01\x00^\x00\x00\x16\xa8\xf9K\x00\x00\x01\x08\x00E\xc0\x00D\x00\x01\x00\x00\x01\x02\xd6\xdf\x01\x01\x01\x01\xe0\x00\x00\x16"\x00;\xa6\x00\x00\x00\x04\x01\x00\x00\x02\xe6\x00\x00\x00\xc0\xa8\x00\x01\xc0\xa8\x84\xf7\x01\x00\x00\x00\xe6\x00\x00\x01\x01\x00\x00\x00\xe6\x00\x00\x02\x01\x00\x00\x00\xe6\x00\x00\x03')
+assert IGMPv3 in x
+assert IGMPv3_MR in x
+assert len(x[IGMPv3_MR].records) == 4
+assert x[IGMPv3_MR].records[0].srcaddrs == ["192.168.0.1", "192.168.132.247"]
+assert x[IGMPv3_MR].records[1].maddr == "230.0.0.1"
+assert isinstance(IGMP(raw(x[IGMPv3])), IGMPv3)
+
+= Dissect IGMPv3 - IGMPv3_MRA
+
+x = Ether(b'\x14\x0cv\x8f\xfe(\x00\x01\x02\x03\x04\x05\x08\x00F\xc0\x00 \x00\x01\x00\x00\x01\x02\xe4l\xc0\xa8\x00\x01\x7f\x00\x00\x01\x94\x04\x00\x000\x14\xcf\xe6\x00\x03\x00\x02')
+assert IGMPv3 in x
+assert IGMPv3_MRA in x
+assert x[IGMPv3_MRA].qryIntvl == 3
+assert x[IGMPv3_MRA].robust == 2
+assert isinstance(IGMP(raw(x[IGMPv3])), IGMPv3)
+
+= IGMP vs IVMPv3 tests
+
+assert isinstance(IGMPv3(raw(IGMP())), IGMP)
+assert isinstance(IGMPv3(raw(IGMP(type=0x11))), IGMP)
+assert isinstance(IGMP(raw(IGMPv3_MRA())), IGMPv3)
+assert isinstance(IGMP(raw(IGMPv3_MQ())), IGMPv3)
+
+= IGMPv3 - summaries
+
+pkt = IGMPv3_MR(records=[IGMPv3_MR_Group(maddr="127.0.0.1")])
+assert pkt.summary() == 'IGMPv3 Version 3 - Membership Report'
