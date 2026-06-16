@@ -261,6 +261,17 @@ for i in range(3, 10):
     assert HTTP not in pkts[i]
     assert H2Frame in pkts[i]
 
+= Test chunked then rebuild
+
+data = b'HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=ISO-8859-1\r\nDate: Tue, 16 Jun 2026 17:47:46 GMT\r\nExpires: -1\r\nVary: Accept-Encoding\r\nTransfer-Encoding: chunked\r\n\r\nA\r\n0000000000\r\nA\r\n0000000000\r\n0\r\n\r\n'
+pkt = HTTP(data)
+assert pkt.load == b"00000000000000000000"
+assert bytes(pkt) == data
+
+pkt.clear_cache()
+bytes(pkt)
+assert bytes(pkt) == b'HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=ISO-8859-1\r\nDate: Tue, 16 Jun 2026 17:47:46 GMT\r\nExpires: -1\r\nTransfer-Encoding: chunked\r\nVary: Accept-Encoding\r\n\r\n14\r\n00000000000000000000\r\n0\r\n\r\n'
+
 = Test chunked with gzip
 
 conf.contribs["http"]["auto_compression"] = False

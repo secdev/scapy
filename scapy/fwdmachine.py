@@ -221,7 +221,7 @@ class ForwardMachine:
         CONTEXT object kept during a session
         """
 
-        def __init__(self, addr, dest):
+        def __init__(self, fwdm, addr, dest):
             self.addr = addr
             self.dest = dest
             self.tls_sni_name = None  # Retrieved when receiving a connection
@@ -335,7 +335,7 @@ class ForwardMachine:
         """
         Handler of a client socket
         """
-        ctx = self.CONTEXT(addr, dest)  # we have a context object
+        ctx = self.CONTEXT(self, addr, dest)  # we have a context object
         # Initialize peer socket
         ss = self._getpeersock(dest)
         # Wrap both server and peer sockets in SSL

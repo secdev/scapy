@@ -315,9 +315,16 @@ class _HTTPContent(Packet):
     def hashret(self):
         return b"HTTP1"
 
-    def post_dissect(self, s):
+    def do_dissect_payload(self, s):
         self._original_len = len(s)
+        _orig_s = s
+
+        # Dissect normally
+        super(_HTTPContent, self).do_dissect_payload(s)
+
+        # If enabled, perform some post-processing
         encodings = self._get_encodings()
+
         # Un-chunkify
         if conf.contribs["http"]["auto_chunk"] and "chunked" in encodings:
             data = b""
@@ -338,7 +345,11 @@ class _HTTPContent(Packet):
             if not s:
                 s = data
         if not conf.contribs["http"]["auto_compression"]:
-            return s
+            self.payload.load = s
+            self.payload.raw_packet_cache = _orig_s
+            self.payload.raw_packet_cache_fields = {}
+            return
+
         # Decompress
         try:
             if "deflate" in encodings:
@@ -374,10 +385,12 @@ class _HTTPContent(Packet):
                         "Can't import zstandard. zstd decompression "
                         "will be ignored !"
                     )
+            self.payload.load = s
+            self.payload.raw_packet_cache = _orig_s
+            self.payload.raw_packet_cache_fields = {}
         except Exception:
             # Cannot decompress - probably incomplete data
             pass
-        return s
 
     def post_build(self, pkt, pay):
         encodings = self._get_encodings()
@@ -709,10 +722,13 @@ class HTTP(Packet):
                         and http_packet.Method == b"HEAD"
                     ):
                         session["head_request"] = True
-                elif is_response and http_packet.Status_Code == b"101":
+                elif is_response and (
+                    http_packet.Status_Code == b"101"
+                    or session.pop("head_request", False)
+                ):
                     # If it's an upgrade response, it may also hold a
-                    # different protocol data.
-                    # make sure all headers are present
+                    # different protocol data. make sure all headers are present
+                    # If header_request is set, this is an answer to a HEAD.
                     detect_end = lambda dat: dat.find(b"\r\n\r\n")
                 else:
                     # If neither Content-Length nor chunked is specified,
