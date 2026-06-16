@@ -75,7 +75,7 @@ If we were to use this machine in SERVER mode, we would call it like:
 TLS support
 ___________
 
-``ForwardMachine`` has support for TLS through the ``ssl=True`` argument. When TLS is enabled, the SNI (Server Name Indication) is
+``ForwardMachine`` has support for TLS through the ``tls=True`` argument. When TLS is enabled, the SNI (Server Name Indication) is
 properly forwarded to the remote peer, and can be accessed through the ``ctx.tls_sni_name`` attribute in the callbacks.
 
 **By default, a ForwardMachine generates self-signed certificates** that copy the attributes from the certificate of the remote
@@ -90,7 +90,7 @@ We can run the same ForwardMachine as from the previous example, this time with 
         mode=ForwardMachine.MODE.SERVER,
         port=443,
         cls=HTTP,
-        ssl=True,
+        tls=True,
     ).run()
 
 Configuring TPROXY

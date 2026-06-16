@@ -545,6 +545,14 @@ class StreamSocketPeekless(StreamSocket):
             return self.recv(x)
         return pkt
 
+    @property
+    def streamsession(self) -> Dict[Any, Any]:
+        return self.sess.session
+
+    @streamsession.setter
+    def streamsession(self, session: Dict[Any, Any]) -> None:
+        self.sess.session = session
+
     @staticmethod
     def select(sockets, remain=None):
         # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
