@@ -33,7 +33,9 @@ from scapy.layers.x509 import (
     X509_AlgorithmIdentifier,
 )
 
-from cryptography.hazmat.primitives import serialization
+# Crypto imports
+if conf.crypto_valid:
+    from cryptography.hazmat.primitives import serialization
 
 # Typing imports
 from typing import (
@@ -216,6 +218,10 @@ class ForwardMachine:
             self.server_hostname = server_hostname
             self.then = then or ForwardMachine.FORWARD()
 
+    class ERROR(Exception):
+        # Show an error
+        pass
+
     class CONTEXT:
         """
         CONTEXT object kept during a session
@@ -226,7 +232,7 @@ class ForwardMachine:
             self.dest = dest
             self.tls_sni_name = None  # Retrieved when receiving a connection
 
-    def print_reply(self, evt, cs, req, rep):
+    def vprint(self, evt, ctx, cs, req, rep):
         if evt == self.FORWARD:
             if cs:
                 print("C ==> S: %s" % req.summary())
@@ -247,6 +253,13 @@ class ForwardMachine:
                 print("C <=| : %s -> %s" % (req.summary(), rep.summary()))
             else:
                 print("S <=| : %s -> %s" % (req.summary(), rep.summary()))
+        elif evt == self.REDIRECT_TO:
+            print(
+                "C: %s was redirected from %s to %s"
+                % (repr(ctx.addr), repr(req), repr(rep))
+            )
+        elif evt == self.ERROR:
+            print(self.ct.red("ERROR: %s %s" % (repr(ctx.addr), req)))
 
     def destalias(self, dest):
         """
@@ -255,7 +268,19 @@ class ForwardMachine:
         """
         return dest
 
-    def _getpeersock(self, dest, server_hostname=None):
+    def newconn(self, ctx):
+        """
+        Callback when a new connection is established.
+        """
+        pass
+
+    def delconn(self, ctx):
+        """
+        Callback when a connection is deleted.
+        """
+        pass
+
+    def _getpeersock(self, dest, ctx, server_hostname=None):
         """
         Get peer socket
         """
@@ -263,7 +288,7 @@ class ForwardMachine:
         s.settimeout(self.timeout)
         ndest = self.destalias(dest)
         if ndest != dest:
-            print("C: %s redirected to %s" % (repr(dest), repr(ndest)))
+            self.vprint(self.REDIRECT_TO, ctx, 1, dest, ndest)
         dest = ndest
         s.connect(dest)
         return s
@@ -336,8 +361,9 @@ class ForwardMachine:
         Handler of a client socket
         """
         ctx = self.CONTEXT(self, addr, dest)  # we have a context object
+        self.newconn(ctx)
         # Initialize peer socket
-        ss = self._getpeersock(dest)
+        ss = self._getpeersock(dest, ctx)
         # Wrap both server and peer sockets in SSL
         if self.tls:
             # Build client SSL context
@@ -407,7 +433,7 @@ class ForwardMachine:
             try:
                 sock = sslcontext.wrap_socket(sock, server_side=True)
             except Exception as ex:
-                print(self.ct.red("%s errored in SSL: %s" % (repr(addr), str(ex))))
+                self.vprint(self.ERROR, ctx, 1, "TLS failure: %s" % ex, None)
                 sock.close()
                 return
             ss = _clisock[0]
@@ -440,23 +466,24 @@ class ForwardMachine:
                         try:
                             func(data, ctx)
                             # If this doesn't raise, it's a user error.
-                            print(
-                                self.ct.red(
-                                    "%s ERROR: you must always raise in %s !" % func
-                                )
+                            self.vprint(
+                                self.ERROR,
+                                ctx,
+                                1,
+                                "you must always raise in: %s" % func,
+                                None,
                             )
                             return
                         except self.REDIRECT_TO as ex:
                             # Replace the peer socket with a new socket
                             oldss = ss
                             ss = self._getpeersock(
-                                ex.dest, server_hostname=ex.server_hostname
+                                ex.dest,
+                                ctx,
+                                server_hostname=ex.server_hostname,
                             )
                             ss = self.sockcls(ss, self.cls)
-                            print(
-                                "C: %s redirected to %s"
-                                % (repr(ctx.dest), repr(ex.dest))
-                            )
+                            self.vprint(self.REDIRECT_TO, ctx, 1, ctx.dest, ex.dest)
                             ctx.dest = ex.dest  # update context
                             # Shut the old one.
                             oldss.ins.shutdown(socket.SHUT_RDWR)
@@ -471,30 +498,32 @@ class ForwardMachine:
                     except self.FORWARD:
                         # Forward the data to the other host
                         othersock.send(data)
-                        self.print_reply(self.FORWARD, cs, data, None)
+                        self.vprint(self.FORWARD, ctx, cs, data, None)
                     except self.FORWARD_REPLACE as ex:
                         # Forward custom data to the other host
                         othersock.send(ex.data)
-                        self.print_reply(self.FORWARD_REPLACE, cs, data, ex.data)
+                        self.vprint(self.FORWARD_REPLACE, ctx, cs, data, ex.data)
                     except self.DROP:
                         # Drop
-                        self.print_reply(self.DROP, cs, data, None)
+                        self.vprint(self.DROP, ctx, cs, data, None)
                     except self.ANSWER as ex:
                         # Respond with custom data
                         thissock.send(ex.data)
-                        self.print_reply(self.ANSWER, cs, data, ex.data)
+                        self.vprint(self.ANSWER, ctx, cs, data, ex.data)
                     except Exception as ex:
                         # Processing failed. forward to not break anything
-                        print(
-                            self.ct.orange(
-                                "Exception happened in handling client %s ! (forward)"
-                                % repr(addr)
-                            )
+                        self.vprint(
+                            self.ERROR,
+                            ctx,
+                            1,
+                            "Exception happened in handler (forward)",
+                            None,
                         )
                         traceback.print_exception(ex)
                         othersock.send(data)
-                        self.print_reply(self.FORWARD, cs, data, None)
+                        self.vprint(self.FORWARD, ctx, cs, data, None)
         except RuntimeError:
             print(self.ct.red("%s DISCONNECTED !" % repr(addr)))
+            self.delconn(ctx)
             sock.close()
             ss.close()
