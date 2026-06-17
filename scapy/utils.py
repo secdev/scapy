@@ -4027,6 +4027,10 @@ def AutoArgparse(
             else:
                 parname = "--" + parname
             paramkwargs["default"] = param.default
+        elif param.kind == inspect.Parameter.KEYWORD_ONLY:
+            # Required but Keyword only
+            parname = "--" + parname
+            paramkwargs["required"] = True
         else:
             positional.append(parname)
         if param.kind == inspect.Parameter.VAR_POSITIONAL:
