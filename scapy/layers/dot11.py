@@ -42,6 +42,7 @@ from scapy.fields import (
     MultipleTypeField,
     OUIField,
     PacketField,
+    PacketLenField,
     PacketListField,
     ReversePadField,
     ScalingField,
@@ -872,6 +873,77 @@ status_code = {0: "success", 1: "failure", 10: "cannot-support-all-cap",
                14: "bad-seq-num", 15: "challenge-failure",
                16: "timeout", 17: "AP-full", 18: "rate-unsupported"}
 
+# WINGTRA
+action_category = {0: "Spectrum-Management", 1: "QoS", 2: "DLS",
+               3: "Block-Ack",
+               4: "Public", 5: "Radio-Measurement", 6: "Fast-BSS-Transition",
+               7: "HT", 8: "SA-Query",
+               9: "Protected-Dult-Of-Public-Action", 10: "WNM", 11: "Unprotected-WNM",
+               12: "TDLS", 13: "Mesh", 14: "MultiHop", 15: "Self-Protected",
+               16: "Reserved", 17: "Reserved-WFA", 126: "Vendor-specific-Protected",
+               127: "Vendor-specific", 128: "Error", 255: "Error"}
+
+spec_mgmt_act_field = {0: "Meas-Req", 1: "Meas-Report", 2: "TPC-Req",
+               3: "TPC_Report", 4: "Chan-Switch-Announcement", 5: "reserved"}
+
+qos_act_field = {0: "ADDTS-Req", 1: "ADDTS-Resp", 2: "DELTS",
+               3: "Schedule", 4: "QoS-map-configure", 5: "reserved"}
+
+dls_act_field = {0: "DLS-Req", 1: "DLS-Resp", 2: "DLS-Teardown",
+               3: "reserved"}
+
+block_ack_act_field = {0: "ADDBA-Req", 1: "ADDBA-Resp", 2: "DELBA",
+               3: "reserved"}
+
+radio_meas_act_field = {0: "Radio-meas-Req", 1: "Radio-meas-Report", 2: "Link-meas-Req",
+               3: "Link-meas-report", 4: "Neigh-Report-Req", 5: "Neigh-Report-Resp",
+               6: "reserved"}
+
+public_act_field = {0: "BSS-coexist-mgmt", 1: "DSE-Enablement", 2: "DSE-Denablement",
+               3: "DSE-Reg-Loc-Ann", 4: "Ext-Chan-Sw-Ann", 5: "DSE-Meas-Req",
+               6: "DSE-Meas-Report", 7: "Meas-Pilot", 8: "DSE-Pow-Const",
+               9: "Vend-Spec", 10: "GAS-Init-Req", 11: "GAS-Init-Resp",
+               12: "GAS-Cbk-Req", 13: "GAS-Cbk-Resp", 14: "TDLS-Disc-Resp",
+               15: "Loc-Track-Not", 16: "reserved"}
+
+# Remote ID
+msg_type_field = {0: "Basic ID Msg", 1: "Location Msg", 2: "Authentication Msg",
+                3: "Self-ID Msg", 4: "System Msg", 5: "Operator ID Msg",
+                15: "Message Pack"}
+
+uas_id_type_field = {1: "Serial Number", 2: "Registration ID", 3: "UTM UUID"}
+
+uas_type_field = {0: "Not Declared", 1: "fixed wing", 2: "Multirotor",
+                3: "Gyroplane", 4: "Hybrid Lift", 5: "Ornithopter",
+                6: "Glider", 7: "Kite", 8: "Free Balloon", 9: "Captive Balloon",
+                10: "Airship", 11: "Free Fall", 12: "Rocket",13: "Tethered Powered Aircraft",
+                14: "Ground Obstacle", 15: "Other"}
+
+uas_category_field = {0: "Undefined", 1: "Open", 2: "Specific", 3: "Certified", 4: "Reserved"}
+
+uas_class_field = {0: "Undefined", 1: "Class 0", 2: "Class 1", 3: "Class 2", 4: "Class 3",
+                5: "Class 4", 6: "Class 5", 7: "Class 6", 8: "Reserved"}
+
+operation_status_field = {0: "Undeclared", 1: "Ground", 2: "Airborne", 
+                        3: "Emergency", 4: "Reserved"}
+
+operator_loc_type = {0: "Take-Off", 1: "Live GNSS", 2: "Fixed Location"}
+
+height_type_field = {0: "Above takeoff", 1: "AGL"}
+
+east_west_dir_type_field = {0: "< 180", 1: ">= 180"}
+
+hori_acc_field = {0: ">= 18.52 km (10NM) or Unknown", 1: "< 18.52 km (10NM)", 2: "< 7.408 km (4NM)",
+                3: "< 3.704 km (2NM)", 4: "< 1,852 m (1NM)", 5: "< 926 m (0.5NM)",
+                6: "< 555.6 m (0.3NM)", 7: "< 185.2 m (0.1NM)", 8: "< 92.6 m (0.05NM)",
+                9: "< 30 m", 10: "< 10 m", 11: "< 3 m", 12: "< 1m", 13: "Reserved"}
+
+vert_acc_field = {0: ">=150m or Unknown", 1: "<150m", 2: "<45m", 3: "<25m", 4: "<10m",
+                5: "<3m", 6: "<1m", 7: "Reserved"}
+
+speed_acc_field = {0: ">=10m/s or Unknown", 1: "<10m/s", 2: "<3m/s",
+                3: "<1m/s", 4: "<0.3m/s", 5: "Reserved"}
+# WINGTRA END
 
 class _Dot11EltUtils(Packet):
     """
@@ -1629,7 +1701,6 @@ class Dot11Auth(_Dot11EltUtils):
             return 1
         return 0
 
-
 class Dot11Deauth(Packet):
     name = "802.11 Deauthentication"
     fields_desc = [LEShortEnumField("reason", 1, reason_code)]
@@ -1638,6 +1709,114 @@ class Dot11Deauth(Packet):
 class Dot11Ack(Packet):
     name = "802.11 Ack packet"
 
+# Wingtra
+# TODO: Add custom 20 byte field and finish packet
+# class DRIBasicID(Packet):
+#     name = "DRI Basic ID packet"
+#     fields_desc = [ByteEnumField("uas_id_type_field", 4, uas_type_field), # TODO: Separate into 2 4-bit fields
+#     ]
+
+class DRILocationMsg(Packet):
+    name = "DRI Location/Vector packet"
+    fields_desc = [ByteEnumField("op_st_ht_dir_spd_mult_field", 1, operation_status_field), # TODO: Separate into 2 4-bit fields
+                ByteField("track_direction", 0),
+                ByteField("speed", 0),
+                ByteField("vert_speed", 0), # TODO: Signed?
+                LESignedIntField("Latitude", 0),
+                LESignedIntField("Longitude", 0),
+                LEShortField("Pressure_Alt", 0),
+                LEShortField("Geodetic_Alt", 0),
+                LEShortField("Height", 0),
+                ByteEnumField("hor_vert_acc_field", 1, hori_acc_field), # TODO: Separate into 2 4-bit fields
+                ByteEnumField("alt_speed_acc_field", 1, speed_acc_field), # TODO: Separate into 2 4-bit fields
+                LEShortField("Timestamp", 0),
+                ByteField("time_accuracy", 0),
+                ByteField("reserved", 0)]
+
+class DRISystemMsg(Packet):
+    name = "DRI System packet"
+    fields_desc = [ByteEnumField("operator_loc_type", 0, operator_loc_type),
+                LESignedIntField("remote_pilot_lat", 0),
+                LESignedIntField("remote_pilot_lon", 0),
+                LEShortField("Area_count", 1),
+                ByteField("Area_radius", 0),
+                LEShortField("Area_ceiling", 0),
+                LEShortField("Area_floor", 0),
+                LELongField("Reserved", 0)]
+
+class DirectRemoteId(Packet):
+    name = "Direct RemoteID packet"
+    fields_desc = [ByteEnumField("msg_type_ver", 1, msg_type_field), # TODO: Separate into 2 4-bit fields
+                    ConditionalField(
+                        PacketField("DRILocationMsg", DRILocationMsg(), DRILocationMsg),
+                        lambda pkt: pkt.msg_type_ver == 1),
+                    ConditionalField(
+                        PacketField("DRISystemMsg", DRISystemMsg(), DRISystemMsg),
+                        lambda pkt: pkt.msg_type_ver == 4) # TODO: Add others
+                ]
+
+class DirectRemoteIdMsgPack(Packet):
+    name = "Direct RemoteID MsgPack"
+    fields_desc = [ByteEnumField("msg_type_ver", 15, msg_type_field), # TODO: Separate into 2 4-bit fields
+                    XByteField("msg_size", 0x19),
+                    FieldLenField("num_msgs_pack", None, fmt='B', count_of="message"), # TODO: None or 1?, check endian-ness
+                    PacketListField(
+                        "message",
+                        [DirectRemoteId()],
+                        DirectRemoteId,
+                        count_from=lambda p: p.num_msgs_pack
+                    )]
+
+class NANServiceDiscoveryAttr(Packet):
+    name = "NAN Service Discovery Attribute"
+    fields_desc = [XByteField("attribute_id", 0x03),
+                    FieldLenField("len", None, length_of="msg_pack", adjust=lambda pkt,x: 11 + x), # check endian-ness
+                    X3BytesField("service_id_0", 0x886919), # TODO: merge into one service_id 6 byte field
+                    X3BytesField("service_id_1", 0x9d9209), # TODO: merge into one service_id 6 byte field
+                    XByteField("instance_id", 0x01),
+                    XByteField("req_instance_id", 0x00),
+                    XByteField("service_control", 0x10),
+                    FieldLenField("service_info_len", None, fmt='B', length_of="msg_pack", adjust=lambda pkt,x: 1 + x), # check endian-ness
+                    XByteField("msg_control", 0x00),
+                    PacketLenField("msg_pack", DirectRemoteIdMsgPack(), DirectRemoteIdMsgPack, length_from=lambda p: p.len)]
+
+class Dot11Action(_Dot11EltUtils):
+    name = "802.11 Action"
+    fields_desc = [ByteEnumField("category", 4, action_category),
+    ConditionalField(
+            ByteEnumField("spec_mgmt_act_field", 0, spec_mgmt_act_field),
+            lambda pkt: pkt.category == 0),
+    ConditionalField(
+            ByteField("diag_token", None),
+            lambda pkt: (pkt.category == 0) and (ptk.spec_mgmt_act_field < 4)),
+    ConditionalField(
+            ByteEnumField("qos_act_field", 0, qos_act_field),
+            lambda pkt: pkt.category == 1),
+    ConditionalField(
+            ByteEnumField("dls_act_field", 0, dls_act_field),
+            lambda pkt: pkt.category == 1),
+    ConditionalField(
+            ByteEnumField("block_ack_act_field", 0, block_ack_act_field),
+            lambda pkt: pkt.category == 3),
+    ConditionalField(
+            _OUIField("oui", 0x000fac),
+            lambda pkt: pkt.category == 127),
+    ConditionalField(
+            ByteEnumField("radio_meas_act_field", 0, radio_meas_act_field),
+            lambda pkt: pkt.category == 5),
+    ConditionalField(
+            ByteEnumField("public_act_field", 9, public_act_field),
+            lambda pkt: pkt.category == 4),
+    ConditionalField(
+            _OUIField("oui", 0x506f9a),
+            lambda pkt: pkt.category == 4),
+    ConditionalField(
+            XByteField("oui_type", 0x13),
+            lambda pkt: pkt.category == 4),
+    ConditionalField(
+            PacketField("nan_attribute", NANServiceDiscoveryAttr(), NANServiceDiscoveryAttr),
+            lambda pkt: (pkt.category == 4) and (pkt.oui == 0x506f9a) and (pkt.oui_type == 0x13))]
+# Wingtra End
 
 # 802.11-2016 9.4.1.11
 
@@ -2045,6 +2224,7 @@ bind_layers(Dot11ReassoReq, Dot11Elt,)
 bind_layers(Dot11ReassoResp, Dot11Elt,)
 bind_layers(Dot11ProbeReq, Dot11Elt,)
 bind_layers(Dot11ProbeResp, Dot11Elt,)
+bind_layers(Dot11Action, Dot11Elt,)
 bind_layers(Dot11Auth, Dot11Elt,)
 bind_layers(Dot11Elt, Dot11Elt,)
 bind_layers(Dot11TKIP, conf.raw_layer)
