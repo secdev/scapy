@@ -2478,6 +2478,19 @@ except Scapy_Exception:
 else:
     assert False
 
+= compile_filter() surfaces the libpcap error on an invalid filter, GH#4587
+~ libpcap
+from scapy.arch.common import compile_filter
+from scapy.data import DLT_EN10MB
+try:
+    compile_filter("not arpand not port 22", linktype=DLT_EN10MB)
+except Scapy_Exception as e:
+    # The message now includes the underlying libpcap reason instead of just a
+    # return code, e.g. a syntax error or a link-layer incompatibility:
+    assert "syntax error" in str(e).lower()
+else:
+    assert False
+
 = Check offline sniff with lfilter
 assert len(sniff(offline=[IP()/UDP(), IP()/TCP()], lfilter=lambda x: TCP in x)) == 1
 
