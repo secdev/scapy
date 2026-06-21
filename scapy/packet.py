@@ -106,7 +106,7 @@ class Packet(
         "process_information"
     ]
     name = None
-    fields_desc = []  # type: ClassVar[List[AnyField]]
+    fields_desc = []  # type: ClassVar[List[Union[AnyField, Type[Packet]]]]  # noqa: E501
     deprecated_fields = {}  # type: Dict[str, Tuple[str, str]]
     overload_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     payload_guess = []  # type: List[Tuple[Dict[str, Any], Type[Packet]]]
@@ -193,11 +193,11 @@ class Packet(
         for field in self.fields_desc:
             fname = field.name
             try:
-                value = fields.pop(fname)
+                value = fields.pop(fname)  # type: ignore
             except KeyError:
                 continue
-            self.fields[fname] = value if isinstance(value, RawVal) else \
-                self.get_field(fname).any2i(self, value)
+            self.fields[fname] = value if isinstance(value, RawVal) else (  # type: ignore  # noqa: E501
+                self.get_field(fname).any2i(self, value))  # type: ignore
         # The remaining fields are unknown
         for fname in fields:
             if fname in self.deprecated_fields:
@@ -323,7 +323,7 @@ class Packet(
         """
 
         if self.class_dont_cache.get(self.__class__, False):
-            self.do_init_fields(self.fields_desc)
+            self.do_init_fields(self.fields_desc)  # type: ignore
         else:
             self.do_init_cached_fields(for_dissect_only=for_dissect_only)
 
@@ -354,7 +354,7 @@ class Packet(
 
         # Build the fields information
         if Packet.class_default_fields.get(cls_name, None) is None:
-            self.prepare_cached_fields(self.fields_desc)
+            self.prepare_cached_fields(self.fields_desc)  # type: ignore
 
         # Use fields information from cache
         default_fields = Packet.class_default_fields.get(cls_name, None)
@@ -398,7 +398,7 @@ class Packet(
             if isinstance(f, MultipleTypeField):
                 # Abort
                 self.class_dont_cache[cls_name] = True
-                self.do_init_fields(self.fields_desc)
+                self.do_init_fields(self.fields_desc)  # type: ignore
                 return
 
             class_default_fields[f.name] = copy.deepcopy(f.default)
@@ -771,7 +771,7 @@ class Packet(
                 return self.raw_packet_cache
         p = b""
         for f in self.fields_desc:
-            val = self.getfieldval(f.name)
+            val = self.getfieldval(f.name)  # type: ignore
             if isinstance(val, RawVal):
                 p += bytes(val)
             else:
@@ -854,13 +854,13 @@ class Packet(
         for f in self.fields_desc:
             if isinstance(f, ConditionalField) and not f._evalcond(self):
                 continue
-            p = f.addfield(self, p, self.getfieldval(f.name))
+            p = f.addfield(self, p, self.getfieldval(f.name))  # type: ignore
             if isinstance(p, bytes):
                 r = p[len(q):]
                 q = p
             else:
                 r = b""
-            pl.append((f, f.i2repr(self, self.getfieldval(f.name)), r))
+            pl.append((f, f.i2repr(self, self.getfieldval(f.name)), r))  # type: ignore  # noqa: E501
 
         pkt, lst = self.payload.build_ps(internal=1)
         p += pkt
@@ -1087,9 +1087,9 @@ class Packet(
             # We need to track fields with mutable values to discard
             # .raw_packet_cache when needed.
             if (f.islist or f.holds_packets or f.ismutable) and fval is not None:
-                self.raw_packet_cache_fields[f.name] = \
-                    self._raw_packet_cache_field_value(f, fval, copy=True)
-            self.fields[f.name] = fval
+                self.raw_packet_cache_fields[f.name] = (  # type: ignore  # noqa: E501
+                    self._raw_packet_cache_field_value(f, fval, copy=True))  # type: ignore  # noqa: E501
+            self.fields[f.name] = fval  # type: ignore
             # Nothing left to dissect
             if not s and (isinstance(f, MayEnd) or
                           (fval is not None and isinstance(f, ConditionalField) and
@@ -1294,7 +1294,7 @@ class Packet(
         for f in self.fields_desc:
             if f not in other.fields_desc:
                 return False
-            if self.getfieldval(f.name) != other.getfieldval(f.name):
+            if self.getfieldval(f.name) != other.getfieldval(f.name):  # type: ignore  # noqa: E501
                 return False
         return self.payload == other.payload
 
@@ -1514,8 +1514,8 @@ values.
                     ct.depreciate_field_name(f.name),
                 )
                 lvl += " " * indent * self.show_indent
-                for i, fld in enumerate(x for x in f.fields if hasattr(self, x.name)):
-                    fields.insert(i, fld)
+                for i, fld in enumerate(x for x in f.fields if hasattr(self, x.name)):  # type: ignore  # noqa: E501
+                    fields.insert(i, fld)  # type: ignore
                 continue
             if isinstance(f, Emph) or f in conf.emph:
                 ncol = ct.emph_field_name
@@ -1739,7 +1739,7 @@ values.
             impf = []
             for f in self.fields_desc:
                 if f in conf.emph:
-                    impf.append("%s=%s" % (f.name, f.i2repr(self, self.getfieldval(f.name))))  # noqa: E501
+                    impf.append("%s=%s" % (f.name, f.i2repr(self, self.getfieldval(f.name))))  # type: ignore  # noqa: E501
             ret = "%s [%s]" % (ret, " ".join(impf))
         if ret and s:
             ret = "%s / %s" % (ret, s)
@@ -1775,7 +1775,7 @@ values.
         f = []
         iterator: Iterator[Tuple[str, Any]]
         if json:
-            iterator = ((x.name, self.getfieldval(x.name)) for x in self.fields_desc)
+            iterator = ((x.name, self.getfieldval(x.name)) for x in self.fields_desc)  # type: ignore  # noqa: E501
         else:
             iterator = iter(self.fields.items())
         for fn, fv in iterator:
@@ -2484,7 +2484,7 @@ def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
              repr(default),
              long_attrs)
         )
-    return fields
+    return fields  # type: ignore
 
 
 @conf.commands.register
@@ -2583,7 +2583,7 @@ def rfc(cls, ret=False, legend=True):
     def _iterfields() -> Iterator[Tuple[str, int]]:
         for f in cls.fields_desc:
             # Fancy field name
-            fname = f.name.upper().replace("_", " ")
+            fname = f.name.upper().replace("_", " ")  # type: ignore
             fsize = int(f.sz * 8)
             yield fname, fsize
             # Add padding optionally
@@ -2716,7 +2716,7 @@ def fuzz(p,  # type: _P
                 key: (val._fix() if isinstance(val, VolatileValue) else val)
                 for key, val in new_default_fields.items()
             }
-            q.default_fields.update(new_default_fields)
+            q.default_fields.update(new_default_fields)  # type: ignore
             new_default_fields.clear()
             # add the random values of the MultipleTypeFields
             for name in multiple_type_fields:
@@ -2724,6 +2724,6 @@ def fuzz(p,  # type: _P
                 rnd = fld._find_fld_pkt(q).randval()
                 if rnd is not None:
                     new_default_fields[name] = rnd
-        q.default_fields.update(new_default_fields)
+        q.default_fields.update(new_default_fields)  # type: ignore
         q = q.payload
     return p
