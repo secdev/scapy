@@ -62,6 +62,7 @@ from scapy.fields import (
     XShortField,
 )
 from scapy.layers.inet import (
+    _icmp4884_prepare_ext_build,
     _ICMPExtensionField,
     _ICMPExtensionPadField,
     _ICMP_extpad_post_dissection,
@@ -1509,6 +1510,10 @@ class ICMPv6TimeExceeded(_ICMPv6Error):
                    _ICMPExtensionPadField(),
                    _ICMPExtensionField()]
     post_dissection = _ICMP_extpad_post_dissection
+
+    def post_build(self, p, pay):
+        p, pay = _icmp4884_prepare_ext_build(self, p, pay, length_offset=4)
+        return _ICMPv6.post_build(self, p, pay)
 
 
 # The default pointer value is set to the next header field of
