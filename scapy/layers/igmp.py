@@ -412,7 +412,7 @@ class IGMPv3_MRT(IGMPv3):
 
 
 bind_layers(IP, IGMP, proto=2)
-bind_top_down(IP, IGMP, proto=2, ttl=1, tox=0xC0)
+bind_top_down(IP, IGMP, proto=2, ttl=1, tos=0xC0)
 
 
 def _igmp_mq_addr(pkt):
@@ -455,14 +455,20 @@ def igmp_join(gaddr: str, version=2, psrc=None, iface=None):
 
 
 @conf.commands.register
-def igmp_leave(gaddr: str, psrc=None, iface=None):
+def igmp_leave(gaddr: str, version=2, psrc=None, iface=None):
     """
     Send a IGMP Leave Group to leave a multicast group
 
     :param gaddr: the IPv4 of the group to leave
     :param psrc: (optional) the source IP
     """
-    send(IP(src=psrc) / IGMPv2_LG(gaddr=gaddr), iface=iface)
+    if version == 1:
+        raise ValueError("IGMPv1 does not include a mechanism to leave !")
+    elif version == 2:
+        pkt = IP(src=psrc) / IGMPv2_LG(gaddr=gaddr)
+    elif version == 3:
+        pkt = IP(src=psrc) / IGMPv3_MR(records=[IGMPv3_MR_Group(rtype=3, maddr=gaddr)])
+    send(pkt, iface=iface)
 
 
 class IGMPMQResult(PacketList):
