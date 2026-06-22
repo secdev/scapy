@@ -11,6 +11,7 @@ b=IP(src="1.2.3.4")
 c=IGMP(gaddr="0.0.0.0")
 x = a/b/c
 assert x.mrcode == 20
+assert x[IP].tos == 0xc0
 assert x[IP].dst == "224.0.0.1"
 
 = Build IGMP - Custom membership
@@ -20,6 +21,7 @@ b=IP(src="1.2.3.4")
 c=IGMP(gaddr="224.0.1.2")
 x = a/b/c
 assert x.mrcode == 20
+assert x[IP].tos == 0xc0
 assert x[IP].dst == "224.0.1.2"
 
 = Build IGMP - LG
@@ -31,17 +33,20 @@ x = a/b/c
 x = Ether(bytes(x))
 assert x.dst == "01:00:5e:00:00:02"
 assert x.mrcode == 0
+assert x[IP].tos == 0xc0
 assert x[IP].dst == "224.0.0.2"
 
 = Change IGMP params
 
 x = Ether(src="00:01:02:03:04:05")/IP()/IGMP()
 assert x.mrcode == 20
+assert x[IP].tos == 0xc0
 assert x[IP].dst == "224.0.0.1"
 
 x = Ether(src="00:01:02:03:04:05")/IP()/IGMP(gaddr="224.2.3.4", type=0x12)
 x.mrcode = 1
 x = Ether(raw(x))
+assert x[IP].tos == 0xc0
 assert x.mrcode == 1
 
 x.gaddr = "224.3.2.4"

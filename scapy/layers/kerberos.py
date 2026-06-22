@@ -98,10 +98,11 @@ from scapy.fields import (
     FieldLenField,
     FlagsField,
     IntEnumField,
+    IntField,
     LEIntEnumField,
-    LenField,
     LEShortEnumField,
     LEShortField,
+    LenField,
     LongField,
     MayEnd,
     MultipleTypeField,
@@ -109,6 +110,7 @@ from scapy.fields import (
     PacketLenField,
     PacketListField,
     PadField,
+    ScalingField,
     ShortEnumField,
     ShortField,
     StrField,
@@ -2848,10 +2850,55 @@ KPASSWD_RESULTS = {
 }
 
 
+class DOMAIN_PASSWORD_INFORMATION(Packet):
+    # [MS-SAMR] sect 2.2.3.5
+    fields_desc = [
+        IntField("MinPasswordLength", 0),
+        IntField("PasswordHistoryLength", 0),
+        FlagsField(
+            "PasswordProperties",
+            0,
+            32,
+            {
+                0x00000001: "DOMAIN_PASSWORD_COMPLEX",
+                0x00000002: "DOMAIN_PASSWORD_NO_ANON_CHANGE",
+                0x00000004: "DOMAIN_PASSWORD_NO_CLEAR_CHANGE",
+                0x00000008: "DOMAIN_LOCKOUT_ADMINS",
+                0x00000010: "DOMAIN_PASSWORD_STORE_CLEARTEXT",
+                0x00000020: "DOMAIN_REFUSE_PASSWORD_CHANGE",
+                0x00000040: "DOMAIN_NO_LM_OWF_CHANGE",
+            },
+        ),
+        ScalingField("MaxPasswordAge", 30 * 24 * 3600, scaling=1 / 1e7, fmt="!Q"),
+        ScalingField("MinPasswordAge", 0, scaling=1 / 1e7, fmt="!Q"),
+    ]
+
+
+class KPasswdResult(Packet):
+    # This is guessed from looking at MIT's implementation + ntsecapi.h
+    fields_desc = [
+        ShortField("PasswordInfoValid", 0),
+        PacketField(
+            "DomainPasswordInfo",
+            DOMAIN_PASSWORD_INFORMATION(),
+            DOMAIN_PASSWORD_INFORMATION,
+        ),
+    ]
+
+
+class _KPasswdRepDataResult_Field(StrField):
+    def m2i(self, pkt, s):
+        val = super(_KPasswdRepDataResult_Field, self).m2i(pkt, s)
+        if len(val or b"") == 30:
+            # A 30 octets blob is most likely the AD policy block
+            return KPasswdResult(val)
+        return val
+
+
 class KPasswdRepData(Packet):
     fields_desc = [
         ShortEnumField("resultCode", 0, KPASSWD_RESULTS),
-        StrField("resultString", ""),
+        _KPasswdRepDataResult_Field("resultString", ""),
     ]
 
 

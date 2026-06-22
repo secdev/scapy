@@ -74,6 +74,7 @@ class ForwardMachine:
     :param proto: the proto to use (default SOCK_STREAM)
     :param remote_address: the IP to use in SERVER mode, or by default in TPROXY when
         the destination is the local IP.
+    :param remote_port: the port to use in SERVER mode. (else use 'port')
     :param remote_af: (optional) if provided, use a different address family to connect
         to the remote host.
     :param bind_address: the IP to bind locally. "0.0.0.0" by default in SERVER mode,
@@ -108,6 +109,7 @@ class ForwardMachine:
         af: socket.AddressFamily = socket.AF_INET,
         proto: socket.SocketKind = socket.SOCK_STREAM,
         remote_address: str = None,
+        remote_port: int = None,
         remote_af: Optional[socket.AddressFamily] = None,
         bind_address: str = None,
         tls: bool = False,
@@ -129,6 +131,7 @@ class ForwardMachine:
         self.timeout = timeout
         self.MTU = MTU
         self.remote_address = remote_address
+        self.remote_port = remote_port
         if self.tls or self.af == 40:  # TLS or VSOCK
             self.sockcls = StreamSocketPeekless
         else:
@@ -164,9 +167,9 @@ class ForwardMachine:
             conn, addr = self.ssock.accept()
             # Calc dest
             dest = conn.getsockname()
-            if self.mode == ForwardMachine.MODE.SERVER or (
-                dest[0] in self.local_ips and self.remote_address
-            ):
+            if self.mode == ForwardMachine.MODE.SERVER:
+                dest = (self.remote_address, self.remote_port or self.port)
+            elif dest[0] in self.local_ips and self.remote_address:
                 dest = (self.remote_address,) + dest[1:]
             print(self.ct.green("%s -> %s connected !" % (repr(addr), repr(dest))))
             try:
