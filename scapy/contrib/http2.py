@@ -2454,7 +2454,7 @@ class HPackHdrTable(Sized):
 
         :param H2Frame|list of HPackHeaders hdrs: the list of headers to
           convert to textual representation.
-        :param bool: whether incremental headers should be added to the dynamic
+        :param bool register: whether incremental headers should be added to the dynamic
           table as we generate the text representation
         :return: str: the textual representation of the provided headers
         :raises: AssertionError
