@@ -528,7 +528,8 @@ class Packet(
         try:
             return self.default_fields[attr]
         except KeyError:
-            return self.payload.getfieldval(attr)
+            pass
+        return self.payload.getfieldval(attr)
 
     def getfield_and_val(self, attr):
         # type: (str) -> Tuple[AnyField, Any]
@@ -1094,7 +1095,7 @@ class Packet(
         for f in self.fields_desc:
             s, fval = f.getfield(self, s)
             # Skip unused ConditionalField
-            if f._is_conditional and fval is None:
+            if f.isconditional and fval is None:
                 continue
             # We need to track fields with mutable values to discard
             # .raw_packet_cache when needed.
@@ -1103,9 +1104,9 @@ class Packet(
                     self._raw_packet_cache_field_value(f, fval, copy=True)
             self.fields[f.name] = fval
             # Nothing left to dissect
-            if not s and (f._may_end or
-                          (fval is not None and f._is_conditional and
-                           f.fld._may_end)):  # type: ignore
+            if not s and (f.ismayend or
+                          (fval is not None and f.isconditional and
+                           f.fld.ismayend)):  # type: ignore
                 break
         self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
@@ -1175,29 +1176,10 @@ class Packet(
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
                 try:
-                    fields = self.fields
-                    overloaded = self.overloaded_fields
-                    default = self.default_fields
-                    deprecated_fields = self.deprecated_fields
-                    matched = True
-                    for k, v in fval.items():
-                        if deprecated_fields:
-                            fv = self.getfieldval(k)
-                        else:
-                            # Inline getfieldval for speed when there are no
-                            # deprecated field aliases to resolve.
-                            if k in fields:
-                                fv = fields[k]
-                            elif k in overloaded:
-                                fv = overloaded[k]
-                            else:
-                                fv = default[k]
-                        if v != fv:
-                            matched = False
-                            break
-                    if matched:
+                    if all(v == self.getfieldval(k)
+                           for k, v in fval.items()):
                         return cls  # type: ignore
-                except (AttributeError, KeyError):
+                except AttributeError:
                     pass
         return self.default_payload_class(payload)
 

@@ -160,8 +160,8 @@ class Field(Generic[I, M], metaclass=Field_metaclass):
     islist = 0
     ismutable = False
     holds_packets = 0
-    _is_conditional = False
-    _may_end = False
+    isconditional = False
+    ismayend = False
 
     def __init__(self, name, default, fmt="H"):
         # type: (str, Any, str) -> None
@@ -317,8 +317,8 @@ class _FieldContainer(object):
     A field that acts as a container for another field
     """
     __slots__ = ["fld"]
-    _is_conditional = False
-    _may_end = False
+    isconditional = False
+    ismayend = False
 
     def __getattr__(self, attr):
         # type: (str) -> Any
@@ -357,7 +357,7 @@ class MayEnd(_FieldContainer):
     to an empty value, else the behavior will be unexpected.
     """
     __slots__ = ["fld"]
-    _may_end = True
+    ismayend = True
 
     def __init__(self, fld):
         # type: (Any) -> None
@@ -389,7 +389,7 @@ class ActionField(_FieldContainer):
 
 class ConditionalField(_FieldContainer):
     __slots__ = ["fld", "cond"]
-    _is_conditional = True
+    isconditional = True
 
     def __init__(self,
                  fld,  # type: AnyField
