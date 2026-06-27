@@ -64,7 +64,7 @@ class GUID(NDRPacket):
 
 
 class ORPC_EXTENT(NDRPacket):
-    ALIGNMENT = (4, 8)
+    ALIGNMENT = (4, 4)
     DEPORTED_CONFORMANTS = ["data"]
     fields_desc = [
         NDRPacketField("id", GUID(), GUID),
@@ -89,7 +89,7 @@ class ORPC_EXTENT_ARRAY(NDRPacket):
                 [],
                 ORPC_EXTENT,
                 size_is=lambda pkt: ((pkt.size + 1) & (~1)),
-                ptr_pack=True,
+                ptr_lvl=1,
             )
         ),
     ]
@@ -109,7 +109,7 @@ class ORPCTHIS(NDRPacket):
 
 
 class MInterfacePointer(NDRPacket):
-    ALIGNMENT = (4, 8)
+    ALIGNMENT = (4, 4)
     DEPORTED_CONFORMANTS = ["abData"]
     fields_desc = [
         NDRIntField("ulCntData", None, size_of="abData"),
@@ -130,7 +130,7 @@ class ORPCTHAT(NDRPacket):
 
 
 class DUALSTRINGARRAY(NDRPacket):
-    ALIGNMENT = (4, 8)
+    ALIGNMENT = (2, 2)
     DEPORTED_CONFORMANTS = ["aStringArray"]
     fields_desc = [
         NDRShortField("wNumEntries", None, size_of="aStringArray"),
@@ -155,7 +155,11 @@ class RemoteActivation_Request(NDRPacket):
         NDRIntField("ClientImpLevel", 0),
         NDRIntField("Mode", 0),
         NDRIntField("Interfaces", None, size_of="pIIDs"),
-        NDRConfPacketListField("pIIDs", [], GUID, size_is=lambda pkt: pkt.Interfaces),
+        NDRFullPointerField(
+            NDRConfPacketListField(
+                "pIIDs", [], GUID, size_is=lambda pkt: pkt.Interfaces
+            )
+        ),
         NDRShortField("cRequestedProtseqs", None, size_of="aRequestedProtseqs"),
         NDRConfFieldListField(
             "aRequestedProtseqs",
@@ -182,7 +186,7 @@ class RemoteActivation_Response(NDRPacket):
             [],
             MInterfacePointer,
             size_is=lambda pkt: pkt.Interfaces,
-            ptr_pack=True,
+            ptr_lvl=1,
         ),
         NDRConfFieldListField(
             "pResults", [], NDRSignedIntField("", 0), size_is=lambda pkt: pkt.Interfaces
@@ -414,7 +418,7 @@ class RemQueryInterface_Request(NDRPacket):
 class RemQueryInterface_Response(NDRPacket):
     fields_desc = [
         NDRConfPacketListField(
-            "ppQIResults", [], REMQIRESULT, size_is=lambda pkt: pkt.cIids, ptr_pack=True
+            "ppQIResults", [], REMQIRESULT, size_is=lambda pkt: pkt.cIids, ptr_lvl=1
         ),
         NDRIntField("status", 0),
     ]
@@ -491,7 +495,7 @@ class RemQueryInterface2_Response(NDRPacket):
             "phr", [], NDRSignedIntField("", 0), size_is=lambda pkt: pkt.cIids
         ),
         NDRConfPacketListField(
-            "ppMIF", [], MInterfacePointer, size_is=lambda pkt: pkt.cIids, ptr_pack=True
+            "ppMIF", [], MInterfacePointer, size_is=lambda pkt: pkt.cIids, ptr_lvl=1
         ),
         NDRIntField("status", 0),
     ]

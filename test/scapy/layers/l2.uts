@@ -17,6 +17,40 @@ def _test():
 
 retry_test(_test)
 
+= Arping - interface that has no ip
+~ mock
+
+from unittest import mock
+
+_old_routes = conf.route.routes
+_old_ifaces = conf.ifaces.data.copy()
+
+try:
+    conf.route.routes = [
+        (180996905, 4294967295, '0.0.0.0', 'eth0', '10.201.203.41', 0),
+        (180997119, 4294967295, '0.0.0.0', 'eth0', '10.201.203.41', 0),
+        (0, 0, '10.201.203.254', 'eth0', '0.0.0.0', 0),
+        (180996864, 4294967040, '0.0.0.0', 'eth0', '10.201.203.41', 0),
+        (3758096384, 4026531840, '0.0.0.0', 'eth0', '10.201.203.41', 250)
+    ]
+    conf.ifaces._add_fake_iface("toto", mac="11:22:33:aa:bb:cc", ips=[])
+
+    def dummy_srp(pkts, **kwargs):
+        assert pkts.dst == "ff:ff:ff:ff:ff:ff"
+        assert pkts.src == "11:22:33:aa:bb:cc"
+        assert pkts[ARP].psrc == "0.0.0.0"
+        assert pkts[ARP].pdst == Net("192.168.0.1/24")
+        assert pkts[ARP].hwsrc == "11:22:33:aa:bb:cc"
+        # No results, we don't care.
+        return SndRcvList([]), PacketList(pkts)
+
+    with mock.patch("scapy.layers.l2.srp", side_effect=dummy_srp):
+        arping("192.168.0.1/24", iface="toto")
+
+finally:
+    conf.route.routes = _old_routes
+    conf.ifaces.data = _old_ifaces
+
 = Test ARPingResult output
 ~ manufdb
 

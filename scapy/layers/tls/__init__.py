@@ -91,5 +91,5 @@ from scapy.config import conf
 if not conf.crypto_valid:
     import logging
     log_loading = logging.getLogger("scapy.loading")
-    log_loading.info("Can't import python-cryptography v1.7+. "
+    log_loading.info("Can't import python-cryptography v2.0+. "
                      "Disabled PKI & TLS crypto-related features.")

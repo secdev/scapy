@@ -437,7 +437,7 @@ class LDP(_LDP_Packet):
 
 bind_bottom_up(TCP, LDP, sport=646)
 bind_bottom_up(TCP, LDP, dport=646)
-bind_bottom_up(TCP, UDP, sport=646)
-bind_bottom_up(TCP, UDP, dport=646)
+bind_bottom_up(UDP, LDP, sport=646)
+bind_bottom_up(UDP, LDP, dport=646)
 bind_layers(TCP, LDP, sport=646, dport=646)
 bind_layers(UDP, LDP, sport=646, dport=646)

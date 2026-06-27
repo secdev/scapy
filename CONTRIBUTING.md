@@ -40,6 +40,14 @@ submitting an issue.
 If you're not sure whether a behavior is a bug or not, submit an issue
 and ask, don't be shy!
 
+### AI-assisted reports
+
+<!-- Wireshark has greate AI guidelines ! Let's not reinvent the wheel -->
+<!-- https://gitlab.com/wireshark/wireshark/-/blob/master/doc/wsug_src/wsug_introduction.adoc -->
+
+If you use AI tools to help find or draft a bug report, please mention that and make sure you have personally verified the steps and details before submitting.
+Purely AI-generated reports are not supported and might be closed; a quick human check keeps triage efficient for everyone.
+
 ### Enhancements / feature requests
 
 If you want a feature in Scapy, but cannot implement it yourself or
@@ -53,6 +61,18 @@ of function calls, packet creations, etc.).
 
 ### Coding style & conventions
 
+-   All commits should include the `AI-Assisted: (yes/no) [tool]` tag. This is used to disclose the AI tools that are used when authoring. You must check the commits you produce, or your PR might be closed. The tag may look like such:
+
+    ```
+    AI-Assisted: yes (Claude Opus 4.7)
+    ```
+    or
+    
+    ```
+    AI-Assisted: no
+    ```
+    This guideline is adapted with thanks to [Wireshark's AI usage statement](https://www.wireshark.org/docs/wsdg_html_chunked/ChSrcContribute.html).
+
 -   The code should be PEP-8 compliant; you can check your code with
     [pep8](https://pypi.python.org/pypi/pep8) and the command `tox -e flake8`
 
@@ -63,20 +83,18 @@ of function calls, packet creations, etc.).
 -   [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
     is a nice read!
 
--   Avoid creating unnecessary `list` objects, particularly if they
-    can be huge (e.g., when possible, use `for line in fdesc` instead of
-    `for line in fdesc.readlines()`; more generally prefer generators over
-    lists).
-
 ### Tests
 
-Please consider adding tests for your new features or that trigger the
-bug you are fixing. This will prevent a regression from being
-unnoticed. Do not use the variable `_`  in your tests, as it could break them.
+We require adding tests for all new features or bug fixes, or a justification as to why they are not relevant. We know it's annoying, but Scapy is all about parsing and dissecting weird protocols us maintainers will never encounter. Having good tests is the only way to keep the code maintainable.
+
+- If you are fixing a bug, provide a one-liner that reproduced the bug you are fixing.
+- If you are introducing dissectors, provide at least a very simple "dissect" / "build" of real packets with simple assertions.
+- Tests can be very simple. It's much better to have dumb tests that break when one does changes than no tests.
+- Do not use the variable `_` in your tests, as it could break them.
 
 If you find yourself in a situation where your tests locally succeed  but 
 fail if executed on the CI, try to enable the debugging option for the 
-dissector by setting `conf.debug_dissector = 1`.
+dissector by setting `conf.debug_dissector = 1`. In doubt, feel free to ask maintainers for help.
 
 ### New protocols
 

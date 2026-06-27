@@ -140,7 +140,7 @@ class SigValField(StrLenField):
         s = pkt.tls_session
         if s.tls_version and s.tls_version < 0x0300:
             if len(s.client_certs) > 0:
-                sig_len = s.client_certs[0].pubKey.pubkey.key_size // 8
+                sig_len = s.client_certs[0].pubkey.pubkey.key_size // 8
             else:
                 warning("No client certificate provided. "
                         "We're making a wild guess about the signature size.")
@@ -170,7 +170,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
 
     def __init__(self, *args, **kargs):
         super(_TLSSignature, self).__init__(*args, **kargs)
-        if "sig_alg" not in kargs:
+        if self.sig_alg is None and "sig_alg" not in kargs:
             # Default sig_alg
             self.sig_alg = 0x0804
             if self.tls_session and self.tls_session.tls_version:

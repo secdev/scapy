@@ -439,7 +439,7 @@ class DNSTextField(StrLenField):
 
 edns0types = {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Owner",
               5: "DAU", 6: "DHU", 7: "N3U", 8: "edns-client-subnet", 10: "COOKIE",
-              15: "Extended DNS Error"}
+              12: "Padding", 15: "Extended DNS Error"}
 
 
 class _EDNS0Dummy(Packet):
@@ -494,11 +494,11 @@ class EDNS0OWN(_EDNS0Dummy):
                    MACField("primary_mac", "00:00:00:00:00:00"),
                    ConditionalField(
                        MACField("wakeup_mac", "00:00:00:00:00:00"),
-                       lambda pkt: (pkt.optlen or 0) >= 18),
+                       lambda pkt: (pkt.optlen or 0) >= 14),
                    ConditionalField(
                        StrLenField("password", "",
-                                   length_from=lambda pkt: pkt.optlen - 18),
-                       lambda pkt: (pkt.optlen or 0) >= 22)]
+                                   length_from=lambda pkt: pkt.optlen - 14),
+                       lambda pkt: (pkt.optlen or 0) >= 18)]
 
     def post_build(self, pkt, pay):
         pkt += pay
@@ -546,7 +546,7 @@ class ClientSubnetv4(StrLenField):
 
     def getfield(self, pkt, s):
         # type: (Packet, bytes) -> Tuple[bytes, I]
-        sz = operator.floordiv(self.length_from(pkt), 8)
+        sz = operator.floordiv(self.length_from(pkt) + 7, 8)
         sz = min(sz, operator.floordiv(self.af_length, 8))
         return s[sz:], self.m2i(pkt, s[:sz])
 
@@ -558,9 +558,21 @@ class ClientSubnetv4(StrLenField):
         x = x[: operator.floordiv(self.af_length, 8)]
         return inet_ntop(self.af_familly, x)
 
-    def _pack_subnet(self, subnet):
-        # type: (bytes) -> bytes
+    def _pack_subnet(self, subnet, plen=None):
+        # type: (bytes, Optional[int]) -> bytes
         packed_subnet = inet_pton(self.af_familly, plain_str(subnet))
+        if plen is not None:
+            # RFC 7871: ADDRESS MUST be truncated to the number of bits
+            # indicated by SOURCE PREFIX-LENGTH, padded with 0 bits to the
+            # end of the last octet needed.  Use ceil(plen / 8) bytes and
+            # zero out any host bits in the last partial byte.
+            num_bytes = operator.floordiv(plen + 7, 8)
+            result = bytearray(packed_subnet[:num_bytes])
+            rem = plen % 8
+            if rem and result:
+                result[-1] &= (0xff << (8 - rem)) & 0xff
+            return bytes(result)
+        # When prefix length is not known, strip trailing zero bytes.
         for i in list(range(operator.floordiv(self.af_length, 8)))[::-1]:
             if packed_subnet[i] != 0:
                 i += 1
@@ -571,21 +583,23 @@ class ClientSubnetv4(StrLenField):
         # type: (Optional[Packet], Optional[Union[str, Net]]) -> bytes
         if x is None:
             return self.af_default
+        plen = getattr(pkt, 'source_plen', None)
         try:
-            return self._pack_subnet(x)
+            return self._pack_subnet(x, plen)
         except (OSError, socket.error):
             pkt.family = 2
-            return ClientSubnetv6("", "")._pack_subnet(x)
+            return ClientSubnetv6("", "")._pack_subnet(x, plen)
 
     def i2len(self, pkt, x):
         # type: (Packet, Any) -> int
         if x is None:
             return 1
+        plen = getattr(pkt, 'source_plen', None)
         try:
-            return len(self._pack_subnet(x))
+            return len(self._pack_subnet(x, plen))
         except (OSError, socket.error):
             pkt.family = 2
-            return len(ClientSubnetv6("", "")._pack_subnet(x))
+            return len(ClientSubnetv6("", "")._pack_subnet(x, plen))
 
 
 class ClientSubnetv6(ClientSubnetv4):
@@ -624,6 +638,16 @@ class EDNS0COOKIE(_EDNS0Dummy):
                    XStrFixedLenField("client_cookie", b"\x00" * 8, length=8),
                    XStrLenField("server_cookie", "",
                                 length_from=lambda pkt: max(0, pkt.optlen - 8))]
+
+
+# RFC 7830 - EDNS0 Padding Option
+
+class EDNS0PADDING(_EDNS0Dummy):
+    name = "DNS EDNS0 Padding"
+    fields_desc = [ShortEnumField("optcode", 12, edns0types),
+                   FieldLenField("optlen", None, length_of="padding", fmt="!H"),
+                   StrLenField("padding", "",
+                               length_from=lambda pkt: pkt.optlen)]
 
 
 # RFC 8914 - Extended DNS Errors
@@ -681,6 +705,7 @@ EDNS0OPT_DISPATCHER = {
     7: EDNS0N3U,
     8: EDNS0ClientSubnet,
     10: EDNS0COOKIE,
+    12: EDNS0PADDING,
     15: EDNS0ExtendedDNSError,
 }
 
@@ -1405,7 +1430,7 @@ def dns_resolve(qname, qtype="A", raw=False, tcp=False, verbose=1, timeout=3, **
     :param timeout: seconds until timeout (per server)
     :raise TimeoutError: if no DNS servers were reached in time.
     """
-    # Unify types
+    # Unify types (for caching)
     qtype = DNSQR.qtype.any2i_one(None, qtype)
     qname = DNSQR.qname.any2i(None, qname)
     # Check cache
@@ -2015,6 +2040,11 @@ def dnssd(service="_services._dns-sd._udp.local",
     :param af: the transport to use. socket.AF_INET or socket.AF_INET6
     :param qtype: the type to use in the mDNS. Either TXT, PTR or SRV.
     :param iface: the interface to do this discovery on.
+
+    Examples::
+
+        >>> dnssd(service='_companion-link._tcp.local.').show()
+        >>> dnssd(service='_spotify-connect._tcp.local.').show()
     """
     if af == socket.AF_INET:
         pkt = IP(dst=ScopedIP("224.0.0.251", iface), ttl=255)

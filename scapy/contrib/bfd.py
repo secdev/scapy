@@ -131,7 +131,7 @@ class BFD(Packet):
         BitField("echo_rx_interval", 1000000000, 32),
         ConditionalField(
             PacketField("optional_auth", None, OptionalAuth),
-            lambda pkt: pkt.flags.names[2] == "A",
+            lambda pkt: pkt.flags.A,
         ),
     ]
 

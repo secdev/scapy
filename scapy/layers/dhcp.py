@@ -57,7 +57,7 @@ from scapy.volatile import (
 )
 
 from scapy.arch import get_if_hwaddr
-from scapy.sendrecv import srp1
+from scapy.sendrecv import srp1, sendp
 from scapy.error import warning
 from scapy.config import conf
 
@@ -542,6 +542,21 @@ class DHCP(Packet):
                 return "DHCP %s" % DHCPTypes.get(id[1], "").capitalize()
         return super(DHCP, self).mysummary()
 
+    def getopt(self, name: str):
+        try:
+            if not self.options:
+                raise StopIteration
+            return next(x[1] for x in self.options if x[0] == name)
+        except StopIteration:
+            raise AttributeError("Option '%s' not found !" % name)
+
+    def addopt(self, name: str, value):
+        opts = self.options
+        if not isinstance(opts, list):
+            opts = []
+        opts.insert(len(opts) - 1, (name, value))
+        self.options = opts
+
 
 bind_layers(UDP, BOOTP, dport=67, sport=68)
 bind_layers(UDP, BOOTP, dport=68, sport=67)
@@ -549,60 +564,217 @@ bind_bottom_up(UDP, BOOTP, dport=67, sport=67)
 bind_layers(BOOTP, DHCP, options=b'c\x82Sc')
 
 
+def _dhcp_query(
+    req_type: str,
+    hw=None,
+    dstip=None,
+    ciaddr=None,
+    server_id=None,
+    requested_addr=None,
+    fixed_ether=False,
+    hostname=None,
+    iface=None,
+    wait_resp=True,
+    **kwargs,
+):
+    # We need to set checkIPaddr to False for DHCP
+    _old_checkIPaddr = conf.checkIPaddr
+    conf.checkIPaddr = False
+
+    try:
+        if hw is None:
+            if iface is None:
+                iface = conf.iface
+            hw = get_if_hwaddr(iface)
+
+        # Build the DHCP options of the request
+        dhcp_options = [
+            ('message-type', req_type),
+            ('client_id', b'\x01' + mac2str(hw)),
+        ]
+        if requested_addr is not None:
+            dhcp_options.append(('requested_addr', requested_addr))
+        if server_id is not None:
+            dhcp_options.append(('server_id', server_id))
+        if hostname is not None:
+            dhcp_options.extend([
+                ('hostname', hostname),
+                ('client_FQDN', b'\x00\x00\x00' + bytes_encode(hostname)),
+            ])
+        dhcp_options.extend([
+            ('vendor_class_id', b'MSFT 5.0'),
+            ('param_req_list', [
+                1, 3, 6, 15, 31, 33, 43, 44, 46, 47, 119, 121, 249, 252
+            ]),
+            'end'
+        ])
+
+        # Build the packet
+        pkt = (
+            Ether(dst="ff:ff:ff:ff:ff:ff", src=None if fixed_ether else hw) /
+            IP(
+                src=ciaddr or "0.0.0.0",
+                dst=dstip or "255.255.255.255",
+            ) /
+            UDP(sport=68, dport=67) /
+            BOOTP(
+                chaddr=hw,
+                ciaddr=ciaddr or "0.0.0.0",
+                xid=RandInt(),
+                flags="B",
+            ) /
+            DHCP(options=dhcp_options)
+        )
+
+        if wait_resp:
+            return srp1(pkt, iface=iface, **kwargs)
+        else:
+            return sendp(pkt, iface=iface, **kwargs)
+    finally:
+        conf.checkIPaddr = _old_checkIPaddr
+
+
 @conf.commands.register
-def dhcp_request(hw=None,
-                 req_type='discover',
-                 server_id=None,
-                 requested_addr=None,
-                 hostname=None,
-                 iface=None,
-                 **kargs):
+def dhcp_discover(
+    hw=None,
+    requested_addr=None,
+    hostname=None,
+    iface=None,
+    **kwargs,
+):
     """
-    Send a DHCP discover request and return the answer.
+    Send a DHCP discover and return the answer
+
+    :param hw: (optional) the source MAC
+    :param requested_addr: (optional) ask the DHCP server for a preferred IP
+    :param hostname: the hostname of the client (default: not specified)
+    :param iface: the interface to send this on. (default: conf.iface)
 
     Usage::
 
-        >>> dhcp_request()  # send DHCP discover
-        >>> dhcp_request(req_type='request',
-        ...              requested_addr='10.53.4.34')  # send DHCP request
+        >>> dhcp_discover()
     """
-    if conf.checkIPaddr:
-        warning(
-            "conf.checkIPaddr is enabled, may not be able to match the answer"
-        )
-    if hw is None:
-        if iface is None:
-            iface = conf.iface
-        hw = get_if_hwaddr(iface)
-    dhcp_options = [
-        ('message-type', req_type),
-        ('client_id', b'\x01' + mac2str(hw)),
-    ]
-    if requested_addr is not None:
-        dhcp_options.append(('requested_addr', requested_addr))
-    elif req_type == 'request':
-        warning("DHCP Request without requested_addr will likely be ignored")
-    if server_id is not None:
-        dhcp_options.append(('server_id', server_id))
-    if hostname is not None:
-        dhcp_options.extend([
-            ('hostname', hostname),
-            ('client_FQDN', b'\x00\x00\x00' + bytes_encode(hostname)),
-        ])
-    dhcp_options.extend([
-        ('vendor_class_id', b'MSFT 5.0'),
-        ('param_req_list', [
-            1, 3, 6, 15, 31, 33, 43, 44, 46, 47, 119, 121, 249, 252
-        ]),
-        'end'
-    ])
-    return srp1(
-        Ether(dst="ff:ff:ff:ff:ff:ff", src=hw) /
-        IP(src="0.0.0.0", dst="255.255.255.255") /
-        UDP(sport=68, dport=67) /
-        BOOTP(chaddr=hw, xid=RandInt(), flags="B") /
-        DHCP(options=dhcp_options),
-        iface=iface, **kargs
+    return _dhcp_query(
+        req_type="discover",
+        hw=hw,
+        requested_addr=requested_addr,
+        hostname=hostname,
+        iface=iface,
+        **kwargs,
+    )
+
+
+@conf.commands.register
+def dhcp_request(
+    requested_addr: str,
+    hw=None,
+    server_id=None,
+    hostname=None,
+    iface=None,
+    fixed_ether=False,
+    **kwargs,
+):
+    """
+    Send a DHCP discover request and return the answer.
+
+    :param server_id: the server id from the OFFER
+    :param hw: (optional) the source MAC
+    :param requested_addr: request an IP from the DHCP server
+    :param hostname: the hostname of the client (default: not specified)
+    :param iface: the interface to send this on. (default: conf.iface)
+    :param fixed_ether: (optional) use the real local mac in the Ethernet layer,
+        and only use 'hw' in the ARP layer.
+
+    Usage::
+
+        >>> srv = dhcp_discover()
+        >>> dhcp_request(
+        ...    requested_addr=srv.yiaddr,
+        ...    server_id=srv[DHCP].getopt("server_id")
+        ... )
+    """
+    return _dhcp_query(
+        req_type="request",
+        hw=hw,
+        server_id=server_id,
+        requested_addr=requested_addr,
+        hostname=hostname,
+        iface=iface,
+        fixed_ether=fixed_ether,
+        **kwargs,
+    )
+
+
+@conf.commands.register
+def dhcp_release(
+    ciaddr: str,
+    server_id: str,
+    hw=None,
+    hostname=None,
+    iface=None,
+    fixed_ether=False,
+    **kwargs,
+):
+    """
+    Send a DHCP release request
+
+    :param server_id: the server id from the OFFER
+    :param ciaddr: the IP to release
+    :param hw: (optional) the source MAC
+    :param hostname: the hostname of the client (default: not specified)
+    :param iface: the interface to send this on. (default: conf.iface)
+    :param fixed_ether: (optional) use the real local mac in the Ethernet layer,
+        and only use 'hw' in the ARP layer.
+
+    Usage::
+
+        >>> dhcp_release(ciaddr="10.0.0.12", server_id="10.0.0.254")
+    """
+    return _dhcp_query(
+        req_type="release",
+        hw=hw,
+        dstip=server_id,
+        server_id=server_id,
+        ciaddr=ciaddr,
+        hostname=hostname,
+        iface=iface,
+        fixed_ether=fixed_ether,
+        wait_resp=False,
+        **kwargs,
+    )
+
+
+@conf.commands.register
+def dhcp_inform(
+    ciaddr: str,
+    hw=None,
+    hostname=None,
+    iface=None,
+    fixed_ether=False,
+    **kwargs,
+):
+    """
+    Send a DHCP inform request
+
+    :param ciaddr: the IP to inform
+    :param hw: (optional) the source MAC
+    :param hostname: the hostname of the client (default: not specified)
+    :param iface: the interface to send this on. (default: conf.iface)
+    :param fixed_ether: (optional) use the real local mac in the Ethernet layer,
+        and only use 'hw' in the ARP layer.
+
+    Usage::
+
+        >>> dhcp_inform(ciaddr="10.0.0.12")
+    """
+    return _dhcp_query(
+        req_type="inform",
+        hw=hw,
+        ciaddr=ciaddr,
+        hostname=hostname,
+        iface=iface,
+        fixed_ether=fixed_ether,
+        **kwargs,
     )
 
 

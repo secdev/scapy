@@ -58,7 +58,7 @@ then
   export SIMPLE_TESTS="true"
   export PYTHON
   export DISABLE_COVERAGE=" "
-  PYVER=$($PYTHON -c "import sys; print('.'.join(sys.version.split('.')[:2]))")
+  PYVER=$($PYTHON -c "import sys,platform; print(('pypy' if platform.python_implementation() == 'PyPy' else '') + '.'.join(sys.version.split('.')[:2]))")
   bash ${DIR}/.config/ci/test.sh $PYVER non_root
   exit $?
 fi

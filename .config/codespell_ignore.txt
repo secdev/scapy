@@ -1,5 +1,6 @@
 abd
 aci
+addopt
 ans
 applikation
 archtypes
@@ -7,6 +8,7 @@ ba
 browseable
 byteorder
 cace
+cantact
 cas
 ciph
 componet

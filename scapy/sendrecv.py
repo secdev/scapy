@@ -14,7 +14,6 @@ import re
 import socket
 import subprocess
 import time
-import warnings
 
 from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL
@@ -35,7 +34,7 @@ from scapy.plist import (
     SndRcvList,
 )
 from scapy.error import log_runtime, log_interactive, Scapy_Exception
-from scapy.base_classes import Gen, SetGen
+from scapy.base_classes import Gen, SetGen, ScopedIP
 from scapy.sessions import DefaultSession
 from scapy.supersocket import SuperSocket, IterSocket
 
@@ -86,6 +85,7 @@ _DOC_SNDRCV_PARAMS = """
         if negative, how many times to retry when no more packets
         are answered
     :param multi: whether to accept multiple answers for the same stimulus
+    :param first: stop after receiving the first response of any sent packet
     :param rcv_pks: if set, will be used instead of pks to receive packets.
         packets will still be sent through pks
     :param prebuild: pre-build the packets before starting to send them.
@@ -125,13 +125,15 @@ class SndRcvHandler(object):
                  chainCC=False,  # type: bool
                  retry=0,  # type: int
                  multi=False,  # type: bool
+                 first=False,  # type: bool
                  rcv_pks=None,  # type: Optional[SuperSocket]
                  prebuild=False,  # type: bool
                  _flood=None,  # type: Optional[_FloodGenerator]
                  threaded=True,  # type: bool
                  session=None,  # type: Optional[_GlobSessionType]
                  chainEX=False,  # type: bool
-                 stop_filter=None  # type: Optional[Callable[[Packet], bool]]
+                 stop_filter=None,  # type: Optional[Callable[[Packet], bool]]
+                 **send_kwargs,  # type: Any
                  ):
         # type: (...) -> None
         # Instantiate all arguments
@@ -150,6 +152,7 @@ class SndRcvHandler(object):
         self.chainCC = chainCC
         self.multi = multi
         self.timeout = timeout
+        self.first = first
         self.session = session
         self.chainEX = chainEX
         self.stop_filter = stop_filter
@@ -159,6 +162,7 @@ class SndRcvHandler(object):
         self._flood = _flood
         self.threaded = threaded
         self.breakout = Event()
+        self.send_kwargs = send_kwargs
         # Instantiate packet holders
         if prebuild and not self._flood:
             self.tobesent = list(pkt)  # type: _PacketIterable
@@ -254,7 +258,10 @@ class SndRcvHandler(object):
 
     def _stop_sniffer_if_done(self) -> None:
         """Close the sniffer if all expected answers have been received"""
-        if self._send_done and self.noans >= self.notans and not self.multi:
+        if (
+            self._send_done and self.noans >= self.notans and not self.multi or
+            self.first and self.noans
+        ):
             if self.sniffer and self.sniffer.running:
                 self.sniffer.stop(join=False)
 
@@ -272,7 +279,7 @@ class SndRcvHandler(object):
                 # has not been sent
                 self.hsent.setdefault(p.hashret(), []).append(p)
                 # Send packet
-                self.pks.send(p)
+                self.pks.send(p, **self.send_kwargs)
                 time.sleep(self.inter)
                 if self.breakout.is_set():
                     break
@@ -474,15 +481,7 @@ def send(x,  # type: _PacketIterable
     :param monitor: (not on linux) send in monitor mode
     :returns: None
     """
-    if "iface" in kargs:
-        # Warn that it isn't used.
-        warnings.warn(
-            "'iface' has no effect on L3 I/O send(). For multicast/link-local "
-            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
-            SyntaxWarning,
-        )
-        del kargs["iface"]
-    iface, ipv6 = _interface_selection(x)
+    iface, ipv6 = _interface_selection(x, kargs.pop("iface", None))
     return _send(
         x,
         lambda iface: iface.l3socket(ipv6),
@@ -663,10 +662,18 @@ def _parse_tcpreplay_result(stdout_b, stderr_b, argv):
         return {}
 
 
-def _interface_selection(packet: _PacketIterable) -> Tuple[NetworkInterface, bool]:
+def _interface_selection(
+    packet: _PacketIterable,
+    iface: Optional[str] = None,
+) -> Tuple[NetworkInterface, bool]:
     """
     Select the network interface according to the layer 3 destination
     """
+    if iface is not None:
+        try:
+            packet.dst = ScopedIP(packet.dst, scope=iface)  # type: ignore
+        except AttributeError:
+            raise AttributeError("Cannot use iface= with this packet type.")
     _iff, src, _ = next(packet.__iter__()).route()
     ipv6 = False
     if src:
@@ -697,15 +704,7 @@ def sr(x,  # type: _PacketIterable
     This determines the interface (or L2 source to use) based on the routing
     table: conf.route / conf.route6
     """
-    if "iface" in kargs:
-        # Warn that it isn't used.
-        warnings.warn(
-            "'iface' has no effect on L3 I/O sr(). For multicast/link-local "
-            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
-            SyntaxWarning,
-        )
-        del kargs["iface"]
-    iface, ipv6 = _interface_selection(x)
+    iface, ipv6 = _interface_selection(x, kargs.pop("iface", None))
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         iface=iface, nofilter=nofilter,
@@ -724,14 +723,6 @@ def sr1(*args, **kargs):
     This determines the interface (or L2 source to use) based on the routing
     table: conf.route / conf.route6
     """
-    if "iface" in kargs:
-        # Warn that it isn't used.
-        warnings.warn(
-            "'iface' has no effect on L3 I/O sr1(). For multicast/link-local "
-            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
-            SyntaxWarning,
-        )
-        del kargs["iface"]
     ans, _ = sr(*args, **kargs)
     if ans:
         return cast(Packet, ans[0][1])
@@ -963,15 +954,7 @@ def srflood(x,  # type: _PacketIterable
     :param nofilter: put 1 to avoid use of BPF filters
     :param filter:   provide a BPF filter
     """
-    if "iface" in kargs:
-        # Warn that it isn't used.
-        warnings.warn(
-            "'iface' has no effect on L3 I/O srflood(). For multicast/link-local "
-            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
-            SyntaxWarning,
-        )
-        del kargs["iface"]
-    iface, ipv6 = _interface_selection(x)
+    iface, ipv6 = _interface_selection(x, kargs.pop("iface", None))
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         iface=iface, nofilter=nofilter,
@@ -1001,15 +984,7 @@ def sr1flood(x,  # type: _PacketIterable
     :param filter:   provide a BPF filter
     :param iface:    listen answers only on the given interface
     """
-    if "iface" in kargs:
-        # Warn that it isn't used.
-        warnings.warn(
-            "'iface' has no effect on L3 I/O sr1flood(). For multicast/link-local "
-            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
-            SyntaxWarning,
-        )
-        del kargs["iface"]
-    iface, ipv6 = _interface_selection(x)
+    iface, ipv6 = _interface_selection(x, kargs.pop("iface", None))
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         nofilter=nofilter, iface=iface,
@@ -1308,9 +1283,9 @@ class AsyncSniffer(object):
             self.stop_cb = stop_cb
 
         try:
+            self.continue_sniff = True
             if started_callback:
                 started_callback()
-            self.continue_sniff = True
 
             # Start timeout
             if timeout is not None:

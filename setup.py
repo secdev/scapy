@@ -12,6 +12,7 @@ if sys.version_info[0] <= 2:
     raise OSError("Scapy no longer supports Python 2 ! Please use Scapy 2.5.0")
 
 try:
+    import setuptools
     from setuptools import setup
     from setuptools.command.sdist import sdist
     from setuptools.command.build_py import build_py
@@ -80,6 +81,31 @@ class BuildPy(build_py):
         super(BuildPy, self).build_package_data()
         # ensure there's a scapy/VERSION file
         _build_version(self.build_lib)
+
+
+# Patch so that for setuptools < 77 understands the 'license' version required
+# by modern setuptools. See https://github.com/secdev/scapy/issues/4849.
+# This allow us to keep support for Python 3.7
+try:
+    major = int(setuptools.__version__.split(".")[0])
+    if major < 77:
+        # We replace setuptools.dist.pyprojecttoml.apply_configuration with goo
+        from setuptools.config.pyprojecttoml import read_configuration, _apply
+
+        def _patched_apply_configuration(dist, filepath, *_):
+            # 1. We force ignore option errors regarding 'license'
+            config = read_configuration(filepath, True, ignore_option_errors=True, dist=dist)
+
+            # 2. We replace the license with the one it expected
+            if isinstance(config["project"]["license"], str):
+                config["project"]["license"] = {'text': config["project"]["license"]}
+
+            return _apply(dist, config, filepath)
+
+        setuptools.dist.pyprojecttoml.apply_configuration = _patched_apply_configuration
+except Exception:
+    pass
+
 
 setup(
     cmdclass={'sdist': SDist, 'build_py': BuildPy},

@@ -229,8 +229,11 @@ class Route:
 
     def get_if_bcast(self, iff):
         # type: (str) -> List[str]
+        """
+        Return the list of broadcast addresses of an interface.
+        """
         bcast_list = []
-        for net, msk, gw, iface, addr, metric in self.routes:
+        for net, msk, _, iface, _, _ in self.routes:
             if net == 0:
                 continue    # Ignore default route "0.0.0.0"
             elif msk == 0xffffffff:

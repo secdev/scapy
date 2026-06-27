@@ -551,6 +551,8 @@ assert not set_info.Data.ReplaceIfExists
 
 = SMB2 - Build and dissect SECURITY_DESCRIPTOR
 
+from scapy.layers.windows.security import *
+
 sd = SECURITY_DESCRIPTOR(
     Control="DACL_PRESENT+DACL_PROTECTED+SELF_RELATIVE",
     OwnerSid=WINNT_SID.fromstr("S-1-1-0"),

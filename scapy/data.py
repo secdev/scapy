@@ -302,7 +302,7 @@ def scapy_data_cache(name):
     if SCAPY_CACHE_FOLDER is None:
         # Cannot cache.
         return lambda x: x
-    cachepath = SCAPY_CACHE_FOLDER / name
+    cachepath = SCAPY_CACHE_FOLDER / (name + ".pickle")
 
     def _cached_loader(func, name=name):
         # type: (DecoratorCallable, str) -> DecoratorCallable

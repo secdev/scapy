@@ -253,3 +253,33 @@ r3b = DiamReq ('Multimedia-Auth', drHbHId=0x5478, drEtEId=0x1234,
 
 raw(r3b) == raw(r3)
 
+
+#######################################################################
++ Diameter over SCTP
+#######################################################################
+
+= Diameter decoded from SCTPChunkData via proto_id binding
+
+from scapy.layers.sctp import SCTP, SCTPChunkData
+
+diam_pkt = DiamAns('Capabilities-Exchange', drHbHId=0x1234, drEtEId=0x5678,
+                    avpList=[AVP('Origin-Host', val='host.example.com'),
+                             AVP('Origin-Realm', val='example.com')])
+
+pkt = SCTP(raw(SCTP() / SCTPChunkData(proto_id=46, beginning=1, ending=1, data=raw(diam_pkt))))
+chunk = pkt[SCTPChunkData]
+assert isinstance(chunk.data, DiamG)
+assert chunk.proto_id == 46
+assert chunk.data.drHbHId == 0x1234
+assert chunk.data.avpList[0].avpCode == 264
+
+= SCTPChunkData with unknown proto_id keeps raw bytes
+
+pkt = SCTP(raw(SCTP() / SCTPChunkData(proto_id=0, data=b"test")))
+assert raw(pkt[SCTPChunkData].data) == b"test"
+
+= SCTPChunkData fragment is not decoded
+
+pkt = SCTP(raw(SCTP() / SCTPChunkData(proto_id=46, beginning=1, ending=0, data=raw(diam_pkt))))
+assert not isinstance(pkt[SCTPChunkData].data, DiamG)
+

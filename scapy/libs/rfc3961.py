@@ -97,8 +97,9 @@ except ImportError:
     raise ImportError("To use kerberos cryptography, you need to install cryptography.")
 
 
-# cryptography's TripleDES allow the usage of a 56bit key, which thus behaves like DES
-DES = decrepit_algorithms.TripleDES
+# cryptography's TripleDES can be used to simulate DES behavior
+def DES(key: bytes) -> decrepit_algorithms.TripleDES:
+    return decrepit_algorithms.TripleDES(key * 3)
 
 
 # https://go.microsoft.com/fwlink/?LinkId=186039
@@ -1443,4 +1444,36 @@ def KRB_FX_CF2(key1, key2, pepper1, pepper2):
                 bytearray(prfplus(key1, pepper1)), bytearray(prfplus(key2, pepper2))
             )
         ),
+    )
+
+
+############
+# RFC 4556 #
+############
+
+def octetstring2key(etype: EncryptionType, x: bytes) -> Key:
+    """
+    RFC4556 octetstring2key::
+
+        octetstring2key(x) == random-to-key(K-truncate(
+                            SHA1(0x00 | x) |
+                            SHA1(0x01 | x) |
+                            SHA1(0x02 | x) |
+                            ...
+                            ))
+    """
+    try:
+        ep = _enctypes[etype]
+    except ValueError:
+        raise ValueError("Unknown etype '%s'" % etype)
+
+    out = b""
+    count = 0
+    while len(out) < ep.keysize:
+        out += Hash_SHA().digest(struct.pack("!B", count) + x)
+        count += 1
+
+    return Key.random_to_key(
+        etype=etype,
+        seed=out[:ep.keysize],
     )

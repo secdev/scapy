@@ -774,18 +774,23 @@ def _get_ips(af_family=socket.AF_UNSPEC):
         ifindex = msg.ifa_index
         address = None
         family = msg.ifa_family
+        local = None
         for attr in msg.data:
             if attr.rta_type == 0x01:  # IFA_ADDRESS
                 address = attr.rta_data
-                break
-        if address is not None:
+            elif attr.rta_type == 0x02:  # IFA_LOCAL
+                local = attr.rta_data
+        # include/uapi/linux/if_addr.h: for point-to-point links, IFA_LOCAL is the local
+        # interface address and IFA_ADDRESS is the peer address
+        local_address = local if local is not None else address
+        if local_address is not None:
             data = {
                 "af_family": family,
                 "index": ifindex,
-                "address": address,
+                "address": local_address,
             }
             if family == 10:  # ipv6
-                data["scope"] = scapy.utils6.in6_getscope(address)
+                data["scope"] = scapy.utils6.in6_getscope(local_address)
             ips.setdefault(ifindex, list()).append(data)
     return ips
 

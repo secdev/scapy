@@ -315,9 +315,16 @@ class _HTTPContent(Packet):
     def hashret(self):
         return b"HTTP1"
 
-    def post_dissect(self, s):
+    def do_dissect_payload(self, s):
         self._original_len = len(s)
+        _orig_s = s
+
+        # Dissect normally
+        super(_HTTPContent, self).do_dissect_payload(s)
+
+        # If enabled, perform some post-processing
         encodings = self._get_encodings()
+
         # Un-chunkify
         if conf.contribs["http"]["auto_chunk"] and "chunked" in encodings:
             data = b""
@@ -338,7 +345,11 @@ class _HTTPContent(Packet):
             if not s:
                 s = data
         if not conf.contribs["http"]["auto_compression"]:
-            return s
+            self.payload.load = s
+            self.payload.raw_packet_cache = _orig_s
+            self.payload.raw_packet_cache_fields = {}
+            return
+
         # Decompress
         try:
             if "deflate" in encodings:
@@ -374,10 +385,12 @@ class _HTTPContent(Packet):
                         "Can't import zstandard. zstd decompression "
                         "will be ignored !"
                     )
+            self.payload.load = s
+            self.payload.raw_packet_cache = _orig_s
+            self.payload.raw_packet_cache_fields = {}
         except Exception:
             # Cannot decompress - probably incomplete data
             pass
-        return s
 
     def post_build(self, pkt, pay):
         encodings = self._get_encodings()
@@ -649,7 +662,7 @@ class HTTP(Packet):
 
     # tcp_reassemble is used by TCPSession in session.py
     @classmethod
-    def tcp_reassemble(cls, data, metadata, _):
+    def tcp_reassemble(cls, data, metadata, session):
         detect_end = metadata.get("detect_end", None)
         is_unknown = metadata.get("detect_unknown", True)
         # General idea of the following is explained at
@@ -674,8 +687,12 @@ class HTTP(Packet):
                 # use it. When the total size of the frags is high enough,
                 # we have the packet
 
+                if session.pop("head_request", False):
+                    # Answer to a HEAD request.
+                    detect_end = lambda dat: dat.find(b"\r\n\r\n")
+
                 # Subtract the length of the "HTTP*" layer
-                if http_packet.payload.payload or length == 0:
+                elif http_packet.payload.payload or length == 0:
                     http_length = len(data) - http_packet.payload._original_len
                     detect_end = lambda dat: len(dat) - http_length >= length
                 else:
@@ -693,17 +710,25 @@ class HTTP(Packet):
                 if chunked:
                     detect_end = lambda dat: dat.endswith(b"0\r\n\r\n")
                 # HTTP Requests that do not have any content,
-                # end with a double CRLF. Same for HEAD responses
+                # end with a double CRLF.
                 elif isinstance(http_packet.payload, cls.clsreq):
                     detect_end = lambda dat: dat.endswith(b"\r\n\r\n")
                     # In case we are handling a HTTP Request,
                     # we want to continue assessing the data,
                     # to handle requests with a body (POST)
                     metadata["detect_unknown"] = True
-                elif is_response and http_packet.Status_Code == b"101":
+                    if (
+                        isinstance(http_packet.payload, cls.clsreq)
+                        and http_packet.Method == b"HEAD"
+                    ):
+                        session["head_request"] = True
+                elif is_response and (
+                    http_packet.Status_Code == b"101"
+                    or session.pop("head_request", False)
+                ):
                     # If it's an upgrade response, it may also hold a
-                    # different protocol data.
-                    # make sure all headers are present
+                    # different protocol data. make sure all headers are present
+                    # If header_request is set, this is an answer to a HEAD.
                     detect_end = lambda dat: dat.find(b"\r\n\r\n")
                 else:
                     # If neither Content-Length nor chunked is specified,
@@ -763,6 +788,7 @@ class HTTP_Client(object):
     :param ssl: whether to use HTTPS or not
     :param ssp: the SSP object to use for binding
     :param no_check_certificate: with SSL, do not check the certificate
+    :param no_chan_bindings: force disable sending the channel bindings
     """
 
     def __init__(
@@ -772,6 +798,7 @@ class HTTP_Client(object):
         sslcontext=None,
         ssp=None,
         no_check_certificate=False,
+        no_chan_bindings=False,
     ):
         self.sock = None
         self._sockinfo = None
@@ -781,6 +808,7 @@ class HTTP_Client(object):
         self.ssp = ssp
         self.sspcontext = None
         self.no_check_certificate = no_check_certificate
+        self.no_chan_bindings = no_chan_bindings
         self.chan_bindings = GSS_C_NO_CHANNEL_BINDINGS
 
     def _connect_or_reuse(self, host, port=None, tls=False, timeout=5):
@@ -823,7 +851,7 @@ class HTTP_Client(object):
             else:
                 context = self.sslcontext
             sock = context.wrap_socket(sock, server_hostname=host)
-            if self.ssp:
+            if self.ssp and not self.no_chan_bindings:
                 # Compute the channel binding token (CBT)
                 self.chan_bindings = GssChannelBindings.fromssl(
                     ChannelBindingType.TLS_SERVER_END_POINT,
@@ -885,8 +913,7 @@ class HTTP_Client(object):
         self._connect_or_reuse(host, port=port, tls=tls, timeout=timeout)
 
         # Build request
-        if ((tls and port != 443) or
-                (not tls and port != 80)):
+        if (tls and port != 443) or (not tls and port != 80):
             host_hdr = "%s:%d" % (host, port)
         else:
             host_hdr = host
@@ -941,7 +968,7 @@ class HTTP_Client(object):
                     # SPNEGO / Kerberos / NTLM
                     self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                         self.sspcontext,
-                        ssp_blob,
+                        input_token=ssp_blob,
                         target_name="http/" + host,
                         req_flags=0,
                         chan_bindings=self.chan_bindings,

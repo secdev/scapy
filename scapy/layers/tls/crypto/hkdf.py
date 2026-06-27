@@ -10,7 +10,7 @@ Stateless HKDF for TLS 1.3.
 import struct
 
 from scapy.config import conf, crypto_validator
-from scapy.layers.tls.crypto.pkcs1 import _get_hash
+from scapy.layers.tls.crypto.hash import _get_hash
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
@@ -27,10 +27,14 @@ class TLS13_HKDF(object):
     @crypto_validator
     def extract(self, salt, ikm):
         h = self.hash
-        hkdf = HKDF(h, h.digest_size, salt, None, default_backend())
         if ikm is None:
             ikm = b"\x00" * h.digest_size
-        return hkdf._extract(ikm)
+        # cryptography 47.0.0 added this as a public API
+        if getattr(HKDF, "extract", None) is not None:
+            return HKDF.extract(h, salt, ikm)
+        else:
+            hkdf = HKDF(h, h.digest_size, salt, None, default_backend())
+            return hkdf._extract(ikm)
 
     @crypto_validator
     def expand(self, prk, info, L):

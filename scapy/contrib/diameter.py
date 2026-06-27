@@ -4828,7 +4828,5 @@ def DiamAns(cmd, **fields):
 
 bind_layers(TCP, DiamG, dport=3868)
 bind_layers(TCP, DiamG, sport=3868)
-bind_layers(SCTPChunkData, DiamG, dport=3868)
-bind_layers(SCTPChunkData, DiamG, sport=3868)
 bind_layers(SCTPChunkData, DiamG, proto_id=46)
 bind_layers(SCTPChunkData, DiamG, proto_id=47)

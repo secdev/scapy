@@ -502,8 +502,8 @@ A TCP traceroute::
     ***......
     Received 33 packets, got 21 answers, remaining 1 packets
     >>> for snd,rcv in ans:
-    ...     print snd.ttl, rcv.src, isinstance(rcv.payload, TCP)
-    ... 
+    ...     print(snd.ttl, rcv.src, isinstance(rcv.payload, TCP))
+    ...
     5 194.51.159.65 0
     6 194.51.159.49 0
     4 194.250.107.181 0
@@ -990,59 +990,6 @@ We can reimport the produced binary string by selecting the appropriate first la
     chksum=0x9c90 id=0x5a61 seq=0x1 |<Raw  load='\xe6\xdapI\xb6\xe5\x08\x00\x08\t\n
     \x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e
     \x1f !"#$%&\'()*+,-./01234567' |>>>>
-
-Base64
-^^^^^^
-
-Using the ``export_object()`` function, Scapy can export a base64 encoded Python data structure representing a packet::
-
-    >>> pkt
-    <Ether  dst=00:50:56:fc:ce:50 src=00:0c:29:2b:53:19 type=0x800 |<IP  version=4L 
-    ihl=5L tos=0x0 len=84 id=0 flags=DF frag=0L ttl=64 proto=icmp chksum=0x5a7c 
-    src=192.168.25.130 dst=4.2.2.1 options='' |<ICMP  type=echo-request code=0 
-    chksum=0x9c90 id=0x5a61 seq=0x1 |<Raw  load='\xe6\xdapI\xb6\xe5\x08\x00\x08\t\n
-    \x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f 
-    !"#$%&\'()*+,-./01234567' |>>>>
-    >>> export_object(pkt)
-    eNplVwd4FNcRPt2dTqdTQ0JUUYwN+CgS0gkJONFEs5WxFDB+CdiI8+pupVl0d7uzRUiYtcEGG4ST
-    OD1OnB6nN6c4cXrvwQmk2U5xA9tgO70XMm+1rA78qdzbfTP/lDfzz7tD4WwmU1C0YiaT2Gqjaiao
-    bMlhCrsUSYrYoKbmcxZFXSpPiohlZikm6ltb063ZdGpNOjWQ7mhPt62hChHJWTbFvb0O/u1MD2bT
-    WZXXVCmi9pihUqI3FHdEQslriiVfWFTVT9VYpog6Q7fsjG0qRWtQNwsW1fRTrUg4xZxq5pUx1aS6
-    ...
-
-The output above can be reimported back into Scapy using ``import_object()``::
-
-    >>> new_pkt = import_object()
-    eNplVwd4FNcRPt2dTqdTQ0JUUYwN+CgS0gkJONFEs5WxFDB+CdiI8+pupVl0d7uzRUiYtcEGG4ST
-    OD1OnB6nN6c4cXrvwQmk2U5xA9tgO70XMm+1rA78qdzbfTP/lDfzz7tD4WwmU1C0YiaT2Gqjaiao
-    bMlhCrsUSYrYoKbmcxZFXSpPiohlZikm6ltb063ZdGpNOjWQ7mhPt62hChHJWTbFvb0O/u1MD2bT
-    WZXXVCmi9pihUqI3FHdEQslriiVfWFTVT9VYpog6Q7fsjG0qRWtQNwsW1fRTrUg4xZxq5pUx1aS6
-    ...
-    >>> new_pkt
-    <Ether  dst=00:50:56:fc:ce:50 src=00:0c:29:2b:53:19 type=0x800 |<IP  version=4L 
-    ihl=5L tos=0x0 len=84 id=0 flags=DF frag=0L ttl=64 proto=icmp chksum=0x5a7c 
-    src=192.168.25.130 dst=4.2.2.1 options='' |<ICMP  type=echo-request code=0 
-    chksum=0x9c90 id=0x5a61 seq=0x1 |<Raw  load='\xe6\xdapI\xb6\xe5\x08\x00\x08\t\n
-    \x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f 
-    !"#$%&\'()*+,-./01234567' |>>>>
-
-Sessions
-^^^^^^^^
-
-At last Scapy is capable of saving all session variables using the ``save_session()`` function:
-
->>> dir()
-['__builtins__', 'conf', 'new_pkt', 'pkt', 'pkt_export', 'pkt_hex', 'pkt_raw', 'pkts']
->>> save_session("session.scapy")
-
-Next time you start Scapy you can load the previous saved session using the ``load_session()`` command::
-
-    >>> dir()
-    ['__builtins__', 'conf']
-    >>> load_session("session.scapy")
-    >>> dir()
-    ['__builtins__', 'conf', 'new_pkt', 'pkt', 'pkt_export', 'pkt_hex', 'pkt_raw', 'pkts']
-
 
 Making tables
 -------------
@@ -1697,7 +1644,7 @@ In this case we got 2 replies, so there were two active DHCP servers on the test
 
 We are only interested in the MAC and IP addresses of the replies: 
 
-    >>> for p in ans: print p[1][Ether].src, p[1][IP].src
+    >>> for p in ans: print(p[1][Ether].src, p[1][IP].src)
     ...
     00:de:ad:be:ef:00 192.168.1.1
     00:11:11:22:22:33 192.168.1.11
@@ -1723,16 +1670,16 @@ Firewalking
 TTL decrementation after a filtering operation 
 only not filtered packets generate an ICMP TTL exceeded 
 
-    >>> ans, unans = sr(IP(dst="172.16.4.27", ttl=16)/TCP(dport=(1,1024))) 
-    >>> for s,r in ans: 
-            if r.haslayer(ICMP) and r.payload.type == 11: 
-                print s.dport 
+    >>> ans, unans = sr(IP(dst="172.16.4.27", ttl=16)/TCP(dport=(1,1024)))
+    >>> for s,r in ans:
+    ...     if r.haslayer(ICMP) and r.payload.type == 11:
+    ...         print(s.dport)
 
 Find subnets on a multi-NIC firewall 
 only his own NIC’s IP are reachable with this TTL:: 
 
-    >>> ans, unans = sr(IP(dst="172.16.5/24", ttl=15)/TCP()) 
-    >>> for i in unans: print i.dst
+    >>> ans, unans = sr(IP(dst="172.16.5/24", ttl=15)/TCP())
+    >>> for i in unans: print(i.dst)
 
 
 TCP Timestamp Filtering

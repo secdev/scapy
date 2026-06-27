@@ -17,13 +17,12 @@ import struct
 from scapy.fields import (
     BitEnumField,
     BitField,
-    DestField,
     DestIP6Field,
     ShortField,
 )
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.compat import orb
-from scapy.layers.inet import UDP
+from scapy.layers.inet import UDP, DestIPField
 from scapy.layers.dns import (
     DNSCompressedPacket,
     DNS_am,
@@ -103,8 +102,8 @@ bind_bottom_up(UDP, _LLMNR, dport=5355)
 bind_bottom_up(UDP, _LLMNR, sport=5355)
 bind_layers(UDP, _LLMNR, sport=5355, dport=5355)
 
-DestField.bind_addr(LLMNRQuery, _LLMNR_IPv4_mcast_addr, dport=5355)
-DestField.bind_addr(LLMNRResponse, _LLMNR_IPv4_mcast_addr, dport=5355)
+DestIPField.bind_addr(LLMNRQuery, _LLMNR_IPv4_mcast_addr, dport=5355)
+DestIPField.bind_addr(LLMNRResponse, _LLMNR_IPv4_mcast_addr, dport=5355)
 DestIP6Field.bind_addr(LLMNRQuery, _LLMNR_IPv6_mcast_Addr, dport=5355)
 DestIP6Field.bind_addr(LLMNRResponse, _LLMNR_IPv6_mcast_Addr, dport=5355)
 

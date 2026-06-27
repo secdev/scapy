@@ -34,8 +34,16 @@ from scapy.fields import (
     XShortField,
     XStrFixedLenField
 )
+from scapy.interfaces import _GlobInterfaceType
+from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, UDP, TCP
 from scapy.layers.l2 import Ether, SourceMACField
+
+# Typing imports
+from typing import (
+    List,
+    Union,
+)
 
 
 class NetBIOS_DS(Packet):
@@ -76,12 +84,33 @@ class NetBIOS_DS(Packet):
 
 
 _NETBIOS_SUFFIXES = {
-    0x4141: "workstation",
-    0x4141 + 0x03: "messenger service",
-    0x4141 + 0x200: "file server service",
-    0x4141 + 0x10b: "domain master browser",
-    0x4141 + 0x10c: "domain controller",
-    0x4141 + 0x10e: "browser election service"
+    0x4141 + 0x00: "Workstation Service",
+    0x4141 + 0x01: "Messenger Service",
+    0x4141 + 0x03: "Messenger service",
+    0x4141 + 0x06: "RAS Server Service",
+    0x4141 + 0x1B: "Exchange MTA",
+    0x4141 + 0x1F: "NetDDE Service",
+    0x4141 + 0x20: "File Server Service",
+    0x4141 + 0x21: "RAS Client Service",
+    0x4141 + 0x22: "Exchange Interchange Service",
+    0x4141 + 0x23: "Exchange Store",
+    0x4141 + 0x24: "Exchange Directory",
+    0x4141 + 0x30: "Modern Sharing Server Service",
+    0x4141 + 0x31: "Modern Sharing Client Service",
+    0x4141 + 0x43: "SMS Client Remote Control",
+    0x4141 + 0x44: "SMS Admin Remote Control Tool",
+    0x4141 + 0x45: "SMS Client Remote Chat",
+    0x4141 + 0x46: "SMS Client Remote Transfer",
+    0x4141 + 0x4C: "DEC Pathworks TCP/IP Service",
+    0x4141 + 0x52: "DEC Pathworks TCP/IP Service",
+    0x4141 + 0x6A: "Exchange IMC",
+    0x4141 + 0x87: "Exchange MTA",
+    0x4141 + 0xBE: "Network Monitor Agent",
+    0x4141 + 0xBF: "Network Monitor Apps",
+    0x4141 + 0x10b: "Domain Master Browser",
+    0x4141 + 0x10c: "Domain Controller",
+    0x4141 + 0x10e: "Browser Election Service",
+    0x4141 + 0x200: "File Server Service",
 }
 
 _NETBIOS_QRTYPES = {
@@ -396,6 +425,93 @@ bind_bottom_up(TCP, NBTSession, sport=445)
 bind_bottom_up(TCP, NBTSession, dport=139)
 bind_bottom_up(TCP, NBTSession, sport=139)
 bind_layers(TCP, NBTSession, dport=139, sport=139)
+
+
+_nbns_cache = conf.netcache.new_cache("nbns_cache", 300)
+
+
+@conf.commands.register
+def nbns_resolve(
+    qname: str,
+    iface: Union[_GlobInterfaceType, List[_GlobInterfaceType]] = None,
+    raw: bool = False,
+    timeout: int = 3,
+    **kwargs,
+) -> List[str]:
+    """
+    Perform a simple NBNS (NetBios Name Services) resolution with caching
+
+    :param qname: the name to query
+    :param iface: the interfaces to use. (default: all)
+    :param raw: return the whole netbios packet (default False)
+    :param timeout: seconds until timeout (per server)
+    :raise TimeoutError: if no DNS servers were reached in time.
+    """
+    kwargs.setdefault("verbose", 0)
+
+    # Unify types (for caching)
+    qname = NBNSQueryRequest.QUESTION_NAME.any2i(None, qname)
+
+    # Check cache
+    cache_ident = qname + b"raw" if raw else b""
+    result = _nbns_cache.get(cache_ident)
+    if result:
+        return result
+
+    if iface is None:
+        ifaces = [
+            x
+            for name, x in conf.ifaces.items()
+            if x.is_valid() and name != conf.loopback_name
+        ]
+    elif isinstance(iface, list):
+        ifaces = iface
+    else:
+        ifaces = [iface]
+
+    # Builds a request for each broadcast address of each interface
+    requests = []
+    for iface in ifaces:
+        for bdcst in conf.route.get_if_bcast(iface):
+            if bdcst == "255.255.255.255":
+                continue
+            requests.append(
+                IP(dst=bdcst) /
+                UDP() /
+                NBNSHeader() /
+                NBNSQueryRequest(QUESTION_NAME=qname)
+            )
+
+    if not requests:
+        return None
+
+    # Perform requests, get the first response
+    try:
+        old_checkIPAddr = conf.checkIPaddr
+        conf.checkIPaddr = False
+
+        res = sr1(
+            requests,
+            timeout=timeout,
+            first=True,
+            **kwargs,
+        )
+    finally:
+        conf.checkIPaddr = old_checkIPAddr
+
+    if res is not None:
+        if raw:
+            # Raw
+            result = res
+        else:
+            # Get IP
+            result = [x.NB_ADDRESS for x in res.ADDR_ENTRY]
+        if result:
+            # Cache it
+            _nbns_cache[cache_ident] = result
+        return result
+    else:
+        raise TimeoutError
 
 
 class NBNS_am(AnsweringMachine):

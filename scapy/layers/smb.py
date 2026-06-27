@@ -66,11 +66,11 @@ from scapy.layers.gssapi import (
     GSSAPI_BLOB,
 )
 from scapy.layers.smb2 import (
-    STATUS_ERREF,
     SMB2_Compression_Transform_Header,
     SMB2_Header,
     SMB2_Transform_Header,
 )
+from scapy.layers.windows.erref import STATUS_ERREF
 
 
 SMB_COM = {
@@ -286,7 +286,7 @@ class SMBNegotiate_Request(Packet):
 
 bind_layers(SMB_Header, SMBNegotiate_Request, Command=0x72)
 
-# SMBNegociate Protocol Response
+# SMBNegotiate Protocol Response
 
 
 def _SMBStrNullField(name, default):
@@ -943,7 +943,7 @@ class NETLOGON_LOGON_QUERY(NETLOGON):
         LEShortEnumField("OpCode", 0x7, _NETLOGON_opcodes),
         StrNullField("ComputerName", ""),
         StrNullField("MailslotName", ""),
-        StrNullFieldUtf16("UnicodeComputerName", ""),
+        ReversePadField(StrNullFieldUtf16("UnicodeComputerName", ""), 2),
         FlagsField("NtVersion", 0xB, -32, _NV_VERSION),
         XLEShortField("LmNtToken", 0xFFFF),
         XLEShortField("Lm20Token", 0xFFFF),
@@ -1001,10 +1001,11 @@ _NETLOGON_FLAGS = {
     0x00000800: "SELECT_SECRET_DOMAIN_6",
     0x00001000: "FULL_SECRET_DOMAIN_6",
     0x00002000: "WS",
-    0x00004000: "DS_8",
-    0x00008000: "DS_9",
-    0x00010000: "DS_10",  # guess
-    0x00020000: "DS_11",  # guess
+    0x00004000: "DS_8",  # >=2008R2
+    0x00008000: "DS_9",  # >=2012
+    0x00010000: "DS_10",  # >=2016
+    0x00020000: "DS_11",  # >=2019
+    0x00040000: "DS_12",  # >=2025
     0x20000000: "DNS_CONTROLLER",
     0x40000000: "DNS_DOMAIN",
     0x80000000: "DNS_FOREST",
@@ -1150,7 +1151,38 @@ class BRWS_HostAnnouncement(BRWS):
         StrFixedLenField("ServerName", b"", length=16),
         ByteField("OSVersionMajor", 6),
         ByteField("OSVersionMinor", 1),
-        LEIntField("ServerType", 4611),
+        FlagsField("ServerType", 4611, -32, {
+            0x00000001: "SV_TYPE_WORKSTATION",
+            0x00000002: "SV_TYPE_SERVER",
+            0x00000004: "SV_TYPE_SQLSERVER",
+            0x00000008: "SV_TYPE_DOMAIN_CTRL",
+            0x00000010: "SV_TYPE_DOMAIN_BAKCTRL",
+            0x00000020: "SV_TYPE_TIME_SOURCE",
+            0x00000040: "SV_TYPE_AFP",
+            0x00000080: "SV_TYPE_NOVELL",
+            0x00000100: "SV_TYPE_DOMAIN_MEMBER",
+            0x00000200: "SV_TYPE_PRINTQ_SERVER",
+            0x00000400: "SV_TYPE_DIALIN_SERVER",
+            0x00000800: "SV_TYPE_SERVER_UNIX,",
+            0x00001000: "SV_TYPE_NT",
+            0x00002000: "SV_TYPE_WFW",
+            0x00004000: "SV_TYPE_SERVER_MFPN",
+            0x00008000: "SV_TYPE_SERVER_NT",
+            0x00010000: "SV_TYPE_POTENTIAL_BROWSER",
+            0x00020000: "SV_TYPE_BACKUP_BROWSER",
+            0x00040000: "SV_TYPE_MASTER_BROWSER",
+            0x00080000: "SV_TYPE_DOMAIN_MASTER",
+            0x00400000: "SV_TYPE_WINDOWS",
+            0x00800000: "SV_TYPE_DFS",
+            0x01000000: "SV_TYPE_CLUSTER_NT",
+            0x02000000: "SV_TYPE_TERMINALSERVER",
+            0x04000000: "SV_TYPE_CLUSTER_VS_NT",
+            0x10000000: "SV_TYPE_DCE",
+            0x20000000: "SV_TYPE_ALTERNATE_XPORT",
+            0x40000000: "SV_TYPE_LOCAL_LIST_ONLY",
+            0x80000000: "SV_TYPE_DOMAIN_ENUM",
+            0xFFFFFFFF: "SV_TYPE_ALL",
+        }),
         ByteField("BrowserConfigVersionMajor", 21),
         ByteField("BrowserConfigVersionMinor", 1),
         XLEShortField("Signature", 0xAA55),

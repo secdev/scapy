@@ -16,14 +16,40 @@ permissions:
   contents: read
 
 jobs:
-  health:
-    name: Code health check
+  commit:
+    name: Check the validity of the commits
+    runs-on: ubuntu-latest
+    # We follow the same contributing patterns as Wireshark. Thanks to
+    # https://gitlab.com/wireshark/wireshark/-/blob/master/.gitlab-ci.yml
+    steps:
+      - name: Get the number of commits in the PR
+        run: echo "PR_FETCH_DEPTH=$(( ${{ github.event.pull_request.commits }} + 1 ))" >> "${GITHUB_ENV}"
+        if: github.event_name == 'pull_request'
+      - name: Checkout Scapy
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: ${{ env.PR_FETCH_DEPTH }}
+        if: github.event_name == 'pull_request'
+      - name: AI trailer reminder
+        run: bash ./.config/ci/check_commits.sh
+        if: github.event_name == 'pull_request'
+  spdx:
+    name: Check SPDX identifiers
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+      - name: All files should have a SPDX identifier
+        run: bash scapy/tools/check_spdx.sh
+  health:
+    name: Code health check
+    runs-on: ubuntu-latest
+    needs: [commit, spdx]
+    steps:
+      - name: Checkout Scapy
+        uses: actions/checkout@v6
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install tox
@@ -39,34 +65,28 @@ jobs:
   docs:
     # 'runs-on' and 'python-version' should match the ones defined in .readthedocs.yml
     name: Build doc
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    needs: [commit, spdx]
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - name: Install tox
         run: pip install tox
       - name: Build docs
         run: tox -e docs
-  spdx:
-    name: Check SPDX identifiers
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Scapy
-        uses: actions/checkout@v4
-      - name: Launch script
-        run: bash scapy/tools/check_spdx.sh
   mypy:
     name: Type hints check
     runs-on: ubuntu-latest
+    needs: [commit, spdx]
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install tox
@@ -77,13 +97,14 @@ jobs:
   utscapy:
     name: ${{ matrix.os }} ${{ matrix.installmode }} ${{ matrix.python }} ${{ matrix.mode }} ${{ matrix.flags }}
     runs-on: ${{ matrix.os }}
+    needs: [commit, spdx]
     timeout-minutes: 20
     continue-on-error: ${{ matrix.allow-failure == 'true' }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python: ["3.8", "3.9", "3.10", "3.11", "3.13"]
         mode: [non_root]
         installmode: ['']
         flags: [" -K scanner"]
@@ -96,54 +117,58 @@ jobs:
             flags: " -K scanner"
           # Linux root tests on last version
           - os: ubuntu-latest
-            python: "3.13"
+            python: "3.14"
             mode: root
             flags: " -K scanner"
           # PyPy tests: root only
           - os: ubuntu-latest
-            python: "pypy3.9"
+            python: "pypy3.11"
             mode: root
             flags: " -K scanner"
           # Libpcap test
           - os: ubuntu-latest
-            python: "3.13"
+            python: "3.14"
             mode: root
             installmode: 'libpcap'
             flags: " -K scanner"
           # macOS tests
           - os: macos-14
-            python: "3.13"
+            python: "3.14"
             mode: both
             flags: " -K scanner"
           # windows tests
           - os: windows-latest
-            python: "3.13"
+            python: "3.14"
             mode: root
             flags: " -K scanner"
           # Scanner tests
           - os: ubuntu-latest
-            python: "3.13"
+            python: "3.14"
             mode: root
             allow-failure: 'true'
             flags: " -k scanner"
+          - os: ubuntu-latest
+            python: "pypy3.11"
+            mode: root
+            flags: " -k scanner"
           - os: macos-14
-            python: "3.13"
+            python: "3.14"
             mode: both
             allow-failure: 'true'
             flags: " -k scanner"
           - os: windows-latest
-            python: "3.13"
+            python: "3.14"
             mode: both
             allow-failure: 'true'
             flags: " -k scanner"
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         # Codecov requires a fetch-depth > 1
         with:
           fetch-depth: 2
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
       - name: Install Tox and any other packages (linux/osx)
@@ -171,13 +196,14 @@ jobs:
   cryptography:
     name: pyca/cryptography test
     runs-on: ubuntu-latest
+    needs: [commit, spdx]
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
-        python-version: "3.12"
+        python-version: "3.14"
     - name: Install tox
       run: pip install tox
     # pyca/cryptography's CI installs cryptography
@@ -191,16 +217,17 @@ jobs:
   analyze:
     name: CodeQL analysis
     runs-on: ubuntu-latest
+    needs: [commit, spdx]
     permissions:
       security-events: write
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 2
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
+      uses: github/codeql-action/init@v4
       with:
          languages: 'python'
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      uses: github/codeql-action/analyze@v4

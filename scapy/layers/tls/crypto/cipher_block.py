@@ -33,6 +33,15 @@ if conf.crypto_valid:
     except ImportError:
         decrepit_algorithms = algorithms
 
+    # cryptography's TripleDES can be used to simulate DES behavior
+    DES = lambda key: decrepit_algorithms.TripleDES(key * 3)
+
+    try:
+        # cryptography > 47.0
+        Camellia = decrepit_algorithms.Camellia
+    except AttributeError:
+        Camellia = algorithms.Camellia
+
 
 _tls_block_cipher_algs = {}
 
@@ -134,7 +143,7 @@ if conf.crypto_valid:
         key_len = 32
 
     class Cipher_CAMELLIA_128_CBC(_BlockCipher):
-        pc_cls = algorithms.Camellia
+        pc_cls = Camellia
         pc_cls_mode = modes.CBC
         block_size = 16
         key_len = 16
@@ -149,13 +158,13 @@ _sslv2_block_cipher_algs = {}
 
 if conf.crypto_valid:
     class Cipher_DES_ECB(_BlockCipher):
-        pc_cls = decrepit_algorithms.TripleDES
+        pc_cls = staticmethod(DES)
         pc_cls_mode = modes.ECB
         block_size = 8
         key_len = 8
 
     class Cipher_DES_CBC(_BlockCipher):
-        pc_cls = decrepit_algorithms.TripleDES
+        pc_cls = staticmethod(DES)
         pc_cls_mode = modes.CBC
         block_size = 8
         key_len = 8

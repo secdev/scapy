@@ -1996,7 +1996,7 @@ def test_getmacbyip6(mock_route6, mock_neighsol):
 
 test_getmacbyip6() == "05:04:03:02:01:00"
 
-= IPv6 - IPerror6 & UDPerror & _ICMPv6Error
+= IPv6 - IPerror6 & UDPerror & _ICMPv6Error & TCPerror
 
 query = IPv6(dst="2001:db8::1", src="2001:db8::2", hlim=1)/UDP()/DNS()
 answer = IPv6(dst="2001:db8::2", src="2001:db8::1", hlim=1)/ICMPv6TimeExceeded()/IPerror6(dst="2001:db8::1", src="2001:db8::2", hlim=0)/UDPerror()/DNS()
@@ -2006,6 +2006,13 @@ answer.answers(query) == True
 from scapy.layers.inet6 import _ICMPv6Error
 assert _ICMPv6Error().guess_payload_class(None) == IPerror6
 assert _ICMPv6Error().hashret() == b''
+
+# Test with extension header
+# From:
+# pkt = IPv6() / ICMPv6DestUnreach() / IPerror6 () / IPv6ExtHdrFragment(nh=6) / TCPerror()
+raw_pkt = b'`\x00\x00\x00\x00L:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01\x00l5\x00\x00\x00\x00`\x00\x00\x00\x00\x1c,@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x06\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x8f}\x00\x00'
+IPv6(raw_pkt).summary()
+assert TCPerror in IPv6(raw_pkt)
 
 = reset routes properly
 

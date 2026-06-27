@@ -3,6 +3,7 @@
     "test/*.uts",
     "test/scapy/layers/*.uts",
     "test/scapy/layers/tls/*.uts",
+    "test/scapy/layers/msrpce/*.uts",
     "test/contrib/*.uts",
     "test/tools/*.uts",
     "test/contrib/automotive/*.uts",
@@ -19,6 +20,7 @@
   ],
   "breakfailed": true,
   "onlyfailed": true,
+  "extensions": ["scapy-rpc"],
   "preexec": {
     "test/contrib/*.uts": "load_contrib(\"%name%\")",
     "test/scapy/layers/tls/*.uts": "load_layer(\"tls\")"
