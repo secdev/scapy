@@ -106,12 +106,12 @@ class _CRC_metaclass(type):
             newcls.name = newcls.__name__
         if bases:  # exclude parent class because it is virtual
             newcls.param = CRCParam(**dct)
-            newcls.precal_table = (
+            precalc = (
                 cls._precalc_table_reflect
                 if newcls.reflect_input
                 else cls._precalc_table
             )
-            newcls.table = newcls.precal_table(newcls.poly, newcls.size)
+            newcls.table = precalc(newcls.poly, newcls.size)
             if not getattr(newcls, "do_not_register", False):
                 newcls.REGISTRY.add(newcls)
             newcls.mask = (1 << newcls.size) - 1
