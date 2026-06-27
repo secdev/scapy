@@ -3,6 +3,22 @@
 # See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 
+"""
+Configurable CRC computation and detection.
+
+See :doc:`/advanced_usage/crc`.
+"""
+
+__all__ = [
+    "CRC",
+    "CRCParam",
+    "CRC_16",
+    "CRC_32",
+    "CRC_16_CCITT",
+    "CRC_32_AUTOSAR",
+    "WELL_KNOWN_POLY",
+]
+
 from functools import lru_cache
 from collections import defaultdict
 import itertools
@@ -20,6 +36,8 @@ WELL_KNOWN_POLY = {
 
 
 class CRCParam:
+    """CRC algorithm parameters."""
+
     MISC = ["name", "test_vectors"]
     PARAMETERS = ["poly", "size", "init_crc", "xor",
                   "reflect_input", "reflect_output"]
@@ -260,7 +278,7 @@ class _CRC_metaclass(type):
 
     def search(self, s, min_substring_len=4, only_registry=False):
         # type: (bytes, int, bool) -> List[Tuple[Tuple[int,int],int,type(CRC)]]
-
+        """Scan *s* for embedded CRC values."""
         if only_registry:
             crc_list = self.REGISTRY
         else:
@@ -319,6 +337,8 @@ class _CRC_metaclass(type):
 
 
 class CRC(metaclass=_CRC_metaclass):
+    """Base class for CRC algorithms."""
+
     def __init__(self):
         self.init()
 
