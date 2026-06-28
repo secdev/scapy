@@ -2136,12 +2136,13 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
             # 36: KRB_AP_ERR_BADMATCH
             # 80: KDC_ERR_DIGEST_IN_SIGNED_DATA_NOT_ACCEPTED
             return MethodData(val[0].val, _underlayer=pkt), val[1]
-        elif pkt.errorCode.val in [6, 7, 12, 13, 18, 29, 32, 41, 60, 62]:
+        elif pkt.errorCode.val in [6, 7, 12, 13, 18, 23, 29, 32, 41, 60, 62]:
             # 6: KDC_ERR_C_PRINCIPAL_UNKNOWN
             # 7: KDC_ERR_S_PRINCIPAL_UNKNOWN
             # 12: KDC_ERR_POLICY
             # 13: KDC_ERR_BADOPTION
             # 18: KDC_ERR_CLIENT_REVOKED
+            # 23: KDC_ERR_KEY_EXPIRED
             # 29: KDC_ERR_SVC_UNAVAILABLE
             # 32: KRB_AP_ERR_TKT_EXPIRED
             # 41: KRB_AP_ERR_MODIFIED

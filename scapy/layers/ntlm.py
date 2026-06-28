@@ -114,6 +114,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
     __slots__ = [
         "fields",
         "fields_map",
+        "fields_pad",
         "offset",
         "length_from",
         "force_order",
@@ -126,6 +127,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         name,  # type: str
         offset,  # type: Union[int, Callable[[Packet], int]]
         fields,  # type: List[Field[Any, Any]]
+        fields_pad=0,  # type: int
         length_from=None,  # type: Optional[Callable[[Packet], int]]
         force_order=None,  # type: Optional[List[str]]
         offset_name="BufferOffset",  # type: str
@@ -137,6 +139,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         self.length_from = length_from
         self.force_order = force_order  # whether the order of fields is fixed
         self.offset_name = offset_name
+        self.fields_pad = fields_pad
         super(_NTLMPayloadField, self).__init__(
             name,
             [
@@ -196,6 +199,10 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
             if offset is None:
                 # No offset specified: calc
                 offset = len(buf)
+                if self.fields_pad:
+                    pad = (-offset) % self.fields_pad
+                    offset += pad
+                    buf.append(pad * b"\x00", len(buf))
             else:
                 # Calc relative offset
                 offset -= r_off
@@ -370,8 +377,9 @@ _NTLM_CONFIG = [
 
 def _NTLM_post_build(self, p, pay_offset, fields, config=_NTLM_CONFIG):
     """Util function to build the offset and populate the lengths"""
+    gl_fld = self.get_field(self._NTLM_PAYLOAD_FIELD_NAME)
     for field_name, value in self.fields[self._NTLM_PAYLOAD_FIELD_NAME]:
-        fld = self.get_field(self._NTLM_PAYLOAD_FIELD_NAME).fields_map[field_name]
+        fld = gl_fld.fields_map[field_name]
         length = fld.i2len(self, value)
         count = fld.i2count(self, value)
         offset = fields[field_name]
@@ -391,7 +399,9 @@ def _NTLM_post_build(self, p, pay_offset, fields, config=_NTLM_CONFIG):
             else:
                 raise ValueError
             if ftype & _NTLM_ENUM.PAD8:
-                fval += (-fval) % 8
+                pad = (-fval) % 8
+                fval += pad
+                pay_offset += pad
             sz = self.get_field(field_name + fname).sz
             if self.getfieldval(field_name + fname) is None:
                 p = (

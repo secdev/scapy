@@ -1633,7 +1633,7 @@ def dclocator(
                             response = next(
                                 NETLOGON(x.values[0].value.val)
                                 for x in pkt.protocolOp.attributes
-                                if x.type.val == b"Netlogon"
+                                if x.type.val.lower() == b"netlogon"
                             )
                         except StopIteration:
                             pass
