@@ -12,7 +12,7 @@ RSVP layer
 from scapy.compat import chb
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
-    IPField, ShortField, StrLenField, XByteField, XShortField
+    IPField, IntField, ShortField, StrLenField, XByteField, XShortField
 from scapy.layers.inet import IP, checksum
 
 rsvpmsgtypes = {0x01: "Path",
@@ -69,7 +69,7 @@ class RSVP(Packet):
         return p
 
 
-rsvptypes = {0x01: "Session",
+rsvptypes = {0x01: "SESSION",
              0x03: "HOP",
              0x04: "INTEGRITY",
              0x05: "TIME_VALUES",
@@ -169,7 +169,10 @@ class RSVP_Object(Packet):
         Falls back to RSVP_data, a generic container for any Class value 
         that doesnt have a dedicated class yet.
         """
-        if self.Class == 0x03:
+        if self.Class == 0x01:
+            if self.C_Type == 0x07:
+                return RSVP_SESSION
+        elif self.Class == 0x03:
             return RSVP_HOP
         elif self.Class == 0x05:
             return RSVP_Time
@@ -196,8 +199,38 @@ class RSVP_Data(Packet):
     """
     name = "Data"
     overload_fields = {RSVP_Object: {"Class": 0x01}}
-    fields_desc = [StrLenField("Data", "", length_from=lambda pkt:pkt.underlayer.Length - 4)]  # noqa: E501
+    fields_desc = [
+        StrLenField(
+            "Data",
+            "",
+            length_from=lambda pkt:pkt.underlayer.Length - 4
+        ),
+        ]
 
+    def default_payload_class(self, payload):
+        """Get the default payload class.
+        Chains to another RSVP_Object if more bytes remain.
+        """
+        return RSVP_Object
+
+
+class RSVP_SESSION(Packet):
+    """SESSION LSP_TUNNEL_IPV4 object data structure, RFC 3209 section 4.6.1.1.
+
+    Identifies the session for which this message is sent.
+
+    - dest_addr: 32 bits, destination IP address of the session.
+    - reserved: 16 bits, reserved.
+    - tunnel_id: 16 bits, tunnel ID.
+    - ext_tunnel_id: 32 bits, extended tunnel ID.
+    """
+    name = "SESSION"
+    overload_fields = {RSVP_Object: {"Class": 0x01, "C_Type": 0x07}}
+    fields_desc = [IPField("dest_addr", "0.0.0.0"),
+                   ShortField("reserved", 0),
+                   ShortField("tunnel_id", 0),
+                   IPField("ext_tunnel_id", "0.0.0.0")]
+    
     def default_payload_class(self, payload):
         """Get the default payload class.
         Chains to another RSVP_Object if more bytes remain.
@@ -217,7 +250,7 @@ class RSVP_HOP(Packet):
     name = "HOP"
     overload_fields = {RSVP_Object: {"Class": 0x03}}
     fields_desc = [IPField("neighbor", "0.0.0.0"),
-                   BitField("inface", 1, 32)]
+                   IntField("inface", 1)]
 
     def default_payload_class(self, payload):
         """Get the default payload class.
@@ -235,7 +268,7 @@ class RSVP_Time(Packet):
     """
     name = "Time Val"
     overload_fields = {RSVP_Object: {"Class": 0x05}}
-    fields_desc = [BitField("refresh", 1, 32)]
+    fields_desc = [IntField("refresh", 1)]
 
     def default_payload_class(self, payload):
         """Get the default payload class.
@@ -270,7 +303,8 @@ class RSVP_SenderTSPEC(Packet):
                        "Tokens",
                        "",
                        length_from=lambda pkt:pkt.underlayer.Length - 12
-                    )]
+                    ),
+                    ]
 
     def default_payload_class(self, payload):
         """Get the default payload class.
@@ -319,7 +353,11 @@ class RSVP_SessionAttrb(Packet):
                    ByteField("Hold_priority", 1),
                    ByteField("flags", 1),
                    FieldLenField("Name_length", None, length_of="Name"),
-                   StrLenField("Name", "", length_from=lambda pkt:pkt.Name_length),  # noqa: E501
+                   StrLenField(
+                       "Name",
+                       "",
+                       length_from=lambda pkt:pkt.Name_length
+                    ),
                    ]
 
     def default_payload_class(self, payload):
