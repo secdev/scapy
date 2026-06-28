@@ -168,7 +168,7 @@ class RSVP_Object(Packet):
         """Pick the data class to dissect based on Class.
 
         Falls back to RSVP_data, a generic container for any Class value
-        that doesnt have a dedicated class yet.
+        that doesn't have a dedicated class yet.
         """
         if self.Class == 0x01:
             if self.C_Type == 0x07:
@@ -189,7 +189,7 @@ class RSVP_Object(Packet):
 
 class RSVP_Data(Packet):
     """Defines a generic/unknown RSVP object data structure for any Class value
-    that doesnt have a dedicated class implemented yet.
+    that doesn't have a dedicated class implemented yet.
 
     - overload_fields: Writes Class=0x01 back into the underlayer
         RSVP_Object ONLY when this class is used to explicitly BUILD a packet
