@@ -48,7 +48,11 @@ from scapy.fields import (
 from scapy.packet import Packet
 from scapy.utils import pretty_list
 
-from scapy.layers.dcerpc import NDRUnion
+from scapy.layers.dcerpc import (
+    NDRUnion,
+    NDRConformantArray,
+    NDRVaryingArray,
+)
 from scapy.layers.kerberos import (
     AuthorizationData,
     AuthorizationDataItem,
@@ -1442,10 +1446,39 @@ class Ticketer:
                                                     ]
                                                 ),
                                                 LogonServer=RPC_UNICODE_STRING(
-                                                    Buffer=store["VI.LogonServer"],
+                                                    MaximumLength=(
+                                                        len(store["VI.LogonServer"]) + 1
+                                                    )
+                                                    * 2,
+                                                    Buffer=NDRConformantArray(
+                                                        max_count=len(
+                                                            store["VI.LogonServer"]
+                                                        )
+                                                        + 1,
+                                                        value=NDRVaryingArray(
+                                                            value=store[
+                                                                "VI.LogonServer"
+                                                            ],
+                                                        ),
+                                                    ),
                                                 ),
                                                 LogonDomainName=RPC_UNICODE_STRING(
-                                                    Buffer=store["VI.LogonDomainName"],
+                                                    MaximumLength=(
+                                                        len(store["VI.LogonDomainName"])
+                                                        + 1
+                                                    )
+                                                    * 2,
+                                                    Buffer=NDRConformantArray(
+                                                        max_count=len(
+                                                            store["VI.LogonDomainName"]
+                                                        )
+                                                        + 1,
+                                                        value=NDRVaryingArray(
+                                                            value=store[
+                                                                "VI.LogonDomainName"
+                                                            ],
+                                                        ),
+                                                    ),
                                                 ),
                                                 LogonCount=store["VI.LogonCount"],
                                                 BadPasswordCount=store[
@@ -1773,21 +1806,40 @@ class Ticketer:
         strf="%Y-%m-%d %H:%M:%S",
     )
 
-    def _pretty_time(self, x):
-        return self._TIME_FIELD.i2repr(None, x).rsplit(" ", 1)[0]
-
     def _utc_to_mstime(self, x):
+        """
+        Convert a linux epoch into MS time (from 1601)
+        """
         return int((x - self._TIME_FIELD.delta) * 1e7)
 
     def _time_to_int(self, x):
+        """
+        Non ASN.1 strptime => MS time
+        """
         return self._utc_to_mstime(
-            datetime.strptime(x, self._TIME_FIELD.strf).timestamp()
+            datetime.strptime(x, self._TIME_FIELD.strf)
+            .replace(tzinfo=timezone.utc)
+            .timestamp()
         )
 
+    def _pretty_time(self, x):
+        """
+        Non ASN.1 strftime
+        """
+        return self._TIME_FIELD.i2repr(None, x).rsplit(" ", 1)[0]
+
     def _time_to_asn1(self, x):
-        return ASN1_GENERALIZED_TIME(datetime.strptime(x, self._TIME_FIELD.strf))
+        """
+        Epoch to ASN.1 time
+        """
+        return ASN1_GENERALIZED_TIME(
+            datetime.strptime(x, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        )
 
     def _time_to_filetime(self, x):
+        """
+        Non ASN.1 strptime => FILETIME
+        """
         if isinstance(x, str) and x.strip() == "NEVER":
             return FILETIME(dwHighDateTime=0x7FFFFFFF, dwLowDateTime=0xFFFFFFFF)
         if isinstance(x, str):
@@ -1799,7 +1851,10 @@ class Ticketer:
             dwLowDateTime=x & 0xFFFFFFFF,
         )
 
-    def _filetime_totime(self, x):
+    def _filetime_pretty_time(self, x):
+        """
+        Non ASN.1 strftime
+        """
         if x.dwHighDateTime == 0x7FFFFFFF and x.dwLowDateTime == 0xFFFFFFFF:
             return "NEVER"
         return self._pretty_time((x.dwHighDateTime << 32) + x.dwLowDateTime)
@@ -1819,20 +1874,20 @@ class Ticketer:
         self._make_fields(
             element,
             [
-                ("LogonTime", self._filetime_totime(logonInfo.LogonTime)),
-                ("LogoffTime", self._filetime_totime(logonInfo.LogoffTime)),
-                ("KickOffTime", self._filetime_totime(logonInfo.KickOffTime)),
+                ("LogonTime", self._filetime_pretty_time(logonInfo.LogonTime)),
+                ("LogoffTime", self._filetime_pretty_time(logonInfo.LogoffTime)),
+                ("KickOffTime", self._filetime_pretty_time(logonInfo.KickOffTime)),
                 (
                     "PasswordLastSet",
-                    self._filetime_totime(logonInfo.PasswordLastSet),
+                    self._filetime_pretty_time(logonInfo.PasswordLastSet),
                 ),
                 (
                     "PasswordCanChange",
-                    self._filetime_totime(logonInfo.PasswordCanChange),
+                    self._filetime_pretty_time(logonInfo.PasswordCanChange),
                 ),
                 (
                     "PasswordMustChange",
-                    self._filetime_totime(logonInfo.PasswordMustChange),
+                    self._filetime_pretty_time(logonInfo.PasswordMustChange),
                 ),
                 (
                     "EffectiveName",
@@ -2503,12 +2558,14 @@ class Ticketer:
         rpac = tkt.authorizationData.seq[0].adData.seq[0].adData  # real pac
         tmp_tkt = tkt.copy()  # fake ticket and pac used for computation
         pac = tmp_tkt.authorizationData.seq[0].adData.seq[0].adData
+
         # Variables for Signatures, indexed by ulType
         sig_i = {}
         sig_type = {}
         # Read PAC buffers to find all signatures, and set them to 0
         for k, buf in enumerate(pac.Buffers):
             if buf.ulType in [0x00000006, 0x00000007, 0x00000010, 0x00000013]:
+                # Signatures
                 sig_i[buf.ulType] = k
                 sig_type[buf.ulType] = pac.Payloads[k].SignatureType
                 try:
@@ -2519,6 +2576,13 @@ class Ticketer:
                     raise ValueError("Unknown/Unsupported signatureType")
                 rpac.Buffers[k].cbBufferSize = None
                 rpac.Buffers[k].Offset = None
+            elif buf.ulType == 0x0000000A:
+                # CLIENT_INFO
+                # The timestamp in the PAC for CLIENT_INFO must match the one from
+                # the outer Ticket, else it will count as an invalid signature.
+                rpac.Payloads[k].ClientId = self._utc_to_mstime(
+                    tkt.authtime.datetime.timestamp()
+                )
 
         # There must at least be Server Signature and KDC Signature
         if any(x not in sig_i for x in [0x00000006, 0x00000007]):

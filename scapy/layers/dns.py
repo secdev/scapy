@@ -1505,7 +1505,7 @@ def dns_resolve(qname, qtype="A", raw=False, tcp=False, verbose=1, timeout=3, **
             result = [
                 x
                 for x in itertools.chain(res.an, res.ns, res.ar)
-                if x.type == qtype
+                if getattr(x, "type", None) == qtype
             ]
         if result:
             # Cache it

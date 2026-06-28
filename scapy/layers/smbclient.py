@@ -443,7 +443,8 @@ class SMB_Client(Automaton):
                     if self.REQUIRE_ENCRYPTION and not self.session.SupportsEncryption:
                         self.ErrorStatus = "NEGOTIATE FAILURE: encryption."
                         raise self.NEGO_FAILED()
-                self.update_smbheader(pkt)
+                if self.SMB2:
+                    self.update_smbheader(pkt)
                 raise self.NEGOTIATED(ssp_blob)
         elif SMBNegotiate_Response_Security in pkt:
             # Non-extended SMB1
