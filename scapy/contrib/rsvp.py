@@ -30,7 +30,7 @@ class RSVP(Packet):
     The header is followed by this message's RSVP objects, which in turn
     chains to further RSVP_Object instances (each object's data class returns
     RSVP_Object from default_payload_class), forming the sequence of RSVP objects.
-    
+
     It contains the following fields:
         - Version: 4 bits, RSVP protocol version
         - Flags: 4 bits, RSVP message flags
@@ -154,7 +154,8 @@ class RSVP_Object(Packet):
     Dissection naturally chains into the next object if more bytes remain.
 
     It contains the following fields:
-        - Length: 16 bits, total length of this object including this header, computed if None.
+        - Length: 16 bits, total length of this object including this header,
+            computed if None.
         - Class: 8 bits, RSVP object type
         - C_Type: 8 bits, RSVP object subtype
     """
@@ -165,8 +166,8 @@ class RSVP_Object(Packet):
 
     def guess_payload_class(self, payload):
         """Pick the data class to dissect based on Class.
-        
-        Falls back to RSVP_data, a generic container for any Class value 
+
+        Falls back to RSVP_data, a generic container for any Class value
         that doesnt have a dedicated class yet.
         """
         if self.Class == 0x01:
@@ -187,15 +188,16 @@ class RSVP_Object(Packet):
 
 
 class RSVP_Data(Packet):
-    """Defines a generic/unknown RSVP object data structure for any Class value 
+    """Defines a generic/unknown RSVP object data structure for any Class value
     that doesnt have a dedicated class implemented yet.
-    
-    - overload_fields: Writes Class=0x01 back into the underlayer 
+
+    - overload_fields: Writes Class=0x01 back into the underlayer
         RSVP_Object ONLY when this class is used to explicitly BUILD a packet
-        (e.g. RSVP_Object()/RSVP_Data(...)) without the caller setting Class themselves. 
+        (e.g. RSVP_Object()/RSVP_Data(...)) without the caller setting Class themselves.
         (Note that this is just a pre-existing default Class value).
-    
-    - Data: raw bytes, whatever remains of this object after the 4-byte RSVP_Object header.
+
+    - Data: raw bytes, whatever remains of this object
+        after the 4-byte RSVP_Object header.
     """
     name = "Data"
     overload_fields = {RSVP_Object: {"Class": 0x01}}
@@ -203,9 +205,9 @@ class RSVP_Data(Packet):
         StrLenField(
             "Data",
             "",
-            length_from=lambda pkt:pkt.underlayer.Length - 4
+            length_from=lambda pkt: pkt.underlayer.Length - 4
         ),
-        ]
+    ]
 
     def default_payload_class(self, payload):
         """Get the default payload class.
@@ -230,7 +232,7 @@ class RSVP_SESSION(Packet):
                    ShortField("reserved", 0),
                    ShortField("tunnel_id", 0),
                    IPField("ext_tunnel_id", "0.0.0.0")]
-    
+
     def default_payload_class(self, payload):
         """Get the default payload class.
         Chains to another RSVP_Object if more bytes remain.
@@ -241,11 +243,12 @@ class RSVP_SESSION(Packet):
 class RSVP_HOP(Packet):
     """RSVP_HOP object data structure, RFC 2205 section A.2.
 
-    Identifies the IP address and the Logical Interface Handle (LIH) 
-    of the interface this message was sent from. 
-    
+    Identifies the IP address and the Logical Interface Handle (LIH)
+    of the interface this message was sent from.
+
     - neighbor: 32 bits, IP address of the interface this message was sent from.
-    - inface: 32 bits, Logical Interface Handle (LIH) of the interface this message was sent from.
+    - inface: 32 bits, Logical Interface Handle (LIH)
+        of the interface this message was sent from.
     """
     name = "HOP"
     overload_fields = {RSVP_Object: {"Class": 0x03}}
@@ -262,7 +265,8 @@ class RSVP_HOP(Packet):
 class RSVP_Time(Packet):
     """TIME_VALUES object RFC 2205 section A.4.
     Carries the refresh period a sender will use to resend PATH/RESV messages,
-    which the receiver can use to determine when to tear down the reservation if no further messages are received.
+    which the receiver can use to determine when to tear down
+    the reservation if no further messages are received.
 
     - refresh: 32 bits, refresh period in milliseconds.
     """
@@ -293,18 +297,19 @@ class RSVP_SenderTSPEC(Packet):
     """
     name = "Sender_TSPEC"
     overload_fields = {RSVP_Object: {"Class": 0x0c}}
-    fields_desc = [ByteField("Msg_Format", 0),
-                   ByteField("reserve", 0),
-                   ShortField("Data_Length", 4),
-                   ByteField("Srv_hdr", 1),
-                   ByteField("reserve2", 0),
-                   ShortField("Srv_Length", 4),
-                   StrLenField(
-                       "Tokens",
-                       "",
-                       length_from=lambda pkt:pkt.underlayer.Length - 12
-                    ),
-                    ]
+    fields_desc = [
+        ByteField("Msg_Format", 0),
+        ByteField("reserve", 0),
+        ShortField("Data_Length", 4),
+        ByteField("Srv_hdr", 1),
+        ByteField("reserve2", 0),
+        ShortField("Srv_Length", 4),
+        StrLenField(
+            "Tokens",
+            "",
+            length_from=lambda pkt: pkt.underlayer.Length - 12
+        ),
+    ]
 
     def default_payload_class(self, payload):
         """Get the default payload class.
@@ -338,7 +343,7 @@ class RSVP_LabelReq(Packet):
 class RSVP_SessionAttrb(Packet):
     """SESSION_ATTRIBUTE object RFC 3209 section 4.7.
 
-    Carries session data, mainly used for setup/recovery 
+    Carries session data, mainly used for setup/recovery
     priority and human readable session name.
 
     - Setup_priority: 8 bits, setup priority for this session(can cause preemption).
@@ -349,16 +354,17 @@ class RSVP_SessionAttrb(Packet):
     """
     name = "Session_Attribute"
     overload_fields = {RSVP_Object: {"Class": 0xCF}}
-    fields_desc = [ByteField("Setup_priority", 1),
-                   ByteField("Hold_priority", 1),
-                   ByteField("flags", 1),
-                   FieldLenField("Name_length", None, length_of="Name"),
-                   StrLenField(
-                       "Name",
-                       "",
-                       length_from=lambda pkt:pkt.Name_length
-                    ),
-                   ]
+    fields_desc = [
+        ByteField("Setup_priority", 1),
+        ByteField("Hold_priority", 1),
+        ByteField("flags", 1),
+        FieldLenField("Name_length", None, length_of="Name"),
+        StrLenField(
+            "Name",
+            "",
+            length_from=lambda pkt: pkt.Name_length
+        ),
+    ]
 
     def default_payload_class(self, payload):
         """Get the default payload class.
@@ -367,6 +373,7 @@ class RSVP_SessionAttrb(Packet):
         return RSVP_Object
 
 
-# Decode IP packets with protocol number 46 as RSVP packets, and RSVP packets as RSVP_Object packets.
+# Decode IP packets with protocol number 46 as RSVP packets,
+# and RSVP packets as RSVP_Object packets.
 bind_layers(IP, RSVP, {"proto": 46})
 bind_layers(RSVP, RSVP_Object)
