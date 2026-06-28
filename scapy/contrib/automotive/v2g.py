@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
 # See https://scapy.net/ for more information
-
-#  V2GInjector is a tool to penetrate V2G network through PowerLine, monitor and inject traffic
 # Copyright (C) 2019 Sebastien Dudek (@FlUxIuS)
 
 # scapy.contrib.description = ISO 15118 V2G Transport Protocol and SECC Discovery
