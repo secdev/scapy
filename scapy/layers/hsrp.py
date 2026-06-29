@@ -32,6 +32,25 @@ _HSRP_STATES = {
 }
 _HSRP_ADVERTISE_TYPES = {1: "HSRP interface state"}
 _HSRP_ADVERTISE_STATES = {1: "Active", 2: "Passive"}
+_HSRP_V2_STATES = {
+    1: "Initial",
+    2: "Learn",
+    3: "Listen",
+    4: "Speak",
+    5: "Standby",
+    6: "Active",
+}
+_HSRP_V2_TLV_TYPES = {
+    1: "Group State",
+    2: "Interface State",
+    3: "Text Authentication",
+    4: "MD5 Authentication",
+}
+_HSRP_V2_IP_VERSIONS = {
+    4: "IPv4",
+    6: "IPv6",
+}
+
 
 
 class HSRP(Packet):
