@@ -995,7 +995,8 @@ _dot11_info_elts_ids = {
     127: "Extended Capabilities",
     191: "VHT Capabilities",
     192: "VHT Operation",
-    221: "Vendor Specific"
+    221: "Vendor Specific",
+    255: "Element ID Extension"
 }
 
 # Backward compatibility
@@ -1552,6 +1553,118 @@ class Dot11EltVHTOperation(Dot11Elt):
             BitField('SS', 0x00, size=2),
             count_from=lambda x: 8
         )
+    ]
+
+
+# 802.11ax-2021 9.4.2.1, Table 9-92
+
+class Dot11EltExtension(Dot11Elt):
+    # Element ID Extension is a registry for many IEs. Only HE Operation is
+    # specialized here; unknown and unsupported extension IDs stay generic.
+    name = "802.11 Element ID Extension"
+    match_subclass = True
+    ID = 255
+    fields_desc = [
+        ByteEnumField("ID", 255, _dot11_id_enum),
+        ByteField("len", 0),
+        ConditionalField(
+            ByteField("ext_ID", 0),
+            lambda pkt: pkt.len > 0
+        ),
+    ]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if not _pkt or len(_pkt) < 3:
+            return cls
+
+        length = orb(_pkt[1])
+        ext_id = orb(_pkt[2])
+        if ext_id == 36 and length >= 7:
+            return Dot11EltHEOperation
+        return Dot11EltExtensionGeneric
+
+
+# 802.11ax-2021 9.4.2.1, Table 9-92
+
+class Dot11EltExtensionGeneric(Dot11EltExtension):
+    name = "802.11 Element ID Extension"
+    match_subclass = True
+    ID = 255
+    fields_desc = Dot11EltExtension.fields_desc + [
+        StrLenField("info", b"", length_from=lambda pkt: max(pkt.len - 1, 0))]
+
+
+# 802.11ax-2021 9.4.2.249, Figure 9-788k
+
+class Dot11HE6GOperationInfo(Packet):
+    name = "802.11 HE 6 GHz Operation Information"
+    fields_desc = [
+        ByteField("primary_channel", 0),
+        # Control: 1B
+        BitField("reserved", 0, 2, tot_size=-1),
+        BitField("regulatory_info", 0, 3),
+        BitField("duplicate_beacon", 0, 1),
+        BitField("channel_width", 0, 2, end_tot_size=-1),
+
+        ByteField("channel_center0", 0),
+        ByteField("channel_center1", 0),
+        ByteField("minimum_rate", 0),
+    ]
+
+    def extract_padding(self, s):
+        return "", s
+
+
+# 802.11ax-2021 9.4.2.249
+
+class Dot11EltHEOperation(Dot11EltExtension):
+    name = "802.11 HE Operation"
+    match_subclass = True
+    ID = 255
+    ext_ID = 36
+    fields_desc = Dot11EltExtension.fields_desc + [
+        # HE Operation Parameters: 3B
+        BitField("reserved", 0, 6, tot_size=-3),
+        BitField("six_g_op_info_present", 0, 1),
+        BitField("er_su_disable", 0, 1),
+        BitField("co_hosted_bss", 0, 1),
+        BitField("vht_operation_info_present", 0, 1),
+        BitField("txop_duration_rts_threshold", 0, 10),
+        BitField("twt_required", 0, 1),
+        BitField("default_pe_duration", 0, 3, end_tot_size=-3),
+
+        # BSS Color Information: 1B
+        BitField("bss_color_disabled", 0, 1, tot_size=-1),
+        BitField("partial_bss_color", 0, 1),
+        BitField("bss_color", 0, 6, end_tot_size=-1),
+        # Basic HE-MCS and NSS Set: 2B
+        FieldListField(
+            "basic_he_mcs_and_nss_set",
+            [0x00],
+            BitField('SS', 0x00, size=2),
+            count_from=lambda x: 8
+        ),
+
+        ConditionalField(
+            PacketField(
+                "vht_operation_info",
+                Dot11VHTOperationInfo(),
+                Dot11VHTOperationInfo
+            ),
+            lambda p: p.vht_operation_info_present == 1),
+
+        ConditionalField(
+            ByteField("max_co_hosted_bssid", 0),
+            lambda p: p.co_hosted_bss == 1),
+
+        ConditionalField(
+            PacketField(
+                "he_6g_operation_info",
+                Dot11HE6GOperationInfo(),
+                Dot11HE6GOperationInfo
+            ),
+            lambda p: p.six_g_op_info_present == 1)
     ]
 
 
