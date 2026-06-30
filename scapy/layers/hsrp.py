@@ -296,11 +296,19 @@ class HSRPmd5(Packet):
 
 bind_bottom_up(UDP, HSRP, dport=1985)
 bind_bottom_up(UDP, HSRP, sport=1985)
-bind_bottom_up(UDP, HSRP, dport=2029)
-bind_bottom_up(UDP, HSRP, sport=2029)
 bind_layers(UDP, HSRP, dport=1985, sport=1985)
-bind_layers(UDP, HSRP, dport=2029, sport=2029)
+
 DestIPField.bind_addr(UDP, "224.0.0.2", dport=1985)
+"""
+since port 1954 (UDP) would be shared by both hsrpv1 and hsprv2 (ipv4), 
+users building hsrpv2 (ipv4) packets should set IP(dst="224.0.0.102") explicitly to avoid using wrong multicast destination
+"""
+# DestIPField.bind_addr(UDP, "224.0.0.102", dport=1985)
+
 if conf.ipv6_enabled:
     from scapy.layers.inet6 import DestIP6Field
+
+    bind_bottom_up(UDP, HSRPv2, dport=2029)
+    bind_bottom_up(UDP, HSRPv2, sport=2029)
+    bind_layers(UDP, HSRPv2, dport=2029, sport=2029)
     DestIP6Field.bind_addr(UDP, "ff02::66", dport=2029)
