@@ -55,6 +55,41 @@ _HSRP_V2_IP_VERSIONS = {
 }
 
 
+def _is_hsrpv2(pkt):
+    if not pkt or len(pkt) < 2:
+        return False
+
+    tlvtype = orb(pkt[0:1])
+    tlvlength = orb(pkt[1:2])
+
+    if tlvtype not in _HSRP_V2_TLV_TYPES:
+        return False
+
+    if len(pkt) < 2 + tlvlength:
+        return False
+
+    if tlvtype == 1:
+        return (
+            tlvlength == 40 and
+            len(pkt) >= 6 and
+            orb(pkt[2:3]) == 2 and
+            orb(pkt[3:4]) in _HSRP_OPCODES and
+            orb(pkt[4:5]) in _HSRP_V2_STATES and
+            orb(pkt[5:6]) in _HSRP_V2_IP_VERSIONS
+        )
+
+    if tlvtype == 2:
+        return tlvlength == 4
+
+    if tlvtype == 3:
+        return tlvlength == 8
+
+    if tlvtype == 4:
+        return tlvlength == 28
+
+    return True
+
+
 class _HSRPv2VirtualIPField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "16s")
@@ -101,6 +136,8 @@ class HSRP(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _is_hsrpv2(_pkt):
+            return HSRPv2
         if _pkt and len(_pkt) >= 2 and orb(_pkt[1:2]) == 3:
             return HSRPAdvertise
         return cls
