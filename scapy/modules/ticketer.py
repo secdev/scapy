@@ -22,8 +22,8 @@ import struct
 
 from scapy.asn1.asn1 import (
     ASN1_BIT_STRING,
-    ASN1_GENERAL_STRING,
     ASN1_GENERALIZED_TIME,
+    ASN1_GENERAL_STRING,
     ASN1_INTEGER,
     ASN1_STRING,
 )
@@ -56,12 +56,15 @@ from scapy.layers.dcerpc import (
 from scapy.layers.kerberos import (
     AuthorizationData,
     AuthorizationDataItem,
+    EncKrbCredPart,
     EncTicketPart,
     EncryptedData,
     EncryptionKey,
+    KRB_CRED,
     KRB_Ticket,
     KerberosClient,
     KerberosSSP,
+    KrbCredInfo,
     PrincipalName,
     TransitedEncoding,
     _ADDR_TYPES,
@@ -144,6 +147,12 @@ class CCPrincipal(Packet):
         ),
     ]
 
+    def toPrincipalName(self):
+        return PrincipalName(
+            nameType=self.name_type,
+            nameString=[ASN1_GENERAL_STRING(x.data) for x in self.components],
+        )
+
     def toPN(self):
         return "%s@%s" % (
             "/".join(x.data.decode() for x in self.components),
@@ -195,6 +204,11 @@ class CCAddress(Packet):
         ShortEnumField("addrtype", 0, _ADDR_TYPES),
         PacketField("address", CCCountedOctetString(), CCCountedOctetString),
     ]
+
+    def toHostAddress(self):
+        return HostAddress(
+            addrType=self.addrtype, address=ASN1_STRING(self.address.data)
+        )
 
     def guess_payload_class(self, payload):
         return conf.padding_layer
@@ -286,6 +300,61 @@ class CCache(Packet):
         PacketField("primary_principal", CCPrincipal(), CCPrincipal),
         PacketListField("credentials", [], CCCredential),
     ]
+
+    def toKRBCRED(self):
+        """
+        Return a compatible KRB_CRED from this CCache structure.
+        This can be used when doing unconstrained delegation
+        """
+        return KRB_CRED(
+            encPart=EncryptedData(
+                etype=0,
+                cipher=ASN1_STRING(
+                    bytes(
+                        EncKrbCredPart(
+                            ticketInfo=[
+                                KrbCredInfo(
+                                    key=EncryptionKey.fromKey(cred.keyblock.toKey()),
+                                    prealm=cred.client.realm.data,
+                                    pname=cred.client.toPrincipalName(),
+                                    flags=str(cred.ticket_flags),
+                                    authtime=ASN1_GENERALIZED_TIME(
+                                        datetime.fromtimestamp(
+                                            cred.authtime, timezone.utc
+                                        )
+                                    ),
+                                    starttime=ASN1_GENERALIZED_TIME(
+                                        datetime.fromtimestamp(
+                                            cred.starttime, timezone.utc
+                                        )
+                                    ),
+                                    endtime=ASN1_GENERALIZED_TIME(
+                                        datetime.fromtimestamp(
+                                            cred.endtime, timezone.utc
+                                        )
+                                    ),
+                                    renewTill=ASN1_GENERALIZED_TIME(
+                                        datetime.fromtimestamp(
+                                            cred.renew_till, timezone.utc
+                                        )
+                                    ),
+                                    srealm=cred.server.realm.data,
+                                    sname=cred.server.toPrincipalName(),
+                                    caddr=[c.toHostAddress() for c in cred.addrs],
+                                )
+                                for cred in self.credentials
+                                if not cred.is_xcacheconf()
+                            ]
+                        )
+                    )
+                ),
+            ),
+            tickets=[
+                KRB_Ticket(cred.ticket.data)
+                for cred in self.credentials
+                if not cred.is_xcacheconf()
+            ],
+        )
 
 
 # Keytab
