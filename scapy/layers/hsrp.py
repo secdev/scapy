@@ -18,7 +18,7 @@ from scapy.config import conf
 from scapy.compat import orb, plain_str
 from scapy.fields import ByteEnumField, ByteField, IntField, IPField, \
     ShortEnumField, ShortField, SourceIPField, StrFixedLenField, \
-    XIntField, XShortField, Field
+    XIntField, XShortField, Field, MACField, StrLenField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.pton_ntop import inet_ntop, inet_pton
 from scapy.layers.inet import DestIPField, UDP
@@ -110,6 +110,111 @@ class HSRP(Packet):
             return HSRPmd5
         else:
             return Packet.guess_payload_class(self, payload)
+
+
+class HSRPv2(Packet):
+    name = "HSRPv2"
+    fields_desc = []
+
+    def guess_payload_class(self, payload):
+        if payload:
+            return HSRPv2TLV
+        return Packet.guess_payload_class(self, payload)
+
+
+class HSRPv2TLV(Packet):
+    name = "HSRPv2 TLV"
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 1:
+            tlv_type = orb(_pkt[0:1])
+            if tlv_type == 1:
+                return HSRPv2GroupStateTLV
+            if tlv_type == 2:
+                return HSRPv2InterfaceStateTLV
+            if tlv_type == 3:
+                return HSRPv2TextAuthTLV
+            if tlv_type == 4:
+                return HSRPv2MD5AuthTLV
+        return HSRPv2UnknownTLV
+
+
+class _HSRPv2TLVPayload(Packet):
+    name = "HSRPv2 TLV Payload"
+
+    def guess_payload_class(self, payload):
+        if payload:
+            return HSRPv2TLV
+        return Packet.guess_payload_class(self, payload)
+
+    def post_build(self, p, pay):
+        if self.len is None:
+            tlv_len = len(p) - 2
+            if tlv_len > 255:
+                raise ValueError("HSRPv2 TLV length exceeds 255 bytes")
+            p = p[:1] + bytes([tlv_len]) + p[2:]
+        return p + pay
+
+
+class HSRPv2GroupStateTLV(_HSRPv2TLVPayload):
+    name = "HSRPv2 Group State TLV"
+    fields_desc = [
+        ByteEnumField("type", 1, _HSRP_V2_TLV_TYPES),
+        ByteField("len", None),
+        ByteField("version", 2),
+        ByteEnumField("opcode", 0, _HSRP_OPCODES),
+        ByteEnumField("state", 6, _HSRP_V2_STATES),
+        ByteEnumField("ipversion", 4, _HSRP_V2_IP_VERSIONS),
+        ShortField("group", 1),
+        MACField("identifier", "00:00:00:00:00:00"),
+        IntField("priority", 100),
+        IntField("hellotime", 3000),
+        IntField("holdtime", 10000),
+        _HSRPv2VirtualIPField("virtualIP", b"\x00" * 16),
+    ]
+
+
+class HSRPv2InterfaceStateTLV(_HSRPv2TLVPayload):
+    name = "HSRPv2 Interface State TLV"
+    fields_desc = [
+        ByteEnumField("type", 2, _HSRP_V2_TLV_TYPES),
+        ByteField("len", None),
+        ShortField("activegroups", 0),
+        ShortField("passivegroups", 0),
+    ]
+
+
+class HSRPv2TextAuthTLV(_HSRPv2TLVPayload):
+    name = "HSRPv2 Text Authentication TLV"
+    fields_desc = [
+        ByteEnumField("type", 3, _HSRP_V2_TLV_TYPES),
+        ByteField("len", None),
+        StrFixedLenField("auth", b"cisco" + b"\x00" * 3, 8),
+    ]
+
+
+class HSRPv2MD5AuthTLV(_HSRPv2TLVPayload):
+    name = "HSRPv2 MD5 Authentication TLV"
+    fields_desc = [
+        ByteEnumField("type", 4, _HSRP_V2_TLV_TYPES),
+        ByteField("len", None),
+        ByteEnumField("algo", 1, {1: "MD5"}),
+        ByteField("padding", 0),
+        XShortField("flags", 0),
+        SourceIPField("sourceip"),
+        XIntField("keyid", 0),
+        StrFixedLenField("authdigest", b"\x00" * 16, 16),
+    ]
+
+
+class HSRPv2UnknownTLV(_HSRPv2TLVPayload):
+    name = "HSRPv2 Unknown TLV"
+    fields_desc = [
+        ByteEnumField("type", 0, _HSRP_V2_TLV_TYPES),
+        ByteField("len", None),
+        StrLenField("value", b"", length_from=lambda pkt: pkt.len),
+    ]
 
 
 class HSRPAdvertise(Packet):
