@@ -11,13 +11,16 @@ A proprietary redundancy protocol for Cisco routers.
 - HSRP Version 2:
     http://www.smartnetworks.jp/2006/02/hsrp_8_hsrp_version_2.html
 """
+import socket
+
 
 from scapy.config import conf
-from scapy.compat import orb
+from scapy.compat import orb, plain_str
 from scapy.fields import ByteEnumField, ByteField, IntField, IPField, \
     ShortEnumField, ShortField, SourceIPField, StrFixedLenField, \
-    XIntField, XShortField
+    XIntField, XShortField, Field
 from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.pton_ntop import inet_ntop, inet_pton
 from scapy.layers.inet import DestIPField, UDP
 
 
@@ -51,6 +54,34 @@ _HSRP_V2_IP_VERSIONS = {
     6: "IPv6",
 }
 
+
+class _HSRPv2VirtualIPField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "16s")
+
+    def i2m(self, pkt, x):
+        if x is None:
+            return b"\x00" * 16
+        if isinstance(x, bytes):
+            if len(x) == 4:
+                return x + b"\x00" * 12
+            if len(x) == 16:
+                return x
+            raise ValueError("Virtual IP must be 4 or 16 bytes")
+        x = plain_str(x)
+        if pkt is not None and pkt.ipversion == 6:
+            return inet_pton(socket.AF_INET6, x)
+        return inet_pton(socket.AF_INET, x) + b"\x00" * 12
+
+    def m2i(self, pkt, x):
+        if pkt is not None and pkt.ipversion == 6:
+            return inet_ntop(socket.AF_INET6, x)
+        return inet_ntop(socket.AF_INET, x[:4])
+
+    def i2repr(self, pkt, x):
+        if isinstance(x, bytes):
+            x = self.m2i(pkt, x)
+        return plain_str(x)
 
 
 class HSRP(Packet):
