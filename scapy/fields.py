@@ -312,6 +312,30 @@ class _FieldContainer(object):
     """
     __slots__ = ["fld"]
 
+    def copy(self):
+        # type: () -> Any
+        other = self.__class__.__new__(self.__class__)
+        for slot in self.__slots__:
+            val = object.__getattribute__(self, slot)
+            if hasattr(val, "copy"):
+                val = val.copy()
+            object.__setattr__(other, slot, val)
+        return other
+
+    def __setattr__(self, attr, value):
+        # type: (str, Any) -> None
+        try:
+            object.__setattr__(self, attr, value)
+        except AttributeError as ex:
+            for cls in type(self).__mro__:
+                if attr in cls.__dict__:
+                    raise ex
+            try:
+                fld = object.__getattribute__(self, "fld")
+            except AttributeError:
+                raise ex
+            setattr(fld, attr, value)
+
     def __getattr__(self, attr):
         # type: (str) -> Any
         return getattr(self.fld, attr)
