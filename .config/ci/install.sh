@@ -53,5 +53,8 @@ python -m pip install --upgrade pip setuptools wheel --ignore-installed
 # Make sure tox is installed and up to date
 python -m pip install -U tox --ignore-installed
 
+# Optional test dependency for ASN.1 OER interoperability tests
+python -m pip install asn1tools
+
 # Dump Environment (so that we can check PATH, UT_FLAGS, etc.)
 set
