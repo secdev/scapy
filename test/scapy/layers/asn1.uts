@@ -255,3 +255,159 @@ __import__('test.scapy.layers.oer_packets', fromlist=['check_oer_field_sequence_
 __import__('test.scapy.layers.oer_packets', fromlist=['check_oer_field_choice']).check_oer_field_choice()
 = OER packet record
 __import__('test.scapy.layers.oer_packets', fromlist=['check_oer_packet_record']).check_oer_packet_record()
+
++ ASN.1 UPER codec
+= UPER boolean true
+UPERcodec_BOOLEAN.enc(1) == b"\x80"
+= UPER boolean false
+UPERcodec_BOOLEAN.enc(0) == b"\x00"
+= UPER unconstrained integer
+UPERcodec_INTEGER.enc(42) == b"\x01*"
+= UPER constrained integer
+UPERcodec_INTEGER.enc(200, uper_min=0, uper_max=255) == b"\xc8"
+= UPER signed constrained integer
+UPERcodec_INTEGER.enc(-1, uper_min=-128, uper_max=127) == b"\x7f"
+= UPER octet string
+UPERcodec_STRING.enc(b"AB") == b"\x02AB"
+= UPER fixed octet string
+UPERcodec_STRING.enc(b"\x12\x34\x56", size_len=3) == b"\x12\x34\x56"
+= UPER null
+UPERcodec_NULL.enc(None) == b""
+= UPER enumerated index
+UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]) == b"\x80"
+= UPER bit string variable size
+UPERcodec_BIT_STRING.enc((b"\xab\xcd", 16), uper_min=1, uper_max=20) == bytes.fromhex("7d5e68")
+= UPER enumerated roundtrip
+x, r = UPERcodec_ENUMERATED.do_dec(UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]), uper_enum_values=[1, 200])
+x.val == 200 and r == b""
+= UPER integer roundtrip
+x, r = UPERcodec_INTEGER.do_dec(UPERcodec_INTEGER.enc(-1))
+x.val == -1 and r == b""
+= UPER boolean roundtrip
+x, r = UPERcodec_BOOLEAN.do_dec(UPERcodec_BOOLEAN.enc(1))
+x.val == 1 and r == b""
+= UPER ASN1 object encoding
+ASN1_INTEGER(42).enc(ASN1_Codecs.PER) == b"\x01*"
+= UPER codec registration
+ASN1_Class_UNIVERSAL.INTEGER.get_codec(ASN1_Codecs.PER) is UPERcodec_INTEGER
+= asn1tools availability probe for UPER
+from test.scapy.layers.uper_iop import require_asn1tools
+HAS_ASN1TOOLS_UPER = require_asn1tools()
+
++ ASN.1 UPER codec roundtrips
+= UPER codec primitive roundtrips
+__import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_roundtrips']).check_uper_codec_roundtrips()
+= UPER codec asn1tools decode interop
+(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_asn1tools_decode']).check_uper_codec_asn1tools_decode()
+= UPER codec scapy encode asn1tools decode
+(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_scapy_decode_asn1tools']).check_uper_codec_scapy_decode_asn1tools()
+= UPER codec OID encode interop
+(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_oid_encode_interop']).check_uper_codec_oid_encode_interop()
+= UPER codec OID roundtrip
+__import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_oid_roundtrip']).check_uper_codec_oid_roundtrip()
+
++ ASN.1 UPER helpers
+= UPER length determinant
+__import__('test.scapy.layers.uper_helpers', fromlist=['check_uper_length_determinant']).check_uper_length_determinant()
+= UPER count roundtrip
+__import__('test.scapy.layers.uper_helpers', fromlist=['check_uper_count_roundtrip']).check_uper_count_roundtrip()
+= UPER choice index roundtrip
+__import__('test.scapy.layers.uper_helpers', fromlist=['check_uper_choice_index_roundtrip']).check_uper_choice_index_roundtrip()
+= UPER optional presence
+__import__('test.scapy.layers.uper_helpers', fromlist=['check_uper_optional_presence']).check_uper_optional_presence()
+= UPER constrained integer helper
+__import__('test.scapy.layers.uper_helpers', fromlist=['check_uper_constrained_integer']).check_uper_constrained_integer()
+= UPER constrained signed integer helper
+__import__('test.scapy.layers.uper_helpers', fromlist=['check_uper_constrained_signed_integer']).check_uper_constrained_signed_integer()
+= UPER octet string helper roundtrip
+__import__('test.scapy.layers.uper_helpers', fromlist=['check_uper_octet_string_roundtrip']).check_uper_octet_string_roundtrip()
+= UPER unexpected remainder detection
+__import__('test.scapy.layers.uper_helpers', fromlist=['check_uper_has_unexpected_remainder']).check_uper_has_unexpected_remainder()
+= UPER join encodings
+__import__('test.scapy.layers.uper_helpers', fromlist=['check_uper_join_encodings']).check_uper_join_encodings()
+= UPER chained encode into
+__import__('test.scapy.layers.uper_helpers', fromlist=['check_uper_chained_encode_into']).check_uper_chained_encode_into()
+
++ ASN.1 UPER interoperability (asn1tools)
+= UPER primitive encode interop with asn1tools
+(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_iop', fromlist=['check_primitive_interop']).check_primitive_interop()
+= UPER composite encode interop with asn1tools
+(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_iop', fromlist=['check_composite_interop']).check_composite_interop()
+= UPER composite decode interop with asn1tools
+(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_iop', fromlist=['check_composite_decode_interop']).check_composite_decode_interop()
+= UPER packet asn1tools interop
+(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_iop', fromlist=['check_packet_asn1tools_interop']).check_packet_asn1tools_interop()
+= UPER packet decode vectors
+__import__('test.scapy.layers.uper_iop', fromlist=['check_packet_decode_vectors']).check_packet_decode_vectors()
+
++ ASN.1 UPER asn1scc interoperability
+= asn1scc vector encode interop with asn1tools
+(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_asn1scc_iop', fromlist=['check_asn1scc_vectors']).check_asn1scc_vectors()
+= asn1scc README Message uPER reference (asn1tools)
+(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_asn1scc_iop', fromlist=['check_asn1scc_readme_message_reference']).check_asn1scc_readme_message_reference()
+= asn1scc README MessagePrefix Scapy interop
+(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_asn1scc_iop', fromlist=['check_asn1scc_readme_message_prefix']).check_asn1scc_readme_message_prefix()
+
++ ASN.1 UPER packets and fields
+= UPER field fixed size
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_field_fixed_size']).check_uper_field_fixed_size()
+= UPER field integer
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_field_integer']).check_uper_field_integer()
+= UPER field boolean
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_field_boolean']).check_uper_field_boolean()
+= UPER field string
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_field_string']).check_uper_field_string()
+= UPER field constrained integer
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_field_constrained_integer']).check_uper_field_constrained_integer()
+= UPER field optional
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_field_optional']).check_uper_field_optional()
+= UPER field sequence of
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_field_sequence_of']).check_uper_field_sequence_of()
+= UPER field choice
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_field_choice']).check_uper_field_choice()
+= UPER field choice definition order
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_field_choice_definition_order']).check_uper_field_choice_definition_order()
+= UPER packet record
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_packet_record']).check_uper_packet_record()
+= UPER field enumerated
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_field_enumerated']).check_uper_field_enumerated()
+= UPER field bit string
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_field_bit_string']).check_uper_field_bit_string()
+= UPER message prefix
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_message_prefix']).check_uper_message_prefix()
+= UPER sequence with choice
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_sequence_with_choice']).check_uper_sequence_with_choice()
+= UPER null packet
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_null_packet']).check_uper_null_packet()
+= UPER variable octet string
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_variable_octet_string']).check_uper_variable_octet_string()
+= UPER constrained range integer
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_constrained_range_integer']).check_uper_constrained_range_integer()
+= UPER sequence with enumerated
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_sequence_with_enumerated']).check_uper_sequence_with_enumerated()
+= UPER sequence of strings
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_sequence_of_strings']).check_uper_sequence_of_strings()
+= UPER sequence choice hex
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_sequence_choice_hex']).check_uper_sequence_choice_hex()
+= UPER nested sequence
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_nested_sequence']).check_uper_nested_sequence()
+= UPER sequence with null
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_sequence_with_null']).check_uper_sequence_with_null()
+= UPER fixed bit string packet
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_fixed_bit_string']).check_uper_fixed_bit_string()
+= UPER multi optional
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_multi_optional']).check_uper_multi_optional()
+= UPER sequence of constrained integers
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_sequence_of_constrained_ints']).check_uper_sequence_of_constrained_ints()
+= UPER signed integer field
+__import__('test.scapy.layers.uper_packets', fromlist=['check_uper_signed_integer']).check_uper_signed_integer()
+
++ ASN.1 UPER fuzzing
+= UPER fuzz encode
+__import__('test.scapy.layers.uper_fuzz', fromlist=['check_uper_fuzz_encode']).check_uper_fuzz_encode()
+= UPER fuzz encode roundtrip
+__import__('test.scapy.layers.uper_fuzz', fromlist=['check_uper_fuzz_roundtrip']).check_uper_fuzz_roundtrip()
+= UPER fuzz codec decode
+__import__('test.scapy.layers.uper_fuzz', fromlist=['check_uper_fuzz_codec_decode']).check_uper_fuzz_codec_decode()
+= UPER fuzz packet decode
+__import__('test.scapy.layers.uper_fuzz', fromlist=['check_uper_fuzz_packet_decode']).check_uper_fuzz_packet_decode()
