@@ -540,12 +540,12 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                oer_unsigned=False,  # type: bool
                ):
         # type: (...) -> Tuple[ASN1_Object[str], bytes]
-        l, s = OER_len_dec(s)
-        if l == 0:
+        length, s = OER_len_dec(s)
+        if length == 0:
             return cls.tag.asn1_object(""), s
-        if len(s) < l:
+        if len(s) < length:
             raise OER_Decoding_Error(
-                "%s: Got %i bytes while expecting %i" % (cls.__name__, len(s), l),
+                "%s: Got %i bytes while expecting %i" % (cls.__name__, len(s), length),
                 remaining=s
             )
         unused_bits = orb(s[0])
@@ -554,10 +554,10 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                 "OERcodec_BIT_STRING: too many unused_bits advertised",
                 remaining=s
             )
-        fs = "".join(binrepr(orb(x)).zfill(8) for x in s[1:l])
+        fs = "".join(binrepr(orb(x)).zfill(8) for x in s[1:length])
         if unused_bits > 0:
             fs = fs[:-unused_bits]
-        return cls.tag.asn1_object(fs), s[l:]
+        return cls.tag.asn1_object(fs), s[length:]
 
     @classmethod
     def enc(cls, _s, size_len=0):
@@ -602,13 +602,13 @@ class OERcodec_STRING(OERcodec_Object[str]):
                     remaining=s
                 )
             return cls.tag.asn1_object(s[:size_len]), s[size_len:]
-        l, s = OER_len_dec(s)
-        if len(s) < l:
+        length, s = OER_len_dec(s)
+        if len(s) < length:
             raise OER_Decoding_Error(
-                "%s: Got %i bytes while expecting %i" % (cls.__name__, len(s), l),
+                "%s: Got %i bytes while expecting %i" % (cls.__name__, len(s), length),
                 remaining=s
             )
-        return cls.tag.asn1_object(s[:l]), s[l:]
+        return cls.tag.asn1_object(s[:length]), s[length:]
 
 
 class OERcodec_NULL(OERcodec_Object[None]):
@@ -657,13 +657,13 @@ class OERcodec_OID(OERcodec_Object[bytes]):
                oer_unsigned=False,  # type: bool
                ):
         # type: (...) -> Tuple[ASN1_Object[bytes], bytes]
-        l, s = OER_len_dec(s)
-        if len(s) < l:
+        length, s = OER_len_dec(s)
+        if len(s) < length:
             raise OER_Decoding_Error(
-                "%s: Got %i bytes while expecting %i" % (cls.__name__, len(s), l),
+                "%s: Got %i bytes while expecting %i" % (cls.__name__, len(s), length),
                 remaining=s
             )
-        content, t = s[:l], s[l:]
+        content, t = s[:length], s[length:]
         lst = []
         while content:
             val, content = BER_num_dec(content)
@@ -796,11 +796,11 @@ class OERcodec_IPADDRESS(OERcodec_STRING):
         if size_len == 4:
             raw, remain = s[:4], s[4:]
         else:
-            l, remain = OER_len_dec(s)
-            if len(remain) < l:
+            length, remain = OER_len_dec(s)
+            if len(remain) < length:
                 raise OER_Decoding_Error("IP address could not be decoded",
                                          remaining=s)
-            raw, remain = remain[:l], remain[l:]
+            raw, remain = remain[:length], remain[length:]
         try:
             ipaddr_ascii = inet_ntoa(raw)
         except Exception:
