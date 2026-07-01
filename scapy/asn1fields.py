@@ -45,6 +45,7 @@ from scapy.asn1.uper import (
     UPER_Decoding_Error,
     UPER_Decoder,
     UPER_Encoder,
+    UPER_append_encoded,
     UPER_choice_index_dec,
     UPER_choice_index_enc,
     UPER_count_dec,
@@ -585,6 +586,9 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         )
         self.seq = seq
         self.islist = len(seq) > 1
+        self._optionals = tuple(
+            f for f in seq if isinstance(f, ASN1F_optional)
+        )
 
     def __repr__(self):
         # type: () -> str
@@ -599,6 +603,75 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         return reduce(lambda x, y: x + y.get_fields_list(),
                       self.seq, [])
 
+    def _apply_tagging_dec(self, s, pkt):
+        # type: (bytes, Any) -> bytes
+        if pkt.ASN1_codec == ASN1_Codecs.OER:
+            diff_tag, s = OER_tagging_dec(
+                s,
+                hidden_tag=self.ASN1_tag,
+                implicit_tag=self.implicit_tag,
+                explicit_tag=self.explicit_tag,
+                safe=self.flexible_tag,
+                _fname=pkt.name,
+            )
+        else:
+            diff_tag, s = BER_tagging_dec(
+                s,
+                hidden_tag=self.ASN1_tag,
+                implicit_tag=self.implicit_tag,
+                explicit_tag=self.explicit_tag,
+                safe=self.flexible_tag,
+                _fname=pkt.name,
+            )
+        if diff_tag is not None:
+            if self.implicit_tag is not None:
+                self.implicit_tag = diff_tag
+            elif self.explicit_tag is not None:
+                self.explicit_tag = diff_tag
+        return s
+
+    def _dissect_sequence_children(self, pkt, s):
+        # type: (Any, bytes) -> bytes
+        if len(s) == 0:
+            for obj in self.seq:
+                obj.set_val(pkt, None)
+            return s
+        for obj in self.seq:
+            try:
+                s = obj.dissect(pkt, s)
+            except ASN1F_badsequence:
+                break
+        return s
+
+    def _m2i_oer(self, pkt, s):
+        # type: (Any, bytes) -> Tuple[Any, bytes]
+        s = self._apply_tagging_dec(s, pkt)
+        s = self._dissect_sequence_children(pkt, s)
+        if len(s) > 0:
+            raise OER_Decoding_Error("unexpected remainder", remaining=s)
+        return [], b""
+
+    def _m2i_per(self, pkt, s):
+        # type: (Any, bytes) -> Tuple[Any, bytes]
+        dec = UPER_Decoder(s)
+        self._uper_dissect_from_decoder(pkt, dec)
+        if UPER_has_unexpected_remainder(dec):
+            raise UPER_Decoding_Error(
+                "unexpected remainder",
+                remaining=dec.remaining(),
+            )
+        return [], b""
+
+    def _m2i_ber(self, pkt, s):
+        # type: (Any, bytes) -> Tuple[Any, bytes]
+        s = self._apply_tagging_dec(s, pkt)
+        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+        i, s, remain = codec.check_type_check_len(s)
+        s = self._dissect_sequence_children(pkt, s)
+        if len(s) > 0:
+            raise BER_Decoding_Error("unexpected remainder", remaining=s)
+        return [], remain
+
     def m2i(self, pkt, s):
         # type: (Any, bytes) -> Tuple[Any, bytes]
         """
@@ -610,64 +683,14 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         It is discarded by dissect() and should not be missed elsewhere.
         """
         if pkt.ASN1_codec == ASN1_Codecs.OER:
-            diff_tag, s = OER_tagging_dec(s, hidden_tag=self.ASN1_tag,
-                                          implicit_tag=self.implicit_tag,
-                                          explicit_tag=self.explicit_tag,
-                                          safe=self.flexible_tag,
-                                          _fname=pkt.name)
-            if diff_tag is not None:
-                if self.implicit_tag is not None:
-                    self.implicit_tag = diff_tag
-                elif self.explicit_tag is not None:
-                    self.explicit_tag = diff_tag
-            if len(s) == 0:
-                for obj in self.seq:
-                    obj.set_val(pkt, None)
-            else:
-                for obj in self.seq:
-                    try:
-                        s = obj.dissect(pkt, s)
-                    except ASN1F_badsequence:
-                        break
-                if len(s) > 0:
-                    raise OER_Decoding_Error("unexpected remainder", remaining=s)
-            return [], b""
+            return self._m2i_oer(pkt, s)
         if pkt.ASN1_codec == ASN1_Codecs.PER:
-            dec = UPER_Decoder(s)
-            self._uper_dissect_from_decoder(pkt, dec)
-            if UPER_has_unexpected_remainder(dec):
-                raise UPER_Decoding_Error("unexpected remainder",
-                                          remaining=dec.remaining())
-            return [], b""
-        diff_tag, s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
-                                      implicit_tag=self.implicit_tag,
-                                      explicit_tag=self.explicit_tag,
-                                      safe=self.flexible_tag,
-                                      _fname=pkt.name)
-        if diff_tag is not None:
-            if self.implicit_tag is not None:
-                self.implicit_tag = diff_tag
-            elif self.explicit_tag is not None:
-                self.explicit_tag = diff_tag
-        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        i, s, remain = codec.check_type_check_len(s)
-        if len(s) == 0:
-            for obj in self.seq:
-                obj.set_val(pkt, None)
-        else:
-            for obj in self.seq:
-                try:
-                    s = obj.dissect(pkt, s)
-                except ASN1F_badsequence:
-                    break
-            if len(s) > 0:
-                raise BER_Decoding_Error("unexpected remainder", remaining=s)
-        return [], remain
+            return self._m2i_per(pkt, s)
+        return self._m2i_ber(pkt, s)
 
     def _uper_dissect_from_decoder(self, pkt, dec):
         # type: (Any, UPER_Decoder) -> None
-        optionals = [f for f in self.seq if isinstance(f, ASN1F_optional)]
-        presence = [dec.read_bit() for _ in optionals]
+        presence = [dec.read_bit() for _ in self._optionals]
         opt_idx = 0
         for obj in self.seq:
             if isinstance(obj, ASN1F_optional):
@@ -702,13 +725,12 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def _uper_encode_into(self, enc, pkt, value=None):
         # type: (UPER_Encoder, ASN1_Packet, Optional[Any]) -> None
-        optionals = [f for f in self.seq if isinstance(f, ASN1F_optional)]
-        for opt in optionals:
+        for opt in self._optionals:
             enc.append_bit(0 if opt.is_empty(pkt) else 1)
         for obj in self.seq:
             if isinstance(obj, ASN1F_optional) and obj.is_empty(pkt):
                 continue
-            obj._uper_encode_into(enc, pkt, value)
+            obj._uper_encode_into(enc, pkt)
 
 
 class ASN1F_SET(ASN1F_SEQUENCE):
@@ -797,7 +819,10 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
             return
         enc.append_length_determinant(len(value))
         for item in value:
-            self.fld._uper_encode_into(enc, pkt, item)
+            if self.holds_packets:
+                UPER_append_encoded(enc, bytes(item))
+            else:
+                self.fld._uper_encode_into(enc, pkt, item)
 
     def m2i(self,
             pkt,  # type: ASN1_Packet
@@ -874,8 +899,15 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
                 enc = UPER_Encoder()
                 enc.append_length_determinant(len(val))
                 for item in val:
-                    self.fld._uper_encode_into(enc, pkt, item)
+                    if self.holds_packets:
+                        UPER_append_encoded(enc, bytes(item))
+                    else:
+                        self.fld._uper_encode_into(enc, pkt, item)
                 s = enc.as_bytes()
+            elif self.holds_packets:
+                s = b"".join(bytes(i) for i in val)
+                if pkt.ASN1_codec == ASN1_Codecs.OER:
+                    s = OER_unsigned_integer_enc(len(val)) + s
             else:
                 s = b"".join(self.fld._encode_item(pkt, i) for i in val)
                 if pkt.ASN1_codec == ASN1_Codecs.OER:
@@ -1051,6 +1083,59 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                     self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
+        self._tag_to_index = {
+            tag: idx for idx, tag in enumerate(self.choice_order)
+        }
+
+    def _dissect_choice_payload(self, pkt, choice, payload):
+        # type: (ASN1_Packet, _CHOICE_T, bytes) -> Tuple[ASN1_Object[Any], bytes]
+        if hasattr(choice, "ASN1_root"):
+            return self.extract_packet(choice, payload, _underlayer=pkt)  # type: ignore
+        if isinstance(choice, type):
+            return choice(self.name, b"").m2i(pkt, payload)
+        return choice.m2i(pkt, payload)
+
+    def _m2i_oer(self, pkt, s):
+        # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Object[Any], bytes]
+        _, s = OER_tagging_dec(
+            s, hidden_tag=self.ASN1_tag, explicit_tag=self.explicit_tag,
+        )
+        tag, payload = OER_id_dec(s)
+        return self._m2i_tagged(pkt, tag, payload)
+
+    def _m2i_per(self, pkt, s):
+        # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Object[Any], bytes]
+        dec = UPER_Decoder(s)
+        val = self.m2i_from_decoder(pkt, dec)
+        if UPER_has_unexpected_remainder(dec):
+            raise UPER_Decoding_Error(
+                "unexpected remainder",
+                remaining=dec.remaining(),
+            )
+        return val, b""
+
+    def _m2i_ber(self, pkt, s):
+        # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Object[Any], bytes]
+        _, s = BER_tagging_dec(
+            s, hidden_tag=self.ASN1_tag, explicit_tag=self.explicit_tag,
+        )
+        tag, _ = BER_id_dec(s)
+        return self._m2i_tagged(pkt, tag, s)
+
+    def _m2i_tagged(self, pkt, tag, payload):
+        # type: (ASN1_Packet, int, bytes) -> Tuple[ASN1_Object[Any], bytes]
+        if tag in self.choices:
+            choice = self.choices[tag]
+        elif self.flexible_tag:
+            choice = ASN1F_field
+        else:
+            raise ASN1_Error(
+                "ASN1F_CHOICE: unexpected field in '%s' "
+                "(tag %s not in possible tags %s)" % (
+                    self.name, tag, list(self.choices.keys())
+                )
+            )
+        return self._dissect_choice_payload(pkt, choice, payload)
 
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Object[Any], bytes]
@@ -1061,41 +1146,10 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         if len(s) == 0:
             raise ASN1_Error("ASN1F_CHOICE: got empty string")
         if pkt.ASN1_codec == ASN1_Codecs.OER:
-            _, s = OER_tagging_dec(s, hidden_tag=self.ASN1_tag,
-                                   explicit_tag=self.explicit_tag)
-            tag, payload = OER_id_dec(s)
-        elif pkt.ASN1_codec == ASN1_Codecs.PER:
-            dec = UPER_Decoder(s)
-            val = self.m2i_from_decoder(pkt, dec)
-            if UPER_has_unexpected_remainder(dec):
-                raise UPER_Decoding_Error("unexpected remainder",
-                                          remaining=dec.remaining())
-            return val, b""
-        else:
-            _, s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
-                                   explicit_tag=self.explicit_tag)
-            tag, _ = BER_id_dec(s)
-            payload = s
-        if tag in self.choices:
-            choice = self.choices[tag]
-        else:
-            if self.flexible_tag:
-                choice = ASN1F_field
-            else:
-                raise ASN1_Error(
-                    "ASN1F_CHOICE: unexpected field in '%s' "
-                    "(tag %s not in possible tags %s)" % (
-                        self.name, tag, list(self.choices.keys())
-                    )
-                )
-        if hasattr(choice, "ASN1_root"):
-            # we don't want to import ASN1_Packet in this module...
-            return self.extract_packet(choice, payload, _underlayer=pkt)  # type: ignore
-        elif isinstance(choice, type):
-            return choice(self.name, b"").m2i(pkt, payload)
-        else:
-            # XXX check properly if this is an ASN1F_PACKET
-            return choice.m2i(pkt, payload)
+            return self._m2i_oer(pkt, s)
+        if pkt.ASN1_codec == ASN1_Codecs.PER:
+            return self._m2i_per(pkt, s)
+        return self._m2i_ber(pkt, s)
 
     def _choice_tag_for(self, x):
         # type: (Any) -> Optional[int]
@@ -1116,10 +1170,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         tag = self._choice_tag_for(x)
         if tag is None:
             return None
-        try:
-            return self.choice_order.index(tag)
-        except ValueError:
-            return None
+        return self._tag_to_index.get(tag)
 
     def _choice_for_index(self, index):
         # type: (int) -> _CHOICE_T

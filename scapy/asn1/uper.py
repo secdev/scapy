@@ -129,7 +129,7 @@ class UPER_Encoder(object):
         # type: (bytes, int) -> None
         if number_of_bits == 0:
             return
-        value = int(binascii.hexlify(data), 16)
+        value = int.from_bytes(data, "big")
         value >>= (8 * len(data) - number_of_bits)
         self.append_non_negative_binary_integer(value, number_of_bits)
 
@@ -219,11 +219,9 @@ def _uper_significant_bit_count(data):
     if not data:
         return 0
     total = 8 * len(data)
-    dec = UPER_Decoder(data)
-    start = dec._read_offset()
-    bits = dec.value[start:start + total]
-    end = len(bits)
-    while end > 0 and bits[end - 1] == "0":
+    bits = int.from_bytes(data, "big")
+    end = total
+    while end > 0 and ((bits >> (total - end)) & 1) == 0:
         end -= 1
     trimmed = total - end
     if trimmed > 0 and trimmed <= 8:
@@ -231,15 +229,33 @@ def _uper_significant_bit_count(data):
     return total
 
 
+def _uper_per_bits_to_bytes(bit_value, number_of_bits):
+    # type: (int, int) -> bytes
+    if number_of_bits == 0:
+        return b""
+    bitstr = format(bit_value, "0%db" % number_of_bits)
+    value = "10000000" + bitstr
+    number_of_alignment_bits = (8 - (number_of_bits % 8))
+    if number_of_alignment_bits != 8:
+        value += "0" * number_of_alignment_bits
+    hexval = hex(int(value, 2))[4:].rstrip("L")
+    if len(hexval) % 2:
+        hexval = "0" + hexval
+    return binascii.unhexlify(hexval)
+
+
 def UPER_append_encoded(enc, data):
     # type: (UPER_Encoder, bytes) -> None
     if not data:
         return
-    dec = UPER_Decoder(data)
-    start = dec._read_offset()
     nbits = _uper_significant_bit_count(data)
-    for i in range(nbits):
-        enc.append_bit(int(dec.value[start + i]))
+    if nbits == 0:
+        return
+    total = 8 * len(data)
+    bits = int.from_bytes(data, "big")
+    shift = total - nbits
+    value = (bits >> shift) & ((1 << nbits) - 1)
+    enc.append_non_negative_binary_integer(value, nbits)
 
 
 def UPER_join_encodings(*parts):
@@ -273,8 +289,8 @@ def UPER_has_unexpected_remainder(dec):
     # type: (UPER_Decoder) -> bool
     if dec.number_of_bits == 0:
         return False
-    offset = dec._read_offset()
-    return dec.value[offset:].strip("0") != ""
+    mask = (1 << dec.number_of_bits) - 1
+    return (dec._bits & mask) != 0
 
 
 def UPER_count_dec(s, dec=None):
@@ -291,25 +307,31 @@ def UPER_count_dec(s, dec=None):
 class UPER_Decoder(object):
     def __init__(self, encoded):
         # type: (bytes) -> None
-        self.number_of_bits = 8 * len(encoded)
-        self.total_number_of_bits = self.number_of_bits
+        self.total_number_of_bits = 8 * len(encoded)
+        self.number_of_bits = self.total_number_of_bits
         if encoded:
-            value = int(binascii.hexlify(encoded), 16)
-            value |= (0x80 << self.number_of_bits)
-            self.value = bin(value)[10:]
+            self._bits = int.from_bytes(encoded, "big")
         else:
-            self.value = ""
+            self._bits = 0
 
     def _read_offset(self):
         # type: () -> int
         return self.total_number_of_bits - self.number_of_bits
 
+    def _read_bits_int(self, number_of_bits):
+        # type: (int) -> int
+        if number_of_bits == 0:
+            return 0
+        consumed = self._read_offset()
+        shift = self.total_number_of_bits - consumed - number_of_bits
+        mask = (1 << number_of_bits) - 1
+        return (self._bits >> shift) & mask
+
     def read_bit(self):
         # type: () -> int
         if self.number_of_bits == 0:
             raise UPER_Decoding_Error("UPER_Decoder: out of data")
-        offset = self._read_offset()
-        bit = int(self.value[offset])
+        bit = self._read_bits_int(1)
         self.number_of_bits -= 1
         return bit
 
@@ -319,32 +341,16 @@ class UPER_Decoder(object):
             raise UPER_Decoding_Error("UPER_Decoder: out of data")
         if number_of_bits == 0:
             return b""
-        offset = self._read_offset()
-        bits = self.value[offset:offset + number_of_bits]
+        value = self._read_bits_int(number_of_bits)
         self.number_of_bits -= number_of_bits
-        value = "10000000" + bits
-        number_of_alignment_bits = (8 - (number_of_bits % 8))
-        if number_of_alignment_bits != 8:
-            value += "0" * number_of_alignment_bits
-        hexval = hex(int(value, 2))[4:].rstrip("L")
-        if len(hexval) % 2:
-            hexval = "0" + hexval
-        return binascii.unhexlify(hexval)
+        return _uper_per_bits_to_bytes(value, number_of_bits)
 
     def remaining(self):
         # type: () -> bytes
         if self.number_of_bits == 0:
             return b""
-        offset = self._read_offset()
-        bits = self.value[offset:offset + self.number_of_bits]
-        value = "10000000" + bits
-        number_of_alignment_bits = (8 - (self.number_of_bits % 8))
-        if number_of_alignment_bits != 8:
-            value += "0" * number_of_alignment_bits
-        hexval = hex(int(value, 2))[4:].rstrip("L")
-        if len(hexval) % 2:
-            hexval = "0" + hexval
-        return binascii.unhexlify(hexval)
+        value = self._read_bits_int(self.number_of_bits)
+        return _uper_per_bits_to_bytes(value, self.number_of_bits)
 
     def read_bytes(self, number_of_bytes):
         # type: (int) -> bytes
@@ -356,10 +362,9 @@ class UPER_Decoder(object):
             raise UPER_Decoding_Error("UPER_Decoder: out of data")
         if number_of_bits == 0:
             return 0
-        offset = self._read_offset()
-        bits = self.value[offset:offset + number_of_bits]
+        value = self._read_bits_int(number_of_bits)
         self.number_of_bits -= number_of_bits
-        return int(bits, 2)
+        return value
 
     def read_length_determinant(self):
         # type: () -> int
