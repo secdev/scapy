@@ -41,6 +41,7 @@ from scapy.layers.all import *
 
 from scapy.asn1.asn1 import *
 from scapy.asn1.ber import *
+from scapy.asn1.oer import *
 from scapy.asn1.mib import *
 
 from scapy.pipetool import *
