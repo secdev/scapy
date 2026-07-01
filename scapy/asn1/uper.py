@@ -1022,8 +1022,8 @@ class UPERcodec_OID(UPERcodec_Object[bytes]):
                ):
         # type: (...) -> Tuple[ASN1_Object[bytes], bytes]
         dec = UPER_Decoder(s)
-        l = dec.read_length_determinant()
-        content = dec.read_bytes(l)
+        length = dec.read_length_determinant()
+        content = dec.read_bytes(length)
         lst = []
         while content:
             val, content = BER_num_dec(content)

@@ -257,11 +257,14 @@ def BER_tagging_dec(s,  # type: bytes
 
 def BER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
     # type: (bytes, Optional[int], Optional[int]) -> bytes
+    from scapy.config import conf
     if len(s) > 0:
         if implicit_tag is not None:
             s = BER_id_enc(implicit_tag) + s[1:]
         elif explicit_tag is not None:
-            s = BER_id_enc(explicit_tag) + BER_len_enc(len(s)) + s
+            s = BER_id_enc(explicit_tag) + BER_len_enc(
+                len(s), size=conf.ASN1_default_long_size,
+            ) + s
     return s
 
 #    [ BER classes ]    #
@@ -629,10 +632,13 @@ class BERcodec_SEQUENCE(BERcodec_Object[Union[bytes, List[BERcodec_Object[Any]]]
     @classmethod
     def enc(cls, _ll, size_len=0):
         # type: (Union[bytes, List[BERcodec_Object[Any]]], Optional[int]) -> bytes
+        from scapy.config import conf
         if isinstance(_ll, bytes):
             ll = _ll
         else:
             ll = b"".join(x.enc(cls.codec) for x in _ll)
+        if not size_len:
+            size_len = conf.ASN1_default_long_size
         return chb(int(cls.tag)) + BER_len_enc(len(ll), size=size_len) + ll
 
     @classmethod
