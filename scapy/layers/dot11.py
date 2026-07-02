@@ -1578,11 +1578,25 @@ class Dot11EltExtension(Dot11Elt):
         if not _pkt or len(_pkt) < 3:
             return cls
 
-        length = orb(_pkt[1])
-        ext_id = orb(_pkt[2])
-        if ext_id == 36 and length >= 7:
-            return Dot11EltHEOperation
-        return Dot11EltExtensionGeneric
+        if _pkt:
+            ext_id = orb(_pkt[2])
+            idcls = cls.registered_ext_ids.get(ext_id)
+            if idcls is not None:
+                return idcls
+            return Dot11EltExtensionGeneric
+        return cls
+
+    registered_ext_ids = {}
+
+    @classmethod
+    def register_variant(cls, ext_id=None):
+        ext_id = ext_id or cls.ext_ID.default
+        if not ext_id:
+            # This is Dot11EltExtension, register it in the super-class.
+            super().register_variant()
+        elif ext_id not in cls.registered_ext_ids:
+            # Register extension ID to class (e.g. Dot11EltHEOperation)
+            cls.registered_ext_ids[ext_id] = cls
 
 
 # 802.11ax-2021 9.4.2.1, Table 9-92
@@ -1666,6 +1680,9 @@ class Dot11EltHEOperation(Dot11EltExtension):
             ),
             lambda p: p.six_g_op_info_present == 1)
     ]
+
+
+Dot11EltHEOperation.register_variant(36)
 
 
 ######################
