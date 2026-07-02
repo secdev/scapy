@@ -452,6 +452,14 @@ __import__('test.scapy.layers.uper_packets', fromlist=['check_uper_sequence_of_c
 = UPER signed integer field
 __import__('test.scapy.layers.uper_packets', fromlist=['check_uper_signed_integer']).check_uper_signed_integer()
 
++ ETSI ITS V2X packets
+= ITS layer import
+__import__('test.contrib.automotive.v2x_packets', fromlist=['check_its_import']).check_its_import()
+= ITS messages build
+__import__('test.contrib.automotive.v2x_packets', fromlist=['check_its_messages_build']).check_its_messages_build()
+= ITS messages asn1tools decode
+__import__('test.contrib.automotive.v2x_packets', fromlist=['check_its_messages_asn1tools_decode']).check_its_messages_asn1tools_decode()
+
 + ASN.1 UPER fuzzing
 = UPER fuzz encode
 __import__('test.scapy.layers.uper_fuzz', fromlist=['check_uper_fuzz_encode']).check_uper_fuzz_encode()
