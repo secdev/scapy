@@ -808,7 +808,15 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
         if size_len:
             minimum = maximum = size_len
         if minimum is not None and maximum is not None and minimum == maximum:
-            enc.append_bits(s, nbits)
+            if nbits >= minimum:
+                value = int.from_bytes(s, "big") >> (8 * len(s) - minimum)
+            elif isinstance(_s, str) and _s and all(c in "01" for c in _s):
+                value = int(_s, 2)
+            elif nbits > 0:
+                value = int.from_bytes(s, "big") >> max(0, 8 * len(s) - nbits)
+            else:
+                value = 0
+            enc.append_non_negative_binary_integer(value, minimum)
         elif minimum is not None and maximum is not None:
             enc.append_non_negative_binary_integer(
                 nbits - minimum, UPER_bits_for_range(maximum - minimum)
