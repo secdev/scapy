@@ -46,8 +46,10 @@ from scapy.asn1.uper import (
     UPER_Decoder,
     UPER_Encoder,
     UPER_append_encoded,
+    UPER_bits_for_range,
     UPER_choice_index_dec,
     UPER_choice_index_enc,
+    UPER_constrained_int_enc,
     UPER_count_dec,
     UPER_has_unexpected_remainder,
 )
@@ -579,6 +581,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def __init__(self, *seq, **kwargs):
         # type: (*Any, **Any) -> None
+        self.uper_extensible = kwargs.pop("uper_extensible", False)
         name = "dummy_seq_name"
         default = [field.default for field in seq]
         super(ASN1F_SEQUENCE, self).__init__(
@@ -690,6 +693,11 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def _uper_dissect_from_decoder(self, pkt, dec):
         # type: (Any, UPER_Decoder) -> None
+        if self.uper_extensible:
+            if dec.read_bit():
+                raise UPER_Decoding_Error(
+                    "ASN1F_SEQUENCE: extension additions are not supported"
+                )
         presence = [dec.read_bit() for _ in self._optionals]
         opt_idx = 0
         for obj in self.seq:
@@ -725,6 +733,8 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def _uper_encode_into(self, enc, pkt, value=None):
         # type: (UPER_Encoder, ASN1_Packet, Optional[Any]) -> None
+        if self.uper_extensible:
+            enc.append_bit(0)
         for opt in self._optionals:
             enc.append_bit(0 if opt.is_empty(pkt) else 1)
         for obj in self.seq:
@@ -760,6 +770,9 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
                  context=None,  # type: Optional[Any]
                  implicit_tag=None,  # type: Optional[Any]
                  explicit_tag=None,  # type: Optional[Any]
+                 uper_min=None,  # type: Optional[int]
+                 uper_max=None,  # type: Optional[int]
+                 uper_extensible=False,  # type: bool
                  ):
         # type: (...) -> None
         if isinstance(cls, type) and issubclass(cls, ASN1F_field) or \
@@ -782,6 +795,28 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
             implicit_tag=implicit_tag, explicit_tag=explicit_tag
         )
         self.default = default
+        self.uper_min = uper_min
+        self.uper_max = uper_max
+        self.uper_extensible = uper_extensible
+
+    def _uper_count_enc(self, enc, count):
+        # type: (UPER_Encoder, int) -> None
+        if self.uper_min is not None and self.uper_max is not None:
+            UPER_constrained_int_enc(count, self.uper_min, self.uper_max, enc=enc)
+        else:
+            enc.append_length_determinant(count)
+
+    def _uper_count_dec(self, dec):
+        # type: (UPER_Decoder) -> int
+        if self.uper_min is not None and self.uper_max is not None:
+            size = self.uper_max - self.uper_min
+            return cast(
+                int,
+                dec.read_non_negative_binary_integer(
+                    UPER_bits_for_range(size),
+                ) + self.uper_min,
+            )
+        return cast(int, dec.read_length_determinant())
 
     def is_empty(self,
                  pkt,  # type: ASN1_Packet
@@ -792,9 +827,10 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
     def _extract_packet_from_decoder(self, dec, pkt):
         # type: (UPER_Decoder, ASN1_Packet) -> Tuple[Any, bytes]
         if self.holds_packets:
-            raise UPER_Decoding_Error(
-                "UPER SEQUENCE OF packets is not supported yet"
-            )
+            p = self.cls()
+            p.add_underlayer(pkt)
+            p.ASN1_root.dissect_from_decoder(p, dec)
+            return p, b""
         return self.fld.m2i_from_decoder(pkt, dec), b""
 
     def m2i_from_decoder(self, pkt, dec):
@@ -815,12 +851,36 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
         if value is None:
             value = getattr(pkt, self.name)
         if value is None:
-            enc.append_length_determinant(0)
+            self._uper_count_enc(enc, 0)
             return
-        enc.append_length_determinant(len(value))
+        count = len(value)
+        if self.uper_extensible:
+            if (
+                self.uper_min is not None and self.uper_max is not None and
+                self.uper_min <= count <= self.uper_max
+            ):
+                enc.append_bit(0)
+            else:
+                enc.append_bit(1)
+                enc.append_length_determinant(count)
+                for item in value:
+                    if self.holds_packets:
+                        item_enc = UPER_Encoder()
+                        cast("ASN1_Packet", item).ASN1_root._uper_encode_into(
+                            item_enc, item,
+                        )
+                        UPER_append_encoded(enc, item_enc.as_bytes())
+                    else:
+                        self.fld._uper_encode_into(enc, pkt, item)
+                return
+        self._uper_count_enc(enc, count)
         for item in value:
             if self.holds_packets:
-                UPER_append_encoded(enc, bytes(item))
+                item_enc = UPER_Encoder()
+                cast("ASN1_Packet", item).ASN1_root._uper_encode_into(
+                    item_enc, item,
+                )
+                UPER_append_encoded(enc, item_enc.as_bytes())
             else:
                 self.fld._uper_encode_into(enc, pkt, item)
 
@@ -850,7 +910,10 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
             return lst, b""
         if pkt.ASN1_codec == ASN1_Codecs.PER:
             dec = UPER_Decoder(s)
-            count, _ = UPER_count_dec(b"", dec=dec)
+            if self.uper_extensible and dec.read_bit():
+                count = dec.read_length_determinant()
+            else:
+                count = self._uper_count_dec(dec)
             lst = []
             for _ in range(count):
                 c, _ = self._extract_packet_from_decoder(dec, pkt)
@@ -1006,7 +1069,12 @@ class ASN1F_optional(ASN1F_element):
 
     def is_empty(self, pkt):
         # type: (ASN1_Packet) -> bool
-        return self._field.is_empty(pkt)
+        val = getattr(pkt, self._field.name, None)
+        if val is None:
+            return True
+        if getattr(self._field, "islist", 0) and val == []:
+            return True
+        return False
 
     def _uper_encode_into(self, enc, pkt, value=None):
         # type: (UPER_Encoder, ASN1_Packet, Optional[Any]) -> None
@@ -1044,6 +1112,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         if "implicit_tag" in kwargs:
             err_msg = "ASN1F_CHOICE has been called with an implicit_tag"
             raise ASN1_Error(err_msg)
+        self.uper_extensible = kwargs.pop("uper_extensible", False)
         self.implicit_tag = None
         for kwarg in ["context", "explicit_tag"]:
             setattr(self, kwarg, kwargs.get(kwarg))
@@ -1055,6 +1124,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         self.current_choice = None
         self.choices = {}  # type: Dict[int, _CHOICE_T]
         self.choice_order = []  # type: List[int]
+        self.choice_list = []  # type: List[_CHOICE_T]
         self.pktchoices = {}
         for p in args:
             if hasattr(p, "ASN1_root"):
@@ -1065,22 +1135,27 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                     for k in root.choice_order:
                         self.choices[k] = root.choices[k]
                         self.choice_order.append(k)
+                        self.choice_list.append(root.choices[k])
                 else:
                     tag = p.ASN1_root.network_tag
                     self.choices[tag] = p
                     self.choice_order.append(tag)
+                    self.choice_list.append(p)
             elif hasattr(p, "ASN1_tag"):
                 if isinstance(p, type):
                     # should be ASN1F_field class
                     tag = int(p.ASN1_tag)
                     self.choices[tag] = p
                     self.choice_order.append(tag)
+                    self.choice_list.append(p)
                 else:
                     # should be ASN1F_field instance
                     tag = p.network_tag
                     self.choices[tag] = p
                     self.choice_order.append(tag)
-                    self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
+                    self.choice_list.append(p)
+                    if hasattr(p, "cls"):
+                        self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
         self._tag_to_index = {
@@ -1153,42 +1228,59 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
 
     def _choice_tag_for(self, x):
         # type: (Any) -> Optional[int]
-        for tag, choice in self.choices.items():
-            if hasattr(choice, "ASN1_root"):
-                if isinstance(x, cast("Type[ASN1_Packet]", choice)):
-                    return tag
+        for index, choice in enumerate(self.choice_list):
+            if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
+                if isinstance(x, choice):
+                    return self.choice_order[index]
             elif isinstance(choice, type) and hasattr(choice, "ASN1_tag"):
                 if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
-                    return tag
+                    return self.choice_order[index]
             elif hasattr(choice, "ASN1_tag"):
                 if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
-                    return tag
+                    return self.choice_order[index]
         return None
 
     def _choice_index_for(self, x):
         # type: (Any) -> Optional[int]
-        tag = self._choice_tag_for(x)
-        if tag is None:
-            return None
-        return self._tag_to_index.get(tag)
+        for index, choice in enumerate(self.choice_list):
+            if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
+                if isinstance(x, choice):
+                    return index
+            elif isinstance(choice, type) and hasattr(choice, "ASN1_tag"):
+                if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
+                    return index
+            elif hasattr(choice, "ASN1_tag"):
+                if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
+                    return index
+        return None
 
     def _choice_for_index(self, index):
         # type: (int) -> _CHOICE_T
-        return self.choices[self.choice_order[index]]
+        return self.choice_list[index]
 
     def m2i_from_decoder(self, pkt, dec):
         # type: (ASN1_Packet, UPER_Decoder) -> ASN1_Object[Any]
-        index, _ = UPER_choice_index_dec(b"", len(self.choice_order), dec=dec)
+        if self.uper_extensible:
+            if dec.read_bit():
+                raise UPER_Decoding_Error(
+                    "ASN1F_CHOICE: extension additions are not supported"
+                )
+        if len(self.choice_order) > 1:
+            index, _ = UPER_choice_index_dec(b"", len(self.choice_order), dec=dec)
+        else:
+            index = 0
         if index >= len(self.choice_order):
             raise ASN1_Error(
                 "ASN1F_CHOICE: unexpected index %s in '%s'" %
                 (index, self.name)
             )
         choice = self._choice_for_index(index)
-        if hasattr(choice, "ASN1_root"):
-            raise ASN1_Error(
-                "ASN1F_CHOICE: UPER packet choices are not supported yet"
-            )
+        if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
+            pkt_cls = cast("Type[ASN1_Packet]", choice)
+            p = pkt_cls()
+            p.add_underlayer(pkt)
+            p.ASN1_root.dissect_from_decoder(p, dec)
+            return cast(ASN1_Object[Any], p)
         if isinstance(choice, type):
             return cast(
                 ASN1_Object[Any],
@@ -1206,7 +1298,10 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                 "ASN1F_CHOICE: cannot encode unknown alternative in '%s'" %
                 self.name
             )
-        UPER_choice_index_enc(index, len(self.choice_order), enc=enc)
+        if self.uper_extensible:
+            enc.append_bit(0)
+        if len(self.choice_order) > 1:
+            UPER_choice_index_enc(index, len(self.choice_order), enc=enc)
         choice = self._choice_for_index(index)
         if hasattr(choice, "ASN1_root"):
             cast("ASN1_Packet", value).ASN1_root._uper_encode_into(enc, value)
@@ -1286,12 +1381,37 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
                 self.network_tag = 16 | 0x20  # 16 + CONSTRUCTED
         self.default = default
 
+    def _resolve_cls(self, pkt):
+        # type: (ASN1_Packet) -> Type[ASN1_Packet]
+        if self.next_cls_cb:
+            return self.next_cls_cb(pkt) or self.cls
+        return self.cls
+
+    def m2i_from_decoder(self, pkt, dec):
+        # type: (ASN1_Packet, UPER_Decoder) -> Optional[ASN1_Packet]
+        cls = self._resolve_cls(pkt)
+        p = cls()
+        p.add_underlayer(pkt)
+        p.ASN1_root.dissect_from_decoder(p, dec)
+        return p
+
+    def dissect_from_decoder(self, pkt, dec):
+        # type: (ASN1_Packet, UPER_Decoder) -> None
+        self.set_val(pkt, self.m2i_from_decoder(pkt, dec))
+
+    def _uper_encode_into(self, enc, pkt, value=None):
+        # type: (UPER_Encoder, ASN1_Packet, Any) -> None
+        if value is None:
+            value = getattr(pkt, self.name)
+        if value is None:
+            return
+        if isinstance(value, ASN1_Object):
+            value = value.val
+        cast("ASN1_Packet", value).ASN1_root._uper_encode_into(enc, value)
+
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[Any, bytes]
-        if self.next_cls_cb:
-            cls = self.next_cls_cb(pkt) or self.cls
-        else:
-            cls = self.cls
+        cls = self._resolve_cls(pkt)
         if not hasattr(cls, "ASN1_root"):
             # A normal Packet (!= ASN1)
             return self.extract_packet(cls, s, _underlayer=pkt)
@@ -1316,6 +1436,10 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
         # type: (...) -> bytes
         if x is None:
             s = b""
+        elif pkt.ASN1_codec == ASN1_Codecs.PER:
+            enc = UPER_Encoder()
+            self._uper_encode_into(enc, pkt, x)
+            s = enc.as_bytes()
         elif isinstance(x, bytes):
             s = x
         elif isinstance(x, ASN1_Object):
@@ -1328,6 +1452,8 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
             if not hasattr(x, "ASN1_root"):
                 # A normal Packet (!= ASN1)
                 return s
+        if pkt.ASN1_codec == ASN1_Codecs.PER:
+            return s
         return BER_tagging_enc(s,
                                implicit_tag=self.implicit_tag,
                                explicit_tag=self.explicit_tag)
@@ -1403,6 +1529,8 @@ class ASN1F_FLAGS(ASN1F_BIT_STRING):
                  context=None,  # type: Optional[Any]
                  implicit_tag=None,  # type: Optional[int]
                  explicit_tag=None,  # type: Optional[Any]
+                 uper_min=None,  # type: Optional[int]
+                 uper_max=None,  # type: Optional[int]
                  ):
         # type: (...) -> None
         self.mapping = mapping
@@ -1411,7 +1539,9 @@ class ASN1F_FLAGS(ASN1F_BIT_STRING):
             default_readable=False,
             context=context,
             implicit_tag=implicit_tag,
-            explicit_tag=explicit_tag
+            explicit_tag=explicit_tag,
+            uper_min=uper_min,
+            uper_max=uper_max,
         )
 
     def any2i(self, pkt, x):
