@@ -365,8 +365,27 @@ a[ICMPv6PacketTooBig][TCPerror].chksum == b.chksum
 
 
 ########### ICMPv6TimeExceeded Class ################################
-# To be done but not critical. Same mechanisms and format as 
-# previous ones.
+
+= ICMPv6TimeExceeded extension - length field build (GH4353)
+
+pkt = IPv6() / ICMPv6TimeExceeded(ext=ICMPExtension_Header()) / IPv6() / ICMPv6EchoRequest()
+raw = bytes(pkt)
+pkt2 = IPv6(raw)
+assert pkt2[ICMPv6TimeExceeded].length == 16
+
+= ICMPv6TimeExceeded extension - Ether round-trip (GH4353)
+
+pkt = Ether() / IPv6() / ICMPv6TimeExceeded(ext=ICMPExtension_Header()) / IPv6() / ICMPv6EchoRequest()
+pkt = Ether(bytes(pkt))
+assert pkt[ICMPv6TimeExceeded].length == 16
+
+= ICMPv6TimeExceeded extension - rebuild stability (GH4353)
+
+pkt = IPv6() / ICMPv6TimeExceeded(ext=ICMPExtension_Header()) / IPv6() / ICMPv6EchoRequest()
+raw = bytes(pkt)
+pkt2 = IPv6(raw)
+assert isinstance(pkt2[ICMPv6TimeExceeded].ext, ICMPExtension_Header)
+assert bytes(pkt2) == raw
 
 ########### ICMPv6ParamProblem Class ################################
 # See previous note
