@@ -1,0 +1,62 @@
+% Regression tests for the ISO 15118 V2G layer
+
++ V2G contrib tests
+
+= Load Contrib Layer
+
+load_contrib("automotive.v2g", globals_dict=globals())
+
+= V2GTP defaults
+
+p = V2GTP()
+assert p.Version == 0x01
+assert p.Invers == 0xfe
+assert p.PayloadType == 0x8001
+assert p.PayloadLen == 0
+assert p.Payload == b""
+
+= V2GTP build and dissect
+
+payload = b"\x01\x02\x03\x04"
+p = V2GTP(Payload=payload)
+raw_pkt = bytes(p)
+assert raw_pkt == b"\x01\xfe\x80\x01\x00\x00\x00\x04" + payload
+assert V2GTP(raw_pkt).Payload == payload
+
+= SECC request defaults
+
+p = SECC(SECCType=0x9000) / SECC_RequestMessage()
+assert p[SECC].Version == 0x01
+assert p[SECC].Inversion == 0xfe
+assert p[SECC].SECCType == 0x9000
+assert p[SECC_RequestMessage].SecurityProtocol == 0x0
+assert p[SECC_RequestMessage].TransportProtocol == 0x0
+
+= SECC request build and dissect
+
+p = SECC(SECCType=0x9000, PayloadLen=2) / SECC_RequestMessage(SecurityProtocol=0x10, TransportProtocol=0x00)
+raw_pkt = bytes(p)
+assert raw_pkt == b"\x01\xfe\x90\x00\x00\x00\x00\x02\x10\x00"
+assert SECC(raw_pkt)[SECC_RequestMessage].SecurityProtocol == 0x10
+
+= SECC response build and dissect
+
+p = SECC(SECCType=0x9001, PayloadLen=20) / SECC_ResponseMessage(
+    TargetAddress="fe80::1",
+    TargetPort=49152,
+    SecurityProtocol=0x10,
+    TransportProtocol=0x00,
+)
+raw_pkt = bytes(p)
+assert SECC(raw_pkt)[SECC_ResponseMessage].TargetPort == 49152
+assert SECC(raw_pkt)[SECC_ResponseMessage].TargetAddress == "fe80::1"
+
+= UDP binding on port 15118
+
+p = UDP(sport=15118, dport=15118) / SECC(SECCType=0x9000, PayloadLen=2) / SECC_RequestMessage()
+assert p[SECC].SECCType == 0x9000
+
+= TCP binding on port 15118
+
+p = TCP(sport=49152, dport=15118) / V2GTP(Payload=b"\xde\xad\xbe\xef")
+assert p[V2GTP].Payload == b"\xde\xad\xbe\xef"
