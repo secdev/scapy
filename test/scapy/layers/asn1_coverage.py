@@ -17,14 +17,18 @@ def _raises(exc, func):
 
 
 from typing import Any
+from unittest import mock
 
 from scapy.asn1.asn1 import (
     ASN1_BIT_STRING,
+    ASN1_Class_UNIVERSAL,
     ASN1_Codecs,
+    ASN1_Error,
     ASN1_INTEGER,
     ASN1_STRING,
     ASN1_TIME_TICKS,
 )
+from scapy.asn1.ber import BER_Decoding_Error
 from scapy.asn1.oer import (
     OER_Decoding_Error,
     OER_Encoding_Error,
@@ -45,23 +49,31 @@ from scapy.asn1.uper import (
     UPERcodec_SET,
 )
 from scapy.asn1fields import (
+    ASN1F_BIT_STRING,
     ASN1F_BIT_STRING_ENCAPS,
+    ASN1F_BOOLEAN,
     ASN1F_CHOICE,
+    ASN1F_DEFAULT,
     ASN1F_FLAGS,
     ASN1F_IPADDRESS,
     ASN1F_INTEGER,
+    ASN1F_OID,
     ASN1F_PACKET,
     ASN1F_SEQUENCE,
+    ASN1F_SEQUENCE_OF,
     ASN1F_SET_OF,
     ASN1F_STRING,
     ASN1F_STRING_ENCAPS,
     ASN1F_STRING_PacketField,
     ASN1F_TIME_TICKS,
+    ASN1F_UTC_TIME,
+    ASN1F_badsequence,
     ASN1F_enum_INTEGER,
+    ASN1F_omit,
     ASN1F_optional,
 )
 from scapy.asn1packet import ASN1_Packet
-from scapy.packet import raw
+from scapy.packet import Raw, raw
 
 
 class _InnerRecord(ASN1_Packet):
@@ -342,3 +354,539 @@ def check_asn1fields_optional_dissect():
 
     choice_rand = _BerChoiceRecord.ASN1_root.randval()
     assert choice_rand is not None
+
+
+def check_asn1fields_default_and_omit():
+    # type: () -> None
+    class _DefaultRecord(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+            ASN1F_DEFAULT(
+                ASN1F_INTEGER(
+                    "count", 600,
+                    uper_min=0, uper_max=86401, oer_unsigned=True,
+                ),
+                600,
+            ),
+        )
+
+    absent = _DefaultRecord(id=1)
+    assert raw(absent) == b"\x00\x80"
+    decoded = _DefaultRecord(raw(absent))
+    assert decoded.id.val == 1
+    assert decoded.count == 600 or decoded.count.val == 600
+
+    present = _DefaultRecord(id=1, count=86400)
+    decoded = _DefaultRecord(raw(present))
+    assert decoded.count.val == 86400
+
+    class _OmitRecord(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_INTEGER("id", 0),
+            ASN1F_omit("ignored", None),
+        )
+
+    omit_pkt = _OmitRecord(id=7)
+    assert raw(omit_pkt) == bytes.fromhex("3003020107")
+
+
+def check_asn1fields_extensible_per():
+    # type: () -> None
+    class _ExtSeq(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+            ASN1F_optional(ASN1F_INTEGER("extra", 0, uper_min=0, uper_max=7)),
+            uper_extensible=True,
+        )
+
+    pkt = _ExtSeq(id=2, extra=3)
+    data = raw(pkt)
+    decoded = _ExtSeq(data)
+    assert decoded.id.val == 2
+    assert decoded.extra.val == 3
+
+    dec = UPER_Decoder(b"\x80")
+    _raises(
+        UPER_Decoding_Error,
+        lambda: _ExtSeq.ASN1_root.dissect_from_decoder(_ExtSeq(), dec),
+    )
+
+    class _ExtChoice(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_CHOICE(
+            "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+            uper_extensible=True,
+        )
+
+    choice = _ExtChoice(c=ASN1_INTEGER(4))
+    assert raw(choice)
+    dec = UPER_Decoder(b"\x80")
+    _raises(
+        UPER_Decoding_Error,
+        lambda: _ExtChoice.ASN1_root.m2i_from_decoder(_ExtChoice(), dec),
+    )
+
+    class _InnerItem(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=7)
+
+    class _ExtSeqOf(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_SEQUENCE_OF(
+            "items", [], _InnerItem,
+            uper_min=1, uper_max=2, uper_extensible=True,
+        )
+
+    in_range = _ExtSeqOf(items=[_InnerItem(n=1)])
+    assert raw(in_range)
+    decoded = _ExtSeqOf(raw(in_range))
+    assert decoded.items[0].n.val == 1
+
+    out_of_range = _ExtSeqOf(
+        items=[_InnerItem(n=i) for i in range(4)],
+    )
+    assert raw(out_of_range)
+    decoded = _ExtSeqOf(raw(out_of_range))
+    assert len(decoded.items) == 4
+
+
+def check_asn1fields_sequence_of_advanced():
+    # type: () -> None
+    class _Inner(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=7)
+
+    class _SeqOfPackets(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_SEQUENCE_OF(
+            "items", [], _Inner, uper_min=1, uper_max=3,
+        )
+
+    pkt = _SeqOfPackets(items=[_Inner(n=1), _Inner(n=2)])
+    decoded = _SeqOfPackets(raw(pkt))
+    assert [x.n.val for x in decoded.items] == [1, 2]
+
+    class _OerSeqOf(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.OER
+        ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+    oer_pkt = _OerSeqOf(values=[1, 2])
+    oer_dec = _OerSeqOf(raw(oer_pkt))
+    assert [x.val for x in oer_dec.values] == [1, 2]
+
+    class _EmptySeqOf(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+    empty = _EmptySeqOf(values=None)
+    assert raw(empty) == b"\x00"
+    assert _EmptySeqOf.ASN1_root.i2repr(empty, None) == "[]"
+    assert _EmptySeqOf.ASN1_root.i2repr(
+        _EmptySeqOf(values=[ASN1_INTEGER(1)]),
+        [ASN1_INTEGER(1)],
+    ).startswith("[")
+
+    _raises(ValueError, lambda: ASN1F_SEQUENCE_OF("bad", [], object()))
+
+
+def check_asn1fields_choice_advanced():
+    # type: () -> None
+    class _InnerChoice(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_CHOICE(
+            "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+        )
+
+    class _NestedChoice(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_CHOICE(
+            "c", ASN1_INTEGER(0), _InnerChoice, ASN1F_INTEGER,
+        )
+
+    nested = _NestedChoice(c=_InnerChoice(c=ASN1_STRING(b"xy")))
+    assert len(raw(nested)) > 0
+    nested_dec = _NestedChoice(raw(nested))
+    assert isinstance(nested_dec.c, (_InnerChoice, ASN1_STRING))
+
+    class _OerTaggedChoice(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.OER
+        ASN1_root = ASN1F_CHOICE(
+            "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+            explicit_tag=0xA1,
+        )
+
+    oer_choice = _OerTaggedChoice(c=ASN1_INTEGER(9))
+    assert raw(oer_choice)
+
+    class _PacketChoice(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_CHOICE(
+            "c",
+            ASN1_INTEGER(0),
+            ASN1F_PACKET("inner", None, _InnerRecord, explicit_tag=0xA2),
+            ASN1F_INTEGER,
+        )
+
+    packet_choice = _PacketChoice(
+        c=_InnerRecord(mode=ASN1_INTEGER(1)),
+    )
+    packet_dec = _PacketChoice(raw(packet_choice))
+    assert packet_dec.c.mode.val == 1
+
+    class _PerChoice(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_CHOICE(
+            "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+        )
+
+    _raises(
+        ASN1_Error,
+        lambda: ASN1F_CHOICE(
+            "c", 0, ASN1F_INTEGER, implicit_tag=0xA0,
+        ),
+    )
+    _raises(
+        ASN1_Error,
+        lambda: _PerChoice.ASN1_root.m2i(_PerChoice(), b""),
+    )
+    _raises(
+        ASN1_Error,
+        lambda: _PerChoice.ASN1_root._uper_encode_into(
+            UPER_Encoder(), _PerChoice(), 42,
+        ),
+    )
+
+
+def check_asn1fields_enum_bitstring_and_flags():
+    # type: () -> None
+    class _NamedEnum(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_enum_INTEGER(
+            "state", 0, ["off", "on", "auto"],
+        )
+
+    named = _NamedEnum(state="on")
+    built = raw(named)
+    decoded = _NamedEnum(built)
+    assert decoded.state.val == 1
+    assert "'on'" in _NamedEnum.ASN1_root.i2repr(decoded, decoded.state)
+
+    class _BitRecord(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_BIT_STRING("bits", b"\xaa")
+
+    assert raw(_BitRecord())
+
+    flags = _FlagsRecord()
+    flags.f = ASN1_BIT_STRING("101")
+    assert "read, exec" in _FlagsRecord.ASN1_root.seq[0].i2repr(flags, flags.f)
+
+    class _BadBitEncaps(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_BIT_STRING_ENCAPS("b", None, _InnerRecord)
+
+    _raises(
+        BER_Decoding_Error,
+        lambda: _BadBitEncaps.ASN1_root.m2i(
+            _BadBitEncaps(),
+            b"\x03\x02\x01\x00",
+        ),
+    )
+
+
+def check_asn1fields_packet_and_sequence_errors():
+    # type: () -> None
+    class _PerInner(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_INTEGER("mode", 0, uper_min=0, uper_max=1)
+
+    class _PacketWrap(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_PACKET("inner", None, _PerInner)
+
+    inner = _PerInner(mode=1)
+    wrap = _PacketWrap(inner=inner)
+    decoded = _PacketWrap(raw(wrap))
+    assert decoded.inner.mode.val == 1
+
+    class _DynamicPacket(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_PACKET(
+            "inner", None, _PerInner,
+            next_cls_cb=lambda pkt: _PerInner,
+        )
+
+    dyn = _DynamicPacket(inner=_PerInner(mode=0))
+    assert _DynamicPacket.ASN1_root._resolve_cls(dyn) is _PerInner
+
+    empty_packet = _PacketWrap(inner=None)
+    assert raw(empty_packet) == b""
+
+    class _BerSeq(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_INTEGER("id", 0),
+            ASN1F_INTEGER("extra", 0),
+        )
+
+    _raises(
+        BER_Decoding_Error,
+        lambda: _BerSeq.ASN1_root.m2i(
+            _BerSeq(),
+            bytes.fromhex("300702010102010200ff"),
+        ),
+    )
+
+    class _OerSeq(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.OER
+        ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_INTEGER("id", 0, size_len=1, oer_unsigned=True),
+        )
+
+    _raises(
+        OER_Decoding_Error,
+        lambda: _OerSeq.ASN1_root.m2i(_OerSeq(), b"\x01\xff"),
+    )
+
+    class _PerSeq(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        )
+
+    _raises(
+        UPER_Decoding_Error,
+        lambda: _PerSeq.ASN1_root.m2i(_PerSeq(), b"\x80\xff"),
+    )
+
+    empty_seq = _BerSeq()
+    _BerSeq.ASN1_root._dissect_sequence_children(empty_seq, b"")
+    assert empty_seq.id is None
+    assert empty_seq.extra is None
+
+    class _OptListRecord(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+            ASN1F_optional(
+                ASN1F_SEQUENCE_OF("items", [], ASN1F_INTEGER),
+            ),
+        )
+
+    opt_list = _OptListRecord(id=1, items=None)
+    assert raw(opt_list)
+
+    field = ASN1F_INTEGER("n", 0)
+    with mock.patch.object(
+        _InnerRecord, "__init__", side_effect=ASN1F_badsequence,
+    ):
+        pkt_obj, remain = field.extract_packet(
+            _InnerRecord, b"\xab\xcd", _underlayer=None,
+        )
+    assert isinstance(pkt_obj, Raw)
+    assert pkt_obj.load == b"\xab\xcd"
+    assert remain == b"\xab\xcd"
+
+
+def check_asn1fields_more_coverage():
+    # type: () -> None
+    _raises(
+        ASN1_Error,
+        lambda: ASN1F_INTEGER("x", 0, implicit_tag=1, explicit_tag=2),
+    )
+
+    class _IntRecord(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_INTEGER("n", 0)
+
+    field = _IntRecord.ASN1_root
+    _raises(
+        ASN1_Error,
+        lambda: field.i2m(_IntRecord(), ASN1_STRING(b"bad")),
+    )
+
+    flex_field = ASN1F_INTEGER("n", 0, flexible_tag=True, explicit_tag=0xA0)
+    obj, remain = flex_field.m2i(_IntRecord(), bytes.fromhex("a1020101"))
+    assert obj.tag != ASN1_Class_UNIVERSAL.INTEGER or remain == b""
+
+    class _FlexSeq(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_INTEGER("id", 0),
+            explicit_tag=0xA1,
+            flexible_tag=True,
+        )
+
+    flex_seq = _FlexSeq(id=1)
+    assert raw(flex_seq)
+    decoded = _FlexSeq(raw(flex_seq))
+    assert decoded.id.val == 1
+
+    assert ASN1F_BOOLEAN("b", False).randval() is not None
+    assert ASN1F_BIT_STRING("b", b"").randval() is not None
+    assert ASN1F_OID("o", None).randval() is not None
+    assert ASN1F_UTC_TIME("t", "").randval() is not None
+    assert "<ASN1F_SEQUENCE" in repr(_FlexSeq.ASN1_root)
+
+    class _EmptySeq(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_optional(ASN1F_INTEGER("id", 0)),
+        )
+
+    empty = _EmptySeq()
+    empty.id = None
+    assert _EmptySeq.ASN1_root.is_empty(empty)
+
+    class _StrEnum(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_enum_INTEGER(
+            "mode", 0, {"off": 0, "on": 1},
+        )
+
+    str_enum = _StrEnum(mode=1)
+    built = raw(str_enum)
+    decoded = _StrEnum(built)
+    assert "'on'" in _StrEnum.ASN1_root.i2repr(decoded, decoded.mode)
+
+    omit_field = ASN1F_omit("ignored", None)
+    val, remain = omit_field.m2i(_IntRecord(), b"leftover")
+    assert val is None and remain == b"leftover"
+
+    class _OptList(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+            ASN1F_optional(
+                ASN1F_SEQUENCE_OF("items", [], ASN1F_INTEGER),
+            ),
+        )
+
+    opt = _OptList(id=1, items=[])
+    opt_field = _OptList.ASN1_root.seq[1]
+    assert opt_field.is_empty(opt)
+
+    class _DefaultPkt(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_DEFAULT(ASN1F_INTEGER("n", 5, uper_min=0, uper_max=10), 5),
+        )
+
+    default_pkt = _DefaultPkt(n=5)
+    default_field = _DefaultPkt.ASN1_root.seq[0]
+    assert default_field.is_empty(default_pkt)
+
+    class _BerChoice(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_CHOICE(
+            "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+        )
+
+    assert _BerChoice.ASN1_root.randval() is not None
+
+    class _PacketChoice(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_CHOICE(
+            "c",
+            ASN1_INTEGER(0),
+            ASN1F_PACKET("inner", None, _InnerRecord, explicit_tag=0xA2),
+            ASN1F_INTEGER,
+        )
+
+    assert _PacketChoice.ASN1_root.randval() is not None
+    packet_field = _PacketChoice.ASN1_root.choice_list[0]
+    assert packet_field.randval() is not None
+
+    class _FlexPacket(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_PACKET(
+            "inner", None, _InnerRecord,
+            explicit_tag=0xA2,
+        )
+
+    _FlexPacket.ASN1_root.flexible_tag = True
+    inner_pkt = _InnerRecord(mode=0)
+    flex_pkt = _FlexPacket(inner=inner_pkt)
+    assert raw(flex_pkt)
+
+    packet_field = _FlexPacket.ASN1_root
+    built_inner = raw(_InnerRecord(mode=1))
+    assert len(packet_field.i2m(_FlexPacket(), built_inner)) > 0
+
+    empty_inner, remain = packet_field.m2i(_FlexPacket(), b"")
+    assert empty_inner is None and remain == b""
+
+    obj_val = packet_field.i2m(_FlexPacket(), _InnerRecord(mode=0))
+    assert len(obj_val) > 0
+
+    flags_field = _FlagsRecord.ASN1_root.seq[0]
+    assert flags_field.i2repr(_FlagsRecord(), None) == "None"
+
+    class _OerFlexSeqOf(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.OER
+        ASN1_root = ASN1F_SEQUENCE_OF(
+            "values", [], ASN1F_INTEGER,
+            explicit_tag=0xA1,
+        )
+
+    _OerFlexSeqOf.ASN1_root.flexible_tag = True
+
+    oer_seq = _OerFlexSeqOf(values=[1])
+    data = raw(oer_seq)
+    decoded = _OerFlexSeqOf(data)
+    assert decoded.values[0].val == 1
+
+    class _BerFlexSeqOf(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_SEQUENCE_OF(
+            "values", [], ASN1F_INTEGER,
+            explicit_tag=0xA1,
+        )
+
+    _BerFlexSeqOf.ASN1_root.flexible_tag = True
+
+    ber_seq = _BerFlexSeqOf(values=[2])
+    assert raw(ber_seq)
+
+    class _ExtChoice(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_CHOICE(
+            "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+            uper_extensible=True,
+        )
+
+    dec = UPER_Decoder(b"\x80")
+    _raises(
+        UPER_Decoding_Error,
+        lambda: _ExtChoice.ASN1_root.m2i_from_decoder(_ExtChoice(), dec),
+    )
+
+    class _SingleChoice(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.PER
+        ASN1_root = ASN1F_CHOICE("c", ASN1_INTEGER(0), ASN1F_INTEGER)
+
+    single = _SingleChoice(c=ASN1_INTEGER(3))
+    assert raw(single)
+
+    class _FlexChoice(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_CHOICE(
+            "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+            flexible_tag=True,
+        )
+
+    flex_choice = _FlexChoice(c=ASN1_INTEGER(4))
+    assert raw(flex_choice)
+
+    class _OerPktChoice(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.OER
+        ASN1_root = ASN1F_CHOICE(
+            "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+        )
+
+    oer_pkt_choice = _OerPktChoice(c=ASN1_STRING(b"hi"))
+    assert raw(oer_pkt_choice)
+
