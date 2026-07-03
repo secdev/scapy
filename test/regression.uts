@@ -978,6 +978,11 @@ assert expected_ret2 in ret2
 hexdiff(b"abc", IP() / TCP())
 hexdiff(IP() / TCP(), b"abc")
 
+# Test that hexdiff does not crash on a 16-byte row that is entirely a gap
+# on one side (GH #5034)
+
+hexdiff(b"B" * 9 + b"\x08", b"A" + b"\x08" + b"A" * 23, algo="difflib")
+
 = Test mysummary functions - Ether
 
 p = Ether(dst="ff:ff:ff:ff:ff:ff", src="ff:ff:ff:ff:ff:ff", type=0x9000)
