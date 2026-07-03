@@ -143,10 +143,20 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # network_tag gets useful for ASN1F_CHOICE
         self.network_tag = int(implicit_tag or explicit_tag or self.ASN1_tag)
         self.owners = []  # type: List[Type[ASN1_Packet]]
+        self._uper_kwargs_cache = None  # type: Optional[Dict[str, Any]]
 
     def register_owner(self, cls):
         # type: (Type[ASN1_Packet]) -> None
         self.owners.append(cls)
+
+    def _apply_diff_tag(self, diff_tag):
+        # type: (Optional[int]) -> None
+        # this implies that flexible_tag was True
+        if diff_tag is not None:
+            if self.implicit_tag is not None:
+                self.implicit_tag = diff_tag
+            elif self.explicit_tag is not None:
+                self.explicit_tag = diff_tag
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -184,12 +194,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                                           _fname=self.name)
         else:
             diff_tag = None
-        if diff_tag is not None:
-            # this implies that flexible_tag was True
-            if self.implicit_tag is not None:
-                self.implicit_tag = diff_tag
-            elif self.explicit_tag is not None:
-                self.explicit_tag = diff_tag
+        self._apply_diff_tag(diff_tag)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         codec_kwargs = {}  # type: Dict[str, Any]
         if pkt.ASN1_codec == ASN1_Codecs.OER:
@@ -325,6 +330,11 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
 
     def _uper_codec_kwargs(self, size_len=None):
         # type: (Optional[int]) -> Dict[str, Any]
+        # These kwargs only depend on attributes set once at __init__ time,
+        # so the common (no override) case is cached to avoid rebuilding the
+        # dict on every field access during build/dissect.
+        if size_len is None and self._uper_kwargs_cache is not None:
+            return self._uper_kwargs_cache
         kwargs = {
             "size_len": (self.size_len if size_len is None else size_len) or 0,
             "oer_unsigned": self.oer_unsigned,
@@ -338,6 +348,8 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             kwargs["uper_extensible"] = True
         if self.uper_enum_values is not None:
             kwargs["uper_enum_values"] = self.uper_enum_values
+        if size_len is None:
+            self._uper_kwargs_cache = kwargs
         return kwargs
 
     def _encode_item(self, pkt, item):
@@ -653,11 +665,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
                 safe=self.flexible_tag,
                 _fname=pkt.name,
             )
-        if diff_tag is not None:
-            if self.implicit_tag is not None:
-                self.implicit_tag = diff_tag
-            elif self.explicit_tag is not None:
-                self.explicit_tag = diff_tag
+        self._apply_diff_tag(diff_tag)
         return s
 
     def _dissect_sequence_children(self, pkt, s):
@@ -872,10 +880,6 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
             lst.append(item)
         return lst
 
-    def dissect_from_decoder(self, pkt, dec):
-        # type: (ASN1_Packet, UPER_Decoder) -> None
-        self.set_val(pkt, self.m2i_from_decoder(pkt, dec))
-
     def _uper_encode_into(self, enc, pkt, value=None):
         # type: (UPER_Encoder, ASN1_Packet, Any) -> None
         if value is None:
@@ -920,11 +924,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
                                           implicit_tag=self.implicit_tag,
                                           explicit_tag=self.explicit_tag,
                                           safe=self.flexible_tag)
-            if diff_tag is not None:
-                if self.implicit_tag is not None:
-                    self.implicit_tag = diff_tag
-                elif self.explicit_tag is not None:
-                    self.explicit_tag = diff_tag
+            self._apply_diff_tag(diff_tag)
             count, s = OER_unsigned_integer_dec(s)
             lst = []
             for _ in range(count):
@@ -953,11 +953,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
                                       implicit_tag=self.implicit_tag,
                                       explicit_tag=self.explicit_tag,
                                       safe=self.flexible_tag)
-        if diff_tag is not None:
-            if self.implicit_tag is not None:
-                self.implicit_tag = diff_tag
-            elif self.explicit_tag is not None:
-                self.explicit_tag = diff_tag
+        self._apply_diff_tag(diff_tag)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         i, s, remain = codec.check_type_check_len(s)
         lst = []
@@ -1185,27 +1181,16 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                 if hasattr(p.ASN1_root, "choices"):
                     root = cast(ASN1F_CHOICE, p.ASN1_root)
                     for k in root.choice_order:
-                        self.choices[k] = root.choices[k]
-                        self.choice_order.append(k)
-                        self.choice_list.append(root.choices[k])
+                        self._register_choice(k, root.choices[k])
                 else:
-                    tag = p.ASN1_root.network_tag
-                    self.choices[tag] = p
-                    self.choice_order.append(tag)
-                    self.choice_list.append(p)
+                    self._register_choice(p.ASN1_root.network_tag, p)
             elif hasattr(p, "ASN1_tag"):
                 if isinstance(p, type):
                     # should be ASN1F_field class
-                    tag = int(p.ASN1_tag)
-                    self.choices[tag] = p
-                    self.choice_order.append(tag)
-                    self.choice_list.append(p)
+                    self._register_choice(int(p.ASN1_tag), p)
                 else:
                     # should be ASN1F_field instance
-                    tag = p.network_tag
-                    self.choices[tag] = p
-                    self.choice_order.append(tag)
-                    self.choice_list.append(p)
+                    self._register_choice(p.network_tag, p)
                     if hasattr(p, "cls"):
                         self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
             else:
@@ -1213,6 +1198,12 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         self._tag_to_index = {
             tag: idx for idx, tag in enumerate(self.choice_order)
         }
+
+    def _register_choice(self, tag, choice):
+        # type: (int, _CHOICE_T) -> None
+        self.choices[tag] = choice
+        self.choice_order.append(tag)
+        self.choice_list.append(choice)
 
     def _dissect_choice_payload(self, pkt, choice, payload):
         # type: (ASN1_Packet, _CHOICE_T, bytes) -> Tuple[ASN1_Object[Any], bytes]
@@ -1280,26 +1271,14 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
 
     def _choice_tag_for(self, x):
         # type: (Any) -> Optional[int]
-        for index, choice in enumerate(self.choice_list):
-            if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
-                if isinstance(x, choice):
-                    return self.choice_order[index]
-            elif isinstance(choice, type) and hasattr(choice, "ASN1_tag"):
-                if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
-                    return self.choice_order[index]
-            elif hasattr(choice, "ASN1_tag"):
-                if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
-                    return self.choice_order[index]
-        return None
+        index = self._choice_index_for(x)
+        return None if index is None else self.choice_order[index]
 
     def _choice_index_for(self, x):
         # type: (Any) -> Optional[int]
         for index, choice in enumerate(self.choice_list):
             if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
                 if isinstance(x, choice):
-                    return index
-            elif isinstance(choice, type) and hasattr(choice, "ASN1_tag"):
-                if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
                     return index
             elif hasattr(choice, "ASN1_tag"):
                 if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
@@ -1447,10 +1426,6 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
         p.ASN1_root.dissect_from_decoder(p, dec)
         return p
 
-    def dissect_from_decoder(self, pkt, dec):
-        # type: (ASN1_Packet, UPER_Decoder) -> None
-        self.set_val(pkt, self.m2i_from_decoder(pkt, dec))
-
     def _uper_encode_into(self, enc, pkt, value=None):
         # type: (UPER_Encoder, ASN1_Packet, Any) -> None
         if value is None:
@@ -1472,11 +1447,7 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
                                       explicit_tag=self.explicit_tag,
                                       safe=self.flexible_tag,
                                       _fname=self.name)
-        if diff_tag is not None:
-            if self.implicit_tag is not None:
-                self.implicit_tag = diff_tag
-            elif self.explicit_tag is not None:
-                self.explicit_tag = diff_tag
+        self._apply_diff_tag(diff_tag)
         if not s:
             return None, s
         return self.extract_packet(cls, s, _underlayer=pkt)

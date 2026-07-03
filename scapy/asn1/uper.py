@@ -668,6 +668,13 @@ class UPERcodec_Object(Generic[_K], metaclass=UPERcodec_metaclass):
                 )
 
 
+def _uper_enc_via_encode_into(cls, *args, **kwargs):
+    # type: (Type[UPERcodec_Object[Any]], *Any, **Any) -> bytes
+    enc = UPER_Encoder()
+    cls.encode_into(enc, *args, **kwargs)
+    return enc.as_bytes()
+
+
 ASN1_Codecs.PER.register_stem(UPERcodec_Object)
 
 
@@ -736,9 +743,9 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
     @classmethod
     def enc(cls, i, size_len=0, uper_min=None, uper_max=None, oer_unsigned=False):
         # type: (int, Optional[int], Optional[int], Optional[int], bool) -> bytes
-        enc = UPER_Encoder()
-        cls.encode_into(enc, i, size_len, uper_min, uper_max, oer_unsigned)
-        return enc.as_bytes()
+        return _uper_enc_via_encode_into(
+            cls, i, size_len, uper_min, uper_max, oer_unsigned,
+        )
 
     @classmethod
     def do_dec(cls,
@@ -788,9 +795,9 @@ class UPERcodec_BOOLEAN(UPERcodec_Object[int]):
     @classmethod
     def enc(cls, i, size_len=0, uper_min=None, uper_max=None, oer_unsigned=False):
         # type: (int, Optional[int], Optional[int], Optional[int], bool) -> bytes
-        enc = UPER_Encoder()
-        cls.encode_into(enc, i, size_len, uper_min, uper_max, oer_unsigned)
-        return enc.as_bytes()
+        return _uper_enc_via_encode_into(
+            cls, i, size_len, uper_min, uper_max, oer_unsigned,
+        )
 
     @classmethod
     def do_dec(cls,
@@ -896,9 +903,9 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, size_len=0, uper_min=None, uper_max=None, oer_unsigned=False):
         # type: (Any, Optional[int], Optional[int], Optional[int], bool) -> bytes
-        enc = UPER_Encoder()
-        cls.encode_into(enc, _s, size_len, uper_min, uper_max, oer_unsigned)
-        return enc.as_bytes()
+        return _uper_enc_via_encode_into(
+            cls, _s, size_len, uper_min, uper_max, oer_unsigned,
+        )
 
     @classmethod
     def do_dec(cls,
@@ -973,9 +980,9 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, size_len=0, uper_min=None, uper_max=None, oer_unsigned=False):
         # type: (Union[str, bytes], Optional[int], Optional[int], Optional[int], bool) -> bytes  # noqa: E501
-        enc = UPER_Encoder()
-        cls.encode_into(enc, _s, size_len, uper_min, uper_max, oer_unsigned)
-        return enc.as_bytes()
+        return _uper_enc_via_encode_into(
+            cls, _s, size_len, uper_min, uper_max, oer_unsigned,
+        )
 
     @classmethod
     def do_dec(cls,
@@ -1181,12 +1188,10 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
             uper_enum_values=None,
             ):
         # type: (int, Optional[int], Optional[int], Optional[int], bool, Optional[List[int]]) -> bytes  # noqa: E501
-        enc = UPER_Encoder()
-        cls.encode_into(
-            enc, i, size_len, uper_min, uper_max, oer_unsigned,
+        return _uper_enc_via_encode_into(
+            cls, i, size_len, uper_min, uper_max, oer_unsigned,
             uper_enum_values=uper_enum_values,
         )
-        return enc.as_bytes()
 
     @classmethod
     def do_dec(cls,
