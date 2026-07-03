@@ -119,6 +119,19 @@ class UPER_Encoder(object):
         self.chunks_number_of_bits = 0
         self.chunks = []  # type: List[List[int]]
 
+    def number_of_bytes(self):
+        # type: () -> int
+        return (self.chunks_number_of_bits + self.number_of_bits + 7) // 8
+
+    def align_always(self):
+        # type: () -> None
+        width = 8 * self.number_of_bytes()
+        width -= self.chunks_number_of_bits
+        width -= self.number_of_bits
+        if width:
+            self.number_of_bits += width
+            self.value <<= width
+
     def append_bit(self, bit):
         # type: (int) -> None
         self.number_of_bits += 1
@@ -366,6 +379,15 @@ class UPER_Decoder(object):
         self.number_of_bits -= number_of_bits
         return value
 
+    def align_always(self):
+        # type: () -> None
+        consumed = self.total_number_of_bits - self.number_of_bits
+        width = (8 - (consumed % 8)) % 8
+        if width:
+            if width > self.number_of_bits:
+                raise UPER_Decoding_Error("UPER_Decoder: out of data")
+            self.number_of_bits -= width
+
     def read_length_determinant(self):
         # type: () -> int
         value = self.read_non_negative_binary_integer(8)
@@ -413,6 +435,13 @@ def UPER_constrained_int_dec(s, minimum, maximum):
     value = dec.read_non_negative_binary_integer(UPER_bits_for_range(size))
     dec.consume_input()
     return value + minimum, b""
+
+
+def UPER_constrained_int_dec_from_decoder(dec, minimum, maximum):
+    # type: (UPER_Decoder, int, int) -> int
+    size = maximum - minimum
+    value = dec.read_non_negative_binary_integer(UPER_bits_for_range(size))
+    return value + minimum
 
 
 def UPER_unconstrained_int_enc(value, enc=None):
@@ -667,9 +696,17 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
                     oer_unsigned=False,  # type: bool
+                    uper_extensible=False,  # type: bool
                     ):
         # type: (...) -> None
         minimum, maximum = _uper_int_range(size_len, uper_min, uper_max, oer_unsigned)
+        if uper_extensible and minimum is not None and maximum is not None:
+            if minimum <= i <= maximum:
+                enc.append_bit(0)
+            else:
+                enc.append_bit(1)
+                UPER_unconstrained_int_enc(i, enc=enc)
+                return
         if minimum is not None and maximum is not None:
             UPER_constrained_int_enc(i, minimum, maximum, enc=enc)
         else:
@@ -682,13 +719,16 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
                          oer_unsigned=False,  # type: bool
+                         uper_extensible=False,  # type: bool
                          ):
         # type: (...) -> ASN1_Object[int]
         minimum, maximum = _uper_int_range(size_len, uper_min, uper_max, oer_unsigned)
+        if uper_extensible and minimum is not None and maximum is not None:
+            if dec.read_bit():
+                value = dec.read_unconstrained_whole_number()
+                return cls.asn1_object(value)
         if minimum is not None and maximum is not None:
-            value = dec.read_non_negative_binary_integer(
-                UPER_bits_for_range(maximum - minimum)
-            ) + minimum
+            value = UPER_constrained_int_dec_from_decoder(dec, minimum, maximum)
         else:
             value = dec.read_unconstrained_whole_number()
         return cls.asn1_object(value)

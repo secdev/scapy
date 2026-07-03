@@ -333,6 +333,11 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             "uper_min": self.uper_min,
             "uper_max": self.uper_max,
         }  # type: Dict[str, Any]
+        if (
+            getattr(self, "uper_extensible", False) and
+            self.ASN1_tag == ASN1_Class_UNIVERSAL.INTEGER
+        ):
+            kwargs["uper_extensible"] = True
         if self.uper_enum_values is not None:
             kwargs["uper_enum_values"] = self.uper_enum_values
         return kwargs
@@ -395,6 +400,29 @@ class ASN1F_BOOLEAN(ASN1F_field[bool, ASN1_BOOLEAN]):
 
 class ASN1F_INTEGER(ASN1F_field[int, ASN1_INTEGER]):
     ASN1_tag = ASN1_Class_UNIVERSAL.INTEGER
+
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: Optional[Union[int, ASN1_INTEGER]]
+                 context=None,  # type: Optional[Type[ASN1_Class]]
+                 implicit_tag=None,  # type: Optional[int]
+                 explicit_tag=None,  # type: Optional[int]
+                 flexible_tag=False,  # type: Optional[bool]
+                 size_len=None,  # type: Optional[int]
+                 oer_unsigned=False,  # type: Optional[bool]
+                 uper_min=None,  # type: Optional[int]
+                 uper_max=None,  # type: Optional[int]
+                 uper_extensible=False,  # type: bool
+                 ):
+        # type: (...) -> None
+        super(ASN1F_INTEGER, self).__init__(
+            name, cast(Optional[ASN1_INTEGER], default), context=context,
+            implicit_tag=implicit_tag, explicit_tag=explicit_tag,
+            flexible_tag=flexible_tag, size_len=size_len,
+            oer_unsigned=oer_unsigned, uper_min=uper_min,
+            uper_max=uper_max,
+        )
+        self.uper_extensible = uper_extensible
 
     def randval(self):
         # type: () -> RandNum
@@ -581,16 +609,17 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def __init__(self, *seq, **kwargs):
         # type: (*Any, **Any) -> None
-        self.uper_extensible = kwargs.pop("uper_extensible", False)
+        uper_extensible = kwargs.pop("uper_extensible", False)
         name = "dummy_seq_name"
         default = [field.default for field in seq]
         super(ASN1F_SEQUENCE, self).__init__(
             name, default, **kwargs
         )
+        self.uper_extensible = uper_extensible
         self.seq = seq
         self.islist = len(seq) > 1
         self._optionals = tuple(
-            f for f in seq if isinstance(f, ASN1F_optional)
+            f for f in seq if isinstance(f, (ASN1F_optional, ASN1F_DEFAULT))
         )
 
     def __repr__(self):
@@ -701,9 +730,9 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         presence = [dec.read_bit() for _ in self._optionals]
         opt_idx = 0
         for obj in self.seq:
-            if isinstance(obj, ASN1F_optional):
+            if isinstance(obj, (ASN1F_optional, ASN1F_DEFAULT)):
                 if not presence[opt_idx]:
-                    obj.set_val(pkt, None)
+                    obj.set_absent(pkt)
                     opt_idx += 1
                     continue
                 opt_idx += 1
@@ -738,7 +767,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         for opt in self._optionals:
             enc.append_bit(0 if opt.is_empty(pkt) else 1)
         for obj in self.seq:
-            if isinstance(obj, ASN1F_optional) and obj.is_empty(pkt):
+            if isinstance(obj, (ASN1F_optional, ASN1F_DEFAULT)) and obj.is_empty(pkt):
                 continue
             obj._uper_encode_into(enc, pkt)
 
@@ -835,7 +864,10 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
 
     def m2i_from_decoder(self, pkt, dec):
         # type: (ASN1_Packet, UPER_Decoder) -> List[Any]
-        count, _ = UPER_count_dec(b"", dec=dec)
+        if self.uper_extensible and dec.read_bit():
+            count = dec.read_length_determinant()
+        else:
+            count = self._uper_count_dec(dec)
         lst = []
         for _ in range(count):
             item, _ = self._extract_packet_from_decoder(dec, pkt)
@@ -865,22 +897,18 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
                 enc.append_length_determinant(count)
                 for item in value:
                     if self.holds_packets:
-                        item_enc = UPER_Encoder()
                         cast("ASN1_Packet", item).ASN1_root._uper_encode_into(
-                            item_enc, item,
+                            enc, item,
                         )
-                        UPER_append_encoded(enc, item_enc.as_bytes())
                     else:
                         self.fld._uper_encode_into(enc, pkt, item)
                 return
         self._uper_count_enc(enc, count)
         for item in value:
             if self.holds_packets:
-                item_enc = UPER_Encoder()
                 cast("ASN1_Packet", item).ASN1_root._uper_encode_into(
-                    item_enc, item,
+                    enc, item,
                 )
-                UPER_append_encoded(enc, item_enc.as_bytes())
             else:
                 self.fld._uper_encode_into(enc, pkt, item)
 
@@ -960,12 +988,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
         else:
             if pkt.ASN1_codec == ASN1_Codecs.PER:
                 enc = UPER_Encoder()
-                enc.append_length_determinant(len(val))
-                for item in val:
-                    if self.holds_packets:
-                        UPER_append_encoded(enc, bytes(item))
-                    else:
-                        self.fld._uper_encode_into(enc, pkt, item)
+                self._uper_encode_into(enc, pkt, val)
                 s = enc.as_bytes()
             elif self.holds_packets:
                 s = b"".join(bytes(i) for i in val)
@@ -1067,6 +1090,10 @@ class ASN1F_optional(ASN1F_element):
         # type: (ASN1_Packet, Any) -> None
         self._field.set_val(pkt, val)
 
+    def set_absent(self, pkt):
+        # type: (ASN1_Packet) -> None
+        self.set_val(pkt, None)
+
     def is_empty(self, pkt):
         # type: (ASN1_Packet) -> bool
         val = getattr(pkt, self._field.name, None)
@@ -1079,6 +1106,32 @@ class ASN1F_optional(ASN1F_element):
     def _uper_encode_into(self, enc, pkt, value=None):
         # type: (UPER_Encoder, ASN1_Packet, Optional[Any]) -> None
         self._field._uper_encode_into(enc, pkt, value)
+
+
+class ASN1F_DEFAULT(ASN1F_optional):
+    """
+    ASN.1 field with a DEFAULT value (PER presence bit).
+    """
+    def __init__(self, field, default):
+        # type: (ASN1F_field[Any, Any], Any) -> None
+        super(ASN1F_DEFAULT, self).__init__(field)
+        self._default = default
+
+    def is_empty(self, pkt):
+        # type: (ASN1_Packet) -> bool
+        val = getattr(pkt, self._field.name, None)
+        if val is None:
+            return True
+        if isinstance(val, ASN1_Object):
+            val = val.val
+        default = self._default
+        if isinstance(default, ASN1_Object):
+            default = default.val
+        return bool(val == default)
+
+    def set_absent(self, pkt):
+        # type: (ASN1_Packet) -> None
+        self.set_val(pkt, self._default)
 
 
 class ASN1F_omit(ASN1F_field[None, None]):
@@ -1112,7 +1165,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         if "implicit_tag" in kwargs:
             err_msg = "ASN1F_CHOICE has been called with an implicit_tag"
             raise ASN1_Error(err_msg)
-        self.uper_extensible = kwargs.pop("uper_extensible", False)
+        uper_extensible = kwargs.pop("uper_extensible", False)
         self.implicit_tag = None
         for kwarg in ["context", "explicit_tag"]:
             setattr(self, kwarg, kwargs.get(kwarg))
@@ -1120,6 +1173,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
             name, None, context=self.context,
             explicit_tag=self.explicit_tag
         )
+        self.uper_extensible = uper_extensible
         self.default = default
         self.current_choice = None
         self.choices = {}  # type: Dict[int, _CHOICE_T]
