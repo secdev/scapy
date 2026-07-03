@@ -262,7 +262,7 @@ def check_its_messages_build():
 
 def check_its_messages_asn1tools_decode():
     # type: () -> None
-    if not HAS_ASN1TOOLS:
+    if not HAS_ASN1TOOLS or not _its_asn_files_available():
         return
     compiled = asn1tools.compile_files(
         [str(f) for f in _its_asn_files()],
