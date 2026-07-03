@@ -45,12 +45,10 @@ from scapy.asn1.uper import (
     UPER_Decoding_Error,
     UPER_Decoder,
     UPER_Encoder,
-    UPER_append_encoded,
     UPER_bits_for_range,
     UPER_choice_index_dec,
     UPER_choice_index_enc,
     UPER_constrained_int_enc,
-    UPER_count_dec,
     UPER_has_unexpected_remainder,
 )
 from scapy.base_classes import BasePacket
