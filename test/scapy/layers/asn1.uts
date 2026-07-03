@@ -459,6 +459,22 @@ __import__('test.contrib.automotive.v2x_packets', fromlist=['check_its_import'])
 __import__('test.contrib.automotive.v2x_packets', fromlist=['check_its_messages_build']).check_its_messages_build()
 = ITS messages asn1tools decode
 __import__('test.contrib.automotive.v2x_packets', fromlist=['check_its_messages_asn1tools_decode']).check_its_messages_asn1tools_decode()
+= InstantX DENM example payload
+__import__('test.contrib.automotive.v2x_packets', fromlist=['check_instantx_denm_example_payload']).check_instantx_denm_example_payload()
+= InstantX DENM example build
+__import__('test.contrib.automotive.v2x_packets', fromlist=['check_instantx_denm_example_build']).check_instantx_denm_example_build()
+= InstantX DENM example asn1tools
+__import__('test.contrib.automotive.v2x_packets', fromlist=['check_instantx_denm_example_asn1tools']).check_instantx_denm_example_asn1tools()
+= InstantX DENM example encode
+__import__('test.contrib.automotive.v2x_packets', fromlist=['check_instantx_denm_example_encode']).check_instantx_denm_example_encode()
+= InstantX DENM example scapy decode
+__import__('test.contrib.automotive.v2x_packets', fromlist=['check_instantx_denm_example_scapy_decode']).check_instantx_denm_example_scapy_decode()
+= InstantX DENM example roundtrip
+__import__('test.contrib.automotive.v2x_packets', fromlist=['check_instantx_denm_example_roundtrip']).check_instantx_denm_example_roundtrip()
+= ITS containers build
+__import__('test.contrib.automotive.v2x_packets', fromlist=['check_its_containers_build']).check_its_containers_build()
+= ITS containers dissect
+__import__('test.contrib.automotive.v2x_packets', fromlist=['check_its_containers_dissect']).check_its_containers_dissect()
 
 + ASN.1 UPER fuzzing
 = UPER fuzz encode

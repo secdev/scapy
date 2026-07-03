@@ -22,6 +22,7 @@ from scapy.asn1fields import (
     ASN1F_SEQUENCE_OF,
     ASN1F_STRING,
     ASN1F_UTF8_STRING,
+    ASN1F_DEFAULT,
     ASN1F_optional,
 )
 from scapy.asn1packet import ASN1_Packet
@@ -66,6 +67,13 @@ class PathPoint(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_PACKET("pathPosition", DeltaReferencePosition(), DeltaReferencePosition),
         ASN1F_optional(ASN1F_INTEGER("pathDeltaTime", None, uper_min=1, uper_max=65535, oer_unsigned=True))
+    )
+
+
+class PathHistory(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "pathPoints", [], PathPoint, uper_min=0, uper_max=40
     )
 
 
@@ -212,7 +220,7 @@ class EventPoint(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_PACKET("eventPosition", DeltaReferencePosition(), DeltaReferencePosition),
-        ASN1F_optional(ASN1F_INTEGER("eventDeltaTime", None, uper_min=1, uper_max=65535, oer_unsigned=True)),
+        ASN1F_optional(ASN1F_INTEGER("eventDeltaTime", None, uper_min=1, uper_max=65535, oer_unsigned=True, uper_extensible=True)),
         ASN1F_INTEGER("informationQuality", 0, uper_min=0, uper_max=7, oer_unsigned=True)
     )
 
@@ -337,8 +345,8 @@ class LocationContainer(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_optional(ASN1F_PACKET("eventSpeed", None, Speed)),
         ASN1F_optional(ASN1F_PACKET("eventPositionHeading", None, Heading)),
-        ASN1F_SEQUENCE_OF("traces", [], ASN1F_STRING, uper_min=1, uper_max=7),
-        ASN1F_optional(ASN1F_ENUMERATED("roadType", 0, {0: 'urban-NoStructuralSeparationToOppositeLanes', 1: 'urban-WithStructuralSeparationToOppositeLanes', 2: 'nonUrban-NoStructuralSeparationToOppositeLanes', 3: 'nonUrban-WithStructuralSeparationToOppositeLanes'})), uper_extensible=True
+        ASN1F_SEQUENCE_OF("traces", [], PathHistory, uper_min=1, uper_max=7),
+        ASN1F_optional(ASN1F_ENUMERATED("roadType", None, {0: 'urban-NoStructuralSeparationToOppositeLanes', 1: 'urban-WithStructuralSeparationToOppositeLanes', 2: 'nonUrban-NoStructuralSeparationToOppositeLanes', 3: 'nonUrban-WithStructuralSeparationToOppositeLanes'})), uper_extensible=True
     )
 
 
@@ -1029,7 +1037,10 @@ class ManagementContainer(ASN1_Packet):
         ASN1F_PACKET("eventPosition", ReferencePosition(), ReferencePosition),
         ASN1F_optional(ASN1F_ENUMERATED("relevanceDistance", 0, {0: 'lessThan50m', 1: 'lessThan100m', 2: 'lessThan200m', 3: 'lessThan500m', 4: 'lessThan1000m', 5: 'lessThan5km', 6: 'lessThan10km', 7: 'over10km'})),
         ASN1F_optional(ASN1F_ENUMERATED("relevanceTrafficDirection", 0, {0: 'allTrafficDirections', 1: 'upstreamTraffic', 2: 'downstreamTraffic', 3: 'oppositeTraffic'})),
-        ASN1F_INTEGER("validityDuration", 0, uper_min=0, uper_max=86400, oer_unsigned=True),
+        ASN1F_DEFAULT(
+            ASN1F_INTEGER("validityDuration", 600, uper_min=0, uper_max=86400, oer_unsigned=True),
+            600,
+        ),
         ASN1F_optional(ASN1F_INTEGER("transmissionInterval", None, uper_min=1, uper_max=10000, oer_unsigned=True)),
         ASN1F_INTEGER("stationType", 0, uper_min=0, uper_max=255, oer_unsigned=True), uper_extensible=True
     )
@@ -1775,6 +1786,7 @@ __all__ = [
     "Altitude",
     "PosConfidenceEllipse",
     "PathPoint",
+    "PathHistory",
     "PtActivation",
     "CauseCode",
     "Curvature",
