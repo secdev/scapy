@@ -2,6 +2,7 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
+# scapy.contrib.description = ETSI ITS V2X ASN.1 messages (UPER)
 # scapy.contrib.status = library
 
 """
