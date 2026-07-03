@@ -256,6 +256,58 @@ __import__('test.scapy.layers.oer_packets', fromlist=['check_oer_field_choice'])
 = OER packet record
 __import__('test.scapy.layers.oer_packets', fromlist=['check_oer_packet_record']).check_oer_packet_record()
 
++ ASN.1 BER packets and fields
+= BER field explicit tag
+__import__('test.scapy.layers.ber_packets', fromlist=['check_ber_field_explicit_tag']).check_ber_field_explicit_tag()
+= BER field fixed size
+__import__('test.scapy.layers.ber_packets', fromlist=['check_ber_field_fixed_size']).check_ber_field_fixed_size()
+= BER field optional
+__import__('test.scapy.layers.ber_packets', fromlist=['check_ber_field_optional']).check_ber_field_optional()
+= BER field sequence of
+__import__('test.scapy.layers.ber_packets', fromlist=['check_ber_field_sequence_of']).check_ber_field_sequence_of()
+= BER field choice
+__import__('test.scapy.layers.ber_packets', fromlist=['check_ber_field_choice']).check_ber_field_choice()
+= BER packet record
+__import__('test.scapy.layers.ber_packets', fromlist=['check_ber_packet_record']).check_ber_packet_record()
+
++ ASN.1 packet build tests (BER, OER, PER)
+= BER record build roundtrip
+__import__('test.scapy.layers.asn1_build_tests', fromlist=['check_ber_record_build_roundtrip']).check_ber_record_build_roundtrip()
+= OER record build roundtrip
+__import__('test.scapy.layers.asn1_build_tests', fromlist=['check_oer_record_build_roundtrip']).check_oer_record_build_roundtrip()
+= PER record build roundtrip
+__import__('test.scapy.layers.asn1_build_tests', fromlist=['check_per_record_build_roundtrip']).check_per_record_build_roundtrip()
+= PER default field build
+__import__('test.scapy.layers.asn1_build_tests', fromlist=['check_per_default_field_build']).check_per_default_field_build()
+= PER extensible integer build
+__import__('test.scapy.layers.asn1_build_tests', fromlist=['check_per_extensible_integer_build']).check_per_extensible_integer_build()
+= PER constrained sequence of build
+__import__('test.scapy.layers.asn1_build_tests', fromlist=['check_per_constrained_sequence_of_build']).check_per_constrained_sequence_of_build()
+= BER OER PER choice build
+__import__('test.scapy.layers.asn1_build_tests', fromlist=['check_ber_oer_per_choice_build']).check_ber_oer_per_choice_build()
+
++ ASN.1 packet dissection tests (BER, OER, PER)
+= BER field dissect
+__import__('test.scapy.layers.asn1_dissect_tests', fromlist=['check_ber_field_dissect']).check_ber_field_dissect()
+= BER record dissect
+__import__('test.scapy.layers.asn1_dissect_tests', fromlist=['check_ber_record_dissect']).check_ber_record_dissect()
+= OER field dissect
+__import__('test.scapy.layers.asn1_dissect_tests', fromlist=['check_oer_field_dissect']).check_oer_field_dissect()
+= OER record dissect
+__import__('test.scapy.layers.asn1_dissect_tests', fromlist=['check_oer_record_dissect']).check_oer_record_dissect()
+= PER field dissect
+__import__('test.scapy.layers.asn1_dissect_tests', fromlist=['check_per_field_dissect']).check_per_field_dissect()
+= PER record dissect
+__import__('test.scapy.layers.asn1_dissect_tests', fromlist=['check_per_record_dissect']).check_per_record_dissect()
+= PER default field dissect
+__import__('test.scapy.layers.asn1_dissect_tests', fromlist=['check_per_default_field_dissect']).check_per_default_field_dissect()
+= PER extensible integer dissect
+__import__('test.scapy.layers.asn1_dissect_tests', fromlist=['check_per_extensible_integer_dissect']).check_per_extensible_integer_dissect()
+= PER constrained sequence of dissect
+__import__('test.scapy.layers.asn1_dissect_tests', fromlist=['check_per_constrained_sequence_of_dissect']).check_per_constrained_sequence_of_dissect()
+= BER OER PER record dissect
+__import__('test.scapy.layers.asn1_dissect_tests', fromlist=['check_ber_oer_per_record_dissect']).check_ber_oer_per_record_dissect()
+
 + ASN.1 UPER codec
 = UPER boolean true
 UPERcodec_BOOLEAN.enc(1) == b"\x80"
