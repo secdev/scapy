@@ -779,6 +779,52 @@ assert pkt[Dot11EltVHTOperation].VHT_Operation_Info.channel_center1 == 50
 pkt = Dot11EltVHTOperation(b'\xc0\x05\x01*2\x00\x00')
 assert pkt[Dot11Elt::{"ID": 192}].len == 5
 
+= Dot11EltExtension generic in isolation
+
+data = b'\xff\x03\x30\x01\x02'
+pkt = Dot11Elt(data)
+assert Dot11EltExtensionGeneric in pkt
+assert pkt[Dot11EltExtensionGeneric].ID == 255
+assert pkt[Dot11EltExtensionGeneric].len == 3
+assert pkt[Dot11EltExtensionGeneric].ext_ID == 48
+assert pkt[Dot11EltExtensionGeneric].getfieldval("info") == b'\x01\x02'
+assert raw(pkt) == data
+
+= Dot11EltExtension short element in isolation
+
+pkt = Dot11Elt(b'\xff\x00')
+assert Dot11EltExtension in pkt
+assert pkt[Dot11EltExtension].ID == 255
+assert pkt[Dot11EltExtension].len == 0
+assert raw(pkt) == b'\xff\x00'
+
+= Dot11EltHEOperation in isolation
+
+data = b'\xff\x07$\x00\x00\x00\x00\x00\x00'
+pkt = Dot11Elt(data)
+assert Dot11EltHEOperation in pkt
+assert pkt[Dot11EltHEOperation].ID == 255
+assert pkt[Dot11EltHEOperation].len == 7
+assert pkt[Dot11EltHEOperation].ext_ID == 36
+assert pkt[Dot11EltHEOperation].six_g_op_info_present == 0
+assert pkt[Dot11EltHEOperation].vht_operation_info_present == 0
+assert pkt[Dot11EltHEOperation].basic_he_mcs_and_nss_set == [0] * 8
+assert raw(pkt) == data
+
+= Dot11EltHEOperation with 6 GHz Operation Information in isolation
+
+data = b'\xff\x0c$\x00\x00\x02\x00\x00\x00\x05\x02%\x00\x0c'
+pkt = Dot11Elt(data)
+assert Dot11EltHEOperation in pkt
+assert Dot11HE6GOperationInfo in pkt
+assert pkt[Dot11EltHEOperation].six_g_op_info_present == 1
+assert pkt[Dot11HE6GOperationInfo].primary_channel == 5
+assert pkt[Dot11HE6GOperationInfo].channel_width == 2
+assert pkt[Dot11HE6GOperationInfo].channel_center0 == 37
+assert pkt[Dot11HE6GOperationInfo].channel_center1 == 0
+assert pkt[Dot11HE6GOperationInfo].minimum_rate == 12
+assert raw(pkt) == data
+
 = Dot11EltOBSS in isolation
 
 pkt = Dot11EltOBSS(b'J\x0e\x14\x00\n\x00,\x01\xc8\x00\x14\x00\x05\x00\x19\x00')
