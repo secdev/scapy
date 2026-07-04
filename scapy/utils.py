@@ -530,7 +530,7 @@ def hexdiff(
         if dox:
             xd = y
             j = 0
-            while not linex[j]:
+            while j < len(linex) and not linex[j]:
                 j += 1
                 xd -= 1
             print(colorize[doy - dox]("%04x" % xd), end=' ')
@@ -541,7 +541,7 @@ def hexdiff(
         if doy:
             yd = y
             j = 0
-            while not liney[j]:
+            while j < len(liney) and not liney[j]:
                 j += 1
                 yd -= 1
             print(colorize[doy - dox]("%04x" % yd), end=' ')
