@@ -1685,6 +1685,42 @@ class Dot11EltHEOperation(Dot11EltExtension):
 Dot11EltHEOperation.register_variant(36)
 
 
+# 802.11n-2009 7.3.2.57, Figure 7-95o24, Table 7-43p
+
+class Dot11EltHTOperation(Dot11Elt):
+    name = "802.11 HT Operation"
+    match_subclass = True
+    fields_desc = [
+        ByteEnumField("ID", 61, _dot11_id_enum),
+        ByteField("len", 22),
+        ByteField("primary_channel", 0),
+
+        # HT Operation Information: 1B
+        BitField("reserved_1", 0, 4, tot_size=-1),
+        BitField("rifs_mode", 0, 1),
+        BitField("channel_width", 0, 1),
+        BitField("secondary_channel_offset", 0, 2, end_tot_size=-1),
+
+        # HT Operation Information: 2B
+        BitField("reserved_3", 0, 11, tot_size=-2),
+        BitField("obss_non_ht_stas_present", 0, 1),
+        BitField("reserved_2", 0, 1),
+        BitField("nongreenfield_ht_stas_present", 0, 1),
+        BitField("ht_protection", 0, 2, end_tot_size=-2),
+
+        # HT Operation Information: 2B
+        BitField("reserved_4", 0, 10, tot_size=-2),
+        BitField("pco_phase", 0, 1),
+        BitField("pco_active", 0, 1),
+        BitField("lsig_txop_protection_full_support", 0, 1),
+        BitField("stbc_beacon", 0, 1),
+        BitField("dual_cts_protection", 0, 1),
+        BitField("dual_beacon", 0, 1, end_tot_size=-2),
+
+        StrFixedLenField("basic_mcs_set", b"\x00" * 16, 16),
+    ]
+
+
 ######################
 # 802.11 Frame types #
 ######################
