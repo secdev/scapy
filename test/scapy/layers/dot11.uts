@@ -779,6 +779,30 @@ assert pkt[Dot11EltVHTOperation].VHT_Operation_Info.channel_center1 == 50
 pkt = Dot11EltVHTOperation(b'\xc0\x05\x01*2\x00\x00')
 assert pkt[Dot11Elt::{"ID": 192}].len == 5
 
+= Dot11EltHTOperation in isolation
+
+data = b'\x3d\x16\x24\x0d\x17\x00\x3f\x00' + b'\xff' + b'\x00' * 15
+pkt = Dot11Elt(data)
+assert Dot11EltHTOperation in pkt
+assert pkt[Dot11EltHTOperation].ID == 61
+assert pkt[Dot11EltHTOperation].len == 22
+assert pkt[Dot11EltHTOperation].primary_channel == 36
+assert pkt[Dot11EltHTOperation].secondary_channel_offset == 1
+assert pkt[Dot11EltHTOperation].channel_width == 1
+assert pkt[Dot11EltHTOperation].rifs_mode == 1
+assert pkt[Dot11EltHTOperation].reserved_1 == 0
+assert pkt[Dot11EltHTOperation].ht_protection == 3
+assert pkt[Dot11EltHTOperation].nongreenfield_ht_stas_present == 1
+assert pkt[Dot11EltHTOperation].obss_non_ht_stas_present == 1
+assert pkt[Dot11EltHTOperation].dual_beacon == 1
+assert pkt[Dot11EltHTOperation].dual_cts_protection == 1
+assert pkt[Dot11EltHTOperation].stbc_beacon == 1
+assert pkt[Dot11EltHTOperation].lsig_txop_protection_full_support == 1
+assert pkt[Dot11EltHTOperation].pco_active == 1
+assert pkt[Dot11EltHTOperation].pco_phase == 1
+assert pkt[Dot11EltHTOperation].basic_mcs_set == b'\xff' + b'\x00' * 15
+assert raw(pkt) == data
+
 = Dot11EltExtension generic in isolation
 
 data = b'\xff\x03\x30\x01\x02'
