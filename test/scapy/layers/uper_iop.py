@@ -5,17 +5,10 @@
 """
 UPER interoperability helpers.
 
-Cross-check Scapy's UPER codec against asn1tools when available.
+Cross-check Scapy's UPER codec against reference encodings (from asn1tools).
 """
 
-from typing import Any, Callable, List, Optional, Tuple
-
-try:
-    import asn1tools
-    HAS_ASN1TOOLS = True
-except ImportError:
-    asn1tools = None  # type: ignore
-    HAS_ASN1TOOLS = False
+from typing import Any
 
 from scapy.asn1.uper import (
     UPERcodec_BOOLEAN,
@@ -26,74 +19,51 @@ from scapy.asn1.uper import (
     UPER_Encoder,
     UPER_choice_index_enc,
 )
-
-
-ASN1TOOLS_UPER_SPEC = (
-    "Foo DEFINITIONS AUTOMATIC TAGS ::= "
-    "BEGIN "
-    "A ::= BOOLEAN "
-    "B ::= INTEGER "
-    "C ::= INTEGER (0..255) "
-    "Signed ::= INTEGER (-128..127) "
-    "SeqOfC ::= SEQUENCE OF INTEGER (0..255) "
-    "ChoiceC ::= CHOICE { a INTEGER (0..15), b OCTET STRING } "
-    "D ::= OCTET STRING "
-    "E ::= OCTET STRING (SIZE(3)) "
-    "G ::= NULL "
-    "Seq ::= SEQUENCE { id INTEGER, flag BOOLEAN, extra INTEGER OPTIONAL } "
-    "SeqOf ::= SEQUENCE OF INTEGER "
-    "Choice ::= CHOICE { a INTEGER, b OCTET STRING } "
-    "H ::= ENUMERATED { alpha(1), beta(200) } "
-    "Inner ::= SEQUENCE { x INTEGER, y BOOLEAN } "
-    "Outer ::= SEQUENCE { id INTEGER, inner Inner } "
-    "Multi ::= SEQUENCE { id INTEGER, a INTEGER OPTIONAL, b OCTET STRING OPTIONAL } "
-    "END"
-)
-
-PRIMITIVE_VECTORS = [
-    ("A", True, lambda v: UPERcodec_BOOLEAN.enc(1 if v else 0)),
-    ("A", False, lambda v: UPERcodec_BOOLEAN.enc(1 if v else 0)),
-    ("B", 42, lambda v: UPERcodec_INTEGER.enc(v)),
-    ("B", -1, lambda v: UPERcodec_INTEGER.enc(v)),
-    ("C", 200, lambda v: UPERcodec_INTEGER.enc(v, uper_min=0, uper_max=255)),
-    ("D", b"AB", lambda v: UPERcodec_STRING.enc(v)),
-    ("E", b"\x12\x34\x56", lambda v: UPERcodec_STRING.enc(v, size_len=3)),
-    ("G", None, lambda v: UPERcodec_NULL.enc(None)),
-    ("H", "beta", lambda v: UPERcodec_ENUMERATED.enc(
-        200, uper_enum_values=[1, 200],
-    )),
-]
-
-COMPOSITE_VECTORS = [
-    ("Seq", {"id": 42, "flag": True}),
-    ("Seq", {"id": 42, "flag": True, "extra": 7}),
-    ("SeqOf", [1, 2, 3]),
-    ("SeqOfC", [1, 200, 0]),
-    ("Choice", ("a", 99)),
-    ("Choice", ("b", b"AB")),
-    ("ChoiceC", ("a", 10)),
-    ("ChoiceC", ("b", b"AB")),
-]
+from scapy.packet import raw
 
 from test.scapy.layers.uper_packets import (
     UPERMultiOptional,
     UPERNestedSequence,
 )
-from scapy.packet import raw
 
-DECODE_COMPOSITE_VECTORS = [
-    ("Seq", {"id": 42, "flag": True}, {"id": 42, "flag": True}),
+# (type name, value, scapy encoder callable, reference encoding)
+PRIMITIVE_VECTORS = [
+    ("A", True, lambda v: UPERcodec_BOOLEAN.enc(1 if v else 0), b"\x80"),
+    ("A", False, lambda v: UPERcodec_BOOLEAN.enc(1 if v else 0), b"\x00"),
+    ("B", 42, lambda v: UPERcodec_INTEGER.enc(v), b"\x01*"),
+    ("B", -1, lambda v: UPERcodec_INTEGER.enc(v), b"\x01\xff"),
     (
-        "Seq",
-        {"id": 42, "flag": True, "extra": 7},
-        {"id": 42, "flag": True, "extra": 7},
+        "C",
+        200,
+        lambda v: UPERcodec_INTEGER.enc(v, uper_min=0, uper_max=255),
+        b"\xc8",
     ),
-    ("SeqOf", [1, 2, 3], [1, 2, 3]),
-    ("SeqOfC", [1, 200, 0], [1, 200, 0]),
-    ("Choice", ("a", 99), ("a", 99)),
-    ("Choice", ("b", b"AB"), ("b", b"AB")),
-    ("ChoiceC", ("a", 10), ("a", 10)),
-    ("ChoiceC", ("b", b"AB"), ("b", b"AB")),
+    ("D", b"AB", lambda v: UPERcodec_STRING.enc(v), b"\x02AB"),
+    (
+        "E",
+        b"\x12\x34\x56",
+        lambda v: UPERcodec_STRING.enc(v, size_len=3),
+        b"\x12\x34\x56",
+    ),
+    ("G", None, lambda v: UPERcodec_NULL.enc(None), b""),
+    (
+        "H",
+        "beta",
+        lambda v: UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]),
+        b"\x80",
+    ),
+]
+
+# (type name, value, reference encoding)
+COMPOSITE_VECTORS = [
+    ("Seq", {"id": 42, "flag": True}, b"\x00\x95@"),
+    ("Seq", {"id": 42, "flag": True, "extra": 7}, b"\x80\x95@A\xc0"),
+    ("SeqOf", [1, 2, 3], b"\x03\x01\x01\x01\x02\x01\x03"),
+    ("SeqOfC", [1, 200, 0], b"\x03\x01\xc8\x00"),
+    ("Choice", ("a", 99), b"\x00\xb1\x80"),
+    ("Choice", ("b", b"AB"), b"\x81 \xa1\x00"),
+    ("ChoiceC", ("a", 10), b"P"),
+    ("ChoiceC", ("b", b"AB"), b"\x81 \xa1\x00"),
 ]
 
 DECODE_PACKET_VECTORS = [
@@ -109,39 +79,23 @@ DECODE_PACKET_VECTORS = [
     ),
 ]
 
-ASN1TOOLS_PACKET_VECTORS = [
+PACKET_REFERENCE_VECTORS = [
     (
-        "Outer",
-        {"id": 5, "inner": {"x": 3, "y": True}},
         UPERNestedSequence,
         {"id": 5, "x": 3, "y": True},
+        bytes.fromhex("0105010380"),
     ),
     (
-        "Multi",
-        {"id": 1, "a": 2, "b": b"hi"},
         UPERMultiOptional,
         {"id": 1, "a": 2, "b": b"hi"},
+        bytes.fromhex("c0404040809a1a40"),
     ),
 ]
 
 
-def require_asn1tools():
-    # type: () -> bool
-    return HAS_ASN1TOOLS
-
-
-def _compile_asn1tools():
-    # type: () -> Any
-    if not HAS_ASN1TOOLS:
-        raise RuntimeError("asn1tools is not installed")
-    return asn1tools.compile_string(ASN1TOOLS_UPER_SPEC, "uper")
-
-
 def check_primitive_interop():
     # type: () -> None
-    foo = _compile_asn1tools()
-    for typename, value, encoder in PRIMITIVE_VECTORS:
-        expected = foo.encode(typename, value)
+    for typename, value, encoder, expected in PRIMITIVE_VECTORS:
         got = encoder(value)
         assert got == expected, (
             "%s %r: expected %s, got %s" %
@@ -151,9 +105,7 @@ def check_primitive_interop():
 
 def check_composite_interop():
     # type: () -> None
-    foo = _compile_asn1tools()
-    for typename, value in COMPOSITE_VECTORS:
-        expected = foo.encode(typename, value)
+    for typename, value, expected in COMPOSITE_VECTORS:
         got = _encode_composite(typename, value)
         assert got == expected, (
             "%s %r: expected %s, got %s" %
@@ -161,27 +113,13 @@ def check_composite_interop():
         )
 
 
-def check_composite_decode_interop():
+def check_packet_reference_interop():
     # type: () -> None
-    foo = _compile_asn1tools()
-    for typename, encoded_value, expected in DECODE_COMPOSITE_VECTORS:
-        data = foo.encode(typename, encoded_value)
-        got = foo.decode(typename, _encode_composite(typename, encoded_value))
-        assert got == expected, (
-            "%s %r: expected %r, got %r" % (typename, encoded_value, expected, got)
-        )
-        assert foo.decode(typename, data) == expected
-
-
-def check_packet_asn1tools_interop():
-    # type: () -> None
-    foo = _compile_asn1tools()
-    for typename, asn1_value, cls, pkt_kwargs in ASN1TOOLS_PACKET_VECTORS:
-        expected = foo.encode(typename, asn1_value)
+    for cls, pkt_kwargs, expected in PACKET_REFERENCE_VECTORS:
         got = raw(cls(**pkt_kwargs))
         assert got == expected, (
             "%s: expected %s, got %s" %
-            (typename, expected.hex(), got.hex())
+            (cls.__name__, expected.hex(), got.hex())
         )
         decoded = cls(got)
         for key, value in pkt_kwargs.items():

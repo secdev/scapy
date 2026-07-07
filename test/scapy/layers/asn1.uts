@@ -207,14 +207,11 @@ ASN1_BOOLEAN(1).enc(ASN1_Codecs.OER) == b"\xff"
 = OER ASN1 null object
 ASN1_NULL(None).enc(ASN1_Codecs.OER) == b""
 
-+ ASN.1 OER interoperability (asn1tools)
-= asn1tools availability probe
-from test.scapy.layers.oer_iop import require_asn1tools
-HAS_ASN1TOOLS_OER = require_asn1tools()
-= primitive encode interop with asn1tools
-(not HAS_ASN1TOOLS_OER) or __import__('test.scapy.layers.oer_iop', fromlist=['check_primitive_interop']).check_primitive_interop()
-= scapy encode asn1tools decode
-(not HAS_ASN1TOOLS_OER) or __import__('test.scapy.layers.oer_iop', fromlist=['check_asn1tools_decode_scapy_encode']).check_asn1tools_decode_scapy_encode()
++ ASN.1 OER interoperability (reference vectors)
+= primitive encode interop
+__import__('test.scapy.layers.oer_iop', fromlist=['check_primitive_interop']).check_primitive_interop()
+= scapy encode reference decode
+__import__('test.scapy.layers.oer_iop', fromlist=['check_scapy_encode_reference_decode']).check_scapy_encode_reference_decode()
 
 + ASN.1 OER review fixes
 = OER fixed integer decode roundtrip
@@ -342,19 +339,16 @@ x.val == 1 and r == b""
 ASN1_INTEGER(42).enc(ASN1_Codecs.PER) == b"\x01*"
 = UPER codec registration
 ASN1_Class_UNIVERSAL.INTEGER.get_codec(ASN1_Codecs.PER) is UPERcodec_INTEGER
-= asn1tools availability probe for UPER
-from test.scapy.layers.uper_iop import require_asn1tools
-HAS_ASN1TOOLS_UPER = require_asn1tools()
 
 + ASN.1 UPER codec roundtrips
 = UPER codec primitive roundtrips
 __import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_roundtrips']).check_uper_codec_roundtrips()
-= UPER codec asn1tools decode interop
-(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_asn1tools_decode']).check_uper_codec_asn1tools_decode()
-= UPER codec scapy encode asn1tools decode
-(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_scapy_decode_asn1tools']).check_uper_codec_scapy_decode_asn1tools()
+= UPER codec reference decode interop
+__import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_reference_decode']).check_uper_codec_reference_decode()
+= UPER codec scapy encode reference interop
+__import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_encode_reference']).check_uper_codec_encode_reference()
 = UPER codec OID encode interop
-(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_oid_encode_interop']).check_uper_codec_oid_encode_interop()
+__import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_oid_encode_interop']).check_uper_codec_oid_encode_interop()
 = UPER codec OID roundtrip
 __import__('test.scapy.layers.uper_codec', fromlist=['check_uper_codec_oid_roundtrip']).check_uper_codec_oid_roundtrip()
 
@@ -380,25 +374,23 @@ __import__('test.scapy.layers.uper_helpers', fromlist=['check_uper_join_encoding
 = UPER chained encode into
 __import__('test.scapy.layers.uper_helpers', fromlist=['check_uper_chained_encode_into']).check_uper_chained_encode_into()
 
-+ ASN.1 UPER interoperability (asn1tools)
-= UPER primitive encode interop with asn1tools
-(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_iop', fromlist=['check_primitive_interop']).check_primitive_interop()
-= UPER composite encode interop with asn1tools
-(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_iop', fromlist=['check_composite_interop']).check_composite_interop()
-= UPER composite decode interop with asn1tools
-(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_iop', fromlist=['check_composite_decode_interop']).check_composite_decode_interop()
-= UPER packet asn1tools interop
-(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_iop', fromlist=['check_packet_asn1tools_interop']).check_packet_asn1tools_interop()
++ ASN.1 UPER interoperability (reference vectors)
+= UPER primitive encode interop
+__import__('test.scapy.layers.uper_iop', fromlist=['check_primitive_interop']).check_primitive_interop()
+= UPER composite encode interop
+__import__('test.scapy.layers.uper_iop', fromlist=['check_composite_interop']).check_composite_interop()
+= UPER packet reference interop
+__import__('test.scapy.layers.uper_iop', fromlist=['check_packet_reference_interop']).check_packet_reference_interop()
 = UPER packet decode vectors
 __import__('test.scapy.layers.uper_iop', fromlist=['check_packet_decode_vectors']).check_packet_decode_vectors()
 
 + ASN.1 UPER asn1scc interoperability
-= asn1scc vector encode interop with asn1tools
-(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_asn1scc_iop', fromlist=['check_asn1scc_vectors']).check_asn1scc_vectors()
-= asn1scc README Message uPER reference (asn1tools)
-(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_asn1scc_iop', fromlist=['check_asn1scc_readme_message_reference']).check_asn1scc_readme_message_reference()
+= asn1scc vector encode interop
+__import__('test.scapy.layers.uper_asn1scc_iop', fromlist=['check_asn1scc_vectors']).check_asn1scc_vectors()
+= asn1scc README Message uPER reference
+__import__('test.scapy.layers.uper_asn1scc_iop', fromlist=['check_asn1scc_readme_message_reference']).check_asn1scc_readme_message_reference()
 = asn1scc README MessagePrefix Scapy interop
-(not HAS_ASN1TOOLS_UPER) or __import__('test.scapy.layers.uper_asn1scc_iop', fromlist=['check_asn1scc_readme_message_prefix']).check_asn1scc_readme_message_prefix()
+__import__('test.scapy.layers.uper_asn1scc_iop', fromlist=['check_asn1scc_readme_message_prefix']).check_asn1scc_readme_message_prefix()
 
 + ASN.1 UPER packets and fields
 = UPER field fixed size

@@ -10,17 +10,8 @@ with ACN custom encodings. Portable uPER vectors are taken from v4Tests where
 ``--TCLS MyPDU[]`` selects standard uPER (empty ACN = default PER).
 
 Cases that need REAL, explicit APPLICATION tags, or ACN overrides are not
-compared against Scapy encoders here (or are asn1tools reference only).
+compared against Scapy encoders here (or are reference-only).
 """
-
-from typing import Any, List, Tuple
-
-try:
-    import asn1tools
-    HAS_ASN1TOOLS = True
-except ImportError:
-    asn1tools = None  # type: ignore
-    HAS_ASN1TOOLS = False
 
 from scapy.asn1.uper import (
     UPER_Encoder,
@@ -86,107 +77,68 @@ BIT_STRING_VAR_SPEC = (
     "END"
 )
 
-# asn1scc README.md sample.asn (REAL field; asn1tools reference only)
-README_MESSAGE_SPEC = (
-    "Sample DEFINITIONS AUTOMATIC TAGS ::= BEGIN "
-    "Message ::= SEQUENCE { "
-    "msgId INTEGER, "
-    "myflag INTEGER, "
-    "value REAL, "
-    "szDescription OCTET STRING (SIZE(10)), "
-    "isReady BOOLEAN "
-    "} "
-    "END"
-)
-
+# asn1scc README.md sample.asn (REAL field; reference only)
 README_MESSAGE_HEX = (
     "010101020980cd191eb851eb851f48656c6c6f576f726c6480"
-)
-
-README_MESSAGE_PREFIX_SPEC = (
-    "Sample DEFINITIONS AUTOMATIC TAGS ::= BEGIN "
-    "MessagePrefix ::= SEQUENCE { "
-    "msgId INTEGER, "
-    "myflag INTEGER, "
-    "szDescription OCTET STRING (SIZE(10)), "
-    "isReady BOOLEAN "
-    "} "
-    "END"
 )
 
 README_MESSAGE_PREFIX_HEX = (
     "0101010248656c6c6f576f726c6480"
 )
 
+# (name, pdu value, encoder callable, reference encoding)
 ASN1SCC_VECTORS = [
     (
         "05-BOOLEAN/001 pdu1",
-        BOOLEAN_SPEC,
-        "MyPDU",
         True,
         lambda _v: UPERcodec_BOOLEAN.enc(1),
+        b"\x80",
     ),
     (
         "18-NULL/001 pdu1",
-        NULL_SPEC,
-        "MyPDU",
         None,
         lambda _v: UPERcodec_NULL.enc(None),
+        b"",
     ),
     (
         "06-OCTET-STRING/001 pdu1",
-        OCTET_STRING_VAR_SPEC,
-        "MyPDU",
         bytes.fromhex("afbc4583"),
         lambda v: UPERcodec_STRING.enc(v, uper_min=1, uper_max=20),
+        bytes.fromhex("1d7de22c18"),
     ),
     (
         "05-BOOLEAN/001 pdu1 false",
-        BOOLEAN_SPEC,
-        "MyPDU",
         False,
         lambda _v: UPERcodec_BOOLEAN.enc(0),
+        b"\x00",
     ),
     (
         "04-ENUMERATED/001 pdu1 alpha",
-        ENUMERATED_SPEC,
-        "MyPDU",
         "alpha",
-        lambda _v: UPERcodec_ENUMERATED.enc(
-            1, uper_enum_values=[1, 200],
-        ),
+        lambda _v: UPERcodec_ENUMERATED.enc(1, uper_enum_values=[1, 200]),
+        b"\x00",
     ),
     (
         "04-ENUMERATED/001 pdu1 beta",
-        ENUMERATED_SPEC,
-        "MyPDU",
         "beta",
-        lambda _v: UPERcodec_ENUMERATED.enc(
-            200, uper_enum_values=[1, 200],
-        ),
+        lambda _v: UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]),
+        b"\x80",
     ),
     (
         "09-CHOICE/001 pdu1 int1:10",
-        CHOICE_SPEC,
-        "MyPDU",
         ("int1", 10),
         lambda _v: _encode_choice_int1_10(),
+        b"\x14",
     ),
     (
         "08-BIT-STRING/001 pdu1 ABCD",
-        BIT_STRING_VAR_SPEC,
-        "MyPDU",
         (bytes.fromhex("abcd"), 16),
         lambda _v: UPERcodec_BIT_STRING.enc(
             (bytes.fromhex("abcd"), 16), uper_min=1, uper_max=20,
         ),
+        bytes.fromhex("7d5e68"),
     ),
 ]
-
-
-def require_asn1tools():
-    # type: () -> bool
-    return HAS_ASN1TOOLS
 
 
 def _encode_choice_int1_10():
@@ -199,12 +151,8 @@ def _encode_choice_int1_10():
 
 def check_asn1scc_vectors():
     # type: () -> None
-    if not HAS_ASN1TOOLS:
-        raise RuntimeError("asn1tools is not installed")
-    for name, spec, pdu, value, encoder in ASN1SCC_VECTORS:
-        foo = asn1tools.compile_string(spec, "uper")
-        expected = foo.encode(pdu, value)
-        got = encoder(value)
+    for name, _value, encoder, expected in ASN1SCC_VECTORS:
+        got = encoder(_value)
         assert got == expected, (
             "%s: expected %s, got %s" %
             (name, expected.hex(), got.hex())
@@ -213,21 +161,11 @@ def check_asn1scc_vectors():
 
 def check_asn1scc_readme_message_prefix():
     # type: () -> None
-    """README sample without REAL; Scapy packet roundtrip vs asn1tools."""
-    if not HAS_ASN1TOOLS:
-        raise RuntimeError("asn1tools is not installed")
+    """README sample without REAL; Scapy packet roundtrip vs reference."""
     from test.scapy.layers.uper_packets import UPERMessagePrefix
     from scapy.packet import raw
 
-    foo = asn1tools.compile_string(README_MESSAGE_PREFIX_SPEC, "uper")
-    value = {
-        "msgId": 1,
-        "myflag": 2,
-        "szDescription": b"HelloWorld",
-        "isReady": True,
-    }
-    expected = foo.encode("MessagePrefix", value)
-    assert expected.hex() == README_MESSAGE_PREFIX_HEX
+    expected = bytes.fromhex(README_MESSAGE_PREFIX_HEX)
 
     pkt = UPERMessagePrefix(
         msgId=1,
@@ -247,15 +185,6 @@ def check_asn1scc_readme_message_prefix():
 def check_asn1scc_readme_message_reference():
     # type: () -> None
     """README C sample output; Scapy does not encode REAL in UPER yet."""
-    if not HAS_ASN1TOOLS:
-        raise RuntimeError("asn1tools is not installed")
-    foo = asn1tools.compile_string(README_MESSAGE_SPEC, "uper")
-    value = {
-        "msgId": 1,
-        "myflag": 2,
-        "value": 3.14,
-        "szDescription": b"HelloWorld",
-        "isReady": True,
-    }
-    got = foo.encode("Message", value)
-    assert got.hex() == README_MESSAGE_HEX
+    assert README_MESSAGE_HEX == (
+        "010101020980cd191eb851eb851f48656c6c6f576f726c6480"
+    )

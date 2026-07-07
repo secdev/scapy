@@ -459,7 +459,7 @@ def check_uper_sequence_of_strings():
 
 def check_uper_sequence_choice_hex():
     # type: () -> None
-    """Cross-check against asn1tools composite encoding."""
+    """Cross-check against reference composite encoding."""
     pkt = UPERSequenceWithChoice(id=1, c=ASN1_INTEGER(99))
     assert raw(pkt) == bytes.fromhex("010100b180")
     decoded = UPERSequenceWithChoice(raw(pkt))
