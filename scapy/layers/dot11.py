@@ -983,6 +983,8 @@ _dot11_info_elts_ids = {
     33: "Power Capability",
     36: "Supported Channels",
     37: "Channel Switch Announcement",
+    38: "Measurement Request",
+    39: "Measurement Report",
     42: "ERP",
     45: "HT Capabilities",
     46: "QoS Capability",
@@ -2041,6 +2043,179 @@ class Dot11CSA(Packet):
     ]
 
 
+# 802.11-2020 9.4.2.20, 9.4.2.21
+_dot11_measurement_type = {
+    5: "Beacon",
+}
+
+
+# 802.11-2020 9.6.6.1
+
+class Dot11RadioMeasurement(Packet):
+    name = "802.11 Radio Measurement Action"
+    fields_desc = [
+        ByteEnumField("action", 0x00, {
+            0x00: "Radio Measurement Request",
+            0x01: "Radio Measurement Report",
+            0x02: "Link Measurement Request",
+            0x03: "Link Measurement Report",
+            0x04: "Neighbor Report Request",
+            0x05: "Neighbor Report Response",
+        })
+    ]
+
+
+# 802.11-2020 9.4.2.20.7
+
+class Dot11RadioMeasurementBeaconRequest(Packet):
+    name = "802.11 Radio Measurement Beacon Request"
+    fields_desc = [
+        ByteField("operating_class", 0),
+        ByteField("channel_number", 0),
+        LEShortField("randomization_interval", 0),
+        LEShortField("measurement_duration", 0),
+        ByteField("measurement_mode", 0),
+        MACField("BSSID", ETHER_ANY),
+    ]
+
+    def extract_padding(self, s):
+        return "", s
+
+
+# 802.11-2020 9.6.6.2, 9.4.2.20
+
+class Dot11RadioMeasurementRequest(Packet):
+    name = "802.11 Radio Measurement Request"
+    fields_desc = [
+        ByteField("token", 0),
+        LEShortField("repetitions", 0),
+        ByteEnumField("ID", 38, _dot11_id_enum),
+        ByteField("len", 16),
+        ByteField("measurement_token", 0),
+        # Measurement Request Mode
+        BitField("reserved", 0, 3),
+        BitField("duration_mandatory", 0, 1),
+        BitField("report", 0, 1),
+        BitField("request", 0, 1),
+        BitField("enable", 0, 1),
+        BitField("parallel", 0, 1),
+        ByteEnumField("measurement_request_type", 5,
+                      _dot11_measurement_type),
+        # Only Beacon requests are specialized for now. Other measurement
+        # request types stay raw instead of being mis-dissected.
+        ConditionalField(
+            PacketField(
+                "measurement_request",
+                Dot11RadioMeasurementBeaconRequest(),
+                Dot11RadioMeasurementBeaconRequest
+            ),
+            lambda p: p.measurement_request_type == 5
+        ),
+        ConditionalField(
+            StrLenField(
+                "measurement_request_data",
+                b"",
+                length_from=lambda p: max(p.len - 3, 0)
+            ),
+            lambda p: p.measurement_request_type != 5
+        ),
+        ConditionalField(
+            PacketListField(
+                "subelements",
+                [],
+                SubelemTLV,
+                length_from=lambda p: max(p.len - 16, 0)
+            ),
+            lambda p: p.measurement_request_type == 5 and p.len > 16
+        )
+    ]
+
+
+# 802.11-2020 9.4.2.21.7
+
+class Dot11RadioMeasurementBeaconReport(Packet):
+    name = "802.11 Radio Measurement Beacon Report"
+    fields_desc = [
+        ByteField("operating_class", 0),
+        ByteField("channel_number", 0),
+        LELongField("measurement_start_time", 0),
+        LEShortField("measurement_duration", 0),
+        # Reported Frame Information
+        BitField("reported_frame_type", 0, 1),
+        BitField("condensed_phy", 0, 7),
+        ByteField("RCPI", 0),
+        ByteField("RSNI", 0),
+        MACField("BSSID", ETHER_ANY),
+        ByteField("antenna_id", 0),
+        LEIntField("parent_tsf", 0),
+    ]
+
+    def extract_padding(self, s):
+        return "", s
+
+
+# 802.11-2020 9.6.6.3, 9.4.2.21
+
+class Dot11RadioMeasurementReport(Packet):
+    name = "802.11 Radio Measurement Report"
+    fields_desc = [
+        ByteField("token", 0),
+        ByteEnumField("ID", 39, _dot11_id_enum),
+        ByteField("len", 29),
+        ByteField("measurement_token", 0),
+        # Measurement Report Mode
+        BitField("reserved", 0, 5),
+        BitField("refused", 0, 1),
+        BitField("incapable", 0, 1),
+        BitField("late", 0, 1),
+        ByteEnumField("measurement_report_type", 5,
+                      _dot11_measurement_type),
+        # Only Beacon reports are specialized for now. Other successful
+        # measurement report types stay raw.
+        ConditionalField(
+            PacketField(
+                "measurement_report",
+                Dot11RadioMeasurementBeaconReport(),
+                Dot11RadioMeasurementBeaconReport
+            ),
+            lambda p: (
+                p.measurement_report_type == 5 and
+                p.late == 0 and
+                p.incapable == 0 and
+                p.refused == 0
+            )
+        ),
+        ConditionalField(
+            StrLenField(
+                "measurement_report_data",
+                b"",
+                length_from=lambda p: max(p.len - 3, 0)
+            ),
+            lambda p: (
+                p.measurement_report_type != 5 and
+                p.late == 0 and
+                p.incapable == 0 and
+                p.refused == 0
+            )
+        ),
+        ConditionalField(
+            PacketListField(
+                "subelements",
+                [],
+                SubelemTLV,
+                length_from=lambda p: max(p.len - 29, 0)
+            ),
+            lambda p: (
+                p.measurement_report_type == 5 and
+                p.late == 0 and
+                p.incapable == 0 and
+                p.refused == 0 and
+                p.len > 29
+            )
+        )
+    ]
+
+
 class Dot11S1GBeacon(_Dot11EltUtils):
     name = "802.11 S1G Beacon"
     fields_desc = [LEIntField("timestamp", 0),
@@ -2220,6 +2395,9 @@ bind_layers(Dot11SpectrumManagement, Dot11CSA, action=4)
 bind_layers(Dot11Action, Dot11WNM, category=0x0A)
 bind_layers(Dot11WNM, Dot11BSSTMRequest, action=7)
 bind_layers(Dot11WNM, Dot11BSSTMResponse, action=8)
+bind_layers(Dot11Action, Dot11RadioMeasurement, category=0x05)
+bind_layers(Dot11RadioMeasurement, Dot11RadioMeasurementRequest, action=0)
+bind_layers(Dot11RadioMeasurement, Dot11RadioMeasurementReport, action=1)
 
 
 conf.l2types.register(DLT_IEEE802_11, Dot11)

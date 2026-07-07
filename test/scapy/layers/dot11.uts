@@ -724,6 +724,90 @@ assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].op_clas
 assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].channel == 12
 assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].phy_type == 0
 
+= Dot11RadioMeasurementRequest - Beacon dissection
+
+data = b"\x05\x00\x7a\x01\x00\x26\x10\x11\x17\x05\x51\x06\x34\x12\x50\x00\x01\x01\x02\x03\x04\x05\x06"
+pkt = Dot11Action(data)
+assert Dot11RadioMeasurement in pkt
+assert Dot11RadioMeasurementRequest in pkt
+assert Dot11RadioMeasurementBeaconRequest in pkt
+
+req = pkt[Dot11RadioMeasurementRequest]
+assert pkt[Dot11Action].category == 5
+assert pkt[Dot11Action][Dot11RadioMeasurement].action == 0
+assert req.token == 0x7a
+assert req.repetitions == 1
+assert req.ID == 38
+assert req.len == 16
+assert req.measurement_token == 0x11
+assert req.reserved == 0
+assert req.duration_mandatory == 1
+assert req.report == 0
+assert req.request == 1
+assert req.enable == 1
+assert req.parallel == 1
+assert req.measurement_request_type == 5
+
+beacon_req = req[Dot11RadioMeasurementBeaconRequest]
+assert beacon_req.operating_class == 81
+assert beacon_req.channel_number == 6
+assert beacon_req.randomization_interval == 0x1234
+assert beacon_req.measurement_duration == 80
+assert beacon_req.measurement_mode == 1
+assert beacon_req.BSSID == "01:02:03:04:05:06"
+assert raw(pkt) == data
+
+= Dot11RadioMeasurementReport - Beacon dissection
+
+data = b"\x05\x01\x7a\x27\x1d\x11\x00\x05\x51\x06\x08\x07\x06\x05\x04\x03\x02\x01\x50\x00\xaa\x37\x16\x01\x02\x03\x04\x05\x06\x03\x44\x33\x22\x11"
+pkt = Dot11Action(data)
+assert Dot11RadioMeasurement in pkt
+assert Dot11RadioMeasurementReport in pkt
+assert Dot11RadioMeasurementBeaconReport in pkt
+
+report = pkt[Dot11RadioMeasurementReport]
+assert pkt[Dot11Action].category == 5
+assert pkt[Dot11Action][Dot11RadioMeasurement].action == 1
+assert report.token == 0x7a
+assert report.ID == 39
+assert report.len == 29
+assert report.measurement_token == 0x11
+assert report.reserved == 0
+assert report.refused == 0
+assert report.incapable == 0
+assert report.late == 0
+assert report.measurement_report_type == 5
+
+beacon_report = report[Dot11RadioMeasurementBeaconReport]
+assert beacon_report.operating_class == 81
+assert beacon_report.channel_number == 6
+assert beacon_report.measurement_start_time == 0x0102030405060708
+assert beacon_report.measurement_duration == 80
+assert beacon_report.reported_frame_type == 1
+assert beacon_report.condensed_phy == 42
+assert beacon_report.RCPI == 55
+assert beacon_report.RSNI == 22
+assert beacon_report.BSSID == "01:02:03:04:05:06"
+assert beacon_report.antenna_id == 3
+assert beacon_report.parent_tsf == 0x11223344
+assert raw(pkt) == data
+
+= Dot11RadioMeasurementRequest - unsupported measurement type
+
+data = b"\x05\x00\x01\x00\x00\x26\x05\x02\x00\x07\xaa\xbb"
+pkt = Dot11Action(data)
+assert Dot11RadioMeasurementRequest in pkt
+
+req = pkt[Dot11RadioMeasurementRequest]
+assert req.token == 1
+assert req.repetitions == 0
+assert req.ID == 38
+assert req.len == 5
+assert req.measurement_token == 2
+assert req.measurement_request_type == 7
+assert req.measurement_request_data == b"\xaa\xbb"
+assert raw(pkt) == data
+
 = Dot11Ack
 
 pkt = Dot11(bytes(Dot11()/Dot11Ack()))
