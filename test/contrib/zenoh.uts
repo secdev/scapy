@@ -1,0 +1,565 @@
+% Zenoh Protocol tests
+
+# Type the following command to launch the tests:
+# $ test/run_tests -P "load_contrib('zenoh')" -t test/contrib/zenoh.uts
+
++ Syntax check
+= Import the Zenoh layer
+from scapy.contrib.zenoh import *
+
+
++ ZenohVarIntField tests
+
+= VarInt: encode 0 (single byte)
+f = ZenohVarIntField('test', 0)
+encoded = f.addfield(None, b'', 0)
+assert encoded == bytes([0])
+assert len(encoded) == 1
+
+= VarInt: encode 127 (max single byte)
+f = ZenohVarIntField('test', 0)
+encoded = f.addfield(None, b'', 127)
+assert encoded == bytes([0x7f])
+assert len(encoded) == 1
+
+= VarInt: encode 128 (first two-byte value)
+f = ZenohVarIntField('test', 0)
+encoded = f.addfield(None, b'', 128)
+assert encoded == bytes([0x80, 0x01])
+assert len(encoded) == 2
+
+= VarInt: encode 300
+f = ZenohVarIntField('test', 0)
+encoded = f.addfield(None, b'', 300)
+assert encoded == bytes([0xac, 0x02])
+assert len(encoded) == 2
+
+= VarInt: encode 16383 (max two-byte value)
+f = ZenohVarIntField('test', 0)
+encoded = f.addfield(None, b'', 16383)
+assert encoded == bytes([0xff, 0x7f])
+assert len(encoded) == 2
+
+= VarInt: decode 0
+f = ZenohVarIntField('test', 0)
+remainder, decoded = f.getfield(None, bytes([0]))
+assert decoded == 0
+assert remainder == b''
+
+= VarInt: decode 127
+f = ZenohVarIntField('test', 0)
+remainder, decoded = f.getfield(None, bytes([0x7f]))
+assert decoded == 127
+assert remainder == b''
+
+= VarInt: decode 128
+f = ZenohVarIntField('test', 0)
+remainder, decoded = f.getfield(None, bytes([0x80, 0x01]))
+assert decoded == 128
+assert remainder == b''
+
+= VarInt: decode 300
+f = ZenohVarIntField('test', 0)
+remainder, decoded = f.getfield(None, bytes([0xac, 0x02]))
+assert decoded == 300
+assert remainder == b''
+
+= VarInt: trailing bytes remain after decoding
+f = ZenohVarIntField('test', 0)
+data = bytes([0x2a, 0xff, 0xff])
+remainder, decoded = f.getfield(None, data)
+assert decoded == 42
+assert remainder == bytes([0xff, 0xff])
+
+= VarInt: roundtrip encode/decode
+f = ZenohVarIntField('test', 0)
+for val in [0, 1, 42, 127, 128, 255, 300, 16383, 65535]:
+    enc = f.addfield(None, b'', val)
+    _, dec = f.getfield(None, enc)
+    assert dec == val
+
+
++ ZenohIDField tests
+
+= ZenohIDField: encode empty ID
+f = ZenohIDField('zid', b'')
+encoded = f.addfield(None, b'', b'')
+assert encoded == bytes([0])
+assert len(encoded) == 1
+
+= ZenohIDField: decode empty ID
+f = ZenohIDField('zid', b'')
+remainder, decoded = f.getfield(None, bytes([0]))
+assert decoded == b''
+assert remainder == b''
+
+= ZenohIDField: encode 4-byte ID
+f = ZenohIDField('zid', b'')
+encoded = f.addfield(None, b'', bytes([1, 2, 3, 4]))
+assert encoded == bytes([4, 1, 2, 3, 4])
+assert len(encoded) == 5
+
+= ZenohIDField: decode 4-byte ID
+f = ZenohIDField('zid', b'')
+remainder, decoded = f.getfield(None, bytes([4, 1, 2, 3, 4]))
+assert decoded == bytes([1, 2, 3, 4])
+assert remainder == b''
+
+= ZenohIDField: roundtrip
+f = ZenohIDField('zid', b'')
+zid = bytes(range(1, 9))
+enc = f.addfield(None, b'', zid)
+_, dec = f.getfield(None, enc)
+assert dec == zid
+
+
++ ZenohScout tests
+
+= ZenohScout: build with default values
+scout = ZenohScout()
+data = raw(scout)
+assert data == bytes([0x01, 0x01, 0x07])
+
+= ZenohScout: field values
+scout = ZenohScout()
+assert scout.mid == 0x01
+assert scout.version == 0x01
+assert scout.what == 0x07
+assert scout.flag_z == 0
+
+= ZenohScout: build with Z flag set
+scout = ZenohScout(flag_z=1)
+data = raw(scout)
+assert data == bytes([0x21, 0x01, 0x07])
+
+= ZenohScout: dissect
+data = bytes([0x01, 0x01, 0x07])
+scout = ZenohScout(data)
+assert scout.mid == 1
+assert scout.version == 1
+assert scout.what == 7
+
+= ZenohScout: dissect peer-only what
+data = bytes([0x01, 0x01, 0x02])
+scout = ZenohScout(data)
+assert scout.what == 2
+
+
++ ZenohHello tests
+
+= ZenohHello: build
+hello = ZenohHello(what=2, zid=bytes([1, 2, 3, 4]))
+data = raw(hello)
+assert data == bytes([0x02, 0x01, 0x02, 0x04, 0x01, 0x02, 0x03, 0x04])
+
+= ZenohHello: field values
+hello = ZenohHello(what=2, zid=bytes([1, 2, 3, 4]))
+assert hello.mid == 2
+assert hello.version == 1
+assert hello.what == 2
+assert hello.flag_l == 0
+
+= ZenohHello: build with locators flag
+hello = ZenohHello(flag_l=1, what=1, zid=bytes([0xab, 0xcd]))
+data = raw(hello)
+assert data[0] == 0x82
+
+= ZenohHello: dissect
+data = bytes([0x02, 0x01, 0x02, 0x04, 0x01, 0x02, 0x03, 0x04])
+hello = ZenohHello(data)
+assert hello.mid == 2
+assert hello.version == 1
+assert hello.what == 2
+assert hello.zid == bytes([1, 2, 3, 4])
+assert hello.flag_l == 0
+
+= ZenohHello: dissect with locators flag
+data = bytes([0x82, 0x01, 0x01, 0x02, 0xab, 0xcd])
+hello = ZenohHello(data)
+assert hello.flag_l == 1
+assert hello.zid == bytes([0xab, 0xcd])
+
+
++ ZenohInit tests
+
+= ZenohInit: build InitSyn (no resolution)
+init = ZenohInit(flag_a=0, flag_s=0, what=2, zid=bytes([0xab]))
+data = raw(init)
+assert data == bytes([0x00, 0x01, 0x02, 0x01, 0xab])
+
+= ZenohInit: build InitSyn with resolution (flag_s=1)
+init = ZenohInit(flag_a=0, flag_s=1, what=2, zid=bytes([0xab]), resolution=512, batch_size=65535)
+data = raw(init)
+assert data[0] == 0x40
+parsed = ZenohInit(data)
+assert parsed.flag_s == 1
+assert parsed.resolution == 512
+assert parsed.batch_size == 65535
+
+= ZenohInit: InitAck header byte
+init = ZenohInit(flag_a=1, what=1, zid=bytes([0xcd]), nonce=0xDEADBEEF, cookie=b'cookie')
+data = raw(init)
+assert data[0] == 0x80
+
+= ZenohInit: InitAck fields
+init = ZenohInit(flag_a=1, what=1, zid=bytes([0xcd]), nonce=0xDEADBEEF, cookie=b'cookie')
+data = raw(init)
+parsed = ZenohInit(data)
+assert parsed.flag_a == 1
+assert parsed.nonce == 0xDEADBEEF
+assert parsed.cookie == b'cookie'
+
+= ZenohInit: dissect InitSyn
+data = bytes([0x00, 0x01, 0x02, 0x01, 0xab])
+init = ZenohInit(data)
+assert init.flag_a == 0
+assert init.flag_s == 0
+assert init.version == 1
+assert init.what == 2
+assert init.zid == bytes([0xab])
+
+= ZenohInit: conditional fields absent when flag_s=0 and flag_a=0
+init = ZenohInit(flag_a=0, flag_s=0, what=2, zid=bytes([0xab]))
+assert init.resolution is None
+assert init.batch_size is None
+assert init.nonce is None
+assert init.cookie is None
+
+
++ ZenohOpen tests
+
+= ZenohOpen: build OpenSyn header byte
+open_pkt = ZenohOpen(flag_a=0, lease=10000, initial_sn=0, cookie=b'ck')
+data = raw(open_pkt)
+assert data[0] == 0x01
+
+= ZenohOpen: OpenSyn fields
+open_pkt = ZenohOpen(flag_a=0, lease=10000, initial_sn=0, cookie=b'ck')
+data = raw(open_pkt)
+parsed = ZenohOpen(data)
+assert parsed.flag_a == 0
+assert parsed.lease == 10000
+assert parsed.initial_sn == 0
+assert parsed.cookie == b'ck'
+
+= ZenohOpen: build OpenAck
+open_pkt = ZenohOpen(flag_a=1, initial_sn=0)
+data = raw(open_pkt)
+assert data == bytes([0x81, 0x00])
+
+= ZenohOpen: dissect OpenAck
+data = bytes([0x81, 0x00])
+parsed = ZenohOpen(data)
+assert parsed.flag_a == 1
+assert parsed.initial_sn == 0
+assert parsed.lease is None
+assert parsed.cookie is None
+
+= ZenohOpen: dissect OpenSyn
+data = bytes([0x01, 0x90, 0x4e, 0x00, 0x02, ord('c'), ord('k')])
+parsed = ZenohOpen(data)
+assert parsed.flag_a == 0
+assert parsed.lease == 10000
+assert parsed.initial_sn == 0
+assert parsed.cookie == b'ck'
+
+
++ ZenohClose tests
+
+= ZenohClose: build session close
+close = ZenohClose(flag_l=0, reason=0)
+data = raw(close)
+assert data == bytes([0x05, 0x00])
+
+= ZenohClose: build link close
+close = ZenohClose(flag_l=1)
+data = raw(close)
+assert data == bytes([0x85])
+
+= ZenohClose: dissect session close
+data = bytes([0x05, 0x00])
+close = ZenohClose(data)
+assert close.flag_l == 0
+assert close.reason == 0
+
+= ZenohClose: dissect link close
+data = bytes([0x85])
+close = ZenohClose(data)
+assert close.flag_l == 1
+assert close.reason is None
+
+
++ ZenohKeepAlive tests
+
+= ZenohKeepAlive: build request
+ka = ZenohKeepAlive(flag_a=0)
+data = raw(ka)
+assert data == bytes([0x04])
+
+= ZenohKeepAlive: build reply
+ka = ZenohKeepAlive(flag_a=1)
+data = raw(ka)
+assert data == bytes([0x84])
+
+= ZenohKeepAlive: dissect
+data = bytes([0x04])
+ka = ZenohKeepAlive(data)
+assert ka.mid == 4
+assert ka.flag_a == 0
+
+
++ ZenohFrame tests
+
+= ZenohFrame: build best-effort frame
+frame = ZenohFrame(flag_r=0, sn=0)
+data = raw(frame)
+assert data == bytes([0x06, 0x00])
+
+= ZenohFrame: build reliable frame
+frame = ZenohFrame(flag_r=1, sn=1)
+data = raw(frame)
+assert data == bytes([0x26, 0x01])
+
+= ZenohFrame: dissect
+data = bytes([0x26, 0x01])
+frame = ZenohFrame(data)
+assert frame.flag_r == 1
+assert frame.sn == 1
+
+= ZenohFrame: dispatch to Push network message
+push = ZenohPush(wire_expr_id=10)
+push_data = raw(push)
+frame_data = raw(ZenohFrame(flag_r=1, sn=5)) + push_data
+frame = ZenohFrame(frame_data)
+assert ZenohPush in frame
+assert frame[ZenohPush].wire_expr_id == 10
+
+= ZenohFrame: dispatch to Request network message
+req_data = raw(ZenohRequest(rid=3, wire_expr_id=7))
+frame_data = raw(ZenohFrame(flag_r=1, sn=5)) + req_data
+frame = ZenohFrame(frame_data)
+assert ZenohRequest in frame
+assert frame[ZenohRequest].rid == 3
+
+
++ ZenohFragment tests
+
+= ZenohFragment: build last fragment (reliable)
+frag = ZenohFragment(flag_m=0, flag_r=1, sn=1)
+data = raw(frag)
+assert data == bytes([0x27, 0x01])
+
+= ZenohFragment: build more-fragments (reliable)
+frag = ZenohFragment(flag_m=1, flag_r=1, sn=1)
+data = raw(frag)
+assert data == bytes([0xa7, 0x01])
+
+= ZenohFragment: dissect
+data = bytes([0xa7, 0x01])
+frag = ZenohFragment(data)
+assert frag.flag_m == 1
+assert frag.flag_r == 1
+assert frag.sn == 1
+
+
++ ZenohJoin tests
+
+= ZenohJoin: build without lease header byte
+join = ZenohJoin(flag_t=0, what=2, zid=bytes([0x01]), resolution=512, batch_size=65535, next_sn_reliable=0, next_sn_best_effort=0)
+data = raw(join)
+assert data[0] == 0x08
+
+= ZenohJoin: build with lease header byte
+join = ZenohJoin(flag_t=1, what=2, zid=bytes([0x01, 0x02]), resolution=512, batch_size=65535, lease=5000, next_sn_reliable=0, next_sn_best_effort=0)
+data = raw(join)
+assert data[0] == 0x48
+
+= ZenohJoin: dissect
+data = bytes([0x48, 0x01, 0x02, 0x02, 0x01, 0x02, 0x80, 0x04, 0xff, 0xff, 0x88, 0x27, 0x00, 0x00])
+join = ZenohJoin(data)
+assert join.mid == 8
+assert join.flag_t == 1
+assert join.version == 1
+assert join.what == 2
+assert join.zid == bytes([0x01, 0x02])
+assert join.resolution == 512
+assert join.batch_size == 65535
+assert join.lease == 5000
+
+
++ Network Message tests
+
+= ZenohPush: build and dissect
+push = ZenohPush(wire_expr_id=10)
+data = raw(push)
+assert data == bytes([0x00, 0x0a])
+parsed = ZenohPush(data)
+assert parsed.mid == 0
+assert parsed.wire_expr_id == 10
+
+= ZenohRequest: build and dissect
+req = ZenohRequest(rid=1, wire_expr_id=5)
+data = raw(req)
+assert data == bytes([0x01, 0x01, 0x05])
+parsed = ZenohRequest(data)
+assert parsed.mid == 1
+assert parsed.rid == 1
+assert parsed.wire_expr_id == 5
+
+= ZenohResponse: build and dissect
+resp = ZenohResponse(rid=1, entity_id=2)
+data = raw(resp)
+assert data == bytes([0x02, 0x01, 0x02])
+parsed = ZenohResponse(data)
+assert parsed.mid == 2
+assert parsed.rid == 1
+assert parsed.entity_id == 2
+
+= ZenohResponseFinal: build and dissect
+resp_final = ZenohResponseFinal(rid=1, entity_id=2)
+data = raw(resp_final)
+assert data == bytes([0x03, 0x01, 0x02])
+parsed = ZenohResponseFinal(data)
+assert parsed.mid == 3
+assert parsed.rid == 1
+assert parsed.entity_id == 2
+
+= ZenohDeclare: build header byte
+decl = ZenohDeclare()
+data = raw(decl)
+assert data[0] == 0x05
+parsed = ZenohDeclare(data)
+assert parsed.mid == 5
+
+= ZenohOAM: build and dissect
+oam = ZenohOAM(oam_id=1)
+data = raw(oam)
+assert data[0] == 0x1f
+parsed = ZenohOAM(data)
+assert parsed.mid == 0x1f
+assert parsed.oam_id == 1
+
+= ZenohFrame: dispatch to OAM network message
+oam_data = raw(ZenohOAM(oam_id=42))
+frame_data = raw(ZenohFrame(flag_r=0, sn=0)) + oam_data
+frame = ZenohFrame(frame_data)
+assert ZenohOAM in frame
+assert frame[ZenohOAM].oam_id == 42
+
+
++ Dispatch layer tests
+
+= ZenohScouting: dispatch Scout
+data = bytes([0x01, 0x01, 0x07])
+scouting = ZenohScouting(data)
+assert ZenohScout in scouting
+assert scouting[ZenohScout].mid == 1
+assert scouting[ZenohScout].what == 7
+
+= ZenohScouting: dispatch Hello
+data = bytes([0x02, 0x01, 0x02, 0x04, 0x01, 0x02, 0x03, 0x04])
+scouting = ZenohScouting(data)
+assert ZenohHello in scouting
+assert scouting[ZenohHello].what == 2
+
+= ZenohTransport: dispatch Init
+data = bytes([0x00, 0x01, 0x02, 0x01, 0xab])
+transport = ZenohTransport(data)
+assert ZenohInit in transport
+assert transport[ZenohInit].flag_a == 0
+
+= ZenohTransport: dispatch Open (Ack)
+data = bytes([0x81, 0x00])
+transport = ZenohTransport(data)
+assert ZenohOpen in transport
+assert transport[ZenohOpen].flag_a == 1
+
+= ZenohTransport: dispatch Close
+data = bytes([0x05, 0x00])
+transport = ZenohTransport(data)
+assert ZenohClose in transport
+
+= ZenohTransport: dispatch KeepAlive
+data = bytes([0x04])
+transport = ZenohTransport(data)
+assert ZenohKeepAlive in transport
+
+= ZenohTransport: dispatch Frame
+data = bytes([0x26, 0x01])
+transport = ZenohTransport(data)
+assert ZenohFrame in transport
+
+= ZenohTransport: dispatch Join
+data = bytes([0x08, 0x01, 0x02, 0x01, 0x01, 0x80, 0x04, 0xff, 0xff, 0x00, 0x00])
+transport = ZenohTransport(data)
+assert ZenohJoin in transport
+
+
++ Layer binding tests
+
+= UDP port 7446 binds to ZenohScouting
+from scapy.layers.inet import UDP, IP
+pkt = IP()/UDP(dport=7446)/ZenohScouting()/ZenohScout()
+data = raw(pkt)
+parsed = IP(data)
+assert ZenohScouting in parsed
+
+pkt = IP()/UDP(sport=7446)/ZenohScouting()/ZenohScout()
+data = raw(pkt)
+parsed = IP(data)
+assert ZenohScouting in parsed
+
+= UDP port 7447 binds to ZenohTransport
+from scapy.layers.inet import UDP, IP
+pkt = IP()/UDP(dport=7447)/ZenohTransport()/ZenohInit()
+data = raw(pkt)
+parsed = IP(data)
+assert ZenohTransport in parsed
+
+= TCP port 7447 binds to ZenohTransport
+from scapy.layers.inet import TCP, IP
+pkt = IP()/TCP(dport=7447)/ZenohTransport()/ZenohInit()
+data = raw(pkt)
+parsed = IP(data)
+assert ZenohTransport in parsed
+
+
++ Session handshake scenario tests
+
+= InitSyn roundtrip
+init_syn = ZenohInit(flag_a=0, flag_s=1, what=2, zid=bytes([0xaa, 0xbb, 0xcc]), resolution=512, batch_size=65535)
+data = raw(init_syn)
+parsed = ZenohInit(data)
+assert parsed.flag_a == 0
+assert parsed.flag_s == 1
+assert parsed.resolution == 512
+assert parsed.zid == bytes([0xaa, 0xbb, 0xcc])
+
+= InitAck roundtrip
+init_ack = ZenohInit(flag_a=1, flag_s=1, what=1, zid=bytes([0x11, 0x22]), resolution=512, batch_size=65535, nonce=0xCAFEBABE, cookie=b'secret')
+data = raw(init_ack)
+parsed = ZenohInit(data)
+assert parsed.flag_a == 1
+assert parsed.nonce == 0xCAFEBABE
+assert parsed.cookie == b'secret'
+
+= OpenSyn roundtrip
+open_syn = ZenohOpen(flag_a=0, lease=10000, initial_sn=100, cookie=b'secret')
+data = raw(open_syn)
+parsed = ZenohOpen(data)
+assert parsed.flag_a == 0
+assert parsed.lease == 10000
+assert parsed.cookie == b'secret'
+
+= OpenAck roundtrip
+open_ack = ZenohOpen(flag_a=1, initial_sn=200)
+data = raw(open_ack)
+parsed = ZenohOpen(data)
+assert parsed.flag_a == 1
+assert parsed.initial_sn == 200
+
+= Close session roundtrip
+close = ZenohClose(flag_l=0, reason=1)
+data = raw(close)
+parsed = ZenohClose(data)
+assert parsed.reason == 1
