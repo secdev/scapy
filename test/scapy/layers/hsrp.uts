@@ -106,6 +106,17 @@ assert pkt[HSRPv2UnknownTLV].type == 99
 assert pkt[HSRPv2UnknownTLV].len == 4
 assert pkt[HSRPv2UnknownTLV].value == b"abcd"
 
+= HSRPv2 - Unknown first TLV UDP dispatch
+pkt = IP(raw(
+    IP(dst="224.0.0.102") /
+    UDP(dport=1985, sport=1985) /
+    HSRPv2UnknownTLV(type=99, value=b"abcd")
+))
+assert HSRPv2 in pkt and HSRPv2UnknownTLV in pkt and HSRP not in pkt
+assert pkt[HSRPv2UnknownTLV].type == 99
+assert pkt[HSRPv2UnknownTLV].len == 4
+assert pkt[HSRPv2UnknownTLV].value == b"abcd"
+
 = HSRPv2 - MD5 Auth TLV build & dissection
 digest = b"\x11" * 16
 pkt = HSRPv2(raw(

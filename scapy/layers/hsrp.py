@@ -62,7 +62,7 @@ def _is_hsrpv2(pkt):
     tlvtype = orb(pkt[0:1])
     tlvlength = orb(pkt[1:2])
 
-    if tlvtype not in _HSRP_V2_TLV_TYPES:
+    if tlvtype == 0:
         return False
 
     if len(pkt) < 2 + tlvlength:
@@ -299,10 +299,10 @@ bind_bottom_up(UDP, HSRP, sport=1985)
 bind_layers(UDP, HSRP, dport=1985, sport=1985)
 
 DestIPField.bind_addr(UDP, "224.0.0.2", dport=1985)
-"""
-since port 1954 (UDP) would be shared by both hsrpv1 and hsprv2 (ipv4), 
-users building hsrpv2 (ipv4) packets should set IP(dst="224.0.0.102") explicitly to avoid using wrong multicast destination
-"""
+# UDP port 1985 is shared by HSRPv1 and HSRPv2 for IPv4
+# To avoid using the HSRPv1 multicast destination, explicitly set
+# IP(dst="224.0.0.102") when building HSRPv2 packets.
+# Otherwise, consider below for binding.
 # DestIPField.bind_addr(UDP, "224.0.0.102", dport=1985)
 
 if conf.ipv6_enabled:
