@@ -64,6 +64,36 @@ class OERRecord(ASN1_Packet):
     )
 
 
+class OERNestedSequence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("x", 0),
+            ASN1F_BOOLEAN("y", False),
+        ),
+    )
+
+
+class OERNestedSequenceTrailing(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("x", 0),
+            ASN1F_BOOLEAN("y", False),
+        ),
+        ASN1F_INTEGER("id", 0),
+    )
+
+
+class OERSequenceOfWithTrailing(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+        ASN1F_INTEGER("id", 0),
+    )
+
+
 def _roundtrip(cls, pkt):
     # type: (type, ASN1_Packet) -> ASN1_Packet
     return cls(raw(pkt))
@@ -147,3 +177,32 @@ def check_oer_packet_record():
     assert decoded.label.val == b""
     assert decoded.extra is None
     assert [x.val for x in decoded.values] == []
+
+
+def check_oer_nested_sequence():
+    # type: () -> None
+    pkt = OERNestedSequence(id=5, x=3, y=True)
+    assert raw(pkt) == b"\x01\x05\x01\x03\xff"
+    decoded = _roundtrip(OERNestedSequence, pkt)
+    assert decoded.id.val == 5
+    assert decoded.x.val == 3
+    assert decoded.y.val == 1
+
+
+def check_oer_nested_sequence_trailing():
+    # type: () -> None
+    pkt = OERNestedSequenceTrailing(x=3, y=True, id=5)
+    assert raw(pkt) == b"\x01\x03\xff\x01\x05"
+    decoded = _roundtrip(OERNestedSequenceTrailing, pkt)
+    assert decoded.x.val == 3
+    assert decoded.y.val == 1
+    assert decoded.id.val == 5
+
+
+def check_oer_sequence_of_with_trailing():
+    # type: () -> None
+    pkt = OERSequenceOfWithTrailing(values=[1, 2], id=7)
+    assert raw(pkt) == b"\x01\x02\x01\x01\x01\x02\x01\x07"
+    decoded = _roundtrip(OERSequenceOfWithTrailing, pkt)
+    assert [x.val for x in decoded.values] == [1, 2]
+    assert decoded.id.val == 7

@@ -252,6 +252,12 @@ __import__('test.scapy.layers.oer_packets', fromlist=['check_oer_field_sequence_
 __import__('test.scapy.layers.oer_packets', fromlist=['check_oer_field_choice']).check_oer_field_choice()
 = OER packet record
 __import__('test.scapy.layers.oer_packets', fromlist=['check_oer_packet_record']).check_oer_packet_record()
+= OER nested sequence
+__import__('test.scapy.layers.oer_packets', fromlist=['check_oer_nested_sequence']).check_oer_nested_sequence()
+= OER nested sequence trailing field
+__import__('test.scapy.layers.oer_packets', fromlist=['check_oer_nested_sequence_trailing']).check_oer_nested_sequence_trailing()
+= OER sequence of with trailing field
+__import__('test.scapy.layers.oer_packets', fromlist=['check_oer_sequence_of_with_trailing']).check_oer_sequence_of_with_trailing()
 
 + ASN.1 BER packets and fields
 = BER field explicit tag

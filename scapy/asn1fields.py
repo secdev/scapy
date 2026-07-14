@@ -685,9 +685,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         # type: (Any, bytes) -> Tuple[Any, bytes]
         s = self._apply_tagging_dec(s, pkt)
         s = self._dissect_sequence_children(pkt, s)
-        if len(s) > 0:
-            raise OER_Decoding_Error("unexpected remainder", remaining=s)
-        return [], b""
+        return [], s
 
     def _m2i_per(self, pkt, s):
         # type: (Any, bytes) -> Tuple[Any, bytes]
@@ -931,9 +929,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
                 c, s = self._extract_packet(s, pkt)  # type: ignore
                 if c:
                     lst.append(c)
-            if len(s) > 0:
-                raise OER_Decoding_Error("unexpected remainder", remaining=s)
-            return lst, b""
+            return lst, s
         if pkt.ASN1_codec == ASN1_Codecs.PER:
             dec = UPER_Decoder(s)
             if self.uper_extensible and dec.read_bit():

@@ -646,10 +646,8 @@ def check_asn1fields_packet_and_sequence_errors():
             ASN1F_INTEGER("id", 0, size_len=1, oer_unsigned=True),
         )
 
-    _raises(
-        OER_Decoding_Error,
-        lambda: _OerSeq.ASN1_root.m2i(_OerSeq(), b"\x01\xff"),
-    )
+    _, remain = _OerSeq.ASN1_root.m2i(_OerSeq(), b"\x01\xff")
+    assert remain == b"\xff"
 
     class _PerSeq(ASN1_Packet):
         ASN1_codec = ASN1_Codecs.PER
