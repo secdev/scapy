@@ -30,12 +30,11 @@ from scapy.fields import (
     Field,
     LELongField,
     LEShortField,
-    PacketListField,
-    StrLenField,
 )
 from scapy.layers.inet import TCP, UDP
 from scapy.packet import Packet, bind_layers
 from scapy.volatile import RandNum
+
 
 # ============================================================================
 # Custom Fields
