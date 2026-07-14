@@ -1438,11 +1438,20 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
         if not hasattr(cls, "ASN1_root"):
             # A normal Packet (!= ASN1)
             return self.extract_packet(cls, s, _underlayer=pkt)
-        diff_tag, s = BER_tagging_dec(s, hidden_tag=cls.ASN1_root.ASN1_tag,  # noqa: E501
-                                      implicit_tag=self.implicit_tag,
-                                      explicit_tag=self.explicit_tag,
-                                      safe=self.flexible_tag,
-                                      _fname=self.name)
+        if pkt.ASN1_codec == ASN1_Codecs.OER:
+            diff_tag, s = OER_tagging_dec(s, hidden_tag=cls.ASN1_root.ASN1_tag,  # noqa: E501
+                                          implicit_tag=self.implicit_tag,
+                                          explicit_tag=self.explicit_tag,
+                                          safe=self.flexible_tag,
+                                          _fname=self.name)
+        elif pkt.ASN1_codec != ASN1_Codecs.PER:
+            diff_tag, s = BER_tagging_dec(s, hidden_tag=cls.ASN1_root.ASN1_tag,  # noqa: E501
+                                          implicit_tag=self.implicit_tag,
+                                          explicit_tag=self.explicit_tag,
+                                          safe=self.flexible_tag,
+                                          _fname=self.name)
+        else:
+            diff_tag = None
         self._apply_diff_tag(diff_tag)
         if not s:
             return None, s
@@ -1473,6 +1482,12 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
                 return s
         if pkt.ASN1_codec == ASN1_Codecs.PER:
             return s
+        if pkt.ASN1_codec == ASN1_Codecs.OER:
+            return cast(bytes, OER_tagging_enc(
+                s,
+                implicit_tag=self.implicit_tag,
+                explicit_tag=self.explicit_tag,
+            ))
         return BER_tagging_enc(s,
                                implicit_tag=self.implicit_tag,
                                explicit_tag=self.explicit_tag)
