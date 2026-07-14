@@ -9,9 +9,24 @@ Classes that implement ASN.1 data structures.
 """
 
 import copy
-
 from functools import reduce
+from typing import (
+    Any,
+    AnyStr,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    TYPE_CHECKING,
+)
 
+from scapy import packet
 from scapy.asn1.asn1 import (
     ASN1_BIT_STRING,
     ASN1_BOOLEAN,
@@ -33,7 +48,6 @@ from scapy.asn1.ber import (
     BER_tagging_enc,
 )
 from scapy.asn1.oer import (
-    OER_Decoding_Error,
     OER_id_dec,
     OER_tag_enc,
     OER_tagging_dec,
@@ -60,24 +74,6 @@ from scapy.volatile import (
     RandOID,
     RandString,
     RandField,
-)
-
-from scapy import packet
-
-from typing import (
-    Any,
-    AnyStr,
-    Callable,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-    TYPE_CHECKING,
 )
 
 if TYPE_CHECKING:
@@ -231,9 +227,9 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             return b""
         if isinstance(x, ASN1_Object):
             if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
-                x.tag == ASN1_Class_UNIVERSAL.RAW or
-                x.tag == ASN1_Class_UNIVERSAL.ERROR or
-               self.ASN1_tag == x.tag):
+                    x.tag == ASN1_Class_UNIVERSAL.RAW or
+                    x.tag == ASN1_Class_UNIVERSAL.ERROR or
+                    self.ASN1_tag == x.tag):
                 if pkt.ASN1_codec == ASN1_Codecs.PER:
                     codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
                     s = codec.enc(x.val, **self._uper_codec_kwargs())
@@ -342,8 +338,8 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             "uper_max": self.uper_max,
         }  # type: Dict[str, Any]
         if (
-            getattr(self, "uper_extensible", False) and
-            self.ASN1_tag == ASN1_Class_UNIVERSAL.INTEGER
+                getattr(self, "uper_extensible", False) and
+                self.ASN1_tag == ASN1_Class_UNIVERSAL.INTEGER
         ):
             kwargs["uper_extensible"] = True
         if self.uper_enum_values is not None:
@@ -380,9 +376,9 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         if isinstance(value, ASN1_Object):
             if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
-                value.tag == ASN1_Class_UNIVERSAL.RAW or
-                value.tag == ASN1_Class_UNIVERSAL.ERROR or
-               self.ASN1_tag == value.tag):
+                    value.tag == ASN1_Class_UNIVERSAL.RAW or
+                    value.tag == ASN1_Class_UNIVERSAL.ERROR or
+                    self.ASN1_tag == value.tag):
                 raw = value.val
             else:
                 raise ASN1_Error(
@@ -436,7 +432,7 @@ class ASN1F_INTEGER(ASN1F_field[int, ASN1_INTEGER]):
 
     def randval(self):
         # type: () -> RandNum
-        return RandNum(-2**64, 2**64 - 1)
+        return RandNum(-2 ** 64, 2 ** 64 - 1)
 
 
 class ASN1F_enum_INTEGER(ASN1F_INTEGER):
@@ -789,7 +785,7 @@ _SEQ_T = Union[
 
 
 class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
-                                    List[ASN1_Object[Any]]]):
+List[ASN1_Object[Any]]]):
     """
     Two types are allowed as cls: ASN1_Packet, ASN1F_field
     """
@@ -888,8 +884,8 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
         count = len(value)
         if self.uper_extensible:
             if (
-                self.uper_min is not None and self.uper_max is not None and
-                self.uper_min <= count <= self.uper_max
+                    self.uper_min is not None and self.uper_max is not None and
+                    self.uper_min <= count <= self.uper_max
             ):
                 enc.append_bit(0)
             else:
@@ -1033,6 +1029,7 @@ class ASN1F_optional(ASN1F_element):
     """
     ASN.1 field that is optional.
     """
+
     def __init__(self, field):
         # type: (ASN1F_field[Any, Any]) -> None
         field.flexible_tag = False
@@ -1102,6 +1099,7 @@ class ASN1F_DEFAULT(ASN1F_optional):
     """
     ASN.1 field with a DEFAULT value (PER presence bit).
     """
+
     def __init__(self, field, default):
         # type: (ASN1F_field[Any, Any], Any) -> None
         super(ASN1F_DEFAULT, self).__init__(field)
@@ -1129,6 +1127,7 @@ class ASN1F_omit(ASN1F_field[None, None]):
     ASN.1 field that is not specified. This is simply omitted on the network.
     This is different from ASN1F_NULL which has a network representation.
     """
+
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[None, bytes]
         return None, s
