@@ -582,3 +582,176 @@ close = ZenohClose(flag_l=0, reason=1)
 data = raw(close)
 parsed = ZenohClose(data)
 assert parsed.reason == 1
+
+
++ Custom field edge cases
+
+= ZenohVarIntField: encode None defaults to 0
+f = ZenohVarIntField('test', 0)
+assert f.addfield(None, b'', None) == bytes([0])
+
+= ZenohVarIntField: i2repr and randval
+f = ZenohVarIntField('test', 0)
+assert f.i2repr(None, 42) == '42'
+assert 0 <= f.randval() <= 0xFFFF
+
+= ZenohVarIntField: incomplete varint consumes all input
+f = ZenohVarIntField('test', 0)
+remainder, decoded = f.getfield(None, bytes([0x80, 0x80]))
+assert decoded == 0
+assert remainder == b''
+
+= ZenohIDField: encode string value
+f = ZenohIDField('zid', b'')
+encoded = f.addfield(None, b'', 'ab')
+assert encoded == bytes([2]) + b'ab'
+
+= ZenohIDField: getfield on empty buffer
+f = ZenohIDField('zid', b'')
+assert f.getfield(None, b'') == (b'', b'')
+
+= ZenohIDField: i2repr and conversion helpers
+f = ZenohIDField('zid', b'')
+assert f.i2repr(None, b'\x01\x02') == '0102'
+assert f.i2repr(None, 'not-bytes') == ''
+assert f.i2h(None, None) == b''
+assert f.h2i(None, None) == b''
+assert f.h2i(None, '0102') == bytes([1, 2])
+assert f.h2i(None, 'not-hex') == b'not-hex'
+
+= ZenohBytesField: encode and decode payload
+f = ZenohBytesField('cookie', b'')
+payload = b'secret'
+enc = f.addfield(None, b'', payload)
+_, dec = f.getfield(None, enc)
+assert dec == payload
+
+= ZenohBytesField: encode string and None
+f = ZenohBytesField('cookie', b'')
+assert f.addfield(None, b'', None) == bytes([0])
+assert f.addfield(None, b'', 'hi') == bytes([2]) + b'hi'
+
+= ZenohBytesField: getfield on empty buffer
+f = ZenohBytesField('cookie', b'')
+assert f.getfield(None, b'') == (b'', b'')
+
+= ZenohBytesField: i2repr non-bytes
+f = ZenohBytesField('cookie', b'')
+assert f.i2repr(None, b'\xab\xcd') == 'abcd'
+assert f.i2repr(None, 123) == ''
+
+
++ guess_payload_class tests
+
+= ZenohScout: empty payload returns padding
+from scapy.config import conf
+assert ZenohScout().guess_payload_class(b'') is conf.padding_layer
+
+= ZenohHello: empty payload returns padding
+assert ZenohHello().guess_payload_class(b'') is conf.padding_layer
+
+= ZenohInit: empty payload returns padding
+assert ZenohInit().guess_payload_class(b'') is conf.padding_layer
+
+= ZenohOpen: empty payload returns padding
+assert ZenohOpen().guess_payload_class(b'') is conf.padding_layer
+
+= ZenohClose: empty payload returns padding
+assert ZenohClose().guess_payload_class(b'') is conf.padding_layer
+
+= ZenohKeepAlive: empty payload returns padding
+assert ZenohKeepAlive().guess_payload_class(b'') is conf.padding_layer
+
+= ZenohJoin: empty payload returns padding
+assert ZenohJoin().guess_payload_class(b'') is conf.padding_layer
+
+= ZenohFrame: empty payload returns padding
+assert ZenohFrame().guess_payload_class(b'') is conf.padding_layer
+
+= ZenohFrame: unknown network MID returns Raw
+from scapy.packet import Raw
+assert ZenohFrame().guess_payload_class(bytes([0x1e])) is Raw
+
+= ZenohFrame: dispatch Response network message
+resp_data = raw(ZenohResponse(rid=2, entity_id=3))
+frame = ZenohFrame(raw(ZenohFrame(flag_r=0, sn=0)) + resp_data)
+assert ZenohResponse in frame
+assert frame[ZenohResponse].entity_id == 3
+
+= ZenohFrame: dispatch ResponseFinal network message
+resp_final_data = raw(ZenohResponseFinal(rid=4, entity_id=5))
+frame = ZenohFrame(raw(ZenohFrame(flag_r=0, sn=0)) + resp_final_data)
+assert ZenohResponseFinal in frame
+
+= ZenohFrame: dispatch Declare network message
+decl_data = raw(ZenohDeclare())
+frame = ZenohFrame(raw(ZenohFrame(flag_r=0, sn=0)) + decl_data)
+assert ZenohDeclare in frame
+
+= ZenohNetworkMsg: empty payload returns padding
+assert ZenohNetworkMsg().guess_payload_class(b'') is conf.padding_layer
+
+= ZenohNetworkMsg: dispatch Push network message
+net = ZenohNetworkMsg(raw(ZenohPush(wire_expr_id=11)))
+assert ZenohPush in net
+assert net[ZenohPush].wire_expr_id == 11
+
+= ZenohNetworkMsg: unknown MID returns Raw
+assert ZenohNetworkMsg().guess_payload_class(bytes([0x1e])) is Raw
+
+= ZenohScouting: empty payload returns padding
+assert ZenohScouting().guess_payload_class(b'') is conf.padding_layer
+
+= ZenohScouting: unknown MID returns Raw
+assert ZenohScouting().guess_payload_class(bytes([0x1f])) is Raw
+
+= ZenohTransport: empty payload returns padding
+assert ZenohTransport().guess_payload_class(b'') is conf.padding_layer
+
+= ZenohTransport: unknown MID returns Raw
+assert ZenohTransport().guess_payload_class(bytes([0x1f])) is Raw
+
+= ZenohTransport: dispatch Fragment
+frag_data = bytes([0x27, 0x01])
+transport = ZenohTransport(frag_data)
+assert ZenohFragment in transport
+
+
++ Additional layer binding tests
+
+= UDP sport 7447 binds to ZenohTransport
+from scapy.layers.inet import UDP, IP
+pkt = IP()/UDP(sport=7447, dport=45678)/ZenohTransport()/ZenohKeepAlive()
+parsed = IP(raw(pkt))
+assert ZenohTransport in parsed
+
+= TCP sport 7447 binds to ZenohTransport
+from scapy.layers.inet import TCP, IP
+pkt = IP()/TCP(sport=7447, dport=45678)/ZenohTransport()/ZenohKeepAlive()
+parsed = IP(raw(pkt))
+assert ZenohTransport in parsed
+
+
++ Additional message variant tests
+
+= ZenohPush: NoSubscribers flag
+push = ZenohPush(flag_n=1, wire_expr_id=1)
+assert raw(push)[0] == 0x80
+
+= ZenohKeepAlive: dissect reply
+ka = ZenohKeepAlive(bytes([0x84]))
+assert ka.flag_a == 1
+
+= ZenohFragment: best-effort fragment
+frag = ZenohFragment(flag_m=0, flag_r=0, sn=2)
+assert raw(frag) == bytes([0x07, 0x02])
+
+= ZenohJoin: build without lease omits lease field
+join = ZenohJoin(flag_t=0, what=2, zid=bytes([0x01]), resolution=512, batch_size=65535, next_sn_reliable=0, next_sn_best_effort=0)
+parsed = ZenohJoin(raw(join))
+assert parsed.lease is None
+
+= ZenohClose: reason codes
+for reason in [1, 2, 3, 4]:
+    close = ZenohClose(flag_l=0, reason=reason)
+    assert ZenohClose(raw(close)).reason == reason

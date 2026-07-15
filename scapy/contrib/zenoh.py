@@ -47,10 +47,12 @@ class ZenohVarIntField(Field):
     Uses little-endian 7-bit groups: each byte contributes 7 bits,
     bit 7 (MSB) of each byte indicates more bytes follow.
 
-    Example: 300 decimal (0x12C):
-      byte 0: (0x12C & 0x7F) | 0x80 = 0xAC  (more bytes follow)
-      byte 1: 0x12C >> 7      = 0x02  (last byte)
-    Wire representation: [0xAC, 0x02]
+    For example, 300 decimal (0x12C) encodes as two bytes:
+
+    - byte 0: (0x12C & 0x7F) | 0x80 = 0xAC (more bytes follow)
+    - byte 1: 0x12C >> 7 = 0x02 (last byte)
+
+    Wire representation: ``[0xAC, 0x02]``
     """
 
     def __init__(self, name, default):
