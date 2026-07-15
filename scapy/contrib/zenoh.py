@@ -87,7 +87,9 @@ class ZenohVarIntField(Field):
 class ZenohIDField(Field):
     """Zenoh node ID field.
 
-    Wire format: 1-byte length prefix followed by the ID bytes (0-16 bytes).
+    Wire format: 1-byte length prefix followed by the ID bytes.
+    The Zenoh 1.0 spec defines ZIDs as 1-16 bytes; this field accepts
+    any 0-255 length to allow dissection of malformed packets.
     """
 
     def __init__(self, name, default):
@@ -149,7 +151,7 @@ class ZenohBytesField(Field):
             shift += 7
             if not (b & 0x80):
                 return value, i + 1
-        return 0, 0
+        return 0, len(s)
 
     def addfield(self, pkt, s, val):
         if val is None:
@@ -409,8 +411,9 @@ class ZenohNetworkMsg(Packet):
 class ZenohFrame(Packet):
     """Zenoh Frame message - transport container for network messages.
 
-    The payload of this message contains one or more zenoh network
-    messages (Push, Request, Response, etc.).
+    The payload may contain one or more zenoh network messages on the wire.
+    This dissector dispatches a single network message based on the first
+    payload byte; any remaining bytes are left to Raw/Padding layers.
 
     Header byte layout: [_|_|R][FRAME(0x06)]
       bit 7: _ (reserved)

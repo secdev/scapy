@@ -79,6 +79,23 @@ for val in [0, 1, 42, 127, 128, 255, 300, 16383, 65535]:
     assert dec == val
 
 
++ ZenohBytesField tests
+
+= ZenohBytesField: unterminated length varint consumes input
+f = ZenohBytesField('cookie', b'')
+data = bytes([0x80, 0x80, 0x80])
+remainder, decoded = f.getfield(None, data)
+assert decoded == b''
+assert remainder == b''
+
+= ZenohBytesField: trailing bytes after unterminated varint
+f = ZenohBytesField('cookie', b'')
+data = bytes([0x80, 0x80])
+remainder, decoded = f.getfield(None, data)
+assert decoded == b''
+assert remainder == b''
+
+
 + ZenohIDField tests
 
 = ZenohIDField: encode empty ID
@@ -504,7 +521,9 @@ data = raw(pkt)
 parsed = IP(data)
 assert ZenohScouting in parsed
 
-pkt = IP()/UDP(sport=7446)/ZenohScouting()/ZenohScout()
+# sport-only with default dport=53 matches the DNS binding first when all
+# layers are loaded; use an explicit client port like a real Hello reply
+pkt = IP()/UDP(sport=7446, dport=45678)/ZenohScouting()/ZenohScout()
 data = raw(pkt)
 parsed = IP(data)
 assert ZenohScouting in parsed
