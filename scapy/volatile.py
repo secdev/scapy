@@ -277,6 +277,10 @@ class RandNum(_RandNumeral[int]):
             if 'expecting_unsigned_short' in dir(self) and self.expecting_unsigned_short:
                 return (self.state_pos % 65535) # needs to be between 0 <= val <= 65535
 
+        if isinstance(self, RandShort):
+            if 'expecting_unsigned_byte' in dir(self) and self.expecting_unsigned_byte:
+                return [self.state_pos % 255]
+
         if isinstance(self, RandByte):
             # We need to return the value, not the length of it which is then
             #  multiplied by the byte (i.e. bytes not int)
