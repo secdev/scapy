@@ -28,7 +28,13 @@ from scapy.packet import (
     bind_layers,
 )
 from scapy.utils import atol
-from scapy.utils6 import in6_mask2cidr, in6_getscope
+from scapy.utils6 import (
+    in6_getscope,
+    in6_islladdr,
+    in6_ismlladdr,
+    in6_ismnladdr,
+    in6_mask2cidr,
+)
 
 from scapy.fields import (
     ByteEnumField,
@@ -49,7 +55,10 @@ from scapy.fields import (
     StrLenField,
     XStrLenField,
 )
-from scapy.pton_ntop import inet_pton
+from scapy.pton_ntop import (
+    inet_pton,
+    inet_ntop,
+)
 
 # Typing imports
 from typing import (
@@ -467,8 +476,7 @@ if OPENBSD:
                 32 if BIG_ENDIAN else -32,
                 _IFCAP,
             ),
-            StrFixedLenField("ifi_lastchange", 0,
-                             length=16 if IS_64BITS else 8),
+            StrFixedLenField("ifi_lastchange", 0, length=16 if IS_64BITS else 8),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
@@ -497,8 +505,7 @@ elif NETBSD:
             Field("ifi_omcasts", 0, fmt="=Q"),
             Field("ifi_iqdrops", 0, fmt="=Q"),
             Field("ifi_noproto", 0, fmt="=Q"),
-            StrFixedLenField("ifi_lastchange", 0,
-                             length=16 if IS_64BITS else 8),
+            StrFixedLenField("ifi_lastchange", 0, length=16 if IS_64BITS else 8),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
@@ -572,8 +579,7 @@ else:
             Field("ifi_noproto", 0, fmt="=Q"),
             Field("ifi_hwassist", 0, fmt="=Q"),
             Field("tt", 0, fmt="=Q"),
-            StrFixedLenField("tv", 0,
-                             length=16 if IS_64BITS else 8),
+            StrFixedLenField("tv", 0, length=16 if IS_64BITS else 8),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
@@ -762,8 +768,7 @@ elif DARWIN:
             Field("rmx_rtt", 0, fmt="=I"),
             Field("rmx_rttvar", 0, fmt="=I"),
             Field("rmx_pksent", 0, fmt="=I"),
-            StrFixedLenField("rmx_filler", 0,
-                             length=16 if IS_64BITS else 8),
+            StrFixedLenField("rmx_filler", 0, length=16 if IS_64BITS else 8),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
@@ -786,8 +791,7 @@ else:
             Field("rmx_pksent", 0, fmt="=Q"),
             Field("rmx_weight", 0, fmt="=Q"),
             Field("rmx_nhidx", 0, fmt="=Q"),
-            StrFixedLenField("rmx_filler", 0,
-                             length=16 if IS_64BITS else 8),
+            StrFixedLenField("rmx_filler", 0, length=16 if IS_64BITS else 8),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:
@@ -988,6 +992,21 @@ def _sr1_bsdsysctl(mib) -> List[Packet]:
     return pfmsghdrs(bytes(oldp))
 
 
+def _strip_scopeid(addr):
+    """
+    Strip the scope from link-local addresses
+    """
+    # See https://man.openbsd.org/inet6.4
+    # "In kernel structures like routing tables or interface structures,
+    # scoped addresses have their interface index embedded into the
+    # address."
+    if in6_islladdr(addr) or in6_ismlladdr(addr) or in6_ismnladdr(addr):
+        baddr = inet_pton(socket.AF_INET6, addr)
+        baddr = baddr[:2] + b"\x00\x00" + baddr[4:]
+        return inet_ntop(socket.AF_INET6, baddr)
+    return addr
+
+
 def read_routes():
     """
     Read the IPv4 routes using PF_ROUTE
@@ -1129,13 +1148,13 @@ def read_routes6():
         i = 0
         try:
             if addrs.RTA_DST:
-                prefix = msg.addrs[i].sin6_addr
+                prefix = _strip_scopeid(msg.addrs[i].sin6_addr)
                 i += 1
             if addrs.RTA_GATEWAY:
                 if msg.addrs[i].sa_family == socket.AF_LINK:
                     nh = "::"
                 else:
-                    nh = msg.addrs[i].sin6_addr or "::"
+                    nh = _strip_scopeid(msg.addrs[i].sin6_addr or "::")
                 i += 1
             if addrs.RTA_NETMASK:
                 nm = msg.addrs[i]
@@ -1157,7 +1176,7 @@ def read_routes6():
                 iface = msg.addrs[i].sdl_iface.decode(errors="ignore")
                 i += 1
             if addrs.RTA_IFA:
-                candidates.append(msg.addrs[i].sin6_addr)
+                candidates.append(_strip_scopeid(msg.addrs[i].sin6_addr))
                 i += 1
         except Exception:
             log_runtime.debug("Failed to read route %s" % repr(msg))
@@ -1222,7 +1241,7 @@ def _get_if_list():
         else:  # ipv6
             data.update(
                 {
-                    "address": addr.sin6_addr,
+                    "address": _strip_scopeid(addr.sin6_addr),
                     "scope": in6_getscope(addr.sin6_addr),
                 }
             )
