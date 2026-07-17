@@ -2070,8 +2070,8 @@ class Dot11RadioMeasurement(Packet):
 class Dot11RadioMeasurementBeaconRequest(Packet):
     name = "802.11 Radio Measurement Beacon Request"
     fields_desc = [
-        ByteField("operating_class", 0),
-        ByteField("channel_number", 0),
+        ByteField("op_class", 0),
+        ByteField("channel", 0),
         LEShortField("randomization_interval", 0),
         LEShortField("measurement_duration", 0),
         ByteField("measurement_mode", 0),
@@ -2079,7 +2079,7 @@ class Dot11RadioMeasurementBeaconRequest(Packet):
     ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 # 802.11-2020 9.6.6.2, 9.4.2.20
@@ -2121,7 +2121,7 @@ class Dot11RadioMeasurementRequest(Packet):
         ),
         ConditionalField(
             PacketListField(
-                "subelements",
+                "subelems",
                 [],
                 SubelemTLV,
                 length_from=lambda p: max(p.len - 16, 0)
@@ -2136,8 +2136,8 @@ class Dot11RadioMeasurementRequest(Packet):
 class Dot11RadioMeasurementBeaconReport(Packet):
     name = "802.11 Radio Measurement Beacon Report"
     fields_desc = [
-        ByteField("operating_class", 0),
-        ByteField("channel_number", 0),
+        ByteField("op_class", 0),
+        ByteField("channel", 0),
         LELongField("measurement_start_time", 0),
         LEShortField("measurement_duration", 0),
         # Reported Frame Information
@@ -2151,7 +2151,7 @@ class Dot11RadioMeasurementBeaconReport(Packet):
     ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 # 802.11-2020 9.6.6.3, 9.4.2.21
@@ -2170,8 +2170,8 @@ class Dot11RadioMeasurementReport(Packet):
         BitField("late", 0, 1),
         ByteEnumField("measurement_report_type", 5,
                       _dot11_measurement_type),
-        # Only Beacon reports are specialized for now. Other successful
-        # measurement report types stay raw.
+        # Only successful Beacon reports are specialized for now. Other or
+        # unsuccessful measurement report bodies stay raw.
         ConditionalField(
             PacketField(
                 "measurement_report",
@@ -2192,15 +2192,17 @@ class Dot11RadioMeasurementReport(Packet):
                 length_from=lambda p: max(p.len - 3, 0)
             ),
             lambda p: (
-                p.measurement_report_type != 5 and
-                p.late == 0 and
-                p.incapable == 0 and
-                p.refused == 0
+                not (
+                    p.measurement_report_type == 5 and
+                    p.late == 0 and
+                    p.incapable == 0 and
+                    p.refused == 0
+                )
             )
         ),
         ConditionalField(
             PacketListField(
-                "subelements",
+                "subelems",
                 [],
                 SubelemTLV,
                 length_from=lambda p: max(p.len - 29, 0)
