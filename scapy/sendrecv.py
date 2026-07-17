@@ -1053,6 +1053,23 @@ def srp1flood(x,  # type: _PacketIterable
 # SNIFF METHODS
 
 
+def _offline_pcap_reader(fname, flt, quiet):
+    # type: (str, Optional[str], bool) -> PcapReader
+    """Build a PcapReader for one sniff() offline source.
+
+    Without a filter the file is read directly. With a filter the packets are
+    prefiltered through a tcpdump subprocess; that process is attached to the
+    reader so its close() reaps it. Reading it through a bare file descriptor
+    used to leak the process as a zombie (#4512).
+    """
+    if flt is None:
+        return PcapReader(fname)
+    proc = tcpdump(fname, args=["-w", "-"], flt=flt, getproc=True, quiet=quiet)
+    reader = PcapReader(proc.stdout)
+    reader.subproc = proc
+    return reader
+
+
 class AsyncSniffer(object):
     """
     Sniff packets and return a list of packets.
@@ -1194,24 +1211,16 @@ class AsyncSniffer(object):
             if isinstance(offline, list) and \
                     all(isinstance(elt, str) for elt in offline):
                 # List of files
-                sniff_sockets.update((PcapReader(  # type: ignore
-                    fname if flt is None else
-                    tcpdump(fname,
-                            args=["-w", "-"],
-                            flt=flt,
-                            getfd=True,
-                            quiet=quiet)
-                ), fname) for fname in offline)
+                sniff_sockets.update(
+                    (_offline_pcap_reader(fname, flt, quiet), fname)  # type: ignore
+                    for fname in offline
+                )
             elif isinstance(offline, dict):
                 # Dict of files
-                sniff_sockets.update((PcapReader(  # type: ignore
-                    fname if flt is None else
-                    tcpdump(fname,
-                            args=["-w", "-"],
-                            flt=flt,
-                            getfd=True,
-                            quiet=quiet)
-                ), label) for fname, label in offline.items())
+                sniff_sockets.update(
+                    (_offline_pcap_reader(fname, flt, quiet), label)  # type: ignore
+                    for fname, label in offline.items()
+                )
             elif isinstance(offline, (Packet, PacketList, list)):
                 # Iterables (list of packets, PacketList..)
                 offline = IterSocket(offline)
