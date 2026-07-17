@@ -1138,11 +1138,11 @@ class DNSRRTSIG(_DNSRRdummy):
                    DNSStrField("algo_name", "hmac-sha1"),
                    TimeSignedField("time_signed", 0),
                    ShortField("fudge", 0),
-                   FieldLenField("mac_len", 20, fmt="!H", length_of="mac_data"),  # noqa: E501
+                   FieldLenField("mac_len", None, fmt="!H", length_of="mac_data"),  # noqa: E501
                    StrLenField("mac_data", "", length_from=lambda pkt: pkt.mac_len),  # noqa: E501
                    ShortField("original_id", 0),
                    ShortField("error", 0),
-                   FieldLenField("other_len", 0, fmt="!H", length_of="other_data"),  # noqa: E501
+                   FieldLenField("other_len", None, fmt="!H", length_of="other_data"),  # noqa: E501
                    StrLenField("other_data", "", length_from=lambda pkt: pkt.other_len)  # noqa: E501
                    ]
 
