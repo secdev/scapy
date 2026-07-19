@@ -13,6 +13,7 @@ import copy
 from functools import reduce
 
 from scapy.asn1.asn1 import (
+    ASN1Codec,
     ASN1_BIT_STRING,
     ASN1_BOOLEAN,
     ASN1_Class,
@@ -131,23 +132,23 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
 
     def _tagging_dec(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
-        stem = pkt.ASN1_codec.get_stem()
+        stem = cast(ASN1Codec, pkt.ASN1_codec).get_stem()
         if getattr(stem, "skip_tagging", False):
             return None, s
         fn = getattr(stem, "tagging_dec", None)
         if fn is None:
             return BER_tagging_dec(s, **kwargs)
-        return fn(s, **kwargs)
+        return cast(Tuple[Optional[int], bytes], fn(s, **kwargs))
 
     def _tagging_enc(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> bytes
-        stem = pkt.ASN1_codec.get_stem()
+        stem = cast(ASN1Codec, pkt.ASN1_codec).get_stem()
         if getattr(stem, "skip_tagging", False):
             return s
         fn = getattr(stem, "tagging_enc", None)
         if fn is None:
             return BER_tagging_enc(s, **kwargs)
-        return fn(s, **kwargs)
+        return cast(bytes, fn(s, **kwargs))
 
     def _codec_kwargs(self, size_len=None):
         # type: (Optional[int]) -> Dict[str, Any]
