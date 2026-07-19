@@ -16,7 +16,7 @@ try:
     from setuptools import setup
     from setuptools.command.sdist import sdist
     from setuptools.command.build_py import build_py
-except:
+except ImportError:
     raise ImportError("setuptools is required to install scapy !")
 
 
