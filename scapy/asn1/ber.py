@@ -292,6 +292,9 @@ _K = TypeVar('_K')
 class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
     codec = ASN1_Codecs.BER
     tag = ASN1_Class_UNIVERSAL.ANY
+    skip_tagging = False
+    tagging_enc = staticmethod(BER_tagging_enc)
+    tagging_dec = staticmethod(BER_tagging_dec)
 
     @classmethod
     def asn1_object(cls, val):
@@ -409,10 +412,6 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
 
 
 ASN1_Codecs.BER.register_stem(BERcodec_Object)
-
-BERcodec_Object.tagging_enc = staticmethod(BER_tagging_enc)
-BERcodec_Object.tagging_dec = staticmethod(BER_tagging_dec)
-BERcodec_Object.skip_tagging = False
 
 
 ##########################
