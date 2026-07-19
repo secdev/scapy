@@ -101,3 +101,43 @@ ASN1_UTC_TIME(datetime(2020, 12, 31)).val == "201231000000"
 ASN1_UTC_TIME(datetime(2020, 12, 31, tzinfo=timezone.utc)).val == "201231000000Z"
 = UTC datetime construction (offset)
 ASN1_UTC_TIME(datetime(2020, 12, 31, tzinfo=timezone(timedelta(hours=-23, minutes=-59)))).val == "201231000000-2359"
+
++ ASN.1 BER packets and fields
+= BER field explicit tag
+__import__('test.scapy.layers.ber_packets', fromlist=['check_ber_field_explicit_tag']).check_ber_field_explicit_tag()
+= BER field fixed size
+__import__('test.scapy.layers.ber_packets', fromlist=['check_ber_field_fixed_size']).check_ber_field_fixed_size()
+= BER field optional
+__import__('test.scapy.layers.ber_packets', fromlist=['check_ber_field_optional']).check_ber_field_optional()
+= BER field sequence of
+__import__('test.scapy.layers.ber_packets', fromlist=['check_ber_field_sequence_of']).check_ber_field_sequence_of()
+= BER field choice
+__import__('test.scapy.layers.ber_packets', fromlist=['check_ber_field_choice']).check_ber_field_choice()
+= BER packet record
+__import__('test.scapy.layers.ber_packets', fromlist=['check_ber_packet_record']).check_ber_packet_record()
+
++ ASN.1 BER codec
+= BER error formatting
+__import__('test.scapy.layers.ber_codec', fromlist=['check_ber_error_str']).check_ber_error_str()
+= BER length encoding
+__import__('test.scapy.layers.ber_codec', fromlist=['check_ber_len_enc_dec']).check_ber_len_enc_dec()
+= BER number encoding
+__import__('test.scapy.layers.ber_codec', fromlist=['check_ber_num_enc_dec']).check_ber_num_enc_dec()
+= BER identifier encoding
+__import__('test.scapy.layers.ber_codec', fromlist=['check_ber_id_enc_dec']).check_ber_id_enc_dec()
+= BER tagging
+__import__('test.scapy.layers.ber_codec', fromlist=['check_ber_tagging']).check_ber_tagging()
+= BER integer codec
+__import__('test.scapy.layers.ber_codec', fromlist=['check_ber_integer']).check_ber_integer()
+= BER bit string codec
+__import__('test.scapy.layers.ber_codec', fromlist=['check_ber_bit_string']).check_ber_bit_string()
+= BER string and null codec
+__import__('test.scapy.layers.ber_codec', fromlist=['check_ber_string_and_null']).check_ber_string_and_null()
+= BER OID codec
+__import__('test.scapy.layers.ber_codec', fromlist=['check_ber_oid']).check_ber_oid()
+= BER sequence and set codec
+__import__('test.scapy.layers.ber_codec', fromlist=['check_ber_sequence_and_set']).check_ber_sequence_and_set()
+= BER IP address codec
+__import__('test.scapy.layers.ber_codec', fromlist=['check_ber_ipaddress']).check_ber_ipaddress()
+= BER object dispatch
+__import__('test.scapy.layers.ber_codec', fromlist=['check_ber_object_dispatch']).check_ber_object_dispatch()
