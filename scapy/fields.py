@@ -1072,6 +1072,7 @@ class ThreeBytesField(Field[int, int]):
     def __init__(self, name, default):
         # type: (str, int) -> None
         Field.__init__(self, name, default, "!I")
+        self.sz = 3  # emits/consumes 3 bytes; keep i2len consistent for FieldLenField
 
     def addfield(self, pkt, s, val):
         # type: (Packet, bytes, Optional[int]) -> bytes
@@ -1092,6 +1093,7 @@ class LEThreeBytesField(ByteField):
     def __init__(self, name, default):
         # type: (str, Optional[int]) -> None
         Field.__init__(self, name, default, "<I")
+        self.sz = 3  # emits/consumes 3 bytes; keep i2len consistent for FieldLenField
 
     def addfield(self, pkt, s, val):
         # type: (Packet, bytes, Optional[int]) -> bytes
