@@ -64,6 +64,18 @@ class BERRecord(ASN1_Packet):
     )
 
 
+class BEROptionalSequence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("hdr", 0),
+        ASN1F_optional(ASN1F_SEQUENCE(
+            ASN1F_INTEGER("id", None),
+            ASN1F_STRING("label", None),
+            explicit_tag=0xA0,
+        )),
+    )
+
+
 def _roundtrip(cls, pkt):
     # type: (type, ASN1_Packet) -> ASN1_Packet
     return cls(raw(pkt))
@@ -99,6 +111,28 @@ def check_ber_field_optional():
     decoded = _roundtrip(BEROptionalField, absent)
     assert decoded.id.val == 1
     assert decoded.extra is None
+
+
+def check_ber_optional_sequence_is_empty():
+    # type: () -> None
+    """Optional ASN1F_SEQUENCE must use the wrapped field's is_empty().
+
+    SEQUENCE stores children under their own names (not dummy_seq_name), so
+    inspecting pkt.dummy_seq_name incorrectly reports present children as empty
+    and makes the parent SEQUENCE look empty.
+    """
+    opt = BEROptionalSequence.ASN1_root.seq[1]
+
+    present = BEROptionalSequence(hdr=1, id=42, label=b"abc")
+    assert opt._field.is_empty(present) is False
+    assert opt.is_empty(present) is False
+    assert BEROptionalSequence.ASN1_root.is_empty(present) is False
+    assert raw(present) == bytes.fromhex("300f020101a00a300802012a0403616263")
+
+    absent = BEROptionalSequence(hdr=1, id=None, label=None)
+    assert opt._field.is_empty(absent) is True
+    assert opt.is_empty(absent) is True
+    assert raw(absent) == bytes.fromhex("3003020101")
 
 
 def check_ber_field_sequence_of():

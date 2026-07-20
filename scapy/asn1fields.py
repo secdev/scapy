@@ -1090,12 +1090,7 @@ class ASN1F_optional(ASN1F_element):
 
     def is_empty(self, pkt):
         # type: (ASN1_Packet) -> bool
-        val = getattr(pkt, self._field.name, None)
-        if val is None:
-            return True
-        if getattr(self._field, "islist", 0) and val == []:
-            return True
-        return False
+        return self._field.is_empty(pkt)
 
     def _uper_encode_into(self, enc, pkt, value=None):
         # type: (Any, ASN1_Packet, Optional[Any]) -> None
