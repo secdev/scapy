@@ -76,6 +76,18 @@ class BEROptionalSequence(ASN1_Packet):
     )
 
 
+class BERSequenceOfTaggedIntegers(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values", [], ASN1F_INTEGER("v", 0, explicit_tag=0xA0),
+    )
+
+
+class BERSizedInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0, size_len=1)
+
+
 def _roundtrip(cls, pkt):
     # type: (type, ASN1_Packet) -> ASN1_Packet
     return cls(raw(pkt))
@@ -141,6 +153,24 @@ def check_ber_field_sequence_of():
     assert raw(pkt) == b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03"
     decoded = _roundtrip(BERSequenceOfIntegers, pkt)
     assert [x.val for x in decoded.values] == [1, 2, 3]
+
+
+def check_ber_sequence_of_tagged_elements():
+    # type: () -> None
+    """SEQUENCE OF must apply the element field's tagging on build."""
+    pkt = BERSequenceOfTaggedIntegers(values=[1, 2])
+    assert raw(pkt) == bytes.fromhex("300aa003020101a003020102")
+    decoded = _roundtrip(BERSequenceOfTaggedIntegers, pkt)
+    assert [x.val for x in decoded.values] == [1, 2]
+
+
+def check_ber_asn1_object_codec_kwargs():
+    # type: () -> None
+    """ASN1_Object values must honor field codec kwargs such as size_len."""
+    as_int = BERSizedInteger(n=5)
+    as_obj = BERSizedInteger(n=ASN1_INTEGER(5))
+    assert raw(as_int) == raw(as_obj) == b"\x02\x81\x01\x05"
+    assert _roundtrip(BERSizedInteger, as_obj).n.val == 5
 
 
 def check_ber_field_choice():
