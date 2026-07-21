@@ -134,21 +134,24 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # type: (ASN1_Packet) -> type
         return cast(ASN1Codec, pkt.ASN1_codec).get_stem()
 
-    def _tagging_dec(self, pkt, s, **kwargs):
-        # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
+    def _tagging(self, pkt, s, encode, **kwargs):
+        # type: (ASN1_Packet, bytes, bool, **Any) -> Any
         stem = self._codec_stem(pkt)
         if getattr(stem, "skip_tagging", False):
-            return None, s
+            return s if encode else (None, s)
+        if encode:
+            fn = getattr(stem, "tagging_enc", BER_tagging_enc)
+            return cast(bytes, fn(s, **kwargs))
         fn = getattr(stem, "tagging_dec", BER_tagging_dec)
         return cast(Tuple[Optional[int], bytes], fn(s, **kwargs))
 
+    def _tagging_dec(self, pkt, s, **kwargs):
+        # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
+        return self._tagging(pkt, s, False, **kwargs)
+
     def _tagging_enc(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> bytes
-        stem = self._codec_stem(pkt)
-        if getattr(stem, "skip_tagging", False):
-            return s
-        fn = getattr(stem, "tagging_enc", BER_tagging_enc)
-        return cast(bytes, fn(s, **kwargs))
+        return self._tagging(pkt, s, True, **kwargs)
 
     def _apply_tagging_dec(self, s, pkt, **kwargs):
         # type: (bytes, ASN1_Packet, **Any) -> bytes
@@ -171,10 +174,22 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
 
     def _encode_item(self, pkt, item):
         # type: (ASN1_Packet, Any) -> bytes
-        if isinstance(item, ASN1_Object):
-            return item.enc(pkt.ASN1_codec)
+        """Encode a field value with codec kwargs, without field tagging."""
+        if item is None:
+            return b""
         if hasattr(item, "self_build"):
             return cast("ASN1_Packet", item).self_build()
+        if isinstance(item, ASN1_Object):
+            if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
+                    item.tag == ASN1_Class_UNIVERSAL.RAW or
+                    item.tag == ASN1_Class_UNIVERSAL.ERROR):
+                return item.enc(pkt.ASN1_codec)
+            if self.ASN1_tag != item.tag:
+                raise ASN1_Error(
+                    "Encoding Error: got %r instead of an %r for field [%s]" %
+                    (item, self.ASN1_tag, self.name)
+                )
+            item = item.val
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         return codec.enc(item, **self._codec_kwargs())
 
@@ -209,18 +224,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # type: (ASN1_Packet, Union[bytes, _I, _A]) -> bytes
         if x is None:
             return b""
-        if isinstance(x, ASN1_Object):
-            if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
-                x.tag == ASN1_Class_UNIVERSAL.RAW or
-                x.tag == ASN1_Class_UNIVERSAL.ERROR or
-               self.ASN1_tag == x.tag):
-                s = x.enc(pkt.ASN1_codec)
-            else:
-                raise ASN1_Error("Encoding Error: got %r instead of an %r for field [%s]" % (x, self.ASN1_tag, self.name))  # noqa: E501
-        else:
-            s = self.ASN1_tag.get_codec(pkt.ASN1_codec).enc(
-                x, **self._codec_kwargs()
-            )
+        s = self._encode_item(pkt, x)
         return self._tagging_enc(
             pkt, s,
             implicit_tag=self.implicit_tag,
@@ -641,7 +645,8 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
         elif self.holds_packets:
             s = b"".join(bytes(i) for i in val)
         else:
-            s = b"".join(self.fld._encode_item(pkt, i) for i in val)
+            # Use i2m so element implicit/explicit tags match m2i()/fld.m2i()
+            s = b"".join(self.fld.i2m(pkt, i) for i in val)
         return self.i2m(pkt, s)
 
     def i2repr(self, pkt, x):
@@ -726,17 +731,10 @@ class ASN1F_optional(ASN1F_element):
         # type: (ASN1_Packet, Any) -> str
         return self._field.i2repr(pkt, x)
 
-    def set_val(self, pkt, val):
-        # type: (ASN1_Packet, Any) -> None
-        self._field.set_val(pkt, val)
-
     def set_absent(self, pkt):
         # type: (ASN1_Packet) -> None
-        self.set_val(pkt, None)
-
-    def is_empty(self, pkt):
-        # type: (ASN1_Packet) -> bool
-        return self._field.is_empty(pkt)
+        # Used by codecs that track optionality explicitly (e.g. PER).
+        self._field.set_val(pkt, None)
 
 
 class ASN1F_omit(ASN1F_field[None, None]):
