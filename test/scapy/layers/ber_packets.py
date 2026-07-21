@@ -173,6 +173,23 @@ def check_ber_asn1_object_codec_kwargs():
     assert _roundtrip(BERSizedInteger, as_obj).n.val == 5
 
 
+def check_ber_string_field_packet_value():
+    # type: () -> None
+    """Packet values in ASN1F_STRING must still get a BER universal STRING tag."""
+    from scapy.fields import StrFixedLenField
+    from scapy.packet import Packet
+
+    class Blob(Packet):
+        fields_desc = [StrFixedLenField("data", b"ABCD", 4)]
+
+    class P(ASN1_Packet):
+        ASN1_codec = ASN1_Codecs.BER
+        ASN1_root = ASN1F_STRING("s", "")
+
+    enc = P.ASN1_root.i2m(P(), Blob())
+    assert enc == b"\x04\x04ABCD"
+
+
 def check_ber_field_choice():
     # type: () -> None
     as_int = BERChoiceField(c=ASN1_INTEGER(99))

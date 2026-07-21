@@ -147,11 +147,14 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
 
     def _tagging_dec(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
-        return self._tagging(pkt, s, False, **kwargs)
+        return cast(
+            Tuple[Optional[int], bytes],
+            self._tagging(pkt, s, False, **kwargs),
+        )
 
     def _tagging_enc(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> bytes
-        return self._tagging(pkt, s, True, **kwargs)
+        return cast(bytes, self._tagging(pkt, s, True, **kwargs))
 
     def _apply_tagging_dec(self, s, pkt, **kwargs):
         # type: (bytes, ASN1_Packet, **Any) -> bytes
@@ -177,8 +180,6 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         """Encode a field value with codec kwargs, without field tagging."""
         if item is None:
             return b""
-        if hasattr(item, "self_build"):
-            return cast("ASN1_Packet", item).self_build()
         if isinstance(item, ASN1_Object):
             if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
                     item.tag == ASN1_Class_UNIVERSAL.RAW or
@@ -190,6 +191,10 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                     (item, self.ASN1_tag, self.name)
                 )
             item = item.val
+        elif hasattr(item, "self_build"):
+            # Packet values (e.g. ASN1F_STRING_PacketField) must still go through
+            # the BER type codec so the universal tag/length are applied.
+            item = item.self_build()
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         return codec.enc(item, **self._codec_kwargs())
 
