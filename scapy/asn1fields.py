@@ -190,6 +190,11 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                     "Encoding Error: got %r instead of an %r for field [%s]" %
                     (item, self.ASN1_tag, self.name)
                 )
+            # Without an explicit field size_len, keep ASN1_Object.enc() so
+            # conf.ASN1_default_long_size only affects SEQUENCE/SET (via their
+            # bytes payload path) and explicit tagging — Microsoft LDAP style.
+            if self.size_len is None:
+                return item.enc(pkt.ASN1_codec)
             item = item.val
         elif hasattr(item, "self_build"):
             # Packet values (e.g. ASN1F_STRING_PacketField) must still go through
