@@ -130,25 +130,38 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             elif self.explicit_tag is not None:
                 self.explicit_tag = diff_tag
 
+    def _codec_stem(self, pkt):
+        # type: (ASN1_Packet) -> type
+        return cast(ASN1Codec, pkt.ASN1_codec).get_stem()
+
     def _tagging_dec(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
-        stem = cast(ASN1Codec, pkt.ASN1_codec).get_stem()
+        stem = self._codec_stem(pkt)
         if getattr(stem, "skip_tagging", False):
             return None, s
-        fn = getattr(stem, "tagging_dec", None)
-        if fn is None:
-            return BER_tagging_dec(s, **kwargs)
+        fn = getattr(stem, "tagging_dec", BER_tagging_dec)
         return cast(Tuple[Optional[int], bytes], fn(s, **kwargs))
 
     def _tagging_enc(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> bytes
-        stem = cast(ASN1Codec, pkt.ASN1_codec).get_stem()
+        stem = self._codec_stem(pkt)
         if getattr(stem, "skip_tagging", False):
             return s
-        fn = getattr(stem, "tagging_enc", None)
-        if fn is None:
-            return BER_tagging_enc(s, **kwargs)
+        fn = getattr(stem, "tagging_enc", BER_tagging_enc)
         return cast(bytes, fn(s, **kwargs))
+
+    def _apply_tagging_dec(self, s, pkt, **kwargs):
+        # type: (bytes, ASN1_Packet, **Any) -> bytes
+        tag_kwargs = {
+            "hidden_tag": self.ASN1_tag,
+            "implicit_tag": self.implicit_tag,
+            "explicit_tag": self.explicit_tag,
+            "safe": self.flexible_tag,
+        }  # type: Dict[str, Any]
+        tag_kwargs.update(kwargs)
+        diff_tag, s = self._tagging_dec(pkt, s, **tag_kwargs)
+        self._apply_diff_tag(diff_tag)
+        return s
 
     def _codec_kwargs(self, size_len=None):
         # type: (Optional[int]) -> Dict[str, Any]
@@ -187,24 +200,10 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         as expected or not. Noticeably, input methods from cert.py expect
         certain exceptions to be raised. Hence default flexible_tag is False.
         """
-        diff_tag, s = self._tagging_dec(
-            pkt, s,
-            hidden_tag=self.ASN1_tag,
-            implicit_tag=self.implicit_tag,
-            explicit_tag=self.explicit_tag,
-            safe=self.flexible_tag,
-            _fname=self.name,
-        )
-        self._apply_diff_tag(diff_tag)
+        s = self._apply_tagging_dec(s, pkt, _fname=self.name)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        if self.flexible_tag:
-            return codec.safedec(
-                s, context=self.context, **self._codec_kwargs()
-            )  # type: ignore
-        else:
-            return codec.dec(
-                s, context=self.context, **self._codec_kwargs()
-            )  # type: ignore
+        dec = codec.safedec if self.flexible_tag else codec.dec
+        return dec(s, context=self.context, **self._codec_kwargs())  # type: ignore
 
     def i2m(self, pkt, x):
         # type: (ASN1_Packet, Union[bytes, _I, _A]) -> bytes
@@ -513,19 +512,6 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         return reduce(lambda x, y: x + y.get_fields_list(),
                       self.seq, [])
 
-    def _apply_tagging_dec(self, s, pkt):
-        # type: (bytes, Any) -> bytes
-        diff_tag, s = self._tagging_dec(
-            pkt, s,
-            hidden_tag=self.ASN1_tag,
-            implicit_tag=self.implicit_tag,
-            explicit_tag=self.explicit_tag,
-            safe=self.flexible_tag,
-            _fname=pkt.name,
-        )
-        self._apply_diff_tag(diff_tag)
-        return s
-
     def _dissect_sequence_children(self, pkt, s):
         # type: (Any, bytes) -> bytes
         if len(s) == 0:
@@ -541,7 +527,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def _m2i_ber(self, pkt, s):
         # type: (Any, bytes) -> Tuple[Any, bytes]
-        s = self._apply_tagging_dec(s, pkt)
+        s = self._apply_tagging_dec(s, pkt, _fname=pkt.name)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         i, s, remain = codec.check_type_check_len(s)
         s = self._dissect_sequence_children(pkt, s)
@@ -553,11 +539,9 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         # type: (Any, bytes) -> Tuple[Any, bytes]
         """
         ASN1F_SEQUENCE behaves transparently, with nested ASN1_objects being
-        dissected one by one. Because we use obj.dissect (see loop below)
-        instead of obj.m2i (as we trust dissect to do the appropriate set_vals)
-        we do not directly retrieve the list of nested objects.
-        Thus m2i returns an empty list (along with the proper remainder).
-        It is discarded by dissect() and should not be missed elsewhere.
+        dissected one by one. m2i returns an empty list (along with the proper
+        remainder). It is discarded by dissect() and should not be missed
+        elsewhere.
         """
         return self._m2i_ber(pkt, s)
 
@@ -634,14 +618,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
             s,  # type: bytes
             ):
         # type: (...) -> Tuple[List[Any], bytes]
-        diff_tag, s = self._tagging_dec(
-            pkt, s,
-            hidden_tag=self.ASN1_tag,
-            implicit_tag=self.implicit_tag,
-            explicit_tag=self.explicit_tag,
-            safe=self.flexible_tag,
-        )
-        self._apply_diff_tag(diff_tag)
+        s = self._apply_tagging_dec(s, pkt)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         i, s, remain = codec.check_type_check_len(s)
         lst = []
@@ -827,9 +804,6 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                         self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
-        self._tag_to_index = {
-            tag: idx for idx, tag in enumerate(self.choice_order)
-        }
 
     def _register_choice(self, tag, choice):
         # type: (int, _CHOICE_T) -> None
@@ -847,11 +821,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
 
     def _m2i_ber(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Object[Any], bytes]
-        _, s = self._tagging_dec(
-            pkt, s,
-            hidden_tag=self.ASN1_tag,
-            explicit_tag=self.explicit_tag,
-        )
+        s = self._apply_tagging_dec(s, pkt)
         tag, _ = BER_id_dec(s)
         return self._m2i_tagged(pkt, tag, s)
 
@@ -880,11 +850,6 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
             raise ASN1_Error("ASN1F_CHOICE: got empty string")
         return self._m2i_ber(pkt, s)
 
-    def _choice_tag_for(self, x):
-        # type: (Any) -> Optional[int]
-        index = self._choice_index_for(x)
-        return None if index is None else self.choice_order[index]
-
     def _choice_index_for(self, x):
         # type: (Any) -> Optional[int]
         for index, choice in enumerate(self.choice_list):
@@ -895,6 +860,15 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                 if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
                     return index
         return None
+
+    def _choice_for_index(self, index):
+        # type: (int) -> _CHOICE_T
+        return self.choice_list[index]
+
+    def _choice_tag_for(self, x):
+        # type: (Any) -> Optional[int]
+        index = self._choice_index_for(x)
+        return None if index is None else self.choice_order[index]
 
     def i2m(self, pkt, x):
         # type: (ASN1_Packet, Any) -> bytes
@@ -966,15 +940,11 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
         if not hasattr(cls, "ASN1_root"):
             # A normal Packet (!= ASN1)
             return self.extract_packet(cls, s, _underlayer=pkt)
-        diff_tag, s = self._tagging_dec(
-            pkt, s,
+        s = self._apply_tagging_dec(
+            s, pkt,
             hidden_tag=cls.ASN1_root.ASN1_tag,  # noqa: E501
-            implicit_tag=self.implicit_tag,
-            explicit_tag=self.explicit_tag,
-            safe=self.flexible_tag,
             _fname=self.name,
         )
-        self._apply_diff_tag(diff_tag)
         if not s:
             return None, s
         return self.extract_packet(cls, s, _underlayer=pkt)
