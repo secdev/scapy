@@ -160,6 +160,8 @@ class Field(Generic[I, M], metaclass=Field_metaclass):
     islist = 0
     ismutable = False
     holds_packets = 0
+    isconditional = False
+    ismayend = False
 
     def __init__(self, name, default, fmt="H"):
         # type: (str, Any, str) -> None
@@ -198,7 +200,7 @@ class Field(Generic[I, M], metaclass=Field_metaclass):
     def h2i(self, pkt, x):
         # type: (Optional[Packet], Any) -> I
         """Convert human value to internal value"""
-        return cast(I, x)
+        return x  # type: ignore
 
     def i2h(self, pkt, x):
         # type: (Optional[Packet], I) -> Any
@@ -208,16 +210,16 @@ class Field(Generic[I, M], metaclass=Field_metaclass):
     def m2i(self, pkt, x):
         # type: (Optional[Packet], M) -> I
         """Convert machine value to internal value"""
-        return cast(I, x)
+        return x  # type: ignore
 
     def i2m(self, pkt, x):
         # type: (Optional[Packet], Optional[I]) -> M
         """Convert internal value to machine value"""
         if x is None:
-            return cast(M, 0)
+            return 0  # type: ignore
         elif isinstance(x, str):
-            return cast(M, bytes_encode(x))
-        return cast(M, x)
+            return bytes_encode(x)  # type: ignore
+        return x  # type: ignore
 
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Any) -> Optional[I]
@@ -257,6 +259,10 @@ class Field(Generic[I, M], metaclass=Field_metaclass):
         first the raw packet string after having removed the extracted field,
         second the extracted field itself in internal representation.
         """
+        # Use unpack_from for plain bytes (avoids temporary slice allocation).
+        # Fall back to unpack+slice for subclasses that override __getitem__.
+        if type(s) is bytes:
+            return s[self.sz:], self.m2i(pkt, self.struct.unpack_from(s)[0])
         return s[self.sz:], self.m2i(pkt, self.struct.unpack(s[:self.sz])[0])
 
     def do_copy(self, x):
@@ -311,6 +317,8 @@ class _FieldContainer(object):
     A field that acts as a container for another field
     """
     __slots__ = ["fld"]
+    isconditional = False
+    ismayend = False
 
     def __getattr__(self, attr):
         # type: (str) -> Any
@@ -349,6 +357,7 @@ class MayEnd(_FieldContainer):
     to an empty value, else the behavior will be unexpected.
     """
     __slots__ = ["fld"]
+    ismayend = True
 
     def __init__(self, fld):
         # type: (Any) -> None
@@ -380,6 +389,7 @@ class ActionField(_FieldContainer):
 
 class ConditionalField(_FieldContainer):
     __slots__ = ["fld", "cond"]
+    isconditional = True
 
     def __init__(self,
                  fld,  # type: AnyField
