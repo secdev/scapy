@@ -3099,11 +3099,11 @@ assert routes == [
     ('2002:ff00::', 24, '::1', 'lo0', ['::1'], 1),
     ('fe80::', 10, '::1', 'lo0', ['::1'], 1),
     ('fec0::', 10, '::1', 'lo0', ['::1'], 1),
-    ('fe80:3::1', 128, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1),
+    ('fe80::1', 128, 'fe80::1', 'lo0', ['fe80::1'], 1),
     ('ff01::', 16, '::1', 'lo0', ['::1'], 1),
-    ('ff01:3::', 32, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1),
+    ('ff01::', 32, 'fe80::1', 'lo0', ['fe80::1'], 1),
     ('ff02::', 16, '::1', 'lo0', ['::1'], 1),
-    ('ff02:3::', 32, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1)
+    ('ff02::', 32, 'fe80::1', 'lo0', ['fe80::1'], 1)
 ]
 
 = OpenBSD 7.6 GENERIC#531 i386 - read_routes6()
@@ -3127,11 +3127,11 @@ assert routes == [
     ('2002:ff00::', 24, '::1', 'lo0', ['::1'], 1),
     ('fe80::', 10, '::1', 'lo0', ['::1'], 1),
     ('fec0::', 10, '::1', 'lo0', ['::1'], 1),
-    ('fe80:3::1', 128, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1),
+    ('fe80::1', 128, 'fe80::1', 'lo0', ['fe80::1'], 1),
     ('ff01::', 16, '::1', 'lo0', ['::1'], 1),
-    ('ff01:3::', 32, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1),
+    ('ff01::', 32, 'fe80::1', 'lo0', ['fe80::1'], 1),
     ('ff02::', 16, '::1', 'lo0', ['::1'], 1),
-    ('ff02:3::', 32, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1)
+    ('ff02::', 32, 'fe80::1', 'lo0', ['fe80::1'], 1)
 ]
 
 = FreeBSD 14.1 amd64 - read_routes()
@@ -3186,7 +3186,7 @@ assert routes == [
 import zlib
 
 from scapy.arch.bpf.pfroute import _bsd_iff_flags
-_NETBSD_IFACES = {1: {'name': 'hvn0', 'index': 1, 'flags': FlagValue(34883, _bsd_iff_flags), 'mac': '00:15:5d:00:65:0a', 'ips': [{'af_family': 24, 'index': 1, 'address': 'fe80:1::7184:2b50:9fbe:e337', 'scope': 32}, {'af_family': 2, 'index': 1, 'address': '172.23.207.191'}]}, 2: {'name': 'lo0', 'index': 2, 'flags': FlagValue(32841, _bsd_iff_flags), 'mac': '00:00:00:00:00:00', 'ips': [{'af_family': 2, 'index': 2, 'address': '127.0.0.1'}, {'af_family': 24, 'index': 2, 'address': '::1', 'scope': 16}, {'af_family': 24, 'index': 2, 'address': 'fe80:2::1', 'scope': 32}]}}
+_NETBSD_IFACES = {1: {'name': 'hvn0', 'index': 1, 'flags': FlagValue(34883, _bsd_iff_flags), 'mac': '00:15:5d:00:65:0a', 'ips': [{'af_family': 24, 'index': 1, 'address': 'fe80::7184:2b50:9fbe:e337', 'scope': 32}, {'af_family': 2, 'index': 1, 'address': '172.23.207.191'}]}, 2: {'name': 'lo0', 'index': 2, 'flags': FlagValue(32841, _bsd_iff_flags), 'mac': '00:00:00:00:00:00', 'ips': [{'af_family': 2, 'index': 2, 'address': '127.0.0.1'}, {'af_family': 24, 'index': 2, 'address': '::1', 'scope': 16}, {'af_family': 24, 'index': 2, 'address': 'fe80::1', 'scope': 32}]}}
 
 _PFROUTE_DATA = zlib.decompress(bytes.fromhex('789c3bc1c0c2c2c8c0c0c00cc4e60ca8c08a91816640800993bf46fc00868d42428c0c6c2c6c0c196579060ca2b10ca95cc8eacfef87a93b00f407c8486e0e4c7f600311cd94b81ed5ddf5987cb83f58ff0301c85d424c0c12c040cec937c0aa6e07d4fdac0c2c0cc6f4773fdc1de8ee24e4ee0bd0f4c3c88819ee2c2cd471232e7703d30b9c0f4e2758d4b183c2ffff0792d311b1f1402d80ee0e5cfec1161fc8fa6640e383550592a769058cef5d4943e6a3e75f3eb0fb813e108d15fa5c404387e000001e173214'))
 
@@ -3228,21 +3228,21 @@ assert routes == [
     ('2002:e000::', 20, '::1', 'lo0', ['::1'], 1),
     ('2002:ff00::', 24, '::1', 'lo0', ['::1'], 1),
     ('fe80::', 10, '::1', 'lo0', ['::1'], 1),
-    ('fe80:1::', 64, '::', 'hvn0', ['fe80:1::7184:2b50:9fbe:e337'], 1),
-    ('fe80:1::7184:2b50:9fbe:e337',
+    ('fe80::', 64, '::', 'hvn0', ['fe80::7184:2b50:9fbe:e337'], 1),
+    ('fe80::7184:2b50:9fbe:e337',
      128,
      '::',
      'lo0',
-     ['fe80:1::7184:2b50:9fbe:e337'],
+     ['fe80::7184:2b50:9fbe:e337'],
      1),
-    ('fe80:2::', 64, 'fe80:2::1', 'lo0', ['fe80:2::1'], 1),
-    ('fe80:2::1', 128, '::', 'lo0', ['fe80:2::1'], 1),
-    ('ff01:1::', 32, '::', 'hvn0', ['fe80:1::7184:2b50:9fbe:e337'], 1),
-    ('ff01:2::', 32, '::1', 'lo0', ['::1'], 1),
-    ('ff02:1::', 32, '::', 'hvn0', ['fe80:1::7184:2b50:9fbe:e337'], 1),
-    ('ff02:2::', 32, '::1', 'lo0', ['::1'], 1),
-    ('ff00::', 8, '::', 'hvn0', ['fe80:1::7184:2b50:9fbe:e337'], 250),
-    ('ff00::', 8, '::', 'lo0', ['::1', 'fe80:2::1'], 250)
+    ('fe80::', 64, 'fe80::1', 'lo0', ['fe80::1'], 1),
+    ('fe80::1', 128, '::', 'lo0', ['fe80::1'], 1),
+    ('ff01::', 32, '::', 'hvn0', ['fe80::7184:2b50:9fbe:e337'], 1),
+    ('ff01::', 32, '::1', 'lo0', ['::1'], 1),
+    ('ff02::', 32, '::', 'hvn0', ['fe80::7184:2b50:9fbe:e337'], 1),
+    ('ff02::', 32, '::1', 'lo0', ['::1'], 1),
+    ('ff00::', 8, '::', 'hvn0', ['fe80::7184:2b50:9fbe:e337'], 250),
+    ('ff00::', 8, '::', 'lo0', ['::1', 'fe80::1'], 250)
 ]
 
 = Darwin 23.6 (MacOS 14.5) x86_64 - read_routes()
@@ -3251,7 +3251,7 @@ assert routes == [
 import zlib
 
 from scapy.arch.bpf.pfroute import _bsd_iff_flags
-_DARWIN_IFACES = {1: {'name': 'lo0',  'index': 1,  'flags': FlagValue(32841, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 2, 'index': 1, 'address': '127.0.0.1'},   {'af_family': 30, 'index': 1, 'address': '::1', 'scope': 16},   {'af_family': 30, 'index': 1, 'address': 'fe80:1::1', 'scope': 32}]}, 2: {'name': 'gif0',  'index': 2,  'flags': FlagValue(32784, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 3: {'name': 'stf0',  'index': 3,  'flags': FlagValue(0, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 4: {'name': 'XHC2',  'index': 4,  'flags': FlagValue(0, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 5: {'name': 'en0',  'index': 5,  'flags': FlagValue(34915, _bsd_iff_flags),  'mac': '52:54:00:09:49:17',  'ips': [{'af_family': 30,    'index': 5,    'address': 'fe80:5::409:eec9:f06c:50ab',    'scope': 32},   {'af_family': 30,    'index': 5,    'address': 'fec0::89e:daf7:5cb1:f1f0',    'scope': 64},   {'af_family': 30,    'index': 5,    'address': 'fec0::c0c4:1f0b:61ba:ea8',    'scope': 64},   {'af_family': 2, 'index': 5, 'address': '10.0.2.15'}]}, 6: {'name': 'utun0',  'index': 6,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 6,    'address': 'fe80:6::d36e:82de:94dc:84fc',    'scope': 32}]}, 7: {'name': 'utun1',  'index': 7,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 7,    'address': 'fe80:7::7ce2:1f7b:2c29:a5ee',    'scope': 32}]}, 8: {'name': 'utun2',  'index': 8,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 8,    'address': 'fe80:8::e4e0:bef:bf56:2605',    'scope': 32}]}, 9: {'name': 'utun3',  'index': 9,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 9,    'address': 'fe80:9::ce81:b1c:bd2c:69e',    'scope': 32}]}}
+_DARWIN_IFACES = {1: {'name': 'lo0',  'index': 1,  'flags': FlagValue(32841, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 2, 'index': 1, 'address': '127.0.0.1'},   {'af_family': 30, 'index': 1, 'address': '::1', 'scope': 16},   {'af_family': 30, 'index': 1, 'address': 'fe80::1', 'scope': 32}]}, 2: {'name': 'gif0',  'index': 2,  'flags': FlagValue(32784, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 3: {'name': 'stf0',  'index': 3,  'flags': FlagValue(0, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 4: {'name': 'XHC2',  'index': 4,  'flags': FlagValue(0, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 5: {'name': 'en0',  'index': 5,  'flags': FlagValue(34915, _bsd_iff_flags),  'mac': '52:54:00:09:49:17',  'ips': [{'af_family': 30,    'index': 5,    'address': 'fe80::409:eec9:f06c:50ab',    'scope': 32},   {'af_family': 30,    'index': 5,    'address': 'fec0::89e:daf7:5cb1:f1f0',    'scope': 64},   {'af_family': 30,    'index': 5,    'address': 'fec0::c0c4:1f0b:61ba:ea8',    'scope': 64},   {'af_family': 2, 'index': 5, 'address': '10.0.2.15'}]}, 6: {'name': 'utun0',  'index': 6,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 6,    'address': 'fe80::d36e:82de:94dc:84fc',    'scope': 32}]}, 7: {'name': 'utun1',  'index': 7,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 7,    'address': 'fe80::7ce2:1f7b:2c29:a5ee',    'scope': 32}]}, 8: {'name': 'utun2',  'index': 8,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 8,    'address': 'fe80::e4e0:bef:bf56:2605',    'scope': 32}]}, 9: {'name': 'utun3',  'index': 9,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 9,    'address': 'fe80::ce81:b1c:bd2c:69e',    'scope': 32}]}}
 
 _PFROUTE_DATA = zlib.decompress(bytes.fromhex('789ccdd94d6813411400e0d9ddcc36e6608d4472a950a8e0d183e8a1a7da5a503008012948b11eaa78f0e6498b180a45c1802d08164f7ab3f4208817b1e84a0ff647ea0fd2832815a5e021018f518931dbce6c5e76df6cb2e36c3a0325bce936fbf5bdd96176669ad00c2584584963e060fd7382e0ed3315fc22a4ed3183718a98260df675f3b8c83c5dc41ceeab7f1acca6ca6366922f451ebf6596598c5d84b8b9f1fd3b01cb8bc58f17a35852e01b337b29b17dd774d5b65a4b97a1dee5c1305772db55f3bba6998b26cc7d6eedf2cc2872ed5ffe5f974df2671abd211eea7a4ce0d9403c59816703e963f7b2508f857b3a5037ef5e72751b34fa581fcf9305fe9ebb4a029785f4b17bd59a5d3661431bb5fbe700b76e2ae780eef2d4619f4f3807c43d1fa5b3e753da587ad7e7b4b11c583aad8d65fe50561bcbc29de7fa589e7c93b5a87ea6d30bcf6eca5a12c082cd77a2269aefd295d280ac45798d2aa541598b052c70edd3ca82ad93986548d612435e8ecb5a605e145986652deaf3f23ba19185c2b83d8b7d8caf61c2c6eedbf7f81a463876ab3d7fa25b62ca4bf5c81b8d2c6b1a59dee96339b9aa8f25b72c6b513ed755732bd12dc1671abe3b71cb9ae099c6deb3b62d97af47b7c455a3196dde03b2fd4e8f4696c72a2cd8781135d178a95bd655586093cfcbab823616e7fb2f590b7c0f505223a72cfd1e10836556d6a2be46e5872a2c2af27234f76053850536d9bc8c54c61fe96219bdf6e9be2e96b1f1a913ba582e5d397bbb5dcbddbac5bd3fdf631536a873d84f1b961bc1d81be6946d69fafb8bcc44492fe1f38cc7680ac24d4dd70a0cade2b035d529f0bdbc56b73ee06b2af7daa7be7abaf72ae6af5a30dec93da17b17266c184739eb1135d9bdf9b9bf8d18db9bb7d97e78a773e46c7e1983f14e3ee7af7fcc27dbb534ea5588e52ce52b88b17ab9cffa4fc4c573441393e02ca520744569cce5ed43ec6667290639b7d5dbe931dd38c18976def40fb15043e2'))
 
@@ -3284,48 +3284,49 @@ _PFROUTE_DATA = zlib.decompress(bytes.fromhex('789cd5dd5f8c13451800f0d96dbbdb5e8
 with BSDLoader(DARWIN=True, sysctldata=_PFROUTE_DATA, ifaces=_DARWIN_IFACES, AF_INET6=30) as pfroute:
     routes = pfroute.read_routes6()
 
+routes
 assert routes == [
-    ('::', 0, 'fe80:5::2', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('::', 0, 'fe80:6::', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
-    ('::', 0, 'fe80:7::', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
-    ('::', 0, 'fe80:8::', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
-    ('::', 0, 'fe80:9::', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
+    ('::', 0, 'fe80::2', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('::', 0, 'fe80::', 'utun0', ['fe80::d36e:82de:94dc:84fc'], 1),
+    ('::', 0, 'fe80::', 'utun1', ['fe80::7ce2:1f7b:2c29:a5ee'], 1),
+    ('::', 0, 'fe80::', 'utun2', ['fe80::e4e0:bef:bf56:2605'], 1),
+    ('::', 0, 'fe80::', 'utun3', ['fe80::ce81:b1c:bd2c:69e'], 1),
     ('::1', 128, '::1', 'lo0', ['::1'], 1),
-    ('fe80:1::', 64, 'fe80:1::1', 'lo0', ['fe80:1::1'], 1),
-    ('fe80:1::1', 128, '::', 'lo0', ['fe80:1::1'], 1),
-    ('fe80:5::', 64, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('fe80:5::2', 128, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('fe80:5::409:eec9:f06c:50ab', 128, '::', 'lo0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('fe80:6::', 64, 'fe80:6::d36e:82de:94dc:84fc', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
-    ('fe80:6::d36e:82de:94dc:84fc', 128, '::', 'lo0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
-    ('fe80:7::', 64, 'fe80:7::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
-    ('fe80:7::7ce2:1f7b:2c29:a5ee', 128, '::', 'lo0', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
-    ('fe80:8::', 64, 'fe80:8::e4e0:bef:bf56:2605', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
-    ('fe80:8::e4e0:bef:bf56:2605', 128, '::', 'lo0', ['fe80:8::e4e0:bef:bf56:2605'], 1),
-    ('fe80:9::', 64, 'fe80:9::ce81:b1c:bd2c:69e', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
-    ('fe80:9::ce81:b1c:bd2c:69e', 128, '::', 'lo0', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
-    ('fec0::', 64, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('fec0::2', 128, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
+    ('fe80::', 64, 'fe80::1', 'lo0', ['fe80::1'], 1),
+    ('fe80::1', 128, '::', 'lo0', ['fe80::1'], 1),
+    ('fe80::', 64, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('fe80::2', 128, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('fe80::409:eec9:f06c:50ab', 128, '::', 'lo0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('fe80::', 64, 'fe80::d36e:82de:94dc:84fc', 'utun0', ['fe80::d36e:82de:94dc:84fc'], 1),
+    ('fe80::d36e:82de:94dc:84fc', 128, '::', 'lo0', ['fe80::d36e:82de:94dc:84fc'], 1),
+    ('fe80::', 64, 'fe80::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80::7ce2:1f7b:2c29:a5ee'], 1),
+    ('fe80::7ce2:1f7b:2c29:a5ee', 128, '::', 'lo0', ['fe80::7ce2:1f7b:2c29:a5ee'], 1),
+    ('fe80::', 64, 'fe80::e4e0:bef:bf56:2605', 'utun2', ['fe80::e4e0:bef:bf56:2605'], 1),
+    ('fe80::e4e0:bef:bf56:2605', 128, '::', 'lo0', ['fe80::e4e0:bef:bf56:2605'], 1),
+    ('fe80::', 64, 'fe80::ce81:b1c:bd2c:69e', 'utun3', ['fe80::ce81:b1c:bd2c:69e'], 1),
+    ('fe80::ce81:b1c:bd2c:69e', 128, '::', 'lo0', ['fe80::ce81:b1c:bd2c:69e'], 1),
+    ('fec0::', 64, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('fec0::2', 128, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
     ('fec0::89e:daf7:5cb1:f1f0', 128, '::', 'lo0', ['fec0::89e:daf7:5cb1:f1f0'], 1),
     ('fec0::c0c4:1f0b:61ba:ea8', 128, '::', 'lo0', ['fec0::c0c4:1f0b:61ba:ea8'], 1),
     ('ff00::', 8, '::1', 'lo0', ['::1'], 1),
-    ('ff00::', 8, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('ff00::', 8, 'fe80:6::d36e:82de:94dc:84fc', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
-    ('ff00::', 8, 'fe80:7::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
-    ('ff00::', 8, 'fe80:8::e4e0:bef:bf56:2605', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
-    ('ff00::', 8, 'fe80:9::ce81:b1c:bd2c:69e', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
-    ('ff01:1::', 32, '::1', 'lo0', ['::1'], 1),
-    ('ff01:5::', 32, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('ff01:6::', 32, 'fe80:6::d36e:82de:94dc:84fc', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
-    ('ff01:7::', 32, 'fe80:7::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
-    ('ff01:8::', 32, 'fe80:8::e4e0:bef:bf56:2605', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
-    ('ff01:9::', 32, 'fe80:9::ce81:b1c:bd2c:69e', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
-    ('ff02:1::', 32, '::1', 'lo0', ['::1'], 1),
-    ('ff02:5::', 32, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('ff02:6::', 32, 'fe80:6::d36e:82de:94dc:84fc', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
-    ('ff02:7::', 32, 'fe80:7::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
-    ('ff02:8::', 32, 'fe80:8::e4e0:bef:bf56:2605', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
-    ('ff02:9::', 32, 'fe80:9::ce81:b1c:bd2c:69e', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1)
+    ('ff00::', 8, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('ff00::', 8, 'fe80::d36e:82de:94dc:84fc', 'utun0', ['fe80::d36e:82de:94dc:84fc'], 1),
+    ('ff00::', 8, 'fe80::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80::7ce2:1f7b:2c29:a5ee'], 1),
+    ('ff00::', 8, 'fe80::e4e0:bef:bf56:2605', 'utun2', ['fe80::e4e0:bef:bf56:2605'], 1),
+    ('ff00::', 8, 'fe80::ce81:b1c:bd2c:69e', 'utun3', ['fe80::ce81:b1c:bd2c:69e'], 1),
+    ('ff01::', 32, '::1', 'lo0', ['::1'], 1),
+    ('ff01::', 32, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('ff01::', 32, 'fe80::d36e:82de:94dc:84fc', 'utun0', ['fe80::d36e:82de:94dc:84fc'], 1),
+    ('ff01::', 32, 'fe80::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80::7ce2:1f7b:2c29:a5ee'], 1),
+    ('ff01::', 32, 'fe80::e4e0:bef:bf56:2605', 'utun2', ['fe80::e4e0:bef:bf56:2605'], 1),
+    ('ff01::', 32, 'fe80::ce81:b1c:bd2c:69e', 'utun3', ['fe80::ce81:b1c:bd2c:69e'], 1),
+    ('ff02::', 32, '::1', 'lo0', ['::1'], 1),
+    ('ff02::', 32, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('ff02::', 32, 'fe80::d36e:82de:94dc:84fc', 'utun0', ['fe80::d36e:82de:94dc:84fc'], 1),
+    ('ff02::', 32, 'fe80::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80::7ce2:1f7b:2c29:a5ee'], 1),
+    ('ff02::', 32, 'fe80::e4e0:bef:bf56:2605', 'utun2', ['fe80::e4e0:bef:bf56:2605'], 1),
+    ('ff02::', 32, 'fe80::ce81:b1c:bd2c:69e', 'utun3', ['fe80::ce81:b1c:bd2c:69e'], 1)
 ]
 
 ############
