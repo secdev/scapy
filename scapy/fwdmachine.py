@@ -84,6 +84,7 @@ class ForwardMachine:
     :param crtfile: (optional) if provided, uses a certificate instead of self signed
         ones.
     :param keyfile: (optional) path to the key file
+    :param keyfilepwd: (optional) password of the keyfile
     :param timeout: the timeout before connecting to the real server (default 2)
 
     Methods to override:
@@ -115,6 +116,7 @@ class ForwardMachine:
         tls: bool = False,
         crtfile: Optional[str] = None,
         keyfile: Optional[str] = None,
+        keyfilepwd: Optional[str] = None,
         timeout: int = 2,
         MTU: int = MTU,
         **kwargs,
@@ -128,6 +130,7 @@ class ForwardMachine:
         self.tls = tls
         self.crtfile = crtfile
         self.keyfile = keyfile
+        self.keyfilepwd = keyfilepwd
         self.timeout = timeout
         self.MTU = MTU
         self.remote_address = remote_address
@@ -419,6 +422,7 @@ class ForwardMachine:
                         )
                 else:
                     # Certificate is provided
+                    password = self.keyfilepwd
                     certfile = self.crtfile
                     keyfile = self.keyfile
                 sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
