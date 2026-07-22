@@ -24,15 +24,15 @@ jobs:
     steps:
       - name: Get the number of commits in the PR
         run: echo "PR_FETCH_DEPTH=$(( ${{ github.event.pull_request.commits }} + 1 ))" >> "${GITHUB_ENV}"
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'skip-ai-check')
       - name: Checkout Scapy
         uses: actions/checkout@v6
         with:
           fetch-depth: ${{ env.PR_FETCH_DEPTH }}
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'skip-ai-check')
       - name: AI trailer reminder
         run: bash ./.config/ci/check_commits.sh
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'skip-ai-check')
   spdx:
     name: Check SPDX identifiers
     runs-on: ubuntu-latest
