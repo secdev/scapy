@@ -11,6 +11,7 @@ Basic Encoding Rules (BER) for ASN.1
 
 # Good read: https://luca.ntop.org/Teaching/Appunti/asn1.html
 
+from scapy.config import conf
 from scapy.error import warning
 from scapy.compat import chb, orb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
@@ -261,7 +262,9 @@ def BER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
         if implicit_tag is not None:
             s = BER_id_enc(implicit_tag) + s[1:]
         elif explicit_tag is not None:
-            s = BER_id_enc(explicit_tag) + BER_len_enc(len(s)) + s
+            s = BER_id_enc(explicit_tag) + BER_len_enc(
+                len(s), size=conf.ASN1_default_long_size,
+            ) + s
     return s
 
 #    [ BER classes ]    #
@@ -633,6 +636,8 @@ class BERcodec_SEQUENCE(BERcodec_Object[Union[bytes, List[BERcodec_Object[Any]]]
             ll = _ll
         else:
             ll = b"".join(x.enc(cls.codec) for x in _ll)
+        if not size_len:
+            size_len = conf.ASN1_default_long_size
         return chb(int(cls.tag)) + BER_len_enc(len(ll), size=size_len) + ll
 
     @classmethod
