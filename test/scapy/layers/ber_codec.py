@@ -231,6 +231,10 @@ def check_ber_sequence_and_set():
     try:
         long_seq = BERcodec_SEQUENCE.enc(payload)
         assert long_seq.startswith(b"0\x84")
+        # Explicit size_len=0 must keep short-form lengths even when the
+        # LDAP-style default long size is set.
+        short_seq = BERcodec_SEQUENCE.enc(payload, size_len=0)
+        assert short_seq[0] == 0x30 and short_seq[1] == len(payload)
     finally:
         conf.ASN1_default_long_size = 0
 
