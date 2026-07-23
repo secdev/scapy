@@ -11,6 +11,7 @@ Basic Encoding Rules (BER) for ASN.1
 
 # Good read: https://luca.ntop.org/Teaching/Appunti/asn1.html
 
+from scapy.config import conf
 from scapy.error import warning
 from scapy.compat import chb, orb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
@@ -261,7 +262,9 @@ def BER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
         if implicit_tag is not None:
             s = BER_id_enc(implicit_tag) + s[1:]
         elif explicit_tag is not None:
-            s = BER_id_enc(explicit_tag) + BER_len_enc(len(s)) + s
+            s = BER_id_enc(explicit_tag) + BER_len_enc(
+                len(s), size=conf.ASN1_default_long_size,
+            ) + s
     return s
 
 #    [ BER classes ]    #
@@ -289,6 +292,9 @@ _K = TypeVar('_K')
 class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
     codec = ASN1_Codecs.BER
     tag = ASN1_Class_UNIVERSAL.ANY
+    skip_tagging = False
+    tagging_enc = staticmethod(BER_tagging_enc)
+    tagging_dec = staticmethod(BER_tagging_dec)
 
     @classmethod
     def asn1_object(cls, val):
@@ -367,6 +373,7 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
             s,  # type: bytes
             context=None,  # type: Optional[Type[ASN1_Class]]
             safe=False,  # type: bool
+            **_kwargs  # type: Any
             ):
         # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
         if not safe:
@@ -387,6 +394,7 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
     def safedec(cls,
                 s,  # type: bytes
                 context=None,  # type: Optional[Type[ASN1_Class]]
+                **_kwargs  # type: Any
                 ):
         # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
         return cls.dec(s, context, safe=True)
@@ -633,6 +641,8 @@ class BERcodec_SEQUENCE(BERcodec_Object[Union[bytes, List[BERcodec_Object[Any]]]
             ll = _ll
         else:
             ll = b"".join(x.enc(cls.codec) for x in _ll)
+        if not size_len:
+            size_len = conf.ASN1_default_long_size
         return chb(int(cls.tag)) + BER_len_enc(len(ll), size=size_len) + ll
 
     @classmethod
