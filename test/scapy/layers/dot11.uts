@@ -61,6 +61,30 @@ assert "DA" in p.address_meaning(1)
 assert "SA" in p.address_meaning(2)
 assert "BSSID" in p.address_meaning(3)
 
+= Dot11MeshQoS - build
+assert raw(Dot11MeshQoS(Mesh_Control_Present=1)) == b'\x00\x01\x00\x00\x00\x00\x00\x00'
+s = raw(Dot11MeshQoS(Mesh_Control_Present=1, Mesh_Control_Field=Dot11MeshControl(Address_Extension_Mode=1)))
+assert s == b'\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+s = raw(Dot11()/Dot11MeshQoS())
+assert s == 'b'\xc8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= Dot11MeshQoS - dissection
+p = Dot11(s)
+assert Dot11MeshQoS in p
+
+p = Dot11MeshQoS(b"\x00\x01\x02\x1e\xc6\x41\x00\x00\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb")
+assert p.RSPI == 0
+assert p.Mesh_Power_Save_level == 0
+assert p.Mesh_Control_Present == 1
+p = p.Mesh_Control_Field
+assert p.reserved == 0
+assert p.Address_Extension_Mode == 2 # address5&6
+assert p.Mesh_TTL == 30
+assert p.Mesh_Sequence_Number == 16838
+assert p.addr4 == None
+assert p.addr5 == '00:11:22:33:44:55'
+assert p.addr6 == '66:77:88:99:aa:bb'
+
 = Dot11 - answers
 query = Dot11(type=0, subtype=0)
 Dot11(type=0, subtype=1).answers(query) == True

@@ -843,11 +843,18 @@ class Dot11FCS(Dot11):
 
 class Dot11QoS(Packet):
     name = "802.11 QoS"
+    # see 802.11-2024 9.2.4.5.1 and Table 9-10
     fields_desc = [BitField("A_MSDU_Present", 0, 1),
                    BitField("Ack_Policy", 0, 2),
                    BitField("EOSP", 0, 1),
                    BitField("TID", 0, 4),
                    ByteField("TXOP", 0)]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _dot11qos_is_mesh(_pkt):
+            return Dot11MeshQoS
+        return Dot11QoS
 
     def guess_payload_class(self, payload):
         if isinstance(self.underlayer, Dot11):
@@ -855,6 +862,68 @@ class Dot11QoS(Packet):
                 return Dot11Encrypted
         return Packet.guess_payload_class(self, payload)
 
+def _dot11qos_is_mesh(payload):
+    # 2 byte normal QoS header + 6 byte (minimum) Mesh Control field
+    if len(payload) < 8:
+        return False
+    last_octet = orb(payload[1])
+    # Mesh Control Flag 1, reserved bits of both last octet and first octet of mesh control field 0
+    return last_octet & 1 and last_octet & 0xF8 == 0 and orb(payload[2]) & 0xFC == 0
+
+# 802.11-2024 9.2.4.8.3
+class Dot11MeshControl(Packet):
+    name = "802.11 Mesh Control field"
+    fields_desc = [BitField("reserved",0,6),
+                   BitEnumField("Address_Extension_Mode", 0,2, {0:"none", 1:"address4", 2:"address5_6", 3:"reserved"}),
+                   ByteField("Mesh_TTL", 0),
+                   LEIntField("Mesh_Sequence_Number", 0),
+                   # 802.11-2024 Table 9-35
+                   ConditionalField(
+                       _Dot11MacField("addr4", ETHER_ANY, 4),
+                       lambda pkt: pkt.Address_Extension_Mode == 1
+                   ),
+                   ConditionalField(
+                       _Dot11MacField("addr5", ETHER_ANY, 5),
+                       lambda pkt: pkt.Address_Extension_Mode == 2
+                   ),
+                   ConditionalField(
+                       _Dot11MacField("addr6", ETHER_ANY, 6),
+                       lambda pkt: pkt.Address_Extension_Mode == 2
+                   )
+            ]
+    def address_meaning(self, index):
+        if index not in [4, 5, 6]:
+            raise ValueError("Wrong index: should be [4, 5, 6]")
+        # see 802.11-2024 9.3.5 and Table 9-77
+        if index == 4:
+            return "SA"
+        # TODO: currently the Dot11 address_meaning will incorrectly label Address 4 as BSSID instead of Mesh SA
+        elif index == 5:
+            return "DA"
+        elif index == 6:
+            return "SA"
+        return None
+
+    def guess_payload_class(self, payload):
+        return conf.padding_layer
+
+
+class Dot11MeshQoS(Dot11QoS):
+    name = "802.11 Mesh QoS"
+    match_subclass = True
+    fields_desc = Dot11QoS.fields_desc[:-1] + [BitField("reserved", 0, 5),
+                   BitField("RSPI", 0, 1),
+                   BitField("Mesh_Power_Save_Level", 0, 1),
+                   BitField("Mesh_Control_Present", 0, 1),
+                   ConditionalField(
+                       PacketField("Mesh_Control_Field", Dot11MeshControl(), Dot11MeshControl),
+                       lambda pkt: (
+                           # 802.11-2024 9.2.4.8.2 -- Mesh Control field is encrypted
+                           False if isinstance(pkt.underlayer, Dot11) and pkt.underlayer.FCfield.protected
+                           else pkt.Mesh_Control_Present
+                       )
+                   )
+                ]
 
 capability_list = ["res8", "res9", "short-slot", "res11",
                    "res12", "DSSS-OFDM", "res14", "res15",
