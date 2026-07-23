@@ -1,0 +1,30 @@
+% DNP3 regression tests for Scapy
+
+
+############
+############
++ DNP3
+
+= DNP3
+
+s = b"\x05\x64\x0b\xc4\x04\x00\x03\x00\xe4\x2b\xdb\xcc\x01\xff\x00\x06\xad\xa0"
+p = DNP3(s)
+assert p.LENGTH == 11
+assert p.CONTROL.DIR == 1 # Direction: Set
+assert p.CONTROL.PRM == 1 # Primary: Set
+assert p.CONTROL.FCB == 0 # FCB: Not set
+assert p.CONTROL.FCV == 0 # FCB: Not set
+
+assert p.CONTROL.FUNC_CODE_PRI == 4 # Control Function Code: Unconfirmed User Data -> 4
+
+assert p.DESTINATION == 4
+assert p.SOURCE == 3
+
+assert p.CRC == 0xe42b 
+
+assert p[2].FIN == 1 # Final: Set
+assert p[2].FIR == 1 # First: Set
+assert p[2].SEQUENCE == 27 # Sequence: 27
+
+
+
