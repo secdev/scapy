@@ -1018,9 +1018,15 @@ class _ICMPExtensionField(TrailerField):
     def getfield(self, pkt, s):
         # RFC4884 section 5.2 says if the ICMP packet length
         # is >144 then ICMP extensions start at byte 137.
+        length = getattr(pkt, "length", 0) or 0
         if len(pkt.original) < 144:
+            if not length:
+                return s, None
+            offset = length * 8
+        else:
+            offset = 136 + len(s) - len(pkt.original)
+        if offset > len(s):
             return s, None
-        offset = 136 + len(s) - len(pkt.original)
         data = s[offset:]
         # Validate checksum
         if checksum(data) == data[3:5]:
@@ -1059,6 +1065,25 @@ def _ICMP_extpad_post_dissection(self, pkt):
         if isinstance(pad, conf.padding_layer):
             pad.underlayer.remove_payload()
             pkt.extpad = pad.load
+
+
+def _icmp4884_prepare_ext_build(pkt, p, pay, length_offset):
+    # RFC4884: set length and pad original datagram when extensions are used
+    if pkt.ext is None:
+        return p, pay
+    if pkt.extpad in (None, b"", ""):
+        padding_index = pay.rindex(bytes(pkt.ext))
+        payload_len = len(pay[:padding_index])
+        padding_len = (8 - payload_len % 8) % 8
+        if payload_len + padding_len < 128:
+            padding_len = 128 - payload_len
+        padding = b"\x00" * padding_len
+        pay = pay[:padding_index] + padding + pay[padding_index:]
+    if pkt.length in (None, 0):
+        ext_index = pay.rindex(bytes(pkt.ext))
+        length = len(pay[:ext_index]) // 8
+        p = p[:length_offset] + chb(length) + p[length_offset + 1:]
+    return p, pay
 
 
 icmptypes = {0: "echo-reply",
