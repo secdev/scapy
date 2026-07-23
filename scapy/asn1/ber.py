@@ -635,13 +635,14 @@ class BERcodec_SEQUENCE(BERcodec_Object[Union[bytes, List[BERcodec_Object[Any]]]
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
 
     @classmethod
-    def enc(cls, _ll, size_len=0):
+    def enc(cls, _ll, size_len=None):
         # type: (Union[bytes, List[BERcodec_Object[Any]]], Optional[int]) -> bytes
         if isinstance(_ll, bytes):
             ll = _ll
         else:
             ll = b"".join(x.enc(cls.codec) for x in _ll)
-        if not size_len:
+        # None = apply conf; explicit 0 keeps short-form lengths.
+        if size_len is None:
             size_len = conf.ASN1_default_long_size
         return chb(int(cls.tag)) + BER_len_enc(len(ll), size=size_len) + ll
 

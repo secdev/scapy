@@ -526,38 +526,31 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         return reduce(lambda x, y: x + y.get_fields_list(),
                       self.seq, [])
 
-    def _dissect_sequence_children(self, pkt, s):
-        # type: (Any, bytes) -> bytes
-        if len(s) == 0:
-            for obj in self.seq:
-                obj.set_val(pkt, None)
-            return s
-        for obj in self.seq:
-            try:
-                s = obj.dissect(pkt, s)
-            except ASN1F_badsequence:
-                break
-        return s
-
-    def _m2i_ber(self, pkt, s):
-        # type: (Any, bytes) -> Tuple[Any, bytes]
-        s = self._apply_tagging_dec(s, pkt, _fname=pkt.name)
-        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        i, s, remain = codec.check_type_check_len(s)
-        s = self._dissect_sequence_children(pkt, s)
-        if len(s) > 0:
-            raise BER_Decoding_Error("unexpected remainder", remaining=s)
-        return [], remain
-
     def m2i(self, pkt, s):
         # type: (Any, bytes) -> Tuple[Any, bytes]
         """
         ASN1F_SEQUENCE behaves transparently, with nested ASN1_objects being
-        dissected one by one. m2i returns an empty list (along with the proper
-        remainder). It is discarded by dissect() and should not be missed
-        elsewhere.
+        dissected one by one. Because we use obj.dissect (see loop below)
+        instead of obj.m2i (as we trust dissect to do the appropriate set_vals)
+        we do not directly retrieve the list of nested objects.
+        Thus m2i returns an empty list (along with the proper remainder).
+        It is discarded by dissect() and should not be missed elsewhere.
         """
-        return self._m2i_ber(pkt, s)
+        s = self._apply_tagging_dec(s, pkt, _fname=pkt.name)
+        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+        i, s, remain = codec.check_type_check_len(s)
+        if len(s) == 0:
+            for obj in self.seq:
+                obj.set_val(pkt, None)
+        else:
+            for obj in self.seq:
+                try:
+                    s = obj.dissect(pkt, s)
+                except ASN1F_badsequence:
+                    break
+            if len(s) > 0:
+                raise BER_Decoding_Error("unexpected remainder", remaining=s)
+        return [], remain
 
     def dissect(self, pkt, s):
         # type: (Any, bytes) -> bytes
@@ -655,7 +648,8 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
         elif self.holds_packets:
             s = b"".join(bytes(i) for i in val)
         else:
-            # Use i2m so element implicit/explicit tags match m2i()/fld.m2i()
+            # BER: element fields may carry implicit/explicit tags; i2m
+            # matches m2i()/fld.m2i(). (Packet elements use bytes() above.)
             s = b"".join(self.fld.i2m(pkt, i) for i in val)
         return self.i2m(pkt, s)
 
@@ -741,11 +735,6 @@ class ASN1F_optional(ASN1F_element):
         # type: (ASN1_Packet, Any) -> str
         return self._field.i2repr(pkt, x)
 
-    def set_absent(self, pkt):
-        # type: (ASN1_Packet) -> None
-        # Used by codecs that track optionality explicitly (e.g. PER).
-        self._field.set_val(pkt, None)
-
 
 class ASN1F_omit(ASN1F_field[None, None]):
     """
@@ -788,8 +777,6 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         self.default = default
         self.current_choice = None
         self.choices = {}  # type: Dict[int, _CHOICE_T]
-        self.choice_order = []  # type: List[int]
-        self.choice_list = []  # type: List[_CHOICE_T]
         self.pktchoices = {}
         for p in args:
             if hasattr(p, "ASN1_root"):
@@ -797,56 +784,22 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                 # should be ASN1_Packet
                 if hasattr(p.ASN1_root, "choices"):
                     root = cast(ASN1F_CHOICE, p.ASN1_root)
-                    for k in root.choice_order:
-                        self._register_choice(k, root.choices[k])
+                    for k, v in root.choices.items():
+                        # ASN1F_CHOICE recursion
+                        self.choices[k] = v
                 else:
-                    self._register_choice(p.ASN1_root.network_tag, p)
+                    self.choices[p.ASN1_root.network_tag] = p
             elif hasattr(p, "ASN1_tag"):
                 if isinstance(p, type):
                     # should be ASN1F_field class
-                    self._register_choice(int(p.ASN1_tag), p)
+                    self.choices[int(p.ASN1_tag)] = p
                 else:
                     # should be ASN1F_field instance
-                    self._register_choice(p.network_tag, p)
+                    self.choices[p.network_tag] = p
                     if hasattr(p, "cls"):
                         self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
-
-    def _register_choice(self, tag, choice):
-        # type: (int, _CHOICE_T) -> None
-        self.choices[tag] = choice
-        self.choice_order.append(tag)
-        self.choice_list.append(choice)
-
-    def _dissect_choice_payload(self, pkt, choice, payload):
-        # type: (ASN1_Packet, _CHOICE_T, bytes) -> Tuple[ASN1_Object[Any], bytes]
-        if hasattr(choice, "ASN1_root"):
-            return self.extract_packet(choice, payload, _underlayer=pkt)  # type: ignore
-        if isinstance(choice, type):
-            return choice(self.name, b"").m2i(pkt, payload)
-        return choice.m2i(pkt, payload)
-
-    def _m2i_ber(self, pkt, s):
-        # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Object[Any], bytes]
-        s = self._apply_tagging_dec(s, pkt)
-        tag, _ = BER_id_dec(s)
-        return self._m2i_tagged(pkt, tag, s)
-
-    def _m2i_tagged(self, pkt, tag, payload):
-        # type: (ASN1_Packet, int, bytes) -> Tuple[ASN1_Object[Any], bytes]
-        if tag in self.choices:
-            choice = self.choices[tag]
-        elif self.flexible_tag:
-            choice = ASN1F_field
-        else:
-            raise ASN1_Error(
-                "ASN1F_CHOICE: unexpected field in '%s' "
-                "(tag %s not in possible tags %s)" % (
-                    self.name, tag, list(self.choices.keys())
-                )
-            )
-        return self._dissect_choice_payload(pkt, choice, payload)
 
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Object[Any], bytes]
@@ -856,27 +809,28 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         """
         if len(s) == 0:
             raise ASN1_Error("ASN1F_CHOICE: got empty string")
-        return self._m2i_ber(pkt, s)
-
-    def _choice_index_for(self, x):
-        # type: (Any) -> Optional[int]
-        for index, choice in enumerate(self.choice_list):
-            if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
-                if isinstance(x, choice):
-                    return index
-            elif hasattr(choice, "ASN1_tag"):
-                if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
-                    return index
-        return None
-
-    def _choice_for_index(self, index):
-        # type: (int) -> _CHOICE_T
-        return self.choice_list[index]
-
-    def _choice_tag_for(self, x):
-        # type: (Any) -> Optional[int]
-        index = self._choice_index_for(x)
-        return None if index is None else self.choice_order[index]
+        s = self._apply_tagging_dec(s, pkt)
+        tag, _ = BER_id_dec(s)
+        if tag in self.choices:
+            choice = self.choices[tag]
+        else:
+            if self.flexible_tag:
+                choice = ASN1F_field
+            else:
+                raise ASN1_Error(
+                    "ASN1F_CHOICE: unexpected field in '%s' "
+                    "(tag %s not in possible tags %s)" % (
+                        self.name, tag, list(self.choices.keys())
+                    )
+                )
+        if hasattr(choice, "ASN1_root"):
+            # we don't want to import ASN1_Packet in this module...
+            return self.extract_packet(choice, s, _underlayer=pkt)  # type: ignore
+        elif isinstance(choice, type):
+            return choice(self.name, b"").m2i(pkt, s)
+        else:
+            # XXX check properly if this is an ASN1F_PACKET
+            return choice.m2i(pkt, s)
 
     def i2m(self, pkt, x):
         # type: (ASN1_Packet, Any) -> bytes
