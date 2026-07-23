@@ -964,6 +964,52 @@ assert pkt[Dot11HE6GOperationInfo].channel_center1 == 0
 assert pkt[Dot11HE6GOperationInfo].minimum_rate == 12
 assert raw(pkt) == data
 
+= Dot11EltEHTOperation without Operation Information in isolation
+
+data = b'\xff\x06j\x00\x04\x03\x02\x01'
+pkt = Dot11Elt(data)
+assert Dot11EltEHTOperation in pkt
+assert pkt[Dot11EltEHTOperation].ID == 255
+assert pkt[Dot11EltEHTOperation].len == 6
+assert pkt[Dot11EltEHTOperation].ext_ID == 106
+assert pkt[Dot11EltEHTOperation].eht_operation_information_present == 0
+assert pkt[Dot11EltEHTOperation].disabled_subchannel_bitmap_present == 0
+assert pkt[Dot11EltEHTOperation].basic_eht_mcs_and_nss_set == 0x01020304
+assert "eht_operation_info" not in pkt[Dot11EltEHTOperation].fields
+assert "disabled_subchannel_bitmap" not in pkt[Dot11EltEHTOperation].fields
+assert raw(pkt) == data
+
+= Dot11EltEHTOperation with Operation Information in isolation
+
+data = b'\xff\tj\x01\x04\x03\x02\x01\x04\x0f\x1f'
+pkt = Dot11Elt(data)
+assert Dot11EltEHTOperation in pkt
+assert Dot11EHTOperationInfo in pkt
+assert pkt[Dot11EltEHTOperation].eht_operation_information_present == 1
+assert pkt[Dot11EltEHTOperation].disabled_subchannel_bitmap_present == 0
+assert pkt[Dot11EltEHTOperation].basic_eht_mcs_and_nss_set == 0x01020304
+assert pkt[Dot11EHTOperationInfo].channel_width == 4
+assert pkt[Dot11EHTOperationInfo].channel_center0 == 15
+assert pkt[Dot11EHTOperationInfo].channel_center1 == 31
+assert "disabled_subchannel_bitmap" not in pkt[Dot11EltEHTOperation].fields
+assert raw(pkt) == data
+
+= Dot11EltEHTOperation with Disabled Subchannel Bitmap in isolation
+
+data = b'\xff\x0bj\x03\x04\x03\x02\x01\x04\x0f\x1f\x34\x12\x00\x04test'
+pkt = Dot11Elt(data)
+assert Dot11EltEHTOperation in pkt
+assert Dot11EHTOperationInfo in pkt
+assert pkt[Dot11EltEHTOperation].eht_operation_information_present == 1
+assert pkt[Dot11EltEHTOperation].disabled_subchannel_bitmap_present == 1
+assert pkt[Dot11EltEHTOperation].disabled_subchannel_bitmap == 0x1234
+assert pkt[Dot11EHTOperationInfo].channel_width == 4
+assert pkt[Dot11EHTOperationInfo].channel_center0 == 15
+assert pkt[Dot11EHTOperationInfo].channel_center1 == 31
+assert pkt[Dot11EltEHTOperation].payload.ID == 0
+assert pkt[Dot11EltEHTOperation].payload.info == b'test'
+assert raw(pkt) == data
+
 = Dot11EltOBSS in isolation
 
 pkt = Dot11EltOBSS(b'J\x0e\x14\x00\n\x00,\x01\xc8\x00\x14\x00\x05\x00\x19\x00')
