@@ -32,3 +32,112 @@ assert raw(
         reserved2=0x6f000000,
     )
 ) == advertise_raw
+
+= HSRPv2 - IPv4 Group State build & dissection
+virtual_ip4 = "192.0.2.1"
+virtual_ip4_raw = b"\xc0\x00\x02\x01" + b"\x00" * 12
+pkt = IP(raw(
+    IP(dst="224.0.0.102") /
+    UDP(dport=1985, sport=1985) /
+    HSRPv2() /
+    HSRPv2GroupStateTLV(
+        group=2,
+        identifier="00:05:73:a0:00:02",
+        priority=110,
+        hellotime=1000,
+        holdtime=3000,
+        virtualIP=virtual_ip4,
+    )
+))
+assert pkt[IP].dst == "224.0.0.102" and pkt[UDP].sport == pkt[UDP].dport == 1985
+assert HSRPv2 in pkt and HSRPv2GroupStateTLV in pkt and HSRP not in pkt
+assert pkt[HSRPv2GroupStateTLV].type == 1 and pkt[HSRPv2GroupStateTLV].len == 40
+assert pkt[HSRPv2GroupStateTLV].version == 2 and pkt[HSRPv2GroupStateTLV].state == 6
+assert pkt[HSRPv2GroupStateTLV].group == 2
+assert pkt[HSRPv2GroupStateTLV].identifier == "00:05:73:a0:00:02"
+assert pkt[HSRPv2GroupStateTLV].priority == 110
+assert pkt[HSRPv2GroupStateTLV].hellotime == 1000
+assert pkt[HSRPv2GroupStateTLV].holdtime == 3000
+assert pkt[HSRPv2GroupStateTLV].virtualIP == virtual_ip4
+assert raw(pkt[HSRPv2GroupStateTLV])[-16:] == virtual_ip4_raw
+
+= HSRPv2 - IPv6 Group State build & dissection
+if conf.ipv6_enabled:
+    virtual_ip6 = "2001:db8::1"
+    virtual_ip6_raw = b"\x20\x01\x0d\xb8" + b"\x00" * 11 + b"\x01"
+    pkt = IPv6(raw(
+        IPv6() /
+        UDP(dport=2029, sport=2029) /
+        HSRPv2() /
+        HSRPv2GroupStateTLV(
+            ipversion=6,
+            group=2,
+            virtualIP=virtual_ip6,
+        )
+    ))
+    assert pkt[IPv6].dst == "ff02::66" and pkt[UDP].sport == pkt[UDP].dport == 2029
+    assert HSRPv2 in pkt and HSRPv2GroupStateTLV in pkt
+    assert pkt[HSRPv2GroupStateTLV].len == 40
+    assert pkt[HSRPv2GroupStateTLV].ipversion == 6
+    assert pkt[HSRPv2GroupStateTLV].virtualIP == virtual_ip6
+    assert raw(pkt[HSRPv2GroupStateTLV])[-16:] == virtual_ip6_raw
+
+= HSRPv2 - multiple TLVs
+pkt = HSRPv2(raw(
+    HSRPv2GroupStateTLV() /
+    HSRPv2TextAuthTLV(auth=b"secret\x00\x00") /
+    HSRPv2InterfaceStateTLV(activegroups=1, passivegroups=2)
+))
+assert HSRPv2GroupStateTLV in pkt
+assert HSRPv2TextAuthTLV in pkt
+assert HSRPv2InterfaceStateTLV in pkt
+assert pkt[HSRPv2GroupStateTLV].len == 40
+assert pkt[HSRPv2TextAuthTLV].len == 8 and pkt[HSRPv2TextAuthTLV].auth == b"secret\x00\x00"
+assert pkt[HSRPv2InterfaceStateTLV].len == 4
+assert pkt[HSRPv2InterfaceStateTLV].activegroups == 1
+assert pkt[HSRPv2InterfaceStateTLV].passivegroups == 2
+
+= HSRPv2 - Unknown TLV build & dissection
+unknown_raw = raw(HSRPv2UnknownTLV(type=99, value=b"abcd"))
+pkt = HSRPv2(unknown_raw)
+assert unknown_raw == b"\x63\x04abcd"
+assert HSRPv2UnknownTLV in pkt
+assert pkt[HSRPv2UnknownTLV].type == 99
+assert pkt[HSRPv2UnknownTLV].len == 4
+assert pkt[HSRPv2UnknownTLV].value == b"abcd"
+
+= HSRPv2 - Unknown first TLV UDP dispatch
+pkt = IP(raw(
+    IP(dst="224.0.0.102") /
+    UDP(dport=1985, sport=1985) /
+    HSRPv2UnknownTLV(type=99, value=b"abcd")
+))
+assert HSRPv2 in pkt and HSRPv2UnknownTLV in pkt and HSRP not in pkt
+assert pkt[HSRPv2UnknownTLV].type == 99
+assert pkt[HSRPv2UnknownTLV].len == 4
+assert pkt[HSRPv2UnknownTLV].value == b"abcd"
+
+= HSRPv2 - MD5 Auth TLV build & dissection
+digest = b"\x11" * 16
+pkt = HSRPv2(raw(
+    HSRPv2MD5AuthTLV(
+        sourceip="192.0.2.1",
+        keyid=7,
+        authdigest=digest,
+    )
+))
+assert HSRPv2MD5AuthTLV in pkt
+assert pkt[HSRPv2MD5AuthTLV].type == 4 and pkt[HSRPv2MD5AuthTLV].len == 28
+assert pkt[HSRPv2MD5AuthTLV].algo == 1
+assert pkt[HSRPv2MD5AuthTLV].sourceip == "192.0.2.1"
+assert pkt[HSRPv2MD5AuthTLV].keyid == 7
+assert pkt[HSRPv2MD5AuthTLV].authdigest == digest
+
+= HSRPv2 - TLV length overflow
+try:
+    raw(HSRPv2UnknownTLV(type=99, value=b"A" * 256))
+    overflow_raised = False
+except ValueError:
+    overflow_raised = True
+
+assert overflow_raised
