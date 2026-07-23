@@ -15,6 +15,34 @@
 #Field("foo", None, fmt="I").getfield(None, b"\x12\x34\x56\x78ABCD")
 #assert  _ == ("ABCD",0x12345678) 
 
+= FieldContainer copy
+~ core field
+
+field_container = Emph(ByteField("foo", 0))
+field_container_copy = field_container.copy()
+
+assert type(field_container_copy) is Emph
+assert type(field_container_copy.fld) is ByteField
+assert field_container_copy.fld is not field_container.fld
+assert field_container_copy.name == "foo"
+assert field_container_copy.default == 0
+
+class TEST_FIELD_CONTAINER_COPY_SOURCE(Packet):
+    fields_desc = [Emph(ByteField("foo", 0))]
+
+class TEST_FIELD_CONTAINER_COPY_TARGET(Packet):
+    fields_desc = [TEST_FIELD_CONTAINER_COPY_SOURCE, ByteField("bar", 0)]
+    foo = 7
+
+source_field = TEST_FIELD_CONTAINER_COPY_SOURCE.fields_desc[0]
+target_field = TEST_FIELD_CONTAINER_COPY_TARGET.fields_desc[0]
+
+assert type(target_field) is Emph
+assert type(target_field.fld) is ByteField
+assert target_field.fld is not source_field.fld
+assert target_field.default == 7
+assert source_field.default == 0
+
 
 = ConditionnalField class
 ~ core field
