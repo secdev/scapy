@@ -493,7 +493,10 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
                 except ASN1F_badsequence:
                     break
             if len(s) > 0:
-                raise BER_Decoding_Error("unexpected remainder", remaining=s)
+                raise BER_Decoding_Error(
+                    "unexpected remainder in %s" % pkt.name,
+                    remaining=s,
+                )
         return [], remain
 
     def dissect(self, pkt, s):
@@ -586,7 +589,10 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
             if c:
                 lst.append(c)
         if len(s) > 0:
-            raise BER_Decoding_Error("unexpected remainder", remaining=s)
+            raise BER_Decoding_Error(
+                "unexpected remainder in %s" % pkt.name,
+                remaining=s,
+            )
         return lst, remain
 
     def build(self, pkt):
@@ -930,7 +936,10 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
         else:
             return None, bit_string.val_readable
         if len(s) > 0:
-            raise BER_Decoding_Error("unexpected remainder", remaining=s)
+            raise BER_Decoding_Error(
+                "unexpected remainder in %s" % pkt.name,
+                remaining=s,
+            )
         return p, remain
 
     def i2m(self, pkt, x):  # type: ignore

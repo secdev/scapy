@@ -157,8 +157,8 @@ ssp = test_pwinput(
     target="machine.domain.local",
 )
 assert isinstance(ssp, SPNEGOSSP)
-assert len(ssp.ssps) == 1
-assert ssp.ssps[0].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
+assert len(ssp.ssps) == 2
+assert ssp.ssps[1].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
 
 = SPNEGOSSP.from_cli_arguments - Username + Password - With prompt
 
@@ -179,8 +179,8 @@ ssp = test_pwfail(
     password="Password",
 )
 assert isinstance(ssp, SPNEGOSSP)
-assert len(ssp.ssps) == 1
-assert ssp.ssps[0].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
+assert len(ssp.ssps) == 2
+assert ssp.ssps[1].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
 
 = SPNEGOSSP.from_cli_arguments - UPN + Password - With input
 
@@ -189,11 +189,15 @@ ssp = test_pwinput(
     target="machine.domain.local",
 )
 assert isinstance(ssp, SPNEGOSSP)
-assert len(ssp.ssps) == 2
+assert len(ssp.ssps) == 4
 assert isinstance(ssp.ssps[0], KerberosSSP)
 assert ssp.ssps[0].UPN == "Administrator@domain.local"
-assert isinstance(ssp.ssps[1], NTLMSSP)
-assert ssp.ssps[1].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
+assert isinstance(ssp.ssps[1], KerberosSSP)
+assert ssp.ssps[1].U2U
+assert isinstance(ssp.ssps[2], KerberosSSP)
+assert ssp.ssps[2].IAKERB
+assert isinstance(ssp.ssps[3], NTLMSSP)
+assert ssp.ssps[3].HASHNT == b'\xa4\xf4\x9c@e\x10\xbd\xca\xb6\x82N\xe7\xc3\x0f\xd8R'
 
 = SPNEGOSSP.from_cli_arguments - UPN + CCache - Prepare
 
