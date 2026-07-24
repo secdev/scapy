@@ -15,7 +15,7 @@ from scapy.fields import (
 )
 from scapy.packet import Packet
 
-from scapy.layers.quic import (
+from scapy.layers.quic.basefields import (
     QuicVarIntField,
     QuicVarLenField,
     QuicVarEnumField,
