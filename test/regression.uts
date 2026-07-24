@@ -2464,6 +2464,37 @@ assert all(UDP in p for p in l)
 l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
 assert len(l) == 0
 
+= Offline sniff() with a filter reaps its tcpdump process (#4512)
+~ tcpdump libpcap
+import gc, warnings
+
+fdesc, filename = tempfile.mkstemp()
+os.close(fdesc)
+wrpcap(filename, [IP()/TCP()] * 20)
+
+def _leaked_subprocess_warnings(**kwargs):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        packets = sniff(offline=filename, filter="tcp", **kwargs)
+        gc.collect()
+    leaked = [str(w.message) for w in caught
+              if issubclass(w.category, ResourceWarning)
+              and "subprocess" in str(w.message)]
+    return packets, leaked
+
+# Reading the whole file: the prefilter process must be waited on in close().
+packets, leaked = _leaked_subprocess_warnings()
+assert len(packets) == 20
+assert not leaked, leaked
+
+# Stopping early leaves tcpdump running; close() must terminate and reap it
+# rather than block or leave a zombie behind.
+packets, leaked = _leaked_subprocess_warnings(count=3)
+assert len(packets) == 3
+assert not leaked, leaked
+
+os.unlink(filename)
+
 = Check offline sniff() with Packets, tcpdump and a bad filter
 ~ tcpdump libpcap 
 
