@@ -1723,6 +1723,68 @@ class Dot11EltHTOperation(Dot11Elt):
     ]
 
 
+# 802.11be D7.0 9.4.2.311
+
+class Dot11EHTOperationInfo(Packet):
+    name = "802.11 EHT Operation Information"
+    fields_desc = [
+        BitField("reserved", 0, 5, tot_size=-1),
+        BitField("channel_width", 0, 3, end_tot_size=-1),
+        ByteField("channel_center0", 0),
+        ByteField("channel_center1", 0),
+    ]
+
+    def extract_padding(self, s):
+        return b"", s
+
+
+# 802.11be D7.0 9.4.2.311
+
+class Dot11EltEHTOperation(Dot11EltExtension):
+    name = "802.11 EHT Operation"
+    match_subclass = True
+    ID = 255
+    ext_ID = 106
+    fields_desc = Dot11EltExtension.fields_desc + [
+        # EHT Operation Parameters: 1B
+        BitField("reserved", 0, 2, tot_size=-1),
+        BitField("group_addressed_bu_indication_exponent", 0, 2),
+        BitField("group_addressed_bu_indication_limit", 0, 1),
+        BitField("eht_default_pe_duration", 0, 1),
+        BitField("disabled_subchannel_bitmap_present", 0, 1),
+        BitField(
+            "eht_operation_information_present",
+            0,
+            1,
+            end_tot_size=-1
+        ),
+
+        LEIntField("basic_eht_mcs_and_nss_set", 0),
+
+        ConditionalField(
+            PacketField(
+                "eht_operation_info",
+                Dot11EHTOperationInfo(),
+                Dot11EHTOperationInfo,
+            ),
+            lambda p: (
+                p.eht_operation_information_present == 1 and
+                p.len >= 9
+            )),
+
+        ConditionalField(
+            LEShortField("disabled_subchannel_bitmap", 0),
+            lambda p: (
+                p.eht_operation_information_present == 1 and
+                p.disabled_subchannel_bitmap_present == 1 and
+                p.len >= 11
+            )),
+    ]
+
+
+Dot11EltEHTOperation.register_variant(106)
+
+
 ######################
 # 802.11 Frame types #
 ######################
