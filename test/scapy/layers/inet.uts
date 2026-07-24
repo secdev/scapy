@@ -406,9 +406,28 @@ assert pkt.options[0][1] == (b'\xe3\xa0,\xdc\xe4\xae\x87\x18\xad{\xab\xd0b\x12\x
 assert TCP(bytes(pkt)).options[0][0] == "MD5"
 
 = IP, TCP & UDP checksums (these tests highly depend on default values)
+
+def transferPacket(pkt):
+    packet = hexdump(pkt, dump=True).split('\n')
+    packet = list(map(lambda x: x.split("  ")[1], packet))
+    return " ".join(packet).strip().split(" ")
+
 pkt = IP() / TCP()
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x7ccd and bpkt.payload.chksum == 0x917c
+
+Ah_dicts = {'nh': 6, 'payloadlen': 2, 'reserved': 0, 'spi': 1, 'seq': 0, 'icv': b'\x00\x00\x00\x00'}
+pkt = IP(proto=51) / AH(**Ah_dicts) / TCP()
+bpkt = IP(raw(pkt))
+assert bpkt.chksum == 0x7c90
+packetStr = transferPacket(pkt)
+tcpCheckSum = int("".join(packetStr[-4:-2]), 16)
+assert tcpCheckSum == 0x917c
+
+pkt = IPv6(nh=51) / AH(**Ah_dicts) / TCP()
+packetStr = transferPacket(pkt)
+tcpCheckSum = int("".join(packetStr[-4:-2]), 16)
+assert tcpCheckSum == 0x8f7d
 
 pkt = IP(len=40) / TCP()
 bpkt = IP(raw(pkt))
@@ -422,6 +441,18 @@ pkt = IP() / TCP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x7cc3 and bpkt.payload.chksum == 0x4b2c
 
+pkt = IP(proto=51) / AH(**Ah_dicts) / TCP() / ("A" * 10)
+bpkt = IP(raw(pkt))
+assert bpkt.chksum == 0x7c86
+packetStr = transferPacket(pkt)
+tcpCheckSum = int("".join(packetStr[-14:-12]), 16)
+assert tcpCheckSum == 0x4b2c
+
+pkt = IPv6(nh=51) / AH(**Ah_dicts) / TCP() / ("A" * 10)
+packetStr = transferPacket(pkt)
+tcpCheckSum = int("".join(packetStr[-14:-12]), 16)
+assert tcpCheckSum == 0x492d
+
 pkt = IP(len=50) / TCP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x7cc3 and bpkt.payload.chksum == 0x4b2c
@@ -433,6 +464,13 @@ assert bpkt.chksum == 0x7cc3 and bpkt.payload.chksum == 0x4b2c
 pkt = IP(options=[IPOption_RR()]) / TCP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x70bc and bpkt.payload.chksum == 0x4b2c
+
+pkt = IP(proto=51, options=[IPOption_RR()]) / AH(**Ah_dicts) / TCP() / ("A" * 10)
+bpkt = IP(raw(pkt))
+assert bpkt.chksum == 0x707f
+packetStr = transferPacket(pkt)
+tcpCheckSum = int("".join(packetStr[-14:-12]), 16)
+assert tcpCheckSum == 0x4b2c
 
 pkt = IP(len=54, options=[IPOption_RR()]) / TCP() / ("A" * 10)
 bpkt = IP(raw(pkt))
@@ -446,9 +484,29 @@ pkt = IP(options=[IPOption_Timestamp()]) / TCP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x2caa and bpkt.payload.chksum == 0x4b2c
 
+pkt = IP(proto=51, options=[IPOption_Timestamp()]) / AH(**Ah_dicts) / TCP() / ("A" * 10)
+bpkt = IP(raw(pkt))
+assert bpkt.chksum == 0x2c6d
+packetStr = transferPacket(pkt)
+tcpCheckSum = int("".join(packetStr[-14:-12]), 16)
+assert tcpCheckSum == 0x4b2c
+
 pkt = IP() / UDP()
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x7cce and bpkt.payload.chksum == 0x0172
+
+Ah_dicts = {'nh': 17, 'payloadlen': 2, 'reserved': 0, 'spi': 1, 'seq': 0, 'icv': b'\x00\x00\x00\x00'}
+pkt = IP(proto=51) / AH(**Ah_dicts) / UDP()
+bpkt = IP(raw(pkt))
+assert bpkt.chksum == 0x7c9c
+packetStr = transferPacket(pkt)
+udpCheckSum = int("".join(packetStr[-2:]), 16)
+assert udpCheckSum == 0x0172
+
+pkt = IPv6(nh=51) / AH(**Ah_dicts) / UDP()
+packetStr = transferPacket(pkt)
+udpCheckSum = int("".join(packetStr[-2:]), 16)
+assert udpCheckSum == 0xff72
 
 pkt = IP(len=28) / UDP()
 bpkt = IP(raw(pkt))
@@ -465,6 +523,18 @@ pkt = IP() / UDP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x7cc4 and bpkt.payload.chksum == 0xbb17
 
+pkt = IP(proto=51) / AH(**Ah_dicts) / UDP() / ("A" * 10)
+bpkt = IP(raw(pkt))
+assert bpkt.chksum == 0x7c92
+packetStr = transferPacket(pkt)
+udpCheckSum = int("".join(packetStr[-12:-10]), 16)
+assert udpCheckSum == 0xbb17
+
+pkt = IPv6(nh=51) / AH(**Ah_dicts) / UDP() / ("A" * 10)
+packetStr = transferPacket(pkt)
+udpCheckSum = int("".join(packetStr[-12:-10]), 16)
+assert udpCheckSum == 0xb918
+
 pkt = IP(len=38) / UDP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x7cc4 and bpkt.payload.chksum == 0xbb17
@@ -476,6 +546,13 @@ assert bpkt.chksum == 0x7cc4 and bpkt.payload.chksum == 0xbb17
 pkt = IP(options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
+
+pkt = IP(proto=51, options=[IPOption_RR()]) / AH(**Ah_dicts) / UDP() / ("A" * 10)
+bpkt = IP(raw(pkt))
+assert bpkt.chksum == 0x708b
+packetStr = transferPacket(pkt)
+udpCheckSum = int("".join(packetStr[-12:-10]), 16)
+assert udpCheckSum == 0xbb17
 
 pkt = IP(len=42, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(raw(pkt))
