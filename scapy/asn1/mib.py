@@ -741,6 +741,7 @@ gssapi_oids = {
     '1.3.6.1.5.5.2': 'SPNEGO - Simple Protected Negotiation',
     '1.3.6.1.4.1.311.2.2.10': 'NTLMSSP - Microsoft NTLM Security Support Provider',
     '1.3.6.1.4.1.311.2.2.30': 'NEGOEX - SPNEGO Extended Negotiation Security Mechanism',
+    '1.3.6.1.4.1.311.2.2.40': 'SPNEGO - Negotiate Late Fallback',
 }
 
 #      kerberos      #
