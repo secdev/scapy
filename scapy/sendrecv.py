@@ -1305,7 +1305,11 @@ class AsyncSniffer(object):
                     # The session object is passed the socket to call recv() on,
                     # and may perform additional processing (ip defrag, etc.)
                     try:
-                        packets = session.recv(s)
+                        packets = session.recv(
+                            s,
+                            nonblock=timeout is not None and
+                            hasattr(s, "nonblock_recv"),
+                        )
                         # A session can return multiple objects
                         for p in packets:
                             if lfilter and not lfilter(p):

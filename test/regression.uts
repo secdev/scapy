@@ -2063,6 +2063,45 @@ o.send(REFPACKET)
 pkts = sniff(opened_socket=[o], timeout=3)
 assert len(pkts) == 10
 
+= sniff timeout with select-ready but empty pcap socket (#4590)
+
+import time
+from scapy.automaton import ObjectPipe
+from scapy.supersocket import SuperSocket
+
+class PcapLikeSocket(SuperSocket):
+    def __init__(self):
+        self.ins = ObjectPipe(name="pcap_like_socket")
+        self.outs = None
+        self.recv_called = False
+
+    def recv(self, x=65535, **kwargs):
+        self.recv_called = True
+        time.sleep(60)
+        return None
+
+    def nonblock_recv(self, x=65535):
+        return None
+
+    @staticmethod
+    def select(sockets, remain=None):
+        return list(sockets)
+
+    def close(self):
+        if self.closed:
+            return
+        self.closed = True
+        self.ins.close()
+
+sock = PcapLikeSocket()
+t0 = time.monotonic()
+pkts = sniff(opened_socket=sock, timeout=1, count=1)
+elapsed = time.monotonic() - t0
+assert not sock.recv_called, "blocking recv must not be used with timeout"
+assert elapsed < 3, "sniff should stop on timeout, got %.1fs" % elapsed
+assert len(pkts) == 0
+sock.close()
+
 = GH issue 3306
 ~ netaccess needs_root
 
