@@ -4,6 +4,9 @@
 #
 # scapy.contrib.description = Realtek Bluetooth HCI Vendor-Specific Commands
 # scapy.contrib.status = loads
+#
+# Information sources:
+# - https://github.com/darkmentorllc/BT_Security_VSC_DB/blob/master/vendor/Realtek.md
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import (
