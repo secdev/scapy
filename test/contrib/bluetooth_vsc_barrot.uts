@@ -1,0 +1,85 @@
+% Barrot Bluetooth Vendor-Specific Command (VSC) tests
+# test/run_tests -P "load_contrib('bluetooth_vsc_barrot')" -t test/contrib/bluetooth_vsc_barrot.uts
+
++ Load the Barrot VSC contrib module
+
+= Load the contrib module
+from scapy.layers.bluetooth import *
+load_contrib("bluetooth_vsc_barrot")
+from scapy.contrib.bluetooth_vsc_barrot import *
+
+
++ Barrot command wrapper (opcode 0xFC80)
+
+= All Barrot VSCs share opcode 0xFC80 and select the subcommand with a 16-bit id
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Barrot() / HCI_Cmd_VSC_Barrot_Flash_Read(address=0x0, length=0x0)
+assert cmd.ogf == 0x3f
+assert cmd.ocf == 0x080
+assert cmd.opcode == 0xfc80
+assert cmd.cmd == 0x12
+
+
++ Barrot Flash Read (cmd 0x12)
+
+= Flash read build + dissect
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Barrot() / HCI_Cmd_VSC_Barrot_Flash_Read(address=0x1000, length=0x10)
+assert cmd.opcode == 0xfc80
+r = raw(cmd)
+# 80fc(op) 07(len) 1200(cmd id LE) 00100000(addr LE) 10(length)
+assert r == b'\x80\xfc\x07\x12\x00\x00\x10\x00\x00\x10'
+p = HCI_Command_Hdr(r)
+assert HCI_Cmd_VSC_Barrot_Flash_Read in p
+assert p[HCI_Cmd_VSC_Barrot_Flash_Read].address == 0x1000
+assert p[HCI_Cmd_VSC_Barrot_Flash_Read].length == 0x10
+
+= Flash read at the flash base with the maximum single-request length (0xF0)
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Barrot() / HCI_Cmd_VSC_Barrot_Flash_Read(address=0x0, length=0xF0)
+r = raw(cmd)
+assert r == b'\x80\xfc\x07\x12\x00\x00\x00\x00\x00\xf0'
+p = HCI_Command_Hdr(r)
+assert p[HCI_Cmd_VSC_Barrot_Flash_Read].length == 0xF0
+
+
++ Barrot Flash Write (cmd 0x11)
+
+= Flash write build + dissect
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Barrot() / HCI_Cmd_VSC_Barrot_Flash_Write(address=0x2000, data=b'\xaa\xbb')
+assert cmd.opcode == 0xfc80
+r = raw(cmd)
+# 80fc(op) 08(len) 1100(cmd id LE) 00200000(addr LE) aabb(data)
+assert r == b'\x80\xfc\x08\x11\x00\x00\x20\x00\x00\xaa\xbb'
+p = HCI_Command_Hdr(r)
+assert HCI_Cmd_VSC_Barrot_Flash_Write in p
+assert p[HCI_Cmd_VSC_Barrot_Flash_Write].address == 0x2000
+assert p[HCI_Cmd_VSC_Barrot_Flash_Write].data == b'\xaa\xbb'
+
+= Flash write of a full 128-byte chunk keeps the length byte in sync
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Barrot() / HCI_Cmd_VSC_Barrot_Flash_Write(address=0x0, data=b'\x00' * 128)
+r = raw(cmd)
+# len = 2 (cmd id) + 4 (addr) + 128 (data) = 134 = 0x86
+assert r[2] == 0x86
+p = HCI_Command_Hdr(r)
+assert len(p[HCI_Cmd_VSC_Barrot_Flash_Write].data) == 128
+
+
++ Barrot Flash Read command complete (opcode 0xFC80, echoed cmd 0x12)
+
+= Dissect a Command Complete carrying 4 data bytes
+# 04(evt) 0e(cmd complete) len=0a num=01 op=80fc status=00 cmd=1200 data=deadbeef
+evt = HCI_Hdr(bytes.fromhex("040e0a0180fc001200deadbeef"))
+assert HCI_Cmd_Complete_VSC_Barrot_Flash_Read in evt
+assert evt[HCI_Event_Command_Complete].status == 0
+assert evt[HCI_Evt_VSC_Barrot_Command_Complete].cmd == 0x12
+assert evt[HCI_Cmd_Complete_VSC_Barrot_Flash_Read].data == bytes.fromhex("deadbeef")
+
+= Dissect a single-byte flash read result
+# event param len = 7 -> 1 data byte after the echoed cmd id
+evt = HCI_Hdr(bytes.fromhex("040e070180fc001200ab"))
+assert evt[HCI_Cmd_Complete_VSC_Barrot_Flash_Read].data == b"\xab"
+
+= A non-flash-read command complete does not mis-parse as a flash read body
+# echoed cmd id 0x0f (bus read) must not bind to the flash-read complete class
+evt = HCI_Hdr(bytes.fromhex("040e0a0180fc000f0011223344"))
+assert HCI_Evt_VSC_Barrot_Command_Complete in evt
+assert evt[HCI_Evt_VSC_Barrot_Command_Complete].cmd == 0x0f
+assert HCI_Cmd_Complete_VSC_Barrot_Flash_Read not in evt
