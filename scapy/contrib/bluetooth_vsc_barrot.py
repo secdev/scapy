@@ -11,9 +11,11 @@
 from scapy.packet import Packet, bind_layers
 from scapy.fields import (
     ByteField,
+    StrFixedLenField,
     XLEShortField,
     XLEIntField,
     XStrField,
+    XStrFixedLenField,
     XStrLenField,
 )
 
@@ -31,12 +33,22 @@ class HCI_Cmd_VSC_Barrot(Packet):
     fields_desc = [XLEShortField("cmd", 0)]
 
 
-class HCI_Evt_VSC_Barrot_Command_Complete(Packet):
+class HCI_Cmd_VSC_Barrot_Read_Chip_Version(Packet):
     """
-    Barrot vendor-specific Command Complete body (opcode 0xFC80).
+    Barrot Read Chip Version (cmd 0x01).
+
+    Returns the chip model, firmware date, flash id and feature flags.
     """
-    name = "Barrot Vendor Specific Command Complete"
-    fields_desc = [XLEShortField("cmd", 0)]
+    name = "Barrot Read Chip Version"
+
+
+class HCI_Cmd_VSC_Barrot_Read_Signature(Packet):
+    """
+    Barrot Read Signature (cmd 0x03).
+
+    Returns a 32-byte chip signature.
+    """
+    name = "Barrot Read Signature"
 
 
 class HCI_Cmd_VSC_Barrot_Flash_Write(Packet):
@@ -67,6 +79,39 @@ class HCI_Cmd_VSC_Barrot_Flash_Read(Packet):
     ]
 
 
+class HCI_Cmd_Complete_VSC_Barrot_Read_Chip_Version(Packet):
+    """
+    Read Chip Version (cmd 0x01) command complete.
+
+    ``version`` packs the chip model in hex digits (0x08051A02 -> "BR8051A02").
+    """
+    name = "Barrot Read Chip Version complete"
+    fields_desc = [
+        StrFixedLenField("magic", b"BRT", 3),
+        ByteField("config_type", 0),
+        XLEIntField("version", 0),
+        XLEIntField("fw_date", 0),
+        XLEIntField("esm_type", 0),
+        XLEIntField("run_mode", 0),
+        XLEIntField("features", 0),
+        XLEShortField("flash_id", 0),
+    ]
+
+
+class HCI_Cmd_Complete_VSC_Barrot_Read_Signature(Packet):
+    """Read Signature (cmd 0x03) command complete: the 32-byte signature."""
+    name = "Barrot Read Signature complete"
+    fields_desc = [XStrFixedLenField("signature", b"\x00" * 32, 32)]
+
+
+class HCI_Evt_VSC_Barrot_Command_Complete(Packet):
+    """
+    Barrot vendor-specific Command Complete body (opcode 0xFC80).
+    """
+    name = "Barrot Vendor Specific Command Complete"
+    fields_desc = [XLEShortField("cmd", 0)]
+
+
 class HCI_Cmd_Complete_VSC_Barrot_Flash_Read(Packet):
     """Flash Read (cmd 0x12) command complete: the ``length`` bytes read."""
     name = "Barrot Flash Read complete"
@@ -77,10 +122,16 @@ class HCI_Cmd_Complete_VSC_Barrot_Flash_Read(Packet):
 
 
 bind_layers(HCI_Command_Hdr, HCI_Cmd_VSC_Barrot, ogf=0x3F, ocf=0x080)
-bind_layers(HCI_Event_Command_Complete, HCI_Evt_VSC_Barrot_Command_Complete,
-            opcode=0xFC80)
-
+bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Read_Chip_Version, cmd=0x01)
+bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Read_Signature, cmd=0x03)
 bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Flash_Write, cmd=0x11)
 bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Flash_Read, cmd=0x12)
+
+bind_layers(HCI_Event_Command_Complete, HCI_Evt_VSC_Barrot_Command_Complete,
+            opcode=0xFC80)
+bind_layers(HCI_Evt_VSC_Barrot_Command_Complete,
+            HCI_Cmd_Complete_VSC_Barrot_Read_Chip_Version, cmd=0x01)
+bind_layers(HCI_Evt_VSC_Barrot_Command_Complete,
+            HCI_Cmd_Complete_VSC_Barrot_Read_Signature, cmd=0x03)
 bind_layers(HCI_Evt_VSC_Barrot_Command_Complete,
             HCI_Cmd_Complete_VSC_Barrot_Flash_Read, cmd=0x12)
