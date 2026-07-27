@@ -83,3 +83,49 @@ evt = HCI_Hdr(bytes.fromhex("040e0a0180fc000f0011223344"))
 assert HCI_Evt_VSC_Barrot_Command_Complete in evt
 assert evt[HCI_Evt_VSC_Barrot_Command_Complete].cmd == 0x0f
 assert HCI_Cmd_Complete_VSC_Barrot_Flash_Read not in evt
+
+
++ Barrot Read Chip Version (cmd 0x01)
+
+= Read chip version build (no arguments; id set by the subcommand layer)
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Barrot() / HCI_Cmd_VSC_Barrot_Read_Chip_Version()
+assert cmd.opcode == 0xfc80
+assert cmd.cmd == 0x01
+# 80fc(op) 02(len) 0100(cmd id LE)
+assert raw(cmd) == b'\x80\xfc\x02\x01\x00'
+
+= Dissect a real Read Chip Version command complete (BR8051A02)
+# captured live from a BR8051A02: magic "BRT", version 0x08051a02, flash_id 0x8512
+evt = HCI_Hdr(bytes.fromhex("040e220180fc00010042525401021a05084af66d9502000000000000000000000012850000"))
+assert HCI_Cmd_Complete_VSC_Barrot_Read_Chip_Version in evt
+assert evt[HCI_Event_Command_Complete].status == 0
+v = evt[HCI_Cmd_Complete_VSC_Barrot_Read_Chip_Version]
+assert v.magic == b"BRT"
+assert v.config_type == 0x01
+assert v.version == 0x08051a02
+assert v.fw_date == 0x956df64a
+assert v.esm_type == 0x00000002
+assert v.flash_id == 0x8512
+
+= Read chip version build + dissect round-trip
+v = HCI_Cmd_Complete_VSC_Barrot_Read_Chip_Version(version=0x08551a01, flash_id=0x1234)
+p = HCI_Cmd_Complete_VSC_Barrot_Read_Chip_Version(raw(v))
+assert p.magic == b"BRT"
+assert p.version == 0x08551a01
+assert p.flash_id == 0x1234
+
+
++ Barrot Read Signature (cmd 0x03)
+
+= Read signature build (no arguments)
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Barrot() / HCI_Cmd_VSC_Barrot_Read_Signature()
+assert cmd.cmd == 0x03
+assert raw(cmd) == b'\x80\xfc\x02\x03\x00'
+
+= Dissect a real Read Signature command complete (32-byte signature)
+evt = HCI_Hdr(bytes.fromhex("040e260180fc00030026f71f00cf59b76f7ba01712190f208052300712d2d12c169a3b57b193632026"))
+assert HCI_Cmd_Complete_VSC_Barrot_Read_Signature in evt
+assert evt[HCI_Event_Command_Complete].status == 0
+sig = evt[HCI_Cmd_Complete_VSC_Barrot_Read_Signature].signature
+assert len(sig) == 32
+assert sig == bytes.fromhex("26f71f00cf59b76f7ba01712190f208052300712d2d12c169a3b57b193632026")
