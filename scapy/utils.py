@@ -1410,6 +1410,10 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
     nonblocking_socket = True
     PacketMetadata = collections.namedtuple("PacketMetadata",
                                             ["sec", "usec", "wirelen", "caplen"])  # noqa: E501
+    # A helper subprocess (e.g. the tcpdump prefilter that sniff() spawns for
+    # an offline capture with a filter) whose lifetime is bound to this reader.
+    # It is reaped in close() so it does not linger as a zombie (#4512).
+    subproc = None  # type: Optional[subprocess.Popen[bytes]]
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, _ByteStream, bytes) -> None
@@ -1529,6 +1533,13 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
         if isinstance(self.f, gzip.GzipFile):
             self.f.fileobj.close()  # type: ignore
         self.f.close()
+        if self.subproc is not None:
+            # Reap the prefilter subprocess. The read pipe is already closed
+            # above, so a still-running tcpdump gets a SIGTERM and we then
+            # wait() to avoid a zombie; an already-finished one is just reaped.
+            self.subproc.terminate()
+            self.subproc.wait()
+            self.subproc = None
 
     def __exit__(self, exc_type, exc_value, tracback):
         # type: (Optional[Any], Optional[Any], Optional[Any]) -> None
