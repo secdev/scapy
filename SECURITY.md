@@ -5,7 +5,7 @@ Please note however that we only provide support for the **latest** version of S
 
 ### Examples of what counts as a vulnerability in Scapy
 
-* a DoS during parsing: provide a packet that triggers an infinite loop when parsing, or takes a quadratic amount of resources
+* a DoS during parsing: provide a packet that triggers an infinite loop when parsing (high issue), or takes a quadratic amount of resources (low issue)
 * a packet that stop the dissection process entirely (`sniff` / `PcapReader` / `rdpcap`)
 * a packet that triggers an arbitrary code execution (RCE), unrestricted read of files, or any similar high Confidentiality/Integrity bugs
 
