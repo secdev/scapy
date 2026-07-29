@@ -4277,6 +4277,17 @@ except BER_Decoding_Error:
     pass
 
 
+= BER tests - 2
+
+a = b'0c\x02\x01\x01\x04\x06public\xa2V\x02\x01\x01\x02\x01\x00\x02\x01\x000K0I\x06\x03+\x06\x010B0@0>0<0:08060402000.0,0*0(0&0$0"0 0\x1e0\x1c0\x1a0\x180\x160\x140\x120\x100\x0e0\x0c0\n0\x080\x060\x040\x020\x00'
+try:
+    SNMP(a)
+except BER_Exception as ex:
+    assert "recursion limit" in str(ex)
+else:
+    assert False
+
+
 ############
 ############
 + Fields

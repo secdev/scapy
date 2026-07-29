@@ -185,13 +185,13 @@ class CBORCodec(EnumElement):
         # type: (Type[CBORcodec_Object[Any]]) -> None
         cls._stem = stem
 
-    def dec(cls, s, context=None):
-        # type: (bytes, Optional[Any]) -> CBOR_Object[Any]
-        return cls._stem.dec(s, context=context)  # type: ignore
+    def dec(cls, s, context=None, _depth=0):
+        # type: (bytes, Optional[Any], int) -> CBOR_Object[Any]
+        return cls._stem.dec(s, context=context, _depth=_depth)  # type: ignore
 
-    def safedec(cls, s, context=None):
-        # type: (bytes, Optional[Any]) -> CBOR_Object[Any]
-        return cls._stem.safedec(s, context=context)  # type: ignore
+    def safedec(cls, s, context=None, _depth=0):
+        # type: (bytes, Optional[Any], int) -> CBOR_Object[Any]
+        return cls._stem.safedec(s, context=context, _depth=_depth)  # type: ignore
 
     def get_stem(cls):
         # type: () -> type

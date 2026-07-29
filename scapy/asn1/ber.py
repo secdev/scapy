@@ -50,6 +50,8 @@ from typing import (
 
 #    [ BER tools ]    #
 
+MAX_BER_DEPTH = 32
+
 
 class BER_Exception(Exception):
     pass
@@ -341,7 +343,8 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
     def do_dec(cls,
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
-               safe=False  # type: bool
+               safe=False,  # type: bool
+               _depth=0,  # type: int
                ):
         # type: (...) -> Tuple[ASN1_Object[Any], bytes]
         if context is not None:
@@ -363,22 +366,28 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
             # Value type defined as Unknown
             l, s = BER_num_dec(remainder)
             return ASN1_BADTAG(s[:l]), s[l:]
-        return codec.dec(s, _context, safe)
+        return codec.dec(s, _context, safe, _depth=_depth)
 
     @classmethod
     def dec(cls,
             s,  # type: bytes
             context=None,  # type: Optional[Type[ASN1_Class]]
             safe=False,  # type: bool
+            _depth=0,  # type: int
             ):
         # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
+        if _depth > MAX_BER_DEPTH:
+            raise BER_Exception("Reached maximum BER recursion limit")
         if not safe:
-            return cls.do_dec(s, context, safe)
+            return cls.do_dec(s, context, safe, _depth=_depth)
         try:
-            return cls.do_dec(s, context, safe)
+            return cls.do_dec(s, context, safe, _depth=_depth)
         except BER_BadTag_Decoding_Error as e:
             o, remain = BERcodec_Object.dec(
-                e.remaining, context, safe
+                e.remaining,
+                context=context,
+                safe=safe,
+                _depth=_depth + 1,
             )  # type: Tuple[ASN1_Object[Any], bytes]
             return ASN1_BADTAG(o), remain
         except BER_Decoding_Error as e:
@@ -390,9 +399,10 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
     def safedec(cls,
                 s,  # type: bytes
                 context=None,  # type: Optional[Type[ASN1_Class]]
+                _depth=0,  # type: int
                 ):
         # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
-        return cls.dec(s, context, safe=True)
+        return cls.dec(s, context, safe=True, _depth=_depth)
 
     @classmethod
     def enc(cls, s, size_len=0):
@@ -440,6 +450,7 @@ class BERcodec_INTEGER(BERcodec_Object[int]):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
+               _depth=0,  # type: int
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
         l, s, t = cls.check_type_check_len(s)
@@ -464,7 +475,8 @@ class BERcodec_BIT_STRING(BERcodec_Object[str]):
     def do_dec(cls,
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
-               safe=False  # type: bool
+               safe=False,  # type: bool
+               _depth=0,  # type: int
                ):
         # type: (...) -> Tuple[ASN1_Object[str], bytes]
         # /!\ the unused_bits information is lost after this decoding
@@ -518,6 +530,7 @@ class BERcodec_STRING(BERcodec_Object[str]):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
+               _depth=0,  # type: int
                ):
         # type: (...) -> Tuple[ASN1_Object[Any], bytes]
         l, s, t = cls.check_type_check_len(s)
@@ -558,6 +571,7 @@ class BERcodec_OID(BERcodec_Object[bytes]):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
+               _depth=0,  # type: int
                ):
         # type: (...) -> Tuple[ASN1_Object[bytes], bytes]
         l, s, t = cls.check_type_check_len(s)
@@ -643,18 +657,24 @@ class BERcodec_SEQUENCE(BERcodec_Object[Union[bytes, List[BERcodec_Object[Any]]]
     def do_dec(cls,
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
-               safe=False  # type: bool
+               safe=False,  # type: bool
+               _depth=0,  # type: int
                ):
         # type: (...) -> Tuple[ASN1_Object[Union[bytes, List[Any]]], bytes]
         if context is None:
             context = cls.tag.context
+        if _depth > MAX_BER_DEPTH:
+            raise BER_Exception("Reached maximum BER recursion limit")
         ll, st = cls.check_type_get_len(s)  # we may have len(s) < ll
         s, t = st[:ll], st[ll:]
         obj = []
         while s:
             try:
                 o, remain = BERcodec_Object.dec(
-                    s, context, safe
+                    s,
+                    context=context,
+                    safe=safe,
+                    _depth=_depth + 1,
                 )  # type: Tuple[ASN1_Object[Any], bytes]
                 s = remain
             except BER_Decoding_Error as err:
@@ -687,8 +707,13 @@ class BERcodec_IPADDRESS(BERcodec_STRING):
         return chb(int(cls.tag)) + BER_len_enc(len(s), size=size_len) + s
 
     @classmethod
-    def do_dec(cls, s, context=None, safe=False):
-        # type: (bytes, Optional[Any], bool) -> Tuple[ASN1_Object[str], bytes]
+    def do_dec(cls,
+               s,  # type: bytes
+               context=None,  # type: Optional[Any]
+               safe=False,  # type: bool
+               _depth=0,  # type: int
+               ):
+        # type: (...) -> Tuple[ASN1_Object[str], bytes]
         l, s, t = cls.check_type_check_len(s)
         try:
             ipaddr_ascii = inet_ntoa(s)
