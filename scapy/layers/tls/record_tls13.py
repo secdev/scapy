@@ -16,7 +16,7 @@ See the TLS class documentation for more information.
 import struct
 
 from scapy.error import log_runtime, warning
-from scapy.compat import raw, orb
+from scapy.compat import raw
 from scapy.fields import ByteEnumField, PacketField, XStrField
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _TLSVersionField, _tls_version, \
@@ -140,7 +140,7 @@ class TLS13(_GenericTLSSessionInheritance):
         if len(s) < 5:
             raise Exception("Invalid record: header is too short.")
 
-        self.type = orb(s[0])
+        self.type = s[0]
         if (isinstance(self.tls_session.rcs.cipher, Cipher_NULL) or
                 self.type == 0x14):
             self.deciphered_len = None

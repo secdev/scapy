@@ -44,7 +44,6 @@ from scapy.fields import (
 )
 from scapy.layers.inet import UDP
 from scapy.utils import lhex
-from scapy.compat import orb
 from scapy.config import conf
 
 
@@ -197,7 +196,7 @@ def _ntp_dispatcher(payload):
     else:
         length = len(payload)
         if length >= _NTP_PACKET_MIN_SIZE:
-            first_byte = orb(payload[0])
+            first_byte = payload[0]
             # Extract NTP mode
             mode = first_byte & 7
             return {6: NTPControl, 7: NTPPrivate}.get(mode, NTPHeader)

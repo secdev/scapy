@@ -41,7 +41,6 @@ from scapy.config import conf
 from scapy.consts import DARWIN, OPENBSD, WINDOWS
 from scapy.data import MTU, DLT_EN10MB, DLT_RAW
 from scapy.compat import (
-    orb,
     plain_str,
     chb,
     hex_bytes,
@@ -260,10 +259,10 @@ def _open_fifo(fd: Any, mode: str = "rb") -> IO[bytes]:
 
 
 def sane(x, color=False):
-    # type: (AnyStr, bool) -> str
+    # type: (bytes, bool) -> str
     r = ""
     for i in x:
-        j = orb(i)
+        j = i
         if (j < 32) or (j >= 127):
             if color:
                 r += conf.color_theme.not_printable(".")
@@ -320,7 +319,7 @@ def hexdump(p, dump=False):
         s += "%04x  " % i
         for j in range(16):
             if i + j < x_len:
-                s += "%02X " % orb(x[i + j])
+                s += "%02X " % x[i + j]
             else:
                 s += "   "
         s += " %s\n" % sane(x[i:i + 16], color=True)
@@ -370,7 +369,7 @@ def chexdump(p, dump=False):
     :return: a String only if dump=True
     """
     x = bytes_encode(p)
-    s = ", ".join("%#04x" % orb(x) for x in x)
+    s = ", ".join("%#04x" % x for x in x)
     if dump:
         return s
     else:
@@ -385,7 +384,7 @@ def hexstr(p, onlyasc=0, onlyhex=0, color=False):
     x = bytes_encode(p)
     s = []
     if not onlyasc:
-        s.append(" ".join("%02X" % orb(b) for b in x))
+        s.append(" ".join("%02X" % b for b in x))
     if not onlyhex:
         s.append(sane(x, color=color))
     return "  ".join(s)
@@ -394,7 +393,7 @@ def hexstr(p, onlyasc=0, onlyhex=0, color=False):
 def repr_hex(s):
     # type: (bytes) -> str
     """ Convert provided bitstring to a simple string of hex digits """
-    return "".join("%02x" % orb(x) for x in s)
+    return "".join("%02x" % x for x in s)
 
 
 @conf.commands.register
@@ -557,7 +556,7 @@ def hexdiff(
             if i + j < min(len(backtrackx), len(backtracky)):
                 if line[j]:
                     col = colorize[(linex[j] != liney[j]) * (doy - dox)]
-                    print(col("%02X" % orb(line[j])), end=' ')
+                    print(col("%02X" % line[j][0]), end=' ')
                     if linex[j] == liney[j]:
                         cl += sane(line[j], color=True)
                     else:
@@ -1819,7 +1818,7 @@ class RawPcapNgReader(RawPcapReader):
             if c == 9:
                 length = len(v)
                 if length == 1:
-                    tsresol = orb(v)
+                    tsresol = v[0]
                     options["tsresol"] = (2 if tsresol & 128 else 10) ** (
                         tsresol & 127
                     )

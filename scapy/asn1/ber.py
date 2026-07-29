@@ -13,7 +13,7 @@ Basic Encoding Rules (BER) for ASN.1
 
 from scapy.config import conf
 from scapy.error import warning
-from scapy.compat import chb, orb, bytes_encode
+from scapy.compat import chb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
 from scapy.asn1.asn1 import (
     ASN1Tag,
@@ -129,7 +129,7 @@ def BER_len_enc(ll, size=0):
 
 def BER_len_dec(s):
     # type: (bytes) -> Tuple[int, bytes]
-    tmp_len = orb(s[0])
+    tmp_len = s[0]
     if not tmp_len & 0x80:
         return tmp_len, s[1:]
     tmp_len &= 0x7f
@@ -142,7 +142,7 @@ def BER_len_dec(s):
     ll = 0
     for c in s[1:tmp_len + 1]:
         ll <<= 8
-        ll |= orb(c)
+        ll |= c
     return ll, s[tmp_len + 1:]
 
 
@@ -164,7 +164,7 @@ def BER_num_dec(s, cls_id=0, max_pow=32):
         raise BER_Decoding_Error("BER_num_dec: got empty string", remaining=s)
     x = cls_id
     for i, c in enumerate(s):
-        c = orb(c)
+        c = c
         x <<= 7
         x |= c & 0x7f
         if not c & 0x80:
@@ -196,7 +196,7 @@ def BER_id_dec(s):
     # encoded in scapy's tag in order to reuse it for packet building.
     # Note that tags thus may have to be hard-coded with their extended
     # information, e.g. a SEQUENCE from asn1.py has a direct tag 0x20|16.
-    x = orb(s[0])
+    x = s[0]
     if x & 0x1f != 0x1f:
         # low-tag-number
         return x, s[1:]
@@ -213,7 +213,7 @@ def BER_id_enc(n):
     else:
         # high-tag-number
         s = BER_num_enc(n)
-        tag = orb(s[0])             # first byte, as an int
+        tag = s[0]                  # first byte, as an int
         tag &= 0x07                 # reset every bit from 8 to 4
         tag <<= 5                   # move back the info bits on top
         tag |= 0x1f                 # pad with 1s every bit from 5 to 1
@@ -464,11 +464,11 @@ class BERcodec_INTEGER(BERcodec_Object[int]):
         l, s, t = cls.check_type_check_len(s)
         x = 0
         if s:
-            if orb(s[0]) & 0x80:  # negative int
+            if s[0] & 0x80:  # negative int
                 x = -1
             for c in s:
                 x <<= 8
-                x |= orb(c)
+                x |= c
         return cls.asn1_object(x), t
 
 
@@ -490,13 +490,13 @@ class BERcodec_BIT_STRING(BERcodec_Object[str]):
         # /!\ the unused_bits information is lost after this decoding
         l, s, t = cls.check_type_check_len(s)
         if len(s) > 0:
-            unused_bits = orb(s[0])
+            unused_bits = s[0]
             if safe and unused_bits > 7:
                 raise BER_Decoding_Error(
                     "BERcodec_BIT_STRING: too many unused_bits advertised",
                     remaining=s
                 )
-            fs = "".join(binrepr(orb(x)).zfill(8) for x in s[1:])
+            fs = "".join(binrepr(x).zfill(8) for x in s[1:])
             if unused_bits > 0:
                 fs = fs[:-unused_bits]
             return cls.tag.asn1_object(fs), t

@@ -34,7 +34,7 @@ from scapy.fields import (
 )
 from scapy.layers.inet import checksum
 from scapy.layers.l2 import SNAP
-from scapy.compat import orb, chb
+from scapy.compat import chb
 from scapy.config import conf
 
 
@@ -173,7 +173,7 @@ class CDPAddrRecordIPv6(CDPAddrRecord):
 def _CDPGuessAddrRecord(p, **kargs):
     cls = conf.raw_layer
     if len(p) >= 2:
-        plen = orb(p[1])
+        plen = p[1]
         proto = p[2:plen + 2]
 
         if proto == _cdp_addrrecord_proto_ip:
@@ -402,11 +402,11 @@ class _CDPChecksum:
         This padding is only used for checksum computation.  The original
         packet should not be altered."""
         if len(pkt) % 2:
-            last_chr = orb(pkt[-1])
+            last_chr = pkt[-1]
             if last_chr <= 0x80:
                 return pkt[:-1] + b'\x00' + chb(last_chr)
             else:
-                return pkt[:-1] + b'\xff' + chb(orb(last_chr) - 1)
+                return pkt[:-1] + b'\xff' + chb(last_chr - 1)
         else:
             return pkt
 

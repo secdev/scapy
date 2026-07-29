@@ -897,7 +897,7 @@ assert isinstance(ske, TLSServerKeyExchange)
 p = ske.params
 assert isinstance(p, ServerECDHNamedCurveParams)
 assert p.named_curve == 0x0017
-assert orb(p.point[0]) == 4 and p.point[1:5] == b'\xc3\x9d\x1cD' and p.point[-4:] == b'X\x19\x03u'
+assert p.point[0] == 4 and p.point[1:5] == b'\xc3\x9d\x1cD' and p.point[-4:] == b'X\x19\x03u'
 assert ske.sig.sig_alg == 0x0601
 ske.sig.sig_val[:4] == b'y\x8aQ\x11' and ske.sig.sig_val[-4:] == b'`15\xef'
 

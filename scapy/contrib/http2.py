@@ -22,7 +22,7 @@ import abc
 import re
 from io import BytesIO
 import struct
-from scapy.compat import raw, plain_str, hex_bytes, orb, chb, bytes_encode
+from scapy.compat import raw, plain_str, hex_bytes, chb, bytes_encode
 
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".
@@ -235,7 +235,7 @@ class AbstractUVarIntField(fields.Field):
         :raises: AssertionError
         """
         assert isinstance(fb, int) or len(fb) == 1
-        return (orb(fb) & self._max_value) == self._max_value
+        return (fb & self._max_value) == self._max_value
 
     def _parse_multi_byte(self, s):
         # type: (str) -> int
@@ -254,7 +254,7 @@ class AbstractUVarIntField(fields.Field):
 
         value = 0
         i = 1
-        byte = orb(s[i])
+        byte = s[i]
         # For CPU sake, stops at an arbitrary large number!
         max_value = 1 << 64
         # As long as the MSG is set, an another byte must be read
@@ -266,7 +266,7 @@ class AbstractUVarIntField(fields.Field):
                 )
             i += 1
             assert i < tmp_len, 'EINVAL: x: out-of-bound read: the string ends before the AbstractUVarIntField!'  # noqa: E501
-            byte = orb(s[i])
+            byte = s[i]
         value += byte << (7 * (i - 1))
         value += self._max_value
 
@@ -296,7 +296,7 @@ class AbstractUVarIntField(fields.Field):
         if self._detect_multi_byte(val[0]):
             ret = self._parse_multi_byte(val)
         else:
-            ret = orb(val[0]) & self._max_value
+            ret = val[0] & self._max_value
 
         assert ret >= 0
         return ret
@@ -392,7 +392,7 @@ class AbstractUVarIntField(fields.Field):
             return s[0] + chb((s[2] << self.size) + self._max_value) + self.i2m(pkt, val)[1:]  # noqa: E501
         # This AbstractUVarIntField is only one byte long; setting the prefix value  # noqa: E501
         # and appending the resulting byte to the string
-        return s[0] + chb((s[2] << self.size) + orb(self.i2m(pkt, val)))
+        return s[0] + chb((s[2] << self.size) + self.i2m(pkt, val))
 
     @staticmethod
     def _detect_bytelen_from_str(s):
@@ -410,7 +410,7 @@ class AbstractUVarIntField(fields.Field):
         tmp_len = len(s)
 
         i = 1
-        while orb(s[i]) & 0x80 > 0:
+        while s[i] & 0x80 > 0:
             i += 1
             assert i < tmp_len, 'EINVAL: s: out-of-bound read: unfinished AbstractUVarIntField detected'  # noqa: E501
         ret = i + 1
@@ -1011,7 +1011,7 @@ class HPackZString(HPackStringsInterface):
             return cls.static_huffman_code[-1]
         else:
             assert isinstance(c, int) or len(c) == 1
-        return cls.static_huffman_code[orb(c)]
+        return cls.static_huffman_code[c]
 
     @classmethod
     def huffman_encode(cls, s):
@@ -1142,7 +1142,7 @@ class HPackZString(HPackStringsInterface):
         i = 0
         ibl = len(s) * 8
         for c in s:
-            i = (i << 8) + orb(c)
+            i = (i << 8) + c
 
         ret = i, ibl
         assert ret[0] >= 0
@@ -1342,7 +1342,7 @@ class HPackHeaders(packet.Packet):
         """
         if s is None:
             return config.conf.raw_layer
-        fb = orb(s[0])
+        fb = s[0]
         if fb & 0x80 != 0:
             return HPackIndexedHdr
         if fb & 0x40 != 0:

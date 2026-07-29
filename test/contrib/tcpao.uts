@@ -28,7 +28,7 @@ def check(
     ):
         packet_bytes = fromhex(packet_hex)
         # sanity check for ip version
-        ipv = orb(packet_bytes[0]) >> 4
+        ipv = packet_bytes[0] >> 4
         if ipv == 4:
             p = IP(fromhex(packet_hex))
             assert p[IP].proto == socket.IPPROTO_TCP

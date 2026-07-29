@@ -40,7 +40,7 @@ import struct
 import warnings
 
 from scapy.config import conf, crypto_validator
-from scapy.compat import orb, raw
+from scapy.compat import raw
 from scapy.data import IP_PROTOS
 from scapy.error import log_loading
 from scapy.fields import (
@@ -500,8 +500,8 @@ class CryptAlgo(object):
                     raise IPSecIntegrityError(err)
 
         # extract padlen and nh
-        padlen = orb(data[-2])
-        nh = orb(data[-1])
+        padlen = data[-2]
+        nh = data[-1]
 
         # then use padlen to determine data and padding
         padding = data[len(data) - padlen - 2: len(data) - 2]

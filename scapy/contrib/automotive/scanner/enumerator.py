@@ -15,7 +15,6 @@ from collections import defaultdict, OrderedDict
 from itertools import chain
 from typing import NamedTuple
 
-from scapy.compat import orb
 from scapy.contrib.automotive import log_automotive
 from scapy.error import Scapy_Exception
 from scapy.utils import make_lined_table, EDecimal, PeriodicSenderThread
@@ -761,7 +760,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         # type: (Optional[Packet], Union[Callable[[Packet], str], str]) -> str
         if response is None:
             return "Timeout"
-        elif orb(bytes(response)[0]) == 0x7f:
+        elif bytes(response)[0] == 0x7f:
             return self._get_negative_response_label(response)
         else:
             if isinstance(positive_case, str):
@@ -777,7 +776,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         # type: () -> List[EcuResponse]
         supported_resps = list()
         all_responses = [p for p in self._result_packets.values()
-                         if orb(bytes(p)[0]) & 0x40]
+                         if bytes(p)[0] & 0x40]
         for resp in all_responses:
             states = list(set([t.state for t in self.results_with_response
                                if t.resp == resp]))

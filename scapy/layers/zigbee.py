@@ -12,7 +12,6 @@ ZigBee bindings for IEEE 802.15.4.
 
 import struct
 
-from scapy.compat import orb
 from scapy.packet import bind_layers, bind_bottom_up, Packet
 from scapy.fields import BitField, ByteField, XLEIntField, ConditionalField, \
     ByteEnumField, EnumField, BitEnumField, FieldListField, FlagsField, \
@@ -1447,7 +1446,7 @@ class ZEP2(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=b"", *args, **kargs):
         if _pkt and len(_pkt) >= 4:
-            v = orb(_pkt[2])
+            v = _pkt[2]
             if v == 1:
                 return ZEP1
             elif v == 2:

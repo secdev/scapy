@@ -10,7 +10,7 @@ TLS helpers, provided as out-of-context methods.
 
 import struct
 
-from scapy.compat import orb, chb
+from scapy.compat import chb
 from scapy.error import warning
 from scapy.fields import (ByteEnumField, ShortEnumField,
                           FieldLenField, StrLenField)
@@ -130,7 +130,7 @@ def _tls_del_pad(p):
         warning("Message format is invalid (padding)")
         return False
 
-    padlen = orb(p.data[-1])
+    padlen = p.data[-1]
     padsize = padlen + 1
 
     if p.len < padsize:

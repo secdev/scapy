@@ -19,7 +19,6 @@ from scapy.packet import NoPayload, bind_layers
 from scapy.config import conf
 from scapy.fields import XByteEnumField
 from scapy.contrib.isotp import ISOTP
-from scapy.compat import orb
 
 from typing import (  # noqa: F401
     Dict,
@@ -74,7 +73,7 @@ class OBD(ISOTP):
         # type: (...) -> type
         """Dispatch to the correct OBD service class in single layer mode."""
         if conf.contribs['OBD'].get('single_layer_mode', False) and len(_pkt) >= 1:
-            service = orb(_pkt[0])
+            service = _pkt[0]
             return cls._service_cls.get(service, cls)
         return cls
 

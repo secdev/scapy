@@ -18,7 +18,7 @@ from scapy.ansmachine import AnsweringMachine
 from scapy.arch import get_if_hwaddr, in6_getifaddr
 from scapy.config import conf
 from scapy.data import EPOCH, ETHER_ANY
-from scapy.compat import raw, orb
+from scapy.compat import raw
 from scapy.error import warning
 from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     FlagsField, IntEnumField, IntField, MACField, \
@@ -66,7 +66,7 @@ dhcp6_cls_by_type = {1: "DHCP6_Solicit",
 def _dhcp6_dispatcher(x, *args, **kargs):
     cls = conf.raw_layer
     if len(x) >= 2:
-        cls = get_cls(dhcp6_cls_by_type.get(orb(x[0]), "Raw"), conf.raw_layer)
+        cls = get_cls(dhcp6_cls_by_type.get(x[0], "Raw"), conf.raw_layer)
     return cls(x, *args, **kargs)
 
 #############################################################################

@@ -25,7 +25,7 @@ import re
 
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net
-from scapy.compat import chb, orb, bytes_encode
+from scapy.compat import chb, bytes_encode
 from scapy.fields import (
     ByteEnumField,
     ByteField,
@@ -172,7 +172,7 @@ class ClasslessStaticRoutesField(Field):
     def m2i(self, pkt, x):
         # type: (Packet, bytes) -> str
         # b'\x20\x01\x02\x03\x04\t\x08\x07\x06' -> (1.2.3.4/32:9.8.7.6)
-        prefix = orb(x[0])
+        prefix = x[0]
 
         octets = (prefix + 7) // 8
         # Create the destination IP by using the number of octets
@@ -203,7 +203,7 @@ class ClasslessStaticRoutesField(Field):
         return struct.pack('b', prefix) + dest + router
 
     def getfield(self, pkt, s):
-        prefix = orb(s[0])
+        prefix = s[0]
         route_len = 5 + (prefix + 7) // 8
         return s[route_len:], self.m2i(pkt, s[:route_len])
 
@@ -433,7 +433,7 @@ class DHCPOptionsField(StrField):
                     vv = ",".join(repr(val) for val in v[1:])
                 s.append("%s=%s" % (v[0], vv))
             else:
-                s.append(sane(v))
+                s.append(sane(bytes_encode(v)))
         return "[%s]" % (" ".join(s))
 
     def getfield(self, pkt, s):
@@ -442,7 +442,7 @@ class DHCPOptionsField(StrField):
     def m2i(self, pkt, x):
         opt = []
         while x:
-            o = orb(x[0])
+            o = x[0]
             if o == 255:
                 opt.append("end")
                 x = x[1:]
@@ -451,18 +451,18 @@ class DHCPOptionsField(StrField):
                 opt.append("pad")
                 x = x[1:]
                 continue
-            if len(x) < 2 or len(x) < orb(x[1]) + 2:
+            if len(x) < 2 or len(x) < x[1] + 2:
                 opt.append(x)
                 break
             elif o in DHCPOptions:
                 f = DHCPOptions[o]
 
                 if isinstance(f, str):
-                    olen = orb(x[1])
+                    olen = x[1]
                     opt.append((f, x[2:olen + 2]))
                     x = x[olen + 2:]
                 else:
-                    olen = orb(x[1])
+                    olen = x[1]
                     lval = [f.name]
 
                     if olen == 0:
@@ -487,7 +487,7 @@ class DHCPOptionsField(StrField):
                     opt.append(otuple)
                     x = x[olen + 2:]
             else:
-                olen = orb(x[1])
+                olen = x[1]
                 opt.append((o, x[2:olen + 2]))
                 x = x[olen + 2:]
         return opt

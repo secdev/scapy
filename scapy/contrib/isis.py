@@ -56,7 +56,7 @@ from scapy.layers.clns import network_layer_protocol_ids, register_cln_protocol
 from scapy.layers.inet6 import IP6ListField, IP6Field
 from scapy.utils import fletcher16_checkbytes
 from scapy.volatile import RandString, RandByte
-from scapy.compat import orb, hex_bytes
+from scapy.compat import hex_bytes
 
 EXT_VERSION = "v0.0.3"
 
@@ -74,7 +74,7 @@ def isis_str2area(s):
 
     numbytes = len(s[1:])
     fmt = "%02X" + (".%02X%02X" * (numbytes // 2)) + ("" if (numbytes % 2) == 0 else ".%02X")  # noqa: E501
-    return fmt % tuple(orb(x) for x in s)
+    return fmt % tuple(x for x in s)
 
 
 def isis_sysid2str(sysid):
@@ -82,7 +82,7 @@ def isis_sysid2str(sysid):
 
 
 def isis_str2sysid(s):
-    return ("%02X%02X." * 3)[:-1] % tuple(orb(x) for x in s)
+    return ("%02X%02X." * 3)[:-1] % tuple(x for x in s)
 
 
 def isis_nodeid2str(nodeid):
@@ -90,7 +90,7 @@ def isis_nodeid2str(nodeid):
 
 
 def isis_str2nodeid(s):
-    return "%s.%02X" % (isis_str2sysid(s[:-1]), orb(s[-1]))
+    return "%s.%02X" % (isis_str2sysid(s[:-1]), s[-1])
 
 
 def isis_lspid2str(lspid):
@@ -98,7 +98,7 @@ def isis_lspid2str(lspid):
 
 
 def isis_str2lspid(s):
-    return "%s-%02X" % (isis_str2nodeid(s[:-1]), orb(s[-1]))
+    return "%s-%02X" % (isis_str2nodeid(s[:-1]), s[-1])
 
 
 class _ISIS_IdFieldBase(Field):
@@ -225,7 +225,7 @@ class ISIS_CircuitTypeField(FlagsField):
 def _ISIS_GuessTlvClass_Helper(tlv_classes, defaultname, p, **kargs):
     cls = conf.raw_layer
     if len(p) >= 2:
-        tlvtype = orb(p[0])
+        tlvtype = p[0]
         clsname = tlv_classes.get(tlvtype, defaultname)
         cls = globals()[clsname]
 

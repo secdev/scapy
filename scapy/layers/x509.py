@@ -133,7 +133,7 @@ class RSAPrivateKey(ASN1_Packet):
 class ValidationParms(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_BIT_STRING("seed", ""),
+        ASN1F_BIT_STRING("seed", b""),
         ASN1F_INTEGER("pgenCounter", 0),
     )
 
@@ -201,7 +201,7 @@ class ECParameters(ASN1_Packet):
 
 class ECDSAPublicKey(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_BIT_STRING("ecPoint", "")
+    ASN1_root = ASN1F_BIT_STRING("ecPoint", b"")
 
 
 class ECDSAPrivateKey(ASN1_Packet):
@@ -250,7 +250,7 @@ class DHParameter(ASN1_Packet):
 
 class EdDSAPublicKey(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_BIT_STRING("ecPoint", "")
+    ASN1_root = ASN1F_BIT_STRING("ecPoint", b"")
 
 
 class AlgorithmIdentifier(ASN1_Packet):
@@ -798,7 +798,7 @@ class X509_ExtSubjInfoAccess(ASN1_Packet):
 
 class X509_ExtNetscapeCertType(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_BIT_STRING("netscapeCertType", "")
+    ASN1_root = ASN1F_BIT_STRING("netscapeCertType", b"")
 
 
 class X509_ExtComment(ASN1_Packet):
@@ -1014,7 +1014,7 @@ class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
                                      EdDSAPublicKey),
                         lambda pkt: pkt.signatureAlgorithm.algorithm.oidname in ["Ed25519", "Ed448"]),  # noqa: E501
                    ],
-                   ASN1F_BIT_STRING("subjectPublicKey", ""))]
+                   ASN1F_BIT_STRING("subjectPublicKey", b""))]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
 
 
@@ -1218,7 +1218,7 @@ class ASN1F_X509_Cert(ASN1F_SEQUENCE):
                         lambda pkt: "ecdsa" in pkt.signatureAlgorithm.algorithm.oidname.lower()),  # noqa: E501
                    ],
                    ASN1F_BIT_STRING("signatureValue",
-                                    "defaultsignature" * 2))]
+                                    b"defaultsignature" * 2))]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
 
 
@@ -1276,7 +1276,7 @@ class ASN1F_X509_CRL(ASN1F_SEQUENCE):
                         lambda pkt: "ecdsa" in pkt.signatureAlgorithm.algorithm.oidname.lower()),  # noqa: E501
                    ],
                    ASN1F_BIT_STRING("signatureValue",
-                                    "defaultsignature" * 2))]
+                                    b"defaultsignature" * 2))]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
 
 
@@ -1487,7 +1487,7 @@ class CMS_OriginatorPublicKey(ASN1_Packet):
         ASN1F_PACKET("algorithm",
                      X509_AlgorithmIdentifier(),
                      X509_AlgorithmIdentifier),
-        ASN1F_BIT_STRING("publicKey", ""),
+        ASN1F_BIT_STRING("publicKey", b""),
     )
 
 
@@ -1627,7 +1627,7 @@ class CMS_ContentInfo(ASN1_Packet):
                     lambda pkt: pkt.contentType.oidname == "id-envelopedData"
                 ),
             ],
-            ASN1F_BIT_STRING("content", "", explicit_tag=0xA0)
+            ASN1F_BIT_STRING("content", b"", explicit_tag=0xA0)
         )
     )
 
@@ -1662,7 +1662,7 @@ class PKCS10_CertificationRequest(ASN1_Packet):
                      PKCS10_CertificationRequestInfo),
         ASN1F_PACKET("signatureAlgorithm", X509_AlgorithmIdentifier(),
                      X509_AlgorithmIdentifier),
-        ASN1F_BIT_STRING("signature", ASN1F_BIT_STRING("", "")),
+        ASN1F_BIT_STRING("signature", b""),
     )
 
 
@@ -1777,7 +1777,7 @@ class CMC_ENROLLMENT_CSP_PROVIDER(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("KeySpec", 0),
         ASN1F_BMP_STRING("ProviderName", ""),
-        ASN1F_BIT_STRING("Signature", ""),
+        ASN1F_BIT_STRING("Signature", b""),
     )
 
 
@@ -1943,7 +1943,7 @@ class ASN1F_OCSP_BasicResponse(ASN1F_SEQUENCE):
                         lambda pkt: "ecdsa" in pkt.signatureAlgorithm.algorithm.oidname.lower()),  # noqa: E501
                    ],
                    ASN1F_BIT_STRING("signature",
-                                    "defaultsignature" * 2)),
+                                    b"defaultsignature" * 2)),
                ASN1F_optional(
                    ASN1F_SEQUENCE_OF("certs", None, X509_Cert,
                                      explicit_tag=0xa0))]

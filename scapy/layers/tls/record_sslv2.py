@@ -11,7 +11,7 @@ import struct
 
 from scapy.config import conf
 from scapy.error import log_runtime
-from scapy.compat import orb, raw
+from scapy.compat import raw
 from scapy.packet import Raw
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.record import _TLSMsgListField, TLS
@@ -36,7 +36,7 @@ class _SSLv2MsgListField(_TLSMsgListField):
     def m2i(self, pkt, m):
         cls = Raw
         if len(m) >= 1:
-            msgtype = orb(m[0])
+            msgtype = m[0]
             cls = _sslv2_handshake_cls.get(msgtype, Raw)
 
         if cls is Raw:
@@ -131,7 +131,7 @@ class SSLv2(TLS):
         # Extract padding
         padlen = 0
         if hdrlen == 3:
-            padlen = orb(s[2])
+            padlen = s[2]
         if padlen == 0:
             cfrag, pad = pfrag, b""
         else:
