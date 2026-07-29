@@ -12,7 +12,7 @@ Please note however that we only provide support for the **latest** version of S
 ### Examples of what doesn't count as a vulnerability in Scapy
 
 * a packet that crashes a dissector and fallbacks to being parsed as `Raw`: we have a [conservative approach](https://github.com/secdev/scapy/blob/caa005dae9bddeb93b11286327149c824db7732a/scapy/supersocket.py#L218-L227) with dissector failures
-  where a crash doesn't stop the parsing thread. This will still be considered a bug, so please report it !
+  where a crash doesn't stop the parsing thread. This is not a security issue, but is still a bug so please open a public issue !
 * a DoS that is triggered by dissecting a packet that is too large to exist on the wire (e.g. packet larger than the MTU)
 * a DoS that is triggered when crafting a packet (and that is not a response to a stimulus, e.g. answering machines, automatons, etc.)
 * having `conf.debug_dissector != 0`
