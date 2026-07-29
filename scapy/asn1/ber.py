@@ -155,8 +155,8 @@ def BER_num_enc(ll, size=1):
     return b"".join(chb(k) for k in x)
 
 
-def BER_num_dec(s, cls_id=0):
-    # type: (bytes, int) -> Tuple[int, bytes]
+def BER_num_dec(s, cls_id=0, max_pow=32):
+    # type: (bytes, int, int) -> Tuple[int, bytes]
     if len(s) == 0:
         raise BER_Decoding_Error("BER_num_dec: got empty string", remaining=s)
     x = cls_id
@@ -166,6 +166,9 @@ def BER_num_dec(s, cls_id=0):
         x |= c & 0x7f
         if not c & 0x80:
             break
+        if i > max_pow:
+            raise BER_Decoding_Error("BER_num_dec: maximum value reached (2^32-1)",
+                                     remaining=s)
     if c & 0x80:
         raise BER_Decoding_Error("BER_num_dec: unfinished number description",
                                  remaining=s)
@@ -562,7 +565,8 @@ class BERcodec_OID(BERcodec_Object[bytes]):
         while s:
             l, s = BER_num_dec(s)
             lst.append(l)
-        if (len(lst) > 0):
+        if lst:
+            # X.690 sect 8.19.4
             lst.insert(0, lst[0] // 40)
             lst[1] %= 40
         return (
