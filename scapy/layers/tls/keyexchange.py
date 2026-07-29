@@ -11,6 +11,7 @@ TLS key exchange logic.
 
 import math
 import struct
+import warnings
 
 from scapy.config import conf, crypto_validator
 from scapy.error import warning
@@ -34,8 +35,18 @@ from scapy.layers.tls.crypto.groups import (
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.asymmetric import dh, ec
+    from cryptography.hazmat.primitives.asymmetric import ec
     from cryptography.hazmat.primitives import serialization
+    # cryptography > 50 raises a DeprecationWarning
+    from cryptography.utils import CryptographyDeprecationWarning
+    with warnings.catch_warnings():
+        # Hide deprecation warnings
+        warnings.filterwarnings("ignore",
+                                category=CryptographyDeprecationWarning)
+        from cryptography.hazmat.primitives.asymmetric.dh import (
+            DHParameterNumbers,
+            DHPublicNumbers,
+        )
 if conf.crypto_valid_advanced:
     from cryptography.hazmat.primitives.asymmetric import x25519
     from cryptography.hazmat.primitives.asymmetric import x448
@@ -360,7 +371,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
 
         p = pkcs_os2ip(self.dh_p)
         g = pkcs_os2ip(self.dh_g)
-        real_params = dh.DHParameterNumbers(p, g).parameters(default_backend())
+        real_params = DHParameterNumbers(p, g).parameters(default_backend())
 
         if not self.dh_Ys:
             s.server_kx_privkey = real_params.generate_private_key()
@@ -381,10 +392,10 @@ class ServerDHParams(_GenericTLSSessionInheritance):
         """
         p = pkcs_os2ip(self.dh_p)
         g = pkcs_os2ip(self.dh_g)
-        pn = dh.DHParameterNumbers(p, g)
+        pn = DHParameterNumbers(p, g)
 
         y = pkcs_os2ip(self.dh_Ys)
-        public_numbers = dh.DHPublicNumbers(y, pn)
+        public_numbers = DHPublicNumbers(y, pn)
 
         s = self.tls_session
         s.server_kx_pubkey = public_numbers.public_key(default_backend())
@@ -795,7 +806,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
         if s.client_kx_ffdh_params:
             y = pkcs_os2ip(self.dh_Yc)
             param_numbers = s.client_kx_ffdh_params.parameter_numbers()
-            public_numbers = dh.DHPublicNumbers(y, param_numbers)
+            public_numbers = DHPublicNumbers(y, param_numbers)
             s.client_kx_pubkey = public_numbers.public_key(default_backend())
 
         if s.server_kx_privkey and s.client_kx_pubkey:
