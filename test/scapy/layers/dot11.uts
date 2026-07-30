@@ -282,6 +282,47 @@ assert ms_wpa_ie[Dot11EltMicrosoftWPA].nb_akm_suites == 0x01
 assert ms_wpa_ie[Dot11EltMicrosoftWPA].akm_suites[0].suite == 0x01
 assert Dot11Elt in ms_wpa_ie
 
+= Dot11EltMicrosoftWME
+ms_wme_info_ie = Dot11Elt(b'\xdd\x07\x00P\xf2\x02\x00\x01\x80\x00\x04test')
+assert Dot11EltMicrosoftWME in ms_wme_info_ie
+assert ms_wme_info_ie[Dot11EltMicrosoftWME].type == 0x02
+assert ms_wme_info_ie[Dot11EltMicrosoftWME].subtype == 0x00
+assert ms_wme_info_ie[Dot11EltMicrosoftWME].version == 0x01
+assert ms_wme_info_ie[Dot11EltMicrosoftWME].qos_info == 0x80
+assert ms_wme_info_ie[Dot11EltMicrosoftWME].getfieldval("info") == b""
+assert Dot11Elt in ms_wme_info_ie
+assert raw(ms_wme_info_ie) == b'\xdd\x07\x00P\xf2\x02\x00\x01\x80\x00\x04test'
+
+ms_wme_param_ie = Dot11Elt(
+    b'\xdd\x18\x00P\xf2\x02\x01\x01\x80\x00'
+    b'\x03\xa4\x00\x00\x27\xa4\x00\x00\x42\x43\x5e\x00\x62\x32\x2f\x00'
+    b'\x00\x04test'
+)
+assert Dot11EltMicrosoftWME in ms_wme_param_ie
+assert ms_wme_param_ie[Dot11EltMicrosoftWME].subtype == 0x01
+assert ms_wme_param_ie[Dot11EltMicrosoftWME].version == 0x01
+assert ms_wme_param_ie[Dot11EltMicrosoftWME].qos_info == 0x80
+assert ms_wme_param_ie[Dot11EltMicrosoftWME].reserved == 0
+assert len(ms_wme_param_ie[Dot11EltMicrosoftWME].ac_params) == 4
+assert ms_wme_param_ie[Dot11EltMicrosoftWME].ac_params[0].aci == 0
+assert ms_wme_param_ie[Dot11EltMicrosoftWME].ac_params[0].aifsn == 3
+assert ms_wme_param_ie[Dot11EltMicrosoftWME].ac_params[0].ecw_min == 4
+assert ms_wme_param_ie[Dot11EltMicrosoftWME].ac_params[0].ecw_max == 10
+assert ms_wme_param_ie[Dot11EltMicrosoftWME].ac_params[1].aci == 1
+assert ms_wme_param_ie[Dot11EltMicrosoftWME].ac_params[2].aci == 2
+assert ms_wme_param_ie[Dot11EltMicrosoftWME].ac_params[3].aci == 3
+assert ms_wme_param_ie[Dot11EltMicrosoftWME].getfieldval("info") == b""
+assert Dot11Elt in ms_wme_param_ie
+assert raw(ms_wme_param_ie) == (
+    b'\xdd\x18\x00P\xf2\x02\x01\x01\x80\x00'
+    b'\x03\xa4\x00\x00\x27\xa4\x00\x00\x42\x43\x5e\x00\x62\x32\x2f\x00'
+    b'\x00\x04test'
+)
+
+short_ms_vendor_ie = Dot11Elt(b'\xdd\x03\x00P\xf2')
+assert short_ms_vendor_ie.__class__ == Dot11EltVendorSpecific
+assert raw(short_ms_vendor_ie) == b'\xdd\x03\x00P\xf2'
+
 = Dot11EltVendorSpecific
 assert bytes(Dot11EltVendorSpecific()) == b'\xdd\x03\x00\x00\x00'
 vendor_specific_ie = Dot11EltVendorSpecific(b'\xdd\t\x00\x03\x7f\x01\x01\x00\x00\xff\x7f')
