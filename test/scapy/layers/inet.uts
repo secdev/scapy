@@ -921,3 +921,9 @@ assert ICMPExtension_InterfaceInformation in pkt[ICMP].ext
 assert pkt[ICMP].ext.ifindex == 15
 assert pkt[ICMP].ext.ip4 == "10.10.10.10"
 assert pkt[ICMP].ext.ifname == b"This-is-the-name-of-the-Interface-that-we-are-looking-for-[:-)]"
+
+= Test UDP checksum calculation and decoding
+pkt = IP(src="192.168.1.1", dst="192.168.1.2") / UDP(sport=1234, dport=80) / b"Hello World"
+raw_pkt = bytes(pkt)
+parsed = IP(raw_pkt)
+assert parsed[UDP].chksum == 0x2584
