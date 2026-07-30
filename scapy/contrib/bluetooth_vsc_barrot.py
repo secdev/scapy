@@ -51,6 +51,32 @@ class HCI_Cmd_VSC_Barrot_Read_Signature(Packet):
     name = "Barrot Read Signature"
 
 
+class HCI_Cmd_VSC_Barrot_Bus_Write(Packet):
+    """
+    Barrot Bus Write (cmd 0x0E).
+
+    Writes ``data`` to arbitrary memory bus ``address``
+    """
+    name = "Barrot Bus Write"
+    fields_desc = [
+        XLEIntField("address", 0),
+        XStrField("data", b"")
+    ]
+
+
+class HCI_Cmd_VSC_Barrot_Bus_Read(Packet):
+    """
+    Barrot Bus Read (cmd 0x0F)
+
+    Reads ``length`` bytes from memory bus ``address``.
+    """
+    name = "Barrot Bus Read"
+    fields_desc = [
+        XLEIntField("address", 0),
+        ByteField("length", 0)
+    ]
+
+
 class HCI_Cmd_VSC_Barrot_Flash_Write(Packet):
     """
     Barrot Flash Write (cmd 0x11).
@@ -79,6 +105,14 @@ class HCI_Cmd_VSC_Barrot_Flash_Read(Packet):
     ]
 
 
+class HCI_Evt_VSC_Barrot_Command_Complete(Packet):
+    """
+    Barrot vendor-specific Command Complete body (opcode 0xFC80).
+    """
+    name = "Barrot Vendor Specific Command Complete"
+    fields_desc = [XLEShortField("cmd", 0)]
+
+
 class HCI_Cmd_Complete_VSC_Barrot_Read_Chip_Version(Packet):
     """
     Read Chip Version (cmd 0x01) command complete.
@@ -104,12 +138,14 @@ class HCI_Cmd_Complete_VSC_Barrot_Read_Signature(Packet):
     fields_desc = [XStrFixedLenField("signature", b"\x00" * 32, 32)]
 
 
-class HCI_Evt_VSC_Barrot_Command_Complete(Packet):
-    """
-    Barrot vendor-specific Command Complete body (opcode 0xFC80).
-    """
-    name = "Barrot Vendor Specific Command Complete"
-    fields_desc = [XLEShortField("cmd", 0)]
+class HCI_Cmd_Complete_VSC_Barrot_Bus_Read(Packet):
+    """Bus Read (cmd 0x0F) command complete: the ``length`` bytes read from
+    the memory bus."""
+    name = "Barrot Bus Read complete"
+    fields_desc = [
+        XStrLenField("data", b"",
+                     length_from=lambda p: p.underlayer.underlayer.underlayer.len - 6)
+    ]
 
 
 class HCI_Cmd_Complete_VSC_Barrot_Flash_Read(Packet):
@@ -124,6 +160,8 @@ class HCI_Cmd_Complete_VSC_Barrot_Flash_Read(Packet):
 bind_layers(HCI_Command_Hdr, HCI_Cmd_VSC_Barrot, ogf=0x3F, ocf=0x080)
 bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Read_Chip_Version, cmd=0x01)
 bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Read_Signature, cmd=0x03)
+bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Bus_Write, cmd=0x0E)
+bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Bus_Read, cmd=0x0F)
 bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Flash_Write, cmd=0x11)
 bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Flash_Read, cmd=0x12)
 
@@ -133,5 +171,7 @@ bind_layers(HCI_Evt_VSC_Barrot_Command_Complete,
             HCI_Cmd_Complete_VSC_Barrot_Read_Chip_Version, cmd=0x01)
 bind_layers(HCI_Evt_VSC_Barrot_Command_Complete,
             HCI_Cmd_Complete_VSC_Barrot_Read_Signature, cmd=0x03)
+bind_layers(HCI_Evt_VSC_Barrot_Command_Complete,
+            HCI_Cmd_Complete_VSC_Barrot_Bus_Read, cmd=0x0F)
 bind_layers(HCI_Evt_VSC_Barrot_Command_Complete,
             HCI_Cmd_Complete_VSC_Barrot_Flash_Read, cmd=0x12)
