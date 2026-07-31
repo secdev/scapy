@@ -11,6 +11,8 @@
 from scapy.packet import Packet, bind_layers
 from scapy.fields import (
     ByteField,
+    ConditionalField,
+    LEMACField,
     StrFixedLenField,
     XLEShortField,
     XLEIntField,
@@ -49,6 +51,23 @@ class HCI_Cmd_VSC_Barrot_Read_Signature(Packet):
     Returns a 32-byte chip signature.
     """
     name = "Barrot Read Signature"
+
+
+class HCI_Cmd_VSC_Barrot_Bd_Param(Packet):
+    """
+    Barrot BD Param (cmd 0x05).
+
+    Sets the device bluetooth address to the 6 bytes ``bd_addr`` field. When
+    ``bd_addr`` is left unset, nothing is set. Either way the device responds
+    with its bluetooth address.
+    """
+    name = "Barrot HCI BD Param"
+    fields_desc = [
+        ConditionalField(
+            LEMACField("bd_addr", None),
+            lambda p: p.fields.get("bd_addr") is not None or len(p.original) >= 6
+        ),
+    ]
 
 
 class HCI_Cmd_VSC_Barrot_Bus_Write(Packet):
@@ -138,6 +157,18 @@ class HCI_Cmd_Complete_VSC_Barrot_Read_Signature(Packet):
     fields_desc = [XStrFixedLenField("signature", b"\x00" * 32, 32)]
 
 
+class HCI_Cmd_Complete_VSC_Barrot_Bd_Param(Packet):
+    """
+    BD Param (cmd 0x05) command complete: the 6 bytes bluetooth address of
+    the device in ``bd_addr``.
+
+    When answering an address change, the address reported is the new one, if
+    it was set correctly.
+    """
+    name = "Barrot HCI BD Param complete"
+    fields_desc = [LEMACField("bd_addr", None)]
+
+
 class HCI_Cmd_Complete_VSC_Barrot_Bus_Read(Packet):
     """Bus Read (cmd 0x0F) command complete: the ``length`` bytes read from
     the memory bus."""
@@ -160,6 +191,7 @@ class HCI_Cmd_Complete_VSC_Barrot_Flash_Read(Packet):
 bind_layers(HCI_Command_Hdr, HCI_Cmd_VSC_Barrot, ogf=0x3F, ocf=0x080)
 bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Read_Chip_Version, cmd=0x01)
 bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Read_Signature, cmd=0x03)
+bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Bd_Param, cmd=0x05)
 bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Bus_Write, cmd=0x0E)
 bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Bus_Read, cmd=0x0F)
 bind_layers(HCI_Cmd_VSC_Barrot, HCI_Cmd_VSC_Barrot_Flash_Write, cmd=0x11)
@@ -171,6 +203,8 @@ bind_layers(HCI_Evt_VSC_Barrot_Command_Complete,
             HCI_Cmd_Complete_VSC_Barrot_Read_Chip_Version, cmd=0x01)
 bind_layers(HCI_Evt_VSC_Barrot_Command_Complete,
             HCI_Cmd_Complete_VSC_Barrot_Read_Signature, cmd=0x03)
+bind_layers(HCI_Evt_VSC_Barrot_Command_Complete,
+            HCI_Cmd_Complete_VSC_Barrot_Bd_Param, cmd=0x05)
 bind_layers(HCI_Evt_VSC_Barrot_Command_Complete,
             HCI_Cmd_Complete_VSC_Barrot_Bus_Read, cmd=0x0F)
 bind_layers(HCI_Evt_VSC_Barrot_Command_Complete,
