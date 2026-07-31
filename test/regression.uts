@@ -1133,6 +1133,43 @@ ret = autorun_get_text_interactive_session(cmds)
 ret
 assert "Daft Punk" in ret[0]
 
+= Test autorun timeout path surfaces exceptions from failing tests
+~ autorun
+
+# Regression for two bugs whose interaction hung UTScapy forever on:
+#   1. CPython gh-130250: traceback.print_last(file=...) passed `file`
+#      positionally into print_exception, binding it to `tb` and
+#      crashing with AttributeError on tb.tb_frame.
+#   2. scapy autorun_commands_timeout._runner swallowed exceptions from
+#      autorun_commands, leaving Queue.get() to block forever.
+
+out, res = autorun_get_text_interactive_session(
+    "assert False, 'the dead flag blues'\n", timeout=10,
+)
+assert res is False, "expected False from failing test, got %r" % (res,)
+assert "AssertionError" in out, "expected AssertionError in output, got:\n" + out
+assert "the dead flag blues" in out, "expected assertion message in output, got:\n" + out
+assert "tb_frame" not in out, "CPython gh-130250 leak: " + out
+
+= Test autorun timeout path propagates unexpected runner exceptions
+
+import scapy.autorun as _ar
+_orig = _ar.autorun_commands
+def _boom(*a, **kw):
+    raise RuntimeError("simulated internal failure")
+
+_ar.autorun_commands = _boom
+try:
+    raised = None
+    try:
+        _ = autorun_get_text_interactive_session("1+1\n", timeout=5)
+    except RuntimeError as e:
+        raised = e
+    assert raised is not None, "expected RuntimeError to propagate, got none"
+    assert "simulated internal failure" in str(raised)
+finally:
+    _ar.autorun_commands = _orig
+
 = Test utility TEX functions
 
 assert tex_escape("{scapy}\\^$~#_&%|><") == "{\\tt\\char123}scapy{\\tt\\char125}{\\tt\\char92}\\^{}\\${\\tt\\char126}\\#\\_\\&\\%{\\tt\\char124}{\\tt\\char62}{\\tt\\char60}"
