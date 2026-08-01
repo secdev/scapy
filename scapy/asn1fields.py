@@ -574,6 +574,7 @@ class ASN1F_optional(GenericCodecOptionalField, ASN1F_element):
     """
     ASN.1 field that is optional.
     """
+    # ASN1_Error may be raised by ASN1F_CHOICE
     _optional_error_classes = (
         ASN1_Error, ASN1F_badsequence, BER_Decoding_Error
     )
@@ -582,22 +583,6 @@ class ASN1F_optional(GenericCodecOptionalField, ASN1F_element):
         # type: (ASN1F_field[Any, Any]) -> None
         field.flexible_tag = False
         self._field = field
-
-    def m2i(self, pkt, s):
-        # type: (ASN1_Packet, bytes) -> Tuple[Any, bytes]
-        try:
-            return self._field.m2i(pkt, s)
-        except self._optional_error_classes:
-            # ASN1_Error may be raised by ASN1F_CHOICE
-            return None, s
-
-    def dissect(self, pkt, s):
-        # type: (ASN1_Packet, bytes) -> bytes
-        try:
-            return cast(bytes, self._field.dissect(pkt, s))
-        except self._optional_error_classes:
-            self._field.set_val(pkt, None)
-            return s
 
 
 class ASN1F_omit(ASN1F_field[None, None]):
