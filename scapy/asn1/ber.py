@@ -436,7 +436,7 @@ class BERcodec_INTEGER(BERcodec_Object[int]):
     tag = ASN1_Class_UNIVERSAL.INTEGER
 
     @classmethod
-    def enc(cls, i, size_len=0, **_kwargs):
+    def enc(cls, i, size_len=0, **_kwargs):  # type: ignore[override]
         # type: (int, Optional[int], **Any) -> bytes
         ls = []
         while True:
@@ -509,7 +509,7 @@ class BERcodec_BIT_STRING(BERcodec_Object[str]):
             )
 
     @classmethod
-    def enc(cls, _s, size_len=0, **_kwargs):
+    def enc(cls, _s, size_len=0, **_kwargs):  # type: ignore[override]
         # type: (AnyStr, Optional[int], **Any) -> bytes
         # /!\ this is DER encoding (bit strings are only zero-bit padded)
         s = bytes_encode(_s)
@@ -528,7 +528,7 @@ class BERcodec_STRING(BERcodec_Object[str]):
     tag = ASN1_Class_UNIVERSAL.STRING
 
     @classmethod
-    def enc(cls, _s, size_len=0, **_kwargs):
+    def enc(cls, _s, size_len=0, **_kwargs):  # type: ignore[override]
         # type: (Union[str, bytes], Optional[int], **Any) -> bytes
         s = bytes_encode(_s)
         # Be sure we are encoding bytes
@@ -550,7 +550,7 @@ class BERcodec_NULL(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.NULL
 
     @classmethod
-    def enc(cls, i, size_len=0, **_kwargs):
+    def enc(cls, i, size_len=0, **_kwargs):  # type: ignore[override]
         # type: (int, Optional[int], **Any) -> bytes
         if i == 0:
             return chb(int(cls.tag)) + b"\0"
@@ -562,7 +562,7 @@ class BERcodec_OID(BERcodec_Object[bytes]):
     tag = ASN1_Class_UNIVERSAL.OID
 
     @classmethod
-    def enc(cls, _oid, size_len=0, **_kwargs):
+    def enc(cls, _oid, size_len=0, **_kwargs):  # type: ignore[override]
         # type: (AnyStr, Optional[int], **Any) -> bytes
         oid = bytes_encode(_oid)
         if oid:
@@ -654,8 +654,8 @@ class BERcodec_SEQUENCE(BERcodec_Object[Union[bytes, List[BERcodec_Object[Any]]]
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
 
     @classmethod
-    def enc(cls, _ll, size_len=None, **_kwargs):
-        # type: (Union[bytes, List[BERcodec_Object[Any]]], Optional[int], **Any) -> bytes
+    def enc(cls, _ll, size_len=None, **_kwargs):  # type: ignore[override]
+        # type: (Union[bytes, List[BERcodec_Object[Any]]], Optional[int], **Any) -> bytes  # noqa: E501
         if isinstance(_ll, bytes):
             ll = _ll
         else:
@@ -710,7 +710,7 @@ class BERcodec_IPADDRESS(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IPADDRESS
 
     @classmethod
-    def enc(cls, ipaddr_ascii, size_len=0, **_kwargs):  # type: ignore
+    def enc(cls, ipaddr_ascii, size_len=0, **_kwargs):  # type: ignore[override]
         # type: (str, Optional[int], **Any) -> bytes
         try:
             s = inet_aton(ipaddr_ascii)
