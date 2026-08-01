@@ -129,6 +129,8 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
 
     def _tagging_dec(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
+        # Stem must provide tagging_*; OER implements real tags, UPER/PER use
+        # identity helpers (no BER-style tagging).
         return pkt.ASN1_codec.get_stem().tagging_dec(s, **kwargs)  # type: ignore
 
     def _tagging_enc(self, pkt, s, **kwargs):
@@ -152,6 +154,18 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         self._apply_diff_tag(diff_tag)
         return s
 
+    def _codec_kwargs(self, pkt):
+        # type: (ASN1_Packet) -> Dict[str, Any]
+        # OER/UPER need extra constraints (oer_unsigned, uper_min/max, …) on
+        # every enc/dec call; override this instead of hardcoding BER size_len.
+        return {"size_len": self.size_len}
+
+    def _use_object_enc(self, pkt, item):
+        # type: (ASN1_Packet, ASN1_Object[Any]) -> bool
+        # BER/LDAP: item.enc() when size_len is unset. UPER must override to
+        # False so constrained integers go through codec.enc(**kwargs).
+        return self.size_len is None
+
     def _encode_item(self, pkt, item):
         # type: (ASN1_Packet, Any) -> bytes
         """Encode a field value with codec kwargs, without field tagging."""
@@ -167,10 +181,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                     "Encoding Error: got %r instead of an %r for field [%s]" %
                     (item, self.ASN1_tag, self.name)
                 )
-            # Without an explicit field size_len, keep ASN1_Object.enc() so
-            # conf.ASN1_default_long_size only affects SEQUENCE/SET (via their
-            # bytes payload path) and explicit tagging — Microsoft LDAP style.
-            if self.size_len is None:
+            if self._use_object_enc(pkt, item):
                 return item.enc(pkt.ASN1_codec)
             item = item.val
         elif hasattr(item, "self_build"):
@@ -178,7 +189,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             # the BER type codec so the universal tag/length are applied.
             item = item.self_build()
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        return codec.enc(item, size_len=self.size_len)
+        return codec.enc(item, **self._codec_kwargs(pkt))
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -205,7 +216,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         s = self._apply_tagging_dec(s, pkt, _fname=self.name)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         dec = codec.safedec if self.flexible_tag else codec.dec
-        return dec(s, context=self.context, size_len=self.size_len)  # type: ignore
+        return dec(s, context=self.context, **self._codec_kwargs(pkt))  # type: ignore
 
     def i2m(self, pkt, x):
         # type: (ASN1_Packet, Union[bytes, _I, _A]) -> bytes

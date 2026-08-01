@@ -450,3 +450,57 @@ except TypeError:
 
 = BER object enc string
 BERcodec_Object.enc("42") == BERcodec_STRING.enc("42")
+
+= BER enc ignores extra codec kwargs
+assert BERcodec_INTEGER.enc(5, oer_unsigned=True, uper_min=0) == BERcodec_INTEGER.enc(5)
+assert BERcodec_STRING.enc(b"x", uper_max=10) == BERcodec_STRING.enc(b"x")
+BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1), uper_min=0) == BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1))
+
++ ASN.1 codec stem contract
+= identity tagging stem for PER-style codecs
+def _id_tagging_enc(s, **kwargs):
+    return s
+
+def _id_tagging_dec(s, **kwargs):
+    return None, s
+
+class FakeStem(object):
+    tagging_enc = staticmethod(_id_tagging_enc)
+    tagging_dec = staticmethod(_id_tagging_dec)
+
+stem = FakeStem()
+assert stem.tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\x02\x01\x05"
+diff, payload = stem.tagging_dec(b"\x02\x01\x05", hidden_tag=2, explicit_tag=0xA1)
+diff is None and payload == b"\x02\x01\x05"
+
+= field _codec_kwargs and object-enc hooks
+class P(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0)
+
+fld = P.ASN1_root
+assert fld._codec_kwargs(P()) == {"size_len": None}
+assert fld._use_object_enc(P(), ASN1_INTEGER(5)) is True
+assert raw(P(n=ASN1_INTEGER(5))) == b"\x02\x01\x05"
+assert raw(P(n=5)) == b"\x02\x01\x05"
+
+class Sized(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0, size_len=1)
+
+sfld = Sized.ASN1_root
+assert sfld._use_object_enc(Sized(), ASN1_INTEGER(5)) is False
+assert raw(Sized(n=ASN1_INTEGER(5))) == raw(Sized(n=5)) == b"\x02\x81\x01\x05"
+
+= field encode with extra kwargs via _codec_kwargs override
+class ExtraKwField(ASN1F_INTEGER):
+    def _codec_kwargs(self, pkt):
+        return {"size_len": self.size_len, "oer_unsigned": True, "uper_min": 0}
+
+class ExtraPkt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ExtraKwField("n", 0)
+
+# BER enc swallows unknown kwargs; round-trip still works.
+assert raw(ExtraPkt(n=7)) == b"\x02\x01\x07"
+ExtraPkt(raw(ExtraPkt(n=7))).n.val == 7
