@@ -13,7 +13,6 @@ import copy
 from functools import reduce
 
 from scapy.asn1.asn1 import (
-    ASN1Codec,
     ASN1_BIT_STRING,
     ASN1_BOOLEAN,
     ASN1_Class,
@@ -29,8 +28,6 @@ from scapy.asn1.asn1 import (
 from scapy.asn1.ber import (
     BER_Decoding_Error,
     BER_id_dec,
-    BER_tagging_dec,
-    BER_tagging_enc,
 )
 from scapy.base_classes import BasePacket
 from scapy.volatile import (
@@ -130,50 +127,30 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             elif self.explicit_tag is not None:
                 self.explicit_tag = diff_tag
 
-    def _codec_stem(self, pkt):
-        # type: (ASN1_Packet) -> type
-        return cast(ASN1Codec, pkt.ASN1_codec).get_stem()
-
-    def _tagging(self, pkt, s, encode, **kwargs):
-        # type: (ASN1_Packet, bytes, bool, **Any) -> Any
-        stem = self._codec_stem(pkt)
-        if getattr(stem, "skip_tagging", False):
-            return s if encode else (None, s)
-        if encode:
-            fn = getattr(stem, "tagging_enc", BER_tagging_enc)
-            return cast(bytes, fn(s, **kwargs))
-        fn = getattr(stem, "tagging_dec", BER_tagging_dec)
-        return cast(Tuple[Optional[int], bytes], fn(s, **kwargs))
-
     def _tagging_dec(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
-        return cast(
-            Tuple[Optional[int], bytes],
-            self._tagging(pkt, s, False, **kwargs),
-        )
+        return pkt.ASN1_codec.get_stem().tagging_dec(s, **kwargs)  # type: ignore
 
     def _tagging_enc(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> bytes
-        return cast(bytes, self._tagging(pkt, s, True, **kwargs))
+        return pkt.ASN1_codec.get_stem().tagging_enc(s, **kwargs)  # type: ignore
 
-    def _apply_tagging_dec(self, s, pkt, **kwargs):
-        # type: (bytes, ASN1_Packet, **Any) -> bytes
-        tag_kwargs = {
-            "hidden_tag": self.ASN1_tag,
-            "implicit_tag": self.implicit_tag,
-            "explicit_tag": self.explicit_tag,
-            "safe": self.flexible_tag,
-        }  # type: Dict[str, Any]
-        tag_kwargs.update(kwargs)
-        diff_tag, s = self._tagging_dec(pkt, s, **tag_kwargs)
+    def _apply_tagging_dec(self, s, pkt, hidden_tag=None, **kwargs):
+        # type: (bytes, ASN1_Packet, Optional[Any], **Any) -> bytes
+        # Always pass the field tags; callers may override hidden_tag (PACKET)
+        # or add decode metadata such as _fname.
+        if hidden_tag is None:
+            hidden_tag = self.ASN1_tag
+        diff_tag, s = self._tagging_dec(
+            pkt, s,
+            hidden_tag=hidden_tag,
+            implicit_tag=self.implicit_tag,
+            explicit_tag=self.explicit_tag,
+            safe=self.flexible_tag,
+            **kwargs,
+        )
         self._apply_diff_tag(diff_tag)
         return s
-
-    def _codec_kwargs(self, size_len=None):
-        # type: (Optional[int]) -> Dict[str, Any]
-        return {
-            "size_len": self.size_len if size_len is None else size_len,
-        }
 
     def _encode_item(self, pkt, item):
         # type: (ASN1_Packet, Any) -> bytes
@@ -201,7 +178,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             # the BER type codec so the universal tag/length are applied.
             item = item.self_build()
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        return codec.enc(item, **self._codec_kwargs())
+        return codec.enc(item, size_len=self.size_len)
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -228,7 +205,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         s = self._apply_tagging_dec(s, pkt, _fname=self.name)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         dec = codec.safedec if self.flexible_tag else codec.dec
-        return dec(s, context=self.context, **self._codec_kwargs())  # type: ignore
+        return dec(s, context=self.context, size_len=self.size_len)  # type: ignore
 
     def i2m(self, pkt, x):
         # type: (ASN1_Packet, Union[bytes, _I, _A]) -> bytes
@@ -800,10 +777,9 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                     # should be ASN1F_field class
                     self.choices[int(p.ASN1_tag)] = p
                 else:
-                    # should be ASN1F_field instance
+                    # should be ASN1F_PACKET instance
                     self.choices[p.network_tag] = p
-                    if hasattr(p, "cls"):
-                        self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
+                    self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
 
@@ -843,10 +819,10 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         if x is None:
             s = b""
         else:
+            # Use the packet codec for ASN1_Object values; bytes(x) would
+            # follow conf.ASN1_default_codec instead.
             if isinstance(x, ASN1_Object):
                 s = x.enc(pkt.ASN1_codec)
-            elif hasattr(x, "self_build"):
-                s = cast("ASN1_Packet", x).self_build()
             else:
                 s = bytes(x)
             if hash(type(x)) in self.pktchoices:
