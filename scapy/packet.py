@@ -30,7 +30,9 @@ from scapy.fields import (
     Emph,
     EnumField,
     Field,
+    FieldListField,
     FlagsField,
+    _FieldContainer,
     FlagValue,
     MultiEnumField,
     MultipleTypeField,
@@ -840,8 +842,15 @@ class Packet(
         
         # If we provided fields in the constrcution, override the default ones
         for field_name in pkt.fields:
-            if not isinstance(pkt.default_fields[field_name], VolatileValue):
-                pkt.default_fields[field_name] = pkt.fields[field_name]
+            current = pkt.default_fields[field_name]
+            if isinstance(current, VolatileValue):
+                continue
+            if isinstance(current, list) and any(isinstance(v, VolatileValue) for v in current):
+                # A FieldListField whose items were individually fuzzed
+                # (e.g. Dot11EltRates.rates) - don't clobber the fuzzed
+                # items with the plain constructor-time value.
+                continue
+            pkt.default_fields[field_name] = pkt.fields[field_name]
 
         for field_name in pkt.default_fields:
             if field_name in pkt.overloaded_fields:
@@ -867,6 +876,14 @@ class Packet(
                     continue
 
                 for idx, field_value in enumerate(field):
+                    if isinstance(field_value, VolatileValue):
+                        # A FieldListField item (e.g. Dot11EltRates.rates) -
+                        # fuzz() gives each item its own randval taken from
+                        # the field's inner field type, so it's directly
+                        # fuzzable without going through a sub-Packet.
+                        relevant_fields.append(f"{pkt.name}:{field_name}:{idx}")
+                        continue
+
                     if not isinstance(field_value, Packet):
                         continue
 
@@ -911,20 +928,28 @@ class Packet(
         if pkt.name == packet_type:
             if ":" in packet_field:
                 # There is a subsequent item/value here, it should be the index of 'list'
-                field_type = "list"
-
                 field_list = packet_field[packet_field.index(':')+1:]
 
                 # Remove the 'list' part
                 packet_field = packet_field[:packet_field.index(':')]
 
-                field_idx = field_list[:field_list.index(':')]
-                field_in_list = field_list[field_list.index(':')+1:]
+                if ":" in field_list:
+                    # A list of sub-Packets: idx:subfield (e.g. IP options)
+                    field_type = "list"
+                    field_idx = field_list[:field_list.index(':')]
+                    field_in_list = field_list[field_list.index(':')+1:]
+                else:
+                    # A list of raw scalar VolatileValues: idx only
+                    #  (e.g. Dot11EltRates.rates)
+                    field_type = "list_scalar"
+                    field_idx = field_list
+                    field_in_list = None
+
                 try:
                     field_idx = int(field_idx)
                 except:
                     raise ValueError(f"We expected {field_idx} to be an int ")
-                
+
                 if packet_field not in pkt.default_fields:
                     raise ValueError(f"We are referencing {packet_field} which is not found inside default_fields")
 
@@ -948,6 +973,12 @@ class Packet(
                     if item_in_list.default_fields[field_in_list] is None:
                         raise ValueError(f"Shouldn't be None, did we not find the obj? {field_idx=}:{field_in_list=}")
                     return (pkt, item_in_list.default_fields[field_in_list])
+
+                if field_type == "list_scalar":
+                    if field_idx >= len(pkt.default_fields[packet_field]):
+                        raise ValueError(f"Shouldn't be None, did we not find the obj? {field_idx=}")
+
+                    return (pkt, pkt.default_fields[packet_field][field_idx])
 
                 return (pkt, pkt.default_fields[packet_field])
 
@@ -3231,6 +3262,20 @@ def rfc(cls, ret=False, legend=True):
 _P = TypeVar('_P', bound=Packet)
 
 
+def _unwrap_field(f):
+    # type: (AnyField) -> Any
+    """
+    Peel away single-field container wrappers (MayEnd, Emph, PadField,
+    TrailerField, ActionField, ...) to get at the real field underneath, so
+    fuzz() can tell e.g. a MayEnd(PacketListField(...)) apart from a plain
+    scalar field. MultipleTypeField is deliberately left alone - it has its
+    own dedicated handling below and isn't a single-field wrapper.
+    """
+    while isinstance(f, _FieldContainer) and not isinstance(f, MultipleTypeField):
+        f = f.fld
+    return f
+
+
 @conf.commands.register
 def fuzz(p,  # type: _P
          _inplace=0,  # type: int
@@ -3250,10 +3295,33 @@ def fuzz(p,  # type: _P
         new_default_fields = {}
         multiple_type_fields = []  # type: List[str]
         for f in q.fields_desc:
-            if isinstance(f, PacketListField):
+            real_f = _unwrap_field(f)
+            if isinstance(real_f, PacketListField):
                 for r in getattr(q, f.name):
                     fuzz(r, _inplace=1)
-            elif isinstance(f, MultipleTypeField):
+            elif isinstance(real_f, FieldListField):
+                # f.randval() would build a random value from f's own fmt
+                # (e.g. the default "!H"), which has nothing to do with the
+                # type/range of the individual items in the list (governed
+                # by f.field, e.g. a ByteField for Dot11EltRates.rates).
+                # Fuzz each item with the inner field's own randval instead,
+                # keeping the list shape intact - return_relevant_fields()/
+                # locate_field() know how to target list items directly.
+                current_list = getattr(q, f.name)
+                if isinstance(current_list, list) and len(current_list) > 0:
+                    new_list = []
+                    for item in current_list:
+                        try:
+                            item_rnd = real_f.field.randval()
+                        except Exception:
+                            item_rnd = None
+                        if item_rnd is not None:
+                            item_rnd.default = item
+                            new_list.append(item_rnd)
+                        else:
+                            new_list.append(item)
+                    new_default_fields[f.name] = new_list
+            elif isinstance(real_f, MultipleTypeField):
                 # the type of the field will depend on others
                 multiple_type_fields.append(f.name)
             elif f.default is not None:

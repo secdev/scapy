@@ -605,11 +605,18 @@ class RandString(_RandString[str]):
 
         # State aware code:
         if self.state_pos is None:
-            # We need to trim the chars up to the max size of the RandNum (the 'size' property)
-            if isinstance(self.size, VolatileValue):
-                return self.chars[:self.size.max]
-            else:
-                return self.chars[:self.max]
+            # Not the field currently being fuzzed - render its actual
+            # (un-fuzzed) default rather than a fixed-size slice of the
+            # whole charset. fuzz() sets '.default' to the field's original
+            # value; without it (e.g. a fresh MultipleTypeField randval that
+            # hasn't gone through forward()'s init yet), fall back to empty -
+            # self.chars[:self.max] used to be returned unconditionally here,
+            # which for the default 256-byte charset silently inflated every
+            # not-yet-active string/bin field to up to 256 bytes.
+            if 'default' in self.__dict__:
+                return bytes_encode(self.default)
+
+            return b""
 
         if len(self.chars) == 0:
             # If no value was given, don't divide it...
@@ -671,11 +678,18 @@ class RandBin(_RandString[bytes]):
 
         # State aware code:
         if self.state_pos is None:
-            # We need to trim the chars up to the max size of the RandNum (the 'size' property)
-            if isinstance(self.size, VolatileValue):
-                return self.chars[:self.size.max]
-            else:
-                return self.chars[:self.max]
+            # Not the field currently being fuzzed - render its actual
+            # (un-fuzzed) default rather than a fixed-size slice of the
+            # whole charset. fuzz() sets '.default' to the field's original
+            # value; without it (e.g. a fresh MultipleTypeField randval that
+            # hasn't gone through forward()'s init yet), fall back to empty -
+            # self.chars[:self.max] used to be returned unconditionally here,
+            # which for the default 256-byte charset silently inflated every
+            # not-yet-active string/bin field to up to 256 bytes.
+            if 'default' in self.__dict__:
+                return bytes_encode(self.default)
+
+            return b""
 
         if len(self.chars) == 0:
             # If no value was given, don't divide it...
