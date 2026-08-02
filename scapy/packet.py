@@ -1193,24 +1193,57 @@ class Packet(
         field's value changes, re-resolve every MultipleTypeField on the
         same packet and refresh its cached VolatileValue if the resolved
         concrete field no longer matches.
+
+        Resolved VolatileValues are cached per concrete variant (keyed by
+        the resolved Field descriptor's identity - MultipleTypeField.flds
+        holds the same descriptor objects across calls, so this is
+        stable) instead of always building a fresh one. Without this, a
+        selector that oscillates between two ranges (e.g.
+        LLDPDUChassisID.subtype cycling through the value that selects
+        RandMAC for 'id' and then back out of it) would rebuild 'id' from
+        scratch - with state_pos reset to the start - on every single
+        oscillation, wiping out whatever progress 'id' had accumulated
+        and livelocking forward() (it can never reach 'done').
         """
+        if not hasattr(pkt, '_multiple_type_field_cache'):
+            pkt._multiple_type_field_cache = {}
+        cache = pkt._multiple_type_field_cache
+
         for f in pkt.fields_desc:
             if not isinstance(f, MultipleTypeField):
                 continue
 
             resolved_fld = f._find_fld_pkt(pkt)
-            fresh = resolved_fld.randval()
-            if fresh is None:
+            cache_key = id(resolved_fld)
+            field_cache = cache.setdefault(f.name, {})
+
+            if field_cache.get('_active_key') == cache_key:
+                # Still resolved to the same variant as last time, nothing to do
                 continue
 
-            current = pkt.default_fields.get(f.name)
-            if current is not None and type(current).__name__ == type(fresh).__name__:
-                # Still backed by the right kind of VolatileValue, leave it alone
-                continue
+            if cache_key in field_cache:
+                # Seen this concrete variant before on this packet -
+                # restore its previous progress rather than starting over
+                pkt.default_fields[f.name] = field_cache[cache_key]
+            else:
+                fresh = resolved_fld.randval()
+                if fresh is None:
+                    continue
 
-            fresh.default = resolved_fld.default
-            self.initialize_volatile_field(fresh)
-            pkt.default_fields[f.name] = fresh
+                current = pkt.default_fields.get(f.name)
+                if current is not None and type(current).__name__ == type(fresh).__name__:
+                    # Already the right concrete type (e.g. fuzz()'s own
+                    # initial assignment) - adopt it as-is, preserving its
+                    # identity/state_pos, instead of discarding it for a
+                    # fresh, uninitialized replacement.
+                    field_cache[cache_key] = current
+                else:
+                    fresh.default = resolved_fld.default
+                    self.initialize_volatile_field(fresh)
+                    field_cache[cache_key] = fresh
+                    pkt.default_fields[f.name] = fresh
+
+            field_cache['_active_key'] = cache_key
 
             # Drop any raw value of the now-wrong type sitting in 'fields'
             # (used by command()/show() to display non-default values)
