@@ -1,0 +1,73 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% _MRCodeField.i2m() must handle a live/fixed volatile value
+
+# Ether()/IP()/IGMPv3()/fuzz(IGMPv3_MQ()) used to crash on show():
+#
+#   x >>= 3
+#   TypeError: unsupported operand type(s) for >>=: 'RandFloat' and 'int'
+#
+# IGMPv3_MQ.mrcode is a _MRCodeField (a ScalingField); ScalingField.randval()
+# always returns a RandFloat regardless of scaling, since scaled fields are
+# treated as float-valued in general - but the wire value is a single byte,
+# and _MRCodeField.i2m()'s mantissa/exponent bit-shift math needs a plain
+# int. This mostly went unnoticed upstream because vanilla RandByte._fix()
+# draws a fresh uniformly random value on every touch, so the
+# 'pkt.type == 0x11' branch that triggers the bit-shift is only reached
+# ~1/256 of the time. In this fork, RandNum._fix() deterministically
+# returns the field's own declared default when state_pos is None (so that
+# ARP/BGP/etc. keep their protocol-correct defaults for fields that aren't
+# actively being fuzzed) - and IGMPv3_MQ.type's declared default *is* 0x11
+# (Membership Query), so the bit-shift branch is hit on every single call.
+
+############
+############
++ IGMPv3_MQ mrcode fuzzing
+
+= Ether()/IP()/IGMPv3()/fuzz(IGMPv3_MQ()) must not raise on show()
+~ fuzzing igmp
+
+# RandFloat._fix() draws a fresh uniformly random value on every touch (it
+# isn't state-aware like RandNum/RandByte), so this only reproduces the
+# crash when the draw happens to land >= 128 - pin min/max so this is
+# deterministic instead of flaky.
+
+pkt = Ether() / IP(dst="192.0.2.10") / IGMPv3() / fuzz(IGMPv3_MQ())
+mrcode_field = pkt[IGMPv3_MQ].default_fields['mrcode']
+mrcode_field.min = 200
+mrcode_field.max = 200
+
+data = pkt.show(dump=True)
+assert isinstance(data, str)
+
+
+= _MRCodeField.i2m() handles both a live volatile value and an already-fixed float
+~ fuzzing igmp
+
+mq = IGMPv3_MQ()
+fld = mq.get_field('mrcode')
+
+# Live volatile value (state_pos is None -> resolves to the field default)
+live = fld.randval()
+assert isinstance(fld.i2m(mq, live), int)
+
+# Already-fixed float (what forward() writes into '.fields' once mrcode
+# is the actively fuzzed field: field_fuzzed._fix())
+fixed_float = live._fix()
+assert isinstance(fixed_float, float)
+assert isinstance(fld.i2m(mq, fixed_float), int)
+
+
+= forward() through IGMPv3_MQ (complexity 1) must not raise
+~ fuzzing igmp
+
+pkt = Ether(dst="ff:ff:ff:ff:ff:ff") / IP(dst="192.0.2.10") / IGMPv3() / fuzz(IGMPv3_MQ())
+states = pkt.prepare_combinations(1)
+continue_to_fuzz = True
+iterations = 0
+while continue_to_fuzz and iterations < 5000:
+    states, continue_to_fuzz = pkt.forward(states)
+    data = bytes(pkt)
+    show2_result = pkt.show2(dump=True)
+    iterations += 1
+
+assert iterations > 0

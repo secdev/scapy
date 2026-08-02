@@ -65,6 +65,17 @@ class _MRCodeField(ScalingField):
                 return 20
             else:
                 return 0
+        if not isinstance(x, int):
+            # Resolve to a concrete int before the mantissa/exponent bit
+            # manipulation below. x may still be a live volatile value
+            # (e.g. while fuzzing) - RandFloat doesn't support >>=/<<= at
+            # all, and each touch of an unfixed value can independently
+            # re-derive it rather than keep returning the same one. But
+            # even an already-fixed value isn't necessarily an int: this
+            # field's randval() is ScalingField's, which always produces a
+            # RandFloat (hence a plain float once fixed) regardless of
+            # scaling, while the wire value is a single byte.
+            x = int(x)
         if pkt.type == 0x11 and isinstance(pkt, IGMPv3):
             # IGMP v3 - RFC9776 sect 4.1.1
             if x < 128:
