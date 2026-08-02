@@ -1037,3 +1037,36 @@ assert pkt[Dot11].FCfield2.comp_ssid == False
 assert pkt[Dot11].FCfield2.ano == False
 assert pkt[Dot11].FCfield.security == False
 assert pkt[Dot11].FCfield.AP_PM == False
+
+= Dot11 - ConditionalField conditions must not require hashing a volatile value
+~ dot11
+
+# Regression test.
+#
+# Dot11's 'addr2' and 'SC' fields are ConditionalFields whose condition
+# tests set membership: `lambda pkt: pkt.type not in {1, 3}`. Scapy supports
+# assigning a RandNum-family volatile object directly as a field's value -
+# the same documented idiom as IP(ttl=RandByte()) or IP(id=RandShort()) -
+# and VolatileValue.__hash__ is intentionally disabled (VolatileValue
+# instances are unhashable). A set membership test needs to hash its
+# operand, so as soon as 'type' is such a live volatile value, evaluating
+# the condition raises TypeError, even though the exact same check written
+# with a list instead of a set works fine (list membership uses __eq__,
+# which VolatileValue does implement).
+#
+# This never surfaces through fuzz(Dot11()) alone, because Dot11 also
+# defines a MultipleTypeField (FCfield): fuzz() freezes every other
+# volatile value into a concrete one as soon as a packet has any
+# MultipleTypeField, which incidentally hides this bug. Assigning the
+# volatile value directly, as below, bypasses that and reproduces it
+# directly against upstream Scapy - this fails against plain secdev/scapy
+# HEAD with "TypeError: cannot use 'RandNum' as a set element".
+
+pkt = Dot11(type=RandNum(0, 3))
+try:
+    dump = pkt.show(dump=True)
+    ok = True
+except TypeError:
+    ok = False
+
+assert ok, "Dot11(type=<volatile value>).show() must not raise TypeError"
