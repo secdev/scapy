@@ -859,17 +859,9 @@ class Packet(
                 continue
 
             field = pkt.default_fields[field_name]
-            class_name = type(field).__name__
-            # print(f"Class type: {class_name} for: {pkt._name}-{field_name}")
 
-            # Make sure that the class of the field is relevant for fuzzing, if you change this
-            #  change the one just below - if it is a 'list' here DONT skip
-            if class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP', 'BGPORF']:
-                # _ScopedIP is 'str' with extra attrs - skip it
-                continue
-
-            if class_name == "list":
-                # If the class_name is a list, see if it has something inside, if it does
+            if isinstance(field, list):
+                # If the field is a list, see if it has something inside, if it does
                 #  go into it
                 if len(field) == 0:
                     # Empty list should be skipped
@@ -889,23 +881,27 @@ class Packet(
 
                     for field_in_list_name in field_value.default_fields.keys():
                         field_in_list = field_value.default_fields[field_in_list_name]
-                        field_in_list_class_name = type(field_in_list).__name__
 
-                        # Make sure that the class of the field is relevant for fuzzing, if you change this
-                        #  change the one just above - if it is a 'list' here skip
-                        if field_in_list_class_name in ['NoneType', 'int', 'str', 'bytes', '_ScopedIP', 'BGPORF', 'list']:
-                            # _ScopedIP is 'str' with extra attrs - skip it
-                            # We dont' allow 'list' inside 'list' (at the moment)
+                        # Only genuinely fuzzed (VolatileValue) sub-fields are
+                        # relevant - anything else is a concrete/unfuzzed
+                        # value (NoneType/int/str/bytes/_ScopedIP/BGPORF/a
+                        # FlagValue whose ConditionalField gate wasn't met/
+                        # RSNCipherSuite/PMKIDListPacket/...). We don't allow
+                        # 'list' inside 'list' (at the moment) either.
+                        if not isinstance(field_in_list, VolatileValue):
                             continue
 
                         relevant_fields.append(f"{pkt.name}:{field_name}:{idx}:{field_in_list_name}")
 
                 continue
 
-            # We will want to fix this in the future... maybe make it into a min-max?
-            # These are inside dot11
-            if class_name in ['FlagValue', 'RSNCipherSuite', 'PMKIDListPacket']:
-                print(f"Skipping: {pkt.name}-{field_name} due to: {class_name}")
+            if not isinstance(field, VolatileValue):
+                # Concrete/unfuzzed value - covers plain NoneType/int/str/
+                # bytes/_ScopedIP/BGPORF defaults fuzz() never touched, as
+                # well as a FlagValue left concrete because its
+                # ConditionalField's condition wasn't met when fuzz() ran
+                # (RadioTap.hemuou_per_user_known, Dot11.FCfield2, ...), and
+                # RSNCipherSuite/PMKIDListPacket (not yet supported).
                 continue
 
             # print(f"Adding: {pkt.name}-{field_name}")
@@ -3314,9 +3310,17 @@ def fuzz(p,  # type: _P
         multiple_type_fields = []  # type: List[str]
         for f in q.fields_desc:
             real_f = _unwrap_field(f)
+            # A PacketListField/FieldListField can itself be wrapped in a
+            # ConditionalField (e.g. RadioTap.Ext). When that condition
+            # isn't currently met, getattr(q, f.name) returns None (that's
+            # ConditionalField.i2h()'s contract), not the field's actual
+            # list default - so these branches must not run at all then,
+            # same as the generic scalar branch below already guards for.
+            field_is_active = not isinstance(f, ConditionalField) or f._evalcond(q)
             if isinstance(real_f, PacketListField):
-                for r in getattr(q, f.name):
-                    fuzz(r, _inplace=1)
+                if field_is_active:
+                    for r in getattr(q, f.name):
+                        fuzz(r, _inplace=1)
             elif isinstance(real_f, FieldListField):
                 # f.randval() would build a random value from f's own fmt
                 # (e.g. the default "!H"), which has nothing to do with the
@@ -3325,7 +3329,7 @@ def fuzz(p,  # type: _P
                 # Fuzz each item with the inner field's own randval instead,
                 # keeping the list shape intact - return_relevant_fields()/
                 # locate_field() know how to target list items directly.
-                current_list = getattr(q, f.name)
+                current_list = getattr(q, f.name) if field_is_active else None
                 if isinstance(current_list, list) and len(current_list) > 0:
                     new_list = []
                     for item in current_list:
