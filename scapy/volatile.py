@@ -282,15 +282,11 @@ class RandNum(_RandNumeral[int]):
                 return [self.state_pos % 255]
 
         if isinstance(self, RandByte):
-            # We need to return the value, not the length of it which is then
-            #  multiplied by the byte (i.e. bytes not int)
-            if 'expecting_int' in dir(self) and self.expecting_int:
-                # In some cases, the expected value need to be int, such as in
-                #  ByteEnumField, so we need to return the int value - we know this
-                #  only when we try to 'bytes' the value (the error returns)
-                return self.state_pos
-            else:
-                return self.state_pos.to_bytes(1, 'big')
+            # Plain ByteField/XByteField/ByteEnumField all feed this straight into
+            # struct.pack("B", val) via Field.i2m/addfield, which requires an int -
+            # same contract as RandShort/RandInt above. Returning bytes here breaks
+            # every scalar byte field (IP.tos, IP.ttl, ...) as soon as it's fuzzed.
+            return self.state_pos
 
         return self.state_pos
 

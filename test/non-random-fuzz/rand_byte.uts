@@ -1,0 +1,66 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% RandByte must return an int, not bytes
+
+# Found by exhaustively fuzzing Ether()/IP()/ICMP() with fuzz() +
+# prepare_combinations() + forward(): XByteField/ByteField/ByteEnumField
+# (e.g. IP.tos, IP.ttl) feed their value straight into
+# struct.pack("B", val) via Field.i2m/addfield, which requires an int.
+# RandByte._fix() used to unconditionally return bytes once its state_pos
+# was set, via a dead 'expecting_int' escape hatch that nothing in the
+# codebase ever set - breaking every scalar byte field as soon as it
+# became the active fuzzed field.
+
+############
+############
++ RandByte
+
+= RandByte._fix() returns an int once state_pos is set
+~ fuzzing volatile
+
+r = RandByte()
+assert r.state_pos is None
+
+r.state_pos = 0
+assert isinstance(r._fix(), int)
+assert r._fix() == 0
+
+r.state_pos = 200
+assert isinstance(r._fix(), int)
+assert r._fix() == 200
+
+
+= RandByte behaves like its RandNum siblings (RandShort/RandInt)
+~ fuzzing volatile
+
+for cls in [RandByte, RandShort, RandSShort, RandInt, RandSInt]:
+    r = cls()
+    r.min = 0
+    r.max = 255
+    r.state_pos = 42
+    assert isinstance(r._fix(), int), "%s._fix() should return an int" % cls.__name__
+
+
+= Fuzzing IP.tos and IP.ttl (plain byte fields) must not raise struct.error
+~ fuzzing volatile inet
+
+pkt = fuzz(IP(dst="192.168.15.1"))
+states = pkt.prepare_combinations(1)
+
+continue_to_fuzz = True
+iterations = 0
+seen_tos_change = False
+seen_ttl_change = False
+
+while continue_to_fuzz and iterations < 2000:
+    states, continue_to_fuzz = pkt.forward(states)
+    # Must not raise ValueError/struct.error
+    data = bytes(pkt)
+    if pkt.tos != 0:
+        seen_tos_change = True
+    if pkt.ttl != 64:
+        seen_ttl_change = True
+    iterations += 1
+
+assert iterations > 0
+assert seen_tos_change
+assert seen_ttl_change

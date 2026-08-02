@@ -1006,8 +1006,44 @@ class Packet(
         for (_, state) in enumerate(states):
             if state['active']:
                 return state
-        
+
         return None
+
+    def resync_multiple_type_fields(self, pkt):
+        """
+        A MultipleTypeField's concrete field (and therefore the shape of
+        value it expects - e.g. int vs bytes, and its own min/max/size) is
+        picked by looking at other fields on the packet (e.g. ICMP.type
+        selects whether 'unused' is a Short/Int/StrFixedLen). When one of
+        those selector fields is itself being fuzzed, the VolatileValue we
+        cached in default_fields at fuzz()-time can go stale: it was built
+        for a different concrete field than the one that will actually be
+        used to pack it once the selector's value has moved on. Whenever a
+        field's value changes, re-resolve every MultipleTypeField on the
+        same packet and refresh its cached VolatileValue if the resolved
+        concrete field no longer matches.
+        """
+        for f in pkt.fields_desc:
+            if not isinstance(f, MultipleTypeField):
+                continue
+
+            resolved_fld = f._find_fld_pkt(pkt)
+            fresh = resolved_fld.randval()
+            if fresh is None:
+                continue
+
+            current = pkt.default_fields.get(f.name)
+            if current is not None and type(current).__name__ == type(fresh).__name__:
+                # Still backed by the right kind of VolatileValue, leave it alone
+                continue
+
+            fresh.default = resolved_fld.default
+            pkt.default_fields[f.name] = fresh
+
+            # Drop any raw value of the now-wrong type sitting in 'fields'
+            # (used by command()/show() to display non-default values)
+            if f.name in pkt.fields:
+                del pkt.fields[f.name]
 
 
     def forward(self, states):
@@ -1139,6 +1175,9 @@ class Packet(
                         else:
                             del packet_holder.fields[field_name]
 
+                    if field_name is not None:
+                        self.resync_multiple_type_fields(packet_holder)
+
                     # Breaks send, shows 'int' error
                     # # Make the 'fields' no longer list this value as non-default
                     # field_name = field['name']
@@ -1158,7 +1197,7 @@ class Packet(
 
                         if not next_field['done']:
                             # Try to move to the next item
-                            (_, field_fuzzed) = self.locate_field(self, next_field['name'])
+                            (next_field_holder, field_fuzzed) = self.locate_field(self, next_field['name'])
 
                             if not hasattr(field_fuzzed, 'state_pos'):
                                 err = f"We will fail for: {field_fuzzed}"
@@ -1173,12 +1212,15 @@ class Packet(
                                 else:
                                     field_fuzzed.state_pos = field_fuzzed.default
                                 next_field['done'] = True
-                            else:
+
+                            self.resync_multiple_type_fields(next_field_holder)
+
+                            if not next_field['done']:
                                 # Reset the item before us to not done
                                 state_fuzzed['fields'][curr_pos]['done'] = False
 
                                 # Reset the previous item pos to the begining
-                                (_, field_fuzzed) = self.locate_field(
+                                (curr_field_holder, field_fuzzed) = self.locate_field(
                                     self,
                                     state_fuzzed['fields'][curr_pos]['name']
                                 )
@@ -1189,6 +1231,8 @@ class Packet(
                                     raise ValueError("field_fuzzed.default is not int")
                                 else:
                                     field_fuzzed.state_pos = field_fuzzed.default
+
+                                self.resync_multiple_type_fields(curr_field_holder)
 
                                 field['combinations'] += 1
                                 field['active'] = True
@@ -1220,6 +1264,8 @@ class Packet(
                                 packet_holder.fields[field_name] = field_fuzzed._fix()
                         else:
                             packet_holder.fields[field_name] = field_fuzzed._fix()
+
+                        self.resync_multiple_type_fields(packet_holder)
 
                     field['combinations'] += 1
                     field['active'] = True
