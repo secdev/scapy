@@ -1,0 +1,106 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% forward() must not silently undercount a field's combinations when the
+% same field is reused across multiple pair-states, and its 'default'
+% isn't its own 'min'
+
+# When a field finishes being fuzzed within one pair, forward() resets its
+# VolatileValue via 'field_fuzzed.state_pos = field_fuzzed.default'. That
+# assumes 'default' is a good starting point for a FRESH full traversal
+# up to 'max' - true only when default == min.
+#
+# PPTPStartControlConnectionRequest.maximum_channels is a ShortField with
+# default=65535, which also happens to be its own max (0..65535 is the
+# full 16-bit range). A real prepare_combinations(2) walk over this
+# packet's 18 relevant fields reuses maximum_channels across ~8 different
+# pairs (paired with 8 other fields), all sharing the SAME live packet/
+# field objects. Once maximum_channels finishes its first pair (state_pos
+# left sitting AT default==max), a regression in forward()'s
+# initialization gating (introduced while fixing a *different* bug - hand
+# -crafted states pre-marked active=True) meant every SUBSEQUENT pair
+# reusing this field skipped re-initializing it, since state_pos was no
+# longer None. Each of those later pairs started pre-wrapped instead of
+# climbing from min again, collapsing what should be a ~16,638-combination
+# pair down to ~127 - silently undercounting real fuzzing coverage with
+# no error or warning.
+#
+# Fixed by initializing every field whenever ITS pair/state is becoming
+# active for the first time (not state_pos is None) - matching the
+# original per-state (not per-field) initialization contract - while
+# still ALSO initializing on state_pos is None to keep the hand-crafted-
+# active-state case working.
+
+############
+############
++ forward() must fully re-initialize a reused field for each new pair
+
+= maximum_channels (default == max) is not undercounted when reused across pairs
+~ fuzzing pptp
+
+FIELD_A = "PPTP Start Control Connection Request:ctrl_msg_type"
+FIELD_B = "PPTP Start Control Connection Request:reserved_0"
+SHARED_FIELD = "PPTP Start Control Connection Request:maximum_channels"
+
+def run_pair(packet_fuzz, field1, field2):
+    states = [
+        {
+            "active": False,
+            "done": False,
+            "combinations": 0,
+            "fields": [
+                {"name": field1, "done": False, "combinations": 0, "active": False},
+                {"name": field2, "done": False, "combinations": 0, "active": False},
+            ],
+        }
+    ]
+    continue_to_fuzz = True
+    while continue_to_fuzz:
+        states, continue_to_fuzz = packet_fuzz.forward(states)
+    return states[0]["combinations"]
+
+def build_pptp_packet():
+    pptp_pkt = PPTP() / PPTPStartControlConnectionRequest()
+    return fuzz(pptp_pkt)
+
+isolated_a = run_pair(build_pptp_packet(), FIELD_A, SHARED_FIELD)
+isolated_b = run_pair(build_pptp_packet(), FIELD_B, SHARED_FIELD)
+
+shared_packet = build_pptp_packet()
+sequential_a = run_pair(shared_packet, FIELD_A, SHARED_FIELD)
+sequential_b = run_pair(shared_packet, FIELD_B, SHARED_FIELD)
+
+assert sequential_a == isolated_a
+assert sequential_b == isolated_b
+# The bug collapsed this down to ~127 - make sure it's the real thing
+assert sequential_b > 1000
+
+
+= magic_cookie (default != min) is not undercounted when reused across pairs
+~ fuzzing pptp
+
+FIELD_A2 = "PPTP Start Control Connection Request:ctrl_msg_type"
+FIELD_B2 = "PPTP Start Control Connection Request:reserved_0"
+SHARED_FIELD2 = "PPTP Start Control Connection Request:magic_cookie"
+
+def run_pair2(packet_fuzz, field1, field2):
+    states = [
+        {
+            "active": False,
+            "done": False,
+            "combinations": 0,
+            "fields": [
+                {"name": field1, "done": False, "combinations": 0, "active": False},
+                {"name": field2, "done": False, "combinations": 0, "active": False},
+            ],
+        }
+    ]
+    continue_to_fuzz = True
+    while continue_to_fuzz:
+        states, continue_to_fuzz = packet_fuzz.forward(states)
+    return states[0]["combinations"]
+
+shared_packet2 = fuzz(PPTP() / PPTPStartControlConnectionRequest())
+p1 = run_pair2(shared_packet2, FIELD_A2, SHARED_FIELD2)
+p2 = run_pair2(shared_packet2, FIELD_B2, SHARED_FIELD2)
+
+assert p1 == p2
+assert p2 > 1000

@@ -1272,21 +1272,29 @@ class Packet(
                 fields = state['fields']
 
                 # Mark it as active, and print the transition once
-                if not state['active']:
+                was_active = state['active']
+                if not was_active:
                     self.display_now_fuzzing(fields)
                     # print(f"Now fuzzing: {fields}")
                     state['active'] = True
 
-                # Initialize whichever fields haven't been touched yet. This
-                # is keyed off each field's own state_pos rather than
-                # state['active'], so it also covers a state that was
-                # handed to forward() already marked active=True (e.g. a
-                # hand-crafted state targeting one specific field directly,
-                # skipping prepare_combinations()) - without this, such a
-                # field's state_pos stays None forever and
-                # 'state_pos += jump' below raises TypeError. A field
-                # that's genuinely mid-cycle already has a real state_pos,
-                # so this never resets in-progress work.
+                # Initialize every field the first time THIS state/pair
+                # becomes active (was_active False), regardless of
+                # whatever a field's own state_pos/default happens to be
+                # left at from a *different*, earlier pair reusing the
+                # same field object - a field whose default isn't its own
+                # min (e.g. a ShortField defaulting to its own max, like
+                # PPTPStartControlConnectionRequest.maximum_channels)
+                # would otherwise resume from that leftover value instead
+                # of a fresh min-to-max climb, silently collapsing this
+                # pair's combination count. ALSO initialize whenever
+                # state_pos is still None even though was_active was
+                # already True - covers a state handed to forward()
+                # pre-marked active=True (e.g. a hand-crafted state
+                # targeting one specific field directly, skipping
+                # prepare_combinations()); without this, such a field's
+                # state_pos stays None forever and 'state_pos += jump'
+                # below raises TypeError.
                 for field_item in fields:
                     (_, field_obj) = self.locate_field(self, field_item['name'])
 
@@ -1301,7 +1309,7 @@ class Packet(
                     # Rand* classes) would otherwise fall through
                     # VolatileValue.__getattr__ into _fix() and raise
                     # AttributeError on the fixed value instead.
-                    if getattr(field_obj, 'state_pos', None) is None:
+                    if not was_active or getattr(field_obj, 'state_pos', None) is None:
                         self.initialize_volatile_field(field_obj)
 
                 break
