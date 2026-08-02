@@ -48,7 +48,7 @@ iterations = 0
 _, id_field = pkt.locate_field(pkt, "LLDPDUChassisID:id")
 max_id_state_pos_seen = 0
 
-while continue_to_fuzz and iterations < 30000:
+while continue_to_fuzz and iterations < 250000:
     states, continue_to_fuzz = pkt.forward(states)
     _, id_field = pkt.locate_field(pkt, "LLDPDUChassisID:id")
     max_id_state_pos_seen = max(max_id_state_pos_seen, id_field.state_pos or 0)

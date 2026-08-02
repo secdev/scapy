@@ -1413,7 +1413,18 @@ class Packet(
                                 err = f"We will fail for: {field_fuzzed}"
                                 raise ValueError(err)
 
-                            field_fuzzed.state_pos += 1
+                            # Same jump-scaling as the main advance path
+                            # above - without it, a wide-range field
+                            # advanced via carry (i.e. it isn't the
+                            # fastest/innermost field in its combo) only
+                            # ever moves by 1 per carry, needing up to
+                            # (max - min) carries - millions of iterations
+                            # for something like a ShortField - to finish.
+                            if field_fuzzed.max - field_fuzzed.min > 128:
+                                jump = round((field_fuzzed.max - field_fuzzed.min) / 128)
+                                field_fuzzed.state_pos += jump
+                            else:
+                                field_fuzzed.state_pos += 1
                             if field_fuzzed.state_pos > field_fuzzed.max:
                                 if type(field_fuzzed.default).__name__ in ['str', 'bytes', 'tuple']:
                                     field_fuzzed.state_pos = 0 # 0 is when we send the default
@@ -1452,6 +1463,18 @@ class Packet(
 
                         curr_pos += 1
                         are_we_last = (curr_pos + 1) == len(state_fuzzed['fields'])
+
+                    if found_a_fuzzable_field:
+                        # The inner while's own 'break' above only exits
+                        # IT, not this outer 'for field_idx, field in
+                        # enumerate(...)' loop - without this, control
+                        # falls through to the next outer iteration, which
+                        # lands on the very field the inner while just
+                        # carried into, finds it not done, and advances it
+                        # AGAIN via the normal branch below - incrementing
+                        # combinations (and fuzzing a second, different
+                        # value) twice within a single forward() call.
+                        break
 
                 else:
                     # Put the new value (fuzzed) in the 'fields' so that ".commmand()" will display it
