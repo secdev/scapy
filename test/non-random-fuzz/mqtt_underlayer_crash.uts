@@ -1,0 +1,68 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% MQTTPublish must not crash when used standalone, before being attached
+% under MQTT()
+
+# MQTTPublish.fields_desc has:
+#
+#   ConditionalField(ShortField("msgid", None),
+#                    lambda pkt: (pkt.underlayer.QOS == 1 or
+#                                 pkt.underlayer.QOS == 2)),
+#   StrLenField("value", "",
+#               length_from=lambda pkt: pkt.underlayer.len - pkt.length - 2
+#               if pkt.underlayer.QOS == 0 else
+#               pkt.underlayer.len - pkt.length - 4)
+#
+# Both lambdas assume MQTTPublish is already attached under an MQTT fixed
+# header (so pkt.underlayer.QOS is readable). That's true once the two
+# layers are combined with '/' - but building fuzz(MQTTPublish()) first
+# and attaching it afterwards (MQTT() / fuzz(MQTTPublish())) is a normal,
+# supported construction order, and at the point fuzz() (or show()/
+# bytes()) runs on the bare sub-packet, pkt.underlayer is still None:
+# pkt.underlayer.QOS raised AttributeError. This isn't fuzzing-specific -
+# plain MQTTPublish().show()/bytes() crashed the exact same way with no
+# fuzzing involved at all.
+#
+# Fixed by guarding both lambdas for pkt.underlayer is None. Attached-
+# under-MQTT behavior (QOS 0/1/2) is unchanged.
+
+############
+############
++ MQTTPublish must not require an underlayer to exist
+
+= fuzz(MQTTPublish()) must not raise
+~ fuzzing mqtt
+
+load_contrib("mqtt")
+pkt = fuzz(MQTTPublish())
+assert isinstance(bytes(pkt), bytes)
+
+
+= plain MQTTPublish().show()/bytes() must not raise either (not fuzzing-specific)
+~ fuzzing mqtt
+
+load_contrib("mqtt")
+pkt = MQTTPublish()
+data = pkt.show(dump=True)
+assert isinstance(data, str)
+assert isinstance(bytes(pkt), bytes)
+
+
+= Attached under MQTT(QOS=1/2), msgid is still present and value still correctly sized
+~ fuzzing mqtt
+
+load_contrib("mqtt")
+pkt = MQTT(QOS=1) / MQTTPublish(topic="t", value="hello", msgid=42)
+raw = bytes(pkt)
+parsed = MQTT(raw)
+assert parsed[MQTTPublish].msgid == 42
+assert parsed[MQTTPublish].value == b"hello"
+
+
+= Attached under MQTT(QOS=0), value is still correctly sized without msgid
+~ fuzzing mqtt
+
+load_contrib("mqtt")
+pkt = MQTT(QOS=0) / MQTTPublish(topic="t", value="hello")
+raw = bytes(pkt)
+parsed = MQTT(raw)
+assert parsed[MQTTPublish].value == b"hello"

@@ -198,12 +198,16 @@ class MQTTPublish(Packet):
         StrLenField("topic", "",
                     length_from=lambda pkt: pkt.length),
         ConditionalField(ShortField("msgid", None),
-                         lambda pkt: (pkt.underlayer.QOS == 1 or
+                         lambda pkt: pkt.underlayer is not None and
+                                     (pkt.underlayer.QOS == 1 or
                                       pkt.underlayer.QOS == 2)),
         StrLenField("value", "",
-                    length_from=lambda pkt: pkt.underlayer.len - pkt.length - 2
-                    if pkt.underlayer.QOS == 0 else
-                    pkt.underlayer.len - pkt.length - 4)
+                    length_from=lambda pkt: (
+                        0 if pkt.underlayer is None else
+                        pkt.underlayer.len - pkt.length - 2
+                        if pkt.underlayer.QOS == 0 else
+                        pkt.underlayer.len - pkt.length - 4
+                    ))
     ]
 
 
