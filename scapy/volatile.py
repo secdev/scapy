@@ -252,7 +252,7 @@ class RandNum(_RandNumeral[int]):
 
         # New code:
         if self.state_pos is None:
-            if 'default' in dir(self):
+            if 'default' in self.__dict__:
                 # If the 'default' exists, use it rather than min
                 # 'min' is '0' causing:
                 #    new_default_fields = {
@@ -266,7 +266,7 @@ class RandNum(_RandNumeral[int]):
 
             return self.min
 
-        if 'default' in dir(self) and isinstance(self.default, tuple):
+        if 'default' in self.__dict__ and isinstance(self.default, tuple):
             # if the default value is a tuple, we modify the first item
             if not isinstance(self.default[0], int):
                 raise ValueError("We expected the first value to be a 'int' in the 'tuple'")
@@ -274,11 +274,11 @@ class RandNum(_RandNumeral[int]):
             return (self.state_pos, self.default[1])
 
         if isinstance(self, RandInt):
-            if 'expecting_unsigned_short' in dir(self) and self.expecting_unsigned_short:
+            if 'expecting_unsigned_short' in self.__dict__ and self.expecting_unsigned_short:
                 return (self.state_pos % 65535) # needs to be between 0 <= val <= 65535
 
         if isinstance(self, RandShort):
-            if 'expecting_unsigned_byte' in dir(self) and self.expecting_unsigned_byte:
+            if 'expecting_unsigned_byte' in self.__dict__ and self.expecting_unsigned_byte:
                 return [self.state_pos % 255]
 
         if isinstance(self, RandByte):
@@ -604,7 +604,7 @@ class RandString(_RandString[str]):
         # return s
 
         # State aware code:
-        if 'state_pos' not in dir(self) or self.state_pos is None:
+        if self.state_pos is None:
             # We need to trim the chars up to the max size of the RandNum (the 'size' property)
             if isinstance(self.size, VolatileValue):
                 return self.chars[:self.size.max]
@@ -670,7 +670,7 @@ class RandBin(_RandString[bytes]):
         # return s
 
         # State aware code:
-        if 'state_pos' not in dir(self) or self.state_pos is None:
+        if self.state_pos is None:
             # We need to trim the chars up to the max size of the RandNum (the 'size' property)
             if isinstance(self.size, VolatileValue):
                 return self.chars[:self.size.max]
