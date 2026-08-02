@@ -845,10 +845,17 @@ class Packet(
             current = pkt.default_fields[field_name]
             if isinstance(current, VolatileValue):
                 continue
-            if isinstance(current, list) and any(isinstance(v, VolatileValue) for v in current):
+            if isinstance(current, list) and any(
+                isinstance(v, VolatileValue)
+                or (isinstance(v, tuple) and any(isinstance(vv, VolatileValue) for vv in v))
+                for v in current
+            ):
                 # A FieldListField whose items were individually fuzzed
-                # (e.g. Dot11EltRates.rates) - don't clobber the fuzzed
-                # items with the plain constructor-time value.
+                # (e.g. Dot11EltRates.rates), or a named-option-style
+                # field whose items' values were individually fuzzed
+                # (e.g. DHCP.options via fuzz_current_value()) - don't
+                # clobber the fuzzed items with the plain constructor-time
+                # value.
                 continue
             pkt.default_fields[field_name] = pkt.fields[field_name]
 
@@ -874,6 +881,14 @@ class Packet(
                         # the field's inner field type, so it's directly
                         # fuzzable without going through a sub-Packet.
                         relevant_fields.append(f"{pkt.name}:{field_name}:{idx}")
+                        continue
+
+                    if isinstance(field_value, tuple):
+                        # A named-option-style list item (e.g. DHCP.options'
+                        # ('requested_addr', <VolatileValue>)) - the tuple
+                        # itself isn't fuzzable, but one of its elements is.
+                        if any(isinstance(v, VolatileValue) for v in field_value):
+                            relevant_fields.append(f"{pkt.name}:{field_name}:{idx}")
                         continue
 
                     if not isinstance(field_value, Packet):
@@ -974,7 +989,20 @@ class Packet(
                     if field_idx >= len(pkt.default_fields[packet_field]):
                         raise ValueError(f"Shouldn't be None, did we not find the obj? {field_idx=}")
 
-                    return (pkt, pkt.default_fields[packet_field][field_idx])
+                    item = pkt.default_fields[packet_field][field_idx]
+                    if isinstance(item, tuple):
+                        # A named-option-style item (e.g. DHCP.options'
+                        # ('requested_addr', <VolatileValue>)) - locate the
+                        # VolatileValue element inside it.
+                        for v in item:
+                            if isinstance(v, VolatileValue):
+                                return (pkt, v)
+                        raise ValueError(
+                            f"No VolatileValue found inside tuple at "
+                            f"{packet_field}[{field_idx}]"
+                        )
+
+                    return (pkt, item)
 
                 return (pkt, pkt.default_fields[packet_field])
 
@@ -1078,6 +1106,79 @@ class Packet(
         # Make sure it exists
         if not hasattr(field_obj, 'max'):
             field_obj.max = field_obj.min
+
+    def _write_list_index(self, packet_holder, field_name, list_idx, new_value):
+        """
+        Update a single index of a list-shaped field's raw stored value
+        (packet_holder.fields[field_name]), preserving every other item.
+        Collapsing the whole list down to a single-item list (the older
+        behavior) is only correct when the list genuinely has one item
+        (e.g. Dot11EltRates.rates' default [0x82]) - for a multi-item list
+        (Dot11EltRates.rates=[130, 132, 11, 22], DHCP.options with several
+        named options) it would silently discard every other item.
+
+        If the item at that index is a tuple (e.g. DHCP's
+        ('option_name', <value>)), only the element that was the
+        VolatileValue gets replaced - looked up via default_fields, which
+        always keeps the live VolatileValue at that position regardless of
+        what 'fields' currently holds (already-fixed concrete values,
+        which don't carry that information anymore).
+        """
+        if list_idx is None:
+            return
+
+        template = packet_holder.default_fields.get(field_name)
+        if not isinstance(template, list) or list_idx >= len(template):
+            return
+
+        if not hasattr(packet_holder, "default_list_value"):
+            # Snapshot the pristine (pre-fuzzing) list the first time any
+            # index of this field is touched - restoring one index to its
+            # default later needs this, not whatever's mid-cycle by then.
+            setattr(
+                packet_holder,
+                "default_list_value",
+                list(packet_holder.fields.get(field_name, template)),
+            )
+
+        if field_name in packet_holder.fields and isinstance(packet_holder.fields[field_name], list):  # noqa: E501
+            current_list = list(packet_holder.fields[field_name])
+        else:
+            current_list = list(packet_holder.default_list_value)
+
+        while len(current_list) <= list_idx:
+            current_list.append(template[len(current_list)])
+
+        template_item = template[list_idx]
+        if isinstance(template_item, tuple):
+            current_list[list_idx] = tuple(
+                new_value if isinstance(v, VolatileValue) else v
+                for v in template_item
+            )
+        else:
+            current_list[list_idx] = new_value
+
+        packet_holder.fields[field_name] = current_list
+
+    def _reset_list_index(self, packet_holder, field_name, list_idx):
+        """
+        Restore a single index of a list-shaped field back to its
+        pristine (pre-fuzzing) value, leaving every other index (which
+        may still be actively fuzzed as part of a different combination)
+        untouched.
+        """
+        if list_idx is None or not hasattr(packet_holder, "default_list_value"):
+            return
+        if list_idx >= len(packet_holder.default_list_value):
+            return
+
+        if field_name in packet_holder.fields and isinstance(packet_holder.fields[field_name], list):  # noqa: E501
+            current_list = list(packet_holder.fields[field_name])
+        else:
+            current_list = list(packet_holder.default_list_value)
+
+        current_list[list_idx] = packet_holder.default_list_value[list_idx]
+        packet_holder.fields[field_name] = current_list
 
     def resync_multiple_type_fields(self, pkt):
         """
@@ -1200,9 +1301,18 @@ class Packet(
 
                 field_split = field['name'].split(":")
                 field_name = None
+                list_idx = None
                 if len(field_split) > 1:
                     field_name = field_split[1]
-                
+                if len(field_split) == 3:
+                    # "pkt:field:idx" - a list-of-scalar-VolatileValue item
+                    # (e.g. Dot11EltRates.rates, DHCP.options) - part 2 is
+                    # the index into that list, not a sub-field name.
+                    try:
+                        list_idx = int(field_split[2])
+                    except ValueError:
+                        list_idx = None
+
                 # If we reached max for this field, try the next one
                 if field_fuzzed.state_pos > field_fuzzed.max:
                     # Reset the position back to default
@@ -1220,6 +1330,8 @@ class Packet(
                                 if isinstance(packet_holder.fields[field_name][0], Packet):
                                     # We don't touch it
                                     pass
+                                elif list_idx is not None:
+                                    self._reset_list_index(packet_holder, field_name, list_idx)
                                 else:
                                     if hasattr(packet_holder, "default_list_value"):
                                         # Keep record of what was there by default, which is better than putting an empty array (fixes VRRP edge case of 'addrlist')
@@ -1303,8 +1415,15 @@ class Packet(
                 else:
                     # Put the new value (fuzzed) in the 'fields' so that ".commmand()" will display it
                     if field_name is not None:
+                        if list_idx is not None:
+                            # A list-of-scalar-VolatileValue item (e.g.
+                            # Dot11EltRates.rates, DHCP.options) - update
+                            # just this index, preserving every other item
+                            # (which may belong to a different active
+                            # combination, or simply not be fuzzed at all).
+                            self._write_list_index(packet_holder, field_name, list_idx, field_fuzzed._fix())
                         # If the field_name exists already and is a list (i.e. it is a list from 'init', keep the structure)
-                        if field_name in packet_holder.fields:
+                        elif field_name in packet_holder.fields:
                             if isinstance(packet_holder.fields[field_name], list):
                                 if len(packet_holder.fields[field_name]) > 0:
                                     if isinstance(packet_holder.fields[field_name][0], Packet):
@@ -3317,6 +3436,21 @@ def fuzz(p,  # type: _P
             # list default - so these branches must not run at all then,
             # same as the generic scalar branch below already guards for.
             field_is_active = not isinstance(f, ConditionalField) or f._evalcond(q)
+
+            if field_is_active and hasattr(real_f, 'fuzz_current_value'):
+                # Optional hook: lets a field type produce something that
+                # preserves/extends the packet's CURRENT value for this
+                # field (e.g. DHCPOptionsField replacing each of the
+                # user's actual options' values with a properly-typed
+                # randval, keeping option names/order intact) instead of
+                # generating something unrelated from scratch the way a
+                # plain f.randval() call would. Return None to fall
+                # through to the generic handling below.
+                rnd = real_f.fuzz_current_value(q)
+                if rnd is not None:
+                    new_default_fields[f.name] = rnd
+                    continue
+
             if isinstance(real_f, PacketListField):
                 if field_is_active:
                     for r in getattr(q, f.name):

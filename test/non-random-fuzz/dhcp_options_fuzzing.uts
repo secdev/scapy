@@ -1,0 +1,125 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% DHCP options and other multi-item list-of-scalar fields must be fuzzable
+% one item at a time without discarding every other item
+
+# fuzz(DHCP(options=[...])) used to return nothing fuzzable at all:
+# DHCPOptionsField.randval() unconditionally returns RandDHCPOptions(),
+# a plain (non state-aware) RandField with no min/max/state_pos, which
+# also completely ignores the packet's actual options and generates an
+# unrelated random set from scratch. forward()'s init step degenerated to
+# a single no-op step (max stayed 0), giving the appearance of nothing
+# fuzzable, and even that one step discarded the user's actual DHCP
+# request (message-type/requested_addr/server_id/end).
+#
+# Fixed with a new, generic hook: a field type can implement
+# fuzz_current_value(pkt) to produce something that fuzzes the packet's
+# CURRENT value instead of generating an unrelated one from scratch.
+# DHCPOptionsField.fuzz_current_value() replaces each option's *value*
+# with a properly-typed randval (looked up via DHCPRevOptions - IPField
+# for requested_addr/server_id, ByteEnumField for message-type, ...),
+# keeping option names/order/count intact.
+#
+# Getting individual option values addressable this way also exposed a
+# second, more general bug: forward()'s write-back for list-shaped fields
+# always collapsed the WHOLE list down to a single-item list containing
+# just the newly fuzzed value - correct only for a list that happens to
+# have exactly one item (Dot11EltRates' default rates=[0x82]), but wrong
+# for any multi-item list (DHCP.options with several options, or
+# Dot11EltRates.rates with more than one rate): every other item was
+# silently discarded. Fixed by only ever replacing the specific index
+# being fuzzed, preserving every other item.
+
+############
+############
++ Multi-item list-of-scalar fields (DHCP options, multi-rate Dot11EltRates)
+
+= DHCPOptionsField.fuzz_current_value() gives each option a typed randval
+~ fuzzing dhcp
+
+pkt = fuzz(DHCP(options=[
+    ("message-type", "request"),
+    ("requested_addr", "192.168.1.50"),
+    ("server_id", "192.168.1.1"),
+    ("end"),
+]))
+
+options = pkt.default_fields['options']
+assert isinstance(options[0], tuple) and options[0][0] == "message-type"
+assert isinstance(options[0][1], RandByte)
+assert isinstance(options[1], tuple) and options[1][0] == "requested_addr"
+assert isinstance(options[1][1], RandIP)
+assert isinstance(options[2], tuple) and options[2][0] == "server_id"
+assert isinstance(options[2][1], RandIP)
+# 'end' isn't a (name, value) tuple - left untouched
+assert options[3] == "end"
+
+
+= Each DHCP option value is individually fuzzable, others stay intact
+~ fuzzing dhcp
+
+pkt = fuzz(DHCP(options=[
+    ("message-type", "request"),
+    ("requested_addr", "192.168.1.50"),
+    ("server_id", "192.168.1.1"),
+    ("end"),
+]))
+
+fields = pkt.return_relevant_fields(pkt)
+assert "DHCP options:options:0" in fields
+assert "DHCP options:options:1" in fields
+assert "DHCP options:options:2" in fields
+# 'end' has no value to fuzz
+assert not any(f == "DHCP options:options:3" for f in fields)
+
+states = pkt.prepare_combinations(1)
+continue_to_fuzz = True
+iterations = 0
+seen_message_type_change = False
+seen_requested_addr_change = False
+seen_others_preserved_during_message_type_fuzz = False
+
+while continue_to_fuzz and iterations < 2000:
+    states, continue_to_fuzz = pkt.forward(states)
+    data = bytes(pkt)
+    current = pkt.fields.get("options")
+    assert current[3] == "end"
+    if current[0][1] != "request":
+        seen_message_type_change = True
+        if current[1][1] == "192.168.1.50" and current[2][1] == "192.168.1.1":
+            seen_others_preserved_during_message_type_fuzz = True
+    if current[1][1] != "192.168.1.50":
+        seen_requested_addr_change = True
+    iterations += 1
+
+assert iterations > 0
+assert seen_message_type_change
+assert seen_requested_addr_change
+assert seen_others_preserved_during_message_type_fuzz
+
+
+= Multi-item Dot11EltRates.rates: fuzzing one rate preserves the others
+~ fuzzing dot11
+
+pkt = fuzz(Dot11EltRates(rates=[130, 132, 11, 22]))
+fields = pkt.return_relevant_fields(pkt)
+assert "802.11 Rates:rates:0" in fields
+assert "802.11 Rates:rates:1" in fields
+assert "802.11 Rates:rates:2" in fields
+assert "802.11 Rates:rates:3" in fields
+
+states = pkt.prepare_combinations(1)
+continue_to_fuzz = True
+iterations = 0
+seen_others_preserved = False
+
+while continue_to_fuzz and iterations < 2000:
+    states, continue_to_fuzz = pkt.forward(states)
+    data = bytes(pkt)
+    current = pkt.fields.get("rates")
+    assert len(current) == 4
+    if current[0] != 130 and current[1] == 132 and current[2] == 11 and current[3] == 22:
+        seen_others_preserved = True
+    iterations += 1
+
+assert iterations > 0
+assert seen_others_preserved
