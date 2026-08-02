@@ -316,6 +316,13 @@ class RandNum(_RandNumeral[int]):
 
 
 class RandFloat(_RandNumeral[float]):
+    # Kept in line with RandNum/RandBin/RandString: forward() reads
+    # field_obj.state_pos unconditionally on any VolatileValue it's handed,
+    # and without a class-level default here that falls through
+    # VolatileValue.__getattr__ (-> _fix() -> AttributeError on the
+    # resulting float, uncaught).
+    state_pos = None
+
     def __init__(self, min, max):
         # type: (int, int) -> None
         self.min = min

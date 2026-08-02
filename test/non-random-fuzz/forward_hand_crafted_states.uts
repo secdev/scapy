@@ -1,0 +1,115 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% forward() must initialize fields regardless of a pre-set active flag
+
+# forward()'s per-field initialization (state_pos/min/max/default) used to
+# be gated entirely on 'if not state["active"]'. That's fine for states
+# produced by prepare_combinations() (always active=False), but breaks a
+# common debugging pattern: hand-crafting a 'states' list that targets one
+# specific field directly (e.g. isolating a single reported crash) with
+# active already set to True. In that case the gate never ran, so the
+# field's state_pos stayed None forever, and forward() crashed with
+# "TypeError: unsupported operand type(s) for +=: 'NoneType' and 'int'" as
+# soon as it tried 'field_fuzzed.state_pos += jump'.
+#
+# Fixed by keying the per-field initialization off each field's own
+# state_pos (None -> needs init) instead of state['active'] - which also
+# surfaced a second bug: RandFloat (used by ScalingField, e.g. IGMP's
+# mrcode) never declared 'state_pos' at all, so reading it fell through
+# VolatileValue.__getattr__ into _fix() and raised AttributeError on the
+# resulting float.
+
+############
+############
++ forward() initializes fields even when handed a pre-active state
+
+= A hand-crafted active=True state still gets its field initialized
+~ fuzzing packet dot11
+
+import struct
+
+pkt = fuzz(Dot11EltVendorSpecific())
+states = [
+    {
+        "active": True,
+        "done": False,
+        "combinations": 0,
+        "fields": [
+            {"name": "802.11 Vendor Specific:info", "done": False, "combinations": 0, "active": True}
+        ],
+    }
+]
+
+continue_to_fuzz = True
+iterations = 0
+while continue_to_fuzz and iterations < 400:
+    states, continue_to_fuzz = pkt.forward(states)
+    try:
+        data = bytes(pkt)
+    except struct.error:
+        # Separate, already-known issue: Dot11Elt.post_build's one-byte
+        # auto-length can't represent 'info' once RandBin's size-growth
+        # strategy pushes it past 255 bytes total - expected, not what
+        # this test is checking.
+        pass
+    iterations += 1
+
+assert iterations > 0
+assert not continue_to_fuzz
+
+
+= A hand-crafted active=True state works for RandFloat-backed fields too
+~ fuzzing packet igmp
+
+pkt = fuzz(IGMPv3_MQ())
+states = [
+    {
+        "active": True,
+        "done": False,
+        "combinations": 0,
+        "fields": [
+            {"name": "IGMPv3 Membership Query:mrcode", "done": False, "combinations": 0, "active": True}
+        ],
+    }
+]
+
+continue_to_fuzz = True
+iterations = 0
+while continue_to_fuzz and iterations < 400:
+    states, continue_to_fuzz = pkt.forward(states)
+    data = bytes(pkt)
+    iterations += 1
+
+# RandFloat used to have no class-level 'state_pos' at all, so reading it
+# fell through VolatileValue.__getattr__ into _fix() and raised
+# AttributeError on the resulting float - but a *different*,
+# pre-existing hasattr() guard elsewhere in forward() silently caught
+# that AttributeError too, meaning 'iterations > 0' alone would pass even
+# on the broken code (the field just never got touched). Assert the field
+# was actually initialized/fuzzed, not silently skipped.
+assert iterations > 0
+assert pkt.default_fields['mrcode'].state_pos is not None
+
+
+= A field already mid-cycle is not reset by a later forward() call
+~ fuzzing packet inet
+
+pkt = fuzz(IP(dst="192.168.1.1"))
+_, ttl_obj = pkt.locate_field(pkt, "IP:ttl")
+ttl_obj.state_pos = 50
+ttl_obj.min = 0
+ttl_obj.max = 255
+ttl_obj.default = 64
+
+states = [
+    {
+        "active": True,
+        "done": False,
+        "combinations": 0,
+        "fields": [
+            {"name": "IP:ttl", "done": False, "combinations": 0, "active": True}
+        ],
+    }
+]
+states, continue_to_fuzz = pkt.forward(states)
+
+assert ttl_obj.state_pos > 50

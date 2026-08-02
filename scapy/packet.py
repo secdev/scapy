@@ -1141,19 +1141,37 @@ class Packet(
                 state_fuzzed = state
                 fields = state['fields']
 
-                # Mark it as active, and reset the values
+                # Mark it as active, and print the transition once
                 if not state['active']:
                     self.display_now_fuzzing(fields)
                     # print(f"Now fuzzing: {fields}")
                     state['active'] = True
-                    for field_item in fields:
-                        (_, field_obj) = self.locate_field(self, field_item['name'])
 
-                        if not isinstance(field_obj, VolatileValue):
-                            err = (f"field_obj: '{field_item['name']}' "
-                                   f"isn't VolatileValue: {type(field_obj)=}, was scapy.all.fuzz called?")
-                            raise ValueError(err)
+                # Initialize whichever fields haven't been touched yet. This
+                # is keyed off each field's own state_pos rather than
+                # state['active'], so it also covers a state that was
+                # handed to forward() already marked active=True (e.g. a
+                # hand-crafted state targeting one specific field directly,
+                # skipping prepare_combinations()) - without this, such a
+                # field's state_pos stays None forever and
+                # 'state_pos += jump' below raises TypeError. A field
+                # that's genuinely mid-cycle already has a real state_pos,
+                # so this never resets in-progress work.
+                for field_item in fields:
+                    (_, field_obj) = self.locate_field(self, field_item['name'])
 
+                    if not isinstance(field_obj, VolatileValue):
+                        err = (f"field_obj: '{field_item['name']}' "
+                               f"isn't VolatileValue: {type(field_obj)=}, was scapy.all.fuzz called?")
+                        raise ValueError(err)
+
+                    # getattr(..., None), not a direct attribute read: a
+                    # VolatileValue subclass that doesn't declare
+                    # state_pos at all (anything outside this fork's own
+                    # Rand* classes) would otherwise fall through
+                    # VolatileValue.__getattr__ into _fix() and raise
+                    # AttributeError on the fixed value instead.
+                    if getattr(field_obj, 'state_pos', None) is None:
                         self.initialize_volatile_field(field_obj)
 
                 break
