@@ -71,7 +71,11 @@ assert seen_type_change
 = End-to-end: Ether()/IP()/ICMP() combination-2 fuzzing must not raise
 ~ fuzzing packet inet l2
 
-pkt = Ether() / IP(dst="192.168.15.1") / ICMP()
+# dst is set explicitly to skip Ether's MAC resolution (resolve() ->
+# getmacbyip()) - it fails and falls back to broadcast identically on every
+# single build in this environment anyway, so leaving dst unset just burns
+# ~25% of this test's runtime re-deriving the same fallback each iteration.
+pkt = Ether(dst="ff:ff:ff:ff:ff:ff") / IP(dst="192.168.15.1") / ICMP()
 pkt = fuzz(pkt)
 
 states = pkt.prepare_combinations(2)
