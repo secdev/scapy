@@ -143,6 +143,7 @@ elif SOLARIS:
 elif WINDOWS:
     from scapy.arch.windows import *  # noqa F403
     from scapy.arch.windows.native import *  # noqa F403
+    from scapy.arch.windows.sspi import *  # noqa F403
     SIOCGIFHWADDR = 0  # mypy compat
 else:
     log_loading.critical(

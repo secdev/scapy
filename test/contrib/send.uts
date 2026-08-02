@@ -10,7 +10,7 @@ assert pkt[ICMPv6NDOptRsaSig].signature_pad == b"\x01" * 12
 
 = ICMPv6NDOptCGA build and dissection
 
-pkt = Ether()/IPv6()/ICMPv6ND_NS()/ICMPv6NDOptCGA(CGA_PARAMS=CGA_Params())
+pkt = Ether()/IPv6()/ICMPv6ND_NS()/ICMPv6NDOptCGA(CGA_PARAMS=CGA_Params(pubkey=X509_SubjectPublicKeyInfo(signatureAlgorithm=X509_AlgorithmIdentifier(parameters=0))))
 pkt = Ether(raw(pkt))
 
 assert ICMPv6NDOptCGA in pkt

@@ -14,7 +14,6 @@ import re
 import socket
 import subprocess
 import time
-import warnings
 
 from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL
@@ -35,7 +34,7 @@ from scapy.plist import (
     SndRcvList,
 )
 from scapy.error import log_runtime, log_interactive, Scapy_Exception
-from scapy.base_classes import Gen, SetGen
+from scapy.base_classes import Gen, SetGen, ScopedIP
 from scapy.sessions import DefaultSession
 from scapy.supersocket import SuperSocket, IterSocket
 
@@ -133,7 +132,8 @@ class SndRcvHandler(object):
                  threaded=True,  # type: bool
                  session=None,  # type: Optional[_GlobSessionType]
                  chainEX=False,  # type: bool
-                 stop_filter=None  # type: Optional[Callable[[Packet], bool]]
+                 stop_filter=None,  # type: Optional[Callable[[Packet], bool]]
+                 **send_kwargs,  # type: Any
                  ):
         # type: (...) -> None
         # Instantiate all arguments
@@ -162,6 +162,7 @@ class SndRcvHandler(object):
         self._flood = _flood
         self.threaded = threaded
         self.breakout = Event()
+        self.send_kwargs = send_kwargs
         # Instantiate packet holders
         if prebuild and not self._flood:
             self.tobesent = list(pkt)  # type: _PacketIterable
@@ -278,7 +279,7 @@ class SndRcvHandler(object):
                 # has not been sent
                 self.hsent.setdefault(p.hashret(), []).append(p)
                 # Send packet
-                self.pks.send(p)
+                self.pks.send(p, **self.send_kwargs)
                 time.sleep(self.inter)
                 if self.breakout.is_set():
                     break
@@ -480,15 +481,7 @@ def send(x,  # type: _PacketIterable
     :param monitor: (not on linux) send in monitor mode
     :returns: None
     """
-    if "iface" in kargs:
-        # Warn that it isn't used.
-        warnings.warn(
-            "'iface' has no effect on L3 I/O send(). For multicast/link-local "
-            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
-            SyntaxWarning,
-        )
-        del kargs["iface"]
-    iface, ipv6 = _interface_selection(x)
+    iface, ipv6 = _interface_selection(x, kargs.pop("iface", None))
     return _send(
         x,
         lambda iface: iface.l3socket(ipv6),
@@ -669,10 +662,18 @@ def _parse_tcpreplay_result(stdout_b, stderr_b, argv):
         return {}
 
 
-def _interface_selection(packet: _PacketIterable) -> Tuple[NetworkInterface, bool]:
+def _interface_selection(
+    packet: _PacketIterable,
+    iface: Optional[str] = None,
+) -> Tuple[NetworkInterface, bool]:
     """
     Select the network interface according to the layer 3 destination
     """
+    if iface is not None:
+        try:
+            packet.dst = ScopedIP(packet.dst, scope=iface)  # type: ignore
+        except AttributeError:
+            raise AttributeError("Cannot use iface= with this packet type.")
     _iff, src, _ = next(packet.__iter__()).route()
     ipv6 = False
     if src:
@@ -703,15 +704,7 @@ def sr(x,  # type: _PacketIterable
     This determines the interface (or L2 source to use) based on the routing
     table: conf.route / conf.route6
     """
-    if "iface" in kargs:
-        # Warn that it isn't used.
-        warnings.warn(
-            "'iface' has no effect on L3 I/O sr(). For multicast/link-local "
-            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
-            SyntaxWarning,
-        )
-        del kargs["iface"]
-    iface, ipv6 = _interface_selection(x)
+    iface, ipv6 = _interface_selection(x, kargs.pop("iface", None))
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         iface=iface, nofilter=nofilter,
@@ -730,14 +723,6 @@ def sr1(*args, **kargs):
     This determines the interface (or L2 source to use) based on the routing
     table: conf.route / conf.route6
     """
-    if "iface" in kargs:
-        # Warn that it isn't used.
-        warnings.warn(
-            "'iface' has no effect on L3 I/O sr1(). For multicast/link-local "
-            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
-            SyntaxWarning,
-        )
-        del kargs["iface"]
     ans, _ = sr(*args, **kargs)
     if ans:
         return cast(Packet, ans[0][1])
@@ -969,15 +954,7 @@ def srflood(x,  # type: _PacketIterable
     :param nofilter: put 1 to avoid use of BPF filters
     :param filter:   provide a BPF filter
     """
-    if "iface" in kargs:
-        # Warn that it isn't used.
-        warnings.warn(
-            "'iface' has no effect on L3 I/O srflood(). For multicast/link-local "
-            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
-            SyntaxWarning,
-        )
-        del kargs["iface"]
-    iface, ipv6 = _interface_selection(x)
+    iface, ipv6 = _interface_selection(x, kargs.pop("iface", None))
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         iface=iface, nofilter=nofilter,
@@ -1007,15 +984,7 @@ def sr1flood(x,  # type: _PacketIterable
     :param filter:   provide a BPF filter
     :param iface:    listen answers only on the given interface
     """
-    if "iface" in kargs:
-        # Warn that it isn't used.
-        warnings.warn(
-            "'iface' has no effect on L3 I/O sr1flood(). For multicast/link-local "
-            "see https://scapy.readthedocs.io/en/latest/usage.html#multicast",
-            SyntaxWarning,
-        )
-        del kargs["iface"]
-    iface, ipv6 = _interface_selection(x)
+    iface, ipv6 = _interface_selection(x, kargs.pop("iface", None))
     s = iface.l3socket(ipv6)(
         promisc=promisc, filter=filter,
         nofilter=nofilter, iface=iface,
@@ -1082,6 +1051,25 @@ def srp1flood(x,  # type: _PacketIterable
     return None
 
 # SNIFF METHODS
+
+
+def _offline_pcap_reader(source, flt, quiet):
+    # type: (Any, Optional[str], bool) -> PcapReader
+    """Build a PcapReader for one sniff() offline source.
+
+    The source is whatever tcpdump() accepts: a filename, an IterSocket over
+    packets, or an open file descriptor. Without a filter it is read directly.
+    With a filter the packets are prefiltered through a tcpdump subprocess;
+    that process is attached to the reader so its close() reaps it. Reading it
+    through a bare file descriptor used to leak the process as a zombie
+    (#4512).
+    """
+    if flt is None:
+        return PcapReader(source)
+    proc = tcpdump(source, args=["-w", "-"], flt=flt, getproc=True, quiet=quiet)
+    reader = PcapReader(proc.stdout)
+    reader.subproc = proc
+    return reader
 
 
 class AsyncSniffer(object):
@@ -1225,44 +1213,28 @@ class AsyncSniffer(object):
             if isinstance(offline, list) and \
                     all(isinstance(elt, str) for elt in offline):
                 # List of files
-                sniff_sockets.update((PcapReader(  # type: ignore
-                    fname if flt is None else
-                    tcpdump(fname,
-                            args=["-w", "-"],
-                            flt=flt,
-                            getfd=True,
-                            quiet=quiet)
-                ), fname) for fname in offline)
+                sniff_sockets.update(
+                    (_offline_pcap_reader(fname, flt, quiet), fname)  # type: ignore
+                    for fname in offline
+                )
             elif isinstance(offline, dict):
                 # Dict of files
-                sniff_sockets.update((PcapReader(  # type: ignore
-                    fname if flt is None else
-                    tcpdump(fname,
-                            args=["-w", "-"],
-                            flt=flt,
-                            getfd=True,
-                            quiet=quiet)
-                ), label) for fname, label in offline.items())
+                sniff_sockets.update(
+                    (_offline_pcap_reader(fname, flt, quiet), label)  # type: ignore
+                    for fname, label in offline.items()
+                )
             elif isinstance(offline, (Packet, PacketList, list)):
                 # Iterables (list of packets, PacketList..)
                 offline = IterSocket(offline)
-                sniff_sockets[offline if flt is None else PcapReader(
-                    tcpdump(offline,
-                            args=["-w", "-"],
-                            flt=flt,
-                            getfd=True,
-                            quiet=quiet)
-                )] = offline
+                sniff_sockets[
+                    offline if flt is None
+                    else _offline_pcap_reader(offline, flt, quiet)
+                ] = offline
             else:
                 # Other (file descriptors...)
-                sniff_sockets[PcapReader(  # type: ignore
-                    offline if flt is None else
-                    tcpdump(offline,
-                            args=["-w", "-"],
-                            flt=flt,
-                            getfd=True,
-                            quiet=quiet)
-                )] = offline
+                sniff_sockets[
+                    _offline_pcap_reader(offline, flt, quiet)  # type: ignore
+                ] = offline
         if not sniff_sockets or iface is not None:
             # The _RL2 function resolves the L2socket of an iface
             _RL2 = lambda i: L2socket or resolve_iface(i).l2listen()  # type: Callable[[_GlobInterfaceType], Callable[..., SuperSocket]]  # noqa: E501
@@ -1314,9 +1286,9 @@ class AsyncSniffer(object):
             self.stop_cb = stop_cb
 
         try:
+            self.continue_sniff = True
             if started_callback:
                 started_callback()
-            self.continue_sniff = True
 
             # Start timeout
             if timeout is not None:

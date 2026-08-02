@@ -323,13 +323,14 @@ def parse_config_file(config_path, verb=3):
       "local": true,
       "format": "ansi",
       "num": null,
+      "extensions": [],
       "modules": [],
       "kw_ok": [],
       "kw_ko": []
     }
 
     """
-    with open(config_path) as config_file:
+    with open(config_path, encoding='utf-8') as config_file:
         data = json.load(config_file)
         if verb > 2:
             print(" %s Loaded config file" % arrow, config_path)
@@ -349,6 +350,7 @@ def parse_config_file(config_path, verb=3):
                  local=get_if_exist("local", False),
                  num=get_if_exist("num", None),
                  modules=get_if_exist("modules", []),
+                 extensions=get_if_exist("extensions", []),
                  kw_ok=get_if_exist("kw_ok", []),
                  kw_ko=get_if_exist("kw_ko", []),
                  format=get_if_exist("format", "ansi"))
@@ -471,7 +473,7 @@ def compute_campaign_digests(test_campaign):
         ts.crc = crc32(dts)
         dc += "\0\x01" + dts
     test_campaign.crc = crc32(dc)
-    with open(test_campaign.filename) as fdesc:
+    with open(test_campaign.filename, encoding='utf-8') as fdesc:
         test_campaign.sha = sha1(fdesc.read())
 
 
@@ -521,8 +523,8 @@ def _run_test_timeout(test, get_interactive_session, verb=3, my_globals=None):
                                        timeout=5 * 60,  # 5 min
                                        verb=verb,
                                        my_globals=my_globals)
-    except StopAutorunTimeout:
-        return "-- Test timed out ! --", False
+    except StopAutorunTimeout as ex:
+        return "@@@@@@@@@@@@@@@@@ Test timed out ! @@@@@@@@@@@@@@@@@\n" + ex.code_run, False
 
 
 def run_test(test, get_interactive_session, theme, verb=3,
@@ -982,6 +984,7 @@ def main():
 
     FORMAT = Format.ANSI
     OUTPUTFILE = sys.stdout
+    OUTPUTFILE.reconfigure(encoding='utf-8')
     LOCAL = 0
     NUM = None
     NON_ROOT = False
@@ -996,6 +999,7 @@ def main():
     GLOB_PREEXEC = ""
     PREEXEC_DICT = {}
     MODULES = []
+    EXTENSIONS = []
     TESTFILES = []
     ANNOTATIONS_MODE = False
     INTERPRETER = False
@@ -1048,6 +1052,7 @@ def main():
                 LOCAL = 1 if data.local else 0
                 NUM = data.num
                 MODULES = data.modules
+                EXTENSIONS = data.extensions
                 KW_OK.extend(data.kw_ok)
                 KW_KO.extend(data.kw_ko)
                 try:
@@ -1112,6 +1117,9 @@ def main():
         if VERB > 2:
             print(" " + arrow + " libpcap mode")
 
+    if sys.version_info < (3, 8):
+        KW_KO.append("needs_py38plus")
+
     KW_KO.append("disabled")
 
     if ANNOTATIONS_MODE:
@@ -1137,6 +1145,9 @@ def main():
             builtins.__dict__.update(mod.__dict__)
         except ImportError as e:
             raise getopt.GetoptError("cannot import [%s]: %s" % (m, e))
+
+    for ext in EXTENSIONS:
+        conf.exts.load(ext)
 
     autorun_func = {
         Format.TEXT: scapy.autorun_get_text_interactive_session,
@@ -1178,7 +1189,7 @@ def main():
         if VERB > 2:
             print(theme.green(dash + " Loading: %s" % TESTFILE))
         PREEXEC = PREEXEC_DICT[TESTFILE] if TESTFILE in PREEXEC_DICT else GLOB_PREEXEC
-        with open(TESTFILE) as testfile:
+        with open(TESTFILE, encoding='utf-8') as testfile:
             output, result, campaign = execute_campaign(
                 testfile, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOCS,
                 FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER,

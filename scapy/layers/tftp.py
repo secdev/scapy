@@ -409,7 +409,7 @@ class TFTP_WRQ_server(Automaton):
 
     @ATMT.action(receive_data)
     def ack_data(self):
-        self.last_packet = self.l3 / TFTP_ACK(block=self.blk)
+        self.last_packet = self.l3 / TFTP_ACK(block=self.blk % 65536)
         self.send(self.last_packet)
 
     @ATMT.state()
@@ -516,11 +516,17 @@ class TFTP_RRQ_server(Automaton):
 
     @ATMT.action(file_not_found)
     def send_error(self):
-        self.send(self.l3 / TFTP_ERROR(errorcode=1, errormsg=TFTP_Error_Codes[1]))  # noqa: E501
+        self.send(self.l3 / TFTP_ERROR(
+            errorcode=1,
+            errormsg=TFTP_Error_Codes[1],
+        ))
 
     @ATMT.state()
     def SEND_FILE(self):
-        self.send(self.l3 / TFTP_DATA(block=self.blk) / self.data[(self.blk - 1) * self.blksize:self.blk * self.blksize])  # noqa: E501
+        self.send(
+            self.l3 / TFTP_DATA(block=self.blk % 65536) /
+            self.data[(self.blk - 1) * self.blksize:self.blk * self.blksize]
+        )
 
     @ATMT.timeout(SEND_FILE, 3)
     def timeout_waiting_ack(self):

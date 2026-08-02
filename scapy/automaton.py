@@ -681,6 +681,9 @@ class _ATMT_supersocket(SuperSocket):
         r = self.spb.recv(n)
         if self.proto is not None and r is not None:
             r = self.proto(r, **kwargs)
+        if self.atmt.atmt_session is not None:
+            # Apply session if provided
+            r = self.atmt.atmt_session.process(r)
         return r
 
     def close(self):
@@ -962,7 +965,8 @@ class Automaton(metaclass=Automaton_metaclass):
         self.debug_level = debug
         if debug:
             conf.logLevel = logging.DEBUG
-        self.atmt_session = session
+        if session:
+            self.atmt_session = session
         self.socket_kargs = kargs
         self.store_packets = store
 

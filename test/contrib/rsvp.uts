@@ -9,8 +9,51 @@ pkt = Ether(raw(pkt))
 assert RSVP_SessionAttrb in pkt
 assert pkt.Name == b"test"
 
+# TODO: Add more objects to default build
+
 = Master dissection
 
 pkt = Ether(b"\x00\x90\x92\x9d\x94\x01\x00\xd0c\xc3\xb8G\x08\x00E\x00\x00\x80\x8ad\x00\x00\xff.\x8c\xe7\xd2\x00\x00\x02\xd2\x00\x00\x01\x10\x02\xeb\xfa\xff\x00\x00l\x00\x10\x01\x07\x10\x02\x02\x02\x00\x00\x00\x01\x11\x03\x03\x03\x00\x0c\x03\x01\xd2\x00\x00\x02\x00\x00\x00\x00\x00\x08\x05\x01\x00\x00u0\x00\x08\x08\x01\x00\x00\x00\x12\x00$\t\x02\x00\x00\x00\x07\x05\x00\x00\x06\x7f\x00\x00\x05I\x18\x96\x80Dz\x00\x00\x7f\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\n\x07\x11\x03\x03\x03\x00\x00'\x11\x00\x08\x10\x01\x00\x00\x00\x10\x03\x06-\xad")
+# Header
+assert RSVP in pkt
+header = pkt[RSVP]
+assert header.Version == 1
+assert header.Class == 2
+assert header.TTL == 255
+assert header.Length == 108
+
+# Session (C-type 7) object
+assert RSVP_SESSION in pkt
+session = pkt[RSVP_SESSION]
+assert session.dest_addr == "16.2.2.2"
+assert session.reserved == 0
+assert session.tunnel_id == 1
+assert session.ext_tunnel_id == "17.3.3.3"
+
+# HOP object
+assert RSVP_HOP in pkt
+hop = pkt[RSVP_HOP]
+assert hop.neighbor == "210.0.0.2"
+assert hop.inface == 0
+
+# TIME_VALUES object
 assert RSVP_Time in pkt
 assert pkt[RSVP_Time].refresh == 30000
+
+# TODO: add the rest of the objects to master dissector once they are no longer generic
+
++ RSVP_SESSION
+
+= RSVP_SESSION, build and dissect round-trip standalone
+
+pkt = RSVP_Object() / RSVP_SESSION(dest_addr="10.0.0.1", reserved=6, tunnel_id=0, ext_tunnel_id="1.1.1.1")
+raw_pkt = raw(pkt)
+pkt2 = RSVP_Object(raw_pkt)
+assert RSVP_SESSION in pkt2
+assert pkt2.Class == 0x01
+assert pkt2.C_Type == 0x07
+assert pkt2.dest_addr == "10.0.0.1"
+assert pkt2.reserved == 6
+assert pkt2.tunnel_id == 0
+assert pkt2.ext_tunnel_id == "1.1.1.1"
+assert bytes(pkt2) == raw_pkt

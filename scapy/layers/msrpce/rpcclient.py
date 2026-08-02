@@ -7,6 +7,7 @@
 DCE/RPC client as per [MS-RPCE]
 """
 
+import collections
 import uuid
 import socket
 
@@ -41,6 +42,7 @@ from scapy.layers.dcerpc import (
     find_dcerpc_interface,
     NDRContextHandle,
     NDRPointer,
+    RPC_C_IMP_LEVEL,
 )
 from scapy.layers.gssapi import (
     SSP,
@@ -49,10 +51,10 @@ from scapy.layers.gssapi import (
     GSS_S_CONTINUE_NEEDED,
     GSS_C_FLAGS,
 )
-from scapy.layers.smb2 import STATUS_ERREF
 from scapy.layers.smbclient import (
     SMB_RPC_SOCKET,
 )
+from scapy.layers.windows.erref import STATUS_ERREF
 
 # RPC
 from scapy.layers.msrpce.ept import (
@@ -80,6 +82,7 @@ class DCERPC_Client(object):
     :param ndrendian: the endianness to use (default little)
     :param verb: enable verbose logging (default True)
     :param auth_level: the DCE_C_AUTHN_LEVEL to use
+    :param impersonation_type: the RPC_C_IMP_LEVEL to use
     """
 
     def __init__(
@@ -89,7 +92,7 @@ class DCERPC_Client(object):
         ndrendian: str = "little",
         verb: bool = True,
         auth_level: Optional[DCE_C_AUTHN_LEVEL] = None,
-        auth_context_id: int = 0,
+        impersonation_type: RPC_C_IMP_LEVEL = RPC_C_IMP_LEVEL.DEFAULT,
         **kwargs,
     ):
         self.sock = None
@@ -99,8 +102,9 @@ class DCERPC_Client(object):
         ), "transport must be from DCERPC_Transport"
 
         # Counters
-        self.call_id = 0
-        self.all_cont_id = 0  # number of contexts sent
+        self.call_ids = collections.defaultdict(lambda: 0)  # by assoc_group_id
+        self.next_cont_id = 0  # next available context id
+        self.next_auth_contex_id = 0  # next available auth context id
 
         # Session parameters
         if ndr64 is None:
@@ -118,8 +122,12 @@ class DCERPC_Client(object):
             self.auth_level = DCE_C_AUTHN_LEVEL.CONNECT
         else:
             self.auth_level = DCE_C_AUTHN_LEVEL.NONE
-        self.auth_context_id = auth_context_id
+        if impersonation_type == RPC_C_IMP_LEVEL.DEFAULT:
+            # Same default as windows
+            impersonation_type = RPC_C_IMP_LEVEL.IDENTIFY
+        self.impersonation_type = impersonation_type
         self._first_time_on_interface = True
+        self.contexts = {}
         self.dcesockargs = kwargs
         self.dcesockargs["transport"] = self.transport
 
@@ -135,32 +143,84 @@ class DCERPC_Client(object):
             DceRpc5,
             ssp=client.ssp,
             auth_level=client.auth_level,
-            auth_context_id=client.auth_context_id,
             **client.dcesockargs,
         )
         return client
 
     @property
     def session(self) -> DceRpcSession:
-        return self.sock.session
+        try:
+            return self.sock.session
+        except AttributeError:
+            raise ValueError("Client is not connected ! Please connect()")
 
-    def connect(self, host, port=None, timeout=5, smb_kwargs={}):
+    def connect(
+        self,
+        host,
+        endpoint: Union[int, str] = None,
+        port: Optional[int] = None,
+        interface=None,
+        timeout=5,
+        smb_kwargs={},
+    ):
         """
         Initiate a connection.
 
         :param host: the host to connect to
-        :param port: (optional) the port to connect to
+        :param endpoint: (optional) the port/smb pipe to connect to
+        :param interface: (optional) if endpoint isn't provided, uses the endpoint
+            mapper to find the appropriate endpoint for that interface.
         :param timeout: (optional) the connection timeout (default 5)
+        :param port: (optional) the port to connect to. (useful for SMB)
         """
+        smb_kwargs.setdefault("HOST", host)
+        if endpoint is None and interface is not None:
+            # Figure out the endpoint using the endpoint mapper
+
+            if self.transport == DCERPC_Transport.NCACN_IP_TCP and port is None:
+                # IP/TCP
+                # ask the endpoint mapper (port 135) for the IP:PORT
+                endpoints = get_endpoint(
+                    host,
+                    interface,
+                    ndrendian=self.ndrendian,
+                    verb=self.verb,
+                )
+                if endpoints:
+                    _, endpoint = endpoints[0]
+                else:
+                    raise ValueError(
+                        "Could not find an available endpoint for that interface !"
+                    )
+            elif self.transport == DCERPC_Transport.NCACN_NP:
+                # SMB
+                # ask the endpoint mapper (over SMB) for the namedpipe
+                endpoints = get_endpoint(
+                    host,
+                    interface,
+                    transport=self.transport,
+                    ndrendian=self.ndrendian,
+                    verb=self.verb,
+                    ssp=self.ssp,
+                    smb_kwargs=smb_kwargs,
+                )
+                if endpoints:
+                    endpoint = endpoints[0].lstrip("\\pipe\\")
+                else:
+                    return
+
+        # Assign the default port if no port is provided
         if port is None:
             if self.transport == DCERPC_Transport.NCACN_IP_TCP:  # IP/TCP
-                port = 135
+                port = endpoint or 135
             elif self.transport == DCERPC_Transport.NCACN_NP:  # SMB
                 port = 445
             else:
                 raise ValueError(
                     "Can't guess the port for transport: %s" % self.transport
                 )
+
+        # Start socket and connect
         self.host = host
         self.port = port
         sock = socket.socket()
@@ -177,19 +237,35 @@ class DCERPC_Client(object):
                     "\u2514 Connected from %s" % repr(sock.getsockname())
                 )
             )
+
         if self.transport == DCERPC_Transport.NCACN_NP:  # SMB
+            if self.auth_level >= DCE_C_AUTHN_LEVEL.PKT_PRIVACY:
+                smb_kwargs.setdefault("REQUIRE_ENCRYPTION", True)
+            elif self.auth_level >= DCE_C_AUTHN_LEVEL.PKT_INTEGRITY:
+                smb_kwargs.setdefault("REQUIRE_SIGNATURE", True)
+
             # We pack the socket into a SMB_RPC_SOCKET
             sock = self.smbrpcsock = SMB_RPC_SOCKET.from_tcpsock(
-                sock, ssp=self.ssp, **smb_kwargs
+                sock,
+                ssp=self.ssp,
+                **smb_kwargs,
             )
-            self.sock = DceRpcSocket(sock, DceRpc5, **self.dcesockargs)
+
+            # If the endpoint is provided, connect to it.
+            if endpoint is not None:
+                self.open_smbpipe(endpoint)
+
+            self.sock = DceRpcSocket(
+                sock,
+                DceRpc5,
+                **self.dcesockargs,
+            )
         elif self.transport == DCERPC_Transport.NCACN_IP_TCP:
             self.sock = DceRpcSocket(
                 sock,
                 DceRpc5,
                 ssp=self.ssp,
                 auth_level=self.auth_level,
-                auth_context_id=self.auth_context_id,
                 **self.dcesockargs,
             )
 
@@ -207,10 +283,10 @@ class DCERPC_Client(object):
 
         The DCE/RPC header is added automatically.
         """
-        self.call_id += 1
+        self.call_ids[self.session.assoc_group_id] += 1
         pkt = (
             DceRpc5(
-                call_id=self.call_id,
+                call_id=self.call_ids[self.session.assoc_group_id],
                 pfc_flags="PFC_FIRST_FRAG+PFC_LAST_FRAG",
                 endian=self.ndrendian,
                 auth_verifier=kwargs.pop("auth_verifier", None),
@@ -231,10 +307,10 @@ class DCERPC_Client(object):
 
         The DCE/RPC header is added automatically.
         """
-        self.call_id += 1
+        self.call_ids[self.session.assoc_group_id] += 1
         pkt = (
             DceRpc5(
-                call_id=self.call_id,
+                call_id=self.call_ids[self.session.assoc_group_id],
                 pfc_flags="PFC_FIRST_FRAG+PFC_LAST_FRAG",
                 endian=self.ndrendian,
                 auth_verifier=kwargs.pop("auth_verifier", None),
@@ -267,6 +343,7 @@ class DCERPC_Client(object):
                 print(
                     conf.color_theme.opening(">> REQUEST: %s" % pkt.__class__.__name__)
                 )
+
         # Add sectrailer if first time talking on this interface
         vt_trailer = b""
         if (
@@ -281,6 +358,7 @@ class DCERPC_Client(object):
                     DceRpcSecVTCommand(SEC_VT_COMMAND_END=1)
                     / DceRpcSecVTPcontext(
                         InterfaceId=self.session.rpc_bind_interface.uuid,
+                        Version=self.session.rpc_bind_interface.if_version,
                         TransferSyntax="NDR64" if self.ndr64 else "NDR 2.0",
                         TransferVersion=1 if self.ndr64 else 2,
                     )
@@ -291,6 +369,9 @@ class DCERPC_Client(object):
         opnum = {}
         if "opnum" in kwargs:
             opnum["opnum"] = kwargs.pop("opnum")
+
+        # Set NDR64
+        pkt.ndr64 = self.ndr64
 
         # Send/receive
         resp = self.sr1(
@@ -333,6 +414,7 @@ class DCERPC_Client(object):
                 ):
                     resp[DceRpc5Fault].payload.show()
             result = resp
+
         if self.verb and getattr(resp, "status", 0) != 0:
             if resp.status in _DCE_RPC_ERROR_CODES:
                 print(conf.color_theme.fail(f"! {_DCE_RPC_ERROR_CODES[resp.status]}"))
@@ -347,10 +429,15 @@ class DCERPC_Client(object):
         """
         Internal: get the bind DCE/RPC context.
         """
+        if interface in self.contexts:
+            # We have already found acceptable contexts for this interface,
+            # reuse that.
+            return self.contexts[interface]
+
         # NDR 2.0
         contexts = [
             DceRpc5Context(
-                cont_id=self.all_cont_id,
+                cont_id=self.next_cont_id,
                 abstract_syntax=DceRpc5AbstractSyntax(
                     if_uuid=interface.uuid,
                     if_version=interface.if_version,
@@ -364,13 +451,13 @@ class DCERPC_Client(object):
                 ],
             ),
         ]
-        self.all_cont_id += 1
+        self.next_cont_id += 1
 
         # NDR64
         if self.ndr64:
             contexts.append(
                 DceRpc5Context(
-                    cont_id=self.all_cont_id,
+                    cont_id=self.next_cont_id,
                     abstract_syntax=DceRpc5AbstractSyntax(
                         if_uuid=interface.uuid,
                         if_version=interface.if_version,
@@ -384,12 +471,12 @@ class DCERPC_Client(object):
                     ],
                 )
             )
-            self.all_cont_id += 1
+            self.next_cont_id += 1
 
         # BindTimeFeatureNegotiationBitmask
         contexts.append(
             DceRpc5Context(
-                cont_id=self.all_cont_id,
+                cont_id=self.next_cont_id,
                 abstract_syntax=DceRpc5AbstractSyntax(
                     if_uuid=interface.uuid,
                     if_version=interface.if_version,
@@ -402,11 +489,33 @@ class DCERPC_Client(object):
                 ],
             )
         )
-        self.all_cont_id += 1
+        self.next_cont_id += 1
+
+        # Store contexts for this interface
+        self.contexts[interface] = contexts
 
         return contexts
 
-    def _bind(self, interface: Union[DceRpcInterface, ComInterface], reqcls, respcls):
+    def _check_bind_context(self, interface, contexts) -> bool:
+        """
+        Internal: check the answer DCE/RPC bind context, and update them.
+        """
+        for i, ctx in enumerate(contexts):
+            if ctx.result == 0:
+                # Context was accepted. Remove all others from cache
+                if len(self.contexts[interface]) != 1:
+                    self.contexts[interface] = [self.contexts[interface][i]]
+                return True
+
+        return False
+
+    def _bind(
+        self,
+        interface: Union[DceRpcInterface, ComInterface],
+        reqcls,
+        respcls,
+        target_name: Optional[str] = None,
+    ) -> bool:
         """
         Internal: used to send a bind/alter request
         """
@@ -418,6 +527,7 @@ class DCERPC_Client(object):
                     + (" (with %s)" % self.ssp.__class__.__name__ if self.ssp else "")
                 )
             )
+
         # Do we need an authenticated bind
         if not self.ssp or (
             self.sspcontext is not None
@@ -452,13 +562,25 @@ class DCERPC_Client(object):
                         if self.auth_level >= DCE_C_AUTHN_LEVEL.PKT_PRIVACY
                         else 0
                     )
+                    | (
+                        GSS_C_FLAGS.GSS_C_IDENTIFY_FLAG
+                        if self.impersonation_type <= RPC_C_IMP_LEVEL.IDENTIFY
+                        else 0
+                    )
+                    | (
+                        GSS_C_FLAGS.GSS_C_DELEG_FLAG
+                        if self.impersonation_type == RPC_C_IMP_LEVEL.DELEGATE
+                        else 0
+                    )
                 ),
-                target_name="host/" + self.host,
+                target_name=target_name or ("host/" + self.host),
             )
+
             if status not in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
                 # Authentication failed.
                 self.sspcontext.clifailure()
                 return False
+
             resp = self.sr1(
                 reqcls(context_elem=self._get_bind_context(interface)),
                 auth_verifier=(
@@ -467,7 +589,7 @@ class DCERPC_Client(object):
                     else CommonAuthVerifier(
                         auth_type=self.ssp.auth_type,
                         auth_level=self.auth_level,
-                        auth_context_id=self.auth_context_id,
+                        auth_context_id=self.session.auth_context_id,
                         auth_value=token,
                     )
                 ),
@@ -481,16 +603,21 @@ class DCERPC_Client(object):
                     )
                 ),
             )
-            if respcls not in resp:
+
+            # Check that the answer looks valid and contexts were accepted
+            if respcls not in resp or not self._check_bind_context(
+                interface, resp.results
+            ):
                 token = None
                 status = GSS_S_FAILURE
             else:
                 # Call the underlying SSP
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                     self.sspcontext,
-                    token=resp.auth_verifier.auth_value,
-                    target_name="host/" + self.host,
+                    input_token=resp.auth_verifier.auth_value,
+                    target_name=target_name or ("host/" + self.host),
                 )
+
             if status in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
                 # Authentication should continue, in two ways:
                 # - through DceRpc5Auth3 (e.g. NTLM)
@@ -503,7 +630,7 @@ class DCERPC_Client(object):
                         auth_verifier=CommonAuthVerifier(
                             auth_type=self.ssp.auth_type,
                             auth_level=self.auth_level,
-                            auth_context_id=self.auth_context_id,
+                            auth_context_id=self.session.auth_context_id,
                             auth_value=token,
                         ),
                     )
@@ -518,7 +645,7 @@ class DCERPC_Client(object):
                             auth_verifier=CommonAuthVerifier(
                                 auth_type=self.ssp.auth_type,
                                 auth_level=self.auth_level,
-                                auth_context_id=self.auth_context_id,
+                                auth_context_id=self.session.auth_context_id,
                                 auth_value=token,
                             ),
                         )
@@ -530,22 +657,21 @@ class DCERPC_Client(object):
                             break
                         self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                             self.sspcontext,
-                            token=resp.auth_verifier.auth_value,
-                            target_name="host/" + self.host,
+                            input_token=resp.auth_verifier.auth_value,
+                            target_name=target_name or ("host/" + self.host),
                         )
             else:
                 log_runtime.error("GSS_Init_sec_context failed with %s !" % status)
+
         # Check context acceptance
         if (
             status == GSS_S_COMPLETE
             and respcls in resp
-            and any(x.result == 0 for x in resp.results[: int(self.ndr64) + 1])
+            and self._check_bind_context(interface, resp.results)
         ):
-            self.call_id = 0  # reset call id
             port = resp.sec_addr.port_spec.decode()
             ndr = self.session.ndr64 and "NDR64" or "NDR32"
             self.ndr64 = self.session.ndr64
-            self.cont_id = int(self.session.ndr64)  # ctx 0 for NDR32, 1 for NDR64
             if self.verb:
                 print(
                     conf.color_theme.success(
@@ -582,33 +708,54 @@ class DCERPC_Client(object):
                         else:
                             print(conf.color_theme.fail("! Failure"))
                             resp.show()
-                    if DceRpc5Fault in resp:
-                        if resp[DceRpc5Fault].payload and not isinstance(
-                            resp[DceRpc5Fault].payload, conf.raw_layer
-                        ):
-                            resp[DceRpc5Fault].payload.show()
+                    if resp[DceRpc5Fault].payload and not isinstance(
+                        resp[DceRpc5Fault].payload, conf.raw_layer
+                    ):
+                        resp[DceRpc5Fault].payload.show()
                 else:
                     print(conf.color_theme.fail("! Failure"))
                     resp.show()
             return False
 
-    def bind(self, interface: Union[DceRpcInterface, ComInterface]):
+    def bind(
+        self,
+        interface: Union[DceRpcInterface, ComInterface],
+        target_name: Optional[str] = None,
+    ) -> bool:
         """
         Bind the client to an interface
 
         :param interface: the DceRpcInterface object
         """
-        return self._bind(interface, DceRpc5Bind, DceRpc5BindAck)
+        return self._bind(
+            interface,
+            DceRpc5Bind,
+            DceRpc5BindAck,
+            target_name=target_name,
+        )
 
-    def alter_context(self, interface: Union[DceRpcInterface, ComInterface]):
+    def alter_context(
+        self,
+        interface: Union[DceRpcInterface, ComInterface],
+        target_name: Optional[str] = None,
+    ) -> bool:
         """
         Alter context: post-bind context negotiation
 
         :param interface: the DceRpcInterface object
         """
-        return self._bind(interface, DceRpc5AlterContext, DceRpc5AlterContextResp)
+        return self._bind(
+            interface,
+            DceRpc5AlterContext,
+            DceRpc5AlterContextResp,
+            target_name=target_name,
+        )
 
-    def bind_or_alter(self, interface: Union[DceRpcInterface, ComInterface]):
+    def bind_or_alter(
+        self,
+        interface: Union[DceRpcInterface, ComInterface],
+        target_name: Optional[str] = None,
+    ) -> bool:
         """
         Bind the client to an interface or alter the context if already bound
 
@@ -616,10 +763,11 @@ class DCERPC_Client(object):
         """
         if not self.session.rpc_bind_interface:
             # No interface is bound
-            self.bind(interface)
+            return self.bind(interface, target_name=target_name)
         elif self.session.rpc_bind_interface != interface:
             # An interface is already bound
-            self.alter_context(interface)
+            return self.alter_context(interface, target_name=target_name)
+        return True
 
     def open_smbpipe(self, name: str):
         """
@@ -640,7 +788,7 @@ class DCERPC_Client(object):
 
     def connect_and_bind(
         self,
-        ip: str,
+        host: str,
         interface: DceRpcInterface,
         port: Optional[int] = None,
         timeout: int = 5,
@@ -650,45 +798,20 @@ class DCERPC_Client(object):
         Asks the Endpoint Mapper what address to use to connect to the interface,
         then uses connect() followed by a bind()
 
-        :param ip: the ip to connect to
+        :param host: the host to connect to
         :param interface: the DceRpcInterface object
         :param port: (optional, NCACN_NP only) the port to connect to
         :param timeout: (optional) the connection timeout (default 5)
         """
-        if self.transport == DCERPC_Transport.NCACN_IP_TCP:
-            # IP/TCP
-            # 1. ask the endpoint mapper (port 135) for the IP:PORT
-            endpoints = get_endpoint(
-                ip,
-                interface,
-                ndrendian=self.ndrendian,
-                verb=self.verb,
-            )
-            if endpoints:
-                ip, port = endpoints[0]
-            else:
-                return
-            # 2. Connect to that IP:PORT
-            self.connect(ip, port=port, timeout=timeout)
-        elif self.transport == DCERPC_Transport.NCACN_NP:
-            # SMB
-            # 1. ask the endpoint mapper (over SMB) for the namedpipe
-            endpoints = get_endpoint(
-                ip,
-                interface,
-                transport=self.transport,
-                ndrendian=self.ndrendian,
-                verb=self.verb,
-                smb_kwargs=smb_kwargs,
-            )
-            if endpoints:
-                pipename = endpoints[0].lstrip("\\pipe\\")
-            else:
-                return
-            # 2. connect to the SMB server
-            self.connect(ip, port=port, timeout=timeout, smb_kwargs=smb_kwargs)
-            # 3. open the new named pipe
-            self.open_smbpipe(pipename)
+        # Connect to the interface using the endpoint mapper
+        self.connect(
+            host=host,
+            interface=interface,
+            port=port,
+            timeout=timeout,
+            smb_kwargs=smb_kwargs,
+        )
+
         # Bind in RPC
         self.bind(interface)
 
@@ -825,7 +948,6 @@ class DCERPC_Client(object):
                 return endpoints
             elif status == 0x16C9A0D6:
                 if self.verb:
-                    pkt.show()
                     print(
                         conf.color_theme.fail(
                             "! Server errored: 'There are no elements that satisfy"
@@ -861,15 +983,26 @@ def get_endpoint(
     """
     client = DCERPC_Client(
         transport,
+        # EPM only works with NDR32
         ndr64=False,
         ndrendian=ndrendian,
         verb=verb,
         ssp=ssp,
-    )  # EPM only works with NDR32
-    client.connect(ip, smb_kwargs=smb_kwargs)
-    if transport == DCERPC_Transport.NCACN_NP:  # SMB
-        client.open_smbpipe("epmapper")
+    )
+
+    if transport == DCERPC_Transport.NCACN_IP_TCP:
+        endpoint = 135
+    elif transport == DCERPC_Transport.NCACN_NP:
+        endpoint = "epmapper"
+    else:
+        raise ValueError("Unknown transport value !")
+
+    client.connect(ip, endpoint=endpoint, smb_kwargs=smb_kwargs)
+
     client.bind(find_dcerpc_interface("ept"))
-    endpoints = client.epm_map(interface)
-    client.close()
+    try:
+        endpoints = client.epm_map(interface)
+    finally:
+        client.close()
+
     return endpoints

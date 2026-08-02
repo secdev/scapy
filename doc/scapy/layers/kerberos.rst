@@ -41,11 +41,11 @@ This section tries to give many usage examples, but isn't exhaustive. For more d
     >>> t.show()
     Tickets:
     0. Administrator@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
-    Start time         End time           Renew until        Auth time        
+    Start time         End time           Renew until        Auth time
     31/08/23 11:38:34  31/08/23 21:38:34  31/08/23 21:38:35  31/08/23 01:38:34
 
     1. Administrator@DOMAIN.LOCAL -> host/dc1.domain.local@DOMAIN.LOCAL
-    Start time         End time           Renew until        Auth time        
+    Start time         End time           Renew until        Auth time
     31/08/23 11:39:07  31/08/23 21:38:34  31/08/23 21:38:35  31/08/23 01:38:34
 
 
@@ -68,12 +68,41 @@ This section tries to give many usage examples, but isn't exhaustive. For more d
     >>> # Using the AES-256-SHA1-96 Kerberos Key
    >>> t.request_tgt("Administrator@domain.local", key=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, bytes.fromhex("63a2577d8bf6abeba0847cded36b9aed202c23750eb9c56b6155be1cc946bb1d")))
 
+- **Request a TGT using PKINIT**:
+
+.. code:: pycon
+
+    >>> from scapy.libs.rfc3961 import EncryptionType
+    >>> load_module("ticketer")
+    >>> t = Ticketer()
+    >>> # If P12:
+    >>> t.request_tgt(p12="admin.pfx", realm="DOMAIN.LOCAL", ca="ca.pem")
+    >>> # One could also have used a different cert and key file:
+    >>> t.request_tgt(x509="admin.cert", x509key="admin.key", realm="DOMAIN.LOCAL", ca="ca.pem")
+
+- **Request a user TGT with Kerberos armoring (FAST)**
+
+The ``armor_with`` keyword allows to select a ticket to armor the request with.
+
+.. code:: pycon
+
+    >>> load_module("ticketer")
+    >>> t = Ticketer()
+    >>> t.request_tgt("Machine01$@DOMAIN.LOCAL", key=Key(EncryptionType.RC4_HMAC, bytes.fromhex("2b576acbe6bcfda7294d6bd18041b8fe")))
+    >>> t.show()
+    Tickets:
+    0. Machine01$@DOMAIN.LOCAL -> krbtgt/DOMAIN.LOCAL@DOMAIN.LOCAL
+    Start time         End time           Renew until        Auth time
+    31/08/23 11:38:34  31/08/23 21:38:34  31/08/23 21:38:35  31/08/23 01:38:34
+    >>> t.request_tgt("Administrator@domain.local", armor_with=0)  # Armor with ticket n°0
+
 - **Renew a TGT or ST**:
 
 .. code::
 
     >>> t.renew(0)  # renew TGT
     >>> t.renew(1)  # renew ST. Works only with 'host/' SPNs
+    >>> t.renew(1, armor_with=0)  # renew something with armoring
 
 - **Import tickets from a ccache**:
 
@@ -129,6 +158,20 @@ This section tries to give many usage examples, but isn't exhaustive. For more d
       canonicalize+pre-authent+renewable+forwardable
    Start time         End time           Renew until        Auth time
    15/04/25 20:15:20  16/04/25 06:10:22  16/04/25 06:10:22  15/04/25 20:15:17
+
+- **Perform S4U2Self+U2U to get the PAC**
+
+.. code:: pycon
+
+   >>> load_module("ticketer")
+   >>> t = Ticketer()
+   >>> t.request_tgt("MyUser@domain.local", password="password")
+   >>> tgt, key, _ = t.export_krb(0)
+   >>> # Get PAC of Administrator@domain.local
+   >>> t.request_st(0, "MyUser@domain.local",
+   ...              for_user="Administrator@domain.local",
+   ...              u2u=True, additional_tickets=[tgt])
+   >>> t.export_krb(1)[0].encPart.decrypt(key).show()
 
 - **Request a ticket for a DMSA**
 
@@ -208,6 +251,23 @@ As you can see, DMSA keys were imported in the keytab. You can use those as deta
     Administrator@domain.local  15/04/25 20:24:13  3     RC4-HMAC
     
     No tickets in CCache.
+
+- **Create server keytab:**
+
+The following is equivalent to Windows' ``ktpass.exe /out kt.keytab /mapuser WKS02$@domain.local /princ host/WKS02.domain.local@domain.local /pass ScapyIsNice``.
+
+.. code:: pycon
+
+    >>> t = Ticketer()
+    >>> t.add_cred("host/WKS02.domain.local@domain.local", etypes="all", mapupn="WKS02$@domain.local", password="ScapyIsNice")
+    Enter password: ************
+    >>> t.show()
+    Keytab name: UNSAVED
+    Principal                              Timestamp          KVNO  Keytype
+    host/WKS02$.domain.local@domain.local  25/02/26 15:40:27  1     AES256-CTS-HMAC-SHA1-96
+
+    No tickets in CCache.
+    >>> t.save_keytab("kt.keytab")
 
 - **Change password using kpasswd in 'set' mode:**
 
@@ -340,6 +400,10 @@ Cheat sheet
 | ``t.request_st(i, spn, [...])``       | Request a ST using ticket i    |
 +---------------------------------------+--------------------------------+
 | ``t.renew(i, [...])``                 | Renew a TGT/ST                 |
++---------------------------------------+--------------------------------+
+| ``t.remove_krb(i)``                   | Remove a TGT/ST                |
++---------------------------------------+--------------------------------+
+| ``t.set_primary(i)``                  | Set the primary ticket         |
 +---------------------------------------+--------------------------------+
 
 Other useful commands

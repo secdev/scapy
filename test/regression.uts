@@ -32,7 +32,7 @@ class FakeModule2(object):
     __version__ = "5.143.3.12"
 
 class FakeModule3(object):
-    __version__ = "v2.4.2.dev42"
+    __version__ = "v2.4.2.post42"
 
 from scapy.config import _version_checker
 
@@ -67,7 +67,7 @@ with mock.patch('scapy.subprocess.Popen', return_value=b):
         except ValueError:
             pass
 
-assert GitModuleScapy.__version__ == '2.4.5rc1.dev261'
+assert GitModuleScapy.__version__ == '2.4.5rc1.post261'
 assert _version_checker(GitModuleScapy, (2, 4, 5))
 
 = List layers
@@ -533,7 +533,7 @@ if len(routes6) > 2 and not WINDOWS:
     # Identify routes to fe80::/64
     assert sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) >= 1
     if len(iflist) >= 2:
-        assert sum(1 for r in routes6 if ll_route.match(r[0]) and r[1] == 64) >= 1
+        assert sum(1 for r in routes6 if ll_route.match(r[0])) >= 1
         try:
             # Identify a route to a node IPv6 link-local address
             assert sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128) >= 1
@@ -615,6 +615,71 @@ c = pickle.loads(b)
 
 assert c[IP].dst == "192.168.0.1"
 assert raw(c) == raw(a)
+
+= Pickle preserves field values, payload and metadata
+
+import pickle
+
+p = IP(src='1.2.3.4', dst='5.6.7.8')/TCP(sport=1234, dport=80, flags='S')
+p.time = 12345.0
+p.sent_time = 12346.0
+p.direction = 1
+p.sniffed_on = 'eth0'
+p.wirelen = 100
+p.comment = b'test comment'
+p2 = pickle.loads(pickle.dumps(p))
+assert p2[IP].src == '1.2.3.4'
+assert p2[IP].dst == '5.6.7.8'
+assert p2[TCP].sport == 1234
+assert p2[TCP].dport == 80
+assert p2[TCP].flags == 'S'
+assert p2.time == 12345.0
+assert p2.sent_time == 12346.0
+assert p2.direction == 1
+assert p2.sniffed_on == 'eth0'
+assert p2.wirelen == 100
+assert p2.comment == b'test comment'
+assert raw(p2) == raw(p)
+
+= Pickle a bare packet without payload
+
+import pickle
+
+p = IP(src='10.0.0.1')
+p2 = pickle.loads(pickle.dumps(p))
+assert p2.src == '10.0.0.1'
+assert raw(p2) == raw(p)
+
+= Pickle preserves custom __slots__ from subclasses
+
+import pickle
+import scapy.packet as _pkt_mod
+
+class _PickleTestPacket(Packet):
+    __slots__ = ["custom_id", "custom_tag"]
+    name = "PickleTestPacket"
+    fields_desc = [ByteField("val", 0)]
+
+# Make the class discoverable by pickle
+_pkt_mod._PickleTestPacket = _PickleTestPacket
+_PickleTestPacket.__module__ = 'scapy.packet'
+
+p = _PickleTestPacket(val=42)
+p.custom_id = 0x123
+p.custom_tag = "hello"
+p2 = pickle.loads(pickle.dumps(p))
+assert p2.val == 42
+assert p2.custom_id == 0x123
+assert p2.custom_tag == "hello"
+
+# Slots not explicitly set are not serialized
+p3 = _PickleTestPacket(val=7)
+assert not hasattr(p3, 'custom_id')
+p4 = pickle.loads(pickle.dumps(p3))
+assert p4.val == 7
+assert not hasattr(p4, 'custom_id')
+
+del _pkt_mod._PickleTestPacket
 
 = Usage test
 
@@ -913,6 +978,11 @@ assert expected_ret2 in ret2
 hexdiff(b"abc", IP() / TCP())
 hexdiff(IP() / TCP(), b"abc")
 
+# Test that hexdiff does not crash on a 16-byte row that is entirely a gap
+# on one side (GH #5034)
+
+hexdiff(b"B" * 9 + b"\x08", b"A" + b"\x08" + b"A" * 23, algo="difflib")
+
 = Test mysummary functions - Ether
 
 p = Ether(dst="ff:ff:ff:ff:ff:ff", src="ff:ff:ff:ff:ff:ff", type=0x9000)
@@ -952,6 +1022,7 @@ assert sane(corrupt_bits("ABCDE", n=3)) in ["AF.EE", "QB.TE"]
 
 if not WINDOWS:
     result = whois("193.0.6.139")
+    print(result)
     assert b"inetnum" in result and b"Amsterdam" in result
 
 = Test manuf DB methods
@@ -2393,6 +2464,37 @@ assert all(UDP in p for p in l)
 l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
 assert len(l) == 0
 
+= Offline sniff() with a filter reaps its tcpdump process (#4512)
+~ tcpdump libpcap
+import gc, warnings
+
+fdesc, filename = tempfile.mkstemp()
+os.close(fdesc)
+wrpcap(filename, [IP()/TCP()] * 20)
+
+def _leaked_subprocess_warnings(**kwargs):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        packets = sniff(offline=filename, filter="tcp", **kwargs)
+        gc.collect()
+    leaked = [str(w.message) for w in caught
+              if issubclass(w.category, ResourceWarning)
+              and "subprocess" in str(w.message)]
+    return packets, leaked
+
+# Reading the whole file: the prefilter process must be waited on in close().
+packets, leaked = _leaked_subprocess_warnings()
+assert len(packets) == 20
+assert not leaked, leaked
+
+# Stopping early leaves tcpdump running; close() must terminate and reap it
+# rather than block or leave a zombie behind.
+packets, leaked = _leaked_subprocess_warnings(count=3)
+assert len(packets) == 3
+assert not leaked, leaked
+
+os.unlink(filename)
+
 = Check offline sniff() with Packets, tcpdump and a bad filter
 ~ tcpdump libpcap 
 
@@ -2409,6 +2511,19 @@ try:
     sniff(timeout=0, filter="bad filter")
 except Scapy_Exception:
     pass
+else:
+    assert False
+
+= compile_filter() surfaces the libpcap error on an invalid filter, GH#4587
+~ libpcap
+from scapy.arch.common import compile_filter
+from scapy.data import DLT_EN10MB
+try:
+    compile_filter("not arpand not port 22", linktype=DLT_EN10MB)
+except Scapy_Exception as e:
+    # The message now includes the underlying libpcap reason instead of just a
+    # return code, e.g. a syntax error or a link-layer incompatibility:
+    assert "syntax error" in str(e).lower()
 else:
     assert False
 
@@ -2941,11 +3056,12 @@ class BSDLoader:
         for p in self.patches:
             p.start()        
         return pfroute
-    def __exit__(self, *args, **kwargs):
+    def __exit__(self, type, value, traceback):
         for p in self.loadpatches:
             p.stop()
         for p in self.patches:
             p.stop()
+        importlib.reload(scapy.arch.bpf.pfroute)
 
 
 = OpenBSD 7.5 amd64 - read_routes()
@@ -3014,11 +3130,11 @@ assert routes == [
     ('2002:ff00::', 24, '::1', 'lo0', ['::1'], 1),
     ('fe80::', 10, '::1', 'lo0', ['::1'], 1),
     ('fec0::', 10, '::1', 'lo0', ['::1'], 1),
-    ('fe80:3::1', 128, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1),
+    ('fe80::1', 128, 'fe80::1', 'lo0', ['fe80::1'], 1),
     ('ff01::', 16, '::1', 'lo0', ['::1'], 1),
-    ('ff01:3::', 32, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1),
+    ('ff01::', 32, 'fe80::1', 'lo0', ['fe80::1'], 1),
     ('ff02::', 16, '::1', 'lo0', ['::1'], 1),
-    ('ff02:3::', 32, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1)
+    ('ff02::', 32, 'fe80::1', 'lo0', ['fe80::1'], 1)
 ]
 
 = OpenBSD 7.6 GENERIC#531 i386 - read_routes6()
@@ -3042,11 +3158,11 @@ assert routes == [
     ('2002:ff00::', 24, '::1', 'lo0', ['::1'], 1),
     ('fe80::', 10, '::1', 'lo0', ['::1'], 1),
     ('fec0::', 10, '::1', 'lo0', ['::1'], 1),
-    ('fe80:3::1', 128, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1),
+    ('fe80::1', 128, 'fe80::1', 'lo0', ['fe80::1'], 1),
     ('ff01::', 16, '::1', 'lo0', ['::1'], 1),
-    ('ff01:3::', 32, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1),
+    ('ff01::', 32, 'fe80::1', 'lo0', ['fe80::1'], 1),
     ('ff02::', 16, '::1', 'lo0', ['::1'], 1),
-    ('ff02:3::', 32, 'fe80:3::1', 'lo0', ['fe80:3::1'], 1)
+    ('ff02::', 32, 'fe80::1', 'lo0', ['fe80::1'], 1)
 ]
 
 = FreeBSD 14.1 amd64 - read_routes()
@@ -3101,7 +3217,7 @@ assert routes == [
 import zlib
 
 from scapy.arch.bpf.pfroute import _bsd_iff_flags
-_NETBSD_IFACES = {1: {'name': 'hvn0', 'index': 1, 'flags': FlagValue(34883, _bsd_iff_flags), 'mac': '00:15:5d:00:65:0a', 'ips': [{'af_family': 24, 'index': 1, 'address': 'fe80:1::7184:2b50:9fbe:e337', 'scope': 32}, {'af_family': 2, 'index': 1, 'address': '172.23.207.191'}]}, 2: {'name': 'lo0', 'index': 2, 'flags': FlagValue(32841, _bsd_iff_flags), 'mac': '00:00:00:00:00:00', 'ips': [{'af_family': 2, 'index': 2, 'address': '127.0.0.1'}, {'af_family': 24, 'index': 2, 'address': '::1', 'scope': 16}, {'af_family': 24, 'index': 2, 'address': 'fe80:2::1', 'scope': 32}]}}
+_NETBSD_IFACES = {1: {'name': 'hvn0', 'index': 1, 'flags': FlagValue(34883, _bsd_iff_flags), 'mac': '00:15:5d:00:65:0a', 'ips': [{'af_family': 24, 'index': 1, 'address': 'fe80::7184:2b50:9fbe:e337', 'scope': 32}, {'af_family': 2, 'index': 1, 'address': '172.23.207.191'}]}, 2: {'name': 'lo0', 'index': 2, 'flags': FlagValue(32841, _bsd_iff_flags), 'mac': '00:00:00:00:00:00', 'ips': [{'af_family': 2, 'index': 2, 'address': '127.0.0.1'}, {'af_family': 24, 'index': 2, 'address': '::1', 'scope': 16}, {'af_family': 24, 'index': 2, 'address': 'fe80::1', 'scope': 32}]}}
 
 _PFROUTE_DATA = zlib.decompress(bytes.fromhex('789c3bc1c0c2c2c8c0c0c00cc4e60ca8c08a91816640800993bf46fc00868d42428c0c6c2c6c0c196579060ca2b10ca95cc8eacfef87a93b00f407c8486e0e4c7f600311cd94b81ed5ddf5987cb83f58ff0301c85d424c0c12c040cec937c0aa6e07d4fdac0c2c0cc6f4773fdc1de8ee24e4ee0bd0f4c3c88819ee2c2cd471232e7703d30b9c0f4e2758d4b183c2ffff0792d311b1f1402d80ee0e5cfec1161fc8fa6640e383550592a769058cef5d4943e6a3e75f3eb0fb813e108d15fa5c404387e000001e173214'))
 
@@ -3143,21 +3259,21 @@ assert routes == [
     ('2002:e000::', 20, '::1', 'lo0', ['::1'], 1),
     ('2002:ff00::', 24, '::1', 'lo0', ['::1'], 1),
     ('fe80::', 10, '::1', 'lo0', ['::1'], 1),
-    ('fe80:1::', 64, '::', 'hvn0', ['fe80:1::7184:2b50:9fbe:e337'], 1),
-    ('fe80:1::7184:2b50:9fbe:e337',
+    ('fe80::', 64, '::', 'hvn0', ['fe80::7184:2b50:9fbe:e337'], 1),
+    ('fe80::7184:2b50:9fbe:e337',
      128,
      '::',
      'lo0',
-     ['fe80:1::7184:2b50:9fbe:e337'],
+     ['fe80::7184:2b50:9fbe:e337'],
      1),
-    ('fe80:2::', 64, 'fe80:2::1', 'lo0', ['fe80:2::1'], 1),
-    ('fe80:2::1', 128, '::', 'lo0', ['fe80:2::1'], 1),
-    ('ff01:1::', 32, '::', 'hvn0', ['fe80:1::7184:2b50:9fbe:e337'], 1),
-    ('ff01:2::', 32, '::1', 'lo0', ['::1'], 1),
-    ('ff02:1::', 32, '::', 'hvn0', ['fe80:1::7184:2b50:9fbe:e337'], 1),
-    ('ff02:2::', 32, '::1', 'lo0', ['::1'], 1),
-    ('ff00::', 8, '::', 'hvn0', ['fe80:1::7184:2b50:9fbe:e337'], 250),
-    ('ff00::', 8, '::', 'lo0', ['::1', 'fe80:2::1'], 250)
+    ('fe80::', 64, 'fe80::1', 'lo0', ['fe80::1'], 1),
+    ('fe80::1', 128, '::', 'lo0', ['fe80::1'], 1),
+    ('ff01::', 32, '::', 'hvn0', ['fe80::7184:2b50:9fbe:e337'], 1),
+    ('ff01::', 32, '::1', 'lo0', ['::1'], 1),
+    ('ff02::', 32, '::', 'hvn0', ['fe80::7184:2b50:9fbe:e337'], 1),
+    ('ff02::', 32, '::1', 'lo0', ['::1'], 1),
+    ('ff00::', 8, '::', 'hvn0', ['fe80::7184:2b50:9fbe:e337'], 250),
+    ('ff00::', 8, '::', 'lo0', ['::1', 'fe80::1'], 250)
 ]
 
 = Darwin 23.6 (MacOS 14.5) x86_64 - read_routes()
@@ -3166,7 +3282,7 @@ assert routes == [
 import zlib
 
 from scapy.arch.bpf.pfroute import _bsd_iff_flags
-_DARWIN_IFACES = {1: {'name': 'lo0',  'index': 1,  'flags': FlagValue(32841, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 2, 'index': 1, 'address': '127.0.0.1'},   {'af_family': 30, 'index': 1, 'address': '::1', 'scope': 16},   {'af_family': 30, 'index': 1, 'address': 'fe80:1::1', 'scope': 32}]}, 2: {'name': 'gif0',  'index': 2,  'flags': FlagValue(32784, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 3: {'name': 'stf0',  'index': 3,  'flags': FlagValue(0, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 4: {'name': 'XHC2',  'index': 4,  'flags': FlagValue(0, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 5: {'name': 'en0',  'index': 5,  'flags': FlagValue(34915, _bsd_iff_flags),  'mac': '52:54:00:09:49:17',  'ips': [{'af_family': 30,    'index': 5,    'address': 'fe80:5::409:eec9:f06c:50ab',    'scope': 32},   {'af_family': 30,    'index': 5,    'address': 'fec0::89e:daf7:5cb1:f1f0',    'scope': 64},   {'af_family': 30,    'index': 5,    'address': 'fec0::c0c4:1f0b:61ba:ea8',    'scope': 64},   {'af_family': 2, 'index': 5, 'address': '10.0.2.15'}]}, 6: {'name': 'utun0',  'index': 6,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 6,    'address': 'fe80:6::d36e:82de:94dc:84fc',    'scope': 32}]}, 7: {'name': 'utun1',  'index': 7,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 7,    'address': 'fe80:7::7ce2:1f7b:2c29:a5ee',    'scope': 32}]}, 8: {'name': 'utun2',  'index': 8,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 8,    'address': 'fe80:8::e4e0:bef:bf56:2605',    'scope': 32}]}, 9: {'name': 'utun3',  'index': 9,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 9,    'address': 'fe80:9::ce81:b1c:bd2c:69e',    'scope': 32}]}}
+_DARWIN_IFACES = {1: {'name': 'lo0',  'index': 1,  'flags': FlagValue(32841, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 2, 'index': 1, 'address': '127.0.0.1'},   {'af_family': 30, 'index': 1, 'address': '::1', 'scope': 16},   {'af_family': 30, 'index': 1, 'address': 'fe80::1', 'scope': 32}]}, 2: {'name': 'gif0',  'index': 2,  'flags': FlagValue(32784, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 3: {'name': 'stf0',  'index': 3,  'flags': FlagValue(0, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 4: {'name': 'XHC2',  'index': 4,  'flags': FlagValue(0, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': []}, 5: {'name': 'en0',  'index': 5,  'flags': FlagValue(34915, _bsd_iff_flags),  'mac': '52:54:00:09:49:17',  'ips': [{'af_family': 30,    'index': 5,    'address': 'fe80::409:eec9:f06c:50ab',    'scope': 32},   {'af_family': 30,    'index': 5,    'address': 'fec0::89e:daf7:5cb1:f1f0',    'scope': 64},   {'af_family': 30,    'index': 5,    'address': 'fec0::c0c4:1f0b:61ba:ea8',    'scope': 64},   {'af_family': 2, 'index': 5, 'address': '10.0.2.15'}]}, 6: {'name': 'utun0',  'index': 6,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 6,    'address': 'fe80::d36e:82de:94dc:84fc',    'scope': 32}]}, 7: {'name': 'utun1',  'index': 7,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 7,    'address': 'fe80::7ce2:1f7b:2c29:a5ee',    'scope': 32}]}, 8: {'name': 'utun2',  'index': 8,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 8,    'address': 'fe80::e4e0:bef:bf56:2605',    'scope': 32}]}, 9: {'name': 'utun3',  'index': 9,  'flags': FlagValue(32849, _bsd_iff_flags),  'mac': '00:00:00:00:00:00',  'ips': [{'af_family': 30,    'index': 9,    'address': 'fe80::ce81:b1c:bd2c:69e',    'scope': 32}]}}
 
 _PFROUTE_DATA = zlib.decompress(bytes.fromhex('789ccdd94d6813411400e0d9ddcc36e6608d4472a950a8e0d183e8a1a7da5a503008012948b11eaa78f0e6498b180a45c1802d08164f7ab3f4208817b1e84a0ff647ea0fd2832815a5e021018f518931dbce6c5e76df6cb2e36c3a0325bce936fbf5bdd96176669ad00c2584584963e060fd7382e0ed3315fc22a4ed3183718a98260df675f3b8c83c5dc41ceeab7f1acca6ca6366922f451ebf6596598c5d84b8b9f1fd3b01cb8bc58f17a35852e01b337b29b17dd774d5b65a4b97a1dee5c1305772db55f3bba6998b26cc7d6eedf2cc2872ed5ffe5f974df2671abd211eea7a4ce0d9403c59816703e963f7b2508f857b3a5037ef5e72751b34fa581fcf9305fe9ebb4a029785f4b17bd59a5d3661431bb5fbe700b76e2ae780eef2d4619f4f3807c43d1fa5b3e753da587ad7e7b4b11c583aad8d65fe50561bcbc29de7fa589e7c93b5a87ea6d30bcf6eca5a12c082cd77a2269aefd295d280ac45798d2aa541598b052c70edd3ca82ad93986548d612435e8ecb5a605e145986652deaf3f23ba19185c2b83d8b7d8caf61c2c6eedbf7f81a463876ab3d7fa25b62ca4bf5c81b8d2c6b1a59dee96339b9aa8f25b72c6b513ed755732bd12dc1671abe3b71cb9ae099c6deb3b62d97af47b7c455a3196dde03b2fd4e8f4696c72a2cd8781135d178a95bd655586093cfcbab823616e7fb2f590b7c0f505223a72cfd1e10836556d6a2be46e5872a2c2af27234f76053850536d9bc8c54c61fe96219bdf6e9be2e96b1f1a913ba582e5d397bbb5dcbddbac5bd3fdf631536a873d84f1b961bc1d81be6946d69fafb8bcc44492fe1f38cc7680ac24d4dd70a0cade2b035d529f0bdbc56b73ee06b2af7daa7be7abaf72ae6af5a30dec93da17b17266c184739eb1135d9bdf9b9bf8d18db9bb7d97e78a773e46c7e1983f14e3ee7af7fcc27dbb534ea5588e52ce52b88b17ab9cffa4fc4c573441393e02ca520744569cce5ed43ec6667290639b7d5dbe931dd38c18976def40fb15043e2'))
 
@@ -3199,48 +3315,49 @@ _PFROUTE_DATA = zlib.decompress(bytes.fromhex('789cd5dd5f8c13451800f0d96dbbdb5e8
 with BSDLoader(DARWIN=True, sysctldata=_PFROUTE_DATA, ifaces=_DARWIN_IFACES, AF_INET6=30) as pfroute:
     routes = pfroute.read_routes6()
 
+routes
 assert routes == [
-    ('::', 0, 'fe80:5::2', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('::', 0, 'fe80:6::', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
-    ('::', 0, 'fe80:7::', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
-    ('::', 0, 'fe80:8::', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
-    ('::', 0, 'fe80:9::', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
+    ('::', 0, 'fe80::2', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('::', 0, 'fe80::', 'utun0', ['fe80::d36e:82de:94dc:84fc'], 1),
+    ('::', 0, 'fe80::', 'utun1', ['fe80::7ce2:1f7b:2c29:a5ee'], 1),
+    ('::', 0, 'fe80::', 'utun2', ['fe80::e4e0:bef:bf56:2605'], 1),
+    ('::', 0, 'fe80::', 'utun3', ['fe80::ce81:b1c:bd2c:69e'], 1),
     ('::1', 128, '::1', 'lo0', ['::1'], 1),
-    ('fe80:1::', 64, 'fe80:1::1', 'lo0', ['fe80:1::1'], 1),
-    ('fe80:1::1', 128, '::', 'lo0', ['fe80:1::1'], 1),
-    ('fe80:5::', 64, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('fe80:5::2', 128, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('fe80:5::409:eec9:f06c:50ab', 128, '::', 'lo0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('fe80:6::', 64, 'fe80:6::d36e:82de:94dc:84fc', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
-    ('fe80:6::d36e:82de:94dc:84fc', 128, '::', 'lo0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
-    ('fe80:7::', 64, 'fe80:7::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
-    ('fe80:7::7ce2:1f7b:2c29:a5ee', 128, '::', 'lo0', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
-    ('fe80:8::', 64, 'fe80:8::e4e0:bef:bf56:2605', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
-    ('fe80:8::e4e0:bef:bf56:2605', 128, '::', 'lo0', ['fe80:8::e4e0:bef:bf56:2605'], 1),
-    ('fe80:9::', 64, 'fe80:9::ce81:b1c:bd2c:69e', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
-    ('fe80:9::ce81:b1c:bd2c:69e', 128, '::', 'lo0', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
-    ('fec0::', 64, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('fec0::2', 128, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
+    ('fe80::', 64, 'fe80::1', 'lo0', ['fe80::1'], 1),
+    ('fe80::1', 128, '::', 'lo0', ['fe80::1'], 1),
+    ('fe80::', 64, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('fe80::2', 128, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('fe80::409:eec9:f06c:50ab', 128, '::', 'lo0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('fe80::', 64, 'fe80::d36e:82de:94dc:84fc', 'utun0', ['fe80::d36e:82de:94dc:84fc'], 1),
+    ('fe80::d36e:82de:94dc:84fc', 128, '::', 'lo0', ['fe80::d36e:82de:94dc:84fc'], 1),
+    ('fe80::', 64, 'fe80::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80::7ce2:1f7b:2c29:a5ee'], 1),
+    ('fe80::7ce2:1f7b:2c29:a5ee', 128, '::', 'lo0', ['fe80::7ce2:1f7b:2c29:a5ee'], 1),
+    ('fe80::', 64, 'fe80::e4e0:bef:bf56:2605', 'utun2', ['fe80::e4e0:bef:bf56:2605'], 1),
+    ('fe80::e4e0:bef:bf56:2605', 128, '::', 'lo0', ['fe80::e4e0:bef:bf56:2605'], 1),
+    ('fe80::', 64, 'fe80::ce81:b1c:bd2c:69e', 'utun3', ['fe80::ce81:b1c:bd2c:69e'], 1),
+    ('fe80::ce81:b1c:bd2c:69e', 128, '::', 'lo0', ['fe80::ce81:b1c:bd2c:69e'], 1),
+    ('fec0::', 64, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('fec0::2', 128, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
     ('fec0::89e:daf7:5cb1:f1f0', 128, '::', 'lo0', ['fec0::89e:daf7:5cb1:f1f0'], 1),
     ('fec0::c0c4:1f0b:61ba:ea8', 128, '::', 'lo0', ['fec0::c0c4:1f0b:61ba:ea8'], 1),
     ('ff00::', 8, '::1', 'lo0', ['::1'], 1),
-    ('ff00::', 8, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('ff00::', 8, 'fe80:6::d36e:82de:94dc:84fc', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
-    ('ff00::', 8, 'fe80:7::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
-    ('ff00::', 8, 'fe80:8::e4e0:bef:bf56:2605', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
-    ('ff00::', 8, 'fe80:9::ce81:b1c:bd2c:69e', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
-    ('ff01:1::', 32, '::1', 'lo0', ['::1'], 1),
-    ('ff01:5::', 32, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('ff01:6::', 32, 'fe80:6::d36e:82de:94dc:84fc', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
-    ('ff01:7::', 32, 'fe80:7::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
-    ('ff01:8::', 32, 'fe80:8::e4e0:bef:bf56:2605', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
-    ('ff01:9::', 32, 'fe80:9::ce81:b1c:bd2c:69e', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1),
-    ('ff02:1::', 32, '::1', 'lo0', ['::1'], 1),
-    ('ff02:5::', 32, '::', 'en0', ['fe80:5::409:eec9:f06c:50ab'], 1),
-    ('ff02:6::', 32, 'fe80:6::d36e:82de:94dc:84fc', 'utun0', ['fe80:6::d36e:82de:94dc:84fc'], 1),
-    ('ff02:7::', 32, 'fe80:7::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80:7::7ce2:1f7b:2c29:a5ee'], 1),
-    ('ff02:8::', 32, 'fe80:8::e4e0:bef:bf56:2605', 'utun2', ['fe80:8::e4e0:bef:bf56:2605'], 1),
-    ('ff02:9::', 32, 'fe80:9::ce81:b1c:bd2c:69e', 'utun3', ['fe80:9::ce81:b1c:bd2c:69e'], 1)
+    ('ff00::', 8, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('ff00::', 8, 'fe80::d36e:82de:94dc:84fc', 'utun0', ['fe80::d36e:82de:94dc:84fc'], 1),
+    ('ff00::', 8, 'fe80::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80::7ce2:1f7b:2c29:a5ee'], 1),
+    ('ff00::', 8, 'fe80::e4e0:bef:bf56:2605', 'utun2', ['fe80::e4e0:bef:bf56:2605'], 1),
+    ('ff00::', 8, 'fe80::ce81:b1c:bd2c:69e', 'utun3', ['fe80::ce81:b1c:bd2c:69e'], 1),
+    ('ff01::', 32, '::1', 'lo0', ['::1'], 1),
+    ('ff01::', 32, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('ff01::', 32, 'fe80::d36e:82de:94dc:84fc', 'utun0', ['fe80::d36e:82de:94dc:84fc'], 1),
+    ('ff01::', 32, 'fe80::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80::7ce2:1f7b:2c29:a5ee'], 1),
+    ('ff01::', 32, 'fe80::e4e0:bef:bf56:2605', 'utun2', ['fe80::e4e0:bef:bf56:2605'], 1),
+    ('ff01::', 32, 'fe80::ce81:b1c:bd2c:69e', 'utun3', ['fe80::ce81:b1c:bd2c:69e'], 1),
+    ('ff02::', 32, '::1', 'lo0', ['::1'], 1),
+    ('ff02::', 32, '::', 'en0', ['fe80::409:eec9:f06c:50ab'], 1),
+    ('ff02::', 32, 'fe80::d36e:82de:94dc:84fc', 'utun0', ['fe80::d36e:82de:94dc:84fc'], 1),
+    ('ff02::', 32, 'fe80::7ce2:1f7b:2c29:a5ee', 'utun1', ['fe80::7ce2:1f7b:2c29:a5ee'], 1),
+    ('ff02::', 32, 'fe80::e4e0:bef:bf56:2605', 'utun2', ['fe80::e4e0:bef:bf56:2605'], 1),
+    ('ff02::', 32, 'fe80::ce81:b1c:bd2c:69e', 'utun3', ['fe80::ce81:b1c:bd2c:69e'], 1)
 ]
 
 ############
@@ -4135,16 +4252,21 @@ r1 == b'@\x04\x08\x08\x08\x08'
 r2 = b.dec(r1)[0]
 r2.val == '8.8.8.8'
 
-a = b'\x1f\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\x01\x01\x00C\x02\x01U0\x0f0\r\x06\x08+\x06\x01\x02\x01\x02\x01\x00\x02\x01!'
-ret = False
+a = b'\x1f\xfe\xfe\xfe\xfe\xfe\x01\x01\x00C\x02\x01U0\x0f0\r\x06\x08+\x06\x01\x02\x01\x02\x01\x00\x02\x01!'
 try:
     BERcodec_Object.check_type(a)
-except BER_BadTag_Decoding_Error:
-    ret = True
+except BER_BadTag_Decoding_Error as ex:
+    assert "Got tag" in str(ex)
 else:
-    ret = False
+    assert False
 
-assert ret
+a = b'\x1f\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\x01\x01\x00C\x02\x01U0\x0f0\r\x06\x08+\x06\x01\x02\x01\x02\x01\x00\x02\x01!'
+try:
+    BERcodec_Object.check_type(a)
+except BER_Decoding_Error as ex:
+    assert "maximum value" in str(ex)
+else:
+    assert False
 
 = BER trigger failures
 
@@ -4153,6 +4275,17 @@ try:
     assert False
 except BER_Decoding_Error:
     pass
+
+
+= BER tests - 2
+
+a = b'0c\x02\x01\x01\x04\x06public\xa2V\x02\x01\x01\x02\x01\x00\x02\x01\x000K0I\x06\x03+\x06\x010B0@0>0<0:08060402000.0,0*0(0&0$0"0 0\x1e0\x1c0\x1a0\x180\x160\x140\x120\x100\x0e0\x0c0\n0\x080\x060\x040\x020\x00'
+try:
+    SNMP(a)
+except BER_Exception as ex:
+    assert "recursion limit" in str(ex)
+else:
+    assert False
 
 
 ############
@@ -4774,6 +4907,45 @@ assert pl[0].sniffed_on == "iface"
 assert pl[0].wirelen == 1
 assert pl[0][Ether].src == '00:11:22:33:44:55'
 assert pl[1][Ether].dst == '00:22:33:44:55:66'
+
+= __setstate__ accepts legacy tuple state (pickle backward compatibility)
+
+legacy = Ether(src='00:01:02:03:04:05', dst='00:06:07:08:09:0a')/Raw(b'legacy')
+legacy.__setstate__((
+    EDecimal("42.5"),
+    EDecimal("43.5"),
+    1,
+    "legacy0",
+    128,
+    b"legacy-comment",
+))
+assert legacy.time == 42.5
+assert legacy.sent_time == 43.5
+assert legacy.direction == 1
+assert legacy.sniffed_on == "legacy0"
+assert legacy.wirelen == 128
+assert legacy.comment == b"legacy-comment"
+assert legacy.comments == [b"legacy-comment"]
+
+= pickle roundtrip keeps packet metadata and comments list
+
+meta = Ether(src='10:11:12:13:14:15', dst='20:21:22:23:24:25')/Raw(b'meta')
+meta.time = EDecimal("100.25")
+meta.sent_time = EDecimal("100.75")
+meta.direction = 2
+meta.sniffed_on = "meta0"
+meta.wirelen = 256
+meta.comments = [b"first", b"second"]
+
+meta2 = pickle.loads(pickle.dumps(meta))
+assert bytes(meta2) == bytes(meta)
+assert meta2.time == 100.25
+assert meta2.sent_time == 100.75
+assert meta2.direction == 2
+assert meta2.sniffed_on == "meta0"
+assert meta2.wirelen == 256
+assert meta2.comments == [b"first", b"second"]
+assert meta2.comment == b"first"
 
 = EDecimal
 

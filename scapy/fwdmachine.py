@@ -33,7 +33,9 @@ from scapy.layers.x509 import (
     X509_AlgorithmIdentifier,
 )
 
-from cryptography.hazmat.primitives import serialization
+# Crypto imports
+if conf.crypto_valid:
+    from cryptography.hazmat.primitives import serialization
 
 # Typing imports
 from typing import (
@@ -72,6 +74,7 @@ class ForwardMachine:
     :param proto: the proto to use (default SOCK_STREAM)
     :param remote_address: the IP to use in SERVER mode, or by default in TPROXY when
         the destination is the local IP.
+    :param remote_port: the port to use in SERVER mode. (else use 'port')
     :param remote_af: (optional) if provided, use a different address family to connect
         to the remote host.
     :param bind_address: the IP to bind locally. "0.0.0.0" by default in SERVER mode,
@@ -81,6 +84,7 @@ class ForwardMachine:
     :param crtfile: (optional) if provided, uses a certificate instead of self signed
         ones.
     :param keyfile: (optional) path to the key file
+    :param keyfilepwd: (optional) password of the keyfile
     :param timeout: the timeout before connecting to the real server (default 2)
 
     Methods to override:
@@ -106,11 +110,13 @@ class ForwardMachine:
         af: socket.AddressFamily = socket.AF_INET,
         proto: socket.SocketKind = socket.SOCK_STREAM,
         remote_address: str = None,
+        remote_port: int = None,
         remote_af: Optional[socket.AddressFamily] = None,
         bind_address: str = None,
         tls: bool = False,
         crtfile: Optional[str] = None,
         keyfile: Optional[str] = None,
+        keyfilepwd: Optional[str] = None,
         timeout: int = 2,
         MTU: int = MTU,
         **kwargs,
@@ -124,9 +130,11 @@ class ForwardMachine:
         self.tls = tls
         self.crtfile = crtfile
         self.keyfile = keyfile
+        self.keyfilepwd = keyfilepwd
         self.timeout = timeout
         self.MTU = MTU
         self.remote_address = remote_address
+        self.remote_port = remote_port
         if self.tls or self.af == 40:  # TLS or VSOCK
             self.sockcls = StreamSocketPeekless
         else:
@@ -162,9 +170,9 @@ class ForwardMachine:
             conn, addr = self.ssock.accept()
             # Calc dest
             dest = conn.getsockname()
-            if self.mode == ForwardMachine.MODE.SERVER or (
-                dest[0] in self.local_ips and self.remote_address
-            ):
+            if self.mode == ForwardMachine.MODE.SERVER:
+                dest = (self.remote_address, self.remote_port or self.port)
+            elif dest[0] in self.local_ips and self.remote_address:
                 dest = (self.remote_address,) + dest[1:]
             print(self.ct.green("%s -> %s connected !" % (repr(addr), repr(dest))))
             try:
@@ -216,17 +224,21 @@ class ForwardMachine:
             self.server_hostname = server_hostname
             self.then = then or ForwardMachine.FORWARD()
 
+    class ERROR(Exception):
+        # Show an error
+        pass
+
     class CONTEXT:
         """
         CONTEXT object kept during a session
         """
 
-        def __init__(self, addr, dest):
+        def __init__(self, fwdm, addr, dest):
             self.addr = addr
             self.dest = dest
             self.tls_sni_name = None  # Retrieved when receiving a connection
 
-    def print_reply(self, evt, cs, req, rep):
+    def vprint(self, evt, ctx, cs, req, rep):
         if evt == self.FORWARD:
             if cs:
                 print("C ==> S: %s" % req.summary())
@@ -247,6 +259,13 @@ class ForwardMachine:
                 print("C <=| : %s -> %s" % (req.summary(), rep.summary()))
             else:
                 print("S <=| : %s -> %s" % (req.summary(), rep.summary()))
+        elif evt == self.REDIRECT_TO:
+            print(
+                "C: %s was redirected from %s to %s"
+                % (repr(ctx.addr), repr(req), repr(rep))
+            )
+        elif evt == self.ERROR:
+            print(self.ct.red("ERROR: %s %s" % (repr(ctx.addr), req)))
 
     def destalias(self, dest):
         """
@@ -255,7 +274,19 @@ class ForwardMachine:
         """
         return dest
 
-    def _getpeersock(self, dest, server_hostname=None):
+    def newconn(self, ctx):
+        """
+        Callback when a new connection is established.
+        """
+        pass
+
+    def delconn(self, ctx):
+        """
+        Callback when a connection is deleted.
+        """
+        pass
+
+    def _getpeersock(self, dest, ctx, server_hostname=None):
         """
         Get peer socket
         """
@@ -263,7 +294,7 @@ class ForwardMachine:
         s.settimeout(self.timeout)
         ndest = self.destalias(dest)
         if ndest != dest:
-            print("C: %s redirected to %s" % (repr(dest), repr(ndest)))
+            self.vprint(self.REDIRECT_TO, ctx, 1, dest, ndest)
         dest = ndest
         s.connect(dest)
         return s
@@ -335,13 +366,14 @@ class ForwardMachine:
         """
         Handler of a client socket
         """
-        ctx = self.CONTEXT(addr, dest)  # we have a context object
+        ctx = self.CONTEXT(self, addr, dest)  # we have a context object
+        self.newconn(ctx)
         # Initialize peer socket
-        ss = self._getpeersock(dest)
+        ss = self._getpeersock(dest, ctx)
         # Wrap both server and peer sockets in SSL
         if self.tls:
             # Build client SSL context
-            clisslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+            clisslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS)
             clisslcontext.load_default_certs()
             clisslcontext.check_hostname = False
             clisslcontext.verify_mode = ssl.CERT_NONE
@@ -390,6 +422,7 @@ class ForwardMachine:
                         )
                 else:
                     # Certificate is provided
+                    password = self.keyfilepwd
                     certfile = self.crtfile
                     keyfile = self.keyfile
                 sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
@@ -407,13 +440,14 @@ class ForwardMachine:
             try:
                 sock = sslcontext.wrap_socket(sock, server_side=True)
             except Exception as ex:
-                print(self.ct.red("%s errored in SSL: %s" % (repr(addr), str(ex))))
+                self.vprint(self.ERROR, ctx, 1, "TLS failure: %s" % ex, None)
                 sock.close()
                 return
             ss = _clisock[0]
         # Wrap the sockets
         sock = self.sockcls(sock, self.cls)
         ss = self.sockcls(ss, self.cls)
+        sock.streamsession = ss.streamsession
         try:
             while True:
                 # Listen on both ends of the connection
@@ -439,23 +473,24 @@ class ForwardMachine:
                         try:
                             func(data, ctx)
                             # If this doesn't raise, it's a user error.
-                            print(
-                                self.ct.red(
-                                    "%s ERROR: you must always raise in %s !" % func
-                                )
+                            self.vprint(
+                                self.ERROR,
+                                ctx,
+                                1,
+                                "you must always raise in: %s" % func,
+                                None,
                             )
                             return
                         except self.REDIRECT_TO as ex:
                             # Replace the peer socket with a new socket
                             oldss = ss
                             ss = self._getpeersock(
-                                ex.dest, server_hostname=ex.server_hostname
+                                ex.dest,
+                                ctx,
+                                server_hostname=ex.server_hostname,
                             )
                             ss = self.sockcls(ss, self.cls)
-                            print(
-                                "C: %s redirected to %s"
-                                % (repr(ctx.dest), repr(ex.dest))
-                            )
+                            self.vprint(self.REDIRECT_TO, ctx, 1, ctx.dest, ex.dest)
                             ctx.dest = ex.dest  # update context
                             # Shut the old one.
                             oldss.ins.shutdown(socket.SHUT_RDWR)
@@ -470,30 +505,32 @@ class ForwardMachine:
                     except self.FORWARD:
                         # Forward the data to the other host
                         othersock.send(data)
-                        self.print_reply(self.FORWARD, cs, data, None)
+                        self.vprint(self.FORWARD, ctx, cs, data, None)
                     except self.FORWARD_REPLACE as ex:
                         # Forward custom data to the other host
                         othersock.send(ex.data)
-                        self.print_reply(self.FORWARD_REPLACE, cs, data, ex.data)
+                        self.vprint(self.FORWARD_REPLACE, ctx, cs, data, ex.data)
                     except self.DROP:
                         # Drop
-                        self.print_reply(self.DROP, cs, data, None)
+                        self.vprint(self.DROP, ctx, cs, data, None)
                     except self.ANSWER as ex:
                         # Respond with custom data
                         thissock.send(ex.data)
-                        self.print_reply(self.ANSWER, cs, data, ex.data)
+                        self.vprint(self.ANSWER, ctx, cs, data, ex.data)
                     except Exception as ex:
                         # Processing failed. forward to not break anything
-                        print(
-                            self.ct.orange(
-                                "Exception happened in handling client %s ! (forward)"
-                                % repr(addr)
-                            )
+                        self.vprint(
+                            self.ERROR,
+                            ctx,
+                            1,
+                            "Exception happened in handler (forward)",
+                            None,
                         )
                         traceback.print_exception(ex)
                         othersock.send(data)
-                        self.print_reply(self.FORWARD, cs, data, None)
+                        self.vprint(self.FORWARD, ctx, cs, data, None)
         except RuntimeError:
             print(self.ct.red("%s DISCONNECTED !" % repr(addr)))
+            self.delconn(ctx)
             sock.close()
             ss.close()

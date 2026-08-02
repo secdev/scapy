@@ -3,7 +3,7 @@
 # See https://scapy.net/ for more information
 # Copyright (C) Gabriel Potter
 
-# [ms-nrpc] v45.0 (Tue, 08 Jul 2025)
+# [ms-nrpc] v49.0 (Mon, 09 Feb 2026)
 
 """
 RPC definitions for the following interfaces:
@@ -301,7 +301,6 @@ class RPC_SID_IDENTIFIER_AUTHORITY(NDRPacket):
 
 
 class PRPC_SID(NDRPacket):
-    ALIGNMENT = (4, 8)
     DEPORTED_CONFORMANTS = ["SubAuthority"]
     fields_desc = [
         NDRByteField("Revision", 0),
@@ -3556,7 +3555,7 @@ class DsrDeregisterDnsHostRecords_Request(NDRPacket):
         NDRFullPointerField(NDRConfVarStrNullFieldUtf16("DnsDomainName", "")),
         NDRFullPointerField(NDRPacketField("DomainGuid", GUID(), GUID)),
         NDRFullPointerField(NDRPacketField("DsaGuid", GUID(), GUID)),
-        NDRConfVarStrNullFieldUtf16("DnsHostName", ""),
+        NDRFullPointerField(NDRConfVarStrNullFieldUtf16("DnsHostName", "")),
     ]
 
 
@@ -3692,7 +3691,7 @@ class PLSA_FOREST_TRUST_INFORMATION(NDRPacket):
                 [],
                 PLSA_FOREST_TRUST_RECORD,
                 size_is=lambda pkt: pkt.RecordCount,
-                ptr_pack=True,
+                ptr_lvl=1,
             )
         ),
     ]

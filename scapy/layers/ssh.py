@@ -62,6 +62,9 @@ class _ComaStrField(StrLenField):
     def i2m(self, pkt, x):
         return super(_ComaStrField, self).i2m(pkt, b",".join(x))
 
+    def i2len(self, pkt, x):
+        return len(self.i2m(pkt, x))
+
 
 class SSHString(Packet):
     fields_desc = [

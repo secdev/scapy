@@ -1212,6 +1212,38 @@ assert ch.len == 103
 assert ch.client_shares[0].kxlen == 97
 assert len(ch.client_shares[0].key_exchange) == 97
 
+= TLS_Ext_KeyShare_SH - dissect raw bytes with PacketLenField
+
+from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_SH
+from scapy.packet import Raw
+
+# Raw bytes of TLS_Ext_KeyShare_SH with an x25519 server key (RFC 8448 test vector)
+x25519_pub_rfc8448 = 'c9828876112095fe66762bdbf7c672e156d6cc253b833df1dd69b1b04e751f0f'
+raw_ks = bytes.fromhex(
+    '0033'  # type = key_share (0x0033)
+    '0024'  # len = 36 (4 header + 32 key bytes)
+    '001d'  # group = x25519 (29)
+    '0020'  # kxlen = 32
+    + x25519_pub_rfc8448
+)
+pkt = TLS_Ext_KeyShare_SH(raw_ks)
+assert pkt.type == 0x0033
+assert pkt.len == 36
+assert pkt.server_share.group == 29
+assert pkt.server_share.kxlen == 32
+assert pkt.server_share.key_exchange == bytes.fromhex(x25519_pub_rfc8448)
+
+# Trailing bytes (simulating a subsequent extension) must not be consumed by server_share
+trailing = bytes.fromhex('002b00020304')  # TLS_Ext_SupportedVersion_SH (TLS 1.3)
+pkt2 = TLS_Ext_KeyShare_SH(raw_ks + trailing)
+assert pkt2.server_share.group == 29
+assert pkt2.server_share.kxlen == 32
+assert len(pkt2.server_share.key_exchange) == 32
+assert pkt2.server_share.key_exchange == bytes.fromhex(x25519_pub_rfc8448)
+# Trailing bytes must be preserved as payload, not silently consumed by server_share
+assert Raw in pkt2
+assert pkt2[Raw].load == trailing
+
 = Parse TLS 1.3 Client Hello with non-rfc 5077 ticket
 
 from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_PreSharedKey_CH

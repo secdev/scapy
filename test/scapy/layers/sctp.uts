@@ -49,7 +49,7 @@ assert p.tsn == 0
 assert p.stream_id == 0
 assert p.stream_seq == 0
 assert p.len == (len("data") + 16)
-assert p.data == b"data"
+assert raw(p.data) == b"data"
 
 = basic SCTPChunkIData - Dissection
 ~ sctp

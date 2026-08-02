@@ -21,16 +21,18 @@ from scapy.fields import (
     XByteField,
     XShortEnumField,
 )
-from scapy.packet import Packet, bind_layers, NoPayload
+from scapy.packet import Packet, NoPayload, bind_layers
 from scapy.config import conf
 from scapy.error import log_loading
 from scapy.utils import PeriodicSenderThread
-from scapy.plist import _PacketIterable
+from scapy.plist import _PacketIterable  # noqa: F401
 from scapy.contrib.isotp import ISOTP
+from scapy.compat import orb
 
-from typing import (
-    Dict,
+from typing import (  # noqa: F401
     Any,
+    Dict,
+    Type,
 )
 
 
@@ -43,7 +45,34 @@ except KeyError:
                      "a negative response 'requestCorrectlyReceived-"
                      "ResponsePending' as answer of a request. \n"
                      "The default value is False.")
-    conf.contribs['KWP'] = {'treat-response-pending-as-answer': False}
+    conf.contribs['KWP'] = {'treat-response-pending-as-answer': False,
+                            'single_layer_mode': False,
+                            'compatibility_mode': True}
+
+
+def _kwp_slm(pkt):
+    # type: (Packet) -> bool
+    """Return True when the service ConditionalField should be present.
+
+    Two configuration keys in ``conf.contribs['KWP']`` control the behaviour:
+
+    ``single_layer_mode`` (bool, default ``False``):
+        When *True*, :class:`KWP` acts as a dispatch layer and returns the
+        matching service sub-packet directly.  Each sub-packet gains its own
+        ``service`` field so that it can be built and dissected stand-alone.
+
+    ``compatibility_mode`` (bool, default ``True``):
+        Only relevant when ``single_layer_mode`` is *True*.  When *True* the
+        ``service`` field is **suppressed** in a sub-packet whose immediate
+        underlayer is already a :class:`KWP` packet, preventing a duplicate
+        service byte when sub-packets are stacked (``KWP()/KWP_SDS()``).
+        Set to *False* to always emit the ``service`` byte from the sub-packet.
+    """
+    if not conf.contribs['KWP'].get('single_layer_mode', False):
+        return False
+    if conf.contribs['KWP'].get('compatibility_mode', True):
+        return pkt.underlayer is None or not isinstance(pkt.underlayer, KWP)
+    return True
 
 
 class KWP(ISOTP):
@@ -113,13 +142,13 @@ class KWP(ISOTP):
         if not isinstance(other, type(self)):
             return False
         if self.service == 0x7f:
-            return self.payload.answers(other)
+            return bool(self.payload.answers(other))
         if self.service == (other.service + 0x40):
             if isinstance(self.payload, NoPayload) or \
                     isinstance(other.payload, NoPayload):
                 return len(self) <= len(other)
             else:
-                return self.payload.answers(other.payload)
+                return bool(self.payload.answers(other.payload))
         return False
 
     def hashret(self):
@@ -128,6 +157,17 @@ class KWP(ISOTP):
             return struct.pack('B', self.requestServiceId & ~0x40)
         else:
             return struct.pack('B', self.service & ~0x40)
+
+    _service_cls = {}  # type: Dict[int, Type[Packet]]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=b"", *args, **kwargs):
+        # type: (bytes, Any, Any) -> type
+        """Dispatch to the correct KWP service class in single layer mode."""
+        if conf.contribs['KWP'].get('single_layer_mode', False) and len(_pkt) >= 1:
+            service = orb(_pkt[0])
+            return cls._service_cls.get(service, cls)
+        return cls
 
 
 # ########################SDS###################################
@@ -140,16 +180,19 @@ class KWP_SDS(Packet):
         0x92: 'extendedDiagnosticSession'})
     name = 'StartDiagnosticSession'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x10, KWP.services), _kwp_slm),
         ByteEnumField('diagnosticSession', 0, diagnosticSessionTypes)
     ]
 
 
 bind_layers(KWP, KWP_SDS, service=0x10)
+KWP._service_cls[0x10] = KWP_SDS
 
 
 class KWP_SDSPR(Packet):
     name = 'StartDiagnosticSessionPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x50, KWP.services), _kwp_slm),
         ByteEnumField('diagnosticSession', 0,
                       KWP_SDS.diagnosticSessionTypes),
     ]
@@ -161,6 +204,7 @@ class KWP_SDSPR(Packet):
 
 
 bind_layers(KWP, KWP_SDSPR, service=0x50)
+KWP._service_cls[0x50] = KWP_SDSPR
 
 
 # ######################### KWP_ER ###################################
@@ -171,14 +215,19 @@ class KWP_ER(Packet):
         0x82: 'nonvolatileMemoryReset'}
     name = 'ECUReset'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x11, KWP.services), _kwp_slm),
         ByteEnumField('resetMode', 0, resetModes)
     ]
 
 
 bind_layers(KWP, KWP_ER, service=0x11)
+KWP._service_cls[0x11] = KWP_ER
 
 
 class KWP_ERPR(Packet):
+    fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x51, KWP.services), _kwp_slm),
+    ]
     name = 'ECUResetPositiveResponse'
 
     def answers(self, other):
@@ -187,12 +236,14 @@ class KWP_ERPR(Packet):
 
 
 bind_layers(KWP, KWP_ERPR, service=0x51)
+KWP._service_cls[0x51] = KWP_ERPR
 
 
 # ######################### KWP_SA ###################################
 class KWP_SA(Packet):
     name = 'SecurityAccess'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x27, KWP.services), _kwp_slm),
         ByteField('accessMode', 0),
         ConditionalField(StrField('key', b""),
                          lambda pkt: pkt.accessMode % 2 == 0)
@@ -200,11 +251,13 @@ class KWP_SA(Packet):
 
 
 bind_layers(KWP, KWP_SA, service=0x27)
+KWP._service_cls[0x27] = KWP_SA
 
 
 class KWP_SAPR(Packet):
     name = 'SecurityAccessPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x67, KWP.services), _kwp_slm),
         ByteField('accessMode', 0),
         ConditionalField(StrField('seed', b""),
                          lambda pkt: pkt.accessMode % 2 == 1),
@@ -217,6 +270,7 @@ class KWP_SAPR(Packet):
 
 
 bind_layers(KWP, KWP_SAPR, service=0x67)
+KWP._service_cls[0x67] = KWP_SAPR
 
 
 # ######################### KWP_IOCBLI ###################################
@@ -231,6 +285,7 @@ class KWP_IOCBLI(Packet):
         0x08: "Long Term Adjustment"
     }
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x30, KWP.services), _kwp_slm),
         XByteField('localIdentifier', 0),
         XByteEnumField('inputOutputControlParameter', 0,
                        inputOutputControlParameters),
@@ -239,11 +294,13 @@ class KWP_IOCBLI(Packet):
 
 
 bind_layers(KWP, KWP_IOCBLI, service=0x30)
+KWP._service_cls[0x30] = KWP_IOCBLI
 
 
 class KWP_IOCBLIPR(Packet):
     name = 'InputOutputControlByLocalIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x70, KWP.services), _kwp_slm),
         XByteField('localIdentifier', 0),
         XByteEnumField('inputOutputControlParameter', 0,
                        KWP_IOCBLI.inputOutputControlParameters),
@@ -257,6 +314,7 @@ class KWP_IOCBLIPR(Packet):
 
 
 bind_layers(KWP, KWP_IOCBLIPR, service=0x70)
+KWP._service_cls[0x70] = KWP_IOCBLIPR
 
 
 # ######################### KWP_DNMT ###################################
@@ -267,14 +325,19 @@ class KWP_DNMT(Packet):
     }
     name = 'DisableNormalMessageTransmission'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x28, KWP.services), _kwp_slm),
         ByteEnumField('responseRequired', 0, responseTypes)
     ]
 
 
 bind_layers(KWP, KWP_DNMT, service=0x28)
+KWP._service_cls[0x28] = KWP_DNMT
 
 
 class KWP_DNMTPR(Packet):
+    fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x68, KWP.services), _kwp_slm),
+    ]
     name = 'DisableNormalMessageTransmissionPositiveResponse'
 
     def answers(self, other):
@@ -283,6 +346,7 @@ class KWP_DNMTPR(Packet):
 
 
 bind_layers(KWP, KWP_DNMTPR, service=0x68)
+KWP._service_cls[0x68] = KWP_DNMTPR
 
 
 # ######################### KWP_ENMT ###################################
@@ -293,14 +357,19 @@ class KWP_ENMT(Packet):
     }
     name = 'EnableNormalMessageTransmission'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x29, KWP.services), _kwp_slm),
         ByteEnumField('responseRequired', 1, responseTypes)
     ]
 
 
 bind_layers(KWP, KWP_ENMT, service=0x29)
+KWP._service_cls[0x29] = KWP_ENMT
 
 
 class KWP_ENMTPR(Packet):
+    fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x69, KWP.services), _kwp_slm),
+    ]
     name = 'EnableNormalMessageTransmissionPositiveResponse'
 
     def answers(self, other):
@@ -309,6 +378,7 @@ class KWP_ENMTPR(Packet):
 
 
 bind_layers(KWP, KWP_ENMTPR, service=0x69)
+KWP._service_cls[0x69] = KWP_ENMTPR
 
 
 # ######################### KWP_TP ###################################
@@ -319,14 +389,19 @@ class KWP_TP(Packet):
     }
     name = 'TesterPresent'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x3e, KWP.services), _kwp_slm),
         ByteEnumField('responseRequired', 1, responseTypes)
     ]
 
 
-bind_layers(KWP, KWP_TP, service=0x3E)
+bind_layers(KWP, KWP_TP, service=0x3e)
+KWP._service_cls[0x3e] = KWP_TP
 
 
 class KWP_TPPR(Packet):
+    fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x7e, KWP.services), _kwp_slm),
+    ]
     name = 'TesterPresentPositiveResponse'
 
     def answers(self, other):
@@ -334,7 +409,8 @@ class KWP_TPPR(Packet):
         return isinstance(other, KWP_TP)
 
 
-bind_layers(KWP, KWP_TPPR, service=0x7E)
+bind_layers(KWP, KWP_TPPR, service=0x7e)
+KWP._service_cls[0x7e] = KWP_TPPR
 
 
 # ######################### KWP_CDTCS ###################################
@@ -357,6 +433,7 @@ class KWP_CDTCS(Packet):
     }
     name = 'ControlDTCSetting'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x85, KWP.services), _kwp_slm),
         ByteEnumField('responseRequired', 1, responseTypes),
         XShortEnumField('groupOfDTC', 0, DTCGroups),
         ByteEnumField('DTCSettingMode', 0, DTCSettingModes),
@@ -364,9 +441,13 @@ class KWP_CDTCS(Packet):
 
 
 bind_layers(KWP, KWP_CDTCS, service=0x85)
+KWP._service_cls[0x85] = KWP_CDTCS
 
 
 class KWP_CDTCSPR(Packet):
+    fields_desc = [
+        ConditionalField(XByteEnumField('service', 0xc5, KWP.services), _kwp_slm),
+    ]
     name = 'ControlDTCSettingPositiveResponse'
 
     def answers(self, other):
@@ -374,7 +455,8 @@ class KWP_CDTCSPR(Packet):
         return isinstance(other, KWP_CDTCS)
 
 
-bind_layers(KWP, KWP_CDTCSPR, service=0xC5)
+bind_layers(KWP, KWP_CDTCSPR, service=0xc5)
+KWP._service_cls[0xc5] = KWP_CDTCSPR
 
 
 # ######################### KWP_ROE ###################################
@@ -399,6 +481,7 @@ class KWP_ROE(Packet):
     }
     name = 'ResponseOnEvent'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x86, KWP.services), _kwp_slm),
         ByteEnumField('responseRequired', 1, responseTypes),
         ByteEnumField('eventWindowTime', 0, eventWindowTimes),
         MayEnd(ByteEnumField('eventType', 0, eventTypes)),
@@ -410,11 +493,13 @@ class KWP_ROE(Packet):
 
 
 bind_layers(KWP, KWP_ROE, service=0x86)
+KWP._service_cls[0x86] = KWP_ROE
 
 
 class KWP_ROEPR(Packet):
     name = 'ResponseOnEventPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0xc6, KWP.services), _kwp_slm),
         ByteField("numberOfActivatedEvents", 0),
         MayEnd(ByteEnumField('eventWindowTime', 0, KWP_ROE.eventWindowTimes)),
         # XXX Is this MayEnd correct?
@@ -427,7 +512,8 @@ class KWP_ROEPR(Packet):
             and other.eventType == self.eventType
 
 
-bind_layers(KWP, KWP_ROEPR, service=0xC6)
+bind_layers(KWP, KWP_ROEPR, service=0xc6)
+KWP._service_cls[0xc6] = KWP_ROEPR
 
 
 # ######################### KWP_RDBLI ###################################
@@ -448,16 +534,19 @@ class KWP_RDBLI(Packet):
     })
     name = 'ReadDataByLocalIdentifier'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x21, KWP.services), _kwp_slm),
         XByteEnumField('recordLocalIdentifier', 0, localIdentifiers)
     ]
 
 
 bind_layers(KWP, KWP_RDBLI, service=0x21)
+KWP._service_cls[0x21] = KWP_RDBLI
 
 
 class KWP_RDBLIPR(Packet):
     name = 'ReadDataByLocalIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x61, KWP.services), _kwp_slm),
         XByteEnumField('recordLocalIdentifier', 0, KWP_RDBLI.localIdentifiers)
     ]
 
@@ -468,22 +557,26 @@ class KWP_RDBLIPR(Packet):
 
 
 bind_layers(KWP, KWP_RDBLIPR, service=0x61)
+KWP._service_cls[0x61] = KWP_RDBLIPR
 
 
 # ######################### KWP_WDBLI ###################################
 class KWP_WDBLI(Packet):
     name = 'WriteDataByLocalIdentifier'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x3b, KWP.services), _kwp_slm),
         XByteEnumField('recordLocalIdentifier', 0, KWP_RDBLI.localIdentifiers)
     ]
 
 
-bind_layers(KWP, KWP_WDBLI, service=0x3B)
+bind_layers(KWP, KWP_WDBLI, service=0x3b)
+KWP._service_cls[0x3b] = KWP_WDBLI
 
 
 class KWP_WDBLIPR(Packet):
     name = 'WriteDataByLocalIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x7b, KWP.services), _kwp_slm),
         XByteEnumField('recordLocalIdentifier', 0, KWP_RDBLI.localIdentifiers)
     ]
 
@@ -493,7 +586,8 @@ class KWP_WDBLIPR(Packet):
             and self.recordLocalIdentifier == other.recordLocalIdentifier
 
 
-bind_layers(KWP, KWP_WDBLIPR, service=0x7B)
+bind_layers(KWP, KWP_WDBLIPR, service=0x7b)
+KWP._service_cls[0x7b] = KWP_WDBLIPR
 
 
 # ######################### KWP_RDBI ###################################
@@ -501,16 +595,19 @@ class KWP_RDBI(Packet):
     dataIdentifiers = ObservableDict()
     name = 'ReadDataByIdentifier'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x22, KWP.services), _kwp_slm),
         XShortEnumField('identifier', 0, dataIdentifiers)
     ]
 
 
 bind_layers(KWP, KWP_RDBI, service=0x22)
+KWP._service_cls[0x22] = KWP_RDBI
 
 
 class KWP_RDBIPR(Packet):
     name = 'ReadDataByIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x62, KWP.services), _kwp_slm),
         XShortEnumField('identifier', 0, KWP_RDBI.dataIdentifiers),
     ]
 
@@ -521,23 +618,27 @@ class KWP_RDBIPR(Packet):
 
 
 bind_layers(KWP, KWP_RDBIPR, service=0x62)
+KWP._service_cls[0x62] = KWP_RDBIPR
 
 
 # ######################### KWP_RMBA ###################################
 class KWP_RMBA(Packet):
     name = 'ReadMemoryByAddress'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x23, KWP.services), _kwp_slm),
         X3BytesField('memoryAddress', 0),
         ByteField('memorySize', 0)
     ]
 
 
 bind_layers(KWP, KWP_RMBA, service=0x23)
+KWP._service_cls[0x23] = KWP_RMBA
 
 
 class KWP_RMBAPR(Packet):
     name = 'ReadMemoryByAddressPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x63, KWP.services), _kwp_slm),
         StrField('dataRecord', b"", fmt="B")
     ]
 
@@ -547,6 +648,7 @@ class KWP_RMBAPR(Packet):
 
 
 bind_layers(KWP, KWP_RMBAPR, service=0x63)
+KWP._service_cls[0x63] = KWP_RMBAPR
 
 
 # ######################### KWP_DDLI ###################################
@@ -559,18 +661,21 @@ class KWP_DDLI(Packet):
                        0x3: "defineByIdentifier",
                        0x4: "clearDynamicallyDefinedLocalIdentifier"}
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x2c, KWP.services), _kwp_slm),
         XByteField('dynamicallyDefineLocalIdentifier', 0),
         ByteEnumField('definitionMode', 0, definitionModes),
         StrField('dataRecord', b"", fmt="B")
     ]
 
 
-bind_layers(KWP, KWP_DDLI, service=0x2C)
+bind_layers(KWP, KWP_DDLI, service=0x2c)
+KWP._service_cls[0x2c] = KWP_DDLI
 
 
 class KWP_DDLIPR(Packet):
     name = 'DynamicallyDefineLocalIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x6c, KWP.services), _kwp_slm),
         XByteField('dynamicallyDefineLocalIdentifier', 0)
     ]
 
@@ -580,23 +685,27 @@ class KWP_DDLIPR(Packet):
             other.dynamicallyDefineLocalIdentifier == self.dynamicallyDefineLocalIdentifier  # noqa: E501
 
 
-bind_layers(KWP, KWP_DDLIPR, service=0x6C)
+bind_layers(KWP, KWP_DDLIPR, service=0x6c)
+KWP._service_cls[0x6c] = KWP_DDLIPR
 
 
 # ######################### KWP_WDBI ###################################
 class KWP_WDBI(Packet):
     name = 'WriteDataByIdentifier'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x2e, KWP.services), _kwp_slm),
         XShortEnumField('identifier', 0, KWP_RDBI.dataIdentifiers)
     ]
 
 
-bind_layers(KWP, KWP_WDBI, service=0x2E)
+bind_layers(KWP, KWP_WDBI, service=0x2e)
+KWP._service_cls[0x2e] = KWP_WDBI
 
 
 class KWP_WDBIPR(Packet):
     name = 'WriteDataByIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x6e, KWP.services), _kwp_slm),
         XShortEnumField('identifier', 0, KWP_RDBI.dataIdentifiers),
     ]
 
@@ -606,25 +715,29 @@ class KWP_WDBIPR(Packet):
             and other.identifier == self.identifier
 
 
-bind_layers(KWP, KWP_WDBIPR, service=0x6E)
+bind_layers(KWP, KWP_WDBIPR, service=0x6e)
+KWP._service_cls[0x6e] = KWP_WDBIPR
 
 
 # ######################### KWP_WMBA ###################################
 class KWP_WMBA(Packet):
     name = 'WriteMemoryByAddress'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x3d, KWP.services), _kwp_slm),
         X3BytesField('memoryAddress', 0),
         ByteField('memorySize', 0),
         StrField('dataRecord', b'', fmt="B")
     ]
 
 
-bind_layers(KWP, KWP_WMBA, service=0x3D)
+bind_layers(KWP, KWP_WMBA, service=0x3d)
+KWP._service_cls[0x3d] = KWP_WMBA
 
 
 class KWP_WMBAPR(Packet):
     name = 'WriteMemoryByAddressPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x7d, KWP.services), _kwp_slm),
         X3BytesField('memoryAddress', 0)
     ]
 
@@ -634,7 +747,8 @@ class KWP_WMBAPR(Packet):
             other.memoryAddress == self.memoryAddress
 
 
-bind_layers(KWP, KWP_WMBAPR, service=0x7D)
+bind_layers(KWP, KWP_WMBAPR, service=0x7d)
+KWP._service_cls[0x7d] = KWP_WMBAPR
 
 
 # ######################### KWP_CDI ###################################
@@ -648,17 +762,20 @@ class KWP_CDI(Packet):
     }
     name = 'ClearDiagnosticInformation'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x14, KWP.services), _kwp_slm),
         XShortEnumField('groupOfDTC', 0, DTCGroups)
     ]
 
 
 bind_layers(KWP, KWP_CDI, service=0x14)
+KWP._service_cls[0x14] = KWP_CDI
 
 
 class KWP_CDIPR(Packet):
     name = 'ClearDiagnosticInformationPositiveResponse'
 
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x54, KWP.services), _kwp_slm),
         XShortEnumField('groupOfDTC', 0, KWP_CDI.DTCGroups)
     ]
 
@@ -669,23 +786,27 @@ class KWP_CDIPR(Packet):
 
 
 bind_layers(KWP, KWP_CDIPR, service=0x54)
+KWP._service_cls[0x54] = KWP_CDIPR
 
 
 # ######################### KWP_RSODTC ###################################
 class KWP_RSODTC(Packet):
     name = 'ReadStatusOfDiagnosticTroubleCodes'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x17, KWP.services), _kwp_slm),
         XShortEnumField('groupOfDTC', 0, KWP_CDI.DTCGroups)
     ]
 
 
 bind_layers(KWP, KWP_RSODTC, service=0x17)
+KWP._service_cls[0x17] = KWP_RSODTC
 
 
 class KWP_RSODTCPR(Packet):
     name = 'ReadStatusOfDiagnosticTroubleCodesPositiveResponse'
 
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x57, KWP.services), _kwp_slm),
         ByteField('numberOfDTC', 0),
     ]
 
@@ -695,6 +816,7 @@ class KWP_RSODTCPR(Packet):
 
 
 bind_layers(KWP, KWP_RSODTCPR, service=0x57)
+KWP._service_cls[0x57] = KWP_RSODTCPR
 
 
 # ######################### KWP_RECUI ###################################
@@ -716,17 +838,20 @@ class KWP_RECUI(Packet):
         0x9F: "ECU Boot Fingerprint"
     })
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x1a, KWP.services), _kwp_slm),
         XByteEnumField('localIdentifier', 0, localIdentifiers)
     ]
 
 
-bind_layers(KWP, KWP_RECUI, service=0x1A)
+bind_layers(KWP, KWP_RECUI, service=0x1a)
+KWP._service_cls[0x1a] = KWP_RECUI
 
 
 class KWP_RECUIPR(Packet):
     name = 'ReadECUIdentificationPositiveResponse'
 
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x5a, KWP.services), _kwp_slm),
         XByteEnumField('localIdentifier', 0, KWP_RECUI.localIdentifiers)
     ]
 
@@ -736,7 +861,8 @@ class KWP_RECUIPR(Packet):
             self.localIdentifier == other.localIdentifier
 
 
-bind_layers(KWP, KWP_RECUIPR, service=0x5A)
+bind_layers(KWP, KWP_RECUIPR, service=0x5a)
+KWP._service_cls[0x5a] = KWP_RECUIPR
 
 
 # ######################### KWP_SRBLI ###################################
@@ -755,16 +881,19 @@ class KWP_SRBLI(Packet):
     })
     name = 'StartRoutineByLocalIdentifier'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x31, KWP.services), _kwp_slm),
         XByteEnumField('routineLocalIdentifier', 0, routineLocalIdentifiers)
     ]
 
 
 bind_layers(KWP, KWP_SRBLI, service=0x31)
+KWP._service_cls[0x31] = KWP_SRBLI
 
 
 class KWP_SRBLIPR(Packet):
     name = 'StartRoutineByLocalIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x71, KWP.services), _kwp_slm),
         XByteEnumField('routineLocalIdentifier', 0,
                        KWP_SRBLI.routineLocalIdentifiers)
     ]
@@ -776,23 +905,27 @@ class KWP_SRBLIPR(Packet):
 
 
 bind_layers(KWP, KWP_SRBLIPR, service=0x71)
+KWP._service_cls[0x71] = KWP_SRBLIPR
 
 
 # ######################### KWP_STRBLI ###################################
 class KWP_STRBLI(Packet):
     name = 'StopRoutineByLocalIdentifier'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x32, KWP.services), _kwp_slm),
         XByteEnumField('routineLocalIdentifier', 0,
                        KWP_SRBLI.routineLocalIdentifiers)
     ]
 
 
 bind_layers(KWP, KWP_STRBLI, service=0x32)
+KWP._service_cls[0x32] = KWP_STRBLI
 
 
 class KWP_STRBLIPR(Packet):
     name = 'StopRoutineByLocalIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x72, KWP.services), _kwp_slm),
         XByteEnumField('routineLocalIdentifier', 0,
                        KWP_SRBLI.routineLocalIdentifiers)
     ]
@@ -804,23 +937,27 @@ class KWP_STRBLIPR(Packet):
 
 
 bind_layers(KWP, KWP_STRBLIPR, service=0x72)
+KWP._service_cls[0x72] = KWP_STRBLIPR
 
 
 # ######################### KWP_RRRBLI ###################################
 class KWP_RRRBLI(Packet):
     name = 'RequestRoutineResultsByLocalIdentifier'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x33, KWP.services), _kwp_slm),
         XByteEnumField('routineLocalIdentifier', 0,
                        KWP_SRBLI.routineLocalIdentifiers)
     ]
 
 
 bind_layers(KWP, KWP_RRRBLI, service=0x33)
+KWP._service_cls[0x33] = KWP_RRRBLI
 
 
 class KWP_RRRBLIPR(Packet):
     name = 'RequestRoutineResultsByLocalIdentifierPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x73, KWP.services), _kwp_slm),
         XByteEnumField('routineLocalIdentifier', 0,
                        KWP_SRBLI.routineLocalIdentifiers)
     ]
@@ -832,12 +969,14 @@ class KWP_RRRBLIPR(Packet):
 
 
 bind_layers(KWP, KWP_RRRBLIPR, service=0x73)
+KWP._service_cls[0x73] = KWP_RRRBLIPR
 
 
 # ######################### KWP_RD ###################################
 class KWP_RD(Packet):
     name = 'RequestDownload'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x34, KWP.services), _kwp_slm),
         X3BytesField('memoryAddress', 0),
         BitField('compression', 0, 4),
         BitField('encryption', 0, 4),
@@ -846,11 +985,13 @@ class KWP_RD(Packet):
 
 
 bind_layers(KWP, KWP_RD, service=0x34)
+KWP._service_cls[0x34] = KWP_RD
 
 
 class KWP_RDPR(Packet):
     name = 'RequestDownloadPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x74, KWP.services), _kwp_slm),
         StrField('maxNumberOfBlockLength', b"", fmt="B"),
     ]
 
@@ -860,12 +1001,14 @@ class KWP_RDPR(Packet):
 
 
 bind_layers(KWP, KWP_RDPR, service=0x74)
+KWP._service_cls[0x74] = KWP_RDPR
 
 
 # ######################### KWP_RU ###################################
 class KWP_RU(Packet):
     name = 'RequestUpload'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x35, KWP.services), _kwp_slm),
         X3BytesField('memoryAddress', 0),
         BitField('compression', 0, 4),
         BitField('encryption', 0, 4),
@@ -874,11 +1017,13 @@ class KWP_RU(Packet):
 
 
 bind_layers(KWP, KWP_RU, service=0x35)
+KWP._service_cls[0x35] = KWP_RU
 
 
 class KWP_RUPR(Packet):
     name = 'RequestUploadPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x75, KWP.services), _kwp_slm),
         StrField('maxNumberOfBlockLength', b"", fmt="B"),
     ]
 
@@ -888,23 +1033,27 @@ class KWP_RUPR(Packet):
 
 
 bind_layers(KWP, KWP_RUPR, service=0x75)
+KWP._service_cls[0x75] = KWP_RUPR
 
 
 # ######################### KWP_TD ###################################
 class KWP_TD(Packet):
     name = 'TransferData'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x36, KWP.services), _kwp_slm),
         ByteField('blockSequenceCounter', 0),
         StrField('transferDataRequestParameter', b"", fmt="B")
     ]
 
 
 bind_layers(KWP, KWP_TD, service=0x36)
+KWP._service_cls[0x36] = KWP_TD
 
 
 class KWP_TDPR(Packet):
     name = 'TransferDataPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x76, KWP.services), _kwp_slm),
         ByteField('blockSequenceCounter', 0),
         StrField('transferDataRequestParameter', b"", fmt="B")
     ]
@@ -916,22 +1065,26 @@ class KWP_TDPR(Packet):
 
 
 bind_layers(KWP, KWP_TDPR, service=0x76)
+KWP._service_cls[0x76] = KWP_TDPR
 
 
 # ######################### KWP_RTE ###################################
 class KWP_RTE(Packet):
     name = 'RequestTransferExit'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x37, KWP.services), _kwp_slm),
         StrField('transferDataRequestParameter', b"", fmt="B")
     ]
 
 
 bind_layers(KWP, KWP_RTE, service=0x37)
+KWP._service_cls[0x37] = KWP_RTE
 
 
 class KWP_RTEPR(Packet):
     name = 'RequestTransferExitPositiveResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x77, KWP.services), _kwp_slm),
         StrField('transferDataRequestParameter', b"", fmt="B")
     ]
 
@@ -941,6 +1094,7 @@ class KWP_RTEPR(Packet):
 
 
 bind_layers(KWP, KWP_RTEPR, service=0x77)
+KWP._service_cls[0x77] = KWP_RTEPR
 
 
 # ######################### KWP_NR ###################################
@@ -970,6 +1124,7 @@ class KWP_NR(Packet):
     }
     name = 'NegativeResponse'
     fields_desc = [
+        ConditionalField(XByteEnumField('service', 0x7f, KWP.services), _kwp_slm),
         MayEnd(XByteEnumField('requestServiceId', 0, KWP.services)),
         # XXX Is this MayEnd correct?
         ByteEnumField('negativeResponseCode', 0, negativeResponseCodes)
@@ -983,6 +1138,7 @@ class KWP_NR(Packet):
 
 
 bind_layers(KWP, KWP_NR, service=0x7f)
+KWP._service_cls[0x7f] = KWP_NR
 
 
 # ##################################################################

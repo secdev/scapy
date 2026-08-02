@@ -350,7 +350,7 @@ class ISIS_UnreservedBandwidthSubTlv(ISIS_GenericSubTlv):
 class ISIS_TEDefaultMetricSubTlv(ISIS_GenericSubTlv):
     name = "TE Default Metric SubTLV"
     fields_desc = [ByteEnumField("type", 18, _isis_subtlv_names_1),
-                   FieldLenField("len", None, length_of="temetric", adjust=lambda pkt, x:x - 1, fmt="B"),  # noqa: E501
+                   FieldLenField("len", None, length_of="temetric", fmt="B"),
                    ThreeBytesField("temetric", 1000)]
 
 

@@ -22,8 +22,8 @@ import struct
 
 from scapy.asn1.asn1 import (
     ASN1_BIT_STRING,
-    ASN1_GENERAL_STRING,
     ASN1_GENERALIZED_TIME,
+    ASN1_GENERAL_STRING,
     ASN1_INTEGER,
     ASN1_STRING,
 )
@@ -48,16 +48,23 @@ from scapy.fields import (
 from scapy.packet import Packet
 from scapy.utils import pretty_list
 
-from scapy.layers.dcerpc import NDRUnion
+from scapy.layers.dcerpc import (
+    NDRUnion,
+    NDRConformantArray,
+    NDRVaryingArray,
+)
 from scapy.layers.kerberos import (
     AuthorizationData,
     AuthorizationDataItem,
+    EncKrbCredPart,
     EncTicketPart,
     EncryptedData,
     EncryptionKey,
+    KRB_CRED,
     KRB_Ticket,
     KerberosClient,
     KerberosSSP,
+    KrbCredInfo,
     PrincipalName,
     TransitedEncoding,
     _ADDR_TYPES,
@@ -98,7 +105,7 @@ from scapy.layers.msrpce.mspac import (
     USER_SESSION_KEY,
     CLAIM_ENTRY_sub2,
 )
-from scapy.layers.smb2 import (
+from scapy.layers.windows.security import (
     WINNT_SID,
     WINNT_SID_IDENTIFIER_AUTHORITY,
 )
@@ -139,6 +146,12 @@ class CCPrincipal(Packet):
             count_from=lambda pkt: pkt.num_components,
         ),
     ]
+
+    def toPrincipalName(self):
+        return PrincipalName(
+            nameType=self.name_type,
+            nameString=[ASN1_GENERAL_STRING(x.data) for x in self.components],
+        )
 
     def toPN(self):
         return "%s@%s" % (
@@ -191,6 +204,11 @@ class CCAddress(Packet):
         ShortEnumField("addrtype", 0, _ADDR_TYPES),
         PacketField("address", CCCountedOctetString(), CCCountedOctetString),
     ]
+
+    def toHostAddress(self):
+        return HostAddress(
+            addrType=self.addrtype, address=ASN1_STRING(self.address.data)
+        )
 
     def guess_payload_class(self, payload):
         return conf.padding_layer
@@ -270,6 +288,9 @@ class CCCredential(Packet):
         # Set flags
         self.ticket_flags = int(kdcrep.flags.val, 2)
 
+    def is_xcacheconf(self):
+        return self.server.realm.data == b"X-CACHECONF:"
+
 
 class CCache(Packet):
     fields_desc = [
@@ -279,6 +300,61 @@ class CCache(Packet):
         PacketField("primary_principal", CCPrincipal(), CCPrincipal),
         PacketListField("credentials", [], CCCredential),
     ]
+
+    def toKRBCRED(self):
+        """
+        Return a compatible KRB_CRED from this CCache structure.
+        This can be used when doing unconstrained delegation
+        """
+        return KRB_CRED(
+            encPart=EncryptedData(
+                etype=0,
+                cipher=ASN1_STRING(
+                    bytes(
+                        EncKrbCredPart(
+                            ticketInfo=[
+                                KrbCredInfo(
+                                    key=EncryptionKey.fromKey(cred.keyblock.toKey()),
+                                    prealm=cred.client.realm.data,
+                                    pname=cred.client.toPrincipalName(),
+                                    flags=str(cred.ticket_flags),
+                                    authtime=ASN1_GENERALIZED_TIME(
+                                        datetime.fromtimestamp(
+                                            cred.authtime, timezone.utc
+                                        )
+                                    ),
+                                    starttime=ASN1_GENERALIZED_TIME(
+                                        datetime.fromtimestamp(
+                                            cred.starttime, timezone.utc
+                                        )
+                                    ),
+                                    endtime=ASN1_GENERALIZED_TIME(
+                                        datetime.fromtimestamp(
+                                            cred.endtime, timezone.utc
+                                        )
+                                    ),
+                                    renewTill=ASN1_GENERALIZED_TIME(
+                                        datetime.fromtimestamp(
+                                            cred.renew_till, timezone.utc
+                                        )
+                                    ),
+                                    srealm=cred.server.realm.data,
+                                    sname=cred.server.toPrincipalName(),
+                                    caddr=[c.toHostAddress() for c in cred.addrs],
+                                )
+                                for cred in self.credentials
+                                if not cred.is_xcacheconf()
+                            ]
+                        )
+                    )
+                ),
+            ),
+            tickets=[
+                KRB_Ticket(cred.ticket.data)
+                for cred in self.credentials
+                if not cred.is_xcacheconf()
+            ],
+        )
 
 
 # Keytab
@@ -330,7 +406,7 @@ class KeytabEntry(Packet):
         MayEnd(PacketField("key", KTKeyBlock(), KTKeyBlock)),
         ConditionalField(
             IntField("vno", None),
-            lambda pkt: "vno" in pkt.fields is not None or pkt.original,
+            lambda pkt: pkt.fields.get("vno", None) or pkt.original,
         ),
     ]
 
@@ -536,20 +612,66 @@ class Ticketer:
             print("No tickets in CCache.")
             return
         else:
+            if self.ccache.primary_principal.components:
+                print("Default principal: %s\n" % self.ccache.primary_principal.toPN())
+
             print("CCache tickets:")
 
-        for i, cred in enumerate(self.ccache.credentials):
-            if cred.keyblock.keytype == 0:
+        # 1. Read configuration entries
+        configuration = collections.defaultdict(dict)
+        for cred in self.ccache.credentials:
+            if not cred.is_xcacheconf():
+                # Skip non-configuration entries
                 continue
+
+            if (
+                len(cred.server.components) not in [2, 3]
+                or cred.server.components[0].data != b"krb5_ccache_conf_data"
+            ):
+                print("Skipping invalid X-CACHECONF !")
+                continue
+
+            # Get all the values from this weird format
+            cname = cred.client.toPN()
+            key = cred.server.components[1].data.decode()
+            if len(cred.server.components) == 3:
+                sname = cred.server.components[2].data.decode()
+            else:
+                sname = None
+            value = cred.ticket.data.decode()
+
+            # Store for this cname -> sname, the following 'key' setting.
+            configuration[(cname, sname)][key] = value
+
+        # 2. Read credentials
+        for i, cred in enumerate(self.ccache.credentials):
+            if cred.is_xcacheconf():
+                # Skip configuration entries
+                continue
+
+            # Get client and server principals
+            cname = cred.client.toPN()
+            sname = cred.server.toPN()
+
             print(
                 "%s. %s -> %s"
                 % (
                     i,
-                    cred.client.toPN(),
-                    cred.server.toPN(),
+                    cname,
+                    sname,
                 )
             )
             print(cred.sprintf("   %ticket_flags%"))
+            # If configuration entries match, show the settings here
+            print(
+                "   "
+                + " ".join(
+                    "%s=%s" % (key, value)
+                    for _sname in [sname, None]
+                    for key, value in configuration[(cname, _sname)].items()
+                    if (cname, _sname) in configuration
+                )
+            )
             print(
                 pretty_list(
                     [
@@ -660,7 +782,29 @@ class Ticketer:
 
         :param i: the ticket to remove.
         """
+        cred = self.ccache.credentials[i]
+        xcacheconfs = self.get_krb_xcacheopts(i)
+
+        # Delete from the store
         del self.ccache.credentials[i]
+
+        # Among the remaining, do we have an option that's identical in name?
+        if any(
+            not xcred.is_xcacheconf()
+            and xcred.client.toPN() == cred.client.toPN()
+            and xcred.server.toPN() == cred.server.toPN()
+            for xcred in self.ccache.credentials
+        ):
+            # There is another ticket with the same client and server names. Stop here
+            return
+
+        # There isno ticket exactly the same, remove all the xcacheconf that match
+        for xcred in xcacheconfs:
+            self.ccache.credentials.remove(xcred)
+
+        # If this was the primary principal, remove from there
+        if cred.client.toPN() == self.ccache.primary_principal.toPN():
+            self.ccache.primary_principal = CCPrincipal()
 
     def import_krb(self, res, key=None, hash=None, _inplace=None):
         """
@@ -676,6 +820,7 @@ class Ticketer:
             cred = CCCredential()
 
         # Update the cred
+        xcacheconfs = {}
         if isinstance(res, KRB_Ticket):
             if key is None:
                 key = self._prompt_hash(
@@ -693,6 +838,11 @@ class Ticketer:
         else:
             if isinstance(res, KerberosClient.RES_AS_MODE):
                 rep = res.asrep
+                pa_type = res.pa_type
+                if pa_type is not None:
+                    xcacheconfs["pa_type"] = str(pa_type)
+                if pa_type in [138]:
+                    xcacheconfs["fast_avail"] = "yes"
             elif isinstance(res, KerberosClient.RES_TGS_MODE):
                 rep = res.tgsrep
 
@@ -712,6 +862,7 @@ class Ticketer:
                         )
             else:
                 raise ValueError("Unknown type of obj !")
+
             cred.set_from_krb(
                 rep.ticket,
                 rep,
@@ -721,7 +872,78 @@ class Ticketer:
 
         # Append to ccache
         if _inplace is None:
-            self.ccache.credentials.append(cred)
+            _inplace = sum(
+                1 for xcred in self.ccache.credentials if not xcred.is_xcacheconf()
+            )
+            self.ccache.credentials.insert(_inplace, cred)
+
+        # If this is the first credential, set it to primary
+        if len(self.ccache.credentials) == 1:
+            self.set_primary(_inplace)
+
+        # For MIT kinit to be happy, we must provide extra options for the credential
+        for key, value in xcacheconfs.items():
+            self.set_krb_xcacheconf(_inplace, key, value)
+
+    def set_primary(self, i):
+        """
+        Set the primary (=default) credential to the credential n°1
+        """
+        self.ccache.primary_principal = self.ccache.credentials[i].client
+
+    def get_krb_xcacheopts(self, i: int):
+        """
+        Get the X-CACHECONF config for a credential
+        """
+        cred = self.ccache.credentials[i]
+        cname = cred.client.toPN()
+        sname = cred.server.toPN().encode()
+        return [
+            xcred
+            for xcred in self.ccache.credentials
+            if (
+                xcred.is_xcacheconf()
+                and xcred.client.toPN() == cname
+                and (
+                    len(xcred.server.components) == 2
+                    or xcred.server.components[2].data == sname
+                )
+            )
+        ]
+
+    def set_krb_xcacheconf(self, i: int, key: str, value: str):
+        """
+        Set a X-CACHECONF config for a credential
+        """
+        key = key.encode()
+        value = value.encode()
+        cred = self.ccache.credentials[i]
+        sname = cred.server.toPN().encode()
+
+        # First we look for a potential credential, if present
+        try:
+            conf_cred = next(
+                xcred
+                for xcred in self.get_krb_xcacheopts(i)
+                if xcred.server.components[1].data == key
+            )
+        except StopIteration:
+            conf_cred = CCCredential(
+                client=cred.client,
+                server=CCPrincipal(
+                    name_type=1,
+                    realm=CCCountedOctetString(data=b"X-CACHECONF:"),
+                    components=[
+                        CCCountedOctetString(data=b"krb5_ccache_conf_data"),
+                        CCCountedOctetString(data=key),
+                        CCCountedOctetString(data=sname),
+                    ],
+                ),
+            )
+            self.ccache.credentials.append(conf_cred)
+
+        # Set value
+        conf_cred.ticket = CCCountedOctetString(data=value)
 
     def export_krb(self, i):
         """
@@ -764,16 +986,21 @@ class Ticketer:
 
         # Detect if principal is a SPN or UPN and parse realm.
         realm = None
-        component = None
+        princname = None
         try:
-            component, realm = _parse_upn(principal)
+            _, realm = _parse_upn(principal)
             if salt is None and key is None:
                 salt = krb_get_salt(principal)
+            princname = PrincipalName.fromSPN(principal)
         except ValueError:
             try:
-                component, realm = _parse_spn(principal)
+                _, realm = _parse_spn(principal)
+                princname = PrincipalName.fromSPN(principal)
             except ValueError:
                 raise ValueError("Invalid principal ! (must be UPN or SPN)")
+
+        if not realm:
+            raise ValueError("Must provide the realm in the principal ! (with @DOMAIN)")
 
         if salt is None and key is None:
             raise ValueError(
@@ -821,17 +1048,18 @@ class Ticketer:
                 ),
                 components=[
                     KTCountedOctetString(
-                        data=x,
+                        data=x.val,
                     )
-                    for x in component.split("/")
+                    for x in princname.nameString
                 ],
                 timestamp=int(datetime.now().timestamp()),
-                vno8=kvno if kvno < 256 else None,
+                name_type=princname.nameType.val,
+                vno8=kvno,
                 key=KTKeyBlock(
                     keytype=key.etype,
                     keyvalue=key.key,
                 ),
-                vno=None if kvno < 256 else kvno,
+                vno=kvno,
                 _parent=self.keytab,
             )
         )
@@ -850,7 +1078,17 @@ class Ticketer:
             "Note principals are case sensitive, as on ktpass.exe"
         )
 
-    def ssp(self, i):
+    def remove_cred(self, principal, etype=None):
+        """
+        Remove a credential from the Keytab by principal.
+        """
+        for i, entry in enumerate(self.keytab.entries):
+            if entry.getPrincipal() == principal:
+                if etype is not None and etype != entry.key.keytype:
+                    continue
+                del self.keytab.entries[i]
+
+    def ssp(self, i, **kwargs):
         """
         Create a KerberosSSP from a ticket or from the keystore.
 
@@ -859,18 +1097,31 @@ class Ticketer:
         """
         if isinstance(i, int):
             ticket, sessionkey, upn, spn = self.export_krb(i)
-            return KerberosSSP(
-                ST=ticket,
-                KEY=sessionkey,
-                UPN=upn,
-                SPN=spn,
-            )
+            if spn.startswith("krbtgt/"):
+                # It's a TGT
+                kwargs.setdefault("SPN", None)  # Use target_name only
+                return KerberosSSP(
+                    TGT=ticket,
+                    KEY=sessionkey,
+                    UPN=upn,
+                    **kwargs,
+                )
+            else:
+                # It's a ST
+                return KerberosSSP(
+                    ST=ticket,
+                    KEY=sessionkey,
+                    UPN=upn,
+                    SPN=spn,
+                    **kwargs,
+                )
         elif isinstance(i, str):
             spn = i
             key = self.get_cred(spn)
             return KerberosSSP(
                 SPN=spn,
                 KEY=key,
+                **kwargs,
             )
         else:
             raise ValueError("Invalid 'i' value. Must be int or str")
@@ -1264,10 +1515,39 @@ class Ticketer:
                                                     ]
                                                 ),
                                                 LogonServer=RPC_UNICODE_STRING(
-                                                    Buffer=store["VI.LogonServer"],
+                                                    MaximumLength=(
+                                                        len(store["VI.LogonServer"]) + 1
+                                                    )
+                                                    * 2,
+                                                    Buffer=NDRConformantArray(
+                                                        max_count=len(
+                                                            store["VI.LogonServer"]
+                                                        )
+                                                        + 1,
+                                                        value=NDRVaryingArray(
+                                                            value=store[
+                                                                "VI.LogonServer"
+                                                            ],
+                                                        ),
+                                                    ),
                                                 ),
                                                 LogonDomainName=RPC_UNICODE_STRING(
-                                                    Buffer=store["VI.LogonDomainName"],
+                                                    MaximumLength=(
+                                                        len(store["VI.LogonDomainName"])
+                                                        + 1
+                                                    )
+                                                    * 2,
+                                                    Buffer=NDRConformantArray(
+                                                        max_count=len(
+                                                            store["VI.LogonDomainName"]
+                                                        )
+                                                        + 1,
+                                                        value=NDRVaryingArray(
+                                                            value=store[
+                                                                "VI.LogonDomainName"
+                                                            ],
+                                                        ),
+                                                    ),
                                                 ),
                                                 LogonCount=store["VI.LogonCount"],
                                                 BadPasswordCount=store[
@@ -1595,21 +1875,40 @@ class Ticketer:
         strf="%Y-%m-%d %H:%M:%S",
     )
 
-    def _pretty_time(self, x):
-        return self._TIME_FIELD.i2repr(None, x).rsplit(" ", 1)[0]
-
     def _utc_to_mstime(self, x):
+        """
+        Convert a linux epoch into MS time (from 1601)
+        """
         return int((x - self._TIME_FIELD.delta) * 1e7)
 
     def _time_to_int(self, x):
+        """
+        Non ASN.1 strptime => MS time
+        """
         return self._utc_to_mstime(
-            datetime.strptime(x, self._TIME_FIELD.strf).timestamp()
+            datetime.strptime(x, self._TIME_FIELD.strf)
+            .replace(tzinfo=timezone.utc)
+            .timestamp()
         )
 
+    def _pretty_time(self, x):
+        """
+        Non ASN.1 strftime
+        """
+        return self._TIME_FIELD.i2repr(None, x).rsplit(" ", 1)[0]
+
     def _time_to_asn1(self, x):
-        return ASN1_GENERALIZED_TIME(datetime.strptime(x, self._TIME_FIELD.strf))
+        """
+        Epoch to ASN.1 time
+        """
+        return ASN1_GENERALIZED_TIME(
+            datetime.strptime(x, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        )
 
     def _time_to_filetime(self, x):
+        """
+        Non ASN.1 strptime => FILETIME
+        """
         if isinstance(x, str) and x.strip() == "NEVER":
             return FILETIME(dwHighDateTime=0x7FFFFFFF, dwLowDateTime=0xFFFFFFFF)
         if isinstance(x, str):
@@ -1621,7 +1920,10 @@ class Ticketer:
             dwLowDateTime=x & 0xFFFFFFFF,
         )
 
-    def _filetime_totime(self, x):
+    def _filetime_pretty_time(self, x):
+        """
+        Non ASN.1 strftime
+        """
         if x.dwHighDateTime == 0x7FFFFFFF and x.dwLowDateTime == 0xFFFFFFFF:
             return "NEVER"
         return self._pretty_time((x.dwHighDateTime << 32) + x.dwLowDateTime)
@@ -1641,20 +1943,20 @@ class Ticketer:
         self._make_fields(
             element,
             [
-                ("LogonTime", self._filetime_totime(logonInfo.LogonTime)),
-                ("LogoffTime", self._filetime_totime(logonInfo.LogoffTime)),
-                ("KickOffTime", self._filetime_totime(logonInfo.KickOffTime)),
+                ("LogonTime", self._filetime_pretty_time(logonInfo.LogonTime)),
+                ("LogoffTime", self._filetime_pretty_time(logonInfo.LogoffTime)),
+                ("KickOffTime", self._filetime_pretty_time(logonInfo.KickOffTime)),
                 (
                     "PasswordLastSet",
-                    self._filetime_totime(logonInfo.PasswordLastSet),
+                    self._filetime_pretty_time(logonInfo.PasswordLastSet),
                 ),
                 (
                     "PasswordCanChange",
-                    self._filetime_totime(logonInfo.PasswordCanChange),
+                    self._filetime_pretty_time(logonInfo.PasswordCanChange),
                 ),
                 (
                     "PasswordMustChange",
-                    self._filetime_totime(logonInfo.PasswordMustChange),
+                    self._filetime_pretty_time(logonInfo.PasswordMustChange),
                 ),
                 (
                     "EffectiveName",
@@ -2325,12 +2627,14 @@ class Ticketer:
         rpac = tkt.authorizationData.seq[0].adData.seq[0].adData  # real pac
         tmp_tkt = tkt.copy()  # fake ticket and pac used for computation
         pac = tmp_tkt.authorizationData.seq[0].adData.seq[0].adData
+
         # Variables for Signatures, indexed by ulType
         sig_i = {}
         sig_type = {}
         # Read PAC buffers to find all signatures, and set them to 0
         for k, buf in enumerate(pac.Buffers):
             if buf.ulType in [0x00000006, 0x00000007, 0x00000010, 0x00000013]:
+                # Signatures
                 sig_i[buf.ulType] = k
                 sig_type[buf.ulType] = pac.Payloads[k].SignatureType
                 try:
@@ -2341,6 +2645,13 @@ class Ticketer:
                     raise ValueError("Unknown/Unsupported signatureType")
                 rpac.Buffers[k].cbBufferSize = None
                 rpac.Buffers[k].Offset = None
+            elif buf.ulType == 0x0000000A:
+                # CLIENT_INFO
+                # The timestamp in the PAC for CLIENT_INFO must match the one from
+                # the outer Ticket, else it will count as an invalid signature.
+                rpac.Payloads[k].ClientId = self._utc_to_mstime(
+                    tkt.authtime.datetime.timestamp()
+                )
 
         # There must at least be Server Signature and KDC Signature
         if any(x not in sig_i for x in [0x00000006, 0x00000007]):
@@ -2416,7 +2727,7 @@ class Ticketer:
 
     def request_tgt(
         self,
-        upn,
+        upn=None,
         ip=None,
         key=None,
         password=None,
@@ -2424,6 +2735,9 @@ class Ticketer:
         fast=False,
         armor_with=None,
         spn=None,
+        x509=None,
+        x509key=None,
+        p12=None,
         **kwargs,
     ):
         """
@@ -2458,6 +2772,9 @@ class Ticketer:
             armor_ticket_upn=armor_ticket_upn,
             armor_ticket_skey=armor_ticket_skey,
             spn=spn,
+            x509=x509,
+            x509key=x509key,
+            p12=p12,
             **kwargs,
         )
         if not res:
@@ -2570,3 +2887,19 @@ class Ticketer:
             return
 
         self.import_krb(res, _inplace=i)
+
+    def enumerate_tickets(self):
+        """
+        Enumerate through the tickets in the ccache
+        """
+        for i, cred in enumerate(self.ccache.credentials):
+            if cred.is_xcacheconf():
+                continue
+            yield i, self.export_krb(i)
+
+    def iter_tickets(self):
+        """
+        Iterate through the tickets in the ccache
+        """
+        for _, tkt in self.enumerate_tickets():
+            yield tkt

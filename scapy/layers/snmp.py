@@ -15,7 +15,7 @@ from scapy.asn1fields import ASN1F_INTEGER, ASN1F_IPADDRESS, ASN1F_OID, \
 from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_Codecs, ASN1_NULL, \
     ASN1_SEQUENCE
 from scapy.asn1.ber import BERcodec_SEQUENCE
-from scapy.sendrecv import sr1
+from scapy.sendrecv import sr, sr1
 from scapy.volatile import RandShort, IntAutoTime
 from scapy.layers.inet import UDP, IP, ICMP
 
@@ -287,10 +287,51 @@ bind_bottom_up(UDP, SNMP, dport=162)
 bind_layers(UDP, SNMP, sport=161, dport=161)
 
 
+def snmpget(dst, oid="1.0.8802.1.1.1.1.1.2.1.2.29", community="public"):
+    """
+    SNMP get.
+
+    This can be used to perform a SNMP scan::
+
+        >>> snmpget("192.168.0.0/16", community="public")
+    """
+    ans, _ = sr(
+        IP(dst=dst) / UDP(sport=RandShort()) / SNMP(
+            community=community,
+            PDU=SNMPnext(varbindlist=[SNMPvarbind(oid=oid)]),
+        ),
+        timeout=2,
+        chainCC=1,
+        verbose=0,
+        retry=2,
+    )
+    for r in ans:
+        if ICMP in r.answer:
+            print(repr(r.answer))
+            return
+        print("[%-10s] %-40s: %r" % (
+            r.query.dst,
+            r.answer[SNMPvarbind].oid.val,
+            r.answer[SNMPvarbind].value,
+        ))
+
+
 def snmpwalk(dst, oid="1", community="public"):
+    """
+    SNMP walk
+    """
     try:
         while True:
-            r = sr1(IP(dst=dst) / UDP(sport=RandShort()) / SNMP(community=community, PDU=SNMPnext(varbindlist=[SNMPvarbind(oid=oid)])), timeout=2, chainCC=1, verbose=0, retry=2)  # noqa: E501
+            r = sr1(
+                IP(dst=dst) / UDP(sport=RandShort()) / SNMP(
+                    community=community,
+                    PDU=SNMPnext(varbindlist=[SNMPvarbind(oid=oid)]),
+                ),
+                timeout=2,
+                chainCC=1,
+                verbose=0,
+                retry=2,
+            )
             if r is None:
                 print("No answers")
                 break

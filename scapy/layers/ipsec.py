@@ -221,7 +221,7 @@ if conf.crypto_valid:
     DES.key_sizes = decrepit_algorithms.TripleDES.key_sizes
     DES.block_size = decrepit_algorithms.TripleDES.block_size
 else:
-    log_loading.info("Can't import python-cryptography v1.7+. "
+    log_loading.info("Can't import python-cryptography v2.0+. "
                      "Disabled IPsec encryption/authentication.")
     default_backend = None
     InvalidTag = Exception

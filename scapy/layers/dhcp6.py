@@ -391,7 +391,7 @@ class DHCP6OptIAAddress(_DHCP6OptGuessPayload):    # RFC 8415 sect 21.6
                    IntEnumField("validlft", 0, {0xffffffff: "infinity"}),
                    # last field IAaddr-options is not defined in the
                    # reference document. We copy what wireshark does: read
-                   # more dhcp6 options and excpect failures
+                   # more dhcp6 options and expect failures
                    PacketListField("iaaddropts", [],
                                    _DHCP6OptGuessPayloadElt,
                                    length_from=lambda pkt: pkt.optlen - 24)]

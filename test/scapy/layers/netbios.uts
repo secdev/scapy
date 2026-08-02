@@ -8,7 +8,7 @@
 
 = NBNSQueryRequest - build & dissect
 
-z = NBNSHeader()/NBNSQueryRequest(SUFFIX="file server service", QUESTION_NAME='TEST1', QUESTION_TYPE='NB')
+z = NBNSHeader()/NBNSQueryRequest(SUFFIX="File Server Service", QUESTION_NAME='TEST1', QUESTION_TYPE='NB')
 
 assert raw(z) == b'\x00\x00\x01\x10\x00\x01\x00\x00\x00\x00\x00\x00 FEEFFDFEDBCACACACACACACACACACACA\x00\x00 \x00\x01'
 

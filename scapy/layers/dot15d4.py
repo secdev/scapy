@@ -221,6 +221,9 @@ class Dot15d4AuxSecurityHeader(Packet):
                          lambda pkt: pkt.getfieldval("sec_sc_keyidmode") != 0),
     ]
 
+    def extract_padding(self, s):
+        return b"", s
+
 
 class Dot15d4Data(Packet):
     name = "802.15.4 Data"
@@ -233,10 +236,14 @@ class Dot15d4Data(Packet):
                          lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),  # noqa: E501
         # Security field present if fcf_security == True
         ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_security")),  # noqa: E501
     ]
 
     def guess_payload_class(self, payload):
+        # Encrypted payloads (sec_sc_seclevel >= 4) cannot be dissected further
+        if self.aux_sec_header is not None and \
+                self.aux_sec_header.sec_sc_seclevel >= 4:
+            return conf.raw_layer
         # TODO: See how it's done in wireshark:
         # https://github.com/wireshark/wireshark/blob/93c60b3b7c801dddd11d8c7f2a0ea4b7d02d700a/epan/dissectors/packet-ieee802154.c#L2061  # noqa: E501
         # it's too magic to me
@@ -268,7 +275,7 @@ class Dot15d4Beacon(Packet):
         dot15d4AddressField("src_addr", None, length_of="fcf_srcaddrmode"),
         # Security field present if fcf_security == True
         ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_security")),  # noqa: E501
 
         # Superframe spec field:
         BitField("sf_sforder", 15, 4),  # not used by ZigBee
@@ -306,6 +313,13 @@ class Dot15d4Beacon(Packet):
         # TODO beacon payload
     ]
 
+    def guess_payload_class(self, payload):
+        # Encrypted payloads (sec_sc_seclevel >= 4) cannot be dissected further
+        if self.aux_sec_header is not None and \
+                self.aux_sec_header.sec_sc_seclevel >= 4:
+            return conf.raw_layer
+        return Packet.guess_payload_class(self, payload)
+
     def mysummary(self):
         return self.sprintf("802.15.4 Beacon ( %Dot15d4Beacon.src_panid%:%Dot15d4Beacon.src_addr% ) assocPermit(%Dot15d4Beacon.sf_assocpermit%) panCoord(%Dot15d4Beacon.sf_pancoord%)")  # noqa: E501
 
@@ -323,7 +337,7 @@ class Dot15d4Cmd(Packet):
                          lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),  # noqa: E501
         # Security field present if fcf_security == True
         ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_security")),  # noqa: E501
         ByteEnumField("cmd_id", 0, {
             1: "AssocReq",  # Association request
             2: "AssocResp",  # Association response
@@ -345,6 +359,10 @@ class Dot15d4Cmd(Packet):
     # command frame payloads are complete: DataReq, PANIDConflictNotify, OrphanNotify, BeaconReq don't have any payload  # noqa: E501
     # Although BeaconReq can have an optional ZigBee Beacon payload (implemented in ZigBeeBeacon)  # noqa: E501
     def guess_payload_class(self, payload):
+        # Encrypted payloads (sec_sc_seclevel >= 4) cannot be dissected further
+        if self.aux_sec_header is not None and \
+                self.aux_sec_header.sec_sc_seclevel >= 4:
+            return conf.raw_layer
         if self.cmd_id == 1:
             return Dot15d4CmdAssocReq
         elif self.cmd_id == 2:

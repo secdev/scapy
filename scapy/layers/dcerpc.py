@@ -180,6 +180,8 @@ DCE_RPC_TRANSFER_SYNTAXES = {
 }
 DCE_RPC_INTERFACES_NAMES = {}
 DCE_RPC_INTERFACES_NAMES_rev = {}
+COM_INTERFACES_NAMES = {}
+COM_INTERFACES_NAMES_rev = {}
 
 
 class DCERPC_Transport(IntEnum):
@@ -449,6 +451,14 @@ class RPC_C_AUTHN_LEVEL(IntEnum):
 
 
 DCE_C_AUTHN_LEVEL = RPC_C_AUTHN_LEVEL  # C706 name
+
+
+class RPC_C_IMP_LEVEL(IntEnum):
+    DEFAULT = 0x0
+    ANONYMOUS = 0x1
+    IDENTIFY = 0x2
+    IMPERSONATE = 0x3
+    DELEGATE = 0x4
 
 
 # C706 sect 13.2.6.1
@@ -1297,9 +1307,12 @@ def register_dcerpc_interface(name, uuid, version, opnums):
             if_version,
             opnums,
         )
+
     # bind for build
     for opnum, operations in opnums.items():
         bind_top_down(DceRpc5Request, operations.request, opnum=opnum)
+        operations.request.opnum = opnum
+        operations.request.intf = uuid
 
 
 def find_dcerpc_interface(name) -> DceRpcInterface:
@@ -1339,6 +1352,8 @@ def register_com_interface(name, uuid, opnums):
     # bind for build
     for opnum, operations in opnums.items():
         bind_top_down(DceRpc5Request, operations.request, opnum=opnum)
+    COM_INTERFACES_NAMES[uuid] = name
+    COM_INTERFACES_NAMES_rev[name.lower()] = uuid
 
 
 def find_com_interface(name) -> ComInterface:
@@ -1446,7 +1461,7 @@ class _NDRPacket(Packet):
                     pass
             raise
 
-    def valueof(self, request):
+    def valueof(self, request: str):
         """
         Util to get the value of a NDRField, ignoring arrays, pointers, etc.
         """
@@ -1935,9 +1950,19 @@ class NDRPacketField(NDRConstructedType, NDRAlign):
     def __init__(self, name, default, pkt_cls, **kwargs):
         self.DEPORTED_CONFORMANTS = pkt_cls.DEPORTED_CONFORMANTS
         self.fld = _NDRPacketField(name, default, pkt_cls=pkt_cls, **kwargs)
+
+        # The inner _NDRPacketPadField handles NDR64's trailing gap in
+        # the case where there a no inner conformants (see [MS-RPCE] 2.2.5.3.4.1)
+        if self.DEPORTED_CONFORMANTS:
+            innerfld = self.fld
+        else:
+            innerfld = _NDRPacketPadField(self.fld, align=pkt_cls.ALIGNMENT)
+
+        # C706 14.3.2 Alignment of Constructed Types is handled by the
+        # NDRAlign below.
         NDRAlign.__init__(
             self,
-            _NDRPacketPadField(self.fld, align=pkt_cls.ALIGNMENT),
+            innerfld,
             align=pkt_cls.ALIGNMENT,
         )
         NDRConstructedType.__init__(self, pkt_cls.fields_desc)
@@ -1988,11 +2013,12 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
     islist = 1
     holds_packets = 1
 
-    __slots__ = ["ptr_pack", "fld"]
+    __slots__ = ["ptr_lvl", "fld"]
 
     def __init__(self, name, default, pkt_cls, **kwargs):
-        self.ptr_pack = kwargs.pop("ptr_pack", False)
-        if self.ptr_pack:
+        self.ptr_lvl = kwargs.pop("ptr_lvl", False)
+        if self.ptr_lvl:
+            # TODO: support more than 1 level ?
             self.fld = NDRFullEmbPointerField(NDRPacketField("", None, pkt_cls))
         else:
             self.fld = NDRPacketField("", None, pkt_cls)
@@ -2034,7 +2060,6 @@ class NDRFieldListField(NDRConstructedType, FieldListField):
     islist = 1
 
     def __init__(self, *args, **kwargs):
-        kwargs.pop("ptr_pack", None)  # TODO: unimplemented
         if "length_is" in kwargs:
             kwargs["count_from"] = kwargs.pop("length_is")
         elif "size_is" in kwargs:
@@ -2090,6 +2115,9 @@ class _NDRVarField:
             kwargs["length_from"] = length_is
         elif self.COUNT_FROM:
             kwargs["count_from"] = length_is
+        # TODO: For now, we do nothing with max_is
+        if "max_is" in kwargs:
+            kwargs.pop("max_is")
         super(_NDRVarField, self).__init__(*args, **kwargs)
 
     def getfield(self, pkt, s):
@@ -2213,13 +2241,23 @@ class _NDRConfField:
                 kwargs["length_from"] = size_is
             elif self.COUNT_FROM:
                 kwargs["count_from"] = size_is
+        # TODO: For now, we do nothing with max_is
+        if "max_is" in kwargs:
+            kwargs.pop("max_is")
         super(_NDRConfField, self).__init__(*args, **kwargs)
 
     def getfield(self, pkt, s):
         # [C706] - 14.3.7 Structures Containing Arrays
         fmt = _e(pkt.ndrendian) + ["I", "Q"][pkt.ndr64]
         if self.conformant_in_struct:
-            return super(_NDRConfField, self).getfield(pkt, s)
+            # [MS-RPCE] 2.2.5.3.4.2 Structure Containing a Conformant Array
+            # Padding is here: just before the Conformant content
+            return NDRAlign(
+                super(_NDRConfField, self),
+                align=pkt.ALIGNMENT,
+            ).getfield(pkt, s)
+
+        # The max count is aligned as a primitive type
         remain, max_count = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).getfield(
             pkt, s
         )
@@ -2230,7 +2268,12 @@ class _NDRConfField:
 
     def addfield(self, pkt, s, val):
         if self.conformant_in_struct:
-            return super(_NDRConfField, self).addfield(pkt, s, val)
+            # [MS-RPCE] 2.2.5.3.4.2 Structure Containing a Conformant Array
+            # Padding is here: just before the Conformant content
+            return NDRAlign(super(_NDRConfField, self), align=pkt.ALIGNMENT).addfield(
+                pkt, s, val
+            )
+
         if self.CONFORMANT_STRING and not isinstance(val, NDRConformantString):
             raise ValueError(
                 "Expected NDRConformantString in %s. You are using it wrong!"
@@ -2375,6 +2418,22 @@ class NDRConfStrLenFieldUtf16(_NDRConfField, _NDRValueOf, StrLenFieldUtf16, _NDR
     CONFORMANT_STRING = True
     ON_WIRE_SIZE_UTF16 = False
     LENGTH_FROM = True
+
+
+class NDRVarStrNullField(_NDRVarField, _NDRValueOf, StrNullField):
+    """
+    NDR Varying StrNullField
+    """
+
+    NULLFIELD = True
+
+
+class NDRVarStrNullFieldUtf16(_NDRVarField, _NDRValueOf, StrNullFieldUtf16, _NDRUtf16):
+    """
+    NDR Varying StrNullFieldUtf16
+    """
+
+    NULLFIELD = True
 
 
 class NDRVarStrLenField(_NDRVarField, StrLenField):
@@ -2766,9 +2825,10 @@ class DceRpcSession(DefaultSession):
         self.ssp = kwargs.pop("ssp", None)
         self.sspcontext = kwargs.pop("sspcontext", None)
         self.auth_level = kwargs.pop("auth_level", None)
-        self.auth_context_id = kwargs.pop("auth_context_id", 0)
         self.sent_cont_ids = []
         self.cont_id = 0  # Currently selected context
+        self.auth_context_id = 0  # Currently selected authentication context
+        self.assoc_group_id = 0  # Currently selected association group
         self.map_callid_opnum = {}
         self.frags = collections.defaultdict(lambda: b"")
         self.sniffsspcontexts = {}  # Unfinished contexts for passive
@@ -2814,6 +2874,8 @@ class DceRpcSession(DefaultSession):
                     finally:
                         self.sent_cont_ids = []
 
+                    self.assoc_group_id = pkt.assoc_group_id
+
                     # Endianness
                     self.ndrendian = {0: "big", 1: "little"}[pkt[DceRpc5].endian]
 
@@ -2823,18 +2885,20 @@ class DceRpcSession(DefaultSession):
         elif DceRpc5Request in pkt:
             # request => match opnum with callID
             opnum = pkt.opnum
+            uid = (self.assoc_group_id, pkt.call_id)
             if self.rpc_bind_is_com:
-                self.map_callid_opnum[pkt.call_id] = (
+                self.map_callid_opnum[uid] = (
                     opnum,
                     pkt[DceRpc5Request].payload.payload,
                 )
             else:
-                self.map_callid_opnum[pkt.call_id] = opnum, pkt[DceRpc5Request].payload
+                self.map_callid_opnum[uid] = opnum, pkt[DceRpc5Request].payload
         elif DceRpc5Response in pkt:
             # response => get opnum from table
+            uid = (self.assoc_group_id, pkt.call_id)
             try:
-                opnum, opts["request_packet"] = self.map_callid_opnum[pkt.call_id]
-                del self.map_callid_opnum[pkt.call_id]
+                opnum, opts["request_packet"] = self.map_callid_opnum[uid]
+                del self.map_callid_opnum[uid]
             except KeyError:
                 log_runtime.info("Unknown call_id %s in DCE/RPC session" % pkt.call_id)
         # Bind / Alter request/response specific
@@ -2857,7 +2921,7 @@ class DceRpcSession(DefaultSession):
         """
         Function to defragment DCE/RPC packets.
         """
-        uid = pkt.call_id
+        uid = (self.assoc_group_id, pkt.call_id)
         if pkt.pfc_flags.PFC_FIRST_FRAG and pkt.pfc_flags.PFC_LAST_FRAG:
             # Not fragmented
             return body
@@ -3283,18 +3347,21 @@ class DceRpcSocket(StreamSocket):
         self.session = DceRpcSession(
             ssp=kwargs.pop("ssp", None),
             auth_level=kwargs.pop("auth_level", None),
-            auth_context_id=kwargs.pop("auth_context_id", None),
             support_header_signing=kwargs.pop("support_header_signing", True),
         )
         super(DceRpcSocket, self).__init__(*args, **kwargs)
 
-    def send(self, x, **kwargs):
+    def send(self, x, is_sr1=False, **kwargs):
         for pkt in self.session.out_pkt(x):
             if self.transport == DCERPC_Transport.NCACN_NP:
                 # In this case DceRpcSocket wraps a SMB_RPC_SOCKET, call it directly.
-                self.ins.send(pkt, **kwargs)
+                self.ins.send(pkt, is_sr1=is_sr1, **kwargs)
             else:
                 super(DceRpcSocket, self).send(pkt, **kwargs)
+
+    def sr1(self, *args, **kwargs):
+        # We allow to use IOCTL only when sr1() is used, as we expect an answer.
+        return super(DceRpcSocket, self).sr1(*args, is_sr1=True, **kwargs)
 
     def recv(self, x=None):
         pkt = super(DceRpcSocket, self).recv(x)

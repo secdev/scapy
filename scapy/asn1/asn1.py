@@ -126,13 +126,13 @@ class ASN1Codec(EnumElement):
         # type: (Type[BERcodec_Object[Any]]) -> None
         cls._stem = stem
 
-    def dec(cls, s, context=None):
-        # type: (bytes, Optional[Type[ASN1_Class]]) -> ASN1_Object[Any]
-        return cls._stem.dec(s, context=context)  # type: ignore
+    def dec(cls, s, context=None, _depth=0):
+        # type: (bytes, Optional[Type[ASN1_Class]], int) -> ASN1_Object[Any]
+        return cls._stem.dec(s, context=context, _depth=_depth)  # type: ignore
 
-    def safedec(cls, s, context=None):
-        # type: (bytes, Optional[Type[ASN1_Class]]) -> ASN1_Object[Any]
-        return cls._stem.safedec(s, context=context)  # type: ignore
+    def safedec(cls, s, context=None, _depth=0):
+        # type: (bytes, Optional[Type[ASN1_Class]], int) -> ASN1_Object[Any]
+        return cls._stem.safedec(s, context=context, _depth=_depth)  # type: ignore
 
     def get_stem(cls):
         # type: () -> type
