@@ -1009,6 +1009,49 @@ class Packet(
 
         return None
 
+    def initialize_volatile_field(self, field_obj):
+        """
+        Set up a VolatileValue so forward() can drive it: state_pos, default,
+        min/max all need to be concrete before anything does
+        field_obj.state_pos += 1. Used both the first time a field becomes
+        part of an active fuzzing state, and whenever
+        resync_multiple_type_fields() swaps in a freshly-created
+        VolatileValue for a MultipleTypeField mid-run.
+        """
+        if hasattr(field_obj, "default"):
+            # Some fields have a 'default'
+            if type(field_obj.default).__name__ in ['str', 'bytes', 'tuple']:
+                # Store the value so we can use it
+                field_obj.default = field_obj.default
+            elif type(field_obj.default).__name__ == 'int':
+                field_obj.state_pos = field_obj.default
+            else:
+                field_obj.default = None
+
+        # Some fields don't have a 'default', try to use 'min'
+        if hasattr(field_obj, "min") and type(field_obj.min).__name__ == 'int':
+            field_obj.state_pos = field_obj.min
+
+            if not hasattr(field_obj, "default") or field_obj.default is None:
+                # set it to something if it doesn't have a value
+                field_obj.default = field_obj.min
+        else:
+            # Some have nothing
+            field_obj.default = 0
+            field_obj.min = 0
+            field_obj.state_pos = 0
+
+        # RandString has a 'size' rather than max
+        if hasattr(field_obj, 'size'):
+            if isinstance(field_obj.size, int):
+                field_obj.max = field_obj.size
+            else:
+                field_obj.max = field_obj.size.max
+
+        # Make sure it exists
+        if not hasattr(field_obj, 'max'):
+            field_obj.max = field_obj.min
+
     def resync_multiple_type_fields(self, pkt):
         """
         A MultipleTypeField's concrete field (and therefore the shape of
@@ -1038,6 +1081,7 @@ class Packet(
                 continue
 
             fresh.default = resolved_fld.default
+            self.initialize_volatile_field(fresh)
             pkt.default_fields[f.name] = fresh
 
             # Drop any raw value of the now-wrong type sitting in 'fields'
@@ -1079,39 +1123,7 @@ class Packet(
                                    f"isn't VolatileValue: {type(field_obj)=}, was scapy.all.fuzz called?")
                             raise ValueError(err)
 
-                        if hasattr(field_obj, "default"):
-                            # Some fields have a 'default'
-                            if type(field_obj.default).__name__ in ['str', 'bytes', 'tuple']:
-                                # Store the value so we can use it
-                                field_obj.default = field_obj.default
-                            elif type(field_obj.default).__name__ == 'int':
-                                field_obj.state_pos = field_obj.default
-                            else:
-                                field_obj.default = None
-
-                        # Some fields don't have a 'default', try to use 'min'
-                        if hasattr(field_obj, "min") and type(field_obj.min).__name__ == 'int':
-                            field_obj.state_pos = field_obj.min
-
-                            if not hasattr(field_obj, "default") or field_obj.default is None:
-                                # set it to something if it doesn't have a value
-                                field_obj.default = field_obj.min
-                        else:
-                            # Some have nothing
-                            field_obj.default = 0
-                            field_obj.min = 0
-                            field_obj.state_pos = 0
-
-                        # RandString has a 'size' rather than max
-                        if hasattr(field_obj, 'size'):
-                            if isinstance(field_obj.size, int):
-                                field_obj.max = field_obj.size
-                            else:
-                                field_obj.max = field_obj.size.max
-
-                        # Make sure it exists
-                        if not hasattr(field_obj, 'max'):
-                            field_obj.max = field_obj.min
+                        self.initialize_volatile_field(field_obj)
 
                 break
 
