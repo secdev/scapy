@@ -434,7 +434,7 @@ class SockAddrsField(FieldListField):
     holds_packets = 1
 
     def __init__(self, name):
-        if not IS_64BITS or DARWIN:
+        if (not IS_64BITS and not NETBSD) or DARWIN:
             align = 4
         else:
             align = 8
