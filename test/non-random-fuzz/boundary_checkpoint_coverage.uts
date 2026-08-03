@@ -68,6 +68,59 @@ assert 1 not in without_boundaries, (
 )
 
 
+= boundary_values=True supplements the uniform jump walk instead of replacing it
+
+# Regression: _boundary_checkpoints() always includes the field's own max
+# as a candidate, and checkpoints drain in ascending sorted order, so max
+# is always the LAST checkpoint popped. The very next _advance_state_pos()
+# call then did state_pos += jump from max, immediately overshooting it and
+# marking the field done - the uniform jump walk never got to run at all,
+# so boundary_values=True silently replaced sampling instead of
+# supplementing it, contradicting prepare_combinations()'s own docstring.
+
+FIELD4 = "PPTP Start Control Connection Request:maximum_channels"
+
+def isolate_field_state4(states, field_name):
+    return [s for s in states if s['fields'][0]['name'] == field_name]
+
+def collect_state_pos_sequence4(boundary_values, max_samples_per_field=128):
+    pkt = fuzz(PPTP() / PPTPStartControlConnectionRequest())
+    states = pkt.prepare_combinations(
+        1, max_samples_per_field=max_samples_per_field, boundary_values=boundary_values
+    )
+    target_states = isolate_field_state4(states, FIELD4)
+    seen = []
+    continue_to_fuzz = True
+    iterations = 0
+    while continue_to_fuzz and iterations < 5000:
+        target_states, continue_to_fuzz = pkt.forward(target_states)
+        (_, field_obj) = pkt.locate_field(pkt, FIELD4)
+        seen.append(field_obj.state_pos)
+        iterations += 1
+    return seen
+
+without = collect_state_pos_sequence4(boundary_values=False)
+with_boundaries = collect_state_pos_sequence4(boundary_values=True)
+
+assert len(set(with_boundaries)) >= len(set(without)), (
+    f"boundary_values=True sampled only {len(set(with_boundaries))} distinct "
+    f"values for {FIELD4!r}, fewer than the {len(set(without))} "
+    "boundary_values=False samples - checkpoints are replacing uniform "
+    "sampling instead of supplementing it"
+)
+
+# Values only the uniform 512-wide jump stride (round(65535/128)) would
+# produce - none of these are boundary checkpoints
+# (0/1/127/128/255/32767/32768/65534/65535).
+uniform_only_samples = {512, 1024, 1536, 2048, 4096, 8192, 16384}
+assert uniform_only_samples & set(with_boundaries), (
+    "boundary_values=True never reached any plain uniform-jump sample "
+    f"({sorted(uniform_only_samples)}) for {FIELD4!r} - it stopped as soon "
+    "as its boundary checkpoints ran out instead of continuing the normal "
+    "jump walk"
+)
+
+
 = max_samples_per_field tunes how many distinct values a field gets sampled at
 ~ fuzzing pptp
 

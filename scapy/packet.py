@@ -1142,6 +1142,11 @@ class Packet(
         field_obj._pending_checkpoints = (
             self._boundary_checkpoints(field_obj) if boundary_values else []
         )
+        # Independent cursor for the uniform jump walk, so that draining
+        # boundary checkpoints (which can leave state_pos sitting anywhere,
+        # including field_obj.max) never perturbs where the jump walk
+        # itself has gotten to - see _advance_state_pos().
+        field_obj._jump_pos = field_obj.state_pos
 
     def _boundary_checkpoints(self, field_obj):
         """
@@ -1178,6 +1183,13 @@ class Packet(
         falls back to today's uniform jump sampling for the rest of the
         budget. With no pending checkpoints (the default), this is exactly
         the old inlined jump-stepping logic.
+
+        The uniform walk advances its own _jump_pos cursor rather than
+        state_pos directly: checkpoints (whose candidates include
+        field_obj.max) can leave state_pos sitting anywhere, and stepping
+        from there would let a checkpoint immediately overshoot max and
+        end the field early, replacing the walk instead of supplementing
+        it.
         """
         pending = getattr(field_obj, '_pending_checkpoints', None)
         while pending:
@@ -1186,11 +1198,14 @@ class Packet(
                 field_obj.state_pos = candidate
                 return
 
+        jump_pos = getattr(field_obj, '_jump_pos', field_obj.min)
         if field_obj.max - field_obj.min > max_samples:
             jump = round((field_obj.max - field_obj.min) / max_samples)
-            field_obj.state_pos += jump
+            jump_pos += jump
         else:
-            field_obj.state_pos += 1
+            jump_pos += 1
+        field_obj._jump_pos = jump_pos
+        field_obj.state_pos = jump_pos
 
     def _write_list_index(self, packet_holder, field_name, list_idx, new_value):
         """
