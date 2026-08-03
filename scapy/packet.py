@@ -1190,6 +1190,15 @@ class Packet(
         from there would let a checkpoint immediately overshoot max and
         end the field early, replacing the walk instead of supplementing
         it.
+
+        _jump_pos always exists by the time a normal (prepare_combinations
+        -driven) field reaches here, seeded by initialize_volatile_field().
+        The getattr() fallback is only for a field whose state_pos was
+        seeded directly by the caller instead - e.g. a hand-crafted
+        'active': True state that bypasses initialize_volatile_field()
+        entirely. Falling back to field_obj.state_pos (not field_obj.min)
+        keeps that case advancing from wherever state_pos already is,
+        instead of silently discarding the caller's seeded progress.
         """
         pending = getattr(field_obj, '_pending_checkpoints', None)
         while pending:
@@ -1198,7 +1207,7 @@ class Packet(
                 field_obj.state_pos = candidate
                 return
 
-        jump_pos = getattr(field_obj, '_jump_pos', field_obj.min)
+        jump_pos = getattr(field_obj, '_jump_pos', field_obj.state_pos)
         if field_obj.max - field_obj.min > max_samples:
             jump = round((field_obj.max - field_obj.min) / max_samples)
             jump_pos += jump
@@ -1461,6 +1470,13 @@ class Packet(
                         raise ValueError("field_fuzzed.default is not int")
                     else:
                         field_fuzzed.state_pos = field_fuzzed.default
+                    # Keep the uniform jump walk's own cursor in sync with
+                    # this reset - a field that gets carried into again
+                    # later (complexity >= 2) resumes _advance_state_pos()
+                    # from _jump_pos, not state_pos; leaving it stale at
+                    # its old near-max value would overshoot on the very
+                    # next call and end this field's new cycle instantly.
+                    field_fuzzed._jump_pos = field_fuzzed.state_pos
 
                     if field_name is not None and field_name in packet_holder.fields:
                         if isinstance(packet_holder.fields[field_name], list):
@@ -1526,6 +1542,11 @@ class Packet(
                                     raise ValueError("field_fuzzed.default is not int")
                                 else:
                                     field_fuzzed.state_pos = field_fuzzed.default
+                                # See the matching comment on the main
+                                # advance path above - this field may
+                                # itself be carried into again by a still
+                                # further-out field at higher complexity.
+                                field_fuzzed._jump_pos = field_fuzzed.state_pos
                                 next_field['done'] = True
 
                             self.resync_multiple_type_fields(next_field_holder)
@@ -1546,6 +1567,14 @@ class Packet(
                                     raise ValueError("field_fuzzed.default is not int")
                                 else:
                                     field_fuzzed.state_pos = field_fuzzed.default
+                                # This is the actual carry restart: without
+                                # re-syncing _jump_pos here too, the next
+                                # _advance_state_pos() call on this field
+                                # resumes from its stale near-max cursor
+                                # and overshoots immediately, ending the
+                                # new cycle before it visits anything past
+                                # this reset value.
+                                field_fuzzed._jump_pos = field_fuzzed.state_pos
 
                                 self.resync_multiple_type_fields(curr_field_holder)
 

@@ -1,0 +1,133 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% a field carried into more than once (complexity >= 2) must fully re-walk
+% its own range on EVERY carry cycle, not just once
+
+# This reproduces a regression introduced by the commit that added
+# Packet._advance_state_pos()'s '_jump_pos' cursor (fixing
+# boundary_values=True replacing uniform sampling instead of supplementing
+# it - see boundary_checkpoint_coverage.uts). _jump_pos is only ever
+# (re)assigned inside initialize_volatile_field(), which forward() calls
+# just ONCE per field per active state (when 'was_active' is False). But
+# forward()'s carry logic - when the faster/inner field of a pair overflows
+# past its max and control carries into the next field - resets the inner
+# field's state_pos directly back to 'default', WITHOUT calling
+# initialize_volatile_field() again. _jump_pos was therefore never reset
+# alongside it: on the inner field's SECOND and every later cycle,
+# _advance_state_pos() resumed its jump math from the stale, already
+# -at-or-past-max _jump_pos, immediately overflowed, and the field was
+# marked done again before it ever got to revisit any of its own values a
+# second time.
+#
+# Net effect: in ANY prepare_combinations(N>=2) result, every field other
+# than the single outermost/slowest one in a combo effectively only got ONE
+# real cycle through its range for the entire run - total combination
+# counts for complexity 2+ were drastically undercounted (close to
+# distinct_inner + distinct_outer instead of the expected
+# distinct_inner * distinct_outer odometer product). This affected the
+# DEFAULT path (boundary_values=False) just as much as
+# boundary_values=True.
+#
+# Fixed by syncing _jump_pos to the freshly-reset state_pos everywhere
+# forward() force-resets a field's state_pos to a cycle-start value (both
+# the main overflow-reset path and the two carry-loop reset blocks), and by
+# falling back to the field's own CURRENT state_pos (not field_obj.min)
+# when _jump_pos doesn't exist at all yet - covering a hand-crafted state
+# that seeds state_pos directly, bypassing initialize_volatile_field()
+# entirely (see forward_hand_crafted_states.uts's "already mid-cycle" case,
+# which this same regression also broke).
+
+############
+############
++ forward() must fully re-walk a carried-into field's range on every cycle
+
+= A wide-range field pair produces close to the full odometer product, not a collapsed sum
+~ fuzzing packet
+
+# A synthetic two-field packet, not a real protocol field, specifically to
+# keep 'default' == 'min' for both fields - PPTP's own wide ShortFields
+# (e.g. maximum_channels) default to their own MAX instead, a separate,
+# already-documented edge case (forward_reused_field_complexity_undercount
+# .uts) that would otherwise mask/confound this particular regression.
+
+class TwoFieldPacket(Packet):
+    name = "TwoFieldPacket"
+    fields_desc = [
+        ByteField("inner", 0),
+        ShortField("outer", 0),
+    ]
+
+FIELD_INNER = "TwoFieldPacket:inner"
+FIELD_OUTER = "TwoFieldPacket:outer"
+
+def build_two_field_packet():
+    return fuzz(TwoFieldPacket())
+
+def standalone_distinct_count(field_name):
+    pkt = build_two_field_packet()
+    states = pkt.prepare_combinations(1)
+    target = [s for s in states if s['fields'][0]['name'] == field_name]
+    seen = set()
+    continue_to_fuzz = True
+    while continue_to_fuzz:
+        target, continue_to_fuzz = pkt.forward(target)
+        (_, field_obj) = pkt.locate_field(pkt, field_name)
+        seen.add(field_obj.state_pos)
+    return len(seen)
+
+pkt = build_two_field_packet()
+states = pkt.prepare_combinations(2)
+assert len(states) == 1, f"expected exactly one (inner, outer) pair state, got {len(states)}"
+target_states = states
+
+continue_to_fuzz = True
+while continue_to_fuzz:
+    target_states, continue_to_fuzz = pkt.forward(target_states)
+
+combinations = target_states[0]['combinations']
+
+distinct_inner = standalone_distinct_count(FIELD_INNER)
+distinct_outer = standalone_distinct_count(FIELD_OUTER)
+naive_product = distinct_inner * distinct_outer
+
+# The regression collapsed this down to roughly distinct_inner +
+# distinct_outer (each carry cycle immediately overflowing after a single
+# step) - a proper odometer should land in the same order of magnitude as
+# the full product.
+assert combinations > naive_product // 2, (
+    f"total combinations ({combinations}) is far below the expected order "
+    f"of magnitude (~{naive_product}, from {distinct_inner} x "
+    f"{distinct_outer} standalone samples) - the inner field is not being "
+    "fully re-walked on every carry (stale Packet._jump_pos - see "
+    "_advance_state_pos()/forward()'s carry-reset blocks)"
+)
+
+
+= A field seeded mid-cycle by a hand-crafted state still advances forward, not backward
+~ fuzzing packet inet
+
+# Companion case for the same regression: a caller that seeds state_pos
+# directly (bypassing initialize_volatile_field(), e.g. to reproduce one
+# specific crash) must have forward() continue from THAT position, not
+# silently reset progress because the internal _jump_pos cursor was never
+# initialized for this field.
+
+pkt = fuzz(IP(dst="192.168.1.1"))
+_, ttl_obj = pkt.locate_field(pkt, "IP:ttl")
+ttl_obj.state_pos = 50
+ttl_obj.min = 0
+ttl_obj.max = 255
+ttl_obj.default = 64
+
+states = [
+    {
+        "active": True,
+        "done": False,
+        "combinations": 0,
+        "fields": [
+            {"name": "IP:ttl", "done": False, "combinations": 0, "active": True}
+        ],
+    }
+]
+states, continue_to_fuzz = pkt.forward(states)
+
+assert ttl_obj.state_pos > 50
