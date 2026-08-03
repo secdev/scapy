@@ -1,0 +1,180 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% prepare_combinations()'s new max_samples_per_field/boundary_values knobs
+
+# Uniform jump sampling (round((max-min)/128) starting at min) is never
+# guaranteed to land exactly on a field's own boundary values - min, max,
+# their immediate neighbors, or width-specific 'magic' constants like
+# 0x7fff/0x8000/0xffff. Several bugs already found on this branch
+# (PPTPStartControlConnectionRequest.maximum_channels sitting exactly on
+# its own max, magic_cookie's boundary) were specifically about these exact
+# edge values. prepare_combinations() gained two opt-in parameters:
+# boundary_values=True front-loads a queue of such checkpoints for every
+# fuzzed field (Packet._boundary_checkpoints()/_advance_state_pos()), and
+# max_samples_per_field replaces the previously hardcoded 128-sample cap.
+#
+# Both default to today's exact prior behavior (max_samples_per_field=128,
+# boundary_values=False) so any existing caller that doesn't pass these
+# keeps producing the exact same sequence of fuzzed values and combination
+# counts as before this change.
+#
+# Each test below isolates a SINGLE field's state out of
+# prepare_combinations()'s full result (the same "drive one field's state
+# in isolation" pattern used by forward_reused_field_complexity_undercount
+# .uts), so the collected state_pos sequence is driven by that field alone
+# - not interleaved with every other fuzzable field on the packet.
+
+############
+############
++ prepare_combinations() boundary_values/max_samples_per_field
+
+= boundary_values=True guarantees edge state_pos values for a wide ShortField
+~ fuzzing pptp
+
+FIELD = "PPTP Start Control Connection Request:maximum_channels"
+
+def isolate_field_state(states, field_name):
+    return [s for s in states if s['fields'][0]['name'] == field_name]
+
+def collect_state_pos_sequence(boundary_values, max_samples_per_field=128):
+    pkt = fuzz(PPTP() / PPTPStartControlConnectionRequest())
+    states = pkt.prepare_combinations(
+        1, max_samples_per_field=max_samples_per_field, boundary_values=boundary_values
+    )
+    target_states = isolate_field_state(states, FIELD)
+    seen = []
+    continue_to_fuzz = True
+    iterations = 0
+    while continue_to_fuzz and iterations < 5000:
+        target_states, continue_to_fuzz = pkt.forward(target_states)
+        (_, field_obj) = pkt.locate_field(pkt, FIELD)
+        seen.append(field_obj.state_pos)
+        iterations += 1
+    return seen
+
+with_boundaries = collect_state_pos_sequence(boundary_values=True)
+
+# maximum_channels is a ShortField: min=0, max=65535. min itself is never
+# externally observed even without boundary_values (initializing state_pos
+# to min and advancing it happen within the same forward() call), so the
+# guarantee is about min's neighbor and every other edge/magic value.
+for edge in (1, 127, 128, 255, 32767, 32768, 65534, 65535):
+    assert edge in with_boundaries, f"boundary value {edge} was never sampled"
+
+without_boundaries = collect_state_pos_sequence(boundary_values=False)
+assert 1 not in without_boundaries, (
+    "boundary_values=False must not inject checkpoints - only min's "
+    "neighbor (1) should ever appear if the plain jump stride happens to "
+    "land there, which it doesn't for this field's 512-wide jump"
+)
+
+
+= max_samples_per_field tunes how many distinct values a field gets sampled at
+~ fuzzing pptp
+
+FIELD2 = "PPTP Start Control Connection Request:maximum_channels"
+
+def isolate_field_state2(states, field_name):
+    return [s for s in states if s['fields'][0]['name'] == field_name]
+
+def distinct_sample_count(max_samples_per_field):
+    pkt = fuzz(PPTP() / PPTPStartControlConnectionRequest())
+    states = pkt.prepare_combinations(1, max_samples_per_field=max_samples_per_field)
+    target_states = isolate_field_state2(states, FIELD2)
+    seen = set()
+    continue_to_fuzz = True
+    iterations = 0
+    while continue_to_fuzz and iterations < 5000:
+        target_states, continue_to_fuzz = pkt.forward(target_states)
+        (_, field_obj) = pkt.locate_field(pkt, FIELD2)
+        seen.add(field_obj.state_pos)
+        iterations += 1
+    return len(seen)
+
+narrow = distinct_sample_count(16)
+default_width = distinct_sample_count(128)
+wide = distinct_sample_count(512)
+
+assert narrow < default_width < wide
+
+
+= Calling prepare_combinations() with no new arguments reproduces the exact prior jump sequence
+~ fuzzing pptp
+
+FIELD3 = "PPTP Start Control Connection Request:maximum_channels"
+
+def isolate_field_state3(states, field_name):
+    return [s for s in states if s['fields'][0]['name'] == field_name]
+
+def historic_jump_sequence(min_val, max_val, default_val):
+    # Re-derives forward()'s pre-existing (hardcoded 128) jump math, as a
+    # pinned reference independent of _advance_state_pos()'s implementation.
+    seq = []
+    state_pos = min_val
+    while True:
+        if max_val - min_val > 128:
+            jump = round((max_val - min_val) / 128)
+            state_pos += jump
+        else:
+            state_pos += 1
+        if state_pos > max_val:
+            seq.append(default_val)
+            break
+        seq.append(state_pos)
+    return seq
+
+pkt = fuzz(PPTP() / PPTPStartControlConnectionRequest())
+states = pkt.prepare_combinations(1)  # no kwargs at all
+target_states = isolate_field_state3(states, FIELD3)
+
+actual = []
+continue_to_fuzz = True
+iterations = 0
+while continue_to_fuzz and iterations < 5000:
+    target_states, continue_to_fuzz = pkt.forward(target_states)
+    (_, field_obj) = pkt.locate_field(pkt, FIELD3)
+    actual.append(field_obj.state_pos)
+    iterations += 1
+
+expected = historic_jump_sequence(0, 65535, 65535)
+assert actual == expected
+
+
+############
+############
++ Backward compatibility: default-argument behavior is byte-for-byte unchanged
+
+= prepare_combinations(1) with no new kwargs reproduces the pinned pre-change fingerprint
+~ fuzzing pptp
+
+# This pins the ACTUAL output of a full prepare_combinations(1) + forward()
+# run to completion (all ~18 relevant fields on PPTP()/
+# PPTPStartControlConnectionRequest(), every field driven to its own
+# 'done'), captured by running this exact script against the pre-change
+# scapy/packet.py (before max_samples_per_field/boundary_values existed).
+# Unlike the pinned-math reference above (which only re-derives the jump
+# formula for a single isolated field), this drives the real multi-field
+# prepare_combinations(1) output end-to-end and hashes every built packet's
+# raw bytes - the strongest available guarantee that a caller who doesn't
+# pass the new arguments gets identical behavior, not just an equivalent
+# re-implementation.
+
+import hashlib
+
+pkt = fuzz(PPTP() / PPTPStartControlConnectionRequest())
+states = pkt.prepare_combinations(1)  # no kwargs at all - must match old behavior exactly
+
+total_iterations = 0
+h = hashlib.sha256()
+continue_to_fuzz = True
+while continue_to_fuzz:
+    states, continue_to_fuzz = pkt.forward(states)
+    h.update(bytes(pkt))
+    total_iterations += 1
+
+total_combinations = sum(s['combinations'] for s in states)
+
+# Captured from the pre-change implementation (git stash of scapy/packet.py
+# back to before this feature, same script, same packet).
+assert total_iterations == 2167
+assert total_combinations == 2166
+assert h.hexdigest() == "25c5b3160395042bd629b5a806e9d71bd4137f39c317fe26464e72e36e2566f2"

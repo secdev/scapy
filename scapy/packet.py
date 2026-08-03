@@ -1014,8 +1014,28 @@ class Packet(
         return pkt.locate_field(pkt.payload, name)
 
 
-    def prepare_combinations(self, complexity: int) -> List:
-        """Prepare fuzzing by returning a 'states' of fields"""
+    def prepare_combinations(
+        self,
+        complexity: int,
+        max_samples_per_field: int = 128,
+        boundary_values: bool = False,
+    ) -> List:
+        """
+        Prepare fuzzing by returning a 'states' of fields.
+
+        :param complexity: how many fields are fuzzed together per state
+            (as before).
+        :param max_samples_per_field: caps how many distinct values a
+            single field is sampled at before forward() moves on (replaces
+            the previously hardcoded 128). Defaults to 128, matching prior
+            behavior exactly for callers that don't pass this.
+        :param boundary_values: when True, guarantees each field's exact
+            min/max/off-by-one/type-width 'magic' values (0x7F, 0x80, 0xFF,
+            ...) are visited at least once, in addition to the normal
+            uniform sampling - see Packet._boundary_checkpoints(). Defaults
+            to False, so existing callers see no change in the sequence of
+            values produced or in combination counts.
+        """
         relevant_fields = self.return_relevant_fields(self)
 
         # If there is more than one field, do a combination, otherwise just put it
@@ -1035,7 +1055,14 @@ class Packet(
 
             fields = []
             for field in potential_state:
-                fields.append({'name': field, 'done': False, 'combinations': 0, 'active': False})
+                fields.append({
+                    'name': field,
+                    'done': False,
+                    'combinations': 0,
+                    'active': False,
+                    'max_samples': max_samples_per_field,
+                    'boundary_values': boundary_values,
+                })
 
             state['fields'] = fields
 
@@ -1064,7 +1091,7 @@ class Packet(
 
         return None
 
-    def initialize_volatile_field(self, field_obj):
+    def initialize_volatile_field(self, field_obj, boundary_values=False):
         """
         Set up a VolatileValue so forward() can drive it: state_pos, default,
         min/max all need to be concrete before anything does
@@ -1072,6 +1099,11 @@ class Packet(
         part of an active fuzzing state, and whenever
         resync_multiple_type_fields() swaps in a freshly-created
         VolatileValue for a MultipleTypeField mid-run.
+
+        boundary_values=True additionally seeds a queue of edge-case
+        checkpoints (see _boundary_checkpoints()) that _advance_state_pos()
+        will drain before falling back to uniform jump sampling. Defaults to
+        False so existing callers that don't opt in see no behavior change.
         """
         if hasattr(field_obj, "default"):
             # Some fields have a 'default'
@@ -1106,6 +1138,59 @@ class Packet(
         # Make sure it exists
         if not hasattr(field_obj, 'max'):
             field_obj.max = field_obj.min
+
+        field_obj._pending_checkpoints = (
+            self._boundary_checkpoints(field_obj) if boundary_values else []
+        )
+
+    def _boundary_checkpoints(self, field_obj):
+        """
+        Edge-case state_pos values for field_obj, clipped to [min, max]:
+        the range's own endpoints, their immediate neighbors, the midpoint,
+        and any type-width 'magic' constant that falls inside the range
+        (0x7F/0x80/0xFF/... - classic off-by-one/overflow boundaries).
+        Uniform jump sampling isn't guaranteed to land on any of these when
+        (max - min) doesn't divide evenly by the jump stride.
+        """
+        lo, hi = field_obj.min, field_obj.max
+        if lo > hi:
+            lo, hi = hi, lo
+
+        candidates = {lo, hi}
+        width = hi - lo
+        if width > 0:
+            candidates.add(lo + 1)
+            candidates.add(hi - 1)
+            candidates.add(lo + width // 2)
+
+        for magic in (0, 1, 0x7f, 0x80, 0xff, 0x7fff, 0x8000, 0xffff,
+                      0x7fffffff, 0x80000000, 0xffffffff):
+            if lo <= magic <= hi:
+                candidates.add(magic)
+
+        return sorted(candidates)
+
+    def _advance_state_pos(self, field_obj, max_samples):
+        """
+        Move field_obj.state_pos to its next sample. Drains any pending
+        boundary checkpoints first (guaranteeing edge values are hit
+        regardless of jump alignment - see _boundary_checkpoints()), then
+        falls back to today's uniform jump sampling for the rest of the
+        budget. With no pending checkpoints (the default), this is exactly
+        the old inlined jump-stepping logic.
+        """
+        pending = getattr(field_obj, '_pending_checkpoints', None)
+        while pending:
+            candidate = pending.pop(0)
+            if candidate != field_obj.state_pos:
+                field_obj.state_pos = candidate
+                return
+
+        if field_obj.max - field_obj.min > max_samples:
+            jump = round((field_obj.max - field_obj.min) / max_samples)
+            field_obj.state_pos += jump
+        else:
+            field_obj.state_pos += 1
 
     def _write_list_index(self, packet_holder, field_name, list_idx, new_value):
         """
@@ -1310,7 +1395,10 @@ class Packet(
                     # VolatileValue.__getattr__ into _fix() and raise
                     # AttributeError on the fixed value instead.
                     if not was_active or getattr(field_obj, 'state_pos', None) is None:
-                        self.initialize_volatile_field(field_obj)
+                        self.initialize_volatile_field(
+                            field_obj,
+                            boundary_values=field_item.get('boundary_values', False),
+                        )
 
                 break
 
@@ -1333,12 +1421,7 @@ class Packet(
                     continue
 
                 # print(f"'{field['name']}' {field_fuzzed.state_pos=}")
-                # If there are more than 128 combinations, do jumps
-                if field_fuzzed.max - field_fuzzed.min > 128:
-                    jump = round((field_fuzzed.max - field_fuzzed.min) / 128)
-                    field_fuzzed.state_pos += jump
-                else:
-                    field_fuzzed.state_pos += 1
+                self._advance_state_pos(field_fuzzed, field.get('max_samples', 128))
 
                 field_split = field['name'].split(":")
                 field_name = None
@@ -1420,11 +1503,7 @@ class Packet(
                             # ever moves by 1 per carry, needing up to
                             # (max - min) carries - millions of iterations
                             # for something like a ShortField - to finish.
-                            if field_fuzzed.max - field_fuzzed.min > 128:
-                                jump = round((field_fuzzed.max - field_fuzzed.min) / 128)
-                                field_fuzzed.state_pos += jump
-                            else:
-                                field_fuzzed.state_pos += 1
+                            self._advance_state_pos(field_fuzzed, next_field.get('max_samples', 128))
                             if field_fuzzed.state_pos > field_fuzzed.max:
                                 if type(field_fuzzed.default).__name__ in ['str', 'bytes', 'tuple']:
                                     field_fuzzed.state_pos = 0 # 0 is when we send the default
