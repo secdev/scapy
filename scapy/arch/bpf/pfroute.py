@@ -1064,8 +1064,8 @@ def read_routes():
                 nm = msg.addrs[i]
                 if nm.sa_family == socket.AF_INET:
                     mask = atol(nm.sin_addr)
-                elif nm.sa_family in [0x00, 0xFF]:  # NetBSD
-                    mask = struct.unpack("<I", nm.sa_data[:4].rjust(4, b"\x00"))[0]
+                elif nm.sa_family in [0x00, 0xFF]:  # Darwin, NetBSD
+                    mask = struct.unpack("!I", nm.sa_data[2:].ljust(4, b"\x00"))[0]
                 else:
                     mask = int.from_bytes(nm.sa_data[:4], "big")
                 i += 1
