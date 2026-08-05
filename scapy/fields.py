@@ -440,7 +440,10 @@ class ConditionalField(_FieldContainer):
 
     def __getattr__(self, attr):
         # type: (str) -> Any
-        return getattr(self.fld, attr)
+        try:
+            return getattr(self.fld, attr)
+        except AttributeError:
+            return super().__getattr__(attr)
 
 
 class MultipleTypeField(_FieldContainer):

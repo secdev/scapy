@@ -43,6 +43,11 @@ class CBORPacket_metaclass(Packet_metaclass):
 class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
     CBOR_root = cast('CBORF_field[Any, Any]', None)
 
+    def setfieldval(self, attr, val):
+        fld = cast('CBORF_field', self.get_field(attr))
+        val = fld._wrap(val)
+        super().setfieldval(attr, val)
+
     def self_build(self):
         # type: () -> bytes
         """Build this CBOR packet to wire bytes using CBOR_root.

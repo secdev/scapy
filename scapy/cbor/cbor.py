@@ -296,11 +296,12 @@ class CBOR_Object_metaclass(type):
             'Type[CBOR_Object[Any]]',
             super(CBOR_Object_metaclass, cls).__new__(cls, name, bases, dct)
         )
-        try:
-            c.tag.register_cbor_object(c)
-        except Exception:
-            # Some objects may not have tags yet
-            log_runtime.warning("Failed to register CBOR object %r" % c)
+        if c.tag is not None:
+            try:
+                c.tag.register_cbor_object(c)
+            except Exception:
+                # Some objects may not have tags yet
+                log_runtime.exception("Failed to register CBOR object %r" % c)
         return c
 
 
@@ -367,6 +368,10 @@ class CBOR_NEGATIVE_INTEGER(CBOR_Object[int]):
 class CBOR_BYTE_STRING(CBOR_Object[bytes]):
     """CBOR byte string (major type 2)"""
     tag = CBOR_MajorTypes.BYTE_STRING
+
+    def __repr__(self):
+        # type: () -> str
+        return "<%s[h'%s']>" % (self.__class__.__name__, self.val.hex() if self.val else '')
 
 
 class CBOR_TEXT_STRING(CBOR_Object[str]):

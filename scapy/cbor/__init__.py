@@ -47,6 +47,7 @@ from scapy.cbor.cborcodec import (
 from scapy.cbor.cborfields import (
     CBORF_element,
     CBORF_field,
+    CBORF_ANY,
     CBORF_UNSIGNED_INTEGER,
     CBORF_NEGATIVE_INTEGER,
     CBORF_INTEGER,
@@ -56,12 +57,19 @@ from scapy.cbor.cborfields import (
     CBORF_NULL,
     CBORF_UNDEFINED,
     CBORF_FLOAT,
+    CBORF_SEQUENCE,
+    CBORF_SEQUENCE_OF,
     CBORF_ARRAY,
     CBORF_ARRAY_OF,
+    CBORF_ARRAY_INDEFINITE,
     CBORF_MAP,
     CBORF_SEMANTIC_TAG,
+    CBORF_UNSIGNED_ENUM,
+    CBORF_UNSIGNED_FLAGS,
     CBORF_optional,
+    CBORF_CONDITIONAL,
     CBORF_PACKET,
+    CBORF_BYTE_STRING_PACKET,
 )
 
 __all__ = [
@@ -104,6 +112,7 @@ __all__ = [
     # Field base classes
     "CBORF_element",
     "CBORF_field",
+    "CBORF_ANY",
     # Scalar fields
     "CBORF_UNSIGNED_INTEGER",
     "CBORF_NEGATIVE_INTEGER",
@@ -115,11 +124,18 @@ __all__ = [
     "CBORF_UNDEFINED",
     "CBORF_FLOAT",
     # Structured fields
+    "CBORF_SEQUENCE",
+    "CBORF_SEQUENCE_OF",
     "CBORF_ARRAY",
     "CBORF_ARRAY_OF",
+    "CBORF_ARRAY_INDEFINITE",
     "CBORF_MAP",
     "CBORF_SEMANTIC_TAG",
     # Complex fields
+    "CBORF_UNSIGNED_ENUM",
+    "CBORF_UNSIGNED_FLAGS",
     "CBORF_optional",
+    "CBORF_CONDITIONAL",
     "CBORF_PACKET",
+    "CBORF_BYTE_STRING_PACKET",
 ]

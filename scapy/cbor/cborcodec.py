@@ -69,13 +69,15 @@ class CBOR_Codec_Decoding_Error(CBOR_Decoding_Error):
 
 
 def CBOR_encode_head(major_type, value):
-    # type: (int, int) -> bytes
+    # type: (int, Optional[int]) -> bytes
     """
     Encode CBOR initial byte and additional info.
     Format: 3 bits major type + 5 bits additional info
     """
-    if value < 24:
+    if value is None or value < 24:
         # Value fits in 5 bits
+        if value is None:
+            value = 0x1f
         return chb((major_type << 5) | value)
     elif value < 256:
         # 1-byte value follows
@@ -92,7 +94,7 @@ def CBOR_encode_head(major_type, value):
 
 
 def CBOR_decode_head(s):
-    # type: (bytes) -> Tuple[int, int, bytes]
+    # type: (bytes) -> Tuple[int, Optional[int], bytes]
     """
     Decode CBOR initial byte and additional info.
     Returns: (major_type, value, remaining_bytes)
@@ -134,6 +136,8 @@ def CBOR_decode_head(s):
                 "Not enough bytes for 8-byte value", remaining=s)
         value = struct.unpack(">Q", s[1:9])[0]
         return major_type, value, s[9:]
+    elif additional_info == 31:
+        return major_type, None, s[1:]
     else:
         raise CBOR_Codec_Decoding_Error(
             "Invalid additional info: %d" % additional_info, remaining=s)
