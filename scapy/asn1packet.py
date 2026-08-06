@@ -48,8 +48,8 @@ class ASN1_Packet(Packet, metaclass=ASN1Packet_metaclass):
         # type: () -> bytes
         if self.raw_packet_cache is not None:
             return self.raw_packet_cache
-        return self.ASN1_root.build(self)
+        return self.ASN1_root.build(self)  # type: ignore
 
     def do_dissect(self, x):
         # type: (bytes) -> bytes
-        return self.ASN1_root.dissect(self, x)
+        return self.ASN1_root.dissect(self, x)  # type: ignore

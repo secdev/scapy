@@ -7,8 +7,6 @@ Classes that implement CBOR (Concise Binary Object Representation) data
 structures as packet fields.  Modelled after scapy/asn1fields.py.
 """
 
-import copy
-
 from functools import reduce
 
 from scapy.cbor.cbor import (
@@ -38,7 +36,11 @@ from scapy.cbor.cborcodec import (
     CBORcodec_TEXT_STRING,
     CBORcodec_SIMPLE_AND_FLOAT,
 )
-from scapy.base_classes import BasePacket
+from scapy.libs.codec import (
+    GenericCodecField,
+    GenericCodecField_element,
+    GenericCodecOptionalField,
+)
 from scapy.volatile import (
     RandChoice,
     RandFloat,
@@ -52,7 +54,6 @@ from scapy import packet
 from typing import (
     Any,
     Dict,
-    Generic,
     List,
     Optional,
     Tuple,
@@ -71,7 +72,7 @@ class CBORF_badsequence(Exception):
     pass
 
 
-class CBORF_element(object):
+class CBORF_element(GenericCodecField_element):
     pass
 
 
@@ -83,10 +84,9 @@ _I = TypeVar('_I')  # Internal storage
 _A = TypeVar('_A')  # CBOR object
 
 
-class CBORF_field(CBORF_element, Generic[_I, _A]):
-    holds_packets = 0
-    islist = 0
+class CBORF_field(GenericCodecField[_I, _A], CBORF_element):
     CBOR_tag = None  # type: Optional[Any]
+    _badsequence_error_class = CBORF_badsequence
 
     def __init__(self,
                  name,  # type: str
@@ -110,18 +110,6 @@ class CBORF_field(CBORF_element, Generic[_I, _A]):
         """
         return cast(_A, val)
 
-    def register_owner(self, cls):
-        # type: (Type[CBOR_Packet]) -> None
-        self.owners.append(cls)
-
-    def i2repr(self, pkt, x):
-        # type: (CBOR_Packet, _I) -> str
-        return repr(x)
-
-    def i2h(self, pkt, x):
-        # type: (CBOR_Packet, _I) -> Any
-        return x
-
     def m2i(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> Tuple[_A, bytes]
         raise NotImplementedError("Subclasses must implement m2i")
@@ -139,73 +127,9 @@ class CBORF_field(CBORF_element, Generic[_I, _A]):
         """Encode a raw Python value to CBOR bytes."""
         raise NotImplementedError("Subclasses must implement _encode")
 
-    def any2i(self, pkt, x):
-        # type: (CBOR_Packet, Any) -> _I
-        return cast(_I, x)
-
-    def extract_packet(self,
-                       cls,  # type: Type[CBOR_Packet]
-                       s,  # type: bytes
-                       _underlayer=None,  # type: Optional[CBOR_Packet]
-                       ):
-        # type: (...) -> Tuple[CBOR_Packet, bytes]
-        try:
-            c = cls(s, _underlayer=_underlayer)
-        except CBORF_badsequence:
-            c = packet.Raw(s, _underlayer=_underlayer)  # type: ignore
-        cpad = c.getlayer(packet.Raw)
-        s = b""
-        if cpad is not None:
-            s = cpad.load
-            if cpad.underlayer:
-                del cpad.underlayer.payload
-        return c, s
-
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        return self.i2m(pkt, getattr(pkt, self.name))
-
-    def dissect(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> bytes
-        v, s = self.m2i(pkt, s)
-        self.set_val(pkt, v)
-        return s
-
-    def do_copy(self, x):
-        # type: (Any) -> Any
-        if isinstance(x, list):
-            x = x[:]
-            for i in range(len(x)):
-                if isinstance(x[i], BasePacket):
-                    x[i] = x[i].copy()
-            return x
-        if hasattr(x, "copy"):
-            return x.copy()
-        return x
-
-    def set_val(self, pkt, val):
-        # type: (CBOR_Packet, Any) -> None
-        setattr(pkt, self.name, val)
-
-    def is_empty(self, pkt):
-        # type: (CBOR_Packet) -> bool
-        return getattr(pkt, self.name) is None
-
-    def get_fields_list(self):
-        # type: () -> List[CBORF_field[Any, Any]]
-        return [self]
-
-    def __str__(self):
-        # type: () -> str
-        return repr(self)
-
     def randval(self):
         # type: () -> RandField[_I]
         return cast(RandField[_I], RandNum(0, 2 ** 32))
-
-    def copy(self):
-        # type: () -> CBORF_field[_I, _A]
-        return copy.copy(self)
 
 
 #############################
@@ -814,52 +738,20 @@ class CBORF_SEMANTIC_TAG(CBORF_field[Tuple[int, Any],
 #    Complex CBOR Fields     #
 ##############################
 
-class CBORF_optional(CBORF_element):
+class CBORF_optional(GenericCodecOptionalField, CBORF_element):
     """
     Wrapper making a :class:`CBORF_field` optional.
 
     During decoding, if the next CBOR item does not match the expected major
     type, the field value is set to ``None`` and the stream is left unchanged.
     """
+    _optional_error_classes = (
+        CBOR_Error, CBORF_badsequence, CBOR_Codec_Decoding_Error
+    )
 
     def __init__(self, field):
         # type: (CBORF_field[Any, Any]) -> None
         self._field = field
-
-    def __getattr__(self, attr):
-        # type: (str) -> Optional[Any]
-        return getattr(self._field, attr)
-
-    def m2i(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
-        try:
-            return self._field.m2i(pkt, s)
-        except (CBOR_Error, CBORF_badsequence,
-                CBOR_Codec_Decoding_Error):
-            return None, s
-
-    def dissect(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> bytes
-        try:
-            return self._field.dissect(pkt, s)
-        except (CBOR_Error, CBORF_badsequence,
-                CBOR_Codec_Decoding_Error):
-            self._field.set_val(pkt, None)
-            return s
-
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        if self._field.is_empty(pkt):
-            return b""
-        return self._field.build(pkt)
-
-    def any2i(self, pkt, x):
-        # type: (CBOR_Packet, Any) -> Any
-        return self._field.any2i(pkt, x)
-
-    def i2repr(self, pkt, x):
-        # type: (CBOR_Packet, Any) -> str
-        return self._field.i2repr(pkt, x)
 
 
 class CBORF_PACKET(CBORF_field['CBOR_Packet', Optional['CBOR_Packet']]):
