@@ -434,7 +434,7 @@ class SockAddrsField(FieldListField):
     holds_packets = 1
 
     def __init__(self, name):
-        if not IS_64BITS or DARWIN:
+        if (not IS_64BITS and not NETBSD) or DARWIN:
             align = 4
         else:
             align = 8
@@ -505,7 +505,7 @@ elif NETBSD:
             Field("ifi_omcasts", 0, fmt="=Q"),
             Field("ifi_iqdrops", 0, fmt="=Q"),
             Field("ifi_noproto", 0, fmt="=Q"),
-            StrFixedLenField("ifi_lastchange", 0, length=16 if IS_64BITS else 8),
+            StrFixedLenField("ifi_lastchange", 0, length=16 if IS_64BITS else 12),
         ]
 
         def default_payload_class(self, payload: bytes) -> Type[Packet]:

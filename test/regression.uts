@@ -3276,6 +3276,92 @@ assert routes == [
     ('ff00::', 8, '::', 'lo0', ['::1', 'fe80::1'], 250)
 ]
 
+= NetBSD 11.0 i386 - read_routes()
+~ mock_read_routes_bsd little_endian_only
+
+import zlib
+
+from scapy.arch.bpf.pfroute import _bsd_iff_flags
+_NETBSD_IFACES = {1: {'name': 'wm0', 'index': 1, 'flags': FlagValue(34883, _bsd_iff_flags), 'mac': '08:00:27:ed:60:bb', 'ips': [{'af_family': 24, 'index': 1, 'address': 'fe80::a00:27ff:feed:60bb', 'scope': 32}, {'af_family': 2, 'index': 1, 'address': '10.0.2.15'}, {'af_family': 24, 'index': 1, 'address': 'fd17:625c:f037:2:60a:1c9a:46e8:da65', 'scope': 0}], 'type': 6}, 2: {'name': 'lo0', 'index': 2, 'flags': FlagValue(32841, _bsd_iff_flags), 'mac': '00:00:00:00:00:00', 'ips': [{'af_family': 2, 'index': 2, 'address': '127.0.0.1'}, {'af_family': 24, 'index': 2, 'address': '::1', 'scope': 16}, {'af_family': 24, 'index': 2, 'address': 'fe80::1', 'scope': 32}], 'type': 24}}
+
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789c3bc1c0c2c2c8c0c0c0ccc0c060ce800a2e7b32d00c083061f2b9189898d0d5090a3132b031b33194e71a7030a8bf4dd88daa9e1fa6ee02d41f8c8c98fe88a08d1790dd81ea5e2cead8ff8301d1fe39c0c0c2023295958185c19886ee4707e8eec0e51f6e212606096606869c7c03acfa60eee7e6c08c0f6c604623f5dc5f8fc96784f159c1b180ddfdc8ea769018fe54763fdc1de8ee24e4ee19d07cc0aa02c9d3b402f5818559e8ee46cebf7ce074c3c610140a11a597bbb2b0bb0b6e258abb68e9102201005a612a00'))
+
+
+with BSDLoader(NETBSD=True, sysctldata=_PFROUTE_DATA, ifaces=_NETBSD_IFACES, AF_INET6=24, IS_64BITS=False) as pfroute:
+    routes = pfroute.read_routes()
+
+assert routes == [
+    (0, 0, '10.0.2.2', 'wm0', '10.0.2.15', 1),
+    (167772672, 4294967040, '0.0.0.0', 'wm0', '10.0.2.15', 1),
+    (167772687, 4294967295, '0.0.0.0', 'lo0', '10.0.2.15', 1),
+    (2130706432, 4278190080, '127.0.0.1', 'lo0', '127.0.0.1', 1),
+    (2130706433, 4294967295, '0.0.0.0', 'lo0', '127.0.0.1', 1),
+    (167772674, 4294967295, '0.0.0.0', 'wm0', '', 1),
+    (167772675, 4294967295, '0.0.0.0', 'wm0', '', 1),
+    (3758096384, 4026531840, '0.0.0.0', 'wm0', '10.0.2.15', 250),
+    (3758096384, 4026531840, '0.0.0.0', 'lo0', '127.0.0.1', 250)
+]
+
+= NetBSD 11.0 i386 - read_routes6()
+~ mock_read_routes_bsd little_endian_only
+
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789ced58bd4e0241189c3d8e0b01354a345250586868492c78031ec0c2cac298d8188d852696e853687c025b3b132d7c0c63456963426923cbc1b90beceddfe19e9743a6626f6e3733996f97fd0ec4f73d009512d082197737162f59a05e9b8927ecc70695207c5ea97aa81580d3f3a6d53ac8a9ff75b9fdc4febfe0fbc3413825e67fc764e217b0f5dfbf9ec80af0c4f7d6aa044121c0d559b384c6e7e1b3627e190dda1fd37843947b113e762df4a69c3bf728e697e77aee1878ccf97eee1a7818fcf7906fffd4c063aef3a754cf8f90ca799ea5ff2db2fca4e30570dd4b79f71dfb679ae6058ccffb69db39f4ddd1f202e6c87757cb0b90f8ee45e3dcf9a65a5e80d3bc870342e2be4b560e6603d3f5bd7974d06b29ee9f9279abc2596ebaa7b2f58372fdbefdf17eccd6e926bca7ba824997cab72a57d53a59d773d81f687901bc1ecb2cd8d768ecb29e157f254ea0e8ab385cd5b3aaefcaba9e55ba92d6b36a1d56cf43d2a69e5d614297b47c143caf01315f8d6fe9fca4fdb42b9874d9f6d3aaf9ba7d9a26982e4a92ed53f11e3deb3ee5756ce9dbf5b91cfad6d6b100a77d44a6797bff346f2f9bbc1f7ef22e6e47df40d3c263fbe264726cfabeb932ca3bc0de7ef4f4af74bedc5e4a750af75f2e614a679ac21658208601cc90ca10'))
+
+
+with BSDLoader(NETBSD=True, sysctldata=_PFROUTE_DATA, ifaces=_NETBSD_IFACES, AF_INET6=24, IS_64BITS=False) as pfroute:
+    routes = pfroute.read_routes6()
+
+assert routes == [
+   ('::', 104, '::1', 'lo0', ['::1'], 1),
+   ('::', 96, '::1', 'lo0', ['::1'], 1),
+   ('::', 0, 'fe80::2', 'wm0', ['fe80::a00:27ff:feed:60bb'], 1),
+   ('::1', 128, '::', 'lo0', ['::1'], 1),
+   ('::127.0.0.0', 104, '::1', 'lo0', ['::1'], 1),
+   ('::224.0.0.0', 100, '::1', 'lo0', ['::1'], 1),
+   ('::255.0.0.0', 104, '::1', 'lo0', ['::1'], 1),
+   ('::ffff:0.0.0.0', 96, '::1', 'lo0', ['::1'], 1),
+   ('2001:db8::', 32, '::1', 'lo0', ['::1'], 1),
+   ('2002::', 24, '::1', 'lo0', ['::1'], 1),
+   ('2002:7f00::', 24, '::1', 'lo0', ['::1'], 1),
+   ('2002:e000::', 20, '::1', 'lo0', ['::1'], 1),
+   ('2002:ff00::', 24, '::1', 'lo0', ['::1'], 1),
+   ('fd17:625c:f037:2::',
+    64,
+    '::',
+    'wm0',
+    ['fd17:625c:f037:2:60a:1c9a:46e8:da65'],
+    1),
+   ('fd17:625c:f037:2:60a:1c9a:46e8:da65',
+    128,
+    '::',
+    'lo0',
+    ['fd17:625c:f037:2:60a:1c9a:46e8:da65'],
+    1),
+   ('fe80::', 10, '::1', 'lo0', ['::1'], 1),
+   ('fe80::', 64, '::', 'wm0', ['fe80::a00:27ff:feed:60bb'], 1),
+   ('fe80::a00:27ff:feed:60bb',
+    128,
+    '::',
+    'lo0',
+    ['fe80::a00:27ff:feed:60bb'],
+    1),
+   ('fe80::', 64, 'fe80::1', 'lo0', ['fe80::1'], 1),
+   ('fe80::1', 128, '::', 'lo0', ['fe80::1'], 1),
+   ('ff01::', 32, '::', 'wm0', ['fe80::a00:27ff:feed:60bb'], 1),
+   ('ff01::', 32, '::1', 'lo0', ['::1'], 1),
+   ('ff02::', 32, '::', 'wm0', ['fe80::a00:27ff:feed:60bb'], 1),
+   ('ff02::', 32, '::1', 'lo0', ['::1'], 1),
+   ('fe80::2', 128, '::', 'wm0', [], 1),
+   ('fd17:625c:f037:2::3', 128, '::', 'wm0', [], 1),
+   ('ff00::',
+    8,
+    '::',
+    'wm0',
+    ['fe80::a00:27ff:feed:60bb', 'fd17:625c:f037:2:60a:1c9a:46e8:da65'],
+    250),
+   ('ff00::', 8, '::', 'lo0', ['::1', 'fe80::1'], 250)
+]
+
 = Darwin 23.6 (MacOS 14.5) x86_64 - read_routes()
 ~ mock_read_routes_bsd little_endian_only
 
