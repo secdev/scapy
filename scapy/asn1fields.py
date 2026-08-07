@@ -129,13 +129,13 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
 
     def _tagging_dec(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
-        # Stem must provide tagging_*; OER implements real tags, UPER/PER use
+        # Codec provides tagging_*; OER implements real tags, UPER/PER use
         # identity helpers (no BER-style tagging).
-        return pkt.ASN1_codec.get_stem().tagging_dec(s, **kwargs)  # type: ignore
+        return pkt.ASN1_codec.tagging_dec(s, **kwargs)  # type: ignore
 
     def _tagging_enc(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> bytes
-        return pkt.ASN1_codec.get_stem().tagging_enc(s, **kwargs)  # type: ignore
+        return pkt.ASN1_codec.tagging_enc(s, **kwargs)  # type: ignore
 
     def _apply_tagging_dec(self, s, pkt, hidden_tag=None, **kwargs):
         # type: (bytes, ASN1_Packet, Optional[Any], **Any) -> bytes

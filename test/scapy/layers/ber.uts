@@ -456,22 +456,31 @@ assert BERcodec_INTEGER.enc(5, oer_unsigned=True, uper_min=0) == BERcodec_INTEGE
 assert BERcodec_STRING.enc(b"x", uper_max=10) == BERcodec_STRING.enc(b"x")
 BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1), uper_min=0) == BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1))
 
-+ ASN.1 codec stem contract
-= identity tagging stem for PER-style codecs
++ ASN.1 codec tagging contract
+= BER tagging is exposed on the codec
+assert ASN1_Codecs.BER.tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\xa0\x01\x05"
+diff, payload = ASN1_Codecs.BER.tagging_dec(
+    b"\xa0\x01\x05", hidden_tag=2, implicit_tag=0xA0
+)
+diff is None and payload == b"\x02\x01\x05"
+
+= identity tagging for PER-style codecs
 def _id_tagging_enc(s, **kwargs):
     return s
 
 def _id_tagging_dec(s, **kwargs):
     return None, s
 
-class FakeStem(object):
-    tagging_enc = staticmethod(_id_tagging_enc)
-    tagging_dec = staticmethod(_id_tagging_dec)
-
-stem = FakeStem()
-assert stem.tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\x02\x01\x05"
-diff, payload = stem.tagging_dec(b"\x02\x01\x05", hidden_tag=2, explicit_tag=0xA1)
-diff is None and payload == b"\x02\x01\x05"
+ASN1_Codecs.PER.register_tagging(_id_tagging_enc, _id_tagging_dec)
+try:
+    assert ASN1_Codecs.PER.tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\x02\x01\x05"
+    diff, payload = ASN1_Codecs.PER.tagging_dec(
+        b"\x02\x01\x05", hidden_tag=2, explicit_tag=0xA1
+    )
+    assert diff is None and payload == b"\x02\x01\x05"
+finally:
+    del ASN1_Codecs.PER._tagging_enc
+    del ASN1_Codecs.PER._tagging_dec
 
 = field _codec_kwargs and object-enc hooks
 class P(ASN1_Packet):
