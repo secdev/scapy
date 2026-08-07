@@ -126,6 +126,20 @@ class ASN1Codec(EnumElement):
         # type: (Type[BERcodec_Object[Any]]) -> None
         cls._stem = stem
 
+    def register_tagging(cls, enc, dec):
+        # type: (Any, Any) -> None
+        # Codec-level implicit/explicit tagging (BER/OER) or identity (UPER/PER).
+        cls._tagging_enc = enc
+        cls._tagging_dec = dec
+
+    def tagging_enc(cls, s, **kwargs):
+        # type: (bytes, **Any) -> bytes
+        return cls._tagging_enc(s, **kwargs)  # type: ignore
+
+    def tagging_dec(cls, s, **kwargs):
+        # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
+        return cls._tagging_dec(s, **kwargs)  # type: ignore
+
     def dec(cls, s, context=None, _depth=0):
         # type: (bytes, Optional[Type[ASN1_Class]], int) -> ASN1_Object[Any]
         return cls._stem.dec(s, context=context, _depth=_depth)  # type: ignore
