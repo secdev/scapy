@@ -1,0 +1,862 @@
+% Tests for ASN.1 OER encoding
+
+#
+# Try me with:
+# bash test/run_tests -t test/scapy/layers/oer.uts -F
+
++ ASN.1 OER load
+= import contrib codecs
+import scapy.contrib.oer
+from scapy.contrib.oer import *
+from scapy.packet import raw
+
+
++ ASN.1 OER codec
+= OER length determinant short form
+OER_len_enc(3) == b"\x03"
+= OER length determinant long form
+OER_len_enc(200) == b"\x81\xc8"
+= OER boolean false
+OERcodec_BOOLEAN.enc(0) == b"\x00"
+= OER boolean true
+OERcodec_BOOLEAN.enc(1) == b"\xff"
+= OER null
+OERcodec_NULL.enc(None) == b""
+= OER unconstrained integer
+OERcodec_INTEGER.enc(4) == b"\x01\x04"
+= OER constrained unsigned integer
+OERcodec_INTEGER.enc(4, size_len=1) == b"\x04"
+= OER constrained signed integer
+OERcodec_INTEGER.enc(4, size_len=2) == b"\x00\x04"
+= OER enumerated short form
+OERcodec_ENUMERATED.enc(6) == b"\x06"
+= OER octet string
+OERcodec_STRING.enc(b"ABC") == b"\x03ABC"
+= OER OID
+OERcodec_OID.enc("1.2.3") == b"\x02\x2a\x03"
+= OER integer roundtrip
+x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(12345))
+x.val == 12345 and r == b""
+= OER boolean roundtrip
+x, r = OERcodec_BOOLEAN.do_dec(OERcodec_BOOLEAN.enc(1))
+x.val == 1 and r == b""
+= OER ASN1 object encoding
+ASN1_INTEGER(42).enc(ASN1_Codecs.OER) == b"\x01*"
+= OER codec registration
+ASN1_Class_UNIVERSAL.INTEGER.get_codec(ASN1_Codecs.OER) is OERcodec_INTEGER
+
++ ASN.1 OER codec (extended)
+= OER length zero
+OER_len_enc(0) == b"\x00"
+= OER length boundary short form
+OER_len_enc(127) == b"\x7f"
+= OER length boundary long form
+OER_len_enc(128) == b"\x81\x80"
+= OER length roundtrip
+l, r = OER_len_dec(OER_len_enc(999))
+l == 999 and r == b""
+= OER signed integer zero
+OER_signed_integer_enc(0) == b"\x01\x00"
+= OER signed integer negative
+OER_signed_integer_enc(-255) == b"\x02\xff\x01"
+= OER signed integer large
+OER_signed_integer_enc(100000) == b"\x03\x01\x86\xa0"
+= OER signed integer roundtrip
+v, r = OER_signed_integer_dec(OER_signed_integer_enc(-1234567))
+v == -1234567 and r == b""
+= OER unsigned integer zero
+OER_unsigned_integer_enc(0) == b"\x01\x00"
+= OER unsigned integer roundtrip
+v, r = OER_unsigned_integer_dec(OER_unsigned_integer_enc(65535))
+v == 65535 and r == b""
+= OER fixed unsigned 1 byte
+OERcodec_INTEGER.enc(255, size_len=1) == b"\xff"
+= OER fixed signed 2 bytes negative
+OERcodec_INTEGER.enc(-2, size_len=2) == b"\xff\xfe"
+= OER fixed signed 4 bytes
+OERcodec_INTEGER.enc(-2, size_len=4) == b"\xff\xff\xff\xfe"
+= OER enumerated long form
+OERcodec_ENUMERATED.enc(128) == b"\x82\x00\x80"
+= OER enumerated negative
+OERcodec_ENUMERATED.enc(-1) == b"\x81\xff"
+= OER enumerated roundtrip
+x, r = OERcodec_ENUMERATED.do_dec(OERcodec_ENUMERATED.enc(128))
+x.val == 128 and r == b""
+= OER null roundtrip
+x, r = OERcodec_NULL.do_dec(OERcodec_NULL.enc(None))
+x.val is None and r == b""
+= OER octet string empty
+OERcodec_STRING.enc(b"") == b"\x00"
+= OER octet string fixed size
+OERcodec_STRING.enc(b"\x12\x34\x56", size_len=3) == b"\x12\x34\x56"
+= OER octet string roundtrip
+x, r = OERcodec_STRING.do_dec(OERcodec_STRING.enc(b"\x12\x34"))
+x.val == b"\x12\x34" and r == b""
+= OER OID 1.2
+OERcodec_OID.enc("1.2") == b"\x01\x2a"
+= OER OID roundtrip
+x, r = OERcodec_OID.do_dec(OERcodec_OID.enc("1.2.3321"))
+x.val == "1.2.3321" and r == b""
+= OER bit string variable size
+OERcodec_BIT_STRING.enc("0100") == b"\x02\x04\x40"
+= OER bit string roundtrip
+x, r = OERcodec_BIT_STRING.do_dec(OERcodec_BIT_STRING.enc("01000001"))
+x.val == "01000001" and r == b""
+= OER IA5 string
+OERcodec_IA5_STRING.enc(b"ABC") == b"\x03ABC"
+= OER tag short form
+OER_tag_enc(1, OER_CLASS_CONTEXT) == b"\x81"
+= OER tag roundtrip
+cls, num, r = OER_tag_dec(OER_tag_enc(1, OER_CLASS_CONTEXT))
+cls == OER_CLASS_CONTEXT and num == 1 and r == b""
+= OER sequence concat
+OERcodec_SEQUENCE.enc([ASN1_INTEGER(4), ASN1_INTEGER(5)]) == b"\x01\x04\x01\x05"
+= OER ASN1 boolean object
+ASN1_BOOLEAN(1).enc(ASN1_Codecs.OER) == b"\xff"
+= OER ASN1 null object
+ASN1_NULL(None).enc(ASN1_Codecs.OER) == b""
+
++ ASN.1 OER review fixes
+= OER fixed integer decode roundtrip
+x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(128, size_len=1), size_len=1, oer_unsigned=True)
+x.val == 128 and r == b""
+= OER fixed integer signed decode
+x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(-2, size_len=2), size_len=2)
+x.val == -2 and r == b""
+= OER fixed octet string decode
+x, r = OERcodec_STRING.do_dec(OERcodec_STRING.enc(b"\x12\x34\x56", size_len=3), size_len=3)
+x.val == b"\x12\x34\x56" and r == b""
+= OER explicit null tagging
+OER_tagging_enc(OERcodec_NULL.enc(None), explicit_tag=0x81) == b"\x81"
+= OER choice id decode
+tag, r = OER_id_dec(b"\x81\x01")
+tag == 0x81 and r == b"\x01"
+
++ ASN.1 OER packets, interop and fuzz
+= import contrib codecs
+import scapy.contrib.oer
+from scapy.contrib.oer import *
+from scapy.packet import raw
+= prepare helpers and packet classes
+class OERTaggedInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0, explicit_tag=0xA1)
+
+class OERFixedFields(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, size_len=1, oer_unsigned=True),
+        ASN1F_STRING("s", "", size_len=3),
+    )
+
+class OEROptionalField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0, explicit_tag=0xA0)),
+    )
+
+class OERSequenceOfIntegers(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+class OERChoiceField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+class OERRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_BOOLEAN("flag", False),
+        ASN1F_STRING("label", ""),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0, explicit_tag=0xA0)),
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+    )
+
+class OERNestedSequence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("x", 0),
+            ASN1F_BOOLEAN("y", False),
+        ),
+    )
+
+class OERNestedSequenceTrailing(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("x", 0),
+            ASN1F_BOOLEAN("y", False),
+        ),
+        ASN1F_INTEGER("id", 0),
+    )
+
+class OERSequenceOfWithTrailing(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+        ASN1F_INTEGER("id", 0),
+    )
+
+def _roundtrip(cls, pkt):
+    # type: (type, ASN1_Packet) -> ASN1_Packet
+    return cls(raw(pkt))
+
+INTEGER_VECTORS = [
+    ("A", 0, lambda v: OERcodec_INTEGER.enc(v), b"\x01\x00"),
+    ("A", 128, lambda v: OERcodec_INTEGER.enc(v), b"\x02\x00\x80"),
+    ("A", 100000, lambda v: OERcodec_INTEGER.enc(v), b"\x03\x01\x86\xa0"),
+    ("A", -255, lambda v: OERcodec_INTEGER.enc(v), b"\x02\xff\x01"),
+    ("A", -1234567, lambda v: OERcodec_INTEGER.enc(v), b"\x03\xed)y"),
+    ("B", -2, lambda v: OERcodec_INTEGER.enc(v, size_len=1), b"\xfe"),
+    ("C", -2, lambda v: OERcodec_INTEGER.enc(v, size_len=2), b"\xff\xfe"),
+    ("D", -2, lambda v: OERcodec_INTEGER.enc(v, size_len=4), b"\xff\xff\xff\xfe"),
+    (
+        "E",
+        -2,
+        lambda v: OERcodec_INTEGER.enc(v, size_len=8),
+        b"\xff\xff\xff\xff\xff\xff\xff\xfe",
+    ),
+    ("F", 128, lambda v: OERcodec_INTEGER.enc(v, size_len=1), b"\x80"),
+    ("G", 128, lambda v: OERcodec_INTEGER.enc(v, size_len=2), b"\x00\x80"),
+    ("G", 1000, lambda v: OERcodec_INTEGER.enc(v, size_len=2), b"\x03\xe8"),
+    ("H", 128, lambda v: OERcodec_INTEGER.enc(v, size_len=4), b"\x00\x00\x00\x80"),
+    (
+        "I",
+        128,
+        lambda v: OERcodec_INTEGER.enc(v, size_len=8),
+        b"\x00\x00\x00\x00\x00\x00\x00\x80",
+    ),
+    ("B", 1, lambda v: OERcodec_INTEGER.enc(v, size_len=1), b"\x01"),
+    ("K", 1, lambda v: OER_unsigned_integer_enc(v), b"\x01\x01"),
+    ("K", 128, lambda v: OER_unsigned_integer_enc(v), b"\x01\x80"),
+    ("L", -128, lambda v: OER_signed_integer_enc(v), b"\x01\x80"),
+]
+
+BOOLEAN_VECTORS = [
+    (True, lambda v: OERcodec_BOOLEAN.enc(1 if v else 0), b"\xff"),
+    (False, lambda v: OERcodec_BOOLEAN.enc(1 if v else 0), b"\x00"),
+]
+
+ENUMERATED_VECTORS = [
+    ("A", "a", 1, b"\x01"),
+    ("B", "a", 128, b"\x82\x00\x80"),
+    ("C", "a", 0, b"\x00"),
+    ("C", "b", 127, b"\x7f"),
+    ("E", "a", -1, b"\x81\xff"),
+]
+
+OID_VECTORS = [
+    ("1.2", lambda v: OERcodec_OID.enc(v), b"\x01*"),
+    ("1.2.3321", lambda v: OERcodec_OID.enc(v), b"\x03*\x99y"),
+]
+
+OCTET_STRING_VECTORS = [
+    (b"\x12\x34", 0, b"\x02\x124"),
+    (b"\x12\x34\x56", 3, b"\x124V"),
+]
+
+BIT_STRING_VECTORS = [
+    ("0100", b"\x02\x04@"),
+    ("01000001", b"\x02\x00A"),
+]
+
+SCAPY_DECODE_VECTORS = [
+    ("A", 42, b"\x01*"),
+    ("F", 200, b"\xc8"),
+    ("B", -99, b"\x9d"),
+]
+
+_OER_CODEC_CLASSES = (
+    OERcodec_INTEGER,
+    OERcodec_BOOLEAN,
+    OERcodec_NULL,
+    OERcodec_STRING,
+    OERcodec_OID,
+    OERcodec_ENUMERATED,
+    OERcodec_BIT_STRING,
+)
+
+_DECODE_ERRORS = (
+    OER_Decoding_Error,
+    ASN1_Decoding_Error,
+    ASN1_Error,
+    ValueError,
+    IndexError,
+)
+
+class OERFuzzRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_BOOLEAN("flag", False),
+        ASN1F_STRING("label", ""),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0, explicit_tag=0xA0)),
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+    )
+
+def _fuzz_packets():
+    # type: () -> Iterable[Type[ASN1_Packet]]
+    return (OERFuzzRecord,)
+= oer field explicit tag
+pkt = OERTaggedInteger(n=5)
+
+assert raw(pkt) == b"\xa1\x01\x05"
+
+decoded = _roundtrip(OERTaggedInteger, pkt)
+
+assert decoded.n.val == 5
+
+True
+
+= oer field fixed size
+pkt = OERFixedFields(n=200, s=b"ABC")
+
+assert raw(pkt) == b"\xc8ABC"
+
+decoded = _roundtrip(OERFixedFields, pkt)
+
+assert decoded.n.val == 200
+
+assert decoded.s.val == b"ABC"
+
+True
+
+= oer field optional
+present = OEROptionalField(id=1, extra=7)
+
+assert raw(present) == b"\x01\x01\xa0\x01\x07"
+
+decoded = _roundtrip(OEROptionalField, present)
+
+assert decoded.id.val == 1
+
+assert decoded.extra.val == 7
+
+absent = OEROptionalField(id=1, extra=None)
+
+assert raw(absent) == b"\x01\x01"
+
+decoded = _roundtrip(OEROptionalField, absent)
+
+assert decoded.id.val == 1
+
+assert decoded.extra is None
+
+True
+
+= oer field sequence of
+pkt = OERSequenceOfIntegers(values=[1, 2, 3])
+
+assert raw(pkt) == b"\x01\x03\x01\x01\x01\x02\x01\x03"
+
+decoded = _roundtrip(OERSequenceOfIntegers, pkt)
+
+assert [x.val for x in decoded.values] == [1, 2, 3]
+
+True
+
+= oer field choice
+as_int = OERChoiceField(c=ASN1_INTEGER(99))
+
+assert raw(as_int) == b"\x02\x01c"
+
+decoded = _roundtrip(OERChoiceField, as_int)
+
+assert decoded.c.val == 99
+
+as_str = OERChoiceField(c=ASN1_STRING("x"))
+
+assert raw(as_str) == b"\x04\x01x"
+
+decoded = _roundtrip(OERChoiceField, as_str)
+
+assert decoded.c.val == b"x"
+
+True
+
+= oer packet record
+pkt = OERRecord(
+    id=42, flag=True, label="hi", extra=7, values=[1, 2, 3],
+)
+
+expected = (
+    b"\x01*\xff\x02hi\xa0\x01\x07"
+    b"\x01\x03\x01\x01\x01\x02\x01\x03"
+)
+
+assert raw(pkt) == expected
+
+decoded = _roundtrip(OERRecord, pkt)
+
+assert decoded.id.val == 42
+
+assert decoded.flag.val == 1
+
+assert decoded.label.val == b"hi"
+
+assert decoded.extra.val == 7
+
+assert [x.val for x in decoded.values] == [1, 2, 3]
+
+empty = OERRecord(id=1, flag=False, label="", extra=None, values=[])
+
+assert raw(empty) == b"\x01\x01\x00\x00\x01\x00"
+
+decoded = _roundtrip(OERRecord, empty)
+
+assert decoded.id.val == 1
+
+assert decoded.flag.val == 0
+
+assert decoded.label.val == b""
+
+assert decoded.extra is None
+
+assert [x.val for x in decoded.values] == []
+
+True
+
+= oer nested sequence
+pkt = OERNestedSequence(id=5, x=3, y=True)
+
+assert raw(pkt) == b"\x01\x05\x01\x03\xff"
+
+decoded = _roundtrip(OERNestedSequence, pkt)
+
+assert decoded.id.val == 5
+
+assert decoded.x.val == 3
+
+assert decoded.y.val == 1
+
+True
+
+= oer nested sequence trailing
+pkt = OERNestedSequenceTrailing(x=3, y=True, id=5)
+
+assert raw(pkt) == b"\x01\x03\xff\x01\x05"
+
+decoded = _roundtrip(OERNestedSequenceTrailing, pkt)
+
+assert decoded.x.val == 3
+
+assert decoded.y.val == 1
+
+assert decoded.id.val == 5
+
+True
+
+= oer sequence of with trailing
+pkt = OERSequenceOfWithTrailing(values=[1, 2], id=7)
+
+assert raw(pkt) == b"\x01\x02\x01\x01\x01\x02\x01\x07"
+
+decoded = _roundtrip(OERSequenceOfWithTrailing, pkt)
+
+assert [x.val for x in decoded.values] == [1, 2]
+
+assert decoded.id.val == 7
+
+True
+
+= primitive interop
+for type_name, value, enc, expected in INTEGER_VECTORS:
+    got = enc(value)
+    assert got == expected, (
+        "integer %s=%r: reference=%r scapy=%r" %
+        (type_name, value, expected, got)
+    )
+    if type_name == "A":
+        dec, remain = OERcodec_INTEGER.do_dec(got)
+        assert remain == b"" and dec.val == value
+
+for value, enc, expected in BOOLEAN_VECTORS:
+    got = enc(value)
+    assert got == expected
+    dec, remain = OERcodec_BOOLEAN.do_dec(got)
+    assert remain == b"" and dec.val == (1 if value else 0)
+
+got = OERcodec_NULL.enc(None)
+
+assert got == b""
+
+for type_name, _enum_name, enum_val, expected in ENUMERATED_VECTORS:
+    got = OERcodec_ENUMERATED.enc(enum_val)
+    assert got == expected
+    dec, remain = OERcodec_ENUMERATED.do_dec(got)
+    assert remain == b"" and dec.val == enum_val
+
+for oid, enc, expected in OID_VECTORS:
+    got = enc(oid)
+    assert got == expected
+    dec, remain = OERcodec_OID.do_dec(got)
+    assert remain == b"" and dec.val == oid
+
+for data, fixed_size, expected in OCTET_STRING_VECTORS:
+    got = OERcodec_STRING.enc(data, size_len=fixed_size or 0)
+    assert got == expected
+    dec, remain = OERcodec_STRING.do_dec(got, size_len=fixed_size or 0)
+    assert remain == b"" and dec.val == data
+
+for bitstr, expected in BIT_STRING_VECTORS:
+    got = OERcodec_BIT_STRING.enc(bitstr)
+    assert got == expected
+    dec, remain = OERcodec_BIT_STRING.do_dec(got)
+    assert remain == b"" and dec.val == bitstr
+
+True
+
+= scapy encode reference decode
+for type_name, value, encoded in SCAPY_DECODE_VECTORS:
+    if type_name == "A":
+        dec, remain = OERcodec_INTEGER.do_dec(encoded)
+    elif type_name == "F":
+        dec, remain = OERcodec_INTEGER.do_dec(
+            encoded, size_len=1, oer_unsigned=True,
+        )
+    else:
+        dec, remain = OERcodec_INTEGER.do_dec(encoded, size_len=1)
+    assert remain == b"" and dec.val == value
+
+for val in [0, 1]:
+    encoded = OERcodec_BOOLEAN.enc(val)
+    dec, remain = OERcodec_BOOLEAN.do_dec(encoded)
+    assert remain == b"" and dec.val == val
+
+True
+
+= oer fuzz encode
+iterations = 25
+
+for cls in _fuzz_packets():
+    for _ in range(iterations):
+        data = raw(fuzz(cls()))
+        assert isinstance(data, bytes)
+
+True
+
+= oer fuzz roundtrip
+iterations = 25
+
+for cls in _fuzz_packets():
+    for _ in range(iterations):
+        cls(raw(fuzz(cls())))
+
+True
+
+= oer fuzz codec decode
+iterations = 100
+
+for codec in _OER_CODEC_CLASSES:
+    for _ in range(iterations):
+        data = os.urandom(random.randint(0, 64))
+        try:
+            codec.safedec(data)
+        except _DECODE_ERRORS:
+            pass
+
+True
+
+= oer fuzz packet decode
+iterations = 100
+
+for cls in _fuzz_packets():
+    for _ in range(iterations):
+        data = os.urandom(random.randint(0, 128))
+        try:
+            cls(data)
+        except _DECODE_ERRORS:
+            pass
+
+True
+
++ ASN.1 OER build and dissect
+= import contrib codecs
+import scapy.contrib.oer
+from scapy.contrib.oer import *
+from scapy.packet import raw
+= prepare helpers and packet classes
+class OERTaggedInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0, explicit_tag=0xA1)
+
+class OERFixedFields(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, size_len=1, oer_unsigned=True),
+        ASN1F_STRING("s", "", size_len=3),
+    )
+
+class OEROptionalField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0, explicit_tag=0xA0)),
+    )
+
+class OERSequenceOfIntegers(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+class OERChoiceField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+class OERRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_BOOLEAN("flag", False),
+        ASN1F_STRING("label", ""),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0, explicit_tag=0xA0)),
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+    )
+
+class OERNestedSequence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("x", 0),
+            ASN1F_BOOLEAN("y", False),
+        ),
+    )
+
+class OERNestedSequenceTrailing(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("x", 0),
+            ASN1F_BOOLEAN("y", False),
+        ),
+        ASN1F_INTEGER("id", 0),
+    )
+
+class OERSequenceOfWithTrailing(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+        ASN1F_INTEGER("id", 0),
+    )
+
+def _roundtrip(cls, pkt):
+    # type: (type, ASN1_Packet) -> ASN1_Packet
+    return cls(raw(pkt))
+
+def _roundtrip(cls, pkt):
+    # type: (type, ASN1_Packet) -> ASN1_Packet
+    return cls(raw(pkt))
+
+def _record_kwargs():
+    # type: () -> dict
+    return dict(
+        id=42,
+        flag=True,
+        label=b"hi",
+        extra=7,
+        values=[1, 2, 3],
+    )
+
+def _asn1_int(val):
+    # type: (Any) -> int
+    return val.val if hasattr(val, "val") else val
+
+def _asn1_int(val):
+    # type: (Any) -> int
+    return val.val if hasattr(val, "val") else val
+
+def _assert_record(decoded):
+    # type: (ASN1_Packet) -> None
+    assert decoded.id.val == 42
+    assert decoded.flag.val == 1
+    assert decoded.label.val == b"hi"
+    assert decoded.extra.val == 7
+    assert [x.val for x in decoded.values] == [1, 2, 3]
+
+def _assert_record_empty(decoded):
+    # type: (ASN1_Packet) -> None
+    assert decoded.id.val == 1
+    assert decoded.flag.val == 0
+    assert decoded.label.val == b""
+    assert decoded.extra is None
+    assert [x.val for x in decoded.values] == []
+
+def _dissect(cls, data_hex):
+    # type: (Type[ASN1_Packet], str) -> ASN1_Packet
+    return cls(bytes.fromhex(data_hex))
+= oer record build roundtrip
+pkt = OERRecord(**_record_kwargs())
+
+assert len(raw(pkt)) > 0
+
+decoded = _roundtrip(OERRecord, pkt)
+
+assert decoded.id.val == 42
+
+assert decoded.flag.val == 1
+
+assert decoded.label.val == b"hi"
+
+assert decoded.extra.val == 7
+
+assert [x.val for x in decoded.values] == [1, 2, 3]
+
+True
+
+= oer field dissect
+tagged = _dissect(OERTaggedInteger, "a10105")
+
+assert tagged.n.val == 5
+
+fixed = _dissect(OERFixedFields, "c8414243")
+
+assert fixed.n.val == 200
+
+assert fixed.s.val == b"ABC"
+
+present = _dissect(OEROptionalField, "0101a00107")
+
+assert present.id.val == 1
+
+assert present.extra.val == 7
+
+absent = _dissect(OEROptionalField, "0101")
+
+assert absent.id.val == 1
+
+assert absent.extra is None
+
+seqof = _dissect(OERSequenceOfIntegers, "0103010101020103")
+
+assert [x.val for x in seqof.values] == [1, 2, 3]
+
+as_int = _dissect(OERChoiceField, "020163")
+
+assert as_int.c.val == 99
+
+as_str = _dissect(OERChoiceField, "040178")
+
+assert as_str.c.val == b"x"
+
+True
+
+= oer record dissect
+decoded = _dissect(
+    OERRecord,
+    "012aff026869a00107"
+    "0103010101020103",
+)
+_assert_record(decoded)
+empty = _dissect(OERRecord, "010100000100")
+_assert_record_empty(empty)
+
+True
+
+
++ ASN.1 OER coverage
+= import contrib codecs
+import scapy.contrib.oer
+from scapy.contrib.oer import *
+from scapy.packet import raw
+= prepare helpers and packet classes
+class _InnerRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_enum_INTEGER("mode", ASN1_INTEGER(0), ["off", "on"]),
+    )
+
+class _EncapsRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_STRING_ENCAPS("payload", None, _InnerRecord),
+    )
+
+class _FlagsRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_FLAGS("f", "000", ["read", "write", "exec"]),
+    )
+
+class _SetOfRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SET_OF("items", [], ASN1F_INTEGER)
+
+class _PacketFieldRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_STRING_PacketField("data", b""),
+    )
+
+class _ExplicitPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_PACKET("inner", None, _InnerRecord, explicit_tag=0xA2)
+
+class _BitEncapsRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BIT_STRING_ENCAPS("b", None, _InnerRecord),
+    )
+
+def _raises(exc, func):
+    # type: (type, Any) -> None
+    try:
+        func()
+    except exc:
+        return
+    raise AssertionError("Expected %s" % exc.__name__)
+= oer error str
+obj = ASN1_INTEGER(1)
+
+err = OER_Encoding_Error("enc", encoded=obj, remaining=b"z")
+
+assert "Already encoded" in str(err)
+
+err2 = OER_Decoding_Error("dec", decoded=obj, remaining=b"w")
+
+assert "Already decoded" in str(err2)
+
+True
+
+= oer ipaddress and sequence
+encoded = OERcodec_IPADDRESS.enc("127.0.0.1")
+
+obj, remain = OERcodec_IPADDRESS.do_dec(encoded)
+
+assert obj.val == "127.0.0.1"
+
+assert remain == b""
+
+fixed = OERcodec_IPADDRESS.enc("127.0.0.1", size_len=4)
+
+obj2, remain2 = OERcodec_IPADDRESS.do_dec(fixed, size_len=4)
+
+assert obj2.val == "127.0.0.1"
+
+assert remain2 == b""
+
+_raises(OER_Encoding_Error, lambda: OERcodec_IPADDRESS.enc("bad-ip"))
+
+_raises(OER_Decoding_Error, lambda: OERcodec_IPADDRESS.do_dec(b"\x01"))
+
+assert OERcodec_SEQUENCE.enc(b"payload") == b"payload"
+
+assert OERcodec_SET.enc(b"payload") == b"payload"
+
+_raises(OER_Decoding_Error, lambda: OERcodec_SEQUENCE.do_dec(b"\x00"))
+
+empty, remain = OERcodec_BIT_STRING.do_dec(OERcodec_BIT_STRING.enc(""))
+
+assert empty.val == ""
+
+assert remain == b""
+
+True
+
