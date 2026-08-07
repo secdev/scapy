@@ -1,0 +1,156 @@
+
++ Direct message interface
+
+= Contact decode with not enough data
+from scapy.contrib.tcpcl import *
+pkt = TCPCLContact(b"dtn!")
+assert isinstance(pkt, conf.raw_layer)
+
+
+= TCPCLv4 contact decode
+from scapy.contrib.tcpcl import *
+pkt = TCPCLContact(bytes.fromhex("64746e2104010000"))
+assert isinstance(pkt, TCPCLContactV4)
+assert isinstance(pkt.payload, Padding)
+
+= Known message decode
+from scapy.contrib.tcpcl import *
+data = bytes.fromhex(
+    "07012cffffffffffffffffffffffffffffffff"
+    "0007646174613a6869"
+    "0000000700800000026869"
+)
+pkt = TCPCLBaseMsgV4(data)
+assert isinstance(pkt, TCPCLSessInit)
+assert isinstance(pkt.payload, NoPayload)
+assert pkt.keepalive == 300
+assert pkt.nodeid_data.decode() == "data:hi"
+
+= Empty message as raw
+from scapy.contrib.tcpcl import *
+pkt = TCPCLBaseMsgV4(b'')
+assert isinstance(pkt, Raw)
+
+= Unknown message as header
+from scapy.contrib.tcpcl import *
+data = bytes.fromhex(
+    "ff01020304"
+)
+pkt = TCPCLBaseMsgV4(data)
+pkt.show()
+assert isinstance(pkt, TCPCLBaseMsgV4)
+assert isinstance(pkt.payload, Padding)
+
+= Session init with private extensions
+from scapy.contrib.tcpcl import *
+pkt = TCPCLSessInit(
+    keepalive=300,
+    nodeid_data="data:hi".encode(),
+    ext_items=[
+        TCPCLSessExt(type=0x8000)/Raw(b'hi')
+    ]
+)
+data = bytes(pkt)
+print(data.hex())
+assert data.hex() == (
+    "07012cffffffffffffffffffffffffffffffff"
+    "0007646174613a6869"
+    "0000000700800000026869"
+)
+
+= Session init with random extensions
+from scapy.contrib.tcpcl import *
+pkt = fuzz(TCPCLSessInit(ext_items=[
+    TCPCLSessExt()/Raw(),
+    TCPCLSessExt()/Raw()
+]))
+data = bytes(pkt)
+
+
++ TCP Session interface
+
+= read from test file starting at contact
+from scapy.contrib.tcpcl import *
+filepath = scapy_path("test/pcaps/dtn_tcpclv4_bpv7_transfer.pcapng")
+packets = sniff(offline=filepath, session=TCPSession)
+assert len(packets) == 27
+
+# notable packets
+pkt = packets[3].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLContactV4)
+pkt = packets[5].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLContactV4)
+pkt = packets[7].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLSessInit)
+pkt = packets[9].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLSessInit)
+
+pkt = packets[11].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLXferSegment)
+assert pkt.transfer_id == 1
+assert pkt.flags == TCPCLXferFlag.START
+assert pkt.length == 100
+pkt = packets[13].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLXferSegment)
+assert pkt.transfer_id == 1
+assert pkt.flags == TCPCLXferFlag.END
+assert pkt.length == 99
+pkt = packets[19].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLXferAck)
+assert pkt.transfer_id == 1
+
+pkt = packets[15].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLXferSegment)
+assert pkt.transfer_id == 2
+assert pkt.flags == TCPCLXferFlag.START
+assert pkt.length == 100
+pkt = packets[17].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLXferSegment)
+assert pkt.transfer_id == 2
+assert pkt.flags == TCPCLXferFlag.END
+assert pkt.length == 99
+
+pkt = packets[23].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLSessTerm)
+pkt = packets[24].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLSessTerm)
+
+
+= read from test file starting after contact
+from scapy.contrib.tcpcl import *
+conf.debug_dissector = 2
+filepath = scapy_path("test/pcaps/dtn_tcpclv4_bpv7_nocontact.pcapng")
+packets = sniff(offline=filepath, session=TCPSession)
+assert len(packets) == 16
+
+# notable packets
+pkt = packets[0].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLXferSegment)
+assert pkt.transfer_id == 1
+
+= invalid session (no header or known message)
+from scapy.contrib.tcpcl import *
+meta = {}
+session = {}
+pkt = TCPCL.tcp_reassemble(b"", meta, session)
+assert isinstance(pkt, Raw)
+
+= session without a contact header
+from scapy.contrib.tcpcl import *
+meta = {}
+session = {}
+pkt = TCPCL.tcp_reassemble(bytes.fromhex("04"), meta, session)
+assert isinstance(pkt, TCPCLKeepalive)
+
+= synthesized session with mismatch
+from scapy.contrib.tcpcl import *
+meta = {}
+session = {}
+pkt = TCPCL.tcp_reassemble(bytes.fromhex("64746e2104010000"), meta, session)
+assert isinstance(pkt, TCPCLContactV4)
+assert session.get("tcpcl-version-i") == 4
+assert session.get("tcpcl-version-r") is None
+pkt = TCPCL.tcp_reassemble(bytes.fromhex("64746e2104010000"), meta, session)
+assert isinstance(pkt, TCPCLContactV4)
+assert session.get("tcpcl-version-i") == 4
+assert session.get("tcpcl-version-r") == 4
