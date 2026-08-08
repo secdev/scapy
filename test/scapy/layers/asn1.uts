@@ -491,3 +491,74 @@ for cls, data_hex in [
 
 True
 
+= ber oer per constrained integer codec_opts
+class BERConstrained(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+    )
+
+class OERConstrained(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+    )
+
+class PERConstrained(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+    )
+
+for cls, expected in (
+    (BERConstrained, b"\x02\x81\x02\x00\xc8"),
+    (OERConstrained, b"\xc8"),
+    (PERConstrained, b"\xc8"),
+):
+    pkt = cls(n=200)
+    assert raw(pkt) == expected
+    assert _roundtrip(cls, pkt).n.val == 200
+    assert cls.ASN1_root.codec_opts["oer_unsigned"] is True
+    assert cls.ASN1_root.codec_opts["uper_min"] == 0
+    assert cls.ASN1_root.codec_opts["uper_max"] == 255
+
+True
+
+= ber oer per empty sequence of
+class BEREmptySeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+class OEREmptySeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+class PEREmptySeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values",
+        [],
+        ASN1F_INTEGER("item", 0, uper_min=0, uper_max=7),
+        uper_min=0,
+        uper_max=3,
+    )
+
+for cls in (BEREmptySeqOf, OEREmptySeqOf, PEREmptySeqOf):
+    pkt = cls(values=[])
+    decoded = _roundtrip(cls, pkt)
+    assert decoded.values == []
+    assert len(raw(pkt)) > 0
+
+True
+
+= field hooks present after contrib load
+assert hasattr(ASN1_Codecs.OER, "_field_hooks")
+
+assert hasattr(ASN1_Codecs.PER, "_field_hooks")
+
+assert ASN1_Codecs.OER._field_hooks is not None
+
+assert ASN1_Codecs.PER._field_hooks is not None
+
+True
+

@@ -514,6 +514,69 @@ class ExtraPkt(ASN1_Packet):
 assert raw(ExtraPkt(n=7)) == b"\x02\x01\x07"
 ExtraPkt(raw(ExtraPkt(n=7))).n.val == 7
 
+= field codec_opts storage
+plain = ASN1F_INTEGER("n", 0)
+
+assert plain.codec_opts == {}
+
+assert plain._codec_kwargs(type("P", (), {"ASN1_codec": ASN1_Codecs.BER})()) == {
+    "size_len": None,
+}
+
+constrained = ASN1F_INTEGER(
+    "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+)
+
+assert constrained.codec_opts == {
+    "oer_unsigned": True,
+    "uper_min": 0,
+    "uper_max": 255,
+}
+
+assert constrained.oer_unsigned is True
+
+assert constrained.uper_min == 0
+
+assert constrained.uper_max == 255
+
+kwargs = constrained._codec_kwargs(
+    type("P", (), {"ASN1_codec": ASN1_Codecs.BER})()
+)
+
+assert kwargs["size_len"] == 1
+
+assert kwargs["oer_unsigned"] is True
+
+assert kwargs["uper_min"] == 0
+
+assert kwargs["uper_max"] == 255
+
+# BER still encodes with constraints present in kwargs.
+class ConstrainedBer(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+    )
+
+assert raw(ConstrainedBer(n=5)) == b"\x02\x81\x01\x05"
+
+assert ConstrainedBer(raw(ConstrainedBer(n=5))).n.val == 5
+
+True
+
+= CHOICE order properties
+choice = ASN1F_CHOICE(
+    "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+)
+
+assert choice.choice_order == [2, 4]
+
+assert choice.choice_list[0] is ASN1F_INTEGER
+
+assert choice.choice_list[1] is ASN1F_STRING
+
+True
+
 + ASN.1 BER build and dissect extras
 
 = import helpers
