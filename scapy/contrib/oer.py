@@ -2,6 +2,9 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
+# scapy.contrib.description = ASN.1 Octet Encoding Rules (OER)
+# scapy.contrib.status = loads
+
 """
 Octet Encoding Rules (OER) for ASN.1
 
