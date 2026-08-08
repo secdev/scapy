@@ -1367,3 +1367,494 @@ class UPERcodec_UNIVERSAL_STRING(UPERcodec_STRING):
 
 class UPERcodec_BMP_STRING(UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.BMP_STRING
+
+
+##########################
+#    ASN1F field hooks   #
+##########################
+
+def _field_extensible(field):
+    # type: (Any) -> bool
+    return bool(getattr(field, "uper_extensible", False))
+
+
+def _field_range(field):
+    # type: (Any) -> Tuple[Optional[int], Optional[int]]
+    return getattr(field, "uper_min", None), getattr(field, "uper_max", None)
+
+
+class _UPER_FieldHooks(object):
+    """Compound ASN1F_* helpers for UPER/PER (kept out of asn1fields.py)."""
+
+    @staticmethod
+    def use_object_enc(field, pkt, item):
+        # type: (Any, Any, Any) -> bool
+        # Always pass constraints through codec.enc(**kwargs).
+        return False
+
+    @staticmethod
+    def sequence_m2i(field, pkt, s):
+        # type: (Any, Any, bytes) -> Tuple[Any, bytes]
+        dec = UPER_Decoder(s)
+        _UPER_FieldHooks.sequence_dissect_from_decoder(field, pkt, dec)
+        if UPER_has_unexpected_remainder(dec):
+            raise UPER_Decoding_Error(
+                "unexpected remainder",
+                remaining=dec.remaining(),
+            )
+        return [], b""
+
+    @staticmethod
+    def sequence_build(field, pkt):
+        # type: (Any, Any) -> bytes
+        from scapy.asn1fields import ASN1F_field
+        enc = UPER_Encoder()
+        _UPER_FieldHooks.sequence_encode_into(field, enc, pkt)
+        return ASN1F_field.i2m(field, pkt, enc.as_bytes())
+
+    @staticmethod
+    def _optionals(field):
+        # type: (Any) -> Tuple[Any, ...]
+        from scapy.asn1fields import ASN1F_optional
+        return tuple(f for f in field.seq if isinstance(f, ASN1F_optional))
+
+    @staticmethod
+    def sequence_dissect_from_decoder(field, pkt, dec):
+        # type: (Any, Any, Any) -> None
+        from scapy.asn1fields import ASN1F_badsequence, ASN1F_optional
+        if _field_extensible(field):
+            if dec.read_bit():
+                raise UPER_Decoding_Error(
+                    "ASN1F_SEQUENCE: extension additions are not supported"
+                )
+        optionals = _UPER_FieldHooks._optionals(field)
+        presence = [dec.read_bit() for _ in optionals]
+        opt_idx = 0
+        for obj in field.seq:
+            if isinstance(obj, ASN1F_optional):
+                if not presence[opt_idx]:
+                    obj.set_absent(pkt)
+                    opt_idx += 1
+                    continue
+                opt_idx += 1
+            try:
+                obj.dissect_from_decoder(pkt, dec)
+            except ASN1F_badsequence:
+                break
+
+    @staticmethod
+    def sequence_encode_into(field, enc, pkt, value=None):
+        # type: (Any, Any, Any, Any) -> None
+        from scapy.asn1fields import ASN1F_optional
+        if _field_extensible(field):
+            enc.append_bit(0)
+        for opt in _UPER_FieldHooks._optionals(field):
+            enc.append_bit(0 if opt.is_empty(pkt) else 1)
+        for obj in field.seq:
+            if isinstance(obj, ASN1F_optional) and obj.is_empty(pkt):
+                continue
+            obj.encode_into(enc, pkt)
+
+    @staticmethod
+    def sequence_of_m2i(field, pkt, s):
+        # type: (Any, Any, bytes) -> Tuple[list, bytes]
+        dec = UPER_Decoder(s)
+        if _field_extensible(field) and dec.read_bit():
+            count = dec.read_length_determinant()
+        else:
+            count = _uper_count_dec(field, dec)
+        lst = []
+        for _ in range(count):
+            c, _ = _extract_packet_from_decoder(field, dec, pkt)
+            if c:
+                lst.append(c)
+        if UPER_has_unexpected_remainder(dec):
+            raise UPER_Decoding_Error(
+                "unexpected remainder",
+                remaining=dec.remaining(),
+            )
+        return lst, b""
+
+    @staticmethod
+    def sequence_of_build(field, pkt):
+        # type: (Any, Any) -> bytes
+        from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_Object
+        val = getattr(pkt, field.name)
+        if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
+            s = val  # type: Any
+        elif val is None:
+            enc = UPER_Encoder()
+            enc.append_length_determinant(0)
+            s = enc.as_bytes()
+        else:
+            enc = UPER_Encoder()
+            _UPER_FieldHooks.sequence_of_encode_into(field, enc, pkt, val)
+            s = enc.as_bytes()
+        return field.i2m(pkt, s)
+
+    @staticmethod
+    def sequence_of_m2i_from_decoder(field, pkt, dec):
+        # type: (Any, Any, Any) -> list
+        if _field_extensible(field) and dec.read_bit():
+            count = dec.read_length_determinant()
+        else:
+            count = _uper_count_dec(field, dec)
+        lst = []
+        for _ in range(count):
+            item, _ = _extract_packet_from_decoder(field, dec, pkt)
+            lst.append(item)
+        return lst
+
+    @staticmethod
+    def sequence_of_encode_into(field, enc, pkt, value=None):
+        # type: (Any, Any, Any, Any) -> None
+        if value is None:
+            value = getattr(pkt, field.name)
+        if value is None:
+            _uper_count_enc(field, enc, 0)
+            return
+        count = len(value)
+        uper_min, uper_max = _field_range(field)
+        if _field_extensible(field):
+            if (
+                    uper_min is not None and uper_max is not None and
+                    uper_min <= count <= uper_max
+            ):
+                enc.append_bit(0)
+            else:
+                enc.append_bit(1)
+                enc.append_length_determinant(count)
+                for item in value:
+                    if field.holds_packets:
+                        item.ASN1_root.encode_into(enc, item)
+                    else:
+                        field.fld.encode_into(enc, pkt, item)
+                return
+        _uper_count_enc(field, enc, count)
+        for item in value:
+            if field.holds_packets:
+                item.ASN1_root.encode_into(enc, item)
+            else:
+                field.fld.encode_into(enc, pkt, item)
+
+    @staticmethod
+    def choice_m2i(field, pkt, s):
+        # type: (Any, Any, bytes) -> Tuple[Any, bytes]
+        dec = UPER_Decoder(s)
+        val = _UPER_FieldHooks.choice_m2i_from_decoder(field, pkt, dec)
+        if UPER_has_unexpected_remainder(dec):
+            raise UPER_Decoding_Error(
+                "unexpected remainder",
+                remaining=dec.remaining(),
+            )
+        return val, b""
+
+    @staticmethod
+    def choice_i2m(field, pkt, x):
+        # type: (Any, Any, Any) -> bytes
+        if x is None:
+            s = b""
+        else:
+            enc = UPER_Encoder()
+            _UPER_FieldHooks.choice_encode_into(field, enc, pkt, x)
+            s = enc.as_bytes()
+        return field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag)
+
+    @staticmethod
+    def choice_m2i_from_decoder(field, pkt, dec):
+        # type: (Any, Any, Any) -> Any
+        from scapy.asn1.asn1 import ASN1_Error
+        if _field_extensible(field):
+            if dec.read_bit():
+                raise UPER_Decoding_Error(
+                    "ASN1F_CHOICE: extension additions are not supported"
+                )
+        order = field.choice_order
+        if len(order) > 1:
+            index, _ = UPER_choice_index_dec(b"", len(order), dec=dec)
+        else:
+            index = 0
+        if index >= len(order):
+            raise ASN1_Error(
+                "ASN1F_CHOICE: unexpected index %s in '%s'" %
+                (index, field.name)
+            )
+        choice = field.choice_list[index]
+        if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
+            p = choice()
+            p.add_underlayer(pkt)
+            p.ASN1_root.dissect_from_decoder(p, dec)
+            return p
+        if isinstance(choice, type):
+            return choice(field.name, b"").m2i_from_decoder(pkt, dec)
+        return choice.m2i_from_decoder(pkt, dec)
+
+    @staticmethod
+    def choice_encode_into(field, enc, pkt, value=None):
+        # type: (Any, Any, Any, Any) -> None
+        from scapy.asn1.asn1 import ASN1_Error
+        if value is None:
+            value = getattr(pkt, field.name)
+        index = _choice_index_for(field, value)
+        if index is None:
+            raise ASN1_Error(
+                "ASN1F_CHOICE: cannot encode unknown alternative in '%s'" %
+                field.name
+            )
+        if _field_extensible(field):
+            enc.append_bit(0)
+        order = field.choice_order
+        if len(order) > 1:
+            UPER_choice_index_enc(index, len(order), enc=enc)
+        choice = field.choice_list[index]
+        if hasattr(choice, "ASN1_root"):
+            value.ASN1_root.encode_into(enc, value)
+        elif isinstance(choice, type):
+            choice(field.name, b"").encode_into(enc, pkt, value)
+        else:
+            choice.encode_into(enc, pkt, value)
+
+    @staticmethod
+    def packet_m2i_from_decoder(field, pkt, dec):
+        # type: (Any, Any, Any) -> Any
+        cls = field._resolve_cls(pkt)
+        p = cls()
+        p.add_underlayer(pkt)
+        p.ASN1_root.dissect_from_decoder(p, dec)
+        return p
+
+    @staticmethod
+    def packet_i2m(field, pkt, x):
+        # type: (Any, Any, Any) -> bytes
+        if x is None:
+            s = b""
+        else:
+            enc = UPER_Encoder()
+            _UPER_FieldHooks.packet_encode_into(field, enc, pkt, x)
+            s = enc.as_bytes()
+        return field._tagging_enc(
+            pkt, s,
+            implicit_tag=field.implicit_tag,
+            explicit_tag=field.explicit_tag,
+        )
+
+    @staticmethod
+    def packet_encode_into(field, enc, pkt, value=None):
+        # type: (Any, Any, Any, Any) -> None
+        from scapy.asn1.asn1 import ASN1_Object
+        if value is None:
+            value = getattr(pkt, field.name)
+        if value is None:
+            return
+        if isinstance(value, ASN1_Object):
+            value = value.val
+        value.ASN1_root.encode_into(enc, value)
+
+
+def _choice_index_for(field, x):
+    # type: (Any, Any) -> Optional[int]
+    from scapy.asn1.asn1 import ASN1_Object
+    for index, choice in enumerate(field.choice_list):
+        if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
+            if isinstance(x, choice):
+                return index
+        elif hasattr(choice, "ASN1_tag"):
+            if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
+                return index
+    return None
+
+
+def _uper_count_enc(field, enc, count):
+    # type: (Any, Any, int) -> None
+    uper_min, uper_max = _field_range(field)
+    if uper_min is not None and uper_max is not None:
+        UPER_constrained_int_enc(count, uper_min, uper_max, enc=enc)
+    else:
+        enc.append_length_determinant(count)
+
+
+def _uper_count_dec(field, dec):
+    # type: (Any, Any) -> int
+    uper_min, uper_max = _field_range(field)
+    if uper_min is not None and uper_max is not None:
+        size = uper_max - uper_min
+        return (
+            dec.read_non_negative_binary_integer(UPER_bits_for_range(size)) +
+            uper_min
+        )
+    return dec.read_length_determinant()
+
+
+def _extract_packet_from_decoder(field, dec, pkt):
+    # type: (Any, Any, Any) -> Tuple[Any, bytes]
+    if field.holds_packets:
+        p = field.cls()
+        p.add_underlayer(pkt)
+        p.ASN1_root.dissect_from_decoder(p, dec)
+        return p, b""
+    return field.fld.m2i_from_decoder(pkt, dec), b""
+
+
+# Populated by _install_uper_asn1fields() (also published on scapy.asn1fields).
+ASN1F_DEFAULT = None  # type: Any
+
+
+def _install_uper_asn1fields():
+    # type: () -> None
+    """Attach UPER bitstream helpers and DEFAULT onto asn1fields classes."""
+    from scapy import asn1fields as af
+    from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_Error, ASN1_Object
+
+    class _ASN1F_DEFAULT(af.ASN1F_optional):
+        """ASN.1 field with a DEFAULT value (PER presence bit)."""
+
+        def __init__(self, field, default):
+            # type: (Any, Any) -> None
+            super(_ASN1F_DEFAULT, self).__init__(field)
+            self._default = default
+
+        def is_empty(self, pkt):
+            # type: (Any) -> bool
+            val = getattr(pkt, self._field.name, None)
+            if val is None:
+                return True
+            if isinstance(val, ASN1_Object):
+                val = val.val
+            default = self._default
+            if isinstance(default, ASN1_Object):
+                default = default.val
+            return bool(val == default)
+
+        def set_absent(self, pkt):
+            # type: (Any) -> None
+            self.set_val(pkt, self._default)
+
+    global ASN1F_DEFAULT
+    ASN1F_DEFAULT = _ASN1F_DEFAULT  # type: ignore[misc,assignment]
+    af.ASN1F_DEFAULT = _ASN1F_DEFAULT
+
+    def m2i_from_decoder(self, pkt, dec):
+        # type: (Any, Any, Any) -> Any
+        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+        return codec.dec_from_decoder(  # type: ignore[attr-defined]
+            dec, **self._codec_kwargs(pkt),
+        )
+
+    def dissect_from_decoder(self, pkt, dec):
+        # type: (Any, Any, Any) -> None
+        self.set_val(pkt, self.m2i_from_decoder(pkt, dec))
+
+    def encode_into(self, enc, pkt, value=None):
+        # type: (Any, Any, Any, Any) -> None
+        if value is None:
+            value = getattr(pkt, self.name)
+        if value is None:
+            return
+        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+        if isinstance(value, ASN1_Object):
+            if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
+                    value.tag == ASN1_Class_UNIVERSAL.RAW or
+                    value.tag == ASN1_Class_UNIVERSAL.ERROR or
+                    self.ASN1_tag == value.tag):
+                raw = value.val
+            else:
+                raise ASN1_Error(
+                    "Encoding Error: got %r instead of an %r for field [%s]" %
+                    (value, self.ASN1_tag, self.name)
+                )
+        else:
+            raw = value
+        codec.encode_into(  # type: ignore[attr-defined]
+            enc, raw, **self._codec_kwargs(pkt),
+        )
+
+    af.ASN1F_field.m2i_from_decoder = m2i_from_decoder  # type: ignore[attr-defined]
+    af.ASN1F_field.dissect_from_decoder = dissect_from_decoder  # type: ignore[attr-defined]
+    af.ASN1F_field.encode_into = encode_into  # type: ignore[attr-defined]
+    af.ASN1F_field._uper_encode_into = encode_into  # type: ignore[attr-defined]
+
+    def seq_dissect_from_decoder(self, pkt, dec):
+        # type: (Any, Any, Any) -> None
+        return _UPER_FieldHooks.sequence_dissect_from_decoder(self, pkt, dec)
+
+    def seq_encode_into(self, enc, pkt, value=None):
+        # type: (Any, Any, Any, Any) -> None
+        return _UPER_FieldHooks.sequence_encode_into(self, enc, pkt, value)
+
+    af.ASN1F_SEQUENCE.dissect_from_decoder = seq_dissect_from_decoder  # type: ignore[attr-defined]
+    af.ASN1F_SEQUENCE.encode_into = seq_encode_into  # type: ignore[attr-defined]
+    af.ASN1F_SEQUENCE._uper_encode_into = seq_encode_into  # type: ignore[attr-defined]
+
+    def seqof_m2i_from_decoder(self, pkt, dec):
+        # type: (Any, Any, Any) -> Any
+        return _UPER_FieldHooks.sequence_of_m2i_from_decoder(self, pkt, dec)
+
+    def seqof_encode_into(self, enc, pkt, value=None):
+        # type: (Any, Any, Any, Any) -> None
+        return _UPER_FieldHooks.sequence_of_encode_into(self, enc, pkt, value)
+
+    af.ASN1F_SEQUENCE_OF.m2i_from_decoder = seqof_m2i_from_decoder  # type: ignore[attr-defined]
+    af.ASN1F_SEQUENCE_OF.encode_into = seqof_encode_into  # type: ignore[attr-defined]
+    af.ASN1F_SEQUENCE_OF._uper_encode_into = seqof_encode_into  # type: ignore[attr-defined]
+
+    def choice_m2i_from_decoder(self, pkt, dec):
+        # type: (Any, Any, Any) -> Any
+        return _UPER_FieldHooks.choice_m2i_from_decoder(self, pkt, dec)
+
+    def choice_encode_into(self, enc, pkt, value=None):
+        # type: (Any, Any, Any, Any) -> None
+        return _UPER_FieldHooks.choice_encode_into(self, enc, pkt, value)
+
+    af.ASN1F_CHOICE.m2i_from_decoder = choice_m2i_from_decoder  # type: ignore[attr-defined]
+    af.ASN1F_CHOICE.encode_into = choice_encode_into  # type: ignore[attr-defined]
+    af.ASN1F_CHOICE._uper_encode_into = choice_encode_into  # type: ignore[attr-defined]
+
+    def packet_m2i_from_decoder(self, pkt, dec):
+        # type: (Any, Any, Any) -> Any
+        return _UPER_FieldHooks.packet_m2i_from_decoder(self, pkt, dec)
+
+    def packet_encode_into(self, enc, pkt, value=None):
+        # type: (Any, Any, Any, Any) -> None
+        return _UPER_FieldHooks.packet_encode_into(self, enc, pkt, value)
+
+    af.ASN1F_PACKET.m2i_from_decoder = packet_m2i_from_decoder  # type: ignore[attr-defined]
+    af.ASN1F_PACKET.encode_into = packet_encode_into  # type: ignore[attr-defined]
+    af.ASN1F_PACKET._uper_encode_into = packet_encode_into  # type: ignore[attr-defined]
+
+    def opt_set_absent(self, pkt):
+        # type: (Any, Any) -> None
+        self.set_val(pkt, None)
+
+    def opt_dissect_from_decoder(self, pkt, dec):
+        # type: (Any, Any, Any) -> None
+        return self._field.dissect_from_decoder(pkt, dec)
+
+    def opt_encode_into(self, enc, pkt, value=None):
+        # type: (Any, Any, Any, Any) -> None
+        self._field.encode_into(enc, pkt, value)
+
+    af.ASN1F_optional.set_absent = opt_set_absent  # type: ignore[attr-defined]
+    af.ASN1F_optional.dissect_from_decoder = opt_dissect_from_decoder  # type: ignore[attr-defined]
+    af.ASN1F_optional.encode_into = opt_encode_into  # type: ignore[attr-defined]
+    af.ASN1F_optional._uper_encode_into = opt_encode_into  # type: ignore[attr-defined]
+
+    _orig_enum_init = af.ASN1F_enum_INTEGER.__init__
+
+    def enum_init(self, name, default, enum, context=None,
+                  implicit_tag=None, explicit_tag=None):
+        # type: (Any, str, Any, Any, Any, Any, Any) -> None
+        _orig_enum_init(
+            self, name, default, enum, context=context,
+            implicit_tag=implicit_tag, explicit_tag=explicit_tag,
+        )
+        values = list(self.i2s)
+        self.uper_enum_values = values
+        opts = dict(getattr(self, "codec_opts", {}))
+        opts["uper_enum_values"] = values
+        self.codec_opts = opts
+
+    af.ASN1F_enum_INTEGER.__init__ = enum_init  # type: ignore[assignment]
+
+
+_install_uper_asn1fields()
+ASN1_Codecs.PER.register_field_hooks(_UPER_FieldHooks)

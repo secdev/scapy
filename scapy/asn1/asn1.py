@@ -132,6 +132,11 @@ class ASN1Codec(EnumElement):
         cls._tagging_enc = enc
         cls._tagging_dec = dec
 
+    def register_field_hooks(cls, hooks):
+        # type: (Any) -> None
+        # Optional compound-field helpers (SEQUENCE/CHOICE/…) for contrib codecs.
+        cls._field_hooks = hooks
+
     def tagging_enc(cls, s, **kwargs):
         # type: (bytes, **Any) -> bytes
         return cls._tagging_enc(s, **kwargs)  # type: ignore
