@@ -404,6 +404,7 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
                safe=False,  # type: bool
                size_len=0,  # type: Optional[int]
                oer_unsigned=False,  # type: bool
+               **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[Any], bytes]
         raise OER_Decoding_Error(
@@ -418,8 +419,11 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
             safe=False,  # type: bool
             size_len=0,  # type: Optional[int]
             oer_unsigned=False,  # type: bool
+            **_kwargs  # type: Any
             ):
         # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
+        # Ignore unknown kwargs so shared field._codec_kwargs() dicts (UPER
+        # keys) do not TypeError on OER packets.
         if not safe:
             return cls.do_dec(s, context, safe, size_len, oer_unsigned)
         try:
@@ -440,6 +444,7 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
                 context=None,  # type: Optional[Type[ASN1_Class]]
                 size_len=0,  # type: Optional[int]
                 oer_unsigned=False,  # type: bool
+                **_kwargs  # type: Any
                 ):
         # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
         return cls.dec(
