@@ -823,3 +823,130 @@ class OERcodec_GAUGE32(OERcodec_INTEGER):
 
 class OERcodec_TIME_TICKS(OERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS
+
+
+##########################
+#    ASN1F field hooks   #
+##########################
+
+class _OER_FieldHooks(object):
+    """Compound ASN1F_* helpers for OER (kept out of asn1fields.py)."""
+
+    @staticmethod
+    def use_object_enc(field, pkt, item):
+        # type: (Any, Any, Any) -> bool
+        # Constraints (e.g. oer_unsigned) must go through codec.enc(**kwargs).
+        return field.size_len is None and not field.codec_opts
+
+    @staticmethod
+    def sequence_m2i(field, pkt, s):
+        # type: (Any, Any, bytes) -> Tuple[Any, bytes]
+        s = field._apply_tagging_dec(s, pkt, _fname=pkt.name)
+        s = field._dissect_sequence_children(pkt, s)
+        return [], s
+
+    @staticmethod
+    def sequence_build(field, pkt):
+        # type: (Any, Any) -> bytes
+        from functools import reduce
+        s = reduce(lambda x, y: x + y.build(pkt), field.seq, b"")
+        return ASN1F_field_i2m(field, pkt, s)
+
+    @staticmethod
+    def sequence_of_m2i(field, pkt, s):
+        # type: (Any, Any, bytes) -> Tuple[list, bytes]
+        s = field._apply_tagging_dec(s, pkt)
+        count, s = OER_unsigned_integer_dec(s)
+        lst = []
+        for _ in range(count):
+            c, s = field._extract_packet(s, pkt)
+            if c:
+                lst.append(c)
+        return lst, s
+
+    @staticmethod
+    def sequence_of_build(field, pkt):
+        # type: (Any, Any) -> bytes
+        from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_Object
+        val = getattr(pkt, field.name)
+        if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
+            s = val  # type: Any
+        elif val is None:
+            s = OER_unsigned_integer_enc(0)
+        elif field.holds_packets:
+            s = OER_unsigned_integer_enc(len(val)) + b"".join(bytes(i) for i in val)
+        else:
+            s = (
+                OER_unsigned_integer_enc(len(val)) +
+                b"".join(field.fld.i2m(pkt, i) for i in val)
+            )
+        return field.i2m(pkt, s)
+
+    @staticmethod
+    def choice_m2i(field, pkt, s):
+        # type: (Any, Any, bytes) -> Tuple[Any, bytes]
+        from scapy.asn1fields import ASN1F_field
+        from scapy.asn1.asn1 import ASN1_Error
+        s = field._apply_tagging_dec(s, pkt)
+        tag, payload = OER_id_dec(s)
+        if tag in field.choices:
+            choice = field.choices[tag]
+        elif field.flexible_tag:
+            choice = ASN1F_field
+        else:
+            raise ASN1_Error(
+                "ASN1F_CHOICE: unexpected field in '%s' "
+                "(tag %s not in possible tags %s)" % (
+                    field.name, tag, list(field.choices.keys())
+                )
+            )
+        if hasattr(choice, "ASN1_root"):
+            return field.extract_packet(choice, payload, _underlayer=pkt)
+        if isinstance(choice, type):
+            return choice(field.name, b"").m2i(pkt, payload)
+        return choice.m2i(pkt, payload)
+
+    @staticmethod
+    def choice_i2m(field, pkt, x):
+        # type: (Any, Any, Any) -> bytes
+        from scapy.asn1.asn1 import ASN1_Object
+        if x is None:
+            s = b""
+        else:
+            if isinstance(x, ASN1_Object):
+                s = x.enc(pkt.ASN1_codec)
+            else:
+                s = bytes(x)
+            alt_tag = _choice_tag_for(field, x)
+            if alt_tag is not None:
+                s = OER_tag_enc(alt_tag & 0x3f, alt_tag & 0xc0) + s
+        return field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag)
+
+
+def _choice_index_for(field, x):
+    # type: (Any, Any) -> Optional[int]
+    from scapy.asn1.asn1 import ASN1_Object
+    for index, choice in enumerate(field.choice_list):
+        if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
+            if isinstance(x, choice):
+                return index
+        elif hasattr(choice, "ASN1_tag"):
+            if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
+                return index
+    return None
+
+
+def _choice_tag_for(field, x):
+    # type: (Any, Any) -> Optional[int]
+    index = _choice_index_for(field, x)
+    return None if index is None else field.choice_order[index]
+
+
+def ASN1F_field_i2m(field, pkt, s):
+    # type: (Any, Any, bytes) -> bytes
+    # Call ASN1F_field.i2m without compound overrides.
+    from scapy.asn1fields import ASN1F_field
+    return ASN1F_field.i2m(field, pkt, s)
+
+
+ASN1_Codecs.OER.register_field_hooks(_OER_FieldHooks)
