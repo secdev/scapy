@@ -2827,3 +2827,208 @@ assert raw(oer_pkt_choice)
 
 True
 
+
++ ASN.1 UPER field hooks and packet extras
+= import contrib codecs
+import scapy.contrib.uper
+from scapy.contrib.uper import *
+from scapy.contrib.uper import ASN1F_DEFAULT
+from scapy.packet import raw
+import scapy.asn1fields as asn1fields
+= prepare helpers and packet classes
+def _val(x):
+    # type: (Any) -> Any
+    return x.val if hasattr(x, "val") else x
+
+def _roundtrip(cls, pkt):
+    # type: (type, ASN1_Packet) -> ASN1_Packet
+    return cls(raw(pkt))
+
+class UPERDefaultRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_DEFAULT(
+            ASN1F_INTEGER("n", 5, uper_min=0, uper_max=10),
+            5,
+        ),
+    )
+
+class UPEREmptySeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values",
+        [],
+        ASN1F_INTEGER("item", 0, uper_min=0, uper_max=7),
+        uper_min=0,
+        uper_max=3,
+    )
+
+class UPERExtSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values",
+        [],
+        ASN1F_INTEGER("item", 0, uper_min=0, uper_max=7),
+        uper_min=1,
+        uper_max=2,
+        uper_extensible=True,
+    )
+
+class UPERFlagsField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_FLAGS(
+        "f", "101", ["a", "b", "c"], uper_min=3, uper_max=3,
+    )
+
+class UPERInnerPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("x", 0, uper_min=0, uper_max=15),
+    )
+
+class UPERWrappedPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_PACKET("inner", None, UPERInnerPacket),
+    )
+
+class UPERConstrainedInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=255)
+= uper field hooks registered
+assert hasattr(ASN1_Codecs.PER, "_field_hooks")
+
+assert ASN1_Codecs.PER._field_hooks is not None
+
+assert hasattr(ASN1_Codecs.PER._field_hooks, "sequence_m2i")
+
+assert hasattr(ASN1_Codecs.PER._field_hooks, "use_object_enc")
+
+assert ASN1_Codecs.PER._field_hooks.use_object_enc(
+    UPERConstrainedInt.ASN1_root, UPERConstrainedInt(), ASN1_INTEGER(1),
+) is False
+
+True
+
+= uper DEFAULT published on asn1fields
+assert ASN1F_DEFAULT is asn1fields.ASN1F_DEFAULT
+
+assert issubclass(ASN1F_DEFAULT, ASN1F_optional)
+
+enum_fld = ASN1F_ENUMERATED("e", 0, {1: "a", 2: "b"})
+
+assert enum_fld.uper_enum_values == [1, 2]
+
+assert enum_fld.codec_opts["uper_enum_values"] == [1, 2]
+
+assert hasattr(ASN1F_field, "encode_into")
+
+assert hasattr(ASN1F_SEQUENCE, "dissect_from_decoder")
+
+True
+
+= uper use_object_enc and codec_opts
+fld = UPERConstrainedInt.ASN1_root
+
+assert fld.codec_opts == {"uper_min": 0, "uper_max": 255}
+
+assert fld._use_object_enc(UPERConstrainedInt(), ASN1_INTEGER(5)) is False
+
+assert raw(UPERConstrainedInt(n=5)) == b"\x05"
+
+assert _val(_roundtrip(UPERConstrainedInt, UPERConstrainedInt(n=5)).n) == 5
+
+True
+
+= uper DEFAULT presence bit
+absent = UPERDefaultRecord(id=1, n=5)
+
+present = UPERDefaultRecord(id=1, n=7)
+
+assert raw(absent) == bytes.fromhex("0080")
+
+assert raw(present) == bytes.fromhex("80b8")
+
+assert raw(absent) != raw(present)
+
+decoded_absent = _roundtrip(UPERDefaultRecord, absent)
+
+decoded_present = _roundtrip(UPERDefaultRecord, present)
+
+assert _val(decoded_absent.n) == 5
+
+assert _val(decoded_present.n) == 7
+
+True
+
+= uper empty constrained sequence of
+pkt = UPEREmptySeqOf(values=[])
+
+assert raw(pkt) == b"\x00"
+
+decoded = _roundtrip(UPEREmptySeqOf, pkt)
+
+assert decoded.values == []
+
+True
+
+= uper extensible sequence of outside range
+pkt = UPERExtSeqOf(values=[1, 2, 3])
+
+assert raw(pkt) == bytes.fromhex("8194c0")
+
+decoded = _roundtrip(UPERExtSeqOf, pkt)
+
+assert [_val(x) for x in decoded.values] == [1, 2, 3]
+
+True
+
+= uper FLAGS field
+pkt = UPERFlagsField(f="101")
+
+assert raw(pkt) == bytes.fromhex("a0")
+
+decoded = _roundtrip(UPERFlagsField, pkt)
+
+assert decoded.f.val == "101"
+
+assert UPERFlagsField.ASN1_root.get_flags(decoded) == ["a", "c"]
+
+True
+
+= uper nested ASN1F_PACKET
+pkt = UPERWrappedPacket(id=1, inner=UPERInnerPacket(x=7))
+
+assert raw(pkt) == bytes.fromhex("0170")
+
+decoded = _roundtrip(UPERWrappedPacket, pkt)
+
+assert _val(decoded.id) == 1
+
+assert _val(decoded.inner.x) == 7
+
+True
+
+= uper field encode_into nesting
+built = UPERWrappedPacket(id=1, inner=UPERInnerPacket(x=7))
+
+enc = UPER_Encoder()
+
+UPERWrappedPacket.ASN1_root.encode_into(enc, built)
+
+assert enc.as_bytes() == raw(built)
+
+empty = UPERWrappedPacket()
+
+UPERWrappedPacket.ASN1_root.dissect_from_decoder(
+    empty, UPER_Decoder(raw(built)),
+)
+
+assert _val(empty.id) == 1
+
+assert _val(empty.inner.x) == 7
+
+True
+

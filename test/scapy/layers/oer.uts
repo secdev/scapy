@@ -860,3 +860,156 @@ assert remain == b""
 
 True
 
+
++ ASN.1 OER field hooks and packet extras
+= import contrib codecs
+import scapy.contrib.oer
+import scapy.contrib.uper
+from scapy.contrib.oer import *
+from scapy.packet import raw
+= prepare helpers and packet classes
+class OEREmptySequenceOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+class OEREnumField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_ENUMERATED("e", 0, {0: "a", 1: "b"})
+
+class OERBitStringField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_BIT_STRING("b", "0101")
+
+class OERNullRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_NULL("z", 0),
+        ASN1F_INTEGER("n", 0, size_len=1, oer_unsigned=True),
+    )
+
+class OEROidField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_OID("oid", "1.2.3")
+
+class OERInnerSeq(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("x", 0, size_len=1, oer_unsigned=True),
+    )
+
+class OERPacketChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_CHOICE("c", None, OERInnerSeq, ASN1F_INTEGER)
+
+class OERUnsignedField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, size_len=1, oer_unsigned=True,
+    )
+
+def _roundtrip(cls, pkt):
+    # type: (type, ASN1_Packet) -> ASN1_Packet
+    return cls(raw(pkt))
+= oer field hooks registered
+assert hasattr(ASN1_Codecs.OER, "_field_hooks")
+
+assert ASN1_Codecs.OER._field_hooks is not None
+
+assert hasattr(ASN1_Codecs.OER._field_hooks, "sequence_m2i")
+
+assert hasattr(ASN1_Codecs.OER._field_hooks, "use_object_enc")
+
+True
+
+= oer use_object_enc via hooks
+fld = OERUnsignedField.ASN1_root
+
+assert fld.codec_opts["oer_unsigned"] is True
+
+assert fld._use_object_enc(OERUnsignedField(), ASN1_INTEGER(5)) is False
+
+assert raw(OERUnsignedField(n=5)) == b"\x05"
+
+assert _roundtrip(OERUnsignedField, OERUnsignedField(n=5)).n.val == 5
+
+True
+
+= oer empty sequence of
+pkt = OEREmptySequenceOf(values=[])
+
+assert raw(pkt) == b"\x01\x00"
+
+decoded = _roundtrip(OEREmptySequenceOf, pkt)
+
+assert decoded.values == []
+
+True
+
+= oer enumerated field
+pkt = OEREnumField(e=1)
+
+assert raw(pkt) == b"\x01"
+
+decoded = _roundtrip(OEREnumField, pkt)
+
+assert decoded.e.val == 1
+
+True
+
+= oer bit string field
+pkt = OERBitStringField(b="0101")
+
+assert raw(pkt) == b"\x02\x04\x50"
+
+decoded = _roundtrip(OERBitStringField, pkt)
+
+assert decoded.b.val == "0101"
+
+True
+
+= oer null and oid fields
+null_pkt = OERNullRecord(z=0, n=2)
+
+assert raw(null_pkt) == b"\x02"
+
+assert _roundtrip(OERNullRecord, null_pkt).n.val == 2
+
+oid_pkt = OEROidField(oid="1.2.3")
+
+assert raw(oid_pkt) == b"\x02\x2a\x03"
+
+assert _roundtrip(OEROidField, oid_pkt).oid.val == "1.2.3"
+
+True
+
+= oer choice with packet alternative
+pkt = OERPacketChoice(c=OERInnerSeq(x=3))
+
+assert raw(pkt) == b"\x30\x03"
+
+decoded = _roundtrip(OERPacketChoice, pkt)
+
+assert isinstance(decoded.c, OERInnerSeq)
+
+assert decoded.c.x.val == 3
+
+as_int = OERPacketChoice(c=ASN1_INTEGER(9))
+
+decoded_int = _roundtrip(OERPacketChoice, as_int)
+
+assert decoded_int.c.val == 9
+
+True
+
+= oer dec ignores foreign codec kwargs
+# Shared field.codec_opts may include UPER keys after contrib.uper is loaded.
+x, remain = OERcodec_ENUMERATED.dec(
+    b"\x01", uper_enum_values=[0, 1], uper_min=0,
+)
+
+assert x.val == 1
+
+assert remain == b""
+
+True
+
