@@ -2,6 +2,9 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
+# scapy.contrib.description = ASN.1 Unaligned Packed Encoding Rules (UPER)
+# scapy.contrib.status = loads
+
 """
 Unaligned Packed Encoding Rules (UPER) for ASN.1
 
