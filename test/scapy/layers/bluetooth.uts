@@ -623,6 +623,100 @@ assert parsed[HCI_Event_Hdr].len == 4
 assert parsed[HCI_Event_Vendor].data == b"\xde\xad\xbe\xef"
 
 
++ HCI_Event_Vendor handler registration (register_handler / dispatch_hook)
+
+= register_handler routes a recognised body to the vendor handler layer
+# The 0xff event is shared across vendors, so a contrib registers a handler
+# whose check() recognises its own body (here a leading 0xa5 subcode). The
+# dispatch_hook then dissects a matching body with that handler instead of
+# HCI_Event_Vendor. Save the registry first so it can be restored.
+_saved_vendor_handlers = dict(HCI_Event_Vendor.registered_handlers)
+
+class _VendorHandlerA(HCI_Event_Vendor):
+    name = "Vendor Handler A"
+    match_subclass = True
+    fields_desc = [XByteField("subcode", 0xa5), ByteField("value", 0)]
+    @classmethod
+    def check(cls, body):
+        return len(body) >= 1 and body[0] == 0xa5
+
+HCI_Event_Vendor.register_handler(_VendorHandlerA)
+assert _VendorHandlerA in HCI_Event_Vendor.registered_handlers
+
+evt = HCI_Hdr(hex_bytes("04" "ff" "02" "a542"))
+assert _VendorHandlerA in evt
+assert HCI_Event_Vendor in evt                 # match_subclass keeps this true
+assert evt[HCI_Event_Vendor] is evt[_VendorHandlerA]
+assert evt[_VendorHandlerA].subcode == 0xa5
+assert evt[_VendorHandlerA].value == 0x42
+assert raw(evt) == hex_bytes("04" "ff" "02" "a542")   # round-trips unchanged
+
+= A vendor handler can also be built and re-dissected
+evt = HCI_Hdr() / HCI_Event_Hdr() / _VendorHandlerA(value=0x42)
+assert raw(evt) == hex_bytes("04" "ff" "02" "a542")
+assert HCI_Hdr(raw(evt))[_VendorHandlerA].value == 0x42
+
+= register_handler accepts an explicit check callable
+# A handler need not define check() itself; the callable may be supplied.
+class _VendorHandlerB(HCI_Event_Vendor):
+    name = "Vendor Handler B"
+    match_subclass = True
+    fields_desc = [StrField("body", b"")]
+
+HCI_Event_Vendor.register_handler(_VendorHandlerB, check=lambda body: body[:1] == b"\x5a")
+evt = HCI_Hdr(hex_bytes("04" "ff" "03" "5abeef"))
+assert _VendorHandlerB in evt
+assert _VendorHandlerA not in evt              # A's check does not claim it
+assert evt[_VendorHandlerB].body == b"\x5a\xbe\xef"
+
+= Two registered handlers dispatch independently by content
+# With both handlers loaded, each body is routed to the handler that claims it.
+evt_a = HCI_Hdr(hex_bytes("04" "ff" "02" "a542"))
+assert _VendorHandlerA in evt_a and _VendorHandlerB not in evt_a
+evt_b = HCI_Hdr(hex_bytes("04" "ff" "03" "5abeef"))
+assert _VendorHandlerB in evt_b and _VendorHandlerA not in evt_b
+
+= An unrecognised 0xff body still falls back to the raw data field
+# No registered check matches, so the historical raw-``data`` behaviour holds.
+evt = HCI_Hdr(hex_bytes("04" "ff" "02" "0102"))
+assert type(evt[HCI_Event_Vendor]) is HCI_Event_Vendor
+assert _VendorHandlerA not in evt
+assert _VendorHandlerB not in evt
+assert evt[HCI_Event_Vendor].data == b"\x01\x02"
+assert raw(evt) == hex_bytes("04" "ff" "02" "0102")
+
+= dispatch_hook only applies to dissection, not to explicit construction
+# Without bytes to inspect there is nothing to check, so the generic class is
+# kept and ``HCI_Event_Vendor(data=...)`` still builds a generic event.
+assert type(HCI_Event_Vendor()) is HCI_Event_Vendor
+assert type(HCI_Event_Vendor(data=b"\xa5\x42")) is HCI_Event_Vendor
+
+= register_handler is idempotent when the same handler is re-registered
+# Keyed by handler class, so reloading a contrib does not duplicate entries.
+_n = len(HCI_Event_Vendor.registered_handlers)
+HCI_Event_Vendor.register_handler(_VendorHandlerA)
+assert len(HCI_Event_Vendor.registered_handlers) == _n
+
+= register_handler raises TypeError when no check is available
+class _VendorNoCheck(Packet):
+    name = "Vendor No Check"
+    fields_desc = []
+
+try:
+    HCI_Event_Vendor.register_handler(_VendorNoCheck)
+    assert False, "expected TypeError for a handler without a check"
+except TypeError:
+    pass
+
+assert _VendorNoCheck not in HCI_Event_Vendor.registered_handlers
+
+= Restore the HCI_Event_Vendor handler registry
+# Undo the test registrations so later tests see a clean registry.
+HCI_Event_Vendor.registered_handlers.clear()
+HCI_Event_Vendor.registered_handlers.update(_saved_vendor_handlers)
+assert HCI_Event_Vendor.registered_handlers == _saved_vendor_handlers
+
+
 + Bluetooth LE Advertising / Scan Response Data Parsing
 = Parse EIR_IncompleteList32BitServiceUUIDs
 
