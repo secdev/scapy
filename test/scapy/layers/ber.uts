@@ -539,11 +539,10 @@ assert constrained.codec_opts == {
     "uper_max": 255,
 }
 
-assert constrained.oer_unsigned is True
+# Constraints live in codec_opts only: they must not become field attributes.
+assert not hasattr(constrained, "oer_unsigned")
 
-assert constrained.uper_min == 0
-
-assert constrained.uper_max == 255
+assert not hasattr(constrained, "uper_min")
 
 kwargs = constrained._codec_kwargs(
     type("P", (), {"ASN1_codec": ASN1_Codecs.BER})()

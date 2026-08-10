@@ -1383,12 +1383,13 @@ class UPERcodec_BMP_STRING(UPERcodec_STRING):
 
 def _field_extensible(field):
     # type: (Any) -> bool
-    return bool(getattr(field, "uper_extensible", False))
+    return bool(getattr(field, "codec_opts", {}).get("uper_extensible", False))
 
 
 def _field_range(field):
     # type: (Any) -> Tuple[Optional[int], Optional[int]]
-    return getattr(field, "uper_min", None), getattr(field, "uper_max", None)
+    opts = getattr(field, "codec_opts", {})
+    return opts.get("uper_min"), opts.get("uper_max")
 
 
 class _UPER_FieldHooks(object):
@@ -1846,22 +1847,20 @@ def _install_uper_asn1fields():
     af.ASN1F_optional.encode_into = opt_encode_into  # type: ignore[attr-defined]  # noqa: E501
     af.ASN1F_optional._uper_encode_into = opt_encode_into  # type: ignore[attr-defined]  # noqa: E501
 
-    _orig_enum_init = af.ASN1F_enum_INTEGER.__init__
+    _orig_enum_codec_kwargs = af.ASN1F_enum_INTEGER._codec_kwargs
 
-    def enum_init(self, name, default, enum, context=None,
-                  implicit_tag=None, explicit_tag=None):
-        # type: (Any, str, Any, Any, Any, Any, Any) -> None
-        _orig_enum_init(
-            self, name, default, enum, context=context,
-            implicit_tag=implicit_tag, explicit_tag=explicit_tag,
-        )
-        values = list(self.i2s)
-        self.uper_enum_values = values
-        opts = dict(getattr(self, "codec_opts", {}))
-        opts["uper_enum_values"] = values
-        self.codec_opts = opts
+    def enum_codec_kwargs(self, pkt):
+        # type: (Any, Any) -> Any
+        kwargs = _orig_enum_codec_kwargs(self, pkt)
+        # The permitted values belong to the UPER encoding, not to the field
+        # definition, so they are only added for PER packets. Other codecs
+        # keep an empty codec_opts and their item.enc() fast path.
+        codec = getattr(pkt, "ASN1_codec", None)
+        if getattr(codec, "_field_hooks", None) is _UPER_FieldHooks:
+            kwargs.setdefault("uper_enum_values", list(self.i2s))
+        return kwargs
 
-    af.ASN1F_enum_INTEGER.__init__ = enum_init  # type: ignore[assignment]
+    af.ASN1F_enum_INTEGER._codec_kwargs = enum_codec_kwargs  # type: ignore[assignment]  # noqa: E501
 
 
 _install_uper_asn1fields()
