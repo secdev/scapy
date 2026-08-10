@@ -471,6 +471,9 @@ def _id_tagging_enc(s, **kwargs):
 def _id_tagging_dec(s, **kwargs):
     return None, s
 
+# Save/restore: asn1.uts may already have loaded contrib UPER tagging.
+_prev_tagging_enc = getattr(ASN1_Codecs.PER, "_tagging_enc", None)
+_prev_tagging_dec = getattr(ASN1_Codecs.PER, "_tagging_dec", None)
 ASN1_Codecs.PER.register_tagging(_id_tagging_enc, _id_tagging_dec)
 try:
     assert ASN1_Codecs.PER.tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\x02\x01\x05"
@@ -479,8 +482,11 @@ try:
     )
     assert diff is None and payload == b"\x02\x01\x05"
 finally:
-    del ASN1_Codecs.PER._tagging_enc
-    del ASN1_Codecs.PER._tagging_dec
+    if _prev_tagging_enc is not None and _prev_tagging_dec is not None:
+        ASN1_Codecs.PER.register_tagging(_prev_tagging_enc, _prev_tagging_dec)
+    else:
+        del ASN1_Codecs.PER._tagging_enc
+        del ASN1_Codecs.PER._tagging_dec
 
 = field _codec_kwargs and object-enc hooks
 class P(ASN1_Packet):
