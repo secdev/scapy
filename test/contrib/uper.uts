@@ -5,53 +5,13 @@
 # bash test/run_tests -t test/scapy/layers/uper.uts -F
 
 + ASN.1 UPER load
-= import contrib codecs
-import scapy.contrib.uper
-from scapy.contrib.uper import *
-from scapy.packet import raw
-
-
-+ ASN.1 UPER codec
-= UPER boolean true
-UPERcodec_BOOLEAN.enc(1) == b"\x80"
-= UPER boolean false
-UPERcodec_BOOLEAN.enc(0) == b"\x00"
-= UPER unconstrained integer
-UPERcodec_INTEGER.enc(42) == b"\x01*"
-= UPER constrained integer
-UPERcodec_INTEGER.enc(200, uper_min=0, uper_max=255) == b"\xc8"
-= UPER signed constrained integer
-UPERcodec_INTEGER.enc(-1, uper_min=-128, uper_max=127) == b"\x7f"
-= UPER octet string
-UPERcodec_STRING.enc(b"AB") == b"\x02AB"
-= UPER fixed octet string
-UPERcodec_STRING.enc(b"\x12\x34\x56", size_len=3) == b"\x12\x34\x56"
-= UPER null
-UPERcodec_NULL.enc(None) == b""
-= UPER enumerated index
-UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]) == b"\x80"
-= UPER bit string variable size
-UPERcodec_BIT_STRING.enc((b"\xab\xcd", 16), uper_min=1, uper_max=20) == bytes.fromhex("7d5e68")
-= UPER enumerated roundtrip
-x, r = UPERcodec_ENUMERATED.do_dec(UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]), uper_enum_values=[1, 200])
-x.val == 200 and r == b""
-= UPER integer roundtrip
-x, r = UPERcodec_INTEGER.do_dec(UPERcodec_INTEGER.enc(-1))
-x.val == -1 and r == b""
-= UPER boolean roundtrip
-x, r = UPERcodec_BOOLEAN.do_dec(UPERcodec_BOOLEAN.enc(1))
-x.val == 1 and r == b""
-= UPER ASN1 object encoding
-ASN1_INTEGER(42).enc(ASN1_Codecs.PER) == b"\x01*"
-= UPER codec registration
-ASN1_Class_UNIVERSAL.INTEGER.get_codec(ASN1_Codecs.PER) is UPERcodec_INTEGER
-
-+ ASN.1 UPER packets, helpers, interop and fuzz
-= import contrib codecs
-import scapy.contrib.uper
-from scapy.contrib.uper import *
-from scapy.packet import raw
 = prepare helpers and packet classes
+import scapy.contrib.uper
+
+from scapy.contrib.uper import *
+
+from scapy.packet import raw
+
 class UPERFixedFields(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
     ASN1_root = ASN1F_SEQUENCE(
@@ -582,6 +542,201 @@ class UPERFuzzEnumerated(ASN1_Packet):
 def _fuzz_packets():
     # type: () -> Iterable[Type[ASN1_Packet]]
     return (UPERFuzzRecord, UPERFuzzNested, UPERFuzzEnumerated)
+
+def _record_kwargs():
+    # type: () -> dict
+    return dict(
+        id=42,
+        flag=True,
+        label=b"hi",
+        extra=7,
+        values=[1, 2, 3],
+    )
+
+def _asn1_int(val):
+    # type: (Any) -> int
+    return val.val if hasattr(val, "val") else val
+
+def _assert_record(decoded):
+    # type: (ASN1_Packet) -> None
+    assert decoded.id.val == 42
+    assert decoded.flag.val == 1
+    assert decoded.label.val == b"hi"
+    assert decoded.extra.val == 7
+    assert [x.val for x in decoded.values] == [1, 2, 3]
+
+def _assert_record_empty(decoded):
+    # type: (ASN1_Packet) -> None
+    assert decoded.id.val == 1
+    assert decoded.flag.val == 0
+    assert decoded.label.val == b""
+    assert decoded.extra is None
+    assert [x.val for x in decoded.values] == []
+
+def _dissect(cls, data_hex):
+    # type: (Type[ASN1_Packet], str) -> ASN1_Packet
+    return cls(bytes.fromhex(data_hex))
+
+from unittest import mock
+
+from scapy.asn1.ber import BER_Decoding_Error
+
+from scapy.contrib.oer import OER_Decoding_Error, OER_Encoding_Error
+
+from scapy.contrib.uper import (
+    UPER_Decoding_Error, UPER_Encoding_Error, UPER_Decoder, UPER_Encoder,
+)
+
+from scapy.packet import Raw, raw
+
+class _InnerRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_enum_INTEGER("mode", ASN1_INTEGER(0), ["off", "on"]),
+    )
+
+class _EncapsRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_STRING_ENCAPS("payload", None, _InnerRecord),
+    )
+
+class _FlagsRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_FLAGS("f", "000", ["read", "write", "exec"]),
+    )
+
+class _SetOfRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SET_OF("items", [], ASN1F_INTEGER)
+
+class _PacketFieldRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_STRING_PacketField("data", b""),
+    )
+
+class _ExplicitPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_PACKET("inner", None, _InnerRecord, explicit_tag=0xA2)
+
+class _BitEncapsRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BIT_STRING_ENCAPS("b", None, _InnerRecord),
+    )
+
+def _raises(exc, func):
+    # type: (type, Any) -> None
+    try:
+        func()
+    except exc:
+        return
+    raise AssertionError("Expected %s" % exc.__name__)
+
+import scapy.contrib.oer
+
+from scapy.contrib.oer import *
+
+from scapy.contrib.uper import ASN1F_DEFAULT
+
+import scapy.asn1fields as asn1fields
+
+def _val(x):
+    # type: (Any) -> Any
+    return x.val if hasattr(x, "val") else x
+
+class UPERSmallDefaultRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_DEFAULT(
+            ASN1F_INTEGER("n", 5, uper_min=0, uper_max=10),
+            5,
+        ),
+    )
+
+class UPEREmptySeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values",
+        [],
+        ASN1F_INTEGER("item", 0, uper_min=0, uper_max=7),
+        uper_min=0,
+        uper_max=3,
+    )
+
+class UPERExtSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values",
+        [],
+        ASN1F_INTEGER("item", 0, uper_min=0, uper_max=7),
+        uper_min=1,
+        uper_max=2,
+        uper_extensible=True,
+    )
+
+class UPERFlagsField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_FLAGS(
+        "f", "101", ["a", "b", "c"], uper_min=3, uper_max=3,
+    )
+
+class UPERInnerPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("x", 0, uper_min=0, uper_max=15),
+    )
+
+class UPERWrappedPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_PACKET("inner", None, UPERInnerPacket),
+    )
+
+class UPERConstrainedInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=255)
+
++ ASN.1 UPER codec
+= UPER boolean true
+UPERcodec_BOOLEAN.enc(1) == b"\x80"
+= UPER boolean false
+UPERcodec_BOOLEAN.enc(0) == b"\x00"
+= UPER unconstrained integer
+UPERcodec_INTEGER.enc(42) == b"\x01*"
+= UPER constrained integer
+UPERcodec_INTEGER.enc(200, uper_min=0, uper_max=255) == b"\xc8"
+= UPER signed constrained integer
+UPERcodec_INTEGER.enc(-1, uper_min=-128, uper_max=127) == b"\x7f"
+= UPER octet string
+UPERcodec_STRING.enc(b"AB") == b"\x02AB"
+= UPER fixed octet string
+UPERcodec_STRING.enc(b"\x12\x34\x56", size_len=3) == b"\x12\x34\x56"
+= UPER null
+UPERcodec_NULL.enc(None) == b""
+= UPER enumerated index
+UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]) == b"\x80"
+= UPER bit string variable size
+UPERcodec_BIT_STRING.enc((b"\xab\xcd", 16), uper_min=1, uper_max=20) == bytes.fromhex("7d5e68")
+= UPER enumerated roundtrip
+x, r = UPERcodec_ENUMERATED.do_dec(UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]), uper_enum_values=[1, 200])
+x.val == 200 and r == b""
+= UPER integer roundtrip
+x, r = UPERcodec_INTEGER.do_dec(UPERcodec_INTEGER.enc(-1))
+x.val == -1 and r == b""
+= UPER boolean roundtrip
+x, r = UPERcodec_BOOLEAN.do_dec(UPERcodec_BOOLEAN.enc(1))
+x.val == 1 and r == b""
+= UPER ASN1 object encoding
+ASN1_INTEGER(42).enc(ASN1_Codecs.PER) == b"\x01*"
+= UPER codec registration
+ASN1_Class_UNIVERSAL.INTEGER.get_codec(ASN1_Codecs.PER) is UPERcodec_INTEGER
+
++ ASN.1 UPER packets, helpers, interop and fuzz
 = uper field fixed size
 pkt = UPERFixedFields(n=200, s=b"ABC")
 
@@ -1377,205 +1532,6 @@ for cls in _fuzz_packets():
 True
 
 + ASN.1 UPER build and dissect
-= import contrib codecs
-import scapy.contrib.uper
-from scapy.contrib.uper import *
-from scapy.packet import raw
-= prepare helpers and packet classes
-class UPERFixedFields(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("n", 0, size_len=1, oer_unsigned=True),
-        ASN1F_STRING("s", "", size_len=3),
-    )
-
-class UPERIntegerField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_INTEGER("n", 0)
-
-class UPERBooleanField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_BOOLEAN("b", False)
-
-class UPERStringField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_STRING("s", "")
-
-class UPERConstrainedInteger(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_INTEGER(
-        "n", 0, size_len=1, oer_unsigned=True,
-    )
-
-class UPEROptionalField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0),
-        ASN1F_BOOLEAN("flag", False),
-        ASN1F_optional(ASN1F_INTEGER("extra", 0)),
-    )
-
-class UPERSequenceOfIntegers(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
-
-class UPERChoiceField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_CHOICE(
-        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
-    )
-
-class UPERChoiceStringFirst(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_CHOICE(
-        "c", ASN1_STRING(b""), ASN1F_STRING, ASN1F_INTEGER,
-    )
-
-class UPERRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0),
-        ASN1F_BOOLEAN("flag", False),
-        ASN1F_STRING("label", ""),
-        ASN1F_optional(ASN1F_INTEGER("extra", 0)),
-        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
-    )
-
-class UPEREnumeratedField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_ENUMERATED(
-        "state", 1, {1: "alpha", 200: "beta"},
-    )
-
-class UPERBitStringField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_BIT_STRING(
-        "bits", "0", uper_min=1, uper_max=20,
-    )
-
-class UPERMessagePrefix(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("msgId", 0),
-        ASN1F_INTEGER("myflag", 0),
-        ASN1F_STRING("szDescription", "", size_len=10),
-        ASN1F_BOOLEAN("isReady", False),
-    )
-
-class UPERSequenceWithChoice(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0),
-        ASN1F_CHOICE("c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING),
-    )
-
-class UPERNullPacket(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_NULL("n", None)
-
-class UPERVariableOctetString(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_STRING("data", "", uper_min=1, uper_max=20)
-
-class UPERConstrainedRangeInt(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=15)
-
-class UPERSequenceWithEnumerated(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0),
-        ASN1F_ENUMERATED("state", 1, {1: "alpha", 200: "beta"}),
-    )
-
-class UPERSequenceOfStrings(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE_OF("items", [], ASN1F_STRING)
-
-class UPERNestedSequence(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0),
-        ASN1F_SEQUENCE(
-            ASN1F_INTEGER("x", 0),
-            ASN1F_BOOLEAN("y", False),
-        ),
-    )
-
-class UPERSequenceWithNull(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0),
-        ASN1F_NULL("n", None),
-    )
-
-class UPERFixedBitString(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_BIT_STRING("b", "0", uper_min=16, uper_max=16)
-
-class UPERSequenceOfConstrainedInts(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE_OF(
-        "values", [], ASN1F_INTEGER("item", 0, uper_min=0, uper_max=255),
-    )
-
-class UPERSignedInteger(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=-128, uper_max=127)
-
-class UPERMultiOptional(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0),
-        ASN1F_optional(ASN1F_INTEGER("a", 0)),
-        ASN1F_optional(ASN1F_STRING("b", "")),
-    )
-
-def _roundtrip(cls, pkt):
-    # type: (type, ASN1_Packet) -> ASN1_Packet
-    return cls(raw(pkt))
-
-def _roundtrip(cls, pkt):
-    # type: (type, ASN1_Packet) -> ASN1_Packet
-    return cls(raw(pkt))
-
-def _record_kwargs():
-    # type: () -> dict
-    return dict(
-        id=42,
-        flag=True,
-        label=b"hi",
-        extra=7,
-        values=[1, 2, 3],
-    )
-
-def _asn1_int(val):
-    # type: (Any) -> int
-    return val.val if hasattr(val, "val") else val
-
-def _asn1_int(val):
-    # type: (Any) -> int
-    return val.val if hasattr(val, "val") else val
-
-def _assert_record(decoded):
-    # type: (ASN1_Packet) -> None
-    assert decoded.id.val == 42
-    assert decoded.flag.val == 1
-    assert decoded.label.val == b"hi"
-    assert decoded.extra.val == 7
-    assert [x.val for x in decoded.values] == [1, 2, 3]
-
-def _assert_record_empty(decoded):
-    # type: (ASN1_Packet) -> None
-    assert decoded.id.val == 1
-    assert decoded.flag.val == 0
-    assert decoded.label.val == b""
-    assert decoded.extra is None
-    assert [x.val for x in decoded.values] == []
-
-def _dissect(cls, data_hex):
-    # type: (Type[ASN1_Packet], str) -> ASN1_Packet
-    return cls(bytes.fromhex(data_hex))
 = per record build roundtrip
 pkt = UPERRecord(**_record_kwargs())
 
@@ -1811,63 +1767,6 @@ assert [x.val for x in decoded.items] == [1, 2]
 True
 
 + ASN.1 UPER coverage
-= import contrib codecs
-import scapy.contrib.uper
-from scapy.contrib.uper import *
-from scapy.packet import raw
-from unittest import mock
-from scapy.asn1.ber import BER_Decoding_Error
-from scapy.contrib.oer import OER_Decoding_Error, OER_Encoding_Error
-from scapy.contrib.uper import (
-    UPER_Decoding_Error, UPER_Encoding_Error, UPER_Decoder, UPER_Encoder,
-)
-from scapy.packet import Raw, raw
-= prepare helpers and packet classes
-class _InnerRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_enum_INTEGER("mode", ASN1_INTEGER(0), ["off", "on"]),
-    )
-
-class _EncapsRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_STRING_ENCAPS("payload", None, _InnerRecord),
-    )
-
-class _FlagsRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_FLAGS("f", "000", ["read", "write", "exec"]),
-    )
-
-class _SetOfRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SET_OF("items", [], ASN1F_INTEGER)
-
-class _PacketFieldRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_STRING_PacketField("data", b""),
-    )
-
-class _ExplicitPacket(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_PACKET("inner", None, _InnerRecord, explicit_tag=0xA2)
-
-class _BitEncapsRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_BIT_STRING_ENCAPS("b", None, _InnerRecord),
-    )
-
-def _raises(exc, func):
-    # type: (type, Any) -> None
-    try:
-        func()
-    except exc:
-        return
-    raise AssertionError("Expected %s" % exc.__name__)
 = uper error str
 obj = ASN1_INTEGER(2)
 
@@ -1990,65 +1889,6 @@ _raises(UPER_Encoding_Error, lambda: UPERcodec_IPADDRESS.enc("bad-ip"))
 True
 
 + ASN.1 fields coverage
-= import contrib codecs
-import scapy.contrib.oer
-import scapy.contrib.uper
-from scapy.contrib.oer import *
-from scapy.contrib.uper import *
-from scapy.packet import raw
-from unittest import mock
-from scapy.asn1.ber import BER_Decoding_Error
-from scapy.contrib.oer import OER_Decoding_Error, OER_Encoding_Error
-from scapy.contrib.uper import (
-    UPER_Decoding_Error, UPER_Encoding_Error, UPER_Decoder, UPER_Encoder,
-)
-from scapy.packet import Raw, raw
-= prepare helpers and packet classes
-class _InnerRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_enum_INTEGER("mode", ASN1_INTEGER(0), ["off", "on"]),
-    )
-
-class _EncapsRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_STRING_ENCAPS("payload", None, _InnerRecord),
-    )
-
-class _FlagsRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_FLAGS("f", "000", ["read", "write", "exec"]),
-    )
-
-class _SetOfRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SET_OF("items", [], ASN1F_INTEGER)
-
-class _PacketFieldRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_STRING_PacketField("data", b""),
-    )
-
-class _ExplicitPacket(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_PACKET("inner", None, _InnerRecord, explicit_tag=0xA2)
-
-class _BitEncapsRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_BIT_STRING_ENCAPS("b", None, _InnerRecord),
-    )
-
-def _raises(exc, func):
-    # type: (type, Any) -> None
-    try:
-        func()
-    except exc:
-        return
-    raise AssertionError("Expected %s" % exc.__name__)
 = asn1fields enum and flags
 pkt = _InnerRecord(mode="on")
 
@@ -2829,74 +2669,6 @@ True
 
 
 + ASN.1 UPER field hooks and packet extras
-= import contrib codecs
-import scapy.contrib.uper
-from scapy.contrib.uper import *
-from scapy.contrib.uper import ASN1F_DEFAULT
-from scapy.packet import raw
-import scapy.asn1fields as asn1fields
-= prepare helpers and packet classes
-def _val(x):
-    # type: (Any) -> Any
-    return x.val if hasattr(x, "val") else x
-
-def _roundtrip(cls, pkt):
-    # type: (type, ASN1_Packet) -> ASN1_Packet
-    return cls(raw(pkt))
-
-class UPERDefaultRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
-        ASN1F_DEFAULT(
-            ASN1F_INTEGER("n", 5, uper_min=0, uper_max=10),
-            5,
-        ),
-    )
-
-class UPEREmptySeqOf(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE_OF(
-        "values",
-        [],
-        ASN1F_INTEGER("item", 0, uper_min=0, uper_max=7),
-        uper_min=0,
-        uper_max=3,
-    )
-
-class UPERExtSeqOf(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE_OF(
-        "values",
-        [],
-        ASN1F_INTEGER("item", 0, uper_min=0, uper_max=7),
-        uper_min=1,
-        uper_max=2,
-        uper_extensible=True,
-    )
-
-class UPERFlagsField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_FLAGS(
-        "f", "101", ["a", "b", "c"], uper_min=3, uper_max=3,
-    )
-
-class UPERInnerPacket(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("x", 0, uper_min=0, uper_max=15),
-    )
-
-class UPERWrappedPacket(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
-        ASN1F_PACKET("inner", None, UPERInnerPacket),
-    )
-
-class UPERConstrainedInt(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=255)
 = uper field hooks registered
 assert hasattr(ASN1_Codecs.PER, "_field_hooks")
 
@@ -2919,9 +2691,17 @@ assert issubclass(ASN1F_DEFAULT, ASN1F_optional)
 
 enum_fld = ASN1F_ENUMERATED("e", 0, {1: "a", 2: "b"})
 
-assert enum_fld.uper_enum_values == [1, 2]
+# ENUMERATED values are added per-codec, so BER packets keep an empty
+# codec_opts while PER packets get the permitted values.
+assert enum_fld.codec_opts == {}
 
-assert enum_fld.codec_opts["uper_enum_values"] == [1, 2]
+assert "uper_enum_values" not in enum_fld._codec_kwargs(
+    type("P", (), {"ASN1_codec": ASN1_Codecs.BER})()
+)
+
+assert enum_fld._codec_kwargs(
+    type("P", (), {"ASN1_codec": ASN1_Codecs.PER})()
+)["uper_enum_values"] == [1, 2]
 
 assert hasattr(ASN1F_field, "encode_into")
 
@@ -2943,9 +2723,9 @@ assert _val(_roundtrip(UPERConstrainedInt, UPERConstrainedInt(n=5)).n) == 5
 True
 
 = uper DEFAULT presence bit
-absent = UPERDefaultRecord(id=1, n=5)
+absent = UPERSmallDefaultRecord(id=1, n=5)
 
-present = UPERDefaultRecord(id=1, n=7)
+present = UPERSmallDefaultRecord(id=1, n=7)
 
 assert raw(absent) == bytes.fromhex("0080")
 
@@ -2953,9 +2733,9 @@ assert raw(present) == bytes.fromhex("80b8")
 
 assert raw(absent) != raw(present)
 
-decoded_absent = _roundtrip(UPERDefaultRecord, absent)
+decoded_absent = _roundtrip(UPERSmallDefaultRecord, absent)
 
-decoded_present = _roundtrip(UPERDefaultRecord, present)
+decoded_present = _roundtrip(UPERSmallDefaultRecord, present)
 
 assert _val(decoded_absent.n) == 5
 

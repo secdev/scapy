@@ -70,6 +70,13 @@ class ASN1F_element(object):
     pass
 
 
+def _field_hook(pkt, name):
+    # type: (Any, str) -> Any
+    # Contrib codecs (OER/UPER/…) may override compound field operations.
+    # Returns None when the codec keeps the default BER behaviour.
+    return pkt.ASN1_codec.field_hook(name)
+
+
 ##########################
 #    Basic ASN1 Field    #
 ##########################
@@ -108,8 +115,6 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # Contrib codecs (OER/UPER/…) pass constraints here, e.g.
         # oer_unsigned=, uper_min=/uper_max=, uper_extensible=.
         self.codec_opts = codec_opts  # type: Dict[str, Any]
-        for key, val in codec_opts.items():
-            setattr(self, key, val)
         self.flexible_tag = flexible_tag
         if (implicit_tag is not None) and (explicit_tag is not None):
             err_msg = "field cannot be both implicitly and explicitly tagged"
@@ -171,9 +176,9 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
     def _use_object_enc(self, pkt, item):
         # type: (ASN1_Packet, ASN1_Object[Any]) -> bool
         # Contrib codecs may force codec.enc(**kwargs) via field hooks.
-        hooks = getattr(pkt.ASN1_codec, "_field_hooks", None)
-        if hooks is not None and hasattr(hooks, "use_object_enc"):
-            return cast(bool, hooks.use_object_enc(self, pkt, item))
+        hook = _field_hook(pkt, "use_object_enc")
+        if hook is not None:
+            return cast(bool, hook(self, pkt, item))
         return self.size_len is None and not self.codec_opts
 
     def _encode_item(self, pkt, item):
@@ -549,9 +554,9 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         Thus m2i returns an empty list (along with the proper remainder).
         It is discarded by dissect() and should not be missed elsewhere.
         """
-        hooks = getattr(pkt.ASN1_codec, "_field_hooks", None)
-        if hooks is not None:
-            return cast(Tuple[Any, bytes], hooks.sequence_m2i(self, pkt, s))
+        hook = _field_hook(pkt, "sequence_m2i")
+        if hook is not None:
+            return cast(Tuple[Any, bytes], hook(self, pkt, s))
         s = self._apply_tagging_dec(s, pkt, _fname=pkt.name)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         i, s, remain = codec.check_type_check_len(s)
@@ -570,9 +575,9 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
-        hooks = getattr(pkt.ASN1_codec, "_field_hooks", None)
-        if hooks is not None:
-            return cast(bytes, hooks.sequence_build(self, pkt))
+        hook = _field_hook(pkt, "sequence_build")
+        if hook is not None:
+            return cast(bytes, hook(self, pkt))
         s = reduce(lambda x, y: x + y.build(pkt),
                    self.seq, b"")
         return super(ASN1F_SEQUENCE, self).i2m(pkt, s)
@@ -641,10 +646,9 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
             s,  # type: bytes
             ):
         # type: (...) -> Tuple[List[Any], bytes]
-        hooks = getattr(pkt.ASN1_codec, "_field_hooks", None)
-        if hooks is not None:
-            return cast(Tuple[List[Any], bytes],
-                        hooks.sequence_of_m2i(self, pkt, s))
+        hook = _field_hook(pkt, "sequence_of_m2i")
+        if hook is not None:
+            return cast(Tuple[List[Any], bytes], hook(self, pkt, s))
         s = self._apply_tagging_dec(s, pkt)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         i, s, remain = codec.check_type_check_len(s)
@@ -662,9 +666,9 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
 
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
-        hooks = getattr(pkt.ASN1_codec, "_field_hooks", None)
-        if hooks is not None:
-            return cast(bytes, hooks.sequence_of_build(self, pkt))
+        hook = _field_hook(pkt, "sequence_of_build")
+        if hook is not None:
+            return cast(bytes, hook(self, pkt))
         val = getattr(pkt, self.name)
         if isinstance(val, ASN1_Object) and \
                 val.tag == ASN1_Class_UNIVERSAL.RAW:
@@ -846,10 +850,9 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         """
         if len(s) == 0:
             raise ASN1_Error("ASN1F_CHOICE: got empty string")
-        hooks = getattr(pkt.ASN1_codec, "_field_hooks", None)
-        if hooks is not None:
-            return cast(Tuple[ASN1_Object[Any], bytes],
-                        hooks.choice_m2i(self, pkt, s))
+        hook = _field_hook(pkt, "choice_m2i")
+        if hook is not None:
+            return cast(Tuple[ASN1_Object[Any], bytes], hook(self, pkt, s))
         s = self._apply_tagging_dec(s, pkt)
         tag, _ = BER_id_dec(s)
         if tag in self.choices:
@@ -875,9 +878,9 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
 
     def i2m(self, pkt, x):
         # type: (ASN1_Packet, Any) -> bytes
-        hooks = getattr(pkt.ASN1_codec, "_field_hooks", None)
-        if hooks is not None:
-            return cast(bytes, hooks.choice_i2m(self, pkt, x))
+        hook = _field_hook(pkt, "choice_i2m")
+        if hook is not None:
+            return cast(bytes, hook(self, pkt, x))
         if x is None:
             s = b""
         else:
@@ -963,9 +966,9 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
             x  # type: Union[bytes, ASN1_Packet, None, ASN1_Object[Optional[ASN1_Packet]]]  # noqa: E501
             ):
         # type: (...) -> bytes
-        hooks = getattr(pkt.ASN1_codec, "_field_hooks", None)
-        if hooks is not None and hasattr(hooks, "packet_i2m"):
-            return cast(bytes, hooks.packet_i2m(self, pkt, x))
+        hook = _field_hook(pkt, "packet_i2m")
+        if hook is not None:
+            return cast(bytes, hook(self, pkt, x))
         if x is None:
             s = b""
         elif isinstance(x, bytes):
