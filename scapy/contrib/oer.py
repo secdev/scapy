@@ -368,6 +368,7 @@ _K = TypeVar('_K')
 class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
     codec = ASN1_Codecs.OER
     tag = ASN1_Class_UNIVERSAL.ANY
+
     @classmethod
     def asn1_object(cls, val):
         # type: (_K) -> ASN1_Object[_K]
@@ -457,7 +458,7 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
 
     @classmethod
     def enc(cls, s, size_len=0, **_kwargs):
-        # type: (_K, Optional[int]) -> bytes
+        # type: (_K, Optional[int], **Any) -> bytes
         if isinstance(s, (str, bytes)):
             return OERcodec_STRING.enc(s, size_len=size_len)
         else:
@@ -480,7 +481,7 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
 
     @classmethod
     def enc(cls, i, size_len=0, **_kwargs):
-        # type: (int, Optional[int]) -> bytes
+        # type: (int, Optional[int], **Any) -> bytes
         if size_len in (1, 2, 4, 8):
             if i >= 0:
                 if size_len == 1 and 0 <= i <= 255:
@@ -520,7 +521,7 @@ class OERcodec_BOOLEAN(OERcodec_Object[int]):
 
     @classmethod
     def enc(cls, i, size_len=0, **_kwargs):
-        # type: (int, Optional[int]) -> bytes
+        # type: (int, Optional[int], **Any) -> bytes
         return chb(0xff if i else 0x00)
 
     @classmethod
@@ -569,7 +570,7 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
 
     @classmethod
     def enc(cls, _s, size_len=0, **_kwargs):
-        # type: (AnyStr, Optional[int]) -> bytes
+        # type: (AnyStr, Optional[int], **Any) -> bytes
         s = bytes_encode(_s)
         if len(s) % 8 == 0:
             unused_bits = 0
@@ -587,7 +588,7 @@ class OERcodec_STRING(OERcodec_Object[str]):
 
     @classmethod
     def enc(cls, _s, size_len=0, **_kwargs):
-        # type: (Union[str, bytes], Optional[int]) -> bytes
+        # type: (Union[str, bytes], Optional[int], **Any) -> bytes
         s = bytes_encode(_s)
         if size_len and size_len == len(s):
             return s
@@ -624,7 +625,7 @@ class OERcodec_NULL(OERcodec_Object[None]):
 
     @classmethod
     def enc(cls, i, size_len=0, **_kwargs):
-        # type: (Any, Optional[int]) -> bytes
+        # type: (Any, Optional[int], **Any) -> bytes
         return b""
 
     @classmethod
@@ -644,7 +645,7 @@ class OERcodec_OID(OERcodec_Object[bytes]):
 
     @classmethod
     def enc(cls, _oid, size_len=0, **_kwargs):
-        # type: (AnyStr, Optional[int]) -> bytes
+        # type: (AnyStr, Optional[int], **Any) -> bytes
         oid = bytes_encode(_oid)
         if oid:
             lst = [int(x) for x in oid.strip(b".").split(b".")]
@@ -690,7 +691,7 @@ class OERcodec_ENUMERATED(OERcodec_INTEGER):
 
     @classmethod
     def enc(cls, i, size_len=0, **_kwargs):
-        # type: (int, Optional[int]) -> bytes
+        # type: (int, Optional[int], **Any) -> bytes
         return OER_enumerated_enc(i)
 
     @classmethod
@@ -759,7 +760,7 @@ class OERcodec_SEQUENCE(OERcodec_Object[Union[bytes, List['OERcodec_Object[Any]'
 
     @classmethod
     def enc(cls, _ll, size_len=0, **_kwargs):
-        # type: (Union[bytes, List[OERcodec_Object[Any]]], Optional[int]) -> bytes
+        # type: (Union[bytes, List[OERcodec_Object[Any]]], Optional[int], **Any) -> bytes  # noqa: E501
         if isinstance(_ll, bytes):
             return _ll
         return b"".join(x.enc(cls.codec) for x in _ll)
@@ -788,7 +789,7 @@ class OERcodec_IPADDRESS(OERcodec_STRING):
 
     @classmethod
     def enc(cls, ipaddr_ascii, size_len=0, **_kwargs):  # type: ignore
-        # type: (str, Optional[int]) -> bytes
+        # type: (str, Optional[int], **Any) -> bytes
         try:
             s = inet_aton(ipaddr_ascii)
         except Exception:
