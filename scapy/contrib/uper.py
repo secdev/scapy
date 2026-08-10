@@ -368,6 +368,15 @@ class UPER_Decoder(object):
         value = self._read_bits_int(self.number_of_bits)
         return _uper_per_bits_to_bytes(value, self.number_of_bits)
 
+    def remaining_bytes(self):
+        # type: () -> bytes
+        # A standalone UPER encoding is padded to an octet boundary, so the
+        # bits left over inside the current octet are padding; only whole
+        # octets after it are actual remaining input.
+        pad = -self._read_offset() % 8
+        self.number_of_bits = max(0, self.number_of_bits - pad)
+        return self.remaining()
+
     def read_bytes(self, number_of_bytes):
         # type: (int) -> bytes
         return self.read_bits(8 * number_of_bytes)
@@ -571,111 +580,65 @@ class UPERcodec_Object(Generic[_K], metaclass=UPERcodec_metaclass):
         # type: (_K) -> ASN1_Object[_K]
         return cls.tag.asn1_object(val)
 
+    # The bit-oriented encode_into()/dec_from_decoder() pair is the primitive
+    # every codec implements; enc()/do_dec() below are the standalone (byte
+    # buffer) entry points, and pass every codec option straight through.
+
     @classmethod
-    def check_string(cls, s):
-        # type: (bytes) -> None
-        if not s and cls.tag != ASN1_Class_UNIVERSAL.NULL:
-            raise UPER_Decoding_Error(
-                "%s: Got empty object while expecting %r" %
-                (cls.__name__, cls.tag), remaining=s
+    def encode_into(cls, enc, s, **kwargs):
+        # type: (UPER_Encoder, Any, **Any) -> None
+        # No schema information here (ANY): guess from the Python type.
+        if isinstance(s, (str, bytes)):
+            UPERcodec_STRING.encode_into(enc, s, **kwargs)
+            return
+        try:
+            UPERcodec_INTEGER.encode_into(enc, int(s), **kwargs)
+        except Exception:
+            raise UPER_Encoding_Error(
+                "Cannot encode value %r for %s" % (s, cls.__name__),
+                encoded=s
             )
 
     @classmethod
-    def do_dec(cls,
-               s,  # type: bytes
-               context=None,  # type: Optional[Type[ASN1_Class]]
-               safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
-               uper_min=None,  # type: Optional[int]
-               uper_max=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
-               uper_enum_values=None,  # type: Optional[List[int]]
-               ):
-        # type: (...) -> Tuple[ASN1_Object[Any], bytes]
+    def dec_from_decoder(cls, dec, **kwargs):
+        # type: (UPER_Decoder, **Any) -> ASN1_Object[Any]
         raise UPER_Decoding_Error(
             "%s: Cannot decode unknown UPER type without context" %
-            cls.__name__, remaining=s
+            cls.__name__, remaining=dec.remaining()
         )
 
     @classmethod
-    def dec(cls,
-            s,  # type: bytes
-            context=None,  # type: Optional[Type[ASN1_Class]]
-            safe=False,  # type: bool
-            size_len=0,  # type: Optional[int]
-            uper_min=None,  # type: Optional[int]
-            uper_max=None,  # type: Optional[int]
-            oer_unsigned=False,  # type: bool
-            uper_enum_values=None,  # type: Optional[List[int]]
-            ):
-        # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
-        dec_kwargs = {}  # type: Dict[str, Any]
-        if uper_enum_values is not None:
-            dec_kwargs["uper_enum_values"] = uper_enum_values
+    def enc(cls, s, **kwargs):
+        # type: (Any, **Any) -> bytes
+        enc = UPER_Encoder()
+        cls.encode_into(enc, s, **kwargs)
+        return enc.as_bytes()
+
+    @classmethod
+    def do_dec(cls, s, context=None, safe=False, **kwargs):
+        # type: (bytes, Optional[Type[ASN1_Class]], bool, **Any) -> Tuple[ASN1_Object[Any], bytes]  # noqa: E501
+        dec = UPER_Decoder(s)
+        return cls.dec_from_decoder(dec, **kwargs), dec.remaining_bytes()
+
+    @classmethod
+    def dec(cls, s, context=None, safe=False, **kwargs):
+        # type: (bytes, Optional[Type[ASN1_Class]], bool, **Any) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]  # noqa: E501
         if not safe:
-            return cls.do_dec(
-                s, context, safe, size_len, uper_min, uper_max, oer_unsigned,
-                **dec_kwargs
-            )
+            return cls.do_dec(s, context, safe, **kwargs)
         try:
-            return cls.do_dec(
-                s, context, safe, size_len, uper_min, uper_max, oer_unsigned,
-                **dec_kwargs
-            )
+            return cls.do_dec(s, context, safe, **kwargs)
         except UPER_BadTag_Decoding_Error as e:
             o, remain = UPERcodec_Object.dec(
-                e.remaining, context, safe, size_len, uper_min, uper_max,
-                oer_unsigned, uper_enum_values=uper_enum_values,
+                e.remaining, context, safe, **kwargs
             )
             return ASN1_BADTAG(o), remain
-        except UPER_Decoding_Error as e:
-            return ASN1_DECODING_ERROR(s, exc=e), b""
-        except ASN1_Error as e:
+        except (UPER_Decoding_Error, ASN1_Error) as e:
             return ASN1_DECODING_ERROR(s, exc=e), b""
 
     @classmethod
-    def safedec(cls,
-                s,  # type: bytes
-                context=None,  # type: Optional[Type[ASN1_Class]]
-                size_len=0,  # type: Optional[int]
-                uper_min=None,  # type: Optional[int]
-                uper_max=None,  # type: Optional[int]
-                oer_unsigned=False,  # type: bool
-                uper_enum_values=None,  # type: Optional[List[int]]
-                ):
-        # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
-        return cls.dec(
-            s, context, safe=True,
-            size_len=size_len, uper_min=uper_min, uper_max=uper_max,
-            oer_unsigned=oer_unsigned, uper_enum_values=uper_enum_values,
-        )
-
-    @classmethod
-    def enc(cls, s, size_len=0, uper_min=None, uper_max=None, **_kwargs):
-        # type: (_K, Optional[int], Optional[int], Optional[int], **Any) -> bytes
-        if isinstance(s, (str, bytes)):
-            return UPERcodec_STRING.enc(s, size_len=size_len,
-                                        uper_min=uper_min, uper_max=uper_max)
-        else:
-            try:
-                return UPERcodec_INTEGER.enc(
-                    int(s),
-                    size_len=size_len,
-                    uper_min=uper_min,
-                    uper_max=uper_max,
-                )
-            except Exception:
-                raise UPER_Encoding_Error(
-                    "Cannot encode value %r for %s" % (s, cls.__name__),
-                    encoded=s
-                )
-
-
-def _uper_enc_via_encode_into(cls, *args, **kwargs):
-    # type: (Type[UPERcodec_Object[Any]], *Any, **Any) -> bytes
-    enc = UPER_Encoder()
-    cls.encode_into(enc, *args, **kwargs)
-    return enc.as_bytes()
+    def safedec(cls, s, context=None, **kwargs):
+        # type: (bytes, Optional[Type[ASN1_Class]], **Any) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]  # noqa: E501
+        return cls.dec(s, context, safe=True, **kwargs)
 
 
 def UPER_tagging_enc(s, **kwargs):
@@ -719,6 +682,7 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                     uper_max=None,  # type: Optional[int]
                     oer_unsigned=False,  # type: bool
                     uper_extensible=False,  # type: bool
+                    **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         minimum, maximum = _uper_int_range(size_len, uper_min, uper_max, oer_unsigned)
@@ -742,6 +706,7 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                          uper_max=None,  # type: Optional[int]
                          oer_unsigned=False,  # type: bool
                          uper_extensible=False,  # type: bool
+                         **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
         minimum, maximum = _uper_int_range(size_len, uper_min, uper_max, oer_unsigned)
@@ -755,32 +720,6 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
             value = dec.read_unconstrained_whole_number()
         return cls.asn1_object(value)
 
-    @classmethod
-    def enc(cls, i, size_len=0, uper_min=None, uper_max=None,
-            oer_unsigned=False, **_kwargs):
-        # type: (int, Optional[int], Optional[int], Optional[int], bool, **Any) -> bytes
-        return _uper_enc_via_encode_into(
-            cls, i, size_len, uper_min, uper_max, oer_unsigned,
-        )
-
-    @classmethod
-    def do_dec(cls,
-               s,  # type: bytes
-               context=None,  # type: Optional[Type[ASN1_Class]]
-               safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
-               uper_min=None,  # type: Optional[int]
-               uper_max=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
-               ):
-        # type: (...) -> Tuple[ASN1_Object[int], bytes]
-        minimum, maximum = _uper_int_range(size_len, uper_min, uper_max, oer_unsigned)
-        if minimum is not None and maximum is not None:
-            x, t = UPER_constrained_int_dec(s, minimum, maximum)
-        else:
-            x, t = UPER_unconstrained_int_dec(s)
-        return cls.asn1_object(x), t
-
 
 class UPERcodec_BOOLEAN(UPERcodec_Object[int]):
     tag = ASN1_Class_UNIVERSAL.BOOLEAN
@@ -793,6 +732,7 @@ class UPERcodec_BOOLEAN(UPERcodec_Object[int]):
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
                     oer_unsigned=False,  # type: bool
+                    **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         UPER_boolean_enc(i, enc=enc)
@@ -804,31 +744,10 @@ class UPERcodec_BOOLEAN(UPERcodec_Object[int]):
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
                          oer_unsigned=False,  # type: bool
+                         **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
         return cls.asn1_object(dec.read_bit())
-
-    @classmethod
-    def enc(cls, i, size_len=0, uper_min=None, uper_max=None,
-            oer_unsigned=False, **_kwargs):
-        # type: (int, Optional[int], Optional[int], Optional[int], bool, **Any) -> bytes
-        return _uper_enc_via_encode_into(
-            cls, i, size_len, uper_min, uper_max, oer_unsigned,
-        )
-
-    @classmethod
-    def do_dec(cls,
-               s,  # type: bytes
-               context=None,  # type: Optional[Type[ASN1_Class]]
-               safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
-               uper_min=None,  # type: Optional[int]
-               uper_max=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
-               ):
-        # type: (...) -> Tuple[ASN1_Object[int], bytes]
-        x, t = UPER_boolean_dec(s)
-        return cls.asn1_object(x), t
 
 
 def _uper_bytes_to_bitstr(data, nbits):
@@ -864,6 +783,7 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
                     oer_unsigned=False,  # type: bool
+                    **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         s, nbits = _uper_bit_string_parts(_s)
@@ -897,6 +817,7 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
                          oer_unsigned=False,  # type: bool
+                         **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[str]
         minimum = uper_min
@@ -917,42 +838,6 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
         raw = dec.read_bits(nbits)
         return cls.asn1_object(_uper_bytes_to_bitstr(raw, nbits))
 
-    @classmethod
-    def enc(cls, _s, size_len=0, uper_min=None, uper_max=None,
-            oer_unsigned=False, **_kwargs):
-        # type: (Any, Optional[int], Optional[int], Optional[int], bool, **Any) -> bytes
-        return _uper_enc_via_encode_into(
-            cls, _s, size_len, uper_min, uper_max, oer_unsigned,
-        )
-
-    @classmethod
-    def do_dec(cls,
-               s,  # type: bytes
-               context=None,  # type: Optional[Type[ASN1_Class]]
-               safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
-               uper_min=None,  # type: Optional[int]
-               uper_max=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
-               ):
-        # type: (...) -> Tuple[ASN1_Object[str], bytes]
-        dec = UPER_Decoder(s)
-        minimum = uper_min
-        maximum = uper_max
-        if minimum is not None and maximum is not None and minimum == maximum:
-            nbits = minimum
-        elif minimum is not None and maximum is not None:
-            nbits = minimum + dec.read_non_negative_binary_integer(
-                UPER_bits_for_range(maximum - minimum)
-            )
-        else:
-            nbytes = dec.read_length_determinant()
-            raw = dec.read_bytes(nbytes)
-            nbits = 8 * nbytes
-            return cls.asn1_object(_uper_bytes_to_bitstr(raw, nbits)), dec.remaining()
-        raw = dec.read_bits(nbits)
-        return cls.asn1_object(_uper_bytes_to_bitstr(raw, nbits)), dec.remaining()
-
 
 def _uper_octet_string_bounds(size_len, uper_min, uper_max):
     # type: (Optional[int], Optional[int], Optional[int]) -> Tuple[Optional[int], Optional[int]]  # noqa: E501
@@ -972,6 +857,7 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
                     oer_unsigned=False,  # type: bool
+                    **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         s = bytes_encode(_s)
@@ -987,6 +873,7 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
                          oer_unsigned=False,  # type: bool
+                         **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[Any]
         minimum, maximum = _uper_octet_string_bounds(
@@ -994,31 +881,6 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
         )
         raw, _ = UPER_octet_string_dec(b"", minimum, maximum, dec=dec)
         return cls.asn1_object(raw)
-
-    @classmethod
-    def enc(cls, _s, size_len=0, uper_min=None, uper_max=None,
-            oer_unsigned=False, **_kwargs):
-        # type: (Union[str, bytes], Optional[int], Optional[int], Optional[int], bool, **Any) -> bytes  # noqa: E501
-        return _uper_enc_via_encode_into(
-            cls, _s, size_len, uper_min, uper_max, oer_unsigned,
-        )
-
-    @classmethod
-    def do_dec(cls,
-               s,  # type: bytes
-               context=None,  # type: Optional[Type[ASN1_Class]]
-               safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
-               uper_min=None,  # type: Optional[int]
-               uper_max=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
-               ):
-        # type: (...) -> Tuple[ASN1_Object[Any], bytes]
-        minimum, maximum = _uper_octet_string_bounds(
-            size_len, uper_min, uper_max,
-        )
-        raw, remain = UPER_octet_string_dec(s, minimum, maximum)
-        return cls.asn1_object(raw), remain
 
 
 class UPERcodec_NULL(UPERcodec_Object[None]):
@@ -1032,6 +894,7 @@ class UPERcodec_NULL(UPERcodec_Object[None]):
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
                     oer_unsigned=False,  # type: bool
+                    **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         return
@@ -1043,27 +906,15 @@ class UPERcodec_NULL(UPERcodec_Object[None]):
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
                          oer_unsigned=False,  # type: bool
+                         **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[None]
         return cls.asn1_object(None)
 
     @classmethod
-    def enc(cls, _s, size_len=0, uper_min=None, uper_max=None,
-            oer_unsigned=False, **_kwargs):
-        # type: (Any, Optional[int], Optional[int], Optional[int], bool, **Any) -> bytes
-        return b""
-
-    @classmethod
-    def do_dec(cls,
-               s,  # type: bytes
-               context=None,  # type: Optional[Type[ASN1_Class]]
-               safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
-               uper_min=None,  # type: Optional[int]
-               uper_max=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
-               ):
-        # type: (...) -> Tuple[ASN1_Object[None], bytes]
+    def do_dec(cls, s, context=None, safe=False, **kwargs):
+        # type: (bytes, Optional[Type[ASN1_Class]], bool, **Any) -> Tuple[ASN1_Object[None], bytes]  # noqa: E501
+        # NULL occupies no bits at all, so the input is left untouched.
         return cls.asn1_object(None), s
 
 
@@ -1071,8 +922,8 @@ class UPERcodec_OID(UPERcodec_Object[bytes]):
     tag = ASN1_Class_UNIVERSAL.OID
 
     @classmethod
-    def enc(cls, _oid, size_len=0, uper_min=None, uper_max=None, **_kwargs):
-        # type: (AnyStr, Optional[int], Optional[int], Optional[int], **Any) -> bytes
+    def encode_into(cls, enc, _oid, **_kwargs):
+        # type: (UPER_Encoder, AnyStr, **Any) -> None
         oid = bytes_encode(_oid)
         if oid:
             lst = [int(x) for x in oid.split(b".")]
@@ -1080,23 +931,12 @@ class UPERcodec_OID(UPERcodec_Object[bytes]):
         else:
             lst = []
         body = b"".join(BER_num_enc(k) for k in lst)
-        enc = UPER_Encoder()
         enc.append_length_determinant(len(body))
         enc.append_bytes(body)
-        return enc.as_bytes()
 
     @classmethod
-    def do_dec(cls,
-               s,  # type: bytes
-               context=None,  # type: Optional[Type[ASN1_Class]]
-               safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
-               uper_min=None,  # type: Optional[int]
-               uper_max=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
-               ):
-        # type: (...) -> Tuple[ASN1_Object[bytes], bytes]
-        dec = UPER_Decoder(s)
+    def dec_from_decoder(cls, dec, **_kwargs):
+        # type: (UPER_Decoder, **Any) -> ASN1_Object[bytes]
         length = dec.read_length_determinant()
         content = dec.read_bytes(length)
         lst = []
@@ -1106,10 +946,7 @@ class UPERcodec_OID(UPERcodec_Object[bytes]):
         if len(lst) > 0:
             lst.insert(0, lst[0] // 40)
             lst[1] %= 40
-        return (
-            cls.asn1_object(b".".join(str(k).encode('ascii') for k in lst)),
-            dec.remaining(),
-        )
+        return cls.asn1_object(b".".join(str(k).encode('ascii') for k in lst))
 
 
 def UPER_enumerated_enc(value,
@@ -1165,6 +1002,7 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                     uper_max=None,  # type: Optional[int]
                     oer_unsigned=False,  # type: bool
                     uper_enum_values=None,  # type: Optional[List[int]]
+                    **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         if uper_enum_values is not None:
@@ -1184,6 +1022,7 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                          uper_max=None,  # type: Optional[int]
                          oer_unsigned=False,  # type: bool
                          uper_enum_values=None,  # type: Optional[List[int]]
+                         **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
         if uper_enum_values is not None:
@@ -1198,44 +1037,6 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
         ) + minimum
         return cls.asn1_object(value)
 
-    @classmethod
-    def enc(cls,
-            i,
-            size_len=0,
-            uper_min=None,
-            uper_max=None,
-            oer_unsigned=False,
-            uper_enum_values=None,
-            **_kwargs
-            ):
-        # type: (int, Optional[int], Optional[int], Optional[int], bool, Optional[List[int]], **Any) -> bytes  # noqa: E501
-        return _uper_enc_via_encode_into(
-            cls, i, size_len, uper_min, uper_max, oer_unsigned,
-            uper_enum_values=uper_enum_values,
-        )
-
-    @classmethod
-    def do_dec(cls,
-               s,  # type: bytes
-               context=None,  # type: Optional[Type[ASN1_Class]]
-               safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
-               uper_min=None,  # type: Optional[int]
-               uper_max=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
-               uper_enum_values=None,  # type: Optional[List[int]]
-               ):
-        # type: (...) -> Tuple[ASN1_Object[int], bytes]
-        if uper_enum_values is not None:
-            x, t = UPER_enumerated_dec(s, uper_enum_values)
-            return cls.asn1_object(x), t
-        minimum = uper_min if uper_min is not None else 0
-        maximum = uper_max if uper_max is not None else size_len
-        if maximum is None:
-            raise UPER_Decoding_Error("UPERcodec_ENUMERATED: missing range")
-        x, t = UPER_constrained_int_dec(s, minimum, maximum)
-        return cls.asn1_object(x), t
-
 
 class UPERcodec_SEQUENCE(UPERcodec_Object[Union[bytes, List[Any]]]):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
@@ -1248,15 +1049,15 @@ class UPERcodec_SEQUENCE(UPERcodec_Object[Union[bytes, List[Any]]]):
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
                     oer_unsigned=False,  # type: bool
+                    **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         if isinstance(_ll, bytes):
             UPER_append_encoded(enc, _ll)
 
     @classmethod
-    def enc(cls, _ll, size_len=0, uper_min=None, uper_max=None,
-            oer_unsigned=False, **_kwargs):
-        # type: (Union[bytes, List[UPERcodec_Object[Any]]], Optional[int], Optional[int], Optional[int], bool, **Any) -> bytes  # noqa: E501
+    def enc(cls, _ll, **_kwargs):
+        # type: (Union[bytes, List[UPERcodec_Object[Any]]], **Any) -> bytes
         if isinstance(_ll, bytes):
             return _ll
         raise UPER_Encoding_Error(
@@ -1264,19 +1065,11 @@ class UPERcodec_SEQUENCE(UPERcodec_Object[Union[bytes, List[Any]]]):
         )
 
     @classmethod
-    def do_dec(cls,
-               s,  # type: bytes
-               context=None,  # type: Optional[Type[ASN1_Class]]
-               safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
-               uper_min=None,  # type: Optional[int]
-               uper_max=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
-               ):
-        # type: (...) -> Tuple[ASN1_Object[Union[bytes, List[Any]]], bytes]
+    def dec_from_decoder(cls, dec, **_kwargs):
+        # type: (UPER_Decoder, **Any) -> ASN1_Object[Union[bytes, List[Any]]]
         raise UPER_Decoding_Error(
             "UPERcodec_SEQUENCE: decoding requires schema-defined field order",
-            remaining=s
+            remaining=dec.remaining()
         )
 
 
@@ -1288,28 +1081,23 @@ class UPERcodec_IPADDRESS(UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IPADDRESS
 
     @classmethod
-    def enc(cls, ipaddr_ascii, size_len=0, uper_min=None, uper_max=None, **_kwargs):
-        # type: (str, Optional[int], Optional[int], Optional[int], **Any) -> bytes
+    def encode_into(cls, enc, ipaddr_ascii, **_kwargs):
+        # type: (UPER_Encoder, str, **Any) -> None
         try:
             s = inet_aton(ipaddr_ascii)
         except Exception:
             raise UPER_Encoding_Error("IPv4 address could not be encoded")
-        return UPER_octet_string_enc(s, 4, 4)
+        UPER_octet_string_enc(s, 4, 4, enc=enc)
 
     @classmethod
-    def do_dec(cls, s, context=None, safe=False,
-               size_len=0, uper_min=None, uper_max=None,
-               oer_unsigned=False):
-        # type: (bytes, Optional[Any], bool, Optional[int], Optional[int], Optional[int], bool) -> Tuple[ASN1_Object[str], bytes]  # noqa: E501
-        raw, remain = UPER_octet_string_dec(s, 4, 4)
+    def dec_from_decoder(cls, dec, **_kwargs):
+        # type: (UPER_Decoder, **Any) -> ASN1_Object[str]
+        raw, _ = UPER_octet_string_dec(b"", 4, 4, dec=dec)
         try:
             ipaddr_ascii = inet_ntoa(raw)
         except Exception:
-            raise UPER_Decoding_Error(
-                "IP address could not be decoded",
-                remaining=s,
-            )
-        return cls.asn1_object(ipaddr_ascii), remain
+            raise UPER_Decoding_Error("IP address could not be decoded")
+        return cls.asn1_object(ipaddr_ascii)
 
 
 class UPERcodec_COUNTER32(UPERcodec_INTEGER):
@@ -1745,7 +1533,7 @@ def _install_uper_asn1fields():
     def m2i_from_decoder(self, pkt, dec):
         # type: (Any, Any, Any) -> Any
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        return codec.dec_from_decoder(  # type: ignore[attr-defined]  # noqa: E501
+        return codec.dec_from_decoder(  # type: ignore[attr-defined]
             dec, **self._codec_kwargs(pkt),
         )
 
@@ -1773,62 +1561,9 @@ def _install_uper_asn1fields():
                 )
         else:
             raw = value
-        codec.encode_into(  # type: ignore[attr-defined]  # noqa: E501
+        codec.encode_into(  # type: ignore[attr-defined]
             enc, raw, **self._codec_kwargs(pkt),
         )
-
-    af.ASN1F_field.m2i_from_decoder = m2i_from_decoder  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_field.dissect_from_decoder = dissect_from_decoder  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_field.encode_into = encode_into  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_field._uper_encode_into = encode_into  # type: ignore[attr-defined]  # noqa: E501
-
-    def seq_dissect_from_decoder(self, pkt, dec):
-        # type: (Any, Any, Any) -> None
-        return _UPER_FieldHooks.sequence_dissect_from_decoder(self, pkt, dec)
-
-    def seq_encode_into(self, enc, pkt, value=None):
-        # type: (Any, Any, Any, Any) -> None
-        return _UPER_FieldHooks.sequence_encode_into(self, enc, pkt, value)
-
-    af.ASN1F_SEQUENCE.dissect_from_decoder = seq_dissect_from_decoder  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_SEQUENCE.encode_into = seq_encode_into  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_SEQUENCE._uper_encode_into = seq_encode_into  # type: ignore[attr-defined]  # noqa: E501
-
-    def seqof_m2i_from_decoder(self, pkt, dec):
-        # type: (Any, Any, Any) -> Any
-        return _UPER_FieldHooks.sequence_of_m2i_from_decoder(self, pkt, dec)
-
-    def seqof_encode_into(self, enc, pkt, value=None):
-        # type: (Any, Any, Any, Any) -> None
-        return _UPER_FieldHooks.sequence_of_encode_into(self, enc, pkt, value)
-
-    af.ASN1F_SEQUENCE_OF.m2i_from_decoder = seqof_m2i_from_decoder  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_SEQUENCE_OF.encode_into = seqof_encode_into  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_SEQUENCE_OF._uper_encode_into = seqof_encode_into  # type: ignore[attr-defined]  # noqa: E501
-
-    def choice_m2i_from_decoder(self, pkt, dec):
-        # type: (Any, Any, Any) -> Any
-        return _UPER_FieldHooks.choice_m2i_from_decoder(self, pkt, dec)
-
-    def choice_encode_into(self, enc, pkt, value=None):
-        # type: (Any, Any, Any, Any) -> None
-        return _UPER_FieldHooks.choice_encode_into(self, enc, pkt, value)
-
-    af.ASN1F_CHOICE.m2i_from_decoder = choice_m2i_from_decoder  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_CHOICE.encode_into = choice_encode_into  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_CHOICE._uper_encode_into = choice_encode_into  # type: ignore[attr-defined]  # noqa: E501
-
-    def packet_m2i_from_decoder(self, pkt, dec):
-        # type: (Any, Any, Any) -> Any
-        return _UPER_FieldHooks.packet_m2i_from_decoder(self, pkt, dec)
-
-    def packet_encode_into(self, enc, pkt, value=None):
-        # type: (Any, Any, Any, Any) -> None
-        return _UPER_FieldHooks.packet_encode_into(self, enc, pkt, value)
-
-    af.ASN1F_PACKET.m2i_from_decoder = packet_m2i_from_decoder  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_PACKET.encode_into = packet_encode_into  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_PACKET._uper_encode_into = packet_encode_into  # type: ignore[attr-defined]  # noqa: E501
 
     def opt_set_absent(self, pkt):
         # type: (Any, Any) -> None
@@ -1842,10 +1577,37 @@ def _install_uper_asn1fields():
         # type: (Any, Any, Any, Any) -> None
         self._field.encode_into(enc, pkt, value)
 
-    af.ASN1F_optional.set_absent = opt_set_absent  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_optional.dissect_from_decoder = opt_dissect_from_decoder  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_optional.encode_into = opt_encode_into  # type: ignore[attr-defined]  # noqa: E501
-    af.ASN1F_optional._uper_encode_into = opt_encode_into  # type: ignore[attr-defined]  # noqa: E501
+    hooks = _UPER_FieldHooks
+    for field_cls, methods in (
+        (af.ASN1F_field, {
+            "m2i_from_decoder": m2i_from_decoder,
+            "dissect_from_decoder": dissect_from_decoder,
+            "encode_into": encode_into,
+        }),
+        (af.ASN1F_SEQUENCE, {
+            "dissect_from_decoder": hooks.sequence_dissect_from_decoder,
+            "encode_into": hooks.sequence_encode_into,
+        }),
+        (af.ASN1F_SEQUENCE_OF, {
+            "m2i_from_decoder": hooks.sequence_of_m2i_from_decoder,
+            "encode_into": hooks.sequence_of_encode_into,
+        }),
+        (af.ASN1F_CHOICE, {
+            "m2i_from_decoder": hooks.choice_m2i_from_decoder,
+            "encode_into": hooks.choice_encode_into,
+        }),
+        (af.ASN1F_PACKET, {
+            "m2i_from_decoder": hooks.packet_m2i_from_decoder,
+            "encode_into": hooks.packet_encode_into,
+        }),
+        (af.ASN1F_optional, {
+            "set_absent": opt_set_absent,
+            "dissect_from_decoder": opt_dissect_from_decoder,
+            "encode_into": opt_encode_into,
+        }),
+    ):
+        for method_name, func in methods.items():
+            setattr(field_cls, method_name, func)
 
     _orig_enum_codec_kwargs = af.ASN1F_enum_INTEGER._codec_kwargs
 
@@ -1860,7 +1622,7 @@ def _install_uper_asn1fields():
             kwargs.setdefault("uper_enum_values", list(self.i2s))
         return kwargs
 
-    af.ASN1F_enum_INTEGER._codec_kwargs = enum_codec_kwargs  # type: ignore[assignment]  # noqa: E501
+    af.ASN1F_enum_INTEGER._codec_kwargs = enum_codec_kwargs  # type: ignore[assignment]
 
 
 _install_uper_asn1fields()
