@@ -1616,6 +1616,31 @@ assert decoded.n.val == 1706733817
 
 True
 
+= per extensible integer as a bare root
+~ per
+class UPERBareExtInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, uper_min=0, uper_max=15, uper_extensible=True,
+    )
+
+class UPERWrappedExtInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, uper_min=0, uper_max=15, uper_extensible=True),
+    )
+
+# A bare root must encode the extension bit just like the nested field does.
+assert raw(UPERBareExtInt(n=5)) == bytes.fromhex("28")
+
+assert raw(UPERBareExtInt(n=5)) == raw(UPERWrappedExtInt(n=5))
+
+assert _dissect(UPERBareExtInt, "28").n.val == 5
+
+assert _roundtrip(UPERBareExtInt, UPERBareExtInt(n=99)).n.val == 99
+
+True
+
 = per constrained sequence of build
 class UPERConstrainedSeqOf(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
@@ -2268,7 +2293,7 @@ _raises(
 
 _raises(
     ASN1_Error,
-    lambda: _PerChoice.ASN1_root._uper_encode_into(
+    lambda: _PerChoice.ASN1_root.encode_into(
         UPER_Encoder(), _PerChoice(), 42,
     ),
 )

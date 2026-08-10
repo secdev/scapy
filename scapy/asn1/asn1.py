@@ -122,6 +122,11 @@ class ASN1_BadTag_Decoding_Error(ASN1_Decoding_Error):
 
 
 class ASN1Codec(EnumElement):
+    # Class-level default: EnumElement.__getattr__ forwards unknown attributes
+    # to its int value, so a missing _field_hooks would raise (and swallow) an
+    # AttributeError on every field operation.
+    _field_hooks = None  # type: Any
+
     def register_stem(cls, stem):
         # type: (Type[BERcodec_Object[Any]]) -> None
         cls._stem = stem
@@ -140,7 +145,7 @@ class ASN1Codec(EnumElement):
     def unregister_field_hooks(cls):
         # type: () -> Any
         # Returns the previous hooks, so that callers can restore them.
-        hooks = getattr(cls, "_field_hooks", None)
+        hooks = cls._field_hooks
         try:
             del cls._field_hooks
         except AttributeError:
@@ -151,7 +156,10 @@ class ASN1Codec(EnumElement):
         # type: (str) -> Any
         # Hooks are optional and may be partial: missing entries mean that
         # asn1fields keeps its default (BER-style) implementation.
-        return getattr(getattr(cls, "_field_hooks", None), name, None)
+        hooks = cls._field_hooks
+        if hooks is None:
+            return None
+        return getattr(hooks, name, None)
 
     def tagging_enc(cls, s, **kwargs):
         # type: (bytes, **Any) -> bytes
