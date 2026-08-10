@@ -137,6 +137,22 @@ class ASN1Codec(EnumElement):
         # Optional compound-field helpers (SEQUENCE/CHOICE/…) for contrib codecs.
         cls._field_hooks = hooks
 
+    def unregister_field_hooks(cls):
+        # type: () -> Any
+        # Returns the previous hooks, so that callers can restore them.
+        hooks = getattr(cls, "_field_hooks", None)
+        try:
+            del cls._field_hooks
+        except AttributeError:
+            pass
+        return hooks
+
+    def field_hook(cls, name):
+        # type: (str) -> Any
+        # Hooks are optional and may be partial: missing entries mean that
+        # asn1fields keeps its default (BER-style) implementation.
+        return getattr(getattr(cls, "_field_hooks", None), name, None)
+
     def tagging_enc(cls, s, **kwargs):
         # type: (bytes, **Any) -> bytes
         return cls._tagging_enc(s, **kwargs)  # type: ignore
