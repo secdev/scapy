@@ -21,6 +21,11 @@ Not supported yet: extension additions (an encoding that carries them is
 refused rather than misparsed), SET, REAL, and the known-multiplier character
 string encodings, which are emitted as plain octets rather than 7 or 4 bits
 per character.
+
+``ASN1F_CHOICE`` alternatives are indexed in declaration order, where 10.2
+asks for the canonical order of their tags. The two coincide for a schema
+compiled with AUTOMATIC TAGS, which assigns the tags in declaration order;
+declare the alternatives in ascending tag order otherwise.
 """
 
 from scapy.error import warning
@@ -388,6 +393,15 @@ def UPER_constrained_int_dec(dec, minimum, maximum):
 def UPER_octet_string_enc(enc, data, minimum=None, maximum=None):
     # type: (UPER_Encoder, bytes, Optional[int], Optional[int]) -> None
     if minimum is not None and maximum is not None:
+        if not minimum <= len(data) <= maximum:
+            # The determinant is sized after the constraint, so a value that
+            # violates it cannot be expressed: refuse rather than emit
+            # something the peer reads as a different length.
+            raise UPER_Encoding_Error(
+                "UPER_octet_string_enc: got %i octets while expecting %s" %
+                (len(data), minimum if minimum == maximum
+                 else "%i..%i" % (minimum, maximum))
+            )
         if minimum != maximum:
             enc.append_non_negative_binary_integer(
                 len(data) - minimum,
@@ -837,16 +851,25 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
                     uper_enum_values=None,  # type: Optional[List[int]]
+                    uper_extensible=False,  # type: bool
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         if uper_enum_values is not None:
+            if uper_extensible:
+                # X.691 14.3: a one bit prefix says whether the value is an
+                # extension addition. Only root values can be encoded.
+                if i not in uper_enum_values:
+                    raise UPER_Encoding_Error(
+                        "UPERcodec_ENUMERATED: extension additions are not "
+                        "supported"
+                    )
+                enc.append_bit(0)
             UPER_enumerated_enc(enc, i, uper_enum_values)
             return
-        minimum = uper_min if uper_min is not None else 0
-        maximum = uper_max if uper_max is not None else size_len
-        if maximum is None:
-            maximum = max(i, 0)
+        minimum, maximum = cls._range(
+            size_len, uper_min, uper_max, UPER_Encoding_Error
+        )
         UPER_constrained_int_enc(enc, i, minimum, maximum)
 
     @classmethod
@@ -856,20 +879,37 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
                          uper_enum_values=None,  # type: Optional[List[int]]
+                         uper_extensible=False,  # type: bool
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
         if uper_enum_values is not None:
-            value = UPER_enumerated_dec(dec, uper_enum_values)
-            return cls.asn1_object(value)
-        minimum = uper_min if uper_min is not None else 0
-        maximum = uper_max if uper_max is not None else size_len
-        if maximum is None:
-            raise UPER_Decoding_Error("UPERcodec_ENUMERATED: missing range")
+            if uper_extensible and dec.read_bit():
+                raise UPER_Decoding_Error(
+                    "UPERcodec_ENUMERATED: extension additions are not "
+                    "supported"
+                )
+            return cls.asn1_object(UPER_enumerated_dec(dec, uper_enum_values))
+        minimum, maximum = cls._range(
+            size_len, uper_min, uper_max, UPER_Decoding_Error
+        )
         value = dec.read_non_negative_binary_integer(
             UPER_bits_for_range(maximum - minimum)
         ) + minimum
         return cls.asn1_object(value)
+
+    @staticmethod
+    def _range(size_len, uper_min, uper_max, error):
+        # type: (Optional[int], Optional[int], Optional[int], Any) -> Tuple[int, int]  # noqa: E501
+        # Without the enumeration itself the index range has to come from
+        # the declared bounds; deriving it from the value at hand would
+        # make the width depend on the value, which the decoder cannot
+        # reproduce.
+        minimum = uper_min if uper_min is not None else 0
+        maximum = uper_max if uper_max is not None else (size_len or None)
+        if maximum is None:
+            raise error("UPERcodec_ENUMERATED: missing range")
+        return minimum, maximum
 
 
 class UPERcodec_SEQUENCE(UPERcodec_Object[Union[bytes, List[Any]]]):
@@ -1445,7 +1485,9 @@ def _install_uper_asn1fields():
         # keep an empty codec_opts and their item.enc() fast path.
         codec = getattr(pkt, "ASN1_codec", None)
         if getattr(codec, "_field_hooks", None) is _UPER_FieldHooks:
-            kwargs.setdefault("uper_enum_values", list(self.i2s))
+            # X.691 14.1: the index follows the enumeration values in
+            # ascending order, whatever order they were declared in.
+            kwargs.setdefault("uper_enum_values", sorted(self.i2s))
         return kwargs
 
     af.ASN1F_enum_INTEGER._codec_kwargs = enum_codec_kwargs  # type: ignore[assignment]
