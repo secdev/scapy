@@ -23,8 +23,6 @@ string encodings, which are emitted as plain octets rather than 7 or 4 bits
 per character.
 """
 
-import binascii
-
 from scapy.error import warning
 from scapy.compat import orb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
@@ -125,6 +123,16 @@ def UPER_bits_for_range(size):
 UPER_FRAGMENT_SIZE = 16384
 
 
+def _uper_bits_to_bytes(value, number_of_bits):
+    # type: (int, int) -> bytes
+    # X.691 11.1: an encoding is padded with zero bits up to an octet
+    # boundary.
+    if number_of_bits == 0:
+        return b""
+    padding = -number_of_bits % 8
+    return (value << padding).to_bytes((number_of_bits + padding) // 8, "big")
+
+
 class UPER_Encoder(object):
     def __init__(self):
         # type: () -> None
@@ -136,15 +144,6 @@ class UPER_Encoder(object):
     def number_of_bytes(self):
         # type: () -> int
         return (self.chunks_number_of_bits + self.number_of_bits + 7) // 8
-
-    def align_always(self):
-        # type: () -> None
-        width = 8 * self.number_of_bytes()
-        width -= self.chunks_number_of_bits
-        width -= self.number_of_bits
-        if width:
-            self.number_of_bits += width
-            self.value <<= width
 
     def append_bit(self, bit):
         # type: (int) -> None
@@ -213,23 +212,15 @@ class UPER_Encoder(object):
 
     def append_unconstrained_whole_number(self, value):
         # type: (int) -> None
-        number_of_bits = 0 if value == 0 else value.bit_length()
-        if value < 0:
-            number_of_bytes = (number_of_bits + 7) // 8
-            enc = (1 << (8 * number_of_bytes)) + value
-            if enc & (1 << (8 * number_of_bytes - 1)) == 0:
-                enc |= (0xff << (8 * number_of_bytes))
-                number_of_bytes += 1
-        elif value > 0:
-            number_of_bytes = (number_of_bits + 7) // 8
-            if number_of_bits == 8 * number_of_bytes:
-                number_of_bytes += 1
-            enc = value
-        else:
-            number_of_bytes = 1
-            enc = 0
+        # X.691 11.4: the shortest two's complement encoding. A negative value
+        # needs one bit less than its magnitude suggests, as -2**(8n-1) still
+        # fits in n octets, hence the increment before measuring.
+        magnitude = value + 1 if value < 0 else value
+        number_of_bytes = (magnitude.bit_length() + 8) // 8
         self.append_length_determinant(number_of_bytes)
-        self.append_non_negative_binary_integer(enc, 8 * number_of_bytes)
+        self.append_non_negative_binary_integer(
+            value & ((1 << (8 * number_of_bytes)) - 1), 8 * number_of_bytes
+        )
 
     def as_bytes(self):
         # type: () -> bytes
@@ -242,87 +233,7 @@ class UPER_Encoder(object):
         value <<= self.number_of_bits
         value |= self.value
         number_of_bits += self.number_of_bits
-        if number_of_bits == 0:
-            return b""
-        number_of_alignment_bits = (8 - (number_of_bits % 8)) % 8
-        value <<= number_of_alignment_bits
-        number_of_bits += number_of_alignment_bits
-        value |= (0x80 << number_of_bits)
-        hexval = hex(value)[4:].rstrip("L")
-        if len(hexval) % 2:
-            hexval = "0" + hexval
-        return binascii.unhexlify(hexval)
-
-
-def _uper_significant_bit_count(data):
-    # type: (bytes) -> int
-    if not data:
-        return 0
-    total = 8 * len(data)
-    bits = int.from_bytes(data, "big")
-    end = total
-    while end > 0 and ((bits >> (total - end)) & 1) == 0:
-        end -= 1
-    trimmed = total - end
-    if trimmed > 0 and trimmed <= 8:
-        return end
-    return total
-
-
-def _uper_per_bits_to_bytes(bit_value, number_of_bits):
-    # type: (int, int) -> bytes
-    if number_of_bits == 0:
-        return b""
-    bitstr = format(bit_value, "0%db" % number_of_bits)
-    value = "10000000" + bitstr
-    number_of_alignment_bits = (8 - (number_of_bits % 8))
-    if number_of_alignment_bits != 8:
-        value += "0" * number_of_alignment_bits
-    hexval = hex(int(value, 2))[4:].rstrip("L")
-    if len(hexval) % 2:
-        hexval = "0" + hexval
-    return binascii.unhexlify(hexval)
-
-
-def UPER_append_encoded(enc, data):
-    # type: (UPER_Encoder, bytes) -> None
-    if not data:
-        return
-    nbits = _uper_significant_bit_count(data)
-    if nbits == 0:
-        return
-    total = 8 * len(data)
-    bits = int.from_bytes(data, "big")
-    shift = total - nbits
-    value = (bits >> shift) & ((1 << nbits) - 1)
-    enc.append_non_negative_binary_integer(value, nbits)
-
-
-def UPER_join_encodings(*parts):
-    # type: (*bytes) -> bytes
-    enc = UPER_Encoder()
-    for part in parts:
-        UPER_append_encoded(enc, part)
-    return enc.as_bytes()
-
-
-def UPER_optional_presence_enc(bits, enc=None):
-    # type: (List[int], Optional[UPER_Encoder]) -> bytes
-    standalone = enc is None
-    if enc is None:
-        enc = UPER_Encoder()
-    for bit in bits:
-        enc.append_bit(bit)
-    return enc.as_bytes() if standalone else b""
-
-
-def UPER_count_enc(count, enc=None):
-    # type: (int, Optional[UPER_Encoder]) -> bytes
-    standalone = enc is None
-    if enc is None:
-        enc = UPER_Encoder()
-    enc.append_length_determinant(count)
-    return enc.as_bytes() if standalone else b""
+        return _uper_bits_to_bytes(value, number_of_bits)
 
 
 def UPER_has_unexpected_remainder(dec):
@@ -331,17 +242,6 @@ def UPER_has_unexpected_remainder(dec):
         return False
     mask = (1 << dec.number_of_bits) - 1
     return (dec._bits & mask) != 0
-
-
-def UPER_count_dec(s, dec=None):
-    # type: (bytes, Optional[UPER_Decoder]) -> Tuple[int, bytes]
-    standalone = dec is None
-    if dec is None:
-        dec = UPER_Decoder(s)
-    count = dec.read_length_determinant()
-    if standalone:
-        return count, dec.remaining()
-    return count, b""
 
 
 class UPER_Decoder(object):
@@ -383,14 +283,14 @@ class UPER_Decoder(object):
             return b""
         value = self._read_bits_int(number_of_bits)
         self.number_of_bits -= number_of_bits
-        return _uper_per_bits_to_bytes(value, number_of_bits)
+        return _uper_bits_to_bytes(value, number_of_bits)
 
     def remaining(self):
         # type: () -> bytes
         if self.number_of_bits == 0:
             return b""
         value = self._read_bits_int(self.number_of_bits)
-        return _uper_per_bits_to_bytes(value, self.number_of_bits)
+        return _uper_bits_to_bytes(value, self.number_of_bits)
 
     def remaining_bytes(self):
         # type: () -> bytes
@@ -414,15 +314,6 @@ class UPER_Decoder(object):
         value = self._read_bits_int(number_of_bits)
         self.number_of_bits -= number_of_bits
         return value
-
-    def align_always(self):
-        # type: () -> None
-        consumed = self.total_number_of_bits - self.number_of_bits
-        width = (8 - (consumed % 8)) % 8
-        if width:
-            if width > self.number_of_bits:
-                raise UPER_Decoding_Error("UPER_Decoder: out of data")
-            self.number_of_bits -= width
 
     def _read_length_determinant(self):
         # type: () -> Tuple[int, bool]
@@ -479,135 +370,63 @@ class UPER_Decoder(object):
         self.number_of_bits = 0
 
 
-def UPER_constrained_int_enc(value, minimum, maximum, enc=None):
-    # type: (int, int, int, Optional[UPER_Encoder]) -> bytes
-    standalone = enc is None
-    if enc is None:
-        enc = UPER_Encoder()
-    size = maximum - minimum
+def UPER_constrained_int_enc(enc, value, minimum, maximum):
+    # type: (UPER_Encoder, int, int, int) -> None
     enc.append_non_negative_binary_integer(
-        value - minimum, UPER_bits_for_range(size)
+        value - minimum, UPER_bits_for_range(maximum - minimum)
     )
-    return enc.as_bytes() if standalone else b""
 
 
-def UPER_constrained_int_dec(s, minimum, maximum):
-    # type: (bytes, int, int) -> Tuple[int, bytes]
-    dec = UPER_Decoder(s)
-    size = maximum - minimum
-    value = dec.read_non_negative_binary_integer(UPER_bits_for_range(size))
-    dec.consume_input()
-    return value + minimum, b""
-
-
-def UPER_constrained_int_dec_from_decoder(dec, minimum, maximum):
+def UPER_constrained_int_dec(dec, minimum, maximum):
     # type: (UPER_Decoder, int, int) -> int
-    size = maximum - minimum
-    value = dec.read_non_negative_binary_integer(UPER_bits_for_range(size))
+    value = dec.read_non_negative_binary_integer(
+        UPER_bits_for_range(maximum - minimum)
+    )
     return value + minimum
 
 
-def UPER_unconstrained_int_enc(value, enc=None):
-    # type: (int, Optional[UPER_Encoder]) -> bytes
-    standalone = enc is None
-    if enc is None:
-        enc = UPER_Encoder()
-    enc.append_unconstrained_whole_number(value)
-    return enc.as_bytes() if standalone else b""
-
-
-def UPER_unconstrained_int_dec(s):
-    # type: (bytes) -> Tuple[int, bytes]
-    dec = UPER_Decoder(s)
-    value = dec.read_unconstrained_whole_number()
-    remain = dec.remaining()
-    return value, remain
-
-
-def UPER_boolean_enc(value, enc=None):
-    # type: (int, Optional[UPER_Encoder]) -> bytes
-    standalone = enc is None
-    if enc is None:
-        enc = UPER_Encoder()
-    enc.append_bit(1 if value else 0)
-    return enc.as_bytes() if standalone else b""
-
-
-def UPER_boolean_dec(s):
-    # type: (bytes) -> Tuple[int, bytes]
-    dec = UPER_Decoder(s)
-    value = dec.read_bit()
-    dec.consume_input()
-    return value, b""
-
-
-def UPER_octet_string_enc(data, minimum=None, maximum=None, enc=None):
-    # type: (bytes, Optional[int], Optional[int], Optional[UPER_Encoder]) -> bytes
-    standalone = enc is None
-    encoder = UPER_Encoder() if enc is None else enc
-    if minimum is not None and maximum is not None and minimum == maximum:
-        encoder.append_bytes(data)
-    elif minimum is not None and maximum is not None:
-        encoder.append_non_negative_binary_integer(
-            len(data) - minimum,
-            UPER_bits_for_range(maximum - minimum),
-        )
-        encoder.append_bytes(data)
+def UPER_octet_string_enc(enc, data, minimum=None, maximum=None):
+    # type: (UPER_Encoder, bytes, Optional[int], Optional[int]) -> None
+    if minimum is not None and maximum is not None:
+        if minimum != maximum:
+            enc.append_non_negative_binary_integer(
+                len(data) - minimum,
+                UPER_bits_for_range(maximum - minimum),
+            )
+        enc.append_bytes(data)
     else:
-        encoder.append_fragmented(
+        enc.append_fragmented(
             len(data),
-            lambda offset, size: encoder.append_bytes(
-                data[offset:offset + size]
-            ),
+            lambda offset, size: enc.append_bytes(data[offset:offset + size]),
         )
-    return encoder.as_bytes() if standalone else b""
 
 
-def UPER_octet_string_dec(s, minimum=None, maximum=None, dec=None):
-    # type: (bytes, Optional[int], Optional[int], Optional[UPER_Decoder]) -> Tuple[bytes, bytes]  # noqa: E501
-    standalone = dec is None
-    decoder = UPER_Decoder(s) if dec is None else dec
-    if minimum is not None and maximum is not None and minimum == maximum:
-        data = decoder.read_bytes(minimum)
-    elif minimum is not None and maximum is not None:
-        data = decoder.read_bytes(
-            minimum + decoder.read_non_negative_binary_integer(
+def UPER_octet_string_dec(dec, minimum=None, maximum=None):
+    # type: (UPER_Decoder, Optional[int], Optional[int]) -> bytes
+    if minimum is not None and maximum is not None:
+        length = minimum
+        if minimum != maximum:
+            length += dec.read_non_negative_binary_integer(
                 UPER_bits_for_range(maximum - minimum)
             )
-        )
-    else:
-        fragments = []  # type: List[bytes]
-        decoder.read_fragmented(
-            lambda size: fragments.append(decoder.read_bytes(size))
-        )
-        data = b"".join(fragments)
-    if standalone:
-        return data, decoder.remaining()
-    return data, b""
+        return dec.read_bytes(length)
+    fragments = []  # type: List[bytes]
+    dec.read_fragmented(lambda size: fragments.append(dec.read_bytes(size)))
+    return b"".join(fragments)
 
 
-def UPER_choice_index_enc(index, number_of_choices, enc=None):
-    # type: (int, int, Optional[UPER_Encoder]) -> bytes
-    standalone = enc is None
-    if enc is None:
-        enc = UPER_Encoder()
+def UPER_choice_index_enc(enc, index, number_of_choices):
+    # type: (UPER_Encoder, int, int) -> None
     enc.append_non_negative_binary_integer(
         index, UPER_bits_for_range(number_of_choices - 1)
     )
-    return enc.as_bytes() if standalone else b""
 
 
-def UPER_choice_index_dec(s, number_of_choices, dec=None):
-    # type: (bytes, int, Optional[UPER_Decoder]) -> Tuple[int, bytes]
-    standalone = dec is None
-    if dec is None:
-        dec = UPER_Decoder(s)
-    index = dec.read_non_negative_binary_integer(
+def UPER_choice_index_dec(dec, number_of_choices):
+    # type: (UPER_Decoder, int) -> int
+    return dec.read_non_negative_binary_integer(
         UPER_bits_for_range(number_of_choices - 1)
     )
-    if standalone:
-        return index, dec.remaining()
-    return index, b""
 
 
 class UPERcodec_metaclass(type):
@@ -749,12 +568,12 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                 enc.append_bit(0)
             else:
                 enc.append_bit(1)
-                UPER_unconstrained_int_enc(i, enc=enc)
+                enc.append_unconstrained_whole_number(i)
                 return
         if minimum is not None and maximum is not None:
-            UPER_constrained_int_enc(i, minimum, maximum, enc=enc)
+            UPER_constrained_int_enc(enc, i, minimum, maximum)
         else:
-            UPER_unconstrained_int_enc(i, enc=enc)
+            enc.append_unconstrained_whole_number(i)
 
     @classmethod
     def dec_from_decoder(cls,
@@ -773,7 +592,7 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                 value = dec.read_unconstrained_whole_number()
                 return cls.asn1_object(value)
         if minimum is not None and maximum is not None:
-            value = UPER_constrained_int_dec_from_decoder(dec, minimum, maximum)
+            value = UPER_constrained_int_dec(dec, minimum, maximum)
         else:
             value = dec.read_unconstrained_whole_number()
         return cls.asn1_object(value)
@@ -783,28 +602,13 @@ class UPERcodec_BOOLEAN(UPERcodec_Object[int]):
     tag = ASN1_Class_UNIVERSAL.BOOLEAN
 
     @classmethod
-    def encode_into(cls,
-                    enc,  # type: UPER_Encoder
-                    i,  # type: int
-                    size_len=0,  # type: Optional[int]
-                    uper_min=None,  # type: Optional[int]
-                    uper_max=None,  # type: Optional[int]
-                    oer_unsigned=False,  # type: bool
-                    **_kwargs  # type: Any
-                    ):
-        # type: (...) -> None
-        UPER_boolean_enc(i, enc=enc)
+    def encode_into(cls, enc, i, **_kwargs):
+        # type: (UPER_Encoder, int, **Any) -> None
+        enc.append_bit(1 if i else 0)
 
     @classmethod
-    def dec_from_decoder(cls,
-                         dec,  # type: UPER_Decoder
-                         size_len=0,  # type: Optional[int]
-                         uper_min=None,  # type: Optional[int]
-                         uper_max=None,  # type: Optional[int]
-                         oer_unsigned=False,  # type: bool
-                         **_kwargs  # type: Any
-                         ):
-        # type: (...) -> ASN1_Object[int]
+    def dec_from_decoder(cls, dec, **_kwargs):
+        # type: (UPER_Decoder, **Any) -> ASN1_Object[int]
         return cls.asn1_object(dec.read_bit())
 
 
@@ -830,6 +634,15 @@ def _uper_bit_string_parts(_s):
     return s, 8 * len(s)
 
 
+def _uper_size_bounds(size_len, uper_min, uper_max):
+    # type: (Optional[int], Optional[int], Optional[int]) -> Tuple[Optional[int], Optional[int]]  # noqa: E501
+    # A SIZE constraint given as size_len is a fixed size, i.e. a range whose
+    # bounds coincide.
+    if size_len:
+        return size_len, size_len
+    return uper_min, uper_max
+
+
 class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
     tag = ASN1_Class_UNIVERSAL.BIT_STRING
 
@@ -840,15 +653,11 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                     size_len=0,  # type: Optional[int]
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
-                    oer_unsigned=False,  # type: bool
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         s, nbits = _uper_bit_string_parts(_s)
-        minimum = uper_min
-        maximum = uper_max
-        if size_len:
-            minimum = maximum = size_len
+        minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
         if minimum is not None and maximum is not None:
             if not minimum <= nbits <= maximum:
                 raise UPER_Encoding_Error(
@@ -856,12 +665,10 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                     (nbits, minimum if minimum == maximum
                      else "%i..%i" % (minimum, maximum))
                 )
-        if minimum is not None and maximum is not None and minimum == maximum:
-            enc.append_bits(s, nbits)
-        elif minimum is not None and maximum is not None:
-            enc.append_non_negative_binary_integer(
-                nbits - minimum, UPER_bits_for_range(maximum - minimum)
-            )
+            if minimum != maximum:
+                enc.append_non_negative_binary_integer(
+                    nbits - minimum, UPER_bits_for_range(maximum - minimum)
+                )
             enc.append_bits(s, nbits)
         else:
             # X.691 16.11: the determinant counts bits, not octets, and no
@@ -881,20 +688,16 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                          size_len=0,  # type: Optional[int]
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
-                         oer_unsigned=False,  # type: bool
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[str]
-        minimum = uper_min
-        maximum = uper_max
-        if size_len:
-            minimum = maximum = size_len
-        if minimum is not None and maximum is not None and minimum == maximum:
+        minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
+        if minimum is not None and maximum is not None:
             nbits = minimum
-        elif minimum is not None and maximum is not None:
-            nbits = minimum + dec.read_non_negative_binary_integer(
-                UPER_bits_for_range(maximum - minimum)
-            )
+            if minimum != maximum:
+                nbits += dec.read_non_negative_binary_integer(
+                    UPER_bits_for_range(maximum - minimum)
+                )
         else:
             fragments = []  # type: List[bytes]
             sizes = []  # type: List[int]
@@ -912,13 +715,6 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
         return cls.asn1_object(_uper_bytes_to_bitstr(raw, nbits))
 
 
-def _uper_octet_string_bounds(size_len, uper_min, uper_max):
-    # type: (Optional[int], Optional[int], Optional[int]) -> Tuple[Optional[int], Optional[int]]  # noqa: E501
-    if size_len:
-        return size_len, size_len
-    return uper_min, uper_max
-
-
 class UPERcodec_STRING(UPERcodec_Object[str]):
     tag = ASN1_Class_UNIVERSAL.STRING
 
@@ -929,15 +725,12 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                     size_len=0,  # type: Optional[int]
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
-                    oer_unsigned=False,  # type: bool
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         s = bytes_encode(_s)
-        minimum, maximum = _uper_octet_string_bounds(
-            size_len, uper_min, uper_max,
-        )
-        UPER_octet_string_enc(s, minimum, maximum, enc=enc)
+        minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
+        UPER_octet_string_enc(enc, s, minimum, maximum)
 
     @classmethod
     def dec_from_decoder(cls,
@@ -945,14 +738,11 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                          size_len=0,  # type: Optional[int]
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
-                         oer_unsigned=False,  # type: bool
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[Any]
-        minimum, maximum = _uper_octet_string_bounds(
-            size_len, uper_min, uper_max,
-        )
-        raw, _ = UPER_octet_string_dec(b"", minimum, maximum, dec=dec)
+        minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
+        raw = UPER_octet_string_dec(dec, minimum, maximum)
         return cls.asn1_object(raw)
 
 
@@ -960,28 +750,14 @@ class UPERcodec_NULL(UPERcodec_Object[None]):
     tag = ASN1_Class_UNIVERSAL.NULL
 
     @classmethod
-    def encode_into(cls,
-                    enc,  # type: UPER_Encoder
-                    _s,  # type: Any
-                    size_len=0,  # type: Optional[int]
-                    uper_min=None,  # type: Optional[int]
-                    uper_max=None,  # type: Optional[int]
-                    oer_unsigned=False,  # type: bool
-                    **_kwargs  # type: Any
-                    ):
-        # type: (...) -> None
+    def encode_into(cls, enc, _s, **_kwargs):
+        # type: (UPER_Encoder, Any, **Any) -> None
+        # NULL has an empty encoding.
         return
 
     @classmethod
-    def dec_from_decoder(cls,
-                         dec,  # type: UPER_Decoder
-                         size_len=0,  # type: Optional[int]
-                         uper_min=None,  # type: Optional[int]
-                         uper_max=None,  # type: Optional[int]
-                         oer_unsigned=False,  # type: bool
-                         **_kwargs  # type: Any
-                         ):
-        # type: (...) -> ASN1_Object[None]
+    def dec_from_decoder(cls, dec, **_kwargs):
+        # type: (UPER_Decoder, **Any) -> ASN1_Object[None]
         return cls.asn1_object(None)
 
     @classmethod
@@ -1025,14 +801,8 @@ class UPERcodec_OID(UPERcodec_Object[bytes]):
         return cls.asn1_object(b".".join(str(k).encode('ascii') for k in lst))
 
 
-def UPER_enumerated_enc(value,
-                        enum_values,  # type: List[int]
-                        enc=None  # type: Optional[UPER_Encoder]
-                        ):
-    # type: (int, List[int], Optional[UPER_Encoder]) -> bytes
-    standalone = enc is None
-    if enc is None:
-        enc = UPER_Encoder()
+def UPER_enumerated_enc(enc, value, enum_values):
+    # type: (UPER_Encoder, int, List[int]) -> None
     if not enum_values:
         raise UPER_Encoding_Error("UPER_enumerated_enc: empty enumeration")
     try:
@@ -1041,29 +811,19 @@ def UPER_enumerated_enc(value,
         raise UPER_Encoding_Error(
             "UPER_enumerated_enc: unknown enumeration value %r" % value
         )
-    UPER_choice_index_enc(index, len(enum_values), enc=enc)
-    return enc.as_bytes() if standalone else b""
+    UPER_choice_index_enc(enc, index, len(enum_values))
 
 
-def UPER_enumerated_dec(s,
-                        enum_values,  # type: List[int]
-                        dec=None  # type: Optional[UPER_Decoder]
-                        ):
-    # type: (bytes, List[int], Optional[UPER_Decoder]) -> Tuple[int, bytes]
-    standalone = dec is None
-    if dec is None:
-        dec = UPER_Decoder(s)
+def UPER_enumerated_dec(dec, enum_values):
+    # type: (UPER_Decoder, List[int]) -> int
     if not enum_values:
         raise UPER_Decoding_Error("UPER_enumerated_dec: empty enumeration")
-    index, _ = UPER_choice_index_dec(b"", len(enum_values), dec=dec)
+    index = UPER_choice_index_dec(dec, len(enum_values))
     if index >= len(enum_values):
         raise UPER_Decoding_Error(
             "UPER_enumerated_dec: index %i out of range" % index
         )
-    if standalone:
-        dec.consume_input()
-        return enum_values[index], b""
-    return enum_values[index], b""
+    return enum_values[index]
 
 
 class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
@@ -1076,19 +836,18 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                     size_len=0,  # type: Optional[int]
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
-                    oer_unsigned=False,  # type: bool
                     uper_enum_values=None,  # type: Optional[List[int]]
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         if uper_enum_values is not None:
-            UPER_enumerated_enc(i, uper_enum_values, enc=enc)
+            UPER_enumerated_enc(enc, i, uper_enum_values)
             return
         minimum = uper_min if uper_min is not None else 0
         maximum = uper_max if uper_max is not None else size_len
         if maximum is None:
             maximum = max(i, 0)
-        UPER_constrained_int_enc(i, minimum, maximum, enc=enc)
+        UPER_constrained_int_enc(enc, i, minimum, maximum)
 
     @classmethod
     def dec_from_decoder(cls,
@@ -1096,13 +855,12 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                          size_len=0,  # type: Optional[int]
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
-                         oer_unsigned=False,  # type: bool
                          uper_enum_values=None,  # type: Optional[List[int]]
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
         if uper_enum_values is not None:
-            value, _ = UPER_enumerated_dec(b"", uper_enum_values, dec=dec)
+            value = UPER_enumerated_dec(dec, uper_enum_values)
             return cls.asn1_object(value)
         minimum = uper_min if uper_min is not None else 0
         maximum = uper_max if uper_max is not None else size_len
@@ -1118,18 +876,14 @@ class UPERcodec_SEQUENCE(UPERcodec_Object[Union[bytes, List[Any]]]):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
 
     @classmethod
-    def encode_into(cls,
-                    enc,  # type: UPER_Encoder
-                    _ll,  # type: Union[bytes, List[UPERcodec_Object[Any]]]
-                    size_len=0,  # type: Optional[int]
-                    uper_min=None,  # type: Optional[int]
-                    uper_max=None,  # type: Optional[int]
-                    oer_unsigned=False,  # type: bool
-                    **_kwargs  # type: Any
-                    ):
-        # type: (...) -> None
-        if isinstance(_ll, bytes):
-            UPER_append_encoded(enc, _ll)
+    def encode_into(cls, enc, _ll, **_kwargs):
+        # type: (UPER_Encoder, Any, **Any) -> None
+        # A finished encoding is padded to an octet boundary, so its real bit
+        # length is lost and it cannot be spliced into a bitstream. Sequences
+        # are encoded through the ASN1F_SEQUENCE hooks instead.
+        raise UPER_Encoding_Error(
+            "UPERcodec_SEQUENCE: schema-defined field order required"
+        )
 
     @classmethod
     def enc(cls, _ll, **_kwargs):
@@ -1163,12 +917,12 @@ class UPERcodec_IPADDRESS(UPERcodec_STRING):
             s = inet_aton(ipaddr_ascii)
         except Exception:
             raise UPER_Encoding_Error("IPv4 address could not be encoded")
-        UPER_octet_string_enc(s, 4, 4, enc=enc)
+        UPER_octet_string_enc(enc, s, 4, 4)
 
     @classmethod
     def dec_from_decoder(cls, dec, **_kwargs):
         # type: (UPER_Decoder, **Any) -> ASN1_Object[str]
-        raw, _ = UPER_octet_string_dec(b"", 4, 4, dec=dec)
+        raw = UPER_octet_string_dec(dec, 4, 4)
         try:
             ipaddr_ascii = inet_ntoa(raw)
         except Exception:
@@ -1256,6 +1010,20 @@ def _field_range(field):
     return opts.get("uper_min"), opts.get("uper_max")
 
 
+def _uper_decode_all(s, read):
+    # type: (bytes, Callable[[UPER_Decoder], Any]) -> Any
+    # The field owns the whole substring it was handed, so any bit left set
+    # beyond the octet padding means the encoding did not match the schema.
+    dec = UPER_Decoder(s)
+    value = read(dec)
+    if UPER_has_unexpected_remainder(dec):
+        raise UPER_Decoding_Error(
+            "unexpected remainder",
+            remaining=dec.remaining(),
+        )
+    return value
+
+
 class _UPER_FieldHooks(object):
     """Compound ASN1F_* helpers for UPER/PER (kept out of asn1fields.py)."""
 
@@ -1268,13 +1036,9 @@ class _UPER_FieldHooks(object):
     @staticmethod
     def sequence_m2i(field, pkt, s):
         # type: (Any, Any, bytes) -> Tuple[Any, bytes]
-        dec = UPER_Decoder(s)
-        _UPER_FieldHooks.sequence_dissect_from_decoder(field, pkt, dec)
-        if UPER_has_unexpected_remainder(dec):
-            raise UPER_Decoding_Error(
-                "unexpected remainder",
-                remaining=dec.remaining(),
-            )
+        _uper_decode_all(s, lambda dec: (
+            _UPER_FieldHooks.sequence_dissect_from_decoder(field, pkt, dec)
+        ))
         return [], b""
 
     @staticmethod
@@ -1331,26 +1095,9 @@ class _UPER_FieldHooks(object):
     @staticmethod
     def sequence_of_m2i(field, pkt, s):
         # type: (Any, Any, bytes) -> Tuple[list, bytes]
-        dec = UPER_Decoder(s)
-        lst = []
-
-        def read_items(count):
-            # type: (int) -> None
-            for _ in range(count):
-                c, _ = _extract_packet_from_decoder(field, dec, pkt)
-                if c:
-                    lst.append(c)
-
-        if _field_extensible(field) and dec.read_bit():
-            dec.read_fragmented(read_items)
-        else:
-            _uper_count_dec(field, dec, read_items)
-        if UPER_has_unexpected_remainder(dec):
-            raise UPER_Decoding_Error(
-                "unexpected remainder",
-                remaining=dec.remaining(),
-            )
-        return lst, b""
+        return _uper_decode_all(s, lambda dec: (
+            _UPER_FieldHooks.sequence_of_m2i_from_decoder(field, pkt, dec)
+        )), b""
 
     @staticmethod
     def sequence_of_build(field, pkt):
@@ -1377,7 +1124,7 @@ class _UPER_FieldHooks(object):
         def read_items(count):
             # type: (int) -> None
             for _ in range(count):
-                item, _ = _extract_packet_from_decoder(field, dec, pkt)
+                item = _extract_packet_from_decoder(field, dec, pkt)
                 lst.append(item)
 
         if _field_extensible(field) and dec.read_bit():
@@ -1420,14 +1167,9 @@ class _UPER_FieldHooks(object):
     @staticmethod
     def choice_m2i(field, pkt, s):
         # type: (Any, Any, bytes) -> Tuple[Any, bytes]
-        dec = UPER_Decoder(s)
-        val = _UPER_FieldHooks.choice_m2i_from_decoder(field, pkt, dec)
-        if UPER_has_unexpected_remainder(dec):
-            raise UPER_Decoding_Error(
-                "unexpected remainder",
-                remaining=dec.remaining(),
-            )
-        return val, b""
+        return _uper_decode_all(s, lambda dec: (
+            _UPER_FieldHooks.choice_m2i_from_decoder(field, pkt, dec)
+        )), b""
 
     @staticmethod
     def choice_i2m(field, pkt, x):
@@ -1451,7 +1193,7 @@ class _UPER_FieldHooks(object):
                 )
         order = field.choice_order
         if len(order) > 1:
-            index, _ = UPER_choice_index_dec(b"", len(order), dec=dec)
+            index = UPER_choice_index_dec(dec, len(order))
         else:
             index = 0
         if index >= len(order):
@@ -1485,7 +1227,7 @@ class _UPER_FieldHooks(object):
             enc.append_bit(0)
         order = field.choice_order
         if len(order) > 1:
-            UPER_choice_index_enc(index, len(order), enc=enc)
+            UPER_choice_index_enc(enc, index, len(order))
         choice = field.choice_list[index]
         if hasattr(choice, "ASN1_root"):
             value.ASN1_root.encode_into(enc, value)
@@ -1551,7 +1293,7 @@ def _uper_count_enc(field, enc, count, append_items):
     # items themselves are what gets fragmented, hence the callback.
     uper_min, uper_max = _field_range(field)
     if uper_min is not None and uper_max is not None:
-        UPER_constrained_int_enc(count, uper_min, uper_max, enc=enc)
+        UPER_constrained_int_enc(enc, count, uper_min, uper_max)
         append_items(0, count)
     else:
         enc.append_fragmented(count, append_items)
@@ -1561,23 +1303,19 @@ def _uper_count_dec(field, dec, read_items):
     # type: (Any, Any, Callable[[int], None]) -> None
     uper_min, uper_max = _field_range(field)
     if uper_min is not None and uper_max is not None:
-        size = uper_max - uper_min
-        read_items(
-            dec.read_non_negative_binary_integer(UPER_bits_for_range(size)) +
-            uper_min
-        )
+        read_items(UPER_constrained_int_dec(dec, uper_min, uper_max))
     else:
         dec.read_fragmented(read_items)
 
 
 def _extract_packet_from_decoder(field, dec, pkt):
-    # type: (Any, Any, Any) -> Tuple[Any, bytes]
+    # type: (Any, Any, Any) -> Any
     if field.holds_packets:
         p = field.cls()
         p.add_underlayer(pkt)
         p.ASN1_root.dissect_from_decoder(p, dec)
-        return p, b""
-    return field.fld.m2i_from_decoder(pkt, dec), b""
+        return p
+    return field.fld.m2i_from_decoder(pkt, dec)
 
 
 # Populated by _install_uper_asn1fields() (also published on scapy.asn1fields).
