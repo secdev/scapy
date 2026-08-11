@@ -315,6 +315,28 @@ class OERPacketChoice(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_CHOICE("c", None, OERInnerSeq, ASN1F_INTEGER)
 
+class OERAltA(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("i", 0),
+    )
+
+class OERAltB(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BOOLEAN("b", True),
+    )
+
+class OERTaggedChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_CHOICE(
+            "c", None,
+            ASN1F_PACKET("a1", None, OERAltA, explicit_tag=0xA0),
+            ASN1F_PACKET("a2", None, OERAltB, explicit_tag=0xA1),
+        ),
+    )
+
 class OERUnsignedField(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_INTEGER(
@@ -436,8 +458,8 @@ x.val == -2 and r == b""
 = OER fixed octet string decode
 x, r = OERcodec_STRING.do_dec(OERcodec_STRING.enc(b"\x12\x34\x56", size_len=3), size_len=3)
 x.val == b"\x12\x34\x56" and r == b""
-= OER explicit null tagging
-OER_tagging_enc(OERcodec_NULL.enc(None), explicit_tag=0x81) == b"\x81"
+= OER does not encode the tag of a component
+OER_tagging_enc(b"\x05", explicit_tag=0x81) == b"\x05" and OER_tagging_dec(b"\x05", explicit_tag=0x81) == (None, b"\x05")
 = OER choice id decode
 tag, r = OER_id_dec(b"\x81\x01")
 tag == 0x81 and r == b"\x01"
@@ -446,7 +468,8 @@ tag == 0x81 and r == b"\x01"
 = oer field explicit tag
 pkt = OERTaggedInteger(n=5)
 
-assert raw(pkt) == b"\xa1\x01\x05"
+# X.696 encodes no tag for a component, whatever the tagging environment
+assert raw(pkt) == b"\x01\x05"
 
 decoded = _roundtrip(OERTaggedInteger, pkt)
 
@@ -471,7 +494,7 @@ True
 present = OEROptionalField(id=1, extra=7)
 
 # \x80: preamble with the presence bit set for the single OPTIONAL component
-assert raw(present) == b"\x80\x01\x01\xa0\x01\x07"
+assert raw(present) == b"\x80\x01\x01\x01\x07"
 
 decoded = _roundtrip(OEROptionalField, present)
 
@@ -528,7 +551,7 @@ pkt = OERRecord(
 
 expected = (
     b"\x80"
-    b"\x01*\xff\x02hi\xa0\x01\x07"
+    b"\x01*\xff\x02hi\x01\x07"
     b"\x01\x03\x01\x01\x01\x02\x01\x03"
 )
 
@@ -739,7 +762,7 @@ assert [x.val for x in decoded.values] == [1, 2, 3]
 True
 
 = oer field dissect
-tagged = _dissect(OERTaggedInteger, "a10105")
+tagged = _dissect(OERTaggedInteger, "0105")
 
 assert tagged.n.val == 5
 
@@ -749,7 +772,7 @@ assert fixed.n.val == 200
 
 assert fixed.s.val == b"ABC"
 
-present = _dissect(OEROptionalField, "800101a00107")
+present = _dissect(OEROptionalField, "8001010107")
 
 assert present.id.val == 1
 
@@ -779,7 +802,7 @@ True
 decoded = _dissect(
     OERRecord,
     "80"
-    "012aff026869a00107"
+    "012aff0268690107"
     "0103010101020103",
 )
 _assert_record(decoded)
@@ -915,7 +938,8 @@ True
 = oer choice with packet alternative
 pkt = OERPacketChoice(c=OERInnerSeq(x=3))
 
-assert raw(pkt) == b"\x30\x03"
+# \x10: universal 16 (SEQUENCE), without the BER constructed bit
+assert raw(pkt) == b"\x10\x03"
 
 decoded = _roundtrip(OERPacketChoice, pkt)
 
@@ -928,6 +952,25 @@ as_int = OERPacketChoice(c=ASN1_INTEGER(9))
 decoded_int = _roundtrip(OERPacketChoice, as_int)
 
 assert decoded_int.c.val == 9
+
+True
+
+= oer choice with tagged packet alternatives
+# Reference (asn1tools) for
+#   Ch ::= SEQUENCE { c CHOICE { a1 A, a2 B } }
+#   A ::= SEQUENCE { i INTEGER }, B ::= SEQUENCE { b BOOLEAN }
+# in an AUTOMATIC TAGS module: the alternative tag is the only one encoded.
+assert raw(OERTaggedChoice(c=OERAltA(i=4))) == b"\x80\x01\x04"
+
+assert raw(OERTaggedChoice(c=OERAltB(b=False))) == b"\x81\x00"
+
+decoded = _roundtrip(OERTaggedChoice, OERTaggedChoice(c=OERAltA(i=4)))
+
+assert isinstance(decoded.c, OERAltA) and decoded.c.i.val == 4
+
+decoded = _roundtrip(OERTaggedChoice, OERTaggedChoice(c=OERAltB(b=False)))
+
+assert isinstance(decoded.c, OERAltB) and decoded.c.b.val == 0
 
 True
 
@@ -1001,7 +1044,7 @@ assert raw(OERNoPreamble(a=1)) == bytes.fromhex("01")
 
 # A DEFAULT component takes a presence bit too, and is omitted when it holds
 # the default value.
-from scapy.contrib.uper import ASN1F_DEFAULT
+from scapy.asn1fields import ASN1F_DEFAULT
 
 class OERDefault(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
