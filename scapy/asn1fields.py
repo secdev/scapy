@@ -140,8 +140,8 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
 
     def _tagging_dec(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
-        # Codec provides tagging_*; OER implements real tags, UPER/PER use
-        # identity helpers (no BER-style tagging).
+        # Codec provides tagging_*; only BER puts the tag of a field on the
+        # wire, the others keep the identity default of ASN1Codec.
         return pkt.ASN1_codec.tagging_dec(s, **kwargs)  # type: ignore
 
     def _tagging_enc(self, pkt, s, **kwargs):
@@ -518,6 +518,11 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
             name, default, **kwargs
         )
         self.seq = seq
+        # Codecs that describe presence out of band (OER/PER preambles) need
+        # the optional components in declaration order.
+        self.optionals = tuple(
+            f for f in seq if isinstance(f, ASN1F_optional)
+        )  # type: Tuple[ASN1F_optional, ...]
         self.islist = len(seq) > 1
 
     def __repr__(self):
@@ -782,6 +787,10 @@ class ASN1F_DEFAULT(ASN1F_optional):
     """
     ASN.1 field holding a DEFAULT value: it is omitted from the encoding while
     it holds that value, and restored when the encoding does not carry it.
+
+    As with OPTIONAL components, a BER encoding only tells the component apart
+    from the one that follows it by its tag, so the schema must give it a
+    distinct one. OER and PER describe presence in the preamble instead.
     """
     def __init__(self, field, default):
         # type: (ASN1F_field[Any, Any], Any) -> None
@@ -875,6 +884,23 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
     def choice_order(self):
         # type: () -> List[int]
         return list(self.choices.keys())
+
+    def alternative_index(self, x):
+        # type: (Any) -> Optional[int]
+        """Position in choice_order of the alternative that carries x."""
+        for index, choice in enumerate(self.choices.values()):
+            if isinstance(choice, type):
+                if hasattr(choice, "ASN1_root"):
+                    # ASN1_Packet subclass
+                    if isinstance(x, choice):
+                        return index
+                elif isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
+                    # ASN1F_field subclass
+                    return index
+            elif isinstance(x, choice.cls):
+                # ASN1F_PACKET instance, holding a tagged packet
+                return index
+        return None
 
     @property
     def choice_list(self):

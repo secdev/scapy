@@ -586,11 +586,23 @@ class _PerDefault(ASN1_Packet):
     )
 
 # A component holding its default value is not encoded, and comes back as the
-# default when the encoding does not carry it.
+# default when the encoding does not carry it. An unset component counts as
+# holding it, and the default may be given as an ASN.1 object.
 for cls in (_BerDefault, _OerDefault, _PerDefault):
     assert len(raw(cls(a=1, b=7))) < len(raw(cls(a=1, b=9)))
     absent = _roundtrip(cls, cls(a=1, b=7)).b
     assert getattr(absent, "val", absent) == 7
     assert _roundtrip(cls, cls(a=1, b=9)).b.val == 9
+    assert raw(cls(a=1, b=None)) == raw(cls(a=1, b=7))
+
+class _AsnObjectDefault(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_DEFAULT(ASN1F_INTEGER("a", 7), ASN1_INTEGER(7)),
+    )
+
+assert raw(_AsnObjectDefault(a=ASN1_INTEGER(7))) == raw(_AsnObjectDefault(a=7))
+
+assert raw(_AsnObjectDefault(a=7)) == b"\x00"
 
 True
