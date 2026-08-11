@@ -794,10 +794,39 @@ class ATT_Read_By_Group_Type_Request(Packet):
                    XLEShortField("uuid", 0), ]
 
 
+class ATT_Group_Handle_Variable(Packet):
+    __slots__ = ["val_length"]
+    fields_desc = [XLEShortField("handle", 0),
+                   XLEShortField("group_end_handle", 0),
+                   XStrLenField(
+                       "value", 0,
+                       length_from=lambda pkt: pkt.val_length)]
+
+    def __init__(self, _pkt=b"", val_length=2, **kwargs):
+        self.val_length = val_length
+        Packet.__init__(self, _pkt, **kwargs)
+
+    def extract_padding(self, s):
+        return b"", s
+
+
 class ATT_Read_By_Group_Type_Response(Packet):
     name = "Read By Group Type Response"
-    fields_desc = [XByteField("length", 0),
-                   StrField("data", ""), ]
+    fields_desc = [ByteField("len", 4),
+                   PacketListField(
+                       "handles", [],
+                       next_cls_cb=lambda pkt, *args: (
+                           pkt._next_cls_cb(pkt, *args)
+                       ))]
+
+    @classmethod
+    def _next_cls_cb(cls, pkt, lst, p, remain):
+        if len(remain) >= pkt.len:
+            return functools.partial(
+                ATT_Group_Handle_Variable,
+                val_length=pkt.len - 4
+            )
+        return None
 
 
 class ATT_Write_Request(Packet):
