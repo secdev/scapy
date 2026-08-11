@@ -341,12 +341,14 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
                  context=None,  # type: Optional[Any]
                  implicit_tag=None,  # type: Optional[Any]
                  explicit_tag=None,  # type: Optional[Any]
+                 **codec_opts  # type: Any
                  ):
         # type: (...) -> None
         super(ASN1F_enum_INTEGER, self).__init__(
             name, default, context=context,
             implicit_tag=implicit_tag,
-            explicit_tag=explicit_tag
+            explicit_tag=explicit_tag,
+            **codec_opts
         )
         i2s = self.i2s = {}  # type: Dict[int, str]
         s2i = self.s2i = {}  # type: Dict[str, int]
