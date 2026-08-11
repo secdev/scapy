@@ -1916,6 +1916,69 @@ assert obj2.val == 2
 
 True
 
+= uper enumerated without a range
+# The width would otherwise follow the value, which the decoder cannot redo
+_raises(UPER_Encoding_Error, lambda: UPERcodec_ENUMERATED.enc(3))
+
+_raises(UPER_Decoding_Error, lambda: UPERcodec_ENUMERATED.do_dec(b"\x60"))
+
+True
+
+= uper enumerated index follows the value order
+# X.691 14.1: sort the enumeration by value, whatever order it was declared in
+class UPERUnsortedEnum(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_ENUMERATED("e", 0, {2: "c", 0: "a", 1: "b"}),
+    )
+
+# byte vectors from asn1tools for ENUMERATED { c(2), a(0), b(1) }
+for value, expected in [(0, "00"), (1, "40"), (2, "80")]:
+    assert raw(UPERUnsortedEnum(e=value)) == bytes.fromhex(expected), value
+    assert _dissect(UPERUnsortedEnum, expected).e.val == value
+
+True
+
+= uper extensible enumerated
+# X.691 14.3: a one bit prefix, zero for a value of the extension root
+class UPERExtEnum(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_ENUMERATED("e", 0, {0: "a", 1: "b", 2: "c"},
+                         uper_extensible=True),
+    )
+
+# byte vectors from asn1tools for ENUMERATED { a(0), b(1), c(2), ... }
+for value, expected in [(0, "00"), (1, "20"), (2, "40")]:
+    assert raw(UPERExtEnum(e=value)) == bytes.fromhex(expected), value
+    assert _dissect(UPERExtEnum, expected).e.val == value
+
+enc = UPER_Encoder()
+
+_raises(UPER_Encoding_Error, lambda: UPERcodec_ENUMERATED.encode_into(
+    enc, 7, uper_enum_values=[0, 1, 2], uper_extensible=True))
+
+_raises(UPER_Decoding_Error, lambda: UPERcodec_ENUMERATED.dec_from_decoder(
+    UPER_Decoder(b"\x80"), uper_enum_values=[0, 1, 2], uper_extensible=True))
+
+True
+
+= uper octet string honours its size constraint
+# A determinant sized after the constraint cannot express a violating length
+_raises(UPER_Encoding_Error, lambda: UPERcodec_STRING.enc(b"AB", size_len=4))
+
+_raises(UPER_Encoding_Error, lambda: UPERcodec_STRING.enc(b"ABCDEF", size_len=4))
+
+assert UPERcodec_STRING.enc(b"ABCD", size_len=4) == b"ABCD"
+
+_raises(UPER_Encoding_Error,
+        lambda: UPERcodec_STRING.enc(b"A", uper_min=2, uper_max=4))
+
+_raises(UPER_Encoding_Error,
+        lambda: UPERcodec_STRING.enc(b"ABCDEFGH", uper_min=2, uper_max=4))
+
+True
+
 = uper sequence errors
 _raises(UPER_Encoding_Error, lambda: UPERcodec_SEQUENCE.enc([ASN1_INTEGER(1)]))
 
