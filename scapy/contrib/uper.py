@@ -45,6 +45,8 @@ from scapy.asn1.asn1 import (
     ASN1_Object,
     _ASN1_ERROR,
 )
+# Re-exported: DEFAULT components are what the preamble bits describe.
+from scapy.asn1fields import ASN1F_DEFAULT  # noqa: F401
 
 from typing import (
     Any,
@@ -1317,11 +1319,16 @@ def _choice_index_for(field, x):
     # type: (Any, Any) -> Optional[int]
     from scapy.asn1.asn1 import ASN1_Object
     for index, choice in enumerate(field.choice_list):
-        if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
-            if isinstance(x, choice):
-                return index
-        elif hasattr(choice, "ASN1_tag"):
-            if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
+        if isinstance(choice, type):
+            if hasattr(choice, "ASN1_root"):
+                if isinstance(x, choice):
+                    return index
+            elif hasattr(choice, "ASN1_tag"):
+                if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
+                    return index
+        elif getattr(choice, "cls", None) is not None:
+            # ASN1F_PACKET instance: the alternative is a tagged packet.
+            if isinstance(x, choice.cls):
                 return index
     return None
 
@@ -1358,43 +1365,11 @@ def _extract_packet_from_decoder(field, dec, pkt):
     return field.fld.m2i_from_decoder(pkt, dec)
 
 
-# Populated by _install_uper_asn1fields() (also published on scapy.asn1fields).
-ASN1F_DEFAULT = None  # type: Any
-
-
 def _install_uper_asn1fields():
     # type: () -> None
-    """Attach UPER bitstream helpers and DEFAULT onto asn1fields classes."""
+    """Attach the UPER bitstream helpers onto the asn1fields classes."""
     from scapy import asn1fields as af
     from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_Error, ASN1_Object
-
-    class _ASN1F_DEFAULT(af.ASN1F_optional):
-        """ASN.1 field with a DEFAULT value (PER presence bit)."""
-
-        def __init__(self, field, default):
-            # type: (Any, Any) -> None
-            super(_ASN1F_DEFAULT, self).__init__(field)
-            self._default = default
-
-        def is_empty(self, pkt):
-            # type: (Any) -> bool
-            val = getattr(pkt, self._field.name, None)
-            if val is None:
-                return True
-            if isinstance(val, ASN1_Object):
-                val = val.val
-            default = self._default
-            if isinstance(default, ASN1_Object):
-                default = default.val
-            return bool(val == default)
-
-        def set_absent(self, pkt):
-            # type: (Any) -> None
-            self.set_val(pkt, self._default)
-
-    global ASN1F_DEFAULT
-    ASN1F_DEFAULT = _ASN1F_DEFAULT  # type: ignore[misc,assignment]
-    af.ASN1F_DEFAULT = _ASN1F_DEFAULT
 
     def m2i_from_decoder(self, pkt, dec):
         # type: (Any, Any, Any) -> Any
@@ -1431,10 +1406,6 @@ def _install_uper_asn1fields():
             enc, raw, **self._codec_kwargs(pkt),
         )
 
-    def opt_set_absent(self, pkt):
-        # type: (Any, Any) -> None
-        self.set_val(pkt, None)
-
     def opt_dissect_from_decoder(self, pkt, dec):
         # type: (Any, Any, Any) -> None
         return self._field.dissect_from_decoder(pkt, dec)
@@ -1467,7 +1438,6 @@ def _install_uper_asn1fields():
             "encode_into": hooks.packet_encode_into,
         }),
         (af.ASN1F_optional, {
-            "set_absent": opt_set_absent,
             "dissect_from_decoder": opt_dissect_from_decoder,
             "encode_into": opt_encode_into,
         }),

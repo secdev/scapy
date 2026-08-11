@@ -3019,3 +3019,43 @@ _raises(
 
 True
 
+= uper choice with tagged packet alternatives
+class UPERAltA(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("i", 0),
+    )
+
+class UPERAltB(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BOOLEAN("b", True),
+    )
+
+class UPERTaggedChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_CHOICE(
+            "c", None,
+            ASN1F_PACKET("a1", None, UPERAltA, explicit_tag=0xA0),
+            ASN1F_PACKET("a2", None, UPERAltB, explicit_tag=0xA1),
+        ),
+    )
+
+# Reference (asn1tools) for
+#   Ch ::= SEQUENCE { c CHOICE { a1 A, a2 B } }
+#   A ::= SEQUENCE { i INTEGER }, B ::= SEQUENCE { b BOOLEAN }
+# The alternative is picked by the type of the value, tags are not encoded.
+assert raw(UPERTaggedChoice(c=UPERAltA(i=4))) == b"\x00\x82\x00"
+
+assert raw(UPERTaggedChoice(c=UPERAltB(b=False))) == b"\x80"
+
+decoded = _roundtrip(UPERTaggedChoice, UPERTaggedChoice(c=UPERAltA(i=4)))
+
+assert isinstance(decoded.c, UPERAltA) and decoded.c.i.val == 4
+
+decoded = _roundtrip(UPERTaggedChoice, UPERTaggedChoice(c=UPERAltB(b=False)))
+
+assert isinstance(decoded.c, UPERAltB) and decoded.c.b.val == 0
+
+True
