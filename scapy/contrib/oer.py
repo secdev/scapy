@@ -15,6 +15,10 @@ Basic-OER as specified in ITU-T X.696 | ISO/IEC 8825-7.
 for sequences declared with ``oer_extensible=True``. Fixed size constraints
 are expressed with ``size_len=`` (octets for strings, bits for BIT STRING).
 
+Tags declared on a field are not encoded: OER only puts a tag on the wire for
+the chosen alternative of an ``ASN1F_CHOICE`` (20.2), so the ``implicit_tag=``
+and ``explicit_tag=`` of the alternatives are what selects it.
+
 Not supported yet: extension additions (an encoding that carries them is
 refused rather than misparsed), SET, REAL, and the canonical variant (C-OER).
 """
@@ -39,6 +43,8 @@ from scapy.asn1.asn1 import (
     ASN1_Object,
     _ASN1_ERROR,
 )
+# Re-exported: DEFAULT components are what the preamble bits describe.
+from scapy.asn1fields import ASN1F_DEFAULT  # noqa: F401
 
 from typing import (
     Any,
@@ -369,6 +375,15 @@ def OER_id_dec(s):
     return tag_class | tag_number, remainder
 
 
+def _OER_tag_parts(identifier):
+    # type: (int) -> Tuple[int, int]
+    # ASN1F_* fields describe tags as BER identifier octets: class in the top
+    # two bits, constructed flag in 0x20 and tag number in the low five bits.
+    # X.696 8.7 only keeps the class and the number, so the constructed flag
+    # must not leak into the encoded tag number.
+    return identifier & 0xc0, identifier & 0x1f
+
+
 def OER_tagging_dec(s,  # type: bytes
                     hidden_tag=None,  # type: Optional[int | ASN1Tag]
                     implicit_tag=None,  # type: Optional[int]
@@ -377,30 +392,14 @@ def OER_tagging_dec(s,  # type: bytes
                     _fname="",  # type: str
                     ):
     # type: (...) -> Tuple[Optional[int], bytes]
-    # OER does not use implicit tagging. Explicit tags are encoded as choice
-    # alternatives (tag + value).
-    real_tag = None
-    if explicit_tag is not None and len(s) > 0:
-        err_msg = (
-            "OER_tagging_dec: observed tag 0x%.02x does not "
-            "match expected tag 0x%.02x (%s)"
-        )
-        tag_class, tag_number, remainder = OER_tag_dec(s)
-        observed = tag_class | tag_number
-        if observed != explicit_tag:
-            if not safe:
-                raise OER_Decoding_Error(
-                    err_msg % (observed, explicit_tag, _fname),
-                    remaining=s)
-            real_tag = observed
-        s = remainder
-    return real_tag, s
+    # X.696 encodes no tag for a component, whatever the tagging environment
+    # of the module: the only tag on the wire is the one of a chosen CHOICE
+    # alternative, which _OER_FieldHooks handles.
+    return None, s
 
 
 def OER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
     # type: (bytes, Optional[int], Optional[int]) -> bytes
-    if explicit_tag is not None:
-        return OER_tag_enc(explicit_tag & 0x3f, explicit_tag & 0xc0) + s
     return s
 
 
@@ -920,17 +919,6 @@ def _field_extensible(field):
     return bool(getattr(field, "codec_opts", {}).get("oer_extensible", False))
 
 
-def _set_absent(field, pkt):
-    # type: (Any, Any) -> None
-    # ASN1F_DEFAULT restores its default value; a plain optional clears itself.
-    # set_absent() only exists once scapy.contrib.uper has been imported.
-    set_absent = getattr(field, "set_absent", None)
-    if set_absent is not None:
-        set_absent(pkt)
-    else:
-        field.set_val(pkt, None)
-
-
 class _OER_FieldHooks(object):
     """Compound ASN1F_* helpers for OER (kept out of asn1fields.py)."""
 
@@ -966,7 +954,7 @@ class _OER_FieldHooks(object):
                 present = presence[opt_index]
                 opt_index += 1
                 if not present:
-                    _set_absent(obj, pkt)
+                    obj.set_absent(pkt)
                     continue
                 # The preamble already said the component is there, so dissect
                 # it directly: a failure is an error, not an absence.
@@ -1025,23 +1013,32 @@ class _OER_FieldHooks(object):
         from scapy.asn1fields import ASN1F_field
         from scapy.asn1.asn1 import ASN1_Error
         s = field._apply_tagging_dec(s, pkt)
-        tag, payload = OER_id_dec(s)
-        if tag in field.choices:
-            choice = field.choices[tag]
-        elif field.flexible_tag:
-            choice = ASN1F_field
-        else:
-            raise ASN1_Error(
-                "ASN1F_CHOICE: unexpected field in '%s' "
-                "(tag %s not in possible tags %s)" % (
-                    field.name, tag, list(field.choices.keys())
+        tag_class, tag_number, payload = OER_tag_dec(s)
+        choice = None
+        for key, alternative in field.choices.items():
+            if _OER_tag_parts(key) == (tag_class, tag_number):
+                choice = alternative
+                break
+        if choice is None:
+            if not field.flexible_tag:
+                raise ASN1_Error(
+                    "ASN1F_CHOICE: unexpected field in '%s' "
+                    "(tag %s not in possible tags %s)" % (
+                        field.name, tag_class | tag_number,
+                        list(field.choices.keys())
+                    )
                 )
-            )
+            choice = ASN1F_field
         if hasattr(choice, "ASN1_root"):
             return field.extract_packet(choice, payload, _underlayer=pkt)
         if isinstance(choice, type):
             return choice(field.name, b"").m2i(pkt, payload)
-        return choice.m2i(pkt, payload)
+        # ASN1F_PACKET instance: X.696 20.2 puts the alternative tag in front
+        # of the value, so it was consumed above and must not be looked for
+        # again by the field itself.
+        return field.extract_packet(
+            choice._resolve_cls(pkt), payload, _underlayer=pkt,
+        )
 
     @staticmethod
     def choice_i2m(field, pkt, x):
@@ -1056,7 +1053,8 @@ class _OER_FieldHooks(object):
                 s = bytes(x)
             alt_tag = _choice_tag_for(field, x)
             if alt_tag is not None:
-                s = OER_tag_enc(alt_tag & 0x3f, alt_tag & 0xc0) + s
+                tag_class, tag_number = _OER_tag_parts(alt_tag)
+                s = OER_tag_enc(tag_number, tag_class) + s
         return field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag)
 
 
@@ -1064,11 +1062,16 @@ def _choice_index_for(field, x):
     # type: (Any, Any) -> Optional[int]
     from scapy.asn1.asn1 import ASN1_Object
     for index, choice in enumerate(field.choice_list):
-        if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
-            if isinstance(x, choice):
-                return index
-        elif hasattr(choice, "ASN1_tag"):
-            if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
+        if isinstance(choice, type):
+            if hasattr(choice, "ASN1_root"):
+                if isinstance(x, choice):
+                    return index
+            elif hasattr(choice, "ASN1_tag"):
+                if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
+                    return index
+        elif getattr(choice, "cls", None) is not None:
+            # ASN1F_PACKET instance: the alternative is a tagged packet.
+            if isinstance(x, choice.cls):
                 return index
     return None
 

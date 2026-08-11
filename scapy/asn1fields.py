@@ -750,12 +750,22 @@ class ASN1F_optional(ASN1F_element):
         try:
             return self._field.dissect(pkt, s)
         except (ASN1_Error, ASN1F_badsequence, ASN1_Decoding_Error):
-            self._field.set_val(pkt, None)
+            self.set_absent(pkt)
             return s
+
+    def set_absent(self, pkt):
+        # type: (ASN1_Packet) -> None
+        """Called when the encoding does not carry the component."""
+        self._field.set_val(pkt, None)
+
+    def is_empty(self, pkt):
+        # type: (ASN1_Packet) -> bool
+        return self._field.is_empty(pkt)
 
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
-        if self._field.is_empty(pkt):
+        # Through self, so that a DEFAULT component omits its default value.
+        if self.is_empty(pkt):
             return b""
         return self._field.build(pkt)
 
@@ -766,6 +776,33 @@ class ASN1F_optional(ASN1F_element):
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, Any) -> str
         return self._field.i2repr(pkt, x)
+
+
+class ASN1F_DEFAULT(ASN1F_optional):
+    """
+    ASN.1 field holding a DEFAULT value: it is omitted from the encoding while
+    it holds that value, and restored when the encoding does not carry it.
+    """
+    def __init__(self, field, default):
+        # type: (ASN1F_field[Any, Any], Any) -> None
+        super(ASN1F_DEFAULT, self).__init__(field)
+        self._default = default
+
+    def is_empty(self, pkt):
+        # type: (ASN1_Packet) -> bool
+        val = getattr(pkt, self._field.name, None)
+        if val is None:
+            return True
+        if isinstance(val, ASN1_Object):
+            val = val.val
+        default = self._default
+        if isinstance(default, ASN1_Object):
+            default = default.val
+        return bool(val == default)
+
+    def set_absent(self, pkt):
+        # type: (ASN1_Packet) -> None
+        self._field.set_val(pkt, self._default)
 
 
 class ASN1F_omit(ASN1F_field[None, None]):
