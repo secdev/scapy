@@ -33,8 +33,6 @@ from scapy.compat import orb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
 from scapy.asn1.ber import BER_num_dec, BER_num_enc
 from scapy.asn1.asn1 import (
-    ASN1_BADTAG,
-    ASN1_BadTag_Decoding_Error,
     ASN1_Class,
     ASN1_Class_UNIVERSAL,
     ASN1_Codecs,
@@ -113,11 +111,6 @@ class UPER_Decoding_Error(ASN1_Decoding_Error):
         return s
 
 
-class UPER_BadTag_Decoding_Error(UPER_Decoding_Error,
-                                 ASN1_BadTag_Decoding_Error):
-    pass
-
-
 def UPER_bits_for_range(size):
     # type: (int) -> int
     if size <= 0:
@@ -147,10 +140,6 @@ class UPER_Encoder(object):
         self.value = 0
         self.chunks_number_of_bits = 0
         self.chunks = []  # type: List[List[int]]
-
-    def number_of_bytes(self):
-        # type: () -> int
-        return (self.chunks_number_of_bits + self.number_of_bits + 7) // 8
 
     def append_bit(self, bit):
         # type: (int) -> None
@@ -372,13 +361,16 @@ class UPER_Decoder(object):
             return enc - (1 << (8 * number_of_bytes))
         return enc
 
-    def consume_input(self):
-        # type: () -> None
-        self.number_of_bits = 0
-
 
 def UPER_constrained_int_enc(enc, value, minimum, maximum):
     # type: (UPER_Encoder, int, int, int) -> None
+    # X.691 13.2.2: the field is sized after the range, so a value outside it
+    # cannot be expressed. Callers handle extensibility before coming here.
+    if not minimum <= value <= maximum:
+        raise UPER_Encoding_Error(
+            "UPER_constrained_int_enc: got %i while expecting %i..%i" %
+            (value, minimum, maximum)
+        )
     enc.append_non_negative_binary_integer(
         value - minimum, UPER_bits_for_range(maximum - minimum)
     )
@@ -392,18 +384,25 @@ def UPER_constrained_int_dec(dec, minimum, maximum):
     return value + minimum
 
 
+def _uper_check_size(name, unit, count, minimum, maximum):
+    # type: (str, str, int, int, int) -> None
+    # The determinant is sized after the constraint, so a value that violates
+    # it cannot be expressed: refuse rather than emit something the peer reads
+    # as a different length.
+    if not minimum <= count <= maximum:
+        raise UPER_Encoding_Error(
+            "%s: got %i %s while expecting %s" %
+            (name, count, unit, minimum if minimum == maximum
+             else "%i..%i" % (minimum, maximum))
+        )
+
+
 def UPER_octet_string_enc(enc, data, minimum=None, maximum=None):
     # type: (UPER_Encoder, bytes, Optional[int], Optional[int]) -> None
     if minimum is not None and maximum is not None:
-        if not minimum <= len(data) <= maximum:
-            # The determinant is sized after the constraint, so a value that
-            # violates it cannot be expressed: refuse rather than emit
-            # something the peer reads as a different length.
-            raise UPER_Encoding_Error(
-                "UPER_octet_string_enc: got %i octets while expecting %s" %
-                (len(data), minimum if minimum == maximum
-                 else "%i..%i" % (minimum, maximum))
-            )
+        _uper_check_size(
+            "UPER_octet_string_enc", "octets", len(data), minimum, maximum,
+        )
         if minimum != maximum:
             enc.append_non_negative_binary_integer(
                 len(data) - minimum,
@@ -520,11 +519,6 @@ class UPERcodec_Object(Generic[_K], metaclass=UPERcodec_metaclass):
             return cls.do_dec(s, context, safe, **kwargs)
         try:
             return cls.do_dec(s, context, safe, **kwargs)
-        except UPER_BadTag_Decoding_Error as e:
-            o, remain = UPERcodec_Object.dec(
-                e.remaining, context, safe, **kwargs
-            )
-            return ASN1_BADTAG(o), remain
         except (UPER_Decoding_Error, ASN1_Error) as e:
             return ASN1_DECODING_ERROR(s, exc=e), b""
 
@@ -534,19 +528,9 @@ class UPERcodec_Object(Generic[_K], metaclass=UPERcodec_metaclass):
         return cls.dec(s, context, safe=True, **kwargs)
 
 
-def UPER_tagging_enc(s, **kwargs):
-    # type: (bytes, **Any) -> bytes
-    # UPER has no BER-style TLV tagging.
-    return s
-
-
-def UPER_tagging_dec(s, **kwargs):
-    # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
-    return None, s
-
-
+# No register_tagging(): PER encodes no tag at all, so the identity default
+# of ASN1Codec is what UPER needs.
 ASN1_Codecs.PER.register_stem(UPERcodec_Object)
-ASN1_Codecs.PER.register_tagging(UPER_tagging_enc, UPER_tagging_dec)
 
 
 #########################
@@ -675,12 +659,7 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
         s, nbits = _uper_bit_string_parts(_s)
         minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
         if minimum is not None and maximum is not None:
-            if not minimum <= nbits <= maximum:
-                raise UPER_Encoding_Error(
-                    "UPERcodec_BIT_STRING: got %i bits while expecting %s" %
-                    (nbits, minimum if minimum == maximum
-                     else "%i..%i" % (minimum, maximum))
-                )
+            _uper_check_size(cls.__name__, "bits", nbits, minimum, maximum)
             if minimum != maximum:
                 enc.append_non_negative_binary_integer(
                     nbits - minimum, UPER_bits_for_range(maximum - minimum)
@@ -1092,12 +1071,6 @@ class _UPER_FieldHooks(object):
         return ASN1F_field.i2m(field, pkt, enc.as_bytes())
 
     @staticmethod
-    def _optionals(field):
-        # type: (Any) -> Tuple[Any, ...]
-        from scapy.asn1fields import ASN1F_optional
-        return tuple(f for f in field.seq if isinstance(f, ASN1F_optional))
-
-    @staticmethod
     def sequence_dissect_from_decoder(field, pkt, dec):
         # type: (Any, Any, Any) -> None
         from scapy.asn1fields import ASN1F_badsequence, ASN1F_optional
@@ -1106,7 +1079,7 @@ class _UPER_FieldHooks(object):
                 raise UPER_Decoding_Error(
                     "ASN1F_SEQUENCE: extension additions are not supported"
                 )
-        optionals = _UPER_FieldHooks._optionals(field)
+        optionals = field.optionals
         presence = [dec.read_bit() for _ in optionals]
         opt_idx = 0
         for obj in field.seq:
@@ -1127,7 +1100,7 @@ class _UPER_FieldHooks(object):
         from scapy.asn1fields import ASN1F_optional
         if _field_extensible(field):
             enc.append_bit(0)
-        for opt in _UPER_FieldHooks._optionals(field):
+        for opt in field.optionals:
             enc.append_bit(0 if opt.is_empty(pkt) else 1)
         for obj in field.seq:
             if isinstance(obj, ASN1F_optional) and obj.is_empty(pkt):
@@ -1148,11 +1121,8 @@ class _UPER_FieldHooks(object):
         val = getattr(pkt, field.name)
         if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
             s = val  # type: Any
-        elif val is None:
-            enc = UPER_Encoder()
-            enc.append_length_determinant(0)
-            s = enc.as_bytes()
         else:
+            # An unset field counts as an empty one, size constraint included
             enc = UPER_Encoder()
             _UPER_FieldHooks.sequence_of_encode_into(field, enc, pkt, val)
             s = enc.as_bytes()
@@ -1259,7 +1229,7 @@ class _UPER_FieldHooks(object):
         from scapy.asn1.asn1 import ASN1_Error
         if value is None:
             value = getattr(pkt, field.name)
-        index = _choice_index_for(field, value)
+        index = field.alternative_index(value)
         if index is None:
             raise ASN1_Error(
                 "ASN1F_CHOICE: cannot encode unknown alternative in '%s'" %
@@ -1313,24 +1283,6 @@ class _UPER_FieldHooks(object):
         if isinstance(value, ASN1_Object):
             value = value.val
         value.ASN1_root.encode_into(enc, value)
-
-
-def _choice_index_for(field, x):
-    # type: (Any, Any) -> Optional[int]
-    from scapy.asn1.asn1 import ASN1_Object
-    for index, choice in enumerate(field.choice_list):
-        if isinstance(choice, type):
-            if hasattr(choice, "ASN1_root"):
-                if isinstance(x, choice):
-                    return index
-            elif hasattr(choice, "ASN1_tag"):
-                if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
-                    return index
-        elif getattr(choice, "cls", None) is not None:
-            # ASN1F_PACKET instance: the alternative is a tagged packet.
-            if isinstance(x, choice.cls):
-                return index
-    return None
 
 
 def _uper_count_enc(field, enc, count, append_items):

@@ -3059,3 +3059,152 @@ decoded = _roundtrip(UPERTaggedChoice, UPERTaggedChoice(c=UPERAltB(b=False)))
 assert isinstance(decoded.c, UPERAltB) and decoded.c.b.val == 0
 
 True
+
+= uper choice with packet class alternatives
+class UPERClassChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE("c", None, UPERAltA, ASN1F_INTEGER)
+
+pkt = UPERClassChoice(c=UPERAltA(i=5))
+
+# index bit 0, then the sequence: an unconstrained integer of one octet
+assert raw(pkt) == b"\x00\x82\x80"
+
+decoded = _roundtrip(UPERClassChoice, pkt)
+
+assert isinstance(decoded.c, UPERAltA) and decoded.c.i.val == 5
+
+decoded = _roundtrip(UPERClassChoice, UPERClassChoice(c=ASN1_INTEGER(3)))
+
+assert decoded.c.val == 3
+
+# An unset CHOICE encodes to nothing, as the field is then absent
+assert raw(UPERClassChoice(c=None)) == b""
+
+True
+
+= uper enumerated bounds
+_raises(UPER_Encoding_Error, lambda: UPER_enumerated_enc(UPER_Encoder(), 0, []))
+
+_raises(UPER_Decoding_Error, lambda: UPER_enumerated_dec(UPER_Decoder(b"\x00"), []))
+
+# Three values are indexed on two bits, which can carry an index they do not
+# define
+_raises(UPER_Decoding_Error, lambda: UPER_enumerated_dec(UPER_Decoder(b"\xc0"), [0, 1, 2]))
+
+assert UPER_enumerated_dec(UPER_Decoder(b"\x40"), [0, 1, 2]) == 1
+
+True
+
+= uper untyped codec falls back on string and integer
+enc = UPER_Encoder()
+
+UPERcodec_Object.encode_into(enc, b"hi")
+
+assert enc.as_bytes() == b"\x02hi"
+
+enc = UPER_Encoder()
+
+UPERcodec_Object.encode_into(enc, 5)
+
+assert enc.as_bytes() == b"\x01\x05"
+
+_raises(UPER_Encoding_Error, lambda: UPERcodec_Object.encode_into(UPER_Encoder(), object()))
+
+_raises(UPER_Decoding_Error, lambda: UPERcodec_Object.dec_from_decoder(UPER_Decoder(b"\x01")))
+
+True
+
+= uper choice with a single alternative
+class UPEROneAlt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE("c", None, ASN1F_INTEGER)
+
+# X.691 23.5: one alternative leaves nothing to choose, so no index is encoded
+assert raw(UPEROneAlt(c=ASN1_INTEGER(4))) == b"\x01\x04"
+
+assert _roundtrip(UPEROneAlt, UPEROneAlt(c=ASN1_INTEGER(4))).c.val == 4
+
+class UPERThreeAlt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE("c", None, ASN1F_INTEGER, ASN1F_STRING, ASN1F_BOOLEAN)
+
+# Three alternatives are indexed on two bits, which can carry a fourth index
+_raises(ASN1_Error, lambda: UPERThreeAlt(b"\xc0"))
+
+True
+
+= uper sequence of an unset field
+class UPERUnsetSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER("x", 0, uper_min=0, uper_max=255)),
+    )
+
+assert raw(UPERUnsetSeqOf(values=None)) == b"\x00"
+
+assert raw(UPERUnsetSeqOf(values=[])) == b"\x00"
+
+True
+
+= uper field rejects a value of another type
+class UPERIntOnly(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0),
+    )
+
+_raises(ASN1_Error, lambda: raw(UPERIntOnly(n=ASN1_STRING(b"x"))))
+
+enc = UPER_Encoder()
+
+UPERcodec_OID.encode_into(enc, b"")
+
+assert enc.as_bytes() == b"\x00"
+
+True
+
+= uper constrained values honour their range
+class UPERSmallInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, uper_min=0, uper_max=7),
+    )
+
+assert raw(UPERSmallInt(n=5)) == b"\xa0"
+
+# The value is written on the width of the range, so one outside it would be
+# read back as another value
+_raises(UPER_Encoding_Error, lambda: raw(UPERSmallInt(n=100)))
+
+_raises(UPER_Encoding_Error, lambda: raw(UPERSmallInt(n=-3)))
+
+class UPERSmallExtInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, uper_min=0, uper_max=7, uper_extensible=True),
+    )
+
+# An extensible range does accept it, as an extension addition
+assert _roundtrip(UPERSmallExtInt, UPERSmallExtInt(n=100)).n.val == 100
+
+True
+
+= uper sequence of honours its size constraint
+class UPERSizedSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE_OF(
+            "values", [], ASN1F_INTEGER("x", 0, uper_min=0, uper_max=255),
+            uper_min=1, uper_max=3,
+        ),
+    )
+
+assert raw(UPERSizedSeqOf(values=[ASN1_INTEGER(7)])) == b"\x01\xc0"
+
+# An unset field is an empty one, which the constraint rules out here
+_raises(UPER_Encoding_Error, lambda: raw(UPERSizedSeqOf(values=[])))
+
+_raises(UPER_Encoding_Error, lambda: raw(UPERSizedSeqOf(values=None)))
+
+True

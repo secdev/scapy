@@ -121,11 +121,25 @@ class ASN1_BadTag_Decoding_Error(ASN1_Decoding_Error):
     pass
 
 
+def _identity_tagging_enc(s, **kwargs):
+    # type: (bytes, **Any) -> bytes
+    return s
+
+
+def _identity_tagging_dec(s, **kwargs):
+    # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
+    return None, s
+
+
 class ASN1Codec(EnumElement):
     # Class-level default: EnumElement.__getattr__ forwards unknown attributes
     # to its int value, so a missing _field_hooks would raise (and swallow) an
     # AttributeError on every field operation.
     _field_hooks = None  # type: Any
+    # Only BER puts the tag of a field on the wire; the other codecs keep
+    # these identity defaults.
+    _tagging_enc = staticmethod(_identity_tagging_enc)  # type: Any
+    _tagging_dec = staticmethod(_identity_tagging_dec)  # type: Any
 
     def register_stem(cls, stem):
         # type: (Type[BERcodec_Object[Any]]) -> None
@@ -133,7 +147,8 @@ class ASN1Codec(EnumElement):
 
     def register_tagging(cls, enc, dec):
         # type: (Any, Any) -> None
-        # Codec-level implicit/explicit tagging (BER/OER) or identity (UPER/PER).
+        # Only for the codecs that put the tag of a field on the wire (BER):
+        # the others keep the identity defaults below.
         cls._tagging_enc = enc
         cls._tagging_dec = dec
 
