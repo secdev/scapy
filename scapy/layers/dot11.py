@@ -1476,20 +1476,110 @@ class Dot11EltMicrosoftWPA(Dot11EltVendorSpecific):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
+            if len(_pkt) < 6:
+                return Dot11EltVendorSpecific
             type_ = orb(_pkt[5])
             if type_ == 0x01:
                 # MS WPA IE
                 return Dot11EltMicrosoftWPA
             elif type_ == 0x02:
-                # MS WME IE TODO
-                # return Dot11EltMicrosoftWME
-                pass
+                # MS WME IE
+                return Dot11EltMicrosoftWME
             elif type_ == 0x04:
                 # MS WPS IE TODO
                 # return Dot11EltWPS
                 pass
             return Dot11EltVendorSpecific
         return cls
+
+
+_dot11_wme_subtypes = {
+    0: "Information",
+    1: "Parameter",
+}
+
+
+_dot11_wme_ac_aci = {
+    0: "Best Effort",
+    1: "Background",
+    2: "Video",
+    3: "Voice",
+}
+
+
+def _dot11_wme_remaining_len(pkt):
+    subtype = getattr(pkt, "subtype", None)
+    if subtype == 1 and pkt.len >= 24:
+        consumed = 24
+    elif subtype == 1 and pkt.len >= 8:
+        consumed = 8
+    elif pkt.len >= 5:
+        consumed = min(pkt.len, 7)
+    else:
+        consumed = 4
+    return max(pkt.len - consumed, 0)
+
+
+class Dot11WMEACParameter(Packet):
+    name = "802.11 WME AC Parameter"
+    fields_desc = [
+        BitField("reserved", 0, 1, tot_size=-1),
+        BitEnumField("aci", 0, 2, _dot11_wme_ac_aci),
+        BitField("acm", 0, 1),
+        BitField("aifsn", 0, 4, end_tot_size=-1),
+        BitField("ecw_max", 0, 4, tot_size=-1),
+        BitField("ecw_min", 0, 4, end_tot_size=-1),
+        LEShortField("txop_limit", 0),
+    ]
+
+    def extract_padding(self, s):
+        return b"", s
+
+
+class Dot11EltMicrosoftWME(Dot11EltVendorSpecific):
+    name = "802.11 Microsoft WMM WME"
+    match_subclass = True
+    ID = 221
+    oui = 0x0050f2
+    fields_desc = Dot11EltVendorSpecific.fields_desc[:3] + [
+        XByteField("type", 0x02),
+        ConditionalField(
+            ByteEnumField("subtype", 0, _dot11_wme_subtypes),
+            lambda pkt: pkt.len >= 5
+        ),
+        ConditionalField(
+            ByteField("version", 1),
+            lambda pkt: pkt.len >= 6
+        ),
+        ConditionalField(
+            ByteField("qos_info", 0),
+            lambda pkt: pkt.len >= 7
+        ),
+        ConditionalField(
+            ByteField("reserved", 0),
+            lambda pkt: (
+                getattr(pkt, "subtype", None) == 1 and
+                pkt.len >= 8
+            )
+        ),
+        ConditionalField(
+            PacketListField(
+                "ac_params",
+                [],
+                Dot11WMEACParameter,
+                count_from=lambda pkt: 4
+            ),
+            lambda pkt: (
+                getattr(pkt, "subtype", None) == 1 and
+                pkt.len >= 24
+            )
+        ),
+        StrLenField(
+            "info",
+            b"",
+            length_from=_dot11_wme_remaining_len
+        )
+    ]
 
 
 # 802.11-2016 9.4.2.19
