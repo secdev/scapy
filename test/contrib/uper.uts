@@ -1230,11 +1230,53 @@ for length, expected in [
     (127, b"\x7f"),
     (128, b"\x80\x80"),
     (16383, b"\xbf\xff"),
-    (16384, b"\xc1"),
 ]:
     enc = UPER_Encoder()
     enc.append_length_determinant(length)
     assert enc.as_bytes() == expected
+
+True
+
+= uper length determinant refuses lengths that need fragmentation
+# X.691 11.9.3.8: the caller has to split the content, so a bare determinant
+# of 16K or more would not match what follows it.
+enc = UPER_Encoder()
+try:
+    enc.append_length_determinant(16384)
+    assert False
+except UPER_Encoding_Error:
+    pass
+
+True
+
+= uper fragmented length determinant
+# X.691 11.9.3.8: fragments of 16K units, always closed by a determinant
+# below 16K. Byte vectors checked against asn1tools.
+for count, expected_header in [
+    (16384, b"\xc1"),
+    (32768, b"\xc2"),
+    (49152, b"\xc3"),
+    (65536, b"\xc4"),
+    (81920, b"\xc4"),
+]:
+    enc = UPER_Encoder()
+    seen = []
+    enc.append_fragmented(count, lambda offset, size: seen.append((offset, size)))
+    got = enc.as_bytes()
+    assert got.startswith(expected_header), (count, got[:1])
+    assert sum(size for _, size in seen) == count, (count, seen)
+    assert got.endswith(b"\x00"), (count, got[-1:])
+
+True
+
+= uper fragmented length determinant roundtrip
+for count in [0, 127, 16383, 16384, 40000, 70000]:
+    enc = UPER_Encoder()
+    enc.append_fragmented(count, lambda offset, size: None)
+    dec = UPER_Decoder(enc.as_bytes())
+    seen = []
+    dec.read_fragmented(lambda size: seen.append(size))
+    assert sum(seen) == count, (count, seen)
 
 True
 
@@ -1806,23 +1848,23 @@ assert "Already decoded" in str(err2)
 True
 
 = uper length determinant extended
-enc = UPER_Encoder()
+# X.691 11.9.3.8: multiples of 16K units are emitted as 0xc1..0xc4 fragments
+# and the sequence is closed by a determinant below 16K.
+def _fragment_headers(count):
+    enc = UPER_Encoder()
+    sizes = []
+    enc.append_fragmented(count, lambda offset, size: sizes.append(size))
+    return enc.as_bytes(), sizes
 
-assert enc.append_length_determinant(32768) == 32768
+assert _fragment_headers(32768) == (b"\xc2\x00", [32768, 0])
 
-assert enc.as_bytes() == b"\xc2"
+assert _fragment_headers(49152) == (b"\xc3\x00", [49152, 0])
 
-enc = UPER_Encoder()
+assert _fragment_headers(65535) == (b"\xc3\xbf\xff", [49152, 16383])
 
-assert enc.append_length_determinant(49152) == 49152
+assert _fragment_headers(65536) == (b"\xc4\x00", [65536, 0])
 
-assert enc.as_bytes() == b"\xc3"
-
-enc = UPER_Encoder()
-
-assert enc.append_length_determinant(65535) == 49152
-
-assert enc.as_bytes() == b"\xc3"
+assert _fragment_headers(81920) == (b"\xc4\xc1\x00", [65536, 16384, 0])
 
 True
 
@@ -2834,6 +2876,97 @@ UPERWrappedPacket.ASN1_root.dissect_from_decoder(
 assert _val(empty.id) == 1
 
 assert _val(empty.inner.x) == 7
+
+True
+
+= uper unconstrained bit string counts bits
+# X.691 16.11: the length determinant of an unconstrained BIT STRING counts
+# bits, not octets, and nothing is padded before the next field. Byte vectors
+# checked against asn1tools.
+class UPERFreeBitString(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BIT_STRING("b", ""),
+        ASN1F_INTEGER("tail", 0, uper_min=0, uper_max=255),
+    )
+
+for bits, expected in [
+    ("", "00a5"),
+    ("1", "01d280"),
+    ("10110", "05b528"),
+    ("10110011", "08b3a5"),
+    ("1" * 20, "14fffffa50"),
+]:
+    pkt = UPERFreeBitString(b=bits, tail=0xa5)
+    assert raw(pkt) == bytes.fromhex(expected), (bits, raw(pkt).hex())
+    decoded = _roundtrip(UPERFreeBitString, pkt)
+    assert decoded.b.val == bits, (bits, decoded.b.val)
+    assert _val(decoded.tail) == 0xa5
+
+True
+
+= uper fixed size bit string refuses a mismatched length
+class UPERFixedBitString(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_BIT_STRING("b", "0" * 8, size_len=8))
+
+assert raw(UPERFixedBitString(b="10110011")) == bytes.fromhex("b3")
+
+_raises(UPER_Encoding_Error, lambda: raw(UPERFixedBitString(b="101")))
+
+_raises(UPER_Encoding_Error, lambda: raw(UPERFixedBitString(b="1011001100")))
+
+True
+
+= uper octet string fragmentation
+# X.691 11.9.3.8. Byte vectors checked against asn1tools: a fragment header,
+# 16K octets, then the terminating determinant.
+class UPERFreeOctetString(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_STRING("s", ""))
+
+data = bytes(i % 256 for i in range(16384))
+
+built = raw(UPERFreeOctetString(s=data))
+
+assert built == b"\xc1" + data + b"\x00"
+
+assert _roundtrip(UPERFreeOctetString, UPERFreeOctetString(s=data)).s.val == data
+
+data = bytes(i % 256 for i in range(40000))
+
+built = raw(UPERFreeOctetString(s=data))
+
+assert built == b"\xc2" + data[:32768] + b"\x9c\x40" + data[32768:]
+
+assert _roundtrip(UPERFreeOctetString, UPERFreeOctetString(s=data)).s.val == data
+
+True
+
+= uper sequence of fragmentation
+class UPERFreeSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER("x", 0, uper_min=0, uper_max=255)),
+    )
+
+items = [i % 256 for i in range(16385)]
+
+built = raw(UPERFreeSeqOf(values=items))
+
+assert built == b"\xc1" + bytes(items[:16384]) + b"\x01" + bytes(items[16384:])
+
+decoded = _roundtrip(UPERFreeSeqOf, UPERFreeSeqOf(values=items))
+
+assert [_val(x) for x in decoded.values] == items
+
+True
+
+= uper integer with an empty length determinant
+_raises(
+    UPER_Decoding_Error,
+    lambda: UPER_Decoder(b"\x00").read_unconstrained_whole_number(),
+)
 
 True
 

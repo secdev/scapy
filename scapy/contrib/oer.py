@@ -186,6 +186,11 @@ def OER_signed_integer_dec(s):
             (len(s), number_of_bytes),
             remaining=s
         )
+    if number_of_bytes == 0:
+        raise OER_Decoding_Error(
+            "OER_signed_integer_dec: got an empty length determinant",
+            remaining=s
+        )
     value = int.from_bytes(s[:number_of_bytes], "big")
     number_of_bits = 8 * number_of_bytes
     if value & (1 << (number_of_bits - 1)):
@@ -196,6 +201,10 @@ def OER_signed_integer_dec(s):
 
 def OER_unsigned_integer_enc(i):
     # type: (int) -> bytes
+    if i < 0:
+        raise OER_Encoding_Error(
+            "OER_unsigned_integer_enc: %i is negative" % i
+        )
     number_of_bits = max(i.bit_length(), 1)
     number_of_bytes = (number_of_bits + 7) // 8
     return OER_len_enc(number_of_bytes) + i.to_bytes(number_of_bytes, "big")
@@ -224,6 +233,11 @@ def OER_fixed_integer_enc(i, length, signed=True):
     except KeyError:
         raise OER_Encoding_Error(
             "OER_fixed_integer_enc: invalid length %i" % length
+        )
+    except struct.error:
+        raise OER_Encoding_Error(
+            "OER_fixed_integer_enc: %i does not fit in %i %s octet(s)" %
+            (i, length, "signed" if signed else "unsigned")
         )
 
 
@@ -532,19 +546,15 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
     tag = ASN1_Class_UNIVERSAL.INTEGER
 
     @classmethod
-    def enc(cls, i, size_len=0, **_kwargs):
-        # type: (int, Optional[int], **Any) -> bytes
+    def enc(cls, i, size_len=0, oer_unsigned=False, **_kwargs):
+        # type: (int, Optional[int], bool, **Any) -> bytes
+        # X.696 10: the width and the signedness follow the declared bounds of
+        # the type, never the value at hand, otherwise the decoder (which only
+        # knows the type) reads something else back.
         if size_len in (1, 2, 4, 8):
-            if i >= 0:
-                if size_len == 1 and 0 <= i <= 255:
-                    return OER_fixed_integer_enc(i, 1, signed=False)
-                if size_len == 2 and 0 <= i <= 65535:
-                    return OER_fixed_integer_enc(i, 2, signed=False)
-                if size_len == 4 and 0 <= i <= 4294967295:
-                    return OER_fixed_integer_enc(i, 4, signed=False)
-                if size_len == 8 and 0 <= i <= 18446744073709551615:
-                    return OER_fixed_integer_enc(i, 8, signed=False)
-            return OER_fixed_integer_enc(i, size_len, signed=True)
+            return OER_fixed_integer_enc(i, size_len, signed=not oer_unsigned)
+        if oer_unsigned:
+            return OER_unsigned_integer_enc(i)
         return OER_signed_integer_enc(i)
 
     @classmethod

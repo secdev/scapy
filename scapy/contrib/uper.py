@@ -12,10 +12,15 @@ As specified in ITU-T X.691 | ISO/IEC 8825-2.
 
 UPER is registered on ``ASN1_Codecs.PER``. Schema-driven encoding and decoding
 (``ASN1F_SEQUENCE``, ``ASN1F_CHOICE``, ``ASN1F_SEQUENCE_OF``,
-``ASN1F_ENUMERATED``) is supported for common field types. Not supported yet:
-explicit/implicit tagging, SET, extension markers,
-``ASN1F_CHOICE``/``ASN1F_SEQUENCE_OF`` with nested ``ASN1_Packet``
-alternatives, REAL, and PER-visible character string permuted alphabets.
+``ASN1F_ENUMERATED``) is supported for common field types. Value ranges are
+declared with ``uper_min=``/``uper_max=``, fixed sizes with ``size_len=``, and
+an extension marker with ``uper_extensible=True``. Content of 16K units or
+more is fragmented as required by 11.9.3.8.
+
+Not supported yet: extension additions (an encoding that carries them is
+refused rather than misparsed), SET, REAL, and the known-multiplier character
+string encodings, which are emitted as plain octets rather than 7 or 4 bits
+per character.
 """
 
 import binascii
@@ -41,6 +46,7 @@ from scapy.asn1.asn1 import (
 from typing import (
     Any,
     AnyStr,
+    Callable,
     Dict,
     Generic,
     List,
@@ -114,6 +120,11 @@ def UPER_bits_for_range(size):
     return size.bit_length()
 
 
+# X.691 11.9.3.8: content of 16K units or more is split into fragments, each
+# one holding a multiple of this many units.
+UPER_FRAGMENT_SIZE = 16384
+
+
 class UPER_Encoder(object):
     def __init__(self):
         # type: () -> None
@@ -167,25 +178,38 @@ class UPER_Encoder(object):
         self.append_bits(data, 8 * len(data))
 
     def append_length_determinant(self, length):
-        # type: (int) -> int
+        # type: (int) -> None
+        # X.691 11.9.3.6/11.9.3.7 only define the one and two octet forms up
+        # to 16K. Longer content has to be fragmented, which requires slicing
+        # the content itself, so leave that to append_fragmented rather than
+        # silently emitting a determinant that does not match what follows.
+        if length >= UPER_FRAGMENT_SIZE:
+            raise UPER_Encoding_Error(
+                "UPER_Encoder: length %i requires fragmentation" % length
+            )
         if length < 128:
             encoded = bytes([length])
-        elif length < 16384:
-            encoded = bytes([(0x80 | (length >> 8)), (length & 0xff)])
-        elif length < 32768:
-            encoded = b"\xc1"
-            length = 16384
-        elif length < 49152:
-            encoded = b"\xc2"
-            length = 32768
-        elif length < 65536:
-            encoded = b"\xc3"
-            length = 49152
         else:
-            encoded = b"\xc4"
-            length = 65536
+            encoded = bytes([(0x80 | (length >> 8)), (length & 0xff)])
         self.append_bytes(encoded)
-        return length
+
+    def append_fragmented(self, count, append_units):
+        # type: (int, Callable[[int, int], None]) -> None
+        # X.691 11.9.3.8: emit the content as fragments of at most 4 * 16K
+        # units, each preceded by its own determinant, and always terminate
+        # with a determinant below 16K (possibly zero). append_units(offset,
+        # size) appends the units of one fragment.
+        offset = 0
+        remaining = count
+        while remaining >= UPER_FRAGMENT_SIZE:
+            number_of_fragments = min(remaining // UPER_FRAGMENT_SIZE, 4)
+            size = number_of_fragments * UPER_FRAGMENT_SIZE
+            self.append_bytes(bytes([0xc0 | number_of_fragments]))
+            append_units(offset, size)
+            offset += size
+            remaining -= size
+        self.append_length_determinant(remaining)
+        append_units(offset, remaining)
 
     def append_unconstrained_whole_number(self, value):
         # type: (int) -> None
@@ -400,23 +424,50 @@ class UPER_Decoder(object):
                 raise UPER_Decoding_Error("UPER_Decoder: out of data")
             self.number_of_bits -= width
 
-    def read_length_determinant(self):
-        # type: () -> int
+    def _read_length_determinant(self):
+        # type: () -> Tuple[int, bool]
+        # Returns the number of units and whether more fragments follow.
         value = self.read_non_negative_binary_integer(8)
         if (value & 0x80) == 0x00:
-            return value
+            return value, False
         if (value & 0xc0) == 0x80:
-            return ((value & 0x7f) << 8) | self.read_non_negative_binary_integer(8)
-        mapping = {0xc1: 16384, 0xc2: 32768, 0xc3: 49152, 0xc4: 65536}
-        if value in mapping:
-            return mapping[value]
+            return (
+                ((value & 0x7f) << 8) |
+                self.read_non_negative_binary_integer(8)
+            ), False
+        if 0xc1 <= value <= 0xc4:
+            return (value & 0x0f) * UPER_FRAGMENT_SIZE, True
         raise UPER_Decoding_Error(
             "UPER_Decoder: bad length determinant 0x%02x" % value
         )
 
+    def read_length_determinant(self):
+        # type: () -> int
+        length, fragmented = self._read_length_determinant()
+        if fragmented:
+            raise UPER_Decoding_Error(
+                "UPER_Decoder: unexpected fragmented length determinant"
+            )
+        return length
+
+    def read_fragmented(self, read_units):
+        # type: (Callable[[int], None]) -> None
+        # Counterpart of UPER_Encoder.append_fragmented: read_units(size) is
+        # called once per fragment, the last one being the (possibly empty)
+        # fragment introduced by a determinant below 16K.
+        while True:
+            size, fragmented = self._read_length_determinant()
+            read_units(size)
+            if not fragmented:
+                return
+
     def read_unconstrained_whole_number(self):
         # type: () -> int
         number_of_bytes = self.read_length_determinant()
+        if number_of_bytes == 0:
+            raise UPER_Decoding_Error(
+                "UPER_Decoder: integer with an empty length determinant"
+            )
         enc = self.read_non_negative_binary_integer(8 * number_of_bytes)
         sign_bit = 1 << (8 * number_of_bytes - 1)
         if enc & sign_bit:
@@ -493,38 +544,45 @@ def UPER_boolean_dec(s):
 def UPER_octet_string_enc(data, minimum=None, maximum=None, enc=None):
     # type: (bytes, Optional[int], Optional[int], Optional[UPER_Encoder]) -> bytes
     standalone = enc is None
-    if enc is None:
-        enc = UPER_Encoder()
+    encoder = UPER_Encoder() if enc is None else enc
     if minimum is not None and maximum is not None and minimum == maximum:
-        enc.append_bytes(data)
+        encoder.append_bytes(data)
     elif minimum is not None and maximum is not None:
-        enc.append_non_negative_binary_integer(
+        encoder.append_non_negative_binary_integer(
             len(data) - minimum,
             UPER_bits_for_range(maximum - minimum),
         )
-        enc.append_bytes(data)
+        encoder.append_bytes(data)
     else:
-        enc.append_length_determinant(len(data))
-        enc.append_bytes(data)
-    return enc.as_bytes() if standalone else b""
+        encoder.append_fragmented(
+            len(data),
+            lambda offset, size: encoder.append_bytes(
+                data[offset:offset + size]
+            ),
+        )
+    return encoder.as_bytes() if standalone else b""
 
 
 def UPER_octet_string_dec(s, minimum=None, maximum=None, dec=None):
     # type: (bytes, Optional[int], Optional[int], Optional[UPER_Decoder]) -> Tuple[bytes, bytes]  # noqa: E501
     standalone = dec is None
-    if dec is None:
-        dec = UPER_Decoder(s)
+    decoder = UPER_Decoder(s) if dec is None else dec
     if minimum is not None and maximum is not None and minimum == maximum:
-        length = minimum
+        data = decoder.read_bytes(minimum)
     elif minimum is not None and maximum is not None:
-        length = minimum + dec.read_non_negative_binary_integer(
-            UPER_bits_for_range(maximum - minimum)
+        data = decoder.read_bytes(
+            minimum + decoder.read_non_negative_binary_integer(
+                UPER_bits_for_range(maximum - minimum)
+            )
         )
     else:
-        length = dec.read_length_determinant()
-    data = dec.read_bytes(length)
+        fragments = []  # type: List[bytes]
+        decoder.read_fragmented(
+            lambda size: fragments.append(decoder.read_bytes(size))
+        )
+        data = b"".join(fragments)
     if standalone:
-        return data, dec.remaining()
+        return data, decoder.remaining()
     return data, b""
 
 
@@ -791,24 +849,31 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
         maximum = uper_max
         if size_len:
             minimum = maximum = size_len
+        if minimum is not None and maximum is not None:
+            if not minimum <= nbits <= maximum:
+                raise UPER_Encoding_Error(
+                    "UPERcodec_BIT_STRING: got %i bits while expecting %s" %
+                    (nbits, minimum if minimum == maximum
+                     else "%i..%i" % (minimum, maximum))
+                )
         if minimum is not None and maximum is not None and minimum == maximum:
-            if nbits >= minimum:
-                value = int.from_bytes(s, "big") >> (8 * len(s) - minimum)
-            elif isinstance(_s, str) and _s and all(c in "01" for c in _s):
-                value = int(_s, 2)
-            elif nbits > 0:
-                value = int.from_bytes(s, "big") >> max(0, 8 * len(s) - nbits)
-            else:
-                value = 0
-            enc.append_non_negative_binary_integer(value, minimum)
+            enc.append_bits(s, nbits)
         elif minimum is not None and maximum is not None:
             enc.append_non_negative_binary_integer(
                 nbits - minimum, UPER_bits_for_range(maximum - minimum)
             )
             enc.append_bits(s, nbits)
         else:
-            enc.append_length_determinant((nbits + 7) // 8)
-            enc.append_bytes(s)
+            # X.691 16.11: the determinant counts bits, not octets, and no
+            # padding is inserted before whatever follows the bit string.
+            enc.append_fragmented(
+                nbits,
+                # Fragments hold whole multiples of 16K bits, so every chunk
+                # but the last starts and ends on an octet boundary.
+                lambda offset, size: enc.append_bits(
+                    s[offset // 8:(offset + size + 7) // 8], size
+                ),
+            )
 
     @classmethod
     def dec_from_decoder(cls,
@@ -831,10 +896,18 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                 UPER_bits_for_range(maximum - minimum)
             )
         else:
-            nbytes = dec.read_length_determinant()
-            raw = dec.read_bytes(nbytes)
-            nbits = 8 * nbytes
-            return cls.asn1_object(_uper_bytes_to_bitstr(raw, nbits))
+            fragments = []  # type: List[bytes]
+            sizes = []  # type: List[int]
+
+            def read_fragment(size):
+                # type: (int) -> None
+                fragments.append(dec.read_bits(size))
+                sizes.append(size)
+
+            dec.read_fragmented(read_fragment)
+            return cls.asn1_object(
+                _uper_bytes_to_bitstr(b"".join(fragments), sum(sizes))
+            )
         raw = dec.read_bits(nbits)
         return cls.asn1_object(_uper_bytes_to_bitstr(raw, nbits))
 
@@ -931,14 +1004,17 @@ class UPERcodec_OID(UPERcodec_Object[bytes]):
         else:
             lst = []
         body = b"".join(BER_num_enc(k) for k in lst)
-        enc.append_length_determinant(len(body))
-        enc.append_bytes(body)
+        enc.append_fragmented(
+            len(body),
+            lambda offset, size: enc.append_bytes(body[offset:offset + size]),
+        )
 
     @classmethod
     def dec_from_decoder(cls, dec, **_kwargs):
         # type: (UPER_Decoder, **Any) -> ASN1_Object[bytes]
-        length = dec.read_length_determinant()
-        content = dec.read_bytes(length)
+        fragments = []  # type: List[bytes]
+        dec.read_fragmented(lambda size: fragments.append(dec.read_bytes(size)))
+        content = b"".join(fragments)
         lst = []
         while content:
             val, content = BER_num_dec(content)
@@ -1256,15 +1332,19 @@ class _UPER_FieldHooks(object):
     def sequence_of_m2i(field, pkt, s):
         # type: (Any, Any, bytes) -> Tuple[list, bytes]
         dec = UPER_Decoder(s)
-        if _field_extensible(field) and dec.read_bit():
-            count = dec.read_length_determinant()
-        else:
-            count = _uper_count_dec(field, dec)
         lst = []
-        for _ in range(count):
-            c, _ = _extract_packet_from_decoder(field, dec, pkt)
-            if c:
-                lst.append(c)
+
+        def read_items(count):
+            # type: (int) -> None
+            for _ in range(count):
+                c, _ = _extract_packet_from_decoder(field, dec, pkt)
+                if c:
+                    lst.append(c)
+
+        if _field_extensible(field) and dec.read_bit():
+            dec.read_fragmented(read_items)
+        else:
+            _uper_count_dec(field, dec, read_items)
         if UPER_has_unexpected_remainder(dec):
             raise UPER_Decoding_Error(
                 "unexpected remainder",
@@ -1292,14 +1372,18 @@ class _UPER_FieldHooks(object):
     @staticmethod
     def sequence_of_m2i_from_decoder(field, pkt, dec):
         # type: (Any, Any, Any) -> list
-        if _field_extensible(field) and dec.read_bit():
-            count = dec.read_length_determinant()
-        else:
-            count = _uper_count_dec(field, dec)
         lst = []
-        for _ in range(count):
-            item, _ = _extract_packet_from_decoder(field, dec, pkt)
-            lst.append(item)
+
+        def read_items(count):
+            # type: (int) -> None
+            for _ in range(count):
+                item, _ = _extract_packet_from_decoder(field, dec, pkt)
+                lst.append(item)
+
+        if _field_extensible(field) and dec.read_bit():
+            dec.read_fragmented(read_items)
+        else:
+            _uper_count_dec(field, dec, read_items)
         return lst
 
     @staticmethod
@@ -1308,9 +1392,18 @@ class _UPER_FieldHooks(object):
         if value is None:
             value = getattr(pkt, field.name)
         if value is None:
-            _uper_count_enc(field, enc, 0)
+            _uper_count_enc(field, enc, 0, lambda offset, size: None)
             return
         count = len(value)
+
+        def append_items(offset, size):
+            # type: (int, int) -> None
+            for item in value[offset:offset + size]:
+                if field.holds_packets:
+                    item.ASN1_root.encode_into(enc, item)
+                else:
+                    field.fld.encode_into(enc, pkt, item)
+
         uper_min, uper_max = _field_range(field)
         if _field_extensible(field):
             if (
@@ -1320,19 +1413,9 @@ class _UPER_FieldHooks(object):
                 enc.append_bit(0)
             else:
                 enc.append_bit(1)
-                enc.append_length_determinant(count)
-                for item in value:
-                    if field.holds_packets:
-                        item.ASN1_root.encode_into(enc, item)
-                    else:
-                        field.fld.encode_into(enc, pkt, item)
+                enc.append_fragmented(count, append_items)
                 return
-        _uper_count_enc(field, enc, count)
-        for item in value:
-            if field.holds_packets:
-                item.ASN1_root.encode_into(enc, item)
-            else:
-                field.fld.encode_into(enc, pkt, item)
+        _uper_count_enc(field, enc, count, append_items)
 
     @staticmethod
     def choice_m2i(field, pkt, s):
@@ -1461,25 +1544,30 @@ def _choice_index_for(field, x):
     return None
 
 
-def _uper_count_enc(field, enc, count):
-    # type: (Any, Any, int) -> None
+def _uper_count_enc(field, enc, count, append_items):
+    # type: (Any, Any, int, Callable[[int, int], None]) -> None
+    # The count of a SEQUENCE OF is a constrained whole number when the field
+    # carries a size constraint; otherwise it is a length determinant, and the
+    # items themselves are what gets fragmented, hence the callback.
     uper_min, uper_max = _field_range(field)
     if uper_min is not None and uper_max is not None:
         UPER_constrained_int_enc(count, uper_min, uper_max, enc=enc)
+        append_items(0, count)
     else:
-        enc.append_length_determinant(count)
+        enc.append_fragmented(count, append_items)
 
 
-def _uper_count_dec(field, dec):
-    # type: (Any, Any) -> int
+def _uper_count_dec(field, dec, read_items):
+    # type: (Any, Any, Callable[[int], None]) -> None
     uper_min, uper_max = _field_range(field)
     if uper_min is not None and uper_max is not None:
         size = uper_max - uper_min
-        return (
+        read_items(
             dec.read_non_negative_binary_integer(UPER_bits_for_range(size)) +
             uper_min
         )
-    return dec.read_length_determinant()
+    else:
+        dec.read_fragmented(read_items)
 
 
 def _extract_packet_from_decoder(field, dec, pkt):
