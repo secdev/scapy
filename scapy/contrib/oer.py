@@ -158,22 +158,12 @@ def OER_len_dec(s):
 
 def OER_signed_integer_enc(i):
     # type: (int) -> bytes
-    if i < 0:
-        number_of_bits = i.bit_length()
-        number_of_bytes = (number_of_bits + 7) // 8
-        value = (1 << (8 * number_of_bytes)) + i
-        if (value & (1 << (8 * number_of_bytes - 1))) == 0:
-            value |= (0xff << (8 * number_of_bytes))
-            number_of_bytes += 1
-    elif i > 0:
-        number_of_bits = i.bit_length()
-        number_of_bytes = (number_of_bits + 7) // 8
-        if number_of_bits == (8 * number_of_bytes):
-            number_of_bytes += 1
-        value = i
-    else:
-        number_of_bytes = 1
-        value = 0
+    # X.696 10.4: the shortest two's complement encoding. A negative value
+    # needs one bit less than its magnitude suggests, as -2**(8n-1) still
+    # fits in n octets, hence the increment before measuring.
+    magnitude = i + 1 if i < 0 else i
+    number_of_bytes = (magnitude.bit_length() + 8) // 8
+    value = i & ((1 << (8 * number_of_bytes)) - 1)
     return OER_len_enc(number_of_bytes) + value.to_bytes(number_of_bytes, "big")
 
 
@@ -223,11 +213,15 @@ def OER_unsigned_integer_dec(s):
     return value, s[number_of_bytes:]
 
 
+_OER_FIXED_FORMATS = {
+    True: {1: ">b", 2: ">h", 4: ">i", 8: ">q"},
+    False: {1: ">B", 2: ">H", 4: ">I", 8: ">Q"},
+}
+
+
 def OER_fixed_integer_enc(i, length, signed=True):
     # type: (int, int, bool) -> bytes
-    fmt = {1: ">b", 2: ">h", 4: ">i", 8: ">q"} if signed else {
-        1: ">B", 2: ">H", 4: ">I", 8: ">Q"
-    }
+    fmt = _OER_FIXED_FORMATS[signed]
     try:
         return struct.pack(fmt[length], i)
     except KeyError:
@@ -249,9 +243,7 @@ def OER_fixed_integer_dec(s, length, signed=True):
             (len(s), length),
             remaining=s
         )
-    fmt = {1: ">b", 2: ">h", 4: ">i", 8: ">q"} if signed else {
-        1: ">B", 2: ">H", 4: ">I", 8: ">Q"
-    }
+    fmt = _OER_FIXED_FORMATS[signed]
     try:
         return struct.unpack(fmt[length], s[:length])[0], s[length:]
     except KeyError:
@@ -450,18 +442,6 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
             )
 
     @classmethod
-    def check_type(cls, s):
-        # type: (bytes) -> bytes
-        cls.check_string(s)
-        return s
-
-    @classmethod
-    def check_type_get_len(cls, s):
-        # type: (bytes) -> Tuple[int, bytes]
-        cls.check_string(s)
-        return len(s), s
-
-    @classmethod
     def check_type_check_len(cls, s):
         # type: (bytes) -> Tuple[int, bytes, bytes]
         cls.check_string(s)
@@ -582,8 +562,8 @@ class OERcodec_BOOLEAN(OERcodec_Object[int]):
     tag = ASN1_Class_UNIVERSAL.BOOLEAN
 
     @classmethod
-    def enc(cls, i, size_len=0, **_kwargs):
-        # type: (int, Optional[int], **Any) -> bytes
+    def enc(cls, i, **_kwargs):
+        # type: (int, **Any) -> bytes
         return chb(0xff if i else 0x00)
 
     @classmethod
@@ -721,8 +701,8 @@ class OERcodec_NULL(OERcodec_Object[None]):
     tag = ASN1_Class_UNIVERSAL.NULL
 
     @classmethod
-    def enc(cls, i, size_len=0, **_kwargs):
-        # type: (Any, Optional[int], **Any) -> bytes
+    def enc(cls, i, **_kwargs):
+        # type: (Any, **Any) -> bytes
         return b""
 
     @classmethod
@@ -741,8 +721,8 @@ class OERcodec_OID(OERcodec_Object[bytes]):
     tag = ASN1_Class_UNIVERSAL.OID
 
     @classmethod
-    def enc(cls, _oid, size_len=0, **_kwargs):
-        # type: (AnyStr, Optional[int], **Any) -> bytes
+    def enc(cls, _oid, **_kwargs):
+        # type: (AnyStr, **Any) -> bytes
         oid = bytes_encode(_oid)
         if oid:
             lst = [int(x) for x in oid.strip(b".").split(b".")]
@@ -787,8 +767,8 @@ class OERcodec_ENUMERATED(OERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.ENUMERATED
 
     @classmethod
-    def enc(cls, i, size_len=0, **_kwargs):
-        # type: (int, Optional[int], **Any) -> bytes
+    def enc(cls, i, **_kwargs):
+        # type: (int, **Any) -> bytes
         return OER_enumerated_enc(i)
 
     @classmethod
@@ -856,8 +836,8 @@ class OERcodec_SEQUENCE(OERcodec_Object[Union[bytes, List['OERcodec_Object[Any]'
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
 
     @classmethod
-    def enc(cls, _ll, size_len=0, **_kwargs):
-        # type: (Union[bytes, List[OERcodec_Object[Any]]], Optional[int], **Any) -> bytes  # noqa: E501
+    def enc(cls, _ll, **_kwargs):
+        # type: (Union[bytes, List[OERcodec_Object[Any]]], **Any) -> bytes
         if isinstance(_ll, bytes):
             return _ll
         return b"".join(x.enc(cls.codec) for x in _ll)
@@ -1031,15 +1011,12 @@ class _OER_FieldHooks(object):
         val = getattr(pkt, field.name)
         if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
             s = val  # type: Any
-        elif val is None:
-            s = OER_unsigned_integer_enc(0)
-        elif field.holds_packets:
-            s = OER_unsigned_integer_enc(len(val)) + b"".join(bytes(i) for i in val)
         else:
-            s = (
-                OER_unsigned_integer_enc(len(val)) +
-                b"".join(field.fld.i2m(pkt, i) for i in val)
-            )
+            items = [
+                bytes(item) if field.holds_packets else field.fld.i2m(pkt, item)
+                for item in val or []
+            ]
+            s = OER_unsigned_integer_enc(len(items)) + b"".join(items)
         return field.i2m(pkt, s)
 
     @staticmethod

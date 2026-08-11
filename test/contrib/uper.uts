@@ -360,7 +360,7 @@ def _encode_composite(typename, value):
     if typename == "Choice":
         alt, payload = value
         index = 0 if alt == "a" else 1
-        UPER_choice_index_enc(index, 2, enc=enc)
+        UPER_choice_index_enc(enc, index, 2)
         if alt == "a":
             UPERcodec_INTEGER.encode_into(enc, payload)
         else:
@@ -369,7 +369,7 @@ def _encode_composite(typename, value):
     if typename == "ChoiceC":
         alt, payload = value
         index = 0 if alt == "a" else 1
-        UPER_choice_index_enc(index, 2, enc=enc)
+        UPER_choice_index_enc(enc, index, 2)
         if alt == "a":
             UPERcodec_INTEGER.encode_into(
                 enc, payload, uper_min=0, uper_max=15,
@@ -490,7 +490,7 @@ ASN1SCC_VECTORS = [
 def _encode_choice_int1_10():
     # type: () -> bytes
     enc = UPER_Encoder()
-    UPER_choice_index_enc(0, 5, enc=enc)
+    UPER_choice_index_enc(enc, 0, 5)
     UPERcodec_INTEGER.encode_into(enc, 10, uper_min=0, uper_max=15)
     return enc.as_bytes()
 
@@ -1283,17 +1283,16 @@ True
 = uper count roundtrip
 for count in [0, 1, 3, 127]:
     enc = UPER_Encoder()
-    UPER_count_enc(count, enc=enc)
-    got, _ = UPER_count_dec(enc.as_bytes())
-    assert got == count
+    enc.append_length_determinant(count)
+    assert UPER_Decoder(enc.as_bytes()).read_length_determinant() == count
 
 True
 
 = uper choice index roundtrip
 for index, choices in [(0, 2), (1, 5), (3, 5)]:
     enc = UPER_Encoder()
-    UPER_choice_index_enc(index, choices, enc=enc)
-    got, _ = UPER_choice_index_dec(enc.as_bytes(), choices)
+    UPER_choice_index_enc(enc, index, choices)
+    got = UPER_choice_index_dec(UPER_Decoder(enc.as_bytes()), choices)
     assert got == index
 
 True
@@ -1301,30 +1300,29 @@ True
 = uper optional presence
 enc = UPER_Encoder()
 
-UPER_optional_presence_enc([0, 1, 0], enc=enc)
+for bit in [0, 1, 0]:
+    enc.append_bit(bit)
 
 assert enc.as_bytes() == b"\x40"
 
 True
 
 = uper constrained integer
-data = UPER_constrained_int_enc(10, 0, 15)
+enc = UPER_Encoder()
 
-value, remain = UPER_constrained_int_dec(data, 0, 15)
+UPER_constrained_int_enc(enc, 10, 0, 15)
 
-assert value == 10
-
-assert remain == b""
+assert UPER_constrained_int_dec(UPER_Decoder(enc.as_bytes()), 0, 15) == 10
 
 True
 
 = uper constrained signed integer
 for value, expected in [(0, b"\x80"), (-1, b"\x7f"), (127, b"\xff"), (-128, b"\x00")]:
-    data = UPER_constrained_int_enc(value, -128, 127)
-    assert data == expected
-    decoded, remain = UPER_constrained_int_dec(data, -128, 127)
-    assert decoded == value
-    assert remain == b""
+    enc = UPER_Encoder()
+    UPER_constrained_int_enc(enc, value, -128, 127)
+    assert enc.as_bytes() == expected
+    dec = UPER_Decoder(enc.as_bytes())
+    assert UPER_constrained_int_dec(dec, -128, 127) == value
 
 True
 
@@ -1334,10 +1332,10 @@ for data, minimum, maximum in [
     (b"\x12\x34\x56", 3, 3),
     (bytes.fromhex("afbc4583"), 1, 20),
 ]:
-    encoded = UPER_octet_string_enc(data, minimum, maximum)
-    dec = UPER_Decoder(encoded)
-    decoded, _ = UPER_octet_string_dec(encoded, minimum, maximum, dec=dec)
-    assert decoded == data
+    enc = UPER_Encoder()
+    UPER_octet_string_enc(enc, data, minimum, maximum)
+    dec = UPER_Decoder(enc.as_bytes())
+    assert UPER_octet_string_dec(dec, minimum, maximum) == data
     assert not UPER_has_unexpected_remainder(dec)
 
 True
@@ -1346,21 +1344,6 @@ True
 assert UPER_has_unexpected_remainder(UPER_Decoder(b"\x00")) is False
 
 assert UPER_has_unexpected_remainder(UPER_Decoder(b"\x80")) is True
-
-True
-
-= uper join encodings
-a = UPERcodec_INTEGER.enc(1)
-
-b = UPERcodec_INTEGER.enc(2)
-
-joined = UPER_join_encodings(a, b)
-
-dec = UPER_Decoder(joined)
-
-assert dec.read_unconstrained_whole_number() == 1
-
-assert dec.read_unconstrained_whole_number() == 2
 
 True
 
@@ -1937,6 +1920,9 @@ True
 _raises(UPER_Encoding_Error, lambda: UPERcodec_SEQUENCE.enc([ASN1_INTEGER(1)]))
 
 _raises(UPER_Decoding_Error, lambda: UPERcodec_SEQUENCE.do_dec(b"\x00"))
+
+# A finished encoding is octet padded, so it cannot be spliced into a bitstream
+_raises(UPER_Encoding_Error, lambda: UPERcodec_SEQUENCE.encode_into(UPER_Encoder(), b"raw"))
 
 assert UPERcodec_SET.enc(b"raw") == b"raw"
 
