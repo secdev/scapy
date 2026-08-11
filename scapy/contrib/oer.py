@@ -30,9 +30,6 @@ from scapy.compat import chb, orb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
 from scapy.asn1.ber import BER_num_dec, BER_num_enc
 from scapy.asn1.asn1 import (
-    ASN1Tag,
-    ASN1_BADTAG,
-    ASN1_BadTag_Decoding_Error,
     ASN1_Class,
     ASN1_Class_UNIVERSAL,
     ASN1_Codecs,
@@ -113,16 +110,23 @@ class OER_Decoding_Error(ASN1_Decoding_Error):
         return s
 
 
-class OER_BadTag_Decoding_Error(OER_Decoding_Error,
-                                ASN1_BadTag_Decoding_Error):
-    pass
-
-
 # OER tag classes (bits 8-7 of the first identifier octet)
 OER_CLASS_UNIVERSAL = 0x00
 OER_CLASS_APPLICATION = 0x40
 OER_CLASS_CONTEXT = 0x80
 OER_CLASS_PRIVATE = 0xc0
+
+
+def _OER_check_len(name, s, number_of_bytes, offset=0):
+    # type: (str, bytes, int, int) -> None
+    """Raise unless s carries number_of_bytes octets past its first offset."""
+    available = len(s) - offset
+    if available < number_of_bytes:
+        raise OER_Decoding_Error(
+            "%s: Got %i bytes while expecting %i" %
+            (name, available, number_of_bytes),
+            remaining=s
+        )
 
 
 def OER_len_enc(ll):
@@ -149,12 +153,7 @@ def OER_len_dec(s):
     if not tmp_len & 0x80:
         return tmp_len, s[1:]
     tmp_len &= 0x7f
-    if len(s) <= tmp_len:
-        raise OER_Decoding_Error(
-            "OER_len_dec: Got %i bytes while expecting %i" %
-            (len(s) - 1, tmp_len),
-            remaining=s
-        )
+    _OER_check_len("OER_len_dec", s, tmp_len, offset=1)
     ll = 0
     for c in s[1:tmp_len + 1]:
         ll <<= 8
@@ -176,12 +175,7 @@ def OER_signed_integer_enc(i):
 def OER_signed_integer_dec(s):
     # type: (bytes) -> Tuple[int, bytes]
     number_of_bytes, s = OER_len_dec(s)
-    if len(s) < number_of_bytes:
-        raise OER_Decoding_Error(
-            "OER_signed_integer_dec: Got %i bytes while expecting %i" %
-            (len(s), number_of_bytes),
-            remaining=s
-        )
+    _OER_check_len("OER_signed_integer_dec", s, number_of_bytes)
     if number_of_bytes == 0:
         raise OER_Decoding_Error(
             "OER_signed_integer_dec: got an empty length determinant",
@@ -209,12 +203,7 @@ def OER_unsigned_integer_enc(i):
 def OER_unsigned_integer_dec(s):
     # type: (bytes) -> Tuple[int, bytes]
     number_of_bytes, s = OER_len_dec(s)
-    if len(s) < number_of_bytes:
-        raise OER_Decoding_Error(
-            "OER_unsigned_integer_dec: Got %i bytes while expecting %i" %
-            (len(s), number_of_bytes),
-            remaining=s
-        )
+    _OER_check_len("OER_unsigned_integer_dec", s, number_of_bytes)
     value = int.from_bytes(s[:number_of_bytes], "big")
     return value, s[number_of_bytes:]
 
@@ -243,12 +232,7 @@ def OER_fixed_integer_enc(i, length, signed=True):
 
 def OER_fixed_integer_dec(s, length, signed=True):
     # type: (bytes, int, bool) -> Tuple[int, bytes]
-    if len(s) < length:
-        raise OER_Decoding_Error(
-            "OER_fixed_integer_dec: Got %i bytes while expecting %i" %
-            (len(s), length),
-            remaining=s
-        )
+    _OER_check_len("OER_fixed_integer_dec", s, length)
     fmt = _OER_FIXED_FORMATS[signed]
     try:
         return struct.unpack(fmt[length], s[:length])[0], s[length:]
@@ -276,12 +260,7 @@ def OER_enumerated_dec(s):
     if not (first & 0x80):
         return first, s[1:]
     length = first & 0x7f
-    if len(s) < length + 1:
-        raise OER_Decoding_Error(
-            "OER_enumerated_dec: Got %i bytes while expecting %i" %
-            (len(s) - 1, length),
-            remaining=s
-        )
+    _OER_check_len("OER_enumerated_dec", s, length, offset=1)
     value = int.from_bytes(s[1:length + 1], "big", signed=True)
     return value, s[length + 1:]
 
@@ -309,12 +288,7 @@ def OER_preamble_dec(s, extensible, number_of_optionals):
     if number_of_bits == 0:
         return [], s
     number_of_bytes = (number_of_bits + 7) // 8
-    if len(s) < number_of_bytes:
-        raise OER_Decoding_Error(
-            "OER_preamble_dec: Got %i bytes while expecting %i" %
-            (len(s), number_of_bytes),
-            remaining=s
-        )
+    _OER_check_len("OER_preamble_dec", s, number_of_bytes)
     value = int.from_bytes(s[:number_of_bytes], "big")
     bits = [
         bool((value >> (8 * number_of_bytes - 1 - i)) & 1)
@@ -369,12 +343,6 @@ def OER_tag_dec(s):
     return tag_class, tag_number, s[i:]
 
 
-def OER_id_dec(s):
-    # type: (bytes) -> Tuple[int, bytes]
-    tag_class, tag_number, remainder = OER_tag_dec(s)
-    return tag_class | tag_number, remainder
-
-
 def _OER_tag_parts(identifier):
     # type: (int) -> Tuple[int, int]
     # ASN1F_* fields describe tags as BER identifier octets: class in the top
@@ -382,25 +350,6 @@ def _OER_tag_parts(identifier):
     # X.696 8.7 only keeps the class and the number, so the constructed flag
     # must not leak into the encoded tag number.
     return identifier & 0xc0, identifier & 0x1f
-
-
-def OER_tagging_dec(s,  # type: bytes
-                    hidden_tag=None,  # type: Optional[int | ASN1Tag]
-                    implicit_tag=None,  # type: Optional[int]
-                    explicit_tag=None,  # type: Optional[int]
-                    safe=False,  # type: Optional[bool]
-                    _fname="",  # type: str
-                    ):
-    # type: (...) -> Tuple[Optional[int], bytes]
-    # X.696 encodes no tag for a component, whatever the tagging environment
-    # of the module: the only tag on the wire is the one of a chosen CHOICE
-    # alternative, which _OER_FieldHooks handles.
-    return None, s
-
-
-def OER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
-    # type: (bytes, Optional[int], Optional[int]) -> bytes
-    return s
 
 
 class OERcodec_metaclass(type):
@@ -441,12 +390,6 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
             )
 
     @classmethod
-    def check_type_check_len(cls, s):
-        # type: (bytes) -> Tuple[int, bytes, bytes]
-        cls.check_string(s)
-        return len(s), s, b""
-
-    @classmethod
     def do_dec(cls,
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
@@ -477,11 +420,6 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
             return cls.do_dec(s, context, safe, size_len, oer_unsigned)
         try:
             return cls.do_dec(s, context, safe, size_len, oer_unsigned)
-        except OER_BadTag_Decoding_Error as e:
-            o, remain = OERcodec_Object.dec(
-                e.remaining, context, safe, size_len, oer_unsigned
-            )
-            return ASN1_BADTAG(o), remain
         except OER_Decoding_Error as e:
             return ASN1_DECODING_ERROR(s, exc=e), b""
         except ASN1_Error as e:
@@ -513,8 +451,11 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
                 raise TypeError("Trying to encode an invalid value !")
 
 
+# No register_tagging(): X.696 encodes no tag for a component, whatever the
+# tagging environment of the module, so the identity default of ASN1Codec is
+# what OER needs. The only tag on the wire is the one of a chosen CHOICE
+# alternative, which _OER_FieldHooks writes itself.
 ASN1_Codecs.OER.register_stem(OERcodec_Object)
-ASN1_Codecs.OER.register_tagging(OER_tagging_enc, OER_tagging_dec)
 
 
 ##########################
@@ -603,12 +544,7 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
         # type: (...) -> Tuple[ASN1_Object[str], bytes]
         if size_len:
             number_of_bytes = (size_len + 7) // 8
-            if len(s) < number_of_bytes:
-                raise OER_Decoding_Error(
-                    "%s: Got %i bytes while expecting %i" %
-                    (cls.__name__, len(s), number_of_bytes),
-                    remaining=s
-                )
+            _OER_check_len(cls.__name__, s, number_of_bytes)
             return (
                 cls.tag.asn1_object(
                     _oer_bytes_to_bitstr(s[:number_of_bytes])[:size_len]
@@ -618,11 +554,7 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
         length, s = OER_len_dec(s)
         if length == 0:
             return cls.tag.asn1_object(""), s
-        if len(s) < length:
-            raise OER_Decoding_Error(
-                "%s: Got %i bytes while expecting %i" % (cls.__name__, len(s), length),
-                remaining=s
-            )
+        _OER_check_len(cls.__name__, s, length)
         unused_bits = orb(s[0])
         if safe and unused_bits > 7:
             raise OER_Decoding_Error(
@@ -680,19 +612,10 @@ class OERcodec_STRING(OERcodec_Object[str]):
                ):
         # type: (...) -> Tuple[ASN1_Object[Any], bytes]
         if size_len:
-            if len(s) < size_len:
-                raise OER_Decoding_Error(
-                    "%s: Got %i bytes while expecting %i" %
-                    (cls.__name__, len(s), size_len),
-                    remaining=s
-                )
+            _OER_check_len(cls.__name__, s, size_len)
             return cls.tag.asn1_object(s[:size_len]), s[size_len:]
         length, s = OER_len_dec(s)
-        if len(s) < length:
-            raise OER_Decoding_Error(
-                "%s: Got %i bytes while expecting %i" % (cls.__name__, len(s), length),
-                remaining=s
-            )
+        _OER_check_len(cls.__name__, s, length)
         return cls.tag.asn1_object(s[:length]), s[length:]
 
 
@@ -743,11 +666,7 @@ class OERcodec_OID(OERcodec_Object[bytes]):
                ):
         # type: (...) -> Tuple[ASN1_Object[bytes], bytes]
         length, s = OER_len_dec(s)
-        if len(s) < length:
-            raise OER_Decoding_Error(
-                "%s: Got %i bytes while expecting %i" % (cls.__name__, len(s), length),
-                remaining=s
-            )
+        _OER_check_len(cls.__name__, s, length)
         content, t = s[:length], s[length:]
         lst = []
         while content:
@@ -923,18 +842,6 @@ class _OER_FieldHooks(object):
     """Compound ASN1F_* helpers for OER (kept out of asn1fields.py)."""
 
     @staticmethod
-    def use_object_enc(field, pkt, item):
-        # type: (Any, Any, Any) -> bool
-        # Constraints (e.g. oer_unsigned) must go through codec.enc(**kwargs).
-        return field.size_len is None and not field.codec_opts
-
-    @staticmethod
-    def _optionals(field):
-        # type: (Any) -> Tuple[Any, ...]
-        from scapy.asn1fields import ASN1F_optional
-        return tuple(f for f in field.seq if isinstance(f, ASN1F_optional))
-
-    @staticmethod
     def sequence_m2i(field, pkt, s):
         # type: (Any, Any, bytes) -> Tuple[Any, bytes]
         from scapy.asn1fields import ASN1F_badsequence, ASN1F_optional
@@ -945,7 +852,7 @@ class _OER_FieldHooks(object):
             return [], s
         presence, s = OER_preamble_dec(
             s, _field_extensible(field),
-            len(_OER_FieldHooks._optionals(field)),
+            len(field.optionals),
         )
         opt_index = 0
         for obj in field.seq:
@@ -968,8 +875,8 @@ class _OER_FieldHooks(object):
     @staticmethod
     def sequence_build(field, pkt):
         # type: (Any, Any) -> bytes
-        from scapy.asn1fields import ASN1F_optional
-        optionals = _OER_FieldHooks._optionals(field)
+        from scapy.asn1fields import ASN1F_field, ASN1F_optional
+        optionals = field.optionals
         s = OER_preamble_enc(
             _field_extensible(field),
             [not opt.is_empty(pkt) for opt in optionals],
@@ -978,7 +885,8 @@ class _OER_FieldHooks(object):
             if isinstance(obj, ASN1F_optional) and obj.is_empty(pkt):
                 continue
             s += obj.build(pkt)
-        return ASN1F_field_i2m(field, pkt, s)
+        # Through ASN1F_field, as ASN1F_SEQUENCE.i2m is the hook above
+        return ASN1F_field.i2m(field, pkt, s)
 
     @staticmethod
     def sequence_of_m2i(field, pkt, s):
@@ -1051,42 +959,14 @@ class _OER_FieldHooks(object):
                 s = x.enc(pkt.ASN1_codec)
             else:
                 s = bytes(x)
-            alt_tag = _choice_tag_for(field, x)
-            if alt_tag is not None:
-                tag_class, tag_number = _OER_tag_parts(alt_tag)
+            index = field.alternative_index(x)
+            if index is not None:
+                # X.696 20.2: the chosen alternative is prefixed with its tag
+                tag_class, tag_number = _OER_tag_parts(
+                    field.choice_order[index]
+                )
                 s = OER_tag_enc(tag_number, tag_class) + s
         return field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag)
-
-
-def _choice_index_for(field, x):
-    # type: (Any, Any) -> Optional[int]
-    from scapy.asn1.asn1 import ASN1_Object
-    for index, choice in enumerate(field.choice_list):
-        if isinstance(choice, type):
-            if hasattr(choice, "ASN1_root"):
-                if isinstance(x, choice):
-                    return index
-            elif hasattr(choice, "ASN1_tag"):
-                if isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
-                    return index
-        elif getattr(choice, "cls", None) is not None:
-            # ASN1F_PACKET instance: the alternative is a tagged packet.
-            if isinstance(x, choice.cls):
-                return index
-    return None
-
-
-def _choice_tag_for(field, x):
-    # type: (Any, Any) -> Optional[int]
-    index = _choice_index_for(field, x)
-    return None if index is None else field.choice_order[index]
-
-
-def ASN1F_field_i2m(field, pkt, s):
-    # type: (Any, Any, bytes) -> bytes
-    # Call ASN1F_field.i2m without compound overrides.
-    from scapy.asn1fields import ASN1F_field
-    return ASN1F_field.i2m(field, pkt, s)
 
 
 ASN1_Codecs.OER.register_field_hooks(_OER_FieldHooks)
