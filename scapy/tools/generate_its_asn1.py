@@ -700,7 +700,7 @@ class ITSASN1Generator:
             if first[0].isupper() and not first.startswith("ASN1F_"):
                 default = f"{first}()"
         ext_args = ", uper_extensible=True" if is_extensible(desc.get("members", [])) else ""
-        return "ASN1F_CHOICE(\n        " + f'"root", {default},\n        ' + ",\n        ".join(alts) + ext_args + "\n    )"
+        return "ASN1F_CHOICE(\n        " + '"root", %s,\n        ' % default + ",\n        ".join(alts) + ext_args + "\n    )"
 
     def _sequence_root(
         self,
@@ -740,9 +740,9 @@ class ITSASN1Generator:
         else:
             root = self._sequence_root(module, type_name, desc, key, result_order)
         return (
-            f"class {py_name}(ASN1_Packet):\n"
-            f"    ASN1_codec = ASN1_Codecs.PER\n"
-            f"    ASN1_root = {root}\n"
+            "class %s(ASN1_Packet):\n"
+            "    ASN1_codec = ASN1_Codecs.PER\n"
+            "    ASN1_root = %s\n" % (py_name, root)
         )
 
     def _reachable_type_keys(self) -> Set[Tuple[str, str]]:
@@ -854,7 +854,7 @@ class ITSASN1Generator:
         if field_imports:
             lines.append("from scapy.asn1fields import (")
             for name in field_imports:
-                lines.append(f"    {name},")
+                lines.append("    %s," % name)
             lines.append(")")
         lines.append("from scapy.asn1packet import ASN1_Packet")
         lines.append("")
@@ -872,9 +872,9 @@ class ITSASN1Generator:
         lines.append("")
         lines.append("__all__ = [")
         for root in ROOT_MESSAGES:
-            lines.append(f'    "{root}",')
+            lines.append('    "%s",' % root)
         for module, type_name in result_order:
-            lines.append(f'    "{self.class_names[(module, type_name)]}",')
+            lines.append('    "%s",' % self.class_names[(module, type_name)])
         lines.append("]")
         lines.append("")
         return "\n".join(lines)
