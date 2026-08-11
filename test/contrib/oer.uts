@@ -96,14 +96,36 @@ INTEGER_VECTORS = [
         lambda v: OERcodec_INTEGER.enc(v, size_len=8),
         b"\xff\xff\xff\xff\xff\xff\xff\xfe",
     ),
-    ("F", 128, lambda v: OERcodec_INTEGER.enc(v, size_len=1), b"\x80"),
-    ("G", 128, lambda v: OERcodec_INTEGER.enc(v, size_len=2), b"\x00\x80"),
-    ("G", 1000, lambda v: OERcodec_INTEGER.enc(v, size_len=2), b"\x03\xe8"),
-    ("H", 128, lambda v: OERcodec_INTEGER.enc(v, size_len=4), b"\x00\x00\x00\x80"),
+    # F to I have a lower bound of zero, so they are unsigned: the width and
+    # the signedness come from the declared type, not from the value.
+    (
+        "F",
+        128,
+        lambda v: OERcodec_INTEGER.enc(v, size_len=1, oer_unsigned=True),
+        b"\x80",
+    ),
+    (
+        "G",
+        128,
+        lambda v: OERcodec_INTEGER.enc(v, size_len=2, oer_unsigned=True),
+        b"\x00\x80",
+    ),
+    (
+        "G",
+        1000,
+        lambda v: OERcodec_INTEGER.enc(v, size_len=2, oer_unsigned=True),
+        b"\x03\xe8",
+    ),
+    (
+        "H",
+        128,
+        lambda v: OERcodec_INTEGER.enc(v, size_len=4, oer_unsigned=True),
+        b"\x00\x00\x00\x80",
+    ),
     (
         "I",
         128,
-        lambda v: OERcodec_INTEGER.enc(v, size_len=8),
+        lambda v: OERcodec_INTEGER.enc(v, size_len=8, oer_unsigned=True),
         b"\x00\x00\x00\x00\x00\x00\x00\x80",
     ),
     ("B", 1, lambda v: OERcodec_INTEGER.enc(v, size_len=1), b"\x01"),
@@ -358,7 +380,7 @@ OER_unsigned_integer_enc(0) == b"\x01\x00"
 v, r = OER_unsigned_integer_dec(OER_unsigned_integer_enc(65535))
 v == 65535 and r == b""
 = OER fixed unsigned 1 byte
-OERcodec_INTEGER.enc(255, size_len=1) == b"\xff"
+OERcodec_INTEGER.enc(255, size_len=1, oer_unsigned=True) == b"\xff"
 = OER fixed signed 2 bytes negative
 OERcodec_INTEGER.enc(-2, size_len=2) == b"\xff\xfe"
 = OER fixed signed 4 bytes
@@ -406,7 +428,7 @@ ASN1_NULL(None).enc(ASN1_Codecs.OER) == b""
 
 + ASN.1 OER review fixes
 = OER fixed integer decode roundtrip
-x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(128, size_len=1), size_len=1, oer_unsigned=True)
+x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(128, size_len=1, oer_unsigned=True), size_len=1, oer_unsigned=True)
 x.val == 128 and r == b""
 = OER fixed integer signed decode
 x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(-2, size_len=2), size_len=2)
@@ -1084,5 +1106,61 @@ assert _roundtrip(OERFixedOctets, pkt).s.val == b"abcd"
 assert OERcodec_STRING.enc(b"abc") == bytes.fromhex("03616263")
 
 _raises(OER_Encoding_Error, lambda: OERcodec_STRING.enc(b"abc", size_len=4))
+
+True
+
+= oer integer signedness follows the declared type
+# X.696 10: the encoder must not pick the width or the signedness from the
+# value, or the decoder (which only knows the type) reads something else back.
+class OERSignedByte(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("a", 0, size_len=1))
+
+class OERUnsignedByte(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("a", 0, size_len=1, oer_unsigned=True))
+
+for cls, value, expected in [
+    (OERSignedByte, 127, "7f"),
+    (OERSignedByte, -128, "80"),
+    (OERUnsignedByte, 255, "ff"),
+    (OERUnsignedByte, 0, "00"),
+]:
+    pkt = cls(a=value)
+    assert raw(pkt) == bytes.fromhex(expected), (value, raw(pkt).hex())
+    assert _roundtrip(cls, pkt).a.val == value
+
+# 200 used to encode as an unsigned 0xc8 and read back as -56.
+_raises(OER_Encoding_Error, lambda: raw(OERSignedByte(a=200)))
+
+_raises(OER_Encoding_Error, lambda: raw(OERUnsignedByte(a=256)))
+
+_raises(OER_Encoding_Error, lambda: raw(OERUnsignedByte(a=-1)))
+
+True
+
+= oer unbounded unsigned integer
+# X.696 10.2: a lower bound of zero means the value is encoded unsigned, with
+# no leading zero octet. Byte vectors checked against asn1tools.
+class OERUnboundedUnsigned(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("a", 0, oer_unsigned=True))
+
+for value, expected in [
+    (0, "0100"),
+    (127, "017f"),
+    (128, "0180"),
+    (200, "01c8"),
+    (65535, "02ffff"),
+    (100000, "030186a0"),
+]:
+    pkt = OERUnboundedUnsigned(a=value)
+    assert raw(pkt) == bytes.fromhex(expected), (value, raw(pkt).hex())
+    assert _roundtrip(OERUnboundedUnsigned, pkt).a.val == value
+
+True
+
+= oer integer with an empty length determinant
+_raises(OER_Decoding_Error, lambda: OER_signed_integer_dec(b"\x00"))
 
 True
