@@ -528,8 +528,7 @@ class UPERcodec_Object(Generic[_K], metaclass=UPERcodec_metaclass):
         return cls.dec(s, context, safe=True, **kwargs)
 
 
-# No register_tagging(): PER encodes no tag at all, so the identity default
-# of ASN1Codec is what UPER needs.
+# No tagging hook: PER encodes no tag at all, so a field is left alone.
 ASN1_Codecs.PER.register_stem(UPERcodec_Object)
 
 

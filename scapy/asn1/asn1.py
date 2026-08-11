@@ -121,68 +121,30 @@ class ASN1_BadTag_Decoding_Error(ASN1_Decoding_Error):
     pass
 
 
-def _identity_tagging_enc(s, **kwargs):
-    # type: (bytes, **Any) -> bytes
-    return s
-
-
-def _identity_tagging_dec(s, **kwargs):
-    # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
-    return None, s
-
-
 class ASN1Codec(EnumElement):
     # Class-level default: EnumElement.__getattr__ forwards unknown attributes
     # to its int value, so a missing _field_hooks would raise (and swallow) an
     # AttributeError on every field operation.
     _field_hooks = None  # type: Any
-    # Only BER puts the tag of a field on the wire; the other codecs keep
-    # these identity defaults.
-    _tagging_enc = staticmethod(_identity_tagging_enc)  # type: Any
-    _tagging_dec = staticmethod(_identity_tagging_dec)  # type: Any
 
     def register_stem(cls, stem):
         # type: (Type[BERcodec_Object[Any]]) -> None
         cls._stem = stem
 
-    def register_tagging(cls, enc, dec):
-        # type: (Any, Any) -> None
-        # Only for the codecs that put the tag of a field on the wire (BER):
-        # the others keep the identity defaults below.
-        cls._tagging_enc = enc
-        cls._tagging_dec = dec
-
     def register_field_hooks(cls, hooks):
         # type: (Any) -> None
-        # Optional compound-field helpers (SEQUENCE/CHOICE/…) for contrib codecs.
+        # Field operations a codec does its own way: the tagging of a field
+        # (BER) and the compound fields (SEQUENCE/CHOICE/… in OER and PER).
         cls._field_hooks = hooks
-
-    def unregister_field_hooks(cls):
-        # type: () -> Any
-        # Returns the previous hooks, so that callers can restore them.
-        hooks = cls._field_hooks
-        try:
-            del cls._field_hooks
-        except AttributeError:
-            pass
-        return hooks
 
     def field_hook(cls, name):
         # type: (str) -> Any
         # Hooks are optional and may be partial: missing entries mean that
-        # asn1fields keeps its default (BER-style) implementation.
+        # asn1fields keeps its default implementation.
         hooks = cls._field_hooks
         if hooks is None:
             return None
         return getattr(hooks, name, None)
-
-    def tagging_enc(cls, s, **kwargs):
-        # type: (bytes, **Any) -> bytes
-        return cls._tagging_enc(s, **kwargs)  # type: ignore
-
-    def tagging_dec(cls, s, **kwargs):
-        # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
-        return cls._tagging_dec(s, **kwargs)  # type: ignore
 
     def dec(cls, s, context=None, _depth=0):
         # type: (bytes, Optional[Type[ASN1_Class]], int) -> ASN1_Object[Any]

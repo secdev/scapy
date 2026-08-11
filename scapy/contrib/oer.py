@@ -451,10 +451,10 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
                 raise TypeError("Trying to encode an invalid value !")
 
 
-# No register_tagging(): X.696 encodes no tag for a component, whatever the
-# tagging environment of the module, so the identity default of ASN1Codec is
-# what OER needs. The only tag on the wire is the one of a chosen CHOICE
-# alternative, which _OER_FieldHooks writes itself.
+# No tagging hook: X.696 encodes no tag for a component, whatever the tagging
+# environment of the module, so a field is left alone. The only tag on the
+# wire is the one of a chosen CHOICE alternative, which _OER_FieldHooks writes
+# itself.
 ASN1_Codecs.OER.register_stem(OERcodec_Object)
 
 
