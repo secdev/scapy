@@ -459,7 +459,20 @@ x.val == -2 and r == b""
 x, r = OERcodec_STRING.do_dec(OERcodec_STRING.enc(b"\x12\x34\x56", size_len=3), size_len=3)
 x.val == b"\x12\x34\x56" and r == b""
 = OER does not encode the tag of a component
-ASN1_Codecs.OER.tagging_enc(b"\x05", explicit_tag=0x81) == b"\x05" and ASN1_Codecs.OER.tagging_dec(b"\x05", explicit_tag=0x81) == (None, b"\x05")
+# X.696 encodes none, so OER hooks no tagging and the field is left alone
+assert ASN1_Codecs.OER.field_hook("tagging_enc") is None
+
+assert ASN1_Codecs.OER.field_hook("tagging_dec") is None
+
+fld = ASN1F_INTEGER("n", 0, explicit_tag=0xA0)
+
+pkt = OERTaggedInteger()
+
+assert fld._tagging_enc(pkt, b"\x05", explicit_tag=0xA0) == b"\x05"
+
+assert fld._tagging_dec(pkt, b"\x05", explicit_tag=0xA0) == (None, b"\x05")
+
+True
 = OER tag long form
 # X.696 8.7.2.2: a tag number of 63 or more spills into continuation octets
 assert OER_tag_enc(100, OER_CLASS_CONTEXT) == b"\xbf\x64"

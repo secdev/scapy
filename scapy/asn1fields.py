@@ -140,13 +140,19 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
 
     def _tagging_dec(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
-        # Codec provides tagging_*; only BER puts the tag of a field on the
-        # wire, the others keep the identity default of ASN1Codec.
-        return pkt.ASN1_codec.tagging_dec(s, **kwargs)  # type: ignore
+        # Only BER puts the tag of a field on the wire: a codec that does not
+        # hook the tagging leaves the encoding alone.
+        hook = _field_hook(pkt, "tagging_dec")
+        if hook is None:
+            return None, s
+        return cast(Tuple[Optional[int], bytes], hook(s, **kwargs))
 
     def _tagging_enc(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> bytes
-        return pkt.ASN1_codec.tagging_enc(s, **kwargs)  # type: ignore
+        hook = _field_hook(pkt, "tagging_enc")
+        if hook is None:
+            return s
+        return cast(bytes, hook(s, **kwargs))
 
     def _apply_tagging_dec(self, s, pkt, hidden_tag=None, **kwargs):
         # type: (bytes, ASN1_Packet, Optional[Any], **Any) -> bytes

@@ -423,8 +423,15 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
                 raise TypeError("Trying to encode an invalid value !")
 
 
+class _BER_FieldHooks(object):
+    """ASN1F_* helpers for BER, the one codec that tags a field on the wire."""
+
+    tagging_enc = staticmethod(BER_tagging_enc)
+    tagging_dec = staticmethod(BER_tagging_dec)
+
+
 ASN1_Codecs.BER.register_stem(BERcodec_Object)
-ASN1_Codecs.BER.register_tagging(BER_tagging_enc, BER_tagging_dec)
+ASN1_Codecs.BER.register_field_hooks(_BER_FieldHooks)
 
 
 ##########################
