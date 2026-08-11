@@ -459,10 +459,20 @@ x.val == -2 and r == b""
 x, r = OERcodec_STRING.do_dec(OERcodec_STRING.enc(b"\x12\x34\x56", size_len=3), size_len=3)
 x.val == b"\x12\x34\x56" and r == b""
 = OER does not encode the tag of a component
-OER_tagging_enc(b"\x05", explicit_tag=0x81) == b"\x05" and OER_tagging_dec(b"\x05", explicit_tag=0x81) == (None, b"\x05")
-= OER choice id decode
-tag, r = OER_id_dec(b"\x81\x01")
-tag == 0x81 and r == b"\x01"
+ASN1_Codecs.OER.tagging_enc(b"\x05", explicit_tag=0x81) == b"\x05" and ASN1_Codecs.OER.tagging_dec(b"\x05", explicit_tag=0x81) == (None, b"\x05")
+= OER tag long form
+# X.696 8.7.2.2: a tag number of 63 or more spills into continuation octets
+assert OER_tag_enc(100, OER_CLASS_CONTEXT) == b"\xbf\x64"
+
+assert OER_tag_dec(b"\xbf\x64\x01") == (OER_CLASS_CONTEXT, 100, b"\x01")
+
+assert OER_tag_dec(OER_tag_enc(16384, OER_CLASS_PRIVATE)) == (OER_CLASS_PRIVATE, 16384, b"")
+
+_raises(OER_Decoding_Error, lambda: OER_tag_dec(b"\xbf\x81"))
+
+_raises(OER_Decoding_Error, lambda: OER_tag_dec(b""))
+
+True
 
 + ASN.1 OER packets, interop and fuzz
 = oer field explicit tag
@@ -870,11 +880,11 @@ assert ASN1_Codecs.OER._field_hooks is not None
 
 assert hasattr(ASN1_Codecs.OER._field_hooks, "sequence_m2i")
 
-assert hasattr(ASN1_Codecs.OER._field_hooks, "use_object_enc")
+assert hasattr(ASN1_Codecs.OER._field_hooks, "choice_i2m")
 
 True
 
-= oer use_object_enc via hooks
+= oer use_object_enc
 fld = OERUnsignedField.ASN1_root
 
 assert fld.codec_opts["oer_unsigned"] is True
@@ -1205,5 +1215,43 @@ True
 
 = oer integer with an empty length determinant
 _raises(OER_Decoding_Error, lambda: OER_signed_integer_dec(b"\x00"))
+
+True
+
+= oer choice rejects an unknown alternative tag
+_raises(ASN1_Error, lambda: OERPacketChoice(b"\x40\x00"))
+
+# An unset CHOICE encodes to nothing, as the field is then absent
+assert raw(OERPacketChoice(c=None)) == b""
+
+True
+
+= oer untyped codec falls back on string and integer
+assert OERcodec_Object.enc(b"hi") == b"\x02hi"
+
+assert OERcodec_Object.enc(5) == b"\x01\x05"
+
+_raises(TypeError, lambda: OERcodec_Object.enc(object()))
+
+# Without a schema there is nothing to tell one type from another
+_raises(OER_Decoding_Error, lambda: OERcodec_Object.dec(b"\x01"))
+
+assert OERcodec_OID.enc(b"") == b"\x00"
+
+True
+
+= oer sequence dissect of an empty encoding
+# Nothing to read leaves every component unset, hence holding its default
+decoded = _dissect(OERRecord, "")
+
+assert decoded.id.val == 0 and decoded.label.val == "" and decoded.values == []
+
+True
+
+= oer sequence of a pre-encoded value
+# A RAW object is written as-is, without the quantity determinant
+raw_items = ASN1_Class_UNIVERSAL.RAW.asn1_object(b"\x01\x01\x07")
+
+assert raw(OERSequenceOfIntegers(values=raw_items)) == b"\x01\x01\x07"
 
 True
