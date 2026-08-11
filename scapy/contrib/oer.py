@@ -9,6 +9,14 @@
 Octet Encoding Rules (OER) for ASN.1
 
 Basic-OER as specified in ITU-T X.696 | ISO/IEC 8825-7.
+
+``ASN1F_SEQUENCE`` emits the preamble required by 16.2.2: a presence bit per
+``ASN1F_optional``/``ASN1F_DEFAULT`` component, preceded by an extension bit
+for sequences declared with ``oer_extensible=True``. Fixed size constraints
+are expressed with ``size_len=`` (octets for strings, bits for BIT STRING).
+
+Not supported yet: extension additions (an encoding that carries them is
+refused rather than misparsed), SET, REAL, and the canonical variant (C-OER).
 """
 
 import struct
@@ -264,6 +272,50 @@ def OER_enumerated_dec(s):
         )
     value = int.from_bytes(s[1:length + 1], "big", signed=True)
     return value, s[length + 1:]
+
+
+def OER_preamble_enc(extensible, presence):
+    # type: (bool, List[bool]) -> bytes
+    # X.696 16.2.2: an extension bit (extensible types only) followed by one
+    # presence bit per OPTIONAL/DEFAULT component, zero-padded to a whole
+    # number of octets. A type with neither has no preamble at all.
+    bits = [0] if extensible else []
+    bits += [1 if present else 0 for present in presence]
+    if not bits:
+        return b""
+    number_of_bytes = (len(bits) + 7) // 8
+    value = 0
+    for bit in bits:
+        value = (value << 1) | bit
+    value <<= 8 * number_of_bytes - len(bits)
+    return value.to_bytes(number_of_bytes, "big")
+
+
+def OER_preamble_dec(s, extensible, number_of_optionals):
+    # type: (bytes, bool, int) -> Tuple[List[bool], bytes]
+    number_of_bits = (1 if extensible else 0) + number_of_optionals
+    if number_of_bits == 0:
+        return [], s
+    number_of_bytes = (number_of_bits + 7) // 8
+    if len(s) < number_of_bytes:
+        raise OER_Decoding_Error(
+            "OER_preamble_dec: Got %i bytes while expecting %i" %
+            (len(s), number_of_bytes),
+            remaining=s
+        )
+    value = int.from_bytes(s[:number_of_bytes], "big")
+    bits = [
+        bool((value >> (8 * number_of_bytes - 1 - i)) & 1)
+        for i in range(number_of_bits)
+    ]
+    if extensible:
+        if bits[0]:
+            raise OER_Decoding_Error(
+                "OER_preamble_dec: extension additions are not supported",
+                remaining=s
+            )
+        bits = bits[1:]
+    return bits, s[number_of_bytes:]
 
 
 def OER_tag_enc(n, tag_class=OER_CLASS_CONTEXT):
@@ -537,6 +589,17 @@ class OERcodec_BOOLEAN(OERcodec_Object[int]):
         return cls.asn1_object(0 if orb(s[0]) == 0 else 1), s[1:]
 
 
+def _oer_bitstr_to_bytes(bitstr):
+    # type: (bytes) -> bytes
+    padded = bitstr + b"0" * (-len(bitstr) % 8)
+    return bytes([int(padded[i:i + 8], 2) for i in range(0, len(padded), 8)])
+
+
+def _oer_bytes_to_bitstr(data):
+    # type: (bytes) -> str
+    return "".join(binrepr(orb(x)).zfill(8) for x in data)
+
+
 class OERcodec_BIT_STRING(OERcodec_Object[str]):
     tag = ASN1_Class_UNIVERSAL.BIT_STRING
 
@@ -549,6 +612,20 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                oer_unsigned=False,  # type: bool
                ):
         # type: (...) -> Tuple[ASN1_Object[str], bytes]
+        if size_len:
+            number_of_bytes = (size_len + 7) // 8
+            if len(s) < number_of_bytes:
+                raise OER_Decoding_Error(
+                    "%s: Got %i bytes while expecting %i" %
+                    (cls.__name__, len(s), number_of_bytes),
+                    remaining=s
+                )
+            return (
+                cls.tag.asn1_object(
+                    _oer_bytes_to_bitstr(s[:number_of_bytes])[:size_len]
+                ),
+                s[number_of_bytes:],
+            )
         length, s = OER_len_dec(s)
         if length == 0:
             return cls.tag.asn1_object(""), s
@@ -563,7 +640,7 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                 "OERcodec_BIT_STRING: too many unused_bits advertised",
                 remaining=s
             )
-        fs = "".join(binrepr(orb(x)).zfill(8) for x in s[1:length])
+        fs = _oer_bytes_to_bitstr(s[1:length])
         if unused_bits > 0:
             fs = fs[:-unused_bits]
         return cls.tag.asn1_object(fs), s[length:]
@@ -572,14 +649,17 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
     def enc(cls, _s, size_len=0, **_kwargs):
         # type: (AnyStr, Optional[int], **Any) -> bytes
         s = bytes_encode(_s)
-        if len(s) % 8 == 0:
-            unused_bits = 0
-        else:
-            unused_bits = 8 - len(s) % 8
-            s += b"0" * unused_bits
-        data = b"".join(chb(int(b"".join(chb(y) for y in x), 2))
-                        for x in zip(*[iter(s)] * 8))
-        body = chb(unused_bits) + data
+        if size_len:
+            # X.696 13.3: a fixed size means the bits are written padded to a
+            # whole number of octets, without length or unused-bit count.
+            if len(s) != size_len:
+                raise OER_Encoding_Error(
+                    "%s: got %i bits while expecting %i" %
+                    (cls.__name__, len(s), size_len),
+                    encoded=_s
+                )
+            return _oer_bitstr_to_bytes(s)
+        body = chb(-len(s) % 8) + _oer_bitstr_to_bytes(s)
         return OER_len_enc(len(body)) + body
 
 
@@ -590,7 +670,14 @@ class OERcodec_STRING(OERcodec_Object[str]):
     def enc(cls, _s, size_len=0, **_kwargs):
         # type: (Union[str, bytes], Optional[int], **Any) -> bytes
         s = bytes_encode(_s)
-        if size_len and size_len == len(s):
+        if size_len:
+            # X.696 16.1: a fixed size means no length determinant.
+            if len(s) != size_len:
+                raise OER_Encoding_Error(
+                    "%s: got %i bytes while expecting %i" %
+                    (cls.__name__, len(s), size_len),
+                    encoded=_s
+                )
             return s
         return OER_len_enc(len(s)) + s
 
@@ -603,7 +690,7 @@ class OERcodec_STRING(OERcodec_Object[str]):
                oer_unsigned=False,  # type: bool
                ):
         # type: (...) -> Tuple[ASN1_Object[Any], bytes]
-        if size_len and size_len not in (1, 2, 4, 8):
+        if size_len:
             if len(s) < size_len:
                 raise OER_Decoding_Error(
                     "%s: Got %i bytes while expecting %i" %
@@ -838,6 +925,22 @@ class OERcodec_TIME_TICKS(OERcodec_INTEGER):
 #    ASN1F field hooks   #
 ##########################
 
+def _field_extensible(field):
+    # type: (Any) -> bool
+    return bool(getattr(field, "codec_opts", {}).get("oer_extensible", False))
+
+
+def _set_absent(field, pkt):
+    # type: (Any, Any) -> None
+    # ASN1F_DEFAULT restores its default value; a plain optional clears itself.
+    # set_absent() only exists once scapy.contrib.uper has been imported.
+    set_absent = getattr(field, "set_absent", None)
+    if set_absent is not None:
+        set_absent(pkt)
+    else:
+        field.set_val(pkt, None)
+
+
 class _OER_FieldHooks(object):
     """Compound ASN1F_* helpers for OER (kept out of asn1fields.py)."""
 
@@ -848,17 +951,55 @@ class _OER_FieldHooks(object):
         return field.size_len is None and not field.codec_opts
 
     @staticmethod
+    def _optionals(field):
+        # type: (Any) -> Tuple[Any, ...]
+        from scapy.asn1fields import ASN1F_optional
+        return tuple(f for f in field.seq if isinstance(f, ASN1F_optional))
+
+    @staticmethod
     def sequence_m2i(field, pkt, s):
         # type: (Any, Any, bytes) -> Tuple[Any, bytes]
+        from scapy.asn1fields import ASN1F_badsequence, ASN1F_optional
         s = field._apply_tagging_dec(s, pkt, _fname=pkt.name)
-        s = field._dissect_sequence_children(pkt, s)
+        if not s:
+            for obj in field.seq:
+                obj.set_val(pkt, None)
+            return [], s
+        presence, s = OER_preamble_dec(
+            s, _field_extensible(field),
+            len(_OER_FieldHooks._optionals(field)),
+        )
+        opt_index = 0
+        for obj in field.seq:
+            target = obj
+            if isinstance(obj, ASN1F_optional):
+                present = presence[opt_index]
+                opt_index += 1
+                if not present:
+                    _set_absent(obj, pkt)
+                    continue
+                # The preamble already said the component is there, so dissect
+                # it directly: a failure is an error, not an absence.
+                target = obj._field
+            try:
+                s = target.dissect(pkt, s)
+            except ASN1F_badsequence:
+                break
         return [], s
 
     @staticmethod
     def sequence_build(field, pkt):
         # type: (Any, Any) -> bytes
-        from functools import reduce
-        s = reduce(lambda x, y: x + y.build(pkt), field.seq, b"")
+        from scapy.asn1fields import ASN1F_optional
+        optionals = _OER_FieldHooks._optionals(field)
+        s = OER_preamble_enc(
+            _field_extensible(field),
+            [not opt.is_empty(pkt) for opt in optionals],
+        )
+        for obj in field.seq:
+            if isinstance(obj, ASN1F_optional) and obj.is_empty(pkt):
+                continue
+            s += obj.build(pkt)
         return ASN1F_field_i2m(field, pkt, s)
 
     @staticmethod

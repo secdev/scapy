@@ -448,7 +448,8 @@ True
 = oer field optional
 present = OEROptionalField(id=1, extra=7)
 
-assert raw(present) == b"\x01\x01\xa0\x01\x07"
+# \x80: preamble with the presence bit set for the single OPTIONAL component
+assert raw(present) == b"\x80\x01\x01\xa0\x01\x07"
 
 decoded = _roundtrip(OEROptionalField, present)
 
@@ -458,7 +459,7 @@ assert decoded.extra.val == 7
 
 absent = OEROptionalField(id=1, extra=None)
 
-assert raw(absent) == b"\x01\x01"
+assert raw(absent) == b"\x00\x01\x01"
 
 decoded = _roundtrip(OEROptionalField, absent)
 
@@ -504,6 +505,7 @@ pkt = OERRecord(
 )
 
 expected = (
+    b"\x80"
     b"\x01*\xff\x02hi\xa0\x01\x07"
     b"\x01\x03\x01\x01\x01\x02\x01\x03"
 )
@@ -524,7 +526,7 @@ assert [x.val for x in decoded.values] == [1, 2, 3]
 
 empty = OERRecord(id=1, flag=False, label="", extra=None, values=[])
 
-assert raw(empty) == b"\x01\x01\x00\x00\x01\x00"
+assert raw(empty) == b"\x00\x01\x01\x00\x00\x01\x00"
 
 decoded = _roundtrip(OERRecord, empty)
 
@@ -725,13 +727,13 @@ assert fixed.n.val == 200
 
 assert fixed.s.val == b"ABC"
 
-present = _dissect(OEROptionalField, "0101a00107")
+present = _dissect(OEROptionalField, "800101a00107")
 
 assert present.id.val == 1
 
 assert present.extra.val == 7
 
-absent = _dissect(OEROptionalField, "0101")
+absent = _dissect(OEROptionalField, "000101")
 
 assert absent.id.val == 1
 
@@ -754,11 +756,12 @@ True
 = oer record dissect
 decoded = _dissect(
     OERRecord,
+    "80"
     "012aff026869a00107"
     "0103010101020103",
 )
 _assert_record(decoded)
-empty = _dissect(OERRecord, "010100000100")
+empty = _dissect(OERRecord, "00010100000100")
 _assert_record_empty(empty)
 
 True
@@ -918,3 +921,168 @@ assert remain == b""
 
 True
 
+
++ ASN.1 OER X.696 conformance
+
+= oer sequence preamble presence bits
+# X.696 16.2.2: one presence bit per OPTIONAL/DEFAULT component, zero padded
+# to a whole number of octets. Byte vectors checked against asn1tools.
+class OERPreambleOne(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("a", 0, size_len=1, oer_unsigned=True),
+        ASN1F_optional(ASN1F_INTEGER("b", 0, size_len=1, oer_unsigned=True)),
+    )
+
+assert raw(OERPreambleOne(a=1, b=2)) == bytes.fromhex("800102")
+
+assert raw(OERPreambleOne(a=1, b=None)) == bytes.fromhex("0001")
+
+assert _dissect(OERPreambleOne, "800102").b.val == 2
+
+assert _dissect(OERPreambleOne, "0001").b is None
+
+class OERPreambleTwo(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_optional(ASN1F_INTEGER("a", 0, size_len=1, oer_unsigned=True)),
+        ASN1F_optional(ASN1F_BOOLEAN("b", False)),
+    )
+
+assert raw(OERPreambleTwo(a=1, b=None)) == bytes.fromhex("8001")
+
+assert raw(OERPreambleTwo(a=None, b=True)) == bytes.fromhex("40ff")
+
+# Nine optionals need a two-octet preamble.
+class OERPreambleNine(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(*[
+        ASN1F_optional(ASN1F_INTEGER(c, 0, size_len=1, oer_unsigned=True))
+        for c in "abcdefghi"
+    ])
+
+nine = OERPreambleNine(a=1, b=None, c=None, d=None, e=None, f=None, g=None,
+                       h=None, i=9)
+
+assert raw(nine) == bytes.fromhex("80800109")
+
+assert _roundtrip(OERPreambleNine, nine).i.val == 9
+
+# A sequence without OPTIONAL/DEFAULT components has no preamble at all.
+class OERNoPreamble(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("a", 0, size_len=1, oer_unsigned=True),
+    )
+
+assert raw(OERNoPreamble(a=1)) == bytes.fromhex("01")
+
+# A DEFAULT component takes a presence bit too, and is omitted when it holds
+# the default value.
+from scapy.contrib.uper import ASN1F_DEFAULT
+
+class OERDefault(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_DEFAULT(
+            ASN1F_INTEGER("a", 7, size_len=1, oer_unsigned=True), 7,
+        ),
+    )
+
+assert raw(OERDefault(a=7)) == bytes.fromhex("00")
+
+assert raw(OERDefault(a=9)) == bytes.fromhex("8009")
+
+# An absent DEFAULT is restored as the raw default value handed to
+# ASN1F_DEFAULT, while a present one is decoded into an ASN1_INTEGER.
+assert _dissect(OERDefault, "00").a == 7
+
+assert _dissect(OERDefault, "8009").a.val == 9
+
+True
+
+= oer extensible sequence
+class OERExtSeq(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("a", 0, size_len=1, oer_unsigned=True),
+        oer_extensible=True,
+    )
+
+assert raw(OERExtSeq(a=1)) == bytes.fromhex("0001")
+
+assert _dissect(OERExtSeq, "0001").a.val == 1
+
+class OERExtSeqOpt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("a", 0, size_len=1, oer_unsigned=True),
+        ASN1F_optional(ASN1F_BOOLEAN("b", False)),
+        oer_extensible=True,
+    )
+
+assert raw(OERExtSeqOpt(a=1, b=True)) == bytes.fromhex("4001ff")
+
+# An encoding that actually carries extension additions is refused rather
+# than silently misparsed.
+_raises(OER_Decoding_Error, lambda: _dissect(OERExtSeq, "8001"))
+
+True
+
+= oer fixed size bit string
+# X.696 13.3: a fixed size drops both the length determinant and the
+# unused-bit count.
+class OERBits(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_BIT_STRING("b", "", size_len=4))
+
+assert raw(OERBits(b="1010")) == bytes.fromhex("a0")
+
+assert _dissect(OERBits, "a0").b.val == "1010"
+
+for bits, size, expected in [
+    ("1010", 4, "a0"),
+    ("10100101", 8, "a5"),
+    ("101001010101", 12, "a550"),
+    ("1010010101011010", 16, "a55a"),
+]:
+    assert OERcodec_BIT_STRING.enc(bits, size_len=size) == bytes.fromhex(expected)
+    obj, remain = OERcodec_BIT_STRING.do_dec(bytes.fromhex(expected), size_len=size)
+    assert obj.val == bits
+    assert remain == b""
+
+# Unconstrained bit strings keep the length and unused-bit count.
+assert OERcodec_BIT_STRING.enc("101") == bytes.fromhex("0205a0")
+
+# A value that does not match the declared size is refused.
+_raises(OER_Encoding_Error, lambda: OERcodec_BIT_STRING.enc("101", size_len=4))
+
+True
+
+= oer fixed size octet string
+# X.696 16.1: a fixed size means no length determinant. Sizes 1, 2, 4 and 8
+# used to encode without one but decode expecting one.
+for size in (1, 2, 3, 4, 8):
+    value = b"x" * size
+    encoded = OERcodec_STRING.enc(value, size_len=size)
+    assert encoded == value
+    obj, remain = OERcodec_STRING.do_dec(encoded, size_len=size)
+    assert obj.val == value
+    assert remain == b""
+
+class OERFixedOctets(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_STRING("s", "", size_len=4))
+
+pkt = OERFixedOctets(s="abcd")
+
+assert raw(pkt) == b"abcd"
+
+assert _roundtrip(OERFixedOctets, pkt).s.val == b"abcd"
+
+# Unconstrained octet strings keep their length determinant.
+assert OERcodec_STRING.enc(b"abc") == bytes.fromhex("03616263")
+
+_raises(OER_Encoding_Error, lambda: OERcodec_STRING.enc(b"abc", size_len=4))
+
+True
