@@ -1210,13 +1210,14 @@ def _uper_choice_m2i_from_decoder(field, pkt, dec):
         )
     choice = field.choice_list[index]
     if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
-        p = choice()
-        p.add_underlayer(pkt)
-        p.ASN1_root.dissect_from_decoder(p, dec)
-        return p
-    if isinstance(choice, type):
-        return choice(field.name, b"").m2i_from_decoder(pkt, dec)
-    return choice.m2i_from_decoder(pkt, dec)
+        value = choice()
+        value.add_underlayer(pkt)
+        value.ASN1_root.dissect_from_decoder(value, dec)
+    elif isinstance(choice, type):
+        value = choice(field.name, b"").m2i_from_decoder(pkt, dec)
+    else:
+        value = choice.m2i_from_decoder(pkt, dec)
+    return field.record_alternative(value, index)
 
 
 def _uper_choice_encode_into(field, enc, pkt, value=None):

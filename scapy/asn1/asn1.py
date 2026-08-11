@@ -316,6 +316,9 @@ _K = TypeVar('_K')
 
 class ASN1_Object(Generic[_K], metaclass=ASN1_Object_metaclass):
     tag = ASN1_Class_UNIVERSAL.ANY
+    # Alternative a value was dissected as, when it comes from a CHOICE that
+    # holds several of its type. See ASN1F_CHOICE.record_alternative.
+    asn1_choice_index = None  # type: Optional[int]
 
     def __init__(self, val):
         # type: (_K) -> None

@@ -3081,6 +3081,44 @@ assert raw(UPERClassChoice(c=None)) == b""
 
 True
 
+= uper choice with constrained field alternatives
+class UPERFieldChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE(
+        "c", None,
+        ASN1F_INTEGER("a", 0, uper_min=0, uper_max=7),
+        ASN1F_INTEGER("b", 0, uper_min=0, uper_max=255),
+        ASN1F_NULL("n1", 0),
+        ASN1F_NULL("n2", 0),
+    )
+
+# Reference (asn1tools) for
+#   Choice ::= CHOICE { a INTEGER (0..7), b INTEGER (0..255), n1 NULL, n2 NULL }
+# Alternatives carry their own constraints and may share a tag, as PER tells
+# them apart by their position alone.
+assert UPERFieldChoice.ASN1_root.choice_order == [2, 2, 5, 5]
+
+assert raw(UPERFieldChoice(c=ASN1_INTEGER(5))) == b"\x28"
+
+assert raw(UPERFieldChoice(c=ASN1_NULL(0))) == b"\x80"
+
+assert UPERFieldChoice(b"\x28").c.val == 5
+
+# The second alternative uses eight bits, the first three
+assert UPERFieldChoice(b"\x72\x00").c.val == 200
+
+assert isinstance(UPERFieldChoice(b"\xc0").c, ASN1_NULL)
+
+# A dissected value remembers the alternative it was read as, so it goes back
+# out on the same one instead of on the first alternative of its type
+for encoded in (b"\x28", b"\x72\x00", b"\x80", b"\xc0"):
+    assert raw(UPERFieldChoice(encoded)) == encoded
+
+# A value built by hand still takes the first alternative that carries it
+assert raw(UPERFieldChoice(c=ASN1_NULL(0))) == b"\x80"
+
+True
+
 = uper enumerated bounds
 _raises(UPER_Encoding_Error, lambda: UPER_enumerated_enc(UPER_Encoder(), 0, []))
 

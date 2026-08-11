@@ -841,7 +841,8 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
     """
     Multiple types are allowed: ASN1_Packet, ASN1F_field and ASN1F_PACKET(),
     See layers/x509.py for examples.
-    Other ASN1F_field instances than ASN1F_PACKET instances must not be used.
+    An ASN1F_field instance is allowed as well, to give an alternative the
+    constraints that OER and PER encode it with.
     """
     holds_packets = 1
     ASN1_tag = ASN1_Class_UNIVERSAL.ANY
@@ -862,7 +863,12 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         )
         self.default = default
         self.current_choice = None
+        # BER looks an alternative up by its tag, while OER and PER encode
+        # its position. Alternatives may therefore share a tag, so keep them
+        # in declaration order next to the tag lookup.
         self.choices = {}  # type: Dict[int, _CHOICE_T]
+        self.choice_order = []  # type: List[int]
+        self.choice_list = []  # type: List[_CHOICE_T]
         self.pktchoices = {}
         for p in args:
             if hasattr(p, "ASN1_root"):
@@ -870,48 +876,66 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                 # should be ASN1_Packet
                 if hasattr(p.ASN1_root, "choices"):
                     root = cast(ASN1F_CHOICE, p.ASN1_root)
-                    for k, v in root.choices.items():
+                    for k, v in zip(root.choice_order, root.choice_list):
                         # ASN1F_CHOICE recursion
-                        self.choices[k] = v
+                        self._register_choice(k, v)
                 else:
-                    self.choices[p.ASN1_root.network_tag] = p
+                    self._register_choice(p.ASN1_root.network_tag, p)
             elif hasattr(p, "ASN1_tag"):
                 if isinstance(p, type):
                     # should be ASN1F_field class
-                    self.choices[int(p.ASN1_tag)] = p
+                    self._register_choice(int(p.ASN1_tag), p)
                 else:
-                    # should be ASN1F_PACKET instance
-                    self.choices[p.network_tag] = p
-                    self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
+                    # ASN1F_PACKET or plain ASN1F_field instance
+                    self._register_choice(p.network_tag, p)
+                    if hasattr(p, "cls"):
+                        self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
 
-    @property
-    def choice_order(self):
-        # type: () -> List[int]
-        return list(self.choices.keys())
+    def _register_choice(self, tag, choice):
+        # type: (int, _CHOICE_T) -> None
+        self.choices[tag] = choice
+        self.choice_order.append(tag)
+        self.choice_list.append(choice)
+
+    @staticmethod
+    def _alternative_carries(choice, x):
+        # type: (_CHOICE_T, Any) -> bool
+        if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
+            # ASN1_Packet subclass
+            return isinstance(x, choice)
+        if hasattr(choice, "cls"):
+            # ASN1F_PACKET instance, holding a tagged packet
+            return isinstance(x, choice.cls)
+        # ASN1F_field, as a class or as a constrained instance
+        return isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag
+
+    def record_alternative(self, x, index):
+        # type: (Any, int) -> Any
+        """Remember the alternative a dissected value was read as.
+
+        Two alternatives of the same type are told apart by their position
+        alone, which the value does not carry: without this, rebuilding a
+        dissected value would pick the first alternative of its type.
+        """
+        if isinstance(x, ASN1_Object):
+            x.asn1_choice_index = index
+        return x
 
     def alternative_index(self, x):
         # type: (Any) -> Optional[int]
         """Position in choice_order of the alternative that carries x."""
-        for index, choice in enumerate(self.choices.values()):
-            if isinstance(choice, type):
-                if hasattr(choice, "ASN1_root"):
-                    # ASN1_Packet subclass
-                    if isinstance(x, choice):
-                        return index
-                elif isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
-                    # ASN1F_field subclass
-                    return index
-            elif isinstance(x, choice.cls):
-                # ASN1F_PACKET instance, holding a tagged packet
+        index = getattr(x, "asn1_choice_index", None)
+        if (
+            index is not None and index < len(self.choice_list) and
+            self._alternative_carries(self.choice_list[index], x)
+        ):
+            return cast(int, index)
+        for index, choice in enumerate(self.choice_list):
+            if self._alternative_carries(choice, x):
                 return index
         return None
-
-    @property
-    def choice_list(self):
-        # type: () -> List[_CHOICE_T]
-        return list(self.choices.values())
 
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Object[Any], bytes]
