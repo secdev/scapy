@@ -457,36 +457,28 @@ assert BERcodec_STRING.enc(b"x", uper_max=10) == BERcodec_STRING.enc(b"x")
 BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1), uper_min=0) == BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1))
 
 + ASN.1 codec tagging contract
-= BER tagging is exposed on the codec
-assert ASN1_Codecs.BER.tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\xa0\x01\x05"
-diff, payload = ASN1_Codecs.BER.tagging_dec(
-    b"\xa0\x01\x05", hidden_tag=2, implicit_tag=0xA0
-)
+= BER hooks the tagging of a field
+tagging_enc = ASN1_Codecs.BER.field_hook("tagging_enc")
+
+assert tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\xa0\x01\x05"
+
+tagging_dec = ASN1_Codecs.BER.field_hook("tagging_dec")
+
+diff, payload = tagging_dec(b"\xa0\x01\x05", hidden_tag=2, implicit_tag=0xA0)
+
 diff is None and payload == b"\x02\x01\x05"
 
-= identity tagging for PER-style codecs
-def _id_tagging_enc(s, **kwargs):
-    return s
+= a codec that hooks no tagging leaves the encoding alone
+class _NoHooks:
+    ASN1_codec = ASN1_Codecs.CER
 
-def _id_tagging_dec(s, **kwargs):
-    return None, s
+assert ASN1_Codecs.CER.field_hook("tagging_enc") is None
 
-# Save/restore: asn1.uts may already have loaded contrib UPER tagging.
-_prev_tagging_enc = getattr(ASN1_Codecs.PER, "_tagging_enc", None)
-_prev_tagging_dec = getattr(ASN1_Codecs.PER, "_tagging_dec", None)
-ASN1_Codecs.PER.register_tagging(_id_tagging_enc, _id_tagging_dec)
-try:
-    assert ASN1_Codecs.PER.tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\x02\x01\x05"
-    diff, payload = ASN1_Codecs.PER.tagging_dec(
-        b"\x02\x01\x05", hidden_tag=2, explicit_tag=0xA1
-    )
-    assert diff is None and payload == b"\x02\x01\x05"
-finally:
-    if _prev_tagging_enc is not None and _prev_tagging_dec is not None:
-        ASN1_Codecs.PER.register_tagging(_prev_tagging_enc, _prev_tagging_dec)
-    else:
-        del ASN1_Codecs.PER._tagging_enc
-        del ASN1_Codecs.PER._tagging_dec
+fld = ASN1F_INTEGER("n", 0, explicit_tag=0xA0)
+
+assert fld._tagging_enc(_NoHooks(), b"\x02\x01\x05", explicit_tag=0xA0) == b"\x02\x01\x05"
+
+fld._tagging_dec(_NoHooks(), b"\x02\x01\x05", explicit_tag=0xA0) == (None, b"\x02\x01\x05")
 
 = field _codec_kwargs and object-enc hooks
 class P(ASN1_Packet):
