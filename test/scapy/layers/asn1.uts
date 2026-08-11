@@ -480,7 +480,7 @@ for cls, data_hex in [
     (
         OERRecord,
         "80"
-        "012aff026869a00107"
+        "012aff0268690107"
         "0103010101020103",
     ),
     (
@@ -563,3 +563,34 @@ assert ASN1_Codecs.PER._field_hooks is not None
 
 True
 
+= ber oer per default component
+class _BerDefault(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("a", 1),
+        ASN1F_DEFAULT(ASN1F_INTEGER("b", 7), 7),
+    )
+
+class _OerDefault(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("a", 1),
+        ASN1F_DEFAULT(ASN1F_INTEGER("b", 7), 7),
+    )
+
+class _PerDefault(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("a", 1),
+        ASN1F_DEFAULT(ASN1F_INTEGER("b", 7), 7),
+    )
+
+# A component holding its default value is not encoded, and comes back as the
+# default when the encoding does not carry it.
+for cls in (_BerDefault, _OerDefault, _PerDefault):
+    assert len(raw(cls(a=1, b=7))) < len(raw(cls(a=1, b=9)))
+    absent = _roundtrip(cls, cls(a=1, b=7)).b
+    assert getattr(absent, "val", absent) == 7
+    assert _roundtrip(cls, cls(a=1, b=9)).b.val == 9
+
+True
