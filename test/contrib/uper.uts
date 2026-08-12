@@ -2786,15 +2786,13 @@ True
 
 + ASN.1 UPER field hooks and packet extras
 = uper field hooks registered
-assert hasattr(ASN1_Codecs.PER, "_field_hooks")
+assert ASN1_Codecs.hooks[ASN1_Codecs.PER]
 
-assert ASN1_Codecs.PER._field_hooks is not None
+assert ASN1_Codecs.PER.hook("sequence_m2i") is not None
 
-assert hasattr(ASN1_Codecs.PER._field_hooks, "sequence_m2i")
+use_object_enc = ASN1_Codecs.PER.hook("use_object_enc")
 
-assert hasattr(ASN1_Codecs.PER._field_hooks, "use_object_enc")
-
-assert ASN1_Codecs.PER._field_hooks.use_object_enc(
+assert use_object_enc(
     UPERConstrainedInt.ASN1_root, UPERConstrainedInt(), ASN1_INTEGER(1),
 ) is False
 

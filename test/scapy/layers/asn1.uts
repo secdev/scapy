@@ -553,13 +553,13 @@ for cls in (BEREmptySeqOf, OEREmptySeqOf, PEREmptySeqOf):
 True
 
 = field hooks present after contrib load
-assert hasattr(ASN1_Codecs.OER, "_field_hooks")
+assert ASN1_Codecs.hooks[ASN1_Codecs.OER]
 
-assert hasattr(ASN1_Codecs.PER, "_field_hooks")
+assert ASN1_Codecs.hooks[ASN1_Codecs.PER]
 
-assert ASN1_Codecs.OER._field_hooks is not None
+assert ASN1_Codecs.OER.hook("sequence_m2i") is not None
 
-assert ASN1_Codecs.PER._field_hooks is not None
+assert ASN1_Codecs.PER.hook("sequence_m2i") is not None
 
 True
 

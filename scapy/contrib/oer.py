@@ -453,8 +453,8 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
 
 # No tagging hook: X.696 encodes no tag for a component, whatever the tagging
 # environment of the module, so a field is left alone. The only tag on the
-# wire is the one of a chosen CHOICE alternative, which _OER_FieldHooks writes
-# itself.
+# wire is the one of a chosen CHOICE alternative, which the CHOICE hooks below
+# write themselves.
 ASN1_Codecs.OER.register_stem(OERcodec_Object)
 
 
@@ -838,135 +838,138 @@ def _field_extensible(field):
     return bool(getattr(field, "codec_opts", {}).get("oer_extensible", False))
 
 
-class _OER_FieldHooks(object):
-    """Compound ASN1F_* helpers for OER (kept out of asn1fields.py)."""
-
-    @staticmethod
-    def sequence_m2i(field, pkt, s):
-        # type: (Any, Any, bytes) -> Tuple[Any, bytes]
-        from scapy.asn1fields import ASN1F_badsequence, ASN1F_optional
-        s = field._apply_tagging_dec(s, pkt, _fname=pkt.name)
-        if not s:
-            for obj in field.seq:
-                obj.set_val(pkt, None)
-            return [], s
-        presence, s = OER_preamble_dec(
-            s, _field_extensible(field),
-            len(field.optionals),
-        )
-        opt_index = 0
+def _oer_sequence_m2i(field, pkt, s):
+    # type: (Any, Any, bytes) -> Tuple[Any, bytes]
+    from scapy.asn1fields import ASN1F_badsequence, ASN1F_optional
+    s = field._apply_tagging_dec(s, pkt, _fname=pkt.name)
+    if not s:
         for obj in field.seq:
-            target = obj
-            if isinstance(obj, ASN1F_optional):
-                present = presence[opt_index]
-                opt_index += 1
-                if not present:
-                    obj.set_absent(pkt)
-                    continue
-                # The preamble already said the component is there, so dissect
-                # it directly: a failure is an error, not an absence.
-                target = obj._field
-            try:
-                s = target.dissect(pkt, s)
-            except ASN1F_badsequence:
-                break
+            obj.set_val(pkt, None)
         return [], s
-
-    @staticmethod
-    def sequence_build(field, pkt):
-        # type: (Any, Any) -> bytes
-        from scapy.asn1fields import ASN1F_field, ASN1F_optional
-        optionals = field.optionals
-        s = OER_preamble_enc(
-            _field_extensible(field),
-            [not opt.is_empty(pkt) for opt in optionals],
-        )
-        for obj in field.seq:
-            if isinstance(obj, ASN1F_optional) and obj.is_empty(pkt):
+    presence, s = OER_preamble_dec(
+        s, _field_extensible(field),
+        len(field.optionals),
+    )
+    opt_index = 0
+    for obj in field.seq:
+        target = obj
+        if isinstance(obj, ASN1F_optional):
+            present = presence[opt_index]
+            opt_index += 1
+            if not present:
+                obj.set_absent(pkt)
                 continue
-            s += obj.build(pkt)
-        # Through ASN1F_field, as ASN1F_SEQUENCE.i2m is the hook above
-        return ASN1F_field.i2m(field, pkt, s)
+            # The preamble already said the component is there, so dissect
+            # it directly: a failure is an error, not an absence.
+            target = obj._field
+        try:
+            s = target.dissect(pkt, s)
+        except ASN1F_badsequence:
+            break
+    return [], s
 
-    @staticmethod
-    def sequence_of_m2i(field, pkt, s):
-        # type: (Any, Any, bytes) -> Tuple[list, bytes]
-        s = field._apply_tagging_dec(s, pkt)
-        count, s = OER_unsigned_integer_dec(s)
-        lst = []
-        for _ in range(count):
-            c, s = field._extract_packet(s, pkt)
-            if c:
-                lst.append(c)
-        return lst, s
 
-    @staticmethod
-    def sequence_of_build(field, pkt):
-        # type: (Any, Any) -> bytes
-        from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_Object
-        val = getattr(pkt, field.name)
-        if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
-            s = val  # type: Any
-        else:
-            items = [
-                bytes(item) if field.holds_packets else field.fld.i2m(pkt, item)
-                for item in val or []
-            ]
-            s = OER_unsigned_integer_enc(len(items)) + b"".join(items)
-        return field.i2m(pkt, s)
+def _oer_sequence_build(field, pkt):
+    # type: (Any, Any) -> bytes
+    from scapy.asn1fields import ASN1F_field, ASN1F_optional
+    optionals = field.optionals
+    s = OER_preamble_enc(
+        _field_extensible(field),
+        [not opt.is_empty(pkt) for opt in optionals],
+    )
+    for obj in field.seq:
+        if isinstance(obj, ASN1F_optional) and obj.is_empty(pkt):
+            continue
+        s += obj.build(pkt)
+    # Through ASN1F_field, as ASN1F_SEQUENCE.i2m is the hook above
+    return ASN1F_field.i2m(field, pkt, s)
 
-    @staticmethod
-    def choice_m2i(field, pkt, s):
-        # type: (Any, Any, bytes) -> Tuple[Any, bytes]
-        from scapy.asn1fields import ASN1F_field
-        from scapy.asn1.asn1 import ASN1_Error
-        s = field._apply_tagging_dec(s, pkt)
-        tag_class, tag_number, payload = OER_tag_dec(s)
-        choice = None
-        for key, alternative in field.choices.items():
-            if _OER_tag_parts(key) == (tag_class, tag_number):
-                choice = alternative
-                break
-        if choice is None:
-            if not field.flexible_tag:
-                raise ASN1_Error(
-                    "ASN1F_CHOICE: unexpected field in '%s' "
-                    "(tag %s not in possible tags %s)" % (
-                        field.name, tag_class | tag_number,
-                        list(field.choices.keys())
-                    )
+
+def _oer_sequence_of_m2i(field, pkt, s):
+    # type: (Any, Any, bytes) -> Tuple[list, bytes]
+    s = field._apply_tagging_dec(s, pkt)
+    count, s = OER_unsigned_integer_dec(s)
+    lst = []
+    for _ in range(count):
+        c, s = field._extract_packet(s, pkt)
+        if c:
+            lst.append(c)
+    return lst, s
+
+
+def _oer_sequence_of_build(field, pkt):
+    # type: (Any, Any) -> bytes
+    from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_Object
+    val = getattr(pkt, field.name)
+    if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
+        s = val  # type: Any
+    else:
+        items = [
+            bytes(item) if field.holds_packets else field.fld.i2m(pkt, item)
+            for item in val or []
+        ]
+        s = OER_unsigned_integer_enc(len(items)) + b"".join(items)
+    return field.i2m(pkt, s)
+
+
+def _oer_choice_m2i(field, pkt, s):
+    # type: (Any, Any, bytes) -> Tuple[Any, bytes]
+    from scapy.asn1fields import ASN1F_field
+    from scapy.asn1.asn1 import ASN1_Error
+    s = field._apply_tagging_dec(s, pkt)
+    tag_class, tag_number, payload = OER_tag_dec(s)
+    choice = None
+    for key, alternative in field.choices.items():
+        if _OER_tag_parts(key) == (tag_class, tag_number):
+            choice = alternative
+            break
+    if choice is None:
+        if not field.flexible_tag:
+            raise ASN1_Error(
+                "ASN1F_CHOICE: unexpected field in '%s' "
+                "(tag %s not in possible tags %s)" % (
+                    field.name, tag_class | tag_number,
+                    list(field.choices.keys())
                 )
-            choice = ASN1F_field
-        if hasattr(choice, "ASN1_root"):
-            return field.extract_packet(choice, payload, _underlayer=pkt)
-        if isinstance(choice, type):
-            return choice(field.name, b"").m2i(pkt, payload)
-        # ASN1F_PACKET instance: X.696 20.2 puts the alternative tag in front
-        # of the value, so it was consumed above and must not be looked for
-        # again by the field itself.
-        return field.extract_packet(
-            choice._resolve_cls(pkt), payload, _underlayer=pkt,
-        )
+            )
+        choice = ASN1F_field
+    if hasattr(choice, "ASN1_root"):
+        return field.extract_packet(choice, payload, _underlayer=pkt)
+    if isinstance(choice, type):
+        return choice(field.name, b"").m2i(pkt, payload)
+    # ASN1F_PACKET instance: X.696 20.2 puts the alternative tag in front
+    # of the value, so it was consumed above and must not be looked for
+    # again by the field itself.
+    return field.extract_packet(
+        choice._resolve_cls(pkt), payload, _underlayer=pkt,
+    )
 
-    @staticmethod
-    def choice_i2m(field, pkt, x):
-        # type: (Any, Any, Any) -> bytes
-        from scapy.asn1.asn1 import ASN1_Object
-        if x is None:
-            s = b""
+
+def _oer_choice_i2m(field, pkt, x):
+    # type: (Any, Any, Any) -> bytes
+    from scapy.asn1.asn1 import ASN1_Object
+    if x is None:
+        s = b""
+    else:
+        if isinstance(x, ASN1_Object):
+            s = x.enc(pkt.ASN1_codec)
         else:
-            if isinstance(x, ASN1_Object):
-                s = x.enc(pkt.ASN1_codec)
-            else:
-                s = bytes(x)
-            index = field.alternative_index(x)
-            if index is not None:
-                # X.696 20.2: the chosen alternative is prefixed with its tag
-                tag_class, tag_number = _OER_tag_parts(
-                    field.choice_order[index]
-                )
-                s = OER_tag_enc(tag_number, tag_class) + s
-        return field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag)
+            s = bytes(x)
+        index = field.alternative_index(x)
+        if index is not None:
+            # X.696 20.2: the chosen alternative is prefixed with its tag
+            tag_class, tag_number = _OER_tag_parts(
+                field.choice_order[index]
+            )
+            s = OER_tag_enc(tag_number, tag_class) + s
+    return field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag)
 
 
-ASN1_Codecs.OER.register_field_hooks(_OER_FieldHooks)
+ASN1_Codecs.OER.register_hooks(
+    sequence_m2i=_oer_sequence_m2i,
+    sequence_build=_oer_sequence_build,
+    sequence_of_m2i=_oer_sequence_of_m2i,
+    sequence_of_build=_oer_sequence_of_build,
+    choice_m2i=_oer_choice_m2i,
+    choice_i2m=_oer_choice_i2m,
+)

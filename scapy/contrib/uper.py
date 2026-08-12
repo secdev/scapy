@@ -1044,244 +1044,240 @@ def _uper_decode_all(s, read):
     return value
 
 
-class _UPER_FieldHooks(object):
-    """Compound ASN1F_* helpers for UPER/PER (kept out of asn1fields.py)."""
+def _uper_use_object_enc(field, pkt, item):
+    # type: (Any, Any, Any) -> bool
+    # Always pass constraints through codec.enc(**kwargs).
+    return False
 
-    @staticmethod
-    def use_object_enc(field, pkt, item):
-        # type: (Any, Any, Any) -> bool
-        # Always pass constraints through codec.enc(**kwargs).
-        return False
 
-    @staticmethod
-    def sequence_m2i(field, pkt, s):
-        # type: (Any, Any, bytes) -> Tuple[Any, bytes]
-        _uper_decode_all(s, lambda dec: (
-            _UPER_FieldHooks.sequence_dissect_from_decoder(field, pkt, dec)
-        ))
-        return [], b""
+def _uper_sequence_m2i(field, pkt, s):
+    # type: (Any, Any, bytes) -> Tuple[Any, bytes]
+    _uper_decode_all(s, lambda dec: (
+        _uper_sequence_dissect_from_decoder(field, pkt, dec)
+    ))
+    return [], b""
 
-    @staticmethod
-    def sequence_build(field, pkt):
-        # type: (Any, Any) -> bytes
-        from scapy.asn1fields import ASN1F_field
-        enc = UPER_Encoder()
-        _UPER_FieldHooks.sequence_encode_into(field, enc, pkt)
-        return ASN1F_field.i2m(field, pkt, enc.as_bytes())
 
-    @staticmethod
-    def sequence_dissect_from_decoder(field, pkt, dec):
-        # type: (Any, Any, Any) -> None
-        from scapy.asn1fields import ASN1F_badsequence, ASN1F_optional
-        if _field_extensible(field):
-            if dec.read_bit():
-                raise UPER_Decoding_Error(
-                    "ASN1F_SEQUENCE: extension additions are not supported"
-                )
-        optionals = field.optionals
-        presence = [dec.read_bit() for _ in optionals]
-        opt_idx = 0
-        for obj in field.seq:
-            if isinstance(obj, ASN1F_optional):
-                if not presence[opt_idx]:
-                    obj.set_absent(pkt)
-                    opt_idx += 1
-                    continue
+def _uper_sequence_build(field, pkt):
+    # type: (Any, Any) -> bytes
+    from scapy.asn1fields import ASN1F_field
+    enc = UPER_Encoder()
+    _uper_sequence_encode_into(field, enc, pkt)
+    return ASN1F_field.i2m(field, pkt, enc.as_bytes())
+
+
+def _uper_sequence_dissect_from_decoder(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
+    from scapy.asn1fields import ASN1F_badsequence, ASN1F_optional
+    if _field_extensible(field):
+        if dec.read_bit():
+            raise UPER_Decoding_Error(
+                "ASN1F_SEQUENCE: extension additions are not supported"
+            )
+    optionals = field.optionals
+    presence = [dec.read_bit() for _ in optionals]
+    opt_idx = 0
+    for obj in field.seq:
+        if isinstance(obj, ASN1F_optional):
+            if not presence[opt_idx]:
+                obj.set_absent(pkt)
                 opt_idx += 1
-            try:
-                obj.dissect_from_decoder(pkt, dec)
-            except ASN1F_badsequence:
-                break
-
-    @staticmethod
-    def sequence_encode_into(field, enc, pkt, value=None):
-        # type: (Any, Any, Any, Any) -> None
-        from scapy.asn1fields import ASN1F_optional
-        if _field_extensible(field):
-            enc.append_bit(0)
-        for opt in field.optionals:
-            enc.append_bit(0 if opt.is_empty(pkt) else 1)
-        for obj in field.seq:
-            if isinstance(obj, ASN1F_optional) and obj.is_empty(pkt):
                 continue
-            obj.encode_into(enc, pkt)
+            opt_idx += 1
+        try:
+            obj.dissect_from_decoder(pkt, dec)
+        except ASN1F_badsequence:
+            break
 
-    @staticmethod
-    def sequence_of_m2i(field, pkt, s):
-        # type: (Any, Any, bytes) -> Tuple[list, bytes]
-        return _uper_decode_all(s, lambda dec: (
-            _UPER_FieldHooks.sequence_of_m2i_from_decoder(field, pkt, dec)
-        )), b""
 
-    @staticmethod
-    def sequence_of_build(field, pkt):
-        # type: (Any, Any) -> bytes
-        from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_Object
-        val = getattr(pkt, field.name)
-        if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
-            s = val  # type: Any
-        else:
-            # An unset field counts as an empty one, size constraint included
-            enc = UPER_Encoder()
-            _UPER_FieldHooks.sequence_of_encode_into(field, enc, pkt, val)
-            s = enc.as_bytes()
-        return field.i2m(pkt, s)
+def _uper_sequence_encode_into(field, enc, pkt, value=None):
+    # type: (Any, Any, Any, Any) -> None
+    from scapy.asn1fields import ASN1F_optional
+    if _field_extensible(field):
+        enc.append_bit(0)
+    for opt in field.optionals:
+        enc.append_bit(0 if opt.is_empty(pkt) else 1)
+    for obj in field.seq:
+        if isinstance(obj, ASN1F_optional) and obj.is_empty(pkt):
+            continue
+        obj.encode_into(enc, pkt)
 
-    @staticmethod
-    def sequence_of_m2i_from_decoder(field, pkt, dec):
-        # type: (Any, Any, Any) -> list
-        lst = []
 
-        def read_items(count):
-            # type: (int) -> None
-            for _ in range(count):
-                item = _extract_packet_from_decoder(field, dec, pkt)
-                lst.append(item)
+def _uper_sequence_of_m2i(field, pkt, s):
+    # type: (Any, Any, bytes) -> Tuple[list, bytes]
+    return _uper_decode_all(s, lambda dec: (
+        _uper_sequence_of_m2i_from_decoder(field, pkt, dec)
+    )), b""
 
-        if _field_extensible(field) and dec.read_bit():
-            dec.read_fragmented(read_items)
-        else:
-            _uper_count_dec(field, dec, read_items)
-        return lst
 
-    @staticmethod
-    def sequence_of_encode_into(field, enc, pkt, value=None):
-        # type: (Any, Any, Any, Any) -> None
-        if value is None:
-            value = getattr(pkt, field.name)
-        if value is None:
-            _uper_count_enc(field, enc, 0, lambda offset, size: None)
-            return
-        count = len(value)
+def _uper_sequence_of_build(field, pkt):
+    # type: (Any, Any) -> bytes
+    from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_Object
+    val = getattr(pkt, field.name)
+    if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
+        s = val  # type: Any
+    else:
+        # An unset field counts as an empty one, size constraint included
+        enc = UPER_Encoder()
+        _uper_sequence_of_encode_into(field, enc, pkt, val)
+        s = enc.as_bytes()
+    return field.i2m(pkt, s)
 
-        def append_items(offset, size):
-            # type: (int, int) -> None
-            for item in value[offset:offset + size]:
-                if field.holds_packets:
-                    item.ASN1_root.encode_into(enc, item)
-                else:
-                    field.fld.encode_into(enc, pkt, item)
 
-        uper_min, uper_max = _field_range(field)
-        if _field_extensible(field):
-            if (
-                    uper_min is not None and uper_max is not None and
-                    uper_min <= count <= uper_max
-            ):
-                enc.append_bit(0)
+def _uper_sequence_of_m2i_from_decoder(field, pkt, dec):
+    # type: (Any, Any, Any) -> list
+    lst = []
+
+    def read_items(count):
+        # type: (int) -> None
+        for _ in range(count):
+            item = _extract_packet_from_decoder(field, dec, pkt)
+            lst.append(item)
+
+    if _field_extensible(field) and dec.read_bit():
+        dec.read_fragmented(read_items)
+    else:
+        _uper_count_dec(field, dec, read_items)
+    return lst
+
+
+def _uper_sequence_of_encode_into(field, enc, pkt, value=None):
+    # type: (Any, Any, Any, Any) -> None
+    if value is None:
+        value = getattr(pkt, field.name)
+    if value is None:
+        _uper_count_enc(field, enc, 0, lambda offset, size: None)
+        return
+    count = len(value)
+
+    def append_items(offset, size):
+        # type: (int, int) -> None
+        for item in value[offset:offset + size]:
+            if field.holds_packets:
+                item.ASN1_root.encode_into(enc, item)
             else:
-                enc.append_bit(1)
-                enc.append_fragmented(count, append_items)
-                return
-        _uper_count_enc(field, enc, count, append_items)
+                field.fld.encode_into(enc, pkt, item)
 
-    @staticmethod
-    def choice_m2i(field, pkt, s):
-        # type: (Any, Any, bytes) -> Tuple[Any, bytes]
-        return _uper_decode_all(s, lambda dec: (
-            _UPER_FieldHooks.choice_m2i_from_decoder(field, pkt, dec)
-        )), b""
-
-    @staticmethod
-    def choice_i2m(field, pkt, x):
-        # type: (Any, Any, Any) -> bytes
-        if x is None:
-            s = b""
-        else:
-            enc = UPER_Encoder()
-            _UPER_FieldHooks.choice_encode_into(field, enc, pkt, x)
-            s = enc.as_bytes()
-        return field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag)
-
-    @staticmethod
-    def choice_m2i_from_decoder(field, pkt, dec):
-        # type: (Any, Any, Any) -> Any
-        from scapy.asn1.asn1 import ASN1_Error
-        if _field_extensible(field):
-            if dec.read_bit():
-                raise UPER_Decoding_Error(
-                    "ASN1F_CHOICE: extension additions are not supported"
-                )
-        order = field.choice_order
-        if len(order) > 1:
-            index = UPER_choice_index_dec(dec, len(order))
-        else:
-            index = 0
-        if index >= len(order):
-            raise ASN1_Error(
-                "ASN1F_CHOICE: unexpected index %s in '%s'" %
-                (index, field.name)
-            )
-        choice = field.choice_list[index]
-        if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
-            p = choice()
-            p.add_underlayer(pkt)
-            p.ASN1_root.dissect_from_decoder(p, dec)
-            return p
-        if isinstance(choice, type):
-            return choice(field.name, b"").m2i_from_decoder(pkt, dec)
-        return choice.m2i_from_decoder(pkt, dec)
-
-    @staticmethod
-    def choice_encode_into(field, enc, pkt, value=None):
-        # type: (Any, Any, Any, Any) -> None
-        from scapy.asn1.asn1 import ASN1_Error
-        if value is None:
-            value = getattr(pkt, field.name)
-        index = field.alternative_index(value)
-        if index is None:
-            raise ASN1_Error(
-                "ASN1F_CHOICE: cannot encode unknown alternative in '%s'" %
-                field.name
-            )
-        if _field_extensible(field):
+    uper_min, uper_max = _field_range(field)
+    if _field_extensible(field):
+        if (
+                uper_min is not None and uper_max is not None and
+                uper_min <= count <= uper_max
+        ):
             enc.append_bit(0)
-        order = field.choice_order
-        if len(order) > 1:
-            UPER_choice_index_enc(enc, index, len(order))
-        choice = field.choice_list[index]
-        if hasattr(choice, "ASN1_root"):
-            value.ASN1_root.encode_into(enc, value)
-        elif isinstance(choice, type):
-            choice(field.name, b"").encode_into(enc, pkt, value)
         else:
-            choice.encode_into(enc, pkt, value)
+            enc.append_bit(1)
+            enc.append_fragmented(count, append_items)
+            return
+    _uper_count_enc(field, enc, count, append_items)
 
-    @staticmethod
-    def packet_m2i_from_decoder(field, pkt, dec):
-        # type: (Any, Any, Any) -> Any
-        cls = field._resolve_cls(pkt)
-        p = cls()
+
+def _uper_choice_m2i(field, pkt, s):
+    # type: (Any, Any, bytes) -> Tuple[Any, bytes]
+    return _uper_decode_all(s, lambda dec: (
+        _uper_choice_m2i_from_decoder(field, pkt, dec)
+    )), b""
+
+
+def _uper_choice_i2m(field, pkt, x):
+    # type: (Any, Any, Any) -> bytes
+    if x is None:
+        s = b""
+    else:
+        enc = UPER_Encoder()
+        _uper_choice_encode_into(field, enc, pkt, x)
+        s = enc.as_bytes()
+    return field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag)
+
+
+def _uper_choice_m2i_from_decoder(field, pkt, dec):
+    # type: (Any, Any, Any) -> Any
+    from scapy.asn1.asn1 import ASN1_Error
+    if _field_extensible(field):
+        if dec.read_bit():
+            raise UPER_Decoding_Error(
+                "ASN1F_CHOICE: extension additions are not supported"
+            )
+    order = field.choice_order
+    if len(order) > 1:
+        index = UPER_choice_index_dec(dec, len(order))
+    else:
+        index = 0
+    if index >= len(order):
+        raise ASN1_Error(
+            "ASN1F_CHOICE: unexpected index %s in '%s'" %
+            (index, field.name)
+        )
+    choice = field.choice_list[index]
+    if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
+        p = choice()
         p.add_underlayer(pkt)
         p.ASN1_root.dissect_from_decoder(p, dec)
         return p
+    if isinstance(choice, type):
+        return choice(field.name, b"").m2i_from_decoder(pkt, dec)
+    return choice.m2i_from_decoder(pkt, dec)
 
-    @staticmethod
-    def packet_i2m(field, pkt, x):
-        # type: (Any, Any, Any) -> bytes
-        if x is None:
-            s = b""
-        else:
-            enc = UPER_Encoder()
-            _UPER_FieldHooks.packet_encode_into(field, enc, pkt, x)
-            s = enc.as_bytes()
-        return field._tagging_enc(
-            pkt, s,
-            implicit_tag=field.implicit_tag,
-            explicit_tag=field.explicit_tag,
+
+def _uper_choice_encode_into(field, enc, pkt, value=None):
+    # type: (Any, Any, Any, Any) -> None
+    from scapy.asn1.asn1 import ASN1_Error
+    if value is None:
+        value = getattr(pkt, field.name)
+    index = field.alternative_index(value)
+    if index is None:
+        raise ASN1_Error(
+            "ASN1F_CHOICE: cannot encode unknown alternative in '%s'" %
+            field.name
         )
-
-    @staticmethod
-    def packet_encode_into(field, enc, pkt, value=None):
-        # type: (Any, Any, Any, Any) -> None
-        from scapy.asn1.asn1 import ASN1_Object
-        if value is None:
-            value = getattr(pkt, field.name)
-        if value is None:
-            return
-        if isinstance(value, ASN1_Object):
-            value = value.val
+    if _field_extensible(field):
+        enc.append_bit(0)
+    order = field.choice_order
+    if len(order) > 1:
+        UPER_choice_index_enc(enc, index, len(order))
+    choice = field.choice_list[index]
+    if hasattr(choice, "ASN1_root"):
         value.ASN1_root.encode_into(enc, value)
+    elif isinstance(choice, type):
+        choice(field.name, b"").encode_into(enc, pkt, value)
+    else:
+        choice.encode_into(enc, pkt, value)
+
+
+def _uper_packet_m2i_from_decoder(field, pkt, dec):
+    # type: (Any, Any, Any) -> Any
+    cls = field._resolve_cls(pkt)
+    p = cls()
+    p.add_underlayer(pkt)
+    p.ASN1_root.dissect_from_decoder(p, dec)
+    return p
+
+
+def _uper_packet_i2m(field, pkt, x):
+    # type: (Any, Any, Any) -> bytes
+    if x is None:
+        s = b""
+    else:
+        enc = UPER_Encoder()
+        _uper_packet_encode_into(field, enc, pkt, x)
+        s = enc.as_bytes()
+    return field._tagging_enc(
+        pkt, s,
+        implicit_tag=field.implicit_tag,
+        explicit_tag=field.explicit_tag,
+    )
+
+
+def _uper_packet_encode_into(field, enc, pkt, value=None):
+    # type: (Any, Any, Any, Any) -> None
+    from scapy.asn1.asn1 import ASN1_Object
+    if value is None:
+        value = getattr(pkt, field.name)
+    if value is None:
+        return
+    if isinstance(value, ASN1_Object):
+        value = value.val
+    value.ASN1_root.encode_into(enc, value)
 
 
 def _uper_count_enc(field, enc, count, append_items):
@@ -1365,7 +1361,6 @@ def _install_uper_asn1fields():
         # type: (Any, Any, Any, Any) -> None
         self._field.encode_into(enc, pkt, value)
 
-    hooks = _UPER_FieldHooks
     for field_cls, methods in (
         (af.ASN1F_field, {
             "m2i_from_decoder": m2i_from_decoder,
@@ -1373,20 +1368,20 @@ def _install_uper_asn1fields():
             "encode_into": encode_into,
         }),
         (af.ASN1F_SEQUENCE, {
-            "dissect_from_decoder": hooks.sequence_dissect_from_decoder,
-            "encode_into": hooks.sequence_encode_into,
+            "dissect_from_decoder": _uper_sequence_dissect_from_decoder,
+            "encode_into": _uper_sequence_encode_into,
         }),
         (af.ASN1F_SEQUENCE_OF, {
-            "m2i_from_decoder": hooks.sequence_of_m2i_from_decoder,
-            "encode_into": hooks.sequence_of_encode_into,
+            "m2i_from_decoder": _uper_sequence_of_m2i_from_decoder,
+            "encode_into": _uper_sequence_of_encode_into,
         }),
         (af.ASN1F_CHOICE, {
-            "m2i_from_decoder": hooks.choice_m2i_from_decoder,
-            "encode_into": hooks.choice_encode_into,
+            "m2i_from_decoder": _uper_choice_m2i_from_decoder,
+            "encode_into": _uper_choice_encode_into,
         }),
         (af.ASN1F_PACKET, {
-            "m2i_from_decoder": hooks.packet_m2i_from_decoder,
-            "encode_into": hooks.packet_encode_into,
+            "m2i_from_decoder": _uper_packet_m2i_from_decoder,
+            "encode_into": _uper_packet_encode_into,
         }),
         (af.ASN1F_optional, {
             "dissect_from_decoder": opt_dissect_from_decoder,
@@ -1405,7 +1400,7 @@ def _install_uper_asn1fields():
         # definition, so they are only added for PER packets. Other codecs
         # keep an empty codec_opts and their item.enc() fast path.
         codec = getattr(pkt, "ASN1_codec", None)
-        if getattr(codec, "_field_hooks", None) is _UPER_FieldHooks:
+        if codec is ASN1_Codecs.PER:
             # X.691 14.1: the index follows the enumeration values in
             # ascending order, whatever order they were declared in.
             kwargs.setdefault("uper_enum_values", sorted(self.i2s))
@@ -1415,4 +1410,13 @@ def _install_uper_asn1fields():
 
 
 _install_uper_asn1fields()
-ASN1_Codecs.PER.register_field_hooks(_UPER_FieldHooks)
+ASN1_Codecs.PER.register_hooks(
+    use_object_enc=_uper_use_object_enc,
+    sequence_m2i=_uper_sequence_m2i,
+    sequence_build=_uper_sequence_build,
+    sequence_of_m2i=_uper_sequence_of_m2i,
+    sequence_of_build=_uper_sequence_of_build,
+    choice_m2i=_uper_choice_m2i,
+    choice_i2m=_uper_choice_i2m,
+    packet_i2m=_uper_packet_i2m,
+)
