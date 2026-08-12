@@ -122,29 +122,21 @@ class ASN1_BadTag_Decoding_Error(ASN1_Decoding_Error):
 
 
 class ASN1Codec(EnumElement):
-    # Class-level default: EnumElement.__getattr__ forwards unknown attributes
-    # to its int value, so a missing _field_hooks would raise (and swallow) an
-    # AttributeError on every field operation.
-    _field_hooks = None  # type: Any
-
     def register_stem(cls, stem):
         # type: (Type[BERcodec_Object[Any]]) -> None
         cls._stem = stem
 
-    def register_field_hooks(cls, hooks):
-        # type: (Any) -> None
+    def register_hooks(cls, **hooks):
+        # type: (**Any) -> None
         # Field operations a codec does its own way: the tagging of a field
         # (BER) and the compound fields (SEQUENCE/CHOICE/… in OER and PER).
-        cls._field_hooks = hooks
+        ASN1_Codecs.hooks.setdefault(cls, {}).update(hooks)
 
-    def field_hook(cls, name):
+    def hook(cls, name):
         # type: (str) -> Any
         # Hooks are optional and may be partial: missing entries mean that
         # asn1fields keeps its default implementation.
-        hooks = cls._field_hooks
-        if hooks is None:
-            return None
-        return getattr(hooks, name, None)
+        return ASN1_Codecs.hooks.get(cls, {}).get(name)
 
     def dec(cls, s, context=None, _depth=0):
         # type: (bytes, Optional[Type[ASN1_Class]], int) -> ASN1_Object[Any]
@@ -173,6 +165,9 @@ class ASN1_Codecs(metaclass=ASN1_Codecs_metaclass):
     OER = cast(ASN1Codec, 7)
     SER = cast(ASN1Codec, 8)
     XER = cast(ASN1Codec, 9)
+
+    # The field hooks of every codec, by codec then by field operation.
+    hooks = {}  # type: Dict[ASN1Codec, Dict[str, Any]]
 
 
 class ASN1Tag(EnumElement):

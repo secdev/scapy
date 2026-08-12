@@ -460,9 +460,9 @@ x, r = OERcodec_STRING.do_dec(OERcodec_STRING.enc(b"\x12\x34\x56", size_len=3), 
 x.val == b"\x12\x34\x56" and r == b""
 = OER does not encode the tag of a component
 # X.696 encodes none, so OER hooks no tagging and the field is left alone
-assert ASN1_Codecs.OER.field_hook("tagging_enc") is None
+assert ASN1_Codecs.OER.hook("tagging_enc") is None
 
-assert ASN1_Codecs.OER.field_hook("tagging_dec") is None
+assert ASN1_Codecs.OER.hook("tagging_dec") is None
 
 fld = ASN1F_INTEGER("n", 0, explicit_tag=0xA0)
 
@@ -887,13 +887,13 @@ True
 
 + ASN.1 OER field hooks and packet extras
 = oer field hooks registered
-assert hasattr(ASN1_Codecs.OER, "_field_hooks")
+assert ASN1_Codecs.hooks[ASN1_Codecs.OER]
 
-assert ASN1_Codecs.OER._field_hooks is not None
+assert ASN1_Codecs.OER.hook("sequence_m2i") is not None
 
-assert hasattr(ASN1_Codecs.OER._field_hooks, "sequence_m2i")
+assert ASN1_Codecs.OER.hook("choice_i2m") is not None
 
-assert hasattr(ASN1_Codecs.OER._field_hooks, "choice_i2m")
+assert ASN1_Codecs.OER.hook("no_such_hook") is None
 
 True
 

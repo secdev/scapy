@@ -74,7 +74,7 @@ def _field_hook(pkt, name):
     # type: (Any, str) -> Any
     # Contrib codecs (OER/UPER/…) may override compound field operations.
     # Returns None when the codec keeps the default BER behaviour.
-    return pkt.ASN1_codec.field_hook(name)
+    return pkt.ASN1_codec.hook(name)
 
 
 ##########################
