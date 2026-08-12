@@ -458,11 +458,13 @@ BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1), uper_min=0) == BERcodec_SEQUENCE.
 
 + ASN.1 codec tagging contract
 = BER hooks the tagging of a field
-tagging_enc = ASN1_Codecs.BER.field_hook("tagging_enc")
+tagging_enc = ASN1_Codecs.BER.hook("tagging_enc")
 
 assert tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\xa0\x01\x05"
 
-tagging_dec = ASN1_Codecs.BER.field_hook("tagging_dec")
+assert ASN1_Codecs.hooks[ASN1_Codecs.BER]["tagging_enc"] is tagging_enc
+
+tagging_dec = ASN1_Codecs.BER.hook("tagging_dec")
 
 diff, payload = tagging_dec(b"\xa0\x01\x05", hidden_tag=2, implicit_tag=0xA0)
 
@@ -472,7 +474,7 @@ diff is None and payload == b"\x02\x01\x05"
 class _NoHooks:
     ASN1_codec = ASN1_Codecs.CER
 
-assert ASN1_Codecs.CER.field_hook("tagging_enc") is None
+assert ASN1_Codecs.CER.hook("tagging_enc") is None
 
 fld = ASN1F_INTEGER("n", 0, explicit_tag=0xA0)
 
