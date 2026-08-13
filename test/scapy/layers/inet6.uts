@@ -461,6 +461,18 @@ a = IPv6(b'`\x00\x00\x00\x00\x10<\xff\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x0
 assert a.hashret() == b.hashret()
 assert b.answers(a)
 
+= IPv6 with DestOpt and UDP
+a = IPv6(raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/IPv6ExtHdrDestOpt()/UDP(sport=12345, dport=53)))
+b = IPv6(raw(IPv6(src="2001:db8::2", dst="2001:db8::1")/IPv6ExtHdrDestOpt()/UDP(sport=53, dport=12345)))
+assert a.hashret() == b.hashret()
+assert b.answers(a)
+
+= IPv6 with DestOpt and TCP
+a = IPv6(raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/IPv6ExtHdrDestOpt()/TCP(sport=12345, dport=80, flags="S", seq=1000)))
+b = IPv6(raw(IPv6(src="2001:db8::2", dst="2001:db8::1")/IPv6ExtHdrDestOpt()/TCP(sport=80, dport=12345, flags="SA", seq=2000, ack=1001)))
+assert a.hashret() == b.hashret()
+assert b.answers(a)
+
 = ICMPv6EchoRequest and ICMPv6EchoReply - answers() test 8 - (live) use Net6
 ~ netaccess ipv6
 
