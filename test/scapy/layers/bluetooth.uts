@@ -1002,6 +1002,45 @@ b.mysummary()
 assert ATT_Read_By_Type_Request in b
 assert not Raw in b
 
+= ATT_Hdr - truncated payload is not completed with default values
+# Normal ATT_Error_Response
+b = hex_bytes("025e2009000500040001104c000a")
+c = HCI_Hdr(b)
+assert c[ATT_Error_Response].request == 0x10
+assert c[ATT_Error_Response].handle == 0x4c
+assert c[ATT_Error_Response].ecode == 0x0a
+assert raw(c) == b
+
+# ATT_Error_Response but without body
+b = hex_bytes("025e2005000100040001")
+c = HCI_Hdr(b)
+assert c[ATT_Hdr].opcode == 0x01
+assert ATT_Error_Response not in c
+assert not Raw in c
+assert raw(c) == b
+
+# ATT_Error_Response but with truncated body
+b = hex_bytes("025e2007000300040001104c")
+c = HCI_Hdr(b)
+assert c[ATT_Hdr].opcode == 0x01
+assert ATT_Error_Response not in c
+assert Raw in c
+assert raw(c) == b
+
+= ATT_Hdr - empty payload (ATT_Write_Response)
+c = HCI_Hdr(hex_bytes("025e2005000100040013"))
+assert c[ATT_Hdr].opcode == 0x13
+assert ATT_Write_Response in c
+assert not Raw in c
+
+= HCI_Command_Hdr - empty payload (HCI_Cmd_Reset)
+c = HCI_Hdr(hex_bytes("01030c00"))
+assert c[HCI_Command_Hdr].ogf == 0x03
+assert c[HCI_Command_Hdr].ocf == 0x03
+assert c[HCI_Command_Hdr].len == 0
+assert HCI_Cmd_Reset in c
+assert not Raw in c
+
 = ATT Read_By_Type_Response
 
 pkt = HCI_Hdr(hex_bytes('0248201b001700040009070200020300002a0400020500012a0600020700042a'))
