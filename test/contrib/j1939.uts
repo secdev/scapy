@@ -4250,7 +4250,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
                                                      max_packets=0xFF,
                                                      pgn=0xFECA)))
         assert _rb_cms(_rb_drain(peer, 0.3), J1939_TP_CTRL_ABORT), \
-            "an inconsistent RTS must be answered with an abort"
+            "an RTS whose size and packet count disagree must be aborted"
 
 = A second connection request from the same peer is refused
 # J1939-21 allows one connection per peer at a time: a request for another
