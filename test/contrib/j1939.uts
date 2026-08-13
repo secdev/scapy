@@ -4040,3 +4040,328 @@ assert len(_pp_soft_rx_results) == len(_pp_native_msgs), \
 for _pi, (_pp_got, _pp_exp) in enumerate(zip(_pp_soft_rx_results, _pp_native_msgs)):
     assert _pp_got.data == _pp_exp, \
         "Soft rx msg %d: %r != %r" % (_pi, _pp_got.data, _pp_exp)
+
+############
+############
++ J1939SoftSocket – transport-protocol robustness regression tests
+~ not_pypy
+# Each case here reproduces a defect that shipped in the first version of
+# J1939SoftSocket.  They deliberately use payloads, peers and frames that the
+# rest of the campaign never produces: transfers larger than one CTS block,
+# two ECUs talking at once, and TP.CM frames with values a hostile or buggy
+# node can put on the bus.
+
+= Robustness helpers
+
+import time as _rb_time
+from scapy.contrib.j1939 import (
+    J1939SoftSocket, J1939, J1939_CAN, J1939_TP_DT,
+    J1939_TP_CM_BAM, J1939_TP_CM_RTS, J1939_TP_CM_CTS,
+    J1939_TP_CM_ACK, J1939_TP_CM_ABORT,
+    J1939_PGN_TP_CM, J1939_PGN_TP_DT,
+    J1939_TP_CTRL_CTS, J1939_TP_CTRL_ACK, J1939_TP_CTRL_ABORT,
+)
+from scapy.error import Scapy_Exception
+from scapy.layers.can import CAN
+from test.testsocket import TestSocket, cleanup_testsockets
+import socket as _rb_socket
+
+def _rb_cm(dst, src, payload):
+    return J1939_CAN(priority=6, data_page=0,
+                     pdu_format=J1939_PGN_TP_CM >> 8, pdu_specific=dst,
+                     src=src, data=bytes(payload))
+
+def _rb_dt(dst, src, seq, data):
+    return J1939_CAN(priority=7, data_page=0,
+                     pdu_format=J1939_PGN_TP_DT >> 8, pdu_specific=dst,
+                     src=src, data=bytes(J1939_TP_DT(seq_num=seq, data=data)))
+
+def _rb_drain(sock, seconds):
+    _out = []
+    _end = _rb_time.monotonic() + seconds
+    while _rb_time.monotonic() < _end:
+        if sock.select([sock], 0):
+            _p = sock.recv()
+            if _p is not None:
+                _out.append(J1939_CAN(bytes(_p)))
+        else:
+            _rb_time.sleep(0.005)
+    return _out
+
+def _rb_dts(frames):
+    return [f for f in frames if f.pdu_format == (J1939_PGN_TP_DT >> 8)]
+
+def _rb_cms(frames, ctrl):
+    return [f for f in frames if f.pdu_format == (J1939_PGN_TP_CM >> 8) and
+            bytes(f.data)[0] == ctrl]
+
+True
+
+= A payload larger than the transport protocol can carry is refused
+# 1786 bytes needs 256 TP.DT packets, one more than a sequence number can
+# express.  Building the announcement used to raise inside the scheduler
+# thread, which left the TX machine latched and silently discarded every
+# later send on the socket.
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        _rb_raised = False
+        try:
+            sock.send(J1939(b'X' * 1786, pgn=0xFECA, dst=0xFF))
+        except Scapy_Exception:
+            _rb_raised = True
+        assert _rb_raised, "an oversized payload must be refused"
+        sock.send(J1939(b'\x01\x02', pgn=0xFECA, dst=0xFF))
+        _rb_after = _rb_drain(peer, 0.3)
+        assert len(_rb_after) == 1, \
+            "socket must still transmit, got %d frames" % len(_rb_after)
+
+= The largest payload the transport protocol can carry is accepted
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        sock.send(J1939(b'X' * 1785, pgn=0xFECA, dst=0xFF))
+        _rb_bam = _rb_cms(_rb_drain(peer, 0.3), 32)
+        assert len(_rb_bam) == 1, "expected one BAM announcement"
+        _rb_ann = J1939_TP_CM_BAM(bytes(_rb_bam[0].data))
+        assert _rb_ann.num_packets == 255, \
+            "num_packets=%d" % _rb_ann.num_packets
+        assert _rb_ann.total_size == 1785, \
+            "total_size=%d" % _rb_ann.total_size
+
+= An abort from a former peer does not kill an unrelated broadcast
+# tx_peer_sa used to survive _tx_reset(), so a node that took part in an
+# earlier unicast session could abort a later BAM it has nothing to do with.
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        sock.send(J1939(b'A' * 20, pgn=0xFECA, dst=0x20))
+        _rb_drain(peer, 0.2)
+        peer.send(_rb_cm(0x10, 0x20,
+                         J1939_TP_CM_ABORT(reason=3, pgn=0xFECA)))
+        _rb_drain(peer, 0.1)
+        sock.send(J1939(b'B' * 70, pgn=0xFECA, dst=0xFF))
+        _rb_time.sleep(0.15)
+        peer.send(_rb_cm(0xFF, 0x20,
+                         J1939_TP_CM_ABORT(reason=3, pgn=0xFECA)))
+        _rb_seen = _rb_dts(_rb_drain(peer, 1.2))
+        assert len(_rb_seen) == 10, \
+            "BAM must complete, got %d of 10 TP.DT" % len(_rb_seen)
+
+= Two ECUs may run broadcast sessions at the same time
+# RX state used to be a single session, so a second BAM discarded the first.
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        peer.send(_rb_cm(0xFF, 0x20, J1939_TP_CM_BAM(total_size=14,
+                                                     num_packets=2,
+                                                     pgn=0xFECA)))
+        peer.send(_rb_cm(0xFF, 0x30, J1939_TP_CM_BAM(total_size=14,
+                                                     num_packets=2,
+                                                     pgn=0xFECB)))
+        for _rb_sa in (0x20, 0x30):
+            peer.send(_rb_dt(0xFF, _rb_sa, 1, bytes([_rb_sa]) * 7))
+            peer.send(_rb_dt(0xFF, _rb_sa, 2, bytes([_rb_sa]) * 7))
+        _rb_msgs = sock.sniff(count=2, timeout=2)
+        assert len(_rb_msgs) == 2, \
+            "both sessions must be reassembled, got %d" % len(_rb_msgs)
+        _rb_by_sa = dict((m.src, m) for m in _rb_msgs)
+        assert set(_rb_by_sa) == {0x20, 0x30}, "sources: %s" % set(_rb_by_sa)
+        assert _rb_by_sa[0x20].data == b'\x20' * 14
+        assert _rb_by_sa[0x30].data == b'\x30' * 14
+
+= close() lets a transmission longer than its old budget finish
+# The drain budget was a fixed two seconds; a 350-byte BAM is paced over
+# 2.5 s and used to be cut in half.
+
+_rb_cans = TestSocket(CAN)
+_rb_peer = TestSocket(CAN)
+_rb_cans.pair(_rb_peer)
+_rb_sock = J1939SoftSocket(_rb_cans, src_addr=0x10)
+_rb_sock.send(J1939(b'D' * 350, pgn=0xFECA, dst=0xFF))
+_rb_time.sleep(0.2)
+_rb_sock.close()
+_rb_done = _rb_dts(_rb_drain(_rb_peer, 0.3))
+_rb_cans.close()
+_rb_peer.close()
+cleanup_testsockets()
+assert len(_rb_done) == 50, \
+    "close() must not truncate the BAM, got %d of 50 TP.DT" % len(_rb_done)
+
+= A CTS naming a packet outside the message is refused
+# next_packet=0 used to index the buffer from the wrong end and put a
+# sequence number of 0 on the bus.
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        sock.send(J1939(b'C' * 20, pgn=0xFECA, dst=0x20))
+        _rb_drain(peer, 0.2)
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_CTS(num_packets=1,
+                                                     next_packet=0,
+                                                     pgn=0xFECA)))
+        _rb_reply = _rb_drain(peer, 0.4)
+        _rb_seqs = [J1939_TP_DT(bytes(f.data)).seq_num
+                    for f in _rb_dts(_rb_reply)]
+        assert 0 not in _rb_seqs, "sequence number 0 must never be sent"
+        assert _rb_cms(_rb_reply, J1939_TP_CTRL_ABORT), \
+            "an out-of-range CTS must be answered with an abort"
+
+= A CTS or an acknowledgement for another PGN is ignored
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        sock.send(J1939(b'F' * 20, pgn=0xFECA, dst=0x20))
+        _rb_drain(peer, 0.2)
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_CTS(num_packets=3,
+                                                     next_packet=1,
+                                                     pgn=0x00FFFF)))
+        assert not _rb_dts(_rb_drain(peer, 0.3)), \
+            "a CTS for a foreign PGN must not start the transfer"
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_ACK(total_size=20,
+                                                     num_packets=3,
+                                                     pgn=0x00FFFF)))
+        _rb_time.sleep(0.15)
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_CTS(num_packets=3,
+                                                     next_packet=1,
+                                                     pgn=0xFECA)))
+        assert len(_rb_dts(_rb_drain(peer, 0.4))) == 3, \
+            "the session must survive a foreign-PGN acknowledgement"
+
+= An announcement that cannot describe a message is refused
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        peer.send(_rb_cm(0xFF, 0x20, J1939_TP_CM_BAM(total_size=0,
+                                                     num_packets=0,
+                                                     pgn=0xFECA)))
+        _rb_time.sleep(0.05)
+        peer.send(_rb_dt(0xFF, 0x20, 1, b'\x00' * 7))
+        assert not sock.sniff(count=1, timeout=0.4), \
+            "a zero-packet announcement must not deliver a message"
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_RTS(total_size=9,
+                                                     num_packets=200,
+                                                     max_packets=0xFF,
+                                                     pgn=0xFECA)))
+        assert _rb_cms(_rb_drain(peer, 0.3), J1939_TP_CTRL_ABORT), \
+            "an inconsistent RTS must be answered with an abort"
+
+= A second connection request from the same peer is refused
+# J1939-21 allows one connection per peer at a time: a request for another
+# PGN must be aborted, and the transfer already running must survive it.
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_RTS(total_size=14,
+                                                     num_packets=2,
+                                                     max_packets=0xFF,
+                                                     pgn=0xFECA)))
+        _rb_drain(peer, 0.2)
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_RTS(total_size=14,
+                                                     num_packets=2,
+                                                     max_packets=0xFF,
+                                                     pgn=0xFECB)))
+        _rb_reply2 = _rb_drain(peer, 0.3)
+        assert _rb_cms(_rb_reply2, J1939_TP_CTRL_ABORT), \
+            "the second request must be aborted"
+        assert not _rb_cms(_rb_reply2, J1939_TP_CTRL_CTS), \
+            "the second request must not be authorised"
+        peer.send(_rb_dt(0x10, 0x20, 1, b'\x01' * 7))
+        peer.send(_rb_dt(0x10, 0x20, 2, b'\x02' * 7))
+        _rb_kept = sock.sniff(count=1, timeout=2)
+        assert len(_rb_kept) == 1, "the first transfer must still complete"
+        assert _rb_kept[0].pgn == 0xFECA, "PGN 0x%05X" % _rb_kept[0].pgn
+
+= The clear-to-send honours the max_packets of the request
+# The receiver used to authorise the whole transfer at once, whatever the
+# sender said it could handle, and never sent a second CTS.
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_RTS(total_size=35,
+                                                     num_packets=5,
+                                                     max_packets=2,
+                                                     pgn=0xFECA)))
+        _rb_first = _rb_cms(_rb_drain(peer, 0.3), J1939_TP_CTRL_CTS)
+        assert len(_rb_first) == 1, "expected one CTS"
+        _rb_c1 = J1939_TP_CM_CTS(bytes(_rb_first[0].data))
+        assert _rb_c1.num_packets == 2, \
+            "CTS authorised %d packets, max_packets was 2" % _rb_c1.num_packets
+        assert _rb_c1.next_packet == 1
+        peer.send(_rb_dt(0x10, 0x20, 1, b'\x01' * 7))
+        peer.send(_rb_dt(0x10, 0x20, 2, b'\x02' * 7))
+        _rb_second = _rb_cms(_rb_drain(peer, 0.4), J1939_TP_CTRL_CTS)
+        assert len(_rb_second) == 1, "expected a CTS for the next block"
+        _rb_c2 = J1939_TP_CM_CTS(bytes(_rb_second[0].data))
+        assert _rb_c2.next_packet == 3, "next_packet=%d" % _rb_c2.next_packet
+        assert _rb_c2.num_packets == 2, "num_packets=%d" % _rb_c2.num_packets
+        for _rb_i in (3, 4):
+            peer.send(_rb_dt(0x10, 0x20, _rb_i, bytes([_rb_i]) * 7))
+        _rb_drain(peer, 0.3)
+        peer.send(_rb_dt(0x10, 0x20, 5, b'\x05' * 7))
+        _rb_got = sock.sniff(count=1, timeout=2)
+        assert len(_rb_got) == 1, "the block-by-block transfer must complete"
+        assert len(_rb_got[0].data) == 35, "got %d bytes" % len(_rb_got[0].data)
+
+= Transport-protocol frames carry the requested priority
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        sock.send(J1939(b'P' * 20, pgn=0xFECA, dst=0xFF, priority=3))
+        _rb_prio = _rb_drain(peer, 0.5)
+        _rb_ann = _rb_cms(_rb_prio, 32)
+        assert _rb_ann and _rb_ann[0].priority == 3, \
+            "BAM priority %s" % (_rb_ann[0].priority if _rb_ann else None)
+        _rb_data = _rb_dts(_rb_prio)
+        assert _rb_data and _rb_data[0].priority == 3, \
+            "TP.DT priority %s" % (_rb_data[0].priority if _rb_data else None)
+
+= A caller-supplied basecls is used, and recv_raw returns the payload
+
+class _RbJ1939(J1939):
+    name = "RbJ1939"
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10, basecls=_RbJ1939) as sock:
+        peer.send(J1939_CAN(priority=6, data_page=0, pdu_format=0xFE,
+                            pdu_specific=0xCA, src=0x20, data=b'\x01\x02'))
+        _rb_pkt = sock.recv()
+        assert isinstance(_rb_pkt, _RbJ1939), \
+            "basecls ignored, got %s" % type(_rb_pkt).__name__
+        peer.send(J1939_CAN(priority=6, data_page=0, pdu_format=0xFE,
+                            pdu_specific=0xCA, src=0x20, data=b'\x03\x04'))
+        _rb_cls, _rb_data, _rb_ts = sock.recv_raw()
+        assert _rb_cls is _RbJ1939, "recv_raw class %s" % _rb_cls
+        assert _rb_data == b'\x03\x04', "recv_raw data %r" % _rb_data
+        assert _rb_ts is not None
+
+= Losing the CAN socket closes the J1939 socket
+
+_rb_cans2 = TestSocket(CAN)
+_rb_peer2 = TestSocket(CAN)
+_rb_cans2.pair(_rb_peer2)
+_rb_sock2 = J1939SoftSocket(_rb_cans2, src_addr=0x10)
+assert not _rb_sock2.closed
+_rb_cans2.close()
+_rb_time.sleep(0.2)
+assert _rb_sock2.closed, "the J1939 socket must notice its CAN socket died"
+assert _rb_sock2.recv() is None, "recv() must not block on a dead socket"
+_rb_sock2.close()
+_rb_peer2.close()
+cleanup_testsockets()
+
+= Scheduler teardown
+
+from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
+TimeoutScheduler.clear()
+True
