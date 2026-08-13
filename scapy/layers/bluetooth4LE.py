@@ -310,6 +310,7 @@ class BTLE_DATA(Packet):
         BitEnumField("LLID", 0, 2, {1: "continue", 2: "start", 3: "control"}),
         ByteField("len", None),
     ]
+    dissect_empty_payload = True
 
     def post_build(self, p, pay):
         if self.len is None:
@@ -450,6 +451,7 @@ class BTLE_CTRL(Packet):
     fields_desc = [
         ByteEnumField("opcode", 0, BTLE_BTLE_CTRL_opcode)
     ]
+    dissect_empty_payload = True
 
 
 class LL_CONNECTION_UPDATE_IND(Packet):

@@ -640,6 +640,7 @@ class L2CAP_Credit_Based_Reconfigure_Response(Packet):
 class ATT_Hdr(Packet):
     name = "ATT header"
     fields_desc = [XByteField("opcode", None), ]
+    dissect_empty_payload = True
 
 
 class ATT_Handle(Packet):
@@ -1675,6 +1676,7 @@ class HCI_Command_Hdr(Packet):
     fields_desc = [XBitField("ogf", 0, 6, tot_size=-2),
                    XBitField("ocf", 0, 10, end_tot_size=-2),
                    LenField("len", None, fmt="B"), ]
+    dissect_empty_payload = True
 
     def answers(self, other):
         return False

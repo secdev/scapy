@@ -112,6 +112,7 @@ class Packet(
     show_indent = 1
     show_summary = True
     match_subclass = False
+    dissect_empty_payload = False
     class_dont_cache = {}  # type: Dict[Type[Packet], bool]
     class_packetfields = {}  # type: Dict[Type[Packet], Any]
     class_default_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
@@ -1119,16 +1120,21 @@ class Packet(
 
         :param str s: the raw layer
         """
-        if s:
+        if s or self.dissect_empty_payload:
             if (
                 self.stop_dissection_after and
                 isinstance(self, self.stop_dissection_after)
             ):
                 # stop dissection here
+                if not s:
+                    return
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
                 self.add_payload(p)
                 return
             cls = self.guess_payload_class(s)
+            if not s and cls is conf.raw_layer:
+                # Don't add raw layer with empty payload
+                return
             try:
                 p = cls(
                     s,
@@ -1149,6 +1155,13 @@ class Packet(
                     if cls is not None:
                         raise
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
+            if not s:
+                # Check if parsed layer is also empty
+                try:
+                    if p.build():
+                        return
+                except Exception:
+                    return
             self.add_payload(p)
 
     def dissect(self, s):
