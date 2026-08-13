@@ -4360,6 +4360,94 @@ _rb_sock2.close()
 _rb_peer2.close()
 cleanup_testsockets()
 
+= A peer may abort a reception it started
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_RTS(total_size=14,
+                                                     num_packets=2,
+                                                     max_packets=0xFF,
+                                                     pgn=0xFECA)))
+        _rb_drain(peer, 0.3)
+        assert len(sock.impl.rx_sessions) == 1, "the session must be open"
+        peer.send(_rb_cm(0x10, 0x20,
+                         J1939_TP_CM_ABORT(reason=3, pgn=0xFECA)))
+        _rb_time.sleep(0.15)
+        assert not sock.impl.rx_sessions, \
+            "an abort from the sender must end the reception"
+
+= Too many concurrent senders are turned away with a reason
+# The session table is capped, and a request that does not fit is refused
+# with "system resources" rather than dropped in silence.
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        for _rb_n in range(16):
+            peer.send(_rb_cm(0xFF, 0x20 + _rb_n,
+                             J1939_TP_CM_BAM(total_size=14, num_packets=2,
+                                             pgn=0xFECA)))
+        _rb_drain(peer, 0.4)
+        assert len(sock.impl.rx_sessions) == 16, \
+            "%d sessions open" % len(sock.impl.rx_sessions)
+        peer.send(_rb_cm(0x10, 0x99, J1939_TP_CM_RTS(total_size=14,
+                                                     num_packets=2,
+                                                     max_packets=0xFF,
+                                                     pgn=0xFECA)))
+        _rb_full = _rb_cms(_rb_drain(peer, 0.3), J1939_TP_CTRL_ABORT)
+        assert _rb_full, "the 17th sender must be told the table is full"
+        assert J1939_TP_CM_ABORT(bytes(_rb_full[0].data)).reason == 2, \
+            "reason %d" % J1939_TP_CM_ABORT(bytes(_rb_full[0].data)).reason
+        assert len(sock.impl.rx_sessions) == 16, "the cap must hold"
+
+= A stalled reception times out and tells the sender
+# The wall-clock ceiling that lets slow serial links finish is shortened
+# here so the test does not have to wait 12.5 s for it.
+
+import scapy.contrib.j1939 as _rb_mod
+_rb_saved_ext = _rb_mod._J1939_TP_DT_TIMEOUT_EXTENSION
+_rb_mod._J1939_TP_DT_TIMEOUT_EXTENSION = 0
+try:
+    with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+        cans.pair(peer)
+        with J1939SoftSocket(cans, src_addr=0x10) as sock:
+            peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_RTS(total_size=14,
+                                                         num_packets=2,
+                                                         max_packets=0xFF,
+                                                         pgn=0xFECA)))
+            _rb_drain(peer, 0.3)
+            peer.send(_rb_dt(0x10, 0x20, 1, b'\x01' * 7))
+            _rb_late = _rb_drain(peer, 2.0)
+            assert _rb_cms(_rb_late, J1939_TP_CTRL_ABORT), \
+                "a stalled reception must be aborted"
+            assert J1939_TP_CM_ABORT(
+                bytes(_rb_cms(_rb_late, J1939_TP_CTRL_ABORT)[0].data)
+            ).reason == 3, "the abort reason must be 'timeout'"
+            assert not sock.impl.rx_sessions, "the session must be gone"
+finally:
+    _rb_mod._J1939_TP_DT_TIMEOUT_EXTENSION = _rb_saved_ext
+
+= close(timeout=0) gives up on a transfer deliberately
+# The derived budget protects a transfer by default; a caller in a hurry
+# can still say so.
+
+_rb_cans3 = TestSocket(CAN)
+_rb_peer3 = TestSocket(CAN)
+_rb_cans3.pair(_rb_peer3)
+_rb_sock3 = J1939SoftSocket(_rb_cans3, src_addr=0x10)
+_rb_sock3.send(J1939(b'D' * 350, pgn=0xFECA, dst=0xFF))
+_rb_time.sleep(0.2)
+_rb_t0 = _rb_time.monotonic()
+_rb_sock3.close(timeout=0)
+_rb_elapsed = _rb_time.monotonic() - _rb_t0
+_rb_cut = _rb_dts(_rb_drain(_rb_peer3, 0.3))
+_rb_cans3.close()
+_rb_peer3.close()
+cleanup_testsockets()
+assert _rb_elapsed < 0.5, "close(timeout=0) took %.2fs" % _rb_elapsed
+assert len(_rb_cut) < 50, "the transfer should have been cut short"
+
 = Scheduler teardown
 
 from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
