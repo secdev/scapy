@@ -1002,8 +1002,14 @@ b.mysummary()
 assert ATT_Read_By_Type_Request in b
 assert not Raw in b
 
-= ATT Read_By_Type_Response
+= ATT Read_By_Type_Request
+pkt = HCI_Hdr(hex_bytes('025e000b00070004000808000b000328'))
 
+assert pkt[ATT_Read_By_Type_Request].start == 0x8
+assert pkt[ATT_Read_By_Type_Request].end == 0xb
+assert pkt[ATT_Read_By_Type_Request].uuid == 0x2803
+
+= ATT Read_By_Type_Response
 pkt = HCI_Hdr(hex_bytes('0248201b001700040009070200020300002a0400020500012a0600020700042a'))
 
 assert pkt[ATT_Read_By_Type_Response].len == 7
@@ -1015,6 +1021,30 @@ assert pkt.handles[2].handle == 0x6
 pkt.handles[0].value == b'\x02\x03\x00\x00*'
 pkt.handles[1].value == b'\x02\x05\x00\x01*'
 pkt.handles[2].value == b'\x02\x07\x00\x04*'
+
+= ATT Read_By_Group_Type_Request
+pkt = HCI_Hdr(hex_bytes('025e000b0007000400100100ffff0028'))
+
+assert pkt[ATT_Read_By_Group_Type_Request].start == 0x1
+assert pkt[ATT_Read_By_Group_Type_Request].end == 0xffff
+assert pkt[ATT_Read_By_Group_Type_Request].uuid == 0x2800
+
+= ATT Read_By_Group_Type_Response
+pkt = HCI_Hdr(hex_bytes('025e20180014000400110601000700001808000b0001180c0010000a18'))
+
+assert pkt[ATT_Read_By_Group_Type_Response].len == 6
+assert len(pkt.handles) == 3
+assert pkt.handles[0].handle == 0x1
+assert pkt.handles[1].handle == 0x8
+assert pkt.handles[2].handle == 0xc
+
+assert pkt.handles[0].group_end_handle == 0x7
+assert pkt.handles[1].group_end_handle == 0xb
+assert pkt.handles[2].group_end_handle == 0x10
+
+assert pkt.handles[0].value == b'\x00\x18'
+assert pkt.handles[1].value == b'\x01\x18'
+assert pkt.handles[2].value == b'\x0a\x18'
 
 = SM_Security_Request
 pkt = HCI_Hdr(hex_bytes('0200260600020006000b0d'))
