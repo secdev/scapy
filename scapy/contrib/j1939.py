@@ -990,6 +990,31 @@ class J1939TPImplementation:
         # seconds, and __del__ may run at interpreter shutdown.
         self.close(timeout=0)
 
+    @staticmethod
+    def _cancel(handle):
+        # type: (Optional[Any]) -> None
+        """Cancel a scheduled timeout, tolerating one that already fired.
+
+        :class:`~scapy.contrib.isotp.isotp_soft_socket.TimeoutScheduler`
+        raises once a timeout has run or been cancelled, and that is a
+        normal race here: a timer can fire while the state machine is
+        deciding to drop it.
+        """
+        if handle is None:
+            return
+        try:
+            handle.cancel()
+        except Scapy_Exception as e:
+            log_j1939.debug("J1939 TP: timer already gone: %s", e)
+
+    def _send_abort(self, dst_sa, reason, pgn):
+        # type: (int, int, int) -> None
+        """Tell *dst_sa* that a connection-managed session is over."""
+        self._can_send_tp_cm(
+            dst_sa=dst_sa,
+            data=bytes(J1939_TP_CM_ABORT(reason=reason, pgn=pgn)),
+        )
+
     def drain_timeout(self):
         # type: () -> float
         """Time a pending transmission still needs, as a close() budget.
@@ -1038,11 +1063,7 @@ class J1939TPImplementation:
         handles += [s.timeout_handle for s in self.rx_sessions.values()]
         self.rx_sessions.clear()
         for handle in handles:
-            if handle is not None:
-                try:
-                    handle.cancel()
-                except Exception as e:
-                    log_runtime.debug(str(e))
+            self._cancel(handle)
 
         try:
             self.rx_queue.close()
@@ -1224,13 +1245,6 @@ class J1939TPImplementation:
                 "J1939 TP: bad DT seq %d (expected %d)", seq, session.seq)
             self._rx_abort(session, _J1939_ABORT_BAD_SEQ)
             return
-        if seq > session.block_end:
-            # More data than our CTS authorised.
-            log_j1939.warning(
-                "J1939 TP: DT seq %d beyond the authorised block (%d)",
-                seq, session.block_end)
-            self._rx_abort(session, _J1939_ABORT_OTHER)
-            return
 
         session.buf += dt.data
         session.seq += 1
@@ -1272,15 +1286,9 @@ class J1939TPImplementation:
         if not 1 <= npkts <= _J1939_TP_MAX_PACKETS or \
                 not 1 <= total <= _J1939_TP_MAX_DATA or \
                 npkts != (total + _J1939_TP_DT_DATA - 1) // _J1939_TP_DT_DATA:
-            log_j1939.warning(
-                "J1939 TP: refusing session from SA=0x%02X with "
-                "total_size=%d num_packets=%d", sa, total, npkts)
-            if not is_bam and not self.listen_only:
-                self._can_send_tp_cm(
-                    dst_sa=sa,
-                    data=bytes(J1939_TP_CM_ABORT(
-                        reason=_J1939_ABORT_OTHER, pgn=pgn)),
-                )
+            self._rx_refuse(
+                sa, pgn, is_bam, _J1939_ABORT_OTHER,
+                "total_size=%d and num_packets=%d disagree" % (total, npkts))
             return
 
         old = self.rx_sessions.get((sa, dst))
@@ -1289,29 +1297,17 @@ class J1939TPImplementation:
                 # J1939-21: a peer gets one connection with us at a time, so
                 # a request for a second PGN is refused and the transfer
                 # already running is kept.
-                log_j1939.warning(
-                    "J1939 TP: SA=0x%02X is already in a session for "
-                    "PGN 0x%05X", sa, old.pgn)
-                if not self.listen_only:
-                    self._can_send_tp_cm(
-                        dst_sa=sa,
-                        data=bytes(J1939_TP_CM_ABORT(
-                            reason=_J1939_ABORT_IN_SESSION, pgn=pgn)),
-                    )
+                self._rx_refuse(
+                    sa, pgn, is_bam, _J1939_ABORT_IN_SESSION,
+                    "already in a session for PGN 0x%05X" % old.pgn)
                 return
             log_j1939.debug(
                 "J1939 TP: SA=0x%02X restarts its session", sa)
             self._rx_forget(old)
         elif len(self.rx_sessions) >= _J1939_MAX_RX_SESSIONS:
-            log_j1939.warning(
-                "J1939 TP: %d concurrent sessions, refusing SA=0x%02X",
-                len(self.rx_sessions), sa)
-            if not is_bam and not self.listen_only:
-                self._can_send_tp_cm(
-                    dst_sa=sa,
-                    data=bytes(J1939_TP_CM_ABORT(
-                        reason=_J1939_ABORT_RESOURCES, pgn=pgn)),
-                )
+            self._rx_refuse(
+                sa, pgn, is_bam, _J1939_ABORT_RESOURCES,
+                "%d sessions already open" % len(self.rx_sessions))
             return
 
         session = _J1939_RXSession(sa, dst, pgn, total, npkts, is_bam, ts)
@@ -1322,6 +1318,16 @@ class J1939TPImplementation:
             session.block_size = min(max_packets or npkts, npkts)
             self._rx_send_cts(session)
         self._rx_arm_timer(session, _J1939_TP_T1)
+
+    def _rx_refuse(self, sa, pgn, is_bam, reason, why):
+        # type: (int, int, bool, int, str) -> None
+        """Turn down a reception, telling the peer when the protocol allows.
+
+        A broadcast has nobody to answer, so a BAM is only dropped.
+        """
+        log_j1939.warning("J1939 TP: refusing SA=0x%02X: %s", sa, why)
+        if not is_bam and not self.listen_only:
+            self._send_abort(sa, reason, pgn)
 
     def _rx_send_cts(self, session):
         # type: (_J1939_RXSession) -> None
@@ -1347,12 +1353,8 @@ class J1939TPImplementation:
 
     def _rx_cancel_timer(self, session):
         # type: (_J1939_RXSession) -> None
-        if session.timeout_handle is not None:
-            try:
-                session.timeout_handle.cancel()
-            except Exception:
-                pass
-            session.timeout_handle = None
+        self._cancel(session.timeout_handle)
+        session.timeout_handle = None
 
     def _rx_arm_timer(self, session, delay):
         # type: (_J1939_RXSession, float) -> None
@@ -1377,11 +1379,7 @@ class J1939TPImplementation:
         # type: (_J1939_RXSession, int) -> None
         """Drop a reception, telling the peer why when the protocol allows."""
         if not session.is_bam and not self.listen_only:
-            self._can_send_tp_cm(
-                dst_sa=session.sa,
-                data=bytes(J1939_TP_CM_ABORT(
-                    reason=reason, pgn=session.pgn)),
-            )
+            self._send_abort(session.sa, reason, session.pgn)
         self._rx_drop(session, "(abort reason %d)" % reason)
 
     def _rx_timeout(self, key):
@@ -1574,12 +1572,8 @@ class J1939TPImplementation:
 
     def _tx_handle_cts(self, cts):
         # type: (J1939_TP_CM_CTS) -> None
-        if self.tx_timeout_handle is not None:
-            try:
-                self.tx_timeout_handle.cancel()
-            except Exception:
-                pass
-            self.tx_timeout_handle = None
+        self._cancel(self.tx_timeout_handle)
+        self.tx_timeout_handle = None
 
         if cts.num_packets == 0:
             # Receiver requested a hold; wait for another CTS (J1939-21 T4).
@@ -1594,11 +1588,7 @@ class J1939TPImplementation:
             log_j1939.warning(
                 "J1939 TP: CTS asks for packet %d of %d, aborting",
                 cts.next_packet, self.tx_npkts)
-            self._can_send_tp_cm(
-                dst_sa=self.tx_peer_sa,
-                data=bytes(J1939_TP_CM_ABORT(
-                    reason=_J1939_ABORT_OTHER, pgn=self.tx_pgn)),
-            )
+            self._send_abort(self.tx_peer_sa, _J1939_ABORT_OTHER, self.tx_pgn)
             self._tx_reset()
             return
 
@@ -1651,12 +1641,8 @@ class J1939TPImplementation:
         # took part in an earlier session abort an unrelated one.
         self.tx_peer_sa = socket.J1939_NO_ADDR
         self.tx_pgn = 0
-        if self.tx_timeout_handle is not None:
-            try:
-                self.tx_timeout_handle.cancel()
-            except Exception:
-                pass
-            self.tx_timeout_handle = None
+        self._cancel(self.tx_timeout_handle)
+        self.tx_timeout_handle = None
 
     # ── public interface ─────────────────────────────────────────────────────
 
@@ -1682,11 +1668,7 @@ class J1939TPImplementation:
         self.tx_queue.send(msg)
         # Cancel the pending poll and reschedule it to fire immediately so
         # the message is dispatched within microseconds, not up to 5 ms later.
-        if self.tx_handle is not None:
-            try:
-                self.tx_handle.cancel()
-            except Exception:
-                pass
+        self._cancel(self.tx_handle)
         self.tx_handle = self._TimeoutScheduler.schedule(0, self._tx_poll)
 
     def recv(self):
@@ -1877,10 +1859,8 @@ class J1939SoftSocket(SuperSocket):
         """
         if self.closed:
             return 0
-        try:
+        if isinstance(x, Packet):
             x.sent_time = time.time()
-        except AttributeError:
-            pass
         self.impl.send(x)
         return len(bytes(x))
 
