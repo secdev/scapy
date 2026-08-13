@@ -926,6 +926,12 @@ class J1939TPImplementation:
     :param pgn_filter: when non-zero, only messages whose PGN matches this
                        value are delivered.  ``0`` (the default) accepts all
                        PGNs.  Inspired by BenGardiner's ``rx_pgn`` parameter.
+    :param basecls: packet class used for delivered messages, defaulting to
+                    :class:`J1939`
+
+    Receptions are tracked per (source address, destination) pair, so
+    several ECUs may transfer at the same time, up to
+    :data:`_J1939_MAX_RX_SESSIONS`.
     """
 
     def __init__(
@@ -1049,14 +1055,24 @@ class J1939TPImplementation:
 
     # ── CAN receive loop ─────────────────────────────────────────────────────
 
+    def _can_socket_gone(self):
+        # type: () -> bool
+        """Close ourselves if the CAN socket underneath has gone away.
+
+        Without this the receive pump would simply stop rescheduling and a
+        caller blocked in recv() would wait forever on a socket that still
+        looks open.
+        """
+        if not self.can_socket.closed:
+            return False
+        log_j1939.warning(
+            "J1939 TP: underlying CAN socket closed, closing socket")
+        self.close(timeout=0)
+        return True
+
     def can_recv(self):
         # type: () -> None
-        if self.closed:
-            return
-        if self.can_socket.closed:
-            log_j1939.warning(
-                "J1939 TP: underlying CAN socket closed, closing socket")
-            self.close(timeout=0)
+        if self.closed or self._can_socket_gone():
             return
         try:
             while self.can_socket.select([self.can_socket], 0):
@@ -1073,14 +1089,7 @@ class J1939TPImplementation:
                     "J1939TPImplementation.can_recv error: %s",
                     traceback.format_exc())
 
-        if self.closed:
-            return
-        if self.can_socket.closed:
-            # The CAN socket went away: without this the pump would simply
-            # stop and a caller blocked in recv() would wait forever.
-            log_j1939.warning(
-                "J1939 TP: underlying CAN socket closed, closing socket")
-            self.close(timeout=0)
+        if self.closed or self._can_socket_gone():
             return
         self.rx_handle = self._TimeoutScheduler.schedule(
             self.rx_tx_poll_rate, self.can_recv)
@@ -1257,7 +1266,9 @@ class J1939TPImplementation:
         # type: (int, int, int, int, int, int, bool, Union[float, EDecimal]) -> None  # noqa: E501
         """Open a reception for *sa*, replacing any session that peer had."""
         # An announcement that cannot describe a real message is refused
-        # rather than turned into an empty or truncated delivery.
+        # rather than turned into an empty or truncated delivery. J1939-21
+        # fixes the packet count at ceil(size / 7), so anything else is
+        # either malformed or an attempt to hold a session slot open.
         if not 1 <= npkts <= _J1939_TP_MAX_PACKETS or \
                 not 1 <= total <= _J1939_TP_MAX_DATA or \
                 npkts != (total + _J1939_TP_DT_DATA - 1) // _J1939_TP_DT_DATA:
@@ -1450,14 +1461,22 @@ class J1939TPImplementation:
             self.tx_handle = self._TimeoutScheduler.schedule(
                 self.rx_tx_poll_rate, self._tx_poll)
 
-    def _begin_send(self, msg):
-        # type: (Packet) -> None
-        """Start transmitting *msg*. Called from _tx_poll in the scheduler thread."""
+    @staticmethod
+    def _payload_of(msg):
+        # type: (Packet) -> bytes
+        """The bytes *msg* puts on the bus, however it was constructed."""
         if isinstance(msg, J1939):
             data = msg.data
             if not isinstance(data, (bytes, bytearray)):
                 data = bytes(msg)
-            data = bytes(data)
+            return bytes(data)
+        return bytes(msg)
+
+    def _begin_send(self, msg):
+        # type: (Packet) -> None
+        """Start transmitting *msg*. Called from _tx_poll in the scheduler thread."""
+        data = self._payload_of(msg)
+        if isinstance(msg, J1939):
             pgn = msg.pgn
             dst = msg.dst
             priority = msg.priority
@@ -1654,7 +1673,7 @@ class J1939TPImplementation:
                                  :data:`_J1939_TP_MAX_DATA` bytes the
                                  transport protocol can describe
         """
-        payload = msg.data if isinstance(msg, J1939) else bytes(msg)
+        payload = self._payload_of(msg)
         if len(payload) > _J1939_TP_MAX_DATA:
             raise Scapy_Exception(
                 "J1939 payload of %d bytes exceeds the %d bytes the "
@@ -1847,6 +1866,14 @@ class J1939SoftSocket(SuperSocket):
         ``priority`` attributes are used.  Payloads of 8 bytes or fewer are
         sent as a single CAN frame; larger payloads use the J1939 Transport
         Protocol automatically (BAM for broadcast, RTS/CTS for unicast).
+
+        The TP.CM and TP.DT frames of a multi-packet message carry the
+        priority of the message itself, so a caller controls the whole
+        transfer with one value.  J1939-21 suggests 7 for both, which is
+        what ``priority=7`` gives; the class default is 6.
+
+        :raises Scapy_Exception: if the payload is larger than the 1785
+                                 bytes the transport protocol can carry
         """
         if self.closed:
             return 0
