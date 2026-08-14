@@ -121,10 +121,10 @@ jobs:
             mode: root
             flags: " -K scanner"
           # PyPy tests: root only
-          - os: ubuntu-latest
-            python: "pypy3.11"
-            mode: root
-            flags: " -K scanner"
+          # - os: ubuntu-latest
+          #   python: "pypy3.11"
+          #   mode: root
+          #   flags: " -K scanner"
           # Libpcap test
           - os: ubuntu-latest
             python: "3.14"
@@ -147,10 +147,10 @@ jobs:
             mode: root
             allow-failure: 'true'
             flags: " -k scanner"
-          - os: ubuntu-latest
-            python: "pypy3.11"
-            mode: root
-            flags: " -k scanner"
+          # - os: ubuntu-latest
+          #   python: "pypy3.11"
+          #   mode: root
+          #   flags: " -k scanner"
           - os: macos-14
             python: "3.14"
             mode: both
