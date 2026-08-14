@@ -1139,6 +1139,10 @@ class AsyncSniffer(object):
         # type: (*Any, **Any) -> None
         # Store keyword arguments
         self.args = args
+        if "timeout" in kwargs:
+            raise ValueError(
+                "'timeout' isn't supported with AsyncSniffer. Use join(timeout=1)"
+            )
         self.kwargs = kwargs
         self.running = False
         self.thread = None  # type: Optional[Thread]
