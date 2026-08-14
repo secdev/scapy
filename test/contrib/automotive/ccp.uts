@@ -889,7 +889,7 @@ def answer(pkt):
     assert cro.data == b"\x10\x11\x12\x10\x11\x12"
     sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x53\x02\x34\x00\x20\x06'))
 
-sniffer = AsyncSniffer(opened_socket=sock2, count=1, timeout=5, prn=answer)
+sniffer = AsyncSniffer(opened_socket=sock2, count=1, prn=answer)
 sniffer.start()
 dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x53)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1, verbose=False)
 sniffer.join(timeout=5)
@@ -915,7 +915,7 @@ def answer(pkt):
     assert cro.data == b"\x10\x11\x12\x10\x11\x12"
     sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x55\x02\x34\x00\x20\x06'))
 
-sniffer = AsyncSniffer(opened_socket=sock2, count=1, timeout=5, prn=answer)
+sniffer = AsyncSniffer(opened_socket=sock2, count=1, prn=answer)
 sniffer.start()
 dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x54)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=0.1, verbose=False)
 sniffer.join(timeout=5)
@@ -936,7 +936,7 @@ def answer(pkt):
     assert cro.data == b"\x10\x11\x12\x10\x11\x12"
     sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x01\x55\xff\xff\xff\xff\xff'))
 
-sniffer = AsyncSniffer(opened_socket=sock2, count=1, timeout=5, prn=answer)
+sniffer = AsyncSniffer(opened_socket=sock2, count=1, prn=answer)
 sniffer.start()
 dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x55)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1, verbose=False)
 sniffer.join(timeout=5)
