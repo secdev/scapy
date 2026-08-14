@@ -228,11 +228,11 @@ assert s.origin() == string
 
 s = b"\xdeT'"
 i, ibl = h2.HPackZString.huffman_conv2bitstring(s)
-assert b'Test' == h2.HPackZString.huffman_decode(i, ibl)
+assert 'Test' == h2.HPackZString.huffman_decode(i, ibl)
 
 s = (b'\x18\xc61\x8cc' * 8191) + b'\x18\xc61\x8c\x7f'
 i, ibl = h2.HPackZString.huffman_conv2bitstring(s)
-assert b'a'*65535 == h2.HPackZString.huffman_decode(i, ibl)
+assert 'a'*65535 == h2.HPackZString.huffman_decode(i, ibl)
 
 assert(
     expect_exception(h2.InvalidEncodingException,
