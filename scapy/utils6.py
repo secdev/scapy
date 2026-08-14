@@ -22,7 +22,7 @@ from scapy.utils import (
     stror,
     strand,
 )
-from scapy.compat import orb, chb
+from scapy.compat import chb
 from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.volatile import RandMAC, RandBin
 from scapy.error import warning, Scapy_Exception
@@ -192,11 +192,11 @@ def in6_getAddrType(addr):
     addrType = 0
     # _Assignable_ Global Unicast Address space
     # is defined in RFC 3513 as those in 2000::/3
-    if ((orb(naddr[0]) & 0xE0) == 0x20):
+    if ((naddr[0] & 0xE0) == 0x20):
         addrType = (IPV6_ADDR_UNICAST | IPV6_ADDR_GLOBAL)
         if naddr[:2] == b' \x02':  # Mark 6to4 @
             addrType |= IPV6_ADDR_6TO4
-    elif orb(naddr[0]) == 0xff:  # multicast
+    elif naddr[0] == 0xff:  # multicast
         addrScope = paddr[3]
         if addrScope == '2':
             addrType = (IPV6_ADDR_LINKLOCAL | IPV6_ADDR_MULTICAST)
@@ -204,7 +204,7 @@ def in6_getAddrType(addr):
             addrType = (IPV6_ADDR_GLOBAL | IPV6_ADDR_MULTICAST)
         else:
             addrType = (IPV6_ADDR_GLOBAL | IPV6_ADDR_MULTICAST)
-    elif ((orb(naddr[0]) == 0xfe) and ((int(paddr[2], 16) & 0xC) == 0x8)):
+    elif ((naddr[0] == 0xfe) and ((int(paddr[2], 16) & 0xC) == 0x8)):
         addrType = (IPV6_ADDR_UNICAST | IPV6_ADDR_LINKLOCAL)
     elif paddr == "::1":
         addrType = IPV6_ADDR_LOOPBACK
@@ -265,7 +265,7 @@ def in6_ifaceidtomac(ifaceid_s):
     oui = first + ifaceid[1:3]
     end = ifaceid[5:]
     # Convert and reconstruct into a MAC Address
-    mac_bytes = ["%.02x" % orb(x) for x in list(oui + end)]
+    mac_bytes = ["%.02x" % x for x in list(oui + end)]
     return ":".join(mac_bytes)
 
 
@@ -461,7 +461,7 @@ def in6_getRandomizedIfaceId(ifaceid, previous=None):
     import hashlib
     s = hashlib.md5(s).digest()
     s1, s2 = s[:8], s[8:]
-    s1 = chb(orb(s1[0]) & (~0x04)) + s1[1:]  # set bit 6 to 0
+    s1 = chb(s1[0] & (~0x04)) + s1[1:]  # set bit 6 to 0
     bs1 = inet_ntop(socket.AF_INET6, b"\xff" * 8 + s1)[20:]
     bs2 = inet_ntop(socket.AF_INET6, b"\xff" * 8 + s2)[20:]
     return (bs1, bs2)
@@ -895,7 +895,7 @@ def in6_get_common_plen(a, b):
     tmpA = inet_pton(socket.AF_INET6, a)
     tmpB = inet_pton(socket.AF_INET6, b)
     for i in range(16):
-        mbits = matching_bits(orb(tmpA[i]), orb(tmpB[i]))
+        mbits = matching_bits(tmpA[i], tmpB[i])
         if mbits != 8:
             return 8 * i + mbits
     return 128

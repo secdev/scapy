@@ -595,9 +595,8 @@ hex_data = bytes_hex(monty_data)
 assert hex_data == b'53746f70212057686f20617070726f61636865732074686520427269646765206f66204465617468206d75737420616e73776572206d65207468657365207175657374696f6e732074687265652c202765726520746865206f746865722073696465206865207365652e'
 assert hex_bytes(hex_data) == monty_data
 
-= orb/chb
+= chb
 
-assert orb(b"\x01"[0]) == 1
 assert chb(1) == b"\x01"
 
 ############
@@ -863,7 +862,7 @@ except:
     pass
 
 = Test sane function
-sane("A\x00\xFFB") == "A..B"
+sane(b"A\x00\xFFB") == "A..B"
 
 = Test lhex function
 assert lhex(42) == "0x2a"
@@ -904,7 +903,7 @@ conf.color_theme = conf_color_theme
 chexdump(Ether(src="00:01:02:02:04:05"), dump=True) == "0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x01, 0x02, 0x02, 0x04, 0x05, 0x90, 0x00"
 
 = Test repr_hex function
-repr_hex("scapy") == "7363617079"
+repr_hex(b"scapy") == "7363617079"
 
 = Test hexstr function
 hexstr(b"A\x00\xFFB") == "41 00 FF 42  A..B"
@@ -1609,7 +1608,7 @@ assert o in [
 ]
 
 = ASN1 - ASN1_BIT_STRING
-a = ASN1_BIT_STRING("test", readable=True)
+a = ASN1_BIT_STRING(b"test", readable=True)
 a
 assert a.val == '01110100011001010111001101110100'
 assert raw(a) == b'\x03\x05\x00test'

@@ -13,7 +13,6 @@ import struct
 from scapy.config import conf
 from scapy.data import DLT_PPP, DLT_PPP_SERIAL, DLT_PPP_ETHER, \
     DLT_PPP_WITH_DIR
-from scapy.compat import orb
 from scapy.packet import Packet, bind_layers
 from scapy.layers.eap import EAP
 from scapy.layers.l2 import Ether, CookedLinux, GRE_PPTP
@@ -390,7 +389,7 @@ class PPP_IPCP_Option(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = orb(_pkt[0])
+            o = _pkt[0]
             return cls.registered_options.get(o, cls)
         return cls
 
@@ -464,7 +463,7 @@ class PPP_ECP_Option(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = orb(_pkt[0])
+            o = _pkt[0]
             return cls.registered_options.get(o, cls)
         return cls
 
@@ -525,7 +524,7 @@ class PPP_LCP(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = orb(_pkt[0])
+            o = _pkt[0]
             if o in [1, 2, 3, 4]:
                 return PPP_LCP_Configure
             elif o in [5, 6]:
@@ -574,7 +573,7 @@ class PPP_LCP_Option(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = orb(_pkt[0])
+            o = _pkt[0]
             return cls.registered_options.get(o, cls)
         return cls
 
@@ -763,7 +762,7 @@ class PPP_PAP(Packet):
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         code = None
         if _pkt:
-            code = orb(_pkt[0])
+            code = _pkt[0]
         elif "code" in kargs:
             code = kargs["code"]
             if isinstance(code, str):
@@ -844,7 +843,7 @@ class PPP_CHAP(Packet):
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         code = None
         if _pkt:
-            code = orb(_pkt[0])
+            code = _pkt[0]
         elif "code" in kargs:
             code = kargs["code"]
             if isinstance(code, str):

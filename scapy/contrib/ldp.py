@@ -15,7 +15,6 @@ http://git.savannah.gnu.org/cgit/ldpscapy.git/snapshot/ldpscapy-5285b81d6e628043
 
 import struct
 
-from scapy.compat import orb
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import (
     BitField,
@@ -79,9 +78,9 @@ class FecTLVField(StrField):
             # if x[0] == 1:
             #   list.append('Wildcard')
             # else:
-            # mask=orb(x[8*i+3])
+            # mask=x[8*i+3]
             # add=inet_ntoa(x[8*i+4:8*i+8])
-            mask = orb(x[3])
+            mask = x[3]
             nbroctets = mask // 8
             if mask % 8:
                 nbroctets += 1
@@ -230,7 +229,7 @@ class CommonHelloTLVField(StrField):
         list = []
         v = struct.unpack("!H", x[4:6])[0]
         list.append(v)
-        flags = orb(x[6])
+        flags = x[6]
         v = (flags & 0x80) >> 7
         list.append(v)
         v = (flags & 0x40) >> 6

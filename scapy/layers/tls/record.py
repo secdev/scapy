@@ -20,7 +20,7 @@ import struct
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.fields import ByteEnumField, PacketListField, StrField
-from scapy.compat import raw, chb, orb
+from scapy.compat import raw, chb
 from scapy.utils import randstring
 from scapy.packet import Raw, Padding, bind_layers
 from scapy.layers.inet import TCP
@@ -84,7 +84,7 @@ class _TLSMsgListField(PacketListField):
         cls = Raw
         if pkt.type == 22:
             if len(m) >= 1:
-                msgtype = orb(m[0])
+                msgtype = m[0]
                 # If a version was agreed on by both client and server,
                 # we use it (tls_session.tls_version)
                 # Otherwise, if the client advertised for TLS 1.3, we try to
@@ -501,7 +501,7 @@ class TLS(_GenericTLSSessionInheritance):
                 #    hdr = hdr[:3] + struct.pack('!H', l-block_size)
 
                 # Extract padding ('pad' actually includes the trailing padlen)
-                padlen = orb(pfrag[-1]) + 1
+                padlen = pfrag[-1] + 1
                 mfrag, pad = pfrag[:-padlen], pfrag[-padlen:]
                 self.padlen = padlen
 

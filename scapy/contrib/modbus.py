@@ -17,7 +17,6 @@ from scapy.fields import XByteField, XShortField, StrLenField, ByteEnumField, \
     BitFieldLenField, ByteField, ConditionalField, EnumField, FieldListField, \
     ShortField, StrFixedLenField, XShortEnumField
 from scapy.layers.inet import TCP
-from scapy.utils import orb
 from scapy.config import conf
 from scapy.volatile import VolatileValue
 
@@ -867,10 +866,10 @@ class ModbusADURequest(Packet):
     ]
 
     def guess_payload_class(self, payload):
-        function_code = orb(payload[0])
+        function_code = payload[0]
 
         if function_code == 0x2B:
-            sub_code = orb(payload[1])
+            sub_code = payload[1]
             try:
                 return _mei_types_request[sub_code]
             except KeyError:
@@ -904,10 +903,10 @@ class ModbusADUResponse(Packet):
     ]
 
     def guess_payload_class(self, payload):
-        function_code = orb(payload[0])
+        function_code = payload[0]
 
         if function_code == 0x2B:
-            sub_code = orb(payload[1])
+            sub_code = payload[1]
             try:
                 return _mei_types_response[sub_code]
             except KeyError:

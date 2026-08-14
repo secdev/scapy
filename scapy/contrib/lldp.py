@@ -46,7 +46,7 @@ from scapy.fields import MACField, IPField, IP6Field, BitField, \
     BitScalingField
 from scapy.packet import Packet, bind_layers
 from scapy.data import ETHER_TYPES
-from scapy.compat import orb, bytes_int
+from scapy.compat import bytes_int
 
 LLDP_NEAREST_BRIDGE_MAC = '01:80:c2:00:00:0e'
 LLDP_NEAREST_NON_TPMR_BRIDGE_MAC = '01:80:c2:00:00:03'
@@ -154,7 +154,7 @@ class LLDPDU(Packet):
     def guess_payload_class(self, payload):
         # type is a 7-bit bitfield spanning bits 1..7 -> div 2
         try:
-            lldpdu_tlv_type = orb(payload[0]) // 2
+            lldpdu_tlv_type = payload[0] // 2
             class_type = LLDPDU_CLASS_TYPES.get(lldpdu_tlv_type, conf.raw_layer)
             if isinstance(class_type, list):
                 for cls in class_type:
@@ -762,7 +762,7 @@ class LLDPDUPowerViaMDI(LLDPDUGenericOrganisationSpecific):
         """
         match organization specific TLV
         """
-        return (orb(payload[5]) == 2 and orb(payload[1]) == 7
+        return (payload[5] == 2 and payload[1] == 7
                 and bytes_int(payload[2:5]) ==
                 LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3)
 
@@ -861,7 +861,7 @@ class LLDPDUPowerViaMDIDDL(LLDPDUPowerViaMDI):
         """
         match organization specific TLV
         """
-        return (orb(payload[5]) == 2 and orb(payload[1]) == 12
+        return (payload[5] == 2 and payload[1] == 12
                 and bytes_int(payload[2:5]) ==
                 LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3)
 
@@ -1041,7 +1041,7 @@ class LLDPDUPowerViaMDIType34(LLDPDUPowerViaMDIDDL):
         '''
         match organization specific TLV
         '''
-        return (orb(payload[5]) == 2 and orb(payload[1]) == 29
+        return (payload[5] == 2 and payload[1] == 29
                 and bytes_int(payload[2:5]) ==
                 LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3)
 
@@ -1176,7 +1176,7 @@ class LLDPDUPowerViaMDIMeasure(LLDPDUGenericOrganisationSpecific):
         '''
         match organization specific TLV
         '''
-        return (orb(payload[5]) == 8 and orb(payload[1]) == 26
+        return (payload[5] == 8 and payload[1] == 26
                 and bytes_int(payload[2:5]) ==
                 LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_IEEE_802_3)
 

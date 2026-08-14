@@ -40,7 +40,7 @@ from scapy.fields import (
     StrField,
 )
 from scapy.config import conf, _version_checker
-from scapy.compat import raw, orb, bytes_encode
+from scapy.compat import raw, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
     _CanvasDumpExtended
 from scapy.interfaces import _GlobInterfaceType
@@ -921,7 +921,7 @@ class Packet(
 
         def hexstr(x):
             # type: (bytes) -> str
-            return " ".join("%02x" % orb(c) for c in x)
+            return " ".join("%02x" % c for c in x)
 
         def make_dump_txt(x, y, txt):
             # type: (int, float, bytes) -> pyx.text.text

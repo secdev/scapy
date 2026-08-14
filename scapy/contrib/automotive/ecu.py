@@ -15,7 +15,6 @@ from collections import defaultdict
 from types import GeneratorType
 from threading import Lock
 
-from scapy.compat import orb
 from scapy.packet import Raw, Packet
 from scapy.plist import PacketList
 from scapy.sessions import DefaultSession
@@ -402,7 +401,7 @@ class Ecu(object):
         :return: Tuple as sort key
         """
         first_layer = cast(Packet, resp.key_response[0])  # type: ignore
-        service = orb(bytes(first_layer)[0])
+        service = bytes(first_layer)[0]
         return (service == 0x7f,
                 service,
                 0xffffffff - len(resp.states or []),

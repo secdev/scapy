@@ -27,7 +27,6 @@ from scapy.error import log_loading
 from scapy.utils import PeriodicSenderThread
 from scapy.plist import _PacketIterable  # noqa: F401
 from scapy.contrib.isotp import ISOTP
-from scapy.compat import orb
 
 from typing import (  # noqa: F401
     Any,
@@ -165,7 +164,7 @@ class KWP(ISOTP):
         # type: (bytes, Any, Any) -> type
         """Dispatch to the correct KWP service class in single layer mode."""
         if conf.contribs['KWP'].get('single_layer_mode', False) and len(_pkt) >= 1:
-            service = orb(_pkt[0])
+            service = _pkt[0]
             return cls._service_cls.get(service, cls)
         return cls
 

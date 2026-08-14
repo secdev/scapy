@@ -21,7 +21,7 @@ from time import gmtime, strftime
 from scapy.arch import get_if_hwaddr
 from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.base_classes import Gen, _ScopedIP
-from scapy.compat import chb, orb, raw, plain_str, bytes_encode
+from scapy.compat import chb, raw, plain_str, bytes_encode
 from scapy.consts import WINDOWS, OPENBSD
 from scapy.config import conf
 from scapy.data import (
@@ -295,7 +295,7 @@ class _IPv6GuessPayload:
 
     def default_payload_class(self, p):
         if self.nh == 58:  # ICMPv6
-            t = orb(p[0])
+            t = p[0]
             if len(p) > 2 and (t == 139 or t == 140):  # Node Info Query
                 return _niquery_guesser(p)
             if len(p) >= icmp6typesminhdrlen.get(t, float("inf")):  # Other ICMPv6 messages  # noqa: E501
@@ -305,8 +305,8 @@ class _IPv6GuessPayload:
                 return icmp6typescls.get(t, Raw)
             return Raw
         elif self.nh == 135 and len(p) > 3:  # Mobile IPv6
-            return _mip6_mhtype2cls.get(orb(p[2]), MIP6MH_Generic)
-        elif self.nh == 43 and orb(p[2]) == 4:  # Segment Routing header
+            return _mip6_mhtype2cls.get(p[2], MIP6MH_Generic)
+        elif self.nh == 43 and p[2] == 4:  # Segment Routing header
             return IPv6ExtHdrSegmentRouting
         return ipv6nhcls.get(self.nh, Raw)
 
@@ -347,7 +347,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
 
         if self.plen == 0 and self.nh == 0 and len(data) >= 8:
             # Extract Hop-by-Hop extension length
-            hbh_len = orb(data[1])
+            hbh_len = data[1]
             hbh_len = 8 + hbh_len * 8
 
             # Extract length from the Jumbogram option
@@ -357,7 +357,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             idx = 0
             offset = 4 * idx + 2
             while offset <= len(data):
-                opt_type = orb(data[offset])
+                opt_type = data[offset]
                 if opt_type == 0xc2:  # Jumbo option
                     jumbo_len = struct.unpack("I", data[offset + 2:offset + 2 + 4])[0]  # noqa: E501
                     break
@@ -513,7 +513,7 @@ class IPv46(IP, IPv6):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
-            if orb(_pkt[0]) >> 4 == 6:
+            if _pkt[0] >> 4 == 6:
                 return IPv6
         elif kargs.get("version") == 6:
             return IPv6
@@ -781,7 +781,7 @@ class HBHOptUnknown(Packet):  # IPv6 Hop-By-Hop Option
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = orb(_pkt[0])  # Option type
+            o = _pkt[0]  # Option type
             if o in _hbhoptcls:
                 return _hbhoptcls[o]
         return cls
@@ -1826,7 +1826,7 @@ class _ICMPv6NDGuessPayload:
 
     def guess_payload_class(self, p):
         if len(p) > 1:
-            return icmp6ndoptscls.get(orb(p[0]), ICMPv6NDOptUnknown)
+            return icmp6ndoptscls.get(p[0], ICMPv6NDOptUnknown)
 
 
 # Beginning of ICMPv6 Neighbor Discovery Options.
@@ -2146,7 +2146,7 @@ class DomainNameListField(StrLenField):
 
     def i2m(self, pkt, x):
         def conditionalTrailingDot(z):
-            if z and orb(z[-1]) == 0:
+            if z and z[-1] == 0:
                 return z
             return z + b'\x00'
         # Build the encode names
@@ -2462,14 +2462,14 @@ def dnsrepr2names(x):
     res = []
     cur = b""
     while x:
-        tmp_len = orb(x[0])
+        tmp_len = x[0]
         x = x[1:]
         if not tmp_len:
             if cur and cur[-1:] == b'.':
                 cur = cur[:-1]
             res.append(cur)
             cur = b""
-            if x and orb(x[0]) == 0:  # single component
+            if x and x[0] == 0:  # single component
                 x = x[1:]
             continue
         if tmp_len & 0xc0:  # XXX TODO : work on that -- arno
@@ -2520,7 +2520,7 @@ class NIQueryDataField(StrField):
             # possible weird data extracted info
             res = []
             while val:
-                tmp_len = orb(val[0])
+                tmp_len = val[0]
                 val = val[1:]
                 if tmp_len == 0:
                     break
@@ -2804,7 +2804,7 @@ class ICMPv6NIReplyUnknown(ICMPv6NIReplyNOOP):
 
 def _niquery_guesser(p):
     cls = conf.raw_layer
-    type = orb(p[0])
+    type = p[0]
     if type == 139:  # Node Info Query specific stuff
         if len(p) > 6:
             qtype, = struct.unpack("!H", p[4:6])
@@ -2813,7 +2813,7 @@ def _niquery_guesser(p):
                    3: ICMPv6NIQueryIPv6,
                    4: ICMPv6NIQueryIPv4}.get(qtype, conf.raw_layer)
     elif type == 140:  # Node Info Reply specific stuff
-        code = orb(p[1])
+        code = p[1]
         if code == 0:
             if len(p) > 6:
                 qtype, = struct.unpack("!H", p[4:6])
@@ -3152,7 +3152,7 @@ class MIP6OptUnknown(_MIP6OptAlign):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
-            o = orb(_pkt[0])  # Option type
+            o = _pkt[0]  # Option type
             if o in moboptcls:
                 return moboptcls[o]
         return cls

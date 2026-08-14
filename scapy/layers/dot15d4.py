@@ -13,7 +13,7 @@ Wireless MAC according to IEEE 802.15.4.
 
 import struct
 
-from scapy.compat import orb, chb
+from scapy.compat import chb
 from scapy.error import warning
 from scapy.config import conf
 
@@ -171,7 +171,7 @@ class Dot15d4FCS(Dot15d4):
         #   http://regregex.bbcmicro.net/crc-catalogue.htm#crc.cat.kermit
         crc = 0
         for i in range(0, len(data)):
-            c = orb(data[i])
+            c = data[i]
             q = (crc ^ c) & 15  # Do low-order 4 bits
             crc = (crc // 16) ^ (q * 4225)
             q = (crc ^ (c // 16)) & 15  # And high 4 bits

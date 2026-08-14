@@ -20,7 +20,7 @@ from scapy.fields import (
 )
 from scapy.layers.inet import TCP
 from scapy.error import Scapy_Exception
-from scapy.compat import orb, chb
+from scapy.compat import chb
 from scapy.volatile import RandNum
 from scapy.config import conf
 
@@ -50,7 +50,7 @@ class VariableFieldLenField(FieldLenField):
     def getfield(self, pkt, s):
         value = 0
         for offset, curbyte in enumerate(s):
-            curbyte = orb(curbyte)
+            curbyte = curbyte
             value += (curbyte & 127) * (128 ** offset)
             if curbyte & 128 == 0:
                 return s[offset + 1:], value

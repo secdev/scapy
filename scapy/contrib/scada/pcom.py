@@ -23,7 +23,7 @@ from scapy.fields import XShortField, ByteEnumField, XByteField, \
     StrFixedLenField, StrLenField, LEShortField, \
     LEFieldLenField, XLE3BytesField, XLEShortField
 from scapy.volatile import RandShort
-from scapy.compat import bytes_encode, orb
+from scapy.compat import bytes_encode
 
 _protocol_modes = {0x65: "ascii", 0x66: "binary"}
 
@@ -101,7 +101,7 @@ class PCOMAscii(Packet):
         n = 0
         command = bytes_encode(command)
         for _, c in enumerate(command):
-            n += orb(c)
+            n += c
         return list(map(ord, hex(n % 256)[2:].zfill(2).upper()))
 
 
