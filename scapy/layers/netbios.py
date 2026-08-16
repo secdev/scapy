@@ -198,6 +198,9 @@ class NBNS_ADD_ENTRY(Packet):
         IPField("NB_ADDRESS", "127.0.0.1")
     ]
 
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
 
 class NBNSQueryResponse(Packet):
     name = "NBNS query response"
