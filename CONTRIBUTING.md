@@ -40,13 +40,14 @@ submitting an issue.
 If you're not sure whether a behavior is a bug or not, submit an issue
 and ask, don't be shy!
 
-### AI-assisted reports
+### AI-assisted reports and PRs
 
 <!-- Wireshark has greate AI guidelines ! Let's not reinvent the wheel -->
 <!-- https://gitlab.com/wireshark/wireshark/-/blob/master/doc/wsug_src/wsug_introduction.adoc -->
 
-If you use AI tools to help find or draft a bug report, please mention that and make sure you have personally verified the steps and details before submitting.
-Purely AI-generated reports are not supported and might be closed; a quick human check keeps triage efficient for everyone.
+If you use AI tools to help find or draft a bug report (or a PR), please mention that and make sure you have personally verified the steps and details before submitting. Please keep reports succinct !
+
+Purely AI-generated or overly verbose reports are not supported and might be closed. A quick human check keeps triage efficient for everyone.
 
 ### Enhancements / feature requests
 
