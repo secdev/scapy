@@ -1046,6 +1046,54 @@ assert pkt.handles[0].value == b'\x00\x18'
 assert pkt.handles[1].value == b'\x01\x18'
 assert pkt.handles[2].value == b'\x0a\x18'
 
+= ATT Read_Multiple_Variable_Request
+pkt = HCI_Hdr(hex_bytes('0200000900050004002010001300'))
+
+assert ATT_Read_Multiple_Variable_Request in pkt
+assert len(pkt.handles) == 2
+assert pkt.handles[0] == 0x10
+assert pkt.handles[1] == 0x13
+
+= ATT Read_Multiple_Variable_Response
+pkt = HCI_Hdr(hex_bytes('02002013000f00040021050032312e354305003538255248'))
+
+assert ATT_Read_Multiple_Variable_Response in pkt
+assert len(pkt.values) == 2
+
+assert pkt.values[0].len == 5
+assert pkt.values[1].len == 5
+
+assert pkt.values[0].value == b'\x32\x31\x2e\x35\x43'
+assert pkt.values[1].value == b'\x35\x38\x25\x52\x48'
+
+= ATT Multiple_Handle_Value_Notification
+pkt = HCI_Hdr(hex_bytes('020020170013000400231000050032312e3543130005003538255248'))
+
+assert ATT_Multiple_Handle_Value_Notification in pkt
+assert len(pkt.handles) == 2
+
+assert pkt.handles[0].handle == 0x10
+assert pkt.handles[1].handle == 0x13
+
+assert pkt.handles[0].len == 5
+assert pkt.handles[1].len == 5
+
+assert pkt.handles[0].value == b'\x32\x31\x2e\x35\x43'
+assert pkt.handles[1].value == b'\x35\x38\x25\x52\x48'
+
+= ATT Handle_Value_Confirmation
+pkt = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/ATT_Hdr()/ATT_Handle_Value_Confirmation()
+assert pkt[ATT_Hdr].opcode == 0x1e
+
+= ATT Signed_Write_Command
+pkt = HCI_Hdr(hex_bytes('020000150011000400d21900676f58ff7c816676336f6e318d3f'))
+
+assert ATT_Signed_Write_Command in pkt
+assert pkt[ATT_Signed_Write_Command].handle == 0x19
+assert pkt[ATT_Signed_Write_Command].value == b'\x67\x6f'
+assert pkt[ATT_Signed_Write_Command].sign_counter == 2172452696
+assert pkt[ATT_Signed_Write_Command].signature == b'\x66\x76\x33\x6f\x6e\x31\x8d\x3f'
+
 = SM_Security_Request
 pkt = HCI_Hdr(hex_bytes('0200260600020006000b0d'))
 assert SM_Security_Request in pkt

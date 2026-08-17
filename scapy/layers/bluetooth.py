@@ -26,6 +26,7 @@ from scapy.data import (
 from scapy.packet import bind_layers, Packet
 from scapy.fields import (
     BitField,
+    LEFieldLenField,
     XBitField,
     ByteEnumField,
     ByteField,
@@ -841,6 +842,38 @@ class ATT_Execute_Write_Response(Packet):
     name = "Execute Write Response"
 
 
+class ATT_Read_Multiple_Variable_Request(Packet):
+    name = "Read Multiple Variable Request"
+    fields_desc = [FieldListField("handles", [], XLEShortField("", 0))]
+
+
+class ATT_Length_Value_Tuple(Packet):
+    fields_desc = [LEFieldLenField("len", None, length_of="value"),
+                   XStrLenField("value", "", length_from=lambda pkt: pkt.len)]
+
+    def extract_padding(self, s):
+        return b"", s
+
+
+class ATT_Read_Multiple_Variable_Response(Packet):
+    name = "Read Multiple Variable Response"
+    fields_desc = [PacketListField("values", [], ATT_Length_Value_Tuple)]
+
+
+class ATT_Handle_Length_Value_Tuple(Packet):
+    fields_desc = [XLEShortField("handle", 0),
+                   LEFieldLenField("len", None, length_of="value"),
+                   XStrLenField("value", "", length_from=lambda pkt: pkt.len)]
+
+    def extract_padding(self, s):
+        return b"", s
+
+
+class ATT_Multiple_Handle_Value_Notification(Packet):
+    name = "Multiple Handle Value Notification"
+    fields_desc = [PacketListField("handles", [], ATT_Handle_Length_Value_Tuple)]
+
+
 class ATT_Read_Blob_Request(Packet):
     name = "Read Blob Request"
     fields_desc = [
@@ -862,6 +895,20 @@ class ATT_Handle_Value_Indication(Packet):
         XLEShortField("gatt_handle", 0),
         StrField("value", ""),
     ]
+
+
+class ATT_Handle_Value_Confirmation(Packet):
+    name = "Handle Value Confirmation"
+
+
+class ATT_Signed_Write_Command(Packet):
+    name = "Signed Write Command"
+
+    fields_desc = [XLEShortField("handle", 0),
+                   StrLenField("value", "",
+                               length_from=lambda pkt: len(pkt.original) - 14),
+                   LEIntField("sign_counter", 0),
+                   StrFixedLenField("signature", b'\x00' * 8, 8), ]
 
 
 class SM_Hdr(Packet):
@@ -3201,9 +3248,14 @@ bind_layers(ATT_Hdr, ATT_Prepare_Write_Request, opcode=0x16)
 bind_layers(ATT_Hdr, ATT_Prepare_Write_Response, opcode=0x17)
 bind_layers(ATT_Hdr, ATT_Execute_Write_Request, opcode=0x18)
 bind_layers(ATT_Hdr, ATT_Execute_Write_Response, opcode=0x19)
+bind_layers(ATT_Hdr, ATT_Read_Multiple_Variable_Request, opcode=0x20)
+bind_layers(ATT_Hdr, ATT_Read_Multiple_Variable_Response, opcode=0x21)
+bind_layers(ATT_Hdr, ATT_Multiple_Handle_Value_Notification, opcode=0x23)
 bind_layers(ATT_Hdr, ATT_Write_Command, opcode=0x52)
 bind_layers(ATT_Hdr, ATT_Handle_Value_Notification, opcode=0x1b)
 bind_layers(ATT_Hdr, ATT_Handle_Value_Indication, opcode=0x1d)
+bind_layers(ATT_Hdr, ATT_Handle_Value_Confirmation, opcode=0x1e)
+bind_layers(ATT_Hdr, ATT_Signed_Write_Command, opcode=0xd2)
 bind_layers(L2CAP_Hdr, SM_Hdr, cid=6)
 bind_layers(SM_Hdr, SM_Pairing_Request, sm_command=0x01)
 bind_layers(SM_Hdr, SM_Pairing_Response, sm_command=0x02)
