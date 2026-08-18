@@ -310,6 +310,8 @@ class Net(Gen[str]):
         if isinstance(other, int):
             return self.start <= other <= self.stop
         if isinstance(other, str):
+            if other == "%":
+                return isinstance(self, (Net, _ScopedIP)) and bool(self.scope)
             return self.__class__(other) in self
         if type(other) is not self.__class__:
             return False
