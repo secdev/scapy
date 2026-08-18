@@ -37,6 +37,7 @@ from scapy.fields import (
     ConditionalField,
     Field,
     FieldLenField,
+    FieldListField,
     FlagsField,
     IntEnumField,
     IntField,
@@ -404,7 +405,7 @@ class STDOBJREF(Packet):
         LEIntField('cPublicRefs', 0),
         LELongField('OXID', 0),
         LELongField('OID', 0),
-        PacketField('IPID', None, UUIDField),
+        UUIDField('IPID', None, uuid_fmt=UUIDField.FORMAT_LE),
     ]
 
 
@@ -883,8 +884,8 @@ class OpcDaFack(Packet):
         IntField('maxFragSize', 0),
         ShortField('serialNum', 0),
         FieldLenField('selackLen', 0, count_of='selack', fmt="H"),
-        PacketListField('selack', None, IntField,
-                        count_from=lambda pkt:pkt.selackLen),
+        FieldListField('selack', [], IntField('', 0),
+                       count_from=lambda pkt: pkt.selackLen),
     ]
 
     def extract_padding(self, p):
