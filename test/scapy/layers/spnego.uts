@@ -6,7 +6,10 @@
 
 % A SPNEGOSSP server talking to a non SPNEGOSSP client should work.
 
-srvssp = SPNEGOSSP([KerberosSSP(), NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})])
+srvssp = SPNEGOSSP(
+    [KerberosSSP(), NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})],
+    SUPPORT_LATE_FALLBACK=False,
+)
 clissp = NTLMSSP(UPN="User1", PASSWORD="Password123!")
 
 clictx, tok, status = clissp.GSS_Init_sec_context(None)
@@ -24,13 +27,19 @@ assert tok is None, repr(tok)
 % Two SPNEGOSSPs with different preferred mechanisms should work,
 % and mechListMIC should be used.
 
-srvssp = SPNEGOSSP([
-    KerberosSSP(),
-    NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})
-])
-clissp = SPNEGOSSP([
-    NTLMSSP(UPN="User1", PASSWORD="Password123!"),
-])
+srvssp = SPNEGOSSP(
+    [
+        KerberosSSP(),
+        NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})
+    ],
+    SUPPORT_LATE_FALLBACK=False,
+)
+clissp = SPNEGOSSP(
+    [
+        NTLMSSP(UPN="User1", PASSWORD="Password123!"),
+    ],
+    SUPPORT_LATE_FALLBACK=False,
+)
 
 clictx, tok, status = clissp.GSS_Init_sec_context(None)
 assert clictx.require_mic
@@ -74,13 +83,19 @@ assert tok is None
 
 % Same but with NegTokenInit2
 
-srvssp = SPNEGOSSP([
-    KerberosSSP(),
-    NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})
-])
-clissp = SPNEGOSSP([
-    NTLMSSP(UPN="User1", PASSWORD="Password123!"),
-])
+srvssp = SPNEGOSSP(
+    [
+        KerberosSSP(),
+        NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})
+    ],
+    SUPPORT_LATE_FALLBACK=False,
+)
+clissp = SPNEGOSSP(
+    [
+        NTLMSSP(UPN="User1", PASSWORD="Password123!"),
+    ],
+    SUPPORT_LATE_FALLBACK=False,
+)
 
 srvctx, tok = srvssp.NegTokenInit2()
 assert tok.MechType.val == '1.3.6.1.5.5.2'
@@ -126,6 +141,73 @@ tok.token.mechListMIC = None
 
 srvctx, tok, status = srvssp.GSS_Accept_sec_context(srvctx, tok)
 assert status == GSS_S_CONTINUE_NEEDED, status  # Should now be CONTINUE instead of COMPLETE !
+
+= SPNEGOSSP - SSP negotiation + mechListMIC + Late fallback Mechanism
+
+% Same as the previous test, with Late Fallback mechanism enabled
+
+srvssp = SPNEGOSSP(
+    [
+        KerberosSSP(),
+        NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})
+    ],
+    SUPPORT_LATE_FALLBACK=True,
+)
+clissp = SPNEGOSSP(
+    [
+        NTLMSSP(UPN="User1", PASSWORD="Password123!"),
+    ],
+    SUPPORT_LATE_FALLBACK=True,
+)
+
+clictx, tok, status = clissp.GSS_Init_sec_context(None)
+assert clictx.require_mic
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert len(tok.innerToken.token.mechTypes) == 2
+assert tok.innerToken.token.mechTypes[0].oid.val == '1.3.6.1.4.1.311.2.2.10'
+assert tok.innerToken.token.mechTypes[1].oid.val == '1.3.6.1.4.1.311.2.2.40'
+assert tok.innerToken.token.mechListMIC is None
+assert tok.innerToken.token._mechListMIC is None
+assert isinstance(tok.innerToken.token.mechToken.value, NTLM_NEGOTIATE)
+
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(None, tok)
+assert srvctx.require_mic
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert tok.token.mechListMIC is None
+assert tok.token.negState == 1
+assert tok.token.supportedMech.oid.val == '1.3.6.1.4.1.311.2.2.10'
+assert [x.oid.val for x in tok.token.mechTypes.mechTypes] == [
+    '1.3.6.1.4.1.311.2.2.10',
+    '1.2.840.48018.1.2.2',
+    '1.2.840.113554.1.2.2',
+    '1.3.6.1.4.1.311.2.2.40',
+]
+assert isinstance(tok.token.responseToken.value, NTLM_CHALLENGE)
+assert srvctx.late_fallback_negotiated
+assert bytes(srvctx.get_mechListMIC()) == b'0h\x06\t\x00cccccccc\x06\n+\x06\x01\x04\x01\x827\x02\x02\n\x06\n+\x06\x01\x04\x01\x827\x02\x02(\x06\t\x00ssssssss\x06\n+\x06\x01\x04\x01\x827\x02\x02\n\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\x06\n+\x06\x01\x04\x01\x827\x02\x02(\x06\n+\x06\x01\x04\x01\x827\x02\x02\n'
+
+clictx, tok, status = clissp.GSS_Init_sec_context(clictx, tok)
+assert status == GSS_S_CONTINUE_NEEDED, status
+assert tok.token.negState is None
+assert tok.token.supportedMech is None
+assert isinstance(tok.token.responseToken.value, NTLM_AUTHENTICATE)
+assert isinstance(tok.token.mechListMIC.value, NTLMSSP_MESSAGE_SIGNATURE)
+assert tok.token.mechListMIC.value.SeqNum == 0
+assert tok.token.mechListMIC.value.Version == 1
+assert clictx.late_fallback_negotiated
+assert bytes(clictx.get_mechListMIC()) == b'0h\x06\t\x00cccccccc\x06\n+\x06\x01\x04\x01\x827\x02\x02\n\x06\n+\x06\x01\x04\x01\x827\x02\x02(\x06\t\x00ssssssss\x06\n+\x06\x01\x04\x01\x827\x02\x02\n\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\x06\n+\x06\x01\x04\x01\x827\x02\x02(\x06\n+\x06\x01\x04\x01\x827\x02\x02\n'
+
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(srvctx, tok)
+assert status == GSS_S_COMPLETE, status
+assert tok is not None
+assert isinstance(tok.token, SPNEGO_negTokenResp)
+assert isinstance(tok.token.mechListMIC.value, NTLMSSP_MESSAGE_SIGNATURE)
+assert tok.token.mechListMIC.value.Version == 1
+assert tok.token.mechListMIC.value.SeqNum == 0
+
+clictx, tok, status = clissp.GSS_Init_sec_context(clictx, tok)
+assert status == GSS_S_COMPLETE, status
+assert tok is None
 
 = SPNEGOSSP.from_cli_arguments - Utils
 
