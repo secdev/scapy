@@ -562,7 +562,10 @@ class HTTPRequest(_HTTPContent):
         return body
 
     def mysummary(self):
-        return self.sprintf("%HTTPRequest.Method% '%HTTPRequest.Path%' ")
+        if self.Host:
+            return self.sprintf("%HTTPRequest.Method% '%HTTPRequest.Path%' [%Host%]")
+        else:
+            return self.sprintf("%HTTPRequest.Method% '%HTTPRequest.Path%'")
 
 
 class HTTPResponse(_HTTPContent):
@@ -687,8 +690,8 @@ class HTTP(Packet):
                 # use it. When the total size of the frags is high enough,
                 # we have the packet
 
-                if session.pop("head_request", False):
-                    # Answer to a HEAD request.
+                if session.pop("simple_request", False):
+                    # Answer to a HEAD/CONNECT request.
                     detect_end = lambda dat: dat.find(b"\r\n\r\n")
 
                 # Subtract the length of the "HTTP*" layer
@@ -719,12 +722,12 @@ class HTTP(Packet):
                     metadata["detect_unknown"] = True
                     if (
                         isinstance(http_packet.payload, cls.clsreq)
-                        and http_packet.Method == b"HEAD"
+                        and http_packet.Method in [b"HEAD", b"CONNECT"]
                     ):
-                        session["head_request"] = True
+                        session["simple_request"] = True
                 elif is_response and (
                     http_packet.Status_Code == b"101"
-                    or session.pop("head_request", False)
+                    or session.pop("simple_request", False)
                 ):
                     # If it's an upgrade response, it may also hold a
                     # different protocol data. make sure all headers are present

@@ -119,23 +119,24 @@ from scapy.layers.x509 import (
     CMS_SignedData,
     CMS_SignerInfo,
     CMS_SubjectKeyIdentifier,
-    ECDSAPrivateKey_OpenSSL,
     ECDSAPrivateKey,
+    ECDSAPrivateKey_OpenSSL,
     ECDSAPublicKey,
     EdDSAPrivateKey,
     EdDSAPublicKey,
     PKCS10_CertificationRequest,
-    RSAPrivateKey_OpenSSL,
     RSAPrivateKey,
+    RSAPrivateKey_OpenSSL,
     RSAPublicKey,
     X509_AlgorithmIdentifier,
     X509_Attribute,
     X509_AttributeValue,
-    X509_Cert,
     X509_CRL,
+    X509_Cert,
+    X509_ExtSubjectKeyIdentifier,
     X509_SubjectPublicKeyInfo,
 )
-from scapy.layers.tls.crypto.hash import _get_hash
+from scapy.layers.tls.crypto.hash import _get_hash, Hash_SHA
 from scapy.layers.tls.crypto.pkcs1 import (
     _DecryptAndSignRSA,
     _EncryptAndVerifyRSA,
@@ -994,6 +995,8 @@ class Cert(metaclass=_CertMaker):
                     self.extKeyUsage = extn.extnValue.get_extendedKeyUsage()
                 elif extn.extnID.oidname == "authorityKeyIdentifier":
                     self.authorityKeyID = extn.extnValue.keyIdentifier.val
+                elif extn.extnID.oidname == "subjectKeyIdentifier":
+                    self.skid = extn.extnValue.keyIdentifier.val
 
         self.signatureValue = bytes(cert.signatureValue)
         self.signatureLen = len(self.signatureValue)
@@ -1049,6 +1052,53 @@ class Cert(metaclass=_CertMaker):
             )
         else:
             raise ValueError("Unknown type 'key', should be PubKey or PrivKey")
+
+    def updateSubjectKeyIdentifier(self):
+        """
+        Update the subjetKeyIdentifier
+        """
+        try:
+            # Find existing
+            ski = next(
+                x.extnValue
+                for x in self.tbsCertificate.extensions
+                if x.extnID == "2.5.29.14"
+            )
+        except StopIteration:
+            # Need to add one
+            ski = X509_ExtSubjectKeyIdentifier()
+            self.tbsCertificate.extensions.append(X509_Extension(
+                extnID=ASN1_OID("subjectKeyIdentifier"),
+                extnValue=ski
+            ))
+
+        ski.keyIdentifier = ASN1_STRING(
+            Hash_SHA().digest(bytes(self.tbsCertificate.subjectPublicKeyInfo.subjectPublicKey))
+        )
+        self.skid = ski.keyIdentifier.val
+
+    def updateAuthorityKeyIdentifier(self, parent: 'Cert'):
+        """
+        Update the authorityKeyIdentifier
+        """
+        try:
+            # Find existing
+            aki = next(
+                x.extnValue
+                for x in self.tbsCertificate.extensions
+                if x.extnID == "2.5.29.35"
+            )
+        except StopIteration:
+            # Need to add one
+            aki = X509_ExtAuthorityKeyIdentifier()
+            self.tbsCertificate.extensions.append(X509_Extension(
+                extnID=ASN1_OID("authorityKeyIdentifier"),
+                extnValue=aki
+            ))
+
+        aki.keyIdentifier = ASN1_STRING(parent.skid)
+        self.authorityKeyID = aki.keyIdentifier.val
+
 
     def resignWith(self, key):
         """
@@ -1352,13 +1402,13 @@ class CSR(metaclass=_CSRMaker):
                 for x in certReqInfo.attributes
                 if x.type.val == "1.2.840.113549.1.9.14"  # extKeyUsage
             )
-            self.sid = next(
+            self.skid = next(
                 x.extnValue.keyIdentifier
                 for x in extReq.extensions
                 if x.extnID.val == "2.5.29.14"  # subjectKeyIdentifier
             )
         except StopIteration:
-            self.sid = None
+            self.skid = None
 
     @property
     def certReq(self):
@@ -1392,7 +1442,7 @@ class CSR(metaclass=_CSRMaker):
         return hash(self.der)
 
     def isIssuer(self, other):
-        return other.sid == self.sid
+        return other.skid == self.skid
 
     def isSelfSigned(self):
         return True
@@ -1657,6 +1707,19 @@ class CertTree(CertList):
             return CertTree(chain, [chain[0]])
         else:
             return None
+
+    def getleaves(self):
+        """
+        Return leaves certificates
+        """
+        def _rec_getchain(curtree):
+            for c, subtree in curtree:
+                if subtree:
+                    yield from _rec_getchain(subtree)
+                else:
+                    yield c
+
+        return list(_rec_getchain(self.tree))
 
     def verify(self, cert):
         """
