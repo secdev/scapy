@@ -9,6 +9,7 @@ SPNEGO
 Implements parts of:
 
 - GSSAPI SPNEGO: RFC4178 > RFC2478
+- [MS-SPNG]: Microsoft's SPNEGO extensions + "LF" (Late Fallback mechanism)
 - GSSAPI SPNEGO NEGOEX: [MS-NEGOEX]
 
 .. note::
@@ -243,7 +244,7 @@ class SPNEGO_negTokenResp(ASN1_Packet):
         ),
         # [MS-SPNG] Late Fallback Mechanism
         ASN1F_optional(
-            ASN1F_PACKET("supportedMechs", None, SPNEGO_MechTypes, explicit_tag=0xA4)
+            ASN1F_PACKET("mechTypes", None, SPNEGO_MechTypes, explicit_tag=0xA4)
         ),
     )
 
@@ -572,6 +573,7 @@ class SPNEGOSSP(SSP):
             "ssps",
             "server_mechtypes",
             "client_mechtypes",
+            "all_mechtypes",
             "first_choice",
             "require_mic",
             "verified_mic",
@@ -597,6 +599,7 @@ class SPNEGOSSP(SSP):
             self.ssps = ssps
             self.server_mechtypes = None  # the mechtypes the server requested
             self.client_mechtypes = None  # the mechtypes the client requested
+            self.all_mechtypes = []  # all mechtypes of the exchange, for mechListMIC
             self.first_choice = True  # whether the SSP was the peer's first choice
             self.require_mic = False  # whether the mechListMIC is required or not
             self.verified_mic = False  # whether mechListMIC has been verified
@@ -649,7 +652,6 @@ class SPNEGOSSP(SSP):
             Return the binary used for mechListMIC
             """
             # See help(mechListMIC) for more details
-            mechtypes = self.client_mechtypes[:]
 
             # [MS-SPNG] sect 3.1.5.1 - Late Fallback
             # "When Negotiate Late Fallback is supported by both parties,
@@ -657,8 +659,9 @@ class SPNEGOSSP(SSP):
             # supportedMechs per the order of over-the-wire transmission
             # with delimiters"
             if self.late_fallback_negotiated:
-                # XXX Doesn't work. FIXME
-                mechtypes += self.server_mechtypes[:]
+                mechtypes = self.all_mechtypes
+            else:
+                mechtypes = self.client_mechtypes
 
             return mechListMIC(mechtypes)
 
@@ -669,19 +672,15 @@ class SPNEGOSSP(SSP):
             This updates our context and sets it with the first SSP that is
             common to both client and server. This also applies rules from
             [MS-SPNG] and RFC4178 to determine if mechListMIC is required.
+
+            If the ssp is already negotiated, this only updates meta attributes.
             """
             if not self.IsAcceptor:
                 other_mechtypes = self.server_mechtypes
             else:
                 other_mechtypes = self.client_mechtypes
 
-            if other_mechtypes is None:
-                # We don't have any information about the peer's preferred SSPs.
-                # This typically happens on client side, when NegTokenInit2 isn't used.
-                self.ssp = self.ssps[0]
-                ssp_oid = self.ssp.GSS_Inquire_names_for_mech()[0]
-            else:
-                # Get first common SSP between us and our peer
+            if other_mechtypes is not None:
                 other_oids = [x.oid.val for x in other_mechtypes]
 
                 # See if the peer supports SPNEGO Late Fallback
@@ -691,6 +690,16 @@ class SPNEGOSSP(SSP):
                 ):
                     self.late_fallback_negotiated = True
 
+            if self.ssp is not None:
+                # ssp has already been negotiated, return.
+                return
+
+            if other_mechtypes is None:
+                # We don't have any information about the peer's preferred SSPs.
+                # This typically happens on client side, when NegTokenInit2 isn't used.
+                self.ssp = self.ssps[0]
+                ssp_oid = self.ssp.GSS_Inquire_names_for_mech()[0]
+            else:
                 # Find first common SSP
                 try:
                     self.ssp, ssp_oid = next(
@@ -757,11 +766,15 @@ class SPNEGOSSP(SSP):
             self.ssp_context.flags = x
 
         def __repr__(self):
-            return "SPNEGOSSP[%s]" % repr(self.ssp_context)
+            return "SPNEGOSSP[%s%s]" % (
+                repr(self.ssp_context),
+                "/LF" if self.late_fallback_negotiated else "",
+            )
 
     def __init__(
         self,
         ssps: List[SSP],
+        # Disabled by default right now, enable once mainstream.
         SUPPORT_LATE_FALLBACK=False,
         **kwargs,
     ):
@@ -999,6 +1012,10 @@ class SPNEGOSSP(SSP):
         # Build the SSP
         return cls(ssps)
 
+    # [MS-SPNG] Late Fallback Mechanism
+    _LATE_FALLBACK_INITIATOR = ASN1_OID("0.0.99.99.99.99.99.99.99.99")
+    _LATE_FALLBACK_ACCEPTOR = ASN1_OID("0.0.115.115.115.115.115.115.115.115")
+
     def NegTokenInit2(self):
         """
         Server-Initiation of GSSAPI/SPNEGO.
@@ -1064,7 +1081,7 @@ class SPNEGOSSP(SSP):
         """
         if status == GSS_S_COMPLETE:
             return 0  # accept_completed
-        elif status == GSS_S_CONTINUE_NEEDED:
+        elif status & GSS_S_CONTINUE_NEEDED:
             return 1  # accept_incomplete
         else:
             return 2  # reject
@@ -1123,8 +1140,21 @@ class SPNEGOSSP(SSP):
                     negState = input_token.negState
 
                 # [MS-SPNG] Late Fallback Mechanism
-                if input_token.supportedMechs is not None:
-                    Context.server_mechtypes = input_token.supportedMechs.mechTypes
+                if input_token.mechTypes is not None:
+                    Context.server_mechtypes = input_token.mechTypes.mechTypes
+                    Context.all_mechtypes.append(self._LATE_FALLBACK_ACCEPTOR)
+                    Context.all_mechtypes += Context.server_mechtypes
+                    Context.all_mechtypes += [input_token.supportedMech]
+
+                if input_token.supportedMech is not None:
+                    # If the server selected a different SSP than the one we sent,
+                    # retry negotiating.
+                    if Context.ssp_mechtype != input_token.supportedMech:
+                        log_runtime.warning(
+                            "SPNEGOSSP: %s wasn't selected. "
+                            "Retrying with next in queue." % repr(Context.ssp)
+                        )
+                        Context.ssp = None
             else:
                 # The blob is a raw token. We aren't using SPNEGO here.
                 Context.raw = True
@@ -1132,13 +1162,12 @@ class SPNEGOSSP(SSP):
                 self.GuessOtherMechtypes(Context, input_token)
 
         # Perform SSP negotiation
-        if Context.ssp is None:
-            try:
-                Context.negotiate_ssp()
-            except ValueError as ex:
-                # Couldn't find common SSP
-                log_runtime.warning("SPNEGOSSP: %s" % ex)
-                return Context, None, GSS_S_BAD_MECH
+        try:
+            Context.negotiate_ssp()
+        except ValueError as ex:
+            # Couldn't find common SSP
+            log_runtime.warning("SPNEGOSSP: %s" % ex)
+            return Context, None, GSS_S_BAD_MECH
 
         if Context.state == SPNEGOSSP.STATE.MICONLY:
             # We have already finished the inner-ssp, and are just doing
@@ -1201,6 +1230,10 @@ class SPNEGOSSP(SSP):
         elif Context.state == SPNEGOSSP.STATE.FIRST:
             # First freeze the list of available mechtypes on the first message
             Context.client_mechtypes = Context.get_supported_mechtypes()
+
+            # [MS-SPNG] Late Fallback Mechanism
+            Context.all_mechtypes.append(self._LATE_FALLBACK_INITIATOR)
+            Context.all_mechtypes += Context.client_mechtypes
 
             # Now build the token
             spnego_tok = GSSAPI_BLOB(
@@ -1279,6 +1312,10 @@ class SPNEGOSSP(SSP):
             # Populate context with values from the client's request
             if input_token.mechTypes:
                 Context.client_mechtypes = input_token.mechTypes
+
+                # [MS-SPNG] Late Fallback Mechanism
+                Context.all_mechtypes.append(self._LATE_FALLBACK_INITIATOR)
+                Context.all_mechtypes += Context.client_mechtypes
             if input_token.mechToken:
                 input_token_inner = input_token.mechToken.value
             _mechListMIC = input_token.mechListMIC or input_token._mechListMIC
@@ -1298,13 +1335,12 @@ class SPNEGOSSP(SSP):
             return Context, None, GSS_S_FAILURE
 
         # Perform SSP negotiation
-        if Context.ssp is None:
-            try:
-                Context.negotiate_ssp()
-            except ValueError as ex:
-                # Couldn't find common SSP
-                log_runtime.warning("SPNEGOSSP: %s" % ex)
-                return Context, None, GSS_S_FAILURE
+        try:
+            Context.negotiate_ssp()
+        except ValueError as ex:
+            # Couldn't find common SSP
+            log_runtime.warning("SPNEGOSSP: %s" % ex)
+            return Context, None, GSS_S_FAILURE
 
         output_token_inner = None
         status = GSS_S_CONTINUE_NEEDED
@@ -1353,9 +1389,20 @@ class SPNEGOSSP(SSP):
             )
         )
         if Context.state == SPNEGOSSP.STATE.FIRST:
+            Context.server_mechtypes = Context.get_supported_mechtypes()
+
             # Include the supportedMech list if this is the first message we send
             # or a renegotiation.
             spnego_tok.token.supportedMech = Context.ssp_mechtype
+
+            if Context.late_fallback_negotiated:
+                # [MS-SPNG] Late Fallback Mechanism
+                spnego_tok.token.mechTypes = SPNEGO_MechTypes(
+                    mechTypes=Context.server_mechtypes
+                )
+                Context.all_mechtypes.append(self._LATE_FALLBACK_ACCEPTOR)
+                Context.all_mechtypes += Context.server_mechtypes
+                Context.all_mechtypes += [Context.ssp_mechtype]
 
         # Add the output token if provided
         if output_token_inner:
@@ -1409,6 +1456,10 @@ class SPNEGOSSP(SSP):
                 if Context.IsAcceptor:
                     # NegTokenInit
                     Context.client_mechtypes = input_token.mechTypes
+
+                    # [MS-SPNG] Late Fallback Mechanism
+                    Context.all_mechtypes.append(self._LATE_FALLBACK_INITIATOR)
+                    Context.all_mechtypes += Context.client_mechtypes
                 else:
                     # NegTokenInit2
                     Context.server_mechtypes = input_token.mechTypes
@@ -1417,6 +1468,13 @@ class SPNEGOSSP(SSP):
         elif isinstance(input_token, SPNEGO_negTokenResp):
             if input_token.supportedMech is not None:
                 Context.server_mechtypes = [input_token.supportedMech]
+
+                # [MS-SPNG] Late Fallback Mechanism
+                if input_token.mechTypes is not None:
+                    Context.server_mechtypes = input_token.mechTypes.mechTypes
+                    Context.all_mechtypes.append(self._LATE_FALLBACK_ACCEPTOR)
+                    Context.all_mechtypes += Context.server_mechtypes
+                    Context.all_mechtypes += [input_token.supportedMech]
             if input_token.responseToken:
                 input_token_inner = input_token.responseToken.value
         else:
@@ -1432,14 +1490,17 @@ class SPNEGOSSP(SSP):
         # If we still haven't got a mechtype, guess (raw, most likely)
         if other_mechtypes is None:
             self.GuessOtherMechtypes(Context, input_token)
+        else:
+            if Context.ssp_mechtype not in other_mechtypes:
+                # Negotiated ssp wasn't accepted by the peer
+                Context.ssp = None
 
         # Uninitialized OR allowed mechtypes have changed
-        if Context.ssp is None or Context.ssp_mechtype not in other_mechtypes:
-            try:
-                Context.negotiate_ssp()
-            except ValueError:
-                # Couldn't find common SSP
-                return Context, GSS_S_FAILURE
+        try:
+            Context.negotiate_ssp()
+        except ValueError:
+            # Couldn't find common SSP
+            return Context, GSS_S_FAILURE
 
         # Passthrough
         Context.ssp_context, status = Context.ssp.GSS_Passive(
