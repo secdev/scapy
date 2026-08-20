@@ -65,7 +65,7 @@ if conf.crypto_valid:
         aead,
     )
 else:
-    log_loading.info("Can't import python-cryptography v1.7+. "
+    log_loading.info("Can't import python-cryptography v2.0+. "
                      "Disabled PSP encryption/authentication.")
 
 ###############################################################################

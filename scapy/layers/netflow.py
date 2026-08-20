@@ -28,6 +28,8 @@ Using the netflowv9_defragment/ipfix_defragment commands:
 
     >>> sniff(session=NetflowSession, prn=[...])
 
+.. note:: You will find more examples over
+    https://scapy.readthedocs.io/en/latest/layers/netflow.html
 """
 
 import dataclasses
@@ -48,10 +50,11 @@ from scapy.fields import (
     Field,
     FieldLenField,
     FlagsField,
-    IPField,
     IntField,
+    IPField,
     LongField,
     MACField,
+    NBytesField,
     PacketListField,
     SecondsIntField,
     ShortEnumField,
@@ -203,6 +206,7 @@ class _N910F:
     length: int = 0
     field: Field = None
     kwargs: Dict[str, Any] = dataclasses.field(default_factory=dict)
+    isint: bool = False
 
 
 # NetflowV9 Ready-made fields
@@ -260,8 +264,10 @@ class N9UTCTimeField(UTCTimeField, _AdjustableNetflowField):
 
 NTOP_BASE = 57472
 NetflowV910TemplateFields = {
-    1: _N910F("IN_BYTES", length=4),
-    2: _N910F("IN_PKTS", length=4),
+    1: _N910F("IN_BYTES", length=4,
+              isint=True),
+    2: _N910F("IN_PKTS", length=4,
+              isint=True),
     3: _N910F("FLOWS", length=4),
     4: _N910F("PROTOCOL", length=1,
               field=ByteEnumField, kwargs={"enum": IP_PROTOS}),
@@ -275,14 +281,16 @@ NetflowV910TemplateFields = {
               field=IPField),
     9: _N910F("SRC_MASK", length=1,
               field=ByteField),
-    10: _N910F("INPUT_SNMP"),
+    10: _N910F("INPUT_SNMP",
+               isint=True),
     11: _N910F("L4_DST_PORT", length=2,
                field=ShortField),
     12: _N910F("IPV4_DST_ADDR", length=4,
                field=IPField),
     13: _N910F("DST_MASK", length=1,
                field=ByteField),
-    14: _N910F("OUTPUT_SNMP"),
+    14: _N910F("OUTPUT_SNMP",
+               isint=True),
     15: _N910F("IPV4_NEXT_HOP", length=4,
                field=IPField),
     16: _N910F("SRC_AS", length=2,
@@ -291,16 +299,20 @@ NetflowV910TemplateFields = {
                field=ShortOrInt),
     18: _N910F("BGP_IPV4_NEXT_HOP", length=4,
                field=IPField),
-    19: _N910F("MUL_DST_PKTS", length=4),
-    20: _N910F("MUL_DST_BYTES", length=4),
+    19: _N910F("MUL_DST_PKTS", length=4,
+               isint=True),
+    20: _N910F("MUL_DST_BYTES", length=4,
+               isint=True),
     21: _N910F("LAST_SWITCHED", length=4,
                field=SecondsIntField,
                kwargs={"use_msec": True}),
     22: _N910F("FIRST_SWITCHED", length=4,
                field=SecondsIntField,
                kwargs={"use_msec": True}),
-    23: _N910F("OUT_BYTES", length=4),
-    24: _N910F("OUT_PKTS", length=4),
+    23: _N910F("OUT_BYTES", length=4,
+               isint=True),
+    24: _N910F("OUT_PKTS", length=4,
+               isint=True),
     25: _N910F("IP_LENGTH_MINIMUM"),
     26: _N910F("IP_LENGTH_MAXIMUM"),
     27: _N910F("IPV6_SRC_ADDR", length=16,
@@ -329,9 +341,12 @@ NetflowV910TemplateFields = {
                field=ByteField),
     39: _N910F("ENGINE_ID", length=1,
                field=ByteField),
-    40: _N910F("TOTAL_BYTES_EXP", length=4),
-    41: _N910F("TOTAL_PKTS_EXP", length=4),
-    42: _N910F("TOTAL_FLOWS_EXP", length=4),
+    40: _N910F("TOTAL_BYTES_EXP", length=4,
+               isint=True),
+    41: _N910F("TOTAL_PKTS_EXP", length=4,
+               isint=True),
+    42: _N910F("TOTAL_FLOWS_EXP", length=4,
+               isint=True),
     43: _N910F("IPV4_ROUTER_SC"),
     44: _N910F("IP_SRC_PREFIX"),
     45: _N910F("IP_DST_PREFIX"),
@@ -376,16 +391,26 @@ NetflowV910TemplateFields = {
     63: _N910F("BGP_IPV6_NEXT_HOP", length=16,
                field=IP6Field),
     64: _N910F("IPV6_OPTION_HEADERS", length=4),
-    70: _N910F("MPLS_LABEL_1", length=3),
-    71: _N910F("MPLS_LABEL_2", length=3),
-    72: _N910F("MPLS_LABEL_3", length=3),
-    73: _N910F("MPLS_LABEL_4", length=3),
-    74: _N910F("MPLS_LABEL_5", length=3),
-    75: _N910F("MPLS_LABEL_6", length=3),
-    76: _N910F("MPLS_LABEL_7", length=3),
-    77: _N910F("MPLS_LABEL_8", length=3),
-    78: _N910F("MPLS_LABEL_9", length=3),
-    79: _N910F("MPLS_LABEL_10", length=3),
+    70: _N910F("MPLS_LABEL_1", length=3,
+               field=ThreeBytesField),
+    71: _N910F("MPLS_LABEL_2", length=3,
+               field=ThreeBytesField),
+    72: _N910F("MPLS_LABEL_3", length=3,
+               field=ThreeBytesField),
+    73: _N910F("MPLS_LABEL_4", length=3,
+               field=ThreeBytesField),
+    74: _N910F("MPLS_LABEL_5", length=3,
+               field=ThreeBytesField),
+    75: _N910F("MPLS_LABEL_6", length=3,
+               field=ThreeBytesField),
+    76: _N910F("MPLS_LABEL_7", length=3,
+               field=ThreeBytesField),
+    77: _N910F("MPLS_LABEL_8", length=3,
+               field=ThreeBytesField),
+    78: _N910F("MPLS_LABEL_9", length=3,
+               field=ThreeBytesField),
+    79: _N910F("MPLS_LABEL_10", length=3,
+               field=ThreeBytesField),
     80: _N910F("DESTINATION_MAC"),
     81: _N910F("SOURCE_MAC"),
     82: _N910F("IF_NAME"),
@@ -1329,26 +1354,38 @@ class _CustomStrFixedLenField(StrFixedLenField):
 
 
 def _GenNetflowRecordV9(cls, lengths_list):
-    """Internal function used to generate the Records from
+    """
+    Internal function used to generate the Records from
     their template.
     """
     _fields_desc = []
     for j, k in lengths_list:
+        # For each field, if it's known in our template list,
+        # try to make a nice field for it. Otherwise use an integer
+        # or a string default.
         _f_type = None
         _f_kwargs = {}
+        _f_isint = False
         if k in NetflowV910TemplateFields:
             _f = NetflowV910TemplateFields[k]
             _f_type = _f.field
             _f_kwargs = _f.kwargs
+            _f_isint = _f.isint
 
         if _f_type:
             if issubclass(_f_type, _AdjustableNetflowField):
                 _f_kwargs["length"] = j
-            print(k, _f_kwargs)
             _fields_desc.append(
                 _f_type(
                     NetflowV910TemplateFieldTypes.get(k, "unknown_data"),
                     0, **_f_kwargs
+                )
+            )
+        elif _f_isint:
+            _fields_desc.append(
+                NBytesField(
+                    NetflowV910TemplateFieldTypes.get(k, "unknown_data"),
+                    0, sz=j
                 )
             )
         else:

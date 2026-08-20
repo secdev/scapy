@@ -26,7 +26,7 @@ from scapy.volatile import VolatileValue
 from scapy.layers.inet import TCP
 from scapy.layers.inet6 import IP6Field
 from scapy.config import conf, ConfClass
-from scapy.compat import orb, chb
+from scapy.compat import chb
 from scapy.error import log_runtime
 
 
@@ -135,11 +135,11 @@ class BGPFieldIPv4(Field):
         return s + self.i2m(pkt, val)
 
     def getfield(self, pkt, s):
-        length = self.mask2iplen(orb(s[0])) + 1
+        length = self.mask2iplen(s[0]) + 1
         return s[length:], self.m2i(pkt, s[:length])
 
     def m2i(self, pkt, m):
-        mask = orb(m[0])
+        mask = m[0]
         mask2iplen_res = self.mask2iplen(mask)
         ip = b"".join(m[i + 1:i + 2] if i < mask2iplen_res else b"\x00" for i in range(4))  # noqa: E501
         return (mask, socket.inet_ntoa(ip))
@@ -179,11 +179,11 @@ class BGPFieldIPv6(Field):
         return s + self.i2m(pkt, val)
 
     def getfield(self, pkt, s):
-        length = self.mask2iplen(orb(s[0])) + 1
+        length = self.mask2iplen(s[0]) + 1
         return s[length:], self.m2i(pkt, s[:length])
 
     def m2i(self, pkt, m):
-        mask = orb(m[0])
+        mask = m[0]
         ip = b"".join(m[i + 1:i + 2] if i < self.mask2iplen(mask) else b"\x00" for i in range(16))  # noqa: E501
         return (mask, pton_ntop.inet_ntop(socket.AF_INET6, ip))
 
@@ -210,7 +210,7 @@ def detect_add_path_prefix46(s, max_bit_length):
     i = 0
     while i + 4 < len(s):
         i += 4
-        prefix_len = orb(s[i])
+        prefix_len = s[i]
         if prefix_len > max_bit_length:
             return False
         addr_len = (prefix_len + 7) // 8
@@ -218,12 +218,12 @@ def detect_add_path_prefix46(s, max_bit_length):
         if i > len(s):
             return False
         if prefix_len % 8:
-            if orb(s[i - 1]) & (0xFF >> (prefix_len % 8)):
+            if s[i - 1] & (0xFF >> (prefix_len % 8)):
                 return False
     # Must NOT be compatible with standard BGP
     i = 0
     while i + 4 < len(s):
-        prefix_len = orb(s[i])
+        prefix_len = s[i]
         if prefix_len == 0 and len(s) > 1:
             return True
         if prefix_len > max_bit_length:
@@ -233,7 +233,7 @@ def detect_add_path_prefix46(s, max_bit_length):
         if i > len(s):
             return True
         if prefix_len % 8:
-            if orb(s[i - 1]) & (0xFF >> (prefix_len % 8)):
+            if s[i - 1] & (0xFF >> (prefix_len % 8)):
                 return True
     return False
 
@@ -511,7 +511,7 @@ def _bgp_dispatcher(payload):
                 payload[:16] == _BGP_HEADER_MARKER:
 
             # Get BGP message type
-            message_type = orb(payload[18])
+            message_type = payload[18]
             if message_type == 4:
                 cls = _get_cls("BGPKeepAlive")
             else:
@@ -639,7 +639,7 @@ def _bgp_capability_dispatcher(payload):
     else:
         length = len(payload)
         if length >= _BGP_CAPABILITY_MIN_SIZE:
-            code = orb(payload[0])
+            code = payload[0]
             cls = _get_cls(_capabilities_objects.get(code, "BGPCapGeneric"))
 
     return cls
@@ -810,7 +810,7 @@ class BGPCapORFBlockPacketListField(PacketListField):
         while remain:
             # block length: afi (2 bytes) + reserved (1 byte) + safi (1 byte) +
             # orf_number (1 byte) + entries (2 bytes * orf_number)
-            orf_number = orb(remain[4])
+            orf_number = remain[4]
             entries_length = orf_number * 2
             current = remain[:5 + entries_length]
             remain = remain[5 + entries_length:]
@@ -931,7 +931,7 @@ class BGPOptParamPacketListField(PacketListField):
             remain, ret = s[:length], s[length:]
 
         while remain:
-            param_len = orb(remain[1])  # Get param length
+            param_len = remain[1]  # Get param length
             current = remain[:2 + param_len]
             remain = remain[2 + param_len:]
             packet = self.m2i(pkt, current)
@@ -1131,7 +1131,7 @@ class BGPPathAttrPacketListField(PacketListField):
         while remain:
             #
             # Get the path attribute flags
-            flags = orb(remain[0])
+            flags = remain[0]
 
             attr_len = 0
             if has_extended_length(flags):
@@ -1139,7 +1139,7 @@ class BGPPathAttrPacketListField(PacketListField):
                 current = remain[:4 + attr_len]
                 remain = remain[4 + attr_len:]
             else:
-                attr_len = orb(remain[2])
+                attr_len = remain[2]
                 current = remain[:3 + attr_len]
                 remain = remain[3 + attr_len:]
 
@@ -1192,7 +1192,7 @@ class ASPathSegmentPacketListField(PacketListField):
         while remain:
             #
             # Get the segment length
-            segment_length = orb(remain[1])
+            segment_length = remain[1]
 
             if bgp_module_conf.use_2_bytes_asn:
                 current = remain[:2 + segment_length * 2]
@@ -1905,7 +1905,7 @@ class MPReachNLRIPacketListField(PacketListField):
             if pkt.safi == 1:
                 # BGPNLRI_IPv6
                 while remain:
-                    mask = orb(remain[0])
+                    mask = remain[0]
                     length_in_bytes = (mask + 7) // 8
                     current = remain[:length_in_bytes + 1]
                     remain = remain[length_in_bytes + 1:]
@@ -2549,7 +2549,7 @@ class BGPORFEntryPacketListField(PacketListField):
                 # Address Prefix ORF
                 # Get the length, in bits, of the prefix
                 prefix_len = _bits_to_bytes_len(
-                    orb(remain[6])
+                    remain[6]
                 )
                 # flags (1 byte) + sequence (4 bytes) + min_len (1 byte) +
                 # max_len (1 byte) + mask_len (1 byte) + prefix_len
@@ -2573,7 +2573,7 @@ class BGPORFEntryPacketListField(PacketListField):
                 elif pkt.afi == 25:
                     # sequence (4 bytes) + min_len (1 byte) + max_len (1 byte) +  # noqa: E501
                     # rt (8 bytes) + import_rt (8 bytes)
-                    route_type = orb(remain[22])
+                    route_type = remain[22]
 
                     if route_type == 2:
                         # MAC / IP Advertisement Route

@@ -40,7 +40,7 @@ import struct
 import warnings
 
 from scapy.config import conf, crypto_validator
-from scapy.compat import orb, raw
+from scapy.compat import raw
 from scapy.data import IP_PROTOS
 from scapy.error import log_loading
 from scapy.fields import (
@@ -221,7 +221,7 @@ if conf.crypto_valid:
     DES.key_sizes = decrepit_algorithms.TripleDES.key_sizes
     DES.block_size = decrepit_algorithms.TripleDES.block_size
 else:
-    log_loading.info("Can't import python-cryptography v1.7+. "
+    log_loading.info("Can't import python-cryptography v2.0+. "
                      "Disabled IPsec encryption/authentication.")
     default_backend = None
     InvalidTag = Exception
@@ -500,8 +500,8 @@ class CryptAlgo(object):
                     raise IPSecIntegrityError(err)
 
         # extract padlen and nh
-        padlen = orb(data[-2])
-        nh = orb(data[-1])
+        padlen = data[-2]
+        nh = data[-1]
 
         # then use padlen to determine data and padding
         padding = data[len(data) - padlen - 2: len(data) - 2]

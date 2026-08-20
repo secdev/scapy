@@ -781,7 +781,7 @@ frames = [
                     subjectPublicKeyInfo=X509_SubjectPublicKeyInfo(
                         signatureAlgorithm=X509_AlgorithmIdentifier(
                             algorithm=ASN1_OID('ecPublicKey'),
-                            parameters=ASN1_OID('prime256v1')),
+                            parameters=ECParameters(curve=ASN1_OID('prime256v1'))),
                         subjectPublicKey=ECDSAPublicKey(
                             ecPoint=ASN1_BIT_STRING(
                                 '000001001011011101000101011100101010000110110101110111010001110'
@@ -1125,7 +1125,7 @@ frames = [
                     subjectPublicKeyInfo=X509_SubjectPublicKeyInfo(
                         signatureAlgorithm=X509_AlgorithmIdentifier(
                             algorithm=ASN1_OID('ecPublicKey'),
-                            parameters=ASN1_OID('prime256v1')
+                            parameters=ECParameters(curve=ASN1_OID('prime256v1')),
                         ),
                         subjectPublicKey=ECDSAPublicKey(
                             ecPoint=ASN1_BIT_STRING(

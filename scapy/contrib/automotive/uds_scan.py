@@ -26,7 +26,6 @@ from typing import (
     Sequence,
 )
 
-from scapy.compat import orb
 from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.ecu import EcuState
 from scapy.contrib.automotive.scanner.configuration import \
@@ -1175,7 +1174,7 @@ class UDS_RMBASequentialEnumerator(UDS_RMBAEnumeratorABC):
             for tup in self.results_with_positive_response:
                 for i, b in enumerate(tup.resp.dataRecord):
                     addr = self.get_addr(tup.req)
-                    ih[addr + i] = orb(b)
+                    ih[addr + i] = b
 
             ih.tofile("RMBA_dump.hex", format="hex")
         except ImportError:

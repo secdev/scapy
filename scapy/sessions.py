@@ -10,7 +10,6 @@ from collections import defaultdict
 import socket
 import struct
 
-from scapy.compat import orb
 from scapy.config import conf
 from scapy.packet import Packet
 from scapy.pton_ntop import inet_pton
@@ -241,7 +240,7 @@ class TCPSession(IPSession):
             # Bidirectional
             def xor(x, y):
                 # type: (bytes, bytes) -> bytes
-                return bytes(orb(a) ^ orb(b) for a, b in zip(x, y))
+                return bytes(a ^ b for a, b in zip(x, y))
             return struct.pack("!4sH", xor(src, dst), pkt.dport ^ pkt.sport)
         else:
             # Uni-directional

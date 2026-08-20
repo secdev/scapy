@@ -516,3 +516,7 @@ assert p == eval(p.command())
 pkt = DNSQR(qname=["domain1.com", "domain2.com"], qtype="A")
 for i in pkt:
     assert i.qname in [b"domain1.com.", b"domain2.com."]
+
+b = b'\x00\x08\x00\x0c\x00\x02=\x00+\xaf\xa3\xc4\xed\xeeW\xb8'
+p = EDNS0ClientSubnet(b)
+assert p.source_plen == 61 and p.address == '2baf:a3c4:edee:57b8::'

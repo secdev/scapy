@@ -19,7 +19,6 @@ RFC 6551 - Routing Metrics Used for Path Calculation in LLNs
 """
 
 import struct
-from scapy.compat import orb
 from scapy.packet import Packet
 from scapy.fields import ByteEnumField, ByteField, ShortField, BitField, \
     BitEnumField, FieldLenField, StrLenField, IntField
@@ -65,7 +64,7 @@ class DAGMCObjUnknown(Packet):
         Dispatch hook for DAGMC sub-fields
         """
         if _pkt:
-            opt_type = orb(_pkt[0])  # Option type
+            opt_type = _pkt[0]  # Option type
             if opt_type in DAGMC_CLS:
                 return DAGMC_CLS[opt_type]
         return cls

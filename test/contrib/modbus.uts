@@ -541,3 +541,42 @@ pkt = ModbusPDUUserDefinedFunctionCodeRequest(b'M\x00\x05\x00\n')
 pkt = next(iter(pkt))
 assert pkt.mb_payload == b'\x00\x05\x00\n'
 
+
++ Test back-to-back ADUs in one buffer
+
+= Register arrays are not over-read when a second ADU follows
+# GH4096: byteCount is a byte count, but count_from expects an element count,
+# so register arrays consumed twice as many items as they should and swallowed
+# the header of the following ADU.
+adu = raw(ModbusADUResponse(transId=1, unitId=0xff) / ModbusPDU04ReadInputRegistersResponse(registerVal=[0x1111, 0x2222, 0x3333]))
+pkt = ModbusADUResponse(adu + adu)
+assert pkt[ModbusPDU04ReadInputRegistersResponse].registerVal == [0x1111, 0x2222, 0x3333]
+assert raw(pkt[ModbusPDU04ReadInputRegistersResponse].payload) == adu
+
+= Read Coils response keeps the ADU that follows it
+# GH4096: ModbusPDU01ReadCoilsResponse derived from _ModbusPDUNoPayload, whose
+# extract_padding discards everything after the PDU, so the second ADU was lost.
+adu = raw(ModbusADUResponse(transId=1, unitId=0xff) / ModbusPDU01ReadCoilsResponse(coilStatus=[0x11, 0x22, 0x33]))
+pkt = ModbusADUResponse(adu + adu)
+assert pkt[ModbusPDU01ReadCoilsResponse].coilStatus == [0x11, 0x22, 0x33]
+assert raw(pkt[ModbusPDU01ReadCoilsResponse].payload) == adu
+
+= Every byteCount-driven array round-trips across concatenated ADUs
+# GH4096: covers each PDU whose variable array is sized from byteCount.
+cases = [
+    (ModbusADUResponse, ModbusPDU01ReadCoilsResponse, "coilStatus", [0x11, 0x22, 0x33]),
+    (ModbusADUResponse, ModbusPDU02ReadDiscreteInputsResponse, "inputStatus", [0x11, 0x22, 0x33]),
+    (ModbusADUResponse, ModbusPDU03ReadHoldingRegistersResponse, "registerVal", [0x1111, 0x2222, 0x3333]),
+    (ModbusADUResponse, ModbusPDU04ReadInputRegistersResponse, "registerVal", [0x1111, 0x2222, 0x3333]),
+    (ModbusADURequest, ModbusPDU0FWriteMultipleCoilsRequest, "outputsValue", [0x11, 0x22, 0x33]),
+    (ModbusADURequest, ModbusPDU10WriteMultipleRegistersRequest, "outputsValue", [0x1111, 0x2222, 0x3333]),
+    (ModbusADURequest, ModbusPDU17ReadWriteMultipleRegistersRequest, "writeRegistersValue", [0x1111, 0x2222, 0x3333]),
+    (ModbusADUResponse, ModbusPDU17ReadWriteMultipleRegistersResponse, "registerVal", [0x1111, 0x2222, 0x3333]),
+    (ModbusADUResponse, ModbusPDU18ReadFIFOQueueResponse, "FIFOVal", [0x1111, 0x2222, 0x3333]),
+]
+for adu_cls, pdu_cls, field, values in cases:
+    adu = raw(adu_cls(transId=1, unitId=0xff) / pdu_cls(**{field: values}))
+    assert list(getattr(adu_cls(adu)[pdu_cls], field)) == values, pdu_cls.__name__
+    pkt = adu_cls(adu + adu)
+    assert list(getattr(pkt[pdu_cls], field)) == values, pdu_cls.__name__
+    assert raw(pkt[pdu_cls].payload) == adu, pdu_cls.__name__

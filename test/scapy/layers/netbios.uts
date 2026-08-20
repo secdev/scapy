@@ -8,7 +8,7 @@
 
 = NBNSQueryRequest - build & dissect
 
-z = NBNSHeader()/NBNSQueryRequest(SUFFIX="file server service", QUESTION_NAME='TEST1', QUESTION_TYPE='NB')
+z = NBNSHeader()/NBNSQueryRequest(SUFFIX="File Server Service", QUESTION_NAME='TEST1', QUESTION_TYPE='NB')
 
 assert raw(z) == b'\x00\x00\x01\x10\x00\x01\x00\x00\x00\x00\x00\x00 FEEFFDFEDBCACACACACACACACACACACA\x00\x00 \x00\x01'
 
@@ -39,6 +39,29 @@ z = NBNSHeader(b'/S\x85\x80\x00\x00\x00\x01\x00\x00\x00\x00 FAEPFEEBFEEPCACACACA
 assert z.RR_NAME == b'POTATO'
 assert z.ADDR_ENTRY[0].G == 0
 assert z.ADDR_ENTRY[0].NB_ADDRESS == "192.168.1.65"
+
+= NBNSQueryResponse - name registered on several addresses
+
+# RFC1002 sect 4.2.13: RDATA holds one {NB_FLAGS, NB_ADDRESS} pair per address
+# the name answers on, and RDLENGTH spans all of them.
+
+data = b'/S\x85\x80\x00\x00\x00\x01\x00\x00\x00\x00 FAEPFEEBFEEPCACACACACACACACACAAA\x00\x00 \x00\x01\x00\x03\xf4\x80\x00\x0c\x00\x00\xc0\xa8\x01A\x00\x00\xc0\xa8\x01B'
+z = NBNSHeader(data)
+assert z.RDLENGTH == 12
+assert len(z.ADDR_ENTRY) == 2
+assert [x.NB_ADDRESS for x in z.ADDR_ENTRY] == ["192.168.1.65", "192.168.1.66"]
+assert raw(z) == data
+
+z = NBNSHeader()/NBNSQueryResponse(RR_NAME="FRED", ADDR_ENTRY=[NBNS_ADD_ENTRY(NB_ADDRESS="192.168.0.13"), NBNS_ADD_ENTRY(NB_ADDRESS="192.168.0.14")])
+pkt = NBNSHeader(raw(z))
+assert pkt.RDLENGTH == 12
+assert [x.NB_ADDRESS for x in pkt.ADDR_ENTRY] == ["192.168.0.13", "192.168.0.14"]
+
+# RDLENGTH bounds the list: what follows the record is not an address entry
+
+pkt = NBNSHeader(data + b'\xde\xad\xbe\xef')
+assert len(pkt.ADDR_ENTRY) == 2
+assert raw(pkt) == data + b'\xde\xad\xbe\xef'
 
 = NBNSQueryResponse answers NBNSQueryRequest
 

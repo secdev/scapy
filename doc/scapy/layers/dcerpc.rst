@@ -313,7 +313,7 @@ There are extensions to the :class:`~scapy.layers.msrpce.rpcclient.DCERPC_Client
     client.negotiate_sessionkey(bytes.fromhex("77777777777777777777777777777777"))
     client.close()
 
-- the :class:`~scapy.layers.msrpce.msdcom.DCOM_Client` (unfinished)
+- the :class:`~scapy.layers.msrpce.msdcom.DCOM_Client`. More details are available in `DCOM <dcom.html>`_
 
 Server
 ------
@@ -392,8 +392,6 @@ To start an endpoint mapper (this should be a separate process from your RPC ser
         ndr64=True,
     )
 
-
-.. note:: Currently, a DCERPC_Server will let a client bind on all interfaces that Scapy has registered (imported). Supposedly though, you know which RPCs are going to be queried.
 
 Debugging with extended error information (eerr)
 ------------------------------------------------

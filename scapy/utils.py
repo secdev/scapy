@@ -41,7 +41,6 @@ from scapy.config import conf
 from scapy.consts import DARWIN, OPENBSD, WINDOWS
 from scapy.data import MTU, DLT_EN10MB, DLT_RAW
 from scapy.compat import (
-    orb,
     plain_str,
     chb,
     hex_bytes,
@@ -57,20 +56,20 @@ from scapy.pton_ntop import inet_pton
 
 # Typing imports
 from typing import (
-    cast,
     Any,
     AnyStr,
     Callable,
+    cast,
     Dict,
     IO,
     Iterator,
     List,
     Optional,
-    TYPE_CHECKING,
+    overload,
     Tuple,
+    TYPE_CHECKING,
     Type,
     Union,
-    overload,
 )
 from scapy.compat import (
     DecoratorCallable,
@@ -260,10 +259,10 @@ def _open_fifo(fd: Any, mode: str = "rb") -> IO[bytes]:
 
 
 def sane(x, color=False):
-    # type: (AnyStr, bool) -> str
+    # type: (bytes, bool) -> str
     r = ""
     for i in x:
-        j = orb(i)
+        j = i
         if (j < 32) or (j >= 127):
             if color:
                 r += conf.color_theme.not_printable(".")
@@ -320,7 +319,7 @@ def hexdump(p, dump=False):
         s += "%04x  " % i
         for j in range(16):
             if i + j < x_len:
-                s += "%02X " % orb(x[i + j])
+                s += "%02X " % x[i + j]
             else:
                 s += "   "
         s += " %s\n" % sane(x[i:i + 16], color=True)
@@ -370,7 +369,7 @@ def chexdump(p, dump=False):
     :return: a String only if dump=True
     """
     x = bytes_encode(p)
-    s = ", ".join("%#04x" % orb(x) for x in x)
+    s = ", ".join("%#04x" % x for x in x)
     if dump:
         return s
     else:
@@ -385,7 +384,7 @@ def hexstr(p, onlyasc=0, onlyhex=0, color=False):
     x = bytes_encode(p)
     s = []
     if not onlyasc:
-        s.append(" ".join("%02X" % orb(b) for b in x))
+        s.append(" ".join("%02X" % b for b in x))
     if not onlyhex:
         s.append(sane(x, color=color))
     return "  ".join(s)
@@ -394,7 +393,7 @@ def hexstr(p, onlyasc=0, onlyhex=0, color=False):
 def repr_hex(s):
     # type: (bytes) -> str
     """ Convert provided bitstring to a simple string of hex digits """
-    return "".join("%02x" % orb(x) for x in s)
+    return "".join("%02x" % x for x in s)
 
 
 @conf.commands.register
@@ -530,7 +529,7 @@ def hexdiff(
         if dox:
             xd = y
             j = 0
-            while not linex[j]:
+            while j < len(linex) and not linex[j]:
                 j += 1
                 xd -= 1
             print(colorize[doy - dox]("%04x" % xd), end=' ')
@@ -541,7 +540,7 @@ def hexdiff(
         if doy:
             yd = y
             j = 0
-            while not liney[j]:
+            while j < len(liney) and not liney[j]:
                 j += 1
                 yd -= 1
             print(colorize[doy - dox]("%04x" % yd), end=' ')
@@ -557,7 +556,7 @@ def hexdiff(
             if i + j < min(len(backtrackx), len(backtracky)):
                 if line[j]:
                     col = colorize[(linex[j] != liney[j]) * (doy - dox)]
-                    print(col("%02X" % orb(line[j])), end=' ')
+                    print(col("%02X" % line[j][0]), end=' ')
                     if linex[j] == liney[j]:
                         cl += sane(line[j], color=True)
                     else:
@@ -1410,6 +1409,10 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
     nonblocking_socket = True
     PacketMetadata = collections.namedtuple("PacketMetadata",
                                             ["sec", "usec", "wirelen", "caplen"])  # noqa: E501
+    # A helper subprocess (e.g. the tcpdump prefilter that sniff() spawns for
+    # an offline capture with a filter) whose lifetime is bound to this reader.
+    # It is reaped in close() so it does not linger as a zombie (#4512).
+    subproc = None  # type: Optional[subprocess.Popen[bytes]]
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, _ByteStream, bytes) -> None
@@ -1529,6 +1532,13 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
         if isinstance(self.f, gzip.GzipFile):
             self.f.fileobj.close()  # type: ignore
         self.f.close()
+        if self.subproc is not None:
+            # Reap the prefilter subprocess. The read pipe is already closed
+            # above, so a still-running tcpdump gets a SIGTERM and we then
+            # wait() to avoid a zombie; an already-finished one is just reaped.
+            self.subproc.terminate()
+            self.subproc.wait()
+            self.subproc = None
 
     def __exit__(self, exc_type, exc_value, tracback):
         # type: (Optional[Any], Optional[Any], Optional[Any]) -> None
@@ -1808,7 +1818,7 @@ class RawPcapNgReader(RawPcapReader):
             if c == 9:
                 length = len(v)
                 if length == 1:
-                    tsresol = orb(v)
+                    tsresol = v[0]
                     options["tsresol"] = (2 if tsresol & 128 else 10) ** (
                         tsresol & 127
                     )
@@ -3768,19 +3778,22 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
     @classmethod
     def addcommand(
         cls,
-        spaces: bool = False,
+        mono: bool = False,
         globsupport: bool = False,
     ) -> Callable[[DecoratorCallable], DecoratorCallable]:
         """
         Decorator to register a command
+
+        :param mono: if True, the command takes a single argument even
+            if there are spaces.
         """
         def func(cmd: DecoratorCallable) -> DecoratorCallable:
             cmd.cliutil_type = _CLIUtilMetaclass.TYPE.COMMAND  # type: ignore
-            cmd._spaces = spaces  # type: ignore
+            cmd._mono = mono  # type: ignore
             cmd._globsupport = globsupport  # type: ignore
             cls._inspectkwargs(cmd)
-            if cmd._globsupport and not cmd._spaces:  # type: ignore
-                raise ValueError("Cannot use globsupport without spaces.")
+            if cmd._globsupport and not cmd._mono:  # type: ignore
+                raise ValueError("Cannot use globsupport without mono.")
             return cmd
         return func
 
@@ -3797,13 +3810,17 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
         return func
 
     @classmethod
-    def addcomplete(cls, cmd: DecoratorCallable) -> Callable[[DecoratorCallable], DecoratorCallable]:  # noqa: E501
+    def addcomplete(
+        cls,
+        cmd: DecoratorCallable,
+    ) -> Callable[[DecoratorCallable], DecoratorCallable]:
         """
         Decorator to register a command completor
         """
         def func(processor: DecoratorCallable) -> DecoratorCallable:
             processor.cliutil_type = _CLIUtilMetaclass.TYPE.COMPLETE  # type: ignore
             processor.cliutil_ref = cmd  # type: ignore
+            processor._mono = cmd._mono  # type: ignore
             return processor
         return func
 
@@ -3874,6 +3891,40 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                 )
             )
 
+    def _split_cmd(self, cmd: str) -> Tuple[List[str], List[int]]:
+        """
+        Split the command in multiple arguments
+        """
+        quoted = None
+        queue = [""]
+        offsets = [0]
+        for i, c in enumerate(cmd):
+            if c == "'" or c == '"':
+                # This is a quote.
+                if quoted is not None and quoted == c:
+                    # We are closing the last quote
+                    quoted = None
+                elif quoted:
+                    queue[-1] += c
+                else:
+                    quoted = c
+            elif c == " ":
+                # This is a space.
+                if quoted is not None:
+                    # We're in a quote, append it
+                    queue[-1] += c
+                elif queue[-1]:
+                    # Not in a quote, this splits the argument.
+                    queue += [""]
+                    offsets.append(i)
+                else:
+                    # Padding space, advance offset
+                    offsets[-1] += 1
+            else:
+                # This is a char
+                queue[-1] += c
+        return queue, offsets
+
     def _completer(self) -> 'prompt_toolkit.completion.Completer':
         """
         Returns a prompt_toolkit custom completer
@@ -3885,7 +3936,7 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                 if not complete_event.completion_requested:
                     # Only activate when the user does <TAB>
                     return
-                parts = document.text.split(" ")
+                parts, offsets = self._split_cmd(document.text)
                 cmd = parts[0].lower()
                 if cmd not in self.commands:
                     # We are trying to complete the command
@@ -3896,10 +3947,30 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                     if len(parts) == 1:
                         return
                     args, _, _ = self._parseallargs(self.commands[cmd], cmd, parts[1:])
-                    arg = " ".join(args)
                     if cmd in self.commands_complete:
-                        for possible_arg in self.commands_complete[cmd](self, arg):
-                            yield Completion(possible_arg, start_position=-len(arg))
+                        completer = self.commands_complete[cmd]
+                        # If the completion is 'mono', it's a single argument with
+                        # spaces. Else we pass the list of arguments to complete,
+                        # and we only complete the last argument.
+                        if completer._mono:  # type: ignore
+                            arg = " ".join(args)
+                            completions = completer(self, arg)
+                            startpos = offsets[1]
+                        else:
+                            completions = completer(self, args)
+                            startpos = offsets[-1]
+
+                        # For each possible completion
+                        for possible_arg in completions:
+                            # If there's a space in the completion, and we're
+                            # not in mono mode, add quotes.
+                            if " " in possible_arg and not completer._mono:  # type: ignore  # noqa: E501
+                                possible_arg = '"%s"' % possible_arg
+
+                            yield Completion(
+                                possible_arg,
+                                start_position=startpos - len(document.text) + 1
+                            )
                 return
         return CLICompleter()
 
@@ -3918,8 +3989,9 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
             except EOFError:
                 self.close()
                 break
-            args = cmd.split(" ")[1:]
-            cmd = cmd.split(" ")[0].strip().lower()
+            parts, _ = self._split_cmd(cmd)
+            args = parts[1:]
+            cmd = parts[0].strip().lower()
             if not cmd:
                 continue
             if cmd in ["help", "h", "?"]:
@@ -3933,7 +4005,7 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                 # check the number of arguments
                 func = self.commands[cmd]
                 args, kwargs, outkwargs = self._parseallargs(func, cmd, args)
-                if func._spaces:  # type: ignore
+                if func._mono:  # type: ignore
                     args = [" ".join(args)]
                     # if globsupport is set, we might need to do several calls
                     if func._globsupport and "*" in args[0]:  # type: ignore
@@ -3956,8 +4028,12 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                 for args in calls:
                     try:
                         res = func(self, *args, **kwargs)
-                    except TypeError:
+                    except KeyboardInterrupt:
+                        print("Aborted.")
+                    except TypeError as ex:
                         print("Bad number of arguments !")
+                        if debug:
+                            traceback.print_exception(ex)
                         self.help(cmd=cmd)
                         continue
                     except Exception as ex:
@@ -3967,6 +4043,8 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                     try:
                         if res and cmd in self.commands_output:
                             self.commands_output[cmd](self, res, **outkwargs)
+                    except KeyboardInterrupt:
+                        print("Aborted.")
                     except Exception as ex:
                         print("Output processor failed with error: %s" % ex)
 
@@ -4036,17 +4114,27 @@ def AutoArgparse(
             hexarguments.append(parname)
         elif param.annotation in [str, int, float]:
             paramkwargs["type"] = param.annotation
+        elif (
+            isinstance(param.annotation, type) and
+            issubclass(param.annotation, enum.Enum)
+        ):
+            paramkwargs["type"] = param.annotation
+            paramkwargs["choices"] = list(param.annotation)
         else:
             continue
         if param.default != inspect.Parameter.empty:
             if param.kind == inspect.Parameter.POSITIONAL_ONLY:
-                positional.append(param.name)
+                positional.append(parname)
                 paramkwargs["nargs"] = '?'
             else:
                 parname = "--" + parname
             paramkwargs["default"] = param.default
+        elif param.kind == inspect.Parameter.KEYWORD_ONLY:
+            # Required but Keyword only
+            parname = "--" + parname
+            paramkwargs["required"] = True
         else:
-            positional.append(param.name)
+            positional.append(parname)
         if param.kind == inspect.Parameter.VAR_POSITIONAL:
             paramkwargs["action"] = "append"
         if param.name in argsdoc:

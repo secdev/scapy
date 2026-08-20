@@ -21,7 +21,7 @@ from scapy.layers.l2 import Ether
 from scapy.layers.inet import IPField
 from scapy.layers.inet6 import IP6Field
 from scapy.data import ETHER_ANY
-from scapy.compat import orb, chb
+from scapy.compat import chb
 
 
 # Protocol layers
@@ -212,7 +212,7 @@ class LLTDQueryResp(Packet):
         if self.descs_count is None:
             # descs_count should be a FieldLenField but has an
             # unsupported format (14 bits)
-            flags = orb(pkt[0]) & 0xc0
+            flags = pkt[0] & 0xc0
             count = len(self.descs_list)
             pkt = chb(flags + (count >> 8)) + chb(count % 256) + pkt[2:]
         return pkt + pay
@@ -254,7 +254,7 @@ class LLTDQueryLargeTlvResp(Packet):
         if self.len is None:
             # len should be a FieldLenField but has an unsupported
             # format (14 bits)
-            flags = orb(pkt[0]) & 0xc0
+            flags = pkt[0] & 0xc0
             length = len(self.value)
             pkt = chb(flags + (length >> 8)) + chb(length % 256) + pkt[2:]
         return pkt + pay
@@ -294,7 +294,7 @@ class LLTDAttribute(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
-            cmd = orb(_pkt[0])
+            cmd = _pkt[0]
         elif "type" in kargs:
             cmd = kargs["type"]
             if isinstance(cmd, str):

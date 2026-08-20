@@ -19,7 +19,7 @@ class OBD_PID00(OBD_Packet):
     name = "PID_00_PIDsSupported"
 
     fields_desc = [
-        FlagsField('supported_pids', b'', 32, [
+        FlagsField('supported_pids', 0, 32, [
             'PID20',
             'PID1F',
             'PID1E',
@@ -109,7 +109,7 @@ class OBD_PID01(OBD_Packet):
 class OBD_PID02(OBD_Packet):
     name = "PID_02_FreezeDtc"
     fields_desc = [
-        PacketField('dtc', b'', OBD_DTC)
+        PacketField('dtc', None, OBD_DTC)
     ]
 
 
@@ -250,7 +250,7 @@ class OBD_PID12(OBD_Packet):
 class OBD_PID13(OBD_Packet):
     name = "PID_13_OxygenSensorsPresent"
     fields_desc = [
-        FlagsField('sensors_present', b'', 8, [
+        FlagsField('sensors_present', 0, 8, [
             'Bank1Sensor1',
             'Bank1Sensor2',
             'Bank1Sensor3',

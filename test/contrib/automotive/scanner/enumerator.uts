@@ -175,9 +175,24 @@ assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), 
 assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x11"), **conf)
 assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x7f"), **conf)
 assert not e._retry_pkt[EcuState(session=1)]
+# Default retry_if_busy_returncode_count=3: three retries before giving up
+assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x21"), **conf)
+assert e._retry_pkt[EcuState(session=1)] == UDS(b"\x10\x03abcd")
+assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x21"), **conf)
+assert e._retry_pkt[EcuState(session=1)] == UDS(b"\x10\x03abcd")
 assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x21"), **conf)
 assert e._retry_pkt[EcuState(session=1)] == UDS(b"\x10\x03abcd")
 assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x21"), **conf)
+assert not e._retry_pkt[EcuState(session=1)]
+# retry_if_busy_returncode_count=1: single retry then give up
+conf_count1 = {"retry_if_busy_returncode": True, "retry_if_busy_returncode_count": 1}
+assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x21"), **conf_count1)
+assert e._retry_pkt[EcuState(session=1)] == UDS(b"\x10\x03abcd")
+assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x21"), **conf_count1)
+assert not e._retry_pkt[EcuState(session=1)]
+# retry_if_busy_returncode_count=0: no retries
+conf_count0 = {"retry_if_busy_returncode": True, "retry_if_busy_returncode_count": 0}
+assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x21"), **conf_count0)
 assert not e._retry_pkt[EcuState(session=1)]
 
 assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x50\x03\x00"), **conf)

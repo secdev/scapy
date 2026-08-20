@@ -34,7 +34,7 @@ from scapy.fields import (
     UTCTimeField,
 )
 
-from scapy.compat import hex_bytes, orb, raw
+from scapy.compat import hex_bytes, raw
 from scapy.config import conf, crypto_validator
 from scapy.packet import Packet, Raw, Padding
 from scapy.utils import randstring, repr_hex
@@ -104,7 +104,7 @@ class _TLSHandshake(_GenericTLSSessionInheritance):
         tmp_len = len(p)
         if self.msglen is None:
             l2 = tmp_len - 4
-            p = struct.pack("!I", (orb(p[0]) << 24) | l2) + p[4:]
+            p = struct.pack("!I", (p[0] << 24) | l2) + p[4:]
         return p + pay
 
     def guess_payload_class(self, p):
@@ -395,7 +395,7 @@ class TLS13ClientHello(_TLSHandshake):
         tmp_len = len(p)
         if self.msglen is None:
             sz = tmp_len - 4
-            p = struct.pack("!I", (orb(p[0]) << 24) | sz) + p[4:]
+            p = struct.pack("!I", (p[0] << 24) | sz) + p[4:]
         s = self.tls_session
         if self.ext:
             for e in self.ext:

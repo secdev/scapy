@@ -174,6 +174,18 @@ print(p.sprintf('%test1% %test2% %test3% %test4%'))
 assert p.sprintf('%test1% %test2% %test3% %test4%') == '0x123456 123456 0xfedbca 567890'
 assert repr(p.test1) == '1193046'
 
+# i2len must match the 3 bytes actually emitted, so FieldLenField(length_of=)
+# on a 3-byte field computes the right length.
+for cls in [ThreeBytesField, X3BytesField, LEThreeBytesField, XLE3BytesField, OUIField]:
+    f = cls('x', 0)
+    assert f.i2len(None, 0x010203) == len(f.addfield(None, b'', 0x010203)) == 3, cls
+
+class ThreeBytesTLV(Packet):
+    fields_desc = [ FieldLenField('len', None, length_of='oui', fmt='B'),
+                    OUIField('oui', 0x00000c) ]
+
+assert ThreeBytesTLV(raw(ThreeBytesTLV())).len == 3
+
 
 = NBytesField
 ~ field nbytesfield

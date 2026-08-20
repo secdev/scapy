@@ -248,11 +248,11 @@ for a in range(10):
     s1, s2
     tmp = inet_pton(socket.AF_INET6, "::" + s1)[8:]
     tmp
-    assert (orb(tmp[0]) & 0x04) == 0
+    assert (tmp[0] & 0x04) == 0
     s1, s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3', previous=s2)
     s1, s2
     tmp = inet_pton(socket.AF_INET6, "::" + s1)[8:]
-    assert (orb(tmp[0]) & 0x04) == 0
+    assert (tmp[0] & 0x04) == 0
 
 assert in6_getRandomizedIfaceId('20b:93ff:feeb:2d3', previous='d006:d540:db11:b092') == ('721f:11fa:3743:fc7f', '5946:5272:7fcc:108a')
 
@@ -458,6 +458,18 @@ a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(id=0x6666, seq=0x77
 = ICMPv6EchoRequest and ICMPv6EchoReply - answers() test 7 - IPv6ExtHdrDestOpt
 b = IPv6(b'`\x0f\\\xe3\x00\x08:@\xfe\x80\x00\x00\x00\x00\x00\x00\x02PV\xff\xfe\x84\x1c\x14\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00&\x81\x00\r\xad\x00\x00\x00\x00')
 a = IPv6(b'`\x00\x00\x00\x00\x10<\xff\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00&\xfe\x80\x00\x00\x00\x00\x00\x00\x02PV\xff\xfe\x84\x1c\x14:\x00\x00\x00\x00\x00\x00\x00\x80\x00\x0e\xad\x00\x00\x00\x00')
+assert a.hashret() == b.hashret()
+assert b.answers(a)
+
+= IPv6 with DestOpt and UDP
+a = IPv6(raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/IPv6ExtHdrDestOpt()/UDP(sport=12345, dport=53)))
+b = IPv6(raw(IPv6(src="2001:db8::2", dst="2001:db8::1")/IPv6ExtHdrDestOpt()/UDP(sport=53, dport=12345)))
+assert a.hashret() == b.hashret()
+assert b.answers(a)
+
+= IPv6 with DestOpt and TCP
+a = IPv6(raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/IPv6ExtHdrDestOpt()/TCP(sport=12345, dport=80, flags="S", seq=1000)))
+b = IPv6(raw(IPv6(src="2001:db8::2", dst="2001:db8::1")/IPv6ExtHdrDestOpt()/TCP(sport=80, dport=12345, flags="SA", seq=2000, ack=1001)))
 assert a.hashret() == b.hashret()
 assert b.answers(a)
 
@@ -1996,7 +2008,7 @@ def test_getmacbyip6(mock_route6, mock_neighsol):
 
 test_getmacbyip6() == "05:04:03:02:01:00"
 
-= IPv6 - IPerror6 & UDPerror & _ICMPv6Error
+= IPv6 - IPerror6 & UDPerror & _ICMPv6Error & TCPerror
 
 query = IPv6(dst="2001:db8::1", src="2001:db8::2", hlim=1)/UDP()/DNS()
 answer = IPv6(dst="2001:db8::2", src="2001:db8::1", hlim=1)/ICMPv6TimeExceeded()/IPerror6(dst="2001:db8::1", src="2001:db8::2", hlim=0)/UDPerror()/DNS()
@@ -2006,6 +2018,13 @@ answer.answers(query) == True
 from scapy.layers.inet6 import _ICMPv6Error
 assert _ICMPv6Error().guess_payload_class(None) == IPerror6
 assert _ICMPv6Error().hashret() == b''
+
+# Test with extension header
+# From:
+# pkt = IPv6() / ICMPv6DestUnreach() / IPerror6 () / IPv6ExtHdrFragment(nh=6) / TCPerror()
+raw_pkt = b'`\x00\x00\x00\x00L:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01\x00l5\x00\x00\x00\x00`\x00\x00\x00\x00\x1c,@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x06\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x8f}\x00\x00'
+IPv6(raw_pkt).summary()
+assert TCPerror in IPv6(raw_pkt)
 
 = reset routes properly
 
@@ -2878,7 +2897,7 @@ a1, a2 = "2001:db8::1", "2001:db8::2"
 cookie = RandString(8)._fix()
 p1 = IPv6(src=a1, dst=a2)/MIP6MH_HoTI(cookie=cookie)
 p2 = IPv6(src=a2, dst=a1)/MIP6MH_HoT(cookie=cookie)
-p2_ko = IPv6(src=a2, dst=a1)/MIP6MH_HoT(cookie="".join(chr((orb(b'\xff') + 1) % 256)))
+p2_ko = IPv6(src=a2, dst=a1)/MIP6MH_HoT(cookie="".join(chr((0xff + 1) % 256)))
 assert p1.hashret() == p2.hashret() and p2.answers(p1) and not p1.answers(p2)
 assert p1.hashret() != p2_ko.hashret() and not p2_ko.answers(p1) and not p1.answers(p2_ko)
 

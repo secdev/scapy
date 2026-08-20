@@ -9,7 +9,7 @@
 
 import struct
 
-from scapy.compat import orb, chb
+from scapy.compat import chb
 from scapy.config import conf
 from scapy.data import (
     DLT_BLUETOOTH_LE_LL,
@@ -32,11 +32,10 @@ from scapy.fields import (
     SignedByteField,
     X3BytesField,
     XByteField,
-    XIntField,
+    XLE3BytesField,
     XLEIntField,
     XLELongField,
     XLEShortField,
-    XShortField,
 )
 from scapy.contrib.ethercat import LEBitEnumField, LEBitField
 
@@ -238,7 +237,7 @@ class BTLE(Packet):
 
         state = swapbits(init & 0xff) + (swapbits((init >> 8) & 0xff) << 8) + (swapbits((init >> 16) & 0xff) << 16)  # noqa: E501
         lfsr_mask = 0x5a6000
-        for i in (orb(x) for x in pdu):
+        for i in pdu:
             for j in range(8):
                 next_bit = (state ^ i) & 1
                 i >>= 1
@@ -370,8 +369,8 @@ class BTLE_CONNECT_REQ(Packet):
         BDAddrField("InitA", None),
         BDAddrField("AdvA", None),
         # LLDATA
-        XIntField("AA", 0x00),
-        X3BytesField("crc_init", 0x0),
+        XLEIntField("AA", 0x00),
+        XLE3BytesField("crc_init", 0x0),
         XByteField("win_size", 0x0),
         XLEShortField("win_offset", 0x0),
         XLEShortField("interval", 0x0),
@@ -562,36 +561,36 @@ class LL_SLAVE_FEATURE_REQ(Packet):
 class LL_CONNECTION_PARAM_REQ(Packet):
     name = "LL_CONNECTION_PARAM_REQ"
     fields_desc = [
-        XShortField("interval_min", 0x6),
-        XShortField("interval_max", 0x6),
-        XShortField("latency", 0x0),
-        XShortField("timeout", 0x0),
+        XLEShortField("interval_min", 0x6),
+        XLEShortField("interval_max", 0x6),
+        XLEShortField("latency", 0x0),
+        XLEShortField("timeout", 0x0),
         XByteField("preferred_periodicity", 0x0),
-        XShortField("reference_conn_evt_count", 0x0),
-        XShortField("offset0", 0x0),
-        XShortField("offset1", 0x0),
-        XShortField("offset2", 0x0),
-        XShortField("offset3", 0x0),
-        XShortField("offset4", 0x0),
-        XShortField("offset5", 0x0),
+        XLEShortField("reference_conn_evt_count", 0x0),
+        XLEShortField("offset0", 0x0),
+        XLEShortField("offset1", 0x0),
+        XLEShortField("offset2", 0x0),
+        XLEShortField("offset3", 0x0),
+        XLEShortField("offset4", 0x0),
+        XLEShortField("offset5", 0x0),
     ]
 
 
 class LL_CONNECTION_PARAM_RSP(Packet):
     name = "LL_CONNECTION_PARAM_RSP"
     fields_desc = [
-        XShortField("interval_min", 0x6),
-        XShortField("interval_max", 0x6),
-        XShortField("latency", 0x0),
-        XShortField("timeout", 0x0),
+        XLEShortField("interval_min", 0x6),
+        XLEShortField("interval_max", 0x6),
+        XLEShortField("latency", 0x0),
+        XLEShortField("timeout", 0x0),
         XByteField("preferred_periodicity", 0x0),
-        XShortField("reference_conn_evt_count", 0x0),
-        XShortField("offset0", 0x0),
-        XShortField("offset1", 0x0),
-        XShortField("offset2", 0x0),
-        XShortField("offset3", 0x0),
-        XShortField("offset4", 0x0),
-        XShortField("offset5", 0x0),
+        XLEShortField("reference_conn_evt_count", 0x0),
+        XLEShortField("offset0", 0x0),
+        XLEShortField("offset1", 0x0),
+        XLEShortField("offset2", 0x0),
+        XLEShortField("offset3", 0x0),
+        XLEShortField("offset4", 0x0),
+        XLEShortField("offset5", 0x0),
     ]
 
 
@@ -652,7 +651,7 @@ class LL_PHY_UPDATE_IND(Packet):
     fields_desc = [
         BTLEPhysField('tx_phy', 0),
         BTLEPhysField('rx_phy', 0),
-        XShortField("instant", 0x0),
+        XLEShortField("instant", 0x0),
     ]
 
 
@@ -727,14 +726,14 @@ class LL_CIS_REQ(Packet):
         XLEShortField("max_pdu_c_to_p", 0),
         XLEShortField("max_pdu_p_to_c", 0),
         XByteField("nse", 0),
-        X3BytesField("subinterval", 0x0),
+        XLE3BytesField("subinterval", 0x0),
         LEBitField('bn_c_to_p', 0, 4),
         LEBitField('bn_p_to_c', 0, 4),
         ByteField("ft_c_to_p", 0),
         ByteField("ft_p_to_c", 0),
         XLEShortField("iso_interval", 0),
-        X3BytesField("cis_offset_min", 0x0),
-        X3BytesField("cis_offset_max", 0x0),
+        XLE3BytesField("cis_offset_min", 0x0),
+        XLE3BytesField("cis_offset_max", 0x0),
         XLEShortField("conn_event_count", 0),
     ]
 
@@ -742,8 +741,8 @@ class LL_CIS_REQ(Packet):
 class LL_CIS_RSP(Packet):
     name = 'LL_CIS_RSP'
     fields_desc = [
-        X3BytesField("cis_offset_min", 0x0),
-        X3BytesField("cis_offset_max", 0x0),
+        XLE3BytesField("cis_offset_min", 0x0),
+        XLE3BytesField("cis_offset_max", 0x0),
         XLEShortField("conn_event_count", 0),
     ]
 
@@ -751,10 +750,10 @@ class LL_CIS_RSP(Packet):
 class LL_CIS_IND(Packet):
     name = 'LL_CIS_IND'
     fields_desc = [
-        XIntField("AA", 0x00),
-        X3BytesField("cis_offset", 0x0),
-        X3BytesField("cig_sync_delay", 0x0),
-        X3BytesField("cis_sync_delay", 0x0),
+        XLEIntField("AA", 0x00),
+        XLE3BytesField("cis_offset", 0x0),
+        XLE3BytesField("cig_sync_delay", 0x0),
+        XLE3BytesField("cis_sync_delay", 0x0),
         XLEShortField("conn_event_count", 0),
     ]
 

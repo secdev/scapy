@@ -10,7 +10,7 @@ SCTP (Stream Control Transmission Protocol).
 
 import struct
 
-from scapy.compat import orb, raw
+from scapy.compat import raw
 from scapy.volatile import RandBin
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers
@@ -24,6 +24,7 @@ from scapy.fields import (
     IntEnumField,
     IntField,
     MultipleTypeField,
+    PacketLenField,
     PacketListField,
     PadField,
     ShortEnumField,
@@ -36,7 +37,7 @@ from scapy.fields import (
 )
 from scapy.data import SCTP_SERVICES
 from scapy.layers.inet import IP, IPerror
-from scapy.layers.inet6 import IP6Field, IPv6, IPerror6
+from scapy.layers.inet6 import IP6Field, IPv6, IPerror6, nh_clserror
 
 IPPROTO_SCTP = 132
 
@@ -112,7 +113,7 @@ crc32c_table = [
 def crc32c(buf):
     crc = 0xffffffff
     for c in buf:
-        crc = (crc >> 8) ^ crc32c_table[(crc ^ (orb(c))) & 0xFF]
+        crc = (crc >> 8) ^ crc32c_table[(crc ^ (c)) & 0xFF]
     crc = (~crc) & 0xffffffff
     # reverse endianness
     return struct.unpack(">I", struct.pack("<I", crc))[0]
@@ -127,8 +128,8 @@ def update_adler32(adler, buf):
     print(s1, s2)
 
     for c in buf:
-        print(orb(c))
-        s1 = (s1 + orb(c)) % BASE
+        print(c)
+        s1 = (s1 + c) % BASE
         s2 = (s2 + s1) % BASE
         print(s1, s2)
     return (s2 << 16) + s1
@@ -260,7 +261,7 @@ class _SCTPChunkGuessPayload:
         if len(p) < 4:
             return conf.padding_layer
         else:
-            t = orb(p[0])
+            t = p[0]
             return globals().get(sctpchunktypescls.get(t, "Raw"), conf.raw_layer)  # noqa: E501
 
 
@@ -303,6 +304,8 @@ class SCTPerror(SCTP):
         return Packet.mysummary(self)
 
 
+nh_clserror[IPPROTO_SCTP] = SCTPerror
+
 # SCTP Chunk variable params
 
 
@@ -324,7 +327,7 @@ class ChunkParamField(PacketListField):
     def m2i(self, p, m):
         cls = conf.raw_layer
         if len(m) >= 4:
-            t = orb(m[0]) * 256 + orb(m[1])
+            t = m[0] * 256 + m[1]
             cls = globals().get(sctpchunkparamtypescls.get(t, "Raw"), conf.raw_layer)  # noqa: E501
         return cls(m)
 
@@ -624,6 +627,23 @@ SCTP_PAYLOAD_PROTOCOL_INDENTIFIERS = {
 }
 
 
+class _SCTPChunkDataField(PacketLenField):
+    """PacketLenField that dispatches using bind_layers bindings."""
+
+    def m2i(self, pkt, m):
+        # Only dissect complete messages
+        if pkt.beginning != 1 or pkt.ending != 1:
+            return conf.raw_layer(load=m)
+        # Check bind_layers bindings
+        for fval, cls in pkt.payload_guess:
+            if all(
+                hasattr(pkt, k) and v == pkt.getfieldval(k)
+                for k, v in fval.items()
+            ):
+                return cls(m)
+        return conf.raw_layer(load=m)
+
+
 class SCTPChunkData(_SCTPChunkGuessPayload, Packet):
     # TODO : add a padding function in post build if this layer is used to generate SCTP chunk data  # noqa: E501
     fields_desc = [ByteEnumField("type", 0, sctpchunktypes),
@@ -637,7 +657,8 @@ class SCTPChunkData(_SCTPChunkGuessPayload, Packet):
                    XShortField("stream_id", None),
                    XShortField("stream_seq", None),
                    IntEnumField("proto_id", None, SCTP_PAYLOAD_PROTOCOL_INDENTIFIERS),  # noqa: E501
-                   PadField(StrLenField("data", None, length_from=lambda pkt: pkt.len - 16),  # noqa: E501
+                   PadField(_SCTPChunkDataField("data", None, conf.raw_layer,
+                                                length_from=lambda pkt: pkt.len - 16),  # noqa: E501
                             4, padwith=b"\x00"),
                    ]
 

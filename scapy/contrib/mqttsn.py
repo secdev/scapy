@@ -20,7 +20,7 @@ from scapy.fields import BitField, BitEnumField, ByteField, ByteEnumField, \
     StrLenField, XByteEnumField
 from scapy.layers.inet import UDP
 from scapy.error import Scapy_Exception
-from scapy.compat import chb, orb
+from scapy.compat import chb
 from scapy.volatile import RandNum
 import struct
 
@@ -91,13 +91,13 @@ class VariableFieldLenField(FieldLenField):
             return s + chb(val)
 
     def getfield(self, pkt, s):
-        if orb(s[0]) == 0x01:
+        if s[0] == 0x01:
             if len(s) < 3:
                 raise Scapy_Exception("%s: malformed length field" %
                                       self.__class__.__name__)
-            return s[3:], (orb(s[1]) << 8) | orb(s[2])
+            return s[3:], (s[1] << 8) | s[2]
         else:
-            return s[1:], orb(s[0])
+            return s[1:], s[0]
 
     def randval(self):
         return RandVariableFieldLen()

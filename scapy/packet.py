@@ -32,7 +32,6 @@ from scapy.fields import (
     Field,
     FlagsField,
     FlagValue,
-    MayEnd,
     MultiEnumField,
     MultipleTypeField,
     PadField,
@@ -41,7 +40,7 @@ from scapy.fields import (
     StrField,
 )
 from scapy.config import conf, _version_checker
-from scapy.compat import raw, orb, bytes_encode
+from scapy.compat import raw, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
     _CanvasDumpExtended
 from scapy.interfaces import _GlobInterfaceType
@@ -55,6 +54,7 @@ from scapy.libs.test_pyx import PYX
 from typing import (
     Any,
     Callable,
+    ClassVar,
     Dict,
     Iterator,
     List,
@@ -105,7 +105,7 @@ class Packet(
         "process_information"
     ]
     name = None
-    fields_desc = []  # type: List[AnyField]
+    fields_desc = []  # type: ClassVar[List[AnyField]]
     deprecated_fields = {}  # type: Dict[str, Tuple[str, str]]
     overload_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     payload_guess = []  # type: List[Tuple[Dict[str, Any], Type[Packet]]]
@@ -155,7 +155,7 @@ class Packet(
                  **fields  # type: Any
                  ):
         # type: (...) -> None
-        self.time = time.time()  # type: Union[EDecimal, float]
+        self.time = 0.0 if _internal else time.time()  # type: Union[EDecimal, float]
         self.sent_time = None  # type: Union[EDecimal, float, None]
         self.name = (self.__class__.__name__
                      if self._name is None else
@@ -222,6 +222,7 @@ class Packet(
         Optional[int],
         Optional[bytes],
     ]
+    _PickleStateType = Union[_PickleType, Dict[str, Any]]
 
     @property
     def comment(self):
@@ -243,27 +244,68 @@ class Packet(
         else:
             self.comments = None
 
+    @classmethod
+    def _rebuild_pkt(cls, raw_packet):
+        # type: (Type[Packet], bytes) -> Packet
+        """Helper used by pickle to reconstruct Packet from raw bytes."""
+        return cls(raw_packet)
+
     def __reduce__(self):
-        # type: () -> Tuple[Type[Packet], Tuple[bytes], Packet._PickleType]
+        # type: () -> Tuple[Any, ...]
         """Used by pickling methods"""
-        return (self.__class__, (self.build(),), (
-            self.time,
-            self.sent_time,
-            self.direction,
-            self.sniffed_on,
-            self.wirelen,
-            self.comment
-        ))
+        state = {
+            "pickle_state_version": 2,
+            "time": self.time,
+            "sent_time": self.sent_time,
+            "direction": self.direction,
+            "sniffed_on": self.sniffed_on,
+            "wirelen": self.wirelen,
+            # Keep both keys for compatibility with historical/transition code.
+            "comment": self.comment,
+            "comments": self.comments,
+        }
+        extra_slots = {}
+        for attr in type(self).__all_slots__ - set(Packet.__slots__):
+            if hasattr(self, attr):
+                extra_slots[attr] = getattr(self, attr)
+        if extra_slots:
+            state["extra_slots"] = extra_slots  # type: ignore
+        return (type(self)._rebuild_pkt, (self.build(),), state)
 
     def __setstate__(self, state):
-        # type: (Packet._PickleType) -> Packet
+        # type: (Packet._PickleStateType) -> Packet
         """Rebuild state using pickable methods"""
-        self.time = state[0]
-        self.sent_time = state[1]
-        self.direction = state[2]
-        self.sniffed_on = state[3]
-        self.wirelen = state[4]
-        self.comment = state[5]
+        # Legacy format: tuple produced by older Packet.__reduce__.
+        if isinstance(state, tuple):
+            self.time = state[0]
+            self.sent_time = state[1]
+            self.direction = state[2]
+            self.sniffed_on = state[3]
+            self.wirelen = state[4]
+            self.comment = state[5]
+            return self
+
+        # New format: versioned dict metadata.
+        self.time = state.get("time", self.time)
+        self.sent_time = state.get("sent_time", self.sent_time)
+        self.direction = state.get("direction", self.direction)
+        self.sniffed_on = state.get("sniffed_on", self.sniffed_on)
+        self.wirelen = state.get("wirelen", self.wirelen)
+
+        if "comments" in state:
+            self.comments = state["comments"]
+        elif "comment" in state:
+            self.comment = state["comment"]
+
+        extra_slots = state.get("extra_slots", {})
+        if isinstance(extra_slots, dict):
+            for attr, value in extra_slots.items():
+                # Only restore known subclass slots; ignore stale/unknown entries.
+                if attr in type(self).__all_slots__ and attr not in Packet.__slots__:
+                    try:
+                        setattr(self, attr, value)
+                    except AttributeError:
+                        pass
         return self
 
     def __deepcopy__(self,
@@ -310,11 +352,12 @@ class Packet(
         cls_name = self.__class__
 
         # Build the fields information
-        if Packet.class_default_fields.get(cls_name, None) is None:
+        default_fields = Packet.class_default_fields.get(cls_name)
+        if default_fields is None:
             self.prepare_cached_fields(self.fields_desc)
+            default_fields = Packet.class_default_fields.get(cls_name)
 
         # Use fields information from cache
-        default_fields = Packet.class_default_fields.get(cls_name, None)
         if default_fields:
             self.default_fields = default_fields
             self.fieldtype = Packet.class_fieldtype[cls_name]
@@ -474,12 +517,18 @@ class Packet(
         # type: (str) -> Any
         if self.deprecated_fields and attr in self.deprecated_fields:
             attr = self._resolve_alias(attr)
-        if attr in self.fields:
+        try:
             return self.fields[attr]
-        if attr in self.overloaded_fields:
+        except KeyError:
+            pass
+        try:
             return self.overloaded_fields[attr]
-        if attr in self.default_fields:
+        except KeyError:
+            pass
+        try:
             return self.default_fields[attr]
+        except KeyError:
+            pass
         return self.payload.getfieldval(attr)
 
     def getfield_and_val(self, attr):
@@ -683,17 +732,24 @@ class Packet(
     def _raw_packet_cache_field_value(self, fld, val, copy=False):
         # type: (AnyField, Any, bool) -> Optional[Any]
         """Get a value representative of a mutable field to detect changes"""
-        _cpy = lambda x: fld.do_copy(x) if copy else x  # type: Callable[[Any], Any]
         if fld.holds_packets:
             # avoid copying whole packets (perf: #GH3894)
             if fld.islist:
+                if copy:
+                    return [
+                        (fld.do_copy(x.fields), x.payload.raw_packet_cache)
+                        for x in val
+                    ]
                 return [
-                    (_cpy(x.fields), x.payload.raw_packet_cache) for x in val
+                    (x.fields, x.payload.raw_packet_cache) for x in val
                 ]
             else:
-                return (_cpy(val.fields), val.payload.raw_packet_cache)
+                if copy:
+                    return (fld.do_copy(val.fields),
+                            val.payload.raw_packet_cache)
+                return (val.fields, val.payload.raw_packet_cache)
         elif fld.islist or fld.ismutable:
-            return _cpy(val)
+            return fld.do_copy(val) if copy else val
         return None
 
     def clear_cache(self):
@@ -1290,7 +1346,7 @@ class Packet(
 
         def hexstr(x):
             # type: (bytes) -> str
-            return " ".join("%02x" % orb(c) for c in x)
+            return " ".join("%02x" % c for c in x)
 
         def make_dump_txt(x, y, txt):
             # type: (int, float, bytes) -> pyx.text.text
@@ -1464,7 +1520,7 @@ class Packet(
         for f in self.fields_desc:
             s, fval = f.getfield(self, s)
             # Skip unused ConditionalField
-            if isinstance(f, ConditionalField) and fval is None:
+            if f.isconditional and fval is None:
                 continue
             # We need to track fields with mutable values to discard
             # .raw_packet_cache when needed.
@@ -1473,9 +1529,9 @@ class Packet(
                     self._raw_packet_cache_field_value(f, fval, copy=True)
             self.fields[f.name] = fval
             # Nothing left to dissect
-            if not s and (isinstance(f, MayEnd) or
-                          (fval is not None and isinstance(f, ConditionalField) and
-                           isinstance(f.fld, MayEnd))):
+            if not s and (f.ismayend or
+                          (fval is not None and f.isconditional and
+                           f.fld.ismayend)):  # type: ignore
                 break
         self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
@@ -2297,7 +2353,7 @@ class NoPayload(Packet):
         if singl is None:
             cls.__singl__ = singl = Packet.__new__(cls)
             Packet.__init__(singl)
-        return cast(NoPayload, singl)
+        return singl  # type: ignore
 
     def __init__(self, *args, **kargs):
         # type: (*Any, **Any) -> None

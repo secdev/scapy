@@ -35,3 +35,45 @@ assert pkts[10].pay.H_hash.value.data.key.value == b"\xef\xecj=~\xe4Y'\xe9\xad\x
 
 assert isinstance(pkts[10][SSH:2].pay, SSHNewKeys)
 assert isinstance(pkts[12].pay, SSHNewKeys)
+
+= ComaStrField encode/decode
+
+import struct
+from scapy.layers.ssh import _ComaStrField
+
+csf = _ComaStrField("names", [])
+
+# m2i splits on commas
+assert csf.m2i(None, b"curve25519-sha256,diffie-hellman-group14-sha256") == \
+    [b"curve25519-sha256", b"diffie-hellman-group14-sha256"]
+
+# i2m joins with commas
+assert csf.i2m(None, [b"curve25519-sha256", b"diffie-hellman-group14-sha256"]) == \
+    b"curve25519-sha256,diffie-hellman-group14-sha256"
+
+# single element, no comma
+assert csf.m2i(None, b"ssh-ed25519") == [b"ssh-ed25519"]
+assert csf.i2m(None, [b"ssh-ed25519"]) == b"ssh-ed25519"
+
+# empty string <-> single empty-name list
+assert csf.m2i(None, b"") == [b""]
+assert csf.i2m(None, [b""]) == b""
+
+# round trips
+names = [b"a", b"b", b"c"]
+assert csf.m2i(None, csf.i2m(None, names)) == names
+raw = b"x,y,z"
+assert csf.i2m(None, csf.m2i(None, raw)) == raw
+
+# through NameList length
+nl = NameList(names=[b"curve25519-sha256"])
+raw = bytes(nl)
+assert struct.unpack("!I", raw[:4])[0] == len(b"curve25519-sha256"), \
+    "NameList length field encodes item count instead of byte length"
+
+# Multi-name list
+nl2 = NameList(names=[b"curve25519-sha256", b"diffie-hellman-group14-sha256"])
+raw2 = bytes(nl2)
+expected = b"curve25519-sha256,diffie-hellman-group14-sha256"
+assert raw2[4:] == expected
+assert struct.unpack("!I", raw2[:4])[0] == len(expected)

@@ -48,7 +48,7 @@ t_bridge.start()
 started.wait(timeout=5)
 
 = Send five IP packets from 192.0.2.1 to the tap0 **interface**
-sendp([Ether(dst=ETHER_BROADCAST) / IP(src="192.0.2.1") / ICMP()], iface="tap0",
+sendp(Ether(dst=ETHER_BROADCAST) / IP(src="192.0.2.1") / ICMP(), iface="tap0",
       count=5)
 
 = Wait for the threads
@@ -89,7 +89,7 @@ t_bridge.start()
 started.wait(timeout=5)
 
 = Send five IP packets from 192.0.2.1 to the tap0 **interface**
-sendp([Ether(dst=ETHER_BROADCAST) / IP(src="192.0.2.1") / ICMP()], iface="tap0",
+sendp(Ether(dst=ETHER_BROADCAST) / IP(src="192.0.2.1") / ICMP(), iface="tap0",
       count=5)
 
 = Wait for the threads
@@ -160,7 +160,7 @@ started.wait(timeout=5)
 
 = Send five IP packets from 192.0.2.1 to the tun0 **interface**
 conf.route.add(net="192.0.2.2/32", dev="tun0")
-send([IP(src="192.0.2.1", dst="192.0.2.2") / ICMP()], count=5, iface="tun0")
+send(IP(src="192.0.2.1", dst="192.0.2.2") / ICMP(), count=5, iface="tun0")
 conf.route.delt(net="192.0.2.2/32", dev="tun0")
 
 = Wait for the threads
@@ -202,7 +202,7 @@ started.wait(timeout=5)
 
 = Send five IP packets from 192.0.2.1 to the tun0 **interface**
 conf.route.add(net="192.0.2.2/32", dev="tun0")
-send([IP(src="192.0.2.1", dst="192.0.2.2") / ICMP()], count=5, iface="tun0")
+send(IP(src="192.0.2.1", dst="192.0.2.2") / ICMP(), count=5, iface="tun0")
 conf.route.delt(net="192.0.2.2/32", dev="tun0")
 
 = Wait for the threads

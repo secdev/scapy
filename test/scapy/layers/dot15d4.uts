@@ -325,6 +325,80 @@ p = Dot15d4AuxSecurityHeader(b"\x18\x05\x00\x00\x00\xff\xee\xdd\xcc\xbb\xaa\x00\
 assert p.sec_sc_keyidmode == 3
 assert p.sec_keyid_keysource == 11024999611375677183
 
+= Dot15d4AuxSecurityHeader - extract_padding does not consume trailing bytes
+
+p = Dot15d4AuxSecurityHeader(b"\x04\x05\x00\x00\x00\xAA\xBB")
+assert p.sec_sc_seclevel == 4
+assert p.sec_framecounter == 0x5
+assert Raw not in p
+assert Padding in p
+assert p[Padding].load == b"\xAA\xBB"
+
+= Dot15d4 Beacon with aux_sec_header (issue #4928)
+
+# Given: raw bytes for a Dot15d4 Beacon frame with fcf_security=1
+# Note: remaining bytes are encrypted data, so ZigBeeBeacon dissection is expected to fail
+with no_debug_dissector():
+    pkt = Dot15d4(b'\x08\xD0\x84\x21\x43\x01\x00\x00\x00\x00\x48\xDE\xAC\x02\x05\x00\x00\x00\x55\xCF\x00\x00\x51\x52\x53\x54\x22\x3B\xC1\xEC\x84\x1A\xB5\x53')
+
+assert pkt.fcf_frametype == 0
+assert pkt.fcf_security == 1
+assert Dot15d4Beacon in pkt
+assert pkt[Dot15d4Beacon].aux_sec_header is not None
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_sc_seclevel == 2
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_sc_keyidmode == 0
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_framecounter == 0x5
+assert Raw in pkt
+
+= Dot15d4 Data with aux_sec_header - build & dissect round-trip
+
+# Given: a Dot15d4 Data frame with fcf_security=1
+pkt = Dot15d4(fcf_frametype=1, fcf_security=1, fcf_destaddrmode=2, fcf_srcaddrmode=2) / Dot15d4Data(dest_panid=0x1234, dest_addr=0xFFFF, src_panid=0x1234, src_addr=0x0001, aux_sec_header=Dot15d4AuxSecurityHeader(sec_sc_seclevel=5, sec_sc_keyidmode=1, sec_keyid_keyindex=0x01))
+# When: packet is serialized and re-dissected
+pkt2 = Dot15d4(raw(pkt))
+# Then: aux_sec_header is correctly parsed
+assert pkt2.fcf_security == 1
+assert Dot15d4Data in pkt2
+assert pkt2[Dot15d4Data].aux_sec_header is not None
+assert pkt2[Dot15d4Data].aux_sec_header.sec_sc_seclevel == 5
+assert pkt2[Dot15d4Data].aux_sec_header.sec_sc_keyidmode == 1
+assert pkt2[Dot15d4Data].aux_sec_header.sec_keyid_keyindex == 0x01
+
+= Dot15d4 Cmd with aux_sec_header - build & dissect round-trip
+
+# Given: a Dot15d4 Command frame with fcf_security=1
+pkt = Dot15d4(fcf_frametype=3, fcf_security=1, fcf_destaddrmode=2, fcf_srcaddrmode=2) / Dot15d4Cmd(dest_panid=0x1234, dest_addr=0xFFFF, src_panid=0x1234, src_addr=0x0001, aux_sec_header=Dot15d4AuxSecurityHeader(sec_sc_seclevel=5, sec_sc_keyidmode=1, sec_keyid_keyindex=0x01), cmd_id=4)
+# When: packet is serialized and re-dissected
+pkt2 = Dot15d4(raw(pkt))
+# Then: aux_sec_header is correctly parsed
+assert pkt2.fcf_security == 1
+assert Dot15d4Cmd in pkt2
+assert pkt2[Dot15d4Cmd].aux_sec_header is not None
+assert pkt2[Dot15d4Cmd].aux_sec_header.sec_sc_seclevel == 5
+assert pkt2[Dot15d4Cmd].aux_sec_header.sec_sc_keyidmode == 1
+
+= Dot15d4 Data with encrypted payload (seclevel >= 4) stays Raw
+
+# Given: a Data frame with seclevel=4 (ENC) and trailing encrypted bytes
+pkt = Dot15d4(fcf_frametype=1, fcf_security=1, fcf_destaddrmode=2, fcf_srcaddrmode=2) / Dot15d4Data(dest_panid=0x1234, dest_addr=0xFFFF, src_panid=0x1234, src_addr=0x0001, aux_sec_header=Dot15d4AuxSecurityHeader(sec_sc_seclevel=4, sec_sc_keyidmode=1, sec_keyid_keyindex=0x01)) / Raw(b'\xaa\xbb\xcc\xdd')
+# When: packet is serialized and re-dissected
+pkt2 = Dot15d4(raw(pkt))
+# Then: encrypted payload must not be dissected as SixLoWPAN/ZigBee
+assert pkt2[Dot15d4Data].aux_sec_header.sec_sc_seclevel == 4
+assert Raw in pkt2
+from scapy.layers.sixlowpan import SixLoWPAN
+assert SixLoWPAN not in pkt2
+
+= Dot15d4 Beacon without aux_sec_header (fcf_security=0)
+
+# Given: raw bytes for a Dot15d4 Beacon frame with fcf_security=0
+pkt = Dot15d4FCS(b'\x00\x80\x89\xaa\x99\x00\x00\xff\xcf\x00\x00\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00X\xa4')
+# When: packet is dissected
+# Then: fcf_security is not set and aux_sec_header is None
+assert pkt.fcf_security == 0
+assert Dot15d4Beacon in pkt
+assert pkt[Dot15d4Beacon].aux_sec_header is None
+
 # RPL: unimplemented
 #p = SixLoWPAN(b"\x7b\x3b\x3a\x1a\x9b\x02\xae\x30\x21\x00\x00\xef\x05\x12\x00\x80\x20\x02\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x33\x44\x09\x04\x00\x00\x00\x00\x06\x04\x00\x01\xef\xff")
 #p.show2()
