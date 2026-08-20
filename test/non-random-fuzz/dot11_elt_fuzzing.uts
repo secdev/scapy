@@ -1,0 +1,98 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% FieldListField / MayEnd(PacketListField(...)) handling in fuzz()
+
+# Found by exhaustively fuzzing a stack of Dot11Elt layers
+# (RadioTap/Dot11/Dot11ProbeReq/Dot11Elt/Dot11EltRates/Dot11EltDSSSet/
+# Dot11EltCountry/Dot11EltHTCapabilities/Dot11EltVendorSpecific/
+# Dot11EltRSN/Dot11EltERP) with fuzz() + prepare_combinations() + forward().
+
+############
+############
++ FieldListField and MayEnd(PacketListField) in fuzz()
+
+= FieldListField items get a correctly-typed/ranged randval
+~ fuzzing dot11
+
+# Dot11EltRates.rates is a FieldListField wrapping a byte-ranged
+# _RateField. fuzz()'s generic path used to call f.randval() using the
+# *outer* field's own fmt (defaults to "!H" -> RandShort, 0-65535) instead
+# of the inner field's type/range - the wrong shape entirely for a list of
+# byte values. This stayed dormant in plain fuzz()-then-build usage only
+# because Packet.__init__ pre-populates .fields['rates'] with the concrete
+# default list, which shadows the bogus value at build time. This fork's
+# forward() writes the fuzzed value back into .fields (so command()/
+# display reflect it), which turns the dormant bug live and overflows
+# struct.pack("B", ...) as soon as the value exceeds 255.
+
+pkt = fuzz(Dot11EltRates())
+val = pkt.default_fields['rates']
+assert isinstance(val, list)
+assert isinstance(val[0], RandByte)
+assert val[0].max == 255
+
+fields = pkt.return_relevant_fields(pkt)
+assert '802.11 Rates:rates:0' in fields
+
+states = pkt.prepare_combinations(1)
+continue_to_fuzz = True
+iterations = 0
+while continue_to_fuzz and iterations < 400:
+    states, continue_to_fuzz = pkt.forward(states)
+    data = bytes(pkt)
+    iterations += 1
+
+assert iterations > 0
+assert not continue_to_fuzz
+
+
+= MayEnd(PacketListField(...)) must not be treated as a scalar field
+~ fuzzing dot11
+
+# Dot11EltCountry.descriptors is MayEnd(PacketListField(...)).
+# isinstance(f, PacketListField) doesn't see through the MayEnd wrapper,
+# so fuzz() used to fall through to the generic randval() path and
+# assign a bogus RandBin - which, once actively fuzzed, grows up to 256
+# bytes and overflows Dot11Elt's one-byte auto-length field.
+
+pkt = fuzz(Dot11EltCountry())
+assert pkt.default_fields['descriptors'] == []
+assert len(bytes(pkt)) < 10
+
+
+= End-to-end: stacked Dot11Elt fuzzing must not raise unexpectedly
+~ fuzzing dot11
+
+import struct
+
+pkt = (
+    RadioTap()
+    / Dot11()
+    / fuzz(Dot11ProbeReq())
+    / Dot11Elt(ID="SSID", info="something")
+    / fuzz(Dot11EltRates())
+    / fuzz(Dot11EltDSSSet())
+    / fuzz(Dot11EltCountry())
+    / fuzz(Dot11EltHTCapabilities())
+    / fuzz(Dot11EltVendorSpecific())
+    / fuzz(Dot11EltRSN())
+    / fuzz(Dot11EltERP())
+)
+
+states = pkt.prepare_combinations(1)
+continue_to_fuzz = True
+iterations = 0
+oversized_encodings = 0
+while continue_to_fuzz and iterations < 3000:
+    states, continue_to_fuzz = pkt.forward(states)
+    try:
+        data = bytes(pkt)
+        show2_result = pkt.show2(dump=True)
+    except struct.error:
+        # Dot11Elt.post_build auto-computes a 1-byte element length
+        # (chb(len(p) - 2)). Once a fuzzed field's content grows past
+        # what a single byte can represent (>255 total), the packet
+        # legitimately can't be encoded - expected, not a failure.
+        oversized_encodings += 1
+    iterations += 1
+
+assert iterations > 0

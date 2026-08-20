@@ -1,0 +1,54 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% FlagValue-backed fields (FlagsField) should be fuzzable like any other field
+
+# Previously, return_relevant_fields() hard-skipped ANY field whose
+# default_fields value was a concrete FlagValue/RSNCipherSuite/
+# PMKIDListPacket instance, printing "Skipping: ... due to: FlagValue".
+# That check was too broad: most FlagsFields (TCP.flags, IP.flags,
+# Dot11.FCfield) were never actually concrete FlagValues to begin with -
+# fuzz() already gives them a proper RandNum. The fields that really did
+# stay concrete were ones wrapped in a ConditionalField whose condition
+# wasn't satisfied when fuzz() ran (Dot11.FCfield2, gated on
+# (type, subtype) == (3, 1)) - the same "this field doesn't apply right
+# now" situation any other ConditionalField can be in, nothing specific to
+# FlagValue.
+#
+# Fixed by replacing the hardcoded class-name skip lists (both the
+# top-level one and the nested list-of-sub-packet one) with a single
+# isinstance(field, VolatileValue) check: skip whatever is still concrete/
+# unfuzzed, fuzz whatever genuinely is a VolatileValue, regardless of
+# which concrete type it happens to be. This also newly makes
+# ConditionalField-gated FlagsFields fuzzable whenever their condition IS
+# satisfied - previously they were unconditionally skipped no matter what.
+
+############
+############
++ FlagValue-backed fields are fuzzable when their condition holds
+
+= Same pattern for Dot11.FCfield2 (gated on (type, subtype) == (3, 1))
+~ fuzzing dot11
+
+not_gated = fuzz(Dot11())
+assert not any('FCfield2' in f for f in not_gated.return_relevant_fields(not_gated))
+
+gated = fuzz(Dot11(type=3, subtype=1))
+assert any('FCfield2' in f for f in gated.return_relevant_fields(gated))
+assert isinstance(gated.default_fields['FCfield2'], RandNum)
+
+
+= Unconditional FlagsFields (TCP.flags, IP.flags) are unaffected
+~ fuzzing dot11 inet
+
+tcp = fuzz(TCP())
+assert any(f.endswith(':flags') for f in tcp.return_relevant_fields(tcp))
+
+ip = fuzz(IP(dst="192.168.1.1"))
+assert any(f.endswith(':flags') for f in ip.return_relevant_fields(ip))
+
+
+= RSNCipherSuite (a concrete PacketField value) is still correctly excluded
+~ fuzzing dot11
+
+rsn = fuzz(Dot11EltRSN())
+fields = rsn.return_relevant_fields(rsn)
+assert not any('group_cipher_suite' in f for f in fields)

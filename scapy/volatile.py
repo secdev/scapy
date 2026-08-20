@@ -252,7 +252,7 @@ class RandNum(_RandNumeral[int]):
 
         # New code:
         if self.state_pos is None:
-            if 'default' in dir(self):
+            if 'default' in self.__dict__:
                 # If the 'default' exists, use it rather than min
                 # 'min' is '0' causing:
                 #    new_default_fields = {
@@ -266,7 +266,7 @@ class RandNum(_RandNumeral[int]):
 
             return self.min
 
-        if 'default' in dir(self) and isinstance(self.default, tuple):
+        if 'default' in self.__dict__ and isinstance(self.default, tuple):
             # if the default value is a tuple, we modify the first item
             if not isinstance(self.default[0], int):
                 raise ValueError("We expected the first value to be a 'int' in the 'tuple'")
@@ -274,23 +274,19 @@ class RandNum(_RandNumeral[int]):
             return (self.state_pos, self.default[1])
 
         if isinstance(self, RandInt):
-            if 'expecting_unsigned_short' in dir(self) and self.expecting_unsigned_short:
+            if 'expecting_unsigned_short' in self.__dict__ and self.expecting_unsigned_short:
                 return (self.state_pos % 65535) # needs to be between 0 <= val <= 65535
 
         if isinstance(self, RandShort):
-            if 'expecting_unsigned_byte' in dir(self) and self.expecting_unsigned_byte:
+            if 'expecting_unsigned_byte' in self.__dict__ and self.expecting_unsigned_byte:
                 return [self.state_pos % 255]
 
         if isinstance(self, RandByte):
-            # We need to return the value, not the length of it which is then
-            #  multiplied by the byte (i.e. bytes not int)
-            if 'expecting_int' in dir(self) and self.expecting_int:
-                # In some cases, the expected value need to be int, such as in
-                #  ByteEnumField, so we need to return the int value - we know this
-                #  only when we try to 'bytes' the value (the error returns)
-                return self.state_pos
-            else:
-                return self.state_pos.to_bytes(1, 'big')
+            # Plain ByteField/XByteField/ByteEnumField all feed this straight into
+            # struct.pack("B", val) via Field.i2m/addfield, which requires an int -
+            # same contract as RandShort/RandInt above. Returning bytes here breaks
+            # every scalar byte field (IP.tos, IP.ttl, ...) as soon as it's fuzzed.
+            return self.state_pos
 
         return self.state_pos
 
@@ -320,6 +316,13 @@ class RandNum(_RandNumeral[int]):
 
 
 class RandFloat(_RandNumeral[float]):
+    # Kept in line with RandNum/RandBin/RandString: forward() reads
+    # field_obj.state_pos unconditionally on any VolatileValue it's handed,
+    # and without a class-level default here that falls through
+    # VolatileValue.__getattr__ (-> _fix() -> AttributeError on the
+    # resulting float, uncaught).
+    state_pos = None
+
     def __init__(self, min, max):
         # type: (int, int) -> None
         self.min = min
@@ -608,12 +611,19 @@ class RandString(_RandString[str]):
         # return s
 
         # State aware code:
-        if 'state_pos' not in dir(self) or self.state_pos is None:
-            # We need to trim the chars up to the max size of the RandNum (the 'size' property)
-            if isinstance(self.size, VolatileValue):
-                return self.chars[:self.size.max]
-            else:
-                return self.chars[:self.max]
+        if self.state_pos is None:
+            # Not the field currently being fuzzed - render its actual
+            # (un-fuzzed) default rather than a fixed-size slice of the
+            # whole charset. fuzz() sets '.default' to the field's original
+            # value; without it (e.g. a fresh MultipleTypeField randval that
+            # hasn't gone through forward()'s init yet), fall back to empty -
+            # self.chars[:self.max] used to be returned unconditionally here,
+            # which for the default 256-byte charset silently inflated every
+            # not-yet-active string/bin field to up to 256 bytes.
+            if 'default' in self.__dict__:
+                return bytes_encode(self.default)
+
+            return b""
 
         if len(self.chars) == 0:
             # If no value was given, don't divide it...
@@ -674,12 +684,19 @@ class RandBin(_RandString[bytes]):
         # return s
 
         # State aware code:
-        if 'state_pos' not in dir(self) or self.state_pos is None:
-            # We need to trim the chars up to the max size of the RandNum (the 'size' property)
-            if isinstance(self.size, VolatileValue):
-                return self.chars[:self.size.max]
-            else:
-                return self.chars[:self.max]
+        if self.state_pos is None:
+            # Not the field currently being fuzzed - render its actual
+            # (un-fuzzed) default rather than a fixed-size slice of the
+            # whole charset. fuzz() sets '.default' to the field's original
+            # value; without it (e.g. a fresh MultipleTypeField randval that
+            # hasn't gone through forward()'s init yet), fall back to empty -
+            # self.chars[:self.max] used to be returned unconditionally here,
+            # which for the default 256-byte charset silently inflated every
+            # not-yet-active string/bin field to up to 256 bytes.
+            if 'default' in self.__dict__:
+                return bytes_encode(self.default)
+
+            return b""
 
         if len(self.chars) == 0:
             # If no value was given, don't divide it...

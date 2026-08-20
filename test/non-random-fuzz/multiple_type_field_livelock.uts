@@ -1,0 +1,98 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% resync_multiple_type_fields() must not livelock a combo that oscillates
+% between the same two MultipleTypeField variants
+
+# LLDPDUChassisID.id is a MultipleTypeField whose concrete resolved type
+# depends on LLDPDUChassisID.subtype (subtype==4 -> RandMAC, otherwise ->
+# RandBin). When 'subtype' (inner/fast field) and 'id' (outer/slow field)
+# are fuzzed together as a pair, every single advance of 'subtype' calls
+# resync_multiple_type_fields(), which used to always build a *fresh*
+# VolatileValue for 'id' whenever the resolved concrete type differed from
+# whatever was cached - with state_pos reset to the start. As 'subtype'
+# cycles through its full range every ~128 steps, it passes through the
+# value that selects RandMAC and back out of it twice per cycle, wiping
+# out 'id's accumulated progress before it could ever reach its own max.
+# The pair could never both reach 'done' - forward() livelocked forever.
+#
+# Fixed by caching resolved VolatileValues per concrete variant (keyed by
+# the resolved Field descriptor's identity, which MultipleTypeField.flds
+# keeps stable across calls) - so cycling back to a variant already seen
+# on this packet restores its previous progress instead of discarding it.
+
+############
+############
++ MultipleTypeField resync must not livelock an oscillating selector
+
+= LLDPDUChassisID subtype+id combo reaches done instead of livelocking
+~ fuzzing lldp
+
+load_contrib("lldp")
+pkt = fuzz(LLDPDUChassisID())
+
+# Hand-built state pairing subtype (inner) with id (outer) - the same
+# shape prepare_combinations(2) would produce for this pair.
+states = [
+    {
+        "active": False,
+        "done": False,
+        "combinations": 0,
+        "fields": [
+            {"name": "LLDPDUChassisID:subtype", "done": False, "combinations": 0, "active": False},
+            {"name": "LLDPDUChassisID:id", "done": False, "combinations": 0, "active": False},
+        ],
+    }
+]
+
+continue_to_fuzz = True
+iterations = 0
+_, id_field = pkt.locate_field(pkt, "LLDPDUChassisID:id")
+max_id_state_pos_seen = 0
+
+while continue_to_fuzz and iterations < 250000:
+    states, continue_to_fuzz = pkt.forward(states)
+    _, id_field = pkt.locate_field(pkt, "LLDPDUChassisID:id")
+    max_id_state_pos_seen = max(max_id_state_pos_seen, id_field.state_pos or 0)
+    iterations += 1
+
+assert not continue_to_fuzz, (
+    f"livelocked: did not finish after {iterations} iterations "
+    f"(max id.state_pos seen: {max_id_state_pos_seen})"
+)
+assert max_id_state_pos_seen > 128
+
+
+= Cycling back to a previously-seen variant restores its progress
+~ fuzzing lldp
+
+load_contrib("lldp")
+pkt = fuzz(LLDPDUChassisID())
+
+# Force 'id' into its RandBin-backed variant (subtype's default, 0,
+# selects RandBin) and give it some artificial progress.
+pkt.default_fields['subtype'].state_pos = 0
+pkt.resync_multiple_type_fields(pkt)
+randbin_variant = pkt.default_fields['id']
+assert isinstance(randbin_variant, RandBin)
+randbin_variant.state_pos = 500
+
+# Switch subtype to the value that selects the RandMAC-backed variant
+pkt.default_fields['subtype'].state_pos = 4
+pkt.resync_multiple_type_fields(pkt)
+assert isinstance(pkt.default_fields['id'], RandMAC)
+
+# Switch back to a subtype value that selects RandBin again - must be the
+# *same* object as before, with its progress intact, not a fresh one
+pkt.default_fields['subtype'].state_pos = 0
+pkt.resync_multiple_type_fields(pkt)
+assert pkt.default_fields['id'] is randbin_variant
+assert pkt.default_fields['id'].state_pos == 500
+
+
+= Untouched MultipleTypeFields are still left alone (no regression)
+~ fuzzing lldp
+
+load_contrib("lldp")
+pkt = fuzz(LLDPDUChassisID())
+before = pkt.default_fields['id']
+pkt.resync_multiple_type_fields(pkt)
+assert pkt.default_fields['id'] is before

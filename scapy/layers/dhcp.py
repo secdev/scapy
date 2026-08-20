@@ -531,6 +531,50 @@ class DHCPOptionsField(StrField):
     def randval(self):
         return RandDHCPOptions()
 
+    def fuzz_current_value(self, pkt):
+        # type: (Packet) -> Optional[List]
+        """
+        Give each of the packet's CURRENT options its own properly-typed
+        randval (looked up via DHCPRevOptions), instead of
+        RandDHCPOptions' default behavior of generating an entirely
+        unrelated random set of options from scratch. Keeps option names/
+        order/count intact - the fix()ed value replaces just the value
+        half of each ('name', value) tuple, so e.g. 'message-type' stays
+        'message-type' while its value gets fuzzed.
+        """
+        current = getattr(pkt, self.name)
+        if not isinstance(current, list) or not current:
+            return None
+
+        new_options = []
+        changed = False
+        for opt in current:
+            if isinstance(opt, tuple) and len(opt) >= 2 and opt[0] in DHCPRevOptions:
+                _, fld = DHCPRevOptions[opt[0]]
+                if fld is None:
+                    # Options with no dedicated Field (e.g. 'hostname',
+                    # 'domain') are raw byte blobs - reuse the same
+                    # fallback RandDHCPOptions uses for these (a bare "s"
+                    # fmt, with no length prefix, isn't something
+                    # Field.randval() can handle).
+                    item_rnd = RandBin(RandNum(0, 255))
+                else:
+                    try:
+                        item_rnd = fld.randval()
+                    except Exception:
+                        item_rnd = None
+                if item_rnd is not None:
+                    item_rnd.default = opt[1]
+                    new_options.append((opt[0], item_rnd) + tuple(opt[2:]))
+                    changed = True
+                    continue
+            new_options.append(opt)
+
+        if not changed:
+            return None
+
+        return new_options
+
 
 class DHCP(Packet):
     name = "DHCP options"

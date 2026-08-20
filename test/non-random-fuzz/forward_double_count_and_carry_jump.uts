@@ -1,0 +1,99 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% forward() must advance exactly one combination per external call, and
+% must jump-scale a wide-range field even when it's only ever advanced via
+% carry (i.e. it isn't the fastest/innermost field in its combo)
+
+# Bug 1 - double counting: when forward() rolls a maxed-out field over to
+# the next field, it bumps the next field's state_pos and increments
+# state['combinations'] inside an inner 'while not are_we_last:' loop,
+# then breaks - but that break only exited the inner while, not the outer
+# 'for (field_idx, field) in enumerate(state_fuzzed["fields"]):' loop.
+# Control fell through to the next outer iteration, which landed on the
+# very field that was just carried into, found it not done, and processed
+# it AGAIN via the normal (non-rollover) branch - incrementing
+# combinations (and fuzzing a second, different value) a second time
+# within the same forward() call. state['combinations'] ended up counting
+# more advances than the number of times an external
+# 'while continue_to_fuzz: states, continue_to_fuzz = pkt.forward(states)'
+# loop actually ran.
+#
+# Fixed with an explicit break for the outer loop once the inner while
+# finds something to carry into.
+#
+# Bug 2 - uncovered by fixing bug 1: the carry path's own advance
+# ('field_fuzzed.state_pos += 1') never had the same jump-scaling the
+# main advance path uses for wide ranges
+# ('if max - min > 128: state_pos += round((max - min) / 128)'). A field
+# that's only ever advanced via carry (the outer/slower field in a pair,
+# e.g. a ShortField or IntField) moved by a flat 1 per carry - needing up
+# to (max - min) carries, potentially millions of iterations, to finish.
+# This was invisible before fixing bug 1, because the double-counting bug
+# happened to *also* apply an extra jump-scaled bump to the just-carried
+# field right after, via the erroneous reprocessing - accidentally
+# compensating for the missing jump-scaling. Fixing bug 1 alone turned a
+# ~16,638-iteration PPTP pair into one that hadn't finished after 100,000+
+# iterations.
+#
+# Fixed by applying the same jump-scaling to the carry path's advance.
+
+############
+############
++ forward() must not double-count and must jump-scale carried fields
+
+= A small-range pair (IP.version, IP.flags) advances exactly once per call
+~ fuzzing inet
+
+pkt = fuzz(IP())
+state = {
+    "active": False,
+    "done": False,
+    "combinations": 0,
+    "fields": [
+        {"name": "IP:version", "done": False, "combinations": 0, "active": False},
+        {"name": "IP:flags", "done": False, "combinations": 0, "active": False},
+    ],
+}
+states = [state]
+
+external_iterations = 0
+continue_to_fuzz = True
+while continue_to_fuzz:
+    states, continue_to_fuzz = pkt.forward(states)
+    external_iterations += 1
+
+# The final call detects exhaustion and returns continue_to_fuzz=False
+# without advancing anything new - so exactly one external iteration
+# doesn't correspond to a combination. Any LARGER gap means something got
+# double-counted.
+assert external_iterations - state["combinations"] == 1, (
+    f"external_iterations={external_iterations} "
+    f"combinations={state['combinations']} - some increments happened "
+    f"without a matching external iteration"
+)
+
+
+= A wide-range field only ever advanced via carry still finishes quickly
+~ fuzzing inet
+
+# IP.version (small, 0-15) is the fast/inner field; IP.id (wide, 0-65535)
+# is only ever advanced via the carry path in this pairing - it must
+# still be jump-scaled, not crawl by 1 per carry.
+pkt = fuzz(IP(dst="1.2.3.4"))
+state = {
+    "active": False,
+    "done": False,
+    "combinations": 0,
+    "fields": [
+        {"name": "IP:version", "done": False, "combinations": 0, "active": False},
+        {"name": "IP:id", "done": False, "combinations": 0, "active": False},
+    ],
+}
+states = [state]
+
+iterations = 0
+continue_to_fuzz = True
+while continue_to_fuzz and iterations < 5000:
+    states, continue_to_fuzz = pkt.forward(states)
+    iterations += 1
+
+assert not continue_to_fuzz, f"did not finish within 5000 iterations (got to {iterations})"

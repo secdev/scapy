@@ -1,0 +1,90 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% MultipleTypeField selectors must not desync their dependent fields
+
+# ICMP.unused is a MultipleTypeField: its concrete field (and therefore the
+# shape of value it expects - int vs bytes, and its own min/max/size) is
+# picked by looking at ICMP.type. fuzz() only resolves this once, using
+# whatever 'type' happens to be at fuzz()-time. Once 'type' itself becomes
+# an actively fuzzed field (this branch deliberately fuzzes fields that
+# MultipleTypeFields depend on - see 'Don't freeze fields if they are
+# dependent, we want to test them'), the cached VolatileValue for 'unused'
+# goes stale: built for a different concrete field than the one that will
+# actually be used to pack it, causing struct.error while building.
+
+############
+############
++ MultipleTypeField resync during fuzzing
+
+= resync_multiple_type_fields refreshes a stale dependent field
+~ fuzzing packet inet
+
+pkt = fuzz(ICMP())
+
+# type defaults to 8 (echo-request), which resolves 'unused' to the
+# StrFixedLenField variant (RandBin-backed)
+assert isinstance(pkt.default_fields['unused'], RandBin)
+
+# Move 'type' to a value that resolves 'unused' to the IntField variant
+# instead (any value not in the MultipleTypeField's exclusion list)
+pkt.default_fields['type'].state_pos = 1
+pkt.resync_multiple_type_fields(pkt)
+
+assert isinstance(pkt.default_fields['unused'], RandNum)
+assert not isinstance(pkt.default_fields['unused'], RandBin)
+
+# Must not raise ValueError/struct.error
+data = bytes(pkt)
+
+
+= Untouched MultipleTypeFields are left alone
+~ fuzzing packet inet
+
+pkt = fuzz(ICMP())
+before = pkt.default_fields['unused']
+pkt.resync_multiple_type_fields(pkt)
+assert pkt.default_fields['unused'] is before
+
+
+= forward() through ICMP:type keeps ICMP:unused consistent
+~ fuzzing packet inet
+
+pkt = fuzz(ICMP())
+states = pkt.prepare_combinations(1)
+
+continue_to_fuzz = True
+iterations = 0
+seen_type_change = False
+
+while continue_to_fuzz and iterations < 600:
+    states, continue_to_fuzz = pkt.forward(states)
+    # Must not raise ValueError/struct.error, whichever concrete field
+    # 'unused' currently resolves to
+    data = bytes(pkt)
+    if pkt.type != 8:
+        seen_type_change = True
+    iterations += 1
+
+assert iterations > 0
+assert seen_type_change
+
+
+= End-to-end: Ether()/IP()/ICMP() combination-2 fuzzing must not raise
+~ fuzzing packet inet l2
+
+# dst is set explicitly to skip Ether's MAC resolution (resolve() ->
+# getmacbyip()) - it fails and falls back to broadcast identically on every
+# single build in this environment anyway, so leaving dst unset just burns
+# ~25% of this test's runtime re-deriving the same fallback each iteration.
+pkt = Ether(dst="ff:ff:ff:ff:ff:ff") / IP(dst="192.168.15.1") / ICMP()
+pkt = fuzz(pkt)
+
+states = pkt.prepare_combinations(2)
+continue_to_fuzz = True
+iterations = 0
+
+while continue_to_fuzz and iterations < 20000:
+    states, continue_to_fuzz = pkt.forward(states)
+    data = pkt.show2(dump=True)
+    iterations += 1
+
+assert iterations > 0
