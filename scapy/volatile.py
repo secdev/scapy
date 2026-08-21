@@ -542,51 +542,134 @@ class RandEnumKeys(RandEnum):
 
 
 class RandEnumWalk(RandNum):
-    """State-driven walk over an enum field's *own* declared values
+    """State-driven walk over an enum field's own declared values, then the rest
 
     ``Field.randval()`` dispatches on the struct format character alone, so an
     ``EnumField`` used to be handed a plain ``RandByte``/``RandShort``/... and
     the ``i2s`` dict sitting on the very same field object was never consulted.
-    The field was then walked as an integer, and two properties of that walk
-    decided what a target ever received: at the default
+    The field was then walked as an integer, and at the default
     ``max_samples_per_field=128`` a byte field is sampled at 128 of its 256
-    points, i.e. every *other* value, and the sweep runs ``min + 1 .. max``, so
-    0 is unreachable at any density. The values a protocol actually defines
-    were therefore the ones least likely to be sent, and a ``{0: "off",
-    1: "on"}`` enum could send neither of them.
+    points - every *other* value, and never ``min`` itself - so the values a
+    protocol actually defines were the ones least likely to be sent, and a
+    ``{0: "off", 1: "on"}`` enum could send neither of them.
+
+    The list is built in three blocks, and the order is the whole design:
+
+    1. **the declared keys**, in declared order, so a run cut short has covered
+       the protocol's own vocabulary before spending anything else;
+    2. **the guaranteed edges** - 0, the field's maximum, one past the highest
+       declared key, and the ``MAGIC_BOUNDARIES`` that fit (see
+       ``_EnumField._enum_walk_edges()``);
+    3. **undefined values filling the rest of the sampling budget**, spread
+       across whatever the enum leaves unused.
+
+    Blocks 1 and 2 are sent whatever the budget; block 3 is what
+    ``max_samples_per_field`` bounds (see ``plan_budget()``). That split is what
+    keeps both halves of the coverage: an unhandled enum value is its own bug
+    class, and it is most of what the integer sweep provided by accident, so a
+    walk that sent *only* the declared values would trade one blind spot for
+    another - a byte enum field went from 114 undefined values per field to 6.
 
     Unlike the rest of the ``Rand*`` family, ``state_pos`` here is an *index*
     into ``values`` rather than the value itself, so ``min``/``max`` bound the
-    list and not the field's integer width. That is also what makes a 26-value
-    enum cost 30 cases where the integer sweep spent 127 and still missed half
-    the enum.
-
-    ``values`` is the declared keys in declared order followed by a few
-    deliberate edge cases (see ``_EnumField._enum_walk_edges()``), so a run cut
-    short still covered the protocol's own vocabulary before spending anything
-    on undefined values.
+    list and not the field's integer width.
     """
 
-    # Packet._advance_state_pos() reads this: an enum's value list is already
-    # the interesting set, so sampling it down would reintroduce exactly the
-    # blind spot this class exists to close.
+    # Packet._advance_state_pos() reads this: the value list is already sized to
+    # the sampling budget, so it must be stepped one at a time. Striding it -
+    # which is what max_samples_per_field means for an integer field - would
+    # sample away the declared values this exists to send.
     exhaustive = True
 
-    def __init__(self, values):
-        # type: (List[Any]) -> None
-        if not values:
-            raise TypeError("RandEnumWalk needs at least one value")
-        self.values = list(values)
-        self._field_default = self.values[0]  # type: Any
+    # Above this span, listing the not-yet-used values costs more than it buys:
+    # 'used' is sparse in a 16-bit-or-wider range, so proportional striding
+    # lands on distinct values without enumerating anything.
+    _ENUMERABLE_SPAN = 1024
+
+    def __init__(self, declared, guaranteed, low, high, budget=128):
+        # type: (List[int], List[int], int, int, int) -> None
+        if not declared:
+            raise TypeError("RandEnumWalk needs at least one declared value")
+        self.declared = list(declared)
+        self.guaranteed = list(guaranteed)
+        self.low = low
+        self.high = high
+        self.values = []  # type: List[Any]
+        self._field_default = self.declared[0]  # type: Any
         self._default_index = 0
+        self._budget = None  # type: Optional[int]
+        self.plan_budget(budget)
+
+    def plan_budget(self, budget):
+        # type: (int) -> None
+        """Size the value list to a max_samples_per_field budget
+
+        Called by ``Packet.initialize_volatile_field()`` with the budget the
+        state carries, which is what makes the density knob mean something for
+        an enum field again: at 128 a byte enum sends its declared values, the
+        guaranteed edges and about a hundred of the remaining range; at 512 it
+        sends all 256. Without this the walk sent the same handful of cases at
+        every density, so a caller stepping 128 -> 512 -> 1024 got identical
+        work out of every enum field.
+
+        Idempotent for a given budget, since a field shared across several
+        pair-states is re-initialized once per pair.
+        """
+        if budget == self._budget:
+            return
+        self._budget = budget
+
+        self.values = self.declared + self.guaranteed
+        self.values.extend(self._undefined_fill(budget))
         # min is -1, not 0: Packet.forward() advances a field *before* reading
-        # it, so it emits min + 1 .. max and never min itself - which is the
-        # same reason 0 was unreachable under the integer sweep. Starting one
-        # index below the list makes values[0], the first declared value, the
-        # first thing the walk sends. _fix() clamps, so a -1 that does get read
+        # it, so it emits min + 1 .. max and never min itself - the same
+        # mechanism that made 0 unreachable under the integer sweep. Starting
+        # one index below the list is what makes values[0], the first declared
+        # value, reachable at all. _fix() clamps, so a -1 that does get read
         # (a build between initialize_volatile_field() and the first advance)
         # still renders values[0] rather than raising.
         RandNum.__init__(self, -1, len(self.values) - 1)
+        # Re-resolve the field default against the new list.
+        self.default = self._field_default
+
+    def _undefined_fill(self, budget):
+        # type: (int) -> List[int]
+        """Undefined values spread over whatever the enum leaves unused
+
+        Spread rather than clustered at the edges: for an enum whose keys are
+        0..40, 90 is as likely to matter as 254. Deterministic in ``state_pos``,
+        which the state-based walk requires - no randomness anywhere here.
+        """
+        used = set(self.values)
+        room = budget - len(self.values)
+        if room <= 0:
+            # A wide enum can exceed the budget on its own (IP.proto declares
+            # 138 against a default 128). The declared block wins.
+            return []
+
+        span = self.high - self.low + 1
+        unused_count = span - len(used)
+        if unused_count <= room:
+            # The whole value space fits in the budget - send all of it, which
+            # is what a density of 512 on a byte field should mean.
+            return [v for v in range(self.low, self.high + 1) if v not in used]
+
+        if span <= self._ENUMERABLE_SPAN:
+            unused = [v for v in range(self.low, self.high + 1) if v not in used]
+            return [unused[(i * len(unused)) // room] for i in range(room)]
+
+        # Too wide to enumerate: step proportionally through the range and walk
+        # forward off the rare collision with a declared or guaranteed value.
+        filled = []  # type: List[int]
+        for i in range(room):
+            candidate = self.low + (i * span) // room
+            while candidate <= self.high and candidate in used:
+                candidate += 1
+            if candidate > self.high:
+                break
+            used.add(candidate)
+            filled.append(candidate)
+        return filled
 
     # Everywhere else in this module 'default' is the field's own default
     # value, and fuzz() assigns it that way ('rnd.default = f.default'). But
@@ -613,7 +696,9 @@ class RandEnumWalk(RandNum):
 
     def _command_args(self):
         # type: () -> str
-        return "values=%r" % (self.values,)
+        return "declared=%r, guaranteed=%r, low=%r, high=%r" % (
+            self.declared, self.guaranteed, self.low, self.high,
+        )
 
     def _fix(self):
         # type: () -> Any

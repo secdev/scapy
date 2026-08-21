@@ -235,9 +235,10 @@ total_combinations = sum(s['combinations'] for s in states)
 # Pre-enum-walk this was 2167/2166 and
 # 25c5b3160395042bd629b5a806e9d71bd4137f39c317fe26464e72e36e2566f2. All four
 # of this packet's enum fields are ShortEnumFields, so each used to be swept
-# as a 16-bit integer at 127 samples and now sends exactly its own declared
-# values plus edges - and nothing else in the packet changed, which is what
-# the re-derivation asserts.
+# as a 16-bit integer at 127 samples and now sends its declared values, the
+# guaranteed edges, and undefined values filling the rest of the 128 budget -
+# 128 cases against 127, which is why the total barely moves. Nothing else in
+# the packet changed, which is what the re-derivation asserts.
 expected_iterations = 2167
 for layer in (pkt, pkt.payload):
     for name, volatile in layer.default_fields.items():
@@ -249,7 +250,7 @@ for layer in (pkt, pkt.payload):
         swept = len(range(integer_walk.min + jump, integer_walk.max + 1, jump))
         expected_iterations += len(volatile.values) - swept
 
-assert expected_iterations == 1729, expected_iterations
-assert total_iterations == 1729
-assert total_combinations == 1728
-assert h.hexdigest() == "3167ee53a0c295edf04f0be80919f4f5ee2684418e86e5dc7b0fe8528135ee8a"
+assert expected_iterations == 2171, expected_iterations
+assert total_iterations == 2171
+assert total_combinations == 2170
+assert h.hexdigest() == "431c749dbc41dcce6e7202494c96b535c8d7be9a0d6630547152b716596c8dd8"

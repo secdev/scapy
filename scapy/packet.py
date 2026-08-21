@@ -1091,7 +1091,8 @@ class Packet(
 
         return None
 
-    def initialize_volatile_field(self, field_obj, boundary_values=False):
+    def initialize_volatile_field(self, field_obj, boundary_values=False,
+                                  max_samples=128):
         """
         Set up a VolatileValue so forward() can drive it: state_pos, default,
         min/max all need to be concrete before anything does
@@ -1104,7 +1105,18 @@ class Packet(
         checkpoints (see _boundary_checkpoints()) that _advance_state_pos()
         will drain before falling back to uniform jump sampling. Defaults to
         False so existing callers that don't opt in see no behavior change.
+
+        max_samples is the state's max_samples_per_field. Most volatiles get
+        their density applied by _advance_state_pos() striding over a fixed
+        range, but a volatile that enumerates a list (RandEnumWalk) has to
+        apply it when it *builds* that list - striding would drop the very
+        values it exists to send - so it's offered the budget here, before
+        anything reads its min/max.
         """
+        plan_budget = getattr(field_obj, 'plan_budget', None)
+        if callable(plan_budget):
+            plan_budget(max_samples)
+
         if hasattr(field_obj, "default"):
             # Some fields have a 'default'
             if type(field_obj.default).__name__ in ['str', 'bytes', 'tuple']:
@@ -1302,7 +1314,7 @@ class Packet(
         current_list[list_idx] = packet_holder.default_list_value[list_idx]
         packet_holder.fields[field_name] = current_list
 
-    def resync_multiple_type_fields(self, pkt):
+    def resync_multiple_type_fields(self, pkt, max_samples=128):
         """
         A MultipleTypeField's concrete field (and therefore the shape of
         value it expects - e.g. int vs bytes, and its own min/max/size) is
@@ -1326,6 +1338,12 @@ class Packet(
         scratch - with state_pos reset to the start - on every single
         oscillation, wiping out whatever progress 'id' had accumulated
         and livelocking forward() (it can never reach 'done').
+
+        max_samples is passed through to initialize_volatile_field() for a
+        freshly-built volatile: a MultipleTypeField can resolve to an enum
+        field (rtmsg_rtattr.rta_data has an EnumField(fmt="=I") variant), and
+        one of those sizes its value list to the sampling budget, so handing it
+        the default here would silently pin it to a density the run isn't at.
         """
         if not hasattr(pkt, '_multiple_type_field_cache'):
             pkt._multiple_type_field_cache = {}
@@ -1371,7 +1389,7 @@ class Packet(
                     field_cache[cache_key] = current
                 else:
                     fresh.default = resolved_fld.default
-                    self.initialize_volatile_field(fresh)
+                    self.initialize_volatile_field(fresh, max_samples=max_samples)
                     field_cache[cache_key] = fresh
                     pkt.default_fields[f.name] = fresh
 
@@ -1445,6 +1463,7 @@ class Packet(
                         self.initialize_volatile_field(
                             field_obj,
                             boundary_values=field_item.get('boundary_values', False),
+                            max_samples=field_item.get('max_samples', 128),
                         )
 
                 break
@@ -1523,7 +1542,8 @@ class Packet(
                             del packet_holder.fields[field_name]
 
                     if field_name is not None:
-                        self.resync_multiple_type_fields(packet_holder)
+                        self.resync_multiple_type_fields(
+                            packet_holder, field.get('max_samples', 128))
 
                     # Breaks send, shows 'int' error
                     # # Make the 'fields' no longer list this value as non-default
@@ -1572,7 +1592,9 @@ class Packet(
                                 field_fuzzed._jump_pos = field_fuzzed.state_pos
                                 next_field['done'] = True
 
-                            self.resync_multiple_type_fields(next_field_holder)
+                            self.resync_multiple_type_fields(
+                                next_field_holder,
+                                next_field.get('max_samples', 128))
 
                             if not next_field['done']:
                                 # Reset the item before us to not done
@@ -1599,7 +1621,9 @@ class Packet(
                                 # this reset value.
                                 field_fuzzed._jump_pos = field_fuzzed.state_pos
 
-                                self.resync_multiple_type_fields(curr_field_holder)
+                                self.resync_multiple_type_fields(
+                                    curr_field_holder,
+                                    field.get('max_samples', 128))
 
                                 field['combinations'] += 1
                                 field['active'] = True
@@ -1651,7 +1675,8 @@ class Packet(
                         else:
                             packet_holder.fields[field_name] = field_fuzzed._fix()
 
-                        self.resync_multiple_type_fields(packet_holder)
+                        self.resync_multiple_type_fields(
+                            packet_holder, field.get('max_samples', 128))
 
                     field['combinations'] += 1
                     field['active'] = True

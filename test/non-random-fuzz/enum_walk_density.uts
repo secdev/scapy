@@ -1,0 +1,98 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% An enum field must honour max_samples_per_field, without ever sampling
+% away its own declared values
+
+# EnumField used to inherit Field.randval(), which dispatches on the struct
+# format character alone, so an enum field was swept as a plain integer: at the
+# default density that takes every OTHER value of a byte and never min itself,
+# so ICMP.type sent 13 of its 26 declared values in 127 cases.
+#
+# RandEnumWalk fixed the declared half but set exhaustive = True, which took
+# max_samples_per_field out of the picture entirely - so the field sent the same
+# 32 cases at every density, and the undefined values the integer sweep used to
+# provide by accident (114 per byte field) fell to 6. An unhandled enum value is
+# its own bug class, and a caller stepping 128 -> 512 -> 1024 was getting
+# identical work out of every enum field.
+#
+# Now the value list is built to the budget: declared values, then the
+# guaranteed edges, then undefined values spread over whatever is left of the
+# range. The budget bounds only that third block, so it can never sample the
+# enum away - but the density axis means something again.
+
+############
+############
++ Enum fields honour max_samples_per_field
+
+= The budget fills with undefined values, and the declared block is never cut
+~ fuzzing packet inet
+
+from scapy.volatile import RandEnumWalk
+
+icmp_type = [f for f in ICMP.fields_desc if f.name == "type"][0]
+declared = sorted(icmp_type.i2s)
+assert len(declared) == 26
+
+walk = icmp_type.randval()
+assert isinstance(walk, RandEnumWalk)
+
+# Every declared value is in the list at every density, including one far
+# below what the declared block alone costs.
+for budget in [1, 8, 32, 128, 512, 4096]:
+    walk.plan_budget(budget)
+    assert set(declared) <= set(walk.values), budget
+    # ... and they come first, so a truncated run covers the protocol first
+    assert walk.values[:len(declared)] == declared, budget
+
+# The budget is what the undefined block is drawn against.
+walk.plan_budget(32)
+assert len(walk.values) == 32          # declared + guaranteed, no room to fill
+walk.plan_budget(128)
+assert len(walk.values) == 128
+walk.plan_budget(512)
+assert len(walk.values) == 256         # capped by the field's own value space
+walk.plan_budget(4096)
+assert len(walk.values) == 256         # not 4096 attempts at 256
+
+# 512 on a byte field means the whole range, once.
+walk.plan_budget(512)
+assert sorted(walk.values) == list(range(256))
+
+
+= A walk at 128 sends the declared values plus undefined ones, at 512 all 256
+~ fuzzing packet inet
+
+def walk_values(samples):
+    packet = fuzz(ICMP())
+    states = packet.prepare_combinations(1, max_samples_per_field=samples)
+    sent = set()
+    continue_to_fuzz = True
+    iterations = 0
+    while continue_to_fuzz and iterations < 20000:
+        states, continue_to_fuzz = packet.forward(states)
+        iterations += 1
+        state = packet.return_active_state(states)
+        if state is None:
+            continue
+        active = [f["name"] for f in state["fields"] if f.get("active")]
+        if not any(n.split(":")[-1] == "type" for n in active):
+            continue
+        try:
+            sent.add(ICMP(bytes(packet)).type)
+        except Exception:
+            pass
+    return sent
+
+declared = set([f for f in ICMP.fields_desc if f.name == "type"][0].i2s)
+
+at_128 = walk_values(128)
+assert declared <= at_128, sorted(declared - at_128)
+# The integer sweep cost 127 cases for 13 of 26 declared; this is the same
+# order of cost for all 26 plus ~102 undefined.
+assert len(at_128) == 128, len(at_128)
+assert len(at_128 - declared) > 90, len(at_128 - declared)
+
+at_512 = walk_values(512)
+assert at_512 == set(range(256)), len(at_512)
+
+# The density axis is the point: more samples must buy more values.
+assert len(at_512) > len(at_128)

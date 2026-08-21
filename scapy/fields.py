@@ -2705,29 +2705,29 @@ class _EnumField(Field[Union[List[I], I], I]):
             return base
 
         return RandEnumWalk(
-            declared + self._enum_walk_edges(declared, low, high)
+            declared, self._enum_walk_edges(declared, low, high), low, high
         )
 
     @staticmethod
     def _enum_walk_edges(declared, low, high):
         # type: (List[int], int, int) -> List[int]
-        """The undefined values worth sending alongside the declared ones
-
-        Appended deliberately rather than arrived at by accident, because an
-        unhandled enum value is its own test and is most of what the integer
-        sweep used to provide by chance - dropping it entirely would trade one
-        blind spot for another.
+        """The undefined values sent whatever the sampling budget
 
         The enum's own vocabulary says nothing about the *width* it travels in,
         and that width is where the interesting undefined values sit: a byte
         field whose enum declares 1..30 should still be made to carry 0, 31,
-        127, 128, 254 and 255. So the set is the ends of the range and their
+        127, 128, 254 and 255. So this is the ends of the range and their
         neighbours, plus every MAGIC_BOUNDARIES constant that fits - the same
         values Packet._boundary_checkpoints() guarantees for the integer walk,
         which wants them for the same reason - plus the two the enum itself
-        defines: one just past the highest declared key, and the undefined
-        value nearest mid-range. Anything the enum already declares is dropped,
-        so this only ever adds cases the walk wasn't already going to cover.
+        defines: one past the highest declared key, and the undefined value
+        nearest mid-range. Anything the enum already declares is dropped, so
+        this only ever adds cases the walk wasn't already going to cover.
+
+        This is only the *guaranteed* block. The bulk of the undefined values
+        come from RandEnumWalk._undefined_fill(), which spends whatever
+        max_samples_per_field leaves over on the rest of the range - these are
+        the ones worth sending even when that budget is nothing.
         """
         edges = [low, low + 1, high - 1, high, max(declared) + 1]
         edges.extend(MAGIC_BOUNDARIES)
