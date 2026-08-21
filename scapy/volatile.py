@@ -39,6 +39,19 @@ from typing import (
 #  Random numbers  #
 ####################
 
+# Classic off-by-one/overflow boundaries, in value space. Anything a fuzzed
+# field should be made to carry regardless of how its walk happens to be
+# strided: signed/unsigned limits and their immediate neighbours at every
+# common width. Used by Packet._boundary_checkpoints() for the integer walk
+# and by _EnumField._enum_walk_edges() for the enum walk, which want the
+# same set for the same reason.
+MAGIC_BOUNDARIES = (
+    0, 1,
+    0x7f, 0x80, 0xff,
+    0x7fff, 0x8000, 0xffff,
+    0x7fffffff, 0x80000000, 0xffffffff,
+)
+
 
 class RandomEnumeration:
     """iterate through a sequence in random order.
@@ -526,6 +539,93 @@ class RandEnumKeys(RandEnum):
     def _fix(self):
         # type: () -> Any
         return self.enum[next(self.seq)]
+
+
+class RandEnumWalk(RandNum):
+    """State-driven walk over an enum field's *own* declared values
+
+    ``Field.randval()`` dispatches on the struct format character alone, so an
+    ``EnumField`` used to be handed a plain ``RandByte``/``RandShort``/... and
+    the ``i2s`` dict sitting on the very same field object was never consulted.
+    The field was then walked as an integer, and two properties of that walk
+    decided what a target ever received: at the default
+    ``max_samples_per_field=128`` a byte field is sampled at 128 of its 256
+    points, i.e. every *other* value, and the sweep runs ``min + 1 .. max``, so
+    0 is unreachable at any density. The values a protocol actually defines
+    were therefore the ones least likely to be sent, and a ``{0: "off",
+    1: "on"}`` enum could send neither of them.
+
+    Unlike the rest of the ``Rand*`` family, ``state_pos`` here is an *index*
+    into ``values`` rather than the value itself, so ``min``/``max`` bound the
+    list and not the field's integer width. That is also what makes a 26-value
+    enum cost 30 cases where the integer sweep spent 127 and still missed half
+    the enum.
+
+    ``values`` is the declared keys in declared order followed by a few
+    deliberate edge cases (see ``_EnumField._enum_walk_edges()``), so a run cut
+    short still covered the protocol's own vocabulary before spending anything
+    on undefined values.
+    """
+
+    # Packet._advance_state_pos() reads this: an enum's value list is already
+    # the interesting set, so sampling it down would reintroduce exactly the
+    # blind spot this class exists to close.
+    exhaustive = True
+
+    def __init__(self, values):
+        # type: (List[Any]) -> None
+        if not values:
+            raise TypeError("RandEnumWalk needs at least one value")
+        self.values = list(values)
+        self._field_default = self.values[0]  # type: Any
+        self._default_index = 0
+        # min is -1, not 0: Packet.forward() advances a field *before* reading
+        # it, so it emits min + 1 .. max and never min itself - which is the
+        # same reason 0 was unreachable under the integer sweep. Starting one
+        # index below the list makes values[0], the first declared value, the
+        # first thing the walk sends. _fix() clamps, so a -1 that does get read
+        # (a build between initialize_volatile_field() and the first advance)
+        # still renders values[0] rather than raising.
+        RandNum.__init__(self, -1, len(self.values) - 1)
+
+    # Everywhere else in this module 'default' is the field's own default
+    # value, and fuzz() assigns it that way ('rnd.default = f.default'). But
+    # Packet.forward() also assigns 'default' straight into 'state_pos' when it
+    # resets an exhausted field, and here state_pos is an index into 'values',
+    # not a value. Keep both meanings: the setter records the real default, the
+    # getter hands the walk machinery the matching index.
+    @property
+    def default(self):
+        # type: () -> int
+        return self._default_index
+
+    @default.setter
+    def default(self, value):
+        # type: (Any) -> None
+        self._field_default = value
+        try:
+            self._default_index = self.values.index(value)
+        except (ValueError, TypeError):
+            # A default the enum doesn't declare (or that got filtered out for
+            # not fitting the field's width) - start the walk at the top of the
+            # list instead, which is the first declared value.
+            self._default_index = 0
+
+    def _command_args(self):
+        # type: () -> str
+        return "values=%r" % (self.values,)
+
+    def _fix(self):
+        # type: () -> Any
+        if self.state_pos is None:
+            # Not the field being fuzzed right now - same contract as
+            # RandNum._fix(): build with the value the packet would have had.
+            return self._field_default
+
+        # 'max' is len(values) - 1 and Packet.forward() stops a field as soon
+        # as state_pos passes max, so an out-of-range index is a bug rather
+        # than something to wrap around into an unrelated enum entry.
+        return self.values[min(max(self.state_pos, 0), len(self.values) - 1)]
 
 
 class RandChoice(RandField[Any]):

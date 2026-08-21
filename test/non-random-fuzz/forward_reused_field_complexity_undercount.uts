@@ -98,9 +98,23 @@ def run_pair2(packet_fuzz, field1, field2):
         states, continue_to_fuzz = packet_fuzz.forward(states)
     return states[0]["combinations"]
 
+# Compare each pairing against the same pairing on a fresh packet, the way
+# the maximum_channels case above does. Comparing the two pairings to *each
+# other* (p1 == p2) used to work only because both partners were swept as
+# 16-bit integers and so had the same 127-long cycle - ctrl_msg_type is a
+# ShortEnumField, and now walks its 24 declared values instead, which changes
+# the pair total without saying anything about whether magic_cookie was
+# undercounted. Reuse is what this is about, so hold the pairing fixed and
+# vary only whether the packet is fresh.
+isolated_a2 = run_pair2(fuzz(PPTP() / PPTPStartControlConnectionRequest()), FIELD_A2, SHARED_FIELD2)
+isolated_b2 = run_pair2(fuzz(PPTP() / PPTPStartControlConnectionRequest()), FIELD_B2, SHARED_FIELD2)
+
 shared_packet2 = fuzz(PPTP() / PPTPStartControlConnectionRequest())
 p1 = run_pair2(shared_packet2, FIELD_A2, SHARED_FIELD2)
 p2 = run_pair2(shared_packet2, FIELD_B2, SHARED_FIELD2)
 
-assert p1 == p2
+assert p1 == isolated_a2
+assert p2 == isolated_b2
+# The bug collapsed these down to ~127 - make sure they're the real thing
+assert p1 > 1000
 assert p2 > 1000

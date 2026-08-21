@@ -25,8 +25,15 @@ pkt = fuzz(ICMP())
 assert isinstance(pkt.default_fields['unused'], RandBin)
 
 # Move 'type' to a value that resolves 'unused' to the IntField variant
-# instead (any value not in the MultipleTypeField's exclusion list)
-pkt.default_fields['type'].state_pos = 1
+# instead (any value not in the MultipleTypeField's exclusion list).
+# ICMP.type is a ByteEnumField, so its volatile is a RandEnumWalk and
+# state_pos is an *index* into the enum's declared values rather than the
+# value itself - ask it where value 1 sits instead of assuming they're the
+# same number (index 1 is icmptypes' second key, 3, which the exclusion list
+# does cover).
+selector = pkt.default_fields['type']
+selector.state_pos = selector.values.index(1)
+assert selector._fix() == 1
 pkt.resync_multiple_type_fields(pkt)
 
 assert isinstance(pkt.default_fields['unused'], RandNum)
@@ -88,3 +95,41 @@ while continue_to_fuzz and iterations < 20000:
     iterations += 1
 
 assert iterations > 0
+
+
+= resync_multiple_type_fields looks through single-field wrappers
+~ fuzzing packet
+
+# rtmsg_rtattr.rta_data is a PadField wrapped around a MultipleTypeField,
+# selected by the rta_type EnumField next to it. fuzz() unwraps single-field
+# containers before deciding which fields need a resolved randval, so
+# rta_data got one - but resync_multiple_type_fields() tested
+# isinstance(f, MultipleTypeField) on the *wrapper*, never matched, and so
+# never refreshed exactly the fields fuzz() had cached.
+#
+# Latent until enum fields started walking their declared values: rta_type's
+# integer sweep only ever produced multiples of 512, and every variant of
+# rta_data is selected by a value <= 0x10, so the stale bytes-valued
+# XStrLenField default was never handed to an int-valued variant.
+
+from scapy.arch.linux.rtnetlink import rtmsg_rtattr
+
+pkt = fuzz(rtmsg_rtattr())
+states = pkt.prepare_combinations(1)
+
+# 0x04/0x06/0x10 select Field(fmt="=I") and 0x0F an EnumField(fmt="=I"),
+# against a default XStrLenField variant - so a stale cache raises
+# ValueError('Incorrect type of value for field rta_data') on build.
+continue_to_fuzz = True
+iterations = 0
+selected_int_variant = False
+
+while continue_to_fuzz and iterations < 4000:
+    states, continue_to_fuzz = pkt.forward(states)
+    data = bytes(pkt)
+    if pkt.fields.get('rta_type') in [0x04, 0x06, 0x0f, 0x10]:
+        selected_int_variant = True
+    iterations += 1
+
+assert iterations > 0
+assert selected_int_variant, "rta_type never reached a value selecting an int variant"

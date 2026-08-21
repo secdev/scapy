@@ -227,7 +227,29 @@ while continue_to_fuzz:
 total_combinations = sum(s['combinations'] for s in states)
 
 # Captured from the pre-change implementation (git stash of scapy/packet.py
-# back to before this feature, same script, same packet).
-assert total_iterations == 2167
-assert total_combinations == 2166
-assert h.hexdigest() == "25c5b3160395042bd629b5a806e9d71bd4137f39c317fe26464e72e36e2566f2"
+# back to before this feature, same script, same packet), then re-pinned once
+# EnumField.randval() started walking enums instead of integer widths - which
+# moves this sequence on purpose, so the pin is re-derived below rather than
+# just re-captured.
+#
+# Pre-enum-walk this was 2167/2166 and
+# 25c5b3160395042bd629b5a806e9d71bd4137f39c317fe26464e72e36e2566f2. All four
+# of this packet's enum fields are ShortEnumFields, so each used to be swept
+# as a 16-bit integer at 127 samples and now sends exactly its own declared
+# values plus edges - and nothing else in the packet changed, which is what
+# the re-derivation asserts.
+expected_iterations = 2167
+for layer in (pkt, pkt.payload):
+    for name, volatile in layer.default_fields.items():
+        if not isinstance(volatile, RandEnumWalk):
+            continue
+        integer_walk = Field.randval(layer.get_field(name))
+        span = integer_walk.max - integer_walk.min
+        jump = round(span / 128) if span > 128 else 1
+        swept = len(range(integer_walk.min + jump, integer_walk.max + 1, jump))
+        expected_iterations += len(volatile.values) - swept
+
+assert expected_iterations == 1729, expected_iterations
+assert total_iterations == 1729
+assert total_combinations == 1728
+assert h.hexdigest() == "3167ee53a0c295edf04f0be80919f4f5ee2684418e86e5dc7b0fe8528135ee8a"

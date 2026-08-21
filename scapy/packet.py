@@ -46,7 +46,7 @@ from scapy.compat import raw, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
     _CanvasDumpExtended
 from scapy.interfaces import _GlobInterfaceType
-from scapy.volatile import RandField, VolatileValue
+from scapy.volatile import MAGIC_BOUNDARIES, RandField, VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list, EDecimal
 from scapy.error import Scapy_Exception, log_runtime, warning
@@ -1152,11 +1152,18 @@ class Packet(
         """
         Edge-case state_pos values for field_obj, clipped to [min, max]:
         the range's own endpoints, their immediate neighbors, the midpoint,
-        and any type-width 'magic' constant that falls inside the range
+        and any MAGIC_BOUNDARIES constant that falls inside the range
         (0x7F/0x80/0xFF/... - classic off-by-one/overflow boundaries).
         Uniform jump sampling isn't guaranteed to land on any of these when
         (max - min) doesn't divide evenly by the jump stride.
         """
+        if getattr(field_obj, 'exhaustive', False):
+            # A RandEnumWalk indexes a value list, so 0x7f/0x80/0xff here would
+            # name list positions rather than values - and its list already
+            # carries the field's real boundaries (see
+            # _EnumField._enum_walk_edges()), which the walk visits anyway.
+            return []
+
         lo, hi = field_obj.min, field_obj.max
         if lo > hi:
             lo, hi = hi, lo
@@ -1168,8 +1175,7 @@ class Packet(
             candidates.add(hi - 1)
             candidates.add(lo + width // 2)
 
-        for magic in (0, 1, 0x7f, 0x80, 0xff, 0x7fff, 0x8000, 0xffff,
-                      0x7fffffff, 0x80000000, 0xffffffff):
+        for magic in MAGIC_BOUNDARIES:
             if lo <= magic <= hi:
                 candidates.add(magic)
 
@@ -1206,6 +1212,13 @@ class Packet(
             if candidate != field_obj.state_pos:
                 field_obj.state_pos = candidate
                 return
+
+        if getattr(field_obj, 'exhaustive', False):
+            # A RandEnumWalk's [min, max] is an index into a value list that is
+            # already the interesting set - the protocol's own vocabulary plus
+            # its edges. Sampling that down at every other index is exactly the
+            # blind spot RandEnumWalk exists to close, so it always steps by 1.
+            max_samples = max(max_samples, field_obj.max - field_obj.min)
 
         jump_pos = getattr(field_obj, '_jump_pos', field_obj.state_pos)
         if field_obj.max - field_obj.min > max_samples:
@@ -1318,7 +1331,17 @@ class Packet(
             pkt._multiple_type_field_cache = {}
         cache = pkt._multiple_type_field_cache
 
-        for f in pkt.fields_desc:
+        for outer in pkt.fields_desc:
+            # Unwrap the same way fuzz() does: a MultipleTypeField can sit
+            # inside a single-field container (rtmsg_rtattr.rta_data is a
+            # PadField around one), and fuzz() looks through those when it
+            # decides which fields need a resolved randval - so this has to
+            # look through them too, or the fields fuzz() cached are exactly
+            # the ones that never get refreshed. Reached once an enum
+            # selector started walking its declared values: rta_type's
+            # integer sweep only ever produced multiples of 512, none of
+            # which select a variant, so this stayed latent.
+            f = _unwrap_field(outer)
             if not isinstance(f, MultipleTypeField):
                 continue
 

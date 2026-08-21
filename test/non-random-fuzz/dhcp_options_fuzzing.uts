@@ -45,7 +45,12 @@ pkt = fuzz(DHCP(options=[
 
 options = pkt.default_fields['options']
 assert isinstance(options[0], tuple) and options[0][0] == "message-type"
-assert isinstance(options[0][1], RandByte)
+# message-type's declared field is a ByteEnumField, so its typed randval is a
+# RandEnumWalk over the DHCP message types rather than a bare RandByte over
+# 0..255 - which is the point of looking the field up instead of guessing from
+# the option's width.
+assert isinstance(options[0][1], RandEnumWalk)
+assert set(options[0][1].values) >= {1, 2, 3, 5}  # discover/offer/request/ack
 assert isinstance(options[1], tuple) and options[1][0] == "requested_addr"
 assert isinstance(options[1][1], RandIP)
 assert isinstance(options[2], tuple) and options[2][0] == "server_id"
