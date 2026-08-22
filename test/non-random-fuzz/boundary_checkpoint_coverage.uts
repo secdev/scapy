@@ -232,7 +232,14 @@ assert 65535 in actual, "the field's own maximum is still unreachable"
 # 2. _advance_state_pos() started emitting each cycle's own starting value
 #    and spreading its samples to land on max - so a plain field sends 128
 #    values against 127 (and a narrow one its whole range, 65 against 64)
-#    where it used to send min + 1 .. max at a rounded stride.
+#    where it used to send min + 1 .. max at a rounded stride; that took it
+#    to 2179/2178 and 1e3a18b7...
+# 3. forward() started resetting an exhausted string-shaped field to
+#    state_pos = None rather than 0. 0 is a position like any other - a
+#    finished RandBin rendered chars[0:0], the empty string - where None is
+#    what every Rand* reads as "not the field being fuzzed, render your own
+#    default". Same number of cases, different bytes in the ones that follow
+#    a finished string field, which is the whole of the move below.
 #
 # Rather than just re-capture the total, it is re-derived from each field's
 # own range below, which is what says the change is only the intended one.
@@ -273,4 +280,4 @@ assert total_combinations == 2178
 # One forward() call per combination, plus the final one that finds no
 # more work and returns False.
 assert total_iterations == 2179
-assert h.hexdigest() == "1e3a18b78866d2a2d48443daa6813c0f37999353b05bd829ceebf4fd6382e7bc"
+assert h.hexdigest() == "fb23f712fdcfaee76053a875313cf2cebbacfe85992e3f263d769768046f2b24"

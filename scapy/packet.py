@@ -1233,19 +1233,43 @@ class Packet(
 
         return sorted(candidates)
 
-    def _restart_walk(self, field_obj):
+    def _restart_walk(self, field_obj, after_reset=False):
         """
-        Begin a fresh sampling cycle for field_obj at its current
-        state_pos - the cycle's own starting value.
+        Begin a fresh sampling cycle for field_obj.
 
-        Called from initialize_volatile_field() (where state_pos is the
-        field's min) and from every place forward() force-resets an
-        exhausted field back to its default, because a field carried into
-        again at complexity >= 2 walks its range from there once more.
-        Both halves matter: _walk_base is where the cycle counts from, and
-        a _walk_index left over from the previous cycle would put the new
-        one at or past its own end on the very next step.
+        Called from initialize_volatile_field(), where state_pos is the
+        field's min and nothing has been built from this field yet, so the
+        cycle starts there and its first advance emits it.
+
+        Also called from every place forward() force-resets an exhausted
+        field, because a field carried into again at complexity >= 2 walks
+        its range once more. Two things differ there (after_reset=True):
+
+        - **the new cycle climbs from 'min', not from where the reset left
+          state_pos.** The reset puts the field back on the value it
+          renders while it is not being driven - its default - and that is
+          not a starting point for a fresh traversal. For a field whose
+          default is its own max it is the *end* of one: BGPHeader.marker
+          defaults to 2**128-1, so every later cycle spanned nothing and
+          spent its carry sending that one value again (256 of 383 driven
+          steps, 67%, at complexity 2). PPTPStartControlConnectionRequest
+          .maximum_channels is the same shape.
+        - **the first value is skipped when the reset already sent it.**
+          The call that resets a field also builds a case with the field
+          at that value, so re-emitting it on the next call would send a
+          byte-identical packet - one wasted case per carry, which for a
+          4-value field like LWAPP.ver at complexity 2 was 791 of 4,000
+          steps. A field whose default is not its min (or is not an int
+          at all - state_pos is None then, meaning "render your own
+          default") has not sent min, so it starts at index 0.
         """
+        if after_reset:
+            field_obj._walk_base = field_obj.min
+            field_obj._walk_index = (
+                1 if field_obj.state_pos == field_obj._walk_base else 0
+            )
+            return
+
         field_obj._walk_base = field_obj.state_pos
         # 0, not 1: the first advance of a cycle emits _walk_base itself -
         # see _advance_state_pos().
@@ -1657,7 +1681,17 @@ class Packet(
                 if field_fuzzed.state_pos > field_fuzzed.max:
                     # Reset the position back to default
                     if type(field_fuzzed.default).__name__ in ['str', 'bytes', 'tuple']:
-                        field_fuzzed.state_pos = 0 # 0 is when we send the default
+                        # None, not 0: every Rand* reads 'state_pos is
+                        # None' as "not the field being fuzzed, render the
+                        # value the packet would have had" and hands back
+                        # its default. 0 used to be written here as if it
+                        # meant the same thing, and it does not - it is a
+                        # position like any other, so a finished RandBin
+                        # rendered chars[0:0], the empty string, and a
+                        # finished RandIP rendered _COMBINATIONS[0],
+                        # 0.0.0.0, for the rest of the run rather than the
+                        # address the field carries.
+                        field_fuzzed.state_pos = None
                     elif type(field_fuzzed.default).__name__ != 'int':
                         raise ValueError("field_fuzzed.default is not int")
                     else:
@@ -1668,7 +1702,7 @@ class Packet(
                     # not from state_pos; leaving that stale at its old
                     # near-max value would overshoot on the very next call
                     # and end this field's new cycle instantly.
-                    self._restart_walk(field_fuzzed)
+                    self._restart_walk(field_fuzzed, after_reset=True)
 
                     if field_name is not None and field_name in packet_holder.fields:
                         if isinstance(packet_holder.fields[field_name], list):
@@ -1730,7 +1764,10 @@ class Packet(
                             self._advance_state_pos(field_fuzzed, next_field.get('max_samples', 128))
                             if field_fuzzed.state_pos > field_fuzzed.max:
                                 if type(field_fuzzed.default).__name__ in ['str', 'bytes', 'tuple']:
-                                    field_fuzzed.state_pos = 0 # 0 is when we send the default
+                                    # See the matching comment on the main
+                                    # reset path above: None is what says
+                                    # "render your own default".
+                                    field_fuzzed.state_pos = None
                                 elif type(field_fuzzed.default).__name__ != 'int':
                                     raise ValueError("field_fuzzed.default is not int")
                                 else:
@@ -1739,7 +1776,7 @@ class Packet(
                                 # advance path above - this field may
                                 # itself be carried into again by a still
                                 # further-out field at higher complexity.
-                                self._restart_walk(field_fuzzed)
+                                self._restart_walk(field_fuzzed, after_reset=True)
                                 next_field['done'] = True
 
                             self.resync_multiple_type_fields(
@@ -1757,7 +1794,10 @@ class Packet(
                                 )
 
                                 if type(field_fuzzed.default).__name__ in ['str', 'bytes', 'tuple']:
-                                    field_fuzzed.state_pos = 0 # 0 is when we send the default
+                                    # See the matching comment on the main
+                                    # reset path above: None is what says
+                                    # "render your own default".
+                                    field_fuzzed.state_pos = None
                                 elif type(field_fuzzed.default).__name__ != 'int':
                                     raise ValueError("field_fuzzed.default is not int")
                                 else:
@@ -1769,7 +1809,7 @@ class Packet(
                                 # and overshoots immediately, ending the
                                 # new cycle before it visits anything past
                                 # this reset value.
-                                self._restart_walk(field_fuzzed)
+                                self._restart_walk(field_fuzzed, after_reset=True)
 
                                 self.resync_multiple_type_fields(
                                     curr_field_holder,

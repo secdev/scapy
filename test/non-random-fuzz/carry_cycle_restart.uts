@@ -1,0 +1,190 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% a cycle restarted by a carry re-walks the field's range, and does not
+% re-send the value the reset already sent
+
+# Two follow-ups to the four forward() items, both found by absorbing them
+# downstream, and both consequences of the fixes rather than of the code
+# they replaced.
+#
+# 1. forward() reset an exhausted string-shaped field with
+#    'state_pos = 0 # 0 is when we send the default'. 0 does not mean that -
+#    it is a position like any other, so a finished RandBin rendered
+#    chars[0:0] (the empty string) and a finished RandIP rendered
+#    _COMBINATIONS[0] (0.0.0.0) for the rest of the run, instead of the
+#    value the field carries. Reading 'state_pos is None' as "not the field
+#    being fuzzed" is the contract every Rand* already implements, so that
+#    is what the reset writes now. It showed up on a list item - an address
+#    an operator set on VRRPv3.addrlist reached the wire in 0 of 561 steps -
+#    because a list item spends most of a run not being driven.
+#
+# 2. A cycle restarted by a carry began at the field's *default* and
+#    re-emitted it. Two faults in one:
+#
+#    - 'default' is not a starting point for a fresh traversal. For a field
+#      whose default is its own max it is the end of one: BGPHeader.marker
+#      defaults to 2**128-1, so every later cycle spanned nothing and spent
+#      its carry re-sending that value - 256 of 383 driven steps, 67%, at
+#      complexity 2. A restarted cycle climbs from 'min' now.
+#    - the call that resets a field also builds a case with the field at
+#      that value, so emitting it again on the next call sent a
+#      byte-identical packet. One wasted case per carry: 791 of 4,000 steps
+#      for a 4-value field at complexity 2.
+
+############
+############
++ An exhausted field renders its own default, not position 0
+
+= A finished string field goes back to its default rather than to the empty string
+~ fuzzing packet
+
+class StringDefaultPacket(Packet):
+    name = "StringDefaultPacket"
+    fields_desc = [StrFixedLenField("tag", b"scapy", 5)]
+
+pkt = fuzz(StringDefaultPacket())
+volatile = pkt.default_fields['tag']
+assert volatile.default == b"scapy", volatile.default
+
+states = pkt.prepare_combinations(1)
+continue_to_fuzz = True
+while continue_to_fuzz:
+    states, continue_to_fuzz = pkt.forward(states)
+
+# Exhausted: it is nobody's active field any more, so it has to build as the
+# value the packet would have had.
+assert volatile.state_pos is None, volatile.state_pos
+assert volatile._fix() == b"scapy", volatile._fix()
+assert bytes(pkt) == b"scapy", bytes(pkt)
+
+
+= A list item carries the caller's value on every step that is not driving it
+~ fuzzing vrrp
+
+import socket
+
+ADDRESS = "192.0.2.55"
+PACKED = socket.inet_pton(socket.AF_INET, ADDRESS)
+
+pkt = fuzz(IP() / VRRPv3(addrlist=[ADDRESS]))
+states = pkt.prepare_combinations(1)
+
+carried = 0
+steps = 0
+continue_to_fuzz = True
+while continue_to_fuzz and steps < 20000:
+    states, continue_to_fuzz = pkt.forward(states)
+    steps += 1
+    carried += PACKED in bytes(pkt)
+
+item = pkt.payload.default_fields['addrlist'][0]
+assert isinstance(item, RandIP), type(item)
+assert item.default == ADDRESS, item.default
+# Every step except the handful that drive the item through its own values.
+assert carried > steps - 30, (carried, steps)
+
+# The item has finished its own walk by now, and what it is left holding is
+# what every later case would build. state_pos = 0 (the old reset) renders
+# _COMBINATIONS[0], 0.0.0.0 - a value the caller never asked for, on a field
+# they set explicitly.
+assert item.state_pos is None, item.state_pos
+assert item._fix() == ADDRESS, item._fix()
+assert PACKED in bytes(pkt)
+
+
++ A carry restarts the cycle at min, without repeating the reset value
+
+= A field whose default is its own max is re-walked, not pinned to that value
+~ fuzzing packet
+
+# The BGPHeader.marker shape, in a packet small enough to walk quickly: the
+# field's default is its maximum, so a cycle starting from 'default' spans
+# nothing at all - every carry re-sent 255 and the walk covered one value.
+
+# 'pinned' is declared first, which makes it the fast/inner field of the
+# pair - the one forward() exhausts, resets and carries into again. A field
+# only re-walks when something slower carries into it, so a default-is-max
+# field sitting in the *outer* position never shows this at all: it is
+# walked once, evenly, and reports healthy.
+class DefaultIsMaxPacket(Packet):
+    name = "DefaultIsMaxPacket"
+    fields_desc = [
+        ByteField("pinned", 255),
+        ByteField("driver", 0),
+    ]
+
+pkt = fuzz(DefaultIsMaxPacket())
+states = pkt.prepare_combinations(2)
+assert len(states) == 1, len(states)
+
+(_, outer) = pkt.locate_field(pkt, "DefaultIsMaxPacket:pinned")
+assert outer.default == 255 and outer.max == 255
+
+rendered = {}
+continue_to_fuzz = True
+steps = 0
+while continue_to_fuzz and steps < 200000:
+    states, continue_to_fuzz = pkt.forward(states)
+    steps += 1
+    value = outer._fix()
+    rendered[value] = rendered.get(value, 0) + 1
+
+# The count alone says nothing - the first cycle walks the whole range
+# either way, so 128 distinct values show up even when every later cycle
+# contributes nothing but 255. The share of the most common value is what
+# separates them: re-walked, no value takes much more than its 1/128; pinned
+# to its default, 255 takes almost the whole run.
+assert len(rendered) == 128, len(rendered)
+top_value = max(rendered, key=rendered.get)
+top = rendered[top_value]
+assert top < steps // 3, (top_value, top, steps)
+
+
+= No step builds the packet the step before it built
+~ fuzzing packet
+
+# What the repeats were: the carry reset a field to its default, built a
+# case with it, and then the restarted cycle emitted that same value again.
+
+# Two BitFields totalling one byte: a 2-bit field followed by a whole
+# ByteField would leave the layer misaligned and fail to build.
+class TinyRangePacket(Packet):
+    name = "TinyRangePacket"
+    fields_desc = [
+        BitField("ver", 0, 2),
+        BitField("rest", 0, 6),
+    ]
+
+pkt = fuzz(TinyRangePacket())
+states = pkt.prepare_combinations(2)
+
+previous = None
+repeats = 0
+steps = 0
+continue_to_fuzz = True
+while continue_to_fuzz and steps < 200000:
+    states, continue_to_fuzz = pkt.forward(states)
+    steps += 1
+    raw = bytes(pkt)
+    repeats += raw == previous
+    previous = raw
+
+assert steps > 200, steps
+assert repeats == 0, f"{repeats} of {steps} steps re-sent the previous packet"
+
+
+= A 2-bit field still sends all four of its values under a carry
+~ fuzzing packet
+
+pkt = fuzz(TinyRangePacket())
+states = pkt.prepare_combinations(2)
+(_, ver) = pkt.locate_field(pkt, "TinyRangePacket:ver")
+
+seen = set()
+steps = 0
+continue_to_fuzz = True
+while continue_to_fuzz and steps < 200000:
+    states, continue_to_fuzz = pkt.forward(states)
+    steps += 1
+    seen.add(ver._fix())
+
+assert seen == {0, 1, 2, 3}, seen

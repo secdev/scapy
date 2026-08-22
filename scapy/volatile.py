@@ -1008,12 +1008,19 @@ class RandMAC(_RandString[str]):
         # Old:
         # return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac  # type: ignore
 
-        # New:
-        mac = self._COMBINATIONS[0]
-        if self.state_pos is not None and self.state_pos > 0:
-            mac = self._COMBINATIONS[self.state_pos % len(self._COMBINATIONS)]
+        # New: same contract as RandNum._fix()/RandIP._fix() - render the
+        # field's own default when this isn't the field being fuzzed, and
+        # treat index 0 as a value like any other rather than as a stand-in
+        # for "not fuzzed" (which made _COMBINATIONS[0] unreachable and made
+        # every MAC field that isn't the active one build as 00:00:00:00:00:00
+        # instead of the address it carries).
+        if self.state_pos is None:
+            if 'default' in self.__dict__ and self.default is not None:
+                return self.default
 
-        return mac
+            return self._COMBINATIONS[0]
+
+        return self._COMBINATIONS[self.state_pos % len(self._COMBINATIONS)]
 
 
 
@@ -1095,12 +1102,15 @@ class RandIP6(_RandString[str]):
         #     ip[-1] = "0"
         # return ":".join(ip)
 
-        # New:
-        ipv6 = self._COMBINATIONS[0]
-        if self.state_pos is not None and self.state_pos > 0:
-            ipv6 = self._COMBINATIONS[self.state_pos % len(self._COMBINATIONS)]
+        # New: see RandIP._fix() - the field's own default when this isn't
+        # the field being fuzzed, and index 0 reachable like any other.
+        if self.state_pos is None:
+            if 'default' in self.__dict__ and self.default is not None:
+                return self.default
 
-        return ipv6
+            return self._COMBINATIONS[0]
+
+        return self._COMBINATIONS[self.state_pos % len(self._COMBINATIONS)]
 
 
 class RandOID(_RandString[str]):
