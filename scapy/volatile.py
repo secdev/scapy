@@ -621,14 +621,16 @@ class RandEnumWalk(RandNum):
 
         self.values = self.declared + self.guaranteed
         self.values.extend(self._undefined_fill(budget))
-        # min is -1, not 0: Packet.forward() advances a field *before* reading
-        # it, so it emits min + 1 .. max and never min itself - the same
-        # mechanism that made 0 unreachable under the integer sweep. Starting
-        # one index below the list is what makes values[0], the first declared
-        # value, reachable at all. _fix() clamps, so a -1 that does get read
-        # (a build between initialize_volatile_field() and the first advance)
-        # still renders values[0] rather than raising.
-        RandNum.__init__(self, -1, len(self.values) - 1)
+        # Indexes the value list directly: 0 .. len(values) - 1. This used to
+        # start at -1, because Packet.forward() advanced a field before
+        # reading it and so emitted min + 1 .. max, never min - which would
+        # have made values[0], the first declared value, unreachable.
+        # Packet._advance_state_pos() now emits a cycle's own starting
+        # position first, for plain integer fields as much as for this one,
+        # so the extra index below the list is no longer needed. _fix()
+        # still clamps, so a read before the first advance renders
+        # values[0] rather than raising.
+        RandNum.__init__(self, 0, len(self.values) - 1)
         # Re-resolve the field default against the new list.
         self.default = self._field_default
 
@@ -942,11 +944,22 @@ class RandIP(_RandString[str]):
         # return self.ip.choice()
 
         # New:
-        ipv4 = self._COMBINATIONS[0]
-        if self.state_pos is not None and self.state_pos > 0:
-            ipv4 = self._COMBINATIONS[self.state_pos % len(self._COMBINATIONS)]
+        if self.state_pos is None:
+            # Not the field being fuzzed right now - same contract as
+            # RandNum._fix()/RandString._fix(): build with the value the
+            # packet would have had. Without this every IP-typed field that
+            # isn't the active one both built and rendered as
+            # _COMBINATIONS[0], 0.0.0.0, instead of its own default
+            # (OSPF_Hdr.src is 1.1.1.1 until the layer is fuzzed).
+            if 'default' in self.__dict__ and self.default is not None:
+                return self.default
 
-        return ipv4
+            return self._COMBINATIONS[0]
+
+        # No 'state_pos > 0' guard: index 0 is a value of the list like any
+        # other, and skipping it made _COMBINATIONS[0] unreachable the same
+        # way min used to be for an integer field.
+        return self._COMBINATIONS[self.state_pos % len(self._COMBINATIONS)]
 
 
 class RandMAC(_RandString[str]):

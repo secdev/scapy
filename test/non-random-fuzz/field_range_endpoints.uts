@@ -1,0 +1,111 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% a plain field must reach both ends of its own range, at both parities
+
+# forward() advances a field *before* reading it, so a walk that started
+# by stepping emitted min + 1 .. max and never min itself. For a ByteField
+# that is 0 - what a reserved-must-be-zero field, a "no such type" branch
+# or a zero-length count turns on. And the step was a rounded integer
+# stride: 128 samples over a 256-point range is a stride of 2, so a byte
+# field sent 2, 4, ... 254 - one parity of its range, and not its maximum
+# either. IP.ttl never sent 0, 1 or 255, the three values that mean
+# anything for a TTL.
+#
+# RandEnumWalk already worked around this for enum fields by indexing its
+# value list from -1 so that values[0] was reachable. The mechanism is now
+# in _advance_state_pos() for every field: a cycle emits its own starting
+# value first, and spreads the rest of its budget to land exactly on max.
+# RandEnumWalk no longer needs (or has) its -1.
+
+############
+############
++ A field's sampling covers its whole declared range
+
+= A byte field sends its minimum, its maximum and both parities
+~ fuzzing inet
+
+def collect_values(packet, field_name, max_samples_per_field=128):
+    states = packet.prepare_combinations(1, max_samples_per_field=max_samples_per_field)
+    target = [s for s in states if s['fields'][0]['name'] == field_name]
+    assert len(target) == 1, f"{field_name} is not fuzzed as its own state"
+    seen = []
+    continue_to_fuzz = True
+    while continue_to_fuzz:
+        target, continue_to_fuzz = packet.forward(target)
+        (_, field_obj) = packet.locate_field(packet, field_name)
+        seen.append(field_obj.state_pos)
+    # The final call is the one that overshoots max and resets the field to
+    # its default, so the values actually sent are everything before it.
+    return seen[:-1]
+
+ttl = collect_values(fuzz(IP()), "IP:ttl")
+
+assert 0 in ttl, "the field's own minimum is still unreachable"
+assert 255 in ttl, "the field's own maximum is still unreachable"
+assert {v % 2 for v in ttl} == {0, 1}, "only one parity of the range is sampled"
+assert len(set(ttl)) == 128, len(set(ttl))
+
+
+= A wide field sends its minimum and its maximum too
+~ fuzzing inet
+
+wide = collect_values(fuzz(IP()), "IP:id")
+
+assert min(wide) == 0, min(wide)
+assert max(wide) == 65535, max(wide)
+assert len(set(wide)) == 128, len(set(wide))
+
+
+= max_samples_per_field still bounds how many values a field sends
+~ fuzzing inet
+
+for samples in (4, 16, 128, 512):
+    values = set(collect_values(fuzz(IP()), "IP:id", max_samples_per_field=samples))
+    assert len(values) == samples, (samples, len(values))
+    assert min(values) == 0 and max(values) == 65535, (samples, min(values), max(values))
+
+
+= A range narrower than the budget is sent whole, endpoints included
+~ fuzzing packet
+
+class NarrowPacket(Packet):
+    name = "NarrowPacket"
+    fields_desc = [BitField("nibble", 0, 4), BitField("rest", 0, 4)]
+
+nibble = collect_values(fuzz(NarrowPacket()), "NarrowPacket:nibble")
+assert sorted(set(nibble)) == list(range(0, 16)), sorted(set(nibble))
+
+
++ RandEnumWalk indexes its list from 0
+
+= The enum walk no longer needs an index below its own list
+~ fuzzing inet
+
+pkt = fuzz(IP())
+walk = pkt.default_fields['proto']
+assert isinstance(walk, RandEnumWalk)
+assert walk.min == 0, walk.min
+assert walk.max == len(walk.values) - 1
+
+
+= The first value an enum field sends is still its first declared value
+~ fuzzing inet
+
+pkt = fuzz(IP())
+states = pkt.prepare_combinations(1)
+target = [s for s in states if s['fields'][0]['name'] == "IP:proto"]
+target, _ = pkt.forward(target)
+(_, walk) = pkt.locate_field(pkt, "IP:proto")
+assert walk.state_pos == 0, walk.state_pos
+assert walk._fix() == walk.values[0]
+
+emitted = [walk._fix()]
+continue_to_fuzz = True
+while continue_to_fuzz:
+    target, continue_to_fuzz = pkt.forward(target)
+    emitted.append(walk._fix())
+
+# Every declared value of the enum, and no duplicate walk of index 0.
+for declared in walk.declared:
+    assert declared in emitted, declared
+
+assert emitted[:2] == [walk.values[0], walk.values[1]], emitted[:2]

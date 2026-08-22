@@ -1,0 +1,109 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% a MultipleTypeField holding a list must be fuzzed within the list
+
+# A caller that sets a list-valued field to a real value - an address
+# list, an option list - expects the walk to fuzz *within* it. For a
+# FieldListField that is what happens: fuzz() gives each item its own
+# randval taken from the inner field's type, return_relevant_fields()
+# registers "Layer:field:index", and forward() drives one index at a time
+# while the rest of the list survives.
+#
+# A MultipleTypeField resolving to the same shape did not: fuzz() called
+# randval() on the resolved field as a whole, which for a FieldListField
+# builds one value from the *container's* fmt (a RandShort from "!H"), and
+# assigning that replaced the caller's whole list with a scalar on the
+# first step. Two protocols, the same field name, the same value, opposite
+# outcomes:
+#
+#     VRRP.addrlist    FieldListField of IPField   VRRP:addrlist:0    kept
+#     VRRPv3.addrlist  MultipleTypeField           VRRPv3:addrlist    LOST
+#
+# By the time anything downstream sees the packet the value is already
+# gone, so a caller can restore the list's *shape* but never the operator's
+# own address. fuzz() now keys this on the value the packet carries rather
+# than on the resolved field's class, and resync_multiple_type_fields()
+# keeps the list shape when it swaps variants.
+
+############
+############
++ A MultipleTypeField holding a list is fuzzed per item
+
+= The FieldListField control keeps its value through a whole walk
+~ fuzzing vrrp
+
+ADDRESS = "192.0.2.55"
+
+def registered_names(states, field_name):
+    return sorted({e['name'] for s in states for e in s['fields'] if field_name in e['name']})
+
+def walk_until_lost(packet, layer, field_name, max_steps=100000):
+    states = packet.prepare_combinations(1)
+    names = registered_names(states, field_name)
+    steps = 0
+    continue_to_fuzz = True
+    while continue_to_fuzz and steps < max_steps:
+        states, continue_to_fuzz = packet.forward(states)
+        steps += 1
+        if not isinstance(layer.fields.get(field_name), list):
+            return (names, steps)
+    return (names, None)
+
+pkt = fuzz(VRRP(addrlist=[ADDRESS]))
+(names, lost_at) = walk_until_lost(pkt, pkt, "addrlist")
+
+assert names == ["VRRP:addrlist:0"], names
+assert lost_at is None, f"the control lost its list at step {lost_at}"
+
+
+= A MultipleTypeField's list value survives the walk too
+~ fuzzing vrrp
+
+pkt = fuzz(VRRPv3(addrlist=[ADDRESS]))
+(names, lost_at) = walk_until_lost(pkt, pkt, "addrlist")
+
+assert names == ["VRRPv3:addrlist:0"], names
+assert lost_at is None, f"the list was replaced by a scalar at step {lost_at}"
+
+
+= A MultipleTypeField resolving to a FieldListField fuzzes the items, not the container
+~ fuzzing vrrp
+
+# With an IP underlayer the MultipleTypeField resolves to a FieldListField
+# of IPField - which is the case an operator actually runs, and the one
+# where randval() on the container produced a RandShort for an address.
+
+pkt = fuzz(IP(dst="10.0.0.1") / VRRPv3(addrlist=[ADDRESS]))
+vrrp = pkt.payload
+states = pkt.prepare_combinations(1)
+assert registered_names(states, "addrlist") == ["VRRPv3:addrlist:0"]
+
+item = vrrp.default_fields['addrlist'][0]
+assert isinstance(item, RandIP), type(item)
+assert item.default == ADDRESS, item.default
+
+seen = set()
+steps = 0
+continue_to_fuzz = True
+while continue_to_fuzz and steps < 20000:
+    states, continue_to_fuzz = pkt.forward(states)
+    steps += 1
+    value = vrrp.fields.get('addrlist')
+    assert isinstance(value, list) and len(value) == 1, value
+    seen.add(str(value[0]))
+    bytes(pkt)
+
+assert len(seen) > 5, seen
+assert all(len(v.split(".")) == 4 for v in seen), seen
+
+
+= An unfuzzed item of the list renders the value the caller set
+~ fuzzing vrrp
+
+# The point of fuzzing within the list: the caller's own address is the
+# item's default, so every case that isn't driving that item still puts it
+# on the wire.
+
+pkt = fuzz(IP(dst="10.0.0.1") / VRRPv3(addrlist=[ADDRESS]))
+item = pkt.payload.default_fields['addrlist'][0]
+assert item.state_pos is None
+assert item._fix() == ADDRESS

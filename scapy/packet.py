@@ -81,6 +81,40 @@ except ImportError:
 _T = TypeVar("_T", Dict[str, Any], Optional[Dict[str, Any]])
 
 
+class FuzzStates(list):
+    """
+    The list Packet.prepare_combinations() returns, plus a cursor.
+
+    Packet.forward() has to find the first state whose 'done' is still
+    False, and used to look for it from index 0 on every call. A state
+    only ever goes from not-done to done, so the finished prefix grows
+    monotonically and that scan re-walks it every time - quadratic in the
+    state count, paid per case sent (a 210-state stack examined 66.6
+    entries per step to reach one live state).
+
+    'first_live' is the index the scan starts at: the finished prefix is
+    everything below it. forward() moves it forward as states complete
+    and never back, so the scan is O(1) amortised over a run.
+
+    A plain list still works everywhere a FuzzStates does - forward()
+    reads the cursor with getattr(states, 'first_live', 0) and skips
+    updating it when it isn't there, so a caller that hands over its own
+    hand-built list (or a filtered subset, as several tests do) gets
+    exactly the old full-scan behaviour rather than an error. Wrap such a
+    list in FuzzStates() to get the cursor back.
+
+    The one thing that would break the cursor is a caller setting a
+    state's 'done' back to False after forward() has passed it; nothing
+    in this fork does that, and prepare_combinations() is the way to get
+    a fresh walk.
+    """
+
+    def __init__(self, iterable=()):
+        # type: (Any) -> None
+        super(FuzzStates, self).__init__(iterable)
+        self.first_live = 0
+
+
 class Packet(
     BasePacket,
     _CanvasDumpExtended,
@@ -1068,7 +1102,10 @@ class Packet(
 
             states.append(state)
 
-        return states
+        # A FuzzStates rather than a plain list: it carries the cursor
+        # forward() scans from, so a long walk doesn't re-examine its own
+        # finished prefix on every call - see FuzzStates.
+        return FuzzStates(states)
 
     def display_now_fuzzing(self, fields):
         """
@@ -1085,9 +1122,12 @@ class Packet(
         Return the state that is active or 'None'
         """
 
-        for (_, state) in enumerate(states):
-            if state['active']:
-                return state
+        # Same cursor as forward() uses: a done state is never active
+        # (forward() clears 'active' when it marks one done), so the
+        # active state - if there is one - is always at or past it.
+        for index in range(getattr(states, 'first_live', 0), len(states)):
+            if states[index]['active']:
+                return states[index]
 
         return None
 
@@ -1154,11 +1194,11 @@ class Packet(
         field_obj._pending_checkpoints = (
             self._boundary_checkpoints(field_obj) if boundary_values else []
         )
-        # Independent cursor for the uniform jump walk, so that draining
+        # Independent cursor for the sampling walk, so that draining
         # boundary checkpoints (which can leave state_pos sitting anywhere,
-        # including field_obj.max) never perturbs where the jump walk
-        # itself has gotten to - see _advance_state_pos().
-        field_obj._jump_pos = field_obj.state_pos
+        # including field_obj.max) never perturbs where the walk itself has
+        # gotten to - see _advance_state_pos().
+        self._restart_walk(field_obj)
 
     def _boundary_checkpoints(self, field_obj):
         """
@@ -1193,31 +1233,69 @@ class Packet(
 
         return sorted(candidates)
 
+    def _restart_walk(self, field_obj):
+        """
+        Begin a fresh sampling cycle for field_obj at its current
+        state_pos - the cycle's own starting value.
+
+        Called from initialize_volatile_field() (where state_pos is the
+        field's min) and from every place forward() force-resets an
+        exhausted field back to its default, because a field carried into
+        again at complexity >= 2 walks its range from there once more.
+        Both halves matter: _walk_base is where the cycle counts from, and
+        a _walk_index left over from the previous cycle would put the new
+        one at or past its own end on the very next step.
+        """
+        field_obj._walk_base = field_obj.state_pos
+        # 0, not 1: the first advance of a cycle emits _walk_base itself -
+        # see _advance_state_pos().
+        field_obj._walk_index = 0
+
     def _advance_state_pos(self, field_obj, max_samples):
         """
-        Move field_obj.state_pos to its next sample. Drains any pending
-        boundary checkpoints first (guaranteeing edge values are hit
-        regardless of jump alignment - see _boundary_checkpoints()), then
-        falls back to today's uniform jump sampling for the rest of the
-        budget. With no pending checkpoints (the default), this is exactly
-        the old inlined jump-stepping logic.
+        Move field_obj.state_pos to its next sample.
 
-        The uniform walk advances its own _jump_pos cursor rather than
-        state_pos directly: checkpoints (whose candidates include
-        field_obj.max) can leave state_pos sitting anywhere, and stepping
-        from there would let a checkpoint immediately overshoot max and
-        end the field early, replacing the walk instead of supplementing
-        it.
+        The samples of one cycle are spread over [_walk_base, max]
+        *inclusive of both ends*, so a field reaches its own extremes:
 
-        _jump_pos always exists by the time a normal (prepare_combinations
-        -driven) field reaches here, seeded by initialize_volatile_field().
-        The getattr() fallback is only for a field whose state_pos was
-        seeded directly by the caller instead - e.g. a hand-crafted
-        'active': True state that bypasses initialize_volatile_field()
-        entirely. Falling back to field_obj.state_pos (not field_obj.min)
-        keeps that case advancing from wherever state_pos already is,
-        instead of silently discarding the caller's seeded progress.
+        - the first advance of a cycle emits _walk_base itself. forward()
+          advances a field before reading it, so a walk that started by
+          stepping emitted min + 1 .. max and never min - and min is what a
+          reserved-must-be-zero field, a "no such type" branch or a
+          zero-length count turns on. This is the same reason RandEnumWalk
+          used to start its index at -1, which it no longer needs to.
+        - the rest are 'max_samples' points evenly spread to land exactly on
+          max, rather than a fixed integer stride from min. A byte field at
+          the default density used to jump by round(256/128) = 2 and send
+          2, 4, ... 254: one parity of the range, no minimum and no maximum.
+          Counting samples instead of accumulating a rounded stride sends
+          both endpoints and both parities.
+
+        Pending boundary checkpoints (see _boundary_checkpoints()) are
+        drained after the cycle's first value and before the spread ones, so
+        boundary_values=True still supplements the walk rather than
+        replacing it: the spread is driven by the sample count it keeps in
+        _walk_index, which a checkpoint leaving state_pos at max cannot
+        perturb.
+
+        _walk_base/_walk_index always exist by the time a normal
+        (prepare_combinations-driven) field reaches here, seeded by
+        initialize_volatile_field(). The seeding below is only for a field
+        whose state_pos was set directly by the caller instead - e.g. a
+        hand-crafted 'active': True state that bypasses
+        initialize_volatile_field() entirely. It counts that position as a
+        value already emitted, so such a field advances *past* where the
+        caller left it instead of re-sending it.
         """
+        if not hasattr(field_obj, '_walk_base'):
+            field_obj._walk_base = field_obj.state_pos
+            field_obj._walk_index = 1
+
+        if field_obj._walk_index == 0:
+            field_obj._walk_index = 1
+            field_obj.state_pos = field_obj._walk_base
+            return
+
         pending = getattr(field_obj, '_pending_checkpoints', None)
         while pending:
             candidate = pending.pop(0)
@@ -1232,14 +1310,31 @@ class Packet(
             # blind spot RandEnumWalk exists to close, so it always steps by 1.
             max_samples = max(max_samples, field_obj.max - field_obj.min)
 
-        jump_pos = getattr(field_obj, '_jump_pos', field_obj.state_pos)
-        if field_obj.max - field_obj.min > max_samples:
-            jump = round((field_obj.max - field_obj.min) / max_samples)
-            jump_pos += jump
+        base = field_obj._walk_base
+        index = field_obj._walk_index
+        span = field_obj.max - base
+        if span > max_samples > 1:
+            # index runs 0 .. max_samples - 1 over the cycle, so the last
+            # sample is base + span == max exactly, and the one after it
+            # overshoots and ends the field.
+            field_obj.state_pos = base + round(index * span / (max_samples - 1))
         else:
-            jump_pos += 1
-        field_obj._jump_pos = jump_pos
-        field_obj.state_pos = jump_pos
+            # The whole range fits in the budget - send every value of it.
+            field_obj.state_pos = base + index
+        field_obj._walk_index = index + 1
+
+    def _is_fuzzed_list(self, value):
+        """
+        Is this default_fields entry a list whose items fuzz() replaced
+        with per-item randvals (see _fuzz_list_items())? Those are driven
+        one index at a time ("Layer:field:index"), so anything that
+        replaces the field wholesale has to keep that shape.
+        """
+        return (
+            isinstance(value, list)
+            and len(value) > 0
+            and any(isinstance(item, VolatileValue) for item in value)
+        )
 
     def _write_list_index(self, packet_holder, field_name, list_idx, new_value):
         """
@@ -1375,6 +1470,48 @@ class Packet(
                 # Seen this concrete variant before on this packet -
                 # restore its previous progress rather than starting over
                 pkt.default_fields[f.name] = field_cache[cache_key]
+            elif self._is_fuzzed_list(pkt.default_fields.get(f.name)):
+                # This MultipleTypeField is driven per list item (fuzz()
+                # found the caller holding a list here - see
+                # _fuzz_list_items()), so the replacement has to be a list
+                # too: assigning a scalar randval would throw the caller's
+                # value away, which is the whole reason the list branch
+                # exists.
+                current_list = pkt.default_fields[f.name]
+                originals = [
+                    item.default if isinstance(item, VolatileValue) else item
+                    for item in current_list
+                ]
+                fresh_list = _fuzz_list_items(resolved_fld, originals)
+
+                if all(
+                    type(was).__name__ == type(now).__name__
+                    for (was, now) in zip(current_list, fresh_list)
+                ):
+                    # Same per-item type as what's already there (e.g.
+                    # fuzz()'s own initial assignment) - adopt it as-is,
+                    # preserving each item's state_pos, rather than
+                    # restarting every item's walk.
+                    field_cache[cache_key] = current_list
+                else:
+                    for item in fresh_list:
+                        if isinstance(item, VolatileValue):
+                            self.initialize_volatile_field(
+                                item, max_samples=max_samples)
+                    field_cache[cache_key] = fresh_list
+                    pkt.default_fields[f.name] = fresh_list
+
+                    # The raw list in 'fields' was built for the previous
+                    # variant's item type (an IPv4 address where the
+                    # variant now wants an IPv6 one), so it can't be
+                    # packed by this one.
+                    pkt.fields.pop(f.name, None)
+
+                field_cache['_active_key'] = cache_key
+                # Deliberately not falling through to the 'fields' cleanup
+                # below: for a per-item walk 'fields' holds the live list
+                # forward() is writing single indexes of.
+                continue
             else:
                 fresh = resolved_fld.randval()
                 if fresh is None:
@@ -1413,11 +1550,24 @@ class Packet(
         if len(states) == 0:
             raise ValueError("States should include at least one permutation")
 
-        # Find the first state that has 'done' False
+        # Find the first state that has 'done' False, starting from the
+        # cursor rather than from index 0: everything below it finished on
+        # an earlier call and a state never becomes live again, so
+        # re-examining that prefix is pure overhead - see FuzzStates. A
+        # caller's own plain list has no cursor, and then this is the
+        # original full scan.
         state_fuzzed = None
         state = None
-        for (_, state) in enumerate(states):
+        first_live = getattr(states, 'first_live', 0)
+        for index in range(first_live, len(states)):
+            state = states[index]
             if not state['done']:
+                if index != first_live and hasattr(states, 'first_live'):
+                    # Everything we just walked past is done for good, so
+                    # the next call can start here. Advancing lazily (here)
+                    # rather than at the moment a state completes keeps the
+                    # cursor right no matter who marked the state done.
+                    states.first_live = index
                 state_fuzzed = state
                 fields = state['fields']
 
@@ -1512,13 +1662,13 @@ class Packet(
                         raise ValueError("field_fuzzed.default is not int")
                     else:
                         field_fuzzed.state_pos = field_fuzzed.default
-                    # Keep the uniform jump walk's own cursor in sync with
-                    # this reset - a field that gets carried into again
-                    # later (complexity >= 2) resumes _advance_state_pos()
-                    # from _jump_pos, not state_pos; leaving it stale at
-                    # its old near-max value would overshoot on the very
-                    # next call and end this field's new cycle instantly.
-                    field_fuzzed._jump_pos = field_fuzzed.state_pos
+                    # Start a fresh sampling cycle from the value we just
+                    # reset to - a field that gets carried into again later
+                    # (complexity >= 2) counts its samples from _walk_base,
+                    # not from state_pos; leaving that stale at its old
+                    # near-max value would overshoot on the very next call
+                    # and end this field's new cycle instantly.
+                    self._restart_walk(field_fuzzed)
 
                     if field_name is not None and field_name in packet_holder.fields:
                         if isinstance(packet_holder.fields[field_name], list):
@@ -1589,7 +1739,7 @@ class Packet(
                                 # advance path above - this field may
                                 # itself be carried into again by a still
                                 # further-out field at higher complexity.
-                                field_fuzzed._jump_pos = field_fuzzed.state_pos
+                                self._restart_walk(field_fuzzed)
                                 next_field['done'] = True
 
                             self.resync_multiple_type_fields(
@@ -1613,13 +1763,13 @@ class Packet(
                                 else:
                                     field_fuzzed.state_pos = field_fuzzed.default
                                 # This is the actual carry restart: without
-                                # re-syncing _jump_pos here too, the next
+                                # restarting the walk here too, the next
                                 # _advance_state_pos() call on this field
-                                # resumes from its stale near-max cursor
+                                # counts on from its stale near-max cursor
                                 # and overshoots immediately, ending the
                                 # new cycle before it visits anything past
                                 # this reset value.
-                                field_fuzzed._jump_pos = field_fuzzed.state_pos
+                                self._restart_walk(field_fuzzed)
 
                                 self.resync_multiple_type_fields(
                                     curr_field_holder,
@@ -2718,6 +2868,48 @@ values.
             pp = pp.underlayer
         self.payload.dissection_done(pp)
 
+    def _command_fields(self):
+        # type: () -> Iterator[Tuple[str, Any]]
+        """
+        The (name, value) pairs command() renders: everything set in
+        'fields', then every field fuzz() left a volatile on.
+
+        fuzz() installs its random values as *defaults*, and command()
+        reports 'fields', so a packet mid-walk used to render only the one
+        field forward() had promoted - the other field of a complexity-2
+        pair, and everything else fuzz() touched, was missing from the
+        example entirely. Evaluating that example rebuilt a different
+        packet than the one that was sent, which is the only thing the
+        example is for.
+
+        The volatiles are rendered by the value they resolve to, not by
+        their constructor: '_fix()' is exactly what build() will pack, so
+        this is what makes the example reproduce the bytes. A volatile the
+        caller put in 'fields' themselves (IP(ttl=RandByte())) is left
+        alone and still renders as 'RandByte()' - that packet is a
+        generator, and re-evaluating it is meant to draw again.
+        """
+        for name, value in self.fields.items():
+            yield (name, value)
+
+        # An overloaded field (IP.proto under a TCP payload) is skipped:
+        # it isn't fuzzable - return_relevant_fields() skips it too - and
+        # the overload is what both the sent and the rebuilt packet use, so
+        # naming it in the example would pin the wrong value.
+        for field in self.fields_desc:
+            name = field.name
+            if name in self.fields or name in self.overloaded_fields:
+                continue
+
+            value = self.default_fields.get(name)
+            if isinstance(value, VolatileValue):
+                yield (name, value._fix())
+            elif self._is_fuzzed_list(value):
+                yield (name, [
+                    item._fix() if isinstance(item, VolatileValue) else item
+                    for item in value
+                ])
+
     def _command(self, json=False):
         # type: (bool) -> List[Tuple[str, Any]]
         """
@@ -2728,7 +2920,7 @@ values.
         if json:
             iterator = ((x.name, self.getfieldval(x.name)) for x in self.fields_desc)
         else:
-            iterator = iter(self.fields.items())
+            iterator = self._command_fields()
         for fn, fv in iterator:
             fld = self.get_field(fn)
             if isinstance(fv, (list, dict, set)) and not fv and not fld.default:
@@ -2768,7 +2960,16 @@ values.
                     else:
                         fv = fld.i2h(self, fv)
                 else:
-                    fv = repr(fld.i2h(self, fv))
+                    fv = fld.i2h(self, fv)
+                    if isinstance(fv, FlagValue):
+                        # A flags field's i2h() wraps the int back up, and
+                        # repr() of that is '<Flag 2 (S)>' - not something
+                        # the command can be evaluated back from. Reached
+                        # when the value comes in as a plain int, which is
+                        # what a fuzzed field resolves to (a FlagValue set
+                        # through the packet is caught further up).
+                        fv = int(fv)
+                    fv = repr(fv)
             f.append((fn, fv))
         return f
 
@@ -3645,6 +3846,44 @@ def _unwrap_field(f):
 
 
 @conf.commands.register
+def _fuzz_list_items(fld, values):
+    # type: (Any, List[Any]) -> List[Any]
+    """
+    A per-item randval for each item of a list-valued field.
+
+    fld.randval() would build one value from the *container's* own fmt
+    (e.g. FieldListField's default "!H"), which has nothing to do with the
+    type or range of the items it holds - and assigning that to the field
+    replaces the caller's whole list with a single scalar. The items are
+    what gets fuzzed, so each one gets a randval from the inner field's
+    type instead, carrying the caller's own item as its default so the
+    walk fuzzes around the value that was set rather than losing it.
+    return_relevant_fields()/locate_field() know how to target list items
+    directly ("Layer:field:index").
+
+    An item whose type has no randval is left exactly as it was.
+    """
+    inner = getattr(fld, 'field', None)
+    if inner is None:
+        # Not a container (a MultipleTypeField can resolve to a plain
+        # StrField while the value the caller set is still a list) - the
+        # field's own randval is then the right per-item type.
+        inner = fld
+
+    new_list = []
+    for item in values:
+        try:
+            item_rnd = inner.randval()
+        except Exception:
+            item_rnd = None
+        if item_rnd is None:
+            new_list.append(item)
+        else:
+            item_rnd.default = item
+            new_list.append(item_rnd)
+    return new_list
+
+
 def fuzz(p,  # type: _P
          _inplace=0,  # type: int
          ):
@@ -3691,27 +3930,12 @@ def fuzz(p,  # type: _P
                     for r in getattr(q, f.name):
                         fuzz(r, _inplace=1)
             elif isinstance(real_f, FieldListField):
-                # f.randval() would build a random value from f's own fmt
-                # (e.g. the default "!H"), which has nothing to do with the
-                # type/range of the individual items in the list (governed
-                # by f.field, e.g. a ByteField for Dot11EltRates.rates).
-                # Fuzz each item with the inner field's own randval instead,
-                # keeping the list shape intact - return_relevant_fields()/
-                # locate_field() know how to target list items directly.
+                # Fuzz each item with the inner field's own randval, keeping
+                # the list shape intact - see _fuzz_list_items().
                 current_list = getattr(q, f.name) if field_is_active else None
                 if isinstance(current_list, list) and len(current_list) > 0:
-                    new_list = []
-                    for item in current_list:
-                        try:
-                            item_rnd = real_f.field.randval()
-                        except Exception:
-                            item_rnd = None
-                        if item_rnd is not None:
-                            item_rnd.default = item
-                            new_list.append(item_rnd)
-                        else:
-                            new_list.append(item)
-                    new_default_fields[f.name] = new_list
+                    new_default_fields[f.name] = _fuzz_list_items(
+                        real_f, current_list)
             elif isinstance(real_f, MultipleTypeField):
                 # the type of the field will depend on others
                 multiple_type_fields.append(f.name)
@@ -3743,7 +3967,26 @@ def fuzz(p,  # type: _P
             # add the random values of the MultipleTypeFields
             for name in multiple_type_fields:
                 fld = cast(MultipleTypeField, q.get_field(name))
-                rnd = fld._find_fld_pkt(q).randval()
+                resolved = fld._find_fld_pkt(q)
+
+                # A MultipleTypeField can resolve to a list-valued field
+                # (VRRPv3.addrlist is a FieldListField of IPField once
+                # there's an IP underlayer, a StrField without one), and
+                # then a single scalar randval would replace the caller's
+                # whole list - their address list, their option list - on
+                # the first step of the walk, with nothing downstream able
+                # to recover the value. Fuzz within the list instead,
+                # exactly as the FieldListField branch above does. Keyed on
+                # the value the packet actually carries rather than on the
+                # resolved field's own class, because it's the caller's
+                # value that is at stake and it stays a list either way.
+                current_list = getattr(q, name, None)
+                if isinstance(current_list, list) and len(current_list) > 0:
+                    new_default_fields[name] = _fuzz_list_items(
+                        resolved, current_list)
+                    continue
+
+                rnd = resolved.randval()
                 if rnd is not None:
                     new_default_fields[name] = rnd
         q.default_fields.update(new_default_fields)

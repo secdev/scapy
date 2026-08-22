@@ -1,0 +1,134 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% command() must rebuild the packet the walk is sending
+
+# command() is what a tool prints so an operator can reproduce a case by
+# hand, which is worth something only if evaluating it yields the same
+# bytes. It did not, for two reasons that compounded:
+#
+# 1. fuzz() installs its volatiles as *defaults*, and command() reported
+#    only 'fields' - so it showed the single field forward() had promoted
+#    there and nothing else. At complexity 2 the other field of the pair
+#    was being driven invisibly: IP(...)/TCP() at complexity 2 rendered 16
+#    distinct commands over 800 steps, and 785 of those cases rebuilt
+#    different bytes than were sent.
+# 2. RandIP._fix() consulted no default, unlike RandNum._fix(): every
+#    IP-typed field that was not the active one rendered (and built) as
+#    _COMBINATIONS[0], 0.0.0.0, instead of the address it carries -
+#    OSPF_Hdr.src is 1.1.1.1 unfuzzed and became 0.0.0.0 the moment the
+#    layer was fuzzed.
+#
+# The fix is a rendering one - _command_fields() asks default_fields for
+# the volatiles and renders what each resolves to, which is exactly what
+# build() packs - so nothing about the packet being sent changes.
+
+############
+############
++ command() rebuilds the packet being sent
+
+= Every case of a complexity-2 walk rebuilds byte-for-byte
+~ fuzzing inet
+
+def mismatches(packet, complexity=2, steps=800):
+    states = packet.prepare_combinations(complexity)
+    bad = 0
+    compared = 0
+    continue_to_fuzz = True
+    while continue_to_fuzz and compared < steps:
+        states, continue_to_fuzz = packet.forward(states)
+        sent = bytes(packet)
+        rebuilt = bytes(eval(packet.command()))
+        compared += 1
+        if sent != rebuilt:
+            bad += 1
+    return (compared, bad)
+
+(compared, bad) = mismatches(fuzz(IP(src="10.0.0.1", dst="10.0.0.2") / TCP()))
+assert compared == 800, compared
+assert bad == 0, f"{bad} of {compared} cases rebuild different bytes"
+
+
+= The same holds for a stack whose layers overload each other's fields
+~ fuzzing inet
+
+(compared, bad) = mismatches(fuzz(Ether() / IP() / ICMP()))
+assert bad == 0, f"{bad} of {compared} cases rebuild different bytes"
+
+(compared, bad) = mismatches(fuzz(Ether() / IP() / UDP() / DNS()))
+assert bad == 0, f"{bad} of {compared} cases rebuild different bytes"
+
+
+= command() names every field the walk is driving, not just the promoted one
+~ fuzzing inet
+
+pkt = fuzz(IP(src="10.0.0.1", dst="10.0.0.2") / TCP())
+states = pkt.prepare_combinations(2)
+rendered = set()
+sent = set()
+steps = 0
+continue_to_fuzz = True
+while continue_to_fuzz and steps < 400:
+    states, continue_to_fuzz = pkt.forward(states)
+    rendered.add(pkt.command())
+    sent.add(bytes(pkt))
+    steps += 1
+
+# The example distinguishes exactly the cases the wire does. While only the
+# promoted field was reported, the 67 consecutive steps that drove the
+# *other* field of a pair all rendered identically - 16 distinct commands
+# over 800 steps, against hundreds of distinct packets.
+assert len(rendered) == len(sent), (len(rendered), len(sent))
+assert len(rendered) > steps // 2, (len(rendered), steps)
+
+
+= An overloaded field is left to its overload
+~ fuzzing inet
+
+# IP.proto is set by the TCP payload, not by the walk (
+# return_relevant_fields() skips overloaded fields) - naming it in the
+# example would pin whatever default_fields happens to hold.
+
+command = fuzz(IP() / TCP()).command()
+assert "proto=" not in command, command
+assert bytes(eval(command)) == bytes(fuzz(IP() / TCP()))
+
+
++ RandIP renders the address its field carries
+
+= An IP field that is not being fuzzed keeps its own default
+~ fuzzing ospf
+
+from scapy.contrib.ospf import OSPF_Hdr
+
+pkt = fuzz(OSPF_Hdr())
+src = pkt.default_fields['src']
+
+assert isinstance(src, RandIP)
+assert src.state_pos is None
+assert src._fix() == "1.1.1.1", src._fix()
+assert "src='1.1.1.1'" in pkt.command(), pkt.command()
+
+
+= RandIP can still reach the first value of its own list
+~ fuzzing volatile
+
+# The 'state_pos > 0' guard made _COMBINATIONS[0] unreachable, the same
+# way min used to be unreachable for an integer field.
+
+r = RandIP()
+r.default = "1.1.1.1"
+assert r._fix() == "1.1.1.1"
+
+r.state_pos = 0
+assert r._fix() == RandIP._COMBINATIONS[0]
+
+r.state_pos = 1
+assert r._fix() == RandIP._COMBINATIONS[1]
+
+
+= A volatile the caller set themselves still renders as a generator
+~ fuzzing inet
+
+# IP(ttl=RandByte()) is a packet generator: re-evaluating its command() is
+# meant to draw again, so only fuzz()'s own volatiles are resolved.
+
+assert IP(ttl=RandByte()).command() == "IP(ttl=RandByte())"

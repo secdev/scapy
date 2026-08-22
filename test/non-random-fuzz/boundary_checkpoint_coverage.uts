@@ -109,10 +109,14 @@ assert len(set(with_boundaries)) >= len(set(without)), (
     "sampling instead of supplementing it"
 )
 
-# Values only the uniform 512-wide jump stride (round(65535/128)) would
-# produce - none of these are boundary checkpoints
-# (0/1/127/128/255/32767/32768/65534/65535).
-uniform_only_samples = {512, 1024, 1536, 2048, 4096, 8192, 16384}
+# Values only the uniform spread (65535 over 127 intervals, i.e. samples
+# at round(i * 65535 / 127)) would produce - none of these are boundary
+# checkpoints (0/1/127/128/255/32767/32768/65534/65535). These were
+# 512/1024/2048/... while the walk stepped by a rounded stride of
+# round(65535/128) = 512 from min; it now spreads its samples to land on
+# both endpoints instead, so the same intervals fall 4-129 higher (see
+# Packet._advance_state_pos()).
+uniform_only_samples = {516, 1032, 1548, 2064, 4128, 8256, 16513}
 assert uniform_only_samples & set(with_boundaries), (
     "boundary_values=True never reached any plain uniform-jump sample "
     f"({sorted(uniform_only_samples)}) for {FIELD4!r} - it stopped as soon "
@@ -150,29 +154,32 @@ wide = distinct_sample_count(512)
 assert narrow < default_width < wide
 
 
-= Calling prepare_combinations() with no new arguments reproduces the exact prior jump sequence
+= Calling prepare_combinations() with no new arguments samples the full range, endpoints included
 ~ fuzzing pptp
+
+# This used to pin forward()'s original jump math - state_pos += round(
+# (max - min) / 128) starting at min, which emitted min + 1 .. max and so
+# reached neither the field's minimum nor (for a range that doesn't divide
+# evenly) its maximum, and only one parity of a byte-wide range. The walk
+# now emits the cycle's own starting value first and spreads its remaining
+# samples to land exactly on max; the reference below is re-derived for
+# that, still independently of _advance_state_pos()'s implementation.
 
 FIELD3 = "PPTP Start Control Connection Request:maximum_channels"
 
 def isolate_field_state3(states, field_name):
     return [s for s in states if s['fields'][0]['name'] == field_name]
 
-def historic_jump_sequence(min_val, max_val, default_val):
-    # Re-derives forward()'s pre-existing (hardcoded 128) jump math, as a
-    # pinned reference independent of _advance_state_pos()'s implementation.
-    seq = []
-    state_pos = min_val
-    while True:
-        if max_val - min_val > 128:
-            jump = round((max_val - min_val) / 128)
-            state_pos += jump
-        else:
-            state_pos += 1
-        if state_pos > max_val:
-            seq.append(default_val)
-            break
-        seq.append(state_pos)
+def expected_sample_sequence(min_val, max_val, default_val, samples=128):
+    # Re-derives _advance_state_pos()'s sampling as a pinned reference: the
+    # cycle's starting value, then 'samples' points evenly spread over
+    # [min, max] inclusive, then the reset to the field's default.
+    span = max_val - min_val
+    if span > samples > 1:
+        seq = [min_val + round(i * span / (samples - 1)) for i in range(samples)]
+    else:
+        seq = list(range(min_val, max_val + 1))
+    seq.append(default_val)
     return seq
 
 pkt = fuzz(PPTP() / PPTPStartControlConnectionRequest())
@@ -188,33 +195,52 @@ while continue_to_fuzz and iterations < 5000:
     actual.append(field_obj.state_pos)
     iterations += 1
 
-expected = historic_jump_sequence(0, 65535, 65535)
+expected = expected_sample_sequence(0, 65535, 65535)
 assert actual == expected
+
+# The two gaps the re-derivation closes, spelled out: the field's own
+# minimum is now sent, and so is its maximum.
+assert actual[0] == 0, "the field's own minimum is still unreachable"
+assert 65535 in actual, "the field's own maximum is still unreachable"
 
 
 ############
 ############
 + Backward compatibility: default-argument behavior is byte-for-byte unchanged
 
-= prepare_combinations(1) with no new kwargs reproduces the pinned pre-change fingerprint
+= prepare_combinations(1) with no new kwargs reproduces the pinned fingerprint
 ~ fuzzing pptp
 
 # This pins the ACTUAL output of a full prepare_combinations(1) + forward()
 # run to completion (all ~18 relevant fields on PPTP()/
 # PPTPStartControlConnectionRequest(), every field driven to its own
-# 'done'), captured by running this exact script against the pre-change
-# scapy/packet.py (before max_samples_per_field/boundary_values existed).
-# Unlike the pinned-math reference above (which only re-derives the jump
-# formula for a single isolated field), this drives the real multi-field
-# prepare_combinations(1) output end-to-end and hashes every built packet's
-# raw bytes - the strongest available guarantee that a caller who doesn't
-# pass the new arguments gets identical behavior, not just an equivalent
-# re-implementation.
+# 'done'). Unlike the pinned-math reference above (which only re-derives
+# the sampling formula for a single isolated field), this drives the real
+# multi-field prepare_combinations(1) output end-to-end and hashes every
+# built packet's raw bytes - the strongest available guarantee that a
+# caller who doesn't pass the new arguments gets exactly the behavior
+# derived below, not just an equivalent re-implementation.
+#
+# The number has moved twice on purpose since it was first captured
+# (2167/2166 and 25c5b316... from the implementation before
+# max_samples_per_field/boundary_values existed):
+#
+# 1. EnumField.randval() started walking enums instead of integer widths -
+#    all four of this packet's enum fields are ShortEnumFields, swept as
+#    16-bit integers at 127 samples before and sending 128 walked values
+#    now; that took it to 2171/2170 and 431c749d...
+# 2. _advance_state_pos() started emitting each cycle's own starting value
+#    and spreading its samples to land on max - so a plain field sends 128
+#    values against 127 (and a narrow one its whole range, 65 against 64)
+#    where it used to send min + 1 .. max at a rounded stride.
+#
+# Rather than just re-capture the total, it is re-derived from each field's
+# own range below, which is what says the change is only the intended one.
 
 import hashlib
 
 pkt = fuzz(PPTP() / PPTPStartControlConnectionRequest())
-states = pkt.prepare_combinations(1)  # no kwargs at all - must match old behavior exactly
+states = pkt.prepare_combinations(1)  # no kwargs at all
 
 total_iterations = 0
 h = hashlib.sha256()
@@ -226,31 +252,25 @@ while continue_to_fuzz:
 
 total_combinations = sum(s['combinations'] for s in states)
 
-# Captured from the pre-change implementation (git stash of scapy/packet.py
-# back to before this feature, same script, same packet), then re-pinned once
-# EnumField.randval() started walking enums instead of integer widths - which
-# moves this sequence on purpose, so the pin is re-derived below rather than
-# just re-captured.
-#
-# Pre-enum-walk this was 2167/2166 and
-# 25c5b3160395042bd629b5a806e9d71bd4137f39c317fe26464e72e36e2566f2. All four
-# of this packet's enum fields are ShortEnumFields, so each used to be swept
-# as a 16-bit integer at 127 samples and now sends its declared values, the
-# guaranteed edges, and undefined values filling the rest of the 128 budget -
-# 128 cases against 127, which is why the total barely moves. Nothing else in
-# the packet changed, which is what the re-derivation asserts.
-expected_iterations = 2167
-for layer in (pkt, pkt.payload):
-    for name, volatile in layer.default_fields.items():
-        if not isinstance(volatile, RandEnumWalk):
-            continue
-        integer_walk = Field.randval(layer.get_field(name))
-        span = integer_walk.max - integer_walk.min
-        jump = round(span / 128) if span > 128 else 1
-        swept = len(range(integer_walk.min + jump, integer_walk.max + 1, jump))
-        expected_iterations += len(volatile.values) - swept
+# One state per field at complexity 1, so the run's combination count is
+# just the sum of each field's own sample count: an enum walk sends every
+# value on its list, and any other field sends the whole of a range that
+# fits the 128 budget, or 128 points spread across one that doesn't.
+# min/max are read after the walk because initialize_volatile_field() is
+# what resolves them (a RandBin's max comes from its size).
+expected_combinations = 0
+for state in states:
+    (_, volatile) = pkt.locate_field(pkt, state['fields'][0]['name'])
+    if isinstance(volatile, RandEnumWalk):
+        expected_combinations += len(volatile.values)
+    elif volatile.max - volatile.min > 128:
+        expected_combinations += 128
+    else:
+        expected_combinations += volatile.max - volatile.min + 1
 
-assert expected_iterations == 2171, expected_iterations
-assert total_iterations == 2171
-assert total_combinations == 2170
-assert h.hexdigest() == "431c749dbc41dcce6e7202494c96b535c8d7be9a0d6630547152b716596c8dd8"
+assert expected_combinations == 2178, expected_combinations
+assert total_combinations == 2178
+# One forward() call per combination, plus the final one that finds no
+# more work and returns False.
+assert total_iterations == 2179
+assert h.hexdigest() == "1e3a18b78866d2a2d48443daa6813c0f37999353b05bd829ceebf4fd6382e7bc"

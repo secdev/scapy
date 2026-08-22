@@ -1,0 +1,133 @@
+% Regression tests for the sequential (non-random) fuzzing state machine
+% forward() must not rescan the finished prefix of the states list
+
+# forward() opens by looking for the first state whose 'done' is still
+# False, and used to look for it from index 0 on every call:
+#
+#     for (_, state) in enumerate(states):
+#         if not state['done']:
+#             ...advance a field in this state...
+#             break
+#
+# A state only ever goes from not-done to done, so that finished prefix
+# grows monotonically and every call re-walked all of it. The cost is
+# quadratic in the state count and it is paid once per case sent: on a
+# 210-state Ether()/IP()/UDP()/DNS() stack, 200,000 steps examined
+# 13,313,797 state entries to reach 200,000 live ones - 66.6x the
+# necessary work, and that was only 94 states deep.
+#
+# prepare_combinations() now returns a FuzzStates (a list subclass) whose
+# 'first_live' cursor records where the finished prefix ends. forward()
+# starts its scan there and moves it forward as states complete, so the
+# scan is O(1) amortised. Which cases get sent, and in what order, is
+# unchanged - that is what the byte-for-byte test below pins.
+
+############
+############
++ forward() scans from the states list's own cursor
+
+= prepare_combinations() returns a FuzzStates carrying a cursor
+~ fuzzing packet
+
+class ScanPacket(Packet):
+    name = "ScanPacket"
+    fields_desc = [
+        ByteField("one", 0),
+        ByteField("two", 0),
+        ByteField("three", 0),
+    ]
+
+pkt = fuzz(ScanPacket())
+states = pkt.prepare_combinations(1, max_samples_per_field=4)
+
+assert isinstance(states, FuzzStates)
+assert isinstance(states, list)
+assert len(states) == 3
+assert states.first_live == 0
+
+
+= The cursor tracks the first not-done state, so every scan examines one entry
+~ fuzzing packet
+
+def scan_length(states):
+    # Exactly what forward()'s own loop walks on its next call: from the
+    # cursor to the first state that still has work.
+    start = getattr(states, 'first_live', 0)
+    for index in range(start, len(states)):
+        if not states[index]['done']:
+            return index - start + 1
+    return len(states) - start
+
+pkt = fuzz(IP() / UDP())
+states = pkt.prepare_combinations(1, max_samples_per_field=4)
+assert len(states) > 5, len(states)
+
+# The cursor must never point past the first live state, and never move
+# past a state that is not finished.
+def check_cursor(states):
+    first_not_done = next((i for i, s in enumerate(states) if not s['done']), len(states))
+    assert states.first_live <= first_not_done, f"cursor {states.first_live} skipped past live state {first_not_done}"
+    assert all(s['done'] for s in states[:states.first_live]), "cursor moved past a state that is not done"
+
+longest_scan = 0
+continue_to_fuzz = True
+while continue_to_fuzz:
+    longest_scan = max(longest_scan, scan_length(states))
+    states, continue_to_fuzz = pkt.forward(states)
+    check_cursor(states)
+
+assert longest_scan == 1, (
+    f"forward() examined up to {longest_scan} state entries per call - it is "
+    "still rescanning the finished prefix"
+)
+
+
+= The cursor changes nothing about which packets are sent
+~ fuzzing pptp
+
+# The strongest statement available that this is a pure cost fix: the same
+# walk driven through a plain list (no cursor, the original full scan) and
+# through a FuzzStates has to produce the same bytes in the same order.
+
+import hashlib
+
+def walk_hash(as_plain_list):
+    pkt = fuzz(PPTP() / PPTPStartControlConnectionRequest())
+    states = pkt.prepare_combinations(1)
+    if as_plain_list:
+        states = list(states)
+        assert not hasattr(states, 'first_live')
+    h = hashlib.sha256()
+    steps = 0
+    continue_to_fuzz = True
+    while continue_to_fuzz:
+        states, continue_to_fuzz = pkt.forward(states)
+        h.update(bytes(pkt))
+        steps += 1
+    return (steps, h.hexdigest())
+
+assert walk_hash(as_plain_list=True) == walk_hash(as_plain_list=False)
+
+
+= A hand-built plain list of states still drives forward()
+~ fuzzing inet
+
+# Nothing is required to use FuzzStates: a caller that filters the states
+# down to the one field it cares about (which several tests here do) hands
+# forward() a plain list, and that must keep working - it just pays the
+# original full scan.
+
+pkt = fuzz(IP())
+states = pkt.prepare_combinations(1)
+target = [s for s in states if s['fields'][0]['name'] == "IP:ttl"]
+assert len(target) == 1
+assert not hasattr(target, 'first_live')
+
+seen = set()
+continue_to_fuzz = True
+while continue_to_fuzz:
+    target, continue_to_fuzz = pkt.forward(target)
+    (_, field_obj) = pkt.locate_field(pkt, "IP:ttl")
+    seen.add(field_obj.state_pos)
+
+assert len(seen) > 100, len(seen)
