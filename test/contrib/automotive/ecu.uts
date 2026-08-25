@@ -631,6 +631,32 @@ assert response.key_response.service == 110
 assert response.key_response.dataIdentifier == 61786
 assert len(ecu.log["TransferData"]) == 2
 
+= Supported response lookup does not rescan unrelated responses
+
+class EcuLookupPacket(Packet):
+    comparisons = 0
+    fields_desc = [ByteField("kind", 0), ByteField("identifier", 0)]
+    def answers(self, other):
+        return self.kind == 1 and other.kind == 0 and \
+            self.identifier == other.identifier
+    def hashret(self):
+        return bytes([self.identifier])
+    def __eq__(self, other):
+        EcuLookupPacket.comparisons += 1
+        return super(EcuLookupPacket, self).__eq__(other)
+
+
+ecu = Ecu(logging=False, verbose=False)
+for identifier in range(32):
+    ecu.update(EcuLookupPacket(kind=0, identifier=identifier))
+    ecu.update(EcuLookupPacket(kind=1, identifier=identifier))
+
+assert len(ecu.supported_responses) == 32
+EcuLookupPacket.comparisons = 0
+ecu.update(EcuLookupPacket(kind=0, identifier=32))
+ecu.update(EcuLookupPacket(kind=1, identifier=32))
+assert EcuLookupPacket.comparisons <= 1
+
 + EcuSession tests
 
 = Analyze on the fly with EcuSession
