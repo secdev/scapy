@@ -2359,6 +2359,20 @@ file = BytesIO(b'\n\r\r\n\x1c\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff
 l = rdpcap(file)
 assert len(l) == 1 and l[0].comment == b'Helloooo'
 
+= PcapNg repeatable comments do not copy the unread option suffix
+class RejectUnreadSuffixCopies(bytes):
+    def __getitem__(self, key):
+        if isinstance(key, slice) and key.start and key.stop is None:
+            raise AssertionError("copied unread pcapng options")
+        return super(RejectUnreadSuffixCopies, self).__getitem__(key)
+
+reader = object.__new__(RawPcapNgReader)
+reader.endian = "<"
+options = RejectUnreadSuffixCopies(
+    struct.pack("<HHc3x", 1, 1, b"x") * 32 + struct.pack("<HH", 0, 0)
+)
+assert len(reader._read_options(options)[1]) == 32
+
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
 

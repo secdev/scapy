@@ -1776,29 +1776,33 @@ class RawPcapNgReader(RawPcapReader):
     def _read_options(self, options):
         # type: (bytes) -> Dict[int, Union[bytes, List[bytes]]]
         opts = dict()  # type: Dict[int, Union[bytes, List[bytes]]]
-        while len(options) >= 4:
+        offset = 0
+        while len(options) - offset >= 4:
             try:
-                code, length = struct.unpack(self.endian + "HH", options[:4])
+                code, length = struct.unpack_from(
+                    self.endian + "HH", options, offset
+                )
             except struct.error:
                 warning("PcapNg: options header is too small "
-                        "%d !" % len(options))
+                        "%d !" % (len(options) - offset))
                 raise EOFError
-            if code != 0 and 4 + length <= len(options):
+            value_offset = offset + 4
+            if code != 0 and value_offset + length <= len(options):
                 # https://www.ietf.org/archive/id/draft-tuexen-opsawg-pcapng-05.html#name-options-format
                 if code in [1, 2988, 2989, 19372, 19373]:
                     if code not in opts:
                         opts[code] = []
-                    opts[code].append(options[4:4 + length])  # type: ignore
+                    opts[code].append(  # type: ignore
+                        options[value_offset:value_offset + length]
+                    )
                 else:
-                    opts[code] = options[4:4 + length]
+                    opts[code] = options[value_offset:value_offset + length]
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option "
                             "length %d for end-of-option" % length)
                 break
-            if length % 4:
-                length += (4 - (length % 4))
-            options = options[4 + length:]
+            offset = value_offset + length + (-length % 4)
         return opts
 
     def _read_block_idb(self, block, _):
