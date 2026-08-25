@@ -99,6 +99,30 @@ pkt2 = Ether(raw(pkt))
 pkt2.clear_cache()
 assert raw(pkt2) == pkt.original
 
+= LDAP_SearchResponse TCPSession reassembly
+
+from scapy.sessions import StringBuffer, TCPSession
+
+materialized_lengths = []
+
+class _MaterializedStringBuffer(StringBuffer):
+    def __bytes__(self):
+        materialized_lengths.append(len(self))
+        return super(_MaterializedStringBuffer, self).__bytes__()
+
+stream = raw(pkt)
+session = TCPSession(app=True)
+session.data = _MaterializedStringBuffer()
+response = None
+for offset in range(0, len(stream), 64):
+    response = session.process(Raw(stream[offset:offset + 64]), cls=LDAP)
+
+assert response is not None
+assert LDAP_SearchResponseResultDone in response
+assert sum(materialized_lengths) <= len(stream) * 3, (
+    sum(materialized_lengths), len(stream)
+)
+
 + CLDAP tests
 
 = Basic CLDAP dissection & build test
