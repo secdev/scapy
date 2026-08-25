@@ -1042,29 +1042,40 @@ class HPackZString(HPackStringsInterface):
 
     @classmethod
     def huffman_decode(cls, i, ibl):
-        # type: (int, int) -> str
+        # type: (Union[int, bytes], int) -> str
         """ huffman_decode decodes the bitstring provided as parameters.
 
-        :param int i: the bitstring to decode
+        :param int|bytes i: the bitstring to decode
         :param int ibl: the bitlength of i
         :return: str: the string decoded from the bitstring
         :raises: AssertionError, InvalidEncodingException
         """
-        assert i >= 0
+        assert isinstance(i, bytes) or i >= 0
         assert ibl >= 0
+
+        if isinstance(i, int):
+            byte_len = (ibl + 7) // 8
+            i &= (1 << ibl) - 1
+            encoded = i.to_bytes(byte_len, byteorder='big')
+            bit_pos = 7 - (byte_len * 8 - ibl)
+        else:
+            assert ibl <= len(i) * 8
+            encoded = i
+            bit_pos = 7
 
         if isinstance(cls.static_huffman_tree, type(None)):
             cls.huffman_compute_decode_tree()
         assert not isinstance(cls.static_huffman_tree, type(None))
 
         s = []
-        j = 0
+        byte_pos = 0
+        bits_left = ibl
         interrupted = False
         cur = cls.static_huffman_tree
         cur_sym = 0
         cur_sym_bl = 0
-        while j < ibl:
-            b = (i >> (ibl - j - 1)) & 1
+        while bits_left:
+            b = (encoded[byte_pos] >> bit_pos) & 1
             cur_sym = (cur_sym << 1) + b
             cur_sym_bl += 1
             elmt = cur[b]
@@ -1088,7 +1099,11 @@ class HPackZString(HPackStringsInterface):
                 raise InvalidEncodingException(
                     'Should never happen, so incidentally it will'
                 )
-            j += 1
+            bit_pos -= 1
+            if bit_pos < 0:
+                byte_pos += 1
+                bit_pos = 7
+            bits_left -= 1
 
         if interrupted:
             # Interrupted values true if the bitstring ends in the middle of a
@@ -1106,6 +1121,19 @@ class HPackZString(HPackStringsInterface):
                 )
         s = b''.join(s)
         return s.decode()
+
+    @classmethod
+    def from_encoded(cls, encoded):
+        # type: (bytes) -> HPackZString
+        """Create an HPackZString from Huffman-coded wire bytes.
+
+        :param bytes encoded: complete Huffman-coded string with padding
+        :return: decoded compressed-string representation
+        """
+        value = cls.__new__(cls)
+        value._s = cls.huffman_decode(encoded, len(encoded) * 8)
+        value._encoded = encoded
+        return value
 
     @classmethod
     def huffman_conv2bytes(cls, bit_str, bit_len):
@@ -1233,8 +1261,7 @@ class HPackStrLenField(fields.Field):
         :raises: InvalidEncodingException
         """
         if t:
-            i, ibl = HPackZString.huffman_conv2bitstring(s)
-            return HPackZString(HPackZString.huffman_decode(i, ibl))
+            return HPackZString.from_encoded(s)
         return HPackLiteralString(s)
 
     def getfield(self, pkt, s):
