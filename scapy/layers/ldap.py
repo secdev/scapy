@@ -1108,7 +1108,7 @@ class LDAP(ASN1_Packet):
                     return pkt
             else:
                 if length:
-                    metadata["tcp_reassemble_min_len"] = len(data) - len(x) + length
+                    metadata["tcp_min_len"] = len(data) - len(x) + length
                 return None
         return None
 
