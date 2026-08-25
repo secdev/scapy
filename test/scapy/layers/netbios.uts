@@ -123,6 +123,13 @@ z = raw(TCP()/NBTSession())
 assert z == b'\x00\x8b\x00\x8b\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00\x00\x00\x00\x00'
 assert NBTSession in TCP(z)
 
+= TCPSession strips padding from each coalesced NetBIOS keepalive
+message = bytes(NBTSession(TYPE=0x85, LENGTH=0))
+frame = Ether()/IP()/TCP(sport=35000, dport=445, seq=1, flags="PA")/Raw(message * 4)
+packet = TCPSession().process(Ether(bytes(frame)))
+assert packet.layers().count(NBTSession) == 4
+assert Padding not in packet
+
 = OSS-Fuzz Findings
 
 # Note: the packet is corrupted

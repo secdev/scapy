@@ -382,7 +382,7 @@ class TCPSession(IPSession):
                     tcp_session
                 )
                 if sub_packet:
-                    packet /= sub_packet
+                    packet.add_payload(sub_packet)
                     padding = self._strip_padding(sub_packet)
                 else:
                     break
