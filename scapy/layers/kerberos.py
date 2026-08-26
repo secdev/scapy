@@ -374,10 +374,22 @@ _KRB_S_TYPES = {
 }
 
 
+class _KRBInt32Field(ASN1F_enum_INTEGER):
+    def m2i(self, pkt, s):
+        s = self._apply_tagging_dec(s, pkt, _fname=self.name)
+        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+        if codec.check_type_get_len(s)[0] > 5:
+            raise BER_Decoding_Error(
+                "Kerberos integer is wider than 32 bits", remaining=s
+            )
+        dec = codec.safedec if self.flexible_tag else codec.dec
+        return dec(s, context=self.context, **self._codec_kwargs(pkt))
+
+
 class EncryptedData(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_enum_INTEGER("etype", 0x17, _KRB_E_TYPES, explicit_tag=0xA0),
+        _KRBInt32Field("etype", 0x17, _KRB_E_TYPES, explicit_tag=0xA0),
         ASN1F_optional(UInt32("kvno", None, explicit_tag=0xA1)),
         ASN1F_STRING("cipher", "", explicit_tag=0xA2),
     )
