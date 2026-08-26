@@ -2726,22 +2726,30 @@ class NIReplyDataField(StrField):
         elif qtype == 3:  # IPv6 addresses with TTLs
             # XXX TODO : get the real length
             res = []
-            while len(s) >= 20:  # 4 + 16
-                ttl = struct.unpack("!I", s[:4])[0]
-                ip = inet_ntop(socket.AF_INET6, s[4:20])
+            if len(s) < 40:
+                if len(s) < 20:
+                    return s, (3, res)
+                ttl, addr = struct.unpack("!I16s", s[:20])
+                return s[20:], (3, [(ttl, inet_ntop(socket.AF_INET6, addr))])
+            end = len(s) - len(s) % 20
+            for ttl, addr in struct.iter_unpack("!I16s", memoryview(s)[:end]):
+                ip = inet_ntop(socket.AF_INET6, addr)
                 res.append((ttl, ip))
-                s = s[20:]
-            return s, (3, res)
+            return s[end:], (3, res)
 
         elif qtype == 4:  # IPv4 addresses with TTLs
             # XXX TODO : get the real length
             res = []
-            while len(s) >= 8:  # 4 + 4
-                ttl = struct.unpack("!I", s[:4])[0]
-                ip = inet_ntop(socket.AF_INET, s[4:8])
+            if len(s) < 16:
+                if len(s) < 8:
+                    return s, (4, res)
+                ttl, addr = struct.unpack("!I4s", s[:8])
+                return s[8:], (4, [(ttl, inet_ntop(socket.AF_INET, addr))])
+            end = len(s) - len(s) % 8
+            for ttl, addr in struct.iter_unpack("!I4s", memoryview(s)[:end]):
+                ip = inet_ntop(socket.AF_INET, addr)
                 res.append((ttl, ip))
-                s = s[8:]
-            return s, (4, res)
+            return s[end:], (4, res)
         else:
             # XXX TODO : implement me and deal with real length
             return b"", (0, s)

@@ -1814,6 +1814,28 @@ s = raw(IPv6()/ICMPv6NIReplyIPv4(data=[(2807, "192.168.0.1")]))
 p = IPv6(s)
 ICMPv6NIReplyIPv4 in p and p.data == [(2807, "192.168.0.1")]
 
+= ICMPv6NIReply address lists do not copy the unparsed suffix
+class SliceBoundedBytes(bytes):
+    max_width = 0
+    def __getitem__(self, item):
+        value = super().__getitem__(item)
+        if isinstance(item, slice):
+            SliceBoundedBytes.max_width = max(SliceBoundedBytes.max_width, len(value))
+            value = SliceBoundedBytes(value)
+        return value
+
+inputs = (
+    (ICMPv6NIReplyIPv4(), bytes.fromhex("00000000c0000201") * 4),
+    (ICMPv6NIReplyIPv6(), bytes.fromhex("0000000020010db8000000000000000000000001") * 4),
+)
+for packet, data in inputs:
+    field = packet.get_field("data")
+    remaining, values = field.getfield(packet, SliceBoundedBytes(data))
+    assert remaining == b""
+    assert len(values[1]) == 4
+
+assert SliceBoundedBytes.max_width <= 16
+
 
 ############
 ############
