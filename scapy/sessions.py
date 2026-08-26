@@ -277,11 +277,14 @@ class TCPSession(IPSession):
             else:
                 return None
             if self.data.full():
-                packet = tcp_reassemble(
-                    bytes(self.data),
-                    self.metadata,
-                    self.session,
-                )
+                min_len = self.metadata.get("tcp_min_len")
+                if min_len is None or len(self.data) >= min_len:
+                    self.metadata.pop("tcp_min_len", None)
+                    packet = tcp_reassemble(
+                        bytes(self.data),
+                        self.metadata,
+                        self.session,
+                    )
             if packet:
                 padding = self._strip_padding(packet)
                 if padding:
@@ -354,14 +357,17 @@ class TCPSession(IPSession):
         # XXX TODO: check that no empty space is missing in the buffer.
         # XXX Currently, if a TCP fragment was missing, we won't notice it.
         if data.full():
-            # Reassemble using all previous packets
-            metadata["original"] = pkt
-            metadata["ident"] = ident
-            packet = tcp_reassemble(
-                bytes(data),
-                metadata,
-                tcp_session
-            )
+            min_len = metadata.get("tcp_min_len")
+            if min_len is None or len(data) >= min_len:
+                # Reassemble using all previous packets
+                metadata["original"] = pkt
+                metadata["ident"] = ident
+                metadata.pop("tcp_min_len", None)
+                packet = tcp_reassemble(
+                    bytes(data),
+                    metadata,
+                    tcp_session
+                )
         # Stack the result on top of the previous frames
         if packet:
             if "seq" in metadata:

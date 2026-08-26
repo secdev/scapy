@@ -1083,7 +1083,7 @@ class LDAP(ASN1_Packet):
         return cls
 
     @classmethod
-    def tcp_reassemble(cls, data, *args, **kwargs):
+    def tcp_reassemble(cls, data, metadata, *args, **kwargs):
         if len(data) < 4:
             return None
         # For LDAP, we would prefer to have the entire LDAP response
@@ -1107,6 +1107,8 @@ class LDAP(ASN1_Packet):
                         return None
                     return pkt
             else:
+                if length:
+                    metadata["tcp_min_len"] = len(data) - len(x) + length
                 return None
         return None
 
