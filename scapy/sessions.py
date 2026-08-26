@@ -12,6 +12,7 @@ import struct
 
 from scapy.config import conf
 from scapy.data import MTU
+from scapy.error import log_runtime
 from scapy.packet import Packet
 from scapy.pton_ntop import inet_pton
 
@@ -94,14 +95,18 @@ class StringBuffer(object):
 
     If a TCP fragment is missed, this class will fill the missing space with
     zeros.
+
+    :param max_gap: the largest missing range that will be zero-filled, in bytes.
+        A sequence number far from the data already buffered would otherwise
+        allocate the whole distance. Defaults to MTU.
     """
 
-    def __init__(self):
-        # type: () -> None
+    def __init__(self, max_gap: int = MTU) -> None:
         self.content = bytearray(b"")
         self.content_len = 0
         self.noff = 0  # negative offset
         self.incomplete = []  # type: List[Tuple[int, int]]
+        self.max_gap = max_gap
 
     def append(self, data: bytes, seq: Optional[int] = None) -> None:
         if not data:
@@ -113,7 +118,10 @@ class StringBuffer(object):
         if seq < 0:
             # Data is located before the start of the current buffer
             # (e.g. the first fragment was missing)
-            if -seq > MTU:
+            if -seq > self.max_gap:
+                log_runtime.warning(
+                    "Dropped data further than allowed per 'max_gap'."
+                )
                 return
             self.content = bytearray(b"\x00" * (-seq)) + self.content
             self.content_len += (-seq)
@@ -121,7 +129,10 @@ class StringBuffer(object):
             seq = 0
         if seq + data_len > self.content_len:
             # Data is located after the end of the current buffer
-            if seq - self.content_len > MTU:
+            if seq - self.content_len > self.max_gap:
+                log_runtime.warning(
+                    "Dropped data further than allowed per 'max_gap'."
+                )
                 return
             self.content += b"\x00" * (seq - self.content_len + data_len)
             # As data was missing, mark it.
