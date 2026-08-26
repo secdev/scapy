@@ -1169,3 +1169,24 @@ assert p[HCI_Mon_Index_Info].manufacturer == 0x131
 p = HCI_Mon_Pcap_Hdr(hex_bytes("ffff000c426c7565746f6f74682073756273797374656d2076657273696f6e20322e323200"))
 assert HCI_Mon_System_Note in p
 assert p[HCI_Mon_System_Note].note == b'Bluetooth subsystem version 2.22'
+
+= HCI_Cmd_LE_Set_Extended_Advertise_Enable - multiple advertising sets
+
+p = HCI_Cmd_LE_Set_Extended_Advertise_Enable(hex_bytes("01020164000502c8000a"))
+assert p.num_sets == 2
+assert len(p.sets) == 2
+assert p.sets[0].handle == 1
+assert p.sets[0].duration == 100
+assert p.sets[0].max_events == 5
+assert p.sets[1].handle == 2
+assert p.sets[1].duration == 200
+assert p.sets[1].max_events == 10
+assert raw(p) == hex_bytes("01020164000502c8000a")
+
+= HCI_Cmd_LE_Set_Extended_Advertise_Enable - single advertising set
+
+p = HCI_Cmd_LE_Set_Extended_Advertise_Enable(hex_bytes("010101640005"))
+assert p.num_sets == 1
+assert len(p.sets) == 1
+assert p.sets[0].handle == 1
+assert raw(p) == hex_bytes("010101640005")

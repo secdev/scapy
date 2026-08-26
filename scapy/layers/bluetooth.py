@@ -2272,6 +2272,9 @@ class Extended_Advertise_Set(Packet):
                    LEShortField('duration', 0),
                    ByteField('max_events', 0)]
 
+    def extract_padding(self, s):
+        return b'', s
+
 
 class HCI_Cmd_LE_Set_Extended_Advertise_Enable(Packet):
     name = 'HCI_LE_Set_Extended_Advertising_Enable'
