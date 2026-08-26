@@ -42,6 +42,33 @@ assert(HTTPRequest in p)
 assert(XMLRPC in p)
 assert(XMLRPCCall in p)
 
+= Field validation does not copy unconsumed suffixes
+import scapy.contrib.tcpros as tcpros_module
+from scapy.contrib.tcpros import TCPROS, TCPROSBody, TCPROSHeader
+
+class BoundedSliceBytes(bytes):
+    max_width = 0
+    def __getitem__(self, item):
+        value = super().__getitem__(item)
+        if isinstance(item, slice):
+            BoundedSliceBytes.max_width = max(BoundedSliceBytes.max_width, len(value))
+            value = BoundedSliceBytes(value)
+        return value
+
+fields = (b"\x04\x00\x00\x00aa=b") * 8
+message = BoundedSliceBytes(len(fields).to_bytes(4, "little") + fields)
+assert TCPROS().guess_payload_class(message) is TCPROSBody
+
+original_raw = tcpros_module.raw
+tcpros_module.raw = lambda value: value
+try:
+    assert TCPROSHeader().pre_dissect(message) is message
+    assert TCPROSBody().pre_dissect(message) is message
+finally:
+    tcpros_module.raw = original_raw
+
+assert BoundedSliceBytes.max_width <= 4
+
 = Test HTTPRequest within TCPROS
 assert(p[HTTPRequest].Content_Length ==  b'227')
 assert(p[HTTPRequest].Content_Type ==  b'text/xml')

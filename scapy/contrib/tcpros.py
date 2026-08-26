@@ -25,6 +25,25 @@ from scapy.packet import Packet, Raw, PacketListField
 from scapy.config import conf
 
 
+def _tcpros_field_count(payload, exact):
+    if len(payload) < 4:
+        return None
+    end = struct.unpack_from("<I", payload)[0] + 4
+    if end > len(payload) or exact and end != len(payload):
+        return None
+    count = 0
+    offset = 4
+    while offset < end:
+        if offset + 4 > end:
+            return None
+        field_length = struct.unpack_from("<I", payload, offset)[0]
+        offset += 4 + field_length
+        if offset > end:
+            return None
+        count += 1
+    return count
+
+
 class TCPROS(Packet):
     """
     TCPROS is a transport layer for ROS Messages and Services. It uses standard
@@ -76,36 +95,18 @@ class TCPROS(Packet):
         #   4-byte length + [4-byte field length + field=value ]*
         total_length = len(payload)
         total_length_payload = struct.unpack("<I", payload[:4])[0]
-        remain = payload[4:]
-        remain_len = len(remain)
         # flag of the encoding format
-        flag_encoding_format = (total_length > total_length_payload) and (
-            total_length_payload == remain_len
-        )
+        field_count = _tcpros_field_count(payload, exact=True)
+        flag_encoding_format = field_count is not None
 
         if conf.debug_dissector:
             print(payload)
             print(string_payload)
             print("total_length: " + str(total_length))
             print("total_length_payload: " + str(total_length_payload))
-            print("remain: " + str(remain))
             print(flag_encoding_format)
 
-        flag_encoding_format_subfields = False
-        if flag_encoding_format:
-            # flag indicating that sub-fields meet
-            # TCPROS encoding format:
-            #  [4-byte field length + field=value ]*
-            flag_encoding_format_subfields = True
-            while remain:
-                field_len_bytes = struct.unpack("<I", remain[:4])[0]
-                current = remain[4:4 + field_len_bytes]
-                remain = remain[4 + field_len_bytes:]
-
-                if int(field_len_bytes) != len(current):
-                    # print("BREAKING - int(field_len_bytes) != len(current)")
-                    flag_encoding_format_subfields = False
-                    break
+        flag_encoding_format_subfields = field_count is not None
 
         if (
             "callerid" in string_payload and
@@ -208,21 +209,12 @@ class TCPROSHeader(Packet):
         # To retrieve nfields, we need to go through the
         # whole header and dynamically count on the fields:
         self.nfields = 0
-        total_header_length = struct.unpack("<I", raw(s)[:4])[0]
+        field_count = _tcpros_field_count(raw(s), exact=False)
         if conf.debug_dissector:
             total_length = len(s)
             print("total_length: " + str(total_length))
-            print("total_header_length: " + str(total_header_length))
-        remain = raw(s)[4:total_header_length]
-        while remain:
-            field_len_bytes = struct.unpack("<I", remain[:4])[0]
-            remain = remain[4 + field_len_bytes:]
-            if conf.debug_dissector:
-                print("field_len_bytes: " + str(field_len_bytes))
-                current = remain[:4 + field_len_bytes]
-                print("current: " + str(current))
-                print("remain: " + str(remain))
-            self.nfields += 1
+            print("nfields: " + str(field_count))
+        self.nfields = field_count or 0
         return s
 
     def do_dissect_payload(self, s):
@@ -282,21 +274,12 @@ class TCPROSBody(Packet):
         # To retrieve nfields_body, we need to go through the
         # whole header and dynamically count on the fields:
         self.nfields_body = 0
-        total_header_length = struct.unpack("<I", raw(s)[:4])[0]
-        remain = raw(s)[4:total_header_length]
+        field_count = _tcpros_field_count(raw(s), exact=False)
         if conf.debug_dissector:
             total_length = len(s)
             print("total_length: " + str(total_length))
-            print("total_header_length: " + str(total_header_length))
-        while remain:
-            field_len_bytes = struct.unpack("<I", remain[:4])[0]
-            remain = remain[4 + field_len_bytes:]
-            if conf.debug_dissector:
-                print("field_len_bytes: " + str(field_len_bytes))
-                current = remain[:4 + field_len_bytes]
-                print("current: " + str(current))
-                print("remain: " + str(remain))
-            self.nfields_body += 1
+            print("nfields: " + str(field_count))
+        self.nfields_body = field_count or 0
         return s
 
     def do_dissect_payload(self, s):
