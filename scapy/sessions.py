@@ -11,6 +11,7 @@ import socket
 import struct
 
 from scapy.config import conf
+from scapy.data import MTU
 from scapy.packet import Packet
 from scapy.pton_ntop import inet_pton
 
@@ -112,12 +113,16 @@ class StringBuffer(object):
         if seq < 0:
             # Data is located before the start of the current buffer
             # (e.g. the first fragment was missing)
+            if -seq > MTU:
+                return
             self.content = bytearray(b"\x00" * (-seq)) + self.content
             self.content_len += (-seq)
             self.noff += seq
             seq = 0
         if seq + data_len > self.content_len:
             # Data is located after the end of the current buffer
+            if seq - self.content_len > MTU:
+                return
             self.content += b"\x00" * (seq - self.content_len + data_len)
             # As data was missing, mark it.
             # self.incomplete.append((self.content_len, seq))
