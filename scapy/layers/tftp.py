@@ -227,10 +227,18 @@ class TFTP_read(Automaton):
             recvd = pkt[conf.raw_layer].load
         else:
             recvd = b""
-        self.res += recvd
+        if not self.res:
+            self.res = recvd
+        elif isinstance(self.res, bytes):
+            self.res = bytearray(self.res)
+            self.res.extend(recvd)
+        else:
+            self.res.extend(recvd)
         self.awaiting += 1
         if len(recvd) == self.blocksize:
             raise self.WAITING()
+        if isinstance(self.res, bytearray):
+            self.res = bytes(self.res)
         raise self.END()
 
     # ERROR
