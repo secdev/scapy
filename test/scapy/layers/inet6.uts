@@ -1886,6 +1886,13 @@ len(l) == 33 and len(raw(l[-1])) == 644
 ############
 + Test defragment6 function
 
+= defragment6 - reorder captured fragments
+frags = [
+    IPv6()/IPv6ExtHdrFragment(id=1, offset=1)/Raw(b"B" * 8),
+    IPv6()/IPv6ExtHdrFragment(id=1, offset=0, m=1)/Raw(b"A" * 8),
+]
+assert defragment6(frags)[Raw].load == b"A" * 8 + b"B" * 8
+
 = defragment6 - test against a long TCP packet fragmented with a 1280 MTU
 l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*40000), 1280) 
 raw(defragment6(l)) == (b'`\x00\x00\x00\x9cT\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xe92\x00\x00' + b'A'*40000)
