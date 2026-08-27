@@ -408,6 +408,31 @@ with run_httpserver(mech=HTTP_AUTH_MECHS.NONE):
 
 assert html == "<!doctype html><html><body><h1>OK</h1></body></html>"
 
+= HTTP - HTTP_Server authenticates every Basic request on a reused connection
+~ http-client
+
+import base64
+import http.client
+
+headers = {
+    "Authorization": "Basic " + base64.b64encode(b"user:password").decode(),
+}
+
+with run_httpserver(mech=HTTP_AUTH_MECHS.BASIC, BASIC_IDENTITIES={"user": "password"}):
+    client = http.client.HTTPConnection("127.0.0.1", 8080, timeout=2)
+    try:
+        client.request("GET", "/", headers=headers)
+        first_response = client.getresponse()
+        first_status = first_response.status
+        first_response.read()
+        client.request("GET", "/")
+        second_status = client.getresponse().status
+    finally:
+        client.close()
+
+assert first_status == 200
+assert second_status == 401
+
 + Test HTTPS client/server
 
 = HTTPS - HTTPS_client asks HTTPS_server with NTLMSSP and CBT
