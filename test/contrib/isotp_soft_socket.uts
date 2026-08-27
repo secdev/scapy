@@ -2878,6 +2878,14 @@ with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123) as s:
     s.impl._rx_timer_handler()
     assert s.impl.rx_state == 2 # Still waiting due to extension
 
+= Premature short consecutive frame keeps the receive timeout
+with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123, listen_only=True) as s:
+    s.impl._recv_ff(dhex("10 20 41 41 41 41 41 41"), 1.23)
+    timeout = s.impl.rx_timeout_handle
+    s.impl._recv_cf(dhex("21 42"))
+    assert s.impl.rx_state == 3
+    assert s.impl.rx_timeout_handle is timeout
+
 = _tx_timer_handler edge cases
 with ISOTPSoftSocket(TestSocket(CAN), tx_id=0x123) as s:
     s.impl.tx_state = 1 # ISOTP_SENDING

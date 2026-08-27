@@ -1029,10 +1029,6 @@ class ISOTPSocketImplementation:
         if self.rx_state != ISOTP_WAIT_DATA:
             return
 
-        if self.rx_timeout_handle is not None:
-            self.rx_timeout_handle.cancel()
-            self.rx_timeout_handle = None
-
         # CFs are never longer than the FF
         if len(data) > self.rx_ll_dl:
             return
@@ -1044,6 +1040,10 @@ class ISOTPSocketImplementation:
                 if conf.verb > 2:
                     log_isotp.warning("Received a CF with insufficient length")
                 return
+
+        if self.rx_timeout_handle is not None:
+            self.rx_timeout_handle.cancel()
+            self.rx_timeout_handle = None
 
         if data[0] & 0x0f != self.rx_sn:
             # Wrong sequence number
