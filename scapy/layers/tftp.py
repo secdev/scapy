@@ -179,7 +179,7 @@ class TFTP_read(Automaton):
         self.my_tid = self.sport or RandShort()._fix()
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
         self.server_tid = None
-        self.res = b""
+        self.res = bytearray()
 
         self.l3 = IP(dst=self.server) / UDP(sport=self.my_tid, dport=self.port) / TFTP()  # noqa: E501
         self.last_packet = self.l3 / TFTP_RRQ(filename=self.filename, mode="octet")  # noqa: E501
@@ -227,18 +227,10 @@ class TFTP_read(Automaton):
             recvd = pkt[conf.raw_layer].load
         else:
             recvd = b""
-        if not self.res:
-            self.res = recvd
-        elif isinstance(self.res, bytes):
-            self.res = bytearray(self.res)
-            self.res.extend(recvd)
-        else:
-            self.res.extend(recvd)
+        self.res += recvd
         self.awaiting += 1
         if len(recvd) == self.blocksize:
             raise self.WAITING()
-        if isinstance(self.res, bytearray):
-            self.res = bytes(self.res)
         raise self.END()
 
     # ERROR
@@ -251,7 +243,7 @@ class TFTP_read(Automaton):
     @ATMT.state(final=1)
     def END(self):
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
-        return self.res
+        return bytes(self.res)
 
 
 class TFTP_write(Automaton):

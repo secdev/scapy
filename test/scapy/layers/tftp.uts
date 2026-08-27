@@ -76,7 +76,7 @@ from scapy.layers.tftp import TFTP_read
 from scapy.packet import Raw
 
 client = object.__new__(TFTP_read)
-client.res = b""
+client.res = bytearray()
 client.awaiting = 1
 client.blocksize = 512
 
