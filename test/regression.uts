@@ -3853,6 +3853,21 @@ assert Net("1.2.3.0/24") == Net("1.2.3.0", "1.2.3.255")
 
 assert hash(Net("1.2.3.0/24")) == hash(Net("1.2.3.0", "1.2.3.255"))
 
+= Net with a scope identifier
+
+iface = conf.iface.network_name
+
+# The scope may be passed inline or as an argument, and both must be stored.
+# Do not compare Net objects here: Net.__eq__ ignores .scope.
+assert Net("224.0.0.1%%%s" % iface).scope == iface
+assert Net("224.0.0.1", scope=iface).scope == iface
+assert Net("224.0.0.1/24", scope=iface).scope == iface
+assert Net("224.0.0.1", "224.0.0.9", scope=iface).scope == iface
+assert Net("224.0.0.1").scope is None
+
+# The scope is carried over to every address the Net generates.
+assert list(Net("224.0.0.0/31", scope=iface))[1].scope == iface
+
 = Net using name
 ~ netaccess
 
