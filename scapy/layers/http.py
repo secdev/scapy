@@ -1292,6 +1292,8 @@ class HTTP_Server(Automaton):
 
     @ATMT.receive_condition(SERVE)
     def new_request(self, pkt):
+        if self.basic:
+            raise self.AUTH(pkt)
         raise self.SERVE(pkt)
 
     # DEV: overwrite this function
