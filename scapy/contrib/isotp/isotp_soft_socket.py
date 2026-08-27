@@ -559,7 +559,7 @@ class ISOTPSocketImplementation:
 
         self.rx_queue = ObjectPipe[Tuple[bytes, Union[float, EDecimal]]]()
         self.rx_len = -1
-        self.rx_buf = None  # type: Optional[bytes]
+        self.rx_buf = None  # type: Optional[bytearray]
         self.rx_sn = 0
         self.rx_bs = 0
         self.rx_idx = 0
@@ -1001,7 +1001,7 @@ class ISOTPSocketImplementation:
         # copy the first received data bytes
         data_bytes = data[ff_pci_sz:]
         self.rx_idx = len(data_bytes)
-        self.rx_buf = data_bytes
+        self.rx_buf = bytearray(data_bytes)
         self.rx_ts = ts
 
         # initial setup for this pdu reception
@@ -1060,14 +1060,13 @@ class ISOTPSocketImplementation:
             return
 
         self.rx_sn = (self.rx_sn + 1) % 16
-        self.rx_buf += data[1:]
+        self.rx_buf.extend(data[1:])
         self.rx_idx = len(self.rx_buf)
 
         if self.rx_idx >= self.rx_len:
             # we are done
-            self.rx_buf = self.rx_buf[0:self.rx_len]
             self.rx_state = ISOTP_IDLE
-            self.rx_queue.send((self.rx_buf, self.rx_ts))
+            self.rx_queue.send((bytes(self.rx_buf[0:self.rx_len]), self.rx_ts))
             self.rx_buf = None
             return
 
