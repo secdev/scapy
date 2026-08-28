@@ -244,7 +244,7 @@ class SPNEGO_negTokenResp(ASN1_Packet):
         ),
         # [MS-SPNG] Late Fallback Mechanism
         ASN1F_optional(
-            ASN1F_PACKET("mechTypes", None, SPNEGO_MechTypes, explicit_tag=0xA4)
+            ASN1F_SEQUENCE_OF("mechTypes", None, SPNEGO_MechType, explicit_tag=0xA4)
         ),
     )
 
@@ -1141,7 +1141,7 @@ class SPNEGOSSP(SSP):
 
                 # [MS-SPNG] Late Fallback Mechanism
                 if input_token.mechTypes is not None:
-                    Context.server_mechtypes = input_token.mechTypes.mechTypes
+                    Context.server_mechtypes = input_token.mechTypes
                     Context.all_mechtypes.append(self._LATE_FALLBACK_ACCEPTOR)
                     Context.all_mechtypes += Context.server_mechtypes
                     Context.all_mechtypes += [input_token.supportedMech]
@@ -1397,9 +1397,7 @@ class SPNEGOSSP(SSP):
 
             if Context.late_fallback_negotiated:
                 # [MS-SPNG] Late Fallback Mechanism
-                spnego_tok.token.mechTypes = SPNEGO_MechTypes(
-                    mechTypes=Context.server_mechtypes
-                )
+                spnego_tok.token.mechTypes = Context.server_mechtypes
                 Context.all_mechtypes.append(self._LATE_FALLBACK_ACCEPTOR)
                 Context.all_mechtypes += Context.server_mechtypes
                 Context.all_mechtypes += [Context.ssp_mechtype]
@@ -1471,7 +1469,7 @@ class SPNEGOSSP(SSP):
 
                 # [MS-SPNG] Late Fallback Mechanism
                 if input_token.mechTypes is not None:
-                    Context.server_mechtypes = input_token.mechTypes.mechTypes
+                    Context.server_mechtypes = input_token.mechTypes
                     Context.all_mechtypes.append(self._LATE_FALLBACK_ACCEPTOR)
                     Context.all_mechtypes += Context.server_mechtypes
                     Context.all_mechtypes += [input_token.supportedMech]
