@@ -176,7 +176,7 @@ assert status == GSS_S_CONTINUE_NEEDED, status
 assert tok.token.mechListMIC is None
 assert tok.token.negState == 1
 assert tok.token.supportedMech.oid.val == '1.3.6.1.4.1.311.2.2.10'
-assert [x.oid.val for x in tok.token.mechTypes.mechTypes] == [
+assert [x.oid.val for x in tok.token.mechTypes] == [
     '1.3.6.1.4.1.311.2.2.10',
     '1.2.840.48018.1.2.2',
     '1.2.840.113554.1.2.2',
