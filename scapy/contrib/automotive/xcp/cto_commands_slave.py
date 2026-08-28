@@ -5,8 +5,6 @@
 
 # scapy.contrib.status = skip
 
-import struct
-
 from scapy.config import conf
 from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.xcp.utils import get_max_cto, get_ag, \
