@@ -85,7 +85,7 @@ class ConnectPositiveResponse(Packet):
             conf.contribs["XCP"][
                 "Address_Granularity_Byte"] = self.get_address_granularity()
 
-        if conf.contribs["XCP"]["allow_cto_and_dto_change"] and self.max_cto != 0:
+        if conf.contribs["XCP"]["allow_cto_and_dto_change"]:
             conf.contribs["XCP"]["MAX_CTO"] = self.max_cto
             conf.contribs["XCP"]["MAX_DTO"] = self.max_dto or self.max_dto_le
 
