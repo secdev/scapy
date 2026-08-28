@@ -49,6 +49,10 @@ If you use AI tools to help find or draft a bug report (or a PR), please mention
 
 Purely AI-generated or overly verbose reports are not supported and might be closed. A quick human check keeps triage efficient for everyone.
 
+For a report, verify the bug against the current development code. For a PR, follow [Coding style & conventions](#coding-style--conventions) and [Tests](#tests): add tests (or explain why they aren't relevant), and check that every commit has the required `AI-Assisted` tag. To run the optional flake8 check with the same Python version as CI, install tox for Python 3.12 and use `python3.12 -m tox -e flake8`; `tox.ini` does not select that interpreter for this environment.
+
+If you're configuring an agent for Scapy, see [AGENTS.md](AGENTS.md).
+
 ### Enhancements / feature requests
 
 If you want a feature in Scapy, but cannot implement it yourself or
