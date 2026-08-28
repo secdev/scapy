@@ -5,6 +5,8 @@
 
 # scapy.contrib.status = skip
 
+import struct
+
 from scapy.config import conf
 from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.xcp.utils import get_max_cto, get_ag, \
@@ -85,7 +87,7 @@ class ConnectPositiveResponse(Packet):
             conf.contribs["XCP"][
                 "Address_Granularity_Byte"] = self.get_address_granularity()
 
-        if conf.contribs["XCP"]["allow_cto_and_dto_change"]:
+        if conf.contribs["XCP"]["allow_cto_and_dto_change"] and self.max_cto != 0:
             conf.contribs["XCP"]["MAX_CTO"] = self.max_cto
             conf.contribs["XCP"]["MAX_DTO"] = self.max_dto or self.max_dto_le
 
