@@ -6,6 +6,18 @@
 
 # scapy.contrib.description = Universal calibration and measurement protocol (XCP) # noqa: E501
 # scapy.contrib.status = loads
+
+"""
+Universal calibration and measurement protocol (XCP)
+
+When using this module, one must at least define the following values:
+
+    >>> # These are example values, please change them to your setup.
+    >>> conf.contribs["XCP"]["MAX_CTO"] = 255
+    >>> conf.contribs["XCP"]["MAX_DTO"] = 65535
+    >>> conf.contribs["XCP"]["Address_Granularity_Byte"] = 4
+"""
+
 import struct
 
 from scapy.config import conf

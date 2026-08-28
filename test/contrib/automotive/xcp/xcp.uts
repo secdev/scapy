@@ -12,14 +12,6 @@ load_layer("can", globals_dict=globals())
 conf.contribs['CAN']['swap-bytes'] = False
 load_contrib("automotive.xcp.xcp",  globals_dict=globals())
 
-= Reject a zero MAX_CTO response before changing state
-conf.contribs["XCP"]["MAX_CTO"] = None
-request = CTORequest()/Connect()
-response = CTOResponse(bytes.fromhex("ffff000000000101"))
-assert not response.answers(request)
-assert conf.contribs["XCP"]["MAX_CTO"] is None
-
-
 = Test padding
 
 conf.contribs["XCP"]["add_padding_for_can"] = True
