@@ -208,102 +208,6 @@ def OER_unsigned_integer_dec(s):
     return value, s[number_of_bytes:]
 
 
-_OER_FIXED_FORMATS = {
-    True: {1: ">b", 2: ">h", 4: ">i", 8: ">q"},
-    False: {1: ">B", 2: ">H", 4: ">I", 8: ">Q"},
-}
-
-
-def OER_fixed_integer_enc(i, length, signed=True):
-    # type: (int, int, bool) -> bytes
-    fmt = _OER_FIXED_FORMATS[signed]
-    try:
-        return struct.pack(fmt[length], i)
-    except KeyError:
-        raise OER_Encoding_Error(
-            "OER_fixed_integer_enc: invalid length %i" % length
-        )
-    except struct.error:
-        raise OER_Encoding_Error(
-            "OER_fixed_integer_enc: %i does not fit in %i %s octet(s)" %
-            (i, length, "signed" if signed else "unsigned")
-        )
-
-
-def OER_fixed_integer_dec(s, length, signed=True):
-    # type: (bytes, int, bool) -> Tuple[int, bytes]
-    _OER_check_len("OER_fixed_integer_dec", s, length)
-    fmt = _OER_FIXED_FORMATS[signed]
-    try:
-        return struct.unpack(fmt[length], s[:length])[0], s[length:]
-    except KeyError:
-        raise OER_Decoding_Error(
-            "OER_fixed_integer_dec: invalid length %i" % length,
-            remaining=s
-        )
-
-
-def OER_enumerated_enc(i):
-    # type: (int) -> bytes
-    if 0 <= i <= 127:
-        return chb(i)
-    body = OER_signed_integer_enc(i)[1:]
-    return chb(0x80 | len(body)) + body
-
-
-def OER_enumerated_dec(s):
-    # type: (bytes) -> Tuple[int, bytes]
-    if not s:
-        raise OER_Decoding_Error("OER_enumerated_dec: got empty string",
-                                 remaining=s)
-    first = orb(s[0])
-    if not (first & 0x80):
-        return first, s[1:]
-    length = first & 0x7f
-    _OER_check_len("OER_enumerated_dec", s, length, offset=1)
-    value = int.from_bytes(s[1:length + 1], "big", signed=True)
-    return value, s[length + 1:]
-
-
-def OER_preamble_enc(extensible, presence):
-    # type: (bool, List[bool]) -> bytes
-    # X.696 16.2.2: an extension bit (extensible types only) followed by one
-    # presence bit per OPTIONAL/DEFAULT component, zero-padded to a whole
-    # number of octets. A type with neither has no preamble at all.
-    bits = [0] if extensible else []
-    bits += [1 if present else 0 for present in presence]
-    if not bits:
-        return b""
-    number_of_bytes = (len(bits) + 7) // 8
-    value = 0
-    for bit in bits:
-        value = (value << 1) | bit
-    value <<= 8 * number_of_bytes - len(bits)
-    return value.to_bytes(number_of_bytes, "big")
-
-
-def OER_preamble_dec(s, extensible, number_of_optionals):
-    # type: (bytes, bool, int) -> Tuple[List[bool], bytes]
-    number_of_bits = (1 if extensible else 0) + number_of_optionals
-    if number_of_bits == 0:
-        return [], s
-    number_of_bytes = (number_of_bits + 7) // 8
-    _OER_check_len("OER_preamble_dec", s, number_of_bytes)
-    value = int.from_bytes(s[:number_of_bytes], "big")
-    bits = [
-        bool((value >> (8 * number_of_bytes - 1 - i)) & 1)
-        for i in range(number_of_bits)
-    ]
-    if extensible:
-        if bits[0]:
-            raise OER_Decoding_Error(
-                "OER_preamble_dec: extension additions are not supported",
-                remaining=s
-            )
-        bits = bits[1:]
-    return bits, s[number_of_bytes:]
-
-
 def OER_tag_enc(n, tag_class=OER_CLASS_CONTEXT):
     # type: (int, int) -> bytes
     if n < 63:
@@ -465,6 +369,11 @@ ASN1_Codecs.OER.register_stem(OERcodec_Object)
 class OERcodec_INTEGER(OERcodec_Object[int]):
     tag = ASN1_Class_UNIVERSAL.INTEGER
 
+    _FIXED_FORMATS = {
+        True: {1: ">b", 2: ">h", 4: ">i", 8: ">q"},
+        False: {1: ">B", 2: ">H", 4: ">I", 8: ">Q"},
+    }
+
     @classmethod
     def enc(cls, i, size_len=0, oer_unsigned=False, **_kwargs):
         # type: (int, Optional[int], bool, **Any) -> bytes
@@ -472,7 +381,15 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
         # the type, never the value at hand, otherwise the decoder (which only
         # knows the type) reads something else back.
         if size_len in (1, 2, 4, 8):
-            return OER_fixed_integer_enc(i, size_len, signed=not oer_unsigned)
+            signed = not oer_unsigned
+            try:
+                return struct.pack(cls._FIXED_FORMATS[signed][size_len], i)
+            except struct.error:
+                raise OER_Encoding_Error(
+                    "%s: %i does not fit in %i %s octet(s)" %
+                    (cls.__name__, i, size_len,
+                     "signed" if signed else "unsigned")
+                )
         if oer_unsigned:
             return OER_unsigned_integer_enc(i)
         return OER_signed_integer_enc(i)
@@ -487,10 +404,11 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
         if size_len in (1, 2, 4, 8):
-            x, t = OER_fixed_integer_dec(
-                s, size_len, signed=not oer_unsigned
-            )
-            return cls.asn1_object(x), t
+            _OER_check_len(cls.__name__, s, size_len)
+            x = struct.unpack(
+                cls._FIXED_FORMATS[not oer_unsigned][size_len], s[:size_len]
+            )[0]
+            return cls.asn1_object(x), s[size_len:]
         if oer_unsigned:
             x, t = OER_unsigned_integer_dec(s)
         else:
@@ -687,7 +605,10 @@ class OERcodec_ENUMERATED(OERcodec_INTEGER):
     @classmethod
     def enc(cls, i, **_kwargs):
         # type: (int, **Any) -> bytes
-        return OER_enumerated_enc(i)
+        if 0 <= i <= 127:
+            return chb(i)
+        body = OER_signed_integer_enc(i)[1:]
+        return chb(0x80 | len(body)) + body
 
     @classmethod
     def do_dec(cls,
@@ -698,8 +619,17 @@ class OERcodec_ENUMERATED(OERcodec_INTEGER):
                oer_unsigned=False,  # type: bool
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
-        x, t = OER_enumerated_dec(s)
-        return cls.asn1_object(x), t
+        if not s:
+            raise OER_Decoding_Error(
+                "%s: got empty string" % cls.__name__, remaining=s
+            )
+        first = orb(s[0])
+        if not (first & 0x80):
+            return cls.asn1_object(first), s[1:]
+        length = first & 0x7f
+        _OER_check_len(cls.__name__, s, length, offset=1)
+        value = int.from_bytes(s[1:length + 1], "big", signed=True)
+        return cls.asn1_object(value), s[length + 1:]
 
 
 class OERcodec_UTF8_STRING(OERcodec_STRING):
@@ -846,10 +776,30 @@ def _oer_sequence_m2i(field, pkt, s):
         for obj in field.seq:
             obj.set_val(pkt, None)
         return [], s
-    presence, s = OER_preamble_dec(
-        s, _field_extensible(field),
-        len(field.optionals),
-    )
+    # X.696 16.2.2: extension bit (if extensible) then one presence bit per
+    # OPTIONAL/DEFAULT component, zero-padded to a whole number of octets.
+    extensible = _field_extensible(field)
+    number_of_optionals = len(field.optionals)
+    number_of_bits = (1 if extensible else 0) + number_of_optionals
+    if number_of_bits == 0:
+        presence = []  # type: List[bool]
+    else:
+        number_of_bytes = (number_of_bits + 7) // 8
+        _OER_check_len("ASN1F_SEQUENCE", s, number_of_bytes)
+        value = int.from_bytes(s[:number_of_bytes], "big")
+        bits = [
+            bool((value >> (8 * number_of_bytes - 1 - i)) & 1)
+            for i in range(number_of_bits)
+        ]
+        if extensible:
+            if bits[0]:
+                raise OER_Decoding_Error(
+                    "ASN1F_SEQUENCE: extension additions are not supported",
+                    remaining=s
+                )
+            bits = bits[1:]
+        presence = bits
+        s = s[number_of_bytes:]
     opt_index = 0
     for obj in field.seq:
         target = obj
@@ -873,10 +823,19 @@ def _oer_sequence_build(field, pkt):
     # type: (Any, Any) -> bytes
     from scapy.asn1fields import ASN1F_field, ASN1F_optional
     optionals = field.optionals
-    s = OER_preamble_enc(
-        _field_extensible(field),
-        [not opt.is_empty(pkt) for opt in optionals],
-    )
+    # X.696 16.2.2: extension bit (if extensible) then one presence bit per
+    # OPTIONAL/DEFAULT component, zero-padded to a whole number of octets.
+    bits = [0] if _field_extensible(field) else []
+    bits += [0 if opt.is_empty(pkt) else 1 for opt in optionals]
+    if not bits:
+        s = b""
+    else:
+        number_of_bytes = (len(bits) + 7) // 8
+        value = 0
+        for bit in bits:
+            value = (value << 1) | bit
+        value <<= 8 * number_of_bytes - len(bits)
+        s = value.to_bytes(number_of_bytes, "big")
     for obj in field.seq:
         if isinstance(obj, ASN1F_optional) and obj.is_empty(pkt):
             continue
