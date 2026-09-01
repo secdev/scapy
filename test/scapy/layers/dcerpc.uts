@@ -976,10 +976,12 @@ rpcserver.close()
 
 = A rejected presentation context cannot select an RPC interface
 
-from scapy.layers.msrpce.raw.ept import (
-    ept_lookup_handle_free_Request,
-    ept_lookup_handle_free_Response,
-)
+# Take the classes from the registry rather than from the module. A second
+# import of an already-registered interface returns before binding opnum and
+# intf, so the module-level names are not always the registered objects.
+_ept_free = find_dcerpc_interface("ept").opnums[4]
+ept_lookup_handle_free_Request = _ept_free.request
+ept_lookup_handle_free_Response = _ept_free.response
 
 class PresentationContextServer(DCERPC_Server):
     def __init__(self, *args, **kwargs):
