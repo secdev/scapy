@@ -116,7 +116,6 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         else:
             self.default = self.ASN1_tag.asn1_object(default)  # type: ignore
         self.size_len = size_len
-        self._init_codec_opts = codec_opts  # type: Dict[str, Any]
         self.constraints = normalize_constraints(codec_opts, size_len=size_len)
         self.flexible_tag = flexible_tag
         if (implicit_tag is not None) and (explicit_tag is not None):
@@ -128,23 +127,6 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         self.network_tag = int(implicit_tag or explicit_tag or self.ASN1_tag)
         self.owners = []  # type: List[Type[ASN1_Packet]]
 
-
-    @property
-    def codec_opts(self):
-        # type: () -> Dict[str, Any]
-        """Deprecated view of constraint kwargs for backward compatibility."""
-        return dict(self._init_codec_opts)
-
-    def _codec_kwargs(self, pkt=None):
-        # type: (Any) -> Dict[str, Any]
-        """Deprecated; use ``scapy.asn1.constraints.codec_kwargs``."""
-        from scapy.asn1.constraints import codec_kwargs
-        return codec_kwargs(self, pkt=pkt)
-
-    def _constraints_kwargs(self, pkt=None):
-        # type: (Any) -> Dict[str, Any]
-        """Deprecated alias of ``_codec_kwargs``."""
-        return self._codec_kwargs(pkt)
 
     def register_owner(self, cls):
         # type: (Type[ASN1_Packet]) -> None
@@ -227,10 +209,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             # the BER type codec so the universal tag/length are applied.
             item = item.self_build()
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        kwargs = {"field": self, "pkt": pkt}  # type: Dict[str, Any]
-        if self.size_len is not None:
-            kwargs["size_len"] = self.size_len
-        return codec.enc(item, **kwargs)
+        return codec.enc(item, field=self, pkt=pkt)
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -296,10 +275,9 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
     def m2i_from_decoder(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> Any
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        kwargs = {"field": self, "pkt": pkt}  # type: Dict[str, Any]
-        if self.size_len is not None:
-            kwargs["size_len"] = self.size_len
-        return codec.dec_from_decoder(dec, **kwargs)  # type: ignore[attr-defined]
+        return codec.dec_from_decoder(  # type: ignore[attr-defined]
+            dec, field=self, pkt=pkt,
+        )
 
     def dissect_from_decoder(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
@@ -326,15 +304,12 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         else:
             raw = value
         bit_enc = per_bit_encoder(enc)
-        enc_kwargs = {"field": self, "pkt": pkt}  # type: Dict[str, Any]
-        if self.size_len is not None:
-            enc_kwargs["size_len"] = self.size_len
         if bit_enc is not None:
             codec.encode_into(  # type: ignore[attr-defined]
-                bit_enc, raw, **enc_kwargs,
+                bit_enc, raw, field=self, pkt=pkt,
             )
             return
-        enc.write(codec.enc(raw, **enc_kwargs))  # type: ignore[attr-defined]
+        enc.write(codec.enc(raw, field=self, pkt=pkt))  # type: ignore[attr-defined]
 
     def encode_to(self, pkt, enc):
         # type: (ASN1_Packet, Any) -> None

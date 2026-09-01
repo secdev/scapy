@@ -612,14 +612,14 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                     enc,  # type: UPER_Encoder
                     _s,  # type: Any
                     field=None,  # type: Any
-                    size_len=0,  # type: Optional[int]
+                    size_len=None,  # type: Optional[int]
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         from scapy.asn1.constraints import oer_size_len, uper_int_range
-        size_len = oer_size_len(field, size_len) or 0
+        size_len = oer_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         if isinstance(_s, tuple) and len(_s) == 2:
             data, nbits = _s
@@ -657,14 +657,14 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
     def dec_from_decoder(cls,
                          dec,  # type: UPER_Decoder
                          field=None,  # type: Any
-                         size_len=0,  # type: Optional[int]
+                         size_len=None,  # type: Optional[int]
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[str]
         from scapy.asn1.constraints import oer_size_len, uper_int_range
-        size_len = oer_size_len(field, size_len) or 0
+        size_len = oer_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
         if minimum is not None and maximum is not None:
@@ -698,14 +698,14 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                     enc,  # type: UPER_Encoder
                     _s,  # type: Union[str, bytes]
                     field=None,  # type: Any
-                    size_len=0,  # type: Optional[int]
+                    size_len=None,  # type: Optional[int]
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         from scapy.asn1.constraints import oer_size_len, uper_int_range
-        size_len = oer_size_len(field, size_len) or 0
+        size_len = oer_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         s = bytes_encode(_s)
         minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
@@ -715,14 +715,14 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
     def dec_from_decoder(cls,
                          dec,  # type: UPER_Decoder
                          field=None,  # type: Any
-                         size_len=0,  # type: Optional[int]
+                         size_len=None,  # type: Optional[int]
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[Any]
         from scapy.asn1.constraints import oer_size_len, uper_int_range
-        size_len = oer_size_len(field, size_len) or 0
+        size_len = oer_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
         raw = UPER_octet_string_dec(dec, minimum, maximum)
@@ -818,7 +818,7 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                     i,  # type: int
                     field=None,  # type: Any
                     pkt=None,  # type: Any
-                    size_len=0,  # type: Optional[int]
+                    size_len=None,  # type: Optional[int]
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
                     uper_enum_values=None,  # type: Optional[List[int]]
@@ -832,7 +832,7 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
             uper_extensible as _uper_extensible,
             uper_int_range,
         )
-        size_len = oer_size_len(field, size_len) or 0
+        size_len = oer_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         uper_enum_values = _uper_enum_values(
             field, pkt, uper_enum_values,
@@ -860,7 +860,7 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                          dec,  # type: UPER_Decoder
                          field=None,  # type: Any
                          pkt=None,  # type: Any
-                         size_len=0,  # type: Optional[int]
+                         size_len=None,  # type: Optional[int]
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
                          uper_enum_values=None,  # type: Optional[List[int]]
@@ -874,7 +874,7 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
             uper_extensible as _uper_extensible,
             uper_int_range,
         )
-        size_len = oer_size_len(field, size_len) or 0
+        size_len = oer_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         uper_enum_values = _uper_enum_values(
             field, pkt, uper_enum_values,

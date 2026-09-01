@@ -476,13 +476,13 @@ assert fld._tagging_enc(_NoTagging(), b"\x02\x01\x05", explicit_tag=0xA0) == b"\
 
 fld._tagging_dec(_NoTagging(), b"\x02\x01\x05", explicit_tag=0xA0) == (None, b"\x02\x01\x05")
 
-= field _codec_kwargs and ASN1_Object unwrap
+= field constraints and ASN1_Object unwrap
 class P(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER("n", 0)
 
 fld = P.ASN1_root
-assert fld._codec_kwargs(P())["size_len"] is None
+assert fld.size_len is None
 assert raw(P(n=ASN1_INTEGER(5))) == b"\x02\x01\x05"
 assert raw(P(n=5)) == b"\x02\x01\x05"
 
@@ -491,57 +491,42 @@ class Sized(ASN1_Packet):
     ASN1_root = ASN1F_INTEGER("n", 0, size_len=1)
 
 sfld = Sized.ASN1_root
-assert sfld._constraints_kwargs(Sized())["size_len"] == 1
+assert sfld.size_len == 1
 assert raw(Sized(n=ASN1_INTEGER(5))) == raw(Sized(n=5)) == b"\x02\x81\x01\x05"
 
-= field encode with extra kwargs via _codec_kwargs override
-class ExtraKwField(ASN1F_INTEGER):
-    def _codec_kwargs(self, pkt):
-        return {"size_len": self.size_len, "oer_unsigned": True, "uper_min": 0}
-
-class ExtraPkt(ASN1_Packet):
+= field encode ignores codec-specific constraints on BER
+class ConstrainedField(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ExtraKwField("n", 0)
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+    )
 
-# BER enc swallows unknown kwargs; round-trip still works.
-assert raw(ExtraPkt(n=7)) == b"\x02\x01\x07"
-ExtraPkt(raw(ExtraPkt(n=7))).n.val == 7
+# BER uses size_len from the field; OER/PER keys live in constraints only.
+assert raw(ConstrainedField(n=7)) == b"\x02\x81\x01\x07"
+ConstrainedField(raw(ConstrainedField(n=7))).n.val == 7
 
-= field codec_opts storage
+= field constraints storage
 plain = ASN1F_INTEGER("n", 0)
 
-assert plain.codec_opts == {}
-
-assert plain._codec_kwargs(type("P", (), {"ASN1_codec": ASN1_Codecs.BER})())["size_len"] is None
+assert plain.constraints.unsigned is False
+assert plain.size_len is None
 
 constrained = ASN1F_INTEGER(
     "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
 )
 
-assert constrained.codec_opts == {
-    "oer_unsigned": True,
-    "uper_min": 0,
-    "uper_max": 255,
-}
+assert constrained.constraints.unsigned is True
+assert constrained.constraints.minimum == 0
+assert constrained.constraints.maximum == 255
 
-# Constraints live in codec_opts only: they must not become field attributes.
+# Constraints must not become field attributes.
 assert not hasattr(constrained, "oer_unsigned")
 
 assert not hasattr(constrained, "uper_min")
 
-kwargs = constrained._codec_kwargs(
-    type("P", (), {"ASN1_codec": ASN1_Codecs.BER})()
-)
+assert constrained.size_len == 1
 
-assert kwargs["size_len"] == 1
-
-assert kwargs["oer_unsigned"] is True
-
-assert kwargs["uper_min"] == 0
-
-assert kwargs["uper_max"] == 255
-
-# BER still encodes with constraints present in kwargs.
+# BER still encodes with size_len from the field.
 class ConstrainedBer(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER(
