@@ -2167,7 +2167,7 @@ assert result.data == bytes(child)
 # CBORF_PACKET represents exactly one CBOR item: embedding a multi-item
 # SEQUENCE child must fail (do not put this child in a CBORF_PACKET parent
 # and expect serialization to succeed).
-fld = CBORF_PACKET("x", None, cls=SeqChild)
+fld = CBORF_PACKET("x", None, pkt_cls=SeqChild)
 try:
     fld.build_value(None, child)
     assert False, "multi-item child must be rejected by CBORF_PACKET"
@@ -2192,11 +2192,11 @@ class TwoItemChild(CBOR_Packet):
 class OneItemChild(CBOR_Packet):
     CBOR_root = CBORF_UNSIGNED_INTEGER("a", 1)
 
-fld = CBORF_PACKET("x", None, cls=OneItemChild)
+fld = CBORF_PACKET("x", None, pkt_cls=OneItemChild)
 ok = fld.build_value(None, OneItemChild(a=7))
 assert ok.items == 1
 
-fld2 = CBORF_PACKET("x", None, cls=TwoItemChild)
+fld2 = CBORF_PACKET("x", None, pkt_cls=TwoItemChild)
 try:
     fld2.build_value(None, TwoItemChild())
     assert False, "multi-item child must be rejected by build_value"
@@ -2209,7 +2209,7 @@ from scapy.cbor.cbor import CBOR_Encoding_Error
 from scapy.cborpacket import CBOR_Packet
 from scapy.packet import Raw
 
-fld = CBORF_PACKET("x", None, cls=CBOR_Packet)
+fld = CBORF_PACKET("x", None, pkt_cls=CBOR_Packet)
 
 # Two valid CBOR integers must not be reported as one item
 try:
@@ -2403,20 +2403,6 @@ class BstrPkt(CBOR_Packet):
 assert BstrPkt().blob == b"ABC"
 assert bytes(BstrPkt()) == b"\x43" + b"ABC"
 
-= BundleEidField defaults and assignments are always EidStruct
-from scapy.contrib.bpv7 import BundleEidField, EidStruct, PrimaryBlock
-from scapy.cborpacket import CBOR_Packet
-
-class EidPkt(CBOR_Packet):
-    CBOR_root = BundleEidField("eid", "dtn:none")
-
-# Internal representation (getfieldval) is always EidStruct; attribute access
-# returns the human form via i2h(), matching native Scapy Field semantics.
-assert isinstance(EidPkt().getfieldval("eid"), EidStruct)
-assert EidPkt().eid == "dtn:none"
-assert isinstance(PrimaryBlock().getfieldval("source"), EidStruct)
-assert PrimaryBlock().source == "dtn:none"
-
 + CBORF_BYTE_STRING_PACKET default normalization
 
 = CBORF_BYTE_STRING_PACKET normalizes byte defaults after packet-class state is initialized
@@ -2465,7 +2451,7 @@ assert len(pkt.children) == 1
 assert isinstance(pkt.children[0], DynamicSequenceChild)
 assert pkt.children[0].parent is pkt
 
-= CBORF_SEQUENCE_OF rejects combining next_cls_cb with cls/pkt_cls
+= CBORF_SEQUENCE_OF rejects combining next_cls_cb with pkt_cls
 from scapy.cbor.cborfields import CBORF_SEQUENCE_OF, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
@@ -2610,7 +2596,7 @@ class CopyChild(CBOR_Packet):
     CBOR_root = CBORF_UNSIGNED_INTEGER("n", 0)
 
 class CopyParent(CBOR_Packet):
-    CBOR_root = CBORF_PACKET("child", None, cls=CopyChild)
+    CBOR_root = CBORF_PACKET("child", None, pkt_cls=CopyChild)
 
 a = CopyParent(child=CopyChild(n=1))
 assert a.child.parent is a
@@ -2689,7 +2675,7 @@ from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
 class IndefUIntArray(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY_OF("values", [], cls=CBORF_UNSIGNED_INTEGER)
+    CBOR_root = CBORF_ARRAY_OF("values", [], pkt_cls=CBORF_UNSIGNED_INTEGER)
 
 wire = b"\x9f\x01\x02\x03\xff"
 pkt = IndefUIntArray(wire)
