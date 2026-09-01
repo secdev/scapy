@@ -721,7 +721,10 @@ old_max_count = field.max_count
 field.max_count = 1
 try:
     keepalive = b"\xff" * 16 + struct.pack("!HB", 19, 4)
-    BGP(make_update(b"\x01\x00" * 2) + keepalive)
+    # This update is meant to exceed the item limit and fail to dissect, so the
+    # debug dissector must not turn that into a raised exception here.
+    with no_debug_dissector():
+        BGP(make_update(b"\x01\x00" * 2) + keepalive)
     assert field.length_from is None
     victim = BGP(make_update(b"\x20\x00\x00\x00\x00"))
     assert len(victim[BGPUpdate].nlri) == 1
