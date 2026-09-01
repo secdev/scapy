@@ -2396,3 +2396,15 @@ arr = MTFListPacket(data_type=3, is_array=1, array_size=5, value=[1, 2, 3, 4, 5]
 expected = struct.pack("!BBHIIIII", 3, 1, 5, 1, 2, 3, 4, 5)
 assert raw(arr) == expected
 assert MTFListPacket(raw(arr)).value == [1, 2, 3, 4, 5]
+
+############
+############
++ ConditionalField __getattr__
+
+= ConditionalField __getattr__ has no try/except AttributeError wrapper
+~ core field
+import inspect
+from scapy import fields
+
+src = inspect.getsource(fields.ConditionalField.__getattr__)
+assert "except AttributeError" not in src

@@ -92,8 +92,7 @@ follow the instructions to install them.
 
 ## Packaging status
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/scapy.svg?columns=4&exclude_unsupported=1&header=
-)](https://repology.org/project/scapy/versions)
+[![Packaging status](https://repology.org/badge/vertical-allrepos/scapy.svg?columns=4&exclude_unsupported=1)](https://repology.org/project/scapy/versions)
 
 ## License
 
