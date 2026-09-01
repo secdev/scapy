@@ -19,48 +19,6 @@ class ASN1Constraints:
     unsigned: bool = False
 
 
-@dataclass
-class EncodingParams:
-    """Wire-encoding parameters resolved from a field or explicit kwargs."""
-    size_len: Optional[int] = None
-    minimum: Optional[int] = None
-    maximum: Optional[int] = None
-    size_min: Optional[int] = None
-    size_max: Optional[int] = None
-    extensible: bool = False
-    unsigned: bool = False
-    uper_enum_values: Optional[List[int]] = None
-
-    @property
-    def uper_min(self):
-        # type: () -> Optional[int]
-        if self.minimum is not None:
-            return self.minimum
-        return self.size_min
-
-    @property
-    def uper_max(self):
-        # type: () -> Optional[int]
-        if self.maximum is not None:
-            return self.maximum
-        return self.size_max
-
-    @property
-    def oer_unsigned(self):
-        # type: () -> bool
-        return self.unsigned
-
-    @property
-    def uper_extensible(self):
-        # type: () -> bool
-        return self.extensible
-
-    @property
-    def oer_extensible(self):
-        # type: () -> bool
-        return self.extensible
-
-
 _LEGACY_CODEC_OPTS = {
     "uper_min": "minimum",
     "uper_max": "maximum",
@@ -134,67 +92,6 @@ def field_range(field):
     return minimum, maximum
 
 
-def encoding_params(field=None, pkt=None, **legacy):
-    # type: (Any, Any, **Any) -> EncodingParams
-    """Resolve encoding parameters from a field and/or legacy codec kwargs."""
-    if field is not None:
-        c = field.constraints
-        params = EncodingParams(
-            size_len=field.size_len,
-            minimum=c.minimum,
-            maximum=c.maximum,
-            size_min=c.size_min,
-            size_max=c.size_max,
-            extensible=c.extensible,
-            unsigned=c.unsigned,
-        )
-        if pkt is not None and hasattr(field, "uper_enum_values"):
-            from scapy.asn1.asn1 import ASN1_Codecs
-            if getattr(pkt, "ASN1_codec", None) is ASN1_Codecs.PER:
-                params.uper_enum_values = field.uper_enum_values()
-        return _merge_legacy(params, legacy)
-    params = EncodingParams()
-    return _merge_legacy(params, legacy)
-
-
-def _merge_legacy(params, legacy):
-    # type: (EncodingParams, Dict[str, Any]) -> EncodingParams
-    if not legacy:
-        return params
-    if "size_len" in legacy and legacy["size_len"] is not None:
-        params.size_len = legacy["size_len"]
-    if "uper_min" in legacy and legacy["uper_min"] is not None:
-        params.minimum = legacy["uper_min"]
-    if "uper_max" in legacy and legacy["uper_max"] is not None:
-        params.maximum = legacy["uper_max"]
-    if legacy.get("uper_extensible"):
-        params.extensible = True
-    if legacy.get("oer_extensible"):
-        params.extensible = True
-    if "oer_unsigned" in legacy and legacy["oer_unsigned"] is not None:
-        params.unsigned = legacy["oer_unsigned"]
-    if legacy.get("uper_enum_values") is not None:
-        params.uper_enum_values = legacy["uper_enum_values"]
-    return params
-
-
-def codec_kwargs(field=None, pkt=None, **legacy):
-    # type: (Any, Any, **Any) -> Dict[str, Any]
-    """Deprecated legacy keyword dict; prefer reading ``field.constraints``."""
-    p = encoding_params(field, pkt=pkt, **legacy)
-    kw = {
-        "size_len": p.size_len,
-        "oer_unsigned": p.unsigned,
-        "uper_min": p.uper_min,
-        "uper_max": p.uper_max,
-        "uper_extensible": p.extensible,
-        "oer_extensible": p.extensible,
-    }  # type: Dict[str, Any]
-    if p.uper_enum_values is not None:
-        kw["uper_enum_values"] = p.uper_enum_values
-    return kw
-
-
 def oer_size_len(field=None, size_len=None):
     # type: (Any, Optional[int]) -> Optional[int]
     if size_len is not None:
@@ -211,11 +108,6 @@ def oer_unsigned(field=None, oer_unsigned=None):
     if field is not None:
         return field.constraints.unsigned
     return False
-
-
-def uper_size_len(field=None, size_len=None):
-    # type: (Any, Optional[int]) -> Optional[int]
-    return oer_size_len(field, size_len)
 
 
 def uper_extensible(field=None, uper_extensible=None, oer_extensible=None):

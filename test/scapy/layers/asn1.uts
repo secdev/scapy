@@ -492,7 +492,7 @@ for cls, data_hex in [
 
 True
 
-= ber oer per constrained integer codec_opts
+= ber oer per constrained integer constraints
 class BERConstrained(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER(
@@ -519,9 +519,9 @@ for cls, expected in (
     pkt = cls(n=200)
     assert raw(pkt) == expected
     assert _roundtrip(cls, pkt).n.val == 200
-    assert cls.ASN1_root.codec_opts["oer_unsigned"] is True
-    assert cls.ASN1_root.codec_opts["uper_min"] == 0
-    assert cls.ASN1_root.codec_opts["uper_max"] == 255
+    assert cls.ASN1_root.constraints.unsigned is True
+    assert cls.ASN1_root.constraints.minimum == 0
+    assert cls.ASN1_root.constraints.maximum == 255
 
 True
 

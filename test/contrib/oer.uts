@@ -897,10 +897,8 @@ assert not hasattr(ASN1_Codecs, "hooks")
 
 True
 
-= oer constrained integer via codec_opts
+= oer constrained integer via constraints
 fld = OERUnsignedField.ASN1_root
-
-assert fld.codec_opts["oer_unsigned"] is True
 
 assert fld.constraints.unsigned is True
 
@@ -997,8 +995,8 @@ assert isinstance(decoded.c, OERAltB) and decoded.c.b.val == 0
 
 True
 
-= oer dec ignores foreign codec kwargs
-# Shared field.codec_opts may include UPER keys after contrib.uper is loaded.
+= oer dec reads constraints from field
+# Direct codec calls without a field ignore schema constraints in kwargs.
 x, remain = OERcodec_ENUMERATED.dec(
     b"\x01", uper_enum_values=[0, 1], uper_min=0,
 )

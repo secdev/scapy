@@ -2805,24 +2805,15 @@ assert issubclass(ASN1F_DEFAULT, ASN1F_optional)
 
 enum_fld = ASN1F_ENUMERATED("e", 0, {1: "a", 2: "b"})
 
-# ENUMERATED values are added per-codec, so BER packets keep an empty
-# codec_opts while PER packets get the permitted values.
-assert enum_fld.codec_opts == {}
+# ENUMERATED values are resolved per-codec from the field schema.
+assert enum_fld.constraints.extensible is False
 
-assert "uper_enum_values" not in enum_fld._codec_kwargs(
-    type("P", (), {"ASN1_codec": ASN1_Codecs.BER})()
-)
-
-assert enum_fld._codec_kwargs(
-    type("P", (), {"ASN1_codec": ASN1_Codecs.PER})()
-)["uper_enum_values"] == [1, 2]
+assert enum_fld.uper_enum_values() == [1, 2]
 
 True
 
-= uper constraints and codec_opts
+= uper constraints
 fld = UPERConstrainedInt.ASN1_root
-
-assert fld.codec_opts == {"uper_min": 0, "uper_max": 255}
 
 assert fld.constraints.minimum == 0 and fld.constraints.maximum == 255
 
