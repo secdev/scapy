@@ -180,7 +180,7 @@ def _merge_legacy(params, legacy):
 
 def codec_kwargs(field=None, pkt=None, **legacy):
     # type: (Any, Any, **Any) -> Dict[str, Any]
-    """Legacy keyword dict for codec methods under migration."""
+    """Deprecated legacy keyword dict; prefer reading ``field.constraints``."""
     p = encoding_params(field, pkt=pkt, **legacy)
     kw = {
         "size_len": p.size_len,
@@ -193,3 +193,57 @@ def codec_kwargs(field=None, pkt=None, **legacy):
     if p.uper_enum_values is not None:
         kw["uper_enum_values"] = p.uper_enum_values
     return kw
+
+
+def oer_size_len(field=None, size_len=None):
+    # type: (Any, Optional[int]) -> Optional[int]
+    if size_len is not None:
+        return size_len
+    if field is not None:
+        return field.size_len
+    return None
+
+
+def oer_unsigned(field=None, oer_unsigned=None):
+    # type: (Any, Optional[bool]) -> bool
+    if oer_unsigned is not None:
+        return oer_unsigned
+    if field is not None:
+        return field.constraints.unsigned
+    return False
+
+
+def uper_size_len(field=None, size_len=None):
+    # type: (Any, Optional[int]) -> Optional[int]
+    return oer_size_len(field, size_len)
+
+
+def uper_extensible(field=None, uper_extensible=None, oer_extensible=None):
+    # type: (Any, Optional[bool], Optional[bool]) -> bool
+    if uper_extensible is not None:
+        return uper_extensible
+    if oer_extensible:
+        return True
+    if field is not None:
+        return field.constraints.extensible
+    return False
+
+
+def uper_int_range(field=None, uper_min=None, uper_max=None):
+    # type: (Any, Optional[int], Optional[int]) -> Tuple[Optional[int], Optional[int]]
+    if uper_min is not None or uper_max is not None:
+        return uper_min, uper_max
+    if field is not None:
+        return field_range(field)
+    return None, None
+
+
+def uper_enum_values(field=None, pkt=None, uper_enum_values=None):
+    # type: (Any, Any, Optional[List[int]]) -> Optional[List[int]]
+    if uper_enum_values is not None:
+        return uper_enum_values
+    if field is not None and pkt is not None and hasattr(field, "uper_enum_values"):
+        from scapy.asn1.asn1 import ASN1_Codecs
+        if getattr(pkt, "ASN1_codec", None) is ASN1_Codecs.PER:
+            return field.uper_enum_values()
+    return None

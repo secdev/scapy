@@ -346,15 +346,9 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
     @classmethod
     def enc(cls, i, field=None, size_len=None, oer_unsigned=None, **_kwargs):
         # type: (int, Any, Optional[int], Optional[bool], **Any) -> bytes
-        from scapy.asn1.constraints import codec_kwargs
-        legacy = dict(_kwargs)
-        if size_len is not None:
-            legacy["size_len"] = size_len
-        if oer_unsigned is not None:
-            legacy["oer_unsigned"] = oer_unsigned
-        kw = codec_kwargs(field, **legacy)
-        size_len = kw["size_len"]
-        oer_unsigned = kw["oer_unsigned"]
+        from scapy.asn1.constraints import oer_size_len, oer_unsigned as _oer_unsigned
+        size_len = oer_size_len(field, size_len)
+        oer_unsigned = _oer_unsigned(field, oer_unsigned)
         if oer_unsigned and i < 0:
             raise OER_Encoding_Error(
                 "%s: %i is negative for an unsigned type" % (cls.__name__, i)
@@ -387,15 +381,9 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
-        from scapy.asn1.constraints import codec_kwargs
-        legacy = dict(_kwargs)
-        if size_len is not None:
-            legacy["size_len"] = size_len
-        if oer_unsigned is not None:
-            legacy["oer_unsigned"] = oer_unsigned
-        kw = codec_kwargs(field, **legacy)
-        size_len = kw["size_len"]
-        oer_unsigned = kw["oer_unsigned"]
+        from scapy.asn1.constraints import oer_size_len, oer_unsigned as _oer_unsigned
+        size_len = oer_size_len(field, size_len)
+        oer_unsigned = _oer_unsigned(field, oer_unsigned)
         if size_len in (1, 2, 4, 8):
             _OER_check_len(cls.__name__, s, size_len)
             x = struct.unpack(
@@ -456,12 +444,8 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[str], bytes]
-        from scapy.asn1.constraints import codec_kwargs
-        legacy = dict(_kwargs)
-        if size_len is not None:
-            legacy["size_len"] = size_len
-        kw = codec_kwargs(field, **legacy)
-        size_len = kw["size_len"]
+        from scapy.asn1.constraints import oer_size_len
+        size_len = oer_size_len(field, size_len)
         if size_len:
             number_of_bytes = (size_len + 7) // 8
             _OER_check_len(cls.__name__, s, number_of_bytes)
@@ -489,12 +473,8 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, field=None, size_len=None, **_kwargs):
         # type: (AnyStr, Any, Optional[int], **Any) -> bytes
-        from scapy.asn1.constraints import codec_kwargs
-        legacy = dict(_kwargs)
-        if size_len is not None:
-            legacy["size_len"] = size_len
-        kw = codec_kwargs(field, **legacy)
-        size_len = kw["size_len"]
+        from scapy.asn1.constraints import oer_size_len
+        size_len = oer_size_len(field, size_len)
         s = bytes_encode(_s)
         if size_len:
             # X.696 13.3: a fixed size means the bits are written padded to a
@@ -516,12 +496,8 @@ class OERcodec_STRING(OERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, field=None, size_len=None, **_kwargs):
         # type: (Union[str, bytes], Any, Optional[int], **Any) -> bytes
-        from scapy.asn1.constraints import codec_kwargs
-        legacy = dict(_kwargs)
-        if size_len is not None:
-            legacy["size_len"] = size_len
-        kw = codec_kwargs(field, **legacy)
-        size_len = kw["size_len"]
+        from scapy.asn1.constraints import oer_size_len
+        size_len = oer_size_len(field, size_len)
         s = bytes_encode(_s)
         if size_len:
             # X.696 16.1: a fixed size means no length determinant.
@@ -545,12 +521,8 @@ class OERcodec_STRING(OERcodec_Object[str]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[Any], bytes]
-        from scapy.asn1.constraints import codec_kwargs
-        legacy = dict(_kwargs)
-        if size_len is not None:
-            legacy["size_len"] = size_len
-        kw = codec_kwargs(field, **legacy)
-        size_len = kw["size_len"]
+        from scapy.asn1.constraints import oer_size_len
+        size_len = oer_size_len(field, size_len)
         if size_len:
             _OER_check_len(cls.__name__, s, size_len)
             return cls.tag.asn1_object(s[:size_len]), s[size_len:]
@@ -657,52 +629,33 @@ class OERcodec_ENUMERATED(OERcodec_INTEGER):
         return cls.asn1_object(value), s[length + 1:]
 
 
-class OERcodec_UTF8_STRING(OERcodec_STRING):
-    tag = ASN1_Class_UNIVERSAL.UTF8_STRING
+_OER_STRING_TAGS = (
+    "UTF8_STRING",
+    "NUMERIC_STRING",
+    "PRINTABLE_STRING",
+    "T61_STRING",
+    "VIDEOTEX_STRING",
+    "IA5_STRING",
+    "GENERAL_STRING",
+    "UTC_TIME",
+    "GENERALIZED_TIME",
+    "ISO646_STRING",
+    "UNIVERSAL_STRING",
+    "BMP_STRING",
+)
 
 
-class OERcodec_NUMERIC_STRING(OERcodec_STRING):
-    tag = ASN1_Class_UNIVERSAL.NUMERIC_STRING
+def _oer_string_codec(name):
+    # type: (str) -> type
+    return type(
+        "OERcodec_%s" % name,
+        (OERcodec_STRING,),
+        {"tag": getattr(ASN1_Class_UNIVERSAL, name)},
+    )
 
 
-class OERcodec_PRINTABLE_STRING(OERcodec_STRING):
-    tag = ASN1_Class_UNIVERSAL.PRINTABLE_STRING
-
-
-class OERcodec_T61_STRING(OERcodec_STRING):
-    tag = ASN1_Class_UNIVERSAL.T61_STRING
-
-
-class OERcodec_VIDEOTEX_STRING(OERcodec_STRING):
-    tag = ASN1_Class_UNIVERSAL.VIDEOTEX_STRING
-
-
-class OERcodec_IA5_STRING(OERcodec_STRING):
-    tag = ASN1_Class_UNIVERSAL.IA5_STRING
-
-
-class OERcodec_GENERAL_STRING(OERcodec_STRING):
-    tag = ASN1_Class_UNIVERSAL.GENERAL_STRING
-
-
-class OERcodec_UTC_TIME(OERcodec_STRING):
-    tag = ASN1_Class_UNIVERSAL.UTC_TIME
-
-
-class OERcodec_GENERALIZED_TIME(OERcodec_STRING):
-    tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
-
-
-class OERcodec_ISO646_STRING(OERcodec_STRING):
-    tag = ASN1_Class_UNIVERSAL.ISO646_STRING
-
-
-class OERcodec_UNIVERSAL_STRING(OERcodec_STRING):
-    tag = ASN1_Class_UNIVERSAL.UNIVERSAL_STRING
-
-
-class OERcodec_BMP_STRING(OERcodec_STRING):
-    tag = ASN1_Class_UNIVERSAL.BMP_STRING
+for _tag_name in _OER_STRING_TAGS:
+    globals()["OERcodec_%s" % _tag_name] = _oer_string_codec(_tag_name)
 
 
 class OERcodec_SEQUENCE(OERcodec_Object[Union[bytes, List['OERcodec_Object[Any]']]]):
@@ -804,18 +757,15 @@ oer_sequence_of_m2i = oer_sequence_of_decode
 def oer_sequence_build(field, pkt):
     # type: (Any, Any) -> bytes
     from scapy.asn1fields import ASN1F_field
-    from scapy.asn1.context import BER_Encoder
-    from scapy.asn1.asn1 import ASN1_Codecs
-    enc = BER_Encoder(codec=ASN1_Codecs.OER)
+    from scapy.asn1.context import OER_Encoder
+    enc = OER_Encoder()
     sequence_encode_to(field, pkt, enc)
     return ASN1F_field.i2m(field, pkt, enc.finish())
 
 
 def oer_sequence_m2i(field, pkt, s):
     # type: (Any, Any, bytes) -> Tuple[Any, bytes]
-    from scapy.asn1.context import BER_Decoder
-    from scapy.asn1.asn1 import ASN1_Codecs
-    dec = BER_Decoder(s, codec=ASN1_Codecs.OER)
+    from scapy.asn1.context import OER_Decoder
+    dec = OER_Decoder(s)
     _oer_sequence_decode_from(field, pkt, dec)
     return [], dec.remaining()
-
