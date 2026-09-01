@@ -976,6 +976,11 @@ rpcserver.close()
 
 = A rejected presentation context cannot select an RPC interface
 
+from scapy.layers.msrpce.raw.ept import (
+    ept_lookup_handle_free_Request,
+    ept_lookup_handle_free_Response,
+)
+
 class PresentationContextServer(DCERPC_Server):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
