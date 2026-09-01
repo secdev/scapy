@@ -552,14 +552,15 @@ for cls in (BEREmptySeqOf, OEREmptySeqOf, PEREmptySeqOf):
 
 True
 
-= field hooks present after contrib load
-assert ASN1_Codecs.hooks[ASN1_Codecs.OER]
+= encode_to decode_from after contrib load
+# OER/PER register as first-class codecs; compound fields dispatch statically.
+assert hasattr(ASN1_Codecs.OER, "new_encoder")
 
-assert ASN1_Codecs.hooks[ASN1_Codecs.PER]
+assert hasattr(ASN1_Codecs.PER, "new_decoder")
 
-assert ASN1_Codecs.OER.hook("sequence_m2i") is not None
+assert hasattr(ASN1F_SEQUENCE, "encode_to")
 
-assert ASN1_Codecs.PER.hook("sequence_m2i") is not None
+assert hasattr(ASN1F_SEQUENCE, "decode_from")
 
 True
 
@@ -606,3 +607,136 @@ assert raw(_AsnObjectDefault(a=ASN1_INTEGER(7))) == raw(_AsnObjectDefault(a=7))
 assert raw(_AsnObjectDefault(a=7)) == b"\x00"
 
 True
+
+% PR #5050 refactor targets (shared ASN.1)
+
+def _value(obj):
+    return getattr(obj, "val", obj)
+
++ Finding - flexible BER tags must not mutate shared field descriptors
+= flexible explicit tag decode keeps schema descriptor immutable
+class RefactorFlexibleExplicit(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0,
+        explicit_tag=0xA0,
+        flexible_tag=True,
+    )
+
+field = RefactorFlexibleExplicit.ASN1_root
+original_tag = field.explicit_tag
+canonical = raw(RefactorFlexibleExplicit(n=5))
+assert canonical[0] == 0xA0
+foreign = b"\xa1" + canonical[1:]
+decoded = RefactorFlexibleExplicit(foreign)
+assert _value(decoded.n) == 5
+# Packet-local tolerance must not rewrite the class-level schema.
+assert field.explicit_tag == original_tag == 0xA0
+# A later independent build must still use the declared tag.
+assert raw(RefactorFlexibleExplicit(n=5)) == canonical
+True
+
+= flexible implicit tag decode keeps schema descriptor immutable
+class RefactorFlexibleImplicit(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0,
+        implicit_tag=0x80,
+        flexible_tag=True,
+    )
+
+field = RefactorFlexibleImplicit.ASN1_root
+original_tag = field.implicit_tag
+canonical = raw(RefactorFlexibleImplicit(n=5))
+assert canonical[0] == 0x80
+foreign = b"\x81" + canonical[1:]
+decoded = RefactorFlexibleImplicit(foreign)
+assert _value(decoded.n) == 5
+assert field.implicit_tag == original_tag == 0x80
+assert raw(RefactorFlexibleImplicit(n=5)) == canonical
+True
+
+= two flexible decodes with different observed tags do not influence each other
+class RefactorFlexibleSequence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER(
+            "n", 0,
+            explicit_tag=0xA0,
+            flexible_tag=True,
+        ),
+    )
+
+field = RefactorFlexibleSequence.ASN1_root.seq[0]
+canonical = raw(RefactorFlexibleSequence(n=7))
+# SEQUENCE wrapper is 0x30; component tag begins after the sequence length.
+# Locate the declared explicit tag instead of assuming a BER length width.
+pos = canonical.index(b"\xa0")
+all(
+    _value(RefactorFlexibleSequence(
+        canonical[:pos] + bytes([observed_tag]) + canonical[pos + 1:]
+    ).n) == 7
+    and field.explicit_tag == 0xA0
+    and raw(RefactorFlexibleSequence(n=7)) == canonical
+    for observed_tag in [0xA1, 0xA2, 0xA3]
+)
+
+
++ Finding - CHOICE packet classes must be dictionary keys, not hash(cls)
+= colliding class hashes do not corrupt BER CHOICE tagging
+class RefactorCollidingASN1Meta(ASN1Packet_metaclass):
+    def __hash__(cls):
+        return 1
+
+class RefactorCollisionA(ASN1_Packet, metaclass=RefactorCollidingASN1Meta):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("x", 0))
+
+class RefactorCollisionB(ASN1_Packet, metaclass=RefactorCollidingASN1Meta):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("x", 0))
+
+assert hash(RefactorCollisionA) == hash(RefactorCollisionB)
+
+class RefactorCollisionChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c", None,
+        ASN1F_PACKET("a", None, RefactorCollisionA, explicit_tag=0xA0),
+        ASN1F_PACKET("b", None, RefactorCollisionB, explicit_tag=0xA1),
+    )
+
+raw_a = raw(RefactorCollisionChoice(c=RefactorCollisionA(x=1)))
+raw_b = raw(RefactorCollisionChoice(c=RefactorCollisionB(x=2)))
+assert raw_a[0] == 0xA0
+assert raw_b[0] == 0xA1
+assert isinstance(RefactorCollisionChoice(raw_a).c, RefactorCollisionA)
+assert isinstance(RefactorCollisionChoice(raw_b).c, RefactorCollisionB)
+True
+
+
++ Cross-codec schema contracts
+= identical schema values can be assigned as Python values or ASN1 objects
+class RefactorBERInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0)
+
+class RefactorOERPlainInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0)
+
+all(
+    raw(cls(n=value)) == raw(cls(n=ASN1_INTEGER(value)))
+    for cls in [RefactorBERInt, RefactorOERPlainInteger]
+    for value in [-1, 0, 1, 127]
+)
+
+= importing OER and UPER leaves representative BER packet wire behavior intact
+ber_before = raw(RefactorBERInt(n=5))
+import scapy.contrib.oer
+import scapy.contrib.uper
+ber_after = raw(RefactorBERInt(n=5))
+assert ber_before == ber_after
+assert _value(RefactorBERInt(ber_after).n) == 5
+True
+

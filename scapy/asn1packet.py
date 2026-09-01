@@ -48,8 +48,13 @@ class ASN1_Packet(Packet, metaclass=ASN1Packet_metaclass):
         # type: () -> bytes
         if self.raw_packet_cache is not None:
             return self.raw_packet_cache
-        return self.ASN1_root.build(self)
+        enc = self.ASN1_codec.new_encoder()
+        self.ASN1_root.encode_to(self, enc)
+        return enc.finish()
 
     def do_dissect(self, x):
         # type: (bytes) -> bytes
-        return self.ASN1_root.dissect(self, x)
+        self._asn1_observed_tags = {}  # type: ignore[attr-defined]
+        dec = self.ASN1_codec.new_decoder(x)
+        self.ASN1_root.decode_from(self, dec)
+        return dec.remaining()
