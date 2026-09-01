@@ -244,7 +244,7 @@ def _create_fifo() -> Tuple[str, Any]:
     else:
         f = get_temp_file()
         os.unlink(f)
-        os.mkfifo(f)
+        os.mkfifo(f, 0o600)
         return f, f
 
 
