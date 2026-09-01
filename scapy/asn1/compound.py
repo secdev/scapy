@@ -19,6 +19,12 @@ from scapy.asn1.asn1 import (
     ASN1_Object,
 )
 from scapy.asn1.constraints import field_extensible, field_range
+from scapy.asn1.context import (
+    OER_Decoder,
+    OER_Encoder,
+    per_bit_decoder,
+    per_bit_encoder,
+)
 
 
 def sequence_presence_bits(field, pkt):
@@ -115,10 +121,18 @@ def _sequence_encode_children(field, pkt, encode):
 
 # ---- SEQUENCE -------------------------------------------------------------
 
+def _encode_child_to_bytes(pkt, obj):
+    # type: (Any, Any) -> bytes
+    child_enc = OER_Encoder()
+    obj.encode_to(pkt, child_enc)
+    return child_enc.finish()
+
+
 def sequence_encode_to(field, pkt, enc):
     # type: (Any, Any, Any) -> None
-    if enc.codec is ASN1_Codecs.PER:
-        write_uper_presence_bits(enc.inner, field, pkt)
+    bit_enc = per_bit_encoder(enc)
+    if bit_enc is not None:
+        write_uper_presence_bits(bit_enc, field, pkt)
         _sequence_encode_children(
             field, pkt,
             lambda obj: obj.encode_to(pkt, enc),
@@ -126,7 +140,10 @@ def sequence_encode_to(field, pkt, enc):
         return
     if enc.codec is ASN1_Codecs.OER:
         parts = [write_oer_presence_bits(sequence_presence_bits(field, pkt))]
-        _sequence_encode_children(field, pkt, lambda obj: parts.append(obj.build(pkt)))
+        _sequence_encode_children(
+            field, pkt,
+            lambda obj: parts.append(_encode_child_to_bytes(pkt, obj)),
+        )
         enc.write(b"".join(parts))
         return
     s = reduce(lambda x, y: x + y.build(pkt), field.seq, b"")
@@ -135,9 +152,9 @@ def sequence_encode_to(field, pkt, enc):
 
 def sequence_decode_from(field, pkt, dec):
     # type: (Any, Any, Any) -> None
-    if pkt.ASN1_codec is ASN1_Codecs.PER:
-        inner = dec.inner if hasattr(dec, "inner") else dec
-        presence = read_uper_presence_bits(inner, field)
+    bit_dec = per_bit_decoder(dec)
+    if bit_dec is not None:
+        presence = read_uper_presence_bits(bit_dec, field)
         _sequence_decode_children(
             field, pkt, presence,
             lambda obj: obj.decode_from(pkt, dec),
@@ -152,22 +169,12 @@ def sequence_decode_from(field, pkt, dec):
             dec.set_remainder(b"")
             return
         presence, s = read_oer_presence_bits(s, field)
-        from scapy.asn1fields import ASN1F_badsequence, ASN1F_optional
-        opt_index = 0
-        for obj in field.seq:
-            target = obj
-            if isinstance(obj, ASN1F_optional):
-                if not presence[opt_index]:
-                    obj.set_missing(pkt)
-                    opt_index += 1
-                    continue
-                opt_index += 1
-                target = obj.fld
-            try:
-                s = target.dissect(pkt, s)
-            except ASN1F_badsequence:
-                break
-        dec.set_remainder(s)
+        child_dec = OER_Decoder(s)
+        _sequence_decode_children(
+            field, pkt, presence,
+            lambda obj: obj.decode_from(pkt, child_dec),
+        )
+        dec.set_remainder(child_dec.remaining())
         return
     s = dec.remaining()
     s = field._apply_tagging_dec(s, pkt, _fname=pkt.name)
@@ -187,8 +194,8 @@ def sequence_decode_from(field, pkt, dec):
 
 def sequence_of_encode_to(field, pkt, enc):
     # type: (Any, Any, Any) -> None
-    if enc.codec is ASN1_Codecs.PER:
-        uper_sequence_of_encode_into(field, enc.inner, pkt)
+    if per_bit_encoder(enc) is not None:
+        uper_sequence_of_encode_into(field, enc, pkt)
         return
     if enc.codec is ASN1_Codecs.OER:
         enc.write(oer_sequence_of_bytes(field, pkt))
@@ -207,10 +214,11 @@ def sequence_of_encode_to(field, pkt, enc):
 
 def sequence_of_decode_from(field, pkt, dec):
     # type: (Any, Any, Any) -> None
-    if dec.codec is ASN1_Codecs.PER:
+    bit_dec = per_bit_decoder(dec)
+    if bit_dec is not None:
         field.set_val(
             pkt,
-            uper_sequence_of_decode_from_decoder(field, pkt, dec.inner),
+            uper_sequence_of_decode_from_decoder(field, pkt, dec),
         )
         return
     if dec.codec is ASN1_Codecs.OER:
@@ -269,10 +277,13 @@ def oer_sequence_of_decode(field, pkt, s):
 
 def uper_sequence_of_encode_into(field, enc, pkt, value=None):
     # type: (Any, Any, Any, Any) -> None
+    bit_enc = per_bit_encoder(enc)
+    if bit_enc is None:
+        raise ASN1_Error("uper_sequence_of_encode_into: PER encoder required")
     if value is None:
         value = getattr(pkt, field.name)
     if value is None:
-        _uper_count_enc(field, enc, 0, lambda offset, size: None)
+        _uper_count_enc(field, bit_enc, 0, lambda offset, size: None)
         return
     count = len(value)
 
@@ -280,9 +291,9 @@ def uper_sequence_of_encode_into(field, enc, pkt, value=None):
         # type: (int, int) -> None
         for item in value[offset:offset + size]:
             if field.holds_packets:
-                item.ASN1_root.encode_into(enc, item)
+                item.ASN1_root.encode_to(item, enc)
             else:
-                field.fld.encode_into(enc, pkt, item)
+                field.fld.encode_into(bit_enc, pkt, item)
 
     uper_min, uper_max = field_range(field)
     if field_extensible(field):
@@ -290,18 +301,23 @@ def uper_sequence_of_encode_into(field, enc, pkt, value=None):
                 uper_min is not None and uper_max is not None and
                 uper_min <= count <= uper_max
         ):
-            enc.append_bit(0)
+            bit_enc.append_bit(0)
         else:
-            enc.append_bit(1)
-            enc.append_fragmented(count, append_items)
+            bit_enc.append_bit(1)
+            bit_enc.append_fragmented(count, append_items)
             return
-    _uper_count_enc(field, enc, count, append_items)
+    _uper_count_enc(field, bit_enc, count, append_items)
 
 
 def uper_sequence_of_decode_from_decoder(field, pkt, dec):
     # type: (Any, Any, Any) -> list
     from scapy.asn1.uper import UPER_constrained_int_dec
 
+    bit_dec = per_bit_decoder(dec)
+    if bit_dec is None:
+        raise ASN1_Error(
+            "uper_sequence_of_decode_from_decoder: PER decoder required"
+        )
     lst = []
 
     def read_items(count):
@@ -313,16 +329,16 @@ def uper_sequence_of_decode_from_decoder(field, pkt, dec):
                 p.ASN1_root.decode_from(p, dec)
                 lst.append(p)
             else:
-                lst.append(field.fld.m2i_from_decoder(pkt, dec))
+                lst.append(field.fld.m2i_from_decoder(pkt, bit_dec))
 
-    if field_extensible(field) and dec.read_bit():
-        dec.read_fragmented(read_items)
+    if field_extensible(field) and bit_dec.read_bit():
+        bit_dec.read_fragmented(read_items)
     else:
         uper_min, uper_max = field_range(field)
         if uper_min is not None and uper_max is not None:
-            read_items(UPER_constrained_int_dec(dec, uper_min, uper_max))
+            read_items(UPER_constrained_int_dec(bit_dec, uper_min, uper_max))
         else:
-            dec.read_fragmented(read_items)
+            bit_dec.read_fragmented(read_items)
     return lst
 
 
@@ -343,8 +359,8 @@ def _uper_count_enc(field, enc, count, append_items):
 def choice_encode_to(field, pkt, enc):
     # type: (Any, Any, Any) -> None
     value = getattr(pkt, field.name)
-    if enc.codec is ASN1_Codecs.PER:
-        uper_choice_encode_into(field, enc.inner, pkt, value)
+    if per_bit_encoder(enc) is not None:
+        uper_choice_encode_into(field, enc, pkt, value)
         return
     if enc.codec is ASN1_Codecs.OER:
         enc.write(oer_choice_bytes(field, pkt, value))
@@ -354,8 +370,8 @@ def choice_encode_to(field, pkt, enc):
 
 def choice_decode_from(field, pkt, dec):
     # type: (Any, Any, Any) -> None
-    if dec.codec is ASN1_Codecs.PER:
-        field.set_val(pkt, uper_choice_decode_from_decoder(field, pkt, dec.inner))
+    if per_bit_decoder(dec) is not None:
+        field.set_val(pkt, uper_choice_decode_from_decoder(field, pkt, dec))
         return
     if dec.codec is ASN1_Codecs.OER:
         val, remain = oer_choice_decode(field, pkt, dec.remaining())
@@ -462,6 +478,9 @@ def uper_choice_encode_into(field, enc, pkt, value=None):
     # type: (Any, Any, Any, Any) -> None
     from scapy.asn1.uper import UPER_choice_index_enc
 
+    bit_enc = per_bit_encoder(enc)
+    if bit_enc is None:
+        raise ASN1_Error("uper_choice_encode_into: PER encoder required")
     if value is None:
         value = getattr(pkt, field.name)
     if value is None:
@@ -473,35 +492,40 @@ def uper_choice_encode_into(field, enc, pkt, value=None):
             field.name
         )
     if field_extensible(field):
-        enc.append_bit(0)
+        bit_enc.append_bit(0)
     order = field.canonical_order
     tag = field.choice_order[index]
     canon_idx = field.canonical_index[tag]
     if len(order) > 1:
-        UPER_choice_index_enc(enc, canon_idx, len(order))
+        UPER_choice_index_enc(bit_enc, canon_idx, len(order))
     choice = order[canon_idx]
     if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
-        value.ASN1_root.encode_into(enc, value)
+        value.ASN1_root.encode_to(value, enc)
     elif hasattr(choice, "cls"):
         uper_packet_encode_into(choice, enc, pkt, value)
     elif isinstance(choice, type):
-        choice(field.name, b"").encode_into(enc, pkt, value)
+        choice(field.name, b"").encode_into(bit_enc, pkt, value)
     else:
-        choice.encode_into(enc, pkt, value)
+        choice.encode_into(bit_enc, pkt, value)
 
 
 def uper_choice_decode_from_decoder(field, pkt, dec):
     # type: (Any, Any, Any) -> Any
     from scapy.asn1.uper import UPER_Decoding_Error, UPER_choice_index_dec
 
+    bit_dec = per_bit_decoder(dec)
+    if bit_dec is None:
+        raise ASN1_Error(
+            "uper_choice_decode_from_decoder: PER decoder required"
+        )
     if field_extensible(field):
-        if dec.read_bit():
+        if bit_dec.read_bit():
             raise UPER_Decoding_Error(
                 "ASN1F_CHOICE: extension additions are not supported"
             )
     order = field.canonical_order
     if len(order) > 1:
-        index = UPER_choice_index_dec(dec, len(order))
+        index = UPER_choice_index_dec(bit_dec, len(order))
     else:
         index = 0
     if index >= len(order):
@@ -518,8 +542,8 @@ def uper_choice_decode_from_decoder(field, pkt, dec):
     if hasattr(choice, "cls"):
         return uper_packet_decode_from_decoder(choice, pkt, dec)
     if isinstance(choice, type):
-        return choice(field.name, b"").m2i_from_decoder(pkt, dec)
-    return choice.m2i_from_decoder(pkt, dec)
+        return choice(field.name, b"").m2i_from_decoder(pkt, bit_dec)
+    return choice.m2i_from_decoder(pkt, bit_dec)
 
 
 # ---- PACKET (nested ASN1_Packet) ------------------------------------------
@@ -528,16 +552,16 @@ def packet_encode_to(field, pkt, enc, value=None):
     # type: (Any, Any, Any, Any) -> None
     if value is None:
         value = getattr(pkt, field.name)
-    if enc.codec is ASN1_Codecs.PER:
-        uper_packet_encode_into(field, enc.inner, pkt, value)
+    if per_bit_encoder(enc) is not None:
+        uper_packet_encode_into(field, enc, pkt, value)
         return
     enc.write(ber_oer_packet_bytes(field, pkt, value))
 
 
 def packet_decode_from(field, pkt, dec):
     # type: (Any, Any, Any) -> None
-    if dec.codec is ASN1_Codecs.PER:
-        field.set_val(pkt, uper_packet_decode_from_decoder(field, pkt, dec.inner))
+    if per_bit_decoder(dec) is not None:
+        field.set_val(pkt, uper_packet_decode_from_decoder(field, pkt, dec))
         return
     val, remain = ber_oer_packet_decode(field, pkt, dec.remaining())
     field.set_val(pkt, val)
@@ -585,7 +609,7 @@ def uper_packet_encode_into(field, enc, pkt, value=None):
         return
     if isinstance(value, ASN1_Object):
         value = value.val
-    value.ASN1_root.encode_into(enc, value)
+    value.ASN1_root.encode_to(value, enc)
 
 
 def uper_packet_decode_from_decoder(field, pkt, dec):

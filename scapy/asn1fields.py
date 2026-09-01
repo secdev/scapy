@@ -34,11 +34,11 @@ from scapy.asn1.asn1 import (
 )
 from scapy.asn1.ber import (
     BER_Decoding_Error,
-    BER_id_dec,
     BER_tagging_dec,
     BER_tagging_enc,
 )
-from scapy.asn1.constraints import encoding_params, normalize_constraints
+from scapy.asn1.constraints import normalize_constraints
+from scapy.asn1.context import per_bit_decoder, per_bit_encoder
 from scapy.asn1.tag import asn1_tag_parts
 from scapy.base_classes import BasePacket
 from scapy.volatile import (
@@ -227,12 +227,10 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             # the BER type codec so the universal tag/length are applied.
             item = item.self_build()
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        from scapy.asn1.constraints import codec_kwargs
-        kw = codec_kwargs(self, pkt=pkt)
-        legacy = {}  # type: Dict[str, Any]
-        if kw.get("size_len") is not None:
-            legacy["size_len"] = kw["size_len"]
-        return codec.enc(item, field=self, pkt=pkt, **legacy)
+        kwargs = {"field": self, "pkt": pkt}  # type: Dict[str, Any]
+        if self.size_len is not None:
+            kwargs["size_len"] = self.size_len
+        return codec.enc(item, **kwargs)
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -298,12 +296,10 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
     def m2i_from_decoder(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> Any
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        from scapy.asn1.constraints import codec_kwargs
-        kw = codec_kwargs(self, pkt=pkt)
-        legacy = {k: v for k, v in kw.items() if v is not None}
-        return codec.dec_from_decoder(  # type: ignore[attr-defined]
-            dec, field=self, pkt=pkt, **legacy,
-        )
+        kwargs = {"field": self, "pkt": pkt}  # type: Dict[str, Any]
+        if self.size_len is not None:
+            kwargs["size_len"] = self.size_len
+        return codec.dec_from_decoder(dec, **kwargs)  # type: ignore[attr-defined]
 
     def dissect_from_decoder(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
@@ -329,24 +325,28 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                 )
         else:
             raw = value
-        from scapy.asn1.constraints import codec_kwargs
-        kw = codec_kwargs(self, pkt=pkt)
-        legacy = {k: v for k, v in kw.items() if v is not None}
-        codec.encode_into(  # type: ignore[attr-defined]
-            enc, raw, field=self, pkt=pkt, **legacy,
-        )
+        bit_enc = per_bit_encoder(enc)
+        enc_kwargs = {"field": self, "pkt": pkt}  # type: Dict[str, Any]
+        if self.size_len is not None:
+            enc_kwargs["size_len"] = self.size_len
+        if bit_enc is not None:
+            codec.encode_into(  # type: ignore[attr-defined]
+                bit_enc, raw, **enc_kwargs,
+            )
+            return
+        enc.write(codec.enc(raw, **enc_kwargs))  # type: ignore[attr-defined]
 
     def encode_to(self, pkt, enc):
         # type: (ASN1_Packet, Any) -> None
-        if pkt.ASN1_codec is ASN1_Codecs.PER:
-            self.encode_into(getattr(enc, "inner", enc), pkt)
+        if per_bit_encoder(enc) is not None:
+            self.encode_into(enc, pkt)
         else:
             enc.write(self.i2m(pkt, getattr(pkt, self.name)))
 
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
-        if pkt.ASN1_codec is ASN1_Codecs.PER:
-            self.dissect_from_decoder(pkt, getattr(dec, "inner", dec))
+        if per_bit_decoder(dec) is not None:
+            self.dissect_from_decoder(pkt, per_bit_decoder(dec))
         else:
             val, remain = self.m2i(pkt, dec.remaining())
             self.set_val(pkt, val)
@@ -656,7 +656,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         dec = pkt.ASN1_codec.new_decoder(s)
         self.decode_from(pkt, dec)
         remain = dec.remaining()
-        if pkt.ASN1_codec is ASN1_Codecs.PER and remain:
+        if per_bit_decoder(dec) is not None and remain:
             from scapy.asn1.uper import UPER_Decoding_Error
             raise UPER_Decoding_Error(
                 "unexpected remainder in %s" % pkt.__class__.__name__,
@@ -671,20 +671,11 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
     def encode_into(self, enc, pkt, value=None):
         # type: (Any, ASN1_Packet, Any) -> None
         from scapy.asn1.compound import sequence_encode_to
-        if pkt.ASN1_codec is ASN1_Codecs.PER:
-            class _Ctx(object):
-                codec = ASN1_Codecs.PER
-                inner = enc
-            sequence_encode_to(self, pkt, _Ctx())
-            return
-        super(ASN1F_SEQUENCE, self).encode_into(enc, pkt, value)
+        sequence_encode_to(self, pkt, enc)
 
     def dissect_from_decoder(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
-        class _Ctx(object):
-            codec = pkt.ASN1_codec
-            inner = dec
-        self.decode_from(pkt, _Ctx())
+        self.decode_from(pkt, dec)
 
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
@@ -1055,20 +1046,16 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
 
     def encode_into(self, enc, pkt, value=None):
         # type: (Any, ASN1_Packet, Any) -> None
+        from scapy.asn1.compound import choice_encode_to
         if value is None:
-            value = getattr(pkt, self.name)
-        if pkt.ASN1_codec is ASN1_Codecs.PER:
-            from scapy.asn1.compound import uper_choice_encode_into
-            if value is None:
-                return
-            if self.alternative_index(value) is None:
-                raise ASN1_Error(
-                    "ASN1F_CHOICE: cannot encode unknown alternative in '%s'" %
-                    self.name
-                )
-            uper_choice_encode_into(self, enc, pkt, value)
+            choice_encode_to(self, pkt, enc)
             return
-        super(ASN1F_CHOICE, self).encode_into(enc, pkt, value)
+        old = getattr(pkt, self.name, None)
+        setattr(pkt, self.name, value)
+        try:
+            choice_encode_to(self, pkt, enc)
+        finally:
+            setattr(pkt, self.name, old)
 
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
@@ -1135,11 +1122,8 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
 
     def encode_into(self, enc, pkt, value=None):
         # type: (Any, ASN1_Packet, Any) -> None
-        if pkt.ASN1_codec is ASN1_Codecs.PER:
-            from scapy.asn1.compound import uper_packet_encode_into
-            uper_packet_encode_into(self, enc, pkt, value)
-            return
-        super(ASN1F_PACKET, self).encode_into(enc, pkt, value)
+        from scapy.asn1.compound import packet_encode_to
+        packet_encode_to(self, pkt, enc, value)
 
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
