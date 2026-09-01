@@ -42,7 +42,7 @@ class ASN1Packet_metaclass(Packet_metaclass):
 
 class ASN1_Packet(Packet, metaclass=ASN1Packet_metaclass):
     ASN1_root = cast('ASN1F_field[Any, Any]', None)
-    ASN1_codec = None
+    ASN1_codec = cast(Any, None)
 
     def self_build(self):
         # type: () -> bytes
