@@ -1,0 +1,97 @@
+
++ Direct message interface
+
+= Contact decode with not enough data
+from scapy.contrib.tcpcl import *
+pkt = TCPCLContact(b"dtn!")
+assert isinstance(pkt, conf.raw_layer)
+
+
+= TCPCLv4 contact decode
+from scapy.contrib.tcpcl import *
+pkt = TCPCLContact(bytes.fromhex("64746e2104010000"))
+pkt.show()
+assert isinstance(pkt, TCPCLContactV4)
+assert isinstance(pkt.payload, Padding)
+
+= Session init with private extensions
+from scapy.contrib.tcpcl import *
+
+pkt = TCPCLSessInit(
+    keepalive=300,
+    nodeid_data="hello".encode(),
+    ext_items=[
+        TCPCLSessExt(type=0x8000)/Raw(b'hi')
+    ]
+)
+pkt.show2()
+data = bytes(pkt)
+assert data.hex() == (
+    "07012cffffffffffffffffffffffffffffffff"
+    "000568656c6c6f"
+    "0000000700800000026869"
+)
+pkt = TCPCLSessInit(data)
+
+
++ TCP Session interface
+
+= read from test file starting at contact
+from scapy.contrib.tcpcl import *
+conf.debug_dissector = 2
+filepath = scapy_path("test/pcaps/dtn_tcpclv4_bpv7_transfer.pcapng")
+packets = sniff(offline=filepath, session=TCPSession)
+assert len(packets) == 27
+
+# notable packets
+pkt = packets[3].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLContactV4)
+pkt = packets[5].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLContactV4)
+pkt = packets[7].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLSessInit)
+pkt = packets[9].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLSessInit)
+
+pkt = packets[11].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLXferSegment)
+assert pkt.transfer_id == 1
+assert pkt.flags == TCPCLXferFlag.START
+assert pkt.length == 100
+pkt = packets[13].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLXferSegment)
+assert pkt.transfer_id == 1
+assert pkt.flags == TCPCLXferFlag.END
+assert pkt.length == 99
+pkt = packets[19].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLXferAck)
+assert pkt.transfer_id == 1
+
+pkt = packets[15].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLXferSegment)
+assert pkt.transfer_id == 2
+assert pkt.flags == TCPCLXferFlag.START
+assert pkt.length == 100
+pkt = packets[17].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLXferSegment)
+assert pkt.transfer_id == 2
+assert pkt.flags == TCPCLXferFlag.END
+assert pkt.length == 99
+
+pkt = packets[23].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLSessTerm)
+pkt = packets[24].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLSessTerm)
+
+
+= read from test file starting after contact
+from scapy.contrib.tcpcl import *
+conf.debug_dissector = 2
+filepath = scapy_path("test/pcaps/dtn_tcpclv4_bpv7_nocontact.pcapng")
+packets = sniff(offline=filepath, session=TCPSession)
+assert len(packets) == 16
+
+# notable packets
+pkt = packets[0].getlayer(TCPCL)
+assert isinstance(pkt, TCPCLXferSegment)
+assert pkt.transfer_id == 1
