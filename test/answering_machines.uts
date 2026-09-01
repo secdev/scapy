@@ -137,6 +137,18 @@ assert DNS_am().make_reply(
     Ether()/IP()/UDP()/DNS(b'q\xa04\x00\x00\xa0\x01\x00\xf3\x00\x01\x04\x01y')
 ) is None
 
+def check_DNS_am_unknown_names_not_cached(qtypes):
+    am = DNS_am(joker=False)
+    for i, qtype in enumerate(qtypes):
+        am.make_reply(
+            Ether()/IP()/UDP()/DNS(
+                qd=DNSQR(qname="unknown-%d.example" % i, qtype=qtype)
+            )
+        )
+    assert not am.match
+
+check_DNS_am_unknown_names_not_cached(("A", "AAAA"))
+
 = LLMNR_am
 def check_LLMNR_am_am_reply(packet):
     # assert packet[Ether].src == get_if_hwaddr(conf.iface)
