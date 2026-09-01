@@ -1,0 +1,1465 @@
+% CBOR interoperability and differential tests using cbor2 6.1.4
+
++ Shared cbor2 oracle helpers
+
+= Import cbor2 and define differential-test helpers ~ external_cbor2
+import io
+import math
+import random
+import re
+import struct
+from collections.abc import Mapping
+from datetime import date, datetime, timezone
+from decimal import Decimal
+from email.mime.text import MIMEText
+from fractions import Fraction
+from importlib.metadata import version as distribution_version
+from ipaddress import (
+    IPv4Address,
+    IPv4Interface,
+    IPv4Network,
+    IPv6Address,
+    IPv6Interface,
+    IPv6Network,
+)
+from uuid import UUID
+
+import cbor2
+
+from scapy.cbor import CBOR_Codecs
+from scapy.cbor.cbor import (
+    CBOR_DECODING_ERROR,
+    CBOR_Decoding_Error,
+    CBORMapData,
+    CBOR_ARRAY,
+    CBOR_BYTE_STRING,
+    CBOR_FALSE,
+    CBOR_FLOAT,
+    CBOR_MAP,
+    CBOR_NEGATIVE_INTEGER,
+    CBOR_NULL,
+    CBOR_Object,
+    CBOR_SEMANTIC_TAG,
+    CBOR_SIMPLE_VALUE,
+    CBOR_TEXT_STRING,
+    CBOR_TRUE,
+    CBOR_UNDEFINED,
+    CBOR_UNDEFINED_VALUE,
+    CBOR_UNSIGNED_INTEGER,
+    CBORSimpleValue,
+    CBORTagValue,
+)
+from scapy.cbor.cborcodec import (
+    CBOR_Codec_Decoding_Error,
+    CBORcodec_Object,
+    MAX_CBOR_NESTING,
+)
+from scapy.cbor.cborfields import (
+    CBOR_ABSENT,
+    CBORF_ANY,
+    CBORF_ARRAY,
+    CBORF_ARRAY_OF,
+    CBORF_BOOLEAN,
+    CBORF_BYTE_STRING,
+    CBORF_FLOAT,
+    CBORF_NEGATIVE_INTEGER,
+    CBORF_NULL,
+    CBORF_SEMANTIC_TAG,
+    CBORF_TEXT_STRING,
+    CBORF_UNDEFINED,
+    CBORF_UNSIGNED_INTEGER,
+)
+from scapy.cborpacket import CBOR_Packet
+
+_RR_CBOR2_VERSION = distribution_version("cbor2")
+_RR_SCAPY_DECODE_ERRORS = (CBOR_Decoding_Error, CBOR_Codec_Decoding_Error)
+
+
+def _rr_float(value):
+    value = float(value)
+    if math.isnan(value):
+        return ("float", "nan")
+    if math.isinf(value):
+        return ("float", "+inf" if value > 0 else "-inf")
+    if value == 0.0:
+        return ("float", "-0" if math.copysign(1.0, value) < 0 else "+0")
+    return ("float", struct.pack(">d", value).hex())
+
+
+def _rr_map(pairs, norm):
+    normalized = [(norm(key), norm(value)) for key, value in pairs]
+    return ("map", tuple(sorted(normalized, key=repr)))
+
+
+def rr_norm_scapy(obj):
+    if isinstance(obj, CBOR_FALSE):
+        return ("bool", False)
+    if isinstance(obj, CBOR_TRUE):
+        return ("bool", True)
+    if isinstance(obj, CBOR_NULL):
+        return ("null",)
+    if isinstance(obj, CBOR_UNDEFINED):
+        return ("undefined",)
+    if isinstance(obj, CBOR_UNSIGNED_INTEGER):
+        return ("uint", obj.val)
+    if isinstance(obj, CBOR_NEGATIVE_INTEGER):
+        return ("nint", obj.val)
+    if isinstance(obj, CBOR_BYTE_STRING):
+        return ("bytes", obj.val)
+    if isinstance(obj, CBOR_TEXT_STRING):
+        return ("text", obj.val)
+    if isinstance(obj, CBOR_FLOAT):
+        return _rr_float(obj.val)
+    if isinstance(obj, CBOR_SIMPLE_VALUE):
+        return ("simple", obj.val)
+    if isinstance(obj, CBOR_ARRAY):
+        return ("array", tuple(rr_norm_scapy(item) for item in obj.val))
+    if isinstance(obj, CBOR_MAP):
+        if isinstance(obj.val, CBORMapData):
+            pairs = obj.val.cbor_pairs()
+        elif isinstance(obj.val, Mapping):
+            pairs = list(obj.val.items())
+        else:
+            pairs = list(obj.val)
+        return _rr_map(pairs, rr_norm_scapy)
+    if isinstance(obj, CBOR_SEMANTIC_TAG):
+        tag, value = obj.val
+        return ("tag", tag, rr_norm_scapy(value))
+    if isinstance(obj, CBOR_Object):
+        return ("scapy-object", type(obj).__name__, repr(obj.val))
+    return rr_norm_native(obj)
+
+
+def rr_norm_cbor2(value):
+    if value is cbor2.undefined:
+        return ("undefined",)
+    if isinstance(value, cbor2.CBORSimpleValue):
+        return ("simple", value.value)
+    if isinstance(value, cbor2.CBORTag):
+        return ("tag", value.tag, rr_norm_cbor2(value.value))
+    if isinstance(value, bool):
+        return ("bool", value)
+    if value is None:
+        return ("null",)
+    if isinstance(value, int):
+        return ("uint" if value >= 0 else "nint", value)
+    if isinstance(value, float):
+        return _rr_float(value)
+    if isinstance(value, bytes):
+        return ("bytes", value)
+    if isinstance(value, str):
+        return ("text", value)
+    if isinstance(value, Mapping):
+        return _rr_map(list(value.items()), rr_norm_cbor2)
+    if isinstance(value, (list, tuple)):
+        return ("array", tuple(rr_norm_cbor2(item) for item in value))
+    return ("python", type(value).__module__, type(value).__qualname__, repr(value))
+
+
+def rr_norm_native(value):
+    if value is CBOR_UNDEFINED_VALUE:
+        return ("undefined",)
+    if isinstance(value, CBORSimpleValue):
+        return ("simple", value.value)
+    if isinstance(value, CBORTagValue):
+        return ("tag", value.tag, rr_norm_native(value.value))
+    if isinstance(value, CBORMapData):
+        return _rr_map(value.cbor_pairs(), rr_norm_native)
+    if isinstance(value, bool):
+        return ("bool", value)
+    if value is None:
+        return ("null",)
+    if isinstance(value, int):
+        return ("uint" if value >= 0 else "nint", value)
+    if isinstance(value, float):
+        return _rr_float(value)
+    if isinstance(value, bytes):
+        return ("bytes", value)
+    if isinstance(value, str):
+        return ("text", value)
+    if isinstance(value, Mapping):
+        return _rr_map(list(value.items()), rr_norm_native)
+    if isinstance(value, (list, tuple)):
+        return ("array", tuple(rr_norm_native(item) for item in value))
+    if isinstance(value, CBOR_Object):
+        return rr_norm_scapy(value)
+    return ("python", type(value).__module__, type(value).__qualname__, repr(value))
+
+
+def rr_cbor2_load(wire, **kwargs):
+    kwargs.setdefault("immutable", True)
+    return cbor2.loads(wire, **kwargs)
+
+
+def rr_scapy_decode(wire):
+    obj, remainder = CBOR_Codecs.CBOR.dec(wire)
+    assert remainder == b"", (wire.hex(), remainder.hex())
+    return obj
+
+
+def rr_assert_cbor2_value(value, *, canonical=False,
+                          indefinite_containers=False, exact=False):
+    wire = cbor2.dumps(
+        value,
+        canonical=canonical,
+        indefinite_containers=indefinite_containers,
+    )
+    expected = rr_norm_cbor2(rr_cbor2_load(wire))
+    obj = rr_scapy_decode(wire)
+    actual = rr_norm_scapy(obj)
+    assert actual == expected, (wire.hex(), expected, actual)
+    rebuilt = obj.enc()
+    if exact:
+        assert rebuilt == wire, (wire.hex(), rebuilt.hex())
+    assert rr_norm_cbor2(rr_cbor2_load(rebuilt)) == expected
+    return wire, obj
+
+
+def rr_assert_extension_wire(value, **dump_kwargs):
+    wire = cbor2.dumps(value, **dump_kwargs)
+    obj = rr_scapy_decode(wire)
+    rebuilt = obj.enc()
+    assert rebuilt == wire, (wire.hex(), rebuilt.hex())
+    expected = cbor2.loads(wire)
+    actual = cbor2.loads(rebuilt)
+    if isinstance(expected, float) and math.isnan(expected):
+        assert isinstance(actual, float) and math.isnan(actual)
+    else:
+        assert actual == expected
+    return wire, obj
+
+
+def rr_to_scapy_native(value):
+    if value is cbor2.undefined:
+        return CBOR_UNDEFINED_VALUE
+    if isinstance(value, cbor2.CBORSimpleValue):
+        return CBORSimpleValue(value.value)
+    if isinstance(value, cbor2.CBORTag):
+        return CBORTagValue(value.tag, rr_to_scapy_native(value.value))
+    if isinstance(value, Mapping):
+        return {
+            rr_to_scapy_native(key): rr_to_scapy_native(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [rr_to_scapy_native(item) for item in value]
+    return value
+
+
+def rr_assert_scapy_native(value):
+    native = rr_to_scapy_native(value)
+    wire = CBORcodec_Object.encode_cbor_item(native)
+    expected = rr_norm_native(native)
+    actual = rr_norm_cbor2(rr_cbor2_load(wire))
+    assert actual == expected, (wire.hex(), expected, actual)
+    return wire
+
+
+def rr_clear_cache(pkt):
+    pkt.raw_packet_cache = None
+    pkt.raw_packet_cache_fields = None
+    pkt.wirelen = None
+
+
+def rr_scapy_reject(wire):
+    try:
+        CBOR_Codecs.CBOR.dec(wire)
+    except _RR_SCAPY_DECODE_ERRORS:
+        return
+    raise AssertionError("Scapy accepted malformed CBOR: %s" % wire.hex())
+
+
+def rr_cbor2_reject(wire, **kwargs):
+    try:
+        cbor2.loads(wire, **kwargs)
+    except cbor2.CBORDecodeError:
+        return
+    raise AssertionError("cbor2 accepted malformed CBOR: %s" % wire.hex())
+
+
+def rr_both_reject(wire, **cbor2_kwargs):
+    rr_cbor2_reject(wire, **cbor2_kwargs)
+    rr_scapy_reject(wire)
+
+
+def rr_scapy_sequence(wire):
+    values = []
+    remainder = wire
+    while remainder:
+        before = len(remainder)
+        obj, remainder = CBOR_Codecs.CBOR.dec(remainder)
+        assert len(remainder) < before
+        values.append(rr_norm_scapy(obj))
+    return values
+
+
+def rr_cbor2_sequence(wire, count):
+    stream = io.BytesIO(wire)
+    decoder = cbor2.CBORDecoder(stream)
+    return [rr_norm_cbor2(decoder.decode(immutable=True)) for _ in range(count)]
+
+
+def rr_random_key(rng):
+    kind = rng.randrange(3)
+    if kind == 0:
+        return rng.randint(-100000, 100000)
+    if kind == 1:
+        return bytes(rng.randrange(256) for _ in range(rng.randrange(0, 8)))
+    alphabet = "abcXYZ012-_ä"
+    return "".join(rng.choice(alphabet) for _ in range(rng.randrange(0, 8)))
+
+
+def rr_random_value(rng, depth=0, include_float=True):
+    scalar_kinds = ["uint", "nint", "bytes", "text", "bool", "null",
+                    "undefined", "simple", "tag"]
+    if include_float:
+        scalar_kinds.append("float")
+    kinds = list(scalar_kinds)
+    if depth < 4:
+        kinds.extend(["array", "map"])
+    kind = rng.choice(kinds)
+    if kind == "uint":
+        return rng.randrange(0, 1 << rng.choice((4, 8, 16, 32, 64)))
+    if kind == "nint":
+        return -1 - rng.randrange(0, 1 << rng.choice((4, 8, 16, 32, 63)))
+    if kind == "bytes":
+        return bytes(rng.randrange(256) for _ in range(rng.randrange(0, 32)))
+    if kind == "text":
+        alphabet = "abcXYZ012-_ä€𐍈\x00"
+        return "".join(rng.choice(alphabet) for _ in range(rng.randrange(0, 24)))
+    if kind == "bool":
+        return bool(rng.getrandbits(1))
+    if kind == "null":
+        return None
+    if kind == "undefined":
+        return cbor2.undefined
+    if kind == "simple":
+        return cbor2.CBORSimpleValue(rng.choice((0, 1, 16, 19, 32, 64, 127, 255)))
+    if kind == "float":
+        special = rng.randrange(12)
+        if special == 0:
+            return -0.0
+        if special == 1:
+            return float("inf")
+        if special == 2:
+            return float("-inf")
+        if special == 3:
+            return float("nan")
+        return rng.uniform(-1.0e12, 1.0e12)
+    if kind == "tag":
+        return cbor2.CBORTag(
+            60000 + rng.randrange(1000),
+            rr_random_value(rng, depth + 1, include_float=include_float),
+        )
+    if kind == "array":
+        return [
+            rr_random_value(rng, depth + 1, include_float=include_float)
+            for _ in range(rng.randrange(0, 6))
+        ]
+    mapping = {}
+    target = rng.randrange(0, 6)
+    while len(mapping) < target:
+        mapping[rr_random_key(rng)] = rr_random_value(
+            rng, depth + 1, include_float=include_float
+        )
+    return mapping
+
+
+class RRCbor2AnyRoot(CBOR_Packet):
+    CBOR_root = CBORF_ANY("value", CBOR_ABSENT)
+
+
+class RRCbor2AnyEnvelope(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_ANY("value", CBOR_ABSENT),
+        CBORF_UNSIGNED_INTEGER("tail", 0),
+    )
+
+
+class RRCbor2UInt(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
+
+
+class RRCbor2NInt(CBOR_Packet):
+    CBOR_root = CBORF_NEGATIVE_INTEGER("value", -1)
+
+
+class RRCbor2Bytes(CBOR_Packet):
+    CBOR_root = CBORF_BYTE_STRING("value", b"")
+
+
+class RRCbor2DefiniteBytes(CBOR_Packet):
+    CBOR_root = CBORF_BYTE_STRING("value", b"", definite_only=True)
+
+
+class RRCbor2Text(CBOR_Packet):
+    CBOR_root = CBORF_TEXT_STRING("value", "")
+
+
+class RRCbor2Bool(CBOR_Packet):
+    CBOR_root = CBORF_BOOLEAN("value", False)
+
+
+class RRCbor2Null(CBOR_Packet):
+    CBOR_root = CBORF_NULL("value")
+
+
+class RRCbor2Undefined(CBOR_Packet):
+    CBOR_root = CBORF_UNDEFINED("value")
+
+
+class RRCbor2Float(CBOR_Packet):
+    CBOR_root = CBORF_FLOAT("value", 0.0)
+
+
+class RRCbor2UIntArray(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF("values", [], CBORF_UNSIGNED_INTEGER)
+
+
+class RRCbor2TaggedText(CBOR_Packet):
+    CBOR_root = CBORF_SEMANTIC_TAG(
+        "tag_number", None, 60000, CBORF_TEXT_STRING("value", "")
+    )
+
++ Oracle version and API assumptions
+
+= The differential suite is pinned to cbor2 6.1.4 ~ external_cbor2
+assert _RR_CBOR2_VERSION == "6.1.4", _RR_CBOR2_VERSION
+
+= cbor2 exposes canonical and indefinite-container encoders ~ external_cbor2
+canonical = cbor2.dumps({"long": 1, "x": 2}, canonical=True)
+indefinite = cbor2.dumps([1, 2], indefinite_containers=True)
+assert cbor2.loads(canonical) == {"long": 1, "x": 2}
+assert cbor2.loads(indefinite) == [1, 2]
+assert indefinite[0] == 0x9f and indefinite[-1] == 0xff
+
+= cbor2 strict decoder options provide independent negative controls ~ external_cbor2
+wire = cbor2.dumps([1, 2], indefinite_containers=True)
+rr_cbor2_reject(wire, allow_indefinite=False)
+duplicate = b"\xa2\x01\x00\x01\x01"
+rr_cbor2_reject(duplicate, allow_duplicate_keys=False)
+
++ Integer boundary vectors generated by cbor2
+
+= Unsigned integer boundaries decode and re-encode exactly ~ external_cbor2
+values = [0, 1, 10, 23, 24, 25, 255, 256, 65535, 65536,
+          (1 << 32) - 1, 1 << 32, (1 << 64) - 1]
+
+for value in values:
+    rr_assert_cbor2_value(value, canonical=True, exact=True)
+
+= Unsigned integer additional-information transitions match cbor2 ~ external_cbor2
+expected = {
+    23: b"\x17",
+    24: b"\x18\x18",
+    255: b"\x18\xff",
+    256: b"\x19\x01\x00",
+    65535: b"\x19\xff\xff",
+    65536: b"\x1a\x00\x01\x00\x00",
+    (1 << 32) - 1: b"\x1a\xff\xff\xff\xff",
+    1 << 32: b"\x1b\x00\x00\x00\x01\x00\x00\x00\x00",
+}
+for value, wire in expected.items():
+    assert cbor2.dumps(value, canonical=True) == wire
+    assert rr_scapy_decode(wire).enc() == wire
+
+= Negative integer boundaries decode and re-encode exactly ~ external_cbor2
+values = [-1, -10, -24, -25, -256, -257, -65536, -65537,
+          -(1 << 32), -(1 << 32) - 1, -(1 << 64)]
+
+for value in values:
+    rr_assert_cbor2_value(value, canonical=True, exact=True)
+
+= Negative integer additional-information transitions match cbor2 ~ external_cbor2
+values = [-24, -25, -256, -257, -65536, -65537, -(1 << 32), -(1 << 32) - 1]
+for value in values:
+    wire = cbor2.dumps(value, canonical=True)
+    obj = rr_scapy_decode(wire)
+    assert isinstance(obj, CBOR_NEGATIVE_INTEGER)
+    assert obj.val == value
+    assert obj.enc() == wire
+
+= Positive bignums generated by cbor2 remain wire-faithful through Scapy ~ external_cbor2
+for value in (1 << 64, 1 << 80, 1 << 128, (1 << 521) - 1):
+    wire = cbor2.dumps(value, canonical=True)
+    obj = rr_scapy_decode(wire)
+    assert isinstance(obj, CBOR_SEMANTIC_TAG)
+    assert obj.enc() == wire
+    assert cbor2.loads(obj.enc()) == value
+
+= Negative bignums generated by cbor2 remain wire-faithful through Scapy ~ external_cbor2
+for value in (-(1 << 64) - 1, -(1 << 80), -(1 << 128), -(1 << 521)):
+    wire = cbor2.dumps(value, canonical=True)
+    obj = rr_scapy_decode(wire)
+    assert isinstance(obj, CBOR_SEMANTIC_TAG)
+    assert obj.enc() == wire
+    assert cbor2.loads(obj.enc()) == value
+
++ Byte and text string vectors generated by cbor2
+
+= Byte-string length boundaries decode and re-encode exactly ~ external_cbor2
+for length in (0, 1, 22, 23, 24, 25, 254, 255, 256, 65535, 65536):
+    value = bytes((index * 17) & 0xff for index in range(length))
+    rr_assert_cbor2_value(value, canonical=True, exact=True)
+
+= Text-string ASCII length boundaries decode and re-encode exactly ~ external_cbor2
+for length in (0, 1, 22, 23, 24, 25, 254, 255, 256, 65535, 65536):
+    value = "x" * length
+    rr_assert_cbor2_value(value, canonical=True, exact=True)
+
+= Text-string length headers use UTF-8 byte length rather than characters ~ external_cbor2
+values = [
+    "ä" * 11 + "x",       # 23 UTF-8 bytes
+    "ä" * 12,             # 24 UTF-8 bytes
+    "€" * 8,              # 24 UTF-8 bytes
+    "𐍈" * 6,              # 24 UTF-8 bytes
+    "e\u0301" * 12,       # combining sequence
+]
+for value in values:
+    wire = cbor2.dumps(value, canonical=True)
+    obj = rr_scapy_decode(wire)
+    assert obj.val == value
+    assert obj.enc() == wire
+
+= Unicode and embedded-NUL strings interoperate in both directions ~ external_cbor2
+values = ["Grüße", "€uro", "𐍈", "e\u0301", "a\x00b", "日本語", "🙂"]
+for value in values:
+    rr_assert_cbor2_value(value, canonical=True, exact=True)
+    rr_assert_scapy_native(value)
+
+= Indefinite byte strings assembled from cbor2 chunks decode semantically ~ external_cbor2
+wire = b"\x5f" + cbor2.dumps(b"ab") + cbor2.dumps(b"") + cbor2.dumps(b"cd") + b"\xff"
+assert cbor2.loads(wire) == b"abcd"
+obj = rr_scapy_decode(wire)
+assert obj.val == b"abcd"
+assert cbor2.loads(obj.enc()) == b"abcd"
+
+= Indefinite text strings assembled from cbor2 chunks decode semantically ~ external_cbor2
+wire = b"\x7f" + cbor2.dumps("Grü") + cbor2.dumps("") + cbor2.dumps("ße") + b"\xff"
+assert cbor2.loads(wire) == "Grüße"
+obj = rr_scapy_decode(wire)
+assert obj.val == "Grüße"
+assert cbor2.loads(obj.enc()) == "Grüße"
+
+= Many cbor2-generated byte-string chunks concatenate correctly ~ external_cbor2
+chunks = [bytes([index & 0xff]) for index in range(1024)]
+wire = b"\x5f" + b"".join(cbor2.dumps(chunk) for chunk in chunks) + b"\xff"
+expected = b"".join(chunks)
+assert cbor2.loads(wire) == expected
+obj = rr_scapy_decode(wire)
+assert obj.val == expected
+assert cbor2.loads(obj.enc()) == expected
+
+= Many Unicode text chunks concatenate correctly ~ external_cbor2
+chunks = ["ä", "€", "𐍈", "x"] * 256
+wire = b"\x7f" + b"".join(cbor2.dumps(chunk) for chunk in chunks) + b"\xff"
+expected = "".join(chunks)
+assert cbor2.loads(wire) == expected
+obj = rr_scapy_decode(wire)
+assert obj.val == expected
+assert cbor2.loads(obj.enc()) == expected
+
++ Simple values, tags, and standard cbor2 extensions
+
+= Boolean, null, and undefined values agree between cbor2 and Scapy ~ external_cbor2
+for value in (False, True, None, cbor2.undefined):
+    rr_assert_cbor2_value(value, canonical=True, exact=True)
+    rr_assert_scapy_native(value)
+
+= Direct and extended simple values agree between cbor2 and Scapy ~ external_cbor2
+for number in (0, 1, 16, 19, 32, 64, 127, 255):
+    value = cbor2.CBORSimpleValue(number)
+    rr_assert_cbor2_value(value, canonical=True, exact=True)
+    rr_assert_scapy_native(value)
+
+= Unknown semantic-tag number boundaries round-trip exactly ~ external_cbor2
+for tag in (0, 23, 24, 255, 256, 65535, 65536,
+            (1 << 32) - 1, 1 << 32, (1 << 64) - 1):
+    # Scapy preserves the generic tag structure even when cbor2 assigns semantics.
+    wire = cbor2.dumps(cbor2.CBORTag(tag, "payload"), canonical=True)
+    obj = rr_scapy_decode(wire)
+    assert isinstance(obj, CBOR_SEMANTIC_TAG)
+    assert obj.val[0] == tag
+    assert obj.enc() == wire
+
+= Nested unknown semantic tags preserve structure and bytes ~ external_cbor2
+value = cbor2.CBORTag(60000, cbor2.CBORTag(60001, [1, "x", b"y"]))
+rr_assert_cbor2_value(value, canonical=True, exact=True)
+rr_assert_scapy_native(value)
+
+= Decimal extension encodings generated by cbor2 are wire-faithful ~ external_cbor2
+for value in (Decimal("0"), Decimal("-1.25"), Decimal("1E+100")):
+    rr_assert_extension_wire(value, canonical=True)
+
+= Fraction extension encodings generated by cbor2 are wire-faithful ~ external_cbor2
+for value in (Fraction(1, 3), Fraction(-22, 7), Fraction(0, 1)):
+    rr_assert_extension_wire(value, canonical=True)
+
+= Timezone-aware datetime extension encodings are wire-faithful ~ external_cbor2
+values = [
+    datetime(1970, 1, 1, tzinfo=timezone.utc),
+    datetime(2026, 8, 29, 12, 34, 56, 123456, tzinfo=timezone.utc),
+]
+for value in values:
+    rr_assert_extension_wire(value, canonical=True)
+
+= Date extension encodings are wire-faithful ~ external_cbor2
+for value in (date(1970, 1, 1), date(2026, 8, 29), date(9999, 12, 31)):
+    rr_assert_extension_wire(value, canonical=True)
+
+= UUID extension encodings are wire-faithful ~ external_cbor2
+for value in (UUID(int=0), UUID("12345678-1234-5678-1234-567812345678")):
+    rr_assert_extension_wire(value, canonical=True)
+
+= Set extension encodings are wire-faithful ~ external_cbor2
+for value in (frozenset(), frozenset({1, 2, 3}), frozenset({"b", "a"})):
+    rr_assert_extension_wire(value, canonical=True)
+
+= Complex-number extension encodings remain semantically equivalent ~ external_cbor2
+for value in (0j, 1 + 2j, complex(-1.5, 2.25), complex(1.0e100, -1.0e-100)):
+    wire = cbor2.dumps(value, canonical=True)
+    obj = rr_scapy_decode(wire)
+    rebuilt = obj.enc()
+    assert cbor2.loads(rebuilt) == value
+    assert rr_norm_scapy(obj)[0] == "tag"
+
+= Regular-expression extension encodings preserve their pattern ~ external_cbor2
+for value in (re.compile(r"a+"), re.compile(r"(?i)^[a-z0-9_]+$")):
+    wire = cbor2.dumps(value, canonical=True)
+    obj = rr_scapy_decode(wire)
+    assert obj.enc() == wire
+    expected = cbor2.loads(wire)
+    actual = cbor2.loads(obj.enc())
+    assert isinstance(actual, re.Pattern)
+    assert actual.pattern == expected.pattern == value.pattern
+
+= IPv4 and IPv6 extension encodings are wire-faithful ~ external_cbor2
+values = [
+    IPv4Address("192.0.2.1"),
+    IPv4Network("192.0.2.0/24"),
+    IPv4Interface("192.0.2.1/24"),
+    IPv6Address("2001:db8::1"),
+    IPv6Network("2001:db8::/64"),
+    IPv6Interface("2001:db8::1/64"),
+]
+for value in values:
+    rr_assert_extension_wire(value, canonical=True)
+
+= MIME text extension encodings remain semantically equivalent ~ external_cbor2
+message = MIMEText("Grüße from CBOR", "plain", "utf-8")
+message["Subject"] = "cbor2 interoperability"
+wire = cbor2.dumps(message, canonical=True)
+obj = rr_scapy_decode(wire)
+assert obj.enc() == wire
+expected = cbor2.loads(wire)
+actual = cbor2.loads(obj.enc())
+assert actual.as_bytes() == expected.as_bytes()
+assert actual.get_payload() == expected.get_payload()
+
+= Self-described CBOR tag is retained by Scapy and ignored by cbor2 ~ external_cbor2
+value = {"self-described": [1, 2, 3], "ok": True}
+wire = cbor2.dumps(cbor2.CBORTag(55799, value), canonical=True)
+obj = rr_scapy_decode(wire)
+assert isinstance(obj, CBOR_SEMANTIC_TAG)
+assert obj.val[0] == 55799
+assert obj.enc() == wire
+# cbor2 may decode tag 55799 into frozendict/tuple; compare semantically.
+assert rr_norm_cbor2(rr_cbor2_load(obj.enc())) == rr_norm_cbor2(value)
+
+= bytearray and tuple encoder inputs produce ordinary CBOR values ~ external_cbor2
+cases = [
+    (bytearray(b"mutable bytes"), b"mutable bytes"),
+    ((1, "two", b"three"), [1, "two", b"three"]),
+]
+for value, expected in cases:
+    wire = cbor2.dumps(value, canonical=True)
+    obj = rr_scapy_decode(wire)
+    assert cbor2.loads(obj.enc()) == expected
+    assert obj.enc() == wire
+
+= cbor2 value-sharing tags survive generic Scapy decoding ~ external_cbor2
+shared = [1, 2, 3]
+value = [shared, shared]
+wire = cbor2.dumps(value, value_sharing=True)
+obj = rr_scapy_decode(wire)
+assert obj.enc() == wire
+actual = cbor2.loads(obj.enc())
+assert actual == value
+assert actual[0] is actual[1]
+
+= cbor2 cyclic shared-reference data remains a finite generic CBOR tree ~ external_cbor2
+value = []
+value.append(value)
+wire = cbor2.dumps(value, value_sharing=True)
+obj = rr_scapy_decode(wire)
+assert obj.enc() == wire
+actual = cbor2.loads(obj.enc())
+assert actual[0] is actual
+
+= cbor2 string-reference tags survive generic Scapy decoding ~ external_cbor2
+value = ["repeated-value", "repeated-value", {"repeated-value": "repeated-value"}]
+wire = cbor2.dumps(value, string_referencing=True)
+obj = rr_scapy_decode(wire)
+assert obj.enc() == wire
+assert cbor2.loads(obj.enc()) == value
+
++ Valid non-preferred serializations accepted and normalized
+
+= Overlong integer arguments decode like cbor2 and rebuild minimally ~ external_cbor2
+cases = [
+    (b"\x18\x00", 0),
+    (b"\x19\x00\x17", 23),
+    (b"\x1a\x00\x00\x00\x18", 24),
+    (b"\x38\x00", -1),
+    (b"\x39\x00\x17", -24),
+    (b"\x3a\x00\x00\x00\x18", -25),
+]
+for wire, expected in cases:
+    assert cbor2.loads(wire) == expected
+    obj = rr_scapy_decode(wire)
+    assert obj.val == expected
+    assert obj.enc() == cbor2.dumps(expected, canonical=True)
+
+= Overlong string and container lengths rebuild in shortest form ~ external_cbor2
+cases = [
+    (b"\x58\x01x", b"x"),
+    (b"\x78\x01x", "x"),
+    (b"\x98\x01\x00", [0]),
+    (b"\xb8\x01\x00\x01", {0: 1}),
+]
+for wire, expected in cases:
+    assert cbor2.loads(wire) == expected
+    obj = rr_scapy_decode(wire)
+    assert obj.enc() == cbor2.dumps(expected, canonical=True)
+    assert cbor2.loads(obj.enc()) == expected
+
+= An overlong semantic-tag header rebuilds in shortest form ~ external_cbor2
+wire = b"\xda\x00\x00\xea\x60\x00"  # tag 60000 around integer 0
+expected = cbor2.CBORTag(60000, 0)
+assert cbor2.loads(wire) == expected
+obj = rr_scapy_decode(wire)
+canonical = cbor2.dumps(expected, canonical=True)
+assert obj.enc() == canonical
+assert cbor2.loads(obj.enc()) == expected
+
+= Mixed non-preferred headers normalize recursively ~ external_cbor2
+wire = (
+    b"\x98\x03"          # array(3), overlong length
+    b"\x18\x01"          # uint 1, overlong
+    b"\x78\x01x"        # text length 1, overlong
+    b"\xb8\x01\x18\x02\x18\x03"  # {2: 3}, all overlong
+)
+expected = [1, "x", {2: 3}]
+assert cbor2.loads(wire) == expected
+obj = rr_scapy_decode(wire)
+assert obj.enc() == cbor2.dumps(expected, canonical=True)
+assert cbor2.loads(obj.enc()) == expected
+
++ Floating-point vectors generated and validated by cbor2
+
+= Canonical cbor2 chooses half, single, and double float widths ~ external_cbor2
+cases = [(1.5, 0xf9), (100000.0, 0xfa), (1.1, 0xfb)]
+for value, initial in cases:
+    wire = cbor2.dumps(value, canonical=True)
+    assert wire[0] == initial, (value, wire.hex())
+    rr_assert_cbor2_value(value, canonical=True, exact=False)
+
+= Positive and negative zero retain their sign across implementations ~ external_cbor2
+for value in (0.0, -0.0):
+    wire, obj = rr_assert_cbor2_value(value, canonical=True, exact=False)
+    assert math.copysign(1.0, obj.val) == math.copysign(1.0, value)
+    rebuilt = obj.enc()
+    assert math.copysign(1.0, cbor2.loads(rebuilt)) == math.copysign(1.0, value)
+
+= Positive and negative infinity interoperate ~ external_cbor2
+for value in (float("inf"), float("-inf")):
+    rr_assert_cbor2_value(value, canonical=True, exact=False)
+    rr_assert_scapy_native(value)
+
+= NaN remains NaN across width normalization ~ external_cbor2
+wire = cbor2.dumps(float("nan"), canonical=True)
+obj = rr_scapy_decode(wire)
+assert math.isnan(obj.val)
+assert math.isnan(cbor2.loads(obj.enc()))
+
+= Half, single, and double subnormal values interoperate ~ external_cbor2
+for value in (2.0 ** -24, 2.0 ** -149, 2.0 ** -1074):
+    wire = cbor2.dumps(value, canonical=True)
+    expected = cbor2.loads(wire)
+    obj = rr_scapy_decode(wire)
+    assert _rr_float(obj.val) == _rr_float(expected)
+    assert _rr_float(cbor2.loads(obj.enc())) == _rr_float(expected)
+
+= Explicit half, single, and double encodings decode identically ~ external_cbor2
+wires = [
+    b"\xf9\x3e\x00",
+    b"\xfa\x3f\xc0\x00\x00",
+    b"\xfb\x3f\xf8\x00\x00\x00\x00\x00\x00",
+]
+for wire in wires:
+    assert cbor2.loads(wire) == 1.5
+    obj = rr_scapy_decode(wire)
+    assert obj.val == 1.5
+    assert cbor2.loads(obj.enc()) == 1.5
+
+= Scapy preferred float encodings are accepted by cbor2 for finite floats ~ external_cbor2
+values = [-1.0e300, -123.5, -0.0, 0.0, 1.5, 1.1, 1.0e300]
+for value in values:
+    wire = rr_assert_scapy_native(value)
+    # Preferred serialization may use half/single/double; cbor2 must accept it.
+    assert wire[0] in (0xf9, 0xfa, 0xfb), wire.hex()
+    loaded = cbor2.loads(wire)
+    assert loaded == value or (
+        math.copysign(1.0, loaded) == math.copysign(1.0, value)
+        and loaded == 0.0 and value == 0.0
+    )
+= Different NaN payloads remain semantic NaNs after Scapy re-encoding ~ external_cbor2
+for wire in (b"\xf9\x7e\x00", b"\xfa\x7f\xc0\x00\x01",
+             b"\xfb\x7f\xf8\x00\x00\x00\x00\x00\x01"):
+    assert math.isnan(cbor2.loads(wire))
+    obj = rr_scapy_decode(wire)
+    assert math.isnan(obj.val)
+    assert math.isnan(cbor2.loads(obj.enc()))
+
++ Arrays, maps, nesting, and canonical ordering
+
+= Array length boundaries generated by cbor2 decode and re-encode exactly ~ external_cbor2
+for length in (0, 1, 22, 23, 24, 25, 254, 255, 256, 4096):
+    value = [index & 0x17 for index in range(length)]
+    rr_assert_cbor2_value(value, canonical=True, exact=True)
+
+= Large array 16-bit to 32-bit length transition interoperates ~ external_cbor2
+for length in (65535, 65536):
+    value = [None] * length
+    wire = cbor2.dumps(value, canonical=True)
+    obj = rr_scapy_decode(wire)
+    assert len(obj.val) == length
+    assert obj.enc() == wire
+
+= Map length boundaries generated by cbor2 decode and re-encode exactly ~ external_cbor2
+for length in (0, 1, 22, 23, 24, 25, 254, 255, 256):
+    value = {index: index + 1 for index in range(length)}
+    rr_assert_cbor2_value(value, canonical=True, exact=True)
+
+= Deep heterogeneous containers agree semantically and exactly ~ external_cbor2
+value = {
+    "array": [1, -2, b"three", "four", None, True, cbor2.undefined],
+    "map": {"nested": [{"x": 1}, {"y": 2}]},
+    "tag": cbor2.CBORTag(60000, [1, {"z": b"q"}]),
+}
+rr_assert_cbor2_value(value, canonical=True, exact=True)
+
+= Canonical map order emitted by cbor2 is retained by Scapy ~ external_cbor2
+value = {"aa": 1, "b": 2, b"": 3, 10: 4, -1: 5}
+wire = cbor2.dumps(value, canonical=True)
+obj = rr_scapy_decode(wire)
+assert obj.enc() == wire
+assert rr_norm_cbor2(rr_cbor2_load(obj.enc())) == rr_norm_cbor2(rr_cbor2_load(wire))
+
+= A compound array-valued map key generated by cbor2 round-trips ~ external_cbor2
+value = {(1, "x", b"y"): "compound-key"}
+wire = cbor2.dumps(value, canonical=True)
+obj = rr_scapy_decode(wire)
+assert isinstance(obj, CBOR_MAP)
+assert obj.enc() == wire
+assert rr_norm_cbor2(rr_cbor2_load(obj.enc())) == rr_norm_cbor2(rr_cbor2_load(wire))
+
+= A map-valued map key validated by immutable cbor2 round-trips ~ external_cbor2
+key_wire = cbor2.dumps({"inner": 1}, canonical=True)
+wire = b"\xa1" + key_wire + cbor2.dumps("map-key", canonical=True)
+decoded = cbor2.loads(wire, immutable=True)
+assert len(decoded) == 1
+obj = rr_scapy_decode(wire)
+pairs = obj.val.cbor_pairs()
+assert len(pairs) == 1
+assert isinstance(pairs[0][0], CBOR_MAP)
+assert obj.enc() == wire
+
+= A semantic-tag-valued map key round-trips exactly ~ external_cbor2
+key_wire = cbor2.dumps(cbor2.CBORTag(60000, "key"), canonical=True)
+wire = b"\xa1" + key_wire + cbor2.dumps("tag-key", canonical=True)
+cbor2.loads(wire, immutable=True)
+obj = rr_scapy_decode(wire)
+pairs = obj.val.cbor_pairs()
+assert len(pairs) == 1
+assert isinstance(pairs[0][0], CBOR_SEMANTIC_TAG)
+assert obj.enc() == wire
+
+= CBOR integer 1 and floating-point 1.0 remain distinct map keys ~ external_cbor2
+wire = (
+    b"\xa2" + cbor2.dumps(1) + cbor2.dumps("integer") +
+    cbor2.dumps(1.0) + cbor2.dumps("float")
+)
+cbor2.loads(wire, immutable=True)
+obj = rr_scapy_decode(wire)
+pairs = obj.val.cbor_pairs()
+assert len(pairs) == 2
+assert isinstance(pairs[0][0], CBOR_UNSIGNED_INTEGER)
+assert isinstance(pairs[1][0], CBOR_FLOAT)
+assert obj.enc() == wire
+
+= Positive and negative floating zero remain distinct encoded map keys ~ external_cbor2
+wire = (
+    b"\xa2" + cbor2.dumps(0.0) + cbor2.dumps("positive") +
+    cbor2.dumps(-0.0) + cbor2.dumps("negative")
+)
+cbor2.loads(wire, immutable=True)
+obj = rr_scapy_decode(wire)
+pairs = obj.val.cbor_pairs()
+assert len(pairs) == 2
+assert isinstance(pairs[0][0], CBOR_FLOAT)
+assert isinstance(pairs[1][0], CBOR_FLOAT)
+assert math.copysign(1.0, pairs[0][0].val) == 1.0
+assert math.copysign(1.0, pairs[1][0].val) == -1.0
+assert obj.enc() == wire
+
+= Distinct double-precision NaN payloads survive as separate map keys ~ external_cbor2
+first_nan = b"\xfb\x7f\xf8\x00\x00\x00\x00\x00\x01"
+second_nan = b"\xfb\x7f\xf8\x00\x00\x00\x00\x00\x02"
+wire = b"\xa2" + first_nan + cbor2.dumps(1) + second_nan + cbor2.dumps(2)
+cbor2.loads(wire, immutable=True)
+obj = rr_scapy_decode(wire)
+pairs = obj.val.cbor_pairs()
+assert len(pairs) == 2
+assert all(isinstance(key, CBOR_FLOAT) and math.isnan(key.val) for key, _ in pairs)
+assert obj.enc() == wire
+
+= CBOR integer 1 and Boolean true remain distinct map keys in Scapy ~ external_cbor2
+wire = (
+    b"\xa2" + cbor2.dumps(1) + cbor2.dumps("integer") +
+    cbor2.dumps(True) + cbor2.dumps("boolean")
+)
+# cbor2 validates the complete wire, even though a Python mapping cannot
+# faithfully expose these two Python-equal keys at the same time.
+cbor2.loads(wire)
+obj = rr_scapy_decode(wire)
+pairs = obj.val.cbor_pairs()
+assert len(pairs) == 2
+assert isinstance(pairs[0][0], CBOR_UNSIGNED_INTEGER)
+assert isinstance(pairs[1][0], CBOR_TRUE)
+assert obj.enc() == wire
+
+= Indefinite arrays generated by cbor2 normalize semantically in Scapy ~ external_cbor2
+for value in ([], [1], [1, "two", [3, 4]], [{"x": 1}, {"y": 2}]):
+    wire = cbor2.dumps(value, indefinite_containers=True)
+    assert wire[0] == 0x9f and wire[-1] == 0xff
+    rr_assert_cbor2_value(value, indefinite_containers=True, exact=False)
+
+= Indefinite maps generated by cbor2 normalize semantically in Scapy ~ external_cbor2
+for value in ({}, {"x": 1}, {"x": [1, 2], "y": {"z": 3}}):
+    wire = cbor2.dumps(value, indefinite_containers=True)
+    assert wire[0] == 0xbf and wire[-1] == 0xff
+    rr_assert_cbor2_value(value, indefinite_containers=True, exact=False)
+
+= Mixed nested indefinite containers generated by cbor2 interoperate ~ external_cbor2
+value = [{"a": [1, 2]}, {"b": {"c": [3, 4]}}]
+rr_assert_cbor2_value(value, indefinite_containers=True, exact=False)
+
+= Scapy accepts the maximum configured nesting depth from cbor2 ~ external_cbor2
+value = 0
+for _ in range(MAX_CBOR_NESTING):
+    value = [value]
+
+wire = cbor2.dumps(value)
+rr_scapy_decode(wire)
+assert cbor2.loads(wire, max_depth=MAX_CBOR_NESTING + 2) == value
+
+= Scapy rejects one level beyond its configured nesting depth ~ external_cbor2
+value = 0
+for _ in range(MAX_CBOR_NESTING + 1):
+    value = [value]
+
+wire = cbor2.dumps(value)
+assert cbor2.loads(wire, max_depth=MAX_CBOR_NESTING + 2) == value
+rr_scapy_reject(wire)
+
++ CBOR sequence and remainder interoperability
+
+= Scapy leaves the exact cbor2-generated suffix after one decoded item ~ external_cbor2
+first = cbor2.dumps({"first": [1, 2]}, canonical=True)
+second = cbor2.dumps(cbor2.CBORTag(60000, "second"), canonical=True)
+obj, remainder = CBOR_Codecs.CBOR.dec(first + second)
+assert obj.enc() == first
+assert remainder == second
+
+= A heterogeneous cbor2 sequence decodes item-by-item in Scapy ~ external_cbor2
+values = [0, -1, b"x", "y", [1, 2], {"z": 3}, True, None,
+          cbor2.undefined, cbor2.CBORTag(60000, 4)]
+
+wire = b"".join(cbor2.dumps(value, canonical=True) for value in values)
+expected = [rr_norm_cbor2(rr_cbor2_load(cbor2.dumps(value, canonical=True)))
+            for value in values]
+
+assert rr_scapy_sequence(wire) == expected
+assert rr_cbor2_sequence(wire, len(values)) == expected
+
+= cbor2 decodes a sequence produced by Scapy native encoders ~ external_cbor2
+values = [0, -1, b"x", "y", [1, 2], {"z": 3}, True, None,
+          CBOR_UNDEFINED_VALUE, CBORTagValue(60000, 4)]
+
+wire = b"".join(CBORcodec_Object.encode_cbor_item(value) for value in values)
+expected = [rr_norm_native(value) for value in values]
+assert rr_cbor2_sequence(wire, len(values)) == expected
+assert rr_scapy_sequence(wire) == expected
+
+= A 100-item deterministic sequence makes forward progress in both decoders ~ external_cbor2
+rng = random.Random(0xCB020001)
+values = [rr_random_value(rng, include_float=False) for _ in range(100)]
+wire = b"".join(cbor2.dumps(value, canonical=True) for value in values)
+expected = [rr_norm_cbor2(rr_cbor2_load(cbor2.dumps(value, canonical=True)))
+            for value in values]
+
+assert rr_scapy_sequence(wire) == expected
+assert rr_cbor2_sequence(wire, len(values)) == expected
+
++ Typed CBOR packet fields with cbor2-generated wire data
+
+= CBORF_UNSIGNED_INTEGER accepts all cbor2 uint64 boundaries ~ external_cbor2
+for value in (0, 23, 24, 255, 256, 65535, 65536, (1 << 64) - 1):
+    wire = cbor2.dumps(value, canonical=True)
+    pkt = RRCbor2UInt(wire)
+    assert pkt.value == value
+    rr_clear_cache(pkt)
+    assert bytes(pkt) == wire
+
+= CBORF_NEGATIVE_INTEGER accepts all cbor2 int64 boundaries ~ external_cbor2
+for value in (-1, -24, -25, -256, -257, -65536, -65537, -(1 << 64)):
+    wire = cbor2.dumps(value, canonical=True)
+    pkt = RRCbor2NInt(wire)
+    assert pkt.value == value
+    rr_clear_cache(pkt)
+    assert bytes(pkt) == wire
+
+= CBORF_BYTE_STRING accepts definite strings generated by cbor2 ~ external_cbor2
+for value in (b"", b"x", bytes(range(256)), b"z" * 65536):
+    wire = cbor2.dumps(value, canonical=True)
+    pkt = RRCbor2Bytes(wire)
+    assert pkt.value == value
+    rr_clear_cache(pkt)
+    assert bytes(pkt) == wire
+
+= CBORF_BYTE_STRING accepts a valid indefinite string and rebuilds definite ~ external_cbor2
+wire = b"\x5f" + cbor2.dumps(b"ab") + cbor2.dumps(b"cd") + b"\xff"
+pkt = RRCbor2Bytes(wire)
+assert pkt.value == b"abcd"
+rr_clear_cache(pkt)
+assert bytes(pkt) == cbor2.dumps(b"abcd")
+
+= CBORF_BYTE_STRING definite-only mode accepts cbor2 definite data ~ external_cbor2
+for value in (b"", b"x", bytes(range(32)), b"z" * 256):
+    wire = cbor2.dumps(value, canonical=True)
+    pkt = RRCbor2DefiniteBytes(wire)
+    assert pkt.value == value
+    rr_clear_cache(pkt)
+    assert bytes(pkt) == wire
+
+= CBORF_BYTE_STRING definite-only mode rejects an oracle-valid indefinite value ~ external_cbor2
+wire = b"\x5f" + cbor2.dumps(b"ab") + cbor2.dumps(b"cd") + b"\xff"
+assert cbor2.loads(wire) == b"abcd"
+try:
+    RRCbor2DefiniteBytes(wire)
+except CBOR_Decoding_Error:
+    pass
+else:
+    raise AssertionError("definite-only byte field accepted an indefinite string")
+
+= CBORF_TEXT_STRING accepts Unicode strings generated by cbor2 ~ external_cbor2
+for value in ("", "hello", "Grüße", "𐍈" * 100, "a\x00b"):
+    wire = cbor2.dumps(value, canonical=True)
+    pkt = RRCbor2Text(wire)
+    assert pkt.value == value
+    rr_clear_cache(pkt)
+    assert bytes(pkt) == wire
+
+= CBORF_TEXT_STRING accepts a valid indefinite string and rebuilds definite ~ external_cbor2
+wire = b"\x7f" + cbor2.dumps("Grü") + cbor2.dumps("ße") + b"\xff"
+pkt = RRCbor2Text(wire)
+assert pkt.value == "Grüße"
+rr_clear_cache(pkt)
+assert bytes(pkt) == cbor2.dumps("Grüße")
+
+= CBORF_BOOLEAN agrees with cbor2 for both Boolean values ~ external_cbor2
+for value in (False, True):
+    wire = cbor2.dumps(value)
+    pkt = RRCbor2Bool(wire)
+    assert pkt.value is value
+    rr_clear_cache(pkt)
+    assert bytes(pkt) == wire
+
+= CBORF_NULL agrees with cbor2 null ~ external_cbor2
+wire = cbor2.dumps(None)
+pkt = RRCbor2Null(wire)
+assert pkt.value is None
+rr_clear_cache(pkt)
+assert bytes(pkt) == wire
+
+= CBORF_UNDEFINED agrees with cbor2 undefined ~ external_cbor2
+wire = cbor2.dumps(cbor2.undefined)
+pkt = RRCbor2Undefined(wire)
+assert pkt.value is None
+rr_clear_cache(pkt)
+assert bytes(pkt) == wire
+
+= CBORF_FLOAT accepts every cbor2 float width and rebuilds valid double ~ external_cbor2
+for wire in (b"\xf9\x3e\x00", b"\xfa\x3f\xc0\x00\x00",
+             b"\xfb\x3f\xf8\x00\x00\x00\x00\x00\x00"):
+    expected = cbor2.loads(wire)
+    pkt = RRCbor2Float(wire)
+    assert _rr_float(pkt.value) == _rr_float(expected)
+    rr_clear_cache(pkt)
+    assert _rr_float(cbor2.loads(bytes(pkt))) == _rr_float(expected)
+
+= CBORF_ARRAY_OF decodes homogeneous cbor2 arrays at length boundaries ~ external_cbor2
+for length in (0, 1, 23, 24, 255, 256):
+    values = list(range(length))
+    wire = cbor2.dumps(values, canonical=True)
+    pkt = RRCbor2UIntArray(wire)
+    assert pkt.values == values
+    rr_clear_cache(pkt)
+    assert bytes(pkt) == wire
+
+= CBORF_ARRAY_OF decodes indefinite cbor2 arrays ~ external_cbor2
+wire = cbor2.dumps([1, 2, 3], indefinite_containers=True)
+pkt = RRCbor2UIntArray(wire)
+assert pkt.values == [1, 2, 3]
+assert bytes(pkt) == wire
+
+= CBORF_SEMANTIC_TAG decodes and rebuilds a cbor2-generated tag ~ external_cbor2
+value = cbor2.CBORTag(60000, "tagged")
+wire = cbor2.dumps(value, canonical=True)
+pkt = RRCbor2TaggedText(wire)
+assert pkt.tag_number == 60000
+assert pkt.value == "tagged"
+rr_clear_cache(pkt)
+assert bytes(pkt) == wire
+
+= Typed packet mutation produces wire accepted by cbor2 ~ external_cbor2
+pkt = RRCbor2UInt(cbor2.dumps(23))
+pkt.value = 65536
+wire = bytes(pkt)
+assert cbor2.loads(wire) == 65536
+assert wire == cbor2.dumps(65536)
+
++ CBORF_ANY differential packet tests
+
+= CBORF_ANY scalar values generated by cbor2 rebuild semantically ~ external_cbor2
+values = [0, (1 << 64) - 1, -1, -(1 << 64), b"bytes", "text",
+          False, True, None, cbor2.undefined, cbor2.CBORSimpleValue(32),
+          1.5, cbor2.CBORTag(60000, "tag")]
+
+for value in values:
+    wire = cbor2.dumps(value, canonical=True)
+    pkt = RRCbor2AnyRoot(wire)
+    rr_clear_cache(pkt)
+    rebuilt = bytes(pkt)
+    assert rr_norm_cbor2(rr_cbor2_load(rebuilt)) == rr_norm_cbor2(rr_cbor2_load(wire))
+
+= CBORF_ANY nested arrays generated by cbor2 survive sibling mutation ~ external_cbor2
+value = [1, [2, [3]], "four"]
+wire = cbor2.dumps([value, 0], canonical=True)
+pkt = RRCbor2AnyEnvelope(wire)
+pkt.tail = 1
+assert cbor2.loads(bytes(pkt)) == [value, 1]
+
+= CBORF_ANY non-empty maps remain maps after sibling mutation ~ external_cbor2
+value = {"a": 1, "b": [2, 3]}
+wire = cbor2.dumps([value, 0], canonical=True)
+pkt = RRCbor2AnyEnvelope(wire)
+pkt.tail = 1
+assert cbor2.loads(bytes(pkt)) == [value, 1]
+
+= CBORF_ANY empty maps do not become arrays after sibling mutation ~ external_cbor2
+wire = cbor2.dumps([{}, 0], canonical=True)
+pkt = RRCbor2AnyEnvelope(wire)
+pkt.tail = 1
+actual = cbor2.loads(bytes(pkt))
+assert actual == [{}, 1]
+assert isinstance(actual[0], dict)
+
+= CBORF_ANY unknown nested tags remain tags after rebuild ~ external_cbor2
+value = cbor2.CBORTag(60000, [cbor2.CBORTag(60001, {"x": 1})])
+wire = cbor2.dumps(value, canonical=True)
+pkt = RRCbor2AnyRoot(wire)
+rr_clear_cache(pkt)
+assert rr_norm_cbor2(rr_cbor2_load(bytes(pkt))) == rr_norm_cbor2(rr_cbor2_load(wire))
+
+= CBORF_ANY preserves simple values and undefined distinctly ~ external_cbor2
+for value in (cbor2.CBORSimpleValue(0), cbor2.CBORSimpleValue(255), cbor2.undefined):
+    wire = cbor2.dumps(value)
+    pkt = RRCbor2AnyRoot(wire)
+    rr_clear_cache(pkt)
+    assert rr_norm_cbor2(rr_cbor2_load(bytes(pkt))) == rr_norm_cbor2(rr_cbor2_load(wire))
+
+= CBORF_ANY accepts cbor2 indefinite arrays and rebuilds equivalent data ~ external_cbor2
+value = [1, {"x": [2, 3]}]
+wire = cbor2.dumps(value, indefinite_containers=True)
+pkt = RRCbor2AnyRoot(wire)
+rr_clear_cache(pkt)
+assert cbor2.loads(bytes(pkt)) == value
+
+= CBORF_ANY accepts cbor2 indefinite maps and rebuilds a map ~ external_cbor2
+value = {"x": [1, 2], "y": {"z": 3}}
+wire = cbor2.dumps(value, indefinite_containers=True)
+pkt = RRCbor2AnyRoot(wire)
+rr_clear_cache(pkt)
+actual = cbor2.loads(bytes(pkt))
+assert actual == value
+assert isinstance(actual, dict)
+
+= CBORF_ANY bignums rebuild to the original mathematical integer ~ external_cbor2
+for value in (1 << 100, -(1 << 100)):
+    wire = cbor2.dumps(value, canonical=True)
+    pkt = RRCbor2AnyRoot(wire)
+    rr_clear_cache(pkt)
+    assert cbor2.loads(bytes(pkt)) == value
+
+= In-place mutation of a CBORF_ANY outer list invalidates cached bytes ~ external_cbor2
+wire = cbor2.dumps([[1, 2], 0], canonical=True)
+pkt = RRCbor2AnyEnvelope(wire)
+pkt.value.append(3)
+assert cbor2.loads(bytes(pkt)) == [[1, 2, 3], 0]
+
+= In-place mutation of a nested CBORF_ANY list invalidates cached bytes ~ external_cbor2
+wire = cbor2.dumps([[[1]], 0], canonical=True)
+pkt = RRCbor2AnyEnvelope(wire)
+pkt.value[0].append(2)
+assert cbor2.loads(bytes(pkt)) == [[[1, 2]], 0]
+
+= CBORF_ANY map-value mutation invalidates cached bytes ~ external_cbor2
+wire = cbor2.dumps([{"x": [1]}, 0], canonical=True)
+pkt = RRCbor2AnyEnvelope(wire)
+# The fixed representation must expose a mutable map while retaining major type 5.
+map_value = pkt.value
+if isinstance(map_value, CBORMapData):
+    stored = map_value["x"]
+elif isinstance(map_value, dict):
+    stored = map_value["x"]
+else:
+    stored = dict(map_value)["x"]
+
+stored.append(2)
+assert cbor2.loads(bytes(pkt)) == [{"x": [1, 2]}, 0]
+
++ Seeded randomized differential corpora
+
+= 256 canonical non-float values are byte-identical through generic Scapy ~ external_cbor2
+rng = random.Random(0xCB020101)
+for index in range(256):
+    value = rr_random_value(rng, include_float=False)
+    wire = cbor2.dumps(value, canonical=True)
+    obj = rr_scapy_decode(wire)
+    rebuilt = obj.enc()
+    assert rebuilt == wire, (index, wire.hex(), rebuilt.hex(), value)
+    assert rr_norm_cbor2(rr_cbor2_load(rebuilt)) == rr_norm_cbor2(rr_cbor2_load(wire))
+
+= 256 default cbor2 values including floats agree semantically with Scapy ~ external_cbor2
+rng = random.Random(0xCB020102)
+for index in range(256):
+    value = rr_random_value(rng, include_float=True)
+    wire = cbor2.dumps(value)
+    obj = rr_scapy_decode(wire)
+    expected = rr_norm_cbor2(rr_cbor2_load(wire))
+    actual = rr_norm_scapy(obj)
+    assert actual == expected, (index, wire.hex(), expected, actual, value)
+    assert rr_norm_cbor2(rr_cbor2_load(obj.enc())) == expected
+
+= 128 cbor2 indefinite-container values agree semantically with Scapy ~ external_cbor2
+rng = random.Random(0xCB020103)
+for index in range(128):
+    value = rr_random_value(rng, include_float=True)
+    wire = cbor2.dumps(value, indefinite_containers=True)
+    obj = rr_scapy_decode(wire)
+    expected = rr_norm_cbor2(rr_cbor2_load(wire))
+    actual = rr_norm_scapy(obj)
+    assert actual == expected, (index, wire.hex(), expected, actual, value)
+    assert rr_norm_cbor2(rr_cbor2_load(obj.enc())) == expected
+
+= 256 Scapy-native randomized values are accepted by cbor2 ~ external_cbor2
+rng = random.Random(0xCB020104)
+for index in range(256):
+    value = rr_random_value(rng, include_float=True)
+    native = rr_to_scapy_native(value)
+    wire = CBORcodec_Object.encode_cbor_item(native)
+    expected = rr_norm_native(native)
+    actual = rr_norm_cbor2(rr_cbor2_load(wire))
+    assert actual == expected, (index, wire.hex(), expected, actual, value)
+
+= 128 randomized canonical maps retain cbor2 canonical key order ~ external_cbor2
+rng = random.Random(0xCB020105)
+for index in range(128):
+    value = {}
+    while len(value) < rng.randrange(0, 12):
+        value[rr_random_key(rng)] = rr_random_value(rng, 2, include_float=False)
+    wire = cbor2.dumps(value, canonical=True)
+    obj = rr_scapy_decode(wire)
+    assert obj.enc() == wire, (index, wire.hex(), obj.enc().hex(), value)
+
+= 128 randomized unknown-tag trees remain byte-identical ~ external_cbor2
+rng = random.Random(0xCB020106)
+for index in range(128):
+    value = cbor2.CBORTag(
+        60000 + index,
+        rr_random_value(rng, include_float=False),
+    )
+    wire = cbor2.dumps(value, canonical=True)
+    obj = rr_scapy_decode(wire)
+    assert obj.enc() == wire, (index, wire.hex(), obj.enc().hex())
+
++ Malformed-input differential tests
+
+= Every proper prefix of cbor2-generated composite values is rejected ~ external_cbor2
+values = [
+    b"x" * 32,
+    "Grüße" * 8,
+    [1, 2, [3, 4]],
+    {"a": 1, "b": [2, 3]},
+    cbor2.CBORTag(60000, {"x": [1, 2]}),
+    1.5,
+]
+for value in values:
+    wire = cbor2.dumps(value, canonical=True)
+    for cut in range(len(wire)):
+        rr_both_reject(wire[:cut])
+
+= Invalid UTF-8 text is rejected by both implementations ~ external_cbor2
+for wire in (b"\x61\xff", b"\x62\xc0\x80", b"\x63\xed\xa0\x80"):
+    rr_both_reject(wire)
+
+= Exact duplicate map keys are rejected by both strict decoders ~ external_cbor2
+wire = b"\xa2" + cbor2.dumps(1) + cbor2.dumps(0) + cbor2.dumps(1) + cbor2.dumps(1)
+rr_cbor2_reject(wire, allow_duplicate_keys=False)
+rr_scapy_reject(wire)
+
+= Semantically duplicate shortest and overlong map keys are rejected ~ external_cbor2
+wire = b"\xa2\x01\x00\x18\x01\x01"
+assert cbor2.loads(wire) == {1: 1}
+rr_cbor2_reject(wire, allow_duplicate_keys=False)
+rr_scapy_reject(wire)
+
+= Standalone and misplaced break bytes are rejected by Scapy ~ external_cbor2
+# cbor2 6.1.4 decodes a bare/misplaced break as a sentinel object; Scapy must
+# still reject these as non-well-formed top-level / container items.
+for wire in (b"\xff", b"\x81\xff", b"\xa1\xff\x00"):
+    rr_scapy_reject(wire)
+
+= Reserved additional-information values are rejected by both ~ external_cbor2
+for major in range(8):
+    for additional in (28, 29, 30):
+        rr_both_reject(bytes([(major << 5) | additional]))
+
+= Non-well-formed two-byte simple values below 32 are rejected ~ external_cbor2
+for number in range(32):
+    rr_both_reject(b"\xf8" + bytes([number]))
+
+= Indefinite byte strings reject text-string chunks ~ external_cbor2
+wire = b"\x5f" + cbor2.dumps("wrong chunk type") + b"\xff"
+rr_both_reject(wire)
+
+= Indefinite text strings reject byte-string chunks ~ external_cbor2
+wire = b"\x7f" + cbor2.dumps(b"wrong chunk type") + b"\xff"
+rr_both_reject(wire)
+
+= Indefinite byte strings reject nested indefinite chunks ~ external_cbor2
+wire = b"\x5f\x5f" + cbor2.dumps(b"nested") + b"\xff\xff"
+rr_both_reject(wire)
+
+= Indefinite text strings reject nested indefinite chunks ~ external_cbor2
+wire = b"\x7f\x7f" + cbor2.dumps("nested") + b"\xff\xff"
+rr_both_reject(wire)
+
+= A UTF-8 code point split across text chunks is rejected ~ external_cbor2
+# U+00E4 is UTF-8 C3 A4, but each chunk must independently be valid UTF-8.
+wire = b"\x7f\x61\xc3\x61\xa4\xff"
+rr_both_reject(wire)
+
+= Indefinite strings reject a break before a chunk payload completes ~ external_cbor2
+for wire in (b"\x5f\x42a\xff", b"\x7f\x62a\xff"):
+    rr_both_reject(wire)
+
+= Indefinite maps reject a key without a value ~ external_cbor2
+wire = b"\xbf" + cbor2.dumps("key") + b"\xff"
+rr_both_reject(wire)
+
+= Semantic tags reject a missing tagged data item ~ external_cbor2
+wire = cbor2.dumps(cbor2.CBORTag(60000, 0), canonical=True)
+# Strip the complete encoded value, retaining only the cbor2-generated tag head.
+tag_only = wire[:-1]
+rr_both_reject(tag_only)
+
+= Truncated half, single, and double floats are rejected by both ~ external_cbor2
+for value in (1.5, 100000.0, 1.1):
+    wire = cbor2.dumps(value, canonical=True)
+    for cut in range(1, len(wire)):
+        rr_both_reject(wire[:cut])
+
+= Scapy safedec wraps every cbor2-rejected truncation ~ external_cbor2
+wire = cbor2.dumps({"a": [1, 2, 3], "b": "text"}, canonical=True)
+for cut in range(len(wire)):
+    prefix = wire[:cut]
+    rr_cbor2_reject(prefix)
+    result, remainder = CBOR_Codecs.CBOR.safedec(prefix)
+    assert isinstance(result, CBOR_DECODING_ERROR)
+    assert remainder == b""
+
+= cbor2 strict mode rejects indefinite data that generic Scapy accepts ~ external_cbor2
+values = [[], [1, 2], {}, {"x": 1}]
+for value in values:
+    wire = cbor2.dumps(value, indefinite_containers=True)
+    rr_cbor2_reject(wire, allow_indefinite=False)
+    obj = rr_scapy_decode(wire)
+    assert rr_norm_cbor2(rr_cbor2_load(obj.enc())) == rr_norm_cbor2(rr_cbor2_load(wire))
+
++ Canonicalization and encode/decode idempotence
+
+= A broad canonical cbor2 corpus is byte-identical in generic Scapy ~ external_cbor2
+values = [
+    0, 23, 24, (1 << 64) - 1, -1, -(1 << 64), b"", b"x" * 256,
+    "", "Grüße", False, True, None, cbor2.undefined,
+    cbor2.CBORSimpleValue(255), [1, "x", b"y"],
+    {"b": 2, "a": 1}, cbor2.CBORTag(60000, {"x": [1, 2]}),
+]
+for value in values:
+    wire = cbor2.dumps(value, canonical=True)
+    assert rr_scapy_decode(wire).enc() == wire
+
+= Scapy generic encoding is idempotent after cbor2 input ~ external_cbor2
+rng = random.Random(0xCB020201)
+for index in range(256):
+    value = rr_random_value(rng, include_float=True)
+    original = cbor2.dumps(value)
+    first = rr_scapy_decode(original).enc()
+    second = rr_scapy_decode(first).enc()
+    assert second == first, (index, original.hex(), first.hex(), second.hex())
+
+= Scapy-normalized indefinite data remains stable on a second build ~ external_cbor2
+rng = random.Random(0xCB020202)
+for index in range(128):
+    value = rr_random_value(rng, include_float=True)
+    indefinite = cbor2.dumps(value, indefinite_containers=True)
+    first = rr_scapy_decode(indefinite).enc()
+    second = rr_scapy_decode(first).enc()
+    assert second == first, (index, indefinite.hex(), first.hex(), second.hex())
+
+= cbor2 canonicalization of Scapy output preserves semantics ~ external_cbor2
+rng = random.Random(0xCB020203)
+for index in range(256):
+    value = rr_random_value(rng, include_float=True)
+    native = rr_to_scapy_native(value)
+    scapy_wire = CBORcodec_Object.encode_cbor_item(native)
+    decoded = cbor2.loads(scapy_wire)
+    canonical = cbor2.dumps(decoded, canonical=True)
+    assert rr_norm_cbor2(rr_cbor2_load(canonical)) == rr_norm_native(native), index
+
+= cbor2 length-header transitions remain exact after Scapy decoding ~ external_cbor2
+values = [
+    b"x" * 23, b"x" * 24, b"x" * 255, b"x" * 256,
+    "x" * 23, "x" * 24, "x" * 255, "x" * 256,
+    [None] * 23, [None] * 24, [None] * 255, [None] * 256,
+    {index: None for index in range(23)},
+    {index: None for index in range(24)},
+    {index: None for index in range(255)},
+    {index: None for index in range(256)},
+]
+for value in values:
+    wire = cbor2.dumps(value, canonical=True)
+    assert rr_scapy_decode(wire).enc() == wire

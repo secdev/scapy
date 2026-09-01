@@ -193,6 +193,23 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
+
+  cbor2-interop:
+    name: cbor2 interoperability (Python 3.12)
+    runs-on: ubuntu-latest
+    needs: [commit, spdx]
+    steps:
+      - name: Checkout Scapy
+        uses: actions/checkout@v6
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install tox
+        run: pip install tox
+      - name: Run cbor2 differential tests
+        run: tox -e cbor2
+
   cryptography:
     name: pyca/cryptography test
     runs-on: ubuntu-latest

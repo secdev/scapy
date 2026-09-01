@@ -21,15 +21,21 @@ from scapy.cbor.cbor import (
     CBOR_TEXT_STRING,
     CBOR_ARRAY,
     CBOR_MAP,
+    CBORMapData,
     CBOR_SEMANTIC_TAG,
     CBOR_SIMPLE_VALUE,
     CBOR_FALSE,
     CBOR_TRUE,
     CBOR_NULL,
     CBOR_UNDEFINED,
+    CBOR_UNDEFINED_VALUE,
+    CBOR_NO_ITEM,
     CBOR_FLOAT,
+    CBORFloatValue,
     CBOR_DECODING_ERROR,
     RandCBORObject,
+    CBORTagValue,
+    CBORSimpleValue,
 )
 
 from scapy.cbor.cborcodec import (
@@ -45,8 +51,12 @@ from scapy.cbor.cborcodec import (
 )
 
 from scapy.cbor.cborfields import (
+    CBORBuildResult,
+    CBORParseResult,
     CBORF_element,
     CBORF_field,
+    CBORF_ANY,
+    CBOR_ABSENT,
     CBORF_UNSIGNED_INTEGER,
     CBORF_NEGATIVE_INTEGER,
     CBORF_INTEGER,
@@ -56,12 +66,19 @@ from scapy.cbor.cborfields import (
     CBORF_NULL,
     CBORF_UNDEFINED,
     CBORF_FLOAT,
+    CBORF_SEQUENCE,
+    CBORF_SEQUENCE_OF,
     CBORF_ARRAY,
     CBORF_ARRAY_OF,
+    CBORF_ARRAY_INDEFINITE,
     CBORF_MAP,
     CBORF_SEMANTIC_TAG,
+    CBORF_UNSIGNED_ENUM,
+    CBORF_UNSIGNED_FLAGS,
     CBORF_optional,
+    CBORF_CONDITIONAL,
     CBORF_PACKET,
+    CBORF_BYTE_STRING_PACKET,
 )
 
 __all__ = [
@@ -81,14 +98,20 @@ __all__ = [
     "CBOR_TEXT_STRING",
     "CBOR_ARRAY",
     "CBOR_MAP",
+    "CBORMapData",
     "CBOR_SEMANTIC_TAG",
     "CBOR_SIMPLE_VALUE",
     "CBOR_FALSE",
     "CBOR_TRUE",
     "CBOR_NULL",
     "CBOR_UNDEFINED",
+    "CBOR_UNDEFINED_VALUE",
+    "CBOR_NO_ITEM",
     "CBOR_FLOAT",
+    "CBORFloatValue",
     "CBOR_DECODING_ERROR",
+    "CBORTagValue",
+    "CBORSimpleValue",
     # Random/Fuzzing
     "RandCBORObject",
     # Codec classes
@@ -101,9 +124,14 @@ __all__ = [
     "CBORcodec_MAP",
     "CBORcodec_SEMANTIC_TAG",
     "CBORcodec_SIMPLE_AND_FLOAT",
+    # Result types
+    "CBORBuildResult",
+    "CBORParseResult",
     # Field base classes
     "CBORF_element",
     "CBORF_field",
+    "CBORF_ANY",
+    "CBOR_ABSENT",
     # Scalar fields
     "CBORF_UNSIGNED_INTEGER",
     "CBORF_NEGATIVE_INTEGER",
@@ -115,11 +143,18 @@ __all__ = [
     "CBORF_UNDEFINED",
     "CBORF_FLOAT",
     # Structured fields
+    "CBORF_SEQUENCE",
+    "CBORF_SEQUENCE_OF",
     "CBORF_ARRAY",
     "CBORF_ARRAY_OF",
+    "CBORF_ARRAY_INDEFINITE",
     "CBORF_MAP",
     "CBORF_SEMANTIC_TAG",
     # Complex fields
+    "CBORF_UNSIGNED_ENUM",
+    "CBORF_UNSIGNED_FLAGS",
     "CBORF_optional",
+    "CBORF_CONDITIONAL",
     "CBORF_PACKET",
+    "CBORF_BYTE_STRING_PACKET",
 ]
