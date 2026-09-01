@@ -13,8 +13,10 @@ __all__ = [
     "CRC",
     "CRCParam",
     "CRC_16",
-    "CRC_32",
     "CRC_16_CCITT",
+    "CRC_16_X25",
+    "CRC_32",
+    "CRC_32C",
     "CRC_32_AUTOSAR",
     "WELL_KNOWN_POLY",
 ]
@@ -22,7 +24,8 @@ __all__ = [
 from functools import lru_cache
 from collections import defaultdict
 import itertools
-from typing import Set, List, Tuple, Any
+
+from typing import Any, List, Set, Tuple
 
 
 # Taken from https://en.wikipedia.org/wiki/Cyclic_redundancy_check
@@ -384,6 +387,18 @@ class CRC_32(CRC):
     test_vectors = [(b"123456789", 0xcbf43926)]
 
 
+class CRC_32C(CRC):
+    "aka Castagnoli"
+    name = "CRC-32C"
+    size = 32
+    poly = 0x1edc6f41
+    init_crc = 0xffffffff
+    xor = 0xffffffff
+    reflect_input = True
+    reflect_output = True
+    test_vectors = [(b"123456789", 0xe3069283)]
+
+
 class CRC_16_CCITT(CRC):
     "aka KERMIT CRC"
     name = "CRC16 CCITT"
@@ -394,6 +409,17 @@ class CRC_16_CCITT(CRC):
     reflect_input = True
     reflect_output = True
     test_vectors = [(b"\xcb\x37", 0x6b3e)]
+
+
+class CRC_16_X25(CRC):
+    name = "CRC-16 X-25"
+    size = 16
+    poly = 0x1021
+    init_crc = 0xffff
+    xor = 0xffff
+    reflect_input = True
+    reflect_output = True
+    test_vectors = [(b"123456789", 0x906e)]
 
 
 class CRC_32_AUTOSAR(CRC):
