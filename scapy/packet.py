@@ -105,7 +105,7 @@ class Packet(
         "process_information"
     ]
     name = None
-    fields_desc = []  # type: ClassVar[List[AnyField]]
+    fields_desc = []  # type: ClassVar[List[Union[AnyField, Type[Packet]]]]
     deprecated_fields = {}  # type: Dict[str, Tuple[str, str]]
     overload_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     payload_guess = []  # type: List[Tuple[Dict[str, Any], Type[Packet]]]
