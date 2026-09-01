@@ -308,7 +308,7 @@ def snmpget(dst, oid="1.0.8802.1.1.1.1.1.2.1.2.29", community="public"):
     for r in ans:
         if ICMP in r.answer:
             print(repr(r.answer))
-            return
+            continue
         print("[%-10s] %-40s: %r" % (
             r.query.dst,
             r.answer[SNMPvarbind].oid.val,
