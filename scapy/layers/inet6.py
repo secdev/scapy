@@ -1004,11 +1004,11 @@ class IPv6ExtHdrRouting(_IPv6ExtHdr):
                    BitField("reserved", 0, 32),  # There is meaning in this field ...  # noqa: E501
                    IP6ListField("addresses", [],
                                 length_from=lambda pkt: 16 * (pkt.len // 2)),
-                   ConditionalField(
-                       StrLenField("data", b"", length_from=lambda pkt: 8),
-                       lambda pkt: (bool(pkt.getfieldval("data"))
-                                    if pkt.len is None else pkt.len % 2),
-                   )]
+                   ConditionalField(StrLenField("data", b"",
+                                                length_from=lambda pkt: 8),
+                                    lambda pkt: (bool(pkt.getfieldval("data"))
+                                                 if pkt.len is None
+                                                 else pkt.len % 2))]
     overload_fields = {IPv6: {"nh": 43}}
 
     def post_build(self, pkt, pay):
