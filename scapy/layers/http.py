@@ -945,6 +945,8 @@ class HTTP_Client(object):
                 self._connect_or_reuse(host, port=port, tls=tls, timeout=timeout)
                 continue
             if not resp:
+                self.close()
+                self._sockinfo = None
                 break
             # First case: auth was required. Handle that
             if resp.Status_Code in [b"401", b"407"]:
