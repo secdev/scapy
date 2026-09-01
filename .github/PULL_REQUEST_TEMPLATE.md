@@ -5,6 +5,7 @@ Here is a small checklist of actions to get you started with this PR. You may re
 Checklist :
 
 - Check the contribution guide at https://github.com/secdev/scapy/blob/master/CONTRIBUTING.md (esp. section submitting-pull-requests)
+- Sign the Contributor License Agreement at https://github.com/secdev/scapy/blob/master/CLA.md (a bot will comment on this PR to tell you how)
 - Have good commit hygiene. They must have the `AI-Assisted` tag as explained in the contributing guide. Please squash commits that belong together, and split commits that contain multiple features.
 - AI: You must make sure that you understood the internal concepts of Scapy and have good test coverage (like >90%). Please review ALL the code you generated.
 - Add unit tests or explain why they are not relevant.

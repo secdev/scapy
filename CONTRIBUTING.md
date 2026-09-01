@@ -64,6 +64,17 @@ of function calls, packet creations, etc.).
 
 ## Submitting pull requests
 
+### Contributor License Agreement
+
+Before your first pull request can be merged, you need to sign the
+[Scapy Contributor License Agreement](CLA.md). It confirms that you are allowed
+to contribute the code and that we may distribute it; it does not take any
+rights to your own work away from you.
+
+There is nothing to do up front. A bot comments on your pull request and tells
+you how to sign, which is a matter of posting one comment. You only ever sign
+once, and later pull requests are checked against that signature automatically.
+
 ### Coding style & conventions
 
 -   All commits should include the `AI-Assisted: (yes/no) [tool]` tag. This is used to disclose the AI tools that are used when authoring. You must check the commits you produce, or your PR might be closed. The tag may look like such:
