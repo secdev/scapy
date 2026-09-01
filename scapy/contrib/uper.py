@@ -617,22 +617,6 @@ def _uper_bytes_to_bitstr(data, nbits):
     return bitstr[:nbits]
 
 
-def _uper_bit_string_parts(_s):
-    # type: (Any) -> Tuple[bytes, int]
-    if isinstance(_s, tuple) and len(_s) == 2:
-        data, nbits = _s
-        return bytes_encode(data), nbits
-    if isinstance(_s, str) and _s and all(c in "01" for c in _s):
-        nbits = len(_s)
-        padded = _s + "0" * ((8 - nbits % 8) % 8)
-        data = int(padded or "0", 2).to_bytes(
-            max(1, len(padded) // 8), "big"
-        )
-        return data, nbits
-    s = bytes_encode(_s)
-    return s, 8 * len(s)
-
-
 def _uper_size_bounds(size_len, uper_min, uper_max):
     # type: (Optional[int], Optional[int], Optional[int]) -> Tuple[Optional[int], Optional[int]]  # noqa: E501
     # A SIZE constraint given as size_len is a fixed size, i.e. a range whose
@@ -655,7 +639,18 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        s, nbits = _uper_bit_string_parts(_s)
+        if isinstance(_s, tuple) and len(_s) == 2:
+            data, nbits = _s
+            s = bytes_encode(data)
+        elif isinstance(_s, str) and _s and all(c in "01" for c in _s):
+            nbits = len(_s)
+            padded = _s + "0" * ((8 - nbits % 8) % 8)
+            s = int(padded or "0", 2).to_bytes(
+                max(1, len(padded) // 8), "big"
+            )
+        else:
+            s = bytes_encode(_s)
+            nbits = 8 * len(s)
         minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
         if minimum is not None and maximum is not None:
             _uper_check_size(cls.__name__, "bits", nbits, minimum, maximum)
@@ -1044,28 +1039,6 @@ def _uper_decode_all(s, read):
     return value
 
 
-def _uper_use_object_enc(field, pkt, item):
-    # type: (Any, Any, Any) -> bool
-    # Always pass constraints through codec.enc(**kwargs).
-    return False
-
-
-def _uper_sequence_m2i(field, pkt, s):
-    # type: (Any, Any, bytes) -> Tuple[Any, bytes]
-    _uper_decode_all(s, lambda dec: (
-        _uper_sequence_dissect_from_decoder(field, pkt, dec)
-    ))
-    return [], b""
-
-
-def _uper_sequence_build(field, pkt):
-    # type: (Any, Any) -> bytes
-    from scapy.asn1fields import ASN1F_field
-    enc = UPER_Encoder()
-    _uper_sequence_encode_into(field, enc, pkt)
-    return ASN1F_field.i2m(field, pkt, enc.as_bytes())
-
-
 def _uper_sequence_dissect_from_decoder(field, pkt, dec):
     # type: (Any, Any, Any) -> None
     from scapy.asn1fields import ASN1F_badsequence, ASN1F_optional
@@ -1103,27 +1076,6 @@ def _uper_sequence_encode_into(field, enc, pkt, value=None):
         obj.encode_into(enc, pkt)
 
 
-def _uper_sequence_of_m2i(field, pkt, s):
-    # type: (Any, Any, bytes) -> Tuple[list, bytes]
-    return _uper_decode_all(s, lambda dec: (
-        _uper_sequence_of_m2i_from_decoder(field, pkt, dec)
-    )), b""
-
-
-def _uper_sequence_of_build(field, pkt):
-    # type: (Any, Any) -> bytes
-    from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_Object
-    val = getattr(pkt, field.name)
-    if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
-        s = val  # type: Any
-    else:
-        # An unset field counts as an empty one, size constraint included
-        enc = UPER_Encoder()
-        _uper_sequence_of_encode_into(field, enc, pkt, val)
-        s = enc.as_bytes()
-    return field.i2m(pkt, s)
-
-
 def _uper_sequence_of_m2i_from_decoder(field, pkt, dec):
     # type: (Any, Any, Any) -> list
     lst = []
@@ -1131,13 +1083,22 @@ def _uper_sequence_of_m2i_from_decoder(field, pkt, dec):
     def read_items(count):
         # type: (int) -> None
         for _ in range(count):
-            item = _extract_packet_from_decoder(field, dec, pkt)
-            lst.append(item)
+            if field.holds_packets:
+                p = field.cls()
+                p.add_underlayer(pkt)
+                p.ASN1_root.dissect_from_decoder(p, dec)
+                lst.append(p)
+            else:
+                lst.append(field.fld.m2i_from_decoder(pkt, dec))
 
     if _field_extensible(field) and dec.read_bit():
         dec.read_fragmented(read_items)
     else:
-        _uper_count_dec(field, dec, read_items)
+        uper_min, uper_max = _field_range(field)
+        if uper_min is not None and uper_max is not None:
+            read_items(UPER_constrained_int_dec(dec, uper_min, uper_max))
+        else:
+            dec.read_fragmented(read_items)
     return lst
 
 
@@ -1170,24 +1131,6 @@ def _uper_sequence_of_encode_into(field, enc, pkt, value=None):
             enc.append_fragmented(count, append_items)
             return
     _uper_count_enc(field, enc, count, append_items)
-
-
-def _uper_choice_m2i(field, pkt, s):
-    # type: (Any, Any, bytes) -> Tuple[Any, bytes]
-    return _uper_decode_all(s, lambda dec: (
-        _uper_choice_m2i_from_decoder(field, pkt, dec)
-    )), b""
-
-
-def _uper_choice_i2m(field, pkt, x):
-    # type: (Any, Any, Any) -> bytes
-    if x is None:
-        s = b""
-    else:
-        enc = UPER_Encoder()
-        _uper_choice_encode_into(field, enc, pkt, x)
-        s = enc.as_bytes()
-    return field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag)
 
 
 def _uper_choice_m2i_from_decoder(field, pkt, dec):
@@ -1253,21 +1196,6 @@ def _uper_packet_m2i_from_decoder(field, pkt, dec):
     return p
 
 
-def _uper_packet_i2m(field, pkt, x):
-    # type: (Any, Any, Any) -> bytes
-    if x is None:
-        s = b""
-    else:
-        enc = UPER_Encoder()
-        _uper_packet_encode_into(field, enc, pkt, x)
-        s = enc.as_bytes()
-    return field._tagging_enc(
-        pkt, s,
-        implicit_tag=field.implicit_tag,
-        explicit_tag=field.explicit_tag,
-    )
-
-
 def _uper_packet_encode_into(field, enc, pkt, value=None):
     # type: (Any, Any, Any, Any) -> None
     from scapy.asn1.asn1 import ASN1_Object
@@ -1291,25 +1219,6 @@ def _uper_count_enc(field, enc, count, append_items):
         append_items(0, count)
     else:
         enc.append_fragmented(count, append_items)
-
-
-def _uper_count_dec(field, dec, read_items):
-    # type: (Any, Any, Callable[[int], None]) -> None
-    uper_min, uper_max = _field_range(field)
-    if uper_min is not None and uper_max is not None:
-        read_items(UPER_constrained_int_dec(dec, uper_min, uper_max))
-    else:
-        dec.read_fragmented(read_items)
-
-
-def _extract_packet_from_decoder(field, dec, pkt):
-    # type: (Any, Any, Any) -> Any
-    if field.holds_packets:
-        p = field.cls()
-        p.add_underlayer(pkt)
-        p.ASN1_root.dissect_from_decoder(p, dec)
-        return p
-    return field.fld.m2i_from_decoder(pkt, dec)
 
 
 def _install_uper_asn1fields():
@@ -1409,9 +1318,80 @@ def _install_uper_asn1fields():
     af.ASN1F_enum_INTEGER._codec_kwargs = enum_codec_kwargs  # type: ignore[assignment]
 
 
+def _uper_sequence_m2i(field, pkt, s):
+    # type: (Any, Any, bytes) -> Tuple[Any, bytes]
+    _uper_decode_all(
+        s, lambda dec: _uper_sequence_dissect_from_decoder(field, pkt, dec)
+    )
+    return [], b""
+
+
+def _uper_sequence_build(field, pkt):
+    # type: (Any, Any) -> bytes
+    from scapy.asn1fields import ASN1F_field
+    enc = UPER_Encoder()
+    _uper_sequence_encode_into(field, enc, pkt)
+    return ASN1F_field.i2m(field, pkt, enc.as_bytes())
+
+
+def _uper_sequence_of_m2i(field, pkt, s):
+    # type: (Any, Any, bytes) -> Tuple[list, bytes]
+    return _uper_decode_all(
+        s, lambda dec: _uper_sequence_of_m2i_from_decoder(field, pkt, dec)
+    ), b""
+
+
+def _uper_sequence_of_build(field, pkt):
+    # type: (Any, Any) -> bytes
+    from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_Object
+    val = getattr(pkt, field.name)
+    if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
+        s = val  # type: Any
+    else:
+        # An unset field counts as an empty one, size constraint included
+        enc = UPER_Encoder()
+        _uper_sequence_of_encode_into(field, enc, pkt, val)
+        s = enc.as_bytes()
+    return field.i2m(pkt, s)
+
+
+def _uper_choice_m2i(field, pkt, s):
+    # type: (Any, Any, bytes) -> Tuple[Any, bytes]
+    return _uper_decode_all(
+        s, lambda dec: _uper_choice_m2i_from_decoder(field, pkt, dec)
+    ), b""
+
+
+def _uper_choice_i2m(field, pkt, x):
+    # type: (Any, Any, Any) -> bytes
+    if x is None:
+        s = b""
+    else:
+        enc = UPER_Encoder()
+        _uper_choice_encode_into(field, enc, pkt, x)
+        s = enc.as_bytes()
+    return field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag)
+
+
+def _uper_packet_i2m(field, pkt, x):
+    # type: (Any, Any, Any) -> bytes
+    if x is None:
+        s = b""
+    else:
+        enc = UPER_Encoder()
+        _uper_packet_encode_into(field, enc, pkt, x)
+        s = enc.as_bytes()
+    return field._tagging_enc(
+        pkt, s,
+        implicit_tag=field.implicit_tag,
+        explicit_tag=field.explicit_tag,
+    )
+
+
 _install_uper_asn1fields()
 ASN1_Codecs.PER.register_hooks(
-    use_object_enc=_uper_use_object_enc,
+    # Constraints always go through codec.enc(**kwargs).
+    use_object_enc=lambda field, pkt, item: False,
     sequence_m2i=_uper_sequence_m2i,
     sequence_build=_uper_sequence_build,
     sequence_of_m2i=_uper_sequence_of_m2i,
