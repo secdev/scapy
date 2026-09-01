@@ -518,7 +518,7 @@ class ForwardMachine:
                         thissock.send(ex.data)
                         self.vprint(self.ANSWER, ctx, cs, data, ex.data)
                     except Exception as ex:
-                        # Processing failed. forward to not break anything
+                        # Processing failed. Drop the packet.
                         self.vprint(
                             self.ERROR,
                             ctx,
@@ -527,8 +527,7 @@ class ForwardMachine:
                             None,
                         )
                         traceback.print_exception(ex)
-                        othersock.send(data)
-                        self.vprint(self.FORWARD, ctx, cs, data, None)
+                        self.vprint(self.DROP, ctx, cs, data, None)
         except RuntimeError:
             print(self.ct.red("%s DISCONNECTED !" % repr(addr)))
             self.delconn(ctx)
