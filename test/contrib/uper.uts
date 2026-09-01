@@ -639,9 +639,9 @@ import scapy.contrib.oer
 
 from scapy.contrib.oer import *
 
-from scapy.contrib.uper import ASN1F_DEFAULT
-
 import scapy.asn1fields as asn1fields
+
+from scapy.asn1fields import ASN1F_DEFAULT
 
 def _val(x):
     # type: (Any) -> Any
@@ -867,10 +867,12 @@ assert decoded.c.val == b"AB"
 
 True
 
-= uper field choice definition order
+= uper field choice canonical order
+# X.691 10.2: INTEGER (UNIVERSAL 2) precedes OCTET STRING (UNIVERSAL 4),
+# even when STRING is declared first.
 as_str = UPERChoiceStringFirst(c=ASN1_STRING(b"AB"))
 
-assert raw(as_str) == bytes.fromhex("0120a100")
+assert raw(as_str) == bytes.fromhex("8120a100")
 
 decoded = _roundtrip(UPERChoiceStringFirst, as_str)
 
@@ -878,7 +880,7 @@ assert decoded.c.val == b"AB"
 
 as_int = UPERChoiceStringFirst(c=ASN1_INTEGER(99))
 
-assert raw(as_int) == bytes.fromhex("80b180")
+assert raw(as_int) == bytes.fromhex("00b180")
 
 decoded = _roundtrip(UPERChoiceStringFirst, as_int)
 
@@ -2529,7 +2531,7 @@ with mock.patch.object(
     _InnerRecord, "__init__", side_effect=ASN1F_badsequence,
 ):
     pkt_obj, remain = field.extract_packet(
-        _InnerRecord, b"\xab\xcd", _underlayer=None,
+        _InnerRecord, b"\xab\xcd", _parent=None,
     )
 
 assert isinstance(pkt_obj, Raw)
@@ -2784,17 +2786,15 @@ assert raw(oer_pkt_choice)
 True
 
 
-+ ASN.1 UPER field hooks and packet extras
-= uper field hooks registered
-assert ASN1_Codecs.hooks[ASN1_Codecs.PER]
++ ASN.1 UPER field dispatch and packet extras
+= uper helpers are module-level not monkey-patched
+from scapy.asn1 import uper as uper_mod
 
-assert ASN1_Codecs.PER.hook("sequence_m2i") is not None
+assert callable(uper_mod.uper_sequence_m2i)
 
-use_object_enc = ASN1_Codecs.PER.hook("use_object_enc")
+assert "_install_uper_asn1fields" not in uper_mod.__dict__
 
-assert use_object_enc(
-    UPERConstrainedInt.ASN1_root, UPERConstrainedInt(), ASN1_INTEGER(1),
-) is False
+assert not hasattr(ASN1_Codecs, "hooks")
 
 True
 
@@ -2817,18 +2817,14 @@ assert enum_fld._codec_kwargs(
     type("P", (), {"ASN1_codec": ASN1_Codecs.PER})()
 )["uper_enum_values"] == [1, 2]
 
-assert hasattr(ASN1F_field, "encode_into")
-
-assert hasattr(ASN1F_SEQUENCE, "dissect_from_decoder")
-
 True
 
-= uper use_object_enc and codec_opts
+= uper constraints and codec_opts
 fld = UPERConstrainedInt.ASN1_root
 
 assert fld.codec_opts == {"uper_min": 0, "uper_max": 255}
 
-assert fld._use_object_enc(UPERConstrainedInt(), ASN1_INTEGER(5)) is False
+assert fld.constraints.minimum == 0 and fld.constraints.maximum == 255
 
 assert raw(UPERConstrainedInt(n=5)) == b"\x05"
 
@@ -3065,8 +3061,8 @@ class UPERClassChoice(ASN1_Packet):
 
 pkt = UPERClassChoice(c=UPERAltA(i=5))
 
-# index bit 0, then the sequence: an unconstrained integer of one octet
-assert raw(pkt) == b"\x00\x82\x80"
+# X.691 canonical order: INTEGER before SEQUENCE, so AltA is index 1
+assert raw(pkt) == b"\x80\x82\x80"
 
 decoded = _roundtrip(UPERClassChoice, pkt)
 
@@ -3206,3 +3202,404 @@ _raises(UPER_Encoding_Error, lambda: raw(UPERSizedSeqOf(values=[])))
 _raises(UPER_Encoding_Error, lambda: raw(UPERSizedSeqOf(values=None)))
 
 True
+
+def _value(obj):
+    return getattr(obj, "val", obj)
+
+
+% PR #5050 refactor characterization (UPER)
++ UPER refactor contracts - continuous bit stream
+= constrained fields pack across one octet without intermediate padding
+class RefactorUPERFlatBits(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BOOLEAN("a", False),
+        ASN1F_INTEGER("b", 0, uper_min=0, uper_max=7),
+        ASN1F_BOOLEAN("c", False),
+        ASN1F_INTEGER("d", 0, uper_min=0, uper_max=7),
+    )
+
+pkt = RefactorUPERFlatBits(a=True, b=5, c=False, d=3)
+assert raw(pkt) == b"\xd3"
+decoded = RefactorUPERFlatBits(raw(pkt))
+assert _value(decoded.a) == 1
+assert _value(decoded.b) == 5
+assert _value(decoded.c) == 0
+assert _value(decoded.d) == 3
+True
+
+= nested ASN1F_SEQUENCE does not introduce a byte boundary
+class RefactorUPERNestedBits(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BOOLEAN("a", False),
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("b", 0, uper_min=0, uper_max=7),
+            ASN1F_BOOLEAN("c", False),
+        ),
+        ASN1F_INTEGER("d", 0, uper_min=0, uper_max=7),
+    )
+
+pkt = RefactorUPERNestedBits(a=True, b=5, c=False, d=3)
+assert raw(pkt) == b"\xd3"
+decoded = RefactorUPERNestedBits(b"\xd3")
+assert (_value(decoded.a), _value(decoded.b), _value(decoded.c), _value(decoded.d)) == (1, 5, 0, 3)
+True
+
+= nested ASN1F_PACKET shares the same UPER bit stream
+class RefactorUPERInnerBits(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("b", 0, uper_min=0, uper_max=7),
+        ASN1F_BOOLEAN("c", False),
+    )
+
+class RefactorUPERPacketBits(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BOOLEAN("a", False),
+        ASN1F_PACKET("inner", None, RefactorUPERInnerBits),
+        ASN1F_INTEGER("d", 0, uper_min=0, uper_max=7),
+    )
+
+pkt = RefactorUPERPacketBits(
+    a=True,
+    inner=RefactorUPERInnerBits(b=5, c=False),
+    d=3,
+)
+assert raw(pkt) == b"\xd3"
+decoded = RefactorUPERPacketBits(b"\xd3")
+assert _value(decoded.a) == 1
+assert _value(decoded.inner.b) == 5
+assert _value(decoded.inner.c) == 0
+assert _value(decoded.d) == 3
+assert decoded.inner.parent is decoded
+True
+
+= repeated nested packet build is deterministic
+pkt = RefactorUPERPacketBits(
+    a=True,
+    inner=RefactorUPERInnerBits(b=5, c=False),
+    d=3,
+)
+first = raw(pkt)
+second = raw(pkt)
+third = raw(RefactorUPERPacketBits(first))
+assert first == second == third == b"\xd3"
+True
+
++ UPER refactor contracts - constrained whole numbers
+= one bit constrained range exact vectors
+class RefactorUPERRange01(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=1)
+
+assert raw(RefactorUPERRange01(n=0)) == b"\x00"
+assert raw(RefactorUPERRange01(n=1)) == b"\x80"
+assert _value(RefactorUPERRange01(b"\x00").n) == 0
+assert _value(RefactorUPERRange01(b"\x80").n) == 1
+True
+
+= two bit constrained range exact vectors
+class RefactorUPERRange03(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=3)
+
+all(
+    raw(RefactorUPERRange03(n=value)) == expected
+    and _value(RefactorUPERRange03(expected).n) == value
+    for value, expected in [
+        (0, b"\x00"),
+        (1, b"\x40"),
+        (2, b"\x80"),
+        (3, b"\xc0"),
+    ]
+)
+
+= non-zero lower bound is encoded as an offset
+class RefactorUPERRange512(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 5, uper_min=5, uper_max=12)
+
+all(
+    raw(RefactorUPERRange512(n=value)) == expected
+    and _value(RefactorUPERRange512(expected).n) == value
+    for value, expected in [
+        (5, b"\x00"),
+        (6, b"\x20"),
+        (7, b"\x40"),
+        (8, b"\x60"),
+        (9, b"\x80"),
+        (10, b"\xa0"),
+        (11, b"\xc0"),
+        (12, b"\xe0"),
+    ]
+)
+
+= singleton constrained range consumes zero bits
+class RefactorUPERConstant(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 7, uper_min=7, uper_max=7)
+
+assert raw(RefactorUPERConstant(n=7)) == b""
+assert _value(RefactorUPERConstant(b"").n) == 7
+True
+
+= constrained values outside the root range are rejected
+_raises(UPER_Encoding_Error, lambda: raw(RefactorUPERRange03(n=-1)))
+_raises(UPER_Encoding_Error, lambda: raw(RefactorUPERRange03(n=4)))
+_raises(UPER_Encoding_Error, lambda: raw(RefactorUPERRange512(n=4)))
+_raises(UPER_Encoding_Error, lambda: raw(RefactorUPERRange512(n=13)))
+True
+
+= plain int and ASN1_INTEGER use identical field constraints
+all(
+    raw(RefactorUPERRange03(n=value)) == raw(
+        RefactorUPERRange03(n=ASN1_INTEGER(value))
+    )
+    for value in [0, 1, 2, 3]
+)
+
+= legacy oer_unsigned inference matches an explicit UPER 0 to 255 constraint
+class RefactorUPERLegacyUnsigned(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, size_len=1, oer_unsigned=True)
+
+class RefactorUPERExplicitUnsigned(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=255)
+
+all(
+    raw(RefactorUPERLegacyUnsigned(n=value))
+    == raw(RefactorUPERExplicitUnsigned(n=value))
+    == bytes([value])
+    for value in [0, 1, 127, 128, 254, 255]
+)
+
++ UPER refactor contracts - OPTIONAL and DEFAULT
+= OPTIONAL and DEFAULT presence bits are a single continuous preamble
+class RefactorUPERPresence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_optional(
+            ASN1F_INTEGER("opt", 0, uper_min=0, uper_max=255)
+        ),
+        ASN1F_DEFAULT(
+            ASN1F_INTEGER("mode", 3, uper_min=0, uper_max=255),
+            3,
+        ),
+    )
+
+vectors = [
+    (dict(id=1, opt=None, mode=3), bytes.fromhex("0040")),
+    (dict(id=1, opt=2, mode=3), bytes.fromhex("804080")),
+    (dict(id=1, opt=None, mode=4), bytes.fromhex("404100")),
+    (dict(id=1, opt=2, mode=4), bytes.fromhex("c0408100")),
+]
+all(
+    raw(RefactorUPERPresence(**values)) == expected
+    and _value(RefactorUPERPresence(expected).id) == 1
+    and (_value(RefactorUPERPresence(expected).opt)
+         if RefactorUPERPresence(expected).opt is not None else None) == values["opt"]
+    and _value(RefactorUPERPresence(expected).mode) == values["mode"]
+    for values, expected in vectors
+)
+
+= DEFAULT omitted explicitly and DEFAULT omitted implicitly have identical wire form
+implicit_default = RefactorUPERPresence(id=1, opt=None)
+explicit_default = RefactorUPERPresence(id=1, opt=None, mode=3)
+assert raw(implicit_default) == raw(explicit_default) == bytes.fromhex("0040")
+True
+
+= ASN1 object DEFAULT compares by semantic value
+plain = RefactorUPERPresence(id=1, mode=3)
+asn1_object = RefactorUPERPresence(id=1, mode=ASN1_INTEGER(3))
+assert raw(plain) == raw(asn1_object) == bytes.fromhex("0040")
+True
+
++ UPER refactor contracts - packet class selection
+= ASN1F_PACKET next_cls_cb selects child class during decode
+class RefactorUPERDynamicA(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("x", 0, uper_min=0, uper_max=7),
+    )
+
+class RefactorUPERDynamicB(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BOOLEAN("flag", False),
+    )
+
+
+def _uper_dynamic_cls(pkt):
+    return RefactorUPERDynamicA if _value(pkt.kind) == 0 else RefactorUPERDynamicB
+
+
+class RefactorUPERDynamicOuter(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("kind", 0, uper_min=0, uper_max=1),
+        ASN1F_PACKET(
+            "inner", None, RefactorUPERDynamicA,
+            next_cls_cb=_uper_dynamic_cls,
+        ),
+    )
+
+packet_a = RefactorUPERDynamicOuter(kind=0, inner=RefactorUPERDynamicA(x=5))
+packet_b = RefactorUPERDynamicOuter(kind=1, inner=RefactorUPERDynamicB(flag=True))
+assert raw(packet_a) == b"\x50"
+assert raw(packet_b) == b"\xc0"
+decoded_a = RefactorUPERDynamicOuter(raw(packet_a))
+decoded_b = RefactorUPERDynamicOuter(raw(packet_b))
+assert isinstance(decoded_a.inner, RefactorUPERDynamicA)
+assert _value(decoded_a.inner.x) == 5
+assert decoded_a.inner.parent is decoded_a
+assert isinstance(decoded_b.inner, RefactorUPERDynamicB)
+assert _value(decoded_b.inner.flag) == 1
+assert decoded_b.inner.parent is decoded_b
+True
+
++ UPER refactor contracts - SEQUENCE OF
+= fixed-size SEQUENCE OF packs elements without per-element padding
+class RefactorUPERFixedSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values",
+        [],
+        ASN1F_INTEGER("item", 0, uper_min=0, uper_max=3),
+        uper_min=4,
+        uper_max=4,
+    )
+
+pkt = RefactorUPERFixedSeqOf(values=[0, 1, 2, 3])
+assert raw(pkt) == b"\x1b"
+decoded = RefactorUPERFixedSeqOf(b"\x1b")
+assert [_value(item) for item in decoded.values] == [0, 1, 2, 3]
+True
+
+= constrained SEQUENCE OF count is encoded before continuous element bits
+class RefactorUPERVariableSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values",
+        [],
+        ASN1F_INTEGER("item", 0, uper_min=0, uper_max=3),
+        uper_min=1,
+        uper_max=4,
+    )
+
+# count=3 is offset 2 in range 1..4 -> '10', then 00 01 10 -> 10000110
+pkt = RefactorUPERVariableSeqOf(values=[0, 1, 2])
+assert raw(pkt) == b"\x86"
+decoded = RefactorUPERVariableSeqOf(b"\x86")
+assert [_value(item) for item in decoded.values] == [0, 1, 2]
+True
+
+
+% PR #5050 refactor targets (UPER)
++ Finding - UPER CHOICE indexes alternatives in canonical tag order
+= UPER CHOICE encode is independent of declaration order
+class RefactorUPERChoiceTag0(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_NULL("n", None))
+
+class RefactorUPERChoiceTag1(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_NULL("n", None))
+
+class RefactorUPERReversedChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE(
+        "c", None,
+        # Deliberately declare [1] before [0]. X.691 10.2/23.2 requires
+        # indexing root alternatives in canonical tag order.
+        ASN1F_PACKET(
+            "tag1", None, RefactorUPERChoiceTag1,
+            explicit_tag=0xA1,
+        ),
+        ASN1F_PACKET(
+            "tag0", None, RefactorUPERChoiceTag0,
+            explicit_tag=0xA0,
+        ),
+    )
+
+# Canonical order is [0], [1], so tag0 has index 0 and tag1 has index 1.
+assert raw(RefactorUPERReversedChoice(c=RefactorUPERChoiceTag0())) == b"\x00"
+assert raw(RefactorUPERReversedChoice(c=RefactorUPERChoiceTag1())) == b"\x80"
+True
+
+= UPER CHOICE decode uses canonical tag order rather than declaration order
+decoded_zero = RefactorUPERReversedChoice(b"\x00")
+decoded_one = RefactorUPERReversedChoice(b"\x80")
+assert isinstance(decoded_zero.c, RefactorUPERChoiceTag0)
+assert isinstance(decoded_one.c, RefactorUPERChoiceTag1)
+True
+
+= same tagged CHOICE has same encoding when alternatives are declared canonically
+class RefactorUPERCanonicalChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE(
+        "c", None,
+        ASN1F_PACKET(
+            "tag0", None, RefactorUPERChoiceTag0,
+            explicit_tag=0xA0,
+        ),
+        ASN1F_PACKET(
+            "tag1", None, RefactorUPERChoiceTag1,
+            explicit_tag=0xA1,
+        ),
+    )
+
+all(
+    raw(RefactorUPERReversedChoice(c=value_reversed)) == raw(
+        RefactorUPERCanonicalChoice(c=value_canonical)
+    )
+    for value_reversed, value_canonical in [
+        (RefactorUPERChoiceTag0(), RefactorUPERChoiceTag0()),
+        (RefactorUPERChoiceTag1(), RefactorUPERChoiceTag1()),
+    ]
+)
+
+
+% PR #5050 architecture guard
++ Refactor architecture guard - importing UPER must not monkey-patch core field classes
+= isolated UPER import does not add codec methods to ASN1 field class dictionaries
+code = r'''
+from scapy.asn1fields import (
+    ASN1F_CHOICE,
+    ASN1F_PACKET,
+    ASN1F_SEQUENCE,
+    ASN1F_SEQUENCE_OF,
+    ASN1F_field,
+    ASN1F_optional,
+)
+classes = (
+    ASN1F_field,
+    ASN1F_SEQUENCE,
+    ASN1F_SEQUENCE_OF,
+    ASN1F_CHOICE,
+    ASN1F_PACKET,
+    ASN1F_optional,
+)
+watched = (
+    "encode_into",
+    "m2i_from_decoder",
+    "dissect_from_decoder",
+)
+before = {
+    cls.__name__: tuple(name for name in watched if name in cls.__dict__)
+    for cls in classes
+}
+import scapy.asn1.uper
+after = {
+    cls.__name__: tuple(name for name in watched if name in cls.__dict__)
+    for cls in classes
+}
+assert before == after, (before, after)
+'''
+result = subprocess.run([sys.executable, "-c", code])
+assert result.returncode == 0
+True
+

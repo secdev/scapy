@@ -272,6 +272,10 @@ class _BitEncapsRecord(ASN1_Packet):
         ASN1F_BIT_STRING_ENCAPS("b", None, _InnerRecord),
     )
 
+def _value(obj):
+    return getattr(obj, "val", obj)
+
+
 def _raises(exc, func):
     # type: (type, Any) -> None
     try:
@@ -459,11 +463,7 @@ x.val == -2 and r == b""
 x, r = OERcodec_STRING.do_dec(OERcodec_STRING.enc(b"\x12\x34\x56", size_len=3), size_len=3)
 x.val == b"\x12\x34\x56" and r == b""
 = OER does not encode the tag of a component
-# X.696 encodes none, so OER hooks no tagging and the field is left alone
-assert ASN1_Codecs.OER.hook("tagging_enc") is None
-
-assert ASN1_Codecs.OER.hook("tagging_dec") is None
-
+# X.696 encodes none of the component tags; only CHOICE alternatives are tagged.
 fld = ASN1F_INTEGER("n", 0, explicit_tag=0xA0)
 
 pkt = OERTaggedInteger()
@@ -885,24 +885,24 @@ assert remain == b""
 True
 
 
-+ ASN.1 OER field hooks and packet extras
-= oer field hooks registered
-assert ASN1_Codecs.hooks[ASN1_Codecs.OER]
++ ASN.1 OER field dispatch and packet extras
+= oer sequence helpers are module-level
+from scapy.asn1 import oer as oer_mod
 
-assert ASN1_Codecs.OER.hook("sequence_m2i") is not None
+assert callable(oer_mod.oer_sequence_m2i)
 
-assert ASN1_Codecs.OER.hook("choice_i2m") is not None
+assert callable(oer_mod.oer_choice_i2m)
 
-assert ASN1_Codecs.OER.hook("no_such_hook") is None
+assert not hasattr(ASN1_Codecs, "hooks")
 
 True
 
-= oer use_object_enc
+= oer constrained integer via codec_opts
 fld = OERUnsignedField.ASN1_root
 
 assert fld.codec_opts["oer_unsigned"] is True
 
-assert fld._use_object_enc(OERUnsignedField(), ASN1_INTEGER(5)) is False
+assert fld.constraints.unsigned is True
 
 assert raw(OERUnsignedField(n=5)) == b"\x05"
 
@@ -1268,3 +1268,207 @@ raw_items = ASN1_Class_UNIVERSAL.RAW.asn1_object(b"\x01\x01\x07")
 assert raw(OERSequenceOfIntegers(values=raw_items)) == b"\x01\x01\x07"
 
 True
+
+% PR #5050 refactor characterization (OER)
++ OER refactor contracts - field schema owns value constraints
+= component tags do not alter OER component encoding
+class RefactorOERPlainInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0)
+
+class RefactorOERTaggedInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0, explicit_tag=0xA0)
+
+all(
+    raw(RefactorOERPlainInteger(n=value)) == raw(
+        RefactorOERTaggedInteger(n=value)
+    )
+    for value in [0, 1, 127, 128, 255, -1, -128]
+)
+
+= constrained OER integer plain value and ASN1_INTEGER encode identically
+class RefactorOERUnsignedByte(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0, size_len=1, oer_unsigned=True)
+
+all(
+    raw(RefactorOERUnsignedByte(n=value)) == bytes([value])
+    and raw(RefactorOERUnsignedByte(n=ASN1_INTEGER(value))) == bytes([value])
+    and _value(RefactorOERUnsignedByte(bytes([value])).n) == value
+    for value in [0, 1, 127, 128, 254, 255]
+)
+
+= constrained OER unsigned integer rejects out-of-range values
+_raises(OER_Encoding_Error, lambda: raw(RefactorOERUnsignedByte(n=-1)))
+_raises(OER_Encoding_Error, lambda: raw(RefactorOERUnsignedByte(n=256)))
+True
+
++ OER refactor contracts - OPTIONAL and DEFAULT
+= OPTIONAL and DEFAULT share the OER sequence preamble
+class RefactorOERPresence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, size_len=1, oer_unsigned=True),
+        ASN1F_optional(
+            ASN1F_INTEGER("opt", 0, size_len=1, oer_unsigned=True)
+        ),
+        ASN1F_DEFAULT(
+            ASN1F_INTEGER("mode", 3, size_len=1, oer_unsigned=True),
+            3,
+        ),
+    )
+
+vectors = [
+    (dict(id=1, opt=None, mode=3), bytes.fromhex("0001")),
+    (dict(id=1, opt=2, mode=3), bytes.fromhex("800102")),
+    (dict(id=1, opt=None, mode=4), bytes.fromhex("400104")),
+    (dict(id=1, opt=2, mode=4), bytes.fromhex("c0010204")),
+]
+all(
+    raw(RefactorOERPresence(**values)) == expected
+    and _value(RefactorOERPresence(expected).id) == 1
+    and (_value(RefactorOERPresence(expected).opt)
+         if RefactorOERPresence(expected).opt is not None else None) == values["opt"]
+    and _value(RefactorOERPresence(expected).mode) == values["mode"]
+    for values, expected in vectors
+)
+
+= OER DEFAULT wire encoding is independent of plain versus ASN1 object default
+plain = RefactorOERPresence(id=1, mode=3)
+asn1_object = RefactorOERPresence(id=1, mode=ASN1_INTEGER(3))
+assert raw(plain) == raw(asn1_object) == bytes.fromhex("0001")
+True
+
++ OER refactor contracts - nested packets and dynamic selection
+= nested ASN1F_PACKET retains Scapy underlayer semantics
+class RefactorOERInner(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("x", 0, size_len=1, oer_unsigned=True),
+        ASN1F_BOOLEAN("flag", False),
+    )
+
+class RefactorOEROuter(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, size_len=1, oer_unsigned=True),
+        ASN1F_PACKET("inner", None, RefactorOERInner),
+        ASN1F_INTEGER("tail", 0, size_len=1, oer_unsigned=True),
+    )
+
+pkt = RefactorOEROuter(
+    id=1,
+    inner=RefactorOERInner(x=7, flag=True),
+    tail=9,
+)
+assert raw(pkt) == bytes.fromhex("0107ff09")
+decoded = RefactorOEROuter(raw(pkt))
+assert _value(decoded.id) == 1
+assert _value(decoded.inner.x) == 7
+assert _value(decoded.inner.flag) == 1
+assert _value(decoded.tail) == 9
+assert decoded.inner.parent is decoded
+True
+
+= OER ASN1F_PACKET next_cls_cb selects child class during decode
+class RefactorOERDynamicA(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("x", 0, size_len=1, oer_unsigned=True),
+    )
+
+class RefactorOERDynamicB(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BOOLEAN("flag", False),
+    )
+
+
+def _oer_dynamic_cls(pkt):
+    return RefactorOERDynamicA if _value(pkt.kind) == 0 else RefactorOERDynamicB
+
+
+class RefactorOERDynamicOuter(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("kind", 0, size_len=1, oer_unsigned=True),
+        ASN1F_PACKET(
+            "inner", None, RefactorOERDynamicA,
+            next_cls_cb=_oer_dynamic_cls,
+        ),
+    )
+
+packet_a = RefactorOERDynamicOuter(kind=0, inner=RefactorOERDynamicA(x=5))
+packet_b = RefactorOERDynamicOuter(kind=1, inner=RefactorOERDynamicB(flag=True))
+assert raw(packet_a) == bytes.fromhex("0005")
+assert raw(packet_b) == bytes.fromhex("01ff")
+decoded_a = RefactorOERDynamicOuter(raw(packet_a))
+decoded_b = RefactorOERDynamicOuter(raw(packet_b))
+assert isinstance(decoded_a.inner, RefactorOERDynamicA)
+assert _value(decoded_a.inner.x) == 5
+assert decoded_a.inner.parent is decoded_a
+assert isinstance(decoded_b.inner, RefactorOERDynamicB)
+assert _value(decoded_b.inner.flag) == 1
+assert decoded_b.inner.parent is decoded_b
+True
+
+
+% PR #5050 refactor targets (OER)
++ Finding - OER CHOICE must preserve semantic high tag numbers
+= OER CHOICE context-specific tag 100 uses high-tag-number form
+high_context_100, remain = BER_id_dec(b"\xbf\x64")
+assert remain == b""
+
+class RefactorOERHighContextAlt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BOOLEAN("flag", False),
+    )
+
+class RefactorOERHighContextChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_CHOICE(
+        "c", None,
+        ASN1F_PACKET(
+            "high", None, RefactorOERHighContextAlt,
+            explicit_tag=high_context_100,
+        ),
+    )
+
+expected = b"\xbf\x64\xff"
+pkt = RefactorOERHighContextChoice(c=RefactorOERHighContextAlt(flag=True))
+assert raw(pkt) == expected
+decoded = RefactorOERHighContextChoice(expected)
+assert isinstance(decoded.c, RefactorOERHighContextAlt)
+assert _value(decoded.c.flag) == 1
+True
+
+= OER CHOICE private tag 100 keeps class and tag number
+high_private_100, remain = BER_id_dec(b"\xff\x64")
+assert remain == b""
+
+class RefactorOERHighPrivateAlt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BOOLEAN("flag", False),
+    )
+
+class RefactorOERHighPrivateChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_CHOICE(
+        "c", None,
+        ASN1F_PACKET(
+            "high", None, RefactorOERHighPrivateAlt,
+            explicit_tag=high_private_100,
+        ),
+    )
+
+expected = b"\xff\x64\x00"
+pkt = RefactorOERHighPrivateChoice(c=RefactorOERHighPrivateAlt(flag=False))
+assert raw(pkt) == expected
+decoded = RefactorOERHighPrivateChoice(expected)
+assert isinstance(decoded.c, RefactorOERHighPrivateAlt)
+assert _value(decoded.c.flag) == 0
+True
+

@@ -16,6 +16,7 @@ from scapy.error import warning
 from scapy.compat import chb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
 from scapy.asn1.asn1 import (
+    ASN1Codec_metaclass,
     ASN1Tag,
     ASN1_BADTAG,
     ASN1_BadTag_Decoding_Error,
@@ -275,20 +276,8 @@ def BER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
 #    [ BER classes ]    #
 
 
-class BERcodec_metaclass(type):
-    def __new__(cls,
-                name,  # type: str
-                bases,  # type: Tuple[type, ...]
-                dct  # type: Dict[str, Any]
-                ):
-        # type: (...) -> Type[BERcodec_Object[Any]]
-        c = cast('Type[BERcodec_Object[Any]]',
-                 super(BERcodec_metaclass, cls).__new__(cls, name, bases, dct))
-        try:
-            c.tag.register(c.codec, c)
-        except Exception:
-            warning("Error registering %r for %r" % (c.tag, c.codec))
-        return c
+class BERcodec_metaclass(ASN1Codec_metaclass):
+    pass
 
 
 _K = TypeVar('_K')
@@ -424,11 +413,6 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
 
 
 ASN1_Codecs.BER.register_stem(BERcodec_Object)
-# BER is the one codec that puts the tag of a field on the wire.
-ASN1_Codecs.BER.register_hooks(
-    tagging_enc=BER_tagging_enc,
-    tagging_dec=BER_tagging_dec,
-)
 
 
 ##########################

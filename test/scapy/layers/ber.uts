@@ -457,39 +457,32 @@ assert BERcodec_STRING.enc(b"x", uper_max=10) == BERcodec_STRING.enc(b"x")
 BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1), uper_min=0) == BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1))
 
 + ASN.1 codec tagging contract
-= BER hooks the tagging of a field
-tagging_enc = ASN1_Codecs.BER.hook("tagging_enc")
+= BER applies tagging on encode and decode
+from scapy.asn1.ber import BER_tagging_enc, BER_tagging_dec
 
-assert tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\xa0\x01\x05"
+assert BER_tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\xa0\x01\x05"
 
-assert ASN1_Codecs.hooks[ASN1_Codecs.BER]["tagging_enc"] is tagging_enc
-
-tagging_dec = ASN1_Codecs.BER.hook("tagging_dec")
-
-diff, payload = tagging_dec(b"\xa0\x01\x05", hidden_tag=2, implicit_tag=0xA0)
+diff, payload = BER_tagging_dec(b"\xa0\x01\x05", hidden_tag=2, implicit_tag=0xA0)
 
 diff is None and payload == b"\x02\x01\x05"
 
-= a codec that hooks no tagging leaves the encoding alone
-class _NoHooks:
+= a non-BER codec leaves field tagging alone
+class _NoTagging:
     ASN1_codec = ASN1_Codecs.CER
-
-assert ASN1_Codecs.CER.hook("tagging_enc") is None
 
 fld = ASN1F_INTEGER("n", 0, explicit_tag=0xA0)
 
-assert fld._tagging_enc(_NoHooks(), b"\x02\x01\x05", explicit_tag=0xA0) == b"\x02\x01\x05"
+assert fld._tagging_enc(_NoTagging(), b"\x02\x01\x05", explicit_tag=0xA0) == b"\x02\x01\x05"
 
-fld._tagging_dec(_NoHooks(), b"\x02\x01\x05", explicit_tag=0xA0) == (None, b"\x02\x01\x05")
+fld._tagging_dec(_NoTagging(), b"\x02\x01\x05", explicit_tag=0xA0) == (None, b"\x02\x01\x05")
 
-= field _codec_kwargs and object-enc hooks
+= field _codec_kwargs and ASN1_Object unwrap
 class P(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER("n", 0)
 
 fld = P.ASN1_root
-assert fld._codec_kwargs(P()) == {"size_len": None}
-assert fld._use_object_enc(P(), ASN1_INTEGER(5)) is True
+assert fld._codec_kwargs(P())["size_len"] is None
 assert raw(P(n=ASN1_INTEGER(5))) == b"\x02\x01\x05"
 assert raw(P(n=5)) == b"\x02\x01\x05"
 
@@ -498,7 +491,7 @@ class Sized(ASN1_Packet):
     ASN1_root = ASN1F_INTEGER("n", 0, size_len=1)
 
 sfld = Sized.ASN1_root
-assert sfld._use_object_enc(Sized(), ASN1_INTEGER(5)) is False
+assert sfld._constraints_kwargs(Sized())["size_len"] == 1
 assert raw(Sized(n=ASN1_INTEGER(5))) == raw(Sized(n=5)) == b"\x02\x81\x01\x05"
 
 = field encode with extra kwargs via _codec_kwargs override
@@ -519,9 +512,7 @@ plain = ASN1F_INTEGER("n", 0)
 
 assert plain.codec_opts == {}
 
-assert plain._codec_kwargs(type("P", (), {"ASN1_codec": ASN1_Codecs.BER})()) == {
-    "size_len": None,
-}
+assert plain._codec_kwargs(type("P", (), {"ASN1_codec": ASN1_Codecs.BER})())["size_len"] is None
 
 constrained = ASN1F_INTEGER(
     "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,

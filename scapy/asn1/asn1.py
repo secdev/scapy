@@ -110,15 +110,74 @@ class ASN1_Error(Scapy_Exception):
 
 
 class ASN1_Encoding_Error(ASN1_Error):
-    pass
+    codec_label = "ASN.1"
+
+    def __init__(self,
+                 msg,  # type: str
+                 encoded=None,  # type: Any
+                 remaining=b""  # type: bytes
+                 ):
+        # type: (...) -> None
+        Scapy_Exception.__init__(self, msg)
+        self.remaining = remaining
+        self.encoded = encoded
+
+    def __str__(self):
+        # type: () -> str
+        s = Scapy_Exception.__str__(self)
+        if self.encoded is not None:
+            if isinstance(self.encoded, ASN1_Object):
+                s += "\n### Already encoded ###\n%s" % self.encoded.strshow()
+            else:
+                s += "\n### Already encoded ###\n%r" % self.encoded
+        if self.remaining:
+            s += "\n### Remaining ###\n%r" % self.remaining
+        return s
 
 
 class ASN1_Decoding_Error(ASN1_Error):
-    pass
+    codec_label = "ASN.1"
+
+    def __init__(self,
+                 msg,  # type: str
+                 decoded=None,  # type: Any
+                 remaining=b""  # type: bytes
+                 ):
+        # type: (...) -> None
+        Scapy_Exception.__init__(self, msg)
+        self.remaining = remaining
+        self.decoded = decoded
+
+    def __str__(self):
+        # type: () -> str
+        s = Scapy_Exception.__str__(self)
+        if self.decoded is not None:
+            if isinstance(self.decoded, ASN1_Object):
+                s += "\n### Already decoded ###\n%s" % self.decoded.strshow()
+            else:
+                s += "\n### Already decoded ###\n%r" % self.decoded
+        if self.remaining:
+            s += "\n### Remaining ###\n%r" % self.remaining
+        return s
 
 
 class ASN1_BadTag_Decoding_Error(ASN1_Decoding_Error):
     pass
+
+
+class ASN1Codec_metaclass(type):
+    def __new__(cls,
+                name,  # type: str
+                bases,  # type: Tuple[type, ...]
+                dct  # type: Dict[str, Any]
+                ):
+        # type: (...) -> type
+        c = super(ASN1Codec_metaclass, cls).__new__(cls, name, bases, dct)
+        try:
+            c.tag.register(c.codec, c)  # type: ignore
+        except Exception:
+            warning("Error registering %r for %r" % (c.tag, c.codec))  # type: ignore
+        return c
 
 
 class ASN1Codec(EnumElement):
@@ -126,17 +185,15 @@ class ASN1Codec(EnumElement):
         # type: (Type[BERcodec_Object[Any]]) -> None
         cls._stem = stem
 
-    def register_hooks(cls, **hooks):
-        # type: (**Any) -> None
-        # Field operations a codec does its own way: the tagging of a field
-        # (BER) and the compound fields (SEQUENCE/CHOICE/… in OER and PER).
-        ASN1_Codecs.hooks.setdefault(cls, {}).update(hooks)
+    def new_encoder(cls):
+        # type: () -> Any
+        from scapy.asn1.context import new_encoder
+        return new_encoder(cls)
 
-    def hook(cls, name):
-        # type: (str) -> Any
-        # Hooks are optional and may be partial: missing entries mean that
-        # asn1fields keeps its default implementation.
-        return ASN1_Codecs.hooks.get(cls, {}).get(name)
+    def new_decoder(cls, data):
+        # type: (bytes) -> Any
+        from scapy.asn1.context import new_decoder
+        return new_decoder(cls, data)
 
     def dec(cls, s, context=None, _depth=0):
         # type: (bytes, Optional[Type[ASN1_Class]], int) -> ASN1_Object[Any]
@@ -165,9 +222,6 @@ class ASN1_Codecs(metaclass=ASN1_Codecs_metaclass):
     OER = cast(ASN1Codec, 7)
     SER = cast(ASN1Codec, 8)
     XER = cast(ASN1Codec, 9)
-
-    # The field hooks of every codec, by codec then by field operation.
-    hooks = {}  # type: Dict[ASN1Codec, Dict[str, Any]]
 
 
 class ASN1Tag(EnumElement):
