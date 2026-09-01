@@ -250,7 +250,7 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
+               size_len=None,  # type: Optional[int]
                oer_unsigned=False,  # type: bool
                **_kwargs  # type: Any
                ):
@@ -267,8 +267,6 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
             safe=False,  # type: bool
             field=None,  # type: Any
             pkt=None,  # type: Any
-            size_len=None,  # type: Optional[int]
-            oer_unsigned=None,  # type: Optional[bool]
             **_kwargs  # type: Any
             ):
         # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
@@ -277,10 +275,6 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
             call_kw["field"] = field
         if pkt is not None:
             call_kw["pkt"] = pkt
-        if size_len is not None:
-            call_kw["size_len"] = size_len
-        if oer_unsigned is not None:
-            call_kw["oer_unsigned"] = oer_unsigned
         if not safe:
             return cls.do_dec(
                 s, context=context, safe=safe, **call_kw,
@@ -300,26 +294,27 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
                 context=None,  # type: Optional[Type[ASN1_Class]]
                 field=None,  # type: Any
                 pkt=None,  # type: Any
-                size_len=None,  # type: Optional[int]
-                oer_unsigned=None,  # type: Optional[bool]
                 **_kwargs  # type: Any
                 ):
         # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
         return cls.dec(
             s, context, safe=True,
             field=field, pkt=pkt,
-            size_len=size_len, oer_unsigned=oer_unsigned,
             **_kwargs,
         )
 
     @classmethod
-    def enc(cls, s, size_len=0, **_kwargs):
-        # type: (_K, Optional[int], **Any) -> bytes
+    def enc(cls, s, field=None, pkt=None, size_len=None, **_kwargs):
+        # type: (_K, Any, Any, Optional[int], **Any) -> bytes
         if isinstance(s, (str, bytes)):
-            return OERcodec_STRING.enc(s, size_len=size_len)
+            return OERcodec_STRING.enc(
+                s, field=field, pkt=pkt, size_len=size_len,
+            )
         else:
             try:
-                return OERcodec_INTEGER.enc(int(s), size_len=size_len)  # type: ignore
+                return OERcodec_INTEGER.enc(
+                    int(s), field=field, pkt=pkt, size_len=size_len,
+                )  # type: ignore
             except TypeError:
                 raise TypeError("Trying to encode an invalid value !")
 
@@ -410,7 +405,7 @@ class OERcodec_BOOLEAN(OERcodec_Object[int]):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
+               size_len=None,  # type: Optional[int]
                oer_unsigned=False,  # type: bool
                **_kwargs  # type: Any
                ):
@@ -544,7 +539,7 @@ class OERcodec_NULL(OERcodec_Object[None]):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
+               size_len=None,  # type: Optional[int]
                oer_unsigned=False,  # type: bool
                **_kwargs  # type: Any
                ):
@@ -574,7 +569,7 @@ class OERcodec_OID(OERcodec_Object[bytes]):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
+               size_len=None,  # type: Optional[int]
                oer_unsigned=False,  # type: bool
                **_kwargs  # type: Any
                ):
@@ -611,7 +606,7 @@ class OERcodec_ENUMERATED(OERcodec_INTEGER):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
+               size_len=None,  # type: Optional[int]
                oer_unsigned=False,  # type: bool
                **_kwargs  # type: Any
                ):
@@ -673,7 +668,7 @@ class OERcodec_SEQUENCE(OERcodec_Object[Union[bytes, List['OERcodec_Object[Any]'
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
-               size_len=0,  # type: Optional[int]
+               size_len=None,  # type: Optional[int]
                oer_unsigned=False,  # type: bool
                **_kwargs  # type: Any
                ):
@@ -692,8 +687,10 @@ class OERcodec_IPADDRESS(OERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IPADDRESS
 
     @classmethod
-    def enc(cls, ipaddr_ascii, size_len=0, **_kwargs):  # type: ignore
-        # type: (str, Optional[int], **Any) -> bytes
+    def enc(cls, ipaddr_ascii, field=None, size_len=None, **_kwargs):  # type: ignore
+        # type: (str, Any, Optional[int], **Any) -> bytes
+        from scapy.asn1.constraints import oer_size_len
+        size_len = oer_size_len(field, size_len)
         try:
             s = inet_aton(ipaddr_ascii)
         except Exception:
@@ -704,8 +701,10 @@ class OERcodec_IPADDRESS(OERcodec_STRING):
 
     @classmethod
     def do_dec(cls, s, context=None, safe=False,
-               size_len=0, oer_unsigned=False, **_kwargs):
-        # type: (bytes, Optional[Any], bool, Optional[int], bool, **Any) -> Tuple[ASN1_Object[str], bytes]  # noqa: E501
+               field=None, size_len=None, oer_unsigned=False, **_kwargs):
+        # type: (bytes, Optional[Any], bool, Any, Optional[int], bool, **Any) -> Tuple[ASN1_Object[str], bytes]  # noqa: E501
+        from scapy.asn1.constraints import oer_size_len
+        size_len = oer_size_len(field, size_len)
         if size_len == 4:
             raw, remain = s[:4], s[4:]
         else:
