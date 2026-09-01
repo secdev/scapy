@@ -1633,6 +1633,38 @@ if shutil.which("editcap"):
     assert b"BEGIN PRIVATE KEY" in packets[28].inner.msg[0].data
     conf = bck_conf
 
+= pcapng Decryption Secrets Block does not retain a temporary file
+
+import struct
+import scapy.layers.tls.session
+
+def pcapng_block(block_type, body):
+    body += b"\x00" * (-len(body) % 4)
+    length = 12 + len(body)
+    return (
+        struct.pack("<II", block_type, length)
+        + body
+        + struct.pack("<I", length)
+    )
+
+key_log_path = scapy_path("doc/notebooks/tls/raw_data/tls_nss_example.keys.txt")
+with open(key_log_path, "rb") as key_log_file:
+    key_log = key_log_file.read()
+
+section = bytes.fromhex("4d3c2b1a") + struct.pack("<HHq", 1, 0, -1)
+secrets = struct.pack("<II", 0x544c534b, len(key_log)) + key_log
+capture = pcapng_block(0x0a0d0d0a, section) + pcapng_block(10, secrets)
+temp_files_before = set(conf.temp_files)
+with PcapReader(io.BytesIO(capture)) as reader:
+    assert len(reader.read_all()) == 0
+
+new_temp_files = [path for path in conf.temp_files if path not in temp_files_before]
+for path in new_temp_files:
+    os.unlink(path)
+    conf.temp_files.remove(path)
+
+assert not new_temp_files
+
 = pcapng file with a non-UTF-8 Decryption Secrets Block
 
 # GH3936

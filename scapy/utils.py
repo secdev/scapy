@@ -2005,12 +2005,13 @@ class RawPcapNgReader(RawPcapReader):
                 from scapy.layers.tls.session import load_nss_keys
 
                 # Write Key Log to a file and parse it
-                filename = get_temp_file()
-                with open(filename, "wb") as fd:
-                    fd.write(secrets_data)
-                    fd.close()
-
-                keys = load_nss_keys(filename)
+                filename = get_temp_file(keep=True)
+                try:
+                    with open(filename, "wb") as fd:
+                        fd.write(secrets_data)
+                    keys = load_nss_keys(filename)
+                finally:
+                    os.unlink(filename)
                 if not keys:
                     warning("PcapNg: invalid TLS Key Log in DSB!")
                 else:
