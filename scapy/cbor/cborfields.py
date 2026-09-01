@@ -1401,12 +1401,14 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
 
     Preferred constructors (ASN1F_SEQUENCE_OF / PacketListField style)::
 
-        CBORF_SEQUENCE_OF("items", [], cls=MyPacket)
-        CBORF_SEQUENCE_OF("items", [], cls=CBORF_UNSIGNED_INTEGER)
+        CBORF_SEQUENCE_OF("items", [], pkt_cls=MyPacket)
+        CBORF_SEQUENCE_OF("items", [], pkt_cls=CBORF_UNSIGNED_INTEGER)
         CBORF_SEQUENCE_OF("items", [], next_cls_cb=choose_next)
 
-    ``pkt_cls`` is accepted as an alias of ``cls`` for PacketListField
-    familiarity. Pass only one of ``cls`` / ``pkt_cls`` / ``next_cls_cb``.
+    ``pkt_cls`` may be a :class:`CBOR_Packet` subclass or a
+    :class:`CBORF_field` class/instance. Do not use a ``cls=`` keyword:
+    :class:`~typing.Generic` reserves that name on Python 3.7.
+    Pass only one of ``pkt_cls`` / ``next_cls_cb``.
     """
     CBOR_tag = None
     islist = 1
@@ -1414,8 +1416,7 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Any
-                 cls=None,  # type: _ARRAY_T
-                 pkt_cls=None,  # type: Optional[Type[Packet]]
+                 pkt_cls=None,  # type: _ARRAY_T
                  next_cls_cb=None,  # type: Optional[Callable[..., Optional[Type[Packet]]]]  # noqa: E501
                  ):
         # type: (...) -> None
@@ -1425,16 +1426,14 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
         self.holds_packets = 0
 
         if next_cls_cb is not None:
-            if cls is not None or pkt_cls is not None:
+            if pkt_cls is not None:
                 raise ValueError(
-                    "Pass only next_cls_cb, or only cls/pkt_cls"
+                    "Pass only next_cls_cb, or only pkt_cls"
                 )
             self.next_cls_cb = next_cls_cb
             self.holds_packets = 1
         else:
-            if cls is not None and pkt_cls is not None:
-                raise ValueError("Pass only one of cls or pkt_cls")
-            chosen = pkt_cls if pkt_cls is not None else cls
+            chosen = pkt_cls
             if isinstance(chosen, type) and issubclass(chosen, CBORF_field) or \
                     isinstance(chosen, CBORF_field):
                 if isinstance(chosen, type):
@@ -1447,7 +1446,7 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
                 self.holds_packets = 1
             else:
                 raise ValueError(
-                    "Provide cls, pkt_cls, or next_cls_cb"
+                    "Provide pkt_cls or next_cls_cb"
                 )
         super(CBORF_SEQUENCE_OF, self).__init__(name, default)
 
@@ -1579,10 +1578,12 @@ class CBORF_ARRAY_OF(CBORF_field[List[Any]]):
 
     Preferred constructors::
 
-        CBORF_ARRAY_OF("items", [], cls=MyPacket)
-        CBORF_ARRAY_OF("items", [], cls=CBORF_UNSIGNED_INTEGER)
+        CBORF_ARRAY_OF("items", [], pkt_cls=MyPacket)
+        CBORF_ARRAY_OF("items", [], pkt_cls=CBORF_UNSIGNED_INTEGER)
 
-    ``pkt_cls`` is accepted as an alias of ``cls``. Pass only one of them.
+    ``pkt_cls`` may be a :class:`CBOR_Packet` subclass or a
+    :class:`CBORF_field` class/instance. Do not use a ``cls=`` keyword:
+    :class:`~typing.Generic` reserves that name on Python 3.7.
     """
     CBOR_tag = CBOR_MajorTypes.ARRAY
     islist = 1
@@ -1590,15 +1591,12 @@ class CBORF_ARRAY_OF(CBORF_field[List[Any]]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Any
-                 cls=None,  # type: _ARRAY_T
-                 pkt_cls=None,  # type: Optional[Type[Packet]]
+                 pkt_cls=None,  # type: _ARRAY_T
                  ):
         # type: (...) -> None
-        if cls is not None and pkt_cls is not None:
-            raise ValueError("Pass only one of cls or pkt_cls")
-        chosen = pkt_cls if pkt_cls is not None else cls
+        chosen = pkt_cls
         if chosen is None:
-            raise ValueError("Provide cls or pkt_cls")
+            raise ValueError("Provide pkt_cls")
         if isinstance(chosen, type) and issubclass(chosen, CBORF_field) or \
                 isinstance(chosen, CBORF_field):
             if isinstance(chosen, type):
@@ -1610,7 +1608,7 @@ class CBORF_ARRAY_OF(CBORF_field[List[Any]]):
             self.cls = cast("Type[CBOR_Packet]", chosen)
             self.holds_packets = 1
         else:
-            raise ValueError("cls must be a CBORF_field or CBOR_Packet")
+            raise ValueError("pkt_cls must be a CBORF_field or CBOR_Packet")
         super(CBORF_ARRAY_OF, self).__init__(name, default)
 
     def any2i(self, pkt, x):
@@ -2165,17 +2163,20 @@ class CBORF_PACKET(CBORF_field['CBOR_Packet']):
     CBOR field that encapsulates a nested :class:`CBOR_Packet`.
 
     The nested packet is encoded as-is (its ``CBOR_root.build()`` output)
-    and decoded by instantiating ``cls`` from the current byte stream.
+    and decoded by instantiating ``pkt_cls`` from the current byte stream.
+
+    Use ``pkt_cls=`` (or a positional third argument). A ``cls=`` keyword
+    conflicts with :class:`~typing.Generic` on Python 3.7.
     """
     holds_packets = 1
 
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[CBOR_Packet]
-                 cls,  # type: Type[CBOR_Packet]
+                 pkt_cls,  # type: Type[CBOR_Packet]
                  ):
         # type: (...) -> None
-        self.cls = cls
+        self.cls = pkt_cls
         super(CBORF_PACKET, self).__init__(name, default)
 
     def _parse_packet_item(self, pkt, s):
