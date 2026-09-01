@@ -298,9 +298,11 @@ class BGPNLRIPacketListField(PacketListField):
             detect_add_path_prefix46(remain, self.max_bit_length)
         ]
         self.next_cls_cb = lambda *args: cls
-        res = super(BGPNLRIPacketListField, self).getfield(pkt, s)
-        if self.no_length:
-            self.length_from = None
+        try:
+            res = super(BGPNLRIPacketListField, self).getfield(pkt, s)
+        finally:
+            if self.no_length:
+                self.length_from = None
         return res
 
 
