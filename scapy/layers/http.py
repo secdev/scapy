@@ -57,6 +57,7 @@ import struct
 import subprocess
 
 from enum import Enum
+from urllib.parse import urlsplit
 
 from scapy.compat import plain_str, bytes_encode
 
@@ -897,26 +898,33 @@ class HTTP_Client(object):
             e.g. Method="POST"
         """
         # Parse request url
-        m = re.match(r"(https?)://([^/:]+)(?:\:(\d+))?(/.*)?", url)
-        if not m:
+        try:
+            parsed = urlsplit(url)
+            transport = parsed.scheme
+            host = parsed.hostname
+            port = parsed.port
+        except ValueError:
+            raise ValueError("Bad URL !") from None
+        if transport not in ["http", "https"] or not host:
             raise ValueError("Bad URL !")
-        transport, host, port, path = m.groups()
         if transport == "https":
             tls = True
         else:
             tls = False
 
-        path = path or "/"
-        port = port and int(port)
+        path = parsed.path or "/"
+        if parsed.query:
+            path += "?" + parsed.query
+        if port is None:
+            port = 443 if tls else 80
 
         # Connect (or reuse) socket
         self._connect_or_reuse(host, port=port, tls=tls, timeout=timeout)
 
         # Build request
+        host_hdr = "[%s]" % host if ":" in host else host
         if (tls and port != 443) or (not tls and port != 80):
-            host_hdr = "%s:%d" % (host, port)
-        else:
-            host_hdr = host
+            host_hdr = "%s:%d" % (host_hdr, port)
 
         headers.setdefault("Host", host_hdr)
         headers.setdefault("Path", path)
