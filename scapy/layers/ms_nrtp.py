@@ -17,6 +17,7 @@ import struct
 
 from scapy.automaton import Automaton, ATMT
 from scapy.config import conf
+from scapy.error import Scapy_Exception
 from scapy.main import interact
 from scapy.fields import (
     ByteEnumField,
@@ -336,6 +337,11 @@ class MSBExtendedFieldLen(MSBExtendedField):
     def __init__(self, name, default, length_of=None):
         FieldLenField.__init__(self, name, default, length_of=length_of)
         super(MSBExtendedFieldLen, self).__init__(name, default)
+
+    def getfield(self, pkt, s):
+        if len(s) >= 5 and min(s[:4]) >= 0x80 and s[4] > 0x07:
+            raise Scapy_Exception("NRBF string length exceeds 31 bits")
+        return super(MSBExtendedFieldLen, self).getfield(pkt, s)
 
     i2m = FieldLenField.i2m
 

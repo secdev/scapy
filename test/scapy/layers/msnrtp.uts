@@ -39,6 +39,17 @@ assert pkt.records[3].Values == b"TRIMMED"
 
 assert isinstance(pkt.records[4], NRBFMessageEnd)
 
+= [MS-NRBF] reject a string length wider than 31 bits
+
+# The over-wide length is meant to be rejected and fall back to Raw, so the
+# debug dissector must not turn that rejection into a raised exception.
+with no_debug_dissector():
+    pkt = NRBF(b"\x0c\x01\x00\x00\x00" + b"\x81" * 5)
+    assert isinstance(pkt.records[0], Raw)
+
+maximum = NRBFLengthPrefixedString(b"\xff\xff\xff\xff\x07")
+assert maximum.Length == 0x7fffffff
+
 = [MS-NRBF] build .NET Binary Format
 
 pkt = NRBF(
