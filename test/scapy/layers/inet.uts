@@ -604,6 +604,28 @@ with no_debug_dissector(reverse=True):
 
 split_layers(TCP, CustomPacket, sport=12345)
 
+= TCPSession parses application data after IPv4 defragmentation
+~ http
+
+load_layer("http")
+
+def fragmented_http_response(fragsize):
+    payload = b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nBODY"
+    packet = (
+        IP(src="192.0.2.1", dst="192.0.2.2", id=1234) /
+        TCP(sport=80, dport=2345, seq=1, flags="PA") /
+        Raw(payload)
+    )
+    fragments = [IP(raw(pkt)) for pkt in fragment(packet, fragsize)]
+    return sniff(offline=fragments, session=TCPSession)
+
+with no_debug_dissector():
+    for fragsize in (8, 24):
+        packets = fragmented_http_response(fragsize)
+        assert len(packets) == 1
+        assert HTTPResponse in packets[0]
+        assert packets[0][Raw].load == b"BODY"
+
 
 = Layer binding
 
