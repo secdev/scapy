@@ -7,7 +7,10 @@ CBOR (Concise Binary Object Representation) - RFC 8949
 Following the ASN.1 paradigm
 """
 
+import copy
+import math
 import random
+import struct
 from typing import (
     Any,
     Dict,
@@ -296,11 +299,12 @@ class CBOR_Object_metaclass(type):
             'Type[CBOR_Object[Any]]',
             super(CBOR_Object_metaclass, cls).__new__(cls, name, bases, dct)
         )
-        try:
-            c.tag.register_cbor_object(c)
-        except Exception:
-            # Some objects may not have tags yet
-            log_runtime.warning("Failed to register CBOR object %r" % c)
+        if c.tag is not None:
+            try:
+                c.tag.register_cbor_object(c)
+            except Exception:
+                # Some objects may not have tags yet
+                log_runtime.exception("Failed to register CBOR object %r" % c)
         return c
 
 
@@ -346,7 +350,26 @@ class CBOR_Object(Generic[_K], metaclass=CBOR_Object_metaclass):
 
     def __eq__(self, other):
         # type: (Any) -> bool
-        return bool(self.val == other)
+        if isinstance(other, CBOR_Object):
+            return (
+                type(self) is type(other)
+                and self.val == other.val
+            )
+        return NotImplemented
+
+    def __ne__(self, other):
+        # type: (Any) -> bool
+        equal = self.__eq__(other)
+        if equal is NotImplemented:
+            return NotImplemented
+        return not equal
+
+    def __hash__(self):
+        # type: () -> int
+        try:
+            return hash((type(self), self.val))
+        except TypeError:
+            return hash((type(self), id(self)))
 
 
 #######################
@@ -367,6 +390,11 @@ class CBOR_NEGATIVE_INTEGER(CBOR_Object[int]):
 class CBOR_BYTE_STRING(CBOR_Object[bytes]):
     """CBOR byte string (major type 2)"""
     tag = CBOR_MajorTypes.BYTE_STRING
+
+    def __repr__(self):
+        # type: () -> str
+        hexval = self.val.hex() if self.val else ''
+        return "<%s[h'%s']>" % (self.__class__.__name__, hexval)
 
 
 class CBOR_TEXT_STRING(CBOR_Object[str]):
@@ -389,14 +417,202 @@ class CBOR_ARRAY(CBOR_Object[List[Any]]):
         return s
 
 
-class CBOR_MAP(CBOR_Object[Dict[Any, Any]]):
-    """CBOR map (major type 5)"""
+class CBORMapData(object):
+    """Ordered CBOR map pairs with typed dict-like access for scalar keys.
+
+    Preserves full CBOR key objects for faithful ``enc()`` round-trips while
+    still supporting ``map_data['name']`` / ``'name' in map_data`` for the
+    common scalar-key cases used by existing tests.
+
+    Lookup uses ``(type(key), key)`` identity so CBOR/Python values that
+    compare equal under ``==`` but differ by type (``1`` vs ``True``) remain
+    distinct.
+    """
+
+    __slots__ = ("_pairs",)
+
+    def __init__(self, pairs=None):
+        # type: (Optional[List[Tuple[Any, Any]]]) -> None
+        self._pairs = list(pairs or [])
+
+    def cbor_pairs(self):
+        # type: () -> List[Tuple[Any, Any]]
+        return list(self._pairs)
+
+    def copy(self):
+        # type: () -> CBORMapData
+        return copy.deepcopy(self)
+
+    def __copy__(self):
+        # type: () -> CBORMapData
+        return self.copy()
+
+    def __deepcopy__(self, memo):
+        # type: (Dict[int, Any]) -> CBORMapData
+        return CBORMapData(copy.deepcopy(self._pairs, memo))
+
+    def __len__(self):
+        # type: () -> int
+        return len(self._pairs)
+
+    def __iter__(self):
+        # type: () -> Any
+        return iter(self.keys())
+
+    @staticmethod
+    def _float_key_identity(val, encoded=None):
+        # type: (float, Optional[bytes]) -> Tuple[Any, ...]
+        """Identity that distinguishes +0.0 / -0.0 and NaN payloads."""
+        fval = float(val)
+        if math.isnan(fval):
+            if encoded is not None:
+                return (float, "nan", bytes(encoded))
+            return (float, "nan", struct.pack(">d", fval))
+        # struct.pack preserves the IEEE sign bit so +0.0 != -0.0.
+        return (float, "f", struct.pack(">d", fval))
+
+    @staticmethod
+    def _key_identity(key):
+        # type: (Any) -> Tuple[Any, ...]
+        """Return a typed identity for map-key lookup."""
+        if isinstance(key, CBOR_Object):
+            # Normalize CBOR wrappers to the native Python type they encode.
+            if isinstance(key, (CBOR_TRUE, CBOR_FALSE)):
+                return (bool, bool(key.val))
+            if isinstance(key, CBOR_NULL):
+                return (type(None), None)
+            if isinstance(key, CBOR_UNDEFINED):
+                from scapy.cbor.cbor import CBOR_UNDEFINED_VALUE
+                return (type(CBOR_UNDEFINED_VALUE), CBOR_UNDEFINED_VALUE)
+            if isinstance(key, CBOR_UNSIGNED_INTEGER):
+                return (int, int(key.val))
+            if isinstance(key, CBOR_NEGATIVE_INTEGER):
+                return (int, int(key.val))
+            if isinstance(key, CBOR_FLOAT):
+                return CBORMapData._float_key_identity(
+                    key.val, getattr(key, "_encoded", None)
+                )
+            if isinstance(key, CBOR_BYTE_STRING):
+                return (bytes, bytes(key.val))
+            if isinstance(key, CBOR_TEXT_STRING):
+                return (str, str(key.val))
+            if isinstance(key, CBOR_ARRAY):
+                return (list, key)
+            if isinstance(key, CBOR_MAP):
+                return (CBORMapData, key)
+            if isinstance(key, CBOR_SEMANTIC_TAG):
+                return (CBOR_SEMANTIC_TAG, key.val)
+            if isinstance(key, CBOR_SIMPLE_VALUE):
+                return (CBOR_SIMPLE_VALUE, key.val)
+            return (type(key), key.val)
+        # bool is a subclass of int; float includes CBORFloatValue.
+        if isinstance(key, bool):
+            return (bool, key)
+        if isinstance(key, float):
+            encoded = getattr(key, "cbor_encoded", None)
+            return CBORMapData._float_key_identity(key, encoded)
+        if isinstance(key, int):
+            return (int, key)
+        return (type(key), key)
+
+    def keys(self):
+        # type: () -> List[Any]
+        out = []  # type: List[Any]
+        for key, _value in self._pairs:
+            out.append(key.val if isinstance(key, CBOR_Object) else key)
+        return out
+
+    def values(self):
+        # type: () -> List[Any]
+        return [value for _key, value in self._pairs]
+
+    def items(self):
+        # type: () -> List[Tuple[Any, Any]]
+        return [
+            (key.val if isinstance(key, CBOR_Object) else key, value)
+            for key, value in self._pairs
+        ]
+
+    def __contains__(self, key):
+        # type: (Any) -> bool
+        try:
+            self[key]
+            return True
+        except KeyError:
+            return False
+
+    def __getitem__(self, key):
+        # type: (Any) -> Any
+        want = self._key_identity(key)
+        matches = []  # type: List[Any]
+        for map_key, value in self._pairs:
+            if self._key_identity(map_key) == want:
+                matches.append(value)
+        if not matches:
+            raise KeyError(key)
+        if len(matches) > 1:
+            raise KeyError("Ambiguous CBOR map key %r" % (key,))
+        return matches[0]
+
+    def get(self, key, default=None):
+        # type: (Any, Any) -> Any
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __eq__(self, other):
+        # type: (Any) -> bool
+        if isinstance(other, dict):
+            # Do not use dict(self.items()): Python collapses True/1 (and
+            # similar) as equal keys, which is not the CBOR data model.
+            if len(other) != len(self._pairs):
+                return False
+            other_items = list(other.items())
+            used = [False] * len(other_items)
+            for map_key, value in self._pairs:
+                want = self._key_identity(map_key)
+                matched = False
+                for idx, (other_key, other_value) in enumerate(other_items):
+                    if used[idx]:
+                        continue
+                    if self._key_identity(other_key) != want:
+                        continue
+                    if value != other_value:
+                        return False
+                    used[idx] = True
+                    matched = True
+                    break
+                if not matched:
+                    return False
+            return True
+        if isinstance(other, CBORMapData):
+            return self._pairs == other._pairs
+        return NotImplemented
+
+    def __repr__(self):
+        # type: () -> str
+        return "CBORMapData(%r)" % (self.items(),)
+
+
+class CBOR_MAP(CBOR_Object[Any]):
+    """CBOR map (major type 5).
+
+    Decoded maps use :class:`CBORMapData` (ordered pairs). Manually
+    constructed maps may still use a plain ``dict``.
+    """
     tag = CBOR_MajorTypes.MAP
 
     def strshow(self, lvl=0):
         # type: (int) -> str
         s = ("  " * lvl) + ("# CBOR_MAP:") + "\n"
-        for k, v in self.val.items():
+        if isinstance(self.val, CBORMapData):
+            items = self.val.cbor_pairs()
+        elif isinstance(self.val, dict):
+            items = list(self.val.items())
+        else:
+            items = list(self.val)
+        for k, v in items:
             s += ("  " * (lvl + 1)) + "Key: "
             if hasattr(k, 'strshow'):
                 s += k.strshow(0).strip() + "\n"
@@ -456,9 +672,142 @@ class CBOR_UNDEFINED(CBOR_Object[None]):
         super(CBOR_UNDEFINED, self).__init__(None)
 
 
+class CBORTagValue(object):
+    """Packet-field internal representation of a CBOR semantic tag."""
+    __slots__ = ("tag", "value")
+
+    def __init__(self, tag, value):
+        # type: (int, Any) -> None
+        self.tag = int(tag)
+        self.value = value
+
+    def __repr__(self):
+        # type: () -> str
+        return "CBORTagValue(tag=%r, value=%r)" % (self.tag, self.value)
+
+    def __eq__(self, other):
+        # type: (object) -> bool
+        return (
+            isinstance(other, CBORTagValue) and
+            self.tag == other.tag and
+            self.value == other.value
+        )
+
+    def __hash__(self):
+        # type: () -> int
+        return hash((self.tag, self.value))
+
+
+class CBORSimpleValue(object):
+    """Packet-field internal representation of a CBOR simple value."""
+    __slots__ = ("value",)
+
+    def __init__(self, value):
+        # type: (int) -> None
+        self.value = int(value)
+
+    def __repr__(self):
+        # type: () -> str
+        return "CBORSimpleValue(%r)" % self.value
+
+    def __eq__(self, other):
+        # type: (object) -> bool
+        return isinstance(other, CBORSimpleValue) and self.value == other.value
+
+    def __hash__(self):
+        # type: () -> int
+        return hash(self.value)
+
+
+class _CBORUndefined(object):
+    """Sentinel for CBOR undefined (distinct from Python ``None`` / null)."""
+
+    def __repr__(self):
+        # type: () -> str
+        return "CBOR_UNDEFINED"
+
+    def __bool__(self):
+        # type: () -> bool
+        return False
+
+    def __copy__(self):
+        # type: () -> _CBORUndefined
+        return self
+
+    def __deepcopy__(self, memo):
+        # type: (dict) -> _CBORUndefined
+        return self
+
+
+CBOR_UNDEFINED_VALUE = _CBORUndefined()
+
+
+class _CBORNoItem(object):
+    """Structural sentinel: sequence ended without consuming input."""
+
+    def __repr__(self):
+        # type: () -> str
+        return "CBOR_NO_ITEM"
+
+    def __copy__(self):
+        # type: () -> _CBORNoItem
+        return self
+
+    def __deepcopy__(self, memo):
+        # type: (dict) -> _CBORNoItem
+        return self
+
+
+CBOR_NO_ITEM = _CBORNoItem()
+
+
 class CBOR_FLOAT(CBOR_Object[float]):
     """CBOR floating-point number (major type 7)"""
     tag = CBOR_MajorTypes.SIMPLE_AND_FLOAT
+
+    def __init__(self, val, encoded=None):
+        # type: (float, Optional[bytes]) -> None
+        CBOR_Object.__init__(self, val)
+        # Exact received float encoding when known; preferred width when None.
+        self._encoded = encoded
+
+    def enc(self, codec=None):
+        # type: (Any) -> bytes
+        if self._encoded is not None:
+            return self._encoded
+        return super(CBOR_FLOAT, self).enc(codec)
+
+
+class CBORFloatValue(float):
+    """Native float that optionally retains the exact CBOR encoding.
+
+    Used by :class:`~scapy.cbor.cborfields.CBORF_FLOAT` and
+    :class:`~scapy.cbor.cborfields.CBORF_ANY` so dissected half / single /
+    double (and NaN payloads) survive field storage and rebuild when the
+    packet raw cache is cleared, until the value is replaced by a plain
+    ``float``.
+    """
+
+    __slots__ = ("_cbor_encoded",)
+
+    def __new__(cls, value, encoded=None):
+        # type: (float, Optional[bytes]) -> CBORFloatValue
+        self = float.__new__(cls, value)
+        object.__setattr__(self, "_cbor_encoded", encoded)
+        return self
+
+    @property
+    def cbor_encoded(self):
+        # type: () -> Optional[bytes]
+        return getattr(self, "_cbor_encoded", None)
+
+    def __copy__(self):
+        # type: () -> CBORFloatValue
+        return CBORFloatValue(float(self), self.cbor_encoded)
+
+    def __deepcopy__(self, memo):
+        # type: (dict) -> CBORFloatValue
+        return self.__copy__()
 
 
 class _CBOR_ERROR(CBOR_Object[Union[bytes, CBOR_Object[Any]]]):
