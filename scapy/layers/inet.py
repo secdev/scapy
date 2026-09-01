@@ -1017,27 +1017,18 @@ class _ICMPExtensionField(TrailerField):
 
     def getfield(self, pkt, s):
         # RFC4884 section 5.2 says if the ICMP packet length
-        # is >144 then ICMP extensions start at byte 137.
+        # is >144 then ICMP extensions start at least at byte 137.
         if len(pkt.original) < 144:
             return s, None
-        offset = 136 + len(s) - len(pkt.original)
+        if pkt.length == 0:
+            return s, None
+        offset = pkt.length * 4   # original padded datagram len
         data = s[offset:]
         # Validate checksum
         if checksum(data) == data[3:5]:
             return s, None  # failed
         # Dissect
         return s[:offset], ICMPExtension_Header(data)
-
-    def addfield(self, pkt, s, val):
-        if val is None:
-            return s
-        data = bytes(val)
-        # Calc how much padding we need, not how much we deserve
-        pad = 136 - len(pkt.payload) - len(s)
-        if pad < 0:
-            warning("ICMPExtension_Header is after the 136th octet of ICMP.")
-            return data
-        return super(_ICMPExtensionField, self).addfield(pkt, s, b"\x00" * pad + data)
 
 
 class _ICMPExtensionPadField(TrailerField):
@@ -1215,6 +1206,18 @@ class ICMP(Packet):
     post_dissection = _ICMP_extpad_post_dissection
 
     def post_build(self, p, pay):
+        if self.ext is not None and self.extpad in [None, b""]:
+            padding_index = pay.rindex(bytes(self.ext))
+            payload_len = len(pay[:padding_index])
+            padding_len = (4 - payload_len % 4) % 4
+            if payload_len + padding_len < 128:
+                padding_len = 128 - payload_len
+            padding = b"\x00" * padding_len
+            pay = pay[:padding_index] + padding + pay[padding_index:]
+        if self.ext is not None and self.length in [None, 0]:
+            ext_index = pay.rindex(bytes(self.ext))
+            length = len(pay[:ext_index]) // 4
+            p = p[:5] + chb(length) + p[6:]
         p += pay
         if self.chksum is None:
             ck = checksum(p)
