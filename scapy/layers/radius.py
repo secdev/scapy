@@ -1605,6 +1605,28 @@ class Radius_am(AnsweringMachine):
             for x in req.attributes
         }
 
+        # Verify the request Message-Authenticator, if present
+        if 80 in attrs:
+            mauth = attrs[80]
+            received = mauth.value
+            attributes = b"".join(
+                bytes(attr)[:2] + b"\x00" * 16
+                if attr is mauth else bytes(attr)
+                for attr in req.attributes
+            )
+            radius = req[Radius]
+            length = radius.len or 20 + len(attributes)
+            expected = hmac.new(
+                self.secret,
+                struct.pack("!BBH", radius.code, radius.id, length)
+                + radius.authenticator
+                + attributes,
+                hashlib.md5,
+            ).digest()
+            if not hmac.compare_digest(received, expected):
+                log_runtime.warning("Invalid Message-Authenticator !")
+                return None
+
         # Build Radius response
         rad = Radius(code=2, id=req[Radius].id)
 
