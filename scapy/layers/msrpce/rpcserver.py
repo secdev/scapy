@@ -18,6 +18,7 @@ from scapy.data import MTU
 from scapy.volatile import RandShort
 
 from scapy.layers.dcerpc import (
+    COM_INTERFACES,
     CommonAuthVerifier,
     DCE_RPC_INTERFACES,
     DCERPC_Transport,
@@ -248,6 +249,8 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
             pad = req[conf.padding_layer].load
             req[conf.padding_layer].underlayer.remove_payload()
         # Ask the DCE/RPC session to process it (match interface, etc.)
+        previous_interface = self.session.rpc_bind_interface
+        previous_interface_is_com = self.session.rpc_bind_is_com
         req = self.session.in_pkt(req)
         hdr = DceRpc5(
             endian=req.endian,
@@ -325,6 +328,7 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
 
                 # Process bind contexts and answer to them
                 results = []
+                accepted_context = None
                 for ctx in req.context_elem:
                     # Get name
                     name = ctx.transfer_syntaxes[0].sprintf("%if_uuid%")
@@ -336,6 +340,7 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                         (name == "NDR 2.0" and not self.ndr64)
                     ):
                         # Acceptance
+                        accepted_context = ctx
                         results.append(
                             DceRpc5Result(
                                 result=0,
@@ -404,6 +409,18 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                             + ("NDR64" if self.ndr64 else "NDR32")
                         )
                     )
+                if accepted_context is None:
+                    self.session.rpc_bind_interface = previous_interface
+                    self.session.rpc_bind_is_com = previous_interface_is_com
+                elif len(req.context_elem) > 1:
+                    abstract_syntax = accepted_context.abstract_syntax
+                    interface = DCE_RPC_INTERFACES.get(
+                        (abstract_syntax.if_uuid, abstract_syntax.if_version)
+                    )
+                    self.session.rpc_bind_interface = interface or COM_INTERFACES.get(
+                        abstract_syntax.if_uuid
+                    )
+                    self.session.rpc_bind_is_com = interface is None
         elif DceRpc5Request in req:
             if self.verb:
                 print(
