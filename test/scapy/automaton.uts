@@ -352,6 +352,51 @@ r = x
 r
 assert r == "Venus"
 
+= Spawn removes stopped connection children during housekeeping
+
+def stopped_spawn_children_are_removed():
+    import socket
+    import time
+    class QuickConnection:
+        socketcls = None
+        pkt_cls = None
+        created = 0
+        destroy_calls = 0
+        def __init__(self, sock, **kwargs):
+            type(self).created += 1
+            self.running = True
+        def runbg(self):
+            self.running = False
+        def isrunning(self):
+            return self.running
+        def destroy(self):
+            type(self).destroy_calls += 1
+        def forcestop(self, wait=False):
+            self.running = False
+    QuickConnection.spawn = classmethod(Automaton.spawn.__func__)
+    listener = QuickConnection.spawn(
+        0,
+        local_ip="127.0.0.1",
+        bg=True,
+        verb=False,
+    )
+    try:
+        for expected in range(1, 5):
+            client = socket.create_connection(listener.getsockname(), timeout=1)
+            client.close()
+            deadline = time.monotonic() + 1
+            while QuickConnection.created < expected and time.monotonic() < deadline:
+                time.sleep(0.001)
+        return QuickConnection.destroy_calls == QuickConnection.created
+    finally:
+        try:
+            listener.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        listener.close()
+
+assert stopped_spawn_children_are_removed()
+
 = Automaton timer function
 ~ run timers
 
@@ -519,4 +564,3 @@ if LINUX:
         if LINUX:
             # Remove the iptables rule
             assert os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0
-
