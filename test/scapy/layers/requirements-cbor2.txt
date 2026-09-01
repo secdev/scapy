@@ -1,0 +1,3 @@
+# Optional interoperability-test dependency. Not required by Scapy itself.
+# cbor2 6.1.4 requires Python 3.10 or newer.
+cbor2==6.1.4
