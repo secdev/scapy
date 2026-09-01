@@ -2762,11 +2762,80 @@ class HCI_Event_Vendor(Packet):
 
     Bluetooth Core 5.4, Vol 4, Part E, section 5.4.4 reserves 0xFF for
     vendor-specific debugging events; the format of the parameters is
-    vendor-defined, so the data is exposed as a raw byte string.
+    vendor-defined, so by default the parameters are exposed as a raw ``data``
+    byte string.
+
+    Several vendors reuse this single event code with incompatible parameter
+    layouts, so ``code=0xFF`` alone is not enough to pick a dissector and
+    :func:`~scapy.packet.bind_layers` cannot be used. Instead a vendor
+    registers a dissector with :meth:`register_handler`, providing a
+    ``check(body)`` that recognises its own parameter layout (typically a
+    fixed leading subcode). :meth:`dispatch_hook` then dissects a matching
+    body with that class, so several vendor contribs coexist. When no check
+    claims the body, ``HCI_Event_Vendor`` itself is used and the body stays in
+    ``data``, exactly as before.
+
+    Handlers should subclass ``HCI_Event_Vendor`` and set ``match_subclass``,
+    so that ``HCI_Event_Vendor in pkt`` keeps matching vendor events::
+
+        class HCI_Event_Vendor_Foo(HCI_Event_Vendor):
+            name = "HCI_Vendor_Foo"
+            match_subclass = True
+            fields_desc = [XByteField("subcode", 0xa5),
+                           ByteField("value", 0)]
+
+            @classmethod
+            def check(cls, body):
+                return body[:1] == b"\\xa5"
+
+        HCI_Event_Vendor.register_handler(HCI_Event_Vendor_Foo)
     """
     name = "HCI_Vendor_Specific"
     fields_desc = [StrLenField("data", b"",
                                length_from=lambda pkt: pkt.underlayer.len)]
+
+    registered_handlers = {}
+
+    @classmethod
+    def register_handler(cls, handler_cls, check=None):
+        """
+        Registers a vendor dissector for the ``code=0xFF`` event body.
+
+        This event is shared across vendors with incompatible parameter
+        layouts, so a contrib cannot simply bind its layer to it. Instead each
+        vendor handler declares a ``check`` that returns True only for its own
+        body (typically by testing a fixed leading subcode) and registers
+        itself here. The first registered check that accepts a body wins, so
+        checks should be as specific as possible. Re-registering the same
+        ``handler_cls`` replaces its previous entry, so reloading a contrib is
+        idempotent.
+
+        :param Type[scapy.packet.Packet] handler_cls:
+            A reference to a Packet subclass to dissect the event body with.
+            It should subclass ``HCI_Event_Vendor``.
+        :param Callable[[bytes], bool] check:
+            (optional) callable used to decide whether a body should be
+            associated with this handler. If not supplied,
+            ``handler_cls.check`` is used instead.
+        :raises TypeError: If ``check`` is not specified,
+                           and ``handler_cls.check`` is not implemented.
+        """
+        if check is None:
+            if hasattr(handler_cls, "check"):
+                check = handler_cls.check
+            else:
+                raise TypeError("check not specified, and {} has no "
+                                "attribute check".format(handler_cls))
+
+        cls.registered_handlers[handler_cls] = check
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            for handler_cls, check in cls.registered_handlers.items():
+                if check(_pkt):
+                    return handler_cls
+        return cls
 
 
 class HCI_Event_LE_Meta(Packet):
