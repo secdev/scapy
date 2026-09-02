@@ -64,7 +64,6 @@ def ber_sequence_of_encode_to(enc, field, pkt):
 
 def ber_sequence_of_decode_from(dec, field, pkt):
     # type: (Any, Any, Any) -> None
-    from scapy.asn1.ber import BER_Decoding_Error
     s = dec.remaining()
     s = field._apply_tagging_dec(s, pkt)
     codec = field.ASN1_tag.get_codec(ASN1_Codecs.BER)
@@ -74,11 +73,6 @@ def ber_sequence_of_decode_from(dec, field, pkt):
         c, s = field._extract_packet(s, pkt)
         if c:
             lst.append(c)
-    if len(s) > 0:
-        raise BER_Decoding_Error(
-            "unexpected remainder in %s" % pkt.name,
-            remaining=s,
-        )
     field.set_val(pkt, lst)
     dec.set_remainder(remain)
 

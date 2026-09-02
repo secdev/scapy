@@ -539,16 +539,16 @@ assert ConstrainedBer(raw(ConstrainedBer(n=5))).n.val == 5
 
 True
 
-= CHOICE order properties
+= CHOICE tag map properties
 choice = ASN1F_CHOICE(
     "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
 )
 
-assert choice.choice_order == [2, 4]
+assert list(choice.choices.keys()) == [2, 4]
 
-assert choice.choice_list[0] is ASN1F_INTEGER
+assert list(choice.choices.values())[0] is ASN1F_INTEGER
 
-assert choice.choice_list[1] is ASN1F_STRING
+assert list(choice.choices.values())[1] is ASN1F_STRING
 
 True
 

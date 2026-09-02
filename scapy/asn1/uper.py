@@ -20,7 +20,7 @@ string encodings (rejected rather than emitted as plain octets).
 
 ``ASN1F_CHOICE`` alternatives are indexed in X.691 10.2 canonical tag order
 (via ``ASN1F_CHOICE.canonical_order``). Declaration order is kept for
-``alternative_index`` / BER tag lookup.
+BER tag lookup (``choices``) and ``alternative_tag``.
 """
 
 from scapy.compat import bytes_encode
@@ -186,29 +186,52 @@ class UPER_Encoder(object):
 class UPER_Decoder(object):
     def __init__(self, encoded):
         # type: (bytes) -> None
+        # Byte buffer + bit cursor: avoid shifting a whole-input Python int
+        # on every small field read (super-linear on large encodings).
+        self._data = encoded
+        self._pos = 0
         self.total_number_of_bits = 8 * len(encoded)
-        self.number_of_bits = self.total_number_of_bits
-        if encoded:
-            self._bits = int.from_bytes(encoded, "big")
-        else:
-            self._bits = 0
 
-    def _read_bits_int(self, number_of_bits):
+    @property
+    def number_of_bits(self):
+        # type: () -> int
+        return self.total_number_of_bits - self._pos
+
+    def _peek_bits_int(self, number_of_bits):
         # type: (int) -> int
         if number_of_bits == 0:
             return 0
-        # Remaining bits sit in the low end of ``_bits``; shift equals how
-        # many unread bits will still be left after this read.
-        shift = self.number_of_bits - number_of_bits
-        mask = (1 << number_of_bits) - 1
-        return (self._bits >> shift) & mask
+        if number_of_bits > self.number_of_bits:
+            raise UPER_Decoding_Error("UPER_Decoder: out of data")
+        byte_index = self._pos // 8
+        bit_offset = self._pos % 8
+        value = 0
+        bits_left = number_of_bits
+        while bits_left:
+            avail = 8 - bit_offset
+            take = bits_left if bits_left < avail else avail
+            shift = avail - take
+            chunk = (self._data[byte_index] >> shift) & ((1 << take) - 1)
+            value = (value << take) | chunk
+            bits_left -= take
+            byte_index += 1
+            bit_offset = 0
+        return value
+
+    def _read_bits_int(self, number_of_bits):
+        # type: (int) -> int
+        value = self._peek_bits_int(number_of_bits)
+        self._pos += number_of_bits
+        return value
 
     def read_bit(self):
         # type: () -> int
         if not self.number_of_bits:
             raise UPER_Decoding_Error("UPER_Decoder: out of data")
-        self.number_of_bits -= 1
-        return (self._bits >> self.number_of_bits) & 1
+        byte_index = self._pos // 8
+        bit_offset = self._pos % 8
+        self._pos += 1
+        return (self._data[byte_index] >> (7 - bit_offset)) & 1
 
     def read_bits(self, number_of_bits):
         # type: (int) -> bytes
@@ -216,38 +239,52 @@ class UPER_Decoder(object):
             raise UPER_Decoding_Error("UPER_Decoder: out of data")
         if number_of_bits == 0:
             return b""
+        if number_of_bits % 8 == 0 and self._pos % 8 == 0:
+            return self.read_bytes(number_of_bits // 8)
         value = self._read_bits_int(number_of_bits)
-        self.number_of_bits -= number_of_bits
         return _uper_bits_to_bytes(value, number_of_bits)
 
     def remaining(self):
         # type: () -> bytes
-        if self.number_of_bits == 0:
+        n = self.number_of_bits
+        if n == 0:
             return b""
-        value = self._read_bits_int(self.number_of_bits)
-        return _uper_bits_to_bytes(value, self.number_of_bits)
+        return _uper_bits_to_bytes(self._peek_bits_int(n), n)
 
     def remaining_bytes(self):
         # type: () -> bytes
         # A standalone UPER encoding is padded to an octet boundary, so the
         # bits left over inside the current octet are padding; only whole
         # octets after it are actual remaining input / Scapy payload.
-        consumed = self.total_number_of_bits - self.number_of_bits
-        pad = -consumed % 8
+        pad = -self._pos % 8
         if pad:
             if pad > self.number_of_bits:
                 raise UPER_Decoding_Error("UPER_Decoder: truncated padding")
-            if self._read_bits_int(pad) != 0:
+            if self._peek_bits_int(pad) != 0:
                 raise UPER_Decoding_Error(
                     "UPER_Decoder: non-zero padding bits",
                     remaining=self.remaining(),
                 )
-            self.number_of_bits -= pad
-        return self.remaining()
+            self._pos += pad
+        n = self.number_of_bits
+        if n == 0:
+            return b""
+        if n % 8:
+            raise UPER_Decoding_Error("UPER_Decoder: truncated padding")
+        start = self._pos // 8
+        return self._data[start:]
 
     def read_bytes(self, number_of_bytes):
         # type: (int) -> bytes
-        return self.read_bits(8 * number_of_bytes)
+        number_of_bits = 8 * number_of_bytes
+        if number_of_bits > self.number_of_bits:
+            raise UPER_Decoding_Error("UPER_Decoder: out of data")
+        if self._pos % 8 == 0:
+            start = self._pos // 8
+            end = start + number_of_bytes
+            self._pos += number_of_bits
+            return self._data[start:end]
+        return self.read_bits(number_of_bits)
 
     def read_non_negative_binary_integer(self, number_of_bits):
         # type: (int) -> int
@@ -255,9 +292,7 @@ class UPER_Decoder(object):
             raise UPER_Decoding_Error("UPER_Decoder: out of data")
         if number_of_bits == 0:
             return 0
-        value = self._read_bits_int(number_of_bits)
-        self.number_of_bits -= number_of_bits
-        return value
+        return self._read_bits_int(number_of_bits)
 
     def _read_length_determinant(self):
         # type: () -> Tuple[int, bool]
