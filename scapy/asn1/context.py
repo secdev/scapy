@@ -41,10 +41,6 @@ class ASN1Decoder(object):
         # type: () -> bytes
         raise NotImplementedError
 
-    def set_remainder(self, remainder):
-        # type: (bytes) -> None
-        raise NotImplementedError
-
 
 class BER_Encoder(ASN1Encoder):
     codec = ASN1_Codecs.BER
@@ -135,11 +131,6 @@ class UPER_DecoderContext(ASN1Decoder):
     def remaining(self):
         # type: () -> bytes
         return self.bit_decoder.remaining_bytes()
-
-    def set_remainder(self, remainder):
-        # type: (bytes) -> None
-        from scapy.asn1.uper import UPER_Decoder
-        self.bit_decoder = UPER_Decoder(remainder)
 
 
 def new_encoder(codec):
