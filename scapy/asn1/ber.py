@@ -12,7 +12,7 @@ Basic Encoding Rules (BER) for ASN.1
 # Good read: https://luca.ntop.org/Teaching/Appunti/asn1.html
 
 from scapy.config import conf
-from scapy.compat import chb, orb, bytes_encode
+from scapy.compat import chb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
 from scapy.asn1.asn1 import (
     ASN1Codec_metaclass,
@@ -163,7 +163,6 @@ def BER_num_dec(s, cls_id=0, max_pow=32):
         raise BER_Decoding_Error("BER_num_dec: got empty string", remaining=s)
     x = cls_id
     for i, c in enumerate(s):
-        c = c
         x <<= 7
         x |= c & 0x7f
         if not c & 0x80:
