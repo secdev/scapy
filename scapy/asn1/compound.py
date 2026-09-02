@@ -325,6 +325,7 @@ def uper_sequence_of_decode_from_decoder(field, pkt, dec):
         for _ in range(count):
             if field.holds_packets:
                 p = field.cls()
+                p.add_underlayer(pkt)
                 p.add_parent(pkt)
                 p.ASN1_root.decode_from(p, dec)
                 lst.append(p)
@@ -537,6 +538,7 @@ def uper_choice_decode_from_decoder(field, pkt, dec):
     choice = order[index]
     if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
         p = choice()
+        p.add_underlayer(pkt)
         p.add_parent(pkt)
         p.ASN1_root.decode_from(p, dec)
         return p
@@ -617,6 +619,7 @@ def uper_packet_decode_from_decoder(field, pkt, dec):
     # type: (Any, Any, Any) -> Any
     cls = (field.next_cls_cb(pkt) or field.cls) if field.next_cls_cb else field.cls
     p = cls()
+    p.add_underlayer(pkt)
     p.add_parent(pkt)
     p.ASN1_root.decode_from(p, dec)
     return p

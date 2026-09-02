@@ -1121,10 +1121,12 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
               x  # type: Union[bytes, ASN1_Packet, None, ASN1_Object[Optional[ASN1_Packet]]]  # noqa: E501
               ):
         # type: (...) -> 'ASN1_Packet'
+        # Kerberos EncryptedData.get_usage() walks underlayer; X.509 and
+        # OER nested packets also use parent. Set both when available.
+        if hasattr(x, "add_underlayer"):
+            x.add_underlayer(pkt)  # type: ignore
         if hasattr(x, "add_parent"):
             x.add_parent(pkt)  # type: ignore
-        elif hasattr(x, "add_underlayer"):
-            x.add_underlayer(pkt)  # type: ignore
         return super(ASN1F_PACKET, self).any2i(pkt, x)
 
     def randval(self):  # type: ignore
@@ -1164,7 +1166,7 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
             raise BER_Decoding_Error("wrong bit string", remaining=s)
         if bit_string.val_readable:
             p, s = self.extract_packet(self.cls, bit_string.val_readable,
-                                       _parent=pkt)
+                                       _underlayer=pkt, _parent=pkt)
         else:
             return None, bit_string.val_readable
         if len(s) > 0:
@@ -1247,6 +1249,8 @@ class ASN1F_STRING_PacketField(ASN1F_STRING):
         # type: (ASN1_Packet, Any) -> Any
         if hasattr(x, "add_underlayer"):
             x.add_underlayer(pkt)
+        if hasattr(x, "add_parent"):
+            x.add_parent(pkt)
         return super(ASN1F_STRING_PacketField, self).any2i(pkt, x)
 
 
@@ -1276,4 +1280,4 @@ class ASN1F_STRING_ENCAPS(ASN1F_STRING_PacketField):
     def m2i(self, pkt, s):  # type: ignore
         # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Packet, bytes]
         val = super(ASN1F_STRING_ENCAPS, self).m2i(pkt, s)
-        return self.cls(val[0].val, _parent=pkt), val[1]
+        return self.cls(val[0].val, _underlayer=pkt, _parent=pkt), val[1]
