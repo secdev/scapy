@@ -208,7 +208,10 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             # the BER type codec so the universal tag/length are applied.
             item = item.self_build()
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        return codec.enc(item, field=self, pkt=pkt, **self._codec_kwargs(pkt))
+        return cast(
+            bytes,
+            codec.enc(item, field=self, pkt=pkt, **self._codec_kwargs(pkt)),
+        )
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -288,7 +291,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
     def m2i_from_decoder(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> Any
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        return codec.dec_from_decoder(  # type: ignore[attr-defined]
+        return codec.dec_from_decoder(
             dec, field=self, pkt=pkt, **self._codec_kwargs(pkt),
         )
 
@@ -320,7 +323,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         bit_enc = per_bit_encoder(enc)
         extra = self._codec_kwargs(pkt)
         if bit_enc is not None:
-            codec.encode_into(  # type: ignore[attr-defined]
+            codec.encode_into(
                 bit_enc, raw, field=self, pkt=pkt, **extra,
             )
             return

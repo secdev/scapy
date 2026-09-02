@@ -389,7 +389,7 @@ class ASN1_Object(Generic[_K], metaclass=ASN1_Object_metaclass):
 
     def enc(self, codec):
         # type: (Any) -> bytes
-        return self.tag.get_codec(codec).enc(self.val)
+        return cast(bytes, self.tag.get_codec(codec).enc(self.val))
 
     def __repr__(self):
         # type: () -> str
