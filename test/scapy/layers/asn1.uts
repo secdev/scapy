@@ -115,11 +115,11 @@ ASN1_UTC_TIME(datetime(2020, 12, 31, tzinfo=timezone.utc)).val == "201231000000Z
 ASN1_UTC_TIME(datetime(2020, 12, 31, tzinfo=timezone(timedelta(hours=-23, minutes=-59)))).val == "201231000000-2359"
 
 + ASN.1 cross-codec build and dissect
-= import contrib codecs
-import scapy.contrib.oer
-import scapy.contrib.uper
-from scapy.contrib.oer import *
-from scapy.contrib.uper import *
+= import OER and UPER codecs
+import scapy.asn1.oer
+import scapy.asn1.uper
+from scapy.asn1.oer import *
+from scapy.asn1.uper import *
 from scapy.packet import raw
 = prepare helpers and packet classes
 class BERTaggedInteger(ASN1_Packet):
@@ -182,7 +182,7 @@ class OERTaggedInteger(ASN1_Packet):
 class OERFixedFields(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("n", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("n", 0, size_len=1, unsigned=True),
         ASN1F_STRING("s", "", size_len=3),
     )
 
@@ -247,7 +247,7 @@ def _roundtrip(cls, pkt):
 class UPERFixedFields(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("n", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("n", 0, size_len=1, unsigned=True),
         ASN1F_STRING("s", "", size_len=3),
     )
 
@@ -266,7 +266,7 @@ class UPERStringField(ASN1_Packet):
 class UPERConstrainedInteger(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
     ASN1_root = ASN1F_INTEGER(
-        "n", 0, size_len=1, oer_unsigned=True,
+        "n", 0, size_len=1, unsigned=True,
     )
 
 class UPEROptionalField(ASN1_Packet):
@@ -312,7 +312,7 @@ class UPEREnumeratedField(ASN1_Packet):
 class UPERBitStringField(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
     ASN1_root = ASN1F_BIT_STRING(
-        "bits", "0", uper_min=1, uper_max=20,
+        "bits", "0", minimum=1, maximum=20,
     )
 
 class UPERMessagePrefix(ASN1_Packet):
@@ -337,11 +337,11 @@ class UPERNullPacket(ASN1_Packet):
 
 class UPERVariableOctetString(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_STRING("data", "", uper_min=1, uper_max=20)
+    ASN1_root = ASN1F_STRING("data", "", minimum=1, maximum=20)
 
 class UPERConstrainedRangeInt(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=15)
+    ASN1_root = ASN1F_INTEGER("n", 0, minimum=0, maximum=15)
 
 class UPERSequenceWithEnumerated(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
@@ -373,17 +373,17 @@ class UPERSequenceWithNull(ASN1_Packet):
 
 class UPERFixedBitString(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_BIT_STRING("b", "0", uper_min=16, uper_max=16)
+    ASN1_root = ASN1F_BIT_STRING("b", "0", minimum=16, maximum=16)
 
 class UPERSequenceOfConstrainedInts(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
     ASN1_root = ASN1F_SEQUENCE_OF(
-        "values", [], ASN1F_INTEGER("item", 0, uper_min=0, uper_max=255),
+        "values", [], ASN1F_INTEGER("item", 0, minimum=0, maximum=255),
     )
 
 class UPERSignedInteger(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
-    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=-128, uper_max=127)
+    ASN1_root = ASN1F_INTEGER("n", 0, minimum=-128, maximum=127)
 
 class UPERMultiOptional(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
@@ -496,19 +496,19 @@ True
 class BERConstrained(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER(
-        "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+        "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
     )
 
 class OERConstrained(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_INTEGER(
-        "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+        "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
     )
 
 class PERConstrained(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
     ASN1_root = ASN1F_INTEGER(
-        "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+        "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
     )
 
 for cls, expected in (
@@ -539,9 +539,9 @@ class PEREmptySeqOf(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE_OF(
         "values",
         [],
-        ASN1F_INTEGER("item", 0, uper_min=0, uper_max=7),
-        uper_min=0,
-        uper_max=3,
+        ASN1F_INTEGER("item", 0, minimum=0, maximum=7),
+        minimum=0,
+        maximum=3,
     )
 
 for cls in (BEREmptySeqOf, OEREmptySeqOf, PEREmptySeqOf):
@@ -733,8 +733,8 @@ all(
 
 = importing OER and UPER leaves representative BER packet wire behavior intact
 ber_before = raw(RefactorBERInt(n=5))
-import scapy.contrib.oer
-import scapy.contrib.uper
+import scapy.asn1.oer
+import scapy.asn1.uper
 ber_after = raw(RefactorBERInt(n=5))
 assert ber_before == ber_after
 assert _value(RefactorBERInt(ber_after).n) == 5

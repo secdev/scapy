@@ -2,9 +2,6 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
-# scapy.contrib.description = ASN.1 Octet Encoding Rules (OER)
-# scapy.contrib.status = loads
-
 """
 Octet Encoding Rules (OER) for ASN.1
 
@@ -12,7 +9,7 @@ Basic-OER as specified in ITU-T X.696 | ISO/IEC 8825-7.
 
 ``ASN1F_SEQUENCE`` emits the preamble required by 16.2.2: a presence bit per
 ``ASN1F_optional``/``ASN1F_DEFAULT`` component, preceded by an extension bit
-for sequences declared with ``oer_extensible=True``. Fixed size constraints
+for sequences declared with ``extensible=True``. Fixed size constraints
 are expressed with ``size_len=`` (octets for strings, bits for BIT STRING).
 
 Tags declared on a field are not encoded: OER only puts a tag on the wire for

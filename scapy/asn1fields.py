@@ -957,7 +957,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         self.implicit_tag = None
         context = kwargs.pop("context", None)
         explicit_tag = kwargs.pop("explicit_tag", None)
-        # Remaining kwargs are codec constraints (e.g. uper_extensible=).
+        # Remaining kwargs are codec constraints (e.g. extensible=).
         super(ASN1F_CHOICE, self).__init__(
             name, None, context=context,
             explicit_tag=explicit_tag,
