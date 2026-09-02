@@ -345,11 +345,14 @@ class ISOTPSession(DefaultSession):
             basecls=kwargs.pop("basecls", ISOTP))
         super(ISOTPSession, self).__init__(*args, **kwargs)
 
-    def recv(self, sock: SuperSocket) -> Iterator[Packet]:
+    def recv(self, sock: SuperSocket, nonblock: bool = False) -> Iterator[Packet]:
         """
         Will be called by sniff() to ask for a packet
         """
-        pkt = sock.recv()
+        if nonblock and hasattr(sock, "nonblock_recv"):
+            pkt = sock.nonblock_recv()
+        else:
+            pkt = sock.recv()
         if not pkt:
             return
         self.m.feed(pkt)
