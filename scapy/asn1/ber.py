@@ -362,8 +362,8 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
     @classmethod
     def enc(cls, s, size_len=0, **_kwargs):
         # type: (_K, Optional[int], **Any) -> bytes
-        # Ignore unknown kwargs (field=/pkt=/constraint keys from shared
-        # field._codec_kwargs()) so BER packets do not TypeError.
+        # Ignore unknown kwargs (field=/pkt=/constraint keys) so BER packets
+        # do not TypeError when shared field call sites pass them through.
         size_len = 0 if size_len is None else int(size_len)
         if isinstance(s, (str, bytes)):
             return BERcodec_STRING.enc(s, size_len=size_len)

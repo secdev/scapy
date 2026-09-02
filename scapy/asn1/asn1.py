@@ -197,16 +197,6 @@ class ASN1Codec(EnumElement):
             return None, s
         return cast(Tuple[Optional[int], bytes], dec(s, **kwargs))
 
-    def new_encoder(cls):
-        # type: () -> Any
-        from scapy.asn1.context import new_encoder
-        return new_encoder(cls)
-
-    def new_decoder(cls, data):
-        # type: (bytes) -> Any
-        from scapy.asn1.context import new_decoder
-        return new_decoder(cls, data)
-
     def dec(cls, s, context=None, _depth=0):
         # type: (bytes, Optional[Type[ASN1_Class]], int) -> ASN1_Object[Any]
         return cls._stem.dec(s, context=context, _depth=_depth)  # type: ignore
