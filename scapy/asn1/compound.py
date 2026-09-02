@@ -12,7 +12,6 @@ Codec-specific hooks take the encoder/decoder context first so they can be
 bound as methods on the context classes in ``scapy.asn1.context``.
 """
 
-from functools import reduce
 from typing import Any, Callable, List, Tuple
 
 from scapy.asn1.asn1 import (
@@ -106,8 +105,11 @@ def _sequence_encode_children(field, pkt, encode):
 
 def ber_sequence_encode_to(enc, field, pkt):
     # type: (Any, Any, Any) -> None
-    s = reduce(lambda x, y: x + y.build(pkt), field.seq, b"")
-    enc.write(field.i2m(pkt, s))
+    # Encode children into a nested context, then wrap as one SEQUENCE TLV.
+    child_enc = type(enc)(codec=enc.codec)
+    for obj in field.seq:
+        obj.encode_to(pkt, child_enc)
+    enc.write(field.i2m(pkt, child_enc.finish()))
 
 
 def ber_sequence_decode_from(dec, field, pkt):
@@ -254,7 +256,8 @@ def uper_sequence_of_encode_to(enc, field, pkt, value=None):
 
     def append_items(offset, size):
         # type: (int, int) -> None
-        for item in value[offset:offset + size]:
+        for i in range(offset, offset + size):
+            item = value[i]
             if field.holds_packets:
                 item.ASN1_root.encode_to(item, enc)
             else:
