@@ -27,7 +27,6 @@ per character.
 ``alternative_index`` / BER tag lookup.
 """
 
-from scapy.error import warning
 from scapy.compat import orb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
 from scapy.asn1.ber import BER_num_dec, BER_num_enc
@@ -49,7 +48,6 @@ from typing import (
     Any,
     AnyStr,
     Callable,
-    Dict,
     Generic,
     List,
     Optional,
@@ -57,7 +55,6 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    cast,
 )
 
 
@@ -1060,14 +1057,6 @@ ASN1_Class_UNIVERSAL.STRING.register(ASN1_Codecs.PER, UPERcodec_STRING)
 ################################
 
 from scapy.asn1.compound import (  # noqa: E402
-    uper_choice_decode_from_decoder as uper_choice_m2i_from_decoder,
-    uper_choice_encode_into,
-    uper_packet_decode_from_decoder as uper_packet_m2i_from_decoder,
-    uper_packet_encode_into,
-    uper_sequence_of_decode_from_decoder as uper_sequence_of_m2i_from_decoder,
-    uper_sequence_of_encode_into,
-    write_uper_presence_bits,
-    read_uper_presence_bits,
     sequence_decode_from as _uper_sequence_decode_from,
     sequence_encode_to as _uper_sequence_encode_to,
     sequence_of_decode_from as _uper_sequence_of_decode_from,
