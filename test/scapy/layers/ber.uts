@@ -677,3 +677,52 @@ _assert_record_empty(empty)
 
 True
 
+% PR #5050 review regressions
++ BER review fixes
+= field _codec_kwargs hook
+class P(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0)
+
+fld = P.ASN1_root
+assert fld._codec_kwargs(P()) == {}
+assert raw(P(n=ASN1_INTEGER(5))) == b"\x02\x01\x05"
+assert raw(P(n=5)) == b"\x02\x01\x05"
+
+= field encode with extra kwargs via _codec_kwargs override
+class ExtraKwField(ASN1F_INTEGER):
+    def _codec_kwargs(self, pkt):
+        return {"size_len": self.size_len, "oer_unsigned": True, "uper_min": 0}
+
+class ExtraPkt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ExtraKwField("n", 0)
+
+assert raw(ExtraPkt(n=7)) == b"\x02\x01\x07"
+ExtraPkt(raw(ExtraPkt(n=7))).n.val == 7
+
+= BER OID first arc decode for 2.999.3
+obj, remain = BERcodec_OID.do_dec(BERcodec_OID.enc("2.999.3"))
+assert str(obj.val) == "2.999.3"
+assert remain == b""
+
+= BER build does not import UPER
+import subprocess
+import sys
+code = r'''
+import sys
+from scapy.asn1fields import ASN1F_INTEGER
+from scapy.asn1packet import ASN1_Packet
+from scapy.asn1.asn1 import ASN1_Codecs
+from scapy.packet import raw
+class P(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0)
+assert "scapy.asn1.uper" not in sys.modules
+raw(P(n=5))
+assert "scapy.asn1.uper" not in sys.modules
+'''
+result = subprocess.run([sys.executable, "-c", code])
+assert result.returncode == 0
+True
+

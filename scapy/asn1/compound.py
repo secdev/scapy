@@ -356,9 +356,10 @@ def _uper_count_enc(field, enc, count, append_items):
 
 # ---- CHOICE -------------------------------------------------------------
 
-def choice_encode_to(field, pkt, enc):
-    # type: (Any, Any, Any) -> None
-    value = getattr(pkt, field.name)
+def choice_encode_to(field, pkt, enc, value=None):
+    # type: (Any, Any, Any, Any) -> None
+    if value is None:
+        value = getattr(pkt, field.name)
     if per_bit_encoder(enc) is not None:
         uper_choice_encode_into(field, enc, pkt, value)
         return
@@ -404,7 +405,7 @@ def ber_choice_decode(field, pkt, s):
             )
         )
     if hasattr(choice, "ASN1_root"):
-        return field.extract_packet(choice, s, _parent=pkt)
+        return field.extract_packet(choice, s, _underlayer=pkt, _parent=pkt)
     if isinstance(choice, type):
         return choice(field.name, b"").m2i(pkt, s)
     return choice.m2i(pkt, s)
@@ -467,11 +468,11 @@ def oer_choice_decode(field, pkt, s):
             )
         choice = ASN1F_field
     if hasattr(choice, "ASN1_root"):
-        return field.extract_packet(choice, payload, _parent=pkt)
+        return field.extract_packet(choice, payload, _underlayer=pkt, _parent=pkt)
     if isinstance(choice, type):
         return choice(field.name, b"").m2i(pkt, payload)
     cls = (choice.next_cls_cb(pkt) or choice.cls) if choice.next_cls_cb else choice.cls
-    return field.extract_packet(cls, payload, _parent=pkt)
+    return field.extract_packet(cls, payload, _underlayer=pkt, _parent=pkt)
 
 
 def uper_choice_encode_into(field, enc, pkt, value=None):
@@ -573,7 +574,7 @@ def ber_oer_packet_decode(field, pkt, s):
     cls = (field.next_cls_cb(pkt) or field.cls) if field.next_cls_cb else field.cls
     from scapy.asn1packet import ASN1_Packet as _ASN1_Packet
     if not issubclass(cls, _ASN1_Packet):
-        return field.extract_packet(cls, s, _parent=pkt)
+        return field.extract_packet(cls, s, _underlayer=pkt, _parent=pkt)
     s = field._apply_tagging_dec(
         s, pkt,
         hidden_tag=cls.ASN1_root.ASN1_tag,
@@ -581,7 +582,7 @@ def ber_oer_packet_decode(field, pkt, s):
     )
     if not s:
         return None, s
-    return field.extract_packet(cls, s, _parent=pkt)
+    return field.extract_packet(cls, s, _underlayer=pkt, _parent=pkt)
 
 
 def ber_oer_packet_bytes(field, pkt, x):

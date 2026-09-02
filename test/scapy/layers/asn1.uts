@@ -740,3 +740,28 @@ assert ber_before == ber_after
 assert _value(RefactorBERInt(ber_after).n) == 5
 True
 
+% PR #5050 review regressions
++ BER DEFAULT and X.509 extract_packet
+= BER DEFAULT-only empty SEQUENCE restores default value
+class _BerDefaultOnly(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_DEFAULT(ASN1F_INTEGER("b", 7), 7),
+    )
+
+decoded = _BerDefaultOnly(b"\x30\x00")
+assert getattr(decoded.b, "val", decoded.b) == 7
+
+= extract_packet passes _underlayer for X.509 attribute types
+from scapy.layers.x509 import X509_Attribute, X509_AttributeValue, X509_Extensions
+
+attr = X509_Attribute()
+attr.type = ASN1_OID("1.2.840.113549.1.9.14")
+val_pkt = X509_AttributeValue()
+val_pkt.underlayer = attr
+field = X509_AttributeValue.ASN1_root
+p, remain = field.m2i(val_pkt, b"\x30\x00")
+assert isinstance(p, X509_Extensions)
+assert remain == b""
+True
+

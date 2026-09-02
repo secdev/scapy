@@ -1470,3 +1470,24 @@ assert isinstance(decoded.c, RefactorOERHighPrivateAlt)
 assert _value(decoded.c.flag) == 0
 True
 
+% PR #5050 review regressions
++ OER review fixes
+= OER INTEGER (0..255) uses single octet width from bounds
+class OERBoundedByte(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0, minimum=0, maximum=255)
+
+assert raw(OERBoundedByte(n=5)) == b"\x05"
+assert _roundtrip(OERBoundedByte, OERBoundedByte(n=5)).n.val == 5
+
+= OER OID round-trip for 2.999.3
+obj, remain = OERcodec_OID.do_dec(OERcodec_OID.enc("2.999.3"))
+assert str(obj.val) == "2.999.3"
+assert remain == b""
+
+= OER string codec classes are picklable with correct module
+import pickle
+assert pickle.dumps(OERcodec_IA5_STRING)
+assert OERcodec_IA5_STRING.__module__ == "scapy.asn1.oer"
+True
+
