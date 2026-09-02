@@ -14,3 +14,12 @@ assert bytes(L2TP(hdr="control+length", tunnel_id=1, session_id=2)) == b'\xc0\x0
 = L2TP - dissection
 p = IP(s)
 L2TP in p and len(p[L2TP]) == 6 and p.tunnel_id == 0 and p.session_id == 0 and p[UDP].chksum == 0xf483
+
+= L2TP - variable Offset Size
+payload = raw(PPP(proto=b"\x00\x21") / IP() / UDP(dport=9999))
+data = b"\x02\x02\x12\x34\x56\x78\x00\x04ABCD" + payload
+p = L2TP(data)
+assert p.offset == 4
+assert p[UDP].dport == 9999
+assert raw(p) == data
+built = L2TP(hdr="offset", tunnel_id=0x1234, session_id=0x5678, offset=4)
