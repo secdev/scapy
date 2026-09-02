@@ -4,7 +4,6 @@
 
 """Codec-neutral ASN.1 schema constraints."""
 
-import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -19,14 +18,6 @@ class ASN1Constraints:
     unsigned: bool = False
 
 
-_LEGACY_ALIASES = {
-    "uper_min": "minimum",
-    "uper_max": "maximum",
-    "uper_extensible": "extensible",
-    "oer_extensible": "extensible",
-    "oer_unsigned": "unsigned",
-}
-
 _SUPPORTED_CONSTRAINTS = {
     "minimum",
     "maximum",
@@ -39,7 +30,7 @@ _SUPPORTED_CONSTRAINTS = {
 
 def normalize_constraints(codec_opts):
     # type: (Dict[str, Any]) -> ASN1Constraints
-    """Build ASN1Constraints from field kwargs, with legacy alias support."""
+    """Build ASN1Constraints from field kwargs."""
     data = {
         "minimum": None,
         "maximum": None,
@@ -49,15 +40,7 @@ def normalize_constraints(codec_opts):
         "unsigned": False,
     }  # type: Dict[str, Any]
     for key, value in codec_opts.items():
-        if key in _LEGACY_ALIASES:
-            warnings.warn(
-                "codec-prefixed constraint %r is deprecated; use %r instead" %
-                (key, _LEGACY_ALIASES[key]),
-                DeprecationWarning,
-                stacklevel=4,
-            )
-            data[_LEGACY_ALIASES[key]] = value
-        elif key in _SUPPORTED_CONSTRAINTS:
+        if key in _SUPPORTED_CONSTRAINTS:
             data[key] = value
         else:
             raise TypeError("Unknown field constraint %r" % key)

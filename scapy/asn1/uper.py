@@ -2,9 +2,6 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
-# scapy.contrib.description = ASN.1 Unaligned Packed Encoding Rules (UPER)
-# scapy.contrib.status = loads
-
 """
 Unaligned Packed Encoding Rules (UPER) for ASN.1
 
@@ -13,8 +10,8 @@ As specified in ITU-T X.691 | ISO/IEC 8825-2.
 UPER is registered on ``ASN1_Codecs.PER``. Schema-driven encoding and decoding
 (``ASN1F_SEQUENCE``, ``ASN1F_CHOICE``, ``ASN1F_SEQUENCE_OF``,
 ``ASN1F_ENUMERATED``) is supported for common field types. Value ranges are
-declared with ``uper_min=``/``uper_max=``, fixed sizes with ``size_len=``, and
-an extension marker with ``uper_extensible=True``. Content of 16K units or
+declared with ``minimum=``/``maximum=``, fixed sizes with ``size_len=``, and
+an extension marker with ``extensible=True``. Content of 16K units or
 more is fragmented as required by 11.9.3.8.
 
 Not supported yet: extension additions (an encoding that carries them is

@@ -498,7 +498,7 @@ assert raw(Sized(n=ASN1_INTEGER(5))) == raw(Sized(n=5)) == b"\x02\x81\x01\x05"
 class ConstrainedField(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER(
-        "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+        "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
     )
 
 # BER uses size_len from the field; OER/PER keys live in constraints only.
@@ -512,7 +512,7 @@ assert plain.constraints.unsigned is False
 assert plain.size_len is None
 
 constrained = ASN1F_INTEGER(
-    "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+    "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
 )
 
 assert constrained.constraints.unsigned is True
@@ -530,7 +530,7 @@ assert constrained.size_len == 1
 class ConstrainedBer(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER(
-        "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+        "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
     )
 
 assert raw(ConstrainedBer(n=5)) == b"\x02\x81\x01\x05"
