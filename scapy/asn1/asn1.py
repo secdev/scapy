@@ -185,6 +185,26 @@ class ASN1Codec(EnumElement):
         # type: (Type[BERcodec_Object[Any]]) -> None
         cls._stem = stem
 
+    def register_tagging(cls, enc, dec):
+        # type: (Any, Any) -> None
+        # Codec-level implicit/explicit tagging (BER) or identity (OER/PER).
+        cls._tagging_enc = enc
+        cls._tagging_dec = dec
+
+    def tagging_enc(cls, s, **kwargs):
+        # type: (bytes, **Any) -> bytes
+        enc = getattr(cls, "_tagging_enc", None)
+        if enc is None:
+            return s
+        return cast(bytes, enc(s, **kwargs))
+
+    def tagging_dec(cls, s, **kwargs):
+        # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
+        dec = getattr(cls, "_tagging_dec", None)
+        if dec is None:
+            return None, s
+        return cast(Tuple[Optional[int], bytes], dec(s, **kwargs))
+
     def new_encoder(cls):
         # type: () -> Any
         from scapy.asn1.context import new_encoder

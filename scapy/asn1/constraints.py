@@ -19,18 +19,21 @@ class ASN1Constraints:
     unsigned: bool = False
 
 
-_LEGACY_CODEC_OPTS = {
+_LEGACY_ALIASES = {
     "uper_min": "minimum",
     "uper_max": "maximum",
     "uper_extensible": "extensible",
     "oer_extensible": "extensible",
     "oer_unsigned": "unsigned",
-    "minimum": "minimum",
-    "maximum": "maximum",
-    "size_min": "size_min",
-    "size_max": "size_max",
-    "extensible": "extensible",
-    "unsigned": "unsigned",
+}
+
+_SUPPORTED_CONSTRAINTS = {
+    "minimum",
+    "maximum",
+    "size_min",
+    "size_max",
+    "extensible",
+    "unsigned",
 }
 
 
@@ -46,39 +49,18 @@ def normalize_constraints(codec_opts):
         "unsigned": False,
     }  # type: Dict[str, Any]
     for key, value in codec_opts.items():
-        if key in _LEGACY_CODEC_OPTS:
-            if key.startswith(("uper_", "oer_")) and key not in (
-                "uper_min", "uper_max", "uper_extensible",
-                "oer_extensible", "oer_unsigned",
-            ):
-                warnings.warn(
-                    "Unknown codec-prefixed constraint %r" % key,
-                    DeprecationWarning,
-                    stacklevel=4,
-                )
-                continue
-            if key.startswith(("uper_", "oer_")):
-                warnings.warn(
-                    "codec-prefixed constraint %r is deprecated; use %r instead" %
-                    (key, _LEGACY_CODEC_OPTS[key]),
-                    DeprecationWarning,
-                    stacklevel=4,
-                )
-            data[_LEGACY_CODEC_OPTS[key]] = value
-        elif key in data:
+        if key in _LEGACY_ALIASES:
+            warnings.warn(
+                "codec-prefixed constraint %r is deprecated; use %r instead" %
+                (key, _LEGACY_ALIASES[key]),
+                DeprecationWarning,
+                stacklevel=4,
+            )
+            data[_LEGACY_ALIASES[key]] = value
+        elif key in _SUPPORTED_CONSTRAINTS:
             data[key] = value
-        elif key.startswith(("uper_", "oer_")):
-            warnings.warn(
-                "Unknown codec-prefixed constraint %r" % key,
-                DeprecationWarning,
-                stacklevel=4,
-            )
         else:
-            warnings.warn(
-                "Unknown field constraint %r" % key,
-                DeprecationWarning,
-                stacklevel=4,
-            )
+            raise TypeError("Unknown field constraint %r" % key)
     return ASN1Constraints(**data)
 
 
@@ -152,30 +134,54 @@ def uper_enum_values(field=None, pkt=None, uper_enum_values=None):
 
 def oer_int_wire_params(field=None, size_len=None, unsigned=None):
     # type: (Any, Optional[int], Optional[bool]) -> Tuple[Optional[int], bool, Optional[int], Optional[int]]  # noqa: E501
-    """Derive OER INTEGER width and signedness from field constraints."""
+    """Derive OER INTEGER width and signedness from field constraints.
+
+    Per X.696 §10.3–10.4:
+    - extensible integer constraints are encoded as unbounded;
+    - a nonnegative lower bound without a fitting fixed upper bound uses
+      variable-width unsigned encoding;
+    - fixed eight-octet width is used only when ``maximum <= 2**64 - 1``.
+    """
     size_len = field_size_len(field, size_len)
     is_unsigned = oer_unsigned(field, unsigned)
     minimum, maximum = field_range(field) if field is not None else (None, None)
-    if size_len is None and minimum is not None and maximum is not None:
-        if minimum >= 0:
+    extensible = field_extensible(field) if field is not None else False
+
+    # Extension values may lie outside the root range.
+    val_min = None if extensible else minimum
+    val_max = None if extensible else maximum
+
+    if size_len is not None:
+        if (not is_unsigned and minimum is not None and minimum >= 0 and
+                not extensible):
             is_unsigned = True
+        return size_len, is_unsigned, val_min, val_max
+
+    if extensible:
+        return None, is_unsigned, None, None
+
+    if minimum is not None and minimum >= 0:
+        is_unsigned = True
+        if maximum is not None:
             if maximum <= 0xFF:
                 size_len = 1
             elif maximum <= 0xFFFF:
                 size_len = 2
             elif maximum <= 0xFFFFFFFF:
                 size_len = 4
-            else:
+            elif maximum <= 0xFFFFFFFFFFFFFFFF:
                 size_len = 8
-        else:
-            is_unsigned = False
-            for sl, lo, hi in (
-                (1, -128, 127),
-                (2, -32768, 32767),
-                (4, -2147483648, 2147483647),
-                (8, -9223372036854775808, 9223372036854775807),
-            ):
-                if minimum >= lo and maximum <= hi:
-                    size_len = sl
-                    break
-    return size_len, is_unsigned, minimum, maximum
+            # else: range exceeds 2^64-1 → variable unsigned
+    elif minimum is not None and maximum is not None:
+        is_unsigned = False
+        for sl, lo, hi in (
+            (1, -128, 127),
+            (2, -32768, 32767),
+            (4, -2147483648, 2147483647),
+            (8, -9223372036854775808, 9223372036854775807),
+        ):
+            if minimum >= lo and maximum <= hi:
+                size_len = sl
+                break
+
+    return size_len, is_unsigned, val_min, val_max
