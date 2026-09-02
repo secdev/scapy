@@ -136,11 +136,10 @@ def oer_int_wire_params(field=None, size_len=None, unsigned=None):
     # type: (Any, Optional[int], Optional[bool]) -> Tuple[Optional[int], bool, Optional[int], Optional[int]]  # noqa: E501
     """Derive OER INTEGER width and signedness from field constraints.
 
-    Per X.696 §10.3–10.4:
-    - extensible integer constraints are encoded as unbounded;
-    - a nonnegative lower bound without a fitting fixed upper bound uses
-      variable-width unsigned encoding;
-    - fixed eight-octet width is used only when ``maximum <= 2**64 - 1``.
+    Per X.696 sections 10.3-10.4, extensible integer constraints are encoded
+    as unbounded. A nonnegative lower bound without a fitting fixed upper
+    bound uses variable-width unsigned encoding. A fixed eight-octet width
+    is used only when ``maximum <= 2**64 - 1``.
     """
     size_len = field_size_len(field, size_len)
     is_unsigned = oer_unsigned(field, unsigned)
