@@ -984,9 +984,8 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
         # X.691 10.2: PER indexes alternatives in canonical tag order.
-        decl_items = list(self.choices.items())
         canon_items = sorted(
-            decl_items,
+            self.choices.items(),
             key=lambda item: asn1_tag_parts(item[0])[:2],
         )
         self.canonical_order = [alt for _tag, alt in canon_items]
