@@ -4418,6 +4418,44 @@ except BER_Decoding_Error:
     pass
 
 
+= Decode an INTEGER with one bulk numeric conversion
+
+from builtins import int as builtin_int
+import scapy.asn1.ber as ber_module
+
+class _CountingIntMeta(type):
+    # The decode path also asks isinstance(tag, int), so the stand-in has to
+    # answer that the way the real int would.
+    def __instancecheck__(cls, obj):
+        return isinstance(obj, builtin_int)
+
+class CountingInt(builtin_int, metaclass=_CountingIntMeta):
+    calls = 0
+    @classmethod
+    def from_bytes(cls, value, byteorder, signed=False):
+        CountingInt.calls += 1
+        return builtin_int.from_bytes(value, byteorder, signed=signed)
+
+wide = b"\x02\x08" + b"\x01" * 8
+ber_module.int = CountingInt
+try:
+    decoded, remainder = BERcodec_INTEGER.do_dec(wide)
+finally:
+    del ber_module.int
+
+assert decoded.val == builtin_int.from_bytes(b"\x01" * 8, "big", signed=True)
+assert remainder == b""
+assert CountingInt.calls == 1
+
+= Decode INTEGER boundary values
+
+assert BERcodec_INTEGER.do_dec(b"\x02\x01\x7f")[0].val == 127
+assert BERcodec_INTEGER.do_dec(b"\x02\x01\x80")[0].val == -128
+assert BERcodec_INTEGER.do_dec(b"\x02\x02\x00\x80")[0].val == 128
+assert BERcodec_INTEGER.do_dec(b"\x02\x01\xff")[0].val == -1
+assert BERcodec_INTEGER.do_dec(b"\x02\x00")[0].val == 0
+
+
 = BER tests - 2
 
 a = b'0c\x02\x01\x01\x04\x06public\xa2V\x02\x01\x01\x02\x01\x00\x02\x01\x000K0I\x06\x03+\x06\x010B0@0>0<0:08060402000.0,0*0(0&0$0"0 0\x1e0\x1c0\x1a0\x180\x160\x140\x120\x100\x0e0\x0c0\n0\x080\x060\x040\x020\x00'

@@ -462,14 +462,8 @@ class BERcodec_INTEGER(BERcodec_Object[int]):
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
         l, s, t = cls.check_type_check_len(s)
-        x = 0
-        if s:
-            if s[0] & 0x80:  # negative int
-                x = -1
-            for c in s:
-                x <<= 8
-                x |= c
-        return cls.asn1_object(x), t
+        # One pass: shifting a growing integer per octet was quadratic in width.
+        return cls.asn1_object(int.from_bytes(s, "big", signed=True)), t
 
 
 class BERcodec_BOOLEAN(BERcodec_INTEGER):
