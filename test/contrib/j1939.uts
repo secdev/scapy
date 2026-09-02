@@ -1757,14 +1757,17 @@ p_wait = J1939_TP_CM_CTS(bytes(cts_wait))
 assert p_wait.num_packets == 0, "CTS hold-state must have num_packets=0"
 assert p_wait.next_packet == 5, "CTS next_packet should be next expected after pause"
 
-= J1939_TP_CM_ACK num_packets less than RTS (partial reception)
-# Receiver may ACK fewer packets if some were lost/corrupted; this is valid
+= J1939_TP_CM_ACK fields round-trip for a complete message
+# An End-of-Message ACK names the full transfer: total_size and num_packets
+# match the RTS that started the session.  Partial counts are still
+# encodeable as packet fields, but this soft socket only accepts an ACK
+# that matches the active transfer after every TP.DT has been sent.
 rts = J1939_TP_CM_RTS(total_size=100, num_packets=20, pgn=0xFECA)
-# Receiver only got 18 out of 20 packets (2 lost)
-ack = J1939_TP_CM_ACK(total_size=100, num_packets=18, pgn=0xFECA)
+ack = J1939_TP_CM_ACK(total_size=100, num_packets=20, pgn=0xFECA)
 p_ack = J1939_TP_CM_ACK(bytes(ack))
-assert p_ack.num_packets == 18, "ACK num_packets should reflect actual received"
+assert p_ack.num_packets == 20, "ACK num_packets should match the RTS"
 assert p_ack.total_size == 100, "ACK total_size should match session total"
+assert p_ack.pgn == rts.pgn, "ACK PGN should match the RTS"
 
 = J1939_TP_DT maximum data payload per frame
 # Each TP.DT carries exactly 7 bytes of payload (8 bytes total including seq_num)
@@ -4447,6 +4450,223 @@ _rb_peer3.close()
 cleanup_testsockets()
 assert _rb_elapsed < 0.5, "close(timeout=0) took %.2fs" % _rb_elapsed
 assert len(_rb_cut) < 50, "the transfer should have been cut short"
+
+= CAN send failure on BAM TP.CM resets TX without scheduling DTs
+# _can_send used to swallow adapter errors, so a failed BAM announcement
+# still armed the DT timer and "completed" the transfer locally.
+
+import scapy.contrib.j1939 as _rb_j1939
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        _rb_orig = cans.send
+        def _rb_fail(_pkt):
+            raise OSError("simulated CAN send failure")
+        cans.send = _rb_fail
+        sock.send(J1939(b'F' * 20, pgn=0xFECA, dst=0xFF))
+        _rb_time.sleep(0.3)
+        cans.send = _rb_orig
+        assert sock.impl.tx_state == _rb_j1939._J1939_TX_IDLE, \
+            "TX must return to IDLE after a failed BAM CM"
+        assert sock.impl.tx_timeout_handle is None, \
+            "no BAM DT timer may remain after the failure"
+        assert not _rb_dts(_rb_drain(peer, 0.2)), \
+            "no TP.DT frames must have been emitted"
+
+= CAN send failure on BAM TP.DT stops the transfer without advancing seq
+# The first DT succeeds; the second raises.  tx_seq must not advance past
+# the failed frame, and no further DTs may be scheduled.
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        _rb_n = [0]
+        _rb_orig = cans.send
+        def _rb_fail_dt(pkt):
+            _rb_n[0] += 1
+            if _rb_n[0] > 2:  # CM + first DT ok; second DT fails
+                raise OSError("simulated CAN send failure")
+            return _rb_orig(pkt)
+        cans.send = _rb_fail_dt
+        sock.send(J1939(b'G' * 20, pgn=0xFECA, dst=0xFF))
+        _rb_seen = _rb_dts(_rb_drain(peer, 0.8))
+        cans.send = _rb_orig
+        assert len(_rb_seen) == 1, \
+            "only the successful DT must be on the bus, got %d" % len(_rb_seen)
+        assert sock.impl.tx_state == _rb_j1939._J1939_TX_IDLE, \
+            "TX must reset after a failed BAM DT"
+        assert sock.impl.tx_timeout_handle is None
+
+= CAN send failure on RTS TP.CM resets TX
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        _rb_orig = cans.send
+        cans.send = lambda _pkt: (_ for _ in ()).throw(OSError("fail"))
+        sock.send(J1939(b'H' * 20, pgn=0xFECA, dst=0x20))
+        _rb_time.sleep(0.3)
+        cans.send = _rb_orig
+        assert sock.impl.tx_state == _rb_j1939._J1939_TX_IDLE
+        assert not _rb_cms(_rb_drain(peer, 0.2), 16), "no RTS on the bus"
+
+= CAN send failure during a CTS-authorised block does not advance seq
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        sock.send(J1939(b'I' * 21, pgn=0xFECA, dst=0x20))
+        _rb_rts = _rb_cms(_rb_drain(peer, 0.3), 16)
+        assert _rb_rts, "RTS must leave the socket"
+        _rb_n = [0]
+        _rb_orig = cans.send
+        def _rb_fail_block(pkt):
+            _rb_n[0] += 1
+            if _rb_n[0] > 1:  # first DT ok; second fails
+                raise OSError("simulated CAN send failure")
+            return _rb_orig(pkt)
+        cans.send = _rb_fail_block
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_CTS(
+            num_packets=3, next_packet=1, pgn=0xFECA)))
+        _rb_seen = _rb_dts(_rb_drain(peer, 0.5))
+        cans.send = _rb_orig
+        assert len(_rb_seen) == 1, \
+            "failed block must not emit further DTs, got %d" % len(_rb_seen)
+        assert sock.impl.tx_state == _rb_j1939._J1939_TX_IDLE
+
+= EOM ACK immediately after RTS is ignored
+# A same-PGN ACK before any TP.DT has been sent must not finish the transfer.
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        sock.send(J1939(b'J' * 20, pgn=0xFECA, dst=0x20))
+        _rb_drain(peer, 0.2)
+        assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_ACK(
+            total_size=20, num_packets=3, pgn=0xFECA)))
+        _rb_time.sleep(0.15)
+        assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS, \
+            "premature EOM ACK must not complete the transfer"
+
+= EOM ACK after a partial DT block is ignored
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        sock.send(J1939(b'K' * 21, pgn=0xFECA, dst=0x20))
+        _rb_drain(peer, 0.2)
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_CTS(
+            num_packets=1, next_packet=1, pgn=0xFECA)))
+        _rb_drain(peer, 0.3)
+        assert sock.impl.tx_seq == 2, "one DT must have been sent"
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_ACK(
+            total_size=21, num_packets=3, pgn=0xFECA)))
+        _rb_time.sleep(0.15)
+        assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS, \
+            "ACK before all DTs are sent must be ignored"
+
+= Stale same-PGN EOM ACK with wrong size is ignored
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        sock.send(J1939(b'L' * 14, pgn=0xFECA, dst=0x20))
+        _rb_drain(peer, 0.2)
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_CTS(
+            num_packets=2, next_packet=1, pgn=0xFECA)))
+        _rb_drain(peer, 0.3)
+        assert sock.impl.tx_seq > sock.impl.tx_npkts
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_ACK(
+            total_size=99, num_packets=2, pgn=0xFECA)))
+        _rb_time.sleep(0.15)
+        assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS, \
+            "ACK with the wrong total_size must not finish TX"
+
+= Stale same-PGN EOM ACK with wrong packet count is ignored
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        sock.send(J1939(b'M' * 14, pgn=0xFECA, dst=0x20))
+        _rb_drain(peer, 0.2)
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_CTS(
+            num_packets=2, next_packet=1, pgn=0xFECA)))
+        _rb_drain(peer, 0.3)
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_ACK(
+            total_size=14, num_packets=1, pgn=0xFECA)))
+        _rb_time.sleep(0.15)
+        assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS, \
+            "ACK with the wrong num_packets must not finish TX"
+
+= BAM addressed to local unicast is ignored
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_BAM(
+            total_size=14, num_packets=2, pgn=0xFECA)))
+        _rb_time.sleep(0.2)
+        assert not sock.impl.rx_sessions, "unicast BAM must be ignored"
+
+= RTS addressed to broadcast is ignored and produces no CTS
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        peer.send(_rb_cm(0xFF, 0x20, J1939_TP_CM_RTS(
+            total_size=14, num_packets=2, max_packets=0xFF, pgn=0xFECA)))
+        _rb_out = _rb_drain(peer, 0.3)
+        assert not sock.impl.rx_sessions, "broadcast RTS must not start RX"
+        assert not _rb_cms(_rb_out, J1939_TP_CTRL_CTS), \
+            "broadcast RTS must not elicit a CTS"
+
+= Broadcast CTS does not affect a directed TX session
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        sock.send(J1939(b'N' * 20, pgn=0xFECA, dst=0x20))
+        _rb_drain(peer, 0.2)
+        peer.send(_rb_cm(0xFF, 0x20, J1939_TP_CM_CTS(
+            num_packets=3, next_packet=1, pgn=0xFECA)))
+        _rb_time.sleep(0.2)
+        assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS
+        assert not _rb_dts(_rb_drain(peer, 0.2)), \
+            "broadcast CTS must not authorise DT frames"
+
+= Broadcast EOM ACK must not complete TX
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        sock.send(J1939(b'O' * 14, pgn=0xFECA, dst=0x20))
+        _rb_drain(peer, 0.2)
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_CTS(
+            num_packets=2, next_packet=1, pgn=0xFECA)))
+        _rb_drain(peer, 0.3)
+        assert sock.impl.tx_seq > sock.impl.tx_npkts
+        peer.send(_rb_cm(0xFF, 0x20, J1939_TP_CM_ACK(
+            total_size=14, num_packets=2, pgn=0xFECA)))
+        _rb_time.sleep(0.15)
+        assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS, \
+            "broadcast EOM ACK must not complete TX"
+
+= Broadcast ABORT must not terminate a directed session
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        peer.send(_rb_cm(0x10, 0x20, J1939_TP_CM_RTS(
+            total_size=14, num_packets=2, max_packets=0xFF, pgn=0xFECA)))
+        _rb_drain(peer, 0.3)
+        assert len(sock.impl.rx_sessions) == 1
+        peer.send(_rb_cm(0xFF, 0x20, J1939_TP_CM_ABORT(
+            reason=3, pgn=0xFECA)))
+        _rb_time.sleep(0.15)
+        assert len(sock.impl.rx_sessions) == 1, \
+            "broadcast ABORT must not drop a directed RX session"
 
 = Scheduler teardown
 

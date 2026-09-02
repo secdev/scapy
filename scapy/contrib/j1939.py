@@ -1134,9 +1134,8 @@ class J1939TPImplementation:
 
         # ── TP.CM (PF = 0xEC) ────────────────────────────────────────────────
         if pf == (J1939_PGN_TP_CM >> 8):  # 0xEC
-            # PS must address us or be broadcast.
-            if ps != self.src_addr and ps != socket.J1939_NO_ADDR:
-                return
+            # Destination rules differ per control command; validate in
+            # _on_tp_cm rather than accepting every TP.CM to us or broadcast.
             self._on_tp_cm(j)
             return
 
@@ -1175,6 +1174,9 @@ class J1939TPImplementation:
         ts = j.time
 
         if ctrl == J1939_TP_CTRL_BAM:
+            # BAM is broadcast-only; a unicast BAM is malformed.
+            if j.dst != socket.J1939_NO_ADDR:
+                return
             if len(data) < 8:
                 return
             bam = J1939_TP_CM_BAM(data)
@@ -1185,6 +1187,9 @@ class J1939TPImplementation:
                            max_packets=bam.num_packets, is_bam=True, ts=ts)
 
         elif ctrl == J1939_TP_CTRL_RTS:
+            # RTS is directed; broadcast RTS must not start a session or CTS.
+            if j.dst != self.src_addr:
+                return
             if len(data) < 8:
                 return
             rts = J1939_TP_CM_RTS(data)
@@ -1195,6 +1200,8 @@ class J1939TPImplementation:
                            max_packets=rts.max_packets, is_bam=False, ts=ts)
 
         elif ctrl == J1939_TP_CTRL_CTS:
+            if j.dst != self.src_addr:
+                return
             if len(data) < 8:
                 return
             cts = J1939_TP_CM_CTS(data)
@@ -1203,15 +1210,26 @@ class J1939TPImplementation:
                 self._tx_handle_cts(cts)
 
         elif ctrl == J1939_TP_CTRL_ACK:
+            if j.dst != self.src_addr:
+                return
             if len(data) < 8:
                 return
             ack = J1939_TP_CM_ACK(data)
-            if (self.tx_state in (_J1939_TX_RTS_WAIT_CTS,
-                                  _J1939_TX_RTS_SENDING) and
-                    sa == self.tx_peer_sa and ack.pgn == self.tx_pgn):
+            # EOM ACK completes the transfer only after every DT has been
+            # handed to the CAN layer.  Size and packet-count checks reject
+            # a stale same-PGN ACK from an earlier session.
+            if (self.tx_state == _J1939_TX_RTS_WAIT_CTS and
+                    self.tx_seq > self.tx_npkts and
+                    self.tx_buf is not None and
+                    sa == self.tx_peer_sa and
+                    ack.pgn == self.tx_pgn and
+                    ack.total_size == len(self.tx_buf) and
+                    ack.num_packets == self.tx_npkts):
                 self._tx_reset()
 
         elif ctrl == J1939_TP_CTRL_ABORT:
+            if j.dst != self.src_addr:
+                return
             abort = J1939_TP_CM_ABORT(data) if len(data) >= 8 else None
             # Only the peer of a session actually in progress may abort it,
             # and only for the PGN being transferred: an address left over
@@ -1401,11 +1419,7 @@ class J1939TPImplementation:
 
     def _can_send(self, pkt):
         # type: (J1939_CAN) -> None
-        try:
-            self.can_socket.send(pkt)
-        except Exception:
-            log_j1939.warning(
-                "J1939 CAN send failed: %s", traceback.format_exc())
+        self.can_socket.send(pkt)
 
     def _can_send_tp_cm(self, dst_sa, data, priority=6):
         # type: (int, bytes, int) -> None
@@ -1538,8 +1552,12 @@ class J1939TPImplementation:
         seq = self.tx_seq
         start = (seq - 1) * _J1939_TP_DT_DATA
         chunk = self.tx_buf[start:start + _J1939_TP_DT_DATA]
-        self._can_send_tp_dt(socket.J1939_NO_ADDR, seq, chunk,
-                             priority=self.tx_priority)
+        try:
+            self._can_send_tp_dt(socket.J1939_NO_ADDR, seq, chunk,
+                                 priority=self.tx_priority)
+        except Exception:
+            self._tx_reset()
+            raise
         self.tx_seq += 1
         if self.tx_seq > self.tx_npkts:
             self._tx_reset()
@@ -1613,8 +1631,12 @@ class J1939TPImplementation:
                 break
             start = (seq - 1) * _J1939_TP_DT_DATA
             chunk = self.tx_buf[start:start + _J1939_TP_DT_DATA]
-            self._can_send_tp_dt(self.tx_dst, seq, chunk,
-                                 priority=self.tx_priority)
+            try:
+                self._can_send_tp_dt(self.tx_dst, seq, chunk,
+                                     priority=self.tx_priority)
+            except Exception:
+                self._tx_reset()
+                raise
             self.tx_seq += 1
             sent += 1
 
