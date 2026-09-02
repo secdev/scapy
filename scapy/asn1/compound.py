@@ -10,7 +10,7 @@ Scapy ``Field.addfield`` / ``Field.getfield`` for that tree.
 """
 
 from functools import reduce
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Tuple
 
 from scapy.asn1.asn1 import (
     ASN1_Class_UNIVERSAL,

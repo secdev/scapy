@@ -15,6 +15,7 @@ from scapy.packet import Packet
 from typing import (
     Any,
     Dict,
+    Optional,
     Tuple,
     Type,
     cast,
@@ -43,6 +44,7 @@ class ASN1Packet_metaclass(Packet_metaclass):
 class ASN1_Packet(Packet, metaclass=ASN1Packet_metaclass):
     ASN1_root = cast('ASN1F_field[Any, Any]', None)
     ASN1_codec = cast(Any, None)
+    _asn1_observed_tags = None  # type: Optional[Dict[str, int]]
 
     def self_build(self):
         # type: () -> bytes
@@ -50,17 +52,17 @@ class ASN1_Packet(Packet, metaclass=ASN1Packet_metaclass):
             return self.raw_packet_cache
         enc = self.ASN1_codec.new_encoder()
         self.ASN1_root.encode_to(self, enc)
-        return enc.finish()
+        return cast(bytes, enc.finish())
 
     def do_dissect(self, x):
         # type: (bytes) -> bytes
         from scapy.asn1.asn1 import ASN1_Codecs
         from scapy.asn1.uper import UPER_has_unexpected_remainder
 
-        self._asn1_observed_tags = {}  # type: ignore[attr-defined]
+        self._asn1_observed_tags = {}
         dec = self.ASN1_codec.new_decoder(x)
         self.ASN1_root.decode_from(self, dec)
         if self.ASN1_codec is ASN1_Codecs.PER:
             if not UPER_has_unexpected_remainder(dec.bit_decoder):
                 return b""
-        return dec.remaining()
+        return cast(bytes, dec.remaining())
