@@ -114,11 +114,6 @@ class UPER_EncoderContext(ASN1Encoder):
         # type: () -> _UPER_Encoder
         return self._enc
 
-    @property
-    def inner(self):
-        # type: () -> _UPER_Encoder
-        return self._enc
-
     def finish(self):
         # type: () -> bytes
         return self._enc.as_bytes()
@@ -139,27 +134,14 @@ class UPER_DecoderContext(ASN1Decoder):
         # type: () -> _UPER_Decoder
         return self._dec
 
-    @property
-    def inner(self):
-        # type: () -> _UPER_Decoder
-        return self._dec
-
     def remaining(self):
         # type: () -> bytes
-        return self._dec.remaining()
+        return self._dec.remaining_bytes()
 
     def set_remainder(self, remainder):
         # type: (bytes) -> None
         from scapy.asn1.uper import UPER_Decoder
         self._dec = UPER_Decoder(remainder)
-
-    def check_no_remainder(self, name):
-        # type: (str) -> None
-        from scapy.asn1.uper import UPER_Decoding_Error
-        if self._dec.remaining():
-            raise UPER_Decoding_Error(
-                "unexpected remainder in %s" % name,
-            )
 
 
 def new_encoder(codec):

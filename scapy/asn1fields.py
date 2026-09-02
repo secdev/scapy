@@ -23,7 +23,6 @@ from scapy.asn1.asn1 import (
     ASN1_BOOLEAN,
     ASN1_Class,
     ASN1_Class_UNIVERSAL,
-    ASN1_Codecs,
     ASN1_Decoding_Error,
     ASN1_Error,
     ASN1_INTEGER,
@@ -32,11 +31,7 @@ from scapy.asn1.asn1 import (
     ASN1_Object,
     ASN1_STRING,
 )
-from scapy.asn1.ber import (
-    BER_Decoding_Error,
-    BER_tagging_dec,
-    BER_tagging_enc,
-)
+from scapy.asn1.ber import BER_Decoding_Error
 from scapy.asn1.constraints import normalize_constraints
 from scapy.asn1.context import per_bit_decoder, per_bit_encoder
 from scapy.asn1.tag import asn1_tag_parts
@@ -158,16 +153,12 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
 
     def _tagging_dec(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
-        # Only BER puts the tag of a field on the wire.
-        if pkt.ASN1_codec is ASN1_Codecs.BER:
-            return BER_tagging_dec(s, **kwargs)
-        return None, s
+        # Codec provides tagging_*; OER/PER register identity helpers.
+        return pkt.ASN1_codec.tagging_dec(s, **kwargs)  # type: ignore
 
     def _tagging_enc(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> bytes
-        if pkt.ASN1_codec is ASN1_Codecs.BER:
-            return BER_tagging_enc(s, **kwargs)
-        return s
+        return pkt.ASN1_codec.tagging_enc(s, **kwargs)  # type: ignore
 
     def _apply_tagging_dec(self, s, pkt, hidden_tag=None, **kwargs):
         # type: (bytes, ASN1_Packet, Optional[Any], **Any) -> bytes
@@ -188,7 +179,8 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
 
     def _codec_kwargs(self, pkt=None):
         # type: (Optional[ASN1_Packet]) -> Dict[str, Any]
-        return {}
+        # Pass size_len through by default; subclasses may extend this dict.
+        return {"size_len": self.size_len}
 
     def _encode_item(self, pkt, item):
         # type: (ASN1_Packet, Any) -> bytes
@@ -728,7 +720,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
         elif hasattr(cls, "ASN1_root") or callable(cls):
             self.cls = cast("Type[ASN1_Packet]", cls)
             self._extract_packet = lambda s, pkt: self.extract_packet(
-                self.cls, s, _parent=pkt)
+                self.cls, s, _underlayer=pkt, _parent=pkt)
             self.holds_packets = 1
         else:
             raise ValueError("cls should be an ASN1_Packet or ASN1_field")

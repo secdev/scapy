@@ -316,11 +316,21 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
                 raise TypeError("Trying to encode an invalid value !")
 
 
-# No tagging hook: X.696 encodes no tag for a component, whatever the tagging
-# environment of the module, so a field is left alone. The only tag on the
-# wire is the one of a chosen CHOICE alternative, which the CHOICE hooks below
-# write themselves.
+# Tags declared on a field are not encoded for OER components (X.696);
+# CHOICE writes its own alternative tags. Identity tagging keeps the
+# codec extension point without BER-style wrappers.
+def _oer_tagging_enc(s, **_kwargs):
+    # type: (bytes, **Any) -> bytes
+    return s
+
+
+def _oer_tagging_dec(s, **_kwargs):
+    # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
+    return None, s
+
+
 ASN1_Codecs.OER.register_stem(OERcodec_Object)
+ASN1_Codecs.OER.register_tagging(_oer_tagging_enc, _oer_tagging_dec)
 
 
 ##########################
@@ -342,12 +352,16 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
         size_len, oer_unsigned, minimum, maximum = oer_int_wire_params(
             field, size_len, oer_unsigned,
         )
-        if minimum is not None and maximum is not None:
-            if not minimum <= i <= maximum:
-                raise OER_Encoding_Error(
-                    "%s: %i is outside %i..%i" %
-                    (cls.__name__, i, minimum, maximum)
-                )
+        if minimum is not None and i < minimum:
+            raise OER_Encoding_Error(
+                "%s: %i is below minimum %i" %
+                (cls.__name__, i, minimum)
+            )
+        if maximum is not None and i > maximum:
+            raise OER_Encoding_Error(
+                "%s: %i is above maximum %i" %
+                (cls.__name__, i, maximum)
+            )
         if oer_unsigned and i < 0:
             raise OER_Encoding_Error(
                 "%s: %i is negative for an unsigned type" % (cls.__name__, i)
@@ -389,25 +403,35 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
             x = struct.unpack(
                 cls._FIXED_FORMATS[not oer_unsigned][size_len], s[:size_len]
             )[0]
-            if minimum is not None and maximum is not None:
-                if not minimum <= x <= maximum:
-                    raise OER_Decoding_Error(
-                        "%s: %i is outside %i..%i" %
-                        (cls.__name__, x, minimum, maximum),
-                        remaining=s,
-                    )
+            if minimum is not None and x < minimum:
+                raise OER_Decoding_Error(
+                    "%s: %i is below minimum %i" %
+                    (cls.__name__, x, minimum),
+                    remaining=s,
+                )
+            if maximum is not None and x > maximum:
+                raise OER_Decoding_Error(
+                    "%s: %i is above maximum %i" %
+                    (cls.__name__, x, maximum),
+                    remaining=s,
+                )
             return cls.asn1_object(x), s[size_len:]
         if oer_unsigned:
             x, t = OER_unsigned_integer_dec(s)
         else:
             x, t = OER_signed_integer_dec(s)
-        if minimum is not None and maximum is not None:
-            if not minimum <= x <= maximum:
-                raise OER_Decoding_Error(
-                    "%s: %i is outside %i..%i" %
-                    (cls.__name__, x, minimum, maximum),
-                    remaining=s,
-                )
+        if minimum is not None and x < minimum:
+            raise OER_Decoding_Error(
+                "%s: %i is below minimum %i" %
+                (cls.__name__, x, minimum),
+                remaining=s,
+            )
+        if maximum is not None and x > maximum:
+            raise OER_Decoding_Error(
+                "%s: %i is above maximum %i" %
+                (cls.__name__, x, maximum),
+                remaining=s,
+            )
         return cls.asn1_object(x), t
 
 

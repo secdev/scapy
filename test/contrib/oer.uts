@@ -2,7 +2,7 @@
 
 #
 # Try me with:
-# bash test/run_tests -t test/scapy/layers/oer.uts -F
+# ./test/run_tests -t test/contrib/oer.uts -N
 
 + ASN.1 OER load
 = prepare helpers and packet classes
@@ -1479,6 +1479,43 @@ class OERBoundedByte(ASN1_Packet):
 
 assert raw(OERBoundedByte(n=5)) == b"\x05"
 assert _roundtrip(OERBoundedByte, OERBoundedByte(n=5)).n.val == 5
+
+= OER INTEGER minimum=0 alone is variable unsigned
+class OERNonNeg(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0, minimum=0)
+
+assert raw(OERNonNeg(n=128)) == b"\x01\x80"
+_raises(OER_Encoding_Error, lambda: raw(OERNonNeg(n=-1)))
+assert OERNonNeg(b"\x01\x80").n.val == 128
+
+= OER INTEGER maximum alone rejects values above the bound
+class OERMax10(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0, maximum=10)
+
+assert raw(OERMax10(n=10))
+_raises(OER_Encoding_Error, lambda: raw(OERMax10(n=11)))
+
+= OER extensible (0..255) is unbounded and accepts 256
+class OERExtByte(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0, minimum=0, maximum=255, extensible=True)
+
+assert raw(OERExtByte(n=256)) == OERcodec_INTEGER.enc(256)
+assert _roundtrip(OERExtByte, OERExtByte(n=256)).n.val == 256
+
+= OER (0..2**80) uses variable-width unsigned
+class OERHuge(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0, minimum=0, maximum=2 ** 80)
+
+big = 2 ** 64
+assert raw(OERHuge(n=big)) == OER_unsigned_integer_enc(big)
+assert _roundtrip(OERHuge, OERHuge(n=big)).n.val == big
+
+= unknown constraint kwargs raise TypeError
+_raises(TypeError, lambda: ASN1F_INTEGER("n", 0, mininum=0, maximim=255))
 
 = OER OID round-trip for 2.999.3
 obj, remain = OERcodec_OID.do_dec(OERcodec_OID.enc("2.999.3"))

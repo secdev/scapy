@@ -753,15 +753,11 @@ decoded = _BerDefaultOnly(b"\x30\x00")
 assert getattr(decoded.b, "val", decoded.b) == 7
 
 = extract_packet passes _underlayer for X.509 attribute types
-from scapy.layers.x509 import X509_Attribute, X509_AttributeValue, X509_Extensions
+from scapy.layers.x509 import X509_Attribute, X509_Extensions
 
-attr = X509_Attribute()
-attr.type = ASN1_OID("1.2.840.113549.1.9.14")
-val_pkt = X509_AttributeValue()
-val_pkt.underlayer = attr
-field = X509_AttributeValue.ASN1_root
-p, remain = field.m2i(val_pkt, b"\x30\x00")
-assert isinstance(p, X509_Extensions)
-assert remain == b""
+wire = bytes.fromhex("300f06092a864886f70d01090e31023000")
+attr = X509_Attribute(wire)
+assert attr.values[0].underlayer is attr
+assert isinstance(attr.values[0].value, X509_Extensions)
 True
 
