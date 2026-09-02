@@ -194,10 +194,14 @@ class UPER_Encoder(object):
 
 def UPER_has_unexpected_remainder(dec):
     # type: (UPER_Decoder) -> bool
-    if dec.number_of_bits == 0:
-        return False
-    mask = (1 << dec.number_of_bits) - 1
-    return (dec._bits & mask) != 0
+    """True when unread bits remain after an octet-aligned padding check.
+
+    Prefer :meth:`UPER_Decoder.remaining_bytes` at packet boundaries; this
+    helper only reports whether non-padding bits are still pending.
+    """
+    pad = -dec._read_offset() % 8
+    unread = max(0, dec.number_of_bits - pad)
+    return unread != 0
 
 
 class UPER_Decoder(object):
@@ -252,9 +256,17 @@ class UPER_Decoder(object):
         # type: () -> bytes
         # A standalone UPER encoding is padded to an octet boundary, so the
         # bits left over inside the current octet are padding; only whole
-        # octets after it are actual remaining input.
+        # octets after it are actual remaining input / Scapy payload.
         pad = -self._read_offset() % 8
-        self.number_of_bits = max(0, self.number_of_bits - pad)
+        if pad:
+            if pad > self.number_of_bits:
+                raise UPER_Decoding_Error("UPER_Decoder: truncated padding")
+            if self._read_bits_int(pad) != 0:
+                raise UPER_Decoding_Error(
+                    "UPER_Decoder: non-zero padding bits",
+                    remaining=self.remaining(),
+                )
+            self.number_of_bits -= pad
         return self.remaining()
 
     def read_bytes(self, number_of_bytes):
@@ -482,8 +494,20 @@ class UPERcodec_Object(Generic[_K], metaclass=UPERcodec_metaclass):
         return cls.dec(s, context, safe=True, **kwargs)
 
 
-# No tagging hook: PER encodes no tag at all, so a field is left alone.
+# No field tagging on the wire for PER; identity keeps the codec extension
+# point without BER-style wrappers.
+def _uper_tagging_enc(s, **_kwargs):
+    # type: (bytes, **Any) -> bytes
+    return s
+
+
+def _uper_tagging_dec(s, **_kwargs):
+    # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
+    return None, s
+
+
 ASN1_Codecs.PER.register_stem(UPERcodec_Object)
+ASN1_Codecs.PER.register_tagging(_uper_tagging_enc, _uper_tagging_dec)
 
 
 #########################
@@ -982,6 +1006,8 @@ class UPERcodec_TIME_TICKS(UPERcodec_INTEGER):
 
 
 class UPERcodec_KNOWN_MULTIPLIER_STRING(UPERcodec_STRING):
+    # X.691 §3.7.16 / §30: NumericString, PrintableString, VisibleString
+    # (ISO646String), IA5String, BMPString, UniversalString.
     @classmethod
     def encode_into(cls, enc, s, **_kwargs):
         # type: (UPER_Encoder, Any, **Any) -> None
@@ -999,7 +1025,23 @@ class UPERcodec_KNOWN_MULTIPLIER_STRING(UPERcodec_STRING):
         )
 
 
-class UPERcodec_UTF8_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+class UPERcodec_UNSUPPORTED_TIME(UPERcodec_STRING):
+    @classmethod
+    def encode_into(cls, enc, s, **_kwargs):
+        # type: (UPER_Encoder, Any, **Any) -> None
+        raise UPER_Encoding_Error(
+            "%s: PER time encoding is not implemented" % cls.__name__
+        )
+
+    @classmethod
+    def dec_from_decoder(cls, dec, **_kwargs):
+        # type: (UPER_Decoder, **Any) -> ASN1_Object[Any]
+        raise UPER_Decoding_Error(
+            "%s: PER time decoding is not implemented" % cls.__name__
+        )
+
+
+class UPERcodec_UTF8_STRING(UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.UTF8_STRING
 
 
@@ -1011,11 +1053,11 @@ class UPERcodec_PRINTABLE_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
     tag = ASN1_Class_UNIVERSAL.PRINTABLE_STRING
 
 
-class UPERcodec_T61_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+class UPERcodec_T61_STRING(UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.T61_STRING
 
 
-class UPERcodec_VIDEOTEX_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+class UPERcodec_VIDEOTEX_STRING(UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.VIDEOTEX_STRING
 
 
@@ -1023,15 +1065,15 @@ class UPERcodec_IA5_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
     tag = ASN1_Class_UNIVERSAL.IA5_STRING
 
 
-class UPERcodec_GENERAL_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+class UPERcodec_GENERAL_STRING(UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.GENERAL_STRING
 
 
-class UPERcodec_UTC_TIME(UPERcodec_KNOWN_MULTIPLIER_STRING):
+class UPERcodec_UTC_TIME(UPERcodec_UNSUPPORTED_TIME):
     tag = ASN1_Class_UNIVERSAL.UTC_TIME
 
 
-class UPERcodec_GENERALIZED_TIME(UPERcodec_KNOWN_MULTIPLIER_STRING):
+class UPERcodec_GENERALIZED_TIME(UPERcodec_UNSUPPORTED_TIME):
     tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
 
 

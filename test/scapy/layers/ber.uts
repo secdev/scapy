@@ -685,7 +685,7 @@ class P(ASN1_Packet):
     ASN1_root = ASN1F_INTEGER("n", 0)
 
 fld = P.ASN1_root
-assert fld._codec_kwargs(P()) == {}
+assert fld._codec_kwargs(P()) == {"size_len": None}
 assert raw(P(n=ASN1_INTEGER(5))) == b"\x02\x01\x05"
 assert raw(P(n=5)) == b"\x02\x01\x05"
 
@@ -706,7 +706,7 @@ obj, remain = BERcodec_OID.do_dec(BERcodec_OID.enc("2.999.3"))
 assert str(obj.val) == "2.999.3"
 assert remain == b""
 
-= BER build does not import UPER
+= BER build and dissect do not import UPER
 import subprocess
 import sys
 code = r'''
@@ -721,8 +721,16 @@ class P(ASN1_Packet):
 assert "scapy.asn1.uper" not in sys.modules
 raw(P(n=5))
 assert "scapy.asn1.uper" not in sys.modules
+P(b"\x02\x01\x01")
+assert "scapy.asn1.uper" not in sys.modules
 '''
 result = subprocess.run([sys.executable, "-c", code])
 assert result.returncode == 0
+
+= codec tagging dispatch is registered on ASN1_Codecs.BER
+assert ASN1_Codecs.BER.tagging_enc(b"\x02\x01\x01") == b"\x02\x01\x01"
+diff, s = ASN1_Codecs.BER.tagging_dec(
+    b"\x02\x01\x01", hidden_tag=ASN1_Class_UNIVERSAL.INTEGER)
+assert s == b"\x02\x01\x01"
 True
 

@@ -414,6 +414,7 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
 
 
 ASN1_Codecs.BER.register_stem(BERcodec_Object)
+ASN1_Codecs.BER.register_tagging(BER_tagging_enc, BER_tagging_dec)
 
 
 def _ber_enc_size_len(field=None, size_len=None):

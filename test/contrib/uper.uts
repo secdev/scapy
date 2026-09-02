@@ -2,7 +2,7 @@
 
 #
 # Try me with:
-# bash test/run_tests -t test/scapy/layers/uper.uts -F
+# ./test/run_tests -t test/contrib/uper.uts -N
 
 + ASN.1 UPER load
 = prepare helpers and packet classes
@@ -1343,9 +1343,13 @@ for data, minimum, maximum in [
 True
 
 = uper has unexpected remainder
-assert UPER_has_unexpected_remainder(UPER_Decoder(b"\x00")) is False
+dec = UPER_Decoder(b"\x80")
+dec.read_bit()
+assert UPER_has_unexpected_remainder(dec) is False
 
-assert UPER_has_unexpected_remainder(UPER_Decoder(b"\x80")) is True
+dec = UPER_Decoder(b"\x80\x00")
+dec.read_bit()
+assert UPER_has_unexpected_remainder(dec) is True
 
 True
 
@@ -3596,12 +3600,23 @@ True
 
 % PR #5050 review regressions
 + UPER review fixes
-= top-level BOOLEAN dissect ignores octet padding without Raw payload
+= top-level BOOLEAN padding keeps trailing whole octets as payload
 from scapy.packet import Raw
 
 pkt = UPERBooleanField(b"\x80")
 assert raw(pkt) == b"\x80"
 assert pkt.getlayer(Raw) is None
+
+pkt = UPERBooleanField(b"\x80\x00")
+assert bool(pkt.b) is True
+assert raw(pkt) == b"\x80\x00"
+assert pkt.getlayer(Raw) is not None
+assert pkt.getlayer(Raw).load == b"\x00"
+
+pkt = UPERBooleanField(b"\x80\x01")
+assert bool(pkt.b) is True
+assert raw(pkt) == b"\x80\x01"
+assert pkt.getlayer(Raw).load == b"\x01"
 
 = constrained INTEGER decode rejects out-of-range code points
 class UPERRange02(ASN1_Packet):
@@ -3616,10 +3631,21 @@ UPERcodec_OID.encode_into(enc, "2.999.3")
 obj = UPERcodec_OID.dec_from_decoder(UPER_Decoder(enc.as_bytes()))
 assert str(obj.val) == "2.999.3"
 
-= UPER IA5 string encoding raises strict error
+= UPER known-multiplier IA5 string encoding raises strict error
 _raises(UPER_Encoding_Error, lambda: UPERcodec_IA5_STRING.enc(b"hi"))
 _raises(UPER_Encoding_Error, lambda: UPERcodec_IA5_STRING.encode_into(
     UPER_Encoder(), b"hi"))
+
+= UPER non-known-multiplier UTF8String uses octet-string path
+assert UPERcodec_UTF8_STRING.enc(b"hi") == UPERcodec_STRING.enc(b"hi")
+obj, remain = UPERcodec_UTF8_STRING.do_dec(UPERcodec_UTF8_STRING.enc(b"hi"))
+assert obj.val == b"hi"
+assert remain == b""
+
+= UPER time types raise unsupported errors
+_raises(UPER_Encoding_Error, lambda: UPERcodec_UTC_TIME.enc(b"250101000000Z"))
+_raises(UPER_Encoding_Error, lambda: UPERcodec_GENERALIZED_TIME.enc(
+    b"20250101000000Z"))
 
 = CHOICE encode_into does not mutate packet fields
 import copy
