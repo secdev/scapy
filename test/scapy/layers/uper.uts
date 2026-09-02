@@ -2658,7 +2658,7 @@ class _PacketChoice(ASN1_Packet):
 
 assert _PacketChoice.ASN1_root.randval() is not None
 
-packet_field = _PacketChoice.ASN1_root.choice_list[0]
+packet_field = list(_PacketChoice.ASN1_root.choices.values())[0]
 
 assert packet_field.randval() is not None
 

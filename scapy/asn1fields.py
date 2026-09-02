@@ -235,20 +235,16 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         """
         s = self._apply_tagging_dec(s, pkt, _fname=self.name)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        kwargs = dict(
-            context=self.context,
-            field=self,
-            pkt=pkt,
-            size_len=self.size_len,
-        )
-        if self.flexible_tag:
-            return cast(
-                Tuple[_A, bytes],
-                codec.safedec(s, **kwargs),
-            )
+        decode = codec.safedec if self.flexible_tag else codec.dec
         return cast(
             Tuple[_A, bytes],
-            codec.dec(s, **kwargs),
+            decode(
+                s,
+                context=self.context,
+                field=self,
+                pkt=pkt,
+                size_len=self.size_len,
+            ),
         )
 
     def i2m(self, pkt, x):
@@ -998,32 +994,22 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
             tag: i for i, (tag, _alt) in enumerate(canon_items)
         }  # type: Dict[int, int]
 
-    @property
-    def choice_order(self):
-        # type: () -> List[int]
-        return list(self.choices.keys())
-
-    def alternative_index(self, x):
+    def alternative_tag(self, x):
         # type: (Any) -> Optional[int]
-        """Position in choice_order of the alternative that carries x."""
-        for index, choice in enumerate(self.choices.values()):
+        """Return the CHOICE alternative tag that carries x, or None."""
+        for tag, choice in self.choices.items():
             if isinstance(choice, type):
                 if hasattr(choice, "ASN1_root"):
                     # ASN1_Packet subclass
                     if isinstance(x, choice):
-                        return index
+                        return tag
                 elif isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
                     # ASN1F_field subclass
-                    return index
+                    return tag
             elif isinstance(x, choice.cls):
                 # ASN1F_PACKET instance, holding a tagged packet
-                return index
+                return tag
         return None
-
-    @property
-    def choice_list(self):
-        # type: () -> List[_CHOICE_T]
-        return list(self.choices.values())
 
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Object[Any], bytes]

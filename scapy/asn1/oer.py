@@ -245,18 +245,17 @@ class OERcodec_Object(Generic[_K], metaclass=ASN1Codec_metaclass):
             **_kwargs  # type: Any
             ):
         # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
-        call_kw = dict(_kwargs)
         if field is not None:
-            call_kw["field"] = field
+            _kwargs["field"] = field
         if pkt is not None:
-            call_kw["pkt"] = pkt
+            _kwargs["pkt"] = pkt
         if not safe:
             return cls.do_dec(
-                s, context=context, safe=safe, **call_kw,
+                s, context=context, safe=safe, **_kwargs,
             )
         try:
             return cls.do_dec(
-                s, context=context, safe=safe, **call_kw,
+                s, context=context, safe=safe, **_kwargs,
             )
         except OER_Decoding_Error as e:
             return ASN1_DECODING_ERROR(s, exc=e), b""

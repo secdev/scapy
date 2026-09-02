@@ -96,13 +96,12 @@ def oer_sequence_of_encode_to(enc, field, pkt):
         enc.write(field.i2m(pkt, val))
         return
     items = val or []
-    enc.write(field.i2m(
-        pkt,
-        OER_unsigned_integer_enc(len(items)) + b"".join(
-            bytes(item) if field.holds_packets else field.fld.i2m(pkt, item)
-            for item in items
-        ),
-    ))
+    parts = [OER_unsigned_integer_enc(len(items))]
+    parts.extend(
+        bytes(item) if field.holds_packets else field.fld.i2m(pkt, item)
+        for item in items
+    )
+    enc.write(field.i2m(pkt, b"".join(parts)))
 
 
 def oer_sequence_of_decode_from(dec, field, pkt):
@@ -135,9 +134,9 @@ def oer_choice_encode_to(enc, field, pkt, value=None):
             s = value.enc(pkt.ASN1_codec)
         else:
             s = bytes(value)
-        index = field.alternative_index(value)
-        if index is not None:
-            tag_class, tag_number = OER_tag_parts(field.choice_order[index])
+        tag = field.alternative_tag(value)
+        if tag is not None:
+            tag_class, tag_number = OER_tag_parts(tag)
             s = OER_tag_enc(tag_number, tag_class) + s
     enc.write(field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag))
 
