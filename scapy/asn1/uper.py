@@ -850,17 +850,20 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                     ):
         # type: (...) -> None
         from scapy.asn1.constraints import (
-            field_size_len,
             uper_enum_values as _uper_enum_values,
-            field_extensible_kw,
-            uper_int_range,
         )
-        size_len = field_size_len(field, size_len)
-        minimum, maximum = uper_int_range(field, minimum, maximum)
+        if size_len is None and field is not None:
+            size_len = field.size_len
+        if minimum is None and maximum is None and field is not None:
+            minimum = field.constraints.minimum
+            maximum = field.constraints.maximum
         uper_enum_values = _uper_enum_values(
             field, pkt, uper_enum_values,
         )
-        extensible = field_extensible_kw(field, extensible)
+        if extensible is None:
+            extensible = (
+                bool(field.constraints.extensible) if field is not None else False
+            )
         if uper_enum_values is not None:
             if extensible:
                 # X.691 14.3: a one bit prefix says whether the value is an
@@ -892,17 +895,20 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                          ):
         # type: (...) -> ASN1_Object[int]
         from scapy.asn1.constraints import (
-            field_size_len,
             uper_enum_values as _uper_enum_values,
-            field_extensible_kw,
-            uper_int_range,
         )
-        size_len = field_size_len(field, size_len)
-        minimum, maximum = uper_int_range(field, minimum, maximum)
+        if size_len is None and field is not None:
+            size_len = field.size_len
+        if minimum is None and maximum is None and field is not None:
+            minimum = field.constraints.minimum
+            maximum = field.constraints.maximum
         uper_enum_values = _uper_enum_values(
             field, pkt, uper_enum_values,
         )
-        extensible = field_extensible_kw(field, extensible)
+        if extensible is None:
+            extensible = (
+                bool(field.constraints.extensible) if field is not None else False
+            )
         if uper_enum_values is not None:
             if extensible and dec.read_bit():
                 raise UPER_Decoding_Error(

@@ -34,76 +34,10 @@ _SUPPORTED_CONSTRAINTS = {
 def normalize_constraints(codec_opts):
     # type: (Dict[str, Any]) -> ASN1Constraints
     """Build ASN1Constraints from field kwargs."""
-    data = {
-        "minimum": None,
-        "maximum": None,
-        "extensible": False,
-        "unsigned": False,
-    }  # type: Dict[str, Any]
-    for key, value in codec_opts.items():
-        if key in _SUPPORTED_CONSTRAINTS:
-            data[key] = value
-        else:
+    for key in codec_opts:
+        if key not in _SUPPORTED_CONSTRAINTS:
             raise TypeError("Unknown field constraint %r" % key)
-    return ASN1Constraints(**data)
-
-
-def field_extensible(field):
-    # type: (Any) -> bool
-    return bool(field.constraints.extensible)
-
-
-def field_range(field):
-    # type: (Any) -> Tuple[Optional[int], Optional[int]]
-    c = field.constraints
-    return c.minimum, c.maximum
-
-
-def field_size_len(field=None, size_len=None):
-    # type: (Any, Optional[int]) -> Optional[int]
-    if size_len is not None:
-        return size_len
-    if field is not None:
-        return field.size_len
-    return None
-
-
-def field_unsigned(field=None, unsigned=None):
-    # type: (Any, Optional[bool]) -> bool
-    if unsigned is not None:
-        return unsigned
-    if field is not None:
-        return field.constraints.unsigned
-    return False
-
-
-# Compat alias used by OER codec kwargs named ``oer_unsigned``.
-def oer_unsigned(field=None, oer_unsigned=None):
-    # type: (Any, Optional[bool]) -> bool
-    return field_unsigned(field, oer_unsigned)
-
-
-def field_extensible_kw(field=None, extensible=None):
-    # type: (Any, Optional[bool]) -> bool
-    if extensible is not None:
-        return extensible
-    if field is not None:
-        return field_extensible(field)
-    return False
-
-
-def uper_extensible(field=None, uper_extensible=None):
-    # type: (Any, Optional[bool]) -> bool
-    return field_extensible_kw(field, uper_extensible)
-
-
-def uper_int_range(field=None, minimum=None, maximum=None):
-    # type: (Any, Optional[int], Optional[int]) -> Tuple[Optional[int], Optional[int]]
-    if minimum is not None or maximum is not None:
-        return minimum, maximum
-    if field is not None:
-        return field_range(field)
-    return None, None
+    return ASN1Constraints(**codec_opts)
 
 
 def resolve_uper_int_bounds(field=None,  # type: Any
@@ -119,14 +53,18 @@ def resolve_uper_int_bounds(field=None,  # type: Any
     When no explicit ``minimum``/``maximum`` is set, a fixed ``size_len`` of
     1, 2, 4, or 8 with ``unsigned=True`` implies ``0 .. 256**n - 1``.
     """
-    size_len = field_size_len(field, size_len)
-    minimum, maximum = uper_int_range(field, minimum, maximum)
-    is_unsigned = field_unsigned(field, unsigned)
-    is_extensible = field_extensible_kw(field, extensible)
+    if size_len is None and field is not None:
+        size_len = field.size_len
+    if minimum is None and maximum is None and field is not None:
+        minimum, maximum = field.constraints.minimum, field.constraints.maximum
+    if unsigned is None:
+        unsigned = bool(field.constraints.unsigned) if field is not None else False
+    if extensible is None:
+        extensible = bool(field.constraints.extensible) if field is not None else False
     if minimum is None and maximum is None:
-        if size_len in (1, 2, 4, 8) and is_unsigned:
+        if size_len in (1, 2, 4, 8) and unsigned:
             minimum, maximum = 0, (256 ** size_len) - 1
-    return minimum, maximum, is_extensible
+    return minimum, maximum, extensible
 
 
 def resolve_uper_size_bounds(field=None,  # type: Any
@@ -137,23 +75,27 @@ def resolve_uper_size_bounds(field=None,  # type: Any
                              ):
     # type: (...) -> Tuple[Optional[int], Optional[int], bool]
     """Resolve UPER SIZE bounds; ``size_len`` is a fixed SIZE."""
-    size_len = field_size_len(field, size_len)
-    minimum, maximum = uper_int_range(field, minimum, maximum)
-    is_extensible = field_extensible_kw(field, extensible)
+    if size_len is None and field is not None:
+        size_len = field.size_len
+    if minimum is None and maximum is None and field is not None:
+        minimum, maximum = field.constraints.minimum, field.constraints.maximum
+    if extensible is None:
+        extensible = bool(field.constraints.extensible) if field is not None else False
     if size_len:
-        return size_len, size_len, is_extensible
-    return minimum, maximum, is_extensible
+        return size_len, size_len, extensible
+    return minimum, maximum, extensible
 
 
 def resolve_oer_size_bounds(field=None, size_len=None):
     # type: (Any, Optional[int]) -> Tuple[Optional[int], Optional[int]]
     """Resolve OER SIZE bounds from ``size_len`` or field constraints."""
-    size_len = field_size_len(field, size_len)
+    if size_len is None and field is not None:
+        size_len = field.size_len
     # ``size_len=0`` means unset (same as the historical ``if size_len:`` check).
     if size_len:
         return size_len, size_len
     if field is not None:
-        return field_range(field)
+        return field.constraints.minimum, field.constraints.maximum
     return None, None
 
 
@@ -177,26 +119,32 @@ def oer_int_wire_params(field=None, size_len=None, unsigned=None):
     bound uses variable-width unsigned encoding. A fixed eight-octet width
     is used only when ``maximum <= 2**64 - 1``.
     """
-    size_len = field_size_len(field, size_len)
-    is_unsigned = field_unsigned(field, unsigned)
-    minimum, maximum = field_range(field) if field is not None else (None, None)
-    extensible = field_extensible(field) if field is not None else False
+    if size_len is None and field is not None:
+        size_len = field.size_len
+    if unsigned is None:
+        unsigned = bool(field.constraints.unsigned) if field is not None else False
+    if field is not None:
+        minimum, maximum = field.constraints.minimum, field.constraints.maximum
+        extensible = bool(field.constraints.extensible)
+    else:
+        minimum, maximum = None, None
+        extensible = False
 
     # Extension values may lie outside the root range.
     val_min = None if extensible else minimum
     val_max = None if extensible else maximum
 
     if size_len is not None:
-        if (not is_unsigned and minimum is not None and minimum >= 0 and
+        if (not unsigned and minimum is not None and minimum >= 0 and
                 not extensible):
-            is_unsigned = True
-        return size_len, is_unsigned, val_min, val_max
+            unsigned = True
+        return size_len, unsigned, val_min, val_max
 
     if extensible:
-        return None, is_unsigned, None, None
+        return None, unsigned, None, None
 
     if minimum is not None and minimum >= 0:
-        is_unsigned = True
+        unsigned = True
         if maximum is not None:
             if maximum <= 0xFF:
                 size_len = 1
@@ -208,7 +156,7 @@ def oer_int_wire_params(field=None, size_len=None, unsigned=None):
                 size_len = 8
             # else: range exceeds 2^64-1 → variable unsigned
     elif minimum is not None and maximum is not None:
-        is_unsigned = False
+        unsigned = False
         for sl, lo, hi in (
             (1, -128, 127),
             (2, -32768, 32767),
@@ -219,4 +167,4 @@ def oer_int_wire_params(field=None, size_len=None, unsigned=None):
                 size_len = sl
                 break
 
-    return size_len, is_unsigned, val_min, val_max
+    return size_len, unsigned, val_min, val_max

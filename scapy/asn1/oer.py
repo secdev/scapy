@@ -233,8 +233,6 @@ class OERcodec_Object(Generic[_K], metaclass=ASN1Codec_metaclass):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
-               size_len=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[Any], bytes]
@@ -423,8 +421,6 @@ class OERcodec_BOOLEAN(OERcodec_Object[int]):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
-               size_len=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
@@ -610,8 +606,6 @@ class OERcodec_NULL(OERcodec_Object[None]):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
-               size_len=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[None], bytes]
@@ -635,8 +629,6 @@ class OERcodec_OID(OERcodec_Object[bytes]):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
-               size_len=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[bytes], bytes]
@@ -670,8 +662,6 @@ class OERcodec_ENUMERATED(OERcodec_INTEGER):
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
-               size_len=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
@@ -751,8 +741,6 @@ class OERcodec_SEQUENCE(OERcodec_Object[Union[bytes, List['OERcodec_Object[Any]'
                s,  # type: bytes
                context=None,  # type: Optional[Type[ASN1_Class]]
                safe=False,  # type: bool
-               size_len=None,  # type: Optional[int]
-               oer_unsigned=False,  # type: bool
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[Union[bytes, List[Any]]], bytes]
@@ -772,8 +760,8 @@ class OERcodec_IPADDRESS(OERcodec_STRING):
     @classmethod
     def enc(cls, ipaddr_ascii, field=None, size_len=None, **_kwargs):  # type: ignore
         # type: (str, Any, Optional[int], **Any) -> bytes
-        from scapy.asn1.constraints import field_size_len
-        size_len = field_size_len(field, size_len)
+        if size_len is None and field is not None:
+            size_len = field.size_len
         try:
             s = inet_aton(ipaddr_ascii)
         except Exception:
@@ -784,10 +772,10 @@ class OERcodec_IPADDRESS(OERcodec_STRING):
 
     @classmethod
     def do_dec(cls, s, context=None, safe=False,
-               field=None, size_len=None, oer_unsigned=False, **_kwargs):
-        # type: (bytes, Optional[Any], bool, Any, Optional[int], bool, **Any) -> Tuple[ASN1_Object[str], bytes]  # noqa: E501
-        from scapy.asn1.constraints import field_size_len
-        size_len = field_size_len(field, size_len)
+               field=None, size_len=None, **_kwargs):
+        # type: (bytes, Optional[Any], bool, Any, Optional[int], **Any) -> Tuple[ASN1_Object[str], bytes]  # noqa: E501
+        if size_len is None and field is not None:
+            size_len = field.size_len
         if size_len == 4:
             raw, remain = s[:4], s[4:]
         else:
