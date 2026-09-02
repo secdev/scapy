@@ -122,17 +122,14 @@ def OER_len_dec(s):
 
 def OER_signed_integer_enc(i):
     # type: (int) -> bytes
-    # X.696 10.4: the shortest two's complement encoding. A negative value
-    # needs one bit less than its magnitude suggests, as -2**(8n-1) still
-    # fits in n octets, hence the increment before measuring.
-    magnitude = i + 1 if i < 0 else i
-    number_of_bytes = (magnitude.bit_length() + 8) // 8
-    value = i & ((1 << (8 * number_of_bytes)) - 1)
+    from scapy.asn1.intutil import twos_complement_octets
+    number_of_bytes, value = twos_complement_octets(i)
     return OER_len_enc(number_of_bytes) + value.to_bytes(number_of_bytes, "big")
 
 
 def OER_signed_integer_dec(s):
     # type: (bytes) -> Tuple[int, bytes]
+    from scapy.asn1.intutil import from_twos_complement
     number_of_bytes, s = OER_len_dec(s)
     _OER_check_len("OER_signed_integer_dec", s, number_of_bytes)
     if number_of_bytes == 0:
@@ -141,11 +138,7 @@ def OER_signed_integer_dec(s):
             remaining=s
         )
     value = int.from_bytes(s[:number_of_bytes], "big")
-    number_of_bits = 8 * number_of_bytes
-    if value & (1 << (number_of_bits - 1)):
-        value -= (1 << number_of_bits) - 1
-        value -= 1
-    return value, s[number_of_bytes:]
+    return from_twos_complement(value, number_of_bytes), s[number_of_bytes:]
 
 
 def OER_unsigned_integer_enc(i):
