@@ -462,14 +462,13 @@ class BERcodec_INTEGER(BERcodec_Object[int]):
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
         l, s, t = cls.check_type_check_len(s)
-        x = 0
-        if s:
-            if s[0] & 0x80:  # negative int
-                x = -1
-            for c in s:
-                x <<= 8
-                x |= c
-        return cls.asn1_object(x), t
+        # Convert the content octets in one go. Shifting a growing Python
+        # integer one octet at a time costs more with every octet already
+        # accumulated, so decoding was quadratic in the encoded width: a sender
+        # could multiply parsing cost by padding any INTEGER with leading sign
+        # octets, in any protocol that uses BER. int.from_bytes performs the
+        # same two's-complement conversion in a single pass.
+        return cls.asn1_object(int.from_bytes(s, "big", signed=True)), t
 
 
 class BERcodec_BOOLEAN(BERcodec_INTEGER):

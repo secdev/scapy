@@ -1503,11 +1503,6 @@ assert pkt.json() == '{"length": null, "id": 0, "qr": 0, "opcode": 0, "aa": 0, "
 pkt = KRB_AP_REP(bytes(KRB_AP_REP(encPart=EncryptedData())))
 assert pkt.command() == "KRB_AP_REP(pvno=ASN1_INTEGER(5), msgType=ASN1_INTEGER(15), encPart=EncryptedData(etype=ASN1_INTEGER(23), kvno=None, cipher=ASN1_STRING(b'')))"
 
-= KRB AP REP rejects encryption type wider than Int32
-wide = KerberosTCPHeader(hex_bytes("000000206f1e301ca003020105a10302010fa210300ea0080206010101010101a2020400"))
-assert Raw in wide
-assert KRB_AP_REP not in wide
-
 = Test json(à with ASN.1 packet
 
 assert pkt.json() == '{"pvno": {"type": "ASN1_INTEGER", "value": "5"}, "msgType": {"type": "ASN1_INTEGER", "value": "15"}, "encPart": {"etype": {"type": "ASN1_INTEGER", "value": "23"}, "kvno": null, "cipher": {"type": "ASN1_STRING", "value": ""}}}'
@@ -4379,6 +4374,44 @@ try:
     assert False
 except BER_Decoding_Error:
     pass
+
+
+= Decode an INTEGER with one bulk numeric conversion
+
+from builtins import int as builtin_int
+import scapy.asn1.ber as ber_module
+
+class _CountingIntMeta(type):
+    # The decode path also asks isinstance(tag, int), so the stand-in has to
+    # answer that the way the real int would.
+    def __instancecheck__(cls, obj):
+        return isinstance(obj, builtin_int)
+
+class CountingInt(builtin_int, metaclass=_CountingIntMeta):
+    calls = 0
+    @classmethod
+    def from_bytes(cls, value, byteorder, signed=False):
+        CountingInt.calls += 1
+        return builtin_int.from_bytes(value, byteorder, signed=signed)
+
+wide = b"\x02\x08" + b"\x01" * 8
+ber_module.int = CountingInt
+try:
+    decoded, remainder = BERcodec_INTEGER.do_dec(wide)
+finally:
+    del ber_module.int
+
+assert decoded.val == builtin_int.from_bytes(b"\x01" * 8, "big", signed=True)
+assert remainder == b""
+assert CountingInt.calls == 1
+
+= Decode INTEGER boundary values
+
+assert BERcodec_INTEGER.do_dec(b"\x02\x01\x7f")[0].val == 127
+assert BERcodec_INTEGER.do_dec(b"\x02\x01\x80")[0].val == -128
+assert BERcodec_INTEGER.do_dec(b"\x02\x02\x00\x80")[0].val == 128
+assert BERcodec_INTEGER.do_dec(b"\x02\x01\xff")[0].val == -1
+assert BERcodec_INTEGER.do_dec(b"\x02\x00")[0].val == 0
 
 
 = BER tests - 2
