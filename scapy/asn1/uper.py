@@ -27,7 +27,7 @@ per character.
 ``alternative_index`` / BER tag lookup.
 """
 
-from scapy.compat import orb, bytes_encode
+from scapy.compat import bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
 from scapy.asn1.ber import BER_num_dec, BER_num_enc
 from scapy.asn1.asn1 import (
@@ -618,7 +618,7 @@ class UPERcodec_BOOLEAN(UPERcodec_Object[int]):
 
 def _uper_bytes_to_bitstr(data, nbits):
     # type: (bytes, int) -> str
-    bitstr = "".join(binrepr(orb(x)).zfill(8) for x in data)
+    bitstr = "".join(binrepr(x).zfill(8) for x in data)
     return bitstr[:nbits]
 
 

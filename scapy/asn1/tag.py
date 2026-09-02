@@ -4,7 +4,7 @@
 
 """Semantic ASN.1 tag decomposition for Scapy's legacy BER integer tags."""
 
-from scapy.compat import orb
+
 from scapy.asn1.ber import BER_id_enc
 
 
@@ -12,14 +12,13 @@ def asn1_tag_parts(identifier):
     # type: (int) -> tuple
     """Return (tag_class, tag_number, constructed) for a Scapy tag integer."""
     wire = BER_id_enc(identifier)
-    first = orb(wire[0])
+    first = wire[0]
     tag_class = first & 0xc0
     constructed = bool(first & 0x20)
     if (first & 0x1f) != 0x1f:
         return tag_class, first & 0x1f, constructed
     tag_number = 0
     for c in wire[1:]:
-        c = orb(c)
         tag_number <<= 7
         tag_number |= c & 0x7f
         if not (c & 0x80):
