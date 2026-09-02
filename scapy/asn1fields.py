@@ -664,14 +664,6 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         # type: (ASN1_Packet, Any) -> None
         enc.encode_sequence(self, pkt)
 
-    def encode_into(self, enc, pkt, value=None):
-        # type: (Any, ASN1_Packet, Any) -> None
-        self.encode_to(pkt, enc)
-
-    def dissect_from_decoder(self, pkt, dec):
-        # type: (ASN1_Packet, Any) -> None
-        self.decode_from(pkt, dec)
-
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
         dec.decode_sequence(self, pkt)
@@ -689,10 +681,32 @@ _SEQ_T = Union[
 ]
 
 
+def _is_compound_asn1_field(fld):
+    # type: (ASN1F_field[Any, Any]) -> bool
+    """True for nested SEQUENCE/SET/CHOICE/SEQUENCE OF field instances.
+
+    ASN1F_PACKET is allowed as a SEQUENCE OF element (Kerberos and others);
+    UPER handles it via the context packet hooks rather than encode_into.
+    """
+    # Resolved at call time so ASN1F_SEQUENCE_OF can run before CHOICE is
+    # defined in this module.
+    return isinstance(fld, (
+        ASN1F_SEQUENCE,
+        ASN1F_CHOICE,
+        ASN1F_SEQUENCE_OF,
+    ))
+
+
 class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
                                     List[ASN1_Object[Any]]]):
     """
-    Two types are allowed as cls: ASN1_Packet, ASN1F_field
+    Two types are allowed as cls:
+    - ASN1_Packet (or callable returning one) for structured / compound items
+    - a *primitive* ASN1F_field (class or instance) for scalar items
+
+    Compound ASN1F_field elements (SEQUENCE, SET, CHOICE, SEQUENCE OF /
+    SET OF) are rejected: nest an ASN1_Packet instead. ASN1F_PACKET
+    elements are allowed (tagged nested packets).
     """
     ASN1_tag = ASN1_Class_UNIVERSAL.SEQUENCE
     islist = 1
@@ -713,6 +727,14 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
                 self.fld = cls(name, b"")
             else:
                 self.fld = cls
+            # UPER SEQUENCE OF uses the raw-bit primitive API on fld
+            # (encode_into / m2i_from_decoder). Compound fields only
+            # implement the context API (encode_to / decode_from).
+            if _is_compound_asn1_field(self.fld):
+                raise ValueError(
+                    "ASN1F_SEQUENCE_OF: compound ASN1F_field elements are "
+                    "not supported; use an ASN1_Packet for structured items"
+                )
             self._extract_packet = lambda s, pkt: self.fld.m2i(pkt, s)
             self.holds_packets = 0
         elif hasattr(cls, "ASN1_root") or callable(cls):
@@ -854,14 +876,6 @@ class ASN1F_optional(ASN1F_element):
         if not self.is_present(pkt):
             return b""
         return self._field.build(pkt)
-
-    def dissect_from_decoder(self, pkt, dec):
-        # type: (ASN1_Packet, Any) -> None
-        self._field.dissect_from_decoder(pkt, dec)
-
-    def encode_into(self, enc, pkt, value=None):
-        # type: (Any, ASN1_Packet, Any) -> None
-        self._field.encode_into(enc, pkt, value)
 
     def encode_to(self, pkt, enc):
         # type: (ASN1_Packet, Any) -> None
@@ -1022,10 +1036,6 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         # type: (ASN1_Packet, Any) -> None
         enc.encode_choice(self, pkt)
 
-    def encode_into(self, enc, pkt, value=None):
-        # type: (Any, ASN1_Packet, Any) -> None
-        enc.encode_choice(self, pkt, value)
-
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
         dec.decode_choice(self, pkt)
@@ -1080,10 +1090,6 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
     def encode_to(self, pkt, enc):
         # type: (ASN1_Packet, Any) -> None
         enc.encode_packet(self, pkt)
-
-    def encode_into(self, enc, pkt, value=None):
-        # type: (Any, ASN1_Packet, Any) -> None
-        enc.encode_packet(self, pkt, value)
 
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
