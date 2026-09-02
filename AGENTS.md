@@ -19,6 +19,14 @@ binding, and layer-test patterns, use
 - Be especially careful about CPU and memory costs in Scapy core code such as
   `scapy/packet.py`; packet initialization is a hot path.
 
+## Code guidelines for Agents
+
+- Follow the coding guidelines from [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Follow the code patterns that already exist in the file you are editing, in similar layers when editing a layer (in both `layers/` or `contrib/`) or in the rest of the project. Some of those guidelines are detailed below.
+- Do not declare functions for very simple checks or operations. Prefer code readability over trying to reduce code duplication.
+- Never declare a function that is only used once, unless it is meant to be a public API.
+- When drafting PR/issue/report messages, be succinct. State a small summary of the issue or the code you're fixing and include code or a pcap that reproduces the issue. Do NOT talk about whether tests pass or not, or coverage, since those are already shown by github.
+
 ## Add UTScapy tests
 
 Follow [`CONTRIBUTING.md`'s test requirements](CONTRIBUTING.md#tests). Scapy's
@@ -53,6 +61,10 @@ installed:
 ./test/run_tests
 ```
 
+Please note the following guidelines when adding tests:
+- Do not create a new `.uts` if there is already a file that contains tests for that layer. Only create a `.uts` file when no previous tests exist for that layer.
+- When adding tests to an existing `.uts` file, try to place the tests contextually close to tests that are related to the same or similar features.
+
 ## Check source changes
 
 Follow [`CONTRIBUTING.md`'s coding style and conventions](CONTRIBUTING.md#coding-style--conventions).
@@ -85,3 +97,6 @@ and [submitting pull requests](CONTRIBUTING.md#submitting-pull-requests).
 
 If a change uncovers something that may be a security bug, follow
 [`SECURITY.md`](SECURITY.md) for classification and reporting.
+
+
+Security findings that are researched or found using AI **MUST** include code that reproduces the issue, and draft a pull request on the Github Advisories Private Repositories with code to patch said issue. If it is impossible to provide code that reproduces the issue, a short explanation of why must be provided.
