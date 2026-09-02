@@ -538,12 +538,12 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                     ):
         # type: (...) -> None
         from scapy.asn1.constraints import (
-            oer_size_len,
+            field_size_len,
             oer_unsigned as _oer_unsigned,
             uper_extensible as _uper_extensible,
             uper_int_range,
         )
-        size_len = oer_size_len(field, size_len)
+        size_len = field_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         oer_unsigned = _oer_unsigned(field, oer_unsigned)
         extensible = _uper_extensible(field, uper_extensible)
@@ -576,12 +576,12 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                          ):
         # type: (...) -> ASN1_Object[int]
         from scapy.asn1.constraints import (
-            oer_size_len,
+            field_size_len,
             oer_unsigned as _oer_unsigned,
             uper_extensible as _uper_extensible,
             uper_int_range,
         )
-        size_len = oer_size_len(field, size_len)
+        size_len = field_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         oer_unsigned = _oer_unsigned(field, oer_unsigned)
         extensible = _uper_extensible(field, uper_extensible)
@@ -642,8 +642,8 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        from scapy.asn1.constraints import oer_size_len, uper_int_range
-        size_len = oer_size_len(field, size_len)
+        from scapy.asn1.constraints import field_size_len, uper_int_range
+        size_len = field_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         if isinstance(_s, tuple) and len(_s) == 2:
             data, nbits = _s
@@ -687,8 +687,8 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[str]
-        from scapy.asn1.constraints import oer_size_len, uper_int_range
-        size_len = oer_size_len(field, size_len)
+        from scapy.asn1.constraints import field_size_len, uper_int_range
+        size_len = field_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
         if minimum is not None and maximum is not None:
@@ -728,8 +728,8 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        from scapy.asn1.constraints import oer_size_len, uper_int_range
-        size_len = oer_size_len(field, size_len)
+        from scapy.asn1.constraints import field_size_len, uper_int_range
+        size_len = field_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         s = bytes_encode(_s)
         minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
@@ -745,8 +745,8 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[Any]
-        from scapy.asn1.constraints import oer_size_len, uper_int_range
-        size_len = oer_size_len(field, size_len)
+        from scapy.asn1.constraints import field_size_len, uper_int_range
+        size_len = field_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
         raw = UPER_octet_string_dec(dec, minimum, maximum)
@@ -846,12 +846,12 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                     ):
         # type: (...) -> None
         from scapy.asn1.constraints import (
-            oer_size_len,
+            field_size_len,
             uper_enum_values as _uper_enum_values,
             uper_extensible as _uper_extensible,
             uper_int_range,
         )
-        size_len = oer_size_len(field, size_len)
+        size_len = field_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         uper_enum_values = _uper_enum_values(
             field, pkt, uper_enum_values,
@@ -888,12 +888,12 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                          ):
         # type: (...) -> ASN1_Object[int]
         from scapy.asn1.constraints import (
-            oer_size_len,
+            field_size_len,
             uper_enum_values as _uper_enum_values,
             uper_extensible as _uper_extensible,
             uper_int_range,
         )
-        size_len = oer_size_len(field, size_len)
+        size_len = field_size_len(field, size_len)
         uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
         uper_enum_values = _uper_enum_values(
             field, pkt, uper_enum_values,
@@ -1089,72 +1089,3 @@ class UPERcodec_BMP_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
 # KNOWN_MULTIPLIER inherits STRING's tag for registration; restore the
 # generic STRING codec used by ASN1F_STRING (octet-string UPER path).
 ASN1_Class_UNIVERSAL.STRING.register(ASN1_Codecs.PER, UPERcodec_STRING)
-
-
-################################
-#    ASN1F compound helpers    #
-################################
-
-from scapy.asn1.compound import (  # noqa: E402
-    sequence_decode_from as _uper_sequence_decode_from,
-    sequence_encode_to as _uper_sequence_encode_to,
-    sequence_of_decode_from as _uper_sequence_of_decode_from,
-    sequence_of_encode_to as _uper_sequence_of_encode_to,
-    choice_decode_from as _uper_choice_decode_from,
-    choice_encode_to as _uper_choice_encode_to,
-)
-
-
-def uper_sequence_m2i(field, pkt, s):
-    from scapy.asn1.context import UPER_DecoderContext
-    dec = UPER_DecoderContext(s)
-    _uper_sequence_decode_from(field, pkt, dec)
-    return [], dec.remaining()
-
-
-def uper_sequence_build(field, pkt):
-    from scapy.asn1fields import ASN1F_field
-    from scapy.asn1.context import UPER_EncoderContext
-    enc = UPER_EncoderContext()
-    _uper_sequence_encode_to(field, pkt, enc)
-    return ASN1F_field.i2m(field, pkt, enc.finish())
-
-
-def uper_sequence_of_m2i(field, pkt, s):
-    from scapy.asn1.context import UPER_DecoderContext
-    dec = UPER_DecoderContext(s)
-    _uper_sequence_of_decode_from(field, pkt, dec)
-    return getattr(pkt, field.name), dec.remaining()
-
-
-def uper_sequence_of_build(field, pkt):
-    from scapy.asn1.context import UPER_EncoderContext
-    enc = UPER_EncoderContext()
-    _uper_sequence_of_encode_to(field, pkt, enc)
-    return field.i2m(pkt, enc.finish())
-
-
-def uper_choice_m2i(field, pkt, s):
-    from scapy.asn1.context import UPER_DecoderContext
-    dec = UPER_DecoderContext(s)
-    _uper_choice_decode_from(field, pkt, dec)
-    return getattr(pkt, field.name), dec.remaining()
-
-
-def uper_choice_i2m(field, pkt, x):
-    from scapy.asn1.context import UPER_EncoderContext
-    enc = UPER_EncoderContext()
-    _uper_choice_encode_to(field, pkt, enc)
-    return field._tagging_enc(pkt, enc.finish(), explicit_tag=field.explicit_tag)
-
-
-def uper_packet_i2m(field, pkt, x):
-    from scapy.asn1.compound import packet_encode_to
-    from scapy.asn1.context import UPER_EncoderContext
-    enc = UPER_EncoderContext()
-    packet_encode_to(field, pkt, enc, x)
-    return field._tagging_enc(
-        pkt, enc.finish(),
-        implicit_tag=field.implicit_tag,
-        explicit_tag=field.explicit_tag,
-    )

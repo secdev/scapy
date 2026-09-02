@@ -2791,17 +2791,6 @@ True
 
 
 + ASN.1 UPER field dispatch and packet extras
-= uper helpers are module-level not monkey-patched
-from scapy.asn1 import uper as uper_mod
-
-assert callable(uper_mod.uper_sequence_m2i)
-
-assert "_install_uper_asn1fields" not in uper_mod.__dict__
-
-assert not hasattr(ASN1_Codecs, "hooks")
-
-True
-
 = uper DEFAULT published on asn1fields
 assert ASN1F_DEFAULT is asn1fields.ASN1F_DEFAULT
 

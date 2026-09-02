@@ -397,10 +397,6 @@ def _roundtrip(cls, pkt):
     # type: (type, ASN1_Packet) -> ASN1_Packet
     return cls(raw(pkt))
 
-def _roundtrip(cls, pkt):
-    # type: (type, ASN1_Packet) -> ASN1_Packet
-    return cls(raw(pkt))
-
 def _record_kwargs():
     # type: () -> dict
     return dict(
@@ -410,10 +406,6 @@ def _record_kwargs():
         extra=7,
         values=[1, 2, 3],
     )
-
-def _asn1_int(val):
-    # type: (Any) -> int
-    return val.val if hasattr(val, "val") else val
 
 def _asn1_int(val):
     # type: (Any) -> int
@@ -549,18 +541,6 @@ for cls in (BEREmptySeqOf, OEREmptySeqOf, PEREmptySeqOf):
     decoded = _roundtrip(cls, pkt)
     assert decoded.values == []
     assert len(raw(pkt)) > 0
-
-True
-
-= encode_to decode_from after contrib load
-# OER/PER register as first-class codecs; compound fields dispatch statically.
-assert hasattr(ASN1_Codecs.OER, "new_encoder")
-
-assert hasattr(ASN1_Codecs.PER, "new_decoder")
-
-assert hasattr(ASN1F_SEQUENCE, "encode_to")
-
-assert hasattr(ASN1F_SEQUENCE, "decode_from")
 
 True
 

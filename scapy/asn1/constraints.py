@@ -12,8 +12,6 @@ from typing import Any, Dict, List, Optional, Tuple
 class ASN1Constraints:
     minimum: Optional[int] = None
     maximum: Optional[int] = None
-    size_min: Optional[int] = None
-    size_max: Optional[int] = None
     extensible: bool = False
     unsigned: bool = False
 
@@ -21,8 +19,6 @@ class ASN1Constraints:
 _SUPPORTED_CONSTRAINTS = {
     "minimum",
     "maximum",
-    "size_min",
-    "size_max",
     "extensible",
     "unsigned",
 }
@@ -34,8 +30,6 @@ def normalize_constraints(codec_opts):
     data = {
         "minimum": None,
         "maximum": None,
-        "size_min": None,
-        "size_max": None,
         "extensible": False,
         "unsigned": False,
     }  # type: Dict[str, Any]
@@ -55,12 +49,7 @@ def field_extensible(field):
 def field_range(field):
     # type: (Any) -> Tuple[Optional[int], Optional[int]]
     c = field.constraints
-    minimum = c.minimum
-    maximum = c.maximum
-    if minimum is None and maximum is None:
-        minimum = c.size_min
-        maximum = c.size_max
-    return minimum, maximum
+    return c.minimum, c.maximum
 
 
 def field_size_len(field=None, size_len=None):
@@ -72,9 +61,6 @@ def field_size_len(field=None, size_len=None):
     return None
 
 
-oer_size_len = field_size_len
-
-
 def oer_unsigned(field=None, oer_unsigned=None):
     # type: (Any, Optional[bool]) -> bool
     if oer_unsigned is not None:
@@ -84,12 +70,10 @@ def oer_unsigned(field=None, oer_unsigned=None):
     return False
 
 
-def uper_extensible(field=None, uper_extensible=None, oer_extensible=None):
-    # type: (Any, Optional[bool], Optional[bool]) -> bool
+def uper_extensible(field=None, uper_extensible=None):
+    # type: (Any, Optional[bool]) -> bool
     if uper_extensible is not None:
         return uper_extensible
-    if oer_extensible:
-        return True
     if field is not None:
         return field.constraints.extensible
     return False
