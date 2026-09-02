@@ -185,6 +185,10 @@ def new_decoder(codec, data):
 def per_bit_encoder(enc):
     # type: (Any) -> Any
     """Return the PER bit encoder, or *None* for byte-oriented contexts."""
+    from scapy.asn1.asn1 import ASN1_Codecs
+    codec = getattr(enc, "codec", None)
+    if codec is not None and codec is not ASN1_Codecs.PER:
+        return None
     bit_enc = getattr(enc, "bit_encoder", None)
     if bit_enc is not None:
         return bit_enc
@@ -197,6 +201,10 @@ def per_bit_encoder(enc):
 def per_bit_decoder(dec):
     # type: (Any) -> Any
     """Return the PER bit decoder, or *None* for byte-oriented contexts."""
+    from scapy.asn1.asn1 import ASN1_Codecs
+    codec = getattr(dec, "codec", None)
+    if codec is not None and codec is not ASN1_Codecs.PER:
+        return None
     bit_dec = getattr(dec, "bit_decoder", None)
     if bit_dec is not None:
         return bit_dec

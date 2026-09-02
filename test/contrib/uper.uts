@@ -3594,3 +3594,42 @@ result = subprocess.run([sys.executable, "-c", code])
 assert result.returncode == 0
 True
 
+% PR #5050 review regressions
++ UPER review fixes
+= top-level BOOLEAN dissect ignores octet padding without Raw payload
+from scapy.packet import Raw
+
+pkt = UPERBooleanField(b"\x80")
+assert raw(pkt) == b"\x80"
+assert pkt.getlayer(Raw) is None
+
+= constrained INTEGER decode rejects out-of-range code points
+class UPERRange02(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=2)
+
+_raises(UPER_Decoding_Error, lambda: UPERRange02(b"\xc0"))
+
+= UPER OID round-trip for 2.999.3
+enc = UPER_Encoder()
+UPERcodec_OID.encode_into(enc, "2.999.3")
+obj = UPERcodec_OID.dec_from_decoder(UPER_Decoder(enc.as_bytes()))
+assert str(obj.val) == "2.999.3"
+
+= UPER IA5 string encoding raises strict error
+_raises(UPER_Encoding_Error, lambda: UPERcodec_IA5_STRING.enc(b"hi"))
+_raises(UPER_Encoding_Error, lambda: UPERcodec_IA5_STRING.encode_into(
+    UPER_Encoder(), b"hi"))
+
+= CHOICE encode_into does not mutate packet fields
+import copy
+from scapy.asn1.context import UPER_EncoderContext
+
+pkt = UPERChoiceField(c=ASN1_INTEGER(1))
+before = copy.copy(pkt.fields)
+enc = UPER_EncoderContext()
+pkt.ASN1_root.encode_into(enc, pkt, value=ASN1_INTEGER(9))
+assert pkt.fields == before
+assert enc.finish() == bytes.fromhex("008480")
+True
+

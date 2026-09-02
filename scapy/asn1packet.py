@@ -54,7 +54,13 @@ class ASN1_Packet(Packet, metaclass=ASN1Packet_metaclass):
 
     def do_dissect(self, x):
         # type: (bytes) -> bytes
+        from scapy.asn1.asn1 import ASN1_Codecs
+        from scapy.asn1.uper import UPER_has_unexpected_remainder
+
         self._asn1_observed_tags = {}  # type: ignore[attr-defined]
         dec = self.ASN1_codec.new_decoder(x)
         self.ASN1_root.decode_from(self, dec)
+        if self.ASN1_codec is ASN1_Codecs.PER:
+            if not UPER_has_unexpected_remainder(dec.bit_decoder):
+                return b""
         return dec.remaining()
