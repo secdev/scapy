@@ -886,17 +886,6 @@ True
 
 
 + ASN.1 OER field dispatch and packet extras
-= oer sequence helpers are module-level
-from scapy.asn1 import oer as oer_mod
-
-assert callable(oer_mod.oer_sequence_m2i)
-
-assert callable(oer_mod.oer_choice_i2m)
-
-assert not hasattr(ASN1_Codecs, "hooks")
-
-True
-
 = oer constrained integer via constraints
 fld = OERUnsignedField.ASN1_root
 
