@@ -54,6 +54,7 @@ def uper_sequence_decode_from(dec, field, pkt):
 def uper_sequence_of_encode_to(enc, field, pkt, value=None):
     # type: (Any, Any, Any, Any) -> None
     from scapy.asn1.uper import UPER_constrained_int_enc
+    from scapy.asn1fields import ASN1F_PACKET
 
     bit_enc = enc.bit_encoder
     if value is None:
@@ -68,6 +69,8 @@ def uper_sequence_of_encode_to(enc, field, pkt, value=None):
             item = value[i]
             if field.holds_packets:
                 item.ASN1_root.encode_to(item, enc)
+            elif isinstance(field.fld, ASN1F_PACKET):
+                enc.encode_packet(field.fld, pkt, item)
             else:
                 field.fld.encode_into(bit_enc, pkt, item)
 
@@ -92,6 +95,7 @@ def uper_sequence_of_encode_to(enc, field, pkt, value=None):
 def uper_sequence_of_decode_from(dec, field, pkt):
     # type: (Any, Any, Any) -> None
     from scapy.asn1.uper import UPER_constrained_int_dec
+    from scapy.asn1fields import ASN1F_PACKET
 
     bit_dec = dec.bit_decoder
     lst = []
@@ -105,6 +109,8 @@ def uper_sequence_of_decode_from(dec, field, pkt):
                 p.add_parent(pkt)
                 p.ASN1_root.decode_from(p, dec)
                 lst.append(p)
+            elif isinstance(field.fld, ASN1F_PACKET):
+                lst.append(uper_packet_decode_from_decoder(field.fld, pkt, dec))
             else:
                 lst.append(field.fld.m2i_from_decoder(pkt, bit_dec))
 

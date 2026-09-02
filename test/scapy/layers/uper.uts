@@ -2203,7 +2203,7 @@ dec = UPER_DecoderContext(b"\x80")
 
 _raises(
     UPER_Decoding_Error,
-    lambda: _ExtSeq.ASN1_root.dissect_from_decoder(_ExtSeq(), dec),
+    lambda: _ExtSeq.ASN1_root.decode_from(_ExtSeq(), dec),
 )
 
 class _ExtChoice(ASN1_Packet):
@@ -2217,11 +2217,11 @@ choice = _ExtChoice(c=ASN1_INTEGER(4))
 
 assert raw(choice)
 
-dec = UPER_Decoder(b"\x80")
+dec = UPER_DecoderContext(b"\x80")
 
 _raises(
     UPER_Decoding_Error,
-    lambda: _ExtChoice.ASN1_root.m2i_from_decoder(_ExtChoice(), dec),
+    lambda: _ExtChoice.ASN1_root.decode_from(_ExtChoice(), dec),
 )
 
 class _InnerItem(ASN1_Packet):
@@ -2299,6 +2299,40 @@ assert _EmptySeqOf.ASN1_root.i2repr(
 
 _raises(ValueError, lambda: ASN1F_SEQUENCE_OF("bad", [], object()))
 
+_raises(
+    ValueError,
+    lambda: ASN1F_SEQUENCE_OF(
+        "items",
+        [],
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("x", 0, minimum=0, maximum=15),
+        ),
+    ),
+)
+
+_raises(
+    ValueError,
+    lambda: ASN1F_SEQUENCE_OF(
+        "items",
+        [],
+        ASN1F_SEQUENCE_OF("inner", [], ASN1F_INTEGER),
+    ),
+)
+
+# ASN1F_PACKET elements remain valid (same as ASN1_Packet nesting).
+class _PktItem(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, minimum=0, maximum=7)
+
+class _SeqOfPacketField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "items", [], ASN1F_PACKET("item", None, _PktItem),
+    )
+
+pkt = _SeqOfPacketField(items=[_PktItem(n=1), _PktItem(n=2)])
+assert [x.n.val for x in _SeqOfPacketField(raw(pkt)).items] == [1, 2]
+
 True
 
 = asn1fields choice advanced
@@ -2370,8 +2404,8 @@ _raises(
 
 _raises(
     ASN1_Error,
-    lambda: _PerChoice.ASN1_root.encode_into(
-        UPER_EncoderContext(), _PerChoice(), 42,
+    lambda: UPER_EncoderContext().encode_choice(
+        _PerChoice.ASN1_root, _PerChoice(), 42,
     ),
 )
 
@@ -2732,11 +2766,11 @@ class _ExtChoice(ASN1_Packet):
         extensible=True,
     )
 
-dec = UPER_Decoder(b"\x80")
+dec = UPER_DecoderContext(b"\x80")
 
 _raises(
     UPER_Decoding_Error,
-    lambda: _ExtChoice.ASN1_root.m2i_from_decoder(_ExtChoice(), dec),
+    lambda: _ExtChoice.ASN1_root.decode_from(_ExtChoice(), dec),
 )
 
 class _SingleChoice(ASN1_Packet):
@@ -2866,18 +2900,18 @@ assert _val(decoded.inner.x) == 7
 
 True
 
-= uper field encode_into nesting
+= uper field encode_to nesting
 built = UPERWrappedPacket(id=1, inner=UPERInnerPacket(x=7))
 
 enc = UPER_EncoderContext()
 
-UPERWrappedPacket.ASN1_root.encode_into(enc, built)
+UPERWrappedPacket.ASN1_root.encode_to(built, enc)
 
 assert enc.finish() == raw(built)
 
 empty = UPERWrappedPacket()
 
-UPERWrappedPacket.ASN1_root.dissect_from_decoder(
+UPERWrappedPacket.ASN1_root.decode_from(
     empty, UPER_DecoderContext(raw(built)),
 )
 
@@ -3618,14 +3652,14 @@ _raises(UPER_Encoding_Error, lambda: UPERcodec_UTC_TIME.enc(b"250101000000Z"))
 _raises(UPER_Encoding_Error, lambda: UPERcodec_GENERALIZED_TIME.enc(
     b"20250101000000Z"))
 
-= CHOICE encode_into does not mutate packet fields
+= CHOICE encode_choice does not mutate packet fields
 import copy
 from scapy.asn1.context import UPER_EncoderContext
 
 pkt = UPERChoiceField(c=ASN1_INTEGER(1))
 before = copy.copy(pkt.fields)
 enc = UPER_EncoderContext()
-pkt.ASN1_root.encode_into(enc, pkt, value=ASN1_INTEGER(9))
+enc.encode_choice(pkt.ASN1_root, pkt, value=ASN1_INTEGER(9))
 assert pkt.fields == before
 assert enc.finish() == bytes.fromhex("008480")
 True
