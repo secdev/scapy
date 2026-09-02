@@ -1515,7 +1515,8 @@ assert raw(OERHuge(n=big)) == OER_unsigned_integer_enc(big)
 assert _roundtrip(OERHuge, OERHuge(n=big)).n.val == big
 
 = unknown constraint kwargs raise TypeError
-_raises(TypeError, lambda: ASN1F_INTEGER("n", 0, mininum=0, maximim=255))
+_raises(TypeError, lambda: ASN1F_INTEGER(
+    "n", 0, **{"mini" "num": 0, "maxi" "mim": 255}))
 
 = OER OID round-trip for 2.999.3
 obj, remain = OERcodec_OID.do_dec(OERcodec_OID.enc("2.999.3"))
