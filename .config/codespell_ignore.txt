@@ -57,5 +57,3 @@ webp
 widgits
 UPER
 uPER
-acn
-ACN

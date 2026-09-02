@@ -68,28 +68,39 @@ def field_size_len(field=None, size_len=None):
     return None
 
 
-def oer_unsigned(field=None, oer_unsigned=None):
+def field_unsigned(field=None, unsigned=None):
     # type: (Any, Optional[bool]) -> bool
-    if oer_unsigned is not None:
-        return oer_unsigned
+    if unsigned is not None:
+        return unsigned
     if field is not None:
         return field.constraints.unsigned
     return False
 
 
-def uper_extensible(field=None, uper_extensible=None):
+# Compat alias used by OER codec kwargs named ``oer_unsigned``.
+def oer_unsigned(field=None, oer_unsigned=None):
     # type: (Any, Optional[bool]) -> bool
-    if uper_extensible is not None:
-        return uper_extensible
+    return field_unsigned(field, oer_unsigned)
+
+
+def field_extensible_kw(field=None, extensible=None):
+    # type: (Any, Optional[bool]) -> bool
+    if extensible is not None:
+        return extensible
     if field is not None:
-        return field.constraints.extensible
+        return field_extensible(field)
     return False
 
 
-def uper_int_range(field=None, uper_min=None, uper_max=None):
+def uper_extensible(field=None, uper_extensible=None):
+    # type: (Any, Optional[bool]) -> bool
+    return field_extensible_kw(field, uper_extensible)
+
+
+def uper_int_range(field=None, minimum=None, maximum=None):
     # type: (Any, Optional[int], Optional[int]) -> Tuple[Optional[int], Optional[int]]
-    if uper_min is not None or uper_max is not None:
-        return uper_min, uper_max
+    if minimum is not None or maximum is not None:
+        return minimum, maximum
     if field is not None:
         return field_range(field)
     return None, None
@@ -97,8 +108,8 @@ def uper_int_range(field=None, uper_min=None, uper_max=None):
 
 def resolve_uper_int_bounds(field=None,  # type: Any
                             size_len=None,  # type: Optional[int]
-                            uper_min=None,  # type: Optional[int]
-                            uper_max=None,  # type: Optional[int]
+                            minimum=None,  # type: Optional[int]
+                            maximum=None,  # type: Optional[int]
                             unsigned=None,  # type: Optional[bool]
                             extensible=None  # type: Optional[bool]
                             ):
@@ -109,9 +120,9 @@ def resolve_uper_int_bounds(field=None,  # type: Any
     1, 2, 4, or 8 with ``unsigned=True`` implies ``0 .. 256**n - 1``.
     """
     size_len = field_size_len(field, size_len)
-    minimum, maximum = uper_int_range(field, uper_min, uper_max)
-    is_unsigned = oer_unsigned(field, unsigned)
-    is_extensible = uper_extensible(field, extensible)
+    minimum, maximum = uper_int_range(field, minimum, maximum)
+    is_unsigned = field_unsigned(field, unsigned)
+    is_extensible = field_extensible_kw(field, extensible)
     if minimum is None and maximum is None:
         if size_len in (1, 2, 4, 8) and is_unsigned:
             minimum, maximum = 0, (256 ** size_len) - 1
@@ -120,18 +131,18 @@ def resolve_uper_int_bounds(field=None,  # type: Any
 
 def resolve_uper_size_bounds(field=None,  # type: Any
                              size_len=None,  # type: Optional[int]
-                             uper_min=None,  # type: Optional[int]
-                             uper_max=None,  # type: Optional[int]
+                             minimum=None,  # type: Optional[int]
+                             maximum=None,  # type: Optional[int]
                              extensible=None  # type: Optional[bool]
                              ):
     # type: (...) -> Tuple[Optional[int], Optional[int], bool]
     """Resolve UPER SIZE bounds; ``size_len`` is a fixed SIZE."""
     size_len = field_size_len(field, size_len)
-    uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
-    is_extensible = uper_extensible(field, extensible)
+    minimum, maximum = uper_int_range(field, minimum, maximum)
+    is_extensible = field_extensible_kw(field, extensible)
     if size_len:
         return size_len, size_len, is_extensible
-    return uper_min, uper_max, is_extensible
+    return minimum, maximum, is_extensible
 
 
 def resolve_oer_size_bounds(field=None, size_len=None):
@@ -167,7 +178,7 @@ def oer_int_wire_params(field=None, size_len=None, unsigned=None):
     is used only when ``maximum <= 2**64 - 1``.
     """
     size_len = field_size_len(field, size_len)
-    is_unsigned = oer_unsigned(field, unsigned)
+    is_unsigned = field_unsigned(field, unsigned)
     minimum, maximum = field_range(field) if field is not None else (None, None)
     extensible = field_extensible(field) if field is not None else False
 
