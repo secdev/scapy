@@ -235,14 +235,14 @@ class UPER_Decoder(object):
 
     def read_bits(self, number_of_bits):
         # type: (int) -> bytes
-        if number_of_bits > self.number_of_bits:
-            raise UPER_Decoding_Error("UPER_Decoder: out of data")
-        if number_of_bits == 0:
-            return b""
-        if number_of_bits % 8 == 0 and self._pos % 8 == 0:
+        # Whole-octet requests (aligned or not) use read_bytes(); only
+        # non-multiple-of-8 widths go through the small-field integer path.
+        if number_of_bits % 8 == 0:
             return self.read_bytes(number_of_bits // 8)
-        value = self._read_bits_int(number_of_bits)
-        return _uper_bits_to_bytes(value, number_of_bits)
+        return _uper_bits_to_bytes(
+            self._read_bits_int(number_of_bits),
+            number_of_bits,
+        )
 
     def remaining(self):
         # type: () -> bytes
@@ -276,22 +276,31 @@ class UPER_Decoder(object):
 
     def read_bytes(self, number_of_bytes):
         # type: (int) -> bytes
+        # Do not route large unaligned octet strings through _peek_bits_int:
+        # growing a Python int one source byte at a time is super-linear.
         number_of_bits = 8 * number_of_bytes
         if number_of_bits > self.number_of_bits:
             raise UPER_Decoding_Error("UPER_Decoder: out of data")
-        if self._pos % 8 == 0:
-            start = self._pos // 8
+        if number_of_bytes == 0:
+            return b""
+        start = self._pos // 8
+        offset = self._pos % 8
+        if offset == 0:
             end = start + number_of_bytes
             self._pos += number_of_bits
             return self._data[start:end]
-        return self.read_bits(number_of_bits)
+        # One bulk integer conversion/shift for the n+1 overlapping source
+        # bytes, rather than growing an int per source byte.
+        window = int.from_bytes(
+            self._data[start:start + number_of_bytes + 1],
+            "big",
+        )
+        value = (window >> (8 - offset)) & ((1 << number_of_bits) - 1)
+        self._pos += number_of_bits
+        return value.to_bytes(number_of_bytes, "big")
 
     def read_non_negative_binary_integer(self, number_of_bits):
         # type: (int) -> int
-        if number_of_bits > self.number_of_bits:
-            raise UPER_Decoding_Error("UPER_Decoder: out of data")
-        if number_of_bits == 0:
-            return 0
         return self._read_bits_int(number_of_bits)
 
     def _read_length_determinant(self):
