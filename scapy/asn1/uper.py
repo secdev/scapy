@@ -94,7 +94,6 @@ class UPER_Encoder(object):
         # type: () -> None
         self.number_of_bits = 0
         self.value = 0
-        self.chunks_number_of_bits = 0
         self.chunks = []  # type: List[List[int]]
 
     def append_bit(self, bit):
@@ -117,7 +116,6 @@ class UPER_Encoder(object):
             return
         if self.number_of_bits > 4096:
             self.chunks.append([self.value, self.number_of_bits])
-            self.chunks_number_of_bits += self.number_of_bits
             self.number_of_bits = 0
             self.value = 0
         self.number_of_bits += number_of_bits
@@ -195,26 +193,22 @@ class UPER_Decoder(object):
         else:
             self._bits = 0
 
-    def _read_offset(self):
-        # type: () -> int
-        return self.total_number_of_bits - self.number_of_bits
-
     def _read_bits_int(self, number_of_bits):
         # type: (int) -> int
         if number_of_bits == 0:
             return 0
-        consumed = self._read_offset()
-        shift = self.total_number_of_bits - consumed - number_of_bits
+        # Remaining bits sit in the low end of ``_bits``; shift equals how
+        # many unread bits will still be left after this read.
+        shift = self.number_of_bits - number_of_bits
         mask = (1 << number_of_bits) - 1
         return (self._bits >> shift) & mask
 
     def read_bit(self):
         # type: () -> int
-        if self.number_of_bits == 0:
+        if not self.number_of_bits:
             raise UPER_Decoding_Error("UPER_Decoder: out of data")
-        bit = self._read_bits_int(1)
         self.number_of_bits -= 1
-        return bit
+        return (self._bits >> self.number_of_bits) & 1
 
     def read_bits(self, number_of_bits):
         # type: (int) -> bytes
@@ -238,7 +232,8 @@ class UPER_Decoder(object):
         # A standalone UPER encoding is padded to an octet boundary, so the
         # bits left over inside the current octet are padding; only whole
         # octets after it are actual remaining input / Scapy payload.
-        pad = -self._read_offset() % 8
+        consumed = self.total_number_of_bits - self.number_of_bits
+        pad = -consumed % 8
         if pad:
             if pad > self.number_of_bits:
                 raise UPER_Decoding_Error("UPER_Decoder: truncated padding")
