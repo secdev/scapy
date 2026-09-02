@@ -6,9 +6,9 @@
 
 + ASN.1 OER load
 = prepare helpers and packet classes
-import scapy.contrib.oer
+import scapy.asn1.oer
 
-from scapy.contrib.oer import *
+from scapy.asn1.oer import *
 
 from scapy.packet import raw
 
@@ -19,7 +19,7 @@ class OERTaggedInteger(ASN1_Packet):
 class OERFixedFields(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("n", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("n", 0, size_len=1, unsigned=True),
         ASN1F_STRING("s", "", size_len=3),
     )
 
@@ -284,7 +284,7 @@ def _raises(exc, func):
         return
     raise AssertionError("Expected %s" % exc.__name__)
 
-import scapy.contrib.uper
+import scapy.asn1.uper
 
 class OEREmptySequenceOf(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
@@ -302,7 +302,7 @@ class OERNullRecord(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_NULL("z", 0),
-        ASN1F_INTEGER("n", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("n", 0, size_len=1, unsigned=True),
     )
 
 class OEROidField(ASN1_Packet):
@@ -312,7 +312,7 @@ class OEROidField(ASN1_Packet):
 class OERInnerSeq(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("x", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("x", 0, size_len=1, unsigned=True),
     )
 
 class OERPacketChoice(ASN1_Packet):
@@ -344,7 +344,7 @@ class OERTaggedChoice(ASN1_Packet):
 class OERUnsignedField(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_INTEGER(
-        "n", 0, size_len=1, oer_unsigned=True,
+        "n", 0, size_len=1, unsigned=True,
     )
 
 + ASN.1 OER codec
@@ -1016,8 +1016,8 @@ True
 class OERPreambleOne(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("a", 0, size_len=1, oer_unsigned=True),
-        ASN1F_optional(ASN1F_INTEGER("b", 0, size_len=1, oer_unsigned=True)),
+        ASN1F_INTEGER("a", 0, size_len=1, unsigned=True),
+        ASN1F_optional(ASN1F_INTEGER("b", 0, size_len=1, unsigned=True)),
     )
 
 assert raw(OERPreambleOne(a=1, b=2)) == bytes.fromhex("800102")
@@ -1031,7 +1031,7 @@ assert _dissect(OERPreambleOne, "0001").b is None
 class OERPreambleTwo(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_optional(ASN1F_INTEGER("a", 0, size_len=1, oer_unsigned=True)),
+        ASN1F_optional(ASN1F_INTEGER("a", 0, size_len=1, unsigned=True)),
         ASN1F_optional(ASN1F_BOOLEAN("b", False)),
     )
 
@@ -1043,7 +1043,7 @@ assert raw(OERPreambleTwo(a=None, b=True)) == bytes.fromhex("40ff")
 class OERPreambleNine(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(*[
-        ASN1F_optional(ASN1F_INTEGER(c, 0, size_len=1, oer_unsigned=True))
+        ASN1F_optional(ASN1F_INTEGER(c, 0, size_len=1, unsigned=True))
         for c in "abcdefghi"
     ])
 
@@ -1058,7 +1058,7 @@ assert _roundtrip(OERPreambleNine, nine).i.val == 9
 class OERNoPreamble(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("a", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("a", 0, size_len=1, unsigned=True),
     )
 
 assert raw(OERNoPreamble(a=1)) == bytes.fromhex("01")
@@ -1071,7 +1071,7 @@ class OERDefault(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_DEFAULT(
-            ASN1F_INTEGER("a", 7, size_len=1, oer_unsigned=True), 7,
+            ASN1F_INTEGER("a", 7, size_len=1, unsigned=True), 7,
         ),
     )
 
@@ -1091,8 +1091,8 @@ True
 class OERExtSeq(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("a", 0, size_len=1, oer_unsigned=True),
-        oer_extensible=True,
+        ASN1F_INTEGER("a", 0, size_len=1, unsigned=True),
+        extensible=True,
     )
 
 assert raw(OERExtSeq(a=1)) == bytes.fromhex("0001")
@@ -1102,9 +1102,9 @@ assert _dissect(OERExtSeq, "0001").a.val == 1
 class OERExtSeqOpt(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("a", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("a", 0, size_len=1, unsigned=True),
         ASN1F_optional(ASN1F_BOOLEAN("b", False)),
-        oer_extensible=True,
+        extensible=True,
     )
 
 assert raw(OERExtSeqOpt(a=1, b=True)) == bytes.fromhex("4001ff")
@@ -1182,7 +1182,7 @@ class OERSignedByte(ASN1_Packet):
 
 class OERUnsignedByte(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
-    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("a", 0, size_len=1, oer_unsigned=True))
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("a", 0, size_len=1, unsigned=True))
 
 for cls, value, expected in [
     (OERSignedByte, 127, "7f"),
@@ -1208,7 +1208,7 @@ True
 # no leading zero octet. Byte vectors checked against asn1tools.
 class OERUnboundedUnsigned(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
-    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("a", 0, oer_unsigned=True))
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("a", 0, unsigned=True))
 
 for value, expected in [
     (0, "0100"),
@@ -1288,7 +1288,7 @@ all(
 = constrained OER integer plain value and ASN1_INTEGER encode identically
 class RefactorOERUnsignedByte(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
-    ASN1_root = ASN1F_INTEGER("n", 0, size_len=1, oer_unsigned=True)
+    ASN1_root = ASN1F_INTEGER("n", 0, size_len=1, unsigned=True)
 
 all(
     raw(RefactorOERUnsignedByte(n=value)) == bytes([value])
@@ -1307,12 +1307,12 @@ True
 class RefactorOERPresence(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("id", 0, size_len=1, unsigned=True),
         ASN1F_optional(
-            ASN1F_INTEGER("opt", 0, size_len=1, oer_unsigned=True)
+            ASN1F_INTEGER("opt", 0, size_len=1, unsigned=True)
         ),
         ASN1F_DEFAULT(
-            ASN1F_INTEGER("mode", 3, size_len=1, oer_unsigned=True),
+            ASN1F_INTEGER("mode", 3, size_len=1, unsigned=True),
             3,
         ),
     )
@@ -1343,16 +1343,16 @@ True
 class RefactorOERInner(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("x", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("x", 0, size_len=1, unsigned=True),
         ASN1F_BOOLEAN("flag", False),
     )
 
 class RefactorOEROuter(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("id", 0, size_len=1, unsigned=True),
         ASN1F_PACKET("inner", None, RefactorOERInner),
-        ASN1F_INTEGER("tail", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("tail", 0, size_len=1, unsigned=True),
     )
 
 pkt = RefactorOEROuter(
@@ -1374,7 +1374,7 @@ True
 class RefactorOERDynamicA(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("x", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("x", 0, size_len=1, unsigned=True),
     )
 
 class RefactorOERDynamicB(ASN1_Packet):
@@ -1391,7 +1391,7 @@ def _oer_dynamic_cls(pkt):
 class RefactorOERDynamicOuter(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("kind", 0, size_len=1, oer_unsigned=True),
+        ASN1F_INTEGER("kind", 0, size_len=1, unsigned=True),
         ASN1F_PACKET(
             "inner", None, RefactorOERDynamicA,
             next_cls_cb=_oer_dynamic_cls,
