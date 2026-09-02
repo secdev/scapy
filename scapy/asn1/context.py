@@ -7,14 +7,18 @@
 from typing import Any
 
 from scapy.asn1.asn1 import ASN1_Codecs
-from scapy.asn1.compound import (
+from scapy.asn1.compound_ber import (
     ber_sequence_encode_to, ber_sequence_decode_from,
     ber_sequence_of_encode_to, ber_sequence_of_decode_from,
     ber_choice_encode_to, ber_choice_decode_from,
     ber_packet_encode_to, ber_packet_decode_from,
+)
+from scapy.asn1.compound_oer import (
     oer_sequence_encode_to, oer_sequence_decode_from,
     oer_sequence_of_encode_to, oer_sequence_of_decode_from,
     oer_choice_encode_to, oer_choice_decode_from,
+)
+from scapy.asn1.compound_uper import (
     uper_sequence_encode_to, uper_sequence_decode_from,
     uper_sequence_of_encode_to, uper_sequence_of_decode_from,
     uper_choice_encode_to, uper_choice_decode_from,
