@@ -2,7 +2,7 @@
 
 #
 # Try me with:
-# ./test/run_tests -t test/contrib/oer.uts -N
+# ./test/run_tests -t test/scapy/layers/oer.uts -N
 
 + ASN.1 OER load
 = prepare helpers and packet classes
@@ -1519,3 +1519,22 @@ assert pickle.dumps(OERcodec_IA5_STRING)
 assert OERcodec_IA5_STRING.__module__ == "scapy.asn1.oer"
 True
 
+= OER STRING fixed SIZE from minimum=maximum
+class OERFixedSizeStr(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_STRING("s", b"", minimum=3, maximum=3)
+
+assert raw(OERFixedSizeStr(s=b"abc")) == b"abc"
+assert _roundtrip(OERFixedSizeStr, OERFixedSizeStr(s=b"abc")).s.val == b"abc"
+_raises(OER_Encoding_Error, lambda: raw(OERFixedSizeStr(s=b"ab")))
+True
+
+= OER STRING ranged SIZE validates length
+class OERRangedStr(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_STRING("s", b"", minimum=1, maximum=3)
+
+assert raw(OERRangedStr(s=b"ab")) == b"\x02ab"
+assert _roundtrip(OERRangedStr, OERRangedStr(s=b"ab")).s.val == b"ab"
+_raises(OER_Encoding_Error, lambda: raw(OERRangedStr(s=b"abcd")))
+True

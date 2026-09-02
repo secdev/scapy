@@ -2,7 +2,7 @@
 
 #
 # Try me with:
-# ./test/run_tests -t test/contrib/uper.uts -N
+# ./test/run_tests -t test/scapy/layers/uper.uts -N
 
 + ASN.1 UPER load
 = prepare helpers and packet classes
@@ -1338,18 +1338,7 @@ for data, minimum, maximum in [
     UPER_octet_string_enc(enc, data, minimum, maximum)
     dec = UPER_Decoder(enc.as_bytes())
     assert UPER_octet_string_dec(dec, minimum, maximum) == data
-    assert not UPER_has_unexpected_remainder(dec)
-
-True
-
-= uper has unexpected remainder
-dec = UPER_Decoder(b"\x80")
-dec.read_bit()
-assert UPER_has_unexpected_remainder(dec) is False
-
-dec = UPER_Decoder(b"\x80\x00")
-dec.read_bit()
-assert UPER_has_unexpected_remainder(dec) is True
+    assert dec.remaining_bytes() == b""
 
 True
 
@@ -3649,3 +3638,45 @@ assert pkt.fields == before
 assert enc.finish() == bytes.fromhex("008480")
 True
 
+= UPER semi-constrained INTEGER (5..MAX) encodes offset
+class UPERSemiInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 5, minimum=5)
+
+assert raw(UPERSemiInt(n=5)) == b"\x01\x00"
+assert UPERSemiInt(b"\x01\x00").n.val == 5
+assert raw(UPERSemiInt(n=6)) == b"\x01\x01"
+assert _roundtrip(UPERSemiInt, UPERSemiInt(n=6)).n.val == 6
+_raises(UPER_Encoding_Error, lambda: raw(UPERSemiInt(n=4)))
+True
+
+= UPER extensible SIZE STRING root and extension
+class UPERExtSizeStr(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_STRING("s", b"", minimum=1, maximum=3, extensible=True)
+
+assert raw(UPERExtSizeStr(s=b"a")) == bytes.fromhex("0c20")
+assert _roundtrip(UPERExtSizeStr, UPERExtSizeStr(s=b"a")).s.val == b"a"
+assert _roundtrip(UPERExtSizeStr, UPERExtSizeStr(s=b"abcd")).s.val == b"abcd"
+True
+
+= UPER extensible SIZE BIT STRING root and extension
+class UPERExtSizeBits(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_BIT_STRING("b", "", minimum=1, maximum=3, extensible=True)
+
+root = raw(UPERExtSizeBits(b="1"))
+assert _roundtrip(UPERExtSizeBits, UPERExtSizeBits(b="1")).b.val == "1"
+assert _roundtrip(UPERExtSizeBits, UPERExtSizeBits(b="1010")).b.val == "1010"
+True
+
+= UPER ENUMERATED accepts named string assignment
+class UPERNamedEnum(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_ENUMERATED(
+        "e", 0, {0: "zero", 1: "one", 5: "five"},
+    )
+
+assert raw(UPERNamedEnum(e="one")) == raw(UPERNamedEnum(e=1))
+assert _roundtrip(UPERNamedEnum, UPERNamedEnum(e="one")).e.val == 1
+True
