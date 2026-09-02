@@ -61,11 +61,11 @@ from typing import (
 
 
 class UPER_Encoding_Error(ASN1_Encoding_Error):
-    codec_label = "UPER"
+    pass
 
 
 class UPER_Decoding_Error(ASN1_Decoding_Error):
-    codec_label = "UPER"
+    pass
 
 
 def UPER_bits_for_range(size):
@@ -184,18 +184,6 @@ class UPER_Encoder(object):
         value |= self.value
         number_of_bits += self.number_of_bits
         return _uper_bits_to_bytes(value, number_of_bits)
-
-
-def UPER_has_unexpected_remainder(dec):
-    # type: (UPER_Decoder) -> bool
-    """True when unread bits remain after an octet-aligned padding check.
-
-    Prefer :meth:`UPER_Decoder.remaining_bytes` at packet boundaries; this
-    helper only reports whether non-padding bits are still pending.
-    """
-    pad = -dec._read_offset() % 8
-    unread = max(0, dec.number_of_bits - pad)
-    return unread != 0
 
 
 class UPER_Decoder(object):
@@ -354,6 +342,32 @@ def UPER_constrained_int_dec(dec, minimum, maximum):
     return value
 
 
+def UPER_semi_constrained_int_enc(enc, value, minimum):
+    # type: (UPER_Encoder, int, int) -> None
+    # X.691 11.7: encode the non-negative offset (value - lower_bound) as a
+    # normally small non-negative whole number (length determinant + octets).
+    if value < minimum:
+        raise UPER_Encoding_Error(
+            "UPER_semi_constrained_int_enc: got %i while expecting >= %i" %
+            (value, minimum)
+        )
+    offset = value - minimum
+    number_of_bytes = max((offset.bit_length() + 7) // 8, 1)
+    enc.append_length_determinant(number_of_bytes)
+    enc.append_non_negative_binary_integer(offset, 8 * number_of_bytes)
+
+
+def UPER_semi_constrained_int_dec(dec, minimum):
+    # type: (UPER_Decoder, int) -> int
+    number_of_bytes = dec.read_length_determinant()
+    if number_of_bytes == 0:
+        raise UPER_Decoding_Error(
+            "UPER_semi_constrained_int_dec: empty length determinant"
+        )
+    offset = dec.read_non_negative_binary_integer(8 * number_of_bytes)
+    return offset + minimum
+
+
 def _uper_check_size(name, unit, count, minimum, maximum):
     # type: (str, str, int, int, int) -> None
     # The determinant is sized after the constraint, so a value that violates
@@ -367,27 +381,46 @@ def _uper_check_size(name, unit, count, minimum, maximum):
         )
 
 
-def UPER_octet_string_enc(enc, data, minimum=None, maximum=None):
-    # type: (UPER_Encoder, bytes, Optional[int], Optional[int]) -> None
+def UPER_octet_string_enc(enc, data, minimum=None, maximum=None,
+                          extensible=False):
+    # type: (UPER_Encoder, bytes, Optional[int], Optional[int], bool) -> None
+    length = len(data)
+    if extensible and minimum is not None and maximum is not None:
+        if minimum <= length <= maximum:
+            enc.append_bit(0)
+        else:
+            enc.append_bit(1)
+            enc.append_fragmented(
+                length,
+                lambda offset, size: enc.append_bytes(data[offset:offset + size]),
+            )
+            return
     if minimum is not None and maximum is not None:
         _uper_check_size(
-            "UPER_octet_string_enc", "octets", len(data), minimum, maximum,
+            "UPER_octet_string_enc", "octets", length, minimum, maximum,
         )
         if minimum != maximum:
             enc.append_non_negative_binary_integer(
-                len(data) - minimum,
+                length - minimum,
                 UPER_bits_for_range(maximum - minimum),
             )
         enc.append_bytes(data)
     else:
         enc.append_fragmented(
-            len(data),
+            length,
             lambda offset, size: enc.append_bytes(data[offset:offset + size]),
         )
 
 
-def UPER_octet_string_dec(dec, minimum=None, maximum=None):
-    # type: (UPER_Decoder, Optional[int], Optional[int]) -> bytes
+def UPER_octet_string_dec(dec, minimum=None, maximum=None, extensible=False):
+    # type: (UPER_Decoder, Optional[int], Optional[int], bool) -> bytes
+    if extensible and minimum is not None and maximum is not None:
+        if dec.read_bit():
+            fragments = []  # type: List[bytes]
+            dec.read_fragmented(
+                lambda size: fragments.append(dec.read_bytes(size))
+            )
+            return b"".join(fragments)
     if minimum is not None and maximum is not None:
         length = minimum
         if minimum != maximum:
@@ -414,14 +447,10 @@ def UPER_choice_index_dec(dec, number_of_choices):
     )
 
 
-class UPERcodec_metaclass(ASN1Codec_metaclass):
-    pass
-
-
 _K = TypeVar('_K')
 
 
-class UPERcodec_Object(Generic[_K], metaclass=UPERcodec_metaclass):
+class UPERcodec_Object(Generic[_K], metaclass=ASN1Codec_metaclass):
     codec = ASN1_Codecs.PER
     tag = ASN1_Class_UNIVERSAL.ANY
 
@@ -486,20 +515,9 @@ class UPERcodec_Object(Generic[_K], metaclass=UPERcodec_metaclass):
         return cls.dec(s, context, safe=True, **kwargs)
 
 
-# No field tagging on the wire for PER; identity keeps the codec extension
-# point without BER-style wrappers.
-def _uper_tagging_enc(s, **_kwargs):
-    # type: (bytes, **Any) -> bytes
-    return s
-
-
-def _uper_tagging_dec(s, **_kwargs):
-    # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
-    return None, s
-
-
+# No field tagging on the wire for PER; identity tagging is the ASN1Codec
+# default when no tagging_enc/dec is registered.
 ASN1_Codecs.PER.register_stem(UPERcodec_Object)
-ASN1_Codecs.PER.register_tagging(_uper_tagging_enc, _uper_tagging_dec)
 
 
 #########################
@@ -536,6 +554,8 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                 return
         if minimum is not None and maximum is not None:
             UPER_constrained_int_enc(enc, i, minimum, maximum)
+        elif minimum is not None:
+            UPER_semi_constrained_int_enc(enc, i, minimum)
         else:
             enc.append_unconstrained_whole_number(i)
 
@@ -562,6 +582,8 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                 return cls.asn1_object(value)
         if minimum is not None and maximum is not None:
             value = UPER_constrained_int_dec(dec, minimum, maximum)
+        elif minimum is not None:
+            value = UPER_semi_constrained_int_dec(dec, minimum)
         else:
             value = dec.read_unconstrained_whole_number()
         return cls.asn1_object(value)
@@ -598,6 +620,7 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                     size_len=None,  # type: Optional[int]
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
+                    uper_extensible=None,  # type: Optional[bool]
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
@@ -614,9 +637,21 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
         else:
             s = bytes_encode(_s)
             nbits = 8 * len(s)
-        minimum, maximum = resolve_uper_size_bounds(
-            field, size_len, uper_min, uper_max,
+        minimum, maximum, extensible = resolve_uper_size_bounds(
+            field, size_len, uper_min, uper_max, uper_extensible,
         )
+        if extensible and minimum is not None and maximum is not None:
+            if minimum <= nbits <= maximum:
+                enc.append_bit(0)
+            else:
+                enc.append_bit(1)
+                enc.append_fragmented(
+                    nbits,
+                    lambda offset, size: enc.append_bits(
+                        s[offset // 8:(offset + size + 7) // 8], size
+                    ),
+                )
+                return
         if minimum is not None and maximum is not None:
             _uper_check_size(cls.__name__, "bits", nbits, minimum, maximum)
             if minimum != maximum:
@@ -643,20 +678,17 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                          size_len=None,  # type: Optional[int]
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
+                         uper_extensible=None,  # type: Optional[bool]
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[str]
         from scapy.asn1.constraints import resolve_uper_size_bounds
-        minimum, maximum = resolve_uper_size_bounds(
-            field, size_len, uper_min, uper_max,
+        minimum, maximum, extensible = resolve_uper_size_bounds(
+            field, size_len, uper_min, uper_max, uper_extensible,
         )
-        if minimum is not None and maximum is not None:
-            nbits = minimum
-            if minimum != maximum:
-                nbits += dec.read_non_negative_binary_integer(
-                    UPER_bits_for_range(maximum - minimum)
-                )
-        else:
+
+        def _read_unconstrained():
+            # type: () -> ASN1_Object[str]
             fragments = []  # type: List[bytes]
             sizes = []  # type: List[int]
 
@@ -669,8 +701,19 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
             return cls.asn1_object(
                 _uper_bytes_to_bitstr(b"".join(fragments), sum(sizes))
             )
-        raw = dec.read_bits(nbits)
-        return cls.asn1_object(_uper_bytes_to_bitstr(raw, nbits))
+
+        if extensible and minimum is not None and maximum is not None:
+            if dec.read_bit():
+                return _read_unconstrained()
+        if minimum is not None and maximum is not None:
+            nbits = minimum
+            if minimum != maximum:
+                nbits += dec.read_non_negative_binary_integer(
+                    UPER_bits_for_range(maximum - minimum)
+                )
+            raw = dec.read_bits(nbits)
+            return cls.asn1_object(_uper_bytes_to_bitstr(raw, nbits))
+        return _read_unconstrained()
 
 
 class UPERcodec_STRING(UPERcodec_Object[str]):
@@ -684,15 +727,16 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                     size_len=None,  # type: Optional[int]
                     uper_min=None,  # type: Optional[int]
                     uper_max=None,  # type: Optional[int]
+                    uper_extensible=None,  # type: Optional[bool]
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         from scapy.asn1.constraints import resolve_uper_size_bounds
         s = bytes_encode(_s)
-        minimum, maximum = resolve_uper_size_bounds(
-            field, size_len, uper_min, uper_max,
+        minimum, maximum, extensible = resolve_uper_size_bounds(
+            field, size_len, uper_min, uper_max, uper_extensible,
         )
-        UPER_octet_string_enc(enc, s, minimum, maximum)
+        UPER_octet_string_enc(enc, s, minimum, maximum, extensible)
 
     @classmethod
     def dec_from_decoder(cls,
@@ -701,14 +745,15 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                          size_len=None,  # type: Optional[int]
                          uper_min=None,  # type: Optional[int]
                          uper_max=None,  # type: Optional[int]
+                         uper_extensible=None,  # type: Optional[bool]
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[Any]
         from scapy.asn1.constraints import resolve_uper_size_bounds
-        minimum, maximum = resolve_uper_size_bounds(
-            field, size_len, uper_min, uper_max,
+        minimum, maximum, extensible = resolve_uper_size_bounds(
+            field, size_len, uper_min, uper_max, uper_extensible,
         )
-        raw = UPER_octet_string_dec(dec, minimum, maximum)
+        raw = UPER_octet_string_dec(dec, minimum, maximum, extensible)
         return cls.asn1_object(raw)
 
 

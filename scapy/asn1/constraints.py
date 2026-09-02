@@ -2,7 +2,14 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
-"""Codec-neutral ASN.1 schema constraints."""
+"""Codec-neutral ASN.1 schema constraints.
+
+``minimum`` / ``maximum`` mean a value range for INTEGER and ENUMERATED
+fields, and a SIZE constraint for string and BIT STRING fields.
+``size_len`` is a fixed SIZE (octets or bits) used when both bounds coincide.
+``extensible`` marks an extension marker on the constraint.
+``unsigned`` selects unsigned INTEGER encoding where the codec supports it.
+"""
 
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
@@ -114,15 +121,29 @@ def resolve_uper_int_bounds(field=None,  # type: Any
 def resolve_uper_size_bounds(field=None,  # type: Any
                              size_len=None,  # type: Optional[int]
                              uper_min=None,  # type: Optional[int]
-                             uper_max=None  # type: Optional[int]
+                             uper_max=None,  # type: Optional[int]
+                             extensible=None  # type: Optional[bool]
                              ):
-    # type: (...) -> Tuple[Optional[int], Optional[int]]
+    # type: (...) -> Tuple[Optional[int], Optional[int], bool]
     """Resolve UPER SIZE bounds; ``size_len`` is a fixed SIZE."""
     size_len = field_size_len(field, size_len)
     uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
+    is_extensible = uper_extensible(field, extensible)
+    if size_len:
+        return size_len, size_len, is_extensible
+    return uper_min, uper_max, is_extensible
+
+
+def resolve_oer_size_bounds(field=None, size_len=None):
+    # type: (Any, Optional[int]) -> Tuple[Optional[int], Optional[int]]
+    """Resolve OER SIZE bounds from ``size_len`` or field constraints."""
+    size_len = field_size_len(field, size_len)
+    # ``size_len=0`` means unset (same as the historical ``if size_len:`` check).
     if size_len:
         return size_len, size_len
-    return uper_min, uper_max
+    if field is not None:
+        return field_range(field)
+    return None, None
 
 
 def uper_enum_values(field=None, pkt=None, uper_enum_values=None):

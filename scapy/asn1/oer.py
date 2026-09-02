@@ -62,11 +62,11 @@ class OER_Exception(Exception):
 
 
 class OER_Encoding_Error(ASN1_Encoding_Error):
-    codec_label = "OER"
+    pass
 
 
 class OER_Decoding_Error(ASN1_Decoding_Error):
-    codec_label = "OER"
+    pass
 
 
 # OER tag classes (bits 8-7 of the first identifier octet)
@@ -207,14 +207,10 @@ def OER_tag_parts(identifier):
     return tag_class, tag_number
 
 
-class OERcodec_metaclass(ASN1Codec_metaclass):
-    pass
-
-
 _K = TypeVar('_K')
 
 
-class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
+class OERcodec_Object(Generic[_K], metaclass=ASN1Codec_metaclass):
     codec = ASN1_Codecs.OER
     tag = ASN1_Class_UNIVERSAL.ANY
 
@@ -307,20 +303,9 @@ class OERcodec_Object(Generic[_K], metaclass=OERcodec_metaclass):
 
 
 # Tags declared on a field are not encoded for OER components (X.696);
-# CHOICE writes its own alternative tags. Identity tagging keeps the
-# codec extension point without BER-style wrappers.
-def _oer_tagging_enc(s, **_kwargs):
-    # type: (bytes, **Any) -> bytes
-    return s
-
-
-def _oer_tagging_dec(s, **_kwargs):
-    # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
-    return None, s
-
-
+# CHOICE writes its own alternative tags. Identity tagging is the ASN1Codec
+# default when no tagging_enc/dec is registered.
 ASN1_Codecs.OER.register_stem(OERcodec_Object)
-ASN1_Codecs.OER.register_tagging(_oer_tagging_enc, _oer_tagging_dec)
 
 
 ##########################
@@ -472,49 +457,77 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[str], bytes]
-        from scapy.asn1.constraints import field_size_len
-        size_len = field_size_len(field, size_len)
-        if size_len:
-            number_of_bytes = (size_len + 7) // 8
+        from scapy.asn1.constraints import resolve_oer_size_bounds
+        minimum, maximum = resolve_oer_size_bounds(field, size_len)
+        if minimum is not None and maximum is not None and minimum == maximum:
+            number_of_bytes = (minimum + 7) // 8
             _OER_check_len(cls.__name__, s, number_of_bytes)
             return (
                 cls.tag.asn1_object(
-                    _oer_bytes_to_bitstr(s[:number_of_bytes])[:size_len]
+                    _oer_bytes_to_bitstr(s[:number_of_bytes])[:minimum]
                 ),
                 s[number_of_bytes:],
             )
         length, s = OER_len_dec(s)
         if length == 0:
-            return cls.tag.asn1_object(""), s
-        _OER_check_len(cls.__name__, s, length)
-        unused_bits = s[0]
-        if safe and unused_bits > 7:
+            fs = ""
+        else:
+            _OER_check_len(cls.__name__, s, length)
+            unused_bits = s[0]
+            if safe and unused_bits > 7:
+                raise OER_Decoding_Error(
+                    "OERcodec_BIT_STRING: too many unused_bits advertised",
+                    remaining=s
+                )
+            fs = _oer_bytes_to_bitstr(s[1:length])
+            if unused_bits > 0:
+                fs = fs[:-unused_bits]
+            s = s[length:]
+        nbits = len(fs)
+        if minimum is not None and nbits < minimum:
             raise OER_Decoding_Error(
-                "OERcodec_BIT_STRING: too many unused_bits advertised",
-                remaining=s
+                "%s: got %i bits while expecting >= %i" %
+                (cls.__name__, nbits, minimum),
+                remaining=s,
             )
-        fs = _oer_bytes_to_bitstr(s[1:length])
-        if unused_bits > 0:
-            fs = fs[:-unused_bits]
-        return cls.tag.asn1_object(fs), s[length:]
+        if maximum is not None and nbits > maximum:
+            raise OER_Decoding_Error(
+                "%s: got %i bits while expecting <= %i" %
+                (cls.__name__, nbits, maximum),
+                remaining=s,
+            )
+        return cls.tag.asn1_object(fs), s
 
     @classmethod
     def enc(cls, _s, field=None, size_len=None, **_kwargs):
         # type: (AnyStr, Any, Optional[int], **Any) -> bytes
-        from scapy.asn1.constraints import field_size_len
-        size_len = field_size_len(field, size_len)
+        from scapy.asn1.constraints import resolve_oer_size_bounds
+        minimum, maximum = resolve_oer_size_bounds(field, size_len)
         s = bytes_encode(_s)
-        if size_len:
+        nbits = len(s)
+        if minimum is not None and maximum is not None and minimum == maximum:
             # X.696 13.3: a fixed size means the bits are written padded to a
             # whole number of octets, without length or unused-bit count.
-            if len(s) != size_len:
+            if nbits != minimum:
                 raise OER_Encoding_Error(
                     "%s: got %i bits while expecting %i" %
-                    (cls.__name__, len(s), size_len),
+                    (cls.__name__, nbits, minimum),
                     encoded=_s
                 )
             return _oer_bitstr_to_bytes(s)
-        body = chb(-len(s) % 8) + _oer_bitstr_to_bytes(s)
+        if minimum is not None and nbits < minimum:
+            raise OER_Encoding_Error(
+                "%s: got %i bits while expecting >= %i" %
+                (cls.__name__, nbits, minimum),
+                encoded=_s,
+            )
+        if maximum is not None and nbits > maximum:
+            raise OER_Encoding_Error(
+                "%s: got %i bits while expecting <= %i" %
+                (cls.__name__, nbits, maximum),
+                encoded=_s,
+            )
+        body = chb(-nbits % 8) + _oer_bitstr_to_bytes(s)
         return OER_len_enc(len(body)) + body
 
 
@@ -524,19 +537,32 @@ class OERcodec_STRING(OERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, field=None, size_len=None, **_kwargs):
         # type: (Union[str, bytes], Any, Optional[int], **Any) -> bytes
-        from scapy.asn1.constraints import field_size_len
-        size_len = field_size_len(field, size_len)
+        from scapy.asn1.constraints import resolve_oer_size_bounds
+        minimum, maximum = resolve_oer_size_bounds(field, size_len)
         s = bytes_encode(_s)
-        if size_len:
+        length = len(s)
+        if minimum is not None and maximum is not None and minimum == maximum:
             # X.696 16.1: a fixed size means no length determinant.
-            if len(s) != size_len:
+            if length != minimum:
                 raise OER_Encoding_Error(
                     "%s: got %i bytes while expecting %i" %
-                    (cls.__name__, len(s), size_len),
+                    (cls.__name__, length, minimum),
                     encoded=_s
                 )
             return s
-        return OER_len_enc(len(s)) + s
+        if minimum is not None and length < minimum:
+            raise OER_Encoding_Error(
+                "%s: got %i bytes while expecting >= %i" %
+                (cls.__name__, length, minimum),
+                encoded=_s,
+            )
+        if maximum is not None and length > maximum:
+            raise OER_Encoding_Error(
+                "%s: got %i bytes while expecting <= %i" %
+                (cls.__name__, length, maximum),
+                encoded=_s,
+            )
+        return OER_len_enc(length) + s
 
     @classmethod
     def do_dec(cls,
@@ -549,13 +575,25 @@ class OERcodec_STRING(OERcodec_Object[str]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[Any], bytes]
-        from scapy.asn1.constraints import field_size_len
-        size_len = field_size_len(field, size_len)
-        if size_len:
-            _OER_check_len(cls.__name__, s, size_len)
-            return cls.tag.asn1_object(s[:size_len]), s[size_len:]
+        from scapy.asn1.constraints import resolve_oer_size_bounds
+        minimum, maximum = resolve_oer_size_bounds(field, size_len)
+        if minimum is not None and maximum is not None and minimum == maximum:
+            _OER_check_len(cls.__name__, s, minimum)
+            return cls.tag.asn1_object(s[:minimum]), s[minimum:]
         length, s = OER_len_dec(s)
         _OER_check_len(cls.__name__, s, length)
+        if minimum is not None and length < minimum:
+            raise OER_Decoding_Error(
+                "%s: got %i bytes while expecting >= %i" %
+                (cls.__name__, length, minimum),
+                remaining=s,
+            )
+        if maximum is not None and length > maximum:
+            raise OER_Decoding_Error(
+                "%s: got %i bytes while expecting <= %i" %
+                (cls.__name__, length, maximum),
+                remaining=s,
+            )
         return cls.tag.asn1_object(s[:length]), s[length:]
 
 
