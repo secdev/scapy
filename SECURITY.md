@@ -19,3 +19,7 @@ Please include a minimal working example against an unmodified checkout, plus a 
 * a DoS that is triggered when crafting a packet, unless the packet is crafted in response to a stimulus (e.g. answering machines, automatons, etc.)
 * having `conf.debug_dissector != 0`
 * anything that requires changing Scapy's configuration or caching files, including but not limited to `.config/scapy/*`, `.cache/scapy/*`
+
+### Out of scope
+
+* `scapy/modules/krack/*`: this code is obsolete.
