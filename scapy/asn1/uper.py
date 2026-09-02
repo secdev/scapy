@@ -16,8 +16,7 @@ more is fragmented as required by 11.9.3.8.
 
 Not supported yet: extension additions (an encoding that carries them is
 refused rather than misparsed), SET, REAL, and the known-multiplier character
-string encodings, which are emitted as plain octets rather than 7 or 4 bits
-per character.
+string encodings (rejected rather than emitted as plain octets).
 
 ``ASN1F_CHOICE`` alternatives are indexed in X.691 10.2 canonical tag order
 (via ``ASN1F_CHOICE.canonical_order``). Declaration order is kept for
@@ -471,12 +470,13 @@ class UPERcodec_Object(Generic[_K], metaclass=ASN1Codec_metaclass):
             UPERcodec_STRING.encode_into(enc, s, **kwargs)
             return
         try:
-            UPERcodec_INTEGER.encode_into(enc, int(s), **kwargs)
-        except Exception:
+            i = int(s)
+        except (TypeError, ValueError):
             raise UPER_Encoding_Error(
                 "Cannot encode value %r for %s" % (s, cls.__name__),
                 encoded=s
             )
+        UPERcodec_INTEGER.encode_into(enc, i, **kwargs)
 
     @classmethod
     def dec_from_decoder(cls, dec, **kwargs):
@@ -534,16 +534,16 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                     i,  # type: int
                     field=None,  # type: Any
                     size_len=None,  # type: Optional[int]
-                    uper_min=None,  # type: Optional[int]
-                    uper_max=None,  # type: Optional[int]
-                    oer_unsigned=None,  # type: Optional[bool]
-                    uper_extensible=None,  # type: Optional[bool]
+                    minimum=None,  # type: Optional[int]
+                    maximum=None,  # type: Optional[int]
+                    unsigned=None,  # type: Optional[bool]
+                    extensible=None,  # type: Optional[bool]
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         from scapy.asn1.constraints import resolve_uper_int_bounds
         minimum, maximum, extensible = resolve_uper_int_bounds(
-            field, size_len, uper_min, uper_max, oer_unsigned, uper_extensible,
+            field, size_len, minimum, maximum, unsigned, extensible,
         )
         if extensible and minimum is not None and maximum is not None:
             if minimum <= i <= maximum:
@@ -565,16 +565,16 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                          field=None,  # type: Any
                          pkt=None,  # type: Any
                          size_len=None,  # type: Optional[int]
-                         uper_min=None,  # type: Optional[int]
-                         uper_max=None,  # type: Optional[int]
-                         oer_unsigned=None,  # type: Optional[bool]
-                         uper_extensible=None,  # type: Optional[bool]
+                         minimum=None,  # type: Optional[int]
+                         maximum=None,  # type: Optional[int]
+                         unsigned=None,  # type: Optional[bool]
+                         extensible=None,  # type: Optional[bool]
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
         from scapy.asn1.constraints import resolve_uper_int_bounds
         minimum, maximum, extensible = resolve_uper_int_bounds(
-            field, size_len, uper_min, uper_max, oer_unsigned, uper_extensible,
+            field, size_len, minimum, maximum, unsigned, extensible,
         )
         if extensible and minimum is not None and maximum is not None:
             if dec.read_bit():
@@ -618,9 +618,9 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                     _s,  # type: Any
                     field=None,  # type: Any
                     size_len=None,  # type: Optional[int]
-                    uper_min=None,  # type: Optional[int]
-                    uper_max=None,  # type: Optional[int]
-                    uper_extensible=None,  # type: Optional[bool]
+                    minimum=None,  # type: Optional[int]
+                    maximum=None,  # type: Optional[int]
+                    extensible=None,  # type: Optional[bool]
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
@@ -638,7 +638,7 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
             s = bytes_encode(_s)
             nbits = 8 * len(s)
         minimum, maximum, extensible = resolve_uper_size_bounds(
-            field, size_len, uper_min, uper_max, uper_extensible,
+            field, size_len, minimum, maximum, extensible,
         )
         if extensible and minimum is not None and maximum is not None:
             if minimum <= nbits <= maximum:
@@ -676,15 +676,15 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                          dec,  # type: UPER_Decoder
                          field=None,  # type: Any
                          size_len=None,  # type: Optional[int]
-                         uper_min=None,  # type: Optional[int]
-                         uper_max=None,  # type: Optional[int]
-                         uper_extensible=None,  # type: Optional[bool]
+                         minimum=None,  # type: Optional[int]
+                         maximum=None,  # type: Optional[int]
+                         extensible=None,  # type: Optional[bool]
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[str]
         from scapy.asn1.constraints import resolve_uper_size_bounds
         minimum, maximum, extensible = resolve_uper_size_bounds(
-            field, size_len, uper_min, uper_max, uper_extensible,
+            field, size_len, minimum, maximum, extensible,
         )
 
         def _read_unconstrained():
@@ -725,16 +725,16 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                     _s,  # type: Union[str, bytes]
                     field=None,  # type: Any
                     size_len=None,  # type: Optional[int]
-                    uper_min=None,  # type: Optional[int]
-                    uper_max=None,  # type: Optional[int]
-                    uper_extensible=None,  # type: Optional[bool]
+                    minimum=None,  # type: Optional[int]
+                    maximum=None,  # type: Optional[int]
+                    extensible=None,  # type: Optional[bool]
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         from scapy.asn1.constraints import resolve_uper_size_bounds
         s = bytes_encode(_s)
         minimum, maximum, extensible = resolve_uper_size_bounds(
-            field, size_len, uper_min, uper_max, uper_extensible,
+            field, size_len, minimum, maximum, extensible,
         )
         UPER_octet_string_enc(enc, s, minimum, maximum, extensible)
 
@@ -743,15 +743,15 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                          dec,  # type: UPER_Decoder
                          field=None,  # type: Any
                          size_len=None,  # type: Optional[int]
-                         uper_min=None,  # type: Optional[int]
-                         uper_max=None,  # type: Optional[int]
-                         uper_extensible=None,  # type: Optional[bool]
+                         minimum=None,  # type: Optional[int]
+                         maximum=None,  # type: Optional[int]
+                         extensible=None,  # type: Optional[bool]
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[Any]
         from scapy.asn1.constraints import resolve_uper_size_bounds
         minimum, maximum, extensible = resolve_uper_size_bounds(
-            field, size_len, uper_min, uper_max, uper_extensible,
+            field, size_len, minimum, maximum, extensible,
         )
         raw = UPER_octet_string_dec(dec, minimum, maximum, extensible)
         return cls.asn1_object(raw)
@@ -842,25 +842,25 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                     field=None,  # type: Any
                     pkt=None,  # type: Any
                     size_len=None,  # type: Optional[int]
-                    uper_min=None,  # type: Optional[int]
-                    uper_max=None,  # type: Optional[int]
+                    minimum=None,  # type: Optional[int]
+                    maximum=None,  # type: Optional[int]
                     uper_enum_values=None,  # type: Optional[List[int]]
-                    uper_extensible=None,  # type: Optional[bool]
+                    extensible=None,  # type: Optional[bool]
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
         from scapy.asn1.constraints import (
             field_size_len,
             uper_enum_values as _uper_enum_values,
-            uper_extensible as _uper_extensible,
+            field_extensible_kw,
             uper_int_range,
         )
         size_len = field_size_len(field, size_len)
-        uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
+        minimum, maximum = uper_int_range(field, minimum, maximum)
         uper_enum_values = _uper_enum_values(
             field, pkt, uper_enum_values,
         )
-        extensible = _uper_extensible(field, uper_extensible)
+        extensible = field_extensible_kw(field, extensible)
         if uper_enum_values is not None:
             if extensible:
                 # X.691 14.3: a one bit prefix says whether the value is an
@@ -873,10 +873,10 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                 enc.append_bit(0)
             UPER_enumerated_enc(enc, i, uper_enum_values)
             return
-        minimum, maximum = cls._range(
-            size_len, uper_min, uper_max, UPER_Encoding_Error
+        lo, hi = cls._range(
+            size_len, minimum, maximum, UPER_Encoding_Error
         )
-        UPER_constrained_int_enc(enc, i, minimum, maximum)
+        UPER_constrained_int_enc(enc, i, lo, hi)
 
     @classmethod
     def dec_from_decoder(cls,
@@ -884,25 +884,25 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                          field=None,  # type: Any
                          pkt=None,  # type: Any
                          size_len=None,  # type: Optional[int]
-                         uper_min=None,  # type: Optional[int]
-                         uper_max=None,  # type: Optional[int]
+                         minimum=None,  # type: Optional[int]
+                         maximum=None,  # type: Optional[int]
                          uper_enum_values=None,  # type: Optional[List[int]]
-                         uper_extensible=None,  # type: Optional[bool]
+                         extensible=None,  # type: Optional[bool]
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
         from scapy.asn1.constraints import (
             field_size_len,
             uper_enum_values as _uper_enum_values,
-            uper_extensible as _uper_extensible,
+            field_extensible_kw,
             uper_int_range,
         )
         size_len = field_size_len(field, size_len)
-        uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
+        minimum, maximum = uper_int_range(field, minimum, maximum)
         uper_enum_values = _uper_enum_values(
             field, pkt, uper_enum_values,
         )
-        extensible = _uper_extensible(field, uper_extensible)
+        extensible = field_extensible_kw(field, extensible)
         if uper_enum_values is not None:
             if extensible and dec.read_bit():
                 raise UPER_Decoding_Error(
@@ -910,26 +910,26 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                     "supported"
                 )
             return cls.asn1_object(UPER_enumerated_dec(dec, uper_enum_values))
-        minimum, maximum = cls._range(
-            size_len, uper_min, uper_max, UPER_Decoding_Error
+        lo, hi = cls._range(
+            size_len, minimum, maximum, UPER_Decoding_Error
         )
         value = dec.read_non_negative_binary_integer(
-            UPER_bits_for_range(maximum - minimum)
-        ) + minimum
+            UPER_bits_for_range(hi - lo)
+        ) + lo
         return cls.asn1_object(value)
 
     @staticmethod
-    def _range(size_len, uper_min, uper_max, error):
+    def _range(size_len, minimum, maximum, error):
         # type: (Optional[int], Optional[int], Optional[int], Any) -> Tuple[int, int]  # noqa: E501
         # Without the enumeration itself the index range has to come from
         # the declared bounds; deriving it from the value at hand would
         # make the width depend on the value, which the decoder cannot
         # reproduce.
-        minimum = uper_min if uper_min is not None else 0
-        maximum = uper_max if uper_max is not None else (size_len or None)
-        if maximum is None:
+        lo = minimum if minimum is not None else 0
+        hi = maximum if maximum is not None else (size_len or None)
+        if hi is None:
             raise error("UPERcodec_ENUMERATED: missing range")
-        return minimum, maximum
+        return lo, hi
 
 
 class UPERcodec_SEQUENCE(UPERcodec_Object[Union[bytes, List[Any]]]):
@@ -975,7 +975,7 @@ class UPERcodec_IPADDRESS(UPERcodec_STRING):
         # type: (UPER_Encoder, str, **Any) -> None
         try:
             s = inet_aton(ipaddr_ascii)
-        except Exception:
+        except (TypeError, ValueError, OSError):
             raise UPER_Encoding_Error("IPv4 address could not be encoded")
         UPER_octet_string_enc(enc, s, 4, 4)
 
@@ -985,7 +985,7 @@ class UPERcodec_IPADDRESS(UPERcodec_STRING):
         raw = UPER_octet_string_dec(dec, 4, 4)
         try:
             ipaddr_ascii = inet_ntoa(raw)
-        except Exception:
+        except (TypeError, ValueError, OSError):
             raise UPER_Decoding_Error("IP address could not be decoded")
         return cls.asn1_object(ipaddr_ascii)
 

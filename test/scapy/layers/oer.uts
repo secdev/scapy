@@ -987,7 +987,7 @@ True
 = oer dec reads constraints from field
 # Direct codec calls without a field ignore schema constraints in kwargs.
 x, remain = OERcodec_ENUMERATED.dec(
-    b"\x01", uper_enum_values=[0, 1], uper_min=0,
+    b"\x01", uper_enum_values=[0, 1], minimum=0,
 )
 
 assert x.val == 1
@@ -1241,10 +1241,22 @@ assert OERcodec_OID.enc(b"") == b"\x00"
 True
 
 = oer sequence dissect of an empty encoding
-# Nothing to read leaves every component unset, hence holding its default
-decoded = _dissect(OERRecord, "")
+# Mandatory components require content after the preamble (X.696 16).
+# Packet(b"") builds an empty instance and does not dissect; call do_dissect.
+_raises(OER_Decoding_Error, lambda: OERRecord().do_dissect(b""))
 
-assert decoded.id.val == 0 and decoded.label.val == "" and decoded.values == []
+True
+
+= oer empty SEQUENCE of only optionals with empty preamble
+class OEROnlyOptional(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_optional(ASN1F_INTEGER("a", 0, size_len=1, unsigned=True)),
+    )
+
+# One presence bit, absent -> 0x00 preamble, no component body.
+assert _dissect(OEROnlyOptional, "00").a is None
+_raises(OER_Decoding_Error, lambda: OEROnlyOptional().do_dissect(b""))
 
 True
 

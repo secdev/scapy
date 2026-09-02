@@ -18,6 +18,26 @@ class ASN1Encoder(object):
         # type: () -> bytes
         raise NotImplementedError
 
+    def encode_sequence(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import ber_sequence_encode_to
+        ber_sequence_encode_to(field, pkt, self)
+
+    def encode_sequence_of(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import ber_sequence_of_encode_to
+        ber_sequence_of_encode_to(field, pkt, self)
+
+    def encode_choice(self, field, pkt, value=None):
+        # type: (Any, Any, Any) -> None
+        from scapy.asn1.compound import ber_choice_encode_to
+        ber_choice_encode_to(field, pkt, self, value)
+
+    def encode_packet(self, field, pkt, value=None):
+        # type: (Any, Any, Any) -> None
+        from scapy.asn1.compound import ber_packet_encode_to
+        ber_packet_encode_to(field, pkt, self, value)
+
 
 class ASN1Decoder(object):
     codec = None  # type: Any
@@ -29,6 +49,26 @@ class ASN1Decoder(object):
     def set_remainder(self, remainder):
         # type: (bytes) -> None
         raise NotImplementedError
+
+    def decode_sequence(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import ber_sequence_decode_from
+        ber_sequence_decode_from(field, pkt, self)
+
+    def decode_sequence_of(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import ber_sequence_of_decode_from
+        ber_sequence_of_decode_from(field, pkt, self)
+
+    def decode_choice(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import ber_choice_decode_from
+        ber_choice_decode_from(field, pkt, self)
+
+    def decode_packet(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import ber_packet_decode_from
+        ber_packet_decode_from(field, pkt, self)
 
 
 class BER_Encoder(ASN1Encoder):
@@ -78,6 +118,26 @@ class OER_Encoder(BER_Encoder):
         # type: () -> None
         super(OER_Encoder, self).__init__(codec=self.codec)
 
+    def encode_sequence(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import oer_sequence_encode_to
+        oer_sequence_encode_to(field, pkt, self)
+
+    def encode_sequence_of(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import oer_sequence_of_encode_to
+        oer_sequence_of_encode_to(field, pkt, self)
+
+    def encode_choice(self, field, pkt, value=None):
+        # type: (Any, Any, Any) -> None
+        from scapy.asn1.compound import oer_choice_encode_to
+        oer_choice_encode_to(field, pkt, self, value)
+
+    def encode_packet(self, field, pkt, value=None):
+        # type: (Any, Any, Any) -> None
+        from scapy.asn1.compound import oer_packet_encode_to
+        oer_packet_encode_to(field, pkt, self, value)
+
 
 class OER_Decoder(BER_Decoder):
     from scapy.asn1.asn1 import ASN1_Codecs
@@ -87,6 +147,26 @@ class OER_Decoder(BER_Decoder):
     def __init__(self, data):
         # type: (bytes) -> None
         super(OER_Decoder, self).__init__(data, codec=self.codec)
+
+    def decode_sequence(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import oer_sequence_decode_from
+        oer_sequence_decode_from(field, pkt, self)
+
+    def decode_sequence_of(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import oer_sequence_of_decode_from
+        oer_sequence_of_decode_from(field, pkt, self)
+
+    def decode_choice(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import oer_choice_decode_from
+        oer_choice_decode_from(field, pkt, self)
+
+    def decode_packet(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import oer_packet_decode_from
+        oer_packet_decode_from(field, pkt, self)
 
 
 class UPER_EncoderContext(ASN1Encoder):
@@ -107,6 +187,26 @@ class UPER_EncoderContext(ASN1Encoder):
     def finish(self):
         # type: () -> bytes
         return self._enc.as_bytes()
+
+    def encode_sequence(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import uper_sequence_encode_to
+        uper_sequence_encode_to(field, pkt, self)
+
+    def encode_sequence_of(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import uper_sequence_of_encode_to
+        uper_sequence_of_encode_to(field, pkt, self)
+
+    def encode_choice(self, field, pkt, value=None):
+        # type: (Any, Any, Any) -> None
+        from scapy.asn1.compound import uper_choice_encode_to
+        uper_choice_encode_to(field, pkt, self, value)
+
+    def encode_packet(self, field, pkt, value=None):
+        # type: (Any, Any, Any) -> None
+        from scapy.asn1.compound import uper_packet_encode_to
+        uper_packet_encode_to(field, pkt, self, value)
 
 
 class UPER_DecoderContext(ASN1Decoder):
@@ -133,6 +233,26 @@ class UPER_DecoderContext(ASN1Decoder):
         from scapy.asn1.uper import UPER_Decoder
         self._dec = UPER_Decoder(remainder)
 
+    def decode_sequence(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import uper_sequence_decode_from
+        uper_sequence_decode_from(field, pkt, self)
+
+    def decode_sequence_of(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import uper_sequence_of_decode_from
+        uper_sequence_of_decode_from(field, pkt, self)
+
+    def decode_choice(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import uper_choice_decode_from
+        uper_choice_decode_from(field, pkt, self)
+
+    def decode_packet(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1.compound import uper_packet_decode_from
+        uper_packet_decode_from(field, pkt, self)
+
 
 def new_encoder(codec):
     # type: (Any) -> ASN1Encoder
@@ -141,7 +261,7 @@ def new_encoder(codec):
         return UPER_EncoderContext()
     if codec is ASN1_Codecs.OER:
         return OER_Encoder()
-    return BER_Encoder()
+    return BER_Encoder(codec=codec)
 
 
 def new_decoder(codec, data):
@@ -151,12 +271,18 @@ def new_decoder(codec, data):
         return UPER_DecoderContext(data)
     if codec is ASN1_Codecs.OER:
         return OER_Decoder(data)
-    return BER_Decoder(data)
+    return BER_Decoder(data, codec=codec)
 
 
 def per_bit_encoder(enc):
     # type: (Any) -> Any
-    """Return the PER bit encoder, or *None* for byte-oriented contexts."""
+    """Return the PER bit encoder, or *None* for byte-oriented contexts.
+
+    Prefer ``enc.bit_encoder`` on ``UPER_EncoderContext``. The
+    ``isinstance(UPER_Encoder)`` check is only a nested codec-internal
+    fallback so call sites that already hold a bare bit stream keep
+    working.
+    """
     from scapy.asn1.asn1 import ASN1_Codecs
     codec = getattr(enc, "codec", None)
     if codec is not None and codec is not ASN1_Codecs.PER:
@@ -172,7 +298,13 @@ def per_bit_encoder(enc):
 
 def per_bit_decoder(dec):
     # type: (Any) -> Any
-    """Return the PER bit decoder, or *None* for byte-oriented contexts."""
+    """Return the PER bit decoder, or *None* for byte-oriented contexts.
+
+    Prefer ``dec.bit_decoder`` on ``UPER_DecoderContext``. The
+    ``isinstance(UPER_Decoder)`` check is only a nested codec-internal
+    fallback so call sites that already hold a bare bit stream keep
+    working.
+    """
     from scapy.asn1.asn1 import ASN1_Codecs
     codec = getattr(dec, "codec", None)
     if codec is not None and codec is not ASN1_Codecs.PER:
