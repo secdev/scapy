@@ -23,6 +23,7 @@ from scapy.asn1.asn1 import (
     ASN1_BOOLEAN,
     ASN1_Class,
     ASN1_Class_UNIVERSAL,
+    ASN1_Codecs,
     ASN1_Decoding_Error,
     ASN1_Error,
     ASN1_INTEGER,
@@ -33,7 +34,6 @@ from scapy.asn1.asn1 import (
 )
 from scapy.asn1.ber import BER_Decoding_Error
 from scapy.asn1.constraints import normalize_constraints
-from scapy.asn1.context import per_bit_decoder, per_bit_encoder
 from scapy.asn1.tag import asn1_tag_parts
 from scapy.base_classes import BasePacket
 from scapy.volatile import (
@@ -299,8 +299,9 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # type: (ASN1_Packet, Any) -> None
         self.set_val(pkt, self.m2i_from_decoder(pkt, dec))
 
-    def encode_into(self, enc, pkt, value=None):
+    def encode_into(self, bit_enc, pkt, value=None):
         # type: (Any, ASN1_Packet, Any) -> None
+        """Encode into a raw UPER bit encoder (not a byte-oriented context)."""
         if value is None:
             value = getattr(pkt, self.name)
         if value is None:
@@ -320,30 +321,22 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                 )
         else:
             raw = value
-        bit_enc = per_bit_encoder(enc)
         extra = self._codec_kwargs(pkt)
-        if bit_enc is not None:
-            codec.encode_into(
-                bit_enc, raw, field=self, pkt=pkt, **extra,
-            )
-            return
-        enc.write(
-            codec.enc(raw, field=self, pkt=pkt, **extra)
+        codec.encode_into(
+            bit_enc, raw, field=self, pkt=pkt, **extra,
         )
 
     def encode_to(self, pkt, enc):
         # type: (ASN1_Packet, Any) -> None
-        if per_bit_encoder(enc) is not None:
-            # Pass the ASN.1 context (not the bare bit stream).
-            self.encode_into(enc, pkt)
+        if enc.codec is ASN1_Codecs.PER:
+            self.encode_into(enc.bit_encoder, pkt)
         else:
             enc.write(self.i2m(pkt, getattr(pkt, self.name)))
 
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
-        bit_dec = per_bit_decoder(dec)
-        if bit_dec is not None:
-            self.dissect_from_decoder(pkt, bit_dec)
+        if dec.codec is ASN1_Codecs.PER:
+            self.dissect_from_decoder(pkt, dec.bit_decoder)
         else:
             val, remain = self.m2i(pkt, dec.remaining())
             self.set_val(pkt, val)
@@ -667,7 +660,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         dec = pkt.ASN1_codec.new_decoder(s)
         self.decode_from(pkt, dec)
         remain = dec.remaining()
-        if per_bit_decoder(dec) is not None and remain:
+        if dec.codec is ASN1_Codecs.PER and remain:
             from scapy.asn1.uper import UPER_Decoding_Error
             raise UPER_Decoding_Error(
                 "unexpected remainder in %s" % pkt.__class__.__name__,
@@ -1095,12 +1088,6 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
             if cls.ASN1_root.ASN1_tag == ASN1_Class_UNIVERSAL.SEQUENCE:
                 self.network_tag = 16 | 0x20  # 16 + CONSTRUCTED
         self.default = default
-
-    def _resolve_cls(self, pkt):
-        # type: (ASN1_Packet) -> Type[ASN1_Packet]
-        if self.next_cls_cb:
-            return self.next_cls_cb(pkt) or self.cls
-        return self.cls
 
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[Any, bytes]
