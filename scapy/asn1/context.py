@@ -59,16 +59,6 @@ class BER_Decoder(ASN1Decoder):
         self._data = data
         self._offset = 0
 
-    def read_all(self):
-        # type: () -> bytes
-        return self._data[self._offset:]
-
-    def consume(self, n):
-        # type: (int) -> bytes
-        chunk = self._data[self._offset:self._offset + n]
-        self._offset += n
-        return chunk
-
     def remaining(self):
         # type: () -> bytes
         return self._data[self._offset:]

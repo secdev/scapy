@@ -110,8 +110,6 @@ class ASN1_Error(Scapy_Exception):
 
 
 class ASN1_Encoding_Error(ASN1_Error):
-    codec_label = "ASN.1"
-
     def __init__(self,
                  msg,  # type: str
                  encoded=None,  # type: Any
@@ -136,8 +134,6 @@ class ASN1_Encoding_Error(ASN1_Error):
 
 
 class ASN1_Decoding_Error(ASN1_Error):
-    codec_label = "ASN.1"
-
     def __init__(self,
                  msg,  # type: str
                  decoded=None,  # type: Any

@@ -733,4 +733,3 @@ diff, s = ASN1_Codecs.BER.tagging_dec(
     b"\x02\x01\x01", hidden_tag=ASN1_Class_UNIVERSAL.INTEGER)
 assert s == b"\x02\x01\x01"
 True
-

@@ -182,6 +182,11 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # Pass size_len through by default; subclasses may extend this dict.
         return {"size_len": self.size_len}
 
+    def normalize_encode_value(self, pkt, value):
+        # type: (ASN1_Packet, Any) -> Any
+        """Convert a human-facing value before codec encode (e.g. enum names)."""
+        return value
+
     def _encode_item(self, pkt, item):
         # type: (ASN1_Packet, Any) -> bytes
         """Encode a field value with codec kwargs, without field tagging."""
@@ -297,6 +302,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             value = getattr(pkt, self.name)
         if value is None:
             return
+        value = self.normalize_encode_value(pkt, value)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         if isinstance(value, ASN1_Object):
             if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
@@ -439,6 +445,12 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
     def uper_enum_values(self):
         # type: () -> List[int]
         return sorted(self.i2s)
+
+    def normalize_encode_value(self, pkt, value):
+        # type: (ASN1_Packet, Any) -> Any
+        if isinstance(value, str):
+            return self.s2i[value]
+        return value
 
     def i2m(self,
             pkt,  # type: ASN1_Packet
