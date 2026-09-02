@@ -25,7 +25,7 @@ refused rather than misparsed), SET, REAL, and the canonical variant (C-OER).
 
 import struct
 
-from scapy.compat import chb, orb, bytes_encode
+from scapy.compat import chb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
 from scapy.asn1.tag import asn1_tag_parts
 from scapy.asn1.ber import BER_num_dec, BER_num_enc
@@ -111,7 +111,7 @@ def OER_len_dec(s):
     # type: (bytes) -> Tuple[int, bytes]
     if not s:
         raise OER_Decoding_Error("OER_len_dec: got empty string", remaining=s)
-    tmp_len = orb(s[0])
+    tmp_len = s[0]
     if not tmp_len & 0x80:
         return tmp_len, s[1:]
     tmp_len &= 0x7f
@@ -119,7 +119,7 @@ def OER_len_dec(s):
     ll = 0
     for c in s[1:tmp_len + 1]:
         ll <<= 8
-        ll |= orb(c)
+        ll |= c
     return ll, s[tmp_len + 1:]
 
 
@@ -190,7 +190,7 @@ def OER_tag_dec(s):
     # type: (bytes) -> Tuple[int, int, bytes]
     if not s:
         raise OER_Decoding_Error("OER_tag_dec: got empty string", remaining=s)
-    first = orb(s[0])
+    first = s[0]
     tag_class = first & 0xc0
     tag_number = first & 0x3f
     if tag_number != 0x3f:
@@ -198,7 +198,7 @@ def OER_tag_dec(s):
     tag_number = 0
     i = 1
     while i < len(s):
-        c = orb(s[i])
+        c = s[i]
         tag_number <<= 7
         tag_number |= c & 0x7f
         i += 1
@@ -454,7 +454,7 @@ class OERcodec_BOOLEAN(OERcodec_Object[int]):
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
         cls.check_string(s)
-        return cls.asn1_object(0 if orb(s[0]) == 0 else 1), s[1:]
+        return cls.asn1_object(0 if s[0] == 0 else 1), s[1:]
 
 
 def _oer_bitstr_to_bytes(bitstr):
@@ -465,7 +465,7 @@ def _oer_bitstr_to_bytes(bitstr):
 
 def _oer_bytes_to_bitstr(data):
     # type: (bytes) -> str
-    return "".join(binrepr(orb(x)).zfill(8) for x in data)
+    return "".join(binrepr(x).zfill(8) for x in data)
 
 
 class OERcodec_BIT_STRING(OERcodec_Object[str]):
@@ -497,7 +497,7 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
         if length == 0:
             return cls.tag.asn1_object(""), s
         _OER_check_len(cls.__name__, s, length)
-        unused_bits = orb(s[0])
+        unused_bits = s[0]
         if safe and unused_bits > 7:
             raise OER_Decoding_Error(
                 "OERcodec_BIT_STRING: too many unused_bits advertised",
@@ -651,7 +651,7 @@ class OERcodec_ENUMERATED(OERcodec_INTEGER):
             raise OER_Decoding_Error(
                 "%s: got empty string" % cls.__name__, remaining=s
             )
-        first = orb(s[0])
+        first = s[0]
         if not (first & 0x80):
             return cls.asn1_object(first), s[1:]
         length = first & 0x7f
