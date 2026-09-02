@@ -1,5 +1,5 @@
 % Regression tests for SAE J1939 protocol
-~ not_pypy linux
+~ not_pypy
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
@@ -1628,7 +1628,7 @@ assert _j2iso_rx.data == _j2iso_isotp_payload, \
 ############
 ############
 + J1939 Segmented Communication – comprehensive J1939_TP_CM tests
-~ not_pypy linux
+~ not_pypy
 
 = J1939_TP_CM_BAM with various payload sizes (7-1785 bytes)
 # Test BAM with different total sizes and packet counts per J1939 standard
@@ -3134,21 +3134,39 @@ assert len(_pgn_bam_dropped) == 0, \
     "pgn filter: BAM for non-matching PGN should be dropped, got %d packet(s)" \
     % len(_pgn_bam_dropped)
 
-= J1939SoftSocket – pgn=0 accepts all PGNs (default accept-all behaviour)
-# BenGardiner's rx_pgn=0 means "accept all"; our pgn=0 (the default) must
-# behave the same way.
+= J1939SoftSocket – pgn=J1939_NO_PGN accepts all PGNs
+# Soft and native sockets share the same accept-all sentinel.
 
 with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
     cans.pair(stim)
-    with J1939SoftSocket(cans, src_addr=0x00, pgn=0) as sock:
+    with J1939SoftSocket(cans, src_addr=0x00,
+                         pgn=_socket.J1939_NO_PGN) as sock:
         stim.send(J1939_CAN(priority=6, pdu_format=0xFE, pdu_specific=0xCA,
                              src=0x01, data=b'\xAA'))
         stim.send(J1939_CAN(priority=6, pdu_format=0xFE, pdu_specific=0xCB,
                              src=0x01, data=b'\xBB'))
-        _pgn0_pkts = sock.sniff(count=2, timeout=0.5)
+        _pgn_all_pkts = sock.sniff(count=2, timeout=0.5)
 
-assert len(_pgn0_pkts) == 2, \
-    "pgn=0: expected both PGNs delivered, got %d" % len(_pgn0_pkts)
+assert len(_pgn_all_pkts) == 2, \
+    "J1939_NO_PGN: expected both PGNs delivered, got %d" % len(_pgn_all_pkts)
+
+= J1939SoftSocket – pgn=0 delivers only real PGN 0
+# Unlike the old soft-socket convention, 0 is a filterable PGN, not a wildcard.
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+    cans.pair(stim)
+    with J1939SoftSocket(cans, src_addr=0x00, pgn=0) as sock:
+        # PGN 0 is PDU1 with PF=0, PS=destination (broadcast here).
+        stim.send(J1939_CAN(priority=6, data_page=0, pdu_format=0x00,
+                             pdu_specific=0xFF, src=0x01, data=b'\x01'))
+        stim.send(J1939_CAN(priority=6, pdu_format=0xFE, pdu_specific=0xCA,
+                             src=0x01, data=b'\x02'))
+        _pgn0_only = sock.sniff(count=2, timeout=0.5)
+
+assert len(_pgn0_only) == 1, \
+    "pgn=0 must deliver only PGN 0, got %d" % len(_pgn0_only)
+assert _pgn0_only[0].pgn == 0, "got PGN 0x%X" % _pgn0_only[0].pgn
+assert _pgn0_only[0].data == b'\x01'
 
 = J1939SoftSocket – pgn filter: matching RTS/CTS unicast PGN is delivered
 # pgn filter must apply to unicast (RTS/CTS) sessions in addition to BAM.

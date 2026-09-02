@@ -924,9 +924,10 @@ class J1939TPImplementation:
                         or ABORT frames, allowing passive monitoring of TP
                         sessions without influencing the bus.  Received payloads
                         are still reassembled and delivered via :meth:`recv`.
-    :param pgn_filter: when non-zero, only messages whose PGN matches this
-                       value are delivered.  ``0`` (the default) accepts all
-                       PGNs.  Inspired by BenGardiner's ``rx_pgn`` parameter.
+    :param pgn_filter: when not :data:`socket.J1939_NO_PGN`, only messages
+                       whose PGN matches this value are delivered.
+                       :data:`socket.J1939_NO_PGN` (the default) accepts all
+                       PGNs, matching :class:`NativeJ1939Socket`.
     :param basecls: packet class used for delivered messages, defaulting to
                     :class:`J1939`
 
@@ -940,7 +941,7 @@ class J1939TPImplementation:
             can_socket,  # type: "CANSocket"
             src_addr,  # type: int
             listen_only=False,  # type: bool
-            pgn_filter=0,  # type: int
+            pgn_filter=socket.J1939_NO_PGN,  # type: int
             basecls=None,  # type: Optional[Type[Packet]]
     ):
         # type: (...) -> None
@@ -950,7 +951,7 @@ class J1939TPImplementation:
         self.can_socket = can_socket
         self.src_addr = src_addr
         self.listen_only = listen_only
-        self.pgn_filter = pgn_filter  # 0 = accept all PGNs
+        self.pgn_filter = pgn_filter
         self.basecls = basecls or J1939  # type: Type[Packet]
         self.closed = False
         self.closing = False
@@ -969,12 +970,9 @@ class J1939TPImplementation:
         self.tx_pgn = 0
         self.tx_dst = socket.J1939_NO_ADDR
         self.tx_priority = 6
-        self.tx_data_page = 0
         self.tx_npkts = 0  # total TP.DT packets to send
         self.tx_seq = 1  # next TP.DT sequence number to send
         self.tx_peer_sa = socket.J1939_NO_ADDR  # peer SA for RTS/CTS sessions
-        # CTS block management
-        self.tx_cts_count = 0  # DTs still to send in current CTS block
         self.tx_timeout_handle = None  # type: Optional[Any]
 
         # Enqueued outgoing messages: each item is a J1939 packet
@@ -1152,8 +1150,9 @@ class J1939TPImplementation:
         # type: (Packet) -> None
         """Decode *pkt* as a :class:`J1939_CAN` frame and route it."""
         try:
-            j = J1939_CAN(bytes(pkt))
-            j.time = getattr(pkt, 'time', None) or time.time()
+            j = J1939_CAN.from_can(pkt)
+            if not j.time:
+                j.time = time.time()
         except Exception:
             return
 
@@ -1191,7 +1190,7 @@ class J1939TPImplementation:
     def _on_short_frame(self, j):
         # type: (J1939_CAN) -> None
         data = bytes(j.data)
-        if self.pgn_filter != 0 and j.pgn != self.pgn_filter:
+        if self.pgn_filter != socket.J1939_NO_PGN and j.pgn != self.pgn_filter:
             return
         msg = self.basecls(data, pgn=j.pgn, src=j.src, dst=j.dst,
                            priority=j.priority)
@@ -1213,7 +1212,7 @@ class J1939TPImplementation:
             if len(data) < 8:
                 return
             bam = J1939_TP_CM_BAM(data)
-            if self.pgn_filter != 0 and bam.pgn != self.pgn_filter:
+            if self.pgn_filter != socket.J1939_NO_PGN and bam.pgn != self.pgn_filter:
                 return
             self._rx_start(sa=sa, pgn=bam.pgn, dst=socket.J1939_NO_ADDR,
                            total=bam.total_size, npkts=bam.num_packets,
@@ -1227,7 +1226,7 @@ class J1939TPImplementation:
             if len(data) < 8:
                 return
             rts = J1939_TP_CM_RTS(data)
-            if self.pgn_filter != 0 and rts.pgn != self.pgn_filter:
+            if self.pgn_filter != socket.J1939_NO_PGN and rts.pgn != self.pgn_filter:
                 return
             self._rx_start(sa=sa, pgn=rts.pgn, dst=self.src_addr,
                            total=rts.total_size, npkts=rts.num_packets,
@@ -1530,7 +1529,6 @@ class J1939TPImplementation:
             dst = msg.dst
             priority = msg.priority
         else:
-            data = bytes(msg)
             pgn = 0
             dst = socket.J1939_NO_ADDR
             priority = 6
@@ -1551,18 +1549,18 @@ class J1939TPImplementation:
             )
             self._can_send(pkt)
 
-        elif dst == socket.J1939_NO_ADDR or dst == 0xFF:
+        elif dst == socket.J1939_NO_ADDR:
             # Broadcast multi-packet message via BAM.
-            self._tx_start_bam(data, pgn, dst, priority, data_page)
+            self._tx_start_bam(data, pgn, dst, priority)
 
         else:
             # Unicast multi-packet message via RTS/CTS.
-            self._tx_start_rts(data, pgn, dst, priority, data_page)
+            self._tx_start_rts(data, pgn, dst, priority)
 
     # ── BAM TX ───────────────────────────────────────────────────────────────
 
-    def _tx_start_bam(self, data, pgn, dst, priority, data_page):
-        # type: (bytes, int, int, int, int) -> None
+    def _tx_start_bam(self, data, pgn, dst, priority):
+        # type: (bytes, int, int, int) -> None
         npkts = (len(data) + _J1939_TP_DT_DATA - 1) // _J1939_TP_DT_DATA
         # Set tx_state BEFORE the CAN send so that close() does not see the
         # queue empty with state=IDLE and break out of the drain loop early
@@ -1572,7 +1570,6 @@ class J1939TPImplementation:
         self.tx_pgn = pgn
         self.tx_dst = dst
         self.tx_priority = priority
-        self.tx_data_page = data_page
         self.tx_npkts = npkts
         self.tx_seq = 1
         bam = J1939_TP_CM_BAM(total_size=len(data), num_packets=npkts, pgn=pgn)
@@ -1604,8 +1601,8 @@ class J1939TPImplementation:
 
     # ── RTS/CTS TX ───────────────────────────────────────────────────────────
 
-    def _tx_start_rts(self, data, pgn, dst, priority, data_page):
-        # type: (bytes, int, int, int, int) -> None
+    def _tx_start_rts(self, data, pgn, dst, priority):
+        # type: (bytes, int, int, int) -> None
         npkts = (len(data) + _J1939_TP_DT_DATA - 1) // _J1939_TP_DT_DATA
         # Set tx_state BEFORE the CAN send (same race-prevention as _tx_start_bam).
         self.tx_state = _J1939_TX_RTS_WAIT_CTS
@@ -1613,7 +1610,6 @@ class J1939TPImplementation:
         self.tx_pgn = pgn
         self.tx_dst = dst
         self.tx_priority = priority
-        self.tx_data_page = data_page
         self.tx_npkts = npkts
         self.tx_seq = 1
         self.tx_peer_sa = dst
@@ -1649,12 +1645,12 @@ class J1939TPImplementation:
 
         self.tx_seq = cts.next_packet
         remaining = self.tx_npkts - self.tx_seq + 1
-        self.tx_cts_count = min(cts.num_packets, remaining)
+        count = min(cts.num_packets, remaining)
         self.tx_state = _J1939_TX_RTS_SENDING
-        self._tx_rts_send_block()
+        self._tx_rts_send_block(count)
 
-    def _tx_rts_send_block(self):
-        # type: () -> None
+    def _tx_rts_send_block(self, count):
+        # type: (int) -> None
         """Send the block of TP.DT frames authorised by the most recent CTS."""
         if self.closed or self.tx_state != _J1939_TX_RTS_SENDING \
                 or self.tx_buf is None:
@@ -1662,7 +1658,7 @@ class J1939TPImplementation:
             return
 
         sent = 0
-        while sent < self.tx_cts_count:
+        while sent < count:
             seq = self.tx_seq
             if seq > self.tx_npkts:
                 break
@@ -1741,10 +1737,7 @@ class J1939TPImplementation:
         """
         try:
             return self.rx_queue.recv()  # type: ignore
-        except Exception:
-            if not self.closed:
-                log_j1939.warning(
-                    "J1939 recv error: %s", traceback.format_exc())
+        except (EOFError, OSError):
             return None
 
 
@@ -1781,15 +1774,16 @@ class J1939SoftSocket(SuperSocket):
     :param can_socket: a :class:`~scapy.contrib.cansocket.CANSocket` instance
                        *or* a CAN interface name string (Linux only)
     :param src_addr:   this node's J1939 source address (0x00–0xFD);
-                       defaults to :data:`socket.J1939_NO_ADDR` (0xFE = no address)
+                       defaults to :data:`socket.J1939_NO_ADDR` (0xFF = no address)
     :param basecls:    packet class for received messages
                        (default: :class:`J1939`)
     :param listen_only: when ``True``, never send CTS / ACK / ABORT frames;
                         all received TP sessions are still reassembled and
                         delivered.  Useful for passive bus monitoring.
-    :param pgn:        when non-zero, only messages whose PGN matches this
-                       value are delivered; ``0`` (the default) accepts every
-                       PGN.  Inspired by BenGardiner's ``rx_pgn`` parameter.
+    :param pgn:        when not :data:`socket.J1939_NO_PGN`, only messages
+                       whose PGN matches this value are delivered;
+                       :data:`socket.J1939_NO_PGN` (the default) accepts every
+                       PGN, matching :class:`NativeJ1939Socket`.
     """
 
     desc = ("read/write J1939 messages using a software "
@@ -1803,7 +1797,7 @@ class J1939SoftSocket(SuperSocket):
             src_addr=socket.J1939_NO_ADDR,  # type: int
             basecls=J1939,  # type: Type[Packet]
             listen_only=False,  # type: bool
-            pgn=0,  # type: int
+            pgn=socket.J1939_NO_PGN,  # type: int
     ):
         # type: (...) -> None
         if LINUX and isinstance(can_socket, str):
