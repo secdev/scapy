@@ -331,14 +331,16 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
     def encode_to(self, pkt, enc):
         # type: (ASN1_Packet, Any) -> None
         if per_bit_encoder(enc) is not None:
+            # Pass the ASN.1 context (not the bare bit stream).
             self.encode_into(enc, pkt)
         else:
             enc.write(self.i2m(pkt, getattr(pkt, self.name)))
 
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
-        if per_bit_decoder(dec) is not None:
-            self.dissect_from_decoder(pkt, per_bit_decoder(dec))
+        bit_dec = per_bit_decoder(dec)
+        if bit_dec is not None:
+            self.dissect_from_decoder(pkt, bit_dec)
         else:
             val, remain = self.m2i(pkt, dec.remaining())
             self.set_val(pkt, val)
@@ -671,8 +673,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def encode_to(self, pkt, enc):
         # type: (ASN1_Packet, Any) -> None
-        from scapy.asn1.compound import sequence_encode_to
-        sequence_encode_to(self, pkt, enc)
+        enc.encode_sequence(self, pkt)
 
     def encode_into(self, enc, pkt, value=None):
         # type: (Any, ASN1_Packet, Any) -> None
@@ -684,8 +685,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
-        from scapy.asn1.compound import sequence_decode_from
-        sequence_decode_from(self, pkt, dec)
+        dec.decode_sequence(self, pkt)
 
 
 class ASN1F_SET(ASN1F_SEQUENCE):
@@ -754,13 +754,11 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
 
     def encode_to(self, pkt, enc):
         # type: (ASN1_Packet, Any) -> None
-        from scapy.asn1.compound import sequence_of_encode_to
-        sequence_of_encode_to(self, pkt, enc)
+        enc.encode_sequence_of(self, pkt)
 
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
-        from scapy.asn1.compound import sequence_of_decode_from
-        sequence_of_decode_from(self, pkt, dec)
+        dec.decode_sequence_of(self, pkt)
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -1044,18 +1042,15 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
 
     def encode_to(self, pkt, enc):
         # type: (ASN1_Packet, Any) -> None
-        from scapy.asn1.compound import choice_encode_to
-        choice_encode_to(self, pkt, enc)
+        enc.encode_choice(self, pkt)
 
     def encode_into(self, enc, pkt, value=None):
         # type: (Any, ASN1_Packet, Any) -> None
-        from scapy.asn1.compound import choice_encode_to
-        choice_encode_to(self, pkt, enc, value)
+        enc.encode_choice(self, pkt, value)
 
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
-        from scapy.asn1.compound import choice_decode_from
-        choice_decode_from(self, pkt, dec)
+        dec.decode_choice(self, pkt)
 
     def randval(self):
         # type: () -> RandChoice
@@ -1112,18 +1107,15 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
 
     def encode_to(self, pkt, enc):
         # type: (ASN1_Packet, Any) -> None
-        from scapy.asn1.compound import packet_encode_to
-        packet_encode_to(self, pkt, enc)
+        enc.encode_packet(self, pkt)
 
     def encode_into(self, enc, pkt, value=None):
         # type: (Any, ASN1_Packet, Any) -> None
-        from scapy.asn1.compound import packet_encode_to
-        packet_encode_to(self, pkt, enc, value)
+        enc.encode_packet(self, pkt, value)
 
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
-        from scapy.asn1.compound import packet_decode_from
-        packet_decode_from(self, pkt, dec)
+        dec.decode_packet(self, pkt)
 
     def any2i(self,
               pkt,  # type: ASN1_Packet

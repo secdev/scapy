@@ -9,6 +9,7 @@
 import scapy.asn1.uper
 
 from scapy.asn1.uper import *
+from scapy.asn1.context import UPER_EncoderContext, UPER_DecoderContext
 
 from scapy.packet import raw
 
@@ -179,16 +180,16 @@ CODEC_ROUNDTRIPS = [
     (UPERcodec_INTEGER, 42, {}, 42),
     (UPERcodec_INTEGER, -1, {}, -1),
     (UPERcodec_INTEGER, 68719476736, {}, 68719476736),
-    (UPERcodec_INTEGER, 200, {"uper_min": 0, "uper_max": 255}, 200),
-    (UPERcodec_INTEGER, -1, {"uper_min": -128, "uper_max": 127}, -1),
-    (UPERcodec_INTEGER, 127, {"uper_min": -128, "uper_max": 127}, 127),
-    (UPERcodec_INTEGER, -128, {"uper_min": -128, "uper_max": 127}, -128),
+    (UPERcodec_INTEGER, 200, {"minimum": 0, "maximum": 255}, 200),
+    (UPERcodec_INTEGER, -1, {"minimum": -128, "maximum": 127}, -1),
+    (UPERcodec_INTEGER, 127, {"minimum": -128, "maximum": 127}, 127),
+    (UPERcodec_INTEGER, -128, {"minimum": -128, "maximum": 127}, -128),
     (UPERcodec_STRING, b"AB", {}, b"AB"),
     (UPERcodec_STRING, b"\x12\x34\x56", {"size_len": 3}, b"\x12\x34\x56"),
     (
         UPERcodec_STRING,
         bytes.fromhex("afbc4583"),
-        {"uper_min": 1, "uper_max": 20},
+        {"minimum": 1, "maximum": 20},
         bytes.fromhex("afbc4583"),
     ),
     (UPERcodec_ENUMERATED, 1, {"uper_enum_values": [1, 200]}, 1),
@@ -196,13 +197,13 @@ CODEC_ROUNDTRIPS = [
     (
         UPERcodec_BIT_STRING,
         (bytes.fromhex("abcd"), 16),
-        {"uper_min": 1, "uper_max": 20},
+        {"minimum": 1, "maximum": 20},
         "1010101111001101",
     ),
     (
         UPERcodec_BIT_STRING,
         (bytes.fromhex("abcd"), 16),
-        {"uper_min": 16, "uper_max": 16},
+        {"minimum": 16, "maximum": 16},
         "1010101111001101",
     ),
     (UPERcodec_ENUMERATED, 1, {"uper_enum_values": [1]}, 1),
@@ -226,7 +227,7 @@ DECODE_VECTORS = [
         "C",
         200,
         UPERcodec_INTEGER,
-        {"uper_min": 0, "uper_max": 255},
+        {"minimum": 0, "maximum": 255},
         200,
         b"\xc8",
     ),
@@ -234,7 +235,7 @@ DECODE_VECTORS = [
         "Signed",
         -1,
         UPERcodec_INTEGER,
-        {"uper_min": -128, "uper_max": 127},
+        {"minimum": -128, "maximum": 127},
         -1,
         b"\x7f",
     ),
@@ -242,7 +243,7 @@ DECODE_VECTORS = [
         "Signed",
         127,
         UPERcodec_INTEGER,
-        {"uper_min": -128, "uper_max": 127},
+        {"minimum": -128, "maximum": 127},
         127,
         b"\xff",
     ),
@@ -279,7 +280,7 @@ PRIMITIVE_VECTORS = [
     (
         "C",
         200,
-        lambda v: UPERcodec_INTEGER.enc(v, uper_min=0, uper_max=255),
+        lambda v: UPERcodec_INTEGER.enc(v, minimum=0, maximum=255),
         b"\xc8",
     ),
     ("D", b"AB", lambda v: UPERcodec_STRING.enc(v), b"\x02AB"),
@@ -354,7 +355,7 @@ def _encode_composite(typename, value):
         enc.append_length_determinant(len(value))
         for item in value:
             UPERcodec_INTEGER.encode_into(
-                enc, item, uper_min=0, uper_max=255,
+                enc, item, minimum=0, maximum=255,
             )
         return enc.as_bytes()
     if typename == "Choice":
@@ -372,7 +373,7 @@ def _encode_composite(typename, value):
         UPER_choice_index_enc(enc, index, 2)
         if alt == "a":
             UPERcodec_INTEGER.encode_into(
-                enc, payload, uper_min=0, uper_max=15,
+                enc, payload, minimum=0, maximum=15,
             )
         else:
             UPERcodec_STRING.encode_into(enc, payload)
@@ -450,7 +451,7 @@ ASN1SCC_VECTORS = [
     (
         "06-OCTET-STRING/001 pdu1",
         bytes.fromhex("afbc4583"),
-        lambda v: UPERcodec_STRING.enc(v, uper_min=1, uper_max=20),
+        lambda v: UPERcodec_STRING.enc(v, minimum=1, maximum=20),
         bytes.fromhex("1d7de22c18"),
     ),
     (
@@ -481,7 +482,7 @@ ASN1SCC_VECTORS = [
         "08-BIT-STRING/001 pdu1 ABCD",
         (bytes.fromhex("abcd"), 16),
         lambda _v: UPERcodec_BIT_STRING.enc(
-            (bytes.fromhex("abcd"), 16), uper_min=1, uper_max=20,
+            (bytes.fromhex("abcd"), 16), minimum=1, maximum=20,
         ),
         bytes.fromhex("7d5e68"),
     ),
@@ -491,7 +492,7 @@ def _encode_choice_int1_10():
     # type: () -> bytes
     enc = UPER_Encoder()
     UPER_choice_index_enc(enc, 0, 5)
-    UPERcodec_INTEGER.encode_into(enc, 10, uper_min=0, uper_max=15)
+    UPERcodec_INTEGER.encode_into(enc, 10, minimum=0, maximum=15)
     return enc.as_bytes()
 
 _UPER_CODEC_CLASSES = (
@@ -709,9 +710,9 @@ UPERcodec_BOOLEAN.enc(0) == b"\x00"
 = UPER unconstrained integer
 UPERcodec_INTEGER.enc(42) == b"\x01*"
 = UPER constrained integer
-UPERcodec_INTEGER.enc(200, uper_min=0, uper_max=255) == b"\xc8"
+UPERcodec_INTEGER.enc(200, minimum=0, maximum=255) == b"\xc8"
 = UPER signed constrained integer
-UPERcodec_INTEGER.enc(-1, uper_min=-128, uper_max=127) == b"\x7f"
+UPERcodec_INTEGER.enc(-1, minimum=-128, maximum=127) == b"\x7f"
 = UPER octet string
 UPERcodec_STRING.enc(b"AB") == b"\x02AB"
 = UPER fixed octet string
@@ -721,7 +722,7 @@ UPERcodec_NULL.enc(None) == b""
 = UPER enumerated index
 UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]) == b"\x80"
 = UPER bit string variable size
-UPERcodec_BIT_STRING.enc((b"\xab\xcd", 16), uper_min=1, uper_max=20) == bytes.fromhex("7d5e68")
+UPERcodec_BIT_STRING.enc((b"\xab\xcd", 16), minimum=1, maximum=20) == bytes.fromhex("7d5e68")
 = UPER enumerated roundtrip
 x, r = UPERcodec_ENUMERATED.do_dec(UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]), uper_enum_values=[1, 200])
 x.val == 200 and r == b""
@@ -1866,32 +1867,32 @@ assert dec.read_unconstrained_whole_number() == 0
 True
 
 = uper bit string paths
-encoded = UPERcodec_BIT_STRING.enc("1010", uper_min=1, uper_max=20)
+encoded = UPERcodec_BIT_STRING.enc("1010", minimum=1, maximum=20)
 
 obj, remain = UPERcodec_BIT_STRING.do_dec(
-    encoded, uper_min=1, uper_max=20,
+    encoded, minimum=1, maximum=20,
 )
 
 assert obj.val == "1010"
 
-encoded2 = UPERcodec_BIT_STRING.enc(b"\xab", uper_min=4, uper_max=8)
+encoded2 = UPERcodec_BIT_STRING.enc(b"\xab", minimum=4, maximum=8)
 
-obj2, _ = UPERcodec_BIT_STRING.do_dec(encoded2, uper_min=4, uper_max=8)
+obj2, _ = UPERcodec_BIT_STRING.do_dec(encoded2, minimum=4, maximum=8)
 
 assert len(obj2.val) == 8
 
-fixed = UPERcodec_BIT_STRING.enc("1010101111001101", uper_min=16, uper_max=16)
+fixed = UPERcodec_BIT_STRING.enc("1010101111001101", minimum=16, maximum=16)
 
-obj3, _ = UPERcodec_BIT_STRING.do_dec(fixed, uper_min=16, uper_max=16)
+obj3, _ = UPERcodec_BIT_STRING.do_dec(fixed, minimum=16, maximum=16)
 
 assert obj3.val == "1010101111001101"
 
 True
 
 = uper enumerated range
-encoded = UPERcodec_ENUMERATED.enc(3, uper_min=0, uper_max=7)
+encoded = UPERcodec_ENUMERATED.enc(3, minimum=0, maximum=7)
 
-obj, remain = UPERcodec_ENUMERATED.do_dec(encoded, uper_min=0, uper_max=7)
+obj, remain = UPERcodec_ENUMERATED.do_dec(encoded, minimum=0, maximum=7)
 
 assert obj.val == 3
 
@@ -1899,12 +1900,12 @@ assert remain == b""
 
 enc = UPER_Encoder()
 
-UPERcodec_ENUMERATED.encode_into(enc, 2, uper_min=0, uper_max=3)
+UPERcodec_ENUMERATED.encode_into(enc, 2, minimum=0, maximum=3)
 
 obj2 = UPERcodec_ENUMERATED.dec_from_decoder(
     UPER_Decoder(enc.as_bytes()),
-    uper_min=0,
-    uper_max=3,
+    minimum=0,
+    maximum=3,
 )
 
 assert obj2.val == 2
@@ -1951,10 +1952,10 @@ for value, expected in [(0, "00"), (1, "20"), (2, "40")]:
 enc = UPER_Encoder()
 
 _raises(UPER_Encoding_Error, lambda: UPERcodec_ENUMERATED.encode_into(
-    enc, 7, uper_enum_values=[0, 1, 2], uper_extensible=True))
+    enc, 7, uper_enum_values=[0, 1, 2], extensible=True))
 
 _raises(UPER_Decoding_Error, lambda: UPERcodec_ENUMERATED.dec_from_decoder(
-    UPER_Decoder(b"\x80"), uper_enum_values=[0, 1, 2], uper_extensible=True))
+    UPER_Decoder(b"\x80"), uper_enum_values=[0, 1, 2], extensible=True))
 
 True
 
@@ -1967,10 +1968,10 @@ _raises(UPER_Encoding_Error, lambda: UPERcodec_STRING.enc(b"ABCDEF", size_len=4)
 assert UPERcodec_STRING.enc(b"ABCD", size_len=4) == b"ABCD"
 
 _raises(UPER_Encoding_Error,
-        lambda: UPERcodec_STRING.enc(b"A", uper_min=2, uper_max=4))
+        lambda: UPERcodec_STRING.enc(b"A", minimum=2, maximum=4))
 
 _raises(UPER_Encoding_Error,
-        lambda: UPERcodec_STRING.enc(b"ABCDEFGH", uper_min=2, uper_max=4))
+        lambda: UPERcodec_STRING.enc(b"ABCDEFGH", minimum=2, maximum=4))
 
 True
 
@@ -2208,7 +2209,7 @@ assert decoded.id.val == 2
 
 assert decoded.extra.val == 3
 
-dec = UPER_Decoder(b"\x80")
+dec = UPER_DecoderContext(b"\x80")
 
 _raises(
     UPER_Decoding_Error,
@@ -2380,7 +2381,7 @@ _raises(
 _raises(
     ASN1_Error,
     lambda: _PerChoice.ASN1_root.encode_into(
-        UPER_Encoder(), _PerChoice(), 42,
+        UPER_EncoderContext(), _PerChoice(), 42,
     ),
 )
 
@@ -2877,16 +2878,16 @@ True
 = uper field encode_into nesting
 built = UPERWrappedPacket(id=1, inner=UPERInnerPacket(x=7))
 
-enc = UPER_Encoder()
+enc = UPER_EncoderContext()
 
 UPERWrappedPacket.ASN1_root.encode_into(enc, built)
 
-assert enc.as_bytes() == raw(built)
+assert enc.finish() == raw(built)
 
 empty = UPERWrappedPacket()
 
 UPERWrappedPacket.ASN1_root.dissect_from_decoder(
-    empty, UPER_Decoder(raw(built)),
+    empty, UPER_DecoderContext(raw(built)),
 )
 
 assert _val(empty.id) == 1

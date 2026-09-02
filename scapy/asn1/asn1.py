@@ -28,14 +28,10 @@ from typing import (
     Type,
     Union,
     cast,
-    TYPE_CHECKING,
 )
 from typing import (
     TypeVar,
 )
-
-if TYPE_CHECKING:
-    from scapy.asn1.ber import BERcodec_Object
 
 try:
     from datetime import timezone
@@ -128,7 +124,7 @@ class ASN1_Encoding_Error(ASN1_Error):
                 s += "\n### Already encoded ###\n%s" % self.encoded.strshow()
             else:
                 s += "\n### Already encoded ###\n%r" % self.encoded
-        if self.remaining:
+        if self.remaining is not None:
             s += "\n### Remaining ###\n%r" % self.remaining
         return s
 
@@ -152,7 +148,7 @@ class ASN1_Decoding_Error(ASN1_Error):
                 s += "\n### Already decoded ###\n%s" % self.decoded.strshow()
             else:
                 s += "\n### Already decoded ###\n%r" % self.decoded
-        if self.remaining:
+        if self.remaining is not None:
             s += "\n### Remaining ###\n%r" % self.remaining
         return s
 
@@ -178,7 +174,7 @@ class ASN1Codec_metaclass(type):
 
 class ASN1Codec(EnumElement):
     def register_stem(cls, stem):
-        # type: (Type[BERcodec_Object[Any]]) -> None
+        # type: (Type[Any]) -> None
         cls._stem = stem
 
     def register_tagging(cls, enc, dec):
@@ -245,7 +241,7 @@ class ASN1Tag(EnumElement):
                  key,  # type: str
                  value,  # type: int
                  context=None,  # type: Optional[Type[ASN1_Class]]
-                 codec=None  # type: Optional[Dict[ASN1Codec, Type[BERcodec_Object[Any]]]]  # noqa: E501
+                 codec=None  # type: Optional[Dict[ASN1Codec, Type[Any]]]
                  ):
         # type: (...) -> None
         EnumElement.__init__(self, key, value)
@@ -270,11 +266,11 @@ class ASN1Tag(EnumElement):
         raise ASN1_Error("%r does not have any assigned ASN1 object" % self)
 
     def register(self, codecnum, codec):
-        # type: (ASN1Codec, Type[BERcodec_Object[Any]]) -> None
+        # type: (ASN1Codec, Type[Any]) -> None
         self._codec[codecnum] = codec
 
     def get_codec(self, codec):
-        # type: (Any) -> Type[BERcodec_Object[Any]]
+        # type: (Any) -> Type[Any]
         try:
             c = self._codec[codec]
         except KeyError:

@@ -122,51 +122,22 @@ def _sequence_encode_children(field, pkt, encode):
 
 def sequence_encode_to(field, pkt, enc):
     # type: (Any, Any, Any) -> None
-    bit_enc = per_bit_encoder(enc)
-    if bit_enc is not None:
-        write_uper_presence_bits(bit_enc, field, pkt)
-        _sequence_encode_children(
-            field, pkt,
-            lambda obj: obj.encode_to(pkt, enc),
-        )
-        return
-    if enc.codec is ASN1_Codecs.OER:
-        enc.write(write_oer_presence_bits(sequence_presence_bits(field, pkt)))
-        _sequence_encode_children(
-            field, pkt,
-            lambda obj: obj.encode_to(pkt, enc),
-        )
-        return
-    s = reduce(lambda x, y: x + y.build(pkt), field.seq, b"")
-    enc.write(field.i2m(pkt, s))
+    enc.encode_sequence(field, pkt)
 
 
 def sequence_decode_from(field, pkt, dec):
     # type: (Any, Any, Any) -> None
-    bit_dec = per_bit_decoder(dec)
-    if bit_dec is not None:
-        presence = read_uper_presence_bits(bit_dec, field)
-        _sequence_decode_children(
-            field, pkt, presence,
-            lambda obj: obj.decode_from(pkt, dec),
-        )
-        return
-    if dec.codec is ASN1_Codecs.OER:
-        s = dec.remaining()
-        s = field._apply_tagging_dec(s, pkt, _fname=pkt.name)
-        if not s:
-            for obj in field.seq:
-                obj.set_val(pkt, None)
-            dec.set_remainder(b"")
-            return
-        presence, s = read_oer_presence_bits(s, field)
-        child_dec = OER_Decoder(s)
-        _sequence_decode_children(
-            field, pkt, presence,
-            lambda obj: obj.decode_from(pkt, child_dec),
-        )
-        dec.set_remainder(child_dec.remaining())
-        return
+    dec.decode_sequence(field, pkt)
+
+
+def ber_sequence_encode_to(field, pkt, enc):
+    # type: (Any, Any, Any) -> None
+    s = reduce(lambda x, y: x + y.build(pkt), field.seq, b"")
+    enc.write(field.i2m(pkt, s))
+
+
+def ber_sequence_decode_from(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
     s = dec.remaining()
     s = field._apply_tagging_dec(s, pkt, _fname=pkt.name)
     from scapy.asn1.ber import BER_Decoding_Error
@@ -181,16 +152,62 @@ def sequence_decode_from(field, pkt, dec):
     dec.set_remainder(remain)
 
 
+def oer_sequence_encode_to(field, pkt, enc):
+    # type: (Any, Any, Any) -> None
+    enc.write(write_oer_presence_bits(sequence_presence_bits(field, pkt)))
+    _sequence_encode_children(
+        field, pkt,
+        lambda obj: obj.encode_to(pkt, enc),
+    )
+
+
+def oer_sequence_decode_from(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
+    s = dec.remaining()
+    s = field._apply_tagging_dec(s, pkt, _fname=pkt.name)
+    presence, s = read_oer_presence_bits(s, field)
+    child_dec = OER_Decoder(s)
+    _sequence_decode_children(
+        field, pkt, presence,
+        lambda obj: obj.decode_from(pkt, child_dec),
+    )
+    dec.set_remainder(child_dec.remaining())
+
+
+def uper_sequence_encode_to(field, pkt, enc):
+    # type: (Any, Any, Any) -> None
+    bit_enc = per_bit_encoder(enc)
+    write_uper_presence_bits(bit_enc, field, pkt)
+    _sequence_encode_children(
+        field, pkt,
+        lambda obj: obj.encode_to(pkt, enc),
+    )
+
+
+def uper_sequence_decode_from(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
+    bit_dec = per_bit_decoder(dec)
+    presence = read_uper_presence_bits(bit_dec, field)
+    _sequence_decode_children(
+        field, pkt, presence,
+        lambda obj: obj.decode_from(pkt, dec),
+    )
+
+
 # ---- SEQUENCE OF ----------------------------------------------------------
 
 def sequence_of_encode_to(field, pkt, enc):
     # type: (Any, Any, Any) -> None
-    if per_bit_encoder(enc) is not None:
-        uper_sequence_of_encode_into(field, enc, pkt)
-        return
-    if enc.codec is ASN1_Codecs.OER:
-        enc.write(oer_sequence_of_bytes(field, pkt))
-        return
+    enc.encode_sequence_of(field, pkt)
+
+
+def sequence_of_decode_from(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
+    dec.decode_sequence_of(field, pkt)
+
+
+def ber_sequence_of_encode_to(field, pkt, enc):
+    # type: (Any, Any, Any) -> None
     val = getattr(pkt, field.name)
     if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
         s = val  # type: Any
@@ -203,20 +220,8 @@ def sequence_of_encode_to(field, pkt, enc):
     enc.write(field.i2m(pkt, s))
 
 
-def sequence_of_decode_from(field, pkt, dec):
+def ber_sequence_of_decode_from(field, pkt, dec):
     # type: (Any, Any, Any) -> None
-    bit_dec = per_bit_decoder(dec)
-    if bit_dec is not None:
-        field.set_val(
-            pkt,
-            uper_sequence_of_decode_from_decoder(field, pkt, dec),
-        )
-        return
-    if dec.codec is ASN1_Codecs.OER:
-        val, remain = oer_sequence_of_decode(field, pkt, dec.remaining())
-        field.set_val(pkt, val)
-        dec.set_remainder(remain)
-        return
     from scapy.asn1.ber import BER_Decoding_Error
     s = dec.remaining()
     s = field._apply_tagging_dec(s, pkt)
@@ -234,6 +239,31 @@ def sequence_of_decode_from(field, pkt, dec):
         )
     field.set_val(pkt, lst)
     dec.set_remainder(remain)
+
+
+def oer_sequence_of_encode_to(field, pkt, enc):
+    # type: (Any, Any, Any) -> None
+    enc.write(oer_sequence_of_bytes(field, pkt))
+
+
+def oer_sequence_of_decode_from(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
+    val, remain = oer_sequence_of_decode(field, pkt, dec.remaining())
+    field.set_val(pkt, val)
+    dec.set_remainder(remain)
+
+
+def uper_sequence_of_encode_to(field, pkt, enc):
+    # type: (Any, Any, Any) -> None
+    uper_sequence_of_encode_into(field, enc, pkt)
+
+
+def uper_sequence_of_decode_from(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
+    field.set_val(
+        pkt,
+        uper_sequence_of_decode_from_decoder(field, pkt, dec),
+    )
 
 
 def oer_sequence_of_bytes(field, pkt):
@@ -350,30 +380,50 @@ def _uper_count_enc(field, enc, count, append_items):
 
 def choice_encode_to(field, pkt, enc, value=None):
     # type: (Any, Any, Any, Any) -> None
-    if value is None:
-        value = getattr(pkt, field.name)
-    if per_bit_encoder(enc) is not None:
-        uper_choice_encode_into(field, enc, pkt, value)
-        return
-    if enc.codec is ASN1_Codecs.OER:
-        enc.write(oer_choice_bytes(field, pkt, value))
-        return
-    enc.write(ber_choice_bytes(field, pkt, value))
+    enc.encode_choice(field, pkt, value)
 
 
 def choice_decode_from(field, pkt, dec):
     # type: (Any, Any, Any) -> None
-    if per_bit_decoder(dec) is not None:
-        field.set_val(pkt, uper_choice_decode_from_decoder(field, pkt, dec))
-        return
-    if dec.codec is ASN1_Codecs.OER:
-        val, remain = oer_choice_decode(field, pkt, dec.remaining())
-        field.set_val(pkt, val)
-        dec.set_remainder(remain)
-        return
+    dec.decode_choice(field, pkt)
+
+
+def ber_choice_encode_to(field, pkt, enc, value=None):
+    # type: (Any, Any, Any, Any) -> None
+    if value is None:
+        value = getattr(pkt, field.name)
+    enc.write(ber_choice_bytes(field, pkt, value))
+
+
+def ber_choice_decode_from(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
     val, remain = ber_choice_decode(field, pkt, dec.remaining())
     field.set_val(pkt, val)
     dec.set_remainder(remain)
+
+
+def oer_choice_encode_to(field, pkt, enc, value=None):
+    # type: (Any, Any, Any, Any) -> None
+    if value is None:
+        value = getattr(pkt, field.name)
+    enc.write(oer_choice_bytes(field, pkt, value))
+
+
+def oer_choice_decode_from(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
+    val, remain = oer_choice_decode(field, pkt, dec.remaining())
+    field.set_val(pkt, val)
+    dec.set_remainder(remain)
+
+
+def uper_choice_encode_to(field, pkt, enc, value=None):
+    # type: (Any, Any, Any, Any) -> None
+    uper_choice_encode_into(field, enc, pkt, value)
+
+
+def uper_choice_decode_from(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
+    field.set_val(pkt, uper_choice_decode_from_decoder(field, pkt, dec))
 
 
 def ber_choice_decode(field, pkt, s):
@@ -544,22 +594,46 @@ def uper_choice_decode_from_decoder(field, pkt, dec):
 
 def packet_encode_to(field, pkt, enc, value=None):
     # type: (Any, Any, Any, Any) -> None
-    if value is None:
-        value = getattr(pkt, field.name)
-    if per_bit_encoder(enc) is not None:
-        uper_packet_encode_into(field, enc, pkt, value)
-        return
-    enc.write(ber_oer_packet_bytes(field, pkt, value))
+    enc.encode_packet(field, pkt, value)
 
 
 def packet_decode_from(field, pkt, dec):
     # type: (Any, Any, Any) -> None
-    if per_bit_decoder(dec) is not None:
-        field.set_val(pkt, uper_packet_decode_from_decoder(field, pkt, dec))
-        return
+    dec.decode_packet(field, pkt)
+
+
+def ber_packet_encode_to(field, pkt, enc, value=None):
+    # type: (Any, Any, Any, Any) -> None
+    if value is None:
+        value = getattr(pkt, field.name)
+    enc.write(ber_oer_packet_bytes(field, pkt, value))
+
+
+def ber_packet_decode_from(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
     val, remain = ber_oer_packet_decode(field, pkt, dec.remaining())
     field.set_val(pkt, val)
     dec.set_remainder(remain)
+
+
+def oer_packet_encode_to(field, pkt, enc, value=None):
+    # type: (Any, Any, Any, Any) -> None
+    ber_packet_encode_to(field, pkt, enc, value)
+
+
+def oer_packet_decode_from(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
+    ber_packet_decode_from(field, pkt, dec)
+
+
+def uper_packet_encode_to(field, pkt, enc, value=None):
+    # type: (Any, Any, Any, Any) -> None
+    uper_packet_encode_into(field, enc, pkt, value)
+
+
+def uper_packet_decode_from(field, pkt, dec):
+    # type: (Any, Any, Any) -> None
+    field.set_val(pkt, uper_packet_decode_from_decoder(field, pkt, dec))
 
 
 def ber_oer_packet_decode(field, pkt, s):
