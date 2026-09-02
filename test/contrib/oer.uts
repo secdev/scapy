@@ -1367,6 +1367,7 @@ assert _value(decoded.inner.x) == 7
 assert _value(decoded.inner.flag) == 1
 assert _value(decoded.tail) == 9
 assert decoded.inner.parent is decoded
+assert decoded.inner.underlayer is decoded
 True
 
 = OER ASN1F_PACKET next_cls_cb selects child class during decode
