@@ -165,14 +165,11 @@ class UPER_Encoder(object):
 
     def append_unconstrained_whole_number(self, value):
         # type: (int) -> None
-        # X.691 11.4: the shortest two's complement encoding. A negative value
-        # needs one bit less than its magnitude suggests, as -2**(8n-1) still
-        # fits in n octets, hence the increment before measuring.
-        magnitude = value + 1 if value < 0 else value
-        number_of_bytes = (magnitude.bit_length() + 8) // 8
+        from scapy.asn1.intutil import twos_complement_octets
+        number_of_bytes, masked = twos_complement_octets(value)
         self.append_length_determinant(number_of_bytes)
         self.append_non_negative_binary_integer(
-            value & ((1 << (8 * number_of_bytes)) - 1), 8 * number_of_bytes
+            masked, 8 * number_of_bytes
         )
 
     def as_bytes(self):
@@ -319,16 +316,14 @@ class UPER_Decoder(object):
 
     def read_unconstrained_whole_number(self):
         # type: () -> int
+        from scapy.asn1.intutil import from_twos_complement
         number_of_bytes = self.read_length_determinant()
         if number_of_bytes == 0:
             raise UPER_Decoding_Error(
                 "UPER_Decoder: integer with an empty length determinant"
             )
         enc = self.read_non_negative_binary_integer(8 * number_of_bytes)
-        sign_bit = 1 << (8 * number_of_bytes - 1)
-        if enc & sign_bit:
-            return enc - (1 << (8 * number_of_bytes))
-        return enc
+        return from_twos_complement(enc, number_of_bytes)
 
 
 def UPER_constrained_int_enc(enc, value, minimum, maximum):
@@ -512,15 +507,6 @@ ASN1_Codecs.PER.register_tagging(_uper_tagging_enc, _uper_tagging_dec)
 #########################
 
 
-def _uper_int_range(size_len, uper_min, uper_max, oer_unsigned=False):
-    # type: (Optional[int], Optional[int], Optional[int], bool) -> Tuple[Optional[int], Optional[int]]  # noqa: E501
-    if uper_min is not None or uper_max is not None:
-        return uper_min, uper_max
-    if size_len in (1, 2, 4, 8) and oer_unsigned:
-        return 0, (256 ** size_len) - 1
-    return None, None
-
-
 class UPERcodec_INTEGER(UPERcodec_Object[int]):
     tag = ASN1_Class_UNIVERSAL.INTEGER
 
@@ -537,18 +523,9 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        from scapy.asn1.constraints import (
-            field_size_len,
-            oer_unsigned as _oer_unsigned,
-            uper_extensible as _uper_extensible,
-            uper_int_range,
-        )
-        size_len = field_size_len(field, size_len)
-        uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
-        oer_unsigned = _oer_unsigned(field, oer_unsigned)
-        extensible = _uper_extensible(field, uper_extensible)
-        minimum, maximum = _uper_int_range(
-            size_len, uper_min, uper_max, oer_unsigned,
+        from scapy.asn1.constraints import resolve_uper_int_bounds
+        minimum, maximum, extensible = resolve_uper_int_bounds(
+            field, size_len, uper_min, uper_max, oer_unsigned, uper_extensible,
         )
         if extensible and minimum is not None and maximum is not None:
             if minimum <= i <= maximum:
@@ -575,18 +552,9 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
-        from scapy.asn1.constraints import (
-            field_size_len,
-            oer_unsigned as _oer_unsigned,
-            uper_extensible as _uper_extensible,
-            uper_int_range,
-        )
-        size_len = field_size_len(field, size_len)
-        uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
-        oer_unsigned = _oer_unsigned(field, oer_unsigned)
-        extensible = _uper_extensible(field, uper_extensible)
-        minimum, maximum = _uper_int_range(
-            size_len, uper_min, uper_max, oer_unsigned,
+        from scapy.asn1.constraints import resolve_uper_int_bounds
+        minimum, maximum, extensible = resolve_uper_int_bounds(
+            field, size_len, uper_min, uper_max, oer_unsigned, uper_extensible,
         )
         if extensible and minimum is not None and maximum is not None:
             if dec.read_bit():
@@ -619,15 +587,6 @@ def _uper_bytes_to_bitstr(data, nbits):
     return bitstr[:nbits]
 
 
-def _uper_size_bounds(size_len, uper_min, uper_max):
-    # type: (Optional[int], Optional[int], Optional[int]) -> Tuple[Optional[int], Optional[int]]  # noqa: E501
-    # A SIZE constraint given as size_len is a fixed size, i.e. a range whose
-    # bounds coincide.
-    if size_len:
-        return size_len, size_len
-    return uper_min, uper_max
-
-
 class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
     tag = ASN1_Class_UNIVERSAL.BIT_STRING
 
@@ -642,9 +601,7 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        from scapy.asn1.constraints import field_size_len, uper_int_range
-        size_len = field_size_len(field, size_len)
-        uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
+        from scapy.asn1.constraints import resolve_uper_size_bounds
         if isinstance(_s, tuple) and len(_s) == 2:
             data, nbits = _s
             s = bytes_encode(data)
@@ -657,7 +614,9 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
         else:
             s = bytes_encode(_s)
             nbits = 8 * len(s)
-        minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
+        minimum, maximum = resolve_uper_size_bounds(
+            field, size_len, uper_min, uper_max,
+        )
         if minimum is not None and maximum is not None:
             _uper_check_size(cls.__name__, "bits", nbits, minimum, maximum)
             if minimum != maximum:
@@ -687,10 +646,10 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[str]
-        from scapy.asn1.constraints import field_size_len, uper_int_range
-        size_len = field_size_len(field, size_len)
-        uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
-        minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
+        from scapy.asn1.constraints import resolve_uper_size_bounds
+        minimum, maximum = resolve_uper_size_bounds(
+            field, size_len, uper_min, uper_max,
+        )
         if minimum is not None and maximum is not None:
             nbits = minimum
             if minimum != maximum:
@@ -728,11 +687,11 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        from scapy.asn1.constraints import field_size_len, uper_int_range
-        size_len = field_size_len(field, size_len)
-        uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
+        from scapy.asn1.constraints import resolve_uper_size_bounds
         s = bytes_encode(_s)
-        minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
+        minimum, maximum = resolve_uper_size_bounds(
+            field, size_len, uper_min, uper_max,
+        )
         UPER_octet_string_enc(enc, s, minimum, maximum)
 
     @classmethod
@@ -745,10 +704,10 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[Any]
-        from scapy.asn1.constraints import field_size_len, uper_int_range
-        size_len = field_size_len(field, size_len)
-        uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
-        minimum, maximum = _uper_size_bounds(size_len, uper_min, uper_max)
+        from scapy.asn1.constraints import resolve_uper_size_bounds
+        minimum, maximum = resolve_uper_size_bounds(
+            field, size_len, uper_min, uper_max,
+        )
         raw = UPER_octet_string_dec(dec, minimum, maximum)
         return cls.asn1_object(raw)
 

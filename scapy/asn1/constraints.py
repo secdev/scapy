@@ -88,6 +88,43 @@ def uper_int_range(field=None, uper_min=None, uper_max=None):
     return None, None
 
 
+def resolve_uper_int_bounds(field=None,  # type: Any
+                            size_len=None,  # type: Optional[int]
+                            uper_min=None,  # type: Optional[int]
+                            uper_max=None,  # type: Optional[int]
+                            unsigned=None,  # type: Optional[bool]
+                            extensible=None  # type: Optional[bool]
+                            ):
+    # type: (...) -> Tuple[Optional[int], Optional[int], bool]
+    """Resolve UPER INTEGER root range and extensibility from field/kwargs.
+
+    When no explicit ``minimum``/``maximum`` is set, a fixed ``size_len`` of
+    1, 2, 4, or 8 with ``unsigned=True`` implies ``0 .. 256**n - 1``.
+    """
+    size_len = field_size_len(field, size_len)
+    minimum, maximum = uper_int_range(field, uper_min, uper_max)
+    is_unsigned = oer_unsigned(field, unsigned)
+    is_extensible = uper_extensible(field, extensible)
+    if minimum is None and maximum is None:
+        if size_len in (1, 2, 4, 8) and is_unsigned:
+            minimum, maximum = 0, (256 ** size_len) - 1
+    return minimum, maximum, is_extensible
+
+
+def resolve_uper_size_bounds(field=None,  # type: Any
+                             size_len=None,  # type: Optional[int]
+                             uper_min=None,  # type: Optional[int]
+                             uper_max=None  # type: Optional[int]
+                             ):
+    # type: (...) -> Tuple[Optional[int], Optional[int]]
+    """Resolve UPER SIZE bounds; ``size_len`` is a fixed SIZE."""
+    size_len = field_size_len(field, size_len)
+    uper_min, uper_max = uper_int_range(field, uper_min, uper_max)
+    if size_len:
+        return size_len, size_len
+    return uper_min, uper_max
+
+
 def uper_enum_values(field=None, pkt=None, uper_enum_values=None):
     # type: (Any, Any, Optional[List[int]]) -> Optional[List[int]]
     if uper_enum_values is not None:
