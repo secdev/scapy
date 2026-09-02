@@ -9,45 +9,40 @@ Context-first signatures so these functions can be bound on
 ``scapy.asn1.uper`` stay lazy so BER/OER paths do not pull UPER in.
 """
 
-from typing import Any, List
+from typing import Any
 
 from scapy.asn1.asn1 import ASN1_Error, ASN1_Object
-from scapy.asn1.compound import (
-    sequence_decode_children,
-    sequence_encode_children,
-)
-
-
-def read_uper_presence_bits(dec, field):
-    # type: (Any, Any) -> List[bool]
-    from scapy.asn1.uper import UPER_Decoding_Error
-
-    if field.constraints.extensible:
-        if dec.read_bit():
-            raise UPER_Decoding_Error(
-                "ASN1F_SEQUENCE: extension additions are not supported"
-            )
-    return [dec.read_bit() for _ in field.optionals]
+from scapy.asn1.compound import sequence_decode_children
 
 
 # ---- SEQUENCE -------------------------------------------------------------
 
 def uper_sequence_encode_to(enc, field, pkt):
     # type: (Any, Any, Any) -> None
+    from scapy.asn1fields import ASN1F_optional
+
     bit_enc = enc.bit_encoder
     if field.constraints.extensible:
         bit_enc.append_bit(0)
     for opt in field.optionals:
         bit_enc.append_bit(1 if opt.is_present(pkt) else 0)
-    sequence_encode_children(
-        field, pkt,
-        lambda obj: obj.encode_to(pkt, enc),
-    )
+    for obj in field.seq:
+        if isinstance(obj, ASN1F_optional) and not obj.is_present(pkt):
+            continue
+        obj.encode_to(pkt, enc)
 
 
 def uper_sequence_decode_from(dec, field, pkt):
     # type: (Any, Any, Any) -> None
-    presence = read_uper_presence_bits(dec.bit_decoder, field)
+    from scapy.asn1.uper import UPER_Decoding_Error
+
+    bit_dec = dec.bit_decoder
+    if field.constraints.extensible:
+        if bit_dec.read_bit():
+            raise UPER_Decoding_Error(
+                "ASN1F_SEQUENCE: extension additions are not supported"
+            )
+    presence = [bit_dec.read_bit() for _ in field.optionals]
     sequence_decode_children(
         field, pkt, presence,
         lambda obj: obj.decode_from(pkt, dec),
