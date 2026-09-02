@@ -130,8 +130,8 @@ def uper_choice_encode_to(enc, field, pkt, value=None):
         value = getattr(pkt, field.name)
     if value is None:
         return
-    index = field.alternative_index(value)
-    if index is None:
+    tag = field.alternative_tag(value)
+    if tag is None:
         raise ASN1_Error(
             "ASN1F_CHOICE: cannot encode unknown alternative in '%s'" %
             field.name
@@ -139,7 +139,6 @@ def uper_choice_encode_to(enc, field, pkt, value=None):
     if field.constraints.extensible:
         bit_enc.append_bit(0)
     order = field.canonical_order
-    tag = field.choice_order[index]
     canon_idx = field.canonical_index[tag]
     if len(order) > 1:
         UPER_choice_index_enc(bit_enc, canon_idx, len(order))
