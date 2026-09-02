@@ -2169,3 +2169,9 @@ with KrbRandomPatcher():
     )
 
 assert negState == 0
+= KRB_InnerToken with an unknown TOK_ID does not crash
+
+p = KRB_InnerToken(hex_bytes("ead5") + b"\x00" * 30)
+assert p.TOK_ID == b"\xea\xd5"
+assert isinstance(p.root, conf.raw_layer)
+assert p.root.load == b"\x00" * 30

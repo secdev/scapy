@@ -2520,7 +2520,9 @@ class KRB_InnerToken(Packet):
         PacketField(
             "root",
             KRB_AP_REQ(),
-            lambda x, _parent: _InitialContextTokens[_parent.TOK_ID](x),
+            lambda x, _parent: _InitialContextTokens.get(
+                _parent.TOK_ID, conf.raw_layer
+            )(x),
         ),
     ]
 
