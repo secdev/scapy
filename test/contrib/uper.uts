@@ -3269,6 +3269,7 @@ assert _value(decoded.inner.b) == 5
 assert _value(decoded.inner.c) == 0
 assert _value(decoded.d) == 3
 assert decoded.inner.parent is decoded
+assert decoded.inner.underlayer is decoded
 True
 
 = repeated nested packet build is deterministic

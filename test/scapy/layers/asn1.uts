@@ -759,5 +759,13 @@ wire = bytes.fromhex("300f06092a864886f70d01090e31023000")
 attr = X509_Attribute(wire)
 assert attr.values[0].underlayer is attr
 assert isinstance(attr.values[0].value, X509_Extensions)
+
+= ASN1F_PACKET any2i sets underlayer for Kerberos EncryptedData.get_usage
+from scapy.layers.kerberos import KRB_AP_REP, EncryptedData, EncAPRepPart
+
+ap_rep = KRB_AP_REP(encPart=EncryptedData())
+assert ap_rep.encPart.underlayer is ap_rep
+assert ap_rep.encPart.parent is ap_rep
+assert ap_rep.encPart.get_usage() == (12, EncAPRepPart)
 True
 
