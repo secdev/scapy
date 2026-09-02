@@ -1395,16 +1395,6 @@ for _typename, _value, codec, kwargs, expected, encoded in DECODE_VECTORS:
 
 True
 
-= uper codec encode reference
-for typename, value, encoder, expected in PRIMITIVE_VECTORS:
-    encoded = encoder(value)
-    assert encoded == expected, (
-        "%s %r: expected %s, got %s" %
-        (typename, value, expected.hex(), encoded.hex())
-    )
-
-True
-
 = primitive interop
 for typename, value, encoder, expected in PRIMITIVE_VECTORS:
     got = encoder(value)
@@ -2456,7 +2446,8 @@ class _DynamicPacket(ASN1_Packet):
 
 dyn = _DynamicPacket(inner=_PerInner(mode=0))
 
-assert _DynamicPacket.ASN1_root._resolve_cls(dyn) is _PerInner
+root = _DynamicPacket.ASN1_root
+assert (root.next_cls_cb(dyn) or root.cls) is _PerInner
 
 empty_packet = _PacketWrap(inner=None)
 

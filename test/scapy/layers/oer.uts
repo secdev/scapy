@@ -284,8 +284,6 @@ def _raises(exc, func):
         return
     raise AssertionError("Expected %s" % exc.__name__)
 
-import scapy.asn1.uper
-
 class OEREmptySequenceOf(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
@@ -663,6 +661,29 @@ for type_name, value, enc, expected in INTEGER_VECTORS:
     if type_name == "A":
         dec, remain = OERcodec_INTEGER.do_dec(got)
         assert remain == b"" and dec.val == value
+    elif type_name == "F":
+        dec, remain = OERcodec_INTEGER.do_dec(
+            got, size_len=1, oer_unsigned=True,
+        )
+        assert remain == b"" and dec.val == value
+    elif type_name in ("G", "H", "I"):
+        size = {"G": 2, "H": 4, "I": 8}[type_name]
+        dec, remain = OERcodec_INTEGER.do_dec(
+            got, size_len=size, oer_unsigned=True,
+        )
+        assert remain == b"" and dec.val == value
+    elif type_name in ("B", "C", "D", "E"):
+        size = {"B": 1, "C": 2, "D": 4, "E": 8}[type_name]
+        dec, remain = OERcodec_INTEGER.do_dec(got, size_len=size)
+        assert remain == b"" and dec.val == value
+    elif type_name == "K":
+        dec_val, remain = OER_unsigned_integer_dec(got)
+        assert remain == b"" and dec_val == value
+    elif type_name == "L":
+        dec_val, remain = OER_signed_integer_dec(got)
+        assert remain == b"" and dec_val == value
+    else:
+        raise AssertionError("unknown integer vector type %r" % type_name)
 
 for value, enc, expected in BOOLEAN_VECTORS:
     got = enc(value)
@@ -698,9 +719,7 @@ for bitstr, expected in BIT_STRING_VECTORS:
     dec, remain = OERcodec_BIT_STRING.do_dec(got)
     assert remain == b"" and dec.val == bitstr
 
-True
-
-= scapy encode reference decode
+# Extra decode-only vectors (unsigned/fixed) not covered above by value.
 for type_name, value, encoded in SCAPY_DECODE_VECTORS:
     if type_name == "A":
         dec, remain = OERcodec_INTEGER.do_dec(encoded)
@@ -711,11 +730,6 @@ for type_name, value, encoded in SCAPY_DECODE_VECTORS:
     else:
         dec, remain = OERcodec_INTEGER.do_dec(encoded, size_len=1)
     assert remain == b"" and dec.val == value
-
-for val in [0, 1]:
-    encoded = OERcodec_BOOLEAN.enc(val)
-    dec, remain = OERcodec_BOOLEAN.do_dec(encoded)
-    assert remain == b"" and dec.val == val
 
 True
 
