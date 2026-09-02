@@ -92,16 +92,13 @@ def OER_len_enc(ll):
     # type: (int) -> bytes
     if ll < 128:
         return chb(ll)
-    encoded = []
-    value = ll
-    while value > 0:
-        encoded.insert(0, value & 0xff)
-        value >>= 8
-    if len(encoded) > 127:
+    number_of_bytes = (ll.bit_length() + 7) // 8
+    if number_of_bytes > 127:
         raise OER_Exception(
-            "OER_len_enc: Length too long (%i) to be encoded" % len(encoded)
+            "OER_len_enc: Length too long (%i) to be encoded" %
+            number_of_bytes
         )
-    return chb(0x80 | len(encoded)) + bytes(encoded)
+    return chb(0x80 | number_of_bytes) + ll.to_bytes(number_of_bytes, "big")
 
 
 def OER_len_dec(s):
@@ -113,10 +110,7 @@ def OER_len_dec(s):
         return tmp_len, s[1:]
     tmp_len &= 0x7f
     _OER_check_len("OER_len_dec", s, tmp_len, offset=1)
-    ll = 0
-    for c in s[1:tmp_len + 1]:
-        ll <<= 8
-        ll |= c
+    ll = int.from_bytes(s[1:tmp_len + 1], "big")
     return ll, s[tmp_len + 1:]
 
 

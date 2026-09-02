@@ -78,16 +78,14 @@ class BER_Decoder(ASN1Decoder):
         # type: (bytes, Any) -> None
         self.codec = codec or self.codec
         self._data = data
-        self._offset = 0
 
     def remaining(self):
         # type: () -> bytes
-        return self._data[self._offset:]
+        return self._data
 
     def set_remainder(self, remainder):
         # type: (bytes) -> None
         self._data = remainder
-        self._offset = 0
 
 
 class OER_Encoder(BER_Encoder):
