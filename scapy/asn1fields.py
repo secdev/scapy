@@ -625,8 +625,6 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def _dissect_sequence_children(self, pkt, s):
         # type: (Any, bytes) -> bytes
-        from scapy.asn1fields import ASN1F_badsequence, ASN1F_optional, ASN1F_DEFAULT
-
         def set_absent(obj):
             # type: (Any) -> None
             if isinstance(obj, (ASN1F_optional, ASN1F_DEFAULT)):

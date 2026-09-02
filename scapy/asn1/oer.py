@@ -479,8 +479,8 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[str], bytes]
-        from scapy.asn1.constraints import oer_size_len
-        size_len = oer_size_len(field, size_len)
+        from scapy.asn1.constraints import field_size_len
+        size_len = field_size_len(field, size_len)
         if size_len:
             number_of_bytes = (size_len + 7) // 8
             _OER_check_len(cls.__name__, s, number_of_bytes)
@@ -508,8 +508,8 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, field=None, size_len=None, **_kwargs):
         # type: (AnyStr, Any, Optional[int], **Any) -> bytes
-        from scapy.asn1.constraints import oer_size_len
-        size_len = oer_size_len(field, size_len)
+        from scapy.asn1.constraints import field_size_len
+        size_len = field_size_len(field, size_len)
         s = bytes_encode(_s)
         if size_len:
             # X.696 13.3: a fixed size means the bits are written padded to a
@@ -531,8 +531,8 @@ class OERcodec_STRING(OERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, field=None, size_len=None, **_kwargs):
         # type: (Union[str, bytes], Any, Optional[int], **Any) -> bytes
-        from scapy.asn1.constraints import oer_size_len
-        size_len = oer_size_len(field, size_len)
+        from scapy.asn1.constraints import field_size_len
+        size_len = field_size_len(field, size_len)
         s = bytes_encode(_s)
         if size_len:
             # X.696 16.1: a fixed size means no length determinant.
@@ -556,8 +556,8 @@ class OERcodec_STRING(OERcodec_Object[str]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[Any], bytes]
-        from scapy.asn1.constraints import oer_size_len
-        size_len = oer_size_len(field, size_len)
+        from scapy.asn1.constraints import field_size_len
+        size_len = field_size_len(field, size_len)
         if size_len:
             _OER_check_len(cls.__name__, s, size_len)
             return cls.tag.asn1_object(s[:size_len]), s[size_len:]
@@ -741,8 +741,8 @@ class OERcodec_IPADDRESS(OERcodec_STRING):
     @classmethod
     def enc(cls, ipaddr_ascii, field=None, size_len=None, **_kwargs):  # type: ignore
         # type: (str, Any, Optional[int], **Any) -> bytes
-        from scapy.asn1.constraints import oer_size_len
-        size_len = oer_size_len(field, size_len)
+        from scapy.asn1.constraints import field_size_len
+        size_len = field_size_len(field, size_len)
         try:
             s = inet_aton(ipaddr_ascii)
         except Exception:
@@ -755,8 +755,8 @@ class OERcodec_IPADDRESS(OERcodec_STRING):
     def do_dec(cls, s, context=None, safe=False,
                field=None, size_len=None, oer_unsigned=False, **_kwargs):
         # type: (bytes, Optional[Any], bool, Any, Optional[int], bool, **Any) -> Tuple[ASN1_Object[str], bytes]  # noqa: E501
-        from scapy.asn1.constraints import oer_size_len
-        size_len = oer_size_len(field, size_len)
+        from scapy.asn1.constraints import field_size_len
+        size_len = field_size_len(field, size_len)
         if size_len == 4:
             raw, remain = s[:4], s[4:]
         else:
@@ -787,36 +787,3 @@ class OERcodec_GAUGE32(OERcodec_INTEGER):
 
 class OERcodec_TIME_TICKS(OERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS
-
-
-# Re-export compound helpers for backward compatibility.
-from scapy.asn1.compound import (  # noqa: E402
-    oer_choice_bytes,
-    oer_choice_decode,
-    oer_sequence_of_bytes,
-    oer_sequence_of_decode,
-    sequence_encode_to,
-    sequence_decode_from as _oer_sequence_decode_from,
-)
-
-oer_choice_i2m = oer_choice_bytes
-oer_choice_m2i = oer_choice_decode
-oer_sequence_of_build = oer_sequence_of_bytes
-oer_sequence_of_m2i = oer_sequence_of_decode
-
-
-def oer_sequence_build(field, pkt):
-    # type: (Any, Any) -> bytes
-    from scapy.asn1fields import ASN1F_field
-    from scapy.asn1.context import OER_Encoder
-    enc = OER_Encoder()
-    sequence_encode_to(field, pkt, enc)
-    return ASN1F_field.i2m(field, pkt, enc.finish())
-
-
-def oer_sequence_m2i(field, pkt, s):
-    # type: (Any, Any, bytes) -> Tuple[Any, bytes]
-    from scapy.asn1.context import OER_Decoder
-    dec = OER_Decoder(s)
-    _oer_sequence_decode_from(field, pkt, dec)
-    return [], dec.remaining()
