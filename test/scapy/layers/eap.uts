@@ -485,3 +485,31 @@ p = IP()/UDP()/EAP()
 l = PacketList(p)
 s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
 assert len(s) == 1
+
+= KrackAP ignores handshake message 2 from another station
+
+from scapy.automaton import ATMT
+from scapy.modules.krack.automaton import KrackAP
+
+def krack_message_2_transitions(source):
+    body = bytearray(b"\x00" * 100)
+    body[-4] = 1
+    packet = RadioTap() / Dot11(
+        type=2,
+        FCfield="to_DS",
+        addr1="11:22:33:44:55:66",
+        addr2=source,
+        addr3="11:22:33:44:55:66",
+    ) / LLC() / SNAP(code=0x888e) / EAPOL(type="EAPOL-Key") / Raw(body)
+    packet = RadioTap(raw(packet))
+    ap = object.__new__(KrackAP)
+    ap.mac = "11:22:33:44:55:66"
+    ap.client = "02:00:00:00:00:01"
+    try:
+        KrackAP.wpa_handshake_1_sent(ap, packet)
+    except ATMT.NewStateRequested:
+        return True
+    return False
+
+assert not krack_message_2_transitions("02:00:00:00:00:02")
+assert krack_message_2_transitions("02:00:00:00:00:01")

@@ -570,6 +570,7 @@ class KrackAP(Automaton):
         if RadioTap not in pkt:
             return
         if EAPOL in pkt and pkt.addr1 == pkt.addr3 == self.mac and \
+           pkt.addr2 == self.client and \
            pkt[EAPOL].load[1:2] == b"\x01":
             # Key MIC: set, Secure / Error / Request / Encrypted / SMK
             # message: not set
