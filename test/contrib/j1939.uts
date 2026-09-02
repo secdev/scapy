@@ -3215,15 +3215,23 @@ assert len(_pf_cts2_pkt) == 0, \
 assert len(_pf_rts2_pkts) == 0, \
     "pgn filter: RTS/CTS with non-matching PGN must not be delivered"
 
-= J1939SoftSocket – send() on closed socket returns 0 without raising
-# After close(), send() must return 0 immediately and not raise.
+= J1939SoftSocket – send() on closed socket raises
+# After close(), send() must refuse new work rather than queue it.
+
+from scapy.error import Scapy_Exception as _sc_exc
+
+def _sc_send_raises(sock, pkt):
+    try:
+        sock.send(pkt)
+        return False
+    except _sc_exc:
+        return True
 
 with TestSocket(CAN) as cans:
     _sc_sock = J1939SoftSocket(cans, src_addr=0x10)
     _sc_sock.close()
-
-_sc_ret = _sc_sock.send(J1939(b'\x01\x02\x03', pgn=0xFECA))
-assert _sc_ret == 0, "send() on closed socket should return 0, got %d" % _sc_ret
+    assert _sc_send_raises(_sc_sock, J1939(b'\x01\x02\x03', pgn=0xFECA)), \
+        "send() on closed socket must raise Scapy_Exception"
 
 = J1939SoftSocket – ABORT from sender resets RTS/CTS RX session
 # If the sender issues an ABORT while we are waiting for TP.DT frames,
@@ -4667,6 +4675,159 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
         _rb_time.sleep(0.15)
         assert len(sock.impl.rx_sessions) == 1, \
             "broadcast ABORT must not drop a directed RX session"
+
+= Segmented BAM RX preserves announcement priority
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        _rb_pri = 3
+        _rb_payload = b'P' * 14
+        peer.send(J1939_CAN(priority=_rb_pri, data_page=0,
+                            pdu_format=J1939_PGN_TP_CM >> 8,
+                            pdu_specific=0xFF, src=0x20,
+                            data=bytes(J1939_TP_CM_BAM(
+                                total_size=14, num_packets=2, pgn=0xFECA))))
+        for _rb_i in range(2):
+            _rb_chunk = _rb_payload[_rb_i * 7:(_rb_i + 1) * 7]
+            peer.send(J1939_CAN(priority=_rb_pri, data_page=0,
+                                pdu_format=J1939_PGN_TP_DT >> 8,
+                                pdu_specific=0xFF, src=0x20,
+                                data=bytes(J1939_TP_DT(
+                                    seq_num=_rb_i + 1, data=_rb_chunk))))
+        _rb_msg = sock.sniff(count=1, timeout=2)
+        assert len(_rb_msg) == 1
+        assert _rb_msg[0].priority == _rb_pri, \
+            "reassembled priority %d != %d" % (_rb_msg[0].priority, _rb_pri)
+        assert _rb_msg[0].data == _rb_payload
+
+= Segmented RTS/CTS RX preserves announcement priority
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        _rb_pri = 2
+        _rb_payload = b'Q' * 14
+        peer.send(J1939_CAN(priority=_rb_pri, data_page=0,
+                            pdu_format=J1939_PGN_TP_CM >> 8,
+                            pdu_specific=0x10, src=0x20,
+                            data=bytes(J1939_TP_CM_RTS(
+                                total_size=14, num_packets=2,
+                                max_packets=0xFF, pgn=0xFECA))))
+        _rb_drain(peer, 0.3)
+        for _rb_i in range(2):
+            _rb_chunk = _rb_payload[_rb_i * 7:(_rb_i + 1) * 7]
+            peer.send(J1939_CAN(priority=_rb_pri, data_page=0,
+                                pdu_format=J1939_PGN_TP_DT >> 8,
+                                pdu_specific=0x10, src=0x20,
+                                data=bytes(J1939_TP_DT(
+                                    seq_num=_rb_i + 1, data=_rb_chunk))))
+        _rb_msg = sock.sniff(count=1, timeout=2)
+        assert len(_rb_msg) == 1
+        assert _rb_msg[0].priority == _rb_pri, \
+            "reassembled priority %d != %d" % (_rb_msg[0].priority, _rb_pri)
+        assert _rb_msg[0].data == _rb_payload
+
+= send() is rejected once close() begins draining
+# closing rejects new work while an already-accepted BAM may still finish.
+
+import threading as _rb_thr
+
+def _rb_send_raises(sock, pkt):
+    try:
+        sock.send(pkt)
+        return False
+    except Scapy_Exception:
+        return True
+
+_rb_cans4 = TestSocket(CAN)
+_rb_peer4 = TestSocket(CAN)
+_rb_cans4.pair(_rb_peer4)
+_rb_sock4 = J1939SoftSocket(_rb_cans4, src_addr=0x10)
+_rb_sock4.send(J1939(b'R' * 70, pgn=0xFECA, dst=0xFF))
+
+def _rb_close_drain():
+    _rb_sock4.close()
+
+_rb_t = _rb_thr.Thread(target=_rb_close_drain)
+_rb_t.start()
+_rb_time.sleep(0.05)
+_rb_send_raised = _rb_send_raises(_rb_sock4, J1939(b'X', pgn=0xFECA, dst=0xFF))
+_rb_t.join(timeout=5)
+_rb_cans4.close()
+_rb_peer4.close()
+cleanup_testsockets()
+assert _rb_send_raised, "send during close must raise Scapy_Exception"
+assert _rb_sock4.closed
+
+= 1785-byte BAM RX reassembles via bytearray
+
+with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+    cans.pair(peer)
+    with J1939SoftSocket(cans, src_addr=0x10) as sock:
+        _rb_payload = bytes((i * 7) & 0xFF for i in range(1785))
+        peer.send(_rb_cm(0xFF, 0x20, J1939_TP_CM_BAM(
+            total_size=1785, num_packets=255, pgn=0xFECA)))
+        for _rb_i in range(255):
+            _rb_chunk = _rb_payload[_rb_i * 7:(_rb_i + 1) * 7]
+            _rb_chunk += b'\xff' * (7 - len(_rb_chunk))
+            peer.send(_rb_dt(0xFF, 0x20, _rb_i + 1, _rb_chunk))
+        _rb_msg = sock.sniff(count=1, timeout=5)
+        assert len(_rb_msg) == 1
+        assert _rb_msg[0].data == _rb_payload
+
+= USBTestSocket: startup drain preserves frames queued before construction
+# Background traffic fills the hardware FIFO before the soft socket exists;
+# the initial select(..., 0) must move those frames into the software queue
+# so the subsequent BAM is not dropped by a saturated adapter FIFO.
+
+from test.testsocket import USBTestSocket
+
+_usb_sd_payload = b'\xCD' * 14
+with USBTestSocket(CAN, hw_fifo_size=16) as usb_cans, TestSocket(CAN) as stim:
+    usb_cans.pair(stim)
+    for _j in range(12):
+        stim.send(J1939_CAN(priority=6, pdu_format=0x01, pdu_specific=0x99,
+                             src=0x50, data=bytes(8)))
+    with J1939SoftSocket(usb_cans, src_addr=0x00) as sock:
+        stim.send(J1939_CAN(priority=6, pdu_format=0xEC, pdu_specific=0xFF,
+                             src=0x2E, data=bytes(J1939_TP_CM_BAM(
+                                 total_size=14, num_packets=2, pgn=0xFECA))))
+        for _usbi in range(2):
+            _usb_chunk = _usb_sd_payload[_usbi * 7:(_usbi + 1) * 7]
+            stim.send(J1939_CAN(priority=7, pdu_format=0xEB, pdu_specific=0xFF,
+                                 src=0x2E, data=bytes(J1939_TP_DT(
+                                     seq_num=_usbi + 1, data=_usb_chunk))))
+        _usb_pkts = sock.sniff(count=1, timeout=3)
+        assert len(_usb_pkts) == 1, "startup drain must leave room for the BAM"
+        assert _usb_pkts[0].data == _usb_sd_payload
+
+= USBTestSocket: final close drain leaves frames for the next soft socket
+
+_usb_cd_payload = b'\xEF' * 9
+with USBTestSocket(CAN, hw_fifo_size=16) as usb_cans, TestSocket(CAN) as stim:
+    usb_cans.pair(stim)
+    with J1939SoftSocket(usb_cans, src_addr=0x00) as sock1:
+        pass
+    for _j in range(8):
+        stim.send(J1939_CAN(priority=6, pdu_format=0x01, pdu_specific=0x99,
+                             src=0x51, data=bytes(8)))
+    # Those frames sit in the hardware FIFO until close()'s final drain
+    # (already done) or the next socket's startup drain moves them.
+    with J1939SoftSocket(usb_cans, src_addr=0x00) as sock2:
+        stim.send(J1939_CAN(priority=6, pdu_format=0xEC, pdu_specific=0xFF,
+                             src=0x2F, data=bytes(J1939_TP_CM_BAM(
+                                 total_size=9, num_packets=2, pgn=0xFECA))))
+        for _usbi in range(2):
+            _usb_chunk = _usb_cd_payload[_usbi * 7:(_usbi + 1) * 7]
+            _usb_chunk += b'\xff' * (7 - len(_usb_chunk))
+            stim.send(J1939_CAN(priority=7, pdu_format=0xEB, pdu_specific=0xFF,
+                                 src=0x2F, data=bytes(J1939_TP_DT(
+                                     seq_num=_usbi + 1, data=_usb_chunk))))
+        _usb_pkts = sock2.sniff(count=1, timeout=3)
+        assert len(_usb_pkts) == 1, \
+            "close drain must free adapter FIFO for next socket"
+        assert _usb_pkts[0].data == _usb_cd_payload
 
 = Scheduler teardown
 

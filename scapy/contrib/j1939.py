@@ -879,11 +879,11 @@ class _J1939_RXSession(object):
     """
 
     __slots__ = ['sa', 'dst', 'pgn', 'total', 'npkts', 'is_bam', 'ts',
-                 'buf', 'seq', 'block_end', 'block_size', 'start_time',
-                 'timeout_handle']
+                 'priority', 'buf', 'seq', 'block_end', 'block_size',
+                 'start_time', 'timeout_handle']
 
-    def __init__(self, sa, dst, pgn, total, npkts, is_bam, ts):
-        # type: (int, int, int, int, int, bool, Union[float, EDecimal]) -> None
+    def __init__(self, sa, dst, pgn, total, npkts, is_bam, ts, priority=6):
+        # type: (int, int, int, int, int, bool, Union[float, EDecimal], int) -> None  # noqa: E501
         self.sa = sa
         self.dst = dst
         self.pgn = pgn
@@ -891,7 +891,8 @@ class _J1939_RXSession(object):
         self.npkts = npkts
         self.is_bam = is_bam
         self.ts = ts
-        self.buf = b''
+        self.priority = priority
+        self.buf = bytearray()
         self.seq = 1  # next expected TP.DT sequence number
         # Last sequence number the peer is currently allowed to send. For a
         # BAM the whole message is authorised; for RTS/CTS it is the end of
@@ -952,6 +953,7 @@ class J1939TPImplementation:
         self.pgn_filter = pgn_filter  # 0 = accept all PGNs
         self.basecls = basecls or J1939  # type: Type[Packet]
         self.closed = False
+        self.closing = False
         self.rx_tx_poll_rate = 0.005
 
         # ── receive path ──────────────────────────────────────────────────────
@@ -977,6 +979,17 @@ class J1939TPImplementation:
 
         # Enqueued outgoing messages: each item is a J1939 packet
         self.tx_queue = ObjectPipe()  # type: ignore
+
+        # Drain frames that accumulated in the CAN adapter's hardware RX
+        # buffer while no soft socket was active.  USB adapters (candle,
+        # cantact) have small hardware buffers; if background traffic fills
+        # them before can_recv starts polling, the next ECU response may be
+        # dropped by the adapter.
+        try:
+            self.can_socket.select([self.can_socket], 0)
+        except Exception:
+            log_j1939.debug("Exception during J1939 socket drain select",
+                            exc_info=True)
 
         # ── background polling ────────────────────────────────────────────────
         self.rx_handle = TimeoutScheduler.schedule(0, self.can_recv)
@@ -1036,11 +1049,14 @@ class J1939TPImplementation:
                         so that a large BAM is not truncated; ``0`` shuts
                         down at once.
         """
-        if self.closed:
+        if self.closed or self.closing:
             return
+        self.closing = True
         # Wait for any in-progress TX to drain before shutting down.
         # This ensures that a send() followed immediately by close() (e.g.
         # inside a ``with`` statement) still delivers every queued message.
+        # New sends are rejected while closing so the drain budget cannot
+        # be extended by work that did not exist when shutdown started.
         derived = timeout is None
         if timeout is None:
             timeout = self.drain_timeout()
@@ -1064,6 +1080,15 @@ class J1939TPImplementation:
         self.rx_sessions.clear()
         for handle in handles:
             self._cancel(handle)
+
+        # Final drain: move frames from the CAN adapter's hardware buffer
+        # into the SocketWrapper software queue so the next soft-socket
+        # session can consume them instead of overflowing the adapter FIFO.
+        try:
+            self.can_socket.select([self.can_socket], 0)
+        except Exception:
+            log_j1939.debug("Exception during J1939 socket drain select",
+                            exc_info=True)
 
         try:
             self.rx_queue.close()
@@ -1112,8 +1137,16 @@ class J1939TPImplementation:
 
         if self.closed or self._can_socket_gone():
             return
+        # Zero-delay polling while segmented RX or directed TX is active so
+        # slow serial/slcan multiplexers do not add backlog latency between
+        # TP frames.  BAM TX does not force fast receive polling.
+        active = (
+            bool(self.rx_sessions) or
+            self.tx_state in (_J1939_TX_RTS_WAIT_CTS, _J1939_TX_RTS_SENDING)
+        )
+        poll_time = 0.0 if active else self.rx_tx_poll_rate
         self.rx_handle = self._TimeoutScheduler.schedule(
-            self.rx_tx_poll_rate, self.can_recv)
+            poll_time, self.can_recv)
 
     def on_can_recv(self, pkt):
         # type: (Packet) -> None
@@ -1184,7 +1217,8 @@ class J1939TPImplementation:
                 return
             self._rx_start(sa=sa, pgn=bam.pgn, dst=socket.J1939_NO_ADDR,
                            total=bam.total_size, npkts=bam.num_packets,
-                           max_packets=bam.num_packets, is_bam=True, ts=ts)
+                           max_packets=bam.num_packets, is_bam=True, ts=ts,
+                           priority=j.priority)
 
         elif ctrl == J1939_TP_CTRL_RTS:
             # RTS is directed; broadcast RTS must not start a session or CTS.
@@ -1197,7 +1231,8 @@ class J1939TPImplementation:
                 return
             self._rx_start(sa=sa, pgn=rts.pgn, dst=self.src_addr,
                            total=rts.total_size, npkts=rts.num_packets,
-                           max_packets=rts.max_packets, is_bam=False, ts=ts)
+                           max_packets=rts.max_packets, is_bam=False, ts=ts,
+                           priority=j.priority)
 
         elif ctrl == J1939_TP_CTRL_CTS:
             if j.dst != self.src_addr:
@@ -1264,13 +1299,13 @@ class J1939TPImplementation:
             self._rx_abort(session, _J1939_ABORT_BAD_SEQ)
             return
 
-        session.buf += dt.data
+        session.buf.extend(dt.data)
         session.seq += 1
         self._rx_cancel_timer(session)
 
         if seq >= session.npkts:
             # All packets received – finalise the message.
-            payload = session.buf[:session.total]
+            payload = bytes(session.buf[:session.total])
             if not session.is_bam and not self.listen_only:
                 self._can_send_tp_cm(
                     dst_sa=sa,
@@ -1282,7 +1317,7 @@ class J1939TPImplementation:
                 )
             msg = self.basecls(payload,
                                pgn=session.pgn, src=session.sa,
-                               dst=session.dst, priority=6)
+                               dst=session.dst, priority=session.priority)
             self.rx_queue.send((msg, session.ts))
             self._rx_forget(session)
             return
@@ -1294,8 +1329,9 @@ class J1939TPImplementation:
 
     # ── RX session helpers ────────────────────────────────────────────────────
 
-    def _rx_start(self, sa, pgn, dst, total, npkts, max_packets, is_bam, ts):
-        # type: (int, int, int, int, int, int, bool, Union[float, EDecimal]) -> None  # noqa: E501
+    def _rx_start(self, sa, pgn, dst, total, npkts, max_packets, is_bam, ts,
+                  priority=6):
+        # type: (int, int, int, int, int, int, bool, Union[float, EDecimal], int) -> None  # noqa: E501
         """Open a reception for *sa*, replacing any session that peer had."""
         # An announcement that cannot describe a real message is refused
         # rather than turned into an empty or truncated delivery. J1939-21
@@ -1328,7 +1364,8 @@ class J1939TPImplementation:
                 "%d sessions already open" % len(self.rx_sessions))
             return
 
-        session = _J1939_RXSession(sa, dst, pgn, total, npkts, is_bam, ts)
+        session = _J1939_RXSession(
+            sa, dst, pgn, total, npkts, is_bam, ts, priority=priority)
         self.rx_sessions[session.key] = session
         if not is_bam:
             # J1939-21 flow control: never authorise more packets in one
@@ -1681,6 +1718,8 @@ class J1939TPImplementation:
                                  :data:`_J1939_TP_MAX_DATA` bytes the
                                  transport protocol can describe
         """
+        if self.closed or self.closing:
+            raise Scapy_Exception("J1939 socket is closed")
         payload = self._payload_of(msg)
         if len(payload) > _J1939_TP_MAX_DATA:
             raise Scapy_Exception(
@@ -1880,7 +1919,7 @@ class J1939SoftSocket(SuperSocket):
                                  bytes the transport protocol can carry
         """
         if self.closed:
-            return 0
+            raise Scapy_Exception("J1939 socket is closed")
         if isinstance(x, Packet):
             x.sent_time = time.time()
         self.impl.send(x)
