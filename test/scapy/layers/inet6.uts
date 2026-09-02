@@ -2015,6 +2015,37 @@ def test_getmacbyip6(mock_route6, mock_neighsol):
 
 test_getmacbyip6() == "05:04:03:02:01:00"
 
+= IPv6 - getmacbyip6 keeps interface scope
+
+from scapy.base_classes import _ScopedIP
+
+@mock.patch("scapy.layers.inet6.neighsol")
+@mock.patch("scapy.layers.inet6.conf.route6.route")
+def test_getmacbyip6_scope(mock_route6, mock_neighsol):
+    def scoped(iface):
+        value = _ScopedIP("fe80::1")
+        value.scope = iface
+        return value
+    def route(ip6, dev=None):
+        return dev, "fe80::2", "::"
+    def resolve(ip6, src, iface, chainCC=0):
+        mac = "02:00:00:00:00:0a" if iface == "ifA" else "02:00:00:00:00:0b"
+        return Ether(src=mac) / ICMPv6NDOptDstLLAddr(lladdr=mac)
+    mock_route6.side_effect = route
+    mock_neighsol.side_effect = resolve
+    conf.netcache.in6_neighbor.flush()
+    try:
+        mac_a = getmacbyip6(scoped("ifA"))
+        mac_b = getmacbyip6(scoped("ifB"))
+        mac_a_again = getmacbyip6(scoped("ifA"))
+    finally:
+        conf.netcache.in6_neighbor.flush()
+    assert mac_a == mac_a_again == "02:00:00:00:00:0a"
+    assert mac_b == "02:00:00:00:00:0b"
+    assert mock_neighsol.call_count == 2
+
+test_getmacbyip6_scope()
+
 = IPv6 - IPerror6 & UDPerror & _ICMPv6Error & TCPerror
 
 query = IPv6(dst="2001:db8::1", src="2001:db8::2", hlim=1)/UDP()/DNS()

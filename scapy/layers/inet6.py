@@ -168,7 +168,8 @@ def getmacbyip6(ip6, chainCC=0):
         mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
         return mac
 
-    iff, a, nh = conf.route6.route(ip6)
+    scope = ip6.scope if isinstance(ip6, _ScopedIP) else None
+    iff, a, nh = conf.route6.route(ip6, dev=scope)
 
     if iff == conf.loopback_name:
         return "ff:ff:ff:ff:ff:ff"
@@ -176,7 +177,9 @@ def getmacbyip6(ip6, chainCC=0):
     if nh != '::':
         ip6 = nh  # Found next hop
 
-    mac = conf.netcache.in6_neighbor.get(ip6)
+    cache_key = "%s%%%s" % (ip6, iff) if scope is not None else ip6
+
+    mac = conf.netcache.in6_neighbor.get(cache_key)
     if mac:
         return mac
 
@@ -187,7 +190,7 @@ def getmacbyip6(ip6, chainCC=0):
             mac = res[ICMPv6NDOptDstLLAddr].lladdr
         else:
             mac = res.src
-        conf.netcache.in6_neighbor[ip6] = mac
+        conf.netcache.in6_neighbor[cache_key] = mac
         return mac
 
     return None
