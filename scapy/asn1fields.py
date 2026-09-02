@@ -34,6 +34,7 @@ from scapy.asn1.asn1 import (
 )
 from scapy.asn1.ber import BER_Decoding_Error
 from scapy.asn1.constraints import normalize_constraints
+from scapy.asn1.context import new_decoder, new_encoder
 from scapy.asn1.tag import asn1_tag_parts
 from scapy.base_classes import BasePacket
 from scapy.volatile import (
@@ -177,11 +178,6 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         self._apply_diff_tag(pkt, diff_tag)
         return s
 
-    def _codec_kwargs(self, pkt=None):
-        # type: (Optional[ASN1_Packet]) -> Dict[str, Any]
-        # Pass size_len through by default; subclasses may extend this dict.
-        return {"size_len": self.size_len}
-
     def normalize_encode_value(self, pkt, value):
         # type: (ASN1_Packet, Any) -> Any
         """Convert a human-facing value before codec encode (e.g. enum names)."""
@@ -210,7 +206,9 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         return cast(
             bytes,
-            codec.enc(item, field=self, pkt=pkt, **self._codec_kwargs(pkt)),
+            codec.enc(
+                item, field=self, pkt=pkt, size_len=self.size_len,
+            ),
         )
 
     def i2repr(self, pkt, x):
@@ -241,7 +239,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             context=self.context,
             field=self,
             pkt=pkt,
-            **self._codec_kwargs(pkt),
+            size_len=self.size_len,
         )
         if self.flexible_tag:
             return cast(
@@ -292,7 +290,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # type: (ASN1_Packet, Any) -> Any
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         return codec.dec_from_decoder(
-            dec, field=self, pkt=pkt, **self._codec_kwargs(pkt),
+            dec, field=self, pkt=pkt, size_len=self.size_len,
         )
 
     def dissect_from_decoder(self, pkt, dec):
@@ -321,9 +319,8 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                 )
         else:
             raw = value
-        extra = self._codec_kwargs(pkt)
         codec.encode_into(
-            bit_enc, raw, field=self, pkt=pkt, **extra,
+            bit_enc, raw, field=self, pkt=pkt, size_len=self.size_len,
         )
 
     def encode_to(self, pkt, enc):
@@ -344,13 +341,13 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
 
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
-        enc = pkt.ASN1_codec.new_encoder()
+        enc = new_encoder(pkt.ASN1_codec)
         self.encode_to(pkt, enc)
         return cast(bytes, enc.finish())
 
     def dissect(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> bytes
-        dec = pkt.ASN1_codec.new_decoder(s)
+        dec = new_decoder(pkt.ASN1_codec, s)
         self.decode_from(pkt, dec)
         return cast(bytes, dec.remaining())
 
@@ -657,7 +654,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def m2i(self, pkt, s):
         # type: (Any, bytes) -> Tuple[Any, bytes]
-        dec = pkt.ASN1_codec.new_decoder(s)
+        dec = new_decoder(pkt.ASN1_codec, s)
         self.decode_from(pkt, dec)
         remain = dec.remaining()
         if dec.codec is ASN1_Codecs.PER and remain:
@@ -744,7 +741,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
 
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[List[Any], bytes]
-        dec = pkt.ASN1_codec.new_decoder(s)
+        dec = new_decoder(pkt.ASN1_codec, s)
         self.decode_from(pkt, dec)
         return getattr(pkt, self.name), dec.remaining()
 
@@ -1032,7 +1029,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Object[Any], bytes]
         if len(s) == 0:
             raise ASN1_Error("ASN1F_CHOICE: got empty string")
-        dec = pkt.ASN1_codec.new_decoder(s)
+        dec = new_decoder(pkt.ASN1_codec, s)
         self.decode_from(pkt, dec)
         return getattr(pkt, self.name), dec.remaining()
 
@@ -1091,7 +1088,7 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
 
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[Any, bytes]
-        dec = pkt.ASN1_codec.new_decoder(s)
+        dec = new_decoder(pkt.ASN1_codec, s)
         self.decode_from(pkt, dec)
         return getattr(pkt, self.name), dec.remaining()
 
