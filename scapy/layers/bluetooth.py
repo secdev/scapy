@@ -2697,17 +2697,17 @@ class HCI_Event_Inquiry_Result_With_Rssi(Packet):
     name = "HCI_Inquiry_Result_with_RSSI"
     fields_desc = [
         ByteField("num_response", 0x00),
-        FieldListField("bd_addr", None, LEMACField,
+        FieldListField("bd_addr", None, LEMACField("", None),
                        count_from=lambda p: p.num_response),
-        FieldListField("page_scan_repetition_mode", None, ByteField,
+        FieldListField("page_scan_repetition_mode", None, ByteField("", 0),
                        count_from=lambda p: p.num_response),
-        FieldListField("reserved", None, LEShortField,
+        FieldListField("reserved", None, LEShortField("", 0),
                        count_from=lambda p: p.num_response),
-        FieldListField("device_class", None, XLE3BytesField,
+        FieldListField("device_class", None, XLE3BytesField("", 0),
                        count_from=lambda p: p.num_response),
-        FieldListField("clock_offset", None, LEShortField,
+        FieldListField("clock_offset", None, LEShortField("", 0),
                        count_from=lambda p: p.num_response),
-        FieldListField("rssi", None, SignedByteField,
+        FieldListField("rssi", None, SignedByteField("", 0),
                        count_from=lambda p: p.num_response)
     ]
 

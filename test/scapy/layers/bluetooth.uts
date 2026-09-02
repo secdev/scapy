@@ -1284,3 +1284,12 @@ assert p.num_sets == 1
 assert len(p.sets) == 1
 assert p.sets[0].handle == 1
 assert raw(p) == hex_bytes("010101640005")
+
+= HCI_Event_Inquiry_Result_With_Rssi dissection
+
+p = HCI_Event_Inquiry_Result_With_Rssi(hex_bytes("011122334455660100000000000000c0"))
+assert p.num_response == 1
+assert p.bd_addr == ["66:55:44:33:22:11"]
+assert p.page_scan_repetition_mode == [1]
+assert p.rssi == [-64]
+assert raw(p) == hex_bytes("011122334455660100000000000000c0")
