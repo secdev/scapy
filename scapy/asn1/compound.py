@@ -29,13 +29,3 @@ def sequence_decode_children(field, pkt, presence, dissect):
             dissect(obj)
         except ASN1F_badsequence:
             break
-
-
-def sequence_encode_children(field, pkt, encode):
-    # type: (Any, Any, Callable[[Any], None]) -> None
-    from scapy.asn1fields import ASN1F_optional
-
-    for obj in field.seq:
-        if isinstance(obj, ASN1F_optional) and not obj.is_present(pkt):
-            continue
-        encode(obj)
