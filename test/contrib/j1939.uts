@@ -2095,6 +2095,7 @@ from scapy.contrib.j1939 import (
     J1939_TP_CTRL_ACK, J1939_TP_CTRL_ABORT,
 )
 from scapy.layers.can import CAN
+from scapy.supersocket import SuperSocket
 from test.testsocket import TestSocket, cleanup_testsockets
 import socket as _socket
 
