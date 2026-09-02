@@ -1315,9 +1315,9 @@ class AsyncSniffer(object):
                         packets = session.recv(s)
                         # A session can return multiple objects
                         for p in packets:
+                            p.sniffed_on = sniff_sockets.get(s, None)
                             if lfilter and not lfilter(p):
                                 continue
-                            p.sniffed_on = sniff_sockets.get(s, None)
                             # post-processing
                             self.count += 1
                             if store:

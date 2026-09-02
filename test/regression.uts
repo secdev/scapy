@@ -2062,6 +2062,33 @@ o.send(REFPACKET)
 pkts = sniff(opened_socket=[o], timeout=3)
 assert len(pkts) == 10
 
+= sniff() sets packet provenance before lfilter
+
+def test_lfilter_provenance():
+    class ProvenanceSocket(SuperSocket):
+        nonblocking_socket = True
+        def __init__(self):
+            self.packet = Ether() / IP() / UDP()
+        def recv(self, size=MTU):
+            packet, self.packet = self.packet, None
+            return packet
+        @staticmethod
+        def select(sockets, remain=None):
+            return [sock for sock in sockets if sock.packet is not None]
+    source = ProvenanceSocket()
+    observed = []
+    def record_provenance(packet):
+        observed.append(packet.sniffed_on)
+        return False
+    sniff(
+        opened_socket={source: "untrusted"},
+        lfilter=record_provenance,
+        timeout=0.01,
+    )
+    assert observed == ["untrusted"]
+
+test_lfilter_provenance()
+
 = GH issue 3306
 ~ netaccess needs_root
 
