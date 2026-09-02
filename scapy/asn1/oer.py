@@ -341,9 +341,16 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
     @classmethod
     def enc(cls, i, field=None, size_len=None, oer_unsigned=None, **_kwargs):
         # type: (int, Any, Optional[int], Optional[bool], **Any) -> bytes
-        from scapy.asn1.constraints import oer_size_len, oer_unsigned as _oer_unsigned
-        size_len = oer_size_len(field, size_len)
-        oer_unsigned = _oer_unsigned(field, oer_unsigned)
+        from scapy.asn1.constraints import oer_int_wire_params
+        size_len, oer_unsigned, minimum, maximum = oer_int_wire_params(
+            field, size_len, oer_unsigned,
+        )
+        if minimum is not None and maximum is not None:
+            if not minimum <= i <= maximum:
+                raise OER_Encoding_Error(
+                    "%s: %i is outside %i..%i" %
+                    (cls.__name__, i, minimum, maximum)
+                )
         if oer_unsigned and i < 0:
             raise OER_Encoding_Error(
                 "%s: %i is negative for an unsigned type" % (cls.__name__, i)
@@ -376,19 +383,34 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
-        from scapy.asn1.constraints import oer_size_len, oer_unsigned as _oer_unsigned
-        size_len = oer_size_len(field, size_len)
-        oer_unsigned = _oer_unsigned(field, oer_unsigned)
+        from scapy.asn1.constraints import oer_int_wire_params
+        size_len, oer_unsigned, minimum, maximum = oer_int_wire_params(
+            field, size_len, oer_unsigned,
+        )
         if size_len in (1, 2, 4, 8):
             _OER_check_len(cls.__name__, s, size_len)
             x = struct.unpack(
                 cls._FIXED_FORMATS[not oer_unsigned][size_len], s[:size_len]
             )[0]
+            if minimum is not None and maximum is not None:
+                if not minimum <= x <= maximum:
+                    raise OER_Decoding_Error(
+                        "%s: %i is outside %i..%i" %
+                        (cls.__name__, x, minimum, maximum),
+                        remaining=s,
+                    )
             return cls.asn1_object(x), s[size_len:]
         if oer_unsigned:
             x, t = OER_unsigned_integer_dec(s)
         else:
             x, t = OER_signed_integer_dec(s)
+        if minimum is not None and maximum is not None:
+            if not minimum <= x <= maximum:
+                raise OER_Decoding_Error(
+                    "%s: %i is outside %i..%i" %
+                    (cls.__name__, x, minimum, maximum),
+                    remaining=s,
+                )
         return cls.asn1_object(x), t
 
 
@@ -553,14 +575,9 @@ class OERcodec_OID(OERcodec_Object[bytes]):
     @classmethod
     def enc(cls, _oid, **_kwargs):
         # type: (AnyStr, **Any) -> bytes
+        from scapy.asn1.oid import oid_dotted_to_subidentifiers
         oid = bytes_encode(_oid)
-        if oid:
-            lst = [int(x) for x in oid.strip(b".").split(b".")]
-        else:
-            lst = list()
-        if len(lst) >= 2:
-            lst[1] += 40 * lst[0]
-            del lst[0]
+        lst = oid_dotted_to_subidentifiers(oid)
         body = b"".join(BER_num_enc(k) for k in lst)
         return OER_len_enc(len(body)) + body
 
@@ -581,11 +598,9 @@ class OERcodec_OID(OERcodec_Object[bytes]):
         while content:
             val, content = BER_num_dec(content)
             lst.append(val)
-        if len(lst) > 0:
-            lst.insert(0, lst[0] // 40)
-            lst[1] %= 40
+        from scapy.asn1.oid import oid_subidentifiers_to_dotted
         return (
-            cls.asn1_object(b".".join(str(k).encode('ascii') for k in lst)),
+            cls.asn1_object(oid_subidentifiers_to_dotted(lst)),
             t,
         )
 
@@ -624,33 +639,52 @@ class OERcodec_ENUMERATED(OERcodec_INTEGER):
         return cls.asn1_object(value), s[length + 1:]
 
 
-_OER_STRING_TAGS = (
-    "UTF8_STRING",
-    "NUMERIC_STRING",
-    "PRINTABLE_STRING",
-    "T61_STRING",
-    "VIDEOTEX_STRING",
-    "IA5_STRING",
-    "GENERAL_STRING",
-    "UTC_TIME",
-    "GENERALIZED_TIME",
-    "ISO646_STRING",
-    "UNIVERSAL_STRING",
-    "BMP_STRING",
-)
+class OERcodec_UTF8_STRING(OERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.UTF8_STRING
 
 
-def _oer_string_codec(name):
-    # type: (str) -> type
-    return type(
-        "OERcodec_%s" % name,
-        (OERcodec_STRING,),
-        {"tag": getattr(ASN1_Class_UNIVERSAL, name)},
-    )
+class OERcodec_NUMERIC_STRING(OERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.NUMERIC_STRING
 
 
-for _tag_name in _OER_STRING_TAGS:
-    globals()["OERcodec_%s" % _tag_name] = _oer_string_codec(_tag_name)
+class OERcodec_PRINTABLE_STRING(OERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.PRINTABLE_STRING
+
+
+class OERcodec_T61_STRING(OERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.T61_STRING
+
+
+class OERcodec_VIDEOTEX_STRING(OERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.VIDEOTEX_STRING
+
+
+class OERcodec_IA5_STRING(OERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.IA5_STRING
+
+
+class OERcodec_GENERAL_STRING(OERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.GENERAL_STRING
+
+
+class OERcodec_UTC_TIME(OERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.UTC_TIME
+
+
+class OERcodec_GENERALIZED_TIME(OERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
+
+
+class OERcodec_ISO646_STRING(OERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.ISO646_STRING
+
+
+class OERcodec_UNIVERSAL_STRING(OERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.UNIVERSAL_STRING
+
+
+class OERcodec_BMP_STRING(OERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.BMP_STRING
 
 
 class OERcodec_SEQUENCE(OERcodec_Object[Union[bytes, List['OERcodec_Object[Any]']]]):

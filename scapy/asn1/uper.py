@@ -344,7 +344,13 @@ def UPER_constrained_int_dec(dec, minimum, maximum):
     value = dec.read_non_negative_binary_integer(
         UPER_bits_for_range(maximum - minimum)
     )
-    return value + minimum
+    value += minimum
+    if not minimum <= value <= maximum:
+        raise UPER_Decoding_Error(
+            "UPER_constrained_int_dec: got %i while expecting %i..%i" %
+            (value, minimum, maximum)
+        )
+    return value
 
 
 def _uper_check_size(name, unit, count, minimum, maximum):
@@ -756,12 +762,9 @@ class UPERcodec_OID(UPERcodec_Object[bytes]):
     @classmethod
     def encode_into(cls, enc, _oid, **_kwargs):
         # type: (UPER_Encoder, AnyStr, **Any) -> None
+        from scapy.asn1.oid import oid_dotted_to_subidentifiers
         oid = bytes_encode(_oid)
-        if oid:
-            lst = [int(x) for x in oid.split(b".")]
-            lst = [40 * lst[0] + lst[1]] + lst[2:]
-        else:
-            lst = []
+        lst = oid_dotted_to_subidentifiers(oid)
         body = b"".join(BER_num_enc(k) for k in lst)
         enc.append_fragmented(
             len(body),
@@ -771,6 +774,7 @@ class UPERcodec_OID(UPERcodec_Object[bytes]):
     @classmethod
     def dec_from_decoder(cls, dec, **_kwargs):
         # type: (UPER_Decoder, **Any) -> ASN1_Object[bytes]
+        from scapy.asn1.oid import oid_subidentifiers_to_dotted
         fragments = []  # type: List[bytes]
         dec.read_fragmented(lambda size: fragments.append(dec.read_bytes(size)))
         content = b"".join(fragments)
@@ -778,10 +782,7 @@ class UPERcodec_OID(UPERcodec_Object[bytes]):
         while content:
             val, content = BER_num_dec(content)
             lst.append(val)
-        if len(lst) > 0:
-            lst.insert(0, lst[0] // 40)
-            lst[1] %= 40
-        return cls.asn1_object(b".".join(str(k).encode('ascii') for k in lst))
+        return cls.asn1_object(oid_subidentifiers_to_dotted(lst))
 
 
 def UPER_enumerated_enc(enc, value, enum_values):
@@ -983,33 +984,75 @@ class UPERcodec_TIME_TICKS(UPERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS
 
 
-_UPER_STRING_TAGS = (
-    "UTF8_STRING",
-    "NUMERIC_STRING",
-    "PRINTABLE_STRING",
-    "T61_STRING",
-    "VIDEOTEX_STRING",
-    "IA5_STRING",
-    "GENERAL_STRING",
-    "UTC_TIME",
-    "GENERALIZED_TIME",
-    "ISO646_STRING",
-    "UNIVERSAL_STRING",
-    "BMP_STRING",
-)
+class UPERcodec_KNOWN_MULTIPLIER_STRING(UPERcodec_STRING):
+    @classmethod
+    def encode_into(cls, enc, s, **_kwargs):
+        # type: (UPER_Encoder, Any, **Any) -> None
+        raise UPER_Encoding_Error(
+            "%s: known-multiplier PER string encoding is not implemented" %
+            cls.__name__
+        )
+
+    @classmethod
+    def dec_from_decoder(cls, dec, **_kwargs):
+        # type: (UPER_Decoder, **Any) -> ASN1_Object[Any]
+        raise UPER_Decoding_Error(
+            "%s: known-multiplier PER string decoding is not implemented" %
+            cls.__name__
+        )
 
 
-def _uper_string_codec(name):
-    # type: (str) -> type
-    return type(
-        "UPERcodec_%s" % name,
-        (UPERcodec_STRING,),
-        {"tag": getattr(ASN1_Class_UNIVERSAL, name)},
-    )
+class UPERcodec_UTF8_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+    tag = ASN1_Class_UNIVERSAL.UTF8_STRING
 
 
-for _tag_name in _UPER_STRING_TAGS:
-    globals()["UPERcodec_%s" % _tag_name] = _uper_string_codec(_tag_name)
+class UPERcodec_NUMERIC_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+    tag = ASN1_Class_UNIVERSAL.NUMERIC_STRING
+
+
+class UPERcodec_PRINTABLE_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+    tag = ASN1_Class_UNIVERSAL.PRINTABLE_STRING
+
+
+class UPERcodec_T61_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+    tag = ASN1_Class_UNIVERSAL.T61_STRING
+
+
+class UPERcodec_VIDEOTEX_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+    tag = ASN1_Class_UNIVERSAL.VIDEOTEX_STRING
+
+
+class UPERcodec_IA5_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+    tag = ASN1_Class_UNIVERSAL.IA5_STRING
+
+
+class UPERcodec_GENERAL_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+    tag = ASN1_Class_UNIVERSAL.GENERAL_STRING
+
+
+class UPERcodec_UTC_TIME(UPERcodec_KNOWN_MULTIPLIER_STRING):
+    tag = ASN1_Class_UNIVERSAL.UTC_TIME
+
+
+class UPERcodec_GENERALIZED_TIME(UPERcodec_KNOWN_MULTIPLIER_STRING):
+    tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
+
+
+class UPERcodec_ISO646_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+    tag = ASN1_Class_UNIVERSAL.ISO646_STRING
+
+
+class UPERcodec_UNIVERSAL_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+    tag = ASN1_Class_UNIVERSAL.UNIVERSAL_STRING
+
+
+class UPERcodec_BMP_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+    tag = ASN1_Class_UNIVERSAL.BMP_STRING
+
+
+# KNOWN_MULTIPLIER inherits STRING's tag for registration; restore the
+# generic STRING codec used by ASN1F_STRING (octet-string UPER path).
+ASN1_Class_UNIVERSAL.STRING.register(ASN1_Codecs.PER, UPERcodec_STRING)
 
 
 ################################

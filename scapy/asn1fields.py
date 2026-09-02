@@ -116,7 +116,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         else:
             self.default = self.ASN1_tag.asn1_object(default)  # type: ignore
         self.size_len = size_len
-        self.constraints = normalize_constraints(codec_opts, size_len=size_len)
+        self.constraints = normalize_constraints(codec_opts)
         self.flexible_tag = flexible_tag
         if (implicit_tag is not None) and (explicit_tag is not None):
             err_msg = "field cannot be both implicitly and explicitly tagged"
@@ -187,6 +187,9 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         self._apply_diff_tag(pkt, diff_tag)
         return s
 
+    def _codec_kwargs(self, pkt=None):
+        # type: (Optional[ASN1_Packet]) -> Dict[str, Any]
+        return {}
 
     def _encode_item(self, pkt, item):
         # type: (ASN1_Packet, Any) -> bytes
@@ -209,7 +212,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             # the BER type codec so the universal tag/length are applied.
             item = item.self_build()
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        return codec.enc(item, field=self, pkt=pkt)
+        return codec.enc(item, field=self, pkt=pkt, **self._codec_kwargs(pkt))
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -236,7 +239,8 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         s = self._apply_tagging_dec(s, pkt, _fname=self.name)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         dec = codec.safedec if self.flexible_tag else codec.dec
-        return dec(s, context=self.context, field=self, pkt=pkt)  # type: ignore  # noqa: E501
+        return dec(s, context=self.context, field=self, pkt=pkt,
+                   **self._codec_kwargs(pkt))  # type: ignore  # noqa: E501
 
     def i2m(self, pkt, x):
         # type: (ASN1_Packet, Union[bytes, _I, _A]) -> bytes
@@ -257,13 +261,14 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
     def extract_packet(self,
                        cls,  # type: Type[ASN1_Packet]
                        s,  # type: bytes
+                       _underlayer=None,  # type: Optional[ASN1_Packet]
                        _parent=None  # type: Optional[ASN1_Packet]
                        ):
         # type: (...) -> Tuple[ASN1_Packet, bytes]
         try:
-            c = cls(s, _parent=_parent)
+            c = cls(s, _underlayer=_underlayer, _parent=_parent)
         except ASN1F_badsequence:
-            c = packet.Raw(s, _parent=_parent)  # type: ignore
+            c = packet.Raw(s, _underlayer=_underlayer, _parent=_parent)  # type: ignore
         cpad = c.getlayer(packet.Raw)
         s = b""
         if cpad is not None:
@@ -276,7 +281,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # type: (ASN1_Packet, Any) -> Any
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         return codec.dec_from_decoder(  # type: ignore[attr-defined]
-            dec, field=self, pkt=pkt,
+            dec, field=self, pkt=pkt, **self._codec_kwargs(pkt),
         )
 
     def dissect_from_decoder(self, pkt, dec):
@@ -304,12 +309,15 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         else:
             raw = value
         bit_enc = per_bit_encoder(enc)
+        extra = self._codec_kwargs(pkt)
         if bit_enc is not None:
             codec.encode_into(  # type: ignore[attr-defined]
-                bit_enc, raw, field=self, pkt=pkt,
+                bit_enc, raw, field=self, pkt=pkt, **extra,
             )
             return
-        enc.write(codec.enc(raw, field=self, pkt=pkt))  # type: ignore[attr-defined]
+        enc.write(
+            codec.enc(raw, field=self, pkt=pkt, **extra)
+        )  # type: ignore[attr-defined]
 
     def encode_to(self, pkt, enc):
         # type: (ASN1_Packet, Any) -> None
@@ -615,15 +623,26 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def _dissect_sequence_children(self, pkt, s):
         # type: (Any, bytes) -> bytes
+        from scapy.asn1fields import ASN1F_badsequence, ASN1F_optional, ASN1F_DEFAULT
+
+        def set_absent(obj):
+            # type: (Any) -> None
+            if isinstance(obj, (ASN1F_optional, ASN1F_DEFAULT)):
+                obj.set_missing(pkt)
+            else:
+                obj.set_val(pkt, None)
+
         if len(s) == 0:
             for obj in self.seq:
-                obj.set_val(pkt, None)
+                set_absent(obj)
             return s
-        for obj in self.seq:
+        for idx, obj in enumerate(self.seq):
             try:
                 s = obj.dissect(pkt, s)
             except ASN1F_badsequence:
-                break
+                for absent in self.seq[idx:]:
+                    set_absent(absent)
+                return s
         return s
 
     def m2i(self, pkt, s):
@@ -1022,15 +1041,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
     def encode_into(self, enc, pkt, value=None):
         # type: (Any, ASN1_Packet, Any) -> None
         from scapy.asn1.compound import choice_encode_to
-        if value is None:
-            choice_encode_to(self, pkt, enc)
-            return
-        old = getattr(pkt, self.name, None)
-        setattr(pkt, self.name, value)
-        try:
-            choice_encode_to(self, pkt, enc)
-        finally:
-            setattr(pkt, self.name, old)
+        choice_encode_to(self, pkt, enc, value)
 
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None

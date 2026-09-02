@@ -34,8 +34,8 @@ _LEGACY_CODEC_OPTS = {
 }
 
 
-def normalize_constraints(codec_opts, size_len=None):
-    # type: (Dict[str, Any], Optional[int]) -> ASN1Constraints
+def normalize_constraints(codec_opts):
+    # type: (Dict[str, Any]) -> ASN1Constraints
     """Build ASN1Constraints from field kwargs, with legacy alias support."""
     data = {
         "minimum": None,
@@ -73,6 +73,12 @@ def normalize_constraints(codec_opts, size_len=None):
                 DeprecationWarning,
                 stacklevel=4,
             )
+        else:
+            warnings.warn(
+                "Unknown field constraint %r" % key,
+                DeprecationWarning,
+                stacklevel=4,
+            )
     return ASN1Constraints(**data)
 
 
@@ -92,13 +98,16 @@ def field_range(field):
     return minimum, maximum
 
 
-def oer_size_len(field=None, size_len=None):
+def field_size_len(field=None, size_len=None):
     # type: (Any, Optional[int]) -> Optional[int]
     if size_len is not None:
         return size_len
     if field is not None:
         return field.size_len
     return None
+
+
+oer_size_len = field_size_len
 
 
 def oer_unsigned(field=None, oer_unsigned=None):
@@ -139,3 +148,34 @@ def uper_enum_values(field=None, pkt=None, uper_enum_values=None):
         if getattr(pkt, "ASN1_codec", None) is ASN1_Codecs.PER:
             return field.uper_enum_values()
     return None
+
+
+def oer_int_wire_params(field=None, size_len=None, unsigned=None):
+    # type: (Any, Optional[int], Optional[bool]) -> Tuple[Optional[int], bool, Optional[int], Optional[int]]  # noqa: E501
+    """Derive OER INTEGER width and signedness from field constraints."""
+    size_len = field_size_len(field, size_len)
+    is_unsigned = oer_unsigned(field, unsigned)
+    minimum, maximum = field_range(field) if field is not None else (None, None)
+    if size_len is None and minimum is not None and maximum is not None:
+        if minimum >= 0:
+            is_unsigned = True
+            if maximum <= 0xFF:
+                size_len = 1
+            elif maximum <= 0xFFFF:
+                size_len = 2
+            elif maximum <= 0xFFFFFFFF:
+                size_len = 4
+            else:
+                size_len = 8
+        else:
+            is_unsigned = False
+            for sl, lo, hi in (
+                (1, -128, 127),
+                (2, -32768, 32767),
+                (4, -2147483648, 2147483647),
+                (8, -9223372036854775808, 9223372036854775807),
+            ):
+                if minimum >= lo and maximum <= hi:
+                    size_len = sl
+                    break
+    return size_len, is_unsigned, minimum, maximum

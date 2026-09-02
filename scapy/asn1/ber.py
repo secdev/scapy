@@ -419,8 +419,8 @@ ASN1_Codecs.BER.register_stem(BERcodec_Object)
 
 def _ber_enc_size_len(field=None, size_len=None):
     # type: (Any, Optional[int]) -> int
-    from scapy.asn1.constraints import oer_size_len
-    sl = oer_size_len(field, size_len)
+    from scapy.asn1.constraints import field_size_len
+    sl = field_size_len(field, size_len)
     return sl if sl is not None else 0
 
 
@@ -585,11 +585,12 @@ class BERcodec_OID(BERcodec_Object[bytes]):
             l, s = BER_num_dec(s)
             lst.append(l)
         if lst:
-            # X.690 sect 8.19.4
-            lst.insert(0, lst[0] // 40)
-            lst[1] %= 40
+            from scapy.asn1.oid import oid_subidentifiers_to_dotted
+            oid = oid_subidentifiers_to_dotted(lst)
+        else:
+            oid = b""
         return (
-            cls.asn1_object(b".".join(str(k).encode('ascii') for k in lst)),
+            cls.asn1_object(oid),
             t,
         )
 
@@ -658,8 +659,8 @@ class BERcodec_SEQUENCE(BERcodec_Object[Union[bytes, List[BERcodec_Object[Any]]]
             ll = b"".join(x.enc(cls.codec) for x in _ll)
         # None = apply conf; explicit 0 keeps short-form lengths.
         if size_len is None:
-            from scapy.asn1.constraints import oer_size_len
-            size_len = oer_size_len(field, None)
+            from scapy.asn1.constraints import field_size_len
+            size_len = field_size_len(field, None)
         if size_len is None:
             size_len = conf.ASN1_default_long_size
         return chb(int(cls.tag)) + BER_len_enc(len(ll), size=size_len) + ll
