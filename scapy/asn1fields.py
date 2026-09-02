@@ -664,8 +664,7 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
 
     def encode_into(self, enc, pkt, value=None):
         # type: (Any, ASN1_Packet, Any) -> None
-        from scapy.asn1.compound import sequence_encode_to
-        sequence_encode_to(self, pkt, enc)
+        self.encode_to(pkt, enc)
 
     def dissect_from_decoder(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None

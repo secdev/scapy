@@ -21,7 +21,6 @@ from scapy.asn1.asn1 import (
 from scapy.asn1.constraints import field_extensible, field_range
 from scapy.asn1.context import (
     OER_Decoder,
-    OER_Encoder,
     per_bit_decoder,
     per_bit_encoder,
 )
@@ -121,13 +120,6 @@ def _sequence_encode_children(field, pkt, encode):
 
 # ---- SEQUENCE -------------------------------------------------------------
 
-def _encode_child_to_bytes(pkt, obj):
-    # type: (Any, Any) -> bytes
-    child_enc = OER_Encoder()
-    obj.encode_to(pkt, child_enc)
-    return child_enc.finish()
-
-
 def sequence_encode_to(field, pkt, enc):
     # type: (Any, Any, Any) -> None
     bit_enc = per_bit_encoder(enc)
@@ -139,12 +131,11 @@ def sequence_encode_to(field, pkt, enc):
         )
         return
     if enc.codec is ASN1_Codecs.OER:
-        parts = [write_oer_presence_bits(sequence_presence_bits(field, pkt))]
+        enc.write(write_oer_presence_bits(sequence_presence_bits(field, pkt)))
         _sequence_encode_children(
             field, pkt,
-            lambda obj: parts.append(_encode_child_to_bytes(pkt, obj)),
+            lambda obj: obj.encode_to(pkt, enc),
         )
-        enc.write(b"".join(parts))
         return
     s = reduce(lambda x, y: x + y.build(pkt), field.seq, b"")
     enc.write(field.i2m(pkt, s))
