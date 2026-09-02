@@ -25,7 +25,6 @@ refused rather than misparsed), SET, REAL, and the canonical variant (C-OER).
 
 import struct
 
-from scapy.error import warning
 from scapy.compat import chb, orb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
 from scapy.asn1.tag import asn1_tag_parts
@@ -47,7 +46,6 @@ from scapy.asn1.asn1 import (
 from typing import (
     Any,
     AnyStr,
-    Dict,
     Generic,
     List,
     Optional,
@@ -55,7 +53,6 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    cast,
 )
 
 ##################

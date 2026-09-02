@@ -127,7 +127,6 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         self.network_tag = int(implicit_tag or explicit_tag or self.ASN1_tag)
         self.owners = []  # type: List[Type[ASN1_Packet]]
 
-
     def register_owner(self, cls):
         # type: (Type[ASN1_Packet]) -> None
         self.owners.append(cls)
@@ -137,11 +136,11 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # flexible_tag was True: record the observed tag on the packet so
         # shared field descriptors stay immutable across interleaved decodes.
         if diff_tag is not None:
-            observed = getattr(pkt, "_asn1_observed_tags", None)
-            if observed is None:
-                pkt._asn1_observed_tags = {}  # type: ignore[attr-defined]
-                observed = pkt._asn1_observed_tags  # type: ignore[attr-defined]
-            observed[self.name] = diff_tag
+            tags = pkt._asn1_observed_tags
+            if tags is None:
+                tags = {}
+                pkt._asn1_observed_tags = tags
+            tags[self.name] = diff_tag
 
     def _tagging_tags(self, pkt):
         # type: (ASN1_Packet) -> Tuple[Optional[int], Optional[int]]
@@ -238,9 +237,21 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         """
         s = self._apply_tagging_dec(s, pkt, _fname=self.name)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        dec = codec.safedec if self.flexible_tag else codec.dec
-        return dec(s, context=self.context, field=self, pkt=pkt,
-                   **self._codec_kwargs(pkt))  # type: ignore  # noqa: E501
+        kwargs = dict(
+            context=self.context,
+            field=self,
+            pkt=pkt,
+            **self._codec_kwargs(pkt),
+        )
+        if self.flexible_tag:
+            return cast(
+                Tuple[_A, bytes],
+                codec.safedec(s, **kwargs),
+            )
+        return cast(
+            Tuple[_A, bytes],
+            codec.dec(s, **kwargs),
+        )
 
     def i2m(self, pkt, x):
         # type: (ASN1_Packet, Union[bytes, _I, _A]) -> bytes
@@ -317,7 +328,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             return
         enc.write(
             codec.enc(raw, field=self, pkt=pkt, **extra)
-        )  # type: ignore[attr-defined]
+        )
 
     def encode_to(self, pkt, enc):
         # type: (ASN1_Packet, Any) -> None
@@ -339,13 +350,13 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # type: (ASN1_Packet) -> bytes
         enc = pkt.ASN1_codec.new_encoder()
         self.encode_to(pkt, enc)
-        return enc.finish()
+        return cast(bytes, enc.finish())
 
     def dissect(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> bytes
         dec = pkt.ASN1_codec.new_decoder(s)
         self.decode_from(pkt, dec)
-        return dec.remaining()
+        return cast(bytes, dec.remaining())
 
     def do_copy(self, x):
         # type: (Any) -> Any
@@ -436,7 +447,6 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
     def uper_enum_values(self):
         # type: () -> List[int]
         return sorted(self.i2s)
-
 
     def i2m(self,
             pkt,  # type: ASN1_Packet
@@ -810,7 +820,6 @@ class ASN1F_optional(ASN1F_element):
         # type: () -> ASN1F_field[Any, Any]
         return self._field
 
-
     def get_fields_list(self):
         # type: () -> List[ASN1F_field[Any, Any]]
         inner = self._field.get_fields_list()
@@ -850,7 +859,6 @@ class ASN1F_optional(ASN1F_element):
     def is_empty(self, pkt):
         # type: (ASN1_Packet) -> bool
         return not self.is_present(pkt)
-
 
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
