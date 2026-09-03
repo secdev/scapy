@@ -721,6 +721,28 @@ assert m.getlayer(BGPUpdate, 2).nlri[0].sprintf("%prefix%") == "10.233.0.22/32"
 p = BGP(raw(BGPHeader()/BGPUpdate()))
 assert BGPHeader in p and BGPUpdate in p
 
+= BGPUpdate - NLRI bounds do not survive a failed parse
+def make_update(nlri):
+    marker = b"\xff" * 16
+    return marker + struct.pack("!HBHH", 23 + len(nlri), 2, 0, 0) + nlri
+
+field = next(field for field in BGPUpdate.fields_desc if field.name == "nlri")
+old_max_count = field.max_count
+field.max_count = 1
+try:
+    keepalive = b"\xff" * 16 + struct.pack("!HB", 19, 4)
+    # This update is meant to exceed the item limit and fail to dissect, so the
+    # debug dissector must not turn that into a raised exception here.
+    with no_debug_dissector():
+        BGP(make_update(b"\x01\x00" * 2) + keepalive)
+    assert field.length_from is None
+    victim = BGP(make_update(b"\x20\x00\x00\x00\x00"))
+    assert len(victim[BGPUpdate].nlri) == 1
+    assert Raw not in victim[BGPUpdate]
+finally:
+    field.max_count = old_max_count
+    field.length_from = None
+
 
 ########## BGPNotification Class ###################################
 + BGPNotification class tests
