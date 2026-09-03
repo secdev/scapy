@@ -90,21 +90,34 @@ def _uper_bits_to_bytes(value, number_of_bits):
 
 
 class UPER_Encoder(object):
+    """Byte-oriented UPER bit writer.
+
+    Completed octets live in a ``bytearray``; at most seven pending bits are
+    kept in ``_acc``. Large octet strings stay as bytes instead of being
+    folded into a growing multi-precision integer.
+    """
+
     def __init__(self):
         # type: () -> None
-        self.number_of_bits = 0
-        self.value = 0
-        self.chunks = []  # type: List[List[int]]
+        self._buf = bytearray()  # type: bytearray
+        self._acc = 0  # type: int
+        self._nbits = 0  # type: int
 
     def append_bit(self, bit):
         # type: (int) -> None
-        self.number_of_bits += 1
-        self.value <<= 1
-        self.value |= 1 if bit else 0
+        self._acc = (self._acc << 1) | (1 if bit else 0)
+        self._nbits += 1
+        if self._nbits == 8:
+            self._buf.append(self._acc)
+            self._acc = 0
+            self._nbits = 0
 
     def append_bits(self, data, number_of_bits):
         # type: (bytes, int) -> None
         if number_of_bits == 0:
+            return
+        if number_of_bits == 8 * len(data):
+            self.append_bytes(data)
             return
         value = int.from_bytes(data, "big")
         value >>= (8 * len(data) - number_of_bits)
@@ -114,17 +127,56 @@ class UPER_Encoder(object):
         # type: (int, int) -> None
         if number_of_bits == 0:
             return
-        if self.number_of_bits > 4096:
-            self.chunks.append([self.value, self.number_of_bits])
-            self.number_of_bits = 0
-            self.value = 0
-        self.number_of_bits += number_of_bits
-        self.value <<= number_of_bits
-        self.value |= value & ((1 << number_of_bits) - 1)
+        value &= (1 << number_of_bits) - 1
+        # Fill the pending octet first so the middle can be raw bytes.
+        if self._nbits:
+            space = 8 - self._nbits
+            if number_of_bits <= space:
+                self._acc = (self._acc << number_of_bits) | value
+                self._nbits += number_of_bits
+                if self._nbits == 8:
+                    self._buf.append(self._acc)
+                    self._acc = 0
+                    self._nbits = 0
+                return
+            self._acc = (
+                (self._acc << space) | (value >> (number_of_bits - space))
+            )
+            self._buf.append(self._acc)
+            number_of_bits -= space
+            value &= (1 << number_of_bits) - 1
+            self._acc = 0
+            self._nbits = 0
+        full_bytes = number_of_bits // 8
+        rem = number_of_bits % 8
+        if full_bytes:
+            mid = value >> rem if rem else value
+            self._buf.extend(mid.to_bytes(full_bytes, "big"))
+            if rem:
+                value &= (1 << rem) - 1
+            number_of_bits = rem
+        if number_of_bits:
+            self._acc = value
+            self._nbits = number_of_bits
 
     def append_bytes(self, data):
         # type: (bytes) -> None
-        self.append_bits(data, 8 * len(data))
+        if not data:
+            return
+        if self._nbits == 0:
+            self._buf.extend(data)
+            return
+        # Unaligned: each source octet yields one completed output octet and
+        # leaves the same number of pending bits.
+        offset = self._nbits
+        acc = self._acc
+        buf = self._buf
+        mask = (1 << offset) - 1
+        for byte in data:
+            combined = (acc << 8) | byte
+            buf.append(combined >> offset)
+            acc = combined & mask
+        self._acc = acc
 
     def append_length_determinant(self, length):
         # type: (int) -> None
@@ -171,16 +223,10 @@ class UPER_Encoder(object):
 
     def as_bytes(self):
         # type: () -> bytes
-        value = 0
-        number_of_bits = 0
-        for chunk_value, chunk_number_of_bits in self.chunks:
-            value <<= chunk_number_of_bits
-            value |= chunk_value
-            number_of_bits += chunk_number_of_bits
-        value <<= self.number_of_bits
-        value |= self.value
-        number_of_bits += self.number_of_bits
-        return _uper_bits_to_bytes(value, number_of_bits)
+        if self._nbits == 0:
+            return bytes(self._buf)
+        # X.691 11.1: pad with zero bits up to an octet boundary.
+        return bytes(self._buf) + bytes([self._acc << (8 - self._nbits)])
 
 
 class UPER_Decoder(object):
@@ -249,7 +295,16 @@ class UPER_Decoder(object):
         n = self.number_of_bits
         if n == 0:
             return b""
-        return _uper_bits_to_bytes(self._peek_bits_int(n), n)
+        if self._pos % 8 == 0:
+            return self._data[self._pos // 8:]
+        # One bulk conversion for the remaining window (error-path helper).
+        start = self._pos // 8
+        offset = self._pos % 8
+        nbytes = (offset + n + 7) // 8
+        window = int.from_bytes(self._data[start:start + nbytes], "big")
+        shift = nbytes * 8 - offset - n
+        value = (window >> shift) & ((1 << n) - 1)
+        return _uper_bits_to_bytes(value, n)
 
     def remaining_bytes(self):
         # type: () -> bytes
