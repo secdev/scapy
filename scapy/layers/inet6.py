@@ -268,6 +268,11 @@ class IP6ListField(StrField):
                 if c <= 0:
                     break
                 c -= 1
+            if len(remain) < 16:
+                # not enough bytes for a full IPv6 address: a truncated or
+                # misaligned list. Leave the remainder for the next layer
+                # instead of feeding a short buffer to inet_ntop().
+                break
             addr = inet_ntop(socket.AF_INET6, remain[:16])
             lst.append(addr)
             remain = remain[16:]
