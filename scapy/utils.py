@@ -1657,6 +1657,7 @@ class RawPcapNgReader(RawPcapReader):
         }
         self.endian = "!"  # Will be overwritten by first SHB
         self.process_information = []  # type: List[Dict[str, Any]]
+        self._tls_state = None  # type: Optional[Tuple[Dict[str, bytes], bool]]
 
         if magic != b"\x0a\x0d\x0d\x0a":  # PcapNg:
             raise Scapy_Exception(
@@ -2016,10 +2017,22 @@ class RawPcapNgReader(RawPcapReader):
                 else:
                     # Note: these attributes are only available when the TLS
                     #       layer is loaded.
+                    if self._tls_state is None:
+                        self._tls_state = (
+                            conf.tls_nss_keys,
+                            conf.tls_session_enable,
+                        )
                     conf.tls_nss_keys = keys
                     conf.tls_session_enable = True
         else:
             warning("PcapNg: Unknown DSB secrets type (0x%x)!", secrets_type)
+
+    def close(self):
+        # type: () -> None
+        if self._tls_state is not None:
+            conf.tls_nss_keys, conf.tls_session_enable = self._tls_state
+            self._tls_state = None
+        RawPcapReader.close(self)
 
     def _read_block_pib(self, block, _):
         # type: (bytes, int) -> None
