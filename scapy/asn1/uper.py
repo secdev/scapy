@@ -116,12 +116,16 @@ class UPER_Encoder(object):
         # type: (bytes, int) -> None
         if number_of_bits == 0:
             return
-        if number_of_bits == 8 * len(data):
-            self.append_bytes(data)
-            return
-        value = int.from_bytes(data, "big")
-        value >>= (8 * len(data) - number_of_bits)
-        self.append_non_negative_binary_integer(value, number_of_bits)
+        # Keep whole octets on the byte path; only the final 1–7 bits become
+        # an integer (avoids int.from_bytes of a multi-megabit BIT STRING).
+        full_bytes, remaining_bits = divmod(number_of_bits, 8)
+        if full_bytes:
+            self.append_bytes(data[:full_bytes])
+        if remaining_bits:
+            self.append_non_negative_binary_integer(
+                data[full_bytes] >> (8 - remaining_bits),
+                remaining_bits,
+            )
 
     def append_non_negative_binary_integer(self, value, number_of_bits):
         # type: (int, int) -> None
@@ -166,17 +170,18 @@ class UPER_Encoder(object):
         if self._nbits == 0:
             self._buf.extend(data)
             return
-        # Unaligned: each source octet yields one completed output octet and
-        # leaves the same number of pending bits.
+        # One bulk shift for the whole block rather than a Python loop per
+        # source octet (large OCTET STRINGs after a presence/extension bit).
         offset = self._nbits
-        acc = self._acc
-        buf = self._buf
-        mask = (1 << offset) - 1
-        for byte in data:
-            combined = (acc << 8) | byte
-            buf.append(combined >> offset)
-            acc = combined & mask
-        self._acc = acc
+        size = len(data)
+        value = int.from_bytes(data, "big")
+        self._buf.extend(
+            (
+                (self._acc << (8 * size - offset)) |
+                (value >> offset)
+            ).to_bytes(size, "big")
+        )
+        self._acc = value & ((1 << offset) - 1)
 
     def append_length_determinant(self, length):
         # type: (int) -> None
@@ -226,7 +231,10 @@ class UPER_Encoder(object):
         if self._nbits == 0:
             return bytes(self._buf)
         # X.691 11.1: pad with zero bits up to an octet boundary.
-        return bytes(self._buf) + bytes([self._acc << (8 - self._nbits)])
+        return b"".join((
+            self._buf,
+            bytes([self._acc << (8 - self._nbits)]),
+        ))
 
 
 class UPER_Decoder(object):
@@ -249,20 +257,12 @@ class UPER_Decoder(object):
             return 0
         if number_of_bits > self.number_of_bits:
             raise UPER_Decoding_Error("UPER_Decoder: out of data")
-        byte_index = self._pos // 8
-        bit_offset = self._pos % 8
-        value = 0
-        bits_left = number_of_bits
-        while bits_left:
-            avail = 8 - bit_offset
-            take = bits_left if bits_left < avail else avail
-            shift = avail - take
-            chunk = (self._data[byte_index] >> shift) & ((1 << take) - 1)
-            value = (value << take) | chunk
-            bits_left -= take
-            byte_index += 1
-            bit_offset = 0
-        return value
+        start = self._pos // 8
+        offset = self._pos % 8
+        nbytes = (offset + number_of_bits + 7) // 8
+        window = int.from_bytes(self._data[start:start + nbytes], "big")
+        shift = nbytes * 8 - offset - number_of_bits
+        return (window >> shift) & ((1 << number_of_bits) - 1)
 
     def _read_bits_int(self, number_of_bits):
         # type: (int) -> int
@@ -297,14 +297,7 @@ class UPER_Decoder(object):
             return b""
         if self._pos % 8 == 0:
             return self._data[self._pos // 8:]
-        # One bulk conversion for the remaining window (error-path helper).
-        start = self._pos // 8
-        offset = self._pos % 8
-        nbytes = (offset + n + 7) // 8
-        window = int.from_bytes(self._data[start:start + nbytes], "big")
-        shift = nbytes * 8 - offset - n
-        value = (window >> shift) & ((1 << n) - 1)
-        return _uper_bits_to_bytes(value, n)
+        return _uper_bits_to_bytes(self._peek_bits_int(n), n)
 
     def remaining_bytes(self):
         # type: () -> bytes
@@ -331,28 +324,19 @@ class UPER_Decoder(object):
 
     def read_bytes(self, number_of_bytes):
         # type: (int) -> bytes
-        # Do not route large unaligned octet strings through _peek_bits_int:
-        # growing a Python int one source byte at a time is super-linear.
         number_of_bits = 8 * number_of_bytes
         if number_of_bits > self.number_of_bits:
             raise UPER_Decoding_Error("UPER_Decoder: out of data")
         if number_of_bytes == 0:
             return b""
-        start = self._pos // 8
-        offset = self._pos % 8
-        if offset == 0:
+        if self._pos % 8 == 0:
+            start = self._pos // 8
             end = start + number_of_bytes
             self._pos += number_of_bits
             return self._data[start:end]
-        # One bulk integer conversion/shift for the n+1 overlapping source
-        # bytes, rather than growing an int per source byte.
-        window = int.from_bytes(
-            self._data[start:start + number_of_bytes + 1],
-            "big",
+        return self._read_bits_int(number_of_bits).to_bytes(
+            number_of_bytes, "big",
         )
-        value = (window >> (8 - offset)) & ((1 << number_of_bits) - 1)
-        self._pos += number_of_bits
-        return value.to_bytes(number_of_bytes, "big")
 
     def read_non_negative_binary_integer(self, number_of_bits):
         # type: (int) -> int
