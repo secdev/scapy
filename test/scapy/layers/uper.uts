@@ -3717,3 +3717,17 @@ class UPERNamedEnum(ASN1_Packet):
 assert raw(UPERNamedEnum(e="one")) == raw(UPERNamedEnum(e=1))
 assert _roundtrip(UPERNamedEnum, UPERNamedEnum(e="one")).e.val == 1
 True
+
+= UPER ENUMERATED string-keyed definition maps names to integer indexes
+class UPERStrKeyEnum(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_ENUMERATED(
+        "state",
+        1,
+        {"off": 0, "on": 1},
+    )
+
+assert UPERStrKeyEnum.ASN1_root.uper_enum_values() == [0, 1]
+assert raw(UPERStrKeyEnum(state="on")) == raw(UPERStrKeyEnum(state=1))
+assert _roundtrip(UPERStrKeyEnum, UPERStrKeyEnum(state="on")).state.val == 1
+True

@@ -462,18 +462,19 @@ def UPER_octet_string_enc(enc, data, minimum=None, maximum=None,
                           extensible=False):
     # type: (UPER_Encoder, bytes, Optional[int], Optional[int], bool) -> None
     length = len(data)
-    data_view = memoryview(data)
+
+    def append_slice(offset, size):
+        # type: (int, int) -> None
+        enc.append_bytes(data[offset:offset + size])
+
     if extensible and minimum is not None and maximum is not None:
         if minimum <= length <= maximum:
             enc.append_bit(0)
         else:
             enc.append_bit(1)
-            enc.append_fragmented(
-                length,
-                lambda offset, size: enc.append_bytes(
-                    data_view[offset:offset + size]
-                ),
-            )
+            if length >= UPER_FRAGMENT_SIZE:
+                data = memoryview(data)
+            enc.append_fragmented(length, append_slice)
             return
     if minimum is not None and maximum is not None:
         _uper_check_size(
@@ -486,12 +487,9 @@ def UPER_octet_string_enc(enc, data, minimum=None, maximum=None,
             )
         enc.append_bytes(data)
     else:
-        enc.append_fragmented(
-            length,
-            lambda offset, size: enc.append_bytes(
-                data_view[offset:offset + size]
-            ),
-        )
+        if length >= UPER_FRAGMENT_SIZE:
+            data = memoryview(data)
+        enc.append_fragmented(length, append_slice)
 
 
 def UPER_octet_string_dec(dec, minimum=None, maximum=None, extensible=False):
@@ -713,9 +711,11 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
             s = bytes_encode(data)
         elif isinstance(_s, str) and _s and all(c in "01" for c in _s):
             nbits = len(_s)
-            padded = _s + "0" * ((8 - nbits % 8) % 8)
-            s = int(padded or "0", 2).to_bytes(
-                max(1, len(padded) // 8), "big"
+            padding = -nbits % 8
+            value = int(_s or "0", 2) << padding
+            s = value.to_bytes(
+                max(1, (nbits + padding) // 8),
+                "big",
             )
         else:
             s = bytes_encode(_s)
@@ -723,18 +723,21 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
         minimum, maximum, extensible = resolve_uper_size_bounds(
             field, size_len, minimum, maximum, extensible,
         )
-        s_view = memoryview(s)
+
+        def append_bits_slice(offset, size):
+            # type: (int, int) -> None
+            enc.append_bits(
+                s[offset // 8:(offset + size + 7) // 8], size
+            )
+
         if extensible and minimum is not None and maximum is not None:
             if minimum <= nbits <= maximum:
                 enc.append_bit(0)
             else:
                 enc.append_bit(1)
-                enc.append_fragmented(
-                    nbits,
-                    lambda offset, size: enc.append_bits(
-                        s_view[offset // 8:(offset + size + 7) // 8], size
-                    ),
-                )
+                if nbits >= UPER_FRAGMENT_SIZE:
+                    s = memoryview(s)
+                enc.append_fragmented(nbits, append_bits_slice)
                 return
         if minimum is not None and maximum is not None:
             _uper_check_size(cls.__name__, "bits", nbits, minimum, maximum)
@@ -746,14 +749,11 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
         else:
             # X.691 16.11: the determinant counts bits, not octets, and no
             # padding is inserted before whatever follows the bit string.
-            enc.append_fragmented(
-                nbits,
-                # Fragments hold whole multiples of 16K bits, so every chunk
-                # but the last starts and ends on an octet boundary.
-                lambda offset, size: enc.append_bits(
-                    s_view[offset // 8:(offset + size + 7) // 8], size
-                ),
-            )
+            if nbits >= UPER_FRAGMENT_SIZE:
+                s = memoryview(s)
+            # Fragments hold whole multiples of 16K bits, so every chunk
+            # but the last starts and ends on an octet boundary.
+            enc.append_fragmented(nbits, append_bits_slice)
 
     @classmethod
     def dec_from_decoder(cls,
@@ -872,12 +872,11 @@ class UPERcodec_OID(UPERcodec_Object[bytes]):
         oid = bytes_encode(_oid)
         lst = oid_dotted_to_subidentifiers(oid)
         body = b"".join(BER_num_enc(k) for k in lst)
-        body_view = memoryview(body)
+        if len(body) >= UPER_FRAGMENT_SIZE:
+            body = memoryview(body)
         enc.append_fragmented(
             len(body),
-            lambda offset, size: enc.append_bytes(
-                body_view[offset:offset + size]
-            ),
+            lambda offset, size: enc.append_bytes(body[offset:offset + size]),
         )
 
     @classmethod
@@ -945,7 +944,7 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
             minimum = field.constraints.minimum
             maximum = field.constraints.maximum
         uper_enum_values = _uper_enum_values(
-            field, pkt, uper_enum_values,
+            field, values=uper_enum_values,
         )
         if extensible is None:
             extensible = (
@@ -990,7 +989,7 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
             minimum = field.constraints.minimum
             maximum = field.constraints.maximum
         uper_enum_values = _uper_enum_values(
-            field, pkt, uper_enum_values,
+            field, values=uper_enum_values,
         )
         if extensible is None:
             extensible = (
