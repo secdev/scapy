@@ -63,7 +63,6 @@ def uper_sequence_of_encode_to(enc, field, pkt, value=None):
 
     if (
             not field.holds_packets and
-            not isinstance(field.fld, ASN1F_PACKET) and
             isinstance(field.fld, (ASN1F_SEQUENCE, ASN1F_CHOICE, ASN1F_SEQUENCE_OF))
     ):
         raise UPER_Encoding_Error(
@@ -119,7 +118,6 @@ def uper_sequence_of_decode_from(dec, field, pkt):
 
     if (
             not field.holds_packets and
-            not isinstance(field.fld, ASN1F_PACKET) and
             isinstance(field.fld, (ASN1F_SEQUENCE, ASN1F_CHOICE, ASN1F_SEQUENCE_OF))
     ):
         raise UPER_Decoding_Error(
