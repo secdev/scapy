@@ -88,10 +88,13 @@ class HSRP(Packet):
         return HSRP
 
     def guess_payload_class(self, payload):
-        if self.underlayer.len > 28:
+        if (
+            self.underlayer is not None
+            and getattr(self.underlayer, "len", None) is not None
+            and self.underlayer.len > 28
+        ):
             return HSRPmd5
-        else:
-            return Packet.guess_payload_class(self, payload)
+        return Packet.guess_payload_class(self, payload)
 
 
 class HSRPAdvertise(Packet):
