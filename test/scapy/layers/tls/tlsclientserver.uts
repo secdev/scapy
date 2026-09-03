@@ -592,10 +592,10 @@ class _Machine(ForwardMachine):
     def _getpeersock(self, dest, ctx, server_hostname=None):
         return object()
 
-def _contexts_used(verify):
+def _contexts_used(no_check_certificate):
     machine = object.__new__(_Machine)
     machine.tls = True
-    machine.verify_upstream = verify
+    machine.no_check_certificate = no_check_certificate
     with patch(
         "scapy.fwdmachine.ssl.create_default_context",
         side_effect=RuntimeError("stop"),
@@ -608,8 +608,8 @@ def _contexts_used(verify):
             pass
     return verifying.call_count, unverifying.call_count
 
-assert _contexts_used(True) == (1, 0)
-assert _contexts_used(False) == (0, 1)
+assert _contexts_used(False) == (1, 0)
+assert _contexts_used(True) == (0, 1)
 
 = A client that sends no SNI is authenticated against the destination host
 
@@ -642,7 +642,7 @@ def _hostname_for(server_name):
             raise RuntimeError("unreachable")
     machine = object.__new__(_Machine)
     machine.tls = True
-    machine.verify_upstream = True
+    machine.no_check_certificate = False
     machine.ct = conf.color_theme
     with patch("scapy.fwdmachine.ssl.create_default_context", return_value=client), \
             patch("scapy.fwdmachine.ssl.SSLContext", _ServerContext):
