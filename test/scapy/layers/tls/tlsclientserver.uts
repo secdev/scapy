@@ -577,3 +577,77 @@ def _test_connection():
     assert b"</html>" in pkt[HTTPResponse].load
 
 retry_test(_test_connection)
+
+############
+############
++ ForwardMachine upstream TLS authentication
+~ crypto
+
+= The upstream context verifies certificates by default, and can be turned off
+
+from unittest.mock import patch
+from scapy.fwdmachine import ForwardMachine
+
+class _Machine(ForwardMachine):
+    def _getpeersock(self, dest, ctx, server_hostname=None):
+        return object()
+
+def _contexts_used(verify):
+    machine = object.__new__(_Machine)
+    machine.tls = True
+    machine.verify_upstream = verify
+    with patch(
+        "scapy.fwdmachine.ssl.create_default_context",
+        side_effect=RuntimeError("stop"),
+    ) as verifying, patch(
+        "scapy.fwdmachine.ssl.SSLContext", side_effect=RuntimeError("stop")
+    ) as unverifying:
+        try:
+            machine.handler(None, ("127.0.0.1", 1), ("upstream.test", 443))
+        except RuntimeError:
+            pass
+    return verifying.call_count, unverifying.call_count
+
+assert _contexts_used(True) == (1, 0)
+assert _contexts_used(False) == (0, 1)
+
+= A client that sends no SNI is authenticated against the destination host
+
+from unittest.mock import patch
+from scapy.config import conf
+from scapy.fwdmachine import ForwardMachine
+
+class _Machine(ForwardMachine):
+    def _getpeersock(self, dest, ctx, server_hostname=None):
+        return object()
+
+class _ClientContext:
+    def __init__(self):
+        self.hostnames = []
+    def wrap_socket(self, sock, server_hostname=None):
+        self.hostnames.append(server_hostname)
+        raise RuntimeError("stop before the handshake")
+
+class _Sock:
+    def close(self):
+        pass
+
+def _hostname_for(server_name):
+    client = _ClientContext()
+    class _ServerContext:
+        def __init__(self, *args, **kwargs):
+            self.sni_callback = None
+        def wrap_socket(self, sock, server_side=False):
+            self.sni_callback(None, server_name, None)
+            raise RuntimeError("unreachable")
+    machine = object.__new__(_Machine)
+    machine.tls = True
+    machine.verify_upstream = True
+    machine.ct = conf.color_theme
+    with patch("scapy.fwdmachine.ssl.create_default_context", return_value=client), \
+            patch("scapy.fwdmachine.ssl.SSLContext", _ServerContext):
+        machine.handler(_Sock(), ("127.0.0.1", 1), ("upstream.test", 443))
+    return client.hostnames
+
+assert _hostname_for("sni.test") == ["sni.test"]
+assert _hostname_for(None) == ["upstream.test"]
