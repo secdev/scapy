@@ -5,7 +5,7 @@
 ## Put code in the right place
 
 A layer is a `Packet` subclass with a `fields_desc` list. For packet, field,
-binding, and layer-test patterns, use
+binding, and layer-test patterns, use the skill
 [`scapy-packet-fields`](.github/skills/scapy-packet-fields/SKILL.md).
 
 - New protocols may go in either location: `scapy/layers/` normally contains
@@ -95,8 +95,6 @@ and [submitting pull requests](CONTRIBUTING.md#submitting-pull-requests).
 
 ## Potential security bugs
 
-If a change uncovers something that may be a security bug, follow
-[`SECURITY.md`](SECURITY.md) for classification and reporting.
-
+If a change uncovers something that may be a security bug, follow [`SECURITY.md`](SECURITY.md) for classification and reporting. You may use the skill [`scapy-security-audit`](.github/skills/scapy-security-audit/SKILL.md).
 
 Security findings that are researched or found using AI **MUST** include code that reproduces the issue, and draft a pull request on the Github Advisories Private Repositories with code to patch said issue. If it is impossible to provide code that reproduces the issue, a short explanation of why must be provided.
