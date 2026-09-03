@@ -418,6 +418,33 @@ with run_httpserver(mech=HTTP_AUTH_MECHS.BASIC, BASIC_IDENTITIES={"user": "passw
 
 assert html == "<!doctype html><html><body><h1>OK</h1></body></html>"
 
+= HTTP - HTTP_Client discards a timed-out connection
+~ http-client
+
+from scapy.layers.http import HTTP_Client, HTTPResponse
+
+class _TimeoutClient(HTTP_Client):
+    def __init__(self):
+        super().__init__(verb=False)
+        self.connection_count = 0
+        self.close_count = 0
+        self.responses = [None, HTTPResponse(Status_Code=b"200")]
+    def _connect_or_reuse(self, host, port=None, tls=False, timeout=5):
+        key = (host, port, tls)
+        if self._sockinfo != key:
+            self.connection_count += 1
+            self._sockinfo = key
+    def sr1(self, req, **kwargs):
+        return self.responses.pop(0)
+    def close(self):
+        self.close_count += 1
+
+client = _TimeoutClient()
+assert client.request("http://example.test:80/first", timeout=0.01) is None
+assert client.request("http://example.test:80/second").Status_Code == b"200"
+assert client.close_count == 1
+assert client.connection_count == 2
+
 
 = HTTP - HTTP_Server with native python client without auth
 ~ http-client
