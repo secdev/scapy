@@ -99,14 +99,12 @@ def resolve_oer_size_bounds(field=None, size_len=None):
     return None, None
 
 
-def uper_enum_values(field=None, pkt=None, uper_enum_values=None):
-    # type: (Any, Any, Optional[List[int]]) -> Optional[List[int]]
-    if uper_enum_values is not None:
-        return uper_enum_values
-    if field is not None and pkt is not None and hasattr(field, "uper_enum_values"):
-        from scapy.asn1.asn1 import ASN1_Codecs
-        if getattr(pkt, "ASN1_codec", None) is ASN1_Codecs.PER:
-            return field.uper_enum_values()
+def uper_enum_values(field=None, values=None):
+    # type: (Any, Optional[List[int]]) -> Optional[List[int]]
+    if values is not None:
+        return values
+    if field is not None and hasattr(field, "uper_enum_values"):
+        return field.uper_enum_values()
     return None
 
 
