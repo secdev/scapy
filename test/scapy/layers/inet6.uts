@@ -82,7 +82,7 @@ raw(IPv6(src="2048::deca", dst="2047::cafe")/IPv6ExtHdrRouting(addresses=["2001:
 ########### IPv6ExtHdrSegmentRouting Class ###########################
 
 = IPv6ExtHdrRouting Class - Odd length - build and dissect
-routing = IPv6ExtHdrRouting(type=253, segleft=0, data=b"12345678")
+routing = IPv6ExtHdrRouting(type=253, segleft=0, pad=b"12345678")
 # Port 5353 would make Scapy parse the payload as mDNS; the point here is the
 # routing header, so use a port with no higher-layer binding.
 s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2") / routing /
@@ -90,7 +90,7 @@ s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2") / routing /
 p = IPv6(s)
 assert p[IPv6ExtHdrRouting].len == 1
 assert p[IPv6ExtHdrRouting].addresses == []
-assert p[IPv6ExtHdrRouting].data == b"12345678"
+assert p[IPv6ExtHdrRouting].pad == b"12345678"
 assert UDP in p and p[UDP].dport == 40000
 assert raw(p) == s
 

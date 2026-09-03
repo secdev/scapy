@@ -39,7 +39,6 @@ from scapy.fields import (
     BitField,
     ByteEnumField,
     ByteField,
-    ConditionalField,
     DestIP6Field,
     FieldLenField,
     FlagsField,
@@ -997,21 +996,21 @@ class IPv6ExtHdrDestOpt(_IPv6ExtHdr):
 class IPv6ExtHdrRouting(_IPv6ExtHdr):
     name = "IPv6 Option Header Routing"
     fields_desc = [ByteEnumField("nh", 59, ipv6nh),
-                   FieldLenField("len", None, count_of="addresses", fmt="B",
-                                 adjust=lambda pkt, x: 2 * x + len(pkt.getfieldval("data") or b"") // 8),  # noqa: E501
+                   ByteField("len", None),  # in 8 bytes blocks
                    ByteField("type", 0),
                    ByteField("segleft", None),
                    BitField("reserved", 0, 32),  # There is meaning in this field ...  # noqa: E501
                    IP6ListField("addresses", [],
                                 length_from=lambda pkt: 16 * (pkt.len // 2)),
-                   ConditionalField(StrLenField("data", b"",
-                                                length_from=lambda pkt: 8),
-                                    lambda pkt: (bool(pkt.getfieldval("data"))
-                                                 if pkt.len is None
-                                                 else pkt.len % 2))]
+                   # An odd 'len' leaves 8 bytes over, which is half an address.
+                   StrLenField("pad", b"",
+                               length_from=lambda pkt: 8 * (pkt.len % 2))]
     overload_fields = {IPv6: {"nh": 43}}
 
     def post_build(self, pkt, pay):
+        if self.len is None:
+            tmp_len = (len(pkt) - 8) // 8
+            pkt = pkt[:1] + struct.pack("B", tmp_len) + pkt[2:]
         if self.segleft is None:
             pkt = pkt[:3] + struct.pack("B", len(self.addresses)) + pkt[4:]
         return _IPv6ExtHdr.post_build(self, pkt, pay)
