@@ -53,8 +53,23 @@ def uper_sequence_decode_from(dec, field, pkt):
 
 def uper_sequence_of_encode_to(enc, field, pkt, value=None):
     # type: (Any, Any, Any, Any) -> None
-    from scapy.asn1.uper import UPER_constrained_int_enc
-    from scapy.asn1fields import ASN1F_PACKET
+    from scapy.asn1.uper import UPER_Encoding_Error, UPER_constrained_int_enc
+    from scapy.asn1fields import (
+        ASN1F_CHOICE,
+        ASN1F_PACKET,
+        ASN1F_SEQUENCE,
+        ASN1F_SEQUENCE_OF,
+    )
+
+    if (
+            not field.holds_packets and
+            not isinstance(field.fld, ASN1F_PACKET) and
+            isinstance(field.fld, (ASN1F_SEQUENCE, ASN1F_CHOICE, ASN1F_SEQUENCE_OF))
+    ):
+        raise UPER_Encoding_Error(
+            "ASN1F_SEQUENCE_OF: compound ASN1F_field elements are not "
+            "supported in UPER; use an ASN1_Packet for structured items"
+        )
 
     bit_enc = enc.bit_encoder
     if value is None:
@@ -94,8 +109,23 @@ def uper_sequence_of_encode_to(enc, field, pkt, value=None):
 
 def uper_sequence_of_decode_from(dec, field, pkt):
     # type: (Any, Any, Any) -> None
-    from scapy.asn1.uper import UPER_constrained_int_dec
-    from scapy.asn1fields import ASN1F_PACKET
+    from scapy.asn1.uper import UPER_Decoding_Error, UPER_constrained_int_dec
+    from scapy.asn1fields import (
+        ASN1F_CHOICE,
+        ASN1F_PACKET,
+        ASN1F_SEQUENCE,
+        ASN1F_SEQUENCE_OF,
+    )
+
+    if (
+            not field.holds_packets and
+            not isinstance(field.fld, ASN1F_PACKET) and
+            isinstance(field.fld, (ASN1F_SEQUENCE, ASN1F_CHOICE, ASN1F_SEQUENCE_OF))
+    ):
+        raise UPER_Decoding_Error(
+            "ASN1F_SEQUENCE_OF: compound ASN1F_field elements are not "
+            "supported in UPER; use an ASN1_Packet for structured items"
+        )
 
     bit_dec = dec.bit_decoder
     lst = []

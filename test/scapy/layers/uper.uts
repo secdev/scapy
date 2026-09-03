@@ -2299,25 +2299,36 @@ assert _EmptySeqOf.ASN1_root.i2repr(
 
 _raises(ValueError, lambda: ASN1F_SEQUENCE_OF("bad", [], object()))
 
-_raises(
-    ValueError,
-    lambda: ASN1F_SEQUENCE_OF(
+# Compound ASN1F_field elements stay constructible (BER/OER); UPER rejects
+# them at encode/decode time rather than at construction.
+class _UperSeqOfSeq(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
         "items",
         [],
         ASN1F_SEQUENCE(
             ASN1F_INTEGER("x", 0, minimum=0, maximum=15),
         ),
+    )
+
+_raises(UPER_Encoding_Error, lambda: raw(_UperSeqOfSeq(items=[])))
+_raises(
+    UPER_Decoding_Error,
+    lambda: _UperSeqOfSeq.ASN1_root.decode_from(
+        _UperSeqOfSeq(), UPER_DecoderContext(b"\x00"),
     ),
 )
 
-_raises(
-    ValueError,
-    lambda: ASN1F_SEQUENCE_OF(
-        "items",
-        [],
-        ASN1F_SEQUENCE_OF("inner", [], ASN1F_INTEGER),
-    ),
-)
+class _BerSeqOfChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "items", [],
+        ASN1F_CHOICE("c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING),
+    )
+
+assert [x.val for x in _BerSeqOfChoice(raw(
+    _BerSeqOfChoice(items=[ASN1_INTEGER(5)])
+)).items] == [5]
 
 # ASN1F_PACKET elements remain valid (same as ASN1_Packet nesting).
 class _PktItem(ASN1_Packet):
