@@ -130,7 +130,7 @@ class BGPFieldIPv4(Field):
     def m2i(self, pkt, m):
         mask = m[0]
         mask2iplen_res = self.mask2iplen(mask)
-        ip = b"".join(m[i + 1:i + 2] if i < mask2iplen_res else b"\x00" for i in range(4))  # noqa: E501
+        ip = b"".join(m[i + 1:i + 2] if i < mask2iplen_res and i + 1 < len(m) else b"\x00" for i in range(4))  # noqa: E501
         return (mask, socket.inet_ntoa(ip))
 
 
@@ -173,7 +173,14 @@ class BGPFieldIPv6(Field):
 
     def m2i(self, pkt, m):
         mask = m[0]
-        ip = b"".join(m[i + 1:i + 2] if i < self.mask2iplen(mask) else b"\x00" for i in range(16))  # noqa: E501
+        # zero-fill missing prefix bytes in place: a truncated NLRI has fewer
+        # than mask2iplen(mask) bytes, and inet_ntop() needs exactly 16.
+        ip = b"".join(
+            m[i + 1:i + 2]
+            if i < self.mask2iplen(mask) and i + 1 < len(m)
+            else b"\x00"
+            for i in range(16)
+        )
         return (mask, pton_ntop.inet_ntop(socket.AF_INET6, ip))
 
 
