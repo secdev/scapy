@@ -411,6 +411,7 @@ class tlsSession(object):
         # to be sent by the server through a Certificate message.
         # The server certificate should be self.server_certs[0].
         self.server_certs = []
+        self.server_cert_valid = None
 
         # The server private key, as a PrivKey instance, when acting as server.
         # XXX It would be nice to be able to provide both an RSA and an ECDSA
