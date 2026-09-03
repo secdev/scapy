@@ -363,6 +363,28 @@ with run_httpserver(mech=HTTP_AUTH_MECHS.NTLM, ssp=NTLMSSP(IDENTITIES={"user": M
 
 assert resp.Status_Code == b"401"
 
+= HTTP - HTTP_Client follows standard URL authority parsing
+~ http-client
+
+from scapy.layers.http import HTTP_Client, HTTPResponse
+
+class URLParsingClient(HTTP_Client):
+    def _connect_or_reuse(self, host, port=None, tls=False, timeout=5):
+        self.connected = (host, port, tls)
+    def sr1(self, req, **kwargs):
+        self.sent_request = req
+        return HTTPResponse(Status_Code=b"200")
+
+client = URLParsingClient(verb=False)
+resp = client.request(
+    "http://127.0.0.1:8081@allowed.example:8080/resource?item=1#fragment"
+)
+
+assert resp.Status_Code == b"200"
+assert client.connected == ("allowed.example", 8080, False)
+assert client.sent_request.Host == b"allowed.example:8080"
+assert client.sent_request.Path == b"/resource?item=1"
+
 = HTTP - HTTP_client asks HTTP_server with NTLMSSP
 ~ http-client
 
