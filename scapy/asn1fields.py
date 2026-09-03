@@ -432,13 +432,12 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
         for k in keys:
             i2s[k] = enum[k]
             s2i[enum[k]] = k
-        # Canonical PER index order (X.691); built once — i2s is not mutated
-        # after construction.
-        self._uper_enum_values = sorted(i2s)  # type: List[int]
 
     def uper_enum_values(self):
         # type: () -> List[int]
-        return self._uper_enum_values
+        # Sort on each call: i2s remains a normal mutable Scapy mapping, and
+        # ENUMERATED sets are normally tiny.
+        return sorted(self.i2s)
 
     def normalize_encode_value(self, pkt, value):
         # type: (ASN1_Packet, Any) -> Any
