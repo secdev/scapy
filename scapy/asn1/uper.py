@@ -462,6 +462,7 @@ def UPER_octet_string_enc(enc, data, minimum=None, maximum=None,
                           extensible=False):
     # type: (UPER_Encoder, bytes, Optional[int], Optional[int], bool) -> None
     length = len(data)
+    data_view = memoryview(data)
     if extensible and minimum is not None and maximum is not None:
         if minimum <= length <= maximum:
             enc.append_bit(0)
@@ -469,7 +470,9 @@ def UPER_octet_string_enc(enc, data, minimum=None, maximum=None,
             enc.append_bit(1)
             enc.append_fragmented(
                 length,
-                lambda offset, size: enc.append_bytes(data[offset:offset + size]),
+                lambda offset, size: enc.append_bytes(
+                    data_view[offset:offset + size]
+                ),
             )
             return
     if minimum is not None and maximum is not None:
@@ -485,7 +488,9 @@ def UPER_octet_string_enc(enc, data, minimum=None, maximum=None,
     else:
         enc.append_fragmented(
             length,
-            lambda offset, size: enc.append_bytes(data[offset:offset + size]),
+            lambda offset, size: enc.append_bytes(
+                data_view[offset:offset + size]
+            ),
         )
 
 
@@ -584,7 +589,7 @@ class UPERcodec_Object(Generic[_K], metaclass=ASN1Codec_metaclass):
             return cls.do_dec(s, context, safe, **kwargs)
         try:
             return cls.do_dec(s, context, safe, **kwargs)
-        except (UPER_Decoding_Error, ASN1_Error) as e:
+        except ASN1_Error as e:
             return ASN1_DECODING_ERROR(s, exc=e), b""
 
     @classmethod
@@ -718,6 +723,7 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
         minimum, maximum, extensible = resolve_uper_size_bounds(
             field, size_len, minimum, maximum, extensible,
         )
+        s_view = memoryview(s)
         if extensible and minimum is not None and maximum is not None:
             if minimum <= nbits <= maximum:
                 enc.append_bit(0)
@@ -726,7 +732,7 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                 enc.append_fragmented(
                     nbits,
                     lambda offset, size: enc.append_bits(
-                        s[offset // 8:(offset + size + 7) // 8], size
+                        s_view[offset // 8:(offset + size + 7) // 8], size
                     ),
                 )
                 return
@@ -745,7 +751,7 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                 # Fragments hold whole multiples of 16K bits, so every chunk
                 # but the last starts and ends on an octet boundary.
                 lambda offset, size: enc.append_bits(
-                    s[offset // 8:(offset + size + 7) // 8], size
+                    s_view[offset // 8:(offset + size + 7) // 8], size
                 ),
             )
 
@@ -866,9 +872,12 @@ class UPERcodec_OID(UPERcodec_Object[bytes]):
         oid = bytes_encode(_oid)
         lst = oid_dotted_to_subidentifiers(oid)
         body = b"".join(BER_num_enc(k) for k in lst)
+        body_view = memoryview(body)
         enc.append_fragmented(
             len(body),
-            lambda offset, size: enc.append_bytes(body[offset:offset + size]),
+            lambda offset, size: enc.append_bytes(
+                body_view[offset:offset + size]
+            ),
         )
 
     @classmethod

@@ -57,10 +57,6 @@ from typing import (
 ##################
 
 
-class OER_Exception(Exception):
-    pass
-
-
 class OER_Encoding_Error(ASN1_Encoding_Error):
     pass
 
@@ -94,7 +90,7 @@ def OER_len_enc(ll):
         return chb(ll)
     number_of_bytes = (ll.bit_length() + 7) // 8
     if number_of_bytes > 127:
-        raise OER_Exception(
+        raise OER_Encoding_Error(
             "OER_len_enc: Length too long (%i) to be encoded" %
             number_of_bytes
         )
@@ -257,8 +253,6 @@ class OERcodec_Object(Generic[_K], metaclass=ASN1Codec_metaclass):
             return cls.do_dec(
                 s, context=context, safe=safe, **_kwargs,
             )
-        except OER_Decoding_Error as e:
-            return ASN1_DECODING_ERROR(s, exc=e), b""
         except ASN1_Error as e:
             return ASN1_DECODING_ERROR(s, exc=e), b""
 

@@ -432,10 +432,13 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
         for k in keys:
             i2s[k] = enum[k]
             s2i[enum[k]] = k
+        # Canonical PER index order (X.691); built once — i2s is not mutated
+        # after construction.
+        self._uper_enum_values = sorted(i2s)  # type: List[int]
 
     def uper_enum_values(self):
         # type: () -> List[int]
-        return sorted(self.i2s)
+        return self._uper_enum_values
 
     def normalize_encode_value(self, pkt, value):
         # type: (ASN1_Packet, Any) -> Any
