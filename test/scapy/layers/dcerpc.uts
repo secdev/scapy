@@ -974,6 +974,65 @@ except OSError:
 
 rpcserver.close()
 
+= A rejected presentation context cannot select an RPC interface
+
+# Take the classes from the registry rather than from the module. A second
+# import of an already-registered interface returns before binding opnum and
+# intf, so the module-level names are not always the registered objects.
+_ept_free = find_dcerpc_interface("ept").opnums[4]
+ept_lookup_handle_free_Request = _ept_free.request
+ept_lookup_handle_free_Response = _ept_free.response
+
+class PresentationContextServer(DCERPC_Server):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.handler_calls = 0
+    @DCERPC_Server.answer(ept_lookup_handle_free_Request)
+    def operation(self, request):
+        self.handler_calls += 1
+        return ept_lookup_handle_free_Response(status=0, ndr64=False)
+
+def drive_presentation_context(transfer_syntax):
+    interface = find_dcerpc_interface("ept")
+    syntax = next(
+        syntax
+        for syntax, name in DCE_RPC_TRANSFER_SYNTAXES.items()
+        if name == transfer_syntax
+    )
+    context = DceRpc5Context(
+        abstract_syntax=DceRpc5AbstractSyntax(
+            if_uuid=interface.uuid,
+            if_version=interface.if_version,
+        ),
+        transfer_syntaxes=[
+            DceRpc5TransferSyntax(
+                if_uuid=syntax,
+                if_version=2 if transfer_syntax == "NDR 2.0" else 0,
+            )
+        ],
+    )
+    server = PresentationContextServer(
+        DCERPC_Transport.NCACN_IP_TCP,
+        verb=False,
+        port=12345,
+    )
+    server.recv(bytes(DceRpc5(call_id=1) / DceRpc5Bind(context_elem=[context])))
+    result = int(server.get_response().results[0].result)
+    try:
+        server.recv(
+            bytes(
+                DceRpc5(call_id=2)
+                / DceRpc5Request(opnum=4)
+                / ept_lookup_handle_free_Request(ndr64=False)
+            )
+        )
+    except AttributeError:
+        pass
+    return result, server.handler_calls
+
+assert drive_presentation_context("NULL") == (2, 0)
+assert drive_presentation_context("NDR 2.0") == (0, 1)
+
 + Cleanup
 
 = Restore conf.debug_dissector
