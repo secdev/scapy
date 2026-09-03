@@ -30,6 +30,11 @@ nlri = BGPNLRI_IPv4(b'\x18\xc0\x00\x02')
 nlri.prefix == '192.0.2.0/24'
 
 
+= BGPNLRI_IPv4 - Dissection of a truncated prefix does not crash (regression)
+nlri = BGPNLRI_IPv4(b'\x20\x0a')
+nlri.prefix == '10.0.0.0/32'
+
+
 ################################ BGPNLRI_IPv6 ################################
 + BGPNLRI_IPv6 class tests
 
@@ -49,6 +54,11 @@ nlri.prefix == '::/0'
 = BGPNLRI_IPv6 - Dissection with specific values
 nlri = BGPNLRI_IPv6(b'  \x01\r\xb8')
 nlri.prefix == '2001:db8::/32'
+
+
+= BGPNLRI_IPv6 - Dissection of a truncated prefix does not crash (regression)
+nlri = BGPNLRI_IPv6(b'\x80\x20\x01\x0d\xb8')
+nlri.prefix == '2001:db8::/128'
 
 
 #################################### BGP #####################################
