@@ -31,11 +31,11 @@ References:
       https://www.kernel.org/doc/html/latest/networking/j1939.html
 """
 
+import logging
 import socket
 import struct
-import logging
 import time
-
+import traceback
 from typing import (
     Any,
     Dict,
@@ -43,9 +43,15 @@ from typing import (
     Optional,
     Tuple,
     Type,
+    Union,
+    cast,
+    TYPE_CHECKING,
 )
 
+from scapy.automaton import ObjectPipe, select_objects
+from scapy.compat import raw
 from scapy.config import conf
+from scapy.consts import LINUX
 from scapy.data import SO_TIMESTAMPNS
 from scapy.error import Scapy_Exception, log_runtime
 from scapy.fields import (
@@ -64,7 +70,10 @@ from scapy.fields import (
 from scapy.layers.can import CAN
 from scapy.packet import Packet
 from scapy.supersocket import SuperSocket
-from scapy.compat import raw
+from scapy.utils import EDecimal
+
+if TYPE_CHECKING:
+    from scapy.contrib.cansocket import CANSocket
 
 log_j1939 = logging.getLogger("scapy.contrib.j1939")
 
@@ -120,17 +129,17 @@ if not hasattr(socket, 'SCM_J1939_ERRQUEUE'):
     socket.SCM_J1939_ERRQUEUE = 4
 
 #: Global broadcast address
-J1939_BROADCAST_ADDR = socket.J1939_NO_ADDR                    # 0xFF
+J1939_BROADCAST_ADDR = socket.J1939_NO_ADDR  # 0xFF
 #: Transport Protocol – Connection Management
 J1939_PGN_TP_CM = 0xEC00
 #: Transport Protocol – Data Transfer
 J1939_PGN_TP_DT = 0xEB00
 
 # TP control byte values (integer constants; the classes share the prefix name)
-J1939_TP_CTRL_RTS = 16     # Request To Send
-J1939_TP_CTRL_CTS = 17     # Clear To Send
-J1939_TP_CTRL_ACK = 19     # End of Message Acknowledge
-J1939_TP_CTRL_BAM = 32     # Broadcast Announce Message
+J1939_TP_CTRL_RTS = 16  # Request To Send
+J1939_TP_CTRL_CTS = 17  # Clear To Send
+J1939_TP_CTRL_ACK = 19  # End of Message Acknowledge
+J1939_TP_CTRL_BAM = 32  # Broadcast Announce Message
 J1939_TP_CTRL_ABORT = 255  # Connection Abort
 
 # PDU format threshold: PF < 240 → PDU1 (peer-to-peer), PF ≥ 240 → PDU2 (broadcast)
@@ -269,8 +278,8 @@ class J1939(Packet):
 
     def __init__(self, *args, **kwargs):
         # type: (*Any, **Any) -> None
-        self.priority = kwargs.pop('priority', 6)    # type: int
-        self.pgn = kwargs.pop('pgn', 0)              # type: int
+        self.priority = kwargs.pop('priority', 6)  # type: int
+        self.pgn = kwargs.pop('pgn', 0)  # type: int
         self.src = kwargs.pop('src', socket.J1939_NO_ADDR)  # type: int
         self.dst = kwargs.pop('dst', socket.J1939_NO_ADDR)  # type: int
         Packet.__init__(self, *args, **kwargs)
@@ -336,12 +345,12 @@ class J1939_CAN(CAN):
         # ── first 32 bits: CAN flags(3) + J1939 identifier fields(29) ──────
         FlagsField('flags', 0b100, 3,
                    ['error', 'remote_transmission_request', 'extended']),
-        BitField('priority', 6, 3),       # J1939 priority
-        BitField('reserved', 0, 1),       # Reserved bit
-        BitField('data_page', 0, 1),      # Data Page (DP)
-        ByteField('pdu_format', 0xFE),    # PDU Format (PF)
+        BitField('priority', 6, 3),  # J1939 priority
+        BitField('reserved', 0, 1),  # Reserved bit
+        BitField('data_page', 0, 1),  # Data Page (DP)
+        ByteField('pdu_format', 0xFE),  # PDU Format (PF)
         ByteField('pdu_specific', 0xFF),  # PDU Specific (PS): DA or GE
-        ByteField('src', 0xFE),           # Source Address (SA)
+        ByteField('src', 0xFE),  # Source Address (SA)
         # ── standard CAN data-length + padding ────────────────────────────
         FieldLenField('length', None, length_of='data', fmt='B'),
         ThreeBytesField('reserved2', 0),
@@ -432,11 +441,11 @@ class J1939_TP_CM_RTS(Packet):
     """
     name = 'J1939_TP_CM_RTS'
     fields_desc = [
-        ByteField('ctrl', J1939_TP_CTRL_RTS),         # 16
-        LEShortField('total_size', 0),                # total message size (bytes)
-        ByteField('num_packets', 0),                  # total number of TP.DT packets
-        ByteField('max_packets', 0xFF),         # max packets per CTS (0xFF = no limit)
-        XLE3BytesField('pgn', 0),               # PGN of the message being transferred
+        ByteField('ctrl', J1939_TP_CTRL_RTS),  # 16
+        LEShortField('total_size', 0),  # total message size (bytes)
+        ByteField('num_packets', 0),  # total number of TP.DT packets
+        ByteField('max_packets', 0xFF),  # max packets per CTS (0xFF = no limit)
+        XLE3BytesField('pgn', 0),  # PGN of the message being transferred
     ]
 
 
@@ -448,11 +457,11 @@ class J1939_TP_CM_CTS(Packet):
     """
     name = 'J1939_TP_CM_CTS'
     fields_desc = [
-        ByteField('ctrl', J1939_TP_CTRL_CTS),         # 17
-        ByteField('num_packets', 0),                  # number of packets to send now
-        ByteField('next_packet', 1),                  # next expected sequence number
+        ByteField('ctrl', J1939_TP_CTRL_CTS),  # 17
+        ByteField('num_packets', 0),  # number of packets to send now
+        ByteField('next_packet', 1),  # next expected sequence number
         ShortField('reserved', 0xFFFF),
-        XLE3BytesField('pgn', 0),                    # PGN of the message
+        XLE3BytesField('pgn', 0),  # PGN of the message
     ]
 
 
@@ -463,11 +472,11 @@ class J1939_TP_CM_ACK(Packet):
     """
     name = 'J1939_TP_CM_ACK'
     fields_desc = [
-        ByteField('ctrl', J1939_TP_CTRL_ACK),         # 19
-        LEShortField('total_size', 0),                # total message size
-        ByteField('num_packets', 0),                  # total TP.DT packets received
+        ByteField('ctrl', J1939_TP_CTRL_ACK),  # 19
+        LEShortField('total_size', 0),  # total message size
+        ByteField('num_packets', 0),  # total TP.DT packets received
         ByteField('reserved', 0xFF),
-        XLE3BytesField('pgn', 0),                    # PGN of the message
+        XLE3BytesField('pgn', 0),  # PGN of the message
     ]
 
 
@@ -478,11 +487,11 @@ class J1939_TP_CM_BAM(Packet):
     """
     name = 'J1939_TP_CM_BAM'
     fields_desc = [
-        ByteField('ctrl', J1939_TP_CTRL_BAM),         # 32
-        LEShortField('total_size', 0),                # total message size (bytes)
-        ByteField('num_packets', 0),                  # total number of TP.DT packets
+        ByteField('ctrl', J1939_TP_CTRL_BAM),  # 32
+        LEShortField('total_size', 0),  # total message size (bytes)
+        ByteField('num_packets', 0),  # total number of TP.DT packets
         ByteField('reserved', 0xFF),
-        XLE3BytesField('pgn', 0),                    # PGN of the message
+        XLE3BytesField('pgn', 0),  # PGN of the message
     ]
 
 
@@ -490,11 +499,11 @@ class J1939_TP_CM_ABORT(Packet):
     """J1939 TP Connection Management – Connection Abort."""
     name = 'J1939_TP_CM_ABORT'
     fields_desc = [
-        ByteField('ctrl', J1939_TP_CTRL_ABORT),       # 255
-        ByteField('reason', 0),                       # abort reason
+        ByteField('ctrl', J1939_TP_CTRL_ABORT),  # 255
+        ByteField('reason', 0),  # abort reason
         ShortField('reserved', 0xFFFF),
         ByteField('reserved2', 0xFF),
-        XLE3BytesField('pgn', 0),                    # PGN of the aborted message
+        XLE3BytesField('pgn', 0),  # PGN of the aborted message
     ]
 
 
@@ -540,8 +549,8 @@ class J1939_TP_DT(Packet):
     """
     name = 'J1939_TP_DT'
     fields_desc = [
-        ByteField('seq_num', 1),                      # sequence number 1-255
-        StrFixedLenField('data', b'\xff' * 7, 7),     # 7 data bytes (0xFF = unused)
+        ByteField('seq_num', 1),  # sequence number 1-255
+        StrFixedLenField('data', b'\xff' * 7, 7),  # 7 data bytes (0xFF = unused)
     ]
 
 
@@ -605,14 +614,14 @@ class NativeJ1939Socket(SuperSocket):
 
     def __init__(
             self,
-            channel=None,           # type: Optional[str]
+            channel=None,  # type: Optional[str]
             src_name=socket.J1939_NO_NAME,  # type: int
             src_addr=socket.J1939_NO_ADDR,  # type: int
-            pgn=socket.J1939_NO_PGN,        # type: int
-            promisc=True,            # type: bool
-            filters=None,            # type: Optional[List[Dict[str, int]]]
-            basecls=J1939,           # type: Type[Packet]
-            **kwargs                 # type: Any
+            pgn=socket.J1939_NO_PGN,  # type: int
+            promisc=True,  # type: bool
+            filters=None,  # type: Optional[List[Dict[str, int]]]
+            basecls=J1939,  # type: Type[Packet]
+            **kwargs  # type: Any
     ):
         # type: (...) -> None
         self.channel = channel or conf.contribs['J1939']['channel']
@@ -810,3 +819,1128 @@ class NativeJ1939Socket(SuperSocket):
         except OSError as exc:
             log_j1939.error("Failed to send J1939 packet: %s", exc)
             return 0
+
+
+# ---------------------------------------------------------------------------
+# J1939 Soft Socket
+# ---------------------------------------------------------------------------
+# Implements the SAE J1939 Transport Protocol (segmentation and reassembly)
+# entirely in Python over any CANSocket, without requiring the Linux kernel
+# CAN_J1939 socket module.  The design mirrors ISOTPSoftSocket from
+# scapy.contrib.isotp.isotp_soft_socket.
+
+# J1939-21 transport-protocol timing constants (seconds)
+_J1939_TP_BAM_DELAY = 0.050  # minimum inter-packet gap for BAM sender (50 ms)
+_J1939_TP_T1 = 0.750  # receiver timeout for first DT after BAM/RTS
+_J1939_TP_T2 = 1.250  # receiver timeout between consecutive DT frames
+_J1939_TP_T3 = 1.250  # sender timeout waiting for CTS after RTS/block
+_J1939_TP_T4 = 1.050  # sender timeout waiting for End-of-Message ACK
+
+# On slow serial interfaces (slcan) the OS serial buffer may hold hundreds of
+# background CAN frames that the mux must drain before the TP.DT frames
+# arrive.  When the inactivity timer fires, the handler checks the total
+# elapsed time; if it is below _J1939_TP_T2 × _J1939_TP_DT_TIMEOUT_EXTENSION
+# (i.e. 1.25 s × 10 = 12.5 s), the timer is re-armed and the session
+# continues.  Only after that wall-clock ceiling is exceeded is the transfer
+# declared timed-out.
+_J1939_TP_DT_TIMEOUT_EXTENSION = 10
+
+# Maximum payload / per-frame data constants
+_J1939_TP_DT_DATA = 7  # usable data bytes per TP.DT packet
+_J1939_TP_MAX_PACKETS = 255  # sequence numbers are a single byte
+_J1939_TP_MAX_DATA = 1785  # maximum J1939 TP payload (255 × 7 bytes)
+
+# A node may run one TP session per (source address, destination address)
+# pair, so several ECUs can be received at once.  The cap only exists to
+# bound memory on a hostile bus.
+_J1939_MAX_RX_SESSIONS = 16
+
+# J1939-21 connection abort reasons
+_J1939_ABORT_IN_SESSION = 1  # already in a connection-managed session
+_J1939_ABORT_RESOURCES = 2  # system resources needed for another task
+_J1939_ABORT_TIMEOUT = 3  # a timeout occurred
+_J1939_ABORT_BAD_SEQ = 7  # bad sequence number
+_J1939_ABORT_OTHER = 250  # any other reason
+
+# Internal TX state codes
+_J1939_TX_IDLE = 0
+_J1939_TX_BAM = 1  # BAM TP.DT frames are being sent
+_J1939_TX_RTS_WAIT_CTS = 2  # RTS sent; waiting for CTS
+_J1939_TX_RTS_SENDING = 3  # CTS received; sending TP.DT block
+
+
+class _J1939_RXSession(object):
+    """One TP reception in progress.
+
+    J1939-21 allows a node to run one session per (source address,
+    destination address) pair, so sessions are keyed by that pair: several
+    ECUs may broadcast at the same time, which is the normal state of a
+    busy bus.
+    """
+
+    __slots__ = ['sa', 'dst', 'pgn', 'total', 'npkts', 'is_bam', 'ts',
+                 'priority', 'buf', 'seq', 'block_end', 'block_size',
+                 'start_time', 'timeout_handle']
+
+    def __init__(self, sa, dst, pgn, total, npkts, is_bam, ts, priority=6):
+        # type: (int, int, int, int, int, bool, Union[float, EDecimal], int) -> None  # noqa: E501
+        self.sa = sa
+        self.dst = dst
+        self.pgn = pgn
+        self.total = total
+        self.npkts = npkts
+        self.is_bam = is_bam
+        self.ts = ts
+        self.priority = priority
+        self.buf = bytearray()
+        self.seq = 1  # next expected TP.DT sequence number
+        # Last sequence number the peer is currently allowed to send. For a
+        # BAM the whole message is authorised; for RTS/CTS it is the end of
+        # the block named by our most recent CTS.
+        self.block_end = npkts
+        # Packets per CTS, bounded by the max_packets the sender announced.
+        self.block_size = npkts
+        self.start_time = time.monotonic()
+        self.timeout_handle = None  # type: Optional[Any]
+
+    @property
+    def key(self):
+        # type: () -> Tuple[int, int]
+        return self.sa, self.dst
+
+
+class J1939TPImplementation:
+    """Software implementation of the SAE J1939 Transport Protocol state machine.
+
+    All state is stored here so that the garbage collector can reclaim a
+    :class:`J1939SoftSocket` even while the background
+    :class:`~scapy.contrib.isotp.isotp_soft_socket.TimeoutScheduler` thread
+    holds a reference to this object.
+
+    :param can_socket: a :class:`~scapy.contrib.cansocket.CANSocket` used for
+                       raw CAN I/O
+    :param src_addr:   this node's J1939 source address (0x00–0xFD)
+    :param listen_only: when ``True`` the implementation never sends CTS, ACK,
+                        or ABORT frames, allowing passive monitoring of TP
+                        sessions without influencing the bus.  Received payloads
+                        are still reassembled and delivered via :meth:`recv`.
+    :param pgn_filter: when not :data:`socket.J1939_NO_PGN`, only messages
+                       whose PGN matches this value are delivered.
+                       :data:`socket.J1939_NO_PGN` (the default) accepts all
+                       PGNs, matching :class:`NativeJ1939Socket`.
+    :param basecls: packet class used for delivered messages, defaulting to
+                    :class:`J1939`
+
+    Receptions are tracked per (source address, destination) pair, so
+    several ECUs may transfer at the same time, up to
+    :data:`_J1939_MAX_RX_SESSIONS`.
+    """
+
+    def __init__(
+            self,
+            can_socket,  # type: "CANSocket"
+            src_addr,  # type: int
+            listen_only=False,  # type: bool
+            pgn_filter=socket.J1939_NO_PGN,  # type: int
+            basecls=None,  # type: Optional[Type[Packet]]
+    ):
+        # type: (...) -> None
+        from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
+        self._TimeoutScheduler = TimeoutScheduler
+
+        self.can_socket = can_socket
+        self.src_addr = src_addr
+        self.listen_only = listen_only
+        self.pgn_filter = pgn_filter
+        self.basecls = basecls or J1939  # type: Type[Packet]
+        self.closed = False
+        self.closing = False
+        self.rx_tx_poll_rate = 0.005
+
+        # ── receive path ──────────────────────────────────────────────────────
+        # In-progress receptions, keyed by (source address, destination).
+        self.rx_sessions = {}  # type: Dict[Tuple[int, int], _J1939_RXSession]
+
+        # Delivered received messages: each item is (J1939, timestamp)
+        self.rx_queue = ObjectPipe()  # type: ignore
+
+        # ── transmit path ─────────────────────────────────────────────────────
+        self.tx_state = _J1939_TX_IDLE  # type: int
+        self.tx_buf = None  # type: Optional[bytes]
+        self.tx_pgn = 0
+        self.tx_dst = socket.J1939_NO_ADDR
+        self.tx_priority = 6
+        self.tx_npkts = 0  # total TP.DT packets to send
+        self.tx_seq = 1  # next TP.DT sequence number to send
+        self.tx_peer_sa = socket.J1939_NO_ADDR  # peer SA for RTS/CTS sessions
+        self.tx_timeout_handle = None  # type: Optional[Any]
+
+        # Enqueued outgoing messages: each item is a J1939 packet
+        self.tx_queue = ObjectPipe()  # type: ignore
+
+        # Drain frames that accumulated in the CAN adapter's hardware RX
+        # buffer while no soft socket was active.  USB adapters (candle,
+        # cantact) have small hardware buffers; if background traffic fills
+        # them before can_recv starts polling, the next ECU response may be
+        # dropped by the adapter.
+        try:
+            self.can_socket.select([self.can_socket], 0)
+        except Exception:
+            log_j1939.debug("Exception during J1939 socket drain select",
+                            exc_info=True)
+
+        # ── background polling ────────────────────────────────────────────────
+        self.rx_handle = TimeoutScheduler.schedule(0, self.can_recv)
+        self.tx_handle = TimeoutScheduler.schedule(0, self._tx_poll)
+
+    # ── lifecycle ─────────────────────────────────────────────────────────────
+
+    def __del__(self):
+        # type: () -> None
+        # Never drain from the garbage collector: a pending BAM can take
+        # seconds, and __del__ may run at interpreter shutdown.
+        self.close(timeout=0)
+
+    @staticmethod
+    def _cancel(handle):
+        # type: (Optional[Any]) -> None
+        """Cancel a scheduled timeout, tolerating one that already fired.
+
+        :class:`~scapy.contrib.isotp.isotp_soft_socket.TimeoutScheduler`
+        raises once a timeout has run or been cancelled, and that is a
+        normal race here: a timer can fire while the state machine is
+        deciding to drop it.
+        """
+        if handle is None:
+            return
+        try:
+            handle.cancel()
+        except Scapy_Exception as e:
+            log_j1939.debug("J1939 TP: timer already gone: %s", e)
+
+    def _send_abort(self, dst_sa, reason, pgn):
+        # type: (int, int, int) -> None
+        """Tell *dst_sa* that a connection-managed session is over."""
+        self._can_send_tp_cm(
+            dst_sa=dst_sa,
+            data=bytes(J1939_TP_CM_ABORT(reason=reason, pgn=pgn)),
+        )
+
+    def drain_timeout(self):
+        # type: () -> float
+        """Time a pending transmission still needs, as a close() budget.
+
+        A BAM is paced at :data:`_J1939_TP_BAM_DELAY` per packet, so a full
+        1785-byte message legitimately takes 12.75 s; an RTS/CTS session is
+        bounded by its own timeouts.
+        """
+        pending = max(self.tx_npkts - self.tx_seq + 1, 0)
+        return max(pending * _J1939_TP_BAM_DELAY + 0.5,
+                   _J1939_TP_T3 + _J1939_TP_T4)
+
+    def close(self, timeout=None):
+        # type: (Optional[float]) -> None
+        """Stop the state machine.
+
+        :param timeout: how long to let a transmission in progress finish.
+                        ``None`` derives a budget from what is still queued,
+                        so that a large BAM is not truncated; ``0`` shuts
+                        down at once.
+        """
+        if self.closed or self.closing:
+            return
+        self.closing = True
+        # Wait for any in-progress TX to drain before shutting down.
+        # This ensures that a send() followed immediately by close() (e.g.
+        # inside a ``with`` statement) still delivers every queued message.
+        # New sends are rejected while closing so the drain budget cannot
+        # be extended by work that did not exist when shutdown started.
+        derived = timeout is None
+        if timeout is None:
+            timeout = self.drain_timeout()
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if (self.tx_state == _J1939_TX_IDLE
+                    and not select_objects([self.tx_queue], 0)):
+                break
+            if derived and self.tx_state != _J1939_TX_IDLE:
+                # A message that was still queued when close() was called
+                # gets its own budget once it starts.
+                deadline = max(deadline,
+                               time.monotonic() + self.drain_timeout())
+            time.sleep(0.005)
+        self.closed = True
+        # Brief pause so any in-flight scheduler callback sees the flag.
+        time.sleep(0.005)
+
+        handles = [self.rx_handle, self.tx_handle, self.tx_timeout_handle]
+        handles += [s.timeout_handle for s in self.rx_sessions.values()]
+        self.rx_sessions.clear()
+        for handle in handles:
+            self._cancel(handle)
+
+        # Final drain: move frames from the CAN adapter's hardware buffer
+        # into the SocketWrapper software queue so the next soft-socket
+        # session can consume them instead of overflowing the adapter FIFO.
+        try:
+            self.can_socket.select([self.can_socket], 0)
+        except Exception:
+            log_j1939.debug("Exception during J1939 socket drain select",
+                            exc_info=True)
+
+        try:
+            self.rx_queue.close()
+        except Exception as e:
+            log_runtime.debug(str(e))
+        try:
+            self.tx_queue.close()
+        except Exception as e:
+            log_runtime.debug(str(e))
+
+    # ── CAN receive loop ─────────────────────────────────────────────────────
+
+    def _can_socket_gone(self):
+        # type: () -> bool
+        """Close ourselves if the CAN socket underneath has gone away.
+
+        Without this the receive pump would simply stop rescheduling and a
+        caller blocked in recv() would wait forever on a socket that still
+        looks open.
+        """
+        if not self.can_socket.closed:
+            return False
+        log_j1939.warning(
+            "J1939 TP: underlying CAN socket closed, closing socket")
+        self.close(timeout=0)
+        return True
+
+    def can_recv(self):
+        # type: () -> None
+        if self.closed or self._can_socket_gone():
+            return
+        try:
+            while self.can_socket.select([self.can_socket], 0):
+                if self.closed:
+                    break
+                pkt = self.can_socket.recv()
+                if pkt:
+                    self.on_can_recv(pkt)
+                else:
+                    break
+        except Exception:
+            if not self.closed:
+                log_j1939.warning(
+                    "J1939TPImplementation.can_recv error: %s",
+                    traceback.format_exc())
+
+        if self.closed or self._can_socket_gone():
+            return
+        # Zero-delay polling while segmented RX or directed TX is active so
+        # slow serial/slcan multiplexers do not add backlog latency between
+        # TP frames.  BAM TX does not force fast receive polling.
+        active = (
+            bool(self.rx_sessions) or
+            self.tx_state in (_J1939_TX_RTS_WAIT_CTS, _J1939_TX_RTS_SENDING)
+        )
+        poll_time = 0.0 if active else self.rx_tx_poll_rate
+        self.rx_handle = self._TimeoutScheduler.schedule(
+            poll_time, self.can_recv)
+
+    def on_can_recv(self, pkt):
+        # type: (Packet) -> None
+        """Decode *pkt* as a :class:`J1939_CAN` frame and route it."""
+        try:
+            j = J1939_CAN.from_can(pkt)
+            if not j.time:
+                j.time = time.time()
+        except Exception:
+            return
+
+        pf = j.pdu_format
+        ps = j.pdu_specific
+        sa = j.src
+
+        # Ignore frames sent by this node (CAN loopback echo guard).
+        if sa == self.src_addr:
+            return
+
+        # ── TP.CM (PF = 0xEC) ────────────────────────────────────────────────
+        if pf == (J1939_PGN_TP_CM >> 8):  # 0xEC
+            # Destination rules differ per control command; validate in
+            # _on_tp_cm rather than accepting every TP.CM to us or broadcast.
+            self._on_tp_cm(j)
+            return
+
+        # ── TP.DT (PF = 0xEB) ────────────────────────────────────────────────
+        if pf == (J1939_PGN_TP_DT >> 8):  # 0xEB
+            if ps != self.src_addr and ps != socket.J1939_NO_ADDR:
+                return
+            self._on_tp_dt(j)
+            return
+
+        # ── Short (≤ 8-byte) data frame ──────────────────────────────────────
+        # PDU1: ps is the destination address.  PDU2: always broadcast.
+        if pf <= J1939_PDU1_MAX_PF:
+            if ps != self.src_addr and ps != socket.J1939_NO_ADDR:
+                return
+        self._on_short_frame(j)
+
+    # ── RX frame handlers ────────────────────────────────────────────────────
+
+    def _on_short_frame(self, j):
+        # type: (J1939_CAN) -> None
+        data = bytes(j.data)
+        if self.pgn_filter != socket.J1939_NO_PGN and j.pgn != self.pgn_filter:
+            return
+        msg = self.basecls(data, pgn=j.pgn, src=j.src, dst=j.dst,
+                           priority=j.priority)
+        self.rx_queue.send((msg, j.time))
+
+    def _on_tp_cm(self, j):
+        # type: (J1939_CAN) -> None
+        data = bytes(j.data)
+        if not data:
+            return
+        ctrl = data[0]
+        sa = j.src
+        ts = j.time
+
+        if ctrl == J1939_TP_CTRL_BAM:
+            # BAM is broadcast-only; a unicast BAM is malformed.
+            if j.dst != socket.J1939_NO_ADDR:
+                return
+            if len(data) < 8:
+                return
+            bam = J1939_TP_CM_BAM(data)
+            if self.pgn_filter != socket.J1939_NO_PGN and bam.pgn != self.pgn_filter:
+                return
+            self._rx_start(sa=sa, pgn=bam.pgn, dst=socket.J1939_NO_ADDR,
+                           total=bam.total_size, npkts=bam.num_packets,
+                           max_packets=bam.num_packets, is_bam=True, ts=ts,
+                           priority=j.priority)
+
+        elif ctrl == J1939_TP_CTRL_RTS:
+            # RTS is directed; broadcast RTS must not start a session or CTS.
+            if j.dst != self.src_addr:
+                return
+            if len(data) < 8:
+                return
+            rts = J1939_TP_CM_RTS(data)
+            if self.pgn_filter != socket.J1939_NO_PGN and rts.pgn != self.pgn_filter:
+                return
+            self._rx_start(sa=sa, pgn=rts.pgn, dst=self.src_addr,
+                           total=rts.total_size, npkts=rts.num_packets,
+                           max_packets=rts.max_packets, is_bam=False, ts=ts,
+                           priority=j.priority)
+
+        elif ctrl == J1939_TP_CTRL_CTS:
+            if j.dst != self.src_addr:
+                return
+            if len(data) < 8:
+                return
+            cts = J1939_TP_CM_CTS(data)
+            if (self.tx_state == _J1939_TX_RTS_WAIT_CTS and
+                    sa == self.tx_peer_sa and cts.pgn == self.tx_pgn):
+                self._tx_handle_cts(cts)
+
+        elif ctrl == J1939_TP_CTRL_ACK:
+            if j.dst != self.src_addr:
+                return
+            if len(data) < 8:
+                return
+            ack = J1939_TP_CM_ACK(data)
+            # EOM ACK completes the transfer only after every DT has been
+            # handed to the CAN layer.  Size and packet-count checks reject
+            # a stale same-PGN ACK from an earlier session.
+            if (self.tx_state == _J1939_TX_RTS_WAIT_CTS and
+                    self.tx_seq > self.tx_npkts and
+                    self.tx_buf is not None and
+                    sa == self.tx_peer_sa and
+                    ack.pgn == self.tx_pgn and
+                    ack.total_size == len(self.tx_buf) and
+                    ack.num_packets == self.tx_npkts):
+                self._tx_reset()
+
+        elif ctrl == J1939_TP_CTRL_ABORT:
+            if j.dst != self.src_addr:
+                return
+            abort = J1939_TP_CM_ABORT(data) if len(data) >= 8 else None
+            # Only the peer of a session actually in progress may abort it,
+            # and only for the PGN being transferred: an address left over
+            # from an earlier session must not tear down the current one.
+            if (self.tx_state != _J1939_TX_IDLE and sa == self.tx_peer_sa and
+                    abort is not None and abort.pgn == self.tx_pgn):
+                log_j1939.warning(
+                    "J1939 TP: TX session aborted by peer (reason %d)",
+                    abort.reason)
+                self._tx_reset()
+            # A peer may equally abort a reception it started.
+            session = self.rx_sessions.get((sa, self.src_addr))
+            if session is not None and abort is not None and \
+                    abort.pgn == session.pgn:
+                self._rx_drop(session, "aborted by peer")
+
+    def _on_tp_dt(self, j):
+        # type: (J1939_CAN) -> None
+        sa = j.src
+        session = self.rx_sessions.get((sa, j.pdu_specific))
+        if session is None:
+            return
+        data = bytes(j.data)
+        if len(data) < 8:
+            return
+
+        dt = J1939_TP_DT(data)
+        seq = dt.seq_num
+        if seq != session.seq:
+            log_j1939.warning(
+                "J1939 TP: bad DT seq %d (expected %d)", seq, session.seq)
+            self._rx_abort(session, _J1939_ABORT_BAD_SEQ)
+            return
+
+        session.buf.extend(dt.data)
+        session.seq += 1
+        self._rx_cancel_timer(session)
+
+        if seq >= session.npkts:
+            # All packets received – finalise the message.
+            payload = bytes(session.buf[:session.total])
+            if not session.is_bam and not self.listen_only:
+                self._can_send_tp_cm(
+                    dst_sa=sa,
+                    data=bytes(J1939_TP_CM_ACK(
+                        total_size=session.total,
+                        num_packets=session.npkts,
+                        pgn=session.pgn,
+                    )),
+                )
+            msg = self.basecls(payload,
+                               pgn=session.pgn, src=session.sa,
+                               dst=session.dst, priority=session.priority)
+            self.rx_queue.send((msg, session.ts))
+            self._rx_forget(session)
+            return
+
+        if seq >= session.block_end and not session.is_bam:
+            # The block we authorised is complete: authorise the next one.
+            self._rx_send_cts(session)
+        self._rx_arm_timer(session, _J1939_TP_T2)
+
+    # ── RX session helpers ────────────────────────────────────────────────────
+
+    def _rx_start(self, sa, pgn, dst, total, npkts, max_packets, is_bam, ts,
+                  priority=6):
+        # type: (int, int, int, int, int, int, bool, Union[float, EDecimal], int) -> None  # noqa: E501
+        """Open a reception for *sa*, replacing any session that peer had."""
+        # An announcement that cannot describe a real message is refused
+        # rather than turned into an empty or truncated delivery. J1939-21
+        # fixes the packet count at ceil(size / 7), so anything else is
+        # either malformed or an attempt to hold a session slot open.
+        if not 1 <= npkts <= _J1939_TP_MAX_PACKETS or \
+                not 1 <= total <= _J1939_TP_MAX_DATA or \
+                npkts != (total + _J1939_TP_DT_DATA - 1) // _J1939_TP_DT_DATA:
+            self._rx_refuse(
+                sa, pgn, is_bam, _J1939_ABORT_OTHER,
+                "total_size=%d and num_packets=%d disagree" % (total, npkts))
+            return
+
+        old = self.rx_sessions.get((sa, dst))
+        if old is not None:
+            if not is_bam and old.pgn != pgn:
+                # J1939-21: a peer gets one connection with us at a time, so
+                # a request for a second PGN is refused and the transfer
+                # already running is kept.
+                self._rx_refuse(
+                    sa, pgn, is_bam, _J1939_ABORT_IN_SESSION,
+                    "already in a session for PGN 0x%05X" % old.pgn)
+                return
+            log_j1939.debug(
+                "J1939 TP: SA=0x%02X restarts its session", sa)
+            self._rx_forget(old)
+        elif len(self.rx_sessions) >= _J1939_MAX_RX_SESSIONS:
+            self._rx_refuse(
+                sa, pgn, is_bam, _J1939_ABORT_RESOURCES,
+                "%d sessions already open" % len(self.rx_sessions))
+            return
+
+        session = _J1939_RXSession(
+            sa, dst, pgn, total, npkts, is_bam, ts, priority=priority)
+        self.rx_sessions[session.key] = session
+        if not is_bam:
+            # J1939-21 flow control: never authorise more packets in one
+            # block than the sender said it can send.
+            session.block_size = min(max_packets or npkts, npkts)
+            self._rx_send_cts(session)
+        self._rx_arm_timer(session, _J1939_TP_T1)
+
+    def _rx_refuse(self, sa, pgn, is_bam, reason, why):
+        # type: (int, int, bool, int, str) -> None
+        """Turn down a reception, telling the peer when the protocol allows.
+
+        A broadcast has nobody to answer, so a BAM is only dropped.
+        """
+        log_j1939.warning("J1939 TP: refusing SA=0x%02X: %s", sa, why)
+        if not is_bam and not self.listen_only:
+            self._send_abort(sa, reason, pgn)
+
+    def _rx_send_cts(self, session):
+        # type: (_J1939_RXSession) -> None
+        """Authorise the next block of TP.DT packets."""
+        remaining = session.npkts - session.seq + 1
+        count = min(remaining, session.block_size)
+        if count <= 0:
+            return
+        session.block_end = session.seq + count - 1
+        if self.listen_only:
+            # Passive monitoring: say nothing, but still accept whatever the
+            # sender chooses to send.
+            session.block_end = session.npkts
+            return
+        self._can_send_tp_cm(
+            dst_sa=session.sa,
+            data=bytes(J1939_TP_CM_CTS(
+                num_packets=count,
+                next_packet=session.seq,
+                pgn=session.pgn,
+            )),
+        )
+
+    def _rx_cancel_timer(self, session):
+        # type: (_J1939_RXSession) -> None
+        self._cancel(session.timeout_handle)
+        session.timeout_handle = None
+
+    def _rx_arm_timer(self, session, delay):
+        # type: (_J1939_RXSession, float) -> None
+        self._rx_cancel_timer(session)
+        key = session.key
+        session.timeout_handle = self._TimeoutScheduler.schedule(
+            delay, lambda: self._rx_timeout(key))
+
+    def _rx_forget(self, session):
+        # type: (_J1939_RXSession) -> None
+        self._rx_cancel_timer(session)
+        self.rx_sessions.pop(session.key, None)
+
+    def _rx_drop(self, session, why):
+        # type: (_J1939_RXSession, str) -> None
+        log_j1939.warning(
+            "J1939 TP: discarding incomplete message %s "
+            "(PGN=0x%05X SA=0x%02X)", why, session.pgn, session.sa)
+        self._rx_forget(session)
+
+    def _rx_abort(self, session, reason):
+        # type: (_J1939_RXSession, int) -> None
+        """Drop a reception, telling the peer why when the protocol allows."""
+        if not session.is_bam and not self.listen_only:
+            self._send_abort(session.sa, reason, session.pgn)
+        self._rx_drop(session, "(abort reason %d)" % reason)
+
+    def _rx_timeout(self, key):
+        # type: (Tuple[int, int]) -> None
+        session = self.rx_sessions.get(key)
+        if self.closed or session is None:
+            return
+        # On slow serial interfaces (slcan) the OS serial buffer may hold many
+        # background CAN frames queued ahead of TP.DT frames.  Re-arm the
+        # timer as long as the total elapsed time since the session started is
+        # below _J1939_TP_T2 × _J1939_TP_DT_TIMEOUT_EXTENSION (12.5 s total).
+        total_wait = time.monotonic() - session.start_time
+        if total_wait < _J1939_TP_T2 * _J1939_TP_DT_TIMEOUT_EXTENSION:
+            self._rx_arm_timer(session, _J1939_TP_T2)
+            return
+        self._rx_abort(session, _J1939_ABORT_TIMEOUT)
+
+    # ── CAN send helpers ──────────────────────────────────────────────────────
+
+    def _can_send(self, pkt):
+        # type: (J1939_CAN) -> None
+        self.can_socket.send(pkt)
+
+    def _can_send_tp_cm(self, dst_sa, data, priority=6):
+        # type: (int, bytes, int) -> None
+        pkt = J1939_CAN(
+            priority=priority, data_page=0,
+            pdu_format=J1939_PGN_TP_CM >> 8,  # 0xEC
+            pdu_specific=dst_sa,
+            src=self.src_addr,
+            data=data,
+        )
+        self._can_send(pkt)
+
+    def _can_send_tp_dt(self, dst_sa, seq_num, chunk, priority=7):
+        # type: (int, int, bytes, int) -> None
+        padded = chunk + b'\xff' * (_J1939_TP_DT_DATA - len(chunk))
+        dt = J1939_TP_DT(seq_num=seq_num, data=padded[:_J1939_TP_DT_DATA])
+        pkt = J1939_CAN(
+            priority=priority, data_page=0,
+            pdu_format=J1939_PGN_TP_DT >> 8,  # 0xEB
+            pdu_specific=dst_sa,
+            src=self.src_addr,
+            data=bytes(dt),
+        )
+        self._can_send(pkt)
+
+    # ── TX state machine ──────────────────────────────────────────────────────
+
+    def _tx_poll(self):
+        # type: () -> None
+        """Dequeue and start transmitting the next J1939 message."""
+        if self.closed:
+            return
+        try:
+            if self.tx_state == _J1939_TX_IDLE:
+                if select_objects([self.tx_queue], 0):
+                    msg = self.tx_queue.recv()
+                    if msg is not None:
+                        try:
+                            self._begin_send(msg)
+                        except Exception:
+                            # A message that cannot be sent must not leave the
+                            # state machine latched: that would silently
+                            # discard every later send on this socket.
+                            self._tx_reset()
+                            raise
+        except Exception:
+            if not self.closed:
+                log_j1939.warning(
+                    "J1939 _tx_poll error: %s", traceback.format_exc())
+        if not self.closed:
+            self.tx_handle = self._TimeoutScheduler.schedule(
+                self.rx_tx_poll_rate, self._tx_poll)
+
+    @staticmethod
+    def _payload_of(msg):
+        # type: (Packet) -> bytes
+        """The bytes *msg* puts on the bus, however it was constructed."""
+        if isinstance(msg, J1939):
+            data = msg.data
+            if not isinstance(data, (bytes, bytearray)):
+                data = bytes(msg)
+            return bytes(data)
+        return bytes(msg)
+
+    def _begin_send(self, msg):
+        # type: (Packet) -> None
+        """Start transmitting *msg*. Called from _tx_poll in the scheduler thread."""
+        data = self._payload_of(msg)
+        if isinstance(msg, J1939):
+            pgn = msg.pgn
+            dst = msg.dst
+            priority = msg.priority
+        else:
+            pgn = 0
+            dst = socket.J1939_NO_ADDR
+            priority = 6
+
+        data_page = (pgn >> 16) & 0x1
+        pf = (pgn >> 8) & 0xFF
+
+        if len(data) <= 8:
+            # Single CAN frame – no TP needed.
+            if pf <= J1939_PDU1_MAX_PF:
+                ps = dst & 0xFF
+            else:
+                ps = pgn & 0xFF
+            pkt = J1939_CAN(
+                priority=priority, data_page=data_page,
+                pdu_format=pf, pdu_specific=ps,
+                src=self.src_addr, data=data,
+            )
+            self._can_send(pkt)
+
+        elif dst == socket.J1939_NO_ADDR:
+            # Broadcast multi-packet message via BAM.
+            self._tx_start_bam(data, pgn, dst, priority)
+
+        else:
+            # Unicast multi-packet message via RTS/CTS.
+            self._tx_start_rts(data, pgn, dst, priority)
+
+    # ── BAM TX ───────────────────────────────────────────────────────────────
+
+    def _tx_start_bam(self, data, pgn, dst, priority):
+        # type: (bytes, int, int, int) -> None
+        npkts = (len(data) + _J1939_TP_DT_DATA - 1) // _J1939_TP_DT_DATA
+        # Set tx_state BEFORE the CAN send so that close() does not see the
+        # queue empty with state=IDLE and break out of the drain loop early
+        # (race window: CAN send may block on slow adapters).
+        self.tx_state = _J1939_TX_BAM
+        self.tx_buf = data
+        self.tx_pgn = pgn
+        self.tx_dst = dst
+        self.tx_priority = priority
+        self.tx_npkts = npkts
+        self.tx_seq = 1
+        bam = J1939_TP_CM_BAM(total_size=len(data), num_packets=npkts, pgn=pgn)
+        self._can_send_tp_cm(socket.J1939_NO_ADDR, bytes(bam),
+                             priority=priority)
+        self.tx_timeout_handle = self._TimeoutScheduler.schedule(
+            _J1939_TP_BAM_DELAY, self._tx_bam_next_dt)
+
+    def _tx_bam_next_dt(self):
+        # type: () -> None
+        if self.closed or self.tx_state != _J1939_TX_BAM or self.tx_buf is None:
+            self._tx_reset()
+            return
+        seq = self.tx_seq
+        start = (seq - 1) * _J1939_TP_DT_DATA
+        chunk = self.tx_buf[start:start + _J1939_TP_DT_DATA]
+        try:
+            self._can_send_tp_dt(socket.J1939_NO_ADDR, seq, chunk,
+                                 priority=self.tx_priority)
+        except Exception:
+            self._tx_reset()
+            raise
+        self.tx_seq += 1
+        if self.tx_seq > self.tx_npkts:
+            self._tx_reset()
+        else:
+            self.tx_timeout_handle = self._TimeoutScheduler.schedule(
+                _J1939_TP_BAM_DELAY, self._tx_bam_next_dt)
+
+    # ── RTS/CTS TX ───────────────────────────────────────────────────────────
+
+    def _tx_start_rts(self, data, pgn, dst, priority):
+        # type: (bytes, int, int, int) -> None
+        npkts = (len(data) + _J1939_TP_DT_DATA - 1) // _J1939_TP_DT_DATA
+        # Set tx_state BEFORE the CAN send (same race-prevention as _tx_start_bam).
+        self.tx_state = _J1939_TX_RTS_WAIT_CTS
+        self.tx_buf = data
+        self.tx_pgn = pgn
+        self.tx_dst = dst
+        self.tx_priority = priority
+        self.tx_npkts = npkts
+        self.tx_seq = 1
+        self.tx_peer_sa = dst
+        rts = J1939_TP_CM_RTS(
+            total_size=len(data), num_packets=npkts,
+            max_packets=0xFF, pgn=pgn,
+        )
+        self._can_send_tp_cm(dst, bytes(rts), priority=priority)
+        self.tx_timeout_handle = self._TimeoutScheduler.schedule(
+            _J1939_TP_T3, self._tx_timeout)
+
+    def _tx_handle_cts(self, cts):
+        # type: (J1939_TP_CM_CTS) -> None
+        self._cancel(self.tx_timeout_handle)
+        self.tx_timeout_handle = None
+
+        if cts.num_packets == 0:
+            # Receiver requested a hold; wait for another CTS (J1939-21 T4).
+            self.tx_state = _J1939_TX_RTS_WAIT_CTS
+            self.tx_timeout_handle = self._TimeoutScheduler.schedule(
+                _J1939_TP_T4, self._tx_timeout)
+            return
+
+        if not 1 <= cts.next_packet <= self.tx_npkts:
+            # A sequence number outside the message would index the buffer
+            # from the wrong end and put a seq-0 frame on the bus.
+            log_j1939.warning(
+                "J1939 TP: CTS asks for packet %d of %d, aborting",
+                cts.next_packet, self.tx_npkts)
+            self._send_abort(self.tx_peer_sa, _J1939_ABORT_OTHER, self.tx_pgn)
+            self._tx_reset()
+            return
+
+        self.tx_seq = cts.next_packet
+        remaining = self.tx_npkts - self.tx_seq + 1
+        count = min(cts.num_packets, remaining)
+        self.tx_state = _J1939_TX_RTS_SENDING
+        self._tx_rts_send_block(count)
+
+    def _tx_rts_send_block(self, count):
+        # type: (int) -> None
+        """Send the block of TP.DT frames authorised by the most recent CTS."""
+        if self.closed or self.tx_state != _J1939_TX_RTS_SENDING \
+                or self.tx_buf is None:
+            self._tx_reset()
+            return
+
+        sent = 0
+        while sent < count:
+            seq = self.tx_seq
+            if seq > self.tx_npkts:
+                break
+            start = (seq - 1) * _J1939_TP_DT_DATA
+            chunk = self.tx_buf[start:start + _J1939_TP_DT_DATA]
+            try:
+                self._can_send_tp_dt(self.tx_dst, seq, chunk,
+                                     priority=self.tx_priority)
+            except Exception:
+                self._tx_reset()
+                raise
+            self.tx_seq += 1
+            sent += 1
+
+        # After the block, wait for the next CTS (or ACK if all data sent).
+        self.tx_state = _J1939_TX_RTS_WAIT_CTS
+        timeout = _J1939_TP_T4 if self.tx_seq > self.tx_npkts else _J1939_TP_T3
+        self.tx_timeout_handle = self._TimeoutScheduler.schedule(
+            timeout, self._tx_timeout)
+
+    def _tx_timeout(self):
+        # type: () -> None
+        if self.closed or self.tx_state == _J1939_TX_IDLE:
+            return
+        log_j1939.warning(
+            "J1939 TP: TX timeout (PGN=0x%05X DA=0x%02X)",
+            self.tx_pgn, self.tx_dst)
+        self._tx_reset()
+
+    def _tx_reset(self):
+        # type: () -> None
+        self.tx_state = _J1939_TX_IDLE
+        self.tx_buf = None
+        # Forget the peer: an address left behind here would let a node that
+        # took part in an earlier session abort an unrelated one.
+        self.tx_peer_sa = socket.J1939_NO_ADDR
+        self.tx_pgn = 0
+        self._cancel(self.tx_timeout_handle)
+        self.tx_timeout_handle = None
+
+    # ── public interface ─────────────────────────────────────────────────────
+
+    def send(self, msg):
+        # type: (Packet) -> None
+        """Enqueue *msg* for transmission.
+
+        Also schedules an immediate TX poll so the message is picked up
+        without waiting for the next 5 ms polling interval.  This allows
+        ``send()`` followed immediately by ``close()`` to reliably deliver
+        the frame (e.g. inside a ``with J1939SoftSocket(...) as s:`` block).
+
+        :raises Scapy_Exception: if the payload exceeds the
+                                 :data:`_J1939_TP_MAX_DATA` bytes the
+                                 transport protocol can describe
+        """
+        if self.closed or self.closing:
+            raise Scapy_Exception("J1939 socket is closed")
+        payload = self._payload_of(msg)
+        if len(payload) > _J1939_TP_MAX_DATA:
+            raise Scapy_Exception(
+                "J1939 payload of %d bytes exceeds the %d bytes the "
+                "transport protocol can carry" %
+                (len(payload), _J1939_TP_MAX_DATA))
+        self.tx_queue.send(msg)
+        # Cancel the pending poll and reschedule it to fire immediately so
+        # the message is dispatched within microseconds, not up to 5 ms later.
+        self._cancel(self.tx_handle)
+        self.tx_handle = self._TimeoutScheduler.schedule(0, self._tx_poll)
+
+    def recv(self):
+        # type: () -> Optional[Tuple[J1939, Union[float, EDecimal]]]
+        """Return the next received :class:`J1939` message from the queue.
+
+        Returns ``None`` when the socket is closed while a caller is waiting,
+        rather than letting the closed queue raise into the caller.
+        """
+        try:
+            return self.rx_queue.recv()  # type: ignore
+        except (EOFError, OSError):
+            return None
+
+
+class J1939SoftSocket(SuperSocket):
+    """Software J1939 application-layer socket over a :class:`CANSocket`.
+
+    Implements the SAE J1939 Transport Protocol (segmentation and
+    reassembly) entirely in Python, without requiring the Linux kernel
+    ``CAN_J1939`` socket module.  It is API-compatible with
+    :class:`NativeJ1939Socket` and works on any platform that has a CAN
+    socket layer (Linux SocketCAN via
+    :class:`~scapy.contrib.cansocket_native.NativeCANSocket`, or any platform
+    via :class:`~scapy.contrib.cansocket_python_can.PythonCANSocket`).
+
+    The implementation mirrors :class:`~scapy.contrib.isotp.ISOTPSoftSocket`:
+    a background thread driven by
+    :class:`~scapy.contrib.isotp.isotp_soft_socket.TimeoutScheduler` polls the
+    CAN socket and advances the TP state machine, so
+    :class:`J1939SoftSocket` can send Flow-Control (CTS / ACK / ABORT) frames
+    even before :meth:`recv` is called.
+
+    Example – broadcast receive::
+
+        >>> cansock = NativeCANSocket("vcan0")
+        >>> with J1939SoftSocket(cansock, src_addr=0x00) as s:
+        ...     pkt = s.recv()
+
+    Example – broadcast send::
+
+        >>> cansock = NativeCANSocket("vcan0")
+        >>> with J1939SoftSocket(cansock, src_addr=0x00) as s:
+        ...     s.send(J1939(b'\\x01\\x02', pgn=0xFECA, dst=0xFF))
+
+    :param can_socket: a :class:`~scapy.contrib.cansocket.CANSocket` instance
+                       *or* a CAN interface name string (Linux only)
+    :param src_addr:   this node's J1939 source address (0x00–0xFD);
+                       defaults to :data:`socket.J1939_NO_ADDR` (0xFF = no address)
+    :param basecls:    packet class for received messages
+                       (default: :class:`J1939`)
+    :param listen_only: when ``True``, never send CTS / ACK / ABORT frames;
+                        all received TP sessions are still reassembled and
+                        delivered.  Useful for passive bus monitoring.
+    :param pgn:        when not :data:`socket.J1939_NO_PGN`, only messages
+                       whose PGN matches this value are delivered;
+                       :data:`socket.J1939_NO_PGN` (the default) accepts every
+                       PGN, matching :class:`NativeJ1939Socket`.
+    """
+
+    desc = ("read/write J1939 messages using a software "
+            "transport-protocol implementation")
+
+    _closed = False  # type: bool
+
+    def __init__(
+            self,
+            can_socket=None,  # type: Optional["CANSocket"]
+            src_addr=socket.J1939_NO_ADDR,  # type: int
+            basecls=J1939,  # type: Type[Packet]
+            listen_only=False,  # type: bool
+            pgn=socket.J1939_NO_PGN,  # type: int
+    ):
+        # type: (...) -> None
+        if LINUX and isinstance(can_socket, str):
+            from scapy.contrib.cansocket_native import NativeCANSocket
+            can_socket = NativeCANSocket(can_socket)
+        elif isinstance(can_socket, str):
+            raise Scapy_Exception(
+                "Provide a CANSocket object instead of an interface name")
+
+        self.src_addr = src_addr
+        self.basecls = basecls or J1939
+
+        impl = J1939TPImplementation(
+            can_socket, src_addr,
+            listen_only=listen_only,
+            pgn_filter=pgn,
+            basecls=self.basecls,
+        )
+        # Cast so SuperSocket internals are satisfied (recv/send are overridden).
+        self.ins = cast(socket.socket, impl)
+        self.outs = cast(socket.socket, impl)
+        self.impl = impl
+
+        if basecls is None:
+            log_j1939.warning("No basecls provided, defaulting to J1939")
+        if src_addr == socket.J1939_NO_ADDR and not listen_only:
+            # 0xFF is the global destination address; it is never a legal
+            # source address, so anything this socket transmits - including
+            # the CTS and ACK frames the state machine emits by itself -
+            # would be malformed on a real bus.
+            log_j1939.warning(
+                "src_addr 0x%02X is the global address: set a real source "
+                "address (0x00-0xFD) to transmit, or pass listen_only=True",
+                src_addr)
+
+    # ── lifecycle ─────────────────────────────────────────────────────────────
+
+    @property
+    def closed(self):  # type: ignore[override]
+        # type: () -> bool
+        # The implementation closes itself when the CAN socket underneath it
+        # goes away, and a caller must be able to see that.
+        return self._closed or getattr(self, "impl", None) is None or \
+            self.impl.closed
+
+    @closed.setter
+    def closed(self, value):
+        # type: (bool) -> None
+        self._closed = value
+
+    def close(self, timeout=None):
+        # type: (Optional[float]) -> None
+        """Close the socket.
+
+        :param timeout: how long a transmission in progress may still take;
+                        ``None`` derives it from what is left to send, so a
+                        broadcast is not truncated, and ``0`` closes at once.
+        """
+        if not self._closed:
+            if hasattr(self, "impl"):
+                self.impl.close(timeout=timeout)
+            self._closed = True
+
+    # ── recv / send ──────────────────────────────────────────────────────────
+
+    def recv_raw(self, x=0xffff):
+        # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]
+        """Receive the payload of the next message, without its addressing.
+
+        :meth:`recv` is what callers normally want, since a J1939 message is
+        only meaningful together with its PGN and addresses; this exists so
+        that the :class:`~scapy.supersocket.SuperSocket` contract holds.
+        """
+        if self.closed:
+            return self.basecls, None, None
+        tup = self.impl.recv()
+        if tup is None:
+            return self.basecls, None, None
+        msg, ts = tup
+        return self.basecls, bytes(msg.data), float(ts)
+
+    def recv(self, x=0xffff, **kwargs):
+        # type: (int, **Any) -> Optional[Packet]
+        """Receive the next :class:`J1939` message.
+
+        Blocks until a complete message is available or the socket is closed.
+        Returns ``None`` if the socket is closed before a message arrives.
+        """
+        if self.closed:
+            return None
+        tup = self.impl.recv()
+        if tup is None:
+            return None
+        msg, ts = tup
+        msg.time = float(ts)
+        return msg
+
+    def send(self, x):
+        # type: (Packet) -> int
+        """Enqueue *x* for transmission.
+
+        If *x* is a :class:`J1939` packet its ``pgn``, ``dst``, and
+        ``priority`` attributes are used.  Payloads of 8 bytes or fewer are
+        sent as a single CAN frame; larger payloads use the J1939 Transport
+        Protocol automatically (BAM for broadcast, RTS/CTS for unicast).
+
+        The TP.CM and TP.DT frames of a multi-packet message carry the
+        priority of the message itself, so a caller controls the whole
+        transfer with one value.  J1939-21 suggests 7 for both, which is
+        what ``priority=7`` gives; the class default is 6.
+
+        :raises Scapy_Exception: if the payload is larger than the 1785
+                                 bytes the transport protocol can carry
+        """
+        if self.closed:
+            raise Scapy_Exception("J1939 socket is closed")
+        if isinstance(x, Packet):
+            x.sent_time = time.time()
+        self.impl.send(x)
+        return len(bytes(x))
+
+    # ── select ────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def select(sockets, remain=None):  # type: ignore[override]
+        # type: (List[Union[SuperSocket, ObjectPipe[Any]]], Optional[float]) -> List[Union[SuperSocket, ObjectPipe[Any]]]  # noqa: E501
+        """Support :func:`~scapy.sendrecv.sniff` on :class:`J1939SoftSocket`."""
+        obj_pipes = [
+            x.impl.rx_queue for x in sockets
+            if isinstance(x, J1939SoftSocket) and not x.closed
+        ]
+        obj_pipes += [
+            x for x in sockets
+            if isinstance(x, ObjectPipe) and not x.closed
+        ]
+        ready_pipes = select_objects(obj_pipes, remain)
+        result = [
+            x for x in sockets
+            if isinstance(x, J1939SoftSocket) and not x.closed and
+            x.impl.rx_queue in ready_pipes
+        ]
+        result += [
+            x for x in sockets
+            if isinstance(x, ObjectPipe) and x in ready_pipes
+        ]
+        return result  # type: ignore[return-value]
