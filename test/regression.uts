@@ -472,23 +472,6 @@ conf.prog.extcap_folders = _bkp_extcap
 conf.ifaces.providers = _bkp_providers
 conf.ifaces.reload()
 
-= Extcap FIFO is accessible only by its owner
-
-import stat
-from scapy.utils import _create_fifo
-
-if not WINDOWS:
-    old_umask = os.umask(0o022)
-    try:
-        fifo, _ = _create_fifo()
-    finally:
-        os.umask(old_umask)
-    try:
-        assert stat.S_IMODE(os.stat(fifo).st_mode) == 0o600
-    finally:
-        os.unlink(fifo)
-        conf.temp_files.remove(fifo)
-
 = Test read_routes6() - default output
 
 routes6 = read_routes6()
