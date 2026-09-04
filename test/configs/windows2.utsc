@@ -13,7 +13,8 @@
   ],
   "remove_testfiles": [
     "bpf.uts",
-    "linux.uts"
+    "linux.uts",
+    "scapy\\layers\\cbor_cbor2_interop.uts"
   ],
   "breakfailed": true,
   "onlyfailed": true,
@@ -37,6 +38,7 @@
     "tcpdump",
     "tap",
     "tun",
-    "tshark"
+    "tshark",
+    "external_cbor2"
   ]
 }
