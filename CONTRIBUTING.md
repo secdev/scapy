@@ -47,7 +47,7 @@ and ask, don't be shy!
 
 If you use AI tools to help find or draft a bug report (or a PR), please mention that and make sure you have personally verified the steps and details before submitting. Please keep reports succinct !
 
-Purely AI-generated or overly verbose reports are not supported and might be closed. A quick human check keeps triage efficient for everyone.
+Purely AI-generated or overly verbose reports are not supported and might be closed. Please also **avoid answering to maintainers comments with AI**. It's important to keep the human input to keep triage efficient for everyone.
 
 For a report, verify the bug against the current development code. For a PR, follow [Coding style & conventions](#coding-style--conventions) and [Tests](#tests): add tests (or explain why they aren't relevant), and check that every commit has the required `AI-Assisted` tag. To run the optional flake8 check with the same Python version as CI, install tox for Python 3.12 and use `python3.12 -m tox -e flake8`; `tox.ini` does not select that interpreter for this environment.
 
