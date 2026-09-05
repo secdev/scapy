@@ -27,6 +27,7 @@ from scapy.volatile import RandInt
 
 from scapy.layers.tls.all import (
     Cert,
+    CertTree,
     PrivKeyECDSA,
 )
 from scapy.layers.x509 import (
@@ -135,10 +136,6 @@ class ForwardMachine:
         self.MTU = MTU
         self.remote_address = remote_address
         self.remote_port = remote_port
-        if self.tls or self.af == 40:  # TLS or VSOCK
-            self.sockcls = StreamSocketPeekless
-        else:
-            self.sockcls = StreamSocket
         # Chose 'bind_address' depending on the mode
         self.bind_address = bind_address
         if self.bind_address is None:
@@ -233,10 +230,21 @@ class ForwardMachine:
         CONTEXT object kept during a session
         """
 
-        def __init__(self, fwdm, addr, dest):
+        def __init__(self, fwdm, addr, dest, remote_af, proto, tls, cls):
             self.addr = addr
             self.dest = dest
+            self.remote_af = remote_af
+            self.proto = proto
+            self.tls = tls
             self.tls_sni_name = None  # Retrieved when receiving a connection
+            self.cls = cls
+
+        @property
+        def sockcls(self):
+            if self.tls or self.remote_af == 40:  # TLS or VSOCK
+                return StreamSocketPeekless
+            else:
+                return StreamSocket
 
     def vprint(self, evt, ctx, cs, req, rep):
         if evt == self.FORWARD:
@@ -290,7 +298,7 @@ class ForwardMachine:
         """
         Get peer socket
         """
-        s = socket.socket(self.remote_af, self.proto)
+        s = socket.socket(ctx.remote_af, ctx.proto)
         s.settimeout(self.timeout)
         ndest = self.destalias(dest)
         if ndest != dest:
@@ -304,15 +312,21 @@ class ForwardMachine:
         Modify a real certificate chain to be served by our own privatekey
         """
         c, certs = certs[0], certs[1:]
+
+        # Set SubjectPublicKeyInfo to the one from our private key
+        c.setSubjectPublicKeyFromPrivateKey(privkey)
+        c.updateSubjectKeyIdentifier()
+
         if certs:
             # Recursive: if there are certificates above this one in the chain, do them
             # first.
             certs = self.gen_alike_chain(certs, privkey)
+            c.updateAuthorityKeyIdentifier(certs[0])
         else:
             # Last certificate of the chain. Make it self-signed
             c.tbsCertificate.issuer = c.tbsCertificate.subject
-        # Set SubjectPublicKeyInfo to the one from our private key
-        c.setSubjectPublicKeyFromPrivateKey(privkey)
+            c.updateAuthorityKeyIdentifier(c)
+
         # Filter out extensions that would cause trouble
         c.tbsCertificate.serialNumber.val = int(
             RandInt()
@@ -326,8 +340,6 @@ class ForwardMachine:
                 "2.5.29.31",  # cRLDistributionPoints
                 "1.3.6.1.5.5.7.1.1",  # authorityInfoAccess
                 "1.3.6.1.4.1.11129.2.4.2",  # SCT
-                "2.5.29.14",  # subjectKeyIdentifier
-                "2.5.29.35",  # authorityKeyIdentifier
             ]
         ]
         # For now, we only provide a RSA private key, so we can only sign with that :/
@@ -351,14 +363,14 @@ class ForwardMachine:
             return self.cache[ident]
         # Parse CAs
         certs = [Cert(c.public_bytes()) for c in cas]
-        # certs = certs[:1]
+        # XXX - Only get last cert. We shouldn't require this
+        # but we need to add support for multiple private keys...
+        chain = CertTree(certs, certs)
+        certs = [chain.getleaves()[0]]
         # Generate Private Key
         privkey = PrivKeyECDSA()
         # Iterate
         certs = self.gen_alike_chain(certs, privkey)
-        # Build a chain object. This checks that everything is properly signed, and
-        # re-order the certs.
-        # chain = Chain(certs, cert0=certs[-1])
         self.cache[ident] = privkey, certs
         return privkey, certs
 
@@ -366,12 +378,23 @@ class ForwardMachine:
         """
         Handler of a client socket
         """
-        ctx = self.CONTEXT(self, addr, dest)  # we have a context object
+        # we have a context object
+        ctx = self.CONTEXT(
+            self,
+            addr=addr,
+            dest=dest,
+            remote_af=self.remote_af,
+            proto=self.proto,
+            tls=self.tls,
+            cls=self.cls,
+        )
         self.newconn(ctx)
+
         # Initialize peer socket
         ss = self._getpeersock(dest, ctx)
+
         # Wrap both server and peer sockets in SSL
-        if self.tls:
+        if ctx.tls:
             # Build client SSL context
             clisslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS)
             clisslcontext.load_default_certs()
@@ -425,7 +448,7 @@ class ForwardMachine:
                     password = self.keyfilepwd
                     certfile = self.crtfile
                     keyfile = self.keyfile
-                sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+                sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS)
                 sslcontext.check_hostname = False
                 sslcontext.verify_mode = ssl.CERT_NONE  # note: server side
                 sslcontext.load_cert_chain(certfile, keyfile, password=password)
@@ -435,7 +458,7 @@ class ForwardMachine:
                 return None  # Continue
 
             # Server SSL context
-            sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+            sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS)
             sslcontext.sni_callback = cb_sni
             try:
                 sock = sslcontext.wrap_socket(sock, server_side=True)
@@ -445,8 +468,8 @@ class ForwardMachine:
                 return
             ss = _clisock[0]
         # Wrap the sockets
-        sock = self.sockcls(sock, self.cls)
-        ss = self.sockcls(ss, self.cls)
+        sock = ctx.sockcls(sock, ctx.cls)
+        ss = ctx.sockcls(ss, ctx.cls)
         sock.streamsession = ss.streamsession
         try:
             while True:
@@ -463,8 +486,9 @@ class ForwardMachine:
                     # get data
                     try:
                         data = thissock.recv(self.MTU)
-                    except EOFError:
-                        raise RuntimeError
+                    except EOFError as ex:
+                        othersock.ins.shutdown(socket.SHUT_RDWR)
+                        raise RuntimeError(str(ex))
                     if not data:
                         # Session needs more data
                         continue
@@ -489,7 +513,7 @@ class ForwardMachine:
                                 ctx,
                                 server_hostname=ex.server_hostname,
                             )
-                            ss = self.sockcls(ss, self.cls)
+                            ss = ctx.sockcls(ss, ctx.cls)
                             self.vprint(self.REDIRECT_TO, ctx, 1, ctx.dest, ex.dest)
                             ctx.dest = ex.dest  # update context
                             # Shut the old one.
@@ -529,8 +553,8 @@ class ForwardMachine:
                         traceback.print_exception(ex)
                         othersock.send(data)
                         self.vprint(self.FORWARD, ctx, cs, data, None)
-        except RuntimeError:
-            print(self.ct.red("%s DISCONNECTED !" % repr(addr)))
+        except RuntimeError as ex:
+            print(self.ct.red("%s DISCONNECTED !: %s" % (repr(addr), str(ex))))
             self.delconn(ctx)
             sock.close()
             ss.close()
