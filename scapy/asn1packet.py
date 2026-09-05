@@ -15,6 +15,7 @@ from scapy.packet import Packet
 from typing import (
     Any,
     Dict,
+    Optional,
     Tuple,
     Type,
     cast,
@@ -42,14 +43,22 @@ class ASN1Packet_metaclass(Packet_metaclass):
 
 class ASN1_Packet(Packet, metaclass=ASN1Packet_metaclass):
     ASN1_root = cast('ASN1F_field[Any, Any]', None)
-    ASN1_codec = None
+    ASN1_codec = cast(Any, None)
+    _asn1_observed_tags = None  # type: Optional[Dict[str, int]]
 
     def self_build(self):
         # type: () -> bytes
         if self.raw_packet_cache is not None:
             return self.raw_packet_cache
-        return self.ASN1_root.build(self)
+        from scapy.asn1.context import new_encoder
+        enc = new_encoder(self.ASN1_codec)
+        self.ASN1_root.encode_to(self, enc)
+        return cast(bytes, enc.finish())
 
     def do_dissect(self, x):
         # type: (bytes) -> bytes
-        return self.ASN1_root.dissect(self, x)
+        self._asn1_observed_tags = {}
+        from scapy.asn1.context import new_decoder
+        dec = new_decoder(self.ASN1_codec, x)
+        self.ASN1_root.decode_from(self, dec)
+        return cast(bytes, dec.remaining())

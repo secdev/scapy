@@ -28,14 +28,10 @@ from typing import (
     Type,
     Union,
     cast,
-    TYPE_CHECKING,
 )
 from typing import (
     TypeVar,
 )
-
-if TYPE_CHECKING:
-    from scapy.asn1.ber import BERcodec_Object
 
 try:
     from datetime import timezone
@@ -110,35 +106,96 @@ class ASN1_Error(Scapy_Exception):
 
 
 class ASN1_Encoding_Error(ASN1_Error):
-    pass
+    def __init__(self,
+                 msg,  # type: str
+                 encoded=None,  # type: Any
+                 remaining=b""  # type: bytes
+                 ):
+        # type: (...) -> None
+        Scapy_Exception.__init__(self, msg)
+        self.remaining = remaining
+        self.encoded = encoded
+
+    def __str__(self):
+        # type: () -> str
+        s = Scapy_Exception.__str__(self)
+        if self.encoded is not None:
+            if isinstance(self.encoded, ASN1_Object):
+                s += "\n### Already encoded ###\n%s" % self.encoded.strshow()
+            else:
+                s += "\n### Already encoded ###\n%r" % self.encoded
+        if self.remaining is not None:
+            s += "\n### Remaining ###\n%r" % self.remaining
+        return s
 
 
 class ASN1_Decoding_Error(ASN1_Error):
-    pass
+    def __init__(self,
+                 msg,  # type: str
+                 decoded=None,  # type: Any
+                 remaining=b""  # type: bytes
+                 ):
+        # type: (...) -> None
+        Scapy_Exception.__init__(self, msg)
+        self.remaining = remaining
+        self.decoded = decoded
+
+    def __str__(self):
+        # type: () -> str
+        s = Scapy_Exception.__str__(self)
+        if self.decoded is not None:
+            if isinstance(self.decoded, ASN1_Object):
+                s += "\n### Already decoded ###\n%s" % self.decoded.strshow()
+            else:
+                s += "\n### Already decoded ###\n%r" % self.decoded
+        if self.remaining is not None:
+            s += "\n### Remaining ###\n%r" % self.remaining
+        return s
 
 
 class ASN1_BadTag_Decoding_Error(ASN1_Decoding_Error):
     pass
 
 
+class ASN1Codec_metaclass(type):
+    def __new__(cls,
+                name,  # type: str
+                bases,  # type: Tuple[type, ...]
+                dct  # type: Dict[str, Any]
+                ):
+        # type: (...) -> type
+        c = super(ASN1Codec_metaclass, cls).__new__(cls, name, bases, dct)
+        try:
+            c.tag.register(c.codec, c)  # type: ignore
+        except Exception:
+            warning("Error registering %r for %r" % (c.tag, c.codec))  # type: ignore
+        return c
+
+
 class ASN1Codec(EnumElement):
     def register_stem(cls, stem):
-        # type: (Type[BERcodec_Object[Any]]) -> None
+        # type: (Type[Any]) -> None
         cls._stem = stem
 
     def register_tagging(cls, enc, dec):
         # type: (Any, Any) -> None
-        # Codec-level implicit/explicit tagging (BER/OER) or identity (UPER/PER).
+        # Codec-level implicit/explicit tagging (BER) or identity (OER/PER).
         cls._tagging_enc = enc
         cls._tagging_dec = dec
 
     def tagging_enc(cls, s, **kwargs):
         # type: (bytes, **Any) -> bytes
-        return cls._tagging_enc(s, **kwargs)  # type: ignore
+        enc = getattr(cls, "_tagging_enc", None)
+        if enc is None:
+            return s
+        return cast(bytes, enc(s, **kwargs))
 
     def tagging_dec(cls, s, **kwargs):
         # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
-        return cls._tagging_dec(s, **kwargs)  # type: ignore
+        dec = getattr(cls, "_tagging_dec", None)
+        if dec is None:
+            return None, s
+        return cast(Tuple[Optional[int], bytes], dec(s, **kwargs))
 
     def dec(cls, s, context=None, _depth=0):
         # type: (bytes, Optional[Type[ASN1_Class]], int) -> ASN1_Object[Any]
@@ -174,7 +231,7 @@ class ASN1Tag(EnumElement):
                  key,  # type: str
                  value,  # type: int
                  context=None,  # type: Optional[Type[ASN1_Class]]
-                 codec=None  # type: Optional[Dict[ASN1Codec, Type[BERcodec_Object[Any]]]]  # noqa: E501
+                 codec=None  # type: Optional[Dict[ASN1Codec, Type[Any]]]
                  ):
         # type: (...) -> None
         EnumElement.__init__(self, key, value)
@@ -199,11 +256,11 @@ class ASN1Tag(EnumElement):
         raise ASN1_Error("%r does not have any assigned ASN1 object" % self)
 
     def register(self, codecnum, codec):
-        # type: (ASN1Codec, Type[BERcodec_Object[Any]]) -> None
+        # type: (ASN1Codec, Type[Any]) -> None
         self._codec[codecnum] = codec
 
     def get_codec(self, codec):
-        # type: (Any) -> Type[BERcodec_Object[Any]]
+        # type: (Any) -> Type[Any]
         try:
             c = self._codec[codec]
         except KeyError:
@@ -322,7 +379,7 @@ class ASN1_Object(Generic[_K], metaclass=ASN1_Object_metaclass):
 
     def enc(self, codec):
         # type: (Any) -> bytes
-        return self.tag.get_codec(codec).enc(self.val)
+        return cast(bytes, self.tag.get_codec(codec).enc(self.val))
 
     def __repr__(self):
         # type: () -> str

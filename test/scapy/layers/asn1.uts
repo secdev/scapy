@@ -23,9 +23,12 @@ repr(ASN1_GENERALIZED_TIME("19991231235959")).startswith("1999-12-31 23:59:59 <"
 repr(ASN1_GENERALIZED_TIME("19991231235959.999")).startswith("1999-12-31 23:59:59.999 <")
 = with microseconds (invalid)
 assert "invalid" in repr(ASN1_GENERALIZED_TIME("1999123125959.99"))
+
 assert "invalid" in repr(ASN1_GENERALIZED_TIME("1999123125959.99x"))
+
 assert "invalid" in repr(ASN1_GENERALIZED_TIME("1999123125959.9999"))
 
+True
 
 + ASN.1 Generalized Time (Zulu)
 = Z short HH
@@ -52,8 +55,10 @@ repr(ASN1_GENERALIZED_TIME("19991231235959.999+0100")).startswith("1999-12-31 23
 repr(ASN1_GENERALIZED_TIME("19991231235959-2359")).startswith("1999-12-31 23:59:59 -2359 <")
 = offset invalid (offset >= 24h)
 assert "invalid" in repr(ASN1_GENERALIZED_TIME("19991231235959-2400"))
+
 assert "invalid" in repr(ASN1_GENERALIZED_TIME("19991231235959+2400"))
 
+True
 
 + ASN.1 UTC Time
 = UTC short HHMM
@@ -83,10 +88,17 @@ ASN1_GENERALIZED_TIME("199912312359").datetime == datetime(1999, 12, 31, 23, 59)
 ASN1_GENERALIZED_TIME("19991231235959").datetime == datetime(1999, 12, 31, 23, 59, 59)
 = datetime assignment
 x = ASN1_GENERALIZED_TIME("19991231235959.999")
+
 x.datetime = datetime(2020, 12, 31)
+
 assert x.val == "20201231000000"
+
 x.datetime = x.datetime.replace(tzinfo=timezone.utc)
+
 x.val == "20201231000000Z"
+
+True
+
 = datetime construction
 ASN1_GENERALIZED_TIME(datetime(2020, 12, 31)).val == "20201231000000"
 = datetime construction (UTC)
@@ -101,3 +113,638 @@ ASN1_UTC_TIME(datetime(2020, 12, 31)).val == "201231000000"
 ASN1_UTC_TIME(datetime(2020, 12, 31, tzinfo=timezone.utc)).val == "201231000000Z"
 = UTC datetime construction (offset)
 ASN1_UTC_TIME(datetime(2020, 12, 31, tzinfo=timezone(timedelta(hours=-23, minutes=-59)))).val == "201231000000-2359"
+
++ ASN.1 cross-codec build and dissect
+= import OER and UPER codecs
+import scapy.asn1.oer
+import scapy.asn1.uper
+from scapy.asn1.oer import *
+from scapy.asn1.uper import *
+from scapy.packet import raw
+= prepare helpers and packet classes
+class BERTaggedInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0, explicit_tag=0xA1)
+
+class BERFixedFields(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, size_len=1),
+        ASN1F_STRING("s", "", size_len=3),
+    )
+
+class BEROptionalField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0, explicit_tag=0xA0)),
+    )
+
+class BERSequenceOfIntegers(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+class BERChoiceField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+class BERRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_BOOLEAN("flag", False),
+        ASN1F_STRING("label", ""),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0, explicit_tag=0xA0)),
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+    )
+
+class BEROptionalSequence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("hdr", 0),
+        ASN1F_optional(ASN1F_SEQUENCE(
+            ASN1F_INTEGER("id", None),
+            ASN1F_STRING("label", None),
+            explicit_tag=0xA0,
+        )),
+    )
+
+def _roundtrip(cls, pkt):
+    # type: (type, ASN1_Packet) -> ASN1_Packet
+    return cls(raw(pkt))
+
+class OERTaggedInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0, explicit_tag=0xA1)
+
+class OERFixedFields(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, size_len=1, unsigned=True),
+        ASN1F_STRING("s", "", size_len=3),
+    )
+
+class OEROptionalField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0, explicit_tag=0xA0)),
+    )
+
+class OERSequenceOfIntegers(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+class OERChoiceField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+class OERRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_BOOLEAN("flag", False),
+        ASN1F_STRING("label", ""),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0, explicit_tag=0xA0)),
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+    )
+
+class OERNestedSequence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("x", 0),
+            ASN1F_BOOLEAN("y", False),
+        ),
+    )
+
+class OERNestedSequenceTrailing(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("x", 0),
+            ASN1F_BOOLEAN("y", False),
+        ),
+        ASN1F_INTEGER("id", 0),
+    )
+
+class OERSequenceOfWithTrailing(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+        ASN1F_INTEGER("id", 0),
+    )
+
+def _roundtrip(cls, pkt):
+    # type: (type, ASN1_Packet) -> ASN1_Packet
+    return cls(raw(pkt))
+
+class UPERFixedFields(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, size_len=1, unsigned=True),
+        ASN1F_STRING("s", "", size_len=3),
+    )
+
+class UPERIntegerField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0)
+
+class UPERBooleanField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_BOOLEAN("b", False)
+
+class UPERStringField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_STRING("s", "")
+
+class UPERConstrainedInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, size_len=1, unsigned=True,
+    )
+
+class UPEROptionalField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_BOOLEAN("flag", False),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0)),
+    )
+
+class UPERSequenceOfIntegers(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+class UPERChoiceField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+class UPERChoiceStringFirst(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_STRING(b""), ASN1F_STRING, ASN1F_INTEGER,
+    )
+
+class UPERRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_BOOLEAN("flag", False),
+        ASN1F_STRING("label", ""),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0)),
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+    )
+
+class UPEREnumeratedField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_ENUMERATED(
+        "state", 1, {1: "alpha", 200: "beta"},
+    )
+
+class UPERBitStringField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_BIT_STRING(
+        "bits", "0", minimum=1, maximum=20,
+    )
+
+class UPERMessagePrefix(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("msgId", 0),
+        ASN1F_INTEGER("myflag", 0),
+        ASN1F_STRING("szDescription", "", size_len=10),
+        ASN1F_BOOLEAN("isReady", False),
+    )
+
+class UPERSequenceWithChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_CHOICE("c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING),
+    )
+
+class UPERNullPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_NULL("n", None)
+
+class UPERVariableOctetString(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_STRING("data", "", minimum=1, maximum=20)
+
+class UPERConstrainedRangeInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, minimum=0, maximum=15)
+
+class UPERSequenceWithEnumerated(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_ENUMERATED("state", 1, {1: "alpha", 200: "beta"}),
+    )
+
+class UPERSequenceOfStrings(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF("items", [], ASN1F_STRING)
+
+class UPERNestedSequence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("x", 0),
+            ASN1F_BOOLEAN("y", False),
+        ),
+    )
+
+class UPERSequenceWithNull(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_NULL("n", None),
+    )
+
+class UPERFixedBitString(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_BIT_STRING("b", "0", minimum=16, maximum=16)
+
+class UPERSequenceOfConstrainedInts(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values", [], ASN1F_INTEGER("item", 0, minimum=0, maximum=255),
+    )
+
+class UPERSignedInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, minimum=-128, maximum=127)
+
+class UPERMultiOptional(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_optional(ASN1F_INTEGER("a", 0)),
+        ASN1F_optional(ASN1F_STRING("b", "")),
+    )
+
+def _roundtrip(cls, pkt):
+    # type: (type, ASN1_Packet) -> ASN1_Packet
+    return cls(raw(pkt))
+
+def _record_kwargs():
+    # type: () -> dict
+    return dict(
+        id=42,
+        flag=True,
+        label=b"hi",
+        extra=7,
+        values=[1, 2, 3],
+    )
+
+def _asn1_int(val):
+    # type: (Any) -> int
+    return val.val if hasattr(val, "val") else val
+
+def _assert_record(decoded):
+    # type: (ASN1_Packet) -> None
+    assert decoded.id.val == 42
+    assert decoded.flag.val == 1
+    assert decoded.label.val == b"hi"
+    assert decoded.extra.val == 7
+    assert [x.val for x in decoded.values] == [1, 2, 3]
+
+def _assert_record_empty(decoded):
+    # type: (ASN1_Packet) -> None
+    assert decoded.id.val == 1
+    assert decoded.flag.val == 0
+    assert decoded.label.val == b""
+    assert decoded.extra is None
+    assert [x.val for x in decoded.values] == []
+
+def _dissect(cls, data_hex):
+    # type: (Type[ASN1_Packet], str) -> ASN1_Packet
+    return cls(bytes.fromhex(data_hex))
+= ber oer per choice build
+class BERChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+class OERChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+class PERChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+for cls in (BERChoice, OERChoice, PERChoice):
+    as_int = cls(c=ASN1_INTEGER(99))
+    assert len(raw(as_int)) > 0
+    decoded = _roundtrip(cls, as_int)
+    assert decoded.c.val == 99
+    as_str = cls(c=ASN1_STRING(b"AB"))
+    assert len(raw(as_str)) > 0
+    decoded = _roundtrip(cls, as_str)
+    assert decoded.c.val == b"AB"
+
+True
+
+= ber oer per record dissect
+for cls, data_hex in [
+    (
+        BERRecord,
+        "301a02012a01010104026869"
+        "a003020107"
+        "3009020101020102020103",
+    ),
+    (
+        OERRecord,
+        "80"
+        "012aff0268690107"
+        "0103010101020103",
+    ),
+    (
+        UPERRecord,
+        "8095409a1a4041c0c04040408040c0",
+    ),
+]:
+    _assert_record(_dissect(cls, data_hex))
+
+True
+
+= ber oer per constrained integer constraints
+class BERConstrained(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
+    )
+
+class OERConstrained(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
+    )
+
+class PERConstrained(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
+    )
+
+for cls, expected in (
+    (BERConstrained, b"\x02\x81\x02\x00\xc8"),
+    (OERConstrained, b"\xc8"),
+    (PERConstrained, b"\xc8"),
+):
+    pkt = cls(n=200)
+    assert raw(pkt) == expected
+    assert _roundtrip(cls, pkt).n.val == 200
+    assert cls.ASN1_root.constraints.unsigned is True
+    assert cls.ASN1_root.constraints.minimum == 0
+    assert cls.ASN1_root.constraints.maximum == 255
+
+True
+
+= ber oer per empty sequence of
+class BEREmptySeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+class OEREmptySeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+class PEREmptySeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values",
+        [],
+        ASN1F_INTEGER("item", 0, minimum=0, maximum=7),
+        minimum=0,
+        maximum=3,
+    )
+
+for cls in (BEREmptySeqOf, OEREmptySeqOf, PEREmptySeqOf):
+    pkt = cls(values=[])
+    decoded = _roundtrip(cls, pkt)
+    assert decoded.values == []
+    assert len(raw(pkt)) > 0
+
+True
+
+= ber oer per default component
+class _BerDefault(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("a", 1),
+        ASN1F_DEFAULT(ASN1F_INTEGER("b", 7), 7),
+    )
+
+class _OerDefault(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("a", 1),
+        ASN1F_DEFAULT(ASN1F_INTEGER("b", 7), 7),
+    )
+
+class _PerDefault(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("a", 1),
+        ASN1F_DEFAULT(ASN1F_INTEGER("b", 7), 7),
+    )
+
+# A component holding its default value is not encoded, and comes back as the
+# default when the encoding does not carry it. An unset component counts as
+# holding it, and the default may be given as an ASN.1 object.
+for cls in (_BerDefault, _OerDefault, _PerDefault):
+    assert len(raw(cls(a=1, b=7))) < len(raw(cls(a=1, b=9)))
+    absent = _roundtrip(cls, cls(a=1, b=7)).b
+    assert getattr(absent, "val", absent) == 7
+    assert _roundtrip(cls, cls(a=1, b=9)).b.val == 9
+    assert raw(cls(a=1, b=None)) == raw(cls(a=1, b=7))
+
+class _AsnObjectDefault(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_DEFAULT(ASN1F_INTEGER("a", 7), ASN1_INTEGER(7)),
+    )
+
+assert raw(_AsnObjectDefault(a=ASN1_INTEGER(7))) == raw(_AsnObjectDefault(a=7))
+
+assert raw(_AsnObjectDefault(a=7)) == b"\x00"
+
+True
+
+% PR #5050 refactor targets (shared ASN.1)
+
+def _value(obj):
+    return getattr(obj, "val", obj)
+
++ Finding - flexible BER tags must not mutate shared field descriptors
+= flexible explicit tag decode keeps schema descriptor immutable
+class RefactorFlexibleExplicit(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0,
+        explicit_tag=0xA0,
+        flexible_tag=True,
+    )
+
+field = RefactorFlexibleExplicit.ASN1_root
+original_tag = field.explicit_tag
+canonical = raw(RefactorFlexibleExplicit(n=5))
+assert canonical[0] == 0xA0
+foreign = b"\xa1" + canonical[1:]
+decoded = RefactorFlexibleExplicit(foreign)
+assert _value(decoded.n) == 5
+# Packet-local tolerance must not rewrite the class-level schema.
+assert field.explicit_tag == original_tag == 0xA0
+# A later independent build must still use the declared tag.
+assert raw(RefactorFlexibleExplicit(n=5)) == canonical
+True
+
+= flexible implicit tag decode keeps schema descriptor immutable
+class RefactorFlexibleImplicit(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0,
+        implicit_tag=0x80,
+        flexible_tag=True,
+    )
+
+field = RefactorFlexibleImplicit.ASN1_root
+original_tag = field.implicit_tag
+canonical = raw(RefactorFlexibleImplicit(n=5))
+assert canonical[0] == 0x80
+foreign = b"\x81" + canonical[1:]
+decoded = RefactorFlexibleImplicit(foreign)
+assert _value(decoded.n) == 5
+assert field.implicit_tag == original_tag == 0x80
+assert raw(RefactorFlexibleImplicit(n=5)) == canonical
+True
+
+= two flexible decodes with different observed tags do not influence each other
+class RefactorFlexibleSequence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER(
+            "n", 0,
+            explicit_tag=0xA0,
+            flexible_tag=True,
+        ),
+    )
+
+field = RefactorFlexibleSequence.ASN1_root.seq[0]
+canonical = raw(RefactorFlexibleSequence(n=7))
+# SEQUENCE wrapper is 0x30; component tag begins after the sequence length.
+# Locate the declared explicit tag instead of assuming a BER length width.
+pos = canonical.index(b"\xa0")
+all(
+    _value(RefactorFlexibleSequence(
+        canonical[:pos] + bytes([observed_tag]) + canonical[pos + 1:]
+    ).n) == 7
+    and field.explicit_tag == 0xA0
+    and raw(RefactorFlexibleSequence(n=7)) == canonical
+    for observed_tag in [0xA1, 0xA2, 0xA3]
+)
+
+
++ Finding - CHOICE packet classes must be dictionary keys, not hash(cls)
+= colliding class hashes do not corrupt BER CHOICE tagging
+class RefactorCollidingASN1Meta(ASN1Packet_metaclass):
+    def __hash__(cls):
+        return 1
+
+class RefactorCollisionA(ASN1_Packet, metaclass=RefactorCollidingASN1Meta):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("x", 0))
+
+class RefactorCollisionB(ASN1_Packet, metaclass=RefactorCollidingASN1Meta):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("x", 0))
+
+assert hash(RefactorCollisionA) == hash(RefactorCollisionB)
+
+class RefactorCollisionChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c", None,
+        ASN1F_PACKET("a", None, RefactorCollisionA, explicit_tag=0xA0),
+        ASN1F_PACKET("b", None, RefactorCollisionB, explicit_tag=0xA1),
+    )
+
+raw_a = raw(RefactorCollisionChoice(c=RefactorCollisionA(x=1)))
+raw_b = raw(RefactorCollisionChoice(c=RefactorCollisionB(x=2)))
+assert raw_a[0] == 0xA0
+assert raw_b[0] == 0xA1
+assert isinstance(RefactorCollisionChoice(raw_a).c, RefactorCollisionA)
+assert isinstance(RefactorCollisionChoice(raw_b).c, RefactorCollisionB)
+True
+
+
++ Cross-codec schema contracts
+= identical schema values can be assigned as Python values or ASN1 objects
+class RefactorBERInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0)
+
+class RefactorOERPlainInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_INTEGER("n", 0)
+
+all(
+    raw(cls(n=value)) == raw(cls(n=ASN1_INTEGER(value)))
+    for cls in [RefactorBERInt, RefactorOERPlainInteger]
+    for value in [-1, 0, 1, 127]
+)
+
+= importing OER and UPER leaves representative BER packet wire behavior intact
+ber_before = raw(RefactorBERInt(n=5))
+import scapy.asn1.oer
+import scapy.asn1.uper
+ber_after = raw(RefactorBERInt(n=5))
+assert ber_before == ber_after
+assert _value(RefactorBERInt(ber_after).n) == 5
+True
+
+% PR #5050 review regressions
++ BER DEFAULT and X.509 extract_packet
+= BER DEFAULT-only empty SEQUENCE restores default value
+class _BerDefaultOnly(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_DEFAULT(ASN1F_INTEGER("b", 7), 7),
+    )
+
+decoded = _BerDefaultOnly(b"\x30\x00")
+assert getattr(decoded.b, "val", decoded.b) == 7
+
+= extract_packet passes _underlayer for X.509 attribute types
+from scapy.layers.x509 import X509_Attribute, X509_Extensions
+
+wire = bytes.fromhex("300f06092a864886f70d01090e31023000")
+attr = X509_Attribute(wire)
+assert attr.values[0].underlayer is attr
+assert isinstance(attr.values[0].value, X509_Extensions)
+
+= ASN1F_PACKET any2i sets underlayer for Kerberos EncryptedData.get_usage
+from scapy.layers.kerberos import KRB_AP_REP, EncryptedData, EncAPRepPart
+
+ap_rep = KRB_AP_REP(encPart=EncryptedData())
+assert ap_rep.encPart.underlayer is ap_rep
+assert ap_rep.encPart.parent is ap_rep
+assert ap_rep.encPart.get_usage() == (12, EncAPRepPart)
+True

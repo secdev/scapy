@@ -12,10 +12,10 @@ Basic Encoding Rules (BER) for ASN.1
 # Good read: https://luca.ntop.org/Teaching/Appunti/asn1.html
 
 from scapy.config import conf
-from scapy.error import warning
 from scapy.compat import chb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
 from scapy.asn1.asn1 import (
+    ASN1Codec_metaclass,
     ASN1Tag,
     ASN1_BADTAG,
     ASN1_BadTag_Decoding_Error,
@@ -33,7 +33,6 @@ from scapy.asn1.asn1 import (
 from typing import (
     Any,
     AnyStr,
-    Dict,
     Generic,
     List,
     Optional,
@@ -59,47 +58,11 @@ class BER_Exception(Exception):
 
 
 class BER_Encoding_Error(ASN1_Encoding_Error):
-    def __init__(self,
-                 msg,  # type: str
-                 encoded=None,  # type: Optional[Union[BERcodec_Object[Any], str]]  # noqa: E501
-                 remaining=b""  # type: bytes
-                 ):
-        # type: (...) -> None
-        Exception.__init__(self, msg)
-        self.remaining = remaining
-        self.encoded = encoded
-
-    def __str__(self):
-        # type: () -> str
-        s = Exception.__str__(self)
-        if isinstance(self.encoded, ASN1_Object):
-            s += "\n### Already encoded ###\n%s" % self.encoded.strshow()
-        else:
-            s += "\n### Already encoded ###\n%r" % self.encoded
-        s += "\n### Remaining ###\n%r" % self.remaining
-        return s
+    pass
 
 
 class BER_Decoding_Error(ASN1_Decoding_Error):
-    def __init__(self,
-                 msg,  # type: str
-                 decoded=None,  # type: Optional[Any]
-                 remaining=b""  # type: bytes
-                 ):
-        # type: (...) -> None
-        Exception.__init__(self, msg)
-        self.remaining = remaining
-        self.decoded = decoded
-
-    def __str__(self):
-        # type: () -> str
-        s = Exception.__str__(self)
-        if isinstance(self.decoded, ASN1_Object):
-            s += "\n### Already decoded ###\n%s" % self.decoded.strshow()
-        else:
-            s += "\n### Already decoded ###\n%r" % self.decoded
-        s += "\n### Remaining ###\n%r" % self.remaining
-        return s
+    pass
 
 
 class BER_BadTag_Decoding_Error(BER_Decoding_Error,
@@ -164,7 +127,6 @@ def BER_num_dec(s, cls_id=0, max_pow=32):
         raise BER_Decoding_Error("BER_num_dec: got empty string", remaining=s)
     x = cls_id
     for i, c in enumerate(s):
-        c = c
         x <<= 7
         x |= c & 0x7f
         if not c & 0x80:
@@ -275,20 +237,8 @@ def BER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
 #    [ BER classes ]    #
 
 
-class BERcodec_metaclass(type):
-    def __new__(cls,
-                name,  # type: str
-                bases,  # type: Tuple[type, ...]
-                dct  # type: Dict[str, Any]
-                ):
-        # type: (...) -> Type[BERcodec_Object[Any]]
-        c = cast('Type[BERcodec_Object[Any]]',
-                 super(BERcodec_metaclass, cls).__new__(cls, name, bases, dct))
-        try:
-            c.tag.register(c.codec, c)
-        except Exception:
-            warning("Error registering %r for %r" % (c.tag, c.codec))
-        return c
+class BERcodec_metaclass(ASN1Codec_metaclass):
+    pass
 
 
 _K = TypeVar('_K')
@@ -412,13 +362,14 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
     @classmethod
     def enc(cls, s, size_len=0, **_kwargs):
         # type: (_K, Optional[int], **Any) -> bytes
-        # Ignore unknown kwargs so shared field._codec_kwargs() dicts (OER/UPER
-        # keys) do not TypeError on BER packets.
+        # Ignore unknown kwargs (field=/pkt=/constraint keys) so BER packets
+        # do not TypeError when shared field call sites pass them through.
+        size_len = 0 if size_len is None else int(size_len)
         if isinstance(s, (str, bytes)):
             return BERcodec_STRING.enc(s, size_len=size_len)
         else:
             try:
-                return BERcodec_INTEGER.enc(int(s), size_len=size_len)  # type: ignore
+                return BERcodec_INTEGER.enc(int(s), size_len=size_len)  # type: ignore  # noqa: E501
             except TypeError:
                 raise TypeError("Trying to encode an invalid value !")
 
@@ -437,6 +388,7 @@ class BERcodec_INTEGER(BERcodec_Object[int]):
     @classmethod
     def enc(cls, i, size_len=0, **_kwargs):  # type: ignore[override]
         # type: (int, Optional[int], **Any) -> bytes
+        size_len = 0 if size_len is None else int(size_len)
         ls = []
         while True:
             ls.append(i & 0xff)
@@ -504,6 +456,7 @@ class BERcodec_BIT_STRING(BERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, size_len=0, **_kwargs):  # type: ignore[override]
         # type: (AnyStr, Optional[int], **Any) -> bytes
+        size_len = 0 if size_len is None else int(size_len)
         # /!\ this is DER encoding (bit strings are only zero-bit padded)
         s = bytes_encode(_s)
         if len(s) % 8 == 0:
@@ -523,6 +476,7 @@ class BERcodec_STRING(BERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, size_len=0, **_kwargs):  # type: ignore[override]
         # type: (Union[str, bytes], Optional[int], **Any) -> bytes
+        size_len = 0 if size_len is None else int(size_len)
         s = bytes_encode(_s)
         # Be sure we are encoding bytes
         return chb(int(cls.tag)) + BER_len_enc(len(s), size=size_len) + s
@@ -557,6 +511,7 @@ class BERcodec_OID(BERcodec_Object[bytes]):
     @classmethod
     def enc(cls, _oid, size_len=0, **_kwargs):  # type: ignore[override]
         # type: (AnyStr, Optional[int], **Any) -> bytes
+        size_len = 0 if size_len is None else int(size_len)
         oid = bytes_encode(_oid)
         if oid:
             lst = [int(x) for x in oid.strip(b".").split(b".")]
@@ -582,11 +537,12 @@ class BERcodec_OID(BERcodec_Object[bytes]):
             l, s = BER_num_dec(s)
             lst.append(l)
         if lst:
-            # X.690 sect 8.19.4
-            lst.insert(0, lst[0] // 40)
-            lst[1] %= 40
+            from scapy.asn1.oid import oid_subidentifiers_to_dotted
+            oid = oid_subidentifiers_to_dotted(lst)
+        else:
+            oid = b""
         return (
-            cls.asn1_object(b".".join(str(k).encode('ascii') for k in lst)),
+            cls.asn1_object(oid),
             t,
         )
 
@@ -705,6 +661,7 @@ class BERcodec_IPADDRESS(BERcodec_STRING):
     @classmethod
     def enc(cls, ipaddr_ascii, size_len=0, **_kwargs):  # type: ignore[override]
         # type: (str, Optional[int], **Any) -> bytes
+        size_len = 0 if size_len is None else int(size_len)
         try:
             s = inet_aton(ipaddr_ascii)
         except Exception:

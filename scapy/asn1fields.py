@@ -6,6 +6,12 @@
 
 """
 Classes that implement ASN.1 data structures.
+
+ASN.1 schema fields form a tree (``ASN1F_SEQUENCE``, ``ASN1F_CHOICE``, …),
+not a flat ``fields_desc`` list like Scapy ``Field`` instances. The
+``encode_to`` / ``decode_from`` methods are the tree analogue of
+``Field.addfield`` / ``Field.getfield``; ``build`` / ``dissect`` delegate to
+those entry points for backward compatibility.
 """
 
 import copy
@@ -17,6 +23,7 @@ from scapy.asn1.asn1 import (
     ASN1_BOOLEAN,
     ASN1_Class,
     ASN1_Class_UNIVERSAL,
+    ASN1_Codecs,
     ASN1_Decoding_Error,
     ASN1_Error,
     ASN1_INTEGER,
@@ -25,10 +32,10 @@ from scapy.asn1.asn1 import (
     ASN1_Object,
     ASN1_STRING,
 )
-from scapy.asn1.ber import (
-    BER_Decoding_Error,
-    BER_id_dec,
-)
+from scapy.asn1.ber import BER_Decoding_Error
+from scapy.asn1.constraints import normalize_constraints
+from scapy.asn1.context import new_decoder, new_encoder
+from scapy.asn1.tag import asn1_tag_parts
 from scapy.base_classes import BasePacket
 from scapy.volatile import (
     GeneralizedTime,
@@ -92,6 +99,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                  explicit_tag=None,  # type: Optional[int]
                  flexible_tag=False,  # type: Optional[bool]
                  size_len=None,  # type: Optional[int]
+                 **codec_opts  # type: Any
                  ):
         # type: (...) -> None
         if context is not None:
@@ -104,6 +112,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         else:
             self.default = self.ASN1_tag.asn1_object(default)  # type: ignore
         self.size_len = size_len
+        self.constraints = normalize_constraints(codec_opts)
         self.flexible_tag = flexible_tag
         if (implicit_tag is not None) and (explicit_tag is not None):
             err_msg = "field cannot be both implicitly and explicitly tagged"
@@ -118,19 +127,34 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # type: (Type[ASN1_Packet]) -> None
         self.owners.append(cls)
 
-    def _apply_diff_tag(self, diff_tag):
-        # type: (Optional[int]) -> None
-        # this implies that flexible_tag was True
+    def _apply_diff_tag(self, pkt, diff_tag):
+        # type: (ASN1_Packet, Optional[int]) -> None
+        # flexible_tag was True: record the observed tag on the packet so
+        # shared field descriptors stay immutable across interleaved decodes.
         if diff_tag is not None:
-            if self.implicit_tag is not None:
-                self.implicit_tag = diff_tag
-            elif self.explicit_tag is not None:
-                self.explicit_tag = diff_tag
+            tags = pkt._asn1_observed_tags
+            if tags is None:
+                tags = {}
+                pkt._asn1_observed_tags = tags
+            tags[self.name] = diff_tag
+
+    def _tagging_tags(self, pkt):
+        # type: (ASN1_Packet) -> Tuple[Optional[int], Optional[int]]
+        imp = self.implicit_tag
+        exp = self.explicit_tag
+        if self.flexible_tag:
+            observed = getattr(pkt, "_asn1_observed_tags", None) or {}
+            diff = observed.get(self.name)
+            if diff is not None:
+                if imp is not None:
+                    imp = diff
+                elif exp is not None:
+                    exp = diff
+        return imp, exp
 
     def _tagging_dec(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
-        # Codec provides tagging_*; OER implements real tags, UPER/PER use
-        # identity helpers (no BER-style tagging).
+        # Codec provides tagging_*; OER/PER register identity helpers.
         return pkt.ASN1_codec.tagging_dec(s, **kwargs)  # type: ignore
 
     def _tagging_enc(self, pkt, s, **kwargs):
@@ -151,20 +175,13 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             safe=self.flexible_tag,
             **kwargs,
         )
-        self._apply_diff_tag(diff_tag)
+        self._apply_diff_tag(pkt, diff_tag)
         return s
 
-    def _codec_kwargs(self, pkt):
-        # type: (ASN1_Packet) -> Dict[str, Any]
-        # OER/UPER need extra constraints (oer_unsigned, uper_min/max, …) on
-        # every enc/dec call; override this instead of hardcoding BER size_len.
-        return {"size_len": self.size_len}
-
-    def _use_object_enc(self, pkt, item):
-        # type: (ASN1_Packet, ASN1_Object[Any]) -> bool
-        # BER/LDAP: item.enc() when size_len is unset. UPER must override to
-        # False so constrained integers go through codec.enc(**kwargs).
-        return self.size_len is None
+    def normalize_encode_value(self, pkt, value):
+        # type: (ASN1_Packet, Any) -> Any
+        """Convert a human-facing value before codec encode (e.g. enum names)."""
+        return value
 
     def _encode_item(self, pkt, item):
         # type: (ASN1_Packet, Any) -> bytes
@@ -181,15 +198,18 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                     "Encoding Error: got %r instead of an %r for field [%s]" %
                     (item, self.ASN1_tag, self.name)
                 )
-            if self._use_object_enc(pkt, item):
-                return item.enc(pkt.ASN1_codec)
             item = item.val
         elif hasattr(item, "self_build"):
             # Packet values (e.g. ASN1F_STRING_PacketField) must still go through
             # the BER type codec so the universal tag/length are applied.
             item = item.self_build()
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        return codec.enc(item, **self._codec_kwargs(pkt))
+        return cast(
+            bytes,
+            codec.enc(
+                item, field=self, pkt=pkt, size_len=self.size_len,
+            ),
+        )
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -215,18 +235,28 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         """
         s = self._apply_tagging_dec(s, pkt, _fname=self.name)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        dec = codec.safedec if self.flexible_tag else codec.dec
-        return dec(s, context=self.context, **self._codec_kwargs(pkt))  # type: ignore
+        decode = codec.safedec if self.flexible_tag else codec.dec
+        return cast(
+            Tuple[_A, bytes],
+            decode(
+                s,
+                context=self.context,
+                field=self,
+                pkt=pkt,
+                size_len=self.size_len,
+            ),
+        )
 
     def i2m(self, pkt, x):
         # type: (ASN1_Packet, Union[bytes, _I, _A]) -> bytes
         if x is None:
             return b""
         s = self._encode_item(pkt, x)
+        imp, exp = self._tagging_tags(pkt)
         return self._tagging_enc(
             pkt, s,
-            implicit_tag=self.implicit_tag,
-            explicit_tag=self.explicit_tag,
+            implicit_tag=imp,
+            explicit_tag=exp,
         )
 
     def any2i(self, pkt, x):
@@ -236,13 +266,14 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
     def extract_packet(self,
                        cls,  # type: Type[ASN1_Packet]
                        s,  # type: bytes
-                       _underlayer=None  # type: Optional[ASN1_Packet]
+                       _underlayer=None,  # type: Optional[ASN1_Packet]
+                       _parent=None  # type: Optional[ASN1_Packet]
                        ):
         # type: (...) -> Tuple[ASN1_Packet, bytes]
         try:
-            c = cls(s, _underlayer=_underlayer)
+            c = cls(s, _underlayer=_underlayer, _parent=_parent)
         except ASN1F_badsequence:
-            c = packet.Raw(s, _underlayer=_underlayer)  # type: ignore
+            c = packet.Raw(s, _underlayer=_underlayer, _parent=_parent)  # type: ignore
         cpad = c.getlayer(packet.Raw)
         s = b""
         if cpad is not None:
@@ -251,15 +282,70 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                 del cpad.underlayer.payload
         return c, s
 
+    def m2i_from_decoder(self, pkt, dec):
+        # type: (ASN1_Packet, Any) -> Any
+        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+        return codec.dec_from_decoder(
+            dec, field=self, pkt=pkt, size_len=self.size_len,
+        )
+
+    def dissect_from_decoder(self, pkt, dec):
+        # type: (ASN1_Packet, Any) -> None
+        self.set_val(pkt, self.m2i_from_decoder(pkt, dec))
+
+    def encode_into(self, bit_enc, pkt, value=None):
+        # type: (Any, ASN1_Packet, Any) -> None
+        """Encode into a raw UPER bit encoder (not a byte-oriented context)."""
+        if value is None:
+            value = getattr(pkt, self.name)
+        if value is None:
+            return
+        value = self.normalize_encode_value(pkt, value)
+        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+        if isinstance(value, ASN1_Object):
+            if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
+                    value.tag == ASN1_Class_UNIVERSAL.RAW or
+                    value.tag == ASN1_Class_UNIVERSAL.ERROR or
+                    self.ASN1_tag == value.tag):
+                raw = value.val
+            else:
+                raise ASN1_Error(
+                    "Encoding Error: got %r instead of an %r for field [%s]" %
+                    (value, self.ASN1_tag, self.name)
+                )
+        else:
+            raw = value
+        codec.encode_into(
+            bit_enc, raw, field=self, pkt=pkt, size_len=self.size_len,
+        )
+
+    def encode_to(self, pkt, enc):
+        # type: (ASN1_Packet, Any) -> None
+        if enc.codec is ASN1_Codecs.PER:
+            self.encode_into(enc.bit_encoder, pkt)
+        else:
+            enc.write(self.i2m(pkt, getattr(pkt, self.name)))
+
+    def decode_from(self, pkt, dec):
+        # type: (ASN1_Packet, Any) -> None
+        if dec.codec is ASN1_Codecs.PER:
+            self.dissect_from_decoder(pkt, dec.bit_decoder)
+        else:
+            val, remain = self.m2i(pkt, dec.remaining())
+            self.set_val(pkt, val)
+            dec.set_remainder(remain)
+
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
-        return self.i2m(pkt, getattr(pkt, self.name))
+        enc = new_encoder(pkt.ASN1_codec)
+        self.encode_to(pkt, enc)
+        return cast(bytes, enc.finish())
 
     def dissect(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> bytes
-        v, s = self.m2i(pkt, s)
-        self.set_val(pkt, v)
-        return s
+        dec = new_decoder(pkt.ASN1_codec, s)
+        self.decode_from(pkt, dec)
+        return cast(bytes, dec.remaining())
 
     def do_copy(self, x):
         # type: (Any) -> Any
@@ -326,12 +412,14 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
                  context=None,  # type: Optional[Any]
                  implicit_tag=None,  # type: Optional[Any]
                  explicit_tag=None,  # type: Optional[Any]
+                 **codec_opts  # type: Any
                  ):
         # type: (...) -> None
         super(ASN1F_enum_INTEGER, self).__init__(
             name, default, context=context,
             implicit_tag=implicit_tag,
-            explicit_tag=explicit_tag
+            explicit_tag=explicit_tag,
+            **codec_opts
         )
         i2s = self.i2s = {}  # type: Dict[int, str]
         s2i = self.s2i = {}  # type: Dict[str, int]
@@ -344,6 +432,18 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
         for k in keys:
             i2s[k] = enum[k]
             s2i[enum[k]] = k
+
+    def uper_enum_values(self):
+        # type: () -> List[int]
+        # Sort on each call: i2s remains a normal mutable Scapy mapping, and
+        # ENUMERATED sets are normally tiny.
+        return sorted(self.i2s)
+
+    def normalize_encode_value(self, pkt, value):
+        # type: (ASN1_Packet, Any) -> Any
+        if isinstance(value, str):
+            return self.s2i[value]
+        return value
 
     def i2m(self,
             pkt,  # type: ASN1_Packet
@@ -378,12 +478,14 @@ class ASN1F_BIT_STRING(ASN1F_field[str, ASN1_BIT_STRING]):
                  context=None,  # type: Optional[Any]
                  implicit_tag=None,  # type: Optional[int]
                  explicit_tag=None,  # type: Optional[int]
+                 **codec_opts  # type: Any
                  ):
         # type: (...) -> None
         super(ASN1F_BIT_STRING, self).__init__(
             name, None, context=context,
             implicit_tag=implicit_tag,
-            explicit_tag=explicit_tag
+            explicit_tag=explicit_tag,
+            **codec_opts,
         )
         if isinstance(default, (bytes, str)):
             self.default = ASN1_BIT_STRING(default,
@@ -494,11 +596,23 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
     def __init__(self, *seq, **kwargs):
         # type: (*Any, **Any) -> None
         name = "dummy_seq_name"
-        default = [field.default for field in seq]
+        default = []
+        for field in seq:
+            if isinstance(field, ASN1F_DEFAULT):
+                default.append(field._default)
+            elif isinstance(field, ASN1F_optional):
+                default.append(None)
+            else:
+                default.append(field.default)
         super(ASN1F_SEQUENCE, self).__init__(
             name, default, **kwargs
         )
         self.seq = seq
+        # Codecs that describe presence out of band (OER/PER preambles) need
+        # the optional components in declaration order.
+        self.optionals = tuple(
+            f for f in seq if isinstance(f, ASN1F_optional)
+        )  # type: Tuple[ASN1F_optional, ...]
         self.islist = len(seq) > 1
 
     def __repr__(self):
@@ -514,45 +628,47 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         return reduce(lambda x, y: x + y.get_fields_list(),
                       self.seq, [])
 
-    def m2i(self, pkt, s):
-        # type: (Any, bytes) -> Tuple[Any, bytes]
-        """
-        ASN1F_SEQUENCE behaves transparently, with nested ASN1_objects being
-        dissected one by one. Because we use obj.dissect (see loop below)
-        instead of obj.m2i (as we trust dissect to do the appropriate set_vals)
-        we do not directly retrieve the list of nested objects.
-        Thus m2i returns an empty list (along with the proper remainder).
-        It is discarded by dissect() and should not be missed elsewhere.
-        """
-        s = self._apply_tagging_dec(s, pkt, _fname=pkt.name)
-        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        i, s, remain = codec.check_type_check_len(s)
+    def _dissect_sequence_children(self, pkt, s):
+        # type: (Any, bytes) -> bytes
+        def set_absent(obj):
+            # type: (Any) -> None
+            if isinstance(obj, (ASN1F_optional, ASN1F_DEFAULT)):
+                obj.set_missing(pkt)
+            else:
+                obj.set_val(pkt, None)
+
         if len(s) == 0:
             for obj in self.seq:
-                obj.set_val(pkt, None)
-        else:
-            for obj in self.seq:
-                try:
-                    s = obj.dissect(pkt, s)
-                except ASN1F_badsequence:
-                    break
-            if len(s) > 0:
-                raise BER_Decoding_Error(
-                    "unexpected remainder in %s" % pkt.name,
-                    remaining=s,
-                )
+                set_absent(obj)
+            return s
+        for idx, obj in enumerate(self.seq):
+            try:
+                s = obj.dissect(pkt, s)
+            except ASN1F_badsequence:
+                for absent in self.seq[idx:]:
+                    set_absent(absent)
+                return s
+        return s
+
+    def m2i(self, pkt, s):
+        # type: (Any, bytes) -> Tuple[Any, bytes]
+        dec = new_decoder(pkt.ASN1_codec, s)
+        self.decode_from(pkt, dec)
+        remain = dec.remaining()
+        if dec.codec is ASN1_Codecs.PER and remain:
+            from scapy.asn1.uper import UPER_Decoding_Error
+            raise UPER_Decoding_Error(
+                "unexpected remainder in %s" % pkt.__class__.__name__,
+            )
         return [], remain
 
-    def dissect(self, pkt, s):
-        # type: (Any, bytes) -> bytes
-        _, x = self.m2i(pkt, s)
-        return x
+    def encode_to(self, pkt, enc):
+        # type: (ASN1_Packet, Any) -> None
+        enc.encode_sequence(self, pkt)
 
-    def build(self, pkt):
-        # type: (ASN1_Packet) -> bytes
-        s = reduce(lambda x, y: x + y.build(pkt),
-                   self.seq, b"")
-        return super(ASN1F_SEQUENCE, self).i2m(pkt, s)
+    def decode_from(self, pkt, dec):
+        # type: (ASN1_Packet, Any) -> None
+        dec.decode_sequence(self, pkt)
 
 
 class ASN1F_SET(ASN1F_SEQUENCE):
@@ -571,6 +687,10 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
                                     List[ASN1_Object[Any]]]):
     """
     Two types are allowed as cls: ASN1_Packet, ASN1F_field
+
+    Structured items are normally ASN1_Packet (or ASN1F_PACKET). Compound
+    ASN1F_field elements (SEQUENCE / CHOICE / SEQUENCE OF) remain constructible
+    for BER/OER; UPER rejects them at encode/decode time.
     """
     ASN1_tag = ASN1_Class_UNIVERSAL.SEQUENCE
     islist = 1
@@ -582,6 +702,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
                  context=None,  # type: Optional[Any]
                  implicit_tag=None,  # type: Optional[Any]
                  explicit_tag=None,  # type: Optional[Any]
+                 **codec_opts  # type: Any
                  ):
         # type: (...) -> None
         if isinstance(cls, type) and issubclass(cls, ASN1F_field) or \
@@ -595,13 +716,14 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
         elif hasattr(cls, "ASN1_root") or callable(cls):
             self.cls = cast("Type[ASN1_Packet]", cls)
             self._extract_packet = lambda s, pkt: self.extract_packet(
-                self.cls, s, _underlayer=pkt)
+                self.cls, s, _underlayer=pkt, _parent=pkt)
             self.holds_packets = 1
         else:
             raise ValueError("cls should be an ASN1_Packet or ASN1_field")
         super(ASN1F_SEQUENCE_OF, self).__init__(
             name, None, context=context,
-            implicit_tag=implicit_tag, explicit_tag=explicit_tag
+            implicit_tag=implicit_tag, explicit_tag=explicit_tag,
+            **codec_opts,
         )
         self.default = default
 
@@ -611,41 +733,19 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
         # type: (...) -> bool
         return ASN1F_field.is_empty(self, pkt)
 
-    def m2i(self,
-            pkt,  # type: ASN1_Packet
-            s,  # type: bytes
-            ):
-        # type: (...) -> Tuple[List[Any], bytes]
-        s = self._apply_tagging_dec(s, pkt)
-        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        i, s, remain = codec.check_type_check_len(s)
-        lst = []
-        while s:
-            c, s = self._extract_packet(s, pkt)  # type: ignore
-            if c:
-                lst.append(c)
-        if len(s) > 0:
-            raise BER_Decoding_Error(
-                "unexpected remainder in %s" % pkt.name,
-                remaining=s,
-            )
-        return lst, remain
+    def m2i(self, pkt, s):
+        # type: (ASN1_Packet, bytes) -> Tuple[List[Any], bytes]
+        dec = new_decoder(pkt.ASN1_codec, s)
+        self.decode_from(pkt, dec)
+        return getattr(pkt, self.name), dec.remaining()
 
-    def build(self, pkt):
-        # type: (ASN1_Packet) -> bytes
-        val = getattr(pkt, self.name)
-        if isinstance(val, ASN1_Object) and \
-                val.tag == ASN1_Class_UNIVERSAL.RAW:
-            s = cast(Union[List[_SEQ_T], bytes], val)
-        elif val is None:
-            s = b""
-        elif self.holds_packets:
-            s = b"".join(bytes(i) for i in val)
-        else:
-            # BER: element fields may carry implicit/explicit tags; i2m
-            # matches m2i()/fld.m2i(). (Packet elements use bytes() above.)
-            s = b"".join(self.fld.i2m(pkt, i) for i in val)
-        return self.i2m(pkt, s)
+    def encode_to(self, pkt, enc):
+        # type: (ASN1_Packet, Any) -> None
+        enc.encode_sequence_of(self, pkt)
+
+    def decode_from(self, pkt, dec):
+        # type: (ASN1_Packet, Any) -> None
+        dec.decode_sequence_of(self, pkt)
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -696,8 +796,24 @@ class ASN1F_optional(ASN1F_element):
         self._field = field
 
     def __getattr__(self, attr):
-        # type: (str) -> Optional[Any]
+        # type: (str) -> Any
+        if attr.startswith("_"):
+            raise AttributeError(attr)
         return getattr(self._field, attr)
+
+    @property
+    def fld(self):
+        # type: () -> ASN1F_field[Any, Any]
+        return self._field
+
+    def get_fields_list(self):
+        # type: () -> List[ASN1F_field[Any, Any]]
+        inner = self._field.get_fields_list()
+        if inner == [self._field]:
+            field = self._field.copy()
+            field.default = None
+            return [field]
+        return inner
 
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[Any, bytes]
@@ -712,14 +828,39 @@ class ASN1F_optional(ASN1F_element):
         try:
             return self._field.dissect(pkt, s)
         except (ASN1_Error, ASN1F_badsequence, ASN1_Decoding_Error):
-            self._field.set_val(pkt, None)
+            self.set_missing(pkt)
             return s
+
+    def is_present(self, pkt):
+        # type: (ASN1_Packet) -> bool
+        # Delegate to the wrapped field: an optional SEQUENCE uses a dummy
+        # name and is empty iff all of its children are.
+        return not self._field.is_empty(pkt)
+
+    def set_missing(self, pkt):
+        # type: (ASN1_Packet) -> None
+        """Called when the encoding does not carry the component."""
+        self._field.set_val(pkt, None)
+
+    def is_empty(self, pkt):
+        # type: (ASN1_Packet) -> bool
+        return not self.is_present(pkt)
 
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
-        if self._field.is_empty(pkt):
+        # Through self, so that a DEFAULT component omits its default value.
+        if not self.is_present(pkt):
             return b""
         return self._field.build(pkt)
+
+    def encode_to(self, pkt, enc):
+        # type: (ASN1_Packet, Any) -> None
+        if self.is_present(pkt):
+            self._field.encode_to(pkt, enc)
+
+    def decode_from(self, pkt, dec):
+        # type: (ASN1_Packet, Any) -> None
+        self._field.decode_from(pkt, dec)
 
     def any2i(self, pkt, x):
         # type: (ASN1_Packet, Any) -> Any
@@ -728,6 +869,44 @@ class ASN1F_optional(ASN1F_element):
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, Any) -> str
         return self._field.i2repr(pkt, x)
+
+
+class ASN1F_DEFAULT(ASN1F_optional):
+    """
+    ASN.1 field holding a DEFAULT value: it is omitted from the encoding while
+    it holds that value, and restored when the encoding does not carry it.
+
+    As with OPTIONAL components, a BER encoding only tells the component apart
+    from the one that follows it by its tag, so the schema must give it a
+    distinct one. OER and PER describe presence in the preamble instead.
+    """
+    def __init__(self, field, default):
+        # type: (ASN1F_field[Any, Any], Any) -> None
+        super(ASN1F_DEFAULT, self).__init__(field)
+        self._default = default
+
+    def get_fields_list(self):
+        # type: () -> List[ASN1F_field[Any, Any]]
+        inner = self._field.get_fields_list()
+        if inner == [self._field]:
+            return [self._field.copy()]
+        return inner
+
+    def is_present(self, pkt):
+        # type: (ASN1_Packet) -> bool
+        val = getattr(pkt, self._field.name, None)
+        if val is None:
+            return False
+        if isinstance(val, ASN1_Object):
+            val = val.val
+        default = self._default
+        if isinstance(default, ASN1_Object):
+            default = default.val
+        return bool(val != default)
+
+    def set_missing(self, pkt):
+        # type: (ASN1_Packet) -> None
+        self._field.set_val(pkt, self._default)
 
 
 class ASN1F_omit(ASN1F_field[None, None]):
@@ -762,16 +941,17 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
             err_msg = "ASN1F_CHOICE has been called with an implicit_tag"
             raise ASN1_Error(err_msg)
         self.implicit_tag = None
-        for kwarg in ["context", "explicit_tag"]:
-            setattr(self, kwarg, kwargs.get(kwarg))
+        context = kwargs.pop("context", None)
+        explicit_tag = kwargs.pop("explicit_tag", None)
+        # Remaining kwargs are codec constraints (e.g. extensible=).
         super(ASN1F_CHOICE, self).__init__(
-            name, None, context=self.context,
-            explicit_tag=self.explicit_tag
+            name, None, context=context,
+            explicit_tag=explicit_tag,
+            **kwargs
         )
         self.default = default
-        self.current_choice = None
         self.choices = {}  # type: Dict[int, _CHOICE_T]
-        self.pktchoices = {}
+        self.pktchoices = {}  # type: Dict[type, Tuple[Optional[int], Optional[int]]]
         for p in args:
             if hasattr(p, "ASN1_root"):
                 p = cast('ASN1_Packet', p)
@@ -790,60 +970,51 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                 else:
                     # should be ASN1F_PACKET instance
                     self.choices[p.network_tag] = p
-                    self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
+                    self.pktchoices[p.cls] = (p.implicit_tag, p.explicit_tag)
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
+        # X.691 10.2: PER indexes alternatives in canonical tag order.
+        canon_items = sorted(
+            self.choices.items(),
+            key=lambda item: asn1_tag_parts(item[0])[:2],
+        )
+        self.canonical_order = [alt for _tag, alt in canon_items]
+        self.canonical_index = {
+            tag: i for i, (tag, _alt) in enumerate(canon_items)
+        }  # type: Dict[int, int]
+
+    def alternative_tag(self, x):
+        # type: (Any) -> Optional[int]
+        """Return the CHOICE alternative tag that carries x, or None."""
+        for tag, choice in self.choices.items():
+            if isinstance(choice, type):
+                if hasattr(choice, "ASN1_root"):
+                    # ASN1_Packet subclass
+                    if isinstance(x, choice):
+                        return tag
+                elif isinstance(x, ASN1_Object) and x.tag == choice.ASN1_tag:
+                    # ASN1F_field subclass
+                    return tag
+            elif isinstance(x, choice.cls):
+                # ASN1F_PACKET instance, holding a tagged packet
+                return tag
+        return None
 
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Object[Any], bytes]
-        """
-        First we have to retrieve the appropriate choice.
-        Then we extract the field/packet, according to this choice.
-        """
         if len(s) == 0:
             raise ASN1_Error("ASN1F_CHOICE: got empty string")
-        s = self._apply_tagging_dec(s, pkt)
-        tag, _ = BER_id_dec(s)
-        if tag in self.choices:
-            choice = self.choices[tag]
-        else:
-            if self.flexible_tag:
-                choice = ASN1F_field
-            else:
-                raise ASN1_Error(
-                    "ASN1F_CHOICE: unexpected field in '%s' "
-                    "(tag %s not in possible tags %s)" % (
-                        self.name, tag, list(self.choices.keys())
-                    )
-                )
-        if hasattr(choice, "ASN1_root"):
-            # we don't want to import ASN1_Packet in this module...
-            return self.extract_packet(choice, s, _underlayer=pkt)  # type: ignore
-        elif isinstance(choice, type):
-            return choice(self.name, b"").m2i(pkt, s)
-        else:
-            # XXX check properly if this is an ASN1F_PACKET
-            return choice.m2i(pkt, s)
+        dec = new_decoder(pkt.ASN1_codec, s)
+        self.decode_from(pkt, dec)
+        return getattr(pkt, self.name), dec.remaining()
 
-    def i2m(self, pkt, x):
-        # type: (ASN1_Packet, Any) -> bytes
-        if x is None:
-            s = b""
-        else:
-            # Use the packet codec for ASN1_Object values; bytes(x) would
-            # follow conf.ASN1_default_codec instead.
-            if isinstance(x, ASN1_Object):
-                s = x.enc(pkt.ASN1_codec)
-            else:
-                s = bytes(x)
-            if hash(type(x)) in self.pktchoices:
-                imp, exp = self.pktchoices[hash(type(x))]
-                s = self._tagging_enc(
-                    pkt, s,
-                    implicit_tag=imp,
-                    explicit_tag=exp,
-                )
-        return self._tagging_enc(pkt, s, explicit_tag=self.explicit_tag)
+    def encode_to(self, pkt, enc):
+        # type: (ASN1_Packet, Any) -> None
+        enc.encode_choice(self, pkt)
+
+    def decode_from(self, pkt, dec):
+        # type: (ASN1_Packet, Any) -> None
+        dec.decode_choice(self, pkt)
 
     def randval(self):
         # type: () -> RandChoice
@@ -888,54 +1059,29 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
 
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[Any, bytes]
-        if self.next_cls_cb:
-            cls = self.next_cls_cb(pkt) or self.cls
-        else:
-            cls = self.cls
-        if not hasattr(cls, "ASN1_root"):
-            # A normal Packet (!= ASN1)
-            return self.extract_packet(cls, s, _underlayer=pkt)
-        s = self._apply_tagging_dec(
-            s, pkt,
-            hidden_tag=cls.ASN1_root.ASN1_tag,  # noqa: E501
-            _fname=self.name,
-        )
-        if not s:
-            return None, s
-        return self.extract_packet(cls, s, _underlayer=pkt)
+        dec = new_decoder(pkt.ASN1_codec, s)
+        self.decode_from(pkt, dec)
+        return getattr(pkt, self.name), dec.remaining()
 
-    def i2m(self,
-            pkt,  # type: ASN1_Packet
-            x  # type: Union[bytes, ASN1_Packet, None, ASN1_Object[Optional[ASN1_Packet]]]  # noqa: E501
-            ):
-        # type: (...) -> bytes
-        if x is None:
-            s = b""
-        elif isinstance(x, bytes):
-            s = x
-        elif isinstance(x, ASN1_Object):
-            if x.val:
-                s = bytes(x.val)
-            else:
-                s = b""
-        else:
-            s = bytes(x)
-            if not hasattr(x, "ASN1_root"):
-                # A normal Packet (!= ASN1)
-                return s
-        return self._tagging_enc(
-            pkt, s,
-            implicit_tag=self.implicit_tag,
-            explicit_tag=self.explicit_tag,
-        )
+    def encode_to(self, pkt, enc):
+        # type: (ASN1_Packet, Any) -> None
+        enc.encode_packet(self, pkt)
+
+    def decode_from(self, pkt, dec):
+        # type: (ASN1_Packet, Any) -> None
+        dec.decode_packet(self, pkt)
 
     def any2i(self,
               pkt,  # type: ASN1_Packet
               x  # type: Union[bytes, ASN1_Packet, None, ASN1_Object[Optional[ASN1_Packet]]]  # noqa: E501
               ):
         # type: (...) -> 'ASN1_Packet'
+        # Kerberos EncryptedData.get_usage() walks underlayer; X.509 and
+        # OER nested packets also use parent. Set both when available.
         if hasattr(x, "add_underlayer"):
             x.add_underlayer(pkt)  # type: ignore
+        if hasattr(x, "add_parent"):
+            x.add_parent(pkt)  # type: ignore
         return super(ASN1F_PACKET, self).any2i(pkt, x)
 
     def randval(self):  # type: ignore
@@ -975,7 +1121,7 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
             raise BER_Decoding_Error("wrong bit string", remaining=s)
         if bit_string.val_readable:
             p, s = self.extract_packet(self.cls, bit_string.val_readable,
-                                       _underlayer=pkt)
+                                       _underlayer=pkt, _parent=pkt)
         else:
             return None, bit_string.val_readable
         if len(s) > 0:
@@ -1003,6 +1149,7 @@ class ASN1F_FLAGS(ASN1F_BIT_STRING):
                  context=None,  # type: Optional[Any]
                  implicit_tag=None,  # type: Optional[int]
                  explicit_tag=None,  # type: Optional[Any]
+                 **codec_opts  # type: Any
                  ):
         # type: (...) -> None
         self.mapping = mapping
@@ -1011,7 +1158,8 @@ class ASN1F_FLAGS(ASN1F_BIT_STRING):
             default_readable=False,
             context=context,
             implicit_tag=implicit_tag,
-            explicit_tag=explicit_tag
+            explicit_tag=explicit_tag,
+            **codec_opts,
         )
 
     def any2i(self, pkt, x):
@@ -1056,6 +1204,8 @@ class ASN1F_STRING_PacketField(ASN1F_STRING):
         # type: (ASN1_Packet, Any) -> Any
         if hasattr(x, "add_underlayer"):
             x.add_underlayer(pkt)
+        if hasattr(x, "add_parent"):
+            x.add_parent(pkt)
         return super(ASN1F_STRING_PacketField, self).any2i(pkt, x)
 
 
@@ -1085,4 +1235,4 @@ class ASN1F_STRING_ENCAPS(ASN1F_STRING_PacketField):
     def m2i(self, pkt, s):  # type: ignore
         # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Packet, bytes]
         val = super(ASN1F_STRING_ENCAPS, self).m2i(pkt, s)
-        return self.cls(val[0].val, _underlayer=pkt), val[1]
+        return self.cls(val[0].val, _underlayer=pkt, _parent=pkt), val[1]
