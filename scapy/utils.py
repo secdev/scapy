@@ -2211,9 +2211,12 @@ class GenericPcapWriter(object):
         ifname = getattr(packet, "sniffed_on", None)
         direction = getattr(packet, "direction", None)
         if not isinstance(packet, bytes):
-            linktype: int = conf.l2types.layer2num[
-                packet.__class__
-            ]
+            # The class may not be bound to any linktype (e.g. conf.raw_layer),
+            # in which case fall back to the one write_header() settled on.
+            linktype: int = conf.l2types.layer2num.get(
+                packet.__class__,
+                self.linktype,
+            )
         else:
             linktype = self.linktype
         if ifname is not None:

@@ -2779,6 +2779,21 @@ with RawPcapWriter(fd) as w:
     w.write(b"test")
     assert w.linktype == 1
 
+= Check PcapWriter with a layer that is not bound to any linktype
+~ pcap
+
+from io import BytesIO
+
+f = BytesIO()
+w = PcapWriter(f, linktype=DLT_RAW, sync=True)
+w.write(Raw(b"test"))
+assert w.linktype == DLT_RAW
+
+f.seek(0) or None
+r = RawPcapReader(f)
+assert r.linktype == DLT_RAW
+assert [x for (x, y) in r] == [b"test"]
+
 = Check tcpdump()
 ~ tcpdump
 from io import BytesIO
