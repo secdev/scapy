@@ -1498,8 +1498,16 @@ def _defrag_ip_pkt(pkt, frags):
             p[IP].remove_payload()
             p[IP].len = None
             p[IP].chksum = None
-            # append defragmented payload
-            p[IP].add_payload(pay_class(data))
+            # append defragmented payload. The reassembled bytes may still fail
+            # to dissect, and that has to fall back the way dissection itself
+            # does rather than escape into the caller's sniff loop.
+            try:
+                payload = pay_class(data)
+            except Exception:
+                if conf.debug_dissector:
+                    raise
+                payload = conf.raw_layer(load=data)
+            p[IP].add_payload(payload)
             # cleanup
             del frags[uid]
             return True, p
