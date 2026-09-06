@@ -7,19 +7,14 @@
 Default USB frames & Basic implementation
 """
 
-# TODO: support USB headers for Linux and Darwin (usbmon/netmon)
-# https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-usb.c  # noqa: E501
-
 from scapy.config import conf
 from scapy.compat import chb
-from scapy.data import DLT_USBPCAP
+from scapy.data import DLT_USBPCAP, DLT_USB_LINUX, DLT_USB_LINUX_MMAPPED
 from scapy.fields import ByteField, XByteField, ByteEnumField, LEShortField, \
-    LEShortEnumField, LEIntField, LEIntEnumField, XLELongField, \
-    LenField
+    LEShortEnumField, LEIntField, LEIntEnumField, LELongField, LESignedIntField, \
+    XLELongField, LenField, StrFixedLenField, BitField, BitEnumField
 from scapy.packet import Packet, bind_top_down
 
-
-# USBpcap
 
 _usbd_status_codes = {
     0x00000000: "Success",
@@ -75,6 +70,94 @@ _urb_functions = {
     0x0030: "URB_FUNCTION_SYNC_RESET_PIPE",
     0x0031: "URB_FUNCTION_SYNC_CLEAR_STALL",
 }
+
+
+_requests = {
+    0x00: "GET_STATUS",
+    0x01: "CLEAR_FEATURE",
+    0x03: "SET_FEATURE",
+    0x05: "SET_ADDRESS",
+    0x06: "GET_DESCRIPTOR",
+    0x07: "SET_DESCRIPTOR",
+    0x08: "GET_CONFIGURATION",
+    0x09: "SET_CONFIGURATION",
+    0x0A: "GET_INTERFACE",
+    0x0B: "SET_INTERFACE",
+    0x0C: "SYNCH_FRAME",
+}
+
+_request_recipients = {
+    0x00: "Device",
+    0x01: "Interface",
+    0x02: "Endpoint",
+    0x03: "Other",
+}
+
+_request_types = {
+    0x00: "Standard",
+    0x01: "Class",
+    0x02: "Vendor",
+    0x03: "Reserved",
+}
+
+_request_directions = {
+    0: "Device-to-host",
+    1: "Host-to-device",
+}
+
+_directions = {
+    0: "OUT",
+    1: "IN",
+}
+
+_urb_types = {
+    ord("S"): "SUBMIT",
+    ord("C"): "COMPLETE",
+    ord("E"): "ERROR",
+}
+
+
+class _Setup(Packet):
+    fields_desc = [BitEnumField("bmRequestType_direction", 0, 1, _request_directions),
+                   BitEnumField("bmRequestType_type", 0, 2, _request_types),
+                   BitEnumField("bmRequestType_recipient", 0, 5, _request_recipients),
+                   ByteEnumField("bRequest", 0, _requests),
+                   LEShortField("wValue", 0),
+                   LEShortField("wIndex", 0),
+                   LEShortField("wLength", 0)]
+
+
+class USBLinux(Packet):
+    name = "USBLinux URB"
+    fields_desc = [XLELongField("urb_id", 0),
+                   ByteEnumField("urb_type", 0, _urb_types),
+                   ByteEnumField("transfer_type", 0, _transfer_types),
+                   BitEnumField("direction", 0, 1, _directions),
+                   BitField("endpoint", 0, 7),
+                   ByteField("device_address", 0),
+                   LEShortField("bus_id", 0),
+                   StrFixedLenField("setup_flag", b"\x00", length=1),
+                   StrFixedLenField("data_flag", b"\x00", length=1),
+                   LELongField("urb_ts_sec", 0),
+                   LESignedIntField("urb_ts_usec", 0),
+                   LESignedIntField("urb_status", 0),
+                   LEIntField("urb_len", 0),
+                   LEIntField("urb_data_len", 0),
+                   _Setup]
+
+
+class _USBLinuxExt(Packet):
+    name = "USBLinux URB"
+    fields_desc = [LESignedIntField("interval", 0),
+                   LESignedIntField("start_frame", 0),
+                   LEIntField("xfer_flags", 0),
+                   LEIntField("numdesc", 0)]
+
+
+class USBLinuxMmapped(Packet):
+    name = "USBLinux URB"
+    fields_desc = [USBLinux,
+                   _USBLinuxExt]
 
 
 class USBpcap(Packet):
@@ -144,3 +227,5 @@ bind_top_down(USBpcap, USBpcapTransferInterrupt, transfer=1)
 bind_top_down(USBpcap, USBpcapTransferControl, transfer=2)
 
 conf.l2types.register(DLT_USBPCAP, USBpcap)
+conf.l2types.register(DLT_USB_LINUX_MMAPPED, USBLinuxMmapped)
+conf.l2types.register(DLT_USB_LINUX, USBLinux)
