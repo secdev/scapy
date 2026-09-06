@@ -1,0 +1,218 @@
+% IFA unit test
+
+#
+# execute test:
+# > test/run_tests -P "load_contrib('ifa')" -t test/contrib/ifa.uts
+# TBD: IPv6 with ext header
+#
+
++ IFA testsuit
+
+
+= Build & Dissect, IFA over TCP/UDP
+
+oeth = Ether(dst='b6:18:00:33:33:00', src='b6:18:00:22:22:00')
+oip4 = IP(src='172.1.1.0', dst='172.1.3.0', ttl=62)
+oip6 = IPv6(src='1000::1', dst='1000::3', hlim=62)
+ifa = IFA(ver=2, gns=15, flags=4, maxlen=255)
+tri_md = IFAMd(lns=1, device_id=2850, ttl=63, speed=4, dport=25, sport=24)
+src_md = IFAMd(lns=0, device_id=2577, ttl=63, speed=0, dport=25, sport=24)
+ifa_md = IFAMdHdr(request=238, action=192, hoplmt=126, mdstack=[tri_md, src_md])
+vxlan = VXLAN(vni=1000)
+ieth = Ether(dst='b6:18:00:33:33:00', src='b6:18:00:11:11:00')
+iip4 = IP(src='198.1.1.7', dst='198.1.2.8', ttl=63)
+iip6 = IPv6(src='1000::7', dst='1000::8', hlim=63)
+iudp = UDP(sport=1100, dport=2200)
+itcp = TCP(sport=3300, dport=4400)
+payl = Raw([0xff]*64)
+
+pkts = [
+    ieth/iip4/ifa/iudp/ifa_md/payl,
+    ieth/iip4/ifa/itcp/ifa_md/payl,
+    ieth/iip6/ifa/iudp/ifa_md/payl,
+    ieth/iip6/ifa/itcp/ifa_md/payl,
+]
+
+chks = [
+    {'IFAMdHdr.curlen':16, 'UDP.chksum':0x7219, 'IP.chksum':0xebc4},
+    {'IFAMdHdr.curlen':16, 'TCP.chksum':0xf171, 'IP.chksum':0xebb8},
+    {'IFAMdHdr.curlen':16, 'UDP.chksum':0xe11c},
+    {'IFAMdHdr.curlen':16, 'TCP.chksum':0x6075},
+]
+
+for pkt, chk in zip(pkts, chks):
+    newpkt=Ether(raw(pkt))
+    assert newpkt.summary() == pkt.summary()
+    for key, exp_val in chk.items():
+        layer, filed = key.split('.')
+        value = newpkt[layer].fields[filed]
+        assert value == exp_val, f'0x{value:x} != 0x{exp_val:x}'
+    print(f'IFA over TCP/UDP pkts [{pkts.index(pkt)+1}/{len(pkts)}] pass')
+
+
+= Build & Dissect, IFA over IPv4.GRE
+
+pkts = [
+    oeth/oip4/ifa/GRE(proto=0x6558)/ifa_md/ieth/iip4/payl,
+    oeth/oip4/ifa/GRE(proto=0x6558)/ifa_md/ieth/iip4/iudp/payl,
+    oeth/oip4/ifa/GRE(proto=0x6558)/ifa_md/ieth/iip4/itcp/payl,
+    oeth/oip4/ifa/GRE(proto=0x6558)/ifa_md/ieth/iip6/payl,
+    oeth/oip4/ifa/GRE(proto=0x6558)/ifa_md/ieth/iip6/iudp/payl,
+    oeth/oip4/ifa/GRE(proto=0x6558)/ifa_md/ieth/iip6/itcp/payl,
+    oeth/oip4/ifa/GRE(proto=0x0800)/ifa_md/iip4/payl,
+    oeth/oip4/ifa/GRE(proto=0x0800)/ifa_md/iip4/iudp/payl,
+    oeth/oip4/ifa/GRE(proto=0x0800)/ifa_md/iip4/itcp/payl,
+    oeth/oip4/ifa/GRE(proto=0x86dd)/ifa_md/iip6/payl,
+    oeth/oip4/ifa/GRE(proto=0x86dd)/ifa_md/iip6/iudp/payl,
+    oeth/oip4/ifa/GRE(proto=0x86dd)/ifa_md/iip6/itcp/payl,
+]
+
+chks = [
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fb6},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fae},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fa2},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fa2},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1f9a},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1f8e},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fc4},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fbc},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fb0},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fb0},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fa8},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1f9c},
+]
+
+for pkt, chk in zip(pkts, chks):
+    newpkt=Ether(raw(pkt))
+    assert newpkt.summary() == pkt.summary()
+    for key, exp_val in chk.items():
+        layer, filed = key.split('.')
+        value = newpkt[layer].fields[filed]
+        assert value == exp_val, f'0x{value:x} != 0x{exp_val:x}'
+    print(f'IFA over IPv4.GRE pkts [{pkts.index(pkt)+1}/{len(pkts)}] pass')
+
+
+= Build & Dissect, IFA over IPv6.GRE
+
+pkts = [
+    oeth/oip6/ifa/GRE(proto=0x6558)/ifa_md/ieth/iip4/payl,
+    oeth/oip6/ifa/GRE(proto=0x6558)/ifa_md/ieth/iip4/iudp/payl,
+    oeth/oip6/ifa/GRE(proto=0x6558)/ifa_md/ieth/iip4/itcp/payl,
+    oeth/oip6/ifa/GRE(proto=0x6558)/ifa_md/ieth/iip6/payl,
+    oeth/oip6/ifa/GRE(proto=0x6558)/ifa_md/ieth/iip6/iudp/payl,
+    oeth/oip6/ifa/GRE(proto=0x6558)/ifa_md/ieth/iip6/itcp/payl,
+    oeth/oip6/ifa/GRE(proto=0x0800)/ifa_md/iip4/payl,
+    oeth/oip6/ifa/GRE(proto=0x0800)/ifa_md/iip4/iudp/payl,
+    oeth/oip6/ifa/GRE(proto=0x0800)/ifa_md/iip4/itcp/payl,
+    oeth/oip6/ifa/GRE(proto=0x86dd)/ifa_md/iip6/payl,
+    oeth/oip6/ifa/GRE(proto=0x86dd)/ifa_md/iip6/iudp/payl,
+    oeth/oip6/ifa/GRE(proto=0x86dd)/ifa_md/iip6/itcp/payl,
+]
+
+chks = [
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+]
+
+for pkt, chk in zip(pkts, chks):
+    newpkt=Ether(raw(pkt))
+    assert newpkt.summary() == pkt.summary()
+    for key, exp_val in chk.items():
+        layer, filed = key.split('.')
+        value = newpkt[layer].fields[filed]
+        assert value == exp_val, f'0x{value:x} != 0x{exp_val:x}'
+    print(f'IFA over IPv6.GRE pkts [{pkts.index(pkt)+1}/{len(pkts)}] pass')
+
+
+= Build & Dissect, IFA over IPv4.VXLAN
+
+pkts = [
+    oeth/oip4/ifa/UDP(dport=4789)/ifa_md/vxlan/ieth/iip4/payl,
+    oeth/oip4/ifa/UDP(dport=4789)/ifa_md/vxlan/ieth/iip4/iudp/payl,
+    oeth/oip4/ifa/UDP(dport=4789)/ifa_md/vxlan/ieth/iip4/itcp/payl,
+    oeth/oip4/ifa/UDP(dport=4789)/ifa_md/vxlan/ieth/iip6/payl,
+    oeth/oip4/ifa/UDP(dport=4789)/ifa_md/vxlan/ieth/iip6/iudp/payl,
+    oeth/oip4/ifa/UDP(dport=4789)/ifa_md/vxlan/ieth/iip6/itcp/payl,
+    oeth/oip4/ifa/UDP(dport=4790)/ifa_md/vxlan/iip4/payl,
+    oeth/oip4/ifa/UDP(dport=4790)/ifa_md/vxlan/iip4/iudp/payl,
+    oeth/oip4/ifa/UDP(dport=4790)/ifa_md/vxlan/iip4/itcp/payl,
+    oeth/oip4/ifa/UDP(dport=4790)/ifa_md/vxlan/iip6/payl,
+    oeth/oip4/ifa/UDP(dport=4790)/ifa_md/vxlan/iip6/iudp/payl,
+    oeth/oip4/ifa/UDP(dport=4790)/ifa_md/vxlan/iip6/itcp/payl,
+]
+
+chks = [
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1faa},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fa2},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1f96},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1f96},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1f8e},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1f82},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fb8},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fb0},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fa4},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1fa4},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1f9c},
+    {'IFAMdHdr.curlen':16, 'IP.chksum':0x1f90},
+]
+
+for pkt, chk in zip(pkts, chks):
+    newpkt=Ether(raw(pkt))
+    assert newpkt.summary() == pkt.summary()
+    for key, exp_val in chk.items():
+        layer, filed = key.split('.')
+        value = newpkt[layer].fields[filed]
+        assert value == exp_val, f'0x{value:x} != 0x{exp_val:x}'
+    print(f'IFA over IPv4.VXLAN pkts [{pkts.index(pkt)+1}/{len(pkts)}] pass')
+
+
+= Build & Dissect, IFA over IPv6.VXLAN
+
+pkts = [
+    oeth/oip6/ifa/UDP(dport=4789)/ifa_md/vxlan/ieth/iip4/payl,
+    oeth/oip6/ifa/UDP(dport=4789)/ifa_md/vxlan/ieth/iip4/iudp/payl,
+    oeth/oip6/ifa/UDP(dport=4789)/ifa_md/vxlan/ieth/iip4/itcp/payl,
+    oeth/oip6/ifa/UDP(dport=4789)/ifa_md/vxlan/ieth/iip6/payl,
+    oeth/oip6/ifa/UDP(dport=4789)/ifa_md/vxlan/ieth/iip6/iudp/payl,
+    oeth/oip6/ifa/UDP(dport=4789)/ifa_md/vxlan/ieth/iip6/itcp/payl,
+    oeth/oip6/ifa/UDP(dport=4790)/ifa_md/vxlan/iip4/payl,
+    oeth/oip6/ifa/UDP(dport=4790)/ifa_md/vxlan/iip4/iudp/payl,
+    oeth/oip6/ifa/UDP(dport=4790)/ifa_md/vxlan/iip4/itcp/payl,
+    oeth/oip6/ifa/UDP(dport=4790)/ifa_md/vxlan/iip6/payl,
+    oeth/oip6/ifa/UDP(dport=4790)/ifa_md/vxlan/iip6/iudp/payl,
+    oeth/oip6/ifa/UDP(dport=4790)/ifa_md/vxlan/iip6/itcp/payl,
+]
+
+chks = [
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+    {'IFAMdHdr.curlen':16},
+]
+
+for pkt, chk in zip(pkts, chks):
+    newpkt=Ether(raw(pkt))
+    assert newpkt.summary() == pkt.summary()
+    for key, exp_val in chk.items():
+        layer, filed = key.split('.')
+        value = newpkt[layer].fields[filed]
+        assert value == exp_val, f'0x{value:x} != 0x{exp_val:x}'
+    print(f'IFA over IPv6.VXLAN pkts [{pkts.index(pkt)+1}/{len(pkts)}] pass')
