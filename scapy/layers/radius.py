@@ -1609,20 +1609,15 @@ class Radius_am(AnsweringMachine):
         if 80 in attrs:
             mauth = attrs[80]
             received = mauth.value
-            attributes = b"".join(
-                bytes(attr)[:2] + b"\x00" * 16
-                if attr is mauth else bytes(attr)
-                for attr in req.attributes
-            )
             radius = req[Radius]
-            length = radius.len or 20 + len(attributes)
-            expected = hmac.new(
+            # For a request, the Request Authenticator is the packet's own.
+            # This zeroes the attribute to hash it, so put the value back.
+            expected = mauth.compute_message_authenticator(
+                radius,
+                radius.authenticator,
                 self.secret,
-                struct.pack("!BBH", radius.code, radius.id, length)
-                + radius.authenticator
-                + attributes,
-                hashlib.md5,
-            ).digest()
+            )
+            mauth.value = received
             if not hmac.compare_digest(received, expected):
                 log_runtime.warning("Invalid Message-Authenticator !")
                 return None
