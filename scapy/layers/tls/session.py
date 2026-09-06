@@ -30,51 +30,58 @@ from scapy.layers.tls.crypto.prf import PRF
 from typing import Dict
 
 
-def load_nss_keys(filename):
+def parse_nss_keys(content):
     # type: (str) -> Dict[str, bytes]
     """
-    Parses a NSS Keys log and returns unpacked keys in a dictionary.
+    Parses the content of a NSS Keys log and returns unpacked keys in a
+    dictionary.
     """
     # http://udn.realityripple.com/docs/Mozilla/Projects/NSS/Key_Log_Format
     keys = collections.defaultdict(dict)
+    for line in content.splitlines():
+        if line.startswith("#"):
+            continue
+        data = line.strip().split(" ")
+        if len(data) != 3 or data[0] != data[0].upper():
+            warning("Invalid NSS Key Log Entry: %s", line.strip())
+            return {}
+
+        try:
+            client_random = binascii.unhexlify(data[1])
+        except ValueError:
+            warning("Invalid ClientRandom: %s", data[1])
+            return {}
+
+        try:
+            secret = binascii.unhexlify(data[2])
+        except ValueError:
+            warning("Invalid Secret: %s", data[2])
+            return {}
+
+        # Warn that a duplicated entry was detected. The latest one
+        # will be kept in the resulting dictionary.
+        if client_random in keys[data[0]]:
+            warning("Duplicated entry for %s !", data[0])
+
+        keys[data[0]][client_random] = secret
+    return keys
+
+
+def load_nss_keys(filename):
+    # type: (str) -> Dict[str, bytes]
+    """
+    Parses a NSS Keys log file and returns unpacked keys in a dictionary.
+    """
     try:
-        fd = open(filename)
-        fd.close()
+        with open(filename) as fd:
+            content = fd.read()
     except FileNotFoundError:
         warning("Cannot open NSS Key Log: %s", filename)
         return {}
-    try:
-        with open(filename) as fd:
-            for line in fd:
-                if line.startswith("#"):
-                    continue
-                data = line.strip().split(" ")
-                if len(data) != 3 or data[0] != data[0].upper():
-                    warning("Invalid NSS Key Log Entry: %s", line.strip())
-                    return {}
-
-                try:
-                    client_random = binascii.unhexlify(data[1])
-                except ValueError:
-                    warning("Invalid ClientRandom: %s", data[1])
-                    return {}
-
-                try:
-                    secret = binascii.unhexlify(data[2])
-                except ValueError:
-                    warning("Invalid Secret: %s", data[2])
-                    return {}
-
-                # Warn that a duplicated entry was detected. The latest one
-                # will be kept in the resulting dictionary.
-                if client_random in keys[data[0]]:
-                    warning("Duplicated entry for %s !", data[0])
-
-                keys[data[0]][client_random] = secret
-        return keys
     except UnicodeDecodeError as ex:
         warning("Cannot read NSS Key Log: %s %s", filename, str(ex))
         return {}
+    return parse_nss_keys(content)
 
 
 # Note the following import may happen inside connState.__init__()

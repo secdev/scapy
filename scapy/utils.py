@@ -2003,15 +2003,12 @@ class RawPcapNgReader(RawPcapReader):
                         "the TLS layer is not loaded! Scapy won't be able "
                         "to decrypt the packets.")
             else:
-                from scapy.layers.tls.session import load_nss_keys
+                from scapy.layers.tls.session import parse_nss_keys
 
-                # Write Key Log to a file and parse it
-                filename = get_temp_file()
-                with open(filename, "wb") as fd:
-                    fd.write(secrets_data)
-                    fd.close()
-
-                keys = load_nss_keys(filename)
+                try:
+                    keys = parse_nss_keys(secrets_data.decode())
+                except UnicodeDecodeError:
+                    keys = {}
                 if not keys:
                     warning("PcapNg: invalid TLS Key Log in DSB!")
                 else:
