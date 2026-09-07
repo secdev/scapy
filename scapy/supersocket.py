@@ -532,8 +532,8 @@ class StreamSocketPeekless(StreamSocket):
         # Block
         try:
             data = self.ins.recv(x)
-        except OSError:
-            raise EOFError
+        except OSError as ex:
+            raise EOFError(str(ex))
         try:
             pkt = self.sess.process(data, cls=self.basecls)  # type: ignore
         except struct.error:
