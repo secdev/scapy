@@ -272,6 +272,21 @@ pkt.clear_cache()
 bytes(pkt)
 assert bytes(pkt) == b'HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=ISO-8859-1\r\nDate: Tue, 16 Jun 2026 17:47:46 GMT\r\nExpires: -1\r\nTransfer-Encoding: chunked\r\nVary: Accept-Encoding\r\n\r\n14\r\n00000000000000000000\r\n0\r\n\r\n'
 
+= TCPSession separates coalesced HTTP messages with Content-Length
+~ http
+
+from scapy.layers.http import HTTP, HTTPRequest
+from scapy.sessions import TCPSession
+
+first_bytes = b"GET /first HTTP/1.1\r\nHost: example\r\nContent-Length: 0\r\n\r\n"
+second_bytes = b"POST /second HTTP/1.1\r\nHost: example\r\nContent-Length: 0\r\n\r\n"
+session = TCPSession(app=True)
+first = session.process(first_bytes + second_bytes, cls=HTTP)
+second = session.process(b"", cls=HTTP)
+
+assert first[HTTPRequest].Path == b"/first"
+assert second[HTTPRequest].Path == b"/second"
+
 = Test chunked with gzip
 
 conf.contribs["http"]["auto_compression"] = False
