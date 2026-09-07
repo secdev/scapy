@@ -1,7 +1,7 @@
 % Regression tests for CAN XL via TestSocket
 % Tests CAN XL frame send/recv through scapy's in-memory TestSocket,
-% exercising the full build -> wire -> dispatch_hook -> dissect chain.
-% No platform restrictions: runs on Windows, Linux, macOS without root.
+% Created by Friedrich Wiemer
+# Copyright (C) 2026, Robert Bosch GmbH
 
 ############
 ############

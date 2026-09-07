@@ -2,6 +2,9 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
+# 
+# The CAN XL parts are created by Friedrich Wiemer
+# Copyright (C) 2026, Robert Bosch GmbH
 
 # scapy.contrib.description = Native CANSocket
 # scapy.contrib.status = loads
@@ -19,7 +22,7 @@ from scapy.data import SO_TIMESTAMPNS
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, warning, log_runtime
 from scapy.packet import Packet
-from scapy.layers.can import CAN, CANXL, CAN_MTU, CAN_FD_MTU, CANXL_MTU
+from scapy.layers.can import CAN, CANFD, CANXL, CAN_MTU, CAN_FD_MTU, CANXL_MTU
 from scapy.compat import raw
 
 from typing import (
@@ -76,6 +79,9 @@ class NativeCANSocket(SuperSocket):
                     "If you're providing the argument 'bustype', please use "
                     "the correct one to achieve compatibility with python-can"
                     "/PythonCANSocket. \n'bustype=socketcan'")
+
+        if fd and xl:
+            raise Scapy_Exception("fd and xl are mutually exclusive")
 
         self.MTU = CAN_MTU
         self.fd = fd
@@ -170,8 +176,7 @@ class NativeCANSocket(SuperSocket):
     @staticmethod
     def _is_canxl(pkt):
         # type: (bytes) -> bool
-        """Detect CAN XL frame by XLF flag (bit 7 of byte 4)."""
-        return len(pkt) > 4 and bool(pkt[4] & 0x80)
+        return CANXL.is_canxl_frame(pkt)
 
     def recv_raw(self, x=CAN_MTU):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
@@ -225,8 +230,9 @@ class NativeCANSocket(SuperSocket):
                 pack_fmt = "<I%ds" % (len(bs) - 4)
                 unpack_fmt = ">I%ds" % (len(bs) - 4)
                 bs = struct.pack(pack_fmt, *struct.unpack(unpack_fmt, bs))
-            # CAN/CANFD: pad to MTU
-            bs = bs + b"\x00" * (self.MTU - len(bs))
+            # CAN/CANFD: pad to correct MTU per frame type
+            mtu = CAN_FD_MTU if isinstance(x, CANFD) else CAN_MTU
+            bs = bs + b"\x00" * (mtu - len(bs))
 
         return super(NativeCANSocket, self).send(bs)  # type: ignore
 
