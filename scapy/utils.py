@@ -2007,7 +2007,8 @@ class RawPcapNgReader(RawPcapReader):
 
                 try:
                     keys = parse_nss_keys(secrets_data.decode())
-                except UnicodeDecodeError:
+                except UnicodeDecodeError as ex:
+                    warning("Cannot read NSS Key Log: %s", str(ex))
                     keys = {}
                 if not keys:
                     warning("PcapNg: invalid TLS Key Log in DSB!")
